@@ -581,82 +581,6 @@
 		$frmItem->Show();
 	}
 
-	function	insert_copy_elements_to_forms($elements_array_name)
-	{
-		
-		$copy_type = get_request("copy_type", 0);
-		$copy_mode = get_request("copy_mode", 0);
-		$filter_groupid = get_request("filter_groupid", 0);
-		$group_itemid = get_request($elements_array_name, array());
-		$copy_targetid = get_request("copy_targetid", array());
-
-		if(!is_array($group_itemid) || (is_array($group_itemid) && count($group_itemid) < 1))
-		{
-			error("Incorrect list of items.");
-			return;
-		}
-
-		$frmCopy = new CFormTable(count($group_itemid).' '.S_X_ELEMENTS_COPY_TO_DOT_DOT_DOT,NULL,'post',NULL,'form_copy_to');
-		$frmCopy->SetHelp('web.items.copyto.php');
-		$frmCopy->AddVar($elements_array_name, $group_itemid);
-
-		$cmbCopyType = new CComboBox('copy_type',$copy_type,'submit()');
-		$cmbCopyType->AddItem(0,S_HOSTS);
-		$cmbCopyType->AddItem(1,S_HOST_GROUPS);
-		$frmCopy->AddRow(S_TARGET_TYPE, $cmbCopyType);
-
-		$target_sql = 'select distinct g.groupid target_id, g.name target_name'.
-			' from groups g, hosts_groups hg'.
-			' where hg.groupid=g.groupid';
-
-		if(0 == $copy_type)
-		{
-			$cmbGroup = new CComboBox('filter_groupid',$filter_groupid,'submit()');
-			$cmbGroup->AddItem(0,S_ALL_SMALL);
-			$groups = DBselect($target_sql);
-			while($group = DBfetch($groups))
-			{
-				$cmbGroup->AddItem($group["target_id"],$group["target_name"]);
-			}
-			$frmCopy->AddRow('Group', $cmbGroup);
-
-			$target_sql = 'select h.hostid target_id, h.host target_name from hosts h';
-			if($filter_groupid > 0)
-			{
-				$target_sql .= ', hosts_groups hg where hg.hostid=h.hostid and hg.groupid='.$filter_groupid;
-			}
-		}
-
-		$db_targets = DBselect($target_sql.' order by target_name');
-		$target_list = array();
-		while($target = DBfetch($db_targets))
-		{
-			array_push($target_list,array(
-				new CCheckBox('copy_targetid[]',
-					in_array($target['target_id'], $copy_targetid), 
-					NULL, 
-					$target['target_id']),
-				SPACE,
-				$target['target_name'],
-				BR
-				));
-		}
-
-		$frmCopy->AddRow(S_TARGET, $target_list);
-
-		$cmbCopyMode = new CComboBox('copy_mode',$copy_mode);
-		$cmbCopyMode->AddItem(0, S_UPDATE_EXISTING_NON_LINKED_ITEMS);
-		$cmbCopyMode->AddItem(1, S_SKIP_EXISTING_ITEMS);
-		$cmbCopyMode->SetEnabled(false);
-		$frmCopy->AddRow(S_MODE, $cmbCopyMode);
-
-		$frmCopy->AddItemToBottomRow(new CButton("copy",S_COPY));
-		$frmCopy->AddItemToBottomRow(array(SPACE,
-			new CButtonCancel(url_param("groupid").url_param("hostid").url_param("config"))));
-
-		$frmCopy->Show();
-	}
-
 
 	function	insert_login_form()
 	{
@@ -1030,7 +954,7 @@
 
 		$frmGItem->AddItemToBottomRow(new CButton("save",S_SAVE));
 		$frmGItem->AddItemToBottomRow(SPACE);
-		if(isset($_REQUEST["gitemid"]))
+		if(isset($itemid))
 		{
 			$frmGItem->AddItemToBottomRow(new CButtonDelete("Delete graph element?",
 				url_param("gitemid").url_param("graphid")));
@@ -2124,12 +2048,10 @@
 		$location	= get_request("location","");
 		$notes		= get_request("notes","");
 
-		$templateid	= get_request("templateid",0);
+		$templateid= get_request("templateid",0);
 
 		$frm_title	= $show_only_tmp ? S_TEMPLATE : S_HOST;
-
-		if(isset($_REQUEST["hostid"]))
-		{
+		if(isset($_REQUEST["hostid"])){
 			$db_host=get_host_by_hostid($_REQUEST["hostid"]);
 			$frm_title	.= SPACE."\"".$db_host["host"]."\"";
 		}
@@ -2173,12 +2095,6 @@
 				$notes		= $db_profile["notes"];
 			}
 		}
-		$real_templateid = 0;
-		if(isset($db_host) && $db_host["templateid"] > 0)
-		{
-			$real_templateid = $templateid = $db_host["templateid"];
-		}
-
 		if($show_only_tmp){
 			$useip = "no";
 		}
@@ -2251,16 +2167,6 @@
 		}
 
 		$cmbHosts = new CComboBox("templateid",$templateid);
-		$btnUnlink = null;
-		$btnUnlinkAndClear = null;
-		if($real_templateid > 0)
-		{
-			$cmbHosts->SetEnabled(false);
-			$frmHost->AddVar("templateid",$templateid);
-			$btnUnlink = new CButton("unlink",S_UNLINK);
-			$btnUnlinkAndClear = new CButton("unlink_and_clear",S_UNLINK_AND_CLEAR);
-		}
-
 		$cmbHosts->AddItem(0,"...");
 		$hosts=DBselect("select host,hostid from hosts where status in (".HOST_STATUS_TEMPLATE.")".
 			" order by host");
@@ -2268,7 +2174,7 @@
 		{
 			$cmbHosts->AddItem($host["hostid"],$host["host"]);
 		}
-		$frmHost->AddRow(S_LINK_WITH_TEMPLATE, array($cmbHosts,SPACE, $btnUnlink, $btnUnlinkAndClear));
+		$frmHost->AddRow(S_LINK_WITH_TEMPLATE,$cmbHosts);
 	
 		if($show_only_tmp)
 		{
@@ -2320,19 +2226,6 @@
 					url_param("groupid")
 				)
 			);
-
-			if($show_only_tmp)
-			{
-				$frmHost->AddItemToBottomRow(SPACE);
-				$frmHost->AddItemToBottomRow(
-					new CButtonQMessage('delete_and_clear',
-						'Delete and clear',
-                                        	S_DELETE_SELECTED_HOSTS_Q,
-						url_param("form").url_param("config").url_param("hostid").
-						url_param("groupid")
-					)
-				);
-			}
 		}
 		$frmHost->AddItemToBottomRow(SPACE);
 		$frmHost->AddItemToBottomRow(new CButtonCancel(url_param("config").url_param("groupid")));

@@ -17,15 +17,14 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
-#include "zabbix_agent.h"
+#include "config.h"
 
+#include "common.h"
 #include "cfg.h"
 #include "log.h"
 #include "sysinfo.h"
 #include "security.h"
-#include "zbxconf.h"
-#include "zbxgetopt.h"
+#include "zabbix_agent.h"
 
 char *progname = NULL;
 char title_message[] = "ZABBIX Agent";
@@ -52,7 +51,7 @@ char *help_message[] = {
 };
 #endif
 
-struct zbx_option longopts[] =
+struct option longopts[] =
 {
 	{"config",	1,	0,	'c'},
 	{"help",	0,	0,	'h'},
@@ -62,14 +61,16 @@ struct zbx_option longopts[] =
 	{0,0,0,0}
 };
 
+char	*CONFIG_FILE			= NULL;
 static	char	*CONFIG_HOSTS_ALLOWED	= NULL;
+static	int	CONFIG_TIMEOUT		= AGENT_TIMEOUT;
+int		CONFIG_ENABLE_REMOTE_COMMANDS	= 0;
 
-#ifdef TODO
-void	child_signal_handler( int sig )
+void	signal_handler( int sig )
 {
 	if( SIGALRM == sig )
 	{
-		signal( SIGALRM, child_signal_handler );
+		signal( SIGALRM, signal_handler );
 	}
  
 	if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig )
@@ -113,8 +114,6 @@ void    init_config(void)
 	parse_cfg_file(CONFIG_FILE,cfg);
 }
 
-#endif /* TODO */
-	  
 int	main(int argc, char **argv)
 {
 	char		s[MAX_STRING_LEN];
@@ -122,7 +121,6 @@ int	main(int argc, char **argv)
 	int             ch;
 	int		task = ZBX_TASK_START;
 	char		*TEST_METRIC = NULL;
-
 	AGENT_RESULT	result;
 
 	memset(&result, 0, sizeof(AGENT_RESULT));
@@ -130,10 +128,10 @@ int	main(int argc, char **argv)
 	progname = argv[0];
 
 /* Parse the command-line. */
-	while ((ch = zbx_getopt_long(argc, argv, "c:hvpt:", longopts, NULL)) != EOF)
+	while ((ch = getopt_long(argc, argv, "c:hvpt:", longopts, NULL)) != EOF)
 		switch ((char) ch) {
 		case 'c':
-			CONFIG_FILE = zbx_optarg;
+			CONFIG_FILE = optarg;
 			break;
 		case 'h':
 			help();
@@ -151,7 +149,7 @@ int	main(int argc, char **argv)
 			if(task == ZBX_TASK_START)
 			{
 				task = ZBX_TASK_TEST_METRIC;
-				TEST_METRIC = zbx_optarg;
+				TEST_METRIC = optarg;
 			}
 			break;
 		default:
@@ -159,37 +157,33 @@ int	main(int argc, char **argv)
 			break;
 	}
 
-	init_metrics(); /* Must be before init_config() */
+/* Must be before init_config() */
+	init_metrics();
+	init_config();
 
-	load_config(1);
-
-	/* Do not create debug files */
+/* Do not create debug files */
 	zabbix_open_log(LOG_TYPE_SYSLOG,LOG_LEVEL_EMPTY,NULL);
 
-	switch(task)
-	{
-		case ZBX_TASK_PRINT_SUPPORTED:
-			test_parameters();
-			exit(-1);
-			break;
-		case ZBX_TASK_TEST_METRIC:
-			test_parameter(TEST_METRIC);
-			exit(-1);
-			break;
-		case ZBX_TASK_SHOW_USAGE:
-			usage();
-			exit(-1);
-			break;
-	}
+        switch(task)
+        {
+                case ZBX_TASK_PRINT_SUPPORTED:
+                        test_parameters();
+                        exit(-1);
+                        break;
+                case ZBX_TASK_TEST_METRIC:
+                        test_parameter(TEST_METRIC);
+                        exit(-1);
+                        break;
+                case ZBX_TASK_SHOW_USAGE:
+                        usage();
+                        exit(-1);
+                        break;
+        }
 
-#ifdef TODO
-	
-	signal( SIGINT,  child_signal_handler);
-	signal( SIGQUIT, child_signal_handler );
-	signal( SIGTERM, child_signal_handler );
-	signal( SIGALRM, child_signal_handler );
-
-#endif /* TODO */
+	signal( SIGINT,  signal_handler );
+	signal( SIGQUIT, signal_handler );
+	signal( SIGTERM, signal_handler );
+	signal( SIGALRM, signal_handler );
 
 	alarm(CONFIG_TIMEOUT);
 
@@ -202,15 +196,15 @@ int	main(int argc, char **argv)
 	
 	process(s, 0, &result);
 	if(result.type & AR_DOUBLE)
-		zbx_snprintf(value, sizeof(value), "%f", result.dbl);
+		snprintf(value, MAX_STRING_LEN-1, "%f", result.dbl);
 	else if(result.type & AR_UINT64)
-		zbx_snprintf(value, sizeof(value), ZBX_FS_UI64, result.ui64);
+		snprintf(value, MAX_STRING_LEN-1, ZBX_FS_UI64, result.ui64);
 	else if(result.type & AR_STRING)
-		zbx_snprintf(value, sizeof(value), "%s", result.str);
+		snprintf(value, MAX_STRING_LEN-1, "%s", result.str);
 	else if(result.type & AR_TEXT)
-		zbx_snprintf(value, sizeof(value), "%s", result.text);
+		snprintf(value, MAX_STRING_LEN-1, "%s", result.text);
 	else if(result.type & AR_MESSAGE)
-		zbx_snprintf(value, sizeof(value), "%s", result.msg);
+		snprintf(value, MAX_STRING_LEN-1, "%s", result.msg);
 	free_result(&result);
   
 	printf("%s\n",value);

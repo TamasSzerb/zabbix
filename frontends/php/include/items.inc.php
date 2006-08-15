@@ -343,75 +343,21 @@
 		return $result;
 	}
 
-	function	delete_template_items($hostid, $templateid = null, $unlink_mode = false)
+	function	delete_template_items_by_hostid($hostid)
 	{
 		$db_items = get_items_by_hostid($hostid);
 		while($db_item = DBfetch($db_items))
 		{
-			if($db_item["templateid"] == 0)
-				continue;
-
-			if($templateid != null)
-			{
-				$db_tmp_item = get_item_by_itemid($db_item["templateid"]);
-				if($db_tmp_item["hostid"] != $templateid)
-					continue;
-			}
-
-			if($unlink_mode)
-			{
-				if(DBexecute("update items set templateid=0 where itemid=".$db_item["itemid"]))
-                                {
-                                        info("Item '".$db_item["key_"]."' unlinked");
-                                }
-			}
-			else
-			{
-				delete_item($db_item["itemid"]);
-			}
+			if($db_item["templateid"] == 0)	continue;
+			delete_item($db_item["itemid"]);
 		}
 	}
 
-	function	copy_item_to_host($itemid, $hostid, $copy_mode = false)
-	{
-		$db_tmp_item = get_item_by_itemid($itemid);
-
-		$parrent_applications = array();
-		$db_applications = get_applications_by_itemid($db_tmp_item["itemid"]);
-		while($db_application = DBfetch($db_applications))
-			array_push($parrent_applications,$db_application["applicationid"]);
-
-		add_item(
-			$db_tmp_item["description"],
-			$db_tmp_item["key_"],
-			$hostid,
-			$db_tmp_item["delay"],
-			$db_tmp_item["history"],
-			$db_tmp_item["status"],
-			$db_tmp_item["type"],
-			$db_tmp_item["snmp_community"],
-			$db_tmp_item["snmp_oid"],
-			$db_tmp_item["value_type"],
-			$db_tmp_item["trapper_hosts"],
-			$db_tmp_item["snmp_port"],
-			$db_tmp_item["units"],
-			$db_tmp_item["multiplier"],
-			$db_tmp_item["delta"],
-			$db_tmp_item["snmpv3_securityname"],
-			$db_tmp_item["snmpv3_securitylevel"],
-			$db_tmp_item["snmpv3_authpassphrase"],
-			$db_tmp_item["snmpv3_privpassphrase"],
-			$db_tmp_item["formula"],
-			$db_tmp_item["trends"],
-			$db_tmp_item["logtimefmt"],
-			$db_tmp_item["valuemapid"],
-			get_same_applications_for_host($parrent_applications,$hostid),
-			$copy_mode ? 0 : $db_tmp_item["itemid"]);
-	}
-
-	function	copy_template_items($hostid, $templateid = null, $copy_mode = false)
+	function	sync_items_with_template($hostid)
 	{
 		$host = get_host_by_hostid($hostid);
+
+//SDI("sync host: ".$host['host']);
 
 		$db_tmp_items = get_items_by_hostid($host["templateid"]);
 
@@ -422,6 +368,7 @@
 			while($db_application = DBfetch($db_applications))
 				array_push($parrent_applications,$db_application["applicationid"]);
 
+			$applications = get_same_applications_for_host($parrent_applications,$hostid);
 
 			add_item(
 				$db_tmp_item["description"],
@@ -447,8 +394,8 @@
 				$db_tmp_item["trends"],
 				$db_tmp_item["logtimefmt"],
 				$db_tmp_item["valuemapid"],
-				get_same_applications_for_host($parrent_applications,$hostid),
-				$copy_mode ? 0 : $db_tmp_item["itemid"]);
+				$applications,
+				$db_tmp_item["itemid"]);
 		}
 	}
 

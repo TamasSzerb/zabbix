@@ -223,7 +223,7 @@ FS_FNCLIST
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "total");
+		sprintf(mode, "total");
 	}
 	
 	for(i=0; fl[i].mode!=0; i++)

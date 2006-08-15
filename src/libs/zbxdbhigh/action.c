@@ -31,6 +31,7 @@
 
 int	DBadd_action(int triggerid, int userid, char *subject, char *message, int scope, int severity, int recipient, int usrgrpid)
 {
+	char	sql[MAX_STRING_LEN];
 	int	actionid;
 	char	subject_esc[ACTION_SUBJECT_LEN_MAX];
 	char	message_esc[MAX_STRING_LEN];
@@ -43,7 +44,8 @@ int	DBadd_action(int triggerid, int userid, char *subject, char *message, int sc
 		userid = usrgrpid;
 	}
 
-	if(FAIL == DBexecute("insert into actions (triggerid, userid, subject, message, scope, severity, recipient) values (%d, %d, '%s', '%s', %d, %d, %d)", triggerid, userid, subject_esc, message_esc, scope, severity, recipient))
+	snprintf(sql, sizeof(sql)-1,"insert into actions (triggerid, userid, subject, message, scope, severity, recipient) values (%d, %d, '%s', '%s', %d, %d, %d)", triggerid, userid, subject_esc, message_esc, scope, severity, recipient);
+	if(FAIL == DBexecute(sql))
 	{
 		return FAIL;
 	}
@@ -62,11 +64,13 @@ int	DBget_action_by_actionid(int actionid,DB_ACTION *action)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
+	char	sql[MAX_STRING_LEN];
 	int	ret = SUCCEED;
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In DBget_action_by_actionid(%d)", actionid);
 
-	result = DBselect("select userid,recipient,subject,message from actions where actionid=%d", actionid);
+	snprintf(sql,sizeof(sql)-1,"select userid,recipient,subject,message from actions where actionid=%d", actionid);
+	result=DBselect(sql);
 	row=DBfetch(result);
 
 	if(!row)

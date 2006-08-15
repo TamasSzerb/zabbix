@@ -142,16 +142,15 @@ end;
 
 CREATE TABLE graphs (
 	graphid		number(10)		NOT NULL,
-	name		varchar2(128)		DEFAULT NULL,
+	name		varchar2(128)	DEFAULT NULL,
 	width		number(10)		DEFAULT '0' NOT NULL,
 	height		number(10)		DEFAULT '0' NOT NULL,
 	yaxistype	number(3)		DEFAULT '0' NOT NULL,
-	yaxismin	number(20,4)		DEFAULT '0' NOT NULL,
-	yaxismax	number(20,4)		DEFAULT '0' NOT NULL,
+	yaxismin	number(20,4)	DEFAULT '0' NOT NULL,
+	yaxismax	number(20,4)	DEFAULT '0' NOT NULL,
 	templateid	number(10)		DEFAULT '0' NOT NULL,
-	show_work_period	number(3)	DEFAULT '1' NOT NULL,
+	show_work_period	number(3)		DEFAULT '1' NOT NULL,
 	show_triggers	number(3)		DEFAULT '1' NOT NULL,
-	graphtype       number(10)		DEFAULT '0' NOT NULL,
 	CONSTRAINT	graphs_pk	PRIMARY KEY (graphid)
 );
 
@@ -588,6 +587,7 @@ CREATE TABLE items (
 	logtimefmt	varchar2(64) DEFAULT NULL,
 	templateid	number(10) DEFAULT '0' NOT NULL,
 	valuemapid	number(10) DEFAULT '0' NOT NULL,
+	params		varchar2(2048)	DEFAULT NULL,
   	CONSTRAINT 	items_pk PRIMARY KEY (itemid)
 );
 

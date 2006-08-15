@@ -80,6 +80,7 @@ CREATE TABLE items (
   logtimefmt		varchar(64)	DEFAULT '' NOT NULL,
   templateid		int4		DEFAULT '0' NOT NULL,
   valuemapid		int4		 DEFAULT '0' NOT NULL,
+  params                varchar(255)    DEFAULT '' NOT NULL,
   PRIMARY KEY (itemid)
 --  FOREIGN KEY (hostid) REFERENCES hosts
 );
@@ -495,7 +496,6 @@ CREATE TABLE graphs (
   templateid		int4		DEFAULT '0' NOT NULL,
   show_work_period	int2		DEFAULT '1' NOT NULL,
   show_triggers		int2		DEFAULT '1' NOT NULL,
-  graphtype		int2		DEFAULT '0' NOT NULL,
   PRIMARY KEY (graphid)
 );
 

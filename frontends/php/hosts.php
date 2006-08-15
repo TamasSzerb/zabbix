@@ -84,12 +84,8 @@
 		"activate"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, NULL, NULL),	
 		"disable"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, NULL, NULL),	
 
-		"unlink"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,   NULL,	NULL),
-		"unlink_and_clear"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,   NULL,	NULL),
-
 		"save"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
-		"delete"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
-		"delete_and_clear"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+		"delete"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 		"cancel"=>	array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
 /* other */
 		"form"=>	array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
@@ -109,21 +105,8 @@
 <?php
 
 /************ ACTIONS FOR HOSTS ****************/
-/* UNLINK HOST */
-	if(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && (isset($_REQUEST["unlink"]) || isset($_REQUEST["unlink_and_clear"]))
-		 && isset($_REQUEST["hostid"]))
-	{
-		$unlink_mode = false;
-		if(isset($_REQUEST["unlink"]))
-		{
-			$unlink_mode = true;
-		}
-
-		unlink_template($_REQUEST["hostid"], NULL /* future usage -> $_REQUEST["templateid"]*/, $unlink_mode);
-		unset($_REQUEST["templateid"]);
-	}
 /* SAVE HOST */
-	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && isset($_REQUEST["save"]))
+	if(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && isset($_REQUEST["save"]))
 	{
 		$useip = get_request("useip","no");
 
@@ -177,17 +160,11 @@
 	}
 
 /* DELETE HOST */ 
-	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && (isset($_REQUEST["delete"]) || isset($_REQUEST["delete_and_clear"])))
+	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && isset($_REQUEST["delete"]))
 	{
-		$unlink_mode = false;
-		if(isset($_REQUEST["delete"]))
-		{
-			$unlink_mode =  true;
-		}
-
 		if(isset($_REQUEST["hostid"])){
 			$host=get_host_by_hostid($_REQUEST["hostid"]);
-			$result=delete_host($_REQUEST["hostid"], $unlink_mode);
+			$result=delete_host($_REQUEST["hostid"]);
 
 			show_messages($result, S_HOST_DELETED, S_CANNOT_DELETE_HOST);
 			if($result)
@@ -208,7 +185,7 @@
 				$host=get_host_by_hostid($db_host["hostid"]);
 
 				if(!in_array($db_host["hostid"],$hosts)) continue;
-				if(!delete_host($db_host["hostid"], $unlink_mode))	continue;
+				if(!delete_host($db_host["hostid"]))	continue;
 				$result = 1;
 
 				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_HOST,
@@ -603,11 +580,7 @@
 					"return Confirm('".S_DISABLE_SELECTED_HOSTS_Q."');"),
 				$show_only_tmp ? NULL : SPACE,
 				new CButton('delete','Delete selected',
-					"return Confirm('".S_DELETE_SELECTED_HOSTS_Q."');"),
-				$show_only_tmp ? SPACE : NULL,
-				$show_only_tmp ? new CButton('delete_and_clear','Delete selected with linked elements',
-					"return Confirm('".S_DELETE_SELECTED_HOSTS_Q."');") : NULL
-				);
+					"return Confirm('".S_DELETE_SELECTED_HOSTS_Q."');"));
 			$table->SetFooter(new CCol($footerButtons));
 
 			$form->AddItem($table);

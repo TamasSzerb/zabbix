@@ -103,12 +103,12 @@ static void    signal_handler( int sig )
 	if( SIGALRM == sig )
 	{
 		signal( SIGALRM, signal_handler );
-		zbx_error("Timeout while executing operation.");
+		fprintf(stderr,"Timeout while executing operation.\n");
 	}
  
 	if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig )
 	{
-/*		zbx_error("\nGot QUIT or INT or TERM signal. Exiting..." ); */
+/*		fprintf(stderr,"\nGot QUIT or INT or TERM signal. Exiting..." ); */
 	}
 	exit( FAIL );
 }
@@ -149,7 +149,7 @@ static int	get_value(char *server,int port,char *key,char *value)
 
 	if(hp==NULL)
 	{
-		zbx_error("Error on gethostbyname. [%s]", strerror(errno));
+		fprintf(stderr, "Error: %s\n", strerror(errno));
 		return	FAIL;
 	}
 
@@ -175,7 +175,7 @@ static int	get_value(char *server,int port,char *key,char *value)
 		return	FAIL;
 	}
 
-	zbx_snprintf(tosend,sizeof(tosend),"%s\n",key);
+	snprintf(tosend,sizeof(tosend)-1,"%s\n",key);
 
 	if(write(s,tosend,strlen(tosend)) == -1)
 /*	if( sendto(s,tosend,strlen(tosend),0,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )*/

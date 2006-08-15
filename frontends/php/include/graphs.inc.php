@@ -97,7 +97,7 @@
 
 	# Add Graph
 
-	function	add_graph($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype=GRAPH_TYPE_NORMAL,$templateid=0)
+	function	add_graph($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$templateid=0)
 	{
 		if(!check_right("Graph","A",0))
 		{
@@ -106,9 +106,9 @@
 		}
 
 		$result=DBexecute("insert into graphs".
-			" (name,width,height,yaxistype,yaxismin,yaxismax,templateid,show_work_period,show_triggers,graphtype,templateid)".
+			" (name,width,height,yaxistype,yaxismin,yaxismax,templateid,show_work_period,show_triggers)".
 			" values (".zbx_dbstr($name).",$width,$height,$yaxistype,$yaxismin,".
-			" $yaxismax,$templateid,$showworkperiod,$showtriggers,$graphtype,$templateid)");
+			" $yaxismax,$templateid,$showworkperiod,$showtriggers)");
 		$graphid =  DBinsert_id($result,"graphs","graphid");
 		if($graphid)
 		{
@@ -119,7 +119,7 @@
 
 	# Update Graph
 
-	function	update_graph($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype=GRAPH_TYPE_NORMAL,$templateid=0)
+	function	update_graph($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$templateid=0)
 	{
 		if(!check_right("Graph","U",0))
 		{
@@ -133,22 +133,17 @@
 		while($graph = DBfetch($graphs))
 		{
 			$result = update_graph($graph["graphid"],$name,$width,
-				$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$graphid);
+				$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphid);
 			if(!$result)
 				return $result;
 		}
 
 		$result = DBexecute("update graphs set name=".zbx_dbstr($name).",width=$width,height=$height,".
 			"yaxistype=$yaxistype,yaxismin=$yaxismin,yaxismax=$yaxismax,templateid=$templateid,".
-			"show_work_period=$showworkperiod,show_triggers=$showtriggers,graphtype=$graphtype ".
+			"show_work_period=$showworkperiod,show_triggers=$showtriggers ".
 			"where graphid=$graphid");
 		if($result)
 		{
-			if($g_graph['graphtype'] != $graphtype && $graphtype == GRAPH_TYPE_STACKED)
-			{
-				$result = DBexecute("update graphs_items set calc_fnc=".CALC_FNC_AVG.",drawtype=1,type=".GRAPH_ITEM_SIMPLE);
-			}
-
 			info("Graph '".$g_graph["name"]."' updated");
 		}
 		return $result;
@@ -232,7 +227,7 @@
 				{
 					$new_graphid = add_graph($graph["name"],$graph["width"],$graph["height"],
 						$graph["yaxistype"],$graph["yaxismin"],$graph["yaxismax"],$graph["show_work_period"],
-						$graph["show_triggers"],$graph["graphtype"],$graph["graphid"]);
+						$graph["show_triggers"],$graph["graphid"]);
 
 					if(!$new_graphid)
 					{
@@ -444,58 +439,32 @@
 		return $result;
 	}
 
-	function	delete_template_graphs($hostid, $templateid = null, $unlink_mode = false)
+	function	delete_template_graphs_by_hostid($hostid)
 	{
 		$db_graphs = get_graphs_by_hostid($hostid);
 		while($db_graph = DBfetch($db_graphs))
 		{
-			if($db_graph["templateid"] == 0)
-				continue;
-
-			if($templateid != null)
-			{
-				$tmp_graph = get_graph_by_graphid($db_graph["templateid"]);
-				if($tmp_graph["hostid"] != $templateid)
-					continue;
-			}
-
-			if($unlink_mode)
-			{
-				if(DBexecute("update graphs set templateid=0 where graphid=".$db_graph["graphid"]))
-				{
-					info("Graph '".$db_graph["name"]."' unlinked");
-				}	
-			}
-			else
-			{
-				delete_graph($db_graph["graphid"]);
-			}
+			if($db_graph["templateid"] == 0)	continue;
+			delete_graph($db_graph["graphid"]);
 		}
 	}
 	
-	function	copy_template_graphs($hostid, $templateid = null, $copy_mode = false)
+	function	sync_graphs_with_templates($hostid)
 	{
-		if($templateid == null)
-		{
-			$host = get_host_by_hostid($hostid);	
-			$templateid = $host["templateid"];
-		}
-
-		$db_graphs = get_graphs_by_hostid($templateid);
-
+		$host = get_host_by_hostid($hostid);	
+		$db_graphs = get_graphs_by_hostid($host["templateid"]);
 		while($db_graph = DBfetch($db_graphs))
 		{
-			copy_graph_to_host($db_graph["graphid"], $hostid, $copy_mode);
+			copy_graph_to_host($db_graph["graphid"], $hostid);
 		}
 	}
 
-	function	copy_graph_to_host($graphid, $hostid, $copy_mode = false)
+	function	copy_graph_to_host($graphid, $hostid)
 	{
 		$db_graph = get_graph_by_graphid($graphid);
-		$new_graphid = add_graph($db_graph["name"],$db_graph["width"],$db_graph["height"],$db_graph["yaxistype"],
-			$db_graph["yaxismin"],$db_graph["yaxismax"],$db_graph["show_work_period"],$db_graph["show_triggers"], 
-			$db_graph["graphtype"],$copy_mode ? 0 : $graphid
-			);
+		$new_graphid = add_graph($db_graph["name"],$db_graph["width"],$db_graph["height"],
+			$db_graph["yaxistype"],$db_graph["yaxismin"],$db_graph["yaxismax"],$db_graph["show_work_period"],
+			$db_graph["show_triggers"],$graphid);
 
 		if(!$new_graphid)
 			return $new_graphid;
@@ -503,7 +472,7 @@
 		$result = copy_graphitems_for_host($graphid, $new_graphid, $hostid);
 		if(!$result)
 		{
-			delete_graph($new_graphid);
+			delete_graph($graphid);
 		}
 		return $result;
 	}

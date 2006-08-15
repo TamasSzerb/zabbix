@@ -31,12 +31,14 @@
 
 int	DBadd_graph(char *name, int width, int height, int yaxistype, double yaxismin, double yaxismax)
 {
+	char	sql[MAX_STRING_LEN];
 	int	graphid;
 	char	name_esc[GRAPH_NAME_LEN_MAX];
 
 	DBescape_string(name,name_esc,GRAPH_NAME_LEN_MAX);
 
-	if(FAIL == DBexecute("insert into graphs (name,width,height,yaxistype,yaxismin,yaxismax) values ('%s',%d,%d,%d,%f,%f)", name_esc, width, height, yaxistype, yaxismin, yaxismax))
+	snprintf(sql, sizeof(sql)-1,"insert into graphs (name,width,height,yaxistype,yaxismin,yaxismax) values ('%s',%d,%d,%d,%f,%f)", name_esc, width, height, yaxistype, yaxismin, yaxismax);
+	if(FAIL == DBexecute(sql))
 	{
 		return FAIL;
 	}
@@ -53,12 +55,14 @@ int	DBadd_graph(char *name, int width, int height, int yaxistype, double yaxismi
 
 int	DBadd_item_to_graph(int graphid,int itemid, char *color,int drawtype, int sortorder)
 {
+	char	sql[MAX_STRING_LEN];
 	int	gitemid;
 	char	color_esc[GRAPH_ITEM_COLOR_LEN_MAX];
 
 	DBescape_string(color,color_esc,GRAPH_ITEM_COLOR_LEN_MAX);
 
-	if(FAIL == DBexecute("insert into graphs_items (graphid,itemid,drawtype,sortorder,color) values (%d,%d,%d,%d,'%s')", graphid, itemid, drawtype, sortorder, color_esc))
+	snprintf(sql, sizeof(sql)-1,"insert into graphs_items (graphid,itemid,drawtype,sortorder,color) values (%d,%d,%d,%d,'%s')", graphid, itemid, drawtype, sortorder, color_esc);
+	if(FAIL == DBexecute(sql))
 	{
 		return FAIL;
 	}
@@ -77,11 +81,13 @@ int	DBget_graph_item_by_gitemid(int gitemid, DB_GRAPH_ITEM *graph_item)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
+	char	sql[MAX_STRING_LEN];
 	int	ret = SUCCEED;
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In DBget_graph_item_by_gitemid(%d)", gitemid);
 
-	result = DBselect("select gitemid, graphid, itemid, drawtype, sortorder, color from graphs_items where gitemid=%d", gitemid);
+	snprintf(sql,sizeof(sql)-1,"select gitemid, graphid, itemid, drawtype, sortorder, color from graphs_items where gitemid=%d", gitemid);
+	result=DBselect(sql);
 	row=DBfetch(result);
 
 	if(!row)
@@ -107,11 +113,13 @@ int	DBget_graph_by_graphid(int graphid, DB_GRAPH *graph)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
+	char	sql[MAX_STRING_LEN];
 	int	ret = SUCCEED;
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In DBget_graph_by_graphid(%d)", graphid);
 
-	result = DBselect("select graphid,name,width,height,yaxistype,yaxismin,yaxismax from graphs where graphid=%d", graphid);
+	snprintf(sql,sizeof(sql)-1,"select graphid,name,width,height,yaxistype,yaxismin,yaxismax from graphs where graphid=%d", graphid);
+	result=DBselect(sql);
 	row=DBfetch(result);
 
 	if(!row)
@@ -144,6 +152,7 @@ int	DBadd_graph_item_to_linked_hosts(int gitemid,int hostid)
 	DB_RESULT	result2;
 	DB_ROW		row;
 	DB_ROW		row2;
+	char	sql[MAX_STRING_LEN];
 	char	name_esc[GRAPH_NAME_LEN_MAX];
 	int	graphid;
 	int	itemid;
@@ -168,19 +177,24 @@ int	DBadd_graph_item_to_linked_hosts(int gitemid,int hostid)
 
 	if(hostid==0)
 	{
-		result = DBselect("select hostid,templateid,graphs from hosts_templates where templateid=%d", item.hostid);
+		snprintf(sql,sizeof(sql)-1,"select hostid,templateid,graphs from hosts_templates where templateid=%d", item.hostid);
 	}
 	else
 	{
-		result = DBselect("select hostid,templateid,graphs from hosts_templates where hostid=%d and templateid=%d", hostid, item.hostid);
+		snprintf(sql,sizeof(sql)-1,"select hostid,templateid,graphs from hosts_templates where hostid=%d and templateid=%d", hostid, item.hostid);
 	}
 
+	zabbix_log( LOG_LEVEL_DEBUG, "\tSQL [%s]", sql);
+
+	result=DBselect(sql);
 	while((row=DBfetch(result)))
 	{
 		if( (atoi(row[2])&1) == 0)	continue;
 
-		result2 = DBselect("select i.itemid from items i where i.key_='%s' and i.hostid=%d", item.key, atoi(row[0]));
+		snprintf(sql,sizeof(sql)-1,"select i.itemid from items i where i.key_='%s' and i.hostid=%d", item.key, atoi(row[0]));
+		zabbix_log( LOG_LEVEL_DEBUG, "\t\tSQL [%s]", sql);
 
+		result2=DBselect(sql);
 		row2=DBfetch(result2);
 
 		if(!row2)
@@ -196,7 +210,8 @@ int	DBadd_graph_item_to_linked_hosts(int gitemid,int hostid)
 
 		if(DBget_host_by_hostid(atoi(row[0]), &host) == FAIL)	continue;
 
-		result2 = DBselect("select distinct g.graphid from graphs g,graphs_items gi,items i where i.itemid=gi.itemid and i.hostid=%d and g.graphid=gi.graphid and g.name='%s'", atoi(row[0]), name_esc);
+		snprintf(sql,sizeof(sql)-1,"select distinct g.graphid from graphs g,graphs_items gi,items i where i.itemid=gi.itemid and i.hostid=%d and g.graphid=gi.graphid and g.name='%s'", atoi(row[0]), name_esc);
+		result2=DBselect(sql);
 
 		rows=0;
 		while((row2=DBfetch(result2)))

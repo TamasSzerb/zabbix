@@ -44,7 +44,7 @@
 		}
 		function SetUrl($value)
 		{
-			$this->AddOption('href', $value);
+			$this->options['href'] = $value;
 		}
 		function SetTarget($value=NULL)
 		{

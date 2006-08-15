@@ -229,7 +229,11 @@
 		$element = DBfetch($elements);
 		if(!$element)	return FALSE;
 
-		if(get_info_by_selementid($element["selementid"],$info,$color) == 0)
+		$status = "off";
+		if(get_info_by_selementid($element["selementid"],$info,$color)!="")
+			$status = "on";
+
+		if($status == "on")
 			$icon = $element["icon_on"];
 		else
 			$icon = $element["icon"];
@@ -244,8 +248,8 @@
 		global $colors;
 
 		$count = 0;
-		$info	= S_OK_BIG;
-		$color	= $colors["Dark Green"];
+		$info = "OK";
+		$color= $colors["Dark Green"];
 		
 		$db_element = get_sysmaps_element_by_selementid($selementid);
 		if($db_element["elementtype"]==SYSMAP_ELEMENT_TYPE_HOST)
@@ -256,6 +260,7 @@
 				" and f.triggerid=t.triggerid and t.value=1 and t.status=0".
 				" and h.status=".HOST_STATUS_MONITORED." and i.status=0");
 
+			$count=0;
 			$trigger = DBfetch($db_triggers);
 			if($trigger)
 			{
@@ -273,6 +278,11 @@
 					$color = $colors["Gray"];
 					$info = "template";
 				}
+				else
+				{
+					$info	= S_OK_BIG;
+					$color	= $colors["Dark Green"];
+				}
 			}
 		}
 		elseif($db_element["elementtype"]==SYSMAP_ELEMENT_TYPE_MAP)
@@ -281,12 +291,13 @@
 				" where sysmapid=".$db_element["elementid"]);
 			while($db_subelement = DBfetch($db_subelements))
 			{// recursion
-				if(($curr_count = get_info_by_selementid($db_subelement["selementid"],$curr_info,$curr_color)) > 0)
-				{
-					$count += $curr_count;
-					$info = $curr_info;
-					$color = $curr_color;
-				}
+				$count += get_info_by_selementid($db_subelement["selementid"],$info,$color);
+			}
+
+			if($count==0)
+			{
+				$info	= S_OK_BIG;
+				$color	= $colors["Dark Green"];
 			}
 		}
 		elseif($db_element["elementtype"]==SYSMAP_ELEMENT_TYPE_IMAGE)
@@ -298,10 +309,6 @@
 					$info=S_TRUE_BIG;
 					$color=$colors["Red"];
 					$count = 1;
-				}
-				else
-				{
-					$info=S_FALSE_BIG;
 				}
 			}
 		}

@@ -52,8 +52,6 @@
 #include "autoregister.h"
 #include "trapper.h"
 
-#include "daemon.h"
-
 extern int    send_list_of_active_checks(int sockfd, char *host);
 
 int	process_trap(int sockfd,char *s, int max_len)
@@ -145,11 +143,11 @@ int	process_trap(int sockfd,char *s, int max_len)
 		ret=process_data(sockfd,server,key,value_string,lastlogsize,timestamp,source,severity);
 		if( SUCCEED == ret)
 		{
-			zbx_snprintf(result,sizeof(result),"OK\n");
+			snprintf(result,sizeof(result)-1,"OK\n");
 		}
 		else
 		{
-			zbx_snprintf(result,sizeof(result),"NOT OK\n");
+			snprintf(result,sizeof(result)-1,"NOT OK\n");
 		}
 		zabbix_log( LOG_LEVEL_DEBUG, "Sending back [%s]", result);
 		zabbix_log( LOG_LEVEL_DEBUG, "Length [%d]", strlen(result));
@@ -166,54 +164,43 @@ int	process_trap(int sockfd,char *s, int max_len)
 
 void	process_trapper_child(int sockfd)
 {
-	ssize_t	nbytes;
-	char	buffer[MAX_BUF_LEN];
+	ssize_t	nread;
+	char	line[MAX_STRING_LEN];
 	static struct  sigaction phan;
-	char	*bufptr;
 
-	zabbix_log( LOG_LEVEL_DEBUG, "In process_trapper_child");
-
-	phan.sa_handler = &child_signal_handler;
+	phan.sa_handler = &signal_handler;
 	sigemptyset(&phan.sa_mask);
 	phan.sa_flags = 0;
 	sigaction(SIGALRM, &phan, NULL);
 
 	alarm(CONFIG_TIMEOUT);
 
-	zabbix_log( LOG_LEVEL_DEBUG, "Before read(%d)", MAX_BUF_LEN);
-/*	if( (nbytes = read(sockfd, line, MAX_BUF_LEN)) < 0)*/
-	memset(buffer,0,sizeof(buffer));
-	bufptr = buffer;
-	while ((nbytes = read(sockfd, bufptr, buffer + sizeof(buffer) - bufptr - 1)) != -1 && nbytes != 0)
-	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Read %d bytes", nbytes);
-		if(nbytes < buffer + sizeof(buffer) - bufptr - 1)
-		{
-			bufptr += nbytes;
-			break;
-		}
-		bufptr += nbytes;
-	}
-
-	if(nbytes < 0)
+	zabbix_log( LOG_LEVEL_DEBUG, "Before read()");
+	if( (nread = read(sockfd, line, MAX_STRING_LEN)) < 0)
 	{
 		if(errno == EINTR)
 		{
-			zabbix_log( LOG_LEVEL_WARNING, "Read timeout");
+			zabbix_log( LOG_LEVEL_DEBUG, "Read timeout");
 		}
 		else
 		{
-			zabbix_log( LOG_LEVEL_WARNING, "read() failed");
+			zabbix_log( LOG_LEVEL_DEBUG, "read() failed");
 		}
+		zabbix_log( LOG_LEVEL_DEBUG, "After read() 1");
 		alarm(0);
 		return;
 	}
 
-	zabbix_log( LOG_LEVEL_DEBUG, "After read() 3 [%d]",nbytes);
+	zabbix_log( LOG_LEVEL_DEBUG, "After read() 2 [%d]",nread);
 
-	zabbix_log( LOG_LEVEL_DEBUG, "Got data:%s", buffer);
+	if(nread>0)
+	{
+		line[nread-1]=0;
+	}
 
-	process_trap(sockfd,buffer, sizeof(buffer));
+	zabbix_log( LOG_LEVEL_DEBUG, "Got line:%s", line);
+
+	process_trap(sockfd,line, MAX_STRING_LEN);
 
 	alarm(0);
 }
@@ -236,14 +223,15 @@ void	child_trapper_main(int i,int listenfd, int addrlen)
 	for(;;)
 	{
 		clilen = addrlen;
-
-		zbx_setproctitle("waiting for connection");
-
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("waiting for connection");
+#endif
 		zabbix_log( LOG_LEVEL_DEBUG, "Before accept()");
 		connfd=accept(listenfd,&cliaddr, &clilen);
 		zabbix_log( LOG_LEVEL_DEBUG, "After accept()");
-
-		zbx_setproctitle("processing data");
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("processing data");
+#endif
 
 		process_trapper_child(connfd);
 
@@ -259,6 +247,10 @@ pid_t	child_trapper_make(int i,int listenfd, int addrlen)
 	if((pid = fork()) >0)
 	{
 		return (pid);
+	}
+	else
+	{
+		server_num=i;
 	}
 
 	/* never returns */

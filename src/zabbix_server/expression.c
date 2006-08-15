@@ -324,7 +324,7 @@ int	evaluate_simple (double *result,char *exp,char *error,int maxerrlen)
 		}
 		if(cmp_double(value2,0) == 0)
 		{
-			zbx_snprintf(error,maxerrlen,"Division by zero. Cannot evaluate expression [%s/%s]", first,second);
+			snprintf(error,maxerrlen-1,"Division by zero. Cannot evaluate expression [%s/%s]", first,second);
 			zabbix_log(LOG_LEVEL_WARNING, error);
 			zabbix_syslog(error);
 			return FAIL;
@@ -443,7 +443,7 @@ int	evaluate_simple (double *result,char *exp,char *error,int maxerrlen)
 	}
 	else
 	{
-		zbx_snprintf(error,maxerrlen,"Format error or unsupported operator.  Exp: [%s]", exp);
+		snprintf(error,maxerrlen-1,"Format error or unsupported operator.  Exp: [%s]", exp);
 		zabbix_log(LOG_LEVEL_WARNING, error);
 		zabbix_syslog(error);
 		return FAIL;
@@ -492,7 +492,7 @@ int	evaluate(int *result,char *exp, char *error, int maxerrlen)
 		}
 		if( r == -1 )
 		{
-			zbx_snprintf(error, maxerrlen, "Cannot find left bracket [(]. Expression:[%s]", exp);
+			snprintf(error, maxerrlen-1, "Cannot find left bracket [(]. Expression:[%s]", exp);
 			zabbix_log(LOG_LEVEL_WARNING, error);
 			zabbix_syslog(error);
 			return	FAIL;
@@ -522,7 +522,7 @@ int	evaluate(int *result,char *exp, char *error, int maxerrlen)
 
 		for(i=l+3;i<=r;i++) exp[i]=' ';
 
-		zbx_snprintf(res,sizeof(res),exp,value);
+		snprintf(res,sizeof(res)-1,exp,value);
 		strcpy(exp,res);
 		delete_spaces(res);
 		zabbix_log(LOG_LEVEL_DEBUG, "Expression4:[%s]", res );
@@ -562,6 +562,7 @@ void	substitute_simple_macros(DB_TRIGGER *trigger, DB_ACTION *action, char *data
 {
 	int	found = SUCCEED;
 	char	*s;
+	char	sql[MAX_STRING_LEN];
 	char	str[MAX_STRING_LEN];
 	char	tmp[MAX_STRING_LEN];
 
@@ -585,17 +586,11 @@ void	substitute_simple_macros(DB_TRIGGER *trigger, DB_ACTION *action, char *data
 			strncat(data, trigger->description, MAX_STRING_LEN);
 			strncat(data, s+strlen("{TRIGGER.NAME}"), MAX_STRING_LEN);
 		}
-		else if( (s = strstr(str,"{TRIGGER.COMMENT}")) != NULL )
-		{
-			s[0]=0;
-			strcpy(data, str);
-			strncat(data, trigger->comments, MAX_STRING_LEN);
-			strncat(data, s+strlen("{TRIGGER.COMMENT}"), MAX_STRING_LEN);
-		}
 		else if( (s = strstr(str,"{HOSTNAME}")) != NULL )
 		{
-/*			zbx_snprintf(sql,sizeof(sql),"select distinct t.description,h.host from triggers t, functions f,items i, hosts h where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid", trigger->triggerid);*/
-			result = DBselect("select distinct h.host from triggers t, functions f,items i, hosts h where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid", trigger->triggerid);
+/*			snprintf(sql,sizeof(sql)-1,"select distinct t.description,h.host from triggers t, functions f,items i, hosts h where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid", trigger->triggerid);*/
+			snprintf(sql,sizeof(sql)-1,"select distinct h.host from triggers t, functions f,items i, hosts h where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid", trigger->triggerid);
+			result = DBselect(sql);
 			row=DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
@@ -619,7 +614,8 @@ void	substitute_simple_macros(DB_TRIGGER *trigger, DB_ACTION *action, char *data
 		}
 		else if( (s = strstr(str,"{TRIGGER.KEY}")) != NULL )
 		{
-			result = DBselect("select distinct i.key_ from triggers t, functions f,items i, hosts h where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid order by i.key_", trigger->triggerid);
+			snprintf(sql,sizeof(sql)-1,"select distinct i.key_ from triggers t, functions f,items i, hosts h where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid order by i.key_", trigger->triggerid);
+			result = DBselect(sql);
 			row=DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
@@ -643,7 +639,8 @@ void	substitute_simple_macros(DB_TRIGGER *trigger, DB_ACTION *action, char *data
 		}
 		else if( (s = strstr(str,"{IPADDRESS}")) != NULL )
 		{
-			result = DBselect("select distinct h.ip from triggers t, functions f,items i, hosts h where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and h.useip=1", trigger->triggerid);
+			snprintf(sql,sizeof(sql)-1,"select distinct h.ip from triggers t, functions f,items i, hosts h where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and h.useip=1", trigger->triggerid);
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
@@ -669,7 +666,7 @@ void	substitute_simple_macros(DB_TRIGGER *trigger, DB_ACTION *action, char *data
 		{
 			now=time(NULL);
 			tm=localtime(&now);
-			zbx_snprintf(tmp,sizeof(tmp),"%.4d.%.2d.%.2d",tm->tm_year+1900,tm->tm_mon+1,tm->tm_mday);
+			snprintf(tmp,sizeof(tmp)-1,"%.4d.%.2d.%.2d",tm->tm_year+1900,tm->tm_mon+1,tm->tm_mday);
 
 			s[0]=0;
 			strcpy(data, str);
@@ -680,7 +677,7 @@ void	substitute_simple_macros(DB_TRIGGER *trigger, DB_ACTION *action, char *data
 		{
 			now=time(NULL);
 			tm=localtime(&now);
-			zbx_snprintf(tmp,sizeof(tmp),"%.2d:%.2d:%.2d",tm->tm_hour,tm->tm_min,tm->tm_sec);
+			snprintf(tmp,sizeof(tmp)-1,"%.2d:%.2d:%.2d",tm->tm_hour,tm->tm_min,tm->tm_sec);
 
 			s[0]=0;
 			strcpy(data, str);
@@ -692,11 +689,11 @@ void	substitute_simple_macros(DB_TRIGGER *trigger, DB_ACTION *action, char *data
 			/* This is old value */
 			if(trigger->value == TRIGGER_VALUE_TRUE)
 			{
-				zbx_snprintf(tmp,sizeof(tmp),"OFF");
+				snprintf(tmp,sizeof(tmp)-1,"OFF");
 			}
 			else
 			{
-				zbx_snprintf(tmp,sizeof(tmp),"ON");
+				snprintf(tmp,sizeof(tmp)-1,"ON");
 			}
 
 			s[0]=0;
@@ -843,7 +840,7 @@ int	substitute_macros(DB_TRIGGER *trigger, DB_ACTION *action, char *data)
 
 		zabbix_log( LOG_LEVEL_DEBUG, "Value5 [%s]", data );
 
-		zbx_snprintf(res,sizeof(res),data,value);
+		snprintf(res,sizeof(res)-1,data,value);
 		strcpy(data,res);
 /*		delete_spaces(data); */
 		zabbix_log( LOG_LEVEL_DEBUG, "Expression4:[%s]", data );
@@ -887,14 +884,14 @@ int	substitute_functions(char *exp, char *error, int maxerrlen)
 		r=find_char(exp,'}');
 		if( r == FAIL )
 		{
-			zbx_snprintf(error,maxerrlen,"Cannot find right bracket. Expression:[%s]", exp);
+			snprintf(error,maxerrlen-1,"Cannot find right bracket. Expression:[%s]", exp);
 			zabbix_log( LOG_LEVEL_WARNING, error);
 			zabbix_syslog(error);
 			return	FAIL;
 		}
 		if( r < l )
 		{
-			zbx_snprintf(error,maxerrlen, "Right bracket is before left one. Expression:[%s]", exp);
+			snprintf(error,maxerrlen-1, "Right bracket is before left one. Expression:[%s]", exp);
 			zabbix_log( LOG_LEVEL_WARNING, error);
 			zabbix_syslog(error);
 			return	FAIL;
@@ -909,7 +906,7 @@ int	substitute_functions(char *exp, char *error, int maxerrlen)
 		if( DBget_function_result( &value, functionid ) != SUCCEED )
 		{
 /* It may happen because of functions.lastvalue is NULL, so this is not warning  */
-			zbx_snprintf(error,maxerrlen, "Unable to get value for functionid [%s]", functionid);
+			snprintf(error,maxerrlen-1, "Unable to get value for functionid [%s]", functionid);
 			zabbix_log( LOG_LEVEL_DEBUG, error);
 			zabbix_syslog(error);
 			return	FAIL;
@@ -931,7 +928,7 @@ int	substitute_functions(char *exp, char *error, int maxerrlen)
 
 		zabbix_log( LOG_LEVEL_DEBUG, "Expression3:[%s]", exp );
 
-		zbx_snprintf(res,sizeof(res),exp,value);
+		snprintf(res,sizeof(res)-1,exp,value);
 		strcpy(exp,res);
 		delete_spaces(exp);
 		zabbix_log( LOG_LEVEL_DEBUG, "Expression4:[%s]", exp );

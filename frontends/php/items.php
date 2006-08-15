@@ -48,9 +48,6 @@
 		"add_groupid"=>	array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,'{register}=="go"'),
 		"action"=>	array(T_ZBX_STR, O_OPT,	 P_SYS,	NOT_EMPTY,'{register}=="go"'),
 
-		"copy_type"	=>array(T_ZBX_INT, O_OPT,	 P_SYS,	IN("0,1"),'isset({copy})'),
-		"copy_mode"	=>array(T_ZBX_INT, O_OPT,	 P_SYS,	IN("0"),NULL),
-
 		"itemid"=>	array(T_ZBX_INT, O_NO,	 P_SYS,	DB_ID,'{form}=="update"'),
 		"description"=>	array(T_ZBX_STR, O_OPT,  NULL,	NOT_EMPTY,'isset({save})'),
 		"key"=>		array(T_ZBX_STR, O_OPT,  NULL,  NOT_EMPTY,'isset({save})'),
@@ -80,8 +77,6 @@
 		"logtimefmt"=>	array(T_ZBX_STR, O_OPT,  NULL,  NULL,'isset({save})&&{value_type}==2'),
                  
 		"group_itemid"=>	array(T_ZBX_INT, O_OPT,	NULL,	DB_ID, NULL),
-		"copy_targetid"=>	array(T_ZBX_INT, O_OPT,	NULL,	DB_ID, NULL),
-		"filter_groupid"=>	array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID, 'isset({copy})&&{copy_type}==0'),
 		"applications"=>	array(T_ZBX_INT, O_OPT,	NULL,	DB_ID, NULL),
 
 		"del_history"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
@@ -89,11 +84,9 @@
 		"register"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 		"group_task"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 		"save"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
-		"copy"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 		"delete"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 		"cancel"=>		array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
 		"form"=>		array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
-		"form_copy_to"=>	array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
 		"form_refresh"=>	array(T_ZBX_INT, O_OPT,	NULL,	NULL,	NULL)
 	);
 
@@ -159,50 +152,11 @@
 		$result = delete_history_by_itemid($_REQUEST["itemid"]);
 		if($result)
 		{
-			DBexecute("update items set nextcheck=0,lastvalue=null,".
+			DBexecute("update items set nextcheck=null,lastvalue=null,".
 				"lastclock=null,prevvalue=null where itemid=".$_REQUEST["itemid"]);
 		}
 		show_messages($result, S_HISTORY_CLEANED, S_CANNOT_CLEAN_HISTORY);
 		
-	}
-	elseif(isset($_REQUEST["copy"])&&isset($_REQUEST["group_itemid"])&&isset($_REQUEST["form_copy_to"]))
-	{
-		if(isset($_REQUEST['copy_targetid']) && $_REQUEST['copy_targetid'] > 0 && isset($_REQUEST['copy_type']))
-		{
-			if(0 == $_REQUEST['copy_type'])
-			{ /* hosts */
-				$hosts_ids = $_REQUEST['copy_targetid'];
-			}
-			else
-			{ /* groups */
-				$hosts_ids = array();
-				$group_ids = "";
-				foreach($_REQUEST['copy_targetid'] as $group_id)
-				{
-					$group_ids .= $group_id.',';
-				}
-				$group_ids = trim($group_ids,',');
-
-				$db_hosts = DBselect('select distinct h.hostid from hosts h, hosts_groups hg'.
-					' where h.hostid=hg.hostid and hg.groupid in ('.$group_ids.')');
-				while($db_host = DBfetch($db_hosts))
-				{
-					array_push($hosts_ids, $db_host['hostid']);
-				}
-			}
-
-			foreach($_REQUEST["group_itemid"] as $item_id)
-				foreach($hosts_ids as $host_id)
-				{
-					copy_item_to_host($item_id, $host_id, true);
-				}
-			unset($_REQUEST["form_copy_to"]);
-		}
-		else
-		{
-			error('No target selection.');
-		}
-		show_messages();
 	}
 	elseif(isset($_REQUEST["register"]))
 	{
@@ -300,7 +254,7 @@
 			{
 				$item = get_item_by_itemid($id);
 				if($item["templateid"]<>0)	continue;
-				delete_item($id);
+				$result2=delete_item($id);
 			}
 			show_messages(TRUE, S_ITEMS_DELETED, S_CANNOT_DELETE_ITEMS);
 		}
@@ -309,7 +263,7 @@
 			$group_itemid = $_REQUEST["group_itemid"];
 			foreach($group_itemid as $id)
 			{
-				activate_item($id);
+				$result2=activate_item($id);
 			}
 			show_messages(TRUE, S_ITEMS_ACTIVATED, S_CANNOT_ACTIVATE_ITEMS);
 		}
@@ -318,7 +272,7 @@
 			$group_itemid = $_REQUEST["group_itemid"];
 			foreach($group_itemid as $id)
 			{
-				disable_item($id);
+				$result2=disable_item($id);
 			}
 			show_messages(TRUE, S_ITEMS_DISABLED, S_CANNOT_DISABLE_ITEMS);
 		}
@@ -328,7 +282,7 @@
 			foreach($group_itemid as $id)
 			{
 				delete_history_by_itemid($id);
-				DBexecute("update items set nextcheck=0,lastvalue=null,".
+				DBexecute("update items set nextcheck=null,lastvalue=null,".
 					"lastclock=null,prevvalue=null where itemid=$id");
 			}
 			show_messages(TRUE, S_HISTORY_CLEANED, S_CANNOT_CLEAN_HISTORY);
@@ -348,11 +302,7 @@
 	echo BR;
 
 	$db_hosts=DBselect("select hostid from hosts");
-	if(isset($_REQUEST["form_copy_to"]) && isset($_REQUEST["group_itemid"]))
-	{
-		insert_copy_elements_to_forms("group_itemid");
-	}
-	elseif(isset($_REQUEST["form"])&&isset($_REQUEST["hostid"])&&DBfetch($db_hosts))
+	if(isset($_REQUEST["form"])&&isset($_REQUEST["hostid"])&&DBfetch($db_hosts))
 	{
 // FORM
 		insert_item_form();
@@ -515,10 +465,11 @@
 				$applications .= $db_app["name"].", ";
 			}
 
-			$chkBox = new CCheckBox("group_itemid[]",NULL,NULL,$db_item["itemid"]);
-			if($db_item["templateid"] > 0) $chkBox->SetEnabled(false);
 			$table->AddRow(array(
-				array($chkBox, $db_item["itemid"]),
+				array(
+					new CCheckBox("group_itemid[]",NULL,NULL,$db_item["itemid"]),
+					$db_item["itemid"]
+				),
 				$description,
 				$db_item["key_"],
 				$db_item["delay"],
@@ -543,8 +494,6 @@
 		array_push($footerButtons, SPACE);
 		array_push($footerButtons, new CButton('group_task','Delete selected',
 			"return Confirm('".S_DELETE_SELECTED_ITEMS_Q."');"));
-		array_push($footerButtons, SPACE);
-		array_push($footerButtons, new CButton('form_copy_to','Copy selected to ...'));
 		$table->SetFooter(new CCol($footerButtons));
 
 		$form->AddItem($table);

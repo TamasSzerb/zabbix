@@ -345,47 +345,23 @@ function SDI($msg="SDI") { echo "DEBUG INFO: $msg ".BR; } // DEBUG INFO!!!
 		return $cnt; 
 	}
 
-	function	play_sound($filename)
-	{
-		echo '
-<SCRIPT TYPE="text/javascript">
-<!-- 
-var snd_tag = \'<BGSOUND SRC="'.$filename.'" LOOP=0/>\';
-
-if (navigator.appName != "Microsoft Internet Explorer")
-    snd_tag = \'<EMBED SRC="'.$filename.'" AUTOSTART=TRUE WIDTH=0 HEIGHT=0 LOOP=0><P/>\';
-
-document.writeln(snd_tag);
-// -->
-</SCRIPT>
-<NOSCRIPT>
-	<BGSOUND SRC="'.$filename.'"/>
-</NOSCRIPT>';
-	}
-
 //	The hash has form <md5sum of triggerid>,<sum of priorities>
 	function	calc_trigger_hash()
 	{
-
-		$priority = array(0=>0, 1=>0, 2=>0, 3=>0, 4=>0, 5=>0);
+		$priorities=0;
+		for($i=0;$i<=5;$i++)
+		{
+	        	$result=DBselect("select count(*) as cnt from triggers t,hosts h,items i,functions f  where t.value=1 and f.itemid=i.itemid and h.hostid=i.hostid and t.triggerid=f.triggerid and i.status=0 and t.priority=$i");
+			$row=DBfetch($result);
+			$priorities+=pow(100,$i)*$row["cnt"];
+		}
 		$triggerids="";
-
-	       	$result=DBselect('select t.triggerid,t.priority from triggers t,hosts h,items i,functions f'.
-			'  where t.value=1 and f.itemid=i.itemid and h.hostid=i.hostid and t.triggerid=f.triggerid and i.status=0');
-
+	       	$result=DBselect("select t.triggerid from triggers t,hosts h,items i,functions f  where t.value=1 and f.itemid=i.itemid and h.hostid=i.hostid and t.triggerid=f.triggerid and i.status=0");
 		while($row=DBfetch($result))
 		{
-			$ack = get_last_alarm_by_triggerid($row["triggerid"]);
-			if($ack["acknowledged"] == 1) continue;
-
 			$triggerids="$triggerids,".$row["triggerid"];
-			$priority[$row["priority"]]++;
 		}
-
 		$md5sum=md5($triggerids);
-
-		$priorities=0;
-		for($i=0;$i<=5;$i++)	$priorities += pow(100,$i)*$priority[$i];
 
 		return	"$priorities,$md5sum";
 	}
@@ -675,8 +651,7 @@ document.writeln(snd_tag);
 // Before str()
 // 		if (eregi('^\{([0-9a-zA-Z[.-.]\_\.]+)\:([]\[0-9a-zA-Z\_\/\.\,]+)\.((diff)|(min)|(max)|(last)|(prev))\(([0-9\.]+)\)\}$', $expression, $arr)) 
 //		if (eregi('^\{([0-9a-zA-Z[.-.]\_\.]+)\:([]\[0-9a-zA-Z\_\/\.\,]+)\.((diff)|(min)|(max)|(last)|(prev)|(str))\(([0-9a-zA-Z\.\_\/\,]+)\)\}$', $expression, $arr)) 
-// 		if (eregi('^\{([0-9a-zA-Z\_\.-]+)\:([]\[0-9a-zA-Z\_\*\/\.\,\:\(\) -]+)\.([a-z]{3,11})\(([#0-9a-zA-Z\_\/\.\,]+)\)\}$', $expression, $arr)) 
-		if (eregi('^\{([0-9a-zA-Z\_\.-]+)\:([]\[0-9a-zA-Z\_\*\/\.\,\:\(\) -]+)\.([a-z]{3,11})\(([#0-9a-zA-Z\_\/\.\,[:space:]]+)\)\}$', $expression, $arr))
+ 		if (eregi('^\{([0-9a-zA-Z\_\.-]+)\:([]\[0-9a-zA-Z\_\/\.\,\:\(\) -]+)\.([a-z]{3,11})\(([#0-9a-zA-Z\_\/\.\,]+)\)\}$', $expression, $arr)) 
 		{
 			$host=$arr[1];
 			$key=$arr[2];
@@ -1095,53 +1070,57 @@ COpt::profiling_start("page");
 	# Show screen cell containing plain text values
 	function&	get_screen_plaintext($itemid,$elements)
 	{
-		global $DB_TYPE;
-
 		$item=get_item_by_itemid($itemid);
-		switch($item["value_type"])
+		if($item["value_type"]==ITEM_VALUE_TYPE_FLOAT)
 		{
-			case ITEM_VALUE_TYPE_FLOAT:	$history_table = "history";		break;
-			case ITEM_VALUE_TYPE_UINT64:	$history_table = "history_uint";	break;
-			case ITEM_VALUE_TYPE_TEXT:	$history_table = "history_text";	break;
-			default:			$history_table = "history_str";		break;
+			$sql="select clock,value from history where itemid=$itemid".
+				" order by clock desc";
 		}
-
-		$sql="select h.clock,h.value,i.valuemapid from ".$history_table." h, items i where".
-			" h.itemid=i.itemid and i.itemid=$itemid order by clock desc";
-
+		else if($item["value_type"]==ITEM_VALUE_TYPE_UINT64)
+		{
+			$sql="select clock,value from history_uint where itemid=$itemid".
+				" order by clock desc";
+		}
+		else if($item["value_type"]==ITEM_VALUE_TYPE_TEXT)
+		{
+			$sql="select clock,value from history_text where itemid=$itemid".
+				" order by clock desc";
+		}
+		else
+		{
+			$sql="select clock,value from history_str where itemid=$itemid".
+				" order by clock desc";
+		}
                 $result=DBselect($sql,$elements);
 
 		$table = new CTableInfo();
 		$table->SetHeader(array(S_TIMESTAMP,item_description($item["description"],$item["key_"])));
 		while($row=DBfetch($result))
 		{
-			switch($item["value_type"])
+			if($item["value_type"]==ITEM_VALUE_TYPE_TEXT)
 			{
-				case ITEM_VALUE_TYPE_TEXT:	
-					if($DB_TYPE == "ORACLE")
-					{
-						if(isset($row["value"]))
-						{
-							$row["value"] = $row["value"]->load();
-						}
-						else
-						{
-							$row["value"] = "";
-						}
-					}
-					/* do not use break */
-				case ITEM_VALUE_TYPE_STR:	
-					$value = nbsp(htmlspecialchars($row["value"]));
-					break;
-				
-				default:
-					$value = $row["value"];
-					break;
+				$value = nbsp(htmlspecialchars($row["value"]));
 			}
-
-			if($row["valuemapid"] > 0)
-				$value = replace_value_by_map($value, $row["valuemapid"]);
-
+			else if($item["value_type"]==ITEM_VALUE_TYPE_STRING)
+			{
+				$value = nbsp(htmlspecialchars($row["value"]));
+			}
+			else
+			{
+				if($DB_TYPE == "ORACLE" && $item["value_type"]==ITEM_VALUE_TYPE_TEXT)
+				{
+					if(isset($row["value"]))
+					{
+						$value = $row["value"]->load();
+					}
+					else
+					{
+						$value = "";
+					}
+				} else {
+					$value = $row["value"];
+				}
+			}
 			$table->AddRow(array(date(S_DATE_FORMAT_YMDHMS,$row["clock"]),	$value));
 		}
 		return $table;
@@ -2364,7 +2343,6 @@ COpt::profiling_stop("script");
 		{
 			if(frmForm.elements[i].type != 'checkbox') continue;
 			if(frmForm.elements[i].name == chkMain) continue;
-			if(frmForm.elements[i].disabled == true) continue;
 			frmForm.elements[i].checked = value;
 		}
 	}
@@ -2443,7 +2421,6 @@ COpt::profiling_stop("script");
 			ImageSetStyle($image, $style);
 			ImageLine($image,$x1,$y1,$x2,$y2,IMG_COLOR_STYLED);
 		}
-
 	}
 	else
 	{
@@ -2451,14 +2428,6 @@ COpt::profiling_stop("script");
 		{
 			ImageDashedLine($image,$x1,$y1,$x2,$y2,$color);
 		}
-	}
-
-	function DashedRectangle($image,$x1,$y1,$x2,$y2,$color)
-	{
-		DashedLine($image, $x1,$y1,$x1,$y2,$color);
-		DashedLine($image, $x1,$y2,$x2,$y2,$color);
-		DashedLine($image, $x2,$y2,$x2,$y1,$color);
-		DashedLine($image, $x2,$y1,$x1,$y1,$color);
 	}
 
 
@@ -2671,7 +2640,7 @@ COpt::profiling_stop("script");
 		$row = DBfetch($result);
 		if($row)
 		{
-			return $row["newvalue"]." "."($value)";
+			return $row["newvalue"].SPACE."($value)";
 		}
 		return $value;
 	}
@@ -2703,7 +2672,7 @@ COpt::profiling_stop("script");
 
 	function	set_image_header()
 	{
-		//Header( "Content-type:  text/html"); 
+		// Header( "Content-type:  text/html"); 
 
 		if(MAP_OUTPUT_FORMAT == "JPG")	Header( "Content-type:  image/jpeg"); 
 		else				Header( "Content-type:  image/png"); 

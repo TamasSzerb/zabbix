@@ -182,7 +182,7 @@ COpt::savesqlrequest($query);
 		if($DB_TYPE == "ORACLE")
 		{
 //			echo "DBfetch<br>";
-			if(!ocifetchinto($cursor, $row, OCI_ASSOC+OCI_NUM+OCI_RETURN_NULLS))
+			if(!ocifetchinto($cursor,$row,OCI_ASSOC+OCI_RETURN_NULLS))
 			{
 				return FALSE;
 			}

@@ -212,7 +212,7 @@
 			}
 		}
 
-		get_info_by_selementid($db_element["selementid"],$info_line, $color);
+		get_info_by_selementid($db_element["selementid"],$info_line, $color, $colors);
 
 		if($label_line=="" && $info_line=="")	continue;
 

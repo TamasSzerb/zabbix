@@ -64,9 +64,7 @@
 	$result=DBselect($sql, $_REQUEST["limit"]);
 
 	$table = new CTableInfo();
-	$table->SetHeader(array(S_TIME,S_STATUS,S_ACKNOWLEDGED,S_DURATION,S_SUM,"%"));
-	$table->ShowStart();
-
+	$table->setHeader(array(S_TIME,S_STATUS,S_ACKNOWLEDGED,S_DURATION,S_SUM,"%"));
 	$truesum=0;
 	$falsesum=0;
 	$dissum=0;
@@ -171,7 +169,7 @@
 				);
 		}
 
-		$table->ShowRow(array(
+		$table->addRow(array(
 			date("Y.M.d H:i:s",$row["clock"]),
 			$istrue,
 			$ack,
@@ -180,7 +178,7 @@
 			$proc
 			));
 	}
-	$table->ShowEnd();
+	$table->show();
 ?>
 
 <?php

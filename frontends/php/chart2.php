@@ -22,10 +22,7 @@
 	include "include/config.inc.php";
 	include "include/classes/graph.inc.php";
 
-	$result=DBselect("select * from graphs where graphid=".$_REQUEST["graphid"]);
-	$row=DBfetch($result);
-
-	$graph=new Graph($row["graphtype"]);
+	$graph=new Graph();
 	if(isset($_REQUEST["period"]))
 	{
 		$graph->setPeriod($_REQUEST["period"]);
@@ -43,6 +40,8 @@
 		$graph->setBorder(0);
 	}
 
+	$result=DBselect("select * from graphs where graphid=".$_REQUEST["graphid"]);
+	$row=DBfetch($result);
 	$db_hosts = get_hosts_by_graphid($_REQUEST["graphid"]);
 	$name=$row["name"];
 

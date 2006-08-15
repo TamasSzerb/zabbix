@@ -1,7 +1,7 @@
 <?php 
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -28,20 +28,20 @@
 
 	$start_time=time(NULL);
 
-	if(!isset($_REQUEST["type"]))
+	if(!isset($HTTP_GET_VARS["type"]))
 	{
-		$_REQUEST["type"]="week";
+		$HTTP_GET_VARS["type"]="week";
 	}
 
-	if($_REQUEST["type"] == "month")
+	if($HTTP_GET_VARS["type"] == "month")
 	{
 		$period=30*24*3600;
 	}
-	else if($_REQUEST["type"] == "week")
+	else if($HTTP_GET_VARS["type"] == "week")
 	{
 		$period=7*24*3600;
 	}
-	else if($_REQUEST["type"] == "year")
+	else if($HTTP_GET_VARS["type"] == "year")
 	{
 		$period=365*24*3600;
 	}
@@ -58,7 +58,10 @@
 	$shiftYup=17;
 	$shiftYdown=25+15*3;
 
-	set_image_header();
+
+//	Header( "Content-type:  text/html"); 
+	Header( "Content-type:  image/png"); 
+	Header( "Expires:  Mon, 17 Aug 1998 12:51:50 GMT"); 
 
 	check_authorisation();
 
@@ -85,15 +88,15 @@
 	ImageFilledRectangle($im,0,0,$x,$y,$white);
 	ImageRectangle($im,0,0,$x-1,$y-1,$black);
 
-//	if(!check_right_on_trigger("R",$_REQUEST["triggerid"]))
+//	if(!check_right_on_trigger("R",$HTTP_GET_VARS["triggerid"]))
 //	{
-//		ImageOut($im); 
+//		ImagePng($im); 
 //		ImageDestroy($im); 
 //		exit;
 //	}
 
 
-	$service=get_service_by_serviceid($_REQUEST["serviceid"]);
+	$service=get_service_by_serviceid($HTTP_GET_VARS["serviceid"]);
 
 	$str=$service["name"]." (year ".date("Y").")";
 	$x=imagesx($im)/2-ImageFontWidth(4)*strlen($str)/2;
@@ -117,7 +120,7 @@
 	{
 		$period_start=$start+7*24*3600*$i;
 		$period_end=$start+7*24*3600*($i+1);
-		$stat=calculate_service_availability($_REQUEST["serviceid"],$period_start,$period_end);
+		$stat=calculate_service_availability($HTTP_GET_VARS["serviceid"],$period_start,$period_end);
 		
 		$problem[$i]=$stat["problem"];
 		$ok[$i]=$stat["ok"];
@@ -222,6 +225,6 @@
 	$end_time=time(NULL);
 	ImageString($im, 0,imagesx($im)-100,imagesy($im)-12,"Generated in ".($end_time-$start_time)." sec", $gray);
 
-	ImageOut($im); 
+	ImagePng($im); 
 	ImageDestroy($im); 
 ?>

@@ -1,6 +1,6 @@
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,21 +17,7 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
-#include "diskdevices.h"
-
-
-void	collect_stats_diskdevices(ZBX_DISKDEVICES_DATA *pdiskdevices)
-{
-#if defined(TODO)
-#error "Realize function collect_stats_diskdevices IF needed"
-#endif
-}
-
-
-#if OFF && (!defined(_WINDOWS) || (defined(TODO) && defined(_WINDOWS)))
-
-//TODO!!! Make same as cpustat.c
+#include "config.h"
 
 #include <netdb.h>
 
@@ -71,6 +57,7 @@ void	collect_stats_diskdevices(ZBX_DISKDEVICES_DATA *pdiskdevices)
 
 #include <dirent.h>
 
+#include "common.h"
 #include "sysinfo.h"
 #include "security.h"
 #include "zabbix_agent.h"
@@ -137,9 +124,10 @@ void	init_stats_diskdevices()
 		}
 	}
 
-	if(NULL == (file = fopen("/proc/stat","r") ))
+	file=fopen("/proc/stat","r");
+	if(NULL == file)
 	{
-		zbx_error("Cannot open [%s] [%s].","/proc/stat", strerror(errno));
+		fprintf(stderr, "Cannot open [%s] [%m]\n","/proc/stat");
 		return;
 	}
 	i=0;
@@ -178,7 +166,7 @@ void	init_stats_diskdevices()
 		}
 	}
 
-	zbx_fclose(file);
+	fclose(file);
 }
 
 /*
@@ -199,9 +187,10 @@ void	init_stats_diskdevices()
 		}
 	}
 
-	if(NULL == (file = fopen("/proc/stat","r") ))
+	file=fopen("/proc/stat","r");
+	if(NULL == file)
 	{
-		zbx_error("Cannot open [%s] [%m].","/proc/stat");
+		fprintf(stderr, "Cannot open [%s] [%m]\n","/proc/stat");
 		return;
 	}
 	i=0;
@@ -224,7 +213,7 @@ void	init_stats_diskdevices()
 		i++;
 	}
 
-	zbx_fclose(file);
+	fclose(file);
 }
 */
 
@@ -454,8 +443,6 @@ void	add_values_diskdevices(int now,int major,int diskno,float read_io_ops,float
 
 void	collect_stats_diskdevices(FILE *outfile)
 {
-#ifdef HAVE_PROC_STAT
-
 	FILE	*file;
 
 	char	*s,*s2;
@@ -481,9 +468,10 @@ void	collect_stats_diskdevices(FILE *outfile)
 
 	now=time(NULL);
 
-	if( NULL == (file = fopen("/proc/stat","r") ))
+	file=fopen("/proc/stat","r");
+	if(NULL == file)
 	{
-		zbx_error("Cannot open [%s] [%s].","/proc/stat", strerror(errno));
+		fprintf(stderr, "Cannot open [%s] [%m]\n","/proc/stat");
 		return;
 	}
 	i=0;
@@ -515,11 +503,7 @@ void	collect_stats_diskdevices(FILE *outfile)
 		}
 	}
 
-	zbx_fclose(file);
+	fclose(file);
 
 	report_stats_diskdevices(outfile, now);
-
-#endif /* HAVE_PROC_STAT */
 }
-
-#endif /* TODO */

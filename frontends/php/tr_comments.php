@@ -1,7 +1,7 @@
 <?php
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,40 +19,56 @@
 **/
 ?>
 <?php
-	include "include/config.inc.php";
-	include "include/forms.inc.php";
-
-	$page["title"] = "S_TRIGGER_COMMENTS";
+	$page["title"] = "Trigger comments";
 	$page["file"] = "tr_comments.php";
+
+	include "include/config.inc.php";
 	show_header($page["title"],0,0);
 ?>
-
 <?php
-	if(!check_right("Trigger comment","R",$_REQUEST["triggerid"]))
+	if(!check_right("Trigger comment","R",$HTTP_GET_VARS["triggerid"]))
 	{
-		show_table_header("<font color=\"AA0000\">".S_NO_PERMISSIONS."</font>");
-		show_page_footer();
+		show_table_header("<font color=\"AA0000\">No permissions !</font>");
+		show_footer();
 		exit;
 	}
 ?>
 
 <?php
-	show_table_header(S_TRIGGER_COMMENTS_BIG);
+	show_table_header("TRIGGER COMMENTS");
+	echo "<br>";
 ?>
 
 <?php
-	if(isset($_REQUEST["register"]) && ($_REQUEST["register"]=="update"))
+	if(isset($HTTP_GET_VARS["register"]) && ($HTTP_GET_VARS["register"]=="update"))
 	{
-		$result=update_trigger_comments($_REQUEST["triggerid"],$_REQUEST["comments"]);
-		show_messages($result, S_COMMENT_UPDATED, S_CANNOT_UPDATE_COMMENT);
+		$result=update_trigger_comments($HTTP_GET_VARS["triggerid"],$HTTP_GET_VARS["comments"]);
+		show_messages($result,"Trigger comment updated","Cannot update trigger comment");
 	}
 ?>
 
 <?php
-	echo BR;
-	insert_trigger_comment_form($_REQUEST["triggerid"]);
+	$result=DBselect("select comments from triggers where triggerid=".$HTTP_GET_VARS["triggerid"]);
+	$comments=stripslashes(DBget_field($result,0,0));
 ?>
 
 <?php
-	show_page_footer();
+	show_table2_header_begin();
+	echo "Comments";
+
+	show_table2_v_delimiter();
+	echo "<form method=\"get\" action=\"tr_comments.php\">";
+	echo "<input name=\"triggerid\" type=\"hidden\" value=".$HTTP_GET_VARS["triggerid"].">";
+	echo "Comments";
+	show_table2_h_delimiter();
+	echo "<textarea name=\"comments\" cols=100 ROWS=\"25\" wrap=\"soft\">$comments</TEXTAREA>";
+
+	show_table2_v_delimiter2();
+	echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"update\">";
+
+	show_table2_header_end();
+?>
+
+<?php
+	show_footer();
 ?>

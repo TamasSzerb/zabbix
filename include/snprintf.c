@@ -86,7 +86,7 @@
 #include <stdio.h>
  /* make the compiler happy with an empty file */
  void dummy_snprintf(void) {} 
-#endif
+#else
 
 #ifdef HAVE_LONG_DOUBLE
 #define LDOUBLE long double
@@ -105,7 +105,6 @@
 #define SAFE_FREE(x) do { if ((x) != NULL) {free((x)); (x)=NULL;} } while(0)
 #endif
 
-/*
 #ifndef VA_COPY
 #ifdef HAVE_VA_COPY
 #define VA_COPY(dest, src) __va_copy(dest, src)
@@ -113,15 +112,7 @@
 #define VA_COPY(dest, src) (dest) = (src)
 #endif
 #endif
-*/
 
-#ifdef HAVE___VA_COPY
-	#define VA_COPY(dest, src) __va_copy(dest, src)
-#else
-	#define VA_COPY(dest, src) (dest) = (src)
-#endif
-
-#if !defined(HAVE_SNPRINTF)
 static size_t dopr(char *buffer, size_t maxlen, const char *format, 
 		   va_list args_in);
 static void fmtstr(char *buffer, size_t *currlen, size_t maxlen,
@@ -655,11 +646,11 @@ static void fmtfp (char *buffer, size_t *currlen, size_t maxlen,
 		}
 	}
 
-#if OFF
+#if 0
 	if (flags & DP_F_UP) caps = 1; /* Should characters be upper case? */
 #endif
 
-#if OFF
+#if 0
 	 if (max == 0) ufvalue += 0.5; /* if max = 0 we must round */
 #endif
 
@@ -779,9 +770,7 @@ static void dopr_outch(char *buffer, size_t *currlen, size_t maxlen, char c)
 }
 
 /* yes this really must be a ||. Don't muck with this (tridge) */
-/* Support for MacOS. Alexei */
-/*#if !defined(HAVE_VSNPRINTF) || !defined(HAVE_C99_VSNPRINTF)*/
-#if !defined(HAVE_VSNPRINTF)
+#if !defined(HAVE_VSNPRINTF) || !defined(HAVE_C99_VSNPRINTF)
  int vsnprintf (char *str, size_t count, const char *fmt, va_list args)
 {
 	return dopr(str, count, fmt, args);
@@ -798,6 +787,7 @@ static void dopr_outch(char *buffer, size_t *currlen, size_t maxlen, char c)
  */
 /* Alexei Does not work under HP-UX */
 /*#if !defined(HAVE_SNPRINTF) || !defined(HAVE_C99_SNPRINTF)*/
+#if !defined(HAVE_SNPRINTF)
  int snprintf(char *str,size_t count,const char *fmt,...)
 {
 	size_t ret;
@@ -808,6 +798,9 @@ static void dopr_outch(char *buffer, size_t *currlen, size_t maxlen, char c)
 	va_end(ap);
 	return ret;
 }
+#endif
+
+#endif 
 
 #ifndef HAVE_VASPRINTF
  int vasprintf(char **ptr, const char *format, va_list ap)
@@ -983,5 +976,3 @@ static void dopr_outch(char *buffer, size_t *currlen, size_t maxlen, char c)
 	return 0;
 }
 #endif /* SNPRINTF_TEST */
-
-#endif /* !SNPRINTF */

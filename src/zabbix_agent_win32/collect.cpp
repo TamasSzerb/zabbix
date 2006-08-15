@@ -55,32 +55,16 @@ static DWORD collectorTimesHistory[60];
 void CollectorThread(void *)
 {
    HQUERY query;
+   HCOUNTER cntCpuUsage[MAX_CPU+1],cntCpuQueue;
    PDH_FMT_COUNTERVALUE value;
+   PDH_RAW_COUNTER rawCpuUsage1[MAX_CPU+1],rawCpuUsage2[MAX_CPU+1];
    PDH_RAW_COUNTER rawCounter;      // Generic raw counter for various parameters
    PDH_STATUS status;
    SYSTEM_INFO sysInfo;
-   USER_COUNTER *cptr = NULL;
+   DWORD i,cpuHistoryIdx,cpuQueueHistoryIdx,collectorTimesIdx,dwSleepTime;
+   USER_COUNTER *cptr;
    PDH_STATISTICS statData;
    char counterPath[MAX_COUNTER_PATH * 2 + 50];
-
-   PDH_HCOUNTER 
-		cntCpuUsage[MAX_CPU+1], 
-		cntCpuQueue=NULL;
-
-   PDH_RAW_COUNTER 
-		rawCpuUsage1[MAX_CPU+1],
-		rawCpuUsage2[MAX_CPU+1];
-
-   DWORD 
-	   i = 0,
-	   cpuHistoryIdx = 0,
-	   cpuQueueHistoryIdx = 0,
-	   collectorTimesIdx = 0,
-	   dwSleepTime = 0;
-
-
-INIT_CHECK_MEMORY(main);
-LOG_DEBUG_INFO("s", "CollectorThread start");
 
    GetSystemInfo(&sysInfo);
 
@@ -95,35 +79,28 @@ LOG_DEBUG_INFO("s", "CollectorThread start");
 
    if (PdhOpenQuery(NULL,0,&query)!=ERROR_SUCCESS)
    {
-		WriteLog(MSG_PDH_OPEN_QUERY_FAILED,EVENTLOG_ERROR_TYPE,"e",GetLastError());
-		goto lbl_End;
+      WriteLog(MSG_PDH_OPEN_QUERY_FAILED,EVENTLOG_ERROR_TYPE,"e",GetLastError());
+      return;
    }
 
-
    sprintf(counterPath,"\\%s(_Total)\\%s",GetCounterName(PCI_PROCESSOR),GetCounterName(PCI_PROCESSOR_TIME));
-
-LOG_DEBUG_INFO("s","counterPath1");
-LOG_DEBUG_INFO("s",counterPath);
 
    if ((status=PdhAddCounter(query,counterPath, 0, &cntCpuUsage[0]))!=ERROR_SUCCESS)
    {
       WriteLog(MSG_PDH_ADD_COUNTER_FAILED,EVENTLOG_ERROR_TYPE,"ss",
                (char *) &counterPath, GetPdhErrorText(status));
-      goto lbl_CloseQuery;
+      PdhCloseQuery(query);
+      return;
    }
-
    for(i=0;i<sysInfo.dwNumberOfProcessors;i++)
    {
       sprintf(counterPath,"\\%s(%d)\\%s", GetCounterName(PCI_PROCESSOR), i, GetCounterName(PCI_PROCESSOR_TIME));
-
-LOG_DEBUG_INFO("s","counterPath2");
-LOG_DEBUG_INFO("s",counterPath);
-
       if ((status=PdhAddCounter(query,counterPath,0,&cntCpuUsage[i+1]))!=ERROR_SUCCESS)
       {
          WriteLog(MSG_PDH_ADD_COUNTER_FAILED,EVENTLOG_ERROR_TYPE,"ss",
                   counterPath,GetPdhErrorText(status));
-         goto lbl_FreeCounters;
+         PdhCloseQuery(query);
+         return;
       }
    }
 
@@ -131,9 +108,9 @@ LOG_DEBUG_INFO("s",counterPath);
    {
       WriteLog(MSG_PDH_COLLECT_QUERY_DATA_FAILED,EVENTLOG_ERROR_TYPE,"s",
                GetPdhErrorText(status));
-      goto lbl_FreeCounters;
+      PdhCloseQuery(query);
+      return;
    }
-
    for(i=0;i<sysInfo.dwNumberOfProcessors;i++)
       PdhGetRawCounterValue(cntCpuUsage[i],NULL,&rawCpuUsage2[i]);
 
@@ -141,15 +118,13 @@ LOG_DEBUG_INFO("s",counterPath);
 
    sprintf((char *) &counterPath, "\\%s\\%s", GetCounterName(PCI_SYSTEM), GetCounterName(PCI_PROCESSOR_QUEUE_LENGTH));
 
-LOG_DEBUG_INFO("s","counterPath3");
-LOG_DEBUG_INFO("s",counterPath);
-
    // Prepare for CPU execution queue usage collection
    if ((status=PdhAddCounter(query,(char *) &counterPath,0,&cntCpuQueue))!=ERROR_SUCCESS)
    {
       WriteLog(MSG_PDH_ADD_COUNTER_FAILED,EVENTLOG_ERROR_TYPE,"ss",
                (char *) &counterPath,GetPdhErrorText(status));
-      goto lbl_FreeCounters;
+      PdhCloseQuery(query);
+      return;
    }
 
    memset(cpuQueueHistory,0,sizeof(LONG)*900);
@@ -158,10 +133,6 @@ LOG_DEBUG_INFO("s",counterPath);
    // Add user counters to query
    for(cptr=userCounterList;cptr!=NULL;cptr=cptr->next)
    {
-
-LOG_DEBUG_INFO("s","counterPath4");
-LOG_DEBUG_INFO("s",counterPath);
-
       if ((status=PdhAddCounter(query,cptr->counterPath,0,&cptr->handle))!=ERROR_SUCCESS)
       {
          cptr->interval=-1;   // Flag for unsupported counters
@@ -174,26 +145,20 @@ LOG_DEBUG_INFO("s",counterPath);
    // Data collection loop
    WriteLog(MSG_COLLECTOR_INIT_OK,EVENTLOG_INFORMATION_TYPE,NULL);
    SetEvent(eventCollectorStarted);
-
    do
    {
       LONG sum;
       int j,n;
       DWORD dwTicksStart,dwTicksElapsed;
 
-INIT_CHECK_MEMORY(do);
-
       dwTicksStart=GetTickCount();
       if ((status=PdhCollectQueryData(query))!=ERROR_SUCCESS)
-	  {
          WriteLog(MSG_PDH_COLLECT_QUERY_DATA_FAILED,EVENTLOG_ERROR_TYPE,"s",
                   GetPdhErrorText(status));
-	  }
 
       // Process CPU utilization data
       for(i=0;i<=sysInfo.dwNumberOfProcessors;i++)
       {
-
          PdhGetRawCounterValue(cntCpuUsage[i],NULL,&rawCpuUsage1[i]);
          PdhCalculateCounterFromRawValue(cntCpuUsage[i],PDH_FMT_LONG,
                                          &rawCpuUsage1[i],&rawCpuUsage2[i],&value);
@@ -275,10 +240,8 @@ INIT_CHECK_MEMORY(do);
       // Calculate time spent on sample processing and issue warning if it exceeds threshold
       dwTicksElapsed=GetTickCount()-dwTicksStart;
       if (dwTicksElapsed>confMaxProcTime)
-	  {
-         LOG_DEBUG_INFO("s","Processing took too many time.");
-         LOG_DEBUG_INFO("d",dwTicksElapsed);
-	  }
+         WriteLog(MSG_BIG_PROCESSING_TIME,EVENTLOG_WARNING_TYPE,"dd",
+                  confMaxProcTime,dwTicksElapsed);
 
       // Save processing time to history buffer
       collectorTimesHistory[collectorTimesIdx++]=dwTicksElapsed;
@@ -293,30 +256,12 @@ INIT_CHECK_MEMORY(do);
       // Change maximum processing time if needed
       if ((double)dwTicksElapsed>statMaxCollectorTime)
          statMaxCollectorTime=(double)dwTicksElapsed;
+
       // Calculate sleeping time. We will sleep not less than 500 milliseconds even
       // if processing takes more than 500 milliseconds
       dwSleepTime=(dwTicksElapsed>500) ? 500 : (1000-dwTicksElapsed);
+   }
+   while(WaitForSingleObject(eventShutdown,dwSleepTime)==WAIT_TIMEOUT);
 
-CHECK_MEMORY(do, "CollectorThread","end do");
-   } while(WaitForSingleObject(eventShutdown,dwSleepTime)==WAIT_TIMEOUT);
-
-lbl_FreeCounters:
-	PdhRemoveCounter(cntCpuQueue);
-
-	if(cptr)
-		PdhRemoveCounter(cptr->handle);
-
-	for(i=0; i<(MAX_CPU+1); i++)
-		PdhRemoveCounter(cntCpuUsage[i]);
-	
-
-lbl_CloseQuery:
    PdhCloseQuery(query);
-
-lbl_End:
-
-LOG_DEBUG_INFO("s", "CollectorThread end");
-CHECK_MEMORY(main, "CollectorThread","end");
-
-	_endthread();
 }

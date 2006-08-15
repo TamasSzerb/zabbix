@@ -1,7 +1,7 @@
 <?php 
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -30,7 +30,9 @@
 	$sizeX=200;
 	$sizeY=15;
 
-	set_image_header();
+//	Header( "Content-type:  text/html"); 
+	Header( "Content-type:  image/png"); 
+	Header( "Expires:  Mon, 17 Aug 1998 12:51:50 GMT"); 
 
 	check_authorisation();
 
@@ -52,8 +54,8 @@
 	$now=time(NULL);
 	$period_start=$now-7*24*3600;
 	$period_end=$now;
-	$service=get_service_by_serviceid($_REQUEST["serviceid"]);
-	$stat=calculate_service_availability($_REQUEST["serviceid"],$period_start,$period_end);
+	$service=get_service_by_serviceid($HTTP_GET_VARS["serviceid"]);
+	$stat=calculate_service_availability($HTTP_GET_VARS["serviceid"],$period_start,$period_end);
 		
 	$problem=$stat["problem"];
 	$ok=$stat["ok"];
@@ -77,6 +79,6 @@
 	ImageString($im, 2,1,1, $s , $white);
 	$s=sprintf("%2.2f%%", $problem);
 	ImageString($im, 2,$sizeX-45,1, $s , $white);
-	ImageOut($im); 
+	ImagePng($im); 
 	ImageDestroy($im); 
 ?>

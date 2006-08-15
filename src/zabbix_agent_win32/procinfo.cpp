@@ -195,17 +195,10 @@ LONG H_ProcInfo(char *cmd,char *arg,double *value)
    };
    static char *typeList[]={ "min","max","avg","sum" };
 
-INIT_CHECK_MEMORY(main);
-
    // Get parameter arguments
    GetParameterInstance(cmd,buffer,255);
    if (!MatchString("*:*:*",buffer))
-   {
-
-CHECK_MEMORY(main,"H_ProcInfo","end");
-
       return SYSINFO_RC_NOTSUPPORTED;     // Invalid parameter syntax
-   }
 
    // Parse arguments
    ptr1=strchr(buffer,':');
@@ -220,32 +213,17 @@ CHECK_MEMORY(main,"H_ProcInfo","end");
       if (!strcmp(attrList[attr],ptr1))
          break;
    if (attrList[attr]==NULL)
-   {
-CHECK_MEMORY(main,"H_ProcInfo","typeList");
-
       return SYSINFO_RC_NOTSUPPORTED;     // Unsupported attribute
-   }
 
    if (!IsAttributeSupported(attr))
-   {
-
-CHECK_MEMORY(main,"H_ProcInfo","IsAttributeSupported");
-
       return SYSINFO_RC_NOTSUPPORTED;     // Unsupported attribute
-   }
 
    // Get type code from string
    for(type=0;typeList[type]!=NULL;type++)
       if (!strcmp(typeList[type],ptr2))
          break;
    if (typeList[type]==NULL)
-   {
-
-CHECK_MEMORY(main,"H_ProcInfo","typeList");
-
-
-      return SYSINFO_RC_NOTSUPPORTED;     // Unsupported type	 
-   }
+      return SYSINFO_RC_NOTSUPPORTED;     // Unsupported type
 
    // Gather information
    *value=0;   // Initialize to zero
@@ -281,8 +259,6 @@ CHECK_MEMORY(main,"H_ProcInfo","typeList");
    // Cleanup
    free(procList);
    free(modList);
-
-CHECK_MEMORY(main,"H_ProcInfo","end");
 
    return SYSINFO_RC_SUCCESS;
 }

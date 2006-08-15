@@ -1,7 +1,7 @@
 <?php
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,18 +20,17 @@
 ?>
 <?php
 	include "include/config.inc.php";
-	$page["title"] = "S_CUSTOM_GRAPHS";
+	$page["title"] = "User defined graphs";
 	$page["file"] = "charts.php";
 
 	$nomenu=0;
-	if(isset($_REQUEST["fullscreen"]))
+	if(isset($HTTP_GET_VARS["fullscreen"]))
 	{
 		$nomenu=1;
 	}
-
-	if(isset($_REQUEST["graphid"]) && $_REQUEST["graphid"] > 0 && !isset($_REQUEST["period"]) && !isset($_REQUEST["stime"]))
+	if(isset($HTTP_GET_VARS["graphid"]) && !isset($HTTP_GET_VARS["period"]) && !isset($HTTP_GET_VARS["stime"]))
 	{
-		show_header($page["title"],1,$nomenu);
+		show_header($page["title"],30,$nomenu);
 	}
 	else
 	{
@@ -41,170 +40,118 @@
 ?>
 
 <?php
-//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-	$fields=array(
-		"groupid"=>		array(T_ZBX_INT, O_OPT,	 P_SYS,		DB_ID,NULL),
-		"hostid"=>		array(T_ZBX_INT, O_OPT,  P_SYS,		DB_ID,NULL),
-		"graphid"=>		array(T_ZBX_INT, O_OPT,	P_SYS|P_NZERO,	DB_ID,NULL),
-		"dec"=>			array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
-		"inc"=>			array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
-		"left"=>		array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
-		"right"=>		array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
-		"from"=>		array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
-		"period"=>		array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
-		"stime"=>		array(T_ZBX_STR, O_OPT,  P_SYS, 	NULL,NULL),
-		"action"=>		array(T_ZBX_STR, O_OPT,  P_SYS, 	IN("'go'"),NULL),
-		"reset"=>		array(T_ZBX_STR, O_OPT,  P_SYS, 	IN("'reset'"),NULL),
-		"fullscreen"=>		array(T_ZBX_INT, O_OPT,	P_SYS,		IN("1"),		NULL)
-	);
-
-	check_fields($fields);
-
-	$_REQUEST["graphid"] = get_request("graphid", get_profile("web.charts.grapgid", 0));
-	$_REQUEST["keep"] = get_request("keep", 1); // possible excessed REQUEST variable !!!
-
-	$_REQUEST["period"] = get_request("period",get_profile("web.graph[".$_REQUEST["graphid"]."].period", 3600));
-	$effectiveperiod=navigation_bar_calc();
-
-	validate_group_with_host("R",array("allow_all_hosts","monitored_hosts","with_items"));
-
-	if($_REQUEST["graphid"] > 0 && $_REQUEST["hostid"] > 0)
+// BEGIN - IGMI - keep default value
+	if(!isset($HTTP_GET_VARS["keep"]))
 	{
-		$result=DBselect("select g.graphid from graphs g, graphs_items gi, items i".
-			" where i.hostid=".$_REQUEST["hostid"]." and gi.itemid = i.itemid".
-			" and gi.graphid = g.graphid and g.graphid=".$_REQUEST["graphid"]);
-		if(!DBfetch($result))
-			$_REQUEST["graphid"] = 0;
+		$HTTP_GET_VARS["keep"]=1;
 	}
-?>
+// END - IGMI - keep default value
 
-<?php
-	if($_REQUEST["graphid"] > 0 && $_REQUEST["period"] >= 3600)
+	if(!isset($HTTP_GET_VARS["fullscreen"]))
 	{
-		update_profile("web.graph[".$_REQUEST["graphid"]."].period",$_REQUEST["period"]);
-	}
+		show_table_header_begin();
+		echo "GRAPHS";
 
-	update_profile("web.charts.grapgid",$_REQUEST["graphid"]);
-	update_profile("web.menu.view.last",$page["file"]);
-?>
+		show_table_v_delimiter();
 
-<?php
-	if($_REQUEST["graphid"] > 0)
-	{
-		$result=DBselect("select name from graphs where graphid=".$_REQUEST["graphid"]);
-		$row=DBfetch($result);
-		$graph=$row["name"];
-		$h1=iif(isset($_REQUEST["fullscreen"]),
-			"<a href=\"charts.php?graphid=".$_REQUEST["graphid"]."\">".$graph."</a>",
-			"<a href=\"charts.php?graphid=".$_REQUEST["graphid"]."&fullscreen=1\">".$graph."</a>");
-	}
-	else
-	{
-		$h1=S_SELECT_GRAPH_TO_DISPLAY;
-	}
+		echo "<font size=2>";
 
-	$h1=S_GRAPHS_BIG.nbsp(" / ").$h1;
-
-	$h2=S_GROUP.SPACE;
-	$h2=$h2."<select class=\"biginput\" name=\"groupid\" onChange=\"submit()\">";
-	$h2=$h2.form_select("groupid",0,S_ALL_SMALL);
-	$result=DBselect("select groupid,name from groups order by name");
-	while($row=DBfetch($result))
-	{
-// Check if at least one host with read permission exists for this group
-		$result2=DBselect("select h.hostid,h.host from hosts h,items i,hosts_groups hg where h.status=".HOST_STATUS_MONITORED." and h.hostid=i.hostid and hg.groupid=".$row["groupid"]." and hg.hostid=h.hostid group by h.hostid,h.host order by h.host");
-		$cnt=0;
-		while($row2=DBfetch($result2))
+		$result=DBselect("select graphid,name from graphs order by name");
+		while($row=DBfetch($result))
 		{
-			if(!check_right("Host","R",$row2["hostid"]))
+			if(!check_right("Graph","R",$row["graphid"]))
 			{
 				continue;
 			}
-			$cnt=1; break;
+			if( isset($HTTP_GET_VARS["graphid"]) && ($HTTP_GET_VARS["graphid"] == $row["graphid"]) )
+			{
+				echo "<b>[";
+			}
+// BEGIN - IGMI - keep support
+			$str="";
+			if(isset($HTTP_GET_VARS["keep"]))
+			{
+				if($HTTP_GET_VARS["keep"] == 1)
+				{
+					if(isset($HTTP_GET_VARS["from"]))
+					{
+						$str=$str."&from=".$HTTP_GET_VARS["from"];
+					}
+					if(isset($HTTP_GET_VARS["period"]))
+					{
+						$str=$str."&period=".$HTTP_GET_VARS["period"];
+					}
+				}
+				$str=$str."&keep=".$HTTP_GET_VARS["keep"];
+			}
+			echo "<a href='charts.php?graphid=".$row["graphid"].url_param("stime").$str."'>".$row["name"]."</a>";
+// END - IGMI - keep support
+//			echo "<a href='charts.php?graphid=".$row["graphid"]."'>".$row["name"]."</a>";
+			if(isset($HTTP_GET_VARS["graphid"]) && ($HTTP_GET_VARS["graphid"] == $row["graphid"]) )
+			{
+				echo "]</b>";
+			}
+			echo " ";
 		}
-		if($cnt!=0)
+
+		if(DBnum_rows($result) == 0)
 		{
-			$h2=$h2.form_select("groupid",$row["groupid"],$row["name"]);
+			echo "No graphs to display";
 		}
-	}
-	$h2=$h2."</select>";
 
-	$h2=$h2.SPACE.S_HOST.SPACE;
-	$h2=$h2."<select class=\"biginput\" name=\"hostid\" onChange=\"submit()\">";
-
-	if($_REQUEST["groupid"] > 0)
-	{
-		$sql="select h.hostid,h.host from hosts h,items i,hosts_groups hg where h.status=".HOST_STATUS_MONITORED." and h.hostid=i.hostid and hg.groupid=".$_REQUEST["groupid"]." and hg.hostid=h.hostid group by h.hostid,h.host order by h.host";
-	}
-	else
-	{
-		$h2=$h2.form_select("hostid",0,S_ALL_SMALL);
-
-		$sql="select h.hostid,h.host from hosts h,items i where h.status=".HOST_STATUS_MONITORED." and h.hostid=i.hostid group by h.hostid,h.host order by h.host";
+		echo "</font>";
+		show_table_header_end();
+		echo "<br>";
 	}
 
-	$result=DBselect($sql);
-	while($row=DBfetch($result))
-	{
-		if(!check_right("Host","R",$row["hostid"]))
-		{
-			continue;
-		}
-		$h2=$h2.form_select("hostid",$row["hostid"],$row["host"]);
-	}
-	$h2=$h2."</select>";
-
-	if(isset($_REQUEST["fullscreen"]))
-	{
-		$h2="<input name=\"fullscreen\" type=\"hidden\" value=".$_REQUEST["fullscreen"].">";
-	}
-
-	$h2=$h2.SPACE.S_GRAPH.SPACE;
-	$h2=$h2."<select class=\"biginput\" name=\"graphid\" onChange=\"submit()\">";
-	$h2=$h2.form_select("graphid",0,S_SELECT_GRAPH_DOT_DOT_DOT);
-
-	if($_REQUEST["hostid"] > 0)
-	{
-		$sql = "select distinct g.graphid,g.name from graphs g,graphs_items gi,items i".
-			" where i.itemid=gi.itemid and g.graphid=gi.graphid and i.hostid=".$_REQUEST["hostid"]." order by g.name";
-	}
-	elseif ($_REQUEST["groupid"] > 0)
-	{
-		$sql = "select distinct g.graphid,g.name from graphs g,graphs_items gi,items i,hosts_groups hg,hosts h".
-			" where i.itemid=gi.itemid and g.graphid=gi.graphid and i.hostid=hg.hostid and hg.groupid=".$_REQUEST["groupid"].
-			" and i.hostid=h.hostid and h.status=".HOST_STATUS_MONITORED.
-			" order by g.name";
-	}
-	else
-	{
-		$sql = "select distinct g.graphid,g.name from graphs g,graphs_items gi,items i,hosts h".
-			" where i.itemid=gi.itemid and g.graphid=gi.graphid ".
-			" and i.hostid=h.hostid and h.status=".HOST_STATUS_MONITORED.
-			" order by g.name";
-	}
-
-	$result=DBselect($sql);
-	while($row=DBfetch($result))
-	{
-		if(!check_right("Graph","R",$row["graphid"]))
-		{
-			continue;
-		}
-		$h2=$h2.form_select("graphid",$row["graphid"],$row["name"]);
-	}
-	$h2=$h2."</select>";
-
-	show_header2($h1,$h2,"<form name=\"form2\" method=\"get\" action=\"charts.php\">","</form>");
 ?>
 
 <?php
+	if(isset($HTTP_GET_VARS["graphid"]))
+	{
+		$result=DBselect("select name from graphs where graphid=".$HTTP_GET_VARS["graphid"]);
+		$row=DBfetch($result);
+		$str="";
+		if(isset($HTTP_GET_VARS["from"]))
+		{
+			$str=$str."&from=".$HTTP_GET_VARS["from"];
+		}
+		if(isset($HTTP_GET_VARS["period"]))
+		{
+			$str=$str."&period=".$HTTP_GET_VARS["period"];
+		}
+// BEGIN - IGMI - keep support added
+		if(isset($HTTP_GET_VARS["fullscreen"]))
+		{
+			$map="<a href=\"charts.php?graphid=".$HTTP_GET_VARS["graphid"].$str."&keep=".$HTTP_GET_VARS["keep"]."\">".$row["name"]."</a>";
+		}
+		else
+		{
+			$map="<a href=\"charts.php?graphid=".$HTTP_GET_VARS["graphid"]."&fullscreen=1".$str."&keep=".$HTTP_GET_VARS["keep"]."\">".$row["name"]."</a>";
+		}
+// END - IGMI - keep support added
+	}
+	else
+	{
+		$map="Select graph to display";
+	}
+	if(!isset($HTTP_GET_VARS["from"]))
+	{
+		$HTTP_GET_VARS["from"]=0;
+	}
+	if(!isset($HTTP_GET_VARS["period"]))
+	{
+		$HTTP_GET_VARS["period"]=3600;
+	}
+
+	show_table_header($map);
 	echo "<TABLE BORDER=0 align=center COLS=4 WIDTH=100% BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
 	echo "<TR BGCOLOR=#DDDDDD>";
 	echo "<TD ALIGN=CENTER>";
-	if($_REQUEST["graphid"] > 0)
+	if(isset($HTTP_GET_VARS["graphid"]))
 	{
 		echo "<script language=\"JavaScript\">";
-		echo "document.write(\"<IMG SRC='chart2.php?graphid=".$_REQUEST["graphid"].url_param("stime")."&period=".$effectiveperiod."&from=".$_REQUEST["from"]."&width=\"+(document.width-108)+\"'>\")";
+		echo "document.write(\"<IMG SRC='chart2.php?graphid=".$HTTP_GET_VARS["graphid"].url_param("stime")."&period=".$HTTP_GET_VARS["period"]."&from=".$HTTP_GET_VARS["from"]."&width=\"+(document.width-108)+\"'>\")";
 		echo "</script>";
 	}
 	else
@@ -215,13 +162,167 @@
 	echo "</TR>";
 	echo "</TABLE>";
 
-	if($_REQUEST["graphid"] > 0/*&&(!isset($_REQUEST["fullscreen"]))*/)
+	if(isset($HTTP_GET_VARS["graphid"])/*&&(!isset($HTTP_GET_VARS["fullscreen"]))*/)
 	{
-		navigation_bar("charts.php");
+// BEGIN - IGMI - just another way of navigation
+	echo "<TABLE BORDER=0 align=center COLS=2 WIDTH=100% BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
+	echo "<TR BGCOLOR=#FFFFFF>";
+	echo "<TD ALIGN=LEFT>";
+		echo("<div align=left>");
+
+		echo("<b>Period:</b>&nbsp;");
+
+		$hour=3600;
+		
+		$a=array("1h"=>3600,"2h"=>2*3600,"4h"=>4*3600,"8h"=>8*3600,"12h"=>12*3600,
+			"24h"=>24*3600,"week"=>7*24*3600,"month"=>31*24*3600,"year"=>365*24*3600);
+		foreach($a as $label=>$sec)
+		{
+			echo "[";
+			if($HTTP_GET_VARS["period"]>$sec)
+			{
+				$tmp=$HTTP_GET_VARS["period"]-$sec;
+				echo("<A HREF=\"charts.php?period=$tmp".url_param("graphid").url_param("stime").url_param("from").url_param("keep").url_param("fullscreen")."\">-</A>");
+			}
+			else
+			{
+				echo "-";
+			}
+
+			echo("<A HREF=\"charts.php?period=$sec".url_param("graphid").url_param("stime").url_param("from").url_param("keep").url_param("fullscreen")."\">");
+			echo($label."</A>");
+
+			$tmp=$HTTP_GET_VARS["period"]+$sec;
+			echo("<A HREF=\"charts.php?period=$tmp".url_param("graphid").url_param("stime").url_param("from").url_param("keep").url_param("fullscreen")."\">+</A>");
+
+			echo "]&nbsp;";
+		}
+
+//		echo("[<A HREF=\"charts.php?period=".(7*24*3600).url_param("graphid").url_param("from").url_param("keep").url_param("fullscreen")."\">week</A>]&nbsp;");
+//		echo("[<A HREF=\"charts.php?period=".(30*24*3600).url_param("graphid").url_param("from").url_param("keep").url_param("fullscreen")."\">month</A>]&nbsp;");
+//		echo("[<A HREF=\"charts.php?period=".(365*24*3600).url_param("graphid").url_param("from").url_param("keep").url_param("fullscreen")."\">year</A>]&nbsp;");
+
+/*		echo("or&nbsp;");
+		$tmp=$HTTP_GET_VARS["period"]+$hour;
+		echo("[<A HREF=\"charts.php?period=$tmp".url_param("graphid").url_param("from").url_param("keep").url_param("fullscreen")."\">");
+		echo("+1h</A>]&nbsp;");
+
+		if ($HTTP_GET_VARS["period"]>$hour) 
+		{
+			$tmp=$HTTP_GET_VARS["period"]-$hour;
+//			echo("[<A HREF=\"charts.php?graphid=".$HTTP_GET_VARS["graphid"]."&from=".$HTTP_GET_VARS["from"]."&period=".$tmp."&keep=".$HTTP_GET_VARS["keep"]."\">");
+			echo("[<A HREF=\"charts.php?period=$tmp".url_param("graphid").url_param("from").url_param("keep").url_param("fullscreen")."\">");
+			echo("-1h</A>]&nbsp;");
+		}
+		else
+		{
+			echo("[-1h]&nbsp;");
+		}*/
+
+		echo("</div>");
+
+	echo "</TD>";
+	echo "<TD BGCOLOR=#FFFFFF WIDTH=15% ALIGN=RIGHT>";
+		echo(" <b>Keep&nbsp;period:</b>&nbsp;");
+		if($HTTP_GET_VARS["keep"] == 1)
+		{
+			echo("[<A HREF=\"charts.php?keep=0".url_param("graphid").url_param("from").url_param("period").url_param("fullscreen")."\">On</a>]");
+		}
+		else
+		{
+			echo("[<A HREF=\"charts.php?keep=1".url_param("graphid").url_param("from").url_param("period").url_param("fullscreen")."\">Off</a>]");
+		}
+	echo "</TD>";
+	echo "</TR>";
+	echo "<TR BGCOLOR=#FFFFFF>";
+	echo "<TD>";
+	if(isset($HTTP_GET_VARS["stime"]))
+	{
+		echo("<div align=left>");
+		echo("<b>Move:</b>&nbsp;");
+
+		$day=24;
+		$a=array("1h"=>1,"2h"=>2,"4h"=>4,"8h"=>8,"12h"=>12,
+			"24h"=>24,"week"=>7*24,"month"=>31*24,"year"=>365*24);
+		foreach($a as $label=>$hours)
+		{
+			echo "[";
+
+			$stime=$HTTP_GET_VARS["stime"];
+			$tmp=mktime(substr($stime,8,2),substr($stime,10,2),0,substr($stime,4,2),substr($stime,6,2),substr($stime,0,4));
+			$tmp=$tmp-3600*$hours;
+			$tmp=date("YmdHi",$tmp);
+			echo("<A HREF=\"charts.php?stime=$tmp".url_param("graphid").url_param("period").url_param("keep").url_param("fullscreen")."\">-</A>");
+
+			echo($label);
+
+			$stime=$HTTP_GET_VARS["stime"];
+			$tmp=mktime(substr($stime,8,2),substr($stime,10,2),0,substr($stime,4,2),substr($stime,6,2),substr($stime,0,4));
+			$tmp=$tmp+3600*$hours;
+			$tmp=date("YmdHi",$tmp);
+			echo("<A HREF=\"charts.php?stime=$tmp".url_param("graphid").url_param("period").url_param("keep").url_param("fullscreen")."\">+</A>");
+
+			echo "]&nbsp;";
+		}
+		echo("</div>");
+	}
+	else
+	{
+		echo("<div align=left>");
+		echo("<b>Move:</b>&nbsp;");
+
+		$day=24;
+		$a=array("1h"=>1,"2h"=>2,"4h"=>4,"8h"=>8,"12h"=>12,
+			"24h"=>24,"week"=>7*24,"month"=>31*24,"year"=>365*24);
+		foreach($a as $label=>$hours)
+		{
+			echo "[";
+			$tmp=$HTTP_GET_VARS["from"]+$hours;
+			echo("<A HREF=\"charts.php?from=$tmp".url_param("graphid").url_param("period").url_param("keep").url_param("fullscreen")."\">-</A>");
+
+			echo($label);
+
+			if($HTTP_GET_VARS["from"]>=$hours)
+			{
+				$tmp=$HTTP_GET_VARS["from"]-$hours;
+				echo("<A HREF=\"charts.php?from=$tmp".url_param("graphid").url_param("period").url_param("keep").url_param("fullscreen")."\">+</A>");
+			}
+			else
+			{
+				echo "+";
+			}
+
+			echo "]&nbsp;";
+		}
+		echo("</div>");
+	}
+	echo "</TD>";
+	echo "<TD BGCOLOR=#FFFFFF WIDTH=15% ALIGN=RIGHT>";
+//		echo("<div align=left>");
+		echo "<form method=\"put\" action=\"charts.php\">";
+		echo "<input name=\"graphid\" type=\"hidden\" value=\"".$HTTP_GET_VARS["graphid"]."\" size=12>";
+		echo "<input name=\"period\" type=\"hidden\" value=\"".(9*3600)."\" size=12>";
+		if(isset($HTTP_GET_VARS["stime"]))
+		{
+			echo "<input name=\"stime\" class=\"biginput\" value=\"".$HTTP_GET_VARS["stime"]."\" size=12>";
+		}
+		else
+		{
+			echo "<input name=\"stime\" class=\"biginput\" value=\"yyyymmddhhmm\" size=12>";
+		}
+		echo "&nbsp;";
+		echo "<input class=\"button\" type=\"submit\" name=\"action\" value=\"go\">";
+		echo "</form>";
+//		echo("</div>");
+	echo "</TD>";
+	echo "</TR>";
+	echo "</TABLE>";
+
+// END - IGMI - just another way of navigation
 	}
 	
 ?>
 
 <?php
-	show_page_footer();
+	show_footer();
 ?>

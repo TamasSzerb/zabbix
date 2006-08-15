@@ -37,100 +37,27 @@ static ALIAS *aliasList=NULL;
 
 BOOL AddAlias(char *name,char *value)
 {
-/*
    ALIAS *alias;
-   BOOL ret = FALSE;
 
    // Find alias in the list
-	for(alias=aliasList;alias!=NULL;alias=alias->next)
-		if (!strcmp(alias->name,name))
-		{
-			ret = FALSE;
-			break;
-		}
-	
-	if(ret == TRUE)
-	{
-		// Create new structure and add it to the list
-		alias=(ALIAS *)malloc(sizeof(ALIAS));
-		if (alias==NULL)
-		{
-			memset(alias,0,sizeof(ALIAS));
-			strncpy(alias->name,name,MAX_ALIAS_NAME-1);
-			alias->value=(char *)malloc(strlen(value)+1);
-			strcpy(alias->value,value);
-			alias->next=aliasList;
-			aliasList=alias;
-		}
-		else
-		{
-			ret = FALSE;
-		}
-	}
+   for(alias=aliasList;alias!=NULL;alias=alias->next)
+      if (!strcmp(alias->name,name))
+         return FALSE;
 
-   return ret;
-/**/
+   // Create new structure and add it to the list
+   alias=(ALIAS *)malloc(sizeof(ALIAS));
+   if (alias==NULL)
+      return FALSE;
+   memset(alias,0,sizeof(ALIAS));
+   strncpy(alias->name,name,MAX_ALIAS_NAME-1);
+   alias->value=(char *)malloc(strlen(value)+1);
+   strcpy(alias->value,value);
+   alias->next=aliasList;
+   aliasList=alias;
 
-	ALIAS *alias;
-	BOOL ret = FALSE;
-
-	for(alias=aliasList; ; alias=alias->next)
-	{
-		/* Add new parameters */
-		if(alias == NULL)
-		{
-			alias=(ALIAS *)malloc(sizeof(ALIAS));
-			if (alias!=NULL)
-			{
-				memset(alias,0,sizeof(ALIAS));
-				strncpy(alias->name, name, MAX_ALIAS_NAME-1);
-				alias->value = (char *)malloc(strlen(value)+1);
-				strcpy(alias->value,value);
-				alias->next=aliasList;
-				aliasList=alias;
-
-				ret = TRUE;
-			}
-			break;
-		}
-
-		/* Replace existing parameters */
-		if (strcmp(alias->name, name) == 0)
-		{
-			if(alias->value)
-				free(alias->value);
-
-			memset(alias, 0, sizeof(ALIAS));
-			
-			strncpy(alias->name, name, MAX_ALIAS_NAME-1);
-			
-			alias->value = (char *)malloc(strlen(value)+1);
-			strcpy(alias->value, value);
-
-			alias->next = aliasList;
-			aliasList = alias;
-
-			ret = TRUE;
-			break;
-		}
-	}
-	return ret;
+   return TRUE;
 }
 
-void	FreeAliasList(void)
-{
-	ALIAS	*curr;
-	ALIAS	*next;
-		
-	next = aliasList;
-	while(next!=NULL)
-	{
-		curr = next;
-		next = curr->next;
-		free(curr->value);
-		free(curr);
-	}
-}
 
 //
 // Checks parameter and expands it if aliased
@@ -139,22 +66,13 @@ void	FreeAliasList(void)
 void ExpandAlias(char *orig,char *expanded)
 {
    ALIAS *alias;
-   int ret = 1;
-
-INIT_CHECK_MEMORY(main);
 
    for(alias=aliasList;alias!=NULL;alias=alias->next)
       if (!strcmp(alias->name,orig))
       {
          strcpy(expanded,alias->value);
-		 ret = 0;
-         break;
+         return;
       }
 
-	if(ret == 1)
-	{
-		strcpy(expanded,orig);
-	}
-
-CHECK_MEMORY(main, "ExpandAlias","end");
+   strcpy(expanded,orig);
 }

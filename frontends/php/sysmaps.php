@@ -1,7 +1,7 @@
 <?php
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,8 +20,7 @@
 ?>
 <?php
 	include "include/config.inc.php";
-	include "include/forms.inc.php";
-	$page["title"] = "S_NETWORK_MAPS";
+	$page["title"] = "Network maps";
 	$page["file"] = "sysmaps.php";
 	show_header($page["title"],0,0);
 	insert_confirm_javascript();
@@ -31,114 +30,135 @@
 	if(!check_anyright("Network map","U"))
 	{
 		show_table_header("<font color=\"AA0000\">No permissions !</font>");
-		show_page_footer();
+		show_footer();
 		exit;
 	}
-	update_profile("web.menu.config.last",$page["file"]);
 ?>
 
 <?php
-//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-	$fields=array(
-		"sysmapid"=>		array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,NULL),
-
-		"name"=>		array(T_ZBX_STR, O_OPT,	 NULL,	NOT_EMPTY,"isset({save})"),
-		"width"=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,65535),"isset({save})"),
-		"height"=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,65535),"isset({save})"),
-		"background"=>		array(T_ZBX_STR, O_OPT,	 NULL,	NULL,"isset({save})"),
-		"label_type"=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,4),"isset({save})"),
-		"label_location"=>	array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,3),"isset({save})"),
-
-		"save"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
-		"delete"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
-		"cancel"=>		array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
-		"form"=>		array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
-		"form_refresh"=>	array(T_ZBX_INT, O_OPT,	NULL,	NULL,	NULL)
-
-//		"triggerid"=>	array(T_ZBX_INT, O_OPT,  P_SYS,	DB_ID,'{form}=="update"'),
-
-//		"description"=>	array(T_ZBX_STR, O_OPT,  NULL,	NOT_EMPTY,'isset({save})'),
-//		"expression"=>	array(T_ZBX_STR, O_OPT,  NULL,	NOT_EMPTY,'isset({save})'),
-//		"priority"=>	array(T_ZBX_INT, O_OPT,  NULL,  IN("0,1,2,3,4,5"),'isset({save})'),
-//		"comments"=>	array(T_ZBX_STR, O_OPT,  NULL,	NULL,'isset({save})'),
-//		"url"=>		array(T_ZBX_STR, O_OPT,  NULL,	NULL,'isset({save})'),
-//		"disabled"=>	array(T_ZBX_STR, O_OPT,  NULL,	NULL,NULL)
-	);
-	check_fields($fields);
-?>
-
-
-
-
-<?php
-	if(isset($_REQUEST["save"]))
+	if(isset($HTTP_GET_VARS["register"]))
 	{
-		if(isset($_REQUEST["sysmapid"]))
+		if($HTTP_GET_VARS["register"]=="add")
 		{
-			$result=update_sysmap($_REQUEST["sysmapid"],$_REQUEST["name"],$_REQUEST["width"],
-				$_REQUEST["height"],$_REQUEST["background"],$_REQUEST["label_type"],
-				$_REQUEST["label_location"]);
-
-			show_messages($result,"Network map updated","Cannot update network map");
-		} else {
-			$result=add_sysmap($_REQUEST["name"],$_REQUEST["width"],$_REQUEST["height"],
-				$_REQUEST["background"],$_REQUEST["label_type"],$_REQUEST["label_location"]);
-
+			$result=add_sysmap($HTTP_GET_VARS["name"],$HTTP_GET_VARS["width"],$HTTP_GET_VARS["height"]);
 			show_messages($result,"Network map added","Cannot add network map");
 		}
-		if($result){
-			unset($_REQUEST["form"]);
+		if($HTTP_GET_VARS["register"]=="update")
+		{
+			$result=update_sysmap($HTTP_GET_VARS["sysmapid"],$HTTP_GET_VARS["name"],$HTTP_GET_VARS["width"],$HTTP_GET_VARS["height"]);
+			show_messages($result,"Network map updated","Cannot update network map");
 		}
-	}
-	elseif(isset($_REQUEST["delete"])&&isset($_REQUEST["sysmapid"]))
-	{
-		$result=delete_sysmap($_REQUEST["sysmapid"]);
-		show_messages($result,"Network map deleted","Cannot delete network map");
-		if($result){
-			unset($_REQUEST["form"]);
+		if($HTTP_GET_VARS["register"]=="delete")
+		{
+			$result=delete_sysmap($HTTP_GET_VARS["sysmapid"]);
+			show_messages($result,"Network map deleted","Cannot delete network map");
+			unset($HTTP_GET_VARS["sysmapid"]);
 		}
 	}
 ?>
 
 <?php
-	$form = new CForm();
-	$form->AddItem(new CButton("form",S_CREATE_MAP));
-	show_header2(S_CONFIGURATION_OF_NETWORK_MAPS, $form);
-	echo BR;
+	show_table_header("CONFIGURATION OF NETWORK MAPS");
+	echo "<br>";
 ?>
 
 <?php
-	if(isset($_REQUEST["form"]))
+	show_table_header("NETWORK MAPS");
+	echo "<TABLE BORDER=0 align=center COLS=4 WIDTH=100% BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
+	echo "<TD WIDTH=3% NOSAVE><B>Id</B></TD>";
+	echo "<TD><B>Name</B></TD>";
+	echo "<TD WIDTH=5% NOSAVE><B>Width</B></TD>";
+	echo "<TD WIDTH=5% NOSAVE><B>Height</B></TD>";
+	echo "<TD WIDTH=15% NOSAVE><B>Actions</B></TD>";
+	echo "</TR>";
+
+	$result=DBselect("select s.sysmapid,s.name,s.width,s.height from sysmaps s order by s.name");
+	$col=0;
+	while($row=DBfetch($result))
 	{
-		insert_map_form();
+	        if(!check_right("Network map","U",$row["sysmapid"]))
+	        {
+	                continue;
+	        }
+
+		if($col==1)
+		{
+			echo "<TR BGCOLOR=#EEEEEE>";
+			$col=0;
+		} else
+		{
+			echo "<TR BGCOLOR=#DDDDDD>";
+			$col=1;
+		}
+	
+		echo "<TD>".$row["sysmapid"]."</TD>";
+		echo "<TD><a href=\"sysmap.php?sysmapid=".$row["sysmapid"]."\">".$row["name"]."</a></TD>";
+		echo "<TD>".$row["width"]."</TD>";
+		echo "<TD>".$row["height"]."</TD>";
+		echo "<TD><A HREF=\"sysmaps.php?sysmapid=".$row["sysmapid"]."#form\">Change</A></TD>";
+		echo "</TR>";
+	}
+	if(DBnum_rows($result)==0)
+	{
+			echo "<TR BGCOLOR=#EEEEEE>";
+			echo "<TD COLSPAN=5 ALIGN=CENTER>-No maps defined-</TD>";
+			echo "<TR>";
+	}
+	echo "</TABLE>";
+?>
+
+<?php
+	echo "<a name=\"form\"></a>";
+
+	if(isset($HTTP_GET_VARS["sysmapid"]))
+	{
+		$result=DBselect("select s.sysmapid,s.name,s.width,s.height from sysmaps s where sysmapid=".$HTTP_GET_VARS["sysmapid"]);
+		$name=DBget_field($result,0,1);
+		$width=DBget_field($result,0,2);
+		$height=DBget_field($result,0,3);
 	}
 	else
 	{
-		show_header2(S_MAPS_BIG);
-		$table = new CTableInfo(S_NO_MAPS_DEFINED);
-		$table->setHeader(array(S_ID,S_NAME,S_WIDTH,S_HEIGHT,S_MAP));
-
-		$result=DBselect("select s.sysmapid,s.name,s.width,s.height from sysmaps s order by s.name");
-		while($row=DBfetch($result))
-		{
-		        if(!check_right("Network map","U",$row["sysmapid"]))
-		        {
-		                continue;
-		        }
-	
-			$table->addRow(array(
-				$row["sysmapid"],
-				new CLink($row["name"], "sysmaps.php?form=update".
-					"&sysmapid=".$row["sysmapid"]."#form",'action'),
-				$row["width"],
-				$row["height"],
-				new CLink(S_EDIT,"sysmap.php?sysmapid=".$row["sysmapid"])
-				));
-		}
-		$table->show();
+		$name="";
+		$width=800;
+		$height=600;
 	}
+
+	echo "<br>";
+	show_table2_header_begin();
+	echo "New system map";
+
+	show_table2_v_delimiter();
+	echo "<form method=\"get\" action=\"sysmaps.php\">";
+	if(isset($HTTP_GET_VARS["sysmapid"]))
+	{
+		echo "<input class=\"biginput\" name=\"sysmapid\" type=\"hidden\" value=".$HTTP_GET_VARS["sysmapid"].">";
+	}
+	echo "Name";
+	show_table2_h_delimiter();
+	echo "<input class=\"biginput\" name=\"name\" value=\"$name\" size=32>";
+
+	show_table2_v_delimiter();
+	echo "Width";
+	show_table2_h_delimiter();
+	echo "<input class=\"biginput\" name=\"width\" size=5 value=\"$width\">";
+
+	show_table2_v_delimiter();
+	echo "Height";
+	show_table2_h_delimiter();
+	echo "<input class=\"biginput\" name=\"height\" size=5 value=\"$height\">";
+
+	show_table2_v_delimiter2();
+	echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"add\">";
+	if(isset($HTTP_GET_VARS["sysmapid"]))
+	{
+		echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"update\">";
+		echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"delete\" onClick=\"return Confirm('Delete system map?');\">";
+	}
+
+	show_table2_header_end();
 ?>
 
 <?php
-	show_page_footer();
+	show_footer();
 ?>

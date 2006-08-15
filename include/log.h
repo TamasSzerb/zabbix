@@ -1,6 +1,6 @@
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -26,8 +26,6 @@
 #define LOG_LEVEL_WARNING	3
 #define LOG_LEVEL_DEBUG		4
 
-#define LOG_LEVEL_INFORMATION	127
-
 #define LOG_TYPE_UNDEFINED	0
 #define LOG_TYPE_SYSLOG		1
 #define LOG_TYPE_FILE		2
@@ -35,10 +33,6 @@
 /* Type - 0 (syslog), 1 - file */
 int zabbix_open_log(int type,int level, const char *filename);
 void zabbix_log(int level, const char *fmt, ...);
-void zabbix_close_log(void);
 void zabbix_set_log_level(int level);
-
-char *strerror_from_system(unsigned long error);
-char *strerror_from_module(unsigned long error, const char *module);
 
 #endif

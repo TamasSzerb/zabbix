@@ -1,7 +1,7 @@
 <?php
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,30 +20,30 @@
 ?>
 <?php
 	include "include/config.inc.php";
-	include "include/classes/graph.inc.php";
+	include "include/classes.inc.php";
 
 	$graph=new Graph();
-	if(isset($_REQUEST["period"]))
+	if(isset($HTTP_GET_VARS["period"]))
 	{
-		$graph->setPeriod($_REQUEST["period"]);
+		$graph->setPeriod($HTTP_GET_VARS["period"]);
 	}
-	if(isset($_REQUEST["from"]))
+	if(isset($HTTP_GET_VARS["from"]))
 	{
-		$graph->setFrom($_REQUEST["from"]);
+		$graph->setFrom($HTTP_GET_VARS["from"]);
 	}
-	if(isset($_REQUEST["width"]))
+	if(isset($HTTP_GET_VARS["width"]))
 	{
-		$graph->setWidth($_REQUEST["width"]);
+		$graph->setWidth($HTTP_GET_VARS["width"]);
 	}
-	if(isset($_REQUEST["height"]))
+	if(isset($HTTP_GET_VARS["height"]))
 	{
-		$graph->setHeight($_REQUEST["height"]);
+		$graph->setHeight($HTTP_GET_VARS["height"]);
 	}
-	if(isset($_REQUEST["border"]))
+	if(isset($HTTP_GET_VARS["border"]))
 	{
 		$graph->setBorder(0);
 	}
-	$graph->addItem($_REQUEST["itemid"], GRAPH_YAXIS_SIDE_RIGHT, CALC_FNC_ALL);
+	$graph->addItem($HTTP_GET_VARS["itemid"]);
 
 	$graph->Draw();
 ?>

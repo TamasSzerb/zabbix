@@ -1,7 +1,7 @@
 <?php
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,77 +20,59 @@
 ?>
 <?php
 	include "include/config.inc.php";
-	include "include/classes/graph.inc.php";
+	include "include/classes.inc.php";
 
-	$result=DBselect("select * from graphs where graphid=".$_REQUEST["graphid"]);
-	$row=DBfetch($result);
-
-	$graph=new Graph($row["graphtype"]);
-	if(isset($_REQUEST["period"]))
+	$graph=new Graph();
+	if(isset($HTTP_GET_VARS["period"]))
 	{
-		$graph->setPeriod($_REQUEST["period"]);
+		$graph->setPeriod($HTTP_GET_VARS["period"]);
 	}
-	if(isset($_REQUEST["from"]))
+	if(isset($HTTP_GET_VARS["from"]))
 	{
-		$graph->setFrom($_REQUEST["from"]);
+		$graph->setFrom($HTTP_GET_VARS["from"]);
 	}
-	if(isset($_REQUEST["stime"]))
+	if(isset($HTTP_GET_VARS["stime"]))
 	{
-		$graph->setSTime($_REQUEST["stime"]);
+		$graph->setSTime($HTTP_GET_VARS["stime"]);
 	}
-	if(isset($_REQUEST["border"]))
+	if(isset($HTTP_GET_VARS["border"]))
 	{
 		$graph->setBorder(0);
 	}
 
-	$db_hosts = get_hosts_by_graphid($_REQUEST["graphid"]);
-	$name=$row["name"];
+	$result=DBselect("select name,width,height from graphs where graphid=".$HTTP_GET_VARS["graphid"]);
 
-	$db_host = DBfetch($db_hosts);
-	if($db_host)
+	$name=DBget_field($result,0,0);
+	if(isset($HTTP_GET_VARS["width"])&&$HTTP_GET_VARS["width"]>0)
 	{
-		$name = $db_host["host"].":".$name;
-	}
-	if(isset($_REQUEST["width"])&&$_REQUEST["width"]>0)
-	{
-		$width=$_REQUEST["width"];
+		$width=$HTTP_GET_VARS["width"];
 	}
 	else
 	{
-		$width=$row["width"];
+		$width=DBget_field($result,0,1);
 	}
-	if(isset($_REQUEST["height"])&&$_REQUEST["height"]>0)
+	if(isset($HTTP_GET_VARS["height"])&&$HTTP_GET_VARS["height"]>0)
 	{
-		$height=$_REQUEST["height"];
+		$height=$HTTP_GET_VARS["height"];
 	}
 	else
 	{
-		$height=$row["height"];
+		$height=DBget_field($result,0,2);
 	}
-
-	$graph->ShowWorkPeriod($row["show_work_period"]);
-	$graph->ShowTriggers($row["show_triggers"]);
 
 	$graph->setWidth($width);
 	$graph->setHeight($height);
-	$graph->setHeader($name);
-	$graph->setYAxisType($row["yaxistype"]);
-	$graph->setYAxisMin($row["yaxismin"]);
-	$graph->setYAxisMax($row["yaxismax"]);
+	$graph->setHeader(DBget_field($result,0,0));
 
-	$result=DBselect("select gi.*,i.description,h.host,gi.drawtype from graphs_items gi,items i,hosts h where gi.itemid=i.itemid and gi.graphid=".$_REQUEST["graphid"]." and i.hostid=h.hostid order by gi.sortorder");
+	$result=DBselect("select gi.itemid,i.description,gi.color,h.host,gi.drawtype from graphs_items gi,items i,hosts h where gi.itemid=i.itemid and gi.graphid=".$HTTP_GET_VARS["graphid"]." and i.hostid=h.hostid order by gi.sortorder");
 
-	while($row=DBfetch($result))
+	for($i=0;$i<DBnum_rows($result);$i++)
 	{
-		$graph->addItem(
-			$row["itemid"],
-			$row["yaxisside"],
-			$row["calc_fnc"],
-			$row["color"],
-			$row["drawtype"],
-			$row["type"],
-			$row["periods_cnt"]
-			);
+		$graph->addItem(DBget_field($result,$i,0));
+		$graph->setColor(DBget_field($result,$i,0), DBget_field($result,$i,2));
+		$graph->setDrawtype(DBget_field($result,$i,0), DBget_field($result,$i,4));
 	}
+
 	$graph->Draw();
 ?>
+

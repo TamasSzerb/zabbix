@@ -1,7 +1,7 @@
 <?php
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,64 +19,78 @@
 **/
 ?>
 <?php
-	$page["title"]="S_ZABBIX_BIG";
+	$page["title"]="Zabbix main page";
 	$page["file"]="index.php";
 
 	include "include/config.inc.php";
-	include "include/forms.inc.php";
-?>
-<?php
-//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-	$fields=array(
-		"name"=>		array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({enter})'),
-		"password"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		'isset({enter})'),
-		"sessionid"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
-		"reconnect"=>		array(T_ZBX_INT, O_OPT,	P_ACT, BETWEEN(0,65535),NULL),
-                "enter"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,    NULL,   NULL),
-                "form"=>		array(T_ZBX_STR, O_OPT, P_SYS,  NULL,   	NULL),
-                "form_refresh"=>	array(T_ZBX_INT, O_OPT, NULL,   NULL,   	NULL)
-	);
-	check_fields($fields);
-?>
-<?php
-	if(isset($_REQUEST["reconnect"]) && isset($_COOKIE["sessionid"]))
+
+	if(isset($HTTP_POST_VARS["password"]))
 	{
-		DBexecute("delete from sessions where sessionid=".zbx_dbstr($_COOKIE["sessionid"]));
-		setcookie("sessionid",$_COOKIE["sessionid"],time()-3600);
-		unset($_COOKIE["sessionid"]);
+		$password=$HTTP_POST_VARS["password"];
+	}
+	else
+	{
+		unset($password);
+	}
+	if(isset($HTTP_POST_VARS["name"]))
+	{
+		$name=$HTTP_POST_VARS["name"];
+	}
+	else
+	{
+		unset($name);
+	}
+	if(isset($HTTP_POST_VARS["register"]))
+	{
+		$register=$HTTP_POST_VARS["register"];
+	}
+	else
+	{
+		unset($register);
+	}
+	if(isset($HTTP_GET_VARS["reconnect"]))
+	{
+		$reconnect=$HTTP_GET_VARS["reconnect"];
+	}
+	else
+	{
+		unset($reconnect);
+	}
+	if(isset($HTTP_COOKIE_VARS["sessionid"]))
+	{
+		$sessionid=$HTTP_COOKIE_VARS["sessionid"];
+	}
+	else
+	{
+		unset($sessionid);
 	}
 
-	if(isset($_REQUEST["enter"])&&($_REQUEST["enter"]=="Enter"))
+
+	if(isset($reconnect))
 	{
-		$name = get_request("name","");
-		$password = md5(get_request("password",""));
+		$sql="delete from sessions where sessionid='$sessionid'";
+		DBexecute($sql);
+		setcookie("sessionid",$sessionid,time()-3600);
+		unset($sessionid);
+	}
 
-		$result=DBselect("select u.userid,u.alias,u.name,u.surname,u.url,u.refresh from users u where".
-			" u.alias=".zbx_dbstr($name)." and u.passwd=".zbx_dbstr($password));
-
-		$row=DBfetch($result);
-		if($row)
+	if(isset($register)&&($register=="Enter"))
+	{
+		$password=md5($password);
+		$sql="select u.userid,u.alias,u.name,u.surname from users u where u.alias='$name' and u.passwd='$password'";
+		$result=DBselect($sql);
+		if(DBnum_rows($result)==1)
 		{
-			$USER_DETAILS["userid"]	= $row["userid"];
-			$USER_DETAILS["alias"]	= $row["alias"];
-			$USER_DETAILS["name"]	= $row["name"];
-			$USER_DETAILS["surname"]= $row["surname"];
-			$USER_DETAILS["url"]	= $row["url"];
-			$USER_DETAILS["refresh"]= $row["refresh"];
+			$USER_DETAILS["userid"]=DBget_field($result,0,0);
+			$USER_DETAILS["alias"]=DBget_field($result,0,1);
+			$USER_DETAILS["name"]=DBget_field($result,0,2);
+			$USER_DETAILS["surname"]=DBget_field($result,0,3);
 			$sessionid=md5(time().$password.$name.rand(0,10000000));
 			setcookie("sessionid",$sessionid,time()+3600);
 // Required !
-			$_COOKIE["sessionid"]	= $sessionid;
-			DBexecute("insert into sessions (sessionid,userid,lastaccess)".
-				" values (".zbx_dbstr($sessionid).",".$USER_DETAILS["userid"].",".time().")");
-
-			if($USER_DETAILS["url"] != '')
-			{
-				echo "<HTML><HEAD>";
-        			echo "<META HTTP-EQUIV=\"Refresh\" CONTENT=\"0; URL=".$USER_DETAILS["url"]."\">";
-				echo "</HEAD></HTML>";
-				return;
-			}
+			$HTTP_COOKIE_VARS["sessionid"]=$sessionid;
+			$sql="insert into sessions (sessionid,userid,lastaccess) values ('$sessionid',".$USER_DETAILS["userid"].",".time().")";
+			DBexecute($sql);
 		}
 	}
 
@@ -84,8 +98,9 @@
 ?>
 
 <?php
-	if(!isset($_COOKIE["sessionid"]))
+	if(!isset($sessionid))
 	{
+//		echo "-",$HTTP_COOKIE_VARS["sessionid"],"-<br>";
 		insert_login_form();
 	}
 	else
@@ -96,7 +111,6 @@
 	}	
 ?>
 
-
 <?php
-	show_page_footer();
+	show_footer();
 ?>

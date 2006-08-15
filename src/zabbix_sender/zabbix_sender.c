@@ -1,6 +1,6 @@
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -39,18 +39,6 @@
 
 #include "common.h"
 
-char *progname = NULL;
-char title_message[] = "ZABBIX send";
-char usage_message[] = "[<Zabbix server> <port> <server> <key> <value>]";
-char *help_message[] = {
-	"",
-	"  If no arguments are given, zabbix_sender expects list of parameters",
-	"  from standard input.",
-	"",
-        0 /* end of text */
-};
-
-
 void    signal_handler( int sig )
 {
 	if( SIGALRM == sig )
@@ -66,19 +54,17 @@ void    signal_handler( int sig )
 	exit( FAIL );
 }
 
-static int send_value(char *server,int port,char *hostname, char *key,char *value, char *lastlogsize)
+int	send_value(char *server,int port,char *shortname,char *value)
 {
 	int	i,s;
-	char	tosend[MAX_STRING_LEN];
-	char	result[MAX_STRING_LEN];
+	char	tosend[1024];
+	char	result[1024];
 	struct hostent *hp;
 
 	struct sockaddr_in myaddr_in;
 	struct sockaddr_in servaddr_in;
 
 /*	struct linger ling;*/
-
-/*	printf("In send_value(%s,%d,%s,%s,%s)\n", server, port, hostname, key, value);*/
 
 	servaddr_in.sin_family=AF_INET;
 	hp=gethostbyname(server);
@@ -115,26 +101,20 @@ static int send_value(char *server,int port,char *hostname, char *key,char *valu
 		return	FAIL;
 	}
 
-/* Send <req><host>SERVER_B64</host><key>KEY_B64</key><data>VALUE_B64</data></req> */
+	snprintf(tosend,sizeof(tosend)-1,"%s:%s\n",shortname,value);
 
-	comms_create_request(hostname, key, value, lastlogsize, tosend, sizeof(tosend)-1);
-
-/*	zbx_snprintf(tosend,sizeof(tosend),"%s:%s\n",shortname,value);
-	zbx_snprintf(tosend,sizeof(tosend),"<req><host>%s</host><key>%s</key><data>%s</data></req>",hostname_b64,key_b64,value_b64); */
-
-	if(write(s, tosend,strlen(tosend)) == -1)
-/*	if( sendto(s,tosend,strlen(tosend),0,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )*/
+	if( sendto(s,tosend,strlen(tosend),0,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )
 	{
-		perror("write");
+		perror("sendto");
 		close(s);
 		return	FAIL;
 	} 
 	i=sizeof(struct sockaddr_in);
-/*	i=recvfrom(s,result,MAX_STRING_LEN-1,0,(struct sockaddr *)&servaddr_in,(socklen_t *)&i);*/
-	i=read(s,result,MAX_STRING_LEN-1);
-	if(i==-1)
+/*	i=recvfrom(s,result,1023,0,(struct sockaddr *)&servaddr_in,(size_t *)&i);*/
+	i=recvfrom(s,result,1023,0,(struct sockaddr *)&servaddr_in,(socklen_t *)&i);
+	if(s==-1)
 	{
-		perror("read");
+		perror("recfrom");
 		close(s);
 		return	FAIL;
 	}
@@ -162,25 +142,22 @@ int main(int argc, char **argv)
 	char	line[MAX_STRING_LEN];
 	char	port_str[MAX_STRING_LEN];
 	char	zabbix_server[MAX_STRING_LEN];
-	char	server[MAX_STRING_LEN];
-	char	key[MAX_STRING_LEN];
+	char	server_key[MAX_STRING_LEN];
 	char	value[MAX_STRING_LEN];
 	char	*s;
-
-	progname = argv[0];
 
 	signal( SIGINT,  signal_handler );
 	signal( SIGQUIT, signal_handler );
 	signal( SIGTERM, signal_handler );
 	signal( SIGALRM, signal_handler );
 
-	if(argc == 6)
+	if(argc == 5)
 	{
 		port=atoi(argv[2]);
 
 		alarm(SENDER_TIMEOUT);
 
-		ret = send_value(argv[1],port,argv[3],argv[4],argv[5],"0");
+		ret = send_value(argv[1],port,argv[3],argv[4]);
 
 		alarm(0);
 	}
@@ -189,26 +166,28 @@ int main(int argc, char **argv)
 	{
 		while(fgets(line,MAX_STRING_LEN,stdin) != NULL)
 		{
+/*			printf("[%s]\n",line);*/
 			alarm(SENDER_TIMEOUT);
-	
+
 			s=(char *)strtok(line," ");
 			strscpy(zabbix_server,s);
 			s=(char *)strtok(NULL," ");
-			strscpy(server,s);
-			s=(char *)strtok(NULL," ");
 			strscpy(port_str,s);
 			s=(char *)strtok(NULL," ");
-			strscpy(key,s);
+			strscpy(server_key,s);
 			s=(char *)strtok(NULL," ");
 			strscpy(value,s);
-			ret = send_value(zabbix_server,atoi(port_str),server,key,value,"0");
+			ret = send_value(zabbix_server,atoi(port_str),server_key,value);
 
 			alarm(0);
 		}
 	}
 	else
 	{
-		help();
+		printf("Usage: zabbix_sender <Zabbix server> <port> <server:key> <value>\n");
+		printf("If no arguments are given, zabbix_sender expects list of parameters\n");
+		printf("from standard input.\n");
+		
 		ret = FAIL;
 	}
 

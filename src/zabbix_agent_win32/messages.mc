@@ -87,18 +87,6 @@ Unable to bind socket: %1
 .
 
 MessageId=
-SymbolicName=MSG_LISTEN_ERROR
-Language=English
-Error listening on socket: %1
-.
-
-MessageId=
-SymbolicName=MSG_SELECT_ERROR
-Language=English
-Unable to select socket: %1
-.
-
-MessageId=
 SymbolicName=MSG_ACCEPT_ERROR
 Language=English
 Unable to accept incoming connection: %1
@@ -204,36 +192,6 @@ MessageId=
 SymbolicName=MSG_DNS_LOOKUP_FAILED
 Language=English
 DNS lookup failed for host %1
-.
-
-MessageId=
-SymbolicName=MSG_ACTIVE_CHECKS
-Language=English
-Active checks [%1]
-.
-
-MessageId=
-SymbolicName=MSG_GET_COMPUTER_NAME_FAILED
-Language=English
-GetComputerName failed: %1
-.
-
-MessageId=
-SymbolicName=MSG_LOOKUP_FAILED
-Language=English
-PdhLookupPerfNameByIndex failed: %1
-.
-
-MessageId=
-SymbolicName=MSG_DEBUG_INFO
-Language=English
-%1 Debug Info: %2
-.
-
-MessageId=
-SymbolicName=MSG_INFORMATION
-Language=English
-Information: %1 %2
 .
 
 ;#endif

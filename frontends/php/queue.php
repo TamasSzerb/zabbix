@@ -1,7 +1,7 @@
 <?php
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,116 +19,59 @@
 **/
 ?>
 <?php
-	include "include/config.inc.php";
-
-	$page["title"] = "S_QUEUE_BIG";
+	$page["title"] = "Information about monitoring server";
 	$page["file"] = "queue.php";
-	show_header($page["title"],1,0);
+
+	include "include/config.inc.php";
+	show_header($page["title"],10,0);
 ?>
  
 <?php
 	if(!check_anyright("Host","R"))
 	{
-		show_table_header("<font color=\"AA0000\">".S_NO_PERMISSIONS."</font>");
-		show_page_footer();
+		show_table_header("<font color=\"AA0000\">No permissions !</font>");
+		show_footer();
 		exit;	
 	}
 ?>
 
 <?php
-//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-	$fields=array(
-		"show"=>		array(T_ZBX_INT, O_OPT,	P_SYS,	IN("0,1"),	NULL)
-	);
-
-	check_fields($fields);
+	show_table_header("QUEUE OF ITEMS TO BE UPDATED");
 ?>
-
-<?php
-	if(!isset($_REQUEST["show"]))
-	{
-		$_REQUEST["show"]=0;
-	}
-
-	$h1=S_QUEUE_OF_ITEMS_TO_BE_UPDATED_BIG;
-
-#	$h2=S_GROUP.SPACE;
-	$h2="";
-	$h2=$h2."<select class=\"biginput\" name=\"show\" onChange=\"submit()\">";
-	$h2=$h2.form_select("show",0,S_OVERVIEW);
-	$h2=$h2.form_select("show",1,S_DETAILS);
-	$h2=$h2."</select>";
-
-	show_header2($h1, $h2, "<form name=\"selection\" method=\"get\" action=\"queue.php\">", "</form>");
-
-	update_profile("web.menu.view.last",$page["file"]);
-?>
-
 <?php
 	$now=time();
-
-	$result=DBselect("select i.itemid, i.nextcheck, i.description, h.host,h.hostid from items i,hosts h where i.status=0 and i.type not in (2) and ((h.status=".HOST_STATUS_MONITORED." and h.available!=".HOST_AVAILABLE_FALSE.") or (h.status=".HOST_STATUS_MONITORED." and h.available=".HOST_AVAILABLE_FALSE." and h.disable_until<=$now)) and i.hostid=h.hostid and i.nextcheck<$now and i.key_ not in ('status','icmpping','icmppingsec','zabbix[log]') order by i.nextcheck");
-	$table=new CTableInfo(S_THE_QUEUE_IS_EMPTY);
-
-	if($_REQUEST["show"]==0)
+	$result=DBselect("select i.itemid, i.nextcheck, i.description, h.host,h.hostid from items i,hosts h where i.status=0 and i.type not in (2) and h.status=0 and i.hostid=h.hostid and i.nextcheck<$now and i.key_<>'status' order by i.nextcheck");
+	echo "<table border=0 width=100% bgcolor='#CCCCCC' cellspacing=1 cellpadding=3>";
+	echo "\n";
+	echo "<tr><td><b>Next time to check</b></td><td><b>Host</b></td><td><b>Description</b></td></tr>";
+	echo "\n";
+	$col=0;
+	while($row=DBfetch($result))
 	{
-		$sec_5=0;
-		$sec_10=0;
-		$sec_30=0;
-		$sec_60=0;
-		$sec_300=0;
-		$sec_rest=0;
-		while($row=DBfetch($result))
+		if(!check_right("Host","R",$row["hostid"]))
 		{
-			if(!check_right("Host","R",$row["hostid"]))
-			{
-				continue;
-			}
-			if($now-$row["nextcheck"]<=5)		$sec_5++;
-			elseif($now-$row["nextcheck"]<=10)	$sec_10++;
-			elseif($now-$row["nextcheck"]<=30)	$sec_30++;
-			elseif($now-$row["nextcheck"]<=60)	$sec_60++;
-			elseif($now-$row["nextcheck"]<=300)	$sec_300++;
-			else					$sec_rest++;
-
+			continue;
 		}
-		$col=0;
-		$table->setHeader(array(S_DELAY,S_COUNT));
-		$elements=array(S_5_SECONDS,$sec_5);
-		$table->addRow($elements);
-		$elements=array(S_10_SECONDS,$sec_10);
-		$table->addRow($elements);
-		$elements=array(S_30_SECONDS,$sec_30);
-		$table->addRow($elements);
-		$elements=array(S_1_MINUTE,$sec_60);
-		$table->addRow($elements);
-		$elements=array(S_5_MINUTES,$sec_300);
-		$table->addRow($elements);
-		$elements=array(S_MORE_THAN_5_MINUTES,$sec_rest);
-		$table->addRow($elements);
+		if($col++%2==0)	{ echo "<tr bgcolor=#EEEEEE>"; }
+		else		{ echo "<tr bgcolor=#DDDDDD>"; }
+		echo "<td>".date("m.d.Y H:i:s",$row["nextcheck"])."</td>";
+		echo "<td>".$row["host"]."</td>";
+		echo "<td>".$row["description"]."</td>";
+		echo "</tr>";
+		cr();
 	}
-	else
+	if(DBnum_rows($result)==0)
 	{
-		$table->setHeader(array(S_NEXT_CHECK,S_HOST,S_DESCRIPTION));
-		$col=0;
-		while($row=DBfetch($result))
-		{
-			if(!check_right("Host","R",$row["hostid"]))
-			{
-				continue;
-			}
-			$elements=array(date("m.d.Y H:i:s",$row["nextcheck"]),$row["host"],$row["description"]);
-			$col++;
-			$table->addRow($elements);
-		}
+			echo "<TR BGCOLOR=#EEEEEE>";
+			echo "<TD COLSPAN=3 ALIGN=CENTER>-The queue is empty-</TD>";
+			echo "<TR>";
 	}
-
-	$table->show();
+	echo "</table>";
 ?>
 <?php
-	show_table_header(S_TOTAL.":$col");
+	show_table_header("Total:$col");
 ?>
 
 <?php
-	show_page_footer();
+	show_footer();
 ?>

@@ -22,11 +22,12 @@
 
 #include "zabbixw32.h"
 
+
 LONG H_Execute(char *cmd,char *arg,char **value)
 {
    char *ptr1,*ptr2;
-   STARTUPINFO si = {0};
-   PROCESS_INFORMATION pi = {0};
+   STARTUPINFO si;
+   PROCESS_INFORMATION pi;
    SECURITY_ATTRIBUTES sa;
    HANDLE hOutput;
    char szTempPath[MAX_PATH],szTempFile[MAX_PATH];
@@ -74,15 +75,10 @@ LONG H_Execute(char *cmd,char *arg,char **value)
    // Rewind temporary file for reading
    SetFilePointer(hOutput,0,NULL,FILE_BEGIN);
 
-   *value=(char *)malloc(MAX_STRING_LEN);	// Called and freed in function "ProcessCommand", pointer "strResult"
-
    // Read process output
+   *value=(char *)malloc(MAX_STRING_LEN);
    ReadFile(hOutput,*value,MAX_STRING_LEN-1,&dwBytes,NULL);
    (*value)[dwBytes]=0;
-
-   ptr1=strchr(*value,'\r');
-   if (ptr1!=NULL)
-      *ptr1=0;
    ptr1=strchr(*value,'\n');
    if (ptr1!=NULL)
       *ptr1=0;
@@ -92,76 +88,4 @@ LONG H_Execute(char *cmd,char *arg,char **value)
    DeleteFile(szTempFile);
 
    return SYSINFO_RC_SUCCESS;
-}
-
-LONG H_RunCommand(char *cmd,char *arg,char **value)
-{
-	STARTUPINFO    si;
-	PROCESS_INFORMATION  pi;
-	char *ptr1,*ptr2;
-	char command[MAX_ZABBIX_CMD_LEN];
-	double result = 0;
-
-	if(confEnableRemoteCommands != 1)
-	{
-		(*value) = NULL;
-		return SYSINFO_RC_NOTSUPPORTED;
-	}
-
-	ZeroMemory(&si, sizeof(si) );
-	si.cb = sizeof(si);
-	ZeroMemory(&pi, sizeof(pi) );
-
-	// Extract command line
-	ptr1=strchr(cmd,'[');
-	ptr2=strchr(cmd,']');
-	ptr1++;
-	*ptr2=0;
-
-	if((ptr2 = strrchr(ptr1,',')))
-	{
-		*ptr2=0;
-		ptr2++;
-	}
-
-	if(!ptr2 || (ptr2 && strcmp(ptr2,"wait") == 0))
-	{
-		sprintf(command,"__exec{%s}",ptr1);
-		return H_Execute(command, arg, value);
-	}
-
-	sprintf(command,"cmd /C \"%s\"",ptr1);
-
-LOG_DEBUG_INFO("s","H_RunCommand");
-LOG_DEBUG_INFO("s",command);
-
-    GetStartupInfo(&si);
-
-    result = (double)CreateProcess(
-		NULL,	// No module name (use command line)
-		command,// Name of app to launch
-		NULL,	// Default process security attributes
-		NULL,	// Default thread security attributes
-		FALSE,	// Don't inherit handles from the parent
-		0,		// Normal priority
-		NULL,	// Use the same environment as the parent
-		NULL,	// Launch in the current directory
-		&si,	// Startup Information
-		&pi);	// Process information stored upon return
-
-	if(!result)
-	{
-LOG_DEBUG_INFO("s","ERROR");
-LOG_DEBUG_INFO("e",GetLastError());
-		*value = strdup("1");
-	}
-	else
-	{
-LOG_DEBUG_INFO("s","H_RunCommand");
-		CloseHandle(pi.hProcess);
-		CloseHandle(pi.hThread);
-		*value = strdup("0");
-	}
-
-	return SYSINFO_RC_SUCCESS;
 }

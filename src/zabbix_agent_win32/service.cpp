@@ -37,8 +37,6 @@ static VOID WINAPI ServiceCtrlHandler(DWORD ctrlCode)
 {
    SERVICE_STATUS status;
 
-INIT_CHECK_MEMORY(main);
-
    status.dwServiceType=SERVICE_WIN32_OWN_PROCESS;
    status.dwCurrentState=SERVICE_RUNNING;
    status.dwControlsAccepted=SERVICE_ACCEPT_STOP | SERVICE_ACCEPT_SHUTDOWN;
@@ -66,7 +64,6 @@ INIT_CHECK_MEMORY(main);
    }
 
    SetServiceStatus(serviceHandle,&status);
-CHECK_MEMORY(main,"ServiceCtrlHandler","end");
 }
 
 
@@ -77,8 +74,6 @@ CHECK_MEMORY(main,"ServiceCtrlHandler","end");
 static VOID WINAPI ZabbixServiceMain(DWORD argc,LPTSTR *argv)
 {
    SERVICE_STATUS status;
-
-INIT_CHECK_MEMORY(main);
 
    serviceHandle=RegisterServiceCtrlHandler(ZABBIX_SERVICE_NAME,ServiceCtrlHandler);
 
@@ -99,15 +94,15 @@ INIT_CHECK_MEMORY(main);
       status.dwCurrentState=SERVICE_STOPPED;
       status.dwWaitHint=0;
       SetServiceStatus(serviceHandle,&status);
-   } else {
-	   // Now service is running
-	   status.dwCurrentState=SERVICE_RUNNING;
-	   status.dwWaitHint=0;
-	   SetServiceStatus(serviceHandle,&status);
-
-	   Main();
+      return;
    }
-CHECK_MEMORY(main,"ZabbixServiceMain","end");
+
+   // Now service is running
+   status.dwCurrentState=SERVICE_RUNNING;
+   status.dwWaitHint=0;
+   SetServiceStatus(serviceHandle,&status);
+
+   Main();
 }
 
 
@@ -119,12 +114,8 @@ void InitService(void)
 {
    static SERVICE_TABLE_ENTRY serviceTable[2]={ { ZABBIX_SERVICE_NAME,ZabbixServiceMain },{ NULL,NULL } };
 
-INIT_CHECK_MEMORY(main);
-
    if (!StartServiceCtrlDispatcher(serviceTable))
       printf("StartServiceCtrlDispatcher() failed: %s\n",GetSystemErrorText(GetLastError()));
-
-CHECK_MEMORY(main,"InitService","end");
 }
 
 
@@ -132,19 +123,16 @@ CHECK_MEMORY(main,"InitService","end");
 // Create service
 //
 
-int ZabbixCreateService(char *execName)
+void ZabbixCreateService(char *execName)
 {
    SC_HANDLE mgr,service;
    char cmdLine[MAX_PATH*2];
-   int ret = 0;
-
-INIT_CHECK_MEMORY(main);
 
    mgr=OpenSCManager(NULL,NULL,GENERIC_WRITE);
    if (mgr==NULL)
    {
       printf("ERROR: Cannot connect to Service Manager (%s)\n",GetSystemErrorText(GetLastError()));
-      return 1;
+      return;
    }
 
    sprintf(cmdLine,"\"%s\" --config \"%s\"",execName,confFile);
@@ -158,7 +146,6 @@ INIT_CHECK_MEMORY(main);
          printf("ERROR: Service named '" ZABBIX_SERVICE_NAME "' already exist\n");
       else
          printf("ERROR: Cannot create service (%s)\n",GetSystemErrorText(code));
-	  ret = 1;
    }
    else
    {
@@ -168,11 +155,7 @@ INIT_CHECK_MEMORY(main);
 
    CloseServiceHandle(mgr);
 
-   if(ret == 0)
-	   ret = ZabbixInstallEventSource(execName);
-
-CHECK_MEMORY(main,"ZabbixCreateService","end");
-	return ret;
+   ZabbixInstallEventSource(execName);
 }
 
 
@@ -180,19 +163,15 @@ CHECK_MEMORY(main,"ZabbixCreateService","end");
 // Remove service
 //
 
-int ZabbixRemoveService(void)
+void ZabbixRemoveService(void)
 {
    SC_HANDLE mgr,service;
-   int ret = 0;
-
-INIT_CHECK_MEMORY(main);
 
    mgr=OpenSCManager(NULL,NULL,GENERIC_WRITE);
    if (mgr==NULL)
    {
       printf("ERROR: Cannot connect to Service Manager (%s)\n",GetSystemErrorText(GetLastError()));
-CHECK_MEMORY(main,"ZabbixCreateService","OpenSCManager");
-      return 1;
+      return;
    }
 
    service=OpenService(mgr,ZABBIX_SERVICE_NAME,DELETE);
@@ -200,29 +179,21 @@ CHECK_MEMORY(main,"ZabbixCreateService","OpenSCManager");
    {
       printf("ERROR: Cannot open service named '" ZABBIX_SERVICE_NAME "' (%s)\n",
              GetSystemErrorText(GetLastError()));
-	  ret = 1;
    }
    else
    {
       if (DeleteService(service))
          printf("Zabbix Win32 Agent service deleted successfully\n");
       else
-	  {
          printf("ERROR: Cannot remove service named '" ZABBIX_SERVICE_NAME "' (%s)\n",
                 GetSystemErrorText(GetLastError()));
-		 ret = 1;
-	  }
 
       CloseServiceHandle(service);
    }
 
    CloseServiceHandle(mgr);
 
-   if(ret == 0)
-	   ret = ZabbixRemoveEventSource();
-
-CHECK_MEMORY(main,"ZabbixCreateService","end");
-	return ret;
+   ZabbixRemoveEventSource();
 }
 
 
@@ -230,19 +201,15 @@ CHECK_MEMORY(main,"ZabbixCreateService","end");
 // Start service
 //
 
-int ZabbixStartService(void)
+void ZabbixStartService(void)
 {
    SC_HANDLE mgr,service;
-   int ret = 0;
-
-INIT_CHECK_MEMORY(main);
 
    mgr=OpenSCManager(NULL,NULL,GENERIC_WRITE);
    if (mgr==NULL)
    {
       printf("ERROR: Cannot connect to Service Manager (%s)\n",GetSystemErrorText(GetLastError()));
-CHECK_MEMORY(main,"ZabbixStartService","OpenSCManager");
-      return 1;
+      return;
    }
 
    service=OpenService(mgr,ZABBIX_SERVICE_NAME,SERVICE_START);
@@ -250,25 +217,19 @@ CHECK_MEMORY(main,"ZabbixStartService","OpenSCManager");
    {
       printf("ERROR: Cannot open service named '" ZABBIX_SERVICE_NAME "' (%s)\n",
              GetSystemErrorText(GetLastError()));
-	  ret=1;
    }
    else
    {
       if (StartService(service,0,NULL))
          printf("Zabbix Win32 Agent service started successfully\n");
       else
-	  {
          printf("ERROR: Cannot start service named '" ZABBIX_SERVICE_NAME "' (%s)\n",
                 GetSystemErrorText(GetLastError()));
-		 ret = 1;
-	  }
 
       CloseServiceHandle(service);
    }
 
    CloseServiceHandle(mgr);
-CHECK_MEMORY(main,"ZabbixStartService","end");
-	return ret;
 }
 
 
@@ -276,19 +237,15 @@ CHECK_MEMORY(main,"ZabbixStartService","end");
 // Stop service
 //
 
-int ZabbixStopService(void)
+void ZabbixStopService(void)
 {
    SC_HANDLE mgr,service;
-   int ret = 0;
-
-INIT_CHECK_MEMORY(main);
 
    mgr=OpenSCManager(NULL,NULL,GENERIC_WRITE);
    if (mgr==NULL)
    {
       printf("ERROR: Cannot connect to Service Manager (%s)\n",GetSystemErrorText(GetLastError()));
-CHECK_MEMORY(main,"ZabbixStopService","OpenSCManager");
-      return 1;
+      return;
    }
 
    service=OpenService(mgr,ZABBIX_SERVICE_NAME,SERVICE_STOP);
@@ -296,7 +253,6 @@ CHECK_MEMORY(main,"ZabbixStopService","OpenSCManager");
    {
       printf("ERROR: Cannot open service named '" ZABBIX_SERVICE_NAME "' (%s)\n",
              GetSystemErrorText(GetLastError()));
-	  ret = 1;
    }
    else
    {
@@ -305,18 +261,13 @@ CHECK_MEMORY(main,"ZabbixStopService","OpenSCManager");
       if (ControlService(service,SERVICE_CONTROL_STOP,&status))
          printf("Zabbix Win32 Agent service stopped successfully\n");
       else
-	  {
          printf("ERROR: Cannot stop service named '" ZABBIX_SERVICE_NAME "' (%s)\n",
                 GetSystemErrorText(GetLastError()));
-		 ret = 1;
-	  }
 
       CloseServiceHandle(service);
    }
 
    CloseServiceHandle(mgr);
-CHECK_MEMORY(main,"ZabbixStopService","end");
-	return ret;
 }
 
 
@@ -324,20 +275,17 @@ CHECK_MEMORY(main,"ZabbixStopService","end");
 // Install event source
 //
 
-int ZabbixInstallEventSource(char *path)
+void ZabbixInstallEventSource(char *path)
 {
    HKEY hKey;
    DWORD dwTypes=EVENTLOG_ERROR_TYPE | EVENTLOG_WARNING_TYPE | EVENTLOG_INFORMATION_TYPE;
-
-INIT_CHECK_MEMORY(main);
 
    if (ERROR_SUCCESS!=RegCreateKeyEx(HKEY_LOCAL_MACHINE,
          "System\\CurrentControlSet\\Services\\EventLog\\System\\" ZABBIX_EVENT_SOURCE,
          0,NULL,REG_OPTION_NON_VOLATILE,KEY_SET_VALUE,NULL,&hKey,NULL))
    {
       printf("Unable to create registry key: %s\n",GetSystemErrorText(GetLastError()));
-CHECK_MEMORY(main,"ZabbixInstallEventSource","RegCreateKeyEx");
-      return 1;
+      return;
    }
 
    RegSetValueEx(hKey,"TypesSupported",0,REG_DWORD,(BYTE *)&dwTypes,sizeof(DWORD));
@@ -345,9 +293,6 @@ CHECK_MEMORY(main,"ZabbixInstallEventSource","RegCreateKeyEx");
 
    RegCloseKey(hKey);
    printf("Event source \"" ZABBIX_EVENT_SOURCE "\" installed successfully\n");
-
-CHECK_MEMORY(main,"ZabbixInstallEventSource","end");
-	return 0;
 }
 
 
@@ -355,11 +300,8 @@ CHECK_MEMORY(main,"ZabbixInstallEventSource","end");
 // Remove event source
 //
 
-int ZabbixRemoveEventSource(void)
+void ZabbixRemoveEventSource(void)
 {
-
-INIT_CHECK_MEMORY(main);
-
    if (ERROR_SUCCESS==RegDeleteKey(HKEY_LOCAL_MACHINE,
          "System\\CurrentControlSet\\Services\\EventLog\\System\\" ZABBIX_EVENT_SOURCE))
    {
@@ -369,8 +311,5 @@ INIT_CHECK_MEMORY(main);
    {
       printf("Unable to uninstall event source \"" ZABBIX_EVENT_SOURCE "\": %s\n",
              GetSystemErrorText(GetLastError()));
-	  return 1;
    }
-CHECK_MEMORY(main,"ZabbixRemoveEventSource","end");
-	return 0;
 }

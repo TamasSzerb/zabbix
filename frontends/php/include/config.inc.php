@@ -1,7 +1,7 @@
 <?php
 /*
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,128 +17,44 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
-function SDI($msg="SDI") { echo "DEBUG INFO: $msg ".BR; } // DEBUG INFO!!!
-
-
 ?>
 <?php
-	include_once("include/copt.lib.php");
+	include 	"include/defines.inc.php";
+	include 	"include/db.inc.php";
 
-// GLOBALS
-	$USER_DETAILS	= array();
-	$USER_RIGHTS	= array();
-	$ERROR_MSG	= array();
-	$INFO_MSG	= array();
-// END OF GLOBALS
+	$USER_DETAILS	="";
+	$ERROR_MSG	="";
 
-// if magic quotes on then get rid of them
-	if (get_magic_quotes_gpc()) {
-		$_GET    = zbx_stripslashes($_GET);
-		$_POST	 = zbx_stripslashes($_POST);
-		$_COOKIE = zbx_stripslashes($_COOKIE);
-		$_REQUEST= zbx_stripslashes($_REQUEST);
-	}
-
-	include_once 	"include/defines.inc.php";
-	include_once 	"include/db.inc.php";
-	include_once 	"include/html.inc.php";
-	include_once 	"include/locales.inc.php";
-	include_once 	"include/perm.inc.php";
-
-	include_once 	"include/audit.inc.php";
-	include_once 	"include/acknow.inc.php";
-	include_once 	"include/autoregistration.inc.php";
-	include_once 	"include/escalations.inc.php";
-	include_once 	"include/hosts.inc.php";
-	include_once 	"include/users.inc.php";
-	include_once 	"include/graphs.inc.php";
-	include_once 	"include/items.inc.php";
-	include_once 	"include/screens.inc.php";
-	include_once 	"include/triggers.inc.php";
-	include_once 	"include/actions.inc.php";
-        include_once    "include/events.inc.php";
-	include_once 	"include/profiles.inc.php";
-	include_once 	"include/services.inc.php";
-	include_once 	"include/maps.inc.php";
-	include_once 	"include/media.inc.php";
-
-// Include Validation
-
-	include_once 	"include/validate.inc.php";
-
-// Include Classes
-	include_once("include/classes/ctag.inc.php");
-	include_once("include/classes/cvar.inc.php");
-	include_once("include/classes/cspan.inc.php");
-	include_once("include/classes/cimg.inc.php");
-	include_once("include/classes/clink.inc.php");
-	include_once("include/classes/chelp.inc.php");
-	include_once("include/classes/cbutton.inc.php");
-	include_once("include/classes/ccombobox.inc.php");
-	include_once("include/classes/ctable.inc.php");
-	include_once("include/classes/ctableinfo.inc.php");
-	include_once("include/classes/ctextarea.inc.php");
-	include_once("include/classes/ctextbox.inc.php");
-	include_once("include/classes/cpassbox.inc.php");
-	include_once("include/classes/cform.inc.php");
-	include_once("include/classes/cfile.inc.php");
-	include_once("include/classes/ccheckbox.inc.php");
-	include_once("include/classes/clistbox.inc.php");
-	include_once("include/classes/cform.inc.php");
-	include_once("include/classes/cformtable.inc.php");
-	include_once("include/classes/cmap.inc.php");
-	include_once("include/classes/cflash.inc.php");
-	include_once("include/classes/ciframe.inc.php");
-
-// Include Tactical Overview modules
-	include_once("include/classes/chostsinfo.mod.php");
-	include_once("include/classes/ctriggerinfo.mod.php");
-	include_once("include/classes/cserverinfo.mod.php");
-	include_once("include/classes/cflashclock.mod.php");
-
-
-	function zbx_stripslashes($value){
-		if(is_array($value)){
-			$value = array_map('zbx_stripslashes',$value);
-		} elseif (is_string($value)){
-			$value = stripslashes($value);
-		}
-		return $value;
-	}
-
-	function get_request($name, $def){
-		global  $_REQUEST;
-		if(isset($_REQUEST[$name]))
-			return $_REQUEST[$name];
-		else
-			return $def;
-	}
-
-	function info($msg)
+	function	nbsp($str)
 	{
-		global $INFO_MSG;
+		return str_replace(" ","&nbsp;",$str);;
+	}
 
-		if(is_array($INFO_MSG))
+	function url1_param($parameter)
+	{
+		global $HTTP_GET_VARS;
+	
+		if(isset($HTTP_GET_VARS[$parameter]))
 		{
-			array_push($INFO_MSG,$msg);
+			return "$parameter=".$HTTP_GET_VARS[$parameter];
 		}
 		else
 		{
-			$INFO_MSG=array($msg);
+			return "";
 		}
 	}
 
-	function error($msg)
+	function url_param($parameter)
 	{
-		global $ERROR_MSG;
-		if(is_array($ERROR_MSG))
+		global $HTTP_GET_VARS;
+	
+		if(isset($HTTP_GET_VARS[$parameter]))
 		{
-			array_push($ERROR_MSG,$msg);
+			return "&$parameter=".$HTTP_GET_VARS[$parameter];
 		}
 		else
 		{
-			$ERROR_MSG=array($msg);
+			return "";
 		}
 	}
 
@@ -160,19 +76,8 @@ function SDI($msg="SDI") { echo "DEBUG INFO: $msg ".BR; } // DEBUG INFO!!!
 		}
 	}
 
-	function	iif_echo($bool,$a,$b)
+	function	convert_units($value,$units,$multiplier)
 	{
-		echo iif($bool,$a,$b);
-	}
-
-	function	convert_units($value,$units)
-	{
-// Special processing for unix timestamps
-		if($units=="unixtime")
-		{
-			$ret=date("Y.m.d H:i:s",$value);
-			return $ret;
-		}
 // Special processing for seconds
 		if($units=="s")
 		{
@@ -215,43 +120,7 @@ function SDI($msg="SDI") { echo "DEBUG INFO: $msg ".BR; } // DEBUG INFO!!!
 
 		$u="";
 
-// Special processing for bits (kilo=1000, not 1024 for bits)
-		if( ($units=="b") || ($units=="bps"))
-		{
-			$abs=abs($value);
-
-			if($abs<1000)
-			{
-				$u="";
-			}
-			else if($abs<1000*1000)
-			{
-				$u="K";
-				$value=$value/1000;
-			}
-			else if($abs<1000*1000*1000)
-			{
-				$u="M";
-				$value=$value/(1000*1000);
-			}
-			else
-			{
-				$u="G";
-				$value=$value/(1000*1000*1000);
-			}
-	
-			if(round($value)==$value)
-			{
-				$s=sprintf("%.0f",$value);
-			}
-			else
-			{
-				$s=sprintf("%.2f",$value);
-			}
-
-			return "$s $u$units";
-		}
-
+		$value=$value*pow(1024,(int)$multiplier);
 
 		if($units=="")
 		{
@@ -298,19 +167,10 @@ function SDI($msg="SDI") { echo "DEBUG INFO: $msg ".BR; } // DEBUG INFO!!!
 
 		return "$s $u$units";
 	}
-
-	function	get_template_permission_str($num)
-	{
-		$str=SPACE;
-		if(($num&1)==1)	$str=$str.S_ADD.SPACE;
-		if(($num&2)==2)	$str=$str.S_UPDATE.SPACE;
-		if(($num&4)==4)	$str=$str.S_DELETE.SPACE;
-		return $str;
-	}
 	
 	function	get_media_count_by_userid($userid)
 	{
-		$sql="select count(mediaid) as cnt from media where userid=$userid";
+		$sql="select count(*) as cnt from media where userid=$userid";
 		$result=DBselect($sql);
 		$row=DBfetch($result);
 		return $row["cnt"]; 
@@ -320,13 +180,13 @@ function SDI($msg="SDI") { echo "DEBUG INFO: $msg ".BR; } // DEBUG INFO!!!
 	{
 		$cnt=0;
 
-		$sql="select count(actionid) as cnt from actions where triggerid=$triggerid and scope=0";
+		$sql="select count(*) as cnt from actions where triggerid=$triggerid and scope=0";
 		$result=DBselect($sql);
 		$row=DBfetch($result);
 
 		$cnt=$cnt+$row["cnt"];
 
-		$sql="select count(actionid) as cnt from actions where scope=2";
+		$sql="select count(*) as cnt from actions where scope=2";
 		$result=DBselect($sql);
 		$row=DBfetch($result);
 
@@ -345,134 +205,662 @@ function SDI($msg="SDI") { echo "DEBUG INFO: $msg ".BR; } // DEBUG INFO!!!
 		return $cnt; 
 	}
 
-	function	play_sound($filename)
+	function	check_anyright($right,$permission)
 	{
-		echo '
-<SCRIPT TYPE="text/javascript">
-<!-- 
-var snd_tag = \'<BGSOUND SRC="'.$filename.'" LOOP=0/>\';
+		global $USER_DETAILS;
 
-if (navigator.appName != "Microsoft Internet Explorer")
-    snd_tag = \'<EMBED SRC="'.$filename.'" AUTOSTART=TRUE WIDTH=0 HEIGHT=0 LOOP=0><P/>\';
+		$sql="select permission from rights where name='Default permission' and userid=".$USER_DETAILS["userid"];
+		$result=DBselect($sql);
 
-document.writeln(snd_tag);
-// -->
-</SCRIPT>
-<NOSCRIPT>
-	<BGSOUND SRC="'.$filename.'"/>
-</NOSCRIPT>';
+		$default_permission="H";
+		if(DBnum_rows($result)>0)
+		{
+			$default_permission="";
+			while($row=DBfetch($result))
+			{
+				$default_permission=$default_permission.$row["permission"];
+			}
+		}
+# default_permission
+
+		$sql="select permission from rights where name='$right' and id!=0 and userid=".$USER_DETAILS["userid"];
+		$result=DBselect($sql);
+
+		$all_permissions="";
+		if(DBnum_rows($result)>0)
+		{
+			while($row=DBfetch($result))
+			{
+				$all_permissions=$all_permissions.$row["permission"];
+			}
+		}
+# all_permissions
+
+//		echo "$all_permissions|$default_permission<br>";
+
+		switch ($permission) {
+			case 'A':
+				if(strstr($all_permissions,"A"))
+				{
+					return 1;
+				}
+				if(strstr($default_permission,"H"))
+				{
+					return 0;
+				}
+				else if(strstr($default_permission,"A"))
+				{
+					return 1;
+				}
+				break;
+			case 'R':
+				if(strstr($all_permissions,"R"))
+				{
+					return 1;
+				}
+				else if(strstr($all_permissions,"U"))
+				{
+					return 1;
+				}
+				if(strstr($default_permission,"H"))
+				{
+					return 0;
+				}
+				else if(strstr($default_permission,"R"))
+				{
+					return 1;
+				}
+				else if(strstr($default_permission,"U"))
+				{
+					return 1;
+				}
+				break;
+			case 'U':
+				if(strstr($all_permissions,"U"))
+				{
+					return 1;
+				}
+				if(strstr($default_permission,"H"))
+				{
+					return 0;
+				}
+				else if(strstr($default_permission,"U"))
+				{
+					return 1;
+				}
+				break;
+			default:
+				return 0;
+		}
+		return 0;
 	}
+
+	function	check_right($right,$permission,$id)
+	{
+		global $USER_DETAILS;
+
+		$sql="select permission from rights where name='Default permission' and userid=".$USER_DETAILS["userid"];
+		$result=DBselect($sql);
+
+		$default_permission="H";
+		if(DBnum_rows($result)>0)
+		{
+			$default_permission="";
+			while($row=DBfetch($result))
+			{
+				$default_permission=$default_permission.$row["permission"];
+			}
+		}
+# default_permission
+
+		$sql="select permission from rights where name='$right' and id=0 and userid=".$USER_DETAILS["userid"];
+		$result=DBselect($sql);
+
+		$group_permission="";
+		if(DBnum_rows($result)>0)
+		{
+			while($row=DBfetch($result))
+			{
+				$group_permission=$group_permission.$row["permission"];
+			}
+		}
+# group_permission
+
+		$id_permission="";
+		if($id!=0)
+		{
+			$sql="select permission from rights where name='$right' and id=$id and userid=".$USER_DETAILS["userid"];
+			$result=DBselect($sql);
+			if(DBnum_rows($result)>0)
+			{
+				while($row=DBfetch($result))
+				{
+					$id_permission=$id_permission.$row["permission"];
+				}
+			}
+		}
+# id_permission
+//		echo "$id_permission|$group_permission|$default_permission<br>";
+
+		switch ($permission) {
+			case 'A':
+				if(strstr($id_permission,"H"))
+				{
+					return 0;
+				}
+				else if(strstr($id_permission,"A"))
+				{
+					return 1;
+				}
+				if(strstr($group_permission,"H"))
+				{
+					return 0;
+				}
+				else if(strstr($group_permission,"A"))
+				{
+					return 1;
+				}
+				if(strstr($default_permission,"H"))
+				{
+					return 0;
+				}
+				else if(strstr($default_permission,"A"))
+				{
+					return 1;
+				}
+				break;
+			case 'R':
+				if(strstr($id_permission,"H"))
+				{
+					return 0;
+				}
+				else if(strstr($id_permission,"R"))
+				{
+					return 1;
+				}
+				else if(strstr($id_permission,"U"))
+				{
+					return 1;
+				}
+				if(strstr($group_permission,"H"))
+				{
+					return 0;
+				}
+				else if(strstr($group_permission,"R"))
+				{
+					return 1;
+				}
+				else if(strstr($group_permission,"U"))
+				{
+					return 1;
+				}
+				if(strstr($default_permission,"H"))
+				{
+					return 0;
+				}
+				else if(strstr($default_permission,"R"))
+				{
+					return 1;
+				}
+				else if(strstr($default_permission,"U"))
+				{
+					return 1;
+				}
+				break;
+			case 'U':
+				if(strstr($id_permission,"H"))
+				{
+					return 0;
+				}
+				else if(strstr($id_permission,"U"))
+				{
+					return 1;
+				}
+				if(strstr($group_permission,"H"))
+				{
+					return 0;
+				}
+				else if(strstr($group_permission,"U"))
+				{
+					return 1;
+				}
+				if(strstr($default_permission,"H"))
+				{
+					return 0;
+				}
+				else if(strstr($default_permission,"U"))
+				{
+					return 1;
+				}
+				break;
+			default:
+				return 0;
+		}
+		return 0;
+	}
+
+
+/*	function	check_right($right,$permission,$id)
+	{
+		global $USER_DETAILS;
+
+		if($id!=0)
+		{
+			$sql="select * from rights where name='$right' and permission in ('H') and id=$id and userid=".$USER_DETAILS["userid"];
+			$result=DBselect($sql);
+			if(DBnum_rows($result)>0)
+			{
+				return	0;
+			}
+		}
+
+		$sql="select permission from rights where name='Default permission' and userid=".$USER_DETAILS["userid"];
+		$result=DBselect($sql);
+
+		$default_permission="H";
+		if(DBnum_rows($result)>0)
+		{
+			$default_permission="";
+			while($row=DBfetch($result))
+			{
+				$default_permission=$default_permission.$row["permission"];
+			}
+		}
+
+		if($permission=='R')
+		{
+			$cond="'R','U'";
+		}
+		else
+		{
+			$cond="'".$permission."'";
+		}
+
+		$sql="select * from rights where name='$right' and permission in ($cond) and (id=$id or id=0) and userid=".$USER_DETAILS["userid"];
+//		echo $sql;
+
+		$result=DBselect($sql);
+
+		if(DBnum_rows($result)>0)
+		{
+			return	1;
+		}
+		else
+		{
+			if(strstr($default_permission,"A")&&($permission=="A"))
+			{
+				return 1;
+			}
+			if(strstr($default_permission,"R")&&($permission=="R"))
+			{
+				return 1;
+			}
+			if(strstr($default_permission,"U")&&($permission=="R"))
+			{
+				return 1;
+			}
+			if(strstr($default_permission,"U")&&($permission=="U"))
+			{
+				return 1;
+			}
+			return	0;
+		}
+	}
+*/
+
+	function	check_right_on_trigger($permission,$triggerid)
+	{
+                $sql="select distinct h.hostid from functions f,items i,hosts h
+where h.hostid=i.hostid and i.itemid=f.itemid and f.triggerid=$triggerid";
+                $result=DBselect($sql);
+                $ok=0;
+		while($row=DBfetch($result))
+		{
+			if(check_right("Host",$permission,$row["hostid"]))
+			{
+				$ok=1;
+			}
+		}
+		return	$ok;
+	}
+
+	function	get_scope_description($scope)
+	{
+		$desc="Unknown";
+		if($scope==2)
+		{
+			$desc="All";
+		}
+		elseif($scope==1)
+		{
+			$desc="Host";
+		}
+		elseif($scope==0)
+		{
+			$desc="Trigger";
+		}
+		return $desc;
+	}
+
+	function	get_service_status_description($status)
+	{
+		$desc="<font color=\"#00AA00\">OK</a>";
+		if($status==5)
+		{
+			$desc="<font color=\"#FF0000\">Disaster</a>";
+		}
+		elseif($status==4)
+		{
+			$desc="<font color=\"#FF8888\">Serious&nbsp;problem</a>";
+		}
+		elseif($status==3)
+		{
+			$desc="<font color=\"#AA0000\">Average&nbsp;problem</a>";
+		}
+		elseif($status==2)
+		{
+			$desc="<font color=\"#AA5555\">Minor&nbsp;problem</a>";
+		}
+		elseif($status==1)
+		{
+			$desc="<font color=\"#00AA00\">OK</a>";
+		}
+		return $desc;
+	}
+
 
 //	The hash has form <md5sum of triggerid>,<sum of priorities>
 	function	calc_trigger_hash()
 	{
-
-		$priority = array(0=>0, 1=>0, 2=>0, 3=>0, 4=>0, 5=>0);
-		$triggerids="";
-
-	       	$result=DBselect('select t.triggerid,t.priority from triggers t,hosts h,items i,functions f'.
-			'  where t.value=1 and f.itemid=i.itemid and h.hostid=i.hostid and t.triggerid=f.triggerid and i.status=0');
-
-		while($row=DBfetch($result))
-		{
-			$ack = get_last_alarm_by_triggerid($row["triggerid"]);
-			if($ack["acknowledged"] == 1) continue;
-
-			$triggerids="$triggerids,".$row["triggerid"];
-			$priority[$row["priority"]]++;
-		}
-
-		$md5sum=md5($triggerids);
-
 		$priorities=0;
-		for($i=0;$i<=5;$i++)	$priorities += pow(100,$i)*$priority[$i];
+		for($i=0;$i<=5;$i++)
+		{
+	        	$result=DBselect("select count(*) from triggers t,hosts h,items i,functions f  where t.value=1 and f.itemid=i.itemid and h.hostid=i.hostid and t.triggerid=f.triggerid and i.status=0 and t.priority=$i");
+//			$priorities+=(1000^$i)*DBget_field($result,0,0);
+			$priorities+=pow(100,$i)*DBget_field($result,0,0);
+//			echo "$i $priorities ",DBget_field($result,0,0),"<br>";
+//			echo pow(100,5)*13;
+		}
+		$triggerids="";
+	       	$result=DBselect("select t.triggerid from triggers t,hosts h,items i,functions f  where t.value=1 and f.itemid=i.itemid and h.hostid=i.hostid and t.triggerid=f.triggerid and i.status=0");
+		for($i=0;$i<DBnum_rows($result);$i++)
+		{
+			$triggerids="$triggerids,".DBget_field($result,$i,0);
+		}
+		$md5sum=md5($triggerids);
 
 		return	"$priorities,$md5sum";
 	}
 
-	function	get_function_by_functionid($functionid)
+	function	get_group_by_groupid($groupid)
 	{
-		$sql="select * from functions where functionid=$functionid"; 
+		global	$ERROR_MSG;
+
+		$sql="select * from groups where groupid=$groupid"; 
 		$result=DBselect($sql);
-		$row=DBfetch($result);
-		if($row)
+		if(DBnum_rows($result) == 1)
 		{
-			return	$row;
+			return	DBfetch($result);	
 		}
 		else
 		{
-			error("No function with functionid=[$functionid]");
+			$ERROR_MSG="No groups with groupid=[$groupid]";
+		}
+		return	$result;
+	}
+
+	function	get_action_by_actionid($actionid)
+	{
+		global	$ERROR_MSG;
+
+		$sql="select * from actions where actionid=$actionid"; 
+		$result=DBselect($sql);
+		if(DBnum_rows($result) == 1)
+		{
+			return	DBfetch($result);	
+		}
+		else
+		{
+			$ERROR_MSG="No action with actionid=[$actionid]";
+		}
+		return	$result;
+	}
+
+	function	get_user_by_userid($userid)
+	{
+		global	$ERROR_MSG;
+
+		$sql="select * from users where userid=$userid"; 
+		$result=DBselect($sql);
+		if(DBnum_rows($result) == 1)
+		{
+			return	DBfetch($result);	
+		}
+		else
+		{
+			$ERROR_MSG="No user with itemid=[$userid]";
+		}
+		return	$result;
+	}
+
+	function	get_usergroup_by_usrgrpid($usrgrpid)
+	{
+		global	$ERROR_MSG;
+
+		$result=DBselect("select usrgrpid,name from usrgrp where usrgrpid=$usrgrpid"); 
+		if(DBnum_rows($result) == 1)
+		{
+			return	DBfetch($result);	
+		}
+		else
+		{
+			$ERROR_MSG="No user group with usrgrpid=[$usrgrpid]";
+		}
+		return	$result;
+	}
+
+	function	get_screen_by_screenid($screenid)
+	{
+		global	$ERROR_MSG;
+
+		$sql="select * from screens where screenid=$screenid"; 
+		$result=DBselect($sql);
+		if(DBnum_rows($result) == 1)
+		{
+			return	DBfetch($result);	
+		}
+		else
+		{
+			$ERROR_MSG="No screen with screenid=[$screenid]";
+		}
+		return	$result;
+	}
+
+	function	get_map_by_sysmapid($sysmapid)
+	{
+		global	$ERROR_MSG;
+
+		$sql="select * from sysmaps where sysmapid=$sysmapid"; 
+		$result=DBselect($sql);
+		if(DBnum_rows($result) == 1)
+		{
+			return	DBfetch($result);	
+		}
+		else
+		{
+			$ERROR_MSG="No system map with sysmapid=[$sysmapid]";
+		}
+		return	$result;
+	}
+
+
+	function	get_graph_by_graphid($graphid)
+	{
+		global	$ERROR_MSG;
+
+		$sql="select * from graphs where graphid=$graphid"; 
+		$result=DBselect($sql);
+		if(DBnum_rows($result) == 1)
+		{
+			return	DBfetch($result);	
+		}
+		else
+		{
+			$ERROR_MSG="No graph with graphid=[$graphid]";
+		}
+		return	$graph;
+	}
+
+	function	get_item_by_itemid($itemid)
+	{
+		global	$ERROR_MSG;
+
+		$sql="select * from items where itemid=$itemid"; 
+		$result=DBselect($sql);
+		if(DBnum_rows($result) == 1)
+		{
+			return	DBfetch($result);	
+		}
+		else
+		{
+			$ERROR_MSG="No item with itemid=[$itemid]";
 		}
 		return	$item;
 	}
 
-	function	select_config()
+	function	get_function_by_functionid($functionid)
 	{
-		$sql="select * from config";
+		global	$ERROR_MSG;
+
+		$sql="select * from functions where functionid=$functionid"; 
 		$result=DBselect($sql);
-		$row=DBfetch($result);
-		if($row)
+		if(DBnum_rows($result) == 1)
 		{
-			return	$row;
+			return	DBfetch($result);
 		}
 		else
 		{
-			error("Unable to select configuration");
+			$ERROR_MSG="No function with functionid=[$functionid]";
+		}
+		return	$item;
+	}
+
+	function	get_trigger_by_triggerid($triggerid)
+	{
+		global	$ERROR_MSG;
+
+		$sql="select triggerid,expression,description,status,priority,lastchange,dep_level,comments,url,value from triggers where triggerid=$triggerid";
+		$result=DBselect($sql);
+		if(DBnum_rows($result) == 1)
+		{
+			return	DBfetch($result);	
+		}
+		else
+		{
+			$ERROR_MSG="No trigger with triggerid=[$triggerid]";
+		}
+		return	$trigger;
+	}
+
+	function	select_config()
+	{
+		global	$ERROR_MSG;
+
+//		$sql="select smtp_server,smtp_helo,smtp_email,alarm_history,alert_history from config";
+		$sql="select alarm_history,alert_history from config";
+		$result=DBselect($sql);
+
+		if(DBnum_rows($result) == 1)
+		{
+			$config["alarm_history"]=DBget_field($result,0,0);
+			$config["alert_history"]=DBget_field($result,0,1);
+//			$config["smtp_server"]=DBget_field($result,0,0);
+//			$config["smtp_helo"]=DBget_field($result,0,1);
+//			$config["smtp_email"]=DBget_field($result,0,2);
+//			$config["alarm_history"]=DBget_field($result,0,3);
+//			$config["alert_history"]=DBget_field($result,0,4);
+		}
+		else
+		{
+			$ERROR_MSG="Unable to select configuration";
 		}
 		return	$config;
 	}
 
-	function	show_infomsg()
+	function	get_host_by_hostid($hostid)
 	{
-		global	$INFO_MSG;
 		global	$ERROR_MSG;
-		if(is_array($INFO_MSG) && count($INFO_MSG)>0)
+
+		$sql="select hostid,host,useip,ip,port,status from hosts where hostid=$hostid";
+		$result=DBselect($sql);
+		if(DBnum_rows($result) == 1)
 		{
-			echo "<p align=center class=\"info\">";
-			while($val = array_shift($INFO_MSG))
-			{
-				echo $val.BR;
-			}
-			echo "</p>";
+			$host["hostid"]=DBget_field($result,0,0);
+			$host["host"]=DBget_field($result,0,1);
+			$host["useip"]=DBget_field($result,0,2);
+			$host["ip"]=DBget_field($result,0,3);
+			$host["port"]=DBget_field($result,0,4);
+			$host["status"]=DBget_field($result,0,5);
 		}
+		else
+		{
+			$ERROR_MSG="No host with hostid=[$hostid]";
+		}
+		return	$host;
 	}
 
-	function	show_messages($bool=TRUE,$msg=NULL,$errmsg=NULL)
+	function	get_num_of_service_childs($serviceid)
+	{
+		global	$ERROR_MSG;
+
+		$sql="select count(*) from services_links where serviceupid=$serviceid";
+		$result=DBselect($sql);
+		return	DBget_field($result,0,0);
+	}
+
+	function	get_service_by_serviceid($serviceid)
+	{
+		global	$ERROR_MSG;
+
+		$sql="select * from services where serviceid=$serviceid";
+		$result=DBselect($sql);
+		if(Dbnum_rows($result) == 1)
+		{
+			return	DBfetch($result);
+		}
+		else
+		{
+			$ERROR_MSG="No service with serviceid=[$serviceid]";
+		}
+		return	FALSE;
+	}
+
+	function	show_messages($bool,$msg,$errmsg)
 	{
 		global	$ERROR_MSG;
 
 		if(!$bool)
 		{
-			if(!is_null($errmsg))
-				$msg="ERROR:".$errmsg;
-
+			$msg="ERROR:".$errmsg;
 			$color="#AA0000";
 		}
 		else
 		{
 			$color="#223344";
 		}
-
-		if(isset($msg))
+		echo "<center>";
+//		echo "<font size=+1 color='$color'>";
+		echo "<font color='$color'>";
+		if($ERROR_MSG=="")
 		{
-			echo "<p align=center>";
-			echo "<font color='$color'>";
 			echo "<b>[$msg]</b>";
-			echo "</font>";
-			echo "</p>";
 		}
-
-		show_infomsg();
-
-		if(is_array($ERROR_MSG) && count($ERROR_MSG)>0)
+		else
 		{
-			echo "<p align=center class=\"error\">";
-			while($val = array_shift($ERROR_MSG))
-			{
-				echo $val.BR;
-			}
-			echo "</p>";
+			echo "<b>[$msg. $ERROR_MSG]</b>";
 		}
+		echo "</font>";
+		echo "</center><br>";
 	}
 
 	function	show_message($msg)
@@ -485,169 +873,10 @@ document.writeln(snd_tag);
 		show_messages(FALSE,'',$msg);
 	}
 
-	function	parse_period($str)
-	{
-		$out = NULL;
-		$str = trim($str,';');
-		$periods = split(';',$str);
-		foreach($periods as $preiod)
-		{
-			if(!ereg('^([1-7])-([1-7]),([0-9]{1,2}):([0-9]{1,2})-([0-9]{1,2}):([0-9]{1,2})$', $preiod, $arr))
-				return NULL;
-			for($i = $arr[1]; $i <= $arr[2]; $i++)
-			{
-				if(!isset($out[$i])) $out[$i] = array();
-				array_push($out[$i],
-					array(
-						'start_h'	=> $arr[3],
-						'start_m'	=> $arr[4],
-						'end_h'		=> $arr[5],
-						'end_m'		=> $arr[6]
-					));
-			}
-		}
-		return $out;
-	}
-
-	function	find_period_start($periods,$time)
-	{
-		$date = getdate($time);
-		$wday = $date['wday'] == 0 ? 7 : $date['wday'];
-		$curr = $date['hours']*100+$date['minutes'];
-
-		if(isset($periods[$wday]))
-		{
-			$next_h = -1;
-			$next_m = -1;
-			foreach($periods[$wday] as $period)
-			{
-				$per_start = $period['start_h']*100+$period['start_m'];
-				if($per_start > $curr)
-				{
-					if(($next_h == -1 && $next_m == -1) || ($per_start < ($next_h*100 + $next_m)))
-					{
-						$next_h = $period['start_h'];
-						$next_m = $period['start_m'];
-					}
-					continue;
-				}
-				$per_end = $period['end_h']*100+$period['end_m'];
-				if($per_end <= $curr) continue;
-				return $time;
-			}
-			if($next_h >= 0 && $next_m >= 0)
-			{
-				return mktime($next_h, $next_m, 0, $date['mon'], $date['mday'], $date['year']);
-			}
-		}
-		for($days=1; $days < 7 ; ++$days)
-		{
-			$new_wday = (($wday + $days - 1)%7 + 1);
-			if(isset($periods[$new_wday ]))
-			{
-				$next_h = -1;
-				$next_m = -1;
-				foreach($periods[$new_wday] as $period)
-				{
-					$per_start = $period['start_h']*100+$period['start_m'];
-					if(($next_h == -1 && $next_m == -1) || ($per_start < ($next_h*100 + $next_m)))
-					{
-						$next_h = $period['start_h'];
-						$next_m = $period['start_m'];
-					}
-				}
-				if($next_h >= 0 && $next_m >= 0)
-				{
-					return mktime($next_h, $next_m, 0, $date['mon'], $date['mday'] + $days, $date['year']);
-				}
-			}
-		}
-		return -1;
-	}
-
-	function	find_period_end($periods,$time,$max_time)
-	{
-		$date = getdate($time);
-		$wday = $date['wday'] == 0 ? 7 : $date['wday'];
-		$curr = $date['hours']*100+$date['minutes'];
-//SDI("find_end: ".date('r',$time));
-		if(isset($periods[$wday]))
-		{
-			$next_h = -1;
-			$next_m = -1;
-			foreach($periods[$wday] as $period)
-			{
-				$per_start = $period['start_h']*100+$period['start_m'];
-				$per_end = $period['end_h']*100+$period['end_m'];
-				if($per_start > $curr) continue;
-				if($per_end < $curr) continue;
-
-				if(($next_h == -1 && $next_m == -1) || ($per_end > ($next_h*100 + $next_m)))
-				{
-					$next_h = $period['end_h'];
-					$next_m = $period['end_m'];
-				}
-			}
-			if($next_h >= 0 && $next_m >= 0)
-			{
-				$new_time = mktime($next_h, $next_m, 0, $date['mon'], $date['mday'], $date['year']);
-
-				if($new_time == $time)
-					return $time;
-				if($new_time > $max_time)
-					return $max_time;
-
-				$next_time = find_period_end($periods,$new_time,$max_time);
-				if($next_time < 0)
-					return $new_time;
-				else
-					return $next_time;
-			}
-		}
-		return -1;
-	}
-
-	function	validate_period(&$str)
-	{
-/* // simple check
-		$per_expr = '[1-7]-[1-7],[0-9]{1,2}:[0-9]{1,2}-[0-9]{1,2}:[0-9]{1,2}';
-		$regexp = '^'.$per_expr.'(;'.$per_expr.')*[;]?$';
-		if(!ereg($regexp, $str, $arr))
-			return -1;
-
-		return 0;
-*/
-		$str = trim($str,';');
-		$out = "";
-		$periods = split(';',$str);
-		foreach($periods as $preiod)
-		{
-			// arr[idx]   1       2         3             4            5            6
-			if(!ereg('^([1-7])-([1-7]),([0-9]{1,2}):([0-9]{1,2})-([0-9]{1,2}):([0-9]{1,2})$', $preiod, $arr))
-				return -1;
-
-			if($arr[1] > $arr[2]) // check week day
-				return -1;
-			if($arr[3] > 23 || $arr[3] < 0 || $arr[5] > 24 || $arr[5] < 0) // check hour
-				return -1;
-			if($arr[4] > 59 || $arr[4] < 0 || $arr[6] > 59 || $arr[6] < 0) // check min
-				return -1;
-			if(($arr[5]*100 + $arr[6]) > 2400) // check max time 24:00
-				return -1;
-			if(($arr[3] * 100 + $arr[4]) >= ($arr[5] * 100 + $arr[6])) // check time period
-				return -1;
-
-			$out .= sprintf("%d-%d,%02d:%02d-%02d:%02d",$arr[1],$arr[2],$arr[3],$arr[4],$arr[5],$arr[6]).';';
-		}
-		$str = $out;
-//parse_period($str);
-		return 0;
-	}
-
 	function	validate_float($str)
 	{
 //		echo "Validating float:$str<br>";
-		if (eregi('^[ ]*([0-9]+)((\.)?)([0-9]*[KMG]{0,1})[ ]*$', $str, $arr)) 
+		if (eregi('^([0-9]+)((\.)?)([0-9]*[KMG]{0,1})$', $str, &$arr)) 
 		{
 			return 0;
 		}
@@ -657,44 +886,32 @@ document.writeln(snd_tag);
 		}
 	}
 
-// Check if str has format #<float> or <float>
-	function	validate_ticks($str)
-	{
-//		echo "Validating float:$str<br>";
-		if (eregi('^[ ]*#([0-9]+)((\.)?)([0-9]*)[ ]*$', $str, $arr)) 
-		{
-			return 0;
-		}
-		else return validate_float($str);
-	}
-
 // Does expression match server:key.function(param) ?
 	function	validate_simple_expression($expression)
 	{
+		global	$ERROR_MSG;
+
 //		echo "Validating simple:$expression<br>";
 // Before str()
-// 		if (eregi('^\{([0-9a-zA-Z[.-.]\_\.]+)\:([]\[0-9a-zA-Z\_\/\.\,]+)\.((diff)|(min)|(max)|(last)|(prev))\(([0-9\.]+)\)\}$', $expression, $arr)) 
-//		if (eregi('^\{([0-9a-zA-Z[.-.]\_\.]+)\:([]\[0-9a-zA-Z\_\/\.\,]+)\.((diff)|(min)|(max)|(last)|(prev)|(str))\(([0-9a-zA-Z\.\_\/\,]+)\)\}$', $expression, $arr)) 
-// 		if (eregi('^\{([0-9a-zA-Z\_\.-]+)\:([]\[0-9a-zA-Z\_\*\/\.\,\:\(\) -]+)\.([a-z]{3,11})\(([#0-9a-zA-Z\_\/\.\,]+)\)\}$', $expression, $arr)) 
-		if (eregi('^\{([0-9a-zA-Z\_\.-]+)\:([]\[0-9a-zA-Z\_\*\/\.\,\:\(\) -]+)\.([a-z]{3,11})\(([#0-9a-zA-Z\_\/\.\,[:space:]]+)\)\}$', $expression, $arr))
+// 		if (eregi('^\{([0-9a-zA-Z[.-.]\_\.]+)\:([]\[0-9a-zA-Z\_\/\.\,]+)\.((diff)|(min)|(max)|(last)|(prev))\(([0-9\.]+)\)\}$', $expression, &$arr)) 
+//		if (eregi('^\{([0-9a-zA-Z[.-.]\_\.]+)\:([]\[0-9a-zA-Z\_\/\.\,]+)\.((diff)|(min)|(max)|(last)|(prev)|(str))\(([0-9a-zA-Z\.\_\/\,]+)\)\}$', $expression, &$arr)) 
+ 		if (eregi('^\{([0-9a-zA-Z\_\.-]+)\:([]\[0-9a-zA-Z\_\/\.\,\:\(\) -]+)\.([a-z]{3,9})\(([0-9a-zA-Z\_\/\.\,]+)\)\}$', $expression, &$arr)) 
 		{
 			$host=$arr[1];
 			$key=$arr[2];
 			$function=$arr[3];
 			$parameter=$arr[4];
 
-//SDI($host);
-//SDI($key);
-//SDI($function);
-//SDI($parameter);
+//			echo $host,"<br>";
+//			echo $key,"<br>";
+//			echo $function,"<br>";
+//			echo $parameter,"<br>";
 
-			$sql="select count(*) as cnt from hosts h,items i where h.host=".zbx_dbstr($host).
-				" and i.key_=".zbx_dbstr($key)." and h.hostid=i.hostid";
-//SDI($sql);
-			$row=DBfetch(DBselect($sql));
-			if($row["cnt"]!=1)
+			$sql="select count(*) from hosts h,items i where h.host='$host' and i.key_='$key' and h.hostid=i.hostid";
+			$result=DBselect($sql);
+			if(DBget_field($result,0,0)!=1)
 			{
-				error("No such host ($host) or monitored parameter ($key)");
+				$ERROR_MSG="No such host ($host) or monitored parameter ($key)";
 				return -1;
 			}
 
@@ -711,48 +928,33 @@ document.writeln(snd_tag);
 				($function!="abschange")&&
 				($function!="nodata")&&
 				($function!="time")&&
-				($function!="dayofweek")&&
 				($function!="date")&&
 				($function!="now")&&
-				($function!="str")&&
-				($function!="fuzzytime")&&
-				($function!="logseverity")&&
-				($function!="logsource")&&
-				($function!="regexp")
-			)
+				($function!="str"))
 			{
-				error("Unknown function [$function]");
+				$ERROR_MSG="Unknown function [$function]";
 				return -1;
 			}
 
 
-			if(in_array($function,array("last","diff","count",
-						"prev","change","abschange","nodata","time","dayofweek",
-						"date","now","fuzzytime"))
-				&& (validate_float($parameter)!=0) )
+			if(( $function!="str") && (validate_float($parameter)!=0) )
 			{
-				error("[$parameter] is not a float");
-				return -1;
-			}
-
-			if(in_array($function,array("min","max","avg","sum",
-						"delta"))
-				&& (validate_ticks($parameter)!=0) )
-			{
-				error("[$parameter] is not a float");
+				$ERROR_MSG="[$parameter] is not a float";
 				return -1;
 			}
 		}
 		else
 		{
-			error("Expression [$expression] does not match to [server:key.func(param)]");
+			$ERROR_MSG="Expression [$expression] does not match to [server:key.func(param)]";
 			return -1;
 		}
 		return 0;
 	}
-/*
+
 	function	validate_expression($expression)
 	{
+		global	$ERROR_MSG;
+
 //		echo "Validating expression: $expression<br>";
 
 		$ok=0;
@@ -761,7 +963,7 @@ document.writeln(snd_tag);
 		{
 //			echo "Expression:$expression<br>";
 			$arr="";
-			if (eregi('^((.)*)[ ]*(\{((.)*)\})[ ]*((.)*)$', $expression, $arr)) 
+			if (eregi('^((.)*)(\{((.)*)\})((.)*)$', $expression, &$arr)) 
 			{
 //				for($i=0;$i<20;$i++)
 //				{
@@ -787,7 +989,7 @@ document.writeln(snd_tag);
 // 	Replace all <float> <sign> <float> <K|M|G> with 0
 //			echo "Expression:$expression<br>";
 			$arr="";
-			if (eregi('^((.)*)([0-9\.]+[A-Z]{0,1})[ ]*([\&\|\>\<\=\+\-\*\/\#]{1})[ ]*([0-9\.]+[A-Z]{0,1})((.)*)$', $expression, $arr)) 
+			if (eregi('^((.)*)([0-9\.]+[A-Z]{0,1})([\&\|\>\<\=\+\-\*\/\#]{1})([0-9\.]+[A-Z]{0,1})((.)*)$', $expression, &$arr)) 
 			{
 //				echo "OK<br>";
 //				for($i=0;$i<50;$i++)
@@ -797,12 +999,12 @@ document.writeln(snd_tag);
 //				}
 				if(validate_float($arr[3])!=0)
 				{
-					error("[".$arr[3]."] is not a float");
+					$ERROR_MSG="[".$arr[3]."] is not a float";
 					return -1;
 				}
 				if(validate_float($arr[5])!=0)
 				{
-					error("[".$arr[5]."] is not a float");
+					$ERROR_MSG="[".$arr[5]."] is not a float";
 					return -1;
 				}
 				$expression=$arr[1]."(0)".$arr[6];
@@ -816,7 +1018,7 @@ document.writeln(snd_tag);
 // 	Replace all (float) with 0
 //			echo "Expression2:[$expression]<br>";
 			$arr="";
-			if (eregi('^((.)*)(\(([ 0-9\.]+)\))((.)*)$', $expression, $arr)) 
+			if (eregi('^((.)*)(\(([0-9\.]+)\))((.)*)$', $expression, &$arr)) 
 			{
 //				echo "OK<br>";
 //				for($i=0;$i<30;$i++)
@@ -826,7 +1028,7 @@ document.writeln(snd_tag);
 //				}
 				if(validate_float($arr[4])!=0)
 				{
-					error("[".$arr[4]."] is not a float");
+					$ERROR_MSG="[".$arr[4]."] is not a float";
 					return -1;
 				}
 				$expression=$arr[1]."0".$arr[5];
@@ -849,502 +1051,1156 @@ document.writeln(snd_tag);
 
 		return 1;
 	}
-/**/
 
 	function	cr()
 	{
 		echo "\n";
 	}
 
+	function	check_authorisation()
+	{
+		global	$page;
+		global	$PHP_AUTH_USER,$PHP_AUTH_PW;
+		global	$USER_DETAILS;
+		global	$HTTP_COOKIE_VARS;
+		global	$HTTP_GET_VARS;
+//		global	$sessionid;
+
+		if(isset($HTTP_COOKIE_VARS["sessionid"]))
+		{
+			$sessionid=$HTTP_COOKIE_VARS["sessionid"];
+		}
+		else
+		{
+			unset($sessionid);
+		}
+
+		if(isset($sessionid))
+		{
+			$sql="select u.userid,u.alias,u.name,u.surname from sessions s,users u where s.sessionid='$sessionid' and s.userid=u.userid and s.lastaccess+900>".time();
+			$result=DBselect($sql);
+			if(DBnum_rows($result)==1)
+			{
+//				setcookie("sessionid",$sessionid,time()+3600);
+				setcookie("sessionid",$sessionid);
+				$sql="update sessions set lastaccess=".time()." where sessionid='$sessionid'";
+				DBexecute($sql);
+				$USER_DETAILS["userid"]=DBget_field($result,0,0);
+				$USER_DETAILS["alias"]=DBget_field($result,0,1);
+				$USER_DETAILS["name"]=DBget_field($result,0,2);
+				$USER_DETAILS["surname"]=DBget_field($result,0,3);
+				return;
+			}
+			else
+			{
+				setcookie("sessionid",$sessionid,time()-3600);
+				unset($sessionid);
+			}
+		}
+
+                $sql="select u.userid,u.alias,u.name,u.surname from users u where u.alias='guest'";
+                $result=DBselect($sql);
+                if(DBnum_rows($result)==1)
+                {
+                        $USER_DETAILS["userid"]=DBget_field($result,0,0);
+                        $USER_DETAILS["alias"]=DBget_field($result,0,1);
+                        $USER_DETAILS["name"]=DBget_field($result,0,2);
+                        $USER_DETAILS["surname"]=DBget_field($result,0,3);
+			return;
+		}
+
+		if($page["file"]!="index.php")
+		{
+			echo "<meta http-equiv=\"refresh\" content=\"0; url=index.php\">";
+		}
+		show_special_header("Login",0,1,1);
+		show_error_message("Login name or password is incorrect");
+		insert_login_form();
+		show_footer();
+		exit;
+	}
+
 	# Header for HTML pages
 
-	function	show_header($title,$dorefresh=0,$nomenu=0,$noauth=0)
+	function	show_header($title,$refresh,$nomenu)
+	{
+		show_special_header($title,$refresh,$nomenu,0);
+	}
+
+
+	function	show_special_header($title,$refresh,$nomenu,$noauth)
 	{
 		global $page;
 		global $USER_DETAILS;
-COpt::profiling_start("page");
 
-		if($noauth==0)
+		if($noauth!=1)
 		{
 			check_authorisation();
-			include_once "include/locales/".$USER_DETAILS["lang"].".inc.php";
-			process_locales();
 		}
-		include_once "include/locales/en_gb.inc.php";
-		process_locales();
+
 ?>
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=<?php echo S_HTML_CHARSET; ?>">
-<meta name="Author" content="ZABBIX SIA (Alexei Vladishev, Eugene Grigorjev)">
-<link rel="stylesheet" href="css.css">
+	<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+	<html>
+	<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+	<meta name="Author" content="Alexei Vladishev">
+	<link rel="stylesheet" href="css.css">
+
 <?php
-//	if($USER_DETAILS['alias']=='guest')
-//	{
-//		$refresh=2*$refresh;
-//	}
-	if(defined($title))	$title=constant($title);
-	if($dorefresh && $USER_DETAILS["refresh"])
+	if($USER_DETAILS['alias']=='guest')
 	{
-		echo "	<meta http-equiv=\"refresh\" content=\"".$USER_DETAILS["refresh"]."\">\n";
-		echo "	<title>$title [refreshed every ".$USER_DETAILS["refresh"]." sec]</title>\n";
+		$refresh=2*$refresh;
+	}
+	if($refresh!=0)
+	{
+		echo "<meta http-equiv=\"refresh\" content=\"$refresh\">";
+		echo "<title>$title [refreshed every $refresh sec]</title>";
 	}
 	else
 	{
-		echo "	<title>$title</title>\n";
+		echo "<title>$title</title>";
 	}
 
+	echo "</head>";
 ?>
-</head>
-<body>
+
+
+	<body>
 <?php
-	if($nomenu == 0)
-	{
-	$menu=array(
-		"view"=>array(
-				"label"=>S_MONITORING,
-				"pages"=>array("overview.php","latest.php","tr_status.php","queue.php","events.php","actions.php","maps.php","charts.php","screens.php","srv_status.php","alarms.php","history.php","tr_comments.php","report3.php","profile.php","acknow.php"),
-				"level2"=>array(
-					array("label"=>S_OVERVIEW,"url"=>"overview.php"),
-					array("label"=>S_LATEST_DATA,"url"=>"latest.php"),
-					array("label"=>S_TRIGGERS,"url"=>"tr_status.php"),
-					array("label"=>S_QUEUE,"url"=>"queue.php"),
-					array("label"=>S_EVENTS,"url"=>"events.php"),
-					array("label"=>S_ACTIONS,"url"=>"actions.php"),
-					array("label"=>S_MAPS,"url"=>"maps.php"),
-					array("label"=>S_GRAPHS,"url"=>"charts.php"),
-					array("label"=>S_SCREENS,"url"=>"screens.php"),
-					array("label"=>S_IT_SERVICES,"url"=>"srv_status.php")
-					)
-				),
-		"cm"=>array(
-				"label"=>S_INVENTORY,
-				"pages"=>array("hostprofiles.php"),
-				"level2"=>array(
-					array("label"=>S_HOSTS,"url"=>"hostprofiles.php")
-					)
-				),
-		"reports"=>array(
-				"label"=>S_REPORTS,
-				"pages"=>array("report1.php","report2.php","report4.php","report5.php"),
-				"level2"=>array(
-					array("label"=>S_STATUS_OF_ZABBIX,"url"=>"report1.php"),
-					array("label"=>S_AVAILABILITY_REPORT,"url"=>"report2.php"),
-					array("label"=>S_NOTIFICATIONS,"url"=>"report4.php"),
-					array("label"=>S_TRIGGERS_TOP_100,"url"=>"report5.php"),   
-					)
-				),
-		"configuration"=>array(
-				"label"=>S_CONFIGURATION,
-				"pages"=>array("config.php","users.php","audit.php","hosts.php","items.php","triggers.php","sysmaps.php","graphs.php","screenconf.php","services.php","sysmap.php","media.php","screenedit.php","graph.php","actionconf.php","bulkloader.php"),
-				"level2"=>array(
-					array("label"=>S_GENERAL,"url"=>"config.php"),
-					array("label"=>S_USERS,"url"=>"users.php"),
-					array("label"=>S_AUDIT,"url"=>"audit.php"),
-					array("label"=>S_HOSTS,"url"=>"hosts.php"),
-					array("label"=>S_ITEMS,"url"=>"items.php"),
-					array("label"=>S_TRIGGERS,"url"=>"triggers.php"),
-					array("label"=>S_ACTIONS,"url"=>"actionconf.php"),
-					array("label"=>S_MAPS,"url"=>"sysmaps.php"),
-					array("label"=>S_GRAPHS,"url"=>"graphs.php"),
-					array("label"=>S_SCREENS,"url"=>"screenconf.php"),
-					array("label"=>S_IT_SERVICES,"url"=>"services.php"),
-					array("label"=>S_MENU_BULKLOADER,"url"=>"bulkloader.php")
-					)
-				),
-		"login"=>array(
-				"label"=>S_LOGIN,
-				"pages"=>array("index.php"),
-				"level2"=>array(
-					array("label"=>S_LOGIN,"url"=>"index.php"),
-					)
-				),
-		);
+		if($nomenu == 0)
+		{
+?>
 
-	$table = new CTable(NULL,"page_header");
-	$table->SetCellSpacing(0);
-	$table->SetCellPadding(5);
+	<table border=0 cellspacing=0 cellpadding=0 width=100% bgcolor=000000>
+	<tr>
+	<td valign="top">
+		<table width=100% border=0 cellspacing=1 cellpadding=3>
+		<tr>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Host","R"))
+				{
+					echo "<a href=\"latest.php\">";
+				}
+				if( 	($page["file"]=="latest.php") ||
+					($page["file"]=="history.php"))
+				{
+					echo "<b>[LATEST&nbsp;VALUES]</b></a>";
+				}
+				else
+				{
+					echo "LATEST&nbsp;VALUES</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=10%>
+<?php
+				if(check_anyright("Host","R"))
+				{
+					echo "<a href=\"tr_status.php?notitle=true&onlytrue=true&noactions=true&compact=true\">";
+				}
+				if($page["file"]=="tr_status.php")
+				{
+					echo "<b>[TRIGGERS]</b></a>";
+				}
+				else
+				{
+					echo "TRIGGERS</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=10%>
+<?php
+				if(check_anyright("Host","R"))
+				{
+					echo "<a href=\"queue.php\">";
+				}
+				if($page["file"]=="queue.php")
+				{
+					echo "<b>[QUEUE]</b></a>";
+				}
+				else
+				{
+					echo "QUEUE</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=10%>
+<?php
+				if(check_anyright("Default permission","R"))
+				{
+					echo "<a href=\"latestalarms.php\">";
+				}
+?>
+<?php
+				if(($page["file"]=="latestalarms.php") ||
+					($page["file"]=="alarms.php"))
+				{
+					echo "<b>[ALARMS]</b></a>";
+				}
+				else
+				{
+					echo "ALARMS</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Default permission","R"))
+				{
+					echo "<a href=\"alerts.php\">";
+				}
+?>
+<?php
+				if($page["file"]=="alerts.php")
+				{
+					echo "<b>[ALERTS]</b></a>";
+				}
+				else
+				{
+					echo "ALERTS</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Network map","R"))
+				{
+					echo "<a href=\"maps.php\">";
+				}
+?>
+<?php
+				if($page["file"]=="maps.php")
+				{
+					echo "<b>[NETWORK&nbsp;MAPS]</b></a>";
+				}
+				else
+				{
+					echo "NETWORK&nbsp;MAPS</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Graph","R"))
+				{
+					echo "<a href=\"charts.php\">";
+				}
+?>
+<?php
+				if($page["file"]=="charts.php")
+				{
+					echo "<b>[GRAPHS]</b></a>";
+				}
+				else
+				{
+					echo "GRAPHS</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Screen","R"))
+				{
+					echo "<a href=\"screens.php\">";
+				}
+?>
+<?php
+				if($page["file"]=="screens.php")
+				{
+					echo "<b>[SCREENS]</b></a>";
+				}
+				else
+				{
+					echo "SCREENS</a>";
+				}
+?>
+		</td>
 
-	$help = new CLink(S_HELP, "http://www.zabbix.com/manual/v1.1/index.php", "small_font");
-	$help->SetTarget('_blank');
-	$col_r = array($help);
-	if($USER_DETAILS["alias"]!="guest") {
-		array_push($col_r, "|");		
-		array_push($col_r, new CLink(S_PROFILE, "profile.php", "small_font"));
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Service","R"))
+				{
+					echo "<a href=\"srv_status.php\">";
+				}
+				if($page["file"]=="srv_status.php")
+				{
+					echo "<b>[IT&nbsp;SERVICES]</b></a>";
+				}
+				else
+				{
+					echo "IT&nbsp;SERVICES</a>";
+				}
+?>
+		</td>
+		</tr>
+
+		<tr>
+		<td colspan=2 bgcolor=FFFFFF align=center valign=top width=15%>
+				<a href="index.php">
+<?php
+				if($page["file"]=="index.php")
+				{
+					echo "<b>[HOME]</b></a>";
+				}
+				else
+				{
+					echo "HOME</a>";
+				}
+?>
+		</td>
+		<td colspan=2 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Default permission","R"))
+				{
+					echo "<a href=\"about.php\">";
+				}
+?>
+<?php
+				if($page["file"]=="about.php")
+				{
+					echo "<b>[ABOUT]</b></a>";
+				}
+				else
+				{
+					echo "ABOUT</a>";
+				}
+?>
+		</td>
+		<td colspan=2 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Default permission","R"))
+				{
+					echo "<a href=\"report1.php\">";
+				}
+?>
+<?php
+				if($page["file"]=="report1.php")
+				{
+					echo "<b>[STATUS&nbsp;OF&nbsp;ZABBIX]</b></a>";
+				}
+				else
+				{
+					echo "STATUS&nbsp;OF&nbsp;ZABBIX</a>";
+				}
+?>
+		</td>
+		<td colspan=3 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Host","R"))
+				{
+					echo "<a href=\"report2.php\">";
+				}
+?>
+<?php
+				if($page["file"]=="report2.php")
+				{
+					echo "<b>[AVAILABILITY&nbsp;REPORT]</b></a>";
+				}
+				else
+				{
+					echo "AVAILABILITY&nbsp;REPORT</a>";
+				}
+?>
+		</td>
+		</tr>
+<?php
+// Third row
+		if(	check_anyright("Configuration of Zabbix","U")
+			||
+			check_anyright("User","U")
+			||
+			check_anyright("Host","U")
+			||
+			check_anyright("Graph","U")
+			||
+			check_anyright("Screen","U")
+			||
+			check_anyright("Network map","U")
+			||
+			check_anyright("Service","U")
+		)
+		{
+
+?>
+		<tr>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Configuration of Zabbix","U"))
+				{
+					echo "<a href=\"config.php\">";
+				}
+				if($page["file"]=="config.php")
+				{
+					echo "<b>[CONFIG]</b></a>";
+				}
+				else
+				{
+					echo "CONFIG</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=10%>
+<?php
+				if(check_anyright("User","U"))
+				{
+					echo "<a href=\"users.php\">";
+				}
+				if(	($page["file"]=="users.php")||
+					($page["file"]=="media.php"))
+				{
+					echo "<b>[USERS]</b></a>";
+				}
+				else
+				{
+					echo "USERS</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=10%>
+<?php
+				if(check_anyright("Host","U"))
+				{
+					echo "<a href=\"hosts.php\">";
+				}
+				if($page["file"]=="hosts.php")
+				{
+					echo "<b>[HOSTS]</b></a>";
+				}
+				else
+				{
+					echo "HOSTS</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=10%>
+<?php
+				if(check_anyright("Host","U"))
+				{
+					echo "<a href=\"items.php\">";
+				}
+				if($page["file"]=="items.php")
+				{
+					echo "<b>[ITEMS]</b></a>";
+				}
+				else
+				{
+					echo "ITEMS</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Host","U"))
+				{
+					echo "<a href=\"triggers.php\">";
+				}
+				if(	($page["file"]=="triggers.php")||
+					($page["file"]=="actions.php"))
+				{
+					echo "<b>[TRIGGERS]</b></a>";
+				}
+				else
+				{
+					echo "TRIGGERS</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Network map","U"))
+				{
+					echo "<a href=\"sysmaps.php\">";
+				}
+				if(	($page["file"]=="sysmaps.php")||
+					($page["file"]=="sysmap.php"))
+				{
+					echo "<b>[NETWORK&nbsp;MAPS]</b></a>";
+				}
+				else
+				{
+					echo "NETWORK&nbsp;MAPS</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Graph","U"))
+				{
+					echo "<a href=\"graphs.php\">";
+				}
+				if(	($page["file"]=="graphs.php")||
+					($page["file"]=="graph.php"))
+				{
+					echo "<b>[GRAPHS]</b></a>";
+				}
+				else
+				{
+					echo "GRAPHS</a>";
+				}
+?>
+		</td>
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Screen","U"))
+				{
+					echo "<a href=\"screenconf.php\">";
+				}
+				if(	($page["file"]=="screenedit.php")||
+					($page["file"]=="screenconf.php"))
+				{
+					echo "<b>[SCREENS]</b></a>";
+				}
+				else
+				{
+					echo "SCREENS</a>";
+				}
+?>
+		</td>
+
+		<td colspan=1 bgcolor=FFFFFF align=center valign=top width=15%>
+<?php
+				if(check_anyright("Service","U"))
+				{
+					echo "<a href=\"services.php\">";
+				}
+				if($page["file"]=="services.php")
+				{
+					echo "<b>[IT&nbsp;SERVICES]</b></a>";
+				}
+				else
+				{
+					echo "IT&nbsp;SERVICES</a>";
+				}
+?>
+		</td>
+		</tr>
+<?php
+// THird row
+		}
+?>
+		</table>
+	</td>
+	</tr>
+	</table>
+
+	<br>
+<?php
+		}
 	}
 
-	$logo = new CLink(new CImg("images/general/zabbix.png","ZABBIX"),"http://www.zabbix.com");
-	$logo->SetTarget('_blank');
-	$table->AddRow(array(new CCol($logo, "page_header_l"), new CCol($col_r, "page_header_r")));
+	# Show values in plain text
 
-	$table->Show();
-?>
-
-<table class="menu" cellspacing=0 cellpadding=5>
-<tr>
-<?php
-	$i=0;
-	foreach($menu as $label=>$sub)
+	function	show_plaintext($itemid, $from, $till)
 	{
-// Check permissions
-		if($label=="configuration")
+		$item=get_item_by_itemid($itemid);
+		if($item["value_type"]==0)
 		{
-			if(	!check_anyright("Configuration of Zabbix","U")
-				&&!check_anyright("User","U")
-				&&!check_anyright("Host","U")
-				&&!check_anyright("Item","U")
-				&&!check_anyright("Graph","U")
-				&&!check_anyright("Screen","U")
-				&&!check_anyright("Network map","U")
-				&&!check_anyright("Service","U")
-			)
-			{
-				continue;
-			}
-			if(	!check_anyright("Default permission","R")
-				&&!check_anyright("Host","R")
-			)
-			{
-				continue;
-			}
-
-		}
-// End of check permissions
-		$active=0;
-		foreach($sub["pages"] as $label2)
-		{
-			if($page["file"]==$label2)
-			{
-				$active=1;
-				$active_level1=$label;
-			}
-		}
-		if($i==0)	$url=get_profile("web.menu.view.last",0);
-		else if($i==1)	$url=get_profile("web.menu.cm.last",0);
-		else if($i==2)	$url=get_profile("web.menu.reports.last",0);
-		else if($i==3)	$url=get_profile("web.menu.config.last",0);
-		else if($i==4)	$url="0";
-
-		if($url=="0")	$url=$sub["level2"][0]["url"];
-		if($active==1) 
-		{
-			global $page;
-			$class = "horizontal_menu";
-			if(isset($page["menu.url"]))
-				$url = $page["menu.url"];
-			else
-				$url	= $page["file"];
+			$sql="select clock,value from history where itemid=$itemid and clock>$from and clock<$till order by clock";
 		}
 		else
 		{
-			$class = "horizontal_menu_n";
+			$sql="select clock,value from history_str where itemid=$itemid and clock>$from and clock<$till order by clock";
 		}
+                $result=DBselect($sql);
 
-		echo "<td class=\"$class\" height=24 colspan=9><b><a href=\"$url\" class=\"highlight\">".$sub["label"]."</a></b></td>\n";
-		$i++;
-	}
-?>
-</tr>
-</table>
-
-<table class="menu" width="100%" cellspacing=0 cellpadding=5>
-<tr><td class="horizontal_menu" height=24 colspan=9><b>
-<?php
-	if(isset($active_level1))
-	foreach($menu[$active_level1]["level2"] as $label=>$sub)
-	{
-// Check permissions
-		if(($sub["url"]=="latest.php")&&!check_anyright("Host","R"))							continue;
-		if(($sub["url"]=="overview.php")&&!check_anyright("Host","R"))							continue;
-		if(($sub["url"]=="tr_status.php?onlytrue=true&noactions=true&compact=true")&&!check_anyright("Host","R"))	continue;
-		if(($sub["url"]=="queue.php")&&!check_anyright("Host","R"))							continue;
-		if(($sub["url"]=="events.php")&&!check_anyright("Default permission","R"))				continue;
-		if(($sub["url"]=="actions.php")&&!check_anyright("Default permission","R"))					continue;
-		if(($sub["url"]=="maps.php")&&!check_anyright("Network map","R"))						continue;
-		if(($sub["url"]=="charts.php")&&!check_anyright("Graph","R"))							continue;
-		if(($sub["url"]=="screens.php")&&!check_anyright("Screen","R"))							continue;
-		if(($sub["url"]=="srv_status.php")&&!check_anyright("Service","R"))						continue;
-		if(($sub["url"]=="report1.php")&&!check_anyright("Default permission","R"))					continue;
-		if(($sub["url"]=="report2.php")&&!check_anyright("Host","R"))							continue;
-		if(($sub["url"]=="config.php")&&!check_anyright("Configuration of Zabbix","U"))					continue;
-		if(($sub["url"]=="users.php")&&!check_anyright("User","U"))							continue;
-		if(($sub["url"]=="media.php")&&!check_anyright("User","U"))							continue;
-		if(($sub["url"]=="audit.php")&&!check_anyright("Audit","U"))							continue;
-		if(($sub["url"]=="hosts.php")&&!check_anyright("Host","U"))							continue;
-		if(($sub["url"]=="items.php")&&!check_anyright("Item","U"))							continue;
-		if(($sub["url"]=="triggers.php")&&!check_anyright("Host","U"))							continue;
-		if(($sub["url"]=="sysmaps.php")&&!check_anyright("Network map","U"))						continue;
-		if(($sub["url"]=="sysmap.php")&&!check_anyright("Network map","U"))						continue;
-		if(($sub["url"]=="graphs.php")&&!check_anyright("Graph","U"))							continue;
-		if(($sub["url"]=="graph.php")&&!check_anyright("Graph","U"))							continue;
-		if(($sub["url"]=="screenedit.php")&&!check_anyright("Screen","U"))						continue;
-		if(($sub["url"]=="screenconf.php")&&!check_anyright("Screen","U"))						continue;
-		if(($sub["url"]=="services.php")&&!check_anyright("Service","U"))						continue;
-
-		echo "<a href=\"".$sub["url"]."\" class=\"highlight\">".$sub["label"]."</a><span class=\"divider\">".SPACE.SPACE."|".SPACE."</span>\n";
-	}
-?>
-</b></td></tr>
-</table>
-<br/>
-<?php
-		}
-	}
-
-	# Show screen cell containing plain text values
-	function&	get_screen_plaintext($itemid,$elements)
-	{
-		global $DB_TYPE;
-
-		$item=get_item_by_itemid($itemid);
-		switch($item["value_type"])
+		echo "<PRE>\n";
+		for($i=0;$i<DBnum_rows($result);$i++)
 		{
-			case ITEM_VALUE_TYPE_FLOAT:	$history_table = "history";		break;
-			case ITEM_VALUE_TYPE_UINT64:	$history_table = "history_uint";	break;
-			case ITEM_VALUE_TYPE_TEXT:	$history_table = "history_text";	break;
-			default:			$history_table = "history_str";		break;
+			$clock=DBget_field($result,$i,0);
+			$value=DBget_field($result,$i,1);
+			echo date("Y-m-d H:i:s",$clock);
+			echo "\t$clock\t$value\n";
 		}
+	}
+ 
 
-		$sql="select h.clock,h.value,i.valuemapid from ".$history_table." h, items i where".
-			" h.itemid=i.itemid and i.itemid=$itemid order by clock desc";
+	# Translate {10}>10 to something like localhost:procload.last(0)>10
 
-                $result=DBselect($sql,$elements);
+	function	explode_exp ($expression, $html)
+	{
+#		echo "EXPRESSION:",$expression,"<Br>";
 
-		$table = new CTableInfo();
-		$table->SetHeader(array(S_TIMESTAMP,item_description($item["description"],$item["key_"])));
-		while($row=DBfetch($result))
+		$functionid='';
+		$exp='';
+		$state='';
+		for($i=0;$i<strlen($expression);$i++)
 		{
-			switch($item["value_type"])
+			if($expression[$i] == '{')
 			{
-				case ITEM_VALUE_TYPE_TEXT:	
-					if($DB_TYPE == "ORACLE")
-					{
-						if(isset($row["value"]))
-						{
-							$row["value"] = $row["value"]->load();
-						}
-						else
-						{
-							$row["value"] = "";
-						}
-					}
-					/* do not use break */
-				case ITEM_VALUE_TYPE_STR:	
-					$value = nbsp(htmlspecialchars($row["value"]));
-					break;
-				
-				default:
-					$value = $row["value"];
-					break;
+				$functionid='';
+				$state='FUNCTIONID';
+				continue;
 			}
-
-			if($row["valuemapid"] > 0)
-				$value = replace_value_by_map($value, $row["valuemapid"]);
-
-			$table->AddRow(array(date(S_DATE_FORMAT_YMDHMS,$row["clock"]),	$value));
+			if($expression[$i] == '}')
+			{
+				$state='';
+				$sql="select h.host,i.key_,f.function,f.parameter,i.itemid from items i,functions f,hosts h where functionid=$functionid and i.itemid=f.itemid and h.hostid=i.hostid";
+				$res1=DBselect($sql);
+				if($html == 0)
+				{
+					$exp=$exp."{".DBget_field($res1,0,0).":".DBget_field($res1,0,1).".".DBget_field($res1,0,2)."(".DBget_field($res1,0,3).")}";
+				}
+				else
+				{
+					$item=get_item_by_itemid(DBget_field($res1,0,4));
+					if($item["value_type"] ==0) 
+					{
+						$exp=$exp."{<A HREF=\"history.php?action=showhistory&itemid=".DBget_field($res1,0,4)."\">".DBget_field($res1,0,0).":".DBget_field($res1,0,1)."</A>.<B>".DBget_field($res1,0,2)."(</B>".DBget_field($res1,0,3)."<B>)</B>}";
+					}
+					else
+					{
+						$exp=$exp."{<A HREF=\"history.php?action=showvalues&period=3600&itemid=".DBget_field($res1,0,4)."\">".DBget_field($res1,0,0).":".DBget_field($res1,0,1)."</A>.<B>".DBget_field($res1,0,2)."(</B>".DBget_field($res1,0,3)."<B>)</B>}";
+					}
+				}
+				continue;
+			}
+			if($state == "FUNCTIONID")
+			{
+				$functionid=$functionid.$expression[$i];
+				continue;
+			}
+			$exp=$exp.$expression[$i];
 		}
-		return $table;
+#		echo "EXP:",$exp,"<Br>";
+		return $exp;
 	}
 
-	function	get_image_by_name($name,$imagetype=NULL)
+	# Translate localhost:procload.last(0)>10 to {12}>10
+
+	function	implode_exp ($expression, $triggerid)
 	{
-		global $DB_TYPE;
+//		echo "Expression:$expression<br>";
+		$exp='';
+		$state="";
+		for($i=0;$i<strlen($expression);$i++)
+		{
+			if($expression[$i] == '{')
+			{
+				if($state=="")
+				{
+					$host='';
+					$key='';
+					$function='';
+					$parameter='';
+					$state='HOST';
+					continue;
+				}
+			}
+			if( ($expression[$i] == '}')&&($state=="") )
+			{
+//				echo "HOST:$host<BR>";
+//				echo "KEY:$key<BR>";
+//				echo "FUNCTION:$function<BR>";
+//				echo "PARAMETER:$parameter<BR>";
+				$state='';
+		
+				$sql="select i.itemid from items i,hosts h where i.key_='$key' and h.host='$host' and h.hostid=i.hostid";
+#				echo $sql,"<Br>";
+				$res=DBselect($sql);
 
-		$sql="select image from images where name=".zbx_dbstr($name); 
-		if(isset($imagetype))
-			$sql .= "and imagetype=".$imagetype;
+				$itemid=DBget_field($res,0,0);
+#				echo "ITEMID:$itemid<BR>";
+	
+#				$sql="select functionid,count(*) from functions where function='$function' and parameter=$parameter group by 1";
+#				echo $sql,"<Br>";
+#				$res=DBselect($sql);
+#
+#				if(DBget_field($res,0,1)>0)
+#				{
+#					$functionid=DBget_field($res,0,0);
+#				}
+#				else
+#				{
+					$sql="insert into functions (itemid,triggerid,function,parameter) values ($itemid,$triggerid,'$function','$parameter')";
+#					echo $sql,"<Br>";
+					$res=DBexecute($sql);
+					if(!$res)
+					{
+#						echo "ERROR<br>";
+						return	$res;
+					}
+					$functionid=DBinsert_id($res,"functions","functionid");
+#				}
+#				echo "FUNCTIONID:$functionid<BR>";
 
+				$exp=$exp.'{'.$functionid.'}';
+
+				continue;
+			}
+			if($expression[$i] == '(')
+			{
+				if($state == "FUNCTION")
+				{
+					$state='PARAMETER';
+					continue;
+				}
+			}
+			if($expression[$i] == ')')
+			{
+				if($state == "PARAMETER")
+				{
+					$state='';
+					continue;
+				}
+			}
+			if(($expression[$i] == ':') && ($state == "HOST"))
+			{
+				$state="KEY";
+				continue;
+			}
+			if($expression[$i] == '.')
+			{
+				if($state == "KEY")
+				{
+					$state="FUNCTION";
+					continue;
+				}
+				// Support for '.' in KEY
+				if($state == "FUNCTION")
+				{
+					$state="FUNCTION";
+					$key=$key.".".$function;
+					$function="";
+					continue;
+				}
+			}
+			if($state == "HOST")
+			{
+				$host=$host.$expression[$i];
+				continue;
+			}
+			if($state == "KEY")
+			{
+				$key=$key.$expression[$i];
+				continue;
+			}
+			if($state == "FUNCTION")
+			{
+				$function=$function.$expression[$i];
+				continue;
+			}
+			if($state == "PARAMETER")
+			{
+				$parameter=$parameter.$expression[$i];
+				continue;
+			}
+			$exp=$exp.$expression[$i];
+		}
+		return $exp;
+	}
+
+	function	update_trigger_comments($triggerid,$comments)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right("Trigger comment","U",$triggerid))
+		{
+			$ERROR_MSG="Insufficient permissions";
+			return	0;
+		}
+
+		$comments=addslashes($comments);
+		$sql="update triggers set comments='$comments' where triggerid=$triggerid";
+		return	DBexecute($sql);
+	}
+
+	# Update Trigger status
+
+	function	update_trigger_status($triggerid,$status)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right_on_trigger("U",$triggerid))
+		{
+                        $ERROR_MSG="Insufficient permissions";
+                        return 0;
+		}
+		add_alarm($triggerid,2);
+		$sql="update triggers set status=$status where triggerid=$triggerid";
+		return	DBexecute($sql);
+	}
+
+
+	# Update Item status
+
+	function	update_item_status($itemid,$status)
+	{
+		global	$ERROR_MSG;
+
+                if(!check_right("Item","U",0))
+		{
+                        $ERROR_MSG="Insufficient permissions";
+                        return 0;
+		}
+		$sql="update items set status=$status where itemid=$itemid";
+		return	DBexecute($sql);
+	}
+
+	# "Processor load on %s is 5" to "Processor load on www.sf.net is 5"
+	function	expand_trigger_description_simple($triggerid)
+	{
+		$sql="select distinct t.description,h.host from triggers t,functions f,items i,hosts h where t.triggerid=$triggerid and f.triggerid=t.triggerid and f.itemid=i.itemid and i.hostid=h.hostid";
+//		echo $sql;
 		$result=DBselect($sql);
 		$row=DBfetch($result);
-		if($row)
+
+//		$description=str_replace("%s",$row["host"],$row["description"]);
+
+		$search=array("{HOSTNAME}");
+		$replace=array($row["host"]);
+//		$description = str_replace($search, $replace,$row["description"]);
+		$description = str_replace("{HOSTNAME}", $row["host"],$row["description"]);
+
+		return $description;
+	}
+
+	# "Processor load on %s is 5" to "Processor load on www.sf.net is 5"
+	function	expand_trigger_description($triggerid)
+	{
+		$description=expand_trigger_description_simple($triggerid);
+		$description=stripslashes(htmlspecialchars($description));
+
+		return $description;
+	}
+
+	function	update_trigger_value_to_unknown_by_hostid($hostid)
+	{
+		$sql="select distinct t.triggerid from hosts h,items i,triggers t,functions f where f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and h.hostid=$hostid";
+		$result=DBselect($sql);
+		while($row=DBfetch($result))
 		{
-			if($DB_TYPE == "ORACLE")
-			{
-				if(!isset($row['image']))
-					return 0;
+			$sql="update triggers set value=2 where triggerid=".$row["triggerid"];
+			DBexecute($sql);
+		}
+	}
 
-				$row['image'] = $row['image']->load();
-			}
+	# Update Host status
 
-			return	$row;
+	function	update_host_status($hostid,$status)
+	{
+                global  $ERROR_MSG;
+                if(!check_right("Host","U",0))
+                {
+                        $ERROR_MSG="Insufficient permissions";
+                        return 0;
+                }
+
+		$sql="select status from hosts where hostid=$hostid";
+		$result=DBselect($sql);
+		if($status != DBget_field($result,0,0))
+		{
+			update_trigger_value_to_unknown_by_hostid($hostid);
+			$sql="update hosts set status=$status where hostid=$hostid and status not in (".HOST_STATUS_UNREACHABLE.",".HOST_STATUS_DELETED.")";
+			return	DBexecute($sql);
 		}
 		else
 		{
+			return 1;
+		}
+	}
+
+	# Update Item definition
+
+	function	update_item($itemid,$description,$key,$hostid,$delay,$history,$status,$type,$snmp_community,$snmp_oid,$value_type,$trapper_hosts,$snmp_port,$units,$multiplier,$delta)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right("Item","U",$itemid))
+		{
+			$ERROR_MSG="Insufficient permissions";
 			return 0;
 		}
-	}
-
-	function	get_image_by_imageid($imageid)
-	{
-		global $DB_TYPE;
-
-		$result=DBselect('select * from images where imageid='.$imageid);
-		$row=DBfetch($result);
-		if($row)
+		if($delay<1)
 		{
-			if($DB_TYPE == "ORACLE")
-			{
-				if(!isset($row['image']))
-					return 0;
-
-				$row['image'] = $row['image']->load();
-			}
-			return	$row;
-		}
-		else
-		{
+			$ERROR_MSG="Delay cannot be less than 1 second";
 			return 0;
 		}
+
+		if( ($snmp_port<1)||($snmp_port>65535))
+		{
+			$ERROR_MSG="Invalid SNMP port";
+			return 0;
+		}
+
+		if($value_type == ITEM_VALUE_TYPE_STR)
+		{
+			$delta=0;
+		}
+
+		$sql="update items set description='$description',key_='$key',hostid=$hostid,delay=$delay,history=$history,lastdelete=0,nextcheck=0,status=$status,type=$type,snmp_community='$snmp_community',snmp_oid='$snmp_oid',value_type=$value_type,trapper_hosts='$trapper_hosts',snmp_port=$snmp_port,units='$units',multiplier=$multiplier,delta=$delta where itemid=$itemid";
+		return	DBexecute($sql);
 	}
 
-	function	add_image($name,$imagetype,$file)
+	# Add Action
+
+	function	add_action( $triggerid, $userid, $good, $delay, $subject, $message, $scope, $severity, $recipient, $usrgrpid)
 	{
-		global $DB_TYPE;
-		global $DB;
+		global	$ERROR_MSG;
 
-		if(!is_null($file))
+		if(!check_right_on_trigger("A",$triggerid))
 		{
-			if($file["error"] != 0 || $file["size"]==0)
-			{
-				error("Incorrect Image");
-				return FALSE;
-			}
-			if($file["size"]<1024*1024)
-			{
-				$image=fread(fopen($file["tmp_name"],"r"),filesize($file["tmp_name"]));
-				if($DB_TYPE == "ORACLE")
-				{
-					$lobimage = OCINewDescriptor($DB, OCI_D_LOB);
+                        $ERROR_MSG="Insufficient permissions";
+                        return 0;
+		}
 
-					$sql = "insert into images (name,imagetype,image)".
-						" values (".zbx_dbstr($name).",".$imagetype.",EMPTY_BLOB())".
-						" return image into :image";
-					$stid = OCIParse($DB, $sql);
-					if(!$stid)
-					{
-						$e = ocierror($stid);
-						error("Parse SQL error [".$e["message"]."] in [".$e["sqltext"]."]");
-						return false;
-					}
-
-					OCIBindByName($stid, ':image', $lobimage, -1, OCI_B_BLOB);
-
-					$result = OCIExecute($stid, OCI_DEFAULT);
-					if(!$result){
-						$e = ocierror($stid);
-						error("Execute SQL error [".$e["message"]."] in [".$e["sqltext"]."]");
-						return false;
-					}
-
-					if ($lobimage->save($image)) {
-						OCICommit($DB);
-					}
-					else {
-						OCIRollback($DB);
-						error("Couldn't save image!\n");
-						return false;
-					}
-
-					$lobimage->free();
-					OCIFreeStatement($stid);
-
-					return $stid;
-				}
-				$sql = "insert into images (name,imagetype,image)".
-					" values (".zbx_dbstr($name).",".$imagetype.",".zbx_dbstr($image).")";
-				return	DBexecute($sql);
-			}
-			else
-			{
-				error("Image size must be less than 1Mb");
-				return false;
-			}
+		if($recipient == RECIPIENT_TYPE_USER)
+		{
+			$id = $userid;
 		}
 		else
 		{
-			error("Select image to download");
-			return false;
+			$id = $usrgrpid;
 		}
-	}
 
-	function	update_image($imageid,$name,$imagetype,$file)
-	{
-		global $DB_TYPE;
-		global $DB;
-
-		if(!is_null($file))
+		if($scope==2)
 		{
-			if($file["error"] != 0 || $file["size"]==0)
+			$sql="insert into actions (triggerid,userid,good,delay,nextcheck,subject,message,scope,severity,recipient) values (0,$id,$good,$delay,0,'*Automatically generated*','*Automatically generated*',$scope,$severity,$recipient)";
+			return	DBexecute($sql);
+		}
+		elseif($scope==1)
+		{
+			$sql="select h.hostid from triggers t,hosts h,functions f,items i where f.triggerid=t.triggerid and h.hostid=i.hostid and i.itemid=f.itemid and t.triggerid=$triggerid";
+//			echo "$sql<br>";
+			$result=DBselect($sql);
+			while($row=DBfetch($result))
 			{
-				error("Incorrect Image");
-				return FALSE;
+				$sql="insert into actions (triggerid,userid,good,delay,nextcheck,subject,message,scope,severity,recipient) values (".$row["hostid"].",$id,$good,$delay,0,'*Automatically generated*','*Automatically generated*',$scope,$severity,$recipient)";
+//				echo "$sql<br>";
+				DBexecute($sql);
 			}
-			if($file["size"]<1024*1024)
-			{
-				$image=fread(fopen($file["tmp_name"],"r"),filesize($file["tmp_name"]));
-
-				if($DB_TYPE == "ORACLE")
-				{
-
-					$result = DBexecute("update images set name=".zbx_dbstr($name).
-						",imagetype=".zbx_dbstr($imagetype).
-						" where imageid=$imageid");
-
-					if(!$result) return $result;
-
-					$stid = OCIParse($DB, "select image from images where imageid=".$imageid." for update");
-
-					$result = OCIExecute($stid, OCI_DEFAULT);
-					if(!$result){
-						$e = ocierror($stid);
-						error("Execute SQL error [".$e["message"]."] in [".$e["sqltext"]."]");
-						OCIRollback($DB);
-						return false;
-					}
-
-					$row = DBfetch($stid);
-
-					$lobimage = $row['image'];
-
-//					if (!($lobimage->erase()))
-//					{
-//						OCIRollback($DB);
-//						error("Failed to truncate LOB\n");
-//						return false;
-//					}
-
-					if (!$lobimage->save($image)) {
-						OCIRollback($DB);
-					} else {
-						OCICommit($DB);
-					}
-
-					$lobimage->free();
-
-					return $stid;
-				}
-
-				$sql="update images set name=".zbx_dbstr($name).",imagetype=".zbx_dbstr($imagetype).
-					",image=".zbx_dbstr($image)." where imageid=$imageid";
-				return	DBexecute($sql);
-			}
-			else
-			{
-				error("Image size must be less than 1Mb");
-				return FALSE;
-			}
+			return TRUE;
 		}
 		else
 		{
-				$sql="update images set name=".zbx_dbstr($name).",imagetype=".zbx_dbstr($imagetype)." where imageid=$imageid";
-				return	DBexecute($sql);
+			$sql="insert into actions (triggerid,userid,good,delay,nextcheck,subject,message,scope,severity,recipient) values ($triggerid,$id,$good,$delay,0,'$subject','$message',$scope,$severity,$recipient)";
+			return	DBexecute($sql);
 		}
 	}
 
-	function	delete_image($imageid)
+	# Return TRUE if triggerid is a reason why the service is not OK
+	# Warning: recursive function
+	function	does_service_depend_on_the_service($serviceid,$serviceid2)
 	{
-		$sql="delete from images where imageid=$imageid";
+#		echo "Serviceid:$serviceid Triggerid:$serviceid2<br>";
+		$service=get_service_by_serviceid($serviceid);
+#		echo "Service status:".$service["status"]."<br>";
+		if($service["status"]==0)
+		{
+			return	FALSE;
+		}
+		if($serviceid==$serviceid2)
+		{
+			if($service["status"]>0)
+			{
+				return TRUE;
+			}
+			
+		}
+
+		$sql="select serviceupid from services_links where servicedownid=$serviceid2 and soft=0";
+#		echo $sql."<br>";
+		$result=DBselect($sql);
+		while($row=DBfetch($result))
+		{
+			if(does_service_depend_on_the_service($serviceid,$row["serviceupid"]) == TRUE)
+			{
+				return	TRUE;
+			}
+		}
+		return	FALSE;
+	}
+
+	function	service_has_parent($serviceid)
+	{
+		$sql="select count(*) from services_links where servicedownid=$serviceid";
+		$result=DBselect($sql);
+		if(DBget_field($result,0,0)>0)
+		{
+			return	TRUE;
+		}
+		return	FALSE;
+	}
+
+	function	service_has_no_this_parent($parentid,$serviceid)
+	{
+		$sql="select count(*) from services_links where serviceupid=$parentid and servicedownid=$serviceid";
+		$result=DBselect($sql);
+		if(DBget_field($result,0,0)>0)
+		{
+			return	FALSE;
+		}
+		return	TRUE;
+	}
+
+
+	function	delete_service_link($linkid)
+	{
+		$sql="delete from services_links where linkid=$linkid";
+		return DBexecute($sql);
+	}
+
+	function	delete_service($serviceid)
+	{
+		$sql="delete from services_links where servicedownid=$serviceid or serviceupid=$serviceid";
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+		$sql="delete from services where serviceid=$serviceid";
+		return DBexecute($sql);
+	}
+
+	function	update_service($serviceid,$name,$triggerid,$linktrigger,$algorithm,$showsla,$goodsla,$sortorder)
+	{
+		if( isset($linktrigger)&&($linktrigger=="on") )
+		{
+			// No mistake here
+			$triggerid=$triggerid;
+		}
+		else
+		{
+			$triggerid='NULL';
+		}
+		if( isset($showsla)&&($showsla=="on") )
+		{
+			$showsla=1;
+		}
+		else
+		{
+			$showsla=0;
+		}
+		$sql="update services set name='$name',triggerid=$triggerid,status=0,algorithm=$algorithm,showsla=$showsla,goodsla=$goodsla,sortorder=$sortorder where serviceid=$serviceid";
+		return	DBexecute($sql);
+	}
+
+	function	add_service($serviceid,$name,$triggerid,$linktrigger,$algorithm,$showsla,$goodsla,$sortorder)
+	{
+		if( isset($showsla)&&($showsla=="on") )
+		{
+			$showsla=1;
+		}
+		else
+		{
+			$showsla=0;
+		}
+		if( isset($linktrigger)&&($linktrigger=="on") )
+		{
+//			$trigger=get_trigger_by_triggerid($triggerid);
+//			$description=$trigger["description"];
+//			if( strstr($description,"%s"))
+//			{
+				$description=expand_trigger_description($triggerid);
+//			}
+			$description=addslashes($description);
+			$sql="insert into services (name,triggerid,status,algorithm,showsla,goodsla,sortorder) values ('$description',$triggerid,0,$algorithm,$showsla,$goodsla,$sortorder)";
+		}
+		else
+		{
+			$sql="insert into services (name,status,algorithm,showsla,goodsla,sortorder) values ('$name',0,$algorithm,$showsla,$goodsla,$sortorder)";
+		}
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return FALSE;
+		}
+		$id=DBinsert_id($result,"services","serviceid");
+		if(isset($serviceid))
+		{
+			add_service_link($id,$serviceid,0);
+		}
+		return $id;
+	}
+
+	function	add_host_to_services($hostid,$serviceid)
+	{
+		$sql="select distinct t.triggerid,t.description from triggers t,hosts h,items i,functions f where h.hostid=$hostid and h.hostid=i.hostid and i.itemid=f.itemid and f.triggerid=t.triggerid";
+		$result=DBselect($sql);
+		while($row=DBfetch($result))
+		{
+			$serviceid2=add_service($serviceid,$row["description"],$row["triggerid"],"on",0,"off",99,0);
+//			add_service_link($serviceid2,$serviceid,0);
+		}
+		return	1;
+	}
+
+	function	is_service_hardlinked($serviceid)
+	{
+		$sql="select count(*) from services_links where servicedownid=$serviceid and soft=0";
+		$result=DBselect($sql);
+		if(DBget_field($result,0,0)>0)
+		{
+			return	TRUE;
+		}
+		return	FALSE;
+		
+	}
+
+	function	add_service_link($servicedownid,$serviceupid,$softlink)
+	{
+		global	$ERROR_MSG;
+
+		if( ($softlink==0) && (is_service_hardlinked($servicedownid)==TRUE) )
+		{
+			return	FALSE;
+		}
+
+		if($servicedownid==$serviceupid)
+		{
+			$ERROR_MSG="Cannot link service to itself.";
+			return	FALSE;
+		}
+
+		$sql="insert into services_links (servicedownid,serviceupid,soft) values ($servicedownid,$serviceupid,$softlink)";
+		return	DBexecute($sql);
+	}
+
+	# Update Action
+
+	function	update_action( $actionid, $triggerid, $userid, $good, $delay, $subject, $message, $scope, $severity, $recipient, $usrgrpid)
+	{
+		delete_action($actionid);
+		return add_action( $triggerid, $userid, $good, $delay, $subject, $message, $scope, $severity, $recipient, $usrgrpid);
+	}
+
+	function	delete_graphs_item($gitemid)
+	{
+		$sql="delete from graphs_items where gitemid=$gitemid";
+		return	DBexecute($sql);
+	}
+
+	# Delete Graph
+
+	function	delete_graph($graphid)
+	{
+		$sql="delete from graphs_items where graphid=$graphid";
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+		$sql="delete from graphs where graphid=$graphid";
+		return	DBexecute($sql);
+	}
+
+	# Delete System Map
+
+	function	delete_sysmap( $sysmapid )
+	{
+		$sql="delete from sysmaps where sysmapid=$sysmapid";
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+		$sql="delete from sysmaps_hosts where sysmapid=$sysmapid";
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+		$sql="delete from sysmaps_links where sysmapid=$sysmapid";
 		return	DBexecute($sql);
 	}
 
@@ -1362,65 +2218,915 @@ COpt::profiling_start("page");
 		return	DBexecute($sql);
 	}
 
-	# Delete from History
 
-	function	delete_history_by_itemid($itemid, $use_housekeeper=0)
+	# Delete Action by userid
+
+	function	delete_actions_by_userid( $userid )
 	{
-		$result = delete_trends_by_itemid($itemid,$use_housekeeper);
-		if(!$result)	return $result;
-
-		if($use_housekeeper)
+		$sql="select actionid from actions where userid=$userid";
+		$result=DBexecute($sql);
+		for($i=0;$i<DBnum_rows($result);$i++)
 		{
-			DBexecute("insert into housekeeper (tablename,field,value)".
-				" values ('history_log','itemid',$itemid)");
-			DBexecute("insert into housekeeper (tablename,field,value)".
-				" values ('history_uint','itemid',$itemid)");
-			DBexecute("insert into housekeeper (tablename,field,value)".
-				" values ('history_str','itemid',$itemid)");
-			DBexecute("insert into housekeeper (tablename,field,value)".
-				" values ('history','itemid',$itemid)");
-			return TRUE;
+			$actionid=DBget_field($result,$i,0);
+			delete_alert_by_actionid($actionid);
 		}
 
-		DBexecute("delete from history_log where itemid=$itemid");
-		DBexecute("delete from history_uint where itemid=$itemid");
-		DBexecute("delete from history_str where itemid=$itemid");
-		DBexecute("delete from history where itemid=$itemid");
-		return TRUE;
+		$sql="delete from actions where userid=$userid";
+		return	DBexecute($sql);
+	}
+
+	# Delete Action
+
+	function	delete_action( $actionid )
+	{
+		$sql="delete from actions where actionid=$actionid";
+		$result=DBexecute($sql);
+
+		return delete_alert_by_actionid($actionid);
+	}
+
+	# Delete from History
+
+	function	delete_history_by_itemid( $itemid )
+	{
+		$sql="delete from history_str where itemid=$itemid";
+		DBexecute($sql);
+		$sql="delete from history where itemid=$itemid";
+		return	DBexecute($sql);
 	}
 
 	# Delete from Trends
 
-	function	delete_trends_by_itemid($itemid, $use_housekeeper=0)
+	function	delete_trends_by_itemid( $itemid )
 	{
-		if($use_housekeeper)
+		$sql="delete from trends where itemid=$itemid";
+		return	DBexecute($sql);
+	}
+
+	function	delete_trigger_dependency($triggerid_down,$triggerid_up)
+	{
+// Why this was here?
+//		$sql="select count(*) from trigger_depends where triggerid_down=$triggerid_up and triggerid_up=$triggerid_down";
+//		$result=DBexecute($sql);
+//		if(DBget_field($result,0,0)>0)
+//		{
+//			return	FALSE;
+//		}
+
+// It was wrong - was deleting all dependencies
+//		$sql="select triggerid_down,triggerid_up from trigger_depends where triggerid_up=$triggerid_up or triggerid_down=$triggerid_down";
+//		$result=DBexecute($sql);
+//		for($i=0;$i<DBnum_rows($result);$i++)
+//		{
+//			$down=DBget_field($result,$i,0);
+//			$up=DBget_field($result,$i,1);
+//			$sql="delete from trigger_depends where triggerid_up=$up and triggerid_down=$down";
+//			DBexecute($sql);
+//			$sql="update triggers set dep_level=dep_level-1 where triggerid=$up";
+//			DBexecute($sql);
+//		}
+
+		$sql="select triggerid_down,triggerid_up from trigger_depends where triggerid_up=$triggerid_up and triggerid_down=$triggerid_down";
+		$result=DBexecute($sql);
+		for($i=0;$i<DBnum_rows($result);$i++)
 		{
-			DBexecute("insert into housekeeper (tablename,field,value)".
-				" values ('trends','itemid',$itemid)");
-			return TRUE;
+			$down=DBget_field($result,$i,0);
+			$up=DBget_field($result,$i,1);
+			$sql="update triggers set dep_level=dep_level-1 where triggerid=$up";
+			DBexecute($sql);
 		}
-		return	DBexecute("delete from trends where itemid=$itemid");
+
+		$sql="delete from trigger_depends where triggerid_up=$triggerid_up and triggerid_down=$triggerid_down";
+		DBexecute($sql);
+
+		return	TRUE;
+	}
+
+	function	insert_dependency($triggerid_down,$triggerid_up)
+	{
+		$sql="insert into trigger_depends (triggerid_down,triggerid_up) values ($triggerid_down,$triggerid_up)";
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+		$sql="update triggers set dep_level=dep_level+1 where triggerid=$triggerid_up";
+		$result=DBexecute($sql);
+		return	$result;
+	}
+
+	// If 1 depends on 2, and 2 depends on 3, then add dependency 1->3
+	function	add_additional_dependencies($triggerid_down,$triggerid_up)
+	{
+		$sql="select triggerid_down from trigger_depends where triggerid_up=$triggerid_down";
+		$result=DBselect($sql);
+		for($i=0;$i<DBnum_rows($result);$i++)
+		{
+			$triggerid=DBget_field($result,$i,0);
+			insert_dependency($triggerid,$triggerid_up);
+			add_additional_dependencies($triggerid,$triggerid_up);
+		}
+		$sql="select triggerid_up from trigger_depends where triggerid_down=$triggerid_up";
+		$result=DBselect($sql);
+		for($i=0;$i<DBnum_rows($result);$i++)
+		{
+			$triggerid=DBget_field($result,$i,0);
+			insert_dependency($triggerid_down,$triggerid);
+			add_additional_dependencies($triggerid_down,$triggerid);
+		}
+	}
+
+	function	add_trigger_dependency($triggerid,$depid)
+	{
+		$result=insert_dependency($triggerid,$depid);;
+		if(!$result)
+		{
+			return $result;
+		}
+		add_additional_dependencies($triggerid,$depid);
+		return $result;
+	}
+
+	# Delete Function definition
+
+	# Add Item definition
+
+	function	add_item($description,$key,$hostid,$delay,$history,$status,$type,$snmp_community,$snmp_oid,$value_type,$trapper_hosts,$snmp_port,$units,$multiplier,$delta)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right("Item","A",0))
+		{
+			$ERROR_MSG="Insufficient permissions";
+			return 0;
+		}
+
+		$sql="select count(*) from items where hostid=$hostid and key_='$key'";
+		$result=DBexecute($sql);
+		if(DBget_field($result,0,0)>0)
+		{
+			$ERROR_MSG="An item with the same Key already exists for this host. The key must be unique.";
+			return 0;
+		}
+
+		if($delay<1)
+		{
+			$ERROR_MSG="Delay cannot be less than 1 second";
+			return 0;
+		}
+
+		if( ($snmp_port<1)||($snmp_port>65535))
+		{
+			$ERROR_MSG="Invalid SNMP port";
+			return 0;
+		}
+
+		if($value_type == ITEM_VALUE_TYPE_STR)
+		{
+			$delta=0;
+		}
+
+		$key=addslashes($key);
+		$description=addslashes($description);
+
+		$sql="insert into items (description,key_,hostid,delay,history,lastdelete,nextcheck,status,type,snmp_community,snmp_oid,value_type,trapper_hosts,snmp_port,units,multiplier,delta) values ('$description','$key',$hostid,$delay,$history,0,0,$status,$type,'$snmp_community','$snmp_oid',$value_type,'$trapper_hosts',$snmp_port,'$units',$multiplier,$delta)";
+		$result=DBexecute($sql);
+		return DBinsert_id($result,"items","itemid");
+	}
+
+	# Delete Function definition
+
+	function	delete_function_by_triggerid($triggerid)
+	{
+		$sql="delete from functions where triggerid=$triggerid";
+		return	DBexecute($sql);
+	}
+
+	function	delete_actions_by_triggerid($triggerid)
+	{
+		$sql="delete from actions where triggerid=$triggerid and scope=0";
+		return	DBexecute($sql);
+	}
+
+	function	delete_alarms_by_triggerid($triggerid)
+	{
+		$sql="delete from alarms where triggerid=$triggerid";
+		return	DBexecute($sql);
+	}
+
+	# Delete Function and Trigger definitions by itemid
+
+	function	delete_triggers_by_itemid($itemid)
+	{
+		$sql="select triggerid from functions where itemid=$itemid";
+		$result=DBselect($sql);
+		for($i=0;$i<DBnum_rows($result);$i++)
+		{
+			if(!delete_trigger(DBget_field($result,$i,0)))
+			{
+				return FALSE;
+			}
+		}
+		$sql="delete from functions where itemid=$itemid";
+		return	DBexecute($sql);
+	}
+
+	# Delete Service definitions by triggerid
+
+	function	delete_services_by_triggerid($triggerid)
+	{
+		$sql="select serviceid from services where triggerid=$triggerid";
+		$result=DBselect($sql);
+		for($i=0;$i<DBnum_rows($result);$i++)
+		{
+			delete_service(DBget_field($result,$i,0));
+		}
+		return	TRUE;
+	}
+
+	# Activate Item
+
+	function	activate_item($itemid)
+	{
+		$sql="update items set status=".ITEM_STATUS_ACTIVE." where itemid=$itemid";
+		return	DBexecute($sql);
+	}
+
+	# Disable Item
+
+	function	disable_item($itemid)
+	{
+		$sql="update items set status=".ITEM_STATUS_DISABLED." where itemid=$itemid";
+		return	DBexecute($sql);
+	}
+
+	# Delete Item definition
+
+	function	delete_item($itemid)
+	{
+		$sql="select hostid from items where itemid=$itemid";
+		$result=DBselect($sql);
+		$hostid=DBget_field($result,0,0);
+		delete_sysmaps_host_by_hostid($hostid);
+
+		$result=delete_triggers_by_itemid($itemid);
+		if(!$result)
+		{
+			return	$result;
+		}
+		$result=delete_trends_by_itemid($itemid);
+		$result=delete_history_by_itemid($itemid);
+		$sql="delete from graphs_items where itemid=$itemid";
+		if(!$result)
+		{
+			return	$result;
+		}
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+		$sql="delete from items where itemid=$itemid";
+		return	DBexecute($sql);
 	}
 
 	# Add alarm
 
-	function	get_alarm_by_alarmid($alarmid)
+	function	add_alarm($triggerid,$value)
 	{
-		$db_alarms = DBselect("select * from alarms where alarmid=$alarmid");
-		return DBfetch($db_alarms);
+		$sql="select max(clock) from alarms where triggerid=$triggerid";
+		$result=DBselect($sql);
+		$row=DBfetch($result);
+		if($row[0]!="")
+		{
+			$sql="select value from alarms where triggerid=$triggerid and clock=".$row[0];
+			$result=DBselect($sql);
+			if(DBnum_rows($result) == 1)
+			{
+				$row=DBfetch($result);
+				if($row["value"] == $value)
+				{
+					return 0;
+				}
+			}
+		}
+
+		$now=time();
+		$sql="insert into alarms(triggerid,clock,value) values($triggerid,$now,$value)";
+		return	DBexecute($sql);
 	}
 
-	# Reset nextcheck for related items
+	# Add Trigger definition
 
-	function	reset_items_nextcheck($triggerid)
+	function	add_trigger($expression,$description,$priority,$status,$comments,$url)
 	{
-		$sql="select itemid from functions where triggerid=$triggerid";
+		global	$ERROR_MSG;
+
+//		if(!check_right("Trigger","A",0))
+//		{
+//			$ERROR_MSG="Insufficient permissions";
+//			return	0;
+//		}
+
+#		$description=addslashes($description);
+		$sql="insert into triggers  (description,priority,status,comments,url,value) values ('$description',$priority,$status,'$comments','$url',2)";
+#		echo $sql,"<br>";
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+ 
+		$triggerid=DBinsert_id($result,"triggers","triggerid");
+#		echo $triggerid,"<br>";
+		add_alarm($triggerid,2);
+ 
+		$expression=implode_exp($expression,$triggerid);
+		$sql="update triggers set expression='$expression' where triggerid=$triggerid";
+#		echo $sql,"<br>";
+		return	DBexecute($sql);
+	}
+
+	# Delete Trigger definition
+
+	function	delete_trigger($triggerid)
+	{
+		global	$ERROR_MSG;
+
+		$sql="select count(*) from trigger_depends where triggerid_down=$triggerid or triggerid_up=$triggerid";
+		$result=DBexecute($sql);
+		if(DBget_field($result,0,0)>0)
+		{
+			$ERROR_MSG="Delete dependencies first";
+			return	FALSE;
+		}
+
+		$result=delete_function_by_triggerid($triggerid);
+		if(!$result)
+		{
+			return	$result;
+		}
+		$result=delete_alarms_by_triggerid($triggerid);
+		if(!$result)
+		{
+			return	$result;
+		}
+		$result=delete_actions_by_triggerid($triggerid);
+		if(!$result)
+		{
+			return	$result;
+		}
+		$result=delete_services_by_triggerid($triggerid);
+		if(!$result)
+		{
+			return	$result;
+		}
+
+		$sql="update sysmaps_links set triggerid=NULL where triggerid=$triggerid";
+		DBexecute($sql);
+
+		$sql="delete from triggers where triggerid=$triggerid";
+		return	DBexecute($sql);
+	}
+
+	# Update Trigger definition
+
+	function	update_trigger($triggerid,$expression,$description,$priority,$status,$comments,$url)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right_on_trigger("U",$triggerid))
+		{
+                        $ERROR_MSG="Insufficient permissions";
+                        return 0;
+		}
+
+		$result=delete_function_by_triggerid($triggerid);
+		if(!$result)
+		{
+			return	$result;
+		}
+
+		$expression=implode_exp($expression,$triggerid);
+		add_alarm($triggerid,2);
+//		$sql="update triggers set expression='$expression',description='$description',priority=$priority,status=$status,comments='$comments',url='$url' where triggerid=$triggerid";
+		$sql="update triggers set expression='$expression',description='$description',priority=$priority,status=$status,comments='$comments',url='$url',value=2 where triggerid=$triggerid";
+		return	DBexecute($sql);
+	}
+
+	# Update User definition
+
+	function	update_user($userid,$name,$surname,$alias,$passwd)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right("User","U",$userid))
+		{
+			$ERROR_MSG="Insufficient permissions";
+			return 0;
+		}
+
+		if($passwd=="")
+		{
+			$sql="update users set name='$name',surname='$surname',alias='$alias' where userid=$userid";
+		}
+		else
+		{
+			$passwd=md5($passwd);
+			$sql="update users set name='$name',surname='$surname',alias='$alias',passwd='$passwd' where userid=$userid";
+		}
+		return DBexecute($sql);
+	}
+
+	# Add permission
+
+	function	add_permission($userid,$right,$permission,$id)
+	{
+		$sql="insert into rights (userid,name,permission,id) values ($userid,'$right','$permission',$id)";
+		return DBexecute($sql);
+	}
+
+	# Add User definition
+
+	function	add_user($name,$surname,$alias,$passwd)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right("User","A",0))
+		{
+			$ERROR_MSG="Insufficient permissions";
+			return 0;
+		}
+
+		$passwd=md5($passwd);
+		$sql="insert into users (name,surname,alias,passwd) values ('$name','$surname','$alias','$passwd')";
+		return DBexecute($sql);
+	}
+
+	# Update Graph
+
+	function	update_graph($graphid,$name,$width,$height)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right("Graph","U",0))
+		{
+			$ERROR_MSG="Insufficient permissions";
+			return 0;
+		}
+
+		$sql="update graphs set name='$name',width=$width,height=$height where graphid=$graphid";
+		return	DBexecute($sql);
+	}
+
+	# Update System Map
+
+	function	update_sysmap($sysmapid,$name,$width,$height)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right("Network map","U",$sysmapid))
+		{
+			$ERROR_MSG="Insufficient permissions";
+			return 0;
+		}
+
+		$sql="update sysmaps set name='$name',width=$width,height=$height where sysmapid=$sysmapid";
+		return	DBexecute($sql);
+	}
+
+	# Add Graph
+
+	function	add_graph($name,$width,$height)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right("Graph","A",0))
+		{
+			$ERROR_MSG="Insufficient permissions";
+			return 0;
+		}
+
+		$sql="insert into graphs (name,width,height) values ('$name',$width,$height)";
+		return	DBexecute($sql);
+	}
+
+	function	update_graph_item($gitemid,$itemid,$color,$drawtype,$sortorder)
+	{
+		$sql="update graphs_items set itemid=$itemid,color='$color',drawtype=$drawtype,sortorder=$sortorder where gitemid=$gitemid";
+		return	DBexecute($sql);
+	}
+
+	function	add_item_to_graph($graphid,$itemid,$color,$drawtype,$sortorder)
+	{
+		$sql="insert into graphs_items (graphid,itemid,color,drawtype,sortorder) values ($graphid,$itemid,'$color',$drawtype,$sortorder)";
+		return	DBexecute($sql);
+	}
+
+	# Add System Map
+
+	function	add_sysmap($name,$width,$height)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right("Network map","A",0))
+		{
+			$ERROR_MSG="Insufficient permissions";
+			return 0;
+		}
+
+		$sql="insert into sysmaps (name,width,height) values ('$name',$width,$height)";
+		return	DBexecute($sql);
+	}
+
+	function	add_link($sysmapid,$shostid1,$shostid2,$triggerid,$drawtype_off,$color_off,$drawtype_on,$color_on)
+	{
+		if($triggerid == 0)
+		{
+			$sql="insert into sysmaps_links (sysmapid,shostid1,shostid2,triggerid,drawtype_off,color_off,drawtype_on,color_on) values ($sysmapid,$shostid1,$shostid2,NULL,$drawtype_off,'$color_off',$drawtype_on,'$color_on')";
+		}
+		else
+		{
+			$sql="insert into sysmaps_links (sysmapid,shostid1,shostid2,triggerid,drawtype_off,color_off,drawtype_on,color_on) values ($sysmapid,$shostid1,$shostid2,$triggerid,$drawtype_off,'$color_off',$drawtype_on,'$color_on')";
+		}
+		return	DBexecute($sql);
+	}
+
+	function	delete_link($linkid)
+	{
+		$sql="delete from sysmaps_links where linkid=$linkid";
+		return	DBexecute($sql);
+	}
+
+	# Add Host to system map
+
+	function add_host_to_sysmap($sysmapid,$hostid,$label,$x,$y,$icon)
+	{
+		$sql="insert into sysmaps_hosts (sysmapid,hostid,label,x,y,icon) values ($sysmapid,$hostid,'$label',$x,$y,'$icon')";
+		return	DBexecute($sql);
+	}
+
+	function	update_sysmap_host($shostid,$sysmapid,$hostid,$label,$x,$y,$icon)
+	{
+		$sql="update sysmaps_hosts set hostid=$hostid,label='$label',x=$x,y=$y,icon='$icon' where shostid=$shostid";
+		return	DBexecute($sql);
+	}
+
+	# Add everything based on host_templateid
+
+	function	add_using_host_template($hostid,$host_templateid)
+	{
+		global	$ERROR_MSG;
+
+		if(!isset($host_templateid)||($host_templateid==0))
+		{
+			$ERROR_MSG="Select template first";
+			return 0;
+		}
+
+		$host=get_host_by_hostid($hostid);
+		$sql="select itemid from items where hostid=$host_templateid";
 		$result=DBselect($sql);
 		while($row=DBfetch($result))
 		{
-			$sql="update items set nextcheck=0 where itemid=".$row["itemid"];
+			$item=get_item_by_itemid($row["itemid"]);
+			$itemid=add_item($item["description"],$item["key_"],$hostid,$item["delay"],$item["history"],$item["status"],$item["type"],$item["snmp_community"],$item["snmp_oid"],$item["value_type"],"",161,$item["units"],$item["multiplier"],$item["delta"]);
+
+			$sql="select distinct t.triggerid from triggers t,functions f where f.itemid=".$row["itemid"]." and f.triggerid=t.triggerid";
+			$result2=DBselect($sql);
+			while($row2=DBfetch($result2))
+			{
+				$trigger=get_trigger_by_triggerid($row2["triggerid"]);
+// Cannot use add_trigger here
+				$description=$trigger["description"];
+#				$description=str_replace("%s",$host["host"],$description);	
+				$sql="insert into triggers  (description,priority,status,comments,url,value) values ('".addslashes($description)."',".$trigger["priority"].",".$trigger["status"].",'".addslashes($trigger["comments"])."','".addslashes($trigger["url"])."',2)";
+				$result4=DBexecute($sql);
+				$triggerid=DBinsert_id($result4,"triggers","triggerid");
+
+				$sql="select functionid from functions where triggerid=".$row2["triggerid"]." and itemid=".$row["itemid"];
+				$result3=DBselect($sql);
+				while($row3=DBfetch($result3))
+				{
+					$function=get_function_by_functionid($row3["functionid"]);
+					$sql="insert into functions (itemid,triggerid,function,parameter) values ($itemid,$triggerid,'".$function["function"]."','".$function["parameter"]."')";
+					$result4=DBexecute($sql);
+					$functionid=DBinsert_id($result4,"functions","functionid");
+					$sql="update triggers set expression='".$trigger["expression"]."' where triggerid=$triggerid";
+					DBexecute($sql);
+					$trigger["expression"]=str_replace("{".$row3["functionid"]."}","{".$functionid."}",$trigger["expression"]);
+					$sql="update triggers set expression='".$trigger["expression"]."' where triggerid=$triggerid";
+					DBexecute($sql);
+				}
+				# Add actions
+				$sql="select actionid from actions where scope=0 and triggerid=".$row2["triggerid"];
+				$result3=DBselect($sql);
+				while($row3=DBfetch($result3))
+				{
+					$action=get_action_by_actionid($row3["actionid"]);
+					$userid=$action["userid"];
+					$scope=$action["scope"];
+					$severity=$action["severity"];
+					$good=$action["good"];
+					$delay=$action["delay"];
+					$subject=addslashes($action["subject"]);
+					$message=addslashes($action["message"]);
+					$recipient=$action["recipient"];
+					$sql="insert into actions (triggerid, userid, scope, severity, good, delay, subject, message,recipient) values ($triggerid,$userid,$scope,$severity,$good,$delay,'$subject','$message',$recipient)";
+//					echo "$sql<br>";
+					$result4=DBexecute($sql);
+					$actionid=DBinsert_id($result4,"actions","actionid");
+				}
+			}
+		}
+
+		return TRUE;
+	}
+
+	function	add_group_to_host($hostid,$newgroup)
+	{
+		$sql="insert into groups (groupid,name) values (NULL,'$newgroup')";
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+		
+		$groupid=DBinsert_id($result,"groupd","groupid");
+
+		$sql="insert into hosts_groups (hostid,groupid) values ($hostid,$groupid)";
+		$result=DBexecute($sql);
+
+		return $result;
+	}
+
+	function	update_user_groups($usrgrpid,$users)
+	{
+		$count=count($users);
+
+		$sql="delete from users_groups where usrgrpid=$usrgrpid";
+		DBexecute($sql);
+
+		for($i=0;$i<$count;$i++)
+		{
+			$sql="insert into users_groups (usrgrpid,userid) values ($usrgrpid,".$users[$i].")";
 			DBexecute($sql);
 		}
+	}
+
+	function	update_host_groups_by_groupid($groupid,$hosts)
+	{
+		$count=count($hosts);
+
+		$sql="delete from hosts_groups where groupid=$groupid";
+		DBexecute($sql);
+
+		for($i=0;$i<$count;$i++)
+		{
+			$sql="insert into hosts_groups (hostid,groupid) values (".$hosts[$i].",$groupid)";
+			DBexecute($sql);
+		}
+	}
+
+	function	update_host_groups($hostid,$groups)
+	{
+		$count=count($groups);
+
+		$sql="delete from hosts_groups where hostid=$hostid";
+		DBexecute($sql);
+
+		for($i=0;$i<$count;$i++)
+		{
+			$sql="insert into hosts_groups (hostid,groupid) values ($hostid,".$groups[$i].")";
+			DBexecute($sql);
+		}
+	}
+
+	function	add_host_group($name,$hosts)
+	{
+		global	$ERROR_MSG;
+
+//		if(!check_right("Host","A",0))
+//		{
+//			$ERROR_MSG="Insufficient permissions";
+//			return 0;
+//		}
+
+		$sql="select * from groups where name='$name'";
+		$result=DBexecute($sql);
+		if(DBnum_rows($result)>0)
+		{
+			$ERROR_MSG="Group '$name' already exists";
+			return 0;
+		}
+
+		$sql="insert into groups (name) values ('$name')";
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+		
+		$groupid=DBinsert_id($result,"groups","groupid");
+
+		update_host_groups_by_groupid($groupid,$hosts);
+
+		return $result;
+	}
+
+	function	add_user_group($name,$users)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right("Host","A",0))
+		{
+			$ERROR_MSG="Insufficient permissions";
+			return 0;
+		}
+
+		$sql="select * from usrgrp where name='$name'";
+		$result=DBexecute($sql);
+		if(DBnum_rows($result)>0)
+		{
+			$ERROR_MSG="Group '$name' already exists";
+			return 0;
+		}
+
+		$sql="insert into usrgrp (name) values ('$name')";
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+		
+		$usrgrpid=DBinsert_id($result,"usrgrp","usrgrpid");
+
+		update_user_groups($usrgrpid,$users);
+
+		return $result;
+	}
+
+	function	update_host_group($groupid,$name,$users)
+	{
+		global	$ERROR_MSG;
+
+//		if(!check_right("Host","U",0))
+//		{
+//			$ERROR_MSG="Insufficient permissions";
+//			return 0;
+//		}
+
+		$sql="select * from groups where name='$name' and groupid<>$groupid";
+		$result=DBexecute($sql);
+		if(DBnum_rows($result)>0)
+		{
+			$ERROR_MSG="Group '$name' already exists";
+			return 0;
+		}
+
+		$sql="update groups set name='$name' where groupid=$groupid";
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+		
+		update_host_groups_by_groupid($groupid,$users);
+
+		return $result;
+	}
+
+	function	update_user_group($usrgrpid,$name,$users)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right("Host","U",0))
+		{
+			$ERROR_MSG="Insufficient permissions";
+			return 0;
+		}
+
+		$sql="select * from usrgrp where name='$name' and usrgrpid<>$usrgrpid";
+		$result=DBexecute($sql);
+		if(DBnum_rows($result)>0)
+		{
+			$ERROR_MSG="Group '$name' already exists";
+			return 0;
+		}
+
+		$sql="update usrgrp set name='$name' where usrgrpid=$usrgrpid";
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+		
+		update_user_groups($usrgrpid,$users);
+
+		return $result;
+	}
+		
+		
+	# Add Host definition
+
+	function	add_host($host,$port,$status,$useip,$ip,$host_templateid,$newgroup,$groups)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right("Host","A",0))
+		{
+			$ERROR_MSG="Insufficient permissions";
+			return 0;
+		}
+
+ 		if (!eregi('^([0-9a-zA-Z\_\.-]+)$', $host, &$arr)) 
+		{
+			$ERROR_MSG="Hostname should contain 0-9a-zA-Z_.- characters only";
+			return 0;
+		}
+
+		$sql="select * from hosts where host='$host'";
+		$result=DBexecute($sql);
+		if(DBnum_rows($result)>0)
+		{
+			$ERROR_MSG="Host '$host' already exists";
+			return 0;
+		}
+
+		if( isset($useip) && ($useip=="on") )
+		{
+			$useip=1;
+		}
+		else
+		{
+			$useip=0;
+		}
+		$sql="insert into hosts (host,port,status,useip,ip,disable_until) values ('$host',$port,$status,$useip,'$ip',0)";
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+		
+		$hostid=DBinsert_id($result,"hosts","hostid");
+
+		if($host_templateid != 0)
+		{
+			$result=add_using_host_template($hostid,$host_templateid);
+		}
+		update_host_groups($hostid,$groups);
+		if($newgroup != "")
+		{
+			add_group_to_host($hostid,$newgroup);
+		}
+
+		update_profile("HOST_PORT",$port);
+		
+		return	$result;
+	}
+
+	function	update_host($hostid,$host,$port,$status,$useip,$ip,$newgroup,$groups)
+	{
+		global	$ERROR_MSG;
+
+		if(!check_right("Host","U",$hostid))
+		{
+			$ERROR_MSG="Insufficient permissions";
+			return 0;
+		}
+
+ 		if (!eregi('^([0-9a-zA-Z\_\.-]+)$', $host, &$arr)) 
+		{
+			$ERROR_MSG="Hostname should contain 0-9a-zA-Z_.- characters only";
+			return 0;
+		}
+
+		$sql="select * from hosts where host='$host' and hostid<>$hostid";
+		$result=DBexecute($sql);
+		if(DBnum_rows($result)>0)
+		{
+			$ERROR_MSG="Host '$host' already exists";
+			return 0;
+		}
+
+
+		if($useip=="on")
+		{
+			$useip=1;
+		}
+		else
+		{
+			$useip=0;
+		}
+		$sql="update hosts set host='$host',port=$port,useip=$useip,ip='$ip' where hostid=$hostid";
+		$result=DBexecute($sql);
+		update_host_status($hostid, $status);
+		update_host_groups($hostid,$groups);
+		if($newgroup != "")
+		{
+			add_group_to_host($hostid,$newgroup);
+		}
+		return	$result;
 	}
 
 	# Delete Media definition by mediatypeid
@@ -1439,27 +3145,10 @@ COpt::profiling_start("page");
 		return	DBexecute($sql);
 	}
 
-	function	get_mediatype_by_mediatypeid($mediatypeid)
-	{
-		$sql="select * from media_type where mediatypeid=$mediatypeid";
-		$result=DBselect($sql);
-		$row=DBfetch($result);
-		if($row)
-		{
-			return	$row;
-		}
-		else
-		{
-			error("No media type with with mediatypeid=[$mediatypeid]");
-		}
-		return	$item;
-	}
-
 	# Delete media type
 
 	function	delete_mediatype($mediatypeid)
 	{
-
 		delete_media_by_mediatypeid($mediatypeid);
 		delete_alerts_by_mediatypeid($mediatypeid);
 		$sql="delete from media_type where mediatypeid=$mediatypeid";
@@ -1468,86 +3157,45 @@ COpt::profiling_start("page");
 
 	# Update media type
 
-	function	update_mediatype($mediatypeid,$type,$description,$smtp_server,$smtp_helo,$smtp_email,$exec_path,$gsm_modem)
+	function	update_mediatype($mediatypeid,$type,$description,$smtp_server,$smtp_helo,$smtp_email,$exec_path)
 	{
-		$ret = 0;
-
-		$sql="select * from media_type where description=".zbx_dbstr($description)." and mediatypeid!=$mediatypeid";
-		$result=DBexecute($sql);
-		if(DBfetch($result))
-		{
-			error("An action type with description '$description' already exists.");
-		}
-		else
-		{
-			$sql="update media_type set type=$type,description=".zbx_dbstr($description).",smtp_server=".zbx_dbstr($smtp_server).",smtp_helo=".zbx_dbstr($smtp_helo).",smtp_email=".zbx_dbstr($smtp_email).",exec_path=".zbx_dbstr($exec_path).",gsm_modem=".zbx_dbstr($gsm_modem)." where mediatypeid=$mediatypeid";
-			$ret =	DBexecute($sql);
-		}
-		return $ret;
+		$sql="update media_type set type=$type,description='$description',smtp_server='$smtp_server',smtp_helo='$smtp_helo',smtp_email='$smtp_email',exec_path='$exec_path' where mediatypeid=$mediatypeid";
+		return	DBexecute($sql);
 	}
 
 	# Add Media type
 
-	function	add_mediatype($type,$description,$smtp_server,$smtp_helo,$smtp_email,$exec_path,$gsm_modem)
+	function	add_mediatype($type,$description,$smtp_server,$smtp_helo,$smtp_email,$exec_path)
 	{
-		$ret = 0;
-
-		if($description==""){
-			error(S_INCORRECT_DESCRIPTION);
-			return 0;
-		}
-
-		$sql="select * from media_type where description=".zbx_dbstr($description);
-		$result=DBexecute($sql);
-		if(DBfetch($result))
-		{
-			error("An action type with description '$description' already exists.");
-		}
-		else
-		{
-			$sql="insert into media_type (type,description,smtp_server,smtp_helo,smtp_email,exec_path,gsm_modem) values ($type,".zbx_dbstr($description).",".zbx_dbstr($smtp_server).",".zbx_dbstr($smtp_helo).",".zbx_dbstr($smtp_email).",".zbx_dbstr($exec_path).",".zbx_dbstr($gsm_modem).")";
-			$ret = DBexecute($sql);
-		}
-		return $ret;
+		$sql="insert into media_type (type,description,smtp_server,smtp_helo,smtp_email,exec_path) values ($type,'$description','$smtp_server','$smtp_helo','$smtp_email','$exec_path')";
+		return	DBexecute($sql);
 	}
 
 	# Add Media definition
 
-	function	add_media( $userid, $mediatypeid, $sendto, $severity, $active, $period)
+	function	add_media( $userid, $mediatypeid, $sendto, $severity, $active)
 	{
-		if(validate_period($period) != 0)
-		{
-			error("Icorrect time period");
-			return NULL;
-		}
-
 		$c=count($severity);
 		$s=0;
 		for($i=0;$i<$c;$i++)
 		{
 			$s=$s|pow(2,(int)$severity[$i]);
 		}
-		$sql="insert into media (userid,mediatypeid,sendto,active,severity,period) values ($userid,".zbx_dbstr($mediatypeid).",".zbx_dbstr($sendto).",$active,$s,".zbx_dbstr($period).")";
+		$sql="insert into media (userid,mediatypeid,sendto,active,severity) values ($userid,'$mediatypeid','$sendto',$active,$s)";
 		return	DBexecute($sql);
 	}
 
 	# Update Media definition
 
-	function	update_media($mediaid, $userid, $mediatypeid, $sendto, $severity, $active, $period)
+	function	update_media($mediaid, $userid, $mediatypeid, $sendto, $severity, $active)
 	{
-		if(validate_period($period) != 0)
-		{
-			error("Icorrect time period");
-			return NULL;
-		}
-
 		$c=count($severity);
 		$s=0;
 		for($i=0;$i<$c;$i++)
 		{
 			$s=$s|pow(2,(int)$severity[$i]);
 		}
-		$sql="update media set userid=$userid, mediatypeid=$mediatypeid, sendto=".zbx_dbstr($sendto).", active=$active,severity=$s,period=".zbx_dbstr($period)." where mediaid=$mediaid";
+		$sql="update media set userid=$userid, mediatypeid=$mediatypeid, sendto='$sendto', active=$active,severity=$s where mediaid=$mediaid";
 		return	DBexecute($sql);
 	}
 
@@ -1576,23 +3224,18 @@ COpt::profiling_start("page");
 	# Update configuration
 
 //	function	update_config($smtp_server,$smtp_helo,$smtp_email,$alarm_history,$alert_history)
-	function	update_config($alarm_history,$alert_history,$refresh_unsupported,$work_period)
+	function	update_config($alarm_history,$alert_history)
 	{
+		global	$ERROR_MSG;
+
 		if(!check_right("Configuration of Zabbix","U",0))
 		{
-			error("Insufficient permissions");
+			$ERROR_MSG="Insufficient permissions";
 			return	0;
 		}
-		if(validate_period($work_period) != 0)
-		{
-			error("Icorrect work period");
-			return NULL;
-		}
-
 
 //		$sql="update config set smtp_server='$smtp_server',smtp_helo='$smtp_helo',smtp_email='$smtp_email',alarm_history=$alarm_history,alert_history=$alert_history";
-		$sql="update config set alarm_history=$alarm_history,alert_history=$alert_history,refresh_unsupported=$refresh_unsupported,".
-			"work_period=".zbx_dbstr($work_period);
+		$sql="update config set alarm_history=$alarm_history,alert_history=$alert_history";
 		return	DBexecute($sql);
 	}
 
@@ -1613,6 +3256,86 @@ COpt::profiling_start("page");
 		return	DBexecute($sql);
 	}
 
+	function	delete_sysmaps_host_by_hostid($hostid)
+	{
+		$sql="select shostid from sysmaps_hosts where hostid=$hostid";
+		$result=DBselect($sql);
+		while($row=DBfetch($result))
+		{
+			$sql="delete from sysmaps_links where shostid1=".$row["shostid"]." or shostid2".$row["shostid"];
+			DBexecute($sql);
+		}
+		$sql="delete from sysmaps_hosts where hostid=$hostid";
+		return DBexecute($sql);
+	}
+
+	# Delete Host from sysmap definition
+
+	function	delete_sysmaps_host($shostid)
+	{
+		$sql="delete from sysmaps_links where shostid1=$shostid or shostid2=$shostid";
+		$result=DBexecute($sql);
+		if(!$result)
+		{
+			return	$result;
+		}
+		$sql="delete from sysmaps_hosts where shostid=$shostid";
+		return	DBexecute($sql);
+	}
+
+	function	delete_groups_by_hostid($hostid)
+	{
+		$sql="select groupid from hosts_groups where hostid=$hostid";
+		$result=DBselect($sql);
+		while($row=DBfetch($result))
+		{
+			$sql="delete from hosts_groups where hostid=$hostid and groupid=".$row["groupid"];
+			DBexecute($sql);
+			$sql="select count(*) as count from hosts_groups where groupid=".$row["groupid"];
+			$result2=DBselect($sql);
+			$row2=DBfetch($result2);
+			if($row2["count"]==0)
+			{
+				$sql="delete from groups where groupid=".$row["groupid"];
+				DBexecute($sql);
+			}
+		}
+	}
+
+	# Delete Host
+
+	function	delete_host($hostid)
+	{
+		global $DB_TYPE;
+
+		if($DB_TYPE=="MYSQL")
+		{
+			$sql="update hosts set status=".HOST_STATUS_DELETED.",host=concat(host,\" [DELETED]\") where hostid=$hostid";
+		}
+		else
+		{
+			$sql="update hosts set status=".HOST_STATUS_DELETED.",host=host||' [DELETED]' where hostid=$hostid";
+		}
+		return	DBexecute($sql);
+
+//		$sql="select itemid from items where hostid=$hostid";
+//		$result=DBselect($sql);
+//		if(!$result)
+//		{
+//			return	$result;
+//		}
+//		for($i=0;$i<DBnum_rows($result);$i++)
+//		{
+//			if(!delete_item(DBget_field($result,$i,0)))
+//			{
+//				return	FALSE;
+//			}
+//		}
+//		delete_groups_by_hostid($hostid);
+//		$sql="delete from hosts where hostid=$hostid";
+//		return	DBexecute($sql);
+	}
+
 	# Delete User permission
 
 	function	delete_permission($rightid)
@@ -1621,26 +3344,44 @@ COpt::profiling_start("page");
 		return DBexecute($sql);
 	}
 
+	function	delete_user_group($usrgrpid)
+	{
+		global	$ERROR_MSG;
+
+		$sql="delete from users_groups where usrgrpid=$usrgrpid";
+		DBexecute($sql);
+		$sql="delete from usrgrp where usrgrpid=$usrgrpid";
+		return DBexecute($sql);
+	}
+
+	function	delete_host_group($groupid)
+	{
+		global	$ERROR_MSG;
+
+		$sql="delete from hosts_groups where groupid=$groupid";
+		DBexecute($sql);
+		$sql="delete from groups where groupid=$groupid";
+		return DBexecute($sql);
+	}
+
 	# Delete User definition
 
 	function	delete_user($userid)
 	{
+		global	$ERROR_MSG;
+
 		$sql="select * from users where userid=$userid and alias='guest'";
 		$result=DBselect($sql);
-		if(DBfetch($result))
+		if(DBnum_rows($result) == 1)
 		{
-			error("Cannot delete user 'guest'");
+			$ERROR_MSG="Cannot delete user 'guest'";
 			return	0;
 		}
-
 
 		delete_media_by_userid($userid);
 		delete_actions_by_userid($userid);
 		delete_rights_by_userid($userid);
 		delete_profiles_by_userid($userid);
-
-	// delete user permisions
-		DBexecute('delete from rights where name=\'User\' and id='.$userid);
 
 		$sql="delete from users_groups where userid=$userid";
 		DBexecute($sql);
@@ -1648,39 +3389,195 @@ COpt::profiling_start("page");
 		return DBexecute($sql);
 	}
 
-	function	show_header2($col1, $col2=SPACE, $before="", $after="")
+	function	show_table_h_delimiter()
 	{
-		echo $before; 
-		show_table_header($col1, $col2);
-		echo $after;
+//		echo "</font>";
+		cr();
+		echo "</td>";
+		cr();
+		echo "<td colspan=1 bgcolor=FFFFFF align=center valign=\"top\">";
+		cr();
+//		echo "	<font size=2>";
+		cr();
 	}
 
-	function	show_table_header($col1, $col2=SPACE)
+	function	show_table2_h_delimiter()
 	{
-		$table = new CTable(NULL,"header");
-		$table->SetCellSpacing(0);
-		$table->SetCellPadding(1);
-		$table->AddRow(array(new CCol($col1,"header_l"), new CCol($col2,"header_r")));
-		$table->Show();
+//		echo "</font>";
+		cr();
+		echo "</td>";
+		cr();
+		echo "<td colspan=1 bgcolor=CCCCCC align=left valign=\"top\">";
+		cr();
+//		echo "	<font size=-1>";
+		cr();
+	}
+
+	function	show_table_v_delimiter()
+	{
+//		echo "</font>";
+		cr();
+		echo "</td>";
+		cr();
+		echo "</tr>";
+		cr();
+		echo "<tr>";
+		cr();
+		echo "<td colspan=1 bgcolor=FFFFFF align=center valign=\"top\">";
+		cr();
+//		echo "<font size=2>";
+		cr();
+	}
+
+	function	show_table2_v_delimiter()
+	{
+//		echo "</font>";
+		cr();
+		echo "</td>";
+		cr();
+		echo "</tr>";
+		cr();
+		echo "<tr>";
+		cr();
+		echo "<td colspan=1 bgcolor=CCCCCC align=left valign=\"top\">";
+		cr();
+//		echo "<font size=-1>";
+		cr();
+	}
+
+	function	show_table3_v_delimiter()
+	{
+//		echo "</font>";
+		cr();
+		echo "</td>";
+		cr();
+		echo "</tr>";
+		cr();
+		echo "<tr>";
+		cr();
+		echo "<td colspan=1 bgcolor=99AABB align=left valign=\"top\">";
+		cr();
+//		echo "<font size=-1>";
+		cr();
+	}
+
+
+	function	show_table2_v_delimiter2()
+	{
+//		echo "</font>";
+		cr();
+		echo "</td>";
+		cr();
+		echo "</tr>";
+		cr();
+		echo "<tr>";
+		cr();
+		echo "<td colspan=2 bgcolor=\"99AABB\" align=right valign=\"top\">";
+		cr();
+//		echo "<font size=-1>";
+		cr();
+	}
+
+
+
+	function	show_table2_header_begin()
+	{
+		echo "<table border=0 align=center cellspacing=0 cellpadding=0 width=50% bgcolor=000000>";
+		cr();
+		echo "<tr>";
+		cr();
+		echo "<td valign=\"top\">";
+		cr();
+		echo "<table width=100% border=0 cellspacing=1 cellpadding=3>";
+		cr();
+		echo "<tr>";
+		cr();
+		echo "<td colspan=2 bgcolor=99AABB align=center valign=\"top\">";
+		cr();
+//		echo "	<font size=+1>";
+		cr();
+	}
+
+	function	show_table_header_begin()
+	{
+		echo "<table border=0 align=center cellspacing=0 cellpadding=0 width=100% bgcolor=000000>";
+		cr();
+		echo "<tr>";
+		cr();
+		echo "<td valign=\"top\">";
+		cr();
+		echo "<table width=100% border=0 cellspacing=1 cellpadding=3>";
+		cr();
+		echo "<tr>";
+		cr();
+		echo "<td colspan=1 bgcolor=99AABB align=center valign=\"top\">";
+		cr();
+//		echo "	<font size=+1>";
+		cr();
+	}
+
+	function	show_table2_header_end()
+	{
+//		echo "	</font>";
+		cr();
+		echo "</td>";
+		cr();
+		echo "</tr>";
+		cr();
+		echo "</table>";
+		cr();
+		echo "</td>";
+		cr();
+		echo "</tr>";
+		cr();
+		echo "</table>";
+		cr();
+	}
+
+	function	show_table_header_end()
+	{
+//		echo "	</font>";
+		cr();
+		echo "</td>";
+		cr();
+		echo "</tr>";
+		cr();
+		echo "</table>";
+		cr();
+		echo "</td>";
+		cr();
+		echo "</tr>";
+		cr();
+		echo "</table>";
+		cr();
+	}
+
+	function	show_table_header($title)
+	{
+		show_table_header_begin();
+		cr();
+		echo $title;
+		cr();
+		show_table_header_end();
+		cr();
 	}
 
 	function	insert_time_navigator($itemid,$period,$from)
 	{
 		$descr=array("January","February","March","April","May","June",
 			"July","August","September","October","November","December");
-		$sql="select min(clock) as minn,max(clock) as maxx from history where itemid=$itemid";
+		$sql="select min(clock),max(clock) from history where itemid=$itemid";
 		$result=DBselect($sql);
-		$row=Dvfetch($result);
 
-		if(!row)
+		if(DBnum_rows($result) == 0)
 		{
 			$min=time(NULL);
 			$max=time(NULL);
 		}
 		else
 		{
-			$min=$row["minn"];
-			$max=$row["maxx"];
+			$min=DBget_field($result,0,0);
+			$max=DBget_field($result,0,1);
 		}
 
 		$now=time()-3600*$from-$period;
@@ -1695,7 +3592,7 @@ COpt::profiling_start("page");
 
 		echo "<form method=\"put\" action=\"history.php\">";
 		echo "<input name=\"itemid\" type=\"hidden\" value=$itemid size=8>";
-		echo "<input name=\"action\" type=\"hidden\" value=\"showgraph\" size=8>";
+		echo "<input name=\"action\" type=\"hidden\" value=\"showhistory\" size=8>";
 
 		echo "Year";
 		echo "<select name=\"year\">";
@@ -1783,210 +3680,1052 @@ COpt::profiling_start("page");
 		{
 			echo "<option value=\"21600\">6 hours";
 		}
-		if($period==86400)
-		{
-			echo "<option value=\"86400\" selected>24 hours";
-		}
-		else
-		{
-			echo "<option value=\"86400\">24 hours";
-		}
-		if($period==604800)
-		{
-			echo "<option value=\"604800\" selected>one week";
-		}
-		else
-		{
-			echo "<option value=\"604800\">one week";
-		}
-		if($period==2419200)
-		{
-			echo "<option value=\"2419200\" selected>one month";
-		}
-		else
-		{
-			echo "<option value=\"2419200\">one month";
-		}
 		echo "</select>";
 
-		echo "<input class=\"button\" type=\"submit\" name=\"action\" value=\"showgraph\">";
+		echo "<input class=\"button\" type=\"submit\" name=\"action\" value=\"showhistory\">";
 
 		echo "</form>";
 	}
 
 	# Show History Graph
 
-	function	show_history($itemid,$from,$period)
+	function	show_history($itemid,$from,$period,$diff)
 	{
-		$till=date(S_DATE_FORMAT_YMDHMS,time(NULL)-$from*3600);   
-		show_table_header("TILL $till (".($period/3600)." HOURs)");
+		if (!isset($from))
+		{
+			$from=0;
+			$till="NOW";
+		}
+		else
+		{
+			$till=time(NULL)-$from*3600;
+			$till=date("d M - H:i:s",$till);   
+		}
 
+		if (!isset($period))
+		{ 
+			$period=3600;
+			show_table_header("TILL $till (LAST HOUR)");
+		}
+		else
+		{
+			$tmp=$period/3600;
+			show_table_header("TILL $till ($tmp HOURs)");
+		}
+//		echo("<hr>");
 		echo "<center>";
-		echo "<TABLE BORDER=0 WIDTH=100% BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
+		echo "<TABLE BORDER=0 COLS=4 WIDTH=100% BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
+		echo "<TR BGCOLOR=#EEEEEE>";
 		echo "<TR BGCOLOR=#DDDDDD>";
 		echo "<TD ALIGN=CENTER>";
 
-		echo "<script language=\"JavaScript\" type=\"text/javascript\">";
-		echo "if (navigator.appName == \"Microsoft Internet Explorer\")";
-		echo "{";
-		echo " document.write(\"<IMG SRC='chart.php?itemid=$itemid&period=$period&from=$from&width=\"+(document.body.clientWidth-108)+\"'>\")";
-		echo "}";
-		echo "else if (navigator.appName == \"Netscape\")";
-		echo "{";
-		echo " document.write(\"<IMG SRC='chart.php?itemid=$itemid&period=$period&from=$from&width=\"+(document.width-108)+\"'>\")";
-		echo "}";
-		echo "else";
-		echo "{";
-		echo " document.write(\"<IMG SRC='chart.php?itemid=$itemid&period=$period&from=$from'>\")";
-		echo "}";
-		echo "</script>";
-
+		if($diff==0)
+		{
+			echo "<script language=\"JavaScript\">";
+			echo "if (navigator.appName == \"Microsoft Internet Explorer\")";
+			echo "{";
+			echo " document.write(\"<IMG SRC='chart.php?itemid=$itemid&period=$period&from=$from&width=\"+(document.body.clientWidth-108)+\"'>\")";
+			echo "}";
+			echo "else if (navigator.appName == \"Netscape\")";
+			echo "{";
+			echo " document.write(\"<IMG SRC='chart.php?itemid=$itemid&period=$period&from=$from&width=\"+(document.width-108)+\"'>\")";
+			echo "}";
+			echo "else";
+			echo "{";
+			echo " document.write(\"<IMG SRC='chart.php?itemid=$itemid&period=$period&from=$from'>\")";
+			echo "}";
+			echo "</script>";
+		}
+		else
+		{
+			echo "<script language=\"JavaScript\">";
+			echo "if (navigator.appName == \"Microsoft Internet Explorer\")";
+			echo "{";
+			echo " document.write(\"<IMG SRC='chart_diff.php?itemid=$itemid&period=$period&from=$from&width=\"+(document.body.clientWidth-108)+\"'>\")";
+			echo "}";
+			echo "else if (navigator.appName == \"Netscape\")";
+			echo "{";
+			echo " document.write(\"<IMG SRC='chart_diff.php?itemid=$itemid&period=$period&from=$from&width=\"+(document.width-108)+\"'>\")";
+			echo "}";
+			echo "else";
+			echo "{";
+			echo " document.write(\"<IMG SRC='chart_diff.php?itemid=$itemid&period=$period&from=$from'>\")";
+			echo "}";
+			echo "</script>";
+		}
 		echo "</TD>";
 		echo "</TR>";
 		echo "</TABLE>";
 		echo "</center>";
+		echo("<hr>");
+		insert_time_navigator($itemid,$period,$from);
+		echo("<hr>");
 	}
 
-	function	show_page_footer()
+	# Show history
+	function	show_freehist($itemid,$period)
+	{
+
+		echo "<br>";
+		show_table2_header_begin();
+		echo "Choose period";
+
+		show_table2_v_delimiter();
+		echo "<form method=\"get\" action=\"history.php\">";
+		echo "<input name=\"itemid\" type=\"hidden\" value=$itemid size=8>";
+		echo "Period in seconds";
+		show_table2_h_delimiter();
+		echo "<input name=\"period\" value=\"7200\" size=8>";
+
+		show_table2_v_delimiter();
+		echo "From (in hours)";
+		show_table2_h_delimiter();
+		echo "<input name=\"from\" value=\"24\" size=8>";
+
+		show_table2_v_delimiter2();
+		echo "Press ";
+		echo "<input class=\"button\" type=\"submit\" name=\"action\" value=\"showvalues\"> to see values in plain text";
+
+		show_table2_header_end();
+
+		show_footer();
+	}
+
+	# Show in plain text
+	function	show_plaintxt($itemid,$period)
+	{
+		show_table2_header_begin();
+		echo "Data in plain text format";
+
+		show_table2_v_delimiter();
+		echo "<form method=\"get\" action=\"history.php\">";
+		echo "<input name=\"itemid\" type=\"Hidden\" value=$itemid size=8>";
+		echo "<input name=\"itemid\" type=\"Hidden\" value=$itemid size=8>";
+		echo "From: (yyyy/mm/dd - HH:MM)";
+		show_table2_h_delimiter();
+		echo "<input name=\"fromyear\" value=\"",date("Y"),"\" size=5>/";
+		echo "<input name=\"frommonth\" value=\"",date("m"),"\" size=3>/";
+		echo "<input name=\"fromday\" value=\"",date("d"),"\" size=3> - ";
+		echo "<input name=\"fromhour\" value=\"0\" size=3>:";
+		echo "<input name=\"frommin\" value=\"00\" size=3>";
+
+		show_table2_v_delimiter();
+		echo "Till: (yyyy/mm/dd - HH:MM)";
+		show_table2_h_delimiter();
+		echo "<input name=\"tillyear\" value=\"",date("Y"),"\" size=5>/";
+		echo "<input name=\"tillmonth\" value=\"",date("m"),"\" size=3>/";
+		echo "<input name=\"tillday\" value=\"",date("d"),"\" size=3> - ";
+		echo "<input name=\"tillhour\" value=\"23\" size=3>:";
+		echo "<input name=\"tillmin\" value=\"59\" size=3>";
+
+		show_table2_v_delimiter2();
+		echo "Press to see data in ";
+		echo "<input class=\"button\" type=\"submit\" name=\"action\" value=\"plaintext\">";
+
+		show_table2_header_end();
+
+		show_footer();
+	}
+
+	# Insert form for Item information
+	function	insert_item_form()
+	{
+		global  $HTTP_GET_VARS;
+
+		$description=@iif(isset($HTTP_GET_VARS["description"]),$HTTP_GET_VARS["description"],"");
+		$key=@iif(isset($HTTP_GET_VARS["key"]),$HTTP_GET_VARS["key"],"");
+		$host=@iif(isset($HTTP_GET_VARS["host"]),$HTTP_GET_VARS["host"],"");
+		$port=@iif(isset($HTTP_GET_VARS["port"]),$HTTP_GET_VARS["port"],10000);
+		$delay=@iif(isset($HTTP_GET_VARS["delay"]),$HTTP_GET_VARS["delay"],30);
+		$history=@iif(isset($HTTP_GET_VARS["history"]),$HTTP_GET_VARS["history"],365);
+		$status=@iif(isset($HTTP_GET_VARS["status"]),$HTTP_GET_VARS["status"],0);
+		$type=@iif(isset($HTTP_GET_VARS["type"]),$HTTP_GET_VARS["type"],0);
+		$snmp_community=@iif(isset($HTTP_GET_VARS["snmp_community"]),$HTTP_GET_VARS["snmp_community"],"public");
+		$snmp_oid=@iif(isset($HTTP_GET_VARS["snmp_oid"]),$HTTP_GET_VARS["snmp_oid"],"interfaces.ifTable.ifEntry.ifInOctets.1");
+		$value_type=@iif(isset($HTTP_GET_VARS["value_type"]),$HTTP_GET_VARS["value_type"],0);
+		$trapper_hosts=@iif(isset($HTTP_GET_VARS["trapper_hosts"]),$HTTP_GET_VARS["trapper_hosts"],"");
+		$snmp_port=@iif(isset($HTTP_GET_VARS["snmp_port"]),$HTTP_GET_VARS["snmp_port"],161);
+		$units=@iif(isset($HTTP_GET_VARS["units"]),$HTTP_GET_VARS["units"],'');
+		$multiplier=@iif(isset($HTTP_GET_VARS["multiplier"]),$HTTP_GET_VARS["multiplier"],0);
+		$hostid=@iif(isset($HTTP_GET_VARS["hostid"]),$HTTP_GET_VARS["hostid"],0);
+		$delta=@iif(isset($HTTP_GET_VARS["delta"]),$HTTP_GET_VARS["delta"],0);
+
+		if(isset($HTTP_GET_VARS["register"])&&($HTTP_GET_VARS["register"] == "change"))
+		{
+			$result=DBselect("select i.description, i.key_, h.host, h.port, i.delay, i.history, i.status, i.type, i.snmp_community,i.snmp_oid,i.value_type,i.trapper_hosts,i.snmp_port,i.units,i.multiplier,h.hostid,i.delta from items i,hosts h where i.itemid=".$HTTP_GET_VARS["itemid"]." and h.hostid=i.hostid");
+		
+			$description=DBget_field($result,0,0);
+			$key=DBget_field($result,0,1);
+			$host=DBget_field($result,0,2);
+			$port=DBget_field($result,0,3);
+			$delay=DBget_field($result,0,4);
+			$history=DBget_field($result,0,5);
+			$status=DBget_field($result,0,6);
+			$type=iif(isset($HTTP_GET_VARS["type"]),isset($HTTP_GET_VARS["type"]),DBget_field($result,0,7));
+			$snmp_community=DBget_field($result,0,8);
+			$snmp_oid=DBget_field($result,0,9);
+			$value_type=DBget_field($result,0,10);
+			$trapper_hosts=DBget_field($result,0,11);
+			$snmp_port=DBget_field($result,0,12);
+			$units=DBget_field($result,0,13);
+			$multiplier=DBget_field($result,0,14);
+			$hostid=DBget_field($result,0,15);
+			$delta=DBget_field($result,0,16);
+		}
+
+		echo "<br>";
+
+		show_table2_header_begin();
+		echo "Item";
+ 
+		show_table2_v_delimiter();
+		echo "<form method=\"get\" action=\"items.php\">";
+		if(isset($HTTP_GET_VARS["itemid"]))
+		{
+			echo "<input class=\"biginput\" name=\"itemid\" type=hidden value=".$HTTP_GET_VARS["itemid"].">";
+		}
+		echo "Description";
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" name=\"description\" value=\"$description\"size=40>";
+
+		show_table2_v_delimiter();
+		echo "Host";
+		show_table2_h_delimiter();
+		echo "<select class=\"biginput\" name=\"hostid\" value=\"3\">";
+	        $result=DBselect("select hostid,host from hosts order by host");
+	        for($i=0;$i<DBnum_rows($result);$i++)
+	        {
+	                $hostid_=DBget_field($result,$i,0);
+	                $host_=DBget_field($result,$i,1);
+			if($hostid==$hostid_)
+			{
+	                	echo "<option value=\"$hostid_\" selected>$host_";
+			}
+			else
+			{
+	                	echo "<option value=\"$hostid_\">$host_";
+			}
+	        }
+		echo "</select>";
+
+		show_table2_v_delimiter();
+		echo "Type";
+		show_table2_h_delimiter();
+		echo "<SELECT class=\"biginput\" NAME=\"type\" value=\"$type\" size=\"1\" onChange=\"submit()\">";
+		echo "<OPTION VALUE=\"0\"";
+		if($type==0) echo "SELECTED";
+		echo ">Zabbix agent";
+		echo "<OPTION VALUE=\"3\"";
+		if($type==3) echo "SELECTED";
+		echo ">Simple check";
+		echo "<OPTION VALUE=\"1\"";
+		if($type==1) echo "SELECTED";
+		echo ">SNMPv1 agent";
+		echo "<OPTION VALUE=\"4\"";
+		if($type==4) echo "SELECTED";
+		echo ">SNMPv2 agent";
+		echo "<OPTION VALUE=\"2\"";
+		if($type==2) echo "SELECTED";
+		echo ">Zabbix trapper";
+		echo "<OPTION VALUE=\"5\"";
+		if($type==5) echo "SELECTED";
+		echo ">Zabbix internal";
+		echo "</SELECT>";
+
+		if(($type==1)||($type==4))
+		{ 
+			show_table2_v_delimiter();
+			echo nbsp("SNMP community");
+			show_table2_h_delimiter();
+			echo "<input class=\"biginput\" name=\"snmp_community\" value=\"$snmp_community\" size=16>";
+
+			show_table2_v_delimiter();
+			echo nbsp("SNMP OID");
+			show_table2_h_delimiter();
+			echo "<input class=\"biginput\" name=\"snmp_oid\" value=\"$snmp_oid\" size=40>";
+
+			show_table2_v_delimiter();
+			echo nbsp("SNMP port");
+			show_table2_h_delimiter();
+			echo "<input class=\"biginput\" name=\"snmp_port\" value=\"$snmp_port\" size=5>";
+		}
+		else
+		{
+			echo "<input class=\"biginput\" name=\"snmp_community\" type=hidden value=\"$snmp_community\">";
+			echo "<input class=\"biginput\" name=\"snmp_oid\" type=hidden value=\"$snmp_oid\">";
+			echo "<input class=\"biginput\" name=\"snmp_port\" type=hidden value=\"$snmp_port\">";
+		}
+
+		show_table2_v_delimiter();
+		echo "Key";
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" name=\"key\" value=\"$key\" size=40>";
+
+		show_table2_v_delimiter();
+		echo "Units";
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" name=\"units\" value=\"$units\" size=10>";
+
+		show_table2_v_delimiter();
+		echo "Multiplier";
+		show_table2_h_delimiter();
+		echo "<SELECT class=\"biginput\" NAME=\"multiplier\" value=\"$multiplier\" size=\"1\">";
+		echo "<OPTION VALUE=\"0\"";
+		if($multiplier==0) echo "SELECTED";
+		echo ">-";
+		echo "<OPTION VALUE=\"1\"";
+		if($multiplier==1) echo "SELECTED";
+		echo ">K (1024)";
+		echo "<OPTION VALUE=\"2\"";
+		if($multiplier==2) echo "SELECTED";
+		echo ">M (1024^2)";
+		echo "<OPTION VALUE=\"3\"";
+		if($multiplier==3) echo "SELECTED";
+		echo ">G (1024^3)";
+		echo "</SELECT>";
+
+		if($type!=2)
+		{
+			show_table2_v_delimiter();
+			echo nbsp("Update interval (in sec)");
+			show_table2_h_delimiter();
+			echo "<input class=\"biginput\" name=\"delay\" value=\"$delay\" size=5>";
+		}
+		else
+		{
+			echo "<input class=\"biginput\" name=\"delay\" type=hidden value=\"$delay\">";
+		}
+
+		show_table2_v_delimiter();
+		echo nbsp("Keep history (in days)");
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" name=\"history\" value=\"$history\" size=8>";
+
+		show_table2_v_delimiter();
+		echo "Status";
+		show_table2_h_delimiter();
+		echo "<SELECT class=\"biginput\" NAME=\"status\" value=\"$status\" size=\"1\">";
+		echo "<OPTION VALUE=\"0\"";
+		if($status==0) echo "SELECTED";
+		echo ">Monitored";
+		echo "<OPTION VALUE=\"1\"";
+		if($status==1) echo "SELECTED";
+		echo ">Disabled";
+#		echo "<OPTION VALUE=\"2\"";
+#		if($status==2) echo "SELECTED";
+#		echo ">Trapper";
+		echo "<OPTION VALUE=\"3\"";
+		if($status==3) echo "SELECTED";
+		echo ">Not supported";
+		echo "</SELECT>";
+
+		show_table2_v_delimiter();
+		echo nbsp("Type of information");
+		show_table2_h_delimiter();
+		echo "<SELECT class=\"biginput\" NAME=\"value_type\" value=\"$value_type\" size=\"1\">";
+		echo "<OPTION VALUE=\"0\"";
+		if($value_type==0) echo "SELECTED";
+		echo ">Numeric";
+		echo "<OPTION VALUE=\"1\"";
+		if($value_type==1) echo "SELECTED";
+		echo ">Character";
+		echo "</SELECT>";
+
+		show_table2_v_delimiter();
+		echo nbsp("Store value");
+		show_table2_h_delimiter();
+		echo "<SELECT class=\"biginput\" NAME=\"delta\" value=\"$delta\" size=\"1\">";
+		echo "<OPTION VALUE=\"0\"";
+		if($delta==0) echo "SELECTED";
+		echo ">As is";
+		echo "<OPTION VALUE=\"1\"";
+		if($delta==1) echo "SELECTED";
+		echo ">Delta";
+		echo "</SELECT>";
+
+		if($type==2)
+		{
+			show_table2_v_delimiter();
+			echo nbsp("Allowed hosts");
+			show_table2_h_delimiter();
+			echo "<input class=\"biginput\" name=\"trapper_hosts\" value=\"$trapper_hosts\" size=40>";
+		}
+		else
+		{
+			echo "<input class=\"biginput\" name=\"trapper_hosts\" type=hidden value=\"$trapper_hosts\">";
+		}
+ 
+		show_table2_v_delimiter2();
+		echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"add\">";
+		echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"add to all hosts\" onClick=\"return Confirm('Add item to all hosts?');\">";
+		if(isset($HTTP_GET_VARS["itemid"]))
+		{
+			echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"update\">";
+			echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"delete\" onClick=\"return Confirm('Delete selected item?');\">";
+		}
+ 
+		show_table2_header_end();
+?>
+<?php
+?>
+</TR>
+</TABLE>
+
+</CENTER>
+</FORM>
+
+</BODY>
+</HTML>
+<?php
+	}
+
+	# Insert form for Host Groups
+	function	insert_hostgroups_form($groupid)
+	{
+		global  $HTTP_GET_VARS;
+
+		if(isset($groupid))
+		{
+			$groupid=get_group_by_groupid($groupid);
+	
+			$name=$groupid["name"];
+		}
+		else
+		{
+			$name="";
+		}
+
+		show_table2_header_begin();
+		echo "Host group";
+
+		show_table2_v_delimiter();
+		echo "<form method=\"get\" action=\"hosts.php\">";
+		if(isset($HTTP_GET_VARS["groupid"]))
+		{
+			echo "<input name=\"groupid\" type=\"hidden\" value=\"".$HTTP_GET_VARS["groupid"]."\" size=8>";
+		}
+		echo "Group name";
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" name=\"name\" value=\"$name\" size=30>";
+
+		show_table2_v_delimiter();
+		echo "Hosts";
+		show_table2_h_delimiter();
+		echo "<select multiple class=\"biginput\" name=\"hosts[]\" size=\"5\">";
+		$result=DBselect("select distinct hostid,host from hosts order by host");
+		while($row=DBfetch($result))
+		{
+			if(isset($HTTP_GET_VARS["groupid"]))
+			{
+				$sql="select count(*) as count from hosts_groups where hostid=".$row["hostid"]." and groupid=".$HTTP_GET_VARS["groupid"];
+				$result2=DBselect($sql);
+				$row2=DBfetch($result2);
+				if($row2["count"]==0)
+				{
+					echo "<option value=\"".$row["hostid"]."\">".$row["host"];
+				}
+				else
+				{
+					echo "<option value=\"".$row["hostid"]."\" selected>".$row["host"];
+				}
+			}
+			else
+			{
+				echo "<option value=\"".$row["hostid"]."\">".$row["host"];
+			}
+		}
+		echo "</select>";
+
+		show_table2_v_delimiter2();
+		echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"add group\">";
+		if(isset($HTTP_GET_VARS["groupid"]))
+		{
+			echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"update group\">";
+			echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"delete group\" onClick=\"return Confirm('Delete selected group?');\">";
+		}
+		echo "</form>";
+		show_table2_header_end();
+	}
+
+	# Insert form for User Groups
+	function	insert_usergroups_form($usrgrpid)
+	{
+		global  $HTTP_GET_VARS;
+
+		if(isset($usrgrpid))
+		{
+			$usrgrp=get_usergroup_by_usrgrpid($usrgrpid);
+	
+			$name=$usrgrp["name"];
+		}
+		else
+		{
+			$name="";
+		}
+
+		show_table2_header_begin();
+		echo "User group";
+
+		show_table2_v_delimiter();
+		echo "<form method=\"get\" action=\"users.php\">";
+		if(isset($usrgrpid))
+		{
+			echo "<input name=\"usrgrpid\" type=\"hidden\" value=\"$usrgrpid\" size=8>";
+		}
+		echo "Group name";
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" name=\"name\" value=\"$name\" size=30>";
+
+		show_table2_v_delimiter();
+		echo "Users";
+		show_table2_h_delimiter();
+		echo "<select multiple class=\"biginput\" name=\"users[]\" size=\"5\">";
+		$result=DBselect("select distinct userid,alias from users order by alias");
+		while($row=DBfetch($result))
+		{
+			if(isset($HTTP_GET_VARS["usrgrpid"]))
+			{
+				$sql="select count(*) as count from users_groups where userid=".$row["userid"]." and usrgrpid=".$HTTP_GET_VARS["usrgrpid"];
+				$result2=DBselect($sql);
+				$row2=DBfetch($result2);
+				if($row2["count"]==0)
+				{
+					echo "<option value=\"".$row["userid"]."\">".$row["alias"];
+				}
+				else
+				{
+					echo "<option value=\"".$row["userid"]."\" selected>".$row["alias"];
+				}
+			}
+			else
+			{
+				echo "<option value=\"".$row["userid"]."\">".$row["alias"];
+			}
+		}
+		echo "</select>";
+
+		show_table2_v_delimiter2();
+		echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"add group\">";
+		if(isset($HTTP_GET_VARS["usrgrpid"]))
+		{
+			echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"update group\">";
+			echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"delete group\" onClick=\"return Confirm('Delete selected group?');\">";
+		}
+		echo "</form>";
+		show_table2_header_end();
+	}
+
+	# Insert form for User permissions
+	function	insert_permissions_form($userid)
+	{
+		echo "<br>";
+
+		show_table2_header_begin();
+		echo "New permission";
+
+		show_table2_v_delimiter();
+		echo "<form method=\"get\" action=\"users.php\">";
+		if(isset($userid))
+		{
+			echo "<input name=\"userid\" type=\"hidden\" value=\"$userid\" size=8>";
+		}
+		echo "Resource";
+		show_table2_h_delimiter();
+		echo "<select class=\"biginput\" name=\"right\">";
+		echo "<option value=\"Configuration of Zabbix\">Configuration of Zabbix";
+		echo "<option value=\"Default permission\">Default permission";
+		echo "<option value=\"Graph\">Graph";
+		echo "<option value=\"Host\">Host";
+		echo "<option value=\"Screen\">Screen";
+		echo "<option value=\"Service\">IT Service";
+		echo "<option value=\"Item\">Item";
+		echo "<option value=\"Network map\">Network map";
+		echo "<option value=\"Trigger comment\">Trigger's comment";
+		echo "<option value=\"User\">User";
+		echo "</select>";
+
+		show_table2_v_delimiter();
+		echo "Permission";
+		show_table2_h_delimiter();
+		echo "<select class=\"biginput\" name=\"permission\">";
+		echo "<option value=\"R\">Read-only";
+		echo "<option value=\"U\">Read-write";
+		echo "<option value=\"H\">Hide";
+		echo "<option value=\"A\">Add";
+		echo "</select>";
+
+		show_table2_v_delimiter();
+		echo "Resource ID (0 for all)";
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" name=\"id\" value=\"0\" size=4>";
+
+		show_table2_v_delimiter2();
+		echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"add permission\">";
+		show_table2_header_end();
+	}
+
+	function	insert_login_form()
+	{
+		global	$HTTP_GET_VARS;
+
+		show_table2_header_begin();
+		echo "Login";
+
+		show_table2_v_delimiter();
+		echo "<form method=\"post\" action=\"index.php\">";
+
+		echo "Login name";
+		show_table2_h_delimiter();
+//		echo "<input name=\"name\" value=\"".$HTTP_GET_VARS["name"]."\" size=20>";
+		echo "<input class=\"biginput\" name=\"name\" value=\"\" size=20>";
+
+		show_table2_v_delimiter();
+		echo "Password";
+		show_table2_h_delimiter();
+//		echo "<input type=\"password\" name=\"password\" value=\"$password\" size=20>";
+		echo "<input class=\"biginput\" type=\"password\" name=\"password\" value=\"\" size=20>";
+
+		show_table2_v_delimiter2();
+		echo "<input class=\"button\" class=\"button\" type=\"submit\" name=\"register\" value=\"Enter\">";
+		show_table2_header_end();
+	}
+
+
+	# Insert form for User
+	function	insert_user_form($userid)
+	{
+		if(isset($userid))
+		{
+			$result=DBselect("select u.alias,u.name,u.surname,u.passwd from users u where u.userid=$userid");
+	
+			$alias=DBget_field($result,0,0);
+			$name=DBget_field($result,0,1);
+			$surname=DBget_field($result,0,2);
+#			$password=DBget_field($result,0,3);
+			$password="";
+		}
+		else
+		{
+			$alias="";
+			$name="";
+			$surname="";
+			$password="";
+		}
+
+		show_table2_header_begin();
+		echo "User";
+
+		show_table2_v_delimiter();
+		echo "<form method=\"get\" action=\"users.php\">";
+		if(isset($userid))
+		{
+			echo "<input class=\"biginput\" name=\"userid\" type=\"hidden\" value=\"$userid\" size=8>";
+		}
+		echo "Alias";
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" name=\"alias\" value=\"$alias\" size=20>";
+
+		show_table2_v_delimiter();
+		echo "Name";
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" name=\"name\" value=\"$name\" size=20>";
+
+		show_table2_v_delimiter();
+		echo "Surname";
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" name=\"surname\" value=\"$surname\" size=20>";
+
+		show_table2_v_delimiter();
+		echo "Password";
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" type=\"password\" name=\"password1\" value=\"$password\" size=20>";
+
+		show_table2_v_delimiter();
+		echo nbsp("Password (once again)");
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" type=\"password\" name=\"password2\" value=\"$password\" size=20>";
+
+		show_table2_v_delimiter2();
+		echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"add\">";
+		if(isset($userid))
+		{
+			echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"update\">";
+			echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"delete\" onClick=\"return Confirm('Delete selected user?');\">";
+		}
+
+		show_table2_header_end();
+	}
+
+	# Insert form for Problem
+	function	insert_problem_form($problemid)
+	{
+		echo "<br>";
+
+		show_table2_header_begin();
+		echo "Problem definition";
+		show_table2_v_delimiter();
+		echo "<form method=\"post\" action=\"helpdesk.php\">";
+		echo "<input name=\"problemid\" type=hidden value=$problemid size=8>";
+		echo "Description";
+		show_table2_h_delimiter();
+		echo "<input name=\"description\" value=\"$description\" size=70>";
+
+		show_table2_v_delimiter();
+		echo "Severity";
+		show_table2_h_delimiter();
+		echo "<SELECT NAME=\"priority\" size=\"1\">";
+		echo "<OPTION VALUE=\"0\" "; if($priority==0) echo "SELECTED"; echo ">Not classified";
+		echo "<OPTION VALUE=\"1\" "; if($priority==1) echo "SELECTED"; echo ">Information";
+		echo "<OPTION VALUE=\"2\" "; if($priority==2) echo "SELECTED"; echo ">Warning";
+		echo "<OPTION VALUE=\"3\" "; if($priority==3) echo "SELECTED"; echo ">Average";
+		echo "<OPTION VALUE=\"4\" "; if($priority==4) echo "SELECTED"; echo ">High";
+		echo "<OPTION VALUE=\"5\" "; if($priority==5) echo "SELECTED"; echo ">Disaster";
+		echo "</SELECT>";
+
+		show_table2_v_delimiter();
+		echo "Status";
+		show_table2_h_delimiter();
+		echo "<SELECT NAME=\"status\" value=\"$status\" size=\"1\">";
+		echo "<OPTION VALUE=\"0\"";
+		if($status==0) echo "SELECTED";
+		echo ">Opened";
+		echo "<OPTION VALUE=\"1\"";
+		if($status==1) echo "SELECTED";
+		echo ">Closed";
+		echo "</SELECT>";
+
+		show_table2_v_delimiter2();
+		echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"add\">";
+		if(isset($problemid))
+		{
+			echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"update\">";
+			echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"delete\">";
+		}
+
+		show_table2_header_end();
+	}
+
+	# Insert form for Trigger
+	function	insert_trigger_form($hostid,$triggerid)
+	{
+		if(isset($triggerid))
+		{
+			$trigger=get_trigger_by_triggerid($triggerid);
+	
+			$expression=explode_exp($trigger["expression"],0);
+			$description=htmlspecialchars(stripslashes($trigger["description"]));
+			$priority=$trigger["priority"];
+			$status=$trigger["status"];
+			$comments=$trigger["comments"];
+			$url=$trigger["url"];
+		}
+		else
+		{
+			$expression="";
+			$description="";
+			$priority=0;
+			$status=0;
+			$comments="";
+			$url="";
+		}
+		
+		echo "<br>";
+
+		show_table2_header_begin();
+		echo "Trigger configuration";
+ 
+		show_table2_v_delimiter();
+		if(isset($hostid))
+		{
+			echo "<form method=\"get\" action=\"triggers.php?hostid=$hostid\">";
+		}
+		else
+		{
+			echo "<form method=\"get\" action=\"triggers.php\">";
+		}
+		echo "<input class=\"biginput\" name=\"triggerid\" type=hidden value=$triggerid size=8>";
+		echo "Description";
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" name=\"description\" value=\"$description\" size=70>";
+
+		show_table2_v_delimiter();
+		echo "Expression";
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" name=\"expression\" value=\"$expression\" size=70>";
+
+		show_table2_v_delimiter();
+		echo "Severity";
+		show_table2_h_delimiter();
+		echo "<SELECT class=\"biginput\" NAME=\"priority\" size=\"1\">";
+		echo "<OPTION VALUE=\"0\" "; if($priority==0) echo "SELECTED"; echo ">Not classified";
+		echo "<OPTION VALUE=\"1\" "; if($priority==1) echo "SELECTED"; echo ">Information";
+		echo "<OPTION VALUE=\"2\" "; if($priority==2) echo "SELECTED"; echo ">Warning";
+		echo "<OPTION VALUE=\"3\" "; if($priority==3) echo "SELECTED"; echo ">Average";
+		echo "<OPTION VALUE=\"4\" "; if($priority==4) echo "SELECTED"; echo ">High";
+		echo "<OPTION VALUE=\"5\" "; if($priority==5) echo "SELECTED"; echo ">Disaster";
+		echo "</SELECT>";
+
+		show_table2_v_delimiter();
+		echo "Comments";
+		show_table2_h_delimiter();
+ 		echo "<TEXTAREA class=\"biginput\" NAME=\"comments\" COLS=70 ROWS=\"7\" WRAP=\"SOFT\">$comments</TEXTAREA>";
+
+		show_table2_v_delimiter();
+		echo "URL";
+		show_table2_h_delimiter();
+		echo "<input class=\"biginput\" name=\"url\" value=\"$url\" size=70>";
+
+		show_table2_v_delimiter();
+		echo "Disabled";
+		show_table2_h_delimiter();
+		echo "<INPUT TYPE=\"CHECKBOX\" ";
+		if($status==1) { echo " CHECKED "; }
+		echo "NAME=\"disabled\"  VALUE=\"true\">";
+
+ 
+		show_table2_v_delimiter2();
+		echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"add\">";
+		if(isset($triggerid))
+		{
+			echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"update\">";
+			echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"delete\" onClick=\"return Confirm('Delete trigger?');\">";
+		}
+
+		if(isset($triggerid))
+		{
+			show_table2_v_delimiter();
+			echo "The trigger depends on";
+			show_table2_h_delimiter();
+			$sql="select t.triggerid,t.description from triggers t,trigger_depends d where t.triggerid=d.triggerid_up and d.triggerid_down=$triggerid";
+			$result1=DBselect($sql);
+			echo "<SELECT class=\"biginput\" NAME=\"dependency\" size=\"1\">";
+			for($i=0;$i<DBnum_rows($result1);$i++)
+			{
+				$depid=DBget_field($result1,$i,0);
+//				$depdescr=DBget_field($result1,$i,1);
+//				if( strstr($depdescr,"%s"))
+//				{
+					$depdescr=expand_trigger_description($depid);
+//				}
+				echo "<OPTION VALUE=\"$depid\">$depdescr";
+			}
+			echo "</SELECT>";
+
+			show_table2_v_delimiter();
+			echo "New dependency";
+			show_table2_h_delimiter();
+			$sql="select t.triggerid,t.description from triggers t where t.triggerid!=$triggerid order by t.description";
+			$result=DBselect($sql);
+			echo "<SELECT class=\"biginput\" NAME=\"depid\" size=\"1\">";
+			for($i=0;$i<DBnum_rows($result);$i++)
+			{
+				$depid=DBget_field($result,$i,0);
+//				$depdescr=DBget_field($result,$i,1);
+
+//				if( strstr($depdescr,"%s"))
+//				{
+					$depdescr=expand_trigger_description($depid);
+//				}
+				echo "<OPTION VALUE=\"$depid\">$depdescr";
+			}
+			echo "</SELECT>";
+
+			show_table2_v_delimiter2();
+			if(isset($triggerid))
+			{
+				echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"add dependency\">";
+				if(DBnum_rows($result1)>0)
+				{
+					echo "<input class=\"button\" type=\"submit\" name=\"register\" value=\"delete dependency\">";
+				}
+			}
+		}
+
+		echo "</form>";
+		show_table2_header_end();
+	}
+
+	function	show_footer()
 	{
 		global $USER_DETAILS;
 
-		show_messages();
+		echo "<br>";
+		echo "<table border=0 cellpadding=1 cellspacing=0 width=100% align=center>";
+		echo "<tr>";
+		echo "<td bgcolor=\"#000000\">";
+		echo "<table border=\"0\" cellspacing=\"0\" cellpadding=\"3\" width=100% bgcolor=\"#666666\">";
+		echo "<tr><td align=center>";
+		echo "<a href=\"http://www.zabbix.com\">ZABBIX 1.0</a> Copyright 2000-2004 by <a href=\"mailto:alex@gobbo.caves.lv\">Alexei Vladishev</a>";
+		echo "</td>";
+		echo "<td align=right width=15%>";
+		echo "| Connected as ".$USER_DETAILS["alias"];
+		echo "</td>";
+		echo "</tr>";
+		echo "</table>";
+		echo "</td>";
+		echo "</tr>";
+		echo "</table>";
 
-		echo BR;
-		$table = new CTable(NULL,"page_footer");
-		$table->SetCellSpacing(0);
-		$table->SetCellPadding(1);
-		$table->AddRow(array(
-			new CCol(new CLink(
-				S_ZABBIX_VER.SPACE.S_COPYRIGHT_BY.SPACE.S_SIA_ZABBIX,
-				"http://www.zabbix.com", "highlight"),
-				"page_footer_l"),
-			new CCol(array(
-					new CSpan(SPACE.SPACE."|".SPACE.SPACE,"divider"),
-					S_CONNECTED_AS.SPACE.$USER_DETAILS["alias"]
-				),
-				"page_footer_r")
-			));
-		$table->Show();
-
-COpt::profiling_stop("page");
-COpt::profiling_stop("script");
-
-		echo "</body>\n";
-		echo "</html>\n";
+		echo "</body>";
 	}
 
-	function	get_status()
+	function	get_stats()
 	{
-		global $DB_TYPE;
-		$status = array();
-// server
-		if( (exec("ps -ef|grep zabbix_server|grep -v grep|wc -l")>0) || (exec("ps -ax|grep zabbix_server|grep -v grep|wc -l")>0) )
-		{
-			$status["zabbix_server"] = S_YES;
-		}
-		else
-		{
-			$status["zabbix_server"] = S_NO;
-		}
+	        $result=DBselect("select count(*) from history");
+		$stat["history_count"]=DBget_field($result,0,0);
 
-// history & trends
-		if ($DB_TYPE == "MYSQL")
-		{
-			$row=DBfetch(DBselect("show table status like 'history'"));
-			$status["history_count"]  = $row["Rows"];
-			$row=DBfetch(DBselect("show table status like 'history_log'"));
-			$status["history_count"] += $row["Rows"];
-			$row=DBfetch(DBselect("show table status like 'history_str'"));
-			$status["history_count"] += $row["Rows"];
-			$row=DBfetch(DBselect("show table status like 'history_uint'"));
-			$status["history_count"] += $row["Rows"];
+	        $result=DBselect("select count(*) from trends");
+		$stat["trends_count"]=DBget_field($result,0,0);
 
-			$row=DBfetch(DBselect("show table status like 'trends'"));
-			$status["trends_count"] = $row["Rows"];
-		}
-		else
-		{
-			$row=DBfetch(DBselect("select count(itemid) as cnt from history"));
-			$status["history_count"]  = $row["cnt"];
-			$row=DBfetch(DBselect("select count(itemid) as cnt from history_log"));
-			$status["history_count"] += $row["cnt"];
-			$row=DBfetch(DBselect("select count(itemid) as cnt from history_str"));
-			$status["history_count"] += $row["cnt"];
-			$row=DBfetch(DBselect("select count(itemid) as cnt from history_uint"));
-			$status["history_count"] += $row["cnt"];
+	        $result=DBselect("select count(*) from alarms");
+		$stat["alarms_count"]=DBget_field($result,0,0);
 
-			$result=DBselect("select count(itemid) as cnt from trends");
-			$row=DBfetch($result);
-			$status["trends_count"]=$row["cnt"];
-		}
-// alarms
-		$row=DBfetch(DBselect("select count(alarmid) as cnt from alarms"));
-		$status["alarms_count"]=$row["cnt"];
-// alerts
-		$row=DBfetch(DBselect("select count(alertid) as cnt from alerts"));
-		$status["alerts_count"]=$row["cnt"];
-// triggers
-		$sql = "select count(t.triggerid) as cnt from triggers t, functions f, items i, hosts h".
-			" where t.triggerid=f.triggerid and f.itemid=i.itemid and i.status=0 and i.hostid=h.hostid and h.status=".HOST_STATUS_MONITORED;
-		$row=DBfetch(DBselect($sql));
-		$status["triggers_count"]=$row["cnt"];
+	        $result=DBselect("select count(*) from alerts");
+		$stat["alerts_count"]=DBget_field($result,0,0);
 
-		$row=DBfetch(DBselect($sql." and t.status=0"));
-		$status["triggers_count_enabled"]=$row["cnt"];
+	        $result=DBselect("select count(*) from triggers");
+		$stat["triggers_count"]=DBget_field($result,0,0);
 
-		$row=DBfetch(DBselect($sql." and t.status=1"));
-		$status["triggers_count_disabled"]=$row["cnt"];
+	        $result=DBselect("select count(*) from triggers where status=0");
+		$stat["triggers_count_enabled"]=DBget_field($result,0,0);
 
-		$row=DBfetch(DBselect($sql." and t.status=0 and t.value=0"));
-		$status["triggers_count_off"]=$row["cnt"];
+	        $result=DBselect("select count(*) from triggers where status=1");
+		$stat["triggers_count_disabled"]=DBget_field($result,0,0);
 
-		$row=DBfetch(DBselect($sql." and t.status=0 and t.value=1"));
-		$status["triggers_count_on"]=$row["cnt"];
+	        $result=DBselect("select count(*) from items");
+		$stat["items_count"]=DBget_field($result,0,0);
 
-		$row=DBfetch(DBselect($sql." and t.status=0 and t.value=2"));
-		$status["triggers_count_unknown"]=$row["cnt"];
-// items 
-		$sql = "select count(i.itemid) as cnt from items i, hosts h where i.hostid=h.hostid and h.status=".HOST_STATUS_MONITORED;
-		$row=DBfetch(DBselect($sql));
-		$status["items_count"]=$row["cnt"];
+	        $result=DBselect("select count(*) from items where status=0");
+		$stat["items_count_active"]=DBget_field($result,0,0);
 
-		$row=DBfetch(DBselect($sql." and i.status=0"));
-		$status["items_count_monitored"]=$row["cnt"];
+	        $result=DBselect("select count(*) from items where status=1");
+		$stat["items_count_not_active"]=DBget_field($result,0,0);
 
-		$row=DBfetch(DBselect($sql." and i.status=1"));
-		$status["items_count_disabled"]=$row["cnt"];
+	        $result=DBselect("select count(*) from items where status=3");
+		$stat["items_count_not_supported"]=DBget_field($result,0,0);
 
-		$row=DBfetch(DBselect($sql." and i.status=3"));
-		$status["items_count_not_supported"]=$row["cnt"];
+	        $result=DBselect("select count(*) from items where status=2");
+		$stat["items_count_trapper"]=DBget_field($result,0,0);
 
-		$row=DBfetch(DBselect($sql." and i.type=2"));
-		$status["items_count_trapper"]=$row["cnt"];
-// hosts
-		$row=DBfetch(DBselect("select count(hostid) as cnt from hosts"));
-		$status["hosts_count"]=$row["cnt"];
+	        $result=DBselect("select count(*) from hosts");
+		$stat["hosts_count"]=DBget_field($result,0,0);
 
-		$row=DBfetch(DBselect("select count(hostid) as cnt from hosts where status=".HOST_STATUS_MONITORED));
-		$status["hosts_count_monitored"]=$row["cnt"];
+	        $result=DBselect("select count(*) from hosts where status=0");
+		$stat["hosts_count_monitored"]=DBget_field($result,0,0);
 
-		$row=DBfetch(DBselect("select count(hostid) as cnt from hosts where status=".HOST_STATUS_NOT_MONITORED));
-		$status["hosts_count_not_monitored"]=$row["cnt"];
+	        $result=DBselect("select count(*) from hosts where status=1");
+		$stat["hosts_count_not_monitored"]=DBget_field($result,0,0);
 
-		$row=DBfetch(DBselect("select count(hostid) as cnt from hosts where status=".HOST_STATUS_TEMPLATE));
-		$status["hosts_count_template"]=$row["cnt"];
+	        $result=DBselect("select count(*) from hosts where status=3");
+		$stat["hosts_count_template"]=DBget_field($result,0,0);
 
-		$row=DBfetch(DBselect("select count(hostid) as cnt from hosts where status=".HOST_STATUS_DELETED));
-		$status["hosts_count_deleted"]=$row["cnt"];
-// users
-		$row=DBfetch(DBselect("select count(userid) as cnt from users"));
-		$status["users_count"]=$row["cnt"];
+	        $result=DBselect("select count(*) from users");
+		$stat["users_count"]=DBget_field($result,0,0);
+
+
+		return $stat;
+	}
+
+	function	get_last_service_value($serviceid,$clock)
+	{
+	       	$sql="select count(*),max(clock) from service_alarms where serviceid=$serviceid and clock<=$clock";
+//		echo " $sql<br>";
 		
-		$status["users_online"]=0;
-		$result=DBselect("select distinct s.userid from sessions s, users u where u.userid=s.userid and (s.lastaccess+u.autologout)>".time());
-		while(DBfetch($result))		$status["users_online"]++;
+	        $result=DBselect($sql);
+		if(DBget_field($result,0,0)>0)
+		{
+	       		$sql="select value from service_alarms where serviceid=$serviceid and clock=".DBget_field($result,0,1);
+		        $result2=DBselect($sql);
+// Assuring that we get very latest service value. There could be several with the same timestamp
+//			$value=DBget_field($result2,0,0);
+			for($i=0;$i<DBnum_rows($result2);$i++)
+			{
+				$value=DBget_field($result2,$i,0);
+			}
+		}
+		else
+		{
+			$value=0;
+		}
+		return $value;
+	}
 
-		return $status;
+	function	calculate_service_availability($serviceid,$period_start,$period_end)
+	{
+	       	$sql="select count(*),min(clock),max(clock) from service_alarms where serviceid=$serviceid and clock>=$period_start and clock<=$period_end";
+		
+		$sql="select clock,value from service_alarms where serviceid=$serviceid and clock>=$period_start and clock<=$period_end";
+		$result=DBselect($sql);
+
+// -1,0,1
+		$state=get_last_service_value($serviceid,$period_start);
+		$problem_time=0;
+		$ok_time=0;
+		$time=$period_start;
+		for($i=0;$i<DBnum_rows($result);$i++)
+		{
+			$clock=DBget_field($result,$i,0);
+			$value=DBget_field($result,$i,1);
+
+			$diff=$clock-$time;
+
+			$time=$clock;
+#state=0,1 (OK), >1 PROBLEMS 
+
+			if($state<=1)
+			{
+				$ok_time+=$diff;
+				$state=$value;
+			}
+			else
+			{
+				$problem_time+=$diff;
+				$state=$value;
+			}
+		}
+//		echo $problem_time,"-",$ok_time,"<br>";
+
+		if(DBnum_rows($result)==0)
+		{
+			if(get_last_service_value($serviceid,$period_start)<=1)
+			{
+				$ok_time=$period_end-$period_start;
+			}
+			else
+			{
+				$problem_time=$period_end-$period_start;
+			}
+		}
+		else
+		{
+			if($state<=1)
+			{
+				$ok_time=$ok_time+$period_end-$time;
+			}
+			else
+			{
+				$problem_time=$problem_time+$period_end-$time;
+			}
+		}
+
+//		echo $problem_time,"-",$ok_time,"<br>";
+
+		$total_time=$problem_time+$ok_time;
+		if($total_time==0)
+		{
+			$ret["problem_time"]=0;
+			$ret["ok_time"]=0;
+			$ret["problem"]=0;
+			$ret["ok"]=0;
+		}
+		else
+		{
+			$ret["problem_time"]=$problem_time;
+			$ret["ok_time"]=$ok_time;
+			$ret["problem"]=(100*$problem_time)/$total_time;
+			$ret["ok"]=(100*$ok_time)/$total_time;
+		}
+		return $ret;
 	}
 
 	// If $period_start=$period_end=0, then take maximum period
@@ -1994,21 +4733,20 @@ COpt::profiling_stop("script");
 	{
 		if(($period_start==0)&&($period_end==0))
 		{
-	        	$sql="select count(*) as cnt,min(clock) as minn,max(clock) as maxx from alarms where triggerid=$triggerid";
+	        	$sql="select count(*),min(clock),max(clock) from alarms where triggerid=$triggerid";
 		}
 		else
 		{
-	        	$sql="select count(*) as cnt,min(clock) as minn,max(clock) as maxx from alarms where triggerid=$triggerid and clock>=$period_start and clock<=$period_end";
+	        	$sql="select count(*),min(clock),max(clock) from alarms where triggerid=$triggerid and clock>=$period_start and clock<=$period_end";
 		}
 //		echo $sql,"<br>";
 
 		
 	        $result=DBselect($sql);
-		$row=DBfetch($result);
-		if($row["cnt"]>0)
+		if(DBget_field($result,0,0)>0)
 		{
-			$min=$row["minn"];
-			$max=$row["maxx"];
+			$min=DBget_field($result,0,1);
+			$max=DBget_field($result,0,2);
 		}
 		else
 		{
@@ -2045,11 +4783,10 @@ COpt::profiling_stop("script");
 		{
 			$max=time();
 		}
-		$rows=0;
-		while($row=DBfetch($result))
+		for($i=0;$i<DBnum_rows($result);$i++)
 		{
-			$clock=$row["clock"];
-			$value=$row["value"];
+			$clock=DBget_field($result,$i,0);
+			$value=DBget_field($result,$i,1);
 
 			$diff=$clock-$time;
 
@@ -2086,10 +4823,9 @@ COpt::profiling_stop("script");
 				$unknown_time+=$diff;
 				$state=$value;
 			}
-			$rows++;
 		}
 
-		if($rows==0)
+		if(DBnum_rows($result)==0)
 		{
 			$false_time=$max-$min;
 		}
@@ -2140,10 +4876,10 @@ COpt::profiling_stop("script");
 		{
 			if(isset($id)&&($id!=0))
 			{
-				if($graph=get_graph_by_graphid($id))
-					$res=$graph["name"];
+				$host=get_graph_by_graphid($id);
+				$res=$host["name"];
 			}
-			elseif(!isset($id) || $id == 0)
+			else
 			{
 				$res="All graphs";
 			}
@@ -2152,10 +4888,10 @@ COpt::profiling_stop("script");
 		{
 			if(isset($id)&&($id!=0))
 			{
-				if($host=get_host_by_hostid($id))
-					$res=$host["host"];
+				$host=get_host_by_hostid($id);
+				$res=$host["host"];
 			}
-			elseif(!isset($id) || $id == 0)
+			else
 			{
 				$res="All hosts";
 			}
@@ -2164,23 +4900,23 @@ COpt::profiling_stop("script");
 		{
 			if(isset($id)&&($id!=0))
 			{
-				if($screen=get_screen_by_screenid($id))
-					$res=$screen["name"];
+				$screen=get_screen_by_screenid($id);
+				$res=$screen["name"];
 			}
-			elseif(!isset($id) || $id == 0)
+			else
 			{
-				$res="All screens";
+				$res="All hosts";
 			}
 		}
 		else if($permission=="Item")
 		{
 			if(isset($id)&&($id!=0))
 			{
-				if($item=get_item_by_itemid($id))
-					if($host=get_host_by_hostid($item["hostid"]))
-						$res=$host["host"].":".$item["description"];
+				$item=get_item_by_itemid($id);
+				$host=get_host_by_hostid($item["hostid"]);
+				$res=$host["host"].":".$item["description"];
 			}
-			elseif(!isset($id) || $id == 0)
+			else
 			{
 				$res="All items";
 			}
@@ -2189,10 +4925,10 @@ COpt::profiling_stop("script");
 		{
 			if(isset($id)&&($id!=0))
 			{
-				if($user=get_user_by_userid($id))
-					$res=$user["alias"];
+				$user=get_user_by_userid($id);
+				$res=$user["alias"];
 			}
-			elseif(!isset($id) || $id == 0)
+			else
 			{
 				$res="All users";
 			}
@@ -2201,87 +4937,42 @@ COpt::profiling_stop("script");
 		{
 			if(isset($id)&&($id!=0))
 			{
-				if($user=get_sysmap_by_sysmapid($id))
-					$res=$user["name"];
+				$user=get_map_by_sysmapid($id);
+				$res=$user["name"];
 			}
-			elseif(!isset($id) || $id == 0)
+			else
 			{
 				$res="All maps";
 			}
 		}
-		else if($permission=="Application")
-		{
-			if(isset($id)&&($id > 0))
-			{
-				if($app = get_application_by_applicationid($id))
-					$res = $app["name"];
-			}
-			elseif(!isset($id) || $id == 0)
-			{
-				$res="All applications";
-			}
-		}
-		else if($permission=="Service")
-		{
-			if(isset($id)&&($id > 0))
-			{
-				if($service = get_service_by_serviceid($id))
-					$res = $service["name"];
-			}
-			elseif(!isset($id) || $id == 0)
-			{
-				$res="All services";
-			}
-		}
-
-		if($res == '-' && isset($id) && ($id > 0))
-			$res = $id;
-
 		return $res;
 	}
 
-	function	not_empty($var)
-	{
-		return ($var == "" ? 0 : 1);
-	}
-
-	function	get_profile($idx,$default_value,$type=PROFILE_TYPE_UNCNOWN)
+	function	get_profile($idx,$default_value)
 	{
 		global $USER_DETAILS;
 
-		$result = $default_value;
-		if($USER_DETAILS["alias"]!="guest")
+		if($USER_DETAILS["alias"]=="guest")
 		{
-			$db_profiles = DBselect("select * from profiles where userid=".$USER_DETAILS["userid"]." and idx=".zbx_dbstr($idx));
-			$profile=DBfetch($db_profiles);
-
-			if($profile)
-			{
-				if($type==PROFILE_TYPE_UNCNOWN)
-					$type = $profile["valuetype"];
-
-				$result = $profile["value"];
-			}
-		}
-		switch($type)
-		{
-			case PROFILE_TYPE_ARRAY:	$result = explode(";", $result); break;
-			case PROFILE_TYPE_INT:		$result = intval($result); break;
-			case PROFILE_TYPE_STR:		$result = strval($result); break;
+			return $default_value;
 		}
 
-		if(is_array($result))
+		$sql="select value from profiles where userid=".$USER_DETAILS["userid"]." and idx='$idx'";
+		$result=DBselect($sql);
+
+		if(DBnum_rows($result)==0)
 		{
-			$result = array_filter($result, "not_empty");
+			return $default_value;
 		}
-// SDI("Get profile:".$idx." = ".$result);
-		return $result;
+		else
+		{
+			$row=DBfetch($result);
+			return $row["value"];
+		}
 	}
 
-	function	update_profile($idx,$value,$type=PROFILE_TYPE_UNCNOWN)
+	function	update_profile($idx,$value)
 	{
-// SDI("Save profile:".$idx." = ".$value);
-
 		global $USER_DETAILS;
 
 		if($USER_DETAILS["alias"]=="guest")
@@ -2289,34 +4980,82 @@ COpt::profiling_stop("script");
 			return;
 		}
 
-		if($type==PROFILE_TYPE_UNCNOWN && is_array($value))	$type = PROFILE_TYPE_ARRAY;
-		if($type==PROFILE_TYPE_ARRAY && !is_array($value))	$value = array($value);
-
-		switch($type)
-		{
-			case PROFILE_TYPE_ARRAY:	$value = implode(";", $value); break;
-			default:			$value = strval($value);
-		}
-
-
-		$sql="select value from profiles where userid=".$USER_DETAILS["userid"]." and idx=".zbx_dbstr($idx);
-//		echo $sql."<br>";
+		$sql="select value from profiles where userid=".$USER_DETAILS["userid"]." and idx='$idx'";
 		$result=DBselect($sql);
-		$row=DBfetch($result);
 
-		if(!$row)
+		if(DBnum_rows($result)==0)
 		{
-			$sql="insert into profiles (userid,idx,value,valuetype)".
-				" values (".$USER_DETAILS["userid"].",".zbx_dbstr($idx).",".zbx_dbstr($value).",".$type.")";
+			$sql="insert into profiles (userid,idx,value) values (".$USER_DETAILS["userid"].",'$idx','$value')";
 			DBexecute($sql);
 		}
 		else
 		{
-			$sql="update profiles set value=".zbx_dbstr($value).",valuetype=".$type.
-				" where userid=".$USER_DETAILS["userid"]." and idx=".zbx_dbstr($idx);
+			$row=DBfetch($result);
+			$sql="update profiles set value='$value' where userid=".$USER_DETAILS["userid"]." and idx='$idx'";
 			DBexecute($sql);
 		}
 	}
+
+
+        function        add_screen($name,$cols,$rows)
+        {
+                global  $ERROR_MSG;
+
+                if(!check_right("Screen","A",0))
+                {
+                        $ERROR_MSG="Insufficient permissions";
+                        return 0;
+                }
+
+                $sql="insert into screens (name,cols,rows) values ('$name',$cols,$rows)";
+                return  DBexecute($sql);
+        }
+
+        function        update_screen($screenid,$name,$cols,$rows)
+        {
+                global  $ERROR_MSG;
+
+                if(!check_right("Screen","U",0))
+                {
+                        $ERROR_MSG="Insufficient permissions";
+                        return 0;
+                }
+
+                $sql="update screens set name='$name',cols=$cols,rows=$rows where screenid=$screenid";
+                return  DBexecute($sql);
+        }
+
+        function        delete_screen($screenid)
+        {
+                $sql="delete from screens_items where screenid=$screenid";
+                $result=DBexecute($sql);
+                if(!$result)
+                {
+                        return  $result;
+                }
+                $sql="delete from screens where screenid=$screenid";
+                return  DBexecute($sql);
+        }
+
+        function add_screen_item($resource,$screenid,$x,$y,$resourceid,$width,$height)
+        {
+                $sql="delete from screens_items where screenid=$screenid and x=$x and y=$y";
+                DBexecute($sql);
+                $sql="insert into screens_items (resource,screenid,x,y,resourceid,width,height) values ($resource,$screenid,$x,$y,$resourceid,$width,$height)";
+                return  DBexecute($sql);
+        }
+
+        function update_screen_item($screenitemid,$resource,$resourceid,$width,$height)
+        {
+                $sql="update screens_items set resource=$resource,resourceid=$resourceid,width=$width,height=$height where screenitemid=$screenitemid";
+                return  DBexecute($sql);
+        }
+
+        function delete_screen_item($screenitemid)
+        {
+                $sql="delete from screens_items where screenitemid=$screenitemid";
+                return  DBexecute($sql);
+        }
 
         function get_drawtype_description($drawtype)
         {
@@ -2335,101 +5074,51 @@ COpt::profiling_stop("script");
 
 	function insert_confirm_javascript()
 	{
-		echo "
-<script language=\"JavaScript\" type=\"text/javascript\">
-<!--
-	function Confirm(msg)
-	{
-		if(confirm(msg,'title'))
-			return true;
-		else
-			return false;
-	}
-	function Redirect(url)
-	{
-		window.location = url;
-		return false;
-	}	
-	function PopUp(url,form_name,param)
-	{
-		window.open(url,form_name,param);
-		return false;
+		echo "<SCRIPT LANGUAGE=\"JavaScript\">";
+
+		echo "function Confirm(msg)";
+		echo "{";
+		echo "	if(confirm( msg))";
+		echo "	{";
+		echo "		return true;";
+		echo "	}";
+		echo "	else";
+		echo "	{";
+		echo "		return false;";
+		echo "	}";
+		echo "}";
+		echo "</SCRIPT>";
 	}
 
-	function CheckAll(form_name, chkMain)
+	function get_map_imagemap($sysmapid)
 	{
-		var frmForm = document.forms[form_name];
-		var value = frmForm.elements[chkMain].checked;
-		for (var i=0; i < frmForm.length; i++)
+		$map="\n<map name=links>";
+		$result=DBselect("select h.host,sh.shostid,sh.sysmapid,sh.hostid,sh.label,sh.x,sh.y,h.status from sysmaps_hosts sh,hosts h where sh.sysmapid=$sysmapid and h.hostid=sh.hostid");
+		for($i=0;$i<DBnum_rows($result);$i++)
 		{
-			if(frmForm.elements[i].type != 'checkbox') continue;
-			if(frmForm.elements[i].name == chkMain) continue;
-			if(frmForm.elements[i].disabled == true) continue;
-			frmForm.elements[i].checked = value;
+			$host=DBget_field($result,$i,0);
+			$shostid=DBget_field($result,$i,1);
+			$sysmapid=DBget_field($result,$i,2);
+			$hostid=DBget_field($result,$i,3);
+			$label=DBget_field($result,$i,4);
+			$x=DBget_field($result,$i,5);
+			$y=DBget_field($result,$i,6);
+			$status=DBget_field($result,$i,7);
+
+			if( ($status==0)||($status==2))
+			{
+				if(function_exists("imagecreatetruecolor")&&@imagecreatetruecolor(1,1))
+				{
+					$map=$map."\n<area shape=rect coords=$x,$y,".($x+48).",".($y+48)." href=\"tr_status.php?hostid=$hostid&noactions=true&onlytrue=true&compact=true\" alt=\"$host\">";
+				}
+				else
+				{
+					$map=$map."\n<area shape=rect coords=$x,$y,".($x+32).",".($y+32)." href=\"tr_status.php?hostid=$hostid&noactions=true&onlytrue=true&compact=true\" alt=\"$host\">";
+				}
+			}
 		}
-	}
-//-->
-</script>
-		";
-	}
-	function insert_javascript_clock($form, $field)
-	{
-		echo "
-<script language=\"JavaScript\" type=\"text/javascript\">
-<!--
-	function show_clock()
-	{
-		var thetime=new Date();
-
-		var nhours=thetime.getHours();
-		var nmins=thetime.getMinutes();
-		var nsecn=thetime.getSeconds();
-		var AorP=\" \";
-
-		var year = thetime.getFullYear();
-		var nmonth = thetime.getMonth()+1;
-		var ndate = thetime.getDate();
-		
-		if (nhours>=12)		AorP=\"PM\";
-		else			AorP=\"AM\";
-
-		if (nhours>=13)		nhours-=12;
-		if (nhours==0)		nhours=12;
-
-		if (nsecn<10)		nsecn=\"0\"+nsecn;
-		if (nmins<10)		nmins=\"0\"+nmins;
-		if (nmonth<10)		nmonth=\"0\"+nmonth;
-		if (ndate<10)		ndate=\"0\"+ndate;
-
-		document.forms['$form'].elements['$field'].value=ndate+\"-\"+nmonth+\"-\"+year+\" \"+nhours+\":\"+nmins+\":\"+nsecn+\" \"+AorP;
-
-		setTimeout('show_clock()',1000);
-	} 
-//-->
-</script>
-";
-	}
-
-	function	start_javascript_clock()
-	{
-		echo "
-<script language=\"JavaScript\" type=\"text/javascript\">
-<!--
-	show_clock();
-//-->
-</script>
-";
-	}
-
-	function	SetFocus($frm_name, $fld_name)
-	{
-		echo "
-<script language=\"JavaScript\" type=\"text/javascript\">
-<!--
-	document.forms['$frm_name'].elements['$fld_name'].focus();
-//-->
-</script>
-";
+		$map=$map."\n</map>";
+		return $map;
 	}
 
 /* Use ImageSetStyle+ImageLIne instead of bugged ImageDashedLine */
@@ -2443,7 +5132,6 @@ COpt::profiling_stop("script");
 			ImageSetStyle($image, $style);
 			ImageLine($image,$x1,$y1,$x2,$y2,IMG_COLOR_STYLED);
 		}
-
 	}
 	else
 	{
@@ -2453,260 +5141,4 @@ COpt::profiling_stop("script");
 		}
 	}
 
-	function DashedRectangle($image,$x1,$y1,$x2,$y2,$color)
-	{
-		DashedLine($image, $x1,$y1,$x1,$y2,$color);
-		DashedLine($image, $x1,$y2,$x2,$y2,$color);
-		DashedLine($image, $x2,$y2,$x2,$y1,$color);
-		DashedLine($image, $x2,$y1,$x1,$y1,$color);
-	}
-
-
-	function time_navigator($resource="graphid",$id)
-	{
-	echo "<TABLE BORDER=0 align=center COLS=2 WIDTH=100% BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=1>";
-	echo "<TR BGCOLOR=#FFFFFF>";
-	echo "<TD ALIGN=LEFT>";
-
-	echo "<div align=left>";
-	echo "<b>".S_PERIOD.":</b>".SPACE;
-
-	$hour=3600;
-		
-		$a=array(S_1H=>3600,S_2H=>2*3600,S_4H=>4*3600,S_8H=>8*3600,S_12H=>12*3600,
-			S_24H=>24*3600,S_WEEK_SMALL=>7*24*3600,S_MONTH_SMALL=>31*24*3600,S_YEAR_SMALL=>365*24*3600);
-		foreach($a as $label=>$sec)
-		{
-			echo "[";
-			if($_REQUEST["period"]>$sec)
-			{
-				$tmp=$_REQUEST["period"]-$sec;
-				echo("<A HREF=\"charts.php?period=$tmp".url_param($resource).url_param("stime").url_param("from").url_param("keep").url_param("fullscreen")."\">-</A>");
-			}
-			else
-			{
-				echo "-";
-			}
-
-			echo("<A HREF=\"charts.php?period=$sec".url_param($resource).url_param("stime").url_param("from").url_param("keep").url_param("fullscreen")."\">");
-			echo($label."</A>");
-
-			$tmp=$_REQUEST["period"]+$sec;
-			echo("<A HREF=\"charts.php?period=$tmp".url_param($resource).url_param("stime").url_param("from").url_param("keep").url_param("fullscreen")."\">+</A>");
-
-			echo "]".SPACE;
-		}
-
-		echo("</div>");
-
-	echo "</TD>";
-	echo "<TD BGCOLOR=#FFFFFF WIDTH=15% ALIGN=RIGHT>";
-	echo "<b>".nbsp(S_KEEP_PERIOD).":</b>".SPACE;
-		if($_REQUEST["keep"] == 1)
-		{
-			echo("[<A HREF=\"charts.php?keep=0".url_param($resource).url_param("from").url_param("period").url_param("fullscreen")."\">".S_ON_C."</a>]");
-		}
-		else
-		{
-			echo("[<A HREF=\"charts.php?keep=1".url_param($resource).url_param("from").url_param("period").url_param("fullscreen")."\">".S_OFF_C."</a>]");
-		}
-	echo "</TD>";
-	echo "</TR>";
-	echo "<TR BGCOLOR=#FFFFFF>";
-	echo "<TD>";
-	if(isset($_REQUEST["stime"]))
-	{
-		echo "<div align=left>" ;
-		echo "<b>".S_MOVE.":</b>".SPACE;
-
-		$day=24;
-// $a already defined
-//		$a=array("1h"=>1,"2h"=>2,"4h"=>4,"8h"=>8,"12h"=>12,
-//			"24h"=>24,"week"=>7*24,"month"=>31*24,"year"=>365*24);
-		foreach($a as $label=>$hours)
-		{
-			echo "[";
-
-			$stime=$_REQUEST["stime"];
-			$tmp=mktime(substr($stime,8,2),substr($stime,10,2),0,substr($stime,4,2),substr($stime,6,2),substr($stime,0,4));
-			$tmp=$tmp-3600*$hours;
-			$tmp=date("YmdHi",$tmp);
-			echo("<A HREF=\"charts.php?stime=$tmp".url_param($resource).url_param("period").url_param("keep").url_param("fullscreen")."\">-</A>");
-
-			echo($label);
-
-			$stime=$_REQUEST["stime"];
-			$tmp=mktime(substr($stime,8,2),substr($stime,10,2),0,substr($stime,4,2),substr($stime,6,2),substr($stime,0,4));
-			$tmp=$tmp+3600*$hours;
-			$tmp=date("YmdHi",$tmp);
-			echo("<A HREF=\"charts.php?stime=$tmp".url_param($resource).url_param("period").url_param("keep").url_param("fullscreen")."\">+</A>");
-
-			echo "]".SPACE;
-		}
-		echo("</div>");
-	}
-	else
-	{
-		echo "<div align=left>";
-		echo "<b>".S_MOVE.":</b>".SPACE;
-
-		$day=24;
-// $a already defined
-//		$a=array("1h"=>1,"2h"=>2,"4h"=>4,"8h"=>8,"12h"=>12,
-//			"24h"=>24,"week"=>7*24,"month"=>31*24,"year"=>365*24);
-		foreach($a as $label=>$hours)
-		{
-			echo "[";
-			$tmp=$_REQUEST["from"]+$hours;
-			echo("<A HREF=\"charts.php?from=$tmp".url_param($resource).url_param("period").url_param("keep").url_param("fullscreen")."\">-</A>");
-
-			echo($label);
-
-			if($_REQUEST["from"]>=$hours)
-			{
-				$tmp=$_REQUEST["from"]-$hours;
-				echo("<A HREF=\"charts.php?from=$tmp".url_param($resource).url_param("period").url_param("keep").url_param("fullscreen")."\">+</A>");
-			}
-			else
-			{
-				echo "+";
-			}
-
-			echo "]".SPACE;
-		}
-		echo("</div>");
-	}
-	echo "</TD>";
-	echo "<TD BGCOLOR=#FFFFFF WIDTH=15% ALIGN=RIGHT>";
-//		echo("<div align=left>");
-		echo "<form method=\"put\" action=\"charts.php\">";
-		echo "<input name=\"graphid\" type=\"hidden\" value=\"".$_REQUEST[$resource]."\" size=12>";
-		echo "<input name=\"period\" type=\"hidden\" value=\"".(9*3600)."\" size=12>";
-		if(isset($_REQUEST["stime"]))
-		{
-			echo "<input name=\"stime\" class=\"biginput\" value=\"".$_REQUEST["stime"]."\" size=12>";
-		}
-		else
-		{
-			echo "<input name=\"stime\" class=\"biginput\" value=\"yyyymmddhhmm\" size=12>";
-		}
-		echo SPACE;
-		echo "<input class=\"button\" type=\"submit\" name=\"action\" value=\"go\">";
-		echo "</form>";
-//		echo("</div>");
-	echo "</TD>";
-	echo "</TR>";
-	echo "</TABLE>";
-	}
-
-	function ImageOut($image)
-	{
-//		ImageJPEG($image);
-		ImagePNG($image);
-	}
-
-	function	add_mapping_to_valuemap($valuemapid, $mappings)
-	{
-		DBexecute("delete from mappings where valuemapid=$valuemapid");
-
-		foreach($mappings as $map)
-		{
-			$result = DBexecute("insert into mappings (valuemapid, value, newvalue)".
-				" values (".$valuemapid.",".zbx_dbstr($map["value"]).",".
-				zbx_dbstr($map["newvalue"]).")");
-
-			if(!$result)
-				return $result;
-		}
-		return TRUE;
-	}
-
-	function	add_valuemap($name, $mappings)
-	{
-		if(!is_array($mappings))	return FALSE;
-		
-		$result = DBexecute("insert into valuemaps (name) values (".zbx_dbstr($name).")");
-		if(!$result)
-			return $result;
-
-		$valuemapid =  DBinsert_id($result,"valuemaps","valuemapid");
-		
-		$result = add_mapping_to_valuemap($valuemapid, $mappings);
-		if(!$result){
-			delete_valuemap($valuemapid);
-		}
-		return $result;
-	}
-
-	function	update_valuemap($valuemapid, $name, $mappings)
-	{
-		if(!is_array($mappings))	return FALSE;
-
-		$result = DBexecute("update valuemaps set name=".zbx_dbstr($name).
-			" where valuemapid=$valuemapid");
-
-		if(!$result)
-			return $result;
-
-		$result = add_mapping_to_valuemap($valuemapid, $mappings);
-		if(!$result){
-			delete_valuemap($valuemapid);
-		}
-		return $result;
-	}
-
-	function	delete_valuemap($valuemapid)
-	{
-		DBexecute("delete from mappings where valuemapid=$valuemapid");
-		DBexecute("delete from valuemaps where valuemapid=$valuemapid");
-		return TRUE;
-	}
-
-	function	replace_value_by_map($value, $valuemapid)
-	{
-		if($valuemapid < 1) return $value;
-
-		$result = DBselect("select newvalue from mappings".
-			" where valuemapid=".zbx_dbstr($valuemapid)." and value=".zbx_dbstr($value));
-		$row = DBfetch($result);
-		if($row)
-		{
-			return $row["newvalue"]." "."($value)";
-		}
-		return $value;
-	}
-
-	function	Alert($msg)
-	{
-		echo "
-<script language=\"JavaScript\" type=\"text/javascript\">
-<!--
-	alert('$msg');
-//-->
-</script>
-";
-	}
-
-	function natksort(&$array) {
-		$keys = array_keys($array);
-		natcasesort($keys);
-
-		$new_array = array();
-
-		foreach ($keys as $k) {
-			$new_array[$k] = $array[$k];
-		}
-
-		$array = $new_array;
-		return true;
-	}
-
-	function	set_image_header()
-	{
-		//Header( "Content-type:  text/html"); 
-
-		if(MAP_OUTPUT_FORMAT == "JPG")	Header( "Content-type:  image/jpeg"); 
-		else				Header( "Content-type:  image/png"); 
-		Header( "Expires:  Mon, 17 Aug 1998 12:51:50 GMT"); 
-	}
 ?>

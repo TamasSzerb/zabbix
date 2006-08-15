@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <pdh.h>
 #include <psapi.h>
-#include "common.h"
+#include "../../include/common.h"
 #include "md5.h"
 #include "messages.h"
 #include "zabbix_subagent.h"
@@ -43,7 +43,7 @@
 #else
 #define DEBUG_SUFFIX
 #endif
-#define AGENT_VERSION         "1.1" DEBUG_SUFFIX
+#define AGENT_VERSION         "1.0.0" DEBUG_SUFFIX
 
 #define ZABBIX_SERVICE_NAME   "ZabbixAgentdW32"
 #define ZABBIX_EVENT_SOURCE   "Zabbix Win32 Agent"
@@ -80,6 +80,7 @@
 #define AF_LOG_UNRESOLVED_SYMBOLS   0x0004
 
 #define IsStandalone() (dwFlags & AF_STANDALONE)
+
 
 //
 // Parameter definition structure
@@ -159,12 +160,6 @@ struct SUBAGENT_NAME
    char *cmdLine;
 };
 
-struct REQUEST
-{
-   char cmd[MAX_ZABBIX_CMD_LEN];
-   char result[MAX_STRING_LEN];
-};
-
 
 //
 // Functions
@@ -181,16 +176,15 @@ void CalculateMD5Hash(const unsigned char *data,int nbytes,unsigned char *hash);
 DWORD CalculateCRC32(const unsigned char *data,DWORD nbytes);
 
 void InitService(void);
-int ZabbixCreateService(char *execName);
-int ZabbixRemoveService(void);
-int ZabbixStartService(void);
-int ZabbixStopService(void);
+void ZabbixCreateService(char *execName);
+void ZabbixRemoveService(void);
+void ZabbixStartService(void);
+void ZabbixStopService(void);
 
-int ZabbixInstallEventSource(char *path);
-int ZabbixRemoveEventSource(void);
+void ZabbixInstallEventSource(char *path);
+void ZabbixRemoveEventSource(void);
 
 char *GetCounterName(DWORD index);
-
 void InitLog(void);
 void CloseLog(void);
 void WriteLog(DWORD msg,WORD wType,char *format...);
@@ -201,33 +195,14 @@ void Main(void);
 
 void ListenerThread(void *);
 void CollectorThread(void *);
-void ActiveChecksThread(void *);
 
 void ProcessCommand(char *cmd,char *result);
-
-extern char *test_cmd;
-int TestCommand(void);
 
 BOOL ReadConfig(void);
 
 BOOL AddAlias(char *name,char *value);
 void ExpandAlias(char *orig,char *expanded);
 
-unsigned int __stdcall ProcessingThread(void *arg);
-int   process_log(char *filename,int *lastlogsize, char *value);
-int process_eventlog(char *source,int *lastlogsize, char *timestamp, char *src, char *severity, char *message);
-
-void str_base64_encode(char *p_str, char *p_b64str, int in_size);
-void str_base64_decode(char *p_b64str, char *p_str, int *p_out_size);
-
-int	comms_create_request(char *host, char *key, char *data, char *lastlogsize,
-						 char *timestamp, char *source, char *severity, char *request,int maxlen);
-
-
-int xml_get_data(char *xml,char *tag, char *data, int maxlen);
-
-int	num_param(const char *param);
-int	get_param(const char *param, int num, char *buf, int maxlen);
 
 //
 // Global variables
@@ -237,32 +212,19 @@ extern HANDLE eventShutdown;
 extern HANDLE eventCollectorStarted;
 
 extern DWORD dwFlags;
-extern DWORD g_dwLogLevel;
 
 extern char confFile[];
 extern char logFile[];
-extern char confHostname[];
-extern char confServer[];
 extern DWORD confServerAddr[];
 extern DWORD confServerCount;
 extern WORD confListenPort;
-extern WORD confServerPort;
 extern DWORD confTimeout;
 extern DWORD confMaxProcTime;
-extern DWORD confEnableRemoteCommands;
 
 extern USER_COUNTER *userCounterList;
-void	FreeUserCounterList(void);
-
 extern SUBAGENT *subagentList;
-
 extern SUBAGENT_NAME *subagentNameList;
-void	FreeSubagentNameList(void);
-
 extern PERFCOUNTER *perfCounterList;
-void	FreeCounterList(void);
-
-void	FreeAliasList(void);
 
 extern double statProcUtilization[];
 extern double statProcUtilization5[];

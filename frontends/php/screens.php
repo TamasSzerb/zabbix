@@ -1,7 +1,7 @@
 <?php
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,95 +20,138 @@
 ?>
 <?php
 	include "include/config.inc.php";
-
-
-	$page["title"] = "S_CUSTOM_SCREENS";
+	$page["title"] = "User defined screens";
 	$page["file"] = "screens.php";
 
-	$_REQUEST["fullscreen"] = get_request("fullscreen", 0);
-	show_header($page["title"],1,$_REQUEST["fullscreen"] >= 1 ? 1 : 0);
+	$nomenu=0;
+	if(isset($HTTP_GET_VARS["fullscreen"]))
+	{
+		$nomenu=1;
+	}
+	if(isset($HTTP_GET_VARS["screenid"]))
+	{
+		show_header($page["title"],60,$nomenu);
+	}
+	else
+	{
+		show_header($page["title"],0,$nomenu);
+	}
 ?>
 
 <?php
-//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-	$fields=array(
-		"screenid"=>		array(T_ZBX_INT, O_OPT,	P_SYS|P_NZERO,	DB_ID,NULL),
-		"dec"=>			array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
-		"inc"=>			array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
-		"from"=>		array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
-		"left"=>		array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
-		"right"=>		array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
-		"period"=>		array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
-		"stime"=>		array(T_ZBX_STR, O_OPT,  P_SYS, 	NULL,NULL),
-		"action"=>		array(T_ZBX_STR, O_OPT,  P_SYS, 	IN("'go'"),NULL),
-		"reset"=>		array(T_ZBX_STR, O_OPT,  P_SYS, 	IN("'reset'"),NULL),
-		"fullscreen"=>		array(T_ZBX_INT, O_OPT,	P_SYS,		IN("0,1"),		NULL)
-	);
+	if(!isset($HTTP_GET_VARS["fullscreen"]))
+	{
+		show_table_header_begin();
+		echo "SCREENS";
 
-	check_fields($fields);
-?>
+		show_table_v_delimiter();
 
-<?php
-	$_REQUEST["screenid"]=get_request("screenid",get_profile("web.screens.screenid",0));
+		echo "<font size=2>";
 
-	update_profile("web.screens.screenid",$_REQUEST["screenid"]);
-	update_profile("web.menu.view.last",$page["file"]);
-?>
-
-<?php
-	$text = array(S_SCREENS_BIG);
-	if($_REQUEST["screenid"] > 0)
+		$result=DBselect("select screenid,name,cols,rows from screens order by name");
+		while($row=DBfetch($result))
 		{
-		$screen = get_screen_by_screenid($_REQUEST["screenid"]);
-		if($screen) {
-			$url = "screens.php?screenid=".$_REQUEST["screenid"];
-			if($_REQUEST["fullscreen"]==0) $url .= "&fullscreen=1";
-			array_push($text,nbsp(" / "),new CLink($screen["name"], $url));
+			if(!check_right("Screen","R",$row["screenid"]))
+			{
+				continue;
+			}
+			if( isset($HTTP_GET_VARS["screenid"]) && ($HTTP_GET_VARS["screenid"] == $row["screenid"]) )
+			{
+				echo "<b>[";
+			}
+			echo "<a href='screens.php?screenid=".$row["screenid"]."'>".$row["name"]."</a>";
+			if(isset($HTTP_GET_VARS["screenid"]) && ($HTTP_GET_VARS["screenid"] == $row["screenid"]) )
+			{
+				echo "]</b>";
+			}
+			echo " ";
+		}
+		if(DBnum_rows($result) == 0)
+		{
+			echo "No screens to display";
+		}
+
+		echo "</font>";
+		show_table_header_end();
+		echo "<br>";
+	}
+?>
+
+<?php
+//	if(isset($HTTP_GET_VARS["screenid"]))
+	if( isset($HTTP_GET_VARS["screenid"]) && check_right("Screen","R",$HTTP_GET_VARS["screenid"]))
+	{
+		$screenid=$HTTP_GET_VARS["screenid"];
+		$result=DBselect("select name,cols,rows from screens where screenid=$screenid");
+		$row=DBfetch($result);
+		if(isset($HTTP_GET_VARS["fullscreen"]))
+		{
+			$map="<a href=\"screens.php?screenid=".$HTTP_GET_VARS["screenid"]."\">".$row["name"]."</a>";
 		}
 		else
 		{
-			$_REQUEST["screenid"] = 0;
-			update_profile("web.screens.screenid",$_REQUEST["screenid"]);
+			$map="<a href=\"screens.php?screenid=".$HTTP_GET_VARS["screenid"]."&fullscreen=1\">".$row["name"]."</a>";
 		}
+	show_table_header($map);
+          echo "<TABLE BORDER=1 COLS=".$row["cols"]." align=center WIDTH=100% BGCOLOR=\"#FFFFFF\"";
+          for($r=0;$r<$row["rows"];$r++)
+          {
+          echo "<TR>";
+          for($c=0;$c<$row["cols"];$c++)
+          {
+                echo "<TD align=\"center\" valign=\"top\">\n";
+
+		$sql="select * from screens_items where screenid=$screenid and x=$c and y=$r";
+		$iresult=DBSelect($sql);
+		if(DBnum_rows($iresult)>0)
+		{
+			$irow=DBfetch($iresult);
+			$screenitemid=$irow["screenitemid"];
+			$resource=$irow["resource"];
+			$resourceid=$irow["resourceid"];
+			$width=$irow["width"];
+			$height=$irow["height"];
+		}
+
+		if(DBnum_rows($iresult)>0)
+		{
+			if($resource == 0)
+			{
+				echo "<a href=charts.php?graphid=$resourceid><img src='chart2.php?graphid=$resourceid&width=$width&height=$height&period=3600&border=0' border=0></a>";
+			}
+			else if($resource == 1)
+			{
+				echo "<a href=history.php?action=showhistory&itemid=$resourceid><img src='chart.php?itemid=$resourceid&width=$width&height=$height&period=3600&border=0' border=0></a>";
+			}
+			else if($resource == 2)
+			{
+				echo get_map_imagemap($resourceid);
+				echo "<img src='map.php?sysmapid=$resourceid&noedit=true&border=1' border=0 usemap=#links>";
+			}
+		}
+		else
+		{
+			echo "&nbsp;";
+		}
+		echo "</TD>";
+          }
+          echo "</TR>\n";
+          }
+          echo "</TABLE>";
 	}
-
-	$form = new CForm();
-	$form->AddVar("fullscreen",$_REQUEST["fullscreen"]);
-
-	$cmbScreens = new CComboBox("screenid",$_REQUEST["screenid"],"submit()");
-	$screen_correct = 0;
-	$first_screen = 0;
-	$result=DBselect("select screenid,name from screens order by name");
-	while($row=DBfetch($result))
+	else
 	{
-		if(!check_right("Screen","R",$row["screenid"]))
-			continue;
-		$cmbScreens->AddItem($row["screenid"],$row["name"]);
-		if($_REQUEST["screenid"] == $row["screenid"]) $screen_correct = 1;
-		if($first_screen == 0) $first_screen = $row["screenid"];
+		show_table_header("Select screen to display");		
+		echo "<TABLE BORDER=0 align=center COLS=4 WIDTH=100% BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
+		echo "<TR BGCOLOR=#DDDDDD>";
+		echo "<TD ALIGN=CENTER>";
+		echo "...";
+		echo "</TD>";
+		echo "</TR>";
+		echo "</TABLE>";
 	}
-	if($screen_correct == 0 && $first_screen != 0)
-	{
-		$_REQUEST["screenid"] = $first_screen;
-	}
-
-	$form->AddItem($cmbScreens);
-	show_header2($text,$form);
 ?>
 
 <?php
-	if($_REQUEST["screenid"] > 0 && check_right("Screen","R",$_REQUEST["screenid"]))
-	{
-		$effectiveperiod=navigation_bar_calc();
-		$table = get_screen($_REQUEST["screenid"], 0, $effectiveperiod);
-		$table->Show();
-		
-		navigation_bar("screens.php");
-	}
-?>
-<?php
-	if($_REQUEST["fullscreen"]==0)
-	{
-		show_page_footer();
-	}
+	show_footer();
 ?>

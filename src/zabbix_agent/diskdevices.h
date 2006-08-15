@@ -1,6 +1,6 @@
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,29 +20,6 @@
 #ifndef ZABBIX_DISKDEVICES_H
 #define ZABBIX_DISKDEVICES_H
 
-
-#define	MAX_DISKDEVICES	8
-
-typedef struct c_single_diskdevice_data
-{
-	char    *name;
-	int	major;
-	int	diskno;
-	int	clock[60*15];
-	float	read_io_ops[60*15];
-	float	blks_read[60*15];
-	float	write_io_ops[60*15];
-	float	blks_write[60*15];
-} ZBX_SINGLE_DISKDEVICE_DATA;
-
-typedef struct c_diskdevices_data
-{
-	ZBX_SINGLE_DISKDEVICE_DATA device[MAX_DISKDEVICES];
-} ZBX_DISKDEVICES_DATA;
-
-void	collect_stats_diskdevices(ZBX_DISKDEVICES_DATA *pdiskdevices);
-
-/*
 #define	MAX_DISKDEVICES	8
 
 #define DISKDEVICE struct diskdevice_type
@@ -59,5 +36,5 @@ DISKDEVICE
 };
 
 void	collect_stats_diskdevices(FILE *outfile);
-*/
+
 #endif

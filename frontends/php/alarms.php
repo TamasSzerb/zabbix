@@ -1,7 +1,7 @@
 <?php
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,54 +19,86 @@
 **/
 ?>
 <?php
-	include "include/config.inc.php";
-	$page["title"] = "S_ALARMS";
+	$page["title"] = "Alarms";
 	$page["file"] = "alarms.php";
-	$page["menu.url"] = "tr_status.php";
 
+	include "include/config.inc.php";
 	show_header($page["title"],0,0);
 ?>
 
 <?php
-	if(!check_right_on_trigger("R",$_REQUEST["triggerid"]))
+	if(!check_right_on_trigger("R",$HTTP_GET_VARS["triggerid"]))
         {
-                show_table_header("<font color=\"AA0000\">".S_NO_PERMISSIONS."</font>");
-                show_page_footer();
+                show_table_header("<font color=\"AA0000\">No permissions !</font
+>");
+                show_footer();
                 exit;
         }
 ?>
 
 <?php
-	$_REQUEST["limit"] = get_request("limit","NO");
-	if(is_numeric($_REQUEST["limit"]))
-		$_REQUEST["limit"] = 100;
+	show_table_header_begin();
+	echo "ALARMS";
+ 
+	show_table_v_delimiter(); 
 
-	$trigger=get_trigger_by_triggerid($_REQUEST["triggerid"]);
+	if(!isset($HTTP_GET_VARS["triggerid"]))
+	{
+		echo "<div align=center><B>No triggerID!!!!</B><BR>Please Contact Server Adminstrator</div>";
+		show_footer();
+		exit;
+	}
+	else
+	{
+		$trigger=get_trigger_by_triggerid($HTTP_GET_VARS["triggerid"]);
 
-	$expression=$trigger["expression"];
-
-	$expression=explode_exp($expression,1);
-	$description=expand_trigger_description($_REQUEST["triggerid"]);
-
-	$form = new CForm();
-	$form->AddVar("triggerid",$_REQUEST["triggerid"]);
-	$cmbLimit = new CComboBox("limit",$_REQUEST["limit"],"submit()");
-	$cmbLimit->AddItem('NO',S_SHOW_ALL);
-	$cmbLimit->AddItem("100",S_SHOW_ONLY_LAST_100);
-	$form->AddItem($cmbLimit);
-
-	show_header2(S_ALARMS_BIG.":$description<br>$expression", $form);
+		$Expression=$trigger["expression"];
+		$Description=$trigger["description"];
+//		$Priority=$trigger["priority"];
+	}
 ?>
 
 <?php
-	$sql="select * from alarms where triggerid=".$_REQUEST["triggerid"].
-		" order by clock desc";
-	$result=DBselect($sql, $_REQUEST["limit"]);
+	if(isset($HTTP_GET_VARS["limit"]) && ($HTTP_GET_VARS["limit"]=="NO"))
+	{
+		echo "[<A HREF=\"alarms.php?triggerid=".$HTTP_GET_VARS["triggerid"]."&limit=30\">";
+		echo "Show only last 100</A>]";
+		$limit=" ";
+	}
+	else 
+	{
+		echo "[<A HREF=\"alarms.php?triggerid=".$HTTP_GET_VARS["triggerid"]."&limit=NO\">";
+		echo "Show all</A>]";
+		$limit=" limit 100";
+	}
 
-	$table = new CTableInfo();
-	$table->SetHeader(array(S_TIME,S_STATUS,S_ACKNOWLEDGED,S_DURATION,S_SUM,"%"));
-	$table->ShowStart();
+	show_table_header_end();
+	echo "<br>";
+?>
 
+
+<?php
+	$Expression=explode_exp($Expression,1);
+//	if( strstr($Description,"%s"))
+//	{
+		$Description=expand_trigger_description($trigger["triggerid"]);
+//	}
+	show_table_header("$Description<BR><font size=-1>$Expression</font>");
+?>
+
+<FONT COLOR="#000000">
+<?php
+	$sql="select clock,value,triggerid from alarms where triggerid=".$HTTP_GET_VARS["triggerid"]." order by clock desc $limit";
+	$result=DBselect($sql);
+
+	echo "<TABLE WIDTH=100% align=center BORDER=0 BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
+	echo "<TR>";
+	echo "<TD><B>Time</B></TD>";
+	echo "<TD><B>Status</B></TD>";
+	echo "<TD><B>Duration</B></TD>";
+	echo "<TD><B>Sum</B></TD>";
+	echo "<TD><B>%</B></TD>";
+	echo "</TR>";
 	$truesum=0;
 	$falsesum=0;
 	$dissum=0;
@@ -77,32 +109,32 @@
 		$clock=$row["clock"];
 		$leng=$lclock-$row["clock"];
 
-//		if($row["value"]==0)		{ echo "<TR BGCOLOR=#EEFFEE>"; }
-//		elseif($row["value"]==2)	{ echo "<TR BGCOLOR=#EEEEEE>"; }
-//		else				{ echo "<TR BGCOLOR=#FFDDDD>"; }
+		if($row["value"]==0)		{ echo "<TR BGCOLOR=#EEFFEE>"; }
+		elseif($row["value"]==2)	{ echo "<TR BGCOLOR=#EEEEEE>"; }
+		else				{ echo "<TR BGCOLOR=#FFDDDD>"; }
 
-//		table_td(date("Y.M.d H:i:s",$row["clock"]),"");
+		echo "<TD>",date("Y.M.d H:i:s",$row["clock"]),"</TD>";
 		if($row["value"]==1)
 		{
-			$istrue=new CCol(S_TRUE_BIG,"on");
+			$istrue="TRUE";
 			$truesum=$truesum+$leng;
 			$sum=$truesum;
 		}
 		elseif($row["value"]==0)
 		{
-			$istrue=new CCol(S_FALSE_BIG,"off");
+			$istrue="FALSE";
 			$falsesum=$falsesum+$leng;
 			$sum=$falsesum;
 		}
 		elseif($row["value"]==3)
 		{
-			$istrue=new CCol(S_DISABLED_BIG,"unknown");
+			$istrue="DISABLED";
 			$dissum=$dissum+$leng;
 			$sum=$dissum;
 		}
 		elseif($row["value"]==2)
 		{
-			$istrue=new CCol(S_UNKNOWN_BIG,"unknown");
+			$istrue="UNKNOWN";
 			$dissum=$dissum+$leng;
 			$sum=$dissum;
 		}
@@ -111,7 +143,7 @@
 		$proc=round($proc*100)/100;
 		$proc="$proc%";
  
-//		table_td("<B>$istrue</B>","");
+		echo "<TD><B>",$istrue,"</B></TD>";
 		if($leng>60*60*24)
 		{
 			$leng= round(($leng/(60*60*24))*10)/10;
@@ -152,37 +184,14 @@
 			$sum="$sum secs";
 		}
   
-//		table_td($leng,"");
-//		table_td($sum,"");
-//		table_td($proc,"");
-//		echo "</TR>";
-		$ack = "-";
-		if($row["value"] == 1 && $row["acknowledged"] == 1)
-		{
-			$db_acks = get_acknowledges_by_alarmid($row["alarmid"]);
-			$rows=0;
-			while($a=DBfetch($db_acks))	$rows++;
-			$ack=array(
-				new CSpan(S_YES,"off"),
-				SPACE."(".$rows.SPACE,
-				new CLink(S_SHOW,
-					"acknow.php?alarmid=".$row["alarmid"],"action"),
-				")"
-				);
-		}
-
-		$table->ShowRow(array(
-			date("Y.M.d H:i:s",$row["clock"]),
-			$istrue,
-			$ack,
-			$leng,
-			$sum,
-			$proc
-			));
+		echo "<TD>$leng</TD>";
+		echo "<TD>$sum</TD>";
+		echo "<TD>$proc</TD>";
+		echo "</TR>";
 	}
-	$table->ShowEnd();
+	echo "</TABLE>";
 ?>
 
 <?php
-	show_page_footer();
+	show_footer();
 ?>

@@ -1,7 +1,7 @@
 <?php
 /* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Zabbix
+** Copyright (C) 2000,2001,2002,2003,2004 Alexei Vladishev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,93 +20,111 @@
 ?>
 <?php
 	include "include/config.inc.php";
-	$page["title"] = "S_NETWORK_MAPS";
+	$page["title"] = "Network maps";
 	$page["file"] = "maps.php";
 
-	$_REQUEST["fullscreen"] = get_request("fullscreen", 0);
-
-	show_header($page["title"],1, $_REQUEST["fullscreen"] > 0 ? 1 : 0);
-
-?>
-
-<?php
-//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-	$fields=array(
-		"sysmapid"=>		array(T_ZBX_INT, O_OPT,	P_SYS|P_NZERO,	DB_ID,		NULL),
-		"fullscreen"=>		array(T_ZBX_INT, O_OPT,	P_SYS,		IN("0,1"),	NULL)
-	);
-
-	check_fields($fields);
-
-?>
-
-<?php
-	$_REQUEST["sysmapid"] = get_request("sysmapid",get_profile("web.maps.sysmapid",0));
-
-	if($_REQUEST["sysmapid"] <=0 )
+	$nomenu=0;
+	if(isset($HTTP_GET_VARS["fullscreen"]))
 	{
-		$db_sysmaps = DBselect("select sysmapid,name from sysmaps order by name");
-		if($sysmap = DBfetch($db_sysmaps))
-		{
-			$_REQUEST["sysmapid"] = $sysmap["sysmapid"];
-		}
+		$nomenu=1;
 	}
-
-	update_profile("web.maps.sysmapid",$_REQUEST["sysmapid"]);
-	update_profile("web.menu.view.last",$page["file"]);
-
-	if($_REQUEST["sysmapid"] > 0 && !check_right("Network map","R",$_REQUEST["sysmapid"]))
+	if(isset($HTTP_GET_VARS["sysmapid"]))
 	{
-		show_table_header("<font color=\"AA0000\">".S_NO_PERMISSIONS."</font>");
-		show_page_footer();
+		show_header($page["title"],30,$nomenu);
+	}
+	else
+	{
+		show_header($page["title"],0,$nomenu);
+	}
+?>
+
+<?php
+	if(isset($HTTP_GET_VARS["sysmapid"])&&!check_right("Network map","R",$HTTP_GET_VARS["sysmapid"]))
+	{
+		show_table_header("<font color=\"AA0000\">No permissions !</font>");
+		show_footer();
 		exit;
 	}
 ?>
 
-
 <?php
-	$text = array(S_NETWORK_MAPS_BIG);
-	if($_REQUEST["sysmapid"] > 0)
+	if(!isset($HTTP_GET_VARS["fullscreen"]))
 	{
-		$sysmap = get_sysmap_by_sysmapid($_REQUEST["sysmapid"]);
+		show_table_header_begin();
+		echo "NETWORK MAPS";
 
-		$url = "maps.php?sysmapid=".$_REQUEST["sysmapid"];
-		if($_REQUEST["fullscreen"]==0)
-			$url .= "&fullscreen=1";
+		show_table_v_delimiter();
 
-		array_push($text, nbsp(" / "), new CLink($sysmap["name"],$url));
+		$lasthost="";
+		$result=DBselect("select sysmapid,name from sysmaps order by name");
+
+		while($row=DBfetch($result))
+		{
+			if(!check_right("Network map","R",$row["sysmapid"]))
+			{
+				continue;
+			}
+			if( isset($HTTP_GET_VARS["sysmapid"]) && ($HTTP_GET_VARS["sysmapid"] == $row["sysmapid"]) )
+			{
+				echo "<b>[";
+			}
+			echo "<a href='maps.php?sysmapid=".$row["sysmapid"]."'>".$row["name"]."</a>";
+			if(isset($HTTP_GET_VARS["sysmapid"]) && ($HTTP_GET_VARS["sysmapid"] == $row["sysmapid"]) )
+			{
+				echo "]</b>";
+			}
+			echo " ";
+		}
+
+		if(DBnum_rows($result) == 0)
+		{
+			echo "No maps to display";
+		}
+
+		show_table_header_end();
+		echo "<br>";
 	}
-
-	$form = new CForm();
-	if($_REQUEST["fullscreen"]>=1)
-		$form->AddVar("fullscreen",$_REQUEST["fullscreen"]);
-
-	$cmbMaps = new CComboBox("sysmapid",$_REQUEST["sysmapid"],"submit()");
-	$result=DBselect("select sysmapid,name from sysmaps order by name");
-	while($row=DBfetch($result))
-	{
-		if(!check_right("Network map","R",$row["sysmapid"]))		continue;
-		$cmbMaps->AddItem($row["sysmapid"],$row["name"]);
-	}
-	$form->AddItem($cmbMaps);
-
-	show_header2($text,$form);
 ?>
 
 <?php
-	$table = new CTable(NULL,"map");
-	if($_REQUEST["sysmapid"] > 0)
+	if(isset($HTTP_GET_VARS["sysmapid"]))
 	{
-		$action_map = get_action_map_by_sysmapid($_REQUEST["sysmapid"]);
-		$table->AddRow($action_map);
-
-		$imgMap = new CImg("map.php?noedit=1&sysmapid=".$_REQUEST["sysmapid"]);
-		$imgMap->SetMap($action_map->GetName());
-		$table->AddRow($imgMap);
-
+		$result=DBselect("select name from sysmaps where sysmapid=".$HTTP_GET_VARS["sysmapid"]);
+		$map=DBget_field($result,0,0);
+		if(isset($HTTP_GET_VARS["fullscreen"]))
+		{
+			$map="<a href=\"maps.php?sysmapid=".$HTTP_GET_VARS["sysmapid"]."\">".$map."</a>";;
+		}
+		else
+		{
+			$map="<a href=\"maps.php?sysmapid=".$HTTP_GET_VARS["sysmapid"]."&fullscreen=1\">".$map."</a>";;
+		}
 	}
-	$table->Show();
+	else
+	{
+		$map="Select map to display";
+	}
+
+	show_table_header($map);
+
+	echo "<TABLE BORDER=0 COLS=4 align=center WIDTH=100% BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
+	echo "<TR BGCOLOR=#EEEEEE>";
+	echo "<TR BGCOLOR=#DDDDDD>";
+	echo "<TD ALIGN=CENTER>";
+	if(isset($HTTP_GET_VARS["sysmapid"]))
+	{
+		echo get_map_imagemap($HTTP_GET_VARS["sysmapid"]);
+		echo "<IMG SRC=\"map.php?noedit=1&sysmapid=".$HTTP_GET_VARS["sysmapid"]."\" border=0 usemap=#links>";
+	}
+	else
+	{
+		echo "...";
+	}
+	echo "</TD>";
+	echo "</TR>";
+	echo "</TABLE>";
 ?>
+
 <?php
-	show_page_footer();
+	show_footer();
 ?>

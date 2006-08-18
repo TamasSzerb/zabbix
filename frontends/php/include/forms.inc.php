@@ -276,6 +276,7 @@
 		$delta		= get_request("delta"		,0);
 		$trends		= get_request("trends"		,365);
 		$applications	= get_request("applications"	,array());
+		$delay_flex	= get_request("delay_flex"	,array());
 
 		$snmpv3_securityname	= get_request("snmpv3_securityname"	,"");
 		$snmpv3_securitylevel	= get_request("snmpv3_securitylevel"	,0);
@@ -323,6 +324,7 @@
 			$hostid		= $row["hostid"];
 			$delta		= $row["delta"];
 			$trends		= $row["trends"];
+			$db_delay_flex	= $row["delay_flex"];
 
 			$snmpv3_securityname	= $row["snmpv3_securityname"];
 			$snmpv3_securitylevel	= $row["snmpv3_securitylevel"];
@@ -338,8 +340,48 @@
 				if(in_array($db_app["applicationid"],$applications))	continue;
 				array_push($applications,$db_app["applicationid"]);
 			}
-			
+
+			if(isset($db_delay_flex))
+			{
+				$arr_of_dellays = explode(";",$db_delay_flex);
+				foreach($arr_of_dellays as $one_db_delay)
+				{
+					@list($one_delay,$one_time_period) = explode("/",$one_db_delay);
+					if(!isset($one_delay) || !isset($one_time_period)) continue;
+
+					array_push($delay_flex,array("delay"=>$one_delay,"period"=>$one_time_period));
+				}
+			}
 		}
+
+		$delay_flex_el = array();
+		$i = 0;
+		foreach($delay_flex as $val)
+		{
+			if(!isset($val["delay"]) && !isset($val["period"])) continue;
+
+			array_push($delay_flex_el,
+				array(
+					new CCheckBox("rem_delay_flex[]", 'no', NULL,$i),
+						$val["delay"],
+						" sec at ",
+						$val["period"]
+				),
+				BR);
+			$frmItem->AddVar("delay_flex[".$i."][delay]", $val['delay']);
+			$frmItem->AddVar("delay_flex[".$i."][period]", $val['period']);
+			$i++;
+			if($i >= 7) break; /* limit count of  intervals
+			                    * 7 intervals by 30 symbols = 210 characters
+			                    * db storage field is 256
+			                    */
+		}
+
+		if(count($delay_flex_el)==0)
+			array_push($delay_flex_el, "No flexible intervals");
+		else
+			array_push($delay_flex_el, new CButton('del_delay_flex','delete selected'));
+
 		if(count($applications)==0)  array_push($applications,0);
 
 		if(isset($_REQUEST["itemid"])) {
@@ -451,10 +493,20 @@
 		if($type != ITEM_TYPE_TRAPPER)
 		{
 			$frmItem->AddRow(S_UPDATE_INTERVAL_IN_SEC, new CTextBox("delay",$delay,5));
+			$frmItem->AddRow("Flexible intervals (sec)", $delay_flex_el);
+			$frmItem->AddRow("New flexible interval", 
+				array(
+					S_DELAY, SPACE,
+					new CTextBox("new_delay_flex[delay]","50",5), 
+					S_PERIOD, SPACE,
+					new CTextBox("new_delay_flex[period]","1-7,00:00-23:59",27), BR,
+					new CButton("add_delay_flex",S_ADD)
+				));
 		}
 		else
 		{
 			$frmItem->AddVar("delay",$delay);
+			$frmItem->AddVar("delay_flex[]","");
 		}
 
 		$frmItem->AddRow(S_KEEP_HISTORY_IN_DAYS, array(
@@ -579,82 +631,6 @@
 		$frmItem->AddItemToBottomRow(new CButton("register","do"));
 
 		$frmItem->Show();
-	}
-
-	function	insert_copy_elements_to_forms($elements_array_name)
-	{
-		
-		$copy_type = get_request("copy_type", 0);
-		$copy_mode = get_request("copy_mode", 0);
-		$filter_groupid = get_request("filter_groupid", 0);
-		$group_itemid = get_request($elements_array_name, array());
-		$copy_targetid = get_request("copy_targetid", array());
-
-		if(!is_array($group_itemid) || (is_array($group_itemid) && count($group_itemid) < 1))
-		{
-			error("Incorrect list of items.");
-			return;
-		}
-
-		$frmCopy = new CFormTable(count($group_itemid).' '.S_X_ELEMENTS_COPY_TO_DOT_DOT_DOT,NULL,'post',NULL,'form_copy_to');
-		$frmCopy->SetHelp('web.items.copyto.php');
-		$frmCopy->AddVar($elements_array_name, $group_itemid);
-
-		$cmbCopyType = new CComboBox('copy_type',$copy_type,'submit()');
-		$cmbCopyType->AddItem(0,S_HOSTS);
-		$cmbCopyType->AddItem(1,S_HOST_GROUPS);
-		$frmCopy->AddRow(S_TARGET_TYPE, $cmbCopyType);
-
-		$target_sql = 'select distinct g.groupid target_id, g.name target_name'.
-			' from groups g, hosts_groups hg'.
-			' where hg.groupid=g.groupid';
-
-		if(0 == $copy_type)
-		{
-			$cmbGroup = new CComboBox('filter_groupid',$filter_groupid,'submit()');
-			$cmbGroup->AddItem(0,S_ALL_SMALL);
-			$groups = DBselect($target_sql);
-			while($group = DBfetch($groups))
-			{
-				$cmbGroup->AddItem($group["target_id"],$group["target_name"]);
-			}
-			$frmCopy->AddRow('Group', $cmbGroup);
-
-			$target_sql = 'select h.hostid target_id, h.host target_name from hosts h';
-			if($filter_groupid > 0)
-			{
-				$target_sql .= ', hosts_groups hg where hg.hostid=h.hostid and hg.groupid='.$filter_groupid;
-			}
-		}
-
-		$db_targets = DBselect($target_sql.' order by target_name');
-		$target_list = array();
-		while($target = DBfetch($db_targets))
-		{
-			array_push($target_list,array(
-				new CCheckBox('copy_targetid[]',
-					in_array($target['target_id'], $copy_targetid), 
-					NULL, 
-					$target['target_id']),
-				SPACE,
-				$target['target_name'],
-				BR
-				));
-		}
-
-		$frmCopy->AddRow(S_TARGET, $target_list);
-
-		$cmbCopyMode = new CComboBox('copy_mode',$copy_mode);
-		$cmbCopyMode->AddItem(0, S_UPDATE_EXISTING_NON_LINKED_ITEMS);
-		$cmbCopyMode->AddItem(1, S_SKIP_EXISTING_ITEMS);
-		$cmbCopyMode->SetEnabled(false);
-		$frmCopy->AddRow(S_MODE, $cmbCopyMode);
-
-		$frmCopy->AddItemToBottomRow(new CButton("copy",S_COPY));
-		$frmCopy->AddItemToBottomRow(array(SPACE,
-			new CButtonCancel(url_param("groupid").url_param("hostid").url_param("config"))));
-
-		$frmCopy->Show();
 	}
 
 
@@ -1030,7 +1006,7 @@
 
 		$frmGItem->AddItemToBottomRow(new CButton("save",S_SAVE));
 		$frmGItem->AddItemToBottomRow(SPACE);
-		if(isset($_REQUEST["gitemid"]))
+		if(isset($itemid))
 		{
 			$frmGItem->AddItemToBottomRow(new CButtonDelete("Delete graph element?",
 				url_param("gitemid").url_param("graphid")));
@@ -2124,12 +2100,10 @@
 		$location	= get_request("location","");
 		$notes		= get_request("notes","");
 
-		$templateid	= get_request("templateid",0);
+		$templateid= get_request("templateid",0);
 
 		$frm_title	= $show_only_tmp ? S_TEMPLATE : S_HOST;
-
-		if(isset($_REQUEST["hostid"]))
-		{
+		if(isset($_REQUEST["hostid"])){
 			$db_host=get_host_by_hostid($_REQUEST["hostid"]);
 			$frm_title	.= SPACE."\"".$db_host["host"]."\"";
 		}
@@ -2173,12 +2147,6 @@
 				$notes		= $db_profile["notes"];
 			}
 		}
-		$real_templateid = 0;
-		if(isset($db_host) && $db_host["templateid"] > 0)
-		{
-			$real_templateid = $templateid = $db_host["templateid"];
-		}
-
 		if($show_only_tmp){
 			$useip = "no";
 		}
@@ -2251,16 +2219,6 @@
 		}
 
 		$cmbHosts = new CComboBox("templateid",$templateid);
-		$btnUnlink = null;
-		$btnUnlinkAndClear = null;
-		if($real_templateid > 0)
-		{
-			$cmbHosts->SetEnabled(false);
-			$frmHost->AddVar("templateid",$templateid);
-			$btnUnlink = new CButton("unlink",S_UNLINK);
-			$btnUnlinkAndClear = new CButton("unlink_and_clear",S_UNLINK_AND_CLEAR);
-		}
-
 		$cmbHosts->AddItem(0,"...");
 		$hosts=DBselect("select host,hostid from hosts where status in (".HOST_STATUS_TEMPLATE.")".
 			" order by host");
@@ -2268,7 +2226,7 @@
 		{
 			$cmbHosts->AddItem($host["hostid"],$host["host"]);
 		}
-		$frmHost->AddRow(S_LINK_WITH_TEMPLATE, array($cmbHosts,SPACE, $btnUnlink, $btnUnlinkAndClear));
+		$frmHost->AddRow(S_LINK_WITH_TEMPLATE,$cmbHosts);
 	
 		if($show_only_tmp)
 		{
@@ -2320,19 +2278,6 @@
 					url_param("groupid")
 				)
 			);
-
-			if($show_only_tmp)
-			{
-				$frmHost->AddItemToBottomRow(SPACE);
-				$frmHost->AddItemToBottomRow(
-					new CButtonQMessage('delete_and_clear',
-						'Delete and clear',
-                                        	S_DELETE_SELECTED_HOSTS_Q,
-						url_param("form").url_param("config").url_param("hostid").
-						url_param("groupid")
-					)
-				);
-			}
 		}
 		$frmHost->AddItemToBottomRow(SPACE);
 		$frmHost->AddItemToBottomRow(new CButtonCancel(url_param("config").url_param("groupid")));

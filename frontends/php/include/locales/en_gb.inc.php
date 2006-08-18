@@ -280,7 +280,7 @@
 	"S_COMPARE"=>				"Compare",
 
 //	Footer
-	"S_ZABBIX_VER"=>			"ZABBIX 1.3",
+	"S_ZABBIX_VER"=>			"ZABBIX 1.1.1",
 	"S_COPYRIGHT_BY"=>			"Copyright 2001-2006 by ",
 	"S_CONNECTED_AS"=>			"Connected as",
 	"S_SIA_ZABBIX"=>			"SIA Zabbix",
@@ -459,8 +459,6 @@
 	"S_TEMPLATES"=>				"Templates",
 	"S_TEMPLATES_BIG"=>			"TEMPLATES",
 	"S_HOSTS"=>				"Hosts",
-	"S_UNLINK"=>				"Unlink",
-	"S_UNLINK_AND_CLEAR"=>			"Unlink and clear",
 
 //	items.php
 	"S_NO_ITEMS_DEFINED"=>			"No items defined",
@@ -539,13 +537,6 @@
 	"S_LOG_TIME_FORMAT"=>			"Log time format",
 	"S_CREATE_ITEM"=>			"Create Item",
 	"S_ADD_ITEM"=>				"Add Item",
-	"S_X_ELEMENTS_COPY_TO_DOT_DOT_DOT"=>	"elements copy to ...",
-	"S_MODE"=>				"Mode",
-	"S_TARGET"=>				"Target",
-	"S_TARGET_TYPE"=>			"Target type",
-	"S_SKIP_EXISTING_ITEMS"=>		"Skip existing items",
-	"S_UPDATE_EXISTING_NON_LINKED_ITEMS"=>	"update existing non linked items",
-	"S_COPY"=>				"Copy",
 
 //	events.php
 	"S_LATEST_EVENTS"=>			"Latest events",

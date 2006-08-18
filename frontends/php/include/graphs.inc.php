@@ -444,58 +444,32 @@
 		return $result;
 	}
 
-	function	delete_template_graphs($hostid, $templateid = null, $unlink_mode = false)
+	function	delete_template_graphs_by_hostid($hostid)
 	{
 		$db_graphs = get_graphs_by_hostid($hostid);
 		while($db_graph = DBfetch($db_graphs))
 		{
-			if($db_graph["templateid"] == 0)
-				continue;
-
-			if($templateid != null)
-			{
-				$tmp_graph = get_graph_by_graphid($db_graph["templateid"]);
-				if($tmp_graph["hostid"] != $templateid)
-					continue;
-			}
-
-			if($unlink_mode)
-			{
-				if(DBexecute("update graphs set templateid=0 where graphid=".$db_graph["graphid"]))
-				{
-					info("Graph '".$db_graph["name"]."' unlinked");
-				}	
-			}
-			else
-			{
-				delete_graph($db_graph["graphid"]);
-			}
+			if($db_graph["templateid"] == 0)	continue;
+			delete_graph($db_graph["graphid"]);
 		}
 	}
 	
-	function	copy_template_graphs($hostid, $templateid = null, $copy_mode = false)
+	function	sync_graphs_with_templates($hostid)
 	{
-		if($templateid == null)
-		{
-			$host = get_host_by_hostid($hostid);	
-			$templateid = $host["templateid"];
-		}
-
-		$db_graphs = get_graphs_by_hostid($templateid);
-
+		$host = get_host_by_hostid($hostid);	
+		$db_graphs = get_graphs_by_hostid($host["templateid"]);
 		while($db_graph = DBfetch($db_graphs))
 		{
-			copy_graph_to_host($db_graph["graphid"], $hostid, $copy_mode);
+			copy_graph_to_host($db_graph["graphid"], $hostid);
 		}
 	}
 
-	function	copy_graph_to_host($graphid, $hostid, $copy_mode = false)
+	function	copy_graph_to_host($graphid, $hostid)
 	{
 		$db_graph = get_graph_by_graphid($graphid);
-		$new_graphid = add_graph($db_graph["name"],$db_graph["width"],$db_graph["height"],$db_graph["yaxistype"],
-			$db_graph["yaxismin"],$db_graph["yaxismax"],$db_graph["show_work_period"],$db_graph["show_triggers"], 
-			$db_graph["graphtype"],$copy_mode ? 0 : $graphid
-			);
+		$new_graphid = add_graph($db_graph["name"],$db_graph["width"],$db_graph["height"],
+			$db_graph["yaxistype"],$db_graph["yaxismin"],$db_graph["yaxismax"],$db_graph["show_work_period"],
+			$db_graph["show_triggers"],$db_graph["graphtype"],$graphid);
 
 		if(!$new_graphid)
 			return $new_graphid;
@@ -503,7 +477,7 @@
 		$result = copy_graphitems_for_host($graphid, $new_graphid, $hostid);
 		if(!$result)
 		{
-			delete_graph($new_graphid);
+			delete_graph($graphid);
 		}
 		return $result;
 	}

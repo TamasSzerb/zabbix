@@ -211,7 +211,7 @@ SWP_FNCLIST
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, swapdev, sizeof(swapdev)) != 0)
+        if(get_param(param, 1, swapdev, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
         }
@@ -219,15 +219,15 @@ SWP_FNCLIST
         if(swapdev[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(swapdev, sizeof(swapdev), "all");
+		sprintf(swapdev, "all");
 	}
 
-	if(strncmp(swapdev, "all", sizeof(swapdev)) != 0)
+	if(strncmp(swapdev, "all", MAX_STRING_LEN))
 	{
 		return SYSINFO_RET_FAIL;
 	}
 	
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
@@ -235,7 +235,7 @@ SWP_FNCLIST
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "free");
+		sprintf(mode, "free");
 	}
 
 	for(i=0; fl[i].mode!=0; i++)

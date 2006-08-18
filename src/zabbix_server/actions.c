@@ -52,67 +52,6 @@
 
 /******************************************************************************
  *                                                                            *
- * Function: check_time_period                                                *
- *                                                                            *
- * Purpose: check if current time is within given period                      *
- *                                                                            *
- * Parameters: period - time period in format [d1-d2,hh:mm-hh:mm]*            *
- *                                                                            *
- * Return value: 0 - out of period, 1 - within the period                     *
- *                                                                            *
- * Author: Alexei Vladishev                                                   *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-static	int	check_time_period(const char *period)
-{
-	time_t	now;
-	char	tmp[MAX_STRING_LEN];
-	char	*s;
-	int	d1,d2,h1,h2,m1,m2;
-	int	day, hour, min;
-	struct  tm      *tm;
-	int	ret = 0;
-
-
-	zabbix_log( LOG_LEVEL_DEBUG, "In check_time_period(%s)",period);
-
-	now = time(NULL);
-	tm = localtime(&now);
-
-	day=tm->tm_wday;
-	if(0 == day)	day=7;
-	hour = tm->tm_hour;
-	min = tm->tm_min;
-
-	strscpy(tmp,period);
-       	s=(char *)strtok(tmp,";");
-	while(s!=NULL)
-	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Period [%s]",s);
-
-		if(sscanf(s,"%d-%d,%d:%d-%d:%d",&d1,&d2,&h1,&m1,&h2,&m2) == 6)
-		{
-			zabbix_log( LOG_LEVEL_DEBUG, "%d-%d,%d:%d-%d:%d",d1,d2,h1,m1,h2,m2);
-			if( (day>=d1) && (day<=d2) && (60*hour+min>=60*h1+m1) && (60*hour+min<=60*h2+m2))
-			{
-				ret = 1;
-				break;
-			}
-		}
-		else
-		{
-			zabbix_log( LOG_LEVEL_ERR, "Time period format is wrong [%s]",period);
-		}
-
-       		s=(char *)strtok(NULL,";");
-	}
-	return ret;
-}
-
-/******************************************************************************
- *                                                                            *
  * Function: send_to_user_medias                                              *
  *                                                                            *
  * Purpose: send notifications to user's medias (email, sms, whatever)        *
@@ -131,10 +70,12 @@ static	int	check_time_period(const char *period)
 static	void	send_to_user_medias(DB_TRIGGER *trigger,DB_ACTION *action, int userid)
 {
 	DB_MEDIA media;
+	char sql[MAX_STRING_LEN];
 	DB_RESULT result;
 	DB_ROW	row;
 
-	result = DBselect("select mediatypeid,sendto,active,severity,period from media where active=%d and userid=%d",MEDIA_STATUS_ACTIVE,userid);
+	snprintf(sql,sizeof(sql)-1,"select mediatypeid,sendto,active,severity,period from media where active=%d and userid=%d",MEDIA_STATUS_ACTIVE,userid);
+	result = DBselect(sql);
 
 	while((row=DBfetch(result)))
 	{
@@ -150,7 +91,7 @@ static	void	send_to_user_medias(DB_TRIGGER *trigger,DB_ACTION *action, int useri
 			zabbix_log( LOG_LEVEL_DEBUG, "Won't send message");
 			continue;
 		}
-		if(check_time_period(media.period) == 0)
+		if(check_time_period(media.period, (time_t)NULL) == 0)
 		{
 			zabbix_log( LOG_LEVEL_DEBUG, "Won't send message");
 			continue;
@@ -179,6 +120,7 @@ static	void	send_to_user_medias(DB_TRIGGER *trigger,DB_ACTION *action, int useri
  ******************************************************************************/
 static	void	send_to_user(DB_TRIGGER *trigger,DB_ACTION *action)
 {
+	char sql[MAX_STRING_LEN];
 	DB_RESULT result;
 	DB_ROW	row;
 
@@ -188,7 +130,8 @@ static	void	send_to_user(DB_TRIGGER *trigger,DB_ACTION *action)
 	}
 	else if(action->recipient == RECIPIENT_TYPE_GROUP)
 	{
-		result = DBselect("select u.userid from users u, users_groups ug where ug.usrgrpid=%d and ug.userid=u.userid", action->userid);
+		snprintf(sql,sizeof(sql)-1,"select u.userid from users u, users_groups ug where ug.usrgrpid=%d and ug.userid=u.userid", action->userid);
+		result = DBselect(sql);
 		while((row=DBfetch(result)))
 		{
 			send_to_user_medias(trigger, action, atoi(row[0]));
@@ -229,12 +172,15 @@ static void run_remote_command(char* host_name, char* command)
 	DB_RESULT	result;
 	DB_ROW		row;
 	
+	char sql[MAX_STRING_LEN];
+
 	assert(host_name);
 	assert(command);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "run_remote_command START [hostname: '%s', command: '%s']", host_name, command);
 
-	result = DBselect("select distinct host,ip,useip,port from hosts where host='%s'", host_name);
+	snprintf(sql,sizeof(sql)-1,"select distinct host,ip,useip,port from hosts where host='%s'", host_name);
+	result = DBselect(sql);
 	row = DBfetch(result);
 	if(row)
 	{
@@ -243,7 +189,7 @@ static void run_remote_command(char* host_name, char* command)
 		item.useip=atoi(row[2]);
 		item.port=atoi(row[3]);
 		
-		zbx_snprintf(item.key,ITEM_KEY_LEN_MAX,"system.run[%s,nowait]",command);
+		snprintf(item.key,ITEM_KEY_LEN_MAX-1,"system.run[%s,nowait]",command);
 		
 		alarm(CONFIG_TIMEOUT);
 		
@@ -364,6 +310,7 @@ static int get_next_command(char** command_list, char** alias, int* is_group, ch
 	DB_RESULT result;
 	DB_ROW		row;
 
+	char sql[MAX_STRING_LEN];
 	char *cmd_list = NULL;
 	char *alias = NULL;
 	char *command = NULL;
@@ -380,7 +327,8 @@ static int get_next_command(char** command_list, char** alias, int* is_group, ch
 		if(alias == '\0' || command == '\0') continue;
 		if(is_group)
 		{
-			result = DBselect("select distinct h.host from hosts_groups hg,hosts h, groups g where hg.hostid=h.hostid and hg.groupid=g.groupid and g.name='%s'", alias);
+			snprintf(sql,sizeof(sql)-1,"select distinct h.host from hosts_groups hg,hosts h, groups g where hg.hostid=h.hostid and hg.groupid=g.groupid and g.name='%s'", alias);
+	                result = DBselect(sql);
 			while((row=DBfetch(result)))
 			{
 				run_remote_command(row[0], command);
@@ -392,7 +340,7 @@ static int get_next_command(char** command_list, char** alias, int* is_group, ch
 		{
 			run_remote_command(alias, command);
 		}
-/*		DBadd_alert(action->actionid,trigger->triggerid, userid, media.mediatypeid,media.sendto,action->subject,action->scripts, action->maxrepeats, action->repeatdelay); */ /* TODO !!! Add alert for remote commands !!! */
+//		DBadd_alert(action->actionid,trigger->triggerid, userid, media.mediatypeid,media.sendto,action->subject,action->scripts, action->maxrepeats, action->repeatdelay); // TODO !!! Add alert for remote commands !!!
 	}
 	zabbix_log( LOG_LEVEL_DEBUG, "Run remote commands END");
 }
@@ -401,6 +349,7 @@ static int	check_action_condition(DB_TRIGGER *trigger,int alarmid,int new_trigge
 {
 	DB_RESULT result;
 	DB_ROW	row;
+	char sql[MAX_STRING_LEN];
 
 	int	ret = FAIL;
 
@@ -408,7 +357,8 @@ static int	check_action_condition(DB_TRIGGER *trigger,int alarmid,int new_trigge
 
 	if(condition->conditiontype == CONDITION_TYPE_HOST_GROUP)
 	{
-		result = DBselect("select distinct hg.groupid from hosts_groups hg,hosts h, items i, functions f, triggers t where hg.hostid=h.hostid and h.hostid=i.hostid and i.itemid=f.itemid and f.triggerid=t.triggerid and t.triggerid=%d", trigger->triggerid);
+		snprintf(sql,sizeof(sql)-1,"select distinct hg.groupid from hosts_groups hg,hosts h, items i, functions f, triggers t where hg.hostid=h.hostid and h.hostid=i.hostid and i.itemid=f.itemid and f.triggerid=t.triggerid and t.triggerid=%d", trigger->triggerid);
+		result = DBselect(sql);
 		while((row=DBfetch(result)))
 		{
 			if(condition->operator == CONDITION_OPERATOR_EQUAL)
@@ -437,7 +387,8 @@ static int	check_action_condition(DB_TRIGGER *trigger,int alarmid,int new_trigge
 	}
 	else if(condition->conditiontype == CONDITION_TYPE_HOST)
 	{
-		result = DBselect("select distinct h.hostid from hosts h, items i, functions f, triggers t where h.hostid=i.hostid and i.itemid=f.itemid and f.triggerid=t.triggerid and t.triggerid=%d", trigger->triggerid);
+		snprintf(sql,sizeof(sql)-1,"select distinct h.hostid from hosts h, items i, functions f, triggers t where h.hostid=i.hostid and i.itemid=f.itemid and f.triggerid=t.triggerid and t.triggerid=%d", trigger->triggerid);
+		result = DBselect(sql);
 		while((row=DBfetch(result)))
 		{
 			if(condition->operator == CONDITION_OPERATOR_EQUAL)
@@ -553,7 +504,7 @@ static int	check_action_condition(DB_TRIGGER *trigger,int alarmid,int new_trigge
 		zabbix_log( LOG_LEVEL_ERR, "Condition type [CONDITION_TYPE_TRIGGER_VALUE] is supported");
 		if(condition->operator == CONDITION_OPERATOR_IN)
 		{
-			if(check_time_period(condition->value)==1)
+			if(check_time_period(condition->value, (time_t)NULL)==1)
 			{
 				ret = SUCCEED;
 			}
@@ -584,6 +535,7 @@ static int	check_action_conditions(DB_TRIGGER *trigger,int alarmid,int new_trigg
 {
 	DB_RESULT result;
 	DB_ROW row;
+	char sql[MAX_STRING_LEN];
 
 	DB_CONDITION	condition;
 	
@@ -592,7 +544,8 @@ static int	check_action_conditions(DB_TRIGGER *trigger,int alarmid,int new_trigg
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In check_action_conditions [actionid:%d]", actionid);
 
-	result = DBselect("select conditionid,actionid,conditiontype,operator,value from conditions where actionid=%d order by conditiontype", actionid);
+	snprintf(sql,sizeof(sql)-1,"select conditionid,actionid,conditiontype,operator,value from conditions where actionid=%d order by conditiontype", actionid);
+	result = DBselect(sql);
 
 	while((row=DBfetch(result)))
 	{
@@ -640,6 +593,8 @@ void	apply_actions(DB_TRIGGER *trigger,int alarmid,int trigger_value)
 	
 	DB_ACTION action;
 
+	char sql[MAX_STRING_LEN];
+
 /*	int	now;*/
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In apply_actions(triggerid:%d,alarmid:%d,trigger_value:%d)",trigger->triggerid, alarmid, trigger_value);
@@ -648,7 +603,8 @@ void	apply_actions(DB_TRIGGER *trigger,int alarmid,int trigger_value)
 	{
 		zabbix_log( LOG_LEVEL_DEBUG, "Check dependencies");
 
-		result = DBselect("select count(*) from trigger_depends d,triggers t where d.triggerid_down=%d and d.triggerid_up=t.triggerid and t.value=%d",trigger->triggerid, TRIGGER_VALUE_TRUE);
+		snprintf(sql,sizeof(sql)-1,"select count(*) from trigger_depends d,triggers t where d.triggerid_down=%d and d.triggerid_up=t.triggerid and t.value=%d",trigger->triggerid, TRIGGER_VALUE_TRUE);
+		result = DBselect(sql);
 		row=DBfetch(result);
 		if(row && DBis_null(row[0]) != SUCCEED)
 		{
@@ -666,11 +622,13 @@ void	apply_actions(DB_TRIGGER *trigger,int alarmid,int trigger_value)
 
 /*	now = time(NULL);*/
 
-/*	zbx_snprintf(sql,sizeof(sql),"select actionid,userid,delay,subject,message,scope,severity,recipient,good from actions where (scope=%d and triggerid=%d and good=%d and nextcheck<=%d) or (scope=%d and good=%d) or (scope=%d and good=%d)",ACTION_SCOPE_TRIGGER,trigger->triggerid,trigger_value,now,ACTION_SCOPE_HOST,trigger_value,ACTION_SCOPE_HOSTS,trigger_value);*/
-/*	zbx_snprintf(sql,sizeof(sql),"select actionid,userid,delay,subject,message,recipient,maxrepeats,repeatdelay,scripts,actiontype from actions where nextcheck<=%d and status=%d", now, ACTION_STATUS_ACTIVE);*/
+/*	snprintf(sql,sizeof(sql)-1,"select actionid,userid,delay,subject,message,scope,severity,recipient,good from actions where (scope=%d and triggerid=%d and good=%d and nextcheck<=%d) or (scope=%d and good=%d) or (scope=%d and good=%d)",ACTION_SCOPE_TRIGGER,trigger->triggerid,trigger_value,now,ACTION_SCOPE_HOST,trigger_value,ACTION_SCOPE_HOSTS,trigger_value);*/
+/*	snprintf(sql,sizeof(sql)-1,"select actionid,userid,delay,subject,message,recipient,maxrepeats,repeatdelay,scripts,actiontype from actions where nextcheck<=%d and status=%d", now, ACTION_STATUS_ACTIVE);*/
 
 	/* No support of action delay anymore */
-	result = DBselect("select actionid,userid,subject,message,recipient,maxrepeats,repeatdelay,scripts,actiontype from actions where status=%d", ACTION_STATUS_ACTIVE);
+	snprintf(sql,sizeof(sql)-1,"select actionid,userid,subject,message,recipient,maxrepeats,repeatdelay,scripts,actiontype from actions where status=%d", ACTION_STATUS_ACTIVE);
+	result = DBselect(sql);
+	zabbix_log( LOG_LEVEL_DEBUG, "SQL [%s]", sql);
 
 	while((row=DBfetch(result)))
 	{
@@ -697,7 +655,7 @@ void	apply_actions(DB_TRIGGER *trigger,int alarmid,int trigger_value)
 			else
 				run_commands(trigger,&action);
 
-/*			zbx_snprintf(sql,sizeof(sql),"update actions set nextcheck=%d where actionid=%d",now+action.delay,action.actionid);
+/*			snprintf(sql,sizeof(sql)-1,"update actions set nextcheck=%d where actionid=%d",now+action.delay,action.actionid);
 			DBexecute(sql);*/
 		}
 		else

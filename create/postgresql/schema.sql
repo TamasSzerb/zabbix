@@ -478,7 +478,6 @@ CREATE TABLE graphs (
   templateid		int4		DEFAULT '0' NOT NULL,
   show_work_period	int2		DEFAULT '1' NOT NULL,
   show_triggers		int2		DEFAULT '1' NOT NULL,
-  graphtype		int2		DEFAULT '0' NOT NULL,
   PRIMARY KEY (graphid)
 );
 

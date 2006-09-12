@@ -128,31 +128,31 @@ CPU_FNCLIST
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, cpuname, sizeof(cpuname)) != 0)
+        if(get_param(param, 1, cpuname, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
         }
 	if(cpuname[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(cpuname, sizeof(cpuname), "all");
+		sprintf(cpuname, "all");
 	}
 	if(strncmp(cpuname, "all", MAX_STRING_LEN))
 	{
 		return SYSINFO_RET_FAIL;
 	}
 	
-	if(get_param(param, 2, type, sizeof(type)) != 0)
+	if(get_param(param, 2, type, MAX_STRING_LEN) != 0)
         {
                 type[0] = '\0';
         }
         if(type[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(type, sizeof(type), "user");
+		sprintf(type, "user");
 	}
 	
-	if(get_param(param, 3, mode, sizeof(mode)) != 0)
+	if(get_param(param, 3, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
@@ -160,7 +160,7 @@ CPU_FNCLIST
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "avg1");
+		sprintf(mode, "avg1");
 	}
 	
 	for(i=0; fl[i].type!=0; i++)
@@ -502,28 +502,28 @@ CPU_FNCLIST
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, cpuname, sizeof(cpuname)) != 0)
+        if(get_param(param, 1, cpuname, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
         }
 	if(cpuname[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(cpuname, sizeof(cpuname), "all");
+		sprintf(cpuname, "all");
 	}
-	if(strncmp(cpuname, "all", sizeof(cpuname)))
+	if(strncmp(cpuname, "all", MAX_STRING_LEN))
 	{
 		return SYSINFO_RET_FAIL;
 	}
 	
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "avg1");
+		sprintf(mode, "avg1");
 	}
 	for(i=0; fl[i].mode!=0; i++)
 	{
@@ -559,7 +559,8 @@ int     SYSTEM_CPU_INTR(const char *cmd, const char *param, unsigned flags, AGEN
 
         init_result(result);
 
-	if(NULL != ( f = fopen("/proc/stat","r") ))
+	f=fopen("/proc/stat","r");
+	if(f)
 	{
 		while(fgets(line,MAX_STRING_LEN,f) != NULL)
 		{
@@ -573,7 +574,7 @@ int     SYSTEM_CPU_INTR(const char *cmd, const char *param, unsigned flags, AGEN
 				break;
 			}
 		}
-		zbx_fclose(f);
+		fclose(f);
 	}
 
 	return ret;

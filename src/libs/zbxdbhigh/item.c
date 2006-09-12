@@ -33,11 +33,13 @@ int	DBget_item_by_itemid(int itemid,DB_ITEM *item)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
+	char	sql[MAX_STRING_LEN];
 	int	ret = SUCCEED;
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In DBget_item_by_itemid(%d)", itemid);
 
-	result = DBselect("select i.itemid,i.key_,h.hostid from items i,hosts h where h.hostid=i.hostid and i.itemid=%d", itemid);
+	snprintf(sql,sizeof(sql)-1,"select i.itemid,i.key_,h.hostid from items i,hosts h where h.hostid=i.hostid and i.itemid=%d", itemid);
+	result=DBselect(sql);
 	row = DBfetch(result);
 
 	if(!row)
@@ -65,10 +67,12 @@ int 	DBadd_item_to_linked_hosts(int itemid, int hostid)
 	DB_ROW		row2;
 	DB_RESULT	result3;
 	DB_ROW		row3;
+	char	sql[MAX_STRING_LEN];
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In DBadd_item_to_linked_hosts(%d,%d)", itemid, hostid);
 
-	result3 = DBselect("select description,key_,hostid,delay,history,status,type,snmp_community,snmp_oid,value_type,trapper_hosts,snmp_port,units,multiplier,delta,snmpv3_securityname,snmpv3_securitylevel,snmpv3_authpassphrase,snmpv3_privpassphrase,formula,trends,logtimefmt from items where itemid=%d", itemid);
+	snprintf(sql,sizeof(sql)-1,"select description,key_,hostid,delay,history,status,type,snmp_community,snmp_oid,value_type,trapper_hosts,snmp_port,units,multiplier,delta,snmpv3_securityname,snmpv3_securitylevel,snmpv3_authpassphrase,snmpv3_privpassphrase,formula,trends,logtimefmt from items where itemid=%d", itemid);
+	result3=DBselect(sql);
 
 	row3=DBfetch(result3);
 
@@ -106,18 +110,20 @@ int 	DBadd_item_to_linked_hosts(int itemid, int hostid)
 	/* Link with one host only */
 	if(hostid!=0)
 	{
-		result = DBselect("select hostid,templateid,items from hosts_templates where hostid=%d and templateid=%d", hostid, item.hostid);
+		snprintf(sql,sizeof(sql)-1,"select hostid,templateid,items from hosts_templates where hostid=%d and templateid=%d", hostid, item.hostid);
 	}
 	else
 	{
-		result = DBselect("select hostid,templateid,items from hosts_templates where templateid=%d", item.hostid);
+		snprintf(sql,sizeof(sql)-1,"select hostid,templateid,items from hosts_templates where templateid=%d", item.hostid);
 	}
 
+	result = DBselect(sql);
 	while((row=DBfetch(result)))
 	{
 		if( (atoi(row[2])&1) == 0)	continue;
 
-		result2 = DBselect("select itemid from items where key_='%s' and hostid=%d", item.key, atoi(row[0]));
+		snprintf(sql,sizeof(sql)-1,"select itemid from items where key_='%s' and hostid=%d", item.key, atoi(row[0]));
+		result2=DBselect(sql);
 		row2=DBfetch(result2);
 		if(!row2)
 		{
@@ -134,6 +140,7 @@ int 	DBadd_item_to_linked_hosts(int itemid, int hostid)
 
 int	DBadd_item(char *description, char *key, int hostid, int delay, int history, int status, int type, char *snmp_community, char *snmp_oid,int value_type,char *trapper_hosts,int snmp_port,char *units,int multiplier,int delta, char *snmpv3_securityname,int snmpv3_securitylevel,char *snmpv3_authpassphrase,char *snmpv3_privpassphrase,char *formula,int trends,char *logtimefmt)
 {
+	char	sql[MAX_STRING_LEN];
 	char	key_esc[MAX_STRING_LEN];
 	char	description_esc[MAX_STRING_LEN];
 	char	logtimefmt_esc[MAX_STRING_LEN];
@@ -150,5 +157,7 @@ int	DBadd_item(char *description, char *key, int hostid, int delay, int history,
 	DBescape_string(snmpv3_authpassphrase,snmpv3_authpassphrase_esc,MAX_STRING_LEN);
 	DBescape_string(snmpv3_privpassphrase,snmpv3_privpassphrase_esc,MAX_STRING_LEN);
 
-	return DBexecute("insert into items (description,key_,hostid,delay,history,nextcheck,status,type,snmp_community,snmp_oid,value_type,trapper_hosts,snmp_port,units,multiplier,delta,snmpv3_securityname,snmpv3_securitylevel,snmpv3_authpassphrase,snmpv3_privpassphrase,formula,trends,logtimefmt) values ('%s','%s',%d,%d,%d,0,%d,%d,'%s','%s',%d,'%s',%d,'%s',%d,%d,'%s',%d,'%s','%s','%s',%d,'%s')", description_esc, key_esc, hostid,delay,history,status,type,snmp_community,snmp_oid,value_type,trapper_hosts,snmp_port,units,multiplier,delta,snmpv3_securityname_esc,snmpv3_securitylevel,snmpv3_authpassphrase_esc,snmpv3_privpassphrase_esc,formula,trends,logtimefmt_esc);
+	snprintf(sql,sizeof(sql)-1,"insert into items (description,key_,hostid,delay,history,nextcheck,status,type,snmp_community,snmp_oid,value_type,trapper_hosts,snmp_port,units,multiplier,delta,snmpv3_securityname,snmpv3_securitylevel,snmpv3_authpassphrase,snmpv3_privpassphrase,formula,trends,logtimefmt) values ('%s','%s',%d,%d,%d,0,%d,%d,'%s','%s',%d,'%s',%d,'%s',%d,%d,'%s',%d,'%s','%s','%s',%d,'%s')", description_esc, key_esc, hostid,delay,history,status,type,snmp_community,snmp_oid,value_type,trapper_hosts,snmp_port,units,multiplier,delta,snmpv3_securityname_esc,snmpv3_securitylevel,snmpv3_authpassphrase_esc,snmpv3_privpassphrase_esc,formula,trends,logtimefmt_esc);
+
+	return DBexecute(sql);
 }

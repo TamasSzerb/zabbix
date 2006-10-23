@@ -134,14 +134,18 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
 	while((entries=readdir(dir))!=NULL)
 	{
-		zbx_fclose(f);
+		if(f)
+		{
+			fclose(f);
+			f = NULL;
+		}
 
 		proc_ok = 0;
 		usr_ok = 0;
 
 		strscpy(filename,"/proc/");	
-		strncat(filename,entries->d_name,MAX_STRING_LEN);
-		strncat(filename,"/status",MAX_STRING_LEN);
+		zbx_strlcat(filename,entries->d_name,MAX_STRING_LEN);
+		zbx_strlcat(filename,"/status",MAX_STRING_LEN);
 
 		/* Self is a symbolic link. It leads to incorrect results for proc_cnt[zabbix_agentd] */
 		/* Better approach: check if /proc/x/ is symbolic link */
@@ -152,7 +156,8 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
 		if(stat(filename,&buf)==0)
 		{
-			if(NULL == ( f = fopen(filename,"r") ))
+			f=fopen(filename,"r");
+			if(f==NULL)
 			{
 				continue;
 			}
@@ -212,14 +217,13 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 			if(proccomm[0] != '\0')
 			{
 				strscpy(filename,"/proc/");	
-				strncat(filename,entries->d_name,MAX_STRING_LEN);
-				strncat(filename,"/cmdline",MAX_STRING_LEN);
+				zbx_strlcat(filename,entries->d_name,MAX_STRING_LEN);
+				zbx_strlcat(filename,"/cmdline",MAX_STRING_LEN);
 				
-				if(stat(filename,&buf)!=0)
-					continue;
+				if(stat(filename,&buf)!=0)	continue;
 				
-				if(NULL == (f2 = fopen(filename,"r") ))
-					continue;
+				f2=fopen(filename,"r");
+				if(f2==NULL)			continue;
 				
 				if(fgets(line, MAX_STRING_LEN, f2) != NULL)
 				{
@@ -227,7 +231,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 						comm_ok = 1;
 				}
 
-				zbx_fclose(f2);
+				fclose(f2);
 			} else {
 				comm_ok = 1;
 			}
@@ -292,7 +296,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 			}
 		}
 	}
-	zbx_fclose(f);
+	if(f) fclose(f);
 	closedir(dir);
 
 	if(first == 0)
@@ -425,15 +429,16 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 		}
 
 		strscpy(filename,"/proc/");	
-		strncat(filename,entries->d_name,MAX_STRING_LEN);
-		strncat(filename,"/status",MAX_STRING_LEN);
+		zbx_strlcat(filename,entries->d_name,MAX_STRING_LEN);
+		zbx_strlcat(filename,"/status",MAX_STRING_LEN);
 
 		if(stat(filename,&buf)!=0)
 		{
 			continue;
 		}
 
-                if(NULL == (f = fopen(filename,"r") ))
+                f=fopen(filename,"r");
+                if(f==NULL)
                 {
 			continue;
                 }
@@ -455,7 +460,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
                 
                     if(proc_ok == 0) 
                     {
-                        zbx_fclose(f);
+                        fclose(f);
                         continue;
                     }
                 }
@@ -519,26 +524,25 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
                 {
                     usr_ok = 1;
                 }
-                zbx_fclose(f);
+                fclose(f);
 		
 		comm_ok = 0;
 		if(proccomm[0] != '\0')
 		{
 			strscpy(filename,"/proc/");	
-			strncat(filename,entries->d_name,MAX_STRING_LEN);
-			strncat(filename,"/cmdline",MAX_STRING_LEN);
+			zbx_strlcat(filename,entries->d_name,MAX_STRING_LEN);
+			zbx_strlcat(filename,"/cmdline",MAX_STRING_LEN);
 			
-			if(stat(filename,&buf)!=0)
-				continue;
+			if(stat(filename,&buf)!=0)	continue;
 			
-			if(NULL == (f = fopen(filename,"r") ))
-				continue;
+			f=fopen(filename,"r");
+			if(f==NULL)			continue;
 			
 			if(fgets(line, MAX_STRING_LEN, f) != NULL)
 				if(zbx_regexp_match(line,proccomm,NULL) != NULL)
 					comm_ok = 1;
 
-			zbx_fclose(f);
+			fclose(f);
 		} else {
 			comm_ok = 1;
 		}

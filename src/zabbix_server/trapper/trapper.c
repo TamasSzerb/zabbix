@@ -50,12 +50,7 @@
 #include "../expression.h"
 
 #include "autoregister.h"
-#include "nodesync.h"
-#include "nodeevents.h"
-#include "nodehistory.h"
 #include "trapper.h"
-
-#include "daemon.h"
 
 extern int    send_list_of_active_checks(int sockfd, char *host);
 
@@ -103,53 +98,8 @@ int	process_trap(int sockfd,char *s, int max_len)
 /* Process information sent by zabbix_sender */
 	else
 	{
-		/* Node data exchange? */
-		if(strncmp(s,"Data",4) == 0)
-		{
-//			zabbix_log( LOG_LEVEL_WARNING, "Node data received [len:%d]", strlen(s));
-			if(node_sync(s) == SUCCEED)
-			{
-				zbx_snprintf(result,sizeof(result),"OK\n");
-				if( write(sockfd,result,strlen(result)) == -1)
-				{
-					zabbix_log( LOG_LEVEL_WARNING, "Error sending confirmation to node [%s]",strerror(errno));
-					zabbix_syslog("Trapper: error sending confirmation to node [%s]",strerror(errno));
-				}
-			}
-			return ret;
-		}
-		/* Slave node events? */
-		if(strncmp(s,"Events",6) == 0)
-		{
-//			zabbix_log( LOG_LEVEL_WARNING, "Slave node events received [len:%d]", strlen(s));
-			if(node_events(s) == SUCCEED)
-			{
-				zbx_snprintf(result,sizeof(result),"OK\n");
-				if( write(sockfd,result,strlen(result)) == -1)
-				{
-					zabbix_log( LOG_LEVEL_WARNING, "Error sending confirmation to node [%s]",strerror(errno));
-					zabbix_syslog("Trapper: error sending confirmation to node [%s]",strerror(errno));
-				}
-			}
-			return ret;
-		}
-		/* Slave node history ? */
-		if(strncmp(s,"History",7) == 0)
-		{
-//			zabbix_log( LOG_LEVEL_WARNING, "Slave node history received [len:%d]", strlen(s));
-			if(node_history(s) == SUCCEED)
-			{
-				zbx_snprintf(result,sizeof(result),"OK\n");
-				if( write(sockfd,result,strlen(result)) == -1)
-				{
-					zabbix_log( LOG_LEVEL_WARNING, "Error sending confirmation to node [%s]",strerror(errno));
-					zabbix_syslog("Trapper: error sending confirmation to node [%s]",strerror(errno));
-				}
-			}
-			return ret;
-		}
 		/* New XML protocol? */
-		else if(s[0]=='<')
+		if(s[0]=='<')
 		{
 			zabbix_log( LOG_LEVEL_DEBUG, "XML received [%s]", s);
 
@@ -193,11 +143,11 @@ int	process_trap(int sockfd,char *s, int max_len)
 		ret=process_data(sockfd,server,key,value_string,lastlogsize,timestamp,source,severity);
 		if( SUCCEED == ret)
 		{
-			zbx_snprintf(result,sizeof(result),"OK\n");
+			snprintf(result,sizeof(result)-1,"OK\n");
 		}
 		else
 		{
-			zbx_snprintf(result,sizeof(result),"NOT OK\n");
+			snprintf(result,sizeof(result)-1,"NOT OK\n");
 		}
 		zabbix_log( LOG_LEVEL_DEBUG, "Sending back [%s]", result);
 		zabbix_log( LOG_LEVEL_DEBUG, "Length [%d]", strlen(result));
@@ -215,69 +165,33 @@ int	process_trap(int sockfd,char *s, int max_len)
 void	process_trapper_child(int sockfd)
 {
 	ssize_t	nbytes;
-	char	*buffer;
+	char	buffer[MAX_BUF_LEN];
 	static struct  sigaction phan;
 	char	*bufptr;
-	zbx_uint64_t	expected_len;
-	zbx_uint64_t	read_len=0;
 
-#define ZBX_MAX_PACKET_LEN	16*1024*1024
+	zabbix_log( LOG_LEVEL_DEBUG, "In process_trapper_child");
 
-//	zabbix_log( LOG_LEVEL_WARNING, "In process_trapper_child");
-
-	
-	buffer=malloc(ZBX_MAX_PACKET_LEN);
-
-	phan.sa_handler = &child_signal_handler;
+	phan.sa_handler = &signal_handler;
 	sigemptyset(&phan.sa_mask);
 	phan.sa_flags = 0;
 	sigaction(SIGALRM, &phan, NULL);
 
-//	alarm(CONFIG_TIMEOUT);
+	alarm(CONFIG_TIMEOUT);
 
-//	zabbix_log( LOG_LEVEL_WARNING, "Before read(%d)", ZBX_MAX_PACKET_LEN);
+	zabbix_log( LOG_LEVEL_DEBUG, "Before read(%d)", MAX_BUF_LEN);
 /*	if( (nbytes = read(sockfd, line, MAX_BUF_LEN)) < 0)*/
-	memset(buffer,0,ZBX_MAX_PACKET_LEN);
+	memset(buffer,0,MAX_BUF_LEN);
 	bufptr = buffer;
-
-	nbytes=read(sockfd, bufptr, 5);
-
-	if(nbytes==5 && strncmp(bufptr,"ZBXD",4)==0 && bufptr[4] == 1)
+	while ((nbytes = read(sockfd, bufptr, buffer + sizeof(buffer) - bufptr - 1)) != -1 && nbytes != 0)
 	{
-//		zabbix_log( LOG_LEVEL_WARNING, "Got new protocol");
-		nbytes=read(sockfd, (zbx_uint64_t *)&expected_len, sizeof(expected_len));
-//		zabbix_log( LOG_LEVEL_WARNING, "Read %d bytes", nbytes);
-		if(nbytes==sizeof(expected_len))
+		zabbix_log( LOG_LEVEL_DEBUG, "Read %d bytes", nbytes);
+		if(nbytes < buffer + sizeof(buffer) - bufptr - 1)
 		{
-//			zabbix_log( LOG_LEVEL_WARNING, "Expected data len [" ZBX_FS_UI64 "]", expected_len);
-		}
-		while ((nbytes = read(sockfd, bufptr, 1024)) != -1 && nbytes != 0)
-		{
-//			zabbix_log( LOG_LEVEL_WARNING, "Read %d bytes", nbytes);
-			read_len+=nbytes;
-			if(read_len >= expected_len)
-			{
-				break;
-			}
 			bufptr += nbytes;
+			break;
 		}
-//		zabbix_log( LOG_LEVEL_WARNING, "Read total %d bytes", read_len);
-	}
-	else
-	{
 		bufptr += nbytes;
-		zabbix_log( LOG_LEVEL_WARNING, "Old protocol");
-		while ((nbytes = read(sockfd, bufptr, buffer + ZBX_MAX_PACKET_LEN - bufptr - 1)) != -1 && nbytes != 0)
-		{
-			if(read_len < buffer + ZBX_MAX_PACKET_LEN - bufptr - 1)
-			{
-				bufptr += nbytes;
-				break;
-			}
-			bufptr += nbytes;
-		}
 	}
-//	zabbix_log( LOG_LEVEL_WARNING, "Read total %d bytes", nbytes);
 
 	if(nbytes < 0)
 	{
@@ -290,7 +204,6 @@ void	process_trapper_child(int sockfd)
 			zabbix_log( LOG_LEVEL_WARNING, "read() failed");
 		}
 		alarm(0);
-		free(buffer);
 		return;
 	}
 
@@ -298,9 +211,8 @@ void	process_trapper_child(int sockfd)
 
 	zabbix_log( LOG_LEVEL_DEBUG, "Got data:%s", buffer);
 
-	process_trap(sockfd,buffer, sizeof(buffer));
+	process_trap(sockfd,buffer, MAX_BUF_LEN);
 
-	free(buffer);
 	alarm(0);
 }
 
@@ -322,14 +234,15 @@ void	child_trapper_main(int i,int listenfd, int addrlen)
 	for(;;)
 	{
 		clilen = addrlen;
-
-		zbx_setproctitle("waiting for connection");
-
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("waiting for connection");
+#endif
 		zabbix_log( LOG_LEVEL_DEBUG, "Before accept()");
 		connfd=accept(listenfd,&cliaddr, &clilen);
 		zabbix_log( LOG_LEVEL_DEBUG, "After accept()");
-
-		zbx_setproctitle("processing data");
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("processing data");
+#endif
 
 		process_trapper_child(connfd);
 
@@ -345,6 +258,10 @@ pid_t	child_trapper_make(int i,int listenfd, int addrlen)
 	if((pid = fork()) >0)
 	{
 		return (pid);
+	}
+	else
+	{
+		server_num=i;
 	}
 
 	/* never returns */

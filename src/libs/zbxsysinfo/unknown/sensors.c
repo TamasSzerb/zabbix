@@ -48,17 +48,18 @@ static int	get_sensor(const char *name, unsigned flags, AGENT_RESULT *result)
 	while((entries=readdir(dir))!=NULL)
 	{
 		strscpy(filename,"/proc/sys/dev/sensors/");	
-		strncat(filename,entries->d_name,MAX_STRING_LEN);
-		strncat(filename,name,MAX_STRING_LEN);
+		zbx_strlcat(filename,entries->d_name,MAX_STRING_LEN);
+		zbx_strlcat(filename,name,MAX_STRING_LEN);
 
 		if(stat(filename,&buf)==0)
 		{
-			if( NULL == (f = fopen(filename,"r") ))
+			f=fopen(filename,"r");
+			if(f==NULL)
 			{
 				continue;
 			}
 			fgets(line,MAX_STRING_LEN,f);
-			zbx_fclose(f);
+			fclose(f);
 
 			if(sscanf(line,"%lf\t%lf\t%lf\n",&d1, &d2, &d3) == 3)
 			{

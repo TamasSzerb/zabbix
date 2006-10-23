@@ -40,11 +40,11 @@
 			if(is_null($value))
 				return $this->options['action'] = $page['file'];
 
-			return $this->options['onClick'] = htmlspecialchars($value);
+			return $this->options['onClick'] = $value;
 		}
 		function SetUrl($value)
 		{
-			$this->AddOption('href', $value);
+			$this->options['href'] = $value;
 		}
 		function SetTarget($value=NULL)
 		{

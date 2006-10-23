@@ -73,7 +73,7 @@ void init() {
 
 
   if (!p_info) {
-    zbx_error("not enough memory.");
+    fprintf(stderr, "not enough memory\n");
     return;
   }
 

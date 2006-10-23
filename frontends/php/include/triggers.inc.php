@@ -19,19 +19,6 @@
 **/
 ?>
 <?php
-	require_once "maps.inc.php";
-
-	function	get_severity_style($severity)
-	{
-		if($severity == 1)	return "information";
-		elseif($severity == 2)	return "warning";
-		elseif($severity == 3)	return "average";
-		elseif($severity == 4)	return "high";
-		elseif($severity == 5)	return "disaster";
-
-		return "";
-	}
-
 	function	get_severity_description($severity)
 	{
 		if($severity == 0)	return S_NOT_CLASSIFIED;
@@ -47,7 +34,7 @@
 	function        get_realhosts_by_triggerid($triggerid)
 	{
 		$trigger = get_trigger_by_triggerid($triggerid);
-		if($trigger["templateid"] > 0)
+		if($trigger["templateid"] <> 0)
 			return get_realhosts_by_triggerid($trigger["templateid"]);
 
 		return get_hosts_by_triggerid($triggerid);
@@ -301,20 +288,24 @@
 		$expression, $description, $priority, $status,
 		$comments, $url, $deps=array(), $templateid=0)
 	{
+//		if(!check_right("Trigger","A",0))
+//		{
+//			error("Insufficient permissions");
+//			return	0;
+//		}
 		if(!is_null($expression)) if(validate_expression($expression))	return FALSE;
 
-		$triggerid=get_dbid("triggers","triggerid");
-
 		$result=DBexecute("insert into triggers".
-			"  (triggerid,description,priority,status,comments,url,value,error,templateid)".
-			" values ($triggerid,".zbx_dbstr($description).",$priority,$status,".zbx_dbstr($comments).",".
+			"  (description,priority,status,comments,url,value,error,templateid)".
+			" values (".zbx_dbstr($description).",$priority,$status,".zbx_dbstr($comments).",".
 			"".zbx_dbstr($url).",2,'Trigger just added. No status update so far.',$templateid)");
 		if(!$result)
 		{
 			return	$result;
 		}
  
-		add_event($triggerid,TRIGGER_VALUE_UNKNOWN);
+		$triggerid = DBinsert_id($result,"triggers","triggerid");
+		add_alarm($triggerid,TRIGGER_VALUE_UNKNOWN);
  
 		$expression = implode_exp($expression,$triggerid);
 
@@ -358,7 +349,7 @@
 		return $triggerid;
 	}
 
-	function	copy_trigger_to_host($triggerid, $hostid, $copy_mode = false)
+	function	copy_trigger_to_host($triggerid, $hostid)
 	{
 		$trigger = get_trigger_by_triggerid($triggerid);
 
@@ -383,20 +374,19 @@
 				$trigger["comments"],
 				$trigger["url"],
 				$deps,
-				$copy_mode ? 0 : $triggerid);
+				$triggerid);
 		}
 
-		$newtriggerid=get_dbid("triggers","triggerid");
-
 		$result = DBexecute("insert into triggers".
-			" (triggerid,description,priority,status,comments,url,value,expression,templateid)".
-			" values ($newtriggerid,".zbx_dbstr($trigger["description"]).",".$trigger["priority"].",".
-			$trigger["status"].",".zbx_dbstr($trigger["comments"]).",".
-			zbx_dbstr($trigger["url"]).",2,'{???:???}',".
-			($copy_mode ? 0 : $triggerid).")");
+			" (description,priority,status,comments,url,value,expression,templateid)".
+			" values (".zbx_dbstr($trigger["description"]).",".$trigger["priority"].","
+			.$trigger["status"].",".zbx_dbstr($trigger["comments"]).",".
+			zbx_dbstr($trigger["url"]).",2,'{???:???}', $triggerid)");
 
 		if(!$result)
 			return $result;
+
+		$newtriggerid = DBinsert_id($result,"triggers","triggerid");
 
 		$host = get_host_by_hostid($hostid);
 		$newexpression = $trigger["expression"];
@@ -417,11 +407,10 @@
 				return FALSE;
 			}
 
-			$newfunctionid=get_dbid("functions","functionid");
-
-			$result = DBexecute("insert into functions (functionid,itemid,triggerid,function,parameter)".
-				" values ($newfunctionid,".$host_item["itemid"].",$newtriggerid,".
+			$result = DBexecute("insert into functions (itemid,triggerid,function,parameter)".
+				" values (".$host_item["itemid"].",$newtriggerid,".
 				zbx_dbstr($function["function"]).",".zbx_dbstr($function["parameter"]).")");
+			$newfunctionid = DBinsert_id($result,"functions","functionid");
 
 			$newexpression = str_replace(
 				"{".$function["functionid"]."}",
@@ -442,11 +431,10 @@
 
 		info("Added trigger '".$trigger["description"]."' to host '".$host["host"]."'");
 
-// Copy triggers to the child hosts
 		$child_hosts = get_hosts_by_templateid($hostid);
 		while($child_host = DBfetch($child_hosts))
 		{// recursion
-			$result = copy_trigger_to_host($newtriggerid, $child_host["hostid"]);
+			$result = copy_trigger_to_host($triggerid, $child_host["hostid"]);
 			if(!$result){
 				return result;
 			}
@@ -475,29 +463,24 @@
 			if($expression[$i] == '}')
 			{
 				$state='';
-				if($function_data = DBfetch(DBselect('select h.host,i.key_,f.function,f.parameter,i.itemid,i.value_type'.
-					' from items i,functions f,hosts h'.
-					' where functionid='.$functionid.' and i.itemid=f.itemid and h.hostid=i.hostid')))
+				$sql="select h.host,i.key_,f.function,f.parameter,i.itemid from items i,functions f,hosts h where functionid=$functionid and i.itemid=f.itemid and h.hostid=i.hostid";
+				$res1=DBselect($sql);
+				$row1=DBfetch($res1);
+				if($html == 0)
 				{
-					if($html == 0)
-					{
-						$exp .= "{".$function_data["host"].":".$function_data["key_"].".".
-							$function_data["function"]."(".$function_data["parameter"].")}";
-					}
-					else
-					{
-						$link = new CLink($function_data["host"].":".$function_data["key_"],
-							'history.php?action='.( $function_data["value_type"] ==0 ? 'showvalues' : 'showgraph').
-							'&itemid='.$function_data['itemid']);
-					
-						$exp .= $link->ToString().'.'.bold($function_data["function"].'(').$function_data["parameter"].bold(')');
-					}
+					$exp=$exp."{".$row1["host"].":".$row1["key_"].".".$row1["function"]."(".$row1["parameter"].")}";
 				}
 				else
 				{
-					if($html == 1)	$exp .= "<FONT COLOR=\"#AA0000\">";
-					$exp .= "*ERROR*";
-					if($html == 1)	$exp .= "</FONT>";
+					$item=get_item_by_itemid($row1["itemid"]);
+					if($item["value_type"] ==0) 
+					{
+						$exp=$exp."{<A HREF=\"history.php?action=showgraph&itemid=".$row1["itemid"]."\">".$row1["host"].":".$row1["key_"]."</A>.<B>".$row1["function"]."(</B>".$row1["parameter"]."<B>)</B>}";
+					}
+					else
+					{
+						$exp=$exp."{<A HREF=\"history.php?action=showvalues&period=3600&itemid=".$row1["itemid"]."\">".$row1["host"].":".$row1["key_"]."</A>.<B>".$row1["function"]."(</B>".$row1["parameter"]."<B>)</B>}";
+					}
 				}
 				continue;
 			}
@@ -548,14 +531,14 @@
 
 				$itemid=$row["itemid"];
 	
-				$functionid = get_dbid("functions","functionid");
-				$res=DBexecute("insert into functions (functionid,itemid,triggerid,function,parameter)".
-					" values ($functionid,$itemid,$triggerid,".zbx_dbstr($function).",".
+				$res=DBexecute("insert into functions (itemid,triggerid,function,parameter)".
+					" values ($itemid,$triggerid,".zbx_dbstr($function).",".
 					zbx_dbstr($parameter).")");
 				if(!$res)
 				{
 					return	$res;
 				}
+				$functionid=DBinsert_id($res,"functions","functionid");
 
 				$exp=$exp.'{'.$functionid.'}';
 
@@ -625,6 +608,12 @@
 
 	function	update_trigger_comments($triggerid,$comments)
 	{
+		if(!check_right("Trigger comment","U",$triggerid))
+		{
+			error("Insufficient permissions");
+			return	0;
+		}
+
 		return	DBexecute("update triggers set comments=".zbx_dbstr($comments).
 			" where triggerid=$triggerid");
 	}
@@ -640,38 +629,40 @@
 			update_trigger_status($db_chd_trigger["triggerid"],$status);
 		}
 
-		add_event($triggerid,TRIGGER_VALUE_UNKNOWN);
+		if(!check_right_on_trigger("U",$triggerid))
+		{
+                        error("Insufficient permissions");
+                        return 0;
+		}
+		add_alarm($triggerid,TRIGGER_VALUE_UNKNOWN);
 		return	DBexecute("update triggers set status=$status where triggerid=$triggerid");
 	}
 
 	# "Processor load on {HOSTNAME} is 5" to "Processor load on www.sf.net is 5"
-	function	expand_trigger_description_by_data($row)
+	function	expand_trigger_description_simple($triggerid)
 	{
+		$result=DBselect("select distinct t.description,h.host".
+			" from triggers t,functions f,items i,hosts h".
+			" where t.triggerid=$triggerid and f.triggerid=t.triggerid".
+			" and f.itemid=i.itemid and i.hostid=h.hostid");
+
+
+		$row = DBfetch($result);
 		if($row)
 		{
-			if(is_null($row["host"])) $row["host"] = "{HOSTNAME}";
 			$description = str_replace("{HOSTNAME}", $row["host"],$row["description"]);
 		}
 		else
 		{
-			$description = "*ERROR*";
+			$result = DBselect("select description from triggers where triggerid=$triggerid");
+			$row = DBfetch($result);
+			$description = $row["description"];
 		}
+
 		return $description;
 	}
-	
-	function	expand_trigger_description_simple($triggerid)
-	{
-		return expand_trigger_description_by_data(
-			DBfetch(
-				DBselect("select distinct t.description,h.host".
-					" from triggers t left join functions f on t.triggerid=f.triggerid ".
-					" left join items i on f.itemid=i.itemid ".
-					" left join hosts h on i.hostid=h.hostid ".
-					" where t.triggerid=$triggerid")
-				)
-			);
-	}
 
+	# "Processor load on %s is 5" to "Processor load on www.sf.net is 5"
 	function	expand_trigger_description($triggerid)
 	{
 		$description=expand_trigger_description_simple($triggerid);
@@ -689,27 +680,27 @@
 		$now = time();
 		while($row=DBfetch($result))
 		{
-			if(!add_event($row["triggerid"],TRIGGER_VALUE_UNKNOWN,$now)) continue;
+			if(!add_alarm($row["triggerid"],TRIGGER_VALUE_UNKNOWN,$now)) continue;
 
 			DBexecute('update triggers set value='.TRIGGER_VALUE_UNKNOWN.' where triggerid='.$row["triggerid"]);
 		}
 	}
 
-	function add_event($triggerid, $value, $time=NULL)
+	function add_alarm($triggerid, $value, $time=NULL)
 	{
 		if(is_null($time)) $time = time();
 
-		$result = DBselect('select value from events where triggerid='.$triggerid.' order by clock desc',1);
+		$result = DBselect('select value from alarms where triggerid='.$triggerid.' order by clock desc',1);
 		$last_value = DBfetch($result);
 		if($last_value)
 		{
 			if($value == $last_value['value'])
 				return false;
 		}
-		$eventid = get_dbid("events","eventid");
-		$result = DBexecute('insert into events(eventid,triggerid,clock,value) values('.$eventid.','.$triggerid.','.$time.','.$value.')');
+		$result = DBexecute('insert into alarms(triggerid,clock,value) values('.$triggerid.','.$time.','.$value.')');
 		if($value == TRIGGER_VALUE_FALSE || $value == TRIGGER_VALUE_TRUE)
 		{
+			$alarm_id = DBinsert_id($result,'alarms','alarmid');
 			DBexesute('update alerts set retries=3,error=\'Trigger changed its status. WIll not send repeats.\''.
 				' where triggerid='.$triggerid.' and repeats>0 and status='.ALERT_STATUS_NOT_SENT);
 		}
@@ -750,7 +741,7 @@
 		$result=delete_function_by_triggerid($triggerid);
 		if(!$result)	return	$result;
 
-		$result=delete_events_by_triggerid($triggerid);
+		$result=delete_alarms_by_triggerid($triggerid);
 		if(!$result)	return	$result;
 
 		$result=delete_services_by_triggerid($triggerid);
@@ -778,6 +769,9 @@
 
 		if($result)
 		{
+		// delete trigger permisions
+			DBexecute('delete from rights where name=\'Trigger comment\' and id='.$triggerid);
+
 			$msg = "Trigger '".$trigger["description"]."' deleted";
 			$trig_host = DBfetch($trig_hosts);
 			if($trig_host)
@@ -794,6 +788,12 @@
 	function	update_trigger($triggerid,$expression=NULL,$description=NULL,$priority=NULL,$status=NULL,
 		$comments=NULL,$url=NULL,$deps=array(),$templateid=0)
 	{
+		if(!check_right_on_trigger("U",$triggerid))
+		{
+                        error("Insufficient permissions");
+                        return 0;
+		}
+
 		$trigger	= get_trigger_by_triggerid($triggerid);
 		$trig_hosts	= get_hosts_by_triggerid($triggerid);
 		$trig_host	= DBfetch($trig_hosts);
@@ -845,7 +845,7 @@
 		}
 
 		$expression = implode_exp($expression,$triggerid);
-		add_event($triggerid,TRIGGER_VALUE_UNKNOWN);
+		add_alarm($triggerid,TRIGGER_VALUE_UNKNOWN);
 		reset_items_nextcheck($triggerid);
 
 		$sql="update triggers set";
@@ -880,15 +880,14 @@
 		return $result;
 	}
 
-	function	check_right_on_trigger($permission,$triggerid)	/* TODO */
+	function	check_right_on_trigger($permission,$triggerid)
 	{
-		/*
                 $result=DBselect("select distinct h.hostid from functions f,items i,hosts h".
 			" where h.hostid=i.hostid and i.itemid=f.itemid and f.triggerid=$triggerid");
 		while($row=DBfetch($result))
 			if(check_right("Host",$permission,$row["hostid"]))
 				return 1;
-		*/
+
 		return	0;
 	}
 
@@ -921,9 +920,8 @@
 
 	function	insert_dependency($triggerid_down,$triggerid_up)
 	{
-		$triggerdepid = get_dbid("trigger_depends","triggerdepid");
-		$result=DBexecute("insert into trigger_depends (triggerdepid,triggerid_down,triggerid_up)".
-			" values ($triggerdepid,$triggerid_down,$triggerid_up)");
+		$result=DBexecute("insert into trigger_depends (triggerid_down,triggerid_up)".
+			" values ($triggerid_down,$triggerid_up)");
 		if(!$result)
 		{
 			return	$result;
@@ -954,9 +952,9 @@
 		return	DBexecute("delete from functions where triggerid=$triggerid");
 	}
 
-	function	delete_events_by_triggerid($triggerid)
+	function	delete_alarms_by_triggerid($triggerid)
 	{
-		return	DBexecute("delete from events where triggerid=$triggerid");
+		return	DBexecute("delete from alarms where triggerid=$triggerid");
 	}
 
 	function	delete_triggers_by_itemid($itemid)
@@ -1014,56 +1012,30 @@
 		return strcmp($expr1,$trig2["expression"]);
 	}
 
-	function	delete_template_triggers($hostid, $templateid = null, $unlink_mode = false)
+	function	delete_template_triggers_by_hostid($hostid)
 	{
 		$triggers = get_triggers_by_hostid($hostid);
 		while($trigger = DBfetch($triggers))
 		{
 			if($trigger["templateid"]==0)	continue;
-
-			if($templateid != null)
-                        {
-                                $db_tmp_hosts = get_hostis_by_triggerid($trigger["templateid"]);
-				$tmp_host = DBfetch($db_tmp_hosts);
-                                if($tmp_host["hostid"] != $templateid)
-                                        continue;
-                        }
-
-                        if($unlink_mode)
-                        {
-                                if(DBexecute("update triggers set templateid=0 where triggerid=".$trigger["triggerid"]))
-                                {
-                                        info("Trigger '".$trigger["description"]."' unlinked");
-                                }
-                        }
-                        else
-                        {
-				delete_trigger($trigger["triggerid"]);
-			}
+			delete_trigger($trigger["triggerid"]);
 		}
 
 		return TRUE;
 	}
 	
-	function	copy_template_triggers($hostid, $templateid = null, $copy_mode = false)
+	function	sync_triggers_with_template($hostid)
 	{
-		if(null == $templateid)
-		{
-			$host = get_host_by_hostid($hostid);	
-			$templateid = $host["templateid"];
-		}
-
-		$triggers = get_triggers_by_hostid($templateid);
+		$host = get_host_by_hostid($hostid);	
+		$triggers = get_triggers_by_hostid($host["templateid"]);
 		while($trigger = DBfetch($triggers))
 		{
-			copy_trigger_to_host($trigger["triggerid"], $hostid, $copy_mode);
+			copy_trigger_to_host($trigger["triggerid"], $hostid);
 		}
 	}
 
-	function	get_triggers_overview($groupid, $nodeid)
+	function	get_triggers_overview($groupid)
 	{
-		global $USER_DETAILS;
-
 		$table = new CTableInfo(S_NO_TRIGGERS_DEFINED);
 		if($groupid > 0)
 		{
@@ -1072,21 +1044,18 @@
 			$group_where = ' where';
 		}
 
-		$result=DBselect('select distinct t.description,t.value,t.priority,t.lastchange,h.hostid,h.host'.
+		$result=DBselect('select distinct t.description,t.value,t.lastchange,h.hostid,h.host'.
 			' from hosts h,items i,triggers t, functions f '.$group_where.
 			' h.status='.HOST_STATUS_MONITORED.' and h.hostid=i.hostid and i.itemid=f.itemid and f.triggerid=t.triggerid'.
-			' and h.hostid in ('.get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY, null, null, $nodeid).') '.
-			' and t.status='.TRIGGER_STATUS_ENABLED.' and i.status='.ITEM_STATUS_ACTIVE.
+			' and t.status='.TRIGGER_STATUS_ENABLED.
 			' order by t.description');
 		unset($triggers);
 		unset($hosts);
 		while($row = DBfetch($result))
 		{
+			if(!check_right('Host','R',$row['hostid'])) continue;
 			$hosts[$row['host']] = $row['host'];
-			$triggers[$row['description']][$row['host']] = array(
-				'value'		=> $row['value'], 
-				'lastchange'	=> $row['lastchange'],
-				'priority'	=> $row['priority']);
+			$triggers[$row['description']][$row['host']] = array('value' => $row['value'], 'lastchange' => $row['lastchange']);
 		}
 		if(!isset($hosts))
 		{
@@ -1108,16 +1077,9 @@
 				$style = NULL;
 				if(isset($trhosts[$hostname]))
 				{
-					switch($trhosts[$hostname]['value'])
-					{
-						case TRIGGER_VALUE_TRUE:
-							$style = get_severity_style($trhosts[$hostname]['priority']);
-							break;
-						case TRIGGER_VALUE_FALSE:
-							$style = 'normal';
-						default:
-							$style = 'unknown_trigger';
-					}
+					if($trhosts[$hostname]['value'] == TRIGGER_VALUE_FALSE)		$style = 'normal';
+					elseif($trhosts[$hostname]['value'] == TRIGGER_VALUE_UNKNOWN)	$style = 'unknown_trigger';
+					else								$style = 'high';
 
 					if((time(NULL)-$trhosts[$hostname]['lastchange'])<300)	 	$style .= '_blink1';
 					elseif((time(NULL)-$trhosts[$hostname]['lastchange'])<900) 	$style .= '_blink2';
@@ -1128,154 +1090,4 @@
 		}
 		return $table;
 	}
-
-	function	get_function_by_functionid($functionid)
-	{
-		$result=DBselect("select * from functions where functionid=$functionid");
-		$row=DBfetch($result);
-		if($row)
-		{
-			return	$row;
-		}
-		else
-		{
-			error("No function with functionid=[$functionid]");
-		}
-		return	$item;
-	}
-
-	function	calculate_availability($triggerid,$period_start,$period_end)
-	{
-		if(($period_start==0)&&($period_end==0))
-		{
-	        	$sql="select count(*) as cnt,min(clock) as minn,max(clock) as maxx from events where triggerid=$triggerid";
-		}
-		else
-		{
-	        	$sql="select count(*) as cnt,min(clock) as minn,max(clock) as maxx from events where triggerid=$triggerid and clock>=$period_start and clock<=$period_end";
-		}
-
-		$row=DBfetch(DBselect($sql));
-		if($row["cnt"]>0)
-		{
-			$min=$row["minn"];
-			$max=$row["maxx"];
-		}
-		else
-		{
-			if(($period_start==0)&&($period_end==0))
-			{
-				$max=time();
-				$min=$max-24*3600;
-			}
-			else
-			{
-				$ret["true_time"]	= 0;
-				$ret["false_time"]	= 0;
-				$ret["unknown_time"]	= 0;
-				$ret["true"]		= 0;
-				$ret["false"]		= 0;
-				$ret["unknown"]		= 100;
-				return $ret;
-			}
-		}
-
-		$result=DBselect("select clock,value from events where triggerid=$triggerid and clock>=$min and clock<=$max");
-
-		$state		= -1;
-		$true_time	= 0;
-		$false_time	= 0;
-		$unknown_time	= 0;
-		$time		= $min;
-
-		if(($period_start==0)&&($period_end==0))
-		{
-			$max=time();
-		}
-		$rows=0;
-		while($row=DBfetch($result))
-		{
-			$clock=$row["clock"];
-			$value=$row["value"];
-
-			$diff=$clock-$time;
-
-			$time=$clock;
-
-			if($state==-1)
-			{
-				$state=$value;
-				if($state == 0)
-				{
-					$false_time+=$diff;
-				}
-				if($state == 1)
-				{
-					$true_time+=$diff;
-				}
-				if($state == 2)
-				{
-					$unknown_time+=$diff;
-				}
-			}
-			else if($state==0)
-			{
-				$false_time+=$diff;
-				$state=$value;
-			}
-			else if($state==1)
-			{
-				$true_time+=$diff;
-				$state=$value;
-			}
-			else if($state==2)
-			{
-				$unknown_time+=$diff;
-				$state=$value;
-			}
-			$rows++;
-		}
-
-		if($rows==0)
-		{
-			$trigger = get_trigger_by_triggerid($triggerid);
-			$state = $trigger['value'];
-		}
-		
-		if($state==0)
-		{
-			$false_time=$false_time+$max-$time;
-		}
-		elseif($state==1)
-		{
-			$true_time=$true_time+$max-$time;
-		}
-		elseif($state==3)
-		{
-			$unknown_time=$unknown_time+$max-$time;
-		}
-
-		$total_time=$true_time+$false_time+$unknown_time;
-
-		if($total_time==0)
-		{
-			$ret["true_time"]	= 0;
-			$ret["false_time"]	= 0;
-			$ret["unknown_time"]	= 0;
-			$ret["true"]		= 0;
-			$ret["false"]		= 0;
-			$ret["unknown"]		= 100;
-		}
-		else
-		{
-			$ret["true_time"]	= $true_time;
-			$ret["false_time"]	= $false_time;
-			$ret["unknown_time"]	= $unknown_time;
-			$ret["true"]		= (100*$true_time)/$total_time;
-			$ret["false"]		= (100*$false_time)/$total_time;
-			$ret["unknown"]		= (100*$unknown_time)/$total_time;
-		}
-		return $ret;
-	}
-
 ?>

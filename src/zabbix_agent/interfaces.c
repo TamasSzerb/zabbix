@@ -17,21 +17,7 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
-#include "interfaces.h"
-
-
-void	collect_stats_interfaces(ZBX_INTERFACES_DATA *pinterfaces)
-{
-#if defined(TODO)
-#error "Realize function collect_stats_interfaces IF needed"
-#endif
-}
-
-
-#if OFF && (!defined(_WINDOWS) || (defined(TODO) && defined(_WINDOWS)))
-
-//TODO!!! Make same as cpustat.c
+#include "config.h"
 
 #include <netdb.h>
 
@@ -64,6 +50,7 @@ void	collect_stats_interfaces(ZBX_INTERFACES_DATA *pinterfaces)
 /* Required for getpwuid */
 #include <pwd.h>
 
+#include "common.h"
 #include "sysinfo.h"
 #include "security.h"
 #include "zabbix_agent.h"
@@ -119,9 +106,10 @@ void	init_stats_interfaces()
 		}
 	}
 
-	if( NULL == (file = fopen("/proc/net/dev","r") ))
+	file=fopen("/proc/net/dev","r");
+	if(NULL == file)
 	{
-		zbx_error("Cannot open statistic file [%s] [%s].","/proc/net/dev", strerror(errno));
+		fprintf(stderr, "Cannot open config file [%s] [%s]\n","/proc/net/dev", strerror(errno));
 		return;
 	}
 	i=0;
@@ -129,7 +117,7 @@ void	init_stats_interfaces()
 	{
 		if( (s=strstr(line,":")) == NULL)
 			continue;
-		strncpy(interface,line,s-line);
+		zbx_strlcpy(interface,line,s-line);
 		interface[s-line]=0;
 		j1=0;
 		for(j=0;j<(int)strlen(interface);j++)
@@ -144,7 +132,7 @@ void	init_stats_interfaces()
 		i++;
 	}
 
-	zbx_fclose(file);
+	fclose(file);
 }
 
 void	report_stats_interfaces(FILE *file, int now)
@@ -355,9 +343,10 @@ void	collect_stats_interfaces(FILE *outfile)
 
 	now=time(NULL);
 
-	if(NULL == (file = fopen("/proc/net/dev","r") ))
+	file=fopen("/proc/net/dev","r");
+	if(NULL == file)
 	{
-		zbx_error("Cannot open statistic file [%s] [%s].","/proc/net/dev", strerror(errno));
+		fprintf(stderr, "Cannot open config file [%s] [%s]\n","/proc/net/dev", strerror(errno));
 		return;
 	}
 
@@ -367,7 +356,7 @@ void	collect_stats_interfaces(FILE *outfile)
 	{
 		if( (s=strstr(line,":")) == NULL)
 			continue;
-		strncpy(interface,line,s-line);
+		zbx_strlcpy(interface,line,s-line);
 		interface[s-line]=0;
 		j1=0;
 		for(i1=0;i1<(int)strlen(interface);i1++)
@@ -399,12 +388,9 @@ void	collect_stats_interfaces(FILE *outfile)
 		}
 		i++;
 	}
-	zbx_fclose(file);
+	fclose(file);
 
 	report_stats_interfaces(outfile, now);
 
 #endif /* HAVE_PROC_NET_DEV */
 }
-
-#endif /* TODO */
-

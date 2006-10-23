@@ -20,7 +20,9 @@
 #ifndef ZABBIX_SYSINC_H
 #define ZABBIX_SYSINC_H
 
-#include "config.h"
+#if !defined(WIN32)
+#	include "config.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,34 +33,6 @@
 
 #ifdef HAVE_ERRNO_H
 #	include <errno.h>
-#endif
-
-#ifdef HAVE_WINDOWS_H
-#	include <windows.h>
-#endif
-
-#ifdef HAVE_PROCESS_H
-#	include <process.h>
-#endif
-
-#ifdef HAVE_WINSOCK2_H
-#	include <winsock2.h>
-#endif
-
-#ifdef HAVE_CONIO_H
-#	include <conio.h>
-#endif
-
-#ifdef HAVE_PDH_H
-#	include <pdh.h>
-#endif
-
-#ifdef HAVE_PSAPI_H
-#	include <psapi.h>
-#endif
-
-#ifdef HAVE_STDARG_H
-#	include <stdarg.h>
 #endif
 
 #ifdef HAVE_CTYPE_H
@@ -109,17 +83,6 @@
 	#include <ldap.h>
 #endif
 
-#ifdef HAVE_WINLDAP_H
-#	undef SEC_I_INCOMPLETE_CREDENTIALS
-#	undef SEC_E_INCOMPLETE_CREDENTIALS
-#	undef SEC_I_RENEGOTIATE
-#	include <Winldap.h>
-#endif
-
-#ifdef HAVE_WINBER_H
-#	include <Winber.h>
-#endif
-
 #ifdef HAVE_MACH_HOST_INFO_H
 #	include <mach/host_info.h>
 #endif
@@ -134,10 +97,6 @@
 
 #ifdef HAVE_NETDB_H
 #	include <netdb.h>
-#endif
-
-#ifdef HAVE_SYS_WAIT_H
-#	include <sys/wait.h>
 #endif
 
 #ifdef HAVE_NETINET_IN_H
@@ -176,10 +135,6 @@
 
 #ifdef HAVE_SYS_PSTAT_H
 #	include <sys/pstat.h>
-#endif
-
-#ifdef HAVE_PTHREAD_H
-#	include <pthread.h>
 #endif
 
 #ifdef HAVE_SYS_DK_H
@@ -242,10 +197,6 @@
 #	include <sys/vmmeter.h>
 #endif
 
-#ifdef HAVE_SYS_RESOURCE_H
-#	include <sys/resource.h>
-#endif
-
 #ifdef HAVE_NLIST_H
 #	include <nlist.h>
 #endif
@@ -281,26 +232,6 @@
 #	endif
 #endif
 
-#ifdef HAVE_SYS_IPC_H
-#	include <sys/ipc.h>
-#endif
-
-#ifdef HAVE_SYS_SEM_H
-#	include <sys/sem.h>
-#endif
-
-#ifdef HAVE_SYS_SHM_H
-#	include <sys/shm.h>
-#endif
-
-#ifdef HAVE_MATH_H
-#	include <math.h>
-#endif
-
-#ifdef HAVE_REGEX_H
-#	include <regex.h>
-#endif
-
 #ifdef HAVE_VM_VM_PARAM_H
 #	include <vm/vm_param.h>
 #endif
@@ -311,10 +242,6 @@
 
 #ifdef HAVE_SYS_MOUNT_H
 #	include <sys/mount.h>
-#endif
-
-#ifdef HAVE_SYS_TIMEB_H
-#	include <sys/timeb.h>
 #endif
 
 #ifdef HAVE_PROCINFO_H

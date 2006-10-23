@@ -24,8 +24,6 @@
 #include "common.h"
 #include "db.h"
 
-extern	int	CONFIG_NODEID;
-
-void    apply_actions(DB_EVENT *event);
+void    apply_actions(DB_TRIGGER *trigger,int alarmid,int trigger_value);
 
 #endif

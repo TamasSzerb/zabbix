@@ -1,24 +1,111 @@
-/* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
-**
-** This program is free software; you can redistribute it and/or modify
-** it under the terms of the GNU General Public License as published by
-** the Free Software Foundation; either version 2 of the License, or
-** (at your option) any later version.
-**
-** This program is distributed in the hope that it will be useful,
-** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-** GNU General Public License for more details.
-**
-** You should have received a copy of the GNU General Public License
-** along with this program; if not, write to the Free Software
-** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-**/
+#include "common.h"
+
+#include <sys/types.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include "common.h"
-#include "threads.h"
+
+/*
+ * Function: strlcpy, strlcat
+ * Copyright (c) 1998 Todd C. Miller <Todd.Miller@courtesan.com>
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+ */
+
+/******************************************************************************
+ *                                                                            *
+ * Function: zbx_strlcpy                                                      *
+ *                                                                            *
+ * Purpose: replacement of insecure strncpy, same os OpenBSD's strlcpy        *
+ *                                                                            *
+ * Copy src to string dst of size siz.  At most siz-1 characters              *
+ * will be copied.  Always NUL terminates (unless siz == 0).                  *
+ * Returns strlen(src); if retval >= siz, truncation occurred.                *
+ *                                                                            *
+ * Author: Todd C. Miller <Todd.Miller@courtesan.com>                         *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+size_t zbx_strlcpy(char *dst, const char *src, size_t siz)
+{
+	char *d = dst;
+	const char *s = src;
+	size_t n = siz;
+
+	/* Copy as many bytes as will fit */
+	if (n != 0) {
+		while (--n != 0) {
+			if ((*d++ = *s++) == '\0')
+				break;
+		}
+	}
+
+	/* Not enough room in dst, add NUL and traverse rest of src */
+	if (n == 0) {
+		if (siz != 0)
+			*d = '\0';                /* NUL-terminate dst */
+		while (*s++)
+		;
+	}
+
+	return(s - src - 1);        /* count does not include NUL */
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: zbx_strlcat                                                      *
+ *                                                                            *
+ * Purpose: replacement of insecure strncat, same os OpenBSD's strlcat        *
+ *                                                                            *
+ * Appends src to string dst of size siz (unlike strncat, size is the         *
+ * full size of dst, not space left).  At most siz-1 characters               *
+ * will be copied.  Always NUL terminates (unless siz <= strlen(dst)).        *
+ * Returns strlen(src) + MIN(siz, strlen(initial dst)).                       *
+ * If retval >= siz, truncation occurred.                                     *
+ *                                                                            *
+ * Author: Todd C. Miller <Todd.Miller@courtesan.com>                         *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ */
+size_t zbx_strlcat(char *dst, const char *src, size_t siz)
+{
+	char *d = dst;
+	const char *s = src;
+	size_t n = siz;
+	size_t dlen;
+
+	/* Find the end of dst and adjust bytes left but don't go past end */
+	while (n-- != 0 && *d != '\0')
+		d++;
+	dlen = d - dst;
+	n = siz - dlen;
+
+	if (n == 0)
+		return(dlen + strlen(s));
+	while (*s != '\0') {
+		if (n != 1) {
+			*d++ = *s;
+			n--;
+		}
+		s++;
+	}
+	*d = '\0';
+
+	return(dlen + (s - src));        /* count does not include NUL */
+}
 
 /******************************************************************************
  *                                                                            *
@@ -88,9 +175,7 @@ void help()
 	char **p = help_message;
 	
 	app_title();
-	printf("\n");
 	usage();
-	printf("\n");
 	while (*p) printf("%s\n", *p++);
 }
 
@@ -108,93 +193,18 @@ void help()
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
- * Comments: !!! beter use system functions like 'strchr' !!!                 *
+ * Comments: !!! beter use system functions like 'strchr' !!!                  *
  *                                                                            *
  ******************************************************************************/
 int	find_char(char *str,char c)
 {
 	char *p;
 	for(p = str; *p; p++) 
-		if(*p == c) return (int)(p - str);
+		if(*p == c) return (p - str);
 
 	return	FAIL;
 }
 
-/******************************************************************************
- *                                                                            *
- * Function: zbx_error                                                        *
- *                                                                            *
- * Purpose: Print error text to the stderr                                    *
- *                                                                            *
- * Parameters: fmt - format of mesage                                         *
- *                                                                            *
- * Return value:                                                              *
- *                                                                            *
- * Author: Eugene Grigorjev                                                   *
- *                                                                            *
- ******************************************************************************/
-//#define ZBX_STDERR_FILE "zbx_errors.log"
-
-void zbx_error(const char *fmt, ...)
-{
-	va_list args;
-	FILE *f = NULL;
-
-#if defined(ZBX_STDERR_FILE)
-	f = fopen(ZBX_STDERR_FILE,"a+");
-#else
-	f = stderr;
-#endif /* ZBX_STDERR_FILE */
-    
-	va_start(args, fmt);
-
-	fprintf(f, "%s [%li]: ",progname, zbx_get_thread_id());
-	vfprintf(f, fmt, args);
-	fprintf(f, "\n");
-	fflush(f);
-
-	va_end(args);
-
-#if defined(ZBX_STDERR_FILE)
-	zbx_fclose(f);
-#endif /* ZBX_STDERR_FILE */
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: zbx_snprintf                                                     *
- *                                                                            *
- * Purpose: Sequrity version of snprintf function.                            *
- *          Add zero character at the end of string.                          *
- *                                                                            *
- * Parameters: str - distination buffer poiner                                *
- *             count - size of distination buffer                             *
- *             fmt - format                                                   *
- *                                                                            *
- * Return value:                                                              *
- *                                                                            *
- * Author: Eugene Grigorjev                                                   *
- *                                                                            *
- ******************************************************************************/
-int zbx_snprintf(char* str, size_t count, const char *fmt, ...)
-{
-	va_list	args;
-	int	writen_len = 0;
-    
-	assert(str);
-
-	va_start(args, fmt);
-
-	writen_len = vsnprintf(str, count, fmt, args);
-	writen_len = MIN(writen_len, ((int)count) - 1);
-	writen_len = MAX(writen_len, 0);
-
-	str[writen_len] = '\0';
-
-	va_end(args);
-
-	return writen_len;
-}
 
 /* Has to be rewritten to avoi malloc */
 char *string_replace(char *str, const char *sub_str1, const char *sub_str2)
@@ -204,23 +214,21 @@ char *string_replace(char *str, const char *sub_str1, const char *sub_str2)
         const char *q;
         const char *r;
         char *t;
-        long len;
-        long diff;
+        signed long len;
+        signed long diff;
         unsigned long count = 0;
-
-	assert(str);
 
         if ( (p=strstr(str, sub_str1)) == NULL )
                 return str;
         ++count;
 
-        len = (long)strlen(sub_str1);
+        len = strlen(sub_str1);
 
         /* count the number of occurances of sub_str1 */
         for ( p+=len; (p=strstr(p, sub_str1)) != NULL; p+=len )
                 ++count;
 
-        diff = (long)strlen(sub_str2) - len;
+        diff = strlen(sub_str2) - len;
 
         /* allocate new memory */
         if ( (new_str=(char *)malloc((size_t)(strlen(str) + count*diff)*sizeof(char)))
@@ -268,7 +276,7 @@ void del_zeroes(char *s)
 
 	if(strchr(s,'.')!=NULL)
 	{
-		for(i = (int)strlen(s)-1;;i--)
+		for(i=strlen(s)-1;;i--)
 		{
 			if(s[i]=='0')
 			{
@@ -429,7 +437,7 @@ void	rtrim_spaces(char *c)
 {
 	int i,len;
 
-	len = (int)strlen(c);
+	len=strlen(c);
 	for(i=len-1;i>=0;i--)
 	{
 		if( c[i] == ' ')
@@ -497,45 +505,3 @@ void	lrtrim_spaces(char *c)
 	ltrim_spaces(c);
 	rtrim_spaces(c);
 }
-
-
-/******************************************************************************
- *                                                                            *
- * Function: zbx_get_field                                                    *
- *                                                                            *
- * Purpose: return Nth field of characted separated string                    *
- *                                                                            *
- * Parameters: c - string to trim spaces                                      *
- *                                                                            *
- * Return value: string without left and right spaces                         *
- *                                                                            *
- * Author: Alexei Vladishev                                                   *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-int	zbx_get_field(char *line, char *result, int num, char separator)
-{
-	int delim=0;
-	int ptr=0;
-	int i;
-
-	int ret = FAIL;
-
-	for(i=0;line[i]!=0;i++)
-	{
-		if(line[i]==separator)
-		{
-			delim++;
-			continue;
-		}
-		if(delim==num)
-		{
-			result[ptr++]=line[i];
-			result[ptr]=0;
-			ret = SUCCEED;
-		}
-	}
-	return ret;
-}
-

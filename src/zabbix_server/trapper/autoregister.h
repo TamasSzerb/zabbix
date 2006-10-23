@@ -20,8 +20,6 @@
 #ifndef ZABBIX_AUTOREGISTER_H
 #define ZABBIX_AUTOREGISTER_H
 
-extern	int	CONFIG_NODEID;
-
 int	autoregister(char *server);
 
 #endif

@@ -19,9 +19,9 @@
 **/
 ?>
 <?php
-	function unset_request($key,$requester='unknown')
+	function unset_request($key)
 	{
-//		SDI("unset [".$requester."]: $key");
+//		SDI("unset: $key");
 		unset($_REQUEST[$key]);
 	}
 
@@ -49,7 +49,7 @@
 	}
 
 	define("NOT_EMPTY","({}!='')&&");
-	define("DB_ID","({}>=0&&{}<=10000000000000000000)&&");
+	define("DB_ID","({}>=0&&{}<=4294967295)&&");
 
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 
@@ -108,7 +108,7 @@
 		{
 			if(!isset($fields[$key]))
 			{
-				unset_request($key,'unset_not_in_list');
+				unset_request($key);
 			}
 		}
 	}
@@ -119,9 +119,9 @@
 		{
 			list($type,$opt,$flags,$validation,$exception)=$checks;
 
-			if(($flags&P_NZERO)&&(isset($_REQUEST[$field]))&&(is_numeric($_REQUEST[$field]))&&($_REQUEST[$field]==0))
+			if(($flags&P_NZERO)&&(isset($_REQUEST[$field]))&&($_REQUEST[$field]==0))
 			{
-				unset_request($field,'unset_if_zero');
+				unset_request($field);
 			}
 		}
 	}
@@ -135,7 +135,7 @@
 			
 			if(($flags&P_ACT)&&(isset($_REQUEST[$field])))
 			{
-				unset_request($field,'unset_action_vars');
+				unset_request($field);
 			}
 		}
 	}
@@ -144,7 +144,7 @@
 	{
 		foreach($_REQUEST as $key => $val)
 		{
-			unset_request($key,'unset_all');
+			unset_request($key);
 		}
 	}
 
@@ -250,7 +250,7 @@
 			if(!isset($_REQUEST[$field]))
 				return ZBX_VALID_OK;
 
-			unset_request($field,'O_NO');
+			unset_request($field);
 
 			if($flags&P_SYS)
 			{
@@ -300,17 +300,9 @@
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$system_fields=array(
 		"sessionid"=>		array(T_ZBX_STR, O_OPT,	 P_SYS,	HEX(),NULL),
-		"switch_node"=>		array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,NULL),
 		"triggers_hash"=>	array(T_ZBX_STR, O_OPT,	 P_SYS,	NOT_EMPTY,NULL)
 	);
 
-	function	invalid_url()
-	{
-		unset_all();
-		show_error_message(S_INVALID_URL);
-		include_once "include/page_footer.php";
-	}
-	
 	function	check_fields(&$fields)
 	{
 
@@ -328,20 +320,18 @@
 
 		unset_not_in_list($fields);
 		unset_if_zero($fields);
+		if($err&ZBX_VALID_ERROR)
+		{
+			unset_all();
+			show_messages(FALSE, "", "Invalid URL");
+			show_page_footer();
+			exit;
+		}
 		if($err!=ZBX_VALID_OK)
 		{
 			unset_action_vars($fields);
 		}
-
-		$fields = null;
-		
-		if($err&ZBX_VALID_ERROR)
-		{
-			invalid_url();
-		}
-
-		show_messages();
-
+		show_infomsg();
 		return ($err==ZBX_VALID_OK ? 1 : 0);
 	}
 ?>

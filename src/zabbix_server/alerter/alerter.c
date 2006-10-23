@@ -53,7 +53,26 @@
 #include "sms.h"
 
 #include "alerter.h"
-#include "daemon.h"
+
+/******************************************************************************
+ *                                                                            *
+ * Function: signal_handler                                                   *
+ *                                                                            *
+ * Purpose: dummy signal handler                                              *
+ *                                                                            *
+ * Parameters: sign - signal id                                               *
+ *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+static void signal_handler2( int sig )
+{
+	zabbix_log( LOG_LEVEL_DEBUG, "Got signal [%d]", sig);
+}
 
 /******************************************************************************
  *                                                                            *
@@ -74,11 +93,19 @@
  ******************************************************************************/
 static int execute_action(DB_ALERT *alert,DB_MEDIATYPE *mediatype, char *error, int max_error_len)
 {
-	int 	res=FAIL;
+	int res=FAIL;
+	struct	sigaction phan;
 	int	pid;
 
 	char	full_path[MAX_STRING_LEN];
 
+	char	env_alertid[128],env_actionid[128],env_clock[128],env_mediatypeid[128],
+		env_status[128],env_retries[128],env_delay[128];
+	char    *zbxenv[] = { (char *)&env_alertid, (char *)&env_actionid, (char *)&env_clock,
+		(char *)&env_mediatypeid, (char *)&env_status, (char *)&env_retries,
+		(char *)&env_delay,
+		(char *)0 };
+	 
 	zabbix_log( LOG_LEVEL_DEBUG, "In execute_action()");
 
 	if(mediatype->type==ALERT_TYPE_EMAIL)
@@ -95,6 +122,14 @@ static int execute_action(DB_ALERT *alert,DB_MEDIATYPE *mediatype, char *error, 
 /*		if(-1 == execl(CONFIG_ALERT_SCRIPTS_PATH,mediatype->exec_path,alert->sendto,alert->subject,alert->message))*/
 		zabbix_log( LOG_LEVEL_DEBUG, "Before execl([%s],[%s])",CONFIG_ALERT_SCRIPTS_PATH,mediatype->exec_path);
 
+		phan.sa_handler = &signal_handler2;
+		phan.sa_handler = SIG_IGN;
+/*		signal( SIGCHLD, SIG_IGN );*/
+
+		sigemptyset(&phan.sa_mask);
+		phan.sa_flags = 0;
+		sigaction(SIGCHLD, &phan, NULL);
+
 /*		if(-1 == execl("/home/zabbix/bin/lmt.sh","lmt.sh",alert->sendto,alert->subject,alert->message,(char *)0))*/
 
 		pid=fork();
@@ -105,14 +140,25 @@ static int execute_action(DB_ALERT *alert,DB_MEDIATYPE *mediatype, char *error, 
 		else
 		{
 			strscpy(full_path,CONFIG_ALERT_SCRIPTS_PATH);
-			strncat(full_path,"/",MAX_STRING_LEN);
-			strncat(full_path,mediatype->exec_path,MAX_STRING_LEN);
-			zabbix_log( LOG_LEVEL_DEBUG, "Before executing [%s] [%m]", full_path);
-			if(-1 == execl(full_path,mediatype->exec_path,alert->sendto,alert->subject,alert->message,(char *)0))
+			zbx_strlcat(full_path,"/",MAX_STRING_LEN);
+			zbx_strlcat(full_path,mediatype->exec_path,MAX_STRING_LEN);
+			ltrim_spaces(full_path);
+			zabbix_log( LOG_LEVEL_DEBUG, "Before executing [%s]", full_path);
+
+			snprintf(env_alertid,127,"ZABBIX_ALERT_ID=%d",alert->alertid);
+			snprintf(env_actionid,127,"ZABBIX_ACTION_ID=%d",alert->actionid);
+			snprintf(env_clock,127,"ZABBIX_ALERT_TIME=%d",alert->clock);
+			snprintf(env_mediatypeid,127,"ZABBIX_ALERT_MEDIATYPEID=%d",alert->mediatypeid);
+			snprintf(env_status,127,"ZABBIX_ALERT_STATUS=%d",alert->status);
+			snprintf(env_retries,127,"ZABBIX_ALERT_RETRIES=%d",alert->retries);
+			snprintf(env_delay,127,"ZABBIX_ALERT_DELAY=%d",alert->delay);
+
+/*			if(-1 == execl(full_path,mediatype->exec_path,alert->sendto,alert->subject,alert->message,(char *)0))*/
+			if(-1 == execle(full_path,mediatype->exec_path,alert->sendto,alert->subject,alert->message,(char *)0, zbxenv))
 			{
 				zabbix_log( LOG_LEVEL_ERR, "Error executing [%s] [%s]", full_path, strerror(errno));
 				zabbix_syslog("Error executing [%s] [%s]", full_path, strerror(errno));
-				zbx_snprintf(error,max_error_len,"Error executing [%s] [%s]", full_path, strerror(errno));
+				snprintf(error,max_error_len-1,"Error executing [%s] [%s]", full_path, strerror(errno));
 				res = FAIL;
 			}
 			else
@@ -129,7 +175,7 @@ static int execute_action(DB_ALERT *alert,DB_MEDIATYPE *mediatype, char *error, 
 	{
 		zabbix_log( LOG_LEVEL_ERR, "Unsupported media type [%d] for alert ID [%d]", mediatype->type,alert->alertid);
 		zabbix_syslog("Unsupported media type [%d] for alert ID [%d]", mediatype->type,alert->alertid);
-		zbx_snprintf(error,max_error_len,"Unsupported media type [%d]", mediatype->type);
+		snprintf(error,max_error_len-1,"Unsupported media type [%d]", mediatype->type);
 		res=FAIL;
 	}
 
@@ -155,6 +201,7 @@ static int execute_action(DB_ALERT *alert,DB_MEDIATYPE *mediatype, char *error, 
  ******************************************************************************/
 int main_alerter_loop()
 {
+	char	sql[MAX_STRING_LEN];
 	char	error[MAX_STRING_LEN];
 	char	error_esc[MAX_STRING_LEN];
 
@@ -169,15 +216,17 @@ int main_alerter_loop()
 
 	for(;;)
 	{
-
-		zbx_setproctitle("connecting to the database");
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("connecting to the database");
+#endif
 
 		DBconnect();
 
 		now  = time(NULL);
 
-/*		zbx_snprintf(sql,sizeof(sql),"select a.alertid,a.mediatypeid,a.sendto,a.subject,a.message,a.status,a.retries,mt.mediatypeid,mt.type,mt.description,mt.smtp_server,mt.smtp_helo,mt.smtp_email,mt.exec_path from alerts a,media_type mt where a.status=0 and a.retries<3 and a.mediatypeid=mt.mediatypeid order by a.clock"); */
-		result = DBselect("select a.alertid,a.mediatypeid,a.sendto,a.subject,a.message,a.status,a.retries,mt.mediatypeid,mt.type,mt.description,mt.smtp_server,mt.smtp_helo,mt.smtp_email,mt.exec_path,a.delay,mt.gsm_modem from alerts a,media_type mt where a.status=%d and a.retries<3 and (a.repeats<a.maxrepeats or a.maxrepeats=0) and a.nextcheck<=%d and a.mediatypeid=mt.mediatypeid and " ZBX_COND_NODEID " order by a.clock", ALERT_STATUS_NOT_SENT, now, LOCAL_NODE("mt.mediatypeid"));
+/*		snprintf(sql,sizeof(sql)-1,"select a.alertid,a.mediatypeid,a.sendto,a.subject,a.message,a.status,a.retries,mt.mediatypeid,mt.type,mt.description,mt.smtp_server,mt.smtp_helo,mt.smtp_email,mt.exec_path from alerts a,media_type mt where a.status=0 and a.retries<3 and a.mediatypeid=mt.mediatypeid order by a.clock"); */
+		snprintf(sql,sizeof(sql)-1,"select a.alertid,a.mediatypeid,a.sendto,a.subject,a.message,a.status,a.retries,mt.mediatypeid,mt.type,mt.description,mt.smtp_server,mt.smtp_helo,mt.smtp_email,mt.exec_path,a.delay,mt.gsm_modem from alerts a,media_type mt where a.status=%d and a.retries<3 and (a.repeats<a.maxrepeats or a.maxrepeats=0) and a.nextcheck<=%d and a.mediatypeid=mt.mediatypeid order by a.clock", ALERT_STATUS_NOT_SENT, now);
+		result = DBselect(sql);
 
 		while((row=DBfetch(result)))
 		{
@@ -201,7 +250,7 @@ int main_alerter_loop()
 
 			mediatype.gsm_modem=row[15];
 
-			phan.sa_handler = child_signal_handler;
+			phan.sa_handler = &signal_handler;
 			sigemptyset(&phan.sa_mask);
 			phan.sa_flags = 0;
 			sigaction(SIGALRM, &phan, NULL);
@@ -215,23 +264,27 @@ int main_alerter_loop()
 			if(res==SUCCEED)
 			{
 				zabbix_log( LOG_LEVEL_DEBUG, "Alert ID [%d] was sent successfully", alert.alertid);
-				DBexecute("update alerts set repeats=repeats+1, nextcheck=%d where alertid=%d", now+alert.delay, alert.alertid);
-				DBexecute("update alerts set status=%d where alertid=%d and repeats>=maxrepeats and status=%d and retries<3", ALERT_STATUS_SENT, alert.alertid, ALERT_STATUS_NOT_SENT);
+				snprintf(sql,sizeof(sql)-1,"update alerts set repeats=repeats+1, nextcheck=%d where alertid=%d", now+alert.delay, alert.alertid);
+				DBexecute(sql);
+				snprintf(sql,sizeof(sql)-1,"update alerts set status=%d where alertid=%d and repeats>=maxrepeats and status=%d and retries<3", ALERT_STATUS_SENT, alert.alertid, ALERT_STATUS_NOT_SENT);
+				DBexecute(sql);
 			}
 			else
 			{
 				zabbix_log( LOG_LEVEL_DEBUG, "Error sending alert ID [%d]", alert.alertid);
 				zabbix_syslog("Error sending alert ID [%d]", alert.alertid);
 				DBescape_string(error,error_esc,MAX_STRING_LEN);
-				DBexecute("update alerts set retries=retries+1,error='%s' where alertid=%d", error_esc, alert.alertid);
+				snprintf(sql,sizeof(sql)-1,"update alerts set retries=retries+1,error='%s' where alertid=%d", error_esc, alert.alertid);
+				DBexecute(sql);
 			}
 
 		}
 		DBfree_result(result);
 
 		DBclose();
-
-		zbx_setproctitle("sender [sleeping for %d seconds]", CONFIG_SENDER_FREQUENCY);
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("sender [sleeping for %d seconds]", CONFIG_SENDER_FREQUENCY);
+#endif
 
 		sleep(CONFIG_SENDER_FREQUENCY);
 	}

@@ -35,7 +35,6 @@
 	"S_COMMENT_ADDED"=>			"Comment added",
 	"S_CANNOT_ADD_COMMENT"=>		"Cannot add coment",
 	"S_ALARM_ACKNOWLEDGES_BIG"=>		"ALARM ACKNOWLEDGES",
-	"S_ACKNOWLEDGE_ADDED"=>			"Acknowledge added",
 
 //	actionconf.php
 	"S_CONFIGURATION_OF_ACTIONS"=>		"Configuration of actions",
@@ -197,9 +196,9 @@
 	"S_MEDIA_TYPE_DELETED"=>		"Media type deleted",
 	"S_MEDIA_TYPE_WAS_NOT_DELETED"=>	"Media type was not deleted",
 	"S_CONFIGURATION"=>			"Configuration",
-	"S_ADMINISTRATION"=>			"Administration",
 	"S_DO_NOT_KEEP_ACTIONS_OLDER_THAN"=>	"Do not keep actions older than (in days)",
 	"S_DO_NOT_KEEP_EVENTS_OLDER_THAN"=>	"Do not keep events older than (in days)",
+	"S_MEDIA_TYPES_BIG"=>			"MEDIA TYPES",
 	"S_NO_MEDIA_TYPES_DEFINED"=>		"No media types defined",
 	"S_SMTP_SERVER"=>			"SMTP server",
 	"S_SMTP_HELO"=>				"SMTP helo",
@@ -265,13 +264,6 @@
 	"S_CREATE_IMAGE"=>			"Create Image",
 	"S_CREATE_RULE"=>			"Create Rule",
 	"S_WORKING_TIME"=>			"Working time",
-	
-//	nodes.php
-	"S_NODE"=>				"Node",
-	"S_NODES"=>				"Nodes",
-	"S_NODES_BIG"=>				"NODES",
-	"S_NEW_NODE"=>				"New node",
-	"S_NO_NODES_DEFINED"=>			"No nodes defined",
 
 //	Latest values
 	"S_LATEST_VALUES"=>			"Latest values",
@@ -288,7 +280,7 @@
 	"S_COMPARE"=>				"Compare",
 
 //	Footer
-	"S_ZABBIX_VER"=>			"ZABBIX 1.3",
+	"S_ZABBIX_VER"=>			"ZABBIX 1.1.3",
 	"S_COPYRIGHT_BY"=>			"Copyright 2001-2006 by ",
 	"S_CONNECTED_AS"=>			"Connected as",
 	"S_SIA_ZABBIX"=>			"SIA Zabbix",
@@ -316,9 +308,6 @@
 	"S_MAX_SMALL"=>				"max",
 	"S_DRAW_STYLE"=>			"Draw style",
 	"S_SIMPLE"=>				"Simple",
-	"S_GRAPH_TYPE"=>			"Graph type",
-	"S_STACKED"=>				"Stacked",
-	"S_NORMAL"=>				"Normal",
 	"S_AGGREGATED"=>			"Aggregated",
 	"S_AGGREGATED_PERIODS_COUNT"=>			"Aggregated periods count",
 
@@ -417,7 +406,6 @@
 	"S_DELETED"=>				"Deleted",
 	"S_UNKNOWN"=>				"Unknown",
 	"S_GROUPS"=>				"Groups",
-	"S_NO_GROUPS_DEFINED"=>			"No groups defined",
 	"S_NEW_GROUP"=>				"New group",
 	"S_USE_IP_ADDRESS"=>			"Use IP address",
 	"S_IP_ADDRESS"=>			"IP address",
@@ -468,10 +456,6 @@
 	"S_TEMPLATES"=>				"Templates",
 	"S_TEMPLATES_BIG"=>			"TEMPLATES",
 	"S_HOSTS"=>				"Hosts",
-	"S_UNLINK"=>				"Unlink",
-	"S_UNLINK_AND_CLEAR"=>			"Unlink and clear",
-	"S_UNLINKED_SMALL"=>			"unlinked",
-	"S_CLEANED_SMALL"=>			"cleaned",
 
 //	items.php
 	"S_NO_ITEMS_DEFINED"=>			"No items defined",
@@ -550,14 +534,6 @@
 	"S_LOG_TIME_FORMAT"=>			"Log time format",
 	"S_CREATE_ITEM"=>			"Create Item",
 	"S_ADD_ITEM"=>				"Add Item",
-	"S_X_ELEMENTS_COPY_TO_DOT_DOT_DOT"=>	"elements copy to ...",
-	"S_MODE"=>				"Mode",
-	"S_TARGET"=>				"Target",
-	"S_TARGET_TYPE"=>			"Target type",
-	"S_SKIP_EXISTING_ITEMS"=>		"Skip existing items",
-	"S_UPDATE_EXISTING_NON_LINKED_ITEMS"=>	"update existing non linked items",
-	"S_COPY"=>				"Copy",
-	"S_SHOW_ITEMS_WITH_DESCRIPTION_LIKE"=>	"Show items with description like",
 
 //	events.php
 	"S_LATEST_EVENTS"=>			"Latest events",
@@ -610,7 +586,6 @@
 	"S_NOTHING"=>				"Nothing",
 
 //	media.php
-	"S_CONFIGURATION_OF_MEDIA_TYPES_BIG"=>	"CONFIGURATION OF MEDIA TYPES",
 	"S_MEDIA"=>				"Media",
 	"S_MEDIA_BIG"=>				"MEDIA",
 	"S_MEDIA_ACTIVATED"=>			"Media activated",
@@ -652,7 +627,6 @@
 	"S_MENU_HOSTS"=>			"HOSTS",
 	"S_MENU_ITEMS"=>			"ITEMS",
 	"S_MENU_AUDIT"=>			"AUDIT",
-	"S_SWITCH"=>				"Switch",
 
 //	overview.php
 	"S_SELECT_GROUP_DOT_DOT_DOT"=>		"Select group ...",
@@ -710,7 +684,6 @@
 	"S_IT_SERVICES_AVAILABILITY_REPORT"=>	"IT services availability report",
 	"S_IT_SERVICES_AVAILABILITY_REPORT_BIG"=>	"IT SERVICES AVAILABILITY REPORT",
 	"S_FROM"=>				"From",
-	"S_FROM_SMALL"=>			"from",
 	"S_TILL"=>				"Till",
 	"S_OK"=>				"Ok",
 	"S_PROBLEMS"=>				"Problems",
@@ -754,10 +727,6 @@
 	"S_CONFIGURATION_OF_SCREEN_BIG"=>	"CONFIGURATION OF SCREEN",
 	"S_SCREEN_CELL_CONFIGURATION"=>		"Screen cell configuration",
 	"S_RESOURCE"=>				"Resource",
-	"S_RESOURCES"=>				"Resources",
-	"S_RESOURCE_TYPE"=>			"Resource type",
-	"S_RIGHTS_OF_RESOURCES"=>		"Rights of resources",
-	"S_NO_RESOURCES_DEFINED"=>		"No resources defined",
 	"S_SIMPLE_GRAPH"=>			"Simple graph",
 	"S_GRAPH_NAME"=>			"Graph name",
 	"S_WIDTH"=>				"Width",
@@ -808,8 +777,6 @@
 	"S_SELECT_SCREEN_DOT_DOT_DOT"=>		"Select screen ...",
 
 //	services.php
-	"S_ROOT_SMALL"=>			"root",
-	"S_IT_SERVICE"=>			"IT service",
 	"S_IT_SERVICES"=>			"IT services",
 	"S_SERVICE_UPDATED"=>			"Service updated",
 	"S_CANNOT_UPDATE_SERVICE"=>		"Cannot update service",
@@ -845,26 +812,10 @@
 	"S_TRIGGER"=>				"Trigger",
 	"S_SERVER"=>				"Server",
 	"S_DELETE"=>				"Delete",
-	"S_DELETE_SELECTED"=>			"Delete selected",
 	"S_DELETE_SELECTED_SERVICES"=>		"Delete selected services?",
 	"S_DELETE_SELECTED_LINKS"=>		"Delete selected links?",
 	"S_SERVICES_DELETED"=>			"Services deleted",
 	"S_CANNOT_DELETE_SERVICES"=>		"Cannot delete services",
-	"S_UPTIME"=>				"Uptime",
-	"S_DOWNTIME"=>				"Downtime",
-	"S_ONE_TIME_DOWNTIME"=>			"One-time downtime",
-	"S_NO_TIMES_DEFINED"=>			"No times defined",
-	"S_SERVICE_TIMES"=>			"Service times",
-	"S_NEW_SERVICE_TIME"=>			"New service time",
-	"S_NOTE"=>				"Note",
-
-	"S_SUNDAY"=>				"Sunday",
-	"S_MONDAY"=>				"Monday",
-	"S_TUESDAY"=>				"Tuesday",
-	"S_WEDNESDAY"=>				"Wednesday",
-	"S_THURSDAY"=>				"Thursday",
-	"S_FRIDAY"=>				"Friday",
-	"S_SATURDAY"=>				"Saturday",
 
 //	srv_status.php
 	"S_IT_SERVICES_BIG"=>			"IT SERVICES",
@@ -895,8 +846,6 @@
 	"S_EXPRESSION"=>			"Expression",
 	"S_DISABLED"=>				"Disabled",
 	"S_ENABLED"=>				"Enabled",
-	"S_DISABLE_SELECTED"=>			"Disable selected",
-	"S_ENABLE_SELECTED"=>			"Enable selected",
 	"S_ENABLE_SELECTED_TRIGGERS_Q"=>	"Enable selected triggers?",
 	"S_DISABLE_SELECTED_TRIGGERS_Q"=>	"Disable selected triggers?",
 	"S_DELETE_SELECTED_TRIGGERS_Q"=>	"Delete selected triggers?",
@@ -905,7 +854,6 @@
 	"S_CANNOT_UPDATE_TRIGGER"=>		"Cannot update trigger",
 	"S_DEPENDS_ON"=>			"Depends on",
 	"S_URL"=>				"URL",
-	"S_INVALID_URL"=>			"Invalid URL",
 	"S_CREATE_TRIGGER"=>			"Create Trigger",
 
 //	tr_comments.php
@@ -936,10 +884,6 @@
 	"S_ACK"=>				"Ack",
 
 //	users.php
-	"S_ZABBIX_USER"=>			"ZABBIX User",
-	"S_ZABBIX_ADMIN"=>			"ZABBIX Admin",
-	"S_SUPPER_ADMIN"=>			"ZABBIX Supper Admin",
-	"S_USER_TYPE"=>				"User type",
 	"S_USERS"=>				"Users",
 	"S_USER_ADDED"=>			"User added",
 	"S_CANNOT_ADD_USER"=>			"Cannot add user",
@@ -951,7 +895,6 @@
 	"S_PERMISSION_ADDED"=>			"Permission added",
 	"S_CANNOT_ADD_PERMISSION"=>		"Cannot add permission",
 	"S_USER_UPDATED"=>			"User updated",
-	"S_ONLY_FOR_GUEST_ALLOWED_EMPTY_PASSWORD"=>	"Only for guest allowed empty passwod.",
 	"S_CANNOT_UPDATE_USER"=>		"Cannot update user",
 	"S_CANNOT_UPDATE_USER_BOTH_PASSWORDS"=>	"Cannot update user. Both passwords must be equal.",
 	"S_GROUP_ADDED"=>			"Group added",
@@ -977,23 +920,17 @@
 	"S_NO_USERS_DEFINED"=>			"No users defined",
 	"S_PERMISSION"=>			"Permission",
 	"S_RIGHT"=>				"Right",
-	"S_RIGHTS"=>				"Rights",
-	"S_NO_RIGHTS_DEFINED"=>			"No rights defined",
 	"S_RESOURCE_NAME"=>			"Resource name",
 	"S_READ_ONLY"=>				"Read only",
 	"S_READ_WRITE"=>			"Read-write",
-	"S_DENY"=>				"Deny",
 	"S_HIDE"=>				"Hide",
 	"S_PASSWORD"=>				"Password",
-	"S_CHANGE_PASSWORD"=>			"Change password",
 	"S_PASSWORD_ONCE_AGAIN"=>		"Password (once again)",
 	"S_URL_AFTER_LOGIN"=>			"URL (after login)",
 	"S_AUTO_LOGOUT_IN_SEC"=>		"Auto-logout (in sec=>0 - disable)",
 	"S_SCREEN_REFRESH"=>                    "Refresh (in seconds)",
 	"S_CREATE_USER"=>			"Create User",
 	"S_CREATE_GROUP"=>			"Create Group",
-	"S_DELETE_SELECTED_USERS_Q"=>		"Delete selected users?",
-	"S_NO_ACCESSIBLE_RESOURCES"=>		"No accessibles resources",
 
 //	audit.php
 	"S_AUDIT_LOG"=>				"Audit log",
@@ -1014,14 +951,17 @@
 	"S_USER_PROFILE"=>			"User profile",
 	"S_LANGUAGE"=>				"Language",
 	"S_ENGLISH_GB"=>			"English (GB)",
+	"S_BRAZILIAN_PT"=>			"Brazilian (PT)",
 	"S_FRENCH_FR"=>				"French (FR)",
 	"S_GERMAN_DE"=>				"German (DE)",
 	"S_ITALIAN_IT"=>			"Italian (IT)",
 	"S_LATVIAN_LV"=>			"Latvian (LV)",
 	"S_RUSSIAN_RU"=>			"Russian (RU)",
 	"S_SPANISH_SP"=>			"Spanish (SP)",
+	"S_SWEDISH_SE"=>			"Swedish (SE)",
 	"S_JAPANESE_JP"=>			"Japanese (JP)",
 	"S_CHINESE_CN"=>			"Chinese (CN)",
+	"S_DUTCH_NL"=>				"Dutch (NL)",
 
 //	index.php
 	"S_ZABBIX_BIG"=>			"ZABBIX",

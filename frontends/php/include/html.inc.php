@@ -85,45 +85,22 @@
 		}
 	}
 
-	function	prepare_url(&$var, $varname)
+	function url_param($parameter)
 	{
-		$result = "";
-
-		if(is_array($var))
-		{
-			foreach($var as $id => $par)
-				$result .= prepare_url($par,$varname."[".$id."]");
-		}
-		else
-		{
-			$result = "&".$varname."=".$var;
-		}
-		return $result;
-	}
-
-	function url_param($parameter,$request=true,$name=null)
-	{
+		global $_REQUEST;
 	
 		$result = "";
-
-		if(!isset($name)) $name = $parameter;
-		
-		if($request)
+		if(isset($_REQUEST[$parameter]))
 		{
-			global $_REQUEST;
-			
-			$var =& $_REQUEST[$parameter];
-		}
-		else
-		{
-			global $$parameter;
-			
-			$var =& $$parameter;
-		}
-		
-		if(isset($var))
-		{
-			$result = prepare_url($var,$name);
+			if(is_array($_REQUEST[$parameter]))
+			{
+				foreach($_REQUEST[$parameter] as $par)
+					$result .= "&".$parameter."[]=".$par;
+			}
+			else
+			{
+				$result = "&".$parameter."=".$_REQUEST[$parameter];
+			}
 		}
 		return $result;
 	}
@@ -183,6 +160,7 @@
 
 	function table_nodata($text="...")
 	{
+		cr();
 		echo "<TABLE BORDER=0 align=center WIDTH=\"100%\" BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
 		echo "<TR BGCOLOR=\"#DDDDDD\">";
 		echo "<TD ALIGN=CENTER>";
@@ -190,5 +168,6 @@
 		echo "</TD>";
 		echo "</TR>";
 		echo "</TABLE>";
+		cr();
 	}
 ?>

@@ -20,8 +20,14 @@
 #ifndef ZABBIX_TIMER_H
 #define ZABBIX_TIMER_H
 
-extern	int	CONFIG_NODEID;
+/*
+extern	void	signal_handler(int);
+extern  int     server_num;
 
-void main_timer_loop();
+extern  int     CONFIG_TIMEOUT;
+extern  int     CONFIG_SUCKERD_FORKS;
+*/
+
+int main_timer_loop();
 
 #endif

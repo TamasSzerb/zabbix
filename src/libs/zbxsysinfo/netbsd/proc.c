@@ -131,8 +131,8 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
         usr_ok = 0;
     
         strscpy(filename,"/proc/");	
-        strncat(filename,entries->d_name,MAX_STRING_LEN);
-        strncat(filename,"/status",MAX_STRING_LEN);
+        zbx_strlcat(filename,entries->d_name,MAX_STRING_LEN);
+        zbx_strlcat(filename,"/status",MAX_STRING_LEN);
     
     /* Self is a symbolic link. It leads to incorrect results for proc_cnt[zabbix_agentd] */
     /* Better approach: check if /proc/x/ is symbolic link */
@@ -143,7 +143,8 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
     
         if(stat(filename,&buf)==0)
         {
-            if( NULL == (f = fopen(filename,"r") ))
+            f=fopen(filename,"r");
+            if(f==NULL)
             {
                 continue;
             }
@@ -164,7 +165,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
             
                 if(proc_ok == 0) 
                 {
-                    zbx_fclose(f);
+                    fclose(f);
                     continue;
                 }
             }
@@ -259,7 +260,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
             }
             
                     
-            zbx_fclose(f);
+            fclose(f);
         }
     }
     closedir(dir);
@@ -394,12 +395,13 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
             }
 
             strscpy(filename,"/proc/");	
-            strncat(filename,entries->d_name,MAX_STRING_LEN);
-            strncat(filename,"/status",MAX_STRING_LEN);
+            zbx_strlcat(filename,entries->d_name,MAX_STRING_LEN);
+            zbx_strlcat(filename,"/status",MAX_STRING_LEN);
 
             if(stat(filename,&buf)==0)
             {
-                if(NULL == (f = fopen(filename,"r") ))
+                f=fopen(filename,"r");
+                if(f==NULL)
                 {
                     continue;
                 }
@@ -420,7 +422,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
                 
                     if(proc_ok == 0) 
                     {
-                        zbx_fclose(f);
+                        fclose(f);
                         continue;
                     }
                 }
@@ -488,7 +490,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
                     proccount++;
                 }
                 
-                zbx_fclose(f);
+                fclose(f);
             }
     }
     closedir(dir);

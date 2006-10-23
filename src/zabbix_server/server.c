@@ -51,8 +51,6 @@
 #include "expression.h"
 #include "sysinfo.h"
 
-#include "daemon.h"
-
 #include "alerter/alerter.h"
 #include "housekeeper/housekeeper.h"
 #include "pinger/pinger.h"
@@ -60,7 +58,6 @@
 #include "poller/checks_snmp.h"
 #include "timer/timer.h"
 #include "trapper/trapper.h"
-#include "nodewatcher/nodewatcher.h"
 
 #define       LISTENQ 1024
 
@@ -95,8 +92,9 @@ struct option longopts[] =
 };
 
 
-pid_t	*threads=NULL;
+pid_t	*pids=NULL;
 
+int	server_num=0;
 
 int	CONFIG_POLLER_FORKS		= POLLER_FORKS;
 /* For trapper */
@@ -105,6 +103,7 @@ int	CONFIG_LISTEN_PORT		= 10051;
 int	CONFIG_TRAPPER_TIMEOUT		= TRAPPER_TIMEOUT;
 /**/
 /*int	CONFIG_NOTIMEWAIT		=0;*/
+int	CONFIG_TIMEOUT			= POLLER_TIMEOUT;
 int	CONFIG_HOUSEKEEPING_FREQUENCY	= 1;
 int	CONFIG_SENDER_FREQUENCY		= 30;
 int	CONFIG_PINGER_FREQUENCY		= 60;
@@ -114,6 +113,9 @@ int	CONFIG_UNREACHABLE_PERIOD	= 45;
 int	CONFIG_UNREACHABLE_DELAY	= 15;
 int	CONFIG_UNAVAILABLE_DELAY	= 60;
 int	CONFIG_LOG_LEVEL		= LOG_LEVEL_WARNING;
+char	*CONFIG_FILE			= NULL;
+char	*CONFIG_PID_FILE		= NULL;
+char	*CONFIG_LOG_FILE		= NULL;
 char	*CONFIG_ALERT_SCRIPTS_PATH	= NULL;
 char	*CONFIG_FPING_LOCATION		= NULL;
 char	*CONFIG_DBHOST			= NULL;
@@ -124,11 +126,189 @@ char	*CONFIG_DBSOCKET		= NULL;
 int	CONFIG_DBPORT			= 3306;
 int	CONFIG_ENABLE_REMOTE_COMMANDS	= 0;
 
-int	CONFIG_NODEID			= 0;
-int	CONFIG_MASTER_NODEID		= -1;
-
 /* From table config */
 int	CONFIG_REFRESH_UNSUPPORTED	= 0;
+
+/******************************************************************************
+ *                                                                            *
+ * Function: uninit                                                           *
+ *                                                                            *
+ * Purpose: kill all child processes, if any, and exit                        *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+void	uninit(void)
+{
+	int i;
+
+	if(server_num == 0)
+	{
+		if(pids != NULL)
+		{
+			for(i=0;i<CONFIG_POLLER_FORKS+CONFIG_TRAPPERD_FORKS-1;i++)
+			{
+				if(kill(pids[i],SIGTERM) !=0 )
+				{
+					zabbix_log( LOG_LEVEL_WARNING, "Cannot kill process. PID=[%d] [%s]", pids[i], strerror(errno));
+				}
+				else
+				{
+					zabbix_log( LOG_LEVEL_DEBUG, "%d. Killing PID=[%d]", i, pids[i]);
+				}
+			}
+		}
+
+		if(unlink(CONFIG_PID_FILE) != 0)
+		{
+			zabbix_log( LOG_LEVEL_DEBUG, "Cannot remove PID file [%s] [%s]",
+				CONFIG_PID_FILE, strerror(errno));
+		}
+		zabbix_log( LOG_LEVEL_CRIT, "ZABBIX server is down.");
+	}
+	exit(FAIL);
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: signal_handler                                                   *
+ *                                                                            *
+ * Purpose: handle signals                                                    *
+ *                                                                            *
+ * Parameters: sig - signal id                                                *
+ *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+void	signal_handler( int sig )
+{
+	if( SIGALRM == sig )
+	{
+		signal( SIGALRM, signal_handler );
+ 
+		zabbix_log( LOG_LEVEL_DEBUG, "Timeout while executing operation." );
+	}
+	else if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig || SIGPIPE == sig )
+	{
+		zabbix_log( LOG_LEVEL_DEBUG, "Server [%d]. Got QUIT or INT or TERM or PIPE signal. Exiting...", server_num );
+		uninit();
+	}
+        else if( (SIGCHLD == sig) && (server_num == 0) )
+	{
+		zabbix_log( LOG_LEVEL_CRIT, "One server process died. Shutting down...");
+		uninit();
+	}
+/*	else if( SIGCHLD == sig )
+	{
+		zabbix_log( LOG_LEVEL_ERR, "One child died. Exiting ..." );
+		uninit();
+		exit( FAIL );
+	}*/
+	else if( SIGPIPE == sig)
+	{
+		zabbix_log( LOG_LEVEL_WARNING, "Got SIGPIPE. Where it came from???");
+	}
+	else
+	{
+		zabbix_log( LOG_LEVEL_WARNING, "Got signal [%d]. Ignoring ...", sig);
+	}
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: daemon-init                                                      *
+ *                                                                            *
+ * Purpose: init process as daemon                                            *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments: it doesn't allow running under 'root'                            *
+ *                                                                            *
+ ******************************************************************************/
+void	daemon_init(void)
+{
+	int		i;
+	pid_t		pid;
+	struct passwd	*pwd;
+
+	/* running as root ?*/
+	if((getuid()==0) || (getgid()==0))
+	{
+		pwd = getpwnam("zabbix");
+		if ( pwd == NULL )
+		{
+			fprintf(stderr,"User zabbix does not exist.\n");
+			fprintf(stderr, "Cannot run as root !\n");
+			exit(FAIL);
+		}
+		if( (setgid(pwd->pw_gid) ==-1) || (setuid(pwd->pw_uid) == -1) )
+		{
+			fprintf(stderr,"Cannot setgid or setuid to zabbix [%s]", strerror(errno));
+			exit(FAIL);
+		}
+
+#ifdef HAVE_FUNCTION_SETEUID
+		if( setegid(pwd->pw_gid) ==-1)
+		{
+			fprintf(stderr,"Cannot setegid to zabbix [%s]\n", strerror(errno));
+			exit(FAIL);
+		}
+		if( seteuid(pwd->pw_uid) ==-1)
+		{
+			fprintf(stderr,"Cannot seteuid to zabbix [%s]\n", strerror(errno));
+			exit(FAIL);
+		}
+#endif
+/*		fprintf(stderr,"UID [%d] GID [%d] EUID[%d] GUID[%d]\n", getuid(), getgid(), geteuid(), getegid());*/
+
+	}
+
+	if(CONFIG_LOG_FILE == NULL)
+	{
+		zabbix_open_log(LOG_TYPE_SYSLOG,CONFIG_LOG_LEVEL,NULL);
+	}
+	else
+	{
+		zabbix_open_log(LOG_TYPE_FILE,CONFIG_LOG_LEVEL,CONFIG_LOG_FILE);
+	}
+
+	if( (pid = fork()) != 0 )
+	{
+		exit( 0 );
+	}
+	setsid();
+
+	signal( SIGHUP, SIG_IGN );
+
+	if( (pid = fork()) !=0 )
+	{
+		exit( 0 );
+	}
+
+	chdir("/");
+
+/*	umask(022);*/
+	umask(002);
+
+	for(i=0;i<MAXFD;i++)
+	{
+		if(i != fileno(stderr)) close(i);
+	}
+}
 
 /******************************************************************************
  *                                                                            *
@@ -150,7 +330,7 @@ void	init_config(void)
 	static struct cfg_line cfg[]=
 	{
 /*		 PARAMETER	,VAR	,FUNC,	TYPE(0i,1s),MANDATORY,MIN,MAX	*/
-		{"StartPollers",&CONFIG_POLLER_FORKS,0,TYPE_INT,PARM_OPT,8,255},
+		{"StartPollers",&CONFIG_POLLER_FORKS,0,TYPE_INT,PARM_OPT,6,255},
 		{"HousekeepingFrequency",&CONFIG_HOUSEKEEPING_FREQUENCY,0,TYPE_INT,PARM_OPT,1,24},
 		{"SenderFrequency",&CONFIG_SENDER_FREQUENCY,0,TYPE_INT,PARM_OPT,5,3600},
 		{"PingerFrequency",&CONFIG_PINGER_FREQUENCY,0,TYPE_INT,PARM_OPT,1,3600},
@@ -166,7 +346,7 @@ void	init_config(void)
 		{"DisablePinger",&CONFIG_DISABLE_PINGER,0,TYPE_INT,PARM_OPT,0,1},
 		{"DisableHousekeeping",&CONFIG_DISABLE_HOUSEKEEPING,0,TYPE_INT,PARM_OPT,0,1},
 		{"DebugLevel",&CONFIG_LOG_LEVEL,0,TYPE_INT,PARM_OPT,0,4},
-		{"PidFile",&APP_PID_FILE,0,TYPE_STRING,PARM_OPT,0,0},
+		{"PidFile",&CONFIG_PID_FILE,0,TYPE_STRING,PARM_OPT,0,0},
 		{"LogFile",&CONFIG_LOG_FILE,0,TYPE_STRING,PARM_OPT,0,0},
 		{"AlertScriptsPath",&CONFIG_ALERT_SCRIPTS_PATH,0,TYPE_STRING,PARM_OPT,0,0},
 		{"DBHost",&CONFIG_DBHOST,0,TYPE_STRING,PARM_OPT,0,0},
@@ -175,7 +355,6 @@ void	init_config(void)
 		{"DBPassword",&CONFIG_DBPASSWORD,0,TYPE_STRING,PARM_OPT,0,0},
 		{"DBSocket",&CONFIG_DBSOCKET,0,TYPE_STRING,PARM_OPT,0,0},
 		{"DBPort",&CONFIG_DBPORT,0,TYPE_INT,PARM_OPT,1024,65535},
-		{"NodeID",&CONFIG_NODEID,0,TYPE_INT,PARM_OPT,0,65535},
 		{0}
 	};
 
@@ -192,9 +371,9 @@ void	init_config(void)
 		zabbix_log( LOG_LEVEL_CRIT, "DBName not in config file");
 		exit(1);
 	}
-	if(APP_PID_FILE == NULL)
+	if(CONFIG_PID_FILE == NULL)
 	{
-		APP_PID_FILE=strdup("/tmp/zabbix_server.pid");
+		CONFIG_PID_FILE=strdup("/tmp/zabbix_server.pid");
 	}
 	if(CONFIG_ALERT_SCRIPTS_PATH == NULL)
 	{
@@ -217,14 +396,16 @@ void	trend(void)
 
 	int		i,j;
 
-	result2 = DBselect("select itemid from items");
+	snprintf(sql,sizeof(sql)-1,"select itemid from items");
+	result2 = DBselect(sql);
 	for(i=0;i<DBnum_rows(result2);i++)
 	{
-		result = DBselect("select clock-clock%%3600, count(*),min(value),avg(value),max(value) from history where itemid=%d group by 1",atoi(DBget_field(result2,i,0)));
+		snprintf(sql,sizeof(sql)-1,"select clock-clock%%3600, count(*),min(value),avg(value),max(value) from history where itemid=%d group by 1",atoi(DBget_field(result2,i,0)));
+		result = DBselect(sql);
 	
 		for(j=0;j<DBnum_rows(result);j++)
 		{
-			zbx_snprintf(sql,sizeof(sql),"insert into trends (itemid, clock, num, value_min, value_avg, value_max) values (%d,%d,%d,%f,%f,%f)",atoi(DBget_field(result2,i,0)), atoi(DBget_field(result,j,0)),atoi(DBget_field(result,j,1)),atof(DBget_field(result,j,2)),atof(DBget_field(result,j,3)),atof(DBget_field(result,j,4)));
+			snprintf(sql,sizeof(sql)-1,"insert into trends (itemid, clock, num, value_min, value_avg, value_max) values (%d,%d,%d,%f,%f,%f)",atoi(DBget_field(result2,i,0)), atoi(DBget_field(result,j,0)),atoi(DBget_field(result,j,1)),atof(DBget_field(result,j,2)),atof(DBget_field(result,j,3)),atof(DBget_field(result,j,4)));
 			DBexecute(sql);
 		}
 		DBfree_result(result);
@@ -273,13 +454,13 @@ int	tcp_listen(const char *host, int port, socklen_t *addrlenp)
 	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
 	{
 		zabbix_log( LOG_LEVEL_CRIT, "Cannot bind to port %d. Another zabbix_server running? Shutting down...", port);
-		exit(FAIL);
+		uninit();
 	}
 	
 	if(listen(sockfd, LISTENQ) !=0 )
 	{
 		zabbix_log( LOG_LEVEL_CRIT, "listen() failed");
-		exit(FAIL);
+		uninit();
 	}
 
 	*addrlenp = sizeof(serv_addr);
@@ -302,23 +483,21 @@ int	tcp_listen(const char *host, int port, socklen_t *addrlenp)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
+/*
+#define USE_TEST_FUNCTION 1 
+*/
 
-#ifdef TEST
+#ifdef USE_TEST_FUNCTION
 
 void    run_commands(DB_TRIGGER *trigger,DB_ACTION *action);
 
 void test()
 {
-	time_t now = time(NULL);
-	char delay_flex[] = "10/1-3,07:00-20:00;15/1-7,20:01-22:00;5/4-4,11:00-11:40";
-
 	printf("-= Test Started =-\n");
 
-	printf("Next check: %d (%d)\n", calculate_item_nextcheck(1000, 20, delay_flex,now),now);
-	
 	printf("-= Test completed =-\n");
 }
-#endif /* TEST */
+#endif
 
 /******************************************************************************
  *                                                                            *
@@ -338,10 +517,20 @@ void test()
 int main(int argc, char **argv)
 {
 	int	ch;
-	
-#ifdef HAVE_ZZZ
+	int	i;
+	pid_t	pid;
+
+	struct	sigaction phan;
+
+	int		listenfd;
+	socklen_t	addrlen;
+
+	char		host[128];
+
+	char sql[MAX_STRING_LEN];
 	DB_RESULT	result;
 	DB_ROW		row;
+#ifdef HAVE_ZZZ
 	const char ** v;
 #endif
 
@@ -351,6 +540,7 @@ int main(int argc, char **argv)
 	init_config();
 
 	DBconnect();
+//	result = DBselect("select * from history where itemid=20272");
 	result = DBselect("select NULL from history where itemid=20272222");
 	row=DBfetch(result);
 	if(!row) printf("OK");
@@ -366,6 +556,7 @@ int main(int argc, char **argv)
 #ifdef HAVE_ZZZ
 /* */
 	DBconnect();
+/*	DBexecute("update history set value=value-10 where itemid=20272");*/
 	result = DBselect("select itemid,key_,description from items");
 	while ( SQLO_SUCCESS == sqlo_fetch(result, 1))
 	{
@@ -404,7 +595,7 @@ int main(int argc, char **argv)
 
 	init_config();
 
-#ifdef TEST
+#ifdef USE_TEST_FUNCTION
 	if(CONFIG_LOG_FILE == NULL)
 	{
 		zabbix_open_log(LOG_TYPE_SYSLOG,CONFIG_LOG_LEVEL,NULL);
@@ -419,54 +610,44 @@ int main(int argc, char **argv)
 	test();
 	DBclose();
 	return 0;
-#endif /* TEST */
+#endif
 	
-	return daemon_start(CONFIG_ALLOW_ROOT_PERMISSION);
-}
+	daemon_init();
 
-int MAIN_ZABBIX_ENTRY(void)
-{
-        DB_RESULT       result;
-        DB_ROW          row;
+	phan.sa_handler = &signal_handler; /* set up sig handler using sigaction() */
+	sigemptyset(&phan.sa_mask);
+	phan.sa_flags = 0;
+	sigaction(SIGINT, &phan, NULL);
+	sigaction(SIGQUIT, &phan, NULL);
+	sigaction(SIGTERM, &phan, NULL);
+	sigaction(SIGPIPE, &phan, NULL);
 
-	int	i;
-	pid_t	pid;
-
-	int		listenfd;
-	socklen_t	addrlen;
-
-	char		host[128];
-	
-	int		server_num = 0;
-
-	if(CONFIG_LOG_FILE == NULL)
+/* Moved to daemon_init() */
+/*	if(CONFIG_LOG_FILE == NULL)
 	{
 		zabbix_open_log(LOG_TYPE_SYSLOG,CONFIG_LOG_LEVEL,NULL);
 	}
 	else
 	{
 		zabbix_open_log(LOG_TYPE_FILE,CONFIG_LOG_LEVEL,CONFIG_LOG_FILE);
+	}*/
+
+	if( FAIL == create_pid_file(CONFIG_PID_FILE))
+	{
+		exit(FAIL);
 	}
 
 	zabbix_log( LOG_LEVEL_WARNING, "Starting zabbix_server. ZABBIX %s.", ZABBIX_VERSION);
 
 	DBconnect();
 
-	result = DBselect("select refresh_unsupported from config where " ZBX_COND_NODEID, LOCAL_NODE("configid"));
+	snprintf(sql,sizeof(sql)-1,"select refresh_unsupported from config");
+	result = DBselect(sql);
 	row = DBfetch(result);
 
-	if( (row != NULL) && DBis_null(row[0]) != SUCCEED)
+	if(row && DBis_null(row[0]) != SUCCEED)
 	{
 		CONFIG_REFRESH_UNSUPPORTED = atoi(row[0]);
-	}
-	DBfree_result(result);
-
-	result = DBselect("select masterid from nodes where nodeid=%d", CONFIG_NODEID);
-	row = DBfetch(result);
-
-	if( (row != NULL) && DBis_null(row[0]) != SUCCEED)
-	{
-		CONFIG_MASTER_NODEID = atoi(row[0]);
 	}
 	DBfree_result(result);
 
@@ -482,18 +663,18 @@ int MAIN_ZABBIX_ENTRY(void)
 	return 0;
 #endif
 	DBclose();
-	threads = calloc(CONFIG_POLLER_FORKS+CONFIG_TRAPPERD_FORKS,sizeof(pid_t));
+	pids=calloc(CONFIG_POLLER_FORKS+CONFIG_TRAPPERD_FORKS-1,sizeof(pid_t));
 
-	for(i=1; i<CONFIG_POLLER_FORKS; i++)
+	for(i=1;i<CONFIG_POLLER_FORKS;i++)
 	{
 		if((pid = fork()) == 0)
 		{
-			server_num = i;
-			break; 
+			server_num=i;
+			break;
 		}
 		else
 		{
-			threads[i]=pid;
+			pids[i-1]=pid;
 		}
 	}
 
@@ -501,7 +682,7 @@ int MAIN_ZABBIX_ENTRY(void)
 
 	if( server_num == 0)
 	{
-		
+		sigaction(SIGCHLD, &phan, NULL);
 /* Run trapper processes then do housekeeping */
 		if(gethostname(host,127) != 0)
 		{
@@ -511,21 +692,19 @@ int MAIN_ZABBIX_ENTRY(void)
 
 		listenfd = tcp_listen(host,CONFIG_LISTEN_PORT,&addrlen);
 
-		for(i = CONFIG_POLLER_FORKS; i < CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS; i++)
+		for(i = CONFIG_POLLER_FORKS; i< CONFIG_POLLER_FORKS+CONFIG_TRAPPERD_FORKS; i++)
 		{
-			threads[i] = child_trapper_make(i, listenfd, addrlen);
+			pids[i-1] = child_trapper_make(i, listenfd, addrlen);
 		}
 
 /* First instance of zabbix_server performs housekeeping procedures */
 		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [Housekeeper]",server_num);
 
-		for(i=0; i < CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS; i++)
+		for(i=0;i<CONFIG_POLLER_FORKS+CONFIG_TRAPPERD_FORKS-1;i++)
 		{
-				zabbix_log( LOG_LEVEL_DEBUG, "%d. PID=[%d]", i, threads[i]);
+				zabbix_log( LOG_LEVEL_DEBUG, "%d. PID=[%d]", i, pids[i]);
 		}
 		zabbix_log( LOG_LEVEL_CRIT, "ZABBIX server is up.");
-
-		init_main_process();
 
 		main_housekeeper_loop();
 	}
@@ -556,13 +735,7 @@ int MAIN_ZABBIX_ENTRY(void)
 		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [Poller for unreachable hosts. SNMP:OFF]",server_num);
 #endif
 
-		main_poller_loop(server_num);
-	}
-	else if(server_num == 5)
-	{
-/* Periodic checker of node configuration changes */
-		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [Node watcher]",server_num);
-		main_nodewatcher_loop();
+		main_poller_loop();
 	}
 	else
 	{
@@ -573,44 +746,8 @@ int MAIN_ZABBIX_ENTRY(void)
 		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [Poller. SNMP:OFF]",server_num);
 #endif
 
-		main_poller_loop(server_num);
+		main_poller_loop();
 	}
 
 	return SUCCEED;
 }
-
-void	zbx_on_exit()
-{
-	zabbix_log(LOG_LEVEL_DEBUG, "zbx_on_exit() called.");
-	
-#if !defined(_WINDOWS)
-	
-	int i = 0;
-
-	if(threads != NULL)
-	{
-		for(i = 0; i < CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS; i++)
-		{
-			if(threads[i]) {
-				kill(threads[i],SIGTERM);
-				threads[i] = (ZBX_THREAD_HANDLE)NULL;
-			}
-		}
-	}
-	
-#endif /* not _WINDOWS */
-
-#ifdef USE_PID_FILE
-
-	daemon_stop();
-
-#endif /* USE_PID_FILE */
-
-	zbx_sleep(2); /* wait for all threads closing */
-	
-	zabbix_log(LOG_LEVEL_INFORMATION, "ZABBIX Server stopped");
-	zabbix_close_log();
-
-	exit(SUCCEED);
-}
-

@@ -85,27 +85,19 @@
 	** Author: 
 	**     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
 	**/
-
+	
 //	define("USE_PROFILING",1);
-	define("USE_VAR_MON",1);
-	define("USE_TIME_PROF",1);
-	define("USE_MEM_PROF",1);
-	define("USE_COUNTER_PROF",1);
-	define("USE_MENU_PROF",1);
-	//define("USE_MENU_DETAILS",1);
-	define("USE_SQLREQUEST_PROF",1);
-	//define("SHOW_SQLREQUEST_DETAILS",1);
-	
-	if(!defined("OBR")) define("OBR","<br/>\n");
-	
+//	define("USE_TIME_PROF",1);
+//	define("USE_MEM_PROF",1);
+//	define("USE_SQLREQUEST_PROF",1);
+//	define("SHOW_SQLREQUEST_DETAILS",1);
+
 if(defined('USE_PROFILING'))
 {
 	$starttime=array();
 	$memorystamp=array();
-	$sqlrequests = defined('SHOW_SQLREQUEST_DETAILS') ? array() : 0;
+	$sqlrequests=array();
 	$sqlmark = array();
-	$perf_counter = array();
-	$var_list = array();
 
 	class COpt
 	{
@@ -121,15 +113,6 @@ if(defined('USE_TIME_PROF')) {
 		}
 
 
-		/* public static */ function showmemoryusage($descr=null)
-		{
-if(defined('USE_MEM_PROF')) {
-			$memory_usage = COpt::getmemoryusage();
-			$memory_usage = $memory_usage.'b | '.($memory_usage>>10).'K | '.($memory_usage>>20).'M';
-			SDI('PHP memory usage ['.$descr.'] '.$memory_usage);
-}
-		}
-
 		/* protected static */ function getmemoryusage() {
 if(defined('USE_MEM_PROF')) {
 			return memory_get_usage('memory_limit');
@@ -138,48 +121,28 @@ if(defined('USE_MEM_PROF')) {
 }
 		}
 
-		/* public static */ function counter_up($type=NULL)
+		/* protected static */ function mem2str($size)
 		{
-if(defined('USE_COUNTER_PROF'))
-{
-			global $perf_counter;
-			global $starttime;
-
-			foreach(array_keys($starttime) as $keys)
-			{
-				if(!isset($perf_counter[$keys][$type]))
-					$perf_counter[$keys][$type]=1;
-				else
-					$perf_counter[$keys][$type]++;
-			}
-}
+			$prefix = 'B';
+			if($size > 1048576) {	$size = $size/1048576;	$prefix = 'M'; }
+			elseif($size > 1024) {	$size = $size/1024;	$prefix = 'K'; }
+			return round($size, 6).$prefix;
 		}
-		
+
 		/* public static */ function profiling_start($type=NULL)
 		{
 			global $starttime;
 			global $memorystamp;
 			global $sqlmark;
 			global $sqlrequests;
-			global $var_list;
 
 			if(is_null($type)) $type='global';
 
 			$starttime[$type] = COpt::getmicrotime();
 			$memorystamp[$type] = COpt::getmemoryusage();
-if(defined('USE_VAR_MON'))
-{
-			
-			$var_list[$type] = isset($GLOBALS) ? array_keys($GLOBALS) : array();
-}
 if(defined('USE_SQLREQUEST_PROF'))
 {
-	if(defined('SHOW_SQLREQUEST_DETAILS')){
 			$sqlmark[$type] = count($sqlrequests);
-	}
-	else {
-			$sqlmark[$type] = $sqlrequests;
-	}
 }
 		}
 
@@ -188,11 +151,7 @@ if(defined('USE_SQLREQUEST_PROF'))
 if(defined('USE_SQLREQUEST_PROF'))
 {
 			global $sqlrequests;
-	if(defined('SHOW_SQLREQUEST_DETAILS')){
 			array_push($sqlrequests, $sql);
-	}else{
-			$sqlrequests++;
-	}
 }
 		}
 
@@ -202,59 +161,33 @@ if(defined('USE_SQLREQUEST_PROF'))
 			global $memorystamp;
 			global $sqlrequests;
 			global $sqlmark;
-			global $perf_counter;
-			global $var_list;
 
 			$endtime = COpt::getmicrotime();
 			$memory = COpt::getmemoryusage();
 
 			if(is_null($type)) $type='global';
 
-			echo OBR;
+			echo "<br>\n";
 if(defined('USE_TIME_PROF'))
 {
-			echo "(".$type.") Time to execute: ".round($endtime - $starttime[$type],6)." seconds!".OBR;
+			echo "(".$type.") Time to execute: ".round($endtime - $starttime[$type],6)." seconds!\n<br>\n";
 }
 if(defined('USE_MEM_PROF'))
 {
-			echo "(".$type.") Memory limit	 : ".ini_get('memory_limit').OBR;
-			echo "(".$type.") Memory usage	 : ".mem2str($memorystamp[$type])." - ".mem2str($memory).OBR;
-			echo "(".$type.") Memory leak	 : ".mem2str($memory - $memorystamp[$type]).OBR;
-}
-if(defined('USE_VAR_MON'))
-{
-			$curr_var_list = isset($GLOBALS) ? array_keys($GLOBALS) : array();
-			$var_diff = array_diff($curr_var_list, $var_list[$type]);
-			echo "(".$type.") Undeleted vars : ".count($var_diff)." [";
-			print_r(implode(', ',$var_diff));
-			echo "]".OBR;
-}
-if(defined('USE_COUNTER_PROF'))
-{
-			if(isset($perf_counter[$type]))
-			{
-				ksort($perf_counter[$type]);
-				foreach($perf_counter[$type] as $name => $value)
-				{
-					echo "(".$type.") Counter '".$name."' : ".$value.OBR;
-				}
-			}
+			echo "(".$type.") Memory limit	 : ".ini_get('memory_limit')."<br>\n";
+			echo "(".$type.") Memory usage	 : ".COpt::mem2str($memorystamp[$type])." - ".COpt::mem2str($memory)."\n<br>\n";
+			echo "(".$type.") Memory leak	 : ".COpt::mem2str($memory - $memorystamp[$type])."\n<br>\n";
 }
 if(defined('USE_SQLREQUEST_PROF'))
 {
+			$requests_cnt = count($sqlrequests);
+			echo "(".$type.") SQL requests count: ".($requests_cnt - $sqlmark[$type])."<br>\n";
 	if(defined('SHOW_SQLREQUEST_DETAILS'))
 	{
-			$requests_cnt = count($sqlrequests);
-			echo "(".$type.") SQL requests count: ".($requests_cnt - $sqlmark[$type]).OBR;
-
 			for($i = $sqlmark[$type]; $i < $requests_cnt; $i++)
 			{
-				echo "(".$type.") SQL request    : ".$sqlrequests[$i].OBR;
+				echo "(".$type.") SQL request    : ".$sqlrequests[$i]."<br>\n";;
 			}
-	}
-	else
-	{
-			echo "(".$type.") SQL requests count: ".($sqlrequests - $sqlmark[$type]).OBR;
 	}
 }
 		}
@@ -263,66 +196,6 @@ if(defined('USE_SQLREQUEST_PROF'))
 		/* public static */ function set_memory_limit($limit='8M')
 		{
 			ini_set('memory_limit',$limit);
-		}
-
-		/* public static */ function compare_files_with_menu($menu=null)
-		{
-if(defined('USE_MENU_PROF'))
-{
-			$files_list = glob('*.php');
-
-			$result = array();
-			foreach($files_list as $file)
-			{
-				$list = array();
-				foreach($menu as $label=>$sub)
-				{
-					foreach($sub['pages'] as $sub_pages)
-					{
-						if(!isset($sub_pages["label"])) $sub_pages["label"]=$sub_pages['url'];
-						
-						$menu_path = $sub["label"].'->'.$sub_pages["label"];
-						
-						if($sub_pages['url'] == $file)
-						{
-							array_push($list, $menu_path);
-						}
-						if(!in_array($sub_pages['url'], $files_list))
-							$result['error'][$sub_pages['url']] = array($menu_path);
-
-						if(isset($sub_pages['sub_pages'])) foreach($sub_pages['sub_pages'] as $page)
-						{
-							$menu_path = $sub["label"].'->'.$sub_pages["label"].'->sub_pages';
-							
-							if(!in_array($page, $files_list))
-								$result['error'][$page] = array($menu_path);
-
-							if($page != $file) continue;
-							array_push($list, $menu_path);
-						}
-					}
-				}
-				if(count($list) != 1)	$level = 'worning';
-				else			$level = 'normal';
-				
-				$result[$level][$file] = $list;
-			}
-			foreach($result as $level => $files_list)
-			{
-if(defined('USE_MENU_DETAILS'))
-{
-				echo OBR.'(menu check) ['.$level.OBR;
-				foreach($files_list as $file => $menu_list)
-				{
-					echo "(menu check)".SPACE.SPACE.SPACE.SPACE.$file.' {'.implode(',',$menu_list)."}".OBR;
-				}
-}
-else
-{
-				echo OBR.'(menu check) ['.$level."] = ".count($files_list).OBR;
-}
-			}
-}
 		}
 	}
 
@@ -336,9 +209,6 @@ else
 		/* public static */ function profiling_start($type=NULL) {}
 		/* public static */ function profiling_stop($type=NULL) {}
 		/* public static */ function savesqlrequest($sql) {}
-		/* public static */ function showmemoryusage($descr=null) {}
-		/* public static */ function compare_files_with_menu($menu=null) {}
-		/* public static */ function counter_up($type=NULL) {}
 	}
 }
 

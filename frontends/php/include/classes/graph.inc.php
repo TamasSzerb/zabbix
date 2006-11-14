@@ -19,23 +19,6 @@
 **/
 ?>
 <?php
-	require_once "include/items.inc.php";
-	require_once "include/hosts.inc.php";
-
-	define("GRAPH_DRAW_TYPE_LINE",0);
-	define("GRAPH_DRAW_TYPE_FILL",1);
-	define("GRAPH_DRAW_TYPE_BOLDLINE",2);
-	define("GRAPH_DRAW_TYPE_DOT",3);
-	define("GRAPH_DRAW_TYPE_DASHEDLINE",4);
-
-	define("GRAPH_YAXIS_TYPE_CALCULATED",0);
-	define("GRAPH_YAXIS_TYPE_FIXED",1);
-
-	define("GRAPH_YAXIS_SIDE_LEFT",0);
-	define("GRAPH_YAXIS_SIDE_RIGHT",1);
-
-	define("GRAPH_ITEM_SIMPLE" , 	0);
-	define("GRAPH_ITEM_AGGREGATED",	1);
 
 	define("GRAPH_TYPE_NORMAL",	0);
 	define("GRAPH_TYPE_STACKED",	1);
@@ -531,6 +514,18 @@
 					$this->colors[$trigger['color']]);
 			}
 			
+		}
+
+		function checkPermissions()
+		{
+			if(!check_right("Item","R",$this->items[0]["itemid"]))
+			{
+				$this->drawGrid();
+				ImageString($this->im, 2,$this->sizeX/2 -50,$this->sizeY+$this->shiftY+3, "NO PERMISSIONS" , $this->colors["Dark Red No Alpha"]);
+				ImageOut($this->im); 
+				ImageDestroy($this->im); 
+				exit;
+			}
 		}
 
 		function drawLogo()
@@ -1046,7 +1041,7 @@
 			{
 				for($i=1; $i<$this->num; $i++)
 				{
-					$curr_data = &$this->data[$this->items[$i]["itemid"]][$this->items[$i]["type"]];
+					$curr_data = &$this->data[$this->items[$i]["itemid"]][$this->items[$i]["calc_type"]];
 
 					if(!isset($curr_data))	continue;
 
@@ -1161,6 +1156,9 @@
 			{
 //				$this->noDataFound();
 			}
+
+			$this->checkPermissions();
+
 
 			$this->drawWorkPeriod();
 			$this->drawGrid();

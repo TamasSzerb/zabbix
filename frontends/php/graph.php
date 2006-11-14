@@ -19,16 +19,12 @@
 **/
 ?>
 <?php
-	require_once "include/config.inc.php";
-	require_once "include/items.inc.php";
-	require_once "include/graphs.inc.php";
-	require_once "include/forms.inc.php";
+	include "include/config.inc.php";
+	include "include/forms.inc.php";
 
 	$page["title"] = "S_CONFIGURATION_OF_GRAPH";
 	$page["file"] = "graph.php";
-
-include_once "include/page_header.php";
-
+	show_header($page["title"],0,0);
 	insert_confirm_javascript();
 ?>
 <?php
@@ -58,8 +54,16 @@ include_once "include/page_header.php";
 	check_fields($fields);
 ?>
 <?php
-	show_table_header(S_CONFIGURATION_OF_GRAPH_BIG, 
-		isset($_REQUEST['form']) ? null: new CButton("cancel",S_CANCEL,"return Redirect('graphs.php');"));
+	show_table_header(S_CONFIGURATION_OF_GRAPH_BIG);
+	echo BR;
+?>
+<?php
+	if(!check_right("Graph","R",$_REQUEST["graphid"]))
+	{
+		show_table_header("<font color=\"AA0000\">".S_NO_PERMISSIONS."</font>");
+		show_page_footer();
+		exit;
+	}
 ?>
 <?php
 
@@ -75,7 +79,7 @@ include_once "include/page_header.php";
 			$audit= AUDIT_ACTION_UPDATE;
 			$msg_ok = S_ITEM_UPDATED;
 			$msg_fail =S_CANNOT_UPDATE_ITEM; 
-			$action = "Updated";
+			$action = "Added";
 		}
 		else
 		{
@@ -87,7 +91,7 @@ include_once "include/page_header.php";
 			$audit = AUDIT_ACTION_ADD;
 			$msg_ok = S_ITEM_ADDED;
 			$msg_fail = S_CANNOT_ADD_ITEM; 
-			$action = "Added";
+			$action = "Updated";
 		}
 		if($result)
 		{
@@ -121,20 +125,13 @@ include_once "include/page_header.php";
 	{
 		if($_REQUEST["register"]=="up")
 		{
-			$graphitem = get_graphitem_by_gitemid($gitemid);
 			$result = move_up_graph_item($_REQUEST["gitemid"]);
 			show_messages($result, S_SORT_ORDER_UPDATED, S_CANNOT_UPDATE_SORT_ORDER);
-			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_GRAPH_ELEMENT,
-				"Graph ID [".$graphitem["graphid"]."] Name [".$graph["name"]."]".
-				" [".$item["description"]."] moved up.");
 			unset($_REQUEST["gitemid"]);
 		}
 		if($_REQUEST["register"]=="down")
 		{
 			$result = move_down_graph_item($_REQUEST["gitemid"]);
-			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_GRAPH_ELEMENT,
-				"Graph ID [".$graphitem["graphid"]."] Name [".$graph["name"]."]".
-				" [".$item["description"]."] moved down.");
 			show_messages($result, S_SORT_ORDER_UPDATED, S_CANNOT_UPDATE_SORT_ORDER);
 			unset($_REQUEST["gitemid"]);
 		}
@@ -142,20 +139,10 @@ include_once "include/page_header.php";
 ?>
 <?php
 /****** GRAPH ******/
-	$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_MODE_LT);
 
-	if(! ($db_graph = DBfetch(DBselect("select g.name from graphs g left join graphs_items gi on gi.graphid=g.graphid ".
-			" left join items i on gi.itemid=i.itemid".
-			" where g.graphid=".$_REQUEST["graphid"].
-			" and ".DBid2nodeid("g.graphid")."=".$ZBX_CURNODEID.
-			" and ( i.hostid not in (".$denyed_hosts.") OR i.hostid is NULL )"
-			)
-		)))
-	{
-		access_deny();
-	}
-	
-	show_table_header($db_graph["name"]);
+	$db_graphs = DBselect("select name from graphs where graphid=".$_REQUEST["graphid"]);
+	$db_graph = DBfetch($db_graphs);
+	show_table_header($db_graph["name"]);//,new CButton("cancel",S_CANCEL,"return Redirect('graphs.php');"));
 
 	$table = new CTable(NULL,"graph");
 	$table->AddRow(new CImg("chart2.php?graphid=".$_REQUEST["graphid"]."&period=3600&from=0"));
@@ -178,10 +165,9 @@ include_once "include/page_header.php";
 		$table = new CTableInfo("...");
 		$table->SetHeader(array(S_SORT_ORDER,S_HOST,S_PARAMETER,S_FUNCTION,S_TYPE,S_DRAW_STYLE,S_COLOR,S_ACTIONS));
 
-		$result=DBselect("select i.itemid,h.host,i.description,gi.*,i.key_ ".
-			" from hosts h,graphs_items gi,items i where i.itemid=gi.itemid ".
-			" and gi.graphid=".$_REQUEST["graphid"]." and h.hostid=i.hostid ".
-			" order by gi.sortorder desc, i.description, i.itemid");
+		$result=DBselect("select i.itemid,h.host,i.description,gi.*,i.key_".
+			" from hosts h,graphs_items gi,items i where i.itemid=gi.itemid".
+			" and gi.graphid=".$_REQUEST["graphid"]." and h.hostid=i.hostid order by gi.sortorder desc");
 		while($row=DBfetch($result))
 		{
 
@@ -214,8 +200,8 @@ include_once "include/page_header.php";
 					$row["sortorder"],
 					$row["host"],
 					NEW CLink(item_description($row["description"],$row["key_"]),
-						'chart.php?itemid='.$row["itemid"].'&period=3600&from=0',
-						'action'),
+						"chart.php?itemid=".$row["itemid"]."&period=3600&from=0",
+						"action"),
 					$fnc_name,
 					$type,
 					$drawtype,
@@ -236,7 +222,5 @@ include_once "include/page_header.php";
 	}
 ?>
 <?php
-
-include_once "include/page_footer.php";
-
+	show_page_footer();
 ?>

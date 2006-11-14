@@ -27,11 +27,10 @@
 		function CTextBox($name='textbox',$value="",$size=20,$readonly="no")
 		{
 			parent::CTag('input','no');
-			$this->tag_body_start = '';
 			$this->options['class'] = 'biginput';
-			$this->AddOption('name', $name);
-			$this->AddOption('size', $size);
-			$this->AddOption('value',$value);
+			$this->options['name'] = $name;
+			$this->options['size'] = $size;
+			$this->options['value'] = $value;
 			$this->SetReadonly($readonly);
 		}
 		function SetReadonly($value='yes')
@@ -59,72 +58,6 @@
 		{
 			parent::CTextBox($name,$value,$size);
 			$this->options['type'] = 'password';
-		}
-	}
-
-	class CNumericBox extends CTextBox
-	{
-		function CNumericBox($name='password',$value='',$size=20,$readonly="no")
-		{
-			parent::CTextBox($name,$value,$size,$readonly);
-			$this->AddOption('MaxLength', $size);
-			$this->AddOption('Style', 'text-align: right;');
-			$this->AddOption('OnKeyPress',
-				' var c = (window.event) ? event.keyCode : event.which;'.
-				' if(event.ctrlKey || c <= 31 || (c >= 48 && c <= 57)) return true; else return false; ');
-			$this->AddOption('OnChange',
-					'if(isNaN(parseInt(this.value))) this.value = 0; '.
-					' else this.value = parseInt(this.value);'
-				);
-		}
-	}
-
-	class CIpBox
-	{
-		var $ip_parts = array();
-		
-		function CIPBox($name='ip',$value)
-		{
-			if(!is_array($value)) $value = explode('.', $value);
-			if(!isset($value[0])) $value[0] = 0;
-			if(!isset($value[1])) $value[1] = 0;
-			if(!isset($value[2])) $value[2] = 0;
-			if(!isset($value[3])) $value[3] = 0;
-			
-			for($i = 0; $i < 4; $i++)
-			{
-				$this->ip_parts[$i] = new CNumericBox($name.'['.$i.']', $value[$i], 3);
-				if($i != 3)
-				{
-					$this->ip_parts[$i]->tag_end = '';
-					$this->ip_parts[$i]->AddOption('OnKeyDown',
-						' this.maxlength = this.getAttribute("maxlength"); '.
-						' this.oldlength = this.value.length; ');
-					$this->ip_parts[$i]->AddOption('OnKeyUp',
-						' if(this.oldlength != this.value.length && this.value.length == this.maxlength) {'.
-						' var el = this.form.elements["'.$name.'['.($i+1).']'.'"];'.
-						' if(el) { el.focus(); el.select(); }}');
-				}
-				$this->ip_parts[$i] = unpack_object($this->ip_parts[$i]);
-			}
-		}
-
-		function ToString($destroy=true)
-		{
-			$res = implode('.',$this->ip_parts);
-			
-			if($destroy)
-			{
-### TODO Problem under PHP 5.0  "Fatal error: Cannot re-assign $this in ..."
-#				$this = null;
-			}
-
-			return $res;
-		}
-
-		function Show($destroy=true)
-		{
-			echo $this->ToString($destroy);
 		}
 	}
 

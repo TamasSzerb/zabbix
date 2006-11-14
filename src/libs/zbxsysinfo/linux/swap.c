@@ -81,9 +81,8 @@ static int	SYSTEM_SWAP_PFREE(const char *cmd, const char *param, unsigned flags,
         init_result(result);
         init_result(&result_tmp);
 
-	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
-		!(result_tmp.type & AR_UINT64))
-	                return  SYSINFO_RET_FAIL;
+	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
 	tot_val = result_tmp.ui64;
 
 	/* Check fot division by zero */
@@ -93,9 +92,8 @@ static int	SYSTEM_SWAP_PFREE(const char *cmd, const char *param, unsigned flags,
                 return  SYSINFO_RET_FAIL;
 	}
 
-	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
-		!(result_tmp.type & AR_UINT64))
-                	return  SYSINFO_RET_FAIL;
+	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
 	free_val = result_tmp.ui64;
 
 	free_result(&result_tmp);
@@ -116,9 +114,8 @@ static int	SYSTEM_SWAP_PUSED(const char *cmd, const char *param, unsigned flags,
         init_result(result);
         init_result(&result_tmp);
 
-	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
-		!(result_tmp.type & AR_UINT64))
-                	return  SYSINFO_RET_FAIL;
+	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
 	tot_val = result_tmp.ui64;
 
 	/* Check fot division by zero */
@@ -128,9 +125,8 @@ static int	SYSTEM_SWAP_PUSED(const char *cmd, const char *param, unsigned flags,
                 return  SYSINFO_RET_FAIL;
 	}
 
-	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
-		!(result_tmp.type & AR_UINT64))
-                	return  SYSINFO_RET_FAIL;
+	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
 	free_val = result_tmp.ui64;
 
 	free_result(&result_tmp);
@@ -180,7 +176,7 @@ SWP_FNCLIST
         if(swapdev[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(swapdev, sizeof(swapdev), "all");
+		sprintf(swapdev, "all");
 	}
 
 	if(strncmp(swapdev, "all", MAX_STRING_LEN))
@@ -196,7 +192,7 @@ SWP_FNCLIST
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "free");
+		sprintf(mode, "free");
 	}
 
 	for(i=0; fl[i].mode!=0; i++)
@@ -271,7 +267,7 @@ static int 	get_swap_io(zbx_uint64_t *swapin, zbx_uint64_t *swapout)
 			
 			return SYSINFO_RET_OK;
 		};
-		zbx_fclose(f);
+		fclose(f);
 	}
 	return SYSINFO_RET_FAIL;
 }
@@ -300,7 +296,7 @@ int	SYSTEM_SWAP_IN(const char *cmd, const char *param, unsigned flags, AGENT_RES
 	if(swapdev[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(swapdev, sizeof(swapdev), "all");
+		sprintf(swapdev, "all");
 	}
 
 	if(strcmp(swapdev, "all"))
@@ -316,7 +312,7 @@ int	SYSTEM_SWAP_IN(const char *cmd, const char *param, unsigned flags, AGENT_RES
 	if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "pages");
+		sprintf(mode, "pages");
 	}
 
 	if(strcmp(mode,"pages") != 0)
@@ -356,7 +352,7 @@ int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	if(swapdev[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(swapdev, sizeof(swapdev), "all");
+		sprintf(swapdev, "all");
 	}
 
 	if(strcmp(swapdev, "all"))
@@ -372,7 +368,7 @@ int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "pages");
+		sprintf(mode, "pages");
 	}
 
 	if(strcmp(mode,"pages") != 0)

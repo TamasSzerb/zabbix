@@ -23,31 +23,50 @@
 
 	function	add_autoregistration($pattern,$priority,$hostid)
 	{
-		$autoregid = get_dbid("autoreg","autoregid");
+		if(!check_right("Configuration of Zabbix","U",0))
+		{
+			error("Insufficient permissions");
+			return 0;
+		}
 
-		$result=DBexecute("insert into autoreg (autoregid,pattern,priority,hostid) ".
-			" values ($autoregid,".zbx_dbstr($pattern).",$priority,$hostid)");
+		$sql="insert into autoreg (pattern,priority,hostid) values (".zbx_dbstr($pattern).",$priority,$hostid)";
+		$result=DBexecute($sql);
 		if($result)
 		{
 			$host=get_host_by_hostid($hostid);
 			info("Added new autoregistration rule for $pattern");
-			$result = $autoregid;
 		}
-		return $result;
+		return DBinsert_id($result,"autoreg","id");
 	}
 
 	# Update Autoregistration rule
 
 	function	update_autoregistration($id,$pattern,$priority,$hostid)
 	{
-		return	DBexecute("update autoreg set pattern=".zbx_dbstr($pattern).",priority=$priority,hostid=$hostid where id=$id");
+		if(!check_right("Configuration of Zabbix","U",0))
+		{
+                        error("Insufficient permissions");
+                        return 0;
+		}
+
+		$sql="update autoreg set pattern=".zbx_dbstr($pattern).",priority=$priority,hostid=$hostid where id=$id";
+
+		return	DBexecute($sql);
 	}
 
 	# Delete Autoregistartion rule
 
 	function	delete_autoregistration($id)
 	{
-		return	DBexecute("delete from autoreg where id=$id");
+		if(!check_right("Configuration of Zabbix","U",0))
+		{
+                        error("Insufficient permissions");
+                        return 0;
+		}
+
+		$sql="delete from autoreg where id=$id";
+
+		return	DBexecute($sql);
 	}
 
 ?>

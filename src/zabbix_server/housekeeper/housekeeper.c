@@ -68,6 +68,7 @@
  ******************************************************************************/
 static int housekeeping_process_log()
 {
+	char		sql[MAX_STRING_LEN];
 	DB_HOUSEKEEPER	housekeeper;
 
 	DB_RESULT	result;
@@ -79,7 +80,8 @@ static int housekeeping_process_log()
 	zabbix_log( LOG_LEVEL_DEBUG, "In housekeeping_process_log()");
 
 	/* order by tablename to effectively use DB cache */
-	result = DBselect("select housekeeperid, tablename, field, value from housekeeper order by tablename");
+	snprintf(sql,sizeof(sql)-1,"select housekeeperid, tablename, field, value from housekeeper order by tablename");
+	result = DBselect(sql);
 
 	while((row=DBfetch(result)))
 	{
@@ -89,19 +91,20 @@ static int housekeeping_process_log()
 		housekeeper.value=atoi(row[3]);
 
 #ifdef HAVE_ORACLE
-		deleted = DBexecute("delete from %s where %s=%d and rownum<500",housekeeper.tablename, housekeeper.field,housekeeper.value);
+		snprintf(sql,sizeof(sql)-1,"delete from %s where %s=%d and rownum<500",housekeeper.tablename, housekeeper.field,housekeeper.value);
 #elif defined(HAVE_PGSQL)
-		deleted = DBexecute("delete from %s where oid in (select oid from %s where %s=%d limit 500)",
+		snprintf(sql,sizeof(sql)-1,"delete from %s where oid in (select oid from %s where %s=%d limit 500)",
 				housekeeper.tablename, 
 				housekeeper.tablename, 
 				housekeeper.field,
 				housekeeper.value);
 #else
-		deleted = DBexecute("delete from %s where %s=%d limit 500",housekeeper.tablename, housekeeper.field,housekeeper.value);
+		snprintf(sql,sizeof(sql)-1,"delete from %s where %s=%d limit 500",housekeeper.tablename, housekeeper.field,housekeeper.value);
 #endif
-		if(deleted == 0)
+		if(( deleted = DBexecute(sql)) == 0)
 		{
-			DBexecute("delete from housekeeper where housekeeperid=%d",housekeeper.housekeeperid);
+			snprintf(sql,sizeof(sql)-1,"delete from housekeeper where housekeeperid=%d",housekeeper.housekeeperid);
+			DBexecute(sql);
 		}
 		else
 		{
@@ -116,28 +119,29 @@ static int housekeeping_process_log()
 
 static int housekeeping_sessions(int now)
 {
-	int deleted;
+	char	sql[MAX_STRING_LEN];
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In housekeeping_sessions(%d)", now);
 
-	deleted = DBexecute("delete from sessions where lastaccess<%d",now-24*3600);
+	snprintf(sql,sizeof(sql)-1,"delete from sessions where lastaccess<%d",now-24*3600);
 
-	zabbix_log( LOG_LEVEL_DEBUG, "Deleted [%ld] records from table [sessions]", deleted);
+	zabbix_log( LOG_LEVEL_DEBUG, "Deleted [%ld] records from table [sessions]", DBexecute(sql));
 
 	return SUCCEED;
 }
 
 static int housekeeping_alerts(int now)
 {
+	char		sql[MAX_STRING_LEN];
 	int		alert_history;
 	DB_RESULT	result;
 	DB_ROW		row;
 	int		res = SUCCEED;
-	int		deleted;
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In housekeeping_alerts(%d)", now);
 
-	result = DBselect("select alert_history from config");
+	snprintf(sql,sizeof(sql)-1,"select alert_history from config");
+	result = DBselect(sql);
 
 	row=DBfetch(result);
 
@@ -150,28 +154,29 @@ static int housekeeping_alerts(int now)
 	{
 		alert_history=atoi(row[0]);
 
-		deleted = DBexecute("delete from alerts where clock<%d",now-24*3600*alert_history);
-		zabbix_log( LOG_LEVEL_DEBUG, "Deleted [%ld] records from table [alerts]", deleted);
+		snprintf(sql,sizeof(sql)-1,"delete from alerts where clock<%d",now-24*3600*alert_history);
+		zabbix_log( LOG_LEVEL_DEBUG, "Deleted [%ld] records from table [alerts]", DBexecute(sql));
 	}
 
 	DBfree_result(result);
 	return res;
 }
 
-static int housekeeping_events(int now)
+static int housekeeping_alarms(int now)
 {
-	int		event_history;
+	char		sql[MAX_STRING_LEN];
+	int		alarm_history;
 	DB_RESULT	result;
 	DB_RESULT	result2;
 	DB_ROW		row1;
 	DB_ROW		row2;
-	int 		eventid;
+	int 		alarmid;
 	int		res = SUCCEED;
 
-	zabbix_log( LOG_LEVEL_DEBUG, "In housekeeping_events(%d)", now);
+	zabbix_log( LOG_LEVEL_DEBUG, "In housekeeping_alarms(%d)", now);
 
-	result = DBselect("select event_history from config");
-
+	snprintf(sql,sizeof(sql)-1,"select alarm_history from config");
+	result = DBselect(sql);
 	row1=DBfetch(result);
 	
 	if(!row1 || DBis_null(row1[0])==SUCCEED)
@@ -181,16 +186,19 @@ static int housekeeping_events(int now)
 	}
 	else
 	{
-		event_history=atoi(row1[0]);
+		alarm_history=atoi(row1[0]);
 
-		result2 = DBselect("select eventid from events where clock<%d", now-24*3600*event_history);
+		snprintf(sql,sizeof(sql)-1,"select alarmid from alarms where clock<%d", now-24*3600*alarm_history);
+		result2 = DBselect(sql);
 		while((row2=DBfetch(result2)))
 		{
-			eventid=atoi(row2[0]);
+			alarmid=atoi(row2[0]);
 			
-			DBexecute("delete from acknowledges where eventid=%d",eventid);
+			snprintf(sql,sizeof(sql)-1,"delete from acknowledges where alarmid=%d",alarmid);
+			DBexecute(sql);
 			
-			DBexecute("delete from events where eventid=%d",eventid);
+			snprintf(sql,sizeof(sql)-1,"delete from alarms where alarmid=%d",alarmid);
+			zabbix_log( LOG_LEVEL_DEBUG, "Deleted [%ld] records from table [alarms]", DBexecute(sql));
 		}
 		DBfree_result(result2);
 
@@ -199,6 +207,7 @@ static int housekeeping_events(int now)
 	DBfree_result(result);
 	return res;
 }
+
 
 /******************************************************************************
  *                                                                            *
@@ -217,14 +226,14 @@ static int housekeeping_events(int now)
  ******************************************************************************/
 static int delete_history(char *table, int itemid, int keep_history, int now)
 {
-	char            sql[MAX_STRING_LEN];
-	DB_RESULT       result;
-	DB_ROW          row;
-	int             min_clock;
+	char		sql[MAX_STRING_LEN];
+	DB_RESULT	result;
+	DB_ROW		row;
+	int		min_clock;
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In delete_history(%s,%d,%d,%d)", table, itemid, keep_history, now);
 
-	zbx_snprintf(sql,sizeof(sql)-1,"select min(clock) from %s where itemid=%d", table, itemid);
+	snprintf(sql,sizeof(sql)-1,"select min(clock) from %s where itemid=%d", table, itemid);
 	result = DBselect(sql);
 
 	row=DBfetch(result);
@@ -238,11 +247,11 @@ static int delete_history(char *table, int itemid, int keep_history, int now)
 	min_clock = atoi(row[0]);
 	DBfree_result(result);
 
-	zbx_snprintf(sql,sizeof(sql)-1,"delete from %s where itemid=%d and clock<%d",
+	snprintf(sql,sizeof(sql)-1,"delete from %s where itemid=%d and clock<%d",
 		table,
 		itemid,
 		MIN(now-24*3600*keep_history, min_clock+4*3600*CONFIG_HOUSEKEEPING_FREQUENCY)
-	);
+		);
 
 	return DBexecute(sql);
 }
@@ -265,34 +274,34 @@ static int delete_history(char *table, int itemid, int keep_history, int now)
  ******************************************************************************/
 static int housekeeping_history_and_trends(int now)
 {
-        char            sql[MAX_STRING_LEN];
-        DB_ITEM         item;
+	char		sql[MAX_STRING_LEN];
+	DB_ITEM		item;
 
-        DB_RESULT       result;
-        DB_ROW          row;
+	DB_RESULT	result;
+	DB_ROW		row;
 
-        int             deleted = 0;
+	int		deleted = 0;
 
-        zabbix_log( LOG_LEVEL_DEBUG, "In housekeeping_history_and_trends(%d)", now);
+	zabbix_log( LOG_LEVEL_DEBUG, "In housekeeping_history_and_trends(%d)", now);
 
-        zbx_snprintf(sql,sizeof(sql)-1,"select itemid,history,trends from items");
-        result = DBselect(sql);
+	snprintf(sql,sizeof(sql)-1,"select itemid,history,trends from items");
+	result = DBselect(sql);
 
-        while((row=DBfetch(result)))
-        {
-                item.itemid=atoi(row[0]);
-                item.history=atoi(row[1]);
-                item.trends=atoi(row[2]);
+	while((row=DBfetch(result)))
+	{
+		item.itemid=atoi(row[0]);
+		item.history=atoi(row[1]);
+		item.trends=atoi(row[2]);
 
-                deleted += delete_history("history", item.itemid, item.history, now);
-                deleted += delete_history("history_uint", item.itemid, item.history, now);
-                deleted += delete_history("history_str", item.itemid, item.history, now);
-                deleted += delete_history("history_str", item.itemid, item.history, now);
-                deleted += delete_history("history_log", item.itemid, item.history, now);
-                deleted += delete_history("trends", item.itemid, item.trends, now);
-        }
-        DBfree_result(result);
-        return deleted;
+		deleted += delete_history("history", item.itemid, item.history, now);
+		deleted += delete_history("history_uint", item.itemid, item.history, now);
+		deleted += delete_history("history_str", item.itemid, item.history, now);
+		deleted += delete_history("history_str", item.itemid, item.history, now);
+		deleted += delete_history("history_log", item.itemid, item.history, now);
+		deleted += delete_history("trends", item.itemid, item.trends, now);
+	}
+	DBfree_result(result);
+	return deleted;
 }
 
 int main_housekeeper_loop()
@@ -305,61 +314,77 @@ int main_housekeeper_loop()
 		for(;;)
 		{
 /* Do nothing */
-			zbx_setproctitle("do nothing");
-
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+			setproctitle("do nothing");
+#endif
 			sleep(3600);
 		}
 	}
 
 	for(;;)
 	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Executing housekeeper");
+		zabbix_log( LOG_LEVEL_WARNING, "Executing housekeeper");
 		now = time(NULL);
-
-		zbx_setproctitle("connecting to the database");
-
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("connecting to the database");
+#endif
 		DBconnect();
 
-
-/*		zbx_setproctitle("housekeeper [removing deleted hosts]");*/
-
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+/*		setproctitle("housekeeper [removing deleted hosts]");*/
+#endif
 /*		housekeeping_hosts();*/
 
-/*		zbx_setproctitle("housekeeper [removing deleted items]");*/
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+/*		setproctitle("housekeeper [removing deleted items]");*/
+#endif
 
 /*		housekeeping_items();*/
 
-/*		zbx_setproctitle("housekeeper [removing old history]");*/
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+/*		setproctitle("housekeeper [removing old history]");*/
+#endif
 
 		d = housekeeping_history_and_trends(now);
-		zabbix_log( LOG_LEVEL_DEBUG, "Deleted %d records from history and trends", d);
+		zabbix_log( LOG_LEVEL_WARNING, "Deleted %d records from history and trends", d);
 
-		zbx_setproctitle("housekeeper [removing old history]");
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("housekeeper [removing old history]");
+#endif
 
 		housekeeping_process_log(now);
 
-		zbx_setproctitle("housekeeper [removing old events]");
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("housekeeper [removing old alarms]");
+#endif
 
-		housekeeping_events(now);
+		housekeeping_alarms(now);
 
-		zbx_setproctitle("housekeeper [removing old alerts]");
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("housekeeper [removing old alerts]");
+#endif
 
 		housekeeping_alerts(now);
 
-		zbx_setproctitle("housekeeper [removing old sessions]");
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("housekeeper [removing old sessions]");
+#endif
 
 		housekeeping_sessions(now);
 
-		zbx_setproctitle("housekeeper [vacuuming database]");
-
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("housekeeper [vacuuming database]");
+#endif
 		DBvacuum();
 
 		zabbix_log( LOG_LEVEL_DEBUG, "Sleeping for %d hours", CONFIG_HOUSEKEEPING_FREQUENCY);
 
-		zbx_setproctitle("housekeeper [sleeping for %d hour(s)]", CONFIG_HOUSEKEEPING_FREQUENCY);
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("housekeeper [sleeping for %d hour(s)]", CONFIG_HOUSEKEEPING_FREQUENCY);
+#endif
 
 		DBclose();
-		zabbix_log( LOG_LEVEL_DEBUG, "Next housekeeper run is after %dh", CONFIG_HOUSEKEEPING_FREQUENCY);
+		zabbix_log( LOG_LEVEL_WARNING, "Next housekeeper run is after %dh", CONFIG_HOUSEKEEPING_FREQUENCY);
 		sleep(3660*CONFIG_HOUSEKEEPING_FREQUENCY);
 	}
 }

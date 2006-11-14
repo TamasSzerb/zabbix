@@ -19,40 +19,22 @@
 **/
 ?>
 <?php
-	require_once "include/config.inc.php";
-	require_once "include/hosts.inc.php";
-	require_once "include/forms.inc.php";
-
+	include "include/config.inc.php";
+	include "include/forms.inc.php";
 	$page["title"] = "S_HOSTS";
 	$page["file"] = "hosts.php";
-
-include_once "include/page_header.php";
-
+	show_header($page["title"]);
 	insert_confirm_javascript();
-	
+?>
+<?php
+	if(!check_anyright("Host","U"))
+	{
+		show_table_header("<font color=\"AA0000\">".S_NO_PERMISSIONS."</font>");
+		show_page_footer();
+		exit;
+	}
+
 	$_REQUEST["config"] = get_request("config",get_profile("web.hosts.config",0));
-	
-	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE,null,PERM_RES_IDS_ARRAY,$ZBX_CURNODEID);
-	if(isset($_REQUEST["hostid"]) && $_REQUEST["hostid"] > 0 && !in_array($_REQUEST["hostid"], $available_hosts)) 
-	{
-		access_deny();
-	}
-	if(isset($_REQUEST["apphostid"]) && $_REQUEST["apphostid"] > 0 && !in_array($_REQUEST["apphostid"], $available_hosts)) 
-	{
-		access_deny();
-	}
-
-	if(count($available_hosts) == 0) $available_hosts = array(-1);
-	$available_hosts = implode(',', $available_hosts);
-
-	if(isset($_REQUEST["groupid"]) && $_REQUEST["groupid"] > 0)
-	{
-		if(!in_array($_REQUEST["groupid"], get_accessible_groups_by_user($USER_DETAILS,PERM_READ_WRITE,null,
-			PERM_RES_IDS_ARRAY,$ZBX_CURNODEID)))
-		{
-			access_deny();
-		}
-	}
 
 ?>
 <?php
@@ -74,8 +56,7 @@ include_once "include/page_header.php";
 		"status"=>	array(T_ZBX_INT, O_OPT,  NULL,   IN("0,1,3"),	'{config}==0&&isset({save})'),
 
 		"newgroup"=>		array(T_ZBX_STR, O_OPT, NULL,   NULL,	NULL),
-		"templates"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,	NULL),
-		"clear_templates"=>	array(T_ZBX_INT, O_OPT,	NULL,	DB_ID,	NULL),
+		"templateid"=>	array(T_ZBX_INT, O_OPT,	NULL,	DB_ID,	NULL),
 
 		"useprofile"=>	array(T_ZBX_STR, O_OPT, NULL,   NULL,	NULL),
 		"devicetype"=>	array(T_ZBX_STR, O_OPT, NULL,   NULL,	'isset({useprofile})'),
@@ -103,12 +84,8 @@ include_once "include/page_header.php";
 		"activate"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, NULL, NULL),	
 		"disable"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, NULL, NULL),	
 
-		"unlink"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,   NULL,	NULL),
-		"unlink_and_clear"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,   NULL,	NULL),
-
 		"save"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
-		"delete"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
-		"delete_and_clear"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+		"delete"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 		"cancel"=>	array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
 /* other */
 		"form"=>	array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
@@ -118,65 +95,28 @@ include_once "include/page_header.php";
 	check_fields($fields);
 
 	if($_REQUEST["config"]==4)
-		validate_group_with_host(PERM_READ_WRITE,array("always_select_first_host"));
+		validate_group_with_host("U");
 	elseif($_REQUEST["config"]==0 || $_REQUEST["config"]==3)
-		validate_group(PERM_READ_WRITE);
+		validate_group("U");
 
 	update_profile("web.hosts.config",$_REQUEST["config"]);
+	update_profile("web.menu.config.last",$page["file"]);
 ?>
 <?php
 
 /************ ACTIONS FOR HOSTS ****************/
-/* UNLINK HOST */
-	if(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && (isset($_REQUEST["unlink"]) || isset($_REQUEST["unlink_and_clear"])))
-	{
-		$_REQUEST['clear_templates'] = get_request('clear_templates', array());
-		if(isset($_REQUEST["unlink"]))
-		{
-			$unlink_templates = array_keys($_REQUEST["unlink"]);
-		}
-		else
-		{
-			$unlink_templates = array_keys($_REQUEST["unlink_and_clear"]);
-			$_REQUEST['clear_templates'] = array_merge($_REQUEST['clear_templates'],$unlink_templates);
-		}
-		foreach($unlink_templates as $id) unset($_REQUEST['templates'][$id]);
-	}
 /* SAVE HOST */
-	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && isset($_REQUEST["save"]))
+	if(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && isset($_REQUEST["save"]))
 	{
 		$useip = get_request("useip","no");
 
 		$groups=get_request("groups",array());
-		
-		if(count($groups) > 0)
-		{
-			if(count(array_intersect($groups,
-				get_accessible_groups_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_MODE_LT,PERM_RES_IDS_ARRAY))) > 0)
-					access_deny();
-		}
-		else
-		{
-			if(count(get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_MODE_LT,PERM_RES_IDS_ARRAY,$ZBX_CURNODEID)))
-				access_deny();
-
-		}
-
-		$templates = get_request('templates', array());
 
 		if(isset($_REQUEST["hostid"]))
 		{
-			if(isset($_REQUEST['clear_templates'])) 
-			{
-				foreach($_REQUEST['clear_templates'] as $id)
-				{
-					unlink_template($_REQUEST["hostid"], $id, false);
-				}
-			}
-
 			$result = update_host($_REQUEST["hostid"],
 				$_REQUEST["host"],$_REQUEST["port"],$_REQUEST["status"],$useip,
-				$_REQUEST["ip"],$templates,$_REQUEST["newgroup"],$groups);
+				$_REQUEST["ip"],$_REQUEST["templateid"],$_REQUEST["newgroup"],$groups);
 
 			$msg_ok 	= S_HOST_UPDATED;
 			$msg_fail 	= S_CANNOT_UPDATE_HOST;
@@ -186,7 +126,7 @@ include_once "include/page_header.php";
 		} else {
 			$hostid = add_host(
 				$_REQUEST["host"],$_REQUEST["port"],$_REQUEST["status"],$useip,
-				$_REQUEST["ip"],$templates,$_REQUEST["newgroup"],$groups);
+				$_REQUEST["ip"],$_REQUEST["templateid"],$_REQUEST["newgroup"],$groups);
 
 			$msg_ok 	= S_HOST_ADDED;
 			$msg_fail 	= S_CANNOT_ADD_HOST;
@@ -220,23 +160,17 @@ include_once "include/page_header.php";
 	}
 
 /* DELETE HOST */ 
-	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && (isset($_REQUEST["delete"]) || isset($_REQUEST["delete_and_clear"])))
+	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && isset($_REQUEST["delete"]))
 	{
-		$unlink_mode = false;
-		if(isset($_REQUEST["delete"]))
-		{
-			$unlink_mode =  true;
-		}
-
 		if(isset($_REQUEST["hostid"])){
 			$host=get_host_by_hostid($_REQUEST["hostid"]);
-			$result=delete_host($_REQUEST["hostid"], $unlink_mode);
+			$result=delete_host($_REQUEST["hostid"]);
 
 			show_messages($result, S_HOST_DELETED, S_CANNOT_DELETE_HOST);
 			if($result)
 			{
 				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_HOST,
-					"Host [".$host["host"]."]");
+				"Host [".$host["host"]."]");
 
 				unset($_REQUEST["form"]);
 				unset($_REQUEST["hostid"]);
@@ -245,13 +179,13 @@ include_once "include/page_header.php";
 /* group operations */
 			$result = 0;
 			$hosts = get_request("hosts",array());
-			$db_hosts=DBselect("select hostid from hosts where ".DBid2nodeid("hostid")."=".$ZBX_CURNODEID);
+			$db_hosts=DBselect("select hostid from hosts");
 			while($db_host=DBfetch($db_hosts))
 			{
 				$host=get_host_by_hostid($db_host["hostid"]);
 
 				if(!in_array($db_host["hostid"],$hosts)) continue;
-				if(!delete_host($db_host["hostid"], $unlink_mode))	continue;
+				if(!delete_host($db_host["hostid"]))	continue;
 				$result = 1;
 
 				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_HOST,
@@ -269,7 +203,7 @@ include_once "include/page_header.php";
 		$status = isset($_REQUEST["activate"]) ? HOST_STATUS_MONITORED : HOST_STATUS_NOT_MONITORED;
 		$hosts = get_request("hosts",array());
 
-		$db_hosts=DBselect("select hostid from hosts where ".DBid2nodeid("hostid")."=".$ZBX_CURNODEID);
+		$db_hosts=DBselect("select hostid from hosts");
 		while($db_host=DBfetch($db_hosts))
 		{
 			if(!in_array($db_host["hostid"],$hosts)) continue;
@@ -306,23 +240,17 @@ include_once "include/page_header.php";
 		if(isset($_REQUEST["groupid"]))
 		{
 			$result = update_host_group($_REQUEST["groupid"], $_REQUEST["gname"], $hosts);
-			$action 	= AUDIT_ACTION_UPDATE;
 			$msg_ok		= S_GROUP_UPDATED;
 			$msg_fail	= S_CANNOT_UPDATE_GROUP;
 			$groupid = $_REQUEST["groupid"];
 		} else {
-			if(count(get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_MODE_LT,PERM_RES_IDS_ARRAY,$ZBX_CURNODEID)))
-				access_deny();
-
 			$groupid = add_host_group($_REQUEST["gname"], $hosts);
-			$action 	= AUDIT_ACTION_ADD;
 			$msg_ok		= S_GROUP_ADDED;
 			$msg_fail	= S_CANNOT_ADD_GROUP;
 			$result = $groupid;
 		}
 		show_messages($result, $msg_ok, $msg_fail);
 		if($result){
-			add_audit($action,AUDIT_RESOURCE_HOST_GROUP,S_HOST_GROUP." [".$_REQUEST["gname"]." ] [".$groupid."]");
 			unset($_REQUEST["form"]);
 		}
 		unset($_REQUEST["save"]);
@@ -330,19 +258,14 @@ include_once "include/page_header.php";
 	if($_REQUEST["config"]==1&&isset($_REQUEST["delete"]))
 	{
 		if(isset($_REQUEST["groupid"])){
-			$result = false;
-			if($group = get_hostgroup_by_groupid($_REQUEST["groupid"]))
-			{
-				$result = delete_host_group($_REQUEST["groupid"]);
-			} 
-
+			$result=delete_host_group($_REQUEST["groupid"]);
 			if($result){
-				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_HOST_GROUP,
-					S_HOST_GROUP." [".$group["name"]." ] [".$group['groupid']."]");
-			}
-			
-			unset($_REQUEST["form"]);
+//				$group = get_hostgroup_by_groupid($_REQUEST["groupid"]);
+//				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_GROUP,
+//					"Group [".$group["name"]."]");
 
+				unset($_REQUEST["form"]);
+			}
 			show_messages($result, S_GROUP_DELETED, S_CANNOT_DELETE_GROUP);
 			unset($_REQUEST["groupid"]);
 		} else {
@@ -350,19 +273,17 @@ include_once "include/page_header.php";
 			$result = 0;
 			$groups = get_request("groups",array());
 
-			$db_groups=DBselect("select groupid, name from groups where ".DBid2nodeid("groupid")."=".$ZBX_CURNODEID);
+			$db_groups=DBselect("select groupid, name from groups");
 			while($db_group=DBfetch($db_groups))
 			{
 				if(!in_array($db_group["groupid"],$groups)) continue;
-			
-				if(!($group = get_hostgroup_by_groupid($db_group["groupid"]))) continue;
-
 				if(!delete_host_group($db_group["groupid"])) continue
 
 				$result = 1;
 
-				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_HOST_GROUP,
-					S_HOST_GROUP." [".$group["name"]." ] [".$group['groupid']."]");
+//				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_GROUP,
+//					"Group [".$db_group["name"]."]");
+
 			}
 			show_messages($result, S_GROUP_DELETED, NULL);
 		}
@@ -375,8 +296,7 @@ include_once "include/page_header.php";
 		$groups = get_request("groups",array());
 
 		$db_hosts=DBselect("select h.hostid, hg.groupid from hosts_groups hg, hosts h".
-			" where h.hostid=hg.hostid and h.status<>".HOST_STATUS_DELETED.
-			" and ".DBid2nodeid("h.hostid")."=".$ZBX_CURNODEID);
+			" where h.hostid=hg.hostid and h.status<>".HOST_STATUS_DELETED);
 		while($db_host=DBfetch($db_hosts))
 		{
 			if(!in_array($db_host["groupid"],$groups)) continue;
@@ -396,20 +316,17 @@ include_once "include/page_header.php";
 		if(isset($_REQUEST["applicationid"]))
 		{
 			$result = update_application($_REQUEST["applicationid"],$_REQUEST["appname"], $_REQUEST["apphostid"]);
-			$action		= AUDIT_ACTION_UPDATE;
 			$msg_ok		= S_APPLICATION_UPDATED;
 			$msg_fail	= S_CANNOT_UPDATE_APPLICATION;
 			$applicationid = $_REQUEST["applicationid"];
 		} else {
 			$applicationid = add_application($_REQUEST["appname"], $_REQUEST["apphostid"]);
-			$action		= AUDIT_ACTION_ADD;
 			$msg_ok		= S_APPLICATION_ADDED;
 			$msg_fail	= S_CANNOT_ADD_APPLICATION;
 			$result = $applicationid;
 		}
 		show_messages($result, $msg_ok, $msg_fail);
 		if($result){
-			add_audit($action,AUDIT_RESOURCE_APPLICATION,S_APPLICATION." [".$_REQUEST["appname"]." ] [".$applicationid."]");
 			unset($_REQUEST["form"]);
 		}
 		unset($_REQUEST["save"]);
@@ -417,48 +334,42 @@ include_once "include/page_header.php";
 	elseif($_REQUEST["config"]==4 && isset($_REQUEST["delete"]))
 	{
 		if(isset($_REQUEST["applicationid"])){
-			$result = false;
-			if($app = get_application_by_applicationid($_REQUEST["applicationid"]))
-			{
-				$host = get_host_by_hostid($app["hostid"]);
-				$result=delete_application($_REQUEST["applicationid"]);
+			$app = get_application_by_applicationid($_REQUEST["applicationid"]);
+			$host=get_host_by_hostid($app["hostid"]);
+			$result=delete_application($_REQUEST["applicationid"]);
 
-			}
 			show_messages($result, S_APPLICATION_DELETED, S_CANNOT_DELETE_APPLICATION);
 			if($result)
 			{
-				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_APPLICATION,
-					"Application [".$app["name"]."] from host [".$host["host"]."]");
+// TODO				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_APPLICATION,
+// TODO				"Application [".$app["name"]."] from host [".$host["host"]."]");
 
+				unset($_REQUEST["form"]);
+				unset($_REQUEST["applicationid"]);
 			}
-			unset($_REQUEST["form"]);
-			unset($_REQUEST["applicationid"]);
 		} else {
 /* group operations */
 			$result = 0;
 			$applications = get_request("applications",array());
 
-			$db_applications = DBselect("select applicationid, name from applications ".
-				"where ".DBid2nodeid("applicationid")."=".$ZBX_CURNODEID);
-
+			$db_applications = DBselect("select applicationid from applications");
 			while($db_app = DBfetch($db_applications))
 			{
 				if(!in_array($db_app["applicationid"],$applications))	continue;
 				if(!delete_application($db_app["applicationid"]))	continue;
 				$result = 1;
 
-				$host = get_host_by_hostid($db_app["hostid"]);
-				
-				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_APPLICATION,
-					"Application [".$db_app["name"]."] from host [".$host["host"]."]");
+// TODO				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_APPLICATION,
+// TODO				"Application [".$app["name"]."] from host [".$host["host"]."]");
 			}
 			show_messages($result, S_APPLICATION_DELETED, NULL);
 		}
 		unset($_REQUEST["delete"]);
 	}
-	
-	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE,null,null,$ZBX_CURNODEID); /* update available_hosts after ACTIONS */
+
+
 ?>
+
 <?php
 	$frmForm = new CForm();
 
@@ -467,7 +378,9 @@ include_once "include/page_header.php";
 	$cmbConf->AddItem(3,S_TEMPLATES);
 	$cmbConf->AddItem(1,S_HOST_GROUPS);
 	$cmbConf->AddItem(2,S_TEMPLATE_LINKAGE);
-	$cmbConf->AddItem(4,S_APPLICATIONS);
+
+	if(check_anyright("Application","U"))
+		$cmbConf->AddItem(4,S_APPLICATIONS);
 
 	switch($_REQUEST["config"]){
 		case 0:
@@ -494,7 +407,7 @@ include_once "include/page_header.php";
 		$frmForm->AddItem(SPACE."|".SPACE);
 		$frmForm->AddItem($btn);
 	}
-	show_table_header(S_CONFIGURATION_OF_HOSTS_GROUPS_AND_TEMPLATES, $frmForm);
+	show_header2(S_CONFIGURATION_OF_HOSTS_GROUPS_AND_TEMPLATES, $frmForm);
 	echo BR;
 ?>
 
@@ -509,38 +422,46 @@ include_once "include/page_header.php";
 		{
 			insert_host_form($show_only_tmp);
 		} else {
-			$status_filter = " and h.status not in (".HOST_STATUS_DELETED.",".HOST_STATUS_TEMPLATE.") ";
+			$status_filter = "h.status not in (".HOST_STATUS_DELETED.",".HOST_STATUS_TEMPLATE.")";
 			if($show_only_tmp==1)
-				$status_filter = " and h.status in (".HOST_STATUS_TEMPLATE.") ";
-				
+				$status_filter = "h.status in (".HOST_STATUS_TEMPLATE.")";
+
 			$cmbGroups = new CComboBox("groupid",get_request("groupid",0),"submit()");
 			$cmbGroups->AddItem(0,S_ALL_SMALL);
-			$result=DBselect("select distinct g.groupid,g.name from groups g,hosts_groups hg,hosts h".
-					" where h.hostid in (".$available_hosts.") ".
-					" and g.groupid=hg.groupid and h.hostid=hg.hostid".$status_filter.
-					" order by g.name");
+			$result=DBselect("select groupid,name from groups order by name");
 			while($row=DBfetch($result))
 			{
-				$cmbGroups->AddItem($row["groupid"],$row["name"]);
-				if($row["groupid"] == $_REQUEST["groupid"]) $correct_host = 1;
+// Check if at least one host with read permission exists for this group
+				$result2=DBselect("select h.hostid,h.host from hosts h,hosts_groups hg".
+					" where hg.groupid=".$row["groupid"].
+					" and hg.hostid=h.hostid".
+					" and  $status_filter".
+					" group by h.hostid,h.host order by h.host");
+
+				while($row2=DBfetch($result2))
+				{
+					if(!check_right("Host","R",$row2["hostid"]))	continue;
+					$cmbGroups->AddItem($row["groupid"],$row["name"]);
+					if($row["groupid"] == $_REQUEST["groupid"]) $correct_host = 1;
+					break;
+				}
 			}
 			if(!isset($correct_host))
 			{
 				$_REQUEST["groupid"] = 0;
-				$cmbGroups->SetValue($_REQUEST["groupid"]);
+				$cmbGroups->SetValue(0);
 			}
 
-			$frmForm = new CForm();
+			$frmForm = new CForm("hosts.php");
 			$frmForm->AddVar("config",$_REQUEST["config"]);
 			$frmForm->AddItem(S_GROUP.SPACE);
 			$frmForm->AddItem($cmbGroups);
-			show_table_header($show_only_tmp ? S_TEMPLATES_BIG : S_HOSTS_BIG, $frmForm);
+			show_header2($show_only_tmp ? S_TEMPLATES_BIG : S_HOSTS_BIG, $frmForm);
 
 	/* table HOSTS */
-			
 			if(isset($_REQUEST["groupid"]) && $_REQUEST["groupid"]==0) unset($_REQUEST["groupid"]);
 
-			$form = new CForm();
+			$form = new CForm('hosts.php');
 			$form->SetName('hosts');
 			$form->AddVar("config",get_request("config",0));
 
@@ -548,7 +469,6 @@ include_once "include/page_header.php";
 			$table->setHeader(array(
 				array(new CCheckBox("all_hosts",NULL,"CheckAll('".$form->GetName()."','all_hosts');"),
 					SPACE.S_NAME),
-				S_TEMPLATES,
 				$show_only_tmp ? NULL : S_IP,
 				$show_only_tmp ? NULL : S_PORT,
 				$show_only_tmp ? NULL : S_STATUS,
@@ -563,19 +483,24 @@ include_once "include/page_header.php";
 				$sql .= " hosts h,hosts_groups hg where";
 				$sql .= " hg.groupid=".$_REQUEST["groupid"]." and hg.hostid=h.hostid and";
 			} else  $sql .= " hosts h where";
-			$sql .=	" h.hostid in (".$available_hosts.") ".
-				$status_filter.
-				" order by h.host";
+			$sql .=	" $status_filter order by h.host";
 
 			$result=DBselect($sql);
 		
 			while($row=DBfetch($result))
 			{
-				$templates = get_templates_by_hostid($row["hostid"]);
+		        	if(!check_right("Host","R",$row["hostid"]))
+				{
+					continue;
+				}
+
+				$template = get_template_path($row["hostid"]);
+				if($template == "/") $template = NULL;
 				
 				$host=new CCol(array(
 					new CCheckBox("hosts[]",NULL,NULL,$row["hostid"]),
 					SPACE,
+					new CSpan($template,"unknown"),
 					new CLink($row["host"],"hosts.php?form=update&hostid=".
 						$row["hostid"].url_param("groupid").url_param("config"), 'action')
 					));
@@ -589,13 +514,23 @@ include_once "include/page_header.php";
 
 				if($show_only_tmp)	$status = NULL;
 				elseif($row["status"] == HOST_STATUS_MONITORED){
-					$status=new CLink(S_MONITORED,"hosts.php?hosts%5B%5D=".$row["hostid"].
-						"&disable=1".url_param("config").url_param("groupid"),
-						"off");
+					$text = S_MONITORED;
+					if(check_right("Host","U",$row["hostid"]))
+					{
+						$text=new CLink($text,"hosts.php?hosts%5B%5D=".$row["hostid"].
+							"&disable=1".url_param("config").url_param("groupid"),
+							"off");
+					}
+					$status=new CCol($text,"off");
 				} else if($row["status"] == HOST_STATUS_NOT_MONITORED) {
-					$status=new CLink(S_NOT_MONITORED,"hosts.php?hosts%5B%5D=".$row["hostid"].
-						"&activate=1".url_param("config").url_param("groupid"),
-						"on");
+					$text = S_NOT_MONITORED;
+					if(check_right("Host","U",$row["hostid"]))
+					{
+						$text=new CLink($text,"hosts.php?hosts%5B%5D=".$row["hostid"].
+							"&activate=1".url_param("config").url_param("groupid"),
+							"on");
+					}
+					$status=new CCol($text,"on");
 				} else if($row["status"] == HOST_STATUS_TEMPLATE)
 					$status=new CCol(S_TEMPLATE,"unknown");
 				else if($row["status"] == HOST_STATUS_DELETED)
@@ -615,17 +550,20 @@ include_once "include/page_header.php";
 				elseif($row["error"] == "")	$error = new CCol(SPACE,"off");
 				else				$error = new CCol($row["error"],"on");
 
-				$show = array(
-					new CLink(S_ITEMS,"items.php?hostid=".$row["hostid"]),
-					SPACE.":".SPACE,
-					new CLink(S_TRIGGERS,"triggers.php?hostid=".$row["hostid"]),
-					SPACE.":".SPACE,
-					new CLink(S_GRAPHS,"graphs.php?hostid=".$row["hostid"])
-					);
+				if(check_right("Host","U",$row["hostid"])) {
+					$show = array(
+						new CLink(S_ITEMS,"items.php?hostid=".$row["hostid"]),
+						SPACE.":".SPACE,
+						new CLink(S_TRIGGERS,"triggers.php?hostid=".$row["hostid"]),
+						SPACE.":".SPACE,
+						new CLink(S_GRAPHS,"graphs.php?hostid=".$row["hostid"])
+						);
+				} else {
+					$show = SPACE;
+				}
 
 				$table->addRow(array(
 					$host,
-					implode(', ',$templates),
 					$ip,
 					$port,
 					$status,
@@ -642,11 +580,7 @@ include_once "include/page_header.php";
 					"return Confirm('".S_DISABLE_SELECTED_HOSTS_Q."');"),
 				$show_only_tmp ? NULL : SPACE,
 				new CButton('delete','Delete selected',
-					"return Confirm('".S_DELETE_SELECTED_HOSTS_Q."');"),
-				$show_only_tmp ? SPACE : NULL,
-				$show_only_tmp ? new CButton('delete_and_clear','Delete selected with linked elements',
-					"return Confirm('".S_DELETE_SELECTED_HOSTS_Q."');") : NULL
-				);
+					"return Confirm('".S_DELETE_SELECTED_HOSTS_Q."');"));
 			$table->SetFooter(new CCol($footerButtons));
 
 			$form->AddItem($table);
@@ -675,25 +609,28 @@ include_once "include/page_header.php";
 					S_NAME),
 				S_MEMBERS));
 
-			$available_groups = get_accessible_groups_by_user($USER_DETAILS,PERM_READ_WRITE,null,null,$ZBX_CURNODEID);
-
-			$db_groups=DBselect("select groupid,name from groups".
-					" where groupid in (".$available_groups.")".
-					" order by name");
+			$db_groups=DBselect("select groupid,name from groups order by name");
 			while($db_group=DBfetch($db_groups))
 			{
 				$db_hosts = DBselect("select distinct h.host, h.status".
 					" from hosts h, hosts_groups hg".
 					" where h.hostid=hg.hostid and hg.groupid=".$db_group["groupid"].
-					" and h.hostid in (".$available_hosts.")".
 					" and h.status not in (".HOST_STATUS_DELETED.") order by host");
 
-				$hosts = array();
-				while($db_host=DBfetch($db_hosts)){
-					$style = $db_host["status"]==HOST_STATUS_MONITORED ? NULL: ( 
+				$hosts = array("");
+				if($db_host=DBfetch($db_hosts)){
+					$style = 
+						$db_host["status"]==HOST_STATUS_MONITORED ? NULL: (
 						$db_host["status"]==HOST_STATUS_TEMPLATE ? "unknown" :
 						"on");
-					array_push($hosts,unpack_object(new CSpan($db_host["host"],$style)));
+					array_push($hosts,new CSpan($db_host["host"],$style));
+				}
+				while($db_host=DBfetch($db_hosts)){
+					$style = 
+						$db_host["status"]==HOST_STATUS_MONITORED ? NULL: ( 
+						$db_host["status"]==HOST_STATUS_TEMPLATE ? "unknown" :
+						"on");
+					array_push($hosts,", ",new CSpan($db_host["host"],$style));
 				}
 
 				$table->AddRow(array(
@@ -705,7 +642,7 @@ include_once "include/page_header.php";
 							"hosts.php?form=update&groupid=".$db_group["groupid"].
 							url_param("config"),'action')
 					),
-					implode(', ',$hosts)
+					$hosts
 					));
 			}
 			$footerButtons = array();
@@ -731,37 +668,43 @@ include_once "include/page_header.php";
 		$table->SetHeader(array(S_TEMPLATES,S_HOSTS));
 
 		$templates = DBSelect("select * from hosts where status=".HOST_STATUS_TEMPLATE.
-			" and hostid in (".$available_hosts.")".
 			" order by host");
 		while($template = DBfetch($templates))
 		{
-			$hosts = DBSelect("select h.* from hosts h, hosts_templates ht where ht.templateid=".$template["hostid"].
-				" and ht.hostid=h.hostid ".
-				" and h.status not in (".HOST_STATUS_TEMPLATE.")".
-				" and h.hostid in (".$available_hosts.")".
+			$hosts = DBSelect("select * from hosts where templateid=".$template["hostid"].
+				" and status in (".HOST_STATUS_MONITORED.",".HOST_STATUS_NOT_MONITORED.")".
 				" order by host");
 			$host_list = array();
 			while($host = DBfetch($hosts))
 			{
 				if($host["status"] == HOST_STATUS_NOT_MONITORED)
 				{
-					array_push($host_list, unpack_object(new CSpan($host["host"],"on")));
+					array_push($host_list, new CSpan($host["host"],"on"));
 				}
 				else
 				{
 					array_push($host_list, $host["host"]);
 				}
+				array_push($host_list,", ");
 			}
+			array_pop($host_list); // remove last ','
 			$table->AddRow(array(
-				new CSpan($template["host"],"unknown"),
-				implode(', ',$host_list)
-				));
+				new CSpan(get_template_path($template["hostid"]).$template["host"],"unknown"),
+				$host_list)
+				);
 		}
 
 		$table->Show();
 	}
 	elseif($_REQUEST["config"]==4)
 	{
+		if(!check_anyright("Application","U"))
+		{
+			show_table_header("<font color=\"AA0000\">".S_NO_PERMISSIONS."</font>");
+			show_page_footer();
+			exit;
+		}
+
 		if(isset($_REQUEST["form"]))
 		{
 			insert_application_form();
@@ -769,47 +712,65 @@ include_once "include/page_header.php";
 	// Table HEADER
 			$form = new CForm();
 
+			$_REQUEST["groupid"] = get_request("groupid",0);
 			$cmbGroup = new CComboBox("groupid",$_REQUEST["groupid"],"submit();");
 			$cmbGroup->AddItem(0,S_ALL_SMALL);
-
-			$result=DBselect("select distinct g.groupid,g.name from groups g,hosts_groups hg".
-				" where g.groupid=hg.groupid and hg.hostid in (".$available_hosts.") ".
-				" order by name");
+			$result=DBselect("select groupid,name from groups order by name");
 			while($row=DBfetch($result))
 			{
-				$cmbGroup->AddItem($row["groupid"],$row["name"]);
+		// Check if at least one host with read permission exists for this group
+				$result2=DBselect("select h.hostid,h.host from hosts h,hosts_groups hg".
+					" where hg.groupid=".$row["groupid"]." and hg.hostid=h.hostid and".
+					" h.status<>".HOST_STATUS_DELETED." group by h.hostid,h.host order by h.host");
+				while($row2=DBfetch($result2))
+				{
+					if(!check_right("Host","U",$row2["hostid"]))	continue;
+					$cmbGroup->AddItem($row["groupid"],$row["name"]);
+					break;
+				}
 			}
 			$form->AddItem(S_GROUP.SPACE);
 			$form->AddItem($cmbGroup);
 
 			if(isset($_REQUEST["groupid"]) && $_REQUEST["groupid"]>0)
 			{
-				$sql="select distinct h.hostid,h.host from hosts h,hosts_groups hg".
-					" where hg.groupid=".$_REQUEST["groupid"]." and hg.hostid=h.hostid ".
-					" and h.hostid in (".$available_hosts.") ".
-					" and h.status<>".HOST_STATUS_DELETED." group by h.hostid,h.host order by h.host";
+				$sql="select h.hostid,h.host from hosts h,hosts_groups hg".
+					" where hg.groupid=".$_REQUEST["groupid"]." and hg.hostid=h.hostid and".
+					" h.status<>".HOST_STATUS_DELETED." group by h.hostid,h.host order by h.host";
 			}
 			else
 			{
-				$sql="select distinct h.hostid,h.host from hosts h ".
-					" where h.status<>".HOST_STATUS_DELETED.
-					" and h.hostid in (".$available_hosts.") ".
+				$sql="select h.hostid,h.host from hosts h where h.status<>".HOST_STATUS_DELETED.
 					" group by h.hostid,h.host order by h.host";
 			}
-			$cmbHosts = new CComboBox("hostid",$_REQUEST["hostid"],"submit();");
 
 			$result=DBselect($sql);
+
+			$_REQUEST["hostid"] = get_request("hostid",0);
+			$cmbHosts = new CComboBox("hostid",$_REQUEST["hostid"],"submit();");
+
+			$correct_hostid='no';
+			$first_hostid = -1;
 			while($row=DBfetch($result))
 			{
+				if(!check_right("Host","U",$row["hostid"]))	continue;
 				$cmbHosts->AddItem($row["hostid"],$row["host"]);
+
+				if($_REQUEST["hostid"]!=0){
+					if($_REQUEST["hostid"]==$row["hostid"])
+						$correct_hostid = 'ok';
+				}
+				if($first_hostid <= 0)
+					$first_hostid = $row["hostid"];
 			}
+			if($correct_hostid!='ok')
+				$_REQUEST["hostid"] = $first_hostid;
 
 			$form->AddItem(SPACE.S_HOST.SPACE);
 			$form->AddItem($cmbHosts);
 			
-			show_table_header(S_APPLICATIONS_BIG, $form);
+			show_header2(S_APPLICATIONS_BIG, $form);
 
-/* TABLE */
 
 			$form = new CForm();
 			$form->SetName('applications');
@@ -819,7 +780,8 @@ include_once "include/page_header.php";
 				array(new CCheckBox("all_applications",NULL,
 					"CheckAll('".$form->GetName()."','all_applications');"),
 				SPACE,
-				S_APPLICATION),
+				S_ID),
+				S_APPLICATION,
 				S_SHOW
 				));
 
@@ -850,7 +812,8 @@ include_once "include/page_header.php";
 				$table->AddRow(array(
 					array(new CCheckBox("applications[]",NULL,NULL,$db_app["applicationid"]),
 					SPACE,
-					$name),
+					$db_app["applicationid"]),
+					$name,
 					array(new CLink(S_ITEMS,"items.php?hostid=".$db_app["hostid"],"action"),
 					SPACE."($rows)")
 					));
@@ -871,7 +834,5 @@ include_once "include/page_header.php";
 	}
 ?>
 <?php
-
-include_once "include/page_footer.php";
-
+	show_page_footer();
 ?>

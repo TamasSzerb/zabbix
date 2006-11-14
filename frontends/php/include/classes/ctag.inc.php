@@ -19,17 +19,6 @@
 **/
 ?>
 <?php
-	function destroy_objects()
-	{
-		global $GLOBALS;
-
-		if(isset($GLOBALS)) foreach($GLOBALS as $name => $value)
-		{
-			if(!is_object($GLOBALS[$name])) continue;
-			unset($GLOBALS[$name]);
-		}
-	}
-	
 	function unpack_object(&$item)
 	{
 		$res = "";
@@ -40,13 +29,12 @@
 		}
 		elseif(is_array($item))
 		{
-			foreach($item as $id => $dat)	
-				$res .= unpack_object($item[$id]); // Attention, recursion !!!
+			foreach($item as $i)	
+				$res .= unpack_object($i); // Attention, recursion !!!
 		}
 		elseif(!is_null($item))
 		{
 			$res = strval($item);
-			unset($item);
 		}
 		return $res;
 	}
@@ -54,7 +42,6 @@
 	class CTag
 	{
 /* private */
-		var $destroyable_object;
 		var $tagname;
 		var $options = array();
 		var $paired;
@@ -67,7 +54,7 @@
 		var $tag_end;
 
 /* public */
-		function CTag($tagname=NULL, $paired='no', $body=NULL, $class=null)
+		function CTag($tagname=NULL, $paired='no', $body=NULL)
 		{
 			if(!is_string($tagname))
 			{
@@ -87,26 +74,17 @@
 				CTag::AddItem($body);
 			}
 
-			$this->SetClass($class);
-
 		}
 		function ShowStart()	{	echo $this->StartToString();	}
 		function ShowBody()	{	echo $this->BodyToString();	}
 		function ShowEnd()	{	echo $this->EndToString();	}
-		function Show($destroy=true)	{	echo $this->ToString($destroy);		}
-
-		function Destroy()	{
-### TODO Problem under PHP 5.0  "Fatal error: Cannot re-assign $this in ..."
-#			$this = null;
-		}
+		function Show()		{	echo $this->ToString();		}
 
 		function StartToString()
 		{
 			$res = $this->tag_start.'<'.$this->tagname;
 			foreach($this->options as $key => $value)
-			{
 				$res .= ' '.$key.'="'.$value.'"';
-			}
 			$res .= ($this->paired=='yes') ? '>' : '/>';
 			return $res;
 		}
@@ -123,14 +101,11 @@
 			$res .= $this->tag_end;
 			return $res;
 		}
-		function ToString($destroy=true)
+		function ToString()
 		{
 			$res  = $this->StartToString();
 			$res .= $this->BodyToString();
 			$res .= $this->EndToString();
-
-			if($destroy) $this->Destroy();
-
 			return $res;
 		}
 		function SetName($value)
@@ -145,12 +120,7 @@
 		}
 		function SetClass($value)		
 		{
-			if(isset($value))
-				$this->options['class'] = $value;
-			else
-				unset($this->options['class']);
-
-			return $value;
+			return $this->options['class'] = $value;
 		}
 		function DelOption($name)
 		{
@@ -163,28 +133,6 @@
 				$ret =& $this->options[$name];
 			return $ret;
 		}
-
-		function SetHint($text, $width='', $class='')
-		{
-			$text = addslashes(htmlspecialchars($text));
-			if($width != '' || $class!= '')
-			{
-				$code = "show_hint_ext(this,event,'".$text."','".$width."','".$class."');";
-			}
-			else
-			{
-				$code = "show_hint(this,event,'".$text."');";
-			}
-
-			$this->AddOption('onMouseOver',	$code);
-			$this->AddOption('onMouseMove',	$code);
-		}
-
-		function OnClick($handle_code)
-		{
-			$this->AddOption('onClick', $handle_code);
-		}
-
 		function AddOption($name, $value)
 		{
 			$this->options[$name] = htmlspecialchars(strval($value)); 

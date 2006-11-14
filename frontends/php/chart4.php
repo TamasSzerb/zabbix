@@ -19,74 +19,99 @@
 **/
 ?>
 <?php
-	require_once "include/config.inc.php";
-	require_once "include/triggers.inc.php";
+	include "include/config.inc.php";
 
-	$page["file"]	= "chart4.php";
-	$page["title"]	= "S_CHART";
-	$page["type"]	= PAGE_TYPE_IMAGE;
+#	PARAMETERS:
+	
+#	itemid
+#	type
 
-include_once "include/page_header.php";
+	$start_time=time(NULL);
 
-?>
-<?php
-//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-	$fields=array(
-		"triggerid"=>		array(T_ZBX_INT, O_MAND,P_SYS,	DB_ID,		NULL)
-	);
-
-	check_fields($fields);
-?>
-<?php
-	$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY, PERM_MODE_LT);
-
-	if(! ($db_data = DBfetch(DBselect('select distinct  t.triggerid,t.description,h.host,h.hostid '.
-			' from hosts h, items i, functions f, triggers t'.
-			' where h.hostid=i.hostid and i.itemid=f.itemid and f.triggerid=t.triggerid and t.triggerid='.$_REQUEST["triggerid"].
-			' and i.hostid not in ('.$denyed_hosts.') '
-			))))
+	if(!isset($_REQUEST["type"]))
 	{
-		access_deny();
+		$_REQUEST["type"]="week";
 	}
 
-	$start_time = time(NULL);
+	if($_REQUEST["type"] == "month")
+	{
+		$period=30*24*3600;
+	}
+	else if($_REQUEST["type"] == "week")
+	{
+		$period=7*24*3600;
+	}
+	else if($_REQUEST["type"] == "year")
+	{
+		$period=365*24*3600;
+	}
+	else
+	{
+		$period=7*24*3600;
+		$type="week";
+	}
 
-	$sizeX		= 900;
-	$sizeY		= 300;
+	$sizeX=900;
+	$sizeY=300;
 
-	$shiftX		= 12;
-	$shiftYup	= 17;
-	$shiftYdown	= 25+15*3;
+	$shiftX=12;
+	$shiftYup=17;
+	$shiftYdown=25+15*3;
+
+
+	set_image_header();
+
+	check_authorisation();
 
 	$im = imagecreate($sizeX+$shiftX+61,$sizeY+$shiftYup+$shiftYdown+10); 
-	
-	$red		= ImageColorAllocate($im,255,0,0); 
-	$darkred	= ImageColorAllocate($im,150,0,0); 
-	$green		= ImageColorAllocate($im,0,255,0); 
-	$darkgreen	= ImageColorAllocate($im,0,150,0); 
-	$bluei		= ImageColorAllocate($im,0,0,255); 
-	$darkblue	= ImageColorAllocate($im,0,0,150); 
-	$yellow		= ImageColorAllocate($im,255,255,0); 
-	$darkyellow	= ImageColorAllocate($im,150,150,0); 
-	$cyan		= ImageColorAllocate($im,0,255,255); 
-	$black		= ImageColorAllocate($im,0,0,0); 
-	$gray		= ImageColorAllocate($im,150,150,150); 
-	$white		= ImageColorAllocate($im,255,255,255); 
-	$bg		= ImageColorAllocate($im,6+6*16,7+7*16,8+8*16);
+  
+	$red=ImageColorAllocate($im,255,0,0); 
+	$darkred=ImageColorAllocate($im,150,0,0); 
+	$green=ImageColorAllocate($im,0,255,0); 
+	$darkgreen=ImageColorAllocate($im,0,150,0); 
+	$blue=ImageColorAllocate($im,0,0,255); 
+	$darkblue=ImageColorAllocate($im,0,0,150); 
+	$yellow=ImageColorAllocate($im,255,255,0); 
+	$darkyellow=ImageColorAllocate($im,150,150,0); 
+	$cyan=ImageColorAllocate($im,0,255,255); 
+	$black=ImageColorAllocate($im,0,0,0); 
+	$gray=ImageColorAllocate($im,150,150,150); 
+	$white=ImageColorAllocate($im,255,255,255); 
+	$bg=ImageColorAllocate($im,6+6*16,7+7*16,8+8*16);
 
 	$x=imagesx($im); 
 	$y=imagesy($im);
   
+//	ImageFilledRectangle($im,0,0,$sizeX+$shiftX+61,$sizeY+$shiftYup+$shiftYdown+10,$white);
 	ImageFilledRectangle($im,0,0,$x,$y,$white);
 	ImageRectangle($im,0,0,$x-1,$y-1,$black);
 
-	$str = expand_trigger_description_by_data($db_data);
+	if(!check_right_on_trigger("R",$_REQUEST["triggerid"]))
+	{
+//		show_table_header("<font color=\"AA0000\">No permissions !</font>");
+//		show_page_footer();
+		ImageOut($im); 
+		ImageDestroy($im); 
+		exit;
+	}
 
-	$str = $str." (year ".date("Y").")";
-	$x = imagesx($im)/2-ImageFontWidth(4)*strlen($str)/2;
+
+//	$trigger=get_trigger_by_triggerid($_REQUEST["triggerid"]);
+//	$str=$trigger["description"];
+
+//	if( strstr($str,"%s"))
+//	{
+		$str=expand_trigger_description($_REQUEST["triggerid"]);
+//	}
+
+	$str=$str." (year ".date("Y").")";
+	$x=imagesx($im)/2-ImageFontWidth(4)*strlen($str)/2;
 	ImageString($im, 4,$x,1, $str , $darkred);
 
 	$now = time(NULL);
+	$to_time=$now;
+	$from_time=$to_time-$period;
+	$from_time_now=$to_time-24*3600;
 
 	$count_now=array();
 	$true=array();
@@ -108,6 +133,8 @@ include_once "include/page_header.php";
 		$false[$i]=$stat["false"];
 		$unknown[$i]=$stat["unknown"];
 		$count_now[$i]=1;
+
+//		echo $true[$i]." ".$false[$i]."<br>";
 	}
 
 	for($i=0;$i<=$sizeY;$i+=$sizeY/10)
@@ -178,9 +205,4 @@ include_once "include/page_header.php";
 
 	ImageOut($im); 
 	ImageDestroy($im); 
-?>
-<?php
-
-include_once "include/page_footer.php";
-
 ?>

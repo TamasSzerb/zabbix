@@ -146,7 +146,7 @@
 			elseif(is_a($item,'crow'))
 			{
 				if(isset($rowClass))
-					$item->SetClass($rowClass);
+					$item->options['class'] = $rowClass;
 			}
 			else
 			{
@@ -154,9 +154,9 @@
 			}
 			if(!isset($item->options['class']))
 			{
-				$item->SetClass(($this->rownum % 2) ?
-                                                $this->oddRowClass:
-                                                $this->evenRowClass);
+				$item->options['class'] = ($this->rownum % 2) ?
+                                                $this->evenRowClass:
+                                                $this->oddRowClass;
 			}/**/
 			return $item->ToString();
 		}
@@ -166,7 +166,7 @@
 
 			if(is_a($value,'crow'))
 			{
-				if(!is_null($class))	$value->SetClass($class);
+				if(isset($class))	$value->SetClass($class);
 			}else{
 				$value = new CRow($value,$class);
 			}
@@ -181,14 +181,13 @@
 		}
 		function AddRow($item,$rowClass=NULL)
 		{
-			$item = $this->AddItem($this->PrepareRow($item,$rowClass));
 			++$this->rownum;
-			return $item;
+			return $this->AddItem($this->PrepareRow($item,$rowClass));
 		}
 		function ShowRow($item,$rowClass=NULL)
 		{
-			echo $this->PrepareRow($item,$rowClass);
 			++$this->rownum;
+			echo $this->PrepareRow($item,$rowClass);
 		}
 /* protected */
 		function GetNumRows()
@@ -207,6 +206,7 @@
 			$ret = "";
 			if($this->rownum == 0 && isset($this->message)) 
 			{
+				++$this->rownum;
 				$ret = $this->PrepareRow(new CCol($this->message,'message'));
 			}
 			$ret .= $this->footer;

@@ -19,9 +19,9 @@
 **/
 ?>
 <?php
-	function unset_request($key,$requester='unknown')
+	function unset_request($key)
 	{
-//		SDI("unset [".$requester."]: $key");
+//		SDI("unset: $key");
 		unset($_REQUEST[$key]);
 	}
 
@@ -49,7 +49,7 @@
 	}
 
 	define("NOT_EMPTY","({}!='')&&");
-	define("DB_ID","({}>=0&&bccomp('{}',\"10000000000000000000\")<0)&&");
+	define("DB_ID","({}>=0&&{}<=4294967295)&&");
 
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 
@@ -92,8 +92,8 @@
 		{
 			foreach($_REQUEST[$field] as $key => $val)
 			{
-				$expression2 = str_replace("{}",'$_REQUEST["'.$field.'"]["'.$key.'"]',$expression);
-				if(calc_exp2($fields,$field,$expression2)==FALSE)
+				$expression = str_replace("{}",'$_REQUEST["'.$field.'"]['.$key.']',$expression);
+				if(calc_exp2($fields,$field,$expression)==FALSE)
 					return FALSE;
 			}	
 			return TRUE;
@@ -108,7 +108,7 @@
 		{
 			if(!isset($fields[$key]))
 			{
-				unset_request($key,'unset_not_in_list');
+				unset_request($key);
 			}
 		}
 	}
@@ -119,9 +119,9 @@
 		{
 			list($type,$opt,$flags,$validation,$exception)=$checks;
 
-			if(($flags&P_NZERO)&&(isset($_REQUEST[$field]))&&(is_numeric($_REQUEST[$field]))&&($_REQUEST[$field]==0))
+			if(($flags&P_NZERO)&&(isset($_REQUEST[$field]))&&($_REQUEST[$field]==0))
 			{
-				unset_request($field,'unset_if_zero');
+				unset_request($field);
 			}
 		}
 	}
@@ -135,7 +135,7 @@
 			
 			if(($flags&P_ACT)&&(isset($_REQUEST[$field])))
 			{
-				unset_request($field,'unset_action_vars');
+				unset_request($field);
 			}
 		}
 	}
@@ -144,13 +144,13 @@
 	{
 		foreach($_REQUEST as $key => $val)
 		{
-			unset_request($key,'unset_all');
+			unset_request($key);
 		}
 	}
 
 	function 	check_type(&$field, $flags, &$var, $type)
 	{
-		if(is_array($var) && $type != T_ZBX_IP)
+		if(is_array($var))
 		{
 			$err = ZBX_VALID_OK;
 			foreach($var as $el)
@@ -160,27 +160,6 @@
 			return $err;
 		}
  
-		if($type == T_ZBX_IP)
-		{
-			if(!is_array($var)) $var = explode('.',$var);
-			if(count($var) != 4)
-			{
-				if($flags&P_SYS)
-				{
-					info("Critical error. Field [".$field."] is not IP");
-					return ZBX_VALID_ERROR;
-				}
-				else
-				{
-					info("Warning. Field [".$field."] is not IP");
-					return ZBX_VALID_WARNING;
-				}
-			}
-			$err = ZBX_VALID_OK;
-			foreach($var as $el) $err |= check_type($field, $flags, $el, T_ZBX_INT);
-			return $err;
-		}
-		
 		if(($type == T_ZBX_INT) && !is_numeric($var)) {
 			if($flags&P_SYS)
 			{
@@ -241,8 +220,6 @@
 	{
 		list($type,$opt,$flags,$validation,$exception)=$checks;
 
-		if($type == T_ZBX_IP) $validation = BETWEEN(0,255);
-
 //echo "Field: $field<br>";
 
 		if($exception==NULL)	$except=FALSE;
@@ -273,7 +250,7 @@
 			if(!isset($_REQUEST[$field]))
 				return ZBX_VALID_OK;
 
-			unset_request($field,'O_NO');
+			unset_request($field);
 
 			if($flags&P_SYS)
 			{
@@ -317,27 +294,16 @@
 				}
 			}
 		}
-
-		
 		return ZBX_VALID_OK;
 	}
 
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$system_fields=array(
 		"sessionid"=>		array(T_ZBX_STR, O_OPT,	 P_SYS,	HEX(),NULL),
-		"switch_node"=>		array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,NULL),
 		"triggers_hash"=>	array(T_ZBX_STR, O_OPT,	 P_SYS,	NOT_EMPTY,NULL)
 	);
 
-	function	invalid_url()
-	{
-		include_once "include/page_header.php";
-		unset_all();
-		show_error_message(S_INVALID_URL);
-		include_once "include/page_footer.php";
-	}
-	
-	function	check_fields(&$fields, $show_messages=true)
+	function	check_fields(&$fields)
 	{
 
 		global	$_REQUEST;
@@ -350,29 +316,22 @@
 		foreach($fields as $field => $checks)
 		{
 			$err |= check_field($fields, $field,$checks);
-			
-			if($checks[0] == T_ZBX_IP && isset($_REQUEST[$field]))
-			{
-				$_REQUEST[$field] = implode('.', $_REQUEST[$field]);
-			}
 		}
 
 		unset_not_in_list($fields);
 		unset_if_zero($fields);
+		if($err&ZBX_VALID_ERROR)
+		{
+			unset_all();
+			show_messages(FALSE, "", "Invalid URL");
+			show_page_footer();
+			exit;
+		}
 		if($err!=ZBX_VALID_OK)
 		{
 			unset_action_vars($fields);
 		}
-
-		$fields = null;
-		
-		if($err&ZBX_VALID_ERROR)
-		{
-			invalid_url();
-		}
-
-		if($show_messages) show_messages();
-
+		show_infomsg();
 		return ($err==ZBX_VALID_OK ? 1 : 0);
 	}
 ?>

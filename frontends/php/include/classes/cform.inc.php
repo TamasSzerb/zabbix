@@ -41,12 +41,9 @@
 			{
 				if(isset($page['file']))
 				{
-					$value = $page['file'];
+					return $this->options['action'] = $page['file'];
 				}
-				else
-				{
-					$value = "#";
-				}
+				return 1;
 			}
 			return $this->options['action'] = $value;
 		}
@@ -59,9 +56,16 @@
 			}
 			return $this->AddOption("enctype",$value);
 		}
-
 		function AddVar($name, $value)
 		{
+			if(is_array($value))
+			{
+				foreach($value as $item)
+				{
+					$this->AddItem(new CVar($name."[]", $item));
+				}
+				return 1;
+			}
 			return $this->AddItem(new CVar($name, $value));
 		}
 	}

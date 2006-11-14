@@ -21,7 +21,7 @@
 <?php
 	global $TRANSLATION;
 
-	$TRANSLATION = array(
+	$ru_ru=array(
 
 	"S_DATE_FORMAT_YMDHMS"=>		"d M H:i:s",
 	"S_DATE_FORMAT_YMD"=>			"d M Y",
@@ -191,7 +191,7 @@
 //	Latest values
 	"S_LATEST_VALUES"=>			"Latest values",
 	"S_NO_PERMISSIONS"=>			"No permissions !",
-	"S_LATEST_DATA"=>			"Poslednie dannie",
+	"S_LATEST_DATA"=>			"LATEST DATA",
 	"S_ALL_SMALL"=>				"all",
 	"S_DESCRIPTION_LARGE"=>			"DESCRIPTION",
 	"S_DESCRIPTION_SMALL"=>			"Description",
@@ -727,4 +727,6 @@
 	"S_HELP"=>				"Help",
 	"S_PROFILE"=>				"Profile",
 	);
+
+	$TRANSLATION=array_merge($TRANSLATION,$ru_ru);
 ?>

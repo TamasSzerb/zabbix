@@ -19,129 +19,48 @@
 **/
 ?>
 <?php
-	function	DBconnect(&$error)
+
+// DATABASE CONFIGURATION
+
+//	$DB_TYPE	="ORACLE";
+//	$DB_TYPE	="POSTGRESQL";
+	$DB_TYPE	="MYSQL";
+	$DB_SERVER	="localhost";
+	$DB_DATABASE	="demo";
+	$DB_USER	="root";
+	$DB_PASSWORD	="";
+// END OF DATABASE CONFIGURATION
+
+	global $USER_DETAILS;
+
+	if($DB_TYPE == "MYSQL")
 	{
-		$result = true;
-		
-		global $DB, $DB_TYPE, $DB_SERVER, $DB_DATABASE, $DB_USER, $DB_PASSWORD;
-
-		if(!isset($DB_TYPE))
+		$DB=mysql_pconnect($DB_SERVER,$DB_USER,$DB_PASSWORD);
+		if(!mysql_select_db($DB_DATABASE))
 		{
-			$error = "Uncnown database type.";
-			$result = false;
+			echo "Error connecting to database [".mysql_error()."]";
+			exit;
 		}
-		else
+		mysql_select_db($DB_DATABASE);
+	}
+	if($DB_TYPE == "POSTGRESQL")
+	{
+		$DB=pg_pconnect("host='$DB_SERVER' dbname='$DB_DATABASE' user='$DB_USER' password='$DB_PASSWORD'");
+		if(!$DB)
 		{
-			if($DB_TYPE == "MYSQL")
-			{
-				$DB = mysql_pconnect($DB_SERVER,$DB_USER,$DB_PASSWORD);
-				if(!mysql_select_db($DB_DATABASE))
-				{
-					$error = "Error connecting to database [".mysql_error()."]";
-					$result = false;
-				}
-				else
-				{
-					mysql_select_db($DB_DATABASE);
-				}
-			}
-			if($DB_TYPE == "POSTGRESQL")
-			{
-				$DB=pg_pconnect("host='$DB_SERVER' dbname='$DB_DATABASE' user='$DB_USER' password='$DB_PASSWORD'");
-				if(!$DB)
-				{
-					$error = "Error connecting to database";
-					$result = false;
-				}
-			}
-
-			if($DB_TYPE == "ORACLE")
-			{
-				$DB = ocilogon($DB_USER, $DB_PASSWORD, "");
-		//		$DB = ocilogon($DB_USER, $DB_PASSWORD, "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=$DB_SERVER)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=$DB_DATABASE)))");
-				if(!$DB)
-				{
-					$error = "Error connecting to database";
-					$result = false;
-				}
-			}
+			echo "Error connecting to database";
+			exit;
 		}
-		return $result;
 	}
 
-	function	DBclose()
+	if($DB_TYPE == "ORACLE")
 	{
-		global $DB, $DB_TYPE, $DB_SERVER, $DB_DATABASE, $DB_USER, $DB_PASSWORD;
-
-		$result = false;
-
-		if($DB)
+		$DB = ocilogon($DB_USER, $DB_PASSWORD, "");
+//		$DB = ocilogon($DB_USER, $DB_PASSWORD, "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=$DB_SERVER)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=$DB_DATABASE)))");
+		if(!$DB)
 		{
-			if($DB_TYPE == "MYSQL")			$result = mysql_close($DB);
-			elseif($DB_TYPE == "POSTGRESQL")	$result = pg_close($DB);
-			elseif($DB_TYPE == "ORACLE")		$result = ociclose($DB);
-		}
-		unset(
-			$GLOBALS['DB'],
-			$GLOBALS['DB_TYPE'],
-			$GLOBALS['DB_SERVER'],
-			$GLOBALS['DB_DATABASE'],
-			$GLOBALS['DB_USER'],
-			$GLOBALS['DB_PASSWORD']
-			);
-
-		
-		return $result;
-	}
-
-	function	DBloadfile($file, &$error)
-	{
-		global $DB_TYPE;
-
-		if(!file_exists($file))
-		{
-			$error = 'DBloadfile. Missing file['.$file.']';
-			return false;
-		}
-		
-		$fl = file($file);
-		
-		foreach($fl as $n => $l) if(substr($l,0,2)=='--') unset($fl[$n]);
-		
-		$fl = explode(";\n", implode("\n",$fl));
-		unset($fl[count($fl)-1]);
-		
-		$result = true;
-
-		foreach($fl as $sql)
-		{
-			if(empty($sql)) continue;
-
-			if(!DBexecute($sql,0))
-			{
-				$error = '';
-				return false;
-			}
-		}
-		return true;
-	}
-
-	function	DBstart()
-	{
-		/* TODO *//* start transaction */
-	}
-	
-	function	DBend($result)
-	{
-		/* end transaction *//* TODO */
-
-		if($result)
-		{ // OK
-			/* commit TODO */
-		}
-		else
-		{ // FAIL
-			/* rollback  TODO */
+			echo "Error connecting to database";
+			exit;
 		}
 	}
 
@@ -164,6 +83,7 @@
 	{
 		global $DB,$DB_TYPE;
 
+//		echo $query,"<br>";
 COpt::savesqlrequest($query);
 
 		if($DB_TYPE == "MYSQL")
@@ -175,7 +95,7 @@ COpt::savesqlrequest($query);
 			$result=mysql_query($query,$DB);
 			if(!$result)
 			{
-				error("Error in query [$query] [".mysql_error()."]");
+				echo "Error in query [$query] [".mysql_error()."]";
 			}
 			return $result;
 		}
@@ -215,6 +135,7 @@ COpt::savesqlrequest($query);
 	{
 		global $DB,$DB_TYPE;
 
+//		echo $query,"<br>";
 COpt::savesqlrequest($query);
 
 		$result = FALSE;
@@ -229,11 +150,11 @@ COpt::savesqlrequest($query);
 				error("Query: $query");
 			}
 		}
-		else if($DB_TYPE == "POSTGRESQL")
+		if($DB_TYPE == "POSTGRESQL")
 		{
 			$result=pg_exec($DB,$query);
 		}
-		else if($DB_TYPE == "ORACLE")
+		if($DB_TYPE == "ORACLE")
 		{
 
 			return DBselect($query);
@@ -260,6 +181,7 @@ COpt::savesqlrequest($query);
 		}
 		if($DB_TYPE == "ORACLE")
 		{
+//			echo "DBfetch<br>";
 			if(!ocifetchinto($cursor, $row, OCI_ASSOC+OCI_NUM+OCI_RETURN_NULLS))
 			{
 				return FALSE;
@@ -293,7 +215,8 @@ COpt::savesqlrequest($query);
 			$row=pg_fetch_row($result,$rownum);
 			if(!$row)
 			{
-				fatal_error("Error getting row");
+				echo "Error getting row";
+				exit;
 			}
 			return $row[$fieldnum];
 		}
@@ -303,26 +226,27 @@ COpt::savesqlrequest($query);
 		}
 	}
 
-	function        DBinsert_id($result,$table,$field)
+	function	DBinsert_id($result,$table,$field)
 	{
-		global  $DB,$DB_TYPE;
+		global	$DB,$DB_TYPE;
 
 		if($DB_TYPE == "MYSQL")
 		{
 			return mysql_insert_id($DB);
 		}
-		
+
 		if($DB_TYPE == "POSTGRESQL")
 		{
 //			$oid=pg_getlastoid($result);
 			$oid=pg_last_oid($result);
+//			echo "OID:$oid<br>";
 			$sql="select $field from $table where oid=$oid";
 			$result=DBselect($sql);
 			return get_field($result,0,0);
 		}
 		if($DB_TYPE == "ORACLE")
 		{
-/*                      $sql="select max($field) from $table";
+/*			$sql="select max($field) from $table";
 			$parse=DBexecute($sql);
 			while(OCIFetch($parse))
 			{
@@ -336,7 +260,7 @@ COpt::savesqlrequest($query);
 	}
 
 /* string value prepearing */
-if(isset($DB_TYPE) && $DB_TYPE == "ORACLE") {	
+if($DB_TYPE == "ORACLE") {	
 	function	zbx_dbstr($var)	{
 		return "'".ereg_replace('\'','\'\'',$var)."'";	
 	}
@@ -345,30 +269,4 @@ if(isset($DB_TYPE) && $DB_TYPE == "ORACLE") {
 		return "'".addslashes($var)."'";
 	}
 }
-
-	function DBid2nodeid($id_name)
-	{
-		return '('.$id_name.' div 100000000000000)';
-	}
-
-	function id2nodeid($id_var)
-	{
-		return (int)bcdiv("$id_var","100000000000000");
-	}
-
-	function	get_dbid($table,$field)
-	{
-		global	$ZBX_CURNODEID;
-
-		$result=DBselect("select max($field) as id from $table where ".DBid2nodeid($field)." in (".$ZBX_CURNODEID.")");
-		$row=DBfetch($result);
-		if($row && !is_null($row["id"]))
-		{
-			return	bcadd($row["id"],1);
-		}
-		else
-		{
-			return bcadd(bcmul($ZBX_CURNODEID,"100000000000000"),1);
-		}
-	}
 ?>

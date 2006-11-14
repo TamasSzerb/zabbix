@@ -19,20 +19,24 @@
 **/
 ?>
 <?php
-	require_once "include/config.inc.php";
-	require_once "include/actions.inc.php";
-	require_once "include/hosts.inc.php";
-	require_once "include/triggers.inc.php";
-	require_once "include/forms.inc.php";
-
-	$page["title"]	= "S_CONFIGURATION_OF_ACTIONS";
-	$page["file"]	= "actionconf.php";
-
-include_once "include/page_header.php";
-	
+	include "include/config.inc.php";
+	include "include/forms.inc.php";
+	$page["title"]="S_CONFIGURATION_OF_ACTIONS";
+	$page["file"]="actionconf.php";
+	show_header($page["title"],0,0);
 	insert_confirm_javascript();
+?>
+
+<?php
+        if(!check_anyright("Configuration of Zabbix","U"))
+        {
+                show_table_header("<font color=\"AA0000\">".S_NO_PERMISSIONS."</font>");
+                show_page_footer();
+                exit;
+        }
 
 	$_REQUEST["actiontype"] = get_request("actiontype",get_profile("web.actionconf.actiontype",0));
+
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
@@ -84,15 +88,13 @@ include_once "include/page_header.php";
 	);
 
 	check_fields($fields);
-	
-	if(isset($_REQUEST['actionid']) && !action_accessiable($_REQUEST['actionid'], PERM_READ_WRITE))
-	{
-		access_deny();
-	}
 ?>
+
 <?php
 	update_profile("web.actionconf.actiontype",$_REQUEST["actiontype"]);
+	update_profile("web.menu.config.last",$page["file"]);
 ?>
+
 <?php
 	if(isset($_REQUEST["save"]))
 	{
@@ -104,7 +106,6 @@ include_once "include/page_header.php";
 
 		if(isset($_REQUEST["actionid"]))
 		{
-			// TODO check permission by new value.
 			$actionid=$_REQUEST["actionid"];
 			$result = update_action($actionid,
 				$_REQUEST['actiontype'],$_REQUEST['userid'],
@@ -114,9 +115,6 @@ include_once "include/page_header.php";
 
 			show_messages($result,S_ACTION_UPDATED,S_CANNOT_UPDATE_ACTION);
 		} else {
-			if(count(get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_MODE_LT,PERM_RES_IDS_ARRAY,$ZBX_CURNODEID)))
-				access_deny();
-
 			$actionid=add_action(
 				$_REQUEST['actiontype'],$_REQUEST['userid'], 
 				$_REQUEST["subject"],$_REQUEST["message"],$_REQUEST["recipient"],
@@ -181,61 +179,36 @@ include_once "include/page_header.php";
 /* GROUP ACTIONS */
 	elseif(isset($_REQUEST["group_enable"])&&isset($_REQUEST["g_actionid"]))
 	{
-		$result=DBselect("select distinct actionid from actions".
-				" where ".DBid2nodeid("actionid")."=".$ZBX_CURNODEID.
-				" and actionid in (".implode($_REQUEST["g_actionid"]).") "
-				);
-		
-		$actionids = array();
+		$result=DBselect("select distinct actionid from actions");
 		while($row=DBfetch($result))
 		{
-			$res = update_action_status($row["actionid"],0);
-			if($res)
-				array_push($row["actionid"], $actionids);
+			if(!in_array($row["actionid"], $_REQUEST["g_actionid"]))	continue;
+			$res=update_action_status($row["actionid"],0);
 		}
 		if(isset($res))
-		{
 			show_messages(true, S_STATUS_UPDATED, S_CANNOT_UPDATE_STATUS);
-			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ACTION, ' Actions ['.implode(',',$actionids).'] enabled');
-		}
 	}
 	elseif(isset($_REQUEST["group_disable"])&&isset($_REQUEST["g_actionid"]))
 	{
-		$result=DBselect("select distinct actionid from actions".
-				" where ".DBid2nodeid("actionid")."=".$ZBX_CURNODEID.
-				" and actionid in (".implode($_REQUEST["g_actionid"]).") "
-				);
-		$actionids = array();
+		$result=DBselect("select distinct actionid from actions");
 		while($row=DBfetch($result))
 		{
-			$res = update_action_status($row["actionid"],1);
-			if($res) 
-				array_push($row["actionid"], $actionids);
+			if(!in_array($row["actionid"], $_REQUEST["g_actionid"]))	continue;
+			$res=update_action_status($row["actionid"],1);
 		}
 		if(isset($res))
-		{
 			show_messages(true, S_STATUS_UPDATED, S_CANNOT_UPDATE_STATUS);
-			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ACTION, ' Actions ['.implode(',',$actionids).'] disabled');
-		}
 	}
 	elseif(isset($_REQUEST["group_delete"])&&isset($_REQUEST["g_actionid"]))
 	{
-		$result=DBselect("select distinct actionid from actions".
-				" where ".DBid2nodeid("actionid")."=".$ZBX_CURNODEID.
-				" and actionid in (".implode($_REQUEST["g_actionid"]).") "
-				);
-		$actionids = array();
+		$result=DBselect("select distinct actionid from actions");
 		while($row=DBfetch($result))
 		{
+			if(!in_array($row["actionid"], $_REQUEST["g_actionid"])) continue;
 			$del_res = delete_action($row["actionid"]);
-			if($del_res) 
-				array_push($actionids, $row["actionid"]);
 		}
 		if(isset($del_res))
-		{
 			show_messages(TRUE, S_ACTIONS_DELETED, S_CANNOT_DELETE_ACTIONS);
-			add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_ACTION, ' Actions ['.implode(',',$actionids).'] deleted');
-		}
 	}
 ?>
 
@@ -251,7 +224,7 @@ include_once "include/page_header.php";
 	$form->AddItem(SPACE."|".SPACE);
 	$form->AddItem(new CButton("form",S_CREATE_ACTION));
 
-	show_table_header(S_CONFIGURATION_OF_ACTIONS_BIG, $form);
+	show_header2(S_CONFIGURATION_OF_ACTIONS_BIG, $form);
 	echo BR;
 
 	if(isset($_REQUEST["form"]))
@@ -261,7 +234,7 @@ include_once "include/page_header.php";
 	}
 	else
 	{
-		show_table_header(S_ACTIONS_BIG);
+		show_header2(S_ACTIONS_BIG);
 /* table */
 		$form = new CForm();
 		$form->SetName('actions');
@@ -277,22 +250,16 @@ include_once "include/page_header.php";
 			S_REPEATS,
 			S_STATUS));
 
-		$result=DBselect("select * from actions where actiontype=".$_REQUEST["actiontype"].
-			" and ".DBid2nodeid("actionid")."=".$ZBX_CURNODEID.
-			" order by actiontype, source");
+		$result=DBselect("select * from actions where actiontype=".$_REQUEST["actiontype"]." order by actiontype, source");
 		while($row=DBfetch($result))
 		{
-			if(!action_accessiable($row['actionid'], PERM_READ_WRITE)) continue;
-
 			$conditions="";
 			$result2=DBselect("select * from conditions where actionid=".$row["actionid"].
 				" order by conditiontype");
 			while($condition=DBfetch($result2))
 			{
-				$conditions .= get_condition_desc(
-							$condition["conditiontype"],
-							$condition["operator"],
-							$condition["value"]).BR;
+				$conditions=$conditions.get_condition_desc($condition["conditiontype"],
+					$condition["operator"],$condition["value"]).BR;
 			}
 
 				
@@ -300,13 +267,13 @@ include_once "include/page_header.php";
 			{			
 				if($row["recipient"] == RECIPIENT_TYPE_USER)
 				{
-					$user		= get_user_by_userid($row["userid"]);
-					$recipient	= $user["alias"];
+					$user=get_user_by_userid($row["userid"]);
+					$recipient=$user["alias"];
 				}
 				else
 				{
-					$groupd		= get_group_by_usrgrpid($row["userid"]);
-					$recipient	= $groupd["name"];
+					$groupd=get_usergroup_by_groupid($row["userid"]);
+					$recipient=$groupd["name"];
 				}
 				$subject = htmlspecialchars($row["subject"]);
 			}elseif($_REQUEST["actiontype"] == ACTION_TYPE_COMMAND)
@@ -361,9 +328,6 @@ include_once "include/page_header.php";
 		$form->AddItem($tblActions);
 		$form->Show();
 	}
-?>
-<?php
 
-	include_once "include/page_footer.php";
-
+	show_page_footer();
 ?>

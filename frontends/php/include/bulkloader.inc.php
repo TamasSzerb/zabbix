@@ -17,7 +17,7 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-require_once "include/config.inc.php";
+include_once    "include/config.inc.php";
 
 /*
 **  This include file contains all of the non-standard functions required
@@ -34,12 +34,11 @@ require_once "include/config.inc.php";
 		{
 			return $row["groupid"];
 		}
-		$groupid = get_dbid("groups","groupid");
 
-		$result=DBexecute("insert into groups (groupid,name) values ($groupid,".zbx_dbstr($group).")");
+		$result=DBexecute("insert into groups (name) values (".zbx_dbstr($group).")");
 		if($result)
 		{
-			return $groupid;
+			return DBinsert_id($result,"groups","name");
 		}
 		else
 		{
@@ -58,11 +57,10 @@ require_once "include/config.inc.php";
 			return $row["usrgrpid"];
 		}
 
-		$usrgrpid=get_dbid("usrgrp","usrgrpid");
-		$result=DBexecute("insert into usrgrp (usrgrpid,name) values ($usrgrpid,'$group')");
+		$result=DBexecute("insert into usrgrp (name) values ('$group')");
 		if($result)
 		{
-			return $usrgrpid;
+			return DBinsert_id($result,"usrgrp","name");
 		}
 		else
 		{
@@ -78,11 +76,10 @@ require_once "include/config.inc.php";
 		{
 			return 0;
 		}
-		$id=get_dbid("users_groups","id");
-		$result=DBexecute("insert into users_groups (id,usrgrpid,userid) values ($id,$groupid,$userid)");
+		$result=DBexecute("insert into users_groups (usrgrpid,userid) values ($groupid,$userid)");
 		if($result)
 		{
-			return $id;
+			return 1;
 		}
 		return 0;	
 	}

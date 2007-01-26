@@ -34,25 +34,3 @@ int	SYSTEM_LOCALTIME(const char *cmd, const char *param, unsigned flags, AGENT_R
 
 	return ret;
 }
-
-#if !defined(_WINDOWS)
-
-int     SYSTEM_UNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
-{
-        assert(result);
-
-        init_result(result);
-
-        return EXECUTE_STR(cmd, "uname -a", flags, result);
-}
-
-int     SYSTEM_HOSTNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
-{
-        assert(result);
-
-        init_result(result);
-
-        return EXECUTE_STR(cmd, "hostname", flags, result);
-}
-
-#endif /* not _WINDOWS */

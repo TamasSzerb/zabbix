@@ -22,8 +22,13 @@
 #include "common.h"
 #include "sysinfo.h"
 
+/*
+#define FDI(f, m) fprintf(stderr, "DEBUG INFO: " f "\n" , m) // show debug info to stderr
+#define SDI(m) FDI("%s", m) // string info
+#define IDI(i) FDI("%i", i) // integer info
+*/
 
-#if OFF
+#if 0
 /*
  * hidden
  */
@@ -77,7 +82,7 @@ typedef struct disk_data
 } DISK_DATA;
 #endif
 
-#if OFF
+#if 0
 /*
  * hidden
  */
@@ -94,7 +99,7 @@ static DISK_DATA *get_disk_data_record(const char *device)
 
       if (p)
 	{
-	  zbx_strlcpy(p->name, device, MAX_STRING_LEN);
+	  strncpy(p->name, device, MAX_STRING_LEN);
 
           if (p->name)
             {
@@ -116,7 +121,7 @@ static DISK_DATA *get_disk_data_record(const char *device)
 }
 #endif
 
-#if OFF
+#if 0
 /*
  * hidden
  */
@@ -155,7 +160,7 @@ static int get_disk_kstat_record(const char *name,
 }
 #endif 
 
-#if OFF
+#if 0
 /*
  * hidden
  */
@@ -195,7 +200,7 @@ int	DISKSVC(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *re
 }
 #endif
 
-#if OFF
+#if 0
 /*
  * hidden
  */
@@ -353,19 +358,19 @@ DEV_FNCLIST
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, devname, sizeof(mode)) != 0)
+        if(get_param(param, 1, devname, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
         }
 	
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "bytes");
+		sprintf(mode, "bytes");
 	}
 	
 	for(i=0; fl[i].mode!=0; i++)
@@ -409,19 +414,19 @@ DEV_FNCLIST
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, devname, sizeof(devname)) != 0)
+        if(get_param(param, 1, devname, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
         }
 	
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "bytes");
+		sprintf(mode, "bytes");
 	}
 	for(i=0; fl[i].mode!=0; i++)
 	{

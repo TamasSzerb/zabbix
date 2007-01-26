@@ -19,17 +19,22 @@
 **/
 ?>
 <?php
-	require_once "include/config.inc.php";
-	require_once "include/items.inc.php";
+	include "include/config.inc.php";
 
 	$page["title"] = "S_QUEUE_BIG";
 	$page["file"] = "queue.php";
-	
-	define('ZBX_PAGE_DO_REFRESH', 1);
-
-include_once "include/page_header.php";
-
+	show_header($page["title"],1,0);
 ?>
+ 
+<?php
+	if(!check_anyright("Host","R"))
+	{
+		show_table_header("<font color=\"AA0000\">".S_NO_PERMISSIONS."</font>");
+		show_page_footer();
+		exit;	
+	}
+?>
+
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
@@ -40,30 +45,30 @@ include_once "include/page_header.php";
 ?>
 
 <?php
-	$_REQUEST["show"] = get_request("show", 0);
+	if(!isset($_REQUEST["show"]))
+	{
+		$_REQUEST["show"]=0;
+	}
 
-	$form = new CForm();
-	$cmbMode = new CComboBox("show", $_REQUEST["show"], "submit();");
-	$cmbMode->AddItem(0, S_OVERVIEW);
-	$cmbMode->AddItem(1, S_DETAILS);
-	$form->AddItem($cmbMode);
+	$h1=S_QUEUE_OF_ITEMS_TO_BE_UPDATED_BIG;
 
-	show_table_header(S_QUEUE_OF_ITEMS_TO_BE_UPDATED_BIG, $form);
+#	$h2=S_GROUP.SPACE;
+	$h2="";
+	$h2=$h2."<select class=\"biginput\" name=\"show\" onChange=\"submit()\">";
+	$h2=$h2.form_select("show",0,S_OVERVIEW);
+	$h2=$h2.form_select("show",1,S_DETAILS);
+	$h2=$h2."</select>";
+
+	show_header2($h1, $h2, "<form name=\"selection\" method=\"get\" action=\"queue.php\">", "</form>");
+
+	update_profile("web.menu.view.last",$page["file"]);
 ?>
 
 <?php
-	$now = time();
+	$now=time();
 
-	$result = DBselect("select i.itemid,i.nextcheck,i.description,i.key_,i.type,h.host,h.hostid ".
-		" from items i,hosts h ".
-		" where i.status=".ITEM_STATUS_ACTIVE." and i.type not in (".ITEM_TYPE_TRAPPER.") ".
-		" and ((h.status=".HOST_STATUS_MONITORED." and h.available != ".HOST_AVAILABLE_FALSE.") ".
-		" or (h.status=".HOST_STATUS_MONITORED." and h.available=".HOST_AVAILABLE_FALSE." and h.disable_until<=$now)) ".
-		" and i.hostid=h.hostid and i.nextcheck<$now and i.key_ not in ('status','icmpping','icmppingsec','zabbix[log]') ".
-		" and h.hostid in (".get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,null,null,$ZBX_CURNODEID).")".
-		" order by i.nextcheck,h.host,i.description,i.key_");
-
-	$table = new CTableInfo(S_THE_QUEUE_IS_EMPTY);
+	$result=DBselect("select i.itemid, i.nextcheck, i.description, i.type, h.host,h.hostid from items i,hosts h where i.status=0 and i.type not in (2) and ((h.status=".HOST_STATUS_MONITORED." and h.available!=".HOST_AVAILABLE_FALSE.") or (h.status=".HOST_STATUS_MONITORED." and h.available=".HOST_AVAILABLE_FALSE." and h.disable_until<=$now)) and i.hostid=h.hostid and i.nextcheck<$now and i.key_ not in ('status','icmpping','icmppingsec','zabbix[log]') order by i.nextcheck");
+	$table=new CTableInfo(S_THE_QUEUE_IS_EMPTY);
 
 	if($_REQUEST["show"]==0)
 	{
@@ -79,6 +84,10 @@ include_once "include/page_header.php";
 
 		while($row=DBfetch($result))
 		{
+			if(!check_right("Host","R",$row["hostid"]))
+			{
+				continue;
+			}
 			if($now-$row["nextcheck"]<=5)		$sec_5[$row["type"]]++;
 			elseif($now-$row["nextcheck"]<=10)	$sec_10[$row["type"]]++;
 			elseif($now-$row["nextcheck"]<=30)	$sec_30[$row["type"]]++;
@@ -87,6 +96,7 @@ include_once "include/page_header.php";
 			else					$sec_rest[$row["type"]]++;
 
 		}
+		$col=0;
 		$table->setHeader(array(S_ITEMS,S_5_SECONDS,S_10_SECONDS,S_30_SECONDS,S_1_MINUTE,S_5_MINUTES,S_MORE_THAN_5_MINUTES));
 		$a=array(
 			S_ZABBIX_AGENT => ITEM_TYPE_ZABBIX,
@@ -110,29 +120,26 @@ include_once "include/page_header.php";
 	}
 	else
 	{
-		$table->SetHeader(array(S_NEXT_CHECK,S_HOST,S_DESCRIPTION));
+		$table->setHeader(array(S_NEXT_CHECK,S_HOST,S_DESCRIPTION));
+		$col=0;
 		while($row=DBfetch($result))
 		{
-			$table->AddRow(array(
-				date("m.d.Y H:i:s",
-				$row["nextcheck"]),
-				$row["host"],
-				item_description($row["description"],$row["key_"])
-				));
+			if(!check_right("Host","R",$row["hostid"]))
+			{
+				continue;
+			}
+			$elements=array(date("m.d.Y H:i:s",$row["nextcheck"]),$row["host"],$row["description"]);
+			$col++;
+			$table->addRow($elements);
 		}
 	}
 
-	$table->Show();
+	$table->show();
 ?>
 <?php
-	if($_REQUEST["show"]!=0)
-	{
-		show_table_header(S_TOTAL.": ".$table->GetNumRows());
-	}
+	show_table_header(S_TOTAL.":$col");
 ?>
 
 <?php
-
-include_once "include/page_footer.php";
-
+	show_page_footer();
 ?>

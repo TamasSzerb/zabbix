@@ -19,15 +19,7 @@
 **/
 ?>
 <?php
-	require_once "include/config.inc.php";
-	require_once "include/images.inc.php";
-
-	$page['file']	= 'image.php';
-	$page['title']	= 'S_IMAGE';
-	$page['type']	= PAGE_TYPE_IMAGE;
-
-include_once "include/page_header.php";
-	
+	include "include/config.inc.php";
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
@@ -40,6 +32,14 @@ include_once "include/page_header.php";
 ?>
 <?php
 
+#	PARAMETERS:
+
+#	imageid
+
+	set_image_header();
+
+	check_authorisation();
+
 	$resize = 0;
 
 	if(isset($_REQUEST["width"]) || isset($_REQUEST["height"]))
@@ -49,11 +49,11 @@ include_once "include/page_header.php";
 		$th_height = get_request("height",0);
 	}
 
-	if(!($row = get_image_by_imageid($_REQUEST["imageid"])))
-	{
-		error('Incorrect image index');
-		include_once "include/page_footer.php";
-	}
+	//$result=DBselect("select image from images where imageid=".$_REQUEST["imageid"]);
+	//$row=DBfetch($result);
+	$row = get_image_by_imageid($_REQUEST["imageid"]);
+
+	if($row["image"] == "") exit;
 
 	$source = ImageCreateFromString($row["image"]);
 
@@ -98,14 +98,11 @@ include_once "include/page_header.php";
 				$th_width, $th_height, 
 				$src_width, $src_height);
 
-			$source = $thumb;
+			ImageOut($thumb);
+			ImageDestroy($thumb);
+			exit;
 		}
 	}
 	ImageOut($source);
 	ImageDestroy($source);
-?>
-<?php
-
-include_once "include/page_footer.php";
-
 ?>

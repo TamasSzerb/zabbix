@@ -27,7 +27,7 @@
 			parent::CTag('input','no');
 			$this->tag_body_start = '';
 			$this->options['type'] = 'submit';
-			$this->AddOption('value', $caption);
+			$this->options['value'] = $caption;
 //			$this->options["type"] = "button";
 			$this->options['class'] = 'button';
 			$this->SetName($name);
@@ -36,11 +36,11 @@
 		}
 		function SetAction($value='submit()', $event='onClick')
 		{
-			$this->AddOption($event, $value);
+			$this->options[$event] = htmlspecialchars($value);
 		}
 		function SetTitle($value='button title')
 		{
-			$this->AddOption('title', $value);
+			$this->options['title'] = $value;
 		}
 		function SetAccessKey($value='B')
 		{
@@ -48,7 +48,7 @@
 				if(!isset($this->options['title']))
 					$this->SetTitle($this->options['value'].' [Alt+'.$value.']');
 
-			return $this->AddOption('accessKey', $value);
+			return $this->options['accessKey'] = $value;
 		}
 	}
 
@@ -70,29 +70,13 @@
 		}
 	}
 
-	class CButtonDelete extends CButtonQMessage
+	class CButtonDelete extends CButton
 	{
-		function CButtonDelete($msg=NULL, $vars=NULL){
-			parent::CButtonQMessage("delete",S_DELETE,$msg,$vars);
-		}
-	}
-
-	class CButtonQMessage extends CButton
-	{
-		/*
 		var $vars;
 		var $msg;
-		var $name;
-		var $do_redirect;*/
 
-		function CButtonQMessage($name, $caption, $msg=NULL, $vars=NULL, $do_redirect=true){
-			$this->vars = null;
-			$this->msg = null;
-			$this->name = $name;
-			$this->do_redirect = $do_redirect;
-			
-			parent::CButton($name,$caption);
-
+		function CButtonDelete($msg=NULL, $vars=NULL){
+			parent::CButton("delete",S_DELETE);
 			$this->SetMessage($msg);
 			$this->SetVars($vars);
 		}
@@ -113,22 +97,14 @@
 			$this->msg = $value;
 			$this->SetAction(NULL);
 		}
-		function SetAction($value=null, $event='onClick'){
+		function SetAction($value=NULL){
 			if(!is_null($value))
 				return parent::SetAction($value);
 
 			global $page;
 
 			$confirmation = "Confirm('".$this->msg."')";
-			
-			if($this->do_redirect)
-			{
-				$redirect = "Redirect('".$page["file"]."?".$this->name."=1".$this->vars."')";
-			}
-			else
-			{
-				$redirect = 'true';
-			}
+			$redirect = "Redirect('".$page["file"]."?delete=1".$this->vars."')";
 			
 			return parent::SetAction("if(".$confirmation.") return ".$redirect."; else return false;");
 		}

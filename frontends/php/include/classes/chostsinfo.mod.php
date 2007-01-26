@@ -21,11 +21,9 @@
 <?php
 	class CHostsInfo extends CTable
 	{
-		//var $style;
+		var $style;
 		function CHostsInfo($style = STYLE_HORISONTAL)
 		{
-			$this->style = null;
-
 			parent::CTable(NULL,"hosts_info");
 			$this->SetOrientation($style);
 		}

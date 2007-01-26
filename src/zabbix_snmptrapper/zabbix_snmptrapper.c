@@ -144,8 +144,9 @@ int	send_value(char *server,int port,char *shortname,char *value)
 /*	struct linger ling;*/
 
 	servaddr_in.sin_family=AF_INET;
+	hp=gethostbyname(server);
 
-	if(NULL == (hp = zbx_gethost(server)))
+	if(hp==NULL)
 	{
 		return	FAIL;
 	}
@@ -170,7 +171,7 @@ int	send_value(char *server,int port,char *shortname,char *value)
 		return	FAIL;
 	}
 
-	zbx_snprintf(tosend, sizeof(tosend), "%s:%s\n",shortname,value);
+	sprintf(tosend,"%s:%s\n",shortname,value);
 
 	if( sendto(s,tosend,strlen(tosend),0,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )
 	{
@@ -271,7 +272,7 @@ int main(int argc, char **argv)
 
 		alarm(SNMPTRAPPER_TIMEOUT);
 
-		zbx_snprintf(str, sizeof(str), "%s(%s)", hostname, ip);
+		sprintf(str,"%s(%s)", hostname, ip);
 
 		ret = send_value(CONFIG_SERVER, CONFIG_SERVER_PORT, argv[3],argv[4]);
 

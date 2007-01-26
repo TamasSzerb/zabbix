@@ -19,7 +19,7 @@ cleanwarnings="no"
 docat="yes"
 help="no"
 noparam=0;
-def="--enable-agent --enable-server --with-mysql"
+def="--enable-agent --enable-server --with-mysql --with-ldap --with-net-snmp"
 
 for cmd
 do
@@ -95,15 +95,15 @@ if [ "$win2nix" = "yes" ]
 then
   echo "Replacing..."
   echo "Replacing..." >> WARNINGS
-  find ./ -name "configure.in" -exec vi "+%s/\\r$//" "+wq" "-es" {} ';' -print 2>> WARNINGS
-  find ./ -name "*.[hc]" -exec vi "+%s/\\r$//" "+wq" "-es" {} ';' -print 2>> WARNINGS
+  find ./src/zabbix_agent_win32/ -name "*.cpp" -exec vi "+%s/\\r$//" "+wq" "-es" {} ';' -print 2>> WARNINGS
+  find ./src/zabbix_agent_win32/ -name "*.h" -exec vi "+%s/\\r$//" "+wq" "-es" {} ';' -print 2>> WARNINGS
 fi
 
 if [ "$premake" = "yes" ] 
 then
   echo "Pre-making..."
   echo "Pre-making..." >> WARNINGS
-  aclocal -I m4 2>> WARNINGS
+  aclocal 2>> WARNINGS
   autoconf 2>> WARNINGS
   autoheader 2>> WARNINGS
   automake -a 2>> WARNINGS
@@ -129,15 +129,14 @@ then
   echo "Configuring..." >> WARNINGS
   #export CFLAGS="-Wall"
   #export CFLAGS="-Wall -pedantic"
-  ./configure $config_param 2>> WARNINGS 
-  ./create/schema/gen.pl c 2>> WARNINGS > ./include/dbsync.h
+  ./configure $config_param 2>>WARNINGS 
 fi
 
 if [ "$domake" = "yes" ] 
 then
   echo "Cleaning..."
   echo "Cleaning..." >> WARNINGS
-  make clean 2>> WARNINGS 
+  make clean 2>>WARNINGS 
   echo "Making..."
   echo "Making..." >> WARNINGS
   make 2>>WARNINGS 

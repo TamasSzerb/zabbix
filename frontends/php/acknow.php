@@ -19,74 +19,59 @@
 **/
 ?>
 <?php
-	require_once "include/config.inc.php";
-	require_once "include/acknow.inc.php";
-	require_once "include/triggers.inc.php";
-	require_once "include/forms.inc.php";
+	$page["title"]="S_ACKNOWLEDGES";
+	$page["file"]="acknow.php";
+	$page["menu.url"] = "tr_status.php";
 
-	$page["title"]	= "S_ACKNOWLEDGES";
-	$page["file"]	= "acknow.php";
-
-include_once "include/page_header.php";
-
+	include "include/config.inc.php";
+	include "include/forms.inc.php";
+?>
+<?php
+	show_header($page["title"],0,0);
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		"eventid"=>		array(T_ZBX_INT, O_MAND, P_SYS,	DB_ID,		NULL),
+		"alarmid"=>		array(T_ZBX_INT, O_MAND, P_SYS,	DB_ID,		NULL),
 		"message"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,	'isset({save})'),
 
-	/* actions */
-		"save"=>		array(T_ZBX_STR,O_OPT,	P_ACT|P_SYS, NULL,	NULL),
-		"cancel"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null)
+		"save"=>		array(T_ZBX_STR,O_OPT,	P_ACT|P_SYS, NULL,	NULL)
 	);
 	check_fields($fields);
 ?>
 <?php
-	$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY, PERM_MODE_LT);
-	
-	if(! ($db_data = DBfetch(DBselect('select distinct  e.*,t.triggerid,t.expression,t.description,h.host,h.hostid '.
-			' from hosts h, items i, functions f, events e, triggers t'.
-			' where h.hostid=i.hostid and i.itemid=f.itemid and f.triggerid=e.triggerid and e.eventid='.$_REQUEST["eventid"].
-			' and i.hostid not in ('.$denyed_hosts.') and e.triggerid=t.triggerid'.
-			' and '.DBid2nodeid('e.eventid').'='.$ZBX_CURNODEID
-			))))
-	{
-		access_deny();
-	}
-	unset($denyed_hosts);
-
 	if(isset($_REQUEST["save"]))
 	{
 		$result = add_acknowledge_coment(
-			$db_data["eventid"],
+			$_REQUEST["alarmid"],
 			$USER_DETAILS["userid"],
 			$_REQUEST["message"]);
 
 		show_messages($result, S_COMMENT_ADDED, S_CANNOT_ADD_COMMENT);
-		if($result)
-		{
-			add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_TRIGGER, S_ACKNOWLEDGE_ADDED.
-				' ['.expand_trigger_description_by_data($db_data).']'.
-				' ['.$_REQUEST["message"].']');
-		}
-	}
-	else if(isset($_REQUEST["cancel"]))
-	{
-		Redirect('tr_status.php?hostid='.$db_data['hostid']);
-		exit;
 	}
 ?>
 <?php
-	show_table_header(S_ALARM_ACKNOWLEDGES_BIG." : ".
-		"\"".expand_trigger_description_by_data($db_data)."\"".BR.
-		explode_exp($db_data["expression"],1));
+
+	$alarm = get_alarm_by_alarmid($_REQUEST["alarmid"]);
+	
+	if(!check_right("Trigger comment","A",$alarm["triggerid"]))
+	{
+		show_table_header("<font color=\"AA0000\">".S_NO_PERMISSIONS."</font>");
+		show_page_footer();
+		exit;
+	}
+	
+	$trigger=get_trigger_by_triggerid($alarm["triggerid"]);
+	$expression=explode_exp($trigger["expression"],1);
+	$description=expand_trigger_description($alarm["triggerid"]);
+
+	show_table_header(S_ALARM_ACKNOWLEDGES_BIG.":".$description.BR.$expression);
 
 	echo BR;
 	$table = new CTable(NULL,"ack_msgs");
 	$table->SetAlign("center");
 
-	$db_acks = get_acknowledges_by_eventid($db_data["eventid"]);
+	$db_acks = get_acknowledges_by_alarmid($_REQUEST["alarmid"]);
 	while($db_ack = DBfetch($db_acks))
 	{
 		$db_user = get_user_by_userid($db_ack["userid"]);
@@ -100,16 +85,11 @@ include_once "include/page_header.php";
 		$table->AddRow($msgCol,"msg");
 	}
 /**/
-	if($table->GetNumRows() > 0)
-	{
-		$table->Show();
-		echo BR;
-	}
+	$table->Show();
+	echo BR;
 	insert_new_message_form();
 ?>
 
 <?php
-
-include_once "include/page_footer.php";
-
+	show_page_footer();
 ?>

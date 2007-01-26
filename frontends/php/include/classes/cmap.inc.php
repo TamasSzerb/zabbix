@@ -37,7 +37,7 @@
 		}
 		function AddItem($value)
 		{
-			if(strtolower(get_class($value)) != 'carea')
+			if(!is_a($value,'carea'))
 				return $this->error("Incorrect value for AddItem [$value]");
 
 			return parent::AddItem($value);

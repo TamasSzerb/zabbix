@@ -17,15 +17,15 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
+#include "config.h"
+
+#include <sys/wait.h>
+
 #include "common.h"
 #include "sysinfo.h"
 
-#include "alias.h"
 #include "md5.h"
 #include "log.h"
-#include "threads.h"
-#include "cfg.h"
-#include "zbxsock.h"
 
 ZBX_METRIC *commands=NULL;
 extern ZBX_METRIC parameters_specific[];
@@ -34,10 +34,15 @@ ZBX_METRIC	parameters_common[]=
 /*      KEY                     FLAG    FUNCTION        ADD_PARAM       TEST_PARAM */
 	{
 	{"system.localtime",	0,		SYSTEM_LOCALTIME,	0,	0},
+	{"vfs.file.exists",	CF_USEUPARAM,	VFS_FILE_EXISTS,	0,	"/etc/passwd"},
+	{"vfs.file.time",       CF_USEUPARAM,   VFS_FILE_TIME,          0,      "/etc/passwd,modify"},
+	{"vfs.file.size",	CF_USEUPARAM,	VFS_FILE_SIZE, 		0,	"/etc/passwd"},
+	{"vfs.file.regexp",	CF_USEUPARAM,	VFS_FILE_REGEXP,	0,	"/etc/passwd,root"},
+	{"vfs.file.regmatch",	CF_USEUPARAM,	VFS_FILE_REGMATCH, 	0,	"/etc/passwd,root"},
 	{"system.run",		CF_USEUPARAM,	RUN_COMMAND,	 	0,	"echo test"},
 	{"web.page.get",	CF_USEUPARAM,	WEB_PAGE_GET,	 	0,	"localhost,,80"},
 	{"web.page.perf",	CF_USEUPARAM,	WEB_PAGE_PERF,	 	0,	"localhost,,80"},
-	{"web.page.regexp",	CF_USEUPARAM,	WEB_PAGE_REGEXP,	0,	"localhost,,80,OK"},
+	{"web.page.regexp",	CF_USEUPARAM,	WEB_PAGE_REGEXP,	0,	"localhost,,80"},
 	{0}
 	};
 
@@ -140,7 +145,7 @@ void	init_metrics()
 {
 	int 	i;
 
-	commands = malloc(sizeof(ZBX_METRIC));
+	commands=malloc(sizeof(ZBX_METRIC));
 	commands[0].key=NULL;
 
 	for(i=0;parameters_common[i].key!=0;i++)
@@ -227,19 +232,27 @@ int 	copy_result(AGENT_RESULT *src, AGENT_RESULT *dist)
 void	free_result(AGENT_RESULT *result)
 {
 
-	UNSET_DBL_RESULT(result);
-	UNSET_UI64_RESULT(result);
-	UNSET_STR_RESULT(result);
-	UNSET_TEXT_RESULT(result);
-	UNSET_MSG_RESULT(result);
+	if(result->type & AR_STRING)
+	{
+		free(result->str);
+	}
+
+	if(result->type & AR_TEXT)
+	{
+		free(result->text);
+	}
+	
+	if(result->type & AR_MESSAGE)
+	{
+		free(result->msg);
+	}
 
 	if(result->type & AR_LIST)
 	{
 		free_result_list(&(result->list));
-
-		result->type &= ~AR_LIST;
 	}
 
+	init_result(result);
 }
 
 void	init_result(AGENT_RESULT *result)
@@ -305,9 +318,21 @@ int parse_command( /* return value: 0 - error; 1 - command without parameters; 2
 void	test_parameter(char* key)
 {
 	AGENT_RESULT	result;
+	static struct   sigaction phan;
 
 	memset(&result, 0, sizeof(AGENT_RESULT));
+	
+	phan.sa_handler = signal_handler;
+	sigemptyset(&phan.sa_mask);
+	phan.sa_flags = 0;
+	sigaction(SIGALRM, &phan, NULL);
+	
+	alarm(AGENT_TIMEOUT);
+	
 	process(key, PROCESS_TEST, &result);
+
+	alarm(0);
+
 	if(result.type & AR_DOUBLE)
 	{
 		printf(" [d|" ZBX_FS_DBL "]", result.dbl);
@@ -339,15 +364,23 @@ void	test_parameters(void)
 {
 	int	i;
 	AGENT_RESULT	result;
-
-#if defined(_WINDOWS)
-#endif
+	static struct   sigaction phan;
 
 	memset(&result, 0, sizeof(AGENT_RESULT));
 	
+	phan.sa_handler = signal_handler;
+	sigemptyset(&phan.sa_mask);
+	phan.sa_flags = 0;
+	sigaction(SIGALRM, &phan, NULL);
+
 	for(i=0; 0 != commands[i].key; i++)
 	{
+		alarm(AGENT_TIMEOUT);
+		
 		process(commands[i].key, PROCESS_TEST | PROCESS_USE_TEST_PARAM, &result);
+
+		alarm(0);
+
 		if(result.type & AR_DOUBLE)
 		{
 			printf(" [d|" ZBX_FS_DBL "]", result.dbl);
@@ -396,7 +429,7 @@ int	replace_param(const char *cmd, const char *param, char *out, int outlen)
 	{
 		pr[0] = '\0';
 		zbx_strlcat(out, pl, outlen);
-		outlen -= MIN((int)strlen(pl), (int)outlen);
+		outlen -= MIN(strlen(pl), outlen);
 		pr[0] = '$';
 		
 		if (pr[1] >= '0' && pr[1] <= '9')
@@ -413,7 +446,7 @@ int	replace_param(const char *cmd, const char *param, char *out, int outlen)
 			}
 			
 			zbx_strlcat(out, buf, outlen);
-			outlen -= MIN((int)strlen(buf), (int)outlen);
+			outlen -= MIN(strlen(buf), outlen);
 					
 			pl = pr + 2;
 			continue;
@@ -427,7 +460,7 @@ int	replace_param(const char *cmd, const char *param, char *out, int outlen)
 		outlen -= 1;
 	}
 	zbx_strlcat(out, pl, outlen);
-	outlen -= MIN((int)strlen(pl), (int)outlen);
+	outlen -= MIN(strlen(pl), outlen);
 	
 	return ret;
 }
@@ -450,12 +483,11 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 		
 
         assert(result);
-        init_result(result);
+        init_result(result);	
 	
-	alias_expand(in_command, usr_command, MAX_STRING_LEN);
+	zbx_strlcpy(usr_command, in_command, MAX_STRING_LEN);
+	usr_command_len = strlen(usr_command);
 	
-	usr_command_len = (int)strlen(usr_command);
-
 	for( p=usr_command+usr_command_len-1; p>usr_command && ( *p=='\r' || *p =='\n' || *p == ' ' ); --p );
 
 	if( (p[1]=='\r') || (p[1]=='\n') || (p[1]==' '))
@@ -478,9 +510,9 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 		}
 	}
 
-	param[0] = '\0';	
 	if(function != 0)
 	{
+		param[0] = '\0';	
 		
 		if(commands[i].flags & CF_USEUPARAM)
 		{
@@ -506,12 +538,12 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 			}
 			else
 			{
-				zbx_snprintf(param, sizeof(param), "%s", commands[i].main_param);
+				snprintf(param, MAX_STRING_LEN, "%s", commands[i].main_param);
 			}
 		}
 		else
 		{
-			zbx_snprintf(param, sizeof(param), "%s", usr_param);
+			snprintf(param, MAX_STRING_LEN, "%s", usr_param);
 		}
 
 		if(err != FAIL)
@@ -535,9 +567,9 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 		if(commands[i].flags & CF_USEUPARAM)
 		{
 			printf("[%s]", param);
-			i = (int)strlen(param)+2;
+			i = strlen(param)+2;
 		} else	i = 0;
-		i += (int)strlen(usr_cmd);
+		i += strlen(usr_cmd);
 		
 #define COLUMN_2_X 45 /* max of spaces count */
 		i = i > COLUMN_2_X ? 1 : (COLUMN_2_X - i);
@@ -569,16 +601,15 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 
 int	VFS_FILE_MD5SUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	FILE	*file = NULL;
-	int	i;
-	size_t	nr;
+	int	fd;
+	int	i,nr;
 	struct stat	buf_stat;
 
         md5_state_t state;
 	u_char	buf[16 * 1024];
 
 	unsigned char	hashText[MD5_DIGEST_SIZE*2+1];
-	md5_byte_t	hash[MD5_DIGEST_SIZE];
+	unsigned char	hash[MD5_DIGEST_SIZE];
 
 	char filename[MAX_STRING_LEN];
 	
@@ -608,30 +639,28 @@ int	VFS_FILE_MD5SUM(const char *cmd, const char *param, unsigned flags, AGENT_RE
 		return	SYSINFO_RET_FAIL;
 	}
 
-	if(NULL == (file = fopen(filename,"rb")))
+	fd=open(filename,O_RDONLY);
+	if(fd == -1)
 	{
 		return	SYSINFO_RET_FAIL;
 	}
 
         md5_init(&state);
-	while ((nr = fread(buf, 1, (size_t)sizeof(buf), file)) > 0)
+	while ((nr = read(fd, buf, sizeof(buf))) > 0)
 	{
-        	md5_append(&state,(const md5_byte_t *)buf, (int)nr);
+        	md5_append(&state,(const md5_byte_t *)buf,nr);
 	}
-        md5_finish(&state, hash);
+        md5_finish(&state,(md5_byte_t *)hash);
 
-	zbx_fclose(file);
+	close(fd);
 
 /* Convert MD5 hash to text form */
 	for(i=0;i<MD5_DIGEST_SIZE;i++)
-	{
-		zbx_snprintf((char *)&hashText[i<<1], sizeof(hashText) - (i<<1), "%02x",hash[i]);
-	}
-	
+		sprintf((char *)&hashText[i<<1],"%02x",hash[i]);
+
 	SET_STR_RESULT(result, strdup((char*)hashText));
 
 	return SYSINFO_RET_OK;
-
 }
 
 /* Code for cksum is based on code from cksum.c */
@@ -704,14 +733,12 @@ int	VFS_FILE_CKSUM(const char *cmd, const char *param, unsigned flags, AGENT_RES
 {
 	register u_char *p;
 	register int nr;
-
 /*	AV Crashed under 64 platforms. Must be 32 bit! */
 /*	register u_long crc, len;*/
 	register uint32_t crc, len;
-
 	u_char buf[16 * 1024];
 	u_long cval, clen;
-	FILE	*f;
+	int	fd;
 	char	filename[MAX_STRING_LEN];
 
 	assert(result);
@@ -728,7 +755,8 @@ int	VFS_FILE_CKSUM(const char *cmd, const char *param, unsigned flags, AGENT_RES
                 return SYSINFO_RET_FAIL;
         }	
 		
-	if(NULL == (f = fopen(filename,"rb")))
+	fd=open(filename,O_RDONLY);
+	if(fd == -1)
 	{
 		return	SYSINFO_RET_FAIL;
 	}
@@ -736,14 +764,14 @@ int	VFS_FILE_CKSUM(const char *cmd, const char *param, unsigned flags, AGENT_RES
 #define	COMPUTE(var, ch)	(var) = (var) << 8 ^ crctab[(var) >> 24 ^ (ch)]
 
 	crc = len = 0;
-	while ((nr = (int)fread(buf, 1, sizeof(buf), f)) > 0)
+	while ((nr = read(fd, buf, sizeof(buf))) > 0)
 	{
 		for( len += nr, p = buf; nr--; ++p)
 		{
 			COMPUTE(crc, *p);
 		}
 	}
-	zbx_fclose(f);
+	close(fd);
 	
 	if (nr < 0)
 	{
@@ -786,45 +814,42 @@ crc_buf2(p, clen, cval)
 
 int	get_stat(const char *key, unsigned flags, AGENT_RESULT *result)
 {
-	FILE	*f = NULL;
+	FILE	*f;
 	char	line[MAX_STRING_LEN];
 	char	name1[MAX_STRING_LEN];
 	char	name2[MAX_STRING_LEN];
-	int	ret = SYSINFO_RET_FAIL;
 
         assert(result);
 
         init_result(result);	
 
-	if(NULL == (f = fopen("/tmp/zabbix_agentd.tmp","r")))
+	f=fopen("/tmp/zabbix_agentd.tmp","r");
+	if(f==NULL)
 	{
 		return SYSINFO_RET_FAIL;
 	}
-
 	while(fgets(line,MAX_STRING_LEN,f))
 	{
 		if(sscanf(line,"%s %s\n",name1,name2)==2)
 		{
 			if(strcmp(name1,key) == 0)
 			{
+				fclose(f);
 				SET_UI64_RESULT(result, atoi(name2));
-				ret = SYSINFO_RET_OK;
-				break;
+				return SYSINFO_RET_OK;
 			}
 		}
 
 	}
-
-	zbx_fclose(f);
-
-	return ret;
+	fclose(f);
+	return SYSINFO_RET_FAIL;
 }
 
 int	NET_IF_IBYTES1(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	char	key[MAX_STRING_LEN];
 
-	zbx_snprintf(key,sizeof(key),"netloadin1[%s]",param);
+	snprintf(key,sizeof(key)-1,"netloadin1[%s]",param);
 
 	return	get_stat(key, flags, result);
 }
@@ -833,7 +858,7 @@ int	NET_IF_IBYTES5(const char *cmd, const char *param, unsigned flags, AGENT_RES
 {
 	char	key[MAX_STRING_LEN];
 
-	zbx_snprintf(key,sizeof(key),"netloadin5[%s]",param);
+	snprintf(key,sizeof(key)-1,"netloadin5[%s]",param);
 
 	return	get_stat(key, flags, result);
 }
@@ -842,7 +867,7 @@ int	NET_IF_IBYTES15(const char *cmd, const char *param, unsigned flags, AGENT_RE
 {
 	char	key[MAX_STRING_LEN];
 
-	zbx_snprintf(key,sizeof(key),"netloadin15[%s]",param);
+	snprintf(key,sizeof(key)-1,"netloadin15[%s]",param);
 
 	return	get_stat(key, flags, result);
 }
@@ -851,7 +876,7 @@ int	NET_IF_OBYTES1(const char *cmd, const char *param, unsigned flags, AGENT_RES
 {
 	char	key[MAX_STRING_LEN];
 
-	zbx_snprintf(key,sizeof(key),"netloadout1[%s]",param);
+	snprintf(key,sizeof(key)-1,"netloadout1[%s]",param);
 
 	return	get_stat(key, flags, result);
 }
@@ -860,7 +885,7 @@ int	NET_IF_OBYTES5(const char *cmd, const char *param, unsigned flags, AGENT_RES
 {
 	char	key[MAX_STRING_LEN];
 
-	zbx_snprintf(key,sizeof(key),"netloadout5[%s]",param);
+	snprintf(key,sizeof(key)-1,"netloadout5[%s]",param);
 
 	return	get_stat(key, flags, result);
 }
@@ -869,7 +894,7 @@ int	NET_IF_OBYTES15(const char *cmd, const char *param, unsigned flags, AGENT_RE
 {
 	char	key[MAX_STRING_LEN];
 
-	zbx_snprintf(key,sizeof(key),"netloadout15[%s]",param);
+	snprintf(key,sizeof(key)-1,"netloadout15[%s]",param);
 
 	return	get_stat(key, flags, result);
 }
@@ -877,11 +902,10 @@ int	NET_IF_OBYTES15(const char *cmd, const char *param, unsigned flags, AGENT_RE
 int	TCP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 #ifdef HAVE_PROC
-	FILE	*f = NULL;
+	FILE	*f;
 	char	c[MAX_STRING_LEN];
 	char	porthex[MAX_STRING_LEN];
 	char	pattern[MAX_STRING_LEN];
-	int	ret = SYSINFO_RET_FAIL;
 
         assert(result);
 
@@ -900,25 +924,26 @@ int	TCP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT 
 	strscpy(pattern,porthex);
 	zbx_strlcat(pattern," 00000000:0000 0A", MAX_STRING_LEN);
 
-	if(NULL == (f = fopen("/proc/net/tcp","r")))
+	f=fopen("/proc/net/tcp","r");
+	if(NULL == f)
 	{
 		return	SYSINFO_RET_FAIL;
 	}
 
-	while (NULL != fgets(c,MAX_STRING_LEN,f))
+	while (NULL!=fgets(c,MAX_STRING_LEN,f))
 	{
 		if(NULL != strstr(c,pattern))
 		{
+			fclose(f);
 			SET_UI64_RESULT(result, 1);
-			ret = SYSINFO_RET_OK;
-			break;
+			return SYSINFO_RET_OK;
 		}
 	}
-	zbx_fclose(f);
+	fclose(f);
 
 	SET_UI64_RESULT(result, 0);
 	
-	return ret;
+	return SYSINFO_RET_OK;
 #else
 	return	SYSINFO_RET_FAIL;
 #endif
@@ -937,23 +962,21 @@ int	getPROC(char *file, int lineno, int fieldno, unsigned flags, AGENT_RESULT *r
 
         init_result(result);	
 		
-	if(NULL == (f = fopen(file,"r")))
+	f=fopen(file,"r");
+	if(NULL == f)
 	{
 		return	SYSINFO_RET_FAIL;
 	}
-
-	for(i=1; i<=lineno; i++)
+	for(i=1;i<=lineno;i++)
 	{	
 		fgets(c,MAX_STRING_LEN,f);
 	}
-
 	t=(char *)strtok(c," ");
-	for(i=2; i<=fieldno; i++)
+	for(i=2;i<=fieldno;i++)
 	{
 		t=(char *)strtok(NULL," ");
 	}
-
-	zbx_fclose(f);
+	fclose(f);
 
 	sscanf(t, "%lf", &value);
 	SET_DBL_RESULT(result, value);
@@ -1075,18 +1098,17 @@ int	PROCCOUNT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *
 
 		if(stat(filename,&buf)==0)
 		{
-			if(NULL == (f = fopen(filename,"r")))
+			f=fopen(filename,"r");
+			if(f==NULL)
 			{
 				continue;
 			}
-
 			/* This check can be skipped. No need to read anything from this file. */
 			if(NULL != fgets(line,MAX_STRING_LEN,f))
 			{
 				proccount++;
 			}
-
-			zbx_fclose(f);
+			fclose(f);
 		}
 	}
 	closedir(dir);
@@ -1147,22 +1169,8 @@ int     OLD_VERSION(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
 int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-
-#if defined(_WINDOWS)
-
-	STARTUPINFO si = {0};
-	PROCESS_INFORMATION pi = {0};
-	SECURITY_ATTRIBUTES sa;
-	HANDLE hOutput;
-	char szTempPath[MAX_PATH],szTempFile[MAX_PATH];
-
-#else /* not _WINDOWS */
-
 	FILE	*f;
-
-#endif /* _WINDOWS */
-
-	char	cmd_result[MAX_STRING_LEN];
+	char	c[MAX_STRING_LEN];
 	char	command[MAX_STRING_LEN];
 	int	i,len;
 
@@ -1170,85 +1178,22 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 
         init_result(result);
 	
-	memset(cmd_result, 0, MAX_STRING_LEN);
-
-#if defined(_WINDOWS)
-
-	/* Create temporary file to hold process output */
-	GetTempPath( MAX_PATH-1,	szTempPath);
-	GetTempFileName( szTempPath, "zbx", 0, szTempFile);
-
-	sa.nLength		= sizeof(SECURITY_ATTRIBUTES);
-	sa.lpSecurityDescriptor	= NULL;
-	sa.bInheritHandle	= TRUE;
-
-	if(INVALID_HANDLE_VALUE == (hOutput = CreateFile(
-		szTempFile,
-		GENERIC_READ | GENERIC_WRITE,
-		0,
-		&sa,
-		CREATE_ALWAYS,
-		FILE_ATTRIBUTE_TEMPORARY,
-		NULL)))
-	{
-		zabbix_log(LOG_LEVEL_DEBUG, "Unable to create temporary file: '%s' [%s]", szTempFile, strerror_from_system(GetLastError()));
-		return SYSINFO_RET_FAIL;
-	}
-
-	/* Fill in process startup info structure */
-	memset(&si,0,sizeof(STARTUPINFO));
-	si.cb		= sizeof(STARTUPINFO);
-	si.dwFlags	= STARTF_USESTDHANDLES;
-	si.hStdInput	= GetStdHandle(STD_INPUT_HANDLE);
-	si.hStdOutput	= hOutput;
-	si.hStdError	= GetStdHandle(STD_ERROR_HANDLE);
-
-	zbx_snprintf(command, sizeof(command), "cmd /C \"%s\"", param);
-
-	/* Create new process */
-	if (!CreateProcess(NULL,command,NULL,NULL,TRUE,0,NULL,NULL,&si,&pi))
-	{
-		zabbix_log(LOG_LEVEL_DEBUG, "Unable to create process: '%s' [%s]", command, strerror_from_system(GetLastError()));
-
-		// Remove temporary file
-		CloseHandle(hOutput);
-		DeleteFile(szTempFile);
-
-		return SYSINFO_RET_FAIL;
-	}
-
-	/* Wait for process termination and close all handles */
-	WaitForSingleObject(pi.hProcess,INFINITE);
-	CloseHandle(pi.hThread);
-	CloseHandle(pi.hProcess);
-
-	/* Rewind temporary file for reading */
-	SetFilePointer(hOutput,0,NULL,FILE_BEGIN);
-
-	/* Read process output */
-	ReadFile(hOutput, cmd_result, MAX_STRING_LEN-1, &len, NULL);
-
-	cmd_result[len] = '\0';
+	zbx_strlcpy(command, param, MAX_STRING_LEN);
 	
-	// Remove temporary file
-	CloseHandle(hOutput);
-	DeleteFile(szTempFile);
-
-#else /* not _WINDOWS */
-	zbx_strlcpy(command, param, sizeof(command));
-
-	if(0 == (f = popen(command,"r")))
+	f=popen(command,"r");
+	if(f==0)
 	{
 		switch (errno)
 		{
 			case	EINTR:
+/* (char *) to avoid compiler warning */
 				return SYSINFO_RET_TIMEOUT;
 			default:
 				return SYSINFO_RET_FAIL;
 		}
 	}
 
-	len = fread(cmd_result, 1, sizeof(cmd_result)-1, f);
+	len = fread(c, 1, MAX_STRING_LEN-1, f);
 
 	if(0 != ferror(f))
 	{
@@ -1256,6 +1201,7 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 		{
 			case	EINTR:
 				pclose(f);
+/* (char *) to avoid compiler warning */
 				return SYSINFO_RET_TIMEOUT;
 			default:
 				pclose(f);
@@ -1263,11 +1209,54 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 		}
 	}
 
-	cmd_result[len] = '\0';
+	c[len]=0;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "Run remote command [%s] Result [%d] [%s]", command, strlen(cmd_result), cmd_result);
+	zabbix_log(LOG_LEVEL_DEBUG, "Run remote command [%s] Result [%d] [%s]", command, strlen(c), c);
 
 	if(pclose(f) == -1)
+	{
+		switch (errno)
+		{
+			case	EINTR:
+/* (char *) to avoid compiler warning */
+				return SYSINFO_RET_TIMEOUT;
+			default:
+				return SYSINFO_RET_FAIL;
+		}
+	}
+
+	/* We got EOL only */
+	if(c[0] == '\n' || c[0] == '\0')
+	{
+		return SYSINFO_RET_FAIL;
+	}
+	
+	for(i=strlen(c); i>0; i--)
+	{
+		if(c[i] == '\n')
+		{
+			c[i] = '\0';
+			break;
+		}
+	}
+	
+	SET_TEXT_RESULT(result, strdup(c));
+	
+	return	SYSINFO_RET_OK;
+}
+
+int	EXECUTE(const char *cmd, const char *command, unsigned flags, AGENT_RESULT *result)
+{
+	FILE	*f;
+	char	c[MAX_STRING_LEN];
+	double	value = 0;
+
+        assert(result);
+
+	init_result(result);
+		
+	f=popen( command,"r");
+	if(f==0)
 	{
 		switch (errno)
 		{
@@ -1278,70 +1267,54 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 		}
 	}
 
-#endif /* _WINDOWS */
+	if(NULL == fgets(c,MAX_STRING_LEN,f))
+	{
+		pclose(f);
+		switch (errno)
+		{
+			case	EINTR:
+				return SYSINFO_RET_TIMEOUT;
+			default:
+				return SYSINFO_RET_FAIL;
+		}
+	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "Before");
+	if(pclose(f) != 0)
+	{
+		switch (errno)
+		{
+			case	EINTR:
+				return SYSINFO_RET_TIMEOUT;
+			default:
+				return SYSINFO_RET_FAIL;
+		}
+	}
+
 	/* We got EOL only */
-	if(cmd_result[0] == '\n' || cmd_result[0] == '\0')
+	if(c[0] == '\n')
 	{
 		return SYSINFO_RET_FAIL;
 	}
 
-        for(i=strlen(cmd_result); i>0; i--)
-        {
-                if(cmd_result[i] == '\n')
-                {
-                        cmd_result[i] = '\0';
-                        break;
-                }
-        }
-
-	SET_TEXT_RESULT(result, strdup(cmd_result));
+	sscanf(c, "%lf", &value);
+	SET_DBL_RESULT(result, value);
 
 	return	SYSINFO_RET_OK;
-
-}
-
-int	EXECUTE_INT(const char *cmd, const char *command, unsigned flags, AGENT_RESULT *result)
-{
-	int	ret	= SYSINFO_RET_FAIL;
-	double	value	= 0;
-
-	ret = EXECUTE_STR(cmd,command,flags,result);
-
-	if(SYSINFO_RET_OK == ret)
-	{
-		sscanf(result->text, "%lf", &value);
-
-		UNSET_TEXT_RESULT(result);
-
-		SET_DBL_RESULT(result, value);
-	}
-
-	return ret;
 }
 
 int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-#define MAX_FLAG_LEN 10
-
 	char	command[MAX_STRING_LEN];
+#define MAX_FLAG_LEN 10
 	char	flag[MAX_FLAG_LEN];
-
-#if defined (_WINDOWS)
-	STARTUPINFO    si;
-	PROCESS_INFORMATION  pi;
-
-	char	full_command[MAX_STRING_LEN];
-#else /* not _WINDOWS */
 	pid_t	pid;
-#endif
-
 	
         assert(result);
 
 	init_result(result);
 	
+
+zabbix_log(LOG_LEVEL_WARNING, "RUN_COMMAND cmd = '%s'",cmd);
 
 	if(CONFIG_ENABLE_REMOTE_COMMANDS != 1)
 	{
@@ -1354,7 +1327,7 @@ int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
                 return SYSINFO_RET_FAIL;
         }
         
-	if(get_param(param, 1, command, sizeof(command)) != 0)
+	if(get_param(param, 1, command, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
         }
@@ -1363,21 +1336,21 @@ int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 	{
 		return SYSINFO_RET_FAIL;
 	}
-
-	zabbix_log(LOG_LEVEL_DEBUG, "Run command '%s'",command);
 	
-	if(get_param(param, 2, flag, sizeof(flag)) != 0)
+	if(get_param(param, 2, flag, MAX_FLAG_LEN) != 0)
         {
                 flag[0] = '\0';
         }
 
 	if(flag[0] == '\0')
 	{
-		zbx_snprintf(flag,sizeof(flag),"wait");
+		snprintf(flag,MAX_FLAG_LEN,"wait");
 	}
 
+	zabbix_log(LOG_LEVEL_DEBUG, "RUN_COMMAND flag = '%s'",flag);
 	if(strcmp(flag,"wait") == 0)
 	{
+	zabbix_log(LOG_LEVEL_DEBUG, "RUN_COMMAND is running as WAIT",flag);
 		return EXECUTE_STR(cmd,command,flags,result);
 	}
 	else if(strcmp(flag,"nowait") != 0)
@@ -1385,37 +1358,15 @@ int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 		return SYSINFO_RET_FAIL;
 	}
 	
-#if defined(_WINDOWS)
-
-	zbx_snprintf(full_command, sizeof(full_command), "cmd /C \"%s\"", command);
-
-	GetStartupInfo(&si);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "Execute command '%s'",full_command);
-
-	if(!CreateProcess(
-		NULL,	/* No module name (use command line) */
-		full_command,/* Name of app to launch */
-		NULL,	/* Default process security attributes */
-		NULL,	/* Default thread security attributes */
-		FALSE,	/* Don't inherit handles from the parent */
-		0,	/* Normal priority */
-		NULL,	/* Use the same environment as the parent */
-		NULL,	/* Launch in the current directory */
-		&si,	/* Startup Information */
-		&pi))	/* Process information stored upon return */
-	{
-		return SYSINFO_RET_FAIL;
-	}
-
-
-#else /* not _WINDOWS */
-
+	zabbix_log(LOG_LEVEL_DEBUG, "Run remote command '%s'", command);
+	
+	zabbix_log(LOG_LEVEL_DEBUG, "RUN_COMMAND to be started as NOWAIT",flag);
+	
 	pid = zbx_fork(); /* run new thread 1 */
 	switch(pid)
 	{
 	case -1:
-		zabbix_log(LOG_LEVEL_WARNING, "fork failed for command '%s'",command);
+		zabbix_log(LOG_LEVEL_WARNING, "fork failed for '%s'",command);
 		return SYSINFO_RET_FAIL;
 	case 0:
 		pid = zbx_fork(); /* run new tread 2 to replace by command */
@@ -1426,7 +1377,7 @@ int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 			return SYSINFO_RET_FAIL;
 		case 0:
 			/* 
-			 * DON'T REMOVE SLEEP
+			 * DON'T REMVE SLEEP
 			 * sleep needed to return server result as "1"
 			 * then we can run "execl"
 			 * otherwise command print result into socket with STDOUT id
@@ -1437,7 +1388,8 @@ int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 			/* replace thread 2 by the execution of command */
 			if(execl("/bin/sh", "sh", "-c", command, (char *)0))
 			{
-				zabbix_log(LOG_LEVEL_WARNING, "execl failed for command '%s'",command);
+				zabbix_log(LOG_LEVEL_WARNING, "execl failed for '%s'",command);
+				exit(1);
 			}
 			/* In normal case the program will never reach this point */
 			exit(0);
@@ -1451,236 +1403,253 @@ int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 		break;
 	}
 
-#endif /* _WINDOWS */
-
 	SET_UI64_RESULT(result, 1);
 	
 	return	SYSINFO_RET_OK;
 }
-
-
-/*
-static int	forward_request(char *proxy, char *command, int port, unsigned flags, AGENT_RESULT *result)
+int	forward_request(char *proxy, char *command, int port, unsigned flags, AGENT_RESULT *result)
 {
-	ZBX_SOCKET	s;
-	ZBX_SOCKADDR	servaddr_in;
-
-	struct hostent *hp;
-
-	char	buf[MAX_BUF_LEN];
+	char	*haddr;
+	char	c[1024];
 	
-	int	len;
+	int	s;
+	struct	sockaddr_in addr;
+	int	addrlen;
+
+	struct hostent *host;
 
 	assert(result);
 
 	init_result(result);
 		
-	if(NULL == (hp = zbx_gethost(proxy)) )
+	host = gethostbyname(proxy);
+	if(host == NULL)
 	{
 		SET_MSG_RESULT(result, strdup("ZBX_NETWORK_ERROR"));
 		return SYSINFO_RET_FAIL;
 	}
 
-	memset(&servaddr_in, 0, sizeof(ZBX_SOCKADDR));
+	haddr=host->h_addr;
 
-	servaddr_in.sin_family		= AF_INET;
-	servaddr_in.sin_addr.s_addr	= ((struct in_addr *)(hp->h_addr))->s_addr;
-	servaddr_in.sin_port		= htons(port);
+	addrlen = sizeof(addr);
+	memset(&addr, 0, addrlen);
+	addr.sin_port = htons(port);
+	addr.sin_family = AF_INET;
+	bcopy(haddr, (void *) &addr.sin_addr.s_addr, 4);
 
-	if(INVALID_SOCKET == (s = socket(AF_INET,SOCK_STREAM,0)))
+	s = socket(AF_INET, SOCK_STREAM, 0);
+	if (s == -1)
 	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Error in socket() [%s:%u] [%s]",proxy, port, strerror_from_system(errno));
+		close(s);
 		SET_MSG_RESULT(result, strdup("ZBX_NOTSUPPORTED"));
 		return SYSINFO_RET_FAIL;
 	}
 
-
-	if(SOCKET_ERROR == connect(s,(struct sockaddr *)&servaddr_in,sizeof(ZBX_SOCKADDR)))
+	if (connect(s, (struct sockaddr *) &addr, addrlen) == -1)
 	{
-		zabbix_log( LOG_LEVEL_WARNING, "Error in connect() [%s:%u] [%s]",proxy, port, strerror_from_system(errno));
-		zbx_sock_close(s);
+		close(s);
 		SET_MSG_RESULT(result, strdup("ZBX_NETWORK_ERROR"));
 		return SYSINFO_RET_FAIL;
 	}
 
-
-	if(SOCKET_ERROR == zbx_sock_write(s, command, strlen(command)))
+	if(write(s,command,strlen(command)) == -1)
 	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Error during sending [%s:%u] [%s]",proxy, port, strerror_from_system(errno));
-		zbx_sock_close(s);
+		close(s);
 		SET_MSG_RESULT(result, strdup("ZBX_NETWORK_ERROR"));
 		return SYSINFO_RET_FAIL;
-	} 
+	}
 
-	memset(buf, 0, sizeof(buf));
-
-	if(SOCKET_ERROR == (len = zbx_sock_read(s, buf, sizeof(buf)-1, CONFIG_TIMEOUT)))
+	memset(&c, 0, 1024);
+	if(read(s, c, 1024) == -1)
 	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Error in reading() [%s:%u] [%s]",proxy, port, strerror_from_system(errno));
-		zbx_sock_close(s);
+		close(s);
 		SET_MSG_RESULT(result, strdup("ZBX_ERROR"));
 		return SYSINFO_RET_FAIL;
 	}
-
-	zbx_sock_close(s);
+	close(s);
 	
-	SET_STR_RESULT(result, strdup(buf));
+	SET_STR_RESULT(result, strdup(c));
 
 	return	SYSINFO_RET_OK;
 }
-*/
 
 /* 
- * 0 - NOT OK
- * 1 - OK
+ *  0- NOT OK
+ *  1 - OK
+ *  2 - TIMEOUT
  * */
-static int	tcp_expect(const char	*hostname, short port, const char *request, const char *expect, const char *sendtoclose, int *value_int)
+int	tcp_expect(char	*hostname, short port, char *request,char *expect,char *sendtoclose, int *value_int)
 {
-	ZBX_SOCKET	s;
-	ZBX_SOCKADDR	servaddr_in;
-
-	struct hostent *hp;
-
-	char	buf[MAX_BUF_LEN];
+	char	*haddr;
+	char	c[1024];
 	
-	int	len;
+	int	s;
+	struct	sockaddr_in addr;
+	int	addrlen;
 
-	assert(hostname);
-	assert(value_int);
 
-	*value_int = 0;
+	struct hostent *host;
 
-	if(NULL == (hp = zbx_gethost(hostname)) )
+	host = gethostbyname(hostname);
+	if(host == NULL)
 	{
+		*value_int = 0;
 		return SYSINFO_RET_OK;
 	}
 
-	memset(&servaddr_in, 0, sizeof(ZBX_SOCKADDR));
+	haddr=host->h_addr;
 
-	servaddr_in.sin_family		= AF_INET;
-	servaddr_in.sin_addr.s_addr	= ((struct in_addr *)(hp->h_addr))->s_addr;
-	servaddr_in.sin_port		= htons(port);
 
-	if(INVALID_SOCKET == (s = (ZBX_SOCKET)socket(AF_INET,SOCK_STREAM,0)))
+	addrlen = sizeof(addr);
+	memset(&addr, 0, addrlen);
+	addr.sin_port = htons(port);
+	addr.sin_family = AF_INET;
+	bcopy(haddr, (void *) &addr.sin_addr.s_addr, 4);
+
+	s = socket(AF_INET, SOCK_STREAM, 0);
+	if (s == -1)
 	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Error in socket() [%s:%u] [%s]", hostname, port, strerror_from_system(errno));
+		close(s);
+		*value_int = 0;
 		return SYSINFO_RET_OK;
 	}
 
-	if(SOCKET_ERROR == connect(s,(struct sockaddr *)&servaddr_in,sizeof(ZBX_SOCKADDR)))
+	if (connect(s, (struct sockaddr *) &addr, addrlen) == -1)
 	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Error in connect() [%s:%u] [%s]",hostname, port, strerror_from_system(errno));
-		zbx_sock_close(s);
+		if(errno == EINTR)	*value_int = 2;
+		else			*value_int = 0;
+		close(s);
 		return SYSINFO_RET_OK;
 	}
 
-	if(NULL != request)
+	if( request != NULL)
 	{
-		if(SOCKET_ERROR == zbx_sock_write(s, (void *)request, (int)strlen(request)))
+		if(send(s,request,strlen(request),0) == -1 && errno == EINTR)
 		{
-			zabbix_log( LOG_LEVEL_DEBUG, "Error during sending [%s:%u] [%s]",hostname, port, strerror_from_system(errno));
-			zbx_sock_close(s);
+			send(s,sendtoclose,strlen(sendtoclose),0);
+			close(s);
+			*value_int = 2;
 			return SYSINFO_RET_OK;
 		}
 	}
 
-	if( NULL == expect)
+	if( expect == NULL)
 	{
-		zbx_sock_close(s);
+		close(s);
 		*value_int = 1;
 		return SYSINFO_RET_OK;
 	}
 
-	memset(buf, 0, sizeof(buf));
+	memset(&c, 0, 1024);
 
-	if(SOCKET_ERROR == (len = zbx_sock_read(s, buf, sizeof(buf)-1, CONFIG_TIMEOUT)))
+	if(recv(s, c, 1024, 0) == -1 && errno == EINTR)
 	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Error in reading() [%s:%u] [%s]",hostname, port, strerror_from_system(errno));
-		zbx_sock_close(s);
+		send(s,sendtoclose,strlen(sendtoclose),0);
+		close(s);
+		*value_int = 2;
+		return SYSINFO_RET_OK;
+	}
+	
+	if ( strncmp(c, expect, strlen(expect)) == 0 )
+	{
+		send(s,sendtoclose,strlen(sendtoclose),0);
+		close(s);
+		*value_int = 1;
 		return SYSINFO_RET_OK;
 	}
 
-	buf[sizeof(buf)-1] = '\0';
-
-	if( strcmp(buf, expect) == 0 )
-	{
-		*value_int = 1;
-	}
-	else
-	{
-		*value_int = 0;
-	}
-
-	if(NULL != sendtoclose)
-	{
-		if(SOCKET_ERROR == zbx_sock_write(s, (void *)sendtoclose, (int)strlen(sendtoclose)))
-		{
-			zabbix_log( LOG_LEVEL_DEBUG, "Error during close string sending [%s:%u] [%s]",hostname, port, strerror_from_system(errno));
-		}
-	}
-
-	zbx_sock_close(s);
-
+	send(s,sendtoclose,strlen(sendtoclose),0);
+	close(s);
+	*value_int = 0;
 	return SYSINFO_RET_OK;
 }
 
 #ifdef HAVE_LDAP
-
-static int    check_ldap(char *hostname, short port, int *value_int)
+/* 
+ *  0- NOT OK
+ *  1 - OK
+ *  2 - TIMEOUT
+ * */
+int    check_ldap(char *hostname, short port, int *value_int)
 {
-	LDAP		*ldap	= NULL;
-	LDAPMessage	*res	= NULL;
-	LDAPMessage	*msg	= NULL;
-	BerElement	*ber	= NULL;
+	int rc;
+	LDAP *ldap;
+	LDAPMessage *res;
+	LDAPMessage *msg;
 
-	char	*attrs[2] = { "namingContexts", NULL };
+	char *base = "";
+	int scope = LDAP_SCOPE_BASE;
+	char *filter="(objectClass=*)";
+	int attrsonly=0;
+	char *attrs[2];
 
-	char	*attr	 = NULL;
-	char	**valRes = NULL;
+	attrs[0] = "namingContexts";
+	attrs[1] = NULL;
 
-	int	ldapErr = 0;
+	BerElement *ber;
+	char *attr=NULL;
+	char **valRes=NULL;
+	int	err = 0;
 
         assert(value_int);
 
 	*value_int = 0;
-
-	if(NULL == (ldap = ldap_init(hostname, port)) )
+	
+	ldap = ldap_init(hostname, port);
+	if ( ldap )
 	{
-		zabbix_log( LOG_LEVEL_DEBUG, "LDAP - initialization failed [%s:%u]",hostname, port);
-		return	SYSINFO_RET_OK;
-	}
+		rc = ldap_search_s(ldap, base, scope, filter, attrs, attrsonly, &res);
+		if( rc == 0 )
+		{
+			msg = ldap_first_entry(ldap, res);
+			if( msg )
+			{
+				attr = ldap_first_attribute (ldap, msg, &ber);
+				if( attr )
+				{
+					valRes = ldap_get_values( ldap, msg, attr );
 
-	if( LDAP_SUCCESS != (ldapErr = ldap_search_s(
-		ldap, 
-		"", 
-		LDAP_SCOPE_BASE, 
-		"(objectClass=*)", 
-		attrs, 
-		0, 
-		&res)) )
+					if( valRes )
+					{
+						ldap_value_free(valRes);
+						*value_int = 1;
+					}
+					else
+					{
+						ldap_get_option(ldap, LDAP_OPT_ERROR_NUMBER, &err);
+						if(err == LDAP_TIMEOUT)		*value_int = 2;
+					}
+
+					ldap_memfree(attr);
+					
+				}
+				else
+				{
+					ldap_get_option(ldap, LDAP_OPT_ERROR_NUMBER, &err);
+					if(err == LDAP_TIMEOUT)		*value_int = 2;
+				}
+
+				if ( ber ) ber_free(ber, 0);
+				
+			}
+			else
+			{
+				ldap_get_option(ldap, LDAP_OPT_ERROR_NUMBER, &err);
+				if(err == LDAP_TIMEOUT)		*value_int = 2;
+			}
+
+			ldap_msgfree(res);
+		}
+		else if(rc == LDAP_TIMEOUT || errno == EINTR)
+		{
+			*value_int = 2;
+		}
+		ldap_unbind(ldap);
+	}
+	else if( errno == EINTR)
 	{
-		zabbix_log( LOG_LEVEL_DEBUG, "LDAP - serching failed [%s] [%s]",hostname, ldap_err2string(ldapErr));
-		goto lbl_ret;
+		*value_int = 2;
 	}
-
-	if(NULL == (msg = ldap_first_entry(ldap, res)) )
-	{
-		zabbix_log( LOG_LEVEL_DEBUG, " LDAP - empty sort result. [%s] [%s]", hostname, ldap_err2string(ldapErr));
-		goto lbl_ret;
-	}
-       
-	attr	= ldap_first_attribute (ldap, msg, &ber);
-
-	valRes	= ldap_get_values( ldap, msg, attr );
-
-	*value_int = 1;
-
-lbl_ret:
-	if(valRes)	ldap_value_free(valRes);
-	if(attr)	ldap_memfree(attr);
-	if(ber) 	ber_free(ber, 0);
-	if(res)		ldap_msgfree(res);
-	if(res)		ldap_unbind(ldap);
        
 	return	SYSINFO_RET_OK;
 }
@@ -1690,84 +1659,85 @@ lbl_ret:
 /* 
  *  0- NOT OK
  *  1 - OK
+ *  2 - TIMEOUT
  * */
-static int	check_ssh(const char	*hostname, short port, int *value_int)
+int	check_ssh(char	*hostname, short port, int *value_int)
 {
-
-	ZBX_SOCKET	s;
-	ZBX_SOCKADDR	servaddr_in;
-
-	struct hostent *hp;
-
-	char	buf[MAX_BUF_LEN];
-	char	buf2[MAX_BUF_LEN];
-	char	*ssh_server, 
-		*ssh_proto;
+	char	*haddr;
+	char	c[MAX_STRING_LEN];
+	char	out[MAX_STRING_LEN];
+	char	*ssh_proto=NULL;
+	char	*ssh_server=NULL;
 	
-	int	len;
+	int	s;
+	struct	sockaddr_in addr;
+	int	addrlen;
 
-	assert(hostname);
-	assert(value_int);
+	struct hostent *host;
 
-	*value_int = 0;
+        assert(value_int);
 
-	if(NULL == (hp = zbx_gethost(hostname)) )
+	host = gethostbyname(hostname);
+	if(host == NULL)
 	{
-		return SYSINFO_RET_OK;
-	}
-
-	memset(&servaddr_in, 0, sizeof(ZBX_SOCKADDR));
-
-	servaddr_in.sin_family		= AF_INET;
-	servaddr_in.sin_addr.s_addr	= ((struct in_addr *)(hp->h_addr))->s_addr;
-	servaddr_in.sin_port		= htons(port);
-
-	if(INVALID_SOCKET == (s = (ZBX_SOCKET)socket(AF_INET,SOCK_STREAM,0)))
-	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Error in socket() [%s:%u] [%s]", hostname, port, strerror_from_system(errno));
-		return SYSINFO_RET_OK;
-	}
-
-	if(SOCKET_ERROR == connect(s,(struct sockaddr *)&servaddr_in,sizeof(ZBX_SOCKADDR)))
-	{
-		zabbix_log( LOG_LEVEL_WARNING, "Error in connect() [%s:%u] [%s]",hostname, port, strerror_from_system(errno));
-		zbx_sock_close(s);
-		return SYSINFO_RET_OK;
-	}
-
-	memset(buf, 0, sizeof(buf));
-
-	if(SOCKET_ERROR == (len = zbx_sock_read(s, buf, sizeof(buf)-1, CONFIG_TIMEOUT)))
-	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Error in reading() [%s:%u] [%s]",hostname, port, strerror_from_system(errno));
-		zbx_sock_close(s);
-		return SYSINFO_RET_OK;
-	}
-
-	buf[sizeof(buf)-1] = '\0';
-
-	if ( strncmp(buf, "SSH", 3) == 0 )
-	{
-		ssh_server = ssh_proto = buf + 4;
-		ssh_server += strspn (ssh_proto, "0123456789-. ") ;
-		ssh_server[-1] = '\0';
-
-		zbx_snprintf(buf2,sizeof(buf2),"SSH-%s-%s\n", ssh_proto, "zabbix_agent");
-		*value_int = 1;
-	}
-	else
-	{
-		zbx_snprintf(buf2,sizeof(buf2),"0\n");
 		*value_int = 0;
+		return	SYSINFO_RET_OK;
 	}
 
-	if(SOCKET_ERROR == zbx_sock_write(s, buf2, (int)strlen(buf2)))
+	haddr=host->h_addr;
+
+	addrlen = sizeof(addr);
+	memset(&addr, 0, addrlen);
+	addr.sin_port = htons(port);
+	addr.sin_family = AF_INET;
+	bcopy(haddr, (void *) &addr.sin_addr.s_addr, 4);
+
+	s = socket(AF_INET, SOCK_STREAM, 0);
+	if (s == -1)
 	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Error during sending [%s:%u] [%s]",hostname, port, strerror_from_system(errno));
+		close(s);
+		*value_int = 0;
+		return	SYSINFO_RET_OK;
 	}
 
-	zbx_sock_close(s);
+	if (connect(s, (struct sockaddr *) &addr, addrlen) == -1)
+	{
+		if(errno == EINTR)	*value_int = 2;
+		else			*value_int = 0;
+		close(s);
+		return	SYSINFO_RET_OK;
+	}
 
+	memset(&c, 0, 1024);
+	if(recv(s, c, 1024, 0) == -1 && errno == EINTR)
+	{
+		send(s,"0\n",2,0);
+		close(s);
+		*value_int = 2;
+		return  SYSINFO_RET_OK;
+	}
+	
+	if ( strncmp(c, "SSH", 3) == 0 )
+	{
+		ssh_proto = c + 4;
+		ssh_server = ssh_proto + strspn (ssh_proto, "0123456789-. ");
+		ssh_proto[strspn (ssh_proto, "0123456789-. ")] = 0;
+
+/*		printf("[%s] [%s]\n",ssh_proto, ssh_server);*/
+
+		snprintf(out,sizeof(out)-1,"SSH-%s-%s\r\n", ssh_proto, "zabbix_agent");
+		send(s,out,strlen(out),0);
+
+/*		printf("[%s]\n",out);*/
+
+		close(s);
+		*value_int = 1;
+		return	SYSINFO_RET_OK;
+	}
+
+	send(s,"0\n",2,0);
+	close(s);
+	*value_int = 0;
 	return	SYSINFO_RET_OK;
 }
 
@@ -1775,21 +1745,24 @@ static int	check_ssh(const char	*hostname, short port, int *value_int)
 /* check_service[ssh,127.0.0.1,ssh] */
 int	CHECK_SERVICE_PERF(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	unsigned short	port=0;
+	int	port=0;
 	char	service[MAX_STRING_LEN];
 	char	ip[MAX_STRING_LEN];
 	char	str_port[MAX_STRING_LEN];
 
-	double	start_time = 0;
+	struct timeval t1,t2;
+	struct timezone tz1,tz2;
 
-	int	ret	= SYSINFO_RET_OK;
+	int	ret;
 	int	value_int;
+
+	long	exec_time;
 
         assert(result);
 
 	init_result(result);
 
-	start_time = zbx_time();
+	gettimeofday(&t1,&tz1);
 
         if(num_param(param) > 3)
         {
@@ -1883,33 +1856,31 @@ int	CHECK_SERVICE_PERF(const char *cmd, const char *param, unsigned flags, AGENT
 		return SYSINFO_RET_FAIL;
 	}
 
-	if(SYSINFO_RET_OK == ret)
+	if(value_int)
 	{
-		if(value_int)
-		{
-			SET_DBL_RESULT(result, zbx_time() - start_time);
-		}
-		else
-		{
-			SET_DBL_RESULT(result, 0.0);
-		}
+		gettimeofday(&t2,&tz2);
+   		exec_time=(t2.tv_sec - t1.tv_sec) * 1000000 + (t2.tv_usec - t1.tv_usec);
+
+		SET_DBL_RESULT(result, exec_time / 1000000.0);
+		return SYSINFO_RET_OK;
 	}
 	
+	SET_DBL_RESULT(result, 0.0);
 
-	return ret;
+	return SYSINFO_RET_OK;
 }
 
 /* Example check_service[ssh], check_service[smtp,29],check_service[ssh,127.0.0.1,22]*/
 /* check_service[ssh,127.0.0.1,ssh] */
 int	CHECK_SERVICE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	unsigned short	port=0;
+	int	port=0;
 	char	service[MAX_STRING_LEN];
 	char	ip[MAX_STRING_LEN];
 	char	str_port[MAX_STRING_LEN];
 
 	int	ret;
-	int	value_int = 0;
+	int	value_int;
 
         assert(result);
 
@@ -2012,17 +1983,14 @@ int	CHECK_SERVICE(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 		return SYSINFO_RET_FAIL;
 	}
 
-	if(SYSINFO_RET_OK == ret)
-	{
-		SET_UI64_RESULT(result, value_int);
-	}
+	SET_UI64_RESULT(result, value_int);
 
 	return ret;
 }
 
 int	CHECK_PORT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	short	port=0;
+	int	port=0;
 	int	value_int;
 	int	ret;
 	char	ip[MAX_STRING_LEN];
@@ -2072,21 +2040,6 @@ int	CHECK_PORT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT 
 
 int	CHECK_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-#ifdef TODO
-
-#if !defined(PACKETSZ)
-#	define PACKETSZ 512
-#endif /* PACKETSZ */
-
-#if !defined(C_IN) 
-#	define C_IN 	ns_c_in
-#endif /* C_IN */
-
-#if !defined(T_SOA)
-#	define T_SOA	ns_t_soa
-#endif /* T_SOA */
-
-
 	int	res;
 	char	ip[MAX_STRING_LEN];
 	char	zone[MAX_STRING_LEN];
@@ -2097,6 +2050,7 @@ int	CHECK_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *
 #endif
 	struct	in_addr in;
 
+	extern struct __res_state _res;
 	/* extern char *h_errlist[]; */
 
         assert(result);
@@ -2137,14 +2091,32 @@ int	CHECK_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *
 
 	res_init();
 
-	res = res_query(zone, C_IN, T_SOA, (unsigned char *)respbuf, sizeof(respbuf));
+/*
+	_res.nsaddr.sin_addr=in;
+	_res.nscount=1;
+	_res.options= (RES_INIT|RES_AAONLY) & ~RES_RECURSE;
+	_res.retrans=5;
+	_res.retry=1;
+*/
 
+	h_errno=0;
+
+	_res.nsaddr_list[0].sin_addr = in;
+	_res.nsaddr_list[0].sin_family = AF_INET;
+/*	_res.nsaddr_list[0].sin_port = htons(NS_DEFAULTPORT);*/
+
+	_res.nsaddr_list[0].sin_port = htons(53);
+	_res.nscount = 1; 
+	_res.retrans=5;
+
+#ifdef	C_IN
+	res=res_query(zone,C_IN,T_SOA,(unsigned char *)respbuf,sizeof(respbuf));
+#else
+	res=res_query(zone,ns_c_in,ns_t_soa,(unsigned char *)respbuf,sizeof(respbuf));
+#endif
 	SET_UI64_RESULT(result, res != -1 ? 1 : 0);
 
 	return SYSINFO_RET_OK;
-
-#endif /* TODO */
-	return SYSINFO_RET_FAIL;
 }
 
 int     SYSTEM_UNUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -2153,11 +2125,25 @@ int     SYSTEM_UNUM(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
         init_result(result);
 
-#ifdef TODO
-#error Realize function SYSTEM_UNUM!!!
-#endif /* todo */
+        return EXECUTE(cmd, "who|wc -l", flags, result);
+}
 
-        return EXECUTE_INT(cmd, "who|wc -l", flags, result);
+int     SYSTEM_UNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+        assert(result);
+
+        init_result(result);
+
+        return EXECUTE_STR(cmd, "uname -a", flags, result);
+}
+
+int     SYSTEM_HOSTNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+        assert(result);
+
+        init_result(result);
+
+        return EXECUTE_STR(cmd, "hostname", flags, result);
 }
 
 int     OLD_SYSTEM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -2185,7 +2171,7 @@ int     OLD_SYSTEM(const char *cmd, const char *param, unsigned flags, AGENT_RES
         }
         else if(strcmp(key,"procrunning") == 0)
         {
-                ret = EXECUTE_INT(cmd, "cat /proc/loadavg|cut -f1 -d'/'|cut -f4 -d' '", flags, result);
+                ret = EXECUTE(cmd, "cat /proc/loadavg|cut -f1 -d'/'|cut -f4 -d' '", flags, result);
         }
         else if(strcmp(key,"uptime") == 0)
         {

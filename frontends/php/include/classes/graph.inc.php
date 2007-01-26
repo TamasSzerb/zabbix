@@ -19,23 +19,6 @@
 **/
 ?>
 <?php
-	require_once "include/items.inc.php";
-	require_once "include/hosts.inc.php";
-
-	define("GRAPH_DRAW_TYPE_LINE",0);
-	define("GRAPH_DRAW_TYPE_FILL",1);
-	define("GRAPH_DRAW_TYPE_BOLDLINE",2);
-	define("GRAPH_DRAW_TYPE_DOT",3);
-	define("GRAPH_DRAW_TYPE_DASHEDLINE",4);
-
-	define("GRAPH_YAXIS_TYPE_CALCULATED",0);
-	define("GRAPH_YAXIS_TYPE_FIXED",1);
-
-	define("GRAPH_YAXIS_SIDE_LEFT",0);
-	define("GRAPH_YAXIS_SIDE_RIGHT",1);
-
-	define("GRAPH_ITEM_SIMPLE" , 	0);
-	define("GRAPH_ITEM_AGGREGATED",	1);
 
 	define("GRAPH_TYPE_NORMAL",	0);
 	define("GRAPH_TYPE_STACKED",	1);
@@ -47,30 +30,29 @@
 
 	class	Graph
 	{
-		/*
-		//var $period;
-		//var $from;
+		var $period;
+		var $from;
 		var $stime;
-		//var $sizeX;
-		//var $sizeY;
-		//var $shiftXleft;
-		//var $shiftXright;
-		//var $shiftY;
-		//var $border;
+		var $sizeX;
+		var $sizeY;
+		var $shiftXleft;
+		var $shiftXright;
+		var $shiftY;
+		var $border;
 
 		var $fullSizeX;
 		var $fullSizeY;
 
-		//var $m_showWorkPeriod;
-		//var $m_showTriggers;
+		var $m_showWorkPeriod;
+		var $m_showTriggers;
 
-		//var $type; // 0 - simple graph; 1 - stacked graph;
+		var $type; /* 0 - simple graph; 1 - stacked graph; */
 
-		//var $yaxistype;
+		var $yaxistype;
 		var $yaxismin;
 		var $yaxismax;
-		//var $yaxisleft;
-		//var $yaxisright;
+		var $yaxisleft;
+		var $yaxisright;
 		var $m_minY;
 		var $m_maxY;
 
@@ -85,7 +67,7 @@
 		var $clock;
 		var $count;
 		// Number of items
-		//var $num;
+		var $num;
 
 		var $header;
 
@@ -95,67 +77,7 @@
 		var $colors;
 		var $im;
 
-		var $triggers = array();*/
-
-		function Graph($type = GRAPH_TYPE_NORMAL)
-		{
-			$this->stime = null;
-			$this->fullSizeX = null;
-			$this->fullSizeY = null;
-
-			$this->yaxismin = null;
-			$this->yaxismax = null;
-
-			$this->m_minY = null;
-			$this->m_maxY = null;
-
-			$this->data = array();
-
-			$this->items = null;
-
-			$this->min = null;
-			$this->max = null;
-			$this->avg = null;
-			$this->clock = null;
-			$this->count = null;
-
-			$this->header = null;
-
-			$this->from_time = null;
-			$this->to_time = null;
-
-			$this->colors = null;
-			$this->im = null;
-
-			$this->triggers = array();
-			
-			$this->period=3600;
-			$this->from=0;
-			$this->sizeX=900;
-			$this->sizeY=200;
-			$this->shiftXleft=10;
-			$this->shiftXright=60;
-			$this->shiftY=17;
-			$this->border=1;
-			$this->num=0;
-			$this->type = $type;
-			$this->yaxistype=GRAPH_YAXIS_TYPE_CALCULATED;
-			$this->yaxisright=0;
-			$this->yaxisleft=0;
-			
-			$this->m_showWorkPeriod = 1;
-			$this->m_showTriggers = 1;
-
-/*			if($this->period<=3600)
-			{
-				$this->date_format="H:i";
-			}
-			else
-			{
-				$this->date_format="m.d H:i";
-			}*/
-
-		}
+		var $triggers = array();
 
 		function updateShifts()
 		{
@@ -220,7 +142,7 @@
 				if(isset($RGBA[3]) && 
 					function_exists("ImageColorExactAlpha") && 
 					function_exists("ImageCreateTrueColor") && 
-					@ImageCreateTrueColor(1,1)
+					@imagecreatetruecolor(1,1)
 				)
 				{
 					$this->colors[$name]	= ImageColorExactAlpha($this->im,$RGBA[0],$RGBA[1],$RGBA[2],$RGBA[3]);
@@ -230,6 +152,36 @@
 					$this->colors[$name]	= ImageColorAllocate($this->im,$RGBA[0],$RGBA[1],$RGBA[2]);
 				}
 			}
+		}
+
+		function Graph($type = GRAPH_TYPE_NORMAL)
+		{
+			$this->period=3600;
+			$this->from=0;
+			$this->sizeX=900;
+			$this->sizeY=200;
+			$this->shiftXleft=10;
+			$this->shiftXright=60;
+			$this->shiftY=17;
+			$this->border=1;
+			$this->num=0;
+			$this->type = $type;
+			$this->yaxistype=GRAPH_YAXIS_TYPE_CALCULATED;
+			$this->yaxisright=0;
+			$this->yaxisleft=0;
+			
+			$this->m_showWorkPeriod = 1;
+			$this->m_showTriggers = 1;
+
+/*			if($this->period<=3600)
+			{
+				$this->date_format="H:i";
+			}
+			else
+			{
+				$this->date_format="m.d H:i";
+			}*/
+
 		}
 
 		function ShowWorkPeriod($value)
@@ -242,7 +194,7 @@
 			$this->m_showTriggers = $value == 1 ? 1 : 0;;
 		}
 	
-		function AddItem($itemid, $axis, $calc_fnc = CALC_FNC_AVG, $color=null, $drawtype=null, $type=null, $periods_cnt=null)
+		function addItem($itemid, $axis, $calc_fnc = CALC_FNC_AVG, $color=null, $drawtype=null, $type=null, $periods_cnt=null)
 		{
 			$this->items[$this->num] = get_item_by_itemid($itemid);
 			$this->items[$this->num]["description"]=item_description($this->items[$this->num]["description"],$this->items[$this->num]["key_"]);
@@ -283,7 +235,7 @@
 			$this->yaxistype=$yaxistype;
 		}
 
-		function SetSTime($stime)
+		function setSTime($stime)
 		{
 			if($stime>200000000000 && $stime<220000000000)
 			{
@@ -345,7 +297,7 @@
 				$this->shiftY-1,
 				$this->sizeX+$this->shiftXleft-1,
 				$this->sizeY+$this->shiftY+1,
-				$this->GetColor("Black No Alpha")
+				$this->colors["Black No Alpha"]
 				);
 		}
 
@@ -353,12 +305,12 @@
 		{
 			ImageFilledRectangle($this->im,0,0,
 				$this->fullSizeX,$this->fullSizeY,
-				$this->GetColor("White"));
+				$this->colors["White"]);
 
 
 			if($this->border==1)
 			{
-				ImageRectangle($this->im,0,0,$this->fullSizeX-1,$this->fullSizeY-1,$this->GetColor("Black No Alpha"));
+				ImageRectangle($this->im,0,0,$this->fullSizeX-1,$this->fullSizeY-1,$this->colors["Black No Alpha"]);
 			}
 		}
 
@@ -407,7 +359,7 @@
 				$fontnum = 4;
 			}
 			$x=$this->fullSizeX/2-ImageFontWidth($fontnum)*strlen($str)/2;
-			ImageString($this->im, $fontnum,$x,1, $str , $this->GetColor("Dark Red No Alpha"));
+			ImageString($this->im, $fontnum,$x,1, $str , $this->colors["Dark Red No Alpha"]);
 		}
 
 		function setHeader($header)
@@ -420,24 +372,24 @@
 			$this->drawSmallRectangle();
 			for($i=1;$i<=5;$i++)
 			{
-				DashedLine($this->im,$this->shiftXleft,$i*$this->sizeY/6+$this->shiftY,$this->sizeX+$this->shiftXleft,$i*$this->sizeY/6+$this->shiftY,$this->GetColor("Gray"));
+				DashedLine($this->im,$this->shiftXleft,$i*$this->sizeY/6+$this->shiftY,$this->sizeX+$this->shiftXleft,$i*$this->sizeY/6+$this->shiftY,$this->colors["Gray"]);
 			}
 		
 			for($i=1;$i<=23;$i++)
 			{
-				DashedLine($this->im,$i*$this->sizeX/24+$this->shiftXleft,$this->shiftY,$i*$this->sizeX/24+$this->shiftXleft,$this->sizeY+$this->shiftY,$this->GetColor("Gray"));
+				DashedLine($this->im,$i*$this->sizeX/24+$this->shiftXleft,$this->shiftY,$i*$this->sizeX/24+$this->shiftXleft,$this->sizeY+$this->shiftY,$this->colors["Gray"]);
 			}
 
 			$old_day=-1;
 			for($i=0;$i<=24;$i++)
 			{
-				ImageStringUp($this->im, 1,$i*$this->sizeX/24+$this->shiftXleft-3, $this->sizeY+$this->shiftY+57, date("      H:i",$this->from_time+$i*$this->period/24) , $this->GetColor("Black No Alpha"));
+				ImageStringUp($this->im, 1,$i*$this->sizeX/24+$this->shiftXleft-3, $this->sizeY+$this->shiftY+57, date("      H:i",$this->from_time+$i*$this->period/24) , $this->colors["Black No Alpha"]);
 
 				$new_day=date("d",$this->from_time+$i*$this->period/24);
 				if( ($old_day != $new_day) ||($i==24))
 				{
 					$old_day=$new_day;
-					ImageStringUp($this->im, 1,$i*$this->sizeX/24+$this->shiftXleft-3, $this->sizeY+$this->shiftY+57, date("m.d H:i",$this->from_time+$i*$this->period/24) , $this->GetColor("Dark Red No Alpha"));
+					ImageStringUp($this->im, 1,$i*$this->sizeX/24+$this->shiftXleft-3, $this->sizeY+$this->shiftY+57, date("m.d H:i",$this->from_time+$i*$this->period/24) , $this->colors["Dark Red No Alpha"]);
 
 				}
 			}
@@ -462,7 +414,7 @@
 				$this->shiftY,
 				$this->sizeX+$this->shiftXleft,
 				$this->sizeY+$this->shiftY,
-				$this->GetColor("Not Work Period"));
+				$this->colors["Not Work Period"]);
 
 			$now = time();
 			if(isset($this->stime))
@@ -494,7 +446,7 @@
 					$this->shiftY,
 					$x2,
 					$this->sizeY+$this->shiftY,
-					$this->GetColor("White"));
+					$this->colors["White"]);
 
 				$start = find_period_start($periods,$end);
 			}
@@ -559,39 +511,28 @@
 					$trigger['y'],
 					$this->sizeX+$this->shiftXleft,
 					$trigger['y'],
-					$this->GetColor($trigger['color']));
+					$this->colors[$trigger['color']]);
 			}
 			
+		}
+
+		function checkPermissions()
+		{
+			if(!check_right("Item","R",$this->items[0]["itemid"]))
+			{
+				$this->drawGrid();
+				ImageString($this->im, 2,$this->sizeX/2 -50,$this->sizeY+$this->shiftY+3, "NO PERMISSIONS" , $this->colors["Dark Red No Alpha"]);
+				ImageOut($this->im); 
+				ImageDestroy($this->im); 
+				exit;
+			}
 		}
 
 		function drawLogo()
 		{
-			ImageStringUp($this->im,0,$this->fullSizeX-10,$this->fullSizeY-50, "http://www.zabbix.com", $this->GetColor("Gray"));
+			ImageStringUp($this->im,0,$this->fullSizeX-10,$this->fullSizeY-50, "http://www.zabbix.com", $this->colors["Gray"]);
 		}
 
-		function GetColor($color,$alfa=50)
-		{
-			if(isset($this->colors[$color]))
-				return $this->colors[$color];
-				
-			$RGB = array(
-				hexdec('0x'.substr($color, 0,2)),
-				hexdec('0x'.substr($color, 2,2)),
-				hexdec('0x'.substr($color, 4,2))
-				);
-			
-			if(isset($alfa) && 
-				function_exists("ImageColorExactAlpha") && 
-				function_exists("ImageCreateTrueColor") && 
-				@ImageCreateTrueColor(1,1)
-			)
-			{
-				return ImageColorExactAlpha($this->im,$RGB[0],$RGB[1],$RGB[2],$alfa);
-			}
-			
-			return ImageColorAllocate($this->im,$RGB[0],$RGB[1],$RGB[2]);
-		}
-		
 		function drawLegend()
 		{
 			$max_host_len=0;
@@ -607,11 +548,11 @@
 				if($this->items[$i]["calc_type"] == GRAPH_ITEM_AGGREGATED)
 				{
 					$fnc_name = "agr(".$this->items[$i]["periods_cnt"].")";
-					$color = $this->GetColor("HistoryMinMax");
+					$color = $this->colors["HistoryMinMax"];
 				}
 				else
 				{
-					$color = $this->GetColor($this->items[$i]["color"]);
+					$color = $this->colors[$this->items[$i]["color"]];
 					switch($this->items[$i]["calc_fnc"])
 					{
 						case CALC_FNC_MIN:	$fnc_name = "min";	break;
@@ -641,13 +582,13 @@
 				}
 	
 				ImageFilledRectangle($this->im,$this->shiftXleft,$this->sizeY+$this->shiftY+62+12*$i,$this->shiftXleft+5,$this->sizeY+$this->shiftY+5+62+12*$i,$color);
-				ImageRectangle($this->im,$this->shiftXleft,$this->sizeY+$this->shiftY+62+12*$i,$this->shiftXleft+5,$this->sizeY+$this->shiftY+5+62+12*$i,$this->GetColor("Black No Alpha"));
+				ImageRectangle($this->im,$this->shiftXleft,$this->sizeY+$this->shiftY+62+12*$i,$this->shiftXleft+5,$this->sizeY+$this->shiftY+5+62+12*$i,$this->colors["Black No Alpha"]);
 
 				ImageString($this->im, 2,
 					$this->shiftXleft+9,
 					$this->sizeY+$this->shiftY+(62-5)+12*$i,
 					$str,
-					$this->GetColor("Black No Alpha"));
+					$this->colors["Black No Alpha"]);
 			}
 
 			if($this->sizeY < 120) return;
@@ -659,14 +600,14 @@
 					$this->sizeY+$this->shiftY+2+62+12*$i,
 					6,
 					6,
-					$this->GetColor($trigger["color"]));
+					$this->colors[$trigger["color"]]);
 
 				ImageEllipse($this->im,
 					$this->shiftXleft + 2,
 					$this->sizeY+$this->shiftY+2+62+12*$i,
 					6,
 					6,
-					$this->GetColor("Black No Alpha"));
+					$this->colors["Black No Alpha"]);
 
 				ImageString(
 					$this->im, 
@@ -674,7 +615,7 @@
 					$this->shiftXleft+9,
 					$this->sizeY+$this->shiftY+(62-5)+12*$i,
 					$trigger['description'],
-					$this->GetColor("Black No Alpha"));
+					$this->colors["Black No Alpha"]);
 				++$i;
 			}
 		}
@@ -1100,7 +1041,7 @@
 			{
 				for($i=1; $i<$this->num; $i++)
 				{
-					$curr_data = &$this->data[$this->items[$i]["itemid"]][$this->items[$i]["type"]];
+					$curr_data = &$this->data[$this->items[$i]["itemid"]][$this->items[$i]["calc_type"]];
 
 					if(!isset($curr_data))	continue;
 
@@ -1150,7 +1091,7 @@
 				for($i=0;$i<=6;$i++)
 				{
 					$str = str_pad(convert_units($this->sizeY*$i/6*($maxY-$minY)/$this->sizeY+$minY,$units),10," ", STR_PAD_LEFT);
-					ImageString($this->im, 1, 5, $this->sizeY-$this->sizeY*$i/6-4+$this->shiftY, $str, $this->GetColor("Dark Red No Alpha"));
+					ImageString($this->im, 1, 5, $this->sizeY-$this->sizeY*$i/6-4+$this->shiftY, $str, $this->colors["Dark Red No Alpha"]);
 				}
 			}
 		}
@@ -1173,7 +1114,7 @@
 				for($i=0;$i<=6;$i++)
 				{
 					$str = str_pad(convert_units($this->sizeY*$i/6*($maxY-$minY)/$this->sizeY+$minY,$units),10," ");
-					ImageString($this->im, 1, $this->sizeX+$this->shiftXleft+2, $this->sizeY-$this->sizeY*$i/6-4+$this->shiftY, $str, $this->GetColor("Dark Red No Alpha"));
+					ImageString($this->im, 1, $this->sizeX+$this->shiftXleft+2, $this->sizeY-$this->sizeY*$i/6-4+$this->shiftY, $str, $this->colors["Dark Red No Alpha"]);
 				}
 			}
 		}
@@ -1216,6 +1157,9 @@
 //				$this->noDataFound();
 			}
 
+			$this->checkPermissions();
+
+
 			$this->drawWorkPeriod();
 			$this->drawGrid();
 
@@ -1235,10 +1179,10 @@
 				{
 					$drawtype	= GRAPH_DRAW_TYPE_LINE;
 
-					$max_color	= $this->GetColor("HistoryMax");
-					$avg_color	= $this->GetColor("HistoryAvg");
-					$min_color	= $this->GetColor("HistoryMin");
-					$minmax_color	= $this->GetColor("HistoryMinMax");
+					$max_color	= $this->colors["HistoryMax"];
+					$avg_color	= $this->colors["HistoryAvg"];
+					$min_color	= $this->colors["HistoryMin"];
+					$minmax_color	= $this->colors["HistoryMinMax"];
 
 					$calc_fnc	= CALC_FNC_ALL;
 				}
@@ -1246,10 +1190,10 @@
 				{
 					$drawtype	= $this->items[$item]["drawtype"];
 
-					$max_color	= $this->GetColor("ValueMax");
-					$avg_color	= $this->GetColor($this->items[$item]["color"]);
-					$min_color	= $this->GetColor("ValueMin");
-					$minmax_color	= $this->GetColor("ValueMinMax");
+					$max_color	= $this->colors["ValueMax"];
+					$avg_color	= $this->colors[$this->items[$item]["color"]];
+					$min_color	= $this->colors["ValueMin"];
+					$minmax_color	= $this->colors["ValueMinMax"];
 
 					$calc_fnc = $this->items[$item]["calc_fnc"];
 				}
@@ -1305,7 +1249,7 @@
 		
 			$end_time=getmicrotime();
 			$str=sprintf("%0.2f",($end_time-$start_time));
-			ImageString($this->im, 0,$this->fullSizeX-120,$this->fullSizeY-12,"Generated in $str sec", $this->GetColor("Gray"));
+			ImageString($this->im, 0,$this->fullSizeX-120,$this->fullSizeY-12,"Generated in $str sec", $this->colors["Gray"]);
 
 			ImageOut($this->im); 
 			ImageDestroy($this->im); 

@@ -38,7 +38,6 @@
 #include <time.h>
 
 #include "common.h"
-#include "comms.h"
 
 char *progname = NULL;
 char title_message[] = "ZABBIX send";
@@ -69,38 +68,89 @@ void    signal_handler( int sig )
 
 static int send_value(char *server,int port,char *hostname, char *key,char *value, char *lastlogsize)
 {
+	int	i,s;
 	char	tosend[MAX_STRING_LEN];
+	char	result[MAX_STRING_LEN];
+	struct hostent *hp;
 
-	char	foo[MAX_STRING_LEN];
-	
-	zbx_sock_t	sock;
-	char	*answer;
+	struct sockaddr_in myaddr_in;
+	struct sockaddr_in servaddr_in;
 
-	if( FAIL == zbx_tcp_connect(&sock, server, port))
+/*	struct linger ling;*/
+
+/*	printf("In send_value(%s,%d,%s,%s,%s)\n", server, port, hostname, key, value);*/
+
+	servaddr_in.sin_family=AF_INET;
+	hp=gethostbyname(server);
+
+	if(hp==NULL)
 	{
-		return 	FAIL;
+		return	FAIL;
 	}
 
-	foo[0] = '\0';
-	comms_create_request(hostname, key, value, lastlogsize, foo, foo, foo, tosend, sizeof(tosend)-1);
-	if( FAIL == zbx_tcp_send(&sock, tosend))
+	servaddr_in.sin_addr.s_addr=((struct in_addr *)(hp->h_addr))->s_addr;
+
+	servaddr_in.sin_port=htons(port);
+
+	s=socket(AF_INET,SOCK_STREAM,0);
+	if(s == -1)
 	{
-		zbx_tcp_close(&sock);
-		return 	FAIL;
+		return	FAIL;
 	}
 
-	if( FAIL == zbx_tcp_recv(&sock, &answer))
+/*	ling.l_onoff=1;*/
+/*	ling.l_linger=0;*/
+/*	if(setsockopt(s,SOL_SOCKET,SO_LINGER,&ling,sizeof(ling))==-1)*/
+/*	{*/
+/* Ignore */
+/*	}*/
+ 
+	myaddr_in.sin_family = AF_INET;
+	myaddr_in.sin_port=0;
+	myaddr_in.sin_addr.s_addr=INADDR_ANY;
+
+	if( connect(s,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )
 	{
-		zbx_tcp_close(&sock);
-		return 	FAIL;
+		close(s);
+		return	FAIL;
 	}
 
-	if(strcmp(answer,"OK") == 0)
+/* Send <req><host>SERVER_B64</host><key>KEY_B64</key><data>VALUE_B64</data></req> */
+
+	comms_create_request(hostname, key, value, lastlogsize, tosend, sizeof(tosend)-1);
+
+/*	snprintf(tosend,sizeof(tosend)-1,"%s:%s\n",shortname,value);
+	snprintf(tosend,sizeof(tosend)-1,"<req><host>%s</host><key>%s</key><data>%s</data></req>",hostname_b64,key_b64,value_b64); */
+
+	if(write(s, tosend,strlen(tosend)) == -1)
+/*	if( sendto(s,tosend,strlen(tosend),0,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )*/
+	{
+		perror("write");
+		close(s);
+		return	FAIL;
+	} 
+	i=sizeof(struct sockaddr_in);
+/*	i=recvfrom(s,result,MAX_STRING_LEN-1,0,(struct sockaddr *)&servaddr_in,(socklen_t *)&i);*/
+	i=read(s,result,MAX_STRING_LEN-1);
+	if(i==-1)
+	{
+		perror("read");
+		close(s);
+		return	FAIL;
+	}
+
+	result[i-1]=0;
+
+	if(strcmp(result,"OK") == 0)
 	{
 		printf("OK\n");
 	}
-
-	zbx_tcp_close(&sock);
+ 
+	if( close(s)!=0 )
+	{
+		perror("close");
+		
+	}
 
 	return SUCCEED;
 }

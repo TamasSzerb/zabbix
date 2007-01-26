@@ -19,69 +19,71 @@
 **/
 ?>
 <?php
-	require_once "include/config.inc.php";
-	require_once "include/maps.inc.php";
-	require_once "include/forms.inc.php";
-
+	include "include/config.inc.php";
+	include "include/forms.inc.php";
 	$page["title"] = "S_NETWORK_MAPS";
 	$page["file"] = "sysmaps.php";
-
-include_once "include/page_header.php";
-
+	show_header($page["title"],0,0);
 	insert_confirm_javascript();
 ?>
+
+<?php
+	if(!check_anyright("Network map","U"))
+	{
+		show_table_header("<font color=\"AA0000\">No permissions !</font>");
+		show_page_footer();
+		exit;
+	}
+	update_profile("web.menu.config.last",$page["file"]);
+?>
+
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
 		"sysmapid"=>		array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,NULL),
 
-		"name"=>		array(T_ZBX_STR, O_OPT,	 NULL,	NOT_EMPTY,		"isset({save})"),
-		"width"=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,65535),	"isset({save})"),
-		"height"=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,65535),	"isset({save})"),
-		"backgroundid"=>	array(T_ZBX_INT, O_OPT,	 NULL,	DB_ID,			"isset({save})"),
-		"label_type"=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,4),		"isset({save})"),
-		"label_location"=>	array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,3),		"isset({save})"),
+		"name"=>		array(T_ZBX_STR, O_OPT,	 NULL,	NOT_EMPTY,"isset({save})"),
+		"width"=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,65535),"isset({save})"),
+		"height"=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,65535),"isset({save})"),
+		"background"=>		array(T_ZBX_STR, O_OPT,	 NULL,	NULL,"isset({save})"),
+		"label_type"=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,4),"isset({save})"),
+		"label_location"=>	array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,3),"isset({save})"),
 
-/* Actions */
 		"save"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 		"delete"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 		"cancel"=>		array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
-
-/* Form */
 		"form"=>		array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
 		"form_refresh"=>	array(T_ZBX_INT, O_OPT,	NULL,	NULL,	NULL)
 
+//		"triggerid"=>	array(T_ZBX_INT, O_OPT,  P_SYS,	DB_ID,'{form}=="update"'),
+
+//		"description"=>	array(T_ZBX_STR, O_OPT,  NULL,	NOT_EMPTY,'isset({save})'),
+//		"expression"=>	array(T_ZBX_STR, O_OPT,  NULL,	NOT_EMPTY,'isset({save})'),
+//		"priority"=>	array(T_ZBX_INT, O_OPT,  NULL,  IN("0,1,2,3,4,5"),'isset({save})'),
+//		"comments"=>	array(T_ZBX_STR, O_OPT,  NULL,	NULL,'isset({save})'),
+//		"url"=>		array(T_ZBX_STR, O_OPT,  NULL,	NULL,'isset({save})'),
+//		"disabled"=>	array(T_ZBX_STR, O_OPT,  NULL,	NULL,NULL)
 	);
 	check_fields($fields);
-	
-	if(isset($_REQUEST["sysmapid"]))
-	{
-		if(!sysmap_accessiable($_REQUEST["sysmapid"],PERM_READ_WRITE))
-			access_deny();
-	
-		$sysmap = DBfetch(DBselect("select * from sysmaps where sysmapid=".$_REQUEST["sysmapid"]));
-	}
 ?>
+
+
+
+
 <?php
 	if(isset($_REQUEST["save"]))
 	{
 		if(isset($_REQUEST["sysmapid"]))
 		{
-			// TODO check permission by new value.
 			$result=update_sysmap($_REQUEST["sysmapid"],$_REQUEST["name"],$_REQUEST["width"],
-				$_REQUEST["height"],$_REQUEST["backgroundid"],$_REQUEST["label_type"],
+				$_REQUEST["height"],$_REQUEST["background"],$_REQUEST["label_type"],
 				$_REQUEST["label_location"]);
 
-			add_audit_if($result,AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_MAP,'Name ['.$_REQUEST['name'].']');
 			show_messages($result,"Network map updated","Cannot update network map");
 		} else {
-			if(count(get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_MODE_LT,PERM_RES_IDS_ARRAY,$ZBX_CURNODEID)))
-				access_deny();
-
 			$result=add_sysmap($_REQUEST["name"],$_REQUEST["width"],$_REQUEST["height"],
-				$_REQUEST["backgroundid"],$_REQUEST["label_type"],$_REQUEST["label_location"]);
+				$_REQUEST["background"],$_REQUEST["label_type"],$_REQUEST["label_location"]);
 
-			add_audit_if($result,AUDIT_ACTION_ADD,AUDIT_RESOURCE_MAP,'Name ['.$_REQUEST['name'].']');
 			show_messages($result,"Network map added","Cannot add network map");
 		}
 		if($result){
@@ -90,20 +92,21 @@ include_once "include/page_header.php";
 	}
 	elseif(isset($_REQUEST["delete"])&&isset($_REQUEST["sysmapid"]))
 	{
-		$result = delete_sysmap($_REQUEST["sysmapid"]);
-		add_audit_if($result,AUDIT_ACTION_DELETE,AUDIT_RESOURCE_MAP,'Name ['.$sysmap['name'].']');
+		$result=delete_sysmap($_REQUEST["sysmapid"]);
 		show_messages($result,"Network map deleted","Cannot delete network map");
 		if($result){
 			unset($_REQUEST["form"]);
 		}
 	}
 ?>
+
 <?php
 	$form = new CForm();
 	$form->AddItem(new CButton("form",S_CREATE_MAP));
-	show_table_header(S_CONFIGURATION_OF_NETWORK_MAPS, $form);
+	show_header2(S_CONFIGURATION_OF_NETWORK_MAPS, $form);
 	echo BR;
 ?>
+
 <?php
 	if(isset($_REQUEST["form"]))
 	{
@@ -111,17 +114,20 @@ include_once "include/page_header.php";
 	}
 	else
 	{
-		show_table_header(S_MAPS_BIG);
+		show_header2(S_MAPS_BIG);
 		$table = new CTableInfo(S_NO_MAPS_DEFINED);
-		$table->SetHeader(array(S_NAME,S_WIDTH,S_HEIGHT,S_MAP));
+		$table->setHeader(array(S_ID,S_NAME,S_WIDTH,S_HEIGHT,S_MAP));
 
-		$result = DBselect("select sysmapid,name,width,height from sysmaps ".
-			" where ".DBid2nodeid("sysmapid")."=".$ZBX_CURNODEID." order by name");
+		$result=DBselect("select s.sysmapid,s.name,s.width,s.height from sysmaps s order by s.name");
 		while($row=DBfetch($result))
 		{
-			if(!sysmap_accessiable($row["sysmapid"],PERM_READ_WRITE)) continue;
-
-			$table->AddRow(array(
+		        if(!check_right("Network map","U",$row["sysmapid"]))
+		        {
+		                continue;
+		        }
+	
+			$table->addRow(array(
+				$row["sysmapid"],
 				new CLink($row["name"], "sysmaps.php?form=update".
 					"&sysmapid=".$row["sysmapid"]."#form",'action'),
 				$row["width"],
@@ -129,11 +135,10 @@ include_once "include/page_header.php";
 				new CLink(S_EDIT,"sysmap.php?sysmapid=".$row["sysmapid"])
 				));
 		}
-		$table->Show();
+		$table->show();
 	}
 ?>
+
 <?php
-
-include_once "include/page_footer.php";
-
+	show_page_footer();
 ?>

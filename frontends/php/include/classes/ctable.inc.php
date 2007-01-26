@@ -55,16 +55,18 @@
 		{
 			return $this->options['align'] = $value;
 		}
-		function AddItem($item)
+		function AddItem($item=NULL)
 		{
-			if(strtolower(get_class($item))=='ccol') {
+                        if(is_a($item,'ccol'))
+			{
 				parent::AddItem($item);
 			}
 			elseif(is_array($item))
 			{
 				foreach($item as $el)
 				{
-                        		if(strtolower(get_class($el))=='ccol') {
+                        		if(is_a($el,'ccol'))
+					{
                 		        	parent::AddItem($el);
 					} elseif(!is_null($el)) {
 						parent::AddItem('<td>'.unpack_object($el).'</td>');
@@ -80,7 +82,7 @@
 
 	class CTable extends CTag
 	{
-/* protected *//*
+/* protected */
 		var $oddRowClass;
 		var $evenRowClass;
 		var $header;
@@ -89,7 +91,7 @@
 		var $rownum;
 		var $footer;
 		var $footerClass;
-		var $message;*/
+		var $message;
 /* public */
 		function CTable($message=NULL,$class=NULL)
 		{
@@ -134,15 +136,17 @@
 		{
 			if(is_null($item)) return NULL;
 
-			if(strtolower(get_class($item))=='ccol') {
+			if(is_a($item,'ccol'))
+			{
 				if(isset($this->header) && !isset($item->options['colspan']))
 					$item->options['colspan'] = $this->colnum;
 
 				$item = new CRow($item,$rowClass);
 			}
-			if(strtolower(get_class($item))=='crow') {
+			elseif(is_a($item,'crow'))
+			{
 				if(isset($rowClass))
-					$item->SetClass($rowClass);
+					$item->options['class'] = $rowClass;
 			}
 			else
 			{
@@ -150,9 +154,9 @@
 			}
 			if(!isset($item->options['class']))
 			{
-				$item->SetClass(($this->rownum % 2) ?
-                                                $this->oddRowClass:
-                                                $this->evenRowClass);
+				$item->options['class'] = ($this->rownum % 2) ?
+                                                $this->evenRowClass:
+                                                $this->oddRowClass;
 			}/**/
 			return $item->ToString();
 		}
@@ -160,8 +164,9 @@
 		{
 			if(is_null($class)) $class = $this->headerClass;
 
-			if(strtolower(get_class($value))=='crow') {
-				if(!is_null($class))	$value->SetClass($class);
+			if(is_a($value,'crow'))
+			{
+				if(isset($class))	$value->SetClass($class);
 			}else{
 				$value = new CRow($value,$class);
 			}
@@ -176,14 +181,13 @@
 		}
 		function AddRow($item,$rowClass=NULL)
 		{
-			$item = $this->AddItem($this->PrepareRow($item,$rowClass));
 			++$this->rownum;
-			return $item;
+			return $this->AddItem($this->PrepareRow($item,$rowClass));
 		}
 		function ShowRow($item,$rowClass=NULL)
 		{
-			echo $this->PrepareRow($item,$rowClass);
 			++$this->rownum;
+			echo $this->PrepareRow($item,$rowClass);
 		}
 /* protected */
 		function GetNumRows()
@@ -202,6 +206,7 @@
 			$ret = "";
 			if($this->rownum == 0 && isset($this->message)) 
 			{
+				++$this->rownum;
 				$ret = $this->PrepareRow(new CCol($this->message,'message'));
 			}
 			$ret .= $this->footer;

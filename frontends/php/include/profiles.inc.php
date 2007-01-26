@@ -25,7 +25,14 @@
 		$hostid,$devicetype,$name,$os,$serialno,$tag,$macaddress,
 		$hardware,$software,$contact,$location,$notes)
 	{
-		$result=DBselect("select * from hosts_profiles where hostid=$hostid");
+		// If user has update permission then ok
+		if(!check_right("Host","U",0))
+		{
+			error("Insufficient permissions");
+			return 0;
+		}
+
+		$result=DBexecute("select * from hosts_profiles where hostid=$hostid");
 		if(DBfetch($result))
 		{
 			error("Host profile already exists");
@@ -46,6 +53,11 @@
 
 	function	delete_host_profile($hostid)
 	{
+		if(!check_right("Host","U",0))
+		{
+			error("Insufficient permissions");
+			return 0;
+		}
 		$result=DBexecute("delete from hosts_profiles where hostid=$hostid");
 
 		return $result;

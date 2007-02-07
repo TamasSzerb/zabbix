@@ -17,12 +17,14 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
+#include <unistd.h>
+
+#include "config.h"
+
 #include "common.h"
 #include "sysinfo.h"
-#include "zbxsock.h"
-#include "log.h"
-#include "cfg.h"
 
+#define JAN_1970   2208988800.0        /* 1970 - 1900 in seconds */
 #define NTP_SCALE  4294967296.0        /* 2^32, of course! */
 
 #define NTP_PACKET_MIN       48        /* Without authentication */
@@ -51,41 +53,41 @@
 #define RESET_MIN            15        /* Minimum period between resets */
 #define ABSCISSA            3.0        /* Scale factor for standard errors */
 
-typedef struct ntp_data_s {
-
-    unsigned char 
-	    status, 
-	    version, 
-	    mode, 
-	    stratum, 
-	    polling, 
-	    precision;
-    double 
-	    dispersion, 
-	    reference, 
-	    originate, 
-	    receive, 
-	    transmit, 
-	    current;
-
+typedef struct NTP_DATA {
+    unsigned char status, version, mode, stratum, polling, precision;
+    double dispersion, reference, originate, receive, transmit, current;
 } ntp_data;
 
-static void make_packet (ntp_data *data)
-{
-	data->status	= NTP_LI_FUDGE<<6;
-	data->stratum	= NTP_STRATUM;
-	data->reference = data->dispersion = 0.0;
-    
-	data->version	= NTP_VERSION;
-	data->mode	= 1;
-	data->polling	= NTP_POLLING;
-	data->precision	= NTP_PRECISION;
-	data->receive	= data->originate = 0.0;
-	data->current	= data->transmit = zbx_current_time();
+double current_time (double offset) {
+
+/* Get the current UTC time in seconds since the Epoch plus an offset (usually
+the time from the beginning of the century to the Epoch!) */
+
+    struct timeval current;
+
+    errno = 0;
+    if (gettimeofday(&current,NULL))
+    {
+	    /* No processing of error condition here */
+    }
+    return offset+current.tv_sec+1.0e-6*current.tv_usec;
 }
 
-static void pack_ntp (unsigned char *packet, int length, ntp_data *data)
+void make_packet (ntp_data *data)
 {
+	data->status = NTP_LI_FUDGE<<6;
+	data->stratum = NTP_STRATUM;
+	data->reference = data->dispersion = 0.0;
+    
+	data->version = NTP_VERSION;
+	data->mode = 1;
+	data->polling = NTP_POLLING;
+	data->precision = NTP_PRECISION;
+	data->receive = data->originate = 0.0;
+	data->current = data->transmit = current_time(JAN_1970);
+}
+
+void pack_ntp (unsigned char *packet, int length, ntp_data *data) {
 
 /* Pack the essential data into an NTP packet, bypassing struct layout and
 endian problems.  Note that it ignores fields irrelevant to SNTP. */
@@ -93,38 +95,32 @@ endian problems.  Note that it ignores fields irrelevant to SNTP. */
     int i, k;
     double d;
 
-    assert(length >= (NTP_TRANSMIT + 8));
-
     memset(packet,0,(size_t)length);
-
-    packet[0] = (data->status << 6) | (data->version << 3) | data->mode;
+    packet[0] = (data->status<<6)|(data->version<<3)|data->mode;
     packet[1] = data->stratum;
     packet[2] = data->polling;
     packet[3] = data->precision;
-
-    d = data->originate / NTP_SCALE;
+    d = data->originate/NTP_SCALE;
     for (i = 0; i < 8; ++i) {
         if ((k = (int)(d *= 256.0)) >= 256) k = 255;
-        packet[NTP_ORIGINATE + i] = k;
+        packet[NTP_ORIGINATE+i] = k;
         d -= k;
     }
-
-    d = data->receive / NTP_SCALE;
+    d = data->receive/NTP_SCALE;
     for (i = 0; i < 8; ++i) {
         if ((k = (int)(d *= 256.0)) >= 256) k = 255;
-        packet[NTP_RECEIVE + i] = k;
+        packet[NTP_RECEIVE+i] = k;
         d -= k;
     }
-
-    d = data->transmit / NTP_SCALE;
+    d = data->transmit/NTP_SCALE;
     for (i = 0; i < 8; ++i) {
         if ((k = (int)(d *= 256.0)) >= 256) k = 255;
-        packet[NTP_TRANSMIT + i] = k;
+        packet[NTP_TRANSMIT+i] = k;
         d -= k;
     }
 }
 
-static void unpack_ntp (ntp_data *data, unsigned char *packet, int length) {
+void unpack_ntp (ntp_data *data, unsigned char *packet, int length) {
 
 /* Unpack the essential data from an NTP packet, bypassing struct layout and
 endian problems.  Note that it ignores fields irrelevant to SNTP. */
@@ -132,52 +128,43 @@ endian problems.  Note that it ignores fields irrelevant to SNTP. */
     int i;
     double d;
 
-    memset(data, 0, sizeof(ntp_data));
-
-    if(length == 0)
-	    return;
-
-    assert(length >= (NTP_TRANSMIT + 8));
-
-    data->current	= zbx_current_time();    /* Best to come first */
-    data->status	= (packet[0] >> 6);
-    data->version	= (packet[0] >> 3) & 0x07;
-    data->mode		= packet[0] & 0x07;
-    data->stratum	= packet[1];
-    data->polling	= packet[2];
-    data->precision	= packet[3];
-
+    data->current = current_time(JAN_1970);    /* Best to come first */
+    data->status = (packet[0] >> 6);
+    data->version = (packet[0] >> 3)&0x07;
+    data->mode = packet[0]&0x07;
+    data->stratum = packet[1];
+    data->polling = packet[2];
+    data->precision = packet[3];
     d = 0.0;
-    for (i = 0; i < 4; ++i) d = 256.0 * d + packet[NTP_DISP_FIELD + i];
-    data->dispersion = d / 65536.0;
+    for (i = 0; i < 4; ++i) d = 256.0*d+packet[NTP_DISP_FIELD+i];
+    data->dispersion = d/65536.0;
     d = 0.0;
-    for (i = 0; i < 8; ++i) d = 256.0 * d + packet[NTP_REFERENCE + i];
-    data->reference = d / NTP_SCALE;
+    for (i = 0; i < 8; ++i) d = 256.0*d+packet[NTP_REFERENCE+i];
+    data->reference = d/NTP_SCALE;
     d = 0.0;
-    for (i = 0; i < 8; ++i) d = 256.0 * d + packet[NTP_ORIGINATE + i];
-    data->originate = d / NTP_SCALE;
+    for (i = 0; i < 8; ++i) d = 256.0*d+packet[NTP_ORIGINATE+i];
+    data->originate = d/NTP_SCALE;
     d = 0.0;
-    for (i = 0; i < 8; ++i) d = 256.0 * d + packet[NTP_RECEIVE + i];
-    data->receive = d / NTP_SCALE;
+    for (i = 0; i < 8; ++i) d = 256.0*d+packet[NTP_RECEIVE+i];
+    data->receive = d/NTP_SCALE;
     d = 0.0;
-    for (i = 0; i < 8; ++i) d = 256.0 * d + packet[NTP_TRANSMIT + i];
-    data->transmit = d / NTP_SCALE;
+    for (i = 0; i < 8; ++i) d = 256.0*d+packet[NTP_TRANSMIT+i];
+    data->transmit = d/NTP_SCALE;
 }
 
 /*
-static void display_data (ntp_data *data) {
+void display_data (ntp_data *data) {
 
-    printf("sta = %d ver = %d mod = %d str = %d pol = %d dis = %.6f ref = %.6f\n",
+    printf("sta=%d ver=%d mod=%d str=%d pol=%d dis=%.6f ref=%.6f\n",
         data->status,data->version,data->mode,data->stratum,data->polling,
         data->dispersion,data->reference);
-    printf("ori = %.6f rec = %.6f\n",data->originate, data->receive);
-    printf("tra = %.6f cur = %.6f\n",data->transmit, data->current);
+    printf("ori=%.6f rec=%.6f\n",data->originate,data->receive);
+    printf("tra=%.6f cur=%.6f\n",data->transmit,data->current);
 }
 */
 
-#if OFF
 
-static time_t convert_time (double value, int *millisecs) {
+time_t convert_time (double value, int *millisecs) {
 
 /* Convert the time to the ANSI C form. */
 
@@ -190,15 +177,8 @@ static time_t convert_time (double value, int *millisecs) {
     return result;
 }
 
-/* !!! damaged function !!! for using correct tham !!! */
-static int format_time (
-	char *text, 
-	int length, 
-	double offset, 
-	double error,	/* not USED */
-	double drift,	/* not USED */
-	double drifterr /* not USED */
-	) {
+int format_time (char *text, int length, double offset, double error,
+    double drift, double drifterr) {
 
 /* Format the current time into a string, with the extra information as
 requested.  Note that the rest of the program uses the correction needed, which
@@ -206,15 +186,10 @@ is what is printed for diagnostics, but this formats the error in the local
 system for display to users.  So the results from this are the negation of
 those printed by the verbose options. */
 
-    int 
-	    milli,
-	    len;
-    time_t
-	    now;
-    struct tm	
-	    *gmt;
-    static const char 
-	    *months[] = {
+    int milli, len;
+    time_t now;
+    struct tm *gmt;
+    static const char *months[] = {
         "Jan", "Feb", "Mar", "Apr", "May", "Jun",
         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
     };
@@ -223,18 +198,17 @@ those printed by the verbose options. */
 /* Work out and format the current local time.  Note that some semi-ANSI
 systems do not set the return value from (s)printf. */
 
-    now = convert_time(zbx_time() + offset,&milli);
+    now = convert_time(current_time(offset),&milli);
     errno = 0;
-
     if ((gmt = localtime(&now)) == NULL)
     {
-        zbx_error("unable to work out local time");
+        printf("unable to work out local time");
 	return -1;
     }
     len = 24;
     if (length <= len)
     {
-	    zbx_error("internal error calling format_time");
+	    printf("internal error calling format_time");
 	    return -1;
     }
 
@@ -246,102 +220,105 @@ systems do not set the return value from (s)printf. */
     return now;
 }
 
-#endif /* OFF */
-
-int	check_ntp(char *host, unsigned short port, int *value_int)
+int	check_ntp(char *host, int port, int *value_int)
 {
-
-	ZBX_SOCKET	s;
-	ZBX_SOCKADDR	servaddr_in;
-
-	int		len;
-	unsigned char	buf[MAX_STRING_LEN];
+	int	s;
+	int	len;
+	unsigned char	c[MAX_STRING_LEN];
 
 	struct hostent *hp;
 
-	ntp_data	data;
+	struct sockaddr_in servaddr_in;
+
+	char	text[50];
+
+	ntp_data data;
 	unsigned char	packet[NTP_PACKET_MIN];
 
     	*value_int = 0;
 
-	if(NULL == (hp = zbx_gethost(host)) )
+	make_packet(&data);
+
+	servaddr_in.sin_family=AF_INET;
+	hp=gethostbyname(host);
+
+	if(hp==NULL)
 	{
+/*		fprintf(stderr, "gethostbyname(%s) failed [%s]", host, hstrerror(h_errno));*/
 		return	SYSINFO_RET_OK;
 	}
 
-	servaddr_in.sin_family		= AF_INET;
-	servaddr_in.sin_addr.s_addr	= ((struct in_addr *)(hp->h_addr))->s_addr;
-	servaddr_in.sin_port		= htons(port);
+	servaddr_in.sin_addr.s_addr=((struct in_addr *)(hp->h_addr))->s_addr;
 
-	if( SOCKET_ERROR == (s = (ZBX_SOCKET)socket(AF_INET,SOCK_DGRAM,0)) )
+	servaddr_in.sin_port=htons(port);
+
+	s=socket(AF_INET,SOCK_DGRAM,0);
+
+	if(s == -1)
 	{
-		zabbix_log(LOG_LEVEL_DEBUG, "Cannot create socket for NTP server. [%s]", strerror_from_system(errno));
+/*		fprintf(stderr, "Cannot create socket [%s]", strerror(errno));*/
 		return	SYSINFO_RET_OK;
 	}
  
-	if(SOCKET_ERROR == connect(s, (struct sockaddr *)&servaddr_in, sizeof(ZBX_SOCKADDR)) )
+	if( connect(s,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )
 	{
 		switch (errno)
 		{
 			case EINTR:
-				zabbix_log(LOG_LEVEL_DEBUG, "Timeout while connecting to NTP server.");
 				break;
 			case EHOSTUNREACH:
-				zabbix_log(LOG_LEVEL_DEBUG, "No route to NTP server.");
 				break;
 			default:
-				zabbix_log(LOG_LEVEL_DEBUG, "Cannot connect to NTP server. [%s]", strerror(errno));
 				break;
 		} 
-		goto lbl_error;
+/*		fprintf(stderr, "Cannot connect [%s]", strerror(errno));*/
+		close(s);
+		return	SYSINFO_RET_OK;
 	}
 
-	make_packet(&data);
+	pack_ntp(packet,NTP_PACKET_MIN,&data);
 
-/*	display_data(&data); */
-
-	pack_ntp(packet, sizeof(packet), &data);
-
-	if(SOCKET_ERROR == zbx_sock_write(s, packet, sizeof(packet)))
+	if( write(s,&packet,NTP_PACKET_MIN) == -1 )
 	{
 		switch (errno)
 		{
 			case EINTR:
-				zabbix_log(LOG_LEVEL_DEBUG, "Timeout while sending data to NTP server.");
 				break;
 			default:
-				zabbix_log(LOG_LEVEL_DEBUG, "Error while sending data to NTP server. [%s]", strerror(errno));
 				break;
 		} 
-		goto lbl_error;
+/*		fprintf(stderr, "Cannot write [%s]", strerror(errno));*/
+		close(s);
+		return	SYSINFO_RET_OK;
 	} 
 
-	memset(buf, 0, sizeof(buf));
+	memset(c,0,MAX_STRING_LEN);
+	len=read(s,c,MAX_STRING_LEN);
 
-	if( SOCKET_ERROR == (len = zbx_sock_read(s, buf, sizeof(buf), CONFIG_TIMEOUT)))
+	if(len == -1)
 	{
 		switch (errno)
 		{
 			case 	EINTR:
-				zabbix_log( LOG_LEVEL_DEBUG,"Timeout while receiving data from NTP server");
-				break;
+					break;
 			case	ECONNRESET:
-				zabbix_log( LOG_LEVEL_DEBUG,"Connection to NTP server reseted by peer.");
-				break;
+					break;
 			default:
-				zabbix_log( LOG_LEVEL_DEBUG,"Error while receiving data from NTP server [%s]", strerror(errno));
-				break;
+					break;
 		} 
-		goto lbl_error;
+/*		fprintf(stderr, "Cannot read0 [%d]", errno);*/
+		close(s);
+		return	SYSINFO_RET_OK;
 	}
+	close(s);
 
-	unpack_ntp(&data, buf, len);
-
-	zbx_sock_close(s);
+	unpack_ntp(&data,c,len);
 
 /*	display_data(&data); */
 
-/*        format_time(text,sizeof(text),offset,error,0.0,-1.0);*/
+        sprintf(text,"%d",0);
+
+/*        format_time(text,75,offset,error,0.0,-1.0);*/
 
 /*    if (dispersion < data->dispersion) dispersion = data->dispersion;
         x = data->receive-data->originate;
@@ -351,19 +328,8 @@ int	check_ntp(char *host, unsigned short port, int *value_int)
         x = data->current-data->originate;
         if (0.5*x > *err) *err = 0.5*x; */
 
-/*        *value_int = format_time(text,sizeof(text),0,0,0.0,-1.0); */
-
-#if OFF
-	*value_int = time(NULL);						/* local time */
-#else
-	*value_int = (data.receive > 0) ? (int)(data.receive - ZBX_JAN_1970_IN_SEC) : 0;	/* server time */
-#endif
+        *value_int = format_time(text,75,0,0,0.0,-1.0);
 
 	return SYSINFO_RET_OK;
-
-lbl_error:
-	zbx_sock_close(s);
-
-	return	SYSINFO_RET_OK;
 }
 

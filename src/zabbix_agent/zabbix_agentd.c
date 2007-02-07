@@ -17,150 +17,527 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include <netdb.h>
+
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <unistd.h>
+#include <signal.h>
+
+#include <errno.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+/* No warning for bzero */
+#include <string.h>
+#include <strings.h>
+
+/* For config file operations */
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+/* For setpriority */
+#include <sys/time.h>
+#include <sys/resource.h>
+
+/* Required for getpwuid */
+#include <pwd.h>
+
+#include "common.h"
 #include "sysinfo.h"
 #include "security.h"
 #include "zabbix_agent.h"
 
-#include "cfg.h"
+#include "pid.h"
 #include "log.h"
-#include "zbxconf.h"
-#include "zbxgetopt.h"
-#include "zbxsock.h"
-#include "mutexs.h"
-#include "alias.h"
-
+#include "cfg.h"
 #include "stats.h"
 #include "active.h"
-#include "listener.h"
 
-#include "symbols.h"
-
-#if defined(ZABBIX_SERVICE)
-#	include "service.h"
-#elif defined(ZABBIX_DAEMON) /* ZABBIX_SERVICE */
-#	include "daemon.h"
-#endif /* ZABBIX_DAEMON */
-
+#define	LISTENQ 1024
 
 char *progname = NULL;
-
-
-/* application TITLE */
-
-char title_message[] = APPLICATION_NAME
-#if defined(_WIN64)		
-				" Win64"
-#elif defined(WIN32)		
-				" Win32"
-#endif /* WIN32 */
-#if defined(ZABBIX_SERVICE)	
-				" (service)"
-#elif defined(ZABBIX_DAEMON)	
-				" (daemon)"
-#endif /* ZABBIX_SERVICE */
-	;
-/* end of application TITLE */
-
-
-/* application USAGE message */
-
-char usage_message[] = 
-	"[-vhp]"
-#if defined(_WINDOWS)
-	" [-idsx]"
-#endif /* _WINDOWS */
-	" [-c <file>] [-t <metric>]";
-
-/*end of application USAGE message */
-
-
-
-/* application HELP message */
-
+char title_message[] = "ZABBIX Agent (daemon)";
+char usage_message[] = "[-vhp] [-c <file>] [-t <metric>]";
+#ifndef HAVE_GETOPT_LONG
 char *help_message[] = {
 	"Options:",
-	"",
+	"  -c <file>    Specify configuration file",
+	"  -h           give this help",
+	"  -v           display version number",
+	"  -p           print supported metrics and exit",
+	"  -t <metric>  test specified metric and exit",
+	0 /* end of text */
+};
+#else
+char *help_message[] = {
+	"Options:",
 	"  -c --config <file>  Specify configuration file",
 	"  -h --help           give this help",
 	"  -v --version        display version number",
 	"  -p --print          print supported metrics and exit",
 	"  -t --test <metric>  test specified metric and exit",
-/*	"  -u --usage <metric> test specified metric and exit",	*/ /* !!! TODO - print metric usage !!! */
-
-#if defined (_WINDOWS)
-
-	"",
-	"Functions:",
-	"",
-	"  -i --install        install ZABIX agent as service",
-	"  -d --uninstall      uninstall ZABIX agent from service",
-	
-	"  -s --start          start ZABIX agent service",
-	"  -x --stop           stop ZABIX agent service",
-
-#endif /* _WINDOWS */
-
 	0 /* end of text */
 };
+#endif
 
-/* end of application HELP message */
-
-
-
-/* COMMAND LINE OPTIONS */
-
-/* long options */
-
-static struct zbx_option longopts[] =
+struct option longopts[] =
 {
 	{"config",	1,	0,	'c'},
 	{"help",	0,	0,	'h'},
 	{"version",	0,	0,	'v'},
 	{"print",	0,	0,	'p'},
 	{"test",	1,	0,	't'},
-
-#if defined (_WINDOWS)
-
-	{"install",	0,	0,	'i'},
-	{"uninstall",	0,	0,	'd'},
-
-	{"start",	0,	0,	's'},
-	{"stop",	0,	0,	'x'},
-
-#endif /* _WINDOWS */
-
 	{0,0,0,0}
 };
 
-/* short options */
+static	pid_t	*pids=NULL;
+int	parent=0;
+/* Number of processed requests */
+int	stats_request=0;
 
-static char	shortopts[] = 
-	"c:hvpt:"
-#if defined (_WINDOWS)
-	"idsx"
-#endif /* _WINDOWS */
-	;
+int	CONFIG_ALLOW_ROOT		= 0;
+char	*CONFIG_HOSTS_ALLOWED		= NULL;
+char	*CONFIG_HOSTNAME		= NULL;
+char	*CONFIG_FILE			= NULL;
+char	*CONFIG_PID_FILE		= NULL;
+char	*CONFIG_STAT_FILE		= NULL;
+char	*CONFIG_LOG_FILE		= NULL;
+int	CONFIG_AGENTD_FORKS		= AGENTD_FORKS;
+/*int	CONFIG_NOTIMEWAIT		= 0;*/
+int	CONFIG_DISABLE_ACTIVE		= 0;
+int	CONFIG_ENABLE_REMOTE_COMMANDS	= 0;
+int	CONFIG_TIMEOUT			= AGENT_TIMEOUT;
+int	CONFIG_LISTEN_PORT		= 10050;
+int	CONFIG_SERVER_PORT		= 10051;
+int	CONFIG_REFRESH_ACTIVE_CHECKS	= 120;
+char	*CONFIG_LISTEN_IP		= NULL;
+int	CONFIG_LOG_LEVEL		= LOG_LEVEL_WARNING;
 
-/* end of COMMAND LINE OPTIONS*/
+void    init_config(void);
 
-
-
-static char	*TEST_METRIC = NULL;
-
-static ZBX_THREAD_HANDLE	*threads = NULL;
-
-static int parse_commandline(int argc, char **argv)
+void	uninit(void)
 {
-	zbx_task_t	task	= ZBX_TASK_START;
-	char	ch	= '\0';
+	int i;
 
-	/* Parse the command-line. */
-	while ((ch = zbx_getopt_long(argc, argv, shortopts, longopts, NULL)) != EOF)
+	if(parent == 1)
+	{
+		if(pids != NULL)
+		{
+			for(i = 0; i<CONFIG_AGENTD_FORKS; i++)
+			{
+				kill(pids[i],SIGTERM);
+			}
+		}
+
+		if( unlink(CONFIG_STAT_FILE) != 0)
+		{
+			zabbix_log( LOG_LEVEL_WARNING, "Cannot remove STAT file [%s]",
+				CONFIG_STAT_FILE);
+		}
+
+		if( unlink(CONFIG_PID_FILE) != 0)
+		{
+			zabbix_log( LOG_LEVEL_WARNING, "Cannot remove PID file [%s]",
+				CONFIG_PID_FILE);
+		}
+	}
+}
+
+void	signal_handler( int sig )
+{
+	if( SIGALRM == sig )
+	{
+		signal( SIGALRM, signal_handler );
+		zabbix_log( LOG_LEVEL_WARNING, "Timeout while answering request");
+	}
+	else if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig )
+	{
+		zabbix_log( LOG_LEVEL_WARNING, "Got signal. Exiting ...");
+		uninit();
+		exit( FAIL );
+	}
+/* parent==1 is mandatory ! EXECUTE sends SIGCHLD as well (?) ... */
+	else if( (SIGCHLD == sig) && (parent == 1) )
+	{
+		zabbix_log( LOG_LEVEL_WARNING, "One child process died. Exiting ...");
+		uninit();
+		exit( FAIL );
+	}
+	else if( SIGPIPE == sig)
+	{
+		zabbix_log( LOG_LEVEL_WARNING, "Got SIGPIPE. Where it came from???");
+	}
+	else
+	{
+		zabbix_log( LOG_LEVEL_WARNING, "Got signal [%d]. Ignoring ...", sig);
+	}
+}
+
+void    daemon_init(void)
+{
+	int     i;
+	pid_t   pid;
+	struct passwd   *pwd;
+
+	/* running as root ?*/
+	if( (CONFIG_ALLOW_ROOT == 0) && ((getuid()==0) || (getgid()==0)))
+	{
+		pwd = getpwnam("zabbix");
+		if ( pwd == NULL )
+		{
+			fprintf(stderr,"User zabbix does not exist.\n");
+			fprintf(stderr, "Cannot run as root !\n");
+			exit(FAIL);
+		}
+		if( (setgid(pwd->pw_gid) ==-1) || (setuid(pwd->pw_uid) == -1) )
+		{
+			fprintf(stderr,"Cannot setgid or setuid to zabbix [%s]\n", strerror(errno));
+			exit(FAIL);
+		}
+
+#ifdef HAVE_FUNCTION_SETEUID
+		if( (setegid(pwd->pw_gid) ==-1) || (seteuid(pwd->pw_uid) == -1) )
+		{
+			fprintf(stderr,"Cannot setegid or seteuid to zabbix [%s]\n", strerror(errno));
+			exit(FAIL);
+		}
+#endif
+
+	}
+
+	/* Init log files */
+	if(CONFIG_LOG_FILE == NULL)
+		zabbix_open_log(LOG_TYPE_SYSLOG,CONFIG_LOG_LEVEL,NULL);
+	else
+		zabbix_open_log(LOG_TYPE_FILE,CONFIG_LOG_LEVEL,CONFIG_LOG_FILE);
+
+	if( (pid = zbx_fork()) != 0 )
+	{
+		exit( 0 );
+	}
+
+	setsid();
+	
+	signal( SIGHUP, SIG_IGN );
+
+	if( (pid = zbx_fork()) !=0 )
+	{
+		exit( 0 );
+	}
+
+	chdir("/");
+/*	umask(022);*/
+	umask(0002);
+
+	for(i=0; i<MAXFD; i++)	close(i);
+
+	redirect_std(CONFIG_LOG_FILE);
+
+#ifdef HAVE_SYS_RESOURCE_SETPRIORITY
+	if(setpriority(PRIO_PROCESS,0,5)!=0)
+	{
+		fprintf(stderr, "Unable to set process priority to 5. Leaving default.\n");
+	}
+#endif
+
+}
+
+int     add_parameter(char *value)
+{
+	char    *value2;
+
+	value2=strstr(value,",");
+	if(NULL == value2)
+	{
+		return  FAIL;
+	}
+	value2[0]=0;
+	value2++;
+	add_user_parameter(value, value2);
+	return  SUCCEED;
+}
+
+void    init_config(void)
+{
+	struct cfg_line cfg[]=
+	{
+/*               PARAMETER      ,VAR    ,FUNC,  TYPE(0i,1s),MANDATORY,MIN,MAX
+*/
+		{"AllowRoot",&CONFIG_ALLOW_ROOT,0,TYPE_INT,PARM_OPT,0,1},
+		{"Server",&CONFIG_HOSTS_ALLOWED,0,TYPE_STRING,PARM_MAND,0,0},
+		{"Hostname",&CONFIG_HOSTNAME,0,TYPE_STRING,PARM_OPT,0,0},
+		{"PidFile",&CONFIG_PID_FILE,0,TYPE_STRING,PARM_OPT,0,0},
+		{"LogFile",&CONFIG_LOG_FILE,0,TYPE_STRING,PARM_OPT,0,0},
+		{"StatFile",&CONFIG_STAT_FILE,0,TYPE_STRING,PARM_OPT,0,0},
+		{"DisableActive",&CONFIG_DISABLE_ACTIVE,0,TYPE_INT,PARM_OPT,0,1},
+		{"EnableRemoteCommands",&CONFIG_ENABLE_REMOTE_COMMANDS,0,TYPE_INT,PARM_OPT,0,1},
+		{"Timeout",&CONFIG_TIMEOUT,0,TYPE_INT,PARM_OPT,1,30},
+/*		{"NoTimeWait",&CONFIG_NOTIMEWAIT,0,TYPE_INT,PARM_OPT,0,1},*/
+		{"ListenPort",&CONFIG_LISTEN_PORT,0,TYPE_INT,PARM_OPT,1024,32767},
+		{"ServerPort",&CONFIG_SERVER_PORT,0,TYPE_INT,PARM_OPT,1024,32767},
+		{"ListenIP",&CONFIG_LISTEN_IP,0,TYPE_STRING,PARM_OPT,0,0},
+		{"DebugLevel",&CONFIG_LOG_LEVEL,0,TYPE_INT,PARM_OPT,0,4},
+		{"StartAgents",&CONFIG_AGENTD_FORKS,0,TYPE_INT,PARM_OPT,1,16},
+		{"RefreshActiveChecks",&CONFIG_REFRESH_ACTIVE_CHECKS,0,TYPE_INT,PARM_OPT,60,3600},
+		{0}
+	};
+	AGENT_RESULT	result;	
+
+	memset(&result, 0, sizeof(AGENT_RESULT));
+	
+	if(CONFIG_FILE == NULL)
+	{
+		CONFIG_FILE = strdup("/etc/zabbix/zabbix_agentd.conf");
+	}
+
+	parse_cfg_file(CONFIG_FILE,cfg);
+
+	if(CONFIG_PID_FILE == NULL)
+	{
+		CONFIG_PID_FILE=strdup("/tmp/zabbix_agentd.pid");
+	}
+
+	if(CONFIG_HOSTNAME == NULL)
+	{
+	  	if(SUCCEED == process("system.hostname", 0, &result))
+		{
+	        	if(result.type & AR_STRING)
+			{
+				CONFIG_HOSTNAME = strdup(result.str);
+			}
+			else if(result.type & AR_TEXT)
+			{
+				CONFIG_HOSTNAME = strdup(result.text);
+			}
+
+		}
+	        free_result(&result);
+
+		if(CONFIG_HOSTNAME == NULL)
+		{
+			zabbix_log( LOG_LEVEL_CRIT, "Hostname is not defined");
+			exit(1);
+		}
+	}
+
+	if(CONFIG_STAT_FILE == NULL)
+	{
+		CONFIG_STAT_FILE=strdup("/tmp/zabbix_agentd.tmp");
+	}
+}
+
+void    load_user_parameters(void)
+{
+	struct cfg_line cfg[]=
+	{
+/*               PARAMETER      ,VAR    ,FUNC,  TYPE(0i,1s),MANDATORY,MIN,MAX
+*/
+		{"UserParameter",0,&add_parameter,0,0,0,0},
+		{0}
+	};
+	
+	parse_cfg_file(CONFIG_FILE,cfg);
+}
+
+void	process_child(int sockfd)
+{
+	ssize_t	nread;
+	char	line[MAX_STRING_LEN];
+	char	value[MAX_STRING_LEN];
+	int	i;
+
+        static struct  	sigaction phan;
+	AGENT_RESULT	result;
+
+	memset(&result, 0, sizeof(AGENT_RESULT));
+	
+	phan.sa_handler = &signal_handler; /* set up sig handler using sigaction() */
+	sigemptyset(&phan.sa_mask);
+	phan.sa_flags = 0;
+	sigaction(SIGALRM, &phan, NULL);
+
+
+	alarm(CONFIG_TIMEOUT);
+
+	zabbix_log( LOG_LEVEL_DEBUG, "Before read()");
+	if( (nread = read(sockfd, line, MAX_STRING_LEN)) < 0)
+	{
+		if(errno == EINTR)
+		{
+			zabbix_log( LOG_LEVEL_DEBUG, "Read timeout");
+		}
+		else
+		{
+			zabbix_log( LOG_LEVEL_DEBUG, "read() failed.");
+		}
+		zabbix_log( LOG_LEVEL_DEBUG, "After read() 1");
+		alarm(0);
+		return;
+	}
+	zabbix_log( LOG_LEVEL_DEBUG, "After read() 2 [%d]",nread);
+
+	line[nread-1]=0;
+
+	zabbix_log( LOG_LEVEL_DEBUG, "Got line:%s", line);
+
+  	process(line, 0, &result);
+        if(result.type & AR_DOUBLE)
+                 snprintf(value, MAX_STRING_LEN-1, "%f", result.dbl);
+        else if(result.type & AR_UINT64)
+                 snprintf(value, MAX_STRING_LEN-1, ZBX_FS_UI64, result.ui64);
+        else if(result.type & AR_STRING)
+                 snprintf(value, MAX_STRING_LEN-1, "%s", result.str);
+        else if(result.type & AR_TEXT)
+                 snprintf(value, MAX_STRING_LEN-1, "%s", result.text);
+        else if(result.type & AR_MESSAGE)
+                 snprintf(value, MAX_STRING_LEN-1, "%s", result.msg);
+        free_result(&result);
+					
+	zabbix_log( LOG_LEVEL_DEBUG, "Sending back:%s", value);
+	i=write(sockfd, value, strlen(value));
+	if(i == -1)
+	{
+		zabbix_log( LOG_LEVEL_WARNING, "Error writing to socket [%s]",
+			strerror(errno));
+	}
+
+	alarm(0);
+}
+
+int	tcp_listen(const char *host, int port, socklen_t *addrlenp)
+{
+	int			sockfd;
+	struct sockaddr_in	serv_addr;
+	int			on;
+
+/*	struct linger ling;*/
+
+	if ( (sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+	{
+		zabbix_log( LOG_LEVEL_CRIT, "Unable to create socket");
+		exit(1);
+	}
+
+	/* Enable address reuse */
+	/* This is to immediately use the address even if it is in TIME_WAIT state */
+	/* http://www-128.ibm.com/developerworks/linux/library/l-sockpit/index.html */
+	on = 1;
+	if( -1 == setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on) ))
+	{
+		zabbix_log(LOG_LEVEL_WARNING, "Cannot setsockopt SO_REUSEADDR [%s]", strerror(errno));
+	}
+
+	/*
+	if(CONFIG_NOTIMEWAIT == 1)
+	{
+		ling.l_onoff=1;
+	        ling.l_linger=0;
+		if(setsockopt(sockfd,SOL_SOCKET,SO_LINGER,&ling,sizeof(ling))==-1)
+		{
+			zabbix_log(LOG_LEVEL_WARNING, "Cannot setsockopt SO_LINGER [%s]", strerror(errno));
+		}
+	}*/
+
+
+	bzero((char *) &serv_addr, sizeof(serv_addr));
+	serv_addr.sin_family      = AF_INET;
+	if(CONFIG_LISTEN_IP == NULL)
+	{
+		serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	}
+	else
+	{
+		serv_addr.sin_addr.s_addr = inet_addr(CONFIG_LISTEN_IP);
+	}
+	serv_addr.sin_port        = htons(port);
+
+	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
+	{
+		zabbix_log( LOG_LEVEL_CRIT, "Cannot bind to port %d. Error [%s]. Another zabbix_agentd already running ?",
+				port, strerror(errno));
+		exit(1);
+	}
+
+	if(listen(sockfd, LISTENQ) != 0)
+	{
+		zabbix_log( LOG_LEVEL_CRIT, "Listen failed");
+		exit(1);
+	}
+
+	*addrlenp = sizeof(serv_addr);
+
+	return	sockfd;
+}
+
+void	child_passive_main(int i,int listenfd, int addrlen)
+{
+	int	connfd;
+	socklen_t	clilen;
+	struct sockaddr cliaddr;
+
+	zabbix_log( LOG_LEVEL_WARNING, "zabbix_agentd %ld started",(long)getpid());
+
+	for(;;)
+	{
+		clilen = addrlen;
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("waiting for connection. Requests [%d]", stats_request++);
+#endif
+		connfd=accept(listenfd,&cliaddr, &clilen);
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("processing request");
+#endif
+		if( check_security(connfd, CONFIG_HOSTS_ALLOWED, 0) == SUCCEED)
+		{
+			process_child(connfd);
+		}
+		close(connfd);
+	}
+}
+
+pid_t	child_passive_make(int i,int listenfd, int addrlen)
+{
+	pid_t	pid;
+
+	if((pid = zbx_fork()) >0)
+	{
+			return (pid);
+	}
+
+	/* never returns */
+	child_passive_main(i, listenfd, addrlen);
+
+	/* avoid compilator warning */
+	return 0;
+}
+
+int	main(int argc, char **argv)
+{
+	int		listenfd;
+	socklen_t	addrlen;
+	int		i;
+
+	char		host[128];
+	int		ch;
+	char		*s;
+	int		task = ZBX_TASK_START;
+	char		*TEST_METRIC = NULL;
+
+        static struct  sigaction phan;
+
+	progname = argv[0];
+
+/* Parse the command-line. */
+	while ((ch = getopt_long(argc, argv, "c:hvpt:", longopts, NULL)) != EOF)
 		switch ((char) ch) {
 		case 'c':
-			CONFIG_FILE = strdup(zbx_optarg);
+			CONFIG_FILE = optarg;
 			break;
 		case 'h':
 			help();
@@ -178,308 +555,104 @@ static int parse_commandline(int argc, char **argv)
 			if(task == ZBX_TASK_START) 
 			{
 				task = ZBX_TASK_TEST_METRIC;
-				TEST_METRIC = strdup(zbx_optarg);
+				TEST_METRIC = optarg;
 			}
 			break;
-
-#if defined (_WINDOWS)
-		case 'i':
-			task = ZBX_TASK_INSTALL_SERVICE;
-			break;
-		case 'd':
-			task = ZBX_TASK_UNINSTALL_SERVICE;
-			break;
-		case 's':
-			task = ZBX_TASK_START_SERVICE;
-			break;
-		case 'x':
-			task = ZBX_TASK_STOP_SERVICE;
-			break;
-
-#endif /* _WINDOWS */
-
 		default:
 			task = ZBX_TASK_SHOW_USAGE;
 			break;
 	}
 
-	return task;
-}
+/* Must be before init_config() */
+	init_metrics();
+	init_config();
 
-static ZBX_SOCKET tcp_listen(void)
-{
-	ZBX_SOCKET sock;
-	ZBX_SOCKADDR serv_addr;
-	int	on;
-
-	if ((sock = (ZBX_SOCKET)socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCKET)
-	{
-		zabbix_log( LOG_LEVEL_CRIT, "Unable to create socket. [%s]", strerror_from_system(zbx_sock_last_error()));
-		exit(1);
-	}
+/*	Moved to daemon_init(), otherwise log files can be created as root */
+/*	if(CONFIG_LOG_FILE == NULL)
+		zabbix_open_log(LOG_TYPE_SYSLOG,CONFIG_LOG_LEVEL,NULL);
+	else
+		zabbix_open_log(LOG_TYPE_FILE,CONFIG_LOG_LEVEL,CONFIG_LOG_FILE);*/
 	
-	/* Enable address reuse */
-	/* This is to immediately use the address even if it is in TIME_WAIT state */
-	/* http://www-128.ibm.com/developerworks/linux/library/l-sockpit/index.html */
-	on = 1;
-	if( -1 == setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void *)&on, sizeof(on) ))
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "Cannot setsockopt SO_REUSEADDR [%s]", strerror(errno));
-	}
-
-	/* Create socket	Fill in local address structure */
-	memset(&serv_addr, 0, sizeof(ZBX_SOCKADDR));
-
-	serv_addr.sin_family		= AF_INET;
-	serv_addr.sin_addr.s_addr	= CONFIG_LISTEN_IP ? inet_addr(CONFIG_LISTEN_IP) : htonl(INADDR_ANY);
-	serv_addr.sin_port		= htons((unsigned short)CONFIG_LISTEN_PORT);
-
-	/* Bind socket */
-	if (bind(sock,(struct sockaddr *)&serv_addr,sizeof(ZBX_SOCKADDR)) == SOCKET_ERROR)
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "Cannot bind to port %u for server %s. Error [%s]. Another zabbix_agentd already running ?",
-				CONFIG_LISTEN_PORT, CONFIG_LISTEN_IP, strerror_from_system(zbx_sock_last_error()));
-
-		exit(1);
-	}
-
-	if(listen(sock, SOMAXCONN) == SOCKET_ERROR)
-	{
-		zabbix_log( LOG_LEVEL_CRIT, "Listen failed. [%s]", strerror_from_system(zbx_sock_last_error()));
-		exit(1);
-	}
-
-	return sock;
-}
-
-int MAIN_ZABBIX_ENTRY(void)
-{
-	ZBX_THREAD_ACTIVECHK_ARGS	activechk_args;
-
-	int	i = 0;
-
-	ZBX_SOCKET	sock;
-
-	zabbix_open_log(
-#if ON	/* !!! normal case must be ON !!! */
-		LOG_TYPE_FILE
-#elif OFF	/* !!! normal case must be OFF !!! */
-		LOG_TYPE_SYSLOG
-#else	/* !!! for debug only, print log with zbx_error !!! */ 
-		LOG_TYPE_UNDEFINED
-#endif
-		,
-		CONFIG_LOG_LEVEL,
-		CONFIG_LOG_FILE
-		);
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "zabbix_agentd started. ZABBIX %s.", ZABBIX_VERSION);
-
-	sock = tcp_listen();
-
-	init_collector_data();
-
-	/* --- START THREADS ---*/
-
-	threads = calloc(CONFIG_ZABBIX_FORKS, sizeof(ZBX_THREAD_HANDLE));
-
-	threads[i=0] = zbx_thread_start(collector_thread, NULL);
-
-	/* start listeners */
-	for(i++; i < CONFIG_ZABBIX_FORKS - ((0 == CONFIG_DISABLE_ACTIVE) ? 1 : 0); i++)
-	{
-		threads[i] = zbx_thread_start(listener_thread, &sock);
-	}
-
-	/* start active chack */
-	if(0 == CONFIG_DISABLE_ACTIVE)
-	{
-		activechk_args.host = CONFIG_HOSTS_ALLOWED;
-		activechk_args.port = (unsigned short)CONFIG_SERVER_PORT;
-
-		threads[i] = zbx_thread_start(active_checks_thread, &activechk_args);
-	}
-
-	/* Must be called after all child processes loading. */
-	init_main_process();
-
-	/* wait for all threads exiting */
-	for(i = 0; i < CONFIG_ZABBIX_FORKS; i++)
-	{
-		if(zbx_thread_wait(threads[i]))
-		{
-			zabbix_log( LOG_LEVEL_DEBUG, "%li: thread is terminated", threads[i]);
-			ZBX_DO_EXIT();
-		}
-	}
-
-	free_collector_data();
-
-	zbx_free(threads);
-
-	zbx_on_exit();
-
-	return SUCCEED;
-}
-
-void	zbx_on_exit()
-{
-
-#if !defined(_WINDOWS)
-	
-	int i = 0;
-
-	if(threads != NULL)
-	{
-		for(i = 0; i<CONFIG_ZABBIX_FORKS ; i++)
-		{
-			if(threads[i]) {
-				kill(threads[i],SIGTERM);
-				threads[i] = (ZBX_THREAD_HANDLE)NULL;
-			}
-		}
-	}
-	
-#endif /* not _WINDOWS */
-	
-	zabbix_log(LOG_LEVEL_DEBUG, "zbx_on_exit() called.");
-
-#ifdef USE_PID_FILE
-
-	daemon_stop();
-
-#endif /* USE_PID_FILE */
-
-	free_collector_data();
-	alias_list_free();
-
-	zbx_sleep(2); /* wait for all threads closing */
-	
-	zabbix_log(LOG_LEVEL_INFORMATION, "ZABBIX Agent stopped");
-	zabbix_close_log();
-
-	exit(SUCCEED);
-}
-
-static char* get_programm_name(char *path)
-{
-	char	*p;
-	char	*filename;
-
-	for(filename = p = path; p && *p; p++)
-		if(*p == '\\' || *p == '/')
-			filename = p+1;
-
-	return filename;
-}
-
-#ifndef ZABBIX_TEST
-
-int	main(int argc, char **argv)
-{
-	int	task = ZBX_TASK_START;
-
-	progname = get_programm_name(argv[0]);
-
-	task = parse_commandline(argc, argv);
-
-	import_symbols();
-
-	init_metrics(); /* Must be before load_config().  load_config - use metrics!!! */
-
-	load_config(task == 0);
-
 	load_user_parameters();
-
-	if(FAIL == zbx_sock_init())
-		exit(FAIL);
-
+	
 	switch(task)
 	{
-
-#if defined (_WINDOWS)
-		case ZBX_TASK_INSTALL_SERVICE:
-			exit(ZabbixCreateService(argv[0]));
-			break;
-		case ZBX_TASK_UNINSTALL_SERVICE:
-			exit(ZabbixRemoveService());
-			break;
-		case ZBX_TASK_START_SERVICE:
-			exit(ZabbixStartService());
-			break;
-		case ZBX_TASK_STOP_SERVICE:
-			exit(ZabbixStopService());
-			break;
-#endif /* _WINDOWS */
 		case ZBX_TASK_PRINT_SUPPORTED:
 			test_parameters();
-			exit(SUCCEED);
+			exit(-1);
 			break;
 		case ZBX_TASK_TEST_METRIC:
 			test_parameter(TEST_METRIC);
-			exit(SUCCEED);
+			exit(-1);
 			break;
 		case ZBX_TASK_SHOW_USAGE:
 			usage();
-			exit(FAIL);
+			exit(-1);
 			break;
 	}
+	
+	daemon_init();
 
-	START_MAIN_ZABBIX_ENTRY(CONFIG_ALLOW_ROOT);
+	phan.sa_handler = &signal_handler;
+	sigemptyset(&phan.sa_mask);
+	phan.sa_flags = 0;
+	sigaction(SIGINT, &phan, NULL);
+	sigaction(SIGQUIT, &phan, NULL);
+	sigaction(SIGTERM, &phan, NULL);
+	sigaction(SIGPIPE, &phan, NULL);
 
-	exit(SUCCEED);
-}
-
-#else /* ZABBIX_TEST */
-
-#include "messages.h"
-
-int main()
-{
-#if ON
-	int res, val;
-
-	if(FAIL == zbx_sock_init())
+	if( FAIL == create_pid_file(CONFIG_PID_FILE))
 	{
-		return 1;
+		return -1;
 	}
 
+	zabbix_log( LOG_LEVEL_WARNING, "zabbix_agentd started. ZABBIX %s.", ZABBIX_VERSION);
 
-	res = check_ntp("142.3.100.15",123,&val);
+	if(gethostname(host,127) != 0)
+	{
+		zabbix_log( LOG_LEVEL_CRIT, "gethostname() failed");
+		exit(FAIL);
+	}
 
-	zbx_error("check_ntp result '%i' value '%i'", res, val);
+	listenfd = tcp_listen(host,CONFIG_LISTEN_PORT,&addrlen);
 
-#elif OFF
+	pids = calloc(CONFIG_AGENTD_FORKS, sizeof(pid_t));
 
-	zbx_error("%s",strerror_from_module(MSG_ZABBIX_MESSAGE, NULL));
+	for(i = 0; i<CONFIG_AGENTD_FORKS-1; i++)
+	{
+		pids[i] = child_passive_make(i, listenfd, addrlen);
+	}
 
-#elif OFF
-	
-	char buffer[100*1024];
+	/* Initialize thread for active checks */
+	if(CONFIG_DISABLE_ACTIVE==0)
+	{
+		s=strtok(CONFIG_HOSTS_ALLOWED,",");
+		pids[CONFIG_AGENTD_FORKS-1] = child_active_make(CONFIG_AGENTD_FORKS-1, s, CONFIG_SERVER_PORT);
+	}
 
-	get_http_page("www.zabbix.com", "", 80, buffer, 100*1024);
+	parent=1;
 
-	printf("Back [%d] [%s]\n", strlen(buffer), buffer);
-	
-#elif OFF
+/* For parent only. To avoid problems with EXECUTE */
+	sigaction(SIGCHLD, &phan, NULL);
 
-	char s[] = "ABCDEFGH";
-	char p[] = "D(.){0,}E";
-	int len=2;
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+	setproctitle("main process");
+#endif
 
-	printf("String: \t %s\n", s);
-	printf("Pattern:\t %s\n", p);
-	printf("Result: \t [%s] [%d]\n", zbx_regexp_match(s, p, &len), len);
+	collect_statistics();
+
+	uninit();
+
 /*
-#elif OFF or ON
-
-Place your test code HERE!!!
+#ifdef HAVE_PROC_NET_DEV
+	collect_statistics();
+#else
+	for(;;)
+	{
+		pause();
+	}
+#endif
 */
 
-#endif /* 0 */
-
-	return 0;
+	return SUCCEED;
 }
-
-#endif /* not ZABBIX_TEST */
-

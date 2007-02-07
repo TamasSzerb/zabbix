@@ -19,20 +19,18 @@
 **/
 ?>
 <?php
-	require_once "include/config.inc.php";
-	require_once "include/forms.inc.php";
+	$page["title"]="S_ZABBIX_BIG";
+	$page["file"]="index.php";
 
-	$page["title"]	= "S_ZABBIX_BIG";
-	$page["file"]	= "index.php";
-	
+	include "include/config.inc.php";
+	include "include/forms.inc.php";
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
 		"name"=>		array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({enter})'),
 		"password"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		'isset({enter})'),
-		"sessionid"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
-		"message"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
+	//	"sessionid"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
 		"reconnect"=>		array(T_ZBX_INT, O_OPT,	P_ACT, BETWEEN(0,65535),NULL),
                 "enter"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,    NULL,   NULL),
                 "form"=>		array(T_ZBX_STR, O_OPT, P_SYS,  NULL,   	NULL),
@@ -41,17 +39,17 @@
 	check_fields($fields);
 ?>
 <?php
-	$sessionid = get_cookie('zbx_sessionid', null);
-	
-	if(isset($_REQUEST["reconnect"]) && isset($sessionid))
+	if(isset($_REQUEST["reconnect"]) && isset($_COOKIE["zbx_sessionid"]))
 	{
 		add_audit(AUDIT_ACTION_LOGOUT,AUDIT_RESOURCE_USER,"Manual Logout");
 		
-		zbx_unsetcookie('zbx_sessionid');
-		DBexecute("delete from sessions where sessionid=".zbx_dbstr($sessionid));
-		unset($sessionid);
+		DBexecute("delete from sessions where sessionid=".zbx_dbstr($_COOKIE["zbx_sessionid"]));
+		setcookie("zbx_sessionid",$_COOKIE["zbx_sessionid"],time()-3600);
+		unset($_COOKIE["zbx_sessionid"]);
 
-		Redirect("index.php");
+		echo "<HTML><HEAD>";
+		echo "<META HTTP-EQUIV=\"Refresh\" CONTENT=\"0; URL=index.php\">";
+		echo "</HEAD></HTML>";
 		return;
 	}
 
@@ -60,53 +58,59 @@
 		$name = get_request("name","");
 		$password = md5(get_request("password",""));
 
-		$row = DBfetch(DBselect("select u.userid,u.alias,u.name,u.surname,u.url,u.refresh from users u where".
-			" u.alias=".zbx_dbstr($name)." and u.passwd=".zbx_dbstr($password).
-			" and ".DBid2nodeid('u.userid')."=".$ZBX_LOCALNODEID));
+		$result=DBselect("select u.userid,u.alias,u.name,u.surname,u.url,u.refresh from users u where".
+			" u.alias=".zbx_dbstr($name)." and u.passwd=".zbx_dbstr($password));
 
+		$row=DBfetch($result);
 		if($row)
 		{
+			$USER_DETAILS["userid"]	= $row["userid"];
+			$USER_DETAILS["alias"]	= $row["alias"];
+			$USER_DETAILS["name"]	= $row["name"];
+			$USER_DETAILS["surname"]= $row["surname"];
+			$USER_DETAILS["url"]	= $row["url"];
+			$USER_DETAILS["refresh"]= $row["refresh"];
+			
 			$sessionid = md5(time().$password.$name.rand(0,10000000));
-			zbx_setcookie('zbx_sessionid',$sessionid);
+			setcookie("zbx_sessionid",$sessionid,time()+3600);
+			$_COOKIE["zbx_sessionid"]	= $sessionid; /* Required ! */
 			
 			DBexecute("insert into sessions (sessionid,userid,lastaccess)".
-				" values (".zbx_dbstr($sessionid).",".$row["userid"].",".time().")");
+				" values (".zbx_dbstr($sessionid).",".$USER_DETAILS["userid"].",".time().")");
 
 			add_audit(AUDIT_ACTION_LOGIN,AUDIT_RESOURCE_USER,"Correct login [".$name."]");
 			
-			if($row["url"] != '')
+			if($USER_DETAILS["url"] != '')
 			{
-				Redirect($row["url"]);
+				echo "<HTML><HEAD>";
+        			echo "<META HTTP-EQUIV=\"Refresh\" CONTENT=\"0; URL=".$USER_DETAILS["url"]."\">";
+				echo "</HEAD></HTML>";
 				return;
 			}
 		}
 		else
 		{
-			$_REQUEST['message'] = "Login name or password is incorrect";
 			add_audit(AUDIT_ACTION_LOGIN,AUDIT_RESOURCE_USER,"Login failed [".$name."]");
 		}
 	}
 
-include_once "include/page_header.php";
-	
-	if(isset($_REQUEST['message'])) show_error_message($_REQUEST['message']);
+	show_header($page["title"],0,0);
 ?>
+
 <?php
-	if(!isset($sessionid))
+	if(!isset($_COOKIE["zbx_sessionid"]))
 	{
 		insert_login_form();
 	}
 	else
 	{
-		$logoff = new CLink('here', '?reconnect=1');
-
 		echo "<div align=center>";
-		echo "Press ".$logoff->ToString()." to disconnect/reconnect";
+		echo "Press <a href=\"index.php?reconnect=1\">here</a> to disconnect/reconnect";
 		echo "</div>";
 	}	
 ?>
+
+
 <?php
-
-include_once "include/page_footer.php";
-
+	show_page_footer();
 ?>

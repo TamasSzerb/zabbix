@@ -38,55 +38,18 @@
 #include <time.h>
 
 #include "common.h"
-#include "comms.h"
-#include "zbxgetopt.h"
 
 char *progname = NULL;
 char title_message[] = "ZABBIX send";
-char usage_message[] = "[-vh] [-z <zabbix_server>] [-p <port>] [-s <host>] [-k <metric>] [-o <value>] [-i <input_file>]";
-
-#ifdef HAVE_GETOPT_LONG
+char usage_message[] = "[<Zabbix server> <port> <server> <key> <value>]";
 char *help_message[] = {
-	"Options:",
-	"  -z --zabbix-server <zabbix_server>	Hostname or IP address of ZABBIX Server.",
-	"  -p --port <zabbix_server_port>	Specify port number of server trapper running on the server. Default is 10051.",
-	"  -s --host <hostname>			Specify hostname or IP address of a host.",
-	"  -k --key <key_of_metric>		Specify metric name (key) we want to send.",
-	"  -o --value <value>			Specify value of the key.",
-	"  -i --input-file <input_file>		Load values from input file.",
-	"					Each line of file contains: <zabbix_server> <hostname> <port> <key> <value>.",
-	"  -h --help				Give this help.",
-	"  -v --version				Display version number.",
+	"",
+	"  If no arguments are given, zabbix_sender expects list of parameters",
+	"  from standard input.",
+	"",
         0 /* end of text */
 };
-#else
-char *help_message[] = {
-	"Options:",
-	"  -z <zabbix_server>		Hostname or IP address of ZABBIX Server.",
-	"  -p <zabbix_server_port>	Specify port number of server trapper running on the server. Default is 10051.",
-	"  -s <hostname>		Specify hostname or IP address of a host.",
-	"  -k <key_of_metric>		Specify metric name (key) we want to send.",
-	"  -o <value>			Specify value of the key.",
-	"  -i <input_file>		Load values from input file.",
-	"				Each line of file contains: <zabbix_server> <hostname> <port> <key> <value>.",
-	"  -h 				Give this help.",
-	"  -v 				Display version number.",
-        0 /* end of text */
-};
-#endif
 
-struct zbx_option longopts[] =
-{
-        {"zabbix-server",	1,	NULL,	'z'},
-        {"port",		1,	NULL,	'p'},
-        {"host",		1,	NULL,	's'},
-        {"key",			1,	NULL,	'k'},
-        {"value",		1,	NULL,	'o'},
-        {"input-file",		1,	NULL,	'i'},
-        {"help",        	0,      NULL,	'h'},
-        {"version",     	0,      NULL,	'v'},
-        {0,0,0,0}
-};
 
 void    signal_handler( int sig )
 {
@@ -105,56 +68,104 @@ void    signal_handler( int sig )
 
 static int send_value(char *server,int port,char *hostname, char *key,char *value, char *lastlogsize)
 {
+	int	i,s;
 	char	tosend[MAX_STRING_LEN];
+	char	result[MAX_STRING_LEN];
+	struct hostent *hp;
 
-	char	foo[MAX_STRING_LEN];
-	
-	zbx_sock_t	sock;
-	char	*answer;
+	struct sockaddr_in myaddr_in;
+	struct sockaddr_in servaddr_in;
 
-	if( FAIL == zbx_tcp_connect(&sock, server, port))
+/*	struct linger ling;*/
+
+/*	printf("In send_value(%s,%d,%s,%s,%s)\n", server, port, hostname, key, value);*/
+
+	servaddr_in.sin_family=AF_INET;
+	hp=gethostbyname(server);
+
+	if(hp==NULL)
 	{
-		return 	FAIL;
+		return	FAIL;
 	}
 
-	foo[0] = '\0';
-	comms_create_request(hostname, key, value, lastlogsize, foo, foo, foo, tosend, sizeof(tosend)-1);
-	if( FAIL == zbx_tcp_send(&sock, tosend))
+	servaddr_in.sin_addr.s_addr=((struct in_addr *)(hp->h_addr))->s_addr;
+
+	servaddr_in.sin_port=htons(port);
+
+	s=socket(AF_INET,SOCK_STREAM,0);
+	if(s == -1)
 	{
-		zbx_tcp_close(&sock);
-		return 	FAIL;
+		return	FAIL;
 	}
 
-	if( FAIL == zbx_tcp_recv(&sock, &answer))
+/*	ling.l_onoff=1;*/
+/*	ling.l_linger=0;*/
+/*	if(setsockopt(s,SOL_SOCKET,SO_LINGER,&ling,sizeof(ling))==-1)*/
+/*	{*/
+/* Ignore */
+/*	}*/
+ 
+	myaddr_in.sin_family = AF_INET;
+	myaddr_in.sin_port=0;
+	myaddr_in.sin_addr.s_addr=INADDR_ANY;
+
+	if( connect(s,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )
 	{
-		zbx_tcp_close(&sock);
-		return 	FAIL;
+		close(s);
+		return	FAIL;
 	}
 
-	if(strcmp(answer,"OK") == 0)
+/* Send <req><host>SERVER_B64</host><key>KEY_B64</key><data>VALUE_B64</data></req> */
+
+	comms_create_request(hostname, key, value, lastlogsize, tosend, sizeof(tosend)-1);
+
+/*	snprintf(tosend,sizeof(tosend)-1,"%s:%s\n",shortname,value);
+	snprintf(tosend,sizeof(tosend)-1,"<req><host>%s</host><key>%s</key><data>%s</data></req>",hostname_b64,key_b64,value_b64); */
+
+	if(write(s, tosend,strlen(tosend)) == -1)
+/*	if( sendto(s,tosend,strlen(tosend),0,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )*/
+	{
+		perror("write");
+		close(s);
+		return	FAIL;
+	} 
+	i=sizeof(struct sockaddr_in);
+/*	i=recvfrom(s,result,MAX_STRING_LEN-1,0,(struct sockaddr *)&servaddr_in,(socklen_t *)&i);*/
+	i=read(s,result,MAX_STRING_LEN-1);
+	if(i==-1)
+	{
+		perror("read");
+		close(s);
+		return	FAIL;
+	}
+
+	result[i-1]=0;
+
+	if(strcmp(result,"OK") == 0)
 	{
 		printf("OK\n");
 	}
-
-	zbx_tcp_close(&sock);
+ 
+	if( close(s)!=0 )
+	{
+		perror("close");
+		
+	}
 
 	return SUCCEED;
 }
 
 int main(int argc, char **argv)
 {
+	int	port;
 	int	ret=SUCCEED;
 	char	line[MAX_STRING_LEN];
-	char	port_str[MAX_STRING_LEN]="10051"; // default value
-	char	zabbix_server[MAX_STRING_LEN]="";
-	char	server[MAX_STRING_LEN]="";
-	char	key[MAX_STRING_LEN]="";
-	char	value[MAX_STRING_LEN]="";
-	char	input_file[MAX_STRING_LEN]="";
-	int	port_specified = 0;
+	char	port_str[MAX_STRING_LEN];
+	char	zabbix_server[MAX_STRING_LEN];
+	char	server[MAX_STRING_LEN];
+	char	key[MAX_STRING_LEN];
+	char	value[MAX_STRING_LEN];
 	char	*s;
-	int ch;
-	FILE *in;
 
 	progname = argv[0];
 
@@ -163,51 +174,20 @@ int main(int argc, char **argv)
 	signal( SIGTERM, signal_handler );
 	signal( SIGALRM, signal_handler );
 
-	while ((ch = zbx_getopt_long(argc, argv, "z:p:s:k:o:i:hv", longopts, NULL)) != EOF)
+	if(argc == 6)
 	{
-		switch (ch) 
-		{
-			case 'z': if (zbx_optarg) strcpy(zabbix_server, zbx_optarg); break;
-			case 'p': if (zbx_optarg) strcpy(port_str, zbx_optarg); port_specified=1; break;
-			case 's': if (zbx_optarg) strcpy(server, zbx_optarg); break;
-			case 'k': if (zbx_optarg) strcpy(key, zbx_optarg); break;
-			case 'o': if (zbx_optarg) strcpy(value, zbx_optarg); break;
-			case 'i': if (zbx_optarg) strcpy(input_file, zbx_optarg); break;
-			case 'v': version(); return 0;
-			case 'h': default: help(); return 0;
-		}
-	}
+		port=atoi(argv[2]);
 
-
-	if (zabbix_server[0] && server[0] && key[0] && value[0])
-	{
-		if (input_file[0]) 
-		{
-			help(); return FAIL;
-		}
-		
 		alarm(SENDER_TIMEOUT);
 
-		//printf("Run with options: z=%s, p=%s, s=%s, k=%s, o=%s\n", zabbix_server, port_str, server, key, value);
-		ret = send_value(zabbix_server, atoi(port_str), server, key, value,"0");
+		ret = send_value(argv[1],port,argv[3],argv[4],argv[5],"0");
 
 		alarm(0);
 	}
 /* No parameters are given */	
-	else if (input_file[0])
+	else if(argc == 1)
 	{
-		if (zabbix_server[0] || server[0] || key[0] || value[0] || port_specified) {
-			help(); return FAIL;
-		}
-
-		in = fopen(input_file, "r");
-		if (!in) 
-		{
-			fprintf(stderr, "%s: no such file.\n", input_file); 
-			return FAIL;
-		}	
-
-		while(fgets(line, MAX_STRING_LEN, in) != NULL)
+		while(fgets(line,MAX_STRING_LEN,stdin) != NULL)
 		{
 			alarm(SENDER_TIMEOUT);
 	
@@ -221,7 +201,6 @@ int main(int argc, char **argv)
 			strscpy(key,s);
 			s=(char *)strtok(NULL," ");
 			strscpy(value,s);
-			//printf("Run with options from file(%s): z=%s, s=%s, p=%s, k=%s, o=%s\n", input_file, zabbix_server, server, port_str, key, value);
 			ret = send_value(zabbix_server,atoi(port_str),server,key,value,"0");
 
 			alarm(0);
@@ -235,4 +214,3 @@ int main(int argc, char **argv)
 
 	return ret;
 }
-

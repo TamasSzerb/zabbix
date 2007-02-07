@@ -81,54 +81,22 @@
 		}
 	}
 
-	function	prepare_url(&$var, $varname)
+	function url_param($parameter)
 	{
+		global $_REQUEST;
+	
 		$result = "";
-
-		if(is_array($var))
+		if(isset($_REQUEST[$parameter]))
 		{
-			foreach($var as $id => $par)
-				$result .= prepare_url($par,
-					isset($varname) ? $varname."[".$id."]": $id
-					);
-		}
-		else
-		{
-			$result = "&".$varname."=".urlencode($var);
-		}
-		return $result;
-	}
-
-	function url_param($parameter,$request=true,$name=null)
-	{
-		$result = "";
-
-		
-		if(!is_array($parameter))
-		{
-			if(!isset($name))
+			if(is_array($_REQUEST[$parameter]))
 			{
-				if(!$request)
-					fatal_error('not request variable require url name [url_param]');
-
-				$name = $parameter;
+				foreach($_REQUEST[$parameter] as $par)
+					$result .= "&".$parameter."[]=".$par;
 			}
-		}
-		
-		if($request)
-		{
-			global $_REQUEST;
-			
-			$var =& $_REQUEST[$parameter];
-		}
-		else
-		{
-			$var =& $parameter;
-		}
-		
-		if(isset($var))
-		{
-			$result = prepare_url($var,$name);
+			else
+			{
+				$result = "&".$parameter."=".$_REQUEST[$parameter];
+			}
 		}
 		return $result;
 	}
@@ -188,6 +156,7 @@
 
 	function table_nodata($text="...")
 	{
+		cr();
 		echo "<TABLE BORDER=0 align=center WIDTH=\"100%\" BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
 		echo "<TR BGCOLOR=\"#DDDDDD\">";
 		echo "<TD ALIGN=CENTER>";
@@ -195,5 +164,6 @@
 		echo "</TD>";
 		echo "</TR>";
 		echo "</TABLE>";
+		cr();
 	}
 ?>

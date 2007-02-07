@@ -29,17 +29,14 @@
 #include "zlog.h"
 #include "common.h"
 
-zbx_uint64_t	DBadd_host(char *server, int port, int status, int useip, char *ip, int disable_until, int available)
+int	DBadd_host(char *server, int port, int status, int useip, char *ip, int disable_until, int available)
 {
+	char	sql[MAX_STRING_LEN];
 	int	hostid;
-	int	exec_res;
 
-	if(FAIL == (exec_res = DBexecute("insert into hosts (host,port,status,useip,ip,disable_until,available) values ('%s',%d,%d,%d,'%s',%d,%d)", server, port, status, useip, ip, disable_until, available)))
-	{
-		return FAIL;
-	}
+	snprintf(sql, sizeof(sql)-1,"insert into hosts (host,port,status,useip,ip,disable_until,available) values ('%s',%d,%d,%d,'%s',%d,%d)", server, port, status, useip, ip, disable_until, available);
 
-	hostid = DBinsert_id(exec_res, "hosts", "hostid");
+	hostid = DBinsert_id(DBexecute(sql), "hosts", "hostid");
 
 	if(hostid==0)
 	{
@@ -53,9 +50,11 @@ int	DBhost_exists(char *server)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
+	char	sql[MAX_STRING_LEN];
 	int	ret = SUCCEED;
 
-	result = DBselect("select hostid from hosts where host='%s'", server);
+	snprintf(sql,sizeof(sql)-1,"select hostid from hosts where host='%s'", server);
+	result = DBselect(sql);
 	row = DBfetch(result);
 
 	if(!row)
@@ -71,10 +70,12 @@ int	DBadd_templates_to_host(int hostid,int host_templateid)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
+	char	sql[MAX_STRING_LEN];
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In DBadd_templates_to_host(%d,%d)", hostid, host_templateid);
 
-	result = DBselect("select templateid,items,triggers,graphs from hosts_templates where hostid=%d", host_templateid);
+	snprintf(sql,sizeof(sql)-1,"select templateid,items,triggers,graphs from hosts_templates where hostid=%d", host_templateid);
+	result = DBselect(sql);
 
 	while((row=DBfetch(result)))
 	{
@@ -89,19 +90,25 @@ int	DBadd_templates_to_host(int hostid,int host_templateid)
 
 int	DBadd_template_linkage(int hostid,int templateid,int items,int triggers,int graphs)
 {
+	char	sql[MAX_STRING_LEN];
+
 	zabbix_log( LOG_LEVEL_DEBUG, "In DBadd_template_linkage(%d)", hostid);
 
-	return DBexecute("insert into hosts_templates (hostid,templateid,items,triggers,graphs) values (%d,%d,%d,%d,%d)",hostid, templateid, items, triggers, graphs);
+	snprintf(sql,sizeof(sql)-1,"insert into hosts_templates (hostid,templateid,items,triggers,graphs) values (%d,%d,%d,%d,%d)",hostid, templateid, items, triggers, graphs);
+
+	return DBexecute(sql);
 }
 
 int	DBsync_host_with_templates(int hostid)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
+	char	sql[MAX_STRING_LEN];
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In DBsync_host_with_templates(%d)", hostid);
 
-	result = DBselect("select templateid,items,triggers,graphs from hosts_templates where hostid=%d", hostid);
+	snprintf(sql,sizeof(sql)-1,"select templateid,items,triggers,graphs from hosts_templates where hostid=%d", hostid);
+	result = DBselect(sql);
 
 	while((row=DBfetch(result)))
 	{
@@ -118,11 +125,13 @@ int	DBsync_host_with_template(int hostid,int templateid,int items,int triggers,i
 {
 	DB_RESULT	result;
 	DB_ROW		row;
+	char	sql[MAX_STRING_LEN];
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In DBsync_host_with_template(%d,%d)", hostid, templateid);
 
 	/* Sync items */
-	result = DBselect("select itemid from items where hostid=%d", templateid);
+	snprintf(sql,sizeof(sql)-1,"select itemid from items where hostid=%d", templateid);
+	result = DBselect(sql);
 
 	while((row=DBfetch(result)))
 	{
@@ -131,7 +140,8 @@ int	DBsync_host_with_template(int hostid,int templateid,int items,int triggers,i
 	DBfree_result(result);
 
 	/* Sync triggers */
-	result = DBselect("select distinct t.triggerid from hosts h, items i,triggers t,functions f where h.hostid=%d and h.hostid=i.hostid and t.triggerid=f.triggerid and i.itemid=f.itemid", templateid);
+	snprintf(sql,sizeof(sql)-1,"select distinct t.triggerid from hosts h, items i,triggers t,functions f where h.hostid=%d and h.hostid=i.hostid and t.triggerid=f.triggerid and i.itemid=f.itemid", templateid);
+	result = DBselect(sql);
 	while((row=DBfetch(result)))
 	{
 		DBadd_trigger_to_linked_hosts(atoi(row[0]),hostid);
@@ -139,7 +149,8 @@ int	DBsync_host_with_template(int hostid,int templateid,int items,int triggers,i
 	DBfree_result(result);
 
 	/* Sync graphs */
-	result = DBselect("select distinct gi.gitemid from graphs g,graphs_items gi,items i where i.itemid=gi.itemid and i.hostid=%d and g.graphid=gi.graphid", templateid);
+	snprintf(sql,sizeof(sql)-1,"select distinct gi.gitemid from graphs g,graphs_items gi,items i where i.itemid=gi.itemid and i.hostid=%d and g.graphid=gi.graphid", templateid);
+	result = DBselect(sql);
 	while((row=DBfetch(result)))
 	{
 		DBadd_graph_item_to_linked_hosts(atoi(row[0]),hostid);
@@ -153,11 +164,13 @@ int	DBget_host_by_hostid(int hostid,DB_HOST *host)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
+	char	sql[MAX_STRING_LEN];
 	int	ret = SUCCEED;
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In DBget_host_by_hostid(%d)", hostid);
 
-	result = DBselect("select hostid,host,useip,ip,port,status,disable_until,errors_from,error,available from hosts where hostid=%d", hostid);
+	snprintf(sql,sizeof(sql)-1,"select hostid,host,useip,ip,port,status,disable_until,errors_from,error,available from hosts where hostid=%d", hostid);
+	result=DBselect(sql);
 
 	row=DBfetch(result);
 	if(!row)
@@ -181,6 +194,45 @@ int	DBget_host_by_hostid(int hostid,DB_HOST *host)
 	DBfree_result(result);
 
 	zabbix_log( LOG_LEVEL_DEBUG, "End of DBget_host_by_hostid");
+
+	return ret;
+}
+
+int	DBget_profile_by_hostid(int hostid,DB_PROFILE *profile)
+{
+	DB_RESULT	result;
+	DB_ROW		row;
+	char	sql[MAX_STRING_LEN];
+	int	ret = SUCCEED;
+
+	zabbix_log( LOG_LEVEL_DEBUG, "In DBget_profile_by_hostid(%d)", hostid);
+
+	snprintf(sql,sizeof(sql)-1,"select devicetype,name,os,serialno,tag,macaddress,hardware,software,contact,location,notes from hosts_profiles where hostid=%d", hostid);
+	result=DBselect(sql);
+
+	row=DBfetch(result);
+	if(!row)
+	{
+		ret = FAIL;
+	}
+	else
+	{
+		profile->devicetype = row[0];
+		profile->name = row[1];
+		profile->os = row[2];
+		profile->serialno = row[3];
+		profile->tag = row[4];
+		profile->macaddress = row[5];
+		profile->hardware = row[6];
+		profile->software = row[7];
+		profile->contact = row[8];
+		profile->location = row[9];
+		profile->notes = row[10];
+	}
+
+	DBfree_result(result);
+
+	zabbix_log( LOG_LEVEL_DEBUG, "End of DBget_profile_by_hostid");
 
 	return ret;
 }

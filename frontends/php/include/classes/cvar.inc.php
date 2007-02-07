@@ -19,69 +19,19 @@
 **/
 ?>
 <?php
-	/* private */ class CVarTag extends CTag
+	class CVar extends CTag
 	{
 /* public */
-		function CVarTag($name="",$value="0")
+		function CVar($name="",$value="0")
 		{
 			parent::CTag('input','no');
 			$this->options['type'] = 'hidden';
 			$this->options['name'] = $name;
-			$this->SetValue($value);
+			$this->options['value'] = $value;
 		}
 		function SetValue($value)
 		{ 
-			$this->options['value'] = htmlspecialchars($value);
-		}
-	}
-
-	/* public */ class CVar
-	{
-		/*
-		var $var_container = array();
-		var $var_name;*/
-
-		function CVar($name,$value=null)
-		{
-			$this->var_container = array();
-			$this->var_name = $name;
-
-			$this->SetValue($value);
-		}
-		
-		function SetValue($value)
-		{
-			$this->var_container = array();
-
-			if(is_null($value)) return;
-
-			$this->ParseValue($this->var_name, $value);
-		}
-
-		function ParseValue($name, $value)
-		{
-			if(is_array($value))
-			{
-				foreach($value as $itemid => $item)
-				{
-					if( null == $item ) continue;
-					$this->ParseValue($name.'['.$itemid.']', $item);
-				}
-				return;
-			}
-
-			array_push($this->var_container, new CVarTag($name, $value));
-		}
-
-		function ToString()
-		{
-			$res = "";
-
-			foreach($this->var_container as $item)
-			{
-				$res .= $item->ToString();
-			}
-			return $res;
+			$this->options['value'] = $value;
 		}
 	}
 ?>

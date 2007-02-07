@@ -19,48 +19,6 @@
 **/
 ?>
 <?php
-	function	graph_item_type2str($type,$count=null)
-	{
-		switch($type)
-		{
-			case GRAPH_ITEM_AGGREGATED:	$type = S_AGGREGATED.(isset($count) ? '('.$count.')' : '');	break;
-			case GRAPH_ITEM_SIMPLE:
-			default:			$type = S_SIMPLE;	break;
-		}
-		return $type;
-	}
-	
-        function	graph_item_drawtype2str($drawtype,$type=null)
-        {
-		if($type == GRAPH_ITEM_AGGREGATED) return '-';
-
-		switch($drawtype)
-		{
-			case GRAPH_ITEM_DRAWTYPE_LINE:		$drawtype = "Line";		break;
-			case GRAPH_ITEM_DRAWTYPE_FILLED_REGION:	$drawtype = "Filled region";	break;
-			case GRAPH_ITEM_DRAWTYPE_BOLD_LINE:	$drawtype = "Bold line";	break;
-			case GRAPH_ITEM_DRAWTYPE_DOT:		$drawtype = "Dot";		break;
-			case GRAPH_ITEM_DRAWTYPE_DASHED_LINE:	$drawtype = "Dashed line";	break;
-			default: $drawtype = S_UNKNOWN;		break;
-		}
-		return $drawtype;
-        }
-
-	function	graph_item_calc_fnc2str($calc_fnc, $type=null)
-	{
-		if($type == GRAPH_ITEM_AGGREGATED) return '-';
-		
-		switch($calc_fnc)
-		{
-			case CALC_FNC_ALL:      $calc_fnc = S_ALL_SMALL;        break;
-			case CALC_FNC_MIN:      $calc_fnc = S_MIN_SMALL;        break;
-			case CALC_FNC_MAX:      $calc_fnc = S_MAX_SMALL;        break;
-			case CALC_FNC_AVG:
-			default:		$calc_fnc = S_AVG_SMALL;        break;
-		}
-		return $calc_fnc;
-	}
-	
 	function 	get_graph_by_gitemid($gitemid)
 	{
 		$db_graphs = DBselect("select distinct g.* from graphs g, graphs_items gi".
@@ -110,7 +68,7 @@
 
 	function	get_graphitem_by_itemid($itemid)
 	{
-		$result = DBfetch(DBselect('select * from graphs_items where itemid='.$itemid));
+		$result=DBselect("select * from graphs_items where itemid=$itemid");
 		$row=DBfetch($result);
 		if($row)
 		{
@@ -139,105 +97,54 @@
 
 	# Add Graph
 
-	function	add_graph($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype=GRAPH_TYPE_NORMAL,$templateid=0)
+	function	add_graph($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$templateid=0)
 	{
-		$graphid = get_dbid("graphs","graphid");
+		if(!check_right("Graph","A",0))
+		{
+			error("Insufficient permissions");
+			return 0;
+		}
 
 		$result=DBexecute("insert into graphs".
-			" (graphid,name,width,height,yaxistype,yaxismin,yaxismax,templateid,show_work_period,show_triggers,graphtype)".
-			" values ($graphid,".zbx_dbstr($name).",$width,$height,$yaxistype,$yaxismin,".
-			" $yaxismax,$templateid,$showworkperiod,$showtriggers,$graphtype)");
-		if($result)
+			" (name,width,height,yaxistype,yaxismin,yaxismax,templateid,show_work_period,show_triggers)".
+			" values (".zbx_dbstr($name).",$width,$height,$yaxistype,$yaxismin,".
+			" $yaxismax,$templateid,$showworkperiod,$showtriggers)");
+		$graphid =  DBinsert_id($result,"graphs","graphid");
+		if($graphid)
 		{
 			info("Graph '$name' added");
-			$result = $graphid;
 		}
-		return $result;
+		return $graphid;
 	}
 
-	function	add_graph_with_items($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype=GRAPH_TYPE_NORMAL,$items=array(),$templateid=0)
-	{
-		if($result = add_graph($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$templateid))
-		{
-			foreach($items as $gitem)
-			{
-				if(!add_item_to_graph(
-					$result,
-					$gitem['itemid'],
-					$gitem['color'],
-					$gitem['drawtype'],
-					$gitem['sortorder'],
-					$gitem['yaxisside'],
-					$gitem['calc_fnc'],
-					$gitem['type'],
-					$gitem['periods_cnt']))
-				{
-					delete_graph($result);
-					return false;
-				}
-				
-			}
-		}
-		return $result;
-	}
-	
 	# Update Graph
 
-	function	update_graph($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype=GRAPH_TYPE_NORMAL,$templateid=0)
+	function	update_graph($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$templateid=0)
 	{
+		if(!check_right("Graph","U",0))
+		{
+			error("Insufficient permissions");
+			return 0;
+		}
+
 		$g_graph = get_graph_by_graphid($graphid);
 
 		$graphs = get_graphs_by_templateid($graphid);
 		while($graph = DBfetch($graphs))
 		{
 			$result = update_graph($graph["graphid"],$name,$width,
-				$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$graphid);
+				$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphid);
 			if(!$result)
 				return $result;
 		}
 
 		$result = DBexecute("update graphs set name=".zbx_dbstr($name).",width=$width,height=$height,".
 			"yaxistype=$yaxistype,yaxismin=$yaxismin,yaxismax=$yaxismax,templateid=$templateid,".
-			"show_work_period=$showworkperiod,show_triggers=$showtriggers,graphtype=$graphtype ".
+			"show_work_period=$showworkperiod,show_triggers=$showtriggers ".
 			"where graphid=$graphid");
 		if($result)
 		{
-			if($g_graph['graphtype'] != $graphtype && $graphtype == GRAPH_TYPE_STACKED)
-			{
-				$result = DBexecute("update graphs_items set calc_fnc=".CALC_FNC_AVG.",drawtype=1,type=".GRAPH_ITEM_SIMPLE);
-			}
-
 			info("Graph '".$g_graph["name"]."' updated");
-		}
-		return $result;
-	}
-	
-	function	update_graph_with_items($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype=GRAPH_TYPE_NORMAL,$items=array(),$templateid=0)
-	{
-		$result = update_graph($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,
-						$showtriggers,$graphtype,$templateid);
-
-		if($result)	$result = DBexecute("delete from graphs_items where graphid=$graphid");
-
-		if($result)
-		{
-			foreach($items as $gitem)
-			{
-				if(!add_item_to_graph(
-					$graphid,
-					$gitem['itemid'],
-					$gitem['color'],
-					$gitem['drawtype'],
-					$gitem['sortorder'],
-					$gitem['yaxisside'],
-					$gitem['calc_fnc'],
-					$gitem['type'],
-					$gitem['periods_cnt']))
-				{
-					delete_graph($graphid);
-					return false;
-				}
-			}
 		}
 		return $result;
 	}
@@ -246,6 +153,12 @@
 
 	function	delete_graph($graphid)
 	{
+		if(!check_right("Graph","U",0))
+		{
+			error("Insufficient permissions");
+			return 0;
+		}
+
 		$graph = get_graph_by_graphid($graphid);
 
 		$chd_graphs = get_graphs_by_templateid($graphid);
@@ -265,6 +178,10 @@
 		if($result)
 		{	
 			info("Graph '".$graph["name"]."' deleted");
+
+			// delete graph permisions
+			DBexecute('delete from rights where name=\'Graph\' and id='.$graphid);
+
 		}
 		return $result;
 	}
@@ -286,10 +203,11 @@
 
 	function	add_item_to_graph($graphid,$itemid,$color,$drawtype,$sortorder,$yaxisside,$calc_fnc,$type,$periods_cnt)
 	{
-		$gitemid=get_dbid("graphs_items","gitemid");
 		$result = DBexecute("insert into graphs_items".
-			" (gitemid,graphid,itemid,color,drawtype,sortorder,yaxisside,calc_fnc,type,periods_cnt)".
-			" values ($gitemid,$graphid,$itemid,".zbx_dbstr($color).",$drawtype,$sortorder,$yaxisside,$calc_fnc,$type,$periods_cnt)");
+			" (graphid,itemid,color,drawtype,sortorder,yaxisside,calc_fnc,type,periods_cnt)".
+			" values ($graphid,$itemid,".zbx_dbstr($color).",$drawtype,$sortorder,$yaxisside,$calc_fnc,$type,$periods_cnt)");
+
+		$gitemid = DBinsert_id($result,"graphs_items","gitemid");
 
 		$item = get_item_by_itemid($itemid);
 		$graph = get_graph_by_graphid($graphid);
@@ -308,7 +226,7 @@
 				{
 					$new_graphid = add_graph($graph["name"],$graph["width"],$graph["height"],
 						$graph["yaxistype"],$graph["yaxismin"],$graph["yaxismax"],$graph["show_work_period"],
-						$graph["show_triggers"],$graph["graphtype"],$graph["graphid"]);
+						$graph["show_triggers"],$graph["graphid"]);
 
 					if(!$new_graphid)
 					{
@@ -366,10 +284,9 @@
 		if($result)
 		{
 			info("Added Item '".$item["description"]."' for graph '".$graph["name"]."'");
-			$result = $gitemid;
 		}
 
-		return $result;
+		return $gitemid;
 	}
 	
 	function	update_graph_item($gitemid,$itemid,$color,$drawtype,$sortorder,$yaxisside,$calc_fnc,$type,$periods_cnt)
@@ -521,69 +438,32 @@
 		return $result;
 	}
 
-	function	delete_template_graphs($hostid, $templateid = null /* array format 'arr[id]=name' */, $unlink_mode = false)
+	function	delete_template_graphs_by_hostid($hostid)
 	{
 		$db_graphs = get_graphs_by_hostid($hostid);
 		while($db_graph = DBfetch($db_graphs))
 		{
-			if($db_graph["templateid"] == 0)
-				continue;
-
-			if($templateid != null)
-			{
-				$tmp_graph = get_graph_by_graphid($db_graph["templateid"]);
-				if(is_array($templateid))
-				{
-					if(!isset($templateid[$tmp_graph["hostid"]]))
-						continue;
-				}
-				elseif($tmp_graph["hostid"] != $templateid)
-					continue;
-			}
-
-			if($unlink_mode)
-			{
-				if(DBexecute("update graphs set templateid=0 where graphid=".$db_graph["graphid"]))
-				{
-					info("Graph '".$db_graph["name"]."' unlinked");
-				}	
-			}
-			else
-			{
-				delete_graph($db_graph["graphid"]);
-			}
+			if($db_graph["templateid"] == 0)	continue;
+			delete_graph($db_graph["graphid"]);
 		}
 	}
 	
-	function	copy_template_graphs($hostid, $templateid = null /* array format 'arr[id]=name' */, $copy_mode = false)
+	function	sync_graphs_with_templates($hostid)
 	{
-		if($templateid == null)
-		{
-			$templateid = get_templates_by_hostid($hostid);
-		}
-		
-		if(is_array($templateid))
-		{
-			foreach($templateid as $id => $name)
-				copy_template_graphs($hostid, $id, $copy_mode); // attention recursion
-			return;
-		}
-
-		$db_graphs = get_graphs_by_hostid($templateid);
-
+		$host = get_host_by_hostid($hostid);	
+		$db_graphs = get_graphs_by_hostid($host["templateid"]);
 		while($db_graph = DBfetch($db_graphs))
 		{
-			copy_graph_to_host($db_graph["graphid"], $hostid, $copy_mode);
+			copy_graph_to_host($db_graph["graphid"], $hostid);
 		}
 	}
 
-	function	copy_graph_to_host($graphid, $hostid, $copy_mode = false)
+	function	copy_graph_to_host($graphid, $hostid)
 	{
 		$db_graph = get_graph_by_graphid($graphid);
-		$new_graphid = add_graph($db_graph["name"],$db_graph["width"],$db_graph["height"],$db_graph["yaxistype"],
-			$db_graph["yaxismin"],$db_graph["yaxismax"],$db_graph["show_work_period"],$db_graph["show_triggers"], 
-			$db_graph["graphtype"],$copy_mode ? 0 : $graphid
-			);
+		$new_graphid = add_graph($db_graph["name"],$db_graph["width"],$db_graph["height"],
+			$db_graph["yaxistype"],$db_graph["yaxismin"],$db_graph["yaxismax"],$db_graph["show_work_period"],
+			$db_graph["show_triggers"],$graphid);
 
 		if(!$new_graphid)
 			return $new_graphid;
@@ -591,7 +471,7 @@
 		$result = copy_graphitems_for_host($graphid, $new_graphid, $hostid);
 		if(!$result)
 		{
-			delete_graph($new_graphid);
+			delete_graph($graphid);
 		}
 		return $result;
 	}
@@ -627,6 +507,8 @@
 
 	function	navigation_bar_calc()
 	{
+		global $_REQUEST;
+
 //		$workingperiod = 3600;
 		if(!isset($_REQUEST["period"]))	$_REQUEST["period"]=3600;
 		if(!isset($_REQUEST["from"]))	$_REQUEST["from"]=0;
@@ -672,14 +554,12 @@
 
 		$form->AddItem(S_PERIOD.SPACE);
 
-		$period = get_request('period', 3600);
-
-		if(in_array($period,array(3600,2*3600,4*3600,8*3600,12*3600,24*3600,7*24*3600,31*24*3600,365*24*3600)))
+		if(in_array($_REQUEST["period"],array(3600,2*3600,4*3600,8*3600,12*3600,24*3600,7*24*3600,31*24*3600,365*24*3600)))
 			$custom_per = 3*3600;
 		else
-			$custom_per = $period;
+			$custom_per = $_REQUEST["period"];
 
-		$cmbPeriod = new CComboBox("period",$period,"submit()");
+		$cmbPeriod = new CComboBox("period",$_REQUEST["period"],"submit()");
 		$cmbPeriod->AddItem($custom_per,"custom");
 		$cmbPeriod->AddItem(3600,"1h");
 		$cmbPeriod->AddItem(2*3600,"2h");
@@ -743,7 +623,7 @@
 			if(isset($_REQUEST[$item]))
 				$form->AddVar($item,$_REQUEST[$item]);
 
-		show_table_header(
+		show_header2(
 			S_NAVIGATE,
 			$form);
 

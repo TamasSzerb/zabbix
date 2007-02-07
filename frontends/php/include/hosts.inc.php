@@ -19,64 +19,52 @@
 **/
 ?>
 <?php
-require_once "include/graphs.inc.php";
-require_once "include/profiles.inc.php";
-require_once "include/triggers.inc.php";
-require_once "include/items.inc.php";
 
 /* HOST GROUP functions */
 	function	add_host_to_group($hostid, $groupid)
 	{
 		if(!is_numeric($hostid) || !is_numeric($groupid)){
-			error("incorrect parameters for 'add_host_to_group' [hostid:".$hostid."][groupid:".$groupid."]");
-			return false;
+			error("incorrect parameters for 'add_host_to_group'");
+			return FALSE;
 		}
-		$hostgroupid=get_dbid("hosts_groups","hostgroupid");
-		$result=DBexecute("insert into hosts_groups (hostgroupid,hostid,groupid) values ($hostgroupid,$hostid,$groupid)");
-		if(!$result)
-			return $result;
-		return $hostgroupid;
+		return DBexecute("insert into hosts_groups (hostid,groupid) values ($hostid,$groupid)");
 	}
 
-	function	db_save_group($name,$groupid=null)
+	function	db_save_group($name,$groupid=NULL)
 	{
 		if(!is_string($name)){
 			error("incorrect parameters for 'db_save_group'");
-			return false;
+			return FALSE;
 		}
 	
-		if($groupid==null)
-			$result = DBselect("select * from groups where name=".zbx_dbstr($name));
+		if($groupid==NULL)
+			$result = DBexecute("select * from groups where name=".zbx_dbstr($name));
 		else
-			$result = DBselect("select * from groups where name=".zbx_dbstr($name).
+			$result = DBexecute("select * from groups where name=".zbx_dbstr($name).
 				" and groupid<>$groupid");
 		
 		if(DBfetch($result))
 		{
 			error("Group '$name' already exists");
-			return false;
+			return FALSE;
 		}
-		if($groupid==null)
-		{
-			$groupid=get_dbid("groups","groupid");
-			if(!DBexecute("insert into groups (groupid,name) values (".$groupid.",".zbx_dbstr($name).")"))
-				return false;
-			return $groupid;
-
-		}
+		if($groupid==NULL)
+			return DBexecute("insert into groups (name) values (".zbx_dbstr($name).")");
 		else
 			return DBexecute("update groups set name=".zbx_dbstr($name)." where groupid=$groupid");
 	}
 
 	function	add_group_to_host($hostid,$newgroup="")
 	{
-		if($newgroup == "" || $newgroup == null)
-			 return true;
+		if($newgroup == "" || $newgroup == NULL)
+			 return TRUE;
 
-		$groupid = db_save_group($newgroup);
-		if(!$groupid)
-			return	$groupid;
+		$result = db_save_group($newgroup);
+		if(!$result)
+			return	$result;
 		
+		$groupid = DBinsert_id($result,"groups","groupid");
+
 		return add_host_to_group($hostid, $groupid);
 	}
 
@@ -102,10 +90,18 @@ require_once "include/items.inc.php";
 
 	function	add_host_group($name,$hosts=array())
 	{
-		$groupid = db_save_group($name);
-		if(!$groupid)
-			return	$groupid;
+//		if(!check_right("Host","A",0))
+//		{
+//			error("Insufficient permissions");
+//			return FLASE;
+//		}
+
+		$result = db_save_group($name);
+		if(!$result)
+			return	$result;
 		
+		$groupid = DBinsert_id($result,"groups","groupid");
+
 		update_host_groups_by_groupid($groupid,$hosts);
 
 		return $groupid;
@@ -113,6 +109,13 @@ require_once "include/items.inc.php";
 
 	function	update_host_group($groupid,$name,$hosts)
 	{
+//		if(!check_right("Host","U",0))
+//		{
+//			error("Insufficient permissions");
+//			return 0;
+//		}
+
+
 		$result = db_save_group($name,$groupid);
 		if(!$result)
 			return	$result;
@@ -123,84 +126,78 @@ require_once "include/items.inc.php";
 	}
 
 /* HOST finction */
-	function 	check_circle_host_link($hostid, $templates)
+	function 	check_circle_host_link($hostid, $templateid)
 	{
-		if(count($templates) == 0)	return false;
-		if(isset($templates[$hostid]))	return true;
-		foreach($templates as $id => $name)
-			if(check_circle_host_link($hostid, get_templates_by_hostid($id)))
-				return true;
-			
-		return false;
+		if($templateid <= 0)		return FALSE;
+		if($hostid == $templateid)	return TRUE;
+		$template = get_host_by_hostid($templateid);
+		if($template["templateid"] > 0)
+			return check_circle_host_link($hostid, $template["templateid"]);
+
+		return FALSE;
 	}
 
-	function	db_save_host($host,$port,$status,$useip,$ip,$templates,$hostid=null)
+	function	db_save_host($host,$port,$status,$useip,$ip,$templateid,$hostid=NULL)
 	{
-		global $ZBX_CURNODEID;
-		
-/* Character '-' must be last in the list of symbols, otherwise it won't be accepted */
- 		if (!eregi('^([0-9a-zA-Z\_\.\$[.-.]]+)$', $host)) 
+/* '-' must be last in the list of character, otherwise it won't be accepted */
+ 		if (!eregi('^([0-9a-zA-Z\_\.\$-]+)$', $host)) 
 		{
-			error("Hostname should contain '0-9a-zA-Z_.$'- characters only");
-			return false;
+			error("Hostname should contain '0-9a-zA-Z_.-$' characters only");
+			return FALSE;
 		}
 
+		if($hostid==NULL)
+			$result=DBexecute("select * from hosts where host=".zbx_dbstr($host));
+		else
+			$result=DBexecute("select * from hosts where host=".zbx_dbstr($host).
+				" and hostid<>$hostid");
 
-		if(DBfetch(DBselect(
-			"select * from hosts where host=".zbx_dbstr($host).
-				' and '.DBid2nodeid('hostid').'='.$ZBX_CURNODEID.
-				(isset($hostid) ? ' and hostid<>'.$hostid : '')
-			)))
+		if(DBfetch($result))
 		{
 			error("Host '$host' already exists");
-			return false;
+			return FALSE;
 		}
 
 		if($useip=="on" || $useip=="yes" || $useip==1)		$useip=1;
 		else							$useip=0;
 
-
-		if($hostid==null)
+		if($hostid==NULL)
 		{
-			$hostid = get_dbid("hosts","hostid");
 			$result = DBexecute("insert into hosts".
-				" (hostid,host,port,status,useip,ip,disable_until,available)".
-				" values ($hostid,".zbx_dbstr($host).",$port,$status,$useip,".zbx_dbstr($ip).",0,"
-				.HOST_AVAILABLE_UNKNOWN.")");
+				" (host,port,status,useip,ip,disable_until,available,templateid)".
+				" values (".zbx_dbstr($host).",$port,$status,$useip,".zbx_dbstr($ip).",0,"
+				.HOST_AVAILABLE_UNKNOWN.",$templateid)");
 		}
 		else
 		{
-			if(check_circle_host_link($hostid, $templates))
+			if(check_circle_host_link($hostid, $templateid))
 			{
 				error("Circle link can't be created");
-				return false;
+				return FALSE;
 			}
 
 			$result = DBexecute("update hosts set host=".zbx_dbstr($host).",".
-				"port=$port,useip=$useip,ip=".zbx_dbstr($ip)." where hostid=$hostid");
+				"port=$port,useip=$useip,ip=".zbx_dbstr($ip).",templateid=$templateid".
+				" where hostid=$hostid");
 
 			update_host_status($hostid, $status);
 		}
-		
-		foreach($templates as $id => $name)
-		{
-			$hosttemplateid = get_dbid('hosts_templates', 'hosttemplateid');
-			if(!($result = DBexecute('insert into hosts_templates values ('.$hosttemplateid.','.$hostid.','.$id.')')))
-				break;
-		}
-
-		if($result) $result = $hostid;
-		
 		return $result;
 	}
 
-	function	add_host($host,$port,$status,$useip,$ip,$templates,$newgroup,$groups)
+	function	add_host($host,$port,$status,$useip,$ip,$templateid,$newgroup,$groups)
 	{
-		$hostid = db_save_host($host,$port,$status,$useip,$ip,$templates);
-		if(!$hostid)
-			return $hostid;
-		else
-			info('Added new host ['.$host.']');
+		if(!check_right("Host","A",0))
+		{
+			error("Insufficient permissions");
+			return FALSE;
+		}
+
+		$result = db_save_host($host,$port,$status,$useip,$ip,$templateid);
+		if(!$result)
+			return $result;
+	
+		$hostid = DBinsert_id($result,"hosts","hostid");
 
 		update_host_groups($hostid,$groups);
 
@@ -213,20 +210,17 @@ require_once "include/items.inc.php";
 		return	$hostid;
 	}
 
-	function	update_host($hostid,$host,$port,$status,$useip,$ip,$templates,$newgroup,$groups)
+	function	update_host($hostid,$host,$port,$status,$useip,$ip,$templateid,$newgroup,$groups)
 	{
-		$old_templates = get_templates_by_hostid($hostid);
-		$unlinked_templates = array_diff($old_templates, $templates);
-		foreach($unlinked_templates as $id => $name)
+		if(!check_right("Host","U",$hostid))
 		{
-			unlink_template($hostid, $id);
+			error("Insufficient permissions");
+			return FALSE;
 		}
-		
+
 		$old_host = get_host_by_hostid($hostid);
 
-		$new_templates = array_diff($templates, $old_templates);
-
-		$result = db_save_host($host,$port,$status,$useip,$ip,$new_templates,$hostid);
+		$result = db_save_host($host,$port,$status,$useip,$ip,$templateid,$hostid);
 		if(!$result)
 			return $result;
 
@@ -234,43 +228,29 @@ require_once "include/items.inc.php";
 
 		add_group_to_host($hostid,$newgroup);
 
-		if(count($new_templates) > 0)
-		{
-			sync_host_with_templates($hostid,$new_templates);
-		}
+		if($old_host["templateid"] != $templateid)
+			sync_host_with_templates($hostid);
 
 		return	$result;
 	}
 
-	function	unlink_template($hostid, $templateid, $unlink_mode = true)
-	{
-		if(is_array($templateid)) fatal_error('array not supported for [unlink_template]');
-
-		delete_template_elements($hostid, $templateid, $unlink_mode);
-		DBexecute("delete from hosts_templates where hostid=".$hostid.' and templateid='.$templateid);
-	}
-
-	function	delete_template_elements($hostid, $templateid = null, $unlink_mode = false)
-	{
-		delete_template_graphs($hostid, $templateid, $unlink_mode);
-		delete_template_triggers($hostid, $templateid, $unlink_mode);
-		delete_template_items($hostid, $templateid, $unlink_mode);
-		delete_template_applications($hostid, $templateid, $unlink_mode);
-	}	
-
-	function	copy_template_elements($hostid, $templateid = null, $copy_mode = false)
-	{
-		copy_template_applications($hostid, $templateid, $copy_mode);
-		copy_template_items($hostid, $templateid, $copy_mode);
-		copy_template_triggers($hostid, $templateid, $copy_mode);
-		copy_template_graphs($hostid, $templateid, $copy_mode);
-	}
-
 # Sync host with linked template
-	function	sync_host_with_templates($hostid, $templateid = null)
+	function	sync_host_with_templates($hostid)
 	{
-		delete_template_elements($hostid, $templateid);		
-		copy_template_elements($hostid, $templateid);
+		$host = get_host_by_hostid($hostid);
+		delete_template_graphs_by_hostid($hostid);
+		delete_template_triggers_by_hostid($hostid);
+		delete_template_items_by_hostid($hostid);
+		
+		if($host["templateid"] > 0)
+		{
+// start host syncing
+			sync_applications_with_template($hostid);
+			sync_items_with_template($hostid);
+			sync_triggers_with_template($hostid);
+			sync_graphs_with_templates($hostid);
+// end host syncing
+		}
 	}
 
 	function	delete_groups_by_hostid($hostid)
@@ -294,18 +274,11 @@ require_once "include/items.inc.php";
 
 	# Delete Host
 
-	function	delete_host($hostid, $unlink_mode = false)
+	function	delete_host($hostid)
 	{
 		global $DB_TYPE;
 
-		$ret = false;
-
-	// unlink child hosts
-		$db_childs = get_hosts_by_templateid($hostid);
-		while($db_child = DBfetch($db_childs))
-		{
-			unlink_template($db_child["hostid"], $hostid, $unlink_mode);
-		}
+		$ret = FALSE;
 
 	// delete items -> triggers -> graphs
 		$db_items = get_items_by_hostid($hostid);
@@ -320,11 +293,19 @@ require_once "include/items.inc.php";
 	// delete host from group
 		DBexecute("delete from hosts_groups where hostid=$hostid");
 
-	// delete host from template linkages
-		DBexecute("delete from hosts_templates where hostid=$hostid");
+	// unlink child hosts
+		$db_childs = get_hosts_by_templateid($hostid);
+		while($db_child = DBfetch($db_childs))
+		{
+			DBexecute("update hosts set templateid=0 where hostid=".$db_child["hostid"]);
+			sync_host_with_templates($hostid);
+		}
 
 	// delete host profile
 		delete_host_profile($hostid);
+
+	// delete host permisions
+		DBexecute('delete from rights where name=\'Host\' and id='.$hostid);
 
 	// delete host
 		return DBexecute("delete from hosts where hostid=$hostid");
@@ -350,7 +331,7 @@ require_once "include/items.inc.php";
 			return $row;
 		}
 		error("No host groups with groupid=[$groupid]");
-		return  false;
+		return  FALSE;
 	}
 
 	function	get_host_by_itemid($itemid)
@@ -363,7 +344,7 @@ require_once "include/items.inc.php";
 			return $row;
 		}
 		error("No host with itemid=[$itemid]");
-		return	false;
+		return	FALSE;
 	}
 
 	function	get_host_by_hostid($hostid,$no_error_message=0)
@@ -377,19 +358,27 @@ require_once "include/items.inc.php";
 		}
 		if($no_error_message == 0)
 			error("No host with hostid=[$hostid]");
-		return	false;
+		return	FALSE;
 	}
 
-	function	&get_hosts_by_templateid($templateid)
+	function	get_hosts_by_templateid($templateid)
 	{
-		return DBselect("select h.* from hosts h, hosts_templates ht where h.hostid=ht.hostid and ht.templateid=$templateid");
+		return DBselect("select * from hosts where templateid=$templateid");
 	}
 
 	# Update Host status
 
 	function	update_host_status($hostid,$status)
 	{
-		$row=DBfetch(DBselect("select status,host from hosts where hostid=$hostid"));
+                if(!check_right("Host","U",0))
+                {
+                        error("Insufficient permissions");
+                        return 0;
+                }
+
+		$sql="select status,host from hosts where hostid=$hostid";
+		$result=DBselect($sql);
+		$row=DBfetch($result);
 		$old_status=$row["status"];
 		if($status != $old_status)
 		{
@@ -404,34 +393,30 @@ require_once "include/items.inc.php";
 		}
 	}
 	
-	function	get_templates_by_hostid($hostid)
+	function	get_template_path($hostid)
 	{
-		$resuilt = array();
-		$db_templates = DBselect('select distinct h.hostid,h.host from hosts_templates ht '.
-			' left join hosts h on h.hostid=ht.templateid '.
-			' where ht.hostid='.$hostid);
-		while($template_data = DBfetch($db_templates))
-		{
-			$resuilt[$template_data['hostid']] = $template_data['host'];
-		}
-		return $resuilt;
+		$host = get_host_by_hostid($hostid);
+
+		if ($host["templateid"]==0)
+			return "/";
+
+		$tmp_host = get_host_by_hostid($host["templateid"]);	
+		return get_template_path($tmp_host["hostid"]).$tmp_host["host"]."/";
 	}
 
-	function get_correct_group_and_host($a_groupid=null, $a_hostid=null, $perm=PERM_READ_WRITE, $options = array())
+	function get_correct_group_and_host($a_groupid=NULL, $a_hostid=NULL, $right="U", $options = array())
 	{
 		if(!is_array($options))
 		{
-			fatal_error("Incorrest options for get_correct_group_and_host");
+			error("Incorrest options for get_correct_group_and_host");
+			show_page_footer();
+			exit;
 		}
-
-		global $USER_DETAILS;
-		global $ZBX_CURNODEID;
 		
-		$first_hostid_in_group = 0;
+		$first_hostig_in_group = 0;
 
 		$allow_all_hosts = (in_array("allow_all_hosts",$options)) ? 1 : 0;
 		$always_select_first_host = in_array("always_select_first_host",$options) ? 1 : 0;
-		$only_current_node = in_array("only_current_node",$options) ? 1 : 0;
 
 		if(in_array("monitored_hosts",$options))
 			$with_host_status = " and h.status=".HOST_STATUS_MONITORED;
@@ -446,10 +431,6 @@ require_once "include/items.inc.php";
 			$item_table = "";		$with_items = "";
 		}
 
-		$with_node = "";
-
-		$accessed_hosts = get_accessible_hosts_by_user($USER_DETAILS,$perm);
-
 		if(is_null($a_groupid))
 		{
 			$groupid = 0;
@@ -458,16 +439,27 @@ require_once "include/items.inc.php";
 		{
 			$groupid = $a_groupid;
 
+			if($groupid > 0) 
+				if(!DBfetch(DBselect("select distinct hg.groupid from hosts_groups hg".
+					" where hg.groupid=".$groupid)))
+						$groupid = 0;
+
 			if($groupid > 0)
 			{
-				if($only_current_node) $with_node = " and ".DBid2nodeid('g.groupid')."=".$ZBX_CURNODEID." ";
-				
-				if(!DBfetch(DBselect("select distinct g.groupid from groups g, hosts_groups hg, hosts h".$item_table.
-					" where hg.groupid=g.groupid and h.hostid=hg.hostid and h.hostid in (".$accessed_hosts.") ".
-					" and g.groupid=".$groupid.$with_host_status.$with_items.$with_node)))
+				// Check if at least one host with read permission exists for this group
+				$sql = "select distinct h.hostid,h.host from hosts h,hosts_groups hg".$item_table.
+					" where hg.groupid=".$groupid." and hg.hostid=h.hostid and".
+					" h.status<>".HOST_STATUS_DELETED.$with_host_status.$with_items.
+					" order by h.host";
+
+				$db_hosts = DBselect($sql);
+				while($db_host = DBfetch($db_hosts))
 				{
-					$groupid = 0;
+					if(!check_right("Host",$right,$db_host["hostid"]))	continue;
+					$first_hostig_in_group = $db_host["hostid"];
+					break;
 				}
+				if($first_hostig_in_group == 0)	$groupid = 0;
 			}
 
 		}
@@ -480,108 +472,85 @@ require_once "include/items.inc.php";
 			$hostid = $a_hostid;
 			if(!($hostid == 0 && $allow_all_hosts == 1)) /* is not 'All' selected */
 			{
-				$group_table = "";
-				$witth_group = "";
-
-				if($groupid != 0)
+				if($groupid == 0)
 				{
-					if($only_current_node) $with_node = " and ".DBid2nodeid('hg.hostid')."=".$ZBX_CURNODEID." ";
-					
-					if(!DBfetch(DBselect("select hg.hostid from hosts_groups hg".
-						" where hg.groupid=".$groupid." and hg.hostid=".$hostid.$with_node)))
+					$sql = "select distinct h.hostid,h.host from hosts h".$item_table.
+						" where h.status<>".HOST_STATUS_DELETED.$with_host_status.$with_items.
+						" order by h.host";
+
+					$db_hosts = DBselect($sql);
+					while($db_host = DBfetch($db_hosts))
 					{
-						$hostid = 0;
+						if(!check_right("Host",$right,$db_host["hostid"]))	continue;
+						$first_hostig_in_group = $db_host["hostid"];
+						break;
 					}
-					$group_table = " ,hosts_groups hg ";
-					$witth_group = " and hg.hostid=h.hostid and hg.groupid=".$groupid;
+					if($first_hostig_in_group == 0)	$hostid = 0;
 				}
 
-				if($only_current_node) $with_node = " and ".DBid2nodeid('h.hostid')."=".$ZBX_CURNODEID." ";
-				
-				if($db_host = DBfetch(DBselect("select distinct h.hostid,h.host from hosts h ".$item_table.$group_table.
-					" where h.hostid in (".$accessed_hosts.") "
-					.$with_host_status.$with_items.$witth_group.$with_node.
-					" order by h.host")))
-				{
-					$first_hostid_in_group = $db_host["hostid"];
+				if($groupid > 0)
+				{ 
+					if(!DBfetch(DBselect("select hg.hostid from hosts_groups hg".
+						" where hg.groupid=".$groupid." and hg.hostid=".$hostid)))
+							$hostid = 0;
 				}
 
-				if($first_hostid_in_group == 0)	$hostid = 0; /* no hosts in selected grpore */
+				if(!check_right("Host",$right,$hostid)) $hostid = 0;
 
 				if($hostid > 0)
 				{
-					if($only_current_node) $with_node = " and ".DBid2nodeid('h.hostid')."=".$ZBX_CURNODEID." ";
-					
 					if(!DBfetch(DBselect("select distinct h.hostid from hosts h".$item_table.
-						" where h.hostid=".$hostid.$with_host_status.$with_items.$with_node.
-						" and h.hostid in (".$accessed_hosts.") ")))
-					{
+						" where h.status<>".HOST_STATUS_DELETED.$with_host_status.$with_items.
+						" and h.hostid=".$hostid)))
 							$hostid = 0;
-					}
 				}
-
 				if(($hostid < 0) || ($hostid == 0 && $always_select_first_host == 1)) /* incorrect host */
 				{
-					$hostid = $first_hostid_in_group;
+					$hostid = $first_hostig_in_group;
 				}
 			}
 		}
 
-		$group_correct	= ($groupid == $a_groupid) ? 1 : 0;
-		$host_correct	= ($hostid == $a_hostid) ? 1 : 0;
-		return array(
+		$host_correct = ($hostid == $a_hostid) ? 1 : 0;
+		$group_correct = ($groupid == $a_groupid) ? 1 : 0;
+		$correct = ($group_correct && $host_correct) ? 1 : 0;
+
+		$result = array(
 			"groupid"	=> $groupid,
 			"group_correct"	=> $group_correct,
 			"hostid"	=> $hostid,
 			"host_correct"	=> $host_correct,
-			"correct"	=> ($group_correct && $host_correct) ? 1 : 0
+			"correct"	=> $correct
 			);
+
+		return $result;
 	}
 
-	function	validate_group_with_host($perm, $options = array(),$group_var=null,$host_var=null)
+	function	validate_group_with_host($right, $options = array(),$group_var=NULL,$host_var=NULL)
 	{
 		if(is_null($group_var)) $group_var = "web.latest.groupid";
 		if(is_null($host_var))	$host_var = "web.latest.hostid";
 
-		$_REQUEST["groupid"]    = get_request("groupid", -1 );
-		$_REQUEST["hostid"]     = get_request("hostid", get_profile($host_var,0));
-		
-		if($_REQUEST["groupid"] == -1)
-		{
-			$_REQUEST["groupid"] = get_profile($group_var,0);
+		$_REQUEST["groupid"]    = get_request("groupid",get_profile($group_var,0));
+		$_REQUEST["hostid"]     = get_request("hostid",get_profile($host_var,
+			(in_array("always_select_first_host",$options)) ? -1 : 0));
 
-			if ($_REQUEST["hostid"] > 0 && !DBfetch(DBselect('select groupid from hosts_groups '.
-				' where hostid='.$_REQUEST["hostid"].' and groupid='.$_REQUEST["groupid"])))
-			{
-					$_REQUEST["groupid"] = 0;
-			}
-		}
-		
-//		SDI("ig:".$_REQUEST["groupid"]);	
-//		SDI("ih:".$_REQUEST["hostid"]);	
-
-		if(in_array("always_select_first_host",$options) && $_REQUEST["hostid"] == 0 && $_REQUEST["groupid"] != 0)
-			$_REQUEST["hostid"] = -1;
-
-		$result = get_correct_group_and_host($_REQUEST["groupid"],$_REQUEST["hostid"], $perm, $options);
+		$result = get_correct_group_and_host($_REQUEST["groupid"],$_REQUEST["hostid"], $right, $options);
 
 		$_REQUEST["groupid"]    = $result["groupid"];
 		$_REQUEST["hostid"]     = $result["hostid"];
-
-//		SDI("og:".$_REQUEST["groupid"]);	
-//		SDI("oh:".$_REQUEST["hostid"]);	
 
 		update_profile($host_var,$_REQUEST["hostid"]);
 		update_profile($group_var,$_REQUEST["groupid"]);
 	}
 
-	function	validate_group($perm, $options = array(),$group_var=null)
+	function	validate_group($right, $options = array(),$group_var=NULL)
 	{
 		if(is_null($group_var)) $group_var = "web.latest.groupid";
 
 		$_REQUEST["groupid"]    = get_request("groupid",get_profile($group_var,0));
 
-		$result = get_correct_group_and_host($_REQUEST["groupid"],null,$perm,$options);
+		$result = get_correct_group_and_host($_REQUEST["groupid"],NULL,$right,$options);
 
 		$_REQUEST["groupid"]    = $result["groupid"];
 
@@ -590,42 +559,41 @@ require_once "include/items.inc.php";
 
 /* APPLICATIONS */
 
-	function	db_save_application($name,$hostid,$applicationid=null,$templateid=0)
+	function	db_save_application($name,$hostid,$applicationid=NULL,$templateid=0)
 	{
 		if(!is_string($name)){
 			error("incorrect parameters for 'db_save_application'");
-			return false;
+			return FALSE;
 		}
 	
-		if($applicationid==null)
-			$result = DBselect("select * from applications where name=".zbx_dbstr($name)." and hostid=".$hostid);
+		if($applicationid==NULL)
+			$result = DBexecute("select * from applications where name=".zbx_dbstr($name)." and hostid=".$hostid);
 		else
-			$result = DBselect("select * from applications where name=".zbx_dbstr($name)." and hostid=".$hostid.
+			$result = DBexecute("select * from applications where name=".zbx_dbstr($name)." and hostid=".$hostid.
 				" and applicationid<>$applicationid");
 
 		$db_app = DBfetch($result);
 		if($db_app && $templateid==0)
 		{
 			error("Application '$name' already exists");
-			return false;
+			return FALSE;
 		}
-		if($db_app && $applicationid!=null)
+		if($db_app && $applicationid!=NULL)
 		{ // delete old item with same name
 			delete_application($db_app["applicationid"]);
 		}
 
-		if($db_app && $applicationid==null)
+		if($db_app && $applicationid==NULL)
 		{ // if found application with same name update them, adding not needed
 			$applicationid = $db_app["applicationid"];
 		}
 
 		$host = get_host_by_hostid($hostid);
 		
-		if($applicationid==null)
+		if($applicationid==NULL)
 		{
-			$applicationid_new = get_dbid("applications","applicationid");
-			if($result = DBexecute("insert into applications (applicationid,name,hostid,templateid)".
-				" values ($applicationid_new,".zbx_dbstr($name).",$hostid,$templateid)"))
+			if($result = DBexecute("insert into applications (name,hostid,templateid)".
+				" values (".zbx_dbstr($name).",$hostid,$templateid)"))
 					info("Added new application ".$host["host"].":$name");
 		}
 		else
@@ -638,9 +606,9 @@ require_once "include/items.inc.php";
 
 		if(!$result)	return $result;
 
-		if($applicationid==null)
-		{// create application for childs
-			$applicationid = $applicationid_new;
+		if($applicationid==NULL)
+		{
+			$applicationid = DBinsert_id($result,"applications","applicationid");
 
 			$db_childs = get_hosts_by_templateid($hostid);
 			while($db_child = DBfetch($db_childs))
@@ -669,7 +637,7 @@ require_once "include/items.inc.php";
 	}
 	function	add_application($name,$hostid,$templateid=0)
 	{
-		return db_save_application($name,$hostid,null,$templateid);
+		return db_save_application($name,$hostid,NULL,$templateid);
 	}
 
 	function	update_application($applicationid,$name,$hostid,$templateid=0)
@@ -689,26 +657,15 @@ require_once "include/items.inc.php";
 			$result = delete_application($db_app["applicationid"]);
 			if(!$result)	return	$result;
 		}
-
-		if($info = DBfetch(DBselect('select name from httptest where applicationid='.$applicationid)))
-		{
-			info("Application '".$host["host"].":".$app["name"]."' used by scenario '".$info['name']."'");
-			return false;
-		}
  
-		if($info = DBfetch(DBselect('select i.key_, i.description from items_applications ia, items i '.
-			' where i.type='.ITEM_TYPE_HTTPTEST.' and i.itemid=ia.itemid and ia.applicationid='.$applicationid)))
-		{
-			info("Application '".$host["host"].":".$app["name"]."' used by item '".
-				item_description($info['description'], $info['key_'])."'");
-			return false;
-		}
-
 		$result = DBexecute("delete from items_applications where applicationid=$applicationid");
 
 		$result = DBexecute("delete from applications where applicationid=$applicationid");
 		if($result)
 		{
+		// delete application permisions
+			DBexecute('delete from rights where name=\'Application\' and id='.$applicationid);
+
 			info("Application '".$host["host"].":".$app["name"]."' deleted");
 		}
 		return $result;
@@ -724,11 +681,11 @@ require_once "include/items.inc.php";
 		}
 		if($no_error_message == 0)
 			error("No application with id=[$applicationid]");
-		return	false;
+		return	FALSE;
 		
 	}
 
-	function	&get_applications_by_templateid($applicationid)
+	function	get_applications_by_templateid($applicationid)
 	{
 		return DBselect("select * from applications where templateid=".$applicationid);
 	}
@@ -752,99 +709,33 @@ require_once "include/items.inc.php";
 			return $row;
 		}
 		error("No host with applicationid=[$applicationid]");
-		return	false;
+		return	FALSE;
 	}
 
-	function	&get_items_by_applicationid($applicationid)
+	function	get_items_by_applicationid($applicationid)
 	{
 		return DBselect("select i.* from items i,items_applications ia where i.itemid=ia.itemid and ia.applicationid=$applicationid");
 	}
 
-	function	&get_applications_by_hostid($hostid)
+	function	get_applications_by_hostid($hostid)
 	{
 		return DBselect("select * from applications where hostid=$hostid");
 	}
 
-	function        delete_template_applications($hostid, $templateid = null /* array format 'arr[id]=name' */, $unlink_mode = false)
+	function	sync_applications_with_template($hostid)
 	{
-		$db_apps = get_applications_by_hostid($hostid);
-		while($db_app = DBfetch($db_apps))
-		{
-			if($db_app["templateid"] == 0)
-				continue;
+		$host = get_host_by_hostid($hostid);
 
-			if($templateid != null)
-			{
-				$db_tmp_apps = get_applications_by_hostid($db_app["templateid"]);
-				if(is_array($templateid))
-				{
-					if(!isset($templateid[$db_tmp_app["hostid"]]))
-						continue;
-				}
-				elseif($templateid != $db_tmp_app["hostid"])
-					continue;
-			}
-			
-			if($unlink_mode)
-			{
-				if(DBexecute("update applications set templateid=0 where applicationid=".$db_app["applicationid"]))
-				{
-					info("Application '".$db_app["name"]."' unlinked");
-				}
-			}
-			else
-			{
-				delete_application($db_app["applicationid"]);
-			}
-		}
-	}
+//SDI("sync host: ".$host['host']);
 
-	function	copy_template_applications($hostid, $templateid = null /* array format 'arr[id]=name' */, $copy_mode = false)
-	{
-		if(null == $templateid)
-		{
-			$templateid = get_templates_by_hostid($hostid);
-		}
-		
-		if(is_array($templateid))
-		{
-			foreach($templateid as $id => $name)
-				copy_template_applications($hostid, $id, $copy_mode); // attention recursion
-			return;
-		}
-
-		$db_tmp_applications = get_applications_by_hostid($templateid);
+		$db_tmp_applications = get_applications_by_hostid($host["templateid"]);
 
 		while($db_tmp_app = DBfetch($db_tmp_applications))
 		{
 			add_application(
 				$db_tmp_app["name"],
 				$hostid,
-				$copy_mode ? 0 : $db_tmp_app["applicationid"]);
+				$db_tmp_app["applicationid"]);
 		}
-	}
-
-	function	validate_templates($templateid_list)
-	{
-		if(is_numeric($templateid_list))return true;
-		if(!is_array($templateid_list))	return false;
-		if(count($templateid_list)<2)	return true;
-		
-		$result = true;
-		$db_cnt = DBfetch(DBselect('select key_,type,count(*) as cnt from items '.
-			' where hostid in ('.implode(',',$templateid_list).') '.
-			' group by key_,type order by cnt desc'
-			));
-
-		$result &= $db_cnt['cnt'] > 1 ? false : true;
-
-		$db_cnt = DBfetch(DBselect('select name,count(*) as cnt from applications '.
-			' where hostid in ('.implode(',',$templateid_list).') '.
-			' group by name order by cnt desc'
-			));
-
-		$result &= $db_cnt['cnt'] > 1 ? false : true;
-
-		return $result;
 	}
 ?>

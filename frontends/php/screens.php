@@ -19,24 +19,14 @@
 **/
 ?>
 <?php
-	require_once "include/config.inc.php";
-	require_once "include/graphs.inc.php";
-	require_once "include/screens.inc.php";
+	include "include/config.inc.php";
 
 
 	$page["title"] = "S_CUSTOM_SCREENS";
 	$page["file"] = "screens.php";
 
 	$_REQUEST["fullscreen"] = get_request("fullscreen", 0);
-
-	if($_REQUEST["fullscreen"])
-	{
-		define('ZBX_PAGE_NO_MENU', 1);
-	}
-	define('ZBX_PAGE_DO_REFRESH', 1);
-	
-include_once "include/page_header.php";
-
+	show_header($page["title"],1,$_REQUEST["fullscreen"] >= 1 ? 1 : 0);
 ?>
 
 <?php
@@ -59,82 +49,66 @@ include_once "include/page_header.php";
 ?>
 
 <?php
-	$_REQUEST["screenid"] = get_request("screenid",get_profile("web.screens.screenid", null));
-	$_REQUEST["fullscreen"] = get_request("fullscreen", 0);
+	$_REQUEST["screenid"]=get_request("screenid",get_profile("web.screens.screenid",0));
 
 	update_profile("web.screens.screenid",$_REQUEST["screenid"]);
+	update_profile("web.menu.view.last",$page["file"]);
 ?>
 
 <?php
 	$text = array(S_SCREENS_BIG);
-
-	$screenid = get_request('screenid', null);
-	if($screenid <= 0) $screenid = null;
-
-	if(isset($screenid))
-	{
-		$screen = get_screen_by_screenid($screenid);
+	if($_REQUEST["screenid"] > 0)
+		{
+		$screen = get_screen_by_screenid($_REQUEST["screenid"]);
 		if($screen) {
-			$url = "screens.php?screenid=".$screenid;
+			$url = "screens.php?screenid=".$_REQUEST["screenid"];
 			if($_REQUEST["fullscreen"]==0) $url .= "&fullscreen=1";
 			array_push($text,nbsp(" / "),new CLink($screen["name"], $url));
 		}
 		else
 		{
-			$screenid = null;
-			update_profile("web.screens.screenid",0);
+			$_REQUEST["screenid"] = 0;
+			update_profile("web.screens.screenid",$_REQUEST["screenid"]);
 		}
 	}
+
 	$form = new CForm();
 	$form->AddVar("fullscreen",$_REQUEST["fullscreen"]);
 
-	$cmbScreens = new CComboBox("screenid",$screenid,"submit()");
-	unset($screen_correct);
-	unset($first_screen);
-
-	$result = DBselect("select screenid,name from screens where ".DBid2nodeid("screenid")."=".$ZBX_CURNODEID." order by name");
+	$cmbScreens = new CComboBox("screenid",$_REQUEST["screenid"],"submit()");
+	$screen_correct = 0;
+	$first_screen = 0;
+	$result=DBselect("select screenid,name from screens order by name");
 	while($row=DBfetch($result))
 	{
-		if(!screen_accessiable($row["screenid"], PERM_READ_ONLY))
+		if(!check_right("Screen","R",$row["screenid"]))
 			continue;
-
 		$cmbScreens->AddItem($row["screenid"],$row["name"]);
-		if($screenid == $row["screenid"]) $screen_correct = 1;
-		if(!isset($first_screen)) $first_screen = $row["screenid"];
+		if($_REQUEST["screenid"] == $row["screenid"]) $screen_correct = 1;
+		if($first_screen == 0) $first_screen = $row["screenid"];
 	}
-
-	if(!isset($screen_correct) && isset($first_screen))
+	if($screen_correct == 0 && $first_screen != 0)
 	{
-		$screenid = $first_screen;
+		$_REQUEST["screenid"] = $first_screen;
 	}
 
-	if(isset($screenid))
-	{
-		if(!screen_accessiable($screenid, PERM_READ_ONLY))
-			access_deny();
-	}
-			
-	if($cmbScreens->ItemsCount() > 0)
-		$form->AddItem($cmbScreens);
-
-	show_table_header($text,$form);
+	$form->AddItem($cmbScreens);
+	show_header2($text,$form);
 ?>
+
 <?php
-	if(isset($screenid))
+	if($_REQUEST["screenid"] > 0 && check_right("Screen","R",$_REQUEST["screenid"]))
 	{
-		$effectiveperiod = navigation_bar_calc();
-		$table = get_screen($screenid, 0, $effectiveperiod);
+		$effectiveperiod=navigation_bar_calc();
+		$table = get_screen($_REQUEST["screenid"], 0, $effectiveperiod);
 		$table->Show();
 		
 		navigation_bar("screens.php");
 	}
-	else
-	{
-		echo unpack_object(new CTableInfo(S_NO_SCREENS_DEFINED));
-	}
 ?>
 <?php
-
-include_once "include/page_footer.php";
-
+	if($_REQUEST["fullscreen"]==0)
+	{
+		show_page_footer();
+	}
 ?>

@@ -27,19 +27,20 @@
 			parent::CTag('input','no');
 			$this->tag_body_start = '';
 			$this->options['type'] = 'submit';
-			$this->AddOption('value', $caption);
+			$this->options['value'] = $caption;
+//			$this->options["type"] = "button";
 			$this->options['class'] = 'button';
 			$this->SetName($name);
 			$this->SetAction($action);
 			$this->SetAccessKey($accesskey);
 		}
-		function SetAction($value=null)
+		function SetAction($value='submit()', $event='onClick')
 		{
-			$this->AddAction('onClick', $value);
+			$this->options[$event] = htmlspecialchars($value);
 		}
 		function SetTitle($value='button title')
 		{
-			$this->AddOption('title', $value);
+			$this->options['title'] = $value;
 		}
 		function SetAccessKey($value='B')
 		{
@@ -47,54 +48,37 @@
 				if(!isset($this->options['title']))
 					$this->SetTitle($this->options['value'].' [Alt+'.$value.']');
 
-			return $this->AddOption('accessKey', $value);
+			return $this->options['accessKey'] = $value;
 		}
 	}
 
 	class CButtonCancel extends CButton
 	{
-		function CButtonCancel($vars=NULL,$action=NULL){
+		function CButtonCancel($vars=NULL){
 			parent::CButton('cancel',S_CANCEL);
-			$this->options['type'] = 'button';
 			$this->SetVars($vars);
-			$this->SetAction($action);
 		}
 		function SetVars($value=NULL){
 			global $page;
 
-			$url = "?cancel=1";
+			$url = $page["file"]."?cancel=1";
 
 			if(!is_null($value))
 				$url = $url.$value;
 
-			return parent::SetAction("return Redirect('$url')");
+			return $this->SetAction("return Redirect('$url')");
 		}
 	}
 
-	class CButtonDelete extends CButtonQMessage
+	class CButtonDelete extends CButton
 	{
-		function CButtonDelete($msg=NULL, $vars=NULL){
-			parent::CButtonQMessage("delete",S_DELETE,$msg,$vars);
-		}
-	}
-
-	class CButtonQMessage extends CButton
-	{
-		/*
 		var $vars;
 		var $msg;
-		var $name;*/
 
-		function CButtonQMessage($name, $caption, $msg=NULL, $vars=NULL){
-			$this->vars = null;
-			$this->msg = null;
-			$this->name = $name;
-			
-			parent::CButton($name,$caption);
-
+		function CButtonDelete($msg=NULL, $vars=NULL){
+			parent::CButton("delete",S_DELETE);
 			$this->SetMessage($msg);
 			$this->SetVars($vars);
-			$this->SetAction(NULL);
 		}
 		function SetVars($value=NULL){
 			if(!is_string($value) && !is_null($value)){
@@ -113,24 +97,16 @@
 			$this->msg = $value;
 			$this->SetAction(NULL);
 		}
-		function SetAction($value=null){
+		function SetAction($value=NULL){
 			if(!is_null($value))
 				return parent::SetAction($value);
 
 			global $page;
 
 			$confirmation = "Confirm('".$this->msg."')";
+			$redirect = "Redirect('".$page["file"]."?delete=1".$this->vars."')";
 			
-			if(isset($this->vars))
-			{
-				$action = "Redirect('".$page["file"]."?".$this->name."=1".$this->vars."')";
-			}
-			else
-			{
-				$action = 'true';
-			}
-			
-			return parent::SetAction("if(".$confirmation.") return ".$action."; else return false;");
+			return parent::SetAction("if(".$confirmation.") return ".$redirect."; else return false;");
 		}
 	}
 ?>

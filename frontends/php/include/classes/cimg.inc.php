@@ -22,7 +22,7 @@
 	class CImg extends CTag
 	{
 /* public */
-		function CImg($src,$name=NULL,$width=NULL,$height=NULL,$class=NULL)
+		function CImg($src,$alt_text=NULL,$width=NULL,$height=NULL,$class=NULL)
 		{
 			parent::CTag("img","no");
 
@@ -31,12 +31,8 @@
 			$this->tag_body_start = "";
 			$this->tag_body_end = "";
 
-			if(is_null($name))
-				$name="image";
-
 			$this->AddOption('border',0);
-			$this->SetName($name);
-			$this->SetAltText($name);
+			$this->SetAltText($alt_text);
 			$this->SetSrc($src);
 			$this->SetWidth($width);
 			$this->SetHeight($height);
@@ -52,6 +48,9 @@
 		}
 		function SetAltText($value=NULL)
 		{
+			if(is_null($value))
+				$value="image";
+
 			if(!is_string($value))
 			{
 				return $this->error("Incorrect value for SetText [$value]");

@@ -19,17 +19,6 @@
 **/
 ?>
 <?php
-	function destroy_objects()
-	{
-		global $GLOBALS;
-
-		if(isset($GLOBALS)) foreach($GLOBALS as $name => $value)
-		{
-			if(!is_object($GLOBALS[$name])) continue;
-			unset($GLOBALS[$name]);
-		}
-	}
-	
 	function unpack_object(&$item)
 	{
 		$res = "";
@@ -40,93 +29,33 @@
 		}
 		elseif(is_array($item))
 		{
-			foreach($item as $id => $dat)	
-				$res .= unpack_object($item[$id]); // Attention, recursion !!!
+			foreach($item as $i)	
+				$res .= unpack_object($i); // Attention, recursion !!!
 		}
 		elseif(!is_null($item))
 		{
 			$res = strval($item);
-			unset($item);
 		}
 		return $res;
 	}
 
-	function implode_objects($glue, &$pieces)
+	class CTag
 	{
-		if( !is_array($pieces) )	return unpack_object($pieces);
-
-		foreach($pieces as $id => $piece)
-			$pieces[$id] = unpack_object($piece);
-
-		return implode($glue, $pieces);
-	}
-
-	class CObject
-	{
-		function CObject($items=null)
-		{
-			$this->items = array();
-			if(isset($items))
-			{
-				$this->AddItems($items);
-			}
-		}
-		
-		function ToString($destroy=true)
-		{
-			$res = implode('',$this->items);
-			if($destroy) $this->Destroy();
-			return $res;
-		}
-
-		function Show($destroy=true)	{	echo $this->ToString($destroy);			}
-
-		function Destroy()
-		{
-### TODO Problem under PHP 5.0  "Fatal error: Cannot re-assign $this in ..."
-#			$this = null;
-			$this->CleanItems();
-		}
-
-		function CleanItems()		{	$this->items = array();				}
-		function ItemsCount()		{	return count($this->items);			}
-		function AddItem($value)
-		{
-			if(is_array($value))
-			{
-				foreach($value as $item)
-				{
-					array_push($this->items,unpack_object($item));
-				}
-			}
-			elseif(!is_null($value))
-			{
-				array_push($this->items,unpack_object($value));
-			}
-		}
-	}
-
-	class CTag extends CObject
-	{
-/* private *//*
+/* private */
 		var $tagname;
 		var $options = array();
-		var $paired;*/
-/* protected *//*
+		var $paired;
+/* protected */
 		var $items = array();
 
 		var $tag_body_start;
 		var $tag_body_end;
 		var $tag_start;
-		var $tag_end;*/
+		var $tag_end;
 
 /* public */
-		function CTag($tagname=NULL, $paired='no', $body=NULL, $class=null)
+		function CTag($tagname=NULL, $paired='no', $body=NULL)
 		{
-			parent::CObject();
-
-			$this->options = array();
-
 			if(!is_string($tagname))
 			{
 				return $this->error('Incorrect tagname for CTag ['.$tagname.']');
@@ -145,31 +74,26 @@
 				CTag::AddItem($body);
 			}
 
-			$this->SetClass($class);
-
 		}
 		function ShowStart()	{	echo $this->StartToString();	}
 		function ShowBody()	{	echo $this->BodyToString();	}
 		function ShowEnd()	{	echo $this->EndToString();	}
+		function Show()		{	echo $this->ToString();		}
 
 		function StartToString()
 		{
 			$res = $this->tag_start.'<'.$this->tagname;
 			foreach($this->options as $key => $value)
-			{
 				$res .= ' '.$key.'="'.$value.'"';
-			}
 			$res .= ($this->paired=='yes') ? '>' : '/>';
 			return $res;
 		}
 		function BodyToString()
 		{
 			$res = $this->tag_body_start;
-			return $res.parent::ToString(false);
-			
-			/*foreach($this->items as $item)
+			foreach($this->items as $item)
 				$res .= $item;
-			return $res;*/
+			return $res;
 		}
 		function EndToString()
 		{
@@ -177,25 +101,16 @@
 			$res .= $this->tag_end;
 			return $res;
 		}
-		function ToString($destroy=true)
+		function ToString()
 		{
 			$res  = $this->StartToString();
 			$res .= $this->BodyToString();
 			$res .= $this->EndToString();
-
-			if($destroy) $this->Destroy();
-
 			return $res;
 		}
 		function SetName($value)
 		{
-			if(is_null($value)) return $value;
-
-			if(!is_string($value))
-			{
-				return $this->error("Incorrect value for SetName [$value]");
-			}
-			return $this->AddOption("name",$value);
+			$this->options['name'] = $value;
 		}
 		function GetName()
 		{
@@ -205,12 +120,7 @@
 		}
 		function SetClass($value)		
 		{
-			if(isset($value))
-				$this->options['class'] = $value;
-			else
-				unset($this->options['class']);
-
-			return $value;
+			return $this->options['class'] = $value;
 		}
 		function DelOption($name)
 		{
@@ -223,44 +133,32 @@
 				$ret =& $this->options[$name];
 			return $ret;
 		}
-
-		function SetHint($text, $width='', $class='')
-		{
-			insert_showhint_javascript();
-
-			$text = unpack_object($text);
-			if($width != '' || $class!= '')
-			{
-				$code = "show_hint_ext(this,event,'".$text."','".$width."','".$class."');";
-			}
-			else
-			{
-				$code = "show_hint(this,event,'".$text."');";
-			}
-
-			$this->AddAction('onMouseOver',	$code);
-			$this->AddAction('onMouseMove',	'update_hint(this,event);');
-		}
-
-		function OnClick($handle_code)
-		{
-			$this->AddAction('onClick', $handle_code);
-		}
-
-		function AddAction($name, $value)
-		{
-			if(!empty($value))
-				$this->options[$name] = htmlentities(str_replace(array("\r", "\n"), '', strval($value)),ENT_COMPAT); 
-		}
-
 		function AddOption($name, $value)
 		{
-			if(isset($value))
-				$this->options[$name] = htmlspecialchars(strval($value)); 
-			else
-				unset($this->options[$name]);
+			$this->options[$name] = htmlspecialchars(strval($value)); 
 		}
-
+		function CleanItems()
+		{
+			$this->items = array();
+		}
+		function ItemsCount()
+		{
+			return count($this->items);
+		}
+		function AddItem($value)
+		{
+			if(is_array($value))
+			{
+				foreach($value as $item)
+				{
+					array_push($this->items,unpack_object($item));
+				}
+			}
+			elseif(!is_null($value))
+			{
+				array_push($this->items,unpack_object($value));
+			}
+		}
 		function SetEnabled($value='yes')
 		{
 			if((is_string($value) && ($value == 'yes' || $value == 'enabled' || $value=='on') || $value=='1')

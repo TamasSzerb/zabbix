@@ -13,14 +13,13 @@ copy="no"
 tgz="no"
 configure="no"
 domake="no"
-doinstall="no"
-config_param=""
+config_param="--prefix=`pwd`"
 dotest="no"
 cleanwarnings="no"
 docat="yes"
 help="no"
-noparam=0
-def="--enable-agent --enable-server --with-mysql --prefix=`echo $HOME`/local/zabbix --with-ldap --with-net-snmp --with-libcurl --with-jabber"
+noparam=0;
+def="--enable-agent --enable-server --with-mysql --with-ldap --with-net-snmp"
 
 for cmd
 do
@@ -33,10 +32,7 @@ do
     conf )	configure="yes";	noparam=1;;
     config )	configure="yes";	noparam=1;;
     configure )	configure="yes";	noparam=1;;
-    mk )	domake="yes";		noparam=1;;
     make )	domake="yes";		noparam=1;;
-    inst )	doinstall="yes";	noparam=1;;
-    install )	doinstall="yes";	noparam=1;;
     test )	dotest="yes";		noparam=1;;
     tar )	tgz="yes";		noparam=1;;
     nocat )	docat="no";		noparam=1;;
@@ -48,7 +44,7 @@ do
     help )	help="yes";;
     h )		help="yes";;
     * ) 
-        echo "$0: ERROR: unknown parameter \"$cmd\""; 
+        echo "$0: ERROR: uncnown parameter \"$cmd\""; 
 	help="yes";
   esac
 done
@@ -59,13 +55,12 @@ then
         echo "  $0 [commands] [options]"
 	echo
 	echo " Commands:"
-	echo "   [win2nix]                - convers win EOL [\\\\r\\\\n] to nix EOL [\\\\n]"
+	echo "   [win2nix]                - convers win EOL [\\r\\n] to nix EOL [\\r]"
 	echo "   [copy|cpy]               - copy automake files"
 	echo "   [premake|pre]            - make configuration file"
 	echo "   [configure|config|conf]  - configure make files"
 	echo "   [make]                   - make applications"
 	echo "   [test]                   - test applications"
-	echo "   [inst|install]           - install applications"
 	echo "   [tar]                    - create ../zabbix.tar.gz of this folder"
 	echo
 	echo " Options:"
@@ -86,7 +81,7 @@ fi
 if [ "$copy" = "yes" ] || [ $premake = "yes" ] || 
   [ $configure = "yes" ] || [ $domake = "yes" ] || 
   [ $dotest = "yes" ] || [ $tgz = "yes" ] ||
-  [ "$win2nix" = "yes" ] || [ $doinstall = "yes" ]
+  [ "$win2nix" = "yes" ]
 then
   cleanwarnings="yes"
 fi
@@ -100,20 +95,20 @@ if [ "$win2nix" = "yes" ]
 then
   echo "Replacing..."
   echo "Replacing..." >> WARNINGS
-  find ./ -name "configure.in" -exec vi "+%s/\\r$//" "+wq" "-es" {} ';' -print 2>> WARNINGS
-  find ./ -name "*.[hc]" -exec vi "+%s/\\r$//" "+wq" "-es" {} ';' -print 2>> WARNINGS
+  find ./src/zabbix_agent_win32/ -name "*.cpp" -exec vi "+%s/\\r$//" "+wq" "-es" {} ';' -print 2>> WARNINGS
+  find ./src/zabbix_agent_win32/ -name "*.h" -exec vi "+%s/\\r$//" "+wq" "-es" {} ';' -print 2>> WARNINGS
+  find ./src/zabbix_agent_win32/ -name "*.mc" -exec vi "+%s/\\r$//" "+wq" "-es" {} ';' -print 2>> WARNINGS
 fi
 
 if [ "$premake" = "yes" ] 
 then
   echo "Pre-making..."
   echo "Pre-making..." >> WARNINGS
-#  aclocal 2>> WARNINGS
-  aclocal -I m4 2>> WARNINGS
+  aclocal 2>> WARNINGS
   autoconf 2>> WARNINGS
   autoheader 2>> WARNINGS
   automake -a 2>> WARNINGS
-#  automake 2>> WARNINGS
+  automake 2>> WARNINGS
 fi
 
 if [ "$copy" = "yes" ] 
@@ -133,17 +128,16 @@ if [ "$configure" = "yes" ]
 then
   echo "Configuring..."
   echo "Configuring..." >> WARNINGS
-  export CFLAGS="-Wall"
+  #export CFLAGS="-Wall"
   #export CFLAGS="-Wall -pedantic"
-  ./configure $config_param 2>> WARNINGS 
-  ./create/schema/gen.pl c 2>> WARNINGS > ./include/dbsync.h
+  ./configure $config_param 2>>WARNINGS 
 fi
 
 if [ "$domake" = "yes" ] 
 then
   echo "Cleaning..."
   echo "Cleaning..." >> WARNINGS
-  make clean 2>> WARNINGS 
+  make clean 2>>WARNINGS 
   echo "Making..."
   echo "Making..." >> WARNINGS
   make 2>>WARNINGS 
@@ -154,25 +148,14 @@ then
   echo "Testing..."
   echo "Testing..." >> WARNINGS
   ./src/zabbix_agent/zabbix_agent -h >> WARNINGS
-  echo "------------------------" >> WARNINGS
   ./src/zabbix_agent/zabbix_agentd -h >> WARNINGS
-  echo "------------------------" >> WARNINGS
   ./src/zabbix_get/zabbix_get -h >> WARNINGS
-  echo "------------------------" >> WARNINGS
   ./src/zabbix_sender/zabbix_sender -h >> WARNINGS
-  echo "------------------------" >> WARNINGS
   ./src/zabbix_server/zabbix_server -h >> WARNINGS
   echo "------------------------" >> WARNINGS 
   echo "   Agent TEST RESULTS   " >> WARNINGS 
   echo "------------------------" >> WARNINGS 
   ./src/zabbix_agent/zabbix_agentd -p >> WARNINGS
-fi
-
-if [ "$doinstall" = "yes" ] 
-then
-  echo "Instalation..."
-  echo "Instalation..." >> WARNINGS
-  make install 2>> WARNINGS 
 fi
 
 if [ "$tgz" = "yes" ] 

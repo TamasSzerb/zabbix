@@ -21,21 +21,11 @@
 <?php
 	class CTriggersInfo extends CTable
 	{
-		/*
 		var $style;
-		var $show_header;
-		var $nodeid;*/
-		
 		function CTriggersInfo($style = STYLE_HORISONTAL)
 		{
-			global $ZBX_CURNODEID;
-
-			$this->style = null;
-
 			parent::CTable(NULL,"triggers_info");
 			$this->SetOrientation($style);
-			$this->show_header = true;
-			$this->nodeid = $ZBX_CURNODEID;
 		}
 
 		function SetOrientation($value)
@@ -46,69 +36,47 @@
 			$this->style = $value;
 		}
 
-		function SetNodeid($nodeid)
-		{
-			$this->nodeid = (int)$nodeid;
-		}
-		
-		function HideHeader()
-		{
-			$this->show_header = false;
-		}
-
 		function BodyToString()
 		{
-			global $USER_DETAILS;
-
 			$this->CleanItems();
 
-			$ok = $uncn = $info = $warn = $avg = $high = $dis = 0;
+			$uncn = $info = $warn = $avg = $high = $dis = 0;
 
-			$db_priority = DBselect("select t.priority,t.value,count(*) as cnt from triggers t,hosts h,items i,functions f".
-				" where t.status=".TRIGGER_STATUS_ENABLED." and f.itemid=i.itemid ".
-				" and h.hostid=i.hostid and h.status=".HOST_STATUS_MONITORED." and t.triggerid=f.triggerid ".
-				" and i.status=".ITEM_STATUS_ACTIVE.
-				' and h.hostid in ('.get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,
-					null, null, $this->nodeid).') '.
-				" group by priority,t.value");
+			$db_priority = DBselect("select t.priority,count(*) as cnt from triggers t,hosts h,items i,functions f".
+				" where t.value=1 and t.status=0 and f.itemid=i.itemid and h.hostid=i.hostid".
+				" and h.status=".HOST_STATUS_MONITORED." and t.triggerid=f.triggerid and i.status=0 group by priority");
+
 			while($row=DBfetch($db_priority))
 			{
-				switch($row["value"])
+				switch($row["priority"])
 				{
-					case TRIGGER_VALUE_TRUE:
-						switch($row["priority"])
-						{
-							case 1: $info	+= $row["cnt"];	break;
-							case 2: $warn	+= $row["cnt"];	break;
-							case 3: $avg	+= $row["cnt"];	break;
-							case 4: $high	+= $row["cnt"];	break;
-							case 5: $dis	+= $row["cnt"];	break;
-							default:
-								$uncn	+= $row["cnt"];	break;
-						}
-						break;
-					case TRIGGER_VALUE_FALSE:
-						$ok	+= $row["cnt"];	break;
-					default:
-						$uncn	+= $row["cnt"];	break;
+					case 0: $uncn	=$row["cnt"];	break;
+					case 1: $info	=$row["cnt"];	break;
+					case 2: $warn	=$row["cnt"];	break;
+					case 3: $avg	=$row["cnt"];	break;
+					case 4: $high	=$row["cnt"];	break;
+					case 5: $dis	=$row["cnt"];	break;
 				}
 			}
 
-			if($this->show_header)
-			{
-				$header = new CCol(S_TRIGGERS_INFO,"header");
-				if($this->style == STYLE_HORISONTAL)
-					$header->SetColspan(7);
-				$this->AddRow($header);
-			}
+			$db_ok_cnt = DBselect("select count(*) as cnt from triggers t,hosts h,items i,functions f".
+				" where t.value=0 and t.status=0 and f.itemid=i.itemid and h.hostid=i.hostid".
+				" and h.status=".HOST_STATUS_MONITORED." and t.triggerid=f.triggerid and i.status=0");
 
-			$trok	= new CCol($ok.SPACE.S_OK,		"normal");
-			$uncn	= new CCol($uncn.SPACE.S_NOT_CLASSIFIED,"unknown");
-			$info	= new CCol($info.SPACE.S_INFORMATION,	"information");
-			$warn	= new CCol($warn.SPACE.S_WARNING,	"warning");
-			$avg	= new CCol($avg.SPACE.S_AVERAGE,	"average");
-			$high	= new CCol($high.SPACE.S_HIGH,		"high");
-			$dis	= new CCol($dis.SPACE.S_DISASTER,	"disaster");
+			$ok_cnt = DBfetch($db_ok_cnt);
+
+			$header = new CCol(S_TRIGGERS_INFO,"header");
+			if($this->style == STYLE_HORISONTAL)
+				$header->SetColspan(7);
+			$this->AddRow($header);
+
+			$trok	= new CCol($ok_cnt["cnt"]."  ".S_OK,	"trok");
+			$uncn	= new CCol($uncn."  ".S_NOT_CLASSIFIED,	"uncn");
+			$info	= new CCol($info."  ".S_INFORMATION,	"info");
+			$warn	= new CCol($warn."  ".S_WARNING,		"warn");
+			$avg	= new CCol($avg."  ".S_AVERAGE,		"avg");
+			$high	= new CCol($high."  ".S_HIGH,		"high");
+			$dis	= new CCol($dis."  ".S_DISASTER,		"dis");
 			
 
 			if($this->style == STYLE_HORISONTAL)

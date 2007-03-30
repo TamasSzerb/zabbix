@@ -19,96 +19,6 @@
 **/
 ?>
 <?php
-	function	action_accessiable($actionid,$perm)
-	{
-		global $USER_DETAILS;
-
-		$result = false;
-
-		if(DBselect("select actionid from actions where actionid=".$actionid.
-			" and ".DBid2nodeid('actionid')." in (".get_accessible_nodes_by_user($USER_DETAILS,$perm).")"))
-		{
-			$result = true;
-			
-			$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY, PERM_MODE_LT);
-			$denyed_groups = get_accessible_groups_by_user($USER_DETAILS,PERM_READ_ONLY, PERM_MODE_LT);
-			
-			$db_result = DBselect("select * from conditions where actionid=".$actionid);
-			while(($ac_data = DBfetch($db_result)) && $result)
-			{
-				if($ac_data['operator'] != 0) continue;
-
-				switch($ac_data['conditiontype'])
-				{
-					case CONDITION_TYPE_GROUP:
-						if(in_array($ac_data['value'],explode(',',$denyed_groups)))
-						{
-							$result = false;
-						}
-						break;
-					case CONDITION_TYPE_HOST:
-						if(in_array($ac_data['value'],explode(',',$denyed_hosts)))
-						{
-							$result = false;
-						}
-						break;
-					case CONDITION_TYPE_TRIGGER:
-						if(!DBfetch(DBselect("select distinct t.*".
-							" from triggers t,items i,functions f".
-							" where f.itemid=i.itemid and t.triggerid=f.triggerid".
-							" and i.hostid not in (".$denyed_hosts.") and t.triggerid=".$ac_data['value'])))
-						{
-							$result = false;
-						}
-						break;
-				}
-			}
-		}
-		return $result;
-	}
-
-	function	check_permission_for_action_conditions($conditions)
-	{
-		global $USER_DETAILS;
-
-		$result = true;
-
-		$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY, PERM_MODE_LT);
-		$denyed_groups = get_accessible_groups_by_user($USER_DETAILS,PERM_READ_ONLY, PERM_MODE_LT);
-		
-		foreach($conditions as $ac_data)
-		{
-			if($ac_data['operator'] != 0) continue;
-
-			switch($ac_data['type'])
-			{
-				case CONDITION_TYPE_GROUP:
-					if(in_array($ac_data['value'],explode(',',$denyed_groups)))
-					{
-						$result = false;
-					}
-					break;
-				case CONDITION_TYPE_HOST:
-					if(in_array($ac_data['value'],explode(',',$denyed_hosts)))
-					{
-						$result = false;
-					}
-					break;
-				case CONDITION_TYPE_TRIGGER:
-					if(!DBfetch(DBselect("select distinct t.*".
-						" from triggers t,items i,functions f".
-						" where f.itemid=i.itemid and t.triggerid=f.triggerid".
-						" and i.hostid not in (".$denyed_hosts.") and t.triggerid=".$ac_data['value'])))
-					{
-						$result = false;
-					}
-					break;
-			}
-			if(!$result) break;
-		}
-		return $result;
-	}
-
 	function	get_action_by_actionid($actionid)
 	{
 		$sql="select * from actions where actionid=$actionid"; 
@@ -125,163 +35,252 @@
 		return	$result;
 	}
 
-	# Add Action's condition
-
-	function	add_action_condition($actionid, $condition)
-	{
-		$conditionid = get_dbid("conditions","conditionid");
-
-		$result = DBexecute('insert into conditions (conditionid,actionid,conditiontype,operator,value)'.
-			' values ('.$conditionid.','.$actionid.','.
-				$condition['type'].','.
-				$condition['operator'].','.
-				zbx_dbstr($condition['value']).
-			')');
-		
-		if(!$result)
-			return $result;
-
-		return $conditionid;
-	}
-
-	function	add_action_operation($actionid, $operation)
-	{
-		$operationid = get_dbid('operations','operationid');
-
-		$result = DBexecute('insert into operations (operationid,actionid,operationtype,object,objectid,shortdata,longdata)'.
-			' values('.$operationid.','.$actionid.','.
-				$operation['operationtype'].','.
-				$operation['object'].','.
-				$operation['objectid'].','.
-				zbx_dbstr($operation['shortdata']).','.
-				zbx_dbstr($operation['longdata']).
-			')');
-		if(!$result)
-			return $result;
-
-		return $operationid;
-	}
 	# Add Action
 
-	function	add_action($name, $eventsource, $evaltype, $status, $conditions, $operations)
+	function	add_action($actiontype,$userid,$subject,$message,$recipient,$maxrepeats,$repeatdelay,$status,$scripts)
 	{
-		if(!is_array($conditions) || count($conditions) == 0)
+//		if(!check_right_on_trigger("A",$triggerid))
+//		{
+//                      error("Insufficient permissions");
+//                      return 0;
+//		}
+
+		if($actiontype == ACTION_TYPE_MESSAGE)
 		{
-			/*
-			error(S_NO_CONDITIONS_DEFINED);
-			return false;
-			*/
+			$scripts = "";
 		}
-		else
+		elseif($actiontype == ACTION_TYPE_COMMAND)
 		{
-			if(!check_permission_for_action_conditions($conditions))
-				return false;
+			$subject = $message = "";
+			$userid = 0;			
+			$recipient = 0;	
+			if(!check_commands($scripts))	return FALSE;
 		}
-
-		if(!is_array($operations) || count($operations) == 0)
-		{
-			error(S_NO_OPERATIONS_DEFINED);
-			return false;
-		}
-
-		foreach($operations as $operation)
-			if($operation['operationtype'] == OPERATION_TYPE_COMMAND && !check_commands($operation['longdata']))
-				return false;
-
-		$actionid=get_dbid("actions","actionid");
-
-		$result = DBexecute('insert into actions (actionid,name,eventsource,evaltype,status)'.
-			' values ('.$actionid.','.zbx_dbstr($name).','.$eventsource.','.$evaltype.','.$status.')');
-
-		if(!$result)
-			return $result;
-
-		foreach($operations as $operation)
-			if( !($result = add_action_operation($actionid, $operation)))
-				break;
-
-		if($result)
-		{
-			foreach($conditions as $condition)
-			if( !($result = add_action_condition($actionid, $condition)))
-				break;
-		}
-
-		if(!$result)
-		{
-			delete_action($actionid);
-			$actionid = $result;
-		}
-
-		return $actionid;
+		$sql="insert into actions (actiontype,userid,subject,message,recipient,".
+			"maxrepeats,repeatdelay,status,scripts) values ($actiontype,$userid,".zbx_dbstr($subject).",".
+			zbx_dbstr($message).",$recipient,$maxrepeats,$repeatdelay,$status,".zbx_dbstr($scripts).")";
+		$result=DBexecute($sql);
+		return DBinsert_id($result,"actions","actionid");
 	}
 
 	# Update Action
 
-	function	update_action($actionid, $name, $eventsource, $evaltype, $status, $conditions, $operations)
+	function	update_action($actionid,$actiontype,$userid,$subject,$message,$recipient,$maxrepeats,$repeatdelay,$status,$scripts)
 	{
-		if(!is_array($conditions) || count($conditions) == 0)
+//		if(!check_right_on_trigger("U",$triggerid))
+//		{
+//                      error("Insufficient permissions");
+//                      return 0;
+//		}
+		if($actiontype == ACTION_TYPE_MESSAGE)
 		{
-			/*
-			error(S_NO_CONDITIONS_DEFINED);
-			return false;
-			*/
+			$scripts = "";
 		}
-		else
+		elseif($actiontype == ACTION_TYPE_COMMAND)
 		{
-			if(!check_permission_for_action_conditions($conditions))
-				return false;
-		}
-
-		if(!is_array($operations) || count($operations) == 0)
-		{
-			error(S_NO_OPERATIONS_DEFINED);
-			return false;
+			$subject = $message = "";
+			$userid = 0;
+			$recipient = 0;	
+			if(!check_commands($scripts))	return FALSE;
 		}
 
-		foreach($operations as $operation)
-			if($operation['operationtype'] == OPERATION_TYPE_COMMAND && !check_commands($operation['longdata']))
-				return false;
-
-		$result = DBexecute('update actions set name='.zbx_dbstr($name).',eventsource='.$eventsource.','.
-			'evaltype='.$evaltype.',status='.$status.' where actionid='.$actionid);
-
-		if($result)
-		{
-			DBexecute('delete from conditions where actionid='.$actionid);
-			DBexecute('delete from operations where actionid='.$actionid);
-
-			foreach($operations as $operation)
-				if( !($result = add_action_operation($actionid, $operation)))
-					break;
-
-			if($result)
-			{
-				foreach($conditions as $condition)
-				if( !($result = add_action_condition($actionid, $condition)))
-					break;
-			}
-		}
-
+		$result=DBexecute("update actions set actiontype=$actiontype,userid=$userid,subject=".zbx_dbstr($subject).",message=".zbx_dbstr($message).",recipient=$recipient,maxrepeats=$maxrepeats, repeatdelay=$repeatdelay,status=$status,scripts=".zbx_dbstr($scripts)." where actionid=$actionid");
 		return $result;
+	}
+
+	# Delete Action by userid
+
+	function	delete_actions_by_userid( $userid )
+	{
+		$sql="select actionid from actions where userid=$userid";
+		$result=DBexecute($sql);
+		while($row=DBfetch($result))
+		{
+			delete_alert_by_actionid($row["actionid"]);
+		}
+
+		$sql="delete from actions where userid=$userid";
+		return	DBexecute($sql);
+	}
+
+	# Delete Conditions associated with actionid
+
+	function	delete_conditions_by_actionid($actionid)
+	{
+		$sql="delete from conditions where actionid=$actionid";
+		return	DBexecute($sql);
 	}
 
 	# Delete Action
 
 	function	delete_action( $actionid )
 	{
-		$return = DBexecute('delete from conditions where actionid='.$actionid);
+		delete_conditions_by_actionid($actionid);
+		delete_alert_by_actionid($actionid);
 
-		if($return)
-			$result = DBexecute('delete from operations where actionid='.$actionid);
+		$sql="delete from actions where actionid=$actionid";
+		$result=DBexecute($sql);
 
-		if($return)
-			$result = DBexecute('delete from alerts where actionid='.$actionid);
-
-		if($return)
-			$result = DBexecute('delete from actions where actionid='.$actionid);
 
 		return $result;
+	}
+
+	# Add action to hardlinked hosts
+
+	function	add_action_to_linked_hosts($actionid,$hostid=0)
+	{
+		if($actionid<=0)
+		{
+			return;
+		}
+
+		$action=get_action_by_actionid($actionid);
+		$trigger=get_trigger_by_triggerid($action["triggerid"]);
+
+		$sql="select distinct h.hostid from hosts h,functions f, items i where i.itemid=f.itemid and h.hostid=i.hostid and f.triggerid=".$action["triggerid"];
+		$result=DBselect($sql);
+		$row=DBfetch($result);
+		if(!$row)
+		{
+			return;
+		}
+
+		$host_template=get_host_by_hostid($row["hostid"]);
+
+		if($hostid==0)
+		{
+			$sql="select hostid,templateid,actions from hosts_templates where templateid=".$row["hostid"];
+		}
+		else
+		{
+			$sql="select hostid,templateid,actions from hosts_templates where hostid=$hostid and templateid=".$row["hostid"];
+		}
+		$result=DBselect($sql);
+		while($row=DBfetch($result))
+		{
+			if($row["actions"]&1 == 0)	continue;
+
+			$sql="select distinct f.triggerid from functions f,items i,triggers t where t.description=".zbx_dbstr($trigger["description"])." and t.triggerid=f.triggerid and i.itemid=f.itemid and i.hostid=".$row["hostid"];
+			$result2=DBselect($sql);
+			while($row2=DBfetch($result2))
+			{
+				$host=get_host_by_hostid($row["hostid"]);
+				$message=str_replace("{".$host_template["host"].":", "{".$host["host"].":",
+					$action["message"]);
+
+				add_action($action["actiontype"],$row2["triggerid"], $action["userid"], $action["good"], 
+					$action["subject"], $message, $action["scope"],
+					$action["severity"], $action["recipient"], $action["maxrepeats"],
+					$action["repeatdelay"],$action["scripts"]);
+			}
+		}
+	}
+
+	# Delete action from hardlinked hosts
+
+	function	delete_action_from_templates($actionid)
+	{
+		if($actionid<=0)
+		{
+			return;
+		}
+
+		$action=get_action_by_actionid($actionid);
+		$trigger=get_trigger_by_triggerid($action["triggerid"]);
+
+		$sql="select distinct h.hostid from hosts h,functions f, items i where i.itemid=f.itemid and h.hostid=i.hostid and f.triggerid=".$action["triggerid"];
+		$result=dbselect($sql);
+
+		$row=dbfetch($result);
+		if(!$row)	return;
+
+		$hostid=$row["hostid"];
+
+		$sql="select hostid,templateid,actions from hosts_templates where templateid=$hostid";
+		$result=dbselect($sql);
+		#enumerate hosts
+		while($row=dbfetch($result))
+		{
+			if($row["actions"]&4 == 0)	continue;
+
+			$sql="select distinct f.triggerid from functions f,items i,triggers t where t.description=".zbx_dbstr($trigger["description"])." and t.triggerid=f.triggerid and i.itemid=f.itemid and i.hostid=".$row["hostid"];
+			$result2=dbselect($sql);
+			#enumerate triggers
+			while($row2=dbfetch($result2))
+			{
+				$sql="select actionid from actions where triggerid=".$row2["triggerid"]." and subject=".zbx_dbstr($action["subject"])." and userid=".$action["userid"]." and good=".$action["good"]." and scope=".$action["scope"]." and recipient=".$action["recipient"]." and severity=".$action["severity"];
+				$result3=dbselect($sql);
+				#enumerate actions
+				while($row3=dbfetch($result3))
+				{
+					delete_action($row3["actionid"]);
+				}
+			}
+		}
+	}
+
+	# Update action from hardlinked hosts
+
+	function	update_action_from_linked_hosts($actionid)
+	{
+		if($actionid<=0)
+		{
+			return;
+		}
+
+		$action=get_action_by_actionid($actionid);
+		$trigger=get_trigger_by_triggerid($action["triggerid"]);
+
+		$sql="select distinct h.hostid from hosts h,functions f, items i where i.itemid=f.itemid and h.hostid=i.hostid and f.triggerid=".$action["triggerid"];
+		$result=dbselect($sql);
+		if(dbnum_rows($result)!=1)
+		{
+			return;
+		}
+
+		$row=dbfetch($result);
+
+		$hostid=$row["hostid"];
+		$host_template=get_host_by_hostid($hostid);
+
+		$sql="select hostid,templateid,actions from hosts_templates where templateid=$hostid";
+		$result=dbselect($sql);
+		#enumerate hosts
+		while($row=dbfetch($result))
+		{
+			if($row["actions"]&2 == 0)	continue;
+
+			$sql="select distinct f.triggerid from functions f,items i,triggers t where t.description=".zbx_dbstr($trigger["description"])." and t.triggerid=f.triggerid and i.itemid=f.itemid and i.hostid=".$row["hostid"];
+			$result2=dbselect($sql);
+			#enumerate triggers
+			while($row2=dbfetch($result2))
+			{
+				$sql="select actionid from actions where triggerid=".$row2["triggerid"]." and subject=".zbx_dbstr($action["subject"]);
+				$result3=dbselect($sql);
+				#enumerate actions
+				while($row3=dbfetch($result3))
+				{
+					$host=get_host_by_hostid($row["hostid"]);
+					$message=str_replace("{".$host_template["host"].":", "{".$host["host"].":", $action["message"]);
+					update_action($row3["actionid"], $action["actiontype"],$row2["triggerid"], $action["userid"], $action["good"], $action["subject"], $message, $action["scope"], $action["severity"], $action["recipient"], $action["maxrepeats"],$action["repeatdelay"],$action["scripts"]);
+
+				}
+			}
+		}
+	}
+
+	function	get_source_description($source)
+	{
+		$desc="Unknown";
+		if($source==1)
+		{
+			$desc="IT Service";
+		}
+		elseif($source==0)
+		{
+			$desc="Trigger";
+		}
+		return $desc;
 	}
 
 	function	get_condition_desc($conditiontype, $operator, $value)
@@ -355,62 +354,13 @@
 		return $desc;
 	}
 
-	define('LONG_DESCRITION', 0);
-	define('SHORT_DESCRITION', 1);
-	function get_operation_desc($type=SHORT_DESCRITION, $data)
+	# Add Action's condition
+
+	function	add_action_condition($actionid, $conditiontype, $operator, $value)
 	{
-		global $cashed_data_for_oper_desc;
-
-		$cash_id = sprintf("%s%02d%02d", $data['objectid'], $data['operationtype'], $data['object']);
-
-		if(!isset($cashed_data_for_oper_desc[$cash_id]))
-		{
-			unset($cashed_data_for_oper_desc);
-
-			switch($data['object'])
-			{
-				case OPERATION_OBJECT_USER:
-					$cashed_data_for_oper_desc[$cash_id] = get_user_by_userid($data['objectid']);
-					$cashed_data_for_oper_desc[$cash_id] = S_USER.' "'.$cashed_data_for_oper_desc[$cash_id]['name'].'"';
-					break;
-				case OPERATION_OBJECT_GROUP:
-					$cashed_data_for_oper_desc[$cash_id] = get_group_by_usrgrpid($data['objectid']);
-					$cashed_data_for_oper_desc[$cash_id] = S_GROUP.' "'.$cashed_data_for_oper_desc[$cash_id]['name'].'"';
-					break;
-			}
-		}
-
-		switch($type)
-		{
-			case SHORT_DESCRITION:
-				switch($data['operationtype'])
-				{
-					case OPERATION_TYPE_MESSAGE:
-						$result = S_SEND_MESSAGE_TO.' '.$cashed_data_for_oper_desc[$cash_id];
-						break;
-					case OPERATION_TYPE_COMMAND:
-						$result = S_RUN_REMOTE_COMMANDS;
-						break;
-					default: break;
-				}
-				break;
-			case LONG_DESCRITION:
-			default:
-				switch($data['operationtype'])
-				{
-					case OPERATION_TYPE_MESSAGE:
-						$result = bold(S_SUBJECT).': '.$data['shortdata']."\n";
-						$result .= bold(S_MESSAGE).":\n".$data['longdata'];
-						break;
-					case OPERATION_TYPE_COMMAND:
-						$result = bold(S_REMOTE_COMMANDS).":\n".$data['longdata'];
-						break;
-					default: break;
-				}
-				break;
-		}
-
-		return $result;
+		$sql="insert into conditions (actionid,conditiontype,operator,value) values ($actionid,$conditiontype,$operator,".zbx_dbstr($value).")";
+		$result=DBexecute($sql);
+		return DBinsert_id($result,"conditions","conditionid");
 	}
 
 	function	update_action_status($actionid, $status)
@@ -424,7 +374,7 @@
 		foreach($cmd_list as $cmd)
 		{
 			$cmd = trim($cmd, "\x00..\x1F");
-			if(!ereg("^([0-9a-zA-Z\_\.[.-.]]{1,})(:|#)[[:print:]]*$",$cmd,$cmd_items)){
+			if(!ereg("^([0-9a-zA-Z\_\.-]{1,})(:|#)[[:print:]]*$",$cmd,$cmd_items)){
 				error("incorrect command: '$cmd'");
 				return FALSE;
 			}
@@ -432,7 +382,7 @@
 			{ // group
 				if(!DBfetch(DBselect("select groupid from groups where name=".zbx_dbstr($cmd_items[1]))))
 				{
-					error("Unknown group name: '".$cmd_items[1]."' in command ".$cmd."'");
+					error("Uncnown group name: '".$cmd_items[1]."' in command ".$cmd."'");
 					return FALSE;
 				}
 			}
@@ -440,7 +390,7 @@
 			{ // host
 				if(!DBfetch(DBselect("select hostid from hosts where host=".zbx_dbstr($cmd_items[1]))))
 				{
-					error("Unknown host name '".$cmd_items[1]."' in command '".$cmd."'");
+					error("Uncnown host name '".$cmd_items[1]."' in command '".$cmd."'");
 					return FALSE;
 				}
 			}
@@ -450,24 +400,21 @@
 
 	function get_history_of_actions($start,$num)
 	{
-		global $USER_DETAILS;
-		
-		$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS, PERM_READ_ONLY, PERM_MODE_LT);
-		
-		$result=DBselect("select distinct a.alertid,a.clock,mt.description,a.sendto,a.subject,a.message,a.status,a.retries,".
-				"a.error from alerts a,media_type mt,functions f,items i ".
-				" where mt.mediatypeid=a.mediatypeid and a.triggerid=f.triggerid and f.itemid=i.itemid ".
-				" and i.hostid not in (".$denyed_hosts.")".
-				" order by a.clock".
-				" desc",
-			10*$start+$num);
+		$sql="select a.alertid,a.clock,mt.description,a.sendto,a.subject,a.message,a.status,a.retries,".
+		"a.error from alerts a,media_type mt where mt.mediatypeid=a.mediatypeid order by a.clock".
+		" desc";
+		$result=DBselect($sql,10*$start+$num);
 
 		$table = new CTableInfo(S_NO_ACTIONS_FOUND);
-		$table->SetHeader(array(S_TIME, S_TYPE, S_STATUS, S_RECIPIENTS, S_MESSAGE, S_ERROR));
+		$table->setHeader(array(S_TIME, S_TYPE, S_STATUS, S_RECIPIENTS, S_MESSAGE, S_ERROR));
 		$col=0;
 		$skip=$start;
 		while(($row=DBfetch($result))&&($col<$num))
 		{
+			if(!check_anyright("Default permission","R"))
+			{
+				continue;
+			}
 			if($skip > 0) 
 			{
 				$skip--;
@@ -484,7 +431,7 @@
 				$status=new CSpan(S_NOT_SENT,"on");
 			}
 			$sendto=htmlspecialchars($row["sendto"]);
-
+			
 			$subject = empty($row["subject"]) ? '' : "<pre>".bold(S_SUBJECT.': ').htmlspecialchars($row["subject"])."</pre>";
 			$message = array($subject,"<pre>".htmlspecialchars($row["message"])."</pre>");
 
@@ -496,7 +443,7 @@
 			{
 				$error=new CSpan($row["error"],"on");
 			}
-			$table->AddRow(array(
+			$table->addRow(array(
 				new CCol($time, 'top'),
 				new CCol($row["description"], 'top'),
 				new CCol($status, 'top'),

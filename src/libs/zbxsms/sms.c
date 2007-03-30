@@ -49,7 +49,7 @@ static int write_gsm(int fd, char *str, char *error, int max_error_len)
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "Error writing to GSM modem [%s]", strerror(errno));
 		zabbix_syslog("Error writing to GSM modem [%s]", strerror(errno));
-		zbx_snprintf(error,max_error_len, "Error writing to GSM modem [%s]", strerror(errno));
+		snprintf(error,max_error_len-1, "Error writing to GSM modem [%s]", strerror(errno));
 		return FAIL;
 	}
 
@@ -90,7 +90,7 @@ static int read_gsm(int fd, const char *expect, char *error, int max_error_len)
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "Read something unexpected from GSM modem. Expected [%s]", expect);
 		zabbix_syslog("Read something unexpected from GSM modem");
-		zbx_snprintf(error,max_error_len, "Read something unexpected from GSM modem. Expected [%s]", expect);
+		snprintf(error,max_error_len-1, "Read something unexpected from GSM modem");
 		ret = FAIL;
 	}
 	
@@ -141,7 +141,7 @@ int	send_sms(char *device,char *number,char *message, char *error, int max_error
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "Error open(%s) [%s]", device, strerror(errno));
 		zabbix_syslog("Error open(%s) [%s]", device, strerror(errno));
-		zbx_snprintf(error,max_error_len, "Error open(%s) [%s]", device, strerror(errno));
+		snprintf(error,max_error_len-1, "Error open(%s) [%s]", device, strerror(errno));
 		return FAIL;
 	}
 	fcntl(f, F_SETFL,0);

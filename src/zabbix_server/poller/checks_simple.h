@@ -21,6 +21,7 @@
 #define ZABBIX_CHECKS_SIMPLE_H
 
 #include "common.h"
+#include "config.h"
 #include "db.h"
 #include "log.h"
 #include "sysinfo.h"

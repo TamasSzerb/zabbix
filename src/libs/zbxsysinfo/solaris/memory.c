@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 static int	VM_MEMORY_FREE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
@@ -59,7 +60,7 @@ MEM_FNCLIST
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "total");
+		sprintf(mode, "total");
 	}
 	
 	for(i=0; fl[i].mode!=0; i++)

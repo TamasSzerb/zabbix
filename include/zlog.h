@@ -22,8 +22,6 @@
 
 #include <stdarg.h>
 
-extern	int	CONFIG_ENABLE_LOG;
-
 void	zabbix_syslog(const char *fmt, ...);
 
 #endif

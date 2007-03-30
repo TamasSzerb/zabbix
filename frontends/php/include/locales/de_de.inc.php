@@ -69,6 +69,11 @@
         "S_AVERAGE"=>	"Durchschnitt",
         "S_HIGH"=>	"Hoch",
         "S_DISASTER"=>	"Desaster",
+	"S_REPEAT"=>	"Erinnern",
+	"S_REPEATS"=>	"Erinnerungen",
+	"S_NO_REPEATS"=>	"keine Erinnerung",
+	"S_NUMBER_OF_REPEATS"=>	"Anzahl der Erinnerungen",
+	"S_DELAY_BETWEEN_REPEATS"=>	"Zeitversatz zwischen Erinnerungen",
 
 //      alarms.php
         "S_ALARMS"=>	"Alarme",

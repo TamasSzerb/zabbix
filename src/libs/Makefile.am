@@ -1,46 +1,7 @@
-## Process this file with automake to produce Makefile.in
-
-DIST_SUBDIRS = \
-	zbxdbhigh \
-	zbxdb \
-	zbxemail \
-	zbxsms \
-	zbxcrypto \
-	zbxcommon \
-	zbxcomms \
-	zbxlog \
-	zbxnet \
-	zbxnix \
-	zbxconf \
-	zbxsysinfo \
-	zbxplugin \
-	zbxsys \
-	zbxjabber
-
+if AGENT
+AGENT_DIRS = zbxcommon zbxlog zbxcrypto zbxpid zbxnet zbxconf zbxsysinfo
+endif
 if SERVER
-SERVER_SUBDIRS = \
-	zbxdb \
-	zbxdbhigh \
-	zbxemail \
-	zbxsms
+SERVER_DIRS = zbxcommon zbxlog zbxcrypto zbxpid zbxnet zbxconf zbxdbhigh zbxemail zbxsms zbxsysinfo
 endif
-
-if JABBER
-JABBER_SUBDIRS = zbxjabber
-endif
-
-SUBDIRS = \
-	zbxcrypto \
-	zbxcommon \
-	zbxlog \
-	zbxnet \
-	zbxnix \
-	zbxconf \
-	zbxsysinfo \
-	zbxplugin \
-	zbxsys \
-	zbxcomms \
-	$(JABBER_SUBDIRS) \
-	$(SERVER_SUBDIRS)
-
-EXTRA_DISTR = zbxwin32
+SUBDIRS=$(AGENT_DIRS) $(SERVER_DIRS)

@@ -17,8 +17,9 @@
  * ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  * **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 #define DO_SUM 0
@@ -142,29 +143,30 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
     
         if(stat(filename,&buf)==0)
         {
-            if(NULL == (f = fopen(filename,"r")))
+            f=fopen(filename,"r");
+            if(f==NULL)
             {
-                continue; /* readdir */
+                continue;
             }
     
             if(procname[0] != 0)
             {
                 fgets(line,MAX_STRING_LEN,f);
                 if(sscanf(line,"%s\t%s\n",name1,name2)==2)
-		{
-			if(strcmp(name1,"Name:") == 0)
-			{
-				if(strcmp(procname,name2)==0)
-				{
-					proc_ok = 1;
-				}
-			}
-		}
+                            {
+                                    if(strcmp(name1,"Name:") == 0)
+                                    {
+                                            if(strcmp(procname,name2)==0)
+                                            {
+                                                    proc_ok = 1;
+                                            }
+                                    }
+                            }
             
                 if(proc_ok == 0) 
                 {
-                    zbx_fclose(f);
-                    continue; /* readdir */
+                    fclose(f);
+                    continue;
                 }
             }
             else
@@ -179,12 +181,12 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
                 
                     if(sscanf(line, "%s\t%lli\n", name1, &llvalue) != 2)
                     {
-                        continue; /* fgets */
+                        continue;
                     }
                     
                     if(strcmp(name1,"Uid:") != 0)
                     {
-                        continue; /* fgets */
+                        continue;
                     }
                     
                     if(usrinfo->pw_uid == (uid_t)(llvalue))
@@ -206,12 +208,12 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
                 
                     if(sscanf(line, "%s\t%lli %s\n", name1, &llvalue, name2) != 3)
                     {
-                        continue; /* fgets */
+                        continue;
                     }
                     
                     if(strcmp(name1,"VmSize:") != 0)
                     {
-                        continue; /* fgets */
+                        continue;
                     }
                     
                     proccount++;
@@ -258,7 +260,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
             }
             
                     
-            zbx_fclose(f);
+            fclose(f);
         }
     }
     closedir(dir);
@@ -398,7 +400,8 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 
             if(stat(filename,&buf)==0)
             {
-                if(NULL == (f = fopen(filename,"r")))
+                f=fopen(filename,"r");
+                if(f==NULL)
                 {
                     continue;
                 }
@@ -419,7 +422,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
                 
                     if(proc_ok == 0) 
                     {
-                        zbx_fclose(f);
+                        fclose(f);
                         continue;
                     }
                 }
@@ -487,7 +490,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
                     proccount++;
                 }
                 
-                zbx_fclose(f);
+                fclose(f);
             }
     }
     closedir(dir);

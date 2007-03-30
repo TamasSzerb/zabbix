@@ -20,29 +20,6 @@
 #ifndef ZABBIX_DISKDEVICES_H
 #define ZABBIX_DISKDEVICES_H
 
-
-#define	MAX_DISKDEVICES	8
-
-typedef struct c_single_diskdevice_data
-{
-	char    *name;
-	int	major;
-	int	diskno;
-	int	clock[60*15];
-	double	read_io_ops[60*15];
-	double	blks_read[60*15];
-	double	write_io_ops[60*15];
-	double	blks_write[60*15];
-} ZBX_SINGLE_DISKDEVICE_DATA;
-
-typedef struct c_diskdevices_data
-{
-	ZBX_SINGLE_DISKDEVICE_DATA device[MAX_DISKDEVICES];
-} ZBX_DISKDEVICES_DATA;
-
-void	collect_stats_diskdevices(ZBX_DISKDEVICES_DATA *pdiskdevices);
-
-/*
 #define	MAX_DISKDEVICES	8
 
 #define DISKDEVICE struct diskdevice_type
@@ -52,12 +29,12 @@ DISKDEVICE
 	int	major;
 	int	diskno;
 	int	clock[60*15];
-	double	read_io_ops[60*15];
-	double	blks_read[60*15];
-	double	write_io_ops[60*15];
-	double	blks_write[60*15];
+	float	read_io_ops[60*15];
+	float	blks_read[60*15];
+	float	write_io_ops[60*15];
+	float	blks_write[60*15];
 };
 
 void	collect_stats_diskdevices(FILE *outfile);
-*/
+
 #endif

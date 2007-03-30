@@ -1,61 +1,8 @@
-## Process this file with automake to produce Makefile.in
-
-SUBDIRS = \
-	alerter \
-	discoverer \
-	housekeeper \
-	pinger \
-	poller \
-	httppoller \
-	timer \
-	trapper \
-	nodewatcher \
-	watchdog \
-	utils
+SUBDIRS = alerter housekeeper pinger poller timer trapper
+INCLUDES=-I@top_srcdir@/include @MYSQL_INCLUDE@ @ORACLE_INCLUDE@ @SNMP_INCLUDE@ @PGSQL_INCLUDE@
 
 bin_PROGRAMS = zabbix_server
-
-zabbix_server_SOURCES = \
-	evalfunc.c evalfunc.h \
-	expression.c expression.h \
-	actions.c actions.h \
-	events.c events.h \
-	zlog.c \
-	functions.c functions.h \
-	server.c
-
-if JABBER 
-JABBER_LDADD = $(top_srcdir)/src/libs/zbxjabber/libzbxjabber.a
-endif
-
-zabbix_server_LDADD = \
-	alerter/libzbxalerter.a \
-	discoverer/libzbxdiscoverer.a \
-	pinger/libzbxpinger.a \
-	poller/libzbxpoller.a \
-	housekeeper/libzbxhousekeeper.a \
-	timer/libzbxtimer.a \
-	trapper/libzbxtrapper.a \
-	nodewatcher/libzbxnodewatcher.a \
-	utils/libzbxutils.a \
-	httppoller/libzbxhttppoller.a \
-	watchdog/libzbxwatchdog.a \
-	$(top_srcdir)/src/libs/zbxsysinfo/libzbxserversysinfo.a \
-	$(top_srcdir)/src/libs/zbxsysinfo/$(ARCH)/libspecsysinfo.a \
-	$(top_srcdir)/src/libs/zbxsysinfo/common/libcommonsysinfo.a \
-	$(top_srcdir)/src/libs/zbxsysinfo/simple/libsimplesysinfo.a \
-	$(top_srcdir)/src/libs/zbxlog/libzbxlog.a \
-	$(top_srcdir)/src/libs/zbxnix/libzbxnix.a \
-	$(top_srcdir)/src/libs/zbxsys/libzbxsys.a \
-	$(top_srcdir)/src/libs/zbxconf/libzbxconf.a \
-	$(top_srcdir)/src/libs/zbxemail/libzbxemail.a \
-	$(top_srcdir)/src/libs/zbxnet/libzbxnet.a \
-	$(top_srcdir)/src/libs/zbxsms/libzbxsms.a \
-	$(top_srcdir)/src/libs/zbxdbhigh/libzbxdbhigh.a \
-	$(top_srcdir)/src/libs/zbxdb/libzbxdb.a \
-	$(top_srcdir)/src/libs/zbxcommon/libzbxcommon.a \
-	$(top_srcdir)/src/libs/zbxcrypto/libzbxcrypto.a \
-	$(top_srcdir)/src/libs/zbxcomms/libzbxcomms.a \
-	$(JABBER_LDADD)
-
-zabbix_server_CPPFLAGS = -DZABBIX_DAEMON
+zabbix_server_SOURCES = evalfunc.c expression.c actions.c zlog.c functions.c server.c
+zabbix_server_LDADD = ../libs/zbxsysinfo/libzbxsysinfo.a ../libs/zbxsysinfo/@ARCH@/libzbxsysinfo2.a \
+../libs/zbxlog/libzbxlog.a ../libs/zbxpid/libzbxpid.a ../libs/zbxconf/libzbxconf.a ../libs/zbxcrypto/libzbxcrypto.a ../libs/zbxnet/libzbxnet.a pinger/libzbxpinger.a poller/libzbxpoller.a housekeeper/libzbxhousekeeper.a alerter/libzbxalerter.a timer/libzbxtimer.a trapper/libzbxtrapper.a ../libs/zbxemail/libzbxemail.a  ../libs/zbxsms/libzbxsms.a ../libs/zbxdbhigh/libzbxdbhigh.a ../libs/zbxcommon/libzbxcommon.a @MYSQL_LIBS@ @PGSQL_LIBS@ @ORACLE_LIBS@ @LDAP_LIBS@ @SNMP_LIBS@
+zabbix_server_LDFLAGS=@MYSQL_LFLAGS@ @PGSQL_LFLAGS@ @ORACLE_LFLAGS@ @LDAP_LFLAGS@ @SNMP_LFLAGS@

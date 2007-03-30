@@ -17,27 +17,28 @@
  * ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  * **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 #define DO_SUM 0
 #define DO_MAX 1
 #define DO_MIN 2
 #define DO_AVG 3
+				    
 
 #ifndef HAVE_SYS_PROCFS_H
-int	getprocs(
-	struct procsinfo *ProcessBuffer,
-	int ProcessSize,
-	struct fdsinfo *FileBuffer,
-	int FileSize,
-	pid_t *IndexPointer,
-	int Count
-	);
+	extern int getprocs(
+		struct procsinfo *ProcessBuffer,
+		int ProcessSize,
+		struct fdsinfo *FileBuffer,
+		int FileSize,
+		pid_t *IndexPointer,
+		int Count
+		);
 #endif /* ndef HAVE_SYS_PROCFS_H */
 
-				    
 int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 { /* usage: <function name>[ <process name>, <user name>, <mode>, <command> ] */
 	
@@ -147,7 +148,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
 	while((entries=readdir(dir))!=NULL)
 	{
-		zbx_snprintf(filename, sizeof(filename), "/proc/%s/psinfo",entries->d_name);
+		snprintf(filename,MAX_STRING_LEN,"/proc/%s/psinfo",entries->d_name);
 
 		if(stat(filename,&buf)==0)
 		{
@@ -220,7 +221,7 @@ lbl_skip_procces:
 			if(proccomm[0] != '\0')
 			{
 				init_result(&proc_args);
-				zbx_snprintf(get_args_cmd, sizeof(get_args_cmd), "ps -p %i -oargs=", ProcessBuffer.pi_pid);
+				snprintf(get_args_cmd, MAX_STRING_LEN-1, "ps -p %i -oargs=", ProcessBuffer.pi_pid);
 				if(EXECUTE_STR(cmd, get_args_cmd, flags, &proc_args) != SYSINFO_RET_OK)
 				{
 					free_result(&proc_args);
@@ -394,7 +395,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 
 	while((entries=readdir(dir))!=NULL)
 	{
-		zbx_snprintf(filename, sizeof(filename),"/proc/%s/psinfo",entries->d_name);
+		snprintf(filename,MAX_STRING_LEN,"/proc/%s/psinfo",entries->d_name);
 
 		if(stat(filename,&buf)==0)
 		{
@@ -455,7 +456,7 @@ lbl_skip_procces:
 			if(proccomm[0] != '\0')
 			{
 				init_result(&proc_args);
-				zbx_snprintf(get_args_cmd, sizeof(get_args_cmd), "ps -p %i -oargs=", ProcessBuffer.pi_pid);
+				snprintf(get_args_cmd, MAX_STRING_LEN-1, "ps -p %i -oargs=", ProcessBuffer.pi_pid);
 				if(EXECUTE_STR(cmd, get_args_cmd, flags, &proc_args) != SYSINFO_RET_OK)
 				{
 					free_result(&proc_args);

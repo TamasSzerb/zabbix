@@ -17,8 +17,33 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+#include <sys/wait.h>
+
+#include <string.h>
+
+#ifdef HAVE_NETDB_H
+	#include <netdb.h>
+#endif
+
+/* Required for getpwuid */
+#include <pwd.h>
+
+#include <signal.h>
+#include <errno.h>
+
+#include <time.h>
+
+#include "common.h"
 #include "cfg.h"
 #include "db.h"
 #include "../functions.h"
@@ -26,8 +51,6 @@
 #include "zlog.h"
 
 #include "pinger.h"
-
-int pinger_num;
 
 /******************************************************************************
  *                                                                            *
@@ -52,8 +75,7 @@ static int is_ip(char *ip)
 	int dots=0;
 	int res = SUCCEED;
 
-	zabbix_log( LOG_LEVEL_DEBUG, "In process_ip([%s])",
-		ip);
+	zabbix_log( LOG_LEVEL_DEBUG, "In process_ip([%s])", ip);
 
 	for(i=0;ip[i]!=0;i++)
 	{
@@ -76,8 +98,7 @@ static int is_ip(char *ip)
 	{
 		res = FAIL;
 	}
-	zabbix_log( LOG_LEVEL_DEBUG, "End of process_ip(result:%d)",
-		res);
+	zabbix_log( LOG_LEVEL_DEBUG, "End of process_ip([%d])", res);
 	return res;
 }
 
@@ -101,37 +122,26 @@ static int is_ip(char *ip)
  ******************************************************************************/
 static int process_value(char *key, char *host, AGENT_RESULT *value)
 {
+	char	sql[MAX_STRING_LEN];
+
 	DB_RESULT	result;
 	DB_ROW		row;
-	DB_ITEM		item;
+	DB_ITEM	item;
+	char	*s;
 
-	zabbix_log( LOG_LEVEL_DEBUG, "In process_value(%s@%s)",
-		key,
-		host);
+	zabbix_log( LOG_LEVEL_DEBUG, "In process_value(%s@%s)", key, host);
 
 	/* IP address? */
 	if(is_ip(host) == SUCCEED)
 	{
-		result = DBselect("select %s where h.status=%d and h.hostid=i.hostid and h.ip='%s' and i.key_='%s' and i.status=%d and i.type=%d and" ZBX_COND_NODEID,
-			ZBX_SQL_ITEM_SELECT,
-			HOST_STATUS_MONITORED,
-			host,
-			key,
-			ITEM_STATUS_ACTIVE,
-			ITEM_TYPE_SIMPLE,
-			LOCAL_NODE("h.hostid"));
+		snprintf(sql,sizeof(sql)-1,"select i.itemid,i.key_,h.host,h.port,i.delay,i.description,i.nextcheck,i.type,i.snmp_community,i.snmp_oid,h.useip,h.ip,i.history,i.lastvalue,i.prevvalue,i.value_type,i.trapper_hosts,i.delta,i.units,i.multiplier,i.formula from items i,hosts h where h.status=%d and h.hostid=i.hostid and h.ip='%s' and i.key_='%s' and i.status=%d and i.type=%d", HOST_STATUS_MONITORED, host, key, ITEM_STATUS_ACTIVE, ITEM_TYPE_SIMPLE);
 	}
 	else
 	{
-		result = DBselect("select %s where h.status=%d and h.hostid=i.hostid and h.host='%s' and i.key_='%s' and i.status=%d and i.type=%d and" ZBX_COND_NODEID,
-			ZBX_SQL_ITEM_SELECT,
-			HOST_STATUS_MONITORED,
-			host,
-			key,
-			ITEM_STATUS_ACTIVE,
-			ITEM_TYPE_SIMPLE,
-			LOCAL_NODE("h.hostid"));
+		snprintf(sql,sizeof(sql)-1,"select i.itemid,i.key_,h.host,h.port,i.delay,i.description,i.nextcheck,i.type,i.snmp_community,i.snmp_oid,h.useip,h.ip,i.history,i.lastvalue,i.prevvalue,i.value_type,i.trapper_hosts,i.delta,i.units,i.multiplier,i.formula from items i,hosts h where h.status=%d and h.hostid=i.hostid and h.host='%s' and i.key_='%s' and i.status=%d and i.type=%d", HOST_STATUS_MONITORED, host, key, ITEM_STATUS_ACTIVE, ITEM_TYPE_SIMPLE);
 	}
+	zabbix_log( LOG_LEVEL_DEBUG, "SQL [%s]", sql);
+	result = DBselect(sql);
 	row=DBfetch(result);
 
 	if(!row)
@@ -140,12 +150,51 @@ static int process_value(char *key, char *host, AGENT_RESULT *value)
 		return  FAIL;
 	}
 
-	DBget_item_from_db(&item,row);
+	item.itemid=atoi(row[0]);
+	strscpy(item.key,row[1]);
+	item.host=row[2];
+	item.port=atoi(row[3]);
+	item.delay=atoi(row[4]);
+	item.description=row[5];
+	item.nextcheck=atoi(row[6]);
+	item.type=atoi(row[7]);
+	item.snmp_community=row[8];
+	item.snmp_oid=row[9];
+	item.useip=atoi(row[10]);
+	item.ip=row[11];
+	item.history=atoi(row[12]);
+	s=row[13];
+	if(DBis_null(s)==SUCCEED)
+	{
+		item.lastvalue_null=1;
+	}
+	else
+	{
+		item.lastvalue_null=0;
+		item.lastvalue_str=s;
+		item.lastvalue=atof(s);
+	}
+	s=row[14];
+	if(DBis_null(s)==SUCCEED)
+	{
+		item.prevvalue_null=1;
+	}
+	else
+	{
+		item.prevvalue_null=0;
+		item.prevvalue_str=s;
+		item.prevvalue=atof(s);
+	}
+	item.value_type=atoi(row[15]);
+	item.trapper_hosts=row[16];
+	item.delta=atoi(row[17]);
 
-	DBbegin();
+	item.units=row[18];
+	item.multiplier=atoi(row[19]);
+	item.formula=row[20];
+
 	process_new_value(&item,value);
 	update_triggers(item.itemid);
-	DBcommit();
  
 	DBfree_result(result);
 
@@ -170,45 +219,29 @@ static int process_value(char *key, char *host, AGENT_RESULT *value)
  ******************************************************************************/
 static int create_host_file(void)
 {
+	char	sql[MAX_STRING_LEN];
 	FILE	*f;
 	int	now;
 
 	DB_HOST	host;
 	DB_RESULT	result;
 	DB_ROW		row;
-	char	str[MAX_STRING_LEN];
-
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In create_host_file()");
 
-	zbx_snprintf(str,sizeof(str),"/tmp/zabbix_server_%d.pinger",
-		getpid());
+	f = fopen("/tmp/zabbix_server.pinger", "w");
 
-	if(NULL == (f = fopen(str, "w") ))
+	if( f == NULL)
 	{
-		zabbix_log( LOG_LEVEL_ERR, "Cannot open file [%s] [%s]",
-			str,
-			strerror(errno));
-		zabbix_syslog("Cannot open file [%s] [%s]",
-			str,
-			strerror(errno));
+		zabbix_log( LOG_LEVEL_ERR, "Cannot open file [%s] [%s]", "/tmp/zabbix_server.pinger", strerror(errno));
+		zabbix_syslog("Cannot open file [%s] [%s]", "/tmp/zabbix_server.pinger", strerror(errno));
 		return FAIL;
 	}
 
 	now=time(NULL);
 	/* Select hosts monitored by IP */
-	result = DBselect("select distinct h.ip from hosts h,items i where " ZBX_SQL_MOD(h.hostid,%d) "=%d and i.hostid=h.hostid and (h.status=%d or (h.status=%d and h.available=%d and h.disable_until<=%d)) and (i.key_='%s' or i.key_='%s') and i.type=%d and i.status=%d and h.useip=1 and" ZBX_COND_NODEID,
-		CONFIG_PINGER_FORKS,
-		pinger_num-1,
-		HOST_STATUS_MONITORED,
-		HOST_STATUS_MONITORED,
-		HOST_AVAILABLE_FALSE,
-		now,
-		SERVER_ICMPPING_KEY,
-		SERVER_ICMPPINGSEC_KEY,
-		ITEM_TYPE_SIMPLE,
-		ITEM_STATUS_ACTIVE,
-		LOCAL_NODE("h.hostid"));
+	snprintf(sql,sizeof(sql)-1,"select distinct h.ip from hosts h,items i where i.hostid=h.hostid and (h.status=%d or (h.status=%d and h.available=%d and h.disable_until<=%d)) and (i.key_='%s' or i.key_='%s') and i.type=%d and i.status=%d and h.useip=1", HOST_STATUS_MONITORED, HOST_STATUS_MONITORED, HOST_AVAILABLE_FALSE, now, SERVER_ICMPPING_KEY, SERVER_ICMPPINGSEC_KEY, ITEM_TYPE_SIMPLE, ITEM_STATUS_ACTIVE);
+	result = DBselect(sql);
 
 	while((row=DBfetch(result)))
 	{
@@ -222,32 +255,20 @@ static int create_host_file(void)
 	DBfree_result(result);
 
 	/* Select hosts monitored by hostname */
-	result = DBselect("select distinct h.host from hosts h,items i where "  ZBX_SQL_MOD(h.hostid,%d) "=%d and i.hostid=h.hostid and (h.status=%d or (h.status=%d and h.available=%d and h.disable_until<=%d)) and (i.key_='%s' or i.key_='%s') and i.type=%d and i.status=%d and h.useip=0 and" ZBX_COND_NODEID,
-		CONFIG_PINGER_FORKS,
-		pinger_num-1,
-		HOST_STATUS_MONITORED,
-		HOST_STATUS_MONITORED,
-		HOST_AVAILABLE_FALSE,
-		now,
-		SERVER_ICMPPING_KEY,
-		SERVER_ICMPPINGSEC_KEY,
-		ITEM_TYPE_SIMPLE,
-		ITEM_STATUS_ACTIVE,
-		LOCAL_NODE("h.hostid"));
+	snprintf(sql,sizeof(sql)-1,"select distinct h.host from hosts h,items i where i.hostid=h.hostid and (h.status=%d or (h.status=%d and h.available=%d and h.disable_until<=%d)) and (i.key_='%s' or i.key_='%s') and i.type=%d and i.status=%d and h.useip=0", HOST_STATUS_MONITORED, HOST_STATUS_MONITORED, HOST_AVAILABLE_FALSE, now, SERVER_ICMPPING_KEY, SERVER_ICMPPINGSEC_KEY, ITEM_TYPE_SIMPLE, ITEM_STATUS_ACTIVE);
+	result = DBselect(sql);
 
 	while((row=DBfetch(result)))
 	{
 		strscpy(host.host,row[0]);
 
-		fprintf(f,"%s\n",
-			host.host);
+		fprintf(f,"%s\n",host.host);
 
-		zabbix_log( LOG_LEVEL_DEBUG, "HOSTNAME [%s]",
-			host.host);
+		zabbix_log( LOG_LEVEL_DEBUG, "HOSTNAME [%s]", host.host);
 	}
 	DBfree_result(result);
 
-	zbx_fclose(f);
+	fclose(f);
 
 	return SUCCEED;
 }
@@ -282,19 +303,13 @@ static int do_ping(void)
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In do_ping()");
 
-	zbx_snprintf(str,sizeof(str),"cat /tmp/zabbix_server_%d.pinger | %s -e 2>/dev/null",
-		getpid(),
-		CONFIG_FPING_LOCATION);
+	snprintf(str,sizeof(str)-1,"cat /tmp/zabbix_server.pinger | %s -e 2>/dev/null",CONFIG_FPING_LOCATION);
 	
 	f=popen(str,"r");
 	if(f==0)
 	{
-		zabbix_log( LOG_LEVEL_ERR, "Cannot execute [%s] [%s]",
-			CONFIG_FPING_LOCATION,
-			strerror(errno));
-		zabbix_syslog("Cannot execute [%s] [%s]",
-			CONFIG_FPING_LOCATION,
-			strerror(errno));
+		zabbix_log( LOG_LEVEL_ERR, "Cannot execute [%s] [%s]", CONFIG_FPING_LOCATION, strerror(errno));
+		zabbix_syslog("Cannot execute [%s] [%s]", CONFIG_FPING_LOCATION, strerror(errno));
 		return FAIL;
 	}
 
@@ -303,17 +318,13 @@ static int do_ping(void)
 /*		zabbix_log( LOG_LEVEL_WARNING, "PING: [%s]", ip);*/
 
 		ip[strlen(ip)-1]=0;
-		zabbix_log( LOG_LEVEL_DEBUG, "Update IP [%s]",
-			ip);
+		zabbix_log( LOG_LEVEL_DEBUG, "Update IP [%s]", ip);
 
 		if(strstr(ip,"alive") != NULL)
 		{
 			alive=1;
-			sscanf(ip,"%s is alive (%lf ms)",
-				tmp,
-				&mseconds);
-			zabbix_log( LOG_LEVEL_DEBUG, "Mseconds [%lf]",
-				mseconds);
+			sscanf(ip,"%s is alive (%lf ms)", tmp, &mseconds);
+			zabbix_log( LOG_LEVEL_DEBUG, "Mseconds [%lf]", mseconds);
 		}
 		else
 		{
@@ -323,9 +334,7 @@ static int do_ping(void)
 		if(c != NULL)
 		{
 			*c=0;
-			zabbix_log( LOG_LEVEL_DEBUG, "IP [%s] alive [%d]",
-				ip,
-				alive);
+			zabbix_log( LOG_LEVEL_DEBUG, "IP [%s] alive [%d]", ip, alive);
 
 			if(0 == alive)
 			{
@@ -375,46 +384,51 @@ static int do_ping(void)
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-void main_pinger_loop(int num)
+void main_pinger_loop()
 {
 	int ret = SUCCEED;
 
-	char	str[MAX_STRING_LEN];
-
-	zabbix_log( LOG_LEVEL_DEBUG, "In main_pinger_loop(num:%d)",
-		num);
-
-	pinger_num = num;
-
-	for(;;)
+	if(1 == CONFIG_DISABLE_PINGER)
 	{
-		zbx_setproctitle("connecting to the database");
+		for(;;)
+		{
+			pause();
+		}
+	}
+	else
+	{
+		for(;;)
+		{
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+			setproctitle("connecting to the database");
+#endif
 
-		DBconnect(ZBX_DB_CONNECT_NORMAL);
+			DBconnect();
 	
 /*	zabbix_set_log_level(LOG_LEVEL_DEBUG);*/
 
-		ret = create_host_file();
+			ret = create_host_file();
 	
-		if( SUCCEED == ret)
-		{
-			zbx_setproctitle("pinging hosts");
+			if( SUCCEED == ret)
+			{
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+				setproctitle("pinging hosts");
+#endif
 
-			ret = do_ping();
-		}
-		zbx_snprintf(str,sizeof(str),"/tmp/zabbix_server_%d.pinger",
-			getpid());
-		unlink(str);
+				ret = do_ping();
+			}
+			unlink("/tmp/zabbix_server.pinger");
 	
 /*	zabbix_set_log_level(LOG_LEVEL_WARNING); */
 
-		DBclose();
+			DBclose();
 
-		zbx_setproctitle("pinger [sleeping for %d seconds]",
-			CONFIG_PINGER_FREQUENCY);
-
-		sleep(CONFIG_PINGER_FREQUENCY);
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+			setproctitle("pinger [sleeping for %d seconds]", CONFIG_PINGER_FREQUENCY);
+#endif
+			sleep(CONFIG_PINGER_FREQUENCY);
+		}
 	}
-
+	
 	/* Never reached */
 }

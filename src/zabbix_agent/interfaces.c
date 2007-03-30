@@ -17,21 +17,7 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
-#include "interfaces.h"
-
-
-void	collect_stats_interfaces(ZBX_INTERFACES_DATA *pinterfaces)
-{
-#if defined(TODO)
-#error "Realize function collect_stats_interfaces IF needed"
-#endif
-}
-
-
-#if OFF && (!defined(_WINDOWS) || (defined(TODO) && defined(_WINDOWS)))
-
-/*TODO!!! Make same as cpustat.c*/
+#include "config.h"
 
 #include <netdb.h>
 
@@ -64,6 +50,7 @@ void	collect_stats_interfaces(ZBX_INTERFACES_DATA *pinterfaces)
 /* Required for getpwuid */
 #include <pwd.h>
 
+#include "common.h"
 #include "sysinfo.h"
 #include "security.h"
 #include "zabbix_agent.h"
@@ -119,9 +106,10 @@ void	init_stats_interfaces()
 		}
 	}
 
-	if( NULL == (file = fopen("/proc/net/dev","r") ))
+	file=fopen("/proc/net/dev","r");
+	if(NULL == file)
 	{
-		zbx_error("Cannot open statistic file [%s] [%s].","/proc/net/dev", strerror(errno));
+		fprintf(stderr, "Cannot open config file [%s] [%s]\n","/proc/net/dev", strerror(errno));
 		return;
 	}
 	i=0;
@@ -143,7 +131,7 @@ void	init_stats_interfaces()
 		i++;
 	}
 
-	zbx_fclose(file);
+	fclose(file);
 }
 
 void	report_stats_interfaces(FILE *file, int now)
@@ -152,7 +140,7 @@ void	report_stats_interfaces(FILE *file, int now)
 		time1=0,
 		time5=0,
 		time15=0;
-	double
+	float
 		sent=0,
 		sent1=0,
 		sent5=0,
@@ -227,7 +215,7 @@ void	report_stats_interfaces(FILE *file, int now)
 		}
 		if((sent!=0)&&(sent1!=0))
 		{
-			fprintf(file,"netloadout1[%s] " ZBX_FS_DBL "\n", interfaces[i].interface, (double)((sent-sent1)/(now-time1)));
+			fprintf(file,"netloadout1[%s] %f\n", interfaces[i].interface, (float)((sent-sent1)/(now-time1)));
 		}
 		else
 		{
@@ -235,7 +223,7 @@ void	report_stats_interfaces(FILE *file, int now)
 		}
 		if((sent!=0)&&(sent5!=0))
 		{
-			fprintf(file,"netloadout5[%s] " ZBX_FS_DBL "\n", interfaces[i].interface, (double)((sent-sent5)/(now-time5)));
+			fprintf(file,"netloadout5[%s] %f\n", interfaces[i].interface, (float)((sent-sent5)/(now-time5)));
 		}
 		else
 		{
@@ -243,7 +231,7 @@ void	report_stats_interfaces(FILE *file, int now)
 		}
 		if((sent!=0)&&(sent15!=0))
 		{
-			fprintf(file,"netloadout15[%s] " ZBX_FS_DBL "\n", interfaces[i].interface, (double)((sent-sent15)/(now-time15)));
+			fprintf(file,"netloadout15[%s] %f\n", interfaces[i].interface, (float)((sent-sent15)/(now-time15)));
 		}
 		else
 		{
@@ -251,7 +239,7 @@ void	report_stats_interfaces(FILE *file, int now)
 		}
 		if((received!=0)&&(received1!=0))
 		{
-			fprintf(file,"netloadin1[%s] " ZBX_FS_DBL "\n", interfaces[i].interface, (double)((received-received1)/(now-time1)));
+			fprintf(file,"netloadin1[%s] %f\n", interfaces[i].interface, (float)((received-received1)/(now-time1)));
 		}
 		else
 		{
@@ -259,7 +247,7 @@ void	report_stats_interfaces(FILE *file, int now)
 		}
 		if((received!=0)&&(received5!=0))
 		{
-			fprintf(file,"netloadin5[%s] " ZBX_FS_DBL "\n", interfaces[i].interface, (double)((received-received5)/(now-time5)));
+			fprintf(file,"netloadin5[%s] %f\n", interfaces[i].interface, (float)((received-received5)/(now-time5)));
 		}
 		else
 		{
@@ -267,7 +255,7 @@ void	report_stats_interfaces(FILE *file, int now)
 		}
 		if((received!=0)&&(received15!=0))
 		{
-			fprintf(file,"netloadin15[%s] " ZBX_FS_DBL "\n", interfaces[i].interface, (double)((received-received15)/(now-time15)));
+			fprintf(file,"netloadin15[%s] %f\n", interfaces[i].interface, (float)((received-received15)/(now-time15)));
 		}
 		else
 		{
@@ -278,13 +266,13 @@ void	report_stats_interfaces(FILE *file, int now)
 }
 
 
-void	add_values_interfaces(int now,char *interface,double value_sent,double value_received)
+void	add_values_interfaces(int now,char *interface,float value_sent,float value_received)
 {
 	int i,j;
 
 	int bounced;
 
-/*	printf("Add_values [%s] [" ZBX_FS_DBL "] [" ZBX_FS_DBL "]\n",interface,value_sent,value_received);*/
+/*	printf("Add_values [%s] [%f] [%f]\n",interface,value_sent,value_received);*/
 
 	for(i=0;i<MAX_INTERFACE;i++)
 	{
@@ -341,7 +329,7 @@ void	collect_stats_interfaces(FILE *outfile)
 	int	i1,j1;
 	char	interface[MAX_STRING_LEN];
 	int	now;
-	double	received=0,sent;
+	float	received=0,sent;
 
 	/* Must be static */
 	static	int initialised=0;
@@ -354,9 +342,10 @@ void	collect_stats_interfaces(FILE *outfile)
 
 	now=time(NULL);
 
-	if(NULL == (file = fopen("/proc/net/dev","r") ))
+	file=fopen("/proc/net/dev","r");
+	if(NULL == file)
 	{
-		zbx_error("Cannot open statistic file [%s] [%s].","/proc/net/dev", strerror(errno));
+		fprintf(stderr, "Cannot open config file [%s] [%s]\n","/proc/net/dev", strerror(errno));
 		return;
 	}
 
@@ -366,7 +355,7 @@ void	collect_stats_interfaces(FILE *outfile)
 	{
 		if( (s=strstr(line,":")) == NULL)
 			continue;
-		zbx_strncpy(interface,line,s-line+1);
+		zbx_strlcpy(interface,line,s-line+1);
 		j1=0;
 		for(i1=0;i1<(int)strlen(interface);i1++)
 		{
@@ -397,12 +386,9 @@ void	collect_stats_interfaces(FILE *outfile)
 		}
 		i++;
 	}
-	zbx_fclose(file);
+	fclose(file);
 
 	report_stats_interfaces(outfile, now);
 
 #endif /* HAVE_PROC_NET_DEV */
 }
-
-#endif /* TODO */
-

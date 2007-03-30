@@ -55,7 +55,11 @@
  *
  **************************************************************/
 
-#include "common.h"
+#ifndef NO_CONFIG_H /* for some tests */
+#include "config.h"
+#else
+#define NULL 0
+#endif
 
 #ifdef TEST_SNPRINTF /* need math library headers for testing */
 #include <math.h>
@@ -651,11 +655,11 @@ static void fmtfp (char *buffer, size_t *currlen, size_t maxlen,
 		}
 	}
 
-#if OFF
+#if 0
 	if (flags & DP_F_UP) caps = 1; /* Should characters be upper case? */
 #endif
 
-#if OFF
+#if 0
 	 if (max == 0) ufvalue += 0.5; /* if max = 0 we must round */
 #endif
 

@@ -17,13 +17,35 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
-#include "zbxsock.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <netinet/in.h>
+#include <netdb.h>
+
+#include <string.h>
+
+/* OpenBSD*/
+#ifdef HAVE_SYS_SOCKET_H
+	#include <sys/socket.h>
+#endif
+
+#include <signal.h>
+#include <time.h>
+
+#include <errno.h>
+
+#include <string.h>
+
+#include "common.h"
 
 char *progname = NULL;
 char title_message[] = "ZABBIX get - Communicate with ZABBIX agent";
-char usage_message[] = "[-hV] -s<host name or IP> [-p<port number>] -k<key>";
+char usage_message[] = "[-hv] -s<host name or IP> [-p<port number>] -k<key>";
 #ifndef HAVE_GETOPT_LONG
 char *help_message[] = {
         "Options:",
@@ -31,7 +53,7 @@ char *help_message[] = {
 	"  -s <host name or IP>     Specify host name or IP address of a host.",
 	"  -k <key of metric>       Specify metric name (key) we want to retrieve.",
 	"  -h                       give this help",
-	"  -V                       display version number",
+	"  -v                       display version number",
 	"",
 	"Example: zabbix_get -s127.0.0.1 -p10050 -k\"system[procload]\"",
         0 /* end of text */
@@ -43,7 +65,7 @@ char *help_message[] = {
 	"  -s --host <host name or IP>    Specify host name or IP address of a host.",
 	"  -k --key <key of metric>       Specify metric name (key) we want to retrieve.",
 	"  -h --help                      give this help",
-	"  -V --version                   display version number",
+	"  -v --version                   display version number",
 	"",
 	"Example: zabbix_get -s127.0.0.1 -p10050 -k\"system[procload]\"",
         0 /* end of text */
@@ -56,7 +78,7 @@ struct option longopts[] =
 	{"host",	1,	0,	's'},
 	{"key",		1,	0,	'k'},
 	{"help",	0,	0,	'h'},
-	{"version",	0,	0,	'V'},
+	{"version",	0,	0,	'v'},
 	{0,0,0,0}
 };
 
@@ -81,12 +103,12 @@ void    signal_handler( int sig )
 	if( SIGALRM == sig )
 	{
 		signal( SIGALRM, signal_handler );
-		zbx_error("Timeout while executing operation.");
+		fprintf(stderr,"Timeout while executing operation.\n");
 	}
  
 	if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig )
 	{
-/*		zbx_error("\nGot QUIT or INT or TERM signal. Exiting..." ); */
+/*		fprintf(stderr,"\nGot QUIT or INT or TERM signal. Exiting..." ); */
 	}
 	exit( FAIL );
 }
@@ -123,9 +145,13 @@ static int	get_value(char *server,int port,char *key,char *value)
 /*	printf("get_value([%s],[%d],[%s])",server,port,key);*/
 
 	servaddr_in.sin_family=AF_INET;
+	hp=gethostbyname(server);
 
-	if(NULL == (hp = zbx_gethost(server)))
+	if(hp==NULL)
+	{
+		fprintf(stderr, "Error: %s\n", strerror(errno));
 		return	FAIL;
+	}
 
 	servaddr_in.sin_addr.s_addr=((struct in_addr *)(hp->h_addr))->s_addr;
 
@@ -149,7 +175,7 @@ static int	get_value(char *server,int port,char *key,char *value)
 		return	FAIL;
 	}
 
-	zbx_snprintf(tosend,sizeof(tosend),"%s\n",key);
+	snprintf(tosend,sizeof(tosend)-1,"%s\n",key);
 
 	if(write(s,tosend,strlen(tosend)) == -1)
 /*	if( sendto(s,tosend,strlen(tosend),0,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )*/
@@ -221,7 +247,7 @@ int main(int argc, char **argv)
 			help();
 			exit(-1);
 			break;
-		case 'V':
+		case 'v':
 			version();
 			exit(-1);
 			break;

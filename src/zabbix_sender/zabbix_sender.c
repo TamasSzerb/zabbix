@@ -17,109 +17,46 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
-#include "threads.h"
-#include "comms.h"
-#include "cfg.h"
-#include "log.h"
-#include "zbxgetopt.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <netinet/in.h>
+#include <netdb.h>
 
-char *progname = NULL;
+#include <string.h>
 
-char title_message[] = "ZABBIX send";
-
-char usage_message[] = "[-Vhv] {[-zps] -ko | -i <file>} [-c <file>]";
-
-#ifdef HAVE_GETOPT_LONG
-char *help_message[] = {
-	"Options:",
-	"  -c --config <File>                   Specify configuration file"
-	"",
-	"  -z --zabbix-server <Server>          Hostname or IP address of ZABBIX Server",
-	"  -p --port <Server port>              Specify port number of server trapper running on the server. Default is 10051",
-	"  -s --host <Hostname>                 Specify hostname or IP address of a host",
-	"",
-	"  -k --key <Key>                       Specify metric name (key) we want to send",
-	"  -o --value <Key value>               Specify value of the key",
-	"",
-	"  -i --input-file <input_file>         Load values from input file",
-	"                                       Each line of file contains: <zabbix_server> <hostname> <port> <key> <value>",
-	"",
-	"  -v --verbose                         Verbose mode",
-	"",
-	" Other options:",
-	"  -h --help                            Give this help",
-	"  -V --version                         Display version number",
-        0 /* end of text */
-};
-#else
-char *help_message[] = {
-	"Options:",
-	"  -c <File>                    Specify configuration file"
-	"",
-	"  -z <Server>                  Hostname or IP address of ZABBIX Server.",
-	"  -p <Server port>             Specify port number of server trapper running on the server. Default is 10051.",
-	"  -s <Hostname>                Specify hostname or IP address of a host.",
-	"",
-	"  -k <Key>                     Specify metric name (key) we want to send.",
-	"  -o <Key value>               Specify value of the key.",
-	"",
-	"  -i <Input file>              Load values from input file.",
-	"                               Each line of file contains: <zabbix_server> <hostname> <port> <key> <value>.",
-	"",
-	"  -v                           Verbose mode",
-	"",
-	" Other options:",
-	"  -h                           Give this help.",
-	"  -V                           Display version number.",
-        0 /* end of text */
-};
+/* OpenBSD*/
+#ifdef HAVE_SYS_SOCKET_H
+	#include <sys/socket.h>
 #endif
 
-/* COMMAND LINE OPTIONS */
+#include <signal.h>
+#include <time.h>
 
-/* long options */
+#include "common.h"
 
-static struct zbx_option longopts[] =
-{
-	{"config",		1,	NULL,	'c'},
-	{"zabbix-server",	1,	NULL,	'z'},
-	{"port",		1,	NULL,	'p'},
-	{"host",		1,	NULL,	's'},
-	{"key",			1,	NULL,	'k'},
-	{"value",		1,	NULL,	'o'},
-	{"input-file",		1,	NULL,	'i'},
-	{"verbose",        	0,      NULL,	'v'},
-	{"help",        	0,      NULL,	'h'},
-	{"version",     	0,      NULL,	'V'},
-	{0,0,0,0}
+char *progname = NULL;
+char title_message[] = "ZABBIX send";
+char usage_message[] = "[<Zabbix server> <port> <server> <key> <value>]";
+char *help_message[] = {
+	"",
+	"  If no arguments are given, zabbix_sender expects list of parameters",
+	"  from standard input.",
+	"",
+        0 /* end of text */
 };
 
-/* short options */
 
-static char     shortopts[] = "c:z:p:s:k:o:i:vhV";
-
-/* end of COMMAND LINE OPTIONS*/
-
-static int	CONFIG_LOG_LEVEL = LOG_LEVEL_CRIT;
-
-static char*	INPUT_FILE = NULL;
-
-static char*	ZABBIX_SERVER = NULL;
-int		ZABBIX_SERVER_PORT = 0;
-static char*	ZABBIX_HOSTNAME = NULL;
-static char*	ZABBIX_KEY = NULL;
-static char*	ZABBIX_KEY_VALUE = NULL;
-
-#if !defined(_WINDOWS)
-
-static void    send_signal_handler( int sig )
+void    signal_handler( int sig )
 {
 	if( SIGALRM == sig )
 	{
-		signal( SIGALRM, send_signal_handler );
-		zabbix_log( LOG_LEVEL_WARNING, "Timeout while executing operation");
+		signal( SIGALRM, signal_handler );
+		fprintf(stderr,"Timeout while executing operation.\n");
 	}
  
 	if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig )
@@ -129,341 +66,151 @@ static void    send_signal_handler( int sig )
 	exit( FAIL );
 }
 
-#endif /* NOT _WINDOWS */
-
-typedef struct zbx_active_metric_type
+static int send_value(char *server,int port,char *hostname, char *key,char *value, char *lastlogsize)
 {
-	char*	server;
-	int	port;
-	char*	hostname;
-	char*	key;
-	char*	key_value;
-} ZBX_THREAD_SENDVAL_ARGS;
-
-static ZBX_THREAD_ENTRY(send_value, args)
-{
-	ZBX_THREAD_SENDVAL_ARGS *sentdval_args;
-
+	int	i,s;
 	char	tosend[MAX_STRING_LEN];
+	char	result[MAX_STRING_LEN];
+	struct hostent *hp;
 
-	zbx_sock_t	sock;
+	struct sockaddr_in myaddr_in;
+	struct sockaddr_in servaddr_in;
 
-	char	*answer = NULL;
+/*	struct linger ling;*/
 
-	int	ret = FAIL;
+/*	printf("In send_value(%s,%d,%s,%s,%s)\n", server, port, hostname, key, value);*/
 
-	assert(args);
+	servaddr_in.sin_family=AF_INET;
+	hp=gethostbyname(server);
 
-	sentdval_args = ((ZBX_THREAD_SENDVAL_ARGS *)args);
-
-
-	zabbix_log( LOG_LEVEL_DEBUG, "Send to: '%s:%i' As: '%s' Key: '%s' Value: '%s'", 
-		sentdval_args->server,
-		sentdval_args->port,
-		sentdval_args->hostname,
-		sentdval_args->key,
-		sentdval_args->key_value
-		);
-
-#if !defined(_WINDOWS)
-
-	signal( SIGINT,  send_signal_handler );
-	signal( SIGQUIT, send_signal_handler );
-	signal( SIGTERM, send_signal_handler );
-	signal( SIGALRM, send_signal_handler );
-
-	alarm(SENDER_TIMEOUT);
-
-#endif /* NOT _WINDOWS */
-
-	if( FAIL != zbx_tcp_connect(&sock, sentdval_args->server, sentdval_args->port) )
+	if(hp==NULL)
 	{
-		comms_create_request(sentdval_args->hostname, sentdval_args->key, sentdval_args->key_value,
-			NULL, NULL, NULL, NULL, tosend, sizeof(tosend)-1);
-
-		zabbix_log( LOG_LEVEL_DEBUG, "Send data: '%s'", tosend);
-
-		if( FAIL != zbx_tcp_send(&sock, tosend) )
-		{
-			if( FAIL != zbx_tcp_recv(&sock, &answer) )
-			{
-				if( !answer || strcmp(answer,"OK") )
-				{
-					zabbix_log( LOG_LEVEL_WARNING, "Incorrect answer from server [%s]", answer);
-				}
-				else
-				{
-					ret = SUCCEED;
-				}
-			}
-		}
-		zbx_tcp_close(&sock);
+		return	FAIL;
 	}
 
-#if !defined(_WINDOWS)
+	servaddr_in.sin_addr.s_addr=((struct in_addr *)(hp->h_addr))->s_addr;
 
-	alarm(0);
+	servaddr_in.sin_port=htons(port);
 
-#endif /* NOT _WINDOWS */
-
-	zbx_tread_exit(ret);
-}
-
-static void    init_config(const char* config_file)
-{
-	char*	zabbix_server_from_conf = NULL;
-	int	zabbix_server_port_from_conf = 0;
-	char*	zabbix_hostname_from_conf = NULL;
-	char*	c = NULL;
-
-	struct cfg_line cfg[]=
+	s=socket(AF_INET,SOCK_STREAM,0);
+	if(s == -1)
 	{
-		/* PARAMETER	,VAR				,FUNC	,TYPE(0i,1s)	,MANDATORY	,MIN			,MAX		*/
-		{"Server"	,&zabbix_server_from_conf	,0	,TYPE_STRING	,PARM_OPT	,0			,0		},
-		{"ServerPort"	,&zabbix_server_port_from_conf	,0	,TYPE_INT	,PARM_OPT	,MIN_ZABBIX_PORT	,MAX_ZABBIX_PORT},
-		{"Hostname"	,&zabbix_hostname_from_conf	,0	,TYPE_STRING	,PARM_OPT	,0			,0		},
-		{0}
-	};
-
-	if( config_file )
-	{
-		parse_cfg_file(config_file, cfg);
-
-		if( zabbix_server_from_conf )
-		{
-			if( !ZABBIX_SERVER )
-			{ /* apply parameter only if unsetted */
-				if( (c = strchr(zabbix_server_from_conf, ',')) )
-				{ /* get only first server */
-					*c = '\0';
-				}
-				ZABBIX_SERVER = strdup(zabbix_server_from_conf);
-			}
-			zbx_free(zabbix_server_from_conf);
-		}
-
-		if( !ZABBIX_SERVER_PORT && zabbix_server_port_from_conf )
-		{ /* apply parameter only if unsetted */
-			ZABBIX_SERVER_PORT = zabbix_server_port_from_conf;
-		}
-
-		if( zabbix_hostname_from_conf )
-		{
-			if( !ZABBIX_HOSTNAME )
-			{ /* apply parameter only if unsetted */
-				ZABBIX_HOSTNAME = strdup(zabbix_hostname_from_conf);
-			}
-			zbx_free(zabbix_hostname_from_conf);
-		}
+		return	FAIL;
 	}
-}
 
-static zbx_task_t parse_commandline(int argc, char **argv)
-{
-	zbx_task_t      task    = ZBX_TASK_START;
-	char    ch      = '\0';
+/*	ling.l_onoff=1;*/
+/*	ling.l_linger=0;*/
+/*	if(setsockopt(s,SOL_SOCKET,SO_LINGER,&ling,sizeof(ling))==-1)*/
+/*	{*/
+/* Ignore */
+/*	}*/
+ 
+	myaddr_in.sin_family = AF_INET;
+	myaddr_in.sin_port=0;
+	myaddr_in.sin_addr.s_addr=INADDR_ANY;
 
-	/* Parse the command-line. */
-	while ((ch = zbx_getopt_long(argc, argv, shortopts, longopts, NULL)) != EOF)
-		switch ((char) ch) {
-			case 'c':
-				CONFIG_FILE = strdup(zbx_optarg);
-				break;
-			case 'h':
-				help();
-				exit(-1);
-				break;
-			case 'V':
-				version();
-				exit(-1);
-				break;
-			case 'z': 
-				ZABBIX_SERVER = strdup(zbx_optarg);
-				break;
-			case 'p':
-				ZABBIX_SERVER_PORT = atoi(zbx_optarg);
-				break;
-			case 's':
-				ZABBIX_HOSTNAME = strdup(zbx_optarg);
-				break;
-			case 'k':
-				ZABBIX_KEY = strdup(zbx_optarg);
-				break;
-			case 'o':
-				ZABBIX_KEY_VALUE = strdup(zbx_optarg);
-				break;
-			case 'i':
-				INPUT_FILE = strdup(zbx_optarg);
-				break;
-			case 'v':
-				if(CONFIG_LOG_LEVEL == LOG_LEVEL_WARNING)
-					CONFIG_LOG_LEVEL = LOG_LEVEL_DEBUG;
-				else
-					CONFIG_LOG_LEVEL = LOG_LEVEL_WARNING;
-				break;
-			default:
-				usage();
-				exit(FAIL);
-				break;
-		}
+	if( connect(s,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )
+	{
+		close(s);
+		return	FAIL;
+	}
 
-	return task;
+/* Send <req><host>SERVER_B64</host><key>KEY_B64</key><data>VALUE_B64</data></req> */
+
+	comms_create_request(hostname, key, value, lastlogsize, tosend, sizeof(tosend)-1);
+
+/*	snprintf(tosend,sizeof(tosend)-1,"%s:%s\n",shortname,value);
+	snprintf(tosend,sizeof(tosend)-1,"<req><host>%s</host><key>%s</key><data>%s</data></req>",hostname_b64,key_b64,value_b64); */
+
+	if(write(s, tosend,strlen(tosend)) == -1)
+/*	if( sendto(s,tosend,strlen(tosend),0,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )*/
+	{
+		perror("write");
+		close(s);
+		return	FAIL;
+	} 
+	i=sizeof(struct sockaddr_in);
+/*	i=recvfrom(s,result,MAX_STRING_LEN-1,0,(struct sockaddr *)&servaddr_in,(socklen_t *)&i);*/
+	i=read(s,result,MAX_STRING_LEN-1);
+	if(i==-1)
+	{
+		perror("read");
+		close(s);
+		return	FAIL;
+	}
+
+	result[i-1]=0;
+
+	if(strcmp(result,"OK") == 0)
+	{
+		printf("OK\n");
+	}
+ 
+	if( close(s)!=0 )
+	{
+		perror("close");
+		
+	}
+
+	return SUCCEED;
 }
 
 int main(int argc, char **argv)
 {
-	FILE	*in;
+	int	port;
+	int	ret=SUCCEED;
+	char	line[MAX_STRING_LEN];
+	char	port_str[MAX_STRING_LEN];
+	char	zabbix_server[MAX_STRING_LEN];
+	char	server[MAX_STRING_LEN];
+	char	key[MAX_STRING_LEN];
+	char	value[MAX_STRING_LEN];
+	char	*s;
 
-	char	in_line[MAX_STRING_LEN],
-		*str_port,
-		*s;
+	progname = argv[0];
 
-	int	task = ZBX_TASK_START,
-		total_count = 0,
-		succeed_count = 0,
-		ret = SUCCEED;
+	signal( SIGINT,  signal_handler );
+	signal( SIGQUIT, signal_handler );
+	signal( SIGTERM, signal_handler );
+	signal( SIGALRM, signal_handler );
 
-	ZBX_THREAD_SENDVAL_ARGS sentdval_args;
-
-	progname = get_programm_name(argv[0]);
-
-	task = parse_commandline(argc, argv);
-
-	init_config(CONFIG_FILE);
-
-	zabbix_open_log(LOG_TYPE_UNDEFINED, CONFIG_LOG_LEVEL, NULL);
-
-	if( INPUT_FILE )
+	if(argc == 6)
 	{
-		if( !(in = fopen(INPUT_FILE, "r")) )
+		port=atoi(argv[2]);
+
+		alarm(SENDER_TIMEOUT);
+
+		ret = send_value(argv[1],port,argv[3],argv[4],argv[5],"0");
+
+		alarm(0);
+	}
+/* No parameters are given */	
+	else if(argc == 1)
+	{
+		while(fgets(line,MAX_STRING_LEN,stdin) != NULL)
 		{
-			zabbix_log( LOG_LEVEL_WARNING, "Cannot open [%s] [%s]", INPUT_FILE, strerror(errno));
-			return FAIL;
-		}	
-
-		while(fgets(in_line, sizeof(in_line), in) != NULL)
-		{ /* <zabbix_server> <hostname> <port> <key> <value> */
-			total_count++; /* also used as inputline */
+			alarm(SENDER_TIMEOUT);
 	
-			sentdval_args.server = in_line;
+			s=(char *)strtok(line," ");
+			strscpy(zabbix_server,s);
+			s=(char *)strtok(NULL," ");
+			strscpy(server,s);
+			s=(char *)strtok(NULL," ");
+			strscpy(port_str,s);
+			s=(char *)strtok(NULL," ");
+			strscpy(key,s);
+			s=(char *)strtok(NULL," ");
+			strscpy(value,s);
+			ret = send_value(zabbix_server,atoi(port_str),server,key,value,"0");
 
-			if( !(sentdval_args.hostname = strchr(sentdval_args.server, ' ')) )
-			{
-				zabbix_log( LOG_LEVEL_WARNING, "[line %i] 'Server' required", total_count);
-				continue;
-			}
-
-			*sentdval_args.hostname = '\0';
-			sentdval_args.hostname++;
-
-			if( !(str_port = strchr(sentdval_args.hostname, ' ')) )
-			{
-				zabbix_log( LOG_LEVEL_WARNING, "[line %i] 'Server port' required", total_count);
-				continue;
-			}
-
-			*str_port = '\0';
-			str_port++;
-
-			if( !(sentdval_args.key = strchr(str_port, ' ')) )
-			{
-				zabbix_log( LOG_LEVEL_WARNING, "[line %i] 'Key' required", total_count);
-				continue;
-			}
-
-			*sentdval_args.key = '\0';
-			sentdval_args.key++;
-
-			if( !(sentdval_args.key_value = strchr(sentdval_args.key, ' ')) )
-			{
-				zabbix_log( LOG_LEVEL_WARNING, "[line %i] 'Key value' required", total_count);
-				continue;
-			}
-
-			*sentdval_args.key_value = '\0';
-			sentdval_args.key_value++;
-
-			for(s = sentdval_args.key_value; s && *s; s++)
-			{
-				if(*s == '\r' || *s == '\n' )
-				{
-					*s = '\0';
-					break;
-				}
-			}
-
-			if( ZABBIX_SERVER )		sentdval_args.server	= ZABBIX_SERVER;
-			if( ZABBIX_HOSTNAME )		sentdval_args.hostname	= ZABBIX_HOSTNAME;
-			if( ZABBIX_KEY )		sentdval_args.key	= ZABBIX_KEY;
-			if( ZABBIX_KEY_VALUE )		sentdval_args.key_value	= ZABBIX_KEY_VALUE;
-
-			if( ZABBIX_SERVER_PORT )
-				sentdval_args.port	= ZABBIX_SERVER_PORT;
-			else
-				sentdval_args.port = atoi(str_port);
-
-			if( MIN_ZABBIX_PORT > sentdval_args.port || sentdval_args.port > MAX_ZABBIX_PORT )
-			{
-				zabbix_log( LOG_LEVEL_WARNING, "[line %i] Incorrect port number [%i]. Allowed [%i:%i]",
-					total_count, sentdval_args.port, MIN_ZABBIX_PORT, MAX_ZABBIX_PORT);
-				continue;
-			}
-			
-			if( SUCCEED == zbx_thread_wait(
-				zbx_thread_start(
-					send_value,
-					&sentdval_args
-					)
-				)
-			)
-				succeed_count++;
-
+			alarm(0);
 		}
-
-		fclose(in);
 	}
 	else
 	{
-		total_count++;
-
-		do /* try block simulation */
-		{
-			if( !ZABBIX_SERVER ) {		zabbix_log( LOG_LEVEL_WARNING, "'Server' parameter required"); break; }
-			if( !ZABBIX_HOSTNAME ) {	zabbix_log( LOG_LEVEL_WARNING, "'Hostname' parameter required"); break; }
-			if( !ZABBIX_KEY ) {		zabbix_log( LOG_LEVEL_WARNING, "Key required"); break; }
-			if( !ZABBIX_KEY_VALUE ) {	zabbix_log( LOG_LEVEL_WARNING, "Key value required"); break; }
-
-			if( !ZABBIX_SERVER_PORT )	ZABBIX_SERVER_PORT = 10051;
-
-			if( MIN_ZABBIX_PORT > ZABBIX_SERVER_PORT || ZABBIX_SERVER_PORT > MAX_ZABBIX_PORT )
-			{
-				zabbix_log( LOG_LEVEL_WARNING, "Incorrect port number [%i]. Allowed [%i:%i]",
-					ZABBIX_SERVER_PORT, MIN_ZABBIX_PORT, MAX_ZABBIX_PORT);
-				break;
-			}
-
-			sentdval_args.server	= ZABBIX_SERVER;
-			sentdval_args.port	= ZABBIX_SERVER_PORT;
-			sentdval_args.hostname	= ZABBIX_HOSTNAME;
-			sentdval_args.key	= ZABBIX_KEY;
-			sentdval_args.key_value	= ZABBIX_KEY_VALUE;
-
-			if( SUCCEED == zbx_thread_wait(
-				zbx_thread_start(
-					send_value,
-					&sentdval_args
-					)
-				)
-			)
-				succeed_count++;
-		}
-		while(0); /* try block simulation */
+		help();
+		ret = FAIL;
 	}
-
-	printf("sent: %i; failed: %i; total: %i\n", succeed_count, (total_count - succeed_count), total_count);
-
-	zabbix_close_log();
 
 	return ret;
 }
-

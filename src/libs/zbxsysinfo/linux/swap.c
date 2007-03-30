@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 #include "md5.h"
@@ -80,9 +81,8 @@ static int	SYSTEM_SWAP_PFREE(const char *cmd, const char *param, unsigned flags,
         init_result(result);
         init_result(&result_tmp);
 
-	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
-		!(result_tmp.type & AR_UINT64))
-	                return  SYSINFO_RET_FAIL;
+	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
 	tot_val = result_tmp.ui64;
 
 	/* Check fot division by zero */
@@ -92,9 +92,8 @@ static int	SYSTEM_SWAP_PFREE(const char *cmd, const char *param, unsigned flags,
                 return  SYSINFO_RET_FAIL;
 	}
 
-	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
-		!(result_tmp.type & AR_UINT64))
-                	return  SYSINFO_RET_FAIL;
+	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
 	free_val = result_tmp.ui64;
 
 	free_result(&result_tmp);
@@ -115,9 +114,8 @@ static int	SYSTEM_SWAP_PUSED(const char *cmd, const char *param, unsigned flags,
         init_result(result);
         init_result(&result_tmp);
 
-	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
-		!(result_tmp.type & AR_UINT64))
-                	return  SYSINFO_RET_FAIL;
+	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
 	tot_val = result_tmp.ui64;
 
 	/* Check fot division by zero */
@@ -127,9 +125,8 @@ static int	SYSTEM_SWAP_PUSED(const char *cmd, const char *param, unsigned flags,
                 return  SYSINFO_RET_FAIL;
 	}
 
-	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
-		!(result_tmp.type & AR_UINT64))
-                	return  SYSINFO_RET_FAIL;
+	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
 	free_val = result_tmp.ui64;
 
 	free_result(&result_tmp);
@@ -179,7 +176,7 @@ SWP_FNCLIST
         if(swapdev[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(swapdev, sizeof(swapdev), "all");
+		sprintf(swapdev, "all");
 	}
 
 	if(strncmp(swapdev, "all", MAX_STRING_LEN))
@@ -195,7 +192,7 @@ SWP_FNCLIST
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "free");
+		sprintf(mode, "free");
 	}
 
 	for(i=0; fl[i].mode!=0; i++)
@@ -352,7 +349,7 @@ static int	get_swap_pages(struct swap_stat_s *result)
 			ret = SYSINFO_RET_OK;
 			break;
 		};
-		zbx_fclose(f);
+		fclose(f);
 	}
 	
 	if(ret != SYSINFO_RET_OK)
@@ -437,7 +434,7 @@ int	SYSTEM_SWAP_IN(const char *cmd, const char *param, unsigned flags, AGENT_RES
 	if(swapdev[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(swapdev, sizeof(swapdev), "all");
+		sprintf(swapdev, "all");
 	}
 
 	if(get_param(param, 2, mode, sizeof(mode)) != 0)
@@ -448,7 +445,7 @@ int	SYSTEM_SWAP_IN(const char *cmd, const char *param, unsigned flags, AGENT_RES
 	if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "pages");
+		sprintf(mode, "pages");
 	}
 
 	ret = get_swap_stat(swapdev, &ss);
@@ -504,7 +501,7 @@ int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	if(swapdev[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(swapdev, sizeof(swapdev), "all");
+		sprintf(swapdev, "all");
 	}
 
 	if(get_param(param, 2, mode, sizeof(mode)) != 0)
@@ -515,7 +512,7 @@ int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "pages");
+		sprintf(mode, "pages");
 	}
 
 	ret = get_swap_stat(swapdev, &ss);

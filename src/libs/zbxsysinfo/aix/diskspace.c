@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 int	get_fs_size_stat(char *fs, double *total, double *free, double *usage)
@@ -223,7 +224,7 @@ FS_FNCLIST
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "total");
+		sprintf(mode, "total");
 	}
 	
 	for(i=0; fl[i].mode!=0; i++)

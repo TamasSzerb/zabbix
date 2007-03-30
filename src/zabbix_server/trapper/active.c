@@ -60,50 +60,51 @@
  * Comments: format of the list: key:delay:last_log_size                      *
  *                                                                            *
  ******************************************************************************/
-int	send_list_of_active_checks(zbx_sock_t *sock, char *host)
+int	send_list_of_active_checks(int sockfd, char *host)
 {
+	char	sql[MAX_STRING_LEN];
 	char	s[MAX_STRING_LEN];
 	DB_RESULT result;
 	DB_ROW	row;
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In send_list_of_active_checks()");
 
-	result = DBselect("select i.key_,i.delay,i.lastlogsize from items i,hosts h where i.hostid=h.hostid and h.status=%d and i.status=%d and i.type=%d and h.host='%s' and" ZBX_COND_NODEID,
-		HOST_STATUS_MONITORED,
-		ITEM_STATUS_ACTIVE,
-		ITEM_TYPE_ZABBIX_ACTIVE,
-		host,
-		LOCAL_NODE("h.hostid"));
+	snprintf(sql,sizeof(sql)-1,"select i.key_,i.delay,i.lastlogsize from items i,hosts h where i.hostid=h.hostid and h.status=%d and i.status=%d and i.type=%d and h.host='%s'", HOST_STATUS_MONITORED, ITEM_STATUS_ACTIVE, ITEM_TYPE_ZABBIX_ACTIVE, host);
 
+	result = DBselect(sql);
 	while((row=DBfetch(result)))
 	{
-		zbx_snprintf(s,sizeof(s),"%s:%s:%s\n",
-			row[0],
-			row[1],
-			row[2]);
-		zabbix_log( LOG_LEVEL_DEBUG, "Sending [%s]",
-			s);
-
-/*		if( write(sockfd,s,strlen(s)) == -1 ) */
-		if( zbx_tcp_send(sock,s) != SUCCEED )
+		snprintf(s,sizeof(s)-1,"%s:%s:%s\n",row[0],row[1],row[2]);
+		zabbix_log( LOG_LEVEL_DEBUG, "Sending [%s]", s);
+		if( write(sockfd,s,strlen(s)) == -1 )
 		{
-			zabbix_log( LOG_LEVEL_WARNING, "Error while sending list of active checks");
-			zbx_tcp_close(sock);
+			switch (errno)
+			{
+				case EINTR:
+					zabbix_log( LOG_LEVEL_WARNING, "Timeout while sending list of active checks");
+					break;
+				default:
+					zabbix_log( LOG_LEVEL_WARNING, "Error while sending list of active checks [%s]", strerror(errno));
+			}
+			close(sockfd);
 			return  FAIL;
 		}
 	}
 	DBfree_result(result);
 
-	zbx_snprintf(s,sizeof(s),"%s\n",
-		"ZBX_EOF");
-	zabbix_log( LOG_LEVEL_DEBUG, "Sending [%s]",
-		s);
-
-/*	if( write(sockfd,s,strlen(s)) == -1 ) */
-	if( zbx_tcp_send(sock,s) != SUCCEED )
+	snprintf(s,sizeof(s)-1,"%s\n","ZBX_EOF");
+	zabbix_log( LOG_LEVEL_DEBUG, "Sending [%s]", s);
+	if( write(sockfd,s,strlen(s)) == -1 )
 	{
-		zabbix_log( LOG_LEVEL_WARNING, "Error while sending list of active checks");
-		zbx_tcp_close(sock);
+		switch (errno)
+		{
+			case EINTR:
+				zabbix_log( LOG_LEVEL_WARNING, "Timeout while sending list of active checks");
+				break;
+			default:
+				zabbix_log( LOG_LEVEL_WARNING, "Error while sending list of active checks [%s]", strerror(errno));
+		}
+		close(sockfd);
 		return  FAIL;
 	}
 

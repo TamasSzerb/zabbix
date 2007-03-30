@@ -17,8 +17,9 @@
  * ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  * **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 static int get_kstat_named_field(
@@ -54,7 +55,7 @@ static int get_kstat_named_field(
 static int	NET_IF_IN_BYTES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
     kstat_named_t kn;
-    char    if_name[MAX_STRING_LEN];
+    char    interface[MAX_STRING_LEN];
     int	    ret;
 
     assert(result);
@@ -66,19 +67,19 @@ static int	NET_IF_IN_BYTES(const char *cmd, const char *param, unsigned flags, A
 	return SYSINFO_RET_FAIL;
     }
 
-    if(get_param(param, 1, if_name, MAX_STRING_LEN) != 0)
+    if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
     {
 	return SYSINFO_RET_FAIL;
     }
     
-    ret = get_kstat_named_field(if_name, "rbytes64", &kn);
+    ret = get_kstat_named_field(interface, "rbytes64", &kn);
     if (ret == SYSINFO_RET_OK)
     {
 	SET_UI64_RESULT(result, kn.value.ui64);
     }
     else
     {
-	ret = get_kstat_named_field(if_name, "rbytes", &kn);
+	ret = get_kstat_named_field(interface, "rbytes", &kn);
 	SET_UI64_RESULT(result, kn.value.ui32);
     }
     
@@ -88,7 +89,7 @@ static int	NET_IF_IN_BYTES(const char *cmd, const char *param, unsigned flags, A
 static int	NET_IF_IN_PACKETS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
     kstat_named_t kn;
-    char    if_name[MAX_STRING_LEN];
+    char    interface[MAX_STRING_LEN];
     int	    ret;
 
     assert(result);
@@ -100,19 +101,19 @@ static int	NET_IF_IN_PACKETS(const char *cmd, const char *param, unsigned flags,
 	return SYSINFO_RET_FAIL;
     }
 
-    if(get_param(param, 1, if_name, MAX_STRING_LEN) != 0)
+    if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
     {
 	return SYSINFO_RET_FAIL;
     }
     
-    ret = get_kstat_named_field(if_name, "ipackets64", &kn);
+    ret = get_kstat_named_field(interface, "ipackets64", &kn);
     if (ret == SYSINFO_RET_OK)
     {
 	SET_UI64_RESULT(result, kn.value.ui64);
     }
     else
     {
-	ret = get_kstat_named_field(if_name, "ipackets", &kn);
+	ret = get_kstat_named_field(interface, "ipackets", &kn);
 	SET_UI64_RESULT(result, kn.value.ui32);
     }
     
@@ -122,7 +123,7 @@ static int	NET_IF_IN_PACKETS(const char *cmd, const char *param, unsigned flags,
 static int	NET_IF_IN_ERRORS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
     kstat_named_t kn;
-    char    if_name[MAX_STRING_LEN];
+    char    interface[MAX_STRING_LEN];
     int	    ret;
 
     assert(result);
@@ -134,12 +135,12 @@ static int	NET_IF_IN_ERRORS(const char *cmd, const char *param, unsigned flags, 
 	return SYSINFO_RET_FAIL;
     }
 
-    if(get_param(param, 1, if_name, MAX_STRING_LEN) != 0)
+    if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
     {
 	return SYSINFO_RET_FAIL;
     }
     
-    ret = get_kstat_named_field(if_name, "ierrors", &kn);
+    ret = get_kstat_named_field(interface, "ierrors", &kn);
 
 	SET_UI64_RESULT(result, kn.value.ui32);
     
@@ -149,7 +150,7 @@ static int	NET_IF_IN_ERRORS(const char *cmd, const char *param, unsigned flags, 
 static int	NET_IF_OUT_BYTES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
     kstat_named_t kn;
-    char    if_name[MAX_STRING_LEN];
+    char    interface[MAX_STRING_LEN];
     int	    ret;
 
     assert(result);
@@ -161,19 +162,19 @@ static int	NET_IF_OUT_BYTES(const char *cmd, const char *param, unsigned flags, 
 	return SYSINFO_RET_FAIL;
     }
 
-    if(get_param(param, 1, if_name, MAX_STRING_LEN) != 0)
+    if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
     {
 	return SYSINFO_RET_FAIL;
     }
     
-    ret = get_kstat_named_field(if_name, "obytes64", &kn);
+    ret = get_kstat_named_field(interface, "obytes64", &kn);
     if (ret == SYSINFO_RET_OK)
     {
 	SET_UI64_RESULT(result, kn.value.ui64);
     }
     else
     {
-	ret = get_kstat_named_field(if_name, "obytes", &kn);
+	ret = get_kstat_named_field(interface, "obytes", &kn);
 	SET_UI64_RESULT(result, kn.value.ui32);
     }
     
@@ -183,7 +184,7 @@ static int	NET_IF_OUT_BYTES(const char *cmd, const char *param, unsigned flags, 
 static int	NET_IF_OUT_PACKETS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
     kstat_named_t kn;
-    char    if_name[MAX_STRING_LEN];
+    char    interface[MAX_STRING_LEN];
     int	    ret;
 
     assert(result);
@@ -195,19 +196,19 @@ static int	NET_IF_OUT_PACKETS(const char *cmd, const char *param, unsigned flags
 	return SYSINFO_RET_FAIL;
     }
 
-    if(get_param(param, 1, if_name, MAX_STRING_LEN) != 0)
+    if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
     {
 	return SYSINFO_RET_FAIL;
     }
     
-    ret = get_kstat_named_field(if_name, "opackets64", &kn);
+    ret = get_kstat_named_field(interface, "opackets64", &kn);
     if (ret == SYSINFO_RET_OK)
     {
 	SET_UI64_RESULT(result, kn.value.ui64);
     }
     else
     {
-	ret = get_kstat_named_field(if_name, "opackets", &kn);
+	ret = get_kstat_named_field(interface, "opackets", &kn);
 	SET_UI64_RESULT(result, kn.value.ui32);
     }
     
@@ -217,7 +218,7 @@ static int	NET_IF_OUT_PACKETS(const char *cmd, const char *param, unsigned flags
 static int	NET_IF_OUT_ERRORS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
     kstat_named_t kn;
-    char    if_name[MAX_STRING_LEN];
+    char    interface[MAX_STRING_LEN];
     int	    ret;
 
     assert(result);
@@ -229,12 +230,12 @@ static int	NET_IF_OUT_ERRORS(const char *cmd, const char *param, unsigned flags,
 	return SYSINFO_RET_FAIL;
     }
 
-    if(get_param(param, 1, if_name, MAX_STRING_LEN) != 0)
+    if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
     {
 	return SYSINFO_RET_FAIL;
     }
     
-    ret = get_kstat_named_field(if_name, "oerrors", &kn);
+    ret = get_kstat_named_field(interface, "oerrors", &kn);
 
 	SET_UI64_RESULT(result, kn.value.ui32);
     
@@ -245,7 +246,7 @@ static int	NET_IF_TOTAL_BYTES(const char *cmd, const char *param, unsigned flags
 {
     kstat_named_t ikn;
     kstat_named_t okn;
-    char    if_name[MAX_STRING_LEN];
+    char    interface[MAX_STRING_LEN];
     int	    ret;
 
     assert(result);
@@ -257,19 +258,19 @@ static int	NET_IF_TOTAL_BYTES(const char *cmd, const char *param, unsigned flags
 	return SYSINFO_RET_FAIL;
     }
 
-    if(get_param(param, 1, if_name, MAX_STRING_LEN) != 0)
+    if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
     {
 	return SYSINFO_RET_FAIL;
     }
     
-    ret = get_kstat_named_field(if_name, "rbytes64", &ikn) & get_kstat_named_field(if_name, "obytes64", &okn);
+    ret = get_kstat_named_field(interface, "rbytes64", &ikn) & get_kstat_named_field(interface, "obytes64", &okn);
     if (ret == SYSINFO_RET_OK)
     {
 	SET_UI64_RESULT(result, ikn.value.ui64 + okn.value.ui64);
     }
     else
     {
-	ret = get_kstat_named_field(if_name, "rbytes", &ikn) & get_kstat_named_field(if_name, "obytes", &okn);
+	ret = get_kstat_named_field(interface, "rbytes", &ikn) & get_kstat_named_field(interface, "obytes", &okn);
 	SET_UI64_RESULT(result, ikn.value.ui32 + okn.value.ui32);
     }
     
@@ -280,7 +281,7 @@ static int	NET_IF_TOTAL_PACKETS(const char *cmd, const char *param, unsigned fla
 {
     kstat_named_t ikn;
     kstat_named_t okn;
-    char    if_name[MAX_STRING_LEN];
+    char    interface[MAX_STRING_LEN];
     int	    ret;
 
     assert(result);
@@ -292,19 +293,19 @@ static int	NET_IF_TOTAL_PACKETS(const char *cmd, const char *param, unsigned fla
 	return SYSINFO_RET_FAIL;
     }
 
-    if(get_param(param, 1, if_name, MAX_STRING_LEN) != 0)
+    if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
     {
 	return SYSINFO_RET_FAIL;
     }
     
-    ret = get_kstat_named_field(if_name, "ipackets64", &ikn) & get_kstat_named_field(if_name, "opackets64", &okn);
+    ret = get_kstat_named_field(interface, "ipackets64", &ikn) & get_kstat_named_field(interface, "opackets64", &okn);
     if (ret == SYSINFO_RET_OK)
     {
 	SET_UI64_RESULT(result, ikn.value.ui64 + okn.value.ui64);
     }
     else
     {
-	ret = get_kstat_named_field(if_name, "ipackets", &ikn) & get_kstat_named_field(if_name, "opackets", &okn);
+	ret = get_kstat_named_field(interface, "ipackets", &ikn) & get_kstat_named_field(interface, "opackets", &okn);
 	SET_UI64_RESULT(result, ikn.value.ui32 + okn.value.ui32);
     }
     
@@ -315,7 +316,7 @@ static int	NET_IF_TOTAL_ERRORS(const char *cmd, const char *param, unsigned flag
 {
     kstat_named_t ikn;
     kstat_named_t okn;
-    char    if_name[MAX_STRING_LEN];
+    char    interface[MAX_STRING_LEN];
     int	    ret;
 
     assert(result);
@@ -327,12 +328,12 @@ static int	NET_IF_TOTAL_ERRORS(const char *cmd, const char *param, unsigned flag
 	return SYSINFO_RET_FAIL;
     }
 
-    if(get_param(param, 1, if_name, MAX_STRING_LEN) != 0)
+    if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
     {
 	return SYSINFO_RET_FAIL;
     }
     
-	ret = get_kstat_named_field(if_name, "ierrors", &ikn) & get_kstat_named_field(if_name, "oerrors", &okn);
+	ret = get_kstat_named_field(interface, "ierrors", &ikn) & get_kstat_named_field(interface, "oerrors", &okn);
 	SET_UI64_RESULT(result, ikn.value.ui32 + okn.value.ui32);
     
     return ret;
@@ -341,7 +342,7 @@ static int	NET_IF_TOTAL_ERRORS(const char *cmd, const char *param, unsigned flag
 int	NET_IF_COLLISIONS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
     kstat_named_t kn;
-    char    if_name[MAX_STRING_LEN];
+    char    interface[MAX_STRING_LEN];
     int	    ret;
 
     assert(result);
@@ -353,12 +354,12 @@ int	NET_IF_COLLISIONS(const char *cmd, const char *param, unsigned flags, AGENT_
 	return SYSINFO_RET_FAIL;
     }
 
-    if(get_param(param, 1, if_name, sizeof(if_name)) != 0)
+    if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
     {
 	return SYSINFO_RET_FAIL;
     }
     
-    ret = get_kstat_named_field(if_name, "collisions", &kn);
+    ret = get_kstat_named_field(interface, "collisions", &kn);
 
     if(ret == SYSINFO_RET_OK)
     {
@@ -378,9 +379,9 @@ int	NET_TCP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RES
     
     memset(command, '\0', sizeof(command));
 
-    zbx_snprintf(command, sizeof(command), "netstat -an | grep '*.%s' | wc -l", param);
+    snprintf(command, sizeof(command)-1, "netstat -an | grep '*.%s' | wc -l", param);
    
-    return EXECUTE_INT(NULL, command, flags, result);
+    return EXECUTE(NULL, command, flags, result);
 }
 
 int	NET_IF_IN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -401,7 +402,7 @@ NET_FNCLIST
 		{0,	    0}
 	};
 
-	char if_name[MAX_STRING_LEN];
+	char interface[MAX_STRING_LEN];
 	char mode[MAX_STRING_LEN];
 	int i;
 	
@@ -414,26 +415,26 @@ NET_FNCLIST
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, if_name, sizeof(if_name)) != 0)
+        if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
         }
 	
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "bytes");
+		sprintf(mode, "bytes");
 	}
 	
 	for(i=0; fl[i].mode!=0; i++)
 	{
 		if(strncmp(mode, fl[i].mode, MAX_STRING_LEN)==0)
 		{
-			return (fl[i].function)(cmd, if_name, flags, result);
+			return (fl[i].function)(cmd, interface, flags, result);
 		}
 	}
 	
@@ -457,7 +458,7 @@ NET_FNCLIST
 		{0,	    0}
 	};
 
-	char if_name[MAX_STRING_LEN];
+	char interface[MAX_STRING_LEN];
 	char mode[MAX_STRING_LEN];
 	int i;
 	
@@ -470,26 +471,26 @@ NET_FNCLIST
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, if_name, sizeof(mode)) != 0)
+        if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
         }
 	
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "bytes");
+		sprintf(mode, "bytes");
 	}
 	
 	for(i=0; fl[i].mode!=0; i++)
 	{
 		if(strncmp(mode, fl[i].mode, MAX_STRING_LEN)==0)
 		{
-			return (fl[i].function)(cmd, if_name, flags, result);
+			return (fl[i].function)(cmd, interface, flags, result);
 		}
 	}
 	
@@ -513,7 +514,7 @@ NET_FNCLIST
 		{0,	    0}
 	};
 
-	char if_name[MAX_STRING_LEN];
+	char interface[MAX_STRING_LEN];
 	char mode[MAX_STRING_LEN];
 	int i;
 	
@@ -526,26 +527,26 @@ NET_FNCLIST
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, if_name, sizeof(if_name)) != 0)
+        if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
         }
 	
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "bytes");
+		sprintf(mode, "bytes");
 	}
 	
 	for(i=0; fl[i].mode!=0; i++)
 	{
 		if(strncmp(mode, fl[i].mode, MAX_STRING_LEN)==0)
 		{
-			return (fl[i].function)(cmd, if_name, flags, result);
+			return (fl[i].function)(cmd, interface, flags, result);
 		}
 	}
 	

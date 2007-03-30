@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 static int	VM_MEMORY_TOTAL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -27,7 +28,7 @@ static int	VM_MEMORY_TOTAL(const char *cmd, const char *param, unsigned flags, A
 
         init_result(result);
 	
-	return EXECUTE_INT(cmd,"vmstat -s | awk 'BEGIN{pages=0}{gsub(\"[()]\",\"\");if($4==\"pagesize\")pgsize=($6);if(($2==\"inactive\"||$2==\"active\"||$2==\"wired\")&&$3==\"pages\")pages+=$1}END{printf (pages*pgsize)}'", flags, result);	
+	return EXECUTE(cmd,"vmstat -s | awk 'BEGIN{pages=0}{gsub(\"[()]\",\"\");if($4==\"pagesize\")pgsize=($6);if(($2==\"inactive\"||$2==\"active\"||$2==\"wired\")&&$3==\"pages\")pages+=$1}END{printf (pages*pgsize)}'", flags, result);	
 }
 
 static int	VM_MEMORY_FREE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -73,7 +74,7 @@ static int	VM_MEMORY_FREE(const char *cmd, const char *param, unsigned flags, AG
 
         init_result(result);
 	
-	return EXECUTE_INT(cmd, "vmstat -s | awk '{gsub(\"[()]\",\"\");if($4==\"pagesize\")pgsize=($6);if($2==\"free\"&&$3==\"pages\")pages=($1)}END{printf (pages*pgsize)}'", flags, result);	
+	return EXECUTE(cmd, "vmstat -s | awk '{gsub(\"[()]\",\"\");if($4==\"pagesize\")pgsize=($6);if($2==\"free\"&&$3==\"pages\")pages=($1)}END{printf (pages*pgsize)}'", flags, result);	
 }
 
 int     VM_MEMORY_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -103,7 +104,7 @@ MEM_FNCLIST
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, mode, sizeof(mode)) != 0)
+        if(get_param(param, 1, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
@@ -111,7 +112,7 @@ MEM_FNCLIST
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "total");
+		sprintf(mode, "total");
 	}
 	
 	for(i=0; fl[i].mode!=0; i++)

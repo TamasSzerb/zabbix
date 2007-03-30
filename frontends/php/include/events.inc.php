@@ -19,60 +19,40 @@
 **/
 ?>
 <?php
-	function	event_source2str($sourceid)
-	{
-		switch($sourceid)
-		{
-			case EVENT_SOURCE_TRIGGERS:	return S_TRIGGERS;
-			case EVENT_SOURCE_DISCOVERY:	return S_DISCOVERY;
-			default:			return S_UNKNOWN;
-		}
-	}
 
-	function	get_history_of_triggers_events($start,$num, $groupid=0, $hostid=0, $nodeid=null)
+	function get_history_of_events($start,$num, $groupid=0, $hostid=0)
 	{
-		global $ZBX_CURNODEID;
-		global $USER_DETAILS;
-		
-		if(is_null($nodeid)) $nodeid = $ZBX_CURNODEID;
-			
-		$sql_from = $sql_cond = "";
-		
 		if($hostid > 0)
 		{
-			$sql_cond = " and h.hostid=".$hostid;
+			$sql="select distinct a.clock,a.value,a.triggerid from alarms a,functions f,items i where a.triggerid=f.triggerid and f.itemid=i.itemid and i.hostid=".$hostid." order by clock desc";
 		}
 		elseif($groupid > 0)
 		{
-			$sql_from = ", hosts_groups hg ";
-			$sql_cond = " and h.hostid=hg.hostid and hg.groupid=".$groupid;
+			$sql="select distinct a.clock,a.value,a.triggerid from alarms a,functions f,items i,hosts_groups hg where a.triggerid=f.triggerid and f.itemid=i.itemid and i.hostid=hg.hostid and hg.groupid=".$groupid." order by clock desc";
 		}
-
-		$result = DBselect("select distinct t.triggerid,t.priority,t.description,h.host,e.clock,e.value ".
-			" from events e, triggers t, functions f, items i, hosts h ".$sql_from.
-			" where ".DBid2nodeid("t.triggerid")."=".$nodeid.
-			' and e.objectid=t.triggerid and e.object='.EVENT_OBJECT_TRIGGER.' and t.triggerid=f.triggerid and f.itemid=i.itemid '.
-			" and i.hostid=h.hostid ".$sql_cond." and h.status=".HOST_STATUS_MONITORED.
-			" order by e.clock desc,h.host,t.priority,t.description,t.triggerid ",
-			10*($start+$num)
-			);
+		else
+		{
+			$sql="select distinct triggerid,clock,value from alarms order by clock desc";
+		}
+		$result=DBselect($sql,10*($start+$num));
        
 		$table = new CTableInfo(S_NO_EVENTS_FOUND); 
-		$table->SetHeader(array(S_TIME, $hostid == 0 ? S_HOST : null, S_DESCRIPTION, S_VALUE, S_SEVERITY));
+		$table->setHeader(array(S_TIME, S_DESCRIPTION, S_VALUE, S_SEVERITY));
 		$col=0;
-		
-		$accessible_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY);
-		 
-		$skip = $start;
+		$skip=$start;
 		while(($row=DBfetch($result))&&($col<$num))
 		{
-			if(!check_right_on_trigger_by_triggerid(null, $row['triggerid'], $accessible_hosts)) continue;
-
+			if(!check_right_on_trigger("R",$row["triggerid"]))
+			{
+				continue;
+			}
 			if($skip > 0) 
 			{
 				$skip--;
 				continue;
 			}
+			$description=expand_trigger_description($row["triggerid"]);
+			$description=new CLink($description,"alarms.php?triggerid=".$row["triggerid"],"action");
 
 			if($row["value"] == 0)
 			{
@@ -87,83 +67,21 @@
 				$value=new CCol(S_UNKNOWN_BIG,"unknown");
 			}
 
-			$table->AddRow(array(
-				date("Y.M.d H:i:s",$row["clock"]),
-				$hostid == 0 ? $row['host'] : null,
-				new CLink(expand_trigger_description_by_data($row),"tr_events.php?triggerid=".$row["triggerid"],"action"),
-				$value,
-				new CCol(get_severity_description($row["priority"]), get_severity_style($row["priority"]))));
+			$trigger = get_trigger_by_triggerid($row["triggerid"]);
 
-			$col++;
-		}
-		return $table;
-	}
+			if($trigger["priority"]==0)     $priority=S_NOT_CLASSIFIED;
+			elseif($trigger["priority"]==1) $priority=new CCol(S_INFORMATION, "information");
+			elseif($trigger["priority"]==2) $priority=new CCol(S_WARNING,"warning");
+			elseif($trigger["priority"]==3) $priority=new CCol(S_AVERAGE,"average");
+			elseif($trigger["priority"]==4) $priority=new CCol(S_HIGH,"high");
+			elseif($trigger["priority"]==5) $priority=new CCol(S_DISASTER,"disaster");
+			else                            $priority=$trigger["priority"];
 
-	function	get_history_of_discovery_events($start,$num,$nodeid=null)
-	{
-		global $ZBX_CURNODEID;
-		global $USER_DETAILS;
-		
-		if(is_null($nodeid)) $nodeid = $ZBX_CURNODEID;
-			
-		$db_events = DBselect('select distinct e.source,e.object,e.objectid,e.clock,e.value from events e'.
-			' where '.' e.source='.EVENT_SOURCE_DISCOVERY.' order by e.clock desc',
-			10*($start+$num)
-			);
-       
-		$table = new CTableInfo(S_NO_EVENTS_FOUND); 
-		$table->SetHeader(array(S_TIME, S_IP, S_DESCRIPTION, S_STATUS));
-		$col=0;
-		
-		$accessible_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY);
-		 
-		$skip = $start;
-		while(($event_data = DBfetch($db_events))&&($col<$num))
-		{
-			if($skip > 0) 
-			{
-				$skip--;
-				continue;
-			}
-
-			if($event_data["value"] == 0)
-			{
-				$value=new CCol(S_UP,"off");
-			}
-			elseif($event_data["value"] == 1)
-			{
-				$value=new CCol(S_DOWN,"on");
-			}
-			else
-			{
-				$value=new CCol(S_UNKNOWN_BIG,"unknown");
-			}
-
-
-			switch($event_data['object'])
-			{
-				case EVENT_OBJECT_DHOST:
-					$object_data = DBfetch(DBselect('select ip from dhosts where dhostid='.$event_data['objectid']));
-					$description = SPACE;
-					break;
-				case EVENT_OBJECT_DSERVICE:
-					$object_data = DBfetch(DBselect('select h.ip,s.type,s.port from dhosts h,dservices s '.
-						' where h.dhostid=s.dhostid, s.dserviceid='.$event_data['objectid']));
-					$description = S_SERVICE.': '.discovery_check_type2str($object_data['type']).'; '.
-						S_PORT.': '.$object_data['port'];
-					break;
-				default:
-					continue;
-			}
-
-			if(!$object_data) continue;
-
-
-			$table->AddRow(array(
-				date("Y.M.d H:i:s",$event_data["clock"]),
-				$object_data['ip'],
-				$description,
-				$value));
+			$table->addRow(array(
+			date("Y.M.d H:i:s",$row["clock"]),
+			$description,
+			$value,
+			$priority));
 
 			$col++;
 		}

@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 static int	VM_MEMORY_CACHED(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -33,7 +34,8 @@ static int	VM_MEMORY_CACHED(const char *cmd, const char *param, unsigned flags, 
 
         init_result(result);
 
-        if( NULL == (f = fopen("/proc/meminfo","r") ))
+        f=fopen("/proc/meminfo","r");
+        if(NULL == f)
         {
                 return  SYSINFO_RET_FAIL;
         }
@@ -54,7 +56,7 @@ static int	VM_MEMORY_CACHED(const char *cmd, const char *param, unsigned flags, 
                         break;
                 }
         }
-        zbx_fclose(f);
+        fclose(f);
 
         SET_UI64_RESULT(result, res);
         return SYSINFO_RET_OK;
@@ -393,7 +395,7 @@ MEM_FNCLIST
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "total");
+		sprintf(mode, "total");
 	}
 	
 	for(i=0; fl[i].mode!=0; i++)

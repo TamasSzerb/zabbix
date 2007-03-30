@@ -19,39 +19,32 @@
 **/
 ?>
 <?php
-	function	get_last_event_by_triggerid($triggerid)
+	function	get_last_alarm_by_triggerid($triggerid)
 	{
-		$event_data = DBfetch(DBselect('select * from events where objectid='.$triggerid.
-			' and object='.EVENT_OBJECT_TRIGGER.' order by clock desc', 1));
-		if(!$event_data)
-			return FALSE;
-		return $event_data;
+		$db_alarms = DBselect("select * from alarms where triggerid=$triggerid".
+			" order by clock desc",1);
+		$row=DBfetch($db_alarms);
+		if(!$row)	return FALSE;
+		return $row;
 	}
 
-	function 	get_acknowledges_by_eventid($eventid)
+	function 	get_acknowledges_by_alarmid($alarmid)
 	{
-		return DBselect("select * from acknowledges where eventid=$eventid");
+		return DBselect("select * from acknowledges where alarmid=$alarmid");
 	}
 
-	function	add_acknowledge_coment($eventid, $userid, $message)
+	function	add_acknowledge_coment($alarmid, $userid, $message)
 	{
-		$result = set_event_acnowledged($eventid);
+		$result = set_alarm_acnowledged($alarmid);
 		if(!$result)
 			return $result;
 
-		$acknowledgeid = get_dbid("acknowledges","acknowledgeid");
-
-		$result =  DBexecute("insert into acknowledges (acknowledgeid,userid,eventid,clock,message)".
-			" values ($acknowledgeid,$userid,$eventid,".time().",".zbx_dbstr($message).")");
-
-		if(!$result)
-			return $result;
-
-		return $acknowledgeid;
+		return DBexecute("insert into acknowledges (userid,alarmid,clock,message)".
+			" values ($userid,$alarmid,".time().",".zbx_dbstr($message).")");
 	}
 
-	function	set_event_acnowledged($eventid)
+	function	set_alarm_acnowledged($alarmid)
 	{
-		return DBexecute("update events set acknowledged=1 where eventid=$eventid");
+		return DBexecute("update alarms set acknowledged=1 where alarmid=$alarmid");
 	}
 ?>

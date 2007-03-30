@@ -17,7 +17,12 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <string.h>
 
 #include "cfg.h"
 #include "pid.h"
@@ -25,6 +30,10 @@
 #include "log.h"
 #include "zlog.h"
 
+#include <sys/types.h>
+#include <regex.h>
+
+#include "common.h"
 #include "autoregister.h"
 
 static void	register_new_host(char *server, int host_templateid);
@@ -35,22 +44,22 @@ int	autoregister(char *server)
 	DB_ROW		row;
 
 	int	ret=SUCCEED;
+	char	sql[MAX_STRING_LEN];
 	char	*pattern;
 	int	len;
 	int	hostid;
 	
-	zabbix_log( LOG_LEVEL_DEBUG, "In autoregister(%s)",
-		server);
+	zabbix_log( LOG_LEVEL_DEBUG, "In autoregister(%s)",server);
 
 	if(DBhost_exists(server) == SUCCEED)
 	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Host [%s] already exists. Do nothing.",
-			server);
+		zabbix_log( LOG_LEVEL_DEBUG, "Host [%s] already exists. Do nothing.", server);
 		return FAIL;
 	}
 
-	result = DBselect("select id,pattern,hostid from autoreg where " ZBX_COND_NODEID " order by priority",
-		LOCAL_NODE("id"));
+	snprintf(sql,sizeof(sql)-1,"select id,pattern,hostid from autoreg order by priority");
+
+	result = DBselect(sql);
 
 	while((row=DBfetch(result)))
 	{
@@ -59,17 +68,13 @@ int	autoregister(char *server)
 
 		if(zbx_regexp_match(server, pattern, &len) != 0)
 		{
-			zabbix_log( LOG_LEVEL_DEBUG, "Matched [%s] [%s]",
-				server,
-				pattern);
+			zabbix_log( LOG_LEVEL_DEBUG, "Matched [%s] [%s]",server,pattern);
 			register_new_host(server, hostid);
 			break;
 		}
 		else
 		{
-			zabbix_log( LOG_LEVEL_DEBUG, "No match [%s] [%s]",
-				server,
-				pattern);
+			zabbix_log( LOG_LEVEL_DEBUG, "No match [%s] [%s]",server,pattern);
 		}
 	}
 
@@ -82,20 +87,16 @@ static void	register_new_host(char *server, int host_templateid)
 {
 	int	hostid;
 
-	zabbix_log( LOG_LEVEL_DEBUG, "In register_new_host(%s,%d)",
-		server,
-		host_templateid);
+	zabbix_log( LOG_LEVEL_DEBUG, "In register_new_host(%s,%d)", server, host_templateid);
 
 	hostid = DBadd_host(server, 10050, HOST_STATUS_MONITORED, 0, "", 0, HOST_AVAILABLE_UNKNOWN);
 
-	zabbix_log( LOG_LEVEL_DEBUG, "Added new host with hostid [%d]",
-		hostid);
+	zabbix_log( LOG_LEVEL_DEBUG, "Added new host with hostid [%d]", hostid);
 
 	/* Use hostid as a template */
 	if( (hostid>0) && (host_templateid!=0))
 	{
-		zabbix_log( LOG_LEVEL_DEBUG, "Using hostid [%d] as a template",
-			host_templateid);
+		zabbix_log( LOG_LEVEL_DEBUG, "Using hostid [%d] as a template", host_templateid);
 
 		DBadd_templates_to_host(hostid,host_templateid);
 		DBsync_host_with_templates(hostid);

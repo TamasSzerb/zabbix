@@ -20,8 +20,6 @@
 #ifndef ZABBIX_ALERTER_H
 #define ZABBIX_ALERTER_H
 
-#include "db.h"
-
 extern	int	CONFIG_SENDER_FREQUENCY;
 extern	char	*CONFIG_DBHOST;
 extern	char	*CONFIG_DBNAME;
@@ -30,12 +28,8 @@ extern	char	*CONFIG_DBPASSWORD;
 extern	char	*CONFIG_DBSOCKET;
 extern	char	*CONFIG_ALERT_SCRIPTS_PATH;
 
-extern	int	CONFIG_NODEID;
-
 extern	void	signal_handler( int sig );
 
 int main_alerter_loop();
-
-int execute_action(DB_ALERT *alert,DB_MEDIATYPE *mediatype, char *error, int max_error_len);
 
 #endif

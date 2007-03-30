@@ -19,8 +19,6 @@
 **/
 ?>
 <?php
-	require_once("include/classes/ctag.inc.php");
-
 	class CComboItem extends CTag
 	{
 /* public */
@@ -61,7 +59,7 @@
 	class CComboBox extends CTag
 	{
 /* private */
-		//var $value;
+		var $value;
 
 /* public */
 		function CComboBox($name='combobox',$value=NULL,$action=NULL)
@@ -82,7 +80,7 @@
 		{
 			$this->value = $value;
 		}
-		function AddItem($value, $caption='', $selected=NULL, $enabled='yes')
+		function AddItem($value, $caption, $selected=NULL, $enabled='yes')
 		{
 //			if($enabled=='no') return;	/* disable item method 1 */
 
@@ -100,7 +98,7 @@
 	class CListBox extends CComboBox
 	{
 /* public */
-		function CListBox($name='listbox',$value=NULL,$size=5,$action=NULL)
+		function CListBox($name='combobox',$value=NULL,$size=5,$action=NULL)
 		{
 			parent::CComboBox($name,NULL,$action);
 			$this->options['multiple'] = 'multiple';
@@ -113,92 +111,4 @@
 		}
 	}
 
-	function	inseret_javascript_for_editable_combobox()
-	{
-		if(defined('EDITABLE_COMBOBOX_SCRIPT_INSERTTED')) return;
-
-		define('EDITABLE_COMBOBOX_SCRIPT_INSERTTED', 1);
-?>
-<script language="JavaScript" type="text/javascript">
-<!--
-		function CEditableComboBoxInit(obj)
-		{
-			var opt = obj.options;
-
-			if(obj.value) obj.oldValue = obj.value;
-
-			for (var i = 0; i < opt.length; i++)
-				if (-1 == opt.item(i).value)
-					return;
-
-			opt = document.createElement("option");
-			opt.value = -1;
-			opt.text = "(other ...)";
-
-			if(!obj.options.add)
-				obj.insertBefore(opt, obj.options.item(0));
-			else
-				obj.options.add(opt, 0);
-
-			return;
-		}
-
-		function CEditableComboBoxOnChange(obj,size)
-		{
-			if(-1 != obj.value)
-			{
-				obj.oldValue = obj.value;
-			}
-			else
-			{
-				var new_obj = document.createElement("input");
-				new_obj.type = "text";
-				new_obj.name = obj.name;
-				if(size && size > 0)
-				{
-					new_obj.size = size;
-				}
-				new_obj.className = obj.className;
-				if(obj.oldValue) new_obj.value = obj.oldValue;
-				obj.parentNode.replaceChild(new_obj, obj);
-				new_obj.focus();
-				new_obj.select();
-			}
-		}
--->
-</script>
-<?php
-	}
-
-	class CEditableComboBox extends CComboBox
-	{
-		function CEditableComboBox($name='editablecombobox',$value=NULL,$size=0,$action=NULL)
-		{
-			inseret_javascript_for_editable_combobox();
-
-			parent::CComboBox($name,$value,$action);
-			parent::AddAction('onfocus','CEditableComboBoxInit(this);');
-			parent::AddAction('onchange','CEditableComboBoxOnChange(this,'.$size.');');
-		}
-
-		function AddItem($value, $caption='', $selected=NULL, $enabled='yes')
-		{
-			if(is_null($selected))
-			{
-				if($value == $this->value || (is_array($this->value) && in_array($value, $this->value)))
-					$this->value_exist = 1;
-			}
-
-			parent::AddItem($value,$caption,$selected,$enabled);
-		}
-
-		function ToString($destroy=true)
-		{
-			if(!isset($this->value_exist) && !empty($this->value))
-			{
-				$this->AddItem($this->value, $this->value, 'yes');
-			}
-			return parent::ToString($destroy);
-		}
-	}
 ?>

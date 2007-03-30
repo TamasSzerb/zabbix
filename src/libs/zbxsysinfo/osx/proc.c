@@ -17,8 +17,9 @@
  * ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  * **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 #define DO_SUM 0
@@ -142,7 +143,8 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
     
         if(stat(filename,&buf)==0)
         {
-            if(NULL == (f = fopen(filename,"r") ))
+            f=fopen(filename,"r");
+            if(f==NULL)
             {
                 continue;
             }
@@ -163,7 +165,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
             
                 if(proc_ok == 0) 
                 {
-                    zbx_fclose(f);
+                    fclose(f);
                     continue;
                 }
             }
@@ -258,7 +260,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
             }
             
                     
-            zbx_fclose(f);
+            fclose(f);
         }
     }
     closedir(dir);
@@ -398,7 +400,8 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 
             if(stat(filename,&buf)==0)
             {
-                if(NULL == (f = fopen(filename,"r") ))
+                f=fopen(filename,"r");
+                if(f==NULL)
                 {
                     continue;
                 }
@@ -419,7 +422,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
                 
                     if(proc_ok == 0) 
                     {
-                        zbx_fclose(f);
+                        fclose(f);
                         continue;
                     }
                 }
@@ -487,7 +490,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
                     proccount++;
                 }
                 
-                zbx_fclose(f);
+                fclose(f);
             }
     }
     closedir(dir);

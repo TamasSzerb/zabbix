@@ -17,21 +17,7 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
-#include "diskdevices.h"
-
-
-void	collect_stats_diskdevices(ZBX_DISKDEVICES_DATA *pdiskdevices)
-{
-#if defined(TODO)
-#error "Realize function collect_stats_diskdevices IF needed"
-#endif
-}
-
-
-#if OFF && (!defined(_WINDOWS) || (defined(TODO) && defined(_WINDOWS)))
-
-/*TODO!!! Make same as cpustat.c */
+#include "config.h"
 
 #include <netdb.h>
 
@@ -71,6 +57,7 @@ void	collect_stats_diskdevices(ZBX_DISKDEVICES_DATA *pdiskdevices)
 
 #include <dirent.h>
 
+#include "common.h"
 #include "sysinfo.h"
 #include "security.h"
 #include "zabbix_agent.h"
@@ -137,9 +124,10 @@ void	init_stats_diskdevices()
 		}
 	}
 
-	if(NULL == (file = fopen("/proc/stat","r") ))
+	file=fopen("/proc/stat","r");
+	if(NULL == file)
 	{
-		zbx_error("Cannot open [%s] [%s].","/proc/stat", strerror(errno));
+		fprintf(stderr, "Cannot open [%s] [%s]\n","/proc/stat", strerror(errno));
 		return;
 	}
 	i=0;
@@ -162,6 +150,7 @@ void	init_stats_diskdevices()
 			s2++;
 	
 			zbx_strlcpy(device,s,s2-s);
+			device[s2-s]=0;
 			sscanf(device,"(%d,%d):(%d,%d,%d,%d,%d)",&major,&diskno,&noinfo,&read_io_ops,&blks_read,&write_io_ops,&blks_write);
 /*			printf("Major:[%d] Minor:[%d] read_io_ops[%d]\n",major,diskno,read_io_ops);*/
 	
@@ -177,55 +166,8 @@ void	init_stats_diskdevices()
 		}
 	}
 
-	zbx_fclose(file);
+	fclose(file);
 }
-
-/*
-void	init_stats_diskdevices()
-{
-	FILE	*file;
-	char	*s;
-	char	line[MAX_STRING_LEN+1];
-	char	interface[MAX_STRING_LEN+1];
-	int	i,j,j1;
-
-	for(i=0;i<MAX_DISKDEVICES;i++)
-	{
-		diskdevices[i].device=0;
-		for(j=0;j<60*15;j++)
-		{
-			diskdevices[i].clock[j]=0;
-		}
-	}
-
-	if(NULL == (file = fopen("/proc/stat","r") ))
-	{
-		zbx_error("Cannot open [%s] [%m].","/proc/stat");
-		return;
-	}
-	i=0;
-	while(fgets(line,MAX_STRING_LEN,file) != NULL)
-	{
-		if( (s=strstr(line,":")) == NULL)
-			continue;
-		strncpy(interface,line,s-line);
-		interface[s-line]=0;
-		j1=0;
-		for(j=0;j<strlen(interface);j++)
-		{
-			if(interface[j]!=' ')
-			{
-				interface[j1++]=interface[j];
-			}
-		}
-		interface[j1]=0;
-		diskdevices[i].device=strdup(interface);
-		i++;
-	}
-
-	zbx_fclose(file);
-}
-*/
 
 void	report_stats_diskdevices(FILE *file, int now)
 {
@@ -238,10 +180,10 @@ void	report_stats_diskdevices(FILE *file, int now)
 	 * [2] - avg5
 	 * [3] - avg15
 	 */
-	double   read_io_ops[4];
-	double   blks_read[4];
-	double   write_io_ops[4];
-	double   blks_write[4];
+	float   read_io_ops[4];
+	float   blks_read[4];
+	float   write_io_ops[4];
+	float   blks_write[4];
 
 	int	i,j;
 
@@ -321,7 +263,7 @@ void	report_stats_diskdevices(FILE *file, int now)
 
 		if((read_io_ops[0]!=0)&&(read_io_ops[1]!=0))
 		{
-			fprintf(file,"disk_read_ops1[%s] " ZBX_FS_DBL "\n", diskdevices[i].device, (double)((read_io_ops[0]-read_io_ops[1])/(now-time1)));
+			fprintf(file,"disk_read_ops1[%s] %f\n", diskdevices[i].device, (float)((read_io_ops[0]-read_io_ops[1])/(now-time1)));
 		}
 		else
 		{
@@ -329,7 +271,7 @@ void	report_stats_diskdevices(FILE *file, int now)
 		}
 		if((read_io_ops[0]!=0)&&(read_io_ops[2]!=0))
 		{
-			fprintf(file,"disk_read_ops5[%s] " ZBX_FS_DBL "\n", diskdevices[i].device, (double)((read_io_ops[0]-read_io_ops[2])/(now-time5)));
+			fprintf(file,"disk_read_ops5[%s] %f\n", diskdevices[i].device, (float)((read_io_ops[0]-read_io_ops[2])/(now-time5)));
 		}
 		else
 		{
@@ -337,7 +279,7 @@ void	report_stats_diskdevices(FILE *file, int now)
 		}
 		if((read_io_ops[0]!=0)&&(read_io_ops[3]!=0))
 		{
-			fprintf(file,"disk_read_ops15[%s] " ZBX_FS_DBL "\n", diskdevices[i].device, (double)((read_io_ops[0]-read_io_ops[3])/(now-time15)));
+			fprintf(file,"disk_read_ops15[%s] %f\n", diskdevices[i].device, (float)((read_io_ops[0]-read_io_ops[3])/(now-time15)));
 		}
 		else
 		{
@@ -346,7 +288,7 @@ void	report_stats_diskdevices(FILE *file, int now)
 
 		if((blks_read[0]!=0)&&(blks_read[1]!=0))
 		{
-			fprintf(file,"disk_read_blks1[%s] " ZBX_FS_DBL "\n", diskdevices[i].device, (double)((blks_read[0]-blks_read[1])/(now-time1)));
+			fprintf(file,"disk_read_blks1[%s] %f\n", diskdevices[i].device, (float)((blks_read[0]-blks_read[1])/(now-time1)));
 		}
 		else
 		{
@@ -354,7 +296,7 @@ void	report_stats_diskdevices(FILE *file, int now)
 		}
 		if((blks_read[0]!=0)&&(blks_read[2]!=0))
 		{
-			fprintf(file,"disk_read_blks5[%s] " ZBX_FS_DBL "\n", diskdevices[i].device, (double)((blks_read[0]-blks_read[2])/(now-time5)));
+			fprintf(file,"disk_read_blks5[%s] %f\n", diskdevices[i].device, (float)((blks_read[0]-blks_read[2])/(now-time5)));
 		}
 		else
 		{
@@ -362,7 +304,7 @@ void	report_stats_diskdevices(FILE *file, int now)
 		}
 		if((blks_read[0]!=0)&&(blks_read[3]!=0))
 		{
-			fprintf(file,"disk_read_blks15[%s] " ZBX_FS_DBL "\n", diskdevices[i].device, (double)((blks_read[0]-blks_read[3])/(now-time15)));
+			fprintf(file,"disk_read_blks15[%s] %f\n", diskdevices[i].device, (float)((blks_read[0]-blks_read[3])/(now-time15)));
 		}
 		else
 		{
@@ -371,7 +313,7 @@ void	report_stats_diskdevices(FILE *file, int now)
 
 		if((write_io_ops[0]!=0)&&(write_io_ops[1]!=0))
 		{
-			fprintf(file,"disk_write_ops1[%s] " ZBX_FS_DBL "\n", diskdevices[i].device, (double)((write_io_ops[0]-write_io_ops[1])/(now-time1)));
+			fprintf(file,"disk_write_ops1[%s] %f\n", diskdevices[i].device, (float)((write_io_ops[0]-write_io_ops[1])/(now-time1)));
 		}
 		else
 		{
@@ -379,7 +321,7 @@ void	report_stats_diskdevices(FILE *file, int now)
 		}
 		if((write_io_ops[0]!=0)&&(write_io_ops[2]!=0))
 		{
-			fprintf(file,"disk_write_ops5[%s] " ZBX_FS_DBL "\n", diskdevices[i].device, (double)((write_io_ops[0]-write_io_ops[2])/(now-time5)));
+			fprintf(file,"disk_write_ops5[%s] %f\n", diskdevices[i].device, (float)((write_io_ops[0]-write_io_ops[2])/(now-time5)));
 		}
 		else
 		{
@@ -387,7 +329,7 @@ void	report_stats_diskdevices(FILE *file, int now)
 		}
 		if((write_io_ops[0]!=0)&&(write_io_ops[3]!=0))
 		{
-			fprintf(file,"disk_write_ops15[%s] " ZBX_FS_DBL "\n", diskdevices[i].device, (double)((write_io_ops[0]-write_io_ops[3])/(now-time15)));
+			fprintf(file,"disk_write_ops15[%s] %f\n", diskdevices[i].device, (float)((write_io_ops[0]-write_io_ops[3])/(now-time15)));
 		}
 		else
 		{
@@ -396,7 +338,7 @@ void	report_stats_diskdevices(FILE *file, int now)
 
 		if((blks_write[0]!=0)&&(blks_write[1]!=0))
 		{
-			fprintf(file,"disk_write_blks1[%s] " ZBX_FS_DBL "\n", diskdevices[i].device, (double)((blks_write[0]-blks_write[1])/(now-time1)));
+			fprintf(file,"disk_write_blks1[%s] %f\n", diskdevices[i].device, (float)((blks_write[0]-blks_write[1])/(now-time1)));
 		}
 		else
 		{
@@ -404,7 +346,7 @@ void	report_stats_diskdevices(FILE *file, int now)
 		}
 		if((blks_write[0]!=0)&&(blks_write[2]!=0))
 		{
-			fprintf(file,"disk_write_blks5[%s] " ZBX_FS_DBL "\n", diskdevices[i].device, (double)((blks_write[0]-blks_write[2])/(now-time5)));
+			fprintf(file,"disk_write_blks5[%s] %f\n", diskdevices[i].device, (float)((blks_write[0]-blks_write[2])/(now-time5)));
 		}
 		else
 		{
@@ -412,7 +354,7 @@ void	report_stats_diskdevices(FILE *file, int now)
 		}
 		if((blks_write[0]!=0)&&(blks_write[3]!=0))
 		{
-			fprintf(file,"disk_write_blks15[%s] " ZBX_FS_DBL "\n", diskdevices[i].device, (double)((blks_write[0]-blks_write[3])/(now-time15)));
+			fprintf(file,"disk_write_blks15[%s] %f\n", diskdevices[i].device, (float)((blks_write[0]-blks_write[3])/(now-time15)));
 		}
 		else
 		{
@@ -424,11 +366,11 @@ void	report_stats_diskdevices(FILE *file, int now)
 }
 
 
-void	add_values_diskdevices(int now,int major,int diskno,double read_io_ops,double blks_read,double write_io_ops,double blks_write)
+void	add_values_diskdevices(int now,int major,int diskno,float read_io_ops,float blks_read,float write_io_ops,float blks_write)
 {
 	int i,j;
 
-/*	printf("Add_values [%s] [" ZBX_FS_DBL "] [" ZBX_FS_DBL "]\n",interface,value_sent,value_received);*/
+/*	printf("Add_values [%s] [%f] [%f]\n",interface,value_sent,value_received);*/
 
 	for(i=0;i<MAX_DISKDEVICES;i++)
 	{
@@ -480,9 +422,10 @@ void	collect_stats_diskdevices(FILE *outfile)
 
 	now=time(NULL);
 
-	if( NULL == (file = fopen("/proc/stat","r") ))
+	file=fopen("/proc/stat","r");
+	if(NULL == file)
 	{
-		zbx_error("Cannot open [%s] [%s].","/proc/stat", strerror(errno));
+		fprintf(stderr, "Cannot open [%s] [%s]\n","/proc/stat", strerror(errno));
 		return;
 	}
 	i=0;
@@ -505,6 +448,7 @@ void	collect_stats_diskdevices(FILE *outfile)
 			s2++;
 	
 			zbx_strlcpy(device,s,s2-s);
+			device[s2-s]=0;
 			sscanf(device,"(%d,%d):(%d,%d,%d,%d,%d)",&major,&diskno,&noinfo,&read_io_ops,&blks_read,&write_io_ops,&blks_write);
 /*			printf("Major:[%d] Minor:[%d] read_io_ops[%d]\n",major,diskno,read_io_ops);*/
 			add_values_diskdevices(now,major,diskno,read_io_ops,blks_read,write_io_ops,blks_write);
@@ -513,11 +457,9 @@ void	collect_stats_diskdevices(FILE *outfile)
 		}
 	}
 
-	zbx_fclose(file);
+	fclose(file);
 
 	report_stats_diskdevices(outfile, now);
 
 #endif /* HAVE_PROC_STAT */
 }
-
-#endif /* TODO */

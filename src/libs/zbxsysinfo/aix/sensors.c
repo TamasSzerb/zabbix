@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 #include "md5.h"
@@ -52,12 +53,13 @@ static int	get_sensor(const char *name, unsigned flags, AGENT_RESULT *result)
 
 		if(stat(filename,&buf)==0)
 		{
-			if(NULL == (f = fopen(filename,"r")))
+			f=fopen(filename,"r");
+			if(f==NULL)
 			{
 				continue;
 			}
-			fgets(line, MAX_STRING_LEN, f);
-			zbx_fclose(f);
+			fgets(line,MAX_STRING_LEN,f);
+			fclose(f);
 
 			if(sscanf(line,"%lf\t%lf\t%lf\n",&d1, &d2, &d3) == 3)
 			{

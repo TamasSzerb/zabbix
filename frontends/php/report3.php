@@ -19,171 +19,268 @@
 **/
 ?>
 <?php
-	require_once "include/config.inc.php";
-	require_once "include/services.inc.php";
-
+	include "include/config.inc.php";
 	$page["title"] = "S_IT_SERVICES_AVAILABILITY_REPORT";
 	$page["file"] = "report3.php";
-	
-include_once "include/page_header.php";
-
+	show_header($page["title"],0,0);
 ?>
-<?php
-//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-	$fields=array(
-		"serviceid"=>		array(T_ZBX_INT, O_MAND,P_SYS,	DB_ID,			NULL),
-		"period"=>		array(T_ZBX_STR, O_OPT,	null,	IN('"dayly","weekly","monthly","yearly"'),	NULL),
-		"year"=>		array(T_ZBX_INT, O_OPT,	null,	null,		NULL)
-	);
 
-	check_fields($fields);
-
-	$period = get_request("period", "weekly");
-	$year	= get_request("year",	date("Y"));
-	
-	define("YEAR_LEFT_SHIFT", 5);
-?>
 <?php
-	$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_MODE_LT);
-	
-	if( !($service = DBfetch(DBselect("select s.* from services s left join triggers t on s.triggerid=t.triggerid ".
-		" left join functions f on t.triggerid=f.triggerid left join items i on f.itemid=i.itemid ".
-		" where (i.hostid is NULL or i.hostid not in (".$denyed_hosts.")) ".
-		" and ".DBid2nodeid("s.serviceid")."=".$ZBX_CURNODEID.
-		" and s.serviceid=".$_REQUEST["serviceid"]
-		))))
+	if(!check_anyright("Host","R"))
 	{
-		access_deny();
+		show_table_header("<font color=\"AA0000\">No permissions !</font>");
+		show_page_footer();
+		exit;
 	}
 ?>
+
 <?php
-	$form = new CForm();
-	$form->AddVar("serviceid", $_REQUEST["serviceid"]);
-
-	$cmbPeriod = new CComboBox("period", $period, "submit();");
-	$cmbPeriod->AddItem("dayly",S_DAILY);
-	$cmbPeriod->AddItem("weekly",S_WEEKLY);
-	$cmbPeriod->AddItem("monthly",S_MONTHLY);
-	$cmbPeriod->AddItem("yearly",S_YEARLY);
-	$form->AddItem(array(SPACE.S_PERIOD.SPACE, $cmbPeriod));
-
-	$cmbYear = new CComboBox("year", $year, "submit();");
-	for($y = (date("Y") - YEAR_LEFT_SHIFT); $y <= date("Y"); $y++)
+	if(!isset($_REQUEST["serviceid"]))
 	{
-		$cmbYear->AddItem($y, $y);
+		show_table_header("<font color=\"AA0000\">Undefined serviceid !</font>");
+		show_page_footer();
+		exit;
 	}
-	$form->AddItem(array(SPACE.S_YEAR.SPACE, $cmbYear));
-
-	show_table_header(array(
-			S_IT_SERVICES_AVAILABILITY_REPORT_BIG,
-			SPACE."\"",
-			new CLink($service["name"],"srv_status.php?serviceid=".$service["serviceid"]),
-			"\""
-		),
-		$form);
+	$service=get_service_by_serviceid($_REQUEST["serviceid"]);
 ?>
+
+<?php
+	if(!isset($_REQUEST["period"]))
+	{
+		$_REQUEST["period"]="weekly";
+	}
+
+	$h1=S_IT_SERVICES_AVAILABILITY_REPORT_BIG;
+	$h1=$h1.":"."<a href=\"srv_status.php?serviceid=".$service["serviceid"]."\">".$service["name"]."</a>";
+
+#	$h2=S_GROUP.SPACE;
+	$h2=S_YEAR.SPACE;
+	$h2=$h2."<input name=\"serviceid\" type=\"hidden\" value=".$_REQUEST["serviceid"].">";
+	$h2=$h2."<select class=\"biginput\" name=\"year\" onChange=\"submit()\">";
+	$result=DBselect("select h.hostid,h.host from hosts h,items i where h.status=".HOST_STATUS_MONITORED." and h.hostid=i.hostid group by h.hostid,h.host order by h.host");
+
+	$year=date("Y");
+	for($year=date("Y")-2;$year<=date("Y");$year++)
+	{
+		$h2=$h2.form_select("year",$year,$year);
+	}
+	$h2=$h2."</select>";
+
+	$h2=$h2.SPACE.S_PERIOD.SPACE;
+	$h2=$h2."<select class=\"biginput\" name=\"period\" onChange=\"submit()\">";
+	$h2=$h2.form_select("period","daily",S_DAILY);
+	$h2=$h2.form_select("period","weekly",S_WEEKLY);
+	$h2=$h2.form_select("period","monthly",S_MONTHLY);
+	$h2=$h2.form_select("period","yearly",S_YEARLY);
+	$h2=$h2."</select>";
+
+	show_header2($h1, $h2, "<form name=\"selection\" method=\"get\" action=\"report3.php\">", "</form>");
+?>
+
 <?php
 	$table = new CTableInfo();
-	
-	$header = array(S_OK,S_PROBLEMS,S_DOWNTIME,S_PERCENTAGE,S_SLA);
-
-        switch($period)
+	if($_REQUEST["period"]=="yearly")
 	{
-		case "yearly":
-			$from	= (date("Y") - YEAR_LEFT_SHIFT);
-			$to	= date("Y");
-			array_unshift($header, new CCol(S_YEAR,"center"));
-			function get_time($y)	{	return mktime(0,0,0,1,1,$y);		}
-			function format_time($t){	return date("Y", $t);			}
-			function format_time2($t){	return null; };
-			break;
-		case "monthly":
-			$from	= 1;
-			$to	= 12;
-			array_unshift($header, new CCol(S_MONTH,"center"));
-			function get_time($m)	{	global $year;	return mktime(0,0,0,$m,1,$year);	}
-			function format_time($t){	return date("M Y",$t);			}
-			function format_time2($t){	return null; };
-			break;
-		case "dayly":
-			$from	= 1;
-			$to	= 365;
-			array_unshift($header, new CCol(S_DAY,"center"));
-			function get_time($d)	{	global $year;	return mktime(0,0,0,1,$d,$year);	}
-			function format_time($t){	return date("d M Y",$t);		}
-			function format_time2($t){	return null; };
-			break;
-		case "weekly":
-		default:
-			$from	= 0;
-			$to	= 52;
-			array_unshift($header,new CCol(S_FROM,"center"),new CCol(S_TILL,"center"));
-			function get_time($w)	{
-				global $year;	
+		$table->setHeader(array(S_YEAR,S_OK,S_PROBLEMS,S_PERCENTAGE,S_SLA));
+		for($year=date("Y")-5;$year<=date("Y");$year++)
+		{
+			$start=mktime(0,0,0,1,1,$year);
+			$end=mktime(0,0,0,1,1,$year+1);
+			$stat=calculate_service_availability($service["serviceid"],$start,$end);
 
-				$time	= mktime(0,0,0,1, 1, $year);
-				$wd	= date("w", $time);
-				$wd	= $wd == 0 ? 6 : $wd - 1;
+			$t=sprintf("%2.2f%%",$stat["problem"]);
+			$t_time=sprintf("%dd %dh %dm",$stat["problem_time"]/(24*3600),($stat["problem_time"]%(24*3600))/3600,($stat["problem_time"]%(3600))/(60));
+			$f=sprintf("%2.2f%%",$stat["ok"]);
+			$f_time=sprintf("%dd %dh %dm",$stat["ok_time"]/(24*3600),($stat["ok_time"]%(24*3600))/3600,($stat["ok_time"]%(3600))/(60));
 
-				return ($time + ($w*7 - $wd)*24*3600);
+			$ok=new CSpan($f_time,"off");
+			$problems=new CSpan($t_time,"on");
+			$percentage=new CSpan($f,"off");
+
+			if($service["showsla"]==1)
+			{
+				if($stat["ok"]>=$service["goodsla"])
+				{
+					$sla=new CSpan($service["goodsla"],"off");
+				}
+				else
+				{
+					$sla=new CSpan($service["goodsla"],"on");
+				}
 			}
-			function format_time($t){	return date("d M Y H:i",$t);	}
-			function format_time2($t){	return format_time($t); };
-			break;
-
+			else
+			{
+				$sla="-";
+			}
+			$table->addRow(array(
+				$year,
+				$ok,
+				$problems,
+				$percentage,
+				$sla
+				));
+		}
 	}
+	else if($_REQUEST["period"]=="monthly")
+	{
+		$table->setHeader(array(S_MONTH,S_OK,S_PROBLEMS,S_PERCENTAGE,S_SLA));
+		for($month=1;$month<=12;$month++)
+		{
+			$start=mktime(0,0,0,$month,1,$_REQUEST["year"]);
+			$end=mktime(0,0,0,$month+1,1,$_REQUEST["year"]);
 
-	$table->SetHeader($header);
+			if($start>time())	break;
 
-	for($t = $from; $t <= $to; $t++)
-	{       
-		if(($start = get_time($t)) > time())
-			break;
-		
-		if(($end = get_time($t+1)) > time())
-			$end = time();
-		
-		$stat = calculate_service_availability($service["serviceid"],$start,$end);
+			$stat=calculate_service_availability($service["serviceid"],$start,$end);
 
-		$ok 		= new CSpan(
-					sprintf("%dd %dh %dm",
-						$stat["ok_time"]/(24*3600),
-						($stat["ok_time"]%(24*3600))/3600,
-						($stat["ok_time"]%(3600))/(60)),
-					"off");
-		
-		$problems	= new CSpan(
-					sprintf("%dd %dh %dm",
-						$stat["problem_time"]/(24*3600),
-						($stat["problem_time"]%(24*3600))/3600,
-						($stat["problem_time"]%(3600))/(60)),
-					"on");
+			$t=sprintf("%2.2f%%",$stat["problem"]);
+			$t_time=sprintf("%dd %dh %dm",$stat["problem_time"]/(24*3600),($stat["problem_time"]%(24*3600))/3600,($stat["problem_time"]%(3600))/(60));
+			$f=sprintf("%2.2f%%",$stat["ok"]);
+			$f_time=sprintf("%dd %dh %dm",$stat["ok_time"]/(24*3600),($stat["ok_time"]%(24*3600))/3600,($stat["ok_time"]%(3600))/(60));
 
-		$downtime	= sprintf("%dd %dh %dm",
-					$stat["downtime_time"]/(24*3600),
-					($stat["downtime_time"]%(24*3600))/3600,
-					($stat["downtime_time"]%(3600))/(60));
-		
-		$percentage	= new CSpan(sprintf("%2.2f%%",$stat["ok"]) , "off");
+			$ok=new CSpan($f_time,"off");
+			$problems=new CSpan($t_time,"on");
+			$percentage=new CSpan($f,"off");
 
-		$table->AddRow(array(
-			format_time($start),
-			format_time2($end),
-			$ok,
-			$problems,
-			$downtime,
-			$percentage,
-			($service["showsla"]==1) ?
-				new CSpan($service["goodsla"], ($stat["ok"] >= $service["goodsla"]) ? "off" : "on") :
-				"-"
-				
-			));
+			if($service["showsla"]==1)
+			{
+				if($stat["ok"]>=$service["goodsla"])
+				{
+					$sla=new CSpan($service["goodsla"],"off");
+				}
+				else
+				{
+					$sla=new CSpan($service["goodsla"],"on");
+				}
+			}
+			else
+			{
+				$sla="-";
+			}
+			$table->addRow(array(
+				date("M Y",$start),
+				$ok,
+				$problems,
+				$percentage,
+				$sla
+				));
+		}
 	}
+	else if($_REQUEST["period"]=="daily")
+	{
+		$table->setHeader(array(S_DAY,S_OK,S_PROBLEMS,S_PERCENTAGE,S_SLA));
+		$s=mktime(0,0,0,1,1,$_REQUEST["year"]);
+		$e=mktime(0,0,0,1,1,$_REQUEST["year"]+1);
+		for($day=$s;$day<$e;$day+=24*3600)
+		{
+			$start=$day;
+			$end=$day+24*3600;
 
-	$table->Show();
-?>
-<?php
+			if($start>time())	break;
 
-include_once "include/page_footer.php";
+			$stat=calculate_service_availability($service["serviceid"],$start,$end);
 
+			$t=sprintf("%2.2f%%",$stat["problem"]);
+			$t_time=sprintf("%dd %dh %dm",$stat["problem_time"]/(24*3600),($stat["problem_time"]%(24*3600))/3600,($stat["problem_time"]%(3600))/(60));
+			$f=sprintf("%2.2f%%",$stat["ok"]);
+			$f_time=sprintf("%dd %dh %dm",$stat["ok_time"]/(24*3600),($stat["ok_time"]%(24*3600))/3600,($stat["ok_time"]%(3600))/(60));
+
+			$ok=new CSpan($f_time,"off");
+			$problems=new CSpan($t_time,"on");
+			$percentage=new CSpan($f,"off");
+
+			if($service["showsla"]==1)
+			{
+				if($stat["ok"]>=$service["goodsla"])
+				{
+					$sla=new CSpan($service["goodsla"],"off");
+				}
+				else
+				{
+					$sla=new CSpan($service["goodsla"],"on");
+				}
+			}
+			else
+			{
+				$sla="-";
+			}
+			$table->addRow(array(
+				date("d M Y",$start),
+				$ok,
+				$problems,
+				$percentage,
+				$sla
+				));
+		}
+	}
+	else
+	{
+	//--------Weekly-------------
+	$table->setHeader(array(S_FROM,S_TILL,S_OK,S_PROBLEMS,S_PERCENTAGE,S_SLA));
+	$year=date("Y");
+	for($year=date("Y")-2;$year<=date("Y");$year++)
+	{
+		if( isset($_REQUEST["year"]) && ($_REQUEST["year"] != $year) )
+		{
+			continue;
+		}
+		$start=mktime(0,0,0,1,1,$year);
+
+		$wday=date("w",$start);
+		if($wday==0) $wday=7;
+		$start=$start-($wday-1)*24*3600;
+
+		for($i=0;$i<53;$i++)
+		{
+			$period_start=$start+7*24*3600*$i;
+			$period_end=$start+7*24*3600*($i+1);
+			if($period_start>time())
+			{
+				break;
+			}
+			$stat=calculate_service_availability($service["serviceid"],$period_start,$period_end);
+
+			$from=date(S_DATE_FORMAT_YMD,$period_start);
+			$till=date(S_DATE_FORMAT_YMD,$period_end);
+	
+			$t=sprintf("%2.2f%%",$stat["problem"]);
+			$t_time=sprintf("%dd %dh %dm",$stat["problem_time"]/(24*3600),($stat["problem_time"]%(24*3600))/3600,($stat["problem_time"]%(3600))/(60));
+			$f=sprintf("%2.2f%%",$stat["ok"]);
+			$f_time=sprintf("%dd %dh %dm",$stat["ok_time"]/(24*3600),($stat["ok_time"]%(24*3600))/3600,($stat["ok_time"]%(3600))/(60));
+
+			$ok=new CSpan($f_time,"off");
+			$problems=new CSpan($t_time,"on");
+			$percentage=new CSpan($f,"off");
+
+			if($service["showsla"]==1)
+			{
+				if($stat["ok"]>=$service["goodsla"])
+				{
+					$sla=new CSpan($service["goodsla"],"off");
+				}
+				else
+				{
+					$sla=new CSpan($service["goodsla"],"on");
+				}
+			}
+			else
+			{
+				$sla="-";
+			}
+		
+			$table->addRow(array(
+				$from,
+				$till,
+				$ok,
+				$problems,
+				$percentage,
+				$sla
+				));
+		}
+	}
+	//--------Weekly-------------
+	}
+	$table->show();
+
+	show_page_footer();
 ?>

@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 int	KERNEL_MAXFILES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -34,7 +35,8 @@ int	KERNEL_MAXFILES(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
         init_result(result);	
 
-	if(NULL != ( f = fopen("/proc/sys/fs/file-max","r") ))
+	f=fopen("/proc/sys/fs/file-max","r");
+	if(f)
 	{
 		if(fgets(line,MAX_STRING_LEN,f) != NULL);
 		{
@@ -44,7 +46,7 @@ int	KERNEL_MAXFILES(const char *cmd, const char *param, unsigned flags, AGENT_RE
 				ret = SYSINFO_RET_OK;
 			}
 		}
-		zbx_fclose(f);
+		fclose(f);
 	}
 
 	return ret;

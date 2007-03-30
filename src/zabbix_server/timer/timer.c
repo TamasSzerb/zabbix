@@ -17,7 +17,23 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/stat.h>
+
+#include <string.h>
+
+
+/* Required for getpwuid */
+#include <pwd.h>
+
+#include <signal.h>
+#include <errno.h>
+
+#include <time.h>
 
 #include "cfg.h"
 #include "pid.h"
@@ -25,8 +41,10 @@
 #include "log.h"
 #include "zlog.h"
 
-#include "timer.h"
-#include "../functions.h"
+#include "common.h"
+
+extern void	update_triggers(int itemid);
+extern void	update_functions(DB_ITEM *item);
 
 /******************************************************************************
  *                                                                            *
@@ -45,6 +63,7 @@
  ******************************************************************************/
 void main_timer_loop()
 {
+	char	sql[MAX_STRING_LEN];
 	int	now;
 
 /*	int	itemid,functionid;
@@ -58,40 +77,43 @@ void main_timer_loop()
 
 	for(;;)
 	{
-		zbx_setproctitle("updating nodata() functions");
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("updating nodata() functions");
+#endif
 
-		DBconnect(ZBX_DB_CONNECT_NORMAL);
+		DBconnect();
 
 		now=time(NULL);
 /*
-#ifdef HAVE_POSTGRESQL
-		zbx_snprintf(sql,sizeof(sql),"select distinct f.itemid,f.functionid,f.parameter from functions f, items i,hosts h where h.hostid=i.hostid and h.status=%d and i.itemid=f.itemid and f.function in ('nodata','date','dayofweek','time','now') and i.lastclock+f.parameter::text::integer<=%d and i.status=%d", HOST_STATUS_MONITORED, now, ITEM_STATUS_ACTIVE);
+#ifdef HAVE_PGSQL
+		snprintf(sql,sizeof(sql)-1,"select distinct f.itemid,f.functionid,f.parameter from functions f, items i,hosts h where h.hostid=i.hostid and h.status=%d and i.itemid=f.itemid and f.function in ('nodata','date','dayofweek','time','now') and i.lastclock+f.parameter::text::integer<=%d and i.status=%d", HOST_STATUS_MONITORED, now, ITEM_STATUS_ACTIVE);
 #else
-		zbx_snprintf(sql,sizeof(sql),"select distinct f.itemid,f.functionid,f.parameter,f.function from functions f, items i,hosts h where h.hostid=i.hostid and h.status=%d and i.itemid=f.itemid and f.function in ('nodata','date','dayofweek','time','now') and i.lastclock+f.parameter<=%d and i.status=%d", HOST_STATUS_MONITORED, now, ITEM_STATUS_ACTIVE);
+		snprintf(sql,sizeof(sql)-1,"select distinct f.itemid,f.functionid,f.parameter,f.function from functions f, items i,hosts h where h.hostid=i.hostid and h.status=%d and i.itemid=f.itemid and f.function in ('nodata','date','dayofweek','time','now') and i.lastclock+f.parameter<=%d and i.status=%d", HOST_STATUS_MONITORED, now, ITEM_STATUS_ACTIVE);
 #endif
 	*/
 
-		result = DBselect("select distinct %s, functions f where h.hostid=i.hostid and h.status=%d and i.status=%d and f.function in ('nodata','date','dayofweek','time','now') and i.itemid=f.itemid and" ZBX_COND_NODEID,
-			ZBX_SQL_ITEM_SELECT,
-			HOST_STATUS_MONITORED,
-			ITEM_STATUS_ACTIVE,
-			LOCAL_NODE("h.hostid"));
+		snprintf(sql,sizeof(sql)-1,"select distinct %s, functions f where h.hostid=i.hostid and h.status=%d and i.status=%d and f.function in ('nodata','date','dayofweek','time','now') and i.itemid=f.itemid", ZBX_SQL_ITEM_SELECT, HOST_STATUS_MONITORED, ITEM_STATUS_ACTIVE);
+
+		result = DBselect(sql);
 
 		while((row=DBfetch(result)))
 		{
 			DBget_item_from_db(&item,row);
 
-			DBbegin();
+/* Update triggers will update value for NODATA */
+/*			snprintf(sql,sizeof(sql)-1,"update functions set lastvalue='1' where itemid=%d and function='%s' and parameter='%s'" , itemid, function, parameter );
+			DBexecute(sql);*/
+
 			update_functions(&item);
 			update_triggers(item.itemid);
-			DBcommit();
 		}
 
 		DBfree_result(result);
 		DBclose();
 
-		zbx_setproctitle("sleeping for 30 sec");
-
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		setproctitle("sleeping for 30 sec");
+#endif
 		sleep(30);
 	}
 }

@@ -88,6 +88,8 @@ void	delete_spaces(char *c)
 {
 	int i,j;
 
+	zabbix_log( LOG_LEVEL_DEBUG, "Before deleting spaces:%s", c );
+
 	j=0;
 	for(i=0;c[i]!=0;i++)
 	{
@@ -98,6 +100,8 @@ void	delete_spaces(char *c)
 		}
 	}
 	c[j]=0;
+
+	zabbix_log(LOG_LEVEL_DEBUG, "After deleting spaces:%s", c );
 }
 
 /******************************************************************************
@@ -113,25 +117,25 @@ void	delete_spaces(char *c)
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
- * Comments: format: <double> or <double> <operator> <double>                 *
+ * Comments: format: <float> or <float> <operator> <float>                    *
  *                                                                            *
  *           It is recursive function!                                        *
  *                                                                            *
  ******************************************************************************/
-int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
+int	evaluate_simple (double *result,char *exp,char *error,int maxerrlen)
 {
 	double	value1,value2;
 	char	first[MAX_STRING_LEN],second[MAX_STRING_LEN];
 	char 	*p;
 
-	zabbix_log( LOG_LEVEL_DEBUG, "In evaluate_simple(%s)",
-		exp);
+	zabbix_log( LOG_LEVEL_DEBUG, "Evaluating simple expression [%s]", exp );
 
 /* Remove left and right spaces */
 	lrtrim_spaces(exp);
 
 	if( is_double_prefix(exp) == SUCCEED )
 	{
+/*		*result=atof(exp);*/
 /* str2double support prefixes */
 		*result=str2double(exp);
 		return SUCCEED;
@@ -139,16 +143,28 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 
 	if( (p = strstr(exp,"|")) != NULL )
 	{
+		zabbix_log( LOG_LEVEL_DEBUG, "| is found" );
+
 		*p=0;
 		strscpy( first, exp);
 		*p='|';
 		p++;
 		strscpy( second, p);
 
+/*		l=find_char(exp,'|');
+		strscpy( first, exp );
+		first[l]=0;
+		j=0;
+		for(i=l+1;exp[i]!=0;i++)
+		{
+			second[j]=exp[i];
+			j++;
+		}
+		second[j]=0;*/
 		if( evaluate_simple(&value1,first,error,maxerrlen) == FAIL )
 		{
 			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
-			zabbix_syslog("%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( value1 == 1)
@@ -159,7 +175,7 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 		if( evaluate_simple(&value2,second,error,maxerrlen) == FAIL )
 		{
 			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
-			zabbix_syslog("%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( value2 == 1)
@@ -172,22 +188,24 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 	}
 	if( (p = strstr(exp,"&")) != NULL )
 	{
+		zabbix_log(LOG_LEVEL_DEBUG, "& is found" );
 		*p=0;
 		strscpy( first, exp);
 		*p='|';
 		p++;
 		strscpy( second, p);
 
+		zabbix_log(LOG_LEVEL_DEBUG, "[%s] [%s]",first,second );
 		if( evaluate_simple(&value1,first,error,maxerrlen) == FAIL )
 		{
 			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
-			zabbix_syslog("%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( evaluate_simple(&value2,second,error,maxerrlen) == FAIL )
 		{
 			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
-			zabbix_syslog("%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( (value1 == 1) && (value2 == 1) )
@@ -202,6 +220,7 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 	}
 	if( (p = strstr(exp,">")) != NULL )
 	{
+		zabbix_log(LOG_LEVEL_DEBUG, "> is found" );
 		*p=0;
 		strscpy( first, exp);
 		*p='|';
@@ -210,13 +229,13 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 		if( evaluate_simple(&value1,first,error,maxerrlen) == FAIL )
 		{
 			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
-			zabbix_syslog("%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( evaluate_simple(&value2,second,error,maxerrlen) == FAIL )
 		{
 			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
-			zabbix_syslog("%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( value1 > value2 )
@@ -231,25 +250,23 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 	}
 	if( (p = strstr(exp,"<")) != NULL )
 	{
+		zabbix_log(LOG_LEVEL_DEBUG, "< is found" );
 		*p=0;
 		strscpy( first, exp);
 		*p='|';
 		p++;
 		strscpy( second, p);
+		zabbix_log(LOG_LEVEL_DEBUG, "[%s] [%s]",first,second );
 		if( evaluate_simple(&value1,first,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( evaluate_simple(&value2,second,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( value1 < value2 )
@@ -260,11 +277,12 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 		{
 			*result=0;
 		}
-		zabbix_log(LOG_LEVEL_DEBUG, "Result [" ZBX_FS_DBL "]",*result );
+		zabbix_log(LOG_LEVEL_DEBUG, "Result [%f]",*result );
 		return SUCCEED;
 	}
 	if( (p = strstr(exp,"*")) != NULL )
 	{
+		zabbix_log(LOG_LEVEL_DEBUG, "* is found" );
 		*p=0;
 		strscpy( first, exp);
 		*p='|';
@@ -272,18 +290,14 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 		strscpy( second, p);
 		if( evaluate_simple(&value1,first,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( evaluate_simple(&value2,second,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		*result=value1*value2;
@@ -291,6 +305,7 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 	}
 	if( (p = strstr(exp,"/")) != NULL )
 	{
+		zabbix_log(LOG_LEVEL_DEBUG, "/ is found" );
 		*p=0;
 		strscpy( first, exp);
 		*p='|';
@@ -298,29 +313,21 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 		strscpy( second, p);
 		if( evaluate_simple(&value1,first,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( evaluate_simple(&value2,second,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if(cmp_double(value2,0) == 0)
 		{
-			zbx_snprintf(error,maxerrlen,"Division by zero. Cannot evaluate expression [%s/%s]",
-				first,
-				second);
-			zabbix_log(LOG_LEVEL_WARNING, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			snprintf(error,maxerrlen-1,"Division by zero. Cannot evaluate expression [%s/%s]", first,second);
+			zabbix_log(LOG_LEVEL_WARNING, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		else
@@ -331,6 +338,7 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 	}
 	if( (p = strstr(exp,"+")) != NULL )
 	{
+		zabbix_log(LOG_LEVEL_DEBUG, "+ is found" );
 		*p=0;
 		strscpy( first, exp);
 		*p='|';
@@ -338,18 +346,14 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 		strscpy( second, p);
 		if( evaluate_simple(&value1,first,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( evaluate_simple(&value2,second,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		*result=value1+value2;
@@ -357,6 +361,7 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 	}
 	if( (p = strstr(exp,"-")) != NULL )
 	{
+		zabbix_log(LOG_LEVEL_DEBUG, "- is found" );
 		*p=0;
 		strscpy( first, exp);
 		*p='|';
@@ -364,18 +369,14 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 		strscpy( second, p);
 		if( evaluate_simple(&value1,first,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( evaluate_simple(&value2,second,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		*result=value1-value2;
@@ -383,6 +384,7 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 	}
 	if( (p = strstr(exp,"=")) != NULL )
 	{
+		zabbix_log(LOG_LEVEL_DEBUG, "= is found" );
 		*p=0;
 		strscpy( first, exp);
 		*p='|';
@@ -390,18 +392,14 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 		strscpy( second, p);
 		if( evaluate_simple(&value1,first,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( evaluate_simple(&value2,second,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( cmp_double(value1,value2) ==0 )
@@ -416,6 +414,7 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 	}
 	if( (p = strstr(exp,"#")) != NULL )
 	{
+		zabbix_log(LOG_LEVEL_DEBUG, "# is found" );
 		*p=0;
 		strscpy( first, exp);
 		*p='|';
@@ -423,18 +422,14 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 		strscpy( second, p);
 		if( evaluate_simple(&value1,first,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( evaluate_simple(&value2,second,error,maxerrlen) == FAIL )
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return FAIL;
 		}
 		if( cmp_double(value1,value2) != 0 )
@@ -449,15 +444,11 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
 	}
 	else
 	{
-		zbx_snprintf(error,maxerrlen,"Format error or unsupported operator.  Exp: [%s]",
-			exp);
-		zabbix_log(LOG_LEVEL_WARNING, "%s",
-			error);
-		zabbix_syslog("%s",
-			error);
+		snprintf(error,maxerrlen-1,"Format error or unsupported operator.  Exp: [%s]", exp);
+		zabbix_log(LOG_LEVEL_WARNING, "%s", error);
+		zabbix_syslog("%s",error);
 		return FAIL;
 	}
-
 	return SUCCEED;
 }
 
@@ -477,89 +468,74 @@ int	evaluate_simple(double *result,char *exp,char *error,int maxerrlen)
  * Comments: example: ({15}>10)|({123}=1)                                     *
  *                                                                            *
  ******************************************************************************/
-int	evaluate(int *result, char *exp, char *error, int maxerrlen)
+int	evaluate(int *result,char *exp, char *error, int maxerrlen)
 {
 	double	value;
-	char	*res;
+	char	res[MAX_STRING_LEN];
 	char	simple[MAX_STRING_LEN];
-	char	tmp[MAX_STRING_LEN];
-	char	value_str[MAX_STRING_LEN];
 	int	i,l,r;
-	char	c;
-	int	t;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In evaluate(%s)",
-		exp);
+	zabbix_log(LOG_LEVEL_DEBUG, "In evaluate([%s])",exp);
 
-	res = NULL;
+	strscpy( res,exp );
 
-	strscpy(tmp, exp);
-	t=0;
-	while( find_char( tmp, ')' ) != FAIL )
+	while( find_char( exp, ')' ) != FAIL )
 	{
 		l=-1;
-		r=find_char(tmp,')');
+		r=find_char(exp,')');
 		for(i=r;i>=0;i--)
 		{
-			if( tmp[i] == '(' )
+			if( exp[i] == '(' )
 			{
 				l=i;
 				break;
 			}
 		}
-		if( l == -1 )
+		if( r == -1 )
 		{
-			zbx_snprintf(error, maxerrlen, "Cannot find left bracket [(]. Expression:[%s]",
-				tmp);
-			zabbix_log(LOG_LEVEL_WARNING, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			snprintf(error, maxerrlen-1, "Cannot find left bracket [(]. Expression:[%s]", exp);
+			zabbix_log(LOG_LEVEL_WARNING, "%s", error);
+			zabbix_syslog("%s",error);
 			return	FAIL;
 		}
 		for(i=l+1;i<r;i++)
 		{
-			simple[i-l-1]=tmp[i];
+			simple[i-l-1]=exp[i];
 		} 
 		simple[r-l-1]=0;
 
 		if( evaluate_simple( &value, simple, error, maxerrlen ) != SUCCEED )
 		{
 			/* Changed to LOG_LEVEL_DEBUG */
-			zabbix_log( LOG_LEVEL_DEBUG, "%s",
-				error);
-			zabbix_syslog("%s",
-				error);
+			zabbix_log( LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
 			return	FAIL;
 		}
 
-		/* res = first+simple+second */
-		c=tmp[l]; tmp[l]='\0';
-		res = zbx_strdcat(res, tmp);
-		tmp[l]=c;
+		zabbix_log(LOG_LEVEL_DEBUG, "Expression1:[%s]", exp );
 
-		zbx_snprintf(value_str,MAX_STRING_LEN-1,"%lf",
-			value);
-		res = zbx_strdcat(res, value_str);
-		res = zbx_strdcat(res, tmp+r+1);
+		exp[l]='%';
+		exp[l+1]='l';
+		exp[l+2]='f';
+/*		exp[l]='%';
+		exp[l+1]='f';
+		exp[l+2]=' ';*/
 
+		for(i=l+3;i<=r;i++) exp[i]=' ';
+
+		snprintf(res,sizeof(res)-1,exp,value);
+		strcpy(exp,res);
 		delete_spaces(res);
-		strscpy(tmp,res);
-
-		zbx_free(res); res = NULL;
+		zabbix_log(LOG_LEVEL_DEBUG, "Expression4:[%s]", res );
 	}
-	if( evaluate_simple( &value, tmp, error, maxerrlen ) != SUCCEED )
+	if( evaluate_simple( &value, res, error, maxerrlen ) != SUCCEED )
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "%s",
-			error);
-		zabbix_syslog("%s",
-			error);
+		zabbix_log(LOG_LEVEL_WARNING, "%s", error);
+		zabbix_syslog("%s",error);
 		return	FAIL;
 	}
+	zabbix_log( LOG_LEVEL_DEBUG, "Evaluate end:[%lf]", value );
 	*result=value;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End evaluate(result:%lf)",
-		value);
 
 	return SUCCEED;
 }
@@ -571,7 +547,7 @@ int	evaluate(int *result, char *exp, char *error, int maxerrlen)
  * Purpose: substitute simple macros in data string with real values          *
  *                                                                            *
  * Parameters: trigger - trigger structure                                    *
- *             action - action structure (NULL if unknown)                    *
+ *             action - action structure (NULL if uncnown)                    *
  *             data - data string                                             *
  *                                                                            *
  * Return value:                                                              *
@@ -580,6 +556,7 @@ int	evaluate(int *result, char *exp, char *error, int maxerrlen)
  *                                                                            *
  * Comments: {DATE},{TIME},{HOSTNAME},{IPADDRESS},{STATUS},                   *
  *           {TRIGGER.NAME}, {TRIGGER.KEY}, {TRIGGER.SEVERITY}                *
+ *           {TRIGGER.ID}                                                     *
  *                                                                            *
  ******************************************************************************/
 /* definition of macros variables */
@@ -588,16 +565,16 @@ int	evaluate(int *result, char *exp, char *error, int maxerrlen)
 #define MVAR_HOST_NAME			"{HOSTNAME}"
 #define MVAR_IPADDRESS			"{IPADDRESS}"
 #define MVAR_TIME			"{TIME}"
-#define MVAR_ITEM_NAME			"{ITEM.NAME}"
 #define MVAR_TRIGGER_COMMENT		"{TRIGGER.COMMENT}"
+#define MVAR_ITEM_NAME			"{ITEM.NAME}"
 #define MVAR_TRIGGER_ID			"{TRIGGER.ID}"
 #define MVAR_TRIGGER_KEY		"{TRIGGER.KEY}"
 #define MVAR_TRIGGER_NAME		"{TRIGGER.NAME}"
 #define MVAR_TRIGGER_SEVERITY		"{TRIGGER.SEVERITY}"
 #define MVAR_TRIGGER_STATUS		"{TRIGGER.STATUS}"
 #define MVAR_TRIGGER_STATUS_OLD		"{STATUS}"
-#define MVAR_TRIGGER_VALUE		"{TRIGGER.VALUE}"
 #define MVAR_TRIGGER_URL		"{TRIGGER.URL}"
+
 #define MVAR_PROFILE_DEVICETYPE		"{PROFILE.DEVICETYPE}"
 #define MVAR_PROFILE_NAME		"{PROFILE.NAME}"
 #define MVAR_PROFILE_OS			"{PROFILE.OS}"
@@ -612,8 +589,9 @@ int	evaluate(int *result, char *exp, char *error, int maxerrlen)
 
 #define STR_UNKNOWN_VARIABLE		"*UNKNOWN*"
 
-void	substitute_simple_macros(DB_EVENT *event, DB_ACTION *action, char **data, int macro_type)
+void	substitute_simple_macros(int alarmid, DB_TRIGGER *trigger, DB_ACTION *action, char **data, int macro_type)
 {
+	char	sql[MAX_STRING_LEN];
 
 	char
 		*pl = NULL,
@@ -621,7 +599,7 @@ void	substitute_simple_macros(DB_EVENT *event, DB_ACTION *action, char **data, i
 		*str_out = NULL,
 		*replace_to = NULL;
 
-	int	var_len;
+	int	var_len = 0;
 
 	time_t  now;
 	struct  tm      *tm;
@@ -629,12 +607,9 @@ void	substitute_simple_macros(DB_EVENT *event, DB_ACTION *action, char **data, i
 	DB_RESULT	result;
 	DB_ROW		row;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In substitute_simple_macros()");
-
 	if(!data || !*data) return;
 	
-	zabbix_log(LOG_LEVEL_DEBUG, "In substitute_simple_macros (data:%s)",
-		*data);
+	zabbix_log(LOG_LEVEL_DEBUG, "In substitute_simple_macros [%s]",*data);
 
 	if('\0' == *data[0]) return;
 
@@ -642,9 +617,7 @@ void	substitute_simple_macros(DB_EVENT *event, DB_ACTION *action, char **data, i
 	while((pr = strchr(pl, '{')))
 	{
 		pr[0] = '\0';
-zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		str_out = zbx_strdcat(str_out, pl);
-zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		pr[0] = '{';
 
 		replace_to = zbx_dsprintf(replace_to, "{");
@@ -655,45 +628,32 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		{
 			var_len = strlen(MVAR_TRIGGER_NAME);
 
-			zabbix_log(LOG_LEVEL_DEBUG, "Before replace_to [%s]", replace_to);
-			replace_to = zbx_dsprintf(replace_to, "%s", event->trigger_description);
-			zabbix_log(LOG_LEVEL_DEBUG, "After replace_to [%s]", replace_to);
+			replace_to = zbx_dsprintf(replace_to, "%s", trigger->description);
 
-			/* Why it was here? */
-/*			substitute_simple_macros(event, action, &replace_to, MACRO_TYPE_TRIGGER_DESCRIPTION);*/
-		}
-		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY) &&
-			strncmp(pr, MVAR_TRIGGER_COMMENT, strlen(MVAR_TRIGGER_COMMENT)) == 0)
-		{
-			var_len = strlen(MVAR_TRIGGER_COMMENT);
-
-			replace_to = zbx_dsprintf(replace_to, "%s", event->trigger_comments);
+			substitute_simple_macros(alarmid, trigger, action, &replace_to, MACRO_TYPE_TRIGGER_DESCRIPTION);
 		}
 		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY) &&
 			strncmp(pr, MVAR_PROFILE_DEVICETYPE, strlen(MVAR_PROFILE_DEVICETYPE)) == 0)
 		{
 			var_len = strlen(MVAR_PROFILE_DEVICETYPE);
 
-			result = DBselect("select distinct p.devicetype from triggers t, functions f,items i, hosts h, hosts_profiles p"
+			snprintf(sql,sizeof(sql)-1,"select distinct p.devicetype from triggers t, functions f,items i, hosts h, hosts_profiles p"
 				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and p.hostid=h.hostid", 
-				event->objectid);
+				trigger->triggerid);
 
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.DEVECETYPE in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
-				zabbix_syslog("No PROFILE.DEVECETYPE in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
+				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.DEVECETYPE in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No PROFILE.DEVECETYPE in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
 
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				replace_to = zbx_dsprintf(replace_to, "%s", STR_UNKNOWN_VARIABLE);
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 			DBfree_result(result);
 		}
@@ -702,26 +662,23 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		{
 			var_len = strlen(MVAR_PROFILE_NAME);
 
-			result = DBselect("select distinct p.name from triggers t, functions f,items i, hosts h, hosts_profiles p"
+			snprintf(sql,sizeof(sql)-1,"select distinct p.name from triggers t, functions f,items i, hosts h, hosts_profiles p"
 				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and p.hostid=h.hostid", 
-				event->objectid);
+				trigger->triggerid);
 
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.NAME in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
-				zabbix_syslog("No PROFILE.NAME in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
+				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.NAME in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No PROFILE.NAME in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
 
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				replace_to = zbx_dsprintf(replace_to, "%s", STR_UNKNOWN_VARIABLE);
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 			DBfree_result(result);
 		}
@@ -730,26 +687,23 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		{
 			var_len = strlen(MVAR_PROFILE_OS);
 
-			result = DBselect("select distinct p.os from triggers t, functions f,items i, hosts h, hosts_profiles p"
+			snprintf(sql,sizeof(sql)-1,"select distinct p.os from triggers t, functions f,items i, hosts h, hosts_profiles p"
 				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and p.hostid=h.hostid", 
-				event->objectid);
+				trigger->triggerid);
 
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.OS in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
-				zabbix_syslog("No PROFILE.OS in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
+				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.OS in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No PROFILE.OS in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
 
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				replace_to = zbx_dsprintf(replace_to, "%s", STR_UNKNOWN_VARIABLE);
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 			DBfree_result(result);
 		}
@@ -758,26 +712,23 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		{
 			var_len = strlen(MVAR_PROFILE_SERIALNO);
 
-			result = DBselect("select distinct p.serialno from triggers t, functions f,items i, hosts h, hosts_profiles p"
+			snprintf(sql,sizeof(sql)-1,"select distinct p.serialno from triggers t, functions f,items i, hosts h, hosts_profiles p"
 				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and p.hostid=h.hostid", 
-				event->objectid);
+				trigger->triggerid);
 
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.SERIALNO in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
-				zabbix_syslog("No PROFILE.SERIALNO in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
+				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.SERIALNO in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No PROFILE.SERIALNO in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
 
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				replace_to = zbx_dsprintf(replace_to, "%s", STR_UNKNOWN_VARIABLE);
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 			DBfree_result(result);
 		}
@@ -786,26 +737,23 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		{
 			var_len = strlen(MVAR_PROFILE_TAG);
 
-			result = DBselect("select distinct p.tag from triggers t, functions f,items i, hosts h, hosts_profiles p"
+			snprintf(sql,sizeof(sql)-1,"select distinct p.tag from triggers t, functions f,items i, hosts h, hosts_profiles p"
 				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and p.hostid=h.hostid", 
-				event->objectid);
+				trigger->triggerid);
 
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.TAG in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
-				zabbix_syslog("No PROFILE.TAG in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
+				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.TAG in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No PROFILE.TAG in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
 
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				replace_to = zbx_dsprintf(replace_to, "%s", STR_UNKNOWN_VARIABLE);
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 			DBfree_result(result);
 		}
@@ -814,26 +762,23 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		{
 			var_len = strlen(MVAR_PROFILE_MACADDRESS);
 
-			result = DBselect("select distinct p.macaddress from triggers t, functions f,items i, hosts h, hosts_profiles p"
+			snprintf(sql,sizeof(sql)-1,"select distinct p.macaddress from triggers t, functions f,items i, hosts h, hosts_profiles p"
 				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and p.hostid=h.hostid", 
-				event->objectid);
+				trigger->triggerid);
 
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.MACADDRESS in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
-				zabbix_syslog("No PROFILE.MACADDRESS in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
+				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.MACADDRESS in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No PROFILE.MACADDRESS in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
 
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				replace_to = zbx_dsprintf(replace_to, "%s", STR_UNKNOWN_VARIABLE);
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 			DBfree_result(result);
 		}
@@ -842,26 +787,23 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		{
 			var_len = strlen(MVAR_PROFILE_HARDWARE);
 
-			result = DBselect("select distinct p.hardware from triggers t, functions f,items i, hosts h, hosts_profiles p"
+			snprintf(sql,sizeof(sql)-1,"select distinct p.hardware from triggers t, functions f,items i, hosts h, hosts_profiles p"
 				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and p.hostid=h.hostid", 
-				event->objectid);
+				trigger->triggerid);
 
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.HARDWARE in substitute_simple_macros. Triggerid [%d]", 
-					event->objectid);
-				zabbix_syslog("No PROFILE.HARDWARE in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
+				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.HARDWARE in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No PROFILE.HARDWARE in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
 
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				replace_to = zbx_dsprintf(replace_to, "%s", STR_UNKNOWN_VARIABLE);
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 			DBfree_result(result);
 		}
@@ -870,26 +812,23 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		{
 			var_len = strlen(MVAR_PROFILE_SOFTWARE);
 
-			result = DBselect("select distinct p.software from triggers t, functions f,items i, hosts h, hosts_profiles p"
+			snprintf(sql,sizeof(sql)-1,"select distinct p.software from triggers t, functions f,items i, hosts h, hosts_profiles p"
 				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and p.hostid=h.hostid", 
-				event->objectid);
+				trigger->triggerid);
 
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.SOFTWARE in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
-				zabbix_syslog("No PROFILE.SOFTWARE in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
+				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.SOFTWARE in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No PROFILE.SOFTWARE in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
 
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				replace_to = zbx_dsprintf(replace_to, "%s", STR_UNKNOWN_VARIABLE);
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 			DBfree_result(result);
 		}
@@ -898,26 +837,23 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		{
 			var_len = strlen(MVAR_PROFILE_CONTACT);
 
-			result = DBselect("select distinct p.contact from triggers t, functions f,items i, hosts h, hosts_profiles p"
+			snprintf(sql,sizeof(sql)-1,"select distinct p.contact from triggers t, functions f,items i, hosts h, hosts_profiles p"
 				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and p.hostid=h.hostid", 
-				event->objectid);
+				trigger->triggerid);
 
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.CONTACT in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
-				zabbix_syslog("No PROFILE.CONTACT in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
+				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.CONTACT in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No PROFILE.CONTACT in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
 
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				replace_to = zbx_dsprintf(replace_to, "%s", STR_UNKNOWN_VARIABLE);
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 			DBfree_result(result);
 		}
@@ -926,26 +862,23 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		{
 			var_len = strlen(MVAR_PROFILE_LOCATION);
 
-			result = DBselect("select distinct p.location from triggers t, functions f,items i, hosts h, hosts_profiles p"
+			snprintf(sql,sizeof(sql)-1,"select distinct p.location from triggers t, functions f,items i, hosts h, hosts_profiles p"
 				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and p.hostid=h.hostid", 
-				event->objectid);
+				trigger->triggerid);
 
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.LOCATION in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
-				zabbix_syslog("No PROFILE.LOCATION in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
+				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.LOCATION in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No PROFILE.LOCATION in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
 
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				replace_to = zbx_dsprintf(replace_to, "%s", STR_UNKNOWN_VARIABLE);
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 			DBfree_result(result);
 		}
@@ -954,26 +887,23 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		{
 			var_len = strlen(MVAR_PROFILE_NOTES);
 
-			result = DBselect("select distinct p.notes from triggers t, functions f,items i, hosts h, hosts_profiles p"
+			snprintf(sql,sizeof(sql)-1,"select distinct p.notes from triggers t, functions f,items i, hosts h, hosts_profiles p"
 				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and p.hostid=h.hostid", 
-				event->objectid);
+				trigger->triggerid);
 
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.NOTES in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
-				zabbix_syslog("No PROFILE.NOTES in substitute_simple_macros. Triggerid [%d]",
-					event->objectid);
+				zabbix_log( LOG_LEVEL_ERR, "No PROFILE.NOTES in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No PROFILE.NOTES in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
 
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				replace_to = zbx_dsprintf(replace_to, "%s", STR_UNKNOWN_VARIABLE);
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 			DBfree_result(result);
 		}
@@ -982,26 +912,23 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		{
 			var_len = strlen(MVAR_HOST_NAME);
 
-			result = DBselect("select distinct h.host from triggers t, functions f,items i, hosts h "
-				"where t.triggerid=" ZBX_FS_UI64 " and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid",
-				event->objectid);
+			snprintf(sql,sizeof(sql)-1,"select distinct h.host from triggers t, functions f,items i, hosts h"
+				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid", 
+				trigger->triggerid);
 
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No hostname in substitute_simple_macros. Triggerid [" ZBX_FS_UI64 "]",
-					event->objectid);
-				zabbix_syslog("No hostname in substitute_simple_macros. Triggerid [" ZBX_FS_UI64 "]",
-					event->objectid);
+				zabbix_log( LOG_LEVEL_ERR, "No hostname in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No hostname in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
 
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				replace_to = zbx_dsprintf(replace_to, "%s", STR_UNKNOWN_VARIABLE);
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 			DBfree_result(result);
 		}
@@ -1010,28 +937,23 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out1 [%s] pl [%s]", str_out, pl);
 		{
 			var_len = strlen(MVAR_ITEM_NAME);
 
-			result = DBselect("select distinct i.description from triggers t, functions f,items i, hosts h"
-				" where t.triggerid=" ZBX_FS_UI64 " and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid"
-				" order by i.description",
-				event->objectid);
+			snprintf(sql,sizeof(sql)-1,"select distinct i.description from triggers t, functions f,items i, hosts h"
+				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid"
+				" order by i.description", trigger->triggerid);
 
+			result = DBselect(sql);
 			row=DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No ITEM.NAME in substitute_simple_macros. Triggerid [" ZBX_FS_UI64 "]",
-					event->objectid);
-				zabbix_syslog("No ITEM.NAME in substitute_simple_macros. Triggerid [" ZBX_FS_UI64 "]",
-					event->objectid);
-
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
-zabbix_log( LOG_LEVEL_WARNING, "ALEX");
+				zabbix_log( LOG_LEVEL_ERR, "No ITEM_NAME in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No ITEM_NAME in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				/* remove variable */
+				replace_to = zbx_dsprintf(replace_to, "");
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 
 			DBfree_result(result);
@@ -1041,27 +963,23 @@ zabbix_log( LOG_LEVEL_WARNING, "ALEX");
 		{
 			var_len = strlen(MVAR_TRIGGER_KEY);
 
-			result = DBselect("select distinct i.key_ from triggers t, functions f,items i, hosts h"
-				" where t.triggerid=" ZBX_FS_UI64 " and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid"
-				" order by i.key_",
-				event->objectid);
+			snprintf(sql,sizeof(sql)-1,"select distinct i.key_ from triggers t, functions f,items i, hosts h"
+				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid"
+				" order by i.key_", trigger->triggerid);
 
+			result = DBselect(sql);
 			row=DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No TRIGGER.KEY in substitute_simple_macros. Triggerid [" ZBX_FS_UI64 "]",
-					event->objectid);
-				zabbix_syslog("No TRIGGER.KEY in substitute_simple_macros. Triggerid [" ZBX_FS_UI64 "]",
-					event->objectid);
-
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				zabbix_log( LOG_LEVEL_ERR, "No TRIGGER.KEY in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No TRIGGER.KEY in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				/* remove variable */
+				replace_to = zbx_dsprintf(replace_to, "");
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 
 			DBfree_result(result);
@@ -1071,26 +989,23 @@ zabbix_log( LOG_LEVEL_WARNING, "ALEX");
 		{
 			var_len = strlen(MVAR_IPADDRESS);
 
-			result = DBselect("select distinct h.ip from triggers t, functions f,items i, hosts h"
-				" where t.triggerid=" ZBX_FS_UI64 " and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and h.useip=1",
-				event->objectid);
+			snprintf(sql,sizeof(sql)-1,"select distinct h.ip from triggers t, functions f,items i, hosts h"
+				" where t.triggerid=%d and f.triggerid=t.triggerid and f.itemid=i.itemid and h.hostid=i.hostid and h.useip=1",
+				trigger->triggerid);
 
+			result = DBselect(sql);
 			row = DBfetch(result);
 
 			if(!row || DBis_null(row[0])==SUCCEED)
 			{
-				zabbix_log( LOG_LEVEL_ERR, "No hostname in substitute_simple_macros. Triggerid [" ZBX_FS_UI64 "]",
-					event->objectid);
-				zabbix_syslog("No hostname in substitute_simple_macros. Triggerid [" ZBX_FS_UI64 "]",
-					event->objectid);
+				zabbix_log( LOG_LEVEL_ERR, "No hostname in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
+				zabbix_syslog("No hostname in substitute_simple_macros. Triggerid [%d]", trigger->triggerid);
 
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					STR_UNKNOWN_VARIABLE);
+				replace_to = zbx_dsprintf(replace_to, "%s", STR_UNKNOWN_VARIABLE);
 			}
 			else
 			{
-				replace_to = zbx_dsprintf(replace_to, "%s",
-					row[0]);
+				replace_to = zbx_dsprintf(replace_to, "%s", row[0]);
 			}
 			DBfree_result(result);
 		}
@@ -1101,10 +1016,7 @@ zabbix_log( LOG_LEVEL_WARNING, "ALEX");
 
 			now	= time(NULL);
 			tm	= localtime(&now);
-			replace_to = zbx_dsprintf(replace_to, "%.4d.%.2d.%.2d",
-				tm->tm_year+1900,
-				tm->tm_mon+1,
-				tm->tm_mday);
+			replace_to = zbx_dsprintf(replace_to, "%.4d.%.2d.%.2d", tm->tm_year+1900, tm->tm_mon+1, tm->tm_mday);
 		}
 		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY)&&
 			strncmp(pr, MVAR_TIME, strlen(MVAR_TIME)) == 0)
@@ -1113,20 +1025,16 @@ zabbix_log( LOG_LEVEL_WARNING, "ALEX");
 
 			now	= time(NULL);
 			tm	= localtime(&now);
-			replace_to = zbx_dsprintf(replace_to, "%.2d:%.2d:%.2d",
-				tm->tm_hour,
-				tm->tm_min,
-				tm->tm_sec);
-
+			replace_to = zbx_dsprintf(replace_to, "%.2d:%.2d:%.2d",tm->tm_hour,tm->tm_min,tm->tm_sec);
 		}
 		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY) &&
 			strncmp(pr, MVAR_TRIGGER_STATUS, strlen(MVAR_TRIGGER_STATUS)) == 0)
 		{
 			/* NOTE: if you make changes for this bloc, don't forgot MVAR_TRIGGER_STATUS_OLD block */
 			var_len = strlen(MVAR_TRIGGER_STATUS);
-
+			
 			replace_to = zbx_dsprintf(replace_to, "%s",
-					event->value == TRIGGER_VALUE_TRUE ? "OFF" : "ON");
+					trigger->value == TRIGGER_VALUE_TRUE ? "OFF" : "ON");
 		}
 		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY) && 
 			strncmp(pr, MVAR_TRIGGER_STATUS_OLD, strlen(MVAR_TRIGGER_STATUS_OLD)) == 0)
@@ -1135,75 +1043,65 @@ zabbix_log( LOG_LEVEL_WARNING, "ALEX");
 			var_len = strlen(MVAR_TRIGGER_STATUS_OLD);
 
 			replace_to = zbx_dsprintf(replace_to, "%s",
-					event->value == TRIGGER_VALUE_TRUE ? "OFF" : "ON");
+					trigger->value == TRIGGER_VALUE_TRUE ? "OFF" : "ON");
 		}
-		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY) &&
+		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY) && 
 			strncmp(pr, MVAR_TRIGGER_ID, strlen(MVAR_TRIGGER_ID)) == 0)
 		{
 			/* NOTE: if you make changes for this bloc, don't forgot MVAR_TRIGGER_STATUS block */
 			var_len = strlen(MVAR_TRIGGER_ID);
 
-			replace_to = zbx_dsprintf(replace_to, ZBX_FS_UI64,
-				event->objectid);
+			replace_to = zbx_dsprintf(replace_to, "%d", trigger->triggerid);
 		}
-		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY | MACRO_TYPE_TRIGGER_EXPRESSION) &&
-			strncmp(pr, MVAR_TRIGGER_VALUE, strlen(MVAR_TRIGGER_VALUE)) == 0)
-		{
-			var_len = strlen(MVAR_TRIGGER_VALUE);
-
-			replace_to = zbx_dsprintf(replace_to, ZBX_FS_UI64,
-				event->value);
-		}
-		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY) &&
+		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY) && 
 			strncmp(pr, MVAR_TRIGGER_URL, strlen(MVAR_TRIGGER_URL)) == 0)
 		{
 			/* NOTE: if you make changes for this bloc, don't forgot MVAR_TRIGGER_STATUS block */
 			var_len = strlen(MVAR_TRIGGER_URL);
-
-			replace_to = zbx_dsprintf(replace_to, "%s",
-				event->trigger_url);
+			replace_to = zbx_dsprintf(replace_to, "%s", trigger->url);
 		}
-		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY) &&
+		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY) && 
+			strncmp(pr, MVAR_TRIGGER_COMMENT, strlen(MVAR_TRIGGER_COMMENT)) == 0)
+		{
+			/* NOTE: if you make changes for this bloc, don't forgot MVAR_TRIGGER_STATUS block */
+			var_len = strlen(MVAR_TRIGGER_COMMENT);
+
+			replace_to = zbx_dsprintf(replace_to, "%s", trigger->comments);
+		}
+		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY) && 
 			strncmp(pr, MVAR_EVENT_ID, strlen(MVAR_EVENT_ID)) == 0)
 		{
 			/* NOTE: if you make changes for this bloc, don't forgot MVAR_TRIGGER_STATUS block */
 			var_len = strlen(MVAR_EVENT_ID);
 
-			replace_to = zbx_dsprintf(replace_to, ZBX_FS_UI64,
-				event->eventid);
+			replace_to = zbx_dsprintf(replace_to, "%d", alarmid);
 		}
 		else if(macro_type & (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY) && 
 			strncmp(pr, MVAR_TRIGGER_SEVERITY, strlen(MVAR_TRIGGER_SEVERITY)) == 0)
 		{
 			var_len = strlen(MVAR_TRIGGER_SEVERITY);
 
-			if(event->trigger_priority == 0)	replace_to = zbx_dsprintf(replace_to, "Not classified");
-			else if(event->trigger_priority == 1)	replace_to = zbx_dsprintf(replace_to, "Information");
-			else if(event->trigger_priority == 2)	replace_to = zbx_dsprintf(replace_to, "Warning");
-			else if(event->trigger_priority == 3)	replace_to = zbx_dsprintf(replace_to, "Average");
-			else if(event->trigger_priority == 4)	replace_to = zbx_dsprintf(replace_to, "High");
-			else if(event->trigger_priority == 5)	replace_to = zbx_dsprintf(replace_to, "Disaster");
-			else					replace_to = zbx_dsprintf(replace_to, "Unknown");
+			if(trigger->priority == 0)	replace_to = zbx_dsprintf(replace_to, "Not classified");
+                        else if(trigger->priority == 1)	replace_to = zbx_dsprintf(replace_to, "Information");
+                        else if(trigger->priority == 2)	replace_to = zbx_dsprintf(replace_to, "Warning");
+                        else if(trigger->priority == 3)	replace_to = zbx_dsprintf(replace_to, "Average");
+                        else if(trigger->priority == 4)	replace_to = zbx_dsprintf(replace_to, "High");
+                        else if(trigger->priority == 5)	replace_to = zbx_dsprintf(replace_to, "Disaster");
+                        else				replace_to = zbx_dsprintf(replace_to, "Unknown");
 		}
 
-zabbix_log(LOG_LEVEL_DEBUG, "str_out2 [%s] replace_to [%s]", str_out, replace_to);
 		str_out = zbx_strdcat(str_out, replace_to);
-zabbix_log(LOG_LEVEL_DEBUG, "str_out2 [%s] replace_to [%s]", str_out, replace_to);
 		pl = pr + var_len;
 
 		zbx_free(replace_to);
 	}
-zabbix_log(LOG_LEVEL_DEBUG, "str_out3 [%s] pl [%s]", str_out, pl);
 	str_out = zbx_strdcat(str_out, pl);
-zabbix_log(LOG_LEVEL_DEBUG, "str_out3 [%s] pl [%s]", str_out, pl);
 
 	zbx_free(*data);
 
 	*data = str_out;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End substitute_simple_macros ()");
-	zabbix_log(LOG_LEVEL_DEBUG, "End substitute_simple_macros (result:%s)",
-		*data);
+	zabbix_log( LOG_LEVEL_DEBUG, "Result expression [%s]", *data );
 }
 
 /******************************************************************************
@@ -1223,7 +1121,7 @@ zabbix_log(LOG_LEVEL_DEBUG, "str_out3 [%s] pl [%s]", str_out, pl);
  * Comments: example: "{127.0.0.1:system[procload].last(0)}" to "1.34"        *
  *                                                                            *
  ******************************************************************************/
-void	substitute_macros(DB_EVENT *event, DB_ACTION *action, char **data)
+void	substitute_macros(int alarmid, DB_TRIGGER *trigger, DB_ACTION *action, char **data)
 {
 	char	
 		*str_out = NULL,
@@ -1241,14 +1139,11 @@ void	substitute_macros(DB_EVENT *event, DB_ACTION *action, char **data)
 
 	if(!data || !*data) return;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In substitute_macros(data:%s)",
-		*data);
+	zabbix_log(LOG_LEVEL_DEBUG, "In substitute_macros([%s])",*data);
 
 	if('\0' == *data[0]) return;
 	
-	zabbix_log(LOG_LEVEL_DEBUG, "Before substitute_simple_macros(%s)", *data);
-	substitute_simple_macros(event, action, data, MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY);
-	zabbix_log(LOG_LEVEL_DEBUG, "After substitute_simple_macros(%s)", *data);
+	substitute_simple_macros(alarmid, trigger, action, data, MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY);
 
 	pl = *data;
 	while((pr = strchr(pl, '{')))
@@ -1268,42 +1163,43 @@ void	substitute_macros(DB_EVENT *event, DB_ACTION *action, char **data)
 
 		/* copy original name of variable */
 		replace_to = zbx_dsprintf(replace_to, "%s}", pr);	/* in format used '}' */
-									/* cose in 'pr' string symbol '}' is changed to '\0' by 'pme'*/
+							/* cose in 'pr' string symbol '}' is changed to '\0' by 'pme'*/
 		pl = pr + strlen(replace_to);
-
+		
 		pms = pr + 1;
 	
 		if(NULL != (p = strchr(pms, ':')))
 		{
 			*p = '\0';
-			zbx_snprintf(host, sizeof(host), "%s", pms);
+			snprintf(host, sizeof(host), "%s", pms);
 			*p = ':';
 			pms = p + 1;
 			if(NULL != (p = strrchr(pms, '.')))
 			{
 				*p = '\0';
-				zbx_snprintf(key, sizeof(key), "%s", pms);
+				snprintf(key, sizeof(key), "%s", pms);
 				*p = '.';
 				pms = p + 1;
 				if(NULL != (p = strchr(pms, '(')))
 				{
 					*p = '\0';
-					zbx_snprintf(function, sizeof(function), "%s", pms);
+					snprintf(function, sizeof(function), "%s", pms);
 					*p = '(';
 					pms = p + 1;
 					if(NULL != (p = strchr(pms, ')')))
 					{
 						*p = '\0';
-						zbx_snprintf(parameter, sizeof(parameter), "%s", pms);
+						snprintf(parameter, sizeof(parameter), "%s", pms);
 						*p = ')';
 						pms = p + 1;
 						
-						/* function 'evaluate_function2' require 'replace_to' with size 'MAX_STRING_LEN' */
+						/* function 'evaluate_FUNCTION2' require 'replace_to' with size 'MAX_STRING_LEN' */
 						zbx_free(replace_to);
 						replace_to = zbx_malloc(MAX_STRING_LEN);
-
-						if(evaluate_function2(replace_to,host,key,function,parameter) != SUCCEED)
-							zbx_snprintf(replace_to, MAX_STRING_LEN, "%s", STR_UNKNOWN_VARIABLE);
+						if(evaluate_FUNCTION2(replace_to,host,key,function,parameter) != SUCCEED)
+						{
+							snprintf(replace_to, MAX_STRING_LEN, "%s", STR_UNKNOWN_VARIABLE);
+						}
 					}
 				}
 			}
@@ -1317,11 +1213,10 @@ void	substitute_macros(DB_EVENT *event, DB_ACTION *action, char **data)
 	str_out = zbx_strdcat(str_out, pl);
 
 	zbx_free(*data);
-
+	
 	*data = str_out;
 
-	zabbix_log( LOG_LEVEL_DEBUG, "End substitute_macros(result:%s)",
-		*data );
+	zabbix_log( LOG_LEVEL_DEBUG, "Result expression:%s", *data );
 }
 
 /******************************************************************************
@@ -1342,57 +1237,72 @@ void	substitute_macros(DB_EVENT *event, DB_ACTION *action, char **data)
  * Comments: example: "({15}>10)|({123}=0)" => "(6.456>10)|(0=0)              *
  *                                                                            *
  ******************************************************************************/
-int	substitute_functions(char **exp, char *error, int maxerrlen)
+int	substitute_functions(char *exp, char *error, int maxerrlen)
 {
-	char	*value;
+	double	value;
 	char	functionid[MAX_STRING_LEN];
-	int	i,j;
-	int	len;
-	char	*out = NULL;
-	char	c;
+	char	res[MAX_STRING_LEN];
+	int	i,l,r;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In substitute_functions(%s)",
-		*exp);
+	zabbix_log(LOG_LEVEL_DEBUG, "BEGIN substitute_functions (%s)", exp);
 
-	i = 0;
-	len = strlen(*exp);
-	while(i<len)
+	while( find_char(exp,'{') != FAIL )
 	{
-		if((*exp)[i] == '{')
+		l=find_char(exp,'{');
+		r=find_char(exp,'}');
+		if( r == FAIL )
 		{
-			for(j=i+1;((*exp)[j]!='}')&&((*exp)[j]!='\0');j++)
-			{
-				functionid[j-i-1]=(*exp)[j];
-			}
-			functionid[j-i-1]='\0';
-			if( DBget_function_result( &value, functionid ) != SUCCEED )
-			{
-/* It may happen because of functions.lastvalue is NULL, so this is not warning  */
-				zbx_snprintf(error,maxerrlen, "Unable to get value for functionid [%s]",
-					functionid);
-				zabbix_log( LOG_LEVEL_DEBUG, "%s",
-					error);
-				zabbix_syslog("%s",
-					error);
-				return	FAIL;
-			}
-			out =  zbx_strdcat(out,value);
-			zbx_free(value);
-			i=j+1;
+			snprintf(error,maxerrlen-1,"Cannot find right bracket. Expression:[%s]", exp);
+			zabbix_log( LOG_LEVEL_WARNING, "%s", error);
+			zabbix_syslog("%s",error);
+			return	FAIL;
 		}
-		else
+		if( r < l )
 		{
-			c=(*exp)[i+1]; (*exp)[i+1]='\0';
-			out = zbx_strdcat(out, (*exp+i));
-			(*exp)[i+1]=c;
-			i++;
-		}	
-	}
-	zbx_free(*exp);
+			snprintf(error,maxerrlen-1, "Right bracket is before left one. Expression:[%s]", exp);
+			zabbix_log( LOG_LEVEL_WARNING, "%s", error);
+			zabbix_syslog("%s",error);
+			return	FAIL;
+		}
 
-	*exp = out;
-	zabbix_log( LOG_LEVEL_DEBUG, "End substitute_functions [%s]",
-		*exp);
+		for(i=l+1;i<r;i++)
+		{
+			functionid[i-l-1]=exp[i];
+		} 
+		functionid[r-l-1]=0;
+
+		if( DBget_function_result( &value, functionid ) != SUCCEED )
+		{
+/* It may happen because of functions.lastvalue is NULL, so this is not warning  */
+			snprintf(error,maxerrlen-1, "Unable to get value for functionid [%s]", functionid);
+			zabbix_log( LOG_LEVEL_DEBUG, "%s", error);
+			zabbix_syslog("%s",error);
+			return	FAIL;
+		}
+
+
+		zabbix_log( LOG_LEVEL_DEBUG, "Expression1:[%s]", exp );
+
+		exp[l]='%';
+		exp[l+1]='l';
+		exp[l+2]='f';
+/*		exp[l]='%';
+		exp[l+1]='f';
+		exp[l+2]=' ';*/
+
+		zabbix_log( LOG_LEVEL_DEBUG, "Expression2:[%s]", exp );
+
+		for(i=l+3;i<=r;i++) exp[i]=' ';
+
+		zabbix_log( LOG_LEVEL_DEBUG, "Expression3:[%s]", exp );
+
+		snprintf(res,sizeof(res)-1,exp,value);
+		strcpy(exp,res);
+		delete_spaces(exp);
+		zabbix_log( LOG_LEVEL_DEBUG, "Expression4:[%s]", exp );
+	}
+	zabbix_log( LOG_LEVEL_DEBUG, "Expression:[%s]", exp );
+	zabbix_log( LOG_LEVEL_DEBUG, "END substitute_functions" );
 
 	return SUCCEED;
 }
@@ -1417,40 +1327,20 @@ int	substitute_functions(char **exp, char *error, int maxerrlen)
  *                    ({a0:system[procload].max(300)}>3)                      *
  *                                                                            *
  ******************************************************************************/
-int	evaluate_expression(int *result,char **expression, int trigger_value, char *error, int maxerrlen)
+int	evaluate_expression(int *result,char *expression, char *error, int maxerrlen)
 {
-	/* Required for substitution of macros */
-	DB_EVENT	event;
-	DB_ACTION	action;
+	zabbix_log(LOG_LEVEL_DEBUG, "In evaluate_expression(%s)", expression );
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In evaluate_expression(%s)",
-		*expression);
-
-	/* Substitute macros first */
-	memset(&event,0,sizeof(DB_EVENT));	
-	memset(&action,0,sizeof(DB_ACTION));	
-	event.value = trigger_value;
-
-	substitute_simple_macros(&event, &action, expression, MACRO_TYPE_TRIGGER_EXPRESSION);
-
-	/* Evaluate expression */
-	delete_spaces(*expression);
+	delete_spaces(expression);
 	if( substitute_functions(expression, error, maxerrlen) == SUCCEED)
 	{
-		if( evaluate(result, *expression, error, maxerrlen) == SUCCEED)
+		if( evaluate(result, expression, error, maxerrlen) == SUCCEED)
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "End evaluate_expression(result:%d)",
-				*result);
 			return SUCCEED;
 		}
 	}
-	zabbix_log(LOG_LEVEL_DEBUG, "Evaluation of expression [%s] failed [%s]",
-		*expression,
-		error);
-	zabbix_syslog("Evaluation of expression [%s] failed [%s]",
-		*expression,
-		error);
+	zabbix_log(LOG_LEVEL_WARNING, "Evaluation of expression [%s] failed [%s]", expression, error );
+	zabbix_syslog("Evaluation of expression [%s] failed [%s]", expression, error );
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End evaluate_expression(result:FAIL)");
 	return FAIL;
 }

@@ -20,6 +20,18 @@
 ?>
 <?php
 
+	/*
+	 * Function: item_type2str
+	 *
+	 * Description:
+	 *     Represent integer value of item type as string
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments:
+	 *
+	 */
 	function	item_type2str($type)
 	{
 		switch($type)
@@ -35,12 +47,23 @@
 			case ITEM_TYPE_AGGREGATE:	$type = S_ZABBIX_AGGREGATE;		break;
 			case ITEM_TYPE_HTTPTEST:	$type = S_WEB_MONITORING;		break;
 			case ITEM_TYPE_EXTERNAL:	$type = S_EXTERNAL_CHECK;		break;
-			case ITEM_TYPE_DB_MONITOR:	$type = S_ZABBIX_DATABASE_MONITOR;	break;
 			default:$type = S_UNKNOWN;			break;
 		}
 		return $type;
 	}
 
+	/*
+	 * Function: item_value_type2str
+	 *
+	 * Description:
+	 *     Represent integer value of item value type as string
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments:
+	 *
+	 */
 	function	item_value_type2str($value_type)
 	{
 		switch($value_type)
@@ -55,6 +78,18 @@
 		return $value_type;
 	}
 
+	/*
+	 * Function: item_value_type2str
+	 *
+	 * Description:
+	 *     Represent integer value of item status as string
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments:
+	 *
+	 */
 	function	item_status2str($status)
 	{
 		switch($status)
@@ -68,6 +103,18 @@
 		return $status;
 	}
 	
+	/*
+	 * Function: item_status2style
+	 *
+	 * Description:
+	 *     Represent integer value of item status as CSS style name
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments:
+	 *
+	 */
 	function	item_status2style($status)
 	{
 		switch($status)
@@ -82,13 +129,13 @@
 	}
 	# Update Item definition for selected group
 
-	function	update_item_in_group($groupid,$itemid,$description,$key,$hostid,$delay,$history,$status,$type,$snmp_community,$snmp_oid,$value_type,$trapper_hosts,$snmp_port,$units,$multiplier,$delta,$snmpv3_securityname,$snmpv3_securitylevel,$snmpv3_authpassphrase,$snmpv3_privpassphrase,$formula,$trends,$logtimefmt,$valuemapid,$delay_flex,$params,$applications)
+	function	update_item_in_group($groupid,$itemid,$description,$key,$hostid,$delay,$history,$status,$type,$snmp_community,$snmp_oid,$value_type,$trapper_hosts,$snmp_port,$units,$multiplier,$delta,$snmpv3_securityname,$snmpv3_securitylevel,$snmpv3_authpassphrase,$snmpv3_privpassphrase,$formula,$trends,$logtimefmt,$valuemapid,$delay_flex,$applications)
 	{
 		$sql="select i.itemid,i.hostid from hosts_groups hg,items i where hg.groupid=$groupid and i.key_=".zbx_dbstr($key)." and hg.hostid=i.hostid";
 		$result=DBexecute($sql);
 		while($row=DBfetch($result))
 		{
-			update_item($row["itemid"],$description,$key,$row["hostid"],$delay,$history,$status,$type,$snmp_community,$snmp_oid,$value_type,$trapper_hosts,$snmp_port,$units,$multiplier,$delta,$snmpv3_securityname,$snmpv3_securitylevel,$snmpv3_authpassphrase,$snmpv3_privpassphrase,$formula,$trends,$logtimefmt,$valuemapid,$delay_flex,$params,$applications);
+			update_item($row["itemid"],$description,$key,$row["hostid"],$delay,$history,$status,$type,$snmp_community,$snmp_oid,$value_type,$trapper_hosts,$snmp_port,$units,$multiplier,$delta,$snmpv3_securityname,$snmpv3_securitylevel,$snmpv3_authpassphrase,$snmpv3_privpassphrase,$formula,$trends,$logtimefmt,$valuemapid,$delay_flex,$applications);
 		}
 		return 1;
 	}
@@ -121,13 +168,13 @@
 
 	# Add Item definition to selected group
 
-	function	add_item_to_group($groupid,$description,$key,$hostid,$delay,$history,$status,$type,$snmp_community,$snmp_oid,$value_type,$trapper_hosts,$snmp_port,$units,$multiplier,$delta,$snmpv3_securityname,$snmpv3_securitylevel,$snmpv3_authpassphrase,$snmpv3_privpassphrase,$formula,$trends,$logtimefmt,$valuemapid,$delay_flex,$params,$applications)
+	function	add_item_to_group($groupid,$description,$key,$hostid,$delay,$history,$status,$type,$snmp_community,$snmp_oid,$value_type,$trapper_hosts,$snmp_port,$units,$multiplier,$delta,$snmpv3_securityname,$snmpv3_securitylevel,$snmpv3_authpassphrase,$snmpv3_privpassphrase,$formula,$trends,$logtimefmt,$valuemapid,$delay_flex,$applications)
 	{
 		$sql="select hostid from hosts_groups where groupid=$groupid";
 		$result=DBexecute($sql);
 		while($row=DBfetch($result))
 		{
-			add_item($description,$key,$row["hostid"],$delay,$history,$status,$type,$snmp_community,$snmp_oid,$value_type,$trapper_hosts,$snmp_port,$units,$multiplier,$delta,$snmpv3_securityname,$snmpv3_securitylevel,$snmpv3_authpassphrase,$snmpv3_privpassphrase,$formula,$trends,$logtimefmt,$valuemapid,$delay_flex,$params,$applications);
+			add_item($description,$key,$row["hostid"],$delay,$history,$status,$type,$snmp_community,$snmp_oid,$value_type,$trapper_hosts,$snmp_port,$units,$multiplier,$delta,$snmpv3_securityname,$snmpv3_securitylevel,$snmpv3_authpassphrase,$snmpv3_privpassphrase,$formula,$trends,$logtimefmt,$valuemapid,$delay_flex,$applications);
 		}
 		return 1;
 	}
@@ -141,7 +188,7 @@
 		$description,$key,$hostid,$delay,$history,$status,$type,$snmp_community,$snmp_oid,
 		$value_type,$trapper_hosts,$snmp_port,$units,$multiplier,$delta,$snmpv3_securityname,
 		$snmpv3_securitylevel,$snmpv3_authpassphrase,$snmpv3_privpassphrase,$formula,$trends,$logtimefmt,
-		$valuemapid,$delay_flex,$params,$applications,$templateid=0)
+		$valuemapid,$delay_flex,$applications,$templateid=0)
 	{
 
 		$host=get_host_by_hostid($hostid);
@@ -151,7 +198,7 @@
 
 		if( !eregi('^'.ZBX_EREG_ITEM_KEY_FORMAT.'$', $key) )
 		{
-			error("Key should contain '[]0-9a-zA-Z!_,:()+.*\ $'- characters only");
+			error("Incorrect key format 'key_name[param1,param2,...]'");
 			return false;
 		}
 
@@ -224,7 +271,7 @@
 				$value_type, $trapper_hosts, $snmp_port, $units, $multiplier,
 				$delta, $snmpv3_securityname, $snmpv3_securitylevel,
 				$snmpv3_authpassphrase, $snmpv3_privpassphrase, $formula,
-				$trends, $logtimefmt, $valuemapid, $delay_flex, $params,
+				$trends, $logtimefmt, $valuemapid, $delay_flex,
 				get_same_applications_for_host($applications, $db_item["hostid"]),
 				$templateid);
 
@@ -237,14 +284,14 @@
 			" (itemid,description,key_,hostid,delay,history,nextcheck,status,type,".
 			"snmp_community,snmp_oid,value_type,trapper_hosts,snmp_port,units,multiplier,".
 			"delta,snmpv3_securityname,snmpv3_securitylevel,snmpv3_authpassphrase,".
-			"snmpv3_privpassphrase,formula,trends,logtimefmt,valuemapid,delay_flex,params,templateid)".
+			"snmpv3_privpassphrase,formula,trends,logtimefmt,valuemapid,delay_flex,templateid)".
 			" values ($itemid,".zbx_dbstr($description).",".zbx_dbstr($key).",$hostid,$delay,$history,0,
 			$status,$type,".zbx_dbstr($snmp_community).",".zbx_dbstr($snmp_oid).",$value_type,".
 			zbx_dbstr($trapper_hosts).",$snmp_port,".zbx_dbstr($units).",$multiplier,$delta,".
 			zbx_dbstr($snmpv3_securityname).",$snmpv3_securitylevel,".
 			zbx_dbstr($snmpv3_authpassphrase).",".zbx_dbstr($snmpv3_privpassphrase).",".
 			zbx_dbstr($formula).",$trends,".zbx_dbstr($logtimefmt).",$valuemapid,".
-			zbx_dbstr($delay_flex).",".zbx_dbstr($params).",$templateid)");
+			zbx_dbstr($delay_flex).",$templateid)");
 
 		if(!$result)
 			return $result;
@@ -268,7 +315,7 @@
 				$value_type, $trapper_hosts, $snmp_port, $units, $multiplier,
 				$delta, $snmpv3_securityname, $snmpv3_securitylevel,
 				$snmpv3_authpassphrase, $snmpv3_privpassphrase, $formula,
-				$trends, $logtimefmt, $valuemapid,$delay_flex, $params,
+				$trends, $logtimefmt, $valuemapid,$delay_flex,
 				get_same_applications_for_host($applications, $db_host["hostid"]),
 				$itemid);
 			if(!$result)
@@ -305,12 +352,18 @@
 	function	update_item($itemid,$description,$key,$hostid,$delay,$history,$status,$type,
 		$snmp_community,$snmp_oid,$value_type,$trapper_hosts,$snmp_port,$units,$multiplier,$delta,
 		$snmpv3_securityname,$snmpv3_securitylevel,$snmpv3_authpassphrase,$snmpv3_privpassphrase,
-		$formula,$trends,$logtimefmt,$valuemapid,$delay_flex,$params,$applications,$templateid=0)
+		$formula,$trends,$logtimefmt,$valuemapid,$delay_flex,$applications,$templateid=0)
 	{
 		$host = get_host_by_hostid($hostid);
 
 		if(($i = array_search(0,$applications)) !== FALSE)
 			unset($applications[$i]);
+
+		if( !eregi('^'.ZBX_EREG_ITEM_KEY_FORMAT.'$', $key) )
+		{
+			error("Incorrect key format 'key_name[param1,param2,...]'");
+			return false;
+		}
 
 		if($delay<1)
 		{
@@ -349,7 +402,7 @@
 				$value_type, $trapper_hosts, $snmp_port, $units, $multiplier,
 				$delta, $snmpv3_securityname, $snmpv3_securitylevel,
 				$snmpv3_authpassphrase, $snmpv3_privpassphrase, $formula,
-				$trends, $logtimefmt, $valuemapid,$delay_flex, $params,
+				$trends, $logtimefmt, $valuemapid,$delay_flex,
 				get_same_applications_for_host($applications, $db_tmp_item["hostid"]),
 				$itemid);
 
@@ -387,7 +440,7 @@
 			"snmpv3_authpassphrase=".zbx_dbstr($snmpv3_authpassphrase).",".
 			"snmpv3_privpassphrase=".zbx_dbstr($snmpv3_privpassphrase).",".
 			"formula=".zbx_dbstr($formula).",trends=$trends,logtimefmt=".zbx_dbstr($logtimefmt).",".
-			"valuemapid=$valuemapid,delay_flex=".zbx_dbstr($delay_flex).",params=".zbx_dbstr($params).",".
+			"valuemapid=$valuemapid,delay_flex=".zbx_dbstr($delay_flex).",".
 			"templateid=$templateid where itemid=$itemid");
 		if($result)
 		{
@@ -397,10 +450,22 @@
 		return $result;
 	}
 
+	/*
+	 * Function: smart_update_item
+	 *
+	 * Description:
+	 *     Update specified fields of item
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments:
+	 *
+	 */
 	function	smart_update_item($itemid,$description,$key,$hostid,$delay,$history,$status,$type,
 		$snmp_community,$snmp_oid,$value_type,$trapper_hosts,$snmp_port,$units,$multiplier,$delta,
 		$snmpv3_securityname,$snmpv3_securitylevel,$snmpv3_authpassphrase,$snmpv3_privpassphrase,
-		$formula,$trends,$logtimefmt,$valuemapid,$delay_flex,$params,$applications)
+		$formula,$trends,$logtimefmt,$valuemapid,$delay_flex,$applications)
 	{
 		$restore_rules= array(
 					"description"		=> array(),
@@ -426,7 +491,6 @@
 					"trends"		=> array('template' => 1 , 'httptest' => 1),
 					"logtimefmt"		=> array(),
 					"valuemapid"		=> array('httptest' => 1),
-					"params"		=> array(),
 					"delay_flex"		=> array());
 
 		$item_data = get_item_by_itemid($itemid);
@@ -454,16 +518,23 @@
 			$multiplier,$delta,$snmpv3_securityname,
 			$snmpv3_securitylevel,$snmpv3_authpassphrase,
 			$snmpv3_privpassphrase,$formula,$trends,
-			$logtimefmt,$valuemapid,$delay_flex,$params,$applications,
+			$logtimefmt,$valuemapid,$delay_flex,$applications,
 			$item_data['templateid']);
 	}
 
-	/******************************************************************************
-	 *                                                                            *
-	 * Comments: !!! Don't forget sync code with C !!!                            *
-	 *                                                                            *
-	 ******************************************************************************/
-	function	delete_template_items($hostid, $templateid = null /* array format 'arr[id]=name' */, $unlink_mode = false)
+	/*
+	 * Function: delete_template_items
+	 *
+	 * Description:
+	 *     Delete items from host by templateid
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments: !!! Don't forget sync code with C !!!
+	 *
+	 */
+	function	delete_template_items($hostid, $templateid = null, $unlink_mode = false)
 	{
 		$db_items = get_items_by_hostid($hostid);
 		while($db_item = DBfetch($db_items))
@@ -471,18 +542,14 @@
 			if($db_item["templateid"] == 0)
 				continue;
 
-			if($templateid != null)
+			if( !is_null($templateid))
 			{
+				if ( !is_array($templateid) )	$templateid = array($templateid);
+
 				$db_tmp_item = get_item_by_itemid($db_item["templateid"]);
-				if(is_array($templateid))
-				{
-					if(!isset($templateid[$db_tmp_item["hostid"]]))
-						continue;
-				}
-				elseif($db_tmp_item["hostid"] != $templateid)
-				{
+
+				if ( !in_array($db_tmp_item["hostid"], $templateid) )
 					continue;
-				}
 			}
 
 			if($unlink_mode)
@@ -499,6 +566,18 @@
 		}
 	}
 
+	/*
+	 * Function: copy_item_to_host
+	 *
+	 * Description:
+	 *     Copy specified item to the host
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments:
+	 *
+	 */
 	function	copy_item_to_host($itemid, $hostid, $copy_mode = false)
 	{
 		$db_tmp_item = get_item_by_itemid($itemid);
@@ -532,21 +611,28 @@
 			$copy_mode ? 0 : $db_tmp_item["itemid"]);
 	}
 
-	/******************************************************************************
-	 *                                                                            *
-	 * Comments: !!! Don't forget sync code with C !!!                            *
-	 *                                                                            *
-	 ******************************************************************************/
-	function	copy_template_items($hostid, $templateid = null /* array format 'arr[id]=name' */, $copy_mode = false)
+	/*
+	 * Function: copy_template_items
+	 *
+	 * Description:
+	 *     Copy items from template to the host
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments: !!! Don't forget sync code with C !!!
+	 *
+	 */
+	function	copy_template_items($hostid, $templateid = null, $copy_mode = false)
 	{
 		if($templateid == null)
 		{
-			$templateid = get_templates_by_hostid($hostid);
+			$templateid = array_keys(get_templates_by_hostid($hostid));
 		}
 		
 		if(is_array($templateid))
 		{
-			foreach($templateid as $id => $name)
+			foreach($templateid as $id)
 				copy_template_items($hostid, $id, $copy_mode); // attention recursion
 			return;
 		}
@@ -582,7 +668,6 @@
 				$db_tmp_item["logtimefmt"],
 				$db_tmp_item["valuemapid"],
 				$db_tmp_item["delay_flex"],
-				$db_tmp_item["params"],
 				$apps,
 				$copy_mode ? 0 : $db_tmp_item["itemid"]);
 		}
@@ -679,15 +764,32 @@
 		return $result;
 	}
 
+	/*
+	 * Function: get_n_param
+	 *
+	 * Description:
+	 *     Return key parameter by index
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments: indexes between 1-x
+	 *
+	 */
 	function	get_n_param($key, $num)
 	{
 		$param="";
 
-		$params = preg_split('/[\]\[,]/', $key);
+		$num--;
 
-		if(isset($params[$num]))
+		if( ereg('^'.ZBX_EREG_ITEM_KEY_FORMAT.'$', $key, $arr) )
 		{
-			$param = $params[$num];
+			$params = zbx_get_params($arr[ZBX_KEY_PARAM_ID]);
+
+			if(isset($params[$num]))
+			{
+				$param = $params[$num];
+			}
 		}
 
 		return $param;
@@ -714,6 +816,18 @@
 		return get_host_by_itemid($itemid);
 	}
 
+	/*
+	 * Function: get_items_data_overview
+	 *
+	 * Description:
+	 *     Retrive overview table object for items
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments:
+	 *
+	 */
 	function get_items_data_overview($groupid, $nodeid)
 	{
 		global	$USER_DETAILS;

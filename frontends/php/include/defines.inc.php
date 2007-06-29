@@ -28,8 +28,6 @@
 	define('XML_TAG_APPLICATION',		'application');
 	define('XML_TAG_ITEMS',			'items');
 	define('XML_TAG_ITEM',			'item');
-	define('XML_TAG_TEMPLATES',		'templates');
-	define('XML_TAG_TEMPLATE',		'template');
 	define('XML_TAG_TRIGGERS',		'triggers');
 	define('XML_TAG_TRIGGER',		'trigger');
 	define('XML_TAG_GRAPHS',		'graphs');
@@ -168,7 +166,6 @@
 	define('ITEM_TYPE_AGGREGATE',8);
 	define('ITEM_TYPE_HTTPTEST',9);
 	define('ITEM_TYPE_EXTERNAL',10);
-	define("ITEM_TYPE_DB_MONITOR",11);
 
 	define('ITEM_VALUE_TYPE_FLOAT',0);
 	define('ITEM_VALUE_TYPE_STR',1);
@@ -216,14 +213,14 @@
 	define('ACTION_STATUS_ENABLED',0);
 	define('ACTION_STATUS_DISABLED',1);
 
-	define('OPERATION_TYPE_MESSAGE',	0); /* !!!!! */
-	define('OPERATION_TYPE_COMMAND',	1); /* !!!!! */
-	define('OPERATION_TYPE_HOST_ADD',	2); /* TODO!!! */
-	define('OPERATION_TYPE_HOST_REMOVE',	3); /* TODO!!! */
-	define('OPERATION_TYPE_GROUP_ADD',	4); /* TODO!!! */
-	define('OPERATION_TYPE_GROUP_REMOVE',	5); /* TODO!!! */
-	define('OPERATION_TYPE_TEMPLATE_ADD',	6); /* TODO!!! */
-	define('OPERATION_TYPE_TEMPLATE_REMOVE',7); /* TODO!!! */
+	define('OPERATION_TYPE_MESSAGE',	0);
+	define('OPERATION_TYPE_COMMAND',	1);
+	define('OPERATION_TYPE_HOST_ADD',	2);
+	define('OPERATION_TYPE_HOST_REMOVE',	3);
+	define('OPERATION_TYPE_GROUP_ADD',	4);
+	define('OPERATION_TYPE_GROUP_REMOVE',	5);
+	define('OPERATION_TYPE_TEMPLATE_ADD',	6);
+	define('OPERATION_TYPE_TEMPLATE_REMOVE',7);
 
 	define('ACTION_EVAL_TYPE_AND_OR',0);
 	define('ACTION_EVAL_TYPE_AND',1);
@@ -382,25 +379,42 @@
 	define('SPACE',	'&nbsp;');
 	define('RARR',	'&rArr;');
 
-	define('ZBX_EREG_HOST_FORMAT', '([0-9a-zA-Z\_\.[:space:][.-.]\$]+)');
-       define('ZBX_EREG_NODE_FORMAT', '([0-9a-zA-Z\_\.[:space:][.-.]\$]+)');
-	define('ZBX_EREG_ITEM_KEY_FORMAT', '([]\[\'0-9a-zA-Z!\_\*\&/\.\,\:\(\)\+ [.-.]\$%]+)');
+	define('ZBX_EREG_INTERNAL_NAMES', '([0-9a-zA-Z\_\.[:space:][.-.]\$]+)');
+	define('ZBX_EREG_PARAMS', '([[:print:]]+){0,1}');
+	define('ZBX_EREG_SIGN', '([&|><=+*/#[.-.]])');
+	define('ZBX_EREG_NUMBER', '([[.-.]+]*[0-9]+[.]{0,1}[0-9]*[A-Z]{0,1})');
 
-	define('ZBX_EREG_SIMPLE_EXPRESSION_FORMAT',
-		'^\{'.ZBX_EREG_HOST_FORMAT.'\:'.ZBX_EREG_ITEM_KEY_FORMAT.'\.([a-z]{3,11})\(([#0-9a-zA-Z\_\/\.\,[:space:]]+)\)\}$');
+	/* Character '-' must be last in the list of symbols, otherwise it won't be accepted */
+	define('ZBX_EREG_DNS_FORMAT', '([0-9a-zA-Z\_\.\$[.-.]]+)');
+	define('ZBX_EREG_HOST_FORMAT', ZBX_EREG_INTERNAL_NAMES);
+	define('ZBX_EREG_NODE_FORMAT', ZBX_EREG_INTERNAL_NAMES);
+	define('ZBX_EREG_ITEM_KEY_FORMAT', '('.ZBX_EREG_INTERNAL_NAMES.'(\['.ZBX_EREG_PARAMS.'\]){0,1})');
+	define('ZBX_KEY_ID', 1);
+	define('ZBX_KEY_NAME_ID', 2);
+	define('ZBX_KEY_PARAM_ID', 4);
+	define('ZBX_EREG_FUNCTION_FORMAT', '('.ZBX_EREG_INTERNAL_NAMES.'(\('.ZBX_EREG_PARAMS.'\)))');
 
-	define('ZBX_SIMPLE_EXPRESSION_HOST_ID', 1);
-	define('ZBX_SIMPLE_EXPRESSION_KEY_ID', 2);
-	define('ZBX_SIMPLE_EXPRESSION_FUNCTION_ID', 3);
-	define('ZBX_SIMPLE_EXPRESSION_PARAMETER_ID', 4);
+	define('ZBX_EREG_SIMPLE_EXPRESSION_FORMAT','(\{'.ZBX_EREG_HOST_FORMAT.'\:'.ZBX_EREG_ITEM_KEY_FORMAT.'\.'.ZBX_EREG_FUNCTION_FORMAT.'\})');
+	define('ZBX_EREG_MACRO_NAME_FORMAT', '(\{[A-Z\.]+\})');
+
+	define('ZBX_SIMPLE_EXPRESSION_HOST_ID', 2);
+	define('ZBX_SIMPLE_EXPRESSION_KEY_ID', 2 + ZBX_KEY_ID);
+	define('ZBX_SIMPLE_EXPRESSION_KEY_NAME_ID', 2 + ZBX_KEY_NAME_ID);
+	define('ZBX_SIMPLE_EXPRESSION_KEY_PARAM_ID', 2 + ZBX_KEY_PARAM_ID);
+	define('ZBX_SIMPLE_EXPRESSION_FUNCTION_ID', 7);
+	define('ZBX_SIMPLE_EXPRESSION_FUNCTION_NAME_ID', 8);
+	define('ZBX_SIMPLE_EXPRESSION_FUNCTION_PARAM_ID', 10);
+
+	define('ZBX_EREG_EXPRESSION_TOKEN_FORMAT', '^([[:print:]]*)('.ZBX_EREG_SIMPLE_EXPRESSION_FORMAT.'|'.ZBX_EREG_MACRO_NAME_FORMAT.')([[:print:]]*)$');
+
+	define('ZBX_EXPRESSION_LEFT_ID', 1);
+	define('ZBX_EXPRESSION_SIMPLE_EXPRESSION_ID', 2);
+	define('ZBX_EXPRESSION_MACRO_ID', 13);
+	define('ZBX_EXPRESSION_RIGHT_ID', 14);
 
 	define('ZBX_MIN_PERIOD', 3600);
 	define('ZBX_MAX_PERIOD', 12*31*24*3600);
 	define('ZBX_PERIOD_DEFAULT', ZBX_MIN_PERIOD);
-	
-	define('ZBX_HISTORY_COUNT',5);
-	
-	define('ZBX_GUEST_USER','guest');
 
 	global $_GET, $_POST, $_COOKIE, $_REQUEST;
 

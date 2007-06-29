@@ -467,7 +467,7 @@
 	'S_COMPARE'=>				'Compare',
 
 //	Footer
-	'S_ZABBIX_VER'=>			'ZABBIX 1.4',
+	'S_ZABBIX_VER'=>			'ZABBIX 1.4.1',
 	'S_COPYRIGHT_BY'=>			'Copyright 2001-2007 by ',
 	'S_CONNECTED_AS'=>			'Connected as',
 	'S_SIA_ZABBIX'=>			'SIA Zabbix',
@@ -699,7 +699,6 @@
 	'S_SNMPV2_AGENT'=>			'SNMPv2 agent',
 	'S_SNMPV3_AGENT'=>			'SNMPv3 agent',
 	'S_ZABBIX_INTERNAL'=>			'ZABBIX internal',
-	'S_ZABBIX_DATABASE_MONITOR'=>		'Database monitor',
 	'S_ZABBIX_AGGREGATE'=>			'ZABBIX aggregate',
 	'S_EXTERNAL_CHECK'=>			'External check',
 	'S_WEB_MONITORING'=>			'Web monitoring',
@@ -769,7 +768,6 @@
 	'S_ORIGINAL'=>				'Original',
 	'S_NEW_FLEXIBLE_INTERVAL'=>		'New flexible interval',
 	'S_FLEXIBLE_INTERVALS'=>		'Flexible intervals (sec)',
-	'S_PARAMS'=>				'Additional parameters',
 
 //	events.php
 	'S_LATEST_EVENTS'=>			'Latest events',
@@ -1048,7 +1046,6 @@
 	'S_ROOT_SMALL'=>			'root',
 	'S_IT_SERVICE'=>			'IT service',
 	'S_IT_SERVICES'=>			'IT services',
-	'S_CONFIGURATION_OF_IT_SERVICES'=>	'Configuration of IT services',
 	'S_SERVICE_UPDATED'=>			'Service updated',
 	'S_CANNOT_UPDATE_SERVICE'=>		'Cannot update service',
 	'S_SERVICE_ADDED'=>			'Service added',
@@ -1311,8 +1308,6 @@
 
 //	Errors
 	'S_INCORRECT_DESCRIPTION'=>		'Incorrect description',
-	'S_CANT_FORMAT_TREE'=>			'Can\'t format Tree',
-	'S_UNSUPPORTED_FILE_FORMAT'=>		'Unsupported file format',
-	'S_UNSUPPORTED_VERSION_OF_IMPORTED_DATA'=>	'Unsupported version of imported data'
+	'S_CANT_FORMAT_TREE'=>			'Can\'t format Tree'
 	);
 ?>

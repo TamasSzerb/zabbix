@@ -26,7 +26,6 @@
 
 	$page["title"] = "S_OVERVIEW";
 	$page["file"] = "overview.php";
-	$page['hist_arg'] = array('groupid','type');
 
 	define('ZBX_PAGE_DO_REFRESH', 1);
 	

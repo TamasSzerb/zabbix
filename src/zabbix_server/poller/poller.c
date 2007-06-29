@@ -25,16 +25,12 @@
 #include "../expression.h"
 #include "poller.h"
 
-#include "db.h"
-#include "sysinfo.h"
-
 #include "checks_agent.h"
 #include "checks_aggregate.h"
 #include "checks_external.h"
 #include "checks_internal.h"
 #include "checks_simple.h"
 #include "checks_snmp.h"
-#include "checks_db.h"
 
 #include "daemon.h"
 
@@ -81,10 +77,6 @@ int	get_value(DB_ITEM *item, AGENT_RESULT *result)
 	else if(item->type == ITEM_TYPE_INTERNAL)
 	{
 		res=get_value_internal(item, result);
-	}
-	else if(item->type == ITEM_TYPE_DB_MONITOR)
-	{
-		res=get_value_db(item, result);
 	}
 	else if(item->type == ITEM_TYPE_AGGREGATE)
 	{
@@ -320,8 +312,6 @@ int get_values(void)
 	/* Do not stop when select is made by poller for unreachable hosts */
 	while((row=DBfetch(result))&&(stop==0 || poller_type == ZBX_POLLER_TYPE_UNREACHABLE))
 	{
-		result2 = NULL;
-
 		/* Poller for unreachable hosts */
 		if(poller_type == ZBX_POLLER_TYPE_UNREACHABLE)
 		{
@@ -338,10 +328,6 @@ int get_values(void)
 				continue;
 			}
 			DBget_item_from_db(&item,row2);
-
-			/* We cannot free it because items has references to the structure
-			DBfree_result(result2);
-			*/
 		}
 		else
 		{
@@ -365,6 +351,7 @@ int get_values(void)
 
 			process_new_value(&item,&agent);
 
+/*			if(HOST_STATUS_UNREACHABLE == item.host_status)*/
 			if(HOST_AVAILABLE_TRUE != item.host_available)
 			{
 				zabbix_log( LOG_LEVEL_WARNING, "Enabling host [%s]",
@@ -410,7 +397,7 @@ int get_values(void)
 				zabbix_syslog("Parameter [%s] is not supported by agent on host [%s]",
 					item.key,
 					item.host_name);
-				DBupdate_item_status_to_notsupported(item.itemid, agent.msg);
+				DBupdate_item_status_to_notsupported(item.itemid, agent.str);
 	/*			if(HOST_STATUS_UNREACHABLE == item.host_status)*/
 				if(HOST_AVAILABLE_TRUE != item.host_available)
 				{
@@ -500,12 +487,12 @@ int get_values(void)
 			zabbix_log( LOG_LEVEL_CRIT, "Unknown response code returned.");
 			assert(0==1);
 		}
-
-		if( result2 )
-		{ /* We cannot free it earlier because items has references to the structure */
+		/* Poller for unreachable hosts */
+		if(poller_type == ZBX_POLLER_TYPE_UNREACHABLE)
+		{
+			/* We cannot freeit earlier because items has references to the structure */
 			DBfree_result(result2);
 		}
-
 		free_result(&agent);
 		DBcommit();
 	}

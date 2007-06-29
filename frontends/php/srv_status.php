@@ -24,8 +24,6 @@
 
 	$page["title"] = "S_IT_SERVICES";
 	$page["file"] = "srv_status.php";
-	$page['scripts'] = array('services.js');
-	$page['hist_arg'] = array();
 
 	define('ZBX_PAGE_DO_REFRESH', 1);
 
@@ -170,6 +168,8 @@ include_once "include/page_header.php";
 		
 		//permission issue
 		$treeServ = del_empty_nodes($treeServ);
+		
+		echo '<script src="js/services.js" type="text/javascript"></script>';
 		
 		$tree = new CTree($treeServ,array('caption' => '<b>'.S_SERVICE.'</b>',
 						'status' => '<b>'.S_STATUS.'</b>', 

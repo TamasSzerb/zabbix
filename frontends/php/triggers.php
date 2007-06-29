@@ -27,7 +27,6 @@
 
 	$page["title"] = "S_CONFIGURATION_OF_TRIGGERS";
 	$page["file"] = "triggers.php";
-	$page['hist_arg'] = array('hostid','groupid');
 
 include_once "include/page_header.php";
 
@@ -404,7 +403,7 @@ include_once "include/page_header.php";
 			if(is_null($row['hostid'])) $row['hostid'] = '0';
 
 
-			$description = array( new CCheckBox(
+			$description = array(	new CCheckBox(
 							"g_triggerid[]",        /* name */
 							NULL,                   /* checked */
 							NULL,                   /* action */

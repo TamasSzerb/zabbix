@@ -121,8 +121,8 @@
 #define OFF	0
 
 #define	APPLICATION_NAME	"ZABBIX Agent"
-#define	ZABBIX_REVDATE		"29 May 2007"
-#define	ZABBIX_VERSION		"1.5"
+#define	ZABBIX_REVDATE		"29 June 2007"
+#define	ZABBIX_VERSION		"1.4.1"
 
 #if defined(_WINDOWS)
 /*#	pragma warning (disable: 4100)*/
@@ -173,8 +173,7 @@ typedef enum
 	ITEM_TYPE_ZABBIX_ACTIVE,
 	ITEM_TYPE_AGGREGATE,
 	ITEM_TYPE_HTTPTEST,
-	ITEM_TYPE_EXTERNAL,
-	ITEM_TYPE_DB_MONITOR
+	ITEM_TYPE_EXTERNAL
 } zbx_item_type_t;
 
 /* Event sources */

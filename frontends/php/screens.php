@@ -26,7 +26,6 @@
 
 	$page["title"] = "S_CUSTOM_SCREENS";
 	$page["file"] = "screens.php";
-	$page['hist_arg'] = array('config','elementid');
 
 	$_REQUEST["fullscreen"] = get_request("fullscreen", 0);
 

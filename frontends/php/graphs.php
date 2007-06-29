@@ -26,7 +26,6 @@
 
 	$page["title"] = "S_CONFIGURATION_OF_GRAPHS";
 	$page["file"] = "graphs.php";
-	$page['hist_arg'] = array();
 
 include_once "include/page_header.php";
 

@@ -36,7 +36,6 @@
 #include "actions.h"
 #include "events.h"
 #include "threads.h"
-#include "dbcache.h"
 
 void	DBclose(void)
 {
@@ -852,7 +851,7 @@ void DBupdate_host_availability(zbx_uint64_t hostid,int available,int clock, cha
 	return;
 }
 
-int	DBupdate_item_status_to_notsupported(zbx_uint64_t itemid, const char *error)
+int	DBupdate_item_status_to_notsupported(zbx_uint64_t itemid, char *error)
 {
 	char	error_esc[MAX_STRING_LEN];
 
@@ -868,7 +867,7 @@ int	DBupdate_item_status_to_notsupported(zbx_uint64_t itemid, const char *error)
 	}
 
 	/* '%s ' to make Oracle happy */
-	DBexecute("update items set status=%d,error='%s' where itemid=" ZBX_FS_UI64,
+	DBexecute("update items set status=%d,error='%s ' where itemid=" ZBX_FS_UI64,
 		ITEM_STATUS_NOTSUPPORTED,
 		error_esc,
 		itemid);
@@ -882,14 +881,9 @@ int	DBadd_trend(zbx_uint64_t itemid, double value, int clock)
 	DB_ROW		row;
 	int	hour;
 	int	num;
-	double	value_min, value_avg, value_max;
+	double	value_min, value_avg, value_max;	
 
 	zabbix_log(LOG_LEVEL_DEBUG,"In add_trend()");
-
-	if(CONFIG_DBSYNCER_FORKS >0)
-	{
-		return DCadd_trend(itemid, value, clock);
-	}
 
 	hour=clock-clock%3600;
 
@@ -939,17 +933,10 @@ int	DBadd_history(zbx_uint64_t itemid, double value, int clock)
 {
 	zabbix_log(LOG_LEVEL_DEBUG,"In add_history()");
 
-	if(CONFIG_DBSYNCER_FORKS > 0)
-	{
-		DCadd_history(itemid, value, clock);
-	}
-	else
-	{
-		DBexecute("insert into history (clock,itemid,value) values (%d," ZBX_FS_UI64 "," ZBX_FS_DBL ")",
-			clock,
-			itemid,
-			value);
-	}
+	DBexecute("insert into history (clock,itemid,value) values (%d," ZBX_FS_UI64 "," ZBX_FS_DBL ")",
+		clock,
+		itemid,
+		value);
 
 	DBadd_trend(itemid, value, clock);
 
@@ -969,17 +956,10 @@ int	DBadd_history_uint(zbx_uint64_t itemid, zbx_uint64_t value, int clock)
 {
 	zabbix_log(LOG_LEVEL_DEBUG,"In add_history_uint()");
 
-	if(CONFIG_DBSYNCER_FORKS > 0)
-	{
-		DCadd_history_uint(itemid, value, clock);
-	}
-	else
-	{
-		DBexecute("insert into history_uint (clock,itemid,value) values (%d," ZBX_FS_UI64 "," ZBX_FS_UI64 ")",
-			clock,
-			itemid,
-			value);
-	}
+	DBexecute("insert into history_uint (clock,itemid,value) values (%d," ZBX_FS_UI64 "," ZBX_FS_UI64 ")",
+		clock,
+		itemid,
+		value);
 
 	DBadd_trend(itemid, (double)value, clock);
 
@@ -1001,18 +981,11 @@ int	DBadd_history_str(zbx_uint64_t itemid, char *value, int clock)
 
 	zabbix_log(LOG_LEVEL_DEBUG,"In add_history_str()");
 
-	if(CONFIG_DBSYNCER_FORKS > 0)
-	{
-		DCadd_history_str(itemid, value, clock);
-	}
-	else
-	{
-		DBescape_string(value,value_esc,MAX_STRING_LEN);
-		DBexecute("insert into history_str (clock,itemid,value) values (%d," ZBX_FS_UI64 ",'%s')",
-			clock,
-			itemid,
-			value_esc);
-	}
+	DBescape_string(value,value_esc,MAX_STRING_LEN);
+	DBexecute("insert into history_str (clock,itemid,value) values (%d," ZBX_FS_UI64 ",'%s')",
+		clock,
+		itemid,
+		value_esc);
 
 	if(CONFIG_MASTER_NODEID>0)
 	{
@@ -1592,7 +1565,7 @@ void	DBget_item_from_db(DB_ITEM *item,DB_ROW row)
 				break;
 		}	
 	}
-	s = row[22];
+	s=row[22];
 	if(DBis_null(s)==SUCCEED)
 	{
 		item->lastclock=0;
@@ -1602,21 +1575,22 @@ void	DBget_item_from_db(DB_ITEM *item,DB_ROW row)
 		item->lastclock=atoi(s);
 	}
 
-	item->units			= row[23];
-	item->multiplier		= atoi(row[24]);
-	item->snmpv3_securityname	= row[25];
-	item->snmpv3_securitylevel	= atoi(row[26]);
-	item->snmpv3_authpassphrase	= row[27];
-	item->snmpv3_privpassphrase	= row[28];
-	item->formula		= row[29];
-	item->host_available	= atoi(row[30]);
-	item->status		= atoi(row[31]);
-	item->trapper_hosts	= row[32];
-	item->logtimefmt	= row[33];
+	item->units=row[23];
+	item->multiplier=atoi(row[24]);
+
+	item->snmpv3_securityname = row[25];
+	item->snmpv3_securitylevel = atoi(row[26]);
+	item->snmpv3_authpassphrase = row[27];
+	item->snmpv3_privpassphrase = row[28];
+	item->formula = row[29];
+	item->host_available=atoi(row[30]);
+	item->status=atoi(row[31]);
+	item->trapper_hosts=row[32];
+	item->logtimefmt=row[33];
 	ZBX_STR2UINT64(item->valuemapid, row[34]);
-	item->delay_flex	= row[35];
-	item->host_dns		= row[36];
-	item->params		= row[37];		/* !!! WHAT about CLOB??? */
+/*	item->valuemapid=atoi(row[34]); */
+	item->delay_flex=row[35];
+	item->host_dns=row[36];
 }
 
 /*

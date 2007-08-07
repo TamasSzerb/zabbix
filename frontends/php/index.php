@@ -101,7 +101,9 @@ include_once "include/page_header.php";
 	{
 		$logoff = new CLink('here', '?reconnect=1');
 
-		echo '<div align="center">Press '.$logoff->ToString().' to disconnect/reconnect</div>';
+		echo "<div align=center>";
+		echo "Press ".$logoff->ToString()." to disconnect/reconnect";
+		echo "</div>";
 	}	
 ?>
 <?php

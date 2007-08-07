@@ -329,28 +329,11 @@
 						$action = "charts.php?graphid=$resourceid".url_param("period").
                                                         url_param("inc").url_param("dec");
 
-					$graphtype = GRAPH_TYPE_NORMAL;
-			
-					$sql = 'SELECT DISTINCT `graphtype` FROM `graphs` WHERE `graphid`='.$resourceid;
-					$res = DBselect($sql);
-					
-					while($rows = DBfetch($res)){
-						$graphtype = $rows['graphtype'];
-					}
-					
-					if(($graphtype == GRAPH_TYPE_PIE) || ($graphtype == GRAPH_TYPE_EXPLODED)){
-						$item = new CLink(
-							new CImg("chart6.php?graphid=$resourceid&width=$width&height=$height"."&period=$effectiveperiod".url_param("stime").url_param("from")),
-							$action
-							);
-					}
-					else {
-						$item = new CLink(
-							new CImg("chart2.php?graphid=$resourceid&width=$width&height=$height"."&period=$effectiveperiod".url_param("stime").url_param("from")),
-							$action
-							);
-						
-					}
+					$item = new CLink(
+						new CImg("chart2.php?graphid=$resourceid&width=$width&height=$height".
+							"&period=$effectiveperiod".url_param("stime").url_param("from")),
+						$action
+						);
 				}
 				elseif( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_SIMPLE_GRAPH) )
 				{

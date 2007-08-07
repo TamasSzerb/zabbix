@@ -47,9 +47,9 @@
 
 			$this->DelOption("checked");
 		}
-		function SetAction($value='submit()', $event='onclick')
+		function SetAction($value='submit()', $event='onClick')
 		{
-			$this->AddAction('onclick', $value);
+			$this->AddAction('onClick', $value);
 		}
 	}
 

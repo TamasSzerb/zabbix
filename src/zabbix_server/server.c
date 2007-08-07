@@ -24,7 +24,6 @@
 #include "cfg.h"
 #include "pid.h"
 #include "db.h"
-#include "dbcache.h"
 #include "log.h"
 #include "zlog.h"
 #include "zbxgetopt.h"
@@ -36,7 +35,6 @@
 #include "daemon.h"
 
 #include "alerter/alerter.h"
-#include "dbsyncer/dbsyncer.h"
 #include "discoverer/discoverer.h"
 #include "httppoller/httppoller.h"
 #include "housekeeper/housekeeper.h"
@@ -113,7 +111,6 @@ static char	shortopts[] =
 pid_t	*threads=NULL;
 
 int	CONFIG_ALERTER_FORKS		= 1;
-int	CONFIG_DBSYNCER_FORKS		= 1;
 int	CONFIG_DISCOVERER_FORKS		= 1;
 int	CONFIG_HOUSEKEEPER_FORKS	= 1;
 int	CONFIG_NODEWATCHER_FORKS	= 1;
@@ -131,7 +128,6 @@ int	CONFIG_TRAPPER_TIMEOUT		= TRAPPER_TIMEOUT;
 /*int	CONFIG_NOTIMEWAIT		=0;*/
 int	CONFIG_HOUSEKEEPING_FREQUENCY	= 1;
 int	CONFIG_SENDER_FREQUENCY		= 30;
-int	CONFIG_DBSYNCER_FREQUENCY	= 5;
 int	CONFIG_PINGER_FREQUENCY		= 60;
 /*int	CONFIG_DISABLE_PINGER		= 0;*/
 int	CONFIG_DISABLE_HOUSEKEEPING	= 0;
@@ -179,7 +175,6 @@ void	init_config(void)
 	static struct cfg_line cfg[]=
 	{
 /*		 PARAMETER	,VAR	,FUNC,	TYPE(0i,1s),MANDATORY,MIN,MAX	*/
-		{"StartDBSyncers",&CONFIG_DBSYNCER_FORKS,0,TYPE_INT,PARM_OPT,0,1},
 		{"StartDiscoverers",&CONFIG_DISCOVERER_FORKS,0,TYPE_INT,PARM_OPT,0,255},
 		{"StartHTTPPollers",&CONFIG_HTTPPOLLER_FORKS,0,TYPE_INT,PARM_OPT,0,255},
 		{"StartPingers",&CONFIG_PINGER_FORKS,0,TYPE_INT,PARM_OPT,0,255},
@@ -580,11 +575,6 @@ int main(int argc, char **argv)
 
 	init_config();
 
-	if(CONFIG_DBSYNCER_FORKS!=0)
-	{
-		init_database_cache();
-	}
-
 	switch (task) {
 		case ZBX_TASK_CHANGE_NODEID:
 			change_nodeid(0,nodeid);
@@ -625,35 +615,25 @@ int MAIN_ZABBIX_ENTRY(void)
 		zabbix_open_log(LOG_TYPE_FILE,CONFIG_LOG_LEVEL,CONFIG_LOG_FILE);
 	}
 
-#ifdef  HAVE_SNMP
-#	define SNMP_FEATURE_STATUS "YES"
-#else
-#	define SNMP_FEATURE_STATUS " NO"
-#endif
-#ifdef  HAVE_LIBCURL
-#	define LIBCURL_FEATURE_STATUS "YES"
-#else
-#	define LIBCURL_FEATURE_STATUS " NO"
-#endif
-#ifdef  HAVE_JABBER
-#	define JABBER_FEATURE_STATUS "YES"
-#else
-#	define JABBER_FEATURE_STATUS " NO"
-#endif
-#ifdef  HAVE_ODBC
-#	define ODBC_FEATURE_STATUS "YES"
-#else
-#	define ODBC_FEATURE_STATUS " NO"
-#endif
-
 /*	zabbix_log( LOG_LEVEL_WARNING, "INFO [%s]", ZBX_SQL_MOD(a,%d)); */
 	zabbix_log( LOG_LEVEL_WARNING, "Starting zabbix_server. ZABBIX %s.", ZABBIX_VERSION);
 
 	zabbix_log( LOG_LEVEL_WARNING, "**** Enabled features ****");
-	zabbix_log( LOG_LEVEL_WARNING, "SNMP monitoring:       " SNMP_FEATURE_STATUS	);
-	zabbix_log( LOG_LEVEL_WARNING, "WEB monitoring:        " LIBCURL_FEATURE_STATUS	);
-	zabbix_log( LOG_LEVEL_WARNING, "Jabber notifications:  " JABBER_FEATURE_STATUS	);
-	zabbix_log( LOG_LEVEL_WARNING, "ODBC:                  " ODBC_FEATURE_STATUS	);
+#ifdef	HAVE_SNMP
+	zabbix_log( LOG_LEVEL_WARNING, "SNMP monitoring:       YES");
+#else
+	zabbix_log( LOG_LEVEL_WARNING, "SNMP monitoring:        NO");
+#endif
+#ifdef	HAVE_LIBCURL
+	zabbix_log( LOG_LEVEL_WARNING, "WEB monitoring:        YES");
+#else
+	zabbix_log( LOG_LEVEL_WARNING, "WEB monitoring:         NO");
+#endif
+#ifdef	HAVE_JABBER
+	zabbix_log( LOG_LEVEL_WARNING, "Jabber notifications:  YES");
+#else
+	zabbix_log( LOG_LEVEL_WARNING, "Jabber notifications:   NO");
+#endif
 	zabbix_log( LOG_LEVEL_WARNING, "**************************");
 
 	DBconnect(ZBX_DB_CONNECT_EXIT);
@@ -685,9 +665,8 @@ int MAIN_ZABBIX_ENTRY(void)
 	DBclose();
 
 /* To make sure that we can connect to the database before forking new processes */
-/*	DBconnect(ZBX_DB_CONNECT_EXIT);*/
-/* Do not close database. It is required for database cache */
-/*	DBclose();*/
+	DBconnect(ZBX_DB_CONNECT_EXIT);
+	DBclose();
 
 /*#define CALC_TREND*/
 
@@ -710,7 +689,7 @@ int MAIN_ZABBIX_ENTRY(void)
 	}
 
 	for(	i=1;
-		i<=CONFIG_POLLER_FORKS+CONFIG_TRAPPERD_FORKS+CONFIG_PINGER_FORKS+CONFIG_ALERTER_FORKS+CONFIG_HOUSEKEEPER_FORKS+CONFIG_TIMER_FORKS+CONFIG_UNREACHABLE_POLLER_FORKS+CONFIG_NODEWATCHER_FORKS+CONFIG_HTTPPOLLER_FORKS+CONFIG_DISCOVERER_FORKS+CONFIG_DBSYNCER_FORKS; 
+		i<=CONFIG_POLLER_FORKS+CONFIG_TRAPPERD_FORKS+CONFIG_PINGER_FORKS+CONFIG_ALERTER_FORKS+CONFIG_HOUSEKEEPER_FORKS+CONFIG_TIMER_FORKS+CONFIG_UNREACHABLE_POLLER_FORKS+CONFIG_NODEWATCHER_FORKS+CONFIG_HTTPPOLLER_FORKS+CONFIG_DISCOVERER_FORKS; 
 		i++)
 	{
 		if((pid = zbx_fork()) == 0)
@@ -833,14 +812,6 @@ int MAIN_ZABBIX_ENTRY(void)
 				- CONFIG_ALERTER_FORKS - CONFIG_HOUSEKEEPER_FORKS - CONFIG_TIMER_FORKS
 				- CONFIG_UNREACHABLE_POLLER_FORKS - CONFIG_NODEWATCHER_FORKS - CONFIG_HTTPPOLLER_FORKS);
 	}
-	else if(server_num <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-			+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS
-			+ CONFIG_NODEWATCHER_FORKS + CONFIG_HTTPPOLLER_FORKS + CONFIG_DISCOVERER_FORKS + CONFIG_DBSYNCER_FORKS)
-	{
-		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [DB Syncer]",
-				server_num);
-		main_dbsyncer_loop();
-	}
 
 	return SUCCEED;
 }
@@ -853,7 +824,7 @@ void	zbx_on_exit()
 
 	if(threads != NULL)
 	{
-		for(i = 1; i <= CONFIG_POLLER_FORKS+CONFIG_TRAPPERD_FORKS+CONFIG_PINGER_FORKS+CONFIG_ALERTER_FORKS+CONFIG_HOUSEKEEPER_FORKS+CONFIG_TIMER_FORKS+CONFIG_UNREACHABLE_POLLER_FORKS+CONFIG_NODEWATCHER_FORKS+CONFIG_HTTPPOLLER_FORKS+CONFIG_DISCOVERER_FORKS+CONFIG_DBSYNCER_FORKS; i++)
+		for(i = 1; i <= CONFIG_POLLER_FORKS+CONFIG_TRAPPERD_FORKS+CONFIG_PINGER_FORKS+CONFIG_ALERTER_FORKS+CONFIG_HOUSEKEEPER_FORKS+CONFIG_TIMER_FORKS+CONFIG_UNREACHABLE_POLLER_FORKS+CONFIG_NODEWATCHER_FORKS+CONFIG_HTTPPOLLER_FORKS+CONFIG_DISCOVERER_FORKS; i++)
 		{
 			if(threads[i]) {
 				kill(threads[i],SIGTERM);
@@ -873,21 +844,13 @@ void	zbx_on_exit()
 	free_metrics();
 
 	zbx_sleep(2); /* wait for all threads closing */
-
-	DBconnect(ZBX_DB_CONNECT_EXIT);
 	
-	if(CONFIG_DBSYNCER_FORKS!=0)
-	{
-		free_database_cache();
-	}
-	DBclose();
+	zabbix_log(LOG_LEVEL_INFORMATION, "ZABBIX Server stopped");
 	zabbix_close_log();
 	
 #ifdef  HAVE_SQLITE3
 	php_sem_remove(&sqlite_access);
 #endif /* HAVE_SQLITE3 */
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "ZABBIX Server stopped");
 
 	exit(SUCCEED);
 }

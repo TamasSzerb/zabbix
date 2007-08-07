@@ -18,7 +18,7 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-function SDI($msg="SDI") { echo "DEBUG INFO: "; var_dump($msg); echo BR; } // DEBUG INFO!!!
+function SDI($msg="SDI") { echo "DEBUG INFO: "; var_export($msg); echo BR; } // DEBUG INFO!!!
 function VDP($var, $msg=null) { echo "DEBUG DUMP: "; if(isset($msg)) echo '"'.$msg.'"'.SPACE; var_dump($var); echo BR; } // DEBUG INFO!!!
 function TODO($msg) { echo "TODO: ".$msg.BR; }  // DEBUG INFO!!!
 
@@ -60,7 +60,7 @@ function TODO($msg) { echo "TODO: ".$msg.BR; }  // DEBUG INFO!!!
 	require_once("include/classes/ciframe.inc.php");
 	require_once("include/classes/cpumenu.inc.php");
 	require_once("include/classes/graph.inc.php");
-	require_once('include/classes/ctree.inc.php');
+require_once('include/classes/ctree.inc.php');
 
 // Include Tactical Overview modules
 
@@ -155,7 +155,7 @@ function TODO($msg) { echo "TODO: ".$msg.BR; }  // DEBUG INFO!!!
 	else
 	{
 		$USER_DETAILS = array(
-			"alias" =>ZBX_GUEST_USER,
+			"alias" =>"guest",
 			"userid"=>0,
 			"lang"  =>"en_gb",
 			"type"  =>"0",
@@ -552,9 +552,9 @@ function TODO($msg) { echo "TODO: ".$msg.BR; }  // DEBUG INFO!!!
 					array_push($message, array(
 						'text'	=> $msg,
 						'color'	=> (!$bool) ? array('R'=>255,'G'=>0,'B'=>0) : array('R'=>34,'G'=>51,'B'=>68),
-						'font'	=> 2));
-					$width = max($width, ImageFontWidth(2) * strlen($msg) + 1);
-					$height += imagefontheight(2) + 1;
+						'font'	=> 4));
+					$width = max($width, ImageFontWidth(4) * strlen($msg) + 1);
+					$height += imagefontheight(4) + 1;
 					break;			
 				case PAGE_TYPE_XML:
 					echo htmlspecialchars($msg)."\n";
@@ -575,7 +575,6 @@ function TODO($msg) { echo "TODO: ".$msg.BR; }  // DEBUG INFO!!!
 		{
 			if($page["type"] == PAGE_TYPE_IMAGE)
 			{
-				$msg_font = 2;
 				foreach($ZBX_MESSAGES as $msg)
 				{
 					if($msg['type'] == 'error')
@@ -583,17 +582,17 @@ function TODO($msg) { echo "TODO: ".$msg.BR; }  // DEBUG INFO!!!
 						array_push($message, array(
 							'text'	=> $msg['message'],
 							'color'	=> array('R'=>255,'G'=>55,'B'=>55),
-							'font'	=> $msg_font));
+							'font'	=> 2));
 					}
 					else
 					{
 						array_push($message, array(
 							'text'	=> $msg['message'],
 							'color'	=> array('R'=>155,'G'=>155,'B'=>55),
-							'font'	=> $msg_font));
+							'font'	=> 2));
 					}
-					$width = max($width, ImageFontWidth($msg_font) * strlen($msg['message']) + 1);
-					$height += imagefontheight($msg_font) + 1;
+					$width = max($width, ImageFontWidth(2) * strlen($msg['message']) + 1);
+					$height += imagefontheight(2) + 1;
 				}
 			}
 			elseif($page["type"] == PAGE_TYPE_XML)
@@ -608,18 +607,7 @@ function TODO($msg) { echo "TODO: ".$msg.BR; }  // DEBUG INFO!!!
 				$lst_error = new CList(null,'messages');
 				foreach($ZBX_MESSAGES as $msg)
 					$lst_error->AddItem($msg['message'], $msg['type']);
-//message scroll if needed
-				$msg_show = 6;
-				$msg_font_size = 8;
-				$msg_count = count($ZBX_MESSAGES);
-				
-				if($msg_count > $msg_show) $msg_count = $msg_show;
-					
-				$msg_count = ($msg_count * $msg_font_size *2) + 2;
-				$lst_error->AddOption('style','font-size: '.$msg_font_size.'pt; height: '.$msg_count.';');
-//---
-				$lst_error->Show();
-				
+				$lst_error->Show(false);
 				unset($lst_error);
 			}
 			$ZBX_MESSAGES = null;
@@ -1240,14 +1228,12 @@ function TODO($msg) { echo "TODO: ".$msg.BR; }  // DEBUG INFO!!!
 	}
 
 
-/********** USER PROFILE ***********/
-
-//---------- GET USER VALUE -------------
-	function	get_profile($idx,$default_value=null,$type=PROFILE_TYPE_UNKNOWN){
+	function	get_profile($idx,$default_value=null,$type=PROFILE_TYPE_UNKNOWN)
+	{
 		global $USER_DETAILS;
 
 		$result = $default_value;
-		if($USER_DETAILS["alias"]!=ZBX_GUEST_USER)
+		if($USER_DETAILS["alias"]!="guest")
 		{
 			$db_profiles = DBselect("select * from profiles where userid=".$USER_DETAILS["userid"]." and idx=".zbx_dbstr($idx));
 			$profile=DBfetch($db_profiles);
@@ -1274,13 +1260,12 @@ function TODO($msg) { echo "TODO: ".$msg.BR; }  // DEBUG INFO!!!
 		return $result;
 	}
 
-//----------- ADD/EDIT USERPROFILE -------------
 	function	update_profile($idx,$value,$type=PROFILE_TYPE_UNKNOWN)
 	{
 
 		global $USER_DETAILS;
 
-		if($USER_DETAILS["alias"]==ZBX_GUEST_USER)
+		if($USER_DETAILS["alias"]=="guest")
 		{
 			return;
 		}
@@ -1309,68 +1294,6 @@ function TODO($msg) { echo "TODO: ".$msg.BR; }  // DEBUG INFO!!!
 				" where userid=".$USER_DETAILS["userid"]." and idx=".zbx_dbstr($idx);
 			DBexecute($sql);
 		}
-	}
-
-/***********************************/
-
-/************ HISTORY **************/
-	function get_user_history(){
-		$history='';
-		$delimiter = new CSpan('&raquo;','delimiter');
-		$delimiter = $delimiter->ToString();
-		for($i = 0; $i < ZBX_HISTORY_COUNT; $i++){
-			if($rows = get_profile('web.history.'.$i,false)){
-				$history.= ($i>0)?($delimiter):('');
-				$url = new CLink($rows[0],$rows[1],'history');
-				$history.= SPACE.($url->ToString()).SPACE;
-			}
-		}
-	return $history;
-	}
-
-	function add_user_history($page){
-	
-		$title = explode('[',$page['title']);
-		$title = $title[0];
-
-		if(!(isset($page['hist_arg']) && is_array($page['hist_arg']))){
-			return FALSE;
-		}
-		
-		$url = '';
-		foreach($page['hist_arg'] as $arg){
-			if(isset($_REQUEST[$arg]) && !empty($_REQUEST[$arg])){
-				$url.=((empty($url))?('?'):('&')).$arg.'='.$_REQUEST[$arg];
-			}
-		}
-		$url = $page['file'].$url;
-
-		$curr = 0;
-		$profile = array();
-		for($i = 0; $i < ZBX_HISTORY_COUNT; $i++){
-			if($history = get_profile('web.history.'.$i,false)){
-				if($history[0] != $title){
-					$profile[$curr] = $history;
-					$curr++;
-				}
-			}
-		}
-				
-		$history = array($title,$url);
-		
-		if($curr < ZBX_HISTORY_COUNT){
-			for($i = 0; $i < $curr; $i++){
-				update_profile('web.history.'.$i,$profile[$i],PROFILE_TYPE_ARRAY);
-			}
-			$result = update_profile('web.history.'.$curr,$history,PROFILE_TYPE_ARRAY);
-		} else {
-			for($i = 1; $i < ZBX_HISTORY_COUNT; $i++){
-				update_profile('web.history.'.($i-1),$profile[$i],PROFILE_TYPE_ARRAY);
-			}
-			$result = update_profile('web.history.'.(ZBX_HISTORY_COUNT-1),$history,PROFILE_TYPE_ARRAY);
-		}
-
-	return $result;
 	}
 
 
@@ -1799,4 +1722,6 @@ function TODO($msg) { echo "TODO: ".$msg.BR; }  // DEBUG INFO!!!
 	{
 		return ($timestamp==0)?S_NEVER:date($format,$timestamp);
 	}
+		
+
 ?>

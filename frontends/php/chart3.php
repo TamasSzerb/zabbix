@@ -21,7 +21,7 @@
 <?php
 	require_once "include/config.inc.php";
 	require_once "include/graphs.inc.php";
-	require_once "include/classes/chart.inc.php";
+	require_once "include/classes/graph.inc.php";
 	
 	$page["file"]	= "chart3.php";
 	$page["title"]	= "S_CHART";
@@ -69,7 +69,7 @@ include_once "include/page_header.php";
 		}
 	}
 
-	$graph = new Chart(get_request("graphtype"	,GRAPH_TYPE_NORMAL));
+	$graph = new Graph(get_request("graphtype"	,GRAPH_TYPE_NORMAL));
 
 	$graph->SetHeader($host["host"].":".get_request("name",""));
 

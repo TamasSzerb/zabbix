@@ -1096,8 +1096,6 @@ static int	DBupdate_graph(
 		int		show_work_period,
 		int		show_triggers,
 		int		graphtype,
-		int		show_legend,
-		int		show_3d,
 		zbx_uint64_t	templateid
 	)
 {
@@ -1118,10 +1116,10 @@ static int	DBupdate_graph(
 
 	DBexecute("update graphs set name='%s',width=%i,height=%i,"
 		"yaxistype=%i,yaxismin=%i,yaxismax=%i,templateid=" ZBX_FS_UI64 ","
-		"show_work_period=%i,show_triggers=%i,graphtype=%i,"
-		"show_legend=%i,show_3d=%i where graphid=" ZBX_FS_UI64,
+		"show_work_period=%i,show_triggers=%i,graphtype=%i"
+		" where graphid=" ZBX_FS_UI64,
 		name,width,height,yaxistype,yaxismin,yaxismax,templateid,show_work_period,show_triggers,graphtype,
-		show_legend,show_3d,graphid);
+		graphid);
 
 	zbx_free(name_esc);
 
@@ -1159,8 +1157,6 @@ static int	DBupdate_graph_with_items(
 		int		show_work_period,
 		int		show_triggers,
 		int		graphtype,
-		int		show_legend,
-		int		show_3d,
 		ZBX_GRAPH_ITEMS	*gitems,
 		zbx_uint64_t	templateid
 	)
@@ -1270,8 +1266,7 @@ static int	DBupdate_graph_with_items(
 		{
 			result = DBupdate_graph_with_items(chd_graphid, name, width, height,
 				yaxistype, yaxismin, yaxismax,
-				show_work_period, show_triggers, graphtype, show_legend,
-				show_3d, new_gitems, graphid);
+				show_work_period, show_triggers, graphtype, new_gitems, graphid);
 
 			zbx_free_gitems(new_gitems);
 		}
@@ -1303,7 +1298,7 @@ static int	DBupdate_graph_with_items(
 	}
 
 	if ( SUCCEED == (result = DBupdate_graph(graphid,name,width,height,yaxistype,yaxismin,yaxismax,show_work_period,
-					show_triggers,graphtype,show_legend,show_3d,templateid)) )
+					show_triggers,graphtype,templateid)) )
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "Graph '%s' updated for hosts " ZBX_FS_UI64, name, curr_hostid);
 	}
@@ -1337,8 +1332,6 @@ static int	DBadd_graph(
 		int		show_work_period,
 		int		show_triggers,
 		int		graphtype,
-		int		show_legend,
-		int		show_3d,
 		zbx_uint64_t	templateid
 	)
 {
@@ -1354,8 +1347,8 @@ static int	DBadd_graph(
 	name_esc = DBdyn_escape_string(name);
 
 	DBexecute("insert into graphs"
-		" (graphid,name,width,height,yaxistype,yaxismin,yaxismax,show_work_period,show_triggers,graphtype,show_legend,show_3d,templateid)"
-		" values (" ZBX_FS_UI64 ",'%s',%i,%i,%i,%i,%i,%i,%i,%i,%i,%i," ZBX_FS_UI64 ")",
+		" (graphid,name,width,height,yaxistype,yaxismin,yaxismax,show_work_period,show_triggers,graphtype,templateid)"
+		" values (" ZBX_FS_UI64 ",'%s',%i,%i,%i,%i,%i,%i,%i,%i," ZBX_FS_UI64 ")",
 				graphid,
 				name_esc,
 				width,
@@ -1366,8 +1359,6 @@ static int	DBadd_graph(
 				show_work_period,
 				show_triggers,
 				graphtype,
-				show_legend,
-				show_3d,
 				templateid);
 	zbx_free(name_esc);
 
@@ -1408,8 +1399,6 @@ static int	DBadd_graph_with_items(
 		int		show_work_period,
 		int		show_triggers,
 		int		graphtype,
-		int		show_legend,
-		int		show_3d,
 		ZBX_GRAPH_ITEMS *gitems,
 		zbx_uint64_t	templateid
 	)
@@ -1463,7 +1452,7 @@ static int	DBadd_graph_with_items(
 	}
 
 
-	if ( SUCCEED == (result = DBadd_graph(new_graphid, name,width,height,yaxistype,yaxismin,yaxismax,show_work_period,show_triggers,graphtype,show_legend,show_3d,templateid)) )
+	if ( SUCCEED == (result = DBadd_graph(new_graphid, name,width,height,yaxistype,yaxismin,yaxismax,show_work_period,show_triggers,graphtype,templateid)) )
 	{
 		for ( i=0; gitems[i].itemid != 0; i++ )
 		{
@@ -2223,7 +2212,6 @@ static int	DBcopy_template_applications(
  *             logtimefmt                                                     *
  *             valuemapid                                                     *
  *             delay_flex                                                     *
- *             params                                                         *
  *             apps - zero teminated array of applicationid                   *
  *             templateid - template item identificator from database         *
  *                                                                            *
@@ -2260,7 +2248,6 @@ static int	DBupdate_item(
 		const char      *logtimefmt,
 		zbx_uint64_t	valuemapid,
 		const char      *delay_flex,
-		const char	*params,
 		zbx_uint64_t	*apps,
 		zbx_uint64_t	templateid
 	)
@@ -2293,8 +2280,7 @@ static int	DBupdate_item(
 		*snmpv3_privpassphrase_esc,
 		*formula_esc,
 		*logtimefmt_esc,
-		*delay_flex_esc,
-		*params_esc;
+		*delay_flex_esc;
 
 	int	result = SUCCEED;
 
@@ -2355,7 +2341,7 @@ static int	DBupdate_item(
 					value_type, trapper_hosts, snmp_port, units, multiplier,
 					delta, snmpv3_securityname, snmpv3_securitylevel,
 					snmpv3_authpassphrase, snmpv3_privpassphrase, formula,
-					trends, logtimefmt, valuemapid,delay_flex,params,
+					trends, logtimefmt, valuemapid,delay_flex,
 					applications,
 					itemid)) )
 					break;
@@ -2393,7 +2379,6 @@ static int	DBupdate_item(
 				formula_esc			= DBdyn_escape_string(formula);
 				logtimefmt_esc			= DBdyn_escape_string(logtimefmt);
 				delay_flex_esc			= DBdyn_escape_string(delay_flex);
-				params_esc			= DBdyn_escape_string(params);
 
 				DBexecute(
 					"update items set description='%s',key_='%s',"
@@ -2406,7 +2391,7 @@ static int	DBupdate_item(
 					"snmpv3_authpassphrase='%s',"
 					"snmpv3_privpassphrase='%s',"
 					"formula='%s',trends=%i,logtimefmt='%s',"
-					"valuemapid=" ZBX_FS_UI64 ",delay_flex='%s',params='%s',"
+					"valuemapid=" ZBX_FS_UI64 ",delay_flex='%s',"
 					"templateid=" ZBX_FS_UI64 " where itemid=" ZBX_FS_UI64,
 						description_esc,
 						key_esc,
@@ -2432,7 +2417,6 @@ static int	DBupdate_item(
 						logtimefmt_esc,
 						valuemapid,
 						delay_flex_esc,
-						params_esc,
 						templateid,
 						itemid);
 
@@ -2447,7 +2431,6 @@ static int	DBupdate_item(
 				zbx_free(formula_esc);
 				zbx_free(logtimefmt_esc);
 				zbx_free(delay_flex_esc);
-				zbx_free(params_esc);
 
 				zabbix_log(LOG_LEVEL_DEBUG, "Item '%s:%s' updated", host_data[0], key);
 			}
@@ -2490,7 +2473,6 @@ static int	DBupdate_item(
  *             logtimefmt                                                     *
  *             valuemapid                                                     *
  *             delay_flex                                                     *
- *             params                                                         *
  *             apps - zero teminated array of applicationid                   *
  *             templateid - template item identificator from database         *
  *                                                                            *
@@ -2526,7 +2508,6 @@ static int	DBadd_item(
 		const char      *logtimefmt,
 		zbx_uint64_t	valuemapid,
 		const char      *delay_flex,
-		const char      *params,
 		zbx_uint64_t	*apps,
 		zbx_uint64_t	templateid
 	)
@@ -2558,8 +2539,7 @@ static int	DBadd_item(
 		*snmpv3_privpassphrase_esc,
 		*formula_esc,
 		*logtimefmt_esc,
-		*delay_flex_esc,
-		*params_esc;
+		*delay_flex_esc;
 
 	int	result = SUCCEED;
 
@@ -2601,7 +2581,7 @@ static int	DBadd_item(
 					value_type, trapper_hosts, snmp_port, units, multiplier,
 					delta, snmpv3_securityname, snmpv3_securitylevel,
 					snmpv3_authpassphrase, snmpv3_privpassphrase, formula,
-					trends, logtimefmt, valuemapid, delay_flex, params,
+					trends, logtimefmt, valuemapid, delay_flex,
 					apps,
 					templateid);
 			}
@@ -2625,13 +2605,12 @@ static int	DBadd_item(
 			formula_esc			= DBdyn_escape_string(formula);
 			logtimefmt_esc			= DBdyn_escape_string(logtimefmt);
 			delay_flex_esc			= DBdyn_escape_string(delay_flex);
-			params_esc			= DBdyn_escape_string(params);
 
 			DBexecute("insert into items"
 				" (itemid,description,key_,hostid,delay,history,nextcheck,status,type,"
 				"snmp_community,snmp_oid,value_type,trapper_hosts,snmp_port,units,multiplier,"
 				"delta,snmpv3_securityname,snmpv3_securitylevel,snmpv3_authpassphrase,"
-				"snmpv3_privpassphrase,formula,trends,logtimefmt,valuemapid,delay_flex,params,templateid)"
+				"snmpv3_privpassphrase,formula,trends,logtimefmt,valuemapid,delay_flex,templateid)"
 				" values (" ZBX_FS_UI64 ",'%s','%s'," ZBX_FS_UI64 ",%i,%i,0,"
 				" %i,%i,'%s','%s',%i,'%s',%i,'%s',%i,%i,'%s',%i,'%s','%s','%s',%i,'%s'," ZBX_FS_UI64 ","
 				" '%s'," ZBX_FS_UI64 ")",
@@ -2660,7 +2639,6 @@ static int	DBadd_item(
 					logtimefmt_esc,
 					valuemapid,
 					delay_flex_esc,
-					params_esc,
 					templateid);
 
 			zbx_free(description_esc);
@@ -2674,7 +2652,6 @@ static int	DBadd_item(
 			zbx_free(formula_esc);
 			zbx_free(logtimefmt_esc);
 			zbx_free(delay_flex_esc);
-			zbx_free(params_esc);
 
 			for( i=0; 0 < apps[i]; i++)
 			{
@@ -2700,7 +2677,7 @@ static int	DBadd_item(
 					value_type, trapper_hosts, snmp_port, units, multiplier,
 					delta, snmpv3_securityname, snmpv3_securitylevel,
 					snmpv3_authpassphrase, snmpv3_privpassphrase, formula,
-					trends, logtimefmt, valuemapid,delay_flex,params,
+					trends, logtimefmt, valuemapid,delay_flex,
 					applications,
 					itemid)) )
 						break;
@@ -2784,7 +2761,7 @@ static int	DBcopy_template_items(
 		db_elements = DBselect("select itemid,description,key_,delay,history,status,type,snmp_community,"
 					"snmp_oid,value_type,trapper_hosts,snmp_port,units,multiplier,delta,"
 					"snmpv3_securityname,snmpv3_securitylevel,snmpv3_authpassphrase,"
-					"snmpv3_privpassphrase,formula,trends,logtimefmt,valuemapid,delay_flex,params "
+					"snmpv3_privpassphrase,formula,trends,logtimefmt,valuemapid,delay_flex "
 					" from items where hostid=" ZBX_FS_UI64, templateid);
 		
 		while( (element_data = DBfetch(db_elements)) )
@@ -2820,7 +2797,6 @@ static int	DBcopy_template_items(
 							element_data[21],	/* logtimefmt */
 							valuemapid,		/* valuemapid */
 							element_data[23],	/* delay_flex */
-							element_data[24],	/* params */
 							apps,
 							copy_mode ? 0 : elementid))
 				)
@@ -3998,7 +3974,7 @@ static int	DBcopy_graph_to_host(
 	DBfree_result(db_items);
 
 	db_graphs = DBselect("select name,width,height,yaxistype,yaxismin,yaxismax,show_work_period,"
-			"show_triggers,graphtype,show_legend,show_3d from graphs where graphid=" ZBX_FS_UI64, graphid);
+			"show_triggers,graphtype from graphs where graphid=" ZBX_FS_UI64, graphid);
 
 	db_graph_data = DBfetch(db_graphs);
 
@@ -4006,12 +3982,12 @@ static int	DBcopy_graph_to_host(
 	{
 		chd_graphid = 0;
 		chd_graphs = DBselect("select distinct g.graphid,g.name,g.width,g.height,g.yaxistype,g.yaxismin,g.yaxismax,g.show_work_period,"
-				"g.show_triggers,g.graphtype,g.show_legend,g.show_3d,g.templateid from graphs g, graphs_items gi, items i "
+				"g.show_triggers,g.graphtype,g.templateid from graphs g, graphs_items gi, items i "
 				" where g.graphid=gi.graphid and gi.itemid=i.itemid and i.hostid=" ZBX_FS_UI64, hostid);
 		while( !chd_graphid && (chd_graph_data = DBfetch(chd_graphs)))
 		{ /* compare graphs */
 			ZBX_STR2UINT64(chd_graphid, chd_graph_data[0]);
-			ZBX_STR2UINT64(chd_templateid, chd_graph_data[12]);
+			ZBX_STR2UINT64(chd_templateid, chd_graph_data[10]);
 
 			if ( chd_templateid != 0 ) continue;
 
@@ -4075,8 +4051,6 @@ static int	DBcopy_graph_to_host(
 				atoi(db_graph_data[6]),	/* show_work_period */
 				atoi(db_graph_data[7]),	/* show_triggers */
 				atoi(db_graph_data[8]),	/* graphtype */
-				atoi(db_graph_data[9]),	/* show_legend */
-				atoi(db_graph_data[10]),/* show_3d */
 				new_gitems,
 				copy_mode ? 0 : graphid);
 		}
@@ -4093,8 +4067,6 @@ static int	DBcopy_graph_to_host(
 				atoi(db_graph_data[6]),	/* show_work_period */
 				atoi(db_graph_data[7]),	/* show_triggers */
 				atoi(db_graph_data[8]),	/* graphtype */
-				atoi(db_graph_data[9]),	/* show_legend */
-				atoi(db_graph_data[10]),/* show_3d */
 				new_gitems,
 				copy_mode ? 0 : graphid);
 		}

@@ -26,7 +26,6 @@
 
 	$page["title"] = "S_LATEST_EVENTS";
 	$page["file"] = "events.php";
-	$page['hist_arg'] = array('groupid','hostid');
 	
 	define('ZBX_PAGE_DO_REFRESH', 1);
 

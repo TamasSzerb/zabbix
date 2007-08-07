@@ -26,7 +26,6 @@
 
         $page["title"] = "S_CONFIGURATION_OF_ITEMS";
         $page["file"] = "items.php";
-	$page['hist_arg'] = array();
 
 include_once "include/page_header.php";
 ?>
@@ -65,7 +64,7 @@ include_once "include/page_header.php";
 		"with_type"=>		array(T_ZBX_INT, O_OPT,  null,  
 				IN(array(-1,ITEM_TYPE_ZABBIX,ITEM_TYPE_SNMPV1,ITEM_TYPE_TRAPPER,ITEM_TYPE_SIMPLE,
 				ITEM_TYPE_SNMPV2C,ITEM_TYPE_INTERNAL,ITEM_TYPE_SNMPV3,ITEM_TYPE_ZABBIX_ACTIVE,
-				ITEM_TYPE_AGGREGATE,ITEM_TYPE_HTTPTEST,ITEM_TYPE_EXTERNAL,ITEM_TYPE_DB_MONITOR)),null),
+				ITEM_TYPE_AGGREGATE,ITEM_TYPE_HTTPTEST,ITEM_TYPE_EXTERNAL)),null),
 		"with_key"=>		array(T_ZBX_STR, O_OPT,  P_UNSET_EMPTY,  null,		null),
 		"with_snmp_community"=>	array(T_ZBX_STR, O_OPT,  P_UNSET_EMPTY,  null,	null),
 		"with_snmp_oid"=>	array(T_ZBX_STR, O_OPT,  P_UNSET_EMPTY,  null,	null),
@@ -106,11 +105,10 @@ include_once "include/page_header.php";
 		"type"=>	array(T_ZBX_INT, O_OPT,  null,  
 				IN(array(-1,ITEM_TYPE_ZABBIX,ITEM_TYPE_SNMPV1,ITEM_TYPE_TRAPPER,ITEM_TYPE_SIMPLE,
 					ITEM_TYPE_SNMPV2C,ITEM_TYPE_INTERNAL,ITEM_TYPE_SNMPV3,ITEM_TYPE_ZABBIX_ACTIVE,
-					ITEM_TYPE_AGGREGATE,ITEM_TYPE_HTTPTEST,ITEM_TYPE_EXTERNAL,ITEM_TYPE_DB_MONITOR)),'isset({save})'),
+					ITEM_TYPE_AGGREGATE,ITEM_TYPE_HTTPTEST,ITEM_TYPE_EXTERNAL)),'isset({save})'),
 		"trends"=>	array(T_ZBX_INT, O_OPT,  null,  BETWEEN(0,65535),'isset({save})'),
 		"value_type"=>	array(T_ZBX_INT, O_OPT,  null,  IN("0,1,2,3,4"),'isset({save})'),
 		"valuemapid"=>	array(T_ZBX_INT, O_OPT,	 null,	DB_ID,'isset({save})'),
-		"params"=>	array(T_ZBX_STR, O_OPT,  NULL,	NULL,'isset({save})'),
 
 		"snmp_community"=>array(T_ZBX_STR, O_OPT,  null,  NOT_EMPTY,'isset({save})&&'.IN("1,4","type")),
 		"snmp_oid"=>	array(T_ZBX_STR, O_OPT,  null,  NOT_EMPTY,'isset({save})&&'.IN("1,4,6","type")),
@@ -233,8 +231,7 @@ include_once "include/page_header.php";
 				$_REQUEST["multiplier"],$_REQUEST["delta"],$_REQUEST["snmpv3_securityname"],
 				$_REQUEST["snmpv3_securitylevel"],$_REQUEST["snmpv3_authpassphrase"],
 				$_REQUEST["snmpv3_privpassphrase"],$_REQUEST["formula"],$_REQUEST["trends"],
-				$_REQUEST["logtimefmt"],$_REQUEST["valuemapid"],$db_delay_flex,$_REQUEST["params"],
-				$applications);
+				$_REQUEST["logtimefmt"],$_REQUEST["valuemapid"],$db_delay_flex,$applications);
 
 			$itemid = $_REQUEST["itemid"];
 			$action = AUDIT_ACTION_UPDATE;
@@ -251,8 +248,7 @@ include_once "include/page_header.php";
 				$_REQUEST["multiplier"],$_REQUEST["delta"],$_REQUEST["snmpv3_securityname"],
 				$_REQUEST["snmpv3_securitylevel"],$_REQUEST["snmpv3_authpassphrase"],
 				$_REQUEST["snmpv3_privpassphrase"],$_REQUEST["formula"],$_REQUEST["trends"],
-				$_REQUEST["logtimefmt"],$_REQUEST["valuemapid"],$db_delay_flex,$_REQUEST["params"],
-				$applications);
+				$_REQUEST["logtimefmt"],$_REQUEST["valuemapid"],$db_delay_flex,$applications);
 
 			$result = $itemid;
 			$action = AUDIT_ACTION_ADD;
@@ -315,7 +311,7 @@ include_once "include/page_header.php";
 				get_request("multiplier"),get_request("delta"),get_request("snmpv3_securityname"),
 				get_request("snmpv3_securitylevel"),get_request("snmpv3_authpassphrase"),
 				get_request("snmpv3_privpassphrase"),get_request("formula"),get_request("trends"),
-				get_request("logtimefmt"),get_request("valuemapid"),$db_delay_flex,null,$applications);
+				get_request("logtimefmt"),get_request("valuemapid"),$db_delay_flex,$applications);
 		}
 
 		show_messages($result, S_ITEMS_UPDATED);
@@ -383,7 +379,7 @@ include_once "include/page_header.php";
 					$_REQUEST["snmpv3_securitylevel"],$_REQUEST["snmpv3_authpassphrase"],
 					$_REQUEST["snmpv3_privpassphrase"],$_REQUEST["formula"],
 					$_REQUEST["trends"],$_REQUEST["logtimefmt"],$_REQUEST["valuemapid"],
-					$db_delay_flex, $_REQUEST["params"], $applications);
+					$db_delay_flex, $applications);
 				show_messages($itemid, S_ITEM_ADDED, S_CANNOT_ADD_ITEM);
 				if($itemid){
 					unset($_REQUEST["form"]);
@@ -409,7 +405,7 @@ include_once "include/page_header.php";
 					$_REQUEST["snmpv3_securitylevel"],$_REQUEST["snmpv3_authpassphrase"],
 					$_REQUEST["snmpv3_privpassphrase"],$_REQUEST["formula"],
 					$_REQUEST["trends"],$_REQUEST["logtimefmt"],$_REQUEST["valuemapid"],
-					$db_delay_flex, $_REQUEST["params"], $applications);
+					$db_delay_flex, $applications);
 				show_messages($result, S_ITEM_UPDATED, S_CANNOT_UPDATE_ITEM);
 				if($result){
 					unset($_REQUEST["form"]);
@@ -734,7 +730,7 @@ include_once "include/page_header.php";
 // TABLE
 		$form = new CForm();
 		$form->SetName('items');
-		$form->SetMethod('post');
+		$form->SetMethod('POST');
 
 		$table  = new CTableInfo();
 		$table->SetHeader(array(

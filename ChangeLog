@@ -1,16 +1,3 @@
-Changes for 1.5:
-
- - support of database cache for history and trends (Alexei)
- - basic support of database caching (Alexei)
- - added pie graphs (Artem)
- - added new columns graphs.show_legend, graphs.show_3d (Alexei)
- - added frontend-side support of quotes and triger expression validation (Eugene)
- - added availability to show negative values in graphs (Artem) 
- - developed database monitoring via ODBC (Eugene)
- - added availability to export/import templates for hosts (Artem)
- - changed how is showed messages (Artem)
- - added login/logout (Artem)
-
 Changes for 1.4.2:
 
  - fixed validation of trigger expression (Eugene)
@@ -71,6 +58,7 @@ Changes for 1.4.2:
  - fixed internal loging system (Eugene)
  - added non-persistent connection for PostgreSQL to avoid problems with unfinished transactions (Alexei)
  - fixed housekeeper to process history_text (Alexei)
+ - added availability of using ":," character for key (Eugene)
  - improved zabbix_get for receiving large data (Eugene)
  - fixed shared memory allocation (Eugene)
  - added server-side transactions for PostgreSQL (Alexei)
@@ -93,10 +81,10 @@ Changes for 1.4.1:
  - improved UserParameters for Win32 (Eugene)
  - fixed location of the manual and added link to support (Alexei)
  - check timeouted item only after 4*delay seconds (Alexei)
- - improved UserParameters for Win32 (Eugene)
  - fixed several issues in housekeeper (Alexei) 
  - changed properties of text files in SVN repository (Alexei)
  - removed text "Current node [N]" from node selector (Alexei)
+ - new release of the Manual (Alexei)
  - removed duplicate index of table httptest (Alexei)
  - fixes for Oracle and SQLite schemas (Alexei)
  - improved main poller loop (Alexei) 

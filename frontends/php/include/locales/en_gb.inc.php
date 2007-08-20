@@ -474,7 +474,7 @@
 	'S_COMPARE'=>				'Compare',
 
 //	Footer
-	'S_ZABBIX_VER'=>			'ZABBIX 1.4',
+	'S_ZABBIX_VER'=>			'ZABBIX 1.4.2',
 	'S_COPYRIGHT_BY'=>			'Copyright 2001-2007 by ',
 	'S_CONNECTED_AS'=>			'Connected as',
 	'S_SIA_ZABBIX'=>			'SIA Zabbix',
@@ -501,14 +501,11 @@
 	'S_MIN_SMALL'=>				'min',
 	'S_AVG_SMALL'=>				'avg',
 	'S_MAX_SMALL'=>				'max',
-	'S_LST_SMALL'=>				'last',
 	'S_DRAW_STYLE'=>			'Draw style',
 	'S_SIMPLE'=>				'Simple',
 	'S_GRAPH_TYPE'=>			'Graph type',
 	'S_STACKED'=>				'Stacked',
 	'S_NORMAL'=>				'Normal',
-	'S_PIE'=>					'Pie',
-	'S_EXPLODED'=>				'Exploded',
 	'S_AGGREGATED'=>			'Aggregated',
 	'S_AGGREGATED_PERIODS_COUNT'=>			'Aggregated periods count',
 
@@ -521,7 +518,6 @@
 	'S_GRAPH_DELETED'=>			'Graph deleted',
 	'S_CANNOT_DELETE_GRAPH'=>		'Cannot delete graph',
 	'S_CANNOT_ADD_GRAPH'=>			'Cannot add graph',
-	'S_ANOTHER_ITEM_SUM'=>			'Cannot add onemore item with type "Graph sum"',
 	'S_ID'=>				'Id',
 	'S_NO_GRAPHS_DEFINED'=>			'No graphs defined',
 	'S_NO_GRAPH_DEFINED'=>			'No graph defined',
@@ -534,9 +530,6 @@
 	'S_CREATE_GRAPH'=>			'Create Graph',
 	'S_SHOW_WORKING_TIME'=>			'Show working time',
 	'S_SHOW_TRIGGERS'=>			'Show triggers',
-	'S_3D_VIEW'=>				'3D view',
-	'S_LEGEND'=>				'Legend',
-	'S_GRAPH_SUM'=>		'Graph sum',
 	'S_GRAPH_ITEM'=>			'Graph item',
 	'S_REQUIRED_ITEMS_FOR_GRAPH'=>		'Required items for graph',
 
@@ -716,7 +709,6 @@
 	'S_SNMPV2_AGENT'=>			'SNMPv2 agent',
 	'S_SNMPV3_AGENT'=>			'SNMPv3 agent',
 	'S_ZABBIX_INTERNAL'=>			'ZABBIX internal',
-	'S_ZABBIX_DATABASE_MONITOR'=>		'Database monitor',
 	'S_ZABBIX_AGGREGATE'=>			'ZABBIX aggregate',
 	'S_EXTERNAL_CHECK'=>			'External check',
 	'S_WEB_MONITORING'=>			'Web monitoring',
@@ -786,7 +778,6 @@
 	'S_ORIGINAL'=>				'Original',
 	'S_NEW_FLEXIBLE_INTERVAL'=>		'New flexible interval',
 	'S_FLEXIBLE_INTERVALS'=>		'Flexible intervals (sec)',
-	'S_PARAMS'=>				'Additional parameters',
 
 //	events.php
 	'S_LATEST_EVENTS'=>			'Latest events',
@@ -1065,7 +1056,6 @@
 	'S_ROOT_SMALL'=>			'root',
 	'S_IT_SERVICE'=>			'IT service',
 	'S_IT_SERVICES'=>			'IT services',
-	'S_CONFIGURATION_OF_IT_SERVICES'=>	'Configuration of IT services',
 	'S_SERVICE_UPDATED'=>			'Service updated',
 	'S_NO_IT_SERVICE_DEFINED'=>		'No IT service defined',
 	'S_CANNOT_UPDATE_SERVICE'=>		'Cannot update service',
@@ -1330,8 +1320,6 @@
 
 //	Errors
 	'S_INCORRECT_DESCRIPTION'=>		'Incorrect description',
-	'S_CANT_FORMAT_TREE'=>			'Can\'t format Tree',
-	'S_UNSUPPORTED_FILE_FORMAT'=>		'Unsupported file format',
-	'S_UNSUPPORTED_VERSION_OF_IMPORTED_DATA'=>	'Unsupported version of imported data'
+	'S_CANT_FORMAT_TREE'=>			'Can\'t format Tree'
 	);
 ?>

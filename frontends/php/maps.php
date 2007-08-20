@@ -23,7 +23,6 @@
 
 	$page["title"] = "S_NETWORK_MAPS";
 	$page["file"] = "maps.php";
-	$page['hist_arg'] = array('sysmapid');
 
 	if(isset($_REQUEST["fullscreen"]))
 	{

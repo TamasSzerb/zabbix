@@ -16,13 +16,13 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+var IE = document.all?true:false;
 var OP = window.opera?true:false;
-var IE = ((!OP) && (document.all))?true:false;
 
 
 function SDI(msg)
 {
-	alert("DEBUG INFO: \n\r" + msg);
+	alert("DEBUG INFO: " + msg);
 }
 
 function close_window()
@@ -211,17 +211,4 @@ function insert_sizeable_graph(url)
 	if(width) url += "&amp;width=" + (width - 108);
 
 	document.write("<IMG SRC=\"" + url + "\">");
-}
-
-function resizeiframe(id){
-	id = id || 'iframe';
-	var iframe = document.getElementById(id);
-	var indoc = (IE)?iframe.contentWindow.document:iframe.contentDocument;
-	if(typeof(indoc) == 'undefined') return;
-	var height = parseInt(indoc.getElementsByTagName('body')[0].scrollHeight);
-	var height2 = parseInt(indoc.getElementsByTagName('body')[0].offsetHeight);
-	if(height2 > height){
-		height = height2;
-	}
-	iframe.style.height = (height)+'px';
 }

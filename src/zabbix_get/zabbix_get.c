@@ -225,6 +225,7 @@ int main(int argc, char **argv)
 #if !defined(_WINDOWS)
 		signal( SIGINT,  signal_handler );
 		signal( SIGTERM, signal_handler );
+
 		signal( SIGQUIT, signal_handler );
 		signal( SIGALRM, signal_handler );
 

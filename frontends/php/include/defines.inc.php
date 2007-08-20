@@ -28,8 +28,6 @@
 	define('XML_TAG_APPLICATION',		'application');
 	define('XML_TAG_ITEMS',			'items');
 	define('XML_TAG_ITEM',			'item');
-	define('XML_TAG_TEMPLATES',		'templates');
-	define('XML_TAG_TEMPLATE',		'template');
 	define('XML_TAG_TRIGGERS',		'triggers');
 	define('XML_TAG_TRIGGER',		'trigger');
 	define('XML_TAG_GRAPHS',		'graphs');
@@ -169,7 +167,6 @@
 	define('ITEM_TYPE_AGGREGATE',8);
 	define('ITEM_TYPE_HTTPTEST',9);
 	define('ITEM_TYPE_EXTERNAL',10);
-	define("ITEM_TYPE_DB_MONITOR",11);
 
 	define('ITEM_VALUE_TYPE_FLOAT',0);
 	define('ITEM_VALUE_TYPE_STR',1);
@@ -305,7 +302,6 @@
 	define('CALC_FNC_AVG', 2);
 	define('CALC_FNC_MAX', 4);
 	define('CALC_FNC_ALL', 7);
-	define('CALC_FNC_LST', 9);
 
 	
 	define('SERVICE_TIME_TYPE_UPTIME', 0);
@@ -429,10 +425,6 @@
 	define('ZBX_MIN_PERIOD', 3600);
 	define('ZBX_MAX_PERIOD', 12*31*24*3600);
 	define('ZBX_PERIOD_DEFAULT', ZBX_MIN_PERIOD);
-	
-	define('ZBX_HISTORY_COUNT',5);
-	
-	define('ZBX_GUEST_USER','guest');
 
 	global $_GET, $_POST, $_COOKIE, $_REQUEST;
 

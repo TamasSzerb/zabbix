@@ -74,7 +74,7 @@
 			$this->options['size'] = 1;
 			$this->SetAction($action);
 		}
-		function SetAction($value='submit()', $event='onchange')
+		function SetAction($value='submit()', $event='onChange')
 		{
 			$this->AddOption($event,$value);
 		}

@@ -24,7 +24,6 @@
 
 	$page["title"]	= "S_AVAILABILITY_REPORT";
 	$page["file"]	= "report2.php";
-	$page['hist_arg'] = array('groupid','hostid');
 
 include_once "include/page_header.php";
 

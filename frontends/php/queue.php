@@ -24,7 +24,6 @@
 
 	$page["title"] = "S_QUEUE_BIG";
 	$page["file"] = "queue.php";
-	$page['hist_arg'] = array('show');
 	
 	define('ZBX_PAGE_DO_REFRESH', 1);
 

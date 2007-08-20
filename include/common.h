@@ -121,8 +121,8 @@
 #define OFF	0
 
 #define	APPLICATION_NAME	"ZABBIX Agent"
-#define	ZABBIX_REVDATE		"29 May 2007"
-#define	ZABBIX_VERSION		"1.5"
+#define	ZABBIX_REVDATE		"20 August 2007"
+#define	ZABBIX_VERSION		"1.4.2"
 
 #if defined(_WINDOWS)
 /*#	pragma warning (disable: 4100)*/
@@ -173,8 +173,7 @@ typedef enum
 	ITEM_TYPE_ZABBIX_ACTIVE,
 	ITEM_TYPE_AGGREGATE,
 	ITEM_TYPE_HTTPTEST,
-	ITEM_TYPE_EXTERNAL,
-	ITEM_TYPE_DB_MONITOR
+	ITEM_TYPE_EXTERNAL
 } zbx_item_type_t;
 
 /* Event sources */
@@ -628,9 +627,6 @@ int	get_nodeid_by_id(zbx_uint64_t id);
 int	int_in_list(char *list, int value);
 int	uint64_in_list(char *list, zbx_uint64_t value);
 int	ip_in_list(char *list, char *ip);
-
-/* Time related functions */
-double	time_diff(struct timeval *from, struct timeval *to);
 
 int MAIN_ZABBIX_ENTRY(void);
 

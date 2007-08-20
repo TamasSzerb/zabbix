@@ -70,6 +70,8 @@ static	int	evaluate_one(double *result, int *num, char *grpfunc, char const *val
 	}
 	else
 	{
+		zabbix_log( LOG_LEVEL_WARNING, "Unsupported group function [%s])",
+			grpfunc);
 		ret = FAIL;
 	}
 
@@ -155,7 +157,6 @@ static int	evaluate_aggregate(AGENT_RESULT *res,char *grpfunc, char *hostgroup, 
 	}
 	else
 	{
-		SET_MSG_RESULT(res, strdup("Unsupported item function"));
 		zabbix_log( LOG_LEVEL_WARNING, "Unsupported item function [%s])",
 			itemfunc);
 		return FAIL;
@@ -170,7 +171,6 @@ static int	evaluate_aggregate(AGENT_RESULT *res,char *grpfunc, char *hostgroup, 
 		value = row[2];
 		if(FAIL == evaluate_one(&d, &num, grpfunc, value, valuetype))
 		{
-			SET_MSG_RESULT(res, strdup("Unsupported group function"));
 			zabbix_log( LOG_LEVEL_WARNING, "Unsupported group function [%s])",
 				grpfunc);
 			DBfree_result(result);
@@ -186,7 +186,6 @@ static int	evaluate_aggregate(AGENT_RESULT *res,char *grpfunc, char *hostgroup, 
 		value = row[2];
 		if(FAIL == evaluate_one(&d, &num, grpfunc, value, valuetype))
 		{
-			SET_MSG_RESULT(res, strdup("Unsupported group function"));
 			zabbix_log( LOG_LEVEL_WARNING, "Unsupported group function [%s])",
 				grpfunc);
 			DBfree_result(result);
@@ -197,7 +196,6 @@ static int	evaluate_aggregate(AGENT_RESULT *res,char *grpfunc, char *hostgroup, 
 
 	if(num==0)
 	{
-		SET_MSG_RESULT(res, strdup("No values"));
 		zabbix_log( LOG_LEVEL_WARNING, "No values for group[%s] key[%s])",
 			hostgroup,
 			itemkey);

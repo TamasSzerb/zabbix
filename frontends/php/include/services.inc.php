@@ -831,7 +831,7 @@ function update_services($triggerid, $status){
 	 
 function update_services_status_all(){
 
-	clear_parents_from_trigger();	
+	clear_parents_from_trigger();
 
 	$result = DBselect('SELECT s.serviceid,s.algorithm,s.triggerid '.
 						' FROM services as s '.

@@ -26,8 +26,6 @@
 
 	$page["file"] = "tr_status.php";
 	$page["title"] = "S_STATUS_OF_TRIGGERS";
-	$page['scripts'] = array('blink.js');
-	$page['hist_arg'] = array('groupid','hostid','compact','onlytrue','noactions','sort','select');
 
 ?>
 <?php
@@ -84,6 +82,7 @@
 		define('ZBX_PAGE_NO_MENU', 1);
 	
 include_once "include/page_header.php";
+echo '<script type="text/javascript" src="js/blink.js"></script>';
 	
 ?>
 <?php
@@ -316,7 +315,7 @@ include_once "include/page_header.php";
 	$cond .=($onlytrue=='true')?' AND ((t.value=1) OR (('.time().' - lastchange)<'.TRIGGER_BLINK_PERIOD.')) ':'';
 	
 	$cond.=($show_unknown == 0)?' AND t.value<>2 ':'';
-
+		
 	$result = DBselect('SELECT DISTINCT t.triggerid,t.status,t.description, '.
 							' t.expression,t.priority,t.lastchange,t.comments,t.url,t.value,h.host '.
 					' FROM triggers t,hosts h,items i,functions f '.
@@ -353,9 +352,9 @@ include_once "include/page_header.php";
 		{
 			$description = array(
 				$description, BR, 
-				"<FONT COLOR=\"#000000\" SIZE=-2>", 
+				'<font color="#000000" size="-2">', 
 				explode_exp($row["expression"],1), 
-				"</FONT>");
+				'</font>');
 		}
 
 		if((time(NULL)-$row["lastchange"])<TRIGGER_BLINK_PERIOD)

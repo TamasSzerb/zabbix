@@ -38,24 +38,21 @@ global $DB_SERVER;
 	$fields=array(
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 
-		"agree"=>		array(T_ZBX_STR, O_OPT,	null,	null,			null),
-		"distributed"=>		array(T_ZBX_STR, O_OPT,	null,	null,			null),
-		"trouble"=>		array(T_ZBX_STR, O_OPT,	null,	null,			null),
+		"agree"=>	array(T_ZBX_STR, O_OPT,	null,	null,			null),
+		"distributed"=>	array(T_ZBX_STR, O_OPT,	null,	null,			null),
+		"trouble"=>	array(T_ZBX_STR, O_OPT,	null,	null,			null),
 
-		"type"=>		array(T_ZBX_STR, O_OPT,	null,	IN('"MYSQL","POSTGRESQL","ORACLE","SQLITE3"'),	null),
-		"server"=>		array(T_ZBX_STR, O_OPT,	null,	null,			null),
-		"port"=>		array(T_ZBX_INT, O_OPT,	null,	BETWEEN(0,65535),	null),
-		"database"=>		array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,		null),
-		"user"=>		array(T_ZBX_STR, O_OPT,	null,	null,			null),
-		"password"=>		array(T_ZBX_STR, O_OPT,	null,	null, 			null),
-
-		"zbx_server"=>		array(T_ZBX_STR, O_OPT, null,   null,                   null),
-		"zbx_server_port"=>	array(T_ZBX_INT, O_OPT, null,	BETWEEN(0,65535),	null),
+		"type"=>	array(T_ZBX_STR, O_OPT,	null,	IN('"MYSQL","POSTGRESQL","ORACLE","SQLITE3"'),	null),
+		"server"=>	array(T_ZBX_STR, O_OPT,	null,	null,			null),
+		"port"=>	array(T_ZBX_INT, O_OPT,	null,	BETWEEN(0,65535),	null),
+		"database"=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,		null),
+		"user"=>	array(T_ZBX_STR, O_OPT,	null,	null,			null),
+		"password"=>	array(T_ZBX_STR, O_OPT,	null,	null, 			null),
 		
-		"message"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,			NULL),
+		"message"=>	array(T_ZBX_STR, O_OPT,	NULL,	NULL,			NULL),
 
-		"nodename"=>		array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,		null),
-		"nodeid"=>		array(T_ZBX_INT, O_OPT,	null,	BETWEEN(0,999),		null),
+		"nodename"=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,		null),
+		"nodeid"=>	array(T_ZBX_INT, O_OPT,	null,	BETWEEN(0,999),		null),
 /* actions */
 		"save_config"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 		"retry"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
@@ -130,7 +127,7 @@ include_once "include/page_header.php";
 	
 	insert_showhint_javascript();
 
-	echo SBR;
+	echo BR;
 	$ZBX_SETUP_WIZARD->Show();
 
 	global $_POST;

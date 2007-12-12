@@ -24,11 +24,8 @@
 	require_once "include/httptest.inc.php";
 	require_once "include/forms.inc.php";
 
-	$page["title"] = "S_DETAILS_OF_SCENARIO";
-	$page["file"] = "httpdetails.php";
-	$page['hist_arg'] = array('hostid','grouid','graphid','period','stime');
-	$page['scripts'] = array('prototype.js','url.js','gmenu.js','scrollbar.js','sbox.js','sbinit.js');
-	
+        $page["title"] = "S_DETAILS_OF_SCENARIO";
+        $page["file"] = "httpdetails.php";
 	define('ZBX_PAGE_DO_REFRESH', 1);
 
 include_once "include/page_header.php";
@@ -69,10 +66,8 @@ include_once "include/page_header.php";
 ?>
 <?php
 	$lnkCancel = new CLink(S_CANCEL,'httpmon.php'.url_param('groupid').url_param('hostid'));
-	show_table_header(array(S_DETAILS_OF_SCENARIO_BIG.' "',
-						bold($httptest_data['name']),
-						'" - '.date(S_DATE_FORMAT_YMDHMS,$httptest_data['lastcheck']),$lnkCancel)
-					);
+	show_table_header(S_DETAILS_OF_SCENARIO_BIG.' "'.bold($httptest_data['name']).'" - '.
+		date(S_DATE_FORMAT_YMDHMS,$httptest_data['lastcheck']),$lnkCancel);
 
 // TABLE
 	$table  = new CTableInfo();
@@ -208,54 +203,30 @@ include_once "include/page_header.php";
 
 	$table->Show();
 
-	echo SBR;
+	echo BR;
 
-	show_table_header(array(S_HISTORY.' "',
-						bold($httptest_data['name']),
-						'"')
-					);
+	show_table_header(S_HISTORY.' "'.bold($httptest_data['name']).'"');
 	$form = new CTableInfo();
-	$form->AddOption('id','graph');
-	
+
 	$form->AddRow(array(bold(S_SPEED) , new CCol(
-		get_dynamic_chart('graph_1','chart3.php?'.url_param('period').url_param('from').
+		get_dynamic_chart('chart3.php?'.url_param('period').url_param('from').
 			url_param($httptest_data['name'], false,'name').
 			url_param(150, false,'height').
 			url_param($items[HTTPSTEP_ITEM_TYPE_IN], false, 'items').
-			url_param(GRAPH_TYPE_STACKED, false, 'graphtype'),'-128')
+			url_param(GRAPH_TYPE_STACKED, false, 'graphtype'),'-100')
 		, 'center')));
 
 	$form->AddRow(array(bold(S_RESPONSE_TIME) , new CCol(
-		get_dynamic_chart('graph_2','chart3.php?'.url_param('period').url_param('from').
+		get_dynamic_chart('chart3.php?'.url_param('period').url_param('from').
 			url_param($httptest_data['name'], false,'name').
 			url_param(150, false,'height').
 			url_param($items[HTTPSTEP_ITEM_TYPE_TIME], false, 'items').
-			url_param(GRAPH_TYPE_STACKED, false, 'graphtype'),'-128')
+			url_param(GRAPH_TYPE_STACKED, false, 'graphtype'),'-100')
 		,'center')));
 
 	$form->Show();
-	echo SBR.SBR;
-	
 
-	$period = get_request('period',3600);
-//SDI(get_min_itemclock_by_itemid($items[HTTPSTEP_ITEM_TYPE_IN][0]['itemid']));
-	$mstime = min(get_min_itemclock_by_itemid($items[HTTPSTEP_ITEM_TYPE_IN][0]['itemid']),get_min_itemclock_by_itemid($items[HTTPSTEP_ITEM_TYPE_TIME][0]['itemid']));
-	$stime = ($mstime)?$mstime:0;
-	$bstime = time()-$period;
-	
-	if(isset($_REQUEST['stime'])){
-		$bstime = $_REQUEST['stime'];
-		$bstime = mktime(substr($bstime,8,2),substr($bstime,10,2),0,substr($bstime,4,2),substr($bstime,6,2),substr($bstime,0,4));
-	}
-	
-	$script = 	'scrollinit(0,0,0,'.$period.','.$stime.',0,'.$bstime.');
-				showgraphmenu("graph");
-				graph_zoom_init("graph_1",'.$bstime.','.$period.',ZBX_G_WIDTH, 150);
-				graph_zoom_init("graph_2",'.$bstime.','.$period.',ZBX_G_WIDTH, 150);';
-					
-	zbx_add_post_js($script); 
-
-//	navigation_bar("#", array('httptestid'));
+	navigation_bar("#", array('httptestid'));
 ?>
 <?php
 

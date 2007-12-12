@@ -36,7 +36,7 @@
 #include "actions.h"
 #include "events.h"
 #include "threads.h"
-#include "dbcache.h"
+#include "dbsync.h"
 
 void	DBclose(void)
 {
@@ -309,10 +309,7 @@ void	get_latest_event_status(zbx_uint64_t triggerid, int *prev_status, int *late
 	zabbix_log(LOG_LEVEL_DEBUG,"In get_latest_event_status(triggerid:" ZBX_FS_UI64,
 		triggerid);
 
-	/* Object and objectid are used for efficient sort by the same index as in wehere condition */
-	zbx_snprintf(sql,sizeof(sql),"select eventid,value,clock,object,objectid from events where source=%d and object=%d and objectid=" ZBX_FS_UI64 " order by object desc,objectid desc,eventid desc",
-	/* The SQL is inefficient */
-/*	zbx_snprintf(sql,sizeof(sql),"select eventid,value,clock from events where source=%d and object=%d and objectid=" ZBX_FS_UI64 " order by clock desc",*/
+	zbx_snprintf(sql,sizeof(sql),"select eventid,value,clock from events where source=%d and object=%d and objectid=" ZBX_FS_UI64 " order by clock desc",
 		EVENT_SOURCE_TRIGGERS,
 		EVENT_OBJECT_TRIGGER,
 		triggerid);
@@ -541,7 +538,6 @@ int	DBupdate_trigger_value(DB_TRIGGER *trigger, int new_value, int now, char *re
 	DB_EVENT	event;
 	int		event_last_status;
 	int		event_prev_status;
-	int		update_status;
 
 	if(reason==NULL)
 	{
@@ -561,21 +557,10 @@ int	DBupdate_trigger_value(DB_TRIGGER *trigger, int new_value, int now, char *re
 			reason);
 	}
 
-	switch(trigger->type)
-	{
-		case TRIGGER_TYPE_MULTIPLE_TRUE:
-			update_status = (trigger->value != new_value) || (new_value == TRIGGER_VALUE_TRUE);
-			update_status = update_status && trigger_dependent(trigger->triggerid) == FAIL;
-			break;
-		case TRIGGER_TYPE_NORMAL:
-		default:
-			update_status = (trigger->value != new_value && trigger_dependent(trigger->triggerid) == FAIL);
-			break;
-	}
 
 	/* New trigger value differs from current one AND ...*/
 	/* ... Do not update status if there are dependencies with status TRUE*/
-	if(update_status)
+	if(trigger->value != new_value && trigger_dependent(trigger->triggerid) == FAIL)
 	{
 		get_latest_event_status(trigger->triggerid, &event_prev_status, &event_last_status);
 
@@ -586,8 +571,7 @@ int	DBupdate_trigger_value(DB_TRIGGER *trigger, int new_value, int now, char *re
 				new_value);
 
 		/* New trigger status is NOT equal to previous one, update trigger */
-		if(trigger->value != new_value ||
-			(trigger->type == TRIGGER_TYPE_MULTIPLE_TRUE && new_value == TRIGGER_VALUE_TRUE))
+		if(trigger->value != new_value)
 		{
 			zabbix_log(LOG_LEVEL_DEBUG,"Updating trigger");
 			if(reason==NULL)
@@ -608,30 +592,50 @@ int	DBupdate_trigger_value(DB_TRIGGER *trigger, int new_value, int now, char *re
 		}
 
 		/* The lastest event has the same status, do not generate new one */
-		/* Generate also UNKNOWN events, We are not interested in prev trigger value here. */
-		if(event_last_status != new_value ||
-			(trigger->type == TRIGGER_TYPE_MULTIPLE_TRUE && new_value == TRIGGER_VALUE_TRUE)
-		)
+		if(event_last_status != new_value)
 		{
-			/* Preparing event for processing */
-			memset(&event,0,sizeof(DB_EVENT));
-			event.eventid = 0;
-			event.source = EVENT_SOURCE_TRIGGERS;
-			event.object = EVENT_OBJECT_TRIGGER;
-			event.objectid = trigger->triggerid;
-			event.clock = now;
-			event.value = new_value;
-			event.acknowledged = 0;
+/*			if(	((trigger->value == TRIGGER_VALUE_TRUE) && (new_value == TRIGGER_VALUE_FALSE)) ||
+				((trigger->value == TRIGGER_VALUE_FALSE) && (new_value == TRIGGER_VALUE_TRUE)) ||
+				((event_last_status == TRIGGER_VALUE_FALSE) && (trigger->value == TRIGGER_VALUE_UNKNOWN) && (new_value == TRIGGER_VALUE_TRUE)) ||
+				((event_last_status == TRIGGER_VALUE_TRUE) && (trigger->value == TRIGGER_VALUE_UNKNOWN) && (new_value == TRIGGER_VALUE_FALSE)) ||
+				((event_prev_status == TRIGGER_VALUE_UNKNOWN) && (event_last_status == TRIGGER_VALUE_UNKNOWN) && (trigger->value == TRIGGER_VALUE_UNKNOWN) && (new_value == TRIGGER_VALUE_TRUE)) ||
+				((event_prev_status == TRIGGER_VALUE_FALSE) && (event_last_status == TRIGGER_VALUE_UNKNOWN) && (trigger->value == TRIGGER_VALUE_UNKNOWN) && (new_value == TRIGGER_VALUE_TRUE)) ||
+				((event_prev_status == TRIGGER_VALUE_TRUE) && (event_last_status == TRIGGER_VALUE_UNKNOWN) && (trigger->value == TRIGGER_VALUE_UNKNOWN) && (new_value == TRIGGER_VALUE_FALSE))
+			)*/
 
-			/* Processing event */
-			if(process_event(&event) == SUCCEED)
+			/* Generate also UNKNOWN events, We are not interested in prev trigger value here. */
+			if(event_last_status != new_value)
+/*			if(	((event_last_status == TRIGGER_VALUE_FALSE) && (new_value != TRIGGER_VALUE_FALSE)) ||
+				((event_last_status == TRIGGER_VALUE_TRUE) && (new_value != TRIGGER_VALUE_TRUE)) ||
+				((event_prev_status == TRIGGER_VALUE_UNKNOWN) && (event_last_status == TRIGGER_VALUE_UNKNOWN) && (new_value != TRIGGER_VALUE_UNKNOWN)) ||
+				((event_prev_status == TRIGGER_VALUE_FALSE) && (event_last_status == TRIGGER_VALUE_UNKNOWN) &&(new_value == TRIGGER_VALUE_TRUE)) ||
+				((event_prev_status == TRIGGER_VALUE_TRUE) && (event_last_status == TRIGGER_VALUE_UNKNOWN) && (trigger->value == TRIGGER_VALUE_UNKNOWN) && (new_value == TRIGGER_VALUE_FALSE))
+			)*/
 			{
-				zabbix_log(LOG_LEVEL_DEBUG,"Event processed OK");
+				/* Preparing event for processing */
+				memset(&event,0,sizeof(DB_EVENT));
+				event.eventid = 0;
+				event.source = EVENT_SOURCE_TRIGGERS;
+				event.object = EVENT_OBJECT_TRIGGER;
+				event.objectid = trigger->triggerid;
+				event.clock = now;
+				event.value = new_value;
+				event.acknowledged = 0;
+
+				/* Processing event */
+				if(process_event(&event) == SUCCEED)
+				{
+					zabbix_log(LOG_LEVEL_DEBUG,"Event processed OK");
+				}
+				else
+				{
+					ret = FAIL;
+					zabbix_log(LOG_LEVEL_WARNING,"Event processed not OK");
+				}
 			}
 			else
 			{
 				ret = FAIL;
-				zabbix_log(LOG_LEVEL_WARNING,"Event processed not OK");
 			}
 		}
 		else
@@ -733,8 +737,10 @@ void  DBdelete_trigger(zbx_uint64_t triggerid)
 
 	DBdelete_services_by_triggerid(triggerid);
 
-	DBexecute("delete sysmaps_link_triggers where triggerid=" ZBX_FS_UI64,triggerid);
-	DBexecute("delete from triggers where triggerid=" ZBX_FS_UI64,triggerid);
+	DBexecute("update sysmaps_links set triggerid=NULL where triggerid=" ZBX_FS_UI64,
+		triggerid);
+	DBexecute("delete from triggers where triggerid=" ZBX_FS_UI64,
+		triggerid);
 }
 
 void  DBdelete_triggers_by_itemid(zbx_uint64_t itemid)
@@ -775,6 +781,35 @@ void DBdelete_history_by_itemid(zbx_uint64_t itemid)
 		itemid);
 	DBexecute("delete from history_str where itemid=" ZBX_FS_UI64,
 		itemid);
+}
+
+void DBdelete_sysmaps_links_by_shostid(zbx_uint64_t shostid)
+{
+	DBexecute("delete from sysmaps_links where shostid1=" ZBX_FS_UI64 " or shostid2=" ZBX_FS_UI64,
+		shostid, shostid);
+}
+
+void DBdelete_sysmaps_hosts_by_hostid(zbx_uint64_t hostid)
+{
+	zbx_uint64_t	shostid;
+	DB_RESULT	result;
+	DB_ROW		row;
+
+	zabbix_log(LOG_LEVEL_DEBUG,"In DBdelete_sysmaps_hosts(" ZBX_FS_UI64 ")",
+		hostid);
+	result = DBselect("select shostid from sysmaps_elements where elementid=" ZBX_FS_UI64,
+		hostid);
+
+	while((row=DBfetch(result)))
+	{
+		ZBX_STR2UINT64(shostid, row[0]);
+/*		shostid=atoi(row[0]);*/
+		DBdelete_sysmaps_links_by_shostid(shostid);
+	}
+	DBfree_result(result);
+
+	DBexecute("delete from sysmaps_elements where elementid=" ZBX_FS_UI64,
+		hostid);
 }
 
 void DBupdate_triggers_status_after_restart(void)
@@ -923,7 +958,7 @@ void DBupdate_host_availability(zbx_uint64_t hostid,int available,int clock, cha
 	return;
 }
 
-int	DBupdate_item_status_to_notsupported(zbx_uint64_t itemid, const char *error)
+int	DBupdate_item_status_to_notsupported(zbx_uint64_t itemid, char *error)
 {
 	char	error_esc[MAX_STRING_LEN];
 	int	now;
@@ -957,14 +992,9 @@ int	DBadd_trend(zbx_uint64_t itemid, double value, int clock)
 	DB_ROW		row;
 	int	hour;
 	int	num;
-	double	value_min, value_avg, value_max;
+	double	value_min, value_avg, value_max;	
 
 	zabbix_log(LOG_LEVEL_DEBUG,"In add_trend()");
-
-	if(CONFIG_DBSYNCER_FORKS >0)
-	{
-		return DCadd_trend(itemid, value, clock);
-	}
 
 	hour=clock-clock%3600;
 
@@ -1014,17 +1044,10 @@ int	DBadd_history(zbx_uint64_t itemid, double value, int clock)
 {
 	zabbix_log(LOG_LEVEL_DEBUG,"In add_history()");
 
-	if(CONFIG_DBSYNCER_FORKS > 0)
-	{
-		DCadd_history(itemid, value, clock);
-	}
-	else
-	{
-		DBexecute("insert into history (clock,itemid,value) values (%d," ZBX_FS_UI64 "," ZBX_FS_DBL ")",
-			clock,
-			itemid,
-			value);
-	}
+	DBexecute("insert into history (clock,itemid,value) values (%d," ZBX_FS_UI64 "," ZBX_FS_DBL ")",
+		clock,
+		itemid,
+		value);
 
 	DBadd_trend(itemid, value, clock);
 
@@ -1044,17 +1067,10 @@ int	DBadd_history_uint(zbx_uint64_t itemid, zbx_uint64_t value, int clock)
 {
 	zabbix_log(LOG_LEVEL_DEBUG,"In add_history_uint()");
 
-	if(CONFIG_DBSYNCER_FORKS > 0)
-	{
-		DCadd_history_uint(itemid, value, clock);
-	}
-	else
-	{
-		DBexecute("insert into history_uint (clock,itemid,value) values (%d," ZBX_FS_UI64 "," ZBX_FS_UI64 ")",
-			clock,
-			itemid,
-			value);
-	}
+	DBexecute("insert into history_uint (clock,itemid,value) values (%d," ZBX_FS_UI64 "," ZBX_FS_UI64 ")",
+		clock,
+		itemid,
+		value);
 
 	DBadd_trend(itemid, (double)value, clock);
 
@@ -1076,19 +1092,11 @@ int	DBadd_history_str(zbx_uint64_t itemid, char *value, int clock)
 
 	zabbix_log(LOG_LEVEL_DEBUG,"In add_history_str()");
 
-	if(CONFIG_DBSYNCER_FORKS > 0)
-	{
-		DCadd_history_str(itemid, value, clock);
-	}
-
 	DBescape_string(value,value_esc,MAX_STRING_LEN);
-
-	if(CONFIG_DBSYNCER_FORKS == 0) {
-		DBexecute("insert into history_str (clock,itemid,value) values (%d," ZBX_FS_UI64 ",'%s')",
-			clock,
-			itemid,
-			value_esc);
-	}
+	DBexecute("insert into history_str (clock,itemid,value) values (%d," ZBX_FS_UI64 ",'%s')",
+		clock,
+		itemid,
+		value_esc);
 
 	if((CONFIG_NODE_NOHISTORY == 0) && (CONFIG_MASTER_NODEID>0))
 	{
@@ -1500,7 +1508,7 @@ void	DBvacuum(void)
 {
 #ifdef	HAVE_POSTGRESQL
 	char *table_for_housekeeping[]={"services", "services_links", "graphs_items", "graphs", "sysmaps_links",
-			"sysmaps_elements", "sysmaps_link_triggers","sysmaps", "config", "groups", "hosts_groups", "alerts",
+			"sysmaps_elements", "sysmaps", "config", "groups", "hosts_groups", "alerts",
 			"actions", "events", "functions", "history", "history_str", "hosts", "trends",
 			"items", "media", "media_type", "triggers", "trigger_depends", "users",
 			"sessions", "rights", "service_alarms", "profiles", "screens", "screens_items",
@@ -1668,7 +1676,7 @@ void	DBget_item_from_db(DB_ITEM *item,DB_ROW row)
 				break;
 		}	
 	}
-	s = row[22];
+	s=row[22];
 	if(DBis_null(s)==SUCCEED)
 	{
 		item->lastclock=0;
@@ -1678,21 +1686,22 @@ void	DBget_item_from_db(DB_ITEM *item,DB_ROW row)
 		item->lastclock=atoi(s);
 	}
 
-	item->units			= row[23];
-	item->multiplier		= atoi(row[24]);
-	item->snmpv3_securityname	= row[25];
-	item->snmpv3_securitylevel	= atoi(row[26]);
-	item->snmpv3_authpassphrase	= row[27];
-	item->snmpv3_privpassphrase	= row[28];
-	item->formula		= row[29];
-	item->host_available	= atoi(row[30]);
-	item->status		= atoi(row[31]);
-	item->trapper_hosts	= row[32];
-	item->logtimefmt	= row[33];
+	item->units=row[23];
+	item->multiplier=atoi(row[24]);
+
+	item->snmpv3_securityname = row[25];
+	item->snmpv3_securitylevel = atoi(row[26]);
+	item->snmpv3_authpassphrase = row[27];
+	item->snmpv3_privpassphrase = row[28];
+	item->formula = row[29];
+	item->host_available=atoi(row[30]);
+	item->status=atoi(row[31]);
+	item->trapper_hosts=row[32];
+	item->logtimefmt=row[33];
 	ZBX_STR2UINT64(item->valuemapid, row[34]);
-	item->delay_flex	= row[35];
-	item->host_dns		= row[36];
-	item->params		= row[37];		/* !!! WHAT about CLOB??? */
+/*	item->valuemapid=atoi(row[34]); */
+	item->delay_flex=row[35];
+	item->host_dns=row[36];
 }
 
 /*
@@ -1737,32 +1746,31 @@ zbx_uint64_t DBget_nextid(char *table, char *field)
 }
 */
 
-const ZBX_TABLE *DBget_table(const char *tablename)
-{
-	int	t;
-
-	for (t = 0; tables[t].table != 0; t++ )
-		if (0 == strcmp(tables[t].table, tablename))
-			return &tables[t];
-	return NULL;
-}
-
 zbx_uint64_t DBget_maxid(char *tablename, char *fieldname)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
 	zbx_uint64_t	ret1,ret2;
 	zbx_uint64_t	min, max;
-	int		found  = FAIL, dbres;
-	const ZBX_TABLE	*table;
+	int		found  = FAIL, i, sync = 0, dbres;
 
 	zabbix_log(LOG_LEVEL_DEBUG,"In DBget_maxid(%s,%s)",
 		tablename,
 		fieldname);
 
-	table = DBget_table(tablename);
+	for(i = 0; tables[i].table != 0; i++)
+	{
+		if(strcmp(tables[i].table, tablename) == 0)
+		{
+			if(tables[i].flags & ZBX_SYNC)
+			{
+				sync = 1;
+			}
+			break;
+		}
+	}
 
-	if (table->flags & ZBX_SYNC) {
+	if(sync == 1) {
 		min = (zbx_uint64_t)__UINT64_C(100000000000000)*(zbx_uint64_t)CONFIG_NODEID+(zbx_uint64_t)__UINT64_C(100000000000)*(zbx_uint64_t)CONFIG_NODEID;
 		max = (zbx_uint64_t)__UINT64_C(100000000000000)*(zbx_uint64_t)CONFIG_NODEID+(zbx_uint64_t)__UINT64_C(100000000000)*(zbx_uint64_t)CONFIG_NODEID+(zbx_uint64_t)__UINT64_C(99999999999);
 	} else {
@@ -1776,7 +1784,8 @@ zbx_uint64_t DBget_maxid(char *tablename, char *fieldname)
 			tablename,
 			fieldname);
 
-		if(NULL == (row = DBfetch(result))) {
+		row = DBfetch(result);
+		if (NULL == row) {
 			DBfree_result(result);
 
 			result = DBselect("select max(%3$s) from %4$s where %3$s>="ZBX_FS_UI64" and %3$s<="ZBX_FS_UI64,
@@ -1784,8 +1793,8 @@ zbx_uint64_t DBget_maxid(char *tablename, char *fieldname)
 				max,
 				fieldname,
 				tablename);
-
-			if(NULL == (row = DBfetch(result)) || SUCCEED == DBis_null(row[0]) || !*row[0])
+			row = DBfetch(result);
+			if(!row || SUCCEED == DBis_null(row[0]) || !*row[0])
 				ret1 = min;
 			else {
 				ZBX_STR2UINT64(ret1, row[0]);
@@ -1809,12 +1818,6 @@ zbx_uint64_t DBget_maxid(char *tablename, char *fieldname)
 					tablename,
 					fieldname);
 			}
-
-			DBexecute("insert into ids (nodeid,table_name,field_name,nextid) values (%d,'%s','%s',"ZBX_FS_UI64")",
-				CONFIG_NODEID,
-				tablename,
-				fieldname,
-				ret1);
 			continue;
 		} else {
 			ZBX_STR2UINT64(ret1, row[0]);

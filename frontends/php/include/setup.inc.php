@@ -47,11 +47,10 @@
 				1 => array('title' => '2. Licence Agreement'		, 'fnc' => 'Stage1' ),
 				2 => array('title' => '3. Check of pre-requisites'	, 'fnc' => 'Stage2' ),
 				3 => array('title' => '4. Configure DB connection'	, 'fnc' => 'Stage3' ),
-				4 => array('title' => '5. ZABBIX server details'	, 'fnc' => 'Stage4' ),
 				//4 => array('title' => '5. Distributed monitoring'	, 'fnc' => 'Stage4' ),
-				5 => array('title' => '6. Pre-Installation Summary'	, 'fnc' => 'Stage5' ),
-				6 => array('title' => '7. Install'			, 'fnc' => 'Stage6' ),
-				7 => array('title' => '8. Finish'			, 'fnc' => 'Stage7' )
+				4 => array('title' => '5. Pre-Installation Summary'	, 'fnc' => 'Stage5' ),
+				5 => array('title' => '6. Install'			, 'fnc' => 'Stage6' ),
+				6 => array('title' => '7. Finish'			, 'fnc' => 'Stage7' )
 				);
 			
 			$this->EventHandler();
@@ -130,7 +129,7 @@
 				
 				$list->AddItem($data['title'], $style);
 			}
-			return $list;
+			return $list->ToString();
 		}
 
 		function GetState()
@@ -142,11 +141,11 @@
 		function Stage0()
 		{
 
-			return new CTag('div', 'yes', array('Welcome to the ZABBIX frontend installation wizard.',BR(),BR(),
-				'This installation wizard will guide you through the installation of ZABBIX frontend',BR(),BR(),
+			return new CTag('div', 'yes', 'Welcome to the ZABBIX frontend installation wizard.'.BR.BR.
+				'This installation wizard will guide you through the installation of ZABBIX frontend'.BR.BR.
 				'Click to "Next" button to proceed to the next screen. If you want to change something '.
-				'on a previous screen, click "Previous" button',BR(),BR(),
-				'You may cancel installation at any time by clicking "Cancel" button'), 'text');
+				'on a previous screen, click "Previous" button'.BR.BR.
+				'You may cancel installation at any time by clicking "Cancel" button', 'text');
 		}
 
 		function Stage1()
@@ -157,10 +156,10 @@
 							
 			return array(
 				new CTag('div', 'yes', (file_exists($LICENCE_FILE) ? 
-					new CScript(nl2br(nbsp(htmlspecialchars(file_get_contents($LICENCE_FILE))))) : 
+					nl2br(nbsp(htmlspecialchars(file_get_contents($LICENCE_FILE)))) : 
 					'Missing licence file. See GPL licence.')
 				, 'licence'),
-				BR(),
+				BR,
 				new CTag('div', 'yes',
 					array(
 						new CCheckBox(
@@ -236,7 +235,7 @@
 				$this->get_test_result(
 					$final_result,
 					'PHP Databases support: ',
-					new CScript(implode(SBR, $ZBX_CONFIG['allowed_db'])),
+					implode(BR, $ZBX_CONFIG['allowed_db']),
 					!isset($ZBX_CONFIG['allowed_db']['no']),
 					'Required any databases support [MySQL or PostgreSQL or Oracle]'));
 
@@ -292,7 +291,7 @@
 				$this->get_test_result(
 					$final_result,
 					'Image formats:', 
-					$img_formats,
+					implode(BR, $img_formats),
 					!isset($no_img_formats),
 					'Required images genetarion support [PNG]'));	
 			
@@ -329,12 +328,12 @@
 				$final_result = new CSpan(S_OK,'ok');
 			}
 			
-			return array($table, BR(), $final_result);
+			return array($table, BR, $final_result);
 		}
 
 		function Stage3()
 		{
-			global $ZBX_CONFIG;
+			global $ZBX_CONFIG, $_REQUEST;
 
 			$table = new CTable();
 			$table->SetAlign('center');
@@ -354,33 +353,16 @@
 			$table->AddRow(array(S_PASSWORD, new CPassBox('password',	$this->GetConfig('DB_PASSWORD',	''))));
 
 			return array(
-				'Please create database manually.', BR(),
+				'Please create database manually.', BR,
 				'And set the configuration parameters of connection to this database.',
-				BR(),BR(),
+				BR,BR,
 				'And press "Test connection" button.',
-				BR(),BR(),
+				BR,BR,
 				$table,
-				BR(),
+				BR,
 				!$this->DISABLE_NEXT_BUTTON ? new CSpan(S_OK,'ok') :  new CSpan(S_FAIL, 'fail'),
-				BR(),
+				BR,
 				new  CButton('retry', 'Test connection')
-				);
-		}
-
-		function Stage4()
-		{
-			global $ZBX_CONFIG;
-
-			$table = new CTable();
-			$table->SetAlign('center');
-			
-			$table->AddRow(array(S_HOST, new CTextBox('zbx_server',		$this->GetConfig('ZBX_SERVER',		'localhost'))));
-			$table->AddRow(array(S_PORT, new CNumericBox('zbx_server_port',	$this->GetConfig('ZBX_SERVER_PORT',	'10051'),5)));
-
-			return array(
-				'Please enter host name or host IP address', BR(),
-				'and port number of ZABBIX server', BR(), BR(),
-				$table,
 				);
 		}
 		/*
@@ -440,16 +422,10 @@
 				$table->AddRow(array('Node name',	$this->GetConfig('nodename',	'unknown')));
 				$table->AddRow(array('Node GUID',	$this->GetConfig('nodeid',	'unknown')));
 			}
-
-			$table1 = new CTable(null, 'requirements');
-			$table1->SetAlign('center');
-			$table1->AddRow(array('ZABBIX server:',		$this->GetConfig('ZBX_SERVER',		'unknown')));
-			$table1->AddRow(array('ZABBIX server port:',	$this->GetConfig('ZBX_SERVER_PORT',	'unknown')));
 			return array(
-				'Please check configuration parameters.', BR(),
-				'If all correct press "Next" button, or "Previous" button to change configuration parameters.', BR(), BR(),
-				$table, BR(),
-				$table1
+				'Please check configuration parameters.', BR,
+				'If all correct press "Next" button, or "Previous" button to change configuration parameters.', BR, BR,
+				$table
 				);
 		}
 
@@ -495,15 +471,15 @@
 			*/
 
 			return array(
-				$table, BR(),
-				$this->DISABLE_NEXT_BUTTON ? array(new CButton('retry', S_RETRY), BR(),BR()) : null,
+				$table, BR,
+				$this->DISABLE_NEXT_BUTTON ? array(new CButton('retry', S_RETRY), BR,BR) : null,
 				!$this->GetConfig('ZBX_CONFIG_FILE_CORRECT', false) ? 
-					array('Please install configuration file manualy.',BR(),BR(),
+					array('Please install configuration file manualy.',BR,BR,
 						'By pressing "Save configuration file" button download configuration file ',
-						'and place them into the ',BR(),
-						'"'.$ZBX_CONFIGURATION_FILE.'"',BR(),BR(),
+						'and place them into the ',BR,
+						'"'.$ZBX_CONFIGURATION_FILE.'"',BR,BR,
 						new CButton('save_config',"Save configuration file"),
-						BR(),BR()
+						BR,BR
 						)
 					: null,
 				'Press the '.($this->DISABLE_NEXT_BUTTON ? '"Retry"' : '"Next"').' button'
@@ -513,7 +489,7 @@
 		function Stage7()
 		{
 			return array(
-				'Congratulation with succesfull instalation of ZABBIX frontend.',BR(),BR(),
+				'Congratulation with succesfull instalation of ZABBIX frontend.',BR,BR,
 				'Press "Finish" button to complete installation'
 				);
 		}
@@ -662,17 +638,15 @@
 
 		function CheckConfigurationFile()
 		{
-			global $DB, $DB_TYPE, $DB_SERVER, $DB_PORT, $DB_DATABASE, $DB_USER, $DB_PASSWORD, $ZBX_SERVER, $ZBX_SERVER_PORT;
+			global $DB, $DB_TYPE, $DB_SERVER, $DB_PORT, $DB_DATABASE, $DB_USER, $DB_PASSWORD;
 
-			$old_DB			= $DB;
-			$old_DB_TYPE		= $DB_TYPE;
-			$old_DB_SERVER		= $DB_SERVER;
-			$old_DB_PORT		= $DB_PORT;
-			$old_DB_DATABASE	= $DB_DATABASE;
-			$old_DB_USER		= $DB_USER;
-			$old_DB_PASSWORD	= $DB_PASSWORD;
-			$old_ZBX_SERVER		= $ZBX_SERVER;
-			$old_ZBX_SERVER_PORT	= $ZBX_SERVER_PORT;
+			$old_DB		= $DB;
+			$old_DB_TYPE	= $DB_TYPE;
+			$old_DB_SERVER	= $DB_SERVER;
+			$old_DB_PORT	= $DB_PORT;
+			$old_DB_DATABASE= $DB_DATABASE;
+			$old_DB_USER	= $DB_USER;
+			$old_DB_PASSWORD= $DB_PASSWORD;
 
 			$error = null;
 			$error_msg = null;
@@ -688,8 +662,6 @@
 					isset($DB_DATABASE) && 
 					isset($DB_USER) && 
 					isset($DB_PASSWORD) &&
-					isset($ZBX_SERVER) &&
-					isset($ZBX_SERVER_PORT) &&
 					isset($IMAGE_FORMAT_DEFAULT) &&
 					$DB_TYPE		== $this->GetConfig('DB_TYPE',				null) &&
 					$DB_SERVER		== $this->GetConfig('DB_SERVER',			null) &&
@@ -721,7 +693,7 @@
 			}
 
 			/* restore connection */
-			global $DB, $DB_TYPE, $DB_PORT, $DB_SERVER, $DB_DATABASE, $DB_USER, $DB_PASSWORD, $ZBX_SERVER, $ZBX_SERVER_PORT;
+			global $DB, $DB_TYPE, $DB_PORT, $DB_SERVER, $DB_DATABASE, $DB_USER, $DB_PASSWORD;
 
 			$DB		= $old_DB;
 			$DB_TYPE	= $old_DB_TYPE;
@@ -730,8 +702,6 @@
 			$DB_DATABASE	= $old_DB_DATABASE;
 			$DB_USER	= $old_DB_USER;
 			$DB_PASSWORD	= $old_DB_PASSWORD;
-			$ZBX_SERVER	= $old_ZBX_SERVER;
-			$ZBX_SERVER_PORT= $old_ZBX_SERVER_PORT;
 
 			DBconnect($error2);
 
@@ -776,12 +746,6 @@
 				}
 				if(isset($_REQUEST['next'][$this->GetStep()]))		$this->DoNext();
 			}
-			if($this->GetStep() == 4)
-			{
-				$this->SetConfig('ZBX_SERVER',		get_request('zbx_server',	$this->GetConfig('ZBX_SERVER',		'localhost')));
-				$this->SetConfig('ZBX_SERVER_PORT',	get_request('zbx_server_port',	$this->GetConfig('ZBX_SERVER_PORT',	'10051')));
-				if(isset($_REQUEST['next'][$this->GetStep()]))		$this->DoNext();
-			}
 
 			/*
 			if($this->GetStep() == 4)
@@ -809,12 +773,12 @@
 			}
 			*/
 
-			if($this->GetStep() == 5 && isset($_REQUEST['next'][$this->GetStep()]))
+			if($this->GetStep() == 4 && isset($_REQUEST['next'][$this->GetStep()]))
 			{
 				$this->DoNext();
 			}
 
-			if($this->GetStep() == 6)
+			if($this->GetStep() == 5)
 			{
 				$this->SetConfig('ZBX_CONFIG_FILE_CORRECT', $this->CheckConfigurationFile());
 				
@@ -874,17 +838,14 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-global $DB_TYPE, $DB_SERVER, $DB_PORT, $DB_DATABASE, $DB_USER, $DB_PASSWORD, $IMAGE_FORMAT_DEFAULT, $ZBX_SERVER, $ZBX_SERVER_PORT;
+global $DB_TYPE, $DB_SERVER, $DB_PORT, $DB_DATABASE, $DB_USER, $DB_PASSWORD, $IMAGE_FORMAT_DEFAULT;
 
-$DB_TYPE		= "'.$this->GetConfig('DB_TYPE'		,'unknown').'";
-$DB_SERVER		= "'.$this->GetConfig('DB_SERVER'	,'unknown').'";
-$DB_PORT		= "'.$this->GetConfig('DB_PORT'		,'0').'";
-$DB_DATABASE		= "'.$this->GetConfig('DB_DATABASE'	,'unknown').'";
-$DB_USER		= "'.$this->GetConfig('DB_USER'		,'unknown').'";
-$DB_PASSWORD		= "'.$this->GetConfig('DB_PASSWORD'	,'').'";
-$ZBX_SERVER		= "'.$this->GetConfig('ZBX_SERVER'	,'').'";
-$ZBX_SERVER_PORT	= "'.$this->GetConfig('ZBX_SERVER_PORT'	,'0').'";
-
+$DB_TYPE	= "'.$this->GetConfig('DB_TYPE'		,'unknown').'";
+$DB_SERVER	= "'.$this->GetConfig('DB_SERVER'	,'unknown').'";
+$DB_PORT	= "'.$this->GetConfig('DB_PORT'		,'0').'";
+$DB_DATABASE	= "'.$this->GetConfig('DB_DATABASE'	,'unknown').'";
+$DB_USER	= "'.$this->GetConfig('DB_USER'		,'unknown').'";
+$DB_PASSWORD	= "'.$this->GetConfig('DB_PASSWORD'	,'').'";
 
 $IMAGE_FORMAT_DEFAULT	= IMAGE_FORMAT_PNG;
 ?>';

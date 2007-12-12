@@ -44,7 +44,6 @@ include_once "include/page_header.php";
 		"copy_type"	=>array(T_ZBX_INT, O_OPT,	 P_SYS,	IN("0,1"),'isset({copy})'),
 		"copy_mode"	=>array(T_ZBX_INT, O_OPT,	 P_SYS,	IN("0"),NULL),
 
-		'type'=>	array(T_ZBX_INT, O_OPT,  NULL, 		IN('0,1'),	'isset({save})'),
 		"description"=>	array(T_ZBX_STR, O_OPT,  NULL,	NOT_EMPTY,'isset({save})'),
 		"expression"=>	array(T_ZBX_STR, O_OPT,  NULL,	NOT_EMPTY,'isset({save})'),
 		"priority"=>	array(T_ZBX_INT, O_OPT,  NULL,  IN("0,1,2,3,4,5"),'isset({save})'),
@@ -82,8 +81,7 @@ include_once "include/page_header.php";
 	$_REQUEST["showdisabled"] = get_request("showdisabled", get_profile("web.triggers.showdisabled", 0));
 	
 	check_fields($fields);
-	validate_sort_and_sortorder();
-	
+
 	if(isset($_REQUEST["triggerid"]))
 		if(!check_right_on_trigger_by_triggerid(PERM_READ_WRITE, $_REQUEST["triggerid"]))
 			access_deny();
@@ -111,10 +109,8 @@ include_once "include/page_header.php";
 			access_deny();
 
 		$now=time();
-		if(isset($_REQUEST['status']))	{ $status=TRIGGER_STATUS_DISABLED; }
-		else{ $status=TRIGGER_STATUS_ENABLED; }
-
-		$type = $_REQUEST['type'];
+		if(isset($_REQUEST["status"]))	{ $status=1; }
+		else			{ $status=0; }
 
 		$deps = get_request("dependences",array());
 
@@ -128,7 +124,7 @@ include_once "include/page_header.php";
 			}
 
 			$result=update_trigger($_REQUEST["triggerid"],
-				$_REQUEST["expression"],$_REQUEST["description"],$type,
+				$_REQUEST["expression"],$_REQUEST["description"],
 				$_REQUEST["priority"],$status,$_REQUEST["comments"],$_REQUEST["url"],
 				$deps, $trigger_data['templateid']);
 
@@ -137,7 +133,7 @@ include_once "include/page_header.php";
 
 			show_messages($result, S_TRIGGER_UPDATED, S_CANNOT_UPDATE_TRIGGER);
 		} else {
-			$triggerid=add_trigger($_REQUEST["expression"],$_REQUEST["description"],$type,
+			$triggerid=add_trigger($_REQUEST["expression"],$_REQUEST["description"],
 				$_REQUEST["priority"],$status,$_REQUEST["comments"],$_REQUEST["url"],
 				$deps);
 
@@ -360,15 +356,14 @@ include_once "include/page_header.php";
 	if(isset($_REQUEST["form"]))
 	{
 /* FORM */
-		echo SBR;
+		echo BR;
 		insert_trigger_form();
-	} 
-	else if(isset($_REQUEST["form_copy_to"]) && isset($_REQUEST["g_triggerid"]))
+	} else if(isset($_REQUEST["form_copy_to"]) && isset($_REQUEST["g_triggerid"]))
 	{
-		echo SBR;
+		echo BR;
 		insert_copy_elements_to_forms("g_triggerid");
-	} 
-	else{
+	} else
+	{
 /* TABLE */
 		$form = new CForm('triggers.php');
 		$form->SetName('triggers');
@@ -377,30 +372,26 @@ include_once "include/page_header.php";
 
 		$table = new CTableInfo(S_NO_TRIGGERS_DEFINED);
 		$table->setHeader(array(
-			$_REQUEST["hostid"] > 0 ? NULL : make_sorting_link(S_HOST,'h.host'),
+			$_REQUEST["hostid"] > 0 ? NULL : S_HOST,
 			array(	new CCheckBox("all_triggers",NULL,
 					"CheckAll('".$form->GetName()."','all_triggers');")
-				,make_sorting_link(S_NAME,'t.description'),
+				,S_NAME
 			),
-			S_EXPRESSION, 
-			make_sorting_link(S_SEVERITY,'t.priority'), 
-			make_sorting_link(S_STATUS,'t.status'), 
-			S_ERROR));
+			S_EXPRESSION, S_SEVERITY, S_STATUS, S_ERROR));
 
-		$sql = 'SELECT DISTINCT h.hostid,h.host,t.*'.
-			' FROM triggers t '.
-				' LEFT JOIN functions f ON t.triggerid=f.triggerid '.
-				' LEFT JOIN items i ON f.itemid=i.itemid '.
-				' LEFT JOIN hosts h ON h.hostid=i.hostid '.
-			' WHERE '.DBin_node('t.triggerid');
+		$sql = 'select distinct h.hostid,h.host,t.*'.
+			' from triggers t left join functions f on t.triggerid=f.triggerid '.
+			' left join items i on f.itemid=i.itemid '.
+			' left join hosts h on h.hostid=i.hostid '.
+			' where '.DBin_node('t.triggerid');
 
 		if($showdisabled == 0)
-		    $sql .= ' AND t.status <> '.TRIGGER_STATUS_DISABLED;
+		    $sql .= ' and t.status <> '.TRIGGER_STATUS_DISABLED;
 
 		if($_REQUEST['hostid'] > 0) 
-			$sql .= ' AND h.hostid='.$_REQUEST['hostid'];
+			$sql .= ' and h.hostid='.$_REQUEST['hostid'];
 
-		$sql .= order_by('h.host,t.description,t.priority,t.status');
+		$sql .= ' order by h.host,t.description';
 
 		$result=DBselect($sql);
 		while($row=DBfetch($result))
@@ -441,12 +432,13 @@ include_once "include/page_header.php";
 
 			//add dependences
 			$deps = get_trigger_dependences_by_triggerid($row["triggerid"]);
-			if(count($deps) > 0){
-				$description[] = array(BR(),BR(),bold(S_DEPENDS_ON.':'),SPACE,BR());
+			if(count($deps) > 0)
+			{
+				$description[] = BR.BR."<strong>".S_DEPENDS_ON.":</strong>".SPACE.BR;
 				foreach($deps as $val)
-					$description[] = array(expand_trigger_description($val),BR());
+					$description[] = expand_trigger_description($val).BR;
 
-				$description[] = BR();
+				$description[] = BR;
 			}
 	
 			if($row["priority"]==0)		$priority=S_NOT_CLASSIFIED;
@@ -455,21 +447,24 @@ include_once "include/page_header.php";
 			elseif($row["priority"]==3)	$priority=new CCol(S_AVERAGE,"average");
 			elseif($row["priority"]==4)	$priority=new CCol(S_HIGH,"high");
 			elseif($row["priority"]==5)	$priority=new CCol(S_DISASTER,"disaster");
-			else $priority=$row["priority"];
+			else				$priority=$row["priority"];
 
-			if($row["status"] == TRIGGER_STATUS_DISABLED){
+			if($row["status"] == TRIGGER_STATUS_DISABLED)
+			{
 				$status= new CLink(S_DISABLED,
 					"triggers.php?group_enable=1&g_triggerid%5B%5D=".$row["triggerid"].
 						"&hostid=".$row["hostid"],
 					'disabled');
 			}
-			else if($row["status"] == TRIGGER_STATUS_UNKNOWN){
+			else if($row["status"] == TRIGGER_STATUS_UNKNOWN)
+			{
 				$status= new CLink(S_UNKNOWN,
 					"triggers.php?group_disable=1&g_triggerid%5B%5D=".$row["triggerid"].
 						"&hostid=".$row["hostid"],
 					'unknown');
 			}
-			else if($row["status"] == TRIGGER_STATUS_ENABLED){
+			else if($row["status"] == TRIGGER_STATUS_ENABLED)
+			{
 				$status= new CLink(S_ENABLED,
 					"triggers.php?group_disable=1&g_triggerid%5B%5D=".$row["triggerid"].
 						"&hostid=".$row["hostid"],

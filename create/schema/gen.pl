@@ -49,13 +49,12 @@ local $output;
 	"t_history_log"	=>	"text",
 	"t_history_text"=>	"text",
 	"t_blob"	=>	"blob",
-	"t_item_param"	=>	"text",
-	"t_cksum_text"	=>	"text"  
+	"t_item_param"	=>	"text"
 );
 
 %c=(	"type"		=>	"code",
 	"database"	=>	"",
-	"after"		=>	"\t{0}\n};\n\n#endif\n",
+	"after"		=>	"\t{0}\n};\n",
 	"t_bigint"	=>	"ZBX_TYPE_UINT",
 	"t_id"		=>	"ZBX_TYPE_ID",
 	"t_integer"	=>	"ZBX_TYPE_INT",
@@ -69,13 +68,10 @@ local $output;
 	"t_history_log"	=>	"ZBX_TYPE_TEXT",
 	"t_history_text"=>	"ZBX_TYPE_TEXT",
 	"t_blob"	=>	"ZBX_TYPE_BLOB",
-	"t_item_param"	=>	"ZBX_TYPE_TEXT",
-	"t_cksum_text"	=>	"ZBX_TYPE_TEXT"  
+	"t_item_param"	=>	"ZBX_TYPE_TEXT"
 );
 
-$c{"before"}="#ifndef ZABBIX_DBSYNC_H
-#define ZABBIX_DBSYNC_H
-
+$c{"before"}="
 #define ZBX_FIELD struct zbx_field_type
 ZBX_FIELD
 {
@@ -113,8 +109,7 @@ static	ZBX_TABLE	tables[]={
 	"t_history_log"	=>	"varchar2(2048)",
 	"t_history_text"=>	"clob",
 	"t_blob"	=>	"varchar2(2048)",
-	"t_item_param"	=>	"varchar2(2048)",
-	"t_cksum_text"	=>	"clob"  
+	"t_item_param"	=>	"varchar2(2048)"
 );
 
 %postgresql=("t_bigint"	=>	"bigint",
@@ -135,8 +130,7 @@ static	ZBX_TABLE	tables[]={
 	"t_history_text"=>	"text",
 	"t_time"	=>	"integer",
 	"t_blob"	=>	"text",
-	"t_item_param"	=>	"text",
-	"t_cksum_text"	=>	"text"  
+	"t_item_param"	=>	"text"
 );
 
 %sqlite=("t_bigint"	=>	"bigint",
@@ -156,8 +150,7 @@ static	ZBX_TABLE	tables[]={
 	"t_history_log"	=>	"text",
 	"t_history_text"=>	"text",
 	"t_blob"	=>	"blob",
-	"t_item_param"	=>	"text",
-	"t_cksum_text"	=>	"text"  
+	"t_item_param"	=>	"text"
 );
 
 sub newstate
@@ -227,14 +220,10 @@ sub process_field
 	{
 		$type=$output{$type_short};
 #{"linkid",      ZBX_TYPE_INT,   ZBX_SYNC},
-		if ($null eq "NOT NULL") {
-			if ($flags ne "0") {
-				$flags="ZBX_NOTNULL | ".$flags;
-			} else {
-				$flags="ZBX_NOTNULL";
-			}
+		if($flags eq "")
+		{
+			$flags="0";
 		}
-			
 		print "\t\t{\"${name}\",\t$type,\t${flags}}";
 	}
 	else

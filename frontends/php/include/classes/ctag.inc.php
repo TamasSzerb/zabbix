@@ -68,7 +68,7 @@
 			$this->items = array();
 			if(isset($items))
 			{
-				$this->AddItem($items);
+				$this->AddItems($items);
 			}
 		}
 		
@@ -83,29 +83,24 @@
 
 		function Destroy()
 		{
-// TODO Problem under PHP 5.0  "Fatal error: Cannot re-assign $this in ..."
-//			$this = null;
+### TODO Problem under PHP 5.0  "Fatal error: Cannot re-assign $this in ..."
+#			$this = null;
 			$this->CleanItems();
 		}
 
 		function CleanItems()		{	$this->items = array();				}
 		function ItemsCount()		{	return count($this->items);			}
-		
 		function AddItem($value)
 		{
-			if(is_object($value)){
-				array_push($this->items,unpack_object($value));
-			}
-			else if(is_string($value)){
-				array_push($this->items,str_replace(array('<','>','"'),array('&lt;','&gt;','&quot;'),$value));
-//				array_push($this->items,htmlspecialchars($value));
-			}
-			else if(is_array($value)){
-				foreach($value as $item){
-					$this->AddItem($item);			 // Attention, recursion !!!
+			if(is_array($value))
+			{
+				foreach($value as $item)
+				{
+					array_push($this->items,unpack_object($item));
 				}
 			}
-			else if(!is_null($value)){
+			elseif(!is_null($value))
+			{
 				array_push($this->items,unpack_object($value));
 			}
 		}
@@ -251,7 +246,7 @@
 
 		function OnClick($handle_code)
 		{
-			$this->AddAction('onclick', $handle_code);
+			$this->AddAction('onClick', $handle_code);
 		}
 
 		function AddAction($name, $value)

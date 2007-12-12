@@ -32,9 +32,4 @@ extern  int     CONFIG_UNREACHABLE_DELAY;
 
 void main_poller_loop(int type, int num);
 
-#include "db.h"
-#include "sysinfo.h"
-
-int	get_value(DB_ITEM *item, AGENT_RESULT *result);
-
 #endif

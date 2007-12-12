@@ -268,7 +268,7 @@
 	{
 		global $DB, $DB_TYPE;
 
-//COpt::savesqlrequest($query);
+COpt::savesqlrequest($query);
 
 		$result = false;
 		if( isset($DB) && !empty($DB) )
@@ -355,7 +355,7 @@
 	{
 		global $DB,$DB_TYPE;
 
-//COpt::savesqlrequest($query);
+COpt::savesqlrequest($query);
 
 		$result = false;
 
@@ -418,7 +418,7 @@
 				{
 					$result = array();
 					$keys = (array_keys($row));
-					foreach($keys as $k) $result[strtolower($k)] = $row[$k];
+					foreach ($keys as $k)		$result[strtolower($k)] = $row[$k];
 				} 
 				break;
 			case "SQLITE3":
@@ -459,7 +459,7 @@ if(isset($DB_TYPE) && $DB_TYPE == "ORACLE") {
 				return 'CONCAT('.implode(',',$params).')';
 		}
 	}
-	
+
 	function zbx_sql_mod($x,$y){
 		global $DB_TYPE;
 
@@ -514,6 +514,7 @@ if(isset($DB_TYPE) && $DB_TYPE == "ORACLE") {
 		{
 			fatal_error('Incorrect type of "nodes" for "DBin_node". Passed ['.gettype($nodes).']');
 		}
+
 		return (' '.DBid2nodeid($id_name).' in ('.$nodes.') ');
 	}
 
@@ -604,19 +605,5 @@ if(isset($DB_TYPE) && $DB_TYPE == "ORACLE") {
 		while(false == $found);
 
 		return $ret2;
-	}
-	
-	function create_id_by_nodeid($id,$nodeid=0){
-			
-		global $ZBX_LOCALNODEID;
-		$nodeid = ($nodeid == 0)?get_current_nodeid(false):$nodeid;
-		
-		$id=remove_nodes_from_id($id);
-		$id=bcadd($id,bcadd(bcmul($nodeid,'100000000000000'),bcmul($ZBX_LOCALNODEID,'100000000000')));
-	return $id;
-	}
-	
-	function remove_nodes_from_id($id){
-		return bcmod($id,'100000000000');
 	}
 ?>

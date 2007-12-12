@@ -53,58 +53,37 @@ function zbx_add_post_js($script)
 	$ZBX_PAGE_POST_JS[] = $script;
 }
 
+function	insert_sizeable_graph($url){
 
-function	get_js_sizeable_graph($dom_graph_id,$url){
-
-return new CScript('
-	<script language="JavaScript" type="text/javascript">
-	<!--
-		A_SBOX["'.$dom_graph_id.'"] = new Object;
-		A_SBOX["'.$dom_graph_id.'"].shiftT = 17;
-		A_SBOX["'.$dom_graph_id.'"].shiftL = 10;
-
-		var ZBX_G_WIDTH;
-		if(window.innerWidth) ZBX_G_WIDTH=window.innerWidth; 
-		else ZBX_G_WIDTH=document.body.clientWidth;
-		
-		ZBX_G_WIDTH-= 80;
-
-		insert_sizeable_graph('.zbx_jsvalue($dom_graph_id).','.zbx_jsvalue($url).');
-	-->
-	</script>');
+	echo '<script language="JavaScript" type="text/javascript">
+		  <!--
+				insert_sizeable_graph('.zbx_jsvalue($url).');
+		  -->
+		  </script>';
 }
 
 
-function	get_dynamic_chart($dom_graph_id,$img_src,$width=0){
+function	get_dynamic_chart($img_src,$width=0){
 	if(is_int($width) && $width > 0) $img_src.= url_param($width, false, 'width');
-	$result = new CScript('
+	$result = '
 		<script language="JavaScript" type="text/javascript">
 		<!--
 		var width = "'.((!(is_int($width) && $width > 0)) ? $width : '').'";
 		var img_src = "'.$img_src.'";
 		
-		A_SBOX["'.$dom_graph_id.'"] = new Object;
-		A_SBOX["'.$dom_graph_id.'"].shiftT = 17;
-		A_SBOX["'.$dom_graph_id.'"].shiftL = 10;
-
-		var ZBX_G_WIDTH;
-	
 		if(width!=""){
-			if(window.innerWidth) ZBX_G_WIDTH=window.innerWidth; 
-			else ZBX_G_WIDTH=document.body.clientWidth;
-			
-			ZBX_G_WIDTH-= 80;
-	
-			ZBX_G_WIDTH+= parseInt(width);
-			width = "&width=" + ZBX_G_WIDTH;
-		}
-		else{
-			ZBX_G_WIDTH = '.$width.';
+			var scr_width = 0;
+			if(document.body.clientWidth)
+				scr_width = document.body.clientWidth;
+			else 
+				scr_width = document.width;
+		
+			width = "&width=" + (scr_width - 100 + parseInt(width));
 		}
 		
-		document.write(\'<img src="\'+img_src + width +\'" alt="chart" id="'.$dom_graph_id.'" />\');
+		document.write(\'<img alt="chart" src="\'+img_src + width +\'" />\');
 		-->
-		</script>');
+		</script>';
 return $result;
 }
 
@@ -157,38 +136,5 @@ function	Alert($msg){
 		alert("'.$msg.'");
 	//-->
 	</script>';
-}
-
-function insert_js_function($fnct_name){
-	switch($fnct_name){
-		case 'add_item_variable':
-			echo '<script type="text/javascript">
-					<!--
-					function add_item_variable(s_formname,x_value){
-						if(add_variable(null, "itemid[]", x_value, s_formname, window.opener.document)){
-							var o_form;
-					
-							if( !(o_form = window.opener.document.forms[s_formname]) )
-								 throw "Missed form with name ["+s_formname+"].";
-					
-							var element = o_form.elements["itemid"];
-							if(element) element.name = "itemid[]";
-					
-							o_form.submit();
-						}
-					
-						close_window();
-							return true;
-					}
-					-->
-				 </script>';
-			break;
-		default:
-			break;
-	}
-}
-
-function insert_js($script){
-print('<script type="text/javascript">'."\n".$script."\n".'</script>');
 }
 ?>

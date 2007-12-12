@@ -27,7 +27,6 @@
 
 	$page["title"] = "S_USERS";
 	$page["file"] = "users.php";
-	$page['hist_arg'] = array('config');
 
 include_once "include/page_header.php";
 
@@ -114,7 +113,7 @@ include_once "include/page_header.php";
 
 
 	check_fields($fields);
-	validate_sort_and_sortorder();
+
 ?>
 <?php
 	if($_REQUEST["config"]==0)
@@ -152,7 +151,7 @@ include_once "include/page_header.php";
 			$_REQUEST["password1"] = get_request("password1", null);
 			$_REQUEST["password2"] = get_request("password2", null);
 
-			if(isset($_REQUEST["password1"]) && $_REQUEST["password1"] == "" && $_REQUEST["alias"]!=ZBX_GUEST_USER)
+			if(isset($_REQUEST["password1"]) && $_REQUEST["password1"] == "" && $_REQUEST["alias"]!="guest")
 			{
 				show_error_message(S_ONLY_FOR_GUEST_ALLOWED_EMPTY_PASSWORD);
 			}
@@ -360,7 +359,7 @@ include_once "include/page_header.php";
 	$frmForm->AddItem(SPACE."|".SPACE);
 	$frmForm->AddItem($btnNew = new CButton("form",($_REQUEST["config"] == 0) ? S_CREATE_USER : S_CREATE_GROUP));
 	show_table_header(S_CONFIGURATION_OF_USERS_AND_USER_GROUPS, $frmForm);
-	echo SBR; 
+	echo BR; 
 ?>
 <?php
 	if($_REQUEST["config"]==0)
@@ -379,18 +378,13 @@ include_once "include/page_header.php";
 			$table->setHeader(array(
 				 array(  new CCheckBox("all_users",NULL,
                                         "CheckAll('".$form->GetName()."','all_users');"),
-					make_sorting_link(S_ALIAS,'u.alias')
+					S_ALIAS
 				),
-				make_sorting_link(S_NAME,'u.name'),
-				make_sorting_link(S_SURNAME,'u.surname'),
-				make_sorting_link(S_USER_TYPE,'u.type'),
-				S_GROUPS,
-				S_IS_ONLINE_Q));
+				S_NAME,S_SURNAME,S_USER_TYPE,S_GROUPS,S_IS_ONLINE_Q));
 		
-			$db_users=DBselect('SELECT u.userid,u.alias,u.name,u.surname,u.type,u.autologout '.
-							' FROM users u'.
-							' WHERE '.DBin_node('u.userid').
-							order_by('u.alias,u.name,u.surname,u.type','u.userid'));
+			$db_users=DBselect("select userid,alias,name,surname,type,autologout ".
+				' from users where '.DBin_node('userid').
+				" order by alias");
 			while($db_user=DBfetch($db_users))
 			{
 				$db_sessions = DBselect('select count(*) as count, max(s.lastaccess) as lastaccess'.
@@ -409,7 +403,7 @@ include_once "include/page_header.php";
 				$db_groups = DBselect("select g.name from usrgrp g, users_groups ug".
 					" where g.usrgrpid=ug.usrgrpid and ug.userid=".$db_user['userid']);
 				while($db_group = DBfetch($db_groups))
-					array_push($user_groups,empty($user_groups)?'':BR(),$db_group['name']);
+					array_push($user_groups,$db_group['name']);
 					
 		
 				$table->addRow(array(
@@ -422,7 +416,7 @@ include_once "include/page_header.php";
 					$db_user["name"],
 					$db_user["surname"],
 					user_type2str($db_user['type']),
-					$user_groups,
+					implode(BR,$user_groups),
 					$online
 					));
 			}
@@ -447,22 +441,19 @@ include_once "include/page_header.php";
 			$table->setHeader(array(
 				 array(  new CCheckBox("all_groups",NULL,
                                         "CheckAll('".$form->GetName()."','all_groups');"),
-					make_sorting_link(S_NAME,'ug.name')),
+					S_NAME),
 				S_MEMBERS));
 		
-			$result=DBselect('SELECT ug.usrgrpid, ug.name '.
-							' FROM usrgrp ug'.
-							' WHERE '.DBin_node('ug.usrgrpid').
-							order_by('ug.name'));
+			$result=DBselect("select usrgrpid,name from usrgrp".
+					' where '.DBin_node('usrgrpid').
+					" order by name");
 			while($row=DBfetch($result))
 			{
 				$users = array();
 
-				$db_users=DBselect('SELECT DISTINCT u.alias,u.userid '.
-								' FROM users u,users_groups ug '.
-								' WHERE u.userid=ug.userid '.
-									' AND ug.usrgrpid='.$row['usrgrpid'].
-								' ORDER BY u.alias');
+				$db_users=DBselect("select distinct u.alias,u.userid from users u,users_groups ug ".
+					"where u.userid=ug.userid and ug.usrgrpid=".$row["usrgrpid"].
+					" order by alias");
 
 				while($db_user=DBfetch($db_users))	$users[$db_user['userid']] = $db_user["alias"];
 

@@ -25,7 +25,6 @@
 
 	$page["title"] = "S_HOSTS";
 	$page["file"] = "hosts.php";
-	$page['hist_arg'] = array('groupid','config','hostid');
 
 include_once "include/page_header.php";
 
@@ -44,7 +43,8 @@ include_once "include/page_header.php";
 	if(count($available_hosts) == 0) $available_hosts = array(-1);
 	$available_hosts = implode(',', $available_hosts);
 
-	if(isset($_REQUEST["groupid"]) && $_REQUEST["groupid"] > 0){
+	if(isset($_REQUEST["groupid"]) && $_REQUEST["groupid"] > 0)
+	{
 		if(!in_array($_REQUEST["groupid"], get_accessible_groups_by_user($USER_DETAILS,PERM_READ_WRITE,null,
 			PERM_RES_IDS_ARRAY,get_current_nodeid())))
 		{
@@ -121,8 +121,7 @@ include_once "include/page_header.php";
 	$_REQUEST["config"] = get_request("config",get_profile("web.host.config",0));
 
 	check_fields($fields);
-	validate_sort_and_sortorder();
-	
+
 	if($_REQUEST["config"]==4)
 		validate_group_with_host(PERM_READ_WRITE,array("always_select_first_host","only_current_node"),'web.last.conf.groupid', 'web.last.conf.hostid');
 	elseif($_REQUEST["config"]==0 || $_REQUEST["config"]==3)
@@ -277,7 +276,8 @@ include_once "include/page_header.php";
 		unset($_REQUEST["delete"]);
 	}
 /* ACTIVATE / DISABLE HOSTS */
-	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && (inarr_isset(array('add_to_group','hostid'))))
+	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && 
+		(inarr_isset(array('add_to_group','hostid'))))
 	{
 		global $USER_DETAILS;
 
@@ -292,7 +292,8 @@ include_once "include/page_header.php";
 			S_HOST_UPDATED,
 			S_CANNOT_UPDATE_HOST);
 	}
-	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && (inarr_isset(array('delete_from_group','hostid'))))
+	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && 
+		(inarr_isset(array('delete_from_group','hostid'))))
 	{
 		global $USER_DETAILS;
 
@@ -307,7 +308,8 @@ include_once "include/page_header.php";
 			show_messages(true, S_HOST_UPDATED);
 		}
 	}
-	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && (isset($_REQUEST["activate"])||isset($_REQUEST["disable"])))
+	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && 
+		(isset($_REQUEST["activate"])||isset($_REQUEST["disable"])))
 	{
 		$result = 0;
 		$status = isset($_REQUEST["activate"]) ? HOST_STATUS_MONITORED : HOST_STATUS_NOT_MONITORED;
@@ -328,7 +330,8 @@ include_once "include/page_header.php";
 		unset($_REQUEST["activate"]);
 	}
 
-	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && isset($_REQUEST["chstatus"]) && isset($_REQUEST["hostid"]))
+	elseif(($_REQUEST["config"]==0 || $_REQUEST["config"]==3) && isset($_REQUEST["chstatus"])
+		&& isset($_REQUEST["hostid"]))
 	{
 		$host=get_host_by_hostid($_REQUEST["hostid"]);
 		$result=update_host_status($_REQUEST["hostid"],$_REQUEST["chstatus"]);
@@ -363,11 +366,11 @@ include_once "include/page_header.php";
 			if(count(get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_MODE_LT,PERM_RES_IDS_ARRAY,get_current_nodeid())))
 				access_deny();
 
-			$groupid	= add_host_group($_REQUEST["gname"], $hosts);
+			$groupid = add_host_group($_REQUEST["gname"], $hosts);
 			$action 	= AUDIT_ACTION_ADD;
 			$msg_ok		= S_GROUP_ADDED;
 			$msg_fail	= S_CANNOT_ADD_GROUP;
-			$result		= $groupid;
+			$result = $groupid;
 		}
 		show_messages($result, $msg_ok, $msg_fail);
 		if($result){
@@ -578,7 +581,7 @@ include_once "include/page_header.php";
 		$frmForm->AddItem($btn);
 	}
 	show_table_header(S_CONFIGURATION_OF_HOSTS_GROUPS_AND_TEMPLATES, $frmForm);
-	echo SBR;
+	echo BR;
 ?>
 
 <?php
@@ -598,7 +601,6 @@ include_once "include/page_header.php";
 				
 			$cmbGroups = new CComboBox("groupid",get_request("groupid",0),"submit()");
 			$cmbGroups->AddItem(0,S_ALL_SMALL);
-
 			$result=DBselect("select distinct g.groupid,g.name from groups g,hosts_groups hg,hosts h".
 					" where h.hostid in (".$available_hosts.") ".
 					" and g.groupid=hg.groupid and h.hostid=hg.hostid".$status_filter.
@@ -634,33 +636,26 @@ include_once "include/page_header.php";
 			$table = new CTableInfo(S_NO_HOSTS_DEFINED);
 			$table->setHeader(array(
 				array(new CCheckBox("all_hosts",NULL,"CheckAll('".$form->GetName()."','all_hosts');"),
-					SPACE,make_sorting_link(S_NAME,'h.host')),
-				$show_only_tmp ? NULL : make_sorting_link(S_DNS,'h.dns'),
-				$show_only_tmp ? NULL : make_sorting_link(S_IP,'h.ip'),
-				$show_only_tmp ? NULL : make_sorting_link(S_PORT,'h.port'),
+					SPACE.S_NAME),
+				$show_only_tmp ? NULL : S_DNS,
+				$show_only_tmp ? NULL : S_IP,
+				$show_only_tmp ? NULL : S_PORT,
 				S_TEMPLATES,
-				$show_only_tmp ? NULL : make_sorting_link(S_STATUS,'h.status'),
-				$show_only_tmp ? NULL : make_sorting_link(S_AVAILABILITY,'h.available'),
+				$show_only_tmp ? NULL : S_STATUS,
+				$show_only_tmp ? NULL : S_AVAILABILITY,
 				$show_only_tmp ? NULL : S_ERROR,
 				S_ACTIONS
 				));
 		
-			$sql='SELECT h.* '.
-				' FROM';
-				
-			if(isset($_REQUEST["groupid"])){
-				$sql.= ' hosts h,hosts_groups hg ';
-				$sql.= ' WHERE hg.groupid='.$_REQUEST['groupid'].
-							' AND hg.hostid=h.hostid '.
-							' AND';
-							
-			} 
-			else  $sql.= ' hosts h '.
-						' WHERE';
-			
-			$sql.=	' h.hostid IN ('.$available_hosts.') '.
+			$sql="select h.* from";
+			if(isset($_REQUEST["groupid"]))
+			{
+				$sql .= " hosts h,hosts_groups hg where";
+				$sql .= " hg.groupid=".$_REQUEST["groupid"]." and hg.hostid=h.hostid and";
+			} else  $sql .= " hosts h where";
+			$sql .=	" h.hostid in (".$available_hosts.") ".
 				$status_filter.
-				order_by('h.host,h.port,h.ip,h.status,h.available,h.dns');
+				" order by h.host";
 
 			$result=DBselect($sql);
 		
@@ -735,7 +730,7 @@ include_once "include/page_header.php";
 
 				$db_groups = DBselect('select g.groupid, g.name from groups g left join hosts_groups hg '.
 						' on g.groupid=hg.groupid and hg.hostid='.$row['hostid'].
-						' where '.DBin_node('g.groupid').' AND hg.hostid is NULL order by g.name,g.groupid');
+						' where hostid is NULL order by g.name,g.groupid');
 				while($group_data = DBfetch($db_groups))
 				{
 					$add_to[] = array($group_data['name'], '?'.
@@ -823,26 +818,22 @@ include_once "include/page_header.php";
 				array(	new CCheckBox("all_groups",NULL,
 						"CheckAll('".$form->GetName()."','all_groups');"),
 					SPACE,
-					make_sorting_link(S_NAME,'g.name')),
-				' # ',
+					S_NAME),
+				" # ",
 				S_MEMBERS));
 
 			$available_groups = get_accessible_groups_by_user($USER_DETAILS,PERM_READ_WRITE,null,null,get_current_nodeid());
 
-			$db_groups=DBselect('SELECT g.groupid,g.name '.
-							' FROM groups g'.
-							' WHERE g.groupid in ('.$available_groups.')'.
-							order_by('g.name'));
+			$db_groups=DBselect("select groupid,name from groups".
+					" where groupid in (".$available_groups.")".
+					" order by name");
 			while($db_group=DBfetch($db_groups))
 			{
-				$db_hosts = DBselect('SELECT DISTINCT h.host, h.status'.
-								' FROM hosts h, hosts_groups hg'.
-								' WHERE h.hostid=hg.hostid '.
-									' AND hg.groupid='.$db_group['groupid'].
-									' AND h.hostid in ('.$available_hosts.')'.
-									' AND h.status not in ('.HOST_STATUS_DELETED.') '.
-									' order by host'
-									);
+				$db_hosts = DBselect("select distinct h.host, h.status".
+					" from hosts h, hosts_groups hg".
+					" where h.hostid=hg.hostid and hg.groupid=".$db_group["groupid"].
+					" and h.hostid in (".$available_hosts.")".
+					" and h.status not in (".HOST_STATUS_DELETED.") order by host");
 
 				$hosts = array();
 				$count = 0;
@@ -850,7 +841,7 @@ include_once "include/page_header.php";
 					$style = $db_host["status"]==HOST_STATUS_MONITORED ? NULL: ( 
 						$db_host["status"]==HOST_STATUS_TEMPLATE ? "unknown" :
 						"on");
-					array_push($hosts,empty($hosts)?'':',',new CSpan($db_host["host"],$style));
+					array_push($hosts,unpack_object(new CSpan($db_host["host"],$style)));
 					$count++;
 				}
 
@@ -864,8 +855,7 @@ include_once "include/page_header.php";
 							url_param("config"),'action')
 					),
 					$count,
-					$hosts
-//					implode(', ',$hosts)
+					implode(', ',$hosts)
 					));
 			}
 			$table->SetFooter(new CCol(array(
@@ -885,24 +875,18 @@ include_once "include/page_header.php";
 		show_table_header(S_TEMPLATE_LINKAGE_BIG);
 
 		$table = new CTableInfo(S_NO_LINKAGES);
-		$table->SetHeader(array(
-				make_sorting_link(S_TEMPLATES,'h.host'),
-				S_HOSTS));
+		$table->SetHeader(array(S_TEMPLATES,S_HOSTS));
 
-		$templates = DBSelect('SELECT h.* '.
-						' FROM hosts h'.
-						' WHERE h.status='.HOST_STATUS_TEMPLATE.
-							' AND h.hostid in ('.$available_hosts.') '.
-						order_by('h.host'));
-						
-		while($template = DBfetch($templates)){
-			$hosts = DBSelect('SELECT h.* '.
-							' FROM hosts h, hosts_templates ht '.
-							' WHERE ht.templateid='.$template['hostid'].
-								' AND ht.hostid=h.hostid '.
-								' AND h.status not in ('.HOST_STATUS_TEMPLATE.') '.
-								' AND h.hostid in ('.$available_hosts.') '.
-							' ORDER BY host');
+		$templates = DBSelect("select * from hosts where status=".HOST_STATUS_TEMPLATE.
+			" and hostid in (".$available_hosts.")".
+			" order by host");
+		while($template = DBfetch($templates))
+		{
+			$hosts = DBSelect("select h.* from hosts h, hosts_templates ht where ht.templateid=".$template["hostid"].
+				" and ht.hostid=h.hostid ".
+				" and h.status not in (".HOST_STATUS_TEMPLATE.")".
+				" and h.hostid in (".$available_hosts.")".
+				" order by host");
 			$host_list = array();
 			while($host = DBfetch($hosts))
 			{
@@ -980,17 +964,14 @@ include_once "include/page_header.php";
 
 			$table = new CTableInfo();
 			$table->SetHeader(array(
-				array(new CCheckBox("all_applications",NULL,"CheckAll('".$form->GetName()."','all_applications');"),
+				array(new CCheckBox("all_applications",NULL,
+					"CheckAll('".$form->GetName()."','all_applications');"),
 				SPACE,
-				make_sorting_link(S_APPLICATION,'a.name')),
+				S_APPLICATION),
 				S_SHOW
 				));
 
-			$db_applications = DBselect('SELECT a.* '.
-									' FROM applications a'.
-									' WHERE a.hostid='.$_REQUEST['hostid'].
-									order_by('a.name'));
-									
+			$db_applications = DBselect("select * from applications where hostid=".$_REQUEST["hostid"]);
 			while($db_app = DBfetch($db_applications))
 			{
 				if($db_app["templateid"]==0)

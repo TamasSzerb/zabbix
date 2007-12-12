@@ -19,24 +19,19 @@
 **/
 ?>
 <?php
-	function bold($str){
+	function	bold($str)
+	{
 		if(is_array($str)){
 			foreach($str as $key => $val)
-				if(is_string($val)){
-					$b = new CTag('strong','yes');
-					$b->AddItem($val);
-					$str[$key] = $b;
-				}
-		} 
-		else if(is_string($str)) {
-			$b = new CTag('strong','yes');
-			$b->AddItem($str);
-			$str = $b;
+				if(is_string($val))
+					 $str[$key] = "<b>$val</b>";
+		} elseif(is_string($str)) {
+			$str = "<b>$str</b>";
 		}
-	return $str;
+		return $str;
 	}
 
-	function bfirst($str) // mark first symbol of string as bold
+	function	bfirst($str) // mark first symbol of string as bold
 	{
 		$res = bold($str[0]);
 		for($i=1,$max=strlen($str); $i<$max; $i++)	$res .= $str[$i];
@@ -44,20 +39,9 @@
 		return $str;	
 	}
 
-	function nbsp($str)
+	function	nbsp($str)
 	{
 		return str_replace(" ",SPACE,$str);;
-	}
-
-	function utf8_strlen($s)
-	{
-		return preg_match_all('/([\x01-\x7f]|([\xc0-\xff][\x80-\xbf]{1,5}))/', $s, $tmp);
-	}
-
-	function utf8_strtop($s, $len)
-	{
-		preg_match('/^([\x01-\x7f]|([\xc0-\xff][\x80-\xbf]{1,5})){0,'.$len.'}/', $s, $tmp);
-		return (isset($tmp[0])) ? $tmp[0] : false;
 	}
 
 	function form_select($var, $value, $label)
@@ -70,12 +54,12 @@
 			if(isset($_REQUEST[$var])&&$_REQUEST[$var]==$value)
 				$selected = "selected";
 		}
-		return '<option value="'.$value.'" '.$selected.'>'.$label;
+		return "<option value=\"$value\" $selected>$label";
 	}
 
 	function form_input($name, $value, $size)
 	{
-		return '<input class="'.biginput.'" name="'.$name.'" size="'.$size.'" value="'.$value.'">';
+		return "<input class=\"biginput\" name=\"$name\" size=$size value=\"$value\">";
 	}
 
 	function form_textarea($name, $value, $cols, $rows)
@@ -97,7 +81,7 @@
 		}
 	}
 
-	function prepare_url(&$var, $varname=null)
+	function	prepare_url(&$var, $varname)
 	{
 		$result = "";
 
@@ -115,28 +99,38 @@
 		return $result;
 	}
 
-	function url_param($parameter,$request=true,$name=null){
-		$result = '';
-		if(!is_array($parameter)){
-			if(!isset($name)){
+	function url_param($parameter,$request=true,$name=null)
+	{
+		$result = "";
+
+		
+		if(!is_array($parameter))
+		{
+			if(!isset($name))
+			{
 				if(!$request)
 					fatal_error('not request variable require url name [url_param]');
-					
+
 				$name = $parameter;
 			}
 		}
 		
-		if($request){
+		if($request)
+		{
+			global $_REQUEST;
+			
 			$var =& $_REQUEST[$parameter];
 		}
-		else{
+		else
+		{
 			$var =& $parameter;
 		}
 		
-		if(isset($var)){
+		if(isset($var))
+		{
 			$result = prepare_url($var,$name);
 		}
-	return $result;
+		return $result;
 	}
 
 	function table_begin($class="tableinfo")
@@ -201,9 +195,5 @@
 		echo "</TD>";
 		echo "</TR>";
 		echo "</TABLE>";
-	}
-	
-	function BR(){
-		return new CTag('br','no');
 	}
 ?>

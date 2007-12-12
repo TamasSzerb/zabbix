@@ -32,7 +32,6 @@
 	{
 	        $page["title"] = "S_EXPORT_IMPORT";
         	$page["file"] = "exp_imp.php";
-		$page['hist_arg'] = array('config','groupid');
 	}
 
 include_once "include/page_header.php";
@@ -47,7 +46,6 @@ include_once "include/page_header.php";
 
 		"groupid"=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null),
 		"hosts"=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null),
-		"templates"=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null),
 		"items"=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null),
 		"triggers"=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null),
 		"graphs"=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null),
@@ -63,8 +61,7 @@ include_once "include/page_header.php";
 	);
 
 	check_fields($fields);
-	validate_sort_and_sortorder();
-	
+
 	$preview = isset($_REQUEST['preview']) ? true : false;
 	$config = get_request('config', 0);
 	$update = get_request('update', null);
@@ -75,7 +72,7 @@ include_once "include/page_header.php";
 	if($config == 1)
 	{
 		$rules = get_request('rules', array());
-		foreach(array('host', 'template', 'item', 'trigger', 'graph') as $key)
+		foreach(array('host', 'item', 'trigger', 'graph') as $key)
 		{
 			if(!isset($rules[$key]['exist']))	$rules[$key]['exist']	= 0;
 			if(!isset($rules[$key]['missed']))	$rules[$key]['missed']	= 0;
@@ -89,7 +86,6 @@ include_once "include/page_header.php";
 		$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,null,PERM_RES_IDS_ARRAY,get_current_nodeid());
 
 		$hosts		= get_request('hosts', array());
-		$templates	= get_request('templates', array());
 		$items		= get_request('items', array());
 		$graphs		= get_request('graphs', array());
 		$triggers	= get_request('triggers', array());
@@ -104,7 +100,6 @@ include_once "include/page_header.php";
 		}
 		
 		$hosts		= zbx_array_val_inc(array_flip(array_intersect(array_keys($hosts),	$available_hosts)));
-		$templates	= zbx_array_val_inc(array_flip(array_intersect(array_keys($templates),	array_keys($hosts))));
 		$items		= zbx_array_val_inc(array_flip(array_intersect(array_keys($items),	array_keys($hosts))));
 		$graphs		= zbx_array_val_inc(array_flip(array_intersect(array_keys($graphs),	array_keys($hosts))));
 		$triggers	= zbx_array_val_inc(array_flip(array_intersect(array_keys($triggers),	array_keys($hosts))));
@@ -119,7 +114,7 @@ include_once "include/page_header.php";
 		include_once "include/export.inc.php";
 		
 		$exporter = new CZabbixXMLExport();
-		$exporter->Export($hosts,$templates,$items,$triggers,$graphs);
+		$exporter->Export($hosts,$items,$triggers,$graphs);
 
 		unset($exporter);
 	}
@@ -146,7 +141,7 @@ include_once "include/page_header.php";
 	$form->AddItem($cmbConfig);
 
 	show_table_header($title, $form);
-	echo SBR;
+	echo BR;
 
 	if($config == 1)
 	{
@@ -155,7 +150,7 @@ include_once "include/page_header.php";
 			include_once "include/import.inc.php";
 
 			$importer = new CZabbixXMLImport();
-			$importer->SetRules($rules['host'],$rules['template'],$rules['item'],$rules['trigger'],$rules['graph']);
+			$importer->SetRules($rules['host'],$rules['item'],$rules['trigger'],$rules['graph']);
 			$importer->Parse($_FILES['import_file']['tmp_name']);
 
 			unset($importer);
@@ -170,7 +165,6 @@ include_once "include/page_header.php";
 		$table->SetHeader(array(S_ELEMENT, S_EXISTING, S_MISSING),'bold');
 
 		foreach(array(	'host'		=> S_HOST,
-				'template'	=> S_TEMPLATE,
 				'item'		=> S_ITEM,
 				'trigger'	=> S_TRIGGER,
 				'graph'		=> S_GRAPH)
@@ -181,7 +175,7 @@ include_once "include/page_header.php";
 			$cmbExist->AddItem(1, S_SKIP);
 			
 			$cmbMissed = new CComboBox('rules['.$key.'][missed]', $rules[$key]['missed']);
-			($key == 'template')?(''):($cmbMissed->AddItem(0, S_ADD));
+			$cmbMissed->AddItem(0, S_ADD);
 			$cmbMissed->AddItem(1, S_SKIP);
 
 			$table->AddRow(array($title, $cmbExist, $cmbMissed));
@@ -206,11 +200,6 @@ include_once "include/page_header.php";
 			{
 				$el_table = new CTableInfo(S_ONLY_HOST_INFO);
 				$sqls = array(
-					S_TEMPLATE	=> !isset($templates[$host['hostid']]) ? null : 
-								' SELECT ht.hostid, h.host as info, count(distinct ht.hosttemplateid) as cnt '.
-								' FROM hosts h, hosts_templates ht '.
-								' WHERE ht.templateid = h.hostid '.
-								' GROUP BY h.host',
 					S_ITEM		=> !isset($items[$host['hostid']]) ? null : 
 								' select hostid, description as info, 1 as cnt from items'.
 								' where hostid='.$host['hostid'],
@@ -247,7 +236,6 @@ include_once "include/page_header.php";
 			$form->AddVar("config",		$config);
 			$form->AddVar('update',		true);
 			$form->AddVar('hosts',		$hosts);
-			$form->AddVar('templates',	$templates);
 			$form->AddVar('items', 		$items);
 			$form->AddVar('graphs', 	$graphs);
 			$form->AddVar('triggers',	$triggers);
@@ -294,13 +282,11 @@ include_once "include/page_header.php";
 			$table = new CTableInfo(S_NO_HOSTS_DEFINED);
 			$table->SetHeader(array(
 				array(	new CCheckBox("all_hosts",true, "CheckAll('".$form->GetName()."','all_hosts','hosts');"),
-					make_sorting_link(S_NAME,'h.host')),
-				make_sorting_link(S_DNS,'h.dns'),
-				make_sorting_link(S_IP,'h.ip'),
-				make_sorting_link(S_PORT,'h.port'),
-				make_sorting_link(S_STATUS,'h.status'),
-				array(	new CCheckBox("all_templates",true, "CheckAll('".$form->GetName()."','all_templates','templates');"),
-					S_TEMPLATES),
+					S_NAME),
+				S_DNS,
+				S_IP,
+				S_PORT,
+				S_STATUS,
 				array(	new CCheckBox("all_items",true, "CheckAll('".$form->GetName()."','all_items','items');"),
 					S_ITEMS),
 				array(	new CCheckBox("all_triggers",true, "CheckAll('".$form->GetName()."','all_triggers','triggers');"),
@@ -313,19 +299,14 @@ include_once "include/page_header.php";
 				*/
 				));
 		
-			$sql = 'SELECT h.* '.
-					' FROM ';
-			if(isset($_REQUEST["groupid"])){
-				$sql .= ' hosts h,hosts_groups hg ';
-				$sql .= ' WHERE hg.groupid='.$_REQUEST['groupid'].
-							' AND hg.hostid=h.hostid '.
-							' AND';
-			} 
-			else  $sql .= ' hosts h '.
-						' WHERE';
-			
-			$sql .=	' h.hostid in ('.$available_hosts.') '.
-					order_by('h.host,h.dns,h.ip,h.port,h.status');
+			$sql = "select h.* from";
+			if(isset($_REQUEST["groupid"]))
+			{
+				$sql .= " hosts h,hosts_groups hg where";
+				$sql .= " hg.groupid=".$_REQUEST["groupid"]." and hg.hostid=h.hostid and";
+			} else  $sql .= " hosts h where";
+			$sql .=	" h.hostid in (".$available_hosts.") ".
+				" order by h.host";
 
 			$result=DBselect($sql);
 		
@@ -339,23 +320,17 @@ include_once "include/page_header.php";
 					$row["host"]
 					));
 				
-				$status = new CCol(host_status2str($row['status']),host_status2style($row['status']));
-				
-				
-				/* calculate template */
-				$template_cnt = DBfetch(DBselect('select count(hosttemplateid) as cnt from hosts_templates where hostid='.$row['hostid']));
-				if($template_cnt['cnt'] > 0)
-				{
-					$template_cnt = array(new CCheckBox('templates['.$row['hostid'].']',
-							isset($templates[$row['hostid']]) || !isset($update),
-							NULL,true),
-						$template_cnt['cnt']);
-				}
+				if($row["status"] == HOST_STATUS_MONITORED){
+					$status=new CSpan(S_MONITORED, "off");
+				} else if($row["status"] == HOST_STATUS_NOT_MONITORED) {
+					$status=new CSpan(S_NOT_MONITORED, "on");
+				} else if($row["status"] == HOST_STATUS_TEMPLATE)
+					$status=new CCol(S_TEMPLATE,"unknown");
+				else if($row["status"] == HOST_STATUS_DELETED)
+					$status=new CCol(S_DELETED,"unknown");
 				else
-				{
-					$template_cnt = '-';
-				}
-								
+					$status=S_UNKNOWN;
+				
 				/* calculate items */
 				$item_cnt = DBfetch(DBselect('select count(itemid) as cnt from items where hostid='.$row['hostid']));
 				if($item_cnt['cnt'] > 0)
@@ -430,7 +405,6 @@ include_once "include/page_header.php";
 					$ip,
 					$port,
 					$status,
-					$template_cnt,
 					$item_cnt,
 					$trigger_cnt,
 					$graph_cnt

@@ -19,43 +19,37 @@
 **/
 ?>
 <?php
-/*
- * Function: graph_item_type2str
- *
- * Description:
- *     Represent integer value of graph item type into the string
- *
- * Author:
- *     Eugene Grigorjev 
- *
- */
+        /*
+         * Function: graph_item_type2str
+         *
+         * Description:
+         *     Represent integer value of graph item type into the string
+         *
+         * Author:
+         *     Eugene Grigorjev 
+         *
+         */
 	function	graph_item_type2str($type,$count=null)
 	{
-		switch($type){
-			case GRAPH_ITEM_SUM:	
-				$type = S_GRAPH_SUM;
-				break;				
-			case GRAPH_ITEM_AGGREGATED:	
-				$type = S_AGGREGATED.(isset($count) ? '('.$count.')' : '');	
-				break;
+		switch($type)
+		{
+			case GRAPH_ITEM_AGGREGATED:	$type = S_AGGREGATED.(isset($count) ? '('.$count.')' : '');	break;
 			case GRAPH_ITEM_SIMPLE:
-			default:			
-				$type = S_SIMPLE;	
-				break;
+			default:			$type = S_SIMPLE;	break;
 		}
 		return $type;
 	}
 	
-/*
- * Function: graph_item_drawtypes
- *
- * Description:
- *     Return available drawing types for graph item
- *
- * Author:
- *     Eugene Grigorjev 
- *
- */
+        /*
+         * Function: graph_item_drawtypes
+         *
+         * Description:
+         *     Return available drawing types for graph item
+         *
+         * Author:
+         *     Eugene Grigorjev 
+         *
+         */
 	function	graph_item_drawtypes()
 	{
 		return array(
@@ -67,42 +61,42 @@
 			    );
 	}
 
-/*
- * Function: graph_item_drawtype2str
- *
- * Description:
- *     Represent integer value of graph item drawing type into the string
- *
- * Author:
- *     Eugene Grigorjev 
- *
- */
-	function	graph_item_drawtype2str($drawtype,$type=null)
-	{
-	if($type == GRAPH_ITEM_AGGREGATED) return '-';
+        /*
+         * Function: graph_item_drawtype2str
+         *
+         * Description:
+         *     Represent integer value of graph item drawing type into the string
+         *
+         * Author:
+         *     Eugene Grigorjev 
+         *
+         */
+        function	graph_item_drawtype2str($drawtype,$type=null)
+        {
+		if($type == GRAPH_ITEM_AGGREGATED) return '-';
 
-	switch($drawtype)
-	{
-		case GRAPH_ITEM_DRAWTYPE_LINE:		$drawtype = "Line";		break;
-		case GRAPH_ITEM_DRAWTYPE_FILLED_REGION:	$drawtype = "Filled region";	break;
-		case GRAPH_ITEM_DRAWTYPE_BOLD_LINE:	$drawtype = "Bold line";	break;
-		case GRAPH_ITEM_DRAWTYPE_DOT:		$drawtype = "Dot";		break;
-		case GRAPH_ITEM_DRAWTYPE_DASHED_LINE:	$drawtype = "Dashed line";	break;
-		default: $drawtype = S_UNKNOWN;		break;
-	}
-	return $drawtype;
-	}
+		switch($drawtype)
+		{
+			case GRAPH_ITEM_DRAWTYPE_LINE:		$drawtype = "Line";		break;
+			case GRAPH_ITEM_DRAWTYPE_FILLED_REGION:	$drawtype = "Filled region";	break;
+			case GRAPH_ITEM_DRAWTYPE_BOLD_LINE:	$drawtype = "Bold line";	break;
+			case GRAPH_ITEM_DRAWTYPE_DOT:		$drawtype = "Dot";		break;
+			case GRAPH_ITEM_DRAWTYPE_DASHED_LINE:	$drawtype = "Dashed line";	break;
+			default: $drawtype = S_UNKNOWN;		break;
+		}
+		return $drawtype;
+        }
 
-/*
- * Function: graph_item_calc_fnc2str
- *
- * Description:
- *     Represent integer value of calculation function into the string
- *
- * Author:
- *     Eugene Grigorjev 
- *
- */
+        /*
+         * Function: graph_item_calc_fnc2str
+         *
+         * Description:
+         *     Represent integer value of calculation function into the string
+         *
+         * Author:
+         *     Eugene Grigorjev 
+         *
+         */
 	function	graph_item_calc_fnc2str($calc_fnc, $type=null)
 	{
 		if($type == GRAPH_ITEM_AGGREGATED) return '-';
@@ -112,7 +106,6 @@
 			case CALC_FNC_ALL:      $calc_fnc = S_ALL_SMALL;        break;
 			case CALC_FNC_MIN:      $calc_fnc = S_MIN_SMALL;        break;
 			case CALC_FNC_MAX:      $calc_fnc = S_MAX_SMALL;        break;
-			case CALC_FNC_LST:		$calc_fnc = S_LST_SMALL;		break;
 			case CALC_FNC_AVG:
 			default:		$calc_fnc = S_AVG_SMALL;        break;
 		}
@@ -121,16 +114,16 @@
 	
 	function 	get_graph_by_gitemid($gitemid)
 	{
-		$db_graphs = DBselect("SELECT distinct g.* FROM graphs g, graphs_items gi".
-			" WHERE g.graphid=gi.graphid and gi.gitemid=$gitemid");
+		$db_graphs = DBselect("select distinct g.* from graphs g, graphs_items gi".
+			" where g.graphid=gi.graphid and gi.gitemid=$gitemid");
 		return DBfetch($db_graphs);
 		
 	}
 
 	function 	&get_graphs_by_hostid($hostid)
 	{
-		return DBselect("SELECT distinct g.* FROM graphs g, graphs_items gi, items i".
-			" WHERE g.graphid=gi.graphid and gi.itemid=i.itemid and i.hostid=$hostid");
+		return DBselect("select distinct g.* from graphs g, graphs_items gi, items i".
+			" where g.graphid=gi.graphid and gi.itemid=i.itemid and i.hostid=$hostid");
 	}
 
 	function	&get_realhosts_by_graphid($graphid)
@@ -144,60 +137,19 @@
 
 	function 	&get_hosts_by_graphid($graphid)
 	{
-		return DBselect("SELECT distinct h.* FROM graphs_items gi, items i, hosts h".
-			" WHERE h.hostid=i.hostid and gi.itemid=i.itemid and gi.graphid=$graphid");
+		return DBselect("select distinct h.* from graphs_items gi, items i, hosts h".
+			" where h.hostid=i.hostid and gi.itemid=i.itemid and gi.graphid=$graphid");
 	}
 
 	function	&get_graphitems_by_graphid($graphid)
 	{
-		return DBselect("SELECT * FROM graphs_items WHERE graphid=$graphid".
+		return DBselect("select * from graphs_items where graphid=$graphid".
 			" order by itemid,drawtype,sortorder,color,yaxisside"); 
-	}
-
-	/*
-	 * Function: get_min_itemclock_by_graphid
-	 *
-	 * Description:
-	 *     Return the time of the 1st apearance of items included in graph in trends
-	 *
-	 * Author:
-	 *     Aly
-	 *
-	 */	
-	function get_min_itemclock_by_graphid($graphid){
-		$row = DBfetch(DBselect('SELECT MIN(t.clock) as clock '.
-						' FROM graphs_items gi, trends t '.
-						' WHERE gi.graphid='.$graphid.
-						  ' AND t.itemid = gi.itemid')); 
-						  
-		if(!empty($row) && $row) 
-			return  $row['clock'];
-	return 0;
-	}
-
-	/*
-	 * Function: get_min_itemclock_by_itemid
-	 *
-	 * Description:
-	 *     Return the time of the 1st apearance of item in trends
-	 *
-	 * Author:
-	 *     Aly
-	 *
-	 */	
-	function	get_min_itemclock_by_itemid($itemid){
-		$row = DBfetch(DBselect('SELECT MIN(t.clock) as clock '.
-						' FROM trends t '.
-						' WHERE t.itemid='.$itemid)); 
-						  
-		if(!empty($row) && $row) 
-			return  $row['clock'];
-	return 0;
 	}
 
 	function	get_graphitem_by_gitemid($gitemid)
 	{
-		$result=DBselect("SELECT * FROM graphs_items WHERE gitemid=$gitemid");
+		$result=DBselect("select * from graphs_items where gitemid=$gitemid");
 		$row=DBfetch($result);
 		if($row)
 		{
@@ -209,7 +161,7 @@
 
 	function	get_graphitem_by_itemid($itemid)
 	{
-		$result = DBfetch(DBselect('SELECT * FROM graphs_items WHERE itemid='.$itemid));
+		$result = DBfetch(DBselect('select * from graphs_items where itemid='.$itemid));
 		$row=DBfetch($result);
 		if($row)
 		{
@@ -221,7 +173,7 @@
 	function	get_graph_by_graphid($graphid)
 	{
 
-		$result=DBselect("SELECT * FROM graphs WHERE graphid=$graphid");
+		$result=DBselect("select * from graphs where graphid=$graphid");
 		$row=DBfetch($result);
 		if($row)
 		{
@@ -231,49 +183,41 @@
 		return	false;
 	}
 
-	function	get_graphs_by_templateid($templateid)
+	function	&get_graphs_by_templateid($templateid)
 	{
-		return DBselect("SELECT * FROM graphs WHERE templateid=$templateid");
+		return DBselect("select * from graphs where templateid=$templateid");
 	}
 
-/*
- * Function: get_same_graphitems_for_host
- *
- * Description:
- *     Replace items for specified host
- *
- * Author:
- *     Eugene Grigorjev 
- *
- * Comments: !!! Don't forget sync code with C !!!
- * Only PHP:
- *		$error= true : rise Error if item doesn't exists(error generated), false: special processing (NO error generated)
- */
-	function	get_same_graphitems_for_host($gitems, $dest_hostid, $error=true)
+        /*
+         * Function: get_same_graphitems_for_host
+         *
+         * Description:
+         *     Replace items for specified host
+         *
+         * Author:
+         *     Eugene Grigorjev 
+         *
+         * Comments: !!! Don't forget sync code with C !!!
+         *
+         */
+	function	get_same_graphitems_for_host($gitems, $dest_hostid)
 	{
 		$result = array();
 
 		foreach($gitems as $gitem)
 		{
-			$sql = 'SELECT src.itemid '.
-							' FROM items src, items dest '.
-							' WHERE dest.itemid='.zbx_dbstr($gitem['itemid']).
-								' AND src.key_=dest.key_ '.
-								' AND src.hostid='.$dest_hostid;
-			$db_item = DBfetch(DBselect($sql));
-			if (!$db_item && $error){
+			if ( !($db_item = DBfetch(DBselect('select src.itemid from items src, items dest '.
+					       ' where dest.itemid='.$gitem['itemid'].
+					       ' and src.key_=dest.key_ and src.hostid='.$dest_hostid))) )
+			{
+
 				$item = get_item_by_itemid($gitem['itemid']);
 				$host = get_host_by_hostid($dest_hostid);
 				error('Missed key "'.$item['key_'].'" for host "'.$host['host'].'"');
 				return false;
 			}
-			else if(!$db_item){
-				continue;
-//				$gitem['itemid'] = 0;
-			}
-			else{
-				$gitem['itemid'] = $db_item['itemid'];
-			}
+
+			$gitem['itemid'] = $db_item['itemid'];
 
 			$result[] = $gitem;
 		}
@@ -293,14 +237,14 @@
          * Comments: !!! Don't forget sync code with C !!!
          *
          */
-	function	add_graph($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$templateid=0)
+	function	add_graph($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype=GRAPH_TYPE_NORMAL,$templateid=0)
 	{
 		$graphid = get_dbid("graphs","graphid");
 
 		$result=DBexecute("insert into graphs".
-			" (graphid,name,width,height,yaxistype,yaxismin,yaxismax,templateid,show_work_period,show_triggers,graphtype,show_legend,show_3d)".
+			" (graphid,name,width,height,yaxistype,yaxismin,yaxismax,templateid,show_work_period,show_triggers,graphtype)".
 			" values ($graphid,".zbx_dbstr($name).",$width,$height,$yaxistype,$yaxismin,".
-			" $yaxismax,$templateid,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d)");
+			" $yaxismax,$templateid,$showworkperiod,$showtriggers,$graphtype)");
 
 		return ( $result ? $graphid : $result);
 	}
@@ -317,7 +261,7 @@
          * Comments: !!! Don't forget sync code with C !!!
          *
          */
-	function	add_graph_with_items($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$gitems=array(),$templateid=0)
+	function	add_graph_with_items($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype=GRAPH_TYPE_NORMAL,$gitems=array(),$templateid=0)
 	{
 		$result = false;
 
@@ -351,7 +295,7 @@
 			return $result;
 		}
 
-		if ( ($graphid = add_graph($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$templateid)) )
+		if ( ($graphid = add_graph($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$templateid)) )
 		{
 			$result = true;
 			foreach($gitems as $gitem)
@@ -408,22 +352,19 @@
          * Comments: !!! Don't forget sync code with C !!!
          *
          */
-	function	update_graph($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$templateid=0)
+	function	update_graph($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype=GRAPH_TYPE_NORMAL,$templateid=0)
 	{
 		$g_graph = get_graph_by_graphid($graphid);
 
-		if ( ($result = DBexecute(
-				'UPDATE graphs '.
-				'SET name='.zbx_dbstr($name).',width='.$width.',height='.$height.
-					',yaxistype='.$yaxistype.',yaxismin='.$yaxismin.',yaxismax='.$yaxismax.',templateid='.$templateid.
-					',show_work_period='.$showworkperiod.',show_triggers='.$showtriggers.',graphtype='.$graphtype.
-					',show_legend='.$legend.',show_3d='.$graph3d.
-				' WHERE graphid='.$graphid)) )
+		if ( ($result = DBexecute('update graphs set name='.zbx_dbstr($name).',width='.$width.',height='.$height.','.
+			'yaxistype='.$yaxistype.',yaxismin='.$yaxismin.',yaxismax='.$yaxismax.',templateid='.$templateid.','.
+			'show_work_period='.$showworkperiod.',show_triggers='.$showtriggers.',graphtype='.$graphtype.
+			' where graphid='.$graphid)) )
 		{
 			if($g_graph['graphtype'] != $graphtype && $graphtype == GRAPH_TYPE_STACKED)
 			{
-				$result = DBexecute('UPDATE graphs_items SET calc_fnc='.CALC_FNC_AVG.',drawtype=1,type='.GRAPH_ITEM_SIMPLE.
-					' WHERE graphid='.$graphid);
+				$result = DBexecute('update graphs_items set calc_fnc='.CALC_FNC_AVG.',drawtype=1,type='.GRAPH_ITEM_SIMPLE.
+					' where graphid='.$graphid);
 			}
 		}
 		return $result;
@@ -441,7 +382,7 @@
          * Comments: !!! Don't forget sync code with C !!!
          *
          */
-	function	update_graph_with_items($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$gitems=array(),$templateid=0)
+	function	update_graph_with_items($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype=GRAPH_TYPE_NORMAL,$gitems=array(),$templateid=0)
 	{
 		$result = false;
 
@@ -493,7 +434,7 @@
 		
 			if ( ! ($result = update_graph_with_items($chd_graph['graphid'], $name, $width, $height,
 				$yaxistype, $yaxismin, $yaxismax,
-				$showworkperiod, $showtriggers, $graphtype, $legend, $graph3d, $new_gitems, $graphid)) )
+				$showworkperiod, $showtriggers, $graphtype, $new_gitems, $graphid)) )
 			{
 				return $result;
 			}
@@ -519,7 +460,7 @@
 		}
 
 		if ( ($result = update_graph($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,
-						$showtriggers,$graphtype,$legend,$graph3d,$templateid)) )
+						$showtriggers,$graphtype,$templateid)) )
 		{
 			$host_list = array();
 			$db_hosts = get_hosts_by_graphid($graphid);
@@ -568,8 +509,8 @@
 		DBexecute('delete from screens_items where resourceid='.$graphid.' and resourcetype='.SCREEN_RESOURCE_GRAPH);
 
 		/* delete graph */
-		if ( ($result = DBexecute('DELETE FROM graphs_items WHERE graphid='.$graphid)) )
-		if ( ($result = DBexecute('DELETE FROM graphs WHERE graphid='.$graphid)) )
+		if ( ($result = DBexecute('delete from graphs_items where graphid='.$graphid)) )
+		if ( ($result = DBexecute('delete from graphs where graphid='.$graphid)) )
 		{	
 			info('Graph "'.$graph['name'].'" deleted from hosts '.implode(',',$host_list));
 		}
@@ -640,7 +581,7 @@
          * Comments: !!! Don't forget sync code with C !!!
          *
          */
-	function	delete_template_graphs($hostid, $templateid = null /* array format 'arr[id]=name' */, $unlink_mode = false)
+	function	delete_template_graphs($hostid, $templateid = null, $unlink_mode = false)
 	{
 		$db_graphs = get_graphs_by_hostid($hostid);
 		while($db_graph = DBfetch($db_graphs))
@@ -648,7 +589,7 @@
 			if($db_graph['templateid'] == 0)
 				continue;
 
-			if($templateid != null)
+			if( !is_null($templateid) )
 			{
 				if( !is_array($templateid) ) $templateid=array($templateid);
 
@@ -660,7 +601,7 @@
 
 			if($unlink_mode)
 			{
-				if(DBexecute('update graphs set templateid=0 WHERE graphid='.$db_graph['graphid']))
+				if(DBexecute('update graphs set templateid=0 where graphid='.$db_graph['graphid']))
 				{
 					info('Graph "'.$db_graph['name'].'" unlinked');
 				}	
@@ -684,16 +625,16 @@
          * Comments: !!! Don't forget sync code with C !!!
          *
          */
-	function	copy_template_graphs($hostid, $templateid = null /* array format 'arr[id]=name' */, $copy_mode = false)
+	function	copy_template_graphs($hostid, $templateid = null, $copy_mode = false)
 	{
 		if($templateid == null)
 		{
-			$templateid = get_templates_by_hostid($hostid);
+			$templateid = array_keys(get_templates_by_hostid($hostid));
 		}
 		
 		if(is_array($templateid))
 		{
-			foreach($templateid as $id => $name)
+			foreach($templateid as $id)
 				copy_template_graphs($hostid, $id, $copy_mode); // attention recursion
 			return;
 		}
@@ -786,14 +727,14 @@
 				$result = update_graph_with_items($chd_graphid, $db_graph['name'], $db_graph['width'], $db_graph['height'],
 					$db_graph['yaxistype'], $db_graph['yaxismin'], $db_graph['yaxismax'],
 					$db_graph['show_work_period'], $db_graph['show_triggers'], $db_graph['graphtype'],
-					$db_graph['show_legend'], $db_graph['show_3d'], $new_gitems, ($copy_mode ? 0: $db_graph['graphid']));
+					$new_gitems, ($copy_mode ? 0: $db_graph['graphid']));
 			}
 			else
 			{
 				$result = add_graph_with_items($db_graph['name'], $db_graph['width'], $db_graph['height'],
 					$db_graph['yaxistype'], $db_graph['yaxismin'], $db_graph['yaxismax'],
 					$db_graph['show_work_period'], $db_graph['show_triggers'], $db_graph['graphtype'],
-					$db_graph['show_legend'], $db_graph['show_3d'], $new_gitems, ($copy_mode ? 0: $db_graph['graphid']));
+					$new_gitems, ($copy_mode ? 0: $db_graph['graphid']));
 			}
 		}
 		else
@@ -929,83 +870,5 @@
 			$form);
 
 		return;
-	}
-	
-	/*
-	 * Function: 
-	 *		make_array_from_gitems
-	 *
-	 * Description:
-	 *     Creates array with items params for preapare_url function
-	 *
-	 * Author:
-	 *     Aly
-	 *
-	 * Comments
-	 *	
-	 */	
-	function make_url_from_gitems($gitems){
-
-		$gurl=array();
-		$ifields = array(
-						'itemid'	=> 1,
-						'drawtype'	=> 1,
-						'sortorder'	=> 1,
-						'color'		=> 1,
-						'yaxisside'	=> 1,
-						'calc_fnc'	=> 1,
-						'type'		=> 1,
-						'periods_cnt'=>1
-					);
-
-		foreach($gitems as $gitem){
-			foreach($gitem as $name => $value){
-				if(isset($ifields[$name])){
-					$gurl['items['.$gitem['itemid'].']['.$name.']']=$value;
-				}
-			}
-		}
-		
-	return prepare_url($gurl);
-	}
-	
-	/*
-	 * Function: 
-	 *		make_array_from_graphid
-	 *
-	 * Description:
-	 *     Creates array with graph params for preapare_url function
-	 *
-	 * Author:
-	 *     Aly
-	 *
-	 * Comments
-	 *	$full= false: for screens(WITHOUT width && height), true=all params
-	 */	
-	function make_url_from_graphid($graphid,$full=false){
-
-		$gurl=array();
-		if($full){
-			$gparams = array();
-		}
-		else{
-			$gparams = array(
-						'height'=> 1,
-						'width'	=> 1
-					);
-		}
-		
-		$graph=get_graph_by_graphid($graphid);
-		if($graph){
-			foreach($graph as $name => $value){
-				if(!is_numeric($name) && !isset($gparams[$name])) $gurl[$name]=$value;
-			}
-		}
-
-		$url = prepare_url($gurl);
-		if(!empty($url)){
-			$url=((($gurl['graphtype']==GRAPH_TYPE_PIE) || ($gurl['graphtype']==GRAPH_TYPE_EXPLODED))?'chart7.php?':'chart3.php?').trim($url,'&');
-		}
-	return $url;
 	}
 ?>

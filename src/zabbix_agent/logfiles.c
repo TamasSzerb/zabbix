@@ -57,9 +57,7 @@ int   process_log(
 	assert(lastlogsize);
 	assert(value);
 
-	zabbix_log( LOG_LEVEL_DEBUG, "In process log (%s,%li)",
-		filename,
-		*lastlogsize);
+	zabbix_log( LOG_LEVEL_DEBUG, "In process log (%s,%li)", filename, *lastlogsize);
 
 	/* Handling of file shrinking */
 	if( 0 != stat(filename,&buf) )

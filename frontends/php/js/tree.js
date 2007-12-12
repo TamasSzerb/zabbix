@@ -1,6 +1,6 @@
 /*
 ** ZABBIX
-** Copyright (C) 2000-2007 SIA Zabbix
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,6 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 // JavaScript Document
+var IE = document.all?true:false;
+var OP = window.opera?true:false;
+
 
 var tree ={
 init : function(){
@@ -50,10 +53,10 @@ ChangeNodeStatus : function(id){
 			treenode[id].status = 'close';
 		}
 		var cookie_str='';
-		for(var i = 1; i < treenode.length; i++){
-			if(typeof(treenode[i]) != 'undefined'){
-				if(treenode[i].status == 'open'){
-					cookie_str+=i+'.';
+		for(var i = 1; i < nodeid_list.length; i++){
+			if(typeof(treenode[nodeid_list[i]]) != 'undefined'){
+				if(treenode[nodeid_list[i]].status == 'open'){
+					cookie_str+=nodeid_list[i]+'.';
 				}
 			}
 		}

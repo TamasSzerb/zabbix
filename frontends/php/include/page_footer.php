@@ -65,8 +65,8 @@ function zbxCallPostScripts()
 					"page_footer_l"),
 				new CCol(array(
 						new CSpan(SPACE.SPACE."|".SPACE.SPACE,"divider"),
-						new CSpan(S_CONNECTED_AS.SPACE."'".$USER_DETAILS["alias"]."'".
-						(ZBX_DISTRIBUTED ? SPACE.S_FROM_SMALL.SPACE."'".$USER_DETAILS["node"]['name']."'" : ''),'footer_sign')
+						S_CONNECTED_AS.SPACE."'".$USER_DETAILS["alias"]."'".
+						(ZBX_DISTRIBUTED ? SPACE.S_FROM_SMALL.SPACE."'".$USER_DETAILS["node"]['name']."'" : '')
 					),
 					"page_footer_r")
 				));

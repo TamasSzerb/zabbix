@@ -131,8 +131,7 @@
 		return $result;
 	}
 
-
-	# Update User definition
+	# Update User Profile
 
 	function	update_user_profile($userid,$passwd, $url,$autologout,$lang,$refresh)
 	{
@@ -153,9 +152,9 @@
 	function	delete_user($userid)
 	{
 
-		if(DBfetch(DBselect('select * from users where userid='.$userid.' and alias='.zbx_dbstr(ZBX_GUEST_USER))))
+		if(DBfetch(DBselect('select * from users where userid='.$userid.' and alias=\'guest\'')))
 		{
-			error("Cannot delete user '".ZBX_GUEST_USER."'");
+			error("Cannot delete user 'guest'");
 			return	false;
 		}
 
@@ -185,7 +184,6 @@
 		/* error("No user with id [$userid]"); */
 		return	false;
 	}
-	
 
 /**************************
 	USER GROUPS

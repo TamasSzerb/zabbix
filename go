@@ -1,6 +1,7 @@
 #!/bin/sh
 
 clear
+
 rm -f WARNINGS
 
 echo Pre-making...
@@ -26,11 +27,12 @@ automake
 #exit
 echo Configuring...
 #export CFLAGS="-Wall -Wuninitialized -O -DDEBUG"
-export CFLAGS="-Wall -Wuninitialized -O -g"
+export CFLAGS="-Wall -Wuninitialized -O"
 cd create/schema
 ./gen.pl c >../../include/dbsync.h
 cd -
 #export CFLAGS="-Wall -pedantic"
+
 #for db in sqlite3 pgsql mysql; do
 for db in mysql; do
 	./configure --enable-agent --enable-server --with-jabber --with-ldap --with-libcurl --with-$db --with-net-snmp --prefix=`pwd` --enable-ipv6 2>>WARNINGS >/dev/null

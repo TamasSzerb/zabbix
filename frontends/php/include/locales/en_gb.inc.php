@@ -148,11 +148,10 @@
 	'S_EXPORT_FILE'=>			'Export file',
 	'S_EXPORT_BIG'=>			'EXPORT',
 	'S_PREVIEW'=>				'Preview',
-	'S_BACK'=>					'Back',
+	'S_BACK'=>				'Back',
 	'S_NO_DATA_FOR_EXPORT'=>		'No data for export',
-	'S_NO_DATA_SMALL'=>			'no data',
-	'S_RULES'=>					'Rules',
-	'S_SKIP'=>					'Skip',
+	'S_RULES'=>				'Rules',
+	'S_SKIP'=>				'Skip',
 	'S_EXISTING'=>				'Existing',
 	'S_MISSING'=>				'Missing',
 	'S_REFRESH'=>				'Refresh',
@@ -187,17 +186,15 @@
 	'S_WITH_SUBNODES'=>			'With subnodes',
 	
 //	acknow.php
-	'S_ACKNOWLEDGES'=>				'Acknowledges',
-	'S_ACKNOWLEDGE'=>				'Acknowledge',
-	'S_RETURN'=>					'Return',
+	'S_ACKNOWLEDGES'=>			'Acknowledges',
+	'S_ACKNOWLEDGE'=>			'Acknowledge',
+	'S_RETURN'=>				'Return',
 	'S_ACKNOWLEDGE_ALARM_BY'=>		'Acknowledge alarm by',
 	'S_ADD_COMMENT_BY'=>			'Add comment by',
-	'S_COMMENT_ADDED'=>			'	Comment added',
+	'S_COMMENT_ADDED'=>			'Comment added',
 	'S_CANNOT_ADD_COMMENT'=>		'Cannot add coment',
-	'S_ALARM_ACKNOWLEDGES_BIG'=>	'ALARM ACKNOWLEDGES',
+	'S_ALARM_ACKNOWLEDGES_BIG'=>		'ALARM ACKNOWLEDGES',
 	'S_ACKNOWLEDGE_ADDED'=>			'Acknowledge added',
-	'S_SYS_BULK_ACKNOWLEDGE'=>		'----[BULK ACKNOWLEDGE]----',
-	'S_BULK_ACKNOWLEDGE'=>			'Bulk acknowledge',
 
 //	actionconf.php
 	'S_CONFIGURATION_OF_ACTIONS'=>		'Configuration of actions',
@@ -218,8 +215,6 @@
 	'S_TRIGGER_SEVERITY'=>			'Trigger severity',
 	'S_TRIGGER_VALUE'=>			'Trigger value',
 	'S_TIME_PERIOD'=>			'Time period',
-	'S_MAX_VALUE_SMALL'=>		'max value',
-	'S_MIN_VALUE_SMALL'=>		'min value',
 	'S_TRIGGER_DESCRIPTION'=>		'Trigger description',
 	'S_CONDITIONS'=>			'Conditions',
 	'S_CONDITION'=>				'Condition',
@@ -373,11 +368,6 @@
 	'S_YELLOW'=>				'Yellow',
 
 //	config.php
-	'S_EVENT_ACKNOWLEDGES'=>		'Event acknowledges',
-	'S_DAYS'=>						'Days',
-	'S_SHOW_EVENTS_NOT_OLDER'=>			'Show events not older',
-	'S_SHOW_EVENTS_MAX'=>			'Show events max',
-	'S_MAX_COUNT_OF_EVENTS'=>		'Max count of events per trigger to show',
 	'S_CANNNOT_UPDATE_VALUE_MAP'=>		'Cannot update value map',
 	'S_VALUE_MAP_ADDED'=>			'Value map added',
 	'S_CANNNOT_ADD_VALUE_MAP'=>		'Cannot add value map',
@@ -477,8 +467,7 @@
 	'S_LATEST_VALUES'=>			'Latest values',
 	'S_NO_PERMISSIONS'=>			'No permissions !',
 	'S_LATEST_DATA_BIG'=>			'LATEST DATA',
-	'S_ALL_SMALL'=>					'all',
-	'S_ALL_BIG'=>					'ALL',
+	'S_ALL_SMALL'=>				'all',
 	'S_MINUS_ALL_MINUS'=>			'- all -',
 	'S_MINUS_OTHER_MINUS'=>			'- other -',
 	'S_DESCRIPTION_LARGE'=>			'DESCRIPTION',
@@ -488,8 +477,8 @@
 	'S_COMPARE'=>				'Compare',
 
 //	Footer
-	'S_ZABBIX_VER'=>			'ZABBIX 1.5',
-	'S_COPYRIGHT_BY'=>			'Copyright 2001-2007 by ',
+	'S_ZABBIX_VER'=>			'ZABBIX 1.4.4',
+	'S_COPYRIGHT_BY'=>			'Copyright 2001-2008 by ',
 	'S_CONNECTED_AS'=>			'Connected as',
 	'S_SIA_ZABBIX'=>			'SIA Zabbix',
 
@@ -499,7 +488,6 @@
 	'S_ITEM_ADDED'=>			'Item added',
 	'S_ITEM_UPDATED'=>			'Item updated',
 	'S_ITEMS_UPDATED'=>			'Items updated',
-	'S_ITEM_NOT_EXISTS'=>		'Item not exists',
 	'S_SORT_ORDER_UPDATED'=>		'Sort order updated',
 	'S_CANNOT_UPDATE_SORT_ORDER'=>		'Cannot update sort order',
 	'S_DISPLAYED_PARAMETERS_BIG'=>		'DISPLAYED PARAMETERS',
@@ -516,14 +504,11 @@
 	'S_MIN_SMALL'=>				'min',
 	'S_AVG_SMALL'=>				'avg',
 	'S_MAX_SMALL'=>				'max',
-	'S_LST_SMALL'=>				'last',
 	'S_DRAW_STYLE'=>			'Draw style',
 	'S_SIMPLE'=>				'Simple',
 	'S_GRAPH_TYPE'=>			'Graph type',
 	'S_STACKED'=>				'Stacked',
 	'S_NORMAL'=>				'Normal',
-	'S_PIE'=>					'Pie',
-	'S_EXPLODED'=>				'Exploded',
 	'S_AGGREGATED'=>			'Aggregated',
 	'S_AGGREGATED_PERIODS_COUNT'=>			'Aggregated periods count',
 
@@ -536,7 +521,6 @@
 	'S_GRAPH_DELETED'=>			'Graph deleted',
 	'S_CANNOT_DELETE_GRAPH'=>		'Cannot delete graph',
 	'S_CANNOT_ADD_GRAPH'=>			'Cannot add graph',
-	'S_ANOTHER_ITEM_SUM'=>			'Cannot add onemore item with type "Graph sum"',
 	'S_ID'=>				'Id',
 	'S_NO_GRAPHS_DEFINED'=>			'No graphs defined',
 	'S_NO_GRAPH_DEFINED'=>			'No graph defined',
@@ -549,17 +533,10 @@
 	'S_CREATE_GRAPH'=>			'Create Graph',
 	'S_SHOW_WORKING_TIME'=>			'Show working time',
 	'S_SHOW_TRIGGERS'=>			'Show triggers',
-	'S_3D_VIEW'=>				'3D view',
-	'S_LEGEND'=>				'Legend',
-	'S_GRAPH_SUM'=>		'Graph sum',
 	'S_GRAPH_ITEM'=>			'Graph item',
 	'S_REQUIRED_ITEMS_FOR_GRAPH'=>		'Required items for graph',
 
 //	history.php
-	'S_SECONDS_SMALL'=>				'seconds',
-	'S_TILL_SMALL'=>				'till',
-	'S_SELECT_ROWS_WITH_VALUE_LIKE'=>'Select rows with value like',
-	'S_SHOWING_HISTORY_OF'=>		'Showing history of',
 	'S_LAST_HOUR_GRAPH'=>			'Last hour graph',
 	'S_LAST_WEEK_GRAPH'=>			'Last week graph',
 	'S_LAST_MONTH_GRAPH'=>			'Last month graph',
@@ -602,7 +579,6 @@
 	'S_NO_APPLICATIONS_DEFINED'=>		'No applications defined',
 
 	'S_HOSTS'=>				'Hosts',
-	'S_ALL_HOSTS_BIG'=>		'ALL HOSTS',
 	'S_ITEMS'=>				'Items',
 	'S_ITEMS_BIG'=>				'ITEMS',
 	'S_TRIGGERS'=>				'Triggers',
@@ -646,10 +622,7 @@
 	'S_DELETED'=>				'Deleted',
 	'S_UNKNOWN'=>				'Unknown',
 	'S_GROUPS'=>				'Groups',
-	'S_MINUS_ALL_GROUPS_MINUS'=>	' - all groups - ',
 	'S_NO_GROUPS_DEFINED'=>			'No groups defined',
-	'S_FOR_GROUP_SMALL'=>		'for group',
-	'S_FOR_NODE_SMALL'=>		'for node',
 	'S_NEW_GROUP'=>				'New group',
 	'S_DNS_NAME'=>				'DNS name',
 	'S_IP_ADDRESS'=>			'IP address',
@@ -740,7 +713,6 @@
 	'S_SNMPV2_AGENT'=>			'SNMPv2 agent',
 	'S_SNMPV3_AGENT'=>			'SNMPv3 agent',
 	'S_ZABBIX_INTERNAL'=>			'ZABBIX internal',
-	'S_ZABBIX_DATABASE_MONITOR'=>		'Database monitor',
 	'S_ZABBIX_AGGREGATE'=>			'ZABBIX aggregate',
 	'S_EXTERNAL_CHECK'=>			'External check',
 	'S_WEB_MONITORING'=>			'Web monitoring',
@@ -810,7 +782,6 @@
 	'S_ORIGINAL'=>				'Original',
 	'S_NEW_FLEXIBLE_INTERVAL'=>		'New flexible interval',
 	'S_FLEXIBLE_INTERVALS'=>		'Flexible intervals (sec)',
-	'S_PARAMS'=>				'Additional parameters',
 
 //	events.php
 	'S_LATEST_EVENTS'=>			'Latest events',
@@ -836,14 +807,13 @@
 	'S_CONFIGURATION_OF_NETWORK_MAPS'=>	'Configuration of network maps',
 
 //	sysmaps.php
-	'S_MAPS_BIG'=>						'MAPS',
-	'S_NO_MAPS_DEFINED'=>				'No maps defined',
+	'S_MAPS_BIG'=>				'MAPS',
+	'S_NO_MAPS_DEFINED'=>			'No maps defined',
 	'S_CONFIGURATION_OF_NETWORK_MAPS'=>	'CONFIGURATION OF NETWORK MAPS',
-	'S_CREATE_MAP'=>					'Create Map',
-	'S_ICON_LABEL_LOCATION'=>			'Icon label location',
-	'S_BOTTOM'=>						'Bottom',
-	'S_TOP'=>							'Top',
-	'S_LINK_STATUS_INDICATORS'=>		'Link status indicators',
+	'S_CREATE_MAP'=>			'Create Map',
+	'S_ICON_LABEL_LOCATION'=>		'Icon label location',
+	'S_BOTTOM'=>				'Bottom',
+	'S_TOP'=>				'Top',
 
 //	map.php
 	'S_OK_BIG'=>				'OK',
@@ -913,7 +883,6 @@
 	'S_SELECT_GROUP_DOT_DOT_DOT'=>		'Select group ...',
 	'S_OVERVIEW'=>				'Overview',
 	'S_OVERVIEW_BIG'=>			'OVERVIEW',
-	'S_HOSTS_LOCATION'=>		'Hosts location',
 	'S_EXCL'=>				'!',
 	'S_DATA'=>				'Data',
 	'S_SHOW_GRAPH_OF_ITEM'=>		'Show graph of item',
@@ -966,8 +935,6 @@
 	'S_SHOW'=>				'Show',
 	'S_TRUE'=>				'True',
 	'S_FALSE'=>				'False',
-	'S_BY_HOST'=>			'By host',
-	'S_BY_TRIGGER_TEMPLATE'=> 'By trigger template',
 
 //	report3.php
 	'S_IT_SERVICES_AVAILABILITY_REPORT'=>	'IT services availability report',
@@ -1022,13 +989,11 @@
 	'S_RIGHTS_OF_RESOURCES'=>		'User rights',
 	'S_NO_RESOURCES_DEFINED'=>		'No resources defined',
 	'S_SIMPLE_GRAPH'=>			'Simple graph',
-	'S_SIMPLE_GRAPH_BIG'=>			'SIMPLE GRAPH',
 	'S_GRAPH_NAME'=>			'Graph name',
 	'S_WIDTH'=>				'Width',
 	'S_HEIGHT'=>				'Height',
 	'S_CREATE_SCREEN'=>			'Create Screen',
 	'S_EDIT'=>				'Edit',
-	'S_DYNAMIC_ITEM'=>		'Dynamic item',
 	'S_DIMENSION_COLS_ROWS'=>		'Dimension (cols x rows)',
 
 	'S_SLIDESHOWS'=>			'Slide shows',
@@ -1042,10 +1007,9 @@
 	'S_NEW_SLIDE'=>				'New slide',
 
 //	screenedit.php
-	'S_MAP'=>					'Map',
+	'S_MAP'=>				'Map',
 	'S_AS_PLAIN_TEXT'=>			'As plain text',
 	'S_PLAIN_TEXT'=>			'Plain text',
-	'S_PLAIN_TEXT_BIG'=>		'PLAINT TEXT',
 	'S_COLUMN_SPAN'=>			'Column span',
 	'S_ROW_SPAN'=>				'Row span',
 	'S_SHOW_LINES'=>			'Show lines',
@@ -1062,17 +1026,17 @@
 	'S_SERVER_TIME'=>			'Server time',
 	'S_LOCAL_TIME'=>			'Local time',
 
-	'S_STYLE'=>					'Style',
+	'S_STYLE'=>				'Style',
 	'S_VERTICAL'=>				'Vertical',
 	'S_HORISONTAL'=>			'Horizontal',
 
 	'S_HORISONTAL_ALIGN'=>			'Horizontal align',
-	'S_LEFT'=>					'Left',
+	'S_LEFT'=>				'Left',
 	'S_CENTER'=>				'Center',
-	'S_RIGHT'=>					'Right',
+	'S_RIGHT'=>				'Right',
 
 	'S_VERTICAL_ALIGN'=>			'Vertical align',
-	'S_TOP'=>					'Top',
+	'S_TOP'=>				'Top',
 	'S_MIDDLE'=>				'Middle',
 	'S_BOTTOM'=>				'Bottom',
 
@@ -1096,7 +1060,6 @@
 	'S_ROOT_SMALL'=>			'root',
 	'S_IT_SERVICE'=>			'IT service',
 	'S_IT_SERVICES'=>			'IT services',
-	'S_CONFIGURATION_OF_IT_SERVICES'=>	'Configuration of IT services',
 	'S_SERVICE_UPDATED'=>			'Service updated',
 	'S_NO_IT_SERVICE_DEFINED'=>		'No IT service defined',
 	'S_CANNOT_UPDATE_SERVICE'=>		'Cannot update service',
@@ -1207,12 +1170,9 @@
 	'S_SEC_SMALL'=>				'sec',
 	'S_COUNTS'=>				'Counts',
 	'S_LAST_OF'=>				'Last of',
-	'S_MULTIPLE_TRUE_EVENTS'=>	'Multiple TRUE events',
 	'S_SHOW_DISABLED_TRIGGERS'=>		'Show disabled triggers',
 	'S_HIDE_DISABLED_TRIGGERS'=>		'Hide disabled triggers',
 
-	'S_MULTIPLE_EVENTS'=>		'Multiple events',
-	'S_EVENT_GENERATION'=>		'Event generation',
 
 //	tr_comments.php
 	'S_TRIGGER_COMMENTS'=>			'Trigger comments',
@@ -1223,30 +1183,24 @@
 
 //	tr_status.php
 	'S_STATUS_OF_TRIGGERS'=>		'Status of triggers',
-	'S_STATUS_OF_TRIGGERS_BIG'=>	'STATUS OF TRIGGERS',
+	'S_STATUS_OF_TRIGGERS_BIG'=>		'STATUS OF TRIGGERS',
 	'S_SHOW_ONLY_TRUE'=>			'Show only true',
-	'S_HIDE_ACTIONS'=>				'Hide actions',
-	'S_SHOW_ACTIONS'=>				'Show actions',
-	'S_SHOW_ALL'=>					'Show all',
-	'S_HIDE_ALL'=>					'Hide all',
-	'S_SHOW_ONLY_TRUE'=>			'Show only true',
-	'S_SHOW_NOFALSEFORB'=>			'Show all(no FALSE for B)',
-	'S_SHOW_UNACKNOWLEDGED'=>		'Show unacknowledged',
-	'S_SHOW_TRUE_UNACKNOWLEDGED'=>	'Show true-unacknowledged',
-	'S_NOT_ACKNOWLEDGED'=>			'Not acknowledged',
-	'S_HIDE_DETAILS'=>				'Hide details',
-	'S_SHOW_DETAILS'=>				'Show details',
-	'S_SELECT'=>					'Select',
-	'S_HIDE_SELECT'=>				'Hide select',
-	'S_TRIGGERS_BIG'=>				'TRIGGERS',
-	'S_NAME_BIG'=>					'NAME',
-	'S_SEVERITY_BIG'=>				'SEVERITY',
+	'S_HIDE_ACTIONS'=>			'Hide actions',
+	'S_SHOW_ACTIONS'=>			'Show actions',
+	'S_SHOW_ALL_TRIGGERS'=>			'Show all triggers',
+	'S_HIDE_DETAILS'=>			'Hide details',
+	'S_SHOW_DETAILS'=>			'Show details',
+	'S_SELECT'=>				'Select',
+	'S_HIDE_SELECT'=>			'Hide select',
+	'S_TRIGGERS_BIG'=>			'TRIGGERS',
+	'S_NAME_BIG'=>				'NAME',
+	'S_SEVERITY_BIG'=>			'SEVERITY',
 	'S_LAST_CHANGE_BIG'=>			'LAST CHANGE',
-	'S_LAST_CHANGE'=>				'Last change',
-	'S_COMMENTS'=>					'Comments',
-	'S_ACKNOWLEDGED'=>				'Acknowledged',
-	'S_ACK'=>						'Ack',
-	'S_NEVER'=>						'Never',
+	'S_LAST_CHANGE'=>			'Last change',
+	'S_COMMENTS'=>				'Comments',
+	'S_ACKNOWLEDGED'=>			'Acknowledged',
+	'S_ACK'=>				'Ack',
+	'S_NEVER'=>				'Never',
 
 //	users.php
 	'S_ZABBIX_USER'=>			'ZABBIX User',
@@ -1308,30 +1262,6 @@
 	'S_DELETE_SELECTED_USERS_Q'=>		'Delete selected users?',
 	'S_NO_ACCESSIBLE_RESOURCES'=>		'No accessibles resources',
 
-//scripts.php
-	'S_SCRIPTS'=>				'Scripts',
-	'S_SCRIPT'=>				'Script',
-	'S_COMMAND'=>				'Command',
-	'S_PERMISSIONS_SMALL'=>			'permissions',
-	'S_REQUIRED_HOST'=>			'Required host',
-	'S_READ'=>				'Read',
-	'S_WRITE'=>				'Write',
-	'S_NO_SCRIPTS_DEFINED'=>		'No scripts defined',
-	'S_HOST_ACCESS'=>			'Host access',
-	'S_DELETE_SELECTED_SCRIPTS_Q'=>		'Delete selected scripts?',
-	'S_ADD_SCRIPT'=>			'Add script',
-	'S_SCRIPT_ADDED'=>			'Script added',
-	'S_CANNOT_ADD_SCRIPT'=>			'Cannot add script',
-	'S_SCRIPT_UPDATED'=>			'Script updated',
-	'S_CANNOT_UPDATE_SCRIPT'=>		'Cannot update script',
-	'S_SCRIPT_DELETED'=>			'Script deleted',
-	'S_CANNOT_DELETE_SCRIPT'=>		'Cannot delete script',
-	'S_TOOLS'=>				'Tools',
-	'S_RESULT'=>				'Result',
-	'S_CLOSE'=>				'Close',
-	'S_CONNECT_TO_SERVER_ERROR'=>		'Cannot connect to ZABBIX server',
-
-
 //	audit.php
 	'S_AUDIT_LOG'=>				'Audit log',
 	'S_AUDIT_LOG_BIG'=>			'AUDIT LOG',
@@ -1345,7 +1275,6 @@
 	'S_MEDIA_TYPE'=>			'Media type',
 	'S_GRAPH_ELEMENT'=>			'Graph element',
 	'S_UNKNOWN_RESOURCE'=>			'Unknown resource',
-	'S_ALREADY_EXISTS_SMALL'=>		'already exists',
 
 //	profile.php
 	'S_USER_PROFILE_BIG'=>			'USER PROFILE',
@@ -1397,8 +1326,6 @@
 
 //	Errors
 	'S_INCORRECT_DESCRIPTION'=>		'Incorrect description',
-	'S_CANT_FORMAT_TREE'=>			'Can\'t format Tree',
-	'S_UNSUPPORTED_FILE_FORMAT'=>		'Unsupported file format',
-	'S_UNSUPPORTED_VERSION_OF_IMPORTED_DATA'=>	'Unsupported version of imported data'
+	'S_CANT_FORMAT_TREE'=>			'Can\'t format Tree'
 	);
 ?>

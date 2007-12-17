@@ -1,7 +1,7 @@
 <?php
 /*
 ** ZABBIX
-** Copyright (C) 2000-2007 SIA Zabbix
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -18,9 +18,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-function SDI($msg="SDI") { echo "DEBUG INFO: "; var_dump($msg); echo SBR; } // DEBUG INFO!!!
-function VDP($var, $msg=null) { echo "DEBUG DUMP: "; if(isset($msg)) echo '"'.$msg.'"'.SPACE; var_dump($var); echo SBR; } // DEBUG INFO!!!
-function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
+function SDI($msg="SDI") { echo "DEBUG INFO: "; var_export($msg); echo BR; } // DEBUG INFO!!!
+function VDP($var, $msg=null) { echo "DEBUG DUMP: "; if(isset($msg)) echo '"'.$msg.'"'.SPACE; var_dump($var); echo BR; } // DEBUG INFO!!!
+function TODO($msg) { echo "TODO: ".$msg.BR; }  // DEBUG INFO!!!
 
 ?>
 <?php
@@ -60,8 +60,7 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 	require_once("include/classes/ciframe.inc.php");
 	require_once("include/classes/cpumenu.inc.php");
 	require_once("include/classes/graph.inc.php");
-	require_once('include/classes/ctree.inc.php');
-	require_once('include/classes/cscript.inc.php');
+require_once('include/classes/ctree.inc.php');
 
 // Include Tactical Overview modules
 
@@ -91,7 +90,6 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 	set_error_handler('zbx_err_handler');
 
 	global $_COOKIE, $ZBX_LOCALNODEID, $ZBX_LOCMASTERID, $ZBX_CONFIGURATION_FILE, $DB_TYPE, $DB_SERVER, $DB_DATABASE, $DB_USER, $DB_PASSWORD;
-	global $ZBX_SERVER, $ZBX_SERVER_PORT;
 
 	$ZBX_LOCALNODEID = 0;
 	$ZBX_LOCMASTERID = 0;
@@ -157,7 +155,7 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 	else
 	{
 		$USER_DETAILS = array(
-			"alias" =>ZBX_GUEST_USER,
+			"alias" =>"guest",
 			"userid"=>0,
 			"lang"  =>"en_gb",
 			"type"  =>"0",
@@ -637,20 +635,20 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 					array_push($message, array(
 						'text'	=> $msg,
 						'color'	=> (!$bool) ? array('R'=>255,'G'=>0,'B'=>0) : array('R'=>34,'G'=>51,'B'=>68),
-						'font'	=> 2));
-					$width = max($width, ImageFontWidth(2) * strlen($msg) + 1);
-					$height += imagefontheight(2) + 1;
+						'font'	=> 4));
+					$width = max($width, ImageFontWidth(4) * strlen($msg) + 1);
+					$height += imagefontheight(4) + 1;
 					break;			
 				case PAGE_TYPE_XML:
 					echo htmlspecialchars($msg)."\n";
 					break;			
 				case PAGE_TYPE_HTML:
 				default:
-					$p = new CTag('p','yes');
-					$p->AddOption('align','center');
-					$p->AddOption('style','color: '.((!$bool)?'#AA0000;':'#223344;'));
-					$p->AddItem(bold('['.$msg.']'));
-					$p->Show();
+					echo "<p align=center>";
+					echo "<font color='".((!$bool) ? "#AA0000" : "#223344")."'>";
+					echo "<b>[".htmlspecialchars($msg)."]</b>";
+					echo "</font>";
+					echo "</p>";
 					break;
 			}
 		}
@@ -660,7 +658,6 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 		{
 			if($page["type"] == PAGE_TYPE_IMAGE)
 			{
-				$msg_font = 2;
 				foreach($ZBX_MESSAGES as $msg)
 				{
 					if($msg['type'] == 'error')
@@ -668,17 +665,17 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 						array_push($message, array(
 							'text'	=> $msg['message'],
 							'color'	=> array('R'=>255,'G'=>55,'B'=>55),
-							'font'	=> $msg_font));
+							'font'	=> 2));
 					}
 					else
 					{
 						array_push($message, array(
 							'text'	=> $msg['message'],
 							'color'	=> array('R'=>155,'G'=>155,'B'=>55),
-							'font'	=> $msg_font));
+							'font'	=> 2));
 					}
-					$width = max($width, ImageFontWidth($msg_font) * strlen($msg['message']) + 1);
-					$height += imagefontheight($msg_font) + 1;
+					$width = max($width, ImageFontWidth(2) * strlen($msg['message']) + 1);
+					$height += imagefontheight(2) + 1;
 				}
 			}
 			elseif($page["type"] == PAGE_TYPE_XML)
@@ -693,18 +690,7 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 				$lst_error = new CList(null,'messages');
 				foreach($ZBX_MESSAGES as $msg)
 					$lst_error->AddItem($msg['message'], $msg['type']);
-//message scroll if needed
-				$msg_show = 6;
-				$msg_font_size = 8;
-				$msg_count = count($ZBX_MESSAGES);
-				
-				if($msg_count > $msg_show) $msg_count = $msg_show;
-					
-				$msg_count = ($msg_count * $msg_font_size *2) + 2;
-				$lst_error->AddOption('style','font-size: '.$msg_font_size.'pt; height: '.$msg_count.';');
-//---
-				$lst_error->Show();
-				
+				$lst_error->Show(false);
 				unset($lst_error);
 			}
 			$ZBX_MESSAGES = null;
@@ -923,6 +909,61 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 		else return validate_float($str);
 	}
 
+	# Show screen cell containing plain text values
+	function&	get_screen_plaintext($itemid,$elements)
+	{
+		global $DB_TYPE;
+
+		$item=get_item_by_itemid($itemid);
+		switch($item["value_type"])
+		{
+			case ITEM_VALUE_TYPE_FLOAT:	$history_table = "history";		break;
+			case ITEM_VALUE_TYPE_UINT64:	$history_table = "history_uint";	break;
+			case ITEM_VALUE_TYPE_TEXT:	$history_table = "history_text";	break;
+			default:			$history_table = "history_str";		break;
+		}
+
+		$sql="select h.clock,h.value,i.valuemapid from ".$history_table." h, items i where".
+			" h.itemid=i.itemid and i.itemid=$itemid order by clock desc";
+
+                $result=DBselect($sql,$elements);
+
+		$table = new CTableInfo();
+		$table->SetHeader(array(S_TIMESTAMP,item_description($item["description"],$item["key_"])));
+		while($row=DBfetch($result))
+		{
+			switch($item["value_type"])
+			{
+				case ITEM_VALUE_TYPE_TEXT:	
+					if($DB_TYPE == "ORACLE")
+					{
+						if(isset($row["value"]))
+						{
+							$row["value"] = $row["value"]->load();
+						}
+						else
+						{
+							$row["value"] = "";
+						}
+					}
+					/* do not use break */
+				case ITEM_VALUE_TYPE_STR:	
+					$value = nl2br(nbsp(htmlspecialchars($row["value"])));
+					break;
+				
+				default:
+					$value = $row["value"];
+					break;
+			}
+
+			if($row["valuemapid"] > 0)
+				$value = replace_value_by_map($value, $row["valuemapid"]);
+
+			$table->AddRow(array(date(S_DATE_FORMAT_YMDHMS,$row["clock"]),	$value));
+		}
+		return $table;
+	}
+
 	# Add event
 
 	function	get_event_by_eventid($eventid)
@@ -952,7 +993,7 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 
 	# Update configuration
 
-	function	update_config($event_history,$alert_history,$refresh_unsupported,$work_period,$alert_usrgrpid,$event_ack_enable,$event_expire,$event_show_max)
+	function	update_config($event_history,$alert_history,$refresh_unsupported,$work_period,$alert_usrgrpid)
 	{
 		$update = array();
 
@@ -986,18 +1027,6 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 			}
 			$update[] = 'alert_usrgrpid='.$alert_usrgrpid;
 		}
-		if(!is_null($event_ack_enable))
-		{
-			$update[] = 'event_ack_enable='.$event_ack_enable;
-		}
-		if(!is_null($event_expire))
-		{
-			$update[] = 'event_expire='.$event_expire;
-		}
-		if(!is_null($event_show_max))
-		{
-			$update[] = 'event_show_max='.$event_show_max;
-		}
 		if(count($update) == 0)
 		{
 			error(S_NOTHING_TO_DO);
@@ -1028,37 +1057,36 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 	function	show_history($itemid,$from,$stime,$period)
 	{
 		$till=date(S_DATE_FORMAT_YMDHMS,time(NULL)-$from*3600);   
-		show_table_header(S_TILL.SPACE.$till.' ('.($period/3600).' HOURs)');
+		show_table_header("TILL $till (".($period/3600)." HOURs)");
 
-		$td = new CCol(get_js_sizeable_graph('graph','chart.php?itemid='.$itemid.
-				url_param($from,false,'from').
-				url_param($stime,false,'stime').
-				url_param($period,false,'period')));
-		$td->AddOption('align','center');
-		
-		$tr = new CRow($td);
-		$tr->AddOption('bgcolor','#dddddd');
-		
-		$table = new CTable();
-		$table->AddOption('width','100%');
-		$table->AddOption('bgcolor','#cccccc');
-		$table->AddOption('cellspacing','1');
-		$table->AddOption('cellpadding','3');
-		
-		$table->AddRow($tr);
-		
-		$table->Show();
+		echo "<center>";
+		echo "<TABLE BORDER=0 WIDTH=100% BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
+		echo "<TR BGCOLOR=#DDDDDD>";
+		echo "<TD ALIGN=CENTER>";
+
+		insert_sizeable_graph('chart.php?itemid='.$itemid.
+			url_param($from,false,'from').
+			url_param($stime,false,'stime').
+			url_param($period,false,'period'));
+
+		echo "</TD>";
+		echo "</TR>";
+		echo "</TABLE>";
+		echo "</center>";
 	}
 
 
-	function	get_status(){
+	function	get_status()
+	{
 		global $DB_TYPE;
 		$status = array();
 // server
-		if( (exec('ps -ef|grep zabbix_server|grep -v grep|wc -l')>0) || (exec('ps -ax|grep zabbix_server|grep -v grep|wc -l')>0) ){
+		if( (exec("ps -ef|grep zabbix_server|grep -v grep|wc -l")>0) || (exec("ps -ax|grep zabbix_server|grep -v grep|wc -l")>0) )
+		{
 			$status["zabbix_server"] = S_YES;
 		}
-		else{
+		else
+		{
 			$status["zabbix_server"] = S_NO;
 		}
 
@@ -1280,14 +1308,12 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 	}
 
 
-/********** USER PROFILE ***********/
-
-//---------- GET USER VALUE -------------
-	function	get_profile($idx,$default_value=null,$type=PROFILE_TYPE_UNKNOWN){
+	function	get_profile($idx,$default_value=null,$type=PROFILE_TYPE_UNKNOWN)
+	{
 		global $USER_DETAILS;
 
 		$result = $default_value;
-		if($USER_DETAILS["alias"]!=ZBX_GUEST_USER)
+		if($USER_DETAILS["alias"]!="guest")
 		{
 			$db_profiles = DBselect("select * from profiles where userid=".$USER_DETAILS["userid"]." and idx=".zbx_dbstr($idx));
 			$profile=DBfetch($db_profiles);
@@ -1314,13 +1340,12 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 		return $result;
 	}
 
-//----------- ADD/EDIT USERPROFILE -------------
 	function	update_profile($idx,$value,$type=PROFILE_TYPE_UNKNOWN)
 	{
 
 		global $USER_DETAILS;
 
-		if($USER_DETAILS["alias"]==ZBX_GUEST_USER)
+		if($USER_DETAILS["alias"]=="guest")
 		{
 			return;
 		}
@@ -1349,69 +1374,6 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 				" where userid=".$USER_DETAILS["userid"]." and idx=".zbx_dbstr($idx);
 			DBexecute($sql);
 		}
-	}
-
-/***********************************/
-
-/************ HISTORY **************/
-	function get_user_history(){
-		$history=array();
-		$delimiter = new CSpan('&raquo;','delimiter');
-		for($i = 0; $i < ZBX_HISTORY_COUNT; $i++){
-			if($rows = get_profile('web.history.'.$i,false)){
-				if($i>0){
-					array_push($history,$delimiter);
-				}
-				$url = new CLink($rows[0],$rows[1],'history');
-				array_push($history,array(SPACE,$url,SPACE));
-			}
-		}
-	return $history;
-	}
-
-	function add_user_history($page){
-	
-		$title = explode('[',$page['title']);
-		$title = $title[0];
-
-		if(!(isset($page['hist_arg']) && is_array($page['hist_arg']))){
-			return FALSE;
-		}
-		
-		$url = '';
-		foreach($page['hist_arg'] as $arg){
-			if(isset($_REQUEST[$arg]) && !empty($_REQUEST[$arg])){
-				$url.=((empty($url))?('?'):('&')).$arg.'='.$_REQUEST[$arg];
-			}
-		}
-		$url = $page['file'].$url;
-
-		$curr = 0;
-		$profile = array();
-		for($i = 0; $i < ZBX_HISTORY_COUNT; $i++){
-			if($history = get_profile('web.history.'.$i,false)){
-				if($history[0] != $title){
-					$profile[$curr] = $history;
-					$curr++;
-				}
-			}
-		}
-				
-		$history = array($title,$url);
-		
-		if($curr < ZBX_HISTORY_COUNT){
-			for($i = 0; $i < $curr; $i++){
-				update_profile('web.history.'.$i,$profile[$i],PROFILE_TYPE_ARRAY);
-			}
-			$result = update_profile('web.history.'.$curr,$history,PROFILE_TYPE_ARRAY);
-		} else {
-			for($i = 1; $i < ZBX_HISTORY_COUNT; $i++){
-				update_profile('web.history.'.($i-1),$profile[$i],PROFILE_TYPE_ARRAY);
-			}
-			$result = update_profile('web.history.'.(ZBX_HISTORY_COUNT-1),$history,PROFILE_TYPE_ARRAY);
-		}
-
-	return $result;
 	}
 
 
@@ -1444,6 +1406,143 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 		DashedLine($image, $x2,$y1,$x1,$y1,$color);
 	}
 
+
+	function time_navigator($resource="graphid",$id)
+	{
+	echo "<TABLE BORDER=0 align=center COLS=2 WIDTH=100% BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=1>";
+	echo "<TR BGCOLOR=#FFFFFF>";
+	echo "<TD ALIGN=LEFT>";
+
+	echo "<div align=left>";
+	echo "<b>".S_PERIOD.":</b>".SPACE;
+
+	$hour=3600;
+		
+		$a=array(S_1H=>3600,S_2H=>2*3600,S_4H=>4*3600,S_8H=>8*3600,S_12H=>12*3600,
+			S_24H=>24*3600,S_WEEK_SMALL=>7*24*3600,S_MONTH_SMALL=>31*24*3600,S_YEAR_SMALL=>365*24*3600);
+		foreach($a as $label=>$sec)
+		{
+			echo "[";
+			if($_REQUEST["period"]>$sec)
+			{
+				$tmp=$_REQUEST["period"]-$sec;
+				echo("<A HREF=\"charts.php?period=$tmp".url_param($resource).url_param("stime").url_param("from").url_param("keep").url_param("fullscreen")."\">-</A>");
+			}
+			else
+			{
+				echo "-";
+			}
+
+			echo("<A HREF=\"charts.php?period=$sec".url_param($resource).url_param("stime").url_param("from").url_param("keep").url_param("fullscreen")."\">");
+			echo($label."</A>");
+
+			$tmp=$_REQUEST["period"]+$sec;
+			echo("<A HREF=\"charts.php?period=$tmp".url_param($resource).url_param("stime").url_param("from").url_param("keep").url_param("fullscreen")."\">+</A>");
+
+			echo "]".SPACE;
+		}
+
+		echo("</div>");
+
+	echo "</TD>";
+	echo "<TD BGCOLOR=#FFFFFF WIDTH=15% ALIGN=RIGHT>";
+	echo "<b>".nbsp(S_KEEP_PERIOD).":</b>".SPACE;
+		if($_REQUEST["keep"] == 1)
+		{
+			echo("[<A HREF=\"charts.php?keep=0".url_param($resource).url_param("from").url_param("period").url_param("fullscreen")."\">".S_ON_C."</a>]");
+		}
+		else
+		{
+			echo("[<A HREF=\"charts.php?keep=1".url_param($resource).url_param("from").url_param("period").url_param("fullscreen")."\">".S_OFF_C."</a>]");
+		}
+	echo "</TD>";
+	echo "</TR>";
+	echo "<TR BGCOLOR=#FFFFFF>";
+	echo "<TD>";
+	if(isset($_REQUEST["stime"]))
+	{
+		echo "<div align=left>" ;
+		echo "<b>".S_MOVE.":</b>".SPACE;
+
+		$day=24;
+// $a already defined
+//		$a=array("1h"=>1,"2h"=>2,"4h"=>4,"8h"=>8,"12h"=>12,
+//			"24h"=>24,"week"=>7*24,"month"=>31*24,"year"=>365*24);
+		foreach($a as $label=>$hours)
+		{
+			echo "[";
+
+			$stime=$_REQUEST["stime"];
+			$tmp=mktime(substr($stime,8,2),substr($stime,10,2),0,substr($stime,4,2),substr($stime,6,2),substr($stime,0,4));
+			$tmp=$tmp-3600*$hours;
+			$tmp=date("YmdHi",$tmp);
+			echo("<A HREF=\"charts.php?stime=$tmp".url_param($resource).url_param("period").url_param("keep").url_param("fullscreen")."\">-</A>");
+
+			echo($label);
+
+			$stime=$_REQUEST["stime"];
+			$tmp=mktime(substr($stime,8,2),substr($stime,10,2),0,substr($stime,4,2),substr($stime,6,2),substr($stime,0,4));
+			$tmp=$tmp+3600*$hours;
+			$tmp=date("YmdHi",$tmp);
+			echo("<A HREF=\"charts.php?stime=$tmp".url_param($resource).url_param("period").url_param("keep").url_param("fullscreen")."\">+</A>");
+
+			echo "]".SPACE;
+		}
+		echo("</div>");
+	}
+	else
+	{
+		echo "<div align=left>";
+		echo "<b>".S_MOVE.":</b>".SPACE;
+
+		$day=24;
+// $a already defined
+//		$a=array("1h"=>1,"2h"=>2,"4h"=>4,"8h"=>8,"12h"=>12,
+//			"24h"=>24,"week"=>7*24,"month"=>31*24,"year"=>365*24);
+		foreach($a as $label=>$hours)
+		{
+			echo "[";
+			$tmp=$_REQUEST["from"]+$hours;
+			echo("<A HREF=\"charts.php?from=$tmp".url_param($resource).url_param("period").url_param("keep").url_param("fullscreen")."\">-</A>");
+
+			echo($label);
+
+			if($_REQUEST["from"]>=$hours)
+			{
+				$tmp=$_REQUEST["from"]-$hours;
+				echo("<A HREF=\"charts.php?from=$tmp".url_param($resource).url_param("period").url_param("keep").url_param("fullscreen")."\">+</A>");
+			}
+			else
+			{
+				echo "+";
+			}
+
+			echo "]".SPACE;
+		}
+		echo("</div>");
+	}
+	echo "</TD>";
+	echo "<TD BGCOLOR=#FFFFFF WIDTH=15% ALIGN=RIGHT>";
+//		echo("<div align=left>");
+		echo "<form method=\"put\" action=\"charts.php\">";
+		echo "<input name=\"graphid\" type=\"hidden\" value=\"".$_REQUEST[$resource]."\" size=12>";
+		echo "<input name=\"period\" type=\"hidden\" value=\"".(9*3600)."\" size=12>";
+		if(isset($_REQUEST["stime"]))
+		{
+			echo "<input name=\"stime\" class=\"biginput\" value=\"".$_REQUEST["stime"]."\" size=12>";
+		}
+		else
+		{
+			echo "<input name=\"stime\" class=\"biginput\" value=\"yyyymmddhhmm\" size=12>";
+		}
+		echo SPACE;
+		echo "<input class=\"button\" type=\"submit\" name=\"action\" value=\"go\">";
+		echo "</form>";
+//		echo("</div>");
+	echo "</TD>";
+	echo "</TR>";
+	echo "</TABLE>";
+	}
 
 	function	add_mapping_to_valuemap($valuemapid, $mappings)
 	{
@@ -1715,92 +1814,5 @@ function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
 			$new = $data;
 		}
 		return $new;
-	}
-
-	
-	/* function:
-	 *      validate_sort_and_sortorder
-	 *
-	 * description:
-	 *      Checking,setting and saving sort params
-	 *
-	 * author: Aly
-	 */
-	function validate_sort_and_sortorder(){
-		global $page;
-		
-		$_REQUEST['sort'] = get_request('sort',get_profile('web.'.$page["file"].'.sort',NULL));
-		$_REQUEST['sortorder'] = get_request('sortorder',get_profile('web.'.$page["file"].'.sortorder',ZBX_SORT_UP));
-		
-		if(!is_null($_REQUEST['sort'])){
-			$_REQUEST['sort'] = eregi_replace('[^a-z\.\_]','',$_REQUEST['sort']);
-			update_profile('web.'.$page["file"].'.sort',		$_REQUEST['sort']);
-		}
-
-		if(!in_array($_REQUEST['sortorder'],array(ZBX_SORT_DOWN,ZBX_SORT_UP)))
-			$_REQUEST['sortorder'] = ZBX_SORT_UP;
-
-		update_profile('web.'.$page["file"].'.sortorder',	$_REQUEST['sortorder']);
-	}
-
-	/* function:
-	 *      make_sorting_link
-	 *
-	 * description:
-	 *      Creates links for sorting in table header
-	 *
-	 * author: Aly
-	 */
-	function make_sorting_link($obj,$tabfield,$url=''){
-		global $page;
-		
-		$sortorder = ($_REQUEST['sortorder'] == ZBX_SORT_UP)?ZBX_SORT_DOWN:ZBX_SORT_UP;
-		
-		if(empty($url)){
-			$url='?';
-			$url_params = explode('&',$_SERVER['QUERY_STRING']);
-			foreach($url_params as $id => $param){
-				if(empty($param)) continue;
-				
-				list($name,$value) = explode('=',$param);
-				if(empty($name) || ($name == 'sort') || (($name == 'sortorder'))) continue;
-				$url.=$param.'&';
-			}
-		}
-		else{
-			$url.='&';
-		}
-		
-		$link = new CLink($obj,$url.'sort='.$tabfield.'&sortorder='.$sortorder);
-		
-		if($tabfield == $_REQUEST['sort']){
-			if($sortorder == ZBX_SORT_UP){
-				$img = new CImg('images/general/sort_downw.gif','down',10,10);
-			}
-			else{
-				$img = new CImg('images/general/sort_upw.gif','up',10,10);
-			}
-			
-			$img->AddOption('style','line-height: 18px; vertical-align: middle;');
-			$link = array($link,SPACE,$img);
-		}		
-		
-	return $link;
-	}
-	
-	function order_by($def,$allways=''){
-		global $page;
-	
-		if(!empty($allways)) $allways = ','.$allways;
-		$sortable = explode(',',$def);
-		
-		$tabfield = get_request('sort',get_profile('web.'.$page["file"].'.sort',null));
-		
-		if(is_null($tabfield)) return ' ORDER BY '.$def.$allways;
-		if(!in_array($tabfield,$sortable)) return ' ORDER BY '.$def.$allways;
-
-		$sortorder = get_request('sortorder',get_profile('web.'.$page["file"].'.sortorder',ZBX_SORT_UP));
-
-	return ' ORDER BY '.$tabfield.' '.$sortorder.$allways;
 	}
 ?>

@@ -121,8 +121,8 @@
 #define OFF	0
 
 #define	APPLICATION_NAME	"ZABBIX Agent"
-#define	ZABBIX_REVDATE		"29 May 2007"
-#define	ZABBIX_VERSION		"1.5"
+#define	ZABBIX_REVDATE		"17 December 2007"
+#define	ZABBIX_VERSION		"1.4.4"
 
 #if defined(_WINDOWS)
 /*#	pragma warning (disable: 4100)*/
@@ -174,8 +174,7 @@ typedef enum
 	ITEM_TYPE_ZABBIX_ACTIVE,
 	ITEM_TYPE_AGGREGATE,
 	ITEM_TYPE_HTTPTEST,
-	ITEM_TYPE_EXTERNAL,
-	ITEM_TYPE_DB_MONITOR
+	ITEM_TYPE_EXTERNAL
 } zbx_item_type_t;
 
 /* Event sources */
@@ -335,13 +334,6 @@ typedef enum
 	ITEM_STATUS_NOTAVAILABLE
 } zbx_item_status_t;
 
-/* Trigger types */
-typedef enum
-{
-	TRIGGER_TYPE_NORMAL = 0,
-	TRIGGER_TYPE_MULTIPLE_TRUE
-} zbx_trigger_type_t;
-
 /* HTTP Tests statuses */
 #define HTTPTEST_STATUS_MONITORED	0
 #define HTTPTEST_STATUS_NOT_MONITORED	1
@@ -430,6 +422,13 @@ typedef enum
 #define	ZBX_TYPE_UINT	5
 #define	ZBX_TYPE_ID	6
 
+/* Flags for node history exchange */
+#define	ZBX_TABLE_HISTORY	0
+#define	ZBX_TABLE_HISTORY_UINT	1
+#define	ZBX_TABLE_HISTORY_STR	2
+#define	ZBX_TABLE_HISTORY_LOG	3
+#define	ZBX_TABLE_HISTORY_TEXT	4
+
 /* HTTP item types */
 typedef enum
 {
@@ -440,11 +439,7 @@ typedef enum
 } zbx_httpitem_type_t;
 
 /* Flags */
-#define	ZBX_SYNC		0x01
-#define ZBX_NOTNULL		0x02
-#define ZBX_HISTORY		0x04
-#define ZBX_HISTORY_SYNC	0x08
-#define ZBX_HISTORY_TRENDS	0x10
+#define	ZBX_SYNC	1
 
 /* Types of nodes */
 #define	ZBX_NODE_TYPE_REMOTE	0
@@ -487,8 +482,7 @@ void    *zbx_realloc(void *src, size_t size);
 	
 #define zbx_fclose(f) { if(f){ fclose(f); f = NULL; } }
 
-/*#define ZBX_COND_NODEID " %s>=100000000000000*%d and %s<=(100000000000000*%d+99999999999999) "*/
-#define ZBX_COND_NODEID " %s>=%d00000000000000 and %s<=%d99999999999999 "
+#define ZBX_COND_NODEID " %s>=100000000000000*%d and %s<=(100000000000000*%d+99999999999999) "
 #define LOCAL_NODE(fieldid) fieldid, CONFIG_NODEID, fieldid, CONFIG_NODEID
 #define ZBX_NODE(fieldid,nodeid) fieldid, nodeid, fieldid, nodeid
 
@@ -542,15 +536,14 @@ int	get_param(const char *param, int num, char *buf, int maxlen);
 int	num_param(const char *param);
 int	calculate_item_nextcheck(zbx_uint64_t itemid, int item_type, int delay, char *delay_flex, time_t now);
 int	check_time_period(const char *period, time_t now);
-int	zbx_binary2hex(const u_char *input, int ilen, char **output, int *olen);
+void	zbx_binary2hex(const u_char *input, int ilen, char **output, int *olen);
 int     zbx_hex2binary(char *io);
 void	zbx_hex2octal(const char *input, char **output, int *olen);
 #ifdef HAVE_POSTGRESQL
 void	zbx_pg_escape_bytea(const u_char *input, int ilen, char **output, int *olen);
 int	zbx_pg_unescape_bytea(u_char *io);
 #endif
-int	zbx_get_next_field(const char **line, char **output, int *olen, char separator);
-int	str_in_list(char *list, const char *value, const char delimiter);
+char    *zbx_get_next_field(const char *line, char **output, int *olen, char separator);
 
 #ifdef HAVE___VA_ARGS__
 #	define zbx_setproctitle(fmt, ...) __zbx_zbx_setproctitle(ZBX_CONST_STRING(fmt), ##__VA_ARGS__)
@@ -646,9 +639,6 @@ int	ip_in_list(char *list, char *ip);
 #ifdef HAVE_IPV6
 int	expand_ipv6(const char *ip, char *str, size_t str_len );
 #endif /* HAVE_IPV6 */
-/* Time related functions */
-double	time_diff(struct timeval *from, struct timeval *to);
-
 int MAIN_ZABBIX_ENTRY(void);
 
 zbx_uint64_t	zbx_letoh_uint64(
@@ -658,4 +648,5 @@ zbx_uint64_t	zbx_letoh_uint64(
 zbx_uint64_t	zbx_htole_uint64(
 		zbx_uint64_t	data
 	);
+
 #endif

@@ -313,7 +313,7 @@
 	 * Comments:
 	 *
 	 */
-	function get_realhosts_by_triggerid($triggerid)
+	function        get_realhosts_by_triggerid($triggerid)
 	{
 		$trigger = get_trigger_by_triggerid($triggerid);
 		if($trigger['templateid'] > 0)
@@ -322,7 +322,7 @@
 		return get_hosts_by_triggerid($triggerid);
 	}
 
-	function get_trigger_by_triggerid($triggerid)
+	function	get_trigger_by_triggerid($triggerid)
 	{
 		$sql="select * from triggers where triggerid=$triggerid";
 		$result=DBselect($sql);
@@ -335,13 +335,13 @@
 		return FALSE;
 	}
 
-	function get_hosts_by_triggerid($triggerid)
+	function	&get_hosts_by_triggerid($triggerid)
 	{
 		return DBselect('select distinct h.* from hosts h, functions f, items i'.
 			' where i.itemid=f.itemid and h.hostid=i.hostid and f.triggerid='.$triggerid);
 	}
 
-	function get_functions_by_triggerid($triggerid)
+	function	&get_functions_by_triggerid($triggerid)
 	{
 		return DBselect('select * from functions where triggerid='.$triggerid);
 	}
@@ -358,7 +358,7 @@
 	 * Comments:
 	 *
 	 */
-	function get_triggers_by_hostid($hostid, $show_mixed = "yes")
+	function	&get_triggers_by_hostid($hostid, $show_mixed = "yes")
 	{
 		$db_triggers = DBselect("select distinct t.* from triggers t, functions f, items i".
 			" where i.hostid=$hostid and f.itemid=i.itemid and f.triggerid=t.triggerid");
@@ -383,7 +383,7 @@
 		return DBselect($sql);
 	}
 
-	function get_triggers_by_templateid($triggerid)
+	function	&get_triggers_by_templateid($triggerid)
 	{
 		return DBselect('select * from triggers where templateid='.$triggerid);
 	}
@@ -400,7 +400,7 @@
 	 * Comments:
 	 *
 	 */
-	function get_hosts_by_expression($expression)
+	function	&get_hosts_by_expression($expression)
 	{
 		global $ZBX_TR_EXPR_ALLOWED_MACROS, $ZBX_TR_EXPR_REPLACE_TO;
 
@@ -673,7 +673,7 @@
 
 
 	function	add_trigger(
-		$expression, $description, $type, $priority, $status,
+		$expression, $description, $priority, $status,
 		$comments, $url, $deps=array(), $templateid=0)
 	{
 		
@@ -683,8 +683,8 @@
 		$triggerid=get_dbid("triggers","triggerid");
 		
 		$result=DBexecute("insert into triggers".
-			"  (triggerid,description,type,priority,status,comments,url,value,error,templateid)".
-			" values ($triggerid,".zbx_dbstr($description).",$type,$priority,$status,".zbx_dbstr($comments).",".
+			"  (triggerid,description,priority,status,comments,url,value,error,templateid)".
+			" values ($triggerid,".zbx_dbstr($description).",$priority,$status,".zbx_dbstr($comments).",".
 			"".zbx_dbstr($url).",2,'Trigger just added. No status update so far.',$templateid)");
 		if(!$result)
 		{
@@ -812,9 +812,9 @@
 		$newtriggerid=get_dbid("triggers","triggerid");
 
 		$result = DBexecute("insert into triggers".
-			" (triggerid,description,type,priority,status,comments,url,value,expression,templateid)".
-			" values ($newtriggerid,".zbx_dbstr($trigger['description']).','.$trigger['type'].','.$trigger['priority'].','.
-			$trigger['status'].','.zbx_dbstr($trigger['comments']).','.
+			" (triggerid,description,priority,status,comments,url,value,expression,templateid)".
+			" values ($newtriggerid,".zbx_dbstr($trigger["description"]).",".$trigger["priority"].",".
+			$trigger["status"].",".zbx_dbstr($trigger["comments"]).",".
 			zbx_dbstr($trigger["url"]).",2,'{???:???}',".
 			($copy_mode ? 0 : $triggerid).")");
 
@@ -886,15 +886,10 @@
 	 ******************************************************************************/
 	function	explode_exp ($expression, $html,$template=false)
 	{
-//		echo "EXPRESSION:",$expression,"<Br>";
+#		echo "EXPRESSION:",$expression,"<Br>";
 
 		$functionid='';
-		if(0 == $html){
-			$exp='';
-		}
-		else{
-			$exp=array();
-		}
+		$exp='';
 		$state='';
 		for($i=0,$max=strlen($expression); $i<$max; $i++)
 		{
@@ -907,52 +902,44 @@
 			if($expression[$i] == '}')
 			{
 				$state='';
-				if($functionid=="TRIGGER.VALUE"){
-					if(0 == $html) $exp.='{'.$functionid.'}';
-					else array_push($exp,'{'.$functionid.'}');
+				if($functionid=="TRIGGER.VALUE")
+				{
+					$exp .= "{".$functionid."}";
 				}
-				else if(is_numeric($functionid) && 
-					$function_data = DBfetch(DBselect('select h.host,i.key_,f.function,f.parameter,i.itemid,i.value_type'.
-													' from items i,functions f,hosts h'.
-													' where f.functionid='.$functionid.
-														' and i.itemid=f.itemid '.
-														' and h.hostid=i.hostid'
-					)))
+				else if(is_numeric($functionid) && $function_data = DBfetch(DBselect('select h.host,i.key_,f.function,f.parameter,i.itemid,i.value_type'.
+					' from items i,functions f,hosts h'.
+					' where f.functionid='.$functionid.' and i.itemid=f.itemid and h.hostid=i.hostid')))
 				{
 					if($template) $function_data["host"] = '{HOSTNAME}';
 						
-					if($html == 0){
-						$exp.='{'.$function_data['host'].':'.$function_data['key_'].'.'.$function_data['function'].'('.$function_data['parameter'].')}';
+					if($html == 0)
+					{
+						$exp .= "{".$function_data["host"].":".$function_data["key_"].".".
+							$function_data["function"]."(".$function_data["parameter"].")}";
 					}
-					else{
-						$link = new CLink($function_data['host'].':'.$function_data['key_'],
-							'history.php?action='.( $function_data['value_type'] ==0 ? 'showvalues' : 'showgraph').
+					else
+					{
+						$link = new CLink($function_data["host"].":".$function_data["key_"],
+							'history.php?action='.( $function_data["value_type"] ==0 ? 'showvalues' : 'showgraph').
 							'&itemid='.$function_data['itemid']);
 					
-						array_push($exp,array('{',$link,'.',bold($function_data['function'].'('),$function_data['parameter'],bold(')'),'}'));
+						$exp .= '{'.$link->ToString().'.'.bold($function_data["function"].'(').$function_data["parameter"].bold(')').'}';
 					}
 				}
-				else{
-					if(1 == $html){
-						$font = new CTag('font','yes');
-						$font->AddOption('color','#AA0000');
-						$font->AddItem('*ERROR*');
-						array_push($exp,$font);
-					}
-					else{
-						$exp.= '*ERROR*';
-					}
-
+				else
+				{
+					if($html == 1)	$exp .= "<FONT COLOR=\"#AA0000\">";
+					$exp .= "*ERROR*";
+					if($html == 1)	$exp .= "</FONT>";
 				}
 				continue;
 			}
-			if($state == "FUNCTIONID"){
+			if($state == "FUNCTIONID")
+			{
 				$functionid=$functionid.$expression[$i];
 				continue;
 			}
-			
-			if(1 == $html) array_push($exp,$expression[$i]);
-			else $exp.=$expression[$i];
+			$exp=$exp.$expression[$i];
 		}
 #		echo "EXP:",$exp,"<Br>";
 		return $exp;
@@ -1125,15 +1112,13 @@
 
 			if(strstr($description,"{ITEM.LASTVALUE}"))
 			{
-				$row2=DBfetch(DBselect('SELECT i.lastvalue, i.value_type, i.itemid '.
-										' FROM items i, triggers t, functions f '.
-										' WHERE i.itemid=f.itemid '.
-											' AND f.triggerid=t.triggerid '.
-											' AND t.triggerid='.$row['triggerid']));
+				$row2=DBfetch(DBselect('select i.lastvalue,i.itemid,i.value_type from items i, triggers t, functions f '.
+					' where i.itemid=f.itemid and f.triggerid=t.triggerid and '.
+					' t.triggerid='.$row["triggerid"]));
 
-				if($row2['value_type']!=ITEM_VALUE_TYPE_LOG)
+				if($row2["value_type"]!=ITEM_VALUE_TYPE_LOG)
 				{
-					$description = str_replace('{ITEM.LASTVALUE}', $row2['lastvalue'],$description);
+					$description = str_replace("{ITEM.LASTVALUE}", $row2["lastvalue"],$description);
 				}
 				else
 				{
@@ -1145,7 +1130,6 @@
 					}
 				}
 			}
-
 			if(strstr($description,'{ITEM.VALUE}'))
 			{
 				$value=($flag==ZBX_FLAG_TRIGGER)?
@@ -1357,8 +1341,8 @@
 		if(!$result)	return	$result;
 
 		DBexecute("delete from alerts where triggerid=$triggerid");
-		
-		DBexecute("DELETE sysmaps_link_triggers WHERE triggerid=$triggerid");
+
+		DBexecute("update sysmaps_links set triggerid=NULL where triggerid=$triggerid");
 		
 	// disable actions
 		$db_actions = DBselect("select distinct actionid from conditions ".
@@ -1395,7 +1379,7 @@
 	 * Comments: !!! Don't forget sync code with C !!!                            *
 	 *                                                                            *
 	 ******************************************************************************/
-	function	update_trigger($triggerid,$expression=NULL,$description=NULL,$type=NULL,$priority=NULL,$status=NULL,
+	function	update_trigger($triggerid,$expression=NULL,$description=NULL,$priority=NULL,$status=NULL,
 		$comments=NULL,$url=NULL,$deps=array(),$templateid=0)
 	{
 		$trigger	= get_trigger_by_triggerid($triggerid);
@@ -1441,7 +1425,6 @@
 						$db_chd_trigger["triggerid"],
 						$newexpression,
 						$description,
-						$type,
 						$priority,
 						NULL,		// status
 						$comments,
@@ -1466,18 +1449,16 @@
 		$sql="update triggers set";
 		if(!is_null($expression))	$sql .= " expression=".zbx_dbstr($expression).",";
 		if(!is_null($description))	$sql .= " description=".zbx_dbstr($description).",";
-		if(!is_null($type))			$sql .= " type=$type,";
 		if(!is_null($priority))		$sql .= " priority=$priority,";
 		if(!is_null($status))		$sql .= " status=$status,";
 		if(!is_null($comments))		$sql .= " comments=".zbx_dbstr($comments).",";
-		if(!is_null($url))			$sql .= " url=".zbx_dbstr($url).",";
+		if(!is_null($url))		$sql .= " url=".zbx_dbstr($url).",";
 		if(!is_null($templateid))	$sql .= " templateid=$templateid,";
 		$sql .= " value=2 where triggerid=$triggerid";
 
 		$result = DBexecute($sql);
 
 		delete_dependencies_by_triggerid($triggerid);
-
 		foreach($deps as $val)
 		{
 			$result=add_trigger_dependency($triggerid, $val);
@@ -1514,6 +1495,7 @@
 			$accessible_hosts = get_accessible_hosts_by_user($USER_DETAILS, $permission, null, PERM_RES_IDS_ARRAY);
 		}
 		if(!is_array($accessible_hosts)) $accessible_hosts = explode(',', $accessible_hosts);
+
                 $db_hosts = get_hosts_by_expression($expression);
 		while($host_data = DBfetch($db_hosts))
 		{
@@ -1794,12 +1776,10 @@
 	 * Comments: !!! Don't forget sync code with C !!!
 	 *
 	 */
-	function	get_triggers_overview($groupid,$view_style=null)
+	function	get_triggers_overview($groupid)
 	{
 		global $USER_DETAILS;
 
-		if(is_null($view_style)) $view_style = get_profile('web.overview.view.style',STYLE_TOP);
-		
 		$table = new CTableInfo(S_NO_TRIGGERS_DEFINED);
 		if($groupid > 0)
 		{
@@ -1834,159 +1814,135 @@
 			return $table;
 		}
 		sort($hosts);
-		if($view_style == STYLE_TOP){
-			$header=array(new CCol(S_TRIGGERS,'center'));
+
+		$header=array(new CCol(S_TRIGGERS,'center'));
+		foreach($hosts as $hostname)
+		{
+			$header=array_merge($header,array(new CImg('vtext.php?text='.$hostname)));
+		}
+		$table->SetHeader($header,'vertical_header');
+
+		foreach($triggers as $descr => $trhosts)
+		{
+			$table_row = array(nbsp($descr));
 			foreach($hosts as $hostname)
 			{
-				$header=array_merge($header,array(new CImg('vtext.php?text='.$hostname)));
-			}
-			$table->SetHeader($header,'vertical_header');
+				$css_class = NULL;
 
-			foreach($triggers as $descr => $trhosts)
-			{
-				$table_row = array(nbsp($descr));
-				foreach($hosts as $hostname)
+				unset($tr_ov_menu);
+				$ack = null;
+				if(isset($trhosts[$hostname]))
 				{
-					$table_row=get_trigger_overview_cells($table_row,$trhosts,$hostname);
-				}
-				$table->AddRow($table_row);
-			}
-		}
-		else{
-			$header=array(new CCol(S_HOSTS,'center'));
-			foreach($triggers as $descr => $trhosts)
-			{
-				$header=array_merge($header,array(new CImg('vtext.php?text='.$descr)));
-			}
-			$table->SetHeader($header,'vertical_header');
+					unset($ack_menu);
+					switch($trhosts[$hostname]['value'])
+					{
+						case TRIGGER_VALUE_TRUE:
+							$css_class = get_severity_style($trhosts[$hostname]['priority']);
+							if( ($ack = get_last_event_by_triggerid($trhosts[$hostname]['triggerid'])) )
+								$ack_menu = array(S_ACKNOWLEDGE, 'acknow.php?eventid='.$ack['eventid'], array('tw'=>'_blank'));
 
-			foreach($hosts as $hostname){
-			
-				$table_row = array(nbsp($hostname));
-				
-				foreach($triggers as $descr => $trhosts){
-					$table_row=get_trigger_overview_cells($table_row,$trhosts,$hostname);
+							if ( 1 == $ack['acknowledged'] )
+								$ack = new CImg('images/general/tick.png','ack');
+							else
+								$ack = null;
+
+							break;
+						case TRIGGER_VALUE_FALSE:
+							$css_class = 'normal';
+							break;
+						default:
+							$css_class = 'unknown_trigger';
+					}
+
+					$style = 'cursor: pointer; ';
+
+					if((time(NULL)-$trhosts[$hostname]['lastchange'])<300)
+						$style .= 'background-image: url(images/gradients/blink1.gif); '.
+							'background-position: top left; '.
+							'background-repeat: repeat;';
+					elseif((time(NULL)-$trhosts[$hostname]['lastchange'])<900)
+						$style .= 'background-image: url(images/gradients/blink2.gif); '.
+							'background-position: top left; '.
+							'background-repeat: repeat;';
+
+					unset($item_menu);
+					$tr_ov_menu = array(
+						/* name, url, (target [tw], statusbar [sb]), css, submenu */
+						array(S_TRIGGER, null,  null, 
+							array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader'))
+							),
+						array(S_EVENTS, 'tr_events.php?triggerid='.$trhosts[$hostname]['triggerid'], array('tw'=>'_blank'))
+						);
+
+					if(isset($ack_menu)) $tr_ov_menu[] = $ack_menu;
+
+					$db_items = DBselect('select distinct i.itemid, i.description, i.key_, i.value_type '.
+						' from items i, functions f '.
+						' where f.itemid=i.itemid and f.triggerid='.$trhosts[$hostname]['triggerid']);
+
+					while($item_data = DBfetch($db_items))
+					{
+						$description = item_description($item_data['description'], $item_data['key_']);
+						switch($item_data['value_type'])
+						{
+							case ITEM_VALUE_TYPE_UINT64:
+							case ITEM_VALUE_TYPE_FLOAT:
+								$action = 'showgraph';
+								$status_bar = S_SHOW_GRAPH_OF_ITEM.' \''.$description.'\'';
+								break;
+							case ITEM_VALUE_TYPE_LOG:
+							case ITEM_VALUE_TYPE_STR:
+							case ITEM_VALUE_TYPE_TEXT:
+							default:
+								$action = 'showlatest';
+								$status_bar = S_SHOW_VALUES_OF_ITEM.' \''.$description.'\'';
+								break;
+						}
+						
+						if(strlen($description) > 25) $description = substr($description,0,22).'...';
+
+						$item_menu[$action][] = array(
+							$description,
+							'history.php?action='.$action.'&itemid='.$item_data['itemid'].'&period=3600',
+							 array('tw'=>'_blank', 'sb'=>$status_bar));
+					}
+					if(isset($item_menu['showgraph']))
+					{
+						$tr_ov_menu[] = array(S_GRAPHS,	null, null,
+							array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader'))
+							);
+						$tr_ov_menu = array_merge($tr_ov_menu, $item_menu['showgraph']);
+					}
+					if(isset($item_menu['showlatest']))
+					{
+						$tr_ov_menu[] = array(S_VALUES,	null, null, 
+							array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader'))
+							);
+						$tr_ov_menu = array_merge($tr_ov_menu, $item_menu['showlatest']);
+					}
+
+					unset($item_menu);
 				}
-				$table->AddRow($table_row);
+
+				$status_col = new CCol(array(SPACE, $ack),$css_class);
+				if(isset($style))
+				{
+					$status_col->AddOption('style', $style);
+				}
+
+				if(isset($tr_ov_menu))
+				{
+					$tr_ov_menu  = new CPUMenu($tr_ov_menu,170);
+					$status_col->OnClick($tr_ov_menu->GetOnActionJS());
+					$status_col->AddAction('onmouseover',
+						'this.old_border=this.style.border; this.style.border=\'1px dotted #0C0CF0\'');
+					$status_col->AddAction('onmouseout', 'this.style.border=this.old_border;');
+				}
+				array_push($table_row,$status_col);
 			}
+			$table->AddRow($table_row);
 		}
 		return $table;
-	}
-
-	function get_trigger_overview_cells(&$table_row,&$trhosts,&$hostname){
-		$css_class = NULL;
-
-		unset($tr_ov_menu);
-		$ack = null;
-		if(isset($trhosts[$hostname]))
-		{
-			unset($ack_menu);
-			switch($trhosts[$hostname]['value'])
-			{
-				case TRIGGER_VALUE_TRUE:
-					$css_class = get_severity_style($trhosts[$hostname]['priority']);
-					if( ($ack = get_last_event_by_triggerid($trhosts[$hostname]['triggerid'])) )
-						$ack_menu = array(S_ACKNOWLEDGE, 'acknow.php?eventid='.$ack['eventid'], array('tw'=>'_blank'));
-
-					if ( 1 == $ack['acknowledged'] )
-						$ack = new CImg('images/general/tick.png','ack');
-					else
-						$ack = null;
-
-					break;
-				case TRIGGER_VALUE_FALSE:
-					$css_class = 'normal';
-					break;
-				default:
-					$css_class = 'unknown_trigger';
-			}
-
-			$style = 'cursor: pointer; ';
-
-			if((time(NULL)-$trhosts[$hostname]['lastchange'])<300)
-				$style .= 'background-image: url(images/gradients/blink1.gif); '.
-					'background-position: top left; '.
-					'background-repeat: repeat;';
-			elseif((time(NULL)-$trhosts[$hostname]['lastchange'])<900)
-				$style .= 'background-image: url(images/gradients/blink2.gif); '.
-					'background-position: top left; '.
-					'background-repeat: repeat;';
-
-			unset($item_menu);
-			$tr_ov_menu = array(
-				/* name, url, (target [tw], statusbar [sb]), css, submenu */
-				array(S_TRIGGER, null,  null, 
-					array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader'))
-					),
-				array(S_EVENTS, 'tr_events.php?triggerid='.$trhosts[$hostname]['triggerid'], array('tw'=>'_blank'))
-				);
-
-			if(isset($ack_menu)) $tr_ov_menu[] = $ack_menu;
-
-			$db_items = DBselect('select distinct i.itemid, i.description, i.key_, i.value_type '.
-				' from items i, functions f '.
-				' where f.itemid=i.itemid and f.triggerid='.$trhosts[$hostname]['triggerid']);
-
-			while($item_data = DBfetch($db_items))
-			{
-				$description = item_description($item_data['description'], $item_data['key_']);
-				switch($item_data['value_type'])
-				{
-					case ITEM_VALUE_TYPE_UINT64:
-					case ITEM_VALUE_TYPE_FLOAT:
-						$action = 'showgraph';
-						$status_bar = S_SHOW_GRAPH_OF_ITEM.' \''.$description.'\'';
-						break;
-					case ITEM_VALUE_TYPE_LOG:
-					case ITEM_VALUE_TYPE_STR:
-					case ITEM_VALUE_TYPE_TEXT:
-					default:
-						$action = 'showlatest';
-						$status_bar = S_SHOW_VALUES_OF_ITEM.' \''.$description.'\'';
-						break;
-				}
-				
-				if(strlen($description) > 25) $description = substr($description,0,22).'...';
-
-				$item_menu[$action][] = array(
-					$description,
-					'history.php?action='.$action.'&itemid='.$item_data['itemid'].'&period=3600',
-					 array('tw'=>'_blank', 'sb'=>$status_bar));
-			}
-			if(isset($item_menu['showgraph']))
-			{
-				$tr_ov_menu[] = array(S_GRAPHS,	null, null,
-					array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader'))
-					);
-				$tr_ov_menu = array_merge($tr_ov_menu, $item_menu['showgraph']);
-			}
-			if(isset($item_menu['showlatest']))
-			{
-				$tr_ov_menu[] = array(S_VALUES,	null, null, 
-					array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader'))
-					);
-				$tr_ov_menu = array_merge($tr_ov_menu, $item_menu['showlatest']);
-			}
-
-			unset($item_menu);
-		}
-
-		$status_col = new CCol(array(SPACE, $ack),$css_class);
-		if(isset($style))
-		{
-			$status_col->AddOption('style', $style);
-		}
-
-		if(isset($tr_ov_menu))
-		{
-			$tr_ov_menu  = new CPUMenu($tr_ov_menu,170);
-			$status_col->OnClick($tr_ov_menu->GetOnActionJS());
-			$status_col->AddAction('onmouseover',
-				'this.old_border=this.style.border; this.style.border=\'1px dotted #0C0CF0\'');
-			$status_col->AddAction('onmouseout', 'this.style.border=this.old_border;');
-		}
-		array_push($table_row,$status_col);	
-	return $table_row;
 	}
 
 	function	get_function_by_functionid($functionid)
@@ -2255,36 +2211,5 @@
 			}
 		}
 		return $result;
-	}
-	
-	function get_row_for_nofalseforb($row,$sql){
-		$res_events = DBSelect($sql,1);
-
-		if(!$e_row=DBfetch($res_events)){
-			return false;
-		}
-		else{
-			$row = array_merge($row,$e_row);
-		}
-
-		if(($row['value']!=TRIGGER_VALUE_TRUE) && (!event_initial_time($row))){
-			if(!$eventid = first_initial_eventid($row,0)){
-				return false;
-			}
-
-			$sql = 'SELECT e.eventid, e.value'.
-					' FROM events e '.
-					' WHERE e.eventid='.$eventid.
-					' AND e.acknowledged=0';
-
-			$res_events = DBSelect($sql,1);
-			if(!$e_row=DBfetch($res_events)){
-				return false;
-			}
-			else{
-				$row = array_merge($row,$e_row);
-			}
-		}
-	return $row;
 	}
 ?>

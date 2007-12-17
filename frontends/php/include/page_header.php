@@ -102,7 +102,7 @@ COpt::profiling_start("page");
 						),
 					array("url"=>"tr_status.php"	,"label"=>S_TRIGGERS	,
 						"sub_pages"=>array("tr_events.php","acknow.php","tr_comments.php",
-								"chart4.php","scripts_exec.php")
+								"chart4.php")
 						),
 					array("url"=>"queue.php"	,"label"=>S_QUEUE	),
 					array("url"=>"events.php"	,"label"=>S_EVENTS	),
@@ -162,7 +162,7 @@ COpt::profiling_start("page");
 						),
 					array("url"=>"actionconf.php"	,"label"=>S_ACTIONS),
 					array("url"=>"sysmaps.php"	,"label"=>S_MAPS,
-						"sub_pages"=>array("sysmap.php","popup_link_tr.php")
+						"sub_pages"=>array("sysmap.php")
 						),
 					array("url"=>"graphs.php"	,"label"=>S_GRAPHS,
 						"sub_pages"=>array("popup_gitem.php")
@@ -191,7 +191,6 @@ COpt::profiling_start("page");
 							"popup_usrgrp.php","popup_right.php","popup_users.php")
 						),
 					array("url"=>"media_types.php"	,"label"=>S_MEDIA_TYPES		),
-					array("url"=>"scripts.php"	,"label"=>S_SCRIPTS),
 					array("url"=>"audit.php"	,"label"=>S_AUDIT		),
 					array("url"=>"report4.php"	,"label"=>S_NOTIFICATIONS	),
 					array("url"=>"instal.php"	,"label"=>S_INSTALLATION	,
@@ -351,34 +350,19 @@ COpt::profiling_start("page");
 	if($page["type"] == PAGE_TYPE_HTML)
 	{
 ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
   <head>
     <title><?php echo $page['title'] ?></title>
-<?php 
-	if(defined('ZBX_PAGE_DO_REFRESH') && $USER_DETAILS["refresh"]) { 
-		echo '<meta http-equiv="refresh" content="'.$USER_DETAILS["refresh"].'" />';
-	}
- ?>
-    <link rel="stylesheet" href="css.css" />
+<?php if(defined('ZBX_PAGE_DO_REFRESH') && $USER_DETAILS["refresh"]) { ?>
+    <meta http-equiv="refresh" content="<?php echo $USER_DETAILS["refresh"]; ?>">
+<?php } ?>
+    <link rel="stylesheet" href="css.css">
     <link rel="shortcut icon" href="images/general/zabbix.ico">
-    <meta name="Author" content="ZABBIX SIA" />
+    <meta name="Author" content="ZABBIX SIA">
     <script type="text/javascript" src="js/common.js"></script>
-<?php
-	if(isset($page['scripts']) && is_array($page['scripts'])){
-		foreach($page['scripts'] as $id => $script){
-			if(file_exists('js/'.$script)){
-				echo '    <script type="text/javascript" src="js/'.$script.'"></script>'."\n";
-			} elseif(file_exists($script)){
-				echo '    <script type="text/javascript" src="'.$script.'"></script>'."\n";
-			} else {
-				echo '<!-- js script "'.$script.'" not found-->'."\n";
-			}
-		}
-	}
-?>
   </head>
-<body onload="zbxCallPostScripts();">
+<body onLoad="zbxCallPostScripts();">
 <?php
 	}
 
@@ -392,16 +376,11 @@ COpt::compare_files_with_menu($ZBX_MENU);
 		$help->SetTarget('_blank');
 		$support = new CLink(S_GET_SUPPORT, "http://www.zabbix.com/support.php", "small_font");
 		$support->SetTarget('_blank');
-		
-		$page_header_r_col = array($help,array("|", $support));
-		if($USER_DETAILS["alias"] != ZBX_GUEST_USER){
-			$page_header_r_col[] = array("|", 
-						new CLink(S_PROFILE, "profile.php", "small_font"),"|", 
-						new CLink(S_LOGOUT, "index.php?reconnect=1", "small_font"));
-		} else {
-			$page_header_r_col[] = array("|", new CLink(S_LOGIN, "index.php", "small_font"));
-		}
-		
+		$page_header_r_col = array($help, array("|",$support),
+			($USER_DETAILS["alias"] != "guest") ?
+				array("|", new CLink(S_PROFILE, "profile.php", "small_font")) :
+				null
+			);
 		$logo = new CLink(new CImg("images/general/zabbix.png","ZABBIX"),"http://www.zabbix.com");
 		$logo->SetTarget('_blank');
 
@@ -461,10 +440,10 @@ COpt::compare_files_with_menu($ZBX_MENU);
 		$table = new CTable();
 		$table->SetCellSpacing(0);
 		$table->SetCellPadding(0);
-		$table->AddOption('style','width: 100%;');
+		$table->options['style'] = "width: 100%;";
 
 		$r_col = new CCol($node_form);
-		$r_col->AddOption('style','text-align: right;');
+		$r_col->options['style'] = "text-align: right;";
 		
 		$table->AddRow(array($menu_table,$r_col));
 		$table->Show();
@@ -472,32 +451,10 @@ COpt::compare_files_with_menu($ZBX_MENU);
 		$sub_menu_table = new CTable(NULL,'sub_menu');
 		$sub_menu_table->SetCellSpacing(0);
 		$sub_menu_table->SetCellPadding(5);
-		
-		(empty($sub_menu_row))?($sub_menu_row = '&nbsp;'):('');
 		$sub_menu_table->AddRow(new CCol($sub_menu_row));
+	
 		$sub_menu_table->Show();
 	}
-//------------------------------------- <HISTORY> ---------------------------------------
-	if(isset($page['hist_arg']) && ($USER_DETAILS["alias"] != ZBX_GUEST_USER) && ($page["type"] == PAGE_TYPE_HTML) && !defined('ZBX_PAGE_NO_MENU')){
-		$table = new CTable();
-		$table->SetClass('history');
-		
-		$table->SetCellSpacing(0);
-		$table->SetCellPadding(0);
-
-		$history = get_user_history();
-		add_user_history($page);
-
-		$tr = new CRow(new CCol('History:','caption'));
-		$tr->AddItem($history);
-		
-		$table->AddRow($tr);
-		$table->Show();
-	} elseif(($page["type"] == PAGE_TYPE_HTML) && !defined('ZBX_PAGE_NO_MENU')) {
-		echo SBR;
-	}
-//------------------------------------ </HISTORY> ---------------------------------------
-
 	unset($ZBX_MENU);
 		
 	unset($table, $top_page_row, $menu_table, $node_form);

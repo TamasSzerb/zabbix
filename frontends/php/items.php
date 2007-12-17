@@ -26,7 +26,6 @@
 
         $page["title"] = "S_CONFIGURATION_OF_ITEMS";
         $page["file"] = "items.php";
-	$page['hist_arg'] = array();
 
 include_once "include/page_header.php";
 ?>
@@ -65,7 +64,7 @@ include_once "include/page_header.php";
 		"with_type"=>		array(T_ZBX_INT, O_OPT,  null,  
 				IN(array(-1,ITEM_TYPE_ZABBIX,ITEM_TYPE_SNMPV1,ITEM_TYPE_TRAPPER,ITEM_TYPE_SIMPLE,
 				ITEM_TYPE_SNMPV2C,ITEM_TYPE_INTERNAL,ITEM_TYPE_SNMPV3,ITEM_TYPE_ZABBIX_ACTIVE,
-				ITEM_TYPE_AGGREGATE,ITEM_TYPE_HTTPTEST,ITEM_TYPE_EXTERNAL,ITEM_TYPE_DB_MONITOR)),null),
+				ITEM_TYPE_AGGREGATE,ITEM_TYPE_HTTPTEST,ITEM_TYPE_EXTERNAL)),null),
 		"with_key"=>		array(T_ZBX_STR, O_OPT,  P_UNSET_EMPTY,  null,		null),
 		"with_snmp_community"=>	array(T_ZBX_STR, O_OPT,  P_UNSET_EMPTY,  null,	null),
 		"with_snmp_oid"=>	array(T_ZBX_STR, O_OPT,  P_UNSET_EMPTY,  null,	null),
@@ -106,11 +105,10 @@ include_once "include/page_header.php";
 		"type"=>	array(T_ZBX_INT, O_OPT,  null,  
 				IN(array(-1,ITEM_TYPE_ZABBIX,ITEM_TYPE_SNMPV1,ITEM_TYPE_TRAPPER,ITEM_TYPE_SIMPLE,
 					ITEM_TYPE_SNMPV2C,ITEM_TYPE_INTERNAL,ITEM_TYPE_SNMPV3,ITEM_TYPE_ZABBIX_ACTIVE,
-					ITEM_TYPE_AGGREGATE,ITEM_TYPE_HTTPTEST,ITEM_TYPE_EXTERNAL,ITEM_TYPE_DB_MONITOR)),'isset({save})'),
+					ITEM_TYPE_AGGREGATE,ITEM_TYPE_HTTPTEST,ITEM_TYPE_EXTERNAL)),'isset({save})'),
 		"trends"=>	array(T_ZBX_INT, O_OPT,  null,  BETWEEN(0,65535),		'isset({save})'),
 		"value_type"=>	array(T_ZBX_INT, O_OPT,  null,  IN("0,1,2,3,4"),	'isset({save})'),
 		"valuemapid"=>	array(T_ZBX_INT, O_OPT,	 null,	DB_ID,				'isset({save})'),
-		"params"=>	array(T_ZBX_STR, O_OPT,  NULL,	NULL,'isset({save})'),
 
 		"snmp_community"=>array(T_ZBX_STR, O_OPT,  null,  NOT_EMPTY,		'isset({save})&&isset({type})&&'.IN("1,4","type")),
 		"snmp_oid"=>	array(T_ZBX_STR, O_OPT,  null,  NOT_EMPTY,			'isset({save})&&isset({type})&&'.IN("1,4,6","type")),
@@ -158,8 +156,7 @@ include_once "include/page_header.php";
 	$_REQUEST["showdisabled"] = get_request("showdisabled", get_profile("web.items.showdisabled", 0));
 	
 	check_fields($fields);
-	validate_sort_and_sortorder();
-	
+
 	$showdisabled = get_request("showdisabled", 0);
 	
 	$accessible_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE,null,null,get_current_nodeid());
@@ -234,8 +231,7 @@ include_once "include/page_header.php";
 				$_REQUEST["multiplier"],$_REQUEST["delta"],$_REQUEST["snmpv3_securityname"],
 				$_REQUEST["snmpv3_securitylevel"],$_REQUEST["snmpv3_authpassphrase"],
 				$_REQUEST["snmpv3_privpassphrase"],$_REQUEST["formula"],$_REQUEST["trends"],
-				$_REQUEST["logtimefmt"],$_REQUEST["valuemapid"],$db_delay_flex,$_REQUEST["params"],
-				$applications);
+				$_REQUEST["logtimefmt"],$_REQUEST["valuemapid"],$db_delay_flex,$applications);
 
 			$itemid = $_REQUEST["itemid"];
 			$action = AUDIT_ACTION_UPDATE;
@@ -252,8 +248,7 @@ include_once "include/page_header.php";
 				$_REQUEST["multiplier"],$_REQUEST["delta"],$_REQUEST["snmpv3_securityname"],
 				$_REQUEST["snmpv3_securitylevel"],$_REQUEST["snmpv3_authpassphrase"],
 				$_REQUEST["snmpv3_privpassphrase"],$_REQUEST["formula"],$_REQUEST["trends"],
-				$_REQUEST["logtimefmt"],$_REQUEST["valuemapid"],$db_delay_flex,$_REQUEST["params"],
-				$applications);
+				$_REQUEST["logtimefmt"],$_REQUEST["valuemapid"],$db_delay_flex,$applications);
 
 			$result = $itemid;
 			$action = AUDIT_ACTION_ADD;
@@ -316,7 +311,7 @@ include_once "include/page_header.php";
 				get_request("multiplier"),get_request("delta"),get_request("snmpv3_securityname"),
 				get_request("snmpv3_securitylevel"),get_request("snmpv3_authpassphrase"),
 				get_request("snmpv3_privpassphrase"),get_request("formula"),get_request("trends"),
-				get_request("logtimefmt"),get_request("valuemapid"),$db_delay_flex,null,$applications);
+				get_request("logtimefmt"),get_request("valuemapid"),$db_delay_flex,$applications);
 		}
 
 		show_messages($result, S_ITEMS_UPDATED);
@@ -384,7 +379,7 @@ include_once "include/page_header.php";
 					$_REQUEST["snmpv3_securitylevel"],$_REQUEST["snmpv3_authpassphrase"],
 					$_REQUEST["snmpv3_privpassphrase"],$_REQUEST["formula"],
 					$_REQUEST["trends"],$_REQUEST["logtimefmt"],$_REQUEST["valuemapid"],
-					$db_delay_flex, $_REQUEST["params"], $applications);
+					$db_delay_flex, $applications);
 				show_messages($itemid, S_ITEM_ADDED, S_CANNOT_ADD_ITEM);
 				if($itemid){
 					unset($_REQUEST["form"]);
@@ -410,7 +405,7 @@ include_once "include/page_header.php";
 					$_REQUEST["snmpv3_securitylevel"],$_REQUEST["snmpv3_authpassphrase"],
 					$_REQUEST["snmpv3_privpassphrase"],$_REQUEST["formula"],
 					$_REQUEST["trends"],$_REQUEST["logtimefmt"],$_REQUEST["valuemapid"],
-					$db_delay_flex, $_REQUEST["params"], $applications);
+					$db_delay_flex, $applications);
 				show_messages($result, S_ITEM_UPDATED, S_CANNOT_UPDATE_ITEM);
 				if($result){
 					unset($_REQUEST["form"]);
@@ -529,14 +524,14 @@ include_once "include/page_header.php";
 
 	if(isset($_REQUEST["form_mass_update"]) && isset($_REQUEST["group_itemid"]))
 	{
-		echo SBR;
+		echo BR;
 		insert_mass_update_item_form("group_itemid");
 	} else if(isset($_REQUEST["form_copy_to"]) && isset($_REQUEST["group_itemid"]))
 	{
-		echo SBR;
+		echo BR;
 		insert_copy_elements_to_forms("group_itemid");
 	} elseif (!isset($_REQUEST["form"]) ||  !in_array($_REQUEST["form"],array(S_CREATE_ITEM,"update","clone"))) {
-		echo SBR;
+		echo BR;
 // Table HEADER
 		$form = new CForm();
 		$form->SetMethod('get');
@@ -551,7 +546,7 @@ include_once "include/page_header.php";
 		if($_REQUEST['external_filter'])
 		{
 			insert_item_selection_form();
-			echo SBR;
+			echo BR;
 
 			if(ZBX_DISTRIBUTED && isset($_REQUEST['with_node']))
 			{
@@ -740,30 +735,23 @@ include_once "include/page_header.php";
 
 		$table  = new CTableInfo();
 		$table->SetHeader(array(
-			$show_host ? make_sorting_link(S_HOST,'h.host') : null,
+			$show_host ? S_HOST : null,
 			array(	new CCheckBox("all_items",null,
 					"CheckAll('".$form->GetName()."','all_items');"),
-				make_sorting_link(S_DESCRIPTION,'i.description')),
-			make_sorting_link(S_KEY,'i.key_'),
-			make_sorting_link(nbsp(S_UPDATE_INTERVAL),'i.delay'),
-			make_sorting_link(S_HISTORY,'i.history'),
-			make_sorting_link(S_TRENDS,'i.trends'),
-			make_sorting_link(S_TYPE,'i.type'),
-			make_sorting_link(S_STATUS,'i.status'),
+				S_DESCRIPTION),
+			S_KEY,nbsp(S_UPDATE_INTERVAL),
+			S_HISTORY,S_TRENDS,S_TYPE,S_STATUS,
 			$show_applications ? S_APPLICATIONS : null,
 			S_ERROR));
 
 		$from_tables['i'] = 'items i'; /* NOTE: must be added as last element to use left join */
 
-		$db_items = DBselect('SELECT DISTINCT th.host as template_host,th.hostid as template_hostid, h.host, i.* '.
-						' FROM '.implode(',', $from_tables).
-							' LEFT JOIN items ti ON i.templateid=ti.itemid '.
-							' LEFT JOIN hosts th ON ti.hostid=th.hostid '.
-						' WHERE '.implode(' and ', $where_case).
-						order_by('h.host,i.description,i.key_,i.delay,i.history,i.trends,i.type,i.status','i.itemid'));
-						
-		while($db_item = DBfetch($db_items)){
-		
+		$db_items = DBselect('select distinct th.host as template_host,th.hostid as template_hostid, h.host, i.* '.
+			' from '.implode(',', $from_tables).
+			' left join items ti on i.templateid=ti.itemid left join hosts th on ti.hostid=th.hostid '.
+			' where '.implode(' and ', $where_case).' order by h.host,i.description,i.key_,i.itemid');
+		while($db_item = DBfetch($db_items))
+		{
 			$description = array();
 
 			$item_description = item_description($db_item["description"],$db_item["key_"]);
@@ -842,7 +830,7 @@ include_once "include/page_header.php";
 		($_REQUEST["form"]=="mass_update" && isset($_REQUEST['group_itemid']))))
 	{
 // FORM
-		echo SBR;
+		echo BR;
 		insert_item_form();
 	}
 ?>

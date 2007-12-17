@@ -88,9 +88,9 @@
 		}
 
 		$result = DBexecute('insert into nodes (nodeid,name,timezone,ip,port,slave_history,slave_trends,'.
-				'nodetype,masterid) values ('.
+				'event_lastid,history_lastid,nodetype,masterid) values ('.
 				$new_nodeid.','.zbx_dbstr($name).','.$timezone.','.zbx_dbstr($ip).','.$port.','.$slave_history.','.$slave_trends.','.
-				$nodetype.','.$masterid.')');
+				'0,0,'.$nodetype.','.$masterid.')');
 
 		if($result && $node_type == ZBX_NODE_MASTER)
 		{

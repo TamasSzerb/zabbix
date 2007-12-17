@@ -25,7 +25,6 @@
 
 	$page["title"] = "S_CONFIGURATION_OF_ZABBIX";
 	$page["file"] = "config.php";
-	$page['hist_arg'] = array('config');
 
 include_once "include/page_header.php";
 
@@ -34,7 +33,7 @@ include_once "include/page_header.php";
 	$fields=array(
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 
-		"config"=>		array(T_ZBX_INT, O_OPT,	NULL,	IN("0,3,5,6,7,8"),	NULL),
+		"config"=>		array(T_ZBX_INT, O_OPT,	NULL,	IN("0,3,5,6,7"),	NULL),
 
 // other form
 		"alert_history"=>	array(T_ZBX_INT, O_NO,	NULL,	BETWEEN(0,65535),		'isset({config})&&({config}==0)&&isset({save})'),
@@ -61,10 +60,6 @@ include_once "include/page_header.php";
 		"save"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 		"delete"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 		"cancel"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
-/* acknowledges */
-		'event_ack_enable'=>	array(T_ZBX_INT, O_OPT, P_SYS|P_ACT,	IN("0,1"),	'isset({config})&&({config}==8)&&isset({save})'),
-		'event_expire'=> 		array(T_ZBX_INT, O_OPT, P_SYS|P_ACT,	BETWEEN(1,65535),	'isset({config})&&({config}==8)&&isset({save})'),
-		'event_show_max'=> 		array(T_ZBX_INT, O_OPT, P_SYS|P_ACT,	BETWEEN(1,65535),	'isset({config})&&({config}==8)&&isset({save})'),
 /* other */
 		"form"=>		array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
 		"form_refresh"=>	array(T_ZBX_INT, O_OPT,	NULL,	NULL,	NULL)
@@ -127,37 +122,6 @@ include_once "include/page_header.php";
 			unset($image, $_REQUEST["imageid"]);
 		}
 	}
-	elseif(isset($_REQUEST["save"]) && ($_REQUEST["config"]==8)){
-		if(count(get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_MODE_LT,PERM_RES_IDS_ARRAY,get_current_nodeid())))
-			access_deny();
-
-/* OTHER ACTIONS */
-		$result=update_config(
-			get_request('event_history'),
-			get_request('alert_history'),
-			get_request('refresh_unsupported'),
-			get_request('work_period'),
-			get_request('alert_usrgrpid'),
-			get_request('event_ack_enable'),
-			get_request('event_expire'),
-			get_request('event_show_max')
-			);
-
-		show_messages($result, S_CONFIGURATION_UPDATED, S_CONFIGURATION_WAS_NOT_UPDATED);
-
-		if($result)
-		{
-			$msg = array();
-			if(!is_null($val = get_request('event_ack_enable')))
-				$msg[] = S_EVENT_ACKNOWLEDGES.' ['.($val?(S_DISABLED):(S_ENABLED)).']';
-			if(!is_null($val = get_request('event_expire')))
-				$msg[] = S_SHOW_EVENTS_NOT_OLDER.SPACE.'('.S_DAYS.')'.' ['.$val.']';
-			if(!is_null($val = get_request('event_show_max')))
-				$msg[] = S_SHOW_EVENTS_MAX.' ['.$val.']';
-
-			add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_ZABBIX_CONFIG,implode('; ',$msg));
-		}		
-	}
 	elseif(isset($_REQUEST["save"])&&in_array($_REQUEST["config"],array(0,5,7)))
 	{
 
@@ -170,11 +134,7 @@ include_once "include/page_header.php";
 			get_request('alert_history'),
 			get_request('refresh_unsupported'),
 			get_request('work_period'),
-			get_request('alert_usrgrpid'),
-			get_request('event_ack_enable'),
-			get_request('event_expire'),
-			get_request('event_show_max')
-			);
+			get_request('alert_usrgrpid'));
 
 		show_messages($result, S_CONFIGURATION_UPDATED, S_CONFIGURATION_WAS_NOT_UPDATED);
 		if($result)
@@ -291,7 +251,6 @@ include_once "include/page_header.php";
 	$form = new CForm("config.php");
 	$form->SetMethod('get');
 	$cmbConfig = new CCombobox("config",$_REQUEST["config"],"submit()");
-	$cmbConfig->AddItem(8,S_EVENTS);
 	$cmbConfig->AddItem(0,S_HOUSEKEEPER);
 //	$cmbConfig->AddItem(2,S_ESCALATION_RULES);
 	$cmbConfig->AddItem(3,S_IMAGES);
@@ -312,7 +271,7 @@ include_once "include/page_header.php";
 		break;
 	}
 	show_table_header(S_CONFIGURATION_OF_ZABBIX_BIG, $form);
-	echo SBR;
+	echo BR;
 ?>
 
 <?php
@@ -327,10 +286,6 @@ include_once "include/page_header.php";
 	elseif($_REQUEST["config"]==7)
 	{
 		insert_work_period_form();
-	}
-	elseif($_REQUEST["config"]==8)
-	{
-		insert_event_ack_form();
 	}
 	elseif($_REQUEST["config"]==3)
 	{
@@ -392,7 +347,7 @@ include_once "include/page_header.php";
 						$db_map["value"],
 						SPACE.RARR.SPACE,
 						$db_map["newvalue"],
-						BR());
+						BR);
 				}
 				$table->AddRow(array(
 					new CLink($db_valuemap["name"],"config.php?form=update&".

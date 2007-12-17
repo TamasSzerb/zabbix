@@ -29,40 +29,36 @@
 #include "../functions.h"
 #include "../expression.h"
 
-#include "../nodewatcher/nodecomms.h"
-#include "../nodewatcher/nodesender.h"
 #include "nodesync.h"
+#include "nodeevents.h"
 #include "nodehistory.h"
 #include "trapper.h"
 #include "active.h"
-#include "nodecommand.h"
 
 #include "daemon.h"
 
 static int	process_trap(zbx_sock_t	*sock,char *s, int max_len)
 {
 	char	*line,*host;
-	char	*server,*key,*value_string, *data;
+	char	*server,*key,*value_string;
 	char	copy[MAX_STRING_LEN];
 	char	host_dec[MAX_STRING_LEN],key_dec[MAX_STRING_LEN],value_dec[MAX_STRING_LEN];
 	char	lastlogsize[MAX_STRING_LEN];
 	char	timestamp[MAX_STRING_LEN];
 	char	source[MAX_STRING_LEN];
 	char	severity[MAX_STRING_LEN];
-	int	sender_nodeid, nodeid;
-	char	*answer;
 
-	int	ret=SUCCEED, res;
-	size_t	datalen;
+	int	ret=SUCCEED;
 
 	zbx_rtrim(s, " \r\n\0");
 
-	datalen = strlen(s);
-	zabbix_log( LOG_LEVEL_DEBUG, "Trapper got [%s] len %zd",
+	zabbix_log( LOG_LEVEL_DEBUG, "Trapper got [%s] len %d",
 		s,
-		datalen);
+		strlen(s));
+
 /* Request for list of active checks */
-	if (strncmp(s,"ZBX_GET_ACTIVE_CHECKS", 21) == 0) {
+	if(strncmp(s,"ZBX_GET_ACTIVE_CHECKS", strlen("ZBX_GET_ACTIVE_CHECKS")) == 0)
+	{
 		line=strtok(s,"\n");
 		host=strtok(NULL,"\n");
 		if(host == NULL)
@@ -73,53 +69,47 @@ static int	process_trap(zbx_sock_t	*sock,char *s, int max_len)
 		{
 			ret = send_list_of_active_checks(sock, host);
 		}
-/* Request for last ids */
-	} else if (strncmp(s,"ZBX_GET_HISTORY_LAST_ID", 23) == 0) {
-		send_history_last_id(sock, s);
-		return ret;
-	} else if (strncmp(s,"ZBX_GET_TRENDS_LAST_ID", 22) == 0) {
-		send_trends_last_id(sock, s);
-		return ret;
+	}
 /* Process information sent by zabbix_sender */
-	} else {
-		/* Command? */
-		if(strncmp(s,"Command",7) == 0)
-		{
-			node_process_command(sock, s);
-			return ret;
-		}
+	else
+	{
 		/* Node data exchange? */
 		if(strncmp(s,"Data",4) == 0)
 		{
-			node_sync_lock(0);
-
 /*			zabbix_log( LOG_LEVEL_WARNING, "Node data received [len:%d]", strlen(s)); */
-			res = node_sync(s, &sender_nodeid, &nodeid);
-			if (FAIL == res)
-				send_data_to_node(sender_nodeid, sock, "FAIL");
-			else {
-				res = calculate_checksums(nodeid, NULL, 0);
-				if (SUCCEED == res && NULL != (data = get_config_data(nodeid, ZBX_NODE_SLAVE))) {
-					res = send_data_to_node(sender_nodeid, sock, data);
-					zbx_free(data);
-					if (SUCCEED == res)
-						res = recv_data_from_node(sender_nodeid, sock, &answer);
-					if (SUCCEED == res && 0 == strcmp(answer, "OK"))
-						res = update_checksums(nodeid, ZBX_NODE_SLAVE, SUCCEED, NULL, 0, NULL);
+			if(node_sync(s) == SUCCEED)
+			{
+				if( zbx_tcp_send_raw(sock,"OK") != SUCCEED)
+				{
+					zabbix_log( LOG_LEVEL_WARNING, "Error sending confirmation to node");
+					zabbix_syslog("Trapper: error sending confirmation to node");
 				}
 			}
-
-			node_sync_unlock(0);
-
+			return ret;
+		}
+		/* Slave node events? */
+		if(strncmp(s,"Events",6) == 0)
+		{
+/*			zabbix_log( LOG_LEVEL_WARNING, "Slave node events received [len:%d]", strlen(s)); */
+			if(node_events(s) == SUCCEED)
+			{
+				if( zbx_tcp_send_raw(sock,"OK") != SUCCEED)
+				{
+					zabbix_log( LOG_LEVEL_WARNING, "Error sending confirmation to node");
+					zabbix_syslog("Trapper: error sending confirmation to node");
+				}
+			}
 			return ret;
 		}
 		/* Slave node history ? */
 		if(strncmp(s,"History",7) == 0)
 		{
 /*			zabbix_log( LOG_LEVEL_WARNING, "Slave node history received [len:%d]", strlen(s)); */
-			if (node_history(s, datalen) == SUCCEED) {
-				if (zbx_tcp_send_raw(sock,"OK") != SUCCEED) {
-					zabbix_log( LOG_LEVEL_WARNING, "Error sending confirmation to node");
+			if(node_history(s) == SUCCEED)
+			{
+				if( zbx_tcp_send_raw(sock,"OK") != SUCCEED)
+				{
+					zabbix_log( LOG_LEVEL_WARNING, "Error sending confirmation to node]");
 					zabbix_syslog("Trapper: error sending confirmation to node");
 				}
 			}

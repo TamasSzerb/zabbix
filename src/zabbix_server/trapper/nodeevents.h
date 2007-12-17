@@ -1,4 +1,3 @@
-<?php
 /* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
@@ -17,25 +16,11 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-?>
-<?php
-class CScript extends CObject{
-/* public */
 
-		function CScript($item=NULL){
-			$this->items = array();
-			$this->AddItem($item);
-		}
-		
-		function AddItem($value){
-			if(is_array($value)){
-				foreach($value as $item){
-					array_push($this->items,unpack_object($item));
-				}
-			}
-			else if(!is_null($value)){
-				array_push($this->items,unpack_object($value));
-			}
-		}
-}
-?>
+
+#ifndef ZABBIX_NODEEVENTS_H
+#define ZABBIX_NODEEVENTS_H
+
+int	node_events(char *data);
+
+#endif

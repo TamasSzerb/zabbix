@@ -218,14 +218,14 @@
 //*/
 //echo $f,":",$expression,"<br>";
 			$expression = str_replace('{'.$f.'}','$_REQUEST["'.$f.'"]',$expression);
-//$debug .= $f." = ".$_REQUEST[$f].SBR;
+//$debug .= $f." = ".$_REQUEST[$f].BR;
 		}
 		$expression = trim($expression,"& ");
 		$exec = "return (".$expression.") ? 1 : 0;";
 
 		$ret = eval($exec);
 //echo $debug;
-//echo "$field - result: ".$ret." exec: $exec".SBR.SBR;
+//echo "$field - result: ".$ret." exec: $exec".BR.BR;
 //SDI("$field - result: ".$ret." exec: $exec");
 		return $ret;
 	}
@@ -415,11 +415,6 @@
 				return ZBX_VALID_WARNING;
 			}
 		}
-		
-		if($type == T_ZBX_STR){
-//			XSS
-//			$var=str_replace('<','&lt;',$var);
-		}
 
 		if(($type == T_ZBX_CLR) && !is_hex_color($var)) {
 			$var = 'FFFFFF';
@@ -544,9 +539,7 @@
 	$system_fields=array(
 		"sessionid"=>		array(T_ZBX_STR, O_OPT,	 P_SYS,	HEX(),NULL),
 		"switch_node"=>		array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,NULL),
-		"triggers_hash"=>	array(T_ZBX_STR, O_OPT,	 P_SYS,	NOT_EMPTY,NULL),
-		'sort'=>			array(T_ZBX_STR, O_OPT,	 P_SYS,	NULL,NULL),
-		'sortorder'=>		array(T_ZBX_STR, O_OPT,	 P_SYS,	NULL,NULL)
+		"triggers_hash"=>	array(T_ZBX_STR, O_OPT,	 P_SYS,	NOT_EMPTY,NULL)
 	);
 
 	function	invalid_url()

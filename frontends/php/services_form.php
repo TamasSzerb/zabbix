@@ -25,7 +25,7 @@
 	
 	$page["title"] = "S_IT_SERVICES";
 	$page["file"] = "services_form.php";
-	$page['scripts'] = array('services.js');
+
 	define('ZBX_PAGE_NO_MENU', 1);
 
 include_once "include/page_header.php";
@@ -103,6 +103,7 @@ include_once "include/page_header.php";
 		}
 	}
 
+echo '<script type="text/javascript" src="js/services.js"></script>';
 /*-------------------------------------------- ACTIONS --------------------------------------------*/
 if(isset($_REQUEST['saction'])){
 
@@ -539,7 +540,7 @@ if(isset($_REQUEST['sform'])){
 	$cb2->SetType('button');
 	$cb2->SetAction("javascript: remove_childs('".$frmService->GetName()."','childs','tr');");
 
-	$frmService->AddRow(S_DEPENDS_ON,array($table,BR(),$cb,$cb2));
+	$frmService->AddRow(S_DEPENDS_ON,array($table,BR,$cb,$cb2));
 //----------
 //--------------------------------------------- </LINK> -------------------------------------------
 	
@@ -591,7 +592,7 @@ if(isset($_REQUEST['sform'])){
 		}
 		array_push($stime_el, array(new CCheckBox("rem_service_times[]", 'no', null,$i), 
 			$type,':'.SPACE, $from, SPACE.'-'.SPACE, $to,
-			(!empty($val['note'])?(array(BR(),'['.htmlspecialchars($val['note']).']')):('')),BR()));
+			(!empty($val['note']) ? BR.'['.htmlspecialchars($val['note']).']' : '' ),BR));
 
 		
 		$frmService->AddVar('service_times['.$i.'][type]',	$val['type']);
@@ -647,8 +648,8 @@ if(isset($_REQUEST['sform'])){
 	}
 
 	$frmService->AddRow(S_NEW_SERVICE_TIME, array(
-			$cmbTimeType, BR(), 
-			$time_param, BR(),
+			$cmbTimeType, BR, 
+			$time_param, BR,
 			new CButton('add_service_time','add','javascript: document.forms[0].action += \'?sform=1\'; submit();')
 		));
 //trigger

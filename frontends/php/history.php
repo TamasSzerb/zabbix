@@ -25,9 +25,7 @@
 
 	$page["file"]	= "history.php";
 	$page["title"]	= "S_HISTORY";
-	$page['hist_arg'] = array('hostid','grouid','graphid','period','dec','inc','left','right','stime');
-	$page['scripts'] = array('prototype.js','url.js','gmenu.js','scrollbar.js','sbox.js','sbinit.js');
-		
+
 	if(isset($_REQUEST['plaintext']) || isset($_REQUEST['fullscreen']))
 	{
 		define('ZBX_PAGE_NO_MENU', 1);
@@ -46,7 +44,7 @@ include_once "include/page_header.php";
 		"itemid"=>	array(T_ZBX_INT, O_MAND, P_SYS,	DB_ID,	null),
 		
 		"from"=>	array(T_ZBX_INT, O_OPT,	 null,	'{}>=0', null),
-		"period"=>	array(T_ZBX_INT, O_OPT,	 null,	null, null),
+		"period"=>	array(T_ZBX_INT, O_OPT,	 null,	BETWEEN(ZBX_MIN_PERIOD,ZBX_MAX_PERIOD), null),
 		"dec"=>		array(T_ZBX_INT, O_OPT,	 null,	null, null),
 		"inc"=>		array(T_ZBX_INT, O_OPT,	 null,	null, null),
 		"left"=>	array(T_ZBX_INT, O_OPT,	 null,	null, null),
@@ -127,7 +125,7 @@ include_once "include/page_header.php";
 		$main_header = $item_data["host"].": ".item_description($item_data["description"],$item_data["key_"]);
 		
 		if(isset($_REQUEST["plaintext"]))
-			echo $main_header.SBR;
+			echo $main_header.BR;
 	
 		if($_REQUEST["action"]=="showgraph")
 		{
@@ -228,7 +226,6 @@ include_once "include/page_header.php";
 <?php
 	if($_REQUEST["action"]=="showgraph" && $item_type != ITEM_VALUE_TYPE_LOG)
 	{
-		$dom_graph_id = 'graph';
 		show_history($_REQUEST["itemid"],$_REQUEST["from"],$_REQUEST["stime"],$effectiveperiod);
 	}
 	elseif($_REQUEST["action"]=="showvalues" || $_REQUEST["action"]=="showlatest")
@@ -239,10 +236,8 @@ include_once "include/page_header.php";
 			$till = time(null) - $_REQUEST["from"] * 3600;
 			$hours=$effectiveperiod / 3600;
 
-			$l_header = array(S_SHOWING_HISTORY_OF.SPACE.$effectiveperiod.SPACE.S_SECONDS_SMALL.'('.$hours.' h)',
-								BR(),
-								'['.S_FROM_SMALL.': '.date('Y.M.d H:i:s',$time).'] ['.S_TILL_SMALL.': '.date('Y.M.d H:i:s',$till).']'
-							);
+			$l_header = "Showing history of ".$effectiveperiod." seconds($hours h)".BR.
+				"[from: ".date("Y.M.d H:i:s",$time)."] [till: ".date("Y.M.d H:i:s",$till)."]";
 		}
 		else
 		{
@@ -274,7 +269,7 @@ include_once "include/page_header.php";
 				$cmbFTask->AddItem(FILTER_TAST_INVERT_MARK,S_MARK_OTHERS);
 
 				$r_header->AddItem(array(
-					S_SELECT_ROWS_WITH_VALUE_LIKE,SPACE,
+					"Select rows with value like",SPACE,
 					new CTextBox("filter",$filter,25),
 					$cmbFTask,SPACE));
 
@@ -300,9 +295,7 @@ include_once "include/page_header.php";
 		}
 		else
 		{
-			$txt = new CTag('p','yes',$l_header);
-			$txt->Show();
-			echo "\n";
+			echo $l_header."\n";
 		}
 
 		$cond_clock = "";
@@ -355,7 +348,7 @@ include_once "include/page_header.php";
 			}
 			else
 			{
-				echo "<pre>\n";
+				echo "<PRE>\n";
 			}
 
 			while($row=DBfetch($result))
@@ -443,7 +436,7 @@ include_once "include/page_header.php";
 			if(!isset($_REQUEST["plaintext"]))
 				$table->ShowEnd();	// to solve memory leak we call 'Show' method by steps
 			else
-				echo "</pre>";
+				echo "</PRE>";
 		}
 		else
 		{
@@ -464,12 +457,12 @@ include_once "include/page_header.php";
 			{
 				$table = new CTableInfo();
 				$table->SetHeader(array(S_TIMESTAMP, S_VALUE));
-				$table->AddOption('id','graph');
+
 				$table->ShowStart(); // to solve memory leak we call 'Show' method by steps
 			}
 			else
 			{
-				echo "<pre>\n";
+				echo "<PRE>\n";
 			}
 
 COpt::profiling_start("history");
@@ -508,38 +501,19 @@ COpt::profiling_start("history");
 					echo "\t".$row["clock"]."\t".$row["value"]."\n";
 				}
 			}
-			if(!isset($_REQUEST["plaintext"])){
+			if(!isset($_REQUEST["plaintext"]))
 				$table->ShowEnd();	// to solve memory leak we call 'Show' method by steps
-				echo SBR;
-			}
-			else{
-				echo "</pre>";
-			}
+			else
+				echo "</PRE>";
 COpt::profiling_stop("history");
 		}
 	}
 
 	if(!isset($_REQUEST["plaintext"]))
 	{
-		if(in_array($_REQUEST["action"],array("showvalues","showgraph"))){
-			
-			$stime = get_min_itemclock_by_itemid($_REQUEST["itemid"]);
-			$stime = (is_null($stime))?0:$stime;
-			$bstime = time()-$effectiveperiod;
-			
-			if(isset($_REQUEST['stime'])){
-				$bstime = $_REQUEST['stime'];
-				$bstime = mktime(substr($bstime,8,2),substr($bstime,10,2),0,substr($bstime,4,2),substr($bstime,6,2),substr($bstime,0,4));
-			}
-			
- 			$script = 	'scrollinit(0,0,0,'.$effectiveperiod.','.$stime.',0,'.$bstime.');
-						showgraphmenu("graph");';
-			if(isset($dom_graph_id))
-						$script.='graph_zoom_init("'.$dom_graph_id.'",'.$bstime.','.$effectiveperiod.',ZBX_G_WIDTH, 200);';
-							
-			zbx_add_post_js($script); 
-
-	//		navigation_bar("history.php",$to_save_request);
+		if(in_array($_REQUEST["action"],array("showvalues","showgraph")))
+		{
+			navigation_bar("history.php",$to_save_request);
 		}
 	}
 ?>

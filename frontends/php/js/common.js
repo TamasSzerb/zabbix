@@ -16,52 +16,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-var agt = navigator.userAgent.toLowerCase();
-var OP = (agt.indexOf("opera") != -1) && window.opera;
-var IE = (agt.indexOf("msie") != -1) && document.all && !OP;
-var SF = (agt.indexOf("safari") != -1);
-var KQ = (agt.indexOf("khtml") != -1) && (!SF);
-
-function checkBrowser(){
-	if(OP) SDI('Opera');
-	if(IE) SDI('IE');
-	if(SF) SDI('Safari');
-	if(KQ) SDI('Konqueror');
-return 0;
-}
-
-function isset(obj){
-	return (typeof(obj) != 'undefined');
-}
-
-function empty(obj){
-	if(is_null(obj)) return true;
-	if(obj == false) return true;
-	if((obj == 0) || (obj == '0')) return true;
-	if(is_string(obj) && (obj == '')) return true;
-	if(is_array(obj) && (obj.length == 0)) return true;
-return false;
-}
-
-function is_null(obj){
-	if(obj==null) return true;
-return false;
-}
-
-function is_number(obj){
-	return (typeof(obj) == 'number');
-}
-
-function is_string(obj){
-	return (typeof(obj) == 'string');
-}
-
-function is_array(obj) {
-   if (obj.constructor.toString().indexOf("Array") == -1)
-      return false;
-   else
-      return true;
-}
+var OP = window.opera?true:false;
+var IE = ((!OP) && (document.all))?true:false;
 
 if (!Array.prototype.forEach)
 {
@@ -229,58 +185,15 @@ function CheckAll(form_name, chkMain, shkName){
 	}
 }
 
-
-
-function openWinCentered(loc, winname, iwidth, iheight, params){
-		tp=Math.ceil((screen.height-iheight)/2);
-		lf=Math.ceil((screen.width-iwidth)/2);
-		if (params.length > 0){
-			params = ', ' + params;
-		}
-
-	var WinObjReferer = window.open(loc,winname,"width="+iwidth+",height="+iheight+",top="+tp+",left="+lf+params);
-	WinObjReferer.focus();
-}
-
-function getPosition(obj){
-	var pos = {top: 0, left: 0};
-	if (isset(obj.offsetParent)) {
-		pos.left = obj.offsetLeft;
-		pos.top = obj.offsetTop;
-		while (obj = obj.offsetParent) {
-			pos.left += obj.offsetLeft;
-			pos.top += obj.offsetTop;
-		}
-	}
-return pos;
-}
-
-function cancelEvent(event){
-	event = event || window.event;
-
-//SDI(event);
-	if(IE){
-		event.cancelBubble = true;
-		event.returnValue = false;
-	}
-	else{
-		event.stopPropagation();
-		event.preventDefault();
-	}
-return false;
-}
-
-
-/************************************************************************************/
-/*										 Pages stuff								*/
-/************************************************************************************/
-
-function GetSelectedText(obj){
-	if(IE){
+function GetSelectedText(obj)
+{
+	if (navigator.appName == "Microsoft Internet Explorer")
+	{
 		obj.focus();
 		return document.selection.createRange().text;
 	}
-	else if(obj.selectionStart){
+	else (obj.selectionStart)
+	{
 		if(obj.selectionStart != obj.selectionEnd) {
 			var s = obj.selectionStart;
 			var e = obj.selectionEnd;
@@ -302,71 +215,57 @@ function ScaleChartToParenElement(obj_name)
 	}
 }
 
-function insert_sizeable_graph(graph_id,url){
-	if(isset(ZBX_G_WIDTH)) url += "&amp;width="+ZBX_G_WIDTH;
+function insert_sizeable_graph(url)
+{
+	var width;
 
-	document.write('<img id="'+graph_id+'" src="'+url+'" alt="graph" /><br /><br />');
-}
+	if(document.body.clientWidth)
+		width = document.body.clientWidth;
+	else if(document.width)
+		width = document.width;
 
-function remove_childs(form_name,rmvbyname,tag){
-	tag = tag.toUpperCase();
-	var frmForm = document.forms[form_name];
-	for (var i=0; i < frmForm.length; i++){
-		if(frmForm.elements[i].type != 'checkbox') continue;
-		if(frmForm.elements[i].disabled == true) continue;
-		if(frmForm.elements[i].checked != true) continue;
-		
-		var splt = frmForm.elements[i].name.split('[');
-		var name = splt[0];
-		var serviceid = splt[1];
+	if(width) url += "&amp;width=" + (width - 108);
 
-		if(rmvbyname && rmvbyname != name) continue;
-//		if(frmForm.elements[i].name != rmvbyname+'['+serviceid+'[serviceid]') continue;
-
-		remove_element(frmForm.elements[i],tag);
-		i--;
-	}
-}
-
-function remove_element(elmnt,tag){
-	if(elmnt.nodeName == tag){
-		elmnt.parentNode.removeChild(elmnt);
-	} else if(elmnt.nodeType == 9){
-		return;
-	} else {
-		remove_element(elmnt.parentNode,tag);
-	}
+	document.write('<img src="'+url+'" alt="graph">');
 }
 
 function resizeiframe(id){
 	id = id || 'iframe';
 	var iframe = document.getElementById(id);
 	var indoc = (IE)?iframe.contentWindow.document:iframe.contentDocument;
-	if(typeof(indoc) == 'undefined') return;
+	if(!isset(indoc)) return;
 	var height = parseInt(indoc.getElementsByTagName('body')[0].scrollHeight);
 	var height2 = parseInt(indoc.getElementsByTagName('body')[0].offsetHeight);
-	
-	if(height2 > height){
-		height = height2;
-	}
+
+	height=(IE | OP)?height:height2;
 
 	iframe.style.height = (height)+'px';
-	
-	if(!is_null($('scroll')) && showgraphmenu){
-		showgraphmenu('iframe');
-	}
 }
 
-function get_bodywidth(){
-	var w = parseInt(document.body.scrollWidth);
-	var w2 = parseInt(document.body.offsetWidth);
+function openWinCentered(loc, winname, iwidth, iheight, params){
+		tp=Math.ceil((screen.height-iheight)/2);
+		lf=Math.ceil((screen.width-iwidth)/2);
+		if (params.length > 0){
+			params = ', ' + params;
+		}
 
-	if(KQ){
-		w = (w2 < w)?w2:w;
-		w-=16;
-	}
-	else{
-		w = (w2 > w)?w2:w;
-	}
-return w;
+	var WinObjReferer = window.open(loc,winname,"width="+iwidth+",height="+iheight+",top="+tp+",left="+lf+params);
+	WinObjReferer.focus();
+}
+
+function isset(obj){
+	return (typeof(obj) != 'undefined');
+}
+
+function empty(obj){
+	if(isset(obj) && obj) return true;
+	return false;
+}
+
+function is_number(obj){
+	return (typeof(obj) == 'number');
+}
+
+function is_string(obj){
+	return (typeof(obj) == 'string');
 }

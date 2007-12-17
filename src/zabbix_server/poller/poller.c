@@ -25,16 +25,12 @@
 #include "../expression.h"
 #include "poller.h"
 
-#include "db.h"
-#include "sysinfo.h"
-
 #include "checks_agent.h"
 #include "checks_aggregate.h"
 #include "checks_external.h"
 #include "checks_internal.h"
 #include "checks_simple.h"
 #include "checks_snmp.h"
-#include "checks_db.h"
 
 #include "daemon.h"
 
@@ -82,10 +78,6 @@ int	get_value(DB_ITEM *item, AGENT_RESULT *result)
 	else if(item->type == ITEM_TYPE_INTERNAL)
 	{
 		res=get_value_internal(item, result);
-	}
-	else if(item->type == ITEM_TYPE_DB_MONITOR)
-	{
-		res=get_value_db(item, result);
 	}
 	else if(item->type == ITEM_TYPE_AGGREGATE)
 	{
@@ -364,6 +356,7 @@ int get_values(void)
 
 			process_new_value(&item,&agent);
 
+/*			if(HOST_STATUS_UNREACHABLE == item.host_status)*/
 			if(HOST_AVAILABLE_TRUE != item.host_available)
 			{
 				zabbix_log( LOG_LEVEL_WARNING, "Enabling host [%s]",

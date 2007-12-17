@@ -28,8 +28,6 @@
 	define('XML_TAG_APPLICATION',		'application');
 	define('XML_TAG_ITEMS',			'items');
 	define('XML_TAG_ITEM',			'item');
-	define('XML_TAG_TEMPLATES',		'templates');
-	define('XML_TAG_TEMPLATE',		'template');
 	define('XML_TAG_TRIGGERS',		'triggers');
 	define('XML_TAG_TRIGGER',		'trigger');
 	define('XML_TAG_GRAPHS',		'graphs');
@@ -71,9 +69,6 @@
 	define('IMAGE_FORMAT_PNG',         	'PNG');
 	define('IMAGE_FORMAT_JPEG',         	'JPEG');
 	define('IMAGE_FORMAT_TEXT',         	'JPEG');
-	
-	define('ZBX_SORT_UP',			'ASC');
-	define('ZBX_SORT_DOWN',			'DESC');
 //	END OF MISC PARAMETERS
 
 	define('AUDIT_ACTION_ADD',		0);
@@ -107,7 +102,6 @@
 	define('AUDIT_RESOURCE_SCENARIO',	22);
 	define('AUDIT_RESOURCE_DISCOVERY_RULE',	23);
 	define('AUDIT_RESOURCE_SLIDESHOW',	24);
-	define('AUDIT_RESOURCE_SCRIPT',		25);
 
 	define('CONDITION_TYPE_HOST_GROUP',	0);
 	define('CONDITION_TYPE_HOST',		1);
@@ -173,7 +167,6 @@
 	define('ITEM_TYPE_AGGREGATE',8);
 	define('ITEM_TYPE_HTTPTEST',9);
 	define('ITEM_TYPE_EXTERNAL',10);
-	define("ITEM_TYPE_DB_MONITOR",11);
 
 	define('ITEM_VALUE_TYPE_FLOAT',0);
 	define('ITEM_VALUE_TYPE_STR',1);
@@ -203,25 +196,12 @@
 	define('SERVICE_ALGORITHM_NONE',0);
 	define('SERVICE_ALGORITHM_MAX',1);
 	define('SERVICE_ALGORITHM_MIN',2);
-	
-	define('TRIGGER_MULT_EVENT_DISABLED',0);
-	define('TRIGGER_MULT_EVENT_ENABLED',1);
-	
-	define('TRIGGER_STATUS_ENABLED',0);
-	define('TRIGGER_STATUS_DISABLED',1);
-	define('TRIGGER_STATUS_UNKNOWN',2);
-	
-	define('TRIGGERS_OPTION_DISABLED',		0);	// reserved
-	define('TRIGGERS_OPTION_ONLYTRUE',		1);	// use 0 to disable
-	define('TRIGGERS_OPTION_ALL',			2);	// use 0 to disable
-	define('TRIGGERS_OPTION_NOFALSEFORB',	0);	// use 0 to disable
 
 	define('TRIGGER_VALUE_FALSE',0);
 	define('TRIGGER_VALUE_TRUE',1);
 	define('TRIGGER_VALUE_UNKNOWN',2);
-
-	define('TRIGGER_FALSE_PERIOD', 			1800);	
-	define('TRIGGER_BLINK_PERIOD',			1800);
+	
+	define('TRIGGER_BLINK_PERIOD',1800);
 
 	define('TRIGGER_SEVERITY_NOT_CLASSIFIED',	0);
 	define('TRIGGER_SEVERITY_INFORMATION',		1);
@@ -229,7 +209,7 @@
 	define('TRIGGER_SEVERITY_AVERAGE',		3);
 	define('TRIGGER_SEVERITY_HIGH',			4);
 	define('TRIGGER_SEVERITY_DISASTER',		5);
-	
+
 	define('ALERT_STATUS_NOT_SENT',0);
 	define('ALERT_STATUS_SENT',1);
 
@@ -254,6 +234,10 @@
 	define('ACTION_EVAL_TYPE_AND',1);
 	define('ACTION_EVAL_TYPE_OR',2);
 
+	define('TRIGGER_STATUS_ENABLED',0);
+	define('TRIGGER_STATUS_DISABLED',1);
+	define('TRIGGER_STATUS_UNKNOWN',2);
+
 	define('OPERATION_OBJECT_USER',		0);
 	define('OPERATION_OBJECT_GROUP',	1);
 
@@ -265,9 +249,6 @@
 	define('LOGFILE_SEVERITY_DISASTER',5);
 	define('LOGFILE_SEVERITY_AUDIT_SUCCESS',6);
 	define('LOGFILE_SEVERITY_AUDIT_FAILURE',7);
-
-	define('SCREEN_SIMPLE_ITEM',0);
-	define('SCREEN_DYNAMIC_ITEM',1);
 
 	define('SCREEN_RESOURCE_GRAPH', 0);
 	define('SCREEN_RESOURCE_SIMPLE_GRAPH', 1);
@@ -299,10 +280,6 @@
 	define('STYLE_HORISONTAL',	0);
 	define('STYLE_VERTICAL',	1);
 
-/* view style [OVERVIEW]*/
-	define('STYLE_LEFT', 0);
-	define('STYLE_TOP', 1);
-
 /* time module tipe */
         define('TIME_TYPE_LOCAL',	0);
         define('TIME_TYPE_SERVER',	1);
@@ -325,7 +302,6 @@
 	define('CALC_FNC_AVG', 2);
 	define('CALC_FNC_MAX', 4);
 	define('CALC_FNC_ALL', 7);
-	define('CALC_FNC_LST', 9);
 
 	
 	define('SERVICE_TIME_TYPE_UPTIME', 0);
@@ -341,9 +317,6 @@
 	define('PERM_READ_ONLY',	2);
 	define('PERM_READ_LIST',	1);
 	define('PERM_DENY',		0);
-	
-	define('SCRIPT_HOST_ACCESS_READ', 0);
-	define('SCRIPT_HOST_ACCESS_WRITE', 1);
 
 	define('PERM_RES_STRING_LINE',	0); /* return string of nodes id - '1,2,3,4,5' */
 	define('PERM_RES_IDS_ARRAY',	1); /* return array of nodes id - array(1,2,3,4) */
@@ -381,22 +354,12 @@
 	define('HTTPSTEP_ITEM_TYPE_IN',		2);
 	define('HTTPSTEP_ITEM_TYPE_LASTSTEP',	3);
 
-	define('EVENT_ACK_DISABLED','0');
-	define('EVENT_ACK_ENABLED','1');
-
 	define('EVENT_SOURCE_TRIGGERS',		0);
 	define('EVENT_SOURCE_DISCOVERY',	1);
 
 	define('EVENT_OBJECT_TRIGGER',		0);
 	define('EVENT_OBJECT_DHOST',		1);
 	define('EVENT_OBJECT_DSERVICE',		2);
-	
-	define('EVENTS_OPTION_DISABLED',		0);		//	reserved
-	define('EVENTS_OPTION_NOEVENT',			1);		//	use 0 to disable
-	define('EVENTS_OPTION_ALL',				2);		//	use 0 to disable
-	define('EVENTS_OPTION_NOT_ACK',			3);		//	use 0 to disable
-	define('EVENTS_OPTION_ONLYTRUE_NOTACK',	4);		//	use 0 to disable
-	define('EVENTS_OPTION_NOFALSEFORB',		5);		//  reserved for TRIGGERS_OPTION_NOFALSEFORB, to disable set TRIGGERS_OPTION_NOFALSEFORB to 0
 
 	define('DOBJECT_STATUS_UP',	0);
 	define('DOBJECT_STATUS_DOWN',	1);
@@ -423,8 +386,7 @@
 	define('DHOST_STATUS_ACTIVE',		0);
 	define('DHOST_STATUS_DISABLED',		1);
 	
-//	define('BR',	"<br/>\n");
-	define('SBR',	"<br/>\n");
+	define('BR',	"<br/>\n");
 	define('SPACE',	'&nbsp;');
 	define('RARR',	'&rArr;');
 
@@ -463,16 +425,12 @@
 	define('ZBX_EXPRESSION_MACRO_ID', 13);
 	define('ZBX_EXPRESSION_RIGHT_ID', 14);
 
+/* Define if your logs are in non-standard format */
+/*	define('ZBX_LOG_ENCODING_DEFAULT', 'Shift_JIS');*/
+
 	define('ZBX_MIN_PERIOD', 3600);
 	define('ZBX_MAX_PERIOD', 12*31*24*3600);
 	define('ZBX_PERIOD_DEFAULT', ZBX_MIN_PERIOD);
-	
-	define('ZBX_HISTORY_COUNT',5);
-	
-	define('ZBX_GUEST_USER','guest');
-
-/* Define if your logs are in non-standard format */
-/*	define('ZBX_LOG_ENCODING_DEFAULT', 'Shift_JIS');*/
 
 	define('ZBX_HAVE_IPV6', 1);
 

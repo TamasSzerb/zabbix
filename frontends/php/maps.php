@@ -20,10 +20,9 @@
 ?>
 <?php
 	require_once "include/config.inc.php";
-	
+
 	$page["title"] = "S_NETWORK_MAPS";
 	$page["file"] = "maps.php";
-	$page['hist_arg'] = array('sysmapid');
 
 	if(isset($_REQUEST["fullscreen"]))
 	{

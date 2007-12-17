@@ -106,41 +106,42 @@
                 return  DBexecute($sql);
         }
 
-        function delete_screen($screenid){
-			$result=DBexecute("delete from screens_items where screenid=$screenid");
-			if(!$result) return $result;
-			
-			$result=DBexecute("delete from screens_items where resourceid=$screenid and resourcetype=".SCREEN_RESOURCE_SCREEN);
-			if(!$result) return $result;
+        function        delete_screen($screenid)
+        {
+                $result=DBexecute("delete from screens_items where screenid=$screenid");
+                if(!$result)	return  $result;
 
-			$result=DBexecute('delete from slides where screenid='.$screenid);
-			if(!$result) return $result;
-			
-		return  DBexecute("delete from screens where screenid=$screenid");
+                $result=DBexecute("delete from screens_items where resourceid=$screenid and resourcetype=".SCREEN_RESOURCE_SCREEN);
+                if(!$result)	return  $result;
+
+		$result=DBexecute('delete from slides where screenid='.$screenid);
+		if(!$result)    return  $result;
+
+                return  DBexecute("delete from screens where screenid=$screenid");
         }
 
-        function add_screen_item($resourcetype,$screenid,$x,$y,$resourceid,$width,$height,$colspan,$rowspan,$elements,$valign,$halign,$style,$url,$dynamic){
-			$sql="DELETE FROM screens_items WHERE screenid=$screenid and x=$x and y=$y";
-			DBexecute($sql);
-			
-			$screenitemid=get_dbid("screens_items","screenitemid");
-			$result=DBexecute('INSERT INTO screens_items '.
-								'(screenitemid,resourcetype,screenid,x,y,resourceid,width,height,'.
-								' colspan,rowspan,elements,valign,halign,style,url) '.
-							' VALUES '.
-								"($screenitemid,$resourcetype,$screenid,$x,$y,$resourceid,$width,$height,$colspan,".
-								"$rowspan,$elements,$valign,$halign,$style,".zbx_dbstr($url).",$dynamic)");
+        function add_screen_item($resourcetype,$screenid,$x,$y,$resourceid,$width,$height,$colspan,$rowspan,$elements,$valign,$halign,$style,$url)
+        {
+                $sql="delete from screens_items where screenid=$screenid and x=$x and y=$y";
+                DBexecute($sql);
+		$screenitemid=get_dbid("screens_items","screenitemid");
+                $result=DBexecute("insert into screens_items (screenitemid,resourcetype,screenid,x,y,resourceid,width,height,".
+			" colspan,rowspan,elements,valign,halign,style,url) ".
+			" values ($screenitemid,$resourcetype,$screenid,$x,$y,$resourceid,".
+			" $width,$height,$colspan,$rowspan,$elements,$valign,$halign,$style,".
+			zbx_dbstr($url).")");
 
-			if(!$result) return $result;
+		if(!$result)
+			return $result;
+
 		return $screenitemid;
         }
 
-        function update_screen_item($screenitemid,$resourcetype,$resourceid,$width,$height,$colspan,$rowspan,$elements,$valign,$halign,$style,$url,$dynamic){
-			return  DBexecute("UPDATE screens_items SET ".
-								"resourcetype=$resourcetype,"."resourceid=$resourceid,"."width=$width,".
-								"height=$height,colspan=$colspan,rowspan=$rowspan,elements=$elements,".
-								"valign=$valign,halign=$halign,style=$style,url=".zbx_dbstr($url).",dynamic=$dynamic".
-							" WHERE screenitemid=$screenitemid");
+        function update_screen_item($screenitemid,$resourcetype,$resourceid,$width,$height,$colspan,$rowspan,$elements,$valign,$halign,$style,$url)
+        {
+                return  DBexecute("update screens_items set resourcetype=$resourcetype,resourceid=$resourceid,".
+			"width=$width,height=$height,colspan=$colspan,rowspan=$rowspan,elements=$elements,valign=$valign,".
+			"halign=$halign,style=$style,url=".zbx_dbstr($url)." where screenitemid=$screenitemid");
         }
 
         function delete_screen_item($screenitemid)
@@ -161,7 +162,8 @@
 		return FALSE;
 	}
 
-	function check_screen_recursion($mother_screenid, $child_screenid){
+	function	check_screen_recursion($mother_screenid, $child_screenid)
+	{
 			if($mother_screenid == $child_screenid)	return TRUE;
 
 			$db_scr_items = DBselect("select resourceid from screens_items where".
@@ -197,10 +199,8 @@
 		
 		if(!isset($step))
 		{
-			$iframe = new CIFrame('screens.php?config=1&fullscreen=2&elementid='.$slideshowid.'&step='.$curr_step.
-					'&period='.$effectiveperiod.url_param('stime').url_param('from'),'99%');
-					
-			return $iframe;
+			return new CIFrame('screens.php?config=1&fullscreen=2&elementid='.$slideshowid.'&step='.$curr_step.
+					'&period='.$effectiveperiod.url_param('stime').url_param('from'));
 		}
 
 		$slide_data = DBfetch(DBselect('select sl.screenid,sl.delay,ss.delay as ss_delay from slides sl,slideshows ss '.
@@ -225,9 +225,9 @@
 			access_deny();
 		
 		if(is_null($effectiveperiod)) 
-			$effectiveperiod = ZBX_MIN_PERIOD;
+			$effectiveperiod = 3600;
 
-		$result=DBselect('SELECT name,hsize,vsize FROM screens WHERE screenid='.$screenid);
+		$result=DBselect("select name,hsize,vsize from screens where screenid=$screenid");
 		$row=DBfetch($result);
 		if(!$row) return new CTableInfo(S_NO_SCREENS_DEFINED);
 
@@ -259,7 +259,6 @@
 		$table = new CTable(
 			new CLink("No rows in screen ".$row["name"],"screenconf.php?config=0&form=update&screenid=".$screenid),
 			($editmode == 0 || $editmode == 2) ? "screen_view" : "screen_edit");
-		$table->AddOption('id','iframe');
 	
 		for($r=0;$r<$row["vsize"];$r++)
 		{
@@ -272,7 +271,7 @@
 				$iresult=DBSelect("select * from screens_items".
 					" where screenid=$screenid and x=$c and y=$r");
 
-				$irow = DBfetch($iresult);
+				$irow		= DBfetch($iresult);
 				if($irow)
 				{
 					$screenitemid	= $irow["screenitemid"];
@@ -287,10 +286,10 @@
 					$halign		= $irow["halign"];
 					$style		= $irow["style"];
 					$url		= $irow["url"];
-					$dynamic	= $irow['dynamic'];
 				}
 				else
 				{
+					$screenitemid	= 0;
 					$screenitemid	= 0;
 					$resourcetype	= 0;
 					$resourceid	= 0;
@@ -303,7 +302,6 @@
 					$halign		= HALIGN_DEFAULT;
 					$style		= 0;
 					$url		= "";
-					$dynamic	= 0;
 				}
 
 				if($editmode == 1 && $screenitemid!=0)
@@ -328,91 +326,14 @@
 				elseif( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_GRAPH) )
 				{
 					if($editmode == 0)
-						$action = "charts.php?graphid=$resourceid".url_param("period").url_param("stime");
-														
-					$graphid = null;						
-					$graphtype = GRAPH_TYPE_NORMAL;
-					$yaxis = 0;
-					
-// GRAPH & ZOOM features
-					$sql = 'SELECT MAX(g.graphid) as graphid, MAX(g.graphtype) as graphtype, MIN(gi.yaxisside) as yaxissidel, MAX(gi.yaxisside) as yaxissider'.
-							' FROM graphs g, graphs_items gi '.
-							' WHERE g.graphid='.$resourceid.
-								' AND gi.graphid=.g.graphid ';
-			
-					$res = Dbselect($sql);
-					while($graph=DBfetch($res)){
-						$graphid = $graph['graphid'];
-						$graphtype = $graph['graphtype'];
-						$yaxis = $graph['yaxissider'];
-						$yaxis = ($graph['yaxissidel'] == $yaxis)?($yaxis):(2);
-					}
-					if($yaxis == 2){
-						$shiftXleft = 60;
-						$shiftXright = 60;
-					}
-					else if($yaxis == 0){
-						$shiftXleft = 60;
-						$shiftXright = 20;
-					}
-					else{
-						$shiftXleft = 10;
-						$shiftXright = 60;
-					}
-//-------------
-// Host feature
-					if(($dynamic == SCREEN_DYNAMIC_ITEM) && isset($_REQUEST['hostid']) && ($_REQUEST['hostid']>0)){
-						$def_items = array();
-						$di_res = get_graphitems_by_graphid($resourceid);
-						while( $gitem = DBfetch($di_res)){
-							$def_items[] = $gitem;
-						};
-	
-						$url='';
-						if($new_items = get_same_graphitems_for_host($def_items, $_REQUEST['hostid'], false)){
-							$url.= make_url_from_gitems($new_items);
-						}
-						
-						$url= make_url_from_graphid($resourceid,false).$url;
-					}
-//-------------
-					
-					if(($graphtype == GRAPH_TYPE_PIE) || ($graphtype == GRAPH_TYPE_EXPLODED)){
-						if(($dynamic==SCREEN_SIMPLE_ITEM) || empty($url)){
-							$url="chart6.php?graphid=$resourceid";
-						}
-					
-						$item = new CLink(
-							new CImg($url."&width=$width&height=$height"."&period=$effectiveperiod".url_param("stime")),
-							$action
-							);
-					}
-					else {
-						if(($dynamic==SCREEN_SIMPLE_ITEM) || empty($url)){
-							$url="chart2.php?graphid=$resourceid";
-						}
-						
-						$dom_graph_id = 'graph_'.$screenitemid.'_'.$resourceid;
-						$g_img = new CImg($url."&width=$width&height=$height"."&period=$effectiveperiod".url_param("stime"));
-						$g_img->AddOPtion('id',$dom_graph_id);
+						$action = "charts.php?graphid=$resourceid".url_param("period").
+                                                        url_param("inc").url_param("dec");
 
-						$item = new CLink($g_img,$action);
-						if(!is_null($graphid)){
-							insert_js('	A_SBOX["'.$dom_graph_id.'"] = new Object;'.
-										'A_SBOX["'.$dom_graph_id.'"].shiftT = 17;'.
-										'A_SBOX["'.$dom_graph_id.'"].shiftL = '.$shiftXleft.';'
-									);
-									
-							if(isset($_REQUEST['stime'])){
-								$stime = $_REQUEST['stime'];
-								$stime = mktime(substr($stime,8,2),substr($stime,10,2),0,substr($stime,4,2),substr($stime,6,2),substr($stime,0,4));
-							}
-							else{
-								$stime = 'null';
-							}
-							zbx_add_post_js('graph_zoom_init("'.$dom_graph_id.'",'.$stime.','.$effectiveperiod.','.$width.','.$height.');');
-						}
-					}
+					$item = new CLink(
+						new CImg("chart2.php?graphid=$resourceid&width=$width&height=$height".
+							"&period=$effectiveperiod".url_param("stime").url_param("from")),
+						$action
+						);
 				}
 				elseif( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_SIMPLE_GRAPH) )
 				{
@@ -420,19 +341,9 @@
 						$action = "history.php?action=showgraph&itemid=$resourceid".
                                                         url_param("period").url_param("inc").url_param("dec");
 
-// Host feature
-					if(($dynamic == SCREEN_DYNAMIC_ITEM) && isset($_REQUEST['hostid']) && ($_REQUEST['hostid']>0)){
-						if($newitemid = get_same_item_for_host($resourceid,$_REQUEST['hostid'],false)){
-							$resourceid = $newitemid;
-						}
-						else{
-							$resourceid='';
-						}
-					}
-//-------------
-					$url = (empty($resourceid))?'chart3.php?':"chart.php?itemid=$resourceid&";
 					$item = new CLink(
-						new CImg($url."width=$width&height=$height"."&period=$effectiveperiod".url_param("stime")),
+						new CImg("chart.php?itemid=$resourceid&width=$width&height=$height".
+							"&period=$effectiveperiod".url_param("stime").url_param("from")),
 						$action
 						);
 				}
@@ -449,23 +360,14 @@
 						$item = new CLink($image_map, $action);
 					}
 				}
-				elseif( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_PLAIN_TEXT) ){
-// Host feature
-					if(($dynamic == SCREEN_DYNAMIC_ITEM) && isset($_REQUEST['hostid']) && ($_REQUEST['hostid']>0)){
-						if($newitemid = get_same_item_for_host($resourceid,$_REQUEST['hostid'],false)){
-							$resourceid = $newitemid;
-						}
-						else{
-							$resourceid=0;
-						}
-					}
-//-------------
+				elseif( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_PLAIN_TEXT) )
+				{
 					$item = array(get_screen_plaintext($resourceid,$elements));
 					if($editmode == 1)	array_push($item,new CLink(S_CHANGE,$action));
 				}
 				elseif( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_HOSTS_INFO) )
 				{
-					$item = array(new CHostsInfo($resourceid, $style));
+					$item = array(new CHostsInfo($style));
 					if($editmode == 1)	array_push($item,new CLink(S_CHANGE,$action));
 				}
 				elseif( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_TRIGGERS_INFO) )
@@ -489,18 +391,18 @@
 				}
 				elseif( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_TRIGGERS_OVERVIEW) )
 				{
-					$item = array(get_triggers_overview($resourceid,$style));
+					$item = array(get_triggers_overview($resourceid));
 					if($editmode == 1)	array_push($item,new CLink(S_CHANGE,$action));
 				}
 				elseif( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_DATA_OVERVIEW) )
 				{
-					$item = array(get_items_data_overview($resourceid,$style));
+					$item = array(get_items_data_overview($resourceid));
 					if($editmode == 1)	array_push($item,new CLink(S_CHANGE,$action));
 				}
 				elseif( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_URL) )
 				{
 					$item = array(new CIFrame($url,$width,$height,"auto"));
-					if($editmode == 1)	array_push($item,BR(),new CLink(S_CHANGE,$action));
+					if($editmode == 1)	array_push($item,BR,new CLink(S_CHANGE,$action));
 				}
 				elseif( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_ACTIONS) )
 				{
@@ -515,7 +417,7 @@
 				else
 				{
 					$item = array(SPACE);
-					if($editmode == 1)	array_push($item,BR(),new CLink(S_CHANGE,$action));
+					if($editmode == 1)	array_push($item,BR,new CLink(S_CHANGE,$action));
 				}
 
 				$str_halign = "def";
@@ -636,91 +538,6 @@
 			DBexecute('delete from slides where slideshowid='.$slideshowid)
 		);
 	}
-	
 
-	# Show screen cell containing plain text values
-	function	get_screen_plaintext($itemid,$elements){
 
-		if($itemid == 0){
-			$table = new CTableInfo(S_ITEM_NOT_EXISTS);
-			$table->SetHeader(array(S_TIMESTAMP,S_ITEM));
-			return $table;
-		}
-
-		global $DB_TYPE;
-
-		$item=get_item_by_itemid($itemid);
-		switch($item["value_type"])
-		{
-			case ITEM_VALUE_TYPE_FLOAT:	$history_table = "history";		break;
-			case ITEM_VALUE_TYPE_UINT64:	$history_table = "history_uint";	break;
-			case ITEM_VALUE_TYPE_TEXT:	$history_table = "history_text";	break;
-			default:			$history_table = "history_str";		break;
-		}
-
-		$sql='SELECT h.clock,h.value,i.valuemapid '.
-			' FROM '.$history_table.' h, items i '.
-			' WHERE h.itemid=i.itemid '.
-				' AND i.itemid='.$itemid.
-			' ORDER BY h.clock DESC';
-
-		$result=DBselect($sql,$elements);
-
-		$host = get_host_by_itemid($itemid);
-		
-		$table = new CTableInfo();
-		$table->SetHeader(array(S_TIMESTAMP,item_description($host['host'].': '.$item["description"],$item["key_"])));
-		
-		while($row=DBfetch($result)){
-			switch($item["value_type"])
-			{
-				case ITEM_VALUE_TYPE_TEXT:	
-					if($DB_TYPE == "ORACLE")
-					{
-						if(isset($row["value"]))
-						{
-							$row["value"] = $row["value"]->load();
-						}
-						else
-						{
-							$row["value"] = "";
-						}
-					}
-					/* do not use break */
-				case ITEM_VALUE_TYPE_STR:	
-					$value = nl2br(nbsp(htmlspecialchars($row["value"])));
-					break;
-				
-				default:
-					$value = $row["value"];
-					break;
-			}
-
-			if($row["valuemapid"] > 0)
-				$value = replace_value_by_map($value, $row["valuemapid"]);
-
-			$table->AddRow(array(date(S_DATE_FORMAT_YMDHMS,$row["clock"]),	$value));
-		}
-		return $table;
-	}
-
-/*
-* Function: 
-*		check_dynamic_items
-*
-* Description:
-*		Check if in screen are dynamic items, if so return TRUE, esle FALSE
-*
-* Author: 
-*		Aly
-*/
-
-	function check_dynamic_items($screenid){
-		$sql = 'SELECT screenitemid '.
-			' FROM screens_items '.
-			' WHERE screenid='.$screenid.
-				' AND dynamic='.SCREEN_DYNAMIC_ITEM;
-		if(DBfetch(DBselect($sql,1))) return TRUE;
-	return FALSE;
-	}
 ?>

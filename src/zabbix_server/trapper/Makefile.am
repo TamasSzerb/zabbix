@@ -6,5 +6,5 @@ libzbxtrapper_a_SOURCES = \
 	active.c active.h \
 	trapper.c trapper.h \
 	nodesync.c nodesync.h \
-	nodehistory.c nodehistory.h \
-	nodecommand.c nodecommand.h
+	nodeevents.c nodeevents.h \
+	nodehistory.c nodehistory.h

@@ -17,10 +17,11 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
+#ifndef ZABBIX_NODEWATCHER_EVENTS_H
+#define ZABBIX_NODEWATCHER_EVENTS_H
 
-#ifndef ZABBIX_NODECOMMAND_H
-#define ZABBIX_NODECOMMAND_H
+extern	int	CONFIG_NODE_NOEVENTS;
 
-int	node_process_command(zbx_sock_t *sock, const char *data);
+void main_eventsender();
 
 #endif

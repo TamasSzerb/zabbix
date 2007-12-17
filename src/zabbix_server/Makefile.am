@@ -2,17 +2,16 @@
 
 SUBDIRS = \
 	alerter \
-	dbsyncer \
 	discoverer \
 	housekeeper \
-	httppoller \
-	nodewatcher \
 	pinger \
 	poller \
+	httppoller \
 	timer \
 	trapper \
-	utils \
-	watchdog
+	nodewatcher \
+	watchdog \
+	utils
 
 sbin_PROGRAMS = zabbix_server
 
@@ -32,7 +31,6 @@ endif
 
 zabbix_server_LDADD = \
 	alerter/libzbxalerter.a \
-	dbsyncer/libzbxdbsyncer.a \
 	discoverer/libzbxdiscoverer.a \
 	pinger/libzbxpinger.a \
 	poller/libzbxpoller.a \
@@ -55,7 +53,6 @@ zabbix_server_LDADD = \
 	$(top_srcdir)/src/libs/zbxsms/libzbxsms.a \
 	$(top_srcdir)/src/libs/zbxdbhigh/libzbxdbhigh.a \
 	$(top_srcdir)/src/libs/zbxdb/libzbxdb.a \
-	$(top_srcdir)/src/libs/zbxdbcache/libzbxdbcache.a \
 	$(top_srcdir)/src/libs/zbxcommon/libzbxcommon.a \
 	$(top_srcdir)/src/libs/zbxcrypto/libzbxcrypto.a \
 	$(top_srcdir)/src/libs/zbxcomms/libzbxcomms.a \

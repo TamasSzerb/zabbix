@@ -5,7 +5,6 @@ DIST_SUBDIRS = \
 	zabbix_agent \
 	zabbix_get \
 	zabbix_sender \
-	zabbix_proxy \
 	zabbix_server
 
 if AGENT
@@ -19,14 +18,7 @@ if SERVER
 SERVER_SUBDIRS = zabbix_server
 endif
 
-if PROXY
-PROXY_SUBDIRS = \
-	zabbix_proxy \
-	zabbix_server/pinger
-endif
-
 SUBDIRS = \
 	libs \
 	$(AGENT_SUBDIRS) \
-	$(PROXY_SUBDIRS) \
 	$(SERVER_SUBDIRS)

@@ -40,7 +40,7 @@ local $output;
 	"t_time"	=>	"integer",
 # It does not work for MySQL 3.x and <4.x (4.11?)
 #	"t_serial"	=>	"serial",
-	"t_serial"	=>	"bigint unsigned",
+	"t_serial"	=>	"bigint unsigned not null auto_increment unique",
 	"t_double"	=>	"double(16,4)",
 	"t_percentage"	=>	"double(5,2)",
 	"t_varchar"	=>	"varchar",
@@ -49,8 +49,7 @@ local $output;
 	"t_history_log"	=>	"text",
 	"t_history_text"=>	"text",
 	"t_blob"	=>	"blob",
-	"t_item_param"	=>	"text",
-	"t_cksum_text"	=>	"text"  
+	"t_item_param"	=>	"text"
 );
 
 %c=(	"type"		=>	"code",
@@ -69,33 +68,28 @@ local $output;
 	"t_history_log"	=>	"ZBX_TYPE_TEXT",
 	"t_history_text"=>	"ZBX_TYPE_TEXT",
 	"t_blob"	=>	"ZBX_TYPE_BLOB",
-	"t_item_param"	=>	"ZBX_TYPE_TEXT",
-	"t_cksum_text"	=>	"ZBX_TYPE_TEXT"  
+	"t_item_param"	=>	"ZBX_TYPE_TEXT"
 );
 
-$c{"before"}="/* 
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
-**
-** This program is free software; you can redistribute it and/or modify
-** it under the terms of the GNU General Public License as published by
-** the Free Software Foundation; either version 2 of the License, or
-** (at your option) any later version.
-**
-** This program is distributed in the hope that it will be useful,
-** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-** GNU General Public License for more details.
-**
-** You should have received a copy of the GNU General Public License
-** along with this program; if not, write to the Free Software
-** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-**/
+$c{"before"}="
+#define ZBX_FIELD struct zbx_field_type
+ZBX_FIELD
+{
+	char    *name;
+	int	type;
+	int	flags;
+};
 
-#include \"common.h\"
-#include \"dbschema.h\"
+#define ZBX_TABLE struct zbx_table_type
+ZBX_TABLE
+{
+	char    	*table;
+	char		*recid;
+	int		flags;
+	ZBX_FIELD	fields[64];
+};
 
-ZBX_TABLE	tables[]={
+static	ZBX_TABLE	tables[]={
 ";
 
 %oracle=("t_bigint"	=>	"number(20)",
@@ -115,8 +109,7 @@ ZBX_TABLE	tables[]={
 	"t_history_log"	=>	"varchar2(2048)",
 	"t_history_text"=>	"clob",
 	"t_blob"	=>	"varchar2(2048)",
-	"t_item_param"	=>	"varchar2(2048)",
-	"t_cksum_text"	=>	"clob"  
+	"t_item_param"	=>	"varchar2(2048)"
 );
 
 %postgresql=("t_bigint"	=>	"bigint",
@@ -137,19 +130,18 @@ ZBX_TABLE	tables[]={
 	"t_history_text"=>	"text",
 	"t_time"	=>	"integer",
 	"t_blob"	=>	"text",
-	"t_item_param"	=>	"text",
-	"t_cksum_text"	=>	"text"  
+	"t_item_param"	=>	"text"
 );
 
 %sqlite=("t_bigint"	=>	"bigint",
 	"database"	=>	"sqlite",
-	"before"	=>	"BEGIN TRANSACTION;\n",
-	"after"		=>	"COMMIT;\n",
+	"before"	=>	"",
+	"after"		=>	"",
 	"type"		=>	"sql",
 	"t_id"		=>	"bigint",
 	"t_integer"	=>	"integer",
 	"t_time"	=>	"integer",
-	"t_serial"	=>	"integer",
+	"t_serial"	=>	"serial",
 	"t_double"	=>	"double(16,4)",
 	"t_percentage"	=>	"double(5,2)",
 	"t_varchar"	=>	"varchar",
@@ -158,8 +150,7 @@ ZBX_TABLE	tables[]={
 	"t_history_log"	=>	"text",
 	"t_history_text"=>	"text",
 	"t_blob"	=>	"blob",
-	"t_item_param"	=>	"text",
-	"t_cksum_text"	=>	"text"  
+	"t_item_param"	=>	"text"
 );
 
 sub newstate
@@ -169,13 +160,13 @@ sub newstate
 	switch ($state)
 	{
 		case "field"	{
-			if($output{"type"} eq "sql" && $new eq "index") { print "$pkey\n)$output{'table_options'};\n"; }
-			if($output{"type"} eq "sql" && $new eq "table") { print "$pkey\n)$output{'table_options'};\n"; }
+			if($output{"type"} eq "sql" && $new eq "index") { print $pkey; }
+			if($output{"type"} eq "sql" && $new eq "table") { print $pkey; }
 			if($output{"type"} eq "code" && $new eq "table") { print ",\n\t\t{0}\n\t\t}\n\t},\n"; }
 			if($new eq "field") { print ",\n" }
 		}
 		case "index"	{
-			if($output{"type"} eq "sql" && $new eq "table") { print ""; }
+			if($output{"type"} eq "sql" && $new eq "table") { print "\n"; }
 			if($output{"type"} eq "code" && $new eq "table") { print ",\n\t\t{0}\n\t\t}\n\t},\n"; }
 		}
 	 	case "table"	{
@@ -188,6 +179,7 @@ sub newstate
 sub process_table
 {
 	local $line=$_[0];
+	local $tmp;
 
 	newstate("table");
 	($table_name,$pkey,$flags)=split(/\|/, $line,4);
@@ -199,29 +191,21 @@ sub process_table
 		{
 			$flags="0";
 		}
-		for ($flags) {
-			s/,/ \| /;
-		}
 		print "\t{\"${table_name}\",\t\"${pkey}\",\t${flags},\n\t\t{\n";
 	}
 	else
 	{
 		if($pkey ne "")
 		{
-			$pkey=",\n\tPRIMARY KEY ($pkey)";
+			$pkey=",\n\tPRIMARY KEY ($pkey)\n)";
 		}
 		else
 		{
-			$pkey="";
+			$pkey="\n)";
 		}
-
-		$ifnotexists = "";
-		if ($output{"database"} eq "sqlite")
-		{
-			$ifnotexists = "IF NOT EXISTS ";
-		}
-
-		print "CREATE TABLE $ifnotexists$table_name (\n";
+		$tmp=$output{"table_options"};
+		$pkey="$pkey$tmp;\n";
+		print "CREATE TABLE $table_name (\n";
 	}
 }
 
@@ -236,15 +220,9 @@ sub process_field
 	{
 		$type=$output{$type_short};
 #{"linkid",      ZBX_TYPE_INT,   ZBX_SYNC},
-		if ($null eq "NOT NULL") {
-			if ($flags ne "0") {
-				$flags="ZBX_NOTNULL | ".$flags;
-			} else {
-				$flags="ZBX_NOTNULL";
-			}
-		}
-		for ($flags) {
-			s/,/ \| /;
+		if($flags eq "")
+		{
+			$flags="0";
 		}
 		print "\t\t{\"${name}\",\t$type,\t${flags}}";
 	}
@@ -261,22 +239,7 @@ sub process_field
 		#	$default="DEFAULT NULL";
 			$null="";
 		}
-
-		$row="\t$name\t\t$type_2\t\t$default\t$null";
-
-		if($type eq "t_serial")
-		{
-			if($output{"database"} eq "sqlite")
-			{
-				$row="$row\tPRIMARY KEY AUTOINCREMENT";
-				$pkey="";
-			}
-			elsif($output{"database"} eq "mysql")
-			{
-				$row="$row\tauto_increment unique";
-			}
-		}
-		print $row;
+		print "\t$name\t\t$type_2\t\t$default\t$null";
 	}
 }
 
@@ -293,20 +256,13 @@ sub process_index
 	}
 
 	($name,$fields)=split(/\|/, $line,2);
-
-	$ifnotexists = "";
-	if($output{"database"} eq "sqlite")
-	{
-		$ifnotexists = "IF NOT EXISTS ";
-	}
-
 	if($unique == 1)
 	{
-		print "CREATE UNIQUE INDEX $ifnotexists${table_name}_$name\ on $table_name ($fields);\n";
+		print "CREATE UNIQUE INDEX ${table_name}_$name\ on $table_name ($fields);\n";
 	}
 	else
 	{
-		print "CREATE INDEX $ifnotexists${table_name}_$name\ on $table_name ($fields);\n";
+		print "CREATE INDEX ${table_name}_$name\ on $table_name ($fields);\n";
 	}
 }
 

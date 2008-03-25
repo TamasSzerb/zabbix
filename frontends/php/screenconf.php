@@ -25,7 +25,6 @@
 
 	$page["title"] = "S_SCREENS";
 	$page["file"] = "screenconf.php";
-	$page['hist_arg'] = array('config');
 
 include_once "include/page_header.php";
 	
@@ -67,8 +66,7 @@ include_once "include/page_header.php";
 	);
 
 	check_fields($fields);
-	validate_sort_and_sortorder();
-	
+
 	$config = $_REQUEST['config'] = get_request('config', 0);
 
 	update_profile('web.screenconf.config', $_REQUEST['config']);
@@ -234,7 +232,7 @@ include_once "include/page_header.php";
 	$form->AddItem(new CButton("form", 0 == $config ? S_CREATE_SCREEN : S_SLIDESHOW));
 
 	show_table_header(0 == $config ? S_CONFIGURATION_OF_SCREENS_BIG : S_CONFIGURATION_OF_SLIDESHOWS_BIG, $form);
-	echo SBR;
+	echo BR;
 
 	if( 0 == $config )
 	{
@@ -247,17 +245,12 @@ include_once "include/page_header.php";
 			show_table_header(S_SCREENS_BIG);
 
 			$table = new CTableInfo(S_NO_SCREENS_DEFINED);
-			$table->SetHeader(array(
-				make_sorting_link(S_NAME,'s.name'),
-				make_sorting_link(S_DIMENSION_COLS_ROWS,'size'),
-				S_SCREEN));
+			$table->SetHeader(array(S_NAME,S_DIMENSION_COLS_ROWS,S_SCREEN));
 
-			$result=DBselect('SELECT s.screenid,s.name,s.hsize,s.vsize,(s.hsize*s.vsize) as size '.
-							' FROM screens s '.
-							' WHERE '.DBin_node('s.screenid').
-							order_by('s.name,size','s.screenid'));
-			while($row=DBfetch($result)){
-				
+			$result=DBselect('select screenid,name,hsize,vsize from screens where '.DBin_node('screenid').
+					" order by name");
+			while($row=DBfetch($result))
+			{
 				if(!screen_accessiable($row["screenid"], PERM_READ_WRITE)) continue;
 
 				$table->AddRow(array(
@@ -281,19 +274,13 @@ include_once "include/page_header.php";
 			show_table_header(S_SLIDESHOWS_BIG);
 
 			$table = new CTableInfo(S_NO_SLIDESHOWS_DEFINED);
-			$table->SetHeader(array(
-				make_sorting_link(S_NAME,'s.name'),
-				make_sorting_link(S_DELAY,'s.delay'),
-				make_sorting_link(S_COUNT_OF_SLIDES,'cnt')
-				));
+			$table->SetHeader(array(S_NAME,S_DELAY,S_COUNT_OF_SLIDES));
 
-			$db_slides = DBselect('SELECT s.slideshowid, s.name, s.delay, count(*) as cnt '.
-							' FROM slideshows s '.
-								' left join slides sl on sl.slideshowid=s.slideshowid '.
-							' WHERE '.DBin_node('s.slideshowid').
-							' GROUP BY s.slideshowid,s.name,s.delay '.
-							order_by('s.name,s.delay,cnt','s.slideshowid'));
-							
+			$db_slides = DBselect('select s.slideshowid, s.name, s.delay, count(*) as cnt '.
+				' from slideshows s left join slides sl on sl.slideshowid=s.slideshowid '.
+				' where '.DBin_node('s.slideshowid').
+				' group by s.slideshowid,s.name,s.delay '.
+				' order by s.name,s.slideshowid');
 			while($slide_data = DBfetch($db_slides))
 			{
 				if(!slideshow_accessiable($slide_data['slideshowid'], PERM_READ_WRITE)) continue;

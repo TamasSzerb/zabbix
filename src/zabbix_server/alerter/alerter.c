@@ -21,6 +21,7 @@
 
 #include "cfg.h"
 #include "db.h"
+#include "../functions.h"
 #include "log.h"
 #include "zlog.h"
 #include "email.h"
@@ -29,7 +30,6 @@
 #	include "jabber.h"
 #endif
 #include "daemon.h"
-#include "zbxserver.h"
 
 #include "alerter.h"
 
@@ -195,9 +195,9 @@ int main_alerter_loop()
 
 		now  = time(NULL);
 
-		result = DBselect("select a.alertid,a.mediatypeid,a.sendto,a.subject,a.message,a.status,mt.mediatypeid,mt.type,mt.description,mt.smtp_server,mt.smtp_helo,mt.smtp_email,mt.exec_path,mt.gsm_modem,mt.username,mt.passwd,a.retries from alerts a,media_type mt where a.status=%d and a.mediatypeid=mt.mediatypeid" DB_NODE " order by a.clock",
+		result = DBselect("select a.alertid,a.mediatypeid,a.sendto,a.subject,a.message,a.status,mt.mediatypeid,mt.type,mt.description,mt.smtp_server,mt.smtp_helo,mt.smtp_email,mt.exec_path,mt.gsm_modem,mt.username,mt.passwd from alerts a,media_type mt where a.status=%d and a.retries<3 and a.mediatypeid=mt.mediatypeid and " ZBX_COND_NODEID " order by a.clock",
 			ALERT_STATUS_NOT_SENT,
-			DBnode_local("mt.mediatypeid"));
+			LOCAL_NODE("mt.mediatypeid"));
 
 		while((row=DBfetch(result)))
 		{
@@ -221,8 +221,6 @@ int main_alerter_loop()
 			mediatype.gsm_modem=row[13];
 			mediatype.username=row[14];
 			mediatype.passwd=row[15];
-
-			alert.retries=atoi(row[16]);
 
 			phan.sa_handler = child_signal_handler;
 			sigemptyset(&phan.sa_mask);
@@ -251,23 +249,9 @@ int main_alerter_loop()
 				zabbix_syslog("Error sending alert ID [" ZBX_FS_UI64 "]",
 					alert.alertid);
 				DBescape_string(error,error_esc,MAX_STRING_LEN);
-
-				alert.retries++;
-				if(alert.retries < ALERT_MAX_RETRIES)
-				{
-					DBexecute("update alerts set retries=%d,error='%s' where alertid=" ZBX_FS_UI64,
-						alert.retries,
-						error_esc,
-						alert.alertid);
-				}
-				else
-				{
-					DBexecute("update alerts set status=%d,retries=%d,error='%s' where alertid=" ZBX_FS_UI64,
-						ALERT_STATUS_FAILED,
-						alert.retries,
-						error_esc,
-						alert.alertid);
-				}
+				DBexecute("update alerts set retries=retries+1,error='%s' where alertid=" ZBX_FS_UI64,
+					error_esc,
+					alert.alertid);
 			}
 
 		}

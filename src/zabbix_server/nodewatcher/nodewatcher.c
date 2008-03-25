@@ -18,51 +18,280 @@
 **/
 
 #include "common.h"
+
 #include "cfg.h"
 #include "db.h"
 #include "log.h"
 #include "zlog.h"
 
+#include "dbsync.h"
+#include "events.h"
+#include "history.h"
 #include "nodewatcher.h"
 #include "nodesender.h"
-#include "history.h"
 
 /******************************************************************************
  *                                                                            *
- * Function: is_master_node                                                   *
+ * Function: calculate_checksums                                              *
  *                                                                            *
- * Purpose:                                                                   *
+ * Purpose: calculate check sums of configuration data                        *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:  SUCCEED - nodeid is master node                             *
- *                FAIL - nodeid is slave node                                 *
+ * Return value: SUCCESS - calculated succesfully                             * 
+ *               FAIL - an error occured                                      *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	is_master_node(int current_nodeid, int nodeid)
+static int calculate_checksums()
 {
-	DB_RESULT	dbresult;
-	DB_ROW		dbrow;
-	int		res = FAIL;
 
-	dbresult = DBselect("select masterid from nodes where nodeid=%d",
-		current_nodeid);
+	char	*sql = NULL;
+	int	sql_allocated, sql_offset;
 
-	if (NULL != (dbrow = DBfetch(dbresult))) {
-		current_nodeid = atoi(dbrow[0]);
-		if (current_nodeid == nodeid)
-			res = SUCCEED;
-		else if (0 != current_nodeid)
-			res = is_master_node(current_nodeid, nodeid);
+	int	i = 0;
+	int	j;
+	DB_RESULT	result;
+	DB_RESULT	result2;
+	DB_ROW		row;
+	DB_ROW		row2;
+	int		nodeid;
+
+	int	now;
+
+	zabbix_log( LOG_LEVEL_DEBUG, "In calculate_checksums");
+
+	DBexecute("delete from node_cksum where cksumtype=%d",
+		NODE_CKSUM_TYPE_NEW);
+
+	/* Select all nodes */
+	result =DBselect("select nodeid from nodes");
+	while((row=DBfetch(result)))
+	{
+		sql_allocated=64*1024;
+		sql_offset=0;
+		sql=zbx_malloc(sql, sql_allocated);
+
+		now  = time(NULL);
+		nodeid = atoi(row[0]);
+
+		zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 128,
+				"select 'table                  ','field                ',itemid, '012345678901234' from items where 1=0\n");
+
+		for(i=0;tables[i].table!=0;i++)
+		{
+/*			zabbix_log( LOG_LEVEL_WARNING, "In calculate_checksums2 [%s]", tables[i].table ); */
+			/* Do not sync some of tables */
+			if( (tables[i].flags & ZBX_SYNC) ==0)	continue;
+
+#ifdef	HAVE_MYSQL
+			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 4096,
+					"union all select '%s','%s',%s,md5(concat(",
+					tables[i].table,
+					tables[i].recid,
+					tables[i].recid);
+#else
+			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 4096,
+					"union all select '%s','%s',%s,md5(",
+					tables[i].table,
+					tables[i].recid,
+					tables[i].recid);
+#endif
+
+			j=0;
+			while(tables[i].fields[j].name != 0)
+			{
+				if( (tables[i].fields[j].flags & ZBX_SYNC) ==0)
+				{
+					j++;
+					continue;
+				}
+#ifdef	HAVE_MYSQL
+				zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 128, "coalesce(%s,'1234567890'),",
+					tables[i].fields[j].name);
+#else
+				if(tables[i].fields[j].type == ZBX_TYPE_BLOB) /* postgresql is not work: coalesce(blob,'1234567890')||coalesce(varchar,'1234567890') */
+				{
+					zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 128, "md5(coalesce(%s,'1234567890'))||",
+						tables[i].fields[j].name);
+				}
+				else
+				{
+					zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 128, "coalesce(%s,'1234567890')||",
+						tables[i].fields[j].name);
+				}
+#endif
+				j++;
+			}
+#ifdef	HAVE_MYSQL
+			if(j>0)			sql_offset--; /* Remove last */
+#else
+			if(j>0)			sql_offset-=2; /* Remove last */
+#endif
+
+			/* select table,recid,md5(fields) from table union all ... */
+#ifdef	HAVE_MYSQL
+			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 4096,
+					")) from %s where %s>=" ZBX_FS_UI64 " and %s<=" ZBX_FS_UI64 "\n",
+					tables[i].table,
+					tables[i].recid,
+					(zbx_uint64_t)__UINT64_C(100000000000000)*(zbx_uint64_t)nodeid,
+					tables[i].recid,
+					(zbx_uint64_t)__UINT64_C(100000000000000)*(zbx_uint64_t)nodeid+__UINT64_C(99999999999999));
+#else
+			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 4096,
+					") from %s where %s>=" ZBX_FS_UI64 " and %s<=" ZBX_FS_UI64 "\n",
+					tables[i].table,
+					tables[i].recid,
+					(zbx_uint64_t)__UINT64_C(100000000000000)*(zbx_uint64_t)nodeid,
+					tables[i].recid,
+					(zbx_uint64_t)__UINT64_C(100000000000000)*(zbx_uint64_t)nodeid+__UINT64_C(99999999999999));
+#endif
+		}
+/*		zabbix_log( LOG_LEVEL_WARNING, "SQL DUMP [%s]", sql);*/
+
+		result2 =DBselect("%s",sql);
+
+/*		zabbix_log( LOG_LEVEL_WARNING, "Selected records in %d seconds", time(NULL)-now);*/
+		now = time(NULL);
+		i=0;
+		while((row2=DBfetch(result2)))
+		{
+			DBexecute("insert into node_cksum (cksumid,nodeid,tablename,fieldname,recordid,cksumtype,cksum) "\
+				"values (" ZBX_FS_UI64 ",%d,'%s','%s',%s,%d,'%s')",
+/*				DBget_nextid("node_cksum","cksumid"),*/
+				DBget_maxid("node_cksum","cksumid"),
+				nodeid,
+				row2[0],
+				row2[1],
+				row2[2],
+				NODE_CKSUM_TYPE_NEW,
+				row2[3]);
+			i++;
+		}
+		DBfree_result(result2);
+		zbx_free(sql);
 	}
-	DBfree_result(dbresult);
+	DBfree_result(result);
 
-	return res;
+	return SUCCEED;
 }
+
+/******************************************************************************
+ *                                                                            *
+ * Function: update_checksums                                                 *
+ *                                                                            *
+ * Purpose: overwrite old checksums with new ones                             *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
+ * Return value: SUCCESS - calculated succesfully                             * 
+ *               FAIL - an error occured                                      *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+static int update_checksums()
+{
+	DBexecute("delete from node_cksum where cksumtype=%d",
+		NODE_CKSUM_TYPE_OLD);
+	DBexecute("update node_cksum set cksumtype=%d where cksumtype=%d",
+		NODE_CKSUM_TYPE_OLD,
+		NODE_CKSUM_TYPE_NEW);
+
+	return SUCCEED;
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: compare_checksums                                                *
+ *                                                                            *
+ * Purpose: compare new checksums with old ones. Write difference to          *
+ *          table 'node_config'                                               *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
+ * Return value: SUCCESS - calculated succesfully                             * 
+ *               FAIL - an error occured                                      *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+static int compare_checksums()
+{
+	DB_RESULT	result;
+	DB_ROW		row;
+
+	/* Find updated records */
+	result = DBselect("select curr.nodeid,curr.tablename,curr.recordid from node_cksum prev, node_cksum curr where curr.tablename=prev.tablename and curr.recordid=prev.recordid and curr.fieldname=prev.fieldname and curr.nodeid=prev.nodeid and curr.cksum<>prev.cksum and curr.cksumtype=%d and prev.cksumtype=%d",
+		NODE_CKSUM_TYPE_NEW,
+		NODE_CKSUM_TYPE_OLD);
+	while((row=DBfetch(result)))
+	{
+		zabbix_log( LOG_LEVEL_DEBUG, "Adding record to node_configlog NODE_CONFIGLOG_OP_UPDATE");
+		DBexecute("insert into node_configlog (conflogid,nodeid,tablename,recordid,operation)" \
+				"values (" ZBX_FS_UI64 ",%s,'%s',%s,%d)",
+/*				DBget_nextid("node_configlog","conflogid"),*/
+				DBget_maxid("node_configlog","conflogid"),
+				row[0],
+				row[1],
+				row[2],
+				NODE_CONFIGLOG_OP_UPDATE);
+	}
+	DBfree_result(result);
+
+	/* Find new records */
+	result = DBselect("select curr.nodeid,curr.tablename,curr.recordid from node_cksum curr" \
+			  " left join node_cksum prev" \
+			  " on curr.tablename=prev.tablename and curr.recordid=prev.recordid and curr.fieldname=prev.fieldname and curr.nodeid=prev.nodeid and curr.cksumtype<>prev.cksumtype" \
+			  " where prev.cksumid is null and curr.cksumtype=%d",
+			NODE_CKSUM_TYPE_NEW);
+
+	while((row=DBfetch(result)))
+	{
+		zabbix_log( LOG_LEVEL_DEBUG, "Adding record to node_configlog NODE_CONFIGLOG_OP_ADD");
+		DBexecute("insert into node_configlog (conflogid,nodeid,tablename,recordid,operation)" \
+			"values (" ZBX_FS_UI64 ",%s,'%s',%s,%d)",
+/*			DBget_nextid("node_configlog","conflogid"),*/
+			DBget_maxid("node_configlog","conflogid"),
+			row[0],
+			row[1],
+			row[2],
+			NODE_CONFIGLOG_OP_ADD);
+	}
+	DBfree_result(result);
+
+	/* Find deleted records */
+	result = DBselect("select curr.nodeid,curr.tablename,curr.recordid from node_cksum curr" \
+			  " left join node_cksum prev" \
+			  " on curr.tablename=prev.tablename and curr.recordid=prev.recordid and curr.fieldname=prev.fieldname and curr.nodeid=prev.nodeid and curr.cksumtype<>prev.cksumtype" \
+			  " where prev.cksumid is null and curr.cksumtype=%d",
+			NODE_CKSUM_TYPE_OLD);
+
+	while((row=DBfetch(result)))
+	{
+		zabbix_log( LOG_LEVEL_DEBUG, "Adding record to node_configlog NODE_CONFIGLOG_OP_DELETE");
+		DBexecute("insert into node_configlog (conflogid,nodeid,tablename,recordid,operation)" \
+				"values (" ZBX_FS_UI64 ",%s,'%s',%s,%d)",
+/*				DBget_nextid("node_configlog","conflogid"),*/
+				DBget_maxid("node_configlog","conflogid"),
+				row[0],
+				row[1],
+				row[2],
+				NODE_CONFIGLOG_OP_DELETE);
+	}
+	DBfree_result(result);
+
+	return SUCCEED;
+}
+
 
 /******************************************************************************
  *                                                                            *
@@ -96,10 +325,20 @@ int main_nodewatcher_loop()
 
 		if(lastrun + 120 < start)
 		{
-			process_nodes();
+
+			DBbegin();
+			calculate_checksums();
+			compare_checksums();
+			update_checksums();
+
+			/* Send configuration changes to required nodes */
+			main_nodesender();
+			DBcommit();
 
 			lastrun = start;
 		}
+		/* Send new events to master node */
+		main_eventsender();
 
 		/* Send new history data to master node */
 		main_historysender();

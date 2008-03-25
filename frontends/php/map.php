@@ -21,7 +21,7 @@
 <?php
 	require_once "include/config.inc.php";
 	require_once "include/maps.inc.php";
-		
+
 	$page["title"] = "S_MAP";
 	$page["file"] = "map.php";
 	$page["type"] = PAGE_TYPE_IMAGE;
@@ -110,14 +110,17 @@ include_once "include/page_header.php";
 	$str=date("m.d.Y H:i:s",time(NULL));
 	ImageString($im, 0,imagesx($im)-120,imagesy($im)-12,"$str", $gray);
 
-	if(!isset($_REQUEST["noedit"])){
+	if(!isset($_REQUEST["noedit"]))
+	{
 		$grid = 50;
 
-		for($x=$grid;$x<$width;$x+=$grid){
+		for($x=$grid;$x<$width;$x+=$grid)
+		{
 			MyDrawLine($im,$x,0,$x,$height,$black,GRAPH_DRAW_TYPE_DASHEDLINE);
 			ImageString($im, 2, $x+2,2, $x , $black);
 		}
-		for($y=$grid;$y<$height;$y+=$grid){
+		for($y=$grid;$y<$height;$y+=$grid)
+		{
 			MyDrawLine($im,0,$y,$width,$y,$black,GRAPH_DRAW_TYPE_DASHEDLINE);
 			ImageString($im, 2, 2,$y+2, $y , $black);
 		}
@@ -133,23 +136,17 @@ include_once "include/page_header.php";
 		list($x1, $y1) = get_icon_center_by_selementid($link["selementid1"]);
 		list($x2, $y2) = get_icon_center_by_selementid($link["selementid2"]);
 
-		$drawtype = $link["drawtype"];
-		$color = convertColor($im,$link["color"]);
+		$drawtype = $link["drawtype_off"];
+		$color = $colors[$link["color_off"]];
 
-		$triggers = get_link_triggers($link['linkid']);
-		
-		
-		if(!empty($triggers)){
-			$max_severity=0;
-			foreach($triggers as $id => $link_trigger){
-				$triggers[$id]=array_merge($link_trigger,get_trigger_by_triggerid($link_trigger["triggerid"]));
-				if($triggers[$id]["status"] == TRIGGER_STATUS_ENABLED && $triggers[$id]["value"] == TRIGGER_VALUE_TRUE){
-					if($triggers[$id]['severity'] >= $max_severity){
-						$drawtype = $triggers[$id]['drawtype'];
-						$color = convertColor($im,$triggers[$id]['color']);
-						$max_severity=$triggers[$id]['severity'];
-					}
-				}
+		if(!is_null($link["triggerid"]))
+		{
+			$trigger=get_trigger_by_triggerid($link["triggerid"]);
+//			if($trigger["value"] == TRIGGER_VALUE_TRUE)
+			if($trigger["status"] == TRIGGER_STATUS_ENABLED && $trigger["value"] == TRIGGER_VALUE_TRUE)
+			{
+				$drawtype = $link["drawtype_on"];
+				$color = $colors[$link["color_on"]];
 			}
 		}
 		MyDrawLine($im,$x1,$y1,$x2,$y2,$color,$drawtype);

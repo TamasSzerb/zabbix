@@ -24,8 +24,6 @@
 
 	$page["title"] = "S_IT_SERVICES";
 	$page["file"] = "srv_status.php";
-	$page['scripts'] = array('services.js');
-	$page['hist_arg'] = array();
 
 	define('ZBX_PAGE_DO_REFRESH', 1);
 
@@ -51,20 +49,17 @@ include_once "include/page_header.php";
 
 	if(isset($_REQUEST["serviceid"]) && $_REQUEST["serviceid"] > 0){
 		
-		if( !($service = DBfetch(DBselect('SELECT s.* '.
-					' FROM services s '.
-						' LEFT JOIN triggers t ON s.triggerid=t.triggerid '.
-						' LEFT JOIN functions f ON t.triggerid=f.triggerid '.
-						' LEFT JOIN items i on f.itemid=i.itemid '.
-			' WHERE (i.hostid IS NULL OR i.hostid NOT IN ('.$denyed_hosts.')) '.
-				' AND '.DBin_node('s.serviceid').
-				' AND s.serviceid='.$_REQUEST['serviceid']
+		if( !($service = DBfetch(DBselect("select s.* from services s left join triggers t on s.triggerid=t.triggerid ".
+			" left join functions f on t.triggerid=f.triggerid left join items i on f.itemid=i.itemid ".
+			" where (i.hostid is null or i.hostid not in (".$denyed_hosts.")) ".
+			' and '.DBin_node('s.serviceid').
+			" and s.serviceid=".$_REQUEST["serviceid"]
 			))))
 		{
 			access_deny();
 		}
 	}
-	unset($_REQUEST['serviceid']);
+	unset($_REQUEST["serviceid"]);
 ?>
 <?php
 	show_table_header(S_IT_SERVICES_BIG);
@@ -84,7 +79,7 @@ include_once "include/page_header.php";
 				' LEFT JOIN functions f ON t.triggerid=f.triggerid '.
 				' LEFT JOIN items i ON f.itemid=i.itemid '.
 			' WHERE '.DBin_node('s.serviceid').
-				' AND (i.hostid is null or i.hostid not in ('.$denyed_hosts.')) '.
+			' AND (i.hostid is null or i.hostid not in ('.$denyed_hosts.')) '.
 			' ORDER BY s.sortorder, sl_p.serviceupid, s.serviceid';
 		
 		$result=DBSelect($query);
@@ -113,8 +108,8 @@ include_once "include/page_header.php";
 			
 			if(isset($row["triggerid"]) && !empty($row["triggerid"])){
 
-				$url = new CLink(expand_trigger_description($row['triggerid']),'events.php?triggerid='.$row['triggerid']);
-				$row['caption'] = array($row['caption'].' [',$url,']');
+				$url = new CLink(expand_trigger_description($row['triggerid']),'tr_events.php?triggerid='.$row['triggerid']);
+				$row['caption'] = $row['caption'].SPACE.'['.$url->ToString().']';
 
 			}
 			
@@ -124,14 +119,14 @@ include_once "include/page_header.php";
 				$row['reason'] = new CList(null,"itservices");
 				$result2=DBselect("select s.triggerid,s.serviceid from services s, triggers t ".
 					" where s.status>0 and s.triggerid is not NULL and t.triggerid=s.triggerid ".
-						' and '.DBin_node('s.serviceid').
+					' and '.DBin_node('s.serviceid').
 					" order by s.status desc,t.description");
 					
 				while($row2=DBfetch($result2)){
 					if(does_service_depend_on_the_service($row["serviceid"],$row2["serviceid"])){
 						$row['reason']->AddItem(new CLink(
 							expand_trigger_description($row2["triggerid"]),
-							"events.php?triggerid=".$row2["triggerid"]));
+							"tr_events.php?triggerid=".$row2["triggerid"]));
 					}
 				}
 			}
@@ -147,12 +142,13 @@ include_once "include/page_header.php";
 				$stat = calculate_service_availability($row["serviceid"],$period_start,$period_end);
 
 				if($row["goodsla"] > $stat["ok"]){
-					$sla_style='red';
+					$color="AA0000";
 				} else {
-					$sla_style='green';
+					$color="00AA00";
 				}
 				
-				$row['sla2'] = array(new CSpan(round($row["goodsla"],3),'green'),'/', new CSpan(round($stat["ok"],3),$sla_style));
+				$row['sla2'] = sprintf("<font color=\"00AA00\">%.2f%%</font><b>/</b><font color=\"%s\">%.2f%%</font>",
+					$row["goodsla"], $color,$stat["ok"]);
 			} else {
 				$row['sla']= "-";
 				$row['sla2']= "-";
@@ -178,12 +174,14 @@ include_once "include/page_header.php";
 		//permission issue
 		$treeServ = del_empty_nodes($treeServ);
 		
-		$tree = new CTree($treeServ,array('caption' => bold(S_SERVICE),
-						'status' => bold(S_STATUS), 
-						'reason' => bold(S_REASON),
-						'sla' => bold(S_SLA_LAST_7_DAYS),
-						'sla2' => bold(nbsp(S_PLANNED_CURRENT_SLA)),
-						'graph' => bold(S_GRAPH)));
+		echo '<script src="js/services.js" type="text/javascript"></script>';
+		
+		$tree = new CTree($treeServ,array('caption' => '<b>'.S_SERVICE.'</b>',
+						'status' => '<b>'.S_STATUS.'</b>', 
+						'reason' => '<b>'.S_REASON.'</b>',
+						'sla' => '<b>'.S_SLA_LAST_7_DAYS.'</b>',
+						'sla2' => '<b>'.nbsp(S_PLANNED_CURRENT_SLA).'</b>',
+						'graph' => '<b>'.S_GRAPH.'</b>'));
 		
 		if($tree){
 			echo $tree->CreateJS();

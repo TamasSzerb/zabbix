@@ -20,7 +20,7 @@
 ?>
 <?php
 	require_once "include/config.inc.php";
-	require_once "include/classes/chart.inc.php";
+	require_once "include/classes/graph.inc.php";
 	
 	$page["file"]	= "chart.php";
 	$page["title"]	= "S_CHART";
@@ -47,7 +47,7 @@ include_once "include/page_header.php";
 	if(! (DBfetch(DBselect('select itemid from items where itemid='.$_REQUEST['itemid']))) )
 	{
 		show_error_message(S_NO_ITEM_DEFINED);
-//		show_message(S_NO_ITEM_DEFINED);
+
 	}
 
 	if(! ($db_data = DBfetch(DBselect("select i.itemid from items i ".
@@ -57,7 +57,7 @@ include_once "include/page_header.php";
 		access_deny();
 	}
 
-	$graph = new Chart();
+	$graph = new Graph();
 	
 	if(isset($_REQUEST["period"]))		$graph->SetPeriod($_REQUEST["period"]);
 	if(isset($_REQUEST["from"]))		$graph->SetFrom($_REQUEST["from"]);

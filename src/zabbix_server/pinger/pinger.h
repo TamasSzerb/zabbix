@@ -20,8 +20,6 @@
 #ifndef ZABBIX_PINGER_H
 #define ZABBIX_PINGER_H
 
-#include "common.h"
-
 extern	int	CONFIG_PINGER_FORKS;
 extern	int	CONFIG_PINGER_FREQUENCY;
 extern	char	*CONFIG_FPING_LOCATION;
@@ -29,6 +27,8 @@ extern	char	*CONFIG_FPING_LOCATION;
 extern	char	*CONFIG_FPING6_LOCATION;
 #endif /* HAVE_IPV6 */
 
-void	main_pinger_loop(zbx_process_t p, int num);
+extern	void	signal_handler( int sig );
+
+void main_pinger_loop(int num);
 
 #endif

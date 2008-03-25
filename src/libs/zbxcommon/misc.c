@@ -660,7 +660,6 @@ out:
 	zabbix_log( LOG_LEVEL_DEBUG, "End ip_in_list(ret:%s)", ret == SUCCEED ? "SUCCEED" : "FAIL");
 	return ret;
 }
-
 /******************************************************************************
  *                                                                            *
  * Function: int_in_list                                                      *

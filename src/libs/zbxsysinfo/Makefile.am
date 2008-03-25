@@ -48,7 +48,6 @@ libzbxagentsysinfo_a_SOURCES = \
 
 # SERVER version of sysinfo library
 libzbxserversysinfo_a_CFLAGS = \
-	-DWITH_COMMON_METRICS \
 	-DWITH_SIMPLE_METRICS
 
 libzbxserversysinfo_a_SOURCES = \

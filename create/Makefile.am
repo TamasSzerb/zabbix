@@ -1,10 +1,8 @@
 ## Process this file with automake to produce Makefile.in
 
+SUBDIRS = schema
+
 EXTRA_DIST = \
-	schema/mysql.sql \
-	schema/oracle.sql \
-	schema/postgresql.sql \
-	schema/sqlite.sql \
 	data/images/*.png \
 	data/data.sql \
 	data/images_oracle.sql \

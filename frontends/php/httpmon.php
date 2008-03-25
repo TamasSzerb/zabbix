@@ -26,7 +26,6 @@
 
         $page["title"] = "S_STATUS_OF_WEB_MONITORING";
         $page["file"] = "httpmon.php";
-	$page['hist_arg'] = array('open','groupid','hostid');
 	define('ZBX_PAGE_DO_REFRESH', 1);
 
 include_once "include/page_header.php";
@@ -46,7 +45,6 @@ include_once "include/page_header.php";
 	);
 
 	check_fields($fields);
-	validate_sort_and_sortorder();
 
 	validate_group_with_host(PERM_READ_ONLY,array("allow_all_hosts","always_select_first_host","monitored_hosts"));
 ?>
@@ -94,7 +92,7 @@ include_once "include/page_header.php";
 	$cmbGroup = new CComboBox("groupid",$_REQUEST["groupid"],"submit();");
 	$cmbGroup->AddItem(0,S_ALL_SMALL);
 
-	$accessible_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_LIST,null,null,get_current_nodeid());
+	$accessible_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,null,null,get_current_nodeid());
 	$accessible_groups = get_accessible_groups_by_user($USER_DETAILS,PERM_READ_LIST, null, null, get_current_nodeid());
 
 	$result=DBselect('select distinct g.groupid,g.name from groups g, hosts_groups hg, hosts h, '.
@@ -165,9 +163,9 @@ include_once "include/page_header.php";
 
 	$table  = new CTableInfo();
 	$table->SetHeader(array(
-		is_show_subnodes() ? make_sorting_link(S_NODE,'h.hostid') : null,
-		$_REQUEST["hostid"] ==0 ? make_sorting_link(S_HOST,'h.host') : NULL,
-		array($link, SPACE, make_sorting_link(S_NAME,'wt.name')),
+		is_show_subnodes() ? S_NODE : null,
+		$_REQUEST["hostid"] ==0 ? S_HOST : NULL,
+		array($link, SPACE, S_NAME),
 		S_NUMBER_OF_STEPS,
 		S_STATE,
 		S_LAST_CHECK,
@@ -179,19 +177,17 @@ include_once "include/page_header.php";
 		$compare_host = " and h.hostid=".$_REQUEST["hostid"];
 	else
 		$compare_host = " and h.hostid in (".$accessible_hosts.") ";
-		
-	$db_applications = DBselect('SELECT DISTINCT h.host,h.hostid,a.* '.
-							' FROM applications a,hosts h '.
-							' WHERE a.hostid=h.hostid '.$compare_host.
-							order_by('a.applicationid,h.host,h.hostid','a.name')
-		);
+
+	$db_applications = DBselect('select distinct h.host,h.hostid,a.* from applications a,hosts h '.
+		' where a.hostid=h.hostid '.$compare_host.
+		' order by a.name,a.applicationid,h.host');
 	while($db_app = DBfetch($db_applications))
 	{
 		$db_httptests = DBselect('select wt.*,a.name as application,h.host,h.hostid from httptest wt '.
 			' left join applications a on wt.applicationid=a.applicationid '.
 			' left join hosts h on h.hostid=a.hostid'.
 			' where a.applicationid='.$db_app["applicationid"].' and wt.status <> 1'.
-			order_by('wt.name','h.host'));
+			' order by h.host,wt.name');
 
 		$app_rows = array();
 		$httptest_cnt = 0;
@@ -204,8 +200,8 @@ include_once "include/page_header.php";
 
 			array_push($name, new CLink($httptest_data["name"],"httpdetails.php?httptestid=".$httptest_data['httptestid'],'action'));
 	
-			$step_cout = DBfetch(DBselect('select count(*) as cnt from httpstep where httptestid='.$httptest_data["httptestid"]));
-			$step_cout = $step_cout['cnt'];
+			$step_cout = DBfetch(DBselect('select count(*) from httpstep where httptestid='.$httptest_data["httptestid"]));
+			$step_cout = $step_cout[0];
 
 			if(isset($httptest_data["lastcheck"]))
 				$lastcheck = date(S_DATE_FORMAT_YMDHMS,$httptest_data["lastcheck"]);

@@ -20,7 +20,6 @@
 #ifndef ZABBIX_NODEWATCHER_H
 #define ZABBIX_NODEWATCHER_H
 
-int	main_nodewatcher_loop();
-int	is_master_node(int current_nodeid, int nodeid);
+int main_nodewatcher_loop();
 
 #endif

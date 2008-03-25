@@ -33,7 +33,7 @@
 		}
 		
 		function SetAction($value=null){
-			$this->AddAction('onclick', $value);
+			$this->AddAction('onClick', $value);
 		}
 		
 		function SetTitle($value='button title'){

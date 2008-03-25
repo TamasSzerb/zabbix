@@ -81,14 +81,11 @@ include_once "include/page_header.php";
 	$problem=$stat["problem"];
 	$ok=$stat["ok"];
 
-// showen percentage period
-	$show_period = 20; 
-	
-	$p=min($problem,$show_period);
-	$g=max($service["goodsla"]-(100-$show_period),0);
+	$p=min($problem,20);
+	$g=max($service["goodsla"]-80,0);
 
-	ImageFilledRectangle($im,$sizeX-$sizeX*$p/$show_period,1,$sizeX-2,$sizeY-2,ImageColorAllocate($im,200,120,120));
-	ImageLine($im,$sizeX*$g/$show_period,1,$sizeX*$g/$show_period,$sizeY-1,$yellow);
+	ImageFilledRectangle($im,$sizeX-$sizeX*$p/20,1,$sizeX-2,$sizeY-2,ImageColorAllocate($im,200,120,120));
+	ImageLine($im,$sizeX*$g/20,1,$sizeX*$g/20,$sizeY-1,$yellow);
 
 	ImageRectangle($im,0,0,$sizeX-1,$sizeY-1,$black);
 

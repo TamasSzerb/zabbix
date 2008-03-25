@@ -20,7 +20,7 @@ dnl
 dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT(src/zabbix_server/server.c)
-AM_INIT_AUTOMAKE([zabbix],[1.5])
+AM_INIT_AUTOMAKE([zabbix],[1.4.5])
 
 AC_MSG_NOTICE([Configuring $PACKAGE_NAME $PACKAGE_VERSION])
 
@@ -659,15 +659,6 @@ esac],
 [server=no])
 AM_CONDITIONAL(SERVER, test x$server = xyes)
 
-AC_ARG_ENABLE(proxy,[  --enable-proxy          Turn on build of proxy server],
-[case "${enableval}" in
-  yes) proxy=yes ;;
-  no)  proxy=no ;;
-  *) AC_MSG_ERROR([bad value ${enableval} for --enable-proxy]) ;;
-esac],
-[proxy=no])
-AM_CONDITIONAL(PROXY, test x$proxy = xyes)
-
 AC_ARG_ENABLE(agent,[  --enable-agent          Turn on build of agent],
 [case "${enableval}" in
   yes) agent=yes ;;
@@ -677,7 +668,7 @@ esac],
 [agent=no])
 AM_CONDITIONAL(AGENT, test x$agent = xyes)
 
-AC_ARG_ENABLE(ipv6,[  --enable-ipv6           Turn on support of IPv6],
+AC_ARG_ENABLE(ipv6,[  --enable-ipv6         Turn on support of IPv6],
 [case "${enableval}" in
   yes) ipv6=yes ;;
   no)  ipv6=no ;;
@@ -686,7 +677,6 @@ esac],
 [ipv6=no])
 
 have_db="no"
-have_odbc="no"
 have_web_monitoring="no"
 have_jabber="no"
 have_snmp="no"
@@ -697,7 +687,7 @@ if test "$ipv6" = "yes"; then
 	have_ipv6="yes"
 fi
 
-if test "$server" = "yes" || test "$proxy" = "yes"; then
+if test "$server" = "yes"; then
 
 	dnl Checking for Oracle support
 	LIBSQLORA8_CHECK_CONFIG()
@@ -798,9 +788,6 @@ if test "$server" = "yes" || test "$proxy" = "yes"; then
 	SERVER_LDFLAGS="${SERVER_LDFLAGS} ${DB_LDFLAGS}"
 	SERVER_LIBS="${SERVER_LIBS} ${DB_LIBS}"
 	
-	PROXY_LDFLAGS="${PROXY_LDFLAGS} ${DB_LDFLAGS}"
-	PROXY_LIBS="${PROXY_LIBS} ${DB_LIBS}"
-	
 	dnl Checking for Jabber libraries
 	JABBER_CHECK_CONFIG()
 	if test "x$want_jabber" = "xyes"; then
@@ -813,9 +800,6 @@ if test "$server" = "yes" || test "$proxy" = "yes"; then
 	CFLAGS="${CFLAGS} ${JABBER_CPPFLAGS}"
 	SERVER_LDFLAGS="${SERVER_LDFLAGS} ${JABBER_LDFLAGS}"
 	SERVER_LIBS="${SERVER_LIBS} ${JABBER_LIBS}"
-
-	PROXY_LDFLAGS="${PROXY_LDFLAGS}"
-	PROXY_LIBS="${PROXY_LIBS}"
 
 	dnl Check for libCurl [default - yes]
 	LIBCURL_CHECK_CONFIG(, [7.13.1], [],[])
@@ -832,56 +816,6 @@ if test "$server" = "yes" || test "$proxy" = "yes"; then
 	SERVER_LDFLAGS="${SERVER_LDFLAGS} ${LIBCURL_LDFLAGS}"
 	SERVER_LIBS="${SERVER_LIBS} ${LIBCURL_LIBS}"
 
-	PROXY_LDFLAGS="${PROXY_LDFLAGS} ${LIBCURL_LDFLAGS}"
-	PROXY_LIBS="${PROXY_LIBS} ${LIBCURL_LIBS}"
-
-	have_odbc="no"
-
-	dnl Checking for iODBC support
-	LIBIODBC_CHECK_CONFIG([no])
-	if test "x$want_iodbc" = "xyes"; then
-		if test "x$found_iodbc" = "xyes"; then
-			have_odbc="iODBC"
-		else
-			AC_MSG_ERROR([Not found iODBC library])
-		fi
-	fi
-
-	dnl Checking for unixODBC support
-	LIBUNIXODBC_CHECK_CONFIG([no])
-	if test "x$want_unixodbc" = "xyes"; then
-		if test "x$have_odbc" != "xno"; then
-			AC_MSG_ERROR([You can configure for only one ODBC griver.])
-		fi
-
-		if test "x$found_unixodbc" = "xyes"; then
-			have_odbc="unixODBC"
-		else
-			AC_MSG_ERROR([Not found unixODBC library])
-		fi
-	fi
-
-	if test x$have_odbc != xno; then
-
-		ODBC_CFLAGS="${IODBC_CFLAGS} ${UNIXODBC_CFLAGS}"
-		ODBC_LDFLAGS="${IODBC_LDFLAGS} ${UNIXODBC_LDFLAGS}"
-		ODBC_LIBS="${IODBC_LIBS} ${UNIXODBC_LIBS}"
-
-		AC_SUBST(ODBC_CFLAGS)
-		AC_SUBST(ODBC_LDFLAGS)
-		AC_SUBST(ODBC_LIBS)
-
-		AC_DEFINE(HAVE_ODBC,1,[Define to 1 if ODBC Driver Manager should be used.])
-
-		CFLAGS="${CFLAGS} ${ODBC_CFLAGS}"
-		SERVER_LDFLAGS="${SERVER_LDFLAGS} ${ODBC_LDFLAGS}"
-		SERVER_LIBS="${SERVER_LIBS} ${ODBC_LIBS}"
-
-		PROXY_LDFLAGS="${PROXY_LDFLAGS} ${ODBC_LDFLAGS}"
-		PROXY_LIBS="${PROXY_LIBS} ${ODBC_LIBS}"
-
-	fi
-
 	dnl Check for NET-SNMP [by default - skip]
 	LIBNETSNMP_CHECK_CONFIG([no])
 	if test "x$want_netsnmp" = "xyes"; then
@@ -894,9 +828,6 @@ if test "$server" = "yes" || test "$proxy" = "yes"; then
 	CFLAGS="${CFLAGS} ${SNMP_CFLAGS}"
 	SERVER_LDFLAGS="${SERVER_LDFLAGS} ${SNMP_LDFLAGS}"
 	SERVER_LIBS="${SERVER_LIBS} ${SNMP_LIBS}"
-
-	PROXY_LDFLAGS="${PROXY_LDFLAGS} ${SNMP_LDFLAGS}"
-	PROXY_LIBS="${PROXY_LIBS} ${SNMP_LIBS}"
 
 	dnl Check for UCD-SNMP [by default - skip]
 	LIBSNMP_CHECK_CONFIG([no])
@@ -914,18 +845,12 @@ if test "$server" = "yes" || test "$proxy" = "yes"; then
 	CFLAGS="${CFLAGS} ${SNMP_CPPFLAGS}"
 	SERVER_LDFLAGS="${SERVER_LDFLAGS} ${SNMP_LDFLAGS}"
 
-	PROXY_LDFLAGS="${PROXY_LDFLAGS} ${SNMP_LDFLAGS}"
-
 	AC_SUBST(SERVER_LDFLAGS)
 	AC_SUBST(SERVER_LIBS)
-
-	AC_SUBST(PROXY_LDFLAGS)
-	AC_SUBST(PROXY_LIBS)
 
 fi
 
 AM_CONDITIONAL(JABBER,  test "x$found_jabber" = "xyes")
-AM_CONDITIONAL(WITH_ODBC, test "x$have_odbc" != "xno")
 
 found_ldap="no"
 dnl Check for libLDAP [by default - skip]
@@ -1023,13 +948,13 @@ AC_SUBST(ARCH)
 AC_OUTPUT([
 	Makefile
 	create/Makefile
+	create/schema/Makefile
 	misc/Makefile
 	src/Makefile
 	src/libs/Makefile
 	src/libs/zbxlog/Makefile
 	src/libs/zbxcrypto/Makefile
 	src/libs/zbxconf/Makefile
-	src/libs/zbxdbcache/Makefile
 	src/libs/zbxdbhigh/Makefile
 	src/libs/zbxemail/Makefile
 	src/libs/zbxsysinfo/Makefile
@@ -1053,14 +978,11 @@ AC_OUTPUT([
 	src/libs/zbxsys/Makefile
 	src/libs/zbxcomms/Makefile
 	src/libs/zbxdb/Makefile
-	src/libs/zbxjson/Makefile
-	src/libs/zbxserver/Makefile
 	src/zabbix_agent/Makefile
 	src/zabbix_get/Makefile
 	src/zabbix_sender/Makefile
 	src/zabbix_server/Makefile
 	src/zabbix_server/alerter/Makefile
-	src/zabbix_server/dbsyncer/Makefile
 	src/zabbix_server/discoverer/Makefile
 	src/zabbix_server/housekeeper/Makefile
 	src/zabbix_server/httppoller/Makefile
@@ -1071,11 +993,6 @@ AC_OUTPUT([
 	src/zabbix_server/trapper/Makefile
 	src/zabbix_server/utils/Makefile
 	src/zabbix_server/watchdog/Makefile
-	src/zabbix_proxy/Makefile
-	src/zabbix_proxy/heart/Makefile
-	src/zabbix_proxy/housekeeper/Makefile
-	src/zabbix_proxy/proxyconfig/Makefile
-	src/zabbix_proxy/datasender/Makefile
 	upgrades/Makefile
 	])
 
@@ -1083,52 +1000,39 @@ echo "
 
 Configuration:
 
-  Detected OS:           ${host_os}
-  Install path:          ${prefix}
-  Compilation arch:      ${ARCH}
+  Detected OS:        ${host_os}
+  Install path:       ${prefix}
+  Compilation arch:   ${ARCH}
 
-  Compiler:              ${CC}
-  Compiler flags:        ${CFLAGS}
+  Compiler:           ${CC}
+  Compiler flags:     ${CFLAGS}
 
-  Enable server:         ${server}"
+  Enable server:      ${server}"
 
 if test "x$server" != "xno"; then
 
-echo "  With database:         ${have_db}
-  WEB Monitoring via:    ${have_web_monitoring}
-  Native Jabber:         ${have_jabber}
-  SNMP:                  ${have_snmp}
-  Linker flags:          ${LDFLAGS} ${SERVER_LDFLAGS}
-  Libraries:             ${LIBS} ${SERVER_LIBS}"
+echo "  With database:      ${have_db}
+  WEB Monitoring via: ${have_web_monitoring}
+  Native Jabber:      ${have_jabber}
+  SNMP:               ${have_snmp}
+  IPv6:               ${have_ipv6}
+  Linker flags:       ${LDFLAGS} ${SERVER_LDFLAGS}
+  Libraries:          ${LIBS} ${SERVER_LIBS}"
 
 fi
 
 echo "
-  Enable proxy:          ${proxy}"
-
-if test "x$proxy" != "xno"; then
-
-echo "  With database:         ${have_db}
-  WEB Monitoring via:    ${have_web_monitoring}
-  SNMP:                  ${have_snmp}
-  Linker flags:          ${LDFLAGS} ${PROXY_LDFLAGS}
-  Libraries:             ${LIBS} ${PROXY_LIBS}"
-
-fi
-
-echo "
-  Enable agent:          ${agent}"
+  Enable agent:       ${agent}"
 
 if test "x$agent" != "xno"; then
 
-echo "  Linker flags:          ${LDFLAGS}
-  Libraries:             ${LIBS}"
+echo "  Linker flags:       ${LDFLAGS}
+  Libraries:          ${LIBS}"
 
 fi
 
 echo "
-  LDAP support:          ${found_ldap}
-  IPv6 support:          ${have_ipv6}"
+  LDAP support:       ${found_ldap}"
 
 echo
 echo "***********************************************************"

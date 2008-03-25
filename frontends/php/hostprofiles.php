@@ -25,7 +25,6 @@
 
 	$page["title"] = "S_HOST_PROFILES";
 	$page["file"] = "hostprofiles.php";
-	$page['hist_arg'] = array('groupid','hostid');
 	
 include_once "include/page_header.php";
 
@@ -38,8 +37,7 @@ include_once "include/page_header.php";
 	);
 
 	check_fields($fields);
-	validate_sort_and_sortorder();
-	
+
 	validate_group(PERM_READ_ONLY, array("allow_all_hosts","always_select_first_host","monitored_hosts","with_items"));
 ?>
 <?php
@@ -72,46 +70,34 @@ include_once "include/page_header.php";
 <?php
 	if(isset($_REQUEST["hostid"]))
 	{
-		echo SBR;
+		echo BR;
 		insert_host_profile_form();
 	}
 	else
 	{
 		$table = new CTableInfo();
-		$table->setHeader(array(
-			is_show_subnodes() ? make_sorting_link(S_NODE,'h.hostid') : null,
-			make_sorting_link(S_HOST,'h.host'),
-			make_sorting_link(S_NAME,'p.name'),
-			make_sorting_link(S_OS,'p.os'),
-			make_sorting_link(S_SERIALNO,'p.serialno'),
-			make_sorting_link(S_TAG,'p.tag'),
-			make_sorting_link(S_MACADDRESS,'p.macaddress'))
-		);
+		$table->setHeader(array(S_HOST,S_NAME,S_OS,S_SERIALNO,S_TAG,S_MACADDRESS));
 
 		if($_REQUEST["groupid"] > 0)
 		{
-			$sql='SELECT h.hostid,h.host,p.name,p.os,p.serialno,p.tag,p.macaddress'.
-				' FROM hosts h,hosts_profiles p,hosts_groups hg '.
-				' WHERE h.hostid=p.hostid'.
-					' and h.hostid=hg.hostid '.
-					' and hg.groupid='.$_REQUEST['groupid'].
-					' and h.hostid in ('.$availiable_hosts.') '.
-				order_by('h.host,h.hostid,p.name,p.os,p.serialno,p.tag,p.macaddress');
+			$sql="select h.hostid,h.host,p.name,p.os,p.serialno,p.tag,p.macaddress".
+				" from hosts h,hosts_profiles p,hosts_groups hg where h.hostid=p.hostid".
+				" and h.hostid=hg.hostid and hg.groupid=".$_REQUEST["groupid"].
+				" and h.hostid in (".$availiable_hosts.") ".
+				" order by h.host";
 		}
-		else{
-		
-			$sql='SELECT h.hostid,h.host,p.name,p.os,p.serialno,p.tag,p.macaddress'.
-				' FROM hosts h,hosts_profiles p '.
-				' WHERE h.hostid=p.hostid'.
-					' AND h.hostid in ('.$availiable_hosts.') '.
-				order_by('h.host,h.hostid,p.name,p.os,p.serialno,p.tag,p.macaddress');
+		else
+		{
+			$sql="select h.hostid,h.host,p.name,p.os,p.serialno,p.tag,p.macaddress".
+				" from hosts h,hosts_profiles p where h.hostid=p.hostid".
+				" and h.hostid in (".$availiable_hosts.") ".
+				" order by h.host";
 		}
 
 		$result=DBselect($sql);
 		while($row=DBfetch($result))
 		{
 			$table->AddRow(array(
-				get_node_name_by_elid($row['hostid']),
 				new CLink($row["host"],"?hostid=".$row["hostid"].url_param("groupid"),"action"),
 				$row["name"],
 				$row["os"],

@@ -21,10 +21,6 @@
 #ifndef ZABBIX_NODEHISTORY_H
 #define ZABBIX_NODEHISTORY_H
 
-#include "comms.h"
-
-int	send_history_last_id(zbx_sock_t *sock, const char *data);
-int	send_trends_last_id(zbx_sock_t *sock, const char *data);
-int	node_history(char *data, size_t datalen);
+int	node_history(char *data);
 
 #endif

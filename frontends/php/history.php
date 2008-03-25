@@ -25,15 +25,13 @@
 
 	$page["file"]	= "history.php";
 	$page["title"]	= "S_HISTORY";
-	$page['hist_arg'] = array('hostid','grouid','graphid','period','dec','inc','left','right','stime');
-	$page['scripts'] = array('gmenu.js','scrollbar.js','sbox.js','sbinit.js');
-	
-	$page['type'] = detect_page_type(PAGE_TYPE_HTML);
-		
-	if(isset($_REQUEST['plaintext']) || isset($_REQUEST['fullscreen'])){
+
+	if(isset($_REQUEST['plaintext']) || isset($_REQUEST['fullscreen']))
+	{
 		define('ZBX_PAGE_NO_MENU', 1);
 	}
-	else if(PAGE_TYPE_HTML == $page['type']){
+	else
+	{
 		define('ZBX_PAGE_DO_REFRESH', 1);
 	}
 
@@ -43,10 +41,10 @@ include_once "include/page_header.php";
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		"itemid"=>	array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,	'!isset({favobj})'),
+		"itemid"=>	array(T_ZBX_INT, O_MAND, P_SYS,	DB_ID,	null),
 		
 		"from"=>	array(T_ZBX_INT, O_OPT,	 null,	'{}>=0', null),
-		"period"=>	array(T_ZBX_INT, O_OPT,	 null,	null, null),
+		"period"=>	array(T_ZBX_INT, O_OPT,	 null,	BETWEEN(ZBX_MIN_PERIOD,ZBX_MAX_PERIOD), null),
 		"dec"=>		array(T_ZBX_INT, O_OPT,	 null,	null, null),
 		"inc"=>		array(T_ZBX_INT, O_OPT,	 null,	null, null),
 		"left"=>	array(T_ZBX_INT, O_OPT,	 null,	null, null),
@@ -61,10 +59,7 @@ include_once "include/page_header.php";
 		"cmbloglist"=>	array(T_ZBX_INT, O_OPT,	 null,	DB_ID, null),
 
 		"plaintext"=>	array(T_ZBX_STR, O_OPT,	 null,	null, null),
-		"action"=>	array(T_ZBX_STR, O_OPT,	 null,	IN('"showgraph","showvalues","showlatest","add","remove"'), null),
-//ajax
-		'favobj'=>		array(T_ZBX_STR, O_OPT, P_ACT,	NULL,			NULL),
-		'favid'=>		array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,		'isset({favobj})'),
+		"action"=>	array(T_ZBX_STR, O_OPT,	 null,	IN('"showgraph","showvalues","showlatest"'), null),
 
 /* actions */
 		"remove_log"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
@@ -80,37 +75,6 @@ include_once "include/page_header.php";
 	check_fields($fields);
 ?>
 <?php
-	if(isset($_REQUEST['favobj'])){
-		if(in_array($_REQUEST['favobj'],array('simple_graph','graphs'))){
-			$result = false;
-			if('add' == $_REQUEST['action']){
-				$result = add2favorites('web.favorite.graphids',$_REQUEST['favid'],$_REQUEST['favobj']);
-				if($result){
-					print('$("addrm_fav").title = "'.S_REMOVE_FROM.' '.S_FAVORITES.'";'."\n");
-					print('$("addrm_fav").onclick = function(){rm4favorites("simple_graph","'.$_REQUEST['favid'].'",0);}'."\n");
-				}
-			}
-			else if('remove' == $_REQUEST['action']){
-				while(infavorites('web.favorite.graphids',$_REQUEST['favid'],$_REQUEST['favobj'])){
-					$result = rm4favorites('web.favorite.graphids',$_REQUEST['favid'],0,$_REQUEST['favobj']);
-				}
-				
-				if($result){
-					print('$("addrm_fav").title = "'.S_ADD_TO.' '.S_FAVORITES.'";'."\n");
-					print('$("addrm_fav").onclick = function(){ add2favorites("simple_graph","'.$_REQUEST['favid'].'");}'."\n");
-				}
-			}
-
-			if((PAGE_TYPE_JS == $page['type']) && $result){
-				print('switchElementsClass("addrm_fav","iconminus","iconplus");');
-			}
-		}
-	}	
-	
-	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		exit();
-	}
-
 	$_REQUEST["action"] = get_request("action", "showgraph");
 
 /*** Prepare page header - start ***/
@@ -161,7 +125,7 @@ include_once "include/page_header.php";
 		$main_header = $item_data["host"].": ".item_description($item_data["description"],$item_data["key_"]);
 		
 		if(isset($_REQUEST["plaintext"]))
-			echo $main_header.SBR;
+			echo $main_header.BR;
 	
 		if($_REQUEST["action"]=="showgraph")
 		{
@@ -174,25 +138,6 @@ include_once "include/page_header.php";
 		
 		$l_header = array(new CLink($item_data['host'],"latest.php?hostid=".$item_data['hostid']),": ",
 			item_description($item_data["description"],$item_data["key_"]));
-			
-		if('showgraph' == $_REQUEST['action']){
-			if(infavorites('web.favorite.graphids',$_REQUEST['itemid'],'simple_graph')){
-				$icon = new CDiv(SPACE,'iconminus');
-				$icon->AddOption('title',S_REMOVE_FROM.' '.S_FAVORITES);
-				$icon->AddAction('onclick',new CScript("javascript: rm4favorites('simple_graph','".$_REQUEST['itemid']."',0);"));
-			}
-			else{
-				$icon = new CDiv(SPACE,'iconplus');
-				$icon->AddOption('title',S_ADD_TO.' '.S_FAVORITES);
-				$icon->AddAction('onclick',new CScript("javascript: add2favorites('simple_graph','".$_REQUEST['itemid']."');"));
-			}
-			$icon->AddOption('id','addrm_fav');
-	
-			$icon_tab = new CTable();
-			$icon_tab->AddRow(array($icon,SPACE,$l_header));
-			
-			$l_header = $icon_tab;
-		}
 	}
 
 	$effectiveperiod = navigation_bar_calc();
@@ -201,8 +146,10 @@ include_once "include/page_header.php";
 
 	$to_save_request = null;
 
-	if( !isset($_REQUEST['plaintext']) && !isset($_REQUEST['fullscreen']) ){
-		if($item_type == ITEM_VALUE_TYPE_LOG){
+	if( !isset($_REQUEST['plaintext']) && !isset($_REQUEST['fullscreen']) )
+	{
+		if($item_type == ITEM_VALUE_TYPE_LOG)
+		{
 			$l_header = new CForm();
 			$l_header->SetName("loglist");
 			$l_header->AddVar("action",$_REQUEST["action"]);
@@ -279,7 +226,6 @@ include_once "include/page_header.php";
 <?php
 	if($_REQUEST["action"]=="showgraph" && $item_type != ITEM_VALUE_TYPE_LOG)
 	{
-		$dom_graph_id = 'graph';
 		show_history($_REQUEST["itemid"],$_REQUEST["from"],$_REQUEST["stime"],$effectiveperiod);
 	}
 	elseif($_REQUEST["action"]=="showvalues" || $_REQUEST["action"]=="showlatest")
@@ -290,10 +236,8 @@ include_once "include/page_header.php";
 			$till = time(null) - $_REQUEST["from"] * 3600;
 			$hours=$effectiveperiod / 3600;
 
-			$l_header = array(S_SHOWING_HISTORY_OF.SPACE.$effectiveperiod.SPACE.S_SECONDS_SMALL.'('.$hours.' h)',
-								BR(),
-								'['.S_FROM_SMALL.': '.date('Y.M.d H:i:s',$time).'] ['.S_TILL_SMALL.': '.date('Y.M.d H:i:s',$till).']'
-							);
+			$l_header = "Showing history of ".$effectiveperiod." seconds($hours h)".BR.
+				"[from: ".date("Y.M.d H:i:s",$time)."] [till: ".date("Y.M.d H:i:s",$till)."]";
 		}
 		else
 		{
@@ -325,11 +269,12 @@ include_once "include/page_header.php";
 				$cmbFTask->AddItem(FILTER_TAST_INVERT_MARK,S_MARK_OTHERS);
 
 				$r_header->AddItem(array(
-					S_SELECT_ROWS_WITH_VALUE_LIKE,SPACE,
+					"Select rows with value like",SPACE,
 					new CTextBox("filter",$filter,25),
 					$cmbFTask,SPACE));
 
-				if(str_in_array($filter_task,array(FILTER_TAST_MARK,FILTER_TAST_INVERT_MARK))){
+				if(str_in_array($filter_task,array(FILTER_TAST_MARK,FILTER_TAST_INVERT_MARK)))
+				{
 					$cmbColor = new CComboBox("mark_color",$mark_color);
 					$cmbColor->AddItem(MARK_COLOR_RED,S_AS_RED);
 					$cmbColor->AddItem(MARK_COLOR_GREEN,S_AS_GREEN);
@@ -338,17 +283,19 @@ include_once "include/page_header.php";
 				}
 				$r_header->AddItem(new CButton("select","Select"));
 			}
-			else{
+			else
+			{
 				$r_header = null;
 			}
 
-			if(($l_header || $r_header) &&	!isset($_REQUEST['fullscreen']))
+			if( ($l_header || $r_header) &&
+				!isset($_REQUEST['fullscreen'])
+				)
 					show_table_header($l_header,$r_header);
 		}
-		else{
-			$txt = new CTag('p','yes',$l_header);
-			$txt->Show();
-			echo "\n";
+		else
+		{
+			echo $l_header."\n";
 		}
 
 		$cond_clock = "";
@@ -401,7 +348,7 @@ include_once "include/page_header.php";
 			}
 			else
 			{
-				echo "<pre>\n";
+				echo "<PRE>\n";
 			}
 
 			while($row=DBfetch($result))
@@ -410,7 +357,7 @@ include_once "include/page_header.php";
 
 				if(isset($_REQUEST["filter"]) && $_REQUEST["filter"]!="")
 				{
-					$contain = zbx_stristr($row["value"],$_REQUEST["filter"]) ? TRUE : FALSE;
+					$contain = stristr($row["value"],$_REQUEST["filter"]) ? TRUE : FALSE;
 
 					if(!isset($_REQUEST["mark_color"])) $_REQUEST["mark_color"] = MARK_COLOR_RED;
 
@@ -489,7 +436,7 @@ include_once "include/page_header.php";
 			if(!isset($_REQUEST["plaintext"]))
 				$table->ShowEnd();	// to solve memory leak we call 'Show' method by steps
 			else
-				echo "</pre>";
+				echo "</PRE>";
 		}
 		else
 		{
@@ -510,12 +457,12 @@ include_once "include/page_header.php";
 			{
 				$table = new CTableInfo();
 				$table->SetHeader(array(S_TIMESTAMP, S_VALUE));
-				$table->AddOption('id','graph');
+
 				$table->ShowStart(); // to solve memory leak we call 'Show' method by steps
 			}
 			else
 			{
-				echo "<pre>\n";
+				echo "<PRE>\n";
 			}
 
 COpt::profiling_start("history");
@@ -536,56 +483,35 @@ COpt::profiling_start("history");
 					$value = $row["value"]; 
 
 				$new_row = array(date("Y.M.d H:i:s",$row["clock"]));
-				if(str_in_array($item_type,array(ITEM_VALUE_TYPE_FLOAT,ITEM_VALUE_TYPE_UINT64))){
+				if(str_in_array($item_type,array(ITEM_VALUE_TYPE_FLOAT,ITEM_VALUE_TYPE_UINT64)))
+				{
 					array_push($new_row,$value);
 				}
-				else{
-					$pre = new CTag('pre','yes');
-					$pre->AddItem($value);
-					
-					array_push($new_row,$pre);
+				else
+				{
+					array_push($new_row,array("<pre>",htmlspecialchars($value),"</pre>"));
 				}
-				
-				if(!isset($_REQUEST["plaintext"])){
+				if(!isset($_REQUEST["plaintext"]))
+				{
 					$table->ShowRow($new_row);
 				}
-				else{
+				else
+				{
 					echo date("Y-m-d H:i:s",$row["clock"]);
 					echo "\t".$row["clock"]."\t".$row["value"]."\n";
 				}
 			}
-			if(!isset($_REQUEST["plaintext"])){
+			if(!isset($_REQUEST["plaintext"]))
 				$table->ShowEnd();	// to solve memory leak we call 'Show' method by steps
-				echo SBR;
-			}
-			else{
-				echo "</pre>";
-			}
+			else
+				echo "</PRE>";
 COpt::profiling_stop("history");
 		}
 	}
 
-	if(!isset($_REQUEST["plaintext"]))
-	{
-		if(str_in_array($_REQUEST["action"],array("showvalues","showgraph"))){
-			
-			$stime = get_min_itemclock_by_itemid($_REQUEST["itemid"]);
-			$stime = (is_null($stime))?0:$stime;
-			$bstime = time()-$effectiveperiod;
-			
-			if(isset($_REQUEST['stime'])){
-				$bstime = $_REQUEST['stime'];
-				$bstime = mktime(substr($bstime,8,2),substr($bstime,10,2),0,substr($bstime,4,2),substr($bstime,6,2),substr($bstime,0,4));
-			}
-			
- 			$script = 	'scrollinit(0,0,0,'.$effectiveperiod.','.$stime.',0,'.$bstime.');
-						showgraphmenu("graph");';
-			if(isset($dom_graph_id))
-						$script.='graph_zoom_init("'.$dom_graph_id.'",'.$bstime.','.$effectiveperiod.',ZBX_G_WIDTH, 200);';
-							
-			zbx_add_post_js($script); 
-
-	//		navigation_bar("history.php",$to_save_request);
+	if(!isset($_REQUEST["plaintext"])){
+		if(($_REQUEST["action"]=="showvalues") || ($_REQUEST['action'] == "showgraph")){
+			navigation_bar("history.php",$to_save_request);
 		}
 	}
 ?>

@@ -29,7 +29,6 @@
 			$this->options['type'] = 'checkbox';
 			$this->options['value'] = $value;
 			$this->options['name'] = $name;
-			$this->options['id'] = $name;
 			$this->SetAction($action);
 			$this->SetChecked($checked);
 		}
@@ -48,9 +47,9 @@
 
 			$this->DelOption("checked");
 		}
-		function SetAction($value='submit()', $event='onclick')
+		function SetAction($value='submit()', $event='onClick')
 		{
-			$this->AddAction('onclick', $value);
+			$this->AddAction('onClick', $value);
 		}
 	}
 

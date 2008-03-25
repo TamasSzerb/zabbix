@@ -41,10 +41,11 @@
 #include "common.h"
 #include "db.h"
 #include "log.h"
-#include "zbxserver.h"
+#include "zlog.h"
 
 #include "actions.h"
 #include "operations.h"
+#include "expression.h"
 
 #include "poller/poller.h"
 #include "poller/checks_agent.h"
@@ -415,7 +416,7 @@ static int	check_action_condition(DB_EVENT *event, DB_CONDITION *condition)
 			event->value,
 			condition->value);
 		value_int = atoi(condition->value);
-/*		if(event->object == EVENT_OBJECT_DHOST)
+		if(event->object == EVENT_OBJECT_DHOST)
 		{
 			result = DBselect("select status from dhosts where dhostid=" ZBX_FS_UI64,
 				event->objectid);
@@ -427,16 +428,14 @@ static int	check_action_condition(DB_EVENT *event, DB_CONDITION *condition)
 		}
 		row = DBfetch(result);
 		if(row && DBis_null(row[0]) != SUCCEED)
-		{*/
+		{
 			if(condition->operator == CONDITION_OPERATOR_EQUAL)
 			{
-/*				if(value_int == atoi(row[0]))	ret = SUCCEED;*/
-				if(value_int == event->value)	ret = SUCCEED;
+				if(value_int == atoi(row[0]))	ret = SUCCEED;
 			}
 			else if(condition->operator == CONDITION_OPERATOR_NOT_EQUAL)
 			{
-/*				if(atoi(row[0]) != value_int)	ret = SUCCEED;*/
-				if(value_int != event->value)	ret = SUCCEED;
+				if(atoi(row[0]) != value_int)	ret = SUCCEED;
 			}
 			else
 			{
@@ -444,8 +443,8 @@ static int	check_action_condition(DB_EVENT *event, DB_CONDITION *condition)
 					condition->operator,
 					condition->conditionid);
 			}
-/*		}
-		DBfree_result(result);*/
+		}
+		DBfree_result(result);
 	}
 	else if(event->source == EVENT_SOURCE_DISCOVERY &&
 		(event->object == EVENT_OBJECT_DHOST || event->object == EVENT_OBJECT_DSERVICE) &&
@@ -756,10 +755,10 @@ void	process_actions(DB_EVENT *event)
 		(event->source == EVENT_SOURCE_TRIGGERS)?"TRIGGERS":"DISCOVERY",
 		event->eventid);
 
-	result = DBselect("select actionid,evaltype,status,eventsource from actions where status=%d and eventsource=%d" DB_NODE,
+	result = DBselect("select actionid,evaltype,status,eventsource from actions where status=%d and eventsource=%d and" ZBX_COND_NODEID,
 		ACTION_STATUS_ACTIVE,
 		event->source,
-		DBnode_local("actionid"));
+		LOCAL_NODE("actionid"));
 
 	while((row=DBfetch(result)))
 	{

@@ -26,7 +26,6 @@
 
         $page["title"] = "S_CONFIGURATION_OF_WEB_MONITORING";
         $page["file"] = "httpconf.php";
-	$page['hist_arg'] = array('groupid','hostid');
 
 include_once "include/page_header.php";
 
@@ -76,8 +75,7 @@ include_once "include/page_header.php";
 	$_REQUEST["showdisabled"] = get_request("showdisabled", get_profile("web.httpconf.showdisabled", 0));
 	
 	check_fields($fields);
-	validate_sort_and_sortorder();
-	
+
 	$showdisabled = get_request("showdisabled", 0);
 	
 	$accessible_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE,null,null,get_current_nodeid());
@@ -342,7 +340,7 @@ include_once "include/page_header.php";
 	$form->AddItem(new CButton("form",S_CREATE_SCENARIO));
 
 	show_table_header(S_CONFIGURATION_OF_WEB_MONITORING_BIG, $form);
-	echo SBR;
+	echo BR;
 
 	$db_hosts=DBselect('select hostid from hosts where '.DBin_node('hostid'));
 	if(isset($_REQUEST["form"])&&isset($_REQUEST["hostid"])&&DBfetch($db_hosts))
@@ -357,7 +355,7 @@ include_once "include/page_header.php";
 		
 		$form->AddItem(array('[', 
 			new CLink($showdisabled ? S_HIDE_DISABLED_SCENARIOS: S_SHOW_DISABLED_SCENARIOS,
-				'?showdisabled='.($showdisabled ? 0 : 1),NULL),
+				'?showdisabled='.($showdisabled ? 0 : 1),'action'),
 			']', SPACE));
 		
 		$cmbGroup = new CComboBox("groupid",$_REQUEST["groupid"],"submit();");
@@ -377,15 +375,13 @@ include_once "include/page_header.php";
 		{
 			$sql="select distinct h.hostid,h.host from hosts h,hosts_groups hg".
 				" where hg.groupid=".$_REQUEST["groupid"]." and hg.hostid=h.hostid ".
-				' and h.status in ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.','.HOST_STATUS_TEMPLATE.')'.
 				" and h.hostid in (".$accessible_hosts.") ".
-				" group by h.hostid,h.host order by h.host";
+				" and h.status<>".HOST_STATUS_DELETED." group by h.hostid,h.host order by h.host";
 		}
 		else
 		{
-			$sql="select distinct h.hostid,h.host from hosts h".
-				' where h.status in ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.','.HOST_STATUS_TEMPLATE.')'.
-				" and h.hostid in (".$accessible_hosts.")".
+			$sql="select distinct h.hostid,h.host from hosts h where h.status<>".HOST_STATUS_DELETED.
+				" and h.hostid in (".$accessible_hosts.") ".
 				" group by h.hostid,h.host order by h.host";
 		}
 
@@ -433,27 +429,24 @@ include_once "include/page_header.php";
 		$table->setHeader(array(
 			array(	$link, SPACE, new CCheckBox("all_httptests",null,
 					"CheckAll('".$form->GetName()."','all_httptests');"),
-				make_sorting_link(S_NAME,'wt.name')),
+				S_NAME),
 			S_NUMBER_OF_STEPS,
 			S_UPDATE_INTERVAL,
-			make_sorting_link(S_STATUS,'wt.status')));
+			S_STATUS));
 
 	$any_app_exist = false;
 
-	$db_applications = DBselect('SELECT DISTINCT h.host,h.hostid,a.* '.
-					' FROM applications a,hosts h '.
-					' WHERE a.hostid=h.hostid '.
-						' AND h.hostid='.$_REQUEST['hostid'].
-					' order by a.name,a.applicationid,h.host');
+	$db_applications = DBselect('select distinct h.host,h.hostid,a.* from applications a,hosts h '.
+		' where a.hostid=h.hostid and h.hostid='.$_REQUEST['hostid'].
+		' order by a.name,a.applicationid,h.host');
 	while($db_app = DBfetch($db_applications))
 	{
-		$db_httptests = DBselect('SELECT wt.*,a.name as application,h.host,h.hostid '.
-					' FROM httptest wt '.
-						' LEFT JOIN applications a ON wt.applicationid=a.applicationid '.
-						' LEFT JOIN hosts h ON h.hostid=a.hostid'.
-					' WHERE a.applicationid='.$db_app["applicationid"].
-						($showdisabled == 0 ? " and wt.status <> 1" : "").
-					order_by('wt.status,wt.name'));
+		$db_httptests = DBselect('select wt.*,a.name as application,h.host,h.hostid from httptest wt '.
+			' left join applications a on wt.applicationid=a.applicationid '.
+			' left join hosts h on h.hostid=a.hostid'.
+			' where a.applicationid='.$db_app["applicationid"].
+			($showdisabled == 0 ? " and wt.status <> 1" : "").
+			' order by h.host,wt.name');
 
 		$app_rows = array();
 		$httptest_cnt = 0;
@@ -477,7 +470,7 @@ include_once "include/page_header.php";
 			
 			array_push($name, new CLink($httptest_data["name"],"?form=update&httptestid=".
 				$httptest_data["httptestid"].url_param("hostid").url_param("groupid"),
-				NULL));
+				'action'));
 
 			$status=new CCol(new CLink(httptest_status2str($httptest_data["status"]),
 					"?group_httptestid%5B%5D=".$httptest_data["httptestid"].
@@ -488,8 +481,8 @@ include_once "include/page_header.php";
 
 			$chkBox = new CCheckBox("group_httptestid[]",null,null,$httptest_data["httptestid"]);
 			
-			$step_cout = DBfetch(DBselect('select count(*) as cnt from httpstep where httptestid='.$httptest_data["httptestid"]));
-			$step_cout = $step_cout['cnt'];
+			$step_cout = DBfetch(DBselect('select count(*) from httpstep where httptestid='.$httptest_data["httptestid"]));
+			$step_cout = $step_cout[0];
 
 			/* if($httptest_data["templateid"] > 0) $chkBox->SetEnabled(false); // for future use */
 			

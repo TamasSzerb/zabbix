@@ -25,7 +25,6 @@
 
 	$page["title"]	= "S_CONFIGURATION_OF_DISCOVERY";
 	$page["file"]	= "discoveryconf.php";
-	$page['hist_arg'] = array('');
 
 include_once "include/page_header.php";
 	
@@ -35,7 +34,6 @@ include_once "include/page_header.php";
 	$fields=array(
 		"druleid"=>	array(T_ZBX_INT, O_OPT,  P_SYS,	DB_ID,		'isset({form})&&{form}=="update"'),
 		"name"=>	array(T_ZBX_STR, O_OPT,  null,	NOT_EMPTY,	'isset({save})'),
-		'proxy_hostid'=>array(T_ZBX_INT, O_OPT,	 null,	DB_ID,	'isset({save})'),
 		"iprange"=>	array(T_ZBX_IP_RANGE, O_OPT,  null,	NOT_EMPTY,	'isset({save})'),
 		"delay"=>	array(T_ZBX_INT, O_OPT,	 null,	null, 		'isset({save})'),
 		"status"=>	array(T_ZBX_INT, O_OPT,	 null,	IN("0,1"), 	'isset({save})'),
@@ -71,8 +69,6 @@ include_once "include/page_header.php";
 	);
 
 	check_fields($fields);
-	validate_sort_and_sortorder();
-	
 	$_REQUEST['dchecks'] = get_request('dchecks', array());
 	
 ?>
@@ -100,7 +96,7 @@ include_once "include/page_header.php";
 			$msg_ok = S_DISCOVERY_RULE_UPDATED;
 			$msg_fail = S_CANNOT_UPDATE_DISCOVERY_RULE;
 
-			$result = update_discovery_rule($_REQUEST["druleid"], $_REQUEST["proxy_hostid"], $_REQUEST['name'], $_REQUEST['iprange'], 
+			$result = update_discovery_rule($_REQUEST["druleid"], $_REQUEST['name'], $_REQUEST['iprange'], 
 				$_REQUEST['delay'], $_REQUEST['status'], $_REQUEST['dchecks']);
 
 			$druleid = $_REQUEST["druleid"];
@@ -110,7 +106,7 @@ include_once "include/page_header.php";
 			$msg_ok = S_DISCOVERY_RULE_ADDED;
 			$msg_fail = S_CANNOT_ADD_DISCOVERY_RULE;
 
-			$druleid = add_discovery_rule($_REQUEST["proxy_hostid"], $_REQUEST['name'], $_REQUEST['iprange'],
+			$druleid = add_discovery_rule($_REQUEST['name'], $_REQUEST['iprange'],
 				$_REQUEST['delay'], $_REQUEST['status'], $_REQUEST['dchecks']);
 
 			$result = $druleid;
@@ -187,7 +183,7 @@ include_once "include/page_header.php";
 	
 	$form->AddItem(new CButton('form', S_CREATE_RULE));
 	show_table_header(S_CONFIGURATION_OF_DISCOVERY_BIG, $form);
-	echo SBR;
+	echo BR;
 
 	if(isset($_REQUEST["form"]))
 	{
@@ -204,23 +200,22 @@ include_once "include/page_header.php";
 		$tblDiscovery = new CTableInfo(S_NO_DISCOVERY_RULES_DEFINED);
 		$tblDiscovery->SetHeader(array(
 			array(	new CCheckBox('all_drules',null,"CheckAll('".$form->GetName()."','all_drules');"),
-				make_sorting_link(S_NAME,'d.name')
+				S_NAME
 			),
-			make_sorting_link(S_IP_RANGE,'d.iprange'),
-			make_sorting_link(S_DELAY,'d.delay'),
+			S_IP_RANGE,
+			S_DELAY,
 			S_CHECKS,
 			S_STATUS));
 
-		$db_rules = DBselect('SELECT d.* '.
-						' FROM drules d'.
-						' WHERE '.DBin_node('druleid').
-						order_by('d.name,d.iprange,d.delay','d.druleid'));
-						
-		while($rule_data = DBfetch($db_rules)){
+		$db_rules = DBselect('select * from drules where '.DBin_node('druleid').
+			' order by name, druleid');
+		while($rule_data = DBfetch($db_rules))
+		{
 			$cheks = array();
 			$db_checks = DBselect("select * from dchecks where druleid=".$rule_data["druleid"].
 				" order by type,druleid");
-			while($check_data = DBfetch($db_checks)){
+			while($check_data = DBfetch($db_checks))
+			{
 				$cheks[] = discovery_check_type2str($check_data['type']);
 			}
 
@@ -229,37 +224,17 @@ include_once "include/page_header.php";
 				($rule_data["status"] == DRULE_STATUS_ACTIVE ? '&group_disable=1' : '&group_enable=1'),
 				discovery_status2style($rule_data["status"])));
 
-			$description = array();
-
-			if ($rule_data["proxy_hostid"]) {
-				$proxy = get_host_by_hostid($rule_data["proxy_hostid"]);
-				array_push($description, $proxy["host"], ":");
-			}
-			
-			array_push($description,
-					new CLink($rule_data['name'], "?form=update&druleid=".$rule_data['druleid'],'action'));
-
-			$drule=new CCol(array(
+			$tblDiscovery->AddRow(array(
+				array(
 					new CCheckBox(
 						"g_druleid[]",		/* name */
 						null,			/* checked */
 						null,			/* action */
 						$rule_data["druleid"]),	/* value */
 					SPACE,
-					$description));
-		
-			$tblDiscovery->AddRow(array(
-				$drule,
-/*				array(
-					new CCheckBox(
-						"g_druleid[]",
-						null,
-						null,
-						$rule_data["druleid"]),
-					SPACE,
 					new CLink($rule_data['name'],
 						"?form=update&druleid=".$rule_data['druleid'],'action'),
-					),*/
+					),
 				$rule_data['iprange'],
 				$rule_data['delay'],
 				implode(',', $cheks),

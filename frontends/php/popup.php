@@ -24,8 +24,6 @@
 	require_once "include/triggers.inc.php";
 	require_once "include/items.inc.php";
 	require_once "include/users.inc.php";
-	require_once "include/nodes.inc.php";
-	require_once "include/js.inc.php";
 
 	$srctbl		= get_request("srctbl",  '');	// source table name
 
@@ -50,7 +48,7 @@
 			break;
 		case 'triggers':
 			$page["title"] = "S_TRIGGERS_BIG";
-			$min_user_type = USER_TYPE_ZABBIX_USER;
+			$min_user_type = USER_TYPE_ZABBIX_ADMIN;
 			break;
 		case 'logitems':
 			$page["title"] = "S_ITEMS_BIG";
@@ -74,38 +72,6 @@
 			break;
 		case 'screens':
 			$page["title"] = "S_SCREENS_BIG";
-			$min_user_type = USER_TYPE_ZABBIX_USER;
-			break;
-		case 'slides':
-			$page["title"] = "S_SLIDESHOWS_BIG";
-			$min_user_type = USER_TYPE_ZABBIX_USER;
-			break;
-		case 'graphs':
-			$page["title"] = "S_GRAPHS_BIG";
-			$min_user_type = USER_TYPE_ZABBIX_USER;
-			break;
-		case 'simple_graph':
-			$page["title"] = "S_SIMPLE_GRAPH_BIG";
-			$min_user_type = USER_TYPE_ZABBIX_USER;
-			break;
-		case 'sysmaps':
-			$page["title"] = "S_MAPS_BIG";
-			$min_user_type = USER_TYPE_ZABBIX_USER;
-			break;
-		case 'plain_text':
-			$page["title"] = "S_PLAIN_TEXT_BIG";
-			$min_user_type = USER_TYPE_ZABBIX_ADMIN;
-			break;
-		case 'screens2':
-			$page["title"] = "S_SCREENS_BIG";
-			$min_user_type = USER_TYPE_ZABBIX_ADMIN;
-			break;
-		case 'overview':
-			$page["title"] = "S_OVERVIEW_BIG";
-			$min_user_type = USER_TYPE_ZABBIX_ADMIN;
-			break;
-		case 'host_group_scr':
-			$page["title"] = "S_HOST_GROUPS_BIG";
 			$min_user_type = USER_TYPE_ZABBIX_ADMIN;
 			break;
 		case 'nodes':
@@ -122,10 +88,9 @@
 	}
 
 	$page["file"] = "popup.php";
-	$page['scripts'] = array('prototype.js');
 	
 	define('ZBX_PAGE_NO_MENU', 1);
-
+	
 include_once "include/page_header.php";
 
 	if(isset($error))
@@ -147,7 +112,6 @@ include_once "include/page_header.php";
 		"nodeid"=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null),
 		"groupid"=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null),
 		"hostid"=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null),
-		"screenid"=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null),
 		"templates"=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	null),
 		"host_templates"=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	null),
 		"existed_templates"=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	null),
@@ -155,8 +119,6 @@ include_once "include/page_header.php";
 		"monitored_hosts"=>	array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	null),
 		'real_hosts'=>	array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	null),
 		'itemtype'=>	array(T_ZBX_INT, O_OPT, null,   null,		null),
-		
-		'reference'=>	array(T_ZBX_STR, O_OPT, null,   null,		null),
 		
 		"select"=>	array(T_ZBX_STR,	O_OPT,	P_SYS|P_ACT,	null,	null)
 	);
@@ -174,17 +136,9 @@ include_once "include/page_header.php";
 	$srcfld1	= get_request("srcfld1", '');	// source table field [can be different from fields of source table]
 	$srcfld2	= get_request("srcfld2", null);	// second source table field [can be different from fields of source table]
 	
-	$monitored_hosts	= get_request("monitored_hosts", 0);
-	$real_hosts		= get_request("real_hosts", 0);
-	$only_hostid		= get_request("only_hostid", null);
-
-	$host_status		= array();
-	if ($monitored_hosts)
-		array_push($host_status, HOST_STATUS_MONITORED);
-	else if ($real_hosts)
-		array_push($host_status, HOST_STATUS_MONITORED, HOST_STATUS_NOT_MONITORED);
-	else
-		array_push($host_status, HOST_STATUS_MONITORED, HOST_STATUS_NOT_MONITORED, HOST_STATUS_TEMPLATE);
+	$monitored_hosts = get_request("monitored_hosts", 0);
+	$real_hosts = get_request("real_hosts", 0);
+	$only_hostid	 = get_request("only_hostid", null);
 ?>
 <?php
 	global $USER_DETAILS;
@@ -197,16 +151,7 @@ include_once "include/page_header.php";
 <?php
 	function get_window_opener($frame, $field, $value)
 	{
-//		return empty($field) ? "" : "window.opener.document.forms['".addslashes($frame)."'].elements['".addslashes($field)."'].value='".addslashes($value)."';";
-		if(empty($field)) return '';
-		
-		$script = 	'try{'.
-						"window.opener.document.getElementsByName('".addslashes($field)."')[0].value='".addslashes($value)."';".
-					'} catch(e){'.
-						'throw("Error: Target not found")'.
-					'}'."\n";
-					
-		return $script;
+		return empty($field) ? "" : "window.opener.document.forms['".addslashes($frame)."'].elements['".addslashes($field)."'].value='".addslashes($value)."';";
 	}
 ?>
 <?php
@@ -240,18 +185,20 @@ include_once "include/page_header.php";
 	if($real_hosts)
 		array_push($validation_param, "real_hosts");
 		
-	if(str_in_array($srctbl,array("graphs","screens","triggers","logitems","items"))){
+	if(str_in_array($srctbl,array("triggers","logitems","items")))
+	{
 		array_push($validation_param, "always_select_first_host");
 		validate_group_with_host(PERM_READ_LIST,$validation_param);
 	}
-	elseif(str_in_array($srctbl,array('hosts','templates','host_templates'))){
+	elseif(str_in_array($srctbl,array('hosts','templates','host_templates')))
+	{
 		validate_group(PERM_READ_LIST,$validation_param);
 	}
 
 	$accessible_nodes	= get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_LIST,null,null,get_current_nodeid(true));
 	$denyed_hosts		= get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_MODE_LT);
 	$accessible_hosts	= get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY);
-	$nodeid				= get_current_nodeid();
+	$nodeid			= get_current_nodeid();
 
 	if(isset($only_hostid))
 	{
@@ -260,15 +207,13 @@ include_once "include/page_header.php";
 	}
 	else
 	{
-		if(str_in_array($srctbl,array('hosts','host_group','triggers','logitems','items',
-									'applications','screens','slides','graphs','simple_graph',
-									'sysmaps','plain_text','screens2','overview','host_group_scr')))
+		if(str_in_array($srctbl,array("hosts","host_group","triggers","logitems","items",'applications','screens')))
 		{
 			if(ZBX_DISTRIBUTED)
 			{
-				$nodeid = get_request('nodeid', $nodeid);
-				$cmbNode = new CComboBox('nodeid', $nodeid, 'submit()');
-				$db_nodes = DBselect('select * from nodes where nodeid in ('.$accessible_nodes.')');
+				$nodeid = get_request("nodeid", $nodeid);
+				$cmbNode = new CComboBox("nodeid", $nodeid, "submit()");
+				$db_nodes = DBselect("select * from nodes where nodeid in (".$accessible_nodes.")");
 				while($node_data = DBfetch($db_nodes))
 				{
 					$cmbNode->AddItem($node_data['nodeid'], $node_data['name']);
@@ -280,18 +225,19 @@ include_once "include/page_header.php";
 		if(!isset($ok)) $nodeid = get_current_nodeid();
 		unset($ok);
 		
-		if(str_in_array($srctbl,array('hosts','templates','triggers','logitems','items','applications','host_templates','graphs','simple_graph','plain_text')))
+		if(str_in_array($srctbl,array('hosts','templates','triggers','logitems','items','applications','host_templates')))
 		{
-			$groupid = get_request('groupid',get_profile('web.popup.groupid',0));
-
-			$cmbGroups = new CComboBox('groupid',$groupid,'submit()');
+			$groupid = get_request("groupid",get_profile("web.popup.groupid",0));
+			
+			$cmbGroups = new CComboBox("groupid",$groupid,"submit()");
 			$cmbGroups->AddItem(0,S_ALL_SMALL);
-			$db_groups = DBselect('SELECT DISTINCT g.groupid,g.name from groups g, hosts_groups hg, hosts h '.
+			$db_groups = DBselect("select distinct g.groupid,g.name from groups g, hosts_groups hg, hosts h ".
 				' where '.DBin_node('g.groupid', $nodeid).
-				' AND g.groupid=hg.groupid AND hg.hostid=h.hostid'.
-				' and h.hostid in ('.$accessible_hosts.')'.
-				' and h.status in ('.implode(',', $host_status).')'.
-				' order by name');
+				" and g.groupid=hg.groupid and hg.hostid in (".$accessible_hosts.") ".
+				" and hg.hostid = h.hostid ".
+				($monitored_hosts ? " and h.status=".HOST_STATUS_MONITORED : "").
+				($real_hosts ? " and h.status<>".HOST_STATUS_TEMPLATE : "").
+				" order by name");
 			while($group = DBfetch($db_groups))
 			{
 				$cmbGroups->AddItem($group["groupid"],$group["name"]);
@@ -310,26 +256,27 @@ include_once "include/page_header.php";
 				$cmbTypes->AddItem($type, item_type2str($type));
 			$frmTitle->AddItem(array(S_TYPE,SPACE,$cmbTypes));
 		}
-		if(str_in_array($srctbl,array("triggers","logitems","items",'applications','graphs','simple_graph','plain_text')))
+		if(str_in_array($srctbl,array("triggers","logitems","items",'applications')))
 		{
 			$hostid = get_request("hostid",get_profile("web.popup.hostid",0));
 			$cmbHosts = new CComboBox("hostid",$hostid,"submit()");
 			
-			$sql = 'SELECT DISTINCT h.hostid,h.host FROM hosts h';
+			$sql = "select distinct h.hostid,h.host from hosts h";
 			if(isset($groupid))
 			{
-				$sql .= ',hosts_groups hg WHERE '.
-					' h.hostid=hg.hostid AND hg.groupid='.$groupid.' AND ';
+				$sql .= ",hosts_groups hg where ".
+					" h.hostid=hg.hostid and hg.groupid=".$groupid." and ";
 			}
 			else
 			{
-				$sql .= ' WHERE ';
+				$sql .= " where ";
 				$cmbHosts->AddItem(0,S_ALL_SMALL);
 			}
 
 			$sql .= DBin_node('h.hostid', $nodeid).
-				' and h.hostid in ('.$accessible_hosts.')'.
-				' and h.status in ('.implode(',', $host_status).')'.
+				" and h.hostid in (".$accessible_hosts.")".
+				($monitored_hosts ? " and h.status=".HOST_STATUS_MONITORED : "").
+				($real_hosts ? ' and h.status<>'.HOST_STATUS_TEMPLATE : '').
 				' order by host,h.hostid';
 
 			$db_hosts = DBselect($sql);
@@ -349,13 +296,11 @@ include_once "include/page_header.php";
 			$btnEmpty = new CButton("empty",S_EMPTY,
 				get_window_opener($dstfrm, $dstfld1, 0).
 				get_window_opener($dstfrm, $dstfld2, '').
-				((isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard'))?"window.opener.setTimeout('add2favorites();', 1000);":'').
 				" close_window(); return false;");
 
 			$frmTitle->AddItem(array(SPACE,$btnEmpty));
 		}
 	}
-
 	show_table_header($page["title"], $frmTitle);
 ?>
 <?php
@@ -364,16 +309,17 @@ include_once "include/page_header.php";
 		$table = new CTableInfo(S_NO_HOSTS_DEFINED);
 		$table->SetHeader(array(S_HOST,S_DNS,S_IP,S_PORT,S_STATUS,S_AVAILABILITY));
 
-		$sql = "SELECT DISTINCT h.* from hosts h";
+		$sql = "select distinct h.* from hosts h";
 		if(isset($groupid))
 			$sql .= ",hosts_groups hg where hg.groupid=".$groupid.
-				" AND h.hostid=hg.hostid AND ";
+				" and h.hostid=hg.hostid and ";
 		else
 			$sql .= " where ";
 
 		$sql .= DBin_node('h.hostid', $nodeid).
-				' and h.hostid in ('.$accessible_hosts.')'.
-				' and h.status in ('.implode(',', $host_status).')'.
+				" and h.hostid in (".$accessible_hosts.") ".
+				($monitored_hosts ? " and h.status=".HOST_STATUS_MONITORED : "").
+				($real_hosts ? " and h.status<>".HOST_STATUS_TEMPLATE : "").
 				" order by h.host,h.hostid";
 
 
@@ -381,17 +327,10 @@ include_once "include/page_header.php";
 		while($host = DBfetch($db_hosts))
 		{
 			$name = new CLink($host["host"],"#","action");
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $host[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $host[$srcfld1]).
-					(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $host[$srcfld2]) : '');
-			}
-			
-			$name->SetAction($action." close_window(); return false;");
+			$name->SetAction(
+				get_window_opener($dstfrm, $dstfld1, $host[$srcfld1]).
+				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $host[$srcfld2]) : '').
+				" close_window(); return false;");
 
 			if($host["status"] == HOST_STATUS_MONITORED)	
 				$status=new CSpan(S_MONITORED,"off");
@@ -487,16 +426,16 @@ include_once "include/page_header.php";
 		$table = new CTableInfo(S_NO_TEMPLATES_DEFINED);
 		$table->SetHeader(array(S_NAME));
 
-		$sql = "SELECT DISTINCT h.* from hosts h";
+		$sql = "select distinct h.* from hosts h";
 		if(isset($groupid))
 			$sql .= ",hosts_groups hg where hg.groupid=".$groupid.
-				" AND h.hostid=hg.hostid AND ";
+				" and h.hostid=hg.hostid and ";
 		else
 			$sql .= " where ";
 
 		$sql .= DBin_node('h.hostid', $nodeid).
-				" AND h.hostid in (".$accessible_hosts.") ".
-				" AND h.status=".HOST_STATUS_TEMPLATE.
+				" and h.hostid in (".$accessible_hosts.") ".
+				" and h.status=".HOST_STATUS_TEMPLATE.
 				" order by h.host,h.hostid";
 
 		$db_hosts = DBselect($sql);
@@ -539,24 +478,17 @@ include_once "include/page_header.php";
 		$table = new CTableInfo(S_NO_GROUPS_DEFINED);
 		$table->SetHeader(array(S_NAME));
 
-		$db_groups = DBselect("SELECT DISTINCT groupid,name from groups ".
+		$db_groups = DBselect("select distinct groupid,name from groups ".
 			' where '.DBin_node('groupid', $nodeid).
-			" AND groupid in (".$accessible_groups.") ".
+			" and groupid in (".$accessible_groups.") ".
 			" order by name");
 		while($row = DBfetch($db_groups))
 		{
 			$name = new CLink($row["name"],"#","action");
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
-			}
-			
-			$name->SetAction($action." close_window(); return false;");
+			$name->SetAction(
+				get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
+				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '').
+				" return close_window();");
 
 			$table->AddRow($name);
 		}
@@ -567,31 +499,24 @@ include_once "include/page_header.php";
 		$table = new CTableInfo(S_NO_TEMPLATES_DEFINED);
 		$table->SetHeader(array(S_NAME));
 
-		$sql = 'SELECT DISTINCT h.* from hosts h';
+		$sql = 'select distinct h.* from hosts h';
 		if(isset($groupid))
 			$sql .= ',hosts_groups hg where hg.groupid='.$groupid.
-				' AND h.hostid=hg.hostid AND ';
+				' and h.hostid=hg.hostid and ';
 		else
-			$sql .= ' WHERE ';
+			$sql .= ' where ';
 
-		$sql .= DBin_node('h.hostid',$nodeid).' AND h.status='.HOST_STATUS_TEMPLATE.
-				' AND h.hostid in ('.$accessible_hosts.') '.
-				' ORDER BY h.host,h.hostid';
+		$sql .= DBin_node('h.hostid',$nodeid).' and status='.HOST_STATUS_TEMPLATE.
+				' and h.hostid in ('.$accessible_hosts.') '.
+				' order by h.host,h.hostid';
 		$db_hosts = DBselect($sql);
 		while($row = DBfetch($db_hosts))
 		{
 			$name = new CLink($row['host'],'#','action');
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
-			}
-			
-			$name->SetAction($action." close_window(); return false;");
+			$name->SetAction(
+				get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
+				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '').
+				' return close_window();');
 
 			$table->AddRow($name);
 		}
@@ -610,18 +535,10 @@ include_once "include/page_header.php";
 					'#',
 					'action'
 					);
-					
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
-			}
-			
-			$name->SetAction($action." close_window(); return false;");			
+			$name->SetAction(
+				get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
+				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '').
+				" close_window(); return false;");
 
 			$table->AddRow($name);
 		}
@@ -640,17 +557,10 @@ include_once "include/page_header.php";
 					'#',
 					'action'
 					);
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
-			}
-			
-			$name->SetAction($action." close_window(); return false;");
+			$name->SetAction(
+				get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
+				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '').
+				" close_window(); return false;");
 
 			$table->AddRow($name);
 		}
@@ -666,17 +576,9 @@ include_once "include/page_header.php";
 		while($row = DBfetch($result))
 		{
 			$name = new CLink($row["key_"],"#","action");
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, html_entity_decode($row[$srcfld1])).
-				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
-			}
-			
-			$name->SetAction($action." close_window(); return false;");
+			$name->SetAction(
+				get_window_opener($dstfrm, $dstfld1, html_entity_decode($row[$srcfld1])).
+				" close_window(); return false;");
 
 			$table->AddRow(array(
 				$name,
@@ -693,52 +595,41 @@ include_once "include/page_header.php";
 			S_SEVERITY,
 			S_STATUS));
 
-		$sql = 'SELECT h.host,t.triggerid,t.description,t.expression,t.priority,t.status,'.
-				'count(d.triggerid_up) as dep_count '.
-				' FROM hosts h,items i,functions f, triggers t'.
-				' left join trigger_depends d on d.triggerid_down=t.triggerid '.
-				' WHERE f.itemid=i.itemid '.
-					' AND h.hostid=i.hostid '.
-					' AND t.triggerid=f.triggerid'.
-					' AND '.DBin_node('t.triggerid', $nodeid).
-					' and h.hostid in ('.$accessible_hosts.')'.
-					' and h.status in ('.implode(',', $host_status).')';
+
+		$sql = "select h.host,t.triggerid,t.description,t.expression,t.priority,t.status,count(d.triggerid_up) as dep_count ".
+			" from hosts h,items i,functions f, triggers t left join trigger_depends d on d.triggerid_down=t.triggerid ".
+			" where f.itemid=i.itemid and h.hostid=i.hostid and t.triggerid=f.triggerid".
+			' and '.DBin_node('t.triggerid', $nodeid).
+			" and h.hostid not in (".$denyed_hosts.")".
+			($monitored_hosts ? " and h.status=".HOST_STATUS_MONITORED : "").
+			($real_hosts ? " and h.status<>".HOST_STATUS_TEMPLATE : "");
 
 		if(isset($hostid)) 
-			$sql .= ' AND h.hostid='.$hostid;
+			$sql .= " and h.hostid=$hostid";
 
-		$sql .= ' GROUP BY h.host, t.triggerid, t.description, t.expression, t.priority, t.status'.
-			' ORDER BY h.host,t.description';
+		$sql .= " group by h.host, t.triggerid, t.description, t.expression, t.priority, t.status".
+			" order by h.host,t.description";
 
 		$result=DBselect($sql);
-		while($row=DBfetch($result)){
+		while($row=DBfetch($result))
+		{
 			$exp_desc = expand_trigger_description_by_data($row);
 			$description = new CLink($exp_desc,"#","action");
-			
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $exp_desc).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-					get_window_opener($dstfrm, $dstfld2, $exp_desc);
-			}
-			
-			$description->SetAction($action." close_window(); return false;");
-			
+			$description->SetAction(
+				get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
+				get_window_opener($dstfrm, $dstfld2, $exp_desc).
+				" close_window(); return false;");
+
 			if($row['dep_count'] > 0)
 			{
 				$description = array(
-					$description,
-					BR(),BR(),
-					bold(S_DEPENDS_ON),
-					BR());
+					$description,BR.BR.
+					"<strong>".S_DEPENDS_ON."</strong>".BR);
 
 				$deps = get_trigger_dependences_by_triggerid($row["triggerid"]);
 				
 				foreach($deps as $val)
-					$description[] = array(expand_trigger_description($val),BR());
+					$description[] = expand_trigger_description($val).BR;
 			}
 
 			if($row["status"] == TRIGGER_STATUS_DISABLED)
@@ -771,8 +662,32 @@ include_once "include/page_header.php";
 	}
 	elseif($srctbl == "logitems")
 	{
-		insert_js_function('add_item_variable');
-		
+?>
+
+<script language="JavaScript" type="text/javascript">
+<!--
+function add_item_variable(s_formname,x_value)
+{
+	if(add_variable(null, "itemid[]", x_value, s_formname, window.opener.document))
+	{
+		var o_form;
+
+		if( !(o_form = window.opener.document.forms[s_formname]) )
+			 throw "Missed form with name '"+s_formname+"'.";
+
+		var element = o_form.elements['itemid'];
+		if(element)     element.name = 'itemid[]';
+
+		o_form.submit();
+	}
+
+	close_window();
+        return true;
+}
+-->
+</script>
+
+<?php
 		$table = new CTableInfo(S_NO_ITEMS_DEFINED);
 
 		$table->SetHeader(array(
@@ -780,18 +695,19 @@ include_once "include/page_header.php";
 			S_DESCRIPTION,S_KEY,nbsp(S_UPDATE_INTERVAL),
 			S_STATUS));
 
-		$db_items = DBselect("SELECT DISTINCT h.host,i.* from items i,hosts h".
-			" where i.value_type=".ITEM_VALUE_TYPE_LOG." AND h.hostid=i.hostid".
-			' AND '.DBin_node('i.itemid', $nodeid).
-			(isset($hostid) ? " AND ".$hostid."=i.hostid " : "").
-			' and h.hostid in ('.$accessible_hosts.')'.
-			' and h.status in ('.implode(',', $host_status).')'.
+		$db_items = DBselect("select distinct h.host,i.* from items i,hosts h".
+			" where i.value_type=".ITEM_VALUE_TYPE_LOG." and h.hostid=i.hostid".
+			' and '.DBin_node('i.itemid', $nodeid).
+			(isset($hostid) ? " and ".$hostid."=i.hostid " : "").
+			" and i.hostid in (".$accessible_hosts.")".
+			($monitored_hosts ? " and h.status=".HOST_STATUS_MONITORED : "").
+			($real_hosts ? " and h.status<>".HOST_STATUS_TEMPLATE : "").
 			" order by h.host,i.description, i.key_, i.itemid");
 
 		while($db_item = DBfetch($db_items))
 		{
 			$description = new CLink(item_description($db_item["description"],$db_item["key_"]),"#","action");
-			$description->SetAction("return add_item_variable('".$dstfrm."','".$db_item["itemid"]."');");
+			$description->SetAction("return add_item_variable('".$dstfrm."',".$db_item["itemid"].");");
 
 			switch($db_item["status"]){
 				case 0: $status=new CCol(S_ACTIVE,"enabled");		break;
@@ -823,14 +739,14 @@ include_once "include/page_header.php";
 			S_STATUS
 			));
 
-		$sql = 'SELECT DISTINCT h.host,i.* from hosts h,items i '.
-				' WHERE h.hostid=i.hostid '.
-					' AND '.DBin_node('i.itemid', $nodeid).
-					' and h.hostid in ('.$accessible_hosts.')'.
-					' and h.status in ('.implode(',', $host_status).')';
+		$sql = "select distinct h.host,i.* from hosts h,items i ".
+			' where h.hostid=i.hostid and '.DBin_node('i.itemid', $nodeid).
+			" and h.hostid not in (".$denyed_hosts.")".
+			($monitored_hosts ? " and h.status=".HOST_STATUS_MONITORED : '').
+			($real_hosts ? " and h.status<>".HOST_STATUS_TEMPLATE : '');
 
 		if(isset($hostid)) 
-			$sql .= ' AND h.hostid='.$hostid;
+			$sql .= " and h.hostid=$hostid";
 
 		$sql .= " order by h.host, i.description, i.key_, i.itemid";
 			
@@ -843,18 +759,11 @@ include_once "include/page_header.php";
 
 			$row["description"] = $row['host'].':'.$row["description"];
 
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
-			}
-			
-			$description->SetAction($action." close_window(); return false;");
-			
+			$description->SetAction(
+				get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
+				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '').
+				" close_window(); return false;");
+
 			$table->AddRow(array(
 				(isset($hostid) ? null : $row['host']),
 				$description,
@@ -872,15 +781,14 @@ include_once "include/page_header.php";
 			(isset($hostid) ? null : S_HOST),
 			S_NAME));
 
-		$sql = 'SELECT DISTINCT h.host,a.* '.
-				' FROM hosts h,applications a '.
-				' WHERE h.hostid=a.hostid '.
-					' AND '.DBin_node('a.applicationid', $nodeid).
-					' and h.hostid in ('.$accessible_hosts.')'.
-					' and h.status in ('.implode(',', $host_status).')';
+		$sql = "select distinct h.host,a.* from hosts h,applications a ".
+			' where h.hostid=a.hostid and '.DBin_node('a.applicationid', $nodeid).
+			" and h.hostid not in (".$denyed_hosts.")".
+			($monitored_hosts ? " and h.status=".HOST_STATUS_MONITORED : "").
+			($real_hosts ? " and h.status<>".HOST_STATUS_TEMPLATE : "");
 
 		if(isset($hostid)) 
-			$sql .= ' AND h.hostid='.$hostid;
+			$sql .= " and h.hostid=$hostid";
 
 		$sql .= " order by h.host,a.name";
 			
@@ -890,18 +798,11 @@ include_once "include/page_header.php";
 
 			$name = new CLink($row["name"],"#","action");
 			
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
-			}
-			
-			$name->SetAction($action." close_window(); return false;");
-			
+			$name->SetAction(
+				get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
+				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '').
+				" close_window(); return false;");
+
 			$table->AddRow(array(isset($hostid) ? null : $row['host'], $name));
 		}
 		$table->Show();
@@ -911,271 +812,19 @@ include_once "include/page_header.php";
 		$table = new CTableInfo(S_NO_NODES_DEFINED);
 		$table->SetHeader(S_NAME);
 
-		$result = DBselect('SELECT DISTINCT * from nodes where nodeid in ('.$accessible_nodes.')');
+		$result = DBselect('select distinct * from nodes where nodeid in ('.$accessible_nodes.')');
 		while($row = DBfetch($result))
 		{
 
 			$name = new CLink($row["name"],"#","action");
 			
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
-			}
-			
-			$name->SetAction($action." close_window(); return false;");
-			
+			$name->SetAction(
+				get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
+				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '').
+				" close_window(); return false;");
+
 			$table->AddRow($name);
 		}
-		$table->Show();
-	}
-	elseif($srctbl == "graphs")
-	{
-		$table = new CTableInfo(S_NO_GRAPHS_DEFINED);
-		$table->SetHeader(array(S_NAME,S_GRAPH_TYPE));
-
-		$sql = 'SELECT DISTINCT g.graphid,g.name,g.graphtype,n.name as node_name, h.host'.
-					' FROM graphs g '.
-						' LEFT JOIN graphs_items gi ON g.graphid=gi.graphid '.
-						' LEFT JOIN items i ON gi.itemid=i.itemid '.
-						' LEFT JOIN hosts h ON h.hostid=i.hostid '.
-						' LEFT JOIN nodes n ON n.nodeid='.DBid2nodeid('g.graphid').
-					' WHERE h.hostid IN ('.$accessible_hosts.')'.
-						' AND '.DBin_node('g.graphid', $nodeid);
-
-		if(isset($hostid)) 
-			$sql .= ' AND h.hostid='.$hostid;
-
-		$sql .= ' ORDER BY node_name,host,name,graphid';
-
-		$result=DBselect($sql);
-		while($row=DBfetch($result)){
-			$row['node_name'] = isset($row['node_name']) ? '('.$row['node_name'].') ' : '';
-			$name = $row['node_name'].$row['host'].':'.$row['name'];
-
-			$description = new CLink($row['name'],'#','action');
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-					get_window_opener($dstfrm, $dstfld2, $name);
-			}
-			
-			$description->SetAction($action." close_window(); return false;");
-
-			switch($row['graphtype']){
-				case  GRAPH_TYPE_STACKED:
-					$graphtype = S_STACKED;
-					break;
-				case  GRAPH_TYPE_PIE:
-					$graphtype = S_PIE;
-					break;
-				case  GRAPH_TYPE_EXPLODED:
-					$graphtype = S_EXPLODED;
-					break;
-				default:
-					$graphtype = S_NORMAL;
-					break;
-			}
-			
-			$table->AddRow(array(
-				$description,
-				$graphtype
-			));
-
-			unset($description);
-		}
-		$table->Show();
-	}
-	elseif($srctbl == "simple_graph")
-	{
-		$table = new CTableInfo(S_NO_ITEMS_DEFINED);
-		$table->SetHeader(array(
-			(isset($hostid) ? null : S_HOST),
-			S_DESCRIPTION,
-			S_TYPE,
-			S_TYPE_OF_INFORMATION,
-			S_STATUS
-			));
-
-		$sql = 'SELECT n.name as node_name,h.host,i.*,i.key_ '.
-				' FROM hosts h,items i '.
-					' left join nodes n on n.nodeid='.DBid2nodeid('i.itemid').
-				' WHERE h.hostid=i.hostid '.
-					' AND h.status='.HOST_STATUS_MONITORED.
-					' AND i.status='.ITEM_STATUS_ACTIVE.
-					' AND '.DBin_node('i.itemid', $nodeid).
-					' AND h.hostid not in ('.$denyed_hosts.')';
-
-		if(isset($hostid)) 
-			$sql .= ' AND h.hostid='.$hostid;
-
-		$sql .= " order by h.host, i.description, i.key_, i.itemid";
-			
-		$result = DBselect($sql);
-		while($row = DBfetch($result))
-		{
-			$row['node_name'] = isset($row['node_name']) ? '('.$row['node_name'].') ' : '';
-			$row["description"] = item_description($row["description"],$row["key_"]);
-			
-			$description = new CLink($row["description"],"#","action");
-
-			$row["description"] = $row['node_name'].$row['host'].':'.$row["description"];
-
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]);
-			}
-			
-			$description->SetAction($action." close_window(); return false;");
-			
-			$table->AddRow(array(
-				(isset($hostid) ? null : $row['host']),
-				$description,
-				item_type2str($row['type']),
-				item_value_type2str($row['value_type']),
-				new CSpan(item_status2str($row['status']),item_status2style($row['status']))
-				));
-		}
-		$table->Show();
-	}
-	elseif($srctbl == "sysmaps")
-	{
-		$table = new CTableInfo(S_NO_MAPS_DEFINED);
-		$table->SetHeader(array(S_NAME));
-
-		$sql = 'SELECT n.name as node_name, s.sysmapid,s.name '.
-							' FROM sysmaps s'.
-								' LEFT JOIN nodes n ON n.nodeid='.DBid2nodeid('s.sysmapid').
-							' WHERE '.DBin_node('s.sysmapid', $nodeid).
-							' ORDER BY s.name';
-
-		$result=DBselect($sql);
-		while($row=DBfetch($result)){
-		
-			if(!sysmap_accessiable($row["sysmapid"],PERM_READ_ONLY)) continue;
-			
-			$row['node_name'] = isset($row['node_name']) ? '('.$row['node_name'].') ' : '';
-			$name = $row['node_name'].$row['name'];
-
-			$description = new CLink($row['name'],'#','action');
-
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-					get_window_opener($dstfrm, $dstfld2, $name);
-			}
-			
-			$description->SetAction($action." close_window(); return false;");
-			
-			$table->AddRow($description);
-
-			unset($description);
-		}
-		$table->Show();
-	}
-	elseif($srctbl == "plain_text")
-	{
-		$table = new CTableInfo(S_NO_ITEMS_DEFINED);
-		$table->SetHeader(array(
-			(isset($hostid) ? null : S_HOST),
-			S_DESCRIPTION,
-			S_TYPE,
-			S_TYPE_OF_INFORMATION,
-			S_STATUS
-			));
-
-		$sql = 'SELECT n.name as node_name,h.host,i.*,i.key_ '.
-				' FROM hosts h,items i '.
-					' left join nodes n on n.nodeid='.DBid2nodeid('i.itemid').
-				' WHERE h.hostid=i.hostid '.
-					' AND h.status='.HOST_STATUS_MONITORED.
-					' AND i.status='.ITEM_STATUS_ACTIVE.
-					' AND '.DBin_node('i.itemid', $nodeid).
-					' AND h.hostid not in ('.$denyed_hosts.')';
-
-		if(isset($hostid)) 
-			$sql .= ' AND h.hostid='.$hostid;
-
-		$sql .= ' ORDER BY h.host, i.description, i.key_, i.itemid';
-			
-		$result = DBselect($sql);
-		while($row = DBfetch($result))
-		{
-			$row['node_name'] = isset($row['node_name']) ? '('.$row['node_name'].') ' : '';
-			$row["description"] = item_description($row["description"],$row["key_"]);
-			
-			$description = new CLink($row["description"],"#","action");
-
-			$row["description"] = $row['node_name'].$row['host'].':'.$row["description"];
-
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]);
-			}
-			
-			$description->SetAction($action." close_window(); return false;");
-			
-			$table->AddRow(array(
-				(isset($hostid) ? null : $row['host']),
-				$description,
-				item_type2str($row['type']),
-				item_value_type2str($row['value_type']),
-				new CSpan(item_status2str($row['status']),item_status2style($row['status']))
-				));
-		}
-		$table->Show();
-	}
-	elseif('slides' == $srctbl)
-	{
-		require_once "include/screens.inc.php";
-
-		$table = new CTableInfo(S_NO_NODES_DEFINED);
-		$table->SetHeader(S_NAME);
-
-		$result = DBselect('select slideshowid,name from slideshows where '.DBin_node('slideshowid',$nodeid).' order by name');
-		while($row=DBfetch($result)){
-			if(!slideshow_accessiable($row["slideshowid"], PERM_READ_ONLY))
-				continue;
-
-			$name = new CLink($row["name"],"#","action");
-			
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
-			}
-			
-			$name->SetAction($action." close_window(); return false;");
-			
-			$table->AddRow($name);
-		}
-
 		$table->Show();
 	}
 	elseif($srctbl == 'screens')
@@ -1192,157 +841,19 @@ include_once "include/page_header.php";
 				continue;
 
 			$name = new CLink($row["name"],"#","action");
-			
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
-			}
-			
-			$name->SetAction($action." close_window(); return false;");
-			
-			$table->AddRow($name);
-		}
-
-		$table->Show();
-	}
-	elseif($srctbl == 'screens2')
-	{
-		require_once "include/screens.inc.php";
-
-		$table = new CTableInfo(S_NO_NODES_DEFINED);
-		$table->SetHeader(S_NAME);
-
-		$result = DBselect('SELECT DISTINCT n.name as node_name,s.screenid,s.name '.
-							' FROM screens s '.
-								' LEFT JOIN nodes n ON n.nodeid='.DBid2nodeid('s.screenid').
-							' WHERE '.DBin_node('s.screenid',$nodeid).
-							' ORDER BY s.name');
-		while($row=DBfetch($result))
-		{
-			if(!screen_accessiable($row["screenid"], PERM_READ_ONLY))
-				continue;
-			if(!screen_accessiable($row['screenid'], PERM_READ_ONLY)) continue;
-			if(check_screen_recursion($_REQUEST['screenid'],$row['screenid'])) continue;
-			
-			$row['node_name'] = isset($row['node_name']) ? '('.$row['node_name'].') ' : '';
-
-			$name = new CLink($row['name'],'#','action');			
-			$row['name'] = $row['node_name'].$row['name'];
-			
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
-			}
-			
-			$name->SetAction($action." close_window(); return false;");
-			
-			$table->AddRow($name);
-		}
-
-		$table->Show();
-	}
-	elseif($srctbl == "overview")
-	{
-		$table = new CTableInfo(S_NO_GROUPS_DEFINED);
-		$table->SetHeader(S_NAME);
-
-		$result = DBselect('SELECT DISTINCT n.name as node_name,g.groupid,g.name '.
-						' FROM hosts_groups hg,hosts h,groups g '.
-							' LEFT JOIN nodes n ON n.nodeid='.DBid2nodeid('g.groupid').
-						' WHERE '.DBin_node('g.groupid',$nodeid).
-							' AND g.groupid=hg.groupid '.
-							' AND hg.hostid=h.hostid '.
-							' AND h.status='.HOST_STATUS_MONITORED.
-						' ORDER BY g.name');
-		while($row=DBfetch($result))
-		{
-			$row['node_name'] = isset($row['node_name']) ? '('.$row['node_name'].') ' : '';
-
-			$name = new CLink($row['name'],'#','action');			
-			$row['name'] = $row['node_name'].$row['name'];
-			
-			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-				$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-					"window.opener.setTimeout('add2favorites();', 1000);";
-			}
-			else{
-				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
-			}
-			
-			$name->SetAction($action." close_window(); return false;");
-			
-			$table->AddRow($name);
-		}
-
-		$table->Show();
-	}
-	else if($srctbl == 'host_group_scr'){
-		$accessible_groups	= get_accessible_groups_by_user($USER_DETAILS,PERM_READ_ONLY);
-
-		$table = new CTableInfo(S_NO_GROUPS_DEFINED);
-		$table->SetHeader(array(S_NAME));
-
-		$db_groups = DBselect('SELECT DISTINCT n.name as node_name,g.groupid,g.name,n.nodeid '.
-						' FROM hosts_groups hg, groups g '.
-							' LEFT JOIN nodes n ON n.nodeid='.DBid2nodeid('g.groupid').
-						' WHERE g.groupid IN ('.$accessible_groups.') '.
-							' AND '.DBin_node('g.groupid',$nodeid).
-						' ORDER BY n.nodeid,g.name');
-		
-		$all = false;
-		
-		while($row = DBfetch($db_groups))
-		{
-			$row['node_name'] = isset($row['node_name'])?'('.$row['node_name'].') ':'';
-			
-			if(!$all){
-				$name = new CLink(bold(S_MINUS_ALL_GROUPS_MINUS),'#','action');
-				
-				if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
-					$action = get_window_opener($dstfrm, $dstfld1, $srctbl).
-						get_window_opener($dstfrm, $dstfld2, create_id_by_nodeid(0,$nodeid)).
-						"window.opener.setTimeout('add2favorites();', 1000);";
-				}
-				else{
-					$action = get_window_opener($dstfrm, $dstfld1, create_id_by_nodeid(0,$nodeid)).
-					get_window_opener($dstfrm, $dstfld2, $row['node_name'].S_MINUS_ALL_GROUPS_MINUS);
-
-				}
-				
-				$name->SetAction($action." close_window(); return false;");
-				
-				$table->AddRow($name);
-				$all = true;
-			}
-
-			$name = new CLink($row['name'],'#','action');			
-			$row['name'] = $row['node_name'].$row['name'];
-			
 			$name->SetAction(
 				get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
-				get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-				((isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard'))?"window.opener.setTimeout('add2favorites();', 1000);":'').
-				' return close_window();');
+				(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '').
+				' close_window(); return false;');
 
 			$table->AddRow($name);
 		}
+
 		$table->Show();
 	}
 ?>
 <?php
 
-include_once 'include/page_footer.php';
+include_once "include/page_footer.php";
 
 ?>

@@ -29,14 +29,14 @@
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		"name"=>			array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({enter})'),
+		"name"=>		array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({enter})'),
 		"password"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		'isset({enter})'),
 		"sessionid"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
-		"message"=>			array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
+		"message"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
 		"reconnect"=>		array(T_ZBX_INT, O_OPT,	P_ACT, BETWEEN(0,65535),NULL),
-		"enter"=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,    NULL,   NULL),
-		"form"=>			array(T_ZBX_STR, O_OPT, P_SYS,  NULL,   	NULL),
-		"form_refresh"=>	array(T_ZBX_INT, O_OPT, NULL,   NULL,   	NULL)
+                "enter"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,    NULL,   NULL),
+                "form"=>		array(T_ZBX_STR, O_OPT, P_SYS,  NULL,   	NULL),
+                "form_refresh"=>	array(T_ZBX_INT, O_OPT, NULL,   NULL,   	NULL)
 	);
 	check_fields($fields);
 ?>
@@ -52,8 +52,7 @@
 		unset($sessionid);
 
 		Redirect("index.php");
-		die();
-//		return;
+		return;
 	}
 
 	if(isset($_REQUEST["enter"])&&($_REQUEST["enter"]=="Enter"))
@@ -61,16 +60,12 @@
 		$name = get_request("name","");
 		$password = md5(get_request("password",""));
 
-		$login = $row = DBfetch(DBselect('SELECT u.userid,u.alias,u.name,u.surname,u.url,u.refresh '.
-						' FROM users u, users_groups ug, usrgrp g '.
- 						' WHERE u.alias='.zbx_dbstr($name).
-							' AND u.passwd='.zbx_dbstr($password).
-							' AND '.DBin_node('u.userid', $ZBX_LOCALNODEID)));
-		if($login){
-			$login = (check_perm2login($row['userid']) && check_perm2system($row['userid']));
-		}
+		$row = DBfetch(DBselect("select u.userid,u.alias,u.name,u.surname,u.url,u.refresh from users u where".
+			" u.alias=".zbx_dbstr($name)." and u.passwd=".zbx_dbstr($password).
+			' and '.DBin_node('u.userid', $ZBX_LOCALNODEID)));
 
-		if($login){
+		if($row)
+		{
 			$sessionid = md5(time().$password.$name.rand(0,10000000));
 			zbx_setcookie('zbx_sessionid',$sessionid);
 			
@@ -79,20 +74,15 @@
 
 			add_audit(AUDIT_ACTION_LOGIN,AUDIT_RESOURCE_USER,"Correct login [".$name."]");
 			
-			if(empty($row["url"])){
-				global $USER_DETAILS;
-				$USER_DETAILS["alias"] = $row['alias'];
-				$USER_DETAILS['userid'] = $row['userid'];
-				$row["url"] = get_profile('web.menu.view.last','index.php');
-				unset($USER_DETAILS);
+			if(empty($row["url"]))
+			{
+				$row["url"] = "index.php";
 			}
 			Redirect($row["url"]);
-			die();
-//			return;
+			return;
 		}
-		else{
-			$row = NULL;
-			
+		else
+		{
 			$_REQUEST['message'] = "Login name or password is incorrect";
 			add_audit(AUDIT_ACTION_LOGIN,AUDIT_RESOURCE_USER,"Login failed [".$name."]");
 		}
@@ -103,12 +93,17 @@ include_once "include/page_header.php";
 	if(isset($_REQUEST['message'])) show_error_message($_REQUEST['message']);
 ?>
 <?php
-	if(!isset($sessionid)){
+	if(!isset($sessionid))
+	{
 		insert_login_form();
 	}
-	else{
-		$logoff = new CLink('here', '?reconnect=1', 'styled');
-		echo '<div align="center" class="textcolorstyles">Press '.$logoff->ToString().' to disconnect/reconnect</div>';
+	else
+	{
+		$logoff = new CLink('here', '?reconnect=1');
+
+		echo "<div align=center>";
+		echo "Press ".$logoff->ToString()." to disconnect/reconnect";
+		echo "</div>";
 	}	
 ?>
 <?php

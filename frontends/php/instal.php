@@ -19,11 +19,11 @@
 **/
 ?>
 <?php
-require_once "include/config.inc.php";
-require_once "include/forms.inc.php";
+	require_once "include/config.inc.php";
+	require_once "include/forms.inc.php";
 
-$page["title"] = "S_INSTALLATION";
-$page["file"] = "instal.php";
+        $page["title"] = "S_INSTALLATION";
+        $page["file"] = "instal.php";
 
 include_once "include/page_header.php";
 include_once "setup.php";
@@ -57,17 +57,17 @@ include_once "include/page_footer.php";
 	$form = new CFormTable(S_INSTALLATION_UPDATE);
 	$form->SetHelp('install_source_web.php');
 	$form->AddRow(
-		array(bold(S_NEW_INSTALLATION_BIG),BR(),BR(),
-			bold(S_DESCRIPTION),BR(),
+		array(bold(S_NEW_INSTALLATION_BIG),BR,BR,
+			bold(S_DESCRIPTION),BR,
 			'Not implemented yet!',
-			BR(),BR(),BR()
+			BR,BR,BR
 			),
 		new CButton('install',S_NEW_INSTALLATION));
 	$form->AddRow(
-		array(bold(S_UPDATE_BIG),BR(),BR(),
-			bold(S_DESCRIPTION),BR(),
+		array(bold(S_UPDATE_BIG),BR,BR,
+			bold(S_DESCRIPTION),BR,
 			'Not implemented yet!',
-			BR(),BR(),BR()
+			BR,BR,BR
 			),
 		new CButton('update',S_UPDATE));
 	$form->Show();

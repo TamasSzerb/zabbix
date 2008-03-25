@@ -48,7 +48,6 @@
 /* public */
 		function CRow($item=NULL,$class=NULL){
 			parent::CTag("tr","yes");
-
 			$this->AddItem($item);
 			$this->SetClass($class);
 		}
@@ -63,16 +62,17 @@
 			}
 			elseif(is_array($item)){
 				foreach($item as $el){
-                    if(strtolower(get_class($el))=='ccol') {
-                		parent::AddItem($el);
-					} 
-					else if(!is_null($el)){
-						parent::AddItem(new CCol($el));
+                        		if(strtolower(get_class($el))=='ccol') {
+                		        	parent::AddItem($el);
+					} elseif(!is_null($el)) {
+						parent::AddItem('<td>'.unpack_object($el).'</td>');
+					} else {
+						parent::AddItem('<td></td>');
 					}
 				}
 			}
 			elseif(!is_null($item)){
-				parent::AddItem(new CCol($item));
+				parent::AddItem('<td>'.unpack_object($item).'</td>');
 			}
 		}
 		
@@ -106,7 +106,7 @@
 			$this->headerClass = NULL;
 			$this->footer = '';
 			$this->footerClass = NULL;
-			$this->colnum = 1;
+			$this->colnum = 0;
 
 			$this->message = $message;
 		}
@@ -152,11 +152,10 @@
                                                 $this->oddRowClass:
                                                 $this->evenRowClass);
 			}/**/
-			return $item;
+			return $item->ToString();
 		}
 
 		function SetHeader($value=NULL,$class=NULL){
-			if(isset($_REQUEST['print'])) hide_form_items($value);
 			if(is_null($class)) $class = $this->headerClass;
 
 			if(strtolower(get_class($value))=='crow') {
@@ -169,11 +168,9 @@
 		}
 
 		function SetFooter($value=NULL,$class=NULL){
-			if(isset($_REQUEST['print'])) hide_form_items($value);
 			if(is_null($class)) $class = $this->footerClass;
 
-			$this->footer = $this->PrepareRow($value,$class);
-			$this->footer = $this->footer->ToString();
+			$this->footer = $this->PrepareRow($value,$class);;
 		}
 
 		function AddRow($item,$rowClass=NULL){
@@ -183,11 +180,7 @@
 		}
 
 		function ShowRow($item,$rowClass=NULL){
-			// needed for PHP4
-			$tempobj = $this->PrepareRow($item,$rowClass);
-			echo $tempobj->ToString();
-			unset($tempobj);
-			//---------------
+			echo $this->PrepareRow($item,$rowClass);
 			++$this->rownum;
 		}
 /* protected */
@@ -205,7 +198,6 @@
 			$ret = "";
 			if($this->rownum == 0 && isset($this->message)) {
 				$ret = $this->PrepareRow(new CCol($this->message,'message'));
-				$ret = $ret->ToString();
 			}
 			$ret .= $this->footer;
 			$ret .= parent::EndToString();

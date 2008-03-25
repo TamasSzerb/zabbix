@@ -95,42 +95,11 @@ static	void	send_to_user_medias(DB_EVENT *event,DB_OPERATION *operation, zbx_uin
 			continue;
 		}
 
-		DBadd_alert(operation->actionid, userid, event->eventid, media.mediatypeid,media.sendto,operation->shortdata,operation->longdata);
+		DBadd_alert(operation->actionid, userid, event->objectid, media.mediatypeid,media.sendto,operation->shortdata,operation->longdata);
 	}
 	DBfree_result(result);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End send_to_user_medias()");
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: check_user_active                                                *
- *                                                                            *
- * Purpose: checks if user in any users_disabled group                        *
- *                                                                            *
- * Parameters: userid - user id                                               *
- *                                                                            *
- * Return value: int SUCCEED / FAIL-if user disabled                          *
- *                                                                            *
- * Author: Aly                                                                *
- *                                                                            *
- * Comments:                    			                      *
- *                                                                            *
- ******************************************************************************/
-int check_user_active(zbx_uint64_t userid){
-	DB_RESULT	result;
-	DB_ROW		row;
-	int		rtrn = SUCCEED;
-
-	result = DBselect("SELECT COUNT(g.usrgrpid) FROM users_groups ug, usrgrp g WHERE ug.userid=" ZBX_FS_UI64 " AND g.usrgrpid=ug.usrgrpid AND g.users_status=%d", userid, GROUP_STATUS_DISABLED);
-	
-	row = DBfetch(result);
-	if(row && (DBis_null(row[0])!=SUCCEED) && (atoi(row[0])>0)) 
-		rtrn=FAIL;
-
-	DBfree_result(result);
-
-return rtrn;
 }
 
 /******************************************************************************
@@ -159,15 +128,12 @@ void	op_notify_user(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation)
 
 	if(operation->object == OPERATION_OBJECT_USER)
 	{
-		if(check_user_active(operation->objectid) == SUCCEED)
-		{
-			send_to_user_medias(event, operation, operation->objectid);
-		}
+		send_to_user_medias(event, operation, operation->objectid);
 	}
 	else if(operation->object == OPERATION_OBJECT_GROUP)
 	{
-		result = DBselect("select u.userid from users u, users_groups ug, usrgrp g where ug.usrgrpid=" ZBX_FS_UI64 " and ug.userid=u.userid and g.usrgrpid=ug.usrgrpid and g.users_status=%d",
-			operation->objectid,GROUP_STATUS_ACTIVE);
+		result = DBselect("select u.userid from users u, users_groups ug where ug.usrgrpid=" ZBX_FS_UI64 " and ug.userid=u.userid",
+			operation->objectid);
 		while((row=DBfetch(result)))
 		{
 			ZBX_STR2UINT64(userid, row[0]);
@@ -221,9 +187,9 @@ static void run_remote_command(char* host_name, char* command)
 		host_name,
 		command);
 
-	result = DBselect("select distinct host,ip,useip,port,dns from hosts where host='%s'" DB_NODE,
+	result = DBselect("select distinct host,ip,useip,port,dns from hosts where host='%s' and " ZBX_COND_NODEID,
 			host_name,
-			DBnode_local("hostid"));
+			LOCAL_NODE("hostid"));
 	row = DBfetch(result);
 	if(row)
 	{
@@ -377,9 +343,9 @@ void	op_run_commands(DB_EVENT *event, DB_OPERATION *operation)
 		if(alias == '\0' || command == '\0') continue;
 		if(is_group)
 		{
-			result = DBselect("select distinct h.host from hosts_groups hg,hosts h, groups g where hg.hostid=h.hostid and hg.groupid=g.groupid and g.name='%s'" DB_NODE,
+			result = DBselect("select distinct h.host from hosts_groups hg,hosts h, groups g where hg.hostid=h.hostid and hg.groupid=g.groupid and g.name='%s' and" ZBX_COND_NODEID,
 				alias,
-				DBnode_local("h.hostid"));
+				LOCAL_NODE("h.hostid"));
 			while((row=DBfetch(result)))
 			{
 				run_remote_command(row[0], command);
@@ -493,20 +459,19 @@ static zbx_uint64_t	add_discovered_host(zbx_uint64_t dhostid)
 	DB_RESULT	result2;
 	DB_ROW		row;
 	DB_ROW		row2;
-	zbx_uint64_t	hostid = 0, proxy_hostid;
+	zbx_uint64_t	hostid = 0;
 	char		*ip;
 	char		host[MAX_STRING_LEN], host_esc[MAX_STRING_LEN];
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In add_discovered_host(dhostid:" ZBX_FS_UI64 ")",
-			dhostid);
+		dhostid);
 
-	result = DBselect("select dr.proxy_hostid,dh.ip from dhosts dh, drules dr"
-			" where dr.druleid=dh.druleid and dh.dhostid=" ZBX_FS_UI64,
-			dhostid);
-
-	if (NULL != (row = DBfetch(result)) && DBis_null(row[1]) != SUCCEED) {
-		proxy_hostid = zbx_atoui64(row[0]);
-		ip = row[1];
+	result = DBselect("select ip from dhosts where dhostid=" ZBX_FS_UI64,
+		dhostid);
+	row = DBfetch(result);
+	if(row && DBis_null(row[0]) != SUCCEED)
+	{
+		ip=row[0];
 
 		alarm(CONFIG_TIMEOUT);
 		zbx_gethost_by_ip(ip, host, sizeof(host));
@@ -514,22 +479,24 @@ static zbx_uint64_t	add_discovered_host(zbx_uint64_t dhostid)
 
 		DBescape_string(host, host_esc, sizeof(host_esc));
 
-		result2 = DBselect("select hostid from hosts where ip='%s'" DB_NODE,
-				ip,
-				DBnode_local("hostid"));
-
-		if (NULL == (row2 = DBfetch(result2)) || DBis_null(row2[0]) == SUCCEED) {
+		result2 = DBselect("select hostid from hosts where ip='%s' and " ZBX_COND_NODEID,
+			ip,
+			LOCAL_NODE("hostid"));
+		row2 = DBfetch(result2);
+		if(!row2 || DBis_null(row2[0]) == SUCCEED)
+		{
 			hostid = DBget_maxid("hosts","hostid");
-			DBexecute("insert into hosts (hostid,proxy_hostid,host,useip,ip,dns)"
-					" values (" ZBX_FS_UI64 "," ZBX_FS_UI64 ",'%s',1,'%s','%s')",
-					hostid,
-					proxy_hostid,
-					(host[0] != '\0' ? host_esc : ip), /* Use host name if exists, IP otherwise */
-					ip,
-					host_esc);
-		} else {
+			DBexecute("insert into hosts (hostid,host,useip,ip,dns) values (" ZBX_FS_UI64 ",'%s',1,'%s','%s')",
+				hostid,
+				(host[0] != '\0' ? host_esc : ip), /* Use host name if exists, IP otherwise */
+				ip,
+				host_esc);
+		}
+		else
+		{
 			ZBX_STR2UINT64(hostid, row2[0]);
-			if (host_esc[0] != '\0') {
+			if(host_esc[0] != '\0')
+			{
 				DBexecute("update hosts set dns='%s' where hostid=" ZBX_FS_UI64,
 					host_esc,
 					hostid);

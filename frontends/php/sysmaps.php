@@ -25,7 +25,6 @@
 
 	$page["title"] = "S_NETWORK_MAPS";
 	$page["file"] = "sysmaps.php";
-	$page['hist_arg'] = array();
 
 include_once "include/page_header.php";
 
@@ -53,7 +52,6 @@ include_once "include/page_header.php";
 
 	);
 	check_fields($fields);
-	validate_sort_and_sortorder();
 	
 	if(isset($_REQUEST["sysmapid"]))
 	{
@@ -105,7 +103,7 @@ include_once "include/page_header.php";
 	
 	$form->AddItem(new CButton("form",S_CREATE_MAP));
 	show_table_header(S_CONFIGURATION_OF_NETWORK_MAPS, $form);
-	echo SBR;
+	echo BR;
 ?>
 <?php
 	if(isset($_REQUEST["form"]))
@@ -116,18 +114,10 @@ include_once "include/page_header.php";
 	{
 		show_table_header(S_MAPS_BIG);
 		$table = new CTableInfo(S_NO_MAPS_DEFINED);
-		$table->SetHeader(array(
-			make_sorting_link(S_NAME,'sm.name'),
-			make_sorting_link(S_WIDTH,'sm.width'),
-			make_sorting_link(S_HEIGHT,'sm.height'),
-			S_MAP
-			));
+		$table->SetHeader(array(S_NAME,S_WIDTH,S_HEIGHT,S_MAP));
 
-		$result = DBselect('SELECT sm.sysmapid,sm.name,sm.width,sm.height '.
-						' FROM sysmaps sm'.
-						' WHERE '.DBin_node('sm.sysmapid').
-						order_by('sm.name,sm.width,sm.height','sm.sysmapid'));
-						
+		$result = DBselect("select sysmapid,name,width,height from sysmaps ".
+			' where '.DBin_node('sysmapid').' order by name');
 		while($row=DBfetch($result))
 		{
 			if(!sysmap_accessiable($row["sysmapid"],PERM_READ_WRITE)) continue;

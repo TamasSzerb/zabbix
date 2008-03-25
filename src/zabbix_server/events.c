@@ -42,9 +42,9 @@
 #include "db.h"
 #include "log.h"
 #include "zlog.h"
-#include "zbxserver.h"
 
 #include "actions.h"
+#include "functions.h"
 #include "events.h"
 
 /******************************************************************************
@@ -74,7 +74,7 @@ static void	add_trigger_info(DB_EVENT *event)
 	{
 		triggerid = event->objectid;
 
-		result = DBselect("select description,priority,comments,url,type from triggers where triggerid=" ZBX_FS_UI64,
+		result = DBselect("select description,priority,comments,url from triggers where triggerid=" ZBX_FS_UI64,
 			triggerid);
 		row = DBfetch(result);
 		event->trigger_description[0]=0;
@@ -87,7 +87,6 @@ static void	add_trigger_info(DB_EVENT *event)
 			event->trigger_priority = atoi(row[1]);
 			event->trigger_comments	= strdup(row[2]);
 			event->trigger_url	= strdup(row[3]);
-			event->trigger_type	= atoi(row[4]);
 		}
 		DBfree_result(result);
 
@@ -99,28 +98,14 @@ static void	add_trigger_info(DB_EVENT *event)
 
 		event->skip_actions = 0;
 
-		switch(event->trigger_type)
+		if(	(event->value == TRIGGER_VALUE_UNKNOWN) ||
+			(event_prev_status == TRIGGER_VALUE_TRUE && event_last_status == TRIGGER_VALUE_UNKNOWN && event->value == TRIGGER_VALUE_TRUE) ||
+			(event_prev_status == TRIGGER_VALUE_FALSE && event_last_status == TRIGGER_VALUE_UNKNOWN && event->value == TRIGGER_VALUE_FALSE) ||
+			(event_prev_status == TRIGGER_VALUE_UNKNOWN && event_last_status == TRIGGER_VALUE_UNKNOWN && event->value == TRIGGER_VALUE_FALSE)
+		)
 		{
-		case	TRIGGER_TYPE_NORMAL:
-			if(	(event->value == TRIGGER_VALUE_UNKNOWN) ||
-				(event_prev_status == TRIGGER_VALUE_TRUE && event_last_status == TRIGGER_VALUE_UNKNOWN && event->value == TRIGGER_VALUE_TRUE) ||
-				(event_prev_status == TRIGGER_VALUE_FALSE && event_last_status == TRIGGER_VALUE_UNKNOWN && event->value == TRIGGER_VALUE_FALSE) ||
-				(event_prev_status == TRIGGER_VALUE_UNKNOWN && event_last_status == TRIGGER_VALUE_UNKNOWN && event->value == TRIGGER_VALUE_FALSE)
-			)
-			{
-				zabbix_log(LOG_LEVEL_DEBUG,"Skip actions");
-				event->skip_actions = 1;
-			}
-		case	TRIGGER_TYPE_MULTIPLE_TRUE:
-			if(	(event->value == TRIGGER_VALUE_UNKNOWN) ||
-/*				(event_prev_status == TRIGGER_VALUE_TRUE && event_last_status == TRIGGER_VALUE_UNKNOWN && event->value == TRIGGER_VALUE_TRUE) ||*/
-				(event_prev_status == TRIGGER_VALUE_FALSE && event_last_status == TRIGGER_VALUE_UNKNOWN && event->value == TRIGGER_VALUE_FALSE) ||
-				(event_prev_status == TRIGGER_VALUE_UNKNOWN && event_last_status == TRIGGER_VALUE_UNKNOWN && event->value == TRIGGER_VALUE_FALSE)
-			)
-			{
-				zabbix_log(LOG_LEVEL_DEBUG,"Skip actions");
-				event->skip_actions = 1;
-			}
+			zabbix_log(LOG_LEVEL_DEBUG,"Skip actions");
+			event->skip_actions = 1;
 		}
 	}
 }
@@ -185,8 +170,8 @@ int	process_event(DB_EVENT *event)
 	/* Cancel currently active alerts */
 /*	if(event->value == TRIGGER_VALUE_FALSE || event->value == TRIGGER_VALUE_TRUE)
 	{
-		DBexecute("update alerts set retries=3,error='Trigger changed its status. Will not send repeats.' where eventid=" ZBX_FS_UI64 " and repeats>0 and status=%d",
-			event->eventid, ALERT_STATUS_NOT_SENT);
+		DBexecute("update alerts set retries=3,error='Trigger changed its status. Will not send repeats.' where triggerid=" ZBX_FS_UI64 " and repeats>0 and status=%d",
+			event->triggerid, ALERT_STATUS_NOT_SENT);
 	}*/
 
 	if(event->skip_actions == 0)

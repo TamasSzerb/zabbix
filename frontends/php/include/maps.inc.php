@@ -22,8 +22,7 @@
 	require_once "include/images.inc.php";
 	require_once "include/hosts.inc.php";
 	require_once "include/triggers.inc.php";
-	require_once "include/scripts.inc.php";
-	
+
         /*
          * Function: map_link_drawtypes
          *
@@ -54,19 +53,21 @@
          *     Eugene Grigorjev 
          *
          */
-	function	map_link_drawtype2str($drawtype){
-		switch($drawtype){
-			case MAP_LINK_DRAWTYPE_LINE:		$drawtype = S_LINE;			break;
+        function	map_link_drawtype2str($drawtype)
+        {
+		switch($drawtype)
+		{
+			case MAP_LINK_DRAWTYPE_LINE:		$drawtype = S_LINE;		break;
 			case MAP_LINK_DRAWTYPE_BOLD_LINE:	$drawtype = S_BOLD_LINE;	break;
-			case MAP_LINK_DRAWTYPE_DOT:			$drawtype = S_DOT;			break;
+			case MAP_LINK_DRAWTYPE_DOT:		$drawtype = S_DOT;		break;
 			case MAP_LINK_DRAWTYPE_DASHED_LINE:	$drawtype = S_DASHED_LINE;	break;
 			default: $drawtype = S_UNKNOWN;		break;
 		}
-	return $drawtype;
-	}
+		return $drawtype;
+        }
 
         /*
-         * Function: sysmap_accessible
+         * Function: sysmap_accessiable
          *
          * Description:
          *     Check permission for map
@@ -77,89 +78,117 @@
          *     Eugene Grigorjev 
          *
          */
-	function sysmap_accessible($sysmapid,$perm){
+	function	sysmap_accessiable($sysmapid,$perm)
+	{
 		global $USER_DETAILS;
 
 		$result = false;
 
-		if($db_result = DBselect('SELECT * '.
-						' FROM sysmaps_elements '.
-						' WHERE sysmapid='.$sysmapid.
-							' AND '.DBin_node('sysmapid', get_current_nodeid($perm))))
+		if($db_result = DBselect('select * from sysmaps_elements where sysmapid='.$sysmapid.
+			' and '.DBin_node('sysmapid', get_current_nodeid($perm))))
 		{
 			$result = true;
-			$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
+			
+			$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY, PERM_MODE_LT);
 						
-			while(($se_data = DBfetch($db_result)) && $result){
-				switch($se_data['elementtype']){
+			while(($se_data = DBfetch($db_result)) && $result)
+			{
+				switch($se_data['elementtype'])
+				{
 					case SYSMAP_ELEMENT_TYPE_HOST:
-						if(!uint_in_array($se_data['elementid'],$available_hosts)){
+						if(uint_in_array($se_data['elementid'],explode(',',$denyed_hosts)))
+						{
 							$result = false;
 						}
 						break;
 					case SYSMAP_ELEMENT_TYPE_MAP:
-						$result &= sysmap_accessible($se_data['elementid'], PERM_READ_ONLY);
+						$result &= sysmap_accessiable($se_data['elementid'], PERM_READ_ONLY);
 						break;
 					case SYSMAP_ELEMENT_TYPE_TRIGGER:
-						$available_triggers = get_accessible_triggers(PERM_READ_ONLY, PERM_RES_IDS_ARRAY);
-						
-						$sql = 'SELECT t.triggerid '.
-								' FROM triggers t'.
-								' WHERE t.triggerid='.$se_data['elementid'].
-									' AND '.DBcondition('t.triggerid',$available_triggers,true);
-						if(DBfetch(DBselect($sql,1))){
-								$result = false;
+						if( DBfetch(DBselect('select triggerid from triggers where triggerid='.$se_data['elementid'])) &&
+						    !DBfetch(DBselect("select distinct t.*".
+							" from triggers t,items i,functions f".
+							" where f.itemid=i.itemid and t.triggerid=f.triggerid".
+							" and i.hostid not in (".$denyed_hosts.") and t.triggerid=".$se_data['elementid'])))
+						{
+							$result = false;
 						}
-
 						break;
 					case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-						$available_groups = get_accessible_groups_by_user($USER_DETAILS,PERM_READ_ONLY);
-						
-						$sql = 'SELECT g.groupid '.
-							' FROM groups g '.
-							' WHERE g.groupid='.$se_data['elementid'].
-								' AND g.groupid NOT IN('.$available_groups.') ';
-							
-						if(DBfetch(DBselect($sql,1))){
+						if( DBfetch(DBselect('select groupid from groups where groupid='.$se_data['elementid'])) &&
+						    uint_in_array($se_data['elementid'],
+							get_accessible_groups_by_user($USER_DETAILS,PERM_READ_ONLY, PERM_MODE_LT, PERM_RES_IDS_ARRAY)))
+						{
 							$result = false;
 						}
 						break;
 				}
 			}
 		}
-		else{
-			if(DBselect('SELECT sysmapid FROM sysmaps WHERE sysmapid='.$sysmapid.
-				' AND '.DBin_node('sysmapid', get_current_nodeid($perm))))
+		else
+		{
+			if(DBselect('select sysmapid from sysmaps where sysmapid='.$sysmapid.
+				' and '.DBin_node('sysmapid', get_current_nodeid($perm))))
 					$result = true;
 		}
 		return $result;
 	}
 
-	function get_sysmap_by_sysmapid($sysmapid){
-		$row = DBfetch(DBselect('SELECT * FROM sysmaps WHERE sysmapid='.$sysmapid));
-		if($row){
+	function	get_sysmap_by_sysmapid($sysmapid)
+	{
+		$row = DBfetch(DBselect("select * from sysmaps where sysmapid=".$sysmapid));
+		if($row)
+		{
 			return	$row;
 		}
 		error("No system map with sysmapid=[".$sysmapid."]");
 		return false;
 	}
 
-	function get_sysmaps_element_by_selementid($selementid){
-		$sql="select * FROM sysmaps_elements WHERE selementid=$selementid"; 
+	function	get_sysmaps_element_by_selementid($selementid)
+	{
+		$sql="select * from sysmaps_elements where selementid=$selementid"; 
 		$result=DBselect($sql);
 		$row=DBfetch($result);
-		if($row){
+		if($row)
+		{
 			return	$row;
 		}
-		else{
+		else
+		{
 			error("No sysmap element with selementid=[$selementid]");
 		}
-	return	$result;
+		return	$result;
 	}
 
-// Add System Map
+	# Delete System Map
 
-	function add_sysmap($name,$width,$height,$backgroundid,$label_type,$label_location)
+	function	delete_sysmap( $sysmapid )
+	{
+		$result = delete_sysmaps_elements_with_sysmapid($sysmapid);
+		if(!$result)	return	$result;
+
+		$result = DBexecute("delete from sysmaps_links where sysmapid=$sysmapid");
+		if(!$result)	return	$result;
+
+		$result = DBexecute("delete from sysmaps_elements where sysmapid=$sysmapid");
+		if(!$result)	return	$result;
+
+		return DBexecute("delete from sysmaps where sysmapid=$sysmapid");
+	}
+
+	# Update System Map
+
+	function	update_sysmap($sysmapid,$name,$width,$height,$backgroundid,$label_type,$label_location)
+	{
+		return	DBexecute("update sysmaps set name=".zbx_dbstr($name).",width=$width,height=$height,".
+			"backgroundid=".$backgroundid.",label_type=$label_type,".
+			"label_location=$label_location where sysmapid=$sysmapid");
+	}
+
+	# Add System Map
+
+	function	add_sysmap($name,$width,$height,$backgroundid,$label_type,$label_location)
 	{
 		$sysmapid=get_dbid("sysmaps","sysmapid");
 
@@ -173,134 +202,58 @@
 		return $sysmapid;
 	}
 
-// Update System Map
-
-	function update_sysmap($sysmapid,$name,$width,$height,$backgroundid,$label_type,$label_location)
+	function	add_link($sysmapid,$selementid1,$selementid2,$triggerid,$drawtype_off,$color_off,$drawtype_on,$color_on)
 	{
-		return	DBexecute("update sysmaps set name=".zbx_dbstr($name).",width=$width,height=$height,".
-			"backgroundid=".$backgroundid.",label_type=$label_type,".
-			"label_location=$label_location WHERE sysmapid=$sysmapid");
-	}
+		if($triggerid == 0)	$triggerid = 'NULL';
 
-// Delete System Map
-
-	function delete_sysmap( $sysmapid ){
-		$result = delete_sysmaps_elements_with_sysmapid($sysmapid);
-		if(!$result)	return	$result;
-
-		$res=DBselect('SELECT linkid FROM sysmaps_links WHERE sysmapid='.$sysmapid);
-		while($rows = DBfetch($res)){
-			$result&=delete_link($rows['linkid']);
-		}
-
-		$result = DBexecute('DELETE FROM sysmaps_elements WHERE sysmapid='.$sysmapid);
-		$result &= DBexecute("DELETE FROM profiles WHERE idx='web.favorite.sysmapids' AND source='sysmapid' AND value_id=$sysmapid");
-		$result &= DBexecute('DELETE FROM sysmaps WHERE sysmapid='.$sysmapid);
-		
-	return $result;
-	}
-
-// LINKS
-
-	function add_link($sysmapid,$selementid1,$selementid2,$triggers,$drawtype,$color){
 		$linkid=get_dbid("sysmaps_links","linkid");
-		
-		$result=TRUE;
-		foreach($triggers as $id => $trigger){
-			if(empty($trigger['triggerid'])) continue;
-			$result&=add_link_trigger($linkid,$trigger['triggerid'],$trigger['drawtype'],$trigger['color']);
-		}
-		
-		if(!$result){
-			return $result;
-		}
 
-		$result&=DBexecute("insert into sysmaps_links".
-			" (linkid,sysmapid,selementid1,selementid2,drawtype,color)".
-			" values ($linkid,$sysmapid,$selementid1,$selementid2,$drawtype,".zbx_dbstr($color).")");
+		$result=DBexecute("insert into sysmaps_links".
+			" (linkid,sysmapid,selementid1,selementid2,triggerid,drawtype_off,".
+			"color_off,drawtype_on,color_on)".
+			" values ($linkid,$sysmapid,$selementid1,$selementid2,$triggerid,$drawtype_off,".
+			zbx_dbstr($color_off).",$drawtype_on,".zbx_dbstr($color_on).")");
 
 		if(!$result)
 			return $result;
 
-	return $linkid;
+		return $linkid;
 	}
 
-	function update_link($linkid,$sysmapid,$selementid1,$selementid2,$triggers,$drawtype,$color){
-		
-		$result=delete_all_link_triggers($linkid);;
-		
-		foreach($triggers as $id => $trigger){
-			if(empty($trigger['triggerid'])) continue;
-			$result&=add_link_trigger($linkid,$trigger['triggerid'],$trigger['drawtype'],$trigger['color']);
-		}
-		
-		if(!$result){
-			return $result;
-		}
-		
-		$result&=DBexecute('UPDATE sysmaps_links SET '.
-							" sysmapid=$sysmapid,selementid1=$selementid1,selementid2=$selementid2,".
-							" drawtype=$drawtype,color=".zbx_dbstr($color).
-						" WHERE linkid=$linkid");
-	return	$result;
+	function	update_link($linkid,$sysmapid,$selementid1,$selementid2,$triggerid,$drawtype_off,$color_off,$drawtype_on,$color_on)
+	{
+		if($triggerid == 0)	$triggerid = 'NULL';
+
+		return	DBexecute("update sysmaps_links set ".
+			"sysmapid=$sysmapid,selementid1=$selementid1,selementid2=$selementid2,".
+			"triggerid=$triggerid,drawtype_off=$drawtype_off,color_off=".zbx_dbstr($color_off).",".
+			"drawtype_on=$drawtype_on,color_on=".zbx_dbstr($color_on).
+			" where linkid=$linkid");
 	}
 
-	function delete_link($linkid){
-		$result = delete_all_link_triggers($linkid);
-		$result&= DBexecute("delete FROM sysmaps_links WHERE linkid=$linkid");
-	return	$result;
+	function	delete_link($linkid)
+	{
+		return	DBexecute("delete from sysmaps_links where linkid=$linkid");
 	}
 
-	function get_link_triggers($linkid){
-		$triggers = array();
-
-		$sql = "SELECT * FROM sysmaps_link_triggers WHERE linkid=$linkid";
-		$res = DBselect($sql);
-		
-		while($rows = DBfetch($res)){
-			$triggers[] = $rows;
-		}
-	return $triggers;
-	}
-
-	function add_link_trigger($linkid,$triggerid,$drawtype,$color){
-		$linktriggerid=get_dbid("sysmaps_link_triggers","linktriggerid");
-		$sql = 'INSERT INTO sysmaps_link_triggers (linktriggerid,linkid,triggerid,drawtype,color) '.
-					" VALUES ('$linktriggerid','$linkid','$triggerid','$drawtype',".zbx_dbstr($color).")";
-	return DBexecute($sql);
-	}
-
-	function update_link_trigger($linkid,$triggerid,$drawtype,$color){
-		$result=delete_link_trigger($linkid,$triggerid);
-		$result&=add_link_trigger($linkid,$triggerid,$drawtype,$color);
-	return $result;
-	}
-	
-	function delete_link_trigger($linkid,$triggerid){
-	return DBexecute("DELETE FROM sysmaps_link_triggers WHERE linkid=$linkid AND triggerid=$triggerid");
-	}
-	
-	function delete_all_link_triggers($linkid){
-	return DBexecute("DELETE FROM sysmaps_link_triggers WHERE linkid=$linkid");
-	}
-
-/*
- * Function: check_circle_elements_link
- *
- * Description:
- *     Check circeling of maps
- *
- * Author:
- *     Eugene Grigorjev 
- *
- */
-	function check_circle_elements_link($sysmapid,$elementid,$elementtype){
+        /*
+         * Function: check_circle_elements_link
+         *
+         * Description:
+         *     Check circeling of maps
+         *
+         * Author:
+         *     Eugene Grigorjev 
+         *
+         */
+	function	check_circle_elements_link($sysmapid,$elementid,$elementtype)
+	{
 		if($elementtype!=SYSMAP_ELEMENT_TYPE_MAP)	return FALSE;
 
 		if(bccomp($sysmapid ,$elementid)==0)	return TRUE;
 
-		$db_elements = DBselect("select elementid, elementtype FROM sysmaps_elements".
-			" WHERE sysmapid=$elementid");
+		$db_elements = DBselect("select elementid, elementtype from sysmaps_elements".
+			" where sysmapid=$elementid");
 
 		while($element = DBfetch($db_elements))
 		{
@@ -324,11 +277,10 @@
 
 		$selementid = get_dbid("sysmaps_elements","selementid");
 
-		$result=DBexecute('INSERT INTO sysmaps_elements '.
-							" (selementid,sysmapid,elementid,elementtype,label,x,y,iconid_off,url,iconid_on,label_location,iconid_unknown)".
-						" VALUES ($selementid,$sysmapid,$elementid,$elementtype,".zbx_dbstr($label).
-							",$x,$y,$iconid_off,".zbx_dbstr($url).
-							",$iconid_on,$label_location,$iconid_unknown)");
+		$result=DBexecute("insert into sysmaps_elements".
+			" (selementid,sysmapid,elementid,elementtype,label,x,y,iconid_off,url,iconid_on,label_location,iconid_unknown)".
+			" values ($selementid,$sysmapid,$elementid,$elementtype,".zbx_dbstr($label).",
+			$x,$y,$iconid_off,".zbx_dbstr($url).",$iconid_on,$label_location,$iconid_unknown)");
 
 		if(!$result)
 			return $result;
@@ -336,9 +288,9 @@
 		return $selementid;
 	}
 
-	# Update Element FROM system map
+	# Update Element from system map
 
-	function update_sysmap_element($selementid,$sysmapid,$elementid,$elementtype,
+	function	update_sysmap_element($selementid,$sysmapid,$elementid,$elementtype,
 						$label,$x,$y,$iconid_off,$iconid_unknown,$iconid_on,$url,$label_location)
 	{
 		if($label_location<0) $label_location='null';
@@ -348,36 +300,27 @@
 			return FALSE;
 		}
 
-		return	DBexecute('UPDATE sysmaps_elements '. 
-					"SET elementid=$elementid,elementtype=$elementtype,".
-						"label=".zbx_dbstr($label).",x=$x,y=$y,iconid_off=$iconid_off,".
-						"url=".zbx_dbstr($url).",iconid_on=$iconid_on,".
-						"label_location=$label_location,iconid_unknown=$iconid_unknown".
-					" WHERE selementid=$selementid");
+		return	DBexecute("update sysmaps_elements set elementid=$elementid,elementtype=$elementtype,".
+			"label=".zbx_dbstr($label).",x=$x,y=$y,iconid_off=$iconid_off,url=".zbx_dbstr($url).
+			",iconid_on=$iconid_on,label_location=$label_location,iconid_unknown=$iconid_unknown".
+			" where selementid=$selementid");
 	}
 
 	/******************************************************************************
 	 *                                                                            *
-	 * Purpose: Delete Element FROM sysmap definition                             *
+	 * Purpose: Delete Element from sysmap definition                             *
 	 *                                                                            *
 	 * Comments: !!! Don't forget sync code with C !!!                            *
 	 *                                                                            *
 	 ******************************************************************************/
-	function delete_sysmaps_element($selementid){
-		
-		$result=TRUE;
-		$sql = 'SELECT linkid FROM sysmaps_links '.
-				' WHERE selementid1='.$selementid.
-					' OR selementid2='.$selementid;
-		$res=DBselect($sql);
-		while($rows = DBfetch($res)){
-			$result&=delete_link($rows['linkid']);
-		}
-//		$result=DBexecute('DELETE FROM sysmaps_links WHERE selementid1=$selementid OR selementid2=$selementid');
+	function	delete_sysmaps_element($selementid)
+	{
+		$result=DBexecute("delete from sysmaps_links".
+			" where selementid1=$selementid or selementid2=$selementid");
 
-		if(!$result) return	$result;
+		if(!$result)		return	$result;
 
-		return	DBexecute("delete FROM sysmaps_elements WHERE selementid=$selementid");
+		return	DBexecute("delete from sysmaps_elements where selementid=$selementid");
 	}
 
 	/******************************************************************************
@@ -385,18 +328,20 @@
 	 * Comments: !!! Don't forget sync code with C !!!                            *
 	 *                                                                            *
 	 ******************************************************************************/
-	function delete_sysmaps_elements_with_hostid($hostid){
-		$db_elements = DBselect("select selementid FROM sysmaps_elements".
-			" WHERE elementid=$hostid AND elementtype=".SYSMAP_ELEMENT_TYPE_HOST);
-		while($db_element = DBfetch($db_elements)){
+	function	delete_sysmaps_elements_with_hostid($hostid)
+	{
+		$db_elements = DBselect("select selementid from sysmaps_elements".
+			" where elementid=$hostid and elementtype=".SYSMAP_ELEMENT_TYPE_HOST);
+		while($db_element = DBfetch($db_elements))
+		{
 			delete_sysmaps_element($db_element["selementid"]);
 		}
 		return TRUE;
 	}
-	
-	function delete_sysmaps_elements_with_sysmapid($sysmapid){
-		$db_elements = DBselect("select selementid FROM sysmaps_elements".
-			" WHERE elementid=$sysmapid AND elementtype=".SYSMAP_ELEMENT_TYPE_MAP);
+	function	delete_sysmaps_elements_with_sysmapid($sysmapid)
+	{
+		$db_elements = DBselect("select selementid from sysmaps_elements".
+			" where elementid=$sysmapid and elementtype=".SYSMAP_ELEMENT_TYPE_MAP);
 		while($db_element = DBfetch($db_elements))
 		{
 			delete_sysmaps_element($db_element["selementid"]);
@@ -409,23 +354,22 @@
 	 * Comments: !!! Don't forget sync code with C !!!                            *
 	 *                                                                            *
 	 ******************************************************************************/
-	function delete_sysmaps_elements_with_triggerid($triggerid){
-		$db_elements = DBselect('SELECT selementid FROM sysmaps_elements '.
-				' WHERE elementid='.$triggerid.
-					' AND elementtype='.SYSMAP_ELEMENT_TYPE_TRIGGER);
-			
-		while($db_element = DBfetch($db_elements)){
+	function	delete_sysmaps_elements_with_triggerid($triggerid)
+	{
+		$db_elements = DBselect("select selementid from sysmaps_elements".
+			" where elementid=$triggerid and elementtype=".SYSMAP_ELEMENT_TYPE_TRIGGER);
+		while($db_element = DBfetch($db_elements))
+		{
 			delete_sysmaps_element($db_element["selementid"]);
 		}
 		return TRUE;
 	}
-	
-	function delete_sysmaps_elements_with_groupid($groupid){
-		$db_elements = DBselect('SELECT selementid FROM sysmaps_elements '.
-			' WHERE elementid='.$groupid.
-				' AND elementtype='.SYSMAP_ELEMENT_TYPE_HOST_GROUP);
-			
-		while($db_element = DBfetch($db_elements)){
+	function	delete_sysmaps_elements_with_groupid($groupid)
+	{
+		$db_elements = DBselect("select selementid from sysmaps_elements".
+			" where elementid=$groupid and elementtype=".SYSMAP_ELEMENT_TYPE_HOST_GROUP);
+		while($db_element = DBfetch($db_elements))
+		{
 			delete_sysmaps_element($db_element["selementid"]);
 		}
 		return TRUE;
@@ -433,7 +377,7 @@
 
 	function get_png_by_selementid($selementid)
 	{
-		$elements = DBselect("select * FROM sysmaps_elements WHERE selementid=$selementid");
+		$elements = DBselect("select * from sysmaps_elements where selementid=$selementid");
 		if(!$elements)	return FALSE;
 
 		$element = DBfetch($elements);
@@ -457,7 +401,7 @@
          *     Eugene Grigorjev 
          *
          */
-	function get_info_by_selementid($selementid)
+	function	get_info_by_selementid($selementid)
 	{
 		global $colors;
 
@@ -469,36 +413,26 @@
 		$el_type =& $db_element["elementtype"];
 
 		$sql = array(
-			SYSMAP_ELEMENT_TYPE_TRIGGER => 'SELECT DISTINCT t.triggerid, t.priority, t.value, t.description, t.expression, h.host '.
-				' FROM triggers t, items i, functions f, hosts h '.
-				' WHERE t.triggerid='.$db_element['elementid'].
-					' AND h.hostid=i.hostid '.
-					' AND i.itemid=f.itemid '.
-					' AND f.triggerid=t.triggerid '.
-					' AND h.status='.HOST_STATUS_MONITORED.
-					' AND i.status='.ITEM_STATUS_ACTIVE,
-			SYSMAP_ELEMENT_TYPE_HOST_GROUP => 'SELECT DISTINCT t.triggerid, t.priority, t.value, t.description, t.expression, h.host, g.name as el_name '.
-				' FROM items i,functions f,triggers t,hosts h,hosts_groups hg,groups g '.
-				' WHERE h.hostid=i.hostid '.
-					' AND hg.groupid=g.groupid '.
-					' AND g.groupid='.$db_element['elementid'].
-					' AND hg.hostid=h.hostid '.
-					' AND i.itemid=f.itemid'.
-					' AND f.triggerid=t.triggerid '.
-					' AND t.status='.TRIGGER_STATUS_ENABLED.
-					' AND h.status='.HOST_STATUS_MONITORED.
-					' AND i.status='.ITEM_STATUS_ACTIVE,
-			SYSMAP_ELEMENT_TYPE_HOST => 'SELECT DISTINCT t.triggerid, t.priority, t.value, t.description, t.expression, h.host, h.host as el_name'.
-				' FROM items i,functions f,triggers t,hosts h WHERE h.hostid=i.hostid'.
-					' AND i.hostid='.$db_element['elementid'].
-					' AND i.itemid=f.itemid'.
-					' AND f.triggerid=t.triggerid '.
-					' AND t.status='.TRIGGER_STATUS_ENABLED.
-					' AND h.status='.HOST_STATUS_MONITORED.
-					' AND i.status='.ITEM_STATUS_ACTIVE
+			SYSMAP_ELEMENT_TYPE_TRIGGER => 'select distinct t.triggerid, t.priority, t.value, t.description, t.expression, h.host '.
+				'from triggers t, items i, functions f, hosts h where t.triggerid='.$db_element['elementid'].
+				' and h.hostid=i.hostid and i.itemid=f.itemid and f.triggerid=t.triggerid '.
+				' and h.status='.HOST_STATUS_MONITORED.' and i.status='.ITEM_STATUS_ACTIVE,
+			SYSMAP_ELEMENT_TYPE_HOST_GROUP => 'select distinct t.triggerid, t.priority, t.value,'.
+				' t.description, t.expression, h.host, g.name as el_name '.
+				' from items i,functions f,triggers t,hosts h,hosts_groups hg,groups g '.
+				' where h.hostid=i.hostid and hg.groupid=g.groupid and g.groupid='.$db_element['elementid'].
+				' and hg.hostid=h.hostid and i.itemid=f.itemid'.
+				' and f.triggerid=t.triggerid and t.status='.TRIGGER_STATUS_ENABLED.
+				' and h.status='.HOST_STATUS_MONITORED.' and i.status='.ITEM_STATUS_ACTIVE,
+			SYSMAP_ELEMENT_TYPE_HOST => 'select distinct t.triggerid, t.priority, t.value,'.
+				' t.description, t.expression, h.host, h.host as el_name'.
+				' from items i,functions f,triggers t,hosts h where h.hostid=i.hostid'.
+				' and i.hostid='.$db_element['elementid'].' and i.itemid=f.itemid'.
+				' and f.triggerid=t.triggerid and t.status='.TRIGGER_STATUS_ENABLED.
+				' and h.status='.HOST_STATUS_MONITORED.' and i.status='.ITEM_STATUS_ACTIVE
 			);
-			
-		if( isset($sql[$el_type]) ){
+		if( isset($sql[$el_type]) )
+		{
 			$db_triggers = DBselect($sql[$el_type]);
 			$trigger = DBfetch($db_triggers);
 			if($trigger)
@@ -547,11 +481,11 @@
 		}
 		elseif($el_type==SYSMAP_ELEMENT_TYPE_MAP)
 		{
-			$db_map = DBfetch(DBselect('select name FROM sysmaps WHERE sysmapid='.$db_element["elementid"]));
+			$db_map = DBfetch(DBselect('select name from sysmaps where sysmapid='.$db_element["elementid"]));
 			$el_name = $db_map['name'];
 
-			$db_subelements = DBselect("select selementid FROM sysmaps_elements".
-				" WHERE sysmapid=".$db_element["elementid"]);
+			$db_subelements = DBselect("select selementid from sysmaps_elements".
+				" where sysmapid=".$db_element["elementid"]);
 			while($db_subelement = DBfetch($db_subelements))
 			{// recursion
 				$inf = get_info_by_selementid($db_subelement["selementid"]);
@@ -635,45 +569,45 @@
 	{
 		$action_map = new CMap("links$sysmapid");
 
-		$db_elements=DBselect('SELECT * FROM sysmaps_elements WHERE sysmapid='.$sysmapid);
+		$db_elements=DBselect("select * from sysmaps_elements where sysmapid=$sysmapid");
 		while($db_element = DBfetch($db_elements))
 		{
 			$url	= $db_element["url"];
 			$alt	= "Label: ".$db_element["label"];
-			$scripts_by_hosts = null;
-			
+
 			if($db_element["elementtype"] == SYSMAP_ELEMENT_TYPE_HOST)
 			{
 				$host = get_host_by_hostid($db_element["elementid"]);
 				if($host["status"] != HOST_STATUS_MONITORED)	continue;
 
-				$scripts_by_hosts = get_accessible_scripts_by_hosts(array($db_element["elementid"]));
+			
+				if($url=="")
+					$url="tr_status.php?hostid=".$db_element["elementid"].
+						"&noactions=true&onlytrue=true&compact=true";
 
-				if(empty($url))	$url='tr_status.php?hostid='.$db_element['elementid'].'&noactions=true&onlytrue=true&compact=true';
-				
 				$alt = "Host: ".$host["host"]." ".$alt;
 			}
 			elseif($db_element["elementtype"] == SYSMAP_ELEMENT_TYPE_MAP)
 			{
 				$map = get_sysmap_by_sysmapid($db_element["elementid"]);
 
-				if(empty($url))
+				if($url=="")
 					$url="maps.php?sysmapid=".$db_element["elementid"];
 
 				$alt = "Host: ".$map["name"]." ".$alt;
 			}
 			elseif($db_element["elementtype"] == SYSMAP_ELEMENT_TYPE_TRIGGER)
 			{
-				if(empty($url) && $db_element["elementid"]!=0)
-					$url="events.php?triggerid=".$db_element["elementid"];
+				if($url=="" && $db_element["elementid"]!=0)
+					$url="tr_events.php?triggerid=".$db_element["elementid"];
 			}
 			elseif($db_element["elementtype"] == SYSMAP_ELEMENT_TYPE_HOST_GROUP)
 			{
-				if(empty($url) && $db_element["elementid"]!=0)
+				if($url=="" && $db_element["elementid"]!=0)
 					$url="events.php?hostid=0&groupid=".$db_element["elementid"];
 			}
 
-			if(empty($url))	continue;
+			if($url=="")	continue;
 
 			$back = get_png_by_selementid($db_element["selementid"]);
 			if(!$back)	continue;
@@ -683,35 +617,8 @@
 			$x2_		= $db_element["x"] + imagesx($back);
 			$y2_		= $db_element["y"] + imagesy($back);
 
-			$r_area = new CArea(array($x1_,$y1_,$x2_,$y2_),$url,$alt,'rect');
-			if(!empty($scripts_by_hosts)){
-				$menus = '';
-	
-				$host_nodeid = id2nodeid($db_element["elementid"]);
-				foreach($scripts_by_hosts[$db_element["elementid"]] as $id => $script){
-					$script_nodeid = id2nodeid($script['scriptid']);
-					if( (bccomp($host_nodeid ,$script_nodeid ) == 0))
-						$menus.= "['".$script['name']."',\"javascript: openWinCentered('scripts_exec.php?execute=1&hostid=".$db_element["elementid"]."&scriptid=".$script['scriptid']."','".S_TOOLS."',760,540,'titlebar=no, resizable=yes, scrollbars=yes, dialog=no');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
-				}
-				
-				$menus.= "[".zbx_jsvalue(S_LINKS).",null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],";
-
-				$menus.= "['".S_STATUS_OF_TRIGGERS."',\"javascript: redirect('tr_status.php?hostid=".$db_element['elementid']."&noactions=true&onlytrue=true&compact=true')\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
-
-				if(!empty($db_element["url"])){
-					$menus.= "['".S_MAP.SPACE.S_URL."',\"javascript: redirect('".$url."')\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
-				}
-				
-				$menus = trim($menus,',');
-				$menus="show_popup_menu(event,[[".zbx_jsvalue(S_TOOLS).",null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],".$menus."],180); cancelEvent(event);";
-				
-				$r_area->AddAction('onclick','javascript: '.$menus);
-			}
-			$action_map->AddItem($r_area);//AddRectArea($x1_,$y1_,$x2_,$y2_, $url, $alt);
+			$action_map->AddRectArea($x1_,$y1_,$x2_,$y2_, $url, $alt);
 		}
-		
-		$jsmenu = new CPUMenu(null,170);
-		$jsmenu->InsertJavaScript();
 		return $action_map;
 	}
 
@@ -773,17 +680,4 @@
 			ImageLine($image,$x1,$y1,$x2,$y2,$color);
 		}
 	}
-	
-	function convertColor($im,$color){
-	
-		$RGB = array(
-			hexdec('0x'.substr($color, 0,2)),
-			hexdec('0x'.substr($color, 2,2)),
-			hexdec('0x'.substr($color, 4,2))
-			);
-		
-		
-	return ImageColorAllocate($im,$RGB[0],$RGB[1],$RGB[2]);
-	}
-
 ?>

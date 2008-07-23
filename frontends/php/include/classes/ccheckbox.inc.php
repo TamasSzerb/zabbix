@@ -26,13 +26,9 @@
 		{
 			parent::CTag('input','no');
 			$this->tag_body_start = '';
-			
-			$this->AddOption('class','checkbox');
-			$this->AddOption('type','checkbox');
-			$this->AddOption('value',$value);
-			$this->AddOption('name',$name);
-			$this->AddOption('id',$name);
-			
+			$this->options['type'] = 'checkbox';
+			$this->options['value'] = $value;
+			$this->options['name'] = $name;
 			$this->SetAction($action);
 			$this->SetChecked($checked);
 		}
@@ -45,14 +41,15 @@
 		}
 		function SetChecked($value="yes")
 		{
-			if((is_string($value)&& ($value=="yes" || $value=="checked" || $value=="on") || $value=="1") || (is_int($value)&&$value<>0))
+			if((is_string($value)&& ($value=="yes" || $value=="checked" || $value=="on") || $value=="1")
+			|| (is_int($value)&&$value<>0))
 				return $this->options['checked'] = 'checked';
 
 			$this->DelOption("checked");
 		}
-		function SetAction($value='submit()', $event='onclick')
+		function SetAction($value='submit()', $event='onClick')
 		{
-			$this->AddAction('onclick', $value);
+			$this->AddAction('onClick', $value);
 		}
 	}
 
@@ -104,10 +101,6 @@
 	function visibility_status_changeds(value, obj_name, replace_to){
 		var obj = document.getElementsByName(obj_name);
 
-		if(obj.length <= 0){
-			obj = new Array(document.getElementById(obj_name));
-		}
-		
 		if(obj.length <= 0) throw "Can't find objects with name [" + obj_name +"]";
 
 		for(i = obj.length-1; i>=0; i--){
@@ -125,7 +118,6 @@
 					catch(err){
 						new_obj = document.createElement("a");
 						new_obj.name = obj[i].name;
-						new_obj.id = obj[i].id;
 					}
 
 					if(!new_obj) throw "Can't create new element";

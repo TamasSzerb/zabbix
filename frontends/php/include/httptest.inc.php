@@ -45,13 +45,16 @@
 		return $status;
 	}
 
-	function db_save_step($hostid, $applicationid, $httptestid, $testname, $name, $no, $timeout, $url, $posts, $required, $status_codes, $delay, $history, $trends){
-		if( $no <= 0 ){
+	function	db_save_step($hostid, $applicationid, $httptestid, $testname, $name, $no, $timeout, $url, $posts, $required, $status_codes, $delay, $history, $trends)
+	{
+		if( $no <= 0 )
+		{
 			error('Scenario step number can\'t be less then 1');
 			return false;
 		}
 
-		if (!eregi('^([0-9a-zA-Z\_\.[.-.]\$ ]+)$', $name)) {
+		if (!eregi('^([0-9a-zA-Z\_\.[.-.]\$ ]+)$', $name)) 
+		{
 			error("Scenario step name should contain '0-9a-zA-Z_ .$'- characters only");
 			return false;
 		}
@@ -116,7 +119,7 @@
 			{
 				if (!($itemid = add_item($item['description'], $item['key_'], $hostid, $delay,
 					$history, ITEM_STATUS_ACTIVE, ITEM_TYPE_HTTPTEST, '', '', $item['type'], 'localhost',
-					161, $item['units'], 0, 0, '', 0, '', '', '0', $trends, '', 0, '', '', array($applicationid))))
+					161, $item['units'], 0, 0, '', 0, '', '', '0', $trends, '', 0, '', array($applicationid))))
 					return false;
 			}
 			else
@@ -126,7 +129,7 @@
 				if (!(update_item($itemid, $item['description'], $item['key_'], $hostid, $delay, $item_data['history'],
 					$item_data['status'], ITEM_TYPE_HTTPTEST, '', '', $item['type'], 'localhost', 161,
 					$item['units'], 0, 0, $item_data['delta'], 0, '', '', '0', $item_data['trends'], '',
-					$item_data['valuemapid'], '', '', array($applicationid))))
+					$item_data['valuemapid'], '', array($applicationid))))
 					return false;
 			}
 
@@ -268,7 +271,7 @@
 				{
 					if (!($itemid = add_item($item['description'], $item['key_'], $hostid, $delay,
 						$history, ITEM_STATUS_ACTIVE, ITEM_TYPE_HTTPTEST, '', '', $item['type'], 'localhost',
-						161, $item['units'], 0, 0, '', 0, '', '', '0', $trends, '', 0, '', '', array($applicationid))))
+						161, $item['units'], 0, 0, '', 0, '', '', '0', $trends, '', 0, '', array($applicationid))))
 					{
 						$result = false;
 						break;
@@ -281,7 +284,7 @@
 					if (!(update_item($itemid, $item['description'], $item['key_'], $hostid, $delay, $item_data['history'],
 						$item_data['status'], ITEM_TYPE_HTTPTEST, '', '', $item['type'], 'localhost', 161,
 						$item['units'], 0, 0, $item_data['delta'], 0, '', '', '0', $item_data['trends'], '',
-						$item_data['valuemapid'], '', '', array($applicationid))))
+						$item_data['valuemapid'], '', array($applicationid))))
 					{
 						$result = false;
 						break;

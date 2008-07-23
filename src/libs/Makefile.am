@@ -1,7 +1,6 @@
 ## Process this file with automake to produce Makefile.in
 
 DIST_SUBDIRS = \
-	zbxdbcache \
 	zbxdbhigh \
 	zbxdb \
 	zbxemail \
@@ -15,29 +14,14 @@ DIST_SUBDIRS = \
 	zbxsysinfo \
 	zbxplugin \
 	zbxsys \
-	zbxjabber \
-	zbxjson \
-	zbxserver \
-	zbxicmpping
-
-if PROXY
-PROXY_SUBDIRS = \
-	zbxdb \
-	zbxdbcache \
-	zbxdbhigh \
-	zbxserver \
-	zbxicmpping
-endif
+	zbxjabber
 
 if SERVER
 SERVER_SUBDIRS = \
 	zbxdb \
-	zbxdbcache \
 	zbxdbhigh \
 	zbxemail \
-	zbxsms \
-	zbxserver \
-	zbxicmpping
+	zbxsms
 endif
 
 if JABBER
@@ -54,9 +38,7 @@ SUBDIRS = \
 	zbxplugin \
 	zbxsys \
 	zbxcomms \
-	zbxjson \
 	$(JABBER_SUBDIRS) \
-	$(PROXY_SUBDIRS) \
 	$(SERVER_SUBDIRS)
 
 EXTRA_DIST = zbxwin32

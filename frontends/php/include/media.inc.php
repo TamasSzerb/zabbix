@@ -22,10 +22,10 @@
 
 	function	media_type2str($type)
 	{
-		$str_type[MEDIA_TYPE_EMAIL]	= S_EMAIL;
-		$str_type[MEDIA_TYPE_EXEC]	= S_SCRIPT;
-		$str_type[MEDIA_TYPE_SMS]	= S_SMS;
-		$str_type[MEDIA_TYPE_JABBER]	= S_JABBER;
+		$str_type[ALERT_TYPE_EMAIL]	= S_EMAIL;
+		$str_type[ALERT_TYPE_EXEC]	= S_SCRIPT;
+		$str_type[ALERT_TYPE_SMS]	= S_SMS;
+		$str_type[ALERT_TYPE_JABBER]	= S_JABBER;
 		
 		if(isset($str_type[$type]))
 			return $str_type[$type];
@@ -33,8 +33,9 @@
 		return S_UNKNOWN;
 	}
 
-	function media_severity2str($severity){
-	
+	function	media_severity2str($severity)
+	{
+
 		insert_showhint_javascript();
 		$mapping = array(
 			0 => array('letter' => 'N', 'style' => (($severity & 1)  ? 'enabled' : NULL)),
@@ -45,16 +46,17 @@
 			5 => array('letter' => 'D', 'style' => (($severity & 32) ? 'enabled' : NULL))
 		);
 
-		foreach($mapping as $id => $map){
+		foreach($mapping as $id => $map)
+		{
 			$result[$id] = new CSpan($map['letter'], $map['style']);
 			$result[$id]->SetHint(get_severity_description($id)." (".(isset($map['style']) ? "on" : "off").")");
 		}
 
-	return $result;
+		return unpack_object($result);
 	}
 
-	function get_media_by_mediaid($mediaid){
-	
+	function	get_media_by_mediaid($mediaid)
+	{
 		$sql="select * from media where mediaid=$mediaid"; 
 		$result=DBselect($sql);
 		$row=DBfetch($result);

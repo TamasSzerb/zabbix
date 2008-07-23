@@ -50,27 +50,26 @@ include_once "include/page_header.php";
 	check_fields($fields);
 ?>
 <?php
+	$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY, PERM_MODE_LT);
 
-	$available_triggers = get_accessible_triggers(PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
-	
-	if(!$db_data = DBfetch(DBselect('SELECT * '.
-							' FROM items i, functions f '.
-	                        ' WHERE i.itemid=f.itemid '.
-								' AND f.triggerid='.$_REQUEST["triggerid"].
-								' AND '.DBcondition('f.triggerid',$available_triggers).
-								' AND '.DBin_node('f.triggerid')
-				)))
+	if(! ($db_data = DBfetch(DBselect('select * from items i, functions f '.
+	                        ' where i.itemid=f.itemid and f.triggerid='.$_REQUEST["triggerid"].
+				" and i.hostid not in (".$denyed_hosts.")".
+				' and '.DBin_node('f.triggerid')
+				))))
 	{
 		access_deny();
 	}
 	$trigger_hostid = $db_data['hostid'];
 	
-	if(isset($_REQUEST["save"])){
-	
+	if(isset($_REQUEST["save"]))
+	{
 		$result = update_trigger_comments($_REQUEST["triggerid"],$_REQUEST["comments"]);
+	
 		show_messages($result, S_COMMENT_UPDATED, S_CANNOT_UPDATE_COMMENT);
 
-		if($result){
+		if($result)
+		{
 			add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_TRIGGER,
 				S_TRIGGER." [".$_REQUEST["triggerid"]."] [".expand_trigger_description($_REQUEST["triggerid"])."] ".
 				S_COMMENTS." [".$_REQUEST["comments"]."]");
@@ -78,14 +77,14 @@ include_once "include/page_header.php";
 	}
 	else if(isset($_REQUEST["cancel"]))
 	{
-		redirect('tr_status.php?hostid='.$trigger_hostid);
+		Redirect('tr_status.php?hostid='.$trigger_hostid);
 		exit;
 		
 	}
 ?>
 <?php
 	show_table_header(S_TRIGGER_COMMENTS_BIG);
-	echo SBR;
+	echo BR;
 	insert_trigger_comment_form($_REQUEST["triggerid"]);
 ?>
 <?php

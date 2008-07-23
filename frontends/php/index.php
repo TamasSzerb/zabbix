@@ -29,181 +29,82 @@
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		"name"=>			array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({enter})'),
+		"name"=>		array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({enter})'),
 		"password"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		'isset({enter})'),
 		"sessionid"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
-		"message"=>			array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
+		"message"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
 		"reconnect"=>		array(T_ZBX_INT, O_OPT,	P_ACT, BETWEEN(0,65535),NULL),
-		"enter"=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,    NULL,   NULL),
-		"form"=>			array(T_ZBX_STR, O_OPT, P_SYS,  NULL,   	NULL),
-		"form_refresh"=>	array(T_ZBX_INT, O_OPT, NULL,   NULL,   	NULL)
+                "enter"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,    NULL,   NULL),
+                "form"=>		array(T_ZBX_STR, O_OPT, P_SYS,  NULL,   	NULL),
+                "form_refresh"=>	array(T_ZBX_INT, O_OPT, NULL,   NULL,   	NULL)
 	);
 	check_fields($fields);
 ?>
 <?php
 	$sessionid = get_cookie('zbx_sessionid', null);
 	
-	if(isset($_REQUEST["reconnect"]) && isset($sessionid)){
-		add_audit(AUDIT_ACTION_LOGOUT,AUDIT_RESOURCE_USER,'Manual Logout');
+	if(isset($_REQUEST["reconnect"]) && isset($sessionid))
+	{
+		add_audit(AUDIT_ACTION_LOGOUT,AUDIT_RESOURCE_USER,"Manual Logout");
 		
 		zbx_unsetcookie('zbx_sessionid');
-		DBexecute('UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.' WHERE sessionid='.zbx_dbstr($sessionid));
+		DBexecute("delete from sessions where sessionid=".zbx_dbstr($sessionid));
 		unset($sessionid);
 
-		redirect("index.php");
-		die();
-//		return;
+		Redirect("index.php");
+		return;
 	}
-	
-	$config = select_config();
-	$authentication_type = $config['authentication_type'];
-	
-	if($authentication_type == ZBX_AUTH_HTTP){
-		
-		if(isset($_SERVER['PHP_AUTH_USER']) && !empty($_SERVER['PHP_AUTH_USER'])){
-			if(!isset($sessionid)) $_REQUEST['enter'] = 'Enter';
-			
-			$_REQUEST['name'] = $_SERVER["PHP_AUTH_USER"];
-//			$_REQUEST['password'] = $_SERVER["PHP_AUTH_PW"];
-		}
-		else{
-			access_deny();
-		}
-	}
-	
-	if(isset($_REQUEST['enter'])&&($_REQUEST['enter']=='Enter')){
-		
-		$name = get_request('name','');
-		$passwd = get_request('password','');
-		
-		$password = md5($passwd);
 
-		$sql = 'SELECT u.userid,u.attempt_failed, u.attempt_clock, u.attempt_ip '.
-				' FROM users u '.
-				' WHERE u.alias='.zbx_dbstr($name);
-				
-//SQL to BLOCK attempts
-//					.' AND ( attempt_failed<'.ZBX_LOGIN_ATTEMPTS.
-//							' OR (attempt_failed>'.(ZBX_LOGIN_ATTEMPTS-1).
-//									' AND ('.time().'-attempt_clock)>'.ZBX_LOGIN_BLOCK.'))';
-					
-		$login = $attempt = DBfetch(DBselect($sql));
-		
-		if(($name!=ZBX_GUEST_USER) && zbx_empty($passwd)){
-			$login = $attempt = false;
-		}		
-		
-		if($login){
-			if($login['attempt_failed'] >= ZBX_LOGIN_ATTEMPTS){
-				sleep(ZBX_LOGIN_BLOCK);
-			}
-			
-			switch(get_user_auth($login['userid'])){
-				case GROUP_GUI_ACCESS_INTERNAL:
-					$authentication_type = ZBX_AUTH_INTERNAL;
-					break;
-				case GROUP_GUI_ACCESS_SYSTEM:
-				case GROUP_GUI_ACCESS_DISABLED:
-				default:
-					break;
-			}
-			
-			switch($authentication_type){
-				case ZBX_AUTH_LDAP:
-					$login = ldap_authentication($name,get_request('password',''));
-					break;
-				case ZBX_AUTH_HTTP:
-					$login = true;
-					break;
-				case ZBX_AUTH_INTERNAL:
-				default:
-					$alt_auth = ZBX_AUTH_INTERNAL;
-					$login = true;
-			}
-		}
-		
-		if($login){
-			$login = $row = DBfetch(DBselect('SELECT u.userid,u.alias,u.name,u.surname,u.url,u.refresh,u.passwd '.
-						' FROM users u, users_groups ug, usrgrp g '.
- 						' WHERE u.alias='.zbx_dbstr($name).
-							((ZBX_AUTH_INTERNAL==$authentication_type)?' AND u.passwd='.zbx_dbstr($password):'').
-							' AND '.DBin_node('u.userid', $ZBX_LOCALNODEID)));
-		}
-		
-/* update internal pass if it's different
-		if($login && ($row['passwd']!=$password) && (ZBX_AUTH_INTERNAL!=$authentication_type)){
-			DBexecute('UPDATE users SET passwd='.zbx_dbstr($password).' WHERE userid='.zbx_dbstr($row['userid']));
-		}
-*/		
-		if($login){
-			$login = (check_perm2login($row['userid']) && check_perm2system($row['userid']));
-		}
-		
-		if($login){
+	if(isset($_REQUEST["enter"])&&($_REQUEST["enter"]=="Enter"))
+	{
+		$name = get_request("name","");
+		$password = md5(get_request("password",""));
+
+		$row = DBfetch(DBselect("select u.userid,u.alias,u.name,u.surname,u.url,u.refresh from users u where".
+			" u.alias=".zbx_dbstr($name)." and u.passwd=".zbx_dbstr($password).
+			' and '.DBin_node('u.userid', $ZBX_LOCALNODEID)));
+
+		if($row)
+		{
 			$sessionid = md5(time().$password.$name.rand(0,10000000));
 			zbx_setcookie('zbx_sessionid',$sessionid);
 			
-			DBexecute('INSERT INTO sessions (sessionid,userid,lastaccess,status) VALUES ('.zbx_dbstr($sessionid).','.$row['userid'].','.time().','.ZBX_SESSION_ACTIVE.')');
+			DBexecute("insert into sessions (sessionid,userid,lastaccess)".
+				" values (".zbx_dbstr($sessionid).",".$row["userid"].",".time().")");
 
 			add_audit(AUDIT_ACTION_LOGIN,AUDIT_RESOURCE_USER,"Correct login [".$name."]");
 			
-			if(empty($row["url"])){
-				$USER_DETAILS['alias'] = $row['alias'];
-				$USER_DETAILS['userid'] = $row['userid'];
-				
-				$row["url"] = get_profile('web.menu.view.last','index.php');
-				unset($USER_DETAILS);
+			if(empty($row["url"]))
+			{
+				$row["url"] = "index.php";
 			}
-			redirect($row["url"]);
-			die();
-//			return;
+			Redirect($row["url"]);
+			return;
 		}
-		else{
-			$row = NULL;
-			
-			$_REQUEST['message'] = 'Login name or password is incorrect';
-			add_audit(AUDIT_ACTION_LOGIN,AUDIT_RESOURCE_USER,'Login failed ['.$name.']');
-			
-			if($attempt){
-				$ip = (isset($_SERVER['HTTP_X_FORWARDED_FOR']) && !empty($_SERVER['HTTP_X_FORWARDED_FOR']))?$_SERVER['HTTP_X_FORWARDED_FOR']:$_SERVER['REMOTE_ADDR'];			
-				$attempt['attempt_failed']++;
-				$sql = 'UPDATE users SET attempt_failed='.zbx_dbstr($attempt['attempt_failed']).
-										', attempt_clock='.time().
-										', attempt_ip='.zbx_dbstr($ip).
-									' WHERE userid='.zbx_dbstr($attempt['userid']);
-				DBexecute($sql);
-			}
+		else
+		{
+			$_REQUEST['message'] = "Login name or password is incorrect";
+			add_audit(AUDIT_ACTION_LOGIN,AUDIT_RESOURCE_USER,"Login failed [".$name."]");
 		}
 	}
 
 include_once "include/page_header.php";
-
+	
 	if(isset($_REQUEST['message'])) show_error_message($_REQUEST['message']);
-
-	if(!isset($sessionid)){
-		switch($authentication_type){
-			case ZBX_AUTH_HTTP:
-				break;
-			case ZBX_AUTH_LDAP:
-			case ZBX_AUTH_INTERNAL:
-			default:
-//	konqueror bug #138024; adding useless param(login=1) to the form's action path to avoid bug!!
-				$frmLogin = new CFormTable('Login','index.php?login=1',"post","multipart/form-data");
-				$frmLogin->SetHelp('web.index.login');
-				$frmLogin->AddRow('Login name', new CTextBox('name'));
-				$frmLogin->AddRow('Password', new CPassBox('password'));
-				$frmLogin->AddItemToBottomRow(new CButton('enter','Enter'));
-				$frmLogin->Show(false);
-		
-				SetFocus($frmLogin->GetName(),"name");
-				
-				$frmLogin->Destroy();
-		}
-
+?>
+<?php
+	if(!isset($sessionid))
+	{
+		insert_login_form();
 	}
-	else{
-		echo '<div align="center" class="textcolorstyles">Welcome to ZABBIX! You are connected as <b>'.$USER_DETAILS['alias'].'</b>.</div>';
-	}
+	else
+	{
+		$logoff = new CLink('here', '?reconnect=1');
+
+		echo "<div align=center>";
+		echo "Press ".$logoff->ToString()." to disconnect/reconnect";
+		echo "</div>";
+	}	
 ?>
 <?php
 

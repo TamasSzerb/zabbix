@@ -19,40 +19,40 @@
 **/
 ?>
 <?php
-require_once "include/config.inc.php";
-require_once "include/setup.inc.php";
+	require_once "include/config.inc.php";
+	require_once "include/setup.inc.php";
+/* TMP !!! */
+
+global $DB_SERVER;
 
 /* ******** */
 
-$page["title"] = "S_INSTALLATION";
-$page["file"] = "setup.php";
+        $page["title"] = "S_INSTALLATION";
+        $page["file"] = "setup.php";
 
-if(!defined("PAGE_HEADER_LOADED"))
-	define('ZBX_PAGE_NO_MENU', 1);
+	if(!defined("PAGE_HEADER_LOADED"))
+		define('ZBX_PAGE_NO_MENU', 1);
 
 ?>
 <?php
 	$fields=array(
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 
-		"agree"=>		array(T_ZBX_STR, O_OPT,	null,	null,			null),
-		"distributed"=>		array(T_ZBX_STR, O_OPT,	null,	null,			null),
-		"trouble"=>		array(T_ZBX_STR, O_OPT,	null,	null,			null),
+		"agree"=>	array(T_ZBX_STR, O_OPT,	null,	null,			null),
+		"distributed"=>	array(T_ZBX_STR, O_OPT,	null,	null,			null),
+		"trouble"=>	array(T_ZBX_STR, O_OPT,	null,	null,			null),
 
-		"type"=>		array(T_ZBX_STR, O_OPT,	null,	IN('"MYSQL","POSTGRESQL","ORACLE","SQLITE3"'),	null),
-		"server"=>		array(T_ZBX_STR, O_OPT,	null,	null,			null),
-		"port"=>		array(T_ZBX_INT, O_OPT,	null,	BETWEEN(0,65535),	null),
-		"database"=>		array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,		null),
-		"user"=>		array(T_ZBX_STR, O_OPT,	null,	null,			null),
-		"password"=>		array(T_ZBX_STR, O_OPT,	null,	null, 			null),
-
-		"zbx_server"=>		array(T_ZBX_STR, O_OPT, null,   null,                   null),
-		"zbx_server_port"=>	array(T_ZBX_INT, O_OPT, null,	BETWEEN(0,65535),	null),
+		"type"=>	array(T_ZBX_STR, O_OPT,	null,	IN('"MYSQL","POSTGRESQL","ORACLE","SQLITE3"'),	null),
+		"server"=>	array(T_ZBX_STR, O_OPT,	null,	null,			null),
+		"port"=>	array(T_ZBX_INT, O_OPT,	null,	BETWEEN(0,65535),	null),
+		"database"=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,		null),
+		"user"=>	array(T_ZBX_STR, O_OPT,	null,	null,			null),
+		"password"=>	array(T_ZBX_STR, O_OPT,	null,	null, 			null),
 		
-		"message"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,			NULL),
+		"message"=>	array(T_ZBX_STR, O_OPT,	NULL,	NULL,			NULL),
 
-		"nodename"=>		array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,		null),
-		"nodeid"=>		array(T_ZBX_INT, O_OPT,	null,	BETWEEN(0,999),		null),
+		"nodename"=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,		null),
+		"nodeid"=>	array(T_ZBX_INT, O_OPT,	null,	BETWEEN(0,999),		null),
 /* actions */
 		"save_config"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 		"retry"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
@@ -73,7 +73,7 @@ if(!defined("PAGE_HEADER_LOADED"))
 	if(isset($_REQUEST['cancel']) || isset($_REQUEST['finish']))
 	{
 		zbx_unsetcookie('ZBX_CONFIG');
-		redirect('index.php');
+		Redirect('index.php');
 		exit;
 	}
 	
@@ -127,9 +127,10 @@ include_once "include/page_header.php";
 	
 	insert_showhint_javascript();
 
-	echo SBR;
+	echo BR;
 	$ZBX_SETUP_WIZARD->Show();
 
+	global $_POST;
 	unset($_POST);
 ?>
 <?php

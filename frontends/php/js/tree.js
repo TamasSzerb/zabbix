@@ -1,6 +1,6 @@
 /*
 ** ZABBIX
-** Copyright (C) 2000-2007 SIA Zabbix
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,13 +17,16 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 // JavaScript Document
+var IE = document.all?true:false;
+var OP = window.opera?true:false;
+
 
 var tree ={
 init : function(){
 	if((tree_init = cookie.read(tree_name)) != null){
-		var nodes = tree_init.split(';');
+		var nodes = tree_init.split('.');
 		var c = nodes.length-1;
-		for(var i=0; i<c; i++){
+		for(var i=0; i<c;i++){
 			this.onStartSetStatus(nodes[i]);
 		}
 		this.onStartOpen(nodes);
@@ -50,30 +53,29 @@ ChangeNodeStatus : function(id){
 			treenode[id].status = 'close';
 		}
 		var cookie_str='';
-		for(var i = 1; i < treenode.length; i++){
-			if(typeof(treenode[i]) != 'undefined'){
-				if(treenode[i].status == 'open'){
-					cookie_str+=i+';';
+		for(var i = 1; i < nodeid_list.length; i++){
+			if(typeof(treenode[nodeid_list[i]]) != 'undefined'){
+				if(treenode[nodeid_list[i]].status == 'open'){
+					cookie_str+=nodeid_list[i]+'.';
 				}
 			}
 		}
 		cookie.create(tree_name,cookie_str);
 	} catch(e){
-		IE?(alert(e.description)):(alert(e));
+//		IE?(alert(e.description)):(alert(e));
 	}
 },
 
 
 closeSNodeX : function(id,img){
 	try{
-		nodelist = treenode[id].nodelist.split(';');
+		nodelist = treenode[id].nodelist.split('.');
 		if(this.getNodeStatus(id) == 'close'){
 			this.OpenNode(nodelist);
-			img.src = 'images/general/tree/minus.gif';
-		} 
-		else {
+			img.src = 'images/general/tree/'+img.name.toUpperCase()+'.gif';
+		} else {
 			this.CloseNode(nodelist);
-			img.src = 'images/general/tree/plus.gif';
+			img.src = 'images/general/tree/'+img.name.toUpperCase()+'c.gif';
 		}
 		this.ChangeNodeStatus(id);
 	} catch(e){
@@ -86,9 +88,9 @@ OpenNode : function(nodelist){
 	try{
 		var c = nodelist.length-1;
 		for(var i=0; i<c; i++){
-			document.getElementById('id_'+nodelist[i]).style.display = (IE)?('block'):('table-row');
+			document.getElementById(nodelist[i]).style.display = (!IE || OP)?("table-row"):('block');
 			if(this.getNodeStatus(nodelist[i]) == 'open'){
-				this.OpenNode(treenode[nodelist[i]].nodelist.split(';'));
+				this.OpenNode(treenode[nodelist[i]].nodelist.split('.'));
 			}
 		}
 	} catch(e){
@@ -100,9 +102,9 @@ CloseNode : function(nodelist){
 	try{
 		var c = nodelist.length-1;
 		for(var i=0; i<c; i++){
-			document.getElementById('id_'+nodelist[i]).style.display = 'none';
+			document.getElementById(nodelist[i]).style.display = 'none';
 			if(this.getNodeStatus(nodelist[i]) == 'open'){
-				this.CloseNode(treenode[nodelist[i]].nodelist.split(';'));
+				this.CloseNode(treenode[nodelist[i]].nodelist.split('.'));
 			}
 		}
 	} catch(e){ 
@@ -111,14 +113,14 @@ CloseNode : function(nodelist){
 },
 
 onStartOpen : function(nodes){
-	var nodes = tree_init.split(';');
+	var nodes = tree_init.split('.');
 	var c = nodes.length-1;
 	for(var i=0; i<c;i++){
 		if(typeof(nodes[i]) != 'undefined'){
 			try{
 //				alert(nodes[i]+' : '+this.checkParent(nodes[i]));
 				if(this.checkParent(nodes[i])){
-					var nodelist = treenode[nodes[i]].nodelist.split(';');
+					var nodelist = treenode[nodes[i]].nodelist.split('.');
 					this.OpenNode(nodelist);
 				}
 			} catch(e){
@@ -132,13 +134,13 @@ onStartOpen : function(nodes){
 onStartSetStatus : function(id){
 	try{
 		if(typeof(treenode[id]) == 'undefined') return;
-		var img_id='idi_'+id;
+		var img_id=id+'I';;
 		var img = document.getElementById(img_id);
-		img.src = 'images/general/tree/minus.gif';
+		img.src = 'images/general/tree/'+img.name.toUpperCase()+'.gif';
 		
 		treenode[id].status = 'open';
 	} catch(e){
-		alert('OnStartSetStatus: '+e);
+//		alert('OnStartSetStatus: '+e);
 	}
 },
 

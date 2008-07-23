@@ -20,14 +20,8 @@
 #ifndef ZABBIX_DISCOVERER_H
 #define ZABBIX_DISCOVERER_H
 
-#include "common.h"
-
 extern	int	CONFIG_DISCOVERER_FORKS;
 
-void	register_host(DB_DHOST *dhost, const char *ip, int status);
-void	update_host_status(DB_DHOST *dhost, int status, int now);
-void	update_service(DB_DHOST *dhost, DB_DCHECK *check, char *ip, int port, int now);
-
-void	main_discoverer_loop(zbx_process_t p, int num);
+void main_discoverer_loop(int num);
 
 #endif

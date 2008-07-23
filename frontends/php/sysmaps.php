@@ -25,7 +25,6 @@
 
 	$page["title"] = "S_NETWORK_MAPS";
 	$page["file"] = "sysmaps.php";
-	$page['hist_arg'] = array();
 
 include_once "include/page_header.php";
 
@@ -53,37 +52,34 @@ include_once "include/page_header.php";
 
 	);
 	check_fields($fields);
-	validate_sort_and_sortorder('sm.name',ZBX_SORT_UP);
 	
-	if(isset($_REQUEST["sysmapid"])){
-		if(!sysmap_accessible($_REQUEST["sysmapid"],PERM_READ_WRITE))
+	if(isset($_REQUEST["sysmapid"]))
+	{
+		if(!sysmap_accessiable($_REQUEST["sysmapid"],PERM_READ_WRITE))
 			access_deny();
 	
 		$sysmap = DBfetch(DBselect("select * from sysmaps where sysmapid=".$_REQUEST["sysmapid"]));
 	}
 ?>
 <?php
-	if(isset($_REQUEST["save"])){
-		if(isset($_REQUEST["sysmapid"])){
+	if(isset($_REQUEST["save"]))
+	{
+		if(isset($_REQUEST["sysmapid"]))
+		{
 			// TODO check permission by new value.
-			DBstart();
-			update_sysmap($_REQUEST["sysmapid"],$_REQUEST["name"],$_REQUEST["width"],
+			$result=update_sysmap($_REQUEST["sysmapid"],$_REQUEST["name"],$_REQUEST["width"],
 				$_REQUEST["height"],$_REQUEST["backgroundid"],$_REQUEST["label_type"],
 				$_REQUEST["label_location"]);
-			$result = DBend();
-			
+
 			add_audit_if($result,AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_MAP,'Name ['.$_REQUEST['name'].']');
 			show_messages($result,"Network map updated","Cannot update network map");
-		} 
-		else {
-			if(!count(get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_RES_IDS_ARRAY)))
+		} else {
+			if(count(get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_MODE_LT,PERM_RES_IDS_ARRAY,get_current_nodeid())))
 				access_deny();
-			
-			DBstart();
-			add_sysmap($_REQUEST["name"],$_REQUEST["width"],$_REQUEST["height"],
+
+			$result=add_sysmap($_REQUEST["name"],$_REQUEST["width"],$_REQUEST["height"],
 				$_REQUEST["backgroundid"],$_REQUEST["label_type"],$_REQUEST["label_location"]);
-			$result = DBend();
-			
+
 			add_audit_if($result,AUDIT_ACTION_ADD,AUDIT_RESOURCE_MAP,'Name ['.$_REQUEST['name'].']');
 			show_messages($result,"Network map added","Cannot add network map");
 		}
@@ -91,11 +87,9 @@ include_once "include/page_header.php";
 			unset($_REQUEST["form"]);
 		}
 	}
-	else if(isset($_REQUEST["delete"])&&isset($_REQUEST["sysmapid"])){
-		DBstart();
-		delete_sysmap($_REQUEST["sysmapid"]);
-		$result = DBend();
-		
+	elseif(isset($_REQUEST["delete"])&&isset($_REQUEST["sysmapid"]))
+	{
+		$result = delete_sysmap($_REQUEST["sysmapid"]);
 		add_audit_if($result,AUDIT_ACTION_DELETE,AUDIT_RESOURCE_MAP,'Name ['.$sysmap['name'].']');
 		show_messages($result,"Network map deleted","Cannot delete network map");
 		if($result){
@@ -109,29 +103,24 @@ include_once "include/page_header.php";
 	
 	$form->AddItem(new CButton("form",S_CREATE_MAP));
 	show_table_header(S_CONFIGURATION_OF_NETWORK_MAPS, $form);
-	echo SBR;
+	echo BR;
 ?>
 <?php
-	if(isset($_REQUEST["form"])){
+	if(isset($_REQUEST["form"]))
+	{
 		insert_map_form();
 	}
-	else{
+	else
+	{
 		show_table_header(S_MAPS_BIG);
 		$table = new CTableInfo(S_NO_MAPS_DEFINED);
-		$table->SetHeader(array(
-			make_sorting_link(S_NAME,'sm.name'),
-			make_sorting_link(S_WIDTH,'sm.width'),
-			make_sorting_link(S_HEIGHT,'sm.height'),
-			S_MAP
-			));
+		$table->SetHeader(array(S_NAME,S_WIDTH,S_HEIGHT,S_MAP));
 
-		$result = DBselect('SELECT sm.sysmapid,sm.name,sm.width,sm.height '.
-						' FROM sysmaps sm'.
-						' WHERE '.DBin_node('sm.sysmapid').
-						order_by('sm.name,sm.width,sm.height','sm.sysmapid'));
-						
-		while($row=DBfetch($result)){
-			if(!sysmap_accessible($row["sysmapid"],PERM_READ_WRITE)) continue;
+		$result = DBselect("select sysmapid,name,width,height from sysmaps ".
+			' where '.DBin_node('sysmapid').' order by name');
+		while($row=DBfetch($result))
+		{
+			if(!sysmap_accessiable($row["sysmapid"],PERM_READ_WRITE)) continue;
 
 			$table->AddRow(array(
 				new CLink($row["name"], "sysmaps.php?form=update".

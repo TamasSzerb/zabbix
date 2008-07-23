@@ -74,7 +74,6 @@ void	init_collector_data(void)
 
 	memset(collector, 0, sizeof(ZBX_COLLECTOR_DATA));
 
-	init_perf_collector(&collector->perfs);
 #else /* not _WINDOWS */
 
 #define ZBX_MAX_ATTEMPTS 10
@@ -191,20 +190,18 @@ void	free_collector_data(void)
 
 ZBX_THREAD_ENTRY(collector_thread, args)
 {
-	double	sec;
-
 	zabbix_log( LOG_LEVEL_INFORMATION, "zabbix_agentd collector started");
 
 	if ( init_cpu_collector(&(collector->cpus)) )
 		close_cpu_collector(&(collector->cpus));
 
+	if( init_perf_collector(&(collector->perfs)) )
+		close_perf_collector(&(collector->perfs));
+
 	while(ZBX_IS_RUNNING)
 	{
-		sec = zbx_time();
 		collect_cpustat(&(collector->cpus));
-#ifdef _WINDOWS
-		collect_perfstat();
-#endif /* _WINDOWS */
+		collect_perfstat(&(collector->perfs));
 
 		collect_stats_interfaces(&(collector->interfaces)); /* TODO */
 		collect_stats_diskdevices(&(collector->diskdevices)); /* TODO */
@@ -212,9 +209,7 @@ ZBX_THREAD_ENTRY(collector_thread, args)
 		zbx_sleep(1);
 	}
 
-#ifdef _WINDOWS
-	close_perf_collector();
-#endif /* _WINDOWS */
+	close_perf_collector(&(collector->perfs));
 	close_cpu_collector(&(collector->cpus));
 
 	zabbix_log( LOG_LEVEL_INFORMATION, "zabbix_agentd collector stopped");

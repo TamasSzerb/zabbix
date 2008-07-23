@@ -25,7 +25,6 @@
 
 	$page["title"] = "S_MEDIA_TYPES";
 	$page["file"] = "media_types.php";
-	$page['hist_arg'] = array('form','mediatypeid');
 
 include_once "include/page_header.php";
 
@@ -35,16 +34,27 @@ include_once "include/page_header.php";
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 
 // media form
-		"mediatypeid"=>		array(T_ZBX_INT, O_NO,	P_SYS,	DB_ID,'(isset({form})&&({form}=="update"))'),
-		"type"=>		array(T_ZBX_INT, O_OPT,	NULL,	IN(implode(',',array(MEDIA_TYPE_EMAIL,MEDIA_TYPE_EXEC,MEDIA_TYPE_SMS,MEDIA_TYPE_JABBER))),'(isset({save}))'),
-		"description"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,'(isset({save}))'),
-		"smtp_server"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,'isset({type})&&({type}=='.MEDIA_TYPE_EMAIL.')&&isset({save})'),
-		"smtp_helo"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,'isset({type})&&({type}=='.MEDIA_TYPE_EMAIL.')&&isset({save})'),
-		"smtp_email"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,'isset({type})&&({type}=='.MEDIA_TYPE_EMAIL.')&&isset({save})'),
-		"exec_path"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,'isset({type})&&({type}=='.MEDIA_TYPE_EXEC.')&&isset({save})'),
-		"gsm_modem"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,'isset({type})&&({type}=='.MEDIA_TYPE_SMS.')&&isset({save})'),
-		"username"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,'(isset({type})&&{type}=='.MEDIA_TYPE_JABBER.')&&isset({save})'),
-		"password"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,'isset({type})&&({type}=='.MEDIA_TYPE_JABBER.')&&isset({save})'),
+		"mediatypeid"=>		array(T_ZBX_INT, O_NO,	P_SYS,	DB_ID,
+						'(isset({form})&&({form}=="update"))'),
+		"type"=>		array(T_ZBX_INT, O_OPT,	NULL,	IN(implode(',',
+						array(ALERT_TYPE_EMAIL,ALERT_TYPE_EXEC,ALERT_TYPE_SMS,ALERT_TYPE_JABBER))),
+						'(isset({save}))'),
+		"description"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,
+						'(isset({save}))'),
+		"smtp_server"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,
+						'isset({type})&&({type}=='.ALERT_TYPE_EMAIL.')&&isset({save})'),
+		"smtp_helo"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,
+						'isset({type})&&({type}=='.ALERT_TYPE_EMAIL.')&&isset({save})'),
+		"smtp_email"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,
+						'isset({type})&&({type}=='.ALERT_TYPE_EMAIL.')&&isset({save})'),
+		"exec_path"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,
+						'isset({type})&&({type}=='.ALERT_TYPE_EXEC.')&&isset({save})'),
+		"gsm_modem"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,
+						'isset({type})&&({type}=='.ALERT_TYPE_SMS.')&&isset({save})'),
+		"username"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,
+						'(isset({type})&&{type}=='.ALERT_TYPE_JABBER.')&&isset({save})'),
+		"password"=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,
+						'isset({type})&&({type}=='.ALERT_TYPE_JABBER.')&&isset({save})'),
 /* actions */
 		"save"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 		"delete"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
@@ -55,14 +65,15 @@ include_once "include/page_header.php";
 	);
 	
 	check_fields($fields);
-	validate_sort_and_sortorder('mt.description',ZBX_SORT_UP);
 ?>
 <?php
 
 /* MEDIATYPE ACTIONS */
 	$result = 0;
-	if(isset($_REQUEST["save"])){
-		if(isset($_REQUEST["mediatypeid"])){
+	if(isset($_REQUEST["save"]))
+	{
+		if(isset($_REQUEST["mediatypeid"]))
+		{
 /* UPDATE */
 			$action = AUDIT_ACTION_UPDATE;
 			$result=update_mediatype($_REQUEST["mediatypeid"],
@@ -72,7 +83,8 @@ include_once "include/page_header.php";
 
 			show_messages($result, S_MEDIA_TYPE_UPDATED, S_MEDIA_TYPE_WAS_NOT_UPDATED);
 		}
-		else{
+		else
+		{
 /* ADD */
 			$action = AUDIT_ACTION_ADD;
 			$result=add_mediatype(
@@ -115,39 +127,34 @@ include_once "include/page_header.php";
 <?php
 	if(isset($_REQUEST["form"]))
 	{
-		echo SBR;
+		echo BR;
 		insert_media_type_form();
 	}
 	else
 	{
 		$table=new CTableInfo(S_NO_MEDIA_TYPES_DEFINED);
-		$table->setHeader(array(
-			make_sorting_link(S_TYPE,'mt.type'),
-			make_sorting_link(S_DESCRIPTION,'mt.description'),
-			S_DETAILS
-		));
+		$table->setHeader(array(S_TYPE,S_DESCRIPTION,S_DETAILS));
 
-		$result=DBselect('SELECT mt.* '.
-					' FROM media_type mt'.
-					' WHERE '.DBin_node('mt.mediatypeid').
-					order_by('mt.type,mt.description'));
+		$result=DBselect('select * from media_type '.
+			' where '.DBin_node('mediatypeid').
+			' order by type, description');
 		while($row=DBfetch($result))
 		{
 			switch($row['type'])
 			{
-				case MEDIA_TYPE_EMAIL:
+				case ALERT_TYPE_EMAIL:
 					$details =
 						S_SMTP_SERVER.": '".$row['smtp_server']."', ".
 						S_SMTP_HELO.": '".$row['smtp_helo']."', ". 
 						S_SMTP_EMAIL.": '".$row['smtp_email']."'";
 					break;
-				case MEDIA_TYPE_EXEC:
+				case ALERT_TYPE_EXEC:
 					$details = S_SCRIPT_NAME.": '".$row['exec_path']."'";
 					break;
-				case MEDIA_TYPE_SMS:
+				case ALERT_TYPE_SMS:
 					$details = S_GSM_MODEM.": '".$row['gsm_modem']."'";
 					break;
-				case MEDIA_TYPE_JABBER:
+				case ALERT_TYPE_JABBER:
 					$details = S_JABBER_IDENTIFIER.": '".$row['username']."'";
 					break;
 				default:

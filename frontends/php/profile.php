@@ -25,13 +25,12 @@
 
 	$page["title"] = "S_USER_PROFILE";
 	$page["file"] = "profile.php";
-	$page['hist_arg'] = array();
 
 include_once "include/page_header.php";
 
 ?>
 <?php
-	if($USER_DETAILS["alias"]==ZBX_GUEST_USER)
+	if($USER_DETAILS["alias"]=="guest")
 	{
 		access_deny();
 	}
@@ -42,8 +41,6 @@ include_once "include/page_header.php";
 		"password1"=>	array(T_ZBX_STR, O_OPT,	null,	null,		'isset({save})&&isset({form})&&({form}!="update")&&isset({change_password})'),
 		"password2"=>	array(T_ZBX_STR, O_OPT,	null,	null,		'isset({save})&&isset({form})&&({form}!="update")&&isset({change_password})'),
 		"lang"=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'isset({save})'),
-		"theme"=>		array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'isset({save})'),
-		'autologin'=>	array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	null),
 		"autologout"=>  array(T_ZBX_INT, O_OPT, null,   BETWEEN(0,3600),'isset({save})'),
 		"url"=>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({save})'),
 		"refresh"=>	array(T_ZBX_INT, O_OPT,	null,	BETWEEN(0,3600),'isset({save})'),
@@ -60,23 +57,22 @@ include_once "include/page_header.php";
 	check_fields($fields);
 ?>
 <?php
-	if(isset($_REQUEST["cancel"])){
-		$url = get_profile('web.menu.view.last', 'index.php');
-		redirect($url);
+	if(isset($_REQUEST["cancel"]))
+	{
+		Redirect('index.php');
 	}
-	else if(isset($_REQUEST["save"])){
+	elseif(isset($_REQUEST["save"]))
+	{
 		$_REQUEST["password1"] = get_request("password1", null);
 		$_REQUEST["password2"] = get_request("password2", null);
 
-		if(isset($_REQUEST["password1"]) && $_REQUEST["password1"] == ""){
+		if(isset($_REQUEST["password1"]) && $_REQUEST["password1"] == "")
+		{
 			show_error_message(S_ONLY_FOR_GUEST_ALLOWED_EMPTY_PASSWORD);
 		}
-		else if($_REQUEST["password1"]==$_REQUEST["password2"]){
-			$result=update_user_profile($USER_DETAILS["userid"],$_REQUEST["password1"],
-									$_REQUEST["url"],get_request("autologin",0),$_REQUEST["autologout"],
-									$_REQUEST["lang"],$_REQUEST['theme'],$_REQUEST["refresh"]
-					);
-					
+		elseif($_REQUEST["password1"]==$_REQUEST["password2"])
+		{
+			$result=update_user_profile($USER_DETAILS["userid"],$_REQUEST["password1"],$_REQUEST["url"],$_REQUEST["autologout"],$_REQUEST["lang"],$_REQUEST["refresh"]);
 			show_messages($result, S_USER_UPDATED, S_CANNOT_UPDATE_USER);
 			if($result)
 				add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_USER,

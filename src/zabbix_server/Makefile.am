@@ -2,26 +2,27 @@
 
 SUBDIRS = \
 	alerter \
-	dbsyncer \
 	discoverer \
 	housekeeper \
-	httppoller \
-	nodewatcher \
 	pinger \
 	poller \
+	httppoller \
 	timer \
 	trapper \
-	utils \
+	nodewatcher \
 	watchdog \
-	escalator
+	utils
 
 sbin_PROGRAMS = zabbix_server
 
 zabbix_server_SOURCES = \
+	evalfunc.c evalfunc.h \
+	expression.c expression.h \
 	actions.c actions.h \
 	operations.c operations.h \
 	events.c events.h \
 	zlog.c \
+	functions.c functions.h \
 	server.c
 
 if JABBER 
@@ -30,7 +31,6 @@ endif
 
 zabbix_server_LDADD = \
 	alerter/libzbxalerter.a \
-	dbsyncer/libzbxdbsyncer.a \
 	discoverer/libzbxdiscoverer.a \
 	pinger/libzbxpinger.a \
 	poller/libzbxpoller.a \
@@ -41,7 +41,6 @@ zabbix_server_LDADD = \
 	utils/libzbxutils.a \
 	httppoller/libzbxhttppoller.a \
 	watchdog/libzbxwatchdog.a \
-	escalator/libzbxescalator.a \
 	$(top_srcdir)/src/libs/zbxsysinfo/libzbxserversysinfo.a \
 	$(top_srcdir)/src/libs/zbxsysinfo/$(ARCH)/libspecsysinfo.a \
 	$(top_srcdir)/src/libs/zbxsysinfo/common/libcommonsysinfo.a \
@@ -54,13 +53,9 @@ zabbix_server_LDADD = \
 	$(top_srcdir)/src/libs/zbxsms/libzbxsms.a \
 	$(top_srcdir)/src/libs/zbxdbhigh/libzbxdbhigh.a \
 	$(top_srcdir)/src/libs/zbxdb/libzbxdb.a \
-	$(top_srcdir)/src/libs/zbxdbcache/libzbxdbcache.a \
 	$(top_srcdir)/src/libs/zbxcommon/libzbxcommon.a \
 	$(top_srcdir)/src/libs/zbxcrypto/libzbxcrypto.a \
 	$(top_srcdir)/src/libs/zbxcomms/libzbxcomms.a \
-	$(top_srcdir)/src/libs/zbxjson/libzbxjson.a \
-	$(top_srcdir)/src/libs/zbxserver/libzbxserver.a \
-	$(top_srcdir)/src/libs/zbxicmpping/libzbxicmpping.a \
 	$(JABBER_LDADD) \
 	@SERVER_LIBS@
 

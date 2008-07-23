@@ -24,11 +24,8 @@
 	require_once "include/httptest.inc.php";
 	require_once "include/forms.inc.php";
 
-	$page["title"] = "S_DETAILS_OF_SCENARIO";
-	$page["file"] = "httpdetails.php";
-	$page['hist_arg'] = array('hostid','grouid','graphid','period','stime');
-	$page['scripts'] = array('gmenu.js','scrollbar.js','sbox.js','sbinit.js');
-	
+        $page["title"] = "S_DETAILS_OF_SCENARIO";
+        $page["file"] = "httpdetails.php";
 	define('ZBX_PAGE_DO_REFRESH', 1);
 
 include_once "include/page_header.php";
@@ -39,7 +36,11 @@ include_once "include/page_header.php";
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
 		"from"=>	array(T_ZBX_INT, O_OPT,	 null,	'{}>=0', null),
-		"period"=>	array(T_ZBX_INT, O_OPT,	 null,	null, null),
+		"period"=>	array(T_ZBX_INT, O_OPT,	 null,	BETWEEN(ZBX_MIN_PERIOD,ZBX_MAX_PERIOD), null),
+		"dec"=>		array(T_ZBX_INT, O_OPT,	 null,	null, null),
+		"inc"=>		array(T_ZBX_INT, O_OPT,	 null,	null, null),
+		"left"=>	array(T_ZBX_INT, O_OPT,	 null,	null, null),
+		"right"=>	array(T_ZBX_INT, O_OPT,	 null,	null, null),
 		"stime"=>	array(T_ZBX_STR, O_OPT,	 null,	null, null),
 
 		"reset"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
@@ -47,50 +48,26 @@ include_once "include/page_header.php";
 		"httptestid"=>	array(T_ZBX_INT, O_MAND,	null,	DB_ID,		null),
 
 		"groupid"=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null),
-		"hostid"=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null),
-		
-		'fullscreen'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	IN('0,1'),		NULL),
-//ajax
-		'favobj'=>		array(T_ZBX_STR, O_OPT, P_ACT,	NULL,			'isset({favid})'),
-		'favid'=>		array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,		NULL),
-		'state'=>		array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,		'isset({favobj})'),
-
+		"hostid"=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null)
 	);
 
 	check_fields($fields);
 
-	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
+	$accessible_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,null,null,get_current_nodeid());
 
-	$sql = 'select ht.* '.
-		' from httptest ht, applications a '.
-		' where '.DBcondition('a.hostid',$available_hosts).
-			' and a.applicationid=ht.applicationid '.
-			' and ht.httptestid='.$_REQUEST['httptestid'];
-			
-	if(!$httptest_data = DBfetch(DBselect($sql))){
+	if(!($httptest_data = DBfetch(DBselect('select ht.* from httptest ht, applications a '.
+		' where a.hostid in ('.$accessible_hosts.') and a.applicationid=ht.applicationid '.
+		' and ht.httptestid='.$_REQUEST['httptestid']))))
+	{
 		access_deny();
 	}
 	
 	navigation_bar_calc();
 ?>
 <?php
-// Header	
-	$text = array(S_DETAILS_OF_SCENARIO_BIG.' / ',bold($httptest_data['name']),' ['.date(S_DATE_FORMAT_YMDHMS,$httptest_data['lastcheck']).']');
-	
-	$url = '?httptestid='.$_REQUEST['httptestid'].'&fullscreen='.($_REQUEST['fullscreen']?'0':'1');
-
-	$fs_icon = new CDiv(SPACE,'fullscreen');
-	$fs_icon->AddOption('title',$_REQUEST['fullscreen']?S_NORMAL.' '.S_VIEW:S_FULLSCREEN);
-	$fs_icon->AddAction('onclick',new CScript("javascript: document.location = '".$url."';"));
-	
-	$icon_tab = new CTable();
-	$icon_tab->AddRow(array($fs_icon,SPACE,$text));
-	
-	$text = $icon_tab;
-
-	show_table_header($text,new CLink(S_CANCEL,'httpmon.php'.url_param('groupid').url_param('hostid')));
-
-//-------------
+	$lnkCancel = new CLink(S_CANCEL,'httpmon.php'.url_param('groupid').url_param('hostid'));
+	show_table_header(S_DETAILS_OF_SCENARIO_BIG.' "'.bold($httptest_data['name']).'" - '.
+		date(S_DATE_FORMAT_YMDHMS,$httptest_data['lastcheck']),$lnkCancel);
 
 // TABLE
 	$table  = new CTableInfo();
@@ -226,54 +203,30 @@ include_once "include/page_header.php";
 
 	$table->Show();
 
-	echo SBR;
+	echo BR;
 
-	show_table_header(array(S_HISTORY.' "',
-						bold($httptest_data['name']),
-						'"')
-					);
+	show_table_header(S_HISTORY.' "'.bold($httptest_data['name']).'"');
 	$form = new CTableInfo();
-	$form->AddOption('id','graph');
-	
+
 	$form->AddRow(array(bold(S_SPEED) , new CCol(
-		get_dynamic_chart('graph_1','chart3.php?'.url_param('period').url_param('from').
+		get_dynamic_chart('chart3.php?'.url_param('period').url_param('from').
 			url_param($httptest_data['name'], false,'name').
 			url_param(150, false,'height').
 			url_param($items[HTTPSTEP_ITEM_TYPE_IN], false, 'items').
-			url_param(GRAPH_TYPE_STACKED, false, 'graphtype'),'-128')
+			url_param(GRAPH_TYPE_STACKED, false, 'graphtype'),'-100')
 		, 'center')));
 
 	$form->AddRow(array(bold(S_RESPONSE_TIME) , new CCol(
-		get_dynamic_chart('graph_2','chart3.php?'.url_param('period').url_param('from').
+		get_dynamic_chart('chart3.php?'.url_param('period').url_param('from').
 			url_param($httptest_data['name'], false,'name').
 			url_param(150, false,'height').
 			url_param($items[HTTPSTEP_ITEM_TYPE_TIME], false, 'items').
-			url_param(GRAPH_TYPE_STACKED, false, 'graphtype'),'-128')
+			url_param(GRAPH_TYPE_STACKED, false, 'graphtype'),'-100')
 		,'center')));
 
 	$form->Show();
-	echo SBR.SBR;
-	
 
-	$period = get_request('period',3600);
-//SDI(get_min_itemclock_by_itemid($items[HTTPSTEP_ITEM_TYPE_IN][0]['itemid']));
-	$mstime = min(get_min_itemclock_by_itemid($items[HTTPSTEP_ITEM_TYPE_IN][0]['itemid']),get_min_itemclock_by_itemid($items[HTTPSTEP_ITEM_TYPE_TIME][0]['itemid']));
-	$stime = ($mstime)?$mstime:0;
-	$bstime = time()-$period;
-	
-	if(isset($_REQUEST['stime'])){
-		$bstime = $_REQUEST['stime'];
-		$bstime = mktime(substr($bstime,8,2),substr($bstime,10,2),0,substr($bstime,4,2),substr($bstime,6,2),substr($bstime,0,4));
-	}
-	
-	$script = 	'scrollinit(0,'.$period.','.$stime.',0,'.$bstime.');
-				showgraphmenu("graph");
-				graph_zoom_init("graph_1",'.$bstime.','.$period.',ZBX_G_WIDTH, 150, false);
-				graph_zoom_init("graph_2",'.$bstime.','.$period.',ZBX_G_WIDTH, 150, false);';
-					
-	zbx_add_post_js($script); 
-
-//	navigation_bar("#", array('httptestid'));
+	navigation_bar("#", array('httptestid'));
 ?>
 <?php
 

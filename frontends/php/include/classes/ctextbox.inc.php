@@ -31,14 +31,13 @@
 			$this->tag_body_start = '';
 			$this->options['class'] = 'biginput';
 			$this->AddOption('name', $name);
-			$this->AddOption('id', $name);
 			$this->AddOption('size', $size);
 			$this->AddOption('value',$value);
 			$this->SetReadonly($readonly);
 		}
 		function SetReadonly($value='yes')
 		{
-			if((is_string($value) && ($value=="yes" || $value=="checked" || $value=="on") || $value=="1") || (is_int($value)&&$value<>0))
+			if($value=='yes')
 				return $this->options['readonly'] = 'readonly';
 
 			$this->DelOption('readonly');
@@ -71,10 +70,10 @@
 			parent::CTextBox($name,$value,$size,$readonly);
 			$this->AddOption('MaxLength', $size);
 			$this->AddOption('Style', 'text-align: right;');
-			$this->AddAction('onkeypress',
+			$this->AddAction('OnKeyPress',
 				' var c = (window.event) ? event.keyCode : event.which;'.
 				' if(event.ctrlKey || c <= 31 || (c >= 48 && c <= 57)) return true; else return false; ');
-			$this->AddAction('onchange',
+			$this->AddAction('OnChange',
 					($allowempty ? ' if(this.value.length==0 || this.value==null) this.value = \'\'; else ' : '').
 					' if(isNaN(parseInt(this.value))) this.value = 0; '.
 					' else this.value = parseInt(this.value);'

@@ -121,8 +121,8 @@
 #define OFF	0
 
 #define	APPLICATION_NAME	"ZABBIX Agent"
-#define	ZABBIX_REVDATE		"4 June 2008"
-#define	ZABBIX_VERSION		"1.5.3"
+#define	ZABBIX_REVDATE		"23 July 2008"
+#define	ZABBIX_VERSION		"1.4.6"
 
 #if defined(_WINDOWS)
 extern char ZABBIX_SERVICE_NAME[64];
@@ -179,8 +179,7 @@ typedef enum
 	ITEM_TYPE_ZABBIX_ACTIVE,
 	ITEM_TYPE_AGGREGATE,
 	ITEM_TYPE_HTTPTEST,
-	ITEM_TYPE_EXTERNAL,
-	ITEM_TYPE_DB_MONITOR
+	ITEM_TYPE_EXTERNAL
 } zbx_item_type_t;
 
 /* Event sources */
@@ -201,9 +200,7 @@ typedef enum
 typedef enum
 {
 	DOBJECT_STATUS_UP	= 0,
-	DOBJECT_STATUS_DOWN,
-	DOBJECT_STATUS_DISCOVER,
-	DOBJECT_STATUS_LOST
+	DOBJECT_STATUS_DOWN
 } zbx_dstatus_t;
 
 /* Item value types */
@@ -237,8 +234,7 @@ typedef enum
 	SVC_TCP,
 	SVC_AGENT,
 	SVC_SNMPv1,
-	SVC_SNMPv2c,
-	SVC_ICMPPING
+	SVC_SNMPv2c
 } zbx_dservice_type_t;
 
 
@@ -283,10 +279,7 @@ typedef enum
 	CONDITION_TYPE_DSERVICE_PORT,
 	CONDITION_TYPE_DSTATUS,
 	CONDITION_TYPE_DUPTIME,
-	CONDITION_TYPE_DVALUE,
-	CONDITION_TYPE_HOST_TEMPLATE,
-	CONDITION_TYPE_EVENT_ACKNOWLEDGED,
-	CONDITION_TYPE_APPLICATION
+	CONDITION_TYPE_DVALUE
 } zbx_condition_type_t;
 
 /* Condition operators */
@@ -319,38 +312,21 @@ typedef enum
 /* Special item key used for internal ZABBIX log */
 #define SERVER_ZABBIXLOG_KEY	"zabbix[log]"
 
-/* Media types */
+/* Alert types */
 typedef enum
 {
-	MEDIA_TYPE_EMAIL = 0,
-	MEDIA_TYPE_EXEC,
-	MEDIA_TYPE_SMS,
-	MEDIA_TYPE_JABBER
-} zbx_media_type_t;
+	ALERT_TYPE_EMAIL = 0,
+	ALERT_TYPE_EXEC,
+	ALERT_TYPE_SMS,
+	ALERT_TYPE_JABBER
+} zbx_alert_type_t;
 
 /* Alert statuses */
 typedef enum
 {
 	ALERT_STATUS_NOT_SENT = 0,
-	ALERT_STATUS_SENT,
-	ALERT_STATUS_FAILED
+	ALERT_STATUS_SENT
 } zbx_alert_status_t;
-
-/* Escalation stauses */
-typedef enum
-{
-	ESCALATION_STATUS_ACTIVE = 0,
-	ESCALATION_STATUS_RECOVERY,
-	ESCALATION_STATUS_SLEEP,
-	ESCALATION_STATUS_COMPLETED /* only in server code */
-} zbx_escalation_status_t;
-
-/* Alert types */
-typedef enum
-{
-	ALERT_TYPE_MESSAGE = 0,
-	ALERT_TYPE_COMMAND
-} zbx_alert_type_t;
 
 /* Item statuses */
 typedef enum
@@ -362,27 +338,6 @@ typedef enum
 	ITEM_STATUS_DELETED,
 	ITEM_STATUS_NOTAVAILABLE
 } zbx_item_status_t;
-
-/* Trigger types */
-typedef enum
-{
-	TRIGGER_TYPE_NORMAL = 0,
-	TRIGGER_TYPE_MULTIPLE_TRUE
-} zbx_trigger_type_t;
-
-/* GROUP statuses */
-typedef enum
-{
-       GROUP_STATUS_ACTIVE = 0,
-       GROUP_STATUS_DISABLED
-} zbx_group_status_type_t;
-
-/* process type */
-typedef enum
-{
-	ZBX_PROCESS_SERVER = 0,
-	ZBX_PROCESS_PROXY
-} zbx_process_t;
 
 /* HTTP Tests statuses */
 #define HTTPTEST_STATUS_MONITORED	0
@@ -398,7 +353,6 @@ typedef enum
 /*#define HOST_STATUS_UNREACHABLE	2*/
 #define HOST_STATUS_TEMPLATE	3
 #define HOST_STATUS_DELETED	4
-#define HOST_STATUS_PROXY	5
 
 /* Host availability */
 #define HOST_AVAILABLE_UNKNOWN	0
@@ -441,9 +395,6 @@ typedef enum
 #define ACTION_STATUS_ACTIVE	0
 #define ACTION_STATUS_DISABLED	1
 
-/* Max number of retries for alerts */
-#define ALERT_MAX_RETRIES	3
-
 /* Operation types */
 #define OPERATION_TYPE_MESSAGE		0
 #define OPERATION_TYPE_COMMAND		1
@@ -476,6 +427,13 @@ typedef enum
 #define	ZBX_TYPE_UINT	5
 #define	ZBX_TYPE_ID	6
 
+/* Flags for node history exchange */
+#define	ZBX_TABLE_HISTORY	0
+#define	ZBX_TABLE_HISTORY_UINT	1
+#define	ZBX_TABLE_HISTORY_STR	2
+#define	ZBX_TABLE_HISTORY_LOG	3
+#define	ZBX_TABLE_HISTORY_TEXT	4
+
 /* HTTP item types */
 typedef enum
 {
@@ -486,12 +444,7 @@ typedef enum
 } zbx_httpitem_type_t;
 
 /* Flags */
-#define	ZBX_SYNC		0x01
-#define ZBX_NOTNULL		0x02
-#define ZBX_HISTORY		0x04
-#define ZBX_HISTORY_SYNC	0x08
-#define ZBX_HISTORY_TRENDS	0x10
-#define ZBX_PROXY		0x20
+#define	ZBX_SYNC	1
 
 /* Types of nodes */
 #define	ZBX_NODE_TYPE_REMOTE	0
@@ -509,7 +462,7 @@ typedef enum
 
 #define	AGENT_TIMEOUT	3
 
-#define	SENDER_TIMEOUT		60
+#define	SENDER_TIMEOUT		5
 #define	ZABBIX_TRAPPER_TIMEOUT	300
 #define	SNMPTRAPPER_TIMEOUT	5
 
@@ -534,10 +487,9 @@ void    *zbx_realloc(void *src, size_t size);
 	
 #define zbx_fclose(f) { if(f){ fclose(f); f = NULL; } }
 
-/*#define ZBX_COND_NODEID " %s>=100000000000000*%d and %s<=(100000000000000*%d+99999999999999) "*/
-/*#define ZBX_COND_NODEID " %s>=%d00000000000000 and %s<=%d99999999999999 "
+#define ZBX_COND_NODEID " %s>=100000000000000*%d and %s<=(100000000000000*%d+99999999999999) "
 #define LOCAL_NODE(fieldid) fieldid, CONFIG_NODEID, fieldid, CONFIG_NODEID
-#define ZBX_NODE(fieldid,nodeid) fieldid, nodeid, fieldid, nodeid*/
+#define ZBX_NODE(fieldid,nodeid) fieldid, nodeid, fieldid, nodeid
 
 #define MIN_ZABBIX_PORT 1024u
 #define MAX_ZABBIX_PORT 65535u
@@ -597,21 +549,16 @@ void	rtrim_spaces(char *c);
 void	delete_reol(char *c);
 int	get_param(const char *param, int num, char *buf, int maxlen);
 int	num_param(const char *param);
-int	get_key_param(char *param, int num, char *buf, int maxlen);
-int	num_key_param(char *param);
 int	calculate_item_nextcheck(zbx_uint64_t itemid, int item_type, int delay, char *delay_flex, time_t now);
 int	check_time_period(const char *period, time_t now);
-char	zbx_num2hex(u_char c);
-u_char	zbx_hex2num(char c);
-int	zbx_binary2hex(const u_char *input, int ilen, char **output, int *olen);
+void	zbx_binary2hex(const u_char *input, int ilen, char **output, int *olen);
 int     zbx_hex2binary(char *io);
 void	zbx_hex2octal(const char *input, char **output, int *olen);
 #ifdef HAVE_POSTGRESQL
 void	zbx_pg_escape_bytea(const u_char *input, int ilen, char **output, int *olen);
 int	zbx_pg_unescape_bytea(u_char *io);
 #endif
-int	zbx_get_next_field(const char **line, char **output, int *olen, char separator);
-int	str_in_list(char *list, const char *value, const char delimiter);
+char    *zbx_get_next_field(const char *line, char **output, int *olen, char separator);
 
 #ifdef HAVE___VA_ARGS__
 #	define zbx_setproctitle(fmt, ...) __zbx_zbx_setproctitle(ZBX_CONST_STRING(fmt), ##__VA_ARGS__)
@@ -707,10 +654,6 @@ int	ip_in_list(char *list, char *ip);
 #ifdef HAVE_IPV6
 int	expand_ipv6(const char *ip, char *str, size_t str_len );
 #endif /* HAVE_IPV6 */
-/* Time related functions */
-double	time_diff(struct timeval *from, struct timeval *to);
-char	*zbx_age2str(int age);
-
 int MAIN_ZABBIX_ENTRY(void);
 
 zbx_uint64_t	zbx_letoh_uint64(
@@ -720,4 +663,5 @@ zbx_uint64_t	zbx_letoh_uint64(
 zbx_uint64_t	zbx_htole_uint64(
 		zbx_uint64_t	data
 	);
+
 #endif

@@ -20,7 +20,7 @@
 ?>
 <?php
 	require_once "include/config.inc.php";
-	require_once "include/classes/chart.inc.php";
+	require_once "include/classes/graph.inc.php";
 	
 	$page["file"]	= "chart.php";
 	$page["title"]	= "S_CHART";
@@ -44,29 +44,20 @@ include_once "include/page_header.php";
 	check_fields($fields);
 ?>
 <?php
-	if(!DBfetch(DBselect('select itemid from items where itemid='.$_REQUEST['itemid']))){
+	if(! (DBfetch(DBselect('select itemid from items where itemid='.$_REQUEST['itemid']))) )
+	{
 		show_error_message(S_NO_ITEM_DEFINED);
-//		show_message(S_NO_ITEM_DEFINED);
+
 	}
 
-	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
-	
-	if(!$db_data = DBfetch(DBselect('SELECT i.itemid from items i '.
-					' WHERE '.DBcondition('i.hostid',$available_hosts).
-						' AND i.itemid='.$_REQUEST['itemid'])))
+	if(! ($db_data = DBfetch(DBselect("select i.itemid from items i ".
+		" where i.hostid in (".get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY).") ".
+		" and i.itemid=".$_REQUEST["itemid"]))))
 	{
 		access_deny();
 	}
 
-	$graph = new Chart();
-	
-	$effectiveperiod = navigation_bar_calc();
-
-	$_REQUEST['period'] = get_request('period',get_profile('web.item.graph.period', ZBX_PERIOD_DEFAULT, PROFILE_TYPE_INT, $_REQUEST['itemid']));
-	if($_REQUEST['period'] >= ZBX_MIN_PERIOD){
-		update_profile('web.item.graph.period',$_REQUEST['period'], PROFILE_TYPE_INT, $_REQUEST['itemid']);
-	}
-
+	$graph = new Graph();
 	
 	if(isset($_REQUEST["period"]))		$graph->SetPeriod($_REQUEST["period"]);
 	if(isset($_REQUEST["from"]))		$graph->SetFrom($_REQUEST["from"]);

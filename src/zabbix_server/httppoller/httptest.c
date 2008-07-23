@@ -24,14 +24,13 @@
 #include "db.h"
 #include "log.h"
 #include "zlog.h"
-#include "zbxserver.h"
 
+#include "../functions.h"
 #include "httpmacro.h"
 #include "httptest.h"
 
 #ifdef	HAVE_LIBCURL
 
-static zbx_process_t	zbx_process;
 static S_ZBX_HTTPPAGE	page;
 
 /******************************************************************************
@@ -57,20 +56,19 @@ static int process_value(zbx_uint64_t itemid, AGENT_RESULT *value)
 	DB_RESULT	result;
 	DB_ROW		row;
 	DB_ITEM		item;
-	time_t		now;
 
 	INIT_CHECK_MEMORY();
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In process_value(itemid:" ZBX_FS_UI64 ")",
-			itemid);
+		itemid);
 
-	result = DBselect("select %s where h.status=%d and h.hostid=i.hostid and i.status=%d and i.type=%d and i.itemid=" ZBX_FS_UI64 DB_NODE,
-			ZBX_SQL_ITEM_SELECT,
-			HOST_STATUS_MONITORED,
-			ITEM_STATUS_ACTIVE,
-			ITEM_TYPE_HTTPTEST,
-			itemid,
-			DBnode_local("h.hostid"));
+	result = DBselect("select %s where h.status=%d and h.hostid=i.hostid and i.status=%d and i.type=%d and i.itemid=" ZBX_FS_UI64 " and " ZBX_COND_NODEID,
+		ZBX_SQL_ITEM_SELECT,
+		HOST_STATUS_MONITORED,
+		ITEM_STATUS_ACTIVE,
+		ITEM_TYPE_HTTPTEST,
+		itemid,
+		LOCAL_NODE("h.hostid"));
 	row=DBfetch(result);
 
 	if(!row)
@@ -82,18 +80,9 @@ static int process_value(zbx_uint64_t itemid, AGENT_RESULT *value)
 
 	DBget_item_from_db(&item,row);
 
-	now = time(NULL);
-
 	DBbegin();
-	switch (zbx_process) {
-	case ZBX_PROCESS_SERVER:
-		process_new_value(&item, value, now);
-		update_triggers(item.itemid);
-		break;
-	case ZBX_PROCESS_PROXY:
-		proxy_process_new_value(&item, value, now);
-		break;
-	}
+	process_new_value(&item,value);
+	update_triggers(item.itemid);
 	DBcommit();
  
 	DBfree_result(result);
@@ -528,7 +517,7 @@ static void	process_httptest(DB_HTTPTEST *httptest)
  * Comments: always SUCCEED                                                   *
  *                                                                            *
  ******************************************************************************/
-void process_httptests(zbx_process_t p, int now)
+void process_httptests(int now)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
@@ -539,15 +528,12 @@ void process_httptests(zbx_process_t p, int now)
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In process_httptests()");
 
-	zbx_process	= p;
-
-	result = DBselect("select httptestid,name,applicationid,nextcheck,status,delay,macros,agent"
-			" from httptest where status=%d and nextcheck<=%d and " ZBX_SQL_MOD(httptestid,%d) "=%d" DB_NODE,
-			HTTPTEST_STATUS_MONITORED,
-			now,
-			CONFIG_HTTPPOLLER_FORKS,
-			httppoller_num-1,
-			DBnode_local("httptestid"));
+	result = DBselect("select httptestid,name,applicationid,nextcheck,status,delay,macros,agent from httptest where status=%d and nextcheck<=%d and " ZBX_SQL_MOD(httptestid,%d) "=%d and " ZBX_COND_NODEID,
+		HTTPTEST_STATUS_MONITORED,
+		now,
+		CONFIG_HTTPPOLLER_FORKS,
+		httppoller_num-1,
+		LOCAL_NODE("httptestid"));
 	while((row=DBfetch(result)))
 	{
 		ZBX_STR2UINT64(httptest.httptestid, row[0]);

@@ -261,8 +261,7 @@ void __zbx_zbx_snprintf_alloc(char **str, int *alloc_len, int *offset, int max_l
 	va_start(args, fmt);
 
 	if (*offset + max_len >= *alloc_len) {
-		while (*offset + max_len >= *alloc_len)
-			*alloc_len *= 2;
+		*alloc_len += 2 * max_len;
 		*str = zbx_realloc(*str, *alloc_len);
 	}
 
@@ -1182,7 +1181,7 @@ u_char	zbx_hex2num(char c)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	zbx_binary2hex(const u_char *input, int ilen, char **output, int *olen)
+void	zbx_binary2hex(const u_char *input, int ilen, char **output, int *olen)
 {
 	const u_char	*i = input;
 	char		*o;
@@ -1193,20 +1192,19 @@ int	zbx_binary2hex(const u_char *input, int ilen, char **output, int *olen)
 	assert(*output);
 	assert(olen);
 
-	if (*olen < len) {
+	if(*olen < len)
+	{
 		*olen = len;
 		*output = zbx_realloc(*output, *olen);
 	}
 	o = *output;
 
-	while (i - input < ilen) {
+	while(i - input < ilen) {
 		*o++ = zbx_num2hex( (*i >> 4) & 0xf );
 		*o++ = zbx_num2hex( *i & 0xf );
 		i++;
 	}
 	*o = '\0';
-
-	return len - 1;
 }
 
 /******************************************************************************
@@ -1405,181 +1403,24 @@ int	zbx_pg_unescape_bytea(u_char *io)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	zbx_get_next_field(const char **line, char **output, int *olen, char separator)
+char	*zbx_get_next_field(const char *line, char **output, int *olen, char separator)
 {
 	char	*ret;
 	int	flen;
 
-	ret = strchr(*line, separator);
+	ret = strchr(line, separator);
 	if (ret) {
-		flen = (int)(ret - *line);
+		flen = (int)(ret - line);
 		ret++;
 	} else
-		flen = (int)strlen(*line);
+		flen = (int)strlen(line);
 
 	if (*olen < flen + 1) {
 		*olen = flen * 2;
 		*output = zbx_realloc(*output, *olen);
 	}
-	memcpy(*output, *line, flen);
+	memcpy(*output, line, flen);
 	(*output)[flen] = '\0';
 
-	*line = ret;
-
-	return flen;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: str_in_list                                                      *
- *                                                                            *
- * Purpose: check if string matches a list of demilited strings               *
- *                                                                            *
- * Parameters: list     - strings a,b,ccc,ddd                                 *
- *             value    - value                                               *
- *             delimiter- delimiter                                           *
- *                                                                            *
- * Return value: FAIL - out of period, SUCCEED - within the period            *
- *                                                                            *
- * Author: Alexei Vladishev                                                   *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-int	str_in_list(char *list, const char *value, const char delimiter)
-{
-	char	*start, *end;
-	int	ret = FAIL;
-
-	for (start = list; *start != '\0' && ret == FAIL;) {
-		if (NULL != (end = strchr(start, delimiter)))
-			*end = '\0';
-		
-		if (0 == strcmp(start, value))
-			ret = SUCCEED;
-
-		if (end != NULL) {
-			*end = delimiter;
-			start = end + 1;
-		} else
-			break;
-	}
 	return ret;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: get_key_param                                                    *
- *                                                                            *
- * Purpose: return parameter by index (num) from parameter list (param)       *
- *          to be used for keys: key[param1,param2]                           *
- *                                                                            *
- * Parameters:                                                                *
- * 	param  - parameter list                                               *
- *      num    - requested parameter index                                    *
- *      buf    - pointer of output buffer                                     *
- *      maxlem - size of output buffer                                        *
- *                                                                            *
- * Return value:                                                              *
- *      1 - requested parameter missed                                        *
- *      0 - requested parameter found (value - 'buf' can be empty string)     *
- *                                                                            *
- * Author: Alexei Vladishev                                                   *
- *                                                                            *
- * Comments:  delimeter for parameters is ','                                 *
- *                                                                            *
- ******************************************************************************/
-int	get_key_param(char *param, int num, char *buf, int maxlen)
-{
-	int	ret = 0;
-
-	char *pl, *pr;
-
-	pl = strchr(param, '[');
-	pr = strrchr(param, ']');
-
-	if(pl > pr)
-		return 1;
-
-	if(!pl || !pr || (pl && !pr) || (!pl && pr))
-		return 1;
-	
-	if(pr != NULL)
-		pr[0] = 0;
-
-	ret = get_param(pl+1, num, buf, maxlen);
-
-	if(pr != NULL)
-		pr[0]=']';
-
-	return ret;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: num_key_param                                                    *
- *                                                                            *
- * Purpose: calculate count of parameters from parameter list (param)         *
- *          to be used for keys: key[param1,param2]                           *
- *                                                                            *
- * Parameters:                                                                *
- * 	param  - parameter list                                               *
- *                                                                            *
- * Return value: count of parameters                                          *
- *                                                                            *
- * Author: Alexei Vladishev                                                   *
- *                                                                            *
- * Comments:  delimeter vor parameters is ','                                 *
- *                                                                            *
- ******************************************************************************/
-int	num_key_param(char *param)
-{
-	int	ret = 1;
-
-	char *pl, *pr;
-
-	if(param == NULL) 
-		return 0;
-
-	pl = strchr(param, '[');
-	pr = strrchr(param, ']');
-
-	if(pl > pr)
-		return 0;
-
-	if(!pl || !pr || (pl && !pr) || (!pl && pr))
-		return 0;
-
-	if(pl != NULL)
-		pl[0] = 0;
-	if(pr != NULL)
-		pr[0] = 0;
-
-	ret = num_param(pl+1);
-
-	if(pl != NULL)
-		pl[0]='[';
-	if(pr != NULL)
-		pr[0]=']';
-
-	return ret;
-}
-
-char	*zbx_age2str(int age)
-{
-	int		days, hours, minutes, offset;
-	static char	buffer[32];
-
-	days	= (int)((double)age / 86400);
-	hours	= (int)((double)(age - days * 86400) / 3600);
-	minutes	= (int)((double)(age - days * 86400 - hours * 3600) / 60);
-	offset	= 0;
-
-	if (days)
-		offset = zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dd ", days);
-	if (days || hours)
-		offset = zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dh ", hours);
-	offset = zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dm ", minutes);
-
-	return buffer;
 }

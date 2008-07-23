@@ -243,26 +243,15 @@ int MAIN_ZABBIX_ENTRY(void)
 
 	zabbix_log(LOG_LEVEL_INFORMATION, "zabbix_agentd started. ZABBIX %s.", ZABBIX_VERSION);
 
-	if(0 == CONFIG_DISABLE_PASSIVE)
+	if( FAIL == zbx_tcp_listen(&listen_sock, CONFIG_LISTEN_IP, (unsigned short)CONFIG_LISTEN_PORT) )
 	{
-		if( FAIL == zbx_tcp_listen(&listen_sock, CONFIG_LISTEN_IP, (unsigned short)CONFIG_LISTEN_PORT) )
-		{
-			zabbix_log(LOG_LEVEL_CRIT, "Listener failed with error: %s.", zbx_tcp_strerror());
-			exit(1);
-		}
+		zabbix_log(LOG_LEVEL_CRIT, "Listener failed with error: %s.", zbx_tcp_strerror());
+		exit(1);
 	}
 
 	init_collector_data();
 
-	load_user_parameters();
-
 	/* --- START THREADS ---*/
-
-	if(1 == CONFIG_DISABLE_PASSIVE)
-	{
-		/* Only main process and active checks will be started */
-		CONFIG_ZABBIX_FORKS = 2;
-	}
 
 	threads = calloc(CONFIG_ZABBIX_FORKS, sizeof(ZBX_THREAD_HANDLE));
 
@@ -336,10 +325,11 @@ void	zbx_on_exit()
 	free_metrics();
 	free_collector_data();
 	alias_list_free();
+	perfs_list_free();
 
 	zbx_sleep(2); /* wait for all threads closing */
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "ZABBIX Agent stopped. ZABBIX %s.", ZABBIX_VERSION);
+	zabbix_log(LOG_LEVEL_INFORMATION, "ZABBIX Agent stopped");
 
 	zabbix_close_log();
 
@@ -372,6 +362,8 @@ int	main(int argc, char **argv)
 		zbx_snprintf(ZABBIX_EVENT_SOURCE, sizeof(ZABBIX_EVENT_SOURCE), "%s [%s]", APPLICATION_NAME, CONFIG_HOSTNAME);
 	}
 #endif /* _WINDOWS */
+
+	load_user_parameters();
 
 	switch (t.task) {
 #if defined (_WINDOWS)

@@ -19,16 +19,13 @@
 **/
 ?>
 <?php
-
 	class CHostsInfo extends CTable
 	{
 		//var $style;
-		function CHostsInfo($groupid=0, $style = STYLE_HORISONTAL)
+		function CHostsInfo($style = STYLE_HORISONTAL)
 		{
-			$this->nodeid = id2nodeid($groupid);
-			$this->groupid = $groupid;
 			$this->style = null;
-			
+
 			parent::CTable(NULL,"hosts_info");
 			$this->SetOrientation($style);
 		}
@@ -43,51 +40,21 @@
 
 		function BodyToString()
 		{
-			global $USER_DETAILS; 
 			$this->CleanItems();
 
-			$accessible_groups = get_accessible_groups_by_user($USER_DETAILS,PERM_READ_ONLY);
-
-			$cond = (remove_nodes_from_id($this->groupid)>0)?(' AND hg.groupid='.zbx_dbstr($this->groupid)):(' AND '.DBin_node('hg.groupid', $this->nodeid));
-
-			$db_host_cnt = DBselect('SELECT COUNT(*) as cnt '.
-									' FROM hosts h, hosts_groups hg'.
-									' WHERE h.available='.HOST_AVAILABLE_TRUE.
-										' AND hg.groupid IN ('.$accessible_groups.') '.$cond);
-										
+			$db_host_cnt = DBselect("select count(*) as cnt from hosts where available=".HOST_AVAILABLE_TRUE);
 			$host_cnt = DBfetch($db_host_cnt);
-			$avail = $host_cnt['cnt'];
+			$avail = $host_cnt["cnt"];
 
-			$db_host_cnt = DBselect('SELECT COUNT(*) as cnt '.
-									' FROM hosts h, hosts_groups hg'.
-									' WHERE h.available='.HOST_AVAILABLE_FALSE.
-										' AND hg.groupid IN ('.$accessible_groups.') '.$cond);
-
+			$db_host_cnt = DBselect("select count(*) as cnt from hosts where available=".HOST_AVAILABLE_FALSE);
 			$host_cnt = DBfetch($db_host_cnt);
-			$notav = $host_cnt['cnt'];
+			$notav = $host_cnt["cnt"];
 
-			$db_host_cnt = DBselect('SELECT COUNT(*) as cnt '.
-									' FROM hosts h, hosts_groups hg'.
-									' WHERE h.available='.HOST_AVAILABLE_UNKNOWN.
-										' AND hg.groupid IN ('.$accessible_groups.') '.$cond);
-										
-
+			$db_host_cnt = DBselect("select count(*) as cnt from hosts where available=".HOST_AVAILABLE_UNKNOWN);
 			$host_cnt = DBfetch($db_host_cnt);
-			$uncn = $host_cnt['cnt'];
+			$uncn = $host_cnt["cnt"];
 
-			$node = get_node_by_nodeid($this->nodeid);
-			$header_str = S_HOSTS_INFO.SPACE;
-			
-			if(remove_nodes_from_id($this->groupid)>0){
-				$group = get_hostgroup_by_groupid($this->groupid);
-				$header_str.= S_FOR_GROUP_SMALL.SPACE.'&quot;('.$node['name'].')'.SPACE.$group['name'].'&quot;';
-			}
-			else{
-				$header_str.= S_FOR_NODE_SMALL.SPACE.'&quot;('.$node['name'].')&quot;';
-			}
-			
-			
-			$header = new CCol($header_str,"header");			
+			$header = new CCol(S_HOSTS_INFO,"header");
 			if($this->style == STYLE_HORISONTAL)
 				$header->SetColspan(3);
 

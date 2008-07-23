@@ -21,36 +21,19 @@
 
 ?>
 <?php
-	function	check_right_on_discovery($permission){
+	function	check_right_on_discovery($permission)
+	{
 		global $USER_DETAILS;
 
-		if( $USER_DETAILS['type'] >= USER_TYPE_ZABBIX_ADMIN ){
-			if(count(get_accessible_nodes_by_user($USER_DETAILS, $permission, PERM_RES_IDS_ARRAY)))
+		if( $USER_DETAILS['type'] >= USER_TYPE_ZABBIX_ADMIN )
+		{
+			if ( 0 == count(
+					get_accessible_nodes_by_user($USER_DETAILS, $permission, null, PERM_RES_IDS_ARRAY, get_current_nodeid())
+					))
 				return true;
 		}
-	return false;
-	}
 
-	function	svc_default_port($type_int){
-		$port = 0;
-
-		switch($type_int){
-			case SVC_SSH:		$port = 22;	break;
-			case SVC_LDAP:		$port = 389;	break;
-			case SVC_SMTP:		$port = 25;	break;
-			case SVC_FTP:		$port = 21;	break;
-			case SVC_HTTP:		$port = 80;	break;
-			case SVC_POP:		$port = 110;	break;
-			case SVC_NNTP:		$port = 119;	break;
-			case SVC_IMAP:		$port = 143;	break;
-			case SVC_TCP:		$port = 80;	break;
-			case SVC_AGENT:		$port = 10050;	break;
-			case SVC_SNMPv1:	$port = 161;	break;
-			case SVC_SNMPv2:	$port = 161;	break;
-			case SVC_ICMPPING:	$port = 0;	break;
-		}
-
-	return $port;
+		return false;
 	}
 
 	function	discovery_check_type2str($type_int)
@@ -67,22 +50,11 @@
 		$str_type[SVC_AGENT]	= S_ZABBIX_AGENT;
 		$str_type[SVC_SNMPv1]	= S_SNMPV1_AGENT;
 		$str_type[SVC_SNMPv2]	= S_SNMPV2_AGENT;
-		$str_type[SVC_ICMPPING]	= S_ICMPPING;
 
 		if(isset($str_type[$type_int]))
 			return $str_type[$type_int];
 
 		return S_UNKNOWN;
-	}
-
-	function	discovery_port2str($type_int, $port)
-	{
-		$port_def = svc_default_port($type_int);
-
-		if ($port != $port_def)
-			return '['.$port.']';
-
-		return '';
 	}
 
 	function	discovery_status2str($status_int)
@@ -113,8 +85,6 @@
 	{
 		$str_stat[DOBJECT_STATUS_UP] = S_UP;
 		$str_stat[DOBJECT_STATUS_DOWN] = S_DOWN;
-		$str_stat[DOBJECT_STATUS_DISCOVER] = S_DISCOVER;
-		$str_stat[DOBJECT_STATUS_LOST] = S_LOST;
 
 		if(isset($str_stat[$status]))
 			return $str_stat[$status];
@@ -145,7 +115,7 @@
 		return $dcheckid;
 	}
 
-	function	add_discovery_rule($proxy_hostid, $name, $iprange, $delay, $status, $dchecks)
+	function	add_discovery_rule($name, $iprange, $delay, $status, $dchecks)
 	{
 		if( !validate_ip_range($iprange) )
 		{
@@ -155,8 +125,8 @@
 		}
 
 		$druleid = get_dbid('drules', 'druleid');
-		$result = DBexecute('insert into drules (druleid,proxy_hostid,name,iprange,delay,status) '.
-			' values ('.$druleid.','.$proxy_hostid.','.zbx_dbstr($name).','.zbx_dbstr($iprange).','.$delay.','.$status.')');
+		$result = DBexecute('insert into drules (druleid,name,iprange,delay,status) '.
+			' values ('.$druleid.','.zbx_dbstr($name).','.zbx_dbstr($iprange).','.$delay.','.$status.')');
 
 		if($result)
 		{
@@ -170,7 +140,7 @@
 		return $result;
 	}
 
-	function	update_discovery_rule($druleid, $proxy_hostid, $name, $iprange, $delay, $status, $dchecks)
+	function	update_discovery_rule($druleid, $name, $iprange, $delay, $status, $dchecks)
 	{
 		if( !validate_ip_range($iprange) )
 		{
@@ -179,7 +149,7 @@
 		
 		}
 
-		$result = DBexecute('update drules set proxy_hostid='.$proxy_hostid.',name='.zbx_dbstr($name).',iprange='.zbx_dbstr($iprange).','.
+		$result = DBexecute('update drules set name='.zbx_dbstr($name).',iprange='.zbx_dbstr($iprange).','.
 			'delay='.$delay.',status='.$status.' where druleid='.$druleid);
 
 		if($result)
@@ -193,26 +163,10 @@
 
 	function	delete_discovery_rule($druleid)
 	{
-		$result = true;
-
-		if ($result) {
-			$db_dhosts = DBselect('select dhostid from dhosts'.
-					' where druleid='.$druleid.' and '.DBin_node('dhostid'));
-
-			while ($result && ($db_dhost = DBfetch($db_dhosts)))
-				$result = DBexecute('delete from dservices where'.
-						' dhostid='.$db_dhost['dhostid']);
-		}
-
-		if ($result)
-			$result = DBexecute('delete from dhosts where druleid='.$druleid);
-
-		if ($result)
+		if($result = DBexecute('delete from drules where druleid='.$druleid))
+		{
 			$result = DBexecute('delete from dchecks where druleid='.$druleid);
-
-		if ($result)
-			$result = DBexecute('delete from drules where druleid='.$druleid);
-
+		}
 		return $result;
 	}
 ?>

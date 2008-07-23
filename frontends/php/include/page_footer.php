@@ -25,41 +25,36 @@
 	global $page;
 	global $ZBX_PAGE_POST_JS;
 
-	if(!defined('PAGE_HEADER_LOADED')){
+	if(!defined('PAGE_HEADER_LOADED'))
+	{
 		define ('PAGE_HEADER_LOADED', 1);
 	}
-	
-//------------------------------------- <HISTORY> ---------------------------------------
-	add_user_history($page);
-//------------------------------------- </HISTORY> --------------------------------------
 
 	show_messages();
 		
-	if($page['type'] == PAGE_TYPE_HTML){
+	if($page['type'] == PAGE_TYPE_HTML)
+	{
 ?>
 <script language="JavaScript" type="text/javascript">
 <!--
-function zbxCallPostScripts(){
+function zbxCallPostScripts()
+{
 <?php
-		if(isset($ZBX_PAGE_POST_JS)){
-			foreach($ZBX_PAGE_POST_JS as $script){
+		if(isset($ZBX_PAGE_POST_JS))
+		{
+			foreach($ZBX_PAGE_POST_JS as $script)
+			{
 				echo $script."\n";
 			}
 		}
 ?>
 }
-
-try{
-	chkbx_range_ext.init();
-}
-catch(e){
-	throw('Checkbox extension failed!');
-}
 -->
 </script>
 <?php
 
-		if(!defined('ZBX_PAGE_NO_MENU') && !defined('ZBX_PAGE_NO_FOOTER')){
+		if(!defined('ZBX_PAGE_NO_MENU') && !defined('ZBX_PAGE_NO_FOOTER'))
+		{
 			$table = new CTable(NULL,"page_footer");
 			$table->SetCellSpacing(0);
 			$table->SetCellPadding(1);
@@ -70,8 +65,8 @@ catch(e){
 					"page_footer_l"),
 				new CCol(array(
 						new CSpan(SPACE.SPACE."|".SPACE.SPACE,"divider"),
-						new CSpan(($USER_DETAILS['userid'] == 0)?S_NOT_CONNECTED:S_CONNECTED_AS.SPACE."'".$USER_DETAILS["alias"]."'".
-						(ZBX_DISTRIBUTED ? SPACE.S_FROM_SMALL.SPACE."'".$USER_DETAILS["node"]['name']."'" : ''),'footer_sign')
+						S_CONNECTED_AS.SPACE."'".$USER_DETAILS["alias"]."'".
+						(ZBX_DISTRIBUTED ? SPACE.S_FROM_SMALL.SPACE."'".$USER_DETAILS["node"]['name']."'" : '')
 					),
 					"page_footer_r")
 				));

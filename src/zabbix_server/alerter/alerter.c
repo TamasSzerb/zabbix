@@ -21,6 +21,7 @@
 
 #include "cfg.h"
 #include "db.h"
+#include "../functions.h"
 #include "log.h"
 #include "zlog.h"
 #include "email.h"
@@ -29,7 +30,6 @@
 #	include "jabber.h"
 #endif
 #include "daemon.h"
-#include "zbxserver.h"
 
 #include "alerter.h"
 
@@ -66,22 +66,22 @@ int execute_action(DB_ALERT *alert,DB_MEDIATYPE *mediatype, char *error, int max
 	zabbix_log( LOG_LEVEL_DEBUG, "In execute_action(%s)",
 		mediatype->smtp_server);
 
-	if(mediatype->type==MEDIA_TYPE_EMAIL)
+	if(mediatype->type==ALERT_TYPE_EMAIL)
 	{
 		res = send_email(mediatype->smtp_server,mediatype->smtp_helo,mediatype->smtp_email,alert->sendto,alert->subject,
 			alert->message, error, max_error_len);
 	}
 #if defined (HAVE_JABBER)
-	else if(mediatype->type==MEDIA_TYPE_JABBER)
+	else if(mediatype->type==ALERT_TYPE_JABBER)
 	{
 		res = send_jabber(mediatype->username, mediatype->passwd, alert->sendto, alert->message, error, max_error_len);
 	}
 #endif /* HAVE_JABBER */
-	else if(mediatype->type==MEDIA_TYPE_SMS)
+	else if(mediatype->type==ALERT_TYPE_SMS)
 	{
 		res = send_sms(mediatype->gsm_modem,alert->sendto,alert->message, error, max_error_len);
 	}
-	else if(mediatype->type==MEDIA_TYPE_EXEC)
+	else if(mediatype->type==ALERT_TYPE_EXEC)
 	{
 /*		if(-1 == execl(CONFIG_ALERT_SCRIPTS_PATH,mediatype->exec_path,alert->sendto,alert->subject,alert->message))*/
 		zabbix_log( LOG_LEVEL_DEBUG, "Before execl([%s],[%s])",
@@ -175,67 +175,66 @@ int execute_action(DB_ALERT *alert,DB_MEDIATYPE *mediatype, char *error, int max
  ******************************************************************************/
 int main_alerter_loop()
 {
-	char			error[MAX_STRING_LEN], *error_esc;
-	int			res, now;
-	struct	sigaction	phan;
-	DB_RESULT		result;
-	DB_ROW			row;
-	DB_ALERT		alert;
-	DB_MEDIATYPE		mediatype;
+	char	error[MAX_STRING_LEN];
+	char	error_esc[MAX_STRING_LEN];
 
-	phan.sa_handler = child_signal_handler;
-	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = 0;
-	sigaction(SIGALRM, &phan, NULL);
+	int	res, now;
 
-	zbx_setproctitle("connecting to the database");
+	struct	sigaction phan;
 
-	DBconnect(ZBX_DB_CONNECT_NORMAL);
+	DB_RESULT	result;
+	DB_ROW		row;
+	DB_ALERT	alert;
+	DB_MEDIATYPE	mediatype;
 
-	for (;;) {
-		now = time(NULL);
+	for(;;)
+	{
+		zbx_setproctitle("connecting to the database");
 
-		result = DBselect("select a.alertid,a.mediatypeid,a.sendto,a.subject,a.message,a.status,mt.mediatypeid"
-				",mt.type,mt.description,mt.smtp_server,mt.smtp_helo,mt.smtp_email,mt.exec_path"
-				",mt.gsm_modem,mt.username,mt.passwd,a.retries from alerts a,media_type mt"
-				" where a.status=%d and a.mediatypeid=mt.mediatypeid and a.alerttype=%d" DB_NODE
-				" order by a.clock",
-				ALERT_STATUS_NOT_SENT,
-				ALERT_TYPE_MESSAGE,
-				DBnode_local("mt.mediatypeid"));
+		DBconnect(ZBX_DB_CONNECT_NORMAL);
 
-		while (NULL != (row = DBfetch(result))) {
+		now  = time(NULL);
+
+		result = DBselect("select a.alertid,a.mediatypeid,a.sendto,a.subject,a.message,a.status,mt.mediatypeid,mt.type,mt.description,mt.smtp_server,mt.smtp_helo,mt.smtp_email,mt.exec_path,mt.gsm_modem,mt.username,mt.passwd from alerts a,media_type mt where a.status=%d and a.retries<3 and a.mediatypeid=mt.mediatypeid and " ZBX_COND_NODEID " order by a.clock",
+			ALERT_STATUS_NOT_SENT,
+			LOCAL_NODE("mt.mediatypeid"));
+
+		while((row=DBfetch(result)))
+		{
 			res = FAIL;
 
-			ZBX_STR2UINT64(alert.alertid, row[0]);
-			alert.mediatypeid	= atoi(row[1]);
-			alert.sendto		= row[2];
-			alert.subject		= row[3];
-			alert.message		= row[4];
-			alert.status		= atoi(row[5]);
+			ZBX_STR2UINT64(alert.alertid,row[0]);
+			alert.mediatypeid=atoi(row[1]);
+			alert.sendto=row[2];
+			alert.subject=row[3];
+			alert.message=row[4];
+			alert.status=atoi(row[5]);
 
-			ZBX_STR2UINT64(mediatype.mediatypeid, row[6]);
-			mediatype.type		= atoi(row[7]);
-			mediatype.description	= row[8];
-			mediatype.smtp_server	= row[9];
-			mediatype.smtp_helo	= row[10];
-			mediatype.smtp_email	= row[11];
-			mediatype.exec_path	= row[12];
+			ZBX_STR2UINT64(mediatype.mediatypeid,row[6]);
+			mediatype.type=atoi(row[7]);
+			mediatype.description=row[8];
+			mediatype.smtp_server=row[9];
+			mediatype.smtp_helo=row[10];
+			mediatype.smtp_email=row[11];
+			mediatype.exec_path=row[12];
 
-			mediatype.gsm_modem	= row[13];
-			mediatype.username	= row[14];
-			mediatype.passwd	= row[15];
+			mediatype.gsm_modem=row[13];
+			mediatype.username=row[14];
+			mediatype.passwd=row[15];
 
-			alert.retries		= atoi(row[16]);
+			phan.sa_handler = child_signal_handler;
+			sigemptyset(&phan.sa_mask);
+			phan.sa_flags = 0;
+			sigaction(SIGALRM, &phan, NULL);
 
 			/* Hardcoded value */
 			/* SMS uses its own timeouts */
 			alarm(40);
 			*error = '\0';
-			res = execute_action(&alert, &mediatype, error, sizeof(error));
+			res = execute_action(&alert,&mediatype,error,sizeof(error));
 			alarm(0);
 
-			if (res == SUCCEED)
+			if(res==SUCCEED)
 			{
 				zabbix_log( LOG_LEVEL_DEBUG, "Alert ID [" ZBX_FS_UI64 "] was sent successfully",
 					alert.alertid);
@@ -249,37 +248,20 @@ int main_alerter_loop()
 					alert.alertid);
 				zabbix_syslog("Error sending alert ID [" ZBX_FS_UI64 "]",
 					alert.alertid);
-				error_esc = DBdyn_escape_string(error);
-
-				alert.retries++;
-				if(alert.retries < ALERT_MAX_RETRIES)
-				{
-					DBexecute("update alerts set retries=%d,error='%s' where alertid=" ZBX_FS_UI64,
-						alert.retries,
-						error_esc,
-						alert.alertid);
-				}
-				else
-				{
-					DBexecute("update alerts set status=%d,retries=%d,error='%s' where alertid=" ZBX_FS_UI64,
-						ALERT_STATUS_FAILED,
-						alert.retries,
-						error_esc,
-						alert.alertid);
-				}
-
-				zbx_free(error_esc);
+				DBescape_string(error,error_esc,MAX_STRING_LEN);
+				DBexecute("update alerts set retries=retries+1,error='%s' where alertid=" ZBX_FS_UI64,
+					error_esc,
+					alert.alertid);
 			}
 
 		}
 		DBfree_result(result);
 
+		DBclose();
+
 		zbx_setproctitle("sender [sleeping for %d seconds]",
-				CONFIG_SENDER_FREQUENCY);
+			CONFIG_SENDER_FREQUENCY);
 
 		sleep(CONFIG_SENDER_FREQUENCY);
 	}
-
-	/* Never reached */
-	DBclose();
 }

@@ -46,7 +46,6 @@ char	*CONFIG_HOSTNAME		= NULL;
 
 
 int	CONFIG_DISABLE_ACTIVE		= 0;
-int	CONFIG_DISABLE_PASSIVE		= 0;
 int	CONFIG_ENABLE_REMOTE_COMMANDS	= 0;
 int	CONFIG_LISTEN_PORT	= 10050;
 int	CONFIG_SERVER_PORT	= 10051;
@@ -55,8 +54,6 @@ char	*CONFIG_LISTEN_IP		= NULL;
 int	CONFIG_LOG_LEVEL		= LOG_LEVEL_INFORMATION;
 char	CONFIG_LOG_UNRES_SYMB		= 0;
 
-int	CONFIG_BUFFER_SIZE		= 100;
-int	CONFIG_BUFFER_SEND		= 5;
 
 void    load_config()
 {
@@ -66,8 +63,6 @@ void    load_config()
 */
 		{"Server",		&CONFIG_HOSTS_ALLOWED,	0,TYPE_STRING,	PARM_MAND,	0,0},
 		{"Hostname",		&CONFIG_HOSTNAME,	0,TYPE_STRING,	PARM_OPT,	0,0},
-		{"BufferSize",		&CONFIG_BUFFER_SIZE,	0,TYPE_INT,	PARM_OPT,	1,65535},
-		{"BufferSend",		&CONFIG_BUFFER_SEND,	0,TYPE_INT,	PARM_OPT,	1,3600},
 
 #ifdef USE_PID_FILE
 		{"PidFile",		&APP_PID_FILE,		0,TYPE_STRING,	PARM_OPT,	0,0},
@@ -76,7 +71,6 @@ void    load_config()
 		{"LogFile",		&CONFIG_LOG_FILE,	0,TYPE_STRING,	PARM_OPT,	0,0},
 		{"LogFileSize",		&CONFIG_LOG_FILE_SIZE,	0,TYPE_INT,	PARM_OPT,	0,1024},
 		{"DisableActive",	&CONFIG_DISABLE_ACTIVE,	0,TYPE_INT,	PARM_OPT,	0,1},
-		{"DisablePassive",	&CONFIG_DISABLE_PASSIVE,0,TYPE_INT,	PARM_OPT,	0,1},
 		{"Timeout",		&CONFIG_TIMEOUT,	0,TYPE_INT,	PARM_OPT,	1,30},
 		{"ListenPort",		&CONFIG_LISTEN_PORT,	0,TYPE_INT,	PARM_OPT,	1024,32767},
 		{"ServerPort",		&CONFIG_SERVER_PORT,	0,TYPE_INT,	PARM_OPT,	1024,32767},
@@ -123,12 +117,6 @@ void    load_config()
 			zabbix_log( LOG_LEVEL_CRIT, "Hostname is not defined");
 			exit(1);
 		}
-	}
-
-	if(CONFIG_DISABLE_ACTIVE == 1 && CONFIG_DISABLE_PASSIVE == 1)
-	{
-		zabbix_log( LOG_LEVEL_CRIT, "Either active or passive checks must be enabled");
-		exit(1);
 	}
 }
 

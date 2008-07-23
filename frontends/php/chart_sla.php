@@ -38,19 +38,19 @@ include_once "include/page_header.php";
 	check_fields($fields);
 ?>
 <?php
-	if(!DBfetch(DBselect('select serviceid from services where serviceid='.$_REQUEST["serviceid"])) ){
+	if(! (DBfetch(DBselect('select serviceid from services where serviceid='.$_REQUEST["serviceid"]))) )
+	{
 		fatal_error(S_NO_IT_SERVICE_DEFINED);
 	}
 
-	$available_triggers = get_accessible_triggers(PERM_READ_ONLY, PERM_RES_IDS_ARRAY);
+	$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_MODE_LT);
 	
-	$sql = 'SELECT s.* '.
-			' FROM services s '.
-			' WHERE s.serviceid='.$_REQUEST['serviceid'].
-				' AND (s.triggerid IS NULL OR '.DBcondition('s.triggerid',$available_triggers).') '.
-				' AND '.DBin_node('s.serviceid');
-				
-	if(!$service = DBfetch(DBselect($sql))){
+	if( !($service = DBfetch(DBselect("select s.* from services s left join triggers t on s.triggerid=t.triggerid ".
+		" left join functions f on t.triggerid=f.triggerid left join items i on f.itemid=i.itemid ".
+		" where (i.hostid is NULL or i.hostid not in (".$denyed_hosts.")) ".
+		" and s.serviceid=".$_REQUEST["serviceid"]
+		))))
+	{
 		access_deny();
 	}
 ?>
@@ -74,21 +74,18 @@ include_once "include/page_header.php";
 	ImageFilledRectangle($im,0,0,$sizeX,$sizeY,ImageColorAllocate($im,120,200,120));
 
 	$now=time(NULL);
-	$period_start=$now-7*86400;
+	$period_start=$now-7*24*3600;
 	$period_end=$now;
 	$stat=calculate_service_availability($_REQUEST["serviceid"],$period_start,$period_end);
-
+		
 	$problem=$stat["problem"];
 	$ok=$stat["ok"];
 
-// Percentage to show
-	$percentage = 20;
-	
-	$p=min($problem,$percentage);
-	$g=max($service["goodsla"]-(100 - $percentage),0);
+	$p=min($problem,20);
+	$g=max($service["goodsla"]-80,0);
 
-	ImageFilledRectangle($im,$sizeX-$sizeX*$p/$percentage,1,$sizeX-2,$sizeY-2,ImageColorAllocate($im,200,120,120));
-	ImageLine($im,$sizeX*$g/$percentage,1,$sizeX*$g/$percentage,$sizeY-1,$yellow);
+	ImageFilledRectangle($im,$sizeX-$sizeX*$p/20,1,$sizeX-2,$sizeY-2,ImageColorAllocate($im,200,120,120));
+	ImageLine($im,$sizeX*$g/20,1,$sizeX*$g/20,$sizeY-1,$yellow);
 
 	ImageRectangle($im,0,0,$sizeX-1,$sizeY-1,$black);
 
@@ -98,6 +95,8 @@ include_once "include/page_header.php";
 	ImageString($im, 2,$sizeX-45,1, $s , $white);
 	ImageOut($im); 
 	ImageDestroy($im); 
+?>
+<?php
 
 include_once "include/page_footer.php";
 

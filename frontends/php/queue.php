@@ -24,7 +24,6 @@
 
 	$page["title"] = "S_QUEUE_BIG";
 	$page["file"] = "queue.php";
-	$page['hist_arg'] = array('show');
 	
 	define('ZBX_PAGE_DO_REFRESH', 1);
 
@@ -38,8 +37,6 @@ include_once "include/page_header.php";
 	);
 
 	check_fields($fields);
-	
-	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
 ?>
 
 <?php
@@ -72,25 +69,26 @@ include_once "include/page_header.php";
 			//ITEM_TYPE_HTTPTEST,
 			ITEM_TYPE_EXTERNAL);
 
-	$result = DBselect('SELECT i.itemid,i.nextcheck,i.description,i.key_,i.type,h.host,h.hostid '.
-		' FROM items i,hosts h '.
-		' WHERE i.status='.ITEM_STATUS_ACTIVE.
-			' AND i.type in ('.implode(',',$item_types).') '.
-			' AND ((h.status='.HOST_STATUS_MONITORED.' AND h.available != '.HOST_AVAILABLE_FALSE.') '.
-			' or (h.status='.HOST_STATUS_MONITORED.' AND h.available='.HOST_AVAILABLE_FALSE.' AND h.disable_until<='.$now.')) '.
-			' AND i.hostid=h.hostid '.
-			' AND i.nextcheck<'.$now.
-			' AND i.key_ not in ("status","icmpping","icmppingsec","zabbix[log]") '.
-			' AND i.value_type not in ('.ITEM_VALUE_TYPE_LOG.') '.
-			' AND '.DBcondition('h.hostid',$available_hosts).
-			' AND '.DBin_node('h.hostid', get_current_nodeid()).
-		' order by i.nextcheck,h.host,i.description,i.key_');
+	$result = DBselect("select i.itemid,i.nextcheck,i.description,i.key_,i.type,h.host,h.hostid ".
+		" from items i,hosts h ".
+		" where i.status=".ITEM_STATUS_ACTIVE." and i.type in (".implode(',',$item_types).") ".
+		" and ((h.status=".HOST_STATUS_MONITORED." and h.available != ".HOST_AVAILABLE_FALSE.") ".
+		" or (h.status=".HOST_STATUS_MONITORED." and h.available=".HOST_AVAILABLE_FALSE." and h.disable_until<=$now)) ".
+		" and i.hostid=h.hostid and i.nextcheck<$now and i.key_ not in ('status','icmpping','icmppingsec','zabbix[log]') ".
+		" and i.value_type not in (".ITEM_VALUE_TYPE_LOG.") ".
+		" and h.hostid in (".get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,null,null,get_current_nodeid()).")".
+//		" and h.hostid in (".get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,null,null,$ZBX_LOCALNODEID).")".
+//		" and ".DBin_node('h.hostid', $ZBX_LOCALNODEID).
+		" and ".DBin_node('h.hostid', get_current_nodeid()).
+		" order by i.nextcheck,h.host,i.description,i.key_");
 
 	$table = new CTableInfo(S_THE_QUEUE_IS_EMPTY);
 
-	if($_REQUEST["show"]==0){
+	if($_REQUEST["show"]==0)
+	{
 
-		foreach($item_types as $type){
+		foreach($item_types as $type)
+		{
 			$sec_5[$type]=0;
 			$sec_10[$type]=0;
 			$sec_30[$type]=0;
@@ -99,7 +97,8 @@ include_once "include/page_header.php";
 			$sec_rest[$type]=0;
 		}
 
-		while($row=DBfetch($result)){
+		while($row=DBfetch($result))
+		{
 			if($now-$row["nextcheck"]<=5)		$sec_5[$row["type"]]++;
 			elseif($now-$row["nextcheck"]<=10)	$sec_10[$row["type"]]++;
 			elseif($now-$row["nextcheck"]<=30)	$sec_30[$row["type"]]++;
@@ -108,30 +107,27 @@ include_once "include/page_header.php";
 			else					$sec_rest[$row["type"]]++;
 
 		}
-		
 		$table->setHeader(array(S_ITEMS,S_5_SECONDS,S_10_SECONDS,S_30_SECONDS,S_1_MINUTE,S_5_MINUTES,S_MORE_THAN_5_MINUTES));
-		foreach($item_types as $type){
-			$elements=array(
-				item_type2str($type),
-				new CCol($sec_5[$type],($sec_5[$type])?"unknown_trigger":"normal"),
-				new CCol($sec_10[$type],($sec_10[$type])?"information":"normal"),
-				new CCol($sec_30[$type],($sec_30[$type])?"warning":"normal"),
-				new CCol($sec_60[$type],($sec_60[$type])?"average":"normal"),
-				new CCol($sec_300[$type],($sec_300[$type])?"high":"normal"),
-				new CCol($sec_rest[$type],($sec_rest[$type])?"disaster":"normal")
-			);
-			
+		foreach($item_types as $type)
+		{
+			$elements=array(item_type2str($type),$sec_5[$type],$sec_10[$type],
+				new CCol($sec_30[$type],"warning"),
+				new CCol($sec_60[$type],"average"),
+				new CCol($sec_300[$type],"high"),
+				new CCol($sec_rest[$type],"disaster"));
 			$table->addRow($elements);
 		}
 	}
-	else{
+	else
+	{
 		$table->SetHeader(array(
 				S_NEXT_CHECK,
 				is_show_subnodes() ? S_NODE : null,
 				S_HOST,
 				S_DESCRIPTION
 				));
-		while($row=DBfetch($result)){
+		while($row=DBfetch($result))
+		{
 			$table->AddRow(array(
 				date("m.d.Y H:i:s",
 					$row["nextcheck"]),
@@ -143,11 +139,14 @@ include_once "include/page_header.php";
 	}
 
 	$table->Show();
-
-	if($_REQUEST["show"]!=0){
+?>
+<?php
+	if($_REQUEST["show"]!=0)
+	{
 		show_table_header(S_TOTAL.": ".$table->GetNumRows());
 	}
 ?>
+
 <?php
 
 include_once "include/page_footer.php";

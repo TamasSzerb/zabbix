@@ -18,15 +18,11 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-require_once("include/config.inc.php");
-require_once("include/services.inc.php");
-require_once('include/classes/ctree.inc.php');
-require_once('include/html.inc.php');
+include_once "include/config.inc.php";
+include_once "include/services.inc.php";
 
-$page["title"] = "S_CONFIGURATION_OF_IT_SERVICES";
+$page["title"] = "S_IT_SERVICES";
 $page["file"] = "services.php";
-$page['scripts'] = array('services.js');
-$page['hist_arg'] = array();
 
 include_once "include/page_header.php";
 
@@ -35,64 +31,45 @@ include_once "include/page_header.php";
 
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		"msg"=>		array(T_ZBX_STR, O_OPT,	 null,	null ,NULL),
-
-// ajax
-		'favobj'=>		array(T_ZBX_STR, O_OPT, P_ACT,	IN("'hat'"),		NULL),
-		'favid'=>		array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,	'isset({favobj})'),
-		'state'=>		array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})'),
-
+		"msg"=>		array(T_ZBX_STR, O_OPT,	 null,	null ,NULL)
 	);
 
 	check_fields($fields);
 
-/* AJAX */	
-	if(isset($_REQUEST['favobj'])){
-		if('hat' == $_REQUEST['favobj']){
-			update_profile('web.services.hats.'.$_REQUEST['favid'].'.state',$_REQUEST['state'],PROFILE_TYPE_INT);
-		}
-	}	
-
-	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		exit();
-	}
-//--------
-
 //--------------------------------------------------------------------------
 
-$available_triggers = get_accessible_triggers(PERM_READ_ONLY, PERM_RES_IDS_ARRAY);
+$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_MODE_LT);
 
-$query = 'SELECT DISTINCT s.serviceid, sl.servicedownid, sl_p.serviceupid as serviceupid, s.triggerid, '.
-		' s.name as caption, s.algorithm, t.description, t.expression, s.sortorder, sl.linkid, s.showsla, s.goodsla, s.status '.
+$query = 'SELECT distinct s.serviceid, sl.servicedownid, sl_p.serviceupid as serviceupid,
+		s.name as caption, s.algorithm, t.triggerid, s.sortorder, sl.linkid'.
 	' FROM services s '.
 		' LEFT JOIN triggers t ON s.triggerid = t.triggerid '.
 		' LEFT JOIN services_links sl ON  s.serviceid = sl.serviceupid and NOT(sl.soft=0) '.
 		' LEFT JOIN services_links sl_p ON  s.serviceid = sl_p.servicedownid and sl_p.soft=0 '.
-	' WHERE '.DBin_node('s.serviceid').
-		' AND (t.triggerid IS NULL OR '.DBcondition('t.triggerid',$available_triggers).') '.
+		' LEFT JOIN functions f ON t.triggerid=f.triggerid '.
+		' LEFT JOIN items i ON f.itemid=i.itemid '.
+	' WHERE (i.hostid is null or i.hostid not in ('.$denyed_hosts.')) '.
+		' AND '.DBin_node('s.serviceid').
 	' ORDER BY s.sortorder, sl_p.serviceupid, s.serviceid';
 
 $result=DBSelect($query);
 
 $services = array();
 $row = array(
-				'id' =>	0,
-				'serviceid' => 0,
-				'serviceupid' => 0,
-				'caption' => S_ROOT_SMALL,
-				'status' => SPACE,
-				'algorithm' => SPACE,
-				'description' => SPACE,
-				'soft' => 0,
-				'linkid'=>''
+				'0' => 0,'serviceid' => 0,
+				'1' => 0,'serviceupid' => 0,
+				'2' => '','caption' => S_ROOT_SMALL,
+				'3' => '','status' => SPACE,
+				'4' => '','algorithm' => SPACE,
+				'5' => '','description' => SPACE,
+				'6' => 0,'soft' => 0,
+				'7' => '','linkid'=>''
 				);
 
 $services[0]=$row;
 
 while($row = DBFetch($result)){
 
-		$row['id'] = $row['serviceid'];
-		
 		(empty($row['serviceupid']))?($row['serviceupid']='0'):('');
 		(empty($row['triggerid']))?($row['description']='None'):($row['description']=expand_trigger_description($row['triggerid']));
 		
@@ -116,29 +93,24 @@ createServiceTree($services,$treeServ); //return into $treeServ parametr
 
 //permission issue
 $treeServ = del_empty_nodes($treeServ);
-//----
 
-if(isset($_REQUEST['msg']) && !empty($_REQUEST['msg'])){
-	show_messages(true,$_REQUEST['msg']);
-}
 
-//show_table_header(S_IT_SERVICES_BIG);
+echo '<script src="js/services.js" type="text/javascript"></script>';
 
-$tree = new CTree($treeServ,array('caption' => bold(S_SERVICE),'algorithm' => bold(S_STATUS_CALCULATION), 'description' => bold(S_TRIGGER)));
+$p = new Ctag('p','yes');
+$p->AddOption('align','center');
+$p->AddOption('id','message');
+(isset($_REQUEST['msg']))?($p->AddItem('<b>'.$_REQUEST['msg'].'</b>')):('');
+$p->Show();
+
+show_table_header(S_IT_SERVICES_BIG);
+
+$tree = new CTree($treeServ,array('caption' => '<b>'.S_SERVICE.'</b>','algorithm' => '<b>'.S_STATUS_CALCULATION.'</b>', 'description' => '<b>'.S_TRIGGER.'</b>'));
+
 if($tree){
-	
-	$tab = create_hat(
-			S_IT_SERVICES_BIG,
-			$tree->getHTML(),
-			null,
-			'hat_services',
-			get_profile('web.services.hats.hat_services.state',1)
-		);
-		
-	$tab->Show();
-	unset($tab);
-}
-else {
+	echo $tree->CreateJS();
+	echo $tree->SimpleHTML();
+} else {
 	error(S_CANT_FORMAT_TREE);
 }
 

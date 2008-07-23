@@ -19,14 +19,11 @@
 **/
 ?>
 <?php
-	require_once("include/config.inc.php");
-	require_once("include/services.inc.php");
-	require_once('include/classes/ctree.inc.php');
-		
+	require_once "include/config.inc.php";
+	require_once "include/services.inc.php";
+
 	$page["title"] = "S_IT_SERVICES";
 	$page["file"] = "srv_status.php";
-	$page['scripts'] = array('services.js');
-	$page['hist_arg'] = array();
 
 	define('ZBX_PAGE_DO_REFRESH', 1);
 
@@ -36,91 +33,74 @@ include_once "include/page_header.php";
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		'serviceid'=>		array(T_ZBX_INT, O_OPT,	P_SYS|P_NZERO,	DB_ID,			NULL),
-		'showgraph'=>		array(T_ZBX_INT, O_OPT,	P_SYS,			IN('1'),		'isset({serviceid})'),
-		'fullscreen'=>		array(T_ZBX_INT, O_OPT,	P_SYS,			IN('0,1'),	NULL),
-// ajax
-		'favobj'=>		array(T_ZBX_STR, O_OPT, P_ACT,	IN('"hat"'),		NULL),
-		'favid'=>		array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,	'isset({favobj})'),
-		'state'=>		array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})'),
+		"serviceid"=>		array(T_ZBX_INT, O_OPT,	P_SYS|P_NZERO,	DB_ID,			NULL),
+		"showgraph"=>		array(T_ZBX_INT, O_OPT,	P_SYS,		IN("1")."isset({serviceid})",NULL)
 	);
 
 	check_fields($fields);
-
-/* AJAX */	
-	if(isset($_REQUEST['favobj'])){
-		if('hat' == $_REQUEST['favobj']){
-			update_profile('web.srv_status.hats.'.$_REQUEST['favid'].'.state',$_REQUEST['state'],PROFILE_TYPE_INT);
-		}
-	}	
-
-	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		exit();
-	}
-//--------?>
+?>
 <?php
-        if(isset($_REQUEST['serviceid']) && 
-			($_REQUEST['serviceid']>0) && 
-			!DBfetch(DBselect('select serviceid from services where serviceid='.$_REQUEST['serviceid'])))
-		{
-                unset($_REQUEST['serviceid']);
+        if( isset($_REQUEST["serviceid"]) && $_REQUEST["serviceid"] > 0 && ! (DBfetch(DBselect('select serviceid from services where serviceid='.$_REQUEST["serviceid"]))) )
+        {
+                unset($_REQUEST["serviceid"]);
         }
 
-	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
-	$available_triggers = get_accessible_triggers(PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
+	$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_MODE_LT);
 
 	if(isset($_REQUEST["serviceid"]) && $_REQUEST["serviceid"] > 0){
-		$sql = 'SELECT s.serviceid '.
-					' FROM services s '.
-					' WHERE (s.triggerid is NULL OR '.DBcondition('s.triggerid',$available_triggers).') '.
-						' AND s.serviceid='.$_REQUEST['serviceid'];
-
-		if(!$service = DBfetch(DBselect($sql,1))){
+		
+		if( !($service = DBfetch(DBselect("select s.* from services s left join triggers t on s.triggerid=t.triggerid ".
+			" left join functions f on t.triggerid=f.triggerid left join items i on f.itemid=i.itemid ".
+			" where (i.hostid is null or i.hostid not in (".$denyed_hosts.")) ".
+			' and '.DBin_node('s.serviceid').
+			" and s.serviceid=".$_REQUEST["serviceid"]
+			))))
+		{
 			access_deny();
 		}
 	}
-	unset($_REQUEST['serviceid']);
+	unset($_REQUEST["serviceid"]);
 ?>
 <?php
-//	show_table_header(S_IT_SERVICES_BIG);
+	show_table_header(S_IT_SERVICES_BIG);
 
 	if(isset($service)&&isset($_REQUEST["showgraph"])){
 		$table  = new CTable(null,'chart');
 		$table->AddRow(new CImg("chart5.php?serviceid=".$service["serviceid"].url_param('path')));
 		$table->Show();
-	} 
-	else {
+	} else {
+	
 		$query = 'SELECT DISTINCT s.serviceid, sl.servicedownid, sl_p.serviceupid as serviceupid, s.triggerid, '.
 				' s.name as caption, s.algorithm, t.description, t.expression, s.sortorder, sl.linkid, s.showsla, s.goodsla, s.status '.
 			' FROM services s '.
 				' LEFT JOIN triggers t ON s.triggerid = t.triggerid '.
 				' LEFT JOIN services_links sl ON  s.serviceid = sl.serviceupid and NOT(sl.soft=0) '.
 				' LEFT JOIN services_links sl_p ON  s.serviceid = sl_p.servicedownid and sl_p.soft=0 '.
+				' LEFT JOIN functions f ON t.triggerid=f.triggerid '.
+				' LEFT JOIN items i ON f.itemid=i.itemid '.
 			' WHERE '.DBin_node('s.serviceid').
-				' AND (t.triggerid IS NULL OR '.DBcondition('t.triggerid',$available_triggers).') '.
+			' AND (i.hostid is null or i.hostid not in ('.$denyed_hosts.')) '.
 			' ORDER BY s.sortorder, sl_p.serviceupid, s.serviceid';
-
+		
 		$result=DBSelect($query);
 		
 		$services = array();
 		$row = array(
-						'id' => 0,
-						'serviceid' => 0,
-						'serviceupid' => 0,
-						'caption' => S_ROOT_SMALL,
-						'status' => SPACE,
-						'reason' => SPACE,
-						'sla' => SPACE,
-						'sla2' => SPACE,
-						'graph' => SPACE,
-						'linkid'=>''
+						'0' => 0,'serviceid' => 0,
+						'1' => 0,'serviceupid' => 0,
+						'2' => '','caption' => S_ROOT_SMALL,
+						'3' => '','status' => SPACE,
+						'4' => '','reason' => SPACE,
+						'5' => '','sla' => SPACE,
+						'6' => '','sla2' => SPACE,
+						'7' => '','graph' => SPACE,
+						'7' => '','linkid'=>''
 						);
 		
 		$services[0]=$row;
 		$now=time();
 		
 		while($row = DBFetch($result)){
-			$row['id'] = $row['serviceid'];
 		
 			(empty($row['serviceupid']))?($row['serviceupid']='0'):('');
 			(empty($row['description']))?($row['description']='None'):('');
@@ -128,32 +108,25 @@ include_once "include/page_header.php";
 			
 			if(isset($row["triggerid"]) && !empty($row["triggerid"])){
 
-				$url = new CLink(expand_trigger_description($row['triggerid']),'events.php?triggerid='.$row['triggerid']);
-				$row['caption'] = array($row['caption'].' [',$url,']');
+				$url = new CLink(expand_trigger_description($row['triggerid']),'tr_events.php?triggerid='.$row['triggerid']);
+				$row['caption'] = $row['caption'].SPACE.'['.$url->ToString().']';
 
 			}
 			
 			if($row["status"]==0 || (isset($service) && (bccomp($service["serviceid"] , $row["serviceid"]) == 0))){
-				$row['reason']='-';
-			} 
-			else {
-				$row['reason']='-';
-				$result2=DBselect('SELECT s.triggerid,s.serviceid '.
-								' FROM services s, triggers t '.
-								' WHERE s.status>0 '.
-									' AND s.triggerid is not NULL '.
-									' AND t.triggerid=s.triggerid '.
-									' AND '.DBcondition('t.triggerid',$available_triggers).
-									' AND '.DBin_node('s.serviceid').
-								' ORDER BY s.status DESC, t.description');
+				$row['reason']="-";
+			} else {
+				$row['reason'] = new CList(null,"itservices");
+				$result2=DBselect("select s.triggerid,s.serviceid from services s, triggers t ".
+					" where s.status>0 and s.triggerid is not NULL and t.triggerid=s.triggerid ".
+					' and '.DBin_node('s.serviceid').
+					" order by s.status desc,t.description");
 					
 				while($row2=DBfetch($result2)){
-					if(is_string($row['reason']) && ($row['reason'] == '-'))
-						$row['reason'] = new CList(null,"itservices");
 					if(does_service_depend_on_the_service($row["serviceid"],$row2["serviceid"])){
 						$row['reason']->AddItem(new CLink(
-										expand_trigger_description($row2["triggerid"]),
-										"events.php?triggerid=".$row2["triggerid"]));
+							expand_trigger_description($row2["triggerid"]),
+							"tr_events.php?triggerid=".$row2["triggerid"]));
 					}
 				}
 			}
@@ -166,27 +139,25 @@ include_once "include/page_header.php";
 				$period_start	= $now-7*24*3600;
 				$period_end	= $now;
 				
-
 				$stat = calculate_service_availability($row["serviceid"],$period_start,$period_end);
-				
+
 				if($row["goodsla"] > $stat["ok"]){
-					$sla_style='red';
-				} 
-				else {
-					$sla_style='green';
+					$color="AA0000";
+				} else {
+					$color="00AA00";
 				}
 				
-				$row['sla2'] = array(new CSpan(round($row["goodsla"],3),'green'),'/', new CSpan(round($stat["ok"],3),$sla_style));
-			} 
-			else {
+				$row['sla2'] = sprintf("<font color=\"00AA00\">%.2f%%</font><b>/</b><font color=\"%s\">%.2f%%</font>",
+					$row["goodsla"], $color,$stat["ok"]);
+			} else {
 				$row['sla']= "-";
 				$row['sla2']= "-";
 			}
 			
 			if(isset($services[$row['serviceid']])){
 				$services[$row['serviceid']] = array_merge($services[$row['serviceid']],$row);
-			} 
-			else {
+			} else {
+				
 				$services[$row['serviceid']] = $row;
 			}
 		
@@ -196,40 +167,27 @@ include_once "include/page_header.php";
 			if(isset($row['servicedownid']))
 			$services[$row['serviceid']]['childs'][] = array('id' => $row['servicedownid'], 'soft' => 1, 'linkid' => $row['linkid']);
 		}
-
+		
 		$treeServ = array();
 		createShowServiceTree($services,$treeServ);	//return into $treeServ parametr
-
+		
 		//permission issue
 		$treeServ = del_empty_nodes($treeServ);
-
-		$tree = new CTree($treeServ,array('caption' => bold(S_SERVICE),
-						'status' => bold(S_STATUS), 
-						'reason' => bold(S_REASON),
-						'sla' => bold(S_SLA_LAST_7_DAYS),
-						'sla2' => bold(nbsp(S_SLA)),
-						'graph' => bold(S_GRAPH)));
+		
+		echo '<script src="js/services.js" type="text/javascript"></script>';
+		
+		$tree = new CTree($treeServ,array('caption' => '<b>'.S_SERVICE.'</b>',
+						'status' => '<b>'.S_STATUS.'</b>', 
+						'reason' => '<b>'.S_REASON.'</b>',
+						'sla' => '<b>'.S_SLA_LAST_7_DAYS.'</b>',
+						'sla2' => '<b>'.nbsp(S_PLANNED_CURRENT_SLA).'</b>',
+						'graph' => '<b>'.S_GRAPH.'</b>'));
 		
 		if($tree){
-			$url = '?fullscreen='.($_REQUEST['fullscreen']?'0':'1');
-	
-			$fs_icon = new CDiv(SPACE,'fullscreen');
-			$fs_icon->AddOption('title',$_REQUEST['fullscreen']?S_NORMAL.' '.S_VIEW:S_FULLSCREEN);
-			$fs_icon->AddAction('onclick',new CScript("javascript: document.location = '".$url."';"));
-	
-			$tab = create_hat(
-					S_IT_SERVICES_BIG,
-					$tree->getHTML(),
-					null,
-					'hat_services',
-					get_profile('web.srv_status.hats.hat_services.state',1)
-				);
-				
-			$tab->Show();
-			unset($tab);
-		} 
-		else {
-			error('Can not format Tree. Check logik structure in service links');
+			echo $tree->CreateJS();
+			echo $tree->SimpleHTML();
+		} else {
+			error('Can\'t format Tree. Check logick structure in service links');
 		}
 	}
 ?>

@@ -183,23 +183,23 @@ include_once "include/page_header.php";
 	$dstfld1	= get_request("dstfld1",	'');	// destination field
 	$itemid		= get_request("itemid",		0);
 
-	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
+	$denyed_hosts	= get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_MODE_LT);
 	
-	if($item_data = DBfetch(DBselect('SELECT DISTINCT h.host,i.* '.
-						' FROM hosts h,items i '.
-						' WHERE h.hostid=i.hostid '.
-							' AND '.DBcondition('h.hostid',$available_hosts).
-							' AND i.itemid='.$itemid)))
+	if($item_data = DBfetch(DBselect("select distinct h.host,i.* from hosts h,items i ".
+		" where h.hostid=i.hostid and h.hostid not in (".$denyed_hosts.")".
+		" and i.itemid=".$itemid)))
 	{
 		$description = $item_data['host'].':'.item_description($item_data["description"],$item_data["key_"]);
 	}
-	else{
+	else
+	{
 		$itemid = 0;
 		$description = '';
 	}
 
 	$expr_type	= get_request("expr_type",	'last[=]');
-	if(eregi('^([a-z]{1,})\[(['.implode('',array_keys($operators)).'])\]$',$expr_type,$expr_res)){
+	if(eregi('^([a-z]{1,})\[(['.implode('',array_keys($operators)).'])\]$',$expr_type,$expr_res))
+	{
 		$function = $expr_res[1];
 		$operator = $expr_res[2];
 
@@ -293,7 +293,7 @@ if(form)
 <?php
 	}
 
-	echo SBR;
+	echo BR;
 
 	$form = new CFormTable(S_CONDITION);
 	$form->SetHelp('config_triggers.php');

@@ -68,7 +68,7 @@
 	}
 	function	KEY_PARAM($var=NULL)
 	{
-		return 'ereg(\'^([0-9a-zA-Z\_\.[.'.ZBX_EREG_SPACE_SYMB.'.]\$ ]+)$\',{'.$var.'})&&';
+		return 'ereg(\'^([0-9a-zA-Z\_\.[.-.]\$ ]+)$\',{'.$var.'})&&';
 	}
 	function	validate_ipv4($str,&$arr)
 	{
@@ -209,7 +209,7 @@
 		{
 /*
 			// If an unset variable used in expression, return FALSE
-			if(zbx_strstr($expression,'{'.$f.'}')&&!isset($_REQUEST[$f]))
+			if(strstr($expression,'{'.$f.'}')&&!isset($_REQUEST[$f]))
 			{
 //SDI("Variable [$f] is not set. $expression is FALSE");
 //info("Variable [$f] is not set. $expression is FALSE");
@@ -218,13 +218,13 @@
 //*/
 //echo $f,":",$expression,"<br>";
 			$expression = str_replace('{'.$f.'}','$_REQUEST["'.$f.'"]',$expression);
-//$debug .= $f." = ".$_REQUEST[$f].SBR;
+//$debug .= $f." = ".$_REQUEST[$f].BR;
 		}
 		$expression = trim($expression,"& ");
 		$exec = "return (".$expression.") ? 1 : 0;";
 		$ret = eval($exec);
 //echo $debug;
-//echo "$field - result: ".$ret." exec: $exec".SBR.SBR;
+//echo "$field - result: ".$ret." exec: $exec".BR.BR;
 //SDI("$field - result: ".$ret." exec: $exec");
 		return $ret;
 	}
@@ -233,13 +233,13 @@
 	{
 //SDI("$field - expression: ".$expression);
 
-		if(zbx_strstr($expression,"{}") && !isset($_REQUEST[$field]))
+		if(strstr($expression,"{}") && !isset($_REQUEST[$field]))
 			return FALSE;
 
-		if(zbx_strstr($expression,"{}") && !is_array($_REQUEST[$field]))
+		if(strstr($expression,"{}") && !is_array($_REQUEST[$field]))
 			$expression = str_replace("{}",'$_REQUEST["'.$field.'"]',$expression);
 
-		if(zbx_strstr($expression,"{}") && is_array($_REQUEST[$field]))
+		if(strstr($expression,"{}") && is_array($_REQUEST[$field]))
 		{
 			foreach($_REQUEST[$field] as $key => $val)
 			{
@@ -412,20 +412,7 @@
 				return ZBX_VALID_WARNING;
 			}
 		}
-//*		
-		if(($type == T_ZBX_STR) && !defined('ZBX_ALLOW_UNICODE') && (strlen($var) != zbx_strlen($var))){
-			if($flags&P_SYS)
-			{
-				info("Critical error. Field [".$field."] contains Multibyte chars");
-				return ZBX_VALID_ERROR;
-			}
-			else
-			{
-				info("Warning. Field [".$field."] - multibyte chars are restricted");
-				return ZBX_VALID_ERROR;
-			}
-		}
-//*/
+
 		if(($type == T_ZBX_CLR) && !is_hex_color($var)) {
 			$var = 'FFFFFF';
 			if($flags&P_SYS)
@@ -549,10 +536,7 @@
 	$system_fields=array(
 		"sessionid"=>		array(T_ZBX_STR, O_OPT,	 P_SYS,	HEX(),NULL),
 		"switch_node"=>		array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,NULL),
-		"triggers_hash"=>	array(T_ZBX_STR, O_OPT,	 P_SYS,	NOT_EMPTY,NULL),
-		'print'=>			array(T_ZBX_INT, O_OPT,	 P_SYS,	IN("1"),NULL),
-		'sort'=>			array(T_ZBX_STR, O_OPT,	 P_SYS,	NULL,NULL),
-		'sortorder'=>		array(T_ZBX_STR, O_OPT,	 P_SYS,	NULL,NULL)
+		"triggers_hash"=>	array(T_ZBX_STR, O_OPT,	 P_SYS,	NOT_EMPTY,NULL)
 	);
 
 	function	invalid_url()

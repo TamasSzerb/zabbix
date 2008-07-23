@@ -25,7 +25,7 @@
 	
 	$page["title"] = "S_IT_SERVICES";
 	$page["file"] = "services_form.php";
-	$page['scripts'] = array('services.js');
+
 	define('ZBX_PAGE_NO_MENU', 1);
 
 include_once "include/page_header.php";
@@ -87,19 +87,23 @@ include_once "include/page_header.php";
 
 //----------------------------------------------------------------------
 
-	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
-	$available_triggers = get_accessible_triggers(PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
+	$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_MODE_LT);
 
 	if(isset($_REQUEST['serviceid']) && $_REQUEST['serviceid'] > 0){
-		$sql = 'SELECT s.* '.
-					' FROM services s '.
-					' WHERE (s.triggerid IS NULL OR '.DBcondition('s.triggerid',$available_triggers).') '.
-						' AND s.serviceid='.$_REQUEST['serviceid'];
-		if(!$service = DBfetch(DBselect($sql))){
+		$query = "select s.* from services s ".
+			" LEFT JOIN triggers t on s.triggerid=t.triggerid ".
+			" LEFT JOIN functions f on t.triggerid=f.triggerid ".
+			" LEFT JOIN items i on f.itemid=i.itemid ".
+			" where (i.hostid is null or i.hostid not in (".$denyed_hosts.")) ".
+			' and '.DBin_node('s.serviceid').
+			" and s.serviceid=".$_REQUEST["serviceid"];
+			
+		if( !($service = DBFetch(DBSelect($query))) ){
 			access_deny();
-		} 		
+		}
 	}
 
+echo '<script type="text/javascript" src="js/services.js"></script>';
 /*-------------------------------------------- ACTIONS --------------------------------------------*/
 if(isset($_REQUEST['saction'])){
 
@@ -112,36 +116,28 @@ if(isset($_REQUEST['saction'])){
 		show_messages($result, S_SERVICE_DELETED, S_CANNOT_DELETE_SERVICE);
 		add_audit_if($result,AUDIT_ACTION_DELETE,AUDIT_RESOURCE_IT_SERVICE,' Name ['.$service["name"].'] id ['.$service['serviceid'].']');
 		unset($service);
-	} 
-	else if(isset($_REQUEST["save_service"])){
+	} elseif(isset($_REQUEST["save_service"])){
 	
 		$service_times = get_request('service_times',array());
 		$childs = get_request('childs',array());
 
 		$triggerid = (isset($_REQUEST["linktrigger"]))?($_REQUEST["triggerid"]):(null);
 
-		DBstart();
 		if(isset($service["serviceid"])){
 			$result = update_service($service["serviceid"],
 				$_REQUEST["name"],$triggerid,$_REQUEST["algorithm"],
 				$_REQUEST["showsla"],$_REQUEST["goodsla"],$_REQUEST["sortorder"],
-				$service_times,$_REQUEST['parentid'],$childs);			
-		} 
-		else {
+				$service_times,$_REQUEST['parentid'],$childs);
+				
+			show_messages($result, S_SERVICE_UPDATED, S_CANNOT_UPDATE_SERVICE);
+			$serviceid = $service["serviceid"];
+			$audit_acrion = AUDIT_ACTION_UPDATE;
+			
+		} else {
 			$result = add_service(
 				$_REQUEST["name"],$triggerid,$_REQUEST["algorithm"],
 				$_REQUEST["showsla"],$_REQUEST["goodsla"],$_REQUEST["sortorder"],
 				$service_times,$_REQUEST['parentid'],$childs);
-		}
-		
-		$result = DBend()?$result:false;
-		
-		if(isset($serrvice['serviceid'])){
-			show_messages($result, S_SERVICE_UPDATED, S_CANNOT_UPDATE_SERVICE);
-			$serviceid = $service["serviceid"];
-			$audit_acrion = AUDIT_ACTION_UPDATE;
-		}
-		else{
 			show_messages($result, S_SERVICE_ADDED, S_CANNOT_ADD_SERVICE);
 			$serviceid = $result;
 			$audit_acrion = AUDIT_ACTION_ADD;
@@ -149,14 +145,8 @@ if(isset($_REQUEST['saction'])){
 		
 		add_audit_if($result,$audit_acrion,AUDIT_RESOURCE_IT_SERVICE,' Name ['.$_REQUEST["name"].'] id ['.$serviceid.']');
 			
-	} 
-	else if(isset($_REQUEST["add_server"])){
-		$sql = 'SELECT h.* '.
-				' FROM hosts h '.
-				' WHERE '.DBin_node('h.hostid').
-					' AND '.DBcondition('h.hostid',$available_hosts).
-					' AND h.hostid='.$_REQUEST["serverid"];
-		if(!$host_data = DBfetch(DBselect($sql))){
+	} elseif(isset($_REQUEST["add_server"])){
+		if(!($host_data = DBfetch(DBselect('select h.* from hosts h where '.DBin_node('h.hostid').' and h.hostid not in ('.$denyed_hosts.') and h.hostid='.$_REQUEST["serverid"])))){
 			access_deny();
 		}
 		
@@ -211,19 +201,28 @@ if(isset($_REQUEST['pservices'])){
 		
 		$query = 'SELECT DISTINCT s.* '.
 				' FROM services s '.
-				' WHERE '.DBin_node('s.serviceid').
-					' AND (s.triggerid IS NULL OR '.DBcondition('s.triggerid',$available_triggers).') '.
+					' LEFT JOIN triggers t ON s.triggerid=t.triggerid '.
+					' LEFT JOIN functions f ON t.triggerid=f.triggerid '.
+					' LEFT JOIN items i ON f.itemid=i.itemid '.
+					' LEFT JOIN services_links sl ON s.serviceid=sl.servicedownid '.
+				' WHERE (i.hostid IS null OR i.hostid NOT IN ('.$denyed_hosts.')) '.
+					' AND '.DBin_node('s.serviceid').
 					' AND s.serviceid NOT IN ('.$childs_str.$service['serviceid'].') '.
 				' ORDER BY s.sortorder,s.name';
-	} 
-	else {
+	} else {
 		$query = 'SELECT DISTINCT s.* '.
 			' FROM services s '.
-			' WHERE '.DBin_node('s.serviceid').
-				' AND (s.triggerid IS NULL OR '.DBcondition('s.triggerid',$available_triggers).') '.
+				' LEFT JOIN triggers t ON s.triggerid=t.triggerid '.
+				' LEFT JOIN functions f ON t.triggerid=f.triggerid '.
+				' LEFT JOIN items i ON f.itemid=i.itemid '.
+				' LEFT JOIN services_links sl ON s.serviceid=sl.servicedownid '.
+			' WHERE (i.hostid IS null '.
+					' OR i.hostid NOT IN ('.$denyed_hosts.') '.
+					' ) '.
+				' AND '.DBin_node('s.serviceid').
 			' ORDER BY s.sortorder,s.name';
 	}	
-
+	
 	$db_services = DBselect($query);
 	
 	while($db_service_data = DBfetch($db_services)){
@@ -281,16 +280,24 @@ if(isset($_REQUEST['cservices'])){
 	
 		$query = 'SELECT DISTINCT s.* '.
 				' FROM services s '.
-				' WHERE '.DBin_node('s.serviceid').
-					' AND (s.triggerid IS NULL OR '.DBcondition('s.triggerid',$available_triggers).') '.
+					' LEFT JOIN triggers t ON s.triggerid=t.triggerid '.
+					' LEFT JOIN functions f ON t.triggerid=f.triggerid '.
+					' LEFT JOIN items i on f.itemid=i.itemid '.
+					' LEFT JOIN services_links sl on s.serviceid=sl.servicedownid '.
+				' WHERE (i.hostid is null or i.hostid not in ('.$denyed_hosts.')) '.
+					' AND '.DBin_node('s.serviceid').
 					' AND s.serviceid NOT IN ('.$childs_str.$service['serviceid'].') '.
 				' ORDER BY s.sortorder,s.name';
 		
 	} else {
 		$query = 'SELECT DISTINCT s.* '.
 				' FROM services s '.
-				' WHERE '.DBin_node('s.serviceid').
-					' AND (s.triggerid IS NULL OR '.DBcondition('s.triggerid',$available_triggers).') '.
+					' LEFT JOIN triggers t ON s.triggerid=t.triggerid '.
+					' LEFT JOIN functions f ON t.triggerid=f.triggerid '.
+					' LEFT JOIN items i on f.itemid=i.itemid '.
+					' LEFT JOIN services_links sl on s.serviceid=sl.servicedownid '.
+				' WHERE (i.hostid is null or i.hostid not in ('.$denyed_hosts.')) '.
+					' AND '.DBin_node('s.serviceid').
 				' ORDER BY s.sortorder,s.name';
 	}
 	
@@ -396,7 +403,8 @@ if(isset($_REQUEST['sform'])){
 			array_push($service_times, $stime);
 		}
 //links
-		$query = 'SELECT DISTINCT sl.linkid, sl.soft, sl.serviceupid, sl.servicedownid, '.
+		$query = 'SELECT DISTINCT '.
+					' sl.linkid, sl.soft, sl.serviceupid, sl.servicedownid, '.
 					' s1.name as serviceupname, s2.name as servicedownname '.
 				' FROM services s1, services s2, services_links sl '.
 				' WHERE sl.serviceupid=s1.serviceid '.
@@ -414,7 +422,10 @@ if(isset($_REQUEST['sform'])){
 		
 		$query = 'SELECT DISTINCT s.*, sl.soft '.
 				' FROM services s1, services s2, services_links sl, services s '.
-				' WHERE (s.triggerid IS NULL OR '.DBcondition('s.triggerid',$available_triggers).') '.
+					' LEFT JOIN triggers t ON s.triggerid=t.triggerid '.
+					' LEFT JOIN functions f ON t.triggerid=f.triggerid '.
+					' LEFT JOIN items i ON f.itemid=i.itemid '.
+				' WHERE (i.hostid is null or i.hostid not in ('.$denyed_hosts.')) '.
 					' AND '.DBin_node('s.serviceid').
 					' AND sl.serviceupid=s1.serviceid '.
 					' AND sl.servicedownid=s2.serviceid '.
@@ -437,8 +448,7 @@ if(isset($_REQUEST['sform'])){
 			array_push($childs,$child);
 		}
 //---
-	}
-	else{
+	}else{
 		$name		= get_request("name","");
 		$showsla	= get_request("showsla",0);
 		$goodsla	= get_request("goodsla",99.05);
@@ -458,12 +468,12 @@ if(isset($_REQUEST['sform'])){
 		$frmService->AddVar("serviceid",$service["serviceid"]);
 	}
 	
-	$frmService->AddRow(S_NAME,new CTextBox("name",$name,60));
+	$frmService->AddRow(S_NAME,new CTextBox("name",$name));
 	
 //link
 //-------------------------------------------- <LINK> --------------------------------------------
 //parent link
-	$ctb = new CTextBox("parent_name",$parentname,60);
+	$ctb = new CTextBox("parent_name",$parentname);
 	$ctb->Addoption('disabled','disabled');
 
 	$frmService->AddVar("parentname",$parentname);
@@ -488,7 +498,7 @@ if(isset($_REQUEST['sform'])){
 	$table->headerClass = 'header';
 	$table->footerClass = 'footer';
 	
-	$table->SetHeader(array(new CCheckBox("all_child_services",null,"check_childs('".$frmService->GetName()."','childs','all_child_services');"),S_SERVICES,S_SOFT,S_TRIGGER));
+	$table->SetHeader(array(new CCheckBox("all_child_services",null,"check_childs('".$frmService->GetName()."','childs','all_child_services');"),S_SERVICES,S_SOFT_LINK,S_TRIGGER));
 
 	$table->AddOption('id','service_childs');
 
@@ -504,7 +514,7 @@ if(isset($_REQUEST['sform'])){
 
 		$table->AddRow(array(
 				array(
-					new CCheckBox('childs_to_del['.$child['serviceid'].'][serviceid]',null,null,$child['serviceid']),
+					new CCheckBox('childs['.$child['serviceid'].'][serviceid]',null,null,$child['serviceid']),
 					new CVar('childs['.$child['serviceid'].'][serviceid]', $child['serviceid'])
 					),
 				array(
@@ -529,9 +539,9 @@ if(isset($_REQUEST['sform'])){
 	
 	$cb2 = new CButton('del_child_service',S_REMOVE);
 	$cb2->SetType('button');
-	$cb2->SetAction("javascript: remove_childs('".$frmService->GetName()."','childs_to_del','tr');");
+	$cb2->SetAction("javascript: remove_childs('".$frmService->GetName()."','childs','tr');");
 
-	$frmService->AddRow(S_DEPENDS_ON,array($table,BR(),$cb,$cb2));
+	$frmService->AddRow(S_DEPENDS_ON,array($table,BR,$cb,$cb2));
 //----------
 //--------------------------------------------- </LINK> -------------------------------------------
 	
@@ -583,7 +593,7 @@ if(isset($_REQUEST['sform'])){
 		}
 		array_push($stime_el, array(new CCheckBox("rem_service_times[]", 'no', null,$i), 
 			$type,':'.SPACE, $from, SPACE.'-'.SPACE, $to,
-			(!empty($val['note'])?(array(BR(),'['.htmlspecialchars($val['note']).']')):('')),BR()));
+			(!empty($val['note']) ? BR.'['.htmlspecialchars($val['note']).']' : '' ),BR));
 
 		
 		$frmService->AddVar('service_times['.$i.'][type]',	$val['type']);
@@ -639,8 +649,8 @@ if(isset($_REQUEST['sform'])){
 	}
 
 	$frmService->AddRow(S_NEW_SERVICE_TIME, array(
-			$cmbTimeType, BR(), 
-			$time_param, BR(),
+			$cmbTimeType, BR, 
+			$time_param, BR,
 			new CButton('add_service_time','add','javascript: document.forms[0].action += \'?sform=1\'; submit();')
 		));
 //trigger
@@ -655,7 +665,7 @@ if(isset($_REQUEST['sform'])){
 	$row = new CRow(array(
 						new CCol(S_TRIGGER,'form_row_l'),
 						new CCol(array(
-									new CTextBox("trigger",$trigger,64,'yes'),
+									new CTextBox("trigger",$trigger,32,'yes'),
 									new CButton("btn1",S_SELECT,"return PopUp('popup.php?"."dstfrm=".$frmService->GetName()."&dstfld1=triggerid&dstfld2=trigger"."&srctbl=triggers&srcfld1=triggerid&srcfld2=description&real_hosts=1');",'T')
 								),'form_row_r')
 							));

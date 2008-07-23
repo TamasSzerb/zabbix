@@ -1,24 +1,4 @@
 // JavaScript Document
-/*
-** ZABBIX
-** Copyright (C) 2000-2007 SIA Zabbix
-**
-** This program is free software; you can redistribute it and/or modify
-** it under the terms of the GNU General Public License as published by
-** the Free Software Foundation; either version 2 of the License, or
-** (at your option) any later version.
-**
-** This program is distributed in the hope that it will be useful,
-** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-** GNU General Public License for more details.
-**
-** You should have received a copy of the GNU General Public License
-** along with this program; if not, write to the Free Software
-** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-**
-*/
-
 function call_menu(evnt,id,name){
 	if(id != 0){
 		show_popup_menu(evnt,
@@ -64,7 +44,7 @@ function add_child_service(name,serviceid,trigger,triggerid){
 	var chkbx = document.createElement('input');
 	chkbx.type = 'checkbox';
 	chkbx.value = serviceid;
-	chkbx.name = 'childs_to_del['+serviceid+'][serviceid]';
+	chkbx.name = 'childs['+serviceid+'][serviceid]';
 	
 	var input = document.createElement('input');
 	input.setAttribute('type','hidden');
@@ -133,10 +113,40 @@ function check_childs(form_name, chkMain, chkName){
 	}
 }
 
+function remove_childs(form_name,rmvbyname,tag){
+	tag = tag.toUpperCase();
+	var frmForm = document.forms[form_name];
+	for (var i=0; i < frmForm.length; i++){
+		if(frmForm.elements[i].type != 'checkbox') continue;
+		if(frmForm.elements[i].disabled == true) continue;
+		if(frmForm.elements[i].checked != true) continue;
+		
+		var splt = frmForm.elements[i].name.split('[');
+		var name = splt[0];
+		var serviceid = splt[1];
+
+		if(rmvbyname && rmvbyname != name) continue;
+		if(frmForm.elements[i].name != rmvbyname+'['+serviceid+'[serviceid]') continue;
+
+		remove_element(frmForm.elements[i],tag);
+		i--;
+	}
+}
+
+function remove_element(elmnt,tag){
+	if(elmnt.nodeName == tag){
+		elmnt.parentNode.removeChild(elmnt);
+	} else if(elmnt.nodeType == 9){
+		return;
+	} else {
+		remove_element(elmnt.parentNode,tag);
+	}
+}
+
 
 function display_element(name){
 	var elmnt = document.getElementById(name);
-	if((typeof(elmnt) == 'undefined')){
+	if(!isset(elmnt)){
 		return;
 	}
 	else if((elmnt.offsetWidth == 0) || (elmnt.style.display == 'none')){
@@ -150,7 +160,7 @@ function display_element(name){
 function closeform(page){
 	var msg="";
 	try{
-		msg = (IE)?(document.getElementById('page_msg').innerText):(document.getElementById('page_msg').textContent);
+		msg = (IE)?(document.getElementsByTagName('p')[0].innerText):(document.getElementsByTagName('p')[0].textContent);
 	} catch(e){
 		alert(e);
 	}

@@ -19,57 +19,70 @@
 **/
 ?>
 <?php
-	function	get_image_by_imageid($imageid){
+	function	get_image_by_imageid($imageid)
+	{
 		/*global $DB;
 
-		$st = sqlite3_query($DB['DB'], 'select * from images where imageid='.$imageid);
+		$st = sqlite3_query($DB, 'select * from images where imageid='.$imageid);
 		info(implode(',',sqlite3_fetch_array($st)));
 		info(sqlite3_column_type($st,3));
 		info(SQLITE3_INTEGER.','.SQLITE3_FLOAT.','.SQLITE3_TEXT.','.SQLITE3_BLOB.','.SQLITE3_NULL);
 		return 0;*/
-		global $DB;
-		
+
 		$result = DBselect('select * from images where imageid='.$imageid);
 		$row = DBfetch($result);
-		if($row){
-			if($DB['TYPE'] == "ORACLE"){
+		if($row)
+		{
+			global $DB_TYPE;
+
+			if($DB_TYPE == "ORACLE")
+			{
 				if(!isset($row['image']))
 					return 0;
 
 				$row['image'] = $row['image']->load();
 			}
-			else if($DB['TYPE'] == "POSTGRESQL"){
+			else if($DB_TYPE == "POSTGRESQL")
+			{
 				$row['image'] = pg_unescape_bytea($row['image']);
 			}
-			else if($DB['TYPE'] == "SQLITE3"){
+			else if($DB_TYPE == "SQLITE3")
+			{
 				$row['image'] = pack('H*', $row['image']);
 			}
 			return	$row;
 		}
-		else{
+		else
+		{
 			return 0;
 		}
 	}
 
-	function	add_image($name,$imagetype,$file){
-		if(!is_null($file)){
-			if($file["error"] != 0 || $file["size"]==0){
+	function	add_image($name,$imagetype,$file)
+	{
+		if(!is_null($file))
+		{
+			if($file["error"] != 0 || $file["size"]==0)
+			{
 				error("Incorrect Image");
 			}
-			else if($file["size"]<1024*1024){
+			elseif($file["size"]<1024*1024)
+			{
+				global $DB_TYPE;
 				global $DB;
 
 				$imageid = get_dbid("images","imageid");
 
 				$image = fread(fopen($file["tmp_name"],"r"),filesize($file["tmp_name"]));
-				if($DB['TYPE'] == "ORACLE"){
-					DBstart();
-					$lobimage = OCINewDescriptor($DB['DB'], OCI_D_LOB);
+				if($DB_TYPE == "ORACLE")
+				{
+					$lobimage = OCINewDescriptor($DB, OCI_D_LOB);
 
-					$stid = OCIParse($DB['DB'], "insert into images (imageid,name,imagetype,image)".
+					$stid = OCIParse($DB, "insert into images (imageid,name,imagetype,image)".
 						" values ($imageid,".zbx_dbstr($name).",".$imagetype.",EMPTY_BLOB())".
 						" return image into :image");
-					if(!$stid){
+					if(!$stid)
+					{
 						$e = ocierror($stid);
 						error("Parse SQL error [".$e["message"]."] in [".$e["sqltext"]."]");
 						return false;
@@ -77,16 +90,20 @@
 
 					OCIBindByName($stid, ':image', $lobimage, -1, OCI_B_BLOB);
 
-					if(!OCIExecute($stid, OCI_DEFAULT)){
+					if(!OCIExecute($stid, OCI_DEFAULT))
+					{
 						$e = ocierror($stid);
 						error("Execute SQL error [".$e["message"]."] in [".$e["sqltext"]."]");
 						return false;
 					}
-					
-					
-					if(DBend($lobimage->save($image))){
+
+					if ($lobimage->save($image)) {
+						OCICommit($DB);
+					}
+					else {
+						OCIRollback($DB);
 						error("Couldn't save image!\n");
-					return false;
+						return false;
 					}
 
 					$lobimage->free();
@@ -94,79 +111,102 @@
 
 					return $stid;
 				}
-				else if($DB['TYPE'] == "POSTGRESQL"){
+				else if($DB_TYPE == "POSTGRESQL")
+				{
 					$image = pg_escape_bytea($image);
 				}
-				else if($DB['TYPE'] == "SQLITE3"){
+				else if($DB_TYPE == "SQLITE3")
+				{
 					$image = bin2hex($image);
 				}
 
 				return	DBexecute("insert into images (imageid,name,imagetype,image)".
 						" values ($imageid,".zbx_dbstr($name).",".$imagetype.",".zbx_dbstr($image).")");
 			}
-			else{
+			else
+			{
 				error("Image size must be less than 1Mb");
 			}
 		}
-		else{
+		else
+		{
 			error("Select image to download");
 		}
 		return false;
 	}
 
-	function	update_image($imageid,$name,$imagetype,$file){
+	function	update_image($imageid,$name,$imagetype,$file)
+	{
 		if(is_null($file))
 		{ /* only update parameters */
 			return	DBexecute("update images set name=".zbx_dbstr($name).",imagetype=".zbx_dbstr($imagetype).
 				" where imageid=$imageid");
 		}
-		else{
+		else
+		{
+			global $DB_TYPE;
 			global $DB;
 
-			if($file["error"] != 0 || $file["size"]==0){
+			if($file["error"] != 0 || $file["size"]==0)
+			{
 				error("Incorrect Image");
 				return FALSE;
 			}
-			if($file["size"]<1024*1024){
+			if($file["size"]<1024*1024)
+			{
 				$image=fread(fopen($file["tmp_name"],"r"),filesize($file["tmp_name"]));
 
-				if($DB['TYPE'] == "ORACLE"){
+				if($DB_TYPE == "ORACLE")
+				{
 
-					$result = DBexecute('UPDATE images SET name='.zbx_dbstr($name).',imagetype='.zbx_dbstr($imagetype).
-									' WHERE imageid='.$imageid);
+					$result = DBexecute("update images set name=".zbx_dbstr($name).
+						",imagetype=".zbx_dbstr($imagetype).
+						" where imageid=$imageid");
 
 					if(!$result) return $result;
-					
-					DBstart();
-					if(!$stid = DBselect('SELECT image FROM images WHERE imageid='.$imageid.' FOR UPDATE')){
-						DBend();
-					return false;
+
+					$stid = OCIParse($DB, "select image from images where imageid=".$imageid." for update");
+
+					$result = OCIExecute($stid, OCI_DEFAULT);
+					if(!$result){
+						$e = ocierror($stid);
+						error("Execute SQL error [".$e["message"]."] in [".$e["sqltext"]."]");
+						OCIRollback($DB);
+						return false;
 					}
 
 					$row = DBfetch($stid);
+
 					$lobimage = $row['image'];
 
-					DBend($lobimage->save($image));
+					if (!$lobimage->save($image)) {
+						OCIRollback($DB);
+					} else {
+						OCICommit($DB);
+					}
+
 					$lobimage->free();
 
-				return $stid;
+					return $stid;
 				}
-				else if($DB['TYPE'] == "POSTGRESQL"){
+				else if($DB_TYPE == "POSTGRESQL")
+				{
 					$image = pg_escape_bytea($image);
-					$sql='UPDATE images SET name='.zbx_dbstr($name).',imagetype='.zbx_dbstr($imagetype).",image='".$image."'".
-						' WHERE imageid='.$imageid;
-				return	DBexecute($sql);
+					$sql="update images set name=".zbx_dbstr($name).",imagetype=".zbx_dbstr($imagetype).
+						",image='".$image."' where imageid=$imageid";
+					return	DBexecute($sql);
 				}
-				else if($DB['TYPE'] == "SQLITE3"){
+				else if($DB_TYPE == "SQLITE3")
+				{
 					$image = bin2hex($image);
 				}
 
-				$sql='UPDATE images SET name='.zbx_dbstr($name).',imagetype='.zbx_dbstr($imagetype).',image='.zbx_dbstr($image).
-					' WHERE imageid='.$imageid;
-					
+				$sql="update images set name=".zbx_dbstr($name).",imagetype=".zbx_dbstr($imagetype).
+					",image=".zbx_dbstr($image)." where imageid=$imageid";
 				return	DBexecute($sql);
 			}
-			else{
+			else
+			{
 				error("Image size must be less than 1Mb");
 				return FALSE;
 			}

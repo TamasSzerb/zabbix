@@ -68,7 +68,7 @@
 			$this->items = array();
 			if(isset($items))
 			{
-				$this->AddItem($items);
+				$this->AddItems($items);
 			}
 		}
 		
@@ -79,46 +79,35 @@
 			return $res;
 		}
 
-		function Show($destroy=true){
-			echo $this->ToString($destroy);			
-		}
+		function Show($destroy=true)	{	echo $this->ToString($destroy);			}
 
 		function Destroy()
 		{
-// TODO Problem under PHP 5.0  "Fatal error: Cannot re-assign $this in ..."
-//			$this = null;
+### TODO Problem under PHP 5.0  "Fatal error: Cannot re-assign $this in ..."
+#			$this = null;
 			$this->CleanItems();
 		}
 
-		function CleanItems(){	
-			$this->items = array();	
-		}
-		
-		function ItemsCount(){	
-			return count($this->items);	
-		}
-		
-		function AddItem($value){
-		
-			if(is_object($value)){
-				array_push($this->items,unpack_object($value));
-			}
-			else if(is_string($value)){
-				array_push($this->items,str_replace(array('<','>','"'),array('&lt;','&gt;','&quot;'),$value));
-//				array_push($this->items,htmlspecialchars($value));
-			}
-			else if(is_array($value)){
-				foreach($value as $item){
-					$this->AddItem($item);			 // Attention, recursion !!!
+		function CleanItems()		{	$this->items = array();				}
+		function ItemsCount()		{	return count($this->items);			}
+		function AddItem($value)
+		{
+			if(is_array($value))
+			{
+				foreach($value as $item)
+				{
+					array_push($this->items,unpack_object($item));
 				}
 			}
-			else if(!is_null($value)){
+			elseif(!is_null($value))
+			{
 				array_push($this->items,unpack_object($value));
 			}
 		}
 	}
 
-	class CTag extends CObject{
+	class CTag extends CObject
+	{
 /* private *//*
 		var $tagname;
 		var $options = array();
@@ -132,113 +121,122 @@
 		var $tag_end;*/
 
 /* public */
-		function CTag($tagname=NULL, $paired='no', $body=NULL, $class=null){
+		function CTag($tagname=NULL, $paired='no', $body=NULL, $class=null)
+		{
 			parent::CObject();
 
 			$this->options = array();
 
-			if(!is_string($tagname)){
+			if(!is_string($tagname))
+			{
 				return $this->error('Incorrect tagname for CTag ['.$tagname.']');
 			}
-			
 			$this->tagname = $tagname;
 			$this->paired = $paired;
 
 			$this->tag_start = $this->tag_end = $this->tag_body_start = $this->tag_body_end = '';
 
-			if(is_null($body)){
+			if(is_null($body))
+			{
 				$this->tag_end = $this->tag_body_start = "\n";
 			}
-			else{
+			else
+			{
 				CTag::AddItem($body);
 			}
 
 			$this->SetClass($class);
+
 		}
-		
 		function ShowStart()	{	echo $this->StartToString();	}
 		function ShowBody()	{	echo $this->BodyToString();	}
 		function ShowEnd()	{	echo $this->EndToString();	}
 
-		function StartToString(){
+		function StartToString()
+		{
 			$res = $this->tag_start.'<'.$this->tagname;
-			foreach($this->options as $key => $value){
+			foreach($this->options as $key => $value)
+			{
 				$res .= ' '.$key.'="'.$value.'"';
 			}
 			$res .= ($this->paired=='yes') ? '>' : '/>';
-		return $res;
+			return $res;
 		}
-
-		function BodyToString(){
+		function BodyToString()
+		{
 			$res = $this->tag_body_start;
-		return $res.parent::ToString(false);
+			return $res.parent::ToString(false);
 			
 			/*foreach($this->items as $item)
 				$res .= $item;
 			return $res;*/
 		}
-		
-		function EndToString(){
+		function EndToString()
+		{
 			$res = ($this->paired=='yes') ? $this->tag_body_end.'</'.$this->tagname.'>' : '';
 			$res .= $this->tag_end;
-		return $res;
+			return $res;
 		}
-		
-		function ToString($destroy=true){
+		function ToString($destroy=true)
+		{
 			$res  = $this->StartToString();
 			$res .= $this->BodyToString();
 			$res .= $this->EndToString();
 
 			if($destroy) $this->Destroy();
 
-		return $res;
+			return $res;
 		}
-		
-		function SetName($value){
+		function SetName($value)
+		{
 			if(is_null($value)) return $value;
 
-			if(!is_string($value)){
+			if(!is_string($value))
+			{
 				return $this->error("Incorrect value for SetName [$value]");
 			}
-		return $this->AddOption("name",$value);
+			return $this->AddOption("name",$value);
 		}
-		
-		function GetName(){
+		function GetName()
+		{
 			if(isset($this->options['name']))
 				return $this->options['name'];
-		return NULL;
+			return NULL;
 		}
-		
-		function SetClass($value){
+		function SetClass($value)		
+		{
 			if(isset($value))
 				$this->options['class'] = $value;
 			else
 				unset($this->options['class']);
 
-		return $value;
+			return $value;
 		}
-		
-		function DelOption($name){
+		function DelOption($name)
+		{
 			unset($this->options[$name]);
 		}
-		
-		function GetOption($name){
+		function &GetOption($name)
+		{
 			$ret = NULL;
 			if(isset($this->options[$name]))
 				$ret =& $this->options[$name];
-		return $ret;
+			return $ret;
 		}
 
-		function SetHint($text, $width='', $class=''){
+		function SetHint($text, $width='', $class='')
+		{
 			if(empty($text)) return false;
 
 			insert_showhint_javascript();
 
 			$text = unpack_object($text);
-			if($width != '' || $class != ''){
+			if($width != '' || $class!= '')
+			{
 				$code = "show_hint_ext(this,event,'".$text."','".$width."','".$class."');";
 			}
-			else{
+			else
+			{
 				$code = "show_hint(this,event,'".$text."');";
 			}
 
@@ -246,45 +244,43 @@
 			$this->AddAction('onMouseMove',	'update_hint(this,event);');
 		}
 
-		function OnClick($handle_code){
-			$this->AddAction('onclick', $handle_code);
+		function OnClick($handle_code)
+		{
+			$this->AddAction('onClick', $handle_code);
 		}
 
-		function AddAction($name, $value){
-			if(is_object($value)){
-				$this->options[$name] = unpack_object($value);
-			}
-			else if(!empty($value)){
-				$this->options[$name] = htmlentities(str_replace(array("\r", "\n"), '', strval($value)),ENT_COMPAT,S_HTML_CHARSET);
-			}
+		function AddAction($name, $value)
+		{
+			if(!empty($value))
+				$this->options[$name] = htmlentities(str_replace(array("\r", "\n"), '', strval($value)),ENT_COMPAT,S_HTML_CHARSET); 
 		}
 
-		function AddOption($name, $value){
-			if(is_object($value)){
-				$this->options[$name] = unpack_object($value);
-			}
-			else if(isset($value))
+		function AddOption($name, $value)
+		{
+			if(isset($value))
 				$this->options[$name] = htmlspecialchars(strval($value)); 
 			else
 				unset($this->options[$name]);
 		}
 
-		function SetEnabled($value='yes'){
+		function SetEnabled($value='yes')
+		{
 			if((is_string($value) && ($value == 'yes' || $value == 'enabled' || $value=='on') || $value=='1')
-				|| (is_int($value) && $value<>0))
+			|| (is_int($value) && $value<>0))
 			{
 				unset($this->options['disabled']);
 			}
-			else if((is_string($value) && ($value == 'no' || $value == 'disabled' || $value=='off') || $value=='0')
-				|| (is_int($value) && $value==0))
+			elseif((is_string($value) && ($value == 'no' || $value == 'disabled' || $value=='off') || $value=='0')
+			|| (is_int($value) && $value==0))
 			{
 				$this->options['disabled'] = 'disabled';
 			}
 		}
-		
-		function error($value){
+		function error($value)
+		{
 			error('class('.get_class($this).') - '.$value);
 			return 1;
 		}
+
 	}
 ?>

@@ -181,8 +181,10 @@ int	CHECK_PORT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT 
 	return ret;
 }
 
+
 int	CHECK_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
+#if !defined(_WINDOWS)
 #ifdef HAVE_RES_QUERY
 
 #if !defined(PACKETSZ)
@@ -193,49 +195,71 @@ int	CHECK_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *
 #	define C_IN 	ns_c_in
 #endif /* C_IN */
 
-#if !defined(T_ANY)
-#	define T_ANY	ns_t_any
-#endif /* T_ANY */
+#if !defined(T_SOA)
+#	define T_SOA	ns_t_soa
+#endif /* T_SOA */
 
-	int		res;
-	char		ip[MAX_STRING_LEN];
-	char		zone[MAX_STRING_LEN];
+
+	int	res;
+	char	ip[MAX_STRING_LEN];
+	char	zone[MAX_STRING_LEN];
 #ifdef	PACKETSZ
-	unsigned char	respbuf[PACKETSZ];
+	char	respbuf[PACKETSZ];
 #else
-	unsigned char	respbuf[NS_PACKETSZ];
+	char	respbuf[NS_PACKETSZ];
 #endif
+	struct	in_addr in;
 
-	assert(result);
+	/* extern char *h_errlist[]; */
+
+        assert(result);
 
         init_result(result);
 	
-        if (num_param(param) > 2)
+        if(num_param(param) > 2)
+        {
                 return SYSINFO_RET_FAIL;
+        }
         
-	if (0 != get_param(param, 1, ip, MAX_STRING_LEN))
-               *ip = '\0';
-
-	/* default parameter */
-	if (*ip == '\0')
+	if(get_param(param, 1, ip, MAX_STRING_LEN) != 0)
+        {
+               ip[0] = '\0';
+        }
+	
+	if(ip[0] == '\0')
+	{
 		strscpy(ip, "127.0.0.1");
+	}
 
-	if (0 != get_param(param, 2, zone, MAX_STRING_LEN))
-		*zone = '\0';
+	if(get_param(param, 2, zone, MAX_STRING_LEN) != 0)
+        {
+                zone[0] = '\0';
+        }
 
-	/* default parameter */
-	if (*zone == '\0')
+	if(zone[0] == '\0')
+	{
 		strscpy(zone, "localhost");
+	}
 
-	if (!(_res.options & RES_INIT))
-		res_init();
+	res = inet_aton(ip, &in);
+	if(res != 1)
+	{
+		SET_UI64_RESULT(result,0);
+		return SYSINFO_RET_FAIL;
+	}
 
-	res = res_query(zone, C_IN, T_ANY, respbuf, sizeof(respbuf));
+	res_init();
+
+	res = res_query(zone, C_IN, T_SOA, (unsigned char *)respbuf, sizeof(respbuf));
 
 	SET_UI64_RESULT(result, res != -1 ? 1 : 0);
 
 	return SYSINFO_RET_OK;
-#endif /* HAVE_RES_QUERY */
-
+#else
 	return SYSINFO_RET_FAIL;
+#endif /* not HAVE_RES_QUERY */
+	return SYSINFO_RET_FAIL;
+#else
+	return SYSINFO_RET_FAIL;
+#endif /* not WINDOWS */
 }

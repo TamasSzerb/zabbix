@@ -24,7 +24,6 @@
 
 	$page["title"]	= "S_TRIGGERS_TOP_100";
 	$page["file"]	= "report5.php";
-	$page['hist_arg'] = array('period');
 	
 include_once "include/page_header.php";
 
@@ -63,7 +62,8 @@ include_once "include/page_header.php";
 			S_NUMBER_OF_STATUS_CHANGES
 			));
 
-	switch($_REQUEST["period"]){
+	switch($_REQUEST["period"])
+	{
 		case "week":	$time_dif=7*24*3600;	break;
 		case "month":	$time_dif=10*24*3600;	break;
 		case "year":	$time_dif=365*24*3600;	break;
@@ -71,27 +71,27 @@ include_once "include/page_header.php";
 		default:	$time_dif=24*3600;	break;
 	}
 
-	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
-		$sql = 'SELECT h.host, t.triggerid, t.description, t.expression, t.priority, count(distinct e.eventid) as cnt_event '.
-						' FROM hosts h, triggers t, functions f, items i, events e'.
-						' WHERE h.hostid = i.hostid '.
-							' and i.itemid = f.itemid '.
-							' and t.triggerid=f.triggerid '.
-							' and t.triggerid=e.objectid '.
-							' and e.object='.EVENT_OBJECT_TRIGGER.
-							' and e.clock>'.(time()-$time_dif).
-							' and '.DBcondition('h.hostid',$available_hosts).
-							' and '.DBin_node('t.triggerid').
-						' GROUP BY h.host,t.triggerid,t.description,t.expression,t.priority '.
-						' ORDER BY cnt_event desc, h.host, t.description, t.triggerid';
+	$accessible_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY);
 
+		$sql = "select h.host, t.triggerid, t.description, t.priority, t.expression, count(distinct e.eventid) as cnt_event ".
+			' FROM hosts h, triggers t, functions f, items i, events e '.
+			' WHERE h.hostid = i.hostid '.
+				' and i.itemid = f.itemid '.
+				' and t.triggerid=f.triggerid '.
+				' and t.triggerid=e.objectid '.
+				' and e.object='.EVENT_OBJECT_TRIGGER.
+				' and e.clock>'.(time()-$time_dif).
+				' and h.hostid in ('.$accessible_hosts.') '.
+				' and '.DBin_node('t.triggerid').
+			" group by h.host,t.triggerid,t.description,t.expression,t.priority ".
+			" order by cnt_event desc, h.host, t.description, t.triggerid";
         $result=DBselect($sql, 100);
 
         while($row=DBfetch($result)){
-			if(!check_right_on_trigger_by_triggerid(null, $row['triggerid'], $available_hosts))
+			if(!check_right_on_trigger_by_triggerid(null, $row['triggerid'], $accessible_hosts))
 				continue;
 
-            $table->addRow(array(
+           	$table->addRow(array(
 				get_node_name_by_elid($row['triggerid']),
 				$row["host"],
 				expand_trigger_description_by_data($row),

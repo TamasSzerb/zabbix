@@ -38,18 +38,19 @@ include_once "include/page_header.php";
 	check_fields($fields);
 ?>
 <?php
-	if(!DBfetch(DBselect('select serviceid from services where serviceid='.$_REQUEST["serviceid"]))){
+	if(! (DBfetch(DBselect('select serviceid from services where serviceid='.$_REQUEST["serviceid"]))) )
+	{
 		fatal_error(S_NO_IT_SERVICE_DEFINED);
 	}
 
-	$available_triggers = get_accessible_triggers(PERM_READ_ONLY, PERM_RES_IDS_ARRAY);
+	$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_MODE_LT);
 	
-	$sql = 'SELECT s.serviceid '.
-				' FROM services s '.
-				' WHERE (s.triggerid is NULL OR '.DBcondition('s.triggerid',$available_triggers).') '.
-					' AND s.serviceid='.$_REQUEST['serviceid'];
-
-	if(!$service = DBfetch(DBselect($sql,1))){
+	if( !($service = DBfetch(DBselect("select s.* from services s left join triggers t on s.triggerid=t.triggerid ".
+		" left join functions f on t.triggerid=f.triggerid left join items i on f.itemid=i.itemid ".
+		" where (i.hostid is NULL or i.hostid not in (".$denyed_hosts.")) ".
+		" and s.serviceid=".$_REQUEST["serviceid"]
+		))))
+	{
 		access_deny();
 	}
 ?>
@@ -111,6 +112,7 @@ include_once "include/page_header.php";
 			$period_end = time();
 
 		$stat = calculate_service_availability($_REQUEST["serviceid"],$period_start,$period_end);
+		
 		$problem[$i]=$stat["problem"];
 		$ok[$i]=$stat["ok"];
 		$count_now[$i]=1;
@@ -140,8 +142,8 @@ include_once "include/page_header.php";
 	for($i=1;$i<=52;$i++)
 	{
 		if(!isset($ok[$i-1])) continue;
-		$x2=($sizeX/52)*($i-1-$minX)*$sizeX/($maxX-$minX);
 
+		$x2=(900/52)*$sizeX*($i-$minX-1)/($maxX-$minX);
 		$y2=$sizeY*($ok[$i-1]-$minY)/($maxY-$minY);
 		$y2=$sizeY-$y2;
 

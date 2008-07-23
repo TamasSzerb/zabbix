@@ -55,86 +55,78 @@ include_once "include/page_header.php";
 	);
 
 	check_fields($fields);
-	validate_sort_and_sortorder();
 	
-	$available_nodes = get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_LIST,PERM_RES_IDS_ARRAY);
+	$accessible_nodes = get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_LIST,null,PERM_RES_IDS_ARRAY, get_current_nodeid(true));
 
-	if (0 == count($available_nodes) ){
+	if ( 0 == count($accessible_nodes) )
+	{
 		access_deny();
 	}
 
-	$available_nodes = implode(',', $available_nodes);
+	$accessible_nodes = implode(',', $accessible_nodes);
 ?>
 <?php
-	if(isset($_REQUEST['save'])){
+	if(isset($_REQUEST['save']))
+	{
 		$result = false;
-		if(isset($_REQUEST['nodeid'])){ 
-/* update */
+		if(isset($_REQUEST['nodeid']))
+		{ /* update */
 			$audit_action = AUDIT_ACTION_UPDATE;
-			DBstart();
 			$result = update_node($_REQUEST['nodeid'],$_REQUEST['new_nodeid'],
 				$_REQUEST['name'], $_REQUEST['timezone'], $_REQUEST['ip'], $_REQUEST['port'],
 				$_REQUEST['slave_history'], $_REQUEST['slave_trends']);
-			$result = DBend($result);
 			$nodeid = $_REQUEST['nodeid'];
 			show_messages($result, S_NODE_UPDATED, S_CANNOT_UPDATE_NODE);
 		}
-		else{ 
-/* add */
+		else
+		{ /* add */
 			$audit_action = AUDIT_ACTION_ADD;
-			
-			DBstart();
-			$nodeid = add_node($_REQUEST['new_nodeid'],
+			$result = add_node($_REQUEST['new_nodeid'],
 				$_REQUEST['name'], $_REQUEST['timezone'], $_REQUEST['ip'], $_REQUEST['port'],
 				$_REQUEST['slave_history'], $_REQUEST['slave_trends'], $_REQUEST['node_type']);
-			$result = DBend($nodeid);			
+			$nodeid = $result;
+			
 			show_messages($result, S_NODE_ADDED, S_CANNOT_ADD_NODE);
 		}
 		add_audit_if($result,$audit_action,AUDIT_RESOURCE_NODE,'Node ['.$_REQUEST['name'].'] id ['.$nodeid.']');
-		if($result){
+		if($result)
+		{
 			unset($_REQUEST['form']);
 		}
 	}
-	else if(isset($_REQUEST['delete'])){
+	elseif(isset($_REQUEST['delete']))
+	{
 		$node_data = get_node_by_nodeid($_REQUEST['nodeid']);
-		
-		DBstart();
 		$result = delete_node($_REQUEST['nodeid']);
-		$result = DBend($result);
 		show_messages($result, S_NODE_DELETED, S_CANNOT_DELETE_NODE);
-		
 		add_audit_if($result,AUDIT_ACTION_DELETE,AUDIT_RESOURCE_NODE,'Node ['.$node_data['name'].'] id ['.$node_data['nodeid'].']');
-		if($result){
+		if($result)
+		{
 			unset($_REQUEST['form'],$node_data);
 		}
 	}
 ?>
 <?php
-	$available_nodes = get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_LIST);
-	
-	if(isset($_REQUEST["form"])){
+	if(isset($_REQUEST["form"]))
+	{
 		insert_node_form();
 	}
-	else{
+	else
+	{
 		$form = new CForm();
 		$form->AddItem(new CButton('form',S_NEW_NODE));
 		show_table_header(S_NODES_BIG,$form);
 
 		$table=new CTableInfo(S_NO_NODES_DEFINED);
-		$table->SetHeader(array(
-			make_sorting_link(S_ID,'n.nodeid'),
-			make_sorting_link(S_NAME,'n.name'),
-			make_sorting_link(S_TYPE,'n.nodetype'),
-			make_sorting_link(S_TIME_ZONE,'n.timezone'),
-			make_sorting_link(S_IP.':'.S_PORT,'n.ip')
-		));
+		$table->SetHeader(array(S_ID,S_NAME,S_TYPE,S_TIME_ZONE,S_IP.':'.S_PORT));
 
-		$db_nodes = DBselect('SELECT n.* '.
-						' FROM nodes n'.
-						' WHERE n.nodeid in ('.$available_nodes.') '.
-						order_by('n.nodeid,n.name,n.nodetype,n.timezone,n.ip','n.masterid')
+		$db_nodes = DBselect(
+				'select * from nodes '.
+				' where nodeid in ('.$accessible_nodes.') '.
+				' order by nodetype desc, masterid, name '
 				);
-		while($row=DBfetch($db_nodes)){
+		while($row=DBfetch($db_nodes))
+		{
 
 			$node_type = detect_node_type($row);
 			$node_type_name = node_type2str($node_type);

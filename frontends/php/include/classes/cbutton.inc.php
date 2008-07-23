@@ -33,7 +33,7 @@
 		}
 		
 		function SetAction($value=null){
-			$this->AddAction('onclick', $value);
+			$this->AddAction('onClick', $value);
 		}
 		
 		function SetTitle($value='button title'){
@@ -68,7 +68,7 @@
 			if(!is_null($value))
 				$url = $url.$value;
 
-			return parent::SetAction("return redirect('$url')");
+			return parent::SetAction("return Redirect('$url')");
 		}
 	}
 
@@ -117,7 +117,7 @@
 			
 			if(isset($this->vars))
 			{
-				$action = "redirect('".$page["file"]."?".$this->name."=1".$this->vars."')";
+				$action = "Redirect('".$page["file"]."?".$this->name."=1".$this->vars."')";
 			}
 			else
 			{

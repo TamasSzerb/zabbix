@@ -69,7 +69,7 @@ function check_authorisation(){
 			DBexecute('UPDATE users SET attempt_failed=0 WHERE userid='.$login['userid']);
 		}
 	}
-
+	
 	if(!$USER_DETAILS){
 		$login = $USER_DETAILS = DBfetch(DBselect('SELECT u.* '.
 									' FROM users u '.
@@ -116,7 +116,6 @@ function check_authorisation(){
 	}
 	
 	if(!$login || isset($incorrect_session) || isset($missed_user_guest)){
-
 		if(isset($incorrect_session))		$message = "Session was ended, please relogin!";
 		else if(isset($missed_user_guest)){
 			$row = DBfetch(DBselect('SELECT count(u.userid) as user_cnt FROM users u'));
@@ -477,7 +476,7 @@ function get_accessible_nodes_by_user(&$user_data,$perm,$perm_res=null,$nodeid=n
 		foreach($available_hosts as $id => $host){
 			$nodeid = id2nodeid($host['hostid']);
 			$permission = (isset($node_data[$nodeid]) && ($permission < $node_data[$nodeid]['permission']))?$node_data[$nodeid]['permission']:$host['permission'];
-
+	
 			$node_data[$nodeid]['nodeid'] = $nodeid;
 			$node_data[$nodeid]['permission'] = $permission;
 		}
@@ -556,14 +555,9 @@ function get_accessible_hosts_by_rights(&$rights,$user_type,$perm,$perm_res=null
 				$where.
 				' ORDER BY n.name,h.host';
 
-	$perm_by_host = array();
 	$db_hosts = DBselect($sql);
 	while($host_data = DBfetch($db_hosts)){
 		if(isset($host_data['groupid']) && isset($res_perm[$host_data['groupid']])){
-			if(!isset($perm_by_host[$host_data['hostid']])) $perm_by_host[$host_data['hostid']] = array();
-			
-			$perm_by_host[$host_data['hostid']][] = $res_perm[$host_data['groupid']];
-			
 			$host_perm[$host_data['hostid']][$host_data['groupid']] = $res_perm[$host_data['groupid']];
 		}		
 		$host_perm[$host_data['hostid']]['data'] = $host_data;
@@ -577,8 +571,8 @@ function get_accessible_hosts_by_rights(&$rights,$user_type,$perm,$perm_res=null
 			$host_data['permission'] = PERM_MAX;
 		}
 		else{
-			if(isset($perm_by_host[$hostid])){
-				$host_data['permission'] = min($perm_by_host[$hostid]);
+			if(isset($host_perm[$hostid])){
+				$host_data['permission'] = min($host_perm[$hostid]);
 			}
 			else{
 				if(is_null($host_data['nodeid'])) $host_data['nodeid'] = id2nodeid($host_data['groupid']);
@@ -586,7 +580,7 @@ function get_accessible_hosts_by_rights(&$rights,$user_type,$perm,$perm_res=null
 				$host_data['permission'] = PERM_DENY;
 			}
 		}
-
+					
 		if($host_data['permission']<$perm) continue;
 		switch($perm_res){
 			case PERM_RES_DATA_ARRAY:	
@@ -686,7 +680,7 @@ function get_accessible_nodes_by_rights(&$rights,$user_type,$perm,$perm_res=null
 	foreach($available_hosts as $id => $host){
 		$nodeid = id2nodeid($host['hostid']);
 		$permission = $host['permission'];
-
+		
 		if(isset($node_data[$nodeid]) && ($permission < $node_data[$nodeid]['permission'])){
 			$permission = $node_data[$nodeid]['permission'];
 		} 

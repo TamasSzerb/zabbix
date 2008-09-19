@@ -20,11 +20,7 @@
 ?>
 <?php
 
-function show_report2_header($config){
-	global $USER_DETAILS;
-	
-	$available_groups = get_accessible_groups_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
-	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
+function show_report2_header($config,$available_hosts){
 	
 	$r_form = new CForm();
 	$r_form->SetMethod('get');
@@ -42,7 +38,6 @@ function show_report2_header($config){
 	$sql = 'SELECT DISTINCT g.groupid,g.name '.
 					' FROM groups g,hosts_groups hg,hosts h'.
 					' WHERE '.DBcondition('h.hostid',$available_hosts).
-						' AND '.DBcondition('g.groupid',$available_groups).
 						' AND g.groupid=hg.groupid '.
 						' AND h.hostid=hg.hostid'.
 						$status_filter.

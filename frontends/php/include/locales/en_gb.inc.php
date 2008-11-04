@@ -235,8 +235,6 @@
 	'S_TRIGGER_SEVERITY'=>			'Trigger severity',
 	'S_TRIGGER_VALUE'=>				'Trigger value',
 	'S_TIME_PERIOD'=>				'Time period',
-	'S_MAINTENANCE_STATUS'=>			'Maintenance status',
-	'S_MAINTENANCE_SMALL'=>				'maintenance',
 	'S_MAX_VALUE_SMALL'=>		'max value',
 	'S_MIN_VALUE_SMALL'=>		'min value',
 	'S_TRIGGER_DESCRIPTION'=>	'Trigger description',
@@ -523,39 +521,6 @@
 	'S_NOTHING_TO_DO'=>			'Nothing to do',
 	'S_ICORRECT_WORK_PERIOD'=>		'Icorrect work period',
 	
-	'S_REGULAR_EXPRESSIONS'=>		'Regular expressions',
-	'S_REGULAR_EXPRESSION'=>		'Regular expression',
-	'S_EXPRESSIONS'=>				'Expressions',
-	'S_EXPRESSION'=>				'Expression',
-	
-	'S_EXPECTED_RESULT'=>				'Expected result',
-	'S_CHARACTER_STRING_INCLUDED'=>		'Character string included',
-	'S_ANY_CHARACTER_STRING_INCLUDED'=>	'Any character string included',
-	'S_CHARACTER_STRING_NOT_INCLUDED'=>	'Character string not included',
-	'S_RESULT_IS_TRUE'=>				'Result is TRUE',
-	'S_RESULT_IS_FALSE'=>				'Result	is FALSE',
-	
-	'S_EXPRESSION_TYPE'=>				'Expression type',
-	'S_NEW_EXPRESSION'=>				'New expression',
-	'S_IGNORE_CASE'=>					'Ignore case',
-	'S_TEST'=>							'Test',
-	'S_DELIMITER'=>						'Delimiter',
-	'S_TEST_STRING'=>					'Test string',
-	'S_COMBINED_RESULT'=>				'Combined result',
-	
-	'S_NEW_REGULAR_EXPRESSION'=>			'New regular expression',
-	'S_REGULAR_EXPRESSION_ADDED'=>			'Regular expression added',
-	'S_CANNOT_ADD_REGULAR_EXPRESSION'=>		'Cannot add regular expression',
-	
-	'S_REGULAR_EXPRESSION_UPDATED'=>		'Regular expression updated',
-	'S_CANNOT_UPDATE_REGULAR_EXPRESSION'=>	'Cannot update regular expression',
-	
-	'S_REGULAR_EXPRESSION_DELETED'=>		'Regular expression deleted',
-	'S_CANNOT_DELETE_REGULAR_EXPRESSION'=>	'Cannot delete regular expression',
-	
-	'S_DELETE_REGULAR_EXPRESSION_Q'=>			'Delete regular expression?',
-	'S_DELETE_SELECTED_REGULAR_EXPRESSIONS_Q'=>	'Delete selected regular expressions?',
-	
 //	nodes.php
 	'S_NODE'=>					'Node',
 	'S_NODES'=>					'Nodes',
@@ -694,77 +659,6 @@
 	'S_AS_GREEN'=>				'as Green',
 	'S_AS_BLUE'=>				'as Blue',
 
-// maintenance.php
-	'S_MAINTENANCE'=>					'Maintenance',
-	'S_MAINTENANCE_ADDED'=>				'Maintenance added',
-	'S_MAINTENANCE_UPDATED'=>			'Maintenance updated',
-	'S_MAINTENANCE_DELETED'=>			'Maintenance deleted',
-	
-	'S_HOSTS_IN_MAINTENANCE'=>			'Hosts in maintenance',
-	'S_GROUPS_IN_MAINTENANCE'=>			'Groups in maintenance',
-
-	'S_CANNOT_ADD_MAINTENANCE'=>			'Cannot add maintenance',
-	'S_CANNOT_UPDATE_MAINTENANCE'=>			'Cannot update maintenance',
-	'S_CANNOT_DELETE_MAINTENANCE'=>			'Cannot delete maintenance',
-	
-	'S_MAINTENANCE_PERIOD'=>			'Maintenance period',
-	'S_MAINTENANCE_PERIOD_LENGTH'=>		'Maintenance period length',
-	'S_MAINTENANCE_PERIODS'=>			'Maintenance periods',
-	'S_NEW_MAINTENANCE_PERIOD'=>		'New maintenance period',
-	'S_EDIT_MAINTENANCE_PERIOD'=>		'Edit maintenance period',
-	'S_CREATE_MAINTENANCE_PERIOD'=>		'Create maintenance period',
-	'S_MAINTENANCE_TYPE'=>				'Maintenance type',
-	'S_EXPIRED'=>						'Expired',
-	
-	'S_SUPPRESS_NOTIFICATIONS'=>		'Suppress notifications',
-	'S_NO_DATA_PROCESSING'=>			'No data processing',
-	
-	'S_DELETE_MAINTENANCE_PERIOD_Q'=>	'Delete maintenance period?',
-	
-	'S_ACTIVE_SINCE'=>		'Active since',
-	'S_ACTIVE_TILL'=>		'Active till',
-	'S_PERIOD_START'=>		'Period start',
-	'S_PERIOD_END'=>		'Period end',
-	'S_PERIOD_TYPE'=>		'Period type',
-
-	'S_SHEDULE'=>			'Shedule',
-	'S_NEXT_RUN'=>			'Next run',
-	
-	'S_DATE'=>				'Date',
-	'S_ONE_TIME_ONLY'=>		'One time only',
-	
-	'S_DAY_OF_WEEK'=>		'Day of week',
-	'S_DAY_OF_MONTH'=>		'Day of month',
-	
-	'S_EVERY_DAY_S'=>		'Every day(s)',
-	'S_EVERY_WEEK_S'=>		'Every week(s)',
-	'S_EVERY_MONTH_S'=>		'Every month(s)',
-	'S_DAY_OF_WEEK'=>		'Day of week',
-	
-	'S_FIRST'=>				'First',
-	'S_SECOND'=>			'Second',
-	'S_THIRD'=>				'Third',
-	'S_FOURTH'=>			'Fourth',
-	
-	'S_AT'=>				'At',
-	'S_DAY_OF_WEEK'=>		'Day of week',
-	
-	'S_JANUARY'=>			'January',
-	'S_FEBRUARY'=>			'February',
-	'S_MARCH'=>				'March',
-	'S_APRIL'=>				'April',
-	'S_MAY'=>				'May',
-	'S_JUNE'=>				'June',
-	'S_JULY'=>				'July',
-	'S_AUGUST'=>			'August',
-	'S_SEPTEMBER'=>			'September',
-	'S_OCTOBER'=>			'October',
-	'S_NOVEMBER'=>			'November',
-	'S_DECEMBER'=>			'December',
-	
-	'S_INCORRECT_MAINTENANCE_PERIOD'=> 'Incorrect maintenance period',
-
-	
 //	hosts.php
 	'S_IN'=>					'In',
 	'S_APPLICATION'=>			'Application',
@@ -1307,7 +1201,6 @@
 	'S_PERCENTAGE'=>			'Percentage',
 	'S_SLA'=>				'SLA',
 	'S_HOUR'=>				'Hour',
-	'S_HOURS'=>				'Hours',
 	'S_MINUTE'=>			'Minute',
 	'S_DAY'=>				'Day',
 	'S_MONTH'=>				'Month',
@@ -1592,8 +1485,6 @@
 	'S_SHOW_NOFALSEFORB'=>				'Show all(no FALSE for B)',
 	'S_SHOW_UNACKNOWLEDGED'=>			'Show unacknowledged',
 	'S_SHOW_PROBLEM_UNACKNOWLEDGED'=>	'Show problem-unacknowledged',
-	'S_SHOW_ONLY_FALSE'=>				'Show only FALSE',
-	'S_SHOW_ONLY_TRUE'=>				'Show only TRUE',
 	'S_NOT_ACKNOWLEDGED'=>				'Not acknowledged',
 	'S_HIDE_DETAILS'=>					'Hide details',
 	'S_SHOW_DETAILS'=>					'Show details',

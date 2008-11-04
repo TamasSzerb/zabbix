@@ -409,12 +409,9 @@ FIELD		|graphid	|t_id		|'0'	|NOT NULL	|0
 FIELD		|name		|t_varchar(128)	|''	|NOT NULL	|ZBX_SYNC
 FIELD		|width		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|height		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|ymin_type	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|ymax_type	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
+FIELD		|yaxistype	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|yaxismin	|t_double	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|yaxismax	|t_double	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|ymin_itemid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|ymax_itemid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|templateid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|show_work_period|t_integer	|'1'	|NOT NULL	|ZBX_SYNC
 FIELD		|show_triggers	|t_integer	|'1'	|NOT NULL	|ZBX_SYNC
@@ -436,7 +433,6 @@ FIELD		|yaxisside	|t_integer	|'1'	|NOT NULL	|ZBX_SYNC
 FIELD		|calc_fnc	|t_integer	|'2'	|NOT NULL	|ZBX_SYNC
 FIELD		|type		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|periods_cnt	|t_integer	|'5'	|NOT NULL	|ZBX_SYNC
-INDEX		|graphs_items_1	|itemid
 
 TABLE|groups|groupid|ZBX_SYNC
 FIELD		|groupid	|t_id		|'0'	|NOT NULL	|0
@@ -474,10 +470,6 @@ FIELD		|ipmi_disable_until|t_integer	|'0'	|NOT NULL	|0
 FIELD		|ipmi_available	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|snmp_disable_until|t_integer	|'0'	|NOT NULL	|0
 FIELD		|snmp_available	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|maintenanceid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|maintenance_status|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|maintenance_type|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|maintenance_from|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 INDEX		|1		|host
 INDEX		|2		|status
 INDEX		|3		|proxy_hostid
@@ -837,55 +829,3 @@ FIELD		|valuemapid	|t_id		|'0'	|NOT NULL	|0
 FIELD		|name		|t_varchar(64)	|''	|NOT NULL	|ZBX_SYNC
 INDEX		|1		|name
 
-TABLE|maintenances|maintenanceid|ZBX_SYNC
-FIELD		|maintenanceid	|t_id		|'0'	|NOT NULL	|0
-FIELD		|name		|t_varchar(128)	|''	|NOT NULL	|ZBX_SYNC
-FIELD		|maintenance_type|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|description	|t_blob		|''	|NOT NULL	|ZBX_SYNC
-FIELD		|active_since	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|active_till	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-INDEX		|1		|active_since,active_till
-
-TABLE|maintenances_hosts|maintenance_hostid|ZBX_SYNC
-FIELD		|maintenance_hostid|t_id	|'0'	|NOT NULL	|0
-FIELD		|maintenanceid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|hostid		|t_id		|'0'	|NOT NULL	|ZBX_SYNC
-INDEX		|1		|maintenanceid,hostid
-
-TABLE|maintenances_groups|maintenance_groupid|ZBX_SYNC
-FIELD		|maintenance_groupid|t_id	|'0'	|NOT NULL	|0
-FIELD		|maintenanceid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|groupid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC
-INDEX		|1		|maintenanceid,groupid
-
-TABLE|maintenances_windows|maintenance_timeperiodid|ZBX_SYNC
-FIELD		|maintenance_timeperiodid|t_id	|'0'	|NOT NULL	|0
-FIELD		|maintenanceid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|timeperiodid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC
-INDEX		|1		|maintenanceid,timeperiodid
-
-TABLE|timeperiods|timeperiodid|ZBX_SYNC
-FIELD		|timeperiodid	|t_id		|'0'	|NOT NULL	|0
-FIELD		|timeperiod_type|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|every		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|month		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|dayofweek	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|day		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|start_time	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|period		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|date		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-
-TABLE|regexps|regexpid|ZBX_SYNC
-FIELD		|regexpid	|t_id		|'0'	|NOT NULL	|0
-FIELD		|name		|t_varchar(128)	|''	|NOT NULL	|ZBX_SYNC
-FIELD		|test_string	|t_blob		|''	|NOT NULL	|ZBX_SYNC
-INDEX		|1		|name
-
-TABLE|expressions|expressionid|ZBX_SYNC
-FIELD		|expressionid	|t_id		|'0'	|NOT NULL	|0
-FIELD		|regexpid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|expression	|t_varchar(255)	|''	|NOT NULL	|ZBX_SYNC
-FIELD		|expression_type|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|exp_delimiter	|t_varchar(1)	|''	|NOT NULL	|ZBX_SYNC
-FIELD		|case_sensitive	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-INDEX		|1		|regexpid

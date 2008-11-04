@@ -1820,10 +1820,6 @@ void	DBget_item_from_db(DB_ITEM *item,DB_ROW row)
 	item->ipmi_password	= row[44];
 	item->ipmi_sensor	= row[45];
 
-	item->maintenance_status	= atoi(row[46]);
-	item->maintenance_type		= atoi(row[47]);
-	item->maintenance_from		= atoi(row[48]);
-
 	switch (item->type) {
 		case ITEM_TYPE_ZABBIX:
 		case ITEM_TYPE_ZABBIX_ACTIVE:

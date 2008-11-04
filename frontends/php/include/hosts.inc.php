@@ -19,10 +19,10 @@
 **/
 ?>
 <?php
-require_once('include/graphs.inc.php');
-require_once('include/triggers.inc.php');
-require_once('include/items.inc.php');
-require_once('include/httptest.inc.php');
+require_once "include/graphs.inc.php";
+require_once "include/triggers.inc.php";
+require_once "include/items.inc.php";
+require_once "include/httptest.inc.php";
 
 /* HOST GROUP functions */
 	function add_host_to_group($hostid, $groupid){
@@ -204,10 +204,10 @@ require_once('include/httptest.inc.php');
 		}
 
 		if(is_null($hostid)){
-			$hostid = get_dbid('hosts','hostid');
-			$result = DBexecute('INSERT INTO hosts '.
+			$hostid = get_dbid("hosts","hostid");
+			$result = DBexecute('insert into hosts '.
 				' (hostid,proxy_hostid,host,port,status,useip,dns,ip,disable_until,available,useipmi,ipmi_port,ipmi_authtype,ipmi_privilege,ipmi_username,ipmi_password) '.
-				' VALUES ('.$hostid.','.$proxy_hostid.','.zbx_dbstr($host).','.$port.','.$status.','.$useip.','.zbx_dbstr($dns).','.zbx_dbstr($ip).',0,'
+				' values ('.$hostid.','.$proxy_hostid.','.zbx_dbstr($host).','.$port.','.$status.','.$useip.','.zbx_dbstr($dns).','.zbx_dbstr($ip).',0,'
 					.HOST_AVAILABLE_UNKNOWN.','.($useipmi == 'yes' ? 1 : 0).','.$ipmi_port.','.$ipmi_authtype.','.$ipmi_privilege.','.zbx_dbstr($ipmi_username).','
 					.zbx_dbstr($ipmi_password).')');
 		}
@@ -233,16 +233,16 @@ require_once('include/httptest.inc.php');
 
 			update_host_status($hostid, $status);
 		}
-
+		
 		foreach($templates as $id => $name){
 			$hosttemplateid = get_dbid('hosts_templates', 'hosttemplateid');
-			if(!($result = DBexecute('INSERT INTO hosts_templates VALUES ('.$hosttemplateid.','.$hostid.','.$id.')')))
+			if(!($result = DBexecute('insert into hosts_templates values ('.$hosttemplateid.','.$hostid.','.$id.')')))
 				break;
 		}
 
 		if($result) $result = $hostid;
 
-	return $result;
+		return $result;
 	}
 
 /*
@@ -395,14 +395,14 @@ require_once('include/httptest.inc.php');
 	}
 
 	function delete_groups_by_hostid($hostid){
-		$sql='SELECT groupid FROM hosts_groups WHERE hostid='.$hostid;
+		$sql="select groupid from hosts_groups where hostid=$hostid";
 		$result=DBselect($sql);
 		while($row=DBfetch($result)){
 		
-			$sql='DELETE FROM hosts_groups WHERE hostid='.$hostid.' AND groupid='.$row['groupid'];
+			$sql="delete from hosts_groups where hostid=$hostid and groupid=".$row["groupid"];
 			DBexecute($sql);
 			
-			$sql='SELECT COUNT(*) as count FROM hosts_groups WHERE groupid='.$row['groupid'];
+			$sql="select count(*) as count from hosts_groups where groupid=".$row["groupid"];
 			$result2=DBselect($sql);
 			$row2=DBfetch($result2);
 			if($row2["count"]==0){
@@ -425,7 +425,6 @@ require_once('include/httptest.inc.php');
  */
 	function delete_host($hostids, $unlink_mode = false){
 		zbx_value2array($hostids);
-		if(empty($hostids)) return true;
 		
 		$ret = false;		
 // unlink child hosts
@@ -440,15 +439,13 @@ require_once('include/httptest.inc.php');
 		while($db_item = DBfetch($db_items)){
 			$del_items[$db_item['itemid']] = $db_item['itemid'];
 		}
-
-		delete_item($del_items);
+		if(!empty($del_items)){
+			delete_item($del_items);
+		}
 
 // delete host from maps
 		delete_sysmaps_elements_with_hostid($hostids);
-
-// delete host from maintenances
-		DBexecute('DELETE FROM maintenances_hosts WHERE '.DBcondition('hostid',$hostids));
-				
+		
 // delete host from group
 		DBexecute('DELETE FROM hosts_groups WHERE '.DBcondition('hostid',$hostids));
 
@@ -494,16 +491,12 @@ require_once('include/httptest.inc.php');
 
 	function delete_host_group($groupids){
 		zbx_value2array($groupids);
-		if(empty($groupids)) return true;
-
-// delete sysmap element
+		
 		if(!delete_sysmaps_elements_with_groupid($groupids))
 			return false;
 		
-// delete host from maintenances
-		DBexecute('DELETE FROM maintenances_groups WHERE '.DBcondition('groupid',$groupids));
-		
 // disable actions
+
 		$sql = 'SELECT DISTINCT actionid '.
 				' FROM conditions '.
 				' WHERE conditiontype='.CONDITION_TYPE_HOST_GROUP.
@@ -520,9 +513,9 @@ require_once('include/httptest.inc.php');
 		DBexecute('DELETE FROM conditions '.
 					' WHERE conditiontype='.CONDITION_TYPE_HOST_GROUP.
 						' AND '.DBcondition(zbx_dbcast_2bigint('value'),$groupids));	// FIXED[POSIBLE value type violation]!!!
-
-
-		DBexecute('DELETE FROM hosts_groups WHERE '.DBcondition('groupid',$groupids));
+						
+		if(!DBexecute('DELETE FROM hosts_groups WHERE '.DBcondition('groupid',$groupids)))
+			return false;
 
 	return DBexecute('DELETE FROM groups WHERE '.DBcondition('groupid',$groupids));
 	}
@@ -649,11 +642,19 @@ require_once('include/httptest.inc.php');
 
 	function get_host_by_hostid($hostid,$no_error_message=0){
 	
-		$sql="select * from hosts where hostid=$hostid";
+		$sql='SELECT * FROM hosts WHERE hostid='.$hostid;
 		$result=DBselect($sql);
 		$row=DBfetch($result);
-		if($row)
-		{
+		if($row){
+			if ($row['useipmi'] == 1){
+				if($row['useip'])
+					array_merge($row, array('ipmi_ip' => $row['dns']));
+				else
+					array_merge($row, array('ipmi_ip' => $row['ip']));
+			}
+			else
+				$row['ipmi_ip'] = '';
+
 			return $row;
 		}
 		if($no_error_message == 0)

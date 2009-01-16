@@ -19,20 +19,20 @@
 **/
 ?>
 <?php
-	define('ZABBIX_VERSION','1.7');
+	define('ZABBIX_VERSION','1.6.2');
 	
 	define('ZBX_AUTH_INTERNAL',	0);
 	define('ZBX_AUTH_LDAP',		1);
 	define('ZBX_AUTH_HTTP',		2);
-	
-	define('ZBX_LOGIN_ATTEMPTS', 	5);
-	define('ZBX_LOGIN_BLOCK', 		30); // sec
 	
 	define('PAGE_TYPE_HTML',		0);
 	define('PAGE_TYPE_IMAGE',		1);
 	define('PAGE_TYPE_XML',			2);
 	define('PAGE_TYPE_JS',			3);	//javascript
 	define('PAGE_TYPE_HTML_BLOCK',	4);	//simple block of html (as text)
+	
+	define('ZBX_LOGIN_ATTEMPTS', 	5);
+	define('ZBX_LOGIN_BLOCK', 		30); // sec
 	
 	define('ZBX_SESSION_ACTIVE', 0);
 	define('ZBX_SESSION_PASSIVE', 1);
@@ -81,35 +81,33 @@
 	define('AUDIT_ACTION_ENABLE',		5);
 	define('AUDIT_ACTION_DISABLE',		6);
 
-	define('AUDIT_RESOURCE_USER',			0);
-//	define('AUDIT_RESOURCE_ZABBIX',			1);
+	define('AUDIT_RESOURCE_USER',		0);
+//	define('AUDIT_RESOURCE_ZABBIX',		1);
 	define('AUDIT_RESOURCE_ZABBIX_CONFIG',	2);
-	define('AUDIT_RESOURCE_MEDIA_TYPE',		3);
-	define('AUDIT_RESOURCE_HOST',			4);
-	define('AUDIT_RESOURCE_ACTION',			5);
-	define('AUDIT_RESOURCE_GRAPH',			6);
+	define('AUDIT_RESOURCE_MEDIA_TYPE',	3);
+	define('AUDIT_RESOURCE_HOST',		4);
+	define('AUDIT_RESOURCE_ACTION',		5);
+	define('AUDIT_RESOURCE_GRAPH',		6);
 	define('AUDIT_RESOURCE_GRAPH_ELEMENT',	7);
-//	define('AUDIT_RESOURCE_ESCALATION',		8);
+//	define('AUDIT_RESOURCE_ESCALATION',	8);
 //	define('AUDIT_RESOURCE_ESCALATION_RULE',9);
 //	define('AUDIT_RESOURCE_AUTOREGISTRATION',10);
-	define('AUDIT_RESOURCE_USER_GROUP',		11);
+	define('AUDIT_RESOURCE_USER_GROUP',	11);
 	define('AUDIT_RESOURCE_APPLICATION',	12);
-	define('AUDIT_RESOURCE_TRIGGER',		13);
-	define('AUDIT_RESOURCE_HOST_GROUP',		14);
-	define('AUDIT_RESOURCE_ITEM',			15);
-	define('AUDIT_RESOURCE_IMAGE',			16);
-	define('AUDIT_RESOURCE_VALUE_MAP',		17);
-	define('AUDIT_RESOURCE_IT_SERVICE',		18);
-	define('AUDIT_RESOURCE_MAP',			19);
-	define('AUDIT_RESOURCE_SCREEN',			20);
-	define('AUDIT_RESOURCE_NODE',			21);
-	define('AUDIT_RESOURCE_SCENARIO',		22);
+	define('AUDIT_RESOURCE_TRIGGER',	13);
+	define('AUDIT_RESOURCE_HOST_GROUP',	14);
+	define('AUDIT_RESOURCE_ITEM',		15);
+	define('AUDIT_RESOURCE_IMAGE',		16);
+	define('AUDIT_RESOURCE_VALUE_MAP',	17);
+	define('AUDIT_RESOURCE_IT_SERVICE',	18);
+	define('AUDIT_RESOURCE_MAP',		19);
+	define('AUDIT_RESOURCE_SCREEN',		20);
+	define('AUDIT_RESOURCE_NODE',		21);
+	define('AUDIT_RESOURCE_SCENARIO',	22);
 	define('AUDIT_RESOURCE_DISCOVERY_RULE',	23);
 	define('AUDIT_RESOURCE_SLIDESHOW',	24);
 	define('AUDIT_RESOURCE_SCRIPT',		25);
 	define('AUDIT_RESOURCE_PROXY',		26);
-	define('AUDIT_RESOURCE_MAINTENANCE',27);
-	define('AUDIT_RESOURCE_REGEXP',			28);
 
 	define('CONDITION_TYPE_HOST_GROUP',	0);
 	define('CONDITION_TYPE_HOST',		1);
@@ -127,7 +125,6 @@
 	define('CONDITION_TYPE_HOST_TEMPLATE',	13);
 	define('CONDITION_TYPE_EVENT_ACKNOWLEDGED',	14);
 	define('CONDITION_TYPE_APPLICATION',	15);
-	define('CONDITION_TYPE_MAINTENANCE',	16);
 
 	define('CONDITION_OPERATOR_EQUAL',	0);
 	define('CONDITION_OPERATOR_NOT_EQUAL',	1);
@@ -148,16 +145,6 @@
 	define('HOST_AVAILABLE_UNKNOWN',	0);
 	define('HOST_AVAILABLE_TRUE',		1);
 	define('HOST_AVAILABLE_FALSE',		2);
-	
-	define('MAINTENANCE_TYPE_NORMAL', 	0);
-	define('MAINTENANCE_TYPE_NODATA', 	1);
-	
-	define('TIMEPERIOD_TYPE_ONETIME',	0);
-	define('TIMEPERIOD_TYPE_HOURLY',	1);
-	define('TIMEPERIOD_TYPE_DAILY',		2);
-	define('TIMEPERIOD_TYPE_WEEKLY',	3);
-	define('TIMEPERIOD_TYPE_MONTHLY',	4);
-	define('TIMEPERIOD_TYPE_YEARLY',	5);
 
 	define('MAP_LABEL_TYPE_LABEL',0);
 	define('MAP_LABEL_TYPE_IP',1);
@@ -199,10 +186,6 @@
 	define('ITEM_VALUE_TYPE_LOG',2);
 	define('ITEM_VALUE_TYPE_UINT64',3);
 	define('ITEM_VALUE_TYPE_TEXT',4);
-
-	define('ITEM_DATA_TYPE_DECIMAL',0);
-	define('ITEM_DATA_TYPE_OCTAL',1);
-	define('ITEM_DATA_TYPE_HEXADECIMAL',2);
 
 	define('ITEM_STATUS_ACTIVE',0);
 	define('ITEM_STATUS_DISABLED',1);
@@ -300,22 +283,20 @@
 	define('SCREEN_SIMPLE_ITEM',0);
 	define('SCREEN_DYNAMIC_ITEM',1);
 
-	define('SCREEN_RESOURCE_GRAPH', 		0);
-	define('SCREEN_RESOURCE_SIMPLE_GRAPH', 	1);
-	define('SCREEN_RESOURCE_MAP', 			2);
-	define('SCREEN_RESOURCE_PLAIN_TEXT', 	3);
-	define('SCREEN_RESOURCE_HOSTS_INFO', 	4);
+	define('SCREEN_RESOURCE_GRAPH', 0);
+	define('SCREEN_RESOURCE_SIMPLE_GRAPH', 1);
+	define('SCREEN_RESOURCE_MAP', 2);
+	define('SCREEN_RESOURCE_PLAIN_TEXT', 3);
+	define('SCREEN_RESOURCE_HOSTS_INFO', 4);
 	define('SCREEN_RESOURCE_TRIGGERS_INFO', 5);
-	define('SCREEN_RESOURCE_SERVER_INFO', 	6);
-	define('SCREEN_RESOURCE_CLOCK', 		7);
-	define('SCREEN_RESOURCE_SCREEN', 		8);
+	define('SCREEN_RESOURCE_SERVER_INFO', 6);
+	define('SCREEN_RESOURCE_CLOCK', 7);
+	define('SCREEN_RESOURCE_SCREEN', 8);
 	define('SCREEN_RESOURCE_TRIGGERS_OVERVIEW', 9);
 	define('SCREEN_RESOURCE_DATA_OVERVIEW', 10);
-	define('SCREEN_RESOURCE_URL', 			11);
-	define('SCREEN_RESOURCE_ACTIONS', 		12);
-	define('SCREEN_RESOURCE_EVENTS',		13);
-	define('SCREEN_RESOURCE_STATUS_OF_TRIGGERS', 14);
-	define('SCREEN_RESOURCE_SYSTEM_STATUS',	15);
+	define('SCREEN_RESOURCE_URL', 11);
+	define('SCREEN_RESOURCE_ACTIONS', 12);
+	define('SCREEN_RESOURCE_EVENTS',13);
 
 /* alignes */
 	define('HALIGN_DEFAULT',0);
@@ -439,17 +420,6 @@
 	define('EVENTS_OPTION_NOT_ACK',			3);		//	use 0 to disable
 	define('EVENTS_OPTION_ONLYTRUE_NOTACK',	4);		//	use 0 to disable
 	define('EVENTS_OPTION_NOFALSEFORB',		5);		//  reserved for TRIGGERS_OPTION_NOFALSEFORB, to disable set TRIGGERS_OPTION_NOFALSEFORB to 0
-	
-	define('EVENTS_NOFALSEFORB_STATUS_ALL',		0);	//	used with TRIGGERS_OPTION_NOFALSEFORB
-	define('EVENTS_NOFALSEFORB_STATUS_FALSE',	1);	//	used with TRIGGERS_OPTION_NOFALSEFORB
-	define('EVENTS_NOFALSEFORB_STATUS_TRUE',	2);	//	used with TRIGGERS_OPTION_NOFALSEFORB
-	
-	define('EXPRESSION_TYPE_INCLUDED',		0);
-	define('EXPRESSION_TYPE_ANY_INCLUDED',	1);
-	define('EXPRESSION_TYPE_NOT_INCLUDED',	2);
-	define('EXPRESSION_TYPE_TRUE',			3);
-	define('EXPRESSION_TYPE_FALSE',			4);
-	
 
 	define('DOBJECT_STATUS_UP',		0);
 	define('DOBJECT_STATUS_DOWN',		1);
@@ -481,6 +451,8 @@
 	
 	define('AVAILABLE_NOCACHE',	0);		// take available objects not from cache
 	
+	
+//	define('BR',	"<br/>\n");
 	define('SBR',	"<br/>\n");
 	define('SPACE',	'&nbsp;');
 	define('RARR',	'&rArr;');
@@ -595,14 +567,15 @@ else{
 	define('XML_TAG_DEPENDS',			'depends');
 
 /* Support for PHP5. PHP5 does not have $HTTP_..._VARS */
-	if(!function_exists('version_compare')){
+	if (!function_exists('version_compare'))
+	{
 		$_GET		= $HTTP_GET_VARS;
 		$_POST		= $HTTP_POST_VARS;
 		$_COOKIE	= $HTTP_COOKIE_VARS;
 	}
 
 /* if magic quotes on then get rid of them */
-	if(get_magic_quotes_gpc()){
+	if (get_magic_quotes_gpc()) {
 		$_GET    = zbx_stripslashes($_GET);
 		$_POST	 = zbx_stripslashes($_POST);
 		$_COOKIE = zbx_stripslashes($_COOKIE);

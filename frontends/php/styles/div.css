@@ -42,17 +42,6 @@ div.onajaxload{
 	z-index: 50;
 }
 
-
-/**** SCREEN DRAG & DROP ****/
-div.draggable {
-	cursor: pointer;
-}
-
-div.hoverclass123{
-	border:1px solid red;
-}
-/***************************/
-
 /********* DIV IMG *********/
 div.zabbix_logo{
 	height: 31px;
@@ -192,15 +181,6 @@ div.iconreset:hover{
 }
 /********* DIV IMG END *********/
 
-span.link{
-	color:#333399;
-}
-
-span.link:hover{
-	cursor: pointer;
-	text-decoration: underline;
-}
-
 span.footer_sign{
 	padding-right: 5px;
 	padding-left: 5px;
@@ -235,8 +215,4 @@ span.red{
 
 span.orange{
 	color:		#EE6000;
-}
-
-span.blue{
-	color:		#0033FF;
 }

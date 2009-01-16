@@ -23,12 +23,11 @@
 
 <!--
 
-var SCROLL_BAR = null;
+var SCROLL_BAR;
 var IMG_PATH='images/general/bar';
 //var cal = new calendar();
 
 function scrollinit(w,period,stime,timel,bar_stime){
-	if(!is_null(SCROLL_BAR)) return;
 	if(typeof(w) == 'undefined'){
 		throw "Parametrs haven't been sent properly";
 		return false;
@@ -113,8 +112,8 @@ disabled: 1,			// activates/disables scrollbar
 xp:	0,					// exponential of time length
 
 initialize: function(stime,period,bar_stime,width){ // where to put bar on start(time on graph)
-//	try{
-		if(empty(this.scrl_scroll)) this.scrollcreate(width);
+	try{
+		if(empty(this.scrl_scroll)) this.scrollcreate(0,0,width);
 		
 		this.period = period;
 		this.barX = 0;
@@ -162,12 +161,14 @@ initialize: function(stime,period,bar_stime,width){ // where to put bar on start
 		this.settabinfo();
 
 		this.changed = 0; // we need to reset this attribute, because generaly we may already performe a movement
-	try{
-	} 
-	catch(e){
+	} catch(e){
 		throw "ERROR: ScrollBar initialization failed!";
 		return false;
 	}
+},
+
+showscroll: function(top,left){
+	this.scrl_scroll.setStyle({top: top+'px', left: left+'px'});
 },
 
 onbarchange: function(){		
@@ -589,16 +590,13 @@ return str;
 /*-------------------------------------------------------------------------------------------------*\
 *										SCROLL CREATION												*
 \*-------------------------------------------------------------------------------------------------*/
-scrollcreate: function(w){
-	var scr_cntnr = $('scroll_cntnr');
-	if(is_null(scr_cntnr)) throw('ERROR: SCROLL [scrollcreate]: scroll container node is not found!');
-	
+scrollcreate: function(x,y,w){
 	this.scrl_scroll = document.createElement('div');
-	scr_cntnr.appendChild(this.scrl_scroll);
+	document.getElementsByTagName('body')[0].appendChild(this.scrl_scroll);
 
 	Element.extend(this.scrl_scroll);
 	this.scrl_scroll.setAttribute('id','scroll');
-	this.scrl_scroll.setStyle({top: '20px', left: '0px',width: (17*2+w)+'px',visibility: 'hidden'});
+	this.scrl_scroll.setStyle({top: y+'px', left: x+'px',width: (17*2+w)+'px',visibility: 'hidden'});
 	
 
 	this.scrl_tabinfoleft = document.createElement('div');

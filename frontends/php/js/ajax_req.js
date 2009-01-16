@@ -20,29 +20,29 @@
 
 function send_params(params){
 
-	var url = new Curl(location.href);
-	new Ajax.Request(url.getPath()+"?output=ajax",
+	var uri = new url(location.href);
+	new Ajax.Request(uri.getPath()+"?output=ajax",
 					{
 						'method': 'post',
 						'parameters':params,
-						'onSuccess': function(resp){ },
-//						'onSuccess': function(resp){ alert(resp.responseText); },
-						'onFailure': function(){ document.location = url.getPath()+'?'+Object.toQueryString(params); }
+						'onSuccess': function(resp){ },//alert(resp.responseText);
+						'onFailure': function(){ document.location = uri.getPath()+'?'+Object.toQueryString(params); }
 					}
 	);
 }
 
 
-function setRefreshRate(id,interval,params){
+function setRefreshRate(id,interval){
 	if(typeof(Ajax) == 'undefined'){
 		throw("Prototype.js lib is required!");
 		return false;
 	}
-	
-	if((typeof(params) == 'undefined') || is_null(params))  var params = {};
-	params['favobj'] = 'set_rf_rate';
-	params['favid'] = 	id;
-	params['favcnt'] = 	interval;
+
+	var params = {
+		'favobj': 	'set_rf_rate',
+		'favid': 	id,
+		'favcnt':	interval
+	}
 
 	send_params(params);
 }

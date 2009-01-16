@@ -501,15 +501,40 @@
 
 						if(!isset($data['valuemapid']))
 							$data['valuemapid'] = $item['valuemapid'];
-	
-							$data['key_'] = $data['key'];
-							$data['hostid'] = $this->data[XML_TAG_HOST]['hostid'];
-							$data['applications'] = array_unique(array_merge($data['applications'],get_applications_by_itemid($item['itemid'])));
-							$data['templateid'] = $item['templateid'];
-							
-							check_db_fields($item, $data));
-							
-						update_item($item['itemid'], $data);
+
+						update_item(
+							$item['itemid'],
+							$data['description'],
+							$data['key'],
+							$this->data[XML_TAG_HOST]['hostid'],
+							$data['delay'],
+							$data['history'],
+							$data['status'],
+							$data['type'],
+							$data['snmp_community'],
+							$data['snmp_oid'],
+							$data['value_type'],
+							$data['trapper_hosts'],
+							$data['snmp_port'],
+							$data['units'],
+							$data['multiplier'],
+							$data['delta'],
+							$data['snmpv3_securityname'],
+							$data['snmpv3_securitylevel'],
+							$data['snmpv3_authpassphrase'],
+							$data['snmpv3_privpassphrase'],
+							$data['formula'],
+							$data['trends'],
+							$data['logtimefmt'],
+							$data['valuemapid'],
+							$data['delay_flex'],
+							$data['params'],
+							$data['ipmi_sensor'],
+							array_unique(array_merge(
+								$data['applications'],
+								get_applications_by_itemid($item['itemid'])
+								)),
+							$item['templateid']);
 					}
 					else{ /* missed */
 						if($this->item['missed']==1) /* skip */{
@@ -520,10 +545,34 @@
 						if( !isset($data['valuemapid']) )
 							$data['valuemapid'] = 0;
 
-						$data['hostid'] = $this->data[XML_TAG_HOST]['hostid'];
-						$data['key_'] = $data['key'];
-						
-						add_item($data);
+						add_item(
+							$data['description'],
+							$data['key'],
+							$this->data[XML_TAG_HOST]['hostid'],
+							$data['delay'],
+							$data['history'],
+							$data['status'],
+							$data['type'],
+							$data['snmp_community'],
+							$data['snmp_oid'],
+							$data['value_type'],
+							$data['trapper_hosts'],
+							$data['snmp_port'],
+							$data['units'],
+							$data['multiplier'],
+							$data['delta'],
+							$data['snmpv3_securityname'],
+							$data['snmpv3_securitylevel'],
+							$data['snmpv3_authpassphrase'],
+							$data['snmpv3_privpassphrase'],
+							$data['formula'],
+							$data['trends'],
+							$data['logtimefmt'],
+							$data['valuemapid'],
+							$data['delay_flex'],
+							$data['params'],
+							$data['ipmi_sensor'],
+							$data['applications']);
 					}
 
 					break; // case
@@ -624,12 +673,7 @@
 						break; // case
 					}
 
-					if(!isset($data['ymin_type']))		$data['ymin_type']		= 0;
-					if(!isset($data['ymax_type']))		$data['ymax_type']		= 0;
-
-					if(!isset($data['ymin_itemid']))	$data['ymin_itemid']	= 0;
-					if(!isset($data['ymax_itemid']))	$data['ymax_itemid']	= 0;
-					
+					if(!isset($data['yaxistype']))			$data['yaxistype']		= 0;
 					if(!isset($data['show_work_period']))	$data['show_work_period']	= 1;
 					if(!isset($data['show_triggers']))		$data['show_triggers']		= 1;
 					if(!isset($data['graphtype']))			$data['graphtype']		= 0;
@@ -673,12 +717,9 @@
 								$data['name'],
 								$data['width'],
 								$data['height'],
-								$data['ymin_type'],
-								$data['ymax_type'],
+								$data['yaxistype'],
 								$data['yaxismin'],
 								$data['yaxismax'],
-								$data['ymin_itemid'],
-								$data['ymax_itemid'],
 								$data['show_work_period'],
 								$data['show_triggers'],
 								$data['graphtype'],
@@ -704,12 +745,9 @@
 							$data['name'],
 							$data['width'],
 							$data['height'],
-							$data['ymin_type'],
-							$data['ymax_type'],
+							$data['yaxistype'],
 							$data['yaxismin'],
 							$data['yaxismax'],
-							$data['ymin_itemid'],
-							$data['ymax_itemid'],
 							$data['show_work_period'],
 							$data['show_triggers'],
 							$data['graphtype'],

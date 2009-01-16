@@ -1,6 +1,7 @@
+// JavaScript Document
 /*
 ** ZABBIX
-** Copyright (C) 2000-2009 SIA Zabbix
+** Copyright (C) 2000-2008 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -16,7 +17,6 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-// JavaScript Document
 // DOM obj update class
 // Author: Aly
 var updater = {
@@ -28,23 +28,13 @@ inloadobj:		new Array(),			// array containing updated obj and statuses
 	setObj4Update: function(id,frequency,url,params){
 		var obj = document.getElementById(id);
 		if((typeof(obj) == 'undefined')) return false; 
-
-		var lastupdate = 0;
-		if(typeof(params['lastupdate']) != 'undefined'){
-			lastupdate = params['lastupdate'];
-		}
-		else{
-			delete(params['lastupdate']);
-		}
-
-		if(typeof(params['upd_counter']) == 'undefined') params['upd_counter'] = 0;		
-
+	
 		var obj4update = {
 			'id': 		id,
 			'url': 		url,
 			'params': 	params,
 			'interval': frequency,
-			'lastupdate': lastupdate,
+			'lastupdate': 0,
 			'ready': true
 		}
 		
@@ -61,7 +51,7 @@ inloadobj:		new Array(),			// array containing updated obj and statuses
 			
 			for(var i=0; i < this.objlist.length; i++){
 				if((typeof(this.optlist[this.objlist[i]]) != 'undefined') && !empty(this.optlist[this.objlist[i]])){
-//				alert(Math.abs(now - this.optlist[this.objlist[i]].lastupdate));
+	//				alert(Math.abs(now - this.optlist[this.objlist[i]].lastupdate));
 					if(this.optlist[this.objlist[i]].ready && (this.optlist[this.objlist[i]].interval <= Math.abs(now - this.optlist[this.objlist[i]].lastupdate))){
 						this.update(this.optlist[this.objlist[i]],now);
 					}
@@ -73,9 +63,8 @@ inloadobj:		new Array(),			// array containing updated obj and statuses
 	
 	update: function(obj4update,time){
 		obj4update.ready = false;
-		obj4update.params.upd_counter++;
 		
-		var uri = new Curl(obj4update.url);
+		var uri = new url(obj4update.url);
 		new Ajax.Updater(obj4update.id, obj4update.url,
 			{
 				method: 'post',
@@ -88,38 +77,42 @@ inloadobj:		new Array(),			// array containing updated obj and statuses
 							resp.responseText = $(obj4update.id).innerHTML;
 //							return false;
 						}
-//						SDI(resp.responseText);
 						
 						obj4update.lastupdate = time; 
 						obj4update.ready = true;
-					},
+					},	//SDI(resp.responseText);
 				'onFailure': function(){ document.location = uri.getPath()+'?'+Object.toQueryString(obj4update.params); }
-			});
+			});	
 	},
 	
-	onetime_update: function(obj, url_path, params){
+	onetime_update: function(obj,update_url){
 		obj = $(obj);
 		
-		if((typeof(url_path) == 'undefined') || (empty(url_path))){
-			var url_path = new Curl(location.href);
-			url_path = url_path.getPath();
+		if(!is_string(update_url)){
+			var upd_form = $(update_url);
+			if(('undefined' != upd_form.tagName) && (upd_form.tagName.toLowerCase() == 'form')){
+				update_url = '?'+upd_form.serialize();
+			}
+		}
+				
+		this.setLoadingImg(obj);
+		
+		var uri = new url(update_url);
+		var params = {
+			'favobj': 	'refresh',
+			'favid': 	obj.id,
+			'output':	'html'
 		}
 		
-		if(typeof(params) == 'undefined'){
-			var params = {};
-		}
-						
-		this.setLoadingImg(obj);
-				
-		if('undefined' != typeof(this.optlist[obj.id])){
+		if('undefined' != this.optlist[obj.id]){
 			var dt = new Date();
-			this.optlist[obj.id].lastupdate = parseInt(dt.getTime()/1000);
+			this.optlist[obj.id].lastupdate = parseInt(dt.getTime()/1000)
 			this.optlist[obj.id].url = update_url+(empty(update_url)?'?':'&')+Object.toQueryString(params);
 		}
-//SDI_json(params);
-		var ajax_result = new Ajax.Updater(obj, url_path,
+
+		var ajax_result = new Ajax.Updater(obj, update_url,
 			{
-				'method': 		'post',
+				method: 		'post',
 				'parameters':	params,
 				'evalScripts': 	true,
 				'onSuccess': 	function(resp){ 

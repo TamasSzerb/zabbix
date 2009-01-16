@@ -140,8 +140,7 @@ COpt::profiling_start("page");
 						),
 					array(
 							'url'=>'screens.php',
-							'label'=>S_SCREENS,
-							'sub_pages'=>array('slides.php')
+							'label'=>S_SCREENS	
 						),
 					array(
 							'url'=>'maps.php',
@@ -177,12 +176,7 @@ COpt::profiling_start("page");
 				'pages'=>array(
 					array('url'=>'report1.php',	'label'=>S_STATUS_OF_ZABBIX	),
 					array('url'=>'report2.php',	'label'=>S_AVAILABILITY_REPORT	),
-					array('url'=>'report5.php',	'label'=>S_TRIGGERS_TOP_100	),
-					array(
-							'url'=>'report6.php',	
-							'label'=>S_BAR_REPORTS,
-							'sub_pages'=>array('popup_period.php','popup_bitem.php','chart_bar.php')
-						),
+					array('url'=>'report5.php',	'label'=>S_TRIGGERS_TOP_100	)   
 					)
 				),
 		'config'=>array(
@@ -202,10 +196,7 @@ COpt::profiling_start("page");
 							'label'=>S_WEB,
 							'sub_pages'=>array('popup_httpstep.php')
 						),
-					array(
-							'url'=>'hosts.php',
-							'label'=>S_HOSTS
-						),
+					array('url'=>'hosts.php'	,'label'=>S_HOSTS),
 					array(
 							'url'=>'items.php',
 							'label'=>S_ITEMS,
@@ -435,13 +426,21 @@ COpt::profiling_start("page");
 
 <script type="text/javascript" src="js/prototype.js"></script>
 <script type="text/javascript" src="js/common.js"></script>
-<script type="text/javascript" src="js/curl.js"></script>
 <script type="text/javascript" src="js/ajax_req.js"></script>
+<script type="text/javascript" src="js/url.js"></script>
 <script type="text/javascript" src="js/chkbxrange.js"></script>
 <?php
 	if(isset($page['scripts']) && is_array($page['scripts'])){
 		foreach($page['scripts'] as $id => $script){
-			print('    <script type="text/javascript" src="js/'.$script.'"></script>'."\n");
+			if(file_exists('js/'.$script)){
+				echo '    <script type="text/javascript" src="js/'.$script.'"></script>'."\n";
+			} 
+			else if(file_exists($script)){
+				echo '    <script type="text/javascript" src="'.$script.'"></script>'."\n";
+			} 
+			else {
+				echo '<!-- js script "'.$script.'" not found-->'."\n";
+			}
 		}
 	}
 ?>
@@ -512,13 +511,12 @@ COpt::compare_files_with_menu($ZBX_MENU);
 		if(ZBX_DISTRIBUTED){
 			$lst_nodes = new CComboBox('switch_node', get_current_nodeid(false), 'submit()');
 			$available_nodes = get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_LIST);
-
 			$db_nodes = DBselect('SELECT * '.
 						' FROM nodes '.
 						' WHERE '.DBcondition('nodeid',$available_nodes).
 						' ORDER BY name ');
 			while($node_data = DBfetch($db_nodes)){
-				$lst_nodes->addItem($node_data['nodeid'],$node_data['name']);
+				$lst_nodes->AddItem($node_data['nodeid'],$node_data['name']);
 			}
 
 			if($lst_nodes->ItemsCount() > 0){
@@ -530,8 +528,8 @@ COpt::compare_files_with_menu($ZBX_MENU);
 					global $ZBX_WITH_SUBNODES;
 
 					$cmd_show_subnodes = new CComboBox('show_subnodes', !empty($ZBX_WITH_SUBNODES) ? 1 : 0, 'submit()');
-					$cmd_show_subnodes->addItem(0, S_CURRENT_NODE_ONLY);
-					$cmd_show_subnodes->addItem(1, S_WITH_SUBNODES);
+					$cmd_show_subnodes->AddItem(0, S_CURRENT_NODE_ONLY);
+					$cmd_show_subnodes->AddItem(1, S_WITH_SUBNODES);
 
 					$node_form->addItem(array(SPACE, new CSpan(S_SHOW,'textcolorstyles'), $cmd_show_subnodes));
 				}
@@ -540,15 +538,14 @@ COpt::compare_files_with_menu($ZBX_MENU);
 //				$node_form->AddItem(new CButton('submit',S_SWITCH_NODE));
 			}
 		}
-
+		
 		$table = new CTable();
 		$table->setCellSpacing(0);
 		$table->setCellPadding(0);
 		$table->addOption('style','width: 100%;');
 
 		$r_col = new CCol($node_form);
-		$r_col->AddOption('align','right');
-//		$r_col->AddOption('style','text-align: right;');
+		$r_col->addOption('style','text-align: right;');
 		
 		$table->addRow(array($menu_table,$r_col));
 		$table->Show();
@@ -557,7 +554,7 @@ COpt::compare_files_with_menu($ZBX_MENU);
 		$sub_menu_table->setCellSpacing(0);
 		$sub_menu_table->setCellPadding(5);
 		
-		if(empty($sub_menu_row)) $sub_menu_row = '&nbsp;';
+		(empty($sub_menu_row))?($sub_menu_row = '&nbsp;'):('');
 		$sub_menu_table->addRow(new CCol($sub_menu_row));
 		$sub_menu_table->Show();
 	}

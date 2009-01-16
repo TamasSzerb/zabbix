@@ -228,7 +228,7 @@ class CLdap{
 			$sr = ldap_search($this->ds, $base, $filter, array($this->cnf['groupkey']));
 	
 			if(!$sr){
-				error('LDAP: Reading group memberships failed');
+				error('LDAP: Reading group memberships failed');		
 				return false;
 			}
 		

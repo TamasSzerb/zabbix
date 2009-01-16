@@ -163,7 +163,7 @@ int	put_data_to_server(zbx_sock_t *sock, struct zbx_json *j)
 	ret = SUCCEED;
 exit:
 	zabbix_log(LOG_LEVEL_DEBUG, "End of put_data_to_server():%s",
-			zbx_result_string(ret));
+			ret == SUCCEED ? "SUCCEED" : "FAIL");
 
 	return ret;
 }

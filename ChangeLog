@@ -1,26 +1,8 @@
-Changes for 1.7.0
-
- - [ZBX-643] fixed no print data for bar reports (Artem)
- - [DEV-231] improved dynamic graph usability in slideshow screen (Artem)
- - [DEV-258] added additional reports based on bar graphs (Artem)
- - [DEV-257] added bar graph class (Artem)
- - [DEV-252] improved audit log of host groups,hosts,items and media types (Sasha)
- - [DEV-266] added support of octal and hexadecimal data (Sasha)
- - [DEV-253] improved audit log filtering (Artem)
- - [DEV-267] improved item template-update (Artem)
- - [DEV-261] added triggers status to screens (Artem)
- - [DEV-256] improved multiple labels in maps and support of macros (Sasha)
- - [DEV-265] added popups with links to "Status of trigger" & "Events history" pages (Artem)
- - [DEV-262] added group filtering  for "Trigger info" (Artem)
- - [DEV-259] added internal links (Artem)
- - [DEV-251] added improved screen editing (Artem)
- - [DEV-249] added support of advanced regular expressions (Artem,Sasha)
- - [DEV-247] added enhancement to the Graph function (Artem)
- - [DEV-233,DEV-237] added support of scheduled maintenance periods (Artem,Sasha)
-
 Changes for 1.6.2
 
  - [ZBX-653] fixes for postgresql (Artem)
+ - [DEV-137] fixed compilation warnings (Sasha)
+ - [ZBX-652] improved support of SNMP items (Sasha)
  - [ZBX-589] added processing of quoted numbers ("0.5" => float 0.5) (Sasha)
  - [DEV-275] changed value processing. Multiplier after delta (Sasha)
  - [DEV-274] added overflow check for uint64 for incoming values (Sasha)
@@ -84,6 +66,7 @@ Changes for 1.6.2
  - [ZBX-592] fixed incorrect {TRIGGER.STATUS} value in recovery message (Sasha)
  - [DEV-250] added support of vm.memory.size under AIX (Sasha)
  - [DEV-250] added full support of proc.num/mem under Linux 2.4/2.6, Solaris and AIX (Sasha)
+ - [ZBX-588] fixed undefined variable in trigger status page (Artem)
  - [ZBX-587] fixed LDAP test functionality (Artem)
 
 Changes for 1.6.1
@@ -93,6 +76,7 @@ Changes for 1.6.1
  - [DEV-250] added support of vfs.dev.read/write under Linux 2.4/2.6 (Sasha)
  - [ZBX-576] added IPMI authentication algorithms (Sasha)
  - [ZBX-573] made SQL optimization for PGSQL (Artem)
+ - [ZBX-572] fixed warning messages while updating template linkage (Sasha)
  - [ZBX-570] fixed possible server crash if flexible interval delay is 0 sec. (Sasha)
  - [ZBX-565] fixed filtering of conf->triggers (Artem)
  - [ZBX-562] fixed improper host group delete action (Artem)
@@ -112,6 +96,7 @@ Changes for 1.6.1
  - [ZBX-520] removed action condition "event ack" due to not supported (Artem)
  - [ZBX-480] fixed patches for sysmaps_links table (Sasha)
  - [ZBX-521] fixed problem in FreeBSD with threads in proc.num and proc.mem items (Sasha)
+ - [ZBX-519] removed proxy hosts from applications hosts list (Artem)
  - [DEV-238] added support of sec|#num for function count() (Sasha)
  - [DEV-238] added support of text items for function count() (Sasha)
  - [ZBX-471] fixed problem with graphs with big values (Artem)
@@ -1987,8 +1972,8 @@ Changes for 1.0beta10:
  - added column items.multiplier (Alexei)
  - added column items.units (Alexei)
  - added table 'stats' (Alexei)
- - support for spaces in trigger expression. Thanks to Sbastien "Slix"
- Linard. (Alexei)
+ - support for spaces in trigger expression. Thanks to S?bastien "Slix"
+ Li?nard. (Alexei)
  - dynamic form items.php (Alexei)
  - added zabbix.spec. 'rpm -ta zabbix.tar.gz'. Thanks to Harald Holzer. (Alexei)
  - dynamic form config.php (Alexei)
@@ -2004,7 +1989,7 @@ Changes for 1.0beta9:
 
  - added severity to media definition (Alexei)
  - add media.severity (Alexei)
- - added support for check_service_perf[*]. Thanks to Jrgen Schmitz (Alexei)
+ - added support for check_service_perf[*]. Thanks to J?rgen Schmitz (Alexei)
  - added parameter AlertScriptsPath to zabbix_suckerd (Alexei)
  - added support for alternative medias (Alexei)
  - added src/zabbix_sucker/alerter.h (Alexei)
@@ -2019,8 +2004,8 @@ Changes for 1.0beta9:
  - added support for functions abschange(),change(),delta(),sum(), 
  count() and avg() in trigger expressions (Alexei)
  - fixed plaintext values for string data type. Thanks to
- Sbastien "Slix" Linard. (Alexei)
- - misc fixes for services.php. Thanks to Sbastien "Slix" Linard.
+ S?bastien "Slix" Li?nard. (Alexei)
+ - misc fixes for services.php. Thanks to S?bastien "Slix" Li?nard.
  (Alexei)
  - different styles for user-defined graphs (Alexei)
  - cached memory in bytes (not in Kb as before) (Alexei)
@@ -2148,8 +2133,8 @@ Changes for 1.0beta7:
  - items.php: "Delay" renamed to "Update interval". (Alexei)
  - fixed precision issues in zabbix_agent(d) and zabbix_suckerd. All floats
    converted to double. (Alexei)
- - fixed selection of icon and host in sysmap.php. Thanks to Sbastien "slix"
-   Linard. (Alexei)
+ - fixed selection of icon and host in sysmap.php. Thanks to S?bastien "slix"
+   Li?nard. (Alexei)
  - monitoring of servers without Zabbix agent installed. New item type: Simple
    Check. (Alexei)
  - improved performance of pinger.pl (Alexei)

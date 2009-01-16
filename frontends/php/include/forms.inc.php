@@ -1,7 +1,7 @@
 <?php
 /*
 ** ZABBIX
-** Copyright (C) 2000-2008 SIA Zabbix
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -386,44 +386,16 @@
 		$form->AddRow(S_UPDATE_INTERVAL_IN_SEC, new CNumericBox("delay",$delay,5));
 		
 		$cmbAgent = new CEditableComboBox('agent', $agent, 80);
-// IE6
 		$cmbAgent->AddItem('Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; .NET CLR 2.0.50727)',
 			'Internet Explorer 6.0 on Windows XP SP2 with .NET Framework 2.0 installed');
-// IE7			
-		$cmbAgent->AddItem('Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Trident/4.0; .NET CLR 1.1.4322; .NET CLR 2.0.50727; .NET CLR 3.0.04506.648; .NET CLR 3.5.21022)', 'Internet Explorer 7.0 on Windows XP SP3 with .NET Framework 3.5 installed');
-// FF 1.5
 		$cmbAgent->AddItem('Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.8.0.7) Gecko/20060909 Firefox/1.5.0.7',
 			'Mozilla Firefox 1.5.0.7 on Windows XP');
 		$cmbAgent->AddItem('Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.0.7) Gecko/20060909 Firefox/1.5.0.7',
 			'Mozilla Firefox 1.5.0.7 on Linux');
-// FF 2.0	
-		$cmbAgent->AddItem('Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.8.1.18) Gecko/20081029 Firefox/2.0.0.18',
-			'Mozilla Firefox 2.0.0.18 on Windows XP');
-		$cmbAgent->AddItem('Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.8.1.18) Gecko/20081029 Firefox/2.0.0.18',
-			'Mozilla Firefox 2.0.0.18 on Linux');
-// FF 3.0
-		$cmbAgent->AddItem('Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.1) Gecko/2008070208 Firefox/3.0.1',
-			'Mozilla Firefox 3.0.1 on Windows XP');
-		$cmbAgent->AddItem('Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.0.1) Gecko/2008070208 Firefox/3.0.1',
-			'Mozilla Firefox 3.0.1 on Linux');
-// OP 9.0	
 		$cmbAgent->AddItem('Opera/9.02 (Windows NT 5.1; U; en)',
 			'Opera 9.02 on Windows XP');
 		$cmbAgent->AddItem('Opera/9.02 (X11; Linux i686; U; en)',
 			'Opera 9.02 on Linux');
-// OP 9.6	
-		$cmbAgent->AddItem('Opera/9.61 (Windows NT 5.1; U; en) Presto/2.1.1',
-			'Opera 9.61 on Windows XP');
-		$cmbAgent->AddItem('Opera/9.61 (X11; Linux i686; U; en) Presto/2.1.1',
-			'Opera 9.61 on Linux');
-// SF 3.1
-		$cmbAgent->AddItem('Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US) AppleWebKit/525.19 (KHTML, like Gecko) Version/3.1.2 Safari/525.21',
-			'Safari 3.1.2 on Windows XP');
-		$cmbAgent->AddItem('Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10_5_4; en-us) AppleWebKit/527.2+ (KHTML, like Gecko) Version/3.1.2 Safari/525.20.1',
-			'Safari 3.1.2 on Intel Mac OS X 10.5.4');
-		$cmbAgent->AddItem('Mozilla/5.0 (iPhone; U; CPU iPhone OS 2_1 like Mac OS X; fr-fr) AppleWebKit/525.18.1 (KHTML, like Gecko) Mobile/5F136',
-			'Safari on iPhone');
-		
 		$cmbAgent->AddItem('Lynx/2.8.4rel.1 libwww-FM/2.14',
 			'Lynx 2.8.4rel.1 on Linux');
 		$cmbAgent->AddItem('Googlebot/2.1 (+http://www.google.com/bot.html)',
@@ -1023,15 +995,15 @@
 
 		ksort($group_rights);
 
-		$frmUserG = new CFormTable($frm_title,'users.php');
-		$frmUserG->SetHelp('web.users.groups.php');
-		$frmUserG->AddVar('config',get_request('config',1));
+		$frmUserG = new CFormTable($frm_title,"users.php");
+		$frmUserG->SetHelp("web.users.groups.php");
+		$frmUserG->AddVar("config",get_request("config",1));
 
-		if(isset($_REQUEST['usrgrpid'])){
-			$frmUserG->AddVar('usrgrpid',$_REQUEST['usrgrpid']);
+		if(isset($_REQUEST["usrgrpid"])){
+			$frmUserG->AddVar("usrgrpid",$_REQUEST["usrgrpid"]);
 		}
 		
-		$grName = new CTextBox('gname',$name,49);
+		$grName = new CTextBox("gname",$name,49);
 		$grName->options['style'] = 'width: 280px';
 		$frmUserG->AddRow(S_GROUP_NAME,$grName);
 
@@ -1234,7 +1206,6 @@
 		$filter_snmpv3_authpassphrase	= $_REQUEST['filter_snmpv3_authpassphrase'];
 		$filter_snmpv3_privpassphrase	= $_REQUEST['filter_snmpv3_privpassphrase'];
 		$filter_value_type				= $_REQUEST['filter_value_type'];
-		$filter_data_type				= $_REQUEST['filter_data_type'];
 		$filter_units					= $_REQUEST['filter_units'];
 		$filter_formula					= $_REQUEST['filter_formula'];
 		$filter_delay					= $_REQUEST['filter_delay'];
@@ -1349,17 +1320,7 @@
 			$cmbValType->AddItem(ITEM_VALUE_TYPE_LOG, 	S_LOG);
 			$cmbValType->AddItem(ITEM_VALUE_TYPE_TEXT,	S_TEXT);
 			$form->AddRow(array('with ',bold(S_TYPE_OF_INFORMATION)),$cmbValType);
-
-			if ($filter_value_type == ITEM_VALUE_TYPE_UINT64)
-			{
-				$cmbDataType = new CComboBox("filter_data_type", $filter_data_type, "submit()");
-				$cmbDataType->AddItem(-1,				S_ALL_SMALL);
-				$cmbDataType->AddItem(ITEM_DATA_TYPE_DECIMAL,		item_data_type2str(ITEM_DATA_TYPE_DECIMAL));
-				$cmbDataType->AddItem(ITEM_DATA_TYPE_OCTAL,		item_data_type2str(ITEM_DATA_TYPE_OCTAL));
-				$cmbDataType->AddItem(ITEM_DATA_TYPE_HEXADECIMAL, 	item_data_type2str(ITEM_DATA_TYPE_HEXADECIMAL));
-				$form->AddRow(array('with ', bold(S_DATA_TYPE)), $cmbDataType);
-			}
-
+			
 			if( ($filter_value_type==ITEM_VALUE_TYPE_FLOAT) || ($filter_value_type==ITEM_VALUE_TYPE_UINT64))
 			{
 				$form->AddRow(array('with ',bold(S_UNITS)), new CTextBox("filter_units",$filter_units,40));
@@ -1406,7 +1367,7 @@
 
 		$reset = new CButton("filter_rst",S_RESET);
 		$reset->SetType('button');
-		$reset->SetAction('javascript: var uri = new Curl(location.href); uri.setArgument("filter_rst",1); location.href = uri.getUrl();');
+		$reset->SetAction('javascript: var uri = new url(location.href); uri.setArgument("filter_rst",1); location.href = uri.getUrl();');
 	
 		$form->AddItemToBottomRow(new CButton("filter_set",S_FILTER));
 		$form->AddItemToBottomRow($reset);
@@ -1439,7 +1400,6 @@
 		$snmp_oid		= get_request('snmp_oid'	,'interfaces.ifTable.ifEntry.ifInOctets.1');
 		$snmp_port		= get_request('snmp_port'	,161);
 		$value_type		= get_request('value_type'	,ITEM_VALUE_TYPE_UINT64);
-		$data_type		= get_request('data_type'	,ITEM_DATA_TYPE_DECIMAL);
 		$trapper_hosts	= get_request('trapper_hosts'	,'');
 		$units			= get_request('units'		,'');
 		$valuemapid		= get_request('valuemapid'	,0);
@@ -1495,7 +1455,6 @@
 			$snmp_oid		= $item_data['snmp_oid'];
 			$snmp_port		= $item_data['snmp_port'];
 			$value_type		= $item_data['value_type'];
-			$data_type		= $item_data['data_type'];
 			$trapper_hosts	= $item_data['trapper_hosts'];
 			$units			= $item_data['units'];
 			$valuemapid		= $item_data['valuemapid'];
@@ -1685,23 +1644,7 @@
 			$cmbValType->AddItem(ITEM_VALUE_TYPE_TEXT,	S_TEXT);
 		}
 		$frmItem->AddRow(S_TYPE_OF_INFORMATION,$cmbValType);
-
-		if ($value_type == ITEM_VALUE_TYPE_UINT64) {
-			if(isset($limited)) {
-				$frmItem->AddVar('data_type', $data_type);
-				$cmbDataType = new CTextBox('data_type_name', item_data_type2str($data_type), 20, 'yes');
-			}
-			else {
-				$cmbDataType = new CComboBox('data_type', $data_type, 'submit()');
-				$cmbDataType->AddItem(ITEM_DATA_TYPE_DECIMAL,		item_data_type2str(ITEM_DATA_TYPE_DECIMAL));
-				$cmbDataType->AddItem(ITEM_DATA_TYPE_OCTAL,		item_data_type2str(ITEM_DATA_TYPE_OCTAL));
-				$cmbDataType->AddItem(ITEM_DATA_TYPE_HEXADECIMAL, 	item_data_type2str(ITEM_DATA_TYPE_HEXADECIMAL));
-			}
-			$frmItem->AddRow(S_DATA_TYPE,$cmbDataType);
-		}
-		else
-			$frmItem->AddVar('data_type', $data_type);
-
+		
 		if( ($value_type==ITEM_VALUE_TYPE_FLOAT) || ($value_type==ITEM_VALUE_TYPE_UINT64)){
 			$frmItem->AddRow(S_UNITS, new CTextBox('units',$units,40, $limited));
 
@@ -1915,7 +1858,6 @@
 		$snmp_oid	= get_request('snmp_oid'	,'interfaces.ifTable.ifEntry.ifInOctets.1');
 		$snmp_port	= get_request('snmp_port'	,161);
 		$value_type	= get_request('value_type'	,ITEM_VALUE_TYPE_UINT64);
-		$data_type	= get_request('data_type'	,ITEM_DATA_TYPE_DECIMAL);
 		$trapper_hosts	= get_request('trapper_hosts'	,'');
 		$units		= get_request('units'		,'');
 		$valuemapid	= get_request('valuemapid'	,0);
@@ -2004,13 +1946,6 @@
 		$frmItem->AddRow(array( new CVisibilityBox('value_type_visible', get_request('value_type_visible'), 'value_type', S_ORIGINAL),
 			S_TYPE_OF_INFORMATION), $cmbValType);
 		
-		$cmbDataType = new CComboBox('data_type',$data_type);
-		$cmbDataType->AddItem(ITEM_DATA_TYPE_DECIMAL,		item_data_type2str(ITEM_DATA_TYPE_DECIMAL));
-		$cmbDataType->AddItem(ITEM_DATA_TYPE_OCTAL,		item_data_type2str(ITEM_DATA_TYPE_OCTAL));
-		$cmbDataType->AddItem(ITEM_DATA_TYPE_HEXADECIMAL, 	item_data_type2str(ITEM_DATA_TYPE_HEXADECIMAL));
-		$frmItem->AddRow(array( new CVisibilityBox('data_type_visible', get_request('data_type_visible'), 'data_type', S_ORIGINAL),
-			S_DATA_TYPE), $cmbDataType);
-
 		$frmItem->AddRow(array( new CVisibilityBox('units_visible', get_request('units_visible'), 'units', S_ORIGINAL), S_UNITS),
 			new CTextBox('units',$units,40));
 
@@ -2417,24 +2352,16 @@
 			$name		=$row['name'];
 			$width		=$row['width'];
 			$height		=$row['height'];
-			$ymin_type	=$row["ymin_type"];
-			$ymax_type	=$row["ymax_type"];
-			
+			$yaxistype	=$row['yaxistype'];
 			$yaxismin	=$row['yaxismin'];
 			$yaxismax	=$row['yaxismax'];
-
-			$ymin_itemid	=	$row["ymin_itemid"];
-			$ymax_itemid	=	$row["ymax_itemid"];
-
 			$showworkperiod = $row['show_work_period'];
 			$showtriggers	= $row['show_triggers'];
 			$graphtype	= $row['graphtype'];
 			$legend		= $row['show_legend'];
 			$graph3d	= $row['show_3d'];
-
 			$percent_left	= $row['percent_left'];
 			$percent_right	= $row['percent_right'];
-
 
 			$db_items = DBselect('SELECT * FROM graphs_items WHERE graphid='.$_REQUEST['graphid']);
 			while($item = DBfetch($db_items)){
@@ -2464,15 +2391,9 @@
 				$height		= get_request('height'		,200);
 			}
 			
-			$ymin_type	= get_request("ymin_type"	,GRAPH_YAXIS_TYPE_CALCULATED);
-			$ymax_type	= get_request("ymax_type"	,GRAPH_YAXIS_TYPE_CALCULATED);
-			
-			$yaxismin	= get_request("yaxismin"	,0.00);
-			$yaxismax	= get_request("yaxismax"	,100.00);
-			
-			$ymin_itemid	= get_request("ymin_itemid"	,0);
-			$ymax_itemid	= get_request("ymax_itemid"	,0);
-
+			$yaxistype	= get_request('yaxistype'	,GRAPH_YAXIS_TYPE_CALCULATED);
+			$yaxismin	= get_request('yaxismin'	,0.00);
+			$yaxismax	= get_request('yaxismax'	,100.00);
 			$showworkperiod = get_request('showworkperiod'	,0);
 			$showtriggers	= get_request('showtriggers'	,0);
 			$legend		= get_request('legend'	,0);
@@ -2491,16 +2412,9 @@
 		$_REQUEST['name']		= $name;
 		$_REQUEST['width']		= $width;
 		$_REQUEST['height']		= $height;
-
-		$_REQUEST['ymin_type']		= $ymin_type;
-		$_REQUEST['ymax_type']		= $ymax_type;
-		
+		$_REQUEST['yaxistype']		= $yaxistype;
 		$_REQUEST['yaxismin']		= $yaxismin;
 		$_REQUEST['yaxismax']		= $yaxismax;
-
-		$_REQUEST['ymin_itemid']		= $ymin_itemid;
-		$_REQUEST['ymax_itemid']		= $ymax_itemid;
-		
 		$_REQUEST['showworkperiod']	= $showworkperiod;
 		$_REQUEST['showtriggers']	= $showtriggers;
 		$_REQUEST['graphtype']		= $graphtype;
@@ -2520,9 +2434,6 @@
 		asort_by_key($items, 'sortorder');
 
 		$group_gid = get_request('group_gid', array());
-		
-		$frmGraph->addVar('ymin_itemid',$ymin_itemid);
-		$frmGraph->addVar('ymax_itemid',$ymax_itemid);
 	
 		$frmGraph->AddRow(S_NAME,new CTextBox('name',$name,32));
 		
@@ -2571,85 +2482,26 @@
 				$frmGraph->AddRow(S_PERCENTILE_LINE.' ('.S_RIGHT.')',array($pr_right_chkbx,$pr_right_input));
 			}
 
-			$yaxis_min = array();
-			
-			$cmbYType = new CComboBox('ymin_type',$ymin_type,'javascript: submit();');
-			$cmbYType->addItem(GRAPH_YAXIS_TYPE_CALCULATED,S_CALCULATED);
-			$cmbYType->addItem(GRAPH_YAXIS_TYPE_FIXED,S_FIXED);
-			$cmbYType->addItem(GRAPH_YAXIS_TYPE_ITEM_VALUE,S_ITEM);
-			
-			$yaxis_min[] = $cmbYType;
-	
-			if($ymin_type == GRAPH_YAXIS_TYPE_FIXED){
-				$yaxis_min[] = new CTextBox("yaxismin",$yaxismin,9);
-			}
-			else if($ymin_type == GRAPH_YAXIS_TYPE_ITEM_VALUE){
-				$frmGraph->addVar('yaxismin',$yaxismin);
-				
-				$ymin_name = '';
-				if($ymin_itemid > 0){
-					$min_host = get_host_by_itemid($ymin_itemid);		
-					$min_item = get_item_by_itemid($ymin_itemid);
-					$ymin_name = $min_host['host'].':'.item_description($min_item);
-				}
-				
-				$yaxis_min[] = new CTextBox("ymin_name",$ymin_name,80,'yes');
-				$yaxis_min[] = new CButton('yaxis_min',S_SELECT,'javascript: '.
-												"return PopUp('popup.php?dstfrm=".$frmGraph->getName().
-													"&dstfld1=ymin_itemid".
-													"&dstfld2=ymin_name".
-													"&srctbl=items".
-													"&srcfld1=itemid".
-													"&srcfld2=description',0,0,'zbx_popup_item');");			
+			$cmbYType = new CComboBox('yaxistype',$yaxistype,'graphs.submit(this)');
+			$cmbYType->AddItem(GRAPH_YAXIS_TYPE_CALCULATED,S_CALCULATED);
+			$cmbYType->AddItem(GRAPH_YAXIS_TYPE_CALCULATED_0_MIN,S_CALCULATED_0_MIN);
+			$cmbYType->AddItem(GRAPH_YAXIS_TYPE_FIXED,S_FIXED);
+
+			$frmGraph->AddRow(S_YAXIS_TYPE,$cmbYType);
+
+			if($yaxistype == GRAPH_YAXIS_TYPE_FIXED){
+				$frmGraph->AddRow(S_YAXIS_MIN_VALUE,new CTextBox('yaxismin',$yaxismin,9));
+				$frmGraph->AddRow(S_YAXIS_MAX_VALUE,new CTextBox('yaxismax',$yaxismax,9));
 			}
 			else{
-				$frmGraph->addVar('yaxismin',$yaxismin);
-			}
-				
-			$frmGraph->addRow(S_YAXIS_MIN_VALUE, $yaxis_min);
-	
-			$yaxis_max = array();
-			
-			$cmbYType = new CComboBox("ymax_type",$ymax_type,"submit()");
-			$cmbYType->addItem(GRAPH_YAXIS_TYPE_CALCULATED,S_CALCULATED);
-			$cmbYType->addItem(GRAPH_YAXIS_TYPE_FIXED,S_FIXED);
-			$cmbYType->addItem(GRAPH_YAXIS_TYPE_ITEM_VALUE,S_ITEM);
-			
-			$yaxis_max[] = $cmbYType;
-					
-			if($ymax_type == GRAPH_YAXIS_TYPE_FIXED){
-				$yaxis_max[] = new CTextBox("yaxismax",$yaxismax,9);
-			}
-			else if($ymax_type == GRAPH_YAXIS_TYPE_ITEM_VALUE){
-				$frmGraph->addVar('yaxismax',$yaxismax);
-				
-				$ymax_name = '';
-				if($ymax_itemid > 0){
-					$max_host = get_host_by_itemid($ymax_itemid);
-					$max_item = get_item_by_itemid($ymax_itemid);
-					$ymax_name = $max_host['host'].':'.item_description($max_item);
-				}
-	
-				$yaxis_max[] = new CTextBox("ymax_name",$ymax_name,80);
-				$yaxis_max[] = new CButton('yaxis_max',S_SELECT,'javascript: '.
-												"return PopUp('popup.php?dstfrm=".$frmGraph->getName().
-													"&dstfld1=ymax_itemid".
-													"&dstfld2=ymax_name".
-													"&srctbl=items".
-													"&srcfld1=itemid".
-													"&srcfld2=description',0,0,'zbx_popup_item');");
-			}
-			else{
-				$frmGraph->addVar('yaxismax',$yaxismax);
-			}
-	
-			$frmGraph->AddRow(S_YAXIS_MAX_VALUE, $yaxis_max);
-		}		
+				$frmGraph->AddVar('yaxismin',$yaxismin);
+				$frmGraph->AddVar('yaxismax',$yaxismax);
+			}			
+		} 
 		else {
 			$frmGraph->AddRow(S_3D_VIEW,new CCheckBox('graph3d',$graph3d,'javascript: graphs.submit(this);',1));
 			$frmGraph->AddRow(S_LEGEND,new CCheckBox('legend',$legend,'javascript: graphs.submit(this);',1));
 		}
-
 
 		$only_hostid = null;
 		$monitored_hosts = null;
@@ -2745,6 +2597,144 @@
 		$frmGraph->Show();
 	}
 
+	function	insert_graphitem_form()
+	{
+
+
+		$frmGItem = new CFormTable(S_NEW_ITEM_FOR_THE_GRAPH);
+		$frmGItem->SetName('graph_item');
+		$frmGItem->SetHelp("web.graph.item.php");
+
+		$frmGItem->AddVar('dstfrm',$_REQUEST['dstfrm']);
+
+		$graphid	= get_request("graphid", 	null);
+		$graphtype	= get_request("graphtype", 	GRAPH_TYPE_NORMAL);
+		$gid		= get_request("gid",	 	null);
+		$list_name	= get_request("list_name", 	null);
+		$itemid		= get_request("itemid", 	0);
+		$color		= get_request("color", 		'009900');
+		$drawtype	= get_request("drawtype",	0);
+		$sortorder	= get_request("sortorder",	0);
+		$yaxisside	= get_request("yaxisside",	1);
+		$calc_fnc	= get_request("calc_fnc",	2);
+		$type		= get_request("type",		0);
+		$periods_cnt	= get_request("periods_cnt",	5);
+		$only_hostid	= get_request("only_hostid",	null);
+		$monitored_hosts = get_request('monitored_hosts', null);
+
+		$description = '';
+		if($itemid > 0){
+			$description = get_item_by_itemid($itemid);
+			$description = item_description($description);
+		}
+		
+		$frmGItem->AddVar('graphid',$graphid);
+		$frmGItem->AddVar('gid',$gid);
+		$frmGItem->AddVar('list_name',$list_name);
+		$frmGItem->AddVar('itemid',$itemid);
+		$frmGItem->AddVar('graphtype',$graphtype);
+		$frmGItem->AddVar('only_hostid',$only_hostid);
+
+		$txtCondVal = new CTextBox('description',$description,50,'yes');
+
+		$host_condition = "";
+		if(isset($only_hostid)){// graph for template must use only one host
+			$host_condition = "&only_hostid=".$only_hostid;
+		}
+		else if(isset($monitored_hosts)){
+			$host_condition = "&monitored_hosts=1";
+		}
+
+		$btnSelect = new CButton('btn1',S_SELECT,
+				"return PopUp('popup.php?dstfrm=".$frmGItem->GetName().
+				"&dstfld1=itemid&dstfld2=description&".
+				"srctbl=items&srcfld1=itemid&srcfld2=description".$host_condition."');",
+				'T');
+		
+		$frmGItem->AddRow(S_PARAMETER ,array($txtCondVal,$btnSelect));
+
+		if($graphtype == GRAPH_TYPE_NORMAL){
+			$cmbType = new CComboBox("type",$type,"submit()");
+			$cmbType->AddItem(GRAPH_ITEM_SIMPLE, S_SIMPLE);
+			$cmbType->AddItem(GRAPH_ITEM_AGGREGATED, S_AGGREGATED);
+			$frmGItem->AddRow(S_TYPE, $cmbType);
+		}
+		else if(($graphtype == GRAPH_TYPE_PIE) || ($graphtype == GRAPH_TYPE_EXPLODED)){
+			$cmbType = new CComboBox("type",$type,"submit()");
+			$cmbType->AddItem(GRAPH_ITEM_SIMPLE, S_SIMPLE);
+			$cmbType->AddItem(GRAPH_ITEM_SUM, S_GRAPH_SUM);
+			$frmGItem->AddRow(S_TYPE, $cmbType);
+		}
+		else{
+			$frmGItem->AddVar("type",GRAPH_ITEM_SIMPLE);
+		}
+
+		if($type == GRAPH_ITEM_AGGREGATED){
+			$frmGItem->AddRow(S_AGGREGATED_PERIODS_COUNT,	new CTextBox("periods_cnt",$periods_cnt,15)); 
+
+			$frmGItem->AddVar("calc_fnc",$calc_fnc);
+			$frmGItem->AddVar("drawtype",$drawtype);
+			$frmGItem->AddVar("color",$color);
+		}
+		else {
+			if(($graphtype == GRAPH_TYPE_PIE) || ($graphtype == GRAPH_TYPE_EXPLODED)){
+				$frmGItem->AddVar("periods_cnt",$periods_cnt);
+	
+				$cmbFnc = new CComboBox("calc_fnc",$calc_fnc,'submit();');
+	
+				$cmbFnc->AddItem(CALC_FNC_MIN, S_MIN_SMALL);
+				$cmbFnc->AddItem(CALC_FNC_AVG, S_AVG_SMALL);
+				$cmbFnc->AddItem(CALC_FNC_MAX, S_MAX_SMALL);
+				$cmbFnc->AddItem(CALC_FNC_LST, S_LST_SMALL);
+				$frmGItem->AddRow(S_FUNCTION, $cmbFnc);		
+			}
+			else{
+				$frmGItem->AddVar("periods_cnt",$periods_cnt);
+	
+				$cmbFnc = new CComboBox("calc_fnc",$calc_fnc,'submit();');
+	
+				if($graphtype == GRAPH_TYPE_NORMAL)
+					$cmbFnc->AddItem(CALC_FNC_ALL, S_ALL_SMALL);
+	
+				$cmbFnc->AddItem(CALC_FNC_MIN, S_MIN_SMALL);
+				$cmbFnc->AddItem(CALC_FNC_AVG, S_AVG_SMALL);
+				$cmbFnc->AddItem(CALC_FNC_MAX, S_MAX_SMALL);
+				$frmGItem->AddRow(S_FUNCTION, $cmbFnc);
+	
+				if($graphtype == GRAPH_TYPE_NORMAL)
+				{
+					$cmbType = new CComboBox("drawtype",$drawtype);
+					foreach( graph_item_drawtypes() as $i )
+					{
+						$cmbType->AddItem($i,graph_item_drawtype2str($i));
+					}
+					$frmGItem->AddRow(S_DRAW_STYLE, $cmbType);
+				}
+				else
+				{
+					$frmGItem->AddVar("drawtype", 1);
+				}
+			}
+
+			$frmGItem->AddRow(S_COLOR, new CColor('color',$color));
+		}
+		if(($graphtype == GRAPH_TYPE_NORMAL) || ($graphtype == GRAPH_TYPE_STACKED)){
+			$cmbYax = new CComboBox("yaxisside",$yaxisside);
+			$cmbYax->AddItem(GRAPH_YAXIS_SIDE_RIGHT, S_RIGHT);
+			$cmbYax->AddItem(GRAPH_YAXIS_SIDE_LEFT,	S_LEFT);
+			$frmGItem->AddRow(S_YAXIS_SIDE, $cmbYax);
+		}
+
+		if($type != GRAPH_ITEM_SUM){
+			$frmGItem->AddRow(S_SORT_ORDER_1_100, new CTextBox("sortorder",$sortorder,3));
+		}
+
+		$frmGItem->AddItemToBottomRow(new CButton("save", isset($gid) ? S_SAVE : S_ADD));
+
+		$frmGItem->AddItemToBottomRow(new CButtonCancel(null,'close_window();'));
+		$frmGItem->Show();
+	}
+
 	function	insert_value_mapping_form()
 	{
 
@@ -2824,701 +2814,6 @@
 		$frmValmap->Show();
 	}
 
-	function get_maintenance_form(){
-		$frm_title = S_MAINTENANCE;
-
-		if(isset($_REQUEST['maintenanceid']) && !isset($_REQUEST["form_refresh"])){
-			$sql = 'SELECT m.* '.
-				' FROM maintenances m '.
-				' WHERE '.DBin_node('m.maintenanceid').
-					' AND m.maintenanceid='.$_REQUEST['maintenanceid'];
-			$maintenance = DBfetch(DBSelect($sql));
-
-			$frm_title = S_USER.' ['.$maintenance['name'].']';
-
-			$mname				= $maintenance['name'];
-			$maintenance_type	= $maintenance['maintenance_type'];
-			
-			$active_since		= $maintenance['active_since'];
-			$active_till		= $maintenance['active_till'];
-			
-			$description		= $maintenance['description'];
-			
-		}
-		else{
-
-			$mname				= get_request('mname','');
-			$maintenance_type	= get_request('maintenance_type',0);
-			
-			$active_since		= get_request('active_since',time());
-			$active_till		= get_request('active_till',time()+86400);
-
-			$description		= get_request('description','');
-		}
-
-		$tblMntc = new CTable('','nowrap');
-
-		$tblMntc->AddRow(array(S_NAME, new CTextBox('mname', $mname, 50)));
-
-/* form row generation */
-		$cmbType =  new CComboBox('maintenance_type', $maintenance_type);
-		$cmbType->AddItem(MAINTENANCE_TYPE_NORMAL, S_NORMAL_PROCESSING);
-		$cmbType->AddItem(MAINTENANCE_TYPE_NODATA, S_NO_DATA_PROCESSING);
-		$tblMntc->AddRow(array(S_MAINTENANCE_TYPE, $cmbType));
-
-
-/***********************************************************/	
-
-		$tblMntc->AddItem(new Cvar('active_since',$active_since));
-		$tblMntc->AddItem(new Cvar('active_till',$active_till));
-	
-		$clndr_icon = new CImg('images/general/bar/cal.gif','calendar', 16, 12, 'pointer');
-
-		$clndr_icon->AddAction('onclick','javascript: '.
-											'var pos = getPosition(this); '.
-											'pos.top+=10; '.
-											'pos.left+=16; '.
-											"CLNDR['mntc_active_since'].clndr.clndrshow(pos.top,pos.left);");
-		
-		$filtertimetab = new CTable(null,'calendar');
-		$filtertimetab->AddOption('width','10%');
-		
-		$filtertimetab->SetCellPadding(0);
-		$filtertimetab->SetCellSpacing(0);
-	
-		$filtertimetab->AddRow(array(
-								new CNumericBox('mntc_since_day',(($active_since>0)?date('d',$active_since):''),2),
-								'/',
-								new CNumericBox('mntc_since_month',(($active_since>0)?date('m',$active_since):''),2),
-								'/',
-								new CNumericBox('mntc_since_year',(($active_since>0)?date('Y',$active_since):''),4),
-								SPACE,
-								new CNumericBox('mntc_since_hour',(($active_since>0)?date('H',$active_since):''),2),
-								':',
-								new CNumericBox('mntc_since_minute',(($active_since>0)?date('i',$active_since):''),2),
-								$clndr_icon
-						));
-						
-		zbx_add_post_js('create_calendar(null,'.
-						'["mntc_since_day","mntc_since_month","mntc_since_year","mntc_since_hour","mntc_since_minute"],'.
-						'"mntc_active_since",'.
-						'"active_since");');
-
-		$clndr_icon->AddAction('onclick','javascript: '.
-											'var pos = getPosition(this); '.
-											'pos.top+=10; '.
-											'pos.left+=16; '.
-											"CLNDR['mntc_active_till'].clndr.clndrshow(pos.top,pos.left);");
-		
-		$tblMntc->AddRow(array(S_ACTIVE_SINCE,$filtertimetab));
-		
-		$filtertimetab = new CTable(null,'calendar');
-		$filtertimetab->AddOption('width','10%');
-		
-		$filtertimetab->SetCellPadding(0);
-		$filtertimetab->SetCellSpacing(0);
-		
-		$filtertimetab->AddRow(array(
-								new CNumericBox('mntc_till_day',(($active_till>0)?date('d',$active_till):''),2),
-								'/',
-								new CNumericBox('mntc_till_month',(($active_till>0)?date('m',$active_till):''),2),
-								'/',
-								new CNumericBox('mntc_till_year',(($active_till>0)?date('Y',$active_till):''),4),
-								SPACE,
-								new CNumericBox('mntc_till_hour',(($active_till>0)?date('H',$active_till):''),2),
-								':',
-								new CNumericBox('mntc_till_minute',(($active_till>0)?date('i',$active_till):''),2),
-								$clndr_icon
-						));
-		zbx_add_post_js('create_calendar(null,'.
-						'["mntc_till_day","mntc_till_month","mntc_till_year","mntc_till_hour","mntc_till_minute"],'.
-						'"mntc_active_till",'.
-						'"active_till");');
-		
-		zbx_add_post_js('addListener($("hat_maintenance_icon"),'.
-									'"click",'.
-									'CLNDR["mntc_active_since"].clndr.clndrhide.bindAsEventListener(CLNDR["mntc_active_since"].clndr));');
-
-		zbx_add_post_js('addListener($("hat_maintenance_icon"),'.
-									'"click",'.
-									'CLNDR["mntc_active_till"].clndr.clndrhide.bindAsEventListener(CLNDR["mntc_active_till"].clndr));');
-		
-		$tblMntc->AddRow(array(S_ACTIVE_TILL, $filtertimetab));
-//-------			
-		
-		$tblMntc->AddRow(array(S_DESCRIPTION, new CTextArea('description', $description,66,5)));
-
-
-		$tblMaintenance = new CTableInfo();
-		$tblMaintenance->AddRow($tblMntc);
-
-		$td = new CCol(array(new CButton('save',S_SAVE)));
-		$td->AddOption('colspan','2');
-		$td->AddOption('style','text-align: right;');
-
-		if(isset($_REQUEST['maintenanceid'])){
-
-			$td->AddItem(SPACE);
-			$td->AddItem(new CButton('clone',S_CLONE));
-			$td->AddItem(SPACE);
-			$td->AddItem(new CButtonDelete(S_DELETE_MAINTENANCE_PERIOD_Q,url_param('form').url_param('config').url_param('maintenanceid')));
-				
-		}
-		$td->AddItem(SPACE);
-		$td->AddItem(new CButtonCancel(url_param("maintenanceid")));
-		
-		$tblMaintenance->SetFooter($td);
-	return $tblMaintenance;
-	}
-
-	function get_maintenance_hosts_form(&$form){
-		global $USER_DETAILS;
-		
-		$tblHlink = new CTableInfo();
-		$tblHlink->AddOption('style','background-color: #CCC;');
-	
-		$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE);
-
-		validate_group(PERM_READ_WRITE,array('real_hosts'),'web.last.conf.groupid');
-		
-		$cmbGroups = new CComboBox('groupid',get_request('groupid',0),'submit()');
-		$cmbGroups->addItem(0,S_ALL_S);
-		$sql = 'SELECT DISTINCT g.groupid,g.name '.
-				' FROM groups g,hosts_groups hg,hosts h '.
-				' WHERE '.DBcondition('h.hostid',$available_hosts).
-					' AND g.groupid=hg.groupid '.
-					' AND h.hostid=hg.hostid'.
-					' AND h.status IN ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.') '.
-				' ORDER BY g.name';
-
-		$result=DBselect($sql);
-		while($row=DBfetch($result)){
-			$cmbGroups->AddItem($row['groupid'],$row['name']);
-		}
-		
-		$td_groups = new CCol(array(S_GROUP,SPACE,$cmbGroups));
-		$td_groups->addOption('style','text-align: right;');
-//		$tblHlink->addRow($td_groups);
-		
-		$hostids = get_request('hostids', array());
-
-		$host_tb = new CTweenBox($form,'hostids',null,10);	
-
-		if(isset($_REQUEST['maintenanceid']) && !isset($_REQUEST["form_refresh"])){
-			$sql_from = ', maintenances_hosts mh ';
-			$sql_where = ' AND h.hostid=mh.hostid '.
-							' AND mh.maintenanceid='.$_REQUEST['maintenanceid'];
-		}
-		else{
-			$sql_from = '';
-			$sql_where =  'AND '.DBcondition('h.hostid',$hostids);
-		}
-		
-		$sql = 'SELECT DISTINCT h.hostid, h.host '.
-				' FROM hosts h '.$sql_from.
-				' WHERE '.DBcondition('h.hostid',$available_hosts).
-					$sql_where.
-					' AND h.status IN ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.') '.
-				' ORDER BY h.host';
-		$db_hosts = DBselect($sql);
-		while($host = DBfetch($db_hosts)){
-			$hostids[$host['hostid']] = $host['hostid'];			
-			$host_tb->AddItem($host['hostid'],$host['host'], true);			
-		}
-
-
-		$sql_from = '';
-		$sql_where = '';
-		if(isset($_REQUEST['groupid']) && ($_REQUEST['groupid']>0)){
-			$sql_from .= ', hosts_groups hg ';
-			$sql_where .= ' AND hg.groupid='.$_REQUEST['groupid'].
-							' AND h.hostid=hg.hostid ';
-		}
-		
-		$sql = 'SELECT DISTINCT h.* '.
-				' FROM hosts h '.$sql_from.
-				' WHERE '.DBcondition('h.hostid',$available_hosts).
-					' AND '.DBcondition('h.hostid',$hostids,true).
-					' AND h.status IN ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.') '.
-					$sql_where.
-				' ORDER BY h.host';
-		$db_hosts = DBselect($sql);
-		while($host = DBfetch($db_hosts)){
-			$host_tb->AddItem($host['hostid'],$host['host'], false);			
-		}
-
-		$tblHlink->addRow($host_tb->Get(S_IN.SPACE.S_MAINTENANCE,array(S_OTHER.SPACE.S_HOSTS.SPACE.'|'.SPACE.S_GROUP.SPACE,$cmbGroups)));
-		
-	return $tblHlink;
-	}
-	
-	function get_maintenance_groups_form($form){
-		global $USER_DETAILS;
-		
-		$tblGlink = new CTableInfo();
-		$tblGlink->AddOption('style','background-color: #CCC;');
-	
-		$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE);
-
-		
-		$groupids = get_request('groupids', array());
-
-		$group_tb = new CTweenBox($form,'groupids',null,10);	
-
-		if(isset($_REQUEST['maintenanceid']) && !isset($_REQUEST["form_refresh"])){
-			$sql_from = ', maintenances_groups mg ';
-			$sql_where = ' AND g.groupid=mg.groupid '.
-							' AND mg.maintenanceid='.$_REQUEST['maintenanceid'];
-		}
-		else{
-			$sql_from = '';
-			$sql_where =  'AND '.DBcondition('g.groupid',$groupids);
-		}
-		
-		$sql = 'SELECT DISTINCT g.groupid, g.name '.
-				' FROM hosts h, hosts_groups hg, groups g '.$sql_from.
-				' WHERE hg.groupid=g.groupid'.
-					' AND h.hostid=hg.hostid '.
-					' AND '.DBcondition('h.hostid',$available_hosts).
-					' AND h.status IN ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.') '.
-					$sql_where.
-				' ORDER BY g.name';
-//SDI($sql);
-		$db_groups = DBselect($sql);
-		while($group = DBfetch($db_groups)){
-			$groupids[$group['groupid']] = $group['groupid'];			
-			$group_tb->AddItem($group['groupid'],$group['name'], true);			
-		}
-
-		
-		$sql = 'SELECT DISTINCT g.* '.
-				' FROM hosts h, hosts_groups hg, groups g '.
-				' WHERE hg.groupid=g.groupid'.
-					' AND h.hostid=hg.hostid '.
-					' AND '.DBcondition('h.hostid',$available_hosts).
-					' AND '.DBcondition('g.groupid',$groupids,true).
-					' AND h.status IN ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.') '.
-				' ORDER BY g.name';
-		$db_groups = DBselect($sql);
-		while($group = DBfetch($db_groups)){
-			$group_tb->AddItem($group['groupid'],$group['name'], false);			
-		}
-
-		$tblGlink->addRow($group_tb->Get(S_IN.SPACE.S_MAINTENANCE,S_OTHER.SPACE.S_GROUPS));
-		
-	return $tblGlink;
-	}
-	
-	function get_maintenance_periods(){
-		$tblPeriod = new CTableInfo();
-		$tblPeriod->AddOption('style','background-color: #CCC;');
-	
-		if(isset($_REQUEST['maintenanceid']) && !isset($_REQUEST["form_refresh"])){
-			
-			$timeperiods = array();
-			$sql = 'SELECT DISTINCT mw.maintenanceid, tp.* '.
-					' FROM timeperiods tp, maintenances_windows mw '.
-					' WHERE mw.maintenanceid='.$_REQUEST['maintenanceid'].
-						' AND tp.timeperiodid=mw.timeperiodid '.
-					' ORDER BY tp.timeperiod_type ASC';
-			$db_timeperiods = DBselect($sql);
-			while($timeperiod = DBfetch($db_timeperiods)){
-				$timeperiods[] = $timeperiod;
-			}	
-			
-		}
-		else {			
-			$timeperiods = get_request('timeperiods', array());
-		}
-		
-		$tblPeriod->SetHeader(array(
-				new CCheckBox('all_periods',null,'CheckAll("'.S_PERIOD.'","all_periods","g_timeperiodid");'),
-				S_PERIOD_TYPE,
-				S_SHEDULE,
-				S_PERIOD,
-//				S_NEXT_RUN,
-				S_ACTION
-			));
-
-//		zbx_rksort($timeperiods);
-		foreach($timeperiods as $id => $timeperiod){
-			$period_type = timeperiod_type2str($timeperiod['timeperiod_type']);
-			$shedule_str = shedule2str($timeperiod);
-			
-			$tblPeriod->AddRow(array(
-				new CCheckBox('g_timeperiodid[]', 'no', null, $id),
-				$period_type,
-				new CCol($shedule_str, 'wraptext'),
-				zbx_date2age(0,$timeperiod['period']),
-//				0,
-				new CButton('edit_timeperiodid['.$id.']',S_EDIT)
-				));
-				
-			$tblPeriod->AddItem(new Cvar('timeperiods['.$id.'][timeperiod_type]',	$timeperiod['timeperiod_type']));
-			
-			$tblPeriod->AddItem(new Cvar('timeperiods['.$id.'][every]',				$timeperiod['every']));
-			$tblPeriod->AddItem(new Cvar('timeperiods['.$id.'][month]',				$timeperiod['month']));
-			$tblPeriod->AddItem(new Cvar('timeperiods['.$id.'][dayofweek]',			$timeperiod['dayofweek']));
-			$tblPeriod->AddItem(new Cvar('timeperiods['.$id.'][day]',				$timeperiod['day']));
-			$tblPeriod->AddItem(new Cvar('timeperiods['.$id.'][start_time]',		$timeperiod['start_time']));
-			$tblPeriod->AddItem(new Cvar('timeperiods['.$id.'][date]',				$timeperiod['date']));
-			$tblPeriod->AddItem(new Cvar('timeperiods['.$id.'][period]',			$timeperiod['period']));
-		}
-		unset($timeperiods);
-
-		$tblPeriodFooter = new CTableInfo(null);
-		
-		$oper_buttons = array();
-		if(!isset($_REQUEST['new_timeperiod'])){
-			$oper_buttons[] = new CButton('new_timeperiod',S_NEW);
-		}
-
-		if($tblPeriod->ItemsCount() > 0 ){
-			$oper_buttons[] = new CButton('del_timeperiod',S_DELETE_SELECTED);
-		}
-		
-		$td = new CCol($oper_buttons);
-		$td->AddOption('colspan',7);
-		$td->AddOption('style','text-align: right;');
-		
-
-		$tblPeriodFooter->SetFooter($td);
-// end of condition list preparation
-	return array($tblPeriod,$tblPeriodFooter);
-	}
-	
-	function get_timeperiod_form(){
-		$tblPeriod = new CTableInfo();
-
-		/* init new_timeperiod variable */
-		$new_timeperiod = get_request('new_timeperiod', array());
-
-		if(is_array($new_timeperiod) && isset($new_timeperiod['id'])){
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[id]',$new_timeperiod['id']));
-		}
-		
-		if(!is_array($new_timeperiod)){
-			$new_timeperiod = array();
-			$new_timeperiod['timeperiod_type'] = TIMEPERIOD_TYPE_ONETIME;
-		}
-
-		if(!isset($new_timeperiod['every']))			$new_timeperiod['every']		= 1;
-		if(!isset($new_timeperiod['day']))				$new_timeperiod['day']			= 1;
-		if(!isset($new_timeperiod['hour']))				$new_timeperiod['hour']			= 12;
-		if(!isset($new_timeperiod['minute']))			$new_timeperiod['minute']		= 0;
-		if(!isset($new_timeperiod['date']))				$new_timeperiod['date']			= 0;
-		
-		if(!isset($new_timeperiod['period_days']))		$new_timeperiod['period_days']	= 0;
-		if(!isset($new_timeperiod['period_hours']))		$new_timeperiod['period_hours']	= 1;
-
-		if(!isset($new_timeperiod['month_date_type']))	$new_timeperiod['month_date_type'] = !(bool)$new_timeperiod['day'];
-
-// START TIME
-		if(isset($new_timeperiod['start_time'])){
-			$new_timeperiod['hour'] = floor($new_timeperiod['start_time'] / 3600);
-			$new_timeperiod['minute'] = floor(($new_timeperiod['start_time'] - ($new_timeperiod['hour'] * 3600)) / 60);
-		}
-//--
-
-// PERIOD
-		if(isset($new_timeperiod['period'])){
-			$new_timeperiod['period_days'] = floor($new_timeperiod['period'] / 86400);
-			$new_timeperiod['period_hours'] = floor(($new_timeperiod['period'] - ($new_timeperiod['period_days'] * 86400)) / 3600);
-		}
-//--
-
-// DAYSOFWEEK
-		$dayofweek = '';
-		$dayofweek .= (!isset($new_timeperiod['dayofweek_mo']))?'0':'1';
-		$dayofweek .= (!isset($new_timeperiod['dayofweek_tu']))?'0':'1';
-		$dayofweek .= (!isset($new_timeperiod['dayofweek_we']))?'0':'1';
-		$dayofweek .= (!isset($new_timeperiod['dayofweek_th']))?'0':'1';
-		$dayofweek .= (!isset($new_timeperiod['dayofweek_fr']))?'0':'1';
-		$dayofweek .= (!isset($new_timeperiod['dayofweek_sa']))?'0':'1';
-		$dayofweek .= (!isset($new_timeperiod['dayofweek_su']))?'0':'1';
-
-		if(isset($new_timeperiod['dayofweek'])){
-			$dayofweek = zbx_num2bitstr($new_timeperiod['dayofweek'],true);	
-		}
-
-		$new_timeperiod['dayofweek_mo'] = $dayofweek[0];
-		$new_timeperiod['dayofweek_tu'] = $dayofweek[1];
-		$new_timeperiod['dayofweek_we'] = $dayofweek[2];
-		$new_timeperiod['dayofweek_th'] = $dayofweek[3];
-		$new_timeperiod['dayofweek_fr'] = $dayofweek[4];
-		$new_timeperiod['dayofweek_sa'] = $dayofweek[5];
-		$new_timeperiod['dayofweek_su'] = $dayofweek[6];
-//--
-
-// MONTHS		
-		$month = '';
-		$month .= (!isset($new_timeperiod['month_jan']))?'0':'1';
-		$month .= (!isset($new_timeperiod['month_feb']))?'0':'1';
-		$month .= (!isset($new_timeperiod['month_mar']))?'0':'1';
-		$month .= (!isset($new_timeperiod['month_apr']))?'0':'1';
-		$month .= (!isset($new_timeperiod['month_may']))?'0':'1';
-		$month .= (!isset($new_timeperiod['month_jun']))?'0':'1';
-		$month .= (!isset($new_timeperiod['month_jul']))?'0':'1';
-		$month .= (!isset($new_timeperiod['month_aug']))?'0':'1';
-		$month .= (!isset($new_timeperiod['month_sep']))?'0':'1';
-		$month .= (!isset($new_timeperiod['month_oct']))?'0':'1';
-		$month .= (!isset($new_timeperiod['month_nov']))?'0':'1';
-		$month .= (!isset($new_timeperiod['month_dec']))?'0':'1';
-
-		if(isset($new_timeperiod['month'])){
-			$month = zbx_num2bitstr($new_timeperiod['month'],true);
-		}			
-
-		$new_timeperiod['month_jan'] = $month[0];
-		$new_timeperiod['month_feb'] = $month[1];
-		$new_timeperiod['month_mar'] = $month[2];
-		$new_timeperiod['month_apr'] = $month[3];
-		$new_timeperiod['month_may'] = $month[4];
-		$new_timeperiod['month_jun'] = $month[5];
-		$new_timeperiod['month_jul'] = $month[6];
-		$new_timeperiod['month_aug'] = $month[7];
-		$new_timeperiod['month_sep'] = $month[8];
-		$new_timeperiod['month_oct'] = $month[9];
-		$new_timeperiod['month_nov'] = $month[10];
-		$new_timeperiod['month_dec'] = $month[11];
-		
-//--	
-
-		$bit_dayofweek = zbx_str_revert($dayofweek);
-		$bit_month = zbx_str_revert($month);
-
-		$cmbType = new CComboBox('new_timeperiod[timeperiod_type]', $new_timeperiod['timeperiod_type'],'submit()');
-			$cmbType->AddItem(TIMEPERIOD_TYPE_ONETIME,	S_ONE_TIME_ONLY);
-			$cmbType->AddItem(TIMEPERIOD_TYPE_DAILY, 	S_DAILY);
-			$cmbType->AddItem(TIMEPERIOD_TYPE_WEEKLY, 	S_WEEKLY);
-			$cmbType->AddItem(TIMEPERIOD_TYPE_MONTHLY, 	S_MONTHLY);
-
-		$tblPeriod->AddRow(array(S_PERIOD_TYPE, $cmbType));		
-
-		if($new_timeperiod['timeperiod_type'] == TIMEPERIOD_TYPE_DAILY){
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[dayofweek]',bindec($bit_dayofweek)));
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[month]',bindec($bit_month)));
-						
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[day]',$new_timeperiod['day']));
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[date]',$new_timeperiod['date']));
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[month_date_type]',$new_timeperiod['month_date_type']));
-			
-			$tblPeriod->AddRow(array(S_EVERY_DAY_S, 	new CNumericBox('new_timeperiod[every]', $new_timeperiod['every'], 3)));
-		}
-		else if($new_timeperiod['timeperiod_type'] == TIMEPERIOD_TYPE_WEEKLY){
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[month]',bindec($bit_month)));
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[day]',$new_timeperiod['day']));
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[date]',$new_timeperiod['date']));
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[month_date_type]',$new_timeperiod['month_date_type']));
-
-			$tblPeriod->AddRow(array(S_EVERY_WEEK_S, 	new CNumericBox('new_timeperiod[every]', $new_timeperiod['every'], 2)));
-
-			$tabDays = new CTable();
-			$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_mo]',$dayofweek[0],null,1), S_MONDAY));
-			$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_tu]',$dayofweek[1],null,1), S_TUESDAY));
-			$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_we]',$dayofweek[2],null,1), S_WEDNESDAY));
-			$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_th]',$dayofweek[3],null,1), S_THURSDAY));
-			$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_fr]',$dayofweek[4],null,1), S_FRIDAY));
-			$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_sa]',$dayofweek[5],null,1), S_SATURDAY));
-			$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_su]',$dayofweek[6],null,1), S_SUNDAY));
-			
-			$tblPeriod->AddRow(array(S_DAY_OF_WEEK,$tabDays));	
-
-		}
-		else if($new_timeperiod['timeperiod_type'] == TIMEPERIOD_TYPE_MONTHLY){
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[date]',$new_timeperiod['date']));
-			
-			$tabMonths = new CTable();
-			$tabMonths->AddRow(array(
-								new CCheckBox('new_timeperiod[month_jan]',$month[0],null,1), S_JANUARY,
-								SPACE,SPACE,
-								new CCheckBox('new_timeperiod[month_jul]',$month[6],null,1), S_JULY
-								 ));
-								 
-			$tabMonths->AddRow(array(
-								new CCheckBox('new_timeperiod[month_feb]',$month[1],null,1), S_FEBRUARY,
-								SPACE,SPACE,
-								new CCheckBox('new_timeperiod[month_aug]',$month[7],null,1), S_AUGUST
-								 ));
-								 
-			$tabMonths->AddRow(array(
-								new CCheckBox('new_timeperiod[month_mar]',$month[2],null,1), S_MARCH,
-								SPACE,SPACE,
-								new CCheckBox('new_timeperiod[month_sep]',$month[8],null,1), S_SEPTEMBER
-								 ));
-								 
-			$tabMonths->AddRow(array(
-								new CCheckBox('new_timeperiod[month_apr]',$month[3],null,1), S_APRIL,
-								SPACE,SPACE,
-								new CCheckBox('new_timeperiod[month_oct]',$month[9],null,1), S_OCTOBER
-								 ));
-								 
-			$tabMonths->AddRow(array(
-								new CCheckBox('new_timeperiod[month_may]',$month[4],null,1), S_MAY,
-								SPACE,SPACE,
-								new CCheckBox('new_timeperiod[month_nov]',$month[10],null,1), S_NOVEMBER
-								 ));
-								 
-			$tabMonths->AddRow(array(
-								new CCheckBox('new_timeperiod[month_jun]',$month[5],null,1), S_JUNE,
-								SPACE,SPACE,
-								new CCheckBox('new_timeperiod[month_dec]',$month[11],null,1), S_DECEMBER
-								 ));
-
-			$tblPeriod->AddRow(array(S_MONTH, 	$tabMonths));
-			
-			$radioDaily = new CTag('input');
-			$radioDaily->addOption('type','radio');
-			$radioDaily->addOption('name','new_timeperiod[month_date_type]');
-			$radioDaily->addOption('value','0');
-			$radioDaily->addOption('onclick','submit()');
-			
-			$radioDaily2 = new CTag('input');
-			$radioDaily2->addOption('type','radio');
-			$radioDaily2->addOption('name','new_timeperiod[month_date_type]');
-			$radioDaily2->addOption('value','1');
-			$radioDaily2->addOption('onclick','submit()');
-			
-			if($new_timeperiod['month_date_type']){
-				$radioDaily2->addOption('checked','checked');
-			}
-			else{
-				$radioDaily->addOption('checked','checked');
-			}
-			
-			$tblPeriod->AddRow(array(S_DATE, array($radioDaily, S_DAY, SPACE, SPACE, $radioDaily2, S_DAY_OF_WEEK)));
-						
-			if($new_timeperiod['month_date_type'] > 0){
-				$tblPeriod->AddItem(new Cvar('new_timeperiod[day]',$new_timeperiod['day']));
-
-				$cmbCount = new CComboBox('new_timeperiod[every]', $new_timeperiod['every']);
-					$cmbCount->AddItem(1, S_FIRST);
-					$cmbCount->AddItem(2, S_SECOND);
-					$cmbCount->AddItem(3, S_THIRD);
-					$cmbCount->AddItem(4, S_FOURTH);
-					$cmbCount->AddItem(5, S_LAST);
-				
-				$td = new CCol($cmbCount);
-				$td->setColSpan(2);
-				
-				$tabDays = new CTable();
-				$tabDays->AddRow($td);
-				$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_mo]',$dayofweek[0],null,1), S_MONDAY));
-				$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_tu]',$dayofweek[1],null,1), S_TUESDAY));
-				$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_we]',$dayofweek[2],null,1), S_WEDNESDAY));
-				$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_th]',$dayofweek[3],null,1), S_THURSDAY));
-				$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_fr]',$dayofweek[4],null,1), S_FRIDAY));
-				$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_sa]',$dayofweek[5],null,1), S_SATURDAY));
-				$tabDays->AddRow(array(new CCheckBox('new_timeperiod[dayofweek_su]',$dayofweek[6],null,1), S_SUNDAY));
-				
-				
-				$tblPeriod->AddRow(array(S_DAY_OF_WEEK,$tabDays));	
-			}
-			else{
-				$tblPeriod->AddItem(new Cvar('new_timeperiod[dayofweek]',bindec($bit_dayofweek)));
-				
-				$tblPeriod->AddRow(array(S_DAY_OF_MONTH, new CNumericBox('new_timeperiod[day]', $new_timeperiod['day'], 2)));
-			}
-		}
-		else{
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[every]',$new_timeperiod['every']));
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[dayofweek]',bindec($bit_dayofweek)));
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[month]',bindec($bit_month)));
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[day]',$new_timeperiod['day']));
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[hour]',$new_timeperiod['hour']));
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[minute]',$new_timeperiod['minute']));
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[month_date_type]',$new_timeperiod['month_date_type']));
-			
-/***********************************************************/	
-			$tblPeriod->AddItem(new Cvar('new_timeperiod[date]',$new_timeperiod['date']));
-
-			$clndr_icon = new CImg('images/general/bar/cal.gif','calendar', 16, 12, 'pointer');
-
-			$clndr_icon->AddAction('onclick','javascript: '.
-												'var pos = getPosition(this); '.
-												'pos.top+=10; '.
-												'pos.left+=16; '.
-												"CLNDR['new_timeperiod_date'].clndr.clndrshow(pos.top,pos.left);");
-			
-			$filtertimetab = new CTable(null,'calendar');
-			$filtertimetab->AddOption('width','10%');
-			
-			$filtertimetab->SetCellPadding(0);
-			$filtertimetab->SetCellSpacing(0);
-		
-			$filtertimetab->AddRow(array(
-									new CNumericBox('new_timeperiod_day',(($new_timeperiod['date']>0)?date('d',$new_timeperiod['date']):''),2),
-									'/',
-									new CNumericBox('new_timeperiod_month',(($new_timeperiod['date']>0)?date('m',$new_timeperiod['date']):''),2),
-									'/',
-									new CNumericBox('new_timeperiod_year',(($new_timeperiod['date']>0)?date('Y',$new_timeperiod['date']):''),4),
-									SPACE,
-									new CNumericBox('new_timeperiod_hour',(($new_timeperiod['date']>0)?date('H',$new_timeperiod['date']):''),2),
-									':',
-									new CNumericBox('new_timeperiod_minute',(($new_timeperiod['date']>0)?date('i',$new_timeperiod['date']):''),2),
-									$clndr_icon
-							));
-							
-			zbx_add_post_js('create_calendar(null,'.
-							'["new_timeperiod_day","new_timeperiod_month","new_timeperiod_year","new_timeperiod_hour","new_timeperiod_minute"],'.
-							'"new_timeperiod_date",'.
-							'"new_timeperiod[date]");');
-	
-			$clndr_icon->addAction('onclick','javascript: '.
-												'var pos = getPosition(this); '.
-												'pos.top+=10; '.
-												'pos.left+=16; '.
-												"CLNDR['mntc_active_till'].clndr.clndrshow(pos.top,pos.left);");
-			
-			$tblPeriod->addRow(array(S_DATE,$filtertimetab));
-			
-		
-			zbx_add_post_js('if("undefined" != typeof(CLNDR["new_timeperiod_date"]))'.
-									' addListener($("hat_new_timeperiod_icon"),'.
-												'"click",'.
-												'CLNDR["new_timeperiod_date"].clndr.clndrhide.bindAsEventListener(CLNDR["new_timeperiod_date"].clndr));');
-		
-//-------		
-		}
-		
-		if($new_timeperiod['timeperiod_type'] != TIMEPERIOD_TYPE_ONETIME){
-			$tabTime = new CTable(null,'calendar');
-			$tabTime->addRow(array(new CNumericBox('new_timeperiod[hour]', $new_timeperiod['hour'], 2),':',new CNumericBox('new_timeperiod[minute]', $new_timeperiod['minute'], 2)));
-			
-			$tblPeriod->addRow(array(S_AT.SPACE.'('.S_HOUR.':'.S_MINUTE.')', $tabTime));
-		}
-
-		
-		$perHours = new CComboBox('new_timeperiod[period_hours]',$new_timeperiod['period_hours']);
-		for($i=0; $i < 25; $i++){
-			$perHours->AddItem($i,$i.SPACE);
-		}
-		$tblPeriod->addRow(array(
-							S_MAINTENANCE_PERIOD_LENGTH,
-							array(
-								new CNumericBox('new_timeperiod[period_days]',$new_timeperiod['period_days'],3),
-								S_DAYS.SPACE.SPACE,
-								$perHours,
-								SPACE.S_HOURS
-							)));
-//			$tabPeriod = new CTable();
-//			$tabPeriod->AddRow(S_DAYS)
-//			$tblPeriod->AddRow(array(S_AT.SPACE.'('.S_HOUR.':'.S_MINUTE.')', $tabTime));
-
-		$td = new CCol(array(
-			new CButton('add_timeperiod', S_SAVE),
-			SPACE,
-			new CButton('cancel_new_timeperiod',S_CANCEL)
-			));
-
-		$td->AddOption('colspan','3');
-		$td->AddOption('style','text-align: right;');
-		
-		$tblPeriod->SetFooter($td);
-
-	return $tblPeriod;
-	}
-	
 	function get_act_action_form($action=null){
 		$tblAct = new CTable('','nowrap');
 		
@@ -3620,6 +2915,7 @@
 		$td->AddOption('style','text-align: right;');
 
 		if(isset($_REQUEST["actionid"])){
+
 			$td->AddItem(SPACE);
 			$td->AddItem(new CButton('clone',S_CLONE));
 			$td->AddItem(SPACE);
@@ -3714,7 +3010,7 @@
 				switch($evaltype){
 					case ACTION_EVAL_TYPE_AND:	$group_op = 		$glog_op = S_AND;	break;
 					case ACTION_EVAL_TYPE_OR:	$group_op = 		$glog_op = S_OR;	break;
-					default:					$group_op = S_OR;	$glog_op = S_AND;	break;
+					default:			$group_op = S_OR;	$glog_op = S_AND;	break;
 				}
 
 				foreach($grouped_conditions as $id => $val)
@@ -3870,9 +3166,6 @@
 					$cmbCondVal->AddItem($id,get_severity_description($id));
 
 				$rowCondition[] = $cmbCondVal;
-				break;
-			case CONDITION_TYPE_MAINTENANCE:
-				$rowCondition[] = new CCol(S_MAINTENANCE_SMALL);
 				break;
 			case CONDITION_TYPE_DHOST_IP:
 				$rowCondition[] = new CTextBox('new_condition[value]', '192.168.0.1-127,192.168.2.1', 50);
@@ -5445,9 +4738,26 @@
 			$status			= $db_host['status'];
 			$useip			= $db_host['useip'];
 			$useipmi		= $db_host['useipmi'] ? 'yes' : 'no';
-			$ip			= $db_host['ip'];
-			$dns			= $db_host['dns'];
-			$ipmi_ip		= $db_host['ipmi_ip'];
+			if ($useipmi == 'yes')
+			{
+				if ($useip)
+				{
+					$ip	= $db_host['ip'];
+					$dns	= '';
+					$ipmi_ip= $db_host['dns'];
+				}
+				else
+				{
+					$ip	= '0.0.0.0';
+					$dns	= $db_host['dns'];
+					$ipmi_ip= $db_host['ip'];
+				}
+			}
+			else
+			{
+				$ip		= $db_host['ip'];
+				$dns		= $db_host['dns'];
+			}
 			$ipmi_port		= $db_host['ipmi_port'];
 			$ipmi_authtype		= $db_host['ipmi_authtype'];
 			$ipmi_privilege		= $db_host['ipmi_privilege'];
@@ -5529,7 +4839,7 @@
 		if(isset($_REQUEST['hostid']))		$frmHost->AddVar('hostid',$_REQUEST['hostid']);
 		if(isset($_REQUEST['groupid']))		$frmHost->AddVar('groupid',$_REQUEST['groupid']);
 		
-		$frmHost->AddRow(S_NAME,new CTextBox('host',$host,54));
+		$frmHost->AddRow(S_NAME,new CTextBox('host',$host,20));
 
 		$available_groups = get_accessible_groups_by_user($USER_DETAILS,PERM_READ_LIST);
 		$grp_tb = new CTweenBox($frmHost,'groups',$groups,10);	
@@ -5625,7 +4935,10 @@
 		}
 
 		if($useipmi == 'yes'){
-			$frmHost->AddRow(S_IPMI_IP_ADDRESS, new CTextBox('ipmi_ip', $ipmi_ip, defined('ZBX_HAVE_IPV6') ? 39 : 15));
+			if(defined('ZBX_HAVE_IPV6'))
+				$frmHost->AddRow(S_IPMI_IP_ADDRESS,new CTextBox('ipmi_ip',$ipmi_ip,'39'));
+			else
+				$frmHost->AddRow(S_IPMI_IP_ADDRESS,new CTextBox('ipmi_ip',$ipmi_ip,'15'));
 			$frmHost->AddRow(S_IPMI_PORT, new CNumericBox('ipmi_port', $ipmi_port, 5));	
 
 			$cmbIPMIAuthtype = new CComboBox('ipmi_authtype', $ipmi_authtype);
@@ -6458,7 +5771,7 @@
 
 		$frmEl->AddRow(S_TYPE,$cmbType);
 
-		$frmEl->AddRow(S_LABEL, new CTextArea('label', $label, 32, 4));
+		$frmEl->AddRow(S_LABEL, new CTextBox('label', $label, 32));
 
 		$cmbLocation = new CComboBox('label_location',$label_location);
 		$cmbLocation->AddItem(-1,'-');
@@ -6797,283 +6110,5 @@
 		$frmResult->AddItemToBottomRow(new CButton('close',S_CLOSE,'window.close();'));
 
 		$frmResult->Show();
-	}
-	
-	function get_regexp_form(){
-		$frm_title = S_REGULAR_EXPRESSION;
-
-		if(isset($_REQUEST['regexpid']) && !isset($_REQUEST["form_refresh"])){
-			$sql = 'SELECT re.* '.
-				' FROM regexps re '.
-				' WHERE '.DBin_node('re.regexpid').
-					' AND re.regexpid='.$_REQUEST['regexpid'];
-			$regexp = DBfetch(DBSelect($sql));
-
-			$frm_title .= ' ['.$regexp['name'].']';
-
-			$rename			= $regexp['name'];
-			$test_string	= $regexp['test_string'];
-			
-			$expressions = array();
-			$sql = 'SELECT e.* '.
-					' FROM expressions e '.
-					' WHERE '.DBin_node('e.expressionid').
-						' AND e.regexpid='.$regexp['regexpid'].
-					' ORDER BY e.expression_type';
-
-			$db_exps = DBselect($sql);
-			while($exp = DBfetch($db_exps)){
-				$expressions[] = $exp;
-			}
-		}
-		else{
-			$rename			= get_request('rename','');
-			$test_string	= get_request('test_string','');
-			
-			$expressions 	= get_request('expressions',array());
-		}
-
-		$tblRE = new CTable('','nowrap');
-		$tblRE->addStyle('border-left: 1px #AAA solid; border-right: 1px #AAA solid; background-color: #EEE; padding: 2px; padding-left: 6px; padding-right: 6px;');
-		
-		$tblRE->AddRow(array(S_NAME, new CTextBox('rename', $rename, 60)));
-		$tblRE->AddRow(array(S_TEST_STRING, new CTextArea('test_string', $test_string, 66, 5)));
-		
-		$tabExp = new CTableInfo();
-		
-		$td1 = new CCol(S_EXPRESSION);
-		$td1->addStyle('background-color: #CCC;');
-		$td2 = new CCol(S_EXPECTED_RESULT);
-		$td2->addStyle('background-color: #CCC;');
-		$td3 = new CCol(S_RESULT);
-		$td3->addStyle('background-color: #CCC;');
-		
-		$tabExp->setHeader(array($td1,$td2,$td3));
-		
-		$final_result = !empty($test_string);
-
-		foreach($expressions as $id => $expression){
-		
-			$results = array();
-			$paterns = array($expression['expression']);			
-			
-			if(!empty($test_string)){
-				if($expression['expression_type'] == EXPRESSION_TYPE_ANY_INCLUDED){
-					$paterns = explode($expression['exp_delimiter'],$expression['expression']);
-				}
-
-				if(uint_in_array($expression['expression_type'], array(EXPRESSION_TYPE_TRUE,EXPRESSION_TYPE_FALSE))){
-					if($expression['case_sensitive'])
-						$results[$id] = ereg($paterns[0],$test_string);
-					else
-						$results[$id] = eregi($paterns[0],$test_string);
-					
-					if($expression['expression_type'] == EXPRESSION_TYPE_TRUE)
-						$final_result &= $results[$id];
-					else
-						$final_result &= !$results[$id];
-				}
-				else{
-					$results[$id] = true;
-					
-					$tmp_result = false;
-					if($expression['case_sensitive']){
-						foreach($paterns as $pid => $patern)
-							$tmp_result |= (zbx_stristr($test_string,$patern) !== false);
-					}
-					else{
-						foreach($paterns as $pid => $patern){
-							$tmp_result |= (zbx_strstr($test_string,$patern) !== false);
-						}
-					}
-					
-					$results[$id] &= $tmp_result;
-					$final_result &= $results[$id];
-				}
-			}
-
-			if(isset($results[$id]) && $results[$id])
-				$exp_res = new CSpan(S_TRUE_BIG,'green bold');
-			else
-				$exp_res = new CSpan(S_FALSE_BIG,'red bold');
-			
-			$expec_result = expression_type2str($expression['expression_type']);
-			if(EXPRESSION_TYPE_ANY_INCLUDED == $expression['expression_type'])
-				$expec_result.=' ('.S_DELIMITER."='".$expression['exp_delimiter']."')";
-			
-			$tabExp->addRow(array(
-						$expression['expression'],
-						$expec_result,
-						$exp_res
-					));
-		}
-
-		$td = new CCol(S_COMBINED_RESULT,'bold');
-		$td->setColSpan(2);
-
-		if($final_result)
-			$final_result = new CSpan(S_TRUE_BIG,'green bold');
-		else
-			$final_result = new CSpan(S_FALSE_BIG,'red bold');
-		
-		$tabExp->addRow(array(
-					$td,
-					$final_result
-				));
-				
-		$tblRE->addRow(array(S_RESULT,$tabExp));
-				
-		$tblFoot = new CTableInfo(null);
-
-		$td = new CCol(array(new CButton('save',S_SAVE)));
-		$td->setColSpan(2);
-		$td->addStyle('text-align: right;');
-
-		$td->AddItem(SPACE);
-		$td->AddItem(new CButton('test',S_TEST));
-
-		if(isset($_REQUEST['regexpid'])){
-			$td->AddItem(SPACE);
-			$td->AddItem(new CButton('clone',S_CLONE));
-
-			$td->AddItem(SPACE);
-			$td->AddItem(new CButtonDelete(S_DELETE_REGULAR_EXPRESSION_Q,url_param('form').url_param('config').url_param('regexpid')));
-		}
-		
-		$td->AddItem(SPACE);
-		$td->AddItem(new CButtonCancel(url_param("regexpid")));
-
-		$tblFoot->SetFooter($td);
-		
-	return array($tblRE,$tblFoot);
-	}
-
-	function get_expressions_tab(){
-	
-		if(isset($_REQUEST['regexpid']) && !isset($_REQUEST["form_refresh"])){
-			$expressions = array();
-			$sql = 'SELECT e.* '.
-					' FROM expressions e '.
-					' WHERE '.DBin_node('e.expressionid').
-						' AND e.regexpid='.$_REQUEST['regexpid'].
-					' ORDER BY e.expression_type';
-
-			$db_exps = DBselect($sql);
-			while($exp = DBfetch($db_exps)){
-				$expressions[] = $exp;
-			}
-		}
-		else{
-			$expressions 	= get_request('expressions',array());
-		}
-		
-		$tblExp = new CTableInfo();
-		$tblExp->setHeader(array(
-				new CCheckBox('all_expressions',null,'CheckAll("Regular expression","all_expressions","g_expressionid");'),
-				S_EXPRESSION,
-				S_EXPECTED_RESULT,
-				S_IGNORE_CASE,
-				S_EDIT
-			));
-
-//		zbx_rksort($timeperiods);
-		foreach($expressions as $id => $expression){
-		
-			$exp_result = expression_type2str($expression['expression_type']);
-			if(EXPRESSION_TYPE_ANY_INCLUDED == $expression['expression_type'])
-				$exp_result.=' ('.S_DELIMITER."='".$expression['exp_delimiter']."')";
-				
-			$tblExp->AddRow(array(
-				new CCheckBox('g_expressionid[]', 'no', null, $id),
-				$expression['expression'],
-				$exp_result,
-				$expression['case_sensitive']?S_YES:S_NO,
-				new CButton('edit_expressionid['.$id.']',S_EDIT)
-				));
-				
-				
-			$tblExp->AddItem(new Cvar('expressions['.$id.'][expression]',		$expression['expression']));
-			$tblExp->AddItem(new Cvar('expressions['.$id.'][expression_type]',	$expression['expression_type']));
-			$tblExp->AddItem(new Cvar('expressions['.$id.'][case_sensitive]',	$expression['case_sensitive']));
-			$tblExp->AddItem(new Cvar('expressions['.$id.'][exp_delimiter]',	$expression['exp_delimiter']));
-		}
-
-		$buttons = array();
-		if(!isset($_REQUEST['new_expression'])){
-			$buttons[] = new CButton('new_expression',S_NEW);
-			$buttons[] = new CButton('delete_expression',S_DELETE);
-		}
-		
-		$td = new CCol($buttons);
-		$td->AddOption('colspan','5');
-		$td->AddOption('style','text-align: right;');
-
-		
-		$tblExp->SetFooter($td);
-		
-	return $tblExp;
-	}
-
-	function get_expression_form(){
-		$tblExp = new CTable();
-
-		/* init new_timeperiod variable */
-		$new_expression = get_request('new_expression', array());
-
-		if(is_array($new_expression) && isset($new_expression['id'])){
-			$tblExp->AddItem(new Cvar('new_expression[id]',$new_expression['id']));
-		}
-		
-		if(!is_array($new_expression)){
-			$new_expression = array();
-		}
-
-		if(!isset($new_expression['expression']))			$new_expression['expression']		= '';
-		if(!isset($new_expression['expression_type']))		$new_expression['expression_type']	= EXPRESSION_TYPE_INCLUDED;
-		if(!isset($new_expression['case_sensitive']))		$new_expression['case_sensitive']	= 0;
-		if(!isset($new_expression['exp_delimiter']))		$new_expression['exp_delimiter']	= ',';
-		
-		$tblExp->addRow(array(S_EXPRESSION, new CTextBox('new_expression[expression]',$new_expression['expression'],60)));
-		
-		$cmbType = new CComboBox('new_expression[expression_type]',$new_expression['expression_type'],'javascript: submit();');
-		$cmbType->addItem(EXPRESSION_TYPE_INCLUDED,expression_type2str(EXPRESSION_TYPE_INCLUDED));
-		$cmbType->addItem(EXPRESSION_TYPE_ANY_INCLUDED,expression_type2str(EXPRESSION_TYPE_ANY_INCLUDED));
-		$cmbType->addItem(EXPRESSION_TYPE_NOT_INCLUDED,expression_type2str(EXPRESSION_TYPE_NOT_INCLUDED));
-		$cmbType->addItem(EXPRESSION_TYPE_TRUE,expression_type2str(EXPRESSION_TYPE_TRUE));
-		$cmbType->addItem(EXPRESSION_TYPE_FALSE,expression_type2str(EXPRESSION_TYPE_FALSE));
-
-		$tblExp->addRow(array(S_EXPRESSION_TYPE,$cmbType));
-		
-		if(EXPRESSION_TYPE_ANY_INCLUDED == $new_expression['expression_type']){
-			$cmbDelimiter = new CComboBox('new_expression[exp_delimiter]',$new_expression['exp_delimiter']);
-			$cmbDelimiter->addItem(',',',');
-			$cmbDelimiter->addItem('.','.');
-			$cmbDelimiter->addItem('/','/');
-			
-			$tblExp->addRow(array(S_DELIMITER,$cmbDelimiter));
-		}
-		else{
-			$tblExp->AddItem(new Cvar('new_expression[exp_delimiter]',$new_expression['exp_delimiter']));
-		}
-				
-		$chkbCase = new CCheckBox('new_expression[case_sensitive]', $new_expression['case_sensitive'],null,1);
-		
-		$tblExp->addRow(array(S_IGNORE_CASE,$chkbCase));
-
-
-		$tblExpFooter = new CTableInfo($tblExp);
-		
-		$oper_buttons = array();
-
-		$oper_buttons[] = new CButton('add_expression',isset($new_expression['id'])?S_SAVE:S_ADD);
-		$oper_buttons[] = new CButton('cancel_new_expression',S_CANCEL);
-		
-		$td = new CCol($oper_buttons);
-		$td->AddOption('colspan',2);
-		$td->AddOption('style','text-align: right;');
-
-		$tblExpFooter->setFooter($td);
-// end of condition list preparation
-	return $tblExpFooter;
 	}
 ?>

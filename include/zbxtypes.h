@@ -31,8 +31,6 @@
 
 #	define zbx_uint64_t __int64
 #	define ZBX_FS_UI64 "%I64u"
-#	define ZBX_FS_UO64 "%I64o"
-#	define ZBX_FS_UX64 "%I64x"
 
 #	define zbx_pid_t	int
 
@@ -59,18 +57,12 @@
 #	define zbx_uint64_t uint64_t
 #	if __WORDSIZE == 64
 #		define ZBX_FS_UI64 "%lu"
-#		define ZBX_FS_UO64 "%lo"
-#		define ZBX_FS_UX64 "%lx"
 #		define ZBX_OFFSET 10000000000000000UL
 #	else /* __WORDSIZE == 64 */
 #		ifdef HAVE_LONG_LONG_QU
 #			define ZBX_FS_UI64 "%qu"
-#			define ZBX_FS_UO64 "%qo"
-#			define ZBX_FS_UX64 "%qx"
 #		else
 #			define ZBX_FS_UI64 "%llu"
-#			define ZBX_FS_UO64 "%llo"
-#			define ZBX_FS_UX64 "%llx"
 #		endif
 #		define ZBX_OFFSET 10000000000000000ULL
 #	endif /* __WORDSIZE == 64 */
@@ -84,8 +76,6 @@
 #endif
 
 #define ZBX_STR2UINT64(uint,string) sscanf(string ,ZBX_FS_UI64 ,&uint);
-#define ZBX_OCT2UINT64(uint,string) sscanf(string ,ZBX_FS_UO64 ,&uint);
-#define ZBX_HEX2UINT64(uint,string) sscanf(string ,ZBX_FS_UX64 ,&uint);
 
 #define ZBX_CONST_STRING(str) ""str
 

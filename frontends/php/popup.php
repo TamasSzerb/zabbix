@@ -322,7 +322,7 @@ include_once "include/page_header.php";
 			$sql .= DBin_node('h.hostid', $nodeid).
 					' and '.DBcondition('h.hostid',$available_hosts).
 					' and h.status in ('.implode(',', $host_status).')'.
-				' ORDER BY host,h.hostid';
+				' order by host,h.hostid';
 
 			$db_hosts = DBselect($sql);
 			
@@ -366,7 +366,7 @@ include_once "include/page_header.php";
 		$sql .= DBin_node('h.hostid', $nodeid).
 					' and '.DBcondition('h.hostid',$available_hosts).
 					' and h.status in ('.implode(',', $host_status).')'.
-				' ORDER BY h.host,h.hostid';
+				' order by h.host,h.hostid';
 
 
 		$db_hosts = DBselect($sql);
@@ -483,7 +483,7 @@ include_once "include/page_header.php";
 		$sql .= DBin_node('h.hostid', $nodeid).
 				' AND '.DBcondition('h.hostid',$available_hosts).
 				' AND h.status='.HOST_STATUS_TEMPLATE.
-				' ORDER BY h.host,h.hostid';
+				' order by h.host,h.hostid';
 
 		$db_hosts = DBselect($sql);
 		while($host = DBfetch($db_hosts))
@@ -586,7 +586,7 @@ include_once "include/page_header.php";
 		$table = new CTableInfo(S_NO_GROUPS_DEFINED);
 		$table->SetHeader(array(S_NAME));
 
-		$result = DBselect('select * from usrgrp where '.DBin_node('usrgrpid').' ORDER BY name');
+		$result = DBselect('select * from usrgrp where '.DBin_node('usrgrpid').' order by name');
 		while($row = DBfetch($result)){
 			$name = new CLink(
 					get_node_name_by_elid($row['usrgrpid']).$row['name'],
@@ -614,7 +614,7 @@ include_once "include/page_header.php";
 		$table = new CTableInfo(S_NO_USERS_DEFINED);
 		$table->SetHeader(array(S_NAME));
 
-		$result = DBselect('select * from users where '.DBin_node('userid').' ORDER BY name');
+		$result = DBselect('select * from users where '.DBin_node('userid').' order by name');
 		while($row = DBfetch($result)){
 			$name = new CLink(
 					get_node_name_by_elid($row['userid']).$row['alias'],
@@ -641,7 +641,7 @@ include_once "include/page_header.php";
 		$table = new CTableInfo(S_NO_ITEMS);
 		$table->SetHeader(array(S_KEY,S_DESCRIPTION));
 
-		$result = DBselect("select * from help_items where itemtype=".$itemtype." ORDER BY key_");
+		$result = DBselect("select * from help_items where itemtype=".$itemtype." order by key_");
 
 		while($row = DBfetch($result)){
 			$name = new CLink($row["key_"],"#","action");
@@ -808,7 +808,7 @@ include_once "include/page_header.php";
 		if(isset($hostid)) 
 			$sql .= ' AND h.hostid='.$hostid;
 
-		$sql .= " ORDER BY h.host, i.description, i.key_, i.itemid";
+		$sql .= " order by h.host, i.description, i.key_, i.itemid";
 			
 		$result = DBselect($sql);
 		while($row = DBfetch($result))
@@ -857,7 +857,7 @@ include_once "include/page_header.php";
 		if(isset($hostid)) 
 			$sql .= ' AND h.hostid='.$hostid;
 
-		$sql .= " ORDER BY h.host,a.name";
+		$sql .= " order by h.host,a.name";
 			
 		$result = DBselect($sql);
 		while($row = DBfetch($result)){
@@ -1005,17 +1005,10 @@ include_once "include/page_header.php";
 
 			$row['description'] = $row['node_name'].$row['host'].':'.$row['description'];
 
-			if(isset($_REQUEST['reference'])){
-				if($_REQUEST['reference'] =='dashboard'){
-					$action = get_window_opener($dstfrm, $dstfld1, $srcfld2).
-						get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-						"window.opener.setTimeout('add2favorites();', 1000);";
-				}
-				else if($_REQUEST['reference'] =='item_list'){
-					$action = get_window_opener($dstfrm, $dstfld1, $srcfld2).
-						get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
-						"window.opener.setTimeout('add2favorites();', 1000);";
-				}
+			if(isset($_REQUEST['reference']) && ($_REQUEST['reference'] =='dashboard')){
+				$action = get_window_opener($dstfrm, $dstfld1, $srcfld2).
+					get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]).
+					"window.opener.setTimeout('add2favorites();', 1000);";
 			}
 			else{
 				$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).
@@ -1137,7 +1130,7 @@ include_once "include/page_header.php";
 		$table = new CTableInfo(S_NO_NODES_DEFINED);
 		$table->SetHeader(S_NAME);
 
-		$result = DBselect('select slideshowid,name from slideshows where '.DBin_node('slideshowid',$nodeid).' ORDER BY name');
+		$result = DBselect('select slideshowid,name from slideshows where '.DBin_node('slideshowid',$nodeid).' order by name');
 		while($row=DBfetch($result)){
 			if(!slideshow_accessible($row['slideshowid'], PERM_READ_ONLY))
 				continue;
@@ -1168,7 +1161,7 @@ include_once "include/page_header.php";
 		$table = new CTableInfo(S_NO_NODES_DEFINED);
 		$table->SetHeader(S_NAME);
 
-		$result = DBselect('select screenid,name from screens where '.DBin_node('screenid',$nodeid).' ORDER BY name');
+		$result = DBselect('select screenid,name from screens where '.DBin_node('screenid',$nodeid).' order by name');
 		while($row=DBfetch($result))
 		{
 			if(!screen_accessible($row["screenid"], PERM_READ_ONLY))

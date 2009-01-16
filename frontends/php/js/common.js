@@ -63,23 +63,6 @@ function is_array(obj) {
       'splice' in obj && 'join' in obj;	  
 }
 
-if (!Array.prototype.forEach)
-{
-  Array.prototype.forEach = function(fun /*, thisp*/)
-  {
-    var len = this.length;
-    if (typeof fun != "function")
-      throw new TypeError();
-
-    var thisp = arguments[1];
-    for (var i = 0; i < len; i++)
-    {
-      if (i in this)
-        fun.call(thisp, this[i], i, this);
-    }
-  };
-}
-
 function SDI(msg){
 	var div_help = document.getElementById('div_help');
 
@@ -90,8 +73,6 @@ function SDI(msg){
 		
 		div_help.setAttribute('id','div_help');
 		div_help.setAttribute('style','position: absolute; left: 10px; top: 10px; border: 1px red solid; width: 500px; height: 400px; background-color: white; overflow: auto; z-index: 20;');
-		
-//		new Draggable(div_help,{});
 	}
 	
 	div_help.appendChild(document.createTextNode("DEBUG INFO: "));
@@ -99,21 +80,6 @@ function SDI(msg){
 	div_help.appendChild(document.createTextNode(msg));
 	div_help.appendChild(document.createElement("br"));
 	div_help.appendChild(document.createElement("br"));
-}
-
-/*
-function SDI(msg){
-	alert("DEBUG INFO: " + msg);
-}
-//*/
-
-function SDJ(obj){
-	var debug = '';
-	for(var key in obj) {
-		var value = obj[key];
-		debug+=key+': '+value+'\n';
-	}
-	SDI('\n'+debug);
 }
 
 /// Alpha-Betic sorting
@@ -127,20 +93,6 @@ function addListener(element, eventname, expression, bubbling){
 	} 
 	else if(window.attachEvent) {
 		element.attachEvent('on'+eventname, expression);
-		return true;
-	} 
-	else return false;
-}
-
-function removeListener(element, eventname, expression, bubbling){
-	bubbling = bubbling || false;
-	
-	if(window.removeEventListener)	{
-		element.removeEventListener(eventname, expression, bubbling);
-		return true;
-	} 
-	else if(window.detachEvent) {
-		element.detachEvent('on'+eventname, expression);
 		return true;
 	} 
 	else return false;
@@ -221,11 +173,12 @@ function Confirm(msg){
 }
 
 function create_var(form_name, var_name, var_val, subm){
+	
 	var frmForm = (is_string(form_name))?document.forms[form_name]:form_name;
 	if(!frmForm) return false;
 
-	var objVar = (typeof(frmForm[var_name]) != 'undefined')?frmForm[var_name]:null;
-//	objVar=(objVar.length>0)?objVar[0]:null;
+	var objVar = document.getElementsByName(var_name);
+	objVar=(objVar.length>0)?objVar[0]:null;
 
 	if(is_null(objVar)){
 		objVar = document.createElement('input');
@@ -238,9 +191,9 @@ function create_var(form_name, var_name, var_val, subm){
 		objVar.setAttribute('name', 	var_name);
 		objVar.setAttribute('id', 		var_name);
 	}
-
-	objVar.value = var_val;
 	
+	objVar.value = var_val;
+
 	if(subm)
 		frmForm.submit();
 
@@ -291,21 +244,12 @@ return targ;
 
 function getPosition(obj){
 	var pos = {top: 0, left: 0};
-	if(!is_null(obj) && (typeof(obj.offsetParent) != 'undefined')){
+	if(typeof(obj.offsetParent) != 'undefined') {
 		pos.left = obj.offsetLeft;
 		pos.top = obj.offsetTop;
-		try{
-			while(!is_null(obj.offsetParent)){
-				obj=obj.offsetParent;
-				pos.left += obj.offsetLeft;
-				pos.top += obj.offsetTop;
-				
-				if(IE && (obj.offsetParent.toString() == 'unknown')){
-//					alert(obj.offsetParent.toString());
-					break;
-				}
-			}
-		} catch(e){
+		while (obj = obj.offsetParent) {
+			pos.left += obj.offsetLeft;
+			pos.top += obj.offsetTop;
 		}
 	}
 return pos;
@@ -449,26 +393,30 @@ function remove_element(elmnt,tag){
 return true;
 }
 
-function onload_update_scroll(id,w,period,stime,timel,bar_stime){
-	var obj = $(id);
-	if((typeof(obj) == 'undefined') || is_null(obj)){
-		setTimeout('onload_update_scroll("'+id+'",'+w+','+period+','+stime+','+timel+','+bar_stime+');',1000);
-		return;
+function resizeiframe(id){
+	id = id || 'iframe';
+	var iframe = document.getElementById(id);
+	var indoc = (IE)?iframe.contentWindow.document:iframe.contentDocument;
+	if(typeof(indoc) == 'undefined') return;
+	var height = parseInt(indoc.getElementsByTagName('body')[0].scrollHeight);
+	var height2 = parseInt(indoc.getElementsByTagName('body')[0].offsetHeight);
+	
+	if(height2 > height){
+		height = height2;
 	}
-//	eval('var fnc = function(){ onload_update_scroll("'+id+'",'+w+','+period+','+stime+','+timel+','+bar_stime+');}');
-	scrollinit(w,period,stime,timel,bar_stime);
+
+	iframe.style.height = (height)+'px';
+	
 	if(!is_null($('scroll')) && showgraphmenu){
-		showgraphmenu(id);
+		showgraphmenu('iframe');
 	}
-//	addListener(window,'resize', fnc );
 }
 
 function ShowHide(obj,style){
-	if(typeof(style) == 'undefined') var style = 'inline';
-	
+	if(typeof(style) == 'undefined')
+		var style = 'inline';
 	if(is_string(obj))
 		obj = document.getElementById(obj);
-		
 	if(!obj){
 		throw 'ShowHide(): Object not foun.';
 		return false;

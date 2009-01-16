@@ -729,23 +729,7 @@ else {
 	function remove_nodes_from_id($id){
 		return bcmod($id,'100000000000');
 	}
-	
-	function check_db_fields(&$db_fields, &$args){
-		if(!is_array($args)) return false;
-		
-		foreach($db_fields as $field => $def){
-			if(!isset($args[$field])){
-				if(is_null($def)){
-					return false;
-				}
-				else{
-					$args[$field] = $def;
-				}
-			}
-		}
-	return true;
-	}
-	
+
 	function DBcondition($fieldname, &$array, $notin=false, $string=false){
 		global $DB;
 		$condition = '';
@@ -754,7 +738,7 @@ else {
 			info('DBcondition Error: ['.$fieldname.'] = '.$array);
 			$array = explode(',',$array);
 			if(empty($array))
-				return ' 1=0 ';
+				return ' 1=1 ';
 		}
 
 		$in = 		$notin?' NOT IN ':' IN ';

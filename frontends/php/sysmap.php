@@ -187,7 +187,7 @@ include_once "include/page_header.php";
 
 			$table->addRow(array(
 				new CLink(
-					expand_map_element_label_by_data($db_element),
+					$db_element["label"],
 					"sysmap.php?sysmapid=".$db_element["sysmapid"].
 					"&form=update&selementid=".$db_element["selementid"],
 					"action"),

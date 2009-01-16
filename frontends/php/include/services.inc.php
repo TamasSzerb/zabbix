@@ -659,8 +659,7 @@ if($serviceid == 1 || $serviceid == 2){
 					}
 				}			
 			}
-		} 
-		else {
+		} else {
 			$rows['caption'] = new CSpan($rows['caption'],'unknown');
 			$temp[$rows['serviceid'].'.'.$linkid]=$rows;
 		}

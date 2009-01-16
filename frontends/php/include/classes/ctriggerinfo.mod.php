@@ -34,25 +34,20 @@
 			$this->SetOrientation($style);
 			$this->show_header = true;
 			$this->nodeid = get_current_nodeid();
-			$this->groupid = 0;
 		}
 
-		function setOrientation($value){
+		function SetOrientation($value){
 			if($value != STYLE_HORISONTAL && $value != STYLE_VERTICAL)
 				return $this->error("Incorrect value for SetOrientation [$value]");
 
 			$this->style = $value;
 		}
 
-		function setNodeid($nodeid){
+		function SetNodeid($nodeid){
 			$this->nodeid = (int)$nodeid;
 		}
 		
-		function set_host_group($groupid){
-			$this->groupid = $groupid;
-		}
-		
-		function hideHeader(){
+		function HideHeader(){
 			$this->show_header = false;
 		}
 
@@ -66,17 +61,9 @@
 			$this->CleanItems();
 
 			$ok = $uncn = $info = $warn = $avg = $high = $dis = 0;
-			
-			$sql_from = '';
-			$sql_where = '';
-			if($this->groupid > 0){
-				$sql_from = ', hosts_groups hg ';
-				$sql_where = ' AND hg.groupid='.$this->groupid.
-								' AND h.hostid=hg.hostid ';
-			}
-			
-			$db_priority = DBselect('SELECT t.priority,t.value,count(DISTINCT t.triggerid) as cnt '.
-							' FROM triggers t,hosts h,items i,functions f '.$sql_from.
+
+			$db_priority = DBselect('SELECT t.priority,t.value,count(*) as cnt '.
+							' FROM triggers t,hosts h,items i,functions f '.
 							' WHERE t.status='.TRIGGER_STATUS_ENABLED.
 								' AND f.itemid=i.itemid '.
 								' AND h.hostid=i.hostid '.
@@ -85,7 +72,6 @@
 								' AND t.triggerid=f.triggerid '.
 								' AND i.status='.ITEM_STATUS_ACTIVE.
 								' AND '.DBcondition('t.triggerid',$available_triggers).
-								$sql_where.
 							' GROUP BY t.priority,t.value');
 			while($row=DBfetch($db_priority)){
 				

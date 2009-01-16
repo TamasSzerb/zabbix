@@ -407,8 +407,7 @@ static int	add_history(DB_ITEM *item, AGENT_RESULT *value, int now)
 				item->itemid);
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of add_history():%s",
-			zbx_result_string(ret));
+	zabbix_log(LOG_LEVEL_DEBUG, "End of add_history():%s", ret == SUCCEED ? "SUCCEED" : "FAIL");
 
 	return ret;
 }

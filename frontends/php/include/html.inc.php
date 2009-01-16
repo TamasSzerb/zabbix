@@ -24,13 +24,13 @@
 			foreach($str as $key => $val)
 				if(is_string($val)){
 					$b = new CTag('strong','yes');
-					$b->addItem($val);
+					$b->AddItem($val);
 					$str[$key] = $b;
 				}
 		} 
 		else if(is_string($str)) {
 			$b = new CTag('strong','yes');
-			$b->addItem($str);
+			$b->AddItem($str);
 			$str = $b;
 		}
 	return $str;
@@ -118,13 +118,12 @@
 		}
 
 		$icon = new CDiv(SPACE,($state)?'arrowup':'arrowdown');
-		$icon->addOption('id',$id.'_icon');
 		$icon->addAction('onclick',new CScript("javascript: change_hat_state(this,'".$id."');"));
 		$icon->addOption('title',S_SHOW.'/'.S_HIDE);
 
 // dirty FIX !!!!!!!!!!!!!	 FIX this one
 		global $page;
-		if(!str_in_array($page['file'],array('charts.php','screens.php','slides.php')))
+		if(!str_in_array($page['file'],array('charts.php','screens.php')))
 			$icons_row[] = $icon;
 //---------------------------------------
 //		$icons_row[] = $icon;
@@ -142,7 +141,7 @@
 
 		$div = new CDiv($items);
 		$div->addOption('id',$id);
-		if(!$state) $div->addOption('style','display: none;');
+		if(!$state) $div->AddOption('style','display: none;');
 		
 		$table->addRow($div);
 	return $table;
@@ -153,56 +152,56 @@
 		if(isset($_REQUEST['print'])) $state = 0;
 		
 		$table = new CTable();
-		$table->addOption('width','100%');
-		$table->setCellPadding(0);
-		$table->setCellSpacing(0);
-		$table->addOption('border',0);
+		$table->AddOption('width','100%');
+		$table->SetCellPadding(0);
+		$table->SetCellSpacing(0);
+		$table->AddOption('border',0);
 		
 		$icon = new CDiv(SPACE,($state)?'filteropened':'filterclosed');
-		$icon->addAction('onclick',new CScript("javascript: change_filter_state(this,'".$id."');"));
-		$icon->addOption('title',S_MAXIMIZE.'/'.S_MINIMIZE);
-		$icon->addAction('id','filter_icon');
+		$icon->AddAction('onclick',new CScript("javascript: change_filter_state(this,'".$id."');"));
+		$icon->AddOption('title',S_MAXIMIZE.'/'.S_MINIMIZE);
+		$icon->AddAction('id','filter_icon');
 
 		$td_icon = new CCol($icon);
-		$td_icon->addOption('valign','bottom');
+		$td_icon->AddOption('valign','bottom');
 
 		$icons_row = array($td_icon,SPACE);
 		$icons_row[] = $col_l;
 
 		$icon_tab = new CTable();
-		$icon_tab->setCellSpacing(0);
-		$icon_tab->setCellPadding(0);
+		$icon_tab->SetCellSpacing(0);
+		$icon_tab->SetCellPadding(0);
 		
-		$icon_tab->addRow($icons_row);
+		$icon_tab->AddRow($icons_row);
 		
-		$table->addRow(get_thin_table_header($icon_tab,$col_r));
+		$table->AddRow(get_thin_table_header($icon_tab,$col_r));
 
 		$div = new CDiv($items);
-		$div->addOption('id',$id);
-		if(!$state) $div->addOption('style','display: none;');
+		$div->AddOption('id',$id);
+		if(!$state) $div->AddOption('style','display: none;');
 		
 		$tab = new CTable();
-		$tab->addRow($div);
+		$tab->AddRow($div);
 		
-//		$table->addRow($tab);
-		$table->addRow($div);
+//		$table->AddRow($tab);
+		$table->AddRow($div);
 	return $table;
 	}
 	
 	function create_filter_hat($col_l,$col_r,$items,$id,$state=1){
 		
 		$table = new CTable(NULL,"filter");
-		$table->setCellSpacing(0);
-		$table->setCellPadding(1);
+		$table->SetCellSpacing(0);
+		$table->SetCellPadding(1);
 
 
 
 		$td_l = new CCol($icon_tab,"filter_l");
 				
 		$td_r = new CCol($col_r,"filter_r");
-		$td_r->addOption('align','right');
+		$td_r->AddOption('align','right');
 				
-		$table->addRow(array($td_l, $td_r));
+		$table->AddRow(array($td_l, $td_r));
 	return $table;
 	}
 	
@@ -242,18 +241,18 @@
 	function get_thin_table_header($col1, $col2=SPACE){
 		
 		$table = new CTable(NULL,"filter");
-//		$table->addOption('border',1);
-		$table->setCellSpacing(0);
-		$table->setCellPadding(1);
+//		$table->AddOption('border',1);
+		$table->SetCellSpacing(0);
+		$table->SetCellPadding(1);
 		
 		$td_r = new CCol($col2,"filter_r");
-		$td_r->addOption('align','right');
+		$td_r->AddOption('align','right');
 		
-		$table->addRow(array(new CCol($col1,"filter_l"), $td_r));
+		$table->AddRow(array(new CCol($col1,"filter_l"), $td_r));
 	return $table;
 	}
 
-	function show_thin_table_header($col1, $col2=SPACE){
+	function	show_thin_table_header($col1, $col2=SPACE){
 		$table = get_thin_table_header($col1, $col2);
 		$table->Show();
 	}
@@ -266,19 +265,20 @@
 			if(($col1 == SPACE) && ($col2 == SPACE)) return new CScript('');
 		}
 		
-		$table = new CTable(NULL,'header');
-//		$table->addOption('border',0);
-		$table->setCellSpacing(0);
-		$table->setCellPadding(1);
+		$table = new CTable(NULL,"header");
+//		$table->AddOption('border',1);
+		$table->SetCellSpacing(0);
+		$table->SetCellPadding(1);
 		
-		$td_r = new CCol($col2,'header_r');
-		$td_r->addOption('align','right');
+		$td_r = new CCol($col2,"header_r");
+		$td_r->AddOption('align','right');
 		
-		$table->addRow(array(new CCol($col1,'header_l'), $td_r));
+		$table->AddRow(array(new CCol($col1,"header_l"), $td_r));
 	return $table;
 	}
 
-	function show_table_header($col1, $col2=SPACE){
+	function	show_table_header($col1, $col2=SPACE)
+	{
 		$table = get_table_header($col1, $col2);
 		$table->Show();
 	}

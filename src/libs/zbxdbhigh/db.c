@@ -511,8 +511,8 @@ static int	trigger_dependent_rec(zbx_uint64_t triggerid, int *level)
 	}
 	DBfree_result(result);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of trigger_dependent_rec():%s",
-			zbx_result_string(ret));
+	zabbix_log( LOG_LEVEL_DEBUG, "End of trigger_dependent_rec(ret:%s)",
+		SUCCEED==ret?"SUCCEED":"FAIL");
 
 	return ret;
 }
@@ -542,8 +542,8 @@ static int	trigger_dependent(zbx_uint64_t triggerid)
 
 	ret =  trigger_dependent_rec(triggerid, &level);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of trigger_dependent():%s",
-			zbx_result_string(ret));
+	zabbix_log( LOG_LEVEL_DEBUG, "End of trigger_dependent(ret:%s)",
+		SUCCEED==ret?"SUCCEED":"FAIL");
 
 	return ret;
 }
@@ -1835,7 +1835,7 @@ void	DBget_item_from_db(DB_ITEM *item,DB_ROW row)
 	item->eventlog_source	= NULL;
 
 	item->useipmi		= atoi(row[39]);
-	item->ipmi_ip		= row[51];
+	item->ipmi_ip		= item->useip ? item->host_dns : item->host_ip;
 	item->ipmi_port		= atoi(row[40]);
 	item->ipmi_authtype	= atoi(row[41]);
 	item->ipmi_privilege	= atoi(row[42]);
@@ -1843,12 +1843,7 @@ void	DBget_item_from_db(DB_ITEM *item,DB_ROW row)
 	item->ipmi_password	= row[44];
 	item->ipmi_sensor	= row[45];
 
-	item->maintenance_status	= atoi(row[46]);
-	item->maintenance_type		= atoi(row[47]);
-	item->maintenance_from		= atoi(row[48]);
-
-	item->lastlogsize		= atoi(row[49]);
-	item->data_type			= atoi(row[50]);
+	item->lastlogsize	= atoi(row[46]);
 
 	switch (item->type) {
 		case ITEM_TYPE_ZABBIX:

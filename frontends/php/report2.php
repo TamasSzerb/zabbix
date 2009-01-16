@@ -93,7 +93,7 @@ include_once 'include/page_header.php';
 // --------------
 
 	$config = get_request('config',get_profile('web.avail_report.config',0));
-	update_profile('web.avail_report.config', $config, PROFILE_TYPE_INT);
+	update_profile('web.avail_report.config',$config, PROFILE_TYPE_INT);
 	
 	$options = array('always_select_first_host','with_items');
 
@@ -135,7 +135,10 @@ include_once 'include/page_header.php';
 	}
 	
 
-	if(isset($_REQUEST['triggerid'])){	
+	if(isset($_REQUEST['triggerid'])){
+		if(!check_right_on_trigger_by_triggerid(PERM_READ_ONLY, $_REQUEST['triggerid']))
+			access_deny();
+		
 		show_table_header(array(new CLink($trigger_data['host'],'?hostid='.$trigger_data['hostid']),' : "',expand_trigger_description_by_data($trigger_data),'"'));
 
 		$table = new CTableInfo(null,'graph');
@@ -161,17 +164,20 @@ include_once 'include/page_header.php';
 		$filterForm = new CFormTable(S_FILTER);//,'events.php?filter_set=1','POST',null,'sform');
 		$filterForm->AddOption('name','zbx_filter');
 		$filterForm->AddOption('id','zbx_filter');
-//		$filterForm->SetMethod('post');
-			
+		$filterForm->SetMethod('get');
+	
+		$script = new CScript("javascript: if(CLNDR['avail_report_since'].clndr.setSDateFromOuterObj()){". 
+								"$('filter_timesince').value = parseInt(CLNDR['avail_report_since'].clndr.sdt.getTime()/1000);}".
+							"if(CLNDR['avail_report_till'].clndr.setSDateFromOuterObj()){". 
+								"$('filter_timetill').value = parseInt(CLNDR['avail_report_till'].clndr.sdt.getTime()/1000);}"
+							);
+		$filterForm->AddAction('onsubmit',$script);
+		
 		$filterForm->AddVar('filter_timesince',($_REQUEST['filter_timesince']>0)?$_REQUEST['filter_timesince']:'');
 		$filterForm->AddVar('filter_timetill',($_REQUEST['filter_timetill']>0)?$_REQUEST['filter_timetill']:'');
-//*	
+	//*	
 		$clndr_icon = new CImg('images/general/bar/cal.gif','calendar', 16, 12, 'pointer');
-		$clndr_icon->AddAction('onclick','javascript: '.
-											'var pos = getPosition(this); '.
-											'pos.top+=10; '.
-											'pos.left+=16; '.
-											"CLNDR['avail_report_since'].clndr.clndrshow(pos.top,pos.left);");
+		$clndr_icon->AddAction('onclick',"javascript: var pos = getPosition(this); pos.top+=10; pos.left+=16; CLNDR['avail_report_since'].clndr.clndrshow(pos.top,pos.left);");
 		
 		$filtertimetab = new CTable(null,'calendar');
 		$filtertimetab->AddOption('width','10%');
@@ -192,17 +198,9 @@ include_once 'include/page_header.php';
 								new CNumericBox('filter_since_minute',(($_REQUEST['filter_timesince']>0)?date('i',$_REQUEST['filter_timesince']):''),2),
 								$clndr_icon
 						));
-		zbx_add_post_js('create_calendar(null,'.
-						'["filter_since_day","filter_since_month","filter_since_year","filter_since_hour","filter_since_minute"],'.
-						'"avail_report_since",'.
-						'"filter_timesince");');
-
-		$clndr_icon->AddAction('onclick','javascript: '.
-											'var pos = getPosition(this); '.
-											'pos.top+=10; '.
-											'pos.left+=16; '.
-											"CLNDR['avail_report_till'].clndr.clndrshow(pos.top,pos.left);");
-											
+		zbx_add_post_js('create_calendar(null,["filter_since_day","filter_since_month","filter_since_year","filter_since_hour","filter_since_minute"],"avail_report_since");');
+	
+		$clndr_icon->AddAction('onclick',"javascript: var pos = getPosition(this); pos.top+=10; pos.left+=16; CLNDR['avail_report_till'].clndr.clndrshow(pos.top,pos.left);");
 		$filtertimetab->AddRow(array(
 								S_TILL, 
 								new CNumericBox('filter_till_day',(($_REQUEST['filter_timetill']>0)?date('d',$_REQUEST['filter_timetill']):''),2),
@@ -216,10 +214,7 @@ include_once 'include/page_header.php';
 								new CNumericBox('filter_till_minute',(($_REQUEST['filter_timetill']>0)?date('i',$_REQUEST['filter_timetill']):''),2),
 								$clndr_icon
 						));
-		zbx_add_post_js('create_calendar(null,'.
-				'["filter_till_day","filter_till_month","filter_till_year","filter_till_hour","filter_till_minute"],'.
-				'"avail_report_till",'.
-				'"filter_timetill");');
+		zbx_add_post_js('create_calendar(null,["filter_till_day","filter_till_month","filter_till_year","filter_till_hour","filter_till_minute"],"avail_report_till");');
 		
 		zbx_add_post_js('addListener($("filter_icon"),"click",CLNDR[\'avail_report_since\'].clndr.clndrhide.bindAsEventListener(CLNDR[\'avail_report_since\'].clndr));'.
 						'addListener($("filter_icon"),"click",CLNDR[\'avail_report_till\'].clndr.clndrhide.bindAsEventListener(CLNDR[\'avail_report_till\'].clndr));'
@@ -231,7 +226,7 @@ include_once 'include/page_header.php';
 		
 		$reset = new CButton("filter_rst",S_RESET);
 		$reset->SetType('button');
-		$reset->SetAction('javascript: var url = new Curl(location.href); url.setArgument("filter_rst",1); location.href = url.getUrl();');
+		$reset->SetAction('javascript: var uri = new url(location.href); uri.setArgument("filter_rst",1); location.href = uri.getUrl();');
 	
 		$filterForm->AddItemToBottomRow($reset);
 								

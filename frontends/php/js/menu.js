@@ -28,7 +28,8 @@
 //        of ZABBIX software. See http://www.zabbix.com.
 //debugger;
 
-function show_popup_menu(e, content, width){
+function show_popup_menu(e, content, width)
+{
 	if(!width) width = 170;
 
 	var pos = [

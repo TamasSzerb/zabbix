@@ -189,8 +189,7 @@ out:
  ******************************************************************************/
 int	send_list_of_active_checks_json(zbx_sock_t *sock, struct zbx_json_parse *jp)
 {
-	char		host[HOST_HOST_LEN_MAX], *name_esc, params[MAX_STRING_LEN],
-			pattern[MAX_STRING_LEN], tmp[32];
+	char		host[MAX_STRING_LEN], tmp[32];
 	DB_RESULT	result;
 	DB_ROW		row;
 	DB_ITEM		item;
@@ -198,14 +197,6 @@ int	send_list_of_active_checks_json(zbx_sock_t *sock, struct zbx_json_parse *jp)
 	int		res = FAIL;
 	zbx_uint64_t	hostid;
 	char		error[MAX_STRING_LEN];
-
-	char		**regexp = NULL;
-	int		regexp_alloc = 32;
-	int		regexp_num = 0, n;
-
-	char		*sql = NULL;
-	int		sql_alloc = 2048;
-	int		sql_offset;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In send_list_of_active_checks_json()");
 
@@ -218,34 +209,27 @@ int	send_list_of_active_checks_json(zbx_sock_t *sock, struct zbx_json_parse *jp)
 	if (FAIL == get_hostid_by_host(host, &hostid, error))
 		goto error;
 
-	regexp = zbx_malloc(regexp, regexp_alloc);
-	sql = zbx_malloc(sql, sql_alloc);
-
-	name_esc = DBdyn_escape_string(host);
-
-	sql_offset = 0;
-	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 1024,
-			"select %s where i.hostid=h.hostid and h.status=%d and i.type=%d and h.hostid=" ZBX_FS_UI64
-			" and h.proxy_hostid=0",
+	if (0 != CONFIG_REFRESH_UNSUPPORTED) {
+		result = DBselect("select %s where i.hostid=h.hostid and h.status=%d and i.type=%d and h.hostid=" ZBX_FS_UI64
+			" and h.proxy_hostid=0 and (i.status=%d or (i.status=%d and i.nextcheck<=%d))",
 			ZBX_SQL_ITEM_SELECT,
 			HOST_STATUS_MONITORED,
 			ITEM_TYPE_ZABBIX_ACTIVE,
-			hostid);
-
-	if (0 != CONFIG_REFRESH_UNSUPPORTED)
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 256, " and (i.status=%d or (i.status=%d and i.nextcheck<=%d))",
-				ITEM_STATUS_ACTIVE, ITEM_STATUS_NOTSUPPORTED, time(NULL));
-	else
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 256, " and i.status=%d",
-				ITEM_STATUS_ACTIVE);
-
-	zbx_free(name_esc);
+			hostid,
+			ITEM_STATUS_ACTIVE, ITEM_STATUS_NOTSUPPORTED, time(NULL));
+	} else {
+		result = DBselect("select %s where i.hostid=h.hostid and h.status=%d and i.type=%d and h.hostid=" ZBX_FS_UI64
+			" and h.proxy_hostid=0 and i.status=%d",
+			ZBX_SQL_ITEM_SELECT,
+			HOST_STATUS_MONITORED,
+			ITEM_TYPE_ZABBIX_ACTIVE,
+			hostid,
+			ITEM_STATUS_ACTIVE);
+	}
 
 	zbx_json_init(&json, ZBX_JSON_STAT_BUF_LEN);
 	zbx_json_addstring(&json, ZBX_PROTO_TAG_RESPONSE, ZBX_PROTO_VALUE_SUCCESS, ZBX_JSON_TYPE_STRING);
 	zbx_json_addarray(&json, ZBX_PROTO_TAG_DATA);
-
-	result = DBselect("%s", sql);
 
 	while (NULL != (row = DBfetch(result)))
 	{
@@ -260,75 +244,8 @@ int	send_list_of_active_checks_json(zbx_sock_t *sock, struct zbx_json_parse *jp)
 		zbx_snprintf(tmp, sizeof(tmp), "%d", item.lastlogsize);
 		zbx_json_addstring(&json, ZBX_PROTO_TAG_LOGLASTSIZE, tmp, ZBX_JSON_TYPE_STRING);
 		zbx_json_close(&json);
-
-		/* Special processing for log[] and eventlog[] items */
-		do {	/* simple try realization */
-			if (0 != strncmp(item.key, "log[", 4) && 0 != strncmp(item.key, "eventlog[", 9))
-				break;
-
-			if (2 != parse_command(item.key, NULL, 0, params, MAX_STRING_LEN))
-				break;;
-				
-			if (0 != get_param(params, 2, pattern, sizeof(pattern)))
-				break;
-
-			if (*pattern != '@')
-				break;
-
-			for (n = 0; n < regexp_num; n++)
-				if (0 == strcmp(regexp[n], pattern + 1))
-					break;
-
-			if (n != regexp_num)
-				break;
-
-			if (regexp_num == regexp_alloc)
-			{
-				regexp_alloc += 32;
-				regexp = zbx_realloc(regexp, regexp_alloc);
-			}
-
-			regexp[regexp_num++] = strdup(pattern + 1);
-		} while (0);	/* simple try realization */
 	}
-	zbx_json_close(&json);
-
 	DBfree_result(result);
-
-	if (0 != regexp_num)
-	{
-		zbx_json_addarray(&json, ZBX_PROTO_TAG_REGEXP);
-
-		sql_offset = 0;
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 512,
-				"select r.name,e.expression,e.expression_type,e.exp_delimiter,e.case_sensitive"
-				" from regexps r,expressions e where r.regexpid=e.regexpid and r.name in (");
-
-		for (n = 0; n < regexp_num; n++)
-		{
-			name_esc = DBdyn_escape_string(regexp[n]);
-			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 512, "%s'%s'",
-					n == 0 ? "" : ",",
-					name_esc);
-			zbx_free(name_esc);
-			zbx_free(regexp[n]);
-		}
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 8, ")");
-
-		result = DBselect("%s", sql);
-		while (NULL != (row = DBfetch(result)))
-		{
-			zbx_json_addobject(&json, NULL);
-			zbx_json_addstring(&json, "name", row[0], ZBX_JSON_TYPE_STRING);
-			zbx_json_addstring(&json, "expression", row[1], ZBX_JSON_TYPE_STRING);
-			zbx_json_addstring(&json, "expression_type", row[2], ZBX_JSON_TYPE_INT);
-			zbx_json_addstring(&json, "exp_delimiter", row[3], ZBX_JSON_TYPE_STRING);
-			zbx_json_addstring(&json, "case_sensitive", row[4], ZBX_JSON_TYPE_INT);
-			zbx_json_close(&json);
-		}
-		DBfree_result(result);
-	}
-	zbx_free(regexp);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "Sending [%s]",
 			json.buffer);
@@ -339,7 +256,6 @@ int	send_list_of_active_checks_json(zbx_sock_t *sock, struct zbx_json_parse *jp)
 		res = SUCCEED;
 
 	zbx_json_free(&json);
-	zbx_free(sql);
 
 	return res;
 error:

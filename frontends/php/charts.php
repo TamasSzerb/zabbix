@@ -298,6 +298,7 @@ include_once 'include/page_header.php';
 	}
 	
 	$p_elements[] = $table;
+	$p_elements[] = BR();
 	
 	$icon = null;
 	$fs_icon = null;
@@ -335,7 +336,7 @@ include_once 'include/page_header.php';
 			get_profile('web.charts.hats.hat_charts.state',1)
 	);
 
-	$charts_hat->show();
+	$charts_hat->Show();
 	
 	if($_REQUEST['graphid'] > 0){
 // NAV BAR
@@ -354,11 +355,6 @@ include_once 'include/page_header.php';
 		}
 
 		zbx_add_post_js($script);
-		
-		$scroll_div = new CDiv();
-		$scroll_div->addOption('id','scroll_cntnr');
-		$scroll_div->addOption('style','border: 0px #CC0000 solid; height: 25px; width: 800px;');
-		$scroll_div->show();
 //		navigation_bar('charts.php',array('groupid','hostid','graphid'));
 //-------------
 	}

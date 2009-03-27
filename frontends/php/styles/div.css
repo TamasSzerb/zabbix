@@ -33,25 +33,14 @@ div.warning{
 
 div.onajaxload{
 	position: absolute;
-	background-color:#000000; 
-	
+	background-color:#000000;
+
 	filter:alpha(opacity=05);
 	opacity:.05;
-	
+
 	cursor:wait;
 	z-index: 50;
 }
-
-
-/**** SCREEN DRAG & DROP ****/
-div.draggable {
-	cursor: pointer;
-}
-
-div.hoverclass123{
-	border:1px solid red;
-}
-/***************************/
 
 /********* DIV IMG *********/
 div.zabbix_logo{
@@ -154,7 +143,7 @@ div.filteropened{
 	background-repeat:no-repeat;
 }
 
-div.filteropened:hover{         
+div.filteropened:hover{
 	cursor:pointer;
 }
 
@@ -192,29 +181,29 @@ div.iconreset:hover{
 }
 /********* DIV IMG END *********/
 
-span.link{
-	color:#333399;
-}
-
-span.link:hover{
-	cursor: pointer;
-	text-decoration: underline;
-}
-
 span.footer_sign{
 	padding-right: 5px;
 	padding-left: 5px;
 }
 
-span.divider{	
-	color: #000000;	
-	font-family: Verdana, Arial, sans-serif; 
-	font-size: 10px; 
+span.divider{
+	color: #000000;
+	font-family: Verdana, Arial, sans-serif;
+	font-size: 10px;
 	font-weight: normal;
 }
 
 /********** REQUIREMENTS TABLE *************/
-span.link{	color:#333399;	cursor: pointer;}span.link:hover{	text-decoration: underline;}span.ok{
+span.link{
+	color:#333399;
+	cursor: pointer;
+}
+
+span.link:hover{
+	text-decoration: underline;
+}
+
+span.ok{
 	white-space: normal;
 	color:		#00AA00;
 	font-weight:	bold;
@@ -235,10 +224,6 @@ span.red{
 
 span.orange{
 	color:		#EE6000;
-}
-
-span.blue{
-	color:		#0033FF;
 }
 
 span.info{

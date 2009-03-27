@@ -16,7 +16,7 @@
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-**/ 
+**/
 
 // Title: cookies class
 // Description: to manipulate cookies on client side
@@ -37,7 +37,8 @@ create: function (name,value,days) {
 		var date = new Date();
 		date.setTime(date.getTime()+(days*24*60*60*1000));
 		var expires = "; expires="+date.toGMTString();
-	}else{ 
+	}
+	else{ 
 		var expires = "";
 	}
 	
@@ -48,7 +49,8 @@ create: function (name,value,days) {
 read : function(name){
 	if(typeof(this.cookies[name]) != 'undefined'){
 		return this.cookies[name];
-	} else {
+	} 
+	else {
 		var nameEQ = name + "=";
 		var ca = document.cookie.split(';');
 		for(var i=0;i < ca.length;i++) {
@@ -62,7 +64,7 @@ read : function(name){
 
 printall: function() {
 	var allCookies = document.cookie.split('; ');
-	for (var i=0;i<allCookies.length;i++) {
+	for(var i=0;i<allCookies.length;i++){
 		var cookiePair = allCookies[i].split('=');
 		
 		alert("[" + cookiePair[0] + "] is " + cookiePair[1]); // assumes print is already defined
@@ -77,12 +79,11 @@ erase: function (name) {
 
 cookie.init();
 
-
 // Title: url manipulation class
 // Author: Aly
-var Curl = Class.create();
+var url = Class.create();
 
-Curl.prototype = {
+url.prototype = {
 url: 		'',		//	actually, it's depricated/private variable 
 port:		 -1,
 host: 		'',
@@ -93,15 +94,15 @@ filr:		'',
 reference:	'',
 path:		'',
 query:		'',
-args:  null,
+args: 		null,
 
 initialize: function(url){
 	this.url=unescape(url);
 	this.args = {};
-	
+
 	this.query=(this.url.indexOf('?')>=0)?this.url.substring(this.url.indexOf('?')+1):'';
 	if(this.query.indexOf('#')>=0) this.query=this.query.substring(0,this.query.indexOf('#'));
-	
+
 	var protocolSepIndex=this.url.indexOf('://');
 	if(protocolSepIndex>=0){
 		this.protocol=this.url.substring(0,protocolSepIndex).toLowerCase();
@@ -147,7 +148,7 @@ initialize: function(url){
 	else{
 		this.file=this.url;
 	}
-	
+
 	if(this.file.indexOf('?')>=0) this.file=this.file.substring(0, this.file.indexOf('?'));
 
 	var refSepIndex=url.indexOf('#');
@@ -155,6 +156,7 @@ initialize: function(url){
 		this.file=this.file.substring(0,refSepIndex);
 		this.reference=this.url.substring(this.url.indexOf('#'));
 	}
+
 	this.path=this.file;
 	if(this.query.length>0) this.file+='?'+this.query;
 	if(this.reference.length>0) this.file+='#'+this.reference;
@@ -162,6 +164,8 @@ initialize: function(url){
 
 	var sid = cookie.read('zbx_sessionid');
 	this.setArgument('sid', sid.substring(16));
+
+//	this.setArgument('output', null);
 },
 
 
@@ -194,11 +198,6 @@ setArgument: function(key,value){
 	this.formatQuery();
 },
 
-unsetArgument: function(key){
-	delete(this.args[key]);
-	this.formatQuery();
-},
-
 getArgument: function(key){
 	if(typeof(this.args[key]) != 'undefined') return this.args[key];
 	else return null;
@@ -209,18 +208,16 @@ getArguments: function(){
 },
 
 getUrl: function(){
-	this.formatQuery();
-	
-	var url = (this.protocol.length > 0)?(this.protocol+'://'):'';
-	url +=  encodeURI((this.username.length > 0)?(this.username):'');
-	url +=  encodeURI((this.password.length > 0)?(':'+this.password):'');
-	url +=  (this.host.length > 0)?(this.host):'';
-	url +=  (this.port.length > 0)?(':'+this.port):'';
-	url +=  encodeURI((this.path.length > 0)?(this.path):'');
-	url +=  encodeURI((this.query.length > 0)?('?'+this.query):'');
-	url +=  encodeURI((this.reference.length > 0)?('#'+this.reference):'');
-//	alert(url.getProtocol()+' : '+url.getHost()+' : '+url.getPort()+' : '+url.getPath()+' : '+url.getQuery());
-return url;
+	var uri = (this.protocol.length > 0)?(this.protocol+'://'):'';
+	uri +=  encodeURI((this.username.length > 0)?(this.username):'');
+	uri +=  encodeURI((this.password.length > 0)?(':'+this.password):'');
+	uri +=  (this.host.length > 0)?(this.host):'';
+	uri +=  (this.port.length > 0)?(':'+this.port):'';
+	uri +=  encodeURI((this.path.length > 0)?(this.path):'');
+	uri +=  encodeURI((this.query.length > 0)?('?'+this.query):'');
+	uri +=  encodeURI((this.reference.length > 0)?('#'+this.reference):'');
+//	alert(uri.getProtocol()+' : '+uri.getHost()+' : '+uri.getPort()+' : '+uri.getPath()+' : '+uri.getQuery());
+return uri;
 },
 
 setPort: function(port){
@@ -244,7 +241,6 @@ setQuery: function(query){
 },
 
 getQuery: function(){ 
-	this.formatQuery();
 	return this.query;
 },
 

@@ -291,7 +291,7 @@ void	init_config(void)
  *                                                                            *
  * Function: test                                                             *
  *                                                                            *
- * Purpose: test custom developed functions                                   *
+ * Purpose: test a custom developed functions                                 *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
@@ -1283,7 +1283,7 @@ void	zbx_on_exit()
 		{
 			if (threads[i]) {
 				kill(threads[i], SIGTERM);
-				threads[i] = (ZBX_THREAD_HANDLE)NULL;
+				threads[i] = (ZBX_THREAD_HANDLE)0;
 			}
 		}
 	}

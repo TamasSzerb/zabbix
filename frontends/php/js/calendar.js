@@ -26,12 +26,11 @@
 
 var CLNDR = new Array();			// calendar obj reference
 
-function create_calendar(time, objects, id, utime_field_id){
+function create_calendar(time, objects, id){
 	id = id || CLNDR.length;
-	if('undefined' == typeof(utime_field_id)) utime_field_id = null;
 	
 	CLNDR[id] = new Object;
-	CLNDR[id].clndr = new calendar(time, objects, utime_field_id);
+	CLNDR[id].clndr = new calendar(time, objects);
 }
 
 var calendar = Class.create();
@@ -65,8 +64,6 @@ clndr_monthdown: null,			//html bttn obj
 clndr_yearup: null,				//html bttn obj
 clndr_yeardown: null,			//html bttn obj
 
-clndr_utime_field: null,		//html obj where unix date representation is saved
-
 objects: new Array(),			// object list where will be saved date
 status: false,					// status of objects
 
@@ -74,7 +71,7 @@ visible: 0,				//GMenu style state
 
 monthname: new Array('January','February','March','April','May','June','July','August','September','October','November','December'), // months
 
-initialize: function(stime, objects, utime_field_id){
+initialize: function(stime, objects){
 	
 	if(!(this.status=this.checkOuterObj(objects))){
 		throw 'Calendar: constructor expects second parameter to be list of DOM nodes [d,M,Y,H,i].';
@@ -92,12 +89,6 @@ initialize: function(stime, objects, utime_field_id){
 	addListener(this.clndr_hour,'blur',this.sethour.bindAsEventListener(this));	
 	addListener(this.clndr_minute,'blur',this.setminute.bindAsEventListener(this));		
 
-	for(var i=0; i < this.objects.length; i++){
-		if((typeof(this.objects[i]) != 'undefined') && !empty(this.objects[i])){
-			addListener(this.objects[i], 'change', this.setSDateFromOuterObj.bindAsEventListener(this));
-		}
-	}
-
 	if(('undefined' != typeof(stime)) && !empty(stime)){
 		this.sdt.setTime(stime*1000);
 	}
@@ -110,11 +101,6 @@ initialize: function(stime, objects, utime_field_id){
 	
 	this.syncBSDateBySDT();
 	this.setCDate();
-	
-	utime_field_id = $(utime_field_id);
-	if(!is_null(utime_field_id)){
-		this.clndr_utime_field = utime_field_id;
-	}
 },
 
 ondateselected: function(){		// place any function;
@@ -240,11 +226,14 @@ setSDateFromOuterObj: function(){
 						this.sdt.setMinutes(val[4]);
 						result = true;
 					}
-					this.sdt.setSeconds(0);
+
 				}
 			}
 			
-			if(!result){
+			if(result){
+				return true;
+			}
+			else{
 				return false;
 			}
 			break;
@@ -252,13 +241,6 @@ setSDateFromOuterObj: function(){
 			return false;
 			break;
 	}
-	
-	if(!is_null(this.clndr_utime_field)){
-		this.clndr_utime_field.value = parseInt(this.sdt.getTime()/1000);
-//alert(this.clndr_utime_field.value);
-	}
-	
-return true;
 },
 
 setSDateDMY: function(d,m,y){
@@ -277,7 +259,7 @@ setSDateDMY: function(d,m,y){
 		result = true;
 	}
 	
-	if((y > 1970) && (y < 2100)){
+	if((y > 1970) && (y < 10000)){
 		this.sdt.setFullYear(y);
 		result = true;
 	}
@@ -368,11 +350,6 @@ setDateToOuterObj: function(){
 				}
 			}				
 			break;
-	}
-	
-	if(!is_null(this.clndr_utime_field)){
-		this.clndr_utime_field.value = parseInt(this.sdt.getTime()/1000);
-//alert(this.clndr_utime_field.value);
 	}
 },
 
@@ -500,8 +477,8 @@ setCDate: function(){
 	this.clndr_hour.value = this.hour;
 
 	if(IE){
-		this.clndr_month.innerHTML = this.monthname[this.month].toString();
-		this.clndr_year.innerHTML = this.year;		
+		this.clndr_month.innerText = this.monthname[this.month];
+		this.clndr_year.innerText = this.year;		
 	}
 	else{
 		this.clndr_month.textContent = this.monthname[this.month];

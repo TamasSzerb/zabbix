@@ -132,7 +132,6 @@
 				'history'		=> '',
 				'trends'		=> '',
 				'status'		=> '',
-				'data_type'		=> '',
 				'units'			=> '',
 				'multiplier'		=> '',
 				'delta'			=> '',
@@ -167,10 +166,7 @@
 				'width'			=> '',
 				'height'		=> ''),
 			'elements'	=> array(
-				'ymin_type'		=> '',
-				'ymax_type'		=> '',
-				'ymin_item_key'	=> '',
-				'ymax_item_key'	=> '',
+				'yaxistype'		=> '',
 				'show_work_period'	=> '',
 				'show_triggers'		=> '',
 				'graphtype'		=> '',
@@ -340,34 +336,6 @@
 
 			$data = DBfetch(DBselect('select * from graphs where graphid='.$graphid));
 			if(!$data) return false;
-			
-			$data['ymin_item_key'] = '';
-			$data['ymax_item_key'] = '';
-			if(($data['ymin_itemid'] > 0) || ($data['ymax_itemid'] > 0)){
-				$sql_where = '';
-				if($data['ymin_itemid'] > 0){
-					$sql_where.= ' i.itemid='.$data['ymin_itemid'];
-				}
-				if($data['ymax_itemid'] > 0){
-					$sql_where.= (zbx_empty($sql_where)?'':' OR ').' i.itemid='.$data['ymax_itemid'];
-				}
-				$sql_where = ' AND ('.$sql_where.')';
-				
-				$sql = 'SELECT DISTINCT h.host, itemid, i.key_ '.
-						' FROM items i, hosts h '.
-						' WHERE h.hostid=i.hostid '.
-							$sql_where;
-				$item_res = DBselect($sql);
-				while($item = DBfetch($item_res)){				
-					if($data['ymin_itemid'] == $item['itemid']){
-						$data['ymin_item_key'] = $item['host'].':'.$item['key_'];
-					}
-					
-					if($data['ymax_itemid']  == $item['itemid']){
-						$data['ymax_item_key'] = $item['host'].':'.$item['key_'];
-					}
-				}
-			}
 			
 			zbx_xmlwriter_start_element ($memory,XML_TAG_GRAPH);
 			

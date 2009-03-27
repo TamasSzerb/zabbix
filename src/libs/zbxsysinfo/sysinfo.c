@@ -524,7 +524,7 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 	return ret;
 }
 
-int	set_result_type(AGENT_RESULT *result, int value_type, int data_type, char *c)
+int	set_result_type(AGENT_RESULT *result, int value_type, char *c)
 {
 	int		ret = FAIL;
 	zbx_uint64_t	value;
@@ -536,30 +536,10 @@ int	set_result_type(AGENT_RESULT *result, int value_type, int data_type, char *c
 		zbx_rtrim(c, " \"");
 		zbx_ltrim(c, " \"");
 		del_zeroes(c);
-
-		switch (data_type) {
-		case ITEM_DATA_TYPE_OCTAL:
-			if (SUCCEED == is_uoct(c))
-			{
-				ZBX_OCT2UINT64(value, c);
-				SET_UI64_RESULT(result, value);
-				ret = SUCCEED;
-			}
-			break;
-		case ITEM_DATA_TYPE_HEXADECIMAL:
-			if (SUCCEED == is_uhex(c))
-			{
-				ZBX_HEX2UINT64(value, c);
-				SET_UI64_RESULT(result, value);
-				ret = SUCCEED;
-			}
-			break;
-		default:	/* ITEM_DATA_TYPE_DECIMAL */
-			if (SUCCEED == is_uint64(c, &value))
-			{
-				SET_UI64_RESULT(result, value);
-				ret = SUCCEED;
-			}
+		if (SUCCEED == is_uint64(c, &value))
+		{
+			SET_UI64_RESULT(result, value);
+			ret = SUCCEED;
 		}
 		break;
 	case ITEM_VALUE_TYPE_FLOAT:
@@ -793,6 +773,40 @@ void	*get_result_value_by_type(AGENT_RESULT *result, int require_type)
 			break;
 		default:
 			break;
+	}
+	return NULL;
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: get_result_value_by_value_type                                   *
+ *                                                                            *
+ * Purpose: return value of result in special type                            *
+ *          if value missed convert existed value to requested type           *
+ *                                                                            *
+ * Return value:                                                              *
+ *         NULL - if value are missed or can't be converted                   *
+ *                                                                            *
+ * Author: Aleksander Vladishev                                               *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+void	*get_result_value_by_value_type(AGENT_RESULT *result, int value_type)
+{
+	assert(result);
+
+	switch (value_type)
+	{
+		case ITEM_VALUE_TYPE_FLOAT:
+			return (void *)get_result_dbl_value(result);
+		case ITEM_VALUE_TYPE_STR:
+		case ITEM_VALUE_TYPE_LOG:
+			return (void *)get_result_str_value(result);
+		case ITEM_VALUE_TYPE_UINT64:
+			return (void *)get_result_ui64_value(result);
+		case ITEM_VALUE_TYPE_TEXT:
+			return (void *)get_result_text_value(result);
 	}
 	return NULL;
 }

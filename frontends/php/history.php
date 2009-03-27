@@ -256,8 +256,7 @@ include_once "include/page_header.php";
 ?>
 <?php
 	$effectiveperiod = navigation_bar_calc();
-
-	$bstime = $_REQUEST['stime'] = get_request('stime',
+		$bstime = $_REQUEST['stime'] = get_request('stime',
 										get_profile('web.item.graph.stime',date('YmdHi',(time()-$_REQUEST['period'])),
 										PROFILE_TYPE_STR,
 										$_REQUEST['itemid']));
@@ -273,7 +272,7 @@ include_once "include/page_header.php";
 			$time = mktime(substr($bstime,8,2),substr($bstime,10,2),0,substr($bstime,4,2),substr($bstime,6,2),substr($bstime,0,4));
 			$till = $time + $effectiveperiod;
 		}
-		$l_header = null;
+			$l_header = null;
 		
 		if(!isset($_REQUEST['plaintext'])){
 			if($item_type==ITEM_VALUE_TYPE_LOG){
@@ -316,7 +315,7 @@ include_once "include/page_header.php";
 			}
 
 			if(($l_header || $r_header) &&	($_REQUEST['fullscreen']==0))
-				show_table_header($l_header,$r_header);
+					show_table_header($l_header,$r_header);
 		}
 		else{
 			$txt = new CTag('p','yes',$l_header);
@@ -546,14 +545,8 @@ COpt::profiling_stop('history');
  			$script = 'scrollinit(0,'.$effectiveperiod.','.$stime.',0,'.$bstime.'); showgraphmenu("graph");';
 			if(isset($dom_graph_id))
 				$script.='graph_zoom_init("'.$dom_graph_id.'",'.$bstime.','.$effectiveperiod.',ZBX_G_WIDTH, 200, true);';
-			
-			zbx_add_post_js($script); 
-			
-			$scroll_div = new CDiv();			
-			$scroll_div->addOption('id','scroll_cntnr');			
-			$scroll_div->addOption('style','border: 0px #CC0000 solid; height: 25px; width: 800px;');			
-			$scroll_div->show();
-	//		navigation_bar("history.php",$to_save_request);
+			zbx_add_post_js($script);
+			//		navigation_bar("history.php",$to_save_request);		}
 		}
 	}
 ?>

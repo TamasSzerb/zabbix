@@ -19,7 +19,8 @@
 **/
 ?>
 <?php
-	define('ZABBIX_VERSION','1.7');
+	define('ZABBIX_VERSION','1.6.3');
+
 /* USER DEFINES */	
 
 	define('ZBX_LOGIN_ATTEMPTS', 	5);
@@ -44,11 +45,9 @@
 	define('ZBX_MAX_PERIOD', 12*31*24*3600);		// ~1 year
 	define('ZBX_PERIOD_DEFAULT', ZBX_MIN_PERIOD);
 
-	define('ZBX_DROPDOWN_FIRST_ENTRY',		1);		// 0 - NONE, 1 - ALL, 2 - SIMILAR ZBX 1.6.2 (compatibility mode)
+	define('ZBX_DROPDOWN_FIRST_ENTRY',		2);		// 0 - NONE, 1 - ALL, 2 - SIMILAR ZBX 1.6.2 (compatibility mode)
 	define('ZBX_DROPDOWN_FIRST_REMEMBER',	1);		// 0 - do NOT remember, 1 - do remember
 	
-	putenv('GDFONTPATH='.realpath('fonts/'));		// where to search for font  (GD > 2.0.18)
-	define('ZBX_GRAPH_FONT_NAME',	'kochi-gothic-subst');	// font file name
 /* END OF USERS DEFINES */
 
 	define('ZBX_AUTH_INTERNAL',	0);
@@ -112,35 +111,33 @@
 	define('AUDIT_ACTION_ENABLE',		5);
 	define('AUDIT_ACTION_DISABLE',		6);
 
-	define('AUDIT_RESOURCE_USER',			0);
-//	define('AUDIT_RESOURCE_ZABBIX',			1);
+	define('AUDIT_RESOURCE_USER',		0);
+//	define('AUDIT_RESOURCE_ZABBIX',		1);
 	define('AUDIT_RESOURCE_ZABBIX_CONFIG',	2);
-	define('AUDIT_RESOURCE_MEDIA_TYPE',		3);
-	define('AUDIT_RESOURCE_HOST',			4);
-	define('AUDIT_RESOURCE_ACTION',			5);
-	define('AUDIT_RESOURCE_GRAPH',			6);
+	define('AUDIT_RESOURCE_MEDIA_TYPE',	3);
+	define('AUDIT_RESOURCE_HOST',		4);
+	define('AUDIT_RESOURCE_ACTION',		5);
+	define('AUDIT_RESOURCE_GRAPH',		6);
 	define('AUDIT_RESOURCE_GRAPH_ELEMENT',	7);
-//	define('AUDIT_RESOURCE_ESCALATION',		8);
+//	define('AUDIT_RESOURCE_ESCALATION',	8);
 //	define('AUDIT_RESOURCE_ESCALATION_RULE',9);
 //	define('AUDIT_RESOURCE_AUTOREGISTRATION',10);
-	define('AUDIT_RESOURCE_USER_GROUP',		11);
+	define('AUDIT_RESOURCE_USER_GROUP',	11);
 	define('AUDIT_RESOURCE_APPLICATION',	12);
-	define('AUDIT_RESOURCE_TRIGGER',		13);
-	define('AUDIT_RESOURCE_HOST_GROUP',		14);
-	define('AUDIT_RESOURCE_ITEM',			15);
-	define('AUDIT_RESOURCE_IMAGE',			16);
-	define('AUDIT_RESOURCE_VALUE_MAP',		17);
-	define('AUDIT_RESOURCE_IT_SERVICE',		18);
-	define('AUDIT_RESOURCE_MAP',			19);
-	define('AUDIT_RESOURCE_SCREEN',			20);
-	define('AUDIT_RESOURCE_NODE',			21);
-	define('AUDIT_RESOURCE_SCENARIO',		22);
+	define('AUDIT_RESOURCE_TRIGGER',	13);
+	define('AUDIT_RESOURCE_HOST_GROUP',	14);
+	define('AUDIT_RESOURCE_ITEM',		15);
+	define('AUDIT_RESOURCE_IMAGE',		16);
+	define('AUDIT_RESOURCE_VALUE_MAP',	17);
+	define('AUDIT_RESOURCE_IT_SERVICE',	18);
+	define('AUDIT_RESOURCE_MAP',		19);
+	define('AUDIT_RESOURCE_SCREEN',		20);
+	define('AUDIT_RESOURCE_NODE',		21);
+	define('AUDIT_RESOURCE_SCENARIO',	22);
 	define('AUDIT_RESOURCE_DISCOVERY_RULE',	23);
-	define('AUDIT_RESOURCE_SLIDESHOW',		24);
-	define('AUDIT_RESOURCE_SCRIPT',			25);
-	define('AUDIT_RESOURCE_PROXY',			26);
-	define('AUDIT_RESOURCE_MAINTENANCE',	27);
-	define('AUDIT_RESOURCE_REGEXP',			28);
+	define('AUDIT_RESOURCE_SLIDESHOW',	24);
+	define('AUDIT_RESOURCE_SCRIPT',		25);
+	define('AUDIT_RESOURCE_PROXY',		26);
 
 	define('CONDITION_TYPE_HOST_GROUP',	0);
 	define('CONDITION_TYPE_HOST',		1);
@@ -158,7 +155,6 @@
 	define('CONDITION_TYPE_HOST_TEMPLATE',	13);
 	define('CONDITION_TYPE_EVENT_ACKNOWLEDGED',	14);
 	define('CONDITION_TYPE_APPLICATION',	15);
-	define('CONDITION_TYPE_MAINTENANCE',	16);
 
 	define('CONDITION_OPERATOR_EQUAL',	0);
 	define('CONDITION_OPERATOR_NOT_EQUAL',	1);
@@ -179,16 +175,6 @@
 	define('HOST_AVAILABLE_UNKNOWN',	0);
 	define('HOST_AVAILABLE_TRUE',		1);
 	define('HOST_AVAILABLE_FALSE',		2);
-	
-	define('MAINTENANCE_TYPE_NORMAL', 	0);
-	define('MAINTENANCE_TYPE_NODATA', 	1);
-	
-	define('TIMEPERIOD_TYPE_ONETIME',	0);
-	define('TIMEPERIOD_TYPE_HOURLY',	1);
-	define('TIMEPERIOD_TYPE_DAILY',		2);
-	define('TIMEPERIOD_TYPE_WEEKLY',	3);
-	define('TIMEPERIOD_TYPE_MONTHLY',	4);
-	define('TIMEPERIOD_TYPE_YEARLY',	5);
 
 	define('MAP_LABEL_TYPE_LABEL',0);
 	define('MAP_LABEL_TYPE_IP',1);
@@ -231,43 +217,39 @@
 	define('ITEM_VALUE_TYPE_UINT64',3);
 	define('ITEM_VALUE_TYPE_TEXT',4);
 
-	define('ITEM_DATA_TYPE_DECIMAL',0);
-	define('ITEM_DATA_TYPE_OCTAL',1);
-	define('ITEM_DATA_TYPE_HEXADECIMAL',2);
-
 	define('ITEM_STATUS_ACTIVE',0);
 	define('ITEM_STATUS_DISABLED',1);
 	define('ITEM_STATUS_NOTSUPPORTED',3);
 
 	define('ITEM_SNMPV3_SECURITYLEVEL_NOAUTHNOPRIV',0);
-	define('ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV',1);
-	define('ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV',2);
+	define('ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV',	1);
+	define('ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV',	2);
 
-	define('GRAPH_ITEM_DRAWTYPE_LINE',		0);
+	define('GRAPH_ITEM_DRAWTYPE_LINE',			0);
 	define('GRAPH_ITEM_DRAWTYPE_FILLED_REGION',	1);
 	define('GRAPH_ITEM_DRAWTYPE_BOLD_LINE',		2);
-	define('GRAPH_ITEM_DRAWTYPE_DOT',		3);
+	define('GRAPH_ITEM_DRAWTYPE_DOT',			3);
 	define('GRAPH_ITEM_DRAWTYPE_DASHED_LINE',	4);
 
-	define('MAP_LINK_DRAWTYPE_LINE',		0);
+	define('MAP_LINK_DRAWTYPE_LINE',			0);
 	define('MAP_LINK_DRAWTYPE_BOLD_LINE',		2);
-	define('MAP_LINK_DRAWTYPE_DOT',			3);
+	define('MAP_LINK_DRAWTYPE_DOT',				3);
 	define('MAP_LINK_DRAWTYPE_DASHED_LINE',		4);
 
-	define('SERVICE_ALGORITHM_NONE',0);
-	define('SERVICE_ALGORITHM_MAX',1);
-	define('SERVICE_ALGORITHM_MIN',2);
+	define('SERVICE_ALGORITHM_NONE',	0);
+	define('SERVICE_ALGORITHM_MAX',		1);
+	define('SERVICE_ALGORITHM_MIN',		2);
 	
 	define('TRIGGER_MULT_EVENT_DISABLED',0);
-	define('TRIGGER_MULT_EVENT_ENABLED',1);
+	define('TRIGGER_MULT_EVENT_ENABLED'	,1);
 	
-	define('TRIGGER_STATUS_ENABLED',0);
+	define('TRIGGER_STATUS_ENABLED'	,0);
 	define('TRIGGER_STATUS_DISABLED',1);
-	define('TRIGGER_STATUS_UNKNOWN',2);
+	define('TRIGGER_STATUS_UNKNOWN'	,2);
 	
-	define('TRIGGER_VALUE_FALSE',0);
-	define('TRIGGER_VALUE_TRUE',1);
-	define('TRIGGER_VALUE_UNKNOWN',2);
+	define('TRIGGER_VALUE_FALSE'	,0);
+	define('TRIGGER_VALUE_TRUE'		,1);
+	define('TRIGGER_VALUE_UNKNOWN'	,2);
 
 	define('TRIGGER_SEVERITY_NOT_CLASSIFIED',	0);
 	define('TRIGGER_SEVERITY_INFORMATION',		1);
@@ -323,22 +305,20 @@
 	define('SCREEN_SIMPLE_ITEM',0);
 	define('SCREEN_DYNAMIC_ITEM',1);
 
-	define('SCREEN_RESOURCE_GRAPH', 		0);
-	define('SCREEN_RESOURCE_SIMPLE_GRAPH', 	1);
-	define('SCREEN_RESOURCE_MAP', 			2);
-	define('SCREEN_RESOURCE_PLAIN_TEXT', 	3);
-	define('SCREEN_RESOURCE_HOSTS_INFO', 	4);
+	define('SCREEN_RESOURCE_GRAPH', 0);
+	define('SCREEN_RESOURCE_SIMPLE_GRAPH', 1);
+	define('SCREEN_RESOURCE_MAP', 2);
+	define('SCREEN_RESOURCE_PLAIN_TEXT', 3);
+	define('SCREEN_RESOURCE_HOSTS_INFO', 4);
 	define('SCREEN_RESOURCE_TRIGGERS_INFO', 5);
-	define('SCREEN_RESOURCE_SERVER_INFO', 	6);
-	define('SCREEN_RESOURCE_CLOCK', 		7);
-	define('SCREEN_RESOURCE_SCREEN', 		8);
+	define('SCREEN_RESOURCE_SERVER_INFO', 6);
+	define('SCREEN_RESOURCE_CLOCK', 7);
+	define('SCREEN_RESOURCE_SCREEN', 8);
 	define('SCREEN_RESOURCE_TRIGGERS_OVERVIEW', 9);
 	define('SCREEN_RESOURCE_DATA_OVERVIEW', 10);
-	define('SCREEN_RESOURCE_URL', 			11);
-	define('SCREEN_RESOURCE_ACTIONS', 		12);
-	define('SCREEN_RESOURCE_EVENTS',		13);
-	define('SCREEN_RESOURCE_STATUS_OF_TRIGGERS', 14);
-	define('SCREEN_RESOURCE_SYSTEM_STATUS',	15);
+	define('SCREEN_RESOURCE_URL', 11);
+	define('SCREEN_RESOURCE_ACTIONS', 12);
+	define('SCREEN_RESOURCE_EVENTS',13);
 
 /* alignes */
 	define('HALIGN_DEFAULT',0);
@@ -360,8 +340,8 @@
 	define('STYLE_TOP', 1);
 
 /* time module tipe */
-        define('TIME_TYPE_LOCAL',	0);
-        define('TIME_TYPE_SERVER',	1);
+	define('TIME_TYPE_LOCAL',	0);
+	define('TIME_TYPE_SERVER',	1);
 
 	define('FILTER_TAST_SHOW',	0);
 	define('FILTER_TAST_HIDE',	1);
@@ -398,17 +378,17 @@
 	define('GROUP_STATUS_DISABLED', 1);	
 	define('GROUP_STATUS_ENABLED', 0);
 	
-// IMPORTANT!!!    by priority	DESC
+// IMPORTANT!!!    by priority	ASC
 	define('GROUP_GUI_ACCESS_SYSTEM', 	0);
 	define('GROUP_GUI_ACCESS_INTERNAL', 1);
 	define('GROUP_GUI_ACCESS_DISABLED', 2);	
 	
 
-	define('PERM_MAX',		3);
+	define('PERM_MAX',			3);
 	define('PERM_READ_WRITE',	3);
 	define('PERM_READ_ONLY',	2);
 	define('PERM_READ_LIST',	1);
-	define('PERM_DENY',		0);
+	define('PERM_DENY',			0);
 	
 	define('PERM_RES_STRING_LINE',	0); /* return string of nodes id - '1,2,3,4,5' */
 	define('PERM_RES_IDS_ARRAY',	1); /* return array of nodes id - array(1,2,3,4) */
@@ -442,10 +422,6 @@
 	define('EVENT_ACK_DISABLED','0');
 	define('EVENT_ACK_ENABLED','1');
 
-	define('EVENTS_NOFALSEFORB_STATUS_ALL',		0);	//	used with TRIGGERS_OPTION_NOFALSEFORB
-	define('EVENTS_NOFALSEFORB_STATUS_FALSE',	1);	//	used with TRIGGERS_OPTION_NOFALSEFORB
-	define('EVENTS_NOFALSEFORB_STATUS_TRUE',	2);	//	used with TRIGGERS_OPTION_NOFALSEFORB
-	
 	define('EVENT_SOURCE_TRIGGERS',		0);
 	define('EVENT_SOURCE_DISCOVERY',	1);
 
@@ -453,41 +429,7 @@
 	define('EVENT_OBJECT_DHOST',		1);
 	define('EVENT_OBJECT_DSERVICE',		2);
 	
-	define('GRAPH_YAXIS_TYPE_CALCULATED',	0);
-	define('GRAPH_YAXIS_TYPE_FIXED',		1);
-	define('GRAPH_YAXIS_TYPE_ITEM_VALUE',	2);
-	
-	define('GRAPH_YAXIS_SIDE_LEFT',		0);
-	define('GRAPH_YAXIS_SIDE_RIGHT',	1);
-	
-	define('GRAPH_ITEM_SIMPLE' , 	0);
-	define('GRAPH_ITEM_AGGREGATED',	1);
-	define('GRAPH_ITEM_SUM',		2);
-	
-	define('GRAPH_TYPE_NORMAL',			0);
-	define('GRAPH_TYPE_STACKED',		1);
-	define('GRAPH_TYPE_PIE',			2);
-	define('GRAPH_TYPE_EXPLODED',		3);
-	define('GRAPH_TYPE_3D',				4);
-	define('GRAPH_TYPE_3D_EXPLODED',	5);
-	define('GRAPH_TYPE_BAR',			6);
-	define('GRAPH_TYPE_COLUMN',			7);
-	define('GRAPH_TYPE_BAR_STACKED',	8);
-	define('GRAPH_TYPE_COLUMN_STACKED',	9);
-	
-	define('GRAPH_3D_ANGLE', 70);
-	
-	define('GRAPH_STACKED_ALFA',	15);	//0..100 transperancy
-	
-	define('GRAPH_ZERO_LINE_COLOR_LEFT', 'AAAAAA');
-	define('GRAPH_ZERO_LINE_COLOR_RIGHT', '888888');
-	
-	define('ZBX_MAX_TREND_DIFF', 3600);
-	
-	define('ZBX_GRAPH_MAX_SKIP_CELL', 16);
-	define('ZBX_GRAPH_MAX_SKIP_DELAY', 4);
-	
-	define('DOBJECT_STATUS_UP',			0);
+	define('DOBJECT_STATUS_UP',		0);
 	define('DOBJECT_STATUS_DOWN',		1);
 	define('DOBJECT_STATUS_DISCOVER',	2); /* only for events,           */
 	define('DOBJECT_STATUS_LOST',		3); /*     generated by discovery */
@@ -517,6 +459,8 @@
 	
 	define('AVAILABLE_NOCACHE',	0);		// take available objects not from cache
 	
+	
+//	define('BR',	"<br/>\n");
 	define('SBR',	"<br/>\n");
 	define('SPACE',	'&nbsp;');
 	define('RARR',	'&rArr;');
@@ -627,14 +571,15 @@ else{
 	define('XML_TAG_DEPENDS',			'depends');
 
 /* Support for PHP5. PHP5 does not have $HTTP_..._VARS */
-	if(!function_exists('version_compare')){
+	if (!function_exists('version_compare'))
+	{
 		$_GET		= $HTTP_GET_VARS;
 		$_POST		= $HTTP_POST_VARS;
 		$_COOKIE	= $HTTP_COOKIE_VARS;
 	}
 
 /* if magic quotes on then get rid of them */
-	if(get_magic_quotes_gpc()){
+	if (get_magic_quotes_gpc()) {
 		$_GET    = zbx_stripslashes($_GET);
 		$_POST	 = zbx_stripslashes($_POST);
 		$_COOKIE = zbx_stripslashes($_COOKIE);

@@ -60,7 +60,7 @@ include_once 'include/page_header.php';
 		'conditions'=>		array(null, O_OPT, null, null, null),
 		'g_conditionid'=> 	array(null, O_OPT, null, null, null),
 
-		'new_condition'=>	array(null, O_OPT,  null,	null,	'isset({add_condition})'),
+		'new_condition'=>	array(null, 	 O_OPT,  null,	null,	'isset({add_condition})'),
 		
 		'operations'=>		array(null, O_OPT, null, null, 'isset({save})'),
 		'g_operationid'=>	array(null, O_OPT, null, null, null),
@@ -104,12 +104,11 @@ include_once 'include/page_header.php';
 
 	check_fields($fields);
 	validate_sort_and_sortorder('a.name',ZBX_SORT_UP);
-
+//SDI($_REQUEST);
 /* AJAX */	
-// for future use
 	if(isset($_REQUEST['favobj'])){
 		if('filter' == $_REQUEST['favobj']){
-			update_profile('web.audit.filter.state',$_REQUEST['state'], PROFILE_TYPE_INT);
+			update_profile('web.audit.filter.state',$_REQUEST['state'],PROFILE_TYPE_INT);
 		}
 	}	
 
@@ -372,58 +371,59 @@ include_once 'include/page_header.php';
 	$form = new CForm();
 	$form->SetMethod('get');
 	
-	$form->addVar('eventsource', $_REQUEST['eventsource']);
+	$form->AddVar('eventsource', $_REQUEST['eventsource']);
 	if(!isset($_REQUEST['form'])){
-		$form->addItem(new CButton('form',S_CREATE_ACTION));
-	} else {
-
-    }
+		$form->AddItem(new CButton('form',S_CREATE_ACTION));
+	}
 		
 	show_table_header(S_CONFIGURATION_OF_ACTIONS_BIG, $form);
-    echo SBR;
+
 	if(isset($_REQUEST['form'])){
 /* form */
 //		insert_action_form();
 //* NEW Form 
 		$frmAction = new CForm('actionconf.php','post');
-		$frmAction->setName(S_ACTION);
+		$frmAction->SetName(S_ACTION);
 		
-		$frmAction->addVar('form',get_request('form',1));
+		$frmAction->AddVar('form',get_request('form',1));
 		$from_rfr = get_request('form_refresh',0);
-		$frmAction->addVar('form_refresh',$from_rfr+1);
+		$frmAction->AddVar('form_refresh',$from_rfr+1);
 		
 		$action = null;
 		if(isset($_REQUEST['actionid'])){
 			$action = get_action_by_actionid($_REQUEST['actionid']);
-			$frmAction->addVar('actionid',$_REQUEST['actionid']);
+			$frmAction->AddVar('actionid',$_REQUEST['actionid']);
 		}
 		
 		$left_tab = new CTable();
-		$left_tab->setCellPadding(3);
-		$left_tab->setCellSpacing(3);
+		$left_tab->SetCellPadding(3);
+		$left_tab->SetCellSpacing(3);
 		
-		$left_tab->addOption('border',0);
+		$left_tab->AddOption('border',0);
 		
-		$left_tab->addRow(create_hat(
+		$left_tab->AddRow(create_hat(
 				S_ACTION,
 				get_act_action_form($action),//null,
 				null,
-				'hat_action'
+				'hat_action',
+				get_profile('web.actionconf.hats.hat_action.state',1)
 			));
 			
-		$left_tab->addRow(create_hat(
+		$left_tab->AddRow(create_hat(
 				S_ACTION_CONDITIONS,
 				get_act_condition_form($action),//null,
 				null,
-				'hat_conditions'
+				'hat_conditions',
+				get_profile('web.actionconf.hats.hat_conditions.state',1)
 			));
 			
 		if(isset($_REQUEST['new_condition'])){
-			$left_tab->addRow(create_hat(
+			$left_tab->AddRow(create_hat(
 					S_NEW_CONDITION,
 					get_act_new_cond_form($action),//null,
 					null,
-					'hat_new_cond'
+					'hat_new_cond',
+					get_profile('web.actionconf.hats.hat_new_cond.state',1)
 				));			
 		}
 
@@ -432,46 +432,49 @@ include_once 'include/page_header.php';
 		$right_tab->SetCellPadding(3);
 		$right_tab->SetCellSpacing(3);
 		
-		$right_tab->addOption('border',0);
+		$right_tab->AddOption('border',0);
 				
-		$right_tab->addRow(create_hat(
+		$right_tab->AddRow(create_hat(
 				S_ACTION_OPERATIONS,
 				get_act_operations_form($action),//null,
 				null,
-				'hat_operations'
+				'hat_operations',
+				get_profile('web.actionconf.hats.hat_operations.state',1)
 			));
 
 		if(isset($_REQUEST['new_operation'])){
-			$right_tab->addRow(create_hat(
+			$right_tab->AddRow(create_hat(
 					S_EDIT_OPERATION,
 					get_act_new_oper_form($action),//null,
 					null,
-					'hat_new_oper'
+					'hat_new_oper',
+					get_profile('web.actionconf.hats.hat_new_oper.state',1)
 				));
 		}
 		
 		if(isset($_REQUEST['new_opcondition'])){
-			$right_tab->addRow(create_hat(
+			$right_tab->AddRow(create_hat(
 					S_NEW.SPACE.S_OPERATION_CONDITION,
 					get_oper_new_cond_form($action),//null,
 					null,
-					'hat_new_oper_cond'
+					'hat_new_oper_cond',
+					get_profile('web.actionconf.hats.hat_new_oper_cond.state',1)
 				));
 		}
 		
 		$td_l = new CCol($left_tab);
-		$td_l->addOption('valign','top');
+		$td_l->AddOption('valign','top');
 		
 		$td_r = new CCol($right_tab);
-		$td_r->addOption('valign','top');
+		$td_r->AddOption('valign','top');
 		
 		$outer_table = new CTable();
-		$outer_table->addOption('border',0);
+		$outer_table->AddOption('border',0);
 		$outer_table->SetCellPadding(1);
 		$outer_table->SetCellSpacing(1);
-		$outer_table->addRow(array($td_l,$td_r));
+		$outer_table->AddRow(array($td_l,$td_r));
 		
-		$frmAction->additem($outer_table);
+		$frmAction->Additem($outer_table);
 		
 		show_messages();
 		$frmAction->Show();
@@ -482,9 +485,9 @@ include_once 'include/page_header.php';
 		$form->SetMethod('get');
 		
 		$cmbSource = new CComboBox('eventsource',$_REQUEST['eventsource'],'submit()');
-		$cmbSource->addItem(EVENT_SOURCE_TRIGGERS,S_TRIGGERS);
-		$cmbSource->addItem(EVENT_SOURCE_DISCOVERY,S_DISCOVERY);
-		$form->addItem(array(S_EVENT_SOURCE, SPACE, $cmbSource));
+		$cmbSource->AddItem(EVENT_SOURCE_TRIGGERS,S_TRIGGERS);
+		$cmbSource->AddItem(EVENT_SOURCE_DISCOVERY,S_DISCOVERY);
+		$form->AddItem(array(S_EVENT_SOURCE, SPACE, $cmbSource));
 
 		$row_count = 0;
 		$numrows = new CSpan(null,'info');
@@ -546,7 +549,7 @@ include_once 'include/page_header.php';
 					'enabled');
 			}
 
-			$tblActions->addRow(array(
+			$tblActions->AddRow(array(
 				array(
 					new CCheckBox(
 						'g_actionid['.$action_data['actionid'].']',			/* name */
@@ -573,7 +576,7 @@ include_once 'include/page_header.php';
 			new CButtonQMessage('group_delete',S_DELETE_SELECTED,S_DELETE_SELECTED_ACTIONS_Q)
 		)));
 
-		$form->addItem($tblActions);
+		$form->AddItem($tblActions);
 		$form->Show();
 	}
 	if(isset($row_count))

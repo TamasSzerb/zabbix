@@ -141,8 +141,7 @@ COpt::profiling_start("page");
 						),
 					array(
 							'url'=>'screens.php',
-							'label'=>S_SCREENS,
-							'sub_pages'=>array('slides.php')
+							'label'=>S_SCREENS	
 						),
 					array(
 							'url'=>'maps.php',
@@ -180,14 +179,8 @@ COpt::profiling_start("page");
 				'pages'=>array(
 					array('url'=>'report1.php',	'label'=>S_STATUS_OF_ZABBIX	),
 					array('url'=>'report2.php',	'label'=>S_AVAILABILITY_REPORT	),
-					array('url'=>'report5.php',	'label'=>S_TRIGGERS_TOP_100	),
-					array(
-							'url'=>'report6.php',	
-							'label'=>S_BAR_REPORTS,
-							'sub_pages'=>array('popup_period.php','popup_bitem.php','chart_bar.php')
-						),
-					array('url'=>'popup.php')
-					),
+					array('url'=>'report5.php',	'label'=>S_TRIGGERS_TOP_100	)   
+					)
 				),
 		'config'=>array(
 				'label'			=> S_CONFIGURATION,
@@ -206,10 +199,7 @@ COpt::profiling_start("page");
 							'label'=>S_WEB,
 							'sub_pages'=>array('popup_httpstep.php')
 						),
-					array(
-							'url'=>'hosts.php',
-							'label'=>S_HOSTS
-						),
+					array('url'=>'hosts.php'	,'label'=>S_HOSTS),
 					array(
 							'url'=>'items.php',
 							'label'=>S_ITEMS,
@@ -238,7 +228,8 @@ COpt::profiling_start("page");
 							'sub_pages'=>array('services_form.php')	
 						),
 					array('url'=>'discoveryconf.php','label'=>S_DISCOVERY),
-					array('url'=>'exp_imp.php'	,'label'=>S_EXPORT_IMPORT)
+					array('url'=>'exp_imp.php'	,'label'=>S_EXPORT_IMPORT),
+					array('url'=>'popup.php')
 					)
 				),
 		'admin'=>array(
@@ -296,16 +287,19 @@ COpt::profiling_start("page");
 		}
 
 //---
-		$menu_class = 'horizontal_menu_n';	
+		$menu_class = 'horizontal_menu_n';
+		
 		$page_exists = false;
 		$sub_menus[$label] = array();
 		foreach($menu['pages'] as $id => $sub_page){
 			$show_sub_menu = true;
 // show check
 			if(!isset($sub_page['label'])) $show_sub_menu = false;
+
 			if(isset($sub_page['user_type']) && ($USER_DETAILS['type'] < $sub_page['user_type'])){
 				$show_sub_menu = false;
 			}
+
 			if(isset($sub_pages['node_perm']) && isset($DB['DB']) && !is_null($DB['DB'])){
 				$available_nodes = get_accessible_nodes_by_user($USER_DETAILS,$sub_page['node_perm']);				
 				if(0 == count($available_nodes)){
@@ -320,6 +314,7 @@ COpt::profiling_start("page");
 
 			$sub_menu_active = ($page['file'] == $sub_page['url']);
 			$sub_menu_active |=  (isset($sub_page['sub_pages']) && str_in_array($page['file'], $sub_page['sub_pages']));
+
 			if($sub_menu_active){
 // PERMISSION CHECK
 				$deny &= ($USER_DETAILS['type'] < $menu['user_type']);
@@ -420,7 +415,15 @@ COpt::profiling_start("page");
 <?php
 	if(isset($page['scripts']) && is_array($page['scripts'])){
 		foreach($page['scripts'] as $id => $script){
-			print('    <script type="text/javascript" src="js/'.$script.'"></script>'."\n");
+			if(file_exists('js/'.$script)){
+				echo '    <script type="text/javascript" src="js/'.$script.'"></script>'."\n";
+			} 
+			else if(file_exists($script)){
+				echo '    <script type="text/javascript" src="'.$script.'"></script>'."\n";
+			} 
+			else {
+				echo '<!-- js script "'.$script.'" not found-->'."\n";
+			}
 		}
 	}
 ?>
@@ -488,7 +491,6 @@ COpt::compare_files_with_menu($ZBX_MENU);
 		if(ZBX_DISTRIBUTED){
 			$lst_nodes = new CComboBox('switch_node', get_current_nodeid(false), 'submit()');
 			$available_nodes = get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_LIST);
-
 			$db_nodes = DBselect('SELECT * '.
 						' FROM nodes '.
 						' WHERE '.DBcondition('nodeid',$available_nodes).
@@ -513,15 +515,14 @@ COpt::compare_files_with_menu($ZBX_MENU);
 				}
 			}
 		}
-
+		
 		$table = new CTable();
 		$table->setCellSpacing(0);
 		$table->setCellPadding(0);
 		$table->addOption('style','width: 100%;');
 
 		$r_col = new CCol($node_form);
-		$r_col->AddOption('align','right');
-//		$r_col->AddOption('style','text-align: right;');
+		$r_col->addOption('style','text-align: right;');
 		
 		$table->addRow(array($menu_table,$r_col));
 		
@@ -575,7 +576,6 @@ COpt::compare_files_with_menu($ZBX_MENU);
 		
 		$page_menu->show();
 	}
-
 //------------------------------------- <HISTORY> ---------------------------------------
 	if(isset($page['hist_arg']) && ($USER_DETAILS['alias'] != ZBX_GUEST_USER) && ($page['type'] == PAGE_TYPE_HTML) && !defined('ZBX_PAGE_NO_MENU')){
 		$table = new CTable();
@@ -616,6 +616,6 @@ COpt::compare_files_with_menu($ZBX_MENU);
 		}
 		unset($tmezone);
 	}
-
+	
 	show_messages();
 ?>

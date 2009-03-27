@@ -19,22 +19,22 @@
 **/
 ?>
 <?php
-require_once('include/config.inc.php');
-require_once('include/forms.inc.php');
+require_once "include/config.inc.php";
+require_once "include/forms.inc.php";
 
-$page['title']	= "S_ZABBIX_BIG";
-$page['file']	= 'index.php';
+$page["title"]	= "S_ZABBIX_BIG";
+$page['file']	= "index.php";
 
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		'name'=>			array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({enter})'),
-		'password'=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		'isset({enter})'),
-		'sessionid'=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
-		'message'=>			array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
-		'reconnect'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	BETWEEN(0,65535),NULL),
-		'enter'=>			array(T_ZBX_STR, O_OPT, P_SYS,	NULL,		NULL),
-		'form'=>			array(T_ZBX_STR, O_OPT, P_SYS,  NULL,   	NULL),
-		'form_refresh'=>	array(T_ZBX_INT, O_OPT, NULL,   NULL,   	NULL)
+		"name"=>			array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({enter})'),
+		"password"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		'isset({enter})'),
+		"sessionid"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
+		"message"=>			array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
+		"reconnect"=>		array(T_ZBX_INT, O_OPT,	NULL, BETWEEN(0,65535),NULL),
+		"enter"=>			array(T_ZBX_STR, O_OPT, P_SYS,    NULL,   NULL),
+		"form"=>			array(T_ZBX_STR, O_OPT, P_SYS,  NULL,   	NULL),
+		"form_refresh"=>	array(T_ZBX_INT, O_OPT, NULL,   NULL,   	NULL)
 	);
 	check_fields($fields);
 ?>
@@ -60,13 +60,13 @@ $page['file']	= 'index.php';
 			if(!isset($sessionid)) $_REQUEST['enter'] = 'Enter';
 			
 			$_REQUEST['name'] = $_SERVER['PHP_AUTH_USER'];
-			$_REQUEST['password'] = 'zabbix';//$_SERVER['PHP_AUTH_PW'];
+			$_REQUEST['password'] = 'zabbix';//$_SERVER["PHP_AUTH_PW"];
 		}
 		else{
 			access_deny();
 		}
 	}
-	
+
 	if(isset($_REQUEST['enter'])&&($_REQUEST['enter']=='Enter')){
 		
 		$name = get_request('name','');
@@ -87,7 +87,7 @@ $page['file']	= 'index.php';
 		if(($name!=ZBX_GUEST_USER) && zbx_empty($passwd)){
 			$login = $attempt = false;
 		}
-
+		
 		if($login){
 			if($login['attempt_failed'] >= ZBX_LOGIN_ATTEMPTS){
 				sleep(ZBX_LOGIN_BLOCK);
@@ -171,7 +171,7 @@ $page['file']	= 'index.php';
 		}
 	}
 
-include_once('include/page_header.php');
+include_once "include/page_header.php";
 
 	if(isset($_REQUEST['message'])) show_error_message($_REQUEST['message']);
 
@@ -183,16 +183,16 @@ include_once('include/page_header.php');
 			case ZBX_AUTH_INTERNAL:
 			default:
 //	konqueror bug #138024; adding useless param(login=1) to the form's action path to avoid bug!!
-				$frmLogin = new CFormTable('Login','index.php?login=1','post','multipart/form-data');
-				$frmLogin->setHelp('web.index.login');
-				$frmLogin->addRow('Login name', new CTextBox('name'));
-				$frmLogin->addRow('Password', new CPassBox('password'));
-				$frmLogin->addItemToBottomRow(new CButton('enter','Enter'));
-				$frmLogin->show(false);
+				$frmLogin = new CFormTable('Login','index.php?login=1',"post","multipart/form-data");
+				$frmLogin->SetHelp('web.index.login');
+				$frmLogin->AddRow('Login name', new CTextBox('name'));
+				$frmLogin->AddRow('Password', new CPassBox('password'));
+				$frmLogin->AddItemToBottomRow(new CButton('enter','Enter'));
+				$frmLogin->Show(false);
 		
-				setFocus($frmLogin->getName(),'name');
+				setFocus($frmLogin->GetName(),'name');
 				
-				$frmLogin->destroy();
+				$frmLogin->Destroy();
 		}
 
 	}
@@ -202,6 +202,6 @@ include_once('include/page_header.php');
 ?>
 <?php
 
-include_once('include/page_footer.php');
+include_once "include/page_footer.php";
 
 ?>

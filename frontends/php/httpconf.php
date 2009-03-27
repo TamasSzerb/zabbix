@@ -521,7 +521,11 @@ include_once 'include/page_header.php';
 			make_sorting_link(S_STATUS,'wt.status')));
 
 		$any_app_exist = false;
-	
+
+		$sql_where = '';
+		if($_REQUEST['hostid']>0){
+			$sql_where = ' AND h.hostid='.$_REQUEST['hostid'];	
+		}
 		$sql_where = '';
 		if($_REQUEST['hostid']>0){
 			$sql_where = ' AND h.hostid='.$_REQUEST['hostid'];	

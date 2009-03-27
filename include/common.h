@@ -121,8 +121,8 @@
 #define OFF	0
 
 #define	APPLICATION_NAME	"ZABBIX Agent"
-#define	ZABBIX_REVDATE		"18 September 2008"
-#define	ZABBIX_VERSION		"1.7"
+#define	ZABBIX_REVDATE		"27 March 2009"
+#define	ZABBIX_VERSION		"1.6.3"
 
 #if defined(_WINDOWS)
 extern char ZABBIX_SERVICE_NAME[64];
@@ -219,14 +219,6 @@ typedef enum
 } zbx_item_value_type_t;
 char	*zbx_item_value_type_string(zbx_item_value_type_t value_type);
 
-/* Item data types */
-typedef enum
-{
-	ITEM_DATA_TYPE_DECIMAL = 0,
-	ITEM_DATA_TYPE_OCTAL,
-	ITEM_DATA_TYPE_HEXADECIMAL
-} zbx_item_data_type_t;
-
 /* HTTP test states */
 typedef enum
 {
@@ -300,8 +292,7 @@ typedef enum
 	CONDITION_TYPE_DVALUE,
 	CONDITION_TYPE_HOST_TEMPLATE,
 	CONDITION_TYPE_EVENT_ACKNOWLEDGED,
-	CONDITION_TYPE_APPLICATION,
-	CONDITION_TYPE_MAINTENANCE
+	CONDITION_TYPE_APPLICATION
 } zbx_condition_type_t;
 
 /* Condition operators */
@@ -325,39 +316,6 @@ typedef enum
 	SYSMAP_ELEMENT_TYPE_HOST_GROUP,
 	SYSMAP_ELEMENT_TYPE_IMAGE
 } zbx_sysmap_element_types_t;
-
-typedef enum
-{
-	AUDIT_RESOURCE_USER = 0,
-/*	AUDIT_RESOURCE_ZABBIX,*/
-	AUDIT_RESOURCE_ZABBIX_CONFIG = 2,
-	AUDIT_RESOURCE_MEDIA_TYPE,
-	AUDIT_RESOURCE_HOST,
-	AUDIT_RESOURCE_ACTION,
-	AUDIT_RESOURCE_GRAPH,
-	AUDIT_RESOURCE_GRAPH_ELEMENT,
-/*	AUDIT_RESOURCE_ESCALATION,
-	AUDIT_RESOURCE_ESCALATION_RULE,
-	AUDIT_RESOURCE_AUTOREGISTRATION,*/
-	AUDIT_RESOURCE_USER_GROUP = 11,
-	AUDIT_RESOURCE_APPLICATION,
-	AUDIT_RESOURCE_TRIGGER,
-	AUDIT_RESOURCE_HOST_GROUP,
-	AUDIT_RESOURCE_ITEM,
-	AUDIT_RESOURCE_IMAGE,
-	AUDIT_RESOURCE_VALUE_MAP,
-	AUDIT_RESOURCE_IT_SERVICE,
-	AUDIT_RESOURCE_MAP,
-	AUDIT_RESOURCE_SCREEN,
-	AUDIT_RESOURCE_NODE,
-	AUDIT_RESOURCE_SCENARIO,
-	AUDIT_RESOURCE_DISCOVERY_RULE,
-	AUDIT_RESOURCE_SLIDESHOW,
-	AUDIT_RESOURCE_SCRIPT,
-	AUDIT_RESOURCE_PROXY,
-	AUDIT_RESOURCE_MAINTENANCE,
-	AUDIT_RESOURCE_REGEXP
-} zbx_auditlog_resourcetype_t;
 
 /* Special item key used for storing server status */
 #define SERVER_STATUS_KEY	"status"
@@ -433,39 +391,6 @@ typedef enum
 	ZBX_PROCESS_PROXY
 } zbx_process_t;
 
-/* maintenance */
-typedef enum
-{
-	TIMEPERIOD_TYPE_ONETIME = 0,
-	TIMEPERIOD_TYPE_HOURLY,
-	TIMEPERIOD_TYPE_DAILY,
-	TIMEPERIOD_TYPE_WEEKLY,
-	TIMEPERIOD_TYPE_MONTHLY,
-	TIMEPERIOD_TYPE_YEARLY
-} zbx_timeperiod_type_t;
-
-typedef enum
-{
-	MAINTENANCE_TYPE_NORMAL = 0,
-	MAINTENANCE_TYPE_NODATA
-} zbx_maintenance_type_t;
-
-/* regular expressions */
-typedef enum
-{
-	EXPRESSION_TYPE_INCLUDED = 0,
-	EXPRESSION_TYPE_ANY_INCLUDED,
-	EXPRESSION_TYPE_NOT_INCLUDED,
-	EXPRESSION_TYPE_TRUE,
-	EXPRESSION_TYPE_FALSE
-} zbx_expression_type_t;
-
-typedef enum
-{
-	ZBX_CASE_SENSITIVE = 0,
-	ZBX_IGNORE_CASE
-} zbx_case_sensitive_t;
-
 /* HTTP Tests statuses */
 #define HTTPTEST_STATUS_MONITORED	0
 #define HTTPTEST_STATUS_NOT_MONITORED	1
@@ -481,10 +406,6 @@ typedef enum
 #define HOST_STATUS_TEMPLATE	3
 #define HOST_STATUS_DELETED	4
 #define HOST_STATUS_PROXY	5
-
-/* Host maintenance status */
-#define HOST_MAINTENANCE_STATUS_OFF	0
-#define HOST_MAINTENANCE_STATUS_ON	1
 
 /* Host availability */
 #define HOST_AVAILABLE_UNKNOWN	0
@@ -700,8 +621,6 @@ int	is_double_prefix(char *str);
 int	is_double(char *c);
 int	is_uint(char *c);
 int	is_uint64(register char *str, zbx_uint64_t *value);
-int	is_uoct(char *str);
-int	is_uhex(char *str);
 void	zbx_rtrim(char *str, const char *charlist);
 void	zbx_ltrim(register char *str, const char *charlist);
 void	zbx_remove_chars(register char *str, const char *charlist);
@@ -805,25 +724,10 @@ int	comms_parse_response(char *xml,char *host,char *key, char *data, char *lastl
 
 int 	parse_command(const char *command, char *cmd, int cmd_max_len, char *param, int param_max_len);
 
-typedef struct zbx_regexp_s
-{
-	char			*name;
-	char			*expression;
-	int			expression_type;
-	char			exp_delimiter;
-	zbx_case_sensitive_t	case_sensitive;
-} ZBX_REGEXP;
-
 /* Regular expressions */
 char    *zbx_regexp_match(const char *string, const char *pattern, int *len);
 /* Non case sensitive */
 char    *zbx_iregexp_match(const char *string, const char *pattern, int *len);
-
-void	clean_regexps_ex(ZBX_REGEXP *regexps, int *regexps_num);
-void	add_regexp_ex(ZBX_REGEXP **regexps, int *regexps_alloc, int *regexps_num,
-		const char *name, const char *expression, int expression_type, char exp_delimiter, int case_sensitive);
-int	regexp_match_ex(ZBX_REGEXP *regexps, int regexps_num, const char *string, const char *pattern,
-		zbx_case_sensitive_t cs);
 
 /* Misc functions */
 int	cmp_double(double a,double b);
@@ -842,9 +746,6 @@ int	expand_ipv6(const char *ip, char *str, size_t str_len );
 /* Time related functions */
 double	time_diff(struct timeval *from, struct timeval *to);
 char	*zbx_age2str(int age);
-
-/* Return the needle in the haystack (or NULL). */
-char	*zbx_strcasestr(const char *haystack, const char *needle);
 
 int	uint64_array_add(zbx_uint64_t **values, int *alloc, int *num, zbx_uint64_t value);
 int	uint64_array_exists(zbx_uint64_t *values, int num, zbx_uint64_t value);

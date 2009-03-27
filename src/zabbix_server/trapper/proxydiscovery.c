@@ -149,8 +149,8 @@ exit:
 	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of process_discovery_data():%s",
-			zbx_result_string(res));
-
+			res == SUCCEED ? "SUCCEED" : "FAIL");
+	
 	return res;
 }
 

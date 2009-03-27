@@ -602,7 +602,6 @@ else {
 
 	function DBid2nodeid($id_name){
 		global $DB;
-
 		switch($DB['TYPE']){
 			case "MYSQL":
 				$result = '('.$id_name.' div 100000000000000)';
@@ -730,7 +729,7 @@ else {
 	function remove_nodes_from_id($id){
 		return bcmod($id,'100000000000');
 	}
-	
+
 	function check_db_fields(&$db_fields, &$args){
 		if(!is_array($args)) return false;
 		
@@ -755,7 +754,7 @@ else {
 			info('DBcondition Error: ['.$fieldname.'] = '.$array);
 			$array = explode(',',$array);
 			if(empty($array))
-				return ' 1=0 ';
+				return ' 1=1 ';
 		}
 
 		$in = 		$notin?' NOT IN ':' IN ';

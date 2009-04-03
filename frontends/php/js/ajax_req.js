@@ -21,32 +21,31 @@
 function send_params(params){
 	if(typeof(params) == 'undefined') var params = new Array();
 
-	var url = new Curl(location.href);
-	url.setQuery('?output=ajax');
-
-	new Ajax.Request(url.getUrl(),
+	var uri = new url(location.href);
+	uri.setQuery('?output=ajax');
+	new Ajax.Request(uri.getUrl(),
 					{
 						'method': 'post',
 						'parameters':params,
-						'onSuccess': function(resp){ },
+						'onSuccess': function(resp){},
 //						'onSuccess': function(resp){ alert(resp.responseText); },
-						'onFailure': function(){ document.location = url.getPath()+'?'+Object.toQueryString(params); }
+						'onFailure': function(){ document.location = uri.getPath()+'?'+Object.toQueryString(params); }
 					}
 	);
 }
 
 
-function setRefreshRate(pmasterid,dollid,interval,params){
+function setRefreshRate(id,interval){
 	if(typeof(Ajax) == 'undefined'){
 		throw("Prototype.js lib is required!");
 		return false;
 	}
-	
-	if((typeof(params) == 'undefined') || is_null(params))  var params = new Array();
-	params['favobj'] = 		'set_rf_rate';
-	params['pmasterid'] = 	pmasterid;
-	params['favid'] = 		dollid;
-	params['favcnt'] = 		interval;
+
+	var params = {
+		'favobj': 	'set_rf_rate',
+		'favid': 	id,
+		'favcnt':	interval
+	}
 
 	send_params(params);
 }

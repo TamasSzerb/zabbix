@@ -17,10 +17,11 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-function SDI($msg='SDI') { echo 'DEBUG INFO: '; var_dump($msg); echo SBR; } // DEBUG INFO!!!
-function VDP($var, $msg=null) { echo 'DEBUG DUMP: '; if(isset($msg)) echo '"'.$msg.'"'.SPACE; var_dump($var); echo SBR; } // DEBUG INFO!!!
-function TODO($msg) { echo 'TODO: '.$msg.SBR; }  // DEBUG INFO!!!
-function __autoload($class_name) { require_once('include/classes/class.'.strtolower($class_name).'.php'); }
+
+function SDI($msg="SDI") { echo "DEBUG INFO: "; var_dump($msg); echo SBR; } // DEBUG INFO!!!
+function VDP($var, $msg=null) { echo "DEBUG DUMP: "; if(isset($msg)) echo '"'.$msg.'"'.SPACE; var_dump($var); echo SBR; } // DEBUG INFO!!!
+function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
+
 ?>
 <?php
 	require_once('include/defines.inc.php');
@@ -30,8 +31,6 @@ function __autoload($class_name) { require_once('include/classes/class.'.strtolo
 	require_once('include/profiles.inc.php');
 	require_once('conf/maintenance.inc.php');
 
-	require_once('include/hosts.inc.php');
-	
 // GLOBALS
 	global $USER_DETAILS, $USER_RIGHTS;
 
@@ -39,16 +38,51 @@ function __autoload($class_name) { require_once('include/classes/class.'.strtolo
 	$USER_RIGHTS	= array();
 // END OF GLOBALS
 
+// Include Classes
+	require_once('include/classes/ctag.inc.php');
+	require_once('include/classes/cvar.inc.php');
+	require_once('include/classes/cspan.inc.php');
+	require_once('include/classes/cimg.inc.php');
+	require_once('include/classes/ccolor.inc.php');
+	require_once('include/classes/cldap.inc.php');
+	require_once('include/classes/clink.inc.php');
+	require_once('include/classes/chelp.inc.php');
+	require_once('include/classes/cbutton.inc.php');
+	require_once('include/classes/clist.inc.php');
+	require_once('include/classes/ccombobox.inc.php');
+	require_once('include/classes/ctable.inc.php');
+	require_once('include/classes/ctableinfo.inc.php');
+	require_once('include/classes/ctextarea.inc.php');
+	require_once('include/classes/ctextbox.inc.php');
+	require_once('include/classes/cform.inc.php');
+	require_once('include/classes/cfile.inc.php');
+	require_once('include/classes/ccheckbox.inc.php');
+	require_once('include/classes/cform.inc.php');
+	require_once('include/classes/cformtable.inc.php');
+	require_once('include/classes/cmap.inc.php');
+	require_once('include/classes/cflash.inc.php');
+	require_once('include/classes/ciframe.inc.php');
+	require_once('include/classes/cpumenu.inc.php');
+	require_once('include/classes/graph.inc.php');
+	require_once('include/classes/cscript.inc.php');
+	require_once('include/classes/curl.inc.php');
+
 // Include Tactical Overview modules
-	require_once('include/locales.inc.php');
-	
-	require_once('include/perm.inc.php');
-	require_once('include/audit.inc.php');
-	require_once('include/js.inc.php');
+
+	require_once 	'include/locales.inc.php';
+
+	include_once('include/classes/chostsinfo.mod.php');
+	include_once('include/classes/ctriggerinfo.mod.php');
+	include_once('include/classes/cserverinfo.mod.php');
+	include_once('include/classes/cflashclock.mod.php');
+
+	require_once 	'include/perm.inc.php';
+	require_once 	'include/audit.inc.php';
+	require_once 	'include/js.inc.php';
 
 // Include Validation
 
-	require_once('include/validate.inc.php');
+	require_once 	'include/validate.inc.php';
 
 	function zbx_err_handler($errno, $errstr, $errfile, $errline){
 		error($errstr.'['.$errfile.':'.$errline.']');
@@ -189,6 +223,7 @@ function __autoload($class_name) { require_once('include/classes/class.'.strtolo
 		$ZBX_NODES = array();
 
 		if(!defined('ZBX_PAGE_NO_AUTHERIZATION') && ZBX_DISTRIBUTED){
+//SDI($_REQUEST);
 			$ZBX_CURRENT_NODEID = get_cookie('zbx_current_nodeid', $ZBX_LOCALNODEID); // Selected node
 			$ZBX_WITH_SUBNODES = get_cookie('zbx_with_subnodes', false); // Show elements FROM subnodes
 
@@ -732,11 +767,49 @@ function __autoload($class_name) { require_once('include/classes/class.'.strtolo
 	}
 
 	function get_status(){
-		global $ZBX_SERVER, $ZBX_SERVER_PORT;		
+		global $ZBX_SERVER, $ZBX_SERVER_PORT;
+
 		$status = array();
 // server
-		$checkport = fsockopen($ZBX_SERVER, $ZBX_SERVER_PORT, $errnum, $errstr, 2);				
+		$checkport = fsockopen($ZBX_SERVER, $ZBX_SERVER_PORT, $errnum, $errstr, 2);
+		
 		$status["zabbix_server"] = ($checkport) ? S_YES : S_NO;
+
+		// history & trends
+/*		if ($DB['DB_TYPE'] == "MYSQL"){
+			$row=DBfetch(DBselect('show table status like "history"'));
+			$status["history_count"]  = $row["Rows"];
+			$row=DBfetch(DBselect('show table status like "history_log"'));
+			$status["history_count"] += $row["Rows"];
+			$row=DBfetch(DBselect('show table status like "history_str"'));
+			$status["history_count"] += $row["Rows"];
+			$row=DBfetch(DBselect('show table status like "history_uint"'));
+			$status["history_count"] += $row["Rows"];
+
+			$row=DBfetch(DBselect('show table status like "trends"'));
+			$status["trends_count"] = $row["Rows"];
+		}
+		else{
+			$row=DBfetch(DBselect('SELECT COUNT(itemid) as cnt from history'));
+			$status["history_count"]  = $row["cnt"];
+			$row=DBfetch(DBselect('SELECT COUNT(itemid) as cnt from history_log'));
+			$status["history_count"] += $row["cnt"];
+			$row=DBfetch(DBselect('SELECT COUNT(itemid) as cnt from history_str'));
+			$status["history_count"] += $row["cnt"];
+			$row=DBfetch(DBselect('SELECT COUNT(itemid) as cnt from history_uint'));
+			$status["history_count"] += $row["cnt"];
+
+			$result=DBselect('SELECT COUNT(itemid) as cnt from trends');
+			$row=DBfetch($result);
+			$status["trends_count"]=$row["cnt"];
+		}*/
+// events
+/*		$row=DBfetch(DBselect('SELECT COUNT(eventid) as cnt from events'));
+		$status["events_count"]=$row["cnt"];*/
+// alerts
+/*		$row=DBfetch(DBselect('SELECT COUNT(alertid) as cnt from alerts"));
+		$status["alerts_count"]=$row["cnt"];*/
+
 // triggers
 		$sql = 'SELECT COUNT(DISTINCT t.triggerid) as cnt '.
 				' FROM triggers t, functions f, items i, hosts h'.
@@ -981,54 +1054,7 @@ function __autoload($class_name) { require_once('include/classes/class.'.strtolo
 		}
 	return $new;
 	}
-	
 
-	function zbx_stripslashes($value){
-		if(is_array($value)){
-			foreach($value as $id => $data)
-				$value[$id] = zbx_stripslashes($data); 
-				// $value = array_map('zbx_stripslashes',$value); /* don't use 'array_map' it buggy with indexes */
-		} 
-		else if(is_string($value)){
-			$value = stripslashes($value);
-		}
-	return $value;
-	}
-
-	function get_str_month($num){
-		$month = '[Wrong value for month: '.$num.']';
-		switch($num){
-			case 1: $month = S_JANUARY; break;
-			case 2: $month = S_FEBRUARY; break;
-			case 3: $month = S_MARCH; break;
-			case 4: $month = S_APRIL; break;
-			case 5: $month = S_MAY; break;
-			case 6: $month = S_JUNE; break;
-			case 7: $month = S_JULY; break;
-			case 8: $month = S_AUGUST; break;
-			case 9: $month = S_SEPTEMBER; break;
-			case 10: $month = S_OCTOBER; break;
-			case 11: $month = S_NOVEMBER; break;
-			case 12: $month = S_DECEMBER; break;
-		}
-	
-	return $month;
-	}
-	
-	function get_str_dayofweek($num){
-		$day = '[Wrong value for day of week: '.$num.']';
-		switch($num){
-			case 1: $day = S_MONDAY; break;
-			case 2: $day = S_TUESDAY; break;
-			case 3: $day = S_WEDNESDAY; break;
-			case 4: $day = S_THURSDAY; break;
-			case 5: $day = S_FRIDAY; break;
-			case 6: $day = S_SATURDAY; break;
-			case 7: $day = S_SUNDAY; break;
-		}
-	
-	return $day;
-	}
 /*************** VALUE MAPPING ******************/
 	function add_mapping_to_valuemap($valuemapid, $mappings){
 		DBexecute("delete FROM mappings WHERE valuemapid=$valuemapid");
@@ -1103,6 +1129,154 @@ function __autoload($class_name) { require_once('include/classes/class.'.strtolo
 	}
 /*************** END VALUE MAPPING ******************/
 
+/*************** CONVERTING ******************/
+	function zbx_stripslashes($value){
+		if(is_array($value)){
+			foreach($value as $id => $data)
+				$value[$id] = zbx_stripslashes($data);
+				// $value = array_map('zbx_stripslashes',$value); /* don't use 'array_map' it buggy with indexes */
+		} elseif (is_string($value)){
+			$value = stripslashes($value);
+		}
+		return $value;
+	}
+
+	function empty2null($var){
+		return ($var == "") ? null : $var;
+	}
+
+	function str2mem($val){
+		$val = trim($val);
+		$last = strtolower($val{strlen($val)-1});
+		switch($last){
+			// The 'G' modifier is available since PHP 5.1.0
+			case 'g':
+				$val *= 1024;
+			case 'm':
+				$val *= 1024;
+			case 'k':
+				$val *= 1024;
+		}
+
+		return $val;
+	}
+
+	function mem2str($size){
+		$prefix = 'B';
+		if($size > 1048576) {	$size = $size/1048576;	$prefix = 'M'; }
+		elseif($size > 1024) {	$size = $size/1024;	$prefix = 'K'; }
+		return round($size, 6).$prefix;
+	}
+
+	/* Do not forget to sync it with add_value_suffix in evalfunc.c! */
+	function convert_units($value,$units){
+// Special processing for unix timestamps
+		if($units=="unixtime"){
+			$ret=date("Y.m.d H:i:s",$value);
+			return $ret;
+		}
+//Special processing of uptime
+		if($units=="uptime"){
+			$ret="";
+			$days=floor($value/(24*3600));
+			if($days>0){
+				$value=$value-$days*(24*3600);
+			}
+			$hours=floor($value/(3600));
+			if($hours>0){
+				$value=$value-$hours*3600;
+			}
+			$min=floor($value/(60));
+			if($min>0){
+				$value=$value-$min*(60);
+			}
+			if($days==0){
+				$ret = sprintf("%02d:%02d:%02d", $hours, $min, $value);
+			}
+			else{
+				$ret = sprintf("%d days, %02d:%02d:%02d", $days, $hours, $min, $value);
+			}
+			return $ret;
+		}
+// Special processing for seconds
+		if($units=="s"){
+			return zbx_date2age(0,$value,true);
+		}
+
+		$u="";
+
+// Special processing for bits (kilo=1000, not 1024 for bits)
+		if( ($units=="b") || ($units=="bps")){
+			$abs=abs($value);
+
+			if($abs<1000){
+				$u="";
+			}
+			else if($abs<1000*1000){
+				$u="K";
+				$value=$value/1000;
+			}
+			else if($abs<1000*1000*1000){
+				$u="M";
+				$value=$value/(1000*1000);
+			}
+			else{
+				$u="G";
+				$value=$value/(1000*1000*1000);
+			}
+
+			if(round($value) == round($value,2)){
+				$s=sprintf("%.0f",$value);
+			}
+			else{
+				$s=sprintf("%.2f",$value);
+			}
+
+			return "$s $u$units";
+		}
+
+
+		if($units==""){
+			if(round($value) == round($value,2)){
+				return sprintf("%.0f",$value);
+			}
+			else{
+				return sprintf("%.2f",$value);
+			}
+		}
+
+		$abs=abs($value);
+
+		if($abs<1024){
+			$u="";
+		}
+		else if($abs<1024*1024){
+			$u="K";
+			$value=$value/1024;
+		}
+		else if($abs<1024*1024*1024){
+			$u="M";
+			$value=$value/(1024*1024);
+		}
+		else if($abs<1024*1024*1024*1024){
+			$u="G";
+			$value=$value/(1024*1024*1024);
+		}
+		else{
+			$u="T";
+			$value=$value/(1024*1024*1024*1024);
+		}
+
+		if(round($value) == round($value,2)){
+			$s=sprintf("%.0f",$value);
+		}
+		else{
+			$s=sprintf("%.2f",$value);
+		}
+
+		return "$s $u$units";
+	}
+/*************** END CONVERTING ******************/
 
 /*************** TABLE SORTING ******************/
 	/* function:

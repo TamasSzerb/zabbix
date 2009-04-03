@@ -21,13 +21,12 @@
 <?php
 	require_once('include/config.inc.php');
 	require_once('include/hosts.inc.php');
-	require_once('include/maintenances.inc.php');
 	require_once('include/forms.inc.php');
 
 	$page['title'] = "S_HOSTS";
 	$page['file'] = 'hosts.php';
 	$page['hist_arg'] = array('groupid','config','hostid');
-	$page['scripts'] = array('menu_scripts.js','calendar.js');
+	$page['scripts'] = array('menu_scripts.js');
 	
 include_once('include/page_header.php');
 
@@ -50,14 +49,12 @@ include_once('include/page_header.php');
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		// 0 - hosts; 1 - groups; 2 - linkages; 3 - templates; 4 - applications; 5 - Proxies; 6 - maintenance
-		'config'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	IN('0,1,2,3,4,5,6'),	NULL), 
+		// 0 - hosts; 1 - groups; 2 - linkages; 3 - templates; 4 - applications; 5 - Proxies; 6 - host mass update
+		'config'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	IN('0,1,2,3,4,5'),	NULL), 
 
 /* ARRAYS */
-		'hosts'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID, NULL),
-		'groups'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID, NULL),
-		'hostids'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID, NULL),
-		'groupids'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID, NULL),
+		'hosts'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID, NULL),
+		'groups'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID, NULL),
 		'applications'=>array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID, NULL),
 /* host */
 		'hostid'=>	array(T_ZBX_INT, O_OPT,	P_SYS,  DB_ID,		'isset({config})&&({config}==0||{config}==5||{config}==2)&&isset({form})&&({form}=="update")'),
@@ -102,47 +99,26 @@ include_once('include/page_header.php');
 		'visible'=>			array(T_ZBX_STR, O_OPT,	null, 	null,	null),
 		
 /* group */
-		'groupid'=>			array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,		'(isset({config})&&({config}==1))&&(isset({form})&&({form}=="update"))'),
-		'gname'=>			array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,	'(isset({config})&&({config}==1))&&isset({save})'),
+		'groupid'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,		'(isset({config})&&({config}==1))&&(isset({form})&&({form}=="update"))'),
+		'gname'=>	array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,	'(isset({config})&&({config}==1))&&isset({save})'),
 
 /* application */
-		'applicationid'=>	array(T_ZBX_INT,O_OPT,	P_SYS,	DB_ID,		'(isset({config})&&({config}==4))&&(isset({form})&&({form}=="update"))'),
-		'appname'=>			array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'(isset({config})&&({config}==4))&&isset({save})'),
-		'apphostid'=>		array(T_ZBX_INT, O_OPT, NULL,	DB_ID.'{}>0',	'(isset({config})&&({config}==4))&&isset({save})'),
-		'apptemplateid'=>	array(T_ZBX_INT,O_OPT,	NULL,	DB_ID,	NULL),
+		'applicationid'=>array(T_ZBX_INT,O_OPT,	P_SYS,	DB_ID,		'(isset({config})&&({config}==4))&&(isset({form})&&({form}=="update"))'),
+		'appname'=>	array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'(isset({config})&&({config}==4))&&isset({save})'),
+		'apphostid'=>	array(T_ZBX_INT, O_OPT, NULL,	DB_ID.'{}>0',	'(isset({config})&&({config}==4))&&isset({save})'),
+		'apptemplateid'=>array(T_ZBX_INT,O_OPT,	NULL,	DB_ID,	NULL),
 		
 /* host linkage form */
-		'tname'=>			array(T_ZBX_STR, O_OPT,	NULL,   NOT_EMPTY,	'isset({config})&&({config}==2)&&isset({save})'),
-		
-// maintenance
-		'maintenanceid'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,		'(isset({config})&&({config}==6))&&(isset({form})&&({form}=="update"))'),
-		'maintenanceids'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID, 		NULL),
-		'mname'=>				array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,	'(isset({config})&&({config}==6))&&isset({save})'),
-		'maintenance_type'=>	array(T_ZBX_INT, O_OPT,  null,	null,		'(isset({config})&&({config}==6))&&isset({save})'),
+		'tname'=>	array(T_ZBX_STR, O_OPT,	NULL,   NOT_EMPTY,	'isset({config})&&({config}==2)&&isset({save})'),
 
-		'description'=>			array(T_ZBX_STR, O_OPT,	NULL,	null,					'(isset({config})&&({config}==6))&&isset({save})'),
-		'active_since'=>		array(T_ZBX_INT, O_OPT,  null,	BETWEEN(1,time()*2),	'(isset({config})&&({config}==6))&&isset({save})'),
-		'active_till'=>			array(T_ZBX_INT, O_OPT,  null,	BETWEEN(1,time()*2),	'(isset({config})&&({config}==6))&&isset({save})'),
-	
-		'new_timeperiod'=>		array(T_ZBX_STR, O_OPT, null,	null,		'isset({add_timeperiod})'),
-		
-		'timeperiods'=>			array(T_ZBX_STR, O_OPT, null,	null, null),
-		'g_timeperiodid'=>		array(null, O_OPT, null, null, null),
-		
-		'edit_timeperiodid'=>	array(null, O_OPT, P_ACT,	DB_ID,	null),
-		
 /* actions */
-		'add_timeperiod'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, 	null, null),
-		'del_timeperiod'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
-		'cancel_new_timeperiod'=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
-		
-		'activate'=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, NULL, NULL),	
-		'disable'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, NULL, NULL),	
+		'activate'=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, NULL, NULL),	
+		'disable'=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, NULL, NULL),	
 
-		'add_to_group'=>		array(T_ZBX_INT, O_OPT, P_SYS|P_ACT, DB_ID, NULL),	
+		'add_to_group'=>	array(T_ZBX_INT, O_OPT, P_SYS|P_ACT, DB_ID, NULL),	
 		'delete_from_group'=>	array(T_ZBX_INT, O_OPT, P_SYS|P_ACT, DB_ID, NULL),	
 
-		'unlink'=>				array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,   NULL,	NULL),
+		'unlink'=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,   NULL,	NULL),
 		'unlink_and_clear'=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,   NULL,	NULL),
 
 		'save'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
@@ -215,13 +191,13 @@ include_once('include/page_header.php');
 			$result = DBend($result);
 			
 			show_messages($result, S_LINK_TO_TEMPLATE, S_CANNOT_LINK_TO_TEMPLATE);
-/*			if($result){
+			if($result){
 				$host=get_host_by_hostid($templateid);
 				add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_HOST,
 					'Host ['.$host['host'].'] '.
 					'Mass Linkage '.
 					'Status ['.$host['status'].']');
-			}*/
+			}
 //---		
 			unset($_REQUEST['save']);
 			unset($_REQUEST['hostid']);
@@ -372,13 +348,13 @@ include_once('include/page_header.php');
 			}
 //HOSTS PROFILE EXTANDED Section		
 			
-/*			if($result){
+			if($result){
 				add_audit(
 					AUDIT_ACTION_UPDATE,
 					AUDIT_RESOURCE_HOST,
 					'Host ['.$db_host['host'].'] IP ['.$db_host['ip'].'] '.'Status ['.$db_host['status'].']'
 				);
-			}*/
+			}
 		}
 
 		$result = DBend($result);
@@ -442,7 +418,7 @@ include_once('include/page_header.php');
 				
 			$msg_ok 	= S_HOST_UPDATED;
 			$msg_fail 	= S_CANNOT_UPDATE_HOST;
-/*			$audit_action 	= AUDIT_ACTION_UPDATE;*/
+			$audit_action 	= AUDIT_ACTION_UPDATE;
 
 			$hostid = $_REQUEST['hostid'];
 		} 
@@ -455,7 +431,7 @@ include_once('include/page_header.php');
 			
 			$msg_ok 	= S_HOST_ADDED;
 			$msg_fail 	= S_CANNOT_ADD_HOST;
-/*			$audit_action 	= AUDIT_ACTION_ADD;*/
+			$audit_action 	= AUDIT_ACTION_ADD;
 		}
 
 		if(!zbx_empty($hostid) && $hostid && $clone_hostid && ($_REQUEST['form'] == 'full_clone')){
@@ -516,7 +492,6 @@ include_once('include/page_header.php');
 		}
 		
 		$result	= DBend($result);
-//		$result	= DBend(false);
 		
 		if($result){
 			update_profile('HOST_PORT',$_REQUEST['port'], PROFILE_TYPE_INT);
@@ -555,9 +530,9 @@ include_once('include/page_header.php');
 		show_messages($result, $msg_ok, $msg_fail);
 		
 		if($result){
-/*			add_audit($audit_action,AUDIT_RESOURCE_HOST,
+			add_audit($audit_action,AUDIT_RESOURCE_HOST,
 				'Host ['.$_REQUEST['host'].'] IP ['.$_REQUEST['ip'].'] '.
-				'Status ['.$_REQUEST['status'].']');*/
+				'Status ['.$_REQUEST['status'].']');
 
 			unset($_REQUEST['form']);
 			unset($_REQUEST['hostid']);
@@ -581,7 +556,7 @@ include_once('include/page_header.php');
 
 			show_messages($result, S_HOST_DELETED, S_CANNOT_DELETE_HOST);
 			if($result){
-/*				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_HOST,'Host ['.$host['host'].']');*/
+				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_HOST,'Host ['.$host['host'].']');
 
 				unset($_REQUEST['form']);
 				unset($_REQUEST['hostid']);
@@ -602,7 +577,7 @@ include_once('include/page_header.php');
 			DBstart();
 			while($db_host=DBfetch($db_hosts)){
 				$del_hosts[$db_host['hostid']] = $db_host['hostid'];
-/*				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_HOST,'Host ['.$db_host['host'].']');*/
+				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_HOST,'Host ['.$db_host['host'].']');
 			}
 			
 			$result = delete_host($del_hosts, $unlink_mode);
@@ -656,7 +631,7 @@ include_once('include/page_header.php');
 		DBstart();
 		while($db_host=DBfetch($db_hosts)){
 			$act_hosts[$db_host['hostid']] = $db_host['hostid'];
-/*			add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_HOST,'Host ['.$db_host['host'].']. Old status ['.$db_host['status'].'] '.'New status ['.$status.']');*/
+			add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_HOST,'Host ['.$db_host['host'].']. Old status ['.$db_host['status'].'] '.'New status ['.$status.']');
 		}
 
 		$result = update_host_status($act_hosts,$status);
@@ -674,9 +649,9 @@ include_once('include/page_header.php');
 		$result = DBend($result);
 		
 		show_messages($result,S_HOST_STATUS_UPDATED,S_CANNOT_UPDATE_HOST_STATUS);
-/*		if($result){
+		if($result){
 			add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_HOST,'Host ['.$db_host['host'].']. Old status ['.$host['status'].'] New status ['.$_REQUEST['chstatus'].']');
-		}*/
+		}
 		unset($_REQUEST['chstatus']);
 		unset($_REQUEST['hostid']);
 	}
@@ -694,7 +669,7 @@ include_once('include/page_header.php');
 				$result = update_host_group($_REQUEST['groupid'], $_REQUEST['gname'], $hosts);
 			$result = DBend($result);
 			
-/*			$action 	= AUDIT_ACTION_UPDATE;*/
+			$action 	= AUDIT_ACTION_UPDATE;
 			$msg_ok		= S_GROUP_UPDATED;
 			$msg_fail	= S_CANNOT_UPDATE_GROUP;
 			$groupid = $_REQUEST['groupid'];
@@ -707,13 +682,13 @@ include_once('include/page_header.php');
 				$groupid = add_host_group($_REQUEST['gname'], $hosts);
 			$result = DBend($groupid);
 			
-/*			$action 	= AUDIT_ACTION_ADD;*/
+			$action 	= AUDIT_ACTION_ADD;
 			$msg_ok		= S_GROUP_ADDED;
 			$msg_fail	= S_CANNOT_ADD_GROUP;
 		}
 		show_messages($result, $msg_ok, $msg_fail);
 		if($result){
-/*			add_audit($action,AUDIT_RESOURCE_HOST_GROUP,S_HOST_GROUP.' ['.$_REQUEST['gname'].'] ['.$groupid.']');*/
+			add_audit($action,AUDIT_RESOURCE_HOST_GROUP,S_HOST_GROUP.' ['.$_REQUEST['gname'].'] ['.$groupid.']');
 			unset($_REQUEST['form']);
 		}
 		unset($_REQUEST['save']);
@@ -722,15 +697,15 @@ include_once('include/page_header.php');
 	if(($_REQUEST['config']==1) && isset($_REQUEST['delete'])){
 		if(isset($_REQUEST['groupid'])){
 			$result = false;
-/*			if($group = get_hostgroup_by_groupid($_REQUEST['groupid'])){*/
+			if($group = get_hostgroup_by_groupid($_REQUEST['groupid'])){
 				DBstart();
 				$result = delete_host_group($_REQUEST['groupid']);
 				$result = DBend($result);
-/*			} */
+			} 
 
-/*			if($result){
+			if($result){
 				add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_HOST_GROUP,S_HOST_GROUP.' ['.$group['name'].' ] ['.$group['groupid'].']');
-			}*/
+			}
 			
 			unset($_REQUEST['form']);
 
@@ -748,13 +723,13 @@ include_once('include/page_header.php');
 			while($db_group=DBfetch($db_groups)){
 				if(!uint_in_array($db_group['groupid'],$groups)) continue;
 			
-/*				if(!$group = get_hostgroup_by_groupid($db_group['groupid'])) continue;*/
+				if(!$group = get_hostgroup_by_groupid($db_group['groupid'])) continue;
 				$result &= delete_host_group($db_group['groupid']);
 				
-/*				if($result){
+				if($result){
 					add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_HOST_GROUP,
 					S_HOST_GROUP.' ['.$group['name'].' ] ['.$group['groupid'].']');
-				}*/
+				}
 			}
 			$result = DBend($result);
 			show_messages(true, S_GROUP_DELETED, S_CANNOT_DELETE_GROUP);
@@ -779,8 +754,8 @@ include_once('include/page_header.php');
 			$host=get_host_by_hostid($db_host['hostid']);
 
 			$result &= update_host_status($db_host['hostid'],$status);
-/*			add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_HOST,
-				'Old status ['.$host['status'].'] '.'New status ['.$status.']');*/
+			add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_HOST,
+				'Old status ['.$host['status'].'] '.'New status ['.$status.']');
 		}
 		$result = DBend($result);
 		show_messages($result, S_HOST_STATUS_UPDATED, S_CANNOT_UPDATE_HOST);
@@ -876,14 +851,14 @@ include_once('include/page_header.php');
 
 					if(isset($_REQUEST['activate'])){
 						if($result&=activate_item($item['itemid'])){
-/*							$host = get_host_by_hostid($item['hostid']);
-							add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ITEM,S_ITEM.' ['.$item['key_'].'] ['.$id.'] '.S_HOST.' ['.$host['host'].'] '.S_ITEMS_ACTIVATED);*/
+							$host = get_host_by_hostid($item['hostid']);
+							add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ITEM,S_ITEM.' ['.$item['key_'].'] ['.$id.'] '.S_HOST.' ['.$host['host'].'] '.S_ITEMS_ACTIVATED);
 						}
 					}
 					else{
 						if($result&=disable_item($item['itemid'])){
-/*							$host = get_host_by_hostid($item['hostid']);
-							add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ITEM,S_ITEM.' ['.$item['key_'].'] ['.$id.'] '.S_HOST.' ['.$host['host'].'] '.S_ITEMS_DISABLED);*/
+							$host = get_host_by_hostid($item['hostid']);
+							add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ITEM,S_ITEM.' ['.$item['key_'].'] ['.$id.'] '.S_HOST.' ['.$host['host'].'] '.S_ITEMS_DISABLED);
 						}
 					}
 			}
@@ -981,7 +956,7 @@ include_once('include/page_header.php');
 				$result &= update_host_status($db_host['hostid'], $status);
 				if(!$result) continue;
 
-/*				add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_HOST,'Old status ['.$old_status.'] '.'New status ['.$status.'] ['.$db_host['hostid'].']');*/
+				add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_HOST,'Old status ['.$old_status.'] '.'New status ['.$status.'] ['.$db_host['hostid'].']');
 			}
 		}
 		$result = DBend($result && !empty($hosts));
@@ -992,237 +967,8 @@ include_once('include/page_header.php');
 		else
 			unset($_REQUEST['disable']);
 	}
-	else if($_REQUEST['config'] == 6){
-		if(inarr_isset(array('clone','maintenanceid'))){
-			unset($_REQUEST['maintenanceid']);
-			$_REQUEST['form'] = 'clone';
-		}
-		else if(isset($_REQUEST['cancel_new_timeperiod'])){
-			unset($_REQUEST['new_timeperiod']);
-		}
-		else if(isset($_REQUEST['save'])){
-			if(!count(get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_RES_IDS_ARRAY)))
-				access_deny();	
-				
-			$maintenance = array('name' => $_REQUEST['mname'],
-						'maintenance_type' => $_REQUEST['maintenance_type'],
-						'description'=>	$_REQUEST['description'],
-						'active_since'=> $_REQUEST['active_since'],
-						'active_till' => zbx_empty($_REQUEST['active_till'])?0:$_REQUEST['active_till']
-					);
-					
-			$timeperiods = get_request('timeperiods', array());
-			
-			DBstart();
 
-	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_RES_IDS_ARRAY,null,AVAILABLE_NOCACHE); /* update available_hosts after ACTIONS */
-			if(isset($_REQUEST['maintenanceid'])) delete_timeperiods_by_maintenanceid($_REQUEST['maintenanceid']);
-			
-			$timeperiodids = array();
-			foreach($timeperiods as $id => $timeperiod){
-				$timeperiodid = add_timeperiod($timeperiod);
-				$timeperiodids[$timeperiodid] = $timeperiodid;
-			}
-			
-
-			if(isset($_REQUEST['maintenanceid'])){
-	
-				$maintenanceid=$_REQUEST['maintenanceid'];
-					
-				$result = update_maintenance($maintenanceid, $maintenance);
-
-				$msg1 = S_MAINTENANCE_UPDATED;
-				$msg2 = S_CANNOT_UPDATE_MAINTENANCE;
-			} 
-			else {
-				$result = $maintenanceid = add_maintenance($maintenance);
-
-				$msg1 = S_MAINTENANCE_ADDED;
-				$msg2 = S_CANNOT_ADD_MAINTENANCE;
-			}
-							
-			save_maintenances_windows($maintenanceid, $timeperiodids);
-
-			$hostids = get_request('hostids', array());
-			save_maintenance_host_links($maintenanceid, $hostids);
-
-			$groupids = get_request('groupids', array());
-			save_maintenance_group_links($maintenanceid, $groupids);
-
-			$result = DBend($result);
-			show_messages($result,$msg1,$msg2);
-			
-	
-			if($result){ // result - OK
-				add_audit(!isset($_REQUEST['maintenanceid'])?AUDIT_ACTION_ADD:AUDIT_ACTION_UPDATE, 
-					AUDIT_RESOURCE_MAINTENANCE, 
-					S_NAME.': '.$_REQUEST['mname']);
-	
-				unset($_REQUEST['form']);
-			}
-		}
-		else if(isset($_REQUEST['delete'])){
-			if(!count(get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_RES_IDS_ARRAY))) access_deny();
-			
-			$maintenanceids = get_request('maintenanceid', array());
-			if(isset($_REQUEST['maintenanceids']))
-				$maintenanceids = $_REQUEST['maintenanceids'];
-			
-			zbx_value2array($maintenanceids);
-			
-			$maintenances = array();
-			foreach($maintenanceids as $id => $maintenanceid){
-				$maintenances[$maintenanceid] = get_maintenance_by_maintenanceid($maintenanceid);
-			}
-			
-			DBstart();
-			$result = delete_maintenance($maintenanceids);
-			$result = DBend($result);
-			
-			show_messages($result,S_MAINTENANCE_DELETED,S_CANNOT_DELETE_MAINTENANCE);
-			if($result){
-				foreach($maintenances as $maintenanceid => $maintenance){
-					add_audit(AUDIT_ACTION_DELETE,AUDIT_RESOURCE_MAINTENANCE,'Id ['.$maintenanceid.'] '.S_NAME.' ['.$maintenance['name'].']');
-				}
-				
-				unset($_REQUEST['form']);
-				unset($_REQUEST['maintenanceid']);
-			}
-		}
-		else if(inarr_isset(array('add_timeperiod','new_timeperiod'))){
-			$new_timeperiod = $_REQUEST['new_timeperiod'];
-
-// START TIME
-			$new_timeperiod['start_time'] = ($new_timeperiod['hour'] * 3600) + ($new_timeperiod['minute'] * 60);	
-//--
-
-// PERIOD
-			$new_timeperiod['period'] = ($new_timeperiod['period_days'] * 86400) + ($new_timeperiod['period_hours'] * 3600) +
-					($new_timeperiod['period_minutes'] * 60);
-//--
-
-// DAYSOFWEEK
-			if(!isset($new_timeperiod['dayofweek'])){
-				$dayofweek = '';
-				
-				$dayofweek .= (!isset($new_timeperiod['dayofweek_su']))?'0':'1';
-				$dayofweek .= (!isset($new_timeperiod['dayofweek_sa']))?'0':'1';
-				$dayofweek .= (!isset($new_timeperiod['dayofweek_fr']))?'0':'1';
-				$dayofweek .= (!isset($new_timeperiod['dayofweek_th']))?'0':'1';
-				$dayofweek .= (!isset($new_timeperiod['dayofweek_we']))?'0':'1';
-				$dayofweek .= (!isset($new_timeperiod['dayofweek_tu']))?'0':'1';
-				$dayofweek .= (!isset($new_timeperiod['dayofweek_mo']))?'0':'1';
-
-				$new_timeperiod['dayofweek'] = bindec($dayofweek);
-			}
-//--
-
-// MONTHS		
-			if(!isset($new_timeperiod['month'])){
-				$month = '';
-
-				$month .= (!isset($new_timeperiod['month_dec']))?'0':'1';
-				$month .= (!isset($new_timeperiod['month_nov']))?'0':'1';
-				$month .= (!isset($new_timeperiod['month_oct']))?'0':'1';
-				$month .= (!isset($new_timeperiod['month_sep']))?'0':'1';
-				$month .= (!isset($new_timeperiod['month_aug']))?'0':'1';
-				$month .= (!isset($new_timeperiod['month_jul']))?'0':'1';
-				$month .= (!isset($new_timeperiod['month_jun']))?'0':'1';
-				$month .= (!isset($new_timeperiod['month_may']))?'0':'1';
-				$month .= (!isset($new_timeperiod['month_apr']))?'0':'1';
-				$month .= (!isset($new_timeperiod['month_mar']))?'0':'1';
-				$month .= (!isset($new_timeperiod['month_feb']))?'0':'1';
-				$month .= (!isset($new_timeperiod['month_jan']))?'0':'1';
-
-				$new_timeperiod['month'] = bindec($month);
-			}
-//--	
-
-			if($new_timeperiod['timeperiod_type'] == TIMEPERIOD_TYPE_MONTHLY){
-				if($new_timeperiod['month_date_type'] > 0){
-					$new_timeperiod['day'] = 0;
-				}
-				else{
-					$new_timeperiod['every'] = 0;
-					$new_timeperiod['dayofweek'] = 0;
-				}
-			}
-
-			$_REQUEST['timeperiods'] = get_request('timeperiods',array());
-			
-			$result = false;
-			if($new_timeperiod['period'] < 300) {	/* 5 min */
-				info(S_INCORRECT_PERIOD);
-			}
-			else if(($new_timeperiod['hour'] > 23) || ($new_timeperiod['minute'] > 59)){
-				info(S_INCORRECT_MAINTENANCE_PERIOD);
-			}
-			else if(($new_timeperiod['timeperiod_type'] == TIMEPERIOD_TYPE_ONETIME) && ($new_timeperiod['date'] < 1)){
-				info(S_INCORRECT_MAINTENANCE_PERIOD);
-			}
-			else if(($new_timeperiod['timeperiod_type'] == TIMEPERIOD_TYPE_DAILY) && ($new_timeperiod['every'] < 1)){
-				info(S_INCORRECT_MAINTENANCE_PERIOD);
-			}
-			else if($new_timeperiod['timeperiod_type'] == TIMEPERIOD_TYPE_WEEKLY){
-				if(($new_timeperiod['every'] < 1) || ($new_timeperiod['dayofweek'] < 1)){
-					info(S_INCORRECT_MAINTENANCE_PERIOD);
-				}
-				else{
-					$result = true;
-				}
-			}
-			else if($new_timeperiod['timeperiod_type'] == TIMEPERIOD_TYPE_MONTHLY){
-				if($new_timeperiod['month'] < 1){
-					info(S_INCORRECT_MAINTENANCE_PERIOD);
-				}
-				else if(($new_timeperiod['day'] == 0) && ($new_timeperiod['dayofweek'] < 1)){
-					info(S_INCORRECT_MAINTENANCE_PERIOD);
-				}
-				else if((($new_timeperiod['day'] < 1) || ($new_timeperiod['day'] > 31)) && ($new_timeperiod['dayofweek'] == 0)){
-					info(S_INCORRECT_MAINTENANCE_PERIOD);
-				}
-				else{
-					$result = true;
-				}
-			}
-			else{
-				$result = true;
-			}
-
-			if($result){
-				if(!isset($new_timeperiod['id'])){
-					if(!str_in_array($new_timeperiod,$_REQUEST['timeperiods']))
-						array_push($_REQUEST['timeperiods'],$new_timeperiod);
-				}
-				else{
-					$id = $new_timeperiod['id'];
-					unset($new_timeperiod['id']);
-					$_REQUEST['timeperiods'][$id] = $new_timeperiod;
-				}
-	
-				unset($_REQUEST['new_timeperiod']);
-			}
-		}
-		else if(inarr_isset(array('del_timeperiod','g_timeperiodid'))){
-			$_REQUEST['timeperiods'] = get_request('timeperiods',array());
-			foreach($_REQUEST['g_timeperiodid'] as $val){
-				unset($_REQUEST['timeperiods'][$val]);
-			}
-		}
-		else if(inarr_isset(array('edit_timeperiodid'))){	
-			$_REQUEST['edit_timeperiodid'] = array_keys($_REQUEST['edit_timeperiodid']);
-			$edit_timeperiodid = $_REQUEST['edit_timeperiodid'] = array_pop($_REQUEST['edit_timeperiodid']);
-			$_REQUEST['timeperiods'] = get_request('timeperiods',array());
-
-			if(isset($_REQUEST['timeperiods'][$edit_timeperiodid])){
-				$_REQUEST['new_timeperiod'] = $_REQUEST['timeperiods'][$edit_timeperiodid];
-				$_REQUEST['new_timeperiod']['id'] = $edit_timeperiodid;
-			}
-		}
-	}
-
-
-	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE,null,null,AVAILABLE_NOCACHE); /* update available_hosts after ACTIONS */
+//	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_RES_IDS_ARRAY,null,AVAILABLE_NOCACHE); /* update available_hosts after ACTIONS */
 ?>
 <?php
 	$params = array();	
@@ -1254,12 +1000,13 @@ include_once('include/page_header.php');
 			foreach($options as $option) $params[$option] = 1;
 			$PAGE_GROUPS = get_viewed_groups(PERM_READ_WRITE, $params);
 
-			$params = array();	
-			$options = array('only_current_node','not_proxy_hosts');
-			foreach($options as $option) $params[$option] = 1;
+//			$params = array();	
+//			$options = array('only_current_node','not_proxy_hosts');
+//			foreach($options as $option) $params[$option] = 1;
 			$PAGE_HOSTS = get_viewed_hosts(PERM_READ_WRITE, $available_groups, $params);	// more hosts
 
 			validate_group($PAGE_GROUPS, $PAGE_HOSTS, false);
+
 			break;
 		case 3:
 			$options = array('only_current_node','allow_all','templated_hosts');
@@ -1280,15 +1027,6 @@ include_once('include/page_header.php');
 			$PAGE_HOSTS = get_viewed_hosts(PERM_READ_WRITE, $PAGE_GROUPS['selected'], $params);
 	
 			validate_group($PAGE_GROUPS, $PAGE_HOSTS, false);
-			break;
-		case 6:
-			$options = array('only_current_node','allow_all');
-			
-			foreach($options as $option) $params[$option] = 1;
-			$PAGE_GROUPS = get_viewed_groups(PERM_READ_WRITE, $params);
-			$PAGE_HOSTS = get_viewed_hosts(PERM_READ_WRITE, $PAGE_GROUPS['selected'], $params);
-			
-			validate_group_with_host($PAGE_GROUPS,$PAGE_HOSTS,false);
 			break;
 		default:
 			$options = array('only_current_node');
@@ -1311,38 +1049,34 @@ include_once('include/page_header.php');
 	$frmForm->setMethod('get');
 	
 	$cmbConf = new CComboBox('config',$_REQUEST['config'],'submit()');
-	$cmbConf->addItem(1,S_HOST_GROUPS);
 	$cmbConf->addItem(0,S_HOSTS);
 	$cmbConf->addItem(3,S_TEMPLATES);
-	$cmbConf->addItem(2,S_TEMPLATE_LINKAGE);
 	$cmbConf->addItem(5,S_PROXIES);
-	$cmbConf->addItem(6,S_MAINTENANCE);
+	$cmbConf->addItem(1,S_HOST_GROUPS);
+	$cmbConf->addItem(2,S_TEMPLATE_LINKAGE);
 	$cmbConf->addItem(4,S_APPLICATIONS);
-
+//	$cmbConf->addItem(6,S_MASS_UPDATE);
 
 	switch($_REQUEST['config']){
 		case 0:
 			$btn = new CButton('form',S_CREATE_HOST);
 			$frmForm->addVar('groupid',get_request('groupid',0));
 			break;
-		case 1: 
-			$btn = new CButton('form',S_CREATE_GROUP);
-			break;
-		case 2: 
-			break;
 		case 3:
 			$btn = new CButton('form',S_CREATE_TEMPLATE);
 			$frmForm->addVar('groupid',get_request('groupid',0));
+			break;
+		case 5:
+			$btn = new CButton('form',S_CREATE_PROXY);
+			break;
+		case 1: 
+			$btn = new CButton('form',S_CREATE_GROUP);
 			break;
 		case 4: 
 			$btn = new CButton('form',S_CREATE_APPLICATION);
 			$frmForm->addVar('hostid',get_request('hostid',0));
 			break;
-		case 5:
-			$btn = new CButton('form',S_CREATE_PROXY);
-			break;
-		case 6:
-			$btn = new CButton('form',S_CREATE_MAINTENANCE_PERIOD);
+		case 2: 
 			break;
 	}
 
@@ -1351,14 +1085,13 @@ include_once('include/page_header.php');
 		$frmForm->addItem(SPACE);
 		$frmForm->addItem($btn);
 	}
-	
 	show_table_header(S_CONFIGURATION_OF_HOSTS_GROUPS_AND_TEMPLATES, $frmForm);
+	echo SBR;
 ?>
 <?php
 	$row_count = 0;
 	
 	if($_REQUEST['config']==0 || $_REQUEST['config']==3){
-		echo SBR;
 		$show_only_tmp=($_REQUEST['config'] == 3)?1:0;
 
 		if(isset($_REQUEST['massupdate']) && isset($_REQUEST['hosts'])){
@@ -1459,9 +1192,11 @@ include_once('include/page_header.php');
 
 					if(1 == $row['useip']){
 						$ip = bold($ip);
+						$dns = expand_host_ipmi_ip_by_data($dns, $row);
 					}
 					else{
 						$dns = bold($dns);
+						$ip = expand_host_ipmi_ip_by_data($ip, $row);
 					}
 					
 					switch($row['status']){
@@ -1537,10 +1272,10 @@ include_once('include/page_header.php');
 				$show_only_tmp ? new CButtonQMessage('delete_and_clear',S_DELETE_SELECTED_WITH_LINKED_ELEMENTS,S_DELETE_SELECTED_HOSTS_Q) : NULL
 				);
 
-			$table->setFooter(new CCol($footerButtons));
+			$table->SetFooter(new CCol($footerButtons));
 
-			$form->addItem($table);
-			$form->show();
+			$form->AddItem($table);
+			$form->Show();
 
 		}
 	}
@@ -1567,12 +1302,9 @@ include_once('include/page_header.php');
 			$table = new CTableInfo(S_NO_HOST_GROUPS_DEFINED);
 
 			$table->setHeader(array(
-				array(	new CCheckBox('all_groups',NULL,
-						"CheckAll('".$form->GetName()."','all_groups');"),
-					SPACE,
-					make_sorting_link(S_NAME,'g.name')),
-				' # ',
-				S_MEMBERS));
+				array(new CCheckBox('all_groups',NULL,"CheckAll('".$form->GetName()."','all_groups');"),SPACE,make_sorting_link(S_NAME,'g.name')),
+					' # ',
+					S_MEMBERS));
 
 			$sql = 'SELECT g.groupid,g.name '.
 					' FROM groups g'.
@@ -1583,7 +1315,7 @@ include_once('include/page_header.php');
 				$count = 0;
 				$hosts = array();
 
-				$sql = 'SELECT DISTINCT h.host, h.hostid, h.status'.
+				$sql = 'SELECT DISTINCT h.host, h.status'.
 						' FROM hosts h, hosts_groups hg'.
 						' WHERE h.hostid=hg.hostid '.
 							' AND hg.groupid='.$db_group['groupid'].
@@ -1591,19 +1323,9 @@ include_once('include/page_header.php');
 						' ORDER BY host';
 				$db_hosts = DBselect($sql);
 				while($db_host=DBfetch($db_hosts)){
-					$link = 'hosts.php?form=update&config=0&hostid='.$db_host['hostid'];
-					switch($db_host['status']){
-						case HOST_STATUS_MONITORED:
-							$style = null;
-							break;
-						case HOST_STATUS_TEMPLATE:
-							$style = 'unknown';
-							break;
-						default:
-							$style = 'on';
-					}
+					$style = ($db_host['status']==HOST_STATUS_MONITORED)?NULL:(($db_host['status']==HOST_STATUS_TEMPLATE)?'unknown':'on');
 
-					array_push($hosts, empty($hosts)?'':', ', new CLink(new CSpan($db_host['host'], $style), $link));
+					array_push($hosts, empty($hosts)?'':', ', new CSpan($db_host['host'], $style));
 					$count++;
 				}
 
@@ -1621,7 +1343,7 @@ include_once('include/page_header.php');
 					));
 					$row_count++;
 			}
-			$table->setFooter(new CCol(array(
+			$table->SetFooter(new CCol(array(
 				new CButtonQMessage('activate',S_ACTIVATE_SELECTED,S_ACTIVATE_SELECTED_HOSTS_Q),
 				SPACE,
 				new CButtonQMessage('disable',S_DISABLE_SELECTED,S_DISABLE_SELECTED_HOSTS_Q),
@@ -1629,15 +1351,15 @@ include_once('include/page_header.php');
 				new CButtonQMessage('delete',S_DELETE_SELECTED,S_DELETE_SELECTED_GROUPS_Q)
 			)));
 
-			$form->addItem($table);
-			$form->show();
+			$form->AddItem($table);
+			$form->Show();
 		}
 	}
 // Original mod by scricca@vipsnet.net
 // Modified by Aly
 /* this code adds links to Template Names in Template_Linkage page and link them to the form in forms.inc.php */
 	else if($_REQUEST['config']==2){
-		echo SBR;
+	
 		if(isset($_REQUEST['form'])){
 			insert_template_form($PAGE_HOSTS['hostids']);
 		} 
@@ -1664,7 +1386,7 @@ include_once('include/page_header.php');
 		
 			$table = new CTableInfo(S_NO_LINKAGES);
 			$table->setHeader(array(S_TEMPLATES,S_HOSTS));
-		
+					
 			$sql_from = '';
 			$sql_where = '';
 			if($_REQUEST['groupid'] > 0){
@@ -1713,9 +1435,8 @@ include_once('include/page_header.php');
 								break;
 							default:
 								$style = null;
-						}	
-						$link = 'hosts.php?form=update&config=0&hostid='.$host['hostid'];
-						array_push($host_list, empty($host_list)?'':', ', new CLink(new CSpan($host['host'], $style), $link));
+						}										
+						array_push($host_list, empty($host_list)?'':', ', new CSpan($host['host'], $style));
 					}
 				}
 				
@@ -1729,11 +1450,10 @@ include_once('include/page_header.php');
 			}	
 			$table->show();
 			$row_count = $table->getNumRows();
-		}
+		}		
 //----- END MODE -----
 	}
 	else if($_REQUEST['config']==4){
-		echo SBR;
 		if(isset($_REQUEST['form'])){
 			insert_application_form();
 		} 
@@ -1751,7 +1471,6 @@ include_once('include/page_header.php');
 			foreach($PAGE_HOSTS['hosts'] as $hostid => $name){
 				$cmbHosts->addItem($hostid, get_node_name_by_elid($hostid).$name);
 			}
-			$form->addItem($cmbHosts);
 			
 			$form->addItem(array(S_GROUP.SPACE,$cmbGroups));
 			$form->addItem(array(SPACE.S_HOST.SPACE,$cmbHosts));
@@ -1767,10 +1486,10 @@ include_once('include/page_header.php');
 /* TABLE */
 
 			$form = new CForm();
-			$form->setName('applications');
+			$form->SetName('applications');
 
 			$table = new CTableInfo();
-			$table->setHeader(array(
+			$table->SetHeader(array(
 				array(new CCheckBox('all_applications',NULL,"CheckAll('".$form->GetName()."','all_applications');"),
 				SPACE,
 				make_sorting_link(S_APPLICATION,'a.name')),
@@ -1821,9 +1540,8 @@ include_once('include/page_header.php');
 			$form->show();
 		}
 	}
-	else if($_REQUEST["config"]==5){ /* Proxies */
-		echo SBR;
-		if(isset($_REQUEST["form"])){
+	else if($_REQUEST['config']==5){ /* Proxies */
+		if(isset($_REQUEST['form'])){
 			insert_proxies_form(get_request('hostid',NULL));
 		} 
 		else {		
@@ -1907,198 +1625,7 @@ include_once('include/page_header.php');
 			$form->show();
 		}
 	}
-	else if($_REQUEST['config'] == 6){		if(isset($_REQUEST["form"])){
-			$frmMaintenance = new CForm('hosts.php','post');
-			$frmMaintenance->setName(S_MAINTENANCE);
-			
-			$frmMaintenance->addVar('form',get_request('form',1));
-			
-			$from_rfr = get_request('form_refresh',0);
-			$frmMaintenance->addVar('form_refresh',$from_rfr+1);
-			
-			$frmMaintenance->addVar('config',get_request('config',6));
-			
-			if(isset($_REQUEST['maintenanceid']))
-				$frmMaintenance->addVar('maintenanceid',$_REQUEST['maintenanceid']);
-						
-			$left_tab = new CTable();
-			$left_tab->setCellPadding(3);
-			$left_tab->setCellSpacing(3);
-			
-			$left_tab->addOption('border',0);
-			
-			$left_tab->addRow(create_hat(
-					S_MAINTENANCE,
-					get_maintenance_form(),//null,
-					null,
-					'hat_maintenance'
-				));
-					
-			$left_tab->addRow(create_hat(
-					S_MAINTENANCE_PERIODS,
-					get_maintenance_periods(),//null
-					null,
-					'hat_timeperiods'
-				));
-				
-			if(isset($_REQUEST['new_timeperiod'])){
-				$new_timeperiod = $_REQUEST['new_timeperiod'];
-
-				$left_tab->addRow(create_hat(
-						(is_array($new_timeperiod) && isset($new_timeperiod['id']))?S_EDIT_MAINTENANCE_PERIOD:S_NEW_MAINTENANCE_PERIOD,
-						get_timeperiod_form(),//nulls
-						null,
-						'hat_new_timeperiod'
-					));
-			}
-			
-			$right_tab = new CTable();
-			$right_tab->setCellPadding(3);
-			$right_tab->setCellSpacing(3);
-			
-			$right_tab->addOption('border',0);
-					
-			$right_tab->addRow(create_hat(
-					S_HOSTS_IN_MAINTENANCE,
-					get_maintenance_hosts_form($frmMaintenance),//null,
-					null,
-					'hat_host_link'
-				));
-				
-			$right_tab->addRow(create_hat(
-					S_GROUPS_IN_MAINTENANCE,
-					get_maintenance_groups_form($frmMaintenance),//null,
-					null,
-					'hat_group_link'
-				));
-
-			
-			
-			$td_l = new CCol($left_tab);
-			$td_l->addOption('valign','top');
-			
-			$td_r = new CCol($right_tab);
-			$td_r->addOption('valign','top');
-			
-			$outer_table = new CTable();
-			$outer_table->addOption('border',0);
-			$outer_table->setCellPadding(1);
-			$outer_table->setCellSpacing(1);
-			$outer_table->addRow(array($td_l,$td_r));
-			
-			$frmMaintenance->additem($outer_table);
-			
-			show_messages();
-			$frmMaintenance->show();
-//			insert_maintenance_form();
-		} 
-		else {
-			echo SBR;
-	// Table HEADER
-			$form = new CForm();
-			$form->setMethod('get');
-			
-			$cmbGroups = new CComboBox('groupid',$PAGE_GROUPS['selected'],'javascript: submit();');
-			$cmbHosts = new CComboBox('hostid',$PAGE_HOSTS['selected'],'javascript: submit();');
-		
-			foreach($PAGE_GROUPS['groups'] as $groupid => $name){
-				$cmbGroups->addItem($groupid, get_node_name_by_elid($groupid).$name);
-			}
-			foreach($PAGE_HOSTS['hosts'] as $hostid => $name){
-				$cmbHosts->addItem($hostid, get_node_name_by_elid($hostid).$name);
-			}
-			
-			$form->addItem(array(S_GROUP.SPACE,$cmbGroups));
-			$form->addItem(array(SPACE.S_HOST.SPACE,$cmbHosts));
-			
-			$numrows = new CSpan(null,'info');
-			$numrows->addOption('name','numrows');
-			$header = get_table_header(array(S_MAINTENANCE_PERIODS,
-							new CSpan(SPACE.SPACE.'|'.SPACE.SPACE, 'divider'),
-							S_FOUND.': ',$numrows,)
-							);							
-			show_table_header($header, $form);
-// ----
-			$available_maintenances = get_accessible_maintenance_by_user(PERM_READ_WRITE);
-
-			$maintenances = array();
-			$maintenanceids = array();
-
-			$sql_from = '';
-			$sql_where = '';
-			if($_REQUEST['hostid']>0){
-				$sql_from = ', maintenances_hosts mh, maintenances_groups mg, hosts_groups hg ';
-				$sql_where = ' AND hg.hostid='.$_REQUEST['hostid'].
-							' AND ('.
-								'(mh.hostid=hg.hostid AND m.maintenanceid=mh.maintenanceid) '.
-								' OR (mg.groupid=hg.groupid AND m.maintenanceid=mg.maintenanceid))';
-			}
-			else if($_REQUEST['groupid']>0){
-				$sql_from = ', maintenances_hosts mh, maintenances_groups mg, hosts_groups hg ';
-				$sql_where = ' AND hg.groupid='.$_REQUEST['groupid'].
-							' AND ('.
-								'(mg.groupid=hg.groupid AND m.maintenanceid=mg.maintenanceid) '.
-								' OR (mh.hostid=hg.hostid AND m.maintenanceid=mh.maintenanceid))';
-			}
-			
-			$sql = 'SELECT m.* '.
-					' FROM maintenances m '.$sql_from.
-					' WHERE '.DBin_node('m.maintenanceid').
-						' AND '.DBcondition('m.maintenanceid',$available_maintenances).
-						$sql_where.
-					order_by('m.name');
-
-			$db_maintenances = DBselect($sql);
-			while($maintenance = DBfetch($db_maintenances)){
-				$maintenances[$maintenance['maintenanceid']] = $maintenance;
-				$maintenanceids[$maintenance['maintenanceid']] = $maintenance['maintenanceid'];
-			}
-			
-		
-			$form = new CForm(null,'post');
-			$form->setName('maintenances');
-			
-			$table = new CTableInfo();
-			$table->setHeader(array(
-				array(
-					new CCheckBox('all_maintenances',NULL,"CheckAll('".$form->GetName()."','all_maintenances','group_maintenanceid');"),
-					make_sorting_link(S_NAME,'m.name')
-				),
-				S_TYPE,
-				S_STATUS,
-				S_DESCRIPTION
-				));
-				
-			foreach($maintenances as $maintenanceid => $maintenance){
-				
-				if($maintenance['active_till'] < time()) $mnt_status = new CSpan(S_EXPIRED,'red');
-				else $mnt_status = new CSpan(S_ACTIVE,'green');
-				
-				$table->addRow(array(
-					array(
-						new CCheckBox('maintenanceids['.$maintenance['maintenanceid'].']',NULL,NULL,$maintenance['maintenanceid']),
-						new CLink($maintenance['name'],
-							'hosts.php?form=update'.url_param('config').
-							'&maintenanceid='.$maintenance['maintenanceid'].'#form', 'action')
-					),
-					$maintenance['maintenance_type']?S_NO_DATA_PROCESSING:S_NORMAL_PROCESSING,
-					$mnt_status,
-					$maintenance['description']
-					));
-				$row_count++;
-			}
-//			$table->setFooter(new CCol(new CButtonQMessage('delete_selected',S_DELETE_SELECTED,S_DELETE_SELECTED_USERS_Q)));
-			
-			$table->setFooter(new CCol(array(
-				new CButtonQMessage('delete',S_DELETE_SELECTED,S_DELETE_SELECTED_GROUPS_Q)
-			)));
-
-			$form->addItem($table);
-
-			$form->show();
-		}
-	}
-
+	
 zbx_add_post_js('insert_in_element("numrows","'.$row_count.'");');
 
 ?>

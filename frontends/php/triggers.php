@@ -101,6 +101,7 @@
 
 	$available_triggers = get_accessible_triggers(PERM_READ_WRITE, array());			// OPTIMIZE!!!
 /* FORM ACTIONS */
+
 	if(isset($_REQUEST['clone']) && isset($_REQUEST['triggerid'])){
 		unset($_REQUEST['triggerid']);
 		$_REQUEST['form'] = 'clone';
@@ -110,11 +111,12 @@
 		
 		$result = false;
 		
-		$visible = get_request('visible',array());
-		$_REQUEST['dependencies'] = get_request('dependencies',array());
+		
+		$visible = get_request('visible', array());
+		$dependencies = get_request('dependencies',array());
 		
 		$triggers = $_REQUEST['g_triggerid'];
-		$triggers = zbx_uint_array_intersect($triggers, $available_triggers);
+		$triggers = array_intersect($triggers, $available_triggers);
 
 		DBstart();
 		foreach($triggers as $id => $triggerid){
@@ -133,6 +135,14 @@
 				$db_trig['dependencies'],null);
 			
 			$result |= $result2;
+			
+			if($result2){
+				add_audit(
+					AUDIT_ACTION_UPDATE, 
+					AUDIT_RESOURCE_TRIGGER,
+					S_TRIGGER.' ['.$db_trig['triggerid'].'] ['.expand_trigger_description($db_trig['triggerid']).'] '
+				);
+			}
 		}		
 		$result = DBend($result);
 
@@ -171,6 +181,7 @@
 			$result = DBend($result);
 			
 			$triggerid = $_REQUEST['triggerid'];
+			$audit_action = AUDIT_ACTION_UPDATE;
 
 			show_messages($result, S_TRIGGER_UPDATED, S_CANNOT_UPDATE_TRIGGER);
 		} 
@@ -180,10 +191,15 @@
 				$_REQUEST['priority'],$status,$_REQUEST['comments'],$_REQUEST['url'],
 				$deps);
 			$result = DBend($triggerid);
+						
+			$audit_action = AUDIT_ACTION_ADD;
 			show_messages($result, S_TRIGGER_ADDED, S_CANNOT_ADD_TRIGGER);
 		}
-		if($result)
+
+		if($result){
+			add_audit($audit_action, AUDIT_RESOURCE_TRIGGER,S_TRIGGER.' ['.$triggerid.'] ['.expand_trigger_description($triggerid).'] ');
 			unset($_REQUEST['form']);
+		}
 	}
 	else if(isset($_REQUEST['delete'])&&isset($_REQUEST['triggerid'])){
 		$result = false;
@@ -204,16 +220,14 @@
 			DBstart();
 			$result = delete_trigger($_REQUEST['triggerid']);
 			$result = DBend($result);
-			if($result){
-				add_audit_ext(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_TRIGGER, $_REQUEST['triggerid'], $trigger_data['description'], NULL, NULL, NULL);
-			}
 		}
 		
 		show_messages($result, S_TRIGGER_DELETED, S_CANNOT_DELETE_TRIGGER);
 		
 		if($result){
-			//add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_TRIGGER,
-			//	S_TRIGGER.' ['.$_REQUEST['triggerid'].'] ['.expand_trigger_description_by_data($trigger_data).'] ');			
+			add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_TRIGGER,
+				S_TRIGGER.' ['.$_REQUEST['triggerid'].'] ['.expand_trigger_description_by_data($trigger_data).'] ');
+			
 			unset($_REQUEST['form']);
 			unset($_REQUEST['triggerid']);
 		}
@@ -254,10 +268,8 @@
 		if(!isset($_REQUEST['dependencies']))
 			$_REQUEST['dependencies'] = array();
 
-			foreach($_REQUEST['new_dependence'] as $triggerid) {
-			if(!uint_in_array($triggerid, $_REQUEST['dependencies']))
-				array_push($_REQUEST['dependencies'], $triggerid);
-		}
+		if(!uint_in_array($_REQUEST['new_dependence'], $_REQUEST['dependencies']))
+			array_push($_REQUEST['dependencies'], $_REQUEST['new_dependence']);
 	}
 	else if(isset($_REQUEST['del_dependence'])&&isset($_REQUEST['rem_dependence'])){
 		if(isset($_REQUEST['dependencies'])){
@@ -268,41 +280,44 @@
 		}
 	}
 /* GROUP ACTIONS */
-	else if((isset($_REQUEST['group_enable']) || isset($_REQUEST['group_disable'])) && isset($_REQUEST['g_triggerid'])){
+	else if(isset($_REQUEST['group_enable'])&&isset($_REQUEST['g_triggerid'])){
 
 		$_REQUEST['g_triggerid'] = array_intersect($_REQUEST['g_triggerid'],$available_triggers);
 		
-		$sql = 'SELECT triggerid, description FROM triggers'.
-				' WHERE '.DBcondition('triggerid',$_REQUEST['g_triggerid']);
-		$result = DBSelect($sql);
-		while($trigger = DBfetch($result)) {
-			$triggers[$trigger['triggerid']] = $trigger;
-		}
-		
-		if(isset($_REQUEST['group_enable'])) {
-			$status = TRIGGER_STATUS_ENABLED;
-			$status_old = array('status'=>0);
-			$status_new = array('status'=>1);
-		}
-		else {
-			$status = TRIGGER_STATUS_DISABLED;
-			$status_old = array('status'=>1);
-			$status_new = array('status'=>0);
-		}
-		
 		DBstart();
-		$result = update_trigger_status($_REQUEST['g_triggerid'],$status);
+		$result = update_trigger_status($_REQUEST['g_triggerid'],TRIGGER_STATUS_ENABLED);
 		
 		if($result){
 			foreach($_REQUEST['g_triggerid'] as $id => $triggerid){
-				$serv_status = (isset($_REQUEST['group_enable'])) ? get_service_status_of_trigger($triggerid) : 0;
-				update_services($triggerid, $serv_status); // updating status to all services by the dependency					
-				add_audit_ext(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_TRIGGER, $triggerid, $triggers[$triggerid]['description'], 'triggers', $status_old, $status_new);
+				$serv_status = get_service_status_of_trigger($triggerid);
+				update_services($triggerid, $serv_status); // updating status to all services by the dependency
+					
+				add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_TRIGGER,S_TRIGGER.' ['.$triggerid.'] ['.expand_trigger_description($triggerid).'] '.S_ENABLED);
 			}
-		}		
+		}
+		
 		$result = DBend($result);
 		show_messages($result, S_STATUS_UPDATED, S_CANNOT_UPDATE_STATUS);
 
+	}
+	else if(isset($_REQUEST['group_disable'])&&isset($_REQUEST['g_triggerid'])){
+		
+		$_REQUEST['g_triggerid'] = array_intersect($_REQUEST['g_triggerid'],$available_triggers);
+
+		DBstart();
+		$result = update_trigger_status($_REQUEST['g_triggerid'],TRIGGER_STATUS_DISABLED);
+		
+		if($result){
+			foreach($_REQUEST['g_triggerid'] as $id => $triggerid){
+				update_services($triggerid, 0); // updating status to all services by the dependency
+					
+				add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_TRIGGER,S_TRIGGER.' ['.$triggerid.'] ['.expand_trigger_description($triggerid).'] '.S_ENABLED);
+			}
+		}
+		
+		$result = DBend($result);
+		show_messages($result, S_STATUS_UPDATED, S_CANNOT_UPDATE_STATUS);
+		
 	}
 	else if(isset($_REQUEST['group_delete'])&&isset($_REQUEST['g_triggerid'])){
 		
@@ -314,12 +329,13 @@
 			if($row['templateid'] <> 0){
 				unset($_REQUEST['g_triggerid'][$id]);
 				continue;
-			}		
+			}
+			
 			$description = expand_trigger_description($triggerid);			
-			add_audit_ext(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_TRIGGER, $triggerid, $description, NULL, NULL, NULL);
+			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_TRIGGER,S_TRIGGER.' ['.$triggerid.'] ['.$description.'] '.S_DISABLED);
 		}
 		$result = delete_trigger($_REQUEST['g_triggerid']);
-	
+		
 		$result = DBend($result);
 		show_messages($result, S_TRIGGERS_DELETED, S_CANNOT_DELETE_TRIGGERS);
 	}

@@ -470,15 +470,14 @@ int	expand_ipv6(const char *ip, char *str, size_t str_len )
 	zbx_snprintf(str, str_len, "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x", i[0], i[1], i[2], i[3], i[4], i[5], i[6], i[7]);
 	ret = SUCCEED;
 out:
-	zabbix_log(LOG_LEVEL_DEBUG, "End expand_ipv6(ip:%s):%s", ip,
-			zbx_result_string(ret));
+	zabbix_log(LOG_LEVEL_DEBUG, "End expand_ipv6(ip:%s):%s", ip, ret == SUCCEED ? "SUCCEED" : "FAIL");
 
 	return ret;
 }
 
 /******************************************************************************
  *                                                                            *
- * Function: ip6_in_list                                                      *
+ * Function: ip_in_list_ipv6                                                  *
  *                                                                            *
  * Purpose: check if ip matches range of ip addresses                         *
  *                                                                            *
@@ -491,12 +490,12 @@ out:
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	ip6_in_list(char *list, char *ip)
+int	ip_in_list_ipv6(char *list, char *ip)
 {
 	char	*start, *comma = NULL, *dash = NULL, buffer[MAX_STRING_LEN];
 	int	i[8], j[9], ret = FAIL;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In ip6_in_list(list:%s,ip:%s)", list, ip);
+	zabbix_log(LOG_LEVEL_DEBUG, "In ip_in_list(list:%s,ip:%s)", list, ip);
 
 	if(FAIL == expand_ipv6(ip, buffer, sizeof(buffer)))
 	{
@@ -576,9 +575,7 @@ out:
 		comma[0] = ',';
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of ip6_in_list():%s",
-			zbx_result_string(ret));
-
+	zabbix_log(LOG_LEVEL_DEBUG, "End ip_in_list(ret:%s)", ret == SUCCEED ? "SUCCEED" : "FAIL");
 	return ret;
 }
 #endif /*HAVE_IPV6*/
@@ -608,7 +605,7 @@ int	ip_in_list(char *list, char *ip)
 	if(sscanf(ip, "%d.%d.%d.%d", &i[0], &i[1], &i[2], &i[3]) != 4)
 	{
 #if defined(HAVE_IPV6)
-		ret = ip6_in_list(list, ip);
+		ret = ip_in_list_ipv6(list, ip);
 #endif /*HAVE_IPV6*/
 		goto out;
 	}
@@ -674,9 +671,7 @@ out:
 		comma[0] = ',';
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of ip_in_list():%s",
-			zbx_result_string(ret));
-
+	zabbix_log( LOG_LEVEL_DEBUG, "End ip_in_list(ret:%s)", ret == SUCCEED ? "SUCCEED" : "FAIL");
 	return ret;
 }
 
@@ -748,8 +743,7 @@ int	int_in_list(char *list, int value)
 		end[0]=c;
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of int_in_list():%s",
-			zbx_result_string(ret));
+	zabbix_log( LOG_LEVEL_DEBUG, "End int_in_list(ret:%s)", ret == SUCCEED?"SUCCEED":"FAIL");
 
 	return ret;
 }
@@ -1069,86 +1063,6 @@ int	is_uint64(register char *str, zbx_uint64_t *value)
 
 /******************************************************************************
  *                                                                            *
- * Function: is_uoct                                                          *
- *                                                                            *
- * Purpose: check if the string is unsigned octal                             *
- *                                                                            *
- * Parameters: c - string to check                                            *
- *                                                                            *
- * Return value:  SUCCEED - the string is unsigned octal                      *
- *                FAIL - otherwise                                            *
- *                                                                            *
- * Author: Aleksander Vladishev                                               *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-int	is_uoct(char *str)
-{
-	int	res = FAIL;
-
-	while (' ' == *str)	/* trim left spaces */
-		str++;
-
-	for (; '\0' != *str; str++)
-	{
-		if (*str < '0' || *str > '7')
-			break;
-
-		res = SUCCEED;
-	}
-		
-	while (' ' == *str)	/* check right spaces */
-		str++;
-
-	if ('\0' != *str)
-		return FAIL;
-
-	return res;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: is_uhex                                                          *
- *                                                                            *
- * Purpose: check if the string is unsigned hexadecimal                       *
- *                                                                            *
- * Parameters: c - string to check                                            *
- *                                                                            *
- * Return value:  SUCCEED - the string is unsigned hexadecimal                *
- *                FAIL - otherwise                                            *
- *                                                                            *
- * Author: Aleksander Vladishev                                               *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-int	is_uhex(char *str)
-{
-	int	res = FAIL;
-
-	while (' ' == *str)	/* trim left spaces */
-		str++;
-
-	for (; '\0' != *str; str++)
-	{
-		if ((*str < '0' || *str > '9') && (*str < 'a' || *str > 'f') && (*str < 'A' || *str > 'F'))
-			break;
-
-		res = SUCCEED;
-	}
-		
-	while (' ' == *str)	/* check right spaces */
-		str++;
-
-	if ('\0' != *str)
-		return FAIL;
-
-	return res;
-}
-
-/******************************************************************************
- *                                                                            *
  * Function: uint64_in_list                                                   *
  *                                                                            *
  * Purpose: check if uin64 integer matches a list of integers                 *
@@ -1216,8 +1130,7 @@ int	uint64_in_list(char *list, zbx_uint64_t value)
 		end[0]=c;
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of int_in_list():%s",
-			zbx_result_string(ret));
+	zabbix_log( LOG_LEVEL_DEBUG, "End int_in_list(ret:%s)", ret == SUCCEED?"SUCCEED":"FAIL");
 
 	return ret;
 }

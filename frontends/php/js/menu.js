@@ -28,7 +28,8 @@
 //        of ZABBIX software. See http://www.zabbix.com.
 //debugger;
 
-function show_popup_menu(e, content, width){
+function show_popup_menu(e, content, width)
+{
 	if(!width) width = 170;
 
 	var pos = [
@@ -386,8 +387,8 @@ function menu_item (o_parent, n_order) {
 	}
 
 	if(!is_null(this.a_config[1]) && (this.a_config[1].indexOf('javascript') == -1)){
-		var url = new Curl(this.a_config[1]);
-		this.a_config[1] = url.getUrl();
+		var uri = new url(this.a_config[1]);
+		this.a_config[1] = uri.getUrl();
 	}
 	
 	// generate item's HMTL

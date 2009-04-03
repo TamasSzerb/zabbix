@@ -396,13 +396,13 @@
 	}
 
 	function get_trigger_by_triggerid($triggerid){
-		$sql='select * from triggers where triggerid='.$triggerid;
+		$sql="select * from triggers where triggerid=$triggerid";
 		$result=DBselect($sql);
 		$row=DBfetch($result);
 		if($row){
 			return	$row;
 		}
-		error('No trigger with triggerid=['.$triggerid.']');
+		error("No trigger with triggerid=[$triggerid]");
 		return FALSE;
 	}
 
@@ -628,7 +628,7 @@
 			else if( !$arr[ZBX_EXPRESSION_MACRO_ID] ) {
 				$host		= &$arr[ZBX_EXPRESSION_SIMPLE_EXPRESSION_ID + ZBX_SIMPLE_EXPRESSION_HOST_ID];
 				$key		= &$arr[ZBX_EXPRESSION_SIMPLE_EXPRESSION_ID + ZBX_SIMPLE_EXPRESSION_KEY_ID];
-				$function = &$arr[ZBX_EXPRESSION_SIMPLE_EXPRESSION_ID + ZBX_SIMPLE_EXPRESSION_FUNCTION_NAME_ID];
+				$function	= &$arr[ZBX_EXPRESSION_SIMPLE_EXPRESSION_ID + ZBX_SIMPLE_EXPRESSION_FUNCTION_NAME_ID];
 				$parameter	= &$arr[ZBX_EXPRESSION_SIMPLE_EXPRESSION_ID + ZBX_SIMPLE_EXPRESSION_FUNCTION_PARAM_ID];
 				
 				/* Check host */
@@ -715,7 +715,8 @@
 		}
 
 		if ( isset($h_status[HOST_STATUS_TEMPLATE]) && ( count($h_status) > 1 || count($h_status[HOST_STATUS_TEMPLATE]) > 1 )){
-			error('Incorrect trigger expression. You can not use template hosts in mixed expressions.');
+			error("Incorrect trigger expression. You can't use template hosts".
+				" in mixed expressions.");
 			return false;
 		}
 
@@ -737,13 +738,12 @@
 		return true;
 	}
 
+
 	function add_trigger($expression, $description, $type, $priority, $status, $comments, $url, $deps=array(), $templateid=0){
 		if( !validate_expression($expression) )
 			return false;
-		if ( !validate_trigger_dependency($expression, $deps))
-			return false;
-			
-		$triggerid=get_dbid('triggers','triggerid');
+
+		$triggerid=get_dbid("triggers","triggerid");
 		
 		$result=DBexecute('INSERT INTO triggers '.
 			'  (triggerid,description,type,priority,status,comments,url,value,error,templateid) '.
@@ -759,10 +759,9 @@
 		if( null == ($expression = implode_exp($expression,$triggerid)) ){
 			$result = false;
 		}
-		
 
 		if($result){
-			DBexecute('update triggers set expression='.zbx_dbstr($expression).' where triggerid='.$triggerid);
+			DBexecute("update triggers set expression=".zbx_dbstr($expression)." where triggerid=$triggerid");
 
 			reset_items_nextcheck($triggerid);
 
@@ -778,18 +777,18 @@
 		$trig_host = DBfetch($trig_hosts);
 		
 		if($result){
-			$msg = 'Added trigger "'.$description.'"';
+			$msg = "Added trigger '".$description."'";
 			if($trig_host){
-				$msg .= ' to host "'.$trig_host['host'].'"';
+				$msg .= " to host '".$trig_host["host"]."'";
 			}
 			info($msg);
 		}
 
 		if($trig_host){
 // create trigger for childs
-			$child_hosts = get_hosts_by_templateid($trig_host['hostid']);
+			$child_hosts = get_hosts_by_templateid($trig_host["hostid"]);
 			while($child_host = DBfetch($child_hosts)){
-				if( !($result = copy_trigger_to_host($triggerid, $child_host['hostid'])))
+				if( !($result = copy_trigger_to_host($triggerid, $child_host["hostid"])))
 					break;
 			}
 		}
@@ -801,13 +800,44 @@
 			}
 			return $result;
 		}
-		
-		if($result)
-			add_audit_ext(AUDIT_ACTION_ADD, AUDIT_RESOURCE_TRIGGER,	$triggerid,	$description, NULL,	NULL, NULL);
-				
+
 		return $triggerid;
 	}
 
+	/******************************************************************************
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
+	function get_trigger_dependencies_by_triggerid($triggerid){
+		$result = array();
+
+		$db_deps = DBselect('SELECT * FROM trigger_depends WHERE triggerid_down='.$triggerid);
+		while($db_dep = DBfetch($db_deps))
+				$result[] = $db_dep['triggerid_up'];
+			
+	return $result;
+	}
+
+	/******************************************************************************
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
+	function replace_template_dependencies($deps, $hostid){
+		foreach($deps as $id => $val){
+			if($db_new_dep = DBfetch(DBselect('SELECT t.triggerid '.
+				' FROM triggers t,functions f,items i '.
+				' WHERE t.templateid='.$val.
+					' AND f.triggerid=t.triggerid '.
+					' AND f.itemid=i.itemid '.
+					' AND i.hostid='.$hostid)))
+			{
+					$deps[$id] = $db_new_dep['triggerid'];
+			}
+		}
+	return $deps;
+	}
 
 	/******************************************************************************
 	 *                                                                            *
@@ -835,18 +865,18 @@
 		
 		$host_triggers = DBSelect($sql);
 		while($host_trigger = DBfetch($host_triggers)){
-			if(cmp_triggers_exressions($triggerid, $host_trigger['triggerid']))	continue;
+			if(cmp_triggers_exressions($triggerid, $host_trigger["triggerid"]))	continue;
 			// link not linked trigger with same expression
 			
 			return update_trigger(
-				$host_trigger['triggerid'],
+				$host_trigger["triggerid"],
 				NULL,	// expression
-				$trigger['description'],
-				$trigger['type'],
-				$trigger['priority'],
+				$trigger["description"],
+				$trigger["type"],
+				$trigger["priority"],
 				NULL,	// status
-				$trigger['comments'],
-				$trigger['url'],
+				$trigger["comments"],
+				$trigger["url"],
 				$deps,
 				$copy_mode ? 0 : $triggerid);
 		}
@@ -856,36 +886,36 @@
 		$result = DBexecute('INSERT INTO triggers '.
 					' (triggerid,description,type,priority,status,comments,url,value,expression,templateid)'.
 					' VALUES ('.$newtriggerid.','.zbx_dbstr($trigger['description']).','.$trigger['type'].','.$trigger['priority'].','.
-					$trigger['status'].','.zbx_dbstr($trigger['comments']).','.
-					zbx_dbstr($trigger['url']).",2,'0',".($copy_mode ? 0 : $triggerid).')');
+					$trigger["status"].','.zbx_dbstr($trigger["comments"]).','.
+					zbx_dbstr($trigger["url"]).",2,'0',".($copy_mode ? 0 : $triggerid).')');
 
 		if(!$result)
 			return $result;
 
 		$host = get_host_by_hostid($hostid);
-		$newexpression = $trigger['expression'];
+		$newexpression = $trigger["expression"];
 
 		// Loop: functions
 		$functions = get_functions_by_triggerid($triggerid);
 		while($function = DBfetch($functions)){
-			$item = get_item_by_itemid($function['itemid']);
+			$item = get_item_by_itemid($function["itemid"]);
 
 			$host_items = DBselect('SELECT * FROM items WHERE key_='.zbx_dbstr($item['key_']).' AND hostid='.$host['hostid']);
 			$host_item = DBfetch($host_items);
 			if(!$host_item){
-				error('Missing key "'.$item['key_'].'" for host "'.$host['host'].'"');
+				error("Missing key '".$item["key_"]."' for host '".$host["host"]."'");
 				return FALSE;
 			}
 
-			$newfunctionid=get_dbid('functions','functionid');
+			$newfunctionid=get_dbid("functions","functionid");
 
 			$result = DBexecute('INSERT INTO functions (functionid,itemid,triggerid,function,parameter) '.
-				" values ($newfunctionid,".$host_item['itemid'].','.$newtriggerid.','.
-				zbx_dbstr($function['function']).','.zbx_dbstr($function['parameter']).')');
+				" values ($newfunctionid,".$host_item["itemid"].",$newtriggerid,".
+				zbx_dbstr($function["function"]).",".zbx_dbstr($function["parameter"]).")");
 
 			$newexpression = str_replace(
-				'{'.$function['functionid'].'}',
-				'{'.$newfunctionid.'}',
+				"{".$function["functionid"]."}",
+				"{".$newfunctionid."}",
 				$newexpression);
 		}
 
@@ -896,13 +926,13 @@
 			add_trigger_dependency($newtriggerid, $dep_id);
 		}
 
-		info('Added trigger "'.$trigger['description'].'" to host "'.$host['host'].'"');
-		add_audit_ext(AUDIT_ACTION_ADD, AUDIT_RESOURCE_TRIGGER, $newtriggerid, $trigger['description'], NULL, NULL, NULL);
+		info("Added trigger '".$trigger["description"]."' to host '".$host["host"]."'");
+
 // Copy triggers to the child hosts
 		$child_hosts = get_hosts_by_templateid($hostid);
 		while($child_host = DBfetch($child_hosts)){
 // recursion
-			$result = copy_trigger_to_host($newtriggerid, $child_host['hostid']);
+			$result = copy_trigger_to_host($newtriggerid, $child_host["hostid"]);
 			if(!$result){
 				return result;
 			}
@@ -940,7 +970,7 @@
 			
 			if($expression[$i] == '}'){
 				$state='';
-				if($functionid=='TRIGGER.VALUE'){
+				if($functionid=="TRIGGER.VALUE"){
 					if(0 == $html) $exp.='{'.$functionid.'}';
 					else array_push($exp,'{'.$functionid.'}');
 				}
@@ -952,7 +982,7 @@
 														' AND h.hostid=i.hostid'
 					)))
 				{
-					if($template) $function_data['host'] = '{HOSTNAME}';
+					if($template) $function_data["host"] = '{HOSTNAME}';
 						
 					if($html == 0){
 						$exp.='{'.$function_data['host'].':'.$function_data['key_'].'.'.$function_data['function'].'('.$function_data['parameter'].')}';
@@ -978,7 +1008,7 @@
 				}
 				continue;
 			}
-			if($state == 'FUNCTIONID'){
+			if($state == "FUNCTIONID"){
 				$functionid=$functionid.$expression[$i];
 				continue;
 			}
@@ -1020,7 +1050,7 @@
 				$s_expr		= &$arr[ZBX_EXPRESSION_SIMPLE_EXPRESSION_ID];
 				$host		= &$arr[ZBX_EXPRESSION_SIMPLE_EXPRESSION_ID + ZBX_SIMPLE_EXPRESSION_HOST_ID];
 				$key		= &$arr[ZBX_EXPRESSION_SIMPLE_EXPRESSION_ID + ZBX_SIMPLE_EXPRESSION_KEY_ID];
-				$function = &$arr[ZBX_EXPRESSION_SIMPLE_EXPRESSION_ID + ZBX_SIMPLE_EXPRESSION_FUNCTION_NAME_ID];
+				$function	= &$arr[ZBX_EXPRESSION_SIMPLE_EXPRESSION_ID + ZBX_SIMPLE_EXPRESSION_FUNCTION_NAME_ID];
 				$parameter	= &$arr[ZBX_EXPRESSION_SIMPLE_EXPRESSION_ID + ZBX_SIMPLE_EXPRESSION_FUNCTION_PARAM_ID];
 
 				$item_res = DBselect('SELECT i.itemid '.
@@ -1034,9 +1064,9 @@
 				
 				if(!$item) return null;
 
-				$item = $item['itemid'];
+				$item = $item["itemid"];
 
-				$functionid = get_dbid('functions','functionid');
+				$functionid = get_dbid("functions","functionid");
 
 				if ( !DBexecute('insert into functions (functionid,itemid,triggerid,function,parameter)'.
 					' values ('.$functionid.','.$item.','.$triggerid.','.zbx_dbstr($function).','.
@@ -1078,8 +1108,8 @@
 		}
 
 		add_event($triggerids,TRIGGER_VALUE_UNKNOWN);
-	
-	return DBexecute('UPDATE triggers SET status='.$status.' WHERE '.DBcondition('triggerid',$triggerids));
+		
+	return	DBexecute('UPDATE triggers SET status='.$status.' WHERE '.DBcondition('triggerid',$triggerids));
 	}
 
 	/*
@@ -1119,7 +1149,7 @@
 	function expand_trigger_description_constants($description, $row){
 		if($row && isset($row['expression'])){
 			$numbers = extract_numbers(ereg_replace('(\{[0-9]+\})', 'function', $row['expression']));
-			$description = $row['description'];
+			$description = $row["description"];
 
 			for ( $i = 0; $i < 9; $i++ ){
 				$description = str_replace(
@@ -1281,6 +1311,17 @@
 	return $triggerids;
 	}
 
+	function add_trigger_dependency($triggerid,$depid){
+		$result = false;
+		
+		if(check_dependency_by_triggerid($triggerid,$depid)){
+			$result=insert_dependency($triggerid,$depid);
+		}
+		
+		//add_additional_dependencies($triggerid,$depid);
+	return $result;
+	}
+
 /******************************************************************************
  *                                                                            *
  * Purpose: Delete Trigger definition                                         *
@@ -1359,10 +1400,10 @@
 		$result = DBexecute('DELETE FROM triggers WHERE '.DBcondition('triggerid',$triggerids));
 		if($result){
 			foreach($triggers as $triggerid => $trigger){
-				$msg = 'Trigger "'.$trigger['description'].'" deleted';
+				$msg = "Trigger '".$trigger["description"]."' deleted";
 				$trig_host = DBfetch($trig_hosts[$triggerid]);
 				if($trig_host){
-					$msg .= ' from host "'.$trig_host['host'].'"';
+					$msg .= " from host '".$trig_host["host"]."'";
 				}
 				info($msg);
 			}
@@ -1387,36 +1428,36 @@
 
 		if(is_null($expression)){
 			/* Restore expression */
-			$expression = explode_exp($trigger['expression'],0);
+			$expression = explode_exp($trigger["expression"],0);
 		} 
-		else if($expression != explode_exp($trigger['expression'],0)){
+		else if($expression != explode_exp($trigger["expression"],0)){
 			$event_to_unknown = true;
 		}
 		
-		if(!validate_expression($expression)) return false;
-		if(!validate_trigger_dependency($expression, $deps)) return false;
-			
+		if ( !validate_expression($expression) )
+			return false;
+
 		$exp_hosts 	= get_hosts_by_expression($expression);
 		
 		if( $exp_hosts ){
-			$chd_hosts	= get_hosts_by_templateid($trig_host['hostid']);
+			$chd_hosts	= get_hosts_by_templateid($trig_host["hostid"]);
 
 			if(DBfetch($chd_hosts)){
 				$exp_host = DBfetch($exp_hosts);
 
 				$db_chd_triggers = get_triggers_by_templateid($triggerid);
 				while($db_chd_trigger = DBfetch($db_chd_triggers)){
-					$chd_trig_hosts = get_hosts_by_triggerid($db_chd_trigger['triggerid']);
+					$chd_trig_hosts = get_hosts_by_triggerid($db_chd_trigger["triggerid"]);
 					$chd_trig_host = DBfetch($chd_trig_hosts);
 
 					$newexpression = str_replace(
-						'{'.$exp_host['host'].':',
-						'{'.$chd_trig_host['host'].':',
+						"{".$exp_host["host"].":",
+						"{".$chd_trig_host["host"].":",
 						$expression);
 
 				// recursion
 					update_trigger(
-						$db_chd_trigger['triggerid'],
+						$db_chd_trigger["triggerid"],
 						$newexpression,
 						$description,
 						$type,
@@ -1440,7 +1481,7 @@
 		if($event_to_unknown) add_event($triggerid,TRIGGER_VALUE_UNKNOWN);
 		reset_items_nextcheck($triggerid);
 
-		$sql='UPDATE triggers SET ';
+		$sql="UPDATE triggers SET";
 		if(!is_null($expression))	$sql .= ' expression='.zbx_dbstr($expression).',';
 		if(!is_null($description))	$sql .= ' description='.zbx_dbstr($description).',';
 		if(!is_null($type))			$sql .= ' type='.$type.',';
@@ -1464,18 +1505,13 @@
 		
 		if($result){
 			$trig_hosts	= get_hosts_by_triggerid($triggerid);
-			$msg = 'Trigger "'.$trigger['description'].'" updated';
+			$msg = "Trigger '".$trigger["description"]."' updated";
 			$trig_host = DBfetch($trig_hosts);
 			if($trig_host){
-				$msg .= ' for host "'.$trig_host['host'].'"';
+				$msg .= " for host '".$trig_host["host"]."'";
 			}
 			info($msg);
 		}
-		if($result) {
-			$trigger_new = get_trigger_by_triggerid($triggerid);
-			add_audit_ext(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_TRIGGER,	$triggerid,	$trigger['description'], 'triggers', $trigger, $trigger_new);
-		}
-		
 	return $result;
 	}
 
@@ -1496,161 +1532,14 @@
 			if(!isset($available_hosts[$host_data['hostid']])) return false;
 		}
 
-	return true;
+		return true;
 	}
 
-
-// ----------- DEPENDENCIES --------------
-
-/******************************************************************************
- *                                                                            *
- * Comments: !!! Don't forget sync code with C !!!                            *
- *                                                                            *
- ******************************************************************************/
-	function get_trigger_dependencies_by_triggerid($triggerid){
-		$result = array();
-
-		$db_deps = DBselect('SELECT * FROM trigger_depends WHERE triggerid_down='.$triggerid);
-		while($db_dep = DBfetch($db_deps))
-				$result[] = $db_dep['triggerid_up'];
-			
-	return $result;
-	}
-
-	function add_trigger_dependency($triggerid,$depid){
-		$result = false;
-		
-		if(check_dependency_by_triggerid($triggerid,$depid)){
-			$result=insert_dependency($triggerid,$depid);
-		}
-		
-	return $result;
-	}
-	
-/******************************************************************************
- *                                                                            *
- * Comments: !!! Don't forget sync code with C !!!                            *
- *                                                                            *
- ******************************************************************************/
-	function insert_dependency($triggerid_down,$triggerid_up){
-	
-		$triggerdepid = get_dbid('trigger_depends','triggerdepid');
-		$result=DBexecute('INSERT INTO trigger_depends (triggerdepid,triggerid_down,triggerid_up) '.
-							" VALUES ($triggerdepid,$triggerid_down,$triggerid_up)");
-		if(!$result){
-			return	$result;
-		}
-	return DBexecute('UPDATE triggers SET dep_level=dep_level+1 WHERE triggerid='.$triggerid_up);
-	}
-	
-/*
- * Function: update_trigger_dependencies_for_host
- *
- * Description: 
- *     Update template triggers dependencies
- *     
- * Author: 
- *     Artem 'Aly' Suharev
- *
- * Comments: !!! Don't forget sync code with C !!!
- *
- */
- 	function update_template_dependencies_for_host($hostid){
-
-		$tpl_triggerids = array();
-		
-		$sql = 'SELECT DISTINCT t.triggerid, t.templateid '.
-							' FROM triggers t, functions f, items i '.
-							' WHERE i.hostid='.$hostid.
-								' AND f.itemid=i.itemid '.
-								' AND f.triggerid=t.triggerid '.
-								' AND t.templateid > 0';
-		$result = DBselect($sql);
-		while($trigger = DBfetch($result)){
-			if($trigger['templateid'] > 0){
-				delete_dependencies_by_triggerid($trigger['triggerid']);
-				$tpl_triggerids[$trigger['templateid']] = $trigger['triggerid'];
-			}
-		}
-
-		$sql = 'SELECT DISTINCT td.* '.
-				' FROM items i, functions f, triggers t, trigger_depends td '.
-				' WHERE i.hostid='.$hostid.
-					' AND f.itemid=i.itemid '.
-					' AND t.triggerid=f.triggerid '.
-					' AND ( (td.triggerid_up=t.templateid) OR (td.triggerid_down=t.templateid) )';
-		$result = DBselect($sql);
-		while($dependency = DBfetch($result)){
-			if(isset($tpl_triggerids[$dependency['triggerid_down']]) && 
-				isset($tpl_triggerids[$dependency['triggerid_up']]))
-			{
-				insert_dependency($tpl_triggerids[$dependency['triggerid_down']],$tpl_triggerids[$dependency['triggerid_up']]);
-			}
-		}
-	}
-
-/*
-	 * Function: update_template_dependencies_for_host
-	 *
-	 * Description: 
-	 *     Update template triggers
-	 *     
-	 * Author: 
-	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
-	 *
-	 * Comments: !!! Don't forget sync code with C !!!
-	 *
-	 *
-	function update_template_dependencies_for_host($hostid){
-	
-		$db_triggers = get_triggers_by_hostid($hostid);
-		
-		while($trigger_data = DBfetch($db_triggers)){
-			$db_chd_triggers = get_triggers_by_templateid($trigger_data['triggerid']);
-
-			while($chd_trigger_data = DBfetch($db_chd_triggers)){
-				update_trigger($chd_trigger_data['triggerid'],
-								NULL,	//expression
-								NULL,	//description
-								NULL,	//type
-								NULL,	//priority
-								NULL,	//status	
-								NULL,	//comments
-								NULL,	//url
-					replace_template_dependencies(
-						get_trigger_dependencies_by_triggerid($trigger_data['triggerid']),
-						$hostid),
-					$trigger_data['triggerid']);
-			}
-
-		}
-	}
-
-/******************************************************************************
- *                                                                            *
- * Comments: !!! Don't forget sync code with C !!!                            *
- *                                                                            *
- ******************************************************************************/
-	function replace_template_dependencies($deps, $hostid){
-		foreach($deps as $id => $val){
-			if($db_new_dep = DBfetch(DBselect('SELECT t.triggerid '.
-				' FROM triggers t,functions f,items i '.
-				' WHERE t.templateid='.$val.
-					' AND f.triggerid=t.triggerid '.
-					' AND f.itemid=i.itemid '.
-					' AND i.hostid='.$hostid)))
-			{
-					$deps[$id] = $db_new_dep['triggerid'];
-			}
-		}
-	return $deps;
-	}
-
-/******************************************************************************
- *                                                                            *
- * Comments: !!! Don't forget sync code with C !!!                            *
- *                                                                            *
- ******************************************************************************/
+	/******************************************************************************
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
 	function delete_dependencies_by_triggerid($triggerids){
 		zbx_value2array($triggerids);
 		
@@ -1667,9 +1556,26 @@
 	return true;
 	}
 
+	/******************************************************************************
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
+	function insert_dependency($triggerid_down,$triggerid_up){
+	
+		$triggerdepid = get_dbid("trigger_depends","triggerdepid");
+		$result=DBexecute("insert into trigger_depends (triggerdepid,triggerid_down,triggerid_up)".
+			" values ($triggerdepid,$triggerid_down,$triggerid_up)");
+		if(!$result){
+			return	$result;
+		}
+	return DBexecute("update triggers set dep_level=dep_level+1 where triggerid=$triggerid_up");
+	}
+
+
 	function check_dependency_by_triggerid($triggerid,$triggerid_up,$level=0){
 		if(bccomp($triggerid,$triggerid_up) == 0) return false;
-		if($level > 16) return true;
+		if($level > 32) return true;
 		
 		$level++;
 		$result = true;
@@ -1677,83 +1583,31 @@
 		$sql = 'SELECT triggerid_up FROM trigger_depends WHERE triggerid_down='.$triggerid_up;
 		$res = DBselect($sql);
 		while(($trig = DBfetch($res)) && $result){
-			$result &= check_dependency_by_triggerid($triggerid,$trig['triggerid_up'],$level);		// RECURSION!!!
+			$result &= check_dependency_by_triggerid($triggerid,$trig['triggerid_up'],$level);
 		}
 		
 	return $result;
 	}
+/* INCORRECT LOGIC: If 1 depends on 2, and 2 depends on 3, then add dependency 1->3
 	
-// Deny linking templates with dependency on other template
-	function check_templates_trigger_dependencies($templates) {
-		$result = true;
-		
-		foreach($templates as $templateid => $templatename) {	
-		
-			$triggerids = array();
-			$db_triggers = get_triggers_by_hostid($templateid);
-			while($trigger = DBfetch($db_triggers)) {
-				$triggerids[$trigger['triggerid']] = $trigger['triggerid'];
-			}		
+	function add_additional_dependencies($triggerid_down,$triggerid_up){
+		$result=DBselect('SELECT triggerid_down '.
+						' FROM trigger_depends '.
+						' WHERE triggerid_up='.$triggerid_down);
 			
-			$sql = 'SELECT DISTINCT h.hostid, h.host '.
-					' FROM trigger_depends td, functions f, items i, hosts h '.
-					' WHERE (('.DBcondition('td.triggerid_down',$triggerids).' AND f.triggerid=td.triggerid_up) '.
-						' OR ('.DBcondition('td.triggerid_up',$triggerids).' AND f.triggerid=td.triggerid_down)) '.
-						' AND i.itemid=f.itemid '.
-						' AND h.hostid=i.hostid '.
-						' AND h.hostid<>'.$templateid.
-						' AND h.status='.HOST_STATUS_TEMPLATE;
-			
-			$db_dephosts = DBselect($sql);
-			while($db_dephost = DBfetch($db_dephosts)) {
-				error('Trigger in template "'.$templatename.'" has dependency with trigger in template : '.$db_dephost['host']);
-				$result = false;
-			}		
+		while($row=DBfetch($result)){
+			insert_dependency($row['triggerid_down'],$triggerid_up);
+			add_additional_dependencies($row["triggerid_down"],$triggerid_up);
 		}
-		return $result;
-	}
-	
-// Deny adding dependency between templates if they are not high level templates
-	function validate_trigger_dependency($expression, $deps) {
-		$result = true;
 		
-		if(!empty($deps)){
-			$templates = array();
-			$templateids = array();
-			$db_triggerhosts = get_hosts_by_expression($expression);
-			while($triggerhost = DBfetch($db_triggerhosts)) {
-				if($triggerhost['status'] == HOST_STATUS_TEMPLATE) { //template
-					$templates[$triggerhost['hostid']] = $triggerhost;
-					$templateids[$triggerhost['hostid']] = $triggerhost['hostid'];
-				}	
-			}
-
-			$dep_templateids = array();
-			$db_dephosts = get_hosts_by_triggerid($deps);
-			while($dephost = DBfetch($db_dephosts)) {
-				if($dephost['status'] == HOST_STATUS_TEMPLATE) { //template
-					$templates[$dephost['hostid']] = $dephost;
-					$dep_templateids[$dephost['hostid']] = $dephost['hostid'];
-				}	
-			}
-			
-			if(!empty($templateids) && !empty($dep_templateids)) {
-				$tpls = array_merge($templateids, $dep_templateids);
-				$sql = 'SELECT DISTINCT h.host, h.hostid, ht.templateid '.
-						' FROM hosts h, hosts_templates ht '.
-						' WHERE h.hostid=ht.hostid '.
-							' AND h.status='.HOST_STATUS_TEMPLATE.
-							' AND '.DBcondition('ht.templateid', $tpls);
-	
-				$db_lowlvltpl = DBselect($sql);			
-				while($lovlvltpl = DBfetch($db_lowlvltpl)) {					
-					error($templates[$lovlvltpl['templateid']]['host'].' is not the highest level template');
-					$result = false;	
-				}	
-			}
+		$result=DBselect("select triggerid_up from trigger_depends where triggerid_down=$triggerid_up");
+		
+		while($row=DBfetch($result)){
+			insert_dependency($triggerid_down,$row["triggerid_up"]);
+			add_additional_dependencies($triggerid_down,$row["triggerid_up"]);
 		}
-	return $result;
 	}
+//*/
 
 	function delete_function_by_triggerid($triggerids){
 		zbx_value2array($triggerids);
@@ -1765,11 +1619,11 @@
 	return	DBexecute('DELETE FROM events WHERE '.DBcondition('objectid',$triggerids).' AND object='.EVENT_OBJECT_TRIGGER);
 	}
 
-/******************************************************************************
- *                                                                            *
- * Comments: !!! Don't forget sync code with C !!!                            *
- *                                                                            *
- ******************************************************************************/
+	/******************************************************************************
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
 	function delete_triggers_by_itemid($itemids){
 		zbx_value2array($itemids);
 		
@@ -1785,13 +1639,13 @@
 	return TRUE;
 	}
 
-/******************************************************************************
- *                                                                            *
- * Purpose: Delete Service definitions by triggerid                           *
- *                                                                            *
- * Comments: !!! Don't forget sync code with C !!!                            *
- *                                                                            *
- ******************************************************************************/
+	/******************************************************************************
+	 *                                                                            *
+	 * Purpose: Delete Service definitions by triggerid                           *
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
 	function delete_services_by_triggerid($triggerids){
 		zbx_value2array($triggerids);
 		
@@ -1802,36 +1656,36 @@
 	return	TRUE;
 	}
 	
-/*
- * Function: cmp_triggers_exressions
- *
- * Description: 
- * 		Warning: function compares ONLY expressions,there is no check on functions and items
- *     
- * Author: 
- *     Aly
- *
- * Comments: 
- *
- */
+	/*
+	 * Function: cmp_triggers_exressions
+	 *
+	 * Description: 
+	 * 		Warning: function compares ONLY expressions,there is no check on functions and items
+	 *     
+	 * Author: 
+	 *     Aly
+	 *
+	 * Comments: 
+	 *
+	 */
 	function cmp_triggers_exressions($triggerid1, $triggerid2){
 // compare EXPRESSION !!!
 		$trig1 = get_trigger_by_triggerid($triggerid1);
 		$trig2 = get_trigger_by_triggerid($triggerid2);
 
 		$trig_fnc1 = get_functions_by_triggerid($triggerid1);
-		$expr1 = $trig1['expression'];
+		$expr1 = $trig1["expression"];
 		while($fnc1 = DBfetch($trig_fnc1)){
 			$trig_fnc2 = get_functions_by_triggerid($triggerid2);
 			while($fnc2 = DBfetch($trig_fnc2)){
 				$expr1 = str_replace(
-					'{'.$fnc1['functionid'].'}',
-					'{'.$fnc2['functionid'].'}',
+					"{".$fnc1["functionid"]."}",
+					"{".$fnc2["functionid"]."}",
 					$expr1);
 				break;
 			}
 		}
-	return strcmp($expr1,$trig2['expression']);
+	return strcmp($expr1,$trig2["expression"]);
 	}
 
 	/*
@@ -1853,26 +1707,26 @@
 
 		$trig_fnc1 = get_functions_by_triggerid($triggerid1);
 		
-		$expr1 = $trig1['expression'];
+		$expr1 = $trig1["expression"];
 		while($fnc1 = DBfetch($trig_fnc1)){
 			$trig_fnc2 = get_functions_by_triggerid($triggerid2);
 			while($fnc2 = DBfetch($trig_fnc2)){
-				if(strcmp($fnc1['function'],$fnc2['function']))	continue;
-				if($fnc1['parameter'] != $fnc2['parameter'])	continue;
+				if(strcmp($fnc1["function"],$fnc2["function"]))	continue;
+				if($fnc1["parameter"] != $fnc2["parameter"])	continue;
 
-				$item1 = get_item_by_itemid($fnc1['itemid']);
-				$item2 = get_item_by_itemid($fnc2['itemid']);
+				$item1 = get_item_by_itemid($fnc1["itemid"]);
+				$item2 = get_item_by_itemid($fnc2["itemid"]);
 
-				if(strcmp($item1['key_'],$item2['key_']))	continue;
+				if(strcmp($item1["key_"],$item2["key_"]))	continue;
 
 				$expr1 = str_replace(
-					'{'.$fnc1['functionid'].'}',
-					'{'.$fnc2['functionid'].'}',
+					"{".$fnc1["functionid"]."}",
+					"{".$fnc2["functionid"]."}",
 					$expr1);
 				break;
 			}
 		}
-		return strcmp($expr1,$trig2['expression']);
+		return strcmp($expr1,$trig2["expression"]);
 	}
 
 	/*
@@ -1895,36 +1749,36 @@
 			if($trigger['templateid']==0)	continue;
 
 			if($templateids != null){				
-				$db_tmp_hosts = get_hosts_by_triggerid($trigger['templateid']);
+				$db_tmp_hosts = get_hosts_by_triggerid($trigger["templateid"]);
 				$tmp_host = DBfetch($db_tmp_hosts);
 
-				if(!uint_in_array($tmp_host['hostid'], $templateids)) continue;
+				if(!uint_in_array($tmp_host["hostid"], $templateids)) continue;
 			}
 
 			if($unlink_mode){
 				if(DBexecute('UPDATE triggers SET templateid=0 WHERE triggerid='.$trigger['triggerid'])){
-						info('Trigger "'.$trigger['description'].'" unlinked');
+						info('Trigger "'.$trigger["description"].'" unlinked');
 				}
 			}
 			else{
-				delete_trigger($trigger['triggerid']);
+				delete_trigger($trigger["triggerid"]);
 			}
 		}
 	return TRUE;
 	}
 	
-/*
- * Function: copy_template_triggers
- *
- * Description: 
- *     Copy triggers from template
- *     
- * Author: 
- *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
- *
- * Comments: !!! Don't forget sync code with C !!!
- *
- */
+	/*
+	 * Function: copy_template_triggers
+	 *
+	 * Description: 
+	 *     Copy triggers from template
+	 *     
+	 * Author: 
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments: !!! Don't forget sync code with C !!!
+	 *
+	 */
 	function copy_template_triggers($hostid, $templateid = null, $copy_mode = false){
 		if(null == $templateid){
 			$templateid = array_keys(get_templates_by_hostid($hostid));
@@ -1938,12 +1792,48 @@
 
 		$triggers = get_triggers_by_hostid($templateid);
 		while($trigger = DBfetch($triggers)){
-			copy_trigger_to_host($trigger['triggerid'], $hostid, $copy_mode);
+			copy_trigger_to_host($trigger["triggerid"], $hostid, $copy_mode);
 		}
 
 		update_template_dependencies_for_host($hostid);
 	}
 
+	/*
+	 * Function: update_template_dependencies_for_host
+	 *
+	 * Description: 
+	 *     Update template triggers
+	 *     
+	 * Author: 
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments: !!! Don't forget sync code with C !!!
+	 *
+	 */
+	function	update_template_dependencies_for_host($hostid){
+	
+		$db_triggers = get_triggers_by_hostid($hostid);
+		
+		while($trigger_data = DBfetch($db_triggers)){
+			$db_chd_triggers = get_triggers_by_templateid($trigger_data['triggerid']);
+
+			while($chd_trigger_data = DBfetch($db_chd_triggers)){
+				update_trigger($chd_trigger_data['triggerid'],
+					/*$expression*/		NULL,
+					/*$description*/	NULL,
+					/*$type*/			NULL,
+					/*$priority*/		NULL,
+					/*$status*/			NULL,
+					/*$comments*/		NULL,
+					/*$url*/			NULL,
+					replace_template_dependencies(
+						get_trigger_dependencies_by_triggerid($trigger_data['triggerid']),
+						$hostid),
+					$trigger_data['triggerid']);
+			}
+
+		}
+	}
 
 /*
  * Function: get_triggers_overview
@@ -2025,7 +1915,7 @@
 				foreach($hosts as $hostname){
 					$table_row=get_trigger_overview_cells($table_row,$trhosts,$hostname);
 				}
-				$table->addRow($table_row);
+				$table->AddRow($table_row);
 			}
 		}
 		else{
@@ -2041,10 +1931,10 @@
 				foreach($triggers as $descr => $trhosts){
 					$table_row=get_trigger_overview_cells($table_row,$trhosts,$hostname);
 				}
-				$table->addRow($table_row);
+				$table->AddRow($table_row);
 			}
 		}
-	return $table;
+		return $table;
 	}
 
 	function get_trigger_overview_cells(&$table_row,&$trhosts,&$hostname){
@@ -2149,7 +2039,7 @@
 	
 			$dependency = false;
 			$dep_table = new CTableInfo();
-			$dep_table->addOption('style', 'width: 200px;');
+			$dep_table->AddOption('style', 'width: 200px;');
 			$dep_table->addRow(bold(S_DEPENDS_ON.':'));
 			
 			$sql_dep = 'SELECT * FROM trigger_depends WHERE triggerid_down='.$triggerid;
@@ -2161,7 +2051,7 @@
 			
 			if($dependency){
 				$img = new Cimg('images/general/down_icon.png','DEP_DOWN');
-				$img->addOption('style','vertical-align: middle; border: 0px;');
+				$img->AddOption('style','vertical-align: middle; border: 0px;');
 				$img->SetHint($dep_table);
 				
 				array_push($desc,$img);
@@ -2171,7 +2061,7 @@
 // TRIGGERS THAT DEPEND ON THIS		
 			$dependency = false;
 			$dep_table = new CTableInfo();
-			$dep_table->addOption('style', 'width: 200px;');
+			$dep_table->AddOption('style', 'width: 200px;');
 			$dep_table->addRow(bold(S_DEPENDENT.':'));
 			
 			$sql_dep = 'SELECT * FROM trigger_depends WHERE triggerid_up='.$triggerid;
@@ -2183,7 +2073,7 @@
 			
 			if($dependency){
 				$img = new Cimg('images/general/up_icon.png','DEP_UP');
-				$img->addOption('style','vertical-align: middle; border: 0px;');
+				$img->AddOption('style','vertical-align: middle; border: 0px;');
 				$img->SetHint($dep_table);
 				
 				array_push($desc,$img);
@@ -2193,15 +2083,15 @@
 //------------------------
 		$status_col = new CCol(array($desc, $ack),$css_class);
 		if(isset($style)){
-			$status_col->addOption('style', $style);
+			$status_col->AddOption('style', $style);
 		}
 
 		if(isset($tr_ov_menu)){
 			$tr_ov_menu  = new CPUMenu($tr_ov_menu,170);
 			$status_col->OnClick($tr_ov_menu->GetOnActionJS());
-			$status_col->addAction('onmouseover',
+			$status_col->AddAction('onmouseover',
 				'this.old_border=this.style.border; this.style.border=\'1px dotted #0C0CF0\'');
-			$status_col->addAction('onmouseout', 'this.style.border=this.old_border;');
+			$status_col->AddAction('onmouseout', 'this.style.border=this.old_border;');
 		}
 		array_push($table_row,$status_col);	
 	return $table_row;
@@ -2214,7 +2104,7 @@
 			return	$row;
 		}
 		else{
-			error('No function with functionid=['.$functionid.']');
+			error("No function with functionid=[$functionid]");
 		}
 	return $item;
 	}
@@ -2401,7 +2291,7 @@
 	 * Comments:
 	 *
 	 */
-	function trigger_dependent($triggerid){
+	function	trigger_dependent($triggerid){
 		$level = 0;
 		return trigger_dependent_rec($triggerid, $level);
 	}
@@ -2418,13 +2308,14 @@
 	 * Comments:
 	 *
 	 */
-	function trigger_get_N_functionid($expression, $function){
+	function	trigger_get_N_functionid($expression, $function){
 		$result = NULL;
 
 		$arr=split('[\{\}]',$expression);
 		$num=1;
 		foreach($arr as $id){
-			if(is_numeric($id)){
+			if(is_numeric($id))
+			{
 				if($num == $function){
 					$result = $id;
 					break;
@@ -2450,7 +2341,7 @@
 	 * Comments:
 	 *
 	 */
-	function trigger_get_func_value($expression, $flag, $function, $param){
+	function	trigger_get_func_value($expression, $flag, $function, $param){
 		$result = NULL;
 
 		$functionid=trigger_get_N_functionid($expression,$function);
@@ -2482,7 +2373,7 @@
 				return false;
 			}
 
-			$sql = 'SELECT e.eventid, e.value '.
+			$sql = 'SELECT e.eventid, e.value'.
 					' FROM events e '.
 					' WHERE e.eventid='.$eventid.
 						' AND e.acknowledged=0';
@@ -2504,15 +2395,15 @@
 		$table = new CTableInfo();
 		
 		if(is_show_subnodes()){
-			$table->addRow(array(S_NODE, get_node_name_by_elid($triggerid)));
+			$table->AddRow(array(S_NODE, get_node_name_by_elid($triggerid)));
 		}
 	
-		$table->addRow(array(S_HOST, $trigger_data['host']));
-		$table->addRow(array(S_TRIGGER, $trigger_data['exp_desc']));
-		$table->addRow(array(S_SEVERITY, new CCol(get_severity_description($trigger_data['priority']), get_severity_style($trigger_data['priority']))));
-		$table->addRow(array(S_EXPRESSION, $trigger_data['exp_expr']));
-		$table->addRow(array(S_EVENT_GENERATION, S_NORMAL.((TRIGGER_MULT_EVENT_ENABLED==$trigger_data['type'])?SPACE.'+'.SPACE.S_MULTIPLE_TRUE_EVENTS:'')));
-		$table->addRow(array(S_DISABLED, ((TRIGGER_STATUS_ENABLED==$trigger_data['status'])?new CCol(S_NO,'off'):new CCol(S_YES,'on')) ));
+		$table->AddRow(array(S_HOST, $trigger_data['host']));
+		$table->AddRow(array(S_TRIGGER, $trigger_data['exp_desc']));
+		$table->AddRow(array(S_SEVERITY, new CCol(get_severity_description($trigger_data["priority"]), get_severity_style($trigger_data["priority"]))));
+		$table->AddRow(array(S_EXPRESSION, $trigger_data['exp_expr']));
+		$table->AddRow(array(S_EVENT_GENERATION, S_NORMAL.((TRIGGER_MULT_EVENT_ENABLED==$trigger_data['type'])?SPACE.'+'.SPACE.S_MULTIPLE_TRUE_EVENTS:'')));
+		$table->AddRow(array(S_DISABLED, ((TRIGGER_STATUS_ENABLED==$trigger_data['status'])?new CCol(S_NO,'off'):new CCol(S_YES,'on')) ));
 		
 	return $table;
 	}

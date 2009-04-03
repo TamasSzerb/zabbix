@@ -91,39 +91,41 @@
 	$url = '?fullscreen='.($_REQUEST['fullscreen']?'0':'1').url_param('triggerid').url_param('eventid');
 
 	$fs_icon = new CDiv(SPACE,'fullscreen');
-	$fs_icon->addOption('title',$_REQUEST['fullscreen']?S_NORMAL.' '.S_VIEW:S_FULLSCREEN);
-	$fs_icon->addAction('onclick',new CScript("javascript: document.location = '".$url."';"));
+	$fs_icon->AddOption('title',$_REQUEST['fullscreen']?S_NORMAL.' '.S_VIEW:S_FULLSCREEN);
+	$fs_icon->AddAction('onclick',new CScript("javascript: document.location = '".$url."';"));
 
 //-------
 	$left_tab = new CTable();
-	$left_tab->setCellPadding(3);
-	$left_tab->setCellSpacing(3);
+	$left_tab->SetCellPadding(3);
+	$left_tab->SetCellSpacing(3);
 	
-	$left_tab->addOption('border',0);
+	$left_tab->AddOption('border',0);
 	
-	$left_tab->addRow(create_hat(
+	$left_tab->AddRow(create_hat(
 			S_EVENT.SPACE.S_SOURCE.SPACE.S_DETAILS,
 			make_trigger_details($_REQUEST['triggerid'],$trigger_data),//null,
 			null,
-			'hat_triggerdetails'
+			'hat_triggerdetails',
+			get_profile('web.tr_events.hats.hat_triggerdetails.state',1)
 		));
 		
-	$left_tab->addRow(create_hat(
+	$left_tab->AddRow(create_hat(
 			S_EVENT_DETAILS,
 			make_event_details($_REQUEST['eventid']),//null,
 			null,
-			'hat_eventdetails'
+			'hat_eventdetails',
+			get_profile('web.tr_events.hats.hat_eventdetails.state',1)
 		));
 		
 
 	$right_tab = new CTable();
-	$right_tab->setCellPadding(3);
-	$right_tab->setCellSpacing(3);
+	$right_tab->SetCellPadding(3);
+	$right_tab->SetCellSpacing(3);
 
-	$right_tab->addOption('border',0);
+	$right_tab->AddOption('border',0);
 
 
-	$right_tab->addRow(create_hat(
+	$right_tab->AddRow(create_hat(
 			S_ACKNOWLEDGES,
 			make_acktab_by_eventid($_REQUEST['eventid']),//null,
 			null,
@@ -131,7 +133,7 @@
 			get_profile('web.tr_events.hats.hat_eventack.state',1)
 		));
 		
-	$right_tab->addRow(create_hat(
+	$right_tab->AddRow(create_hat(
 			S_MESSAGE_ACTIONS,
 			get_action_msgs_for_event($_REQUEST['eventid']),//null,
 			null,
@@ -139,7 +141,7 @@
 			get_profile('web.tr_events.hats.hat_eventactionmsgs.state',1)
 		));
 
-	$right_tab->addRow(create_hat(
+	$right_tab->AddRow(create_hat(
 			S_COMMAND_ACTIONS,
 			get_action_cmds_for_event($_REQUEST['eventid']),//null,
 			null,
@@ -147,10 +149,10 @@
 			get_profile('web.tr_events.hats.hat_eventactioncmds.state',1)
 		));
 
-	$right_tab->addRow(create_hat(
+	$right_tab->AddRow(create_hat(
 			S_EVENTS.SPACE.S_LIST.SPACE.'['.S_LAST.' 20]', 
 			//null,//
-			make_small_eventlist($_REQUEST['eventid'], $trigger_data),
+			make_small_eventlist($_REQUEST['triggerid'],$trigger_data),
 			null,
 			'hat_eventlist',
 			get_profile('web.tr_events.hats.hat_eventlist.state',1)
@@ -158,16 +160,16 @@
 
 
 	$td_l = new CCol($left_tab);
-	$td_l->addOption('valign','top');
+	$td_l->AddOption('valign','top');
 	
 	$td_r = new CCol($right_tab);
-	$td_r->addOption('valign','top');
+	$td_r->AddOption('valign','top');
 	
 	$outer_table = new CTable();
-	$outer_table->addOption('border',0);
-	$outer_table->setCellPadding(1);
-	$outer_table->setCellSpacing(1);
-	$outer_table->addRow(array($td_l,$td_r));
+	$outer_table->AddOption('border',0);
+	$outer_table->SetCellPadding(1);
+	$outer_table->SetCellSpacing(1);
+	$outer_table->AddRow(array($td_l,$td_r));
 	
 	$p_elements[] = $outer_table;
 	
@@ -179,10 +181,10 @@
 			get_profile('web.tr_events.hats.hat_tr_events.state',1)
 	);
 
-	$latest_hat->show();
+	$latest_hat->Show();
 ?>
 <?php
 
-include_once('include/page_footer.php');
+include_once "include/page_footer.php";
 
 ?>

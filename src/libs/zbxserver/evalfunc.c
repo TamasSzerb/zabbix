@@ -1087,7 +1087,7 @@ static int	evaluate_NODATA(char *value, DB_ITEM *item, int parameter, time_t now
 	if (item->lastclock + parameter > now)
 		strcpy(value,"0");
 	else
- 	{
+	{
 		if (CONFIG_SERVER_STARTUP_TIME + parameter > now)
 			return FAIL;
 
@@ -1222,22 +1222,17 @@ static int	evaluate_CHANGE(char *value, DB_ITEM *item, const char *parameter, ti
  ******************************************************************************/
 static int	evaluate_STR(char *value, DB_ITEM *item, char *function, char *parameters, time_t now)
 {
-#define ZBX_FUNC_STR		1
-#define ZBX_FUNC_REGEXP		2
-#define ZBX_FUNC_IREGEXP	3
 	DB_RESULT	result;
 	DB_ROW		row;
 
 	char		str[MAX_STRING_LEN], tmp[MAX_STRING_LEN];
-	int		num = 0, flag, func;
+	int		num = 0, flag;
 	int		rows;
+	int		len;
 	int		res = SUCCEED;
 
 	char		*table = NULL;
 	char		*key = NULL;
-
-	ZBX_REGEXP	*regexps = NULL;
-	int		regexps_alloc = 0, regexps_num = 0;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In evaluate_STR()");
 
@@ -1258,15 +1253,6 @@ static int	evaluate_STR(char *value, DB_ITEM *item, char *function, char *parame
 			return FAIL;
 	}
 
-	if (0 == strcmp(function, "str"))
-		func = ZBX_FUNC_STR;
-	else if (0 == strcmp(function, "regexp"))
-		func = ZBX_FUNC_REGEXP;
-	else if (0 == strcmp(function, "iregexp"))
-		func = ZBX_FUNC_IREGEXP;
-	else
-		return FAIL;
-
 	if (0 == num_param(parameters))
 		return FAIL;
 
@@ -1286,17 +1272,6 @@ static int	evaluate_STR(char *value, DB_ITEM *item, char *function, char *parame
 		flag = ZBX_FLAG_VALUES;
 	}
 
-	if ((func == ZBX_FUNC_REGEXP || func == ZBX_FUNC_IREGEXP) && *str == '@') {
-		result = DBselect("select r.name,e.expression,e.expression_type,e.exp_delimiter,e.case_sensitive"
-				" from regexps r,expressions e where r.regexpid=e.regexpid and r.name='%s'",
-				str + 1);
-
-		while (NULL != (row = DBfetch(result)))
-			add_regexp_ex(&regexps, &regexps_alloc, &regexps_num,
-					row[0], row[1], atoi(row[2]), row[3][0], atoi(row[4]));
-		DBfree_result(result);
-	}
-
 	if (flag == ZBX_FLAG_SEC) {
 		result = DBselect("select value from %s where itemid=" ZBX_FS_UI64 " and clock>%d",
 			table,
@@ -1311,7 +1286,7 @@ static int	evaluate_STR(char *value, DB_ITEM *item, char *function, char *parame
 	}
 
 	rows = 0;
-	if (func == ZBX_FUNC_STR) {
+	if (0 == strcmp(function, "str")) {
 		while (NULL != (row = DBfetch(result))) {
 			if (NULL != strstr(row[0], str)) {
 				rows = 2;
@@ -1319,28 +1294,23 @@ static int	evaluate_STR(char *value, DB_ITEM *item, char *function, char *parame
 			}
 			rows = 1;
 		}
-	} else if (func == ZBX_FUNC_REGEXP) {
+	} else if (0 == strcmp(function, "regexp")) {
 		while (NULL != (row = DBfetch(result))) {
-			if (SUCCEED == regexp_match_ex(regexps, regexps_num, row[0], str, ZBX_CASE_SENSITIVE))
-			{
+			if (NULL != zbx_regexp_match(row[0], str, &len)) {
 				rows = 2;
 				break;
 			}
 			rows = 1;
 		}
-	} else if (func == ZBX_FUNC_IREGEXP) {
+	} else if (0 == strcmp(function, "iregexp")) {
 		while (NULL != (row = DBfetch(result))) {
-			if (SUCCEED == regexp_match_ex(regexps, regexps_num, row[0], str, ZBX_IGNORE_CASE))
-			{
+			if (NULL != zbx_iregexp_match(row[0], str, &len)) {
 				rows = 2;
 				break;
 			}
 			rows = 1;
 		}
 	}
-
-	if ((func == ZBX_FUNC_REGEXP || func == ZBX_FUNC_IREGEXP) && *str == '@')
-		zbx_free(regexps);
 
 	if (0 == rows) {
 		zabbix_log(LOG_LEVEL_DEBUG, "Result for STR is empty" );

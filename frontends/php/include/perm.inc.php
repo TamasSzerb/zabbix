@@ -53,7 +53,7 @@ function check_authorisation(){
 
 	$USER_DETAILS = NULL;
 	$login = FALSE;
-	
+
 	$sessionid = get_cookie('zbx_sessionid');
 	if(!is_null($sessionid)){
 		$sql = 'SELECT u.*,s.* '.
@@ -102,8 +102,8 @@ function check_authorisation(){
 	if(!$login){
 		$USER_DETAILS = NULL;
 	}
-
-	if($login && $sessionid && !isset($incorrect_session)){
+	
+	if($login && !isset($incorrect_session)){
 		zbx_setcookie('zbx_sessionid',$sessionid,$USER_DETAILS['autologin']?(time()+86400*31):0);	//1 month
 		DBexecute('UPDATE sessions SET lastaccess='.time().' WHERE sessionid='.zbx_dbstr($sessionid));
 	}
@@ -132,9 +132,6 @@ function check_authorisation(){
 				'nodeid'=>0));
 	}
 
-	$userip = (isset($_SERVER['HTTP_X_FORWARDED_FOR']) && !empty($_SERVER['HTTP_X_FORWARDED_FOR']))?$_SERVER['HTTP_X_FORWARDED_FOR']:$_SERVER['REMOTE_ADDR'];
-	$USER_DETAILS['userip'] = $userip;
-	
 	if(!$login || isset($incorrect_session) || isset($missed_user_guest)){
 
 		if(isset($incorrect_session))	$message = 'Session was ended, please relogin!';
@@ -151,7 +148,7 @@ function check_authorisation(){
 		exit;
 	}
 }
-
+	
 /*****************************************
 	LDAP AUTHENTICATION
 *****************************************/
@@ -277,18 +274,6 @@ return $result;
 /***********************************************
 	GET ACCESSIBLE RESOURCES BY USERID
 ************************************************/
-function perm_mode2comparator($perm_mode){
-	switch($perm_mode){
-		case PERM_MODE_NE:	$perm_mode = '!='; break;
-		case PERM_MODE_EQ:	$perm_mode = '=='; break;
-		case PERM_MODE_GT:	$perm_mode = '>'; break;
-		case PERM_MODE_LT:	$perm_mode = '<'; break;
-		case PERM_MODE_LE:	$perm_mode = '<='; break;
-		case PERM_MODE_GE:
-		default:		$perm_mode = '>='; break;
-	}
-return $perm_mode;
-}
 
 function get_accessible_hosts_by_user(&$user_data,$perm,$perm_res=null,$nodeid=null,$cache=1){
 //		global $DB;
@@ -702,7 +687,6 @@ function get_accessible_nodes_by_rights(&$rights,$user_type,$perm,$perm_res=null
 	$node_data = array();
 	$result = array();
 	
-//COpt::counter_up('perm_nodes['.$userid.','.$perm.','.$perm_mode.','.$perm_res.','.$nodeid.']');
 //COpt::counter_up('perm');
 //SDI(get_accessible_groups_by_rights($rights,$user_type,$perm,PERM_RES_DATA_ARRAY,$nodeid));
 	$available_groups = get_accessible_groups_by_rights($rights,$user_type,$perm,PERM_RES_DATA_ARRAY,$nodeid);

@@ -19,7 +19,7 @@
 **/
 ?>
 <?php
-	function add_service($name,$triggerid,$algorithm,$showsla,$goodsla,$sortorder,$service_times=array(),$parentid,$childs){
+	function	add_service($name,$triggerid,$algorithm,$showsla,$goodsla,$sortorder,$service_times=array(),$parentid,$childs){
 	
 		foreach($childs as $id => $child){		//add childs
 			if((bccomp($parentid , $child['serviceid'])==0)){
@@ -654,8 +654,7 @@ if($serviceid == 1 || $serviceid == 2){
 					}
 				}			
 			}
-		} 
-		else {
+		} else {
 			$rows['caption'] = new CSpan($rows['caption'],'unknown');
 			$temp[$rows['serviceid'].'.'.$linkid]=$rows;
 		}

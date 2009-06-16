@@ -17,38 +17,13 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-function SDI($msg='SDI') { echo 'DEBUG INFO: '; var_dump($msg); echo SBR; } // DEBUG INFO!!!
-function VDP($var, $msg=null) { echo 'DEBUG DUMP: '; if(isset($msg)) echo '"'.$msg.'"'.SPACE; var_dump($var); echo SBR; } // DEBUG INFO!!!
-function TODO($msg) { echo 'TODO: '.$msg.SBR; }  // DEBUG INFO!!!
-function __autoload($class_name){ 	
-	$class_name = strtolower($class_name); 	
-	$api = array(		
-		'chostgroup' =>1,		
-		'chost' => 1,		
-		'ctemplate' => 1,		
-		'cproxy' => null,		
-		'citem' => 1,		
-		'ctrigger' => 1,		
-		'cusergroup' => null,		
-		'cuser' => null);	
-		
-	$rpc = array(		
-		'cjsonrpc' =>1,		
-		'czbxrpc' => 1,		
-		'cxmlrpc' => null,
-		'csoap' => null,		
-		'csoapjr' => null);	
-		
-	if(isset($api[$class_name])) 
-		require_once('api/classes/class.'.$class_name.'.php');	
-	else if(isset($rpc[$class_name])) 
-		require_once('api/rpc/class.'.$class_name.'.php');	
-	else 
-		require_once('include/classes/class.'.$class_name.'.php');
-}
+
+function SDI($msg="SDI") { echo "DEBUG INFO: "; var_dump($msg); echo SBR; } // DEBUG INFO!!!
+function VDP($var, $msg=null) { echo "DEBUG DUMP: "; if(isset($msg)) echo '"'.$msg.'"'.SPACE; var_dump($var); echo SBR; } // DEBUG INFO!!!
+function TODO($msg) { echo "TODO: ".$msg.SBR; }  // DEBUG INFO!!!
+
 ?>
 <?php
-
 	require_once('include/defines.inc.php');
 	require_once('include/func.inc.php');
 	require_once('include/html.inc.php');
@@ -56,9 +31,6 @@ function __autoload($class_name){
 	require_once('include/profiles.inc.php');
 	require_once('conf/maintenance.inc.php');
 
-	require_once('include/nodes.inc.php');
-	require_once('include/hosts.inc.php');
-	
 // GLOBALS
 	global $USER_DETAILS, $USER_RIGHTS;
 
@@ -66,16 +38,51 @@ function __autoload($class_name){
 	$USER_RIGHTS	= array();
 // END OF GLOBALS
 
+// Include Classes
+	require_once('include/classes/ctag.inc.php');
+	require_once('include/classes/cvar.inc.php');
+	require_once('include/classes/cspan.inc.php');
+	require_once('include/classes/cimg.inc.php');
+	require_once('include/classes/ccolor.inc.php');
+	require_once('include/classes/cldap.inc.php');
+	require_once('include/classes/clink.inc.php');
+	require_once('include/classes/chelp.inc.php');
+	require_once('include/classes/cbutton.inc.php');
+	require_once('include/classes/clist.inc.php');
+	require_once('include/classes/ccombobox.inc.php');
+	require_once('include/classes/ctable.inc.php');
+	require_once('include/classes/ctableinfo.inc.php');
+	require_once('include/classes/ctextarea.inc.php');
+	require_once('include/classes/ctextbox.inc.php');
+	require_once('include/classes/cform.inc.php');
+	require_once('include/classes/cfile.inc.php');
+	require_once('include/classes/ccheckbox.inc.php');
+	require_once('include/classes/cform.inc.php');
+	require_once('include/classes/cformtable.inc.php');
+	require_once('include/classes/cmap.inc.php');
+	require_once('include/classes/cflash.inc.php');
+	require_once('include/classes/ciframe.inc.php');
+	require_once('include/classes/cpumenu.inc.php');
+	require_once('include/classes/graph.inc.php');
+	require_once('include/classes/cscript.inc.php');
+	require_once('include/classes/curl.inc.php');
+
 // Include Tactical Overview modules
-	require_once('include/locales.inc.php');
-	
-	require_once('include/perm.inc.php');
-	require_once('include/audit.inc.php');
-	require_once('include/js.inc.php');
+
+	require_once 	'include/locales.inc.php';
+
+	include_once('include/classes/chostsinfo.mod.php');
+	include_once('include/classes/ctriggerinfo.mod.php');
+	include_once('include/classes/cserverinfo.mod.php');
+	include_once('include/classes/cflashclock.mod.php');
+
+	require_once 	'include/perm.inc.php';
+	require_once 	'include/audit.inc.php';
+	require_once 	'include/js.inc.php';
 
 // Include Validation
 
-	require_once('include/validate.inc.php');
+	require_once 	'include/validate.inc.php';
 
 	function zbx_err_handler($errno, $errstr, $errfile, $errline){
 		error($errstr.'['.$errfile.':'.$errline.']');
@@ -154,7 +161,6 @@ function __autoload($class_name){
 
 	if(!defined('ZBX_PAGE_NO_AUTHERIZATION')){
 		check_authorisation();
-
 		if(file_exists('include/locales/'.$USER_DETAILS['lang'].'.inc.php')){
 			include_once('include/locales/'.$USER_DETAILS['lang'].'.inc.php');
 			process_locales();
@@ -204,39 +210,137 @@ function __autoload($class_name){
 
 	/********** END INITIALIZATION ************/
 
-	function access_deny(){
-		global $USER_DETAILS;
-		include_once('include/page_header.php');
-		
-		if($USER_DETAILS['alias'] != ZBX_GUEST_USER){
-			show_error_message(S_NO_PERMISSIONS);
+	function init_nodes(){
+		/* Init CURRENT NODE ID */
+		global	$USER_DETAILS,
+			$ZBX_LOCALNODEID, $ZBX_LOCMASTERID,
+			$ZBX_CURRENT_NODEID, $ZBX_CURRENT_SUBNODES, $ZBX_CURMASTERID,
+			$ZBX_NODES,$ZBX_NODES_IDS,
+			$ZBX_WITH_SUBNODES;
+
+		$ZBX_CURRENT_SUBNODES = array();
+		$ZBX_NODES_IDS = array();
+		$ZBX_NODES = array();
+
+		if(!defined('ZBX_PAGE_NO_AUTHERIZATION') && ZBX_DISTRIBUTED){
+//SDI($_REQUEST);
+			$ZBX_CURRENT_NODEID = get_cookie('zbx_current_nodeid', $ZBX_LOCALNODEID); // Selected node
+			$ZBX_WITH_SUBNODES = get_cookie('zbx_with_subnodes', false); // Show elements FROM subnodes
+
+			if(isset($_REQUEST['switch_node'])){
+				if($node_data = DBfetch(DBselect('SELECT * FROM nodes WHERE nodeid='.$_REQUEST['switch_node']))){
+					$ZBX_CURRENT_NODEID = $_REQUEST['switch_node'];
+				}
+				unset($node_data);
+			}
+
+			if(isset($_REQUEST['show_subnodes'])){
+				$ZBX_WITH_SUBNODES = !empty($_REQUEST['show_subnodes']);
+			}
+
+			if($node_data = DBfetch(DBselect('SELECT * FROM nodes WHERE nodeid='.$ZBX_CURRENT_NODEID))){
+				$ZBX_CURMASTERID = $node_data['masterid'];
+			}
+
+			if($USER_DETAILS['type'] == USER_TYPE_SUPER_ADMIN){
+				$sql = 'SELECT DISTINCT n.nodeid,n.name,n.masterid FROM nodes n ';
+			}
+			else{ 
+				$sql = 'SELECT DISTINCT n.nodeid,n.name,n.masterid '.
+					' FROM nodes n, groups hg,rights r, users_groups g '.
+					' WHERE r.id=hg.groupid '.
+					 	' AND r.groupid=g.usrgrpid '.
+					 	' AND g.userid='.$USER_DETAILS['userid'].
+					 	' AND n.nodeid='.DBid2nodeid('hg.groupid');
+			}
+
+			$db_nodes = DBselect($sql);
+			while($node = DBfetch($db_nodes)){
+				$ZBX_NODES[$node['nodeid']] = $node;
+				$ZBX_NODES_IDS[$node['nodeid']] = $node['nodeid'];
+			}
+
+			if( !isset($ZBX_NODES[$ZBX_CURRENT_NODEID])){
+				$denyed_page_requested = true;
+				$ZBX_CURRENT_NODEID = $ZBX_LOCALNODEID;
+				$ZBX_CURMASTERID = $ZBX_LOCMASTERID;
+			}
+
+			foreach($ZBX_NODES as $nodeid => $node_data ){
+				$curr_node = &$node_data;
+
+				if(($curr_node['masterid']!=0) && (bccomp($curr_node['masterid'],$ZBX_CURRENT_NODEID)!=0)){
+					$curr_node = &$ZBX_NODES[$curr_node['masterid']];
+				}
+
+				if(bccomp($curr_node['masterid'],$ZBX_CURRENT_NODEID)==0){
+					$ZBX_CURRENT_SUBNODES[$nodeid] = $nodeid;
+				}
+			}
+
+			zbx_set_post_cookie('zbx_current_nodeid',$ZBX_CURRENT_NODEID);
+			zbx_set_post_cookie('zbx_with_subnodes',$ZBX_WITH_SUBNODES);
 		}
 		else{
-			$req = new Curl($_SERVER['REQUEST_URI']);
-			$req->setArgument('sid', null);
-
-			$warning_msg = array('You cannot view this URL as a ',bold(ZBX_GUEST_USER),'. ',
-								'You must login to view this page.', BR(),
-								'If you think this message is wrong, ',
-								' please consult your administrators about getting the necessary permissions.');
-
-			$table = new CTable(null, 'warning');
-			$table->setAlign('center');
-			$table->setHeader(new CCol('You are not logged in', 'left'),'header');
-				
-			$table->addRow(new CCol($warning_msg));
-			
-			$url = urlencode($req->toString());
-			$footer = new CCol(
-							array(
-								new CButton('login',S_LOGIN,"javascript: document.location = 'index.php?request=$url';"),
-								new CButton('back',S_CANCEL,'javascript: window.history.back();')
-							),
-							'left');
-			$table->setFooter($footer,'footer');
-			$table->show();
+			$ZBX_CURRENT_NODEID = $ZBX_LOCALNODEID;
+			$ZBX_CURMASTERID = $ZBX_LOCMASTERID;
+			$ZBX_WITH_SUBNODES = false;
 		}
-		
+
+		$ZBX_CURRENT_SUBNODES[$ZBX_CURRENT_NODEID] = $ZBX_CURRENT_NODEID;
+
+		if((count($ZBX_CURRENT_SUBNODES) < 2) && !defined('ZBX_DISABLE_SUBNODES')){
+			define('ZBX_DISABLE_SUBNODES', 1);
+		}
+		else{
+			$ZBX_CURRENT_SUBNODES = get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_LIST, PERM_RES_IDS_ARRAY, $ZBX_CURRENT_SUBNODES);
+		}
+	}
+
+	function get_current_nodeid($forse_with_subnodes = null, $perm = null){
+		global $USER_DETAILS, $ZBX_CURRENT_NODEID, $ZBX_CURRENT_SUBNODES, $ZBX_WITH_SUBNODES;
+		if(!isset($ZBX_CURRENT_NODEID))
+			init_nodes();
+
+		$result = is_show_subnodes($forse_with_subnodes)?$ZBX_CURRENT_SUBNODES:$ZBX_CURRENT_NODEID;
+		if(!is_null($perm)){
+			$result = get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_ONLY, PERM_RES_IDS_ARRAY, $ZBX_CURRENT_SUBNODES);
+		}
+
+	return $result;
+	}
+
+	function get_node_name_by_elid($id_val, $forse_with_subnodes = null){
+		global $ZBX_NODES;
+
+		if(!is_show_subnodes($forse_with_subnodes))
+			return null;
+
+		$nodeid = id2nodeid($id_val);
+
+		if ( !isset($ZBX_NODES[$nodeid]) )
+			return null;
+
+		return '['.$ZBX_NODES[$nodeid]['name'].'] ';
+	}
+
+	function is_show_subnodes($forse_with_subnodes = null){
+		global	$ZBX_WITH_SUBNODES;
+
+		if(is_null($forse_with_subnodes)){
+			if(defined('ZBX_DISABLE_SUBNODES'))
+				$forse_with_subnodes = false;
+			else
+				$forse_with_subnodes = $ZBX_WITH_SUBNODES;
+		}
+
+	return $forse_with_subnodes;
+	}
+
+	function access_deny(){
+
+		include_once('include/page_header.php');
+		show_error_message(S_NO_PERMISSIONS);
 		include_once('include/page_footer.php');
 	}
 
@@ -260,8 +364,7 @@ function __autoload($class_name){
 	function show_messages($bool=TRUE,$okmsg=NULL,$errmsg=NULL){
 		global	$page, $ZBX_MESSAGES;
 
-		if (!defined('PAGE_HEADER_LOADED')) return;
-		if (defined('ZBX_API_REQUEST')) return;
+		if (! defined('PAGE_HEADER_LOADED')) return;
 
 		if (!isset($page["type"])) $page["type"] = PAGE_TYPE_HTML;
 
@@ -448,12 +551,9 @@ function __autoload($class_name){
 		if($level > 32) return array();
 
 		$result = array();
-		if(isset($tree[$parentid])){
-			$result[$parentid] = $tree[$parentid];
-		}
-		
+		$result[$parentid] = $tree[$parentid];
 		foreach($tree as $id => $child){
-			if(bccomp($child[$parent_field],$parentid) == 0){
+			if($child[$parent_field] == $parentid){
 				$result[$id] = $child;
 				$childs = get_tree_by_parentid($id,$tree,$parent_field, $level); // RECURSION !!!
 				$result += $childs;	
@@ -660,17 +760,54 @@ function __autoload($class_name){
 	}
 
 	function get_status(){
-		global $ZBX_SERVER, $ZBX_SERVER_PORT;		
+		global $ZBX_SERVER, $ZBX_SERVER_PORT;
+
 		$status = array();
 // server
 		$checkport = fsockopen($ZBX_SERVER, $ZBX_SERVER_PORT, $errnum, $errstr, 2);
-		if(!$checkport) {
+		if(!$checkport) { 
 			clear_messages();
 			$status['zabbix_server'] = S_NO;
 		}
 		else {
 			$status['zabbix_server'] = S_YES;
 		}
+
+		// history & trends
+/*		if ($DB['DB_TYPE'] == "MYSQL"){
+			$row=DBfetch(DBselect('show table status like "history"'));
+			$status["history_count"]  = $row["Rows"];
+			$row=DBfetch(DBselect('show table status like "history_log"'));
+			$status["history_count"] += $row["Rows"];
+			$row=DBfetch(DBselect('show table status like "history_str"'));
+			$status["history_count"] += $row["Rows"];
+			$row=DBfetch(DBselect('show table status like "history_uint"'));
+			$status["history_count"] += $row["Rows"];
+
+			$row=DBfetch(DBselect('show table status like "trends"'));
+			$status["trends_count"] = $row["Rows"];
+		}
+		else{
+			$row=DBfetch(DBselect('SELECT COUNT(itemid) as cnt from history'));
+			$status["history_count"]  = $row["cnt"];
+			$row=DBfetch(DBselect('SELECT COUNT(itemid) as cnt from history_log'));
+			$status["history_count"] += $row["cnt"];
+			$row=DBfetch(DBselect('SELECT COUNT(itemid) as cnt from history_str'));
+			$status["history_count"] += $row["cnt"];
+			$row=DBfetch(DBselect('SELECT COUNT(itemid) as cnt from history_uint'));
+			$status["history_count"] += $row["cnt"];
+
+			$result=DBselect('SELECT COUNT(itemid) as cnt from trends');
+			$row=DBfetch($result);
+			$status["trends_count"]=$row["cnt"];
+		}*/
+// events
+/*		$row=DBfetch(DBselect('SELECT COUNT(eventid) as cnt from events'));
+		$status["events_count"]=$row["cnt"];*/
+// alerts
+/*		$row=DBfetch(DBselect('SELECT COUNT(alertid) as cnt from alerts"));
+		$status["alerts_count"]=$row["cnt"];*/
+
 // triggers
 		$sql = 'SELECT COUNT(DISTINCT t.triggerid) as cnt '.
 				' FROM triggers t, functions f, items i, hosts h'.
@@ -915,54 +1052,7 @@ function __autoload($class_name){
 		}
 	return $new;
 	}
-	
 
-	function zbx_stripslashes($value){
-		if(is_array($value)){
-			foreach($value as $id => $data)
-				$value[$id] = zbx_stripslashes($data); 
-				// $value = array_map('zbx_stripslashes',$value); /* don't use 'array_map' it buggy with indexes */
-		} 
-		else if(is_string($value)){
-			$value = stripslashes($value);
-		}
-	return $value;
-	}
-
-	function get_str_month($num){
-		$month = '[Wrong value for month: '.$num.']';
-		switch($num){
-			case 1: $month = S_JANUARY; break;
-			case 2: $month = S_FEBRUARY; break;
-			case 3: $month = S_MARCH; break;
-			case 4: $month = S_APRIL; break;
-			case 5: $month = S_MAY; break;
-			case 6: $month = S_JUNE; break;
-			case 7: $month = S_JULY; break;
-			case 8: $month = S_AUGUST; break;
-			case 9: $month = S_SEPTEMBER; break;
-			case 10: $month = S_OCTOBER; break;
-			case 11: $month = S_NOVEMBER; break;
-			case 12: $month = S_DECEMBER; break;
-		}
-	
-	return $month;
-	}
-	
-	function get_str_dayofweek($num){
-		$day = '[Wrong value for day of week: '.$num.']';
-		switch($num){
-			case 1: $day = S_MONDAY; break;
-			case 2: $day = S_TUESDAY; break;
-			case 3: $day = S_WEDNESDAY; break;
-			case 4: $day = S_THURSDAY; break;
-			case 5: $day = S_FRIDAY; break;
-			case 6: $day = S_SATURDAY; break;
-			case 7: $day = S_SUNDAY; break;
-		}
-	
-	return $day;
-	}
 /*************** VALUE MAPPING ******************/
 	function add_mapping_to_valuemap($valuemapid, $mappings){
 		DBexecute("delete FROM mappings WHERE valuemapid=$valuemapid");
@@ -1037,6 +1127,154 @@ function __autoload($class_name){
 	}
 /*************** END VALUE MAPPING ******************/
 
+/*************** CONVERTING ******************/
+	function zbx_stripslashes($value){
+		if(is_array($value)){
+			foreach($value as $id => $data)
+				$value[$id] = zbx_stripslashes($data);
+				// $value = array_map('zbx_stripslashes',$value); /* don't use 'array_map' it buggy with indexes */
+		} elseif (is_string($value)){
+			$value = stripslashes($value);
+		}
+		return $value;
+	}
+
+	function empty2null($var){
+		return ($var == "") ? null : $var;
+	}
+
+	function str2mem($val){
+		$val = trim($val);
+		$last = strtolower($val{strlen($val)-1});
+		switch($last){
+			// The 'G' modifier is available since PHP 5.1.0
+			case 'g':
+				$val *= 1024;
+			case 'm':
+				$val *= 1024;
+			case 'k':
+				$val *= 1024;
+		}
+
+		return $val;
+	}
+
+	function mem2str($size){
+		$prefix = 'B';
+		if($size > 1048576) {	$size = $size/1048576;	$prefix = 'M'; }
+		elseif($size > 1024) {	$size = $size/1024;	$prefix = 'K'; }
+		return round($size, 6).$prefix;
+	}
+
+	/* Do not forget to sync it with add_value_suffix in evalfunc.c! */
+	function convert_units($value,$units){
+// Special processing for unix timestamps
+		if($units=="unixtime"){
+			$ret=date("Y.m.d H:i:s",$value);
+			return $ret;
+		}
+//Special processing of uptime
+		if($units=="uptime"){
+			$ret="";
+			$days=floor($value/(24*3600));
+			if($days>0){
+				$value=$value-$days*(24*3600);
+			}
+			$hours=floor($value/(3600));
+			if($hours>0){
+				$value=$value-$hours*3600;
+			}
+			$min=floor($value/(60));
+			if($min>0){
+				$value=$value-$min*(60);
+			}
+			if($days==0){
+				$ret = sprintf("%02d:%02d:%02d", $hours, $min, $value);
+			}
+			else{
+				$ret = sprintf("%d days, %02d:%02d:%02d", $days, $hours, $min, $value);
+			}
+			return $ret;
+		}
+// Special processing for seconds
+		if($units=="s"){
+			return zbx_date2age(0,$value,true);
+		}
+
+		$u="";
+
+// Special processing for bits (kilo=1000, not 1024 for bits)
+		if( ($units=="b") || ($units=="bps")){
+			$abs=abs($value);
+
+			if($abs<1000){
+				$u="";
+			}
+			else if($abs<1000*1000){
+				$u="K";
+				$value=$value/1000;
+			}
+			else if($abs<1000*1000*1000){
+				$u="M";
+				$value=$value/(1000*1000);
+			}
+			else{
+				$u="G";
+				$value=$value/(1000*1000*1000);
+			}
+
+			if(round($value) == round($value,2)){
+				$s=sprintf("%.0f",$value);
+			}
+			else{
+				$s=sprintf("%.2f",$value);
+			}
+
+			return "$s $u$units";
+		}
+
+
+		if($units==""){
+			if(round($value) == round($value,2)){
+				return sprintf("%.0f",$value);
+			}
+			else{
+				return sprintf("%.2f",$value);
+			}
+		}
+
+		$abs=abs($value);
+
+		if($abs<1024){
+			$u="";
+		}
+		else if($abs<1024*1024){
+			$u="K";
+			$value=$value/1024;
+		}
+		else if($abs<1024*1024*1024){
+			$u="M";
+			$value=$value/(1024*1024);
+		}
+		else if($abs<1024*1024*1024*1024){
+			$u="G";
+			$value=$value/(1024*1024*1024);
+		}
+		else{
+			$u="T";
+			$value=$value/(1024*1024*1024*1024);
+		}
+
+		if(round($value) == round($value,2)){
+			$s=sprintf("%.0f",$value);
+		}
+		else{
+			$s=sprintf("%.2f",$value);
+		}
+
+		return "$s $u$units";
+	}
+/*************** END CONVERTING ******************/
 
 /*************** TABLE SORTING ******************/
 	/* function:
@@ -1109,7 +1347,7 @@ function __autoload($class_name){
 				$img = new CImg('images/general/sort_upw.gif','up',10,10);
 			}
 
-			$img->addOption('style','line-height: 18px; vertical-align: middle;');
+			$img->AddOption('style','line-height: 18px; vertical-align: middle;');
 			$link = array($link,SPACE,$img);
 		}
 
@@ -1130,44 +1368,5 @@ function __autoload($class_name){
 		$sortorder = get_request('sortorder',get_profile('web.'.$page["file"].'.sortorder',ZBX_SORT_UP));
 
 	return ' ORDER BY '.$tabfield.' '.$sortorder.$allways;
-	}
-	
-	function order_result(&$data, $def_field, $def_order=ZBX_SORT_UP){
-		global $page;
-		
-		if(empty($data)) return false;
-		
-		$sortfield = get_request('sort',get_profile('web.'.$page['file'].'.sort',$def_field));
-		$sortorder = get_request('sortorder',get_profile('web.'.$page['file'].'.sortorder',$def_order));
-		
-		foreach($data as $key => $rows){
-			if(!isset($rows[$sortfield])){
-//				info('Page sorting failed ["'.$sortfield.'","'.$sortorder.'"]');
-				return false;
-			}
-
-			$tmp[$key] = strtolower($rows[$sortfield]);
-		}
-		
-		$sortorder = ($sortorder == 'ASC')?SORT_ASC:SORT_DESC;
-		
-		array_multisort($tmp, $sortorder, $data);
-		
-	return true;
-	}
-	
-	function selectByPattern(&$table, $column, $pattern, $limit){
-		$rsTable = array();
-		foreach($table as $num => $row){
-			if($row[$column] == $pattern)
-				$rsTable = array($num=>$row) + $rsTable;
-			else if($limit > 0)
-				$rsTable[$num] = $row;
-			else
-				continue;
-				
-			$limit--;
-		}
-	return $rsTable;
 	}
 ?>

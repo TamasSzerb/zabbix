@@ -1,7 +1,7 @@
 // JavaScript Document
 /*
 ** ZABBIX
-** Copyright (C) 2000-2009 SIA Zabbix
+** Copyright (C) 2000-2008 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -23,10 +23,9 @@
 //------------------------------------------------------
 //var menu_usrgrp_all 	= new Array();
 //var menu_usrgrp_gui 	= new Array();
-//var menu_usrgrp_api 	= new Array();
 //var menu_usrgrp_status 	= new Array();
 
-function create_user_menu(e,userid,usr_grp_all_in,usr_grp_gui_in,usr_grp_api_in,usr_grp_status_in){
+function create_user_menu(e,userid,usr_grp_all_in,usr_grp_gui_in,usr_grp_status_in){
 	if(!e) var e = window.event;
 
 // ALL GROUPS
@@ -79,31 +78,6 @@ function create_user_menu(e,userid,usr_grp_all_in,usr_grp_gui_in,usr_grp_api_in,
 		}
 	}
 
-// API ACCESS GROUPS
-	var grp_api_add_to = new Array('Add to',null,null,{'outer' : ['pum_o_submenu'],'inner' : ['pum_i_submenu']});
-	grp_api_add_to.push(['Groups',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}]);
-	
-	var grp_api_rmv_frm = new Array('Remove from',null,null,{'outer' : 'pum_o_submenu','inner' : ['pum_i_submenu']});
-	grp_api_rmv_frm.push(['Groups',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}]);
-	
-// add to
-	for(var i=0; i < menu_usrgrp_api.length; i++){
-		if((typeof(menu_usrgrp_api[i]) != 'undefined') && !empty(menu_usrgrp_api[i])){
-			var row = menu_usrgrp_api[i];
-			var menu_row = new Array(row.name,'users.php?config=0&form=update&grpaction=1&userid='+userid+'&usrgrpid='+row.usrgrpid);
-			grp_api_add_to.push(menu_row);
-		}
-	}
-
-// remove from
-	for(var i=0; i < usr_grp_api_in.length; i++){
-		if((typeof(usr_grp_api_in[i]) != 'undefined') && !empty(usr_grp_api_in[i])){
-			var row = usr_grp_api_in[i];
-			var menu_row = new Array(row.name,'users.php?config=0&form=update&grpaction=0&userid='+userid+'&usrgrpid='+row.usrgrpid);
-			grp_api_rmv_frm.push(menu_row);
-		}
-	}
-
 // DISABLED STATUS GROUPS
 	var grp_status_add_to = new Array('Add to',null,null,{'outer' : ['pum_o_submenu'],'inner' : ['pum_i_submenu']});
 	grp_status_add_to.push(['Groups',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}]);
@@ -136,20 +110,17 @@ function create_user_menu(e,userid,usr_grp_all_in,usr_grp_gui_in,usr_grp_api_in,
 							Array('GUI access',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}),
 								grp_gui_add_to,
 								grp_gui_rmv_frm,
-							Array('API access',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}),
-								grp_api_add_to,
-								grp_api_rmv_frm,
 							Array('Status disabled',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}),
 								grp_status_add_to,
 								grp_status_rmv_frm
 					);
 
 //to create a copy of array, but not references!!!!
-//alert(id+' : '+page_menu[id]);
+//alert(id+' : '+dashboard_menu[id]);
 
 
 
-//alert(page_menu[id]);
+//alert(dashboard_menu[id]);
 	show_popup_menu(e,grp_menu,280);// JavaScript Document
 }
 //---------------------------------------------------------------
@@ -189,14 +160,7 @@ function create_host_menu(e,hostid,hst_grp_all_in){
 	}
 	
 
-	var now = new Date();
-	
 	var grp_menu = new Array(
-							['Maintenance',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],
-								['Set to maintenance','hosts.php?config=6&form=1'+
-								 '&mname=New+Maintenance+period&active_since='+parseInt(now.getTime()/1000)+
-								 '&new_timeperiod[timeperiod_type]=0&new_timeperiod[period]=7200&new_timeperiod[date]='+parseInt(now.getTime()/1000)+
-								 '&hostids['+hostid+']='+hostid,{'tw' : ''}],
 							['Show',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],
 								['Items','items.php?hostid='+hostid,{'tw' : ''}],
 								['Triggers','triggers.php?hostid='+hostid,{'tw' : ''}],
@@ -207,9 +171,11 @@ function create_host_menu(e,hostid,hst_grp_all_in){
 							);
 
 //to create a copy of array, but not references!!!!
-//alert(id+' : '+page_menu[id]);
+//alert(id+' : '+dashboard_menu[id]);
 
-//alert(page_menu[id]);
+
+
+//alert(dashboard_menu[id]);
 	show_popup_menu(e,grp_menu,280);// JavaScript Document
 }
 /*
@@ -230,58 +196,31 @@ show_popup_menu(event,new Array(['Show',null,null,{'outer' : ['pum_oheader'],'in
 						),null);
 */
 
+
 //------------------------------------------------------
 //					DASHBOARD JS MENU 
 //------------------------------------------------------
 
-function create_page_menu(e,id){
+function create_dashboard_menu(e,id){
 	if(!e) var e = window.event;
 	id='menu_'+id;
 
 	var dbrd_menu = new Array();
 	
 //to create a copy of array, but not references!!!!
-//alert(id+' : '+page_menu[id]);
-	for(var i=0; i < page_menu[id].length; i++){
-		if((typeof(page_menu[id][i]) != 'undefined') && !empty(page_menu[id][i]))
-			dbrd_menu[i] = page_menu[id][i].clone();
+//alert(id+' : '+dashboard_menu[id]);
+	for(var i=0; i < dashboard_menu[id].length; i++){
+		if((typeof(dashboard_menu[id][i]) != 'undefined') && !empty(dashboard_menu[id][i]))
+			dbrd_menu[i] = dashboard_menu[id][i].clone();
 	}
 
-	for(var i=0; i < page_submenu[id].length; i++){
-		if((typeof(page_submenu[id][i]) != 'undefined') && !empty(page_submenu[id][i])){
-			var row = page_submenu[id][i];
+	for(var i=0; i < dashboard_submenu[id].length; i++){
+		if((typeof(dashboard_submenu[id][i]) != 'undefined') && !empty(dashboard_submenu[id][i])){
+			var row = dashboard_submenu[id][i];
 			var menu_row = new Array(row.name,"javascript: rm4favorites('"+row.favobj+"','"+row.favid+"','"+i+"');");
 			dbrd_menu[dbrd_menu.length-1].push(menu_row);
 		}
 	}
-//alert(page_menu[id]);
+//alert(dashboard_menu[id]);
 	show_popup_menu(e,dbrd_menu,280);// JavaScript Document
-}
-
-//------------------------------------------------------
-//					TRIGGERS JS MENU 
-//------------------------------------------------------
-
-function create_mon_trigger_menu(e, args, items){
-	var tr_menu = new Array(['Triggers',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],
-								['Events','events.php?triggerid='+args[0].triggerid+'&nav_time='+args[0].lastchange,null]);
-
-	if((args.length > 1) && !is_null(args[1])) tr_menu.push(args[1]);
-
-	tr_menu.push(['Simple graphs',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}]);
-
-//	for(var i=0; i < items.length; i++){
-	for(var itemid in items){
-		if(typeof(items[itemid]) != 'undefined'){
-			tr_menu.push([items[itemid].description,
-									'history.php?action='+items[itemid].action+'&itemid='+items[itemid].itemid,
-									null]);
-		}
-	}
-
-//to create a copy of array, but not references!!!!
-//alert(id+' : '+page_menu[id]);
-
-//alert(page_menu[id]);
-	show_popup_menu(e,tr_menu,280);// JavaScript Document
 }

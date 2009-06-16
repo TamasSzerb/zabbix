@@ -24,7 +24,6 @@
 	$TRANSLATION=array(
 
 	'S_DATE_FORMAT_YMDHMS'=>		'd M H:i:s',
-	'S_DATE_FORMAT_YMD'=>			'd M Y',
 	'S_HTML_CHARSET'=>			'UTF-8',
 
 	'S_ACTIVATE_SELECTED'=>			'선택 항목 활성화',
@@ -177,6 +176,8 @@
 	'S_NODE_DELETED'=>			'노드를 삭제하였습니다',
 	'S_CANNOT_DELETE_NODE'=>		'노드를 삭제할 수 없습니다',
 	'S_CURRENT_NODE'=>			'현재 노드',
+	'S_CURRENT_NODE_ONLY'=>			'현재 노드만',
+	'S_WITH_SUBNODES'=>			'하위 노드도 포함',
 	
 //	acknow.php
 	'S_ACKNOWLEDGES'=>			'인지',
@@ -278,8 +279,6 @@
 	'S_TIME'=>				'시각',
 	'S_STATUS'=>				'상태',
 	'S_DURATION'=>				'기간',
-	'S_TRUE_BIG'=>				'장애',
-	'S_FALSE_BIG'=>				'정상',
 	'S_UNKNOWN_BIG'=>			'알 수 없음',
 
 //	actions.php
@@ -295,6 +294,12 @@
 	'S_GRAPHS_BIG'=>			'그래프',
 	'S_SELECT_GRAPH_TO_DISPLAY'=>		'표시할 그래프를 선택하십시오',
 	'S_PERIOD'=>				'기간',
+	'S_MOVE'=>				'이동',
+	'S_NAVIGATE'=>				'이동/조정',
+	'S_INCREASE'=>				'증가',
+	'S_DECREASE'=>				'감소',
+	'S_RIGHT_DIR'=>				'오른쪽',
+	'S_LEFT_DIR'=>				'왼쪽',
 	'S_SELECT_GRAPH_DOT_DOT_DOT'=>		'그래프 선택...',
 
 // Colors
@@ -344,8 +349,6 @@
 	'S_HOUSEKEEPER'=>			'데이터 보존 기간',
 	'S_MEDIA_TYPES'=>			'연락 방법',
 	'S_ESCALATION_RULES'=>			'에스컬레이션 규칙',
-	'S_ESCALATION'=>			'에스컬레이션',
-	'S_ESCALATION_RULE'=>			'에스컬레이션 규칙',
 	'S_DEFAULT'=>				'Default',
 	'S_IMAGES'=>				'이미지',
 	'S_IMAGE'=>				'이미지',
@@ -379,11 +382,9 @@
 	'S_NO_NODES_DEFINED'=>			'노드가 정의되어 있지 않습니다',
 
 //	Latest values
-	'S_LATEST_VALUES'=>			'최근 값',
 	'S_NO_PERMISSIONS'=>			'권한이 없습니다!',
 	'S_LATEST_DATA_BIG'=>			'최근 데이터',
 	'S_ALL_SMALL'=>				'전체',
-	'S_MINUS_ALL_MINUS'=>			'- all -',
 	'S_MINUS_OTHER_MINUS'=>			'- 기타 -',
 	'S_GRAPH'=>				'그래프',
 
@@ -427,6 +428,7 @@
 	'S_NO_GRAPHS_DEFINED'=>			'그래프가 정의되어 있지 않습니다',
 	'S_NO_GRAPH_DEFINED'=>			'그래프가 정의되어 있지 않습니다',
 	'S_DELETE_GRAPH_Q'=>			'그래프를 삭제하시겠습니까?',
+	'S_YAXIS_TYPE'=>			'Y축 종류',
 	'S_YAXIS_MIN_VALUE'=>			'Y축 최솟값',
 	'S_YAXIS_MAX_VALUE'=>			'Y축 최댓값',
 	'S_CALCULATED'=>			'자동 계산',
@@ -621,7 +623,6 @@
 	'S_CUSTOM_MULTIPLIER'=>			'승수',
 	'S_DO_NOT_USE'=>			'사용 안함',
 	'S_USE_MULTIPLIER'=>			'승수 사용',
-	'S_SELECT_HOST_DOT_DOT_DOT'=>		'호스트 선택...',
 	'S_LOG_TIME_FORMAT'=>			'로그 시간 형식',
 	'S_CREATE_ITEM'=>			'아이템 작성',
 	'S_X_ELEMENTS_COPY_TO_DOT_DOT_DOT'=>	'아이템 복사 대상...',
@@ -639,7 +640,6 @@
 	'S_ADVANCED'=>				'확장',
 	'S_SIMPLE'=>				'표준',
 	'S_MASS_UPDATE'=>			'일괄갱신',
-	'S_SEARCH'=>				'찾기',
 	'S_ORIGINAL'=>				'변경 안함',
 	'S_NEW_FLEXIBLE_INTERVAL'=>		'새로운 유동적인 갱신 간격',
 	'S_FLEXIBLE_INTERVALS'=>		'유동적인 갱신 간격(초)',
@@ -678,7 +678,6 @@
 	'S_NO_MAPS_DEFINED'=>			'맵이 정의되어 있지 않습니다',
 	'S_CREATE_MAP'=>			'맵 작성',
 	'S_ICON_LABEL_LOCATION'=>		'아이콘 라벨 위치',
-	'S_BOTTOM'=>				'아래쪽',
 	'S_TOP'=>				'위쪽',
 
 //	map.php
@@ -859,6 +858,7 @@
 
 	'S_VERTICAL_ALIGN'=>			'세로 위치',
 	'S_MIDDLE'=>				'가운데',
+	'S_BOTTOM'=>				'아래쪽',
 
 //	screens.php
 	'S_CUSTOM_SCREENS'=>			'커스텀 스크린',
@@ -966,7 +966,6 @@
 //	tr_status.php
 	'S_STATUS_OF_TRIGGERS'=>		'트리거 상태',
 	'S_STATUS_OF_TRIGGERS_BIG'=>		'트리거 상태',
-	'S_SHOW_ONLY_TRUE'=>			'장애만 보이기',
 	'S_SHOW_ACTIONS'=>			'액션 보이기',
 	'S_SHOW_DETAILS'=>			'상세 보이기',
 	'S_SELECT'=>				'선택',
@@ -990,6 +989,7 @@
 	'S_USER_DELETED'=>			'사용자를 삭제하였습니다',
 	'S_CANNOT_DELETE_USER'=>		'사용자를 삭제할 수 없습니다',
 	'S_USER_UPDATED'=>			'사용자를 갱신하였습니다',
+	'S_ONLY_FOR_GUEST_ALLOWED_EMPTY_PASSWORD'=>	'guest 사용자만이 빈 암호를 가질 수 있습니다.',
 	'S_CANNOT_UPDATE_USER'=>		'사용자를 갱신할 수 없습니다',
 	'S_CANNOT_UPDATE_USER_BOTH_PASSWORDS'=>	'사용자를 갱신할 수 없습니다. 암호가 일치하지 않습니다.',
 	'S_GROUP_ADDED'=>			'그룹을 추가하였습니다',

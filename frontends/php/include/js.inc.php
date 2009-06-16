@@ -150,7 +150,7 @@ function inseret_javascript_for_editable_combobox(){
 	insert_js($js);
 }
 
-function insert_javascript_for_tweenbox(){
+function insert_javascript_for_twinbox(){
 	global $page;
 	if(defined('SHOW_TWINBOX_SCRIPT_INSERTTED') || (PAGE_TYPE_HTML != $page['type'])) return;
 	define('SHOW_TWINBOX_SCRIPT_INSERTTED', 1);
@@ -161,13 +161,15 @@ function insert_javascript_for_tweenbox(){
 			from = $(from);
 			to = $(to);
 
-			var j = 0;
-			var i = 0;
-			while(i<from.options.length){
-
+			for(i = 0; i < from.options.length; i++) {
 				if(from.options[i].selected == true) {
-					//	from.options[i].selected = false;
+/*
+					var temp = document.createElement("option");
+					temp.setAttribute("value",from.options[i].value);
 
+					var caption = IE?from.options[i].innerText:from.options[i].textContent;
+					temp.appendChild(document.createTextNode(caption));
+*/
 					var temp = from.options[i].cloneNode(true);
 
 					if(action.toLowerCase() == "add"){
@@ -177,28 +179,11 @@ function insert_javascript_for_tweenbox(){
 						result &= remove_element(objname+"["+from.options[i].value+"]","input");
 					}
 
-					while(true){
-						if(to.options.length == 0){
-							$(to).insert(from.options[i]);
-							break;
-						}
+					from.removeChild(from.options[i]);
 
-						if(from.options[i].innerHTML.toLowerCase() < to.options[j].innerHTML.toLowerCase()){
-							$(to.options[j]).insert({before:from.options[i]});
-							break;
-						}
-
-						if((typeof(to.options[j+1]) == "undefined") || is_null(to.options[j+1])){  // is_null 4 IE =)
-							$(to.options[j]).insert({after:from.options[i]});
-							break;
-						}
-
-						j++;
-					}
-
-					continue;
+					to.appendChild(temp);
+					i--;
 				}
-				i++;
 			}
 
 		return result;
@@ -393,131 +378,6 @@ function insert_js_function($fnct_name){
 				return true;
 			}');
 			break;
-		case 'add_bitem':
-			insert_js('function add_bitem(formname,caption,itemid,color,calc_fnc,axisside){
-					var form = window.opener.document.forms[formname];
-
-					if(!form){
-						close_window();
-					return false;
-					}
-
-					window.opener.create_var(form,"new_graph_item[caption]",caption);
-					window.opener.create_var(form,"new_graph_item[itemid]",itemid);
-					window.opener.create_var(form,"new_graph_item[color]",color);
-					window.opener.create_var(form,"new_graph_item[calc_fnc]",calc_fnc);
-					window.opener.create_var(form,"new_graph_item[axisside]",axisside);
-					form.submit();
-					close_window();
-					return true;
-				}');
-			break;
-		case 'update_bitem':
-			insert_js('function update_bitem(formname,list_name,gid,caption,itemid,color,calc_fnc,axisside){
-				var form = window.opener.document.forms[formname];
-
-				if(!form){
-					close_window();
-				return false;
-				}
-
-				window.opener.create_var(form,list_name + "[" + gid + "][caption]",caption);
-				window.opener.create_var(form,list_name + "[" + gid + "][itemid]",itemid);
-				window.opener.create_var(form,list_name + "[" + gid + "][color]",color);
-				window.opener.create_var(form,list_name + "[" + gid + "][calc_fnc]",calc_fnc);
-				window.opener.create_var(form,list_name + "[" + gid + "][axisside]",axisside);
-
-				form.submit();
-				close_window();
-				return true;
-			}');
-			break;
-		case 'add_period':
-			insert_js('function add_period(formname,caption,since,till,color){
-					var form = window.opener.document.forms[formname];
-
-					if(!form){
-						close_window();
-					return false;
-					}
-
-					window.opener.create_var(form,"new_period[caption]",caption);
-					window.opener.create_var(form,"new_period[report_timesince]",since);
-					window.opener.create_var(form,"new_period[report_timetill]",till);
-					window.opener.create_var(form,"new_period[color]",color);
-
-					form.submit();
-					close_window();
-					return true;
-				}');
-			break;
-		case 'update_period':
-			insert_js('function update_period(pid, formname,caption,since,till,color){
-				var form = window.opener.document.forms[formname];
-
-				if(!form){
-					close_window();
-				return false;
-				}
-
-				window.opener.create_var(form,"periods["+pid+"][caption]",caption);
-				window.opener.create_var(form,"periods["+pid+"][report_timesince]",since);
-				window.opener.create_var(form,"periods["+pid+"][report_timetill]",till);
-				window.opener.create_var(form,"periods["+pid+"][color]",color);
-
-				form.submit();
-				close_window();
-				return true;
-			}');
-		break;
-		case 'add_selected_values':
-			insert_js('
-				function add_selected_values(objname, formname, dstfld, dstact, value) {
-					value = typeof(value) != "undefined" ? value : null;
-					dstact = ((typeof(dstact) != "undefined") && dstact) ? dstact : null;
-
-					var parent_document = window.opener.document;
-
-					if(!parent_document) return close_window();
-
-					if(is_null(value)) {
-						$(objname).getInputs("checkbox").each(
-							function(e){
-								if(e.checked && e.name != "check"){
-									add_variable("input", dstfld, e.value, formname, parent_document);
-								}
-							});
-					}
-					else {
-						add_variable("input", dstfld, value, formname, parent_document);
-					}
-
-					if(dstact)
-						add_variable("input", dstact, 1, formname, parent_document);
-
-					parent_document.forms[formname].submit();
-					close_window();
-				}');
-		break;
-		case 'add_value':
-			insert_js('
-				function add_value(dstfld1, dstfld2, value1, value2) {
-					var parent_document = window.opener.document;
-
-					if(!parent_document) return close_window();
-
-					parent_document.getElementById(dstfld1).value = value1;
-					parent_document.getElementById(dstfld2).value = value2;
-
-					close_window();
-				}');
-		break;
-		case 'check_all':
-			insert_js('
-				function check_all(objname, value) {
-					$(objname).getInputs("checkbox").each(function(e){ e.checked = value });
-				}');
-		break;
 		default:
 			break;
 	}

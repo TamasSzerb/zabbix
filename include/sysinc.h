@@ -381,9 +381,4 @@
 #	include <ucd-snmp/keytools.h>
 #endif
 
-/* Required for advanced sigaction */
-#ifdef HAVE_SYS_UCONTEXT_H
-#	include <sys/ucontext.h>
-#endif
-
 #endif

@@ -1376,7 +1376,7 @@ static void	DCmass_add_history(ZBX_DC_HISTORY *history, int history_num)
 #ifdef HAVE_MYSQL
 		tmp_offset = sql_offset;
 		zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 512,
-				"insert into history_log (id,itemid,clock,timestamp,source,severity,value,logeventid) values ");
+				"insert into history_log (id,itemid,clock,timestamp,source,severity,value) values ");
 #endif
 
 		for (i = 0; i < history_num; i++)
@@ -1394,27 +1394,25 @@ static void	DCmass_add_history(ZBX_DC_HISTORY *history, int history_num)
 			value_esc = DBdyn_escape_string(history[i].value_orig.value_str);
 #ifdef HAVE_MYSQL
 			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 512 + strlen(value_esc),
-					"(" ZBX_FS_UI64 "," ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s',%d),",
+					"(" ZBX_FS_UI64 "," ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s'),",
 					id,
 					history[i].itemid,
 					history[i].clock,
 					history[i].timestamp,
 					source_esc,
 					history[i].severity,
-					value_esc,
-					history[i].logeventid);
+					value_esc);
 #else
 			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 512 + strlen(value_esc),
-					"insert into history_log (id,itemid,clock,timestamp,source,severity,value,logeventid) values "
-					"(" ZBX_FS_UI64 "," ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s',%d);\n",
+					"insert into history_log (id,itemid,clock,timestamp,source,severity,value) values "
+					"(" ZBX_FS_UI64 "," ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s');\n",
 					id,
 					history[i].itemid,
 					history[i].clock,
 					history[i].timestamp,
 					source_esc,
 					history[i].severity,
-					value_esc,
-					history[i].logeventid);
+					value_esc);
 #endif
 			zbx_free(value_esc);
 			zbx_free(source_esc);
@@ -1627,7 +1625,7 @@ static void	DCmass_proxy_add_history(ZBX_DC_HISTORY *history, int history_num)
 #ifdef HAVE_MYSQL
 	tmp_offset = sql_offset;
 	zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 512,
-				"insert into proxy_history (itemid,clock,timestamp,source,severity,value,logeventid) values ");
+				"insert into proxy_history (itemid,clock,timestamp,source,severity,value) values ");
 #endif
 
 	for (i = 0; i < history_num; i++)
@@ -1638,25 +1636,23 @@ static void	DCmass_proxy_add_history(ZBX_DC_HISTORY *history, int history_num)
 			value_esc = DBdyn_escape_string(history[i].value_orig.value_str);
 #ifdef HAVE_MYSQL
 			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 512 + strlen(value_esc),
-					"(" ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s',%d),",
+					"(" ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s'),",
 					history[i].itemid,
 					history[i].clock,
 					history[i].timestamp,
 					source_esc,
 					history[i].severity,
-					value_esc,
-					history[i].logeventid);
+					value_esc);
 #else
 			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 512 + strlen(value_esc),
-					"insert into proxy_history (itemid,clock,timestamp,source,severity,value,logeventid) values "
-					"(" ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s',%d);\n",
+					"insert into proxy_history (itemid,clock,timestamp,source,severity,value) values "
+					"(" ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s');\n",
 					history[i].itemid,
 					history[i].clock,
 					history[i].timestamp,
 					source_esc,
 					history[i].severity,
-					value_esc,
-					history[i].logeventid);
+					value_esc);
 #endif
 			zbx_free(value_esc);
 			zbx_free(source_esc);
@@ -2111,8 +2107,7 @@ void	DCadd_history_text(zbx_uint64_t itemid, char *value_orig, int clock)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-void	DCadd_history_log(zbx_uint64_t itemid, char *value_orig, int clock, int timestamp, char *source, int severity,
-		int logeventid, int lastlogsize)
+void	DCadd_history_log(zbx_uint64_t itemid, char *value_orig, int clock, int timestamp, char *source, int severity, int lastlogsize)
 {
 	ZBX_DC_HISTORY	*history;
 	size_t		len1, len2;
@@ -2142,7 +2137,6 @@ void	DCadd_history_log(zbx_uint64_t itemid, char *value_orig, int clock, int tim
 		history->source		= NULL;
 
 	history->severity		= severity;
-	history->logeventid		= logeventid;
 	history->lastlogsize		= lastlogsize;
 	history->keep_history		= 0;
 	history->keep_trends		= 0;

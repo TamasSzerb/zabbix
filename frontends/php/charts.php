@@ -147,7 +147,7 @@ include_once 'include/page_header.php';
 	$h1 = array();
 	
 	$options = array('allow_all_hosts','monitored_hosts','with_graphs');
-	if(!$ZBX_WITH_ALL_NODES)	array_push($options,'only_current_node');
+	if(!$ZBX_WITH_SUBNODES)	array_push($options,'only_current_node');
 		
 	$params = array();
 	foreach($options as $option) $params[$option] = 1;
@@ -173,8 +173,7 @@ include_once 'include/page_header.php';
 		array_push($h1, S_SELECT_GRAPH_TO_DISPLAY);
 	}
 
-	$charts_wdgt = new CWidget('hat_charts');
-// HEADER
+	$p_elements = array();
 
 	$r_form = new CForm();
 	$r_form->setMethod('get');
@@ -194,6 +193,7 @@ include_once 'include/page_header.php';
 	$r_form->addItem(array(S_GROUP.SPACE,$cmbGroups));
 	$r_form->addItem(array(SPACE.S_HOST.SPACE,$cmbHosts));	
 		
+//---------------------------------------------_
 	$cmbGraphs = new CComboBox('graphid',$_REQUEST['graphid'],'submit()');
 	$cmbGraphs->addItem(0,S_SELECT_GRAPH_DOT_DOT_DOT);
 	
@@ -229,8 +229,7 @@ include_once 'include/page_header.php';
 	
 	$r_form->addItem(array(SPACE.S_GRAPH.SPACE,$cmbGraphs));
 	
-//	show_table_header(S_GRAPHS_BIG, $r_form);
-//---------------------------------------------
+	$p_elements[] = get_table_header($h1, $r_form);
 ?>
 <?php
 	$table = new CTableInfo('...','chart');
@@ -297,7 +296,10 @@ include_once 'include/page_header.php';
 		
 		$table->addRow(new CScript($row));
 	}
-		
+	
+	$p_elements[] = $table;
+	$p_elements[] = BR();
+	
 	$icon = null;
 	$fs_icon = null;
 	$rst_icon = null;
@@ -326,12 +328,15 @@ include_once 'include/page_header.php';
 		
 	}
 	
-	$charts_wdgt->addHeader(S_GRAPHS_BIG,array($icon,$rst_icon,$fs_icon));
-	$charts_wdgt->addHeader($h1,$r_form);
-	
-	$charts_wdgt->addItem($table);
+	$charts_hat = create_hat(
+			S_GRAPHS_BIG,
+			$p_elements,
+			array($icon,$rst_icon,$fs_icon),
+			'hat_charts',
+			get_profile('web.charts.hats.hat_charts.state',1)
+	);
 
-	$charts_wdgt->show();
+	$charts_hat->Show();
 	
 	if($_REQUEST['graphid'] > 0){
 // NAV BAR
@@ -350,11 +355,6 @@ include_once 'include/page_header.php';
 		}
 
 		zbx_add_post_js($script);
-		
-		$scroll_div = new CDiv();
-		$scroll_div->addOption('id','scroll_cntnr');
-		$scroll_div->addOption('style','border: 0px #CC0000 solid; height: 25px; width: 800px;');
-		$scroll_div->show();
 //		navigation_bar('charts.php',array('groupid','hostid','graphid'));
 //-------------
 	}

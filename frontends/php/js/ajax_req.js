@@ -21,32 +21,31 @@
 function send_params(params){
 	if(typeof(params) == 'undefined') var params = new Array();
 
-	var url = new Curl(location.href);
-	url.setQuery('?output=ajax');
-
-	new Ajax.Request(url.getUrl(),
+	var uri = new url(location.href);
+	uri.setQuery('?output=ajax');
+	new Ajax.Request(uri.getUrl(),
 					{
 						'method': 'post',
 						'parameters':params,
-						'onSuccess': function(resp){ },
+						'onSuccess': function(resp){},
 //						'onSuccess': function(resp){ alert(resp.responseText); },
-						'onFailure': function(){ document.location = url.getPath()+'?'+Object.toQueryString(params); }
+						'onFailure': function(){ document.location = uri.getPath()+'?'+Object.toQueryString(params); }
 					}
 	);
 }
 
 
-function setRefreshRate(pmasterid,dollid,interval,params){
+function setRefreshRate(id,interval){
 	if(typeof(Ajax) == 'undefined'){
 		throw("Prototype.js lib is required!");
 		return false;
 	}
-	
-	if((typeof(params) == 'undefined') || is_null(params))  var params = new Array();
-	params['favobj'] = 		'set_rf_rate';
-	params['pmasterid'] = 	pmasterid;
-	params['favid'] = 		dollid;
-	params['favcnt'] = 		interval;
+
+	var params = {
+		'favobj': 	'set_rf_rate',
+		'favid': 	id,
+		'favcnt':	interval
+	}
 
 	send_params(params);
 }
@@ -100,15 +99,8 @@ function rm4favorites(favobj,favid,menu_rowid){
 
 function change_hat_state(icon, divid){
 	deselectAll(); 
-	
-	var eff_time = 500;
-	
-	var switchIcon = function(){
-		switchElementsClass(icon,"arrowup","arrowdown");
-	}
-
-//	var hat_state = ShowHide(divid);	
-	var hat_state = showHideEffect(divid, 'slide', eff_time, switchIcon);	
+	var hat_state = ShowHide(divid); 
+	switchElementsClass(icon,"arrowup","arrowdown");
 
 	if(false === hat_state) return false;
 	
@@ -121,18 +113,11 @@ function change_hat_state(icon, divid){
 	send_params(params);
 }
 
-function change_flicker_state(divid){
+function change_filter_state(icon, divid){
 	deselectAll(); 
-	var eff_time = 500;
+	var filter_state = ShowHide(divid); 
+	switchElementsClass(icon,"filteropened","filterclosed");
 	
-	var switchArrows = function(){
-		switchElementsClass($("flicker_icon_l"),"dbl_arrow_up","dbl_arrow_down");
-		switchElementsClass($("flicker_icon_r"),"dbl_arrow_up","dbl_arrow_down");
-	}
-	
-	var filter_state = showHideEffect(divid,'blind', eff_time, switchArrows);
-	
-
 	if(false === filter_state) return false;
 
 	var params = {

@@ -77,6 +77,8 @@ int	process_discovery_data(zbx_sock_t *sock, struct zbx_json_parse *jp)
 	hosttime = atoi(tmp);
 
 	if (SUCCEED == zbx_json_brackets_by_name(jp, ZBX_PROTO_TAG_DATA, &jp_data)) {
+		memset(&dhost, 0, sizeof(dhost));
+
 		p = NULL;
 		while (NULL != (p = zbx_json_next(&jp_data, p)) && SUCCEED == res) {
 			if (FAIL == (res = zbx_json_brackets_open(p, &jp_row)))
@@ -90,11 +92,7 @@ int	process_discovery_data(zbx_sock_t *sock, struct zbx_json_parse *jp)
 
 			if (FAIL == zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_DRULE, tmp, sizeof(tmp)))
 				goto json_parse_error;
-			ZBX_STR2UINT64(dcheck.druleid, tmp);
-
-			if (FAIL == zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_DCHECK, tmp, sizeof(tmp)))
-				goto json_parse_error;
-			ZBX_STR2UINT64(dcheck.dcheckid, tmp);
+			dcheck.druleid = zbx_atoui64(tmp);
 
 			if (FAIL == zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_TYPE, tmp, sizeof(tmp)))
 				goto json_parse_error;
@@ -118,13 +116,18 @@ int	process_discovery_data(zbx_sock_t *sock, struct zbx_json_parse *jp)
 				goto json_parse_error;
 			dcheck.status = atoi(tmp);
 
-			memset(&dhost, 0, sizeof(dhost));
-			dhost.druleid = dcheck.druleid;
+			if (dcheck.type == -1) {
+				memset(&dhost, 0, sizeof(dhost));
+				dhost.druleid = dcheck.druleid;
 
-			if (dcheck.type == -1)
-				update_host(&dhost, ip, dcheck.status, itemtime);
-			else
+				register_host(&dhost, ip, dcheck.status);
+				update_host_status(&dhost, dcheck.status, itemtime);
+			} else {
+				memset(&dhost, 0, sizeof(dhost));
+				dhost.druleid = dcheck.druleid;
+
 				update_service(&dhost, &dcheck, ip, port, itemtime);
+			}
 
 			continue;
 json_parse_error:
@@ -146,8 +149,8 @@ exit:
 	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of process_discovery_data():%s",
-			zbx_result_string(res));
-
+			res == SUCCEED ? "SUCCEED" : "FAIL");
+	
 	return res;
 }
 

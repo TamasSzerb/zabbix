@@ -46,18 +46,12 @@ select{
 }
 
 /* SPECIAL FOR FILTER */
-table.thin_header .button{
+table.filter .button{
 	height: 14px;
 	margin: 0px;
 }
 
-table.thin_header .biginput{
-	font-size: 9px;
-	height: 10px;
-	margin: 0px;
-}
-
-form.thin .biginput{
+table.filter .biginput{
 	font-size: 9px;
 	height: 10px;
 	margin: 0px;

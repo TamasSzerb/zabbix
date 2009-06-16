@@ -512,8 +512,8 @@ static int	trigger_dependent_rec(zbx_uint64_t triggerid, int *level)
 	}
 	DBfree_result(result);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of trigger_dependent_rec():%s",
-			zbx_result_string(ret));
+	zabbix_log( LOG_LEVEL_DEBUG, "End of trigger_dependent_rec(ret:%s)",
+		SUCCEED==ret?"SUCCEED":"FAIL");
 
 	return ret;
 }
@@ -543,8 +543,8 @@ static int	trigger_dependent(zbx_uint64_t triggerid)
 
 	ret =  trigger_dependent_rec(triggerid, &level);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of trigger_dependent():%s",
-			zbx_result_string(ret));
+	zabbix_log( LOG_LEVEL_DEBUG, "End of trigger_dependent(ret:%s)",
+		SUCCEED==ret?"SUCCEED":"FAIL");
 
 	return ret;
 }
@@ -1257,8 +1257,7 @@ lbl_exit:
 	return SUCCEED;
 }
 
-int	DBadd_history_log(zbx_uint64_t itemid, char *value, int clock, int timestamp, char *source, int severity,
-		int logeventid, int lastlogsize)
+int	DBadd_history_log(zbx_uint64_t itemid, char *value, int clock, int timestamp, char *source, int severity, int lastlogsize)
 {
 	char		*value_esc, *source_esc;
 
@@ -1267,16 +1266,15 @@ int	DBadd_history_log(zbx_uint64_t itemid, char *value, int clock, int timestamp
 	value_esc = DBdyn_escape_string(value);
 	source_esc = DBdyn_escape_string_len(source, HISTORY_LOG_SOURCE_LEN);
 
-	DBexecute("insert into history_log (id,clock,itemid,timestamp,value,source,severity,logeventid)"
-			" values (" ZBX_FS_UI64 ",%d," ZBX_FS_UI64 ",%d,'%s','%s',%d,%d)",
+	DBexecute("insert into history_log (id,clock,itemid,timestamp,value,source,severity)"
+			" values (" ZBX_FS_UI64 ",%d," ZBX_FS_UI64 ",%d,'%s','%s',%d)",
 			DBget_maxid("history_log", "id"),
 			clock,
 			itemid,
 			timestamp,
 			value_esc,
 			source_esc,
-			severity,
-			logeventid);
+			severity);
 
 	zbx_free(source_esc);
 	zbx_free(value_esc);
@@ -1878,12 +1876,9 @@ void	DBget_item_from_db(DB_ITEM *item,DB_ROW row)
 	item->params		= row[37];		/* !!! WHAT about CLOB??? */
 
 	item->eventlog_source	= NULL;
-	item->timestamp		= 0;
-	item->eventlog_severity	= 0;
-	item->logeventid	= 0;
 
 	item->useipmi		= atoi(row[39]);
-	item->ipmi_ip		= row[51];
+	item->ipmi_ip		= item->useip ? item->host_dns : item->host_ip;
 	item->ipmi_port		= atoi(row[40]);
 	item->ipmi_authtype	= atoi(row[41]);
 	item->ipmi_privilege	= atoi(row[42]);
@@ -1891,12 +1886,7 @@ void	DBget_item_from_db(DB_ITEM *item,DB_ROW row)
 	item->ipmi_password	= row[44];
 	item->ipmi_sensor	= row[45];
 
-	item->maintenance_status	= atoi(row[46]);
-	item->maintenance_type		= atoi(row[47]);
-	item->maintenance_from		= atoi(row[48]);
-
-	item->lastlogsize		= atoi(row[49]);
-	item->data_type			= atoi(row[50]);
+	item->lastlogsize	= atoi(row[46]);
 
 	switch (item->type) {
 		case ITEM_TYPE_ZABBIX:
@@ -2194,8 +2184,7 @@ void	DBproxy_add_history_text(zbx_uint64_t itemid, char *value, int clock)
 	zbx_free(value_esc);
 }
 
-void	DBproxy_add_history_log(zbx_uint64_t itemid, char *value, int clock, int timestamp, char *source, int severity,
-		int logeventid, int lastlogsize)
+void	DBproxy_add_history_log(zbx_uint64_t itemid, char *value, int clock, int timestamp, char *source, int severity, int lastlogsize)
 {
 	char		*source_esc, *value_esc;
 
@@ -2204,15 +2193,14 @@ void	DBproxy_add_history_log(zbx_uint64_t itemid, char *value, int clock, int ti
 	source_esc = DBdyn_escape_string_len(source, HISTORY_LOG_SOURCE_LEN);
 	value_esc = DBdyn_escape_string(value);
 
-	DBexecute("insert into proxy_history (itemid,clock,timestamp,source,severity,value,logeventid)"
-			" values (" ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s',%d)",
+	DBexecute("insert into proxy_history (itemid,clock,timestamp,source,severity,value)"
+			" values (" ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s')",
 			itemid,
 			clock,
 			timestamp,
 			source_esc,
 			severity,
-			value_esc,
-			logeventid);
+			value_esc);
 
 	zbx_free(value_esc);
 	zbx_free(source_esc);

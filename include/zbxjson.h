@@ -24,10 +24,8 @@
 
 #define ZBX_PROTO_TAG_CLOCK		"clock"
 #define ZBX_PROTO_TAG_DATA		"data"
-#define ZBX_PROTO_TAG_REGEXP		"regexp"
 #define	ZBX_PROTO_TAG_DELAY		"delay"
 #define	ZBX_PROTO_TAG_DRULE		"drule"
-#define	ZBX_PROTO_TAG_DCHECK		"dcheck"
 #define ZBX_PROTO_TAG_HOST		"host"
 #define ZBX_PROTO_TAG_INFO		"info"
 #define ZBX_PROTO_TAG_IP		"ip"
@@ -37,7 +35,6 @@
 #define ZBX_PROTO_TAG_LOGTIMESTAMP	"timestamp"
 #define ZBX_PROTO_TAG_LOGSOURCE		"source"
 #define ZBX_PROTO_TAG_LOGSEVERITY	"severity"
-#define ZBX_PROTO_TAG_LOGEVENTID	"eventid"
 #define ZBX_PROTO_TAG_PORT		"port"
 #define ZBX_PROTO_TAG_PROXY		"proxy"
 #define ZBX_PROTO_TAG_REQUEST		"request"

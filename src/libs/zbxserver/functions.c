@@ -237,7 +237,7 @@ static void	dc_add_history(DB_ITEM *item, AGENT_RESULT *value, int now)
 		case ITEM_VALUE_TYPE_LOG:
 			if (GET_STR_RESULT(value))
 				DCadd_history_log(item->itemid, value->str, now, item->timestamp, item->eventlog_source,
-						item->eventlog_severity, item->logeventid, item->lastlogsize);
+						item->eventlog_severity, item->lastlogsize);
 			break;
 		case ITEM_VALUE_TYPE_UINT64:
 			if (GET_UI64_RESULT(value))
@@ -389,7 +389,7 @@ static int	add_history(DB_ITEM *item, AGENT_RESULT *value, int now)
 
 		if (item->history > 0)
 			DBadd_history_log(item->itemid, value->str, now, item->timestamp, item->eventlog_source,
-					item->eventlog_severity, item->logeventid, item->lastlogsize);
+					item->eventlog_severity, item->lastlogsize);
 		ret = SUCCEED;
 		break;
 	case ITEM_VALUE_TYPE_TEXT:
@@ -409,8 +409,7 @@ static int	add_history(DB_ITEM *item, AGENT_RESULT *value, int now)
 				item->itemid);
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of add_history():%s",
-			zbx_result_string(ret));
+	zabbix_log(LOG_LEVEL_DEBUG, "End of add_history():%s", ret == SUCCEED ? "SUCCEED" : "FAIL");
 
 	return ret;
 }
@@ -725,7 +724,7 @@ static void	proxy_add_history(DB_ITEM *item, AGENT_RESULT *value, int now)
 		case ITEM_VALUE_TYPE_LOG:
 			if (GET_STR_RESULT(value))
 				DBproxy_add_history_log(item->itemid, value->str, now, item->timestamp, item->eventlog_source,
-						item->eventlog_severity, item->logeventid, item->lastlogsize);
+						item->eventlog_severity, item->lastlogsize);
 			break;
 		case ITEM_VALUE_TYPE_UINT64:
 			if (GET_UI64_RESULT(value))

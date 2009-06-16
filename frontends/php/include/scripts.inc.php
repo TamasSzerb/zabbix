@@ -60,38 +60,44 @@ function script_make_command($scriptid,$hostid){
 }
 
 function execute_script($scriptid,$hostid){
-	global $ZBX_SERVER, $ZBX_SERVER_PORT;
-
-	$res = true;
-	$message = array();
+	$res = 1;
 
 	$command = script_make_command($scriptid,$hostid);
 	$nodeid = id2nodeid($hostid);
 
-	if(!$socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP)){
-		return false;
+	$socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+
+	if(!$socket){
+		$res = 0;
 	}
 
-	$res = socket_connect($socket, $ZBX_SERVER, $ZBX_SERVER_PORT);
+	if($res){
+		global $ZBX_SERVER, $ZBX_SERVER_PORT;
+		$res = socket_connect($socket, $ZBX_SERVER, $ZBX_SERVER_PORT);
+	}
 
 	if($res){
 		$send = "Command\255$nodeid\255$hostid\255$command\n";
 		socket_write($socket,$send);
+	}
 
+	if($res){
 		$res = socket_read($socket,65535);
 	}
 
 	if($res){
 		list($flag,$msg)=split("\255",$res);
-		$message['flag']=$flag;
-		$message['message']=$msg;
+		$message["flag"]=$flag;
+		$message["message"]=$msg;
 	}
 	else{
-		$message['flag']=-1;
-		$message['message'] = S_CONNECT_TO_SERVER_ERROR.' ['.$ZBX_SERVER.':'.$ZBX_SERVER_PORT.'] ['.socket_strerror(socket_last_error()).']';
+		$message["flag"]=-1;
+		$message["message"] = S_CONNECT_TO_SERVER_ERROR.' ['.$ZBX_SERVER.':'.$ZBX_SERVER_PORT.'] ['.socket_strerror(socket_last_error()).']';
 	}
 
-	socket_close($socket);
+	if($socket){
+		socket_close($socket);
+	}
 return $message;
 }
 
@@ -129,8 +135,8 @@ function get_accessible_scripts_by_hosts($hosts){
 	$hosts_read_only  = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY);
 	$hosts_read_write = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE);
 
-	$hosts_read_only = zbx_uint_array_intersect($hosts,$hosts_read_only);
-	$hosts_read_write = zbx_uint_array_intersect($hosts,$hosts_read_write);
+	$hosts_read_only = array_intersect($hosts,$hosts_read_only);
+	$hosts_read_write = array_intersect($hosts,$hosts_read_write);
 
 	$scripts_by_host = array();
 // initialize array
@@ -151,13 +157,13 @@ function get_accessible_scripts_by_hosts($hosts){
 		$add_to_hosts = array();
 		if(PERM_READ_WRITE == $script['host_access']){
 			if($script['groupid'] > 0)
-				$add_to_hosts = zbx_uint_array_intersect($hosts_read_write, $hosts_groups[$script['groupid']]);
+				$add_to_hosts = array_intersect($hosts_read_write, $hosts_groups[$script['groupid']]);
 			else
 				$add_to_hosts = $hosts_read_write;
 		}
 		else if(PERM_READ_ONLY == $script['host_access']){
 			if($script['groupid'] > 0)
-				$add_to_hosts = zbx_uint_array_intersect($hosts_read_only, $hosts_groups[$script['groupid']]);
+				$add_to_hosts = array_intersect($hosts_read_only, $hosts_groups[$script['groupid']]);
 			else
 				$add_to_hosts = $hosts_read_only;
 		}

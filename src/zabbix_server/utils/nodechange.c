@@ -238,7 +238,7 @@ int change_nodeid(int old_id, int new_id)
 	struct special_conv_t
 	{
 	        char		*table_name, *field_name, *type_field_name;
-		struct conv_t	convs[32];
+		struct conv_t	convs[10];
 	};
 
 	struct special_conv_t special_convs[]=
@@ -294,40 +294,6 @@ int change_nodeid(int old_id, int new_id)
 /*			{"",	SCREEN_RESOURCE_URL},
 			{"",	SCREEN_RESOURCE_ACTIONS},
 			{"",	SCREEN_RESOURCE_EVENTS},*/
-			{NULL}
-			}
-		},
-		{"auditlog",	"resourceid",	"resourcetype",
-			{
-			{"users",		AUDIT_RESOURCE_USER},
-/*			{"",			AUDIT_RESOURCE_ZABBIX},*/
-			{"config",		AUDIT_RESOURCE_ZABBIX_CONFIG},
-			{"media_type",		AUDIT_RESOURCE_MEDIA_TYPE},
-			{"hosts",		AUDIT_RESOURCE_HOST},
-			{"actions",		AUDIT_RESOURCE_ACTION},
-			{"graphs",		AUDIT_RESOURCE_GRAPH},
-			{"graphs_items",	AUDIT_RESOURCE_GRAPH_ELEMENT},
-/*			{"",			AUDIT_RESOURCE_ESCALATION},
-			{"",			AUDIT_RESOURCE_ESCALATION_RULE},
-			{"",			AUDIT_RESOURCE_AUTOREGISTRATION},*/
-			{"usrgrp",		AUDIT_RESOURCE_USER_GROUP},
-			{"applications",	AUDIT_RESOURCE_APPLICATION},
-			{"triggers",		AUDIT_RESOURCE_TRIGGER},
-			{"groups",		AUDIT_RESOURCE_HOST_GROUP},
-			{"items",		AUDIT_RESOURCE_ITEM},
-			{"images",		AUDIT_RESOURCE_IMAGE},
-			{"valuemaps",		AUDIT_RESOURCE_VALUE_MAP},
-			{"services",		AUDIT_RESOURCE_IT_SERVICE},
-			{"sysmaps",		AUDIT_RESOURCE_MAP},
-			{"screens",		AUDIT_RESOURCE_SCREEN},
-/*			{"nodes",		AUDIT_RESOURCE_NODE},*/
-/*			{"",			AUDIT_RESOURCE_SCENARIO},*/
-			{"drules",		AUDIT_RESOURCE_DISCOVERY_RULE},
-			{"slideshows",		AUDIT_RESOURCE_SLIDESHOW},
-			{"scripts",		AUDIT_RESOURCE_SCRIPT},
-/*			{"",			AUDIT_RESOURCE_PROXY},*/
-			{"maintenances",	AUDIT_RESOURCE_MAINTENANCE},
-			{"regexps",		AUDIT_RESOURCE_REGEXP},
 			{NULL}
 			}
 		},

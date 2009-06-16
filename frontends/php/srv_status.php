@@ -19,9 +19,9 @@
 **/
 ?>
 <?php
-	require_once('include/config.inc.php');
-	require_once('include/triggers.inc.php');
-	require_once('include/services.inc.php');
+	require_once("include/config.inc.php");
+	require_once("include/services.inc.php");
+	require_once('include/classes/ctree.inc.php');
 		
 	$page["title"] = "S_IT_SERVICES";
 	$page["file"] = "srv_status.php";
@@ -84,7 +84,7 @@ include_once "include/page_header.php";
 
 	if(isset($service) && isset($_REQUEST['showgraph'])){
 		$table  = new CTable(null,'chart');
-		$table->addRow(new CImg('chart5.php?serviceid='.$service['serviceid'].url_param('path')));
+		$table->AddRow(new CImg('chart5.php?serviceid='.$service['serviceid'].url_param('path')));
 		$table->Show();
 	} 
 	else {
@@ -120,16 +120,15 @@ include_once "include/page_header.php";
 		while($row = DBFetch($result)){
 			$row['id'] = $row['serviceid'];
 		
-			$row['caption'] = array(get_node_name_by_elid($row['serviceid']), $row['caption']);
-			
 			if(empty($row['serviceupid'])) $row['serviceupid']='0';
-			if(empty($row['description'])) $row['description']='None';			
+			if(empty($row['description'])) $row['description']='None';
+			
 			$row['graph'] = new CLink(S_SHOW,"srv_status.php?serviceid=".$row["serviceid"]."&showgraph=1".url_param('path'),"action");
 			
 			if(isset($row["triggerid"]) && !empty($row["triggerid"])){
 
 				$url = new CLink(expand_trigger_description($row['triggerid']),'events.php?triggerid='.$row['triggerid']);
-				$row['caption'] = array($row['caption'],' [',$url,']');
+				$row['caption'] = array($row['caption'].' [',$url,']');
 
 			}
 			
@@ -151,7 +150,7 @@ include_once "include/page_header.php";
 					if(is_string($row['reason']) && ($row['reason'] == '-'))
 						$row['reason'] = new CList(null,"itservices");
 					if(does_service_depend_on_the_service($row["serviceid"],$row2["serviceid"])){
-						$row['reason']->addItem(new CLink(
+						$row['reason']->AddItem(new CLink(
 										expand_trigger_description($row2["triggerid"]),
 										"events.php?triggerid=".$row2["triggerid"]));
 					}
@@ -203,7 +202,7 @@ include_once "include/page_header.php";
 		//permission issue
 		$treeServ = del_empty_nodes($treeServ);
 
-		$tree = new CTree('service_status_tree', $treeServ,array('caption' => bold(S_SERVICE),
+		$tree = new CTree($treeServ,array('caption' => bold(S_SERVICE),
 						'status' => bold(S_STATUS), 
 						'reason' => bold(S_REASON),
 						'sla' => bold(S_SLA_LAST_7_DAYS),
@@ -214,14 +213,19 @@ include_once "include/page_header.php";
 			$url = '?fullscreen='.($_REQUEST['fullscreen']?'0':'1');
 	
 			$fs_icon = new CDiv(SPACE,'fullscreen');
-			$fs_icon->addOption('title',$_REQUEST['fullscreen']?S_NORMAL.' '.S_VIEW:S_FULLSCREEN);
-			$fs_icon->addAction('onclick',new CScript("javascript: document.location = '".$url."';"));
+			$fs_icon->AddOption('title',$_REQUEST['fullscreen']?S_NORMAL.' '.S_VIEW:S_FULLSCREEN);
+			$fs_icon->AddAction('onclick',new CScript("javascript: document.location = '".$url."';"));
 	
-			
-			$srv_wdgt = new CWidget('hat_services', $tree->getHTML());
-			$srv_wdgt->addHeader(S_IT_SERVICES_BIG, $fs_icon);
+			$tab = create_hat(
+					S_IT_SERVICES_BIG,
+					$tree->getHTML(),
+					null,
+					'hat_services',
+					get_profile('web.srv_status.hats.hat_services.state',1)
+				);
 				
-			$srv_wdgt->show();
+			$tab->Show();
+			unset($tab);
 		} 
 		else {
 			error('Can not format Tree. Check logik structure in service links');

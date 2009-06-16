@@ -27,7 +27,7 @@ function action_accessible($actionid,$perm){
 
 	$result = false;
 
-	if(DBselect('select actionid from actions where actionid='.$actionid.' and '.DBin_node('actionid'))){
+	if (DBselect('select actionid from actions where actionid='.$actionid.' and '.DBin_node('actionid'))){
 		$result = true;
 		
 		$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,$perm,null,get_current_nodeid(true));
@@ -178,8 +178,6 @@ function add_action_operation($actionid, $operation){
 		$result &= add_operation_condition($operationid, $opcondition);
 	}
 
-	$result &= add_operation_mediatype($operationid, $operation['mediatypeid']);
-
 	return $operationid;
 }
 
@@ -199,22 +197,6 @@ function add_operation_condition($operationid, $opcondition){
 		return $result;
 
 return $opconditionid;
-}
-
-// Add operation mediatype
-function add_operation_mediatype($operationid, $mediatypeid){
-	if (0 == $mediatypeid)
-		return;
-
-	$opmediatypeid = get_dbid('opmediatypes', 'opmediatypeid');
-
-	$result = DBexecute('INSERT INTO opmediatypes (opmediatypeid,operationid,mediatypeid)'.
-		' values ('.$opmediatypeid.','.$operationid.','.$mediatypeid.')');
-
-	if(!$result)
-		return $result;
-
-return $opmediatypeid;
 }
 
 // Add Action			
@@ -262,7 +244,7 @@ function add_action($name, $eventsource, $esc_period, $def_shortdata, $def_longd
 return $actionid;
 }
 
-// Update Action
+# Update Action
 
 function update_action($actionid, $name, $eventsource, $esc_period, $def_shortdata, $def_longdata, $recovery_msg, $r_shortdata, $r_longdata, $evaltype, $status, $conditions, $operations){
 
@@ -306,7 +288,6 @@ function update_action($actionid, $name, $eventsource, $esc_period, $def_shortda
 		$opers = get_operations_by_actionid($actionid);
 		while($operation = DBFetch($opers)){
 			DBexecute('DELETE FROM opconditions WHERE operationid='.$operation['operationid']);
-			DBexecute('DELETE FROM opmediatypes WHERE operationid='.$operation['operationid']);
 		}
 		DBexecute('DELETE FROM operations WHERE actionid='.$actionid);
 		
@@ -325,7 +306,7 @@ function update_action($actionid, $name, $eventsource, $esc_period, $def_shortda
 return $result;
 }
 
-// Delete Action
+# Delete Action
 
 function delete_action( $actionid ){
 	$return = DBexecute('delete from conditions where actionid='.$actionid);
@@ -344,10 +325,11 @@ function delete_action( $actionid ){
 	if($return)
 		$result = DBexecute('delete from actions where actionid='.$actionid);
 
-return $result;
+	return $result;
 }
 
-function condition_operator2str($operator){
+function	condition_operator2str($operator)
+{
 	$str_op[CONDITION_OPERATOR_EQUAL] 	= '=';
 	$str_op[CONDITION_OPERATOR_NOT_EQUAL]	= '<>';
 	$str_op[CONDITION_OPERATOR_LIKE]	= S_LIKE_SMALL;
@@ -363,7 +345,8 @@ function condition_operator2str($operator){
 	return S_UNKNOWN;
 }
 
-function condition_type2str($conditiontype){
+function	condition_type2str($conditiontype)
+{
 	$str_type[CONDITION_TYPE_HOST_GROUP]		= S_HOST_GROUP;
 	$str_type[CONDITION_TYPE_HOST_TEMPLATE]		= S_HOST_TEMPLATE;
 	$str_type[CONDITION_TYPE_TRIGGER]		= S_TRIGGER;
@@ -372,11 +355,6 @@ function condition_type2str($conditiontype){
 	$str_type[CONDITION_TYPE_TRIGGER_VALUE]		= S_TRIGGER_VALUE;
 	$str_type[CONDITION_TYPE_TRIGGER_SEVERITY]	= S_TRIGGER_SEVERITY;
 	$str_type[CONDITION_TYPE_TIME_PERIOD]		= S_TIME_PERIOD;
-	$str_type[CONDITION_TYPE_MAINTENANCE]		= S_MAINTENANCE_STATUS;
-	$str_type[CONDITION_TYPE_NODE]			= S_NODE;
-	$str_type[CONDITION_TYPE_DRULE]			= S_DISCOVERY_RULE;
-	$str_type[CONDITION_TYPE_DCHECK]		= S_DISCOVERY_CHECK;
-	$str_type[CONDITION_TYPE_DOBJECT]		= S_DISCOVERED_OBJECT;
 	$str_type[CONDITION_TYPE_DHOST_IP]		= S_HOST_IP;
 	$str_type[CONDITION_TYPE_DSERVICE_TYPE]		= S_SERVICE_TYPE;
 	$str_type[CONDITION_TYPE_DSERVICE_PORT]		= S_SERVICE_PORT;
@@ -385,24 +363,13 @@ function condition_type2str($conditiontype){
 	$str_type[CONDITION_TYPE_DVALUE]		= S_RECEIVED_VALUE;
 	$str_type[CONDITION_TYPE_EVENT_ACKNOWLEDGED]	= S_EVENT_ACKNOWLEDGED;
 	$str_type[CONDITION_TYPE_APPLICATION]		= S_APPLICATION;
-	$str_type[CONDITION_TYPE_PROXY]			= S_PROXY;
 
 	if(isset($str_type[$conditiontype]))
 		return $str_type[$conditiontype];
 
-return S_UNKNOWN;
+	return S_UNKNOWN;
 }
-
-function discovery_object2str($object){
-	$str_object[EVENT_OBJECT_DHOST]		= S_DEVICE;
-	$str_object[EVENT_OBJECT_DSERVICE]	= S_SERVICE;
-
-	if(isset($str_object[$object]))
-		return $str_object[$object];
-
-return S_UNKNOWN;
-}
-
+	
 function condition_value2str($conditiontype, $value){
 	switch($conditiontype){
 		case CONDITION_TYPE_HOST_GROUP:
@@ -433,30 +400,6 @@ function condition_value2str($conditiontype, $value){
 			break;
 		case CONDITION_TYPE_TIME_PERIOD:
 			$str_val = $value;
-			break;
-		case CONDITION_TYPE_MAINTENANCE:
-			$str_val = S_MAINTENANCE_SMALL;
-			break;
-		case CONDITION_TYPE_NODE:
-			$node = get_node_by_nodeid($value);
-			$str_val = $node['name'];
-			break;
-		case CONDITION_TYPE_DRULE:
-			$drule = get_discovery_rule_by_druleid($value);
-			$str_val = $drule['name'];
-			break;
-		case CONDITION_TYPE_DCHECK:
-			$row = DBfetch(DBselect('SELECT DISTINCT r.name,c.dcheckid,c.type,c.key_,c.snmp_community,c.ports'.
-					' FROM drules r,dchecks c WHERE r.druleid=c.druleid AND c.dcheckid='.$value));
-			$str_val = $row['name'].':'.discovery_check2str($row['type'],
-					$row['snmp_community'], $row['key_'], $row['ports']);
-			break;
-		case CONDITION_TYPE_DOBJECT:
-			$str_val = discovery_object2str($value);
-			break;
-		case CONDITION_TYPE_PROXY:
-			$host = get_host_by_hostid($value);
-			$str_val = $host['host'];
 			break;
 		case CONDITION_TYPE_DHOST_IP:
 			$str_val = $value;
@@ -525,12 +468,6 @@ function get_operation_desc($type=SHORT_DESCRITION, $data){
 					break;
 				case OPERATION_TYPE_HOST_REMOVE:
 					$result = S_REMOVE_HOST;
-					break;
-				case OPERATION_TYPE_HOST_ENABLE:
-					$result = S_ENABLE_HOST;
-					break;
-				case OPERATION_TYPE_HOST_DISABLE:
-					$result = S_DISABLE_HOST;
 					break;
 				case OPERATION_TYPE_GROUP_ADD:
 					$obj_data = get_hostgroup_by_groupid($data['objectid']);
@@ -608,24 +545,16 @@ function get_conditions_by_eventsource($eventsource){
 			CONDITION_TYPE_TRIGGER_NAME,
 			CONDITION_TYPE_TRIGGER_SEVERITY,
 			CONDITION_TYPE_TRIGGER_VALUE,
-			CONDITION_TYPE_TIME_PERIOD,
-			CONDITION_TYPE_MAINTENANCE
+			CONDITION_TYPE_TIME_PERIOD
 		);
 	$conditions[EVENT_SOURCE_DISCOVERY] = array(
 			CONDITION_TYPE_DHOST_IP,
 			CONDITION_TYPE_DSERVICE_TYPE,
 			CONDITION_TYPE_DSERVICE_PORT,
-			CONDITION_TYPE_DRULE,
-			CONDITION_TYPE_DCHECK,
-			CONDITION_TYPE_DOBJECT,
 			CONDITION_TYPE_DSTATUS,
 			CONDITION_TYPE_DUPTIME,
-			CONDITION_TYPE_DVALUE,
-			CONDITION_TYPE_PROXY
+			CONDITION_TYPE_DVALUE
 		);
-
-	if (ZBX_DISTRIBUTED)
-		array_push($conditions[EVENT_SOURCE_TRIGGERS], CONDITION_TYPE_NODE);
 
 	if(isset($conditions[$eventsource]))
 		return $conditions[$eventsource];
@@ -657,8 +586,6 @@ function get_operations_by_eventsource($eventsource){
 			OPERATION_TYPE_COMMAND,
 			OPERATION_TYPE_HOST_ADD,
 			OPERATION_TYPE_HOST_REMOVE,
-			OPERATION_TYPE_HOST_ENABLE,
-			OPERATION_TYPE_HOST_DISABLE,
 			OPERATION_TYPE_GROUP_ADD,
 			OPERATION_TYPE_GROUP_REMOVE,
 			OPERATION_TYPE_TEMPLATE_ADD,
@@ -677,8 +604,6 @@ function	operation_type2str($type)
 	$str_type[OPERATION_TYPE_COMMAND]		= S_REMOTE_COMMAND;
 	$str_type[OPERATION_TYPE_HOST_ADD]		= S_ADD_HOST;
 	$str_type[OPERATION_TYPE_HOST_REMOVE]		= S_REMOVE_HOST;
-	$str_type[OPERATION_TYPE_HOST_ENABLE]		= S_ENABLE_HOST;
-	$str_type[OPERATION_TYPE_HOST_DISABLE]		= S_DISABLE_HOST;
 	$str_type[OPERATION_TYPE_GROUP_ADD]		= S_ADD_TO_GROUP;
 	$str_type[OPERATION_TYPE_GROUP_REMOVE]		= S_DELETE_FROM_GROUP;
 	$str_type[OPERATION_TYPE_TEMPLATE_ADD]		= S_LINK_TO_TEMPLATE;
@@ -724,29 +649,6 @@ function	get_operators_by_conditiontype($conditiontype)
 	$operators[CONDITION_TYPE_TIME_PERIOD] = array(
 			CONDITION_OPERATOR_IN,
 			CONDITION_OPERATOR_NOT_IN
-		);
-	$operators[CONDITION_TYPE_MAINTENANCE] = array(
-			CONDITION_OPERATOR_IN,
-			CONDITION_OPERATOR_NOT_IN
-		);
-	$operators[CONDITION_TYPE_NODE] = array(
-			CONDITION_OPERATOR_EQUAL,
-			CONDITION_OPERATOR_NOT_EQUAL
-		);
-	$operators[CONDITION_TYPE_DRULE] = array(
-			CONDITION_OPERATOR_EQUAL,
-			CONDITION_OPERATOR_NOT_EQUAL
-		);
-	$operators[CONDITION_TYPE_DCHECK] = array(
-			CONDITION_OPERATOR_EQUAL,
-			CONDITION_OPERATOR_NOT_EQUAL
-		);
-	$operators[CONDITION_TYPE_DOBJECT] = array(
-			CONDITION_OPERATOR_EQUAL,
-		);
-	$operators[CONDITION_TYPE_PROXY] = array(
-			CONDITION_OPERATOR_EQUAL,
-			CONDITION_OPERATOR_NOT_EQUAL
 		);
 	$operators[CONDITION_TYPE_DHOST_IP] = array(
 			CONDITION_OPERATOR_EQUAL,
@@ -868,12 +770,6 @@ function validate_condition($conditiontype, $value){
 		case CONDITION_TYPE_TRIGGER_NAME:
 		case CONDITION_TYPE_TRIGGER_VALUE:
 		case CONDITION_TYPE_TRIGGER_SEVERITY:
-		case CONDITION_TYPE_MAINTENANCE:
-		case CONDITION_TYPE_NODE:
-		case CONDITION_TYPE_DRULE:
-		case CONDITION_TYPE_DCHECK:
-		case CONDITION_TYPE_DOBJECT:
-		case CONDITION_TYPE_PROXY:
 		case CONDITION_TYPE_DUPTIME:
 		case CONDITION_TYPE_DVALUE:
 		case CONDITION_TYPE_APPLICATION:
@@ -913,8 +809,6 @@ function validate_operation($operation){
 			return validate_commands($operation['longdata']);
 		case OPERATION_TYPE_HOST_ADD:
 		case OPERATION_TYPE_HOST_REMOVE:
-		case OPERATION_TYPE_HOST_ENABLE:
-		case OPERATION_TYPE_HOST_DISABLE:
 			break;
 		case OPERATION_TYPE_GROUP_ADD:
 		case OPERATION_TYPE_GROUP_REMOVE:
@@ -990,79 +884,75 @@ function count_operations_delay($operations, $def_period=0){
 return $delays;
 }
 
-function get_history_of_actions($limit,&$last_clock=null,$sql_cond=''){
+function get_history_of_actions($start,$num,$sql_cond=''){
 	$available_triggers = get_accessible_triggers(PERM_READ_ONLY, array(), PERM_RES_IDS_ARRAY);
 
-	$alerts = array();
-	$clock = array();
 	$table = new CTableInfo(S_NO_ACTIONS_FOUND);
-	$table->setHeader(array(
-			is_show_all_nodes() ? make_sorting_link(S_NODES,'a.alertid') : null,
-			make_sorting_link(S_TIME,'clock'),
-			make_sorting_link(S_TYPE,'description'),
-			make_sorting_link(S_STATUS,'status'),
-			make_sorting_link(S_RETRIES_LEFT,'retries'),
-			make_sorting_link(S_RECIPIENTS,'sendto'),
+	$table->SetHeader(array(
+			is_show_subnodes() ? make_sorting_link(S_NODES,'a.alertid') : null,
+			make_sorting_link(S_TIME,'a.clock'),
+			make_sorting_link(S_TYPE,'mt.description'),
+			make_sorting_link(S_STATUS,'a.status'),
+			make_sorting_link(S_RETRIES_LEFT,'a.retries'),
+			make_sorting_link(S_RECIPIENTS,'a.sendto'),
 			S_MESSAGE,
 			S_ERROR
 			));
 			
-	$sql = 'SELECT a.alertid,a.clock,mt.description,a.sendto,a.subject,a.message,a.status,a.retries,a.error '.
-			' FROM events e, alerts a '.
-				' LEFT JOIN media_type mt ON mt.mediatypeid=a.mediatypeid '.
-			' WHERE e.eventid = a.eventid '.
-				' AND alerttype IN ('.ALERT_TYPE_MESSAGE.') '.
+	$sql = 'SELECT DISTINCT a.alertid,a.clock,mt.description,a.sendto,a.subject,a.message,a.status,a.retries,a.error '.
+			' FROM events e,alerts a'.
+			' left join media_type mt on mt.mediatypeid=a.mediatypeid'.
+			' WHERE e.eventid = a.eventid and alerttype in ('.ALERT_TYPE_MESSAGE.')'.
 				$sql_cond.
 				' AND '.DBcondition('e.objectid',$available_triggers).
 				' AND '.DBin_node('a.alertid').
-			' ORDER BY a.clock DESC';
-	$result=DBselect($sql,$limit);
-	while($row=DBfetch($result)){		
-		$alerts[] = $row;
-		$clock[] = $row['clock'];
-	}
-	
-	$last_clock = !empty($clock)?min($clock):null;
-	
-	order_result($alerts, 'clock', ZBX_SORT_DOWN);
-	
-	foreach($alerts as $num => $row){
-		$time=date(S_DATE_FORMAT_YMDHMS,$row['clock']);	
+			order_by('a.clock,a.alertid,mt.description,a.sendto,a.status,a.retries');
+	$result=DBselect($sql,10*$start+$num);
 		
-		if($row['status'] == ALERT_STATUS_SENT){
-			$status=new CSpan(S_SENT,'green');
-			$retries=new CSpan(SPACE,'green');
+	$col=0;
+	$skip=$start;
+	while(($row=DBfetch($result))&&($col<$num)){
+		if($skip > 0) {
+			$skip--;
+			continue;
 		}
-		else if($row['status'] == ALERT_STATUS_NOT_SENT){
-			$status=new CSpan(S_IN_PROGRESS,'orange');
-			$retries=new CSpan(ALERT_MAX_RETRIES - $row['retries'],'orange');
+		$time=date("Y.M.d H:i:s",$row["clock"]);
+
+		if($row["status"] == ALERT_STATUS_SENT){
+			$status=new CSpan(S_SENT,"green");
+			$retries=new CSpan(SPACE,"green");
+		}
+		else if($row["status"] == ALERT_STATUS_NOT_SENT){
+			$status=new CSpan(S_IN_PROGRESS,"orange");
+			$retries=new CSpan(ALERT_MAX_RETRIES - $row["retries"],"orange");
 		}
 		else{
-			$status=new CSpan(S_NOT_SENT,'red');
-			$retries=new CSpan(0,'red');
+			$status=new CSpan(S_NOT_SENT,"red");
+			$retries=new CSpan(0,"red");
 		}
-		$sendto=$row['sendto'];
+		$sendto=$row["sendto"];
 
-		$message = array(bold(S_SUBJECT.': '),br(),$row['subject'],br(),br(),bold(S_MESSAGE.': '),br(),$row['message']);
+		$message = array(bold(S_SUBJECT.': '),br(),$row["subject"],br(),br(),bold(S_MESSAGE.': '),br(),$row['message']);
 
-		if(empty($row['error'])){
-			$error=new CSpan(SPACE,'off');
+		if(empty($row["error"])){
+			$error=new CSpan(SPACE,"off");
 		}
 		else{
-			$error=new CSpan($row['error'],'on');
+			$error=new CSpan($row["error"],"on");
 		}
-
-		$table->addRow(array(
+		$table->AddRow(array(
 			get_node_name_by_elid($row['alertid']),
 			new CCol($time, 'top'),
-			new CCol($row['description'], 'top'),
+			new CCol($row["description"], 'top'),
 			new CCol($status, 'top'),
 			new CCol($retries, 'top'),
 			new CCol($sendto, 'top'),
 			new CCol($message, 'top'),
 			new CCol($error, 'wraptext top')));
+		$col++;
 	}
-return $table;
+
+	return $table;
 }
 	
 // Author: Aly
@@ -1081,7 +971,7 @@ function get_action_msgs_for_event($eventid){
 
 	$table = new CTableInfo(S_NO_ACTIONS_FOUND);
 	$table->SetHeader(array(
-			is_show_all_nodes() ? make_sorting_link(S_NODES,'a.alertid') : null,
+			is_show_subnodes() ? make_sorting_link(S_NODES,'a.alertid') : null,
 			make_sorting_link(S_TIME,'a.clock'),
 			make_sorting_link(S_TYPE,'mt.description'),
 			make_sorting_link(S_STATUS,'a.status'),
@@ -1103,7 +993,7 @@ function get_action_msgs_for_event($eventid){
 	$result=DBselect($sql);
 
 	while($row=DBfetch($result)){
-		$time=date(S_DATE_FORMAT_YMDHMS,$row["clock"]);
+		$time=date("Y.M.d H:i:s",$row["clock"]);
 		if($row['esc_step'] > 0){
 			$time = array(bold(S_STEP.': '),$row["esc_step"],br(),bold(S_TIME.': '),br(),$time);	
 		}
@@ -1136,7 +1026,7 @@ function get_action_msgs_for_event($eventid){
 			$error=new CSpan($row["error"],"on");
 		}
 		
-		$table->addRow(array(
+		$table->AddRow(array(
 			get_node_name_by_elid($row['alertid']),
 			new CCol($time, 'top'),
 			new CCol($row["description"], 'top'),
@@ -1153,7 +1043,6 @@ return $table;
 // Author: Aly
 function get_action_cmds_for_event($eventid){
 	$hostids = array();
-
 	$sql = 'SELECT DISTINCT i.hostid '.
 			' FROM events e, functions f, items i '.
 			' WHERE e.eventid='.$eventid.
@@ -1167,7 +1056,7 @@ function get_action_cmds_for_event($eventid){
 
 	$table = new CTableInfo(S_NO_ACTIONS_FOUND);
 	$table->SetHeader(array(
-			is_show_all_nodes()?S_NODES:null,
+			is_show_subnodes()?S_NODES:null,
 			S_TIME,
 			S_STATUS,
 			S_COMMAND,
@@ -1213,7 +1102,7 @@ function get_action_cmds_for_event($eventid){
 			$error=new CSpan($row["error"],"on");
 		}
 		
-		$table->addRow(array(
+		$table->AddRow(array(
 			get_node_name_by_elid($row['alertid']),
 			new CCol($time, 'top'),
 			new CCol($status, 'top'),
@@ -1239,9 +1128,9 @@ function get_actions_hint_by_eventid($eventid,$status=NULL){
 	$available_triggers = get_accessible_triggers(PERM_READ_ONLY, $hostids);
 	
 	$tab_hint = new CTableInfo(S_NO_ACTIONS_FOUND);
-	$tab_hint->addOption('style', 'width: 300px;');
+	$tab_hint->AddOption('style', 'width: 300px;');
 	$tab_hint->SetHeader(array(
-			is_show_all_nodes() ? S_NODES : null,
+			is_show_subnodes() ? S_NODES : null,
 			S_USER,
 			S_DETAILS,
 			S_STATUS
@@ -1270,7 +1159,7 @@ function get_actions_hint_by_eventid($eventid,$status=NULL){
 				' AND '.DBcondition('e.objectid',$available_triggers).
 				' AND '.DBin_node('a.alertid').
 			' ORDER BY a.alertid';
-	$result=DBselect($sql,30);
+	$result=DBselect($sql);
 
 	while($row=DBfetch($result)){
 
@@ -1302,7 +1191,7 @@ function get_actions_hint_by_eventid($eventid,$status=NULL){
 				$message = '-';
 		}
 		
-		$tab_hint->addRow(array(
+		$tab_hint->AddRow(array(
 			get_node_name_by_elid($row['alertid']),
 			empty($row['alias'])?' - ':$row['alias'],
 			$message,
@@ -1367,15 +1256,15 @@ function get_event_actions_status($eventid){
 		}
 		else{
 			$tdl = new CCol(($alerts['sent'])?(new CSpan($alerts['sent'],'green')):SPACE);
-			$tdl->addOption('width','10');
+			$tdl->AddOption('width','10');
 			
 			$tdr = new CCol(($alerts['failed'])?(new CSpan($alerts['failed'],'red')):SPACE);
-			$tdr->addOption('width','10');
+			$tdr->AddOption('width','10');
 
 			$status = new CRow(array($tdl,$tdr));
 		}
 
-		$actions->addRow($status);
+		$actions->AddRow($status);
 	}
 	
 return $actions;
@@ -1407,7 +1296,7 @@ function get_event_actions_stat_hints($eventid){
 			$alert_cnt->SetHint($hint);
 		}
 		$tdl = new CCol(($alerts['sent'])?$alert_cnt:SPACE);
-		$tdl->addOption('width','10');
+		$tdl->AddOption('width','10');
 
 		$sql='SELECT COUNT(a.alertid) as inprogress '.
 				' FROM alerts a '.
@@ -1420,10 +1309,10 @@ function get_event_actions_stat_hints($eventid){
 		$alert_cnt = new CSpan($alerts['inprogress'],'orange');
 		if($alerts['inprogress']){
 			$hint=get_actions_hint_by_eventid($eventid,ALERT_STATUS_NOT_SENT);
-			$alert_cnt->setHint($hint);
+			$alert_cnt->SetHint($hint);
 		}
 		$tdc = new CCol(($alerts['inprogress'])?$alert_cnt:SPACE);
-		$tdc->addOption('width','10');
+		$tdc->AddOption('width','10');
 
 		$sql='SELECT COUNT(a.alertid) as failed '.
 				' FROM alerts a '.
@@ -1436,13 +1325,13 @@ function get_event_actions_stat_hints($eventid){
 		$alert_cnt = new CSpan($alerts['failed'],'red');
 		if($alerts['failed']){
 			$hint=get_actions_hint_by_eventid($eventid,ALERT_STATUS_FAILED);
-			$alert_cnt->setHint($hint);
+			$alert_cnt->SetHint($hint);
 		}
 
 		$tdr = new CCol(($alerts['failed'])?$alert_cnt:SPACE);
-		$tdr->addOption('width','10');
+		$tdr->AddOption('width','10');
 		
-		$actions->addRow(array($tdl,$tdc,$tdr));
+		$actions->AddRow(array($tdl,$tdc,$tdr));
 	}
 return $actions;
 }

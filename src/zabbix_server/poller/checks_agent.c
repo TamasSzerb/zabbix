@@ -92,7 +92,7 @@ int	get_value_agent(DB_ITEM *item, AGENT_RESULT *result)
 			SET_MSG_RESULT(result, strdup(buffer));
 			ret = NETWORK_ERROR;
 		}
-		else if (SUCCEED != set_result_type(result, item->value_type, item->data_type, buf))
+		else if (SUCCEED != set_result_type(result, item->value_type, buf))
 			ret = NOTSUPPORTED;
 	}
 	else

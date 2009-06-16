@@ -210,10 +210,6 @@ static void	process_mass_data(zbx_sock_t *sock, zbx_uint64_t proxy_hostid, AGENT
 		if (item.type == ITEM_TYPE_ZABBIX_ACTIVE && FAIL == zbx_tcp_check_security(sock, item.trapper_hosts, 1))
 			continue;
 
-		if (item.maintenance_status == HOST_MAINTENANCE_STATUS_ON && item.maintenance_type == MAINTENANCE_TYPE_NODATA &&
-				item.maintenance_from <= values[i].clock)
-			continue;
-
 		for (i = 0; i < value_num; i++)
 		{
 			if (0 == strcmp(item.host_name, values[i].host_name) && 0 == strcmp(item.key_orig, values[i].key)) {
@@ -245,7 +241,6 @@ static void	process_mass_data(zbx_sock_t *sock, zbx_uint64_t proxy_hostid, AGENT
 
 						item.eventlog_severity = values[i].severity;
 						item.eventlog_source = values[i].source;
-						item.logeventid = values[i].logeventid;
 
 /*						zabbix_log(LOG_LEVEL_DEBUG, "Value [%s] Lastlogsize [%s] Timestamp [%s]",
 								values[i].value,
@@ -255,7 +250,7 @@ static void	process_mass_data(zbx_sock_t *sock, zbx_uint64_t proxy_hostid, AGENT
 
 					init_result(&agent);
 
-					if (SUCCEED == set_result_type(&agent, item.value_type, item.data_type, values[i].value))
+					if (SUCCEED == set_result_type(&agent, item.value_type, values[i].value))
 					{
 						if (0 == CONFIG_DBSYNCER_FORKS)
 							DBbegin();
@@ -439,9 +434,6 @@ static int	process_new_values(zbx_sock_t *sock, struct zbx_json_parse *jp, const
 
 		if (SUCCEED == zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_LOGSEVERITY, tmp, sizeof(tmp)))
 			av->severity = atoi(tmp);
-
-		if (SUCCEED == zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_LOGEVENTID, tmp, sizeof(tmp)))
-			av->logeventid = atoi(tmp);
 
 		value_num ++;
 
@@ -655,7 +647,9 @@ static int	process_trap(zbx_sock_t	*sock, char *s, int max_len)
 		{
 			zabbix_log( LOG_LEVEL_DEBUG, "XML received [%s]", s);
 
-			comms_parse_response(s, host_dec, key_dec, value_dec, lastlogsize, timestamp, source, severity);
+			comms_parse_response(s, host_dec, sizeof(host_dec), key_dec, sizeof(key_dec), value_dec, sizeof(value_dec),
+					lastlogsize, sizeof(lastlogsize), timestamp, sizeof(timestamp), source, sizeof(source),
+					severity, sizeof(severity));
 
 			server		= host_dec;
 			value_string	= value_dec;
@@ -746,10 +740,9 @@ void	child_trapper_main(zbx_process_t p, zbx_sock_t *s)
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In child_trapper_main()");
 
-/*	phan.sa_handler = child_signal_handler;*/
-	phan.sa_sigaction = child_signal_handler;
+	phan.sa_handler = child_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 	sigaction(SIGALRM, &phan, NULL);
 
 	zbx_process = p;

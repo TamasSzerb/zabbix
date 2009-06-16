@@ -188,10 +188,9 @@ int main_alerter_loop()
 	DB_ALERT		alert;
 	DB_MEDIATYPE		mediatype;
 
-/*	phan.sa_handler = child_signal_handler;*/
-        phan.sa_sigaction = child_signal_handler;
+	phan.sa_handler = child_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 	sigaction(SIGALRM, &phan, NULL);
 
 	zbx_setproctitle("connecting to the database");

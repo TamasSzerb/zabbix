@@ -43,117 +43,8 @@ function permission2str($group_permission){
 /*****************************************
 	CHECK USER AUTHORISATION
 *****************************************/
-function user_login($name, $passwd, $auth_type){
-	global $USER_DETAILS, $ZBX_LOCALNODEID;
-	
-	$password = md5($passwd);
-
-	$sql = 'SELECT u.userid,u.attempt_failed, u.attempt_clock, u.attempt_ip '.
-			' FROM users u '.
-			' WHERE u.alias='.zbx_dbstr($name);
-			
-//SQL to BLOCK attempts
-//					.' AND ( attempt_failed<'.ZBX_LOGIN_ATTEMPTS.
-//							' OR (attempt_failed>'.(ZBX_LOGIN_ATTEMPTS-1).
-//									' AND ('.time().'-attempt_clock)>'.ZBX_LOGIN_BLOCK.'))';
-				
-	$login = $attempt = DBfetch(DBselect($sql));
-
-	if(($name!=ZBX_GUEST_USER) && zbx_empty($passwd)){
-		$login = $attempt = false;
-	}
-
-	if($login){
-		if($login['attempt_failed'] >= ZBX_LOGIN_ATTEMPTS){
-			sleep(ZBX_LOGIN_BLOCK);
-		}
-		
-		switch(get_user_auth($login['userid'])){
-			case GROUP_GUI_ACCESS_INTERNAL:
-				$auth_type = ZBX_AUTH_INTERNAL;
-				break;
-			case GROUP_GUI_ACCESS_SYSTEM:
-			case GROUP_GUI_ACCESS_DISABLED:
-			default:
-				break;
-		}
-		
-		switch($auth_type){
-			case ZBX_AUTH_LDAP:
-				$login = ldap_authentication($name,$passwd);
-				break;
-			case ZBX_AUTH_HTTP:
-				$login = true;
-				break;
-			case ZBX_AUTH_INTERNAL:
-			default:
-				$alt_auth = ZBX_AUTH_INTERNAL;
-				$login = true;
-		}
-	}
-	
-	if($login){
-		$sql = 'SELECT u.userid,u.alias,u.name,u.surname,u.url,u.refresh,u.passwd '.
-					' FROM users u, users_groups ug, usrgrp g '.
-					' WHERE u.alias='.zbx_dbstr($name).
-						((ZBX_AUTH_INTERNAL==$auth_type)?' AND u.passwd='.zbx_dbstr($password):'').
-						' AND '.DBin_node('u.userid', $ZBX_LOCALNODEID);
-
-		$login = $user = DBfetch(DBselect($sql));
-	}
-
-/* update internal pass if it's different
-	if($login && ($row['passwd']!=$password) && (ZBX_AUTH_INTERNAL!=$auth_type)){
-		DBexecute('UPDATE users SET passwd='.zbx_dbstr($password).' WHERE userid='.$row['userid']);
-	}
-*/		
-	if($login){
-		$login = (check_perm2login($user['userid']) && check_perm2system($user['userid']));
-	}
-
-	if($login){
-		$sessionid = zbx_session_start($user['userid'], $name, $password);
-
-		add_audit(AUDIT_ACTION_LOGIN,AUDIT_RESOURCE_USER,'Correct login ['.$name.']');
-		
-		if(empty($user['url'])){
-			$user['url'] = get_profile('web.menu.view.last','index.php');
-		}
-		
-		$USER_DETAILS = $user;
-		$login = $sessionid;
-	}
-	else{
-		$user = NULL;
-		
-		$_REQUEST['message'] = 'Login name or password is incorrect';
-		add_audit(AUDIT_ACTION_LOGIN,AUDIT_RESOURCE_USER,'Login failed ['.$name.']');
-		
-		if($attempt){
-			$ip = (isset($_SERVER['HTTP_X_FORWARDED_FOR']) && !empty($_SERVER['HTTP_X_FORWARDED_FOR']))?$_SERVER['HTTP_X_FORWARDED_FOR']:$_SERVER['REMOTE_ADDR'];			
-			$attempt['attempt_failed']++;
-			$sql = 'UPDATE users SET attempt_failed='.$attempt['attempt_failed'].
-									', attempt_clock='.time().
-									', attempt_ip='.zbx_dbstr($ip).
-								' WHERE userid='.$attempt['userid'];
-			DBexecute($sql);
-		}
-	}
-	
-return $login;
-}
 
 function check_authorisation(){
-	$sessionid = get_cookie('zbx_sessionid');
-	
-	if(!$auth = check_authentication($sessionid)){
-		include('index.php');
-		exit();
-	}
-return $auth;
-}
-
-function check_authentication($sessionid=null){
 	global	$DB;
 	global	$page;
 	global	$PHP_AUTH_USER,$PHP_AUTH_PW;
@@ -163,6 +54,7 @@ function check_authentication($sessionid=null){
 	$USER_DETAILS = NULL;
 	$login = FALSE;
 
+	$sessionid = get_cookie('zbx_sessionid');
 	if(!is_null($sessionid)){
 		$sql = 'SELECT u.*,s.* '.
 				' FROM sessions s,users u'.
@@ -173,7 +65,6 @@ function check_authentication($sessionid=null){
 					' AND '.DBin_node('u.userid', $ZBX_LOCALNODEID);
 
 		$login = $USER_DETAILS = DBfetch(DBselect($sql));
-
 		if(!$USER_DETAILS){
 			$incorrect_session = true;
 		}
@@ -211,8 +102,8 @@ function check_authentication($sessionid=null){
 	if(!$login){
 		$USER_DETAILS = NULL;
 	}
-
-	if($login && $sessionid && !isset($incorrect_session)){
+	
+	if($login && !isset($incorrect_session)){
 		zbx_setcookie('zbx_sessionid',$sessionid,$USER_DETAILS['autologin']?(time()+86400*31):0);	//1 month
 		DBexecute('UPDATE sessions SET lastaccess='.time().' WHERE sessionid='.zbx_dbstr($sessionid));
 	}
@@ -241,9 +132,6 @@ function check_authentication($sessionid=null){
 				'nodeid'=>0));
 	}
 
-	$userip = (isset($_SERVER['HTTP_X_FORWARDED_FOR']) && !empty($_SERVER['HTTP_X_FORWARDED_FOR']))?$_SERVER['HTTP_X_FORWARDED_FOR']:$_SERVER['REMOTE_ADDR'];
-	$USER_DETAILS['userip'] = $userip;
-
 	if(!$login || isset($incorrect_session) || isset($missed_user_guest)){
 
 		if(isset($incorrect_session))	$message = 'Session was ended, please relogin!';
@@ -256,12 +144,11 @@ function check_authentication($sessionid=null){
 
 		if(!isset($_REQUEST['message']) && isset($message)) $_REQUEST['message'] = $message;
 		
-	return false;		
+		include('index.php');
+		exit;
 	}
-
-return true;
 }
-
+	
 /*****************************************
 	LDAP AUTHENTICATION
 *****************************************/
@@ -355,17 +242,6 @@ function get_user_auth($userid){
 return $result;
 }
 
-function get_user_api_access($userid){
-	$sql = 'SELECT g.usrgrpid '.
-			' FROM usrgrp g, users_groups ug '.
-			' WHERE ug.userid = '.$userid.
-				' AND g.usrgrpid = ug.usrgrpid '.
-				' AND g.api_access = '.GROUP_API_ACCESS_ENABLED;
-	if($res = DBfetch(DBselect($sql,1))){
-		return true;
-	}
-return false;
-}
 /* Function: get_user_system_auth()
  *
  * Description:
@@ -398,6 +274,7 @@ return $result;
 /***********************************************
 	GET ACCESSIBLE RESOURCES BY USERID
 ************************************************/
+
 function get_accessible_hosts_by_user(&$user_data,$perm,$perm_res=null,$nodeid=null,$cache=1){
 //		global $DB;
 	static $available_hosts;
@@ -581,8 +458,7 @@ return $result;
 
 function get_accessible_nodes_by_user(&$user_data,$perm,$perm_res=null,$nodeid=null,$cache=1){
 	global $ZBX_LOCALNODEID, $ZBX_NODES_IDS;
-	static $available_nodes;
-	
+
 	if(is_null($perm_res)) $perm_res = PERM_RES_IDS_ARRAY;
 	if(is_null($nodeid)) $nodeid = $ZBX_NODES_IDS;
 	if(!is_array($nodeid)) $nodeid = array($nodeid);
@@ -591,20 +467,12 @@ function get_accessible_nodes_by_user(&$user_data,$perm,$perm_res=null,$nodeid=n
 	$user_type	=& $user_data['type'];
 	if(!isset($userid)) fatal_error('Incorrect user data in "get_accessible_nodes_by_user"');
 
-
-	$nodeid_str =(is_array($nodeid))?md5(implode('',$nodeid)):strval($nodeid);
-	
-	if($cache && isset($available_nodes[$userid][$perm][$perm_res][$nodeid_str])){
-//SDI('Cache!!! '."[$userid][$perm][$perm_res]");
-		return $available_nodes[$userid][$perm][$perm_res][$nodeid_str];
-	}
-	
 	$node_data = array();
 	$result = array();
 
 //COpt::counter_up('perm');
 	if(USER_TYPE_SUPER_ADMIN == $user_type){
-		$nodes = DBselect('SELECT nodeid FROM nodes WHERE '.DBcondition('nodeid',$ZBX_NODES_IDS));
+		$nodes = DBselect('SELECT nodeid FROM nodes');// WHERE '.DBcondition('nodeid',$ZBX_NODES_IDS));
 		while($node = DBfetch($nodes)){
 			$node_data[$node['nodeid']] = $node;
 			$node_data[$node['nodeid']]['permission'] = PERM_READ_WRITE;
@@ -626,7 +494,7 @@ function get_accessible_nodes_by_user(&$user_data,$perm,$perm_res=null,$nodeid=n
 	foreach($node_data as $nodeid => $node){
 		switch($perm_res){
 			case PERM_RES_DATA_ARRAY:
-				$db_node = DBfetch(DBselect('SELECT * FROM nodes WHERE nodeid='.$nodeid.' ORDER BY name'));
+				$db_node = DBfetch(DBselect('SELECT * FROM nodes WHERE nodeid='.$nodeid));
 				
 				if(!ZBX_DISTRIBUTED){
 					if(!$node){
@@ -657,8 +525,6 @@ function get_accessible_nodes_by_user(&$user_data,$perm,$perm_res=null,$nodeid=n
 		else
 			$result = implode(',',$result);
 	}
-	
-	$available_nodes[$userid][$perm][$perm_res][$nodeid_str] = $result;
 
 return $result;
 }
@@ -821,7 +687,6 @@ function get_accessible_nodes_by_rights(&$rights,$user_type,$perm,$perm_res=null
 	$node_data = array();
 	$result = array();
 	
-//COpt::counter_up('perm_nodes['.$userid.','.$perm.','.$perm_mode.','.$perm_res.','.$nodeid.']');
 //COpt::counter_up('perm');
 //SDI(get_accessible_groups_by_rights($rights,$user_type,$perm,PERM_RES_DATA_ARRAY,$nodeid));
 	$available_groups = get_accessible_groups_by_rights($rights,$user_type,$perm,PERM_RES_DATA_ARRAY,$nodeid);

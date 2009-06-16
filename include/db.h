@@ -221,9 +221,9 @@ typedef enum {
 #define HTTPSTEP_REQUIRED_LEN		255
 #define HTTPSTEP_REQUIRED_LEN_MAX	HTTPSTEP_REQUIRED_LEN+1
 
-#define ZBX_SQL_ITEM_FIELDS	"i.itemid,i.key_,h.host,h.port,i.delay,i.description,i.nextcheck,i.type,i.snmp_community,i.snmp_oid,h.useip,h.ip,i.history,i.lastvalue,i.prevvalue,i.hostid,h.status,i.value_type,h.errors_from,i.snmp_port,i.delta,i.prevorgvalue,i.lastclock,i.units,i.multiplier,i.snmpv3_securityname,i.snmpv3_securitylevel,i.snmpv3_authpassphrase,i.snmpv3_privpassphrase,i.formula,h.available,i.status,i.trapper_hosts,i.logtimefmt,i.valuemapid,i.delay_flex,h.dns,i.params,i.trends,h.useipmi,h.ipmi_port,h.ipmi_authtype,h.ipmi_privilege,h.ipmi_username,h.ipmi_password,i.ipmi_sensor,h.maintenance_status,h.maintenance_type,h.maintenance_from,i.lastlogsize,i.data_type,h.ipmi_ip"
+#define ZBX_SQL_ITEM_FIELDS	"i.itemid,i.key_,h.host,h.port,i.delay,i.description,i.nextcheck,i.type,i.snmp_community,i.snmp_oid,h.useip,h.ip,i.history,i.lastvalue,i.prevvalue,i.hostid,h.status,i.value_type,h.errors_from,i.snmp_port,i.delta,i.prevorgvalue,i.lastclock,i.units,i.multiplier,i.snmpv3_securityname,i.snmpv3_securitylevel,i.snmpv3_authpassphrase,i.snmpv3_privpassphrase,i.formula,h.available,i.status,i.trapper_hosts,i.logtimefmt,i.valuemapid,i.delay_flex,h.dns,i.params,i.trends,h.useipmi,h.ipmi_port,h.ipmi_authtype,h.ipmi_privilege,h.ipmi_username,h.ipmi_password,i.ipmi_sensor,i.lastlogsize"
 #define ZBX_SQL_ITEM_TABLES	"hosts h, items i"
-#define ZBX_SQL_ITEM_FIELDS_NUM	52
+#define ZBX_SQL_ITEM_FIELDS_NUM	47
 #define ZBX_SQL_ITEM_SELECT	ZBX_SQL_ITEM_FIELDS " from " ZBX_SQL_ITEM_TABLES
 
 #define ZBX_MAX_SQL_LEN			65535
@@ -246,10 +246,6 @@ DB_DCHECK
 	char		*ports;
 	char		*key_;
 	char		*snmp_community;
-	char		*snmpv3_securityname;
-	int		snmpv3_securitylevel;
-	char		*snmpv3_authpassphrase;
-	char		*snmpv3_privpassphrase;
 	int		status;
 	char		value[DSERVICE_VALUE_LEN_MAX];
 };
@@ -268,7 +264,6 @@ DB_DSERVICE
 {
 	zbx_uint64_t	dserviceid;
 	zbx_uint64_t	dhostid;
-	zbx_uint64_t	dcheckid;
 	int		type;
 	int		port;
 	int		status;
@@ -336,7 +331,6 @@ DB_ITEM
 	zbx_uint64_t	itemid;
 	zbx_uint64_t	hostid;
 	zbx_item_type_t	type;
-	zbx_item_data_type_t	data_type;
 	zbx_item_status_t	status;
 	char	*description;
 	char	*key;
@@ -386,7 +380,6 @@ DB_ITEM
 	int	timestamp;
 	int	eventlog_severity;
 	char	*eventlog_source;
-	int	logeventid;
 
 	char	*logtimefmt;
 	zbx_uint64_t	valuemapid;
@@ -401,10 +394,6 @@ DB_ITEM
 	char	*ipmi_username;
 	char	*ipmi_password;
 	char	*ipmi_sensor;
-
-	int	maintenance_status;
-	int	maintenance_type;
-	int	maintenance_from;
 };
  
 DB_FUNCTION
@@ -692,8 +681,7 @@ int	DBadd_trend(zbx_uint64_t itemid, double value, int clock);
 int	DBadd_trend_uint(zbx_uint64_t itemid, zbx_uint64_t value, int clock);
 
 int	DBadd_history(zbx_uint64_t itemid, double value, int clock);
-int	DBadd_history_log(zbx_uint64_t itemid, char *value, int clock, int timestamp, char *source, int severity,
-		int logeventid, int lastlogsize);
+int	DBadd_history_log(zbx_uint64_t itemid, char *value, int clock, int timestamp, char *source, int severity, int lastlogsize);
 int	DBadd_history_str(zbx_uint64_t itemid, char *value, int clock);
 int	DBadd_history_text(zbx_uint64_t itemid, char *value, int clock);
 int	DBadd_history_uint(zbx_uint64_t itemid, zbx_uint64_t value, int clock);
@@ -702,8 +690,7 @@ void	DBproxy_add_history(zbx_uint64_t itemid, double value, int clock);
 void	DBproxy_add_history_uint(zbx_uint64_t itemid, zbx_uint64_t value, int clock);
 void	DBproxy_add_history_str(zbx_uint64_t itemid, char *value, int clock);
 void	DBproxy_add_history_text(zbx_uint64_t itemid, char *value, int clock);
-void	DBproxy_add_history_log(zbx_uint64_t itemid, char *value, int clock, int timestamp, char *source, int severity,
-		int logeventid, int lastlogsize);
+void	DBproxy_add_history_log(zbx_uint64_t itemid, char *value, int clock, int timestamp, char *source, int severity, int lastlogsize);
 
 
 void	DBadd_condition_alloc(char **sql, int *sql_alloc, int *sql_offset, const char *fieldname, const zbx_uint64_t *values, const int num);

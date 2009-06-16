@@ -50,11 +50,6 @@ FIELD		|type		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC,ZBX_PROXY
 FIELD		|key_		|t_varchar(255)	|'0'	|NOT NULL	|ZBX_SYNC,ZBX_PROXY
 FIELD		|snmp_community	|t_varchar(255)	|'0'	|NOT NULL	|ZBX_SYNC,ZBX_PROXY
 FIELD		|ports		|t_varchar(255)	|'0'	|NOT NULL	|ZBX_SYNC,ZBX_PROXY
-FIELD		|snmpv3_securityname|t_varchar(64)|''	|NOT NULL	|ZBX_SYNC,ZBX_PROXY
-FIELD		|snmpv3_securitylevel|t_integer	|'0'	|NOT NULL	|ZBX_SYNC,ZBX_PROXY
-FIELD		|snmpv3_authpassphrase|t_varchar(64)|''	|NOT NULL	|ZBX_SYNC,ZBX_PROXY
-FIELD		|snmpv3_privpassphrase|t_varchar(64)|''	|NOT NULL	|ZBX_SYNC,ZBX_PROXY
-INDEX		|1		|druleid
 
 TABLE|dhosts|dhostid|ZBX_SYNC
 FIELD		|dhostid	|t_id		|'0'	|NOT NULL	|0
@@ -63,7 +58,6 @@ FIELD		|ip		|t_varchar(39)	|''	|NOT NULL	|ZBX_SYNC
 FIELD		|status		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|lastup		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|lastdown	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-INDEX		|1		|druleid
 
 TABLE|dservices|dserviceid|ZBX_SYNC
 FIELD		|dserviceid	|t_id		|'0'	|NOT NULL	|0
@@ -75,9 +69,6 @@ FIELD		|port		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|status		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|lastup		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|lastdown	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|dcheckid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|dchecks
-INDEX		|1		|dhostid
-INDEX		|2		|dcheckid
 
 TABLE|ids|nodeid,table_name,field_name|
 FIELD		|nodeid		|t_integer	|'0'	|NOT NULL	|0			|nodes
@@ -233,7 +224,6 @@ FIELD		|timestamp	|t_time		|'0'	|NOT NULL	|0
 FIELD		|source		|t_varchar(64)	|''	|NOT NULL	|0
 FIELD		|severity	|t_integer	|'0'	|NOT NULL	|0
 FIELD		|value		|t_history_log	|''	|NOT NULL	|0
-FIELD		|logeventid	|t_integer	|'0'	|NOT NULL	|0
 INDEX		|1		|itemid,clock
 UNIQUE		|2		|itemid,id
 
@@ -253,14 +243,12 @@ FIELD		|timestamp	|t_time		|'0'	|NOT NULL	|0
 FIELD		|source		|t_varchar(64)	|''	|NOT NULL	|0
 FIELD		|severity	|t_integer	|'0'	|NOT NULL	|0
 FIELD		|value		|t_history_log	|''	|NOT NULL	|0
-FIELD		|logeventid	|t_integer	|'0'	|NOT NULL	|0
 INDEX		|1		|clock
 
 TABLE|proxy_dhistory|id|0
 FIELD		|id		|t_serial	|	|NOT NULL	|0
 FIELD		|clock		|t_time		|'0'	|NOT NULL	|0
 FIELD		|druleid	|t_id		|'0'	|NOT NULL	|0			|drules
-FIELD		|dcheckid	|t_id		|'0'	|NOT NULL	|0			|dchecks
 FIELD		|type		|t_integer	|'0'	|NOT NULL	|0
 FIELD		|ip		|t_varchar(39)	|''	|NOT NULL	|0
 FIELD		|port		|t_integer	|'0'	|NOT NULL	|0
@@ -312,21 +300,9 @@ FIELD		|userid		|t_id		|'0'	|NOT NULL	|0			|users
 FIELD		|clock		|t_time		|'0'	|NOT NULL	|0
 FIELD		|action		|t_integer	|'0'	|NOT NULL	|0
 FIELD		|resourcetype	|t_integer	|'0'	|NOT NULL	|0
-FIELD		|details	|t_varchar(128) |'0'	|NOT NULL	|0
-FIELD		|ip		|t_varchar(39)	|''	|NOT NULL	|0
-FIELD		|resourceid	|t_id		|'0'	|NOT NULL	|0
-FIELD		|resourcename	|t_varchar(255)	|''	|NOT NULL	|0
+FIELD		|details	|t_varchar(128)	|'0'	|NOT NULL	|0
 INDEX		|1		|userid,clock
 INDEX		|2		|clock
-
-TABLE|auditlog_details|auditdetailid|ZBX_HISTORY
-FIELD		|auditdetailid	|t_id		|'0'	|NOT NULL	|0
-FIELD		|auditid	|t_id		|'0'	|NOT NULL	|0			|auditlog
-FIELD		|table_name	|t_varchar(64)	|''	|NOT NULL	|0
-FIELD		|field_name	|t_varchar(64)	|''	|NOT NULL	|0
-FIELD		|oldvalue	|t_blob		|''	|NOT NULL	|0
-FIELD		|newvalue	|t_blob		|''	|NOT NULL	|0
-INDEX		|1		|auditid
 
 TABLE|service_alarms|servicealarmid|ZBX_HISTORY
 FIELD		|servicealarmid	|t_id		|'0'	|NOT NULL	|0
@@ -374,12 +350,6 @@ FIELD		|operator	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|value		|t_varchar(255)	|''	|NOT NULL	|ZBX_SYNC
 INDEX		|1		|operationid
 
-TABLE|opmediatypes|opmediatypeid|ZBX_SYNC
-FIELD		|opmediatypeid	|t_id		|'0'	|NOT NULL	|0
-FIELD		|operationid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|operations
-FIELD		|mediatypeid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|media_type
-UNIQUE		|1		|operationid
-
 TABLE|escalations|escalationid|0
 FIELD		|escalationid	|t_id		|'0'	|NOT NULL	|0
 FIELD		|actionid	|t_id		|'0'	|NOT NULL	|0			|actions
@@ -425,8 +395,6 @@ FIELD		|ldap_base_dn	|t_varchar(255)	|''	|NOT NULL	|ZBX_SYNC
 FIELD		|ldap_bind_dn	|t_varchar(255)	|''	|NOT NULL	|ZBX_SYNC
 FIELD		|ldap_bind_password|t_varchar(128)|''	|NOT NULL	|ZBX_SYNC
 FIELD		|ldap_search_attribute|t_varchar(128)|''|NOT NULL	|ZBX_SYNC
-FIELD		|dropdown_first_entry|t_integer	|1	|NOT NULL	|ZBX_SYNC
-FIELD		|dropdown_first_remember|t_integer|1	|NOT NULL	|ZBX_SYNC
 
 TABLE|functions|functionid|ZBX_SYNC
 FIELD		|functionid	|t_id		|'0'	|NOT NULL	|0
@@ -443,12 +411,9 @@ FIELD		|graphid	|t_id		|'0'	|NOT NULL	|0
 FIELD		|name		|t_varchar(128)	|''	|NOT NULL	|ZBX_SYNC
 FIELD		|width		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|height		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|ymin_type	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|ymax_type	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
+FIELD		|yaxistype	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|yaxismin	|t_double	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|yaxismax	|t_double	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|ymin_itemid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|items
-FIELD		|ymax_itemid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|items
 FIELD		|templateid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|graphs
 FIELD		|show_work_period|t_integer	|'1'	|NOT NULL	|ZBX_SYNC
 FIELD		|show_triggers	|t_integer	|'1'	|NOT NULL	|ZBX_SYNC
@@ -509,11 +474,6 @@ FIELD		|ipmi_disable_until|t_integer	|'0'	|NOT NULL	|0
 FIELD		|ipmi_available	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|snmp_disable_until|t_integer	|'0'	|NOT NULL	|0
 FIELD		|snmp_available	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|maintenanceid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|maintenances
-FIELD		|maintenance_status|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|maintenance_type|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|maintenance_from|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|ipmi_ip	|t_varchar(39)	|'127.0.0.1'|NOT NULL	|ZBX_SYNC,ZBX_PROXY
 INDEX		|1		|host
 INDEX		|2		|status
 INDEX		|3		|proxy_hostid
@@ -523,7 +483,6 @@ FIELD		|hostgroupid	|t_id		|'0'	|NOT NULL	|0
 FIELD		|hostid		|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|hosts
 FIELD		|groupid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|groups
 INDEX		|groups_1	|hostid,groupid
-INDEX		|groups_2	|groupid
 
 TABLE|hosts_profiles|hostid|ZBX_SYNC
 FIELD		|hostid		|t_id		|'0'	|NOT NULL	|0			|hosts
@@ -655,7 +614,6 @@ FIELD		|valuemapid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC,ZBX_PROXY	|valuemaps
 FIELD		|delay_flex	|t_varchar(255)	|''	|NOT NULL	|ZBX_SYNC,ZBX_PROXY
 FIELD		|params		|t_item_param	|''	|NOT NULL	|ZBX_SYNC,ZBX_PROXY
 FIELD		|ipmi_sensor	|t_varchar(128)	|''	|NOT NULL	|ZBX_SYNC,ZBX_PROXY
-FIELD		|data_type	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 UNIQUE		|1		|hostid,key_
 INDEX		|2		|nextcheck
 INDEX		|3		|status
@@ -798,7 +756,7 @@ FIELD		|elementtype	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|iconid_off	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|images
 FIELD		|iconid_on	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|images
 FIELD		|iconid_unknown	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|images
-FIELD		|label		|t_varchar(255)	|''	|NOT NULL	|ZBX_SYNC
+FIELD		|label		|t_varchar(128)	|''	|NOT NULL	|ZBX_SYNC
 FIELD		|label_location	|t_integer	|	|NULL		|ZBX_SYNC
 FIELD		|x		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|y		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
@@ -856,14 +814,12 @@ FIELD		|theme		|t_varchar(128)	|'default.css'|NOT NULL	|ZBX_SYNC
 FIELD		|attempt_failed	|t_integer	|0	|NOT NULL	|ZBX_SYNC
 FIELD		|attempt_ip	|t_varchar(39)	|''	|NOT NULL	|ZBX_SYNC
 FIELD		|attempt_clock	|t_integer	|0	|NOT NULL	|ZBX_SYNC
-FIELD		|rows_per_page	|t_integer	|50	|NOT NULL	|ZBX_SYNC
 INDEX		|1		|alias
 
 TABLE|usrgrp|usrgrpid|ZBX_SYNC
 FIELD		|usrgrpid	|t_id		|'0'	|NOT NULL	|0
 FIELD		|name		|t_varchar(64)	|''	|NOT NULL	|ZBX_SYNC
 FIELD		|gui_access	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|api_access	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 FIELD		|users_status	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
 INDEX		|1		|name
 
@@ -878,55 +834,3 @@ FIELD		|valuemapid	|t_id		|'0'	|NOT NULL	|0
 FIELD		|name		|t_varchar(64)	|''	|NOT NULL	|ZBX_SYNC
 INDEX		|1		|name
 
-TABLE|maintenances|maintenanceid|ZBX_SYNC
-FIELD		|maintenanceid	|t_id		|'0'	|NOT NULL	|0
-FIELD		|name		|t_varchar(128)	|''	|NOT NULL	|ZBX_SYNC
-FIELD		|maintenance_type|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|description	|t_blob		|''	|NOT NULL	|ZBX_SYNC
-FIELD		|active_since	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|active_till	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-INDEX		|1		|active_since,active_till
-
-TABLE|maintenances_hosts|maintenance_hostid|ZBX_SYNC
-FIELD		|maintenance_hostid|t_id	|'0'	|NOT NULL	|0
-FIELD		|maintenanceid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|maintenances
-FIELD		|hostid		|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|hosts
-INDEX		|1		|maintenanceid,hostid
-
-TABLE|maintenances_groups|maintenance_groupid|ZBX_SYNC
-FIELD		|maintenance_groupid|t_id	|'0'	|NOT NULL	|0
-FIELD		|maintenanceid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|maintenances
-FIELD		|groupid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|groups
-INDEX		|1		|maintenanceid,groupid
-
-TABLE|maintenances_windows|maintenance_timeperiodid|ZBX_SYNC
-FIELD		|maintenance_timeperiodid|t_id	|'0'	|NOT NULL	|0
-FIELD		|maintenanceid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|maintenances
-FIELD		|timeperiodid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|timeperiods
-INDEX		|1		|maintenanceid,timeperiodid
-
-TABLE|timeperiods|timeperiodid|ZBX_SYNC
-FIELD		|timeperiodid	|t_id		|'0'	|NOT NULL	|0
-FIELD		|timeperiod_type|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|every		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|month		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|dayofweek	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|day		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|start_time	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|period		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|date		|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-
-TABLE|regexps|regexpid|ZBX_SYNC
-FIELD		|regexpid	|t_id		|'0'	|NOT NULL	|0
-FIELD		|name		|t_varchar(128)	|''	|NOT NULL	|ZBX_SYNC
-FIELD		|test_string	|t_blob		|''	|NOT NULL	|ZBX_SYNC
-INDEX		|1		|name
-
-TABLE|expressions|expressionid|ZBX_SYNC
-FIELD		|expressionid	|t_id		|'0'	|NOT NULL	|0
-FIELD		|regexpid	|t_id		|'0'	|NOT NULL	|ZBX_SYNC		|regexps
-FIELD		|expression	|t_varchar(255)	|''	|NOT NULL	|ZBX_SYNC
-FIELD		|expression_type|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-FIELD		|exp_delimiter	|t_varchar(1)	|''	|NOT NULL	|ZBX_SYNC
-FIELD		|case_sensitive	|t_integer	|'0'	|NOT NULL	|ZBX_SYNC
-INDEX		|1		|regexpid

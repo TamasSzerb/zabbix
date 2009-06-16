@@ -20,7 +20,6 @@
 ?>
 <?php
 	require_once('include/config.inc.php');
-	require_once('include/maps.inc.php');
 	
 	$page['title'] = "S_NETWORK_MAPS";
 	$page['file'] = 'maps.php';
@@ -95,6 +94,7 @@ include_once('include/page_header.php');
 						' WHERE '.DBin_node('sysmapid').
 						' ORDER BY name');
 	while($row=DBfetch($result)){
+//SDI($row['name']);
 		if(!sysmap_accessible($row['sysmapid'],PERM_READ_ONLY))
 			continue;
 
@@ -121,37 +121,42 @@ include_once('include/page_header.php');
 	}
 ?>
 <?php
-	$map_wdgt = new CWidget('hat_maps');
+	$p_elements = array();
 	
-// HEADER
-	$text = SPACE;
+	$text = null;
 	if(isset($_REQUEST["sysmapid"])){
 		$sysmap = get_sysmap_by_sysmapid($_REQUEST["sysmapid"]);
 		$text = $all_maps[$_REQUEST["sysmapid"]];		
 	}
 
 	$form = new CForm();
-	$form->setMethod('get');
+	$form->SetMethod('get');
 	
-	$form->addVar("fullscreen",$_REQUEST["fullscreen"]);
+	$form->AddVar("fullscreen",$_REQUEST["fullscreen"]);
 
 	$cmbMaps = new CComboBox("sysmapid",get_request("sysmapid",0),"submit()");
 	
 	foreach($all_maps as $id => $name){
-		$cmbMaps->addItem($id, $name);
+		$cmbMaps->AddItem($id, $name);
 	}
-//-------------------------	
+	
+	if($cmbMaps->ItemsCount()>0){
+		$form->AddItem($cmbMaps);
+		$p_elements[] = get_table_header($text,$form);
+	}
 ?>
 <?php
 	$table = new CTable(S_NO_MAPS_DEFINED,"map");
 	if(isset($_REQUEST["sysmapid"])){
 		$action_map = get_action_map_by_sysmapid($_REQUEST["sysmapid"]);
-		$table->addRow($action_map);
+		$table->AddRow($action_map);
 
 		$imgMap = new CImg("map.php?noedit=1&sysmapid=".$_REQUEST["sysmapid"]);
-		$imgMap->setMap($action_map->GetName());
-		$table->addRow($imgMap);
+		$imgMap->SetMap($action_map->GetName());
+		$table->AddRow($imgMap);
 	}
+		
+	$p_elements[] = $table;
 
 	$icon = null;
 	$fs_icon = null;
@@ -162,33 +167,32 @@ include_once('include/page_header.php');
 		
 		if(infavorites('web.favorite.sysmapids',$_REQUEST['sysmapid'],'sysmapid')){
 			$icon = new CDiv(SPACE,'iconminus');
-			$icon->addOption('title',S_REMOVE_FROM.' '.S_FAVORITES);
-			$icon->addAction('onclick',new CScript("javascript: rm4favorites('sysmapid','".$_REQUEST["sysmapid"]."',0);"));
+			$icon->AddOption('title',S_REMOVE_FROM.' '.S_FAVORITES);
+			$icon->AddAction('onclick',new CScript("javascript: rm4favorites('sysmapid','".$_REQUEST["sysmapid"]."',0);"));
 		}
 		else{
 			$icon = new CDiv(SPACE,'iconplus');
-			$icon->addOption('title',S_ADD_TO.' '.S_FAVORITES);
-			$icon->addAction('onclick',new CScript("javascript: add2favorites('sysmapid','".$_REQUEST["sysmapid"]."');"));
+			$icon->AddOption('title',S_ADD_TO.' '.S_FAVORITES);
+			$icon->AddAction('onclick',new CScript("javascript: add2favorites('sysmapid','".$_REQUEST["sysmapid"]."');"));
 		}
-		$icon->addOption('id','addrm_fav');
+		$icon->AddOption('id','addrm_fav');
 		
 		$url = '?sysmapid='.$_REQUEST['sysmapid'].($_REQUEST['fullscreen']?'':'&fullscreen=1');
 
 		$fs_icon = new CDiv(SPACE,'fullscreen');
-		$fs_icon->addOption('title',$_REQUEST['fullscreen']?S_NORMAL.' '.S_VIEW:S_FULLSCREEN);
-		$fs_icon->addAction('onclick',new CScript("javascript: document.location = '".$url."';"));	
-	}
-
-	$map_wdgt->addHeader(S_NETWORK_MAPS_BIG,array($icon,$fs_icon));
-
-	if($cmbMaps->itemsCount()>0){
-		$form->addItem($cmbMaps);
-		$map_wdgt->addHeader($text,$form);
+		$fs_icon->AddOption('title',$_REQUEST['fullscreen']?S_NORMAL.' '.S_VIEW:S_FULLSCREEN);
+		$fs_icon->AddAction('onclick',new CScript("javascript: document.location = '".$url."';"));	
 	}
 	
-	$map_wdgt->addItem($table);
+	$latest_hat = create_hat(
+			S_NETWORK_MAPS_BIG,
+			$p_elements,
+			array($icon,$fs_icon),
+			'hat_maps',
+			get_profile('web.maps.hats.hat_maps.state',1)
+	);
 
-	$map_wdgt->show();
+	$latest_hat->Show();
 ?>
 <?php
 

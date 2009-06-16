@@ -31,7 +31,7 @@ static int	parent = 0;
 
 #define uninit() { if(parent == 1) zbx_on_exit(); }
 
-void	child_signal_handler(int sig,  siginfo_t *siginfo, void *context)
+void	child_signal_handler(int sig)
 {
 	switch(sig)
 	{
@@ -42,30 +42,29 @@ void	child_signal_handler(int sig,  siginfo_t *siginfo, void *context)
 	case SIGQUIT:
 	case SIGINT:
 	case SIGTERM:
+		zabbix_log( LOG_LEVEL_DEBUG, "Got signal. Exiting ...");
 		uninit();
 		exit( FAIL );
 		break;
 	case SIGPIPE:
-		zabbix_log( LOG_LEVEL_DEBUG, "Got SIGPIPE from PID: %d.",
-			siginfo->si_pid);
+		zabbix_log( LOG_LEVEL_WARNING, "Got SIGPIPE. Where it came from???");
 		break;
 	default:
 		zabbix_log( LOG_LEVEL_WARNING, "Got signal [%d]. Ignoring ...", sig);
 	}
 }
 
-static void	parent_signal_handler(int sig,  siginfo_t *siginfo, void *context)
+static void	parent_signal_handler(int sig)
 {
 	switch(sig)
 	{
 	case SIGCHLD:
-		zabbix_log( LOG_LEVEL_WARNING, "One child process died (PID:%d). Exiting ...",
-			siginfo->si_pid);
+		zabbix_log( LOG_LEVEL_WARNING, "One child process died. Exiting ...");
 		uninit();
 		exit( FAIL );
 		break;
 	default:
-		child_signal_handler(sig, siginfo, context);
+		child_signal_handler(sig);
 	}
 }
 
@@ -177,10 +176,9 @@ int	daemon_start(int allow_root)
 		exit(FAIL);
 	}
 
-/*	phan.sa_handler = child_signal_handler;*/
-	phan.sa_sigaction = child_signal_handler;
+	phan.sa_handler = child_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 
 	sigaction(SIGINT,	&phan, NULL);
 	sigaction(SIGQUIT,	&phan, NULL);
@@ -203,10 +201,9 @@ void	init_main_process(void)
 	
 	parent = 1; /* signalize signal_handler what this process isi a PARENT process */
 	
-/*	phan.sa_handler = parent_signal_handler;*/
-	phan.sa_sigaction = parent_signal_handler;
+	phan.sa_handler = parent_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 
 	/* For parent only. To avoid problems with EXECUTE_INT */
 	sigaction(SIGCHLD,	&phan, NULL);

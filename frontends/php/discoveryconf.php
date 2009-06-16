@@ -43,20 +43,15 @@ include_once "include/page_header.php";
 		'g_druleid'=>	array(T_ZBX_INT, O_OPT,  null,	DB_ID,		null),
 
 		'dchecks'=>	array(null, O_OPT, null, null, null),
-		'dchecks_deleted'=>	array(null, O_OPT, null, null, null),
 		'selected_checks'=>	array(T_ZBX_INT, O_OPT, null, null, null),
 
 		'new_check_type'=>	array(T_ZBX_INT, O_OPT,  null,	
-			IN(array(SVC_SSH, SVC_LDAP, SVC_SMTP, SVC_FTP, SVC_HTTP, SVC_POP, SVC_NNTP, SVC_IMAP, SVC_TCP, SVC_AGENT, SVC_SNMPv1, SVC_SNMPv2, SVC_SNMPv3, SVC_ICMPPING)),
+			IN(array(SVC_SSH, SVC_LDAP, SVC_SMTP, SVC_FTP, SVC_HTTP, SVC_POP, SVC_NNTP, SVC_IMAP, SVC_TCP, SVC_AGENT, SVC_SNMPv1, SVC_SNMPv2, SVC_ICMPPING)),
 										'isset({add_check})'),
 
 		'new_check_ports'=>	array(T_ZBX_PORTS, O_OPT,  null,	NOT_EMPTY,	'isset({add_check})'),
 		'new_check_key'=>	array(T_ZBX_STR, O_OPT,  null,	null,	'isset({add_check})'),
-		'new_check_snmp_community'=>		array(T_ZBX_STR, O_OPT,  null,	null,		'isset({add_check})'),
-		'new_check_snmpv3_securitylevel'=>	array(T_ZBX_INT, O_OPT,  null,  IN('0,1,2'),	'isset({add_check})'),
-		'new_check_snmpv3_securityname'=>	array(T_ZBX_STR, O_OPT,  null,  null,		'isset({add_check})'),
-		'new_check_snmpv3_authpassphrase'=>	array(T_ZBX_STR, O_OPT,  null,  null,		'isset({add_check})'),
-		'new_check_snmpv3_privpassphrase'=>	array(T_ZBX_STR, O_OPT,  null,  null,		'isset({add_check})'),
+		'new_check_snmp_community'=>	array(T_ZBX_STR, O_OPT,  null,	null,	'isset({add_check})'),
 
 		'type_changed'=>	array(T_ZBX_INT, O_OPT, null, IN(1), null),
 
@@ -79,33 +74,22 @@ include_once "include/page_header.php";
 	validate_sort_and_sortorder('d.name',ZBX_SORT_UP);
 	
 	$_REQUEST['dchecks'] = get_request('dchecks', array());
-	$_REQUEST['dchecks_deleted'] = get_request('dchecks_deleted', array());
 	
 ?>
 <?php
-	if(inarr_isset(array('add_check', 'new_check_type', 'new_check_ports', 'new_check_key', 'new_check_snmp_community',
-			'new_check_snmpv3_securitylevel', 'new_check_snmpv3_securityname', 'new_check_snmpv3_authpassphrase',
-			'new_check_snmpv3_privpassphrase'))){
+	if(inarr_isset(array('add_check', 'new_check_type', 'new_check_ports', 'new_check_key', 'new_check_snmp_community'))){
 		$new_dcheck = array(
 			'type' => $_REQUEST['new_check_type'],
 			'ports'=> $_REQUEST['new_check_ports'],
 			'key'=> $_REQUEST['new_check_key'],
-			'snmp_community'=> $_REQUEST['new_check_snmp_community'],
-			'snmpv3_securitylevel'=> $_REQUEST['new_check_snmpv3_securitylevel'],
-			'snmpv3_securityname'=> $_REQUEST['new_check_snmpv3_securityname'],
-			'snmpv3_authpassphrase'=> $_REQUEST['new_check_snmpv3_authpassphrase'],
-			'snmpv3_privpassphrase'=> $_REQUEST['new_check_snmpv3_privpassphrase']
+			'snmp_community'=> $_REQUEST['new_check_snmp_community']
 			);
 		if( !str_in_array($new_dcheck, $_REQUEST['dchecks']))
 			$_REQUEST['dchecks'][] = $new_dcheck;
 	}
 	else if(inarr_isset(array('delete_ckecks', 'selected_checks'))){
 		foreach($_REQUEST['selected_checks'] as $chk_id)
-		{
-			if (isset($_REQUEST['dchecks'][$chk_id]['dcheckid']))
-				$_REQUEST['dchecks_deleted'][] = $_REQUEST['dchecks'][$chk_id]['dcheckid'];
 			unset($_REQUEST['dchecks'][$chk_id]);
-		}
 	}
 	else if(inarr_isset('save')){
 		if(inarr_isset('druleid')){ /* update */
@@ -113,7 +97,7 @@ include_once "include/page_header.php";
 			$msg_fail = S_CANNOT_UPDATE_DISCOVERY_RULE;
 
 			$result = update_discovery_rule($_REQUEST["druleid"], $_REQUEST["proxy_hostid"], $_REQUEST['name'], $_REQUEST['iprange'], 
-				$_REQUEST['delay'], $_REQUEST['status'], $_REQUEST['dchecks'], $_REQUEST['dchecks_deleted']);
+				$_REQUEST['delay'], $_REQUEST['status'], $_REQUEST['dchecks']);
 
 			$druleid = $_REQUEST["druleid"];
 		}
@@ -138,9 +122,6 @@ include_once "include/page_header.php";
 	}
 	else if(inarr_isset(array('clone','druleid'))){
 		unset($_REQUEST["druleid"]);
-		$dchecks = $_REQUEST['dchecks'];
-		foreach($dchecks as $id => $data)
-			unset($dchecks[$id]['dcheckid']);
 		$_REQUEST["form"] = "clone";
 	}
 	else if(inarr_isset(array('delete', 'druleid'))){
@@ -220,7 +201,7 @@ include_once "include/page_header.php";
 						
 		while($rule_data = DBfetch($db_rules)){
 			$cheks = array();
-			$db_checks = DBselect("select type from dchecks where druleid=".$rule_data["druleid"].
+			$db_checks = DBselect("select * from dchecks where druleid=".$rule_data["druleid"].
 				" order by type,druleid");
 			while($check_data = DBfetch($db_checks)){
 				$cheks[] = discovery_check_type2str($check_data['type']);

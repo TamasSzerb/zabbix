@@ -256,8 +256,7 @@ include_once "include/page_header.php";
 ?>
 <?php
 	$effectiveperiod = navigation_bar_calc();
-
-	$bstime = $_REQUEST['stime'] = get_request('stime',
+		$bstime = $_REQUEST['stime'] = get_request('stime',
 										get_profile('web.item.graph.stime',date('YmdHi',(time()-$_REQUEST['period'])),
 										PROFILE_TYPE_STR,
 										$_REQUEST['itemid']));
@@ -273,7 +272,7 @@ include_once "include/page_header.php";
 			$time = mktime(substr($bstime,8,2),substr($bstime,10,2),0,substr($bstime,4,2),substr($bstime,6,2),substr($bstime,0,4));
 			$till = $time + $effectiveperiod;
 		}
-		$l_header = null;
+			$l_header = null;
 		
 		if(!isset($_REQUEST['plaintext'])){
 			if($item_type==ITEM_VALUE_TYPE_LOG){
@@ -316,7 +315,7 @@ include_once "include/page_header.php";
 			}
 
 			if(($l_header || $r_header) &&	($_REQUEST['fullscreen']==0))
-				show_table_header($l_header,$r_header);
+					show_table_header($l_header,$r_header);
 		}
 		else{
 			$txt = new CTag('p','yes',$l_header);
@@ -353,8 +352,7 @@ include_once "include/page_header.php";
 					$sql_filter = ' AND h.value NOT LIKE '.zbx_dbstr('%'.$_REQUEST['filter'].'%');
 			}
 
-			$sql = 'SELECT hst.host,i.itemid,i.key_,i.description,h.clock,h.value,i.valuemapid,h.timestamp,h.source,'.
-					'h.severity,h.logeventid '.
+			$sql = 'SELECT hst.host,i.itemid,i.key_,i.description,h.clock,h.value,i.valuemapid,h.timestamp,h.source,h.severity '.
 					' FROM history_log h, items i, hosts hst '.
 					' WHERE hst.hostid=i.hostid '.
 						' AND h.itemid=i.itemid'.$sql_filter.
@@ -371,7 +369,6 @@ include_once "include/page_header.php";
 						S_LOCAL_TIME,
 						S_SOURCE,
 						S_SEVERITY,
-						S_EVENT_ID,
 						S_VALUE),'header');
 
 				$table->ShowStart(); // to solve memory leak we call 'Show' method by steps
@@ -426,13 +423,6 @@ include_once "include/page_header.php";
 							get_severity_style($row['severity'])
 							)
 					);
-
-				if($row['source'] == '' && $row['logeventid'] == '0'){
-					array_push($new_row,new CCol(' - '));
-				}
-				else{
-					array_push($new_row,$row['logeventid']);
-				}
 
 				$row['value'] = trim($row['value'],"\r\n");
 				$row['value'] = encode_log($row['value']);
@@ -555,14 +545,8 @@ COpt::profiling_stop('history');
  			$script = 'scrollinit(0,'.$effectiveperiod.','.$stime.',0,'.$bstime.'); showgraphmenu("graph");';
 			if(isset($dom_graph_id))
 				$script.='graph_zoom_init("'.$dom_graph_id.'",'.$bstime.','.$effectiveperiod.',ZBX_G_WIDTH, 200, true);';
-			
-			zbx_add_post_js($script); 
-			
-			$scroll_div = new CDiv();			
-			$scroll_div->addOption('id','scroll_cntnr');			
-			$scroll_div->addOption('style','border: 0px #CC0000 solid; height: 25px; width: 800px;');			
-			$scroll_div->show();
-	//		navigation_bar("history.php",$to_save_request);
+			zbx_add_post_js($script);
+			//		navigation_bar("history.php",$to_save_request);		}
 		}
 	}
 ?>

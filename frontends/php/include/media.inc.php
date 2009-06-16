@@ -69,90 +69,73 @@
 		return	$result;
 	}
 
-// Delete Media definition by mediatypeid
-	function delete_media_by_mediatypeid($mediatypeid){
+	# Delete Media definition by mediatypeid
+
+	function	delete_media_by_mediatypeid($mediatypeid)
+	{
 		$sql="delete from media where mediatypeid=$mediatypeid";
 		return	DBexecute($sql);
 	}
 
-// Delete alerts by mediatypeid
-	function delete_alerts_by_mediatypeid($mediatypeid){
+	# Delete alerts by mediatypeid
+
+	function	delete_alerts_by_mediatypeid($mediatypeid)
+	{
 		$sql="delete from alerts where mediatypeid=$mediatypeid";
 		return	DBexecute($sql);
 	}
 
-	function get_mediatype_by_mediatypeid($mediatypeid){
+	function	get_mediatype_by_mediatypeid($mediatypeid)
+	{
 		$sql="select * from media_type where mediatypeid=$mediatypeid";
 		$result=DBselect($sql);
 		$row=DBfetch($result);
-		if($row){
+		if($row)
+		{
 			return	$row;
 		}
-		else{
+		else
+		{
 			error("No media type with with mediatypeid=[$mediatypeid]");
 		}
-	return $item;
+		return	$item;
 	}
 
-// Delete media type
-	function delete_mediatype($mediatypeid){
+	# Delete media type
+
+	function	delete_mediatype($mediatypeid)
+	{
+
 		delete_media_by_mediatypeid($mediatypeid);
 		delete_alerts_by_mediatypeid($mediatypeid);
-		$mediatype = get_mediatype_by_mediatypeid($mediatypeid);
-		
-		$sql='DELETE FROM media_type WHERE mediatypeid='.$mediatypeid;
-
-		if($ret = DBexecute($sql)){
-			add_audit_ext(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_MEDIA_TYPE, $mediatypeid, $mediatype['description'], NULL, NULL, NULL);
-		}
-	return $ret;
+		$sql="delete from media_type where mediatypeid=$mediatypeid";
+		return	DBexecute($sql);
 	}
 
-// Update media type
-	function update_mediatype($mediatypeid,$type,$description,$smtp_server,$smtp_helo,$smtp_email,$exec_path,$gsm_modem,$username,$password){
+	# Update media type
+
+	function	update_mediatype($mediatypeid,$type,$description,$smtp_server,$smtp_helo,$smtp_email,$exec_path,$gsm_modem,$username,$password)
+	{
 		$ret = 0;
 
-		$sql='SELECT * '.
-			' FROM media_type '.
-			' WHERE description='.zbx_dbstr($description).
-				' AND mediatypeid<>'.$mediatypeid.
-				' AND '.DBin_node('mediatypeid');
+		$sql="select * from media_type where description=".zbx_dbstr($description)." and mediatypeid<>$mediatypeid";
 		$result=DBexecute($sql);
-		if(DBfetch($result)){
+		if(DBfetch($result))
+		{
 			error("An action type with description '$description' already exists.");
 		}
-		else{
-			$mediatype_old = get_mediatype_by_mediatypeid($mediatypeid);
-			
-			$sql='UPDATE media_type SET '.
-					'type='.$type.','.
-					'description='.zbx_dbstr($description).','.
-					'smtp_server='.zbx_dbstr($smtp_server).','.
-					'smtp_helo='.zbx_dbstr($smtp_helo).','.
-					'smtp_email='.zbx_dbstr($smtp_email).','.
-					'exec_path='.zbx_dbstr($exec_path).','.
-					'gsm_modem='.zbx_dbstr($gsm_modem).','.
-					'username='.zbx_dbstr($username).','.
-					'passwd='.zbx_dbstr($password).
-				' WHERE mediatypeid='.$mediatypeid;
-			$ret = DBexecute($sql);
-			if($ret){
-				$mediatype_new = get_mediatype_by_mediatypeid($mediatypeid);
-				add_audit_ext(AUDIT_ACTION_UPDATE, 
-								AUDIT_RESOURCE_MEDIA_TYPE, 
-								$mediatypeid, 
-								$mediatype_old['description'], 
-								'media_type', 
-								$mediatype_old, 
-								$mediatype_new);
-			}
+		else
+		{
+			$sql="update media_type set type=$type,description=".zbx_dbstr($description).",smtp_server=".zbx_dbstr($smtp_server).",smtp_helo=".zbx_dbstr($smtp_helo).",smtp_email=".zbx_dbstr($smtp_email).",exec_path=".zbx_dbstr($exec_path).",gsm_modem=".zbx_dbstr($gsm_modem).",username=".zbx_dbstr($username).",passwd=".zbx_dbstr($password)." where mediatypeid=$mediatypeid";
+			$ret =	DBexecute($sql);
 		}
-	return $ret;
+		return $ret;
 	}
 
-// Add Media type
+	# Add Media type
 
-	function add_mediatype($type,$description,$smtp_server,$smtp_helo,$smtp_email,$exec_path,$gsm_modem,$username,$password){
+	function	add_mediatype($type,$description,$smtp_server,$smtp_helo,$smtp_email,$exec_path,$gsm_modem,$username,$password)
+	{
 		$ret = 0;
 
 		if($description==""){
@@ -171,11 +154,7 @@
 			$mediatypeid=get_dbid("media_type","mediatypeid");
 			$sql="insert into media_type (mediatypeid,type,description,smtp_server,smtp_helo,smtp_email,exec_path,gsm_modem,username,passwd) values ($mediatypeid,$type,".zbx_dbstr($description).",".zbx_dbstr($smtp_server).",".zbx_dbstr($smtp_helo).",".zbx_dbstr($smtp_email).",".zbx_dbstr($exec_path).",".zbx_dbstr($gsm_modem).",".zbx_dbstr($username).",".zbx_dbstr($password).")";
 			$ret = DBexecute($sql);
-			if ($ret)
-			{
-				$ret = $mediatypeid;
-				add_audit_ext(AUDIT_ACTION_ADD, AUDIT_RESOURCE_MEDIA_TYPE, $mediatypeid, $description, NULL, NULL, NULL);
-			}
+			if($ret)	$ret = $mediatypeid;
 		}
 		return $ret;
 	}

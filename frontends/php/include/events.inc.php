@@ -265,20 +265,23 @@ function make_event_details($eventid){
 return $table;
 }
 
-function make_small_eventlist($eventid, $trigger_data){
+function make_small_eventlist($triggerid,&$trigger_data){
 	
 	$table = new CTableInfo();
-	$table->setHeader(array(S_TIME,S_STATUS,S_DURATION, S_AGE, S_ACK, S_ACTIONS));
-
-	$rows = array();
-	$count = 0;
+	$table->SetHeader(array(S_TIME,S_STATUS,S_DURATION, S_AGE, S_ACK, S_ACTIONS));
 
 	$sql = 'SELECT * '.
 			' FROM events '.
-			' WHERE eventid<='.$eventid.
-			' ORDER BY eventid DESC';
-	$result = DBselect($sql,100);
-	while(($row=DBfetch($result)) && ($count < 20)){	
+			' WHERE objectid='.$triggerid.
+				' AND object='.EVENT_OBJECT_TRIGGER.
+			' ORDER BY object DESC, objectid DESC, eventid DESC';
+
+	$result = DBselect($sql,20);
+
+	$rows = array();
+	$count = 0;
+	
+	while($row=DBfetch($result)){	
 		
 		if(!empty($rows) && ($rows[$count]['value'] != $row['value'])){
 			$count++;
@@ -298,11 +301,12 @@ function make_small_eventlist($eventid, $trigger_data){
 	foreach($rows as $id => $row){
 		$lclock=$clock;
 		$clock=$row["clock"];
+		
 		$duration = zbx_date2age($lclock,$clock);
 
 		$value = new CCol(trigger_value2str($row['value']), get_trigger_value_style($row["value"]));
 	
-		$ack = new CSpan(S_NO, 'on');
+		$ack = '-';
 		if(1 == $row['acknowledged']){
 			$db_acks = get_acknowledges_by_eventid($row['eventid']);
 			$rows=0;
@@ -331,58 +335,6 @@ function make_small_eventlist($eventid, $trigger_data){
 			$actions
 			));
 	}
-return $table;
-}
-
-function make_popup_eventlist($eventid, $trigger_type) {
-
-	$table = new CTableInfo();
-	$table->setHeader(array(S_TIME,S_STATUS,S_DURATION, S_AGE, S_ACK));
-	$table->addOption('style', 'width: 400px;');
-
-	$event_list = array();
-	$sql = 'SELECT * '.
-			' FROM events '.
-			' WHERE eventid<='.$eventid.
-			' ORDER BY eventid DESC';
-	$db_events = DBselect($sql, 20);
-	while($event = DBfetch($db_events)) {		
-		if(!empty($event_list) && ($event_list[$count]['value'] != $event['value'])) {
-			$count++;
-		}
-		else if(!empty($event_list) && 
-				($event_list[$count]['value'] == $event['value']) && 
-				($trigger_type == TRIGGER_MULT_EVENT_ENABLED) && 
-				($event['value'] == TRIGGER_VALUE_TRUE)
-				) {
-			$count++;
-		}
-
-		$event_list[$count] = $event;
-	}
-
-	$lclock = time();
-	foreach($event_list as $id => $event) {
-		$duration = zbx_date2age($lclock, $event['clock']);
-		$lclock = $event['clock'];
-		
-		$value = new CCol(trigger_value2str($event['value']), get_trigger_value_style($event['value']));
-		
-// ack +++
-		$ack = new CSpan(S_NO,'on');
-		if($event['acknowledged']) {
-			$ack=new CSpan(S_YES,'action');			
-		}
-// ---
-		$table->addRow(array(
-			zbx_date2str(S_DATE_FORMAT_YMDHMS,$event['clock']),
-			$value,
-			$duration,
-			zbx_date2age($event['clock']),
-			$ack
-		));
-	}
-	
 return $table;
 }
 
@@ -433,7 +385,7 @@ function get_history_of_triggers_events($start,$num, $groupid=0, $hostid=0){
 	$table = new CTableInfo(S_NO_EVENTS_FOUND); 
 	$table->SetHeader(array(
 			S_TIME,
-			is_show_all_nodes() ? S_NODE : null,
+			is_show_subnodes() ? S_NODE : null,
 			$hostid == 0 ? S_HOST : null,
 			S_DESCRIPTION,
 			S_VALUE,
@@ -484,76 +436,51 @@ function get_history_of_triggers_events($start,$num, $groupid=0, $hostid=0){
 return $table;
 }
 
-function get_history_of_discovery_events($end_time, $limit, &$last_clock=null){
+function get_history_of_discovery_events($start,$end){
 
-	$table = new CTableInfo(S_NO_EVENTS_FOUND); 
-	$table->setHeader(array(S_TIME, S_IP, S_DESCRIPTION, S_STATUS));
-	$col=0;
+	$sql_cond=' AND e.clock>'.$start;
+	$sql_cond.=' AND e.clock<'.$end;
 
-	$clock = array();
-	$dsc_events = array();
-	
 	$sql = 'SELECT DISTINCT e.source,e.object,e.objectid,e.clock,e.value '.
 			' FROM events e'.
 			' WHERE e.source='.EVENT_SOURCE_DISCOVERY.
-			' AND e.clock<'.$end_time.
-			' ORDER BY e.clock DESC';
-	$db_events = DBselect($sql, $limit);
-	while($event_data = DBfetch($db_events)){
+			$sql_cond.
+			order_by('e.clock');
+	$db_events = DBselect($sql);
+   
+	$table = new CTableInfo(S_NO_EVENTS_FOUND); 
+	$table->SetHeader(array(S_TIME, S_IP, S_DESCRIPTION, S_STATUS));
+	$col=0;
 	
+	while($event_data = DBfetch($db_events)){
+		$value = new CCol(trigger_value2str($event_data['value']), get_trigger_value_style($event_data['value']));
+
 		switch($event_data['object']){
 			case EVENT_OBJECT_DHOST:
-				$sql = 'SELECT ip FROM dhosts WHERE dhostid='.$event_data['objectid'];
-				if($object_data = DBfetch(DBselect($sql))){
-					$event_data['object_data'] = $object_data;					
-				}
-				else{
-					$event_data['object_data']['ip'] = S_UNKNOWN;
-				}
-
-				$event_data['description'] = SPACE;
+				$object_data = DBfetch(DBselect('SELECT ip FROM dhosts WHERE dhostid='.$event_data['objectid']));
+				$description = SPACE;
 				break;
 			case EVENT_OBJECT_DSERVICE:
-				$sql = 'SELECT h.ip,s.type,s.port '.
-						' FROM dhosts h,dservices s '.
-						' WHERE h.dhostid=s.dhostid '.
-							' AND s.dserviceid='.$event_data['objectid'];
-				if($object_data = DBfetch(DBselect($sql))){
-					$event_data['object_data'] = $object_data;					
-				}
-				else{
-					$event_data['object_data']['ip'] = S_UNKNOWN;
-					$event_data['object_data']['type'] = S_UNKNOWN;
-					$event_data['object_data']['port'] = S_UNKNOWN;
-				}
+				$object_data = DBfetch(DBselect('SELECT h.ip,s.type,s.port '.
+											' FROM dhosts h,dservices s '.
+											' WHERE h.dhostid=s.dhostid '.
+												' AND s.dserviceid='.$event_data['objectid']));
 												
-				$event_data['description'] = S_SERVICE.': '.
-											discovery_check_type2str($event_data['object_data']['type']).
-											'; '.S_PORT.': '.
-											$event_data['object_data']['port'];
+				$description = S_SERVICE.': '.discovery_check_type2str($object_data['type']).'; '.S_PORT.': '.$object_data['port'];
 				break;
 			default:
 				continue;
 		}
 
-		if(!isset($event_data['object_data'])) continue;
-		
-		
-		$clock[] = $event_data['clock'];
-		$dsc_events[] = $event_data;
-	}
-	
-	$last_clock = !empty($clock)?min($clock):null;
-	order_result($dsc_events, 'clock', ZBX_SORT_DOWN);
-	
-	foreach($dsc_events as $num => $event_data){
-		$value = new CCol(trigger_value2str($event_data['value']), get_trigger_value_style($event_data['value']));
+		if(!$object_data) continue;
 
-		$table->addRow(array(
+		$table->AddRow(array(
 			date('Y.M.d H:i:s',$event_data['clock']),
-			$event_data['object_data']['ip'],
-			$event_data['description'],
+			$object_data['ip'],
+			$description,
 			$value));
+
+		$col++;
 	}
 return $table;
 }

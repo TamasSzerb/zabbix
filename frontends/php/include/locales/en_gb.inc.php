@@ -24,7 +24,6 @@
 	$TRANSLATION=array(
 
 	'S_DATE_FORMAT_YMDHMS'=>		'd M H:i:s',
-	'S_DATE_FORMAT_YMD'=>			'd M Y',
 	'S_HTML_CHARSET'=>			'UTF-8',
 
 	'S_ACTIVATE_SELECTED'=>			'Activate selected',
@@ -83,12 +82,8 @@
 	'S_STATUS_OF_DISCOVERY_BIG'=>		'STATUS OF DISCOVERY',
 	'S_STATUS_OF_DISCOVERY'=>		'Status of discovery',
 
-	'S_DISCOVERED'=>			'Discovered',
+	'S_DISCOVER'=>				'Discover',
 	'S_LOST'=>				'Lost',
-	
-//	discovery.php
-	'S_UP_TIME'=>				'Uptime',
-	'S_DOWN_TIME'=>				'Downtime',
 
 //	httpdetails.php
 	'S_DETAILS_OF_SCENARIO'=>		'Details of scenario',
@@ -195,7 +190,8 @@
 	'S_NODE_DELETED'=>			'Node deleted',
 	'S_CANNOT_DELETE_NODE'=>		'Cannot delete node',
 	'S_CURRENT_NODE'=>			'Current node',
-	'S_SELECT_NODES'=>			'Select Nodes',
+	'S_CURRENT_NODE_ONLY'=>			'Current node only',
+	'S_WITH_SUBNODES'=>			'With subnodes',
 
 //	acknow.php
 	'S_NO_EVENTS_TO_ACKNOWLEDGE'=>		'No events to acknowledge',
@@ -225,8 +221,6 @@
 	'S_TRIGGER_SEVERITY'=>			'Trigger severity',
 	'S_TRIGGER_VALUE'=>			'Trigger value',
 	'S_TIME_PERIOD'=>			'Time period',
-	'S_MAINTENANCE_STATUS'=>		'Maintenance status',
-	'S_MAINTENANCE_SMALL'=>			'maintenance',
 	'S_MAX_VALUE_SMALL'=>			'max value',
 	'S_MIN_VALUE_SMALL'=>			'min value',
 	'S_TRIGGER_DESCRIPTION'=>		'Trigger description',
@@ -245,18 +239,11 @@
 	'S_NEW'=>				'New',
 	'S_ADD_HOST'=>				'Add host',
 	'S_REMOVE_HOST'=>			'Remove host',
-	'S_ENABLE_HOST'=>			'Enable host',
-	'S_DISABLE_HOST'=>			'Disable host',
 	'S_LINK_TO_TEMPLATE'=>			'Link to template',
 	'S_CANNOT_LINK_TO_TEMPLATE'=>		'Cannot link to template',
 	'S_UNLINK_FROM_TEMPLATE'=>		'Unlink from template',
 	'S_HOST_TEMPLATE'=>			'Host template',
 	'S_EVENT_ACKNOWLEDGED'=>		'Event acknowledged',
-	'S_SEND_ONLY_TO'=>			'Send only to',
-	'S_USER_MEDIAS'=>			'User medias',
-	'S_DISCOVERY_CHECK'=>			'Discovery check',
-	'S_DISCOVERED_OBJECT'=>			'Discovered object',
-	'S_DEVICE'=>				'Device',
 
 	'S_INCORRECT_TRIGGER'=>			'Incorrect trigger',
 	'S_INCORRECT_HOST'=>			'Incorrect host',
@@ -266,7 +253,6 @@
 	'S_INCORRECT_PORT'=>			'Incorrect port',
 	'S_INCORRECT_DISCOVERY_STATUS'=>	'Incorrect discovery status',
 	'S_INCORRECT_CONDITION_TYPE'=>		'Incorrect condition type',
-
 	'S_INCORRECT_OPERATION_TYPE'=>		'Incorrect operation type',
 	'S_INCORRECT_USER'=>			'Incorrect user',
 	'S_INCORRECT_STEPS'=>			'Incorrect steps',
@@ -320,15 +306,12 @@
 	'S_IN_SMALL'=>				'in',
 	'S_NOT_IN_SMALL'=>			'not in',
 	'S_RETRIES_LEFT'=>			'Retries left',
-	'S_ACTIONS_BEFORE'=>			'Actions before',
 
 //	alarms.php
 	'S_SHOW_ALL'=>				'Show all',
 	'S_TIME'=>				'Time',
 	'S_STATUS'=>				'Status',
 	'S_DURATION'=>				'Duration',
-	'S_TRUE_BIG'=>				'TRUE',
-	'S_FALSE_BIG'=>				'FALSE',
 	'S_UNKNOWN_BIG'=>			'UNKNOWN',
 
 //	actions.php
@@ -353,17 +336,19 @@
 	'S_GRAPHS_BIG'=>			'GRAPHS',
 	'S_SELECT_GRAPH_TO_DISPLAY'=>		'Select graph to display',
 	'S_PERIOD'=>				'Period',
+	'S_MOVE'=>				'Move',
+	'S_NAVIGATE'=>				'Navigate',
+	'S_INCREASE'=>				'Increase',
+	'S_DECREASE'=>				'Decrease',
+	'S_RIGHT_DIR'=>				'Right',
+	'S_LEFT_DIR'=>				'Left',
 	'S_SELECT_GRAPH_DOT_DOT_DOT'=>		'Select graph...',
 	'S_FULLSCREEN'=>			'Fullscreen',
 	'S_VIEW'=>				'View',
 
-// Colours
+// Colors
 
 //	config.php
-	'S_GUI'=>					'GUI',
-	'S_ZBX162_MODE'=>				'ZABBIX 1.6.2 comp. mode',
-	'S_DROPDOWN_FIRST_ENTRY'=>			'Dropdown first entry',
-	'S_DROPDOWN_REMEMBER_SELECTED'=>		'remember selected',
 	'S_THEMES'=>					'Themes',
 	'S_SYSTEM_DEFAULT'=>				'System default',
 	'S_BLACK_AND_BLUE'=>				'Black & Blue',
@@ -412,8 +397,6 @@
 	'S_MEDIA_TYPES'=>				'Media types',
 	'S_ESCALATION_RULES'=>				'Escalation rules',
 	'S_ENABLE_ESCALATIONS'=>			'Enable escalations',
-	'S_ESCALATION'=>				'Escalation',
-	'S_ESCALATION_RULE'=>				'Escalation rule',
 	'S_DEFAULT'=>					'Default',
 	'S_IMAGES'=>					'Images',
 	'S_IMAGE'=>					'Image',
@@ -439,46 +422,12 @@
 	'S_NOTHING_TO_DO'=>				'Nothing to do',
 	'S_ICORRECT_WORK_PERIOD'=>			'Icorrect work period',
 
-	'S_REGULAR_EXPRESSIONS'=>			'Regular expressions',
-	'S_REGULAR_EXPRESSION'=>			'Regular expression',
-	'S_EXPRESSIONS'=>				'Expressions',
-	'S_EXPRESSION'=>				'Expression',
-
-	'S_EXPECTED_RESULT'=>				'Expected result',
-	'S_CHARACTER_STRING_INCLUDED'=>			'Character string included',
-	'S_ANY_CHARACTER_STRING_INCLUDED'=>		'Any character string included',
-	'S_CHARACTER_STRING_NOT_INCLUDED'=>		'Character string not included',
-	'S_RESULT_IS_TRUE'=>				'Result is TRUE',
-	'S_RESULT_IS_FALSE'=>				'Result	is FALSE',
-
-	'S_EXPRESSION_TYPE'=>				'Expression type',
-	'S_NEW_EXPRESSION'=>				'New expression',
-	'S_IGNORE_CASE'=>				'Ignore case',
-	'S_TEST'=>					'Test',
-	'S_DELIMITER'=>					'Delimiter',
-	'S_TEST_STRING'=>				'Test string',
-	'S_COMBINED_RESULT'=>				'Combined result',
-
-	'S_NEW_REGULAR_EXPRESSION'=>			'New regular expression',
-	'S_REGULAR_EXPRESSION_ADDED'=>			'Regular expression added',
-	'S_CANNOT_ADD_REGULAR_EXPRESSION'=>		'Cannot add regular expression',
-
-	'S_REGULAR_EXPRESSION_UPDATED'=>		'Regular expression updated',
-	'S_CANNOT_UPDATE_REGULAR_EXPRESSION'=>		'Cannot update regular expression',
-
-	'S_REGULAR_EXPRESSION_DELETED'=>		'Regular expression deleted',
-	'S_CANNOT_DELETE_REGULAR_EXPRESSION'=>		'Cannot delete regular expression',
-
-	'S_DELETE_REGULAR_EXPRESSION_Q'=>		'Delete regular expression?',
-	'S_DELETE_SELECTED_REGULAR_EXPRESSIONS_Q'=>	'Delete selected regular expressions?',
-
 //	nodes.php
 	'S_NODE'=>			'Node',
 	'S_NODES'=>			'Nodes',
 	'S_NODES_BIG'=>			'NODES',
 	'S_NEW_NODE'=>			'New node',
 	'S_NO_NODES_DEFINED'=>		'No nodes defined',
-	'S_ALL_NODES'=>			'All nodes',
 
 //  Authentication
 	'S_AUTHENTICATION'=>			'Authentication',
@@ -487,6 +436,7 @@
 	'S_BIND_DN'=>				'Bind DN',
 	'S_BIND_PASSWORD'=>			'Bind Password',
 	'S_SEARCH_ATTRIBUTE'=>			'Search attribute',
+	'S_TEST'=>				'Test',
 	'S_WAS_NOT'=>				'was not',
 	'S_SUCCESSFUL_SMALL'=>			'successful',
 	'S_MUST_BE_VALID_SMALL'=>		'must be valid',
@@ -497,12 +447,10 @@
 
 
 //	Latest values
-	'S_LATEST_VALUES'=>			'Latest values',
 	'S_NO_PERMISSIONS'=>			'No permissions !',
 	'S_LATEST_DATA_BIG'=>			'LATEST DATA',
 	'S_ALL_S'=>				'All',
 	'S_ALL_SMALL'=>				'all',
-	'S_MINUS_ALL_MINUS'=>			'- all -',
 	'S_MINUS_OTHER_MINUS'=>			'- other -',
 	'S_NOT_SELECTED_SMALL'=>		'not selected',
 	'S_GRAPH'=>				'Graph',
@@ -518,8 +466,7 @@
 	'S_ITEM_ADDED'=>			'Item added',
 	'S_ITEM_UPDATED'=>			'Item updated',
 	'S_ITEMS_UPDATED'=>			'Items updated',
-	'S_ITEM_DOES_NOT_EXIST'=>			'Item does not exist',
-	'S_SORT_BY'=>				'Sort by',
+	'S_ITEM_DOES_NOT_EXIST'=>		'Item does not exist',
 	'S_PARAMETER'=>				'Parameter',
 	'S_COLOR'=>				'Colour',
 	'S_UP'=>				'Up',
@@ -528,7 +475,6 @@
 	'S_UPD_ITEM_FOR_THE_GRAPH'=>		'Update item for the graph',
 	'S_SORT_ORDER_0_100'=>			'Sort order (0->100)',
 	'S_YAXIS_SIDE'=>			'Y axis side',
-	'S_AXIS_SIDE'=>				'Axis side',
 	'S_LEFT'=>				'Left',
 	'S_FUNCTION'=>				'Function',
 	'S_MIN_SMALL'=>				'min',
@@ -546,7 +492,6 @@
 	'S_AGGREGATED_PERIODS_COUNT'=>		'Aggregated periods count',
 
 //	graphs.php
-	'S_TITLE'=>				'Title',
 	'S_PERCENTILE_LINE'=>			'Percentile line',
 	'S_CONFIGURATION_OF_GRAPHS'=>		'Configuration of graphs',
 	'S_CONFIGURATION_OF_GRAPHS_BIG'=>	'CONFIGURATION OF GRAPHS',
@@ -563,9 +508,11 @@
 	'S_NO_GRAPHS_DEFINED'=>			'No graphs defined',
 	'S_NO_GRAPH_DEFINED'=>			'No graph defined',
 	'S_DELETE_GRAPH_Q'=>			'Delete graph?',
+	'S_YAXIS_TYPE'=>			'Y axis type',
 	'S_YAXIS_MIN_VALUE'=>			'Y axis MIN value',
 	'S_YAXIS_MAX_VALUE'=>			'Y axis MAX value',
 	'S_CALCULATED'=>			'Calculated',
+	'S_CALCULATED_0_MIN'=>			'Calculated [Min=0]',
 	'S_FIXED'=>				'Fixed',
 	'S_CREATE_GRAPH'=>			'Create Graph',
 	'S_SHOW_WORKING_TIME'=>			'Show working time',
@@ -587,7 +534,6 @@
 	'S_TIMESTAMP'=>				'Timestamp',
 	'S_LOCAL'=>				'Local',
 	'S_SOURCE'=>				'Source',
-	'S_EVENT_ID'=>				'Event ID',
 	'S_SHOW_UNKNOWN'=>			'Show unknown',
 
 	'S_SHOW_SELECTED'=>			'Show selected',
@@ -598,71 +544,6 @@
 	'S_AS_RED'=>				'as Red',
 	'S_AS_GREEN'=>				'as Green',
 	'S_AS_BLUE'=>				'as Blue',
-
-// maintenance.php
-	'S_MAINTENANCE'=>			'Maintenance',
-	'S_MAINTENANCE_ADDED'=>			'Maintenance added',
-	'S_MAINTENANCE_UPDATED'=>		'Maintenance updated',
-	'S_MAINTENANCE_DELETED'=>		'Maintenance deleted',
-
-	'S_HOSTS_IN_MAINTENANCE'=>		'Hosts in maintenance',
-	'S_GROUPS_IN_MAINTENANCE'=>		'Groups in maintenance',
-
-	'S_CANNOT_ADD_MAINTENANCE'=>		'Cannot add maintenance',
-	'S_CANNOT_UPDATE_MAINTENANCE'=>		'Cannot update maintenance',
-	'S_CANNOT_DELETE_MAINTENANCE'=>		'Cannot delete maintenance',
-
-	'S_MAINTENANCE_PERIOD_LENGTH'=>		'Maintenance period length',
-	'S_MAINTENANCE_PERIODS'=>		'Maintenance periods',
-	'S_NEW_MAINTENANCE_PERIOD'=>		'New maintenance period',
-	'S_EDIT_MAINTENANCE_PERIOD'=>		'Edit maintenance period',
-	'S_CREATE_MAINTENANCE_PERIOD'=>		'Create maintenance period',
-	'S_MAINTENANCE_TYPE'=>			'Maintenance type',
-	'S_EXPIRED'=>				'Expired',
-
-	'S_NORMAL_PROCESSING'=>			'Normal processing',
-	'S_NO_DATA_PROCESSING'=>		'No data processing',
-
-	'S_DELETE_MAINTENANCE_PERIOD_Q'=>	'Delete maintenance period?',
-
-	'S_ACTIVE_SINCE'=>			'Active since',
-	'S_ACTIVE_TILL'=>			'Active till',
-	'S_PERIOD_TYPE'=>			'Period type',
-
-	'S_SHEDULE'=>				'Shedule',
-	'S_NEXT_RUN'=>				'Next run',
-
-	'S_DATE'=>				'Date',
-	'S_ONE_TIME_ONLY'=>			'One time only',
-
-	'S_DAY_OF_WEEK'=>			'Day of week',
-	'S_DAY_OF_MONTH'=>			'Day of month',
-
-	'S_EVERY_DAY_S'=>			'Every day(s)',
-	'S_EVERY_WEEK_S'=>			'Every week(s)',
-
-	'S_FIRST'=>				'First',
-	'S_SECOND'=>				'Second',
-	'S_THIRD'=>				'Third',
-	'S_FOURTH'=>				'Fourth',
-
-	'S_AT'=>				'At',
-
-	'S_JANUARY'=>				'January',
-	'S_FEBRUARY'=>				'February',
-	'S_MARCH'=>				'March',
-	'S_APRIL'=>				'April',
-	'S_MAY'=>				'May',
-	'S_JUNE'=>				'June',
-	'S_JULY'=>				'July',
-	'S_AUGUST'=>				'August',
-	'S_SEPTEMBER'=>				'September',
-	'S_OCTOBER'=>				'October',
-	'S_NOVEMBER'=>				'November',
-	'S_DECEMBER'=>				'December',
-
-	'S_INCORRECT_MAINTENANCE_PERIOD'=>	'Incorrect maintenance period',
-
 
 //	hosts.php
 	'S_IN'=>						'In',
@@ -762,6 +643,10 @@
 	'S_PROXY_NAME'=>					'Proxy name',
 	'S_LASTSEEN_AGE'=>					'Last seen (age)',
 
+	'S_TRANSACTION'=>					'Transaction',
+	'S_STARTED_BIG'=>					'STARTED!',
+	'S_COMMITED_BIG'=>					'COMMITED!',
+	'S_ROLLBACKED_BIG'=>					'ROLLBACKED!',
 
 //	Host profiles
 	'S_HOST_PROFILE'=>			'Host profile',
@@ -907,10 +792,6 @@
 	'S_KEEP_HISTORY_IN_DAYS'=>				'Keep history (in days)',
 	'S_KEEP_TRENDS_IN_DAYS'=>				'Keep trends (in days)',
 	'S_TYPE_OF_INFORMATION'=>				'Type of information',
-	'S_DATA_TYPE'=>						'Data type',
-	'S_DECIMAL'=>						'Decimal',
-	'S_OCTAL'=>						'Octal',
-	'S_HEXADECIMAL'=>					'Hexadecimal',
 	'S_STORE_VALUE'=>					'Store value',
 	'S_SHOW_VALUE'=>					'Show value',
 	'S_NUMERIC_UNSIGNED'=>					'Numeric (unsigned)',
@@ -933,7 +814,6 @@
 	'S_CUSTOM_MULTIPLIER'=>					'Custom multiplier',
 	'S_DO_NOT_USE'=>					'Do not use',
 	'S_USE_MULTIPLIER'=>					'Use multiplier',
-	'S_SELECT_HOST_DOT_DOT_DOT'=>				'Select host...',
 	'S_LOG_TIME_FORMAT'=>					'Log time format',
 	'S_CREATE_ITEM'=>					'Create Item',
 	'S_X_ELEMENTS_COPY_TO_DOT_DOT_DOT'=>			'elements copy to ...',
@@ -950,7 +830,6 @@
 	'S_SELECTION_MODE'=>					'Selection mode',
 	'S_ADVANCED'=>						'Advanced',
 	'S_MASS_UPDATE'=>					'Mass update',
-	'S_SEARCH'=>						'Search',
 	'S_ORIGINAL'=>						'Original',
 	'S_NEW_FLEXIBLE_INTERVAL'=>				'New flexible interval',
 	'S_FLEXIBLE_INTERVALS'=>				'Flexible intervals (sec)',
@@ -968,7 +847,6 @@
 	'S_LATEST_EVENTS'=>			'Latest events',
 	'S_HISTORY_OF_EVENTS_BIG'=>		'HISTORY OF EVENTS',
 	'S_NO_EVENTS_FOUND'=>			'No events found',
-	'S_EVENTS_BEFORE'=>			'Events before',
 
 //	latest.php
 	'S_LAST_CHECK'=>			'Last check',
@@ -1002,7 +880,6 @@
 	'S_NO_MAPS_DEFINED'=>			'No maps defined',
 	'S_CREATE_MAP'=>			'Create Map',
 	'S_ICON_LABEL_LOCATION'=>		'Icon label location',
-	'S_BOTTOM'=>				'Bottom',
 	'S_TOP'=>				'Top',
 	'S_LINK_STATUS_INDICATORS'=>		'Link status indicators',
 
@@ -1121,14 +998,9 @@
 	'S_PROBLEMS'=>					'Problems',
 	'S_PERCENTAGE'=>				'Percentage',
 	'S_SLA'=>					'SLA',
-	'S_HOUR'=>					'Hour',
-	'S_HOURS'=>					'Hours',
-	'S_MINUTE'=>					'Minute',
-	'S_MINUTES'=>					'Minutes',
 	'S_DAY'=>					'Day',
 	'S_MONTH'=>					'Month',
 	'S_YEAR'=>					'Year',
-	'S_HOURLY'=>					'Hourly',
 	'S_DAILY'=>					'Daily',
 	'S_WEEKLY'=>					'Weekly',
 	'S_MONTHLY'=>					'Monthly',
@@ -1150,25 +1022,11 @@
 	'S_IT_NOTIFICATIONS'=>			'Notification report',
 
 //	report5.php
-	'S_TRIGGERS_TOP_100'=>			'Most busy triggers top 100',
+        'S_TRIGGERS_TOP_100'=>			'Most busy triggers top 100',
 	'S_TRIGGERS_TOP_100_BIG'=>		'MOST BUSY TRIGGERS TOP 100',
 	'S_NUMBER_OF_STATUS_CHANGES'=>		'Number of status changes',
 	'S_WEEK'=>				'Week',
 	'S_LAST'=>				'Last',
-
-//	report6.php
-	'S_BAR_REPORTS'=>			'Bar reports',
-	'S_BAR_REPORT_1'=>			'Distribution of values for multiple periods',
-	'S_BAR_REPORT_2'=>			'Distribution of values for multiple items',
-	'S_BAR_REPORT_3'=>			'Compare values for multiple periods',
-
-	'S_SELECTED_HOSTS'=>			'Selected hosts',
-	'S_SELECTED_GROUPS'=>			'Selected groups',
-	'S_SCALE'=>				'Scale',
-	'S_AVERAGE_BY'=>			'Average by',
-	'S_PALETTE'=>				'Palette',
-	'S_DARKEN'=>				'Darken',
-	'S_BRIGHTEN'=>				'Brighten',
 
 //	screenconf.php
 	'S_SCREENS'=>				'Screens',
@@ -1243,11 +1101,11 @@
 
 	'S_VERTICAL_ALIGN'=>			'Vertical align',
 	'S_MIDDLE'=>				'Middle',
+	'S_BOTTOM'=>				'Bottom',
 
 //	screens.php
 	'S_CUSTOM_SCREENS'=>			'Custom screens',
 	'S_SCREENS_BIG'=>			'SCREENS',
-
 	'S_SLIDESHOW_UPDATED'=>			'Slideshow updated',
 	'S_CANNOT_UPDATE_SLIDESHOW'=>		'Cannot_update slideshow',
 	'S_SLIDESHOW_ADDED'=>			'Slideshow added',
@@ -1325,6 +1183,7 @@
 	'S_CANNOT_ADD_TRIGGER'=>		'Cannot add trigger',
 	'S_SEVERITY'=>				'Severity',
 	'S_MIN_SEVERITY'=>			'Min severity',
+	'S_EXPRESSION'=>			'Expression',
 	'S_DISABLED'=>				'Disabled',
 	'S_ENABLED'=>				'Enabled',
 	'S_DISABLE'=>				'Disable',
@@ -1351,11 +1210,11 @@
 	'S_NO_DEPENDENCES_DEFINED'=>		'No dependencies defined',
 	'S_NEW_DEPENDENCY'=>			'New dependency',
 
-	'S_EVENT_GENERATION'=>			'Event generation',
+	'S_EVENT_GENERATION'=>		'Event generation',
 
-	'S_TRIGGERS_MASSUPDATE'=>		'Triggers massupdate',
-	'S_TRIGGER_DEPENDENCIES'=>		'Trigger dependencies',
-	'S_INCORRECT_DEPENDENCY'=>		'Incorrect dependency',
+	'S_TRIGGERS_MASSUPDATE'=>	'Triggers massupdate',
+	'S_TRIGGER_DEPENDENCIES'=>	'Trigger dependencies',
+	'S_INCORRECT_DEPENDENCY'=>	'Incorrect dependency',
 
 //	tr_comments.php
 	'S_TRIGGER_COMMENTS'=>			'Trigger comments',
@@ -1365,29 +1224,27 @@
 	'S_ADD'=>				'Add',
 
 //	tr_status.php
-	'S_SOUND'=>				'Sound',
-	'S_STATUS_OF_TRIGGERS'=>		'Status of triggers',
-	'S_STATUS_OF_TRIGGERS_BIG'=>		'STATUS OF TRIGGERS',
-	'S_SHOW_ACTIONS'=>			'Show actions',
-	'S_HIDE_ALL'=>				'Hide all',
-	'S_SHOW_ONLY_PROBLEMS'=>		'Show only problems',
-	'S_SHOW_NOFALSEFORB'=>			'Show all(no FALSE for B)',
-	'S_SHOW_UNACKNOWLEDGED'=>		'Show unacknowledged',
-	'S_SHOW_PROBLEM_UNACKNOWLEDGED'=>	'Show problem-unacknowledged',
-	'S_SHOW_ONLY_FALSE'=>			'Show only FALSE',
-	'S_SHOW_ONLY_TRUE'=>			'Show only TRUE',
-	'S_NOT_ACKNOWLEDGED'=>			'Not acknowledged',
-	'S_SHOW_DETAILS'=>			'Show details',
-	'S_SELECT'=>				'Select',
-	'S_INVERSE_SELECT'=>			'Inverse Select',
-	'S_TRIGGERS_BIG'=>			'TRIGGERS',
-	'S_LAST_CHANGE'=>			'Last change',
-	'S_COMMENTS'=>				'Comments',
-	'S_ACKNOWLEDGED'=>			'Acknowledged',
-	'S_ACK'=>				'Ack',
-	'S_NOT_ACK'=>				'Not Ack',
-	'S_NEVER'=>				'Never',
-	'S_FOUND'=>				'Found',
+	'S_SOUND'=>					'Sound',
+	'S_STATUS_OF_TRIGGERS'=>			'Status of triggers',
+	'S_STATUS_OF_TRIGGERS_BIG'=>			'STATUS OF TRIGGERS',
+	'S_SHOW_ACTIONS'=>				'Show actions',
+	'S_HIDE_ALL'=>					'Hide all',
+	'S_SHOW_ONLY_PROBLEMS'=>			'Show only problems',
+	'S_SHOW_NOFALSEFORB'=>				'Show all(no FALSE for B)',
+	'S_SHOW_UNACKNOWLEDGED'=>			'Show unacknowledged',
+	'S_SHOW_PROBLEM_UNACKNOWLEDGED'=>		'Show problem-unacknowledged',
+	'S_NOT_ACKNOWLEDGED'=>				'Not acknowledged',
+	'S_SHOW_DETAILS'=>				'Show details',
+	'S_SELECT'=>					'Select',
+	'S_INVERSE_SELECT'=>				'Inverse Select',
+	'S_TRIGGERS_BIG'=>				'TRIGGERS',
+	'S_LAST_CHANGE'=>				'Last change',
+	'S_COMMENTS'=>					'Comments',
+	'S_ACKNOWLEDGED'=>				'Acknowledged',
+	'S_ACK'=>					'Ack',
+	'S_NOT_ACK'=>					'Not Ack',
+	'S_NEVER'=>					'Never',
+	'S_FOUND'=>					'Found',
 
 //	users.php
 	'S_ZABBIX_USER'=>				'ZABBIX User',
@@ -1404,6 +1261,7 @@
 	'S_PASSWORD_SHOULD_NOT_BE_EMPTY'=>		'Password should not be empty',
 	'S_FOR_GUEST_PASSWORD_MUST_BE_EMPTY'=>		'For guest, password must be empty',
 	'S_USER_UPDATED'=>				'User updated',
+	'S_ONLY_FOR_GUEST_ALLOWED_EMPTY_PASSWORD'=>	'Only user \'guest\' may have an empty password.',
 	'S_CANNOT_UPDATE_USER'=>			'Cannot update user',
 	'S_CANNOT_UPDATE_USER_BOTH_PASSWORDS'=>		'Cannot update user. Both passwords must be equal.',
 	'S_GROUP_ADDED'=>				'Group added',
@@ -1420,8 +1278,6 @@
 	'S_CANNOT_DELETE_PROXY'=>			'Cannot delete proxy',
 	'S_GUI_ACCESS_UPDATED'=>			'GUI access updated',
 	'S_CANNOT_UPDATE_GUI_ACCESS'=>			'Cannot update GUI access',
-	'S_API_ACCESS_UPDATED'=>			'API access updated',
-	'S_CANNOT_UPDATE_API_ACCESS'=>			'Cannot update API access',
 	'S_USER_CANNOT_DISABLE_ITSELF'=>		'User cannot disable itself',
 	'S_USER_CANNOT_CHANGE_STATUS'=>			'User cannot change status to itself',
 	'S_USER_CANNOT_CHANGE_GUI_ACCESS'=>		'User cannot change GUI access to itself',
@@ -1439,7 +1295,6 @@
 	'S_NO_USERS_DEFINED'=>				'No users defined',
 	'S_RIGHTS'=>					'Rights',
 	'S_GUI_ACCESS'=>				'GUI access',
-	'S_API_ACCESS'=>				'API access',
 	'S_USERS_STATUS'=>				'Users status',
 	'S_NO_RIGHTS_DEFINED'=>				'No rights defined',
 	'S_READ_ONLY'=>					'Read only',
@@ -1460,10 +1315,8 @@
 	'S_ADD_TO'=>					'Add to',
 	'S_REMOVE_FROM'=>				'Remove from',
 	'S_INTERNAL_S'=>				'Internal',
-	'S_ROWS_PER_PAGE'=>				'Rows per page',
 
 //scripts.php
-	'S_SCRIPTS_CONFIGURATION'=>		'Configuration of scripts',
 	'S_SCRIPTS'=>				'Scripts',
 	'S_COMMAND'=>				'Command',
 	'S_PERMISSIONS_SMALL'=>			'permissions',
@@ -1473,8 +1326,7 @@
 	'S_NO_SCRIPTS_DEFINED'=>		'No scripts defined',
 	'S_HOST_ACCESS'=>			'Host access',
 	'S_DELETE_SELECTED_SCRIPTS_Q'=>		'Delete selected scripts?',
-	'S_DELETE_SCRIPTS_Q'=>			'Delete script?',
-	'S_CREATE_SCRIPT'=>			'Create script',
+	'S_ADD_SCRIPT'=>			'Add script',
 	'S_SCRIPT_ADDED'=>			'Script added',
 	'S_CANNOT_ADD_SCRIPT'=>			'Cannot add script',
 	'S_SCRIPT_UPDATED'=>			'Script updated',
@@ -1489,6 +1341,7 @@
 
 //	audit.php
 	'S_AUDIT'=>				'Audit',
+	'S_AUDIT_BIG'=>				'AUDIT',
 	'S_AUDIT_LOGS'=>			'Audit logs',
 	'S_AUDIT_ACTIONS'=>			'Audit actions',
 	'S_ACTION'=>				'Action',
@@ -1500,7 +1353,6 @@
 	'S_GRAPH_ELEMENT'=>			'Graph element',
 	'S_UNKNOWN_RESOURCE'=>			'Unknown resource',
 	'S_ALREADY_EXISTS_SMALL'=>		'already exists',
-	'S_ZABBIX_CONFIG'=>			'ZABBIX config',
 
 //	profile.php
 	'S_USER_PROFILE_BIG'=>			'USER PROFILE',
@@ -1532,19 +1384,10 @@
 	'S_EXTENDED_HOST_PROFILE'=>		'Extended host profile',
 	'S_EXTENDED'=>				'Extended',
 
-//	search.php
-	'S_SEARCH_BIG' =>			'SEARCH',
-	'S_GO' =>				'Go',
-	'S_FOUND_SMALL' =>			'found',
-	'S_DISPLAYING' =>			'Displaying',
-
 //	popup.php
-	'S_CAPTION'=>				'Caption',
 	'S_EMPTY'=>				'Empty',
 	'S_STANDARD_ITEMS_BIG'=>		'STANDARD ITEMS',
 	'S_NO_ITEMS'=>				'No items',
-	'S_DISCOVERY_RULES_BIG'=>		'DISCOVERY RULES',
-	'S_DISCOVERY_CHECKS_BIG'=>		'DISCOVERY CHECKS',
 
 //	Menu
 
@@ -1557,7 +1400,6 @@
 	'S_EVENTS'=>				'Events',
 	'S_EVENTS_BIG'=>			'EVENTS',
 	'S_MAPS'=>				'Maps',
-	'S_REPORT'=>				'Report',
 	'S_REPORTS'=>				'Reports',
 	'S_GENERAL'=>				'General',
 	'S_LOGIN'=>				'Login',

@@ -3,14 +3,9 @@ table{
 	border-spacing:	0px; /* cellspacing */
 }
 
-table.whitetext {
-	border-spacing:	0px; /* cellspacing */
-	color: #CCCCCC;
-}
-
 table.home{
 	font-family: Verdana, Arial, Helvetica, sans-serif;
-	font-size:10px;
+	font-size: 8pt;
 }
 
 table.nowrap tr td {
@@ -19,22 +14,13 @@ table.nowrap tr td {
 }
 
 td,tr{
-	color: inherit;
 	font-family:Verdana, Arial, Helvetica, sans-serif;
-	font-size:10px;
+	font-size: 8pt;
 	text-decoration: none;
 }
 
 td.center{
 	text-align: center;
-}
-
-td.left{
-	text-align: left;
-}
-
-td.right{
-	text-align: right;
 }
 
 /**************** PAGE TABLE ****************/
@@ -106,8 +92,8 @@ table.formtable tr td {
 	padding-left: 5px;
 	padding-right: 5px;
 	color: #000000;
-	font-family:verdana, arial, helvetica, sans-serif;
-	font-size:10px;
+        font-family:verdana, arial, helvetica, sans-serif;
+        font-size:10px;
 	border-width: 1px;
 	height: 24px;
 	white-space: nowrap;
@@ -143,7 +129,7 @@ table.formtable tr td.form_row_first{
 	border-left-style: solid;
 	border-right-style: solid;
 	border-bottom-style: solid;
-	border-color: #AAAAAA;
+	border-color: #222255;
 	text-align: left;
 }
 
@@ -154,7 +140,7 @@ table.formtable tr td.form_row_last {
 	border-left-style: solid;
 	border-right-style: solid;
 	border-bottom-style: solid;
-	border-color: #AAAAAA;
+	border-color: #222255;
 	text-align: right;
 }
 
@@ -163,7 +149,7 @@ table.formtable tr td.form_row_l { /* left cell */
 	border-top-style:	none;
 	border-right-style:	none;
 	border-bottom-style:	none;
-	border-color:	#AAAAAA;
+	border-color:	#222255;
 	text-align:	left;
 	white-space:	nowrap;
 	word-spacing:	0px;
@@ -174,7 +160,7 @@ table.formtable tr td.form_row_c { /* center cell */
 	border-left-style: solid;
 	border-top-style: none;
 	border-bottom-style: none;
-	border-color: #AAAAAA;
+	border-color: #222255;
 	color: inherit;
 	text-align: center;
 }
@@ -183,7 +169,7 @@ table.formtable tr td.form_row_r { /* right cell */
 	border-top-style: none;
 	border-left-style: none;
 	border-bottom-style: none;
-	border-color: #AAAAAA;
+	border-color: #222255;
 	text-align: left;
 }
 
@@ -193,7 +179,7 @@ table.formtable tr td.form_row_r table.calendar tr td{ /* right cell */
 }
 
 td.form_row_l_simple { /* left cell simple */
-	border-color:	#AAAAAA;
+	border-color:	#222255;
 	text-align:	left;
 	white-space:	nowrap;
 	word-spacing:	0px;
@@ -201,7 +187,7 @@ td.form_row_l_simple { /* left cell simple */
 }
 
 td.form_row_r_simple { /* right cell simple */
-	border-color: #AAAAAA;
+	border-color: #222255;
 	text-align: left;
 }
 /*-------------- <SERVICES> -----------------*/
@@ -217,8 +203,8 @@ table.formlongtable tr td {
 	padding-left: 5px;
 	padding-right: 5px;
 	color: #000000;
-    font-family:verdana, arial, helvetica, sans-serif;
-    font-size:10px;
+        font-family:verdana, arial, helvetica, sans-serif;
+        font-size:10px;
 	border-width: 1px;
 	height: 24px;
 	white-space: nowrap;
@@ -259,7 +245,7 @@ table.formlongtable tr td.form_row_first{
 	border-left-style: solid;
 	border-right-style: solid;
 	border-bottom-style: solid;
-	border-color: #AAAAAA;
+	border-color: #222255;
 	text-align: left;
 }
 table.formlongtable tr td.form_row_last {
@@ -269,7 +255,7 @@ table.formlongtable tr td.form_row_last {
 	border-left-style: solid;
 	border-right-style: solid;
 	border-bottom-style: solid;
-	border-color: #AAAAAA;
+	border-color: #222255;
 	text-align: right;
 }
 table.formlongtable tr td.form_row_l { /* left cell */
@@ -277,7 +263,7 @@ table.formlongtable tr td.form_row_l { /* left cell */
 	border-top-style:	none;
 	border-right-style:	none;
 	border-bottom-style:	none;
-	border-color:	#AAAAAA;
+	border-color:	#222255;
 	text-align:	left;
 	white-space:	nowrap;
 	word-spacing:	0px;
@@ -288,7 +274,7 @@ table.formlongtable tr td.form_row_c { /* center cell */
 	border-left-style: solid;
 	border-top-style: none;
 	border-bottom-style: none;
-	border-color: #AAAAAA;
+	border-color: #222255;
 	color: inherit;
 	text-align: center;
 }
@@ -297,7 +283,7 @@ table.formlongtable tr td.form_row_r { /* right cell */
 	border-top-style: none;
 	border-left-style: none;
 	border-bottom-style: none;
-	border-color: #AAAAAA;
+	border-color: #222255;
 	text-align: left;
 }
 
@@ -342,20 +328,23 @@ table.log_history_table tr td.message {
 }
 
 /************* CHART TABLE ***************/
-table.chart{
+table.chart
+{
 	width: 100%;
 	background-color: #DDDDDD;
 	text-align: center;
 }
 
 /************* SCREEN TABLE ***************/
-table.screen_edit{
+table.screen_edit
+{
 	background-color: #FFFFFF;
 	width: 100%;
 	border: 1px outset #DDDDDD;
 }
 
-table.screen_edit td{
+table.screen_edit td
+{
 	background-color: #FFFFFF;
 	border: 1px inset #DDDDDD;
 	text-align: center;
@@ -501,6 +490,13 @@ table.tableinfo tr td {
 	height: 20px;
 }
 
+table.tableinfo tr td.wraptext {
+	white-space:normal;
+}
+
+table.tableinfo tr td.message {
+	text-align: center;
+}
 table.tableinfo tr.header td {
 	white-space: nowrap;
 	word-spacing:	0px;
@@ -508,7 +504,6 @@ table.tableinfo tr.header td {
 	background-color:#CCCCCC;
 	border-width: 0px;
 }
-
 table.tableinfo tr.vertical_header td {
 	padding-left: 0px;
 	padding-right: 0px;
@@ -523,7 +518,12 @@ table.tableinfo tr.vertical_header td {
 	text-align: center;
 	width: 20px;
 }
-
+table.tableinfo tr.header td {
+	white-space: nowrap;
+	word-spacing:	0px;
+	font-weight: bold; 
+	background-color:#CCCCCC;
+}
 table.tableinfo tr.footer td {
 	color: #FFFFFF;
 	background: #5C7099 url('../images/gradients/table_head2.gif') repeat-x top left;
@@ -534,15 +534,6 @@ table.tableinfo tr.footer td {
 	font-family:verdana, arial, helvetica, sans-serif;
 	font-size:10px;
 }
-
-table.tableinfo tr td.wraptext {
-	white-space:normal;
-}
-
-table.tableinfo tr td.message {
-	text-align: center;
-}
-
 table.tableinfo tr.odd_row td			{	background-color: #DDDDDD; border: 1px #DDDDDD solid; }
 table.tableinfo tr.odd_row:hover td		{	background-color: #DDDDEE; border: 1px #DDDDEE solid; }
 
@@ -595,7 +586,6 @@ table.tableinfo tr:hover td.active		{	background-color: #AAD9AA;	border: 1px #AA
 
 table.tableinfo tr td.inactive			{	background-color: #FF8888;	border: 1px #FF8888 solid; }
 table.tableinfo tr:hover td.inactive		{	background-color: #FA8388;	border: 1px #FA8388 solid; }
-
 /****** HEADER *********/
 
 table.header{
@@ -612,98 +602,41 @@ table.header{
 	vertical-align: middle;
 }
 
-table.header tr td.header_c{
-	font-family:verdana, arial, helvetica, sans-serif;
-	font-size:10px;
-	height: 24px;
-	padding-left: 4px;
-	padding-right: 4px;
-	line-height: 20px;
-}
-
 table.header tr td.header_l{
-	background:none;
 	font-family:verdana, arial, helvetica, sans-serif;
 	font-size:10px;
 	text-align: left;
 	height: 24px;
 	padding-left: 5px;
-	border-width: 0px;
 }
 table.header tr td.header_r{
-	background:none;
 	font-family:verdana, arial, helvetica, sans-serif;
 	font-size:10px;
 	text-align: right;
 	height: 24px;
 	padding-right: 5px;
-	border-width: 0px;
 }
 
 table.header a{
 	color: #FFFFFF;
 }
 
-/****** FLICKER *********/
-table.flicker{
-	width: 100%;
-	color: #FFFFFF;
-	background: #5C7099 url('../images/gradients/menu_not_active2.gif') repeat-x top left;
-	background-color: #6d88ad;
-	border: 0px #000000 solid;
-	vertical-align:middle;
-}
-
-table.flicker tr td.flicker_c{
-	font-family:verdana, arial, helvetica, sans-serif;
-	font-size:10px;
-	height: 16px;
-	padding-left: 4px;
-	padding-right: 4px;
-	line-height: 12px;
-}
-
-table.flicker tr td.flicker_l{
-	font-family:verdana, arial, helvetica, sans-serif;
-	font-size:10px;
-	text-align: left;
-	height: 16px;
-	padding-left: 4px;
-	line-height: 12px;
-}
-table.flicker tr td.flicker_r{
-	font-family:verdana, arial, helvetica, sans-serif;
-	font-size:10px;
-	text-align: right;
-	height: 16px;
-	padding-right: 4px;
-	line-height: 12px;
-}
-
-table.flicker a{
-	color: #0BF;
-}
-
-/****** THIN HEADER *********/
-table.thin_header{
+/****** FILTER *********/
+table.filter{
 	width: 100%;
 	color: #FFFFFF;
 	background: #5C7099 url('../images/gradients/table_head2.gif') repeat-x top left;
 	background-color: #6d88ad;
-	border: 0px #000000 solid;
+	border-color: #000000;
+	border-width:0px;
+	border-top-style: solid;
+	border-left-style: solid;
+	border-right-style: solid;
+	border-bottom-style: solid;
 	vertical-align:middle;
 }
 
-table.thin_header tr td.thin_header_c{
-	font-family:verdana, arial, helvetica, sans-serif;
-	font-size:10px;
-	height: 16px;
-	padding-left: 4px;
-	padding-right: 4px;
-	line-height: 12px;
-}
-
-table.thin_header tr td.thin_header_l{
+table.filter tr td.filter_l{
 	font-family:verdana, arial, helvetica, sans-serif;
 	font-size:10px;
 	text-align: left;
@@ -711,7 +644,7 @@ table.thin_header tr td.thin_header_l{
 	padding-left: 4px;
 	line-height: 12px;
 }
-table.thin_header tr td.thin_header_r{
+table.filter tr td.filter_r{
 	font-family:verdana, arial, helvetica, sans-serif;
 	font-size:10px;
 	text-align: right;
@@ -720,9 +653,10 @@ table.thin_header tr td.thin_header_r{
 	line-height: 12px;
 }
 
-table.thin_header a{
+table.filter a{
 	color: #0BF;
 }
+
 /**************** Aknowledges ****************/
 
 table.ack_msgs{
@@ -765,11 +699,11 @@ table.ack_msgs tr.msg td{
 .right_header {
 	font-weight: bold; 
 	text-align: center;
-
+	border-top-style: solid;
 	border-left-style: solid;
 	border-right-style: solid;
 	border-bottom-style: none;
-	border-color: #AAAAAA;
+	border-color: #222255;
 }
 
 table.right_table{
@@ -1002,7 +936,10 @@ table.warning{
 }
 
 table.warning td{
-	padding:	10px;
+	padding-left:	0;
+	padding-right:	0;
+	padding-top: 	2px;
+	padding-bottom: 2px;
 	line-height: 20px;
 }
 
@@ -1013,18 +950,9 @@ table.warning tr.header{
 	color: 			white;
 	font-weight:	bold;
 }
-
-table.warning tr.header td{
-	padding:	2px;
-}
-
 table.warning tr.footer{
 	height:		34px;
 	border-top:	1px black dotted;
-}
-
-table.warning tr.footer td{
-	padding:	2px;
 }
 
 table.warning tr td.left{

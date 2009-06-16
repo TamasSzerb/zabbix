@@ -24,6 +24,7 @@
 	require_once('include/media.inc.php');
 	require_once('include/users.inc.php');
 	require_once('include/forms.inc.php');
+	require_once('include/classes/curl.inc.php');
 	require_once('include/js.inc.php');
 
 	$page['title'] = 'S_USERS';
@@ -40,69 +41,63 @@ include_once('include/page_header.php');
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		'config'=>			array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	null),
-		'perm_details'=>	array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	null),
+		'config'=>		array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	null),
+		'perm_details'=>array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	null),
 /* user */
-		'userid'=>			array(T_ZBX_INT, O_NO,	P_SYS,	DB_ID,'(isset({config})&&({config}==0))&&(isset({form})&&({form}=="update"))'),
-		'group_userid'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,		null),
+		'userid'=>		array(T_ZBX_INT, O_NO,	P_SYS,	DB_ID,'(isset({config})&&({config}==0))&&(isset({form})&&({form}=="update"))'),
+		'group_userid'=>array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,		null),
 		'filter_usrgrpid'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,		null),
-
-		'alias'=>			array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'(isset({config})&&({config}==0))&&isset({save})'),
-		'name'=>			array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'(isset({config})&&({config}==0))&&isset({save})'),
-		'surname'=>			array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'(isset({config})&&({config}==0))&&isset({save})'),
 		
-		'password1'=>		array(T_ZBX_STR, O_OPT,	null,	null,		'(isset({config})&&({config}==0))&&isset({save})&&(isset({form})&&({form}!="update"))&&isset({change_password})'),
-		"password2"=>		array(T_ZBX_STR, O_OPT,	null,	null,		'(isset({config})&&({config}==0))&&isset({save})&&(isset({form})&&({form}!="update"))&&isset({change_password})'),
-		
-		'user_type'=>			array(T_ZBX_INT, O_OPT,	null,	IN('1,2,3'),	'(isset({config})&&({config}==0))&&isset({save})'),
-		'user_groups'=>			array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	null),//'(isset({config})&&({config}==0))&&isset({save})'),
+		'alias'=>		array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'(isset({config})&&({config}==0))&&isset({save})'),
+		'name'=>		array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'(isset({config})&&({config}==0))&&isset({save})'),
+		'surname'=>		array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'(isset({config})&&({config}==0))&&isset({save})'),
+		'password1'=>	array(T_ZBX_STR, O_OPT,	null,	null,		'(isset({config})&&({config}==0))&&isset({save})&&(isset({form})&&({form}!="update"))&&isset({change_password})'),
+		"password2"=>	array(T_ZBX_STR, O_OPT,	null,	null,		'(isset({config})&&({config}==0))&&isset({save})&&(isset({form})&&({form}!="update"))&&isset({change_password})'),
+		'user_type'=>	array(T_ZBX_INT, O_OPT,	null,	IN('1,2,3'),	'(isset({config})&&({config}==0))&&isset({save})'),
+		'user_groups'=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	null),//'(isset({config})&&({config}==0))&&isset({save})'),
 		'user_groups_to_del'=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID,	null),
-		'user_medias'=>			array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	null),
+		'user_medias'=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	null),
 		'user_medias_to_del'=>	array(T_ZBX_STR, O_OPT,	null,	DB_ID,	null),
-		
-		'new_group'=>		array(T_ZBX_STR, O_OPT,	null,	null,	null),
-		'new_media'=>		array(T_ZBX_STR, O_OPT,	null,	null,	null),
-		'enable_media'=>	array(T_ZBX_INT, O_OPT,	null,	null,		null),
-		'disable_media'=>	array(T_ZBX_INT, O_OPT,null,	null,		null),
-		'lang'=>			array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'(isset({config})&&({config}==0))&&isset({save})'),
-		'theme'=>			array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'(isset({config})&&({config}==0))&&isset({save})'),
-		'autologin'=>		array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	null),
-		'autologout'=>		array(T_ZBX_INT, O_OPT,	null,	BETWEEN(90,10000), null),
-		'url'=>				array(T_ZBX_STR, O_OPT,	null,	null,		'(isset({config})&&({config}==0))&&isset({save})'),
-		'refresh'=>			array(T_ZBX_INT, O_OPT,	null,	BETWEEN(0,3600),'(isset({config})&&({config}==0))&&isset({save})'),
-		'rows_per_page'=>	array(T_ZBX_INT, O_OPT,	null,	BETWEEN(0,1000),'(isset({config})&&({config}==0))&&isset({save})'),
+		'new_group'=>	array(T_ZBX_STR, O_OPT,	null,	null,	null),
+		'new_media'=>	array(T_ZBX_STR, O_OPT,	null,	null,	null),
+		'enable_media'=>array(T_ZBX_INT, O_OPT,	null,	null,		null),
+		'disable_media'=>array(T_ZBX_INT, O_OPT,null,	null,		null),
+		'lang'=>		array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'(isset({config})&&({config}==0))&&isset({save})'),
+		'theme'=>		array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'(isset({config})&&({config}==0))&&isset({save})'),
+		'autologin'=>	array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	null),
+		'autologout'=>	array(T_ZBX_INT, O_OPT,	null,	BETWEEN(90,10000), null),
+		'url'=>			array(T_ZBX_STR, O_OPT,	null,	null,		'(isset({config})&&({config}==0))&&isset({save})'),
+		'refresh'=>		array(T_ZBX_INT, O_OPT,	null,	BETWEEN(0,3600),'(isset({config})&&({config}==0))&&isset({save})'),
 
-		'right'=>			array(T_ZBX_STR, O_NO,	null,	NOT_EMPTY, 		'(isset({register})&&({register}=="add permission"))&&isset({userid})'),
-		'permission'=>		array(T_ZBX_STR, O_NO,	null,	NOT_EMPTY, 		'(isset({register})&&({register}=="add permission"))&&isset({userid})'),
-		'id'=>				array(T_ZBX_INT, O_NO,	null,	DB_ID, 			'(isset({register})&&({register}=="add permission"))&&isset({userid})'),
-		'rightid'=>			array(T_ZBX_INT, O_NO,	null,   DB_ID,			'(isset({register})&&({register}=="delete permission"))&&isset({userid})'),
+		'right'=>		array(T_ZBX_STR, O_NO,	null,	NOT_EMPTY, 		'(isset({register})&&({register}=="add permission"))&&isset({userid})'),
+		'permission'=>	array(T_ZBX_STR, O_NO,	null,	NOT_EMPTY, 		'(isset({register})&&({register}=="add permission"))&&isset({userid})'),
+		'id'=>			array(T_ZBX_INT, O_NO,	null,	DB_ID, 			'(isset({register})&&({register}=="add permission"))&&isset({userid})'),
+		'rightid'=>		array(T_ZBX_INT, O_NO,	null,   DB_ID,			'(isset({register})&&({register}=="delete permission"))&&isset({userid})'),
 		
-		'grpaction'=>		array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	null),
+		'grpaction'=>	array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	null),
 /* group */
-		'usrgrpid'=>		array(T_ZBX_INT, O_NO,	P_SYS,	DB_ID,'(isset({config})&&(({config}==1) || isset({grpaction})))&&(isset({form})&&({form}=="update"))'),
-		'group_groupid'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,		null),
-		'selusrgrp'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,		null),
+		'usrgrpid'=>	array(T_ZBX_INT, O_NO,	P_SYS,	DB_ID,'(isset({config})&&(({config}==1) || isset({grpaction})))&&(isset({form})&&({form}=="update"))'),
+		'group_groupid'=>array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,		null),
 
-		'gname'=>			array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'(isset({config})&&({config}==1))&&isset({save})'),
-		'users'=>			array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,	null),
-		'users_status'=>	array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	'(isset({config})&&({config}==1))&&isset({save})'),
-		'gui_access'=>		array(T_ZBX_INT, O_OPT,	null,	IN('0,1,2'),	'(isset({config})&&({config}==1))&&isset({save})'),
-		'api_access'=>		array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),		'(isset({config})&&({config}==1))&&isset({save})'),
-		'new_right'=>		array(T_ZBX_STR, O_OPT,	null,	null,	null),
-		'right_to_del'=>	array(T_ZBX_STR, O_OPT,	null,	null,	null),
+		'gname'=>		array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,	'(isset({config})&&({config}==1))&&isset({save})'),
+		'users'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,	null),
+		'users_status'=>array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	'(isset({config})&&({config}==1))&&isset({save})'),
+		'gui_access'=>	array(T_ZBX_INT, O_OPT,	null,	IN('0,1,2'),	'(isset({config})&&({config}==1))&&isset({save})'),
+		'new_right'=>	array(T_ZBX_STR, O_OPT,	null,	null,	null),
+		'new_user'=>	array(T_ZBX_STR, O_OPT,	null,	null,	null),
+		'right_to_del'=>array(T_ZBX_STR, O_OPT,	null,	null,	null),
 		'group_users_to_del'=>	array(T_ZBX_STR, O_OPT,	null,	null,	null),
-		'group_users'=>		array(T_ZBX_STR, O_OPT,	null,	null,	null),
-		'group_rights'=>	array(T_ZBX_STR, O_OPT,	null,	null,	null),
+		'group_users'=>	array(T_ZBX_STR, O_OPT,	null,	null,	null),
+		'group_rights'=>array(T_ZBX_STR, O_OPT,	null,	null,	null),
 		
 		'set_users_status'=>	array(T_ZBX_INT, O_OPT,	null,	IN('0,1'), null),
 		'set_gui_access'=>		array(T_ZBX_INT, O_OPT,	null,	IN('0,1,2'), null),
-		'set_api_access'=>		array(T_ZBX_INT, O_OPT,	null,	IN('0,1'), null),
 
 /* actions */
 		'register'=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, IN('"add permission","delete permission"'), null),
 
-		'save'=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
-		'delete'=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
+		'save'=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
+		'delete'=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
 		'delete_selected'=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
 		'del_user_group'=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
 		'del_user_media'=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
@@ -126,11 +121,10 @@ include_once('include/page_header.php');
 
 	check_fields($fields);
 	validate_sort_and_sortorder('u.alias',ZBX_SORT_UP);
-
 ?>
 <?php
-	if($_REQUEST['config']==0) {
-		if(isset($_REQUEST['new_group'])) {
+	if($_REQUEST['config']==0){
+		if(isset($_REQUEST['new_group'])){
 			$_REQUEST['user_groups'] = get_request('user_groups', array());
 			foreach($_REQUEST['new_group'] as $id => $val)
 				$_REQUEST['user_groups'][$id] = $val;
@@ -152,6 +146,9 @@ include_once('include/page_header.php');
 		else if(isset($_REQUEST['save'])){
 			$config = select_config();
 			
+			$user_groups = get_request('user_groups', array());
+			$user_medias = get_request('user_medias', array());
+
 			$_REQUEST['password1'] = get_request('password1', null);
 			$_REQUEST['password2'] = get_request('password2', null);
 
@@ -165,6 +162,7 @@ include_once('include/page_header.php');
 					$_REQUEST['password1'] = $_REQUEST['password2'] = 'zabbix';
 				}
 			}
+
 			if($_REQUEST['password1']!=$_REQUEST['password2']){
 				if(isset($_REQUEST['userid']))
 					show_error_message(S_CANNOT_UPDATE_USER_BOTH_PASSWORDS);
@@ -178,38 +176,30 @@ include_once('include/page_header.php');
 				show_error_message(S_PASSWORD_SHOULD_NOT_BE_EMPTY);
 			}
 			else {
-				$user = array();
-				$user['name'] = get_request('name');
-				$user['surname'] = get_request('surname');
-				$user['alias'] = get_request('alias');
-				$user['passwd'] = get_request('password1');
-				$user['url'] = get_request('url');
-				$user['autologin'] = get_request('autologin', 0);
-				$user['autologout'] = get_request('autologout', 0);
-				$user['lang'] = get_request('lang');
-				$user['theme'] = get_request('theme');
-				$user['refresh'] = get_request('refresh');
-				$user['rows_per_page'] = get_request('rows_per_page');
-				$user['type'] = get_request('user_type');
-				$user['user_groups'] = get_request('user_groups', array());
-				$user['user_medias'] = get_request('user_medias', array());
-				
 				if(isset($_REQUEST['userid'])){
 					$action = AUDIT_ACTION_UPDATE;
-					
 					DBstart();
-					$result = update_user($_REQUEST['userid'], $user);
+					$result=update_user($_REQUEST['userid'],
+						$_REQUEST['name'],$_REQUEST['surname'],$_REQUEST['alias'],
+						$_REQUEST['password1'],$_REQUEST['url'],get_request('autologin',0),get_request('autologout',0),
+						$_REQUEST['lang'],$_REQUEST['theme'],$_REQUEST['refresh'],$_REQUEST['user_type'],
+						$user_groups, $user_medias);
+						
 					$result = DBend($result);
 					
 					show_messages($result, S_USER_UPDATED, S_CANNOT_UPDATE_USER);
 				} 
 				else {
 					$action = AUDIT_ACTION_ADD;
-					
 					DBstart();
-					$result = add_user($user);
+					$result=add_user(
+						$_REQUEST['name'],$_REQUEST['surname'],$_REQUEST['alias'],
+						$_REQUEST['password1'],$_REQUEST['url'],get_request('autologin',0),get_request('autologout',0),
+						$_REQUEST['lang'],$_REQUEST['theme'],$_REQUEST['refresh'],$_REQUEST['user_type'],
+						$user_groups, $user_medias);
+						
 					$result = DBend($result);
-					
+
 					show_messages($result, S_USER_ADDED, S_CANNOT_ADD_USER);
 				}
 				if($result){
@@ -242,7 +232,8 @@ include_once('include/page_header.php');
 			DBstart();
 			foreach($group_userid as $userid){
 				if(!($user_data = get_user_by_userid($userid))) continue;
-				
+
+
 				$result |= delete_user($userid);
 				
 				if($result){
@@ -339,19 +330,27 @@ include_once('include/page_header.php');
 		}
 		else if(isset($_REQUEST['new_right'])){
 			$_REQUEST['group_rights'] = get_request('group_rights', array());
-			foreach($_REQUEST['new_right'] as $id => $right) {
-				$_REQUEST['group_rights'][$right['name']] = array('id' => $id, 'permission' => $right['permission']);
-			}
+			foreach(array('id', 'permission') as $fld_name)
+				$_REQUEST['group_rights'][$_REQUEST['new_right']['name']][$fld_name] = $_REQUEST['new_right'][$fld_name];
+		}
+		else if(isset($_REQUEST['new_user'])){
+			$_REQUEST['group_users'] = get_request('group_users', array());
+			$_REQUEST['group_users'][$_REQUEST['new_user']['userid']] = $_REQUEST['new_user']['alias'];
+		}
+		else if(isset($_REQUEST['del_group_user'])&&isset($_REQUEST['group_users_to_del'])){
+			foreach($_REQUEST['group_users_to_del'] as $userid)
+				if(isset($_REQUEST['group_users'][$userid]))
+					unset($_REQUEST['group_users'][$userid]);
 		}
 		else if(isset($_REQUEST['save'])){
-			$group_users	= get_request('group_users', array());
-			$group_rights	= get_request('group_rights', array());
+			$group_users	= get_request('group_users', array());;
+			$group_rights	= get_request('group_rights', array());;
 
 			if(isset($_REQUEST['usrgrpid'])){
 				$action = AUDIT_ACTION_UPDATE;
 				
 				DBstart();
-				$result = update_user_group($_REQUEST['usrgrpid'], $_REQUEST['gname'], $_REQUEST['users_status'], $_REQUEST['gui_access'], $_REQUEST['api_access'], $group_users, $group_rights);
+				$result = update_user_group($_REQUEST['usrgrpid'], $_REQUEST['gname'], $_REQUEST['users_status'], $_REQUEST['gui_access'], $group_users, $group_rights);
 				$result = DBend($result);
 				
 				show_messages($result, S_GROUP_UPDATED, S_CANNOT_UPDATE_GROUP);
@@ -360,7 +359,7 @@ include_once('include/page_header.php');
 				$action = AUDIT_ACTION_ADD;
 				
 				DBstart();
-				$result = add_user_group($_REQUEST['gname'], $_REQUEST['users_status'], $_REQUEST['gui_access'], $_REQUEST['api_access'], $group_users, $group_rights);
+				$result = add_user_group($_REQUEST['gname'], $_REQUEST['users_status'], $_REQUEST['gui_access'], $group_users, $group_rights);
 				$result = DBend($result);
 				
 				show_messages($result, S_GROUP_ADDED, S_CANNOT_ADD_GROUP);
@@ -413,19 +412,6 @@ include_once('include/page_header.php');
 			if($result){
 				$audit_action = ($_REQUEST['set_gui_access'] == GROUP_GUI_ACCESS_DISABLED)?AUDIT_ACTION_DISABLE:AUDIT_ACTION_UPDATE;
 				add_audit($audit_action,AUDIT_RESOURCE_USER_GROUP,'GUI access for group name ['.$group['name'].']');
-				
-				unset($_REQUEST['usrgrpid']);
-			}
-			unset($_REQUEST['form']);
-		}
-		else if(isset($_REQUEST['set_api_access'])&&isset($_REQUEST['usrgrpid'])){
-			$group=get_group_by_usrgrpid($_REQUEST['usrgrpid']);
-			$result=change_group_api_access($_REQUEST['usrgrpid'], $_REQUEST['set_api_access']);
-			
-			show_messages($result, S_GROUP.' "'.$group['name'].'" '.S_API_ACCESS_UPDATED, S_CANNOT_UPDATE_API_ACCESS);
-			if($result){
-				$audit_action = ($_REQUEST['set_api_access'] == GROUP_API_ACCESS_DISABLED)?AUDIT_ACTION_DISABLE:AUDIT_ACTION_UPDATE;
-				add_audit($audit_action,AUDIT_RESOURCE_USER_GROUP,'API access for group name ['.$group['name'].']');
 				
 				unset($_REQUEST['usrgrpid']);
 			}
@@ -506,7 +492,6 @@ include_once('include/page_header.php');
 				S_GROUPS,
 				S_IS_ONLINE_Q,
 				S_GUI_ACCESS,
-				S_API_ACCESS,
 				S_STATUS,
 				S_ACTIONS
 				));
@@ -550,7 +535,7 @@ include_once('include/page_header.php');
 			}
 
 			$users_groups = array();
-			$sql = 'SELECT g.name, ug.usrgrpid, ug.userid '.
+			$sql = 'SELECT g.name, ug.userid '.
 					' FROM usrgrp g, users_groups ug '.
 					' WHERE g.usrgrpid=ug.usrgrpid '.
 						' AND '.DBcondition('ug.userid',$userids);
@@ -558,7 +543,7 @@ include_once('include/page_header.php');
 			while($db_group = DBfetch($db_groups)){
 				if(!isset($users_groups[$db_group['userid']])) $users_groups[$db_group['userid']] = array();
 				if(!empty($users_groups[$db_group['userid']])) $users_groups[$db_group['userid']][] = BR();
-				$users_groups[$db_group['userid']][] = new CLink($db_group['name'],'users.php?form=update&config=1&usrgrpid='.$db_group['usrgrpid'].'#form');
+				$users_groups[$db_group['userid']][] = $db_group['name'];
 			}
 
 			foreach($userids as $id => $userid){
@@ -584,10 +569,6 @@ include_once('include/page_header.php');
 
 				$users_status = new CSpan($users_status,($user['users_status'])?'green':'red');
 				$gui_access = new CSpan($gui_access,($user['gui_access'] == GROUP_GUI_ACCESS_DISABLED)?'orange':'green');
-				
-				$user['api_access'] = get_user_api_access($userid);
-				$api_access = ($user['api_access']) ? S_ENABLED : S_DISABLED;
-				$api_access = new CSpan($api_access, ($user['api_access'] == GROUP_API_ACCESS_DISABLED)?'green':'orange');
 
 				$action = get_user_actionmenu($userid);				
 
@@ -604,7 +585,6 @@ include_once('include/page_header.php');
 					isset($users_groups[$userid])?$users_groups[$userid]:'',
 					$online,
 					$gui_access,
-					$api_access,
 					$users_status,
 					$action
 					));
@@ -640,12 +620,11 @@ include_once('include/page_header.php');
 			$table->setHeader(array(
 				S_USERS_STATUS,
 				S_GUI_ACCESS,
-				S_API_ACCESS,
 				array(  new CCheckBox('all_groups',NULL, "CheckAll('".$form->GetName()."','all_groups');"), make_sorting_link(S_NAME,'ug.name')),
 				S_MEMBERS,
 				));
 		
-			$result=DBselect('SELECT ug.usrgrpid, ug.name, ug.users_status, ug.gui_access, ug.api_access '.
+			$result=DBselect('SELECT ug.usrgrpid, ug.name, ug.users_status, ug.gui_access '.
 							' FROM usrgrp ug'.
 							' WHERE '.DBin_node('ug.usrgrpid').
 							order_by('ug.name'));
@@ -668,8 +647,7 @@ include_once('include/page_header.php');
 				}
 				
 				$gui_access = user_auth_type2str($row['gui_access']);
-				$api_access = ($row['api_access'] == GROUP_API_ACCESS_DISABLED) ? S_DISABLED : S_ENABLED;
-				$users_status = ($row['users_status'] == GROUP_STATUS_ENABLED) ? S_ENABLED : S_DISABLED;
+				$users_status = ($row['users_status'] == GROUP_STATUS_ENABLED)?S_ENABLED:S_DISABLED;
 
 				if(granted2update_group($row['usrgrpid'])){
 
@@ -681,7 +659,7 @@ include_once('include/page_header.php');
 								'&usrgrpid='.$row['usrgrpid'].
 								url_param('config'),
 								($row['gui_access'] == GROUP_GUI_ACCESS_DISABLED)?'orange':'enabled');
-								
+
 					$users_status = new CLink($users_status,
 								'users.php?form=update'.
 								'&set_users_status='.(($row['users_status'] == GROUP_STATUS_ENABLED)?GROUP_STATUS_DISABLED:GROUP_STATUS_ENABLED).
@@ -691,21 +669,13 @@ include_once('include/page_header.php');
 
 				}
 				else{
-					$gui_access = new CSpan($gui_access,($row['gui_access'] == GROUP_GUI_ACCESS_DISABLED)?'orange':'green');
+					$gui_access = new CSpan($gui_access,($row['gui_access'] == GROUP_GUI_ACCESS_DISABLED)?'orange':'green');				
 					$users_status = new CSpan($users_status,($row['users_status'] == GROUP_STATUS_ENABLED)?'green':'red');
 				}
-				
-				$api_access = new CLink($api_access,
-							'users.php?form=update'.
-							'&set_api_access='.(($row['api_access'] == GROUP_API_ACCESS_DISABLED)?GROUP_API_ACCESS_ENABLED: GROUP_API_ACCESS_DISABLED).
-							'&usrgrpid='.$row['usrgrpid'].
-							url_param('config'),
-							($row['api_access'] == GROUP_API_ACCESS_DISABLED)?'enabled':'orange');
 								
 				$table->addRow(array(
 					$users_status,
 					$gui_access,
-					$api_access,
 					array(
 						 new CCheckBox('group_groupid['.$row['usrgrpid'].']',NULL,NULL,$row['usrgrpid']),
 						$alias = new CLink($row['name'],

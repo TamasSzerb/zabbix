@@ -35,7 +35,6 @@ AGENT_VALUE
 	int	timestamp;
 	char	*source;
 	int	severity;
-	int	logeventid;
 };
 
 int	send_result(zbx_sock_t *sock, int result, char *info);

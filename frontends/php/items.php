@@ -26,7 +26,6 @@
 
 	$page['title'] = "S_CONFIGURATION_OF_ITEMS";
 	$page['file'] = 'items.php';
-	$page['scripts'] = array('scriptaculous.js?load=effects');
 	$page['hist_arg'] = array();
 
 include_once 'include/page_header.php';
@@ -43,7 +42,6 @@ include_once 'include/page_header.php';
 		'privpassphras_visible'=>	array(T_ZBX_STR, O_OPT,  null, null,           null),
 		'port_visible'=>		array(T_ZBX_STR, O_OPT,  null, null,           null),
 		'value_type_visible'=>		array(T_ZBX_STR, O_OPT,  null, null,           null),
-		'data_type_visible'=>		array(T_ZBX_STR, O_OPT,  null, null,           null),
 		'units_visible'=>		array(T_ZBX_STR, O_OPT,  null, null,           null),
 		'formula_visible'=>		array(T_ZBX_STR, O_OPT,  null, null,           null),
 		'delay_visible'=>		array(T_ZBX_STR, O_OPT,  null, null,           null),
@@ -81,8 +79,6 @@ include_once 'include/page_header.php';
 					ITEM_TYPE_AGGREGATE,ITEM_TYPE_HTTPTEST,ITEM_TYPE_EXTERNAL,ITEM_TYPE_DB_MONITOR,ITEM_TYPE_IPMI)),'isset({save})'),
 		'trends'=>	array(T_ZBX_INT, O_OPT,  null,  BETWEEN(0,65535),		'isset({save})'),
 		'value_type'=>	array(T_ZBX_INT, O_OPT,  null,  IN('0,1,2,3,4'),	'isset({save})'),
-		'data_type'=>	array(T_ZBX_INT, O_OPT,  null,  BETWEEN(ITEM_DATA_TYPE_DECIMAL,ITEM_DATA_TYPE_HEXADECIMAL),
-					'isset({save})&&(isset({value_type})&&({value_type}=='.ITEM_VALUE_TYPE_UINT64.'))'),
 		'valuemapid'=>	array(T_ZBX_INT, O_OPT,	 null,	DB_ID,				'isset({save})'),
 		'params'=>	array(T_ZBX_STR, O_OPT,  NULL,	NULL,'isset({save})'),
 
@@ -156,7 +152,6 @@ include_once 'include/page_header.php';
 		'filter_snmpv3_authpassphrase'=>	array(T_ZBX_STR, O_OPT,  null,  null, null),
 		'filter_snmpv3_privpassphrase'=>	array(T_ZBX_STR, O_OPT,  null,  null, null),
 		'filter_value_type'=>		array(T_ZBX_INT, O_OPT,  null,  IN('-1,0,1,2,3,4'),null),
-		'filter_data_type'=>			array(T_ZBX_INT, O_OPT,  null,  BETWEEN(-1,ITEM_DATA_TYPE_HEXADECIMAL),null),
 		'filter_units'=>			array(T_ZBX_STR, O_OPT,  null,  null, null, null),
 		'filter_formula'=>			array(T_ZBX_STR, O_OPT,  null,  null, null),
 		'filter_delay'=>			array(T_ZBX_INT, O_OPT,  -1,  BETWEEN(0,86400),null),
@@ -220,7 +215,6 @@ include_once 'include/page_header.php';
 		$_REQUEST['filter_snmpv3_authpassphrase'] = null;
 		$_REQUEST['filter_snmpv3_privpassphrase'] = null;
 		$_REQUEST['filter_value_type'] = -1;
-		$_REQUEST['filter_data_type'] = -1;
 		$_REQUEST['filter_units'] = null;
 		$_REQUEST['filter_formula'] = null;
 		$_REQUEST['filter_delay'] = null;
@@ -247,7 +241,6 @@ include_once 'include/page_header.php';
 		$_REQUEST['filter_snmpv3_authpassphrase']	= empty2null(get_request('filter_snmpv3_authpassphrase',get_profile('web.items.filter.snmpv3_authpassphrase')));
 		$_REQUEST['filter_snmpv3_privpassphrase']	= empty2null(get_request('filter_snmpv3_privpassphrase',get_profile('web.items.filter.snmpv3_privpassphrase')));
 		$_REQUEST['filter_value_type']		= get_request('filter_value_type'					,get_profile('web.items.filter.value_type',		-1));
-		$_REQUEST['filter_data_type']		= get_request('filter_data_type'					,get_profile('web.items.filter.data_type',		-1));
 		$_REQUEST['filter_units']			= empty2null(get_request('filter_units'				,get_profile('web.items.filter.units')));
 		$_REQUEST['filter_formula']			= empty2null(get_request('filter_formula'			,get_profile('web.items.filter.formula')));
 		$_REQUEST['filter_delay']			= empty2null(get_request('filter_delay'				,get_profile('web.items.filter.delay')));
@@ -288,7 +281,6 @@ include_once 'include/page_header.php';
 		update_profile('web.items.filter.snmpv3_authpassphrase', $_REQUEST['filter_snmpv3_authpassphrase'], PROFILE_TYPE_STR);
 		update_profile('web.items.filter.snmpv3_privpassphrase', $_REQUEST['filter_snmpv3_privpassphrase'], PROFILE_TYPE_STR);
 		update_profile('web.items.filter.value_type'           , $_REQUEST['filter_value_type'], PROFILE_TYPE_STR);
-		update_profile('web.items.filter.data_type'            , $_REQUEST['filter_data_type'], PROFILE_TYPE_STR);
 		update_profile('web.items.filter.units'                , $_REQUEST['filter_units'], PROFILE_TYPE_STR);
 		update_profile('web.items.filter.formula'              , $_REQUEST['filter_formula'], PROFILE_TYPE_STR);
 		update_profile('web.items.filter.delay'                , $_REQUEST['filter_delay'], PROFILE_TYPE_STR);
@@ -332,10 +324,10 @@ include_once 'include/page_header.php';
 			$result = DBend($result);
 		}
 		show_messages($result, S_ITEM_DELETED, S_CANNOT_DELETE_ITEM);
-/*		if($result){
+		if($result){
 			$host = get_host_by_hostid($item['hostid']);
 			add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_ITEM,S_ITEM.' ['.$item['key_'].'] ['.$_REQUEST['itemid'].'] '.S_HOST.' ['.$host['host'].']');
-		}*/
+		}
 		unset($_REQUEST['itemid']);
 		unset($_REQUEST['form']);
 	}
@@ -377,8 +369,7 @@ include_once 'include/page_header.php';
 				'valuemapid'		=> get_request('valuemapid'),
 				'delay_flex'		=> $db_delay_flex,
 				'params'			=> get_request('params'),
-				'ipmi_sensor'		=> get_request('ipmi_sensor'),
-				'data_type'		=> get_request('data_type'));
+				'ipmi_sensor'		=> get_request('ipmi_sensor'));
 
 		if(isset($_REQUEST['itemid'])){
 			DBstart();
@@ -390,12 +381,12 @@ include_once 'include/page_header.php';
 				if($new_appid = add_application($_REQUEST['new_application'],$_REQUEST['hostid']))
 					$applications[$new_appid] = $new_appid;
 			}
-
+			
 			$item['applications'] = $applications;
-
+			
 			$db_item = get_item_by_itemid_limited($_REQUEST['itemid']);
 			$db_item['applications'] = get_applications_by_itemid($_REQUEST['itemid']);
-
+					
 			foreach($item as $field => $value){
 				if($item[$field] == $db_item[$field]) $item[$field] = null;
 			}
@@ -407,7 +398,7 @@ include_once 'include/page_header.php';
 			$result = DBend($result);
 
 			$itemid = $_REQUEST['itemid'];
-/*			$action = AUDIT_ACTION_UPDATE;*/
+			$action = AUDIT_ACTION_UPDATE;
 
 			show_messages($result, S_ITEM_UPDATED, S_CANNOT_UPDATE_ITEM);
 		}
@@ -422,21 +413,21 @@ include_once 'include/page_header.php';
 			}
 
 			$item['applications'] = $applications;
-
+			
 			if($new_appid){
 				$itemid=add_item($item);
 			}
 
 			$result = DBend($itemid);
 
-/*			$action = AUDIT_ACTION_ADD;*/
+			$action = AUDIT_ACTION_ADD;
 			show_messages($result, S_ITEM_ADDED, S_CANNOT_ADD_ITEM);
 		}
 
-		if($result){
-/*			$host = get_host_by_hostid($_REQUEST['hostid']);
+		if($result){	
+			$host = get_host_by_hostid($_REQUEST['hostid']);
 
-			add_audit($action, AUDIT_RESOURCE_ITEM, S_ITEM.' ['.$_REQUEST['key'].'] ['.$itemid.'] '.S_HOST.' ['.$host['host'].']');*/
+			add_audit($action, AUDIT_RESOURCE_ITEM, S_ITEM.' ['.$_REQUEST['key'].'] ['.$itemid.'] '.S_HOST.' ['.$host['host'].']');
 
 			unset($_REQUEST['itemid']);
 			unset($_REQUEST['form']);
@@ -502,9 +493,8 @@ include_once 'include/page_header.php';
 				'delay_flex'		=> $db_delay_flex,
 				'params'			=> null,
 				'ipmi_sensor'		=> get_request('ipmi_sensor'),
-				'applications'		=> get_request('applications',array()),
-				'data_type'		=> get_request('data_type'));
-
+				'applications'		=> get_request('applications',array()));
+				
 		DBstart();
 		foreach($group_itemid as $id){
 			$result |= smart_update_item($id,$item);
@@ -579,9 +569,8 @@ include_once 'include/page_header.php';
 					'params'			=> get_request('params'),
 					'ipmi_sensor'		=> get_request('ipmi_sensor'),
 //					'applications'		=> $applications
-					'data_type'		=> get_request('data_type'),
 				);
-
+					
 			if($_REQUEST['action']=='add to group'){
 				$applications = get_request('applications',array());
 				$delay_flex = get_request('delay_flex',array());
@@ -595,7 +584,7 @@ include_once 'include/page_header.php';
 
 				$item['delay_flex'] = $db_delay_flex;
 				$item['applications'] = $applications;
-
+				
 				DBstart();
 				$itemid=add_item_to_group($_REQUEST['add_groupid'],$item);
 
@@ -607,7 +596,7 @@ include_once 'include/page_header.php';
 					unset($itemid);
 				}
 			}
-
+			
 			if($_REQUEST['action']=='update in group'){
 
 				$applications = get_request('applications',array());
@@ -622,7 +611,7 @@ include_once 'include/page_header.php';
 
 				$item['delay_flex'] = $db_delay_flex;
 				$item['applications'] = $applications;
-
+				
 				DBstart();
 					$result = update_item_in_group($_REQUEST['add_groupid'],$_REQUEST['itemid'],$item);
 				$result = DBend($result);
@@ -633,7 +622,7 @@ include_once 'include/page_header.php';
 					unset($_REQUEST['itemid']);
 				}
 			}
-
+			
 			if($_REQUEST['action']=='delete from group'){
 
 				DBstart();
@@ -673,7 +662,7 @@ include_once 'include/page_header.php';
 					info(S_ITEM.SPACE."'".$item['host'].':'.$item['itemid']."'".SPACE.S_CANNOT_DELETE_ITEM.SPACE.'('.S_WEB_ITEM.')');
 					continue;
 				}				
-/*				add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_ITEM,S_ITEM.' ['.$item['key_'].'] ['.$item['itemid'].'] '.S_HOST.' ['.$item['host'].']');*/
+				add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_ITEM,S_ITEM.' ['.$item['key_'].'] ['.$item['itemid'].'] '.S_HOST.' ['.$item['host'].']');
 			}
 
 			$result = !empty($group_itemid);
@@ -692,7 +681,7 @@ include_once 'include/page_header.php';
 			$group_itemid = $_REQUEST['group_itemid'];
 
 			DBstart();
-/*			$sql = 'SELECT h.host, i.itemid, i.key_ '.
+			$sql = 'SELECT h.host, i.itemid, i.key_ '.
 					' FROM items i, hosts h '.
 					' WHERE '.DBcondition('i.itemid',$group_itemid).
 						' AND h.hostid=i.hostid'.
@@ -700,7 +689,7 @@ include_once 'include/page_header.php';
 			$item_res = DBselect($sql);
 			while($item = DBfetch($item_res)){
 				add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ITEM,S_ITEM.' ['.$item['key_'].'] ['.$item['itemid'].'] '.S_HOST.' ['.$item['host'].']'.S_ITEMS_ACTIVATED);
-			}*/
+			}
 
 			$result = activate_item($group_itemid);
 			$result = DBend($result);
@@ -713,7 +702,7 @@ include_once 'include/page_header.php';
 			$group_itemid = $_REQUEST['group_itemid'];
 
 			DBstart();
-/*			$sql = 'SELECT h.host, i.itemid, i.key_ '.
+			$sql = 'SELECT h.host, i.itemid, i.key_ '.
 					' FROM items i, hosts h '.
 					' WHERE '.DBcondition('i.itemid',$group_itemid).
 						' AND h.hostid=i.hostid'.
@@ -721,7 +710,7 @@ include_once 'include/page_header.php';
 			$item_res = DBselect($sql);
 			while($item = DBfetch($item_res)){
 				add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ITEM,S_ITEM.' ['.$item['key_'].'] ['.$item['itemid'].'] '.S_HOST.' ['.$item['host'].']'.S_ITEMS_DISABLED);
-			}*/
+			}
 
 			$result = disable_item($group_itemid);
 			$result = DBend($result);
@@ -829,14 +818,13 @@ include_once 'include/page_header.php';
 		insert_copy_elements_to_forms('group_itemid');
 	}
 	else if (!isset($_REQUEST['form']) ||  !str_in_array($_REQUEST['form'],array(S_CREATE_ITEM,'update','clone'))) {
-	
-		$items_wdgt = new CWidget();
 // Table HEADER
 		$form = new CForm();
 		$form->setMethod('get');
 
 		$where_case = array();
 		$from_tables['h'] = 'hosts h';
+
 		$where_case[] = 'i.hostid=h.hostid';
 		$where_case[] =  DBcondition('h.hostid',$available_hosts);
 
@@ -873,17 +861,18 @@ include_once 'include/page_header.php';
 		$row_count = 0;
 		$numrows = new CSpan(null,'info');
 		$numrows->addOption('name','numrows');	
-		$header = array(S_ITEMS_BIG,
+		$header = get_table_header(array(S_ITEMS_BIG,
 						new CSpan(SPACE.SPACE.'|'.SPACE.SPACE, 'divider'),
-						S_FOUND.': ',$numrows);	
-						
-		$items_wdgt->addHeader($header, $form);
-//		show_table_header($header, $form);
+						S_FOUND.': ',$numrows,)
+						);			
+		show_table_header($header, $form);
 // ----------------
 
 // Items Filter
-		$items_wdgt->addFlicker(get_item_filter_form(), get_profile('web.items.filter.state',0));
-//-----
+		$filterForm = get_item_filter_form();
+
+		$filter = create_filter(S_FILTER,null,$filterForm,'item_filter',get_profile('web.items.filter.state',0));
+		$filter->Show();
 
 		if($filter_enabled){
 			if(ZBX_DISTRIBUTED && isset($_REQUEST['filter_node'])){
@@ -893,7 +882,7 @@ include_once 'include/page_header.php';
 			}
 
 			if(isset($_REQUEST['filter_group'])){
-				$from_tables['hg'] = 'hosts_groups hg';
+                $from_tables['hg'] = 'hosts_groups hg';
 				$from_tables['g'] = 'groups g';
 				$where_case[] = 'i.hostid=hg.hostid';
 				$where_case[] = 'g.groupid=hg.groupid';
@@ -950,10 +939,6 @@ include_once 'include/page_header.php';
 
 			if(isset($_REQUEST['filter_value_type']) && $_REQUEST['filter_value_type'] != -1){
 				$where_case[] = 'i.value_type='.$_REQUEST['filter_value_type'];
-			}
-
-			if(isset($_REQUEST['filter_data_type']) && $_REQUEST['filter_data_type'] != -1){
-				$where_case[] = 'i.data_type='.$_REQUEST['filter_data_type'];
 			}
 
 			if(isset($_REQUEST['filter_units'])){
@@ -1103,9 +1088,7 @@ include_once 'include/page_header.php';
 		$table->setFooter(new CCol($footerButtons));
 
 		$form->addItem($table);
-		
-		$items_wdgt->addItem($form);
-		$items_wdgt->show();
+		$form->Show();
 	}
 
 	if(isset($_REQUEST['form'])){

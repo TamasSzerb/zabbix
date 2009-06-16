@@ -19,7 +19,6 @@
 
 #include "zbxicmpping.h"
 #include "threads.h"
-#include "comms.h"
 #include "log.h"
 #include "zlog.h"
 
@@ -30,6 +29,40 @@ extern char	*CONFIG_FPING6_LOCATION;
 #endif /* HAVE_IPV6 */
 extern char	*CONFIG_TMPDIR;
 
+#ifdef HAVE_IPV6
+static int	get_address_family(const char *addr, int *family, char *error, int max_error_len)
+{
+	struct	addrinfo hints, *ai = NULL;
+	int	err, res = NOTSUPPORTED;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_flags = AI_NUMERICHOST;
+	hints.ai_socktype = SOCK_STREAM;
+
+	if (0 != (err = getaddrinfo(addr, NULL, &hints, &ai)))
+	{
+		zbx_snprintf(error, max_error_len, "%s: [%d] %s", addr, err, gai_strerror(err));
+		goto out;
+	}
+
+	if (ai->ai_family != PF_INET && ai->ai_family != PF_INET6)
+	{
+		zbx_snprintf(error, max_error_len, "%s: Unsupported address family", addr);
+		goto out;
+	}
+
+	*family = (int)ai->ai_family;
+
+	res = SUCCEED;
+out:
+	if (NULL != ai)
+		freeaddrinfo(ai);
+
+	return res;
+}
+#endif /* HAVE_IPV6 */
+
 static int	process_ping(ZBX_FPING_HOST *hosts, int hosts_count, char *error, int max_error_len)
 {
 	FILE		*f;
@@ -39,7 +72,7 @@ static int	process_ping(ZBX_FPING_HOST *hosts, int hosts_count, char *error, int
 	ZBX_FPING_HOST	*host;
 #ifdef HAVE_IPV6
 	char		*fping;
-	int		family;
+	int		family = 0;
 #endif
 
 	assert(hosts);
@@ -70,7 +103,7 @@ static int	process_ping(ZBX_FPING_HOST *hosts, int hosts_count, char *error, int
 
 	if (NULL != CONFIG_SOURCE_IP)
 	{
-		if (SUCCEED != get_address_family(CONFIG_SOURCE_IP, &family, error, max_error_len))
+		if (NOTSUPPORTED == get_address_family(CONFIG_SOURCE_IP, &family, error, max_error_len))
 			return NOTSUPPORTED;
 
 		if (family == PF_INET)
@@ -177,7 +210,7 @@ int	do_ping(ZBX_FPING_HOST *hosts, int hosts_count, char *error, int max_error_l
 {
 	int res;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In do_ping(hosts_count:%d)",
+	zabbix_log(LOG_LEVEL_DEBUG, "In do_ping() hosts_count=%d",
 			hosts_count);
 
 	if (NOTSUPPORTED == (res = process_ping(hosts, hosts_count, error, max_error_len)))
@@ -186,8 +219,8 @@ int	do_ping(ZBX_FPING_HOST *hosts, int hosts_count, char *error, int max_error_l
 		zabbix_syslog("%s", error);
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of do_ping():%s",
-			zbx_result_string(res));
+	zabbix_log(LOG_LEVEL_DEBUG, "End of do_ping() result=%s",
+			res == NOTSUPPORTED ? "NOTSUPPORTED" : "SUCCEED");
 
 	return res;
 }

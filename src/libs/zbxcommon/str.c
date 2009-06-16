@@ -1678,90 +1678,12 @@ char	*zbx_age2str(int age)
 	offset	= 0;
 
 	if (days)
-		offset += zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dd ", days);
+		offset = zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dd ", days);
 	if (days || hours)
-		offset += zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dh ", hours);
-	offset += zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dm", minutes);
+		offset = zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dh ", hours);
+	offset = zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dm ", minutes);
 
 	return buffer;
-}
-
-char	*zbx_date2str(time_t date)
-{
-	static char	buffer[11];
-	struct tm	*tm;
-
-	tm	= localtime(&date);
-	zbx_snprintf(buffer, sizeof(buffer), "%.4d.%.2d.%.2d",
-			tm->tm_year + 1900,
-			tm->tm_mon + 1,
-			tm->tm_mday);
-
-	return buffer;
-}
-
-char	*zbx_time2str(time_t time)
-{
-	static char	buffer[9];
-	struct tm	*tm;
-
-	tm	= localtime(&time);
-	zbx_snprintf(buffer, sizeof(buffer), "%.2d:%.2d:%.2d",
-			tm->tm_hour,
-			tm->tm_min,
-			tm->tm_sec);
-	return buffer;
-}
-
-static int	zbx_strncasecmp(const char *s1, const char *s2, size_t n)
-{
-	if (NULL == s1 && NULL == s2)
-		return 0;
-
-	if (NULL == s1)
-		return 1;
-
-	if (NULL == s2)
-		return -1;
-
-	while (n && '\0' != *s1 && '\0' != *s2 &&
-			tolower((unsigned char)*s1) == tolower((unsigned char)*s2))
-	{
-		s1++;
-		s2++;
-		n--;
-	}
-
-	return n == 0 ? 0 : tolower((unsigned char)*s1) - tolower((unsigned char)*s2);
-}
-
-char	*zbx_strcasestr(const char *haystack, const char *needle)
-{
-/*#ifdef HAVE_STRCASESTR
-	return strcasestr(haystack, needle);
-#else*/
-	size_t		sz_h, sz_n;
-	const char	*p;
-
-	if (NULL == needle || '\0' == *needle)
-		return (char *)haystack;
-
-	if (NULL == haystack || '\0' == *haystack)
-		return NULL;
-
-	sz_h = strlen(haystack);
-	sz_n = strlen(needle);
-	if (sz_h < sz_n)
-		return NULL;
-
-	for (p = haystack; p <= &haystack[sz_h - sz_n]; p++)
-	{
-		if (0 == zbx_strncasecmp(p, needle, sz_n))
-			return (char *)p;
-	}
-
-	return NULL;
-/*#endif*/
 }
 
 const char *zbx_permission_string(int perm)
@@ -1801,40 +1723,6 @@ char	*zbx_result_string(int result)
 	case NETWORK_ERROR: return "NETWORK_ERROR";
 	case TIMEOUT_ERROR: return "TIMEOUT_ERROR";
 	case AGENT_ERROR: return "AGENT_ERROR";
-	default: return "unknown";
-	}
-}
-
-char	*zbx_trigger_severity_string(zbx_trigger_severity_t severity)
-{
-	switch (severity) {
-	case TRIGGER_SEVERITY_NOT_CLASSIFIED: return "Not classified";
-	case TRIGGER_SEVERITY_INFORMATION: return "Information";
-	case TRIGGER_SEVERITY_WARNING: return "Warning";
-	case TRIGGER_SEVERITY_AVERAGE: return "Average";
-	case TRIGGER_SEVERITY_HIGH: return "High";
-	case TRIGGER_SEVERITY_DISASTER: return "Disaster";
-	default: return "unknown";
-	}
-}
-
-char	*zbx_dservice_type_string(zbx_dservice_type_t service)
-{
-	switch (service) {
-	case SVC_SSH: return "SSH";
-	case SVC_LDAP: return "LDAP";
-	case SVC_SMTP: return "SMTP";
-	case SVC_FTP: return "FTP";
-	case SVC_HTTP: return "HTTP";
-	case SVC_POP: return "POP";
-	case SVC_NNTP: return "NNTP";
-	case SVC_IMAP: return "IMAP";
-	case SVC_TCP: return "TCP";
-	case SVC_AGENT: return "ZABBIX agent";
-	case SVC_SNMPv1: return "SNMPv1 agent";
-	case SVC_SNMPv2c: return "SNMPv2c agent";
-	case SVC_SNMPv3: return "SNMPv3 agent";
-	case SVC_ICMPPING: return "ICMP Ping";
 	default: return "unknown";
 	}
 }

@@ -356,7 +356,7 @@ include_once 'include/page_header.php';
 	
 		$table  = new CTableInfo();
 		$table->setHeader(array(
-			is_show_all_nodes() ? make_sorting_link(S_NODE,'h.hostid') : null,
+			is_show_subnodes() ? make_sorting_link(S_NODE,'h.hostid') : null,
 			$_REQUEST['hostid'] ==0 ? make_sorting_link(S_HOST,'h.host') : NULL,
 			array($link, SPACE, new CCheckBox('all_httptests',null, "CheckAll('".$form->getName()."','all_httptests');"),  make_sorting_link(S_NAME,'wt.name')),
 			S_NUMBER_OF_STEPS,
@@ -438,17 +438,17 @@ include_once 'include/page_header.php';
 	
 			$status=new CCol(new CLink(httptest_status2str($httptest_data['status']),
 					'?group_httptestid[]='.$httptest_data['httptestid'].
+					'&hostid='.$db_app['hostid'].
 					'&group_task='.($httptest_data['status']?S_ACTIVATE_SELECTED:S_DISABLE_SELECTED),
 					httptest_status2style($httptest_data['status'])));
-	
-	
+					
 			$chkBox = new CCheckBox('group_httptestid['.$httptest_data['httptestid'].']',null,null,$httptest_data['httptestid']);
 			
 			$step_cout = DBfetch(DBselect('select count(*) as cnt from httpstep where httptestid='.$httptest_data['httptestid']));
 			$step_cout = $step_cout['cnt'];
 	
 			array_push($app_rows, new CRow(array(
-				is_show_all_nodes()?SPACE:NULL,
+				is_show_subnodes()?SPACE:NULL,
 				($_REQUEST['hostid']>0)?NULL:SPACE,
 				array(str_repeat(SPACE,4),$chkBox, $name),
 				$step_cout,
@@ -487,6 +487,7 @@ include_once 'include/page_header.php';
 			foreach($app_rows as $row)
 				$table->addRow($row);
 		}
+		
 		$footerButtons = array();
 		array_push($footerButtons, new CButtonQMessage('group_task',S_ACTIVATE_SELECTED,S_ACTIVATE_SELECTED_SCENARIOS_Q));
 		array_push($footerButtons, SPACE);
@@ -498,7 +499,7 @@ include_once 'include/page_header.php';
 		$table->setFooter(new CCol($footerButtons));
 	
 		$form->addItem($table);
-		$form->Show();	
+		$form->Show();
 	}
 ?>
 <?php

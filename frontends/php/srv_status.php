@@ -1,5 +1,5 @@
 <?php
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2007 SIA Zabbix
 **
@@ -19,12 +19,12 @@
 **/
 ?>
 <?php
-	require_once('include/config.inc.php');
-	require_once('include/triggers.inc.php');
-	require_once('include/services.inc.php');
-
-	$page['title'] = "S_IT_SERVICES";
-	$page['file'] = 'srv_status.php';
+	require_once("include/config.inc.php");
+	require_once("include/services.inc.php");
+	require_once('include/classes/ctree.inc.php');
+		
+	$page["title"] = "S_IT_SERVICES";
+	$page["file"] = "srv_status.php";
 	$page['scripts'] = array('services.js');
 	$page['hist_arg'] = array();
 
@@ -39,7 +39,6 @@ include_once "include/page_header.php";
 		'serviceid'=>		array(T_ZBX_INT, O_OPT,	P_SYS|P_NZERO,	DB_ID,			NULL),
 		'showgraph'=>		array(T_ZBX_INT, O_OPT,	P_SYS,			IN('1'),		'isset({serviceid})'),
 		'period_start'=>	array(T_ZBX_STR, O_OPT,	P_SYS,			NULL,	NULL),
-		'fullscreen'=>		array(T_ZBX_INT, O_OPT,	P_SYS,			IN('0,1'),	NULL),
 // ajax
 		'favobj'=>		array(T_ZBX_STR, O_OPT, P_ACT,	IN('"hat"'),		NULL),
 		'favid'=>		array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,	'isset({favobj})'),
@@ -48,12 +47,12 @@ include_once "include/page_header.php";
 
 	check_fields($fields);
 
-/* AJAX */
+/* AJAX */	
 	if(isset($_REQUEST['favobj'])){
 		if('hat' == $_REQUEST['favobj']){
 			update_profile('web.srv_status.hats.'.$_REQUEST['favid'].'.state',$_REQUEST['state'],PROFILE_TYPE_INT);
 		}
-	}
+	}	
 
 	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
 		exit();
@@ -67,7 +66,7 @@ include_once "include/page_header.php";
 	if(isset($_REQUEST['serviceid'])){
 		$sql = 'SELECT DISTINCT serviceid, triggerid '.
 				' FROM services '.
-				' WHERE serviceid='.$_REQUEST['serviceid'];
+				' WHERE serviceid='.$_REQUEST['serviceid'];		
 		if($service = DBfetch(DBselect($sql))){
 			if(isset($service['triggerid']) && !isset($available_triggers[$service['triggerid']])){
 				access_deny();
@@ -77,7 +76,7 @@ include_once "include/page_header.php";
 			unset($service);
 		}
 	}
-
+	
 	unset($_REQUEST['serviceid']);
 ?>
 <?php
@@ -85,9 +84,9 @@ include_once "include/page_header.php";
 
 	if(isset($service) && isset($_REQUEST['showgraph'])){
 		$table  = new CTable(null,'chart');
-		$table->addRow(new CImg('chart5.php?serviceid='.$service['serviceid'].url_param('path')));
-		$table->show();
-	}
+		$table->AddRow(new CImg('chart5.php?serviceid='.$service['serviceid'].url_param('path')));
+		$table->Show();
+	} 
 	else {
 		$periods = array(
 			'today' => S_TODAY,
@@ -99,9 +98,9 @@ include_once "include/page_header.php";
 			24*30 => S_LAST_30_DAYS,
 			24*365 => S_LAST_365_DAYS,
 		);
-
+	
 		$period_start = get_request('period_start', 7*24);
-
+		
 		switch($period_start){
 			case 'today':
 				$period_start_sec = mktime(0, 0, 0, date('n'), date('j'), date('Y'));
@@ -122,10 +121,9 @@ include_once "include/page_header.php";
 				$period_start_sec = $period_start * 3600;
 			break;
 			default:
-				$period_start = 24*7;
-				$period_start_sec = $period_start * 3600;
+				$period_start_sec = 24 * 7 * 3600;
 		}
-
+		
 		$query = 'SELECT DISTINCT s.serviceid, sl.servicedownid, sl_p.serviceupid as serviceupid, s.triggerid, '.
 				' s.name as caption, s.algorithm, t.description, t.expression, s.sortorder, sl.linkid, s.showsla, s.goodsla, s.status '.
 			' FROM services s '.
@@ -137,7 +135,7 @@ include_once "include/page_header.php";
 			' ORDER BY s.sortorder, sl_p.serviceupid, s.serviceid';
 
 		$result=DBSelect($query);
-
+		
 		$services = array();
 		$row = array(
 						'id' => 0,
@@ -151,29 +149,28 @@ include_once "include/page_header.php";
 						'graph' => SPACE,
 						'linkid'=>''
 						);
-
+		
 		$services[0]=$row;
 		$now=time();
-
+		
 		while($row = DBFetch($result)){
 			$row['id'] = $row['serviceid'];
-
-			$row['caption'] = array(get_node_name_by_elid($row['serviceid']), $row['caption']);
-
+		
 			if(empty($row['serviceupid'])) $row['serviceupid']='0';
 			if(empty($row['description'])) $row['description']='None';
-			$row['graph'] = new CLink(S_SHOW,"srv_status.php?serviceid=".$row["serviceid"]."&showgraph=1".url_param('path'));
-
+			
+			$row['graph'] = new CLink(S_SHOW,"srv_status.php?serviceid=".$row["serviceid"]."&showgraph=1".url_param('path'),"action");
+			
 			if(isset($row["triggerid"]) && !empty($row["triggerid"])){
 
 				$url = new CLink(expand_trigger_description($row['triggerid']),'events.php?triggerid='.$row['triggerid']);
-				$row['caption'] = array($row['caption'],' [',$url,']');
+				$row['caption'] = array($row['caption'].' [',$url,']');
 
 			}
-
+			
 			if($row["status"]==0 || (isset($service) && (bccomp($service["serviceid"] , $row["serviceid"]) == 0))){
 				$row['reason']='-';
-			}
+			} 
 			else {
 				$row['reason']='-';
 				$result2=DBselect('SELECT s.triggerid,s.serviceid '.
@@ -184,79 +181,63 @@ include_once "include/page_header.php";
 									' AND '.DBcondition('t.triggerid',$available_triggers).
 									' AND '.DBin_node('s.serviceid').
 								' ORDER BY s.status DESC, t.description');
-
+					
 				while($row2=DBfetch($result2)){
 					if(is_string($row['reason']) && ($row['reason'] == '-'))
-						$row['reason'] = new CList(null,'itservices');
-					if(does_service_depend_on_the_service($row['serviceid'],$row2['serviceid'])){
-						$row['reason']->addItem(new CLink(
-										expand_trigger_description($row2['triggerid']),
-										'events.php?triggerid='.$row2['triggerid']));
+						$row['reason'] = new CList(null,"itservices");
+					if(does_service_depend_on_the_service($row["serviceid"],$row2["serviceid"])){
+						$row['reason']->AddItem(new CLink(
+										expand_trigger_description($row2["triggerid"]),
+										"events.php?triggerid=".$row2["triggerid"]));
 					}
 				}
 			}
-
-			if($row['showsla'] == 1){
+			
+			if($row["showsla"]==1){
 				$now = time(null);
 				$start = $now - $period_start_sec;
 				$end = $now;
-
-				$stat = calculate_service_availability($row['serviceid'], $start, $end);
+				
+				$stat = calculate_service_availability($row["serviceid"], $start, $end);
 				$p = min($stat['problem'], 20);
-				$sla_style = ($row['goodsla'] > $stat['ok'])?'on':'off';
-
+				$sla_style = $row['goodsla'] > $stat['ok'] ? 'red' : 'green';  
+				
 				$sizeX = 160;
 				$sizeY = 15;
 				$sizeX_red = $sizeX*$p/20;
 				$sizeX_green = $sizeX - $sizeX_red;
 
-//*
-				$sla_tab = new CTable(null,'invisible');
+				$chart = array(
+					'chart1'	=> new CImg('images/gradients/sla_green.png',$stat['ok'].'%' ,$sizeX_green,$sizeY),
+					'chart2'	=> new CImg('images/gradients/sla_red.png',$stat['problem'].'%' ,$sizeX_red,$sizeY),
+					'text'		=> new CSpan(SPACE.sprintf("%.2f",$stat['problem']),$sla_style));
+		
+				$row['sla'] = new CLink($chart, "report3.php?serviceid=".$row['serviceid']."&year=".date("Y"));
 
-				$chart1 = null;
-				if($sizeX_green > 0){
-					$chart1 = new CDiv(null, 'sla_green');
-					$chart1->setAttribute('style', 'width: '.$sizeX_green.'px;');
-					$chart1 = new CLink($chart1,'report3.php?serviceid='.$row['serviceid'].'&year='.date('Y'),'image');
-				}
-
-				$chart2 = null;
-				if($sizeX_red > 0){
-					$chart2 = new CDiv(null, 'sla_red');
-					$chart2->setAttribute('style', 'width: '.$sizeX_red.'px;');
-					$chart2 = new CLink($chart2,'report3.php?serviceid='.$row['serviceid'].'&year='.date('Y'),'image');
-				}
-
-				$text = new CLink(sprintf("%.2f",$stat['problem']),'report3.php?serviceid='.$row['serviceid'].'&year='.date('Y'), $sla_style);
-
-				$sla_tab->addRow(array($chart1, $chart2, SPACE, $text));
-
-				$row['sla'] = $sla_tab;
-
-				if($row['goodsla'] > $stat['ok']){
-					$sla_style = 'red';
-				}
+				if($row["goodsla"] > $stat["ok"]){
+					$sla_style='red';
+				} 
 				else {
-					$sla_style = 'green';
+					$sla_style='green';
 				}
-
-				$row['sla2'] = array(new CSpan(sprintf('%.2f',$row['goodsla']),'green'),'/', new CSpan(sprintf('%.2f',$stat['ok']),$sla_style));
-			}
+				
+				$row['sla2'] = array(new CSpan(sprintf("%.2f",$row['goodsla']),'green'),'/', new CSpan(sprintf("%.2f",$stat['ok']),$sla_style));
+			} 
 			else {
-				$row['sla']= '-';
-				$row['sla2']= '-';
+				$row['sla']= "-";
+				$row['sla2']= "-";
 			}
-
+			
 			if(isset($services[$row['serviceid']])){
-				$services[$row['serviceid']] = zbx_array_merge($services[$row['serviceid']],$row);
-			}
+				$services[$row['serviceid']] = array_merge($services[$row['serviceid']],$row);
+			} 
 			else {
 				$services[$row['serviceid']] = $row;
 			}
-
+		
 			if(isset($row['serviceupid']))
 			$services[$row['serviceupid']]['childs'][] = array('id' => $row['serviceid'], 'soft' => 0, 'linkid' => 0);
-
+	
 			if(isset($row['servicedownid']))
 			$services[$row['serviceid']]['childs'][] = array('id' => $row['servicedownid'], 'soft' => 1, 'linkid' => $row['linkid']);
 		}
@@ -267,42 +248,36 @@ include_once "include/page_header.php";
 		//permission issue
 		$treeServ = del_empty_nodes($treeServ);
 
-		$tree = new CTree('service_status_tree',
-							$treeServ,
-							array('caption' => bold(S_SERVICE),
-								'status' => bold(S_STATUS),
-								'reason' => bold(S_REASON),
-								'sla' => bold('SLA ('.$periods[$period_start].')'),
-								'sla2' => bold(nbsp(S_SLA)),
-								'graph' => bold(S_GRAPH))
-						);
-
+		$tree = new CTree($treeServ,array('caption' => bold(S_SERVICE),
+						'status' => bold(S_STATUS), 
+						'reason' => bold(S_REASON),
+						'sla' => bold('SLA ('.$periods[$period_start].')'),
+						'sla2' => bold(nbsp(S_SLA)),
+						'graph' => bold(S_GRAPH)));
+		
 		if($tree){
-// creates form for choosing a preset interval
+			// creates form for choosing a preset interval
 			$r_form = new CForm();
 			$r_form->setClass('nowrap');
-			$r_form->setMethod('get');
-			$r_form->setAttribute('name', 'period_choice');
-			$r_form->addVar('fullscreen', $_REQUEST['fullscreen']);
+			$r_form->setMethod('get');	
+			$r_form->addOption('name', 'period_choice');
 			$period_combo = new CComboBox('period_start', $period_start, 'javascript: submit();');
 			foreach($periods as $key => $val){
-				$period_combo->addItem($key, $val);
+				$period_combo->AddItem($key, $val);
 			}
-
-			$r_form->addItem(array(S_PERIOD.SPACE, $period_combo));
-
-			$url = '?period_start='.$period_start.'&fullscreen='.($_REQUEST['fullscreen']?'0':'1');
-			$fs_icon = new CDiv(SPACE, 'fullscreen');
-			$fs_icon->setAttribute('title',$_REQUEST['fullscreen']?S_NORMAL.' '.S_VIEW:S_FULLSCREEN);
-			$fs_icon->addAction('onclick',new CJSscript("javascript: document.location = '".$url."';"));
-
-			$srv_wdgt = new CWidget('hat_services', $tree->getHTML());
-
-			$srv_wdgt->addPageHeader(S_IT_SERVICES_BIG, $fs_icon);
-			$srv_wdgt->addHeader(S_IT_SERVICES_BIG, $r_form);
-
-			$srv_wdgt->show();
-		}
+			$r_form->AddItem(array(S_PERIOD, $period_combo));	
+	
+			$tab = create_hat(
+					S_IT_SERVICES_BIG,
+					$tree->getHTML(),
+					$r_form,
+					'hat_services',
+					get_profile('web.srv_status.hats.hat_services.state',1)
+				);
+				
+			$tab->Show();
+			unset($tab);
+		} 
 		else {
 			error('Can not format Tree. Check logik structure in service links');
 		}
@@ -310,6 +285,6 @@ include_once "include/page_header.php";
 ?>
 <?php
 
-include_once('include/page_footer.php');
+include_once "include/page_footer.php";
 
 ?>

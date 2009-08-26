@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -72,7 +72,7 @@ int	SERVICE_STATE(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 	{
 		if (QueryServiceStatus(service, &status))
 		{
-			static DWORD states[7] =
+			static DWORD states[7] = 
 			{
 				SERVICE_RUNNING,
 				SERVICE_PAUSED,
@@ -80,11 +80,11 @@ int	SERVICE_STATE(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 				SERVICE_PAUSE_PENDING,
 				SERVICE_CONTINUE_PENDING,
 				SERVICE_STOP_PENDING,
-				SERVICE_STOPPED
+				SERVICE_STOPPED 
 			};
 
 			for(i=0; i < 7 && status.dwCurrentState != states[i]; i++);
-
+			
 			SET_UI64_RESULT(result, i);
 		}
 		else
@@ -193,7 +193,7 @@ static int	check_service_state(SC_HANDLE h_srv, int service_state)
 			break;
 		}
 	}
-
+	
 	return FAIL;
 }
 

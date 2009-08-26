@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -33,7 +33,7 @@ extern char	*APP_PID_FILE;
 
 #define	MAXFD	64
 
-void	child_signal_handler(int sig,  siginfo_t *siginfo, void *context);
+void    child_signal_handler(int sig);
 
 int	daemon_start(int allow_root);
 void	daemon_stop(void);

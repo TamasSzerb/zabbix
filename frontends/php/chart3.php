@@ -1,5 +1,5 @@
 <?php
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -19,14 +19,15 @@
 **/
 ?>
 <?php
-	require_once('include/config.inc.php');
-	require_once('include/graphs.inc.php');
-
+	require_once 'include/config.inc.php';
+	require_once 'include/graphs.inc.php';
+	require_once 'include/classes/chart.inc.php';
+	
 	$page['file']	= 'chart3.php';
 	$page['title']	= 'S_CHART';
 	$page['type']	= PAGE_TYPE_IMAGE;
 
-include_once('include/page_header.php');
+include_once 'include/page_header.php';
 
 ?>
 <?php
@@ -39,18 +40,11 @@ include_once('include/page_header.php');
 		'name'=>	array(T_ZBX_STR, O_OPT,	NULL,		null,			null),
 		'width'=>	array(T_ZBX_INT, O_OPT,	NULL,		BETWEEN(0,65535),	null),
 		'height'=>	array(T_ZBX_INT, O_OPT,	NULL,		BETWEEN(0,65535),	null),
-
-		'ymin_type'=>	array(T_ZBX_INT, O_OPT,	NULL,		IN('0,1,2'),		null),
-		'ymax_type'=>	array(T_ZBX_INT, O_OPT,	NULL,		IN('0,1,2'),		null),
-
-		'ymin_itemid'=>	array(T_ZBX_INT, O_OPT,	NULL,		DB_ID,	null),
-		'ymax_itemid'=>	array(T_ZBX_INT, O_OPT,	NULL,		DB_ID,	null),
-
+		'yaxistype'=>	array(T_ZBX_INT, O_OPT,	NULL,		IN('0,1,2'),		null),
 		'graphtype'=>	array(T_ZBX_INT, O_OPT,	NULL,		IN('0,1'),		null),
-
 		'yaxismin'=>	array(T_ZBX_DBL, O_OPT,	NULL,		BETWEEN(-65535,65535),	null),
 		'yaxismax'=>	array(T_ZBX_DBL, O_OPT,	NULL,		null,	null),
-
+		'yaxismax'=>	array(T_ZBX_DBL, O_OPT,	NULL,		null,	null),
 		'percent_left'=>	array(T_ZBX_DBL, O_OPT,	 NULL,	BETWEEN(0,100),	null),
 		'percent_right'=>	array(T_ZBX_DBL, O_OPT,	 NULL,	BETWEEN(0,100),	null),
 
@@ -61,7 +55,7 @@ include_once('include/page_header.php');
 ?>
 <?php
 	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS, PERM_READ_ONLY, PERM_RES_IDS_ARRAY, get_current_nodeid(true));
-
+	
 	$items = get_request('items', array());
 	asort_by_key($items, 'sortorder');
 
@@ -73,44 +67,38 @@ include_once('include/page_header.php');
 			access_deny();
 		}
 	}
-
-	$graph = new CChart(get_request('graphtype'	,GRAPH_TYPE_NORMAL));
+	
+	$graph = new Chart(get_request('graphtype'	,GRAPH_TYPE_NORMAL));
 
 	$chart_header = '';
 	if(id2nodeid($host['hostid']) != get_current_nodeid()){
 		$chart_header = get_node_name_by_elid($host['hostid'],true);
 	}
 	$chart_header.= $host['host'].':'.get_request('name','');
-
+	
 	$graph->setHeader($chart_header);
 
 	unset($host);
 
-	if(isset($_REQUEST['period']))		$graph->setPeriod($_REQUEST['period']);
-	if(isset($_REQUEST['from']))		$graph->setFrom($_REQUEST['from']);
-	if(isset($_REQUEST['stime']))		$graph->setSTime($_REQUEST['stime']);
-	if(isset($_REQUEST['border']))		$graph->etBorder(0);
+	if(isset($_REQUEST['period']))		$graph->SetPeriod($_REQUEST['period']);
+	if(isset($_REQUEST['from']))		$graph->SetFrom($_REQUEST['from']);
+	if(isset($_REQUEST['stime']))		$graph->SetSTime($_REQUEST['stime']);
+	if(isset($_REQUEST['border']))		$graph->SetBorder(0);
 
-	$graph->setWidth(get_request('width',		900));
-	$graph->setHeight(get_request('height',		200));
+	$graph->SetWidth(get_request('width',		900));
+	$graph->SetHeight(get_request('height',		200));
 
-	$graph->showWorkPeriod(get_request('showworkperiod'	,1));
-	$graph->showTriggers(get_request('showtriggers'		,1));
-
-	$graph->setYMinAxisType(get_request('ymin_type'		,GRAPH_YAXIS_TYPE_CALCULATED));
-	$graph->setYMaxAxisType(get_request('ymax_type'		,GRAPH_YAXIS_TYPE_CALCULATED));
-
-	$graph->setYAxisMin(get_request('yaxismin'		,0.00));
-	$graph->setYAxisMax(get_request('yaxismax'		,100.00));
-
-	$graph->setYMinItemId(get_request('ymin_itemid'		,0));
-	$graph->setYMaxItemId(get_request('ymax_itemid'		,0));
-
+	$graph->ShowWorkPeriod(get_request('showworkperiod'	,1));
+	$graph->ShowTriggers(get_request('showtriggers'		,1));
+	$graph->SetYAxisType(get_request('yaxistype'		,GRAPH_YAXIS_TYPE_CALCULATED));
+	$graph->SetYAxisMin(get_request('yaxismin'		,0.00));
+	$graph->SetYAxisMax(get_request('yaxismax'		,100.00));
 	$graph->setLeftPercentage(get_request('percent_left',0));
 	$graph->setRightPercentage(get_request('percent_right',0));
 
+
 	foreach($items as $id => $gitem){
-		$graph->addItem(
+		$graph->AddItem(
 			$gitem['itemid'],
 			$gitem['yaxisside'],
 			$gitem['calc_fnc'],
@@ -122,10 +110,10 @@ include_once('include/page_header.php');
 
 		unset($items[$id]);
 	}
-	$graph->draw();
+	$graph->Draw();
 ?>
 <?php
 
-include_once('include/page_footer.php');
+include_once 'include/page_footer.php';
 
 ?>

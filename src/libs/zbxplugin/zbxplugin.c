@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -29,5 +29,5 @@ int add_plugin(char *args)
 #ifdef TODO
 #	error Realize plugin functionality!!!
 #endif
-	return 0;
+   return 0;
 }

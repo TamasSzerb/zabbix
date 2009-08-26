@@ -24,10 +24,6 @@
 #include "log.h"
 #include "zlog.h"
 
-/* Transaction level. Must be 1 for all queries. */
-int	txn_level = 0;
-int	txn_init = 0;
-
 #ifdef	HAVE_SQLITE3
 	int		sqlite_transaction_started = 0;
 	sqlite3		*conn = NULL;
@@ -73,12 +69,13 @@ void	zbx_db_close(void)
 /*
  * Connect to the database.
  * If fails, program terminates.
- */
+ */ 
 int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *dbsocket, int port)
 {
 	int	ret = ZBX_DB_OK;
-
-	txn_init = 1;
+#ifdef	HAVE_SQLITE3
+	char	*p, *path;
+#endif /* HAVE_SQLITE3 */
 
 #ifdef	HAVE_MYSQL
 	/* For MySQL >3.22.00 */
@@ -119,6 +116,8 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 			break;
 		}
 	}
+
+	return ret;
 #endif
 #ifdef	HAVE_POSTGRESQL
 	char		*cport = NULL;
@@ -159,6 +158,8 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 		/* disable "nonstandard use of \' in a string literal" warning */
 		DBexecute("set escape_string_warning to off");
 	}
+
+	return ret;
 #endif
 #ifdef	HAVE_ORACLE
 	char	connect[MAX_STRING_LEN];
@@ -190,10 +191,10 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 
 	if (ZBX_DB_OK == ret)
 		sqlo_autocommit_off(oracle);
+
+	return ret;
 #endif
 #ifdef	HAVE_SQLITE3
-	char	*p, *path;
-
 	/* check to see that the backend connection was successfully made */
 	if (SQLITE_OK != (ret = sqlite3_open(dbname, &conn))) {
 		zabbix_errlog(ERR_Z3001, dbname, 0, sqlite3_errmsg(conn));
@@ -216,10 +217,9 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 	DBexecute("PRAGMA temp_store_directory = '%s'", path);
 
 	zbx_free(path);
-#endif
-	txn_init = 0;
 
 	return ret;
+#endif
 }
 
 void	zbx_db_init(char *host, char *user, char *password, char *dbname, char *dbsocket, int port)
@@ -288,17 +288,11 @@ static DB_RESULT __zbx_zbx_db_select(const char *fmt, ...)
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
- * Comments: Do nothing if DB does not support transactions                   *
+ * Comments: Do nothing of DB does not support transactions                   *
  *                                                                            *
  ******************************************************************************/
 void	zbx_db_begin(void)
 {
-	if (txn_level > 0)
-	{
-		zabbix_log( LOG_LEVEL_CRIT, "ERROR: nested transaction detected. Please report it to Zabbix Team.");
-		assert(0);
-	}
-	txn_level++;
 #ifdef	HAVE_MYSQL
 	zbx_db_execute("%s","begin;");
 #endif
@@ -307,14 +301,10 @@ void	zbx_db_begin(void)
 #endif
 #ifdef	HAVE_SQLITE3
 	sqlite_transaction_started++;
-
+	
 	if(sqlite_transaction_started == 1)
 	{
-		if(PHP_MUTEX_OK != php_sem_acquire(&sqlite_access))
-		{
-			zabbix_log( LOG_LEVEL_CRIT, "ERROR: Unable to create lock on SQLite database.");
-			exit(-1);
-		}
+		php_sem_acquire(&sqlite_access);
 
 		zbx_db_execute("%s","begin;");
 	}
@@ -337,16 +327,11 @@ void	zbx_db_begin(void)
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
- * Comments: Do nothing if DB does not support transactions                   *
+ * Comments: Do nothing of DB does not support transactions                   *
  *                                                                            *
  ******************************************************************************/
 void zbx_db_commit(void)
 {
-	if (0 == txn_level)
-	{
-		zabbix_log( LOG_LEVEL_CRIT, "ERROR: commit without transaction. Please report it to Zabbix Team.");
-		assert(0);
-	}
 #ifdef	HAVE_MYSQL
 	zbx_db_execute("%s","commit;");
 #endif
@@ -362,7 +347,7 @@ void zbx_db_commit(void)
 	{
 		sqlite_transaction_started--;
 	}
-
+	
 	if(sqlite_transaction_started == 1)
 	{
 		zbx_db_execute("%s","commit;");
@@ -373,7 +358,6 @@ void zbx_db_commit(void)
 	}
 
 #endif
-	txn_level--;
 }
 
 /******************************************************************************
@@ -388,16 +372,11 @@ void zbx_db_commit(void)
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
- * Comments: Do nothing if DB does not support transactions                   *
+ * Comments: Do nothing of DB does not support transactions                   *
  *                                                                            *
  ******************************************************************************/
 void zbx_db_rollback(void)
 {
-	if (0 == txn_level)
-	{
-		zabbix_log( LOG_LEVEL_CRIT, "ERROR: rollback without transaction. Please report it to Zabbix Team.");
-		assert(0);
-	}
 #ifdef	HAVE_MYSQL
 	zbx_db_execute("rollback;");
 #endif
@@ -424,13 +403,12 @@ void zbx_db_rollback(void)
 	}
 
 #endif
-	txn_level--;
 }
 
 /*
  * Execute SQL statement. For non-select statements only.
  * If fails, program terminates.
- */
+ */ 
 int zbx_db_vexecute(const char *fmt, va_list args)
 {
 	char	*sql = NULL;
@@ -453,12 +431,7 @@ int zbx_db_vexecute(const char *fmt, va_list args)
 
 	sql = zbx_dvsprintf(sql, fmt, args);
 
-	if (0 == txn_init && 0 == txn_level)
-	{
-		zabbix_log( LOG_LEVEL_WARNING, "Query without transaction detected [%s]",
-			sql);
-	}
-	zabbix_log( LOG_LEVEL_DEBUG, "Query [txnlev:%d] [%s]", txn_level, sql);
+	zabbix_log( LOG_LEVEL_DEBUG, "Query [%s]", sql);
 #ifdef	HAVE_MYSQL
 	if(!conn)
 	{
@@ -500,7 +473,7 @@ int zbx_db_vexecute(const char *fmt, va_list args)
 				}
 
 				/* more results? -1 = no, >0 = error, 0 = yes (keep looping) */
-				if ((status = mysql_next_result(conn)) > 0)
+			        if ((status = mysql_next_result(conn)) > 0)
 					zabbix_errlog(ERR_Z3005, mysql_errno(conn), mysql_error(conn), sql);
 			} while (status == 0);
 		}
@@ -540,13 +513,9 @@ int zbx_db_vexecute(const char *fmt, va_list args)
 #ifdef	HAVE_SQLITE3
 	if (!sqlite_transaction_started)
 	{
-		if(PHP_MUTEX_OK != php_sem_acquire(&sqlite_access))
-		{
-			zabbix_log( LOG_LEVEL_CRIT, "ERROR: Unable to create lock on SQLite database.");
-			exit(-1);
-		}
+		php_sem_acquire(&sqlite_access);
 	}
-
+	
 lbl_exec:
 	if (SQLITE_OK != (ret = sqlite3_exec(conn, sql, NULL, 0, &error)))
 	{
@@ -569,7 +538,7 @@ lbl_exec:
 	}
 #endif
 
-/*	sec = zbx_time() - sec;
+/*	sec = zbx_time() - sec;	
 	if(sec > 0.1)
 		zabbix_log( LOG_LEVEL_WARNING, "Long query: " ZBX_FS_DBL " sec, \"%s\"", sec, sql);*/
 
@@ -613,7 +582,7 @@ void	PG_DBfree_result(DB_RESULT result)
 void	SQ_DBfree_result(DB_RESULT result)
 {
 	if(!result) return;
-
+	
 	if(result->data)
 	{
 		sqlite3_free_table(result->data);
@@ -636,18 +605,18 @@ DB_ROW	zbx_db_fetch(DB_RESULT result)
 
 	/* EOF */
 	if(!result)	return NULL;
-
+		
 	/* free old data */
 	if(result->values)
 	{
 		zbx_free(result->values);
 		result->values = NULL;
 	}
-
+	
 	/* EOF */
 	if(result->cursor == result->row_num) return NULL;
 
-	/* init result */
+	/* init result */	
 	result->fld_num = PQnfields(result->pg_result);
 
 	if(result->fld_num > 0)
@@ -670,7 +639,7 @@ DB_ROW	zbx_db_fetch(DB_RESULT result)
 
 	result->cursor++;
 
-	return result->values;
+	return result->values;	
 #endif
 #ifdef	HAVE_ORACLE
 	int res;
@@ -691,10 +660,10 @@ DB_ROW	zbx_db_fetch(DB_RESULT result)
 	return NULL;
 #endif
 #ifdef HAVE_SQLITE3
-
+	
 	/* EOF */
 	if(!result)	return NULL;
-
+		
 	/* EOF */
 	if(result->curow >= result->nrow) return NULL;
 
@@ -702,7 +671,7 @@ DB_ROW	zbx_db_fetch(DB_RESULT result)
 
 	result->curow++; /* NOTE: First row == header row */
 
-	return &(result->data[result->curow * result->ncolumn]);
+	return &(result->data[result->curow * result->ncolumn]);	
 #endif
 
 	return NULL;
@@ -711,7 +680,7 @@ DB_ROW	zbx_db_fetch(DB_RESULT result)
 /*
  * Execute SQL statement. For select statements only.
  * If fails, program terminates.
- */
+ */ 
 DB_RESULT zbx_db_vselect(const char *fmt, va_list args)
 {
 	char	*sql = NULL;
@@ -734,7 +703,7 @@ DB_RESULT zbx_db_vselect(const char *fmt, va_list args)
 
 	sql = zbx_dvsprintf(sql, fmt, args);
 
-	zabbix_log( LOG_LEVEL_DEBUG, "Query [txnlev:%d] [%s]", txn_level, sql);
+	zabbix_log( LOG_LEVEL_DEBUG, "Query [%s]", sql);
 
 #ifdef	HAVE_MYSQL
 	if(!conn)
@@ -782,7 +751,7 @@ DB_RESULT zbx_db_vselect(const char *fmt, va_list args)
 	{
 		error = zbx_dsprintf(error, "%s:%s",
 				PQresStatus(PQresultStatus(result->pg_result)),
-				PQresultErrorMessage(result->pg_result));
+			 	PQresultErrorMessage(result->pg_result));
 		zabbix_errlog(ERR_Z3005, 0, error, sql);
 		zbx_free(error);
 	}
@@ -801,11 +770,7 @@ DB_RESULT zbx_db_vselect(const char *fmt, va_list args)
 #ifdef HAVE_SQLITE3
 	if(!sqlite_transaction_started)
 	{
-		if(PHP_MUTEX_OK != php_sem_acquire(&sqlite_access))
-		{
-			zabbix_log( LOG_LEVEL_CRIT, "ERROR: Unable to create lock on SQLite database.");
-			exit(-1);
-		}
+		php_sem_acquire(&sqlite_access);
 	}
 
 	result = zbx_malloc(NULL, sizeof(ZBX_SQ_DB_RESULT));
@@ -831,7 +796,7 @@ lbl_get_table:
 	}
 #endif
 
-/*	sec = zbx_time() - sec;
+/*	sec = zbx_time() - sec;	
 	if(sec > 0.1)
 		zabbix_log( LOG_LEVEL_WARNING, "Long query: " ZBX_FS_DBL " sec, \"%s\"", sec, sql);*/
 
@@ -841,14 +806,14 @@ lbl_get_table:
 
 /*
  * Get value of autoincrement field for last insert or update statement
- */
+ */ 
 zbx_uint64_t	zbx_db_insert_id(int exec_result, const char *table, const char *field)
 {
 #ifdef	HAVE_MYSQL
 	zabbix_log(LOG_LEVEL_DEBUG, "In DBinsert_id()" );
-
+	
 	if(exec_result == FAIL) return 0;
-
+	
 	return mysql_insert_id(conn);
 #endif
 
@@ -857,18 +822,18 @@ zbx_uint64_t	zbx_db_insert_id(int exec_result, const char *table, const char *fi
 	zbx_uint64_t	id_res = FAIL;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In DBinsert_id()" );
-
+	
 	if(exec_result < 0) return 0;
 	if(exec_result == FAIL) return 0;
 	if((Oid)exec_result == InvalidOid) return 0;
-
+	
 	tmp_res = zbx_db_select("select %s from %s where oid=%i", field, table, exec_result);
 
 	ZBX_STR2UINT64(id_res, PQgetvalue(tmp_res->pg_result, 0, 0));
 /*	id_res = atoi(PQgetvalue(tmp_res->pg_result, 0, 0));*/
-
+	
 	DBfree_result(tmp_res);
-
+	
 	return id_res;
 #endif
 
@@ -877,7 +842,7 @@ zbx_uint64_t	zbx_db_insert_id(int exec_result, const char *table, const char *fi
 	char    sql[MAX_STRING_LEN];
 	DB_RESULT       result;
 	zbx_uint64_t	id;
-
+	
 	zabbix_log(LOG_LEVEL_DEBUG, "In DBinsert_id()" );
 
 	if(exec_result == FAIL) return 0;
@@ -885,7 +850,7 @@ zbx_uint64_t	zbx_db_insert_id(int exec_result, const char *table, const char *fi
 	zbx_snprintf(sql, sizeof(sql), "select %s_%s.currval from dual", table, field);
 
 	result=DBselect("%s", sql);
-
+	
 	row = DBfetch(result);
 
 	ZBX_STR2UINT64(id, row[0]);
@@ -902,7 +867,7 @@ zbx_uint64_t	zbx_db_insert_id(int exec_result, const char *table, const char *fi
 /*
  * Execute SQL statement. For select statements only.
  * If fails, program terminates.
- */
+ */ 
 DB_RESULT zbx_db_select_n(char *query, int n)
 {
 #ifdef	HAVE_MYSQL
@@ -918,3 +883,4 @@ DB_RESULT zbx_db_select_n(char *query, int n)
 	return zbx_db_select("%s limit %d", query, n);
 #endif
 }
+

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -31,7 +31,7 @@ static int	parent = 0;
 
 #define uninit() { if(parent == 1) zbx_on_exit(); }
 
-void	child_signal_handler(int sig,  siginfo_t *siginfo, void *context)
+void	child_signal_handler(int sig)
 {
 	switch(sig)
 	{
@@ -42,30 +42,29 @@ void	child_signal_handler(int sig,  siginfo_t *siginfo, void *context)
 	case SIGQUIT:
 	case SIGINT:
 	case SIGTERM:
+		zabbix_log( LOG_LEVEL_DEBUG, "Got signal. Exiting ...");
 		uninit();
 		exit( FAIL );
 		break;
 	case SIGPIPE:
-		zabbix_log( LOG_LEVEL_DEBUG, "Got SIGPIPE from PID: %d.",
-			siginfo->si_pid);
+		zabbix_log( LOG_LEVEL_WARNING, "Got SIGPIPE. Where it came from???");
 		break;
 	default:
 		zabbix_log( LOG_LEVEL_WARNING, "Got signal [%d]. Ignoring ...", sig);
 	}
 }
 
-static void	parent_signal_handler(int sig,  siginfo_t *siginfo, void *context)
+static void	parent_signal_handler(int sig)
 {
 	switch(sig)
 	{
 	case SIGCHLD:
-		zabbix_log( LOG_LEVEL_CRIT, "One child process died (PID:%d). Exiting ...",
-			siginfo->si_pid);
+		zabbix_log( LOG_LEVEL_WARNING, "One child process died. Exiting ...");
 		uninit();
 		exit( FAIL );
 		break;
 	default:
-		child_signal_handler(sig, siginfo, context);
+		child_signal_handler(sig);
 	}
 }
 
@@ -82,13 +81,13 @@ static void	parent_signal_handler(int sig,  siginfo_t *siginfo, void *context)
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
- * Comments: it doesn't allow running under 'root' if allow_root is zero      *
+ * Comments: it doesn't allow running under 'root' if allow_root is zerro     *
  *                                                                            *
  ******************************************************************************/
 
 int	daemon_start(int allow_root)
 {
-	pid_t			pid;
+	pid_t   		pid;
 	struct passwd		*pwd;
 	struct sigaction	phan;
 	char			user[7] = "zabbix";
@@ -112,7 +111,7 @@ int	daemon_start(int allow_root)
 			exit(FAIL);
 		}
 #ifdef HAVE_FUNCTION_INITGROUPS
-		if(initgroups(user, pwd->pw_gid) == -1)
+		if(initgroups(user, pwd->pw_gid) == -1) 
 		{
 			zbx_error("Cannot initgroups to %s [%s].",
 				user,
@@ -138,19 +137,19 @@ int	daemon_start(int allow_root)
 
 	}
 
-	if( (pid = zbx_fork()) != 0 )
-	{
-		exit( 0 );
-	}
+	if( (pid = zbx_fork()) != 0 )	
+	{				
+		exit( 0 );		
+	}				
 
 	setsid();
-
+	
 	signal( SIGHUP, SIG_IGN );
 
-	if( (pid = zbx_fork()) !=0 )
-	{
-		exit( 0 );
-	}
+	if( (pid = zbx_fork()) !=0 )	
+	{				
+		exit( 0 );		
+	}				
 
 	/* This is to eliminate warning: ignoring return value of chdir */
 	if(-1 == chdir("/"))
@@ -177,10 +176,9 @@ int	daemon_start(int allow_root)
 		exit(FAIL);
 	}
 
-/*	phan.sa_handler = child_signal_handler;*/
-	phan.sa_sigaction = child_signal_handler;
+	phan.sa_handler = child_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 
 	sigaction(SIGINT,	&phan, NULL);
 	sigaction(SIGQUIT,	&phan, NULL);
@@ -193,21 +191,21 @@ int	daemon_start(int allow_root)
 }
 
 void	daemon_stop(void)
-{
+{	
 	drop_pid_file(APP_PID_FILE);
 }
 
 void	init_main_process(void)
 {
 	struct sigaction	phan;
-
-	parent = 1; /* signalize signal_handler that this process is a PARENT process */
-
-/*	phan.sa_handler = parent_signal_handler;*/
-	phan.sa_sigaction = parent_signal_handler;
+	
+	parent = 1; /* signalize signal_handler what this process isi a PARENT process */
+	
+	phan.sa_handler = parent_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 
 	/* For parent only. To avoid problems with EXECUTE_INT */
 	sigaction(SIGCHLD,	&phan, NULL);
 }
+

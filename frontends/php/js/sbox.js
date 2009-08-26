@@ -43,25 +43,21 @@ var sbox = Class.create();
 sbox.prototype = {
 sbox_id:			'',				// id to create references in array to self
 
-mouse_event:		null,			// json object wheres defined needed event params
-start_event:		null,			// copy of mouse_event when box created
+mouse_event:		'',				// json object wheres defined needed event params
+start_event:		'',				// copy of mouse_event when box created
 
-stime:				0,				//	new start time
+stime:				'',				//	new start time
 period:				0,				//	new period
 
-obj:				null,			// objects params
-dom_obj:			null,			// selection div html obj
+obj:				'',				// objects params
+dom_obj:			'',				// selection div html obj
 box:				'',				// object params
-dom_box:			null,			// selection box html obj
-dom_period_span:	null,			// period container html obj
+dom_box:			'',				// selection box html obj
+dom_period_span:	'',				// period container html obj
 
-px2time:			null,			// seconds in 1px
+px2time:			'',				// seconds in 1px
 
 dynamic:			'',				// how page updates, all page/graph only update
-
-debug_status: 		0,				// debug status: 0 - off, 1 - on, 2 - SDI;
-debug_info: 		'',				// debug string
-debug_prev:			'',				// don't log repeated fnc
 
 
 initialize: function(stime, period){
@@ -95,8 +91,6 @@ sboxload: function(){			// bind any func to this
 },
 
 mousedown: function(e){
-	this.debug('mousedown',this.sbox_id);
-	
 	e = e || window.event;
 	cancelEvent(e);
 
@@ -117,11 +111,8 @@ mousedown: function(e){
 },
 
 mousemove: function(e){
-	this.debug('mousemove',this.sbox_id);
-
 	e = e || window.event;
 	cancelEvent(e);
-
 	if(this.mouse_event.mousedown == true){
 		this.optimize_event(e);
 		this.resizebox();
@@ -129,8 +120,6 @@ mousemove: function(e){
 },
 
 mouseup: function(e){
-	this.debug('mouseup',this.sbox_id);
-	
 	e = e || window.event;
 
 	if(this.mouse_event.mousedown == true){
@@ -139,7 +128,6 @@ mouseup: function(e){
 		this.clear_params();
 		this.mouse_event.mousedown = false;
 	}
-
 },
 
 create_box: function(){
@@ -187,29 +175,19 @@ create_box: function(){
 },
 
 resizebox: function(){
-	this.debug('resizebox',this.sbox_id);
-	
 	if(this.mouse_event.mousedown == true){
 		
 //		var height = this.validateH(this.mouse_event.top - this.start_event.top);
 //		height = this.obj.height;
 //		this.dom_box.style.height = height+'px';
 //		this.box.height = height;
-
-// 		fix wrong selection box
-		if (this.mouse_event.left > (this.obj.width + this.obj.left)) {
-			this.moveright(this.obj.width - (this.start_event.left - this.obj.left));
-		} else if (this.mouse_event.left < this.obj.left) {
-			this.moveleft(0, this.start_event.left - this.obj.left);
-		}
 		
 		var width = this.validateW(this.mouse_event.left - this.start_event.left);
-		
 		if(width>0){
 			this.moveright(width);
 		}
 		else if(width<0){
-			this.moveleft(this.mouse_event.left - this.obj.left, width);
+			this.moveleft(width);
 		}
 
 		this.period = this.calcperiod();
@@ -217,9 +195,9 @@ resizebox: function(){
 	}
 },
 
-moveleft: function(left, width){
-	//this.box.left = this.mouse_event.left - this.obj.left;
-	this.box.left = left;
+moveleft: function(width){
+	
+	this.box.left = this.mouse_event.left - this.obj.left;
 	this.dom_box.style.left = this.box.left+'px';
 
 	this.box.width = Math.abs(width);
@@ -269,22 +247,16 @@ validateH: function(h){
 return h;
 },
 
-moveSBoxByObj: function(){
-	this.debug('moveSBoxByObj',this.sbox_id);
-	
-	if(arguments.length < 1) throw('ERROR: SBOX [moveSBoxByObj]: expecting arguments.');
+moveSBoxByObj: function(){	
+
+	if(arguments.length < 1) return false;
 
 	var p_obj = arguments[arguments.length-1];
 	p_obj = $(p_obj);
 	
-	if(is_null(p_obj) || ('undefined' == typeof(p_obj.nodeName))){
-//		alert(arguments[arguments.length-1]);
-//		throw('ERROR: SBOX [moveSBoxByObj]: object not found.');
-		return false;
-	}
+	if('undefined' == typeof(p_obj.nodeName)) return false;
 
 	var posxy = getPosition(p_obj);
-
 	this.dom_obj.style.top = (posxy.top+A_SBOX[this.sbox_id].shiftT)+'px';
 	this.dom_obj.style.left = (posxy.left+A_SBOX[this.sbox_id].shiftL-1)+'px';	
 
@@ -321,8 +293,6 @@ deselectall: function(){
 },
 
 clear_params: function(){
-	this.debug('clear_params',this.sbox_id);
-
 	this.dom_obj.removeChild(this.dom_box);
 	
 	this.mouse_event = new Object;
@@ -332,22 +302,6 @@ clear_params: function(){
 	
 	this.box = new Object;
 	this.box.width = 0;
-},
-
-debug: function(fnc_name, id){
-	if(this.debug_status){
-		var str = 'SBox.'+fnc_name;
-		if(typeof(id) != 'undefined') str+= ' :'+id;
-
-		if(this.debug_prev == str) return true;
-
-		this.debug_info += str + '\n';
-		if(this.debug_status == 2){
-			SDI(str);
-		}
-		
-		this.debug_prev = str;
-	}
 }
 }
 
@@ -357,15 +311,8 @@ function create_box_on_obj(obj_ref){
 	var div = document.createElement('div');
 	obj_ref.appendChild(div);
 	
-	div = $(div);
+	div = (div);
 	div.className = 'box_on';
 	
 return div;
-}
-
-function moveSBoxes(){
-	for(var key in A_SBOX){
-		if(typeof(A_SBOX[key].sbox) != 'undefined')
-			A_SBOX[key].sbox.moveSBoxByObj(key);
-	}
 }

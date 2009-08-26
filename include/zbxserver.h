@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -28,21 +28,18 @@
 #define MACRO_TYPE_TRIGGER_DESCRIPTION	0x01
 #define MACRO_TYPE_MESSAGE_SUBJECT	0x02
 #define MACRO_TYPE_MESSAGE_BODY		0x04
-#define MACRO_TYPE_MESSAGE		0x06	/* (MACRO_TYPE_MESSAGE_SUBJECT | MACRO_TYPE_MESSAGE_BODY) */
 #define MACRO_TYPE_TRIGGER_EXPRESSION	0x08
 #define MACRO_TYPE_ITEM_KEY		0x10
 #define MACRO_TYPE_HOST_IPMI_IP		0x20
-#define MACRO_TYPE_FUNCTION_PARAMETER	0x40
 
-int	evaluate_function(char *value, DB_ITEM *item, const char *function, char *parameters, time_t now);
+int	evaluate_function(char *value,DB_ITEM *item,char *function,char *parameter, time_t now);
 void    update_triggers (zbx_uint64_t itemid);
 void	update_functions(DB_ITEM *item, time_t now);
 void	process_new_value(DB_ITEM *item, AGENT_RESULT *value, time_t now);
 void	proxy_process_new_value(DB_ITEM *item, AGENT_RESULT *value, time_t now);
 
-int	substitute_simple_macros(DB_EVENT *event, DB_ACTION *action, DB_ITEM *item, DB_ESCALATION *escalation,
-		char **data, int macro_type, char *error, int maxerrlen);
+void	substitute_simple_macros(DB_EVENT *event, DB_ACTION *action, DB_ITEM *item, DB_ESCALATION *escalation, char **data, int macro_type);
 void	substitute_macros(DB_EVENT *event, DB_ACTION *action, DB_ESCALATION *escalation, char **data);
-
+	
 int	evaluate_expression(int *result,char **expression, DB_TRIGGER *triggger, char *error, int maxerrlen);
 #endif

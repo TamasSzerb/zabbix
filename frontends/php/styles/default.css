@@ -20,7 +20,7 @@
 */
 
 body{
-	background-color: #E5E5E5;
+	background-color:#e5e5e5;
 	margin: 0px;
 	padding: 0px;
 	color:black;
@@ -108,17 +108,8 @@ img.borderless	{	border-width: 0px; vertical-align: bottom;	}
 	color: #000000;
 }
 
-.textblackwhite{
-	color: #000000;
-}
-
-.textwhite{
-	color: #FFFFFF;
-}
-
 .pointer{
 }
-
 .pointer:hover{
 	cursor: pointer;
 }
@@ -160,7 +151,7 @@ img.borderless	{	border-width: 0px; vertical-align: bottom;	}
 	margin: 0px;
 	padding: 2px;
 }
-
+	
 #color_picker a {
 	text-decoration: none;
 	font-family: Verdana, Arial, Helvetica, sans-serif;

@@ -62,10 +62,6 @@ if(!isset($DB)){
 							$error = 'Error database selection ['.mysql_error().']';
 							$result = false;
 						}
-						else{
-							DBexecute('SET NAMES "latin1"');
-							DBexecute('SET CHARACTER SET "latin1"');
-						}
 					}
 					break;
 				case 'POSTGRESQL':
@@ -225,15 +221,16 @@ if(!isset($DB)){
 		return true;
 	}
 
-	function DBstart($strict=true){
+	function DBstart($comments=false){
 		global $DB;
 //SDI('DBStart(): '.$DB['TRANSACTIONS']);
-		$DB['STRICT'] = $strict;
+		$DB['COMMENTS'] = $comments;
+		if($DB['COMMENTS']) info(S_TRANSACTION.': '.S_STARTED_BIG);
 
 		$DB['TRANSACTIONS']++;
 
 		if($DB['TRANSACTIONS']>1){
-			if($DB['STRICT']) info('POSSIBLE ERROR: Used incorrect logic in database processing, started subtransaction!');
+			info('POSSIBLE ERROR: Used incorect logic in database processing, started subtransaction!');
 		return $DB['TRANSACTION_STATE'];
 		}
 
@@ -272,8 +269,7 @@ if(!isset($DB)){
 			if($DB['TRANSACTIONS'] < 1){
 				$DB['TRANSACTIONS'] = 0;
 				$DB['TRANSACTION_STATE'] = false;
-
-				if($DB['STRICT']) info('POSSIBLE ERROR: Used incorrect logic in database processing, transaction not started!');
+				info('POSSIBLE ERROR: Used incorect logic in database processing, transaction not started!');
 			}
 		return $DB['TRANSACTION_STATE'];
 		}
@@ -293,9 +289,12 @@ if(!isset($DB)){
 			$DBresult = DBcommit();
 		}
 
+		$msg = S_TRANSACTION.': '.S_COMMITED_BIG;
 		if(!$DBresult){ // FAIL
 			DBrollback();
+			$msg = S_TRANSACTION.': '.S_ROLLBACKED_BIG;
 		}
+		if($DB['COMMENTS']) info($msg);
 
 		$result = (!is_null($result) && $DBresult)?$result:$DBresult;
 
@@ -367,19 +366,19 @@ if(!isset($DB)){
 			SELECT * FROM (SELECT ROWNUM as RN, * FROM tbl) WHERE RN BETWEEN 6 AND 15
 	*/
 
-	function &DBselect($query, $limit='NO', $offset=0){
+	function &DBselect($query, $limit='NO'){
 		global $DB;
-
-		$time_start=microtime(true);
+//COpt::savesqlrequest($query);
 		$result = false;
 
 		if( isset($DB['DB']) && !empty($DB['DB']) ){
+//SDI('SQL: '.$query);
 			$DB['SELECT_COUNT']++;
-//SDI('SQL['.$DB['SELECT_COUNT'].']: '.$query);
+
 			switch($DB['TYPE']){
 				case 'MYSQL':
 					if(zbx_numeric($limit)){
-						$query .= ' LIMIT '.intval($limit).' OFFSET '.intval($offset);
+						$query .= ' limit '.intval($limit);
 					}
 					$result=mysql_query($query,$DB['DB']);
 					if(!$result){
@@ -388,7 +387,7 @@ if(!isset($DB)){
 					break;
 				case 'POSTGRESQL':
 					if(zbx_numeric($limit)){
-						$query .= ' LIMIT '.intval($limit).' OFFSET '.intval($offset);
+						$query .= ' limit '.intval($limit);
 					}
 					$result = pg_query($DB['DB'],$query);
 					if(!$result){
@@ -397,8 +396,7 @@ if(!isset($DB)){
 					break;
 				case 'ORACLE':
 					if(zbx_numeric($limit)){
-//						$query = 'select * from ('.$query.') where rownum<='.intval($limit);
-						$query = 'select * from ('.$query.') where rownum between '.intval($offset).' and '.intval($limit);
+						$query = 'select * from ('.$query.') where rownum<='.intval($limit);
 					}
 					$result = DBexecute($query);
 					if(!$result){
@@ -412,11 +410,7 @@ if(!isset($DB)){
 						lock_db_access();
 					}
 
-					if(zbx_numeric($limit)){
-						$query .= ' LIMIT '.intval($limit).' OFFSET '.intval($offset);
-					}
-
-					if(!$result = sqlite3_query($DB['DB'],$query)){
+					if(!($result = sqlite3_query($DB['DB'],$query))){
 						error('Error in query ['.$query.'] ['.sqlite3_error($DB['DB']).']');
 					}
 					else{
@@ -448,18 +442,17 @@ if(!isset($DB)){
 	//			SDI($DB['TRANSACTION_STATE']);
 			}
 		}
-COpt::savesqlrequest(microtime(true)-$time_start,$query);
 		return $result;
 	}
 
 	function DBexecute($query, $skip_error_messages=0){
 		global $DB;
+//COpt::savesqlrequest($query);
 		$result = false;
 
-		$time_start=microtime(true);
 		if( isset($DB['DB']) && !empty($DB['DB']) ){
 			$DB['EXECUTE_COUNT']++;	// WRONG FOR ORACLE!!
-//SDI('SQL xec: '.$query);
+//SDI('SQL Exec: '.$query);
 			switch($DB['TYPE']){
 				case 'MYSQL':
 					$result=mysql_query($query,$DB['DB']);
@@ -512,7 +505,6 @@ COpt::savesqlrequest(microtime(true)-$time_start,$query);
 	//			SDI($DB['TRANSACTION_STATE']);
 			}
 		}
-COpt::savesqlrequest(microtime(true)-$time_start,$query);
 	return $result;
 	}
 
@@ -610,7 +602,6 @@ else {
 
 	function DBid2nodeid($id_name){
 		global $DB;
-
 		switch($DB['TYPE']){
 			case "MYSQL":
 				$result = '('.$id_name.' div 100000000000000)';
@@ -706,6 +697,7 @@ else {
 				}
 
 				DBexecute("UPDATE ids SET nextid=nextid+1 WHERE nodeid=$nodeid AND table_name='$table' AND field_name='$field'");
+
 				$row = DBfetch(DBselect('SELECT nextid FROM ids WHERE nodeid='.$nodeid." AND table_name='$table' AND field_name='$field'"));
 				if(!$row || is_null($row["nextid"])){
 					/* Should never be here */
@@ -762,7 +754,7 @@ else {
 			info('DBcondition Error: ['.$fieldname.'] = '.$array);
 			$array = explode(',',$array);
 			if(empty($array))
-				return ' 1=0 ';
+				return ' 1=1 ';
 		}
 
 		$in = 		$notin?' NOT IN ':' IN ';

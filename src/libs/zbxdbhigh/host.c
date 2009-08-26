@@ -35,7 +35,7 @@
  *                                                                            *
  * Function: DBget_applications_by_itemid                                     *
  *                                                                            *
- * Purpose: retrieve applications by itemid                                   *
+ * Purpose: retrive applications by itemid                                    *
  *                                                                            *
  * Parameters: itemid - item identificator from database                      *
  *             applications - result buffer                                   *
@@ -80,7 +80,7 @@ static int	DBget_applications_by_itemid(
  *                                                                            *
  * Function: DBget_same_applications_for_host                                 *
  *                                                                            *
- * Purpose: retrieve same applications for specified host                     *
+ * Purpose: retrive same applications for specified host                      *
  *                                                                            *
  * Parameters:  applications_in - zero terminated list of applicationid's     *
  *              hostid - host identificator from database                     *
@@ -132,7 +132,7 @@ static int	DBget_same_applications_for_host(
  *                                                                            *
  * Function: DBinsert_dependency                                              *
  *                                                                            *
- * Purpose: create dependencies for triggers                                  *
+ * Purpose: create dependences for triggers                                   *
  *                                                                            *
  * Parameters: triggerid_down - down trigger identificator from database      *
  *             triggerid_up - up trigger identificator from database          *
@@ -162,7 +162,7 @@ static int	DBinsert_dependency(
  *                                                                            *
  * Function: DBdelete_dependencies_by_triggerid                               *
  *                                                                            *
- * Purpose: delete dependencies from triggers                                 *
+ * Purpose: delete dependences from triggers                                  *
  *                                                                            *
  * Parameters: triggerid - trigger identificator from database                *
  *                                                                            *
@@ -255,7 +255,7 @@ static void	DBclear_parents_from_trigger(
  *                                                                            *
  * Function: DBget_service_status                                             *
  *                                                                            *
- * Purpose: retrieve true status                                              *
+ * Purpose: retrive true status                                               *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
@@ -278,7 +278,7 @@ static int	DBget_service_status(
 	int status = 0;
 	char sort_order[MAX_STRING_LEN];
 	char sql[MAX_STRING_LEN];
-
+	
 	if( 0 != triggerid )
 	{
 		result = DBselect("select priority from triggers where triggerid=" ZBX_FS_UI64 " and status=0 and value=%d", triggerid, TRIGGER_VALUE_TRUE);
@@ -294,9 +294,9 @@ static int	DBget_service_status(
 	{
 
 		strcpy(sort_order,((SERVICE_ALGORITHM_MAX == algorithm)?" DESC ":" ASC "));
-
-		zbx_snprintf(sql,sizeof(sql),"select s.status from services s,services_links l where l.serviceupid=" ZBX_FS_UI64 " and s.serviceid=l.servicedownid order by s.status %s",
-			serviceid,
+		
+		zbx_snprintf(sql,sizeof(sql),"select s.status from services s,services_links l where l.serviceupid=" ZBX_FS_UI64 " and s.serviceid=l.servicedownid order by s.status %s", 
+			serviceid, 
 			sort_order);
 
 		result = DBselectN(sql,1);
@@ -448,7 +448,7 @@ static void DBupdate_services_status_all(void)
  *                                                                            *
  * Function: DBupdate_services                                                *
  *                                                                            *
- * Purpose: re-calculate and update status of the service and its childs      *
+ * Purpose: re-calculate and updates status of the service and its childs     *
  *                                                                            *
  * Parameters: serviceid - item to update services for                        *
  *             status - new status of the service                             *
@@ -475,7 +475,7 @@ void	DBupdate_services(
 	while (NULL != (row = DBfetch(result)))
 	{
 		ZBX_STR2UINT64(serviceid, row[0]);
-
+		
 		DBexecute("update services set status=%d where serviceid=" ZBX_FS_UI64,
 				status,
 				serviceid);
@@ -506,13 +506,13 @@ static int	DBdelete_service(
 		zbx_uint64_t serviceid
 	)
 {
-	DBexecute("delete from service_alarms WHERE serviceid=" ZBX_FS_UI64, serviceid);
+	DBexecute("DELETE FROM service_alarms WHERE serviceid=" ZBX_FS_UI64, serviceid);
 	DBexecute("delete from services_links where servicedownid=" ZBX_FS_UI64 " or serviceupid=" ZBX_FS_UI64, serviceid, serviceid);
 	DBexecute("delete from services where serviceid=" ZBX_FS_UI64, serviceid);
 	DBexecute("delete from services_times where serviceid=" ZBX_FS_UI64, serviceid);
 
 	DBupdate_services_status_all();
-
+	
 	return SUCCEED;
 }
 
@@ -561,25 +561,24 @@ static int	DBdelete_services_by_triggerid(
 
 /******************************************************************************
  *                                                                            *
- * Function: DBdelete_link                                                    *
+ * Function: DBdelete_link  				                      *
  *                                                                            *
  * Purpose: delete sysmap links from sysmap element                           *
  *                                                                            *
- * Parameters: linkid - link identificator from database                      *
+ * Parameters: linkid - link idientificator from database        	      *
  *                                                                            *
- * Return value: always return SUCCEED                                        *
+ * Return value: always return SUCCEED 				              *
  *                                                                            *
- * Author: Aly                                                                *
+ * Author: Aly			                                              *
  *                                                                            *
  * Comments: !!! Don't forget sync code with PHP !!!                          *
  *                                                                            *
  ******************************************************************************/
-static int	DBdelete_link(zbx_uint64_t linkid)
-{
-	DBexecute("delete from sysmaps_links WHERE linkid=" ZBX_FS_UI64, linkid);
-	DBexecute("delete from sysmaps_link_triggers WHERE linkid=" ZBX_FS_UI64, linkid);
+static int	DBdelete_link(zbx_uint64_t linkid){		
 
-	return SUCCEED;
+	DBexecute("DELETE FROM sysmaps_links WHERE linkid=" ZBX_FS_UI64 ,linkid);
+	DBexecute("DELETE FROM sysmaps_link_triggers WHERE linkid=" ZBX_FS_UI64 ,linkid);
+return	SUCCEED;
 }
 
 /******************************************************************************
@@ -590,31 +589,30 @@ static int	DBdelete_link(zbx_uint64_t linkid)
  *                                                                            *
  * Parameters: selementid - map element identificator from database           *
  *                                                                            *
- * Return value: always return SUCCEED                                        *
+ * Return value: always return SUCCEED 				              *
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  * Comments: !!! Don't forget sync code with PHP !!!                          *
  *                                                                            *
  ******************************************************************************/
-static int	DBdelete_sysmaps_element(zbx_uint64_t selementid)
+static int	DBdelete_sysmaps_element(
+		zbx_uint64_t	selementid
+	)
 {
-	DB_RESULT	result;
-	DB_ROW		row;
-	zbx_uint64_t	linkid;
+	DB_RESULT	db_links;
+	DB_ROW		link;
+	zbx_uint64_t 	linkid;
 
-	result = DBselect("select linkid from sysmaps_links where "
-			" where selementid1=" ZBX_FS_UI64 " or selementid2=" ZBX_FS_UI64,
-			selementid,
-			selementid);
-
-	while (NULL != (row = DBfetch(result)))
-	{
-		ZBX_STR2UINT64(linkid, row[0]);
+	db_links = DBselect("select linkid from sysmaps_links where "
+		" where selementid1=" ZBX_FS_UI64 " or selementid2=" ZBX_FS_UI64,
+		selementid, selementid);
+	while( (link = DBfetch(db_links)) ){
+		ZBX_STR2UINT64(linkid, link[0]);
 		DBdelete_link(linkid);
 	}
 
-	DBfree_result(result);
+        DBfree_result(db_links);
 
 	DBexecute("delete from sysmaps_elements where selementid=" ZBX_FS_UI64, selementid);
 
@@ -623,11 +621,11 @@ static int	DBdelete_sysmaps_element(zbx_uint64_t selementid)
 
 /******************************************************************************
  *                                                                            *
- * Function: DBdelete_sysmaps_elements                                        *
+ * Function: DBdelete_sysmaps_elements_with_triggerid                         *
  *                                                                            *
- * Purpose: delete elements from map by elementtype and elementid             *
+ * Purpose: delete triggers from map                                          *
  *                                                                            *
- * Parameters:                                                                *
+ * Parameters: triggerid - trigger dientificator from database                *
  *                                                                            *
  * Return value: upon successful completion return SUCCEED                    *
  *                                                                            *
@@ -636,62 +634,32 @@ static int	DBdelete_sysmaps_element(zbx_uint64_t selementid)
  * Comments: !!! Don't forget sync code with PHP !!!                          *
  *                                                                            *
  ******************************************************************************/
-static int	DBdelete_sysmaps_elements(int elementtype, zbx_uint64_t elementid)
+static int	DBdelete_sysmaps_elements_with_triggerid(
+		zbx_uint64_t triggerid
+	)
 {
-	DB_RESULT	result;
-	DB_ROW		row;
-	zbx_uint64_t	selementid;
-	int		res = SUCCEED;
+	DB_RESULT	db_selements;
 
-	result = DBselect("select distinct selementid from sysmaps_elements"
-			" where elementtype=%d and elementid=" ZBX_FS_UI64,
-			elementtype,
-			elementid);
+	DB_ROW		selement_data;
 
-	while (NULL != (row = DBfetch(result)))
+	zbx_uint64_t
+		selementid;
+
+	int	result = SUCCEED;
+
+	db_selements = DBselect("select distinct selementid from sysmaps_elements"
+		" where elementid=" ZBX_FS_UI64 " and elementtype=%i", triggerid, SYSMAP_ELEMENT_TYPE_TRIGGER);
+
+	while( (selement_data = DBfetch(db_selements)) )
 	{
-		ZBX_STR2UINT64(selementid, row[0]);
-		if (SUCCEED != (res = DBdelete_sysmaps_element(selementid)))
+		ZBX_STR2UINT64(selementid, selement_data[0]);
+		if( SUCCEED != (result = DBdelete_sysmaps_element(selementid)) )
 			break;
 	}
 
-	DBfree_result(result);
+	DBfree_result(db_selements);
 
-	return res;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: DBdelete_action_conditions                                       *
- *                                                                            *
- * Purpose: delete action conditions by condition type and id                 *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value: upon successful completion return SUCCEED                    *
- *                                                                            *
- * Author: Aleksander Vladishev                                               *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-static void DBdelete_action_conditions(int conditiontype, zbx_uint64_t elementid)
-{
-	DB_RESULT	result;
-	DB_ROW		row;
-
-	/* disable actions */
-	result = DBselect("select distinct actionid from conditions where conditiontype=%d and value=" ZBX_FS_UI64,
-			conditiontype, elementid);
-
-	while (NULL != (row = DBfetch(result)))
-		DBexecute("update actions set status=%d where actionid=%s", ACTION_STATUS_DISABLED, row[0]);
-
-	DBfree_result(result);
-
-	/* delete action conditions */
-	DBexecute("delete from conditions where conditiontype=%d and value=" ZBX_FS_UI64,
-			conditiontype, elementid);
+	return result;
 }
 
 /******************************************************************************
@@ -739,13 +707,13 @@ static int	DBdelete_trigger(
 			if( SUCCEED != (result = DBdelete_trigger(elementid)) )
 				break;
 		}
-
+		
 		DBfree_result(db_elements);
 
 		if( SUCCEED == result)
 		if( SUCCEED == (result = DBdelete_dependencies_by_triggerid(triggerid)) )
 		if( SUCCEED == (result = DBdelete_services_by_triggerid(triggerid)) )
-		if( SUCCEED == (result = DBdelete_sysmaps_elements(SYSMAP_ELEMENT_TYPE_TRIGGER, triggerid)) )
+		if( SUCCEED == (result = DBdelete_sysmaps_elements_with_triggerid(triggerid)) )
 		{
 			DBexecute("delete from trigger_depends where triggerid_up=" ZBX_FS_UI64, triggerid);
 			DBexecute("delete from functions where triggerid=" ZBX_FS_UI64, triggerid);
@@ -753,9 +721,19 @@ static int	DBdelete_trigger(
 
 			DBexecute("delete from sysmaps_link_triggers where triggerid=" ZBX_FS_UI64, triggerid);
 
-			/* delete action conditions */
-			DBdelete_action_conditions(CONDITION_TYPE_TRIGGER, triggerid);
+			/* disable actions */
+			db_elements = DBselect("select distinct actionid from conditions "
+				" where conditiontype=%i and value=" ZBX_FS_UI64, CONDITION_TYPE_TRIGGER, triggerid);
+			while( (element_data = DBfetch(db_elements)) )
+			{
+				ZBX_STR2UINT64(elementid, element_data[0]);
+				DBexecute("update actions set status=%i where actionid=" ZBX_FS_UI64, ACTION_STATUS_DISABLED, elementid);
+			}
 
+			DBfree_result(db_elements);
+
+			/* delete action conditions */
+			DBexecute("delete from conditions where conditiontype=%i and value=" ZBX_FS_UI64, CONDITION_TYPE_TRIGGER, triggerid);
 			DBexecute("delete from triggers where triggerid=" ZBX_FS_UI64, triggerid);
 
 			zabbix_log( LOG_LEVEL_DEBUG, "Trigger '%s' deleted", trigger_data[0]);
@@ -786,22 +764,28 @@ static int	DBdelete_triggers_by_itemid(
 		zbx_uint64_t itemid
 	)
 {
-	DB_RESULT	result;
-	DB_ROW		row;
-	zbx_uint64_t	triggerid;
-	int		res = SUCCEED;
+	DB_RESULT	db_triggers;
 
-	result = DBselect("select distinct triggerid from functions where itemid=" ZBX_FS_UI64, itemid);
+	DB_ROW		trigger_data;
 
-	while (NULL != (row = DBfetch(result)))
+	zbx_uint64_t
+		triggerid;
+
+	int	result = SUCCEED;
+
+	db_triggers = DBselect("select triggerid from functions where itemid=" ZBX_FS_UI64, itemid);
+
+	while( (trigger_data = DBfetch(db_triggers)) )
 	{
-		ZBX_STR2UINT64(triggerid, row[0]);
-		if (SUCCEED != (res = DBdelete_trigger(triggerid)))
+		ZBX_STR2UINT64(triggerid, trigger_data[0]);
+
+		if( SUCCEED != ( result = DBdelete_trigger(triggerid)) )
 			break;
 	}
-	DBfree_result(result);
 
-	return res;
+	DBfree_result(db_triggers);
+
+	return result;
 }
 
 /******************************************************************************
@@ -811,7 +795,7 @@ static int	DBdelete_triggers_by_itemid(
  * Purpose: delete item trends                                                *
  *                                                                            *
  * Parameters: itemid - item identificator from database                      *
- *             use_housekeeper - 0 - to delete immediately                    *
+ *             use_housekeeper - 0 - to delete imidietly                      *
  *                               1 - delete with housekeeper                  *
  *                                                                            *
  * Return value: always SUCCEED                                               *
@@ -829,7 +813,7 @@ static int	DBdelete_trends_by_itemid(
 	if( use_housekeeper )
 	{
 		DBexecute("insert into housekeeper (housekeeperid,tablename,field,value)"
-			" values (" ZBX_FS_UI64 ", 'trends','itemid'," ZBX_FS_UI64 ")",
+			" values (" ZBX_FS_UI64 ", 'trends','itemid'," ZBX_FS_UI64 ")", 
 				DBget_maxid("housekeeper","housekeeperid"), itemid);
 	}
 	else
@@ -846,7 +830,7 @@ static int	DBdelete_trends_by_itemid(
  * Purpose: delete item history                                               *
  *                                                                            *
  * Parameters: itemid - item identificator from database                      *
- *             use_housekeeper - 0 - to delete immediately                    *
+ *             use_housekeeper - 0 - to delete imidietly                      *
  *                               1 - delete with housekeeper                  *
  *                                                                            *
  * Return value: upon successful completion return SUCCEED                    *
@@ -868,19 +852,19 @@ static int	DBdelete_history_by_itemid(
 		if( use_housekeeper )
 		{
 			DBexecute("insert into housekeeper (housekeeperid,tablename,field,value)"
-					" values (" ZBX_FS_UI64 ",'history_text','itemid'," ZBX_FS_UI64 ")",
+					" values (" ZBX_FS_UI64 ",'history_text','itemid'," ZBX_FS_UI64 ")", 
 						DBget_maxid("housekeeper","housekeeperid"), itemid);
 			DBexecute("insert into housekeeper (housekeeperid,tablename,field,value)"
-					" values (" ZBX_FS_UI64 ",'history_log','itemid'," ZBX_FS_UI64 ")",
+					" values (" ZBX_FS_UI64 ",'history_log','itemid'," ZBX_FS_UI64 ")", 
 						DBget_maxid("housekeeper","housekeeperid"), itemid);
 			DBexecute("insert into housekeeper (housekeeperid,tablename,field,value)"
-							" values (" ZBX_FS_UI64 ",'history_uint','itemid'," ZBX_FS_UI64 ")",
+							" values (" ZBX_FS_UI64 ",'history_uint','itemid'," ZBX_FS_UI64 ")", 
 								DBget_maxid("housekeeper","housekeeperid"), itemid);
 			DBexecute("insert into housekeeper (housekeeperid,tablename,field,value)"
-							" values (" ZBX_FS_UI64 ",'history_str','itemid'," ZBX_FS_UI64 ")",
+							" values (" ZBX_FS_UI64 ",'history_str','itemid'," ZBX_FS_UI64 ")", 
 								DBget_maxid("housekeeper","housekeeperid"), itemid);
 			DBexecute("insert into housekeeper (housekeeperid,tablename,field,value)"
-								" values (" ZBX_FS_UI64 ",'history','itemid'," ZBX_FS_UI64 ")",
+								" values (" ZBX_FS_UI64 ",'history','itemid'," ZBX_FS_UI64 ")", 
 									DBget_maxid("housekeeper","housekeeperid"), itemid);
 		}
 		else
@@ -1005,7 +989,7 @@ static ZBX_GRAPH_ITEMS* DBget_same_graphitems_for_host(
 	ZBX_GRAPH_ITEMS *new_gitems = NULL;
 
 	int i = 0,
-	new_gi = 0;
+	    new_gi = 0;
 
 	new_gitems = zbx_malloc(new_gitems, sizeof(ZBX_GRAPH_ITEMS));
 	new_gitems[0].itemid = 0;
@@ -1130,42 +1114,48 @@ static int	DBadd_item_to_graph(
  * Comments: !!! Don't forget sync code with PHP !!!                          *
  *                                                                            *
  ******************************************************************************/
-static int	DBdelete_graph(zbx_uint64_t graphid)
+static int	DBdelete_graph(
+		zbx_uint64_t graphid
+	)
 {
-	DB_RESULT	result;
-	DB_ROW		row;
-	zbx_uint64_t	elementid;
-	int		res = SUCCEED;
+	DB_RESULT	db_graphs;
+	DB_RESULT	db_elements;
 
-	/* first delete child graphs */
-	result = DBselect("select graphid from graphs where templateid=" ZBX_FS_UI64, graphid);
+	DB_ROW		graph_data;
+	DB_ROW		element_data;
 
-	while (NULL != (row = DBfetch(result)))
-	{	/* recursion */
-		ZBX_STR2UINT64(elementid, row[0]);
-		if (SUCCEED != (res = DBdelete_graph(elementid)))
-			break;
-	}
-	DBfree_result(result);
+	int result = SUCCEED;
 
-	if (SUCCEED != res)
-		return res;
+	db_graphs = DBselect("select name from graphs where graphid=" ZBX_FS_UI64, graphid);
 
-	result = DBselect("select name from graphs where graphid=" ZBX_FS_UI64, graphid);
-
-	if (NULL != (row = DBfetch(result)))
+	if( (graph_data = DBfetch(db_graphs)) )
 	{
-		/* delete graph */
-		DBexecute("delete from screens_items where resourceid=" ZBX_FS_UI64 " and resourcetype=%i",
-				graphid, SCREEN_RESOURCE_GRAPH);
-		DBexecute("delete from graphs_items where graphid=" ZBX_FS_UI64, graphid);
-		DBexecute("delete from graphs where graphid=" ZBX_FS_UI64, graphid);
+		/* first delete child graphs */
+		db_elements = DBselect("select graphid from graphs where templateid=" ZBX_FS_UI64, graphid);
 
-		zabbix_log( LOG_LEVEL_DEBUG, "Graph '%s' deleted", row[0]);
+		while( (element_data = DBfetch(db_elements)) )
+		{ /* recursion */
+			ZBX_STR2UINT64(graphid, element_data[0]);
+			if( SUCCEED != (result = DBdelete_graph(graphid)) )
+				break;
+		}
+
+		DBfree_result(db_elements);
+
+		if( SUCCEED == result )
+		{ /* delete graph */
+			DBexecute("delete from screens_items where resourceid=" ZBX_FS_UI64 " and resourcetype=%i", graphid, SCREEN_RESOURCE_GRAPH);
+
+			DBexecute("delete from graphs_items where graphid=" ZBX_FS_UI64, graphid);
+			DBexecute("delete from graphs where graphid=" ZBX_FS_UI64, graphid);
+
+			zabbix_log( LOG_LEVEL_DEBUG, "Graph '%s' deleted", graph_data[0]);
+		}
 	}
-	DBfree_result(result);
 
-	return res;
+	DBfree_result(db_graphs);
+
+	return result;
 }
 
 /******************************************************************************
@@ -1185,7 +1175,7 @@ static int	DBdelete_graph(zbx_uint64_t graphid)
  ******************************************************************************/
 static int	DBupdate_graph(
 		zbx_uint64_t	graphid,
-		char		*name,
+		char 		*name,
 		int		width,
 		int		height,
 		int		yaxistype,
@@ -1346,7 +1336,7 @@ static int	DBupdate_graph_with_items(
 		}
 	}
 
-	/* first update child graphs */
+	/* firstly update child graphs */
 	chd_graphs = DBselect("select g.graphid from graphs g where g.templateid=" ZBX_FS_UI64, graphid);
 	while ( (chd_graph_data = DBfetch(chd_graphs)) )
 	{
@@ -1362,7 +1352,7 @@ static int	DBupdate_graph_with_items(
 		DBfree_result(db_hosts);
 
 		if ( ! (new_gitems = DBget_same_graphitems_for_host(gitems, chd_hostid)) )
-		{ /* skip host with missing items */
+		{ /* skip host with missed items */
 			zabbix_log(LOG_LEVEL_DEBUG, "Can not update graph '%s' for host " ZBX_FS_UI64, name, chd_hostid);
 			result = FAIL;
 		}
@@ -1528,12 +1518,12 @@ static int	DBadd_graph_with_items(
 
 	DB_RESULT	db_chd_hosts;
 	DB_ROW		chd_host_data;
-
+	
 	zbx_uint64_t	chd_hostid = 0;
 
 	char *itemids = NULL;
 
-	int	i = 0,
+	int 	i = 0,
 		new_host_count = 0,
 		new_host_is_template = 0;
 
@@ -1541,7 +1531,7 @@ static int	DBadd_graph_with_items(
 
 	if ( !gitems )
 	{
-		zabbix_log(LOG_LEVEL_DEBUG, "Missing items for graph '%s'", name);
+		zabbix_log(LOG_LEVEL_DEBUG, "Missed items for graph '%s'", name);
 		return result;
 	}
 
@@ -1640,81 +1630,52 @@ static int	DBdelete_item(
 		zbx_uint64_t itemid
 	)
 {
-	DB_RESULT	result;
-	DB_ROW		row;
-	zbx_uint64_t	elementid;
-	char		*graphs = NULL;
-	int		graphs_alloc = 32, graphs_offset = 0;
-	int		res = SUCCEED;
+	DB_RESULT	db_items;
+	DB_RESULT	db_elements;
 
-	/* first delete child items */
-	result = DBselect("select itemid from items where templateid=" ZBX_FS_UI64, itemid);
+	DB_ROW		item_data;
+	DB_ROW		element_data;
 
-	while (NULL != (row = DBfetch(result)))
-	{	/* recursion */
-		ZBX_STR2UINT64(elementid, row[0]);
-		if (SUCCEED != (res = DBdelete_item(elementid)))
-			break;
-	}
-	DBfree_result(result);
+	zbx_uint64_t
+		elementid;
 
-	graphs = zbx_malloc(graphs, graphs_alloc);
-	*graphs = '\0';
+	int result = SUCCEED;
 
-	/* select graphs with this item */
-	if (SUCCEED == res)
+	db_items = DBselect("select i.itemid ,i.key_,h.host from items i,"
+				" hosts h where h.hostid=i.hostid and i.itemid=" ZBX_FS_UI64, itemid);
+
+	if( (item_data = DBfetch(db_items)) )
 	{
-		result = DBselect("select distinct graphid from graphs_items where itemid=" ZBX_FS_UI64, itemid);
+		/* first delete child items */
+		db_elements = DBselect("select itemid from items where templateid=" ZBX_FS_UI64, itemid);
 
-		while (NULL != (row = DBfetch(result)))
-		{
-			zbx_snprintf_alloc(&graphs, &graphs_alloc, &graphs_offset, 22, "%s%s",
-					0 == graphs_offset ? "" : ",", row[0]);
-		}
-		DBfree_result(result);
-	}
-
-	if (SUCCEED == res)
-	{
-		result = DBselect("select i.itemid,i.key_,h.host from items i,"
-					" hosts h where h.hostid=i.hostid and i.itemid=" ZBX_FS_UI64, itemid);
-
-		if (NULL != (row = DBfetch(result)))
-		{
-			if (SUCCEED == (res = DBdelete_triggers_by_itemid(itemid)))
-			if (SUCCEED == (res = DBdelete_history_by_itemid(itemid, 1 /* use housekeeper */)))
-			{
-				DBexecute("delete from screens_items where resourceid=" ZBX_FS_UI64 " and resourcetype in (%i,%i)",
-						itemid, SCREEN_RESOURCE_PLAIN_TEXT, SCREEN_RESOURCE_SIMPLE_GRAPH);
-
-				DBexecute("delete from graphs_items where itemid=" ZBX_FS_UI64, itemid);
-				DBexecute("delete from items_applications where itemid=" ZBX_FS_UI64, itemid);
-				DBexecute("delete from items where itemid=" ZBX_FS_UI64, itemid);
-
-				zabbix_log( LOG_LEVEL_DEBUG, "Item '%s:%s' deleted", row[2], row[1]);
-			}
-		}
-		DBfree_result(result);
-	}
-
-	/* delete graphs without items */
-	if (SUCCEED == res && 0 != graphs_offset)
-	{
-		result = DBselect("select graphid from graphs"
-				" where not graphid in (select graphid from graphs_items)"
-					" and graphid in (%s)", graphs);
-		while (NULL != (row = DBfetch(result)))
-		{
-			ZBX_STR2UINT64(elementid, row[0]);
-			if (SUCCEED != (res = DBdelete_graph(elementid)))
+		while( (element_data = DBfetch(db_elements)) )
+		{/* recursion */
+			ZBX_STR2UINT64(elementid, element_data[0]);
+			if( SUCCEED != (result = DBdelete_item(elementid)) )
 				break;
 		}
-		DBfree_result(result);
+		
+		DBfree_result(db_elements);
+
+		if( SUCCEED == result)
+		if( SUCCEED == (result = DBdelete_triggers_by_itemid(itemid)) )
+		if( SUCCEED == (result = DBdelete_history_by_itemid(itemid, 1 /* use housekeeper */)) )
+		{
+			DBexecute("delete from screens_items where resourceid=" ZBX_FS_UI64 " and resourcetype in (%i,%i)",
+					itemid, SCREEN_RESOURCE_PLAIN_TEXT, SCREEN_RESOURCE_SIMPLE_GRAPH);
+
+			DBexecute("delete from graphs_items where itemid=" ZBX_FS_UI64, itemid);
+			DBexecute("delete from items_applications where itemid=" ZBX_FS_UI64, itemid);
+			DBexecute("delete from items where itemid=" ZBX_FS_UI64, itemid);
+
+			zabbix_log( LOG_LEVEL_DEBUG, "Item '%s:%s' deleted", item_data[2], item_data[1]);
+		}
 	}
 
-	zbx_free(graphs);
+	DBfree_result(db_items);
 
-	return res;
+	return result;
 }
 
 /******************************************************************************
@@ -1763,7 +1724,7 @@ static int	DBdelete_application(
 			if( SUCCEED != (result = DBdelete_application(elementid)) )
 				break;
 		}
-
+		
 		DBfree_result(db_elements);
 
 		if( SUCCEED == result )
@@ -1777,7 +1738,7 @@ static int	DBdelete_application(
 			}
 
 			DBfree_result(db_elements);
-		}
+		} 
 
 		if( SUCCEED == result )
 		{
@@ -1830,37 +1791,57 @@ static void	DBdelete_template_graphs(
 		unsigned char unlink_mode
 	)
 {
-	const char	*__function_name = "DBdelete_template_graphs";
-	DB_RESULT	result;
-	DB_ROW		row;
-	zbx_uint64_t	graphid;
+	DB_RESULT	db_graphs;
+	DB_RESULT	db_tmp_hosts;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	DB_ROW		graph_data;
+	DB_ROW		tmp_host_data;
 
-	result = DBselect("select distinct g.graphid,g.name"
-			" from items ti,graphs_items tgi,graphs tg,graphs g,graphs_items gi,items i"
-			" where ti.hostid=" ZBX_FS_UI64 " and ti.itemid=tgi.itemid and tgi.graphid=tg.graphid"
-				" and g.templateid=tg.graphid and gi.graphid=g.graphid and i.itemid=gi.itemid"
-				" and i.hostid=" ZBX_FS_UI64,
-			templateid,
-			hostid);
+	zbx_uint64_t
+		g_templateid,
+		tmp_hostid,
+		graphid;
 
-	while (NULL != (row = DBfetch(result)))
+	db_graphs = DBselect("select distinct g.graphid,g.templateid,g.name from graphs g, graphs_items gi, items i"
+                        " where g.templateid<> 0 and g.graphid=gi.graphid and gi.itemid=i.itemid and i.hostid=" ZBX_FS_UI64, hostid);
+
+	while( (graph_data = DBfetch(db_graphs)) )
 	{
-		ZBX_STR2UINT64(graphid, row[0]);
+		ZBX_STR2UINT64(g_templateid, graph_data[1]);
+		
+		if( 0 != templateid )
+		{
+			tmp_hostid = 0;
 
-		if (unlink_mode)
+			db_tmp_hosts = DBselect("select distinct h.hostid from graphs_items gi, items i, hosts h"
+						" where h.hostid=i.hostid and gi.itemid=i.itemid and gi.graphid=" ZBX_FS_UI64, g_templateid);
+
+			if( (tmp_host_data = DBfetch(db_tmp_hosts)) )
+			{
+				ZBX_STR2UINT64(tmp_hostid, tmp_host_data[0]);
+			}
+
+			DBfree_result(db_tmp_hosts);
+
+			if(tmp_hostid != templateid)
+				continue;
+		}
+
+		ZBX_STR2UINT64(graphid, graph_data[0]);
+
+		if( unlink_mode )
 		{
 			DBexecute("update graphs set templateid=0 where graphid=" ZBX_FS_UI64, graphid);
 
-			zabbix_log(LOG_LEVEL_DEBUG, "Graph '%s' unlinked", row[1]);
+			zabbix_log( LOG_LEVEL_DEBUG, "Graph '%s' unlinked", graph_data[2]);
 		}
 		else
+		{
 			DBdelete_graph(graphid);
+		}
 	}
-	DBfree_result(result);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	DBfree_result(db_graphs);
 }
 
 /******************************************************************************
@@ -1887,32 +1868,61 @@ static void	DBdelete_template_triggers(
 		unsigned char unlink_mode
 	)
 {
-	DB_RESULT	result;
-	DB_ROW		row;
-	zbx_uint64_t	triggerid;
+	DB_RESULT	db_triggers;
+	DB_RESULT	db_tmp_hosts;
 
-	result = DBselect("select distinct g.triggerid,g.description"
-			" from items ti,functions tf,triggers tg,triggers g,functions f,items i"
-			" where ti.hostid=" ZBX_FS_UI64 " and ti.itemid=tf.itemid and tf.triggerid=tg.triggerid"
-				" and g.templateid=tg.triggerid and f.triggerid=g.triggerid and i.itemid=f.itemid"
-				" and i.hostid=" ZBX_FS_UI64,
-			templateid,
-			hostid);
+	DB_ROW		trigger_data;
+	DB_ROW		tmp_host_data;
 
-	while (NULL != (row = DBfetch(result)))
+	zbx_uint64_t
+		t_templateid,
+		tmp_hostid,
+		triggerid;
+	
+	db_triggers = DBselect("select distinct t.triggerid,t.templateid,t.description from triggers t, functions f, items i"
+                        " where i.hostid=" ZBX_FS_UI64 " and f.itemid=i.itemid and f.triggerid=t.triggerid", hostid);
+
+	while( (trigger_data = DBfetch(db_triggers)) )
 	{
-		ZBX_STR2UINT64(triggerid, row[0]);
+		ZBX_STR2UINT64(t_templateid, trigger_data[1]);
 
-		if (unlink_mode)
+		
+		if( 0 == t_templateid )
+			continue;
+
+		if( 0 != templateid )
+		{
+			tmp_hostid = 0;
+
+			db_tmp_hosts = DBselect("select distinct h.hostid from hosts h, functions f, items i"
+						" where i.itemid=f.itemid and h.hostid=i.hostid and f.triggerid=" ZBX_FS_UI64, t_templateid);
+
+			if( (tmp_host_data = DBfetch(db_tmp_hosts)) )
+			{
+				ZBX_STR2UINT64(tmp_hostid, tmp_host_data[0]);
+			}
+
+			DBfree_result(db_tmp_hosts);
+
+			if(tmp_hostid != templateid)
+				continue;
+		}
+
+		ZBX_STR2UINT64(triggerid, trigger_data[0]);
+
+		if( unlink_mode )
 		{
 			DBexecute("update triggers set templateid=0 where triggerid=" ZBX_FS_UI64, triggerid);
 
-			zabbix_log(LOG_LEVEL_DEBUG, "Trigger '%s' unlinked", row[1]);
+			zabbix_log( LOG_LEVEL_DEBUG, "Trigger '%s' unlinked", trigger_data[2]);
 		}
 		else
+		{
 			DBdelete_trigger(triggerid);
+		}
 	}
-	DBfree_result(result);
+
+	DBfree_result(db_triggers);
 }
 
 /******************************************************************************
@@ -1939,29 +1949,58 @@ static void	DBdelete_template_items(
 		unsigned char unlink_mode
 	)
 {
-	DB_RESULT	result;
-	DB_ROW		row;
-	zbx_uint64_t	itemid;
+	DB_RESULT	db_items;
+	DB_RESULT	db_tmp_hosts;
 
-	result = DBselect("select distinct i.itemid,i.key_ from items i,items t where t.itemid=i.templateid"
-			" and i.hostid=" ZBX_FS_UI64 " and t.hostid=" ZBX_FS_UI64,
-			hostid,
-			templateid);
+	DB_ROW		item_data;
+	DB_ROW		tmp_host_data;
 
-	while (NULL != (row = DBfetch(result)))
+	zbx_uint64_t
+		i_templateid,
+		tmp_hostid,
+		itemid;
+	
+	db_items = DBselect("select itemid,templateid,key_ from items where hostid=" ZBX_FS_UI64, hostid);
+
+	while( (item_data = DBfetch(db_items)) )
 	{
-		ZBX_STR2UINT64(itemid, row[0]);
+		ZBX_STR2UINT64(i_templateid, item_data[1]);
+		
+		if( 0 == i_templateid )
+			continue;
 
-		if (unlink_mode)
+		if( 0 != templateid )
+		{
+			db_tmp_hosts = DBselect("select itemid,templateid,key_ from items where hostid=" ZBX_FS_UI64, i_templateid);
+
+			tmp_hostid = 0;
+
+			if( (tmp_host_data = DBfetch(db_tmp_hosts)) )
+			{
+				ZBX_STR2UINT64(tmp_hostid, tmp_host_data[0]);
+			}
+
+			DBfree_result(db_tmp_hosts);
+
+			if(tmp_hostid != templateid)
+				continue;
+		}
+
+		ZBX_STR2UINT64(itemid, item_data[0]);
+
+		if( unlink_mode )
 		{
 			DBexecute("update items set templateid=0 where itemid=" ZBX_FS_UI64, itemid);
 
-			zabbix_log(LOG_LEVEL_DEBUG, "Item '%s' unlinked", row[1]);
+			zabbix_log( LOG_LEVEL_DEBUG, "Item '%s' unlinked", item_data[2]);
 		}
 		else
+		{
 			DBdelete_item(itemid);
+		}
 	}
-	DBfree_result(result);
+
+	DBfree_result(db_items);
 }
 
 /******************************************************************************
@@ -1988,30 +2027,59 @@ static void	DBdelete_template_applications(
 		unsigned char unlink_mode
 	)
 {
-	DB_RESULT	result;
-	DB_ROW		row;
-	zbx_uint64_t	applicationid;
+	DB_RESULT	db_applications;
+	DB_RESULT	db_tmp_hosts;
 
-	result = DBselect("select a.applicationid,a.name from applications a,applications ta"
-			" where a.hostid=" ZBX_FS_UI64 " and ta.hostid=" ZBX_FS_UI64 " and ta.applicationid=a.templateid",
-			hostid,
-			templateid);
+	DB_ROW		application_data;
+	DB_ROW		tmp_host_data;
 
-	while (NULL != (row = DBfetch(result)))
+	zbx_uint64_t
+		a_templateid,
+		tmp_hostid,
+		applicationid;
+	
+	db_applications = DBselect("select applicationid,templateid,name from applications where hostid=" ZBX_FS_UI64, hostid);
+
+	while( (application_data = DBfetch(db_applications)) )
 	{
-		ZBX_STR2UINT64(applicationid, row[0]);
+		ZBX_STR2UINT64(a_templateid, application_data[1]);
 
-		if (unlink_mode)
+		
+		if( 0 == a_templateid )
+			continue;
+
+		if( 0 != templateid )
+		{
+			tmp_hostid = 0;
+
+			db_tmp_hosts = DBselect("select hostid from applications where applicationid=" ZBX_FS_UI64, a_templateid);
+
+			if( (tmp_host_data = DBfetch(db_tmp_hosts) ))
+			{
+				ZBX_STR2UINT64(tmp_hostid, tmp_host_data[0]);
+			}
+
+			DBfree_result(db_tmp_hosts);
+
+			if(tmp_hostid != templateid)
+				continue;
+		}
+
+		ZBX_STR2UINT64(applicationid, application_data[0]);
+
+		if( unlink_mode )
 		{
 			DBexecute("update applications set templateid=0 where applicationid=" ZBX_FS_UI64, applicationid);
 
-			zabbix_log( LOG_LEVEL_DEBUG, "Application '%s' unlinked", row[1]);
+			zabbix_log( LOG_LEVEL_DEBUG, "Application '%s' unlinked", application_data[2]);
 		}
 		else
+		{
 			DBdelete_application(applicationid);
+		}
 	}
 
-	DBfree_result(result);
+	DBfree_result(db_applications);
 }
 
 /******************************************************************************
@@ -2143,7 +2211,7 @@ static int	DBdb_save_application(
 				if( SUCCEED != (result = DBupdate_application(elementid, name, db_hostid, applicationid)) )
 					break;
 			}
-
+			
 			DBfree_result(db_elements);
 		}
 
@@ -2167,7 +2235,7 @@ static int	DBdb_save_application(
  * Parameters: hostid - host identificator from database                      *
  *             templateid - template identificator from database              *
  *             copy_mode - 1 - only copy elements without linkage             *
- *                         0 - copy and link elements                         *
+ *             	           0 - copy and link elements                         *
  *                                                                            *
  * Return value: upon successful completion return SUCCEED                    *
  *                                                                            *
@@ -2210,7 +2278,7 @@ static int	DBcopy_template_applications(
 	else
 	{
 		db_elements = DBselect("select applicationid,name from applications where hostid=" ZBX_FS_UI64, templateid);
-
+		
 		while( (element_data = DBfetch(db_elements)) )
 		{
 			ZBX_STR2UINT64(elementid, element_data[0]);
@@ -2256,7 +2324,7 @@ static int	DBcopy_template_applications(
  *             valuemapid                                                     *
  *             delay_flex                                                     *
  *             params                                                         *
- *             apps - zero terminated array of applicationid                  *
+ *             apps - zero teminated array of applicationid                   *
  *             templateid - template item identificator from database         *
  *                                                                            *
  * Return value: upon successful completion return SUCCEED                    *
@@ -2271,27 +2339,27 @@ static int	DBupdate_item(
 		const char	*description,
 		const char	*key,
 		zbx_uint64_t	hostid,
-		int		delay,
-		int		history,
+		int 		delay,
+		int 		history,
 		int		status,
 		int		type,
 		const char	*snmp_community,
 		const char	*snmp_oid,
 		int		value_type,
-		const char	*trapper_hosts,
+		const char      *trapper_hosts,
 		int		snmp_port,
-		const char	*units,
+		const char      *units,
 		int		multiplier,
 		int		delta,
-		const char	*snmpv3_securityname,
+		const char      *snmpv3_securityname,
 		int		snmpv3_securitylevel,
-		const char	*snmpv3_authpassphrase,
-		const char	*snmpv3_privpassphrase,
-		const char	*formula,
+		const char      *snmpv3_authpassphrase,
+		const char      *snmpv3_privpassphrase,
+		const char      *formula,
 		int		trends,
-		const char	*logtimefmt,
+		const char      *logtimefmt,
 		zbx_uint64_t	valuemapid,
-		const char	*delay_flex,
+		const char      *delay_flex,
 		const char	*params,
 		zbx_uint64_t	*apps,
 		zbx_uint64_t	templateid
@@ -2360,7 +2428,7 @@ static int	DBupdate_item(
 				result = FAIL;
 			}
 			else
-			{ /* delete duplicated items */
+			{ /* delete dublicated items */
 				ZBX_STR2UINT64(del_itemid, item_data[0]);
 			}
 		}
@@ -2382,7 +2450,7 @@ static int	DBupdate_item(
 
 				/* recursion */
 				if( SUCCEED != (result = DBupdate_item(
-					chd_itemidm, description, key, chd_hostid,
+					chd_itemidm, description, key, chd_hostid, 
 					delay, history, status, type, snmp_community, snmp_oid,
 					value_type, trapper_hosts, snmp_port, units, multiplier,
 					delta, snmpv3_securityname, snmpv3_securitylevel,
@@ -2523,7 +2591,7 @@ static int	DBupdate_item(
  *             valuemapid                                                     *
  *             delay_flex                                                     *
  *             params                                                         *
- *             apps - zero terminated array of applicationid                  *
+ *             apps - zero teminated array of applicationid                   *
  *             templateid - template item identificator from database         *
  *                                                                            *
  * Return value: upon successful completion return SUCCEED                    *
@@ -2537,25 +2605,25 @@ static int	DBadd_item(
 		const char	*description,
 		const char	*key,
 		zbx_uint64_t	hostid,
-		int		delay,
-		int		history,
+		int 		delay,
+		int 		history,
 		int		status,
 		int		type,
 		const char	*snmp_community,
 		const char	*snmp_oid,
 		int		value_type,
-		const char	*trapper_hosts,
+		const char      *trapper_hosts,
 		int		snmp_port,
-		const char	*units,
+		const char      *units,
 		int		multiplier,
 		int		delta,
-		const char	*snmpv3_securityname,
+		const char      *snmpv3_securityname,
 		int		snmpv3_securitylevel,
-		const char	*snmpv3_authpassphrase,
-		const char	*snmpv3_privpassphrase,
-		const char	*formula,
+		const char      *snmpv3_authpassphrase,
+		const char      *snmpv3_privpassphrase,
+		const char      *formula,
 		int		trends,
-		const char	*logtimefmt,
+		const char      *logtimefmt,
 		zbx_uint64_t	valuemapid,
 		const char      *delay_flex,
 		const char      *params,
@@ -2764,7 +2832,7 @@ static int	DBadd_item(
  * Parameters: hostid - host identificator from database                      *
  *             templateid - template identificator from database              *
  *             copy_mode - 1 - only copy elements without linkage             *
- *                         0 - copy and link elements                         *
+ *             	           0 - copy and link elements                         *
  *                                                                            *
  * Return value: upon successful completion return SUCCEED                    *
  *                                                                            *
@@ -2816,7 +2884,7 @@ static int	DBcopy_template_items(
 					"snmpv3_securityname,snmpv3_securitylevel,snmpv3_authpassphrase,"
 					"snmpv3_privpassphrase,formula,trends,logtimefmt,valuemapid,delay_flex,params "
 					" from items where hostid=" ZBX_FS_UI64, templateid);
-
+		
 		while( (element_data = DBfetch(db_elements)) )
 		{
 			ZBX_STR2UINT64(elementid, element_data[0]);
@@ -2907,9 +2975,9 @@ static int	DBreset_items_nextcheck(
  *                                                                            *
  * Function: DBreplace_template_dependences                                   *
  *                                                                            *
- * Purpose: replace trigger dependencies by specified host                    *
+ * Purpose: replace trigger dependences by specified host                     *
  *                                                                            *
- * Parameters: dependences_in - zero terminated array of dependencies         *
+ * Parameters: dependences_in - zero terminated array of dependences          *
  *             hostid - host identificator from database                      *
  *             dependences - buffer for result values                         *
  *             max_dependences - size of result buffer in counts              *
@@ -3036,7 +3104,7 @@ static int	DBadd_event(
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
- * Comments: function dynamically allocates memory, don't forget to free it   *
+ * Comments: function dynamically allocate memory, don't forget free them     *
  *           !!! Don't forget sync code with PHP !!!                          *
  *                                                                            *
  ******************************************************************************/
@@ -3100,14 +3168,14 @@ static char*	DBimplode_exp (
 		do { /* simple try for C */
 			/* determine host */
 			host = simple_start;
-			if( NULL == (p = strchr(host, ':'))) break; /* simple throw for C */
+			if( NULL == (p = strchr(host, ':'))) break; /* simpla throw for C */
 			host_len = p - host;
 
 			/* determine parameter */
-			if( NULL == (p = strrchr(p+1, '(')) ) break; /* simple throw for C */
+			if( NULL == (p = strrchr(p+1, '(')) ) break; /* simpla throw for C */
 			parameter = p+1;
 
-			if( NULL == (p = strrchr(parameter, ')')) ) break; /* simple throw for C */
+			if( NULL == (p = strrchr(parameter, ')')) ) break; /* simpla throw for C */
 			parameter_len = p - parameter;
 
 			/* determine key and function */
@@ -3115,7 +3183,7 @@ static char*	DBimplode_exp (
 			*p = '\0';
 
 			key = host + host_len + 1;
-			if( NULL == (p = strrchr(key, '.'))) break; /* simple throw for C */
+			if( NULL == (p = strrchr(key, '.'))) break; /* simpla throw for C */
 			key_len = p - key;
 
 			function = p + 1;
@@ -3124,7 +3192,7 @@ static char*	DBimplode_exp (
 			p = parameter-1; /* position of '(' character */
 			*p = '(';
 
-		} while(0);/* simple finally for C */
+		} while(0);/* simpla finally for C */
 
 		if( host && host_len && key && key_len && function && function_len && parameter && parameter_len )
 		{
@@ -3193,13 +3261,13 @@ static char*	DBimplode_exp (
  *                                                                            *
  * Function: DBget_trigger_dependences_by_triggerid                           *
  *                                                                            *
- * Purpose: retrieve trigger dependencies                                     *
+ * Purpose: retrive trigger dependences                                       *
  *                                                                            *
  * Parameters: triggerid - trigger identificator from database                *
  *             dependences - buffer for result                                *
  *             max_dependences - size of buffer in counts                     *
  *                                                                            *
- * Return value: count of dependencies                                         *
+ * Return value: count of dependences                                         *
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
@@ -3246,7 +3314,7 @@ static int	DBget_trigger_dependences_by_triggerid(
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
- * Comments: function dynamically allocates memory, don't forget to free it   *
+ * Comments: function dynamically allocate memory, don't forget free them     *
  *           !!! Don't forget sync code with PHP !!!                          *
  *                                                                            *
  *                                                                            *
@@ -3265,7 +3333,7 @@ static char* DBexplode_exp (char *short_expression)
 	DB_ROW		function_data;
 
 	char
-		tmp_chr,
+		tmp_chr,	
 		*p_functionid = NULL,
 		*exp = NULL;
 
@@ -3307,7 +3375,7 @@ static char* DBexplode_exp (char *short_expression)
 
 				if( (function_data = DBfetch(db_functions)) )
 				{
-					exp = zbx_strdcatf(exp, "{%s:%s.%s(%s)}", function_data[0],
+					exp = zbx_strdcatf(exp, "{%s:%s.%s(%s)}", function_data[0], 
 							function_data[1], function_data[2], function_data[3]);
 				}
 				else
@@ -3346,7 +3414,7 @@ static char* DBexplode_exp (char *short_expression)
  *             status - new status (-1 to skip updete)                        *
  *             comments - new comments (NULL to skip update)                  *
  *             url - new url (NULL to skip update)                            *
- *             dependences - null terminated array with dependencies          *
+ *             dependences - null terminated array with dependences           *
  *             templateid - template trigger identificator from database      *
  *                                                                            *
  * Return value: always SUCCEED                                               *
@@ -3382,7 +3450,7 @@ static int	DBupdate_trigger(
 		chd_triggerid,
 		new_dependences[ZBX_MAX_DEPENDENCES];
 
-	char
+	char 
 		*search = NULL,
 		*replace = NULL,
 		*new_expression = NULL,
@@ -3394,9 +3462,9 @@ static int	DBupdate_trigger(
 	int	i = 0;
 
 	db_triggers = DBselect("select distinct t.description,h.host,t.expression,t.priority,t.status,t.comments,t.url,t.type "
-			" from triggers t,functions f,items i,hosts h "
-			" where t.triggerid=" ZBX_FS_UI64 " and f.triggerid=t.triggerid "
-			" and i.itemid=f.itemid and i.hostid=h.hostid", triggerid);
+		       " from triggers t,functions f,items i,hosts h "
+		       " where t.triggerid=" ZBX_FS_UI64 " and f.triggerid=t.triggerid "
+		       " and i.itemid=f.itemid and i.hostid=h.hostid", triggerid);
 
 	if( (trigger_data = DBfetch(db_triggers)) )
 	{
@@ -3444,7 +3512,7 @@ static int	DBupdate_trigger(
 					new_dependences,
 					triggerid);
 
-				zbx_free(new_expression);
+				zbx_free(new_expression);				
 			}
 
 			DBfree_result(db_chd_hosts);
@@ -3603,7 +3671,7 @@ static int	DBcmp_triggers(
  * Parameters: triggerid - trigger identificator from database                *
  *             hostid - host identificator from database                      *
  *             copy_mode - 1 - only copy elements without linkage             *
- *                         0 - copy and link elements                         *
+ *             	           0 - copy and link elements                         *
  *                                                                            *
  * Return value: upon successful completion return SUCCEED                    *
  *                                                                            *
@@ -3693,7 +3761,7 @@ static int	DBcopy_trigger_to_host(
 		DBfree_result(db_host_triggers);
 
 		if( SUCCEED != result )
-		{ /* create trigger if no updated triggers */
+		{ /* create triger if no updated triggers */
 			result = SUCCEED;
 
 			new_triggerid = DBget_maxid("triggers","triggerid");
@@ -3737,7 +3805,7 @@ static int	DBcopy_trigger_to_host(
 				db_items = DBselect("select i2.itemid from items i1, items i2 "
 						" where i2.key_=i1.key_ and i2.hostid=" ZBX_FS_UI64
 						" and i1.itemid=" ZBX_FS_UI64, hostid, itemid);
-
+				
 				if( (item_data = DBfetch(db_items)) )
 				{
 					ZBX_STR2UINT64(itemid, item_data[0]);
@@ -3785,7 +3853,7 @@ static int	DBcopy_trigger_to_host(
 				DBexecute("update triggers set expression='%s' where triggerid=" ZBX_FS_UI64, new_expression_esc, new_triggerid);
 				zbx_free(new_expression_esc);
 
-				/* copy dependencies */
+				/* copy dependences */
 				DBdelete_dependencies_by_triggerid(new_triggerid);
 				for( i=0; 0 < new_dependences[i]; i++ )
 				{
@@ -3820,9 +3888,9 @@ static int	DBcopy_trigger_to_host(
 
 /******************************************************************************
  *                                                                            *
- * Function: DBupdate_template_dependencies_for_host                          *
+ * Function: DBupdate_template_dependences_for_host                           *
  *                                                                            *
- * Purpose: update trigger dependencies for specified host                    *
+ * Purpose: update trigger dependences for specified host                     *
  *                                                                            *
  * Parameters: hostid - host identificator from database                      *
  *                                                                            *
@@ -3833,95 +3901,62 @@ static int	DBcopy_trigger_to_host(
  * Comments: !!! Don't forget sync code with PHP !!!                          *
  *                                                                            *
  ******************************************************************************/
-static int DBupdate_template_dependencies_for_host(
+static int	DBupdate_template_dependences_for_host(
 		zbx_uint64_t hostid
-		)
+	)
 {
 	DB_RESULT	db_triggers;
-	DB_RESULT	db_dependencies;
+	DB_RESULT	db_chd_triggers;
 
 	DB_ROW		trigger_data;
-	DB_ROW		dependency_data;
+	DB_ROW		chd_trigger_data;
 
-	int		alloc = 16, count = 0, i,
-			flag_down,
-			flag_up;
+	int	result = SUCCEED;
 
-	zbx_uint64_t	*tpl_triggerids = NULL,
-			*hst_triggerids = NULL,
-			templateid,
-			triggerid,
-			templateid_up,
-			templateid_down;
+	zbx_uint64_t
+		triggerid,
+		chd_triggerid,
+		dependences[ZBX_MAX_DEPENDENCES],
+		new_dependences[ZBX_MAX_DEPENDENCES];
 
-	tpl_triggerids = zbx_malloc(tpl_triggerids, alloc * sizeof(zbx_uint64_t));
-	hst_triggerids = zbx_malloc(hst_triggerids, alloc * sizeof(zbx_uint64_t));
-
-	db_triggers = DBselect("select distinct t.triggerid, t.templateid "
-							"from triggers t, functions f, items i"
-							" where i.hostid=" ZBX_FS_UI64
-								" and f.itemid=i.itemid "
-								" and f.triggerid=t.triggerid"
-								" and t.templateid > 0", hostid);
+	db_triggers = DBselect("select distinct t.triggerid from triggers t, functions f, items i"
+		" where i.hostid=" ZBX_FS_UI64 " and f.itemid=i.itemid and f.triggerid=t.triggerid", hostid);
 
 	while( (trigger_data = DBfetch(db_triggers)) )
 	{
-		ZBX_STR2UINT64(templateid, trigger_data[1]);
 		ZBX_STR2UINT64(triggerid, trigger_data[0]);
-		DBdelete_dependencies_by_triggerid(triggerid);
 
-		if (alloc == count)
+		db_chd_triggers = DBselect("select distinct triggerid from triggers where templateid=" ZBX_FS_UI64, triggerid);
+
+		while( (chd_trigger_data = DBfetch(db_chd_triggers)) )
 		{
-			alloc += 16;
-			tpl_triggerids = zbx_realloc(tpl_triggerids, alloc * sizeof(zbx_uint64_t));
-			hst_triggerids = zbx_realloc(hst_triggerids, alloc * sizeof(zbx_uint64_t));
+			ZBX_STR2UINT64(chd_triggerid, chd_trigger_data[0]);
+
+			DBget_trigger_dependences_by_triggerid(triggerid, dependences, sizeof(dependences) / sizeof(zbx_uint64_t));
+			DBreplace_template_dependences(dependences, hostid, new_dependences, sizeof(new_dependences) / sizeof(zbx_uint64_t));
+
+			if( SUCCEED != (result = DBupdate_trigger(
+				chd_triggerid,
+				/* expression */         NULL,
+				/* description */        NULL,
+				/* priority */           -1,
+				/* status */             -1,
+				/* comments */           NULL,
+				/* url */                NULL,
+				/* type */               -1,
+				new_dependences,
+				triggerid)) )
+					break;
 		}
 
-		tpl_triggerids[count] = templateid;
-		hst_triggerids[count] = triggerid;
-		count++;
+		DBfree_result(db_chd_triggers);
+
+		if( SUCCEED != result ) break;
 	}
 
 	DBfree_result(db_triggers);
 
-	db_dependencies = DBselect("SELECT DISTINCT td.triggerdepid, td.triggerid_down, td.triggerid_up "
-			"FROM items i, functions f, triggers t, trigger_depends td "
-			" WHERE i.hostid=" ZBX_FS_UI64
-				" AND f.itemid=i.itemid "
-				" AND t.triggerid=f.triggerid "
-				" AND ( (td.triggerid_up=t.templateid) OR (td.triggerid_down=t.templateid) )", hostid);
-
-	while( (dependency_data = DBfetch(db_dependencies)) )
-	{
-		flag_down=0;
-		flag_up=0;
-
-		ZBX_STR2UINT64(templateid_down, dependency_data[1]);
-		ZBX_STR2UINT64(templateid_up, dependency_data[2]);
-
-		for (i = 0; i < count; i++)
-		{
-			if (tpl_triggerids[i] == templateid_down)
-				flag_down = i;
-			if (tpl_triggerids[i] == templateid_up)
-				flag_up = i;
-
-			if (flag_down && flag_up)
-				break;
-		}
-
-		if (flag_down && flag_up)
-		{
-			DBinsert_dependency(hst_triggerids[flag_down], hst_triggerids[flag_up]);
-		}
-	}
-
-	DBfree_result(db_dependencies);
-
-	zbx_free(tpl_triggerids);
-	zbx_free(hst_triggerids);
-
-	return SUCCEED;
+	return result;
 }
 
 /******************************************************************************
@@ -3933,7 +3968,7 @@ static int DBupdate_template_dependencies_for_host(
  * Parameters: hostid - host identificator from database                      *
  *             templateid - template identificator from database              *
  *             copy_mode - 1 - only copy elements without linkage             *
- *                         0 - copy and link elements                         *
+ *             	           0 - copy and link elements                         *
  *                                                                            *
  * Return value: upon successful completion return SUCCEED                    *
  *                                                                            *
@@ -3976,8 +4011,8 @@ static int	DBcopy_template_triggers(
 	else
 	{
 		db_elements = DBselect("select distinct t.triggerid from triggers t, functions f, items i"
-					" where i.hostid=" ZBX_FS_UI64 " and f.itemid=i.itemid and f.triggerid=t.triggerid", templateid);
-
+		                        " where i.hostid=" ZBX_FS_UI64 " and f.itemid=i.itemid and f.triggerid=t.triggerid", templateid);
+		
 		while( (element_data = DBfetch(db_elements)) )
 		{
 			ZBX_STR2UINT64(elementid, element_data[0]);
@@ -3989,7 +4024,7 @@ static int	DBcopy_template_triggers(
 		DBfree_result(db_elements);
 
 		if( SUCCEED == result)
-			result = DBupdate_template_dependencies_for_host(hostid);
+			result = DBupdate_template_dependences_for_host(hostid);
 	}
 
 	return result;
@@ -4004,7 +4039,7 @@ static int	DBcopy_template_triggers(
  * Parameters: graphid - graph identificator from database                    *
  *             hostid - host identificator from database                      *
  *             copy_mode - 1 - only copy elements without linkage             *
- *                         0 - copy and link elements                         *
+ *             	           0 - copy and link elements                         *
  *                                                                            *
  * Return value: upon successful completion return SUCCEED                    *
  *                                                                            *
@@ -4121,14 +4156,14 @@ static int	DBcopy_graph_to_host(
 					break;
 				}
 
-				/* found equal graph item */
+				/* founded equal graph item */
 				equal++;
 			}
 
 			DBfree_result(db_items);
 
 			if ( equal && gitems_count == equal )
-			{ /* found equal graph */
+			{ /* founded equal graph */
 				break;
 			}
 
@@ -4180,7 +4215,7 @@ static int	DBcopy_graph_to_host(
 	}
 	else
 	{
-		zabbix_log(LOG_LEVEL_DEBUG, "Skipped copying of graph '%s' to host " ZBX_FS_UI64, db_graph_data[0], hostid);
+		zabbix_log(LOG_LEVEL_DEBUG, "Skipped coping of graph '%s' to host " ZBX_FS_UI64, db_graph_data[0], hostid);
 		result = FAIL;
 	}
 
@@ -4199,7 +4234,7 @@ static int	DBcopy_graph_to_host(
  * Parameters: hostid - host identificator from database                      *
  *             templateid - template identificator from database              *
  *             copy_mode - 1 - only copy elements without linkage             *
- *                         0 - copy and link elements                         *
+ *             	           0 - copy and link elements                         *
  *                                                                            *
  * Return value: upon successful completion return SUCCEED                    *
  *                                                                            *
@@ -4243,7 +4278,7 @@ static int	DBcopy_template_graphs(
 	{
 		db_elements = DBselect("select distinct g.graphid from graphs g, graphs_items gi, items i"
 				" where g.graphid=gi.graphid and gi.itemid=i.itemid and i.hostid=" ZBX_FS_UI64, templateid);
-
+		
 		while( (element_data = DBfetch(db_elements)) )
 		{
 			ZBX_STR2UINT64(elementid, element_data[0]);
@@ -4256,6 +4291,47 @@ static int	DBcopy_template_graphs(
 	}
 
 	return result;
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: DBdelete_sysmaps_elements_with_hostid                            *
+ *                                                                            *
+ * Purpose: delete hosts from maps                                            *
+ *                                                                            *
+ * Parameters: hostid - host identificator from database                      *
+ *                                                                            *
+ * Return value: always SUCCEED                                               *
+ *                                                                            *
+ * Author: Eugene Grigorjev                                                   *
+ *                                                                            *
+ * Comments: !!! Don't forget sync code with PHP !!!                          *
+ *                                                                            *
+ ******************************************************************************/
+static int	DBdelete_sysmaps_elements_with_hostid(
+		zbx_uint64_t	hostid
+	)
+{
+	DB_RESULT	db_elements;
+
+	DB_ROW		element_data;
+
+	zbx_uint64_t
+		elementid;
+
+	db_elements = DBselect("select selementid from sysmaps_elements"
+		" where elementid=" ZBX_FS_UI64 " and elementtype=%i", hostid, SYSMAP_ELEMENT_TYPE_HOST);
+
+	while( (element_data = DBfetch(db_elements)) )
+	{
+		ZBX_STR2UINT64(elementid, element_data[0]);
+
+		DBdelete_sysmaps_element(elementid);
+	}
+
+	DBfree_result(db_elements);
+
+	return SUCCEED;
 }
 
 /******************************************************************************
@@ -4296,7 +4372,7 @@ static int	DBcopy_template_graphs(
  * Parameters: hostid - host identificator from database                      *
  *             templateid - template identificator from database              *
  *             copy_mode - 1 - only copy elements without linkage             *
- *                         0 - copy and link elements                         *
+ *             	           0 - copy and link elements                         *
  *                                                                            *
  * Return value: upon successful completion return SUCCEED                    *
  *                                                                            *
@@ -4330,6 +4406,7 @@ static int	DBcopy_template_graphs(
  * Parameters: hostid - host identificator from database                      *
  *             templateid - template identificator from database              *
  *                                                                            *
+ * Return value: upon successful completion return SUCCEED                    *
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
@@ -4341,7 +4418,7 @@ static int	DBcopy_template_graphs(
 		zbx_uint64_t templateid
 	)
 {
-	DBdelete_template_elements(hostid, templateid, 0 /* not an unlink mode */);
+	DBdelete_template_elements(hostid, templateid, 0 /* not a unlink mode */);
 
 	return DBcopy_template_elements(hostid, templateid, 0 /* not a copy mode */);
 }
@@ -4409,7 +4486,7 @@ static int	DBcopy_template_graphs(
  ******************************************************************************/
 /* public */ void	DBunlink_template(
 		zbx_uint64_t	hostid,
-		zbx_uint64_t	templateid
+	       	zbx_uint64_t	templateid
 	)
 {
 	DBdelete_template_elements(hostid, templateid, 1 /* unlink, not delete */);
@@ -4423,7 +4500,7 @@ static int	DBcopy_template_graphs(
  *                                                                            *
  * Function: DBdelete_host                                                    *
  *                                                                            *
- * Purpose: delete host from database with all elements                       *
+ * Purpose: delete host from databases with all elements                      *
  *                                                                            *
  * Parameters: hostid - host identificator from database                      *
  *                                                                            *
@@ -4438,42 +4515,38 @@ static int	DBcopy_template_graphs(
 		zbx_uint64_t hostid
 	)
 {
-	DB_RESULT	result;
-	DB_ROW		row;
-	zbx_uint64_t	elementid;
+	DB_RESULT	db_elements;
+
+	DB_ROW		element_data;
+
+	zbx_uint64_t
+		elementid;
 
 	/* unlink child hosts */
-	result = DBselect("select hostid from hosts_templates where templateid=" ZBX_FS_UI64, hostid);
+	db_elements = DBselect("select hostid from hosts_templates where templateid=" ZBX_FS_UI64, hostid);
 
-	while (NULL != (row = DBfetch(result)))
+	while( (element_data = DBfetch(db_elements)) )
 	{
-		ZBX_STR2UINT64(elementid, row[0]);
+		ZBX_STR2UINT64(elementid, element_data[0]);
 		DBunlink_template(elementid, hostid);
 	}
-	DBfree_result(result);
 
-	/* unlink templates */
-	result = DBselect("select templateid from hosts_templates where hostid=" ZBX_FS_UI64, hostid);
-
-	while (NULL != (row = DBfetch(result)))
-	{
-		ZBX_STR2UINT64(elementid, row[0]);
-		DBdelete_template_elements(hostid, elementid, 0 /* delete elements */);
-	}
-	DBfree_result(result);
+	DBfree_result(db_elements);
 
 	/* delete items -> triggers -> graphs */
-	result = DBselect("select itemid from items where hostid=" ZBX_FS_UI64, hostid);
+	db_elements = DBselect("select itemid from items where hostid=" ZBX_FS_UI64, hostid);
 
-	while (NULL != (row = DBfetch(result)))
+	while( (element_data = DBfetch(db_elements)) )
 	{
-		ZBX_STR2UINT64(elementid, row[0]);
+		ZBX_STR2UINT64(elementid, element_data[0]);
+
 		DBdelete_item(elementid);
 	}
-	DBfree_result(result);
+
+	DBfree_result(db_elements);
 
 	/* delete host from maps */
-	DBdelete_sysmaps_elements(SYSMAP_ELEMENT_TYPE_HOST, hostid);
+	DBdelete_sysmaps_elements_with_hostid(hostid);
 
 	/* delete host from group */
 	DBexecute("delete from hosts_groups where hostid=" ZBX_FS_UI64, hostid);
@@ -4481,12 +4554,25 @@ static int	DBcopy_template_graphs(
 	/* delete host from template linkages */
 	DBexecute("delete from hosts_templates where hostid=" ZBX_FS_UI64, hostid);
 
+	/* disable actions */
+	db_elements = DBselect("select distinct actionid from conditions "
+		" where conditiontype=%i and value=" ZBX_FS_UI64,CONDITION_TYPE_HOST, hostid);
+
+	while( (element_data = DBfetch(db_elements)) )
+	{
+		ZBX_STR2UINT64(elementid, element_data[0]);
+
+		DBexecute("update actions set status=%s where actionid=" ZBX_FS_UI64, 
+			ACTION_STATUS_DISABLED, elementid);
+	}
+
+	DBfree_result(db_elements);
+
 	/* delete action conditions */
-	DBdelete_action_conditions(CONDITION_TYPE_HOST, hostid);
+	DBexecute("delete from conditions where conditiontype=%i and value=" ZBX_FS_UI64, CONDITION_TYPE_HOST, hostid);
 
 	/* delete host profile */
 	DBexecute("delete from hosts_profiles where hostid=" ZBX_FS_UI64, hostid);
-	DBexecute("delete from hosts_profiles_ext where hostid=" ZBX_FS_UI64, hostid);
 
 	/* delete host */
 	DBexecute("delete from hosts where hostid=" ZBX_FS_UI64, hostid);

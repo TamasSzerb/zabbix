@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -30,11 +30,11 @@
  *                                                                            *
  * Parameters: item - item we are interested in                               *
  *                                                                            *
- * Return value: SUCCEED - data successfully retrieved and stored in result   *
+ * Return value: SUCCEED - data succesfully retrieved and stored in result    *
  *                         and result_str (as string)                         *
- *               NETWORK_ERROR - network related error occurred               *
+ *               NETWORK_ERROR - network related error occured                *
  *               NOTSUPPORTED - item not supported by the agent               *
- *               AGENT_ERROR - uncritical error on agent side occurred        *
+ *               AGENT_ERROR - uncritical error on agent side occured         *
  *               FAIL - otherwise                                             *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
@@ -92,7 +92,7 @@ int	get_value_agent(DB_ITEM *item, AGENT_RESULT *result)
 			SET_MSG_RESULT(result, strdup(buffer));
 			ret = NETWORK_ERROR;
 		}
-		else if (SUCCEED != set_result_type(result, item->value_type, item->data_type, buf))
+		else if (SUCCEED != set_result_type(result, item->value_type, buf))
 			ret = NOTSUPPORTED;
 	}
 	else

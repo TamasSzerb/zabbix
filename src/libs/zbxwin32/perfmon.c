@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -39,7 +39,7 @@ char *GetCounterName(DWORD index)
 	while(counterName!=NULL)
 	{
 		if (counterName->pdhIndex == index)
-			break;
+		   break;
 		counterName = counterName->next;
 	}
 	if (counterName == NULL)
@@ -57,8 +57,8 @@ char *GetCounterName(DWORD index)
 		if(PdhLookupPerfNameByIndex(NULL, index, counterName->name, &dwSize) == ERROR_SUCCESS)
 		{
 			PerfCounterList = counterName;
-		}
-		else
+		} 
+		else 
 		{
 			zabbix_log(LOG_LEVEL_ERR, "PdhLookupPerfNameByIndex failed: %s", strerror_from_system(GetLastError()));
 			free(counterName);

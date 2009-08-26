@@ -10,7 +10,7 @@ select{
 	font-size: 10px;
 	border: 1px solid gray;
 	background-color: white;
-	margin: 1px;
+	margin: 2px;
 }
 .biginput:focus	{
 	border-color: black;
@@ -30,8 +30,9 @@ select{
 	font-size: 10px;
 	background: #F0F0F0 url('../images/gradients/button.gif') repeat-x top left;
 	border: 1px solid #808080;
-	height: 16px;
+	height: 18px;
 	padding: 0px 5px 0px 5px;
+	margin: 2px;
 	cursor: pointer;
 }
 
@@ -45,18 +46,12 @@ select{
 }
 
 /* SPECIAL FOR FILTER */
-table.thin_header .button{
+table.filter .button{
 	height: 14px;
 	margin: 0px;
 }
 
-table.thin_header .biginput{
-	font-size: 9px;
-	height: 10px;
-	margin: 0px;
-}
-
-form.thin .biginput{
+table.filter .biginput{
 	font-size: 9px;
 	height: 10px;
 	margin: 0px;

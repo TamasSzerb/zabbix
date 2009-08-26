@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -61,8 +61,7 @@ ZBX_METRIC	parameters_common[]=
 	{"vfs.file.cksum",	CF_USEUPARAM,	VFS_FILE_CKSUM,		0,	VFS_TEST_FILE},
 	{"vfs.file.md5sum",	CF_USEUPARAM,	VFS_FILE_MD5SUM,	0,	VFS_TEST_FILE},
 
-	{"net.tcp.dns",		CF_USEUPARAM,	CHECK_DNS,		0,	",localhost"},
-	{"net.tcp.dns.query",	CF_USEUPARAM,	CHECK_DNS_QUERY,	0,	",localhost"},
+	{"net.tcp.dns",		CF_USEUPARAM,	CHECK_DNS,		0,	"127.0.0.1,localhost"},
 	{"net.tcp.port",	CF_USEUPARAM,	CHECK_PORT,		0,	",80"},
 
 	{"system.hostname",	0,		SYSTEM_HOSTNAME,	0,	0},
@@ -79,10 +78,8 @@ static int	ONLY_ACTIVE(const char *cmd, const char *param, unsigned flags, AGENT
 {
 	assert(result);
 
-	init_result(result);
-
+        init_result(result);	
 	SET_MSG_RESULT(result, strdup("Accessible only as active check!"));
-
 	return SYSINFO_RET_FAIL;
 }
 
@@ -94,18 +91,18 @@ int	getPROC(char *file, int lineno, int fieldno, unsigned flags, AGENT_RESULT *r
 	char	c[MAX_STRING_LEN];
 	int	i;
 	double	value = 0;
-
+        
 	assert(result);
 
-	init_result(result);
-
+        init_result(result);	
+		
 	if(NULL == (f = fopen(file,"r")))
 	{
 		return	SYSINFO_RET_FAIL;
 	}
 
 	for(i=1; i<=lineno; i++)
-	{
+	{	
 		if(NULL == fgets(c,MAX_STRING_LEN,f))
 		{
 			zbx_fclose(f);
@@ -132,27 +129,27 @@ int	getPROC(char *file, int lineno, int fieldno, unsigned flags, AGENT_RESULT *r
 
 static int	AGENT_PING(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	assert(result);
+        assert(result);
 
-	init_result(result);
-
+        init_result(result);	
+	
 	SET_UI64_RESULT(result, 1);
-
 	return SYSINFO_RET_OK;
 }
 
 static int	AGENT_VERSION(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	static char	version[] = ZABBIX_VERSION;
+	static	char	version[]=ZABBIX_VERSION;
 
 	assert(result);
 
-	init_result(result);
-
+        init_result(result);
+		
 	SET_STR_RESULT(result, strdup(version));
-
-	return SYSINFO_RET_OK;
+	
+	return	SYSINFO_RET_OK;
 }
+
 
 int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
@@ -177,9 +174,9 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 	char	*command=NULL;
 	int	len;
 
-	assert(result);
+        assert(result);
 
-	init_result(result);
+        init_result(result);
 
 	cmd_result = zbx_dsprintf(cmd_result,"");
 	memset(stat_buf, 0, sizeof(stat_buf));
@@ -187,12 +184,12 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 #if defined(_WINDOWS)
 
 	/* Set the bInheritHandle flag so pipe handles are inherited */
-	sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-	sa.bInheritHandle = TRUE;
-	sa.lpSecurityDescriptor = NULL;
+	sa.nLength = sizeof(SECURITY_ATTRIBUTES); 
+	sa.bInheritHandle = TRUE; 
+	sa.lpSecurityDescriptor = NULL; 
 
 	/* Create a pipe for the child process's STDOUT */
-	if (! CreatePipe(&hRead, &hWrite, &sa, sizeof(cmd_result)))
+	if (! CreatePipe(&hRead, &hWrite, &sa, sizeof(cmd_result))) 
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "Unable to create pipe [%s]", strerror_from_system(GetLastError()));
 		ret = SYSINFO_RET_FAIL;
@@ -236,7 +233,7 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 	CloseHandle(pi.hThread);
 
 	CloseHandle(hRead);	hRead = NULL;
-
+		
 
 #else /* not _WINDOWS */
 	command = zbx_dsprintf(command, "%s", param);
@@ -362,7 +359,7 @@ int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 	pid_t	pid;
 #endif
 
-	assert(result);
+        assert(result);
 
 	init_result(result);
 
@@ -372,11 +369,11 @@ int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 		return SYSINFO_RET_FAIL;
 	}
 
-	if (num_param(param) > 2)
-		return SYSINFO_RET_FAIL;
+        if (num_param(param) > 2)
+                return SYSINFO_RET_FAIL;
 
 	if (0 != get_param(param, 1, command, sizeof(command)))
-		return SYSINFO_RET_FAIL;
+                return SYSINFO_RET_FAIL;
 
 	if (*command == '\0')
 		return SYSINFO_RET_FAIL;
@@ -393,7 +390,7 @@ int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 		return EXECUTE_STR(cmd,command,flags,result);
 	else if(0 != strcmp(flag,"nowait"))
 		return SYSINFO_RET_FAIL;
-
+	
 #if defined(_WINDOWS)
 
 	zbx_snprintf(full_command, sizeof(full_command), "cmd /C \"%s\"", command);
@@ -433,13 +430,13 @@ int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 			zabbix_log(LOG_LEVEL_WARNING, "fork2 failed for '%s'",command);
 			return SYSINFO_RET_FAIL;
 		case 0:
-			/*
+			/* 
 			 * DON'T REMOVE SLEEP
 			 * sleep needed to return server result as "1"
 			 * then we can run "execl"
 			 * otherwise command print result into socket with STDOUT id
 			 */
-			sleep(3);
+			sleep(3); 
 			/**/
 
 			/* replace thread 2 by the execution of command */

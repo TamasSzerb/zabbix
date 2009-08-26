@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -27,14 +27,8 @@ extern char	*CONFIG_HOSTNAME;
 extern int	CONFIG_REFRESH_ACTIVE_CHECKS;
 extern int	CONFIG_BUFFER_SEND;
 extern int	CONFIG_BUFFER_SIZE;
-extern int	CONFIG_MAX_LINES_PER_SECOND;
 
-/*#define MAX_LINES_PER_SECOND	100*/	/*obsolete, configuration parameter must be used*/
-
-/*define minimal and maximal values of lines to send by agent*/
-/*per second for checks `log' and `eventlog', used to parse key parameters*/
-#define	MIN_VALUE_LINES	1
-#define	MAX_VALUE_LINES	1000
+#define MAX_LINES_PER_SECOND	100
 
 typedef struct zbx_active_metric_type
 {
@@ -62,7 +56,6 @@ typedef struct zbx_active_buffer_element_type
 	int	severity;
 	long	lastlogsize;
 	int	clock;
-	int	logeventid;
 } ZBX_ACTIVE_BUFFER_ELEMENT;
 
 typedef struct zbx_active_buffer_type

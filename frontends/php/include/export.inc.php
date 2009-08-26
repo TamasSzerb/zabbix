@@ -25,7 +25,7 @@
 
 	$ZBX_EXPORT_MAP = array(
 		XML_TAG_HOST => array(
-			'attributes'	=> array(
+			'attribures'	=> array(
 				'host'		=> 'name'),
 			'elements'	=> array(
 				'proxy'		=> '',
@@ -36,103 +36,102 @@
 				'status'	=> '')
 			),
 		XML_TAG_HOSTPROFILE => array(
-			'attributes'	=> array(),
+			'attribures'	=> array(),
 			'elements'	=> array(
-				'devicetype'	=> '',
+				'devicetype'=> '',
 				'name'		=> '',
 				'os'		=> '',
-				'serialno'	=> '',
-				'tag'		=> '',
-				'macaddress'	=> '',
-				'hardware'	=> '',
-				'software'	=> '',
-				'contact'	=> '',
-				'location'	=> '',
-				'notes'		=> '')
+				'serialno' 	=> '',
+				'tag' 		=> '',
+				'macaddress'=> '',
+				'hardware' 	=> '',
+				'software' 	=> '',
+				'contact' 	=> '',
+				'location' 	=> '',
+				'notes' 	=> '')
 			),
 		XML_TAG_HOSTPROFILE_EXT => array(
-			'attributes'		=> array(),
-			'elements'		=> array(
-				'device_alias'		=> '',
-				'device_type'		=> '',
-				'device_chassis'	=> '',
-				'device_os'		=> '',
-				'device_os_short'	=> '',
+			'attribures'	=> array(),
+			'elements'	=> array(
+				'device_alias' 	=> '',
+				'device_type' 	=> '',
+				'device_chassis' 	=> '',
+				'device_os' 	=> '',
+				'device_os_short' 	=> '',
 
-				'device_hw_arch'	=> '',
-				'device_serial'		=> '',
-				'device_model'		=> '',
-				'device_tag'		=> '',
-				'device_vendor'		=> '',
-				'device_contract'	=> '',
+				'device_hw_arch' 	=> '',
+				'device_serial' 	=> '',
+				'device_model' 	=> '',
+				'device_tag' 	=> '',
+				'device_vendor' 	=> '',
+				'device_contract' 	=> '',
 
-				'device_who'		=> '',
-				'device_status'		=> '',
-				'device_app_01'		=> '',
-				'device_app_02'		=> '',
-				'device_app_03'		=> '',
-				'device_app_04'		=> '',
-				'device_app_05'		=> '',
-				'device_url_1'		=> '',
-				'device_url_2'		=> '',
-				'device_url_3'		=> '',
-				'device_networks'	=> '',
-				'device_notes'		=> '',
-				'device_hardware'	=> '',
-				'device_software'	=> '',
-				'ip_subnet_mask'	=> '',
-				'ip_router'		=> '',
-				'ip_macaddress'		=> '',
-				'oob_ip'		=> '',
-				'oob_subnet_mask'	=> '',
-				'oob_router'		=> '',
-				'date_hw_buy'		=> '',
-				'date_hw_install'	=> '',
-				'date_hw_expiry'	=> '',
-				'date_hw_decomm'	=> '',
-				'site_street_1'		=> '',
-				'site_street_2'		=> '',
-				'site_street_3'		=> '',
-				'site_city'		=> '',
-				'site_state'		=> '',
-				'site_country'		=> '',
-				'site_zip'		=> '',
-				'site_rack'		=> '',
-				'site_notes'		=> '',
-				'poc_1_name'		=> '',
-				'poc_1_email'		=> '',
-				'poc_1_phone_1'		=> '',
-				'poc_1_phone_2'		=> '',
-				'poc_1_cell'		=> '',
-				'poc_1_screen'		=> '',
-				'poc_1_notes'		=> '',
-				'poc_2_name'		=> '',
-				'poc_2_email'		=> '',
-				'poc_2_phone_1'		=> '',
-				'poc_2_phone_2'		=> '',
-				'poc_2_cell'		=> '',
-				'poc_2_screen'		=> '',
-				'poc_2_notes'		=> '')
+				'device_who' 	=> '',
+				'device_status' 	=> '',
+				'device_app_01' 	=> '',
+				'device_app_02' 	=> '',
+				'device_app_03' 	=> '',
+				'device_app_04' 	=> '',
+				'device_app_05' 	=> '',
+				'device_url_1' 	=> '',
+				'device_url_2' 	=> '',
+				'device_url_3' 	=> '',
+				'device_networks' 	=> '',
+				'device_notes' 	=> '',
+				'device_hardware' 	=> '',
+				'device_software' 	=> '',
+				'ip_subnet_mask' 	=> '',
+				'ip_router' 	=> '',
+				'ip_macaddress' 	=> '',
+				'oob_ip' 	=> '',
+				'oob_subnet_mask' 	=> '',
+				'oob_router' 	=> '',
+				'date_hw_buy' 	=> '',
+				'date_hw_install' 	=> '',
+				'date_hw_expiry' 	=> '',
+				'date_hw_decomm' 	=> '',
+				'site_street_1' 	=> '',
+				'site_street_2' 	=> '',
+				'site_street_3' 	=> '',
+				'site_city' 	=> '',
+				'site_state' 	=> '',
+				'site_country' 	=> '',
+				'site_zip' 	=> '',
+				'site_rack' 	=> '',
+				'site_notes' 	=> '',
+				'poc_1_name' 	=> '',
+				'poc_1_email' 	=> '',
+				'poc_1_phone_1' 	=> '',
+				'poc_1_phone_2' 	=> '',
+				'poc_1_cell' 	=> '',
+				'poc_1_screen' 	=> '',
+				'poc_1_notes' 	=> '',
+				'poc_2_name' 	=> '',
+				'poc_2_email' 	=> '',
+				'poc_2_phone_1' 	=> '',
+				'poc_2_phone_2' 	=> '',
+				'poc_2_cell' 	=> '',
+				'poc_2_screen' 	=> '',
+				'poc_2_notes' 	=> '')
 			),
 		XML_TAG_DEPENDENCY => array(
-			'attributes'	=> array(
+			'attribures'	=> array(
 				'dependency'	=> 'description'),
 			'elements'	=> array(
-				'depends'	=> '')
+				'depends'		=> '')
 			),
 		XML_TAG_ITEM => array(
-			'attributes'	=> array(
+			'attribures'	=> array(
 				'type'			=> '',
 				'key_'			=> 'key',
 				'value_type'		=> ''),
-			'elements'		=> array(
+			'elements'	=> array(
 				'description'		=> '',
 				'ipmi_sensor'		=> '',
 				'delay'			=> '',
 				'history'		=> '',
 				'trends'		=> '',
 				'status'		=> '',
-				'data_type'		=> '',
 				'units'			=> '',
 				'multiplier'		=> '',
 				'delta'			=> '',
@@ -151,10 +150,10 @@
 				'snmpv3_privpassphrase'	=> '')
 			),
 		XML_TAG_TRIGGER => array(
-			'attributes'	=> array(),
+			'attribures'	=> array(),
 			'elements'	=> array(
 				'description'		=> '',
-				'type'			=> '',
+				'type'				=> '',
 				'expression'		=> '',
 				'url'			=> '',
 				'status'		=> '',
@@ -162,28 +161,25 @@
 				'comments'		=> '')
 			),
 		XML_TAG_GRAPH => array(
-			'attributes'	=> array(
+			'attribures'	=> array(
 				'name'			=> '',
 				'width'			=> '',
 				'height'		=> ''),
 			'elements'	=> array(
-				'ymin_type'		=> '',
-				'ymax_type'		=> '',
-				'ymin_item_key'		=> '',
-				'ymax_item_key'		=> '',
+				'yaxistype'		=> '',
 				'show_work_period'	=> '',
 				'show_triggers'		=> '',
 				'graphtype'		=> '',
 				'yaxismin'		=> '',
 				'yaxismax'		=> '',
-				'show_legend'		=> '',
+				'show_legend'	=> '',
 				'show_3d'		=> '',
-				'percent_left'		=> '',
-				'percent_right'		=> '')
+				'percent_left'	=> '',
+				'percent_right' => '')
 			),
 		XML_TAG_GRAPH_ELEMENT => array(
-			'attributes'	=> array(
-				'item'		=> ''),
+			'attribures'	=> array(
+				'item'	=> ''),
 			'elements'	=> array(
 				'drawtype'	=> '',
 				'sortorder'	=> '',
@@ -248,7 +244,7 @@
 
 			$map =& $ZBX_EXPORT_MAP[XML_TAG_ITEM];
 
-			foreach($map['attributes'] as $db_name => $xml_name){
+			foreach($map['attribures'] as $db_name => $xml_name){
 				if(empty($xml_name)) $xml_name = $db_name;
 				zbx_xmlwriter_write_attribute($memory, $xml_name, $data[$db_name]);
 			}
@@ -290,7 +286,7 @@
 
 			$map =& $ZBX_EXPORT_MAP[XML_TAG_TRIGGER];
 
-			foreach($map['attributes'] as $db_name => $xml_name){
+			foreach($map['attribures'] as $db_name => $xml_name){
 				if(empty($xml_name)) $xml_name = $db_name;
 				zbx_xmlwriter_write_attribute($memory, $xml_name, $data[$db_name]);
 			}
@@ -322,7 +318,7 @@
 
 			$map =& $ZBX_EXPORT_MAP[XML_TAG_GRAPH_ELEMENT];
 
-			foreach($map['attributes'] as $db_name => $xml_name){
+			foreach($map['attribures'] as $db_name => $xml_name){
 				if(empty($xml_name)) $xml_name = $db_name;
 				zbx_xmlwriter_write_attribute($memory, $xml_name, $data[$db_name]);
 			}
@@ -341,39 +337,11 @@
 			$data = DBfetch(DBselect('select * from graphs where graphid='.$graphid));
 			if(!$data) return false;
 
-			$data['ymin_item_key'] = '';
-			$data['ymax_item_key'] = '';
-			if(($data['ymin_itemid'] > 0) || ($data['ymax_itemid'] > 0)){
-				$sql_where = '';
-				if($data['ymin_itemid'] > 0){
-					$sql_where.= ' i.itemid='.$data['ymin_itemid'];
-				}
-				if($data['ymax_itemid'] > 0){
-					$sql_where.= (zbx_empty($sql_where)?'':' OR ').' i.itemid='.$data['ymax_itemid'];
-				}
-				$sql_where = ' AND ('.$sql_where.')';
-
-				$sql = 'SELECT DISTINCT h.host, itemid, i.key_ '.
-						' FROM items i, hosts h '.
-						' WHERE h.hostid=i.hostid '.
-							$sql_where;
-				$item_res = DBselect($sql);
-				while($item = DBfetch($item_res)){
-					if($data['ymin_itemid'] == $item['itemid']){
-						$data['ymin_item_key'] = $item['host'].':'.$item['key_'];
-					}
-
-					if($data['ymax_itemid']  == $item['itemid']){
-						$data['ymax_item_key'] = $item['host'].':'.$item['key_'];
-					}
-				}
-			}
-
 			zbx_xmlwriter_start_element ($memory,XML_TAG_GRAPH);
 
 			$map =& $ZBX_EXPORT_MAP[XML_TAG_GRAPH];
 
-			foreach($map['attributes'] as $db_name => $xml_name){
+			foreach($map['attribures'] as $db_name => $xml_name){
 				if(empty($xml_name)) $xml_name = $db_name;
 				zbx_xmlwriter_write_attribute($memory, $xml_name, $data[$db_name]);
 			}
@@ -415,7 +383,7 @@
 
 			$map =& $ZBX_EXPORT_MAP[XML_TAG_HOST];
 
-			foreach($map['attributes'] as $db_name => $xml_name){
+			foreach($map['attribures'] as $db_name => $xml_name){
 				if(empty($xml_name)) $xml_name = $db_name;
 				zbx_xmlwriter_write_attribute($memory, $xml_name, $data[$db_name]);
 			}
@@ -439,14 +407,14 @@
 
 				zbx_xmlwriter_end_element($memory); // XML_TAG_GROUP
 			}
-// based on mod by scricca
+// based on  mod by scricca
 			$data = DBfetch(DBselect('SELECT hp.* FROM hosts_profiles hp WHERE hp.hostid='.$hostid));
 			if($data){
 				zbx_xmlwriter_start_element ($memory,XML_TAG_HOSTPROFILE);
 
 				$map =& $ZBX_EXPORT_MAP[XML_TAG_HOSTPROFILE];
 
-				foreach($map['attributes'] as $db_name => $xml_name){
+				foreach($map['attribures'] as $db_name => $xml_name){
 					if(empty($xml_name)) $xml_name = $db_name;
 					zbx_xmlwriter_write_attribute($memory, $xml_name, $data[$db_name]);
 				}
@@ -468,7 +436,7 @@
 
 				$map =& $ZBX_EXPORT_MAP[XML_TAG_HOSTPROFILE_EXT];
 
-				foreach($map['attributes'] as $db_name => $xml_name){
+				foreach($map['attribures'] as $db_name => $xml_name){
 					if(empty($xml_name)) $xml_name = $db_name;
 					zbx_xmlwriter_write_attribute($memory, $xml_name, $data[$db_name]);
 				}
@@ -555,7 +523,7 @@
 
 			$map =& $ZBX_EXPORT_MAP[XML_TAG_DEPENDENCY];
 
-			foreach($map['attributes'] as $db_name => $xml_name){
+			foreach($map['attribures'] as $db_name => $xml_name){
 				if(empty($xml_name)) $xml_name = $db_name;
 				zbx_xmlwriter_write_attribute($memory, $xml_name, $data[$db_name]);
 			}

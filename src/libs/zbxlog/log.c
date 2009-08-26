@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -27,7 +27,7 @@
 static	char log_filename[MAX_STRING_LEN];
 
 static	int log_type = LOG_TYPE_UNDEFINED;
-static	int log_level =
+static	int log_level = 
 #if defined(DEBUG)
 	LOG_LEVEL_DEBUG;
 #else
@@ -108,8 +108,8 @@ int zabbix_open_log(int type, int level, const char *filename)
 
 #else /* not _WINDOWS */
 
-		openlog("zabbix_suckerd", LOG_PID, LOG_USER);
-		setlogmask(LOG_UPTO(LOG_WARNING));
+        	openlog("zabbix_suckerd", LOG_PID, LOG_USER);
+        	setlogmask(LOG_UPTO(LOG_WARNING));
 
 #endif /* _WINDOWS */
 	}
@@ -118,7 +118,7 @@ int zabbix_open_log(int type, int level, const char *filename)
 	{
 		if(strlen(filename) >= MAX_STRING_LEN)
 		{
-			zbx_error("Too long path for logfile.");
+			zbx_error("To large path for logfile.");
 			exit(FAIL);
 		}
 
@@ -162,7 +162,7 @@ void zabbix_close_log(void)
 	{
 #if defined(_WINDOWS)
 
-		if(system_log_handle)
+		if(system_log_handle) 
 			DeregisterEventSource(system_log_handle);
 
 #else /* not _WINDOWS */
@@ -177,7 +177,7 @@ void zabbix_close_log(void)
 	}
 	else
 	{
-		/* Not supported logging type */
+		/* Not supported loggin type */
 		/*
 		zbx_mutex_destroy(&log_file_access);
 		*/
@@ -217,14 +217,29 @@ void zabbix_errlog(zbx_err_codes_t err, ...)
 
 void __zbx_zabbix_log(int level, const char *fmt, ...)
 {
+#ifdef TEST
+	time_t	t;
+	struct	tm	*tm;
+	va_list ap;
+	
+		t=time(NULL);
+		tm=localtime(&t);
+		printf("%.6li:%.4d%.2d%.2d:%.2d%.2d%.2d ",zbx_get_thread_id(),tm->tm_year+1900,tm->tm_mon+1,tm->tm_mday,tm->tm_hour,tm->tm_min,tm->tm_sec);
+		va_start(ap,fmt);
+		vprintf(fmt,ap);
+		va_end(ap);
+
+		printf("\n");
+		return;
+#else /* TEST */
+	
 	FILE *log_file = NULL;
 
 	char	message[MAX_BUF_LEN];
 
+	time_t		t;
 	struct	tm	*tm;
 	va_list		args;
-
-	long		milliseconds;
 
 	struct	stat	buf;
 
@@ -232,14 +247,11 @@ void __zbx_zabbix_log(int level, const char *fmt, ...)
 
 	char	filename_old[MAX_STRING_LEN];
 #if defined(_WINDOWS)
-        struct _timeb current_time;
 
 	WORD	wType;
 	char	thread_id[20];
 	char	*(strings[]) = {thread_id, message, NULL};
-
-#else /* not _WINDOWS */
-	struct timeval	current_time;
+	
 #endif /* _WINDOWS */
 
 	if( (level != LOG_LEVEL_INFORMATION) && ((level > log_level) || (LOG_LEVEL_EMPTY == level)) )
@@ -250,36 +262,23 @@ void __zbx_zabbix_log(int level, const char *fmt, ...)
 	if(LOG_TYPE_FILE == log_type)
 	{
 		zbx_mutex_lock(&log_file_access);
-
+		
 		log_file = fopen(log_filename,"a+");
 
 		if(NULL != log_file)
 		{
-
-#if defined(_WINDOWS)
-		        _ftime(&current_time);
-
-			tm = localtime(&current_time.time);
-			milliseconds = current_time.millitm;
-#else /* not _WINDOWS */
-
-			gettimeofday(&current_time,NULL);
-
-			tm = localtime(&current_time.tv_sec);
-
-			milliseconds = current_time.tv_usec/1000;
-#endif /* _WINDOWS */
+			t = time(NULL);
+			tm = localtime(&t);
 
 			fprintf(log_file,
-				"%6li:%.4d%.2d%.2d:%.2d%.2d%.2d.%03ld ",
+				"%6li:%.4d%.2d%.2d:%.2d%.2d%.2d ",
 				zbx_get_thread_id(),
 				tm->tm_year+1900,
 				tm->tm_mon+1,
 				tm->tm_mday,
 				tm->tm_hour,
 				tm->tm_min,
-				tm->tm_sec,
-				milliseconds
+				tm->tm_sec
 				);
 
 			va_start(args,fmt);
@@ -317,7 +316,7 @@ void __zbx_zabbix_log(int level, const char *fmt, ...)
 
 		return;
 	}
-
+	
 	memset(message, 0, sizeof(message));
 	va_start(args, fmt);
 	vsnprintf(message, sizeof(message)-1, fmt, args);
@@ -326,6 +325,9 @@ void __zbx_zabbix_log(int level, const char *fmt, ...)
 	if(LOG_TYPE_SYSLOG == log_type)
 	{
 #if defined(_WINDOWS)
+		t = time(NULL);
+		tm = localtime(&t);
+
 		memset(thread_id, 0, sizeof(thread_id));
 		zbx_snprintf(thread_id, sizeof(thread_id),"[%li]: ",zbx_get_thread_id());
 
@@ -335,7 +337,7 @@ void __zbx_zabbix_log(int level, const char *fmt, ...)
 			case LOG_LEVEL_ERR:
 				wType = EVENTLOG_ERROR_TYPE;
 				break;
-			case LOG_LEVEL_WARNING:
+			case LOG_LEVEL_WARNING:	
 				wType = EVENTLOG_WARNING_TYPE;
 				break;
 			default:
@@ -343,26 +345,26 @@ void __zbx_zabbix_log(int level, const char *fmt, ...)
 				break;
 		}
 		ReportEvent(
-			system_log_handle,
-			wType,
-			0,
-			MSG_ZABBIX_MESSAGE,
-			NULL,
-			sizeof(*strings)-1,
-			0,
-			strings,
+			system_log_handle, 
+			wType, 
+			0, 
+			MSG_ZABBIX_MESSAGE, 
+			NULL, 
+			sizeof(*strings)-1, 
+			0, 
+			strings, 
 			NULL);
 
 #else /* not _WINDOWS */
 
 		syslog(LOG_DEBUG, "%s", message);
-
+		
 #endif /* _WINDOWS */
 	}
 	else
 	{
 		zbx_mutex_lock(&log_file_access);
-
+		
 		switch(level)
 		{
 			case LOG_LEVEL_CRIT:
@@ -371,19 +373,22 @@ void __zbx_zabbix_log(int level, const char *fmt, ...)
 			case LOG_LEVEL_ERR:
 				zbx_error("Error: %s", message);
 				break;
-			case LOG_LEVEL_WARNING:
+			case LOG_LEVEL_WARNING:	
 				zbx_error("Warning: %s", message);
 				break;
-			case LOG_LEVEL_DEBUG:
+			case LOG_LEVEL_DEBUG:	
 				zbx_error("DEBUG: %s", message);
 				break;
 			default:
 				zbx_error("%s", message);
 				break;
 		}
-
+		
 		zbx_mutex_unlock(&log_file_access);
-	}
+	}	
+	
+#endif /* TEST */
+
 }
 
 /*
@@ -400,12 +405,12 @@ char *strerror_from_system(unsigned long error)
 	memset(buffer, 0, sizeof(buffer));
 
 	if(FormatMessage(
-		FORMAT_MESSAGE_FROM_SYSTEM,
-		NULL,
+		FORMAT_MESSAGE_FROM_SYSTEM, 
+		NULL, 
 		error,
-		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		buffer,
-		sizeof(buffer),
+		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), 
+		buffer, 
+		sizeof(buffer), 
 		NULL) == 0)
 	{
 		zbx_snprintf(buffer, sizeof(buffer), "3. MSG 0x%08X - Unable to find message text [0x%X]", error , GetLastError());

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2007 SIA Zabbix
 **
@@ -24,7 +24,6 @@
 
 #include "db.h"
 #include "dbcache.h"
-#include "ipc.h"
 #include "mutexs.h"
 #include "zbxserver.h"
 
@@ -33,12 +32,17 @@
 #define	LOCK_CACHE_IDS		zbx_mutex_lock(&cache_ids_lock)
 #define	UNLOCK_CACHE_IDS	zbx_mutex_unlock(&cache_ids_lock)
 
-#define ZBX_GET_SHM_DBCACHE_KEY(smk_key)				\
-	if( -1 == (shm_key = zbx_ftok(CONFIG_FILE, (int)'c') ))		\
-	{								\
-		zbx_error("Cannot create IPC key for DB cache");	\
-		exit(1);						\
-	}
+#define ZBX_GET_SHM_DBCACHE_KEY(smk_key) 								\
+	{if( -1 == (shm_key = ftok(CONFIG_FILE, (int)'c') )) 						\
+        { 												\
+                zbx_error("Can not create IPC key for path '%s', try to create for path '.' [%s]",	\
+				CONFIG_FILE, strerror(errno)); 						\
+                if( -1 == (shm_key = ftok(".", (int)'c') )) 						\
+                { 											\
+                        zbx_error("Can not create IPC key for path '.' [%s]", strerror(errno)); 	\
+                        exit(1); 									\
+                } 											\
+        }}
 
 ZBX_DC_CACHE		*cache = NULL;
 ZBX_DC_IDS		*ids = NULL;
@@ -55,26 +59,6 @@ extern int		CONFIG_DBSYNCER_FREQUENCY;
 
 /******************************************************************************
  *                                                                            *
- * Function: DCget_stats                                                      *
- *                                                                            *
- * Purpose: get statistics of the database cache                              *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value:                                                              *
- *                                                                            *
- * Author: Alexei Vladishev                                                   *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-void	DCget_stats(ZBX_DC_STATS *stats)
-{
-	memcpy(stats, &cache->stats, sizeof(ZBX_DC_STATS));
-}
-
-/******************************************************************************
- *                                                                            *
  * Function: DCget_trend_nearestindex                                         *
  *                                                                            *
  * Purpose: find nearest index by itemid in array of ZBX_DC_TREND             *
@@ -83,7 +67,7 @@ void	DCget_stats(ZBX_DC_STATS *stats)
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alekasander Vladishev                                              *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -126,7 +110,7 @@ static int	DCget_trend_nearestindex(zbx_uint64_t itemid)
  *                                                                            *
  * Return value: pointer to a new structure or NULL if array is full          *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alekasander Vladishev                                              *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -160,7 +144,7 @@ static ZBX_DC_TREND	*DCget_trend(zbx_uint64_t itemid)
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alekasander Vladishev                                              *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -220,9 +204,9 @@ static void	DCflush_trend(ZBX_DC_TREND *trend, int *sql_offset)
 						trend->clock);
 				break;
 			case ITEM_VALUE_TYPE_UINT64:
-				ZBX_STR2UINT64(value_min.value_uint64, row[1]);
-				ZBX_STR2UINT64(value_avg.value_uint64, row[2]);
-				ZBX_STR2UINT64(value_max.value_uint64, row[3]);
+				value_min.value_uint64 = zbx_atoui64(row[1]);
+				value_avg.value_uint64 = zbx_atoui64(row[2]);
+				value_max.value_uint64 = zbx_atoui64(row[3]);
 
 				if (value_min.value_uint64 < trend->value_min.value_uint64)
 					trend->value_min.value_uint64 = value_min.value_uint64;
@@ -231,7 +215,7 @@ static void	DCflush_trend(ZBX_DC_TREND *trend, int *sql_offset)
 				trend->value_avg.value_uint64 = (trend->num * trend->value_avg.value_uint64
 						+ num * value_avg.value_uint64) / (trend->num + num);
 				trend->num += num;
-
+				
 				zbx_snprintf_alloc(&sql, &sql_allocated, sql_offset, 512,
 						"update trends_uint set num=%d,value_min=" ZBX_FS_UI64 ",value_avg=" ZBX_FS_UI64
 						",value_max=" ZBX_FS_UI64 " where itemid=" ZBX_FS_UI64 " and clock=%d;\n",
@@ -291,7 +275,7 @@ static void	DCflush_trend(ZBX_DC_TREND *trend, int *sql_offset)
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alekasander Vladishev                                              *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -302,7 +286,7 @@ static void	DCadd_trend(ZBX_DC_HISTORY *history, int *sql_offset)
 	int		hour;
 
 	hour = history->clock - history->clock % 3600;
-
+	
 	if (NULL != (trend = DCget_trend(history->itemid)))
 	{
 		if (trend->num > 0 && (trend->clock != hour || trend->value_type != history->value_type))
@@ -417,7 +401,7 @@ static void	DCmass_update_trends(ZBX_DC_HISTORY *history, int history_num)
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alekasander Vladishev                                              *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -425,29 +409,16 @@ static void	DCmass_update_trends(ZBX_DC_HISTORY *history, int history_num)
 void	DCsync_trends()
 {
 	int	sql_offset = 0, i;
-	time_t now = 0;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In DCsync_trends(trends_num: %d)",
 			cache->trends_num);
-
-	zabbix_log(LOG_LEVEL_WARNING, "Syncing trends data...");
-	now = time(NULL);
-
+	
 #ifdef HAVE_ORACLE
 	zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 8, "begin\n");
 #endif
 
-	for (i = 0; i < cache->trends_num; i++)
-	{
+	for (i = 0; i < cache->trends_num; i ++)
 		DCflush_trend(&cache->trends[i], &sql_offset);
-
-		if (time(NULL) - now >= 10)
-		{
-			zabbix_log(LOG_LEVEL_WARNING, "Syncing trends data..." ZBX_FS_DBL "%%",
-					(double)i / cache->trends_num * 100);
-			now = time(NULL);
-		}
-	}
 
 #ifdef HAVE_ORACLE
 	zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 8, "end;\n");
@@ -461,8 +432,6 @@ void	DCsync_trends()
 	}
 
 	cache->trends_num = 0;
-
-	zabbix_log(LOG_LEVEL_WARNING, "Syncing trends data...done.");
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of DCsync_trends()");
 }
@@ -498,14 +467,9 @@ static void	DCmass_update_triggers(ZBX_DC_HISTORY *history, int history_num)
 	zabbix_log(LOG_LEVEL_DEBUG, "In DCmass_update_triggers()");
 
 	zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 1024,
-			"select distinct t.triggerid,t.expression,t.description,t.url,"
-				"t.comments,t.status,t.value,t.priority,t.type,t.error,f.itemid"
-			" from triggers t,functions f,items i"
-			" where i.status not in (%d)"
-				" and i.itemid=f.itemid"
-				" and t.status=%d"
-				" and f.triggerid=t.triggerid"
-				" and f.itemid in (",
+			"select distinct t.triggerid,t.expression,t.description,t.url,t.comments,t.status,t.value,t.priority"
+			",t.type,f.itemid from triggers t,functions f,items i where i.status not in (%d) and i.itemid=f.itemid"
+			" and t.status=%d and f.triggerid=t.triggerid and f.itemid in (",
 			ITEM_STATUS_NOTSUPPORTED,
 			TRIGGER_STATUS_ENABLED);
 
@@ -531,7 +495,7 @@ static void	DCmass_update_triggers(ZBX_DC_HISTORY *history, int history_num)
 
 	while (NULL != (row = DBfetch(result)))
 	{
-		ZBX_STR2UINT64(trigger.triggerid, row[0]);
+		trigger.triggerid	= zbx_atoui64(row[0]);
 		strscpy(trigger.expression, row[1]);
 		strscpy(trigger.description, row[2]);
 		trigger.url		= row[3];
@@ -540,8 +504,7 @@ static void	DCmass_update_triggers(ZBX_DC_HISTORY *history, int history_num)
 		trigger.value		= atoi(row[6]);
 		trigger.priority	= atoi(row[7]);
 		trigger.type		= atoi(row[8]);
-		strscpy(trigger.error, row[9]);
-		ZBX_STR2UINT64(itemid, row[10]);
+		itemid			= zbx_atoui64(row[9]);
 
 		h = NULL;
 
@@ -559,7 +522,7 @@ static void	DCmass_update_triggers(ZBX_DC_HISTORY *history, int history_num)
 
 		exp = strdup(trigger.expression);
 
-		if (SUCCEED != evaluate_expression(&exp_value, &exp, &trigger, error, sizeof(error)))
+		if (evaluate_expression(&exp_value, &exp, &trigger, error, sizeof(error)) != 0)
 		{
 			zabbix_log(LOG_LEVEL_WARNING, "Expression [%s] for item [" ZBX_FS_UI64 "][%s] cannot be evaluated: %s",
 					trigger.expression,
@@ -572,7 +535,7 @@ static void	DCmass_update_triggers(ZBX_DC_HISTORY *history, int history_num)
 					zbx_host_key_string(itemid),
 					error);
 /*			We shouldn't update triggervalue if expressions failed */
-			DBupdate_trigger_value(&trigger, TRIGGER_VALUE_UNKNOWN, h->clock, error);
+/*			DBupdate_trigger_value(&trigger, exp_value, time(NULL), error);*/
 		}
 		else
 			DBupdate_trigger_value(&trigger, exp_value, h->clock, NULL);
@@ -586,7 +549,7 @@ static void	DCmass_update_triggers(ZBX_DC_HISTORY *history, int history_num)
  *                                                                            *
  * Function: DCmass_update_item                                               *
  *                                                                            *
- * Purpose: update items info after new value is received                     *
+ * Purpose: update items info after new values is received                    *
  *                                                                            *
  * Parameters: history - array of history data                                *
  *             history_num - number of history structures                     *
@@ -612,7 +575,7 @@ static void	DCmass_update_item(ZBX_DC_HISTORY *history, int history_num)
 	ids = zbx_malloc(ids, ids_alloc * sizeof(zbx_uint64_t));
 
 	for (i = 0; i < history_num; i++)
-		uint64_array_add(&ids, &ids_alloc, &ids_num, history[i].itemid, 64);
+		uint64_array_add(&ids, &ids_alloc, &ids_num, history[i].itemid);
 
 	zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 1024,
 			"select %s where h.hostid = i.hostid and",
@@ -826,7 +789,7 @@ static void	DCmass_update_item(ZBX_DC_HISTORY *history, int history_num)
  *                                                                            *
  * Function: DCmass_proxy_update_item                                         *
  *                                                                            *
- * Purpose: update items info after new value is received                     *
+ * Purpose: update items info after new values is received                    *
  *                                                                            *
  * Parameters: history - array of history data                                *
  *             history_num - number of history structures                     *
@@ -849,7 +812,7 @@ static void	DCmass_proxy_update_item(ZBX_DC_HISTORY *history, int history_num)
 
 	for (i = 0; i < history_num; i++)
 		if (history[i].value_type == ITEM_VALUE_TYPE_LOG)
-			uint64_array_add(&ids, &ids_alloc, &ids_num, history[i].itemid, 64);
+			uint64_array_add(&ids, &ids_alloc, &ids_num, history[i].itemid);
 
 #ifdef HAVE_ORACLE
 	zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 8, "begin\n");
@@ -906,7 +869,7 @@ static void	DCmass_proxy_update_item(ZBX_DC_HISTORY *history, int history_num)
  *                                                                            *
  * Function: DCmass_function_update                                           *
  *                                                                            *
- * Purpose: update functions lastvalue after new value is received            *
+ * Purpose: update functions lastvalue after new values is received           *
  *                                                                            *
  * Parameters: history - array of history data                                *
  *             history_num - number of history structures                     *
@@ -981,7 +944,7 @@ static void DCmass_function_update(ZBX_DC_HISTORY *history, int history_num)
 
 		function.function	= row[ZBX_SQL_ITEM_FIELDS_NUM];
 		function.parameter	= row[ZBX_SQL_ITEM_FIELDS_NUM + 1];
-		ZBX_STR2UINT64(function.itemid, row[ZBX_SQL_ITEM_FIELDS_NUM + 2]);
+		function.itemid		= zbx_atoui64(row[ZBX_SQL_ITEM_FIELDS_NUM + 2]);
 /*		It is not required to check lastvalue for NULL here */
 		lastvalue		= row[ZBX_SQL_ITEM_FIELDS_NUM + 3];
 
@@ -1026,7 +989,7 @@ static void DCmass_function_update(ZBX_DC_HISTORY *history, int history_num)
  *                                                                            *
  * Function: DCmass_add_history                                               *
  *                                                                            *
- * Purpose: inserting new history data after new value is received            *
+ * Purpose: inserting new history data after new values is received           *
  *                                                                            *
  * Parameters: history - array of history data                                *
  *             history_num - number of history structures                     *
@@ -1413,7 +1376,7 @@ static void	DCmass_add_history(ZBX_DC_HISTORY *history, int history_num)
 #ifdef HAVE_MYSQL
 		tmp_offset = sql_offset;
 		zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 512,
-				"insert into history_log (id,itemid,clock,timestamp,source,severity,value,logeventid) values ");
+				"insert into history_log (id,itemid,clock,timestamp,source,severity,value) values ");
 #endif
 
 		for (i = 0; i < history_num; i++)
@@ -1431,27 +1394,25 @@ static void	DCmass_add_history(ZBX_DC_HISTORY *history, int history_num)
 			value_esc = DBdyn_escape_string(history[i].value_orig.value_str);
 #ifdef HAVE_MYSQL
 			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 512 + strlen(value_esc),
-					"(" ZBX_FS_UI64 "," ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s',%d),",
+					"(" ZBX_FS_UI64 "," ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s'),",
 					id,
 					history[i].itemid,
 					history[i].clock,
 					history[i].timestamp,
 					source_esc,
 					history[i].severity,
-					value_esc,
-					history[i].logeventid);
+					value_esc);
 #else
 			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 512 + strlen(value_esc),
-					"insert into history_log (id,itemid,clock,timestamp,source,severity,value,logeventid) values "
-					"(" ZBX_FS_UI64 "," ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s',%d);\n",
+					"insert into history_log (id,itemid,clock,timestamp,source,severity,value) values "
+					"(" ZBX_FS_UI64 "," ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s');\n",
 					id,
 					history[i].itemid,
 					history[i].clock,
 					history[i].timestamp,
 					source_esc,
 					history[i].severity,
-					value_esc,
-					history[i].logeventid);
+					value_esc);
 #endif
 			zbx_free(value_esc);
 			zbx_free(source_esc);
@@ -1485,7 +1446,7 @@ static void	DCmass_add_history(ZBX_DC_HISTORY *history, int history_num)
  *                                                                            *
  * Function: DCmass_proxy_add_history                                         *
  *                                                                            *
- * Purpose: inserting new history data after new value is received            *
+ * Purpose: inserting new history data after new values is received           *
  *                                                                            *
  * Parameters: history - array of history data                                *
  *             history_num - number of history structures                     *
@@ -1602,7 +1563,7 @@ static void	DCmass_proxy_add_history(ZBX_DC_HISTORY *history, int history_num)
 					value_esc);
 #else
 			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 512,
-					"insert into proxy_history (itemid,clock,value) values "
+					"insert into proxy_history (itemid,clock,value) values " 
 					"(" ZBX_FS_UI64 ",%d,'%s');\n",
 					history[i].itemid,
 					history[i].clock,
@@ -1664,7 +1625,7 @@ static void	DCmass_proxy_add_history(ZBX_DC_HISTORY *history, int history_num)
 #ifdef HAVE_MYSQL
 	tmp_offset = sql_offset;
 	zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 512,
-				"insert into proxy_history (itemid,clock,timestamp,source,severity,value,logeventid) values ");
+				"insert into proxy_history (itemid,clock,timestamp,source,severity,value) values ");
 #endif
 
 	for (i = 0; i < history_num; i++)
@@ -1675,25 +1636,23 @@ static void	DCmass_proxy_add_history(ZBX_DC_HISTORY *history, int history_num)
 			value_esc = DBdyn_escape_string(history[i].value_orig.value_str);
 #ifdef HAVE_MYSQL
 			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 512 + strlen(value_esc),
-					"(" ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s',%d),",
+					"(" ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s'),",
 					history[i].itemid,
 					history[i].clock,
 					history[i].timestamp,
 					source_esc,
 					history[i].severity,
-					value_esc,
-					history[i].logeventid);
+					value_esc);
 #else
 			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 512 + strlen(value_esc),
-					"insert into proxy_history (itemid,clock,timestamp,source,severity,value,logeventid) values "
-					"(" ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s',%d);\n",
+					"insert into proxy_history (itemid,clock,timestamp,source,severity,value) values "
+					"(" ZBX_FS_UI64 ",%d,%d,'%s',%d,'%s');\n",
 					history[i].itemid,
 					history[i].clock,
 					history[i].timestamp,
 					source_esc,
 					history[i].severity,
-					value_esc,
-					history[i].logeventid);
+					value_esc);
 #endif
 			zbx_free(value_esc);
 			zbx_free(source_esc);
@@ -1755,17 +1714,10 @@ int	DCsync_history(int sync_type)
 	int			syncs;
 	int			total_num = 0;
 	int			skipped_clock, max_delay;
-	time_t			now = 0;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In DCsync_history(history_first:%d history_num:%d)",
 			cache->history_first,
 			cache->history_num);
-
-	if (ZBX_SYNC_FULL == sync_type)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "Syncing history data...");
-		now = time(NULL);
-	}
 
 	if (0 == cache->history_num)
 		return 0;
@@ -1858,17 +1810,7 @@ int	DCsync_history(int sync_type)
 			}
 		}
 		total_num += history_num;
-
-		if (ZBX_SYNC_FULL == sync_type && time(NULL) - now >= 10)
-		{
-			zabbix_log(LOG_LEVEL_WARNING, "Syncing history data..." ZBX_FS_DBL "%%",
-					(double)total_num / (cache->history_num + total_num) * 100);
-			now = time(NULL);
-		}
 	} while (--syncs > 0 || sync_type == ZBX_SYNC_FULL || (skipped_clock != 0 && skipped_clock < max_delay));
-
-	if (ZBX_SYNC_FULL == sync_type)
-		zabbix_log(LOG_LEVEL_WARNING, "Syncing history data...done.");
 
 	return total_num;
 }
@@ -1896,7 +1838,7 @@ static void DCvacuum_text()
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In DCvacuum_text()");
 
-	/* vacuuming text buffer */
+	/* vacuumng text buffer */
 	first_text = NULL;
 	for (i = 0; i < cache->history_num; i++)
 	{
@@ -1916,7 +1858,7 @@ static void DCvacuum_text()
 			return;
 
 		memmove(cache->text, first_text, ZBX_TEXTBUFFER_SIZE - offset);
-
+		
 		for (i = 0; i < cache->history_num; i++)
 		{
 			index = (cache->history_first + i) % ZBX_HISTORY_SIZE;
@@ -1945,7 +1887,7 @@ static void DCvacuum_text()
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alekasander Vladishev                                              *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -2019,7 +1961,7 @@ retry:
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alekasander Vladishev                                              *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -2054,7 +1996,7 @@ void	DCadd_history(zbx_uint64_t itemid, double value_orig, int clock)
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alekasander Vladishev                                              *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -2089,7 +2031,7 @@ void	DCadd_history_uint(zbx_uint64_t itemid, zbx_uint64_t value_orig, int clock)
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alekasander Vladishev                                              *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -2129,7 +2071,7 @@ void	DCadd_history_str(zbx_uint64_t itemid, char *value_orig, int clock)
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alekasander Vladishev                                              *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -2169,13 +2111,12 @@ void	DCadd_history_text(zbx_uint64_t itemid, char *value_orig, int clock)
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alekasander Vladishev                                              *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-void	DCadd_history_log(zbx_uint64_t itemid, char *value_orig, int clock, int timestamp, char *source, int severity,
-		int logeventid, int lastlogsize)
+void	DCadd_history_log(zbx_uint64_t itemid, char *value_orig, int clock, int timestamp, char *source, int severity, int lastlogsize)
 {
 	ZBX_DC_HISTORY	*history;
 	size_t		len1, len2;
@@ -2207,7 +2148,6 @@ void	DCadd_history_log(zbx_uint64_t itemid, char *value_orig, int clock, int tim
 		history->source		= NULL;
 
 	history->severity		= severity;
-	history->logeventid		= logeventid;
 	history->lastlogsize		= lastlogsize;
 	history->keep_history		= 0;
 	history->keep_trends		= 0;
@@ -2232,6 +2172,9 @@ void	DCadd_history_log(zbx_uint64_t itemid, char *value_orig, int clock, int tim
  ******************************************************************************/
 void	init_database_cache(zbx_process_t p)
 {
+#define ZBX_MAX_ATTEMPTS 10
+	int	attempts = 0;
+
 	key_t	shm_key;
 	int	shm_id;
 	size_t	sz;
@@ -2247,12 +2190,35 @@ void	init_database_cache(zbx_process_t p)
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In init_database_cache() size:%d", (int)sz);
 
-	if ( -1 == (shm_id = zbx_shmget(shm_key, sz)))
+lbl_create:
+	if ( -1 == (shm_id = shmget(shm_key, sz, IPC_CREAT | IPC_EXCL | 0666 /* 0022 */)) )
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "Can't allocate shared memory for database cache.");
-		exit(1);
-	}
+		if( EEXIST == errno )
+		{
+			zabbix_log(LOG_LEVEL_DEBUG, "Shared memory already exists for database cache, trying to recreate.");
 
+			shm_id = shmget(shm_key, 0 /* get reference */, 0666 /* 0022 */);
+
+			shmctl(shm_id, IPC_RMID, 0);
+			if ( ++attempts > ZBX_MAX_ATTEMPTS )
+			{
+				zabbix_log(LOG_LEVEL_CRIT, "Can't recreate shared memory for database cache. [too many attempts]");
+				exit(1);
+			}
+			if ( attempts > (ZBX_MAX_ATTEMPTS / 2) )
+			{
+				zabbix_log(LOG_LEVEL_DEBUG, "Wait 1 sec for next attemt of database cache memory allocation.");
+				sleep(1);
+			}
+			goto lbl_create;
+		}
+		else
+		{
+			zabbix_log(LOG_LEVEL_CRIT, "Can't allocate shared memory for database cache. [%s]",strerror(errno));
+			exit(1);
+		}
+	}
+	
 	ptr = shmat(shm_id, 0, 0);
 
 	if ((void*)(-1) == ptr)
@@ -2319,7 +2285,7 @@ static void	DCsync_all()
  *                                                                            *
  * Function: free_database_cache                                              *
  *                                                                            *
- * Purpose: Free memory allocated for database cache                          *
+ * Purpose: Free memory aloccated for database cache                          *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
@@ -2343,7 +2309,7 @@ void	free_database_cache()
 
 	LOCK_CACHE;
 	LOCK_CACHE_IDS;
-
+	
 	ZBX_GET_SHM_DBCACHE_KEY(shm_key);
 
 	sz = sizeof(ZBX_DC_IDS);
@@ -2450,7 +2416,7 @@ zbx_uint64_t	DCget_nextid(const char *table_name, const char *field_name, int nu
 			min, max);
 
 	if (NULL == (row = DBfetch(result)) || SUCCEED == DBis_null(row[0]))
-		id->lastid = min;
+		id->lastid = min + 1;
 	else
 		ZBX_STR2UINT64(id->lastid, row[0]);
 

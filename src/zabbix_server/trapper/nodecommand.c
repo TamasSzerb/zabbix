@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -50,7 +50,7 @@
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -177,7 +177,7 @@ static void	execute_script(zbx_uint64_t hostid, char *command, char **result, in
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -198,7 +198,7 @@ void	send_script(int nodeid, const char *data, char **result, int *result_alloca
 		nodeid);
 
 	if (NULL != (dbrow = DBfetch(dbresult))) {
-		if (SUCCEED == zbx_tcp_connect(&sock, CONFIG_SOURCE_IP, dbrow[0], atoi(dbrow[1]), CONFIG_TRAPPER_TIMEOUT)) {
+		if (SUCCEED == zbx_tcp_connect(&sock, CONFIG_SOURCE_IP, dbrow[0], atoi(dbrow[1]), ZABBIX_TRAPPER_TIMEOUT)) {
 			if (FAIL == zbx_tcp_send(&sock, data)) {
 				zbx_snprintf_alloc(result, result_allocated, &result_offset, 128,
 					"%d%cNODE %d: Error while sending data to Node [%d] error: %s",
@@ -255,7 +255,7 @@ exit_sock:
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -294,7 +294,7 @@ int	get_next_point_to_node(int current_nodeid, int slave_nodeid, int *nodeid)
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2006 SIA Zabbix
 **
@@ -37,7 +37,7 @@ int	connect_to_server(zbx_sock_t *sock, int timeout)
 			timeout);
 
 	if (FAIL == (res = zbx_tcp_connect(sock, CONFIG_SOURCE_IP, CONFIG_SERVER, CONFIG_SERVER_PORT, timeout)))
-		zabbix_log(LOG_LEVEL_ERR, "Unable to connect to the server [%s]:%d [%s]",
+		zabbix_log(LOG_LEVEL_ERR, "Unable connect to the server [%s]:%d [%s]",
 				CONFIG_SERVER,
 				CONFIG_SERVER_PORT,
 				zbx_tcp_strerror());
@@ -83,14 +83,14 @@ void	disconnect_server(zbx_sock_t *sock)
  *                                                                            *
  * Function: get_data_from_server                                             *
  *                                                                            *
- * Purpose: get configuration and other data from server                      *
+ * Purpose: get configuration and othed data from server                      *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value: SUCCESS - processed successfully                             *
- *               FAIL - an error occurred                                     *
+ * Return value: SUCCESS - processed succesfully                              * 
+ *               FAIL - an error occured                                      *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alksander Vladishev                                                *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -124,14 +124,14 @@ exit:
  *                                                                            *
  * Function: put_data_to_server                                               *
  *                                                                            *
- * Purpose: send data to server                                               *
+ * Purpose: send data from server                                             *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value: SUCCESS - processed successfully                             *
- *               FAIL - an error occurred                                     *
+ * Return value: SUCCESS - processed succesfully                              * 
+ *               FAIL - an error occured                                      *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alksander Vladishev                                                *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -163,7 +163,7 @@ int	put_data_to_server(zbx_sock_t *sock, struct zbx_json *j)
 	ret = SUCCEED;
 exit:
 	zabbix_log(LOG_LEVEL_DEBUG, "End of put_data_to_server():%s",
-			zbx_result_string(ret));
+			ret == SUCCEED ? "SUCCEED" : "FAIL");
 
 	return ret;
 }

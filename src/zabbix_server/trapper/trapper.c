@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -38,7 +38,6 @@
 #include "nodecommand.h"
 #include "proxyconfig.h"
 #include "proxydiscovery.h"
-#include "proxyautoreg.h"
 
 #include "daemon.h"
 
@@ -131,7 +130,7 @@ static void	calc_timestamp(char *line,int *timestamp, char *format)
  *             value - new value of server:key                                *
  *             lastlogsize - if key=log[*], last size of log file             *
  *                                                                            *
- * Return value: SUCCEED - new value processed successfully                   *
+ * Return value: SUCCEED - new value processed sucesfully                     *
  *               FAIL - otherwise                                             *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
@@ -211,10 +210,6 @@ static void	process_mass_data(zbx_sock_t *sock, zbx_uint64_t proxy_hostid, AGENT
 		if (item.type == ITEM_TYPE_ZABBIX_ACTIVE && FAIL == zbx_tcp_check_security(sock, item.trapper_hosts, 1))
 			continue;
 
-		if (item.maintenance_status == HOST_MAINTENANCE_STATUS_ON && item.maintenance_type == MAINTENANCE_TYPE_NODATA &&
-				item.maintenance_from <= values[i].clock)
-			continue;
-
 		for (i = 0; i < value_num; i++)
 		{
 			if (0 == strcmp(item.host_name, values[i].host_name) && 0 == strcmp(item.key_orig, values[i].key)) {
@@ -246,7 +241,6 @@ static void	process_mass_data(zbx_sock_t *sock, zbx_uint64_t proxy_hostid, AGENT
 
 						item.eventlog_severity = values[i].severity;
 						item.eventlog_source = values[i].source;
-						item.logeventid = values[i].logeventid;
 
 /*						zabbix_log(LOG_LEVEL_DEBUG, "Value [%s] Lastlogsize [%s] Timestamp [%s]",
 								values[i].value,
@@ -256,7 +250,7 @@ static void	process_mass_data(zbx_sock_t *sock, zbx_uint64_t proxy_hostid, AGENT
 
 					init_result(&agent);
 
-					if (SUCCEED == set_result_type(&agent, item.value_type, item.data_type, values[i].value))
+					if (SUCCEED == set_result_type(&agent, item.value_type, values[i].value))
 					{
 						if (0 == CONFIG_DBSYNCER_FORKS)
 							DBbegin();
@@ -300,7 +294,7 @@ static void	process_mass_data(zbx_sock_t *sock, zbx_uint64_t proxy_hostid, AGENT
  * Parameters: result SUCCEED or FAIL                                         *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
@@ -348,7 +342,7 @@ static void clean_agent_values(AGENT_VALUE *values, int value_num)
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
@@ -380,7 +374,7 @@ static int	process_new_values(zbx_sock_t *sock, struct zbx_json_parse *jp, const
 	if (SUCCEED == zbx_json_value_by_name(jp, ZBX_PROTO_TAG_CLOCK, tmp, sizeof(tmp)))
 		proxy_timediff = now - atoi(tmp);
 
-/* {"request":"ZBX_SENDER_DATA","data":[{"key":"system.cpu.num",...,...},{...},...]}
+/* {"request":"ZBX_SENDER_DATA","data":[{"key":"system.cpu.num",...,...},{...},...]} 
  *                                     ^
  */	if (NULL == (p = zbx_json_pair_by_name(jp, ZBX_PROTO_TAG_DATA)))
 	{
@@ -390,19 +384,19 @@ static int	process_new_values(zbx_sock_t *sock, struct zbx_json_parse *jp, const
 
 	if(SUCCEED == ret)
 	{
-/* {"request":"ZBX_SENDER_DATA","data":[{"key":"system.cpu.num",...,...},{...},...]}
+/* {"request":"ZBX_SENDER_DATA","data":[{"key":"system.cpu.num",...,...},{...},...]} 
  *                                     ^------------------------------------------^
  */		if (FAIL == (ret = zbx_json_brackets_open(p, &jp_data)))
 			zabbix_log(LOG_LEVEL_WARNING, "Can't proceed jason request. %s",
 					zbx_json_strerror());
 	}
 
-/* {"request":"ZBX_SENDER_DATA","data":[{"key":"system.cpu.num",...,...},{...},...]}
+/* {"request":"ZBX_SENDER_DATA","data":[{"key":"system.cpu.num",...,...},{...},...]} 
  *                                      ^
  */	p = NULL;
 	while (SUCCEED == ret && NULL != (p = zbx_json_next(&jp_data, p)))
 	{
-/* {"request":"ZBX_SENDER_DATA","data":[{"key":"system.cpu.num",...,...},{...},...]}
+/* {"request":"ZBX_SENDER_DATA","data":[{"key":"system.cpu.num",...,...},{...},...]} 
  *                                      ^------------------------------^
  */ 		if (FAIL == (ret = zbx_json_brackets_open(p, &jp_row)))
 			break;
@@ -431,7 +425,7 @@ static int	process_new_values(zbx_sock_t *sock, struct zbx_json_parse *jp, const
 
 		av->value = strdup(tmp);
 
-		if (SUCCEED == zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_LOGLASTSIZE, tmp, sizeof(tmp)))
+		if (SUCCEED == zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_LOGLASTSIZE, tmp, sizeof(tmp))) 
 			av->lastlogsize = atoi(tmp);
 
 		if (SUCCEED == zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_LOGTIMESTAMP, tmp, sizeof(tmp)))
@@ -442,9 +436,6 @@ static int	process_new_values(zbx_sock_t *sock, struct zbx_json_parse *jp, const
 
 		if (SUCCEED == zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_LOGSEVERITY, tmp, sizeof(tmp)))
 			av->severity = atoi(tmp);
-
-		if (SUCCEED == zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_LOGEVENTID, tmp, sizeof(tmp)))
-			av->logeventid = atoi(tmp);
 
 		value_num ++;
 
@@ -469,13 +460,11 @@ static int	process_new_values(zbx_sock_t *sock, struct zbx_json_parse *jp, const
 			total_num,
 			zbx_time() - sec);
 
-	alarm(CONFIG_TIMEOUT);
 	if (send_result(sock, ret, info) != SUCCEED)
 	{
 		zabbix_log( LOG_LEVEL_WARNING, "Error sending result back");
 		zabbix_syslog("Trapper: error sending result back");
 	}
-	alarm(0);
 
 	return ret;
 }
@@ -489,7 +478,7 @@ static int	process_new_values(zbx_sock_t *sock, struct zbx_json_parse *jp, const
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -519,7 +508,7 @@ static int	process_proxy_values(zbx_sock_t *sock, struct zbx_json_parse *jp)
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -568,7 +557,7 @@ static int	process_trap(zbx_sock_t	*sock, char *s, int max_len)
 
 	if (0 == strncmp(s,"ZBX_GET_ACTIVE_CHECKS", 21))	/* Request for list of active checks */
 	{
-		ret = send_list_of_active_checks(sock, s, zbx_process);
+		ret = send_list_of_active_checks(sock, s);
 /* Request for last ids */
 	} else if (strncmp(s,"ZBX_GET_HISTORY_LAST_ID", 23) == 0) {
 		send_history_last_id(sock, s);
@@ -597,7 +586,7 @@ static int	process_trap(zbx_sock_t	*sock, char *s, int max_len)
 			else {
 				res = calculate_checksums(nodeid, NULL, 0);
 				if (SUCCEED == res && NULL != (data = get_config_data(nodeid, ZBX_NODE_SLAVE))) {
-					alarm(CONFIG_TRAPPER_TIMEOUT);
+					alarm(ZABBIX_TRAPPER_TIMEOUT);
 					res = send_data_to_node(sender_nodeid, sock, data);
 					zbx_free(data);
 					if (SUCCEED == res)
@@ -647,17 +636,13 @@ static int	process_trap(zbx_sock_t	*sock, char *s, int max_len)
 				{
 					ret = process_discovery_data(sock, &jp);
 				}
-				else if (0 == strcmp(value, ZBX_PROTO_VALUE_AUTO_REGISTRATION_DATA) && zbx_process == ZBX_PROCESS_SERVER)
-				{
-					ret = process_autoreg_data(sock, &jp);
-				}
 				else if (0 == strcmp(value, ZBX_PROTO_VALUE_PROXY_HEARTBEAT) && zbx_process == ZBX_PROCESS_SERVER)
 				{
 					ret = process_proxy_heartbeat(sock, &jp);
 				}
 				else if (0 == strcmp(value, ZBX_PROTO_VALUE_GET_ACTIVE_CHECKS))
 				{
-					ret = send_list_of_active_checks_json(sock, &jp, zbx_process);
+					ret = send_list_of_active_checks_json(sock, &jp);
 				}
 				else
 				{
@@ -693,7 +678,7 @@ static int	process_trap(zbx_sock_t	*sock, char *s, int max_len)
 			pl = pr + 1;
 			if (NULL == (pr = strchr(pl, ':')))
 				return FAIL;
-
+	
 			*pr = '\0';
 			zbx_strlcpy(av.key, pl, sizeof(av.key));
 			*pr = ':';
@@ -716,7 +701,7 @@ static int	process_trap(zbx_sock_t	*sock, char *s, int max_len)
 			zabbix_syslog("Trapper: error sending result back");
 		}
 		alarm(0);
-	}
+	}	
 	return ret;
 }
 
@@ -724,7 +709,7 @@ void	process_trapper_child(zbx_sock_t *sock)
 {
 	char	*data;
 
-	alarm(CONFIG_TRAPPER_TIMEOUT);
+	alarm(ZABBIX_TRAPPER_TIMEOUT);
 
 	if (SUCCEED != zbx_tcp_recv(sock, &data))
 	{
@@ -742,10 +727,9 @@ void	child_trapper_main(zbx_process_t p, zbx_sock_t *s)
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In child_trapper_main()");
 
-/*	phan.sa_handler = child_signal_handler;*/
-	phan.sa_sigaction = child_signal_handler;
+	phan.sa_handler = child_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 	sigaction(SIGALRM, &phan, NULL);
 
 	zbx_process = p;

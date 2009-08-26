@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -29,7 +29,7 @@ static int	SYSTEM_SWAP_FREE(const char *cmd, const char *param, unsigned flags, 
 
 	assert(result);
 
-	init_result(result);
+        init_result(result);
 
 	if( 0 == sysinfo(&info))
 	{
@@ -52,7 +52,7 @@ static int	SYSTEM_SWAP_TOTAL(const char *cmd, const char *param, unsigned flags,
 
 	assert(result);
 
-	init_result(result);
+        init_result(result);
 
 	if( 0 == sysinfo(&info))
 	{
@@ -72,71 +72,71 @@ static int	SYSTEM_SWAP_TOTAL(const char *cmd, const char *param, unsigned flags,
 static int	SYSTEM_SWAP_PFREE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	AGENT_RESULT	result_tmp;
-	zbx_uint64_t  tot_val = 0;
-	zbx_uint64_t  free_val = 0;
+        zbx_uint64_t  tot_val = 0;
+        zbx_uint64_t  free_val = 0;
 
-	assert(result);
+        assert(result);
 
-	init_result(result);
-	init_result(&result_tmp);
+        init_result(result);
+        init_result(&result_tmp);
 
 	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
 		!(result_tmp.type & AR_UINT64))
-			return  SYSINFO_RET_FAIL;
+	                return  SYSINFO_RET_FAIL;
 	tot_val = result_tmp.ui64;
 
 	/* Check for division by zero */
 	if(tot_val == 0)
 	{
 		free_result(&result_tmp);
-		return  SYSINFO_RET_FAIL;
+                return  SYSINFO_RET_FAIL;
 	}
 
 	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
 		!(result_tmp.type & AR_UINT64))
-			return  SYSINFO_RET_FAIL;
+                	return  SYSINFO_RET_FAIL;
 	free_val = result_tmp.ui64;
 
 	free_result(&result_tmp);
 
 	SET_DBL_RESULT(result, (100.0 * (double)free_val) / (double)tot_val);
 
-	return SYSINFO_RET_OK;
+        return SYSINFO_RET_OK;
 }
 
 static int	SYSTEM_SWAP_PUSED(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	AGENT_RESULT	result_tmp;
-	zbx_uint64_t  tot_val = 0;
-	zbx_uint64_t  free_val = 0;
+        zbx_uint64_t  tot_val = 0;
+        zbx_uint64_t  free_val = 0;
 
-	assert(result);
+        assert(result);
 
-	init_result(result);
-	init_result(&result_tmp);
+        init_result(result);
+        init_result(&result_tmp);
 
 	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
 		!(result_tmp.type & AR_UINT64))
-			return  SYSINFO_RET_FAIL;
+                	return  SYSINFO_RET_FAIL;
 	tot_val = result_tmp.ui64;
 
 	/* Check for division by zero */
 	if(tot_val == 0)
 	{
 		free_result(&result_tmp);
-		return  SYSINFO_RET_FAIL;
+                return  SYSINFO_RET_FAIL;
 	}
 
 	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
 		!(result_tmp.type & AR_UINT64))
-			return  SYSINFO_RET_FAIL;
+                	return  SYSINFO_RET_FAIL;
 	free_val = result_tmp.ui64;
 
 	free_result(&result_tmp);
 
 	SET_DBL_RESULT(result, 100.0-(100.0 * (double)free_val) / (double)tot_val);
 
-	return SYSINFO_RET_OK;
+        return SYSINFO_RET_OK;
 }
 
 int	SYSTEM_SWAP_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -149,7 +149,7 @@ SWP_FNCLIST
 	int (*function)();
 };
 
-	SWP_FNCLIST fl[] =
+	SWP_FNCLIST fl[] = 
 	{
 		{"total",	SYSTEM_SWAP_TOTAL},
 		{"free",	SYSTEM_SWAP_FREE},
@@ -161,22 +161,22 @@ SWP_FNCLIST
 	char swapdev[MAX_STRING_LEN];
 	char mode[MAX_STRING_LEN];
 	int i;
+	
+        assert(result);
 
-	assert(result);
+        init_result(result);
+	
+        if(num_param(param) > 2)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	init_result(result);
+        if(get_param(param, 1, swapdev, sizeof(swapdev)) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	if(num_param(param) > 2)
-	{
-		return SYSINFO_RET_FAIL;
-	}
-
-	if(get_param(param, 1, swapdev, sizeof(swapdev)) != 0)
-	{
-		return SYSINFO_RET_FAIL;
-	}
-
-	if(swapdev[0] == '\0')
+        if(swapdev[0] == '\0')
 	{
 		/* default parameter */
 		zbx_snprintf(swapdev, sizeof(swapdev), "all");
@@ -186,13 +186,13 @@ SWP_FNCLIST
 	{
 		return SYSINFO_RET_FAIL;
 	}
-
+	
 	if(get_param(param, 2, mode, sizeof(mode)) != 0)
-	{
-		mode[0] = '\0';
-	}
-
-	if(mode[0] == '\0')
+        {
+                mode[0] = '\0';
+        }
+	
+        if(mode[0] == '\0')
 	{
 		/* default parameter */
 		zbx_snprintf(mode, sizeof(mode), "free");
@@ -205,43 +205,43 @@ SWP_FNCLIST
 			return (fl[i].function)(cmd, param, flags, result);
 		}
 	}
-
+	
 	return SYSINFO_RET_FAIL;
 }
 
-int	OLD_SWAP(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+int     OLD_SWAP(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	key[MAX_STRING_LEN];
-	int	ret;
+        char    key[MAX_STRING_LEN];
+        int     ret;
 
-	assert(result);
+        assert(result);
 
-	init_result(result);
+        init_result(result);
 
-	if(num_param(param) > 1)
-	{
-		return SYSINFO_RET_FAIL;
-	}
+        if(num_param(param) > 1)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	if(get_param(param, 1, key, MAX_STRING_LEN) != 0)
-	{
-		return SYSINFO_RET_FAIL;
-	}
+        if(get_param(param, 1, key, MAX_STRING_LEN) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	if(strcmp(key,"free") == 0)
-	{
-		ret = SYSTEM_SWAP_FREE(cmd, param, flags, result);
-	}
-	else if(strcmp(key,"total") == 0)
-	{
-		ret = SYSTEM_SWAP_TOTAL(cmd, param, flags, result);
-	}
-	else
-	{
-		ret = SYSINFO_RET_FAIL;
-	}
+        if(strcmp(key,"free") == 0)
+        {
+                ret = SYSTEM_SWAP_FREE(cmd, param, flags, result);
+        }
+        else if(strcmp(key,"total") == 0)
+        {
+                ret = SYSTEM_SWAP_TOTAL(cmd, param, flags, result);
+        }
+        else
+        {
+                ret = SYSINFO_RET_FAIL;
+        }
 
-	return ret;
+        return ret;
 }
 
 struct swap_stat_s {
@@ -258,10 +258,10 @@ struct swap_stat_s {
 #	define PARSE(line)	if(sscanf(line,"%*d %*d %*d %s " \
 					ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d " \
 					ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d %*d %*d %*d", \
-				name,			/* name */ \
-				&(result->rio),		/* rio */ \
+				name, 			/* name */ \
+				&(result->rio), 	/* rio */ \
 				&(result->rsect),	/* rsect */ \
-				&(result->wio),		/* rio */ \
+				&(result->wio), 	/* rio */ \
 				&(result->wsect)	/* wsect */ \
 				) != 5) continue
 #else
@@ -269,29 +269,29 @@ struct swap_stat_s {
 #	define PARSE(line)	if(sscanf(line, "%*d %*d %s " \
 					ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d " \
 					ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d %*d %*d %*d", \
-				name,			/* name */ \
-				&(result->rio),		/* rio */ \
+				name, 			/* name */ \
+				&(result->rio), 	/* rio */ \
 				&(result->rsect),	/* rsect */ \
-				&(result->wio),		/* wio */ \
+				&(result->wio), 	/* wio */ \
 				&(result->wsect)	/* wsect */ \
 				) != 5)  \
 					if(sscanf(line,"%*d %*d %s " \
 						ZBX_FS_UI64 " " ZBX_FS_UI64 " " \
 						ZBX_FS_UI64 " " ZBX_FS_UI64, \
-					name,			/* name */ \
-					&(result->rio),		/* rio */ \
+					name, 			/* name */ \
+					&(result->rio), 	/* rio */ \
 					&(result->rsect),	/* rsect */ \
-					&(result->wio),		/* wio */ \
+					&(result->wio), 	/* wio */ \
 					&(result->wsect)	/* wsect */ \
 					) != 5) continue
 #endif
 
 static int get_swap_dev_stat(const char *interface, struct swap_stat_s *result)
 {
-	int	ret = SYSINFO_RET_FAIL;
-	char	line[MAX_STRING_LEN];
+	int ret = SYSINFO_RET_FAIL;
+	char line[MAX_STRING_LEN];
 
-	char	name[MAX_STRING_LEN];
+	char name[MAX_STRING_LEN];
 
 	FILE *f;
 
@@ -302,7 +302,7 @@ static int get_swap_dev_stat(const char *interface, struct swap_stat_s *result)
 		while(fgets(line,MAX_STRING_LEN,f) != NULL)
 		{
 			PARSE(line);
-
+		
 			if(strncmp(name, interface, MAX_STRING_LEN) == 0)
 			{
 				ret = SYSINFO_RET_OK;
@@ -321,7 +321,7 @@ static int get_swap_dev_stat(const char *interface, struct swap_stat_s *result)
 	}
 	return ret;
 }
-
+	
 static int	get_swap_pages(struct swap_stat_s *result)
 {
 	int ret = SYSINFO_RET_FAIL;
@@ -331,7 +331,7 @@ static int	get_swap_pages(struct swap_stat_s *result)
 	zbx_uint64_t
 		value1,
 		value2;
-
+	
 	FILE *f;
 
 	assert(result);
@@ -342,19 +342,19 @@ static int	get_swap_pages(struct swap_stat_s *result)
 		{
 			if(sscanf(line, "%10s " ZBX_FS_UI64 " " ZBX_FS_UI64, name, &value1, &value2) != 3)
 				continue;
-
+			
 			if(strcmp(name, "swap"))
 				continue;
-
+			
 			result->wpag	= value1;
 			result->rpag	= value2;
-
+			
 			ret = SYSINFO_RET_OK;
 			break;
 		};
 		zbx_fclose(f);
 	}
-
+	
 	if(ret != SYSINFO_RET_OK)
 	{
 		result->wpag	= 0;
@@ -364,16 +364,16 @@ static int	get_swap_pages(struct swap_stat_s *result)
 	return ret;
 }
 
-static int	get_swap_stat(const char *interface, struct swap_stat_s *result)
+static int 	get_swap_stat(const char *interface, struct swap_stat_s *result)
 {
 	int ret = SYSINFO_RET_FAIL;
-
+	
 	struct swap_stat_s curr;
-
+	
 	FILE *f;
 
 	char line[MAX_STRING_LEN], *s;
-
+	
 	assert(result);
 
 	memset(result, 0, sizeof(struct swap_stat_s));
@@ -394,14 +394,14 @@ static int	get_swap_stat(const char *interface, struct swap_stat_s *result)
 				*s = 0;
 
 				if(interface && 0 != strcmp(interface, line+5)) continue;
-
+				
 				if(SYSINFO_RET_OK == get_swap_dev_stat(line+5, &curr))
 				{
 					result->rio	+= curr.rio;
 					result->rsect	+= curr.rsect;
 					result->wio	+= curr.wio;
 					result->wsect	+= curr.wsect;
-
+					
 					ret = SYSINFO_RET_OK;
 				}
 			}
@@ -415,8 +415,8 @@ static int	get_swap_stat(const char *interface, struct swap_stat_s *result)
 int	SYSTEM_SWAP_IN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	int		ret = SYSINFO_RET_FAIL;
-	char		swapdev[10];
-	char		mode[20];
+	char    	swapdev[10];
+	char    	mode[20];
 
 	struct swap_stat_s	ss;
 
@@ -482,8 +482,8 @@ int	SYSTEM_SWAP_IN(const char *cmd, const char *param, unsigned flags, AGENT_RES
 int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	int		ret = SYSINFO_RET_FAIL;
-	char		swapdev[10];
-	char		mode[20];
+	char    	swapdev[10];
+	char    	mode[20];
 
 	struct swap_stat_s	ss;
 
@@ -545,3 +545,4 @@ int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
 	return ret;
 }
+

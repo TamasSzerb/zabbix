@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -116,10 +116,10 @@ int	PERF_MONITOR(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 					(rawData.CStatus == PDH_CSTATUS_VALID_DATA || rawData.CStatus == PDH_CSTATUS_NEW_DATA))
 				{
 					if( PDH_CSTATUS_INVALID_DATA == (status = PdhCalculateCounterFromRawValue(
-						counter,
-						PDH_FMT_DOUBLE,
-						&rawData,
-						NULL,
+						counter, 
+						PDH_FMT_DOUBLE, 
+						&rawData, 
+						NULL, 
 						&counterValue
 						)) )
 					{
@@ -127,10 +127,10 @@ int	PERF_MONITOR(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 						PdhCollectQueryData(query);
 						PdhGetRawCounterValue(counter, NULL, &rawData2);
 						status = PdhCalculateCounterFromRawValue(
-							counter,
-							PDH_FMT_DOUBLE,
-							&rawData2,
-							&rawData,
+							counter, 
+							PDH_FMT_DOUBLE, 
+							&rawData2, 
+							&rawData, 
 							&counterValue);
 
 					}

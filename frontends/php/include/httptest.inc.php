@@ -117,7 +117,6 @@
 				'snmp_community'=> '',
 				'snmp_oid'		=> '',
 				'value_type'	=> $item['type'],
-				'data_type'		=> ITEM_DATA_TYPE_DECIMAL,
 				'trapper_hosts'	=> 'localhost',
 				'snmp_port'		=> 161,
 				'units'			=> $item['units'],
@@ -172,11 +171,11 @@
 		return $httpstepid;
 	}
 
-	function	db_save_httptest($httptestid, $hostid, $application, $name, $authentication, $http_user, $http_password, $delay, $status, $agent, $macros, $steps){
-		$history = 30; // TODO !!! Allow user to set this parameter
-		$trends = 90; // TODO !!! Allow user to set this parameter
+	function	db_save_httptest($httptestid, $hostid, $application, $name, $delay, $status, $agent, $macros, $steps){
+		$history = 30; // TODO !!! Allow user set this parametr
+		$trends = 90; // TODO !!! Allow user set this parametr
 
-		if(!eregi('^([0-9a-zA-Z\_\.[.-.]\$ ]+)$', $name)) {
+ 		if(!eregi('^([0-9a-zA-Z\_\.[.-.]\$ ]+)$', $name)) {
 			error("Scenario name should contain '0-9a-zA-Z_.$ '- characters only");
 			return false;
 		}
@@ -198,11 +197,10 @@
 		}
 
 		if(isset($httptestid)){
-			$result = DBexecute('update httptest'.
-				' set applicationid='.$applicationid.', name='.zbx_dbstr($name).','.
-					' authentication='.$authentication.','.' http_user='.zbx_dbstr($http_user).','.' http_password='.zbx_dbstr($http_password).','.
-					' delay='.$delay.','.' status='.$status.', agent='.zbx_dbstr($agent).', macros='.zbx_dbstr($macros).','.
-					' error='.zbx_dbstr('').', curstate='.HTTPTEST_STATE_UNKNOWN.
+			$result = DBexecute('update httptest set '.
+				' applicationid='.$applicationid.', name='.zbx_dbstr($name).', delay='.$delay.','.
+				' status='.$status.', agent='.zbx_dbstr($agent).', macros='.zbx_dbstr($macros).','.
+				' error='.zbx_dbstr('').', curstate='.HTTPTEST_STATE_UNKNOWN.
 				' where httptestid='.$httptestid);
 		}
 		else{
@@ -216,9 +214,8 @@
 			}
 
 			$result = DBexecute('insert into httptest'.
-				' (httptestid, applicationid, name, authentication, http_user, http_password, delay, status, agent, macros, curstate) '.
+				' (httptestid, applicationid, name, delay, status, agent, macros, curstate) '.
 				' values ('.$httptestid.','.$applicationid.','.zbx_dbstr($name).','.
-				$authentication.','.zbx_dbstr($http_user).','.zbx_dbstr($http_password).','.
 				$delay.','.$status.','.zbx_dbstr($agent).','.zbx_dbstr($macros).','.HTTPTEST_STATE_UNKNOWN.')'
 				);
 
@@ -230,10 +227,10 @@
 			foreach($steps as $sid => $s){
 				if(!isset($s['name']))		$s['name'] = '';
 				if(!isset($s['timeout']))	$s['timeout'] = 15;
-				if(!isset($s['url']))		$s['url'] = '';
-				if(!isset($s['posts']))		$s['posts'] = '';
-				if(!isset($s['required']))	$s['required'] = '';
-				if(!isset($s['status_codes']))	$s['status_codes'] = '';
+				if(!isset($s['url']))       	$s['url'] = '';
+				if(!isset($s['posts']))       	$s['posts'] = '';
+				if(!isset($s['required']))      $s['required'] = '';
+				if(!isset($s['status_codes']))  $s['status_codes'] = '';
 
 				$result = db_save_step($hostid, $applicationid, $httptestid,
 						$name, $s['name'], $sid+1, $s['timeout'], $s['url'], $s['posts'], $s['required'],$s['status_codes'],
@@ -289,7 +286,6 @@
 					'snmp_community'=> '',
 					'snmp_oid'		=> '',
 					'value_type'	=> $item['type'],
-					'data_type'		=> ITEM_DATA_TYPE_DECIMAL,
 					'trapper_hosts'	=> 'localhost',
 					'snmp_port'		=> 161,
 					'units'			=> $item['units'],
@@ -356,20 +352,22 @@
 		return $result;
 	}
 
-	function add_httptest($hostid, $application, $name, $authentication, $http_user, $http_password, $delay, $status, $agent, $macros, $steps){
-		$result = db_save_httptest(null, $hostid, $application, $name, $authentication, $http_user, $http_password, $delay, $status, $agent, $macros, $steps);
+	function	add_httptest($hostid, $application, $name, $delay, $status, $agent, $macros, $steps)
+	{
+		$result = db_save_httptest(null, $hostid, $application, $name, $delay, $status, $agent, $macros, $steps);
 
 		if($result) info("Sceanrio '".$name."' added");
 
-	return $result;
+		return $result;
 	}
 
-	function update_httptest($httptestid, $hostid, $application, $name, $authentication, $http_user, $http_password, $delay, $status, $agent, $macros, $steps){
-		$result = db_save_httptest($httptestid, $hostid, $application, $name, $authentication, $http_user, $http_password, $delay, $status, $agent, $macros, $steps);
+	function	update_httptest($httptestid, $hostid, $application, $name, $delay, $status, $agent, $macros, $steps)
+	{
+		$result = db_save_httptest($httptestid, $hostid, $application, $name, $delay, $status, $agent, $macros, $steps);
 
 		if($result)	info("Sceanrio '".$name."' updated");
 
-	return $result;
+		return $result;
 	}
 
 	function delete_httpstep($httpstepids){

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -287,7 +287,7 @@ static void	got_thresh_reading(ipmi_sensor_t *sensor, int err, enum ipmi_value_p
 	const char		*e_string, *s_type_string, *s_reading_type_string;
 	ipmi_entity_t		*ent;
 	const char		*percent = "", *base, *mod_use = "", *modifier = "", *rate;
-	zbx_ipmi_host_t	*h = cb_data;
+	zbx_ipmi_host_t 	*h = cb_data;
 	zbx_ipmi_sensor_t	*s;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In got_thresh_reading()");
@@ -356,7 +356,7 @@ static void	got_discrete_states(ipmi_sensor_t *sensor, int err, ipmi_states_t *s
 	int			id, i, val, ret;
 	const char		*e_string, *s_type_string, *s_reading_type_string;
 	ipmi_entity_t		*ent;
-	zbx_ipmi_host_t		*h = cb_data;
+	zbx_ipmi_host_t 	*h = cb_data;
 	zbx_ipmi_sensor_t	*s;
 
 	s = get_ipmi_sensor(h, sensor);
@@ -443,7 +443,7 @@ static void	read_ipmi_sensor(zbx_ipmi_host_t *h, zbx_ipmi_sensor_t *s)
 
 static void	got_control_reading(ipmi_control_t *control, int err, int *val, void *cb_data)
 {
-	zbx_ipmi_host_t		*h = cb_data;
+	zbx_ipmi_host_t 	*h = cb_data;
 	int			n;
 	zbx_ipmi_control_t	*c;
 	const char		*c_type, *e_string;
@@ -497,7 +497,7 @@ static void	got_control_reading(ipmi_control_t *control, int err, int *val, void
 
 static void	got_control_setting(ipmi_control_t *control, int err, void *cb_data)
 {
-	zbx_ipmi_host_t		*h = cb_data;
+	zbx_ipmi_host_t 	*h = cb_data;
 	zbx_ipmi_control_t	*c;
 	const char		*c_type, *e_string;
 	ipmi_entity_t		*ent;
@@ -722,15 +722,15 @@ static void	my_vlog(os_handler_t *handler, const char *format, enum ipmi_log_typ
 
 	switch(log_type)
 	{
-		case IPMI_LOG_INFO		: zbx_strlcpy(type, "INFO: ", sizeof(type)); break;
-		case IPMI_LOG_WARNING		: zbx_strlcpy(type, "WARN: ", sizeof(type)); break;
-		case IPMI_LOG_SEVERE		: zbx_strlcpy(type, "SEVR: ", sizeof(type)); break;
-		case IPMI_LOG_FATAL		: zbx_strlcpy(type, "FATL: ", sizeof(type)); break;
-		case IPMI_LOG_ERR_INFO		: zbx_strlcpy(type, "EINF: ", sizeof(type)); break;
-		case IPMI_LOG_DEBUG_START	:
-		case IPMI_LOG_DEBUG		: zbx_strlcpy(type, "DEBG: ", sizeof(type)); break;
-		case IPMI_LOG_DEBUG_CONT	:
-		case IPMI_LOG_DEBUG_END		: *type = '\0'; break;
+		case IPMI_LOG_INFO	  : zbx_strlcpy(type, "INFO: ", sizeof(type)); break;
+		case IPMI_LOG_WARNING	  : zbx_strlcpy(type, "WARN: ", sizeof(type)); break;
+		case IPMI_LOG_SEVERE	  : zbx_strlcpy(type, "SEVR: ", sizeof(type)); break;
+		case IPMI_LOG_FATAL	  : zbx_strlcpy(type, "FATL: ", sizeof(type)); break;
+		case IPMI_LOG_ERR_INFO	  : zbx_strlcpy(type, "EINF: ", sizeof(type)); break;
+		case IPMI_LOG_DEBUG_START :
+		case IPMI_LOG_DEBUG	  : zbx_strlcpy(type, "DEBG: ", sizeof(type)); break;
+		case IPMI_LOG_DEBUG_CONT  :
+		case IPMI_LOG_DEBUG_END	  : *type = '\0'; break;
 	}
 
 	vsnprintf(str, sizeof(str), format, ap);
@@ -832,7 +832,7 @@ static zbx_ipmi_host_t	*init_ipmi_host(const char *ip, int port, int authtype, i
 	{
 		h->err = zbx_dsprintf(h->err, "Cannot connect to IPMI host [%s]:%d."
 				" start_con() returned error 0x%x",
-				h->ip, h->port, ret);
+				 h->ip, h->port, ret);
 		h->ret = NETWORK_ERROR;
 		goto out;
 	}
@@ -851,7 +851,7 @@ static zbx_ipmi_host_t	*init_ipmi_host(const char *ip, int port, int authtype, i
 		goto out;
 	}
 
-
+	    
 
 	tv.tv_sec = 10;
 	tv.tv_usec = 0;
@@ -875,8 +875,8 @@ int	get_value_ipmi(DB_ITEM *item, AGENT_RESULT *value)
 
 	if (NULL == os_hnd)
 	{
-		zabbix_log(LOG_LEVEL_DEBUG, "%s", "IPMI handler is not initialised");
-		SET_MSG_RESULT(value, strdup("IPMI handler is not initialised"));
+		zabbix_log(LOG_LEVEL_DEBUG, "%s", "IPMI handler is not initialized");
+		SET_MSG_RESULT(value, strdup("IPMI handler is not initialized"));
 		return NOTSUPPORTED;
 	}
 
@@ -898,9 +898,9 @@ int	get_value_ipmi(DB_ITEM *item, AGENT_RESULT *value)
 
 	if (NULL == s && NULL == c)
 	{
-		zabbix_log(LOG_LEVEL_DEBUG, "Sensor or control %s@[%s]:%d does not exist",
+		zabbix_log(LOG_LEVEL_DEBUG, "Sensor or control %s@[%s]:%d does not exists",
 				item->ipmi_sensor, h->ip, h->port);
-		SET_MSG_RESULT(value, strdup("Sensor or control does not exist"));
+		SET_MSG_RESULT(value, strdup("Sensor or control does not exists"));
 		return NOTSUPPORTED;
 	}
 
@@ -976,7 +976,7 @@ int	set_ipmi_control_value(DB_ITEM *item, int value, char *error, size_t error_m
 
 	if (NULL == os_hnd)
 	{
-		zbx_strlcpy(error, "IPMI handler is not initialised", error_max_len);
+		zbx_strlcpy(error, "IPMI handler is not initialized", error_max_len);
 		zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
 		return NOTSUPPORTED;
 	}
@@ -997,7 +997,7 @@ int	set_ipmi_control_value(DB_ITEM *item, int value, char *error, size_t error_m
 
 	if (NULL == c)
 	{
-		zbx_snprintf(error, error_max_len, "Control %s@[%s]:%d does not exist",
+		zbx_snprintf(error, error_max_len, "Control %s@[%s]:%d does not exists",
 				item->ipmi_sensor, h->ip, h->port);
 		zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
 		return NOTSUPPORTED;

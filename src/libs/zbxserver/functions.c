@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -34,7 +34,7 @@
  *                                                                            *
  * Function: update_functions                                                 *
  *                                                                            *
- * Purpose: re-calculate and update values of functions related to the item   *
+ * Purpose: re-calculate and updates values of functions related to the item  *
  *                                                                            *
  * Parameters: item - item to update functions for                            *
  *                                                                            *
@@ -58,7 +58,7 @@ void	update_functions(DB_ITEM *item, time_t now)
 	zabbix_log( LOG_LEVEL_DEBUG, "In update_functions(" ZBX_FS_UI64 ")",
 		item->itemid);
 
-/* Oracle doesn't support this */
+/* Oracle does'n support this */
 /*	zbx_snprintf(sql,sizeof(sql),"select function,parameter,itemid,lastvalue from functions where itemid=%d group by function,parameter,itemid order by function,parameter,itemid",item->itemid);*/
 	result = DBselect("select distinct function,parameter,itemid,lastvalue from functions where itemid=" ZBX_FS_UI64,
 		item->itemid);
@@ -78,7 +78,7 @@ void	update_functions(DB_ITEM *item, time_t now)
 			function.parameter);
 
 		ret = evaluate_function(value, item, function.function, function.parameter, now);
-		if( FAIL == ret)
+		if( FAIL == ret)	
 		{
 			zabbix_log( LOG_LEVEL_DEBUG, "Evaluation failed for function:%s",
 				function.function);
@@ -117,7 +117,7 @@ void	update_functions(DB_ITEM *item, time_t now)
  *                                                                            *
  * Function: update_triggers                                                  *
  *                                                                            *
- * Purpose: re-calculate and update values of triggers related to the item    *
+ * Purpose: re-calculate and updates values of triggers related to the item   *
  *                                                                            *
  * Parameters: itemid - item to update trigger values for                     *
  *                                                                            *
@@ -237,7 +237,7 @@ static void	dc_add_history(DB_ITEM *item, AGENT_RESULT *value, int now)
 		case ITEM_VALUE_TYPE_LOG:
 			if (GET_STR_RESULT(value))
 				DCadd_history_log(item->itemid, value->str, now, item->timestamp, item->eventlog_source,
-						item->eventlog_severity, item->logeventid, item->lastlogsize);
+						item->eventlog_severity, item->lastlogsize);
 			break;
 		case ITEM_VALUE_TYPE_UINT64:
 			if (GET_UI64_RESULT(value))
@@ -389,7 +389,7 @@ static int	add_history(DB_ITEM *item, AGENT_RESULT *value, int now)
 
 		if (item->history > 0)
 			DBadd_history_log(item->itemid, value->str, now, item->timestamp, item->eventlog_source,
-					item->eventlog_severity, item->logeventid, item->lastlogsize);
+					item->eventlog_severity, item->lastlogsize);
 		ret = SUCCEED;
 		break;
 	case ITEM_VALUE_TYPE_TEXT:
@@ -409,8 +409,7 @@ static int	add_history(DB_ITEM *item, AGENT_RESULT *value, int now)
 				item->itemid);
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of add_history():%s",
-			zbx_result_string(ret));
+	zabbix_log(LOG_LEVEL_DEBUG, "End of add_history():%s", ret == SUCCEED ? "SUCCEED" : "FAIL");
 
 	return ret;
 }
@@ -423,7 +422,7 @@ static int	add_history(DB_ITEM *item, AGENT_RESULT *value, int now)
  *                                                                            *
  * Parameters: item - item data                                               *
  *             value - new value of the item                                  *
- *             now   - current timestamp                                      *
+ *             now   - current timestamp                                      * 
  *                                                                            *
  * Author: Alexei Vladishev, Eugene Grigorjev                                 *
  *                                                                            *
@@ -460,7 +459,7 @@ static void	update_item(DB_ITEM *item, AGENT_RESULT *value, time_t now)
 			if (0 == item->prevorgvalue_null && item->prevorgvalue_dbl <= value->dbl)
 			{
 				/* In order to continue normal processing, we assume difference 1 second
-				   Otherwise function update_functions and update_triggers won't work correctly */
+				   Otherwise function update_functions and update_triggers won't work correctly*/
 				if (now != item->lastclock)
 					value_double = (value->dbl - item->prevorgvalue_dbl) / (now - item->lastclock);
 				else
@@ -753,7 +752,7 @@ static void	proxy_add_history(DB_ITEM *item, AGENT_RESULT *value, int now)
 		case ITEM_VALUE_TYPE_LOG:
 			if (GET_STR_RESULT(value))
 				DBproxy_add_history_log(item->itemid, value->str, now, item->timestamp, item->eventlog_source,
-						item->eventlog_severity, item->logeventid, item->lastlogsize);
+						item->eventlog_severity, item->lastlogsize);
 			break;
 		case ITEM_VALUE_TYPE_UINT64:
 			if (GET_UI64_RESULT(value))
@@ -780,7 +779,7 @@ static void	proxy_add_history(DB_ITEM *item, AGENT_RESULT *value, int now)
  *                                                                            *
  * Parameters: item - item data                                               *
  *             value - new value of the item                                  *
- *             now   - current timestamp                                      *
+ *             now   - current timestamp                                      * 
  *                                                                            *
  * Author: Alexei Vladishev, Eugene Grigorjev                                 *
  *                                                                            *

@@ -81,7 +81,7 @@ include_once "include/page_header.php";
 ?>
 <?php
 	if(isset($_REQUEST['favobj'])){
-		if(str_in_array($_REQUEST['favobj'],array('itemid','graphid'))){
+		if(in_array($_REQUEST['favobj'],array('itemid','graphid'))){
 			$result = false;
 			if('add' == $_REQUEST['action']){
 				$result = add2favorites('web.favorite.graphids',$_REQUEST['favid'],$_REQUEST['favobj']);
@@ -157,7 +157,7 @@ include_once "include/page_header.php";
 		if(isset($_REQUEST['plaintext']))
 			echo $main_header.SBR;
 
-		$_REQUEST['period'] = get_request('period',get_profile('web.item.graph.period', ZBX_PERIOD_DEFAULT, $_REQUEST['itemid']));
+		$_REQUEST['period'] = get_request('period',get_profile('web.item.graph.period', ZBX_PERIOD_DEFAULT, PROFILE_TYPE_INT, $_REQUEST['itemid']));
 		if($_REQUEST['period'] >= ZBX_MIN_PERIOD){
 			update_profile('web.item.graph.period',$_REQUEST['period'], PROFILE_TYPE_INT, $_REQUEST['itemid']);
 		}
@@ -168,15 +168,15 @@ include_once "include/page_header.php";
 		if('showgraph' == $_REQUEST['action']){
 			if(infavorites('web.favorite.graphids',$_REQUEST['itemid'],'itemid')){
 				$icon = new CDiv(SPACE,'iconminus');
-				$icon->setAttribute('title',S_REMOVE_FROM.' '.S_FAVOURITES);
-				$icon->addAction('onclick',new CJSscript("javascript: rm4favorites('itemid','".$_REQUEST['itemid']."',0);"));
+				$icon->addOption('title',S_REMOVE_FROM.' '.S_FAVOURITES);
+				$icon->addAction('onclick',new CScript("javascript: rm4favorites('itemid','".$_REQUEST['itemid']."',0);"));
 			}
 			else{
 				$icon = new CDiv(SPACE,'iconplus');
-				$icon->setAttribute('title',S_ADD_TO.' '.S_FAVOURITES);
-				$icon->addAction('onclick',new CJSscript("javascript: add2favorites('itemid','".$_REQUEST['itemid']."');"));
+				$icon->addOption('title',S_ADD_TO.' '.S_FAVOURITES);
+				$icon->addAction('onclick',new CScript("javascript: add2favorites('itemid','".$_REQUEST['itemid']."');"));
 			}
-			$icon->setAttribute('id','addrm_fav');
+			$icon->addOption('id','addrm_fav');
 
 			$icon_tab = new CTable();
 			$icon_tab->addRow(array($icon,SPACE,$l_header));
@@ -256,22 +256,24 @@ include_once "include/page_header.php";
 ?>
 <?php
 	$effectiveperiod = navigation_bar_calc();
-
-	$bstime = $_REQUEST['stime'] = get_request('stime', get_profile('web.item.graph.stime',date('YmdHi',(time()-$_REQUEST['period'])),$_REQUEST['itemid']));
-	update_profile('web.item.graph.stime', $_REQUEST['stime'], PROFILE_TYPE_STR, $_REQUEST['itemid']);
+		$bstime = $_REQUEST['stime'] = get_request('stime',
+										get_profile('web.item.graph.stime',date('YmdHi',(time()-$_REQUEST['period'])),
+										PROFILE_TYPE_STR,
+										$_REQUEST['itemid']));
+	update_profile('web.item.graph.stime', $_REQUEST['stime'], PROFILE_TYPE_STR);
 
 	if($_REQUEST['action']=='showgraph' && ($item_type != ITEM_VALUE_TYPE_LOG)){
 		$dom_graph_id = 'graph';
 		show_history($_REQUEST['itemid'],$_REQUEST['from'],$bstime,$effectiveperiod);
 	}
 	else if($_REQUEST['action']=='showvalues' || $_REQUEST['action']=='showlatest'){
-
+	
 		if($_REQUEST['action']=='showvalues') {
 			$time = mktime(substr($bstime,8,2),substr($bstime,10,2),0,substr($bstime,4,2),substr($bstime,6,2),substr($bstime,0,4));
 			$till = $time + $effectiveperiod;
 		}
-		$l_header = null;
-
+			$l_header = null;
+		
 		if(!isset($_REQUEST['plaintext'])){
 			if($item_type==ITEM_VALUE_TYPE_LOG){
 				$to_save_request = array('filter_task', 'filter', 'mark_color');
@@ -313,7 +315,7 @@ include_once "include/page_header.php";
 			}
 
 			if(($l_header || $r_header) &&	($_REQUEST['fullscreen']==0))
-				show_table_header($l_header,$r_header);
+					show_table_header($l_header,$r_header);
 		}
 		else{
 			$txt = new CTag('p','yes',$l_header);
@@ -350,8 +352,7 @@ include_once "include/page_header.php";
 					$sql_filter = ' AND h.value NOT LIKE '.zbx_dbstr('%'.$_REQUEST['filter'].'%');
 			}
 
-			$sql = 'SELECT hst.host,i.itemid,i.key_,i.description,h.clock,h.value,i.valuemapid,h.timestamp,h.source,'.
-					'h.severity,h.logeventid '.
+			$sql = 'SELECT hst.host,i.itemid,i.key_,i.description,h.clock,h.value,i.valuemapid,h.timestamp,h.source,h.severity '.
 					' FROM history_log h, items i, hosts hst '.
 					' WHERE hst.hostid=i.hostid '.
 						' AND h.itemid=i.itemid'.$sql_filter.
@@ -362,13 +363,12 @@ include_once "include/page_header.php";
 
 			if(!isset($_REQUEST['plaintext'])){
 				$table = new CTableInfo('...','log_history_table');
-				$table->setAttribute('id','graph');
+				$table->addOption('id','graph');
 				$table->setHeader(array(S_TIMESTAMP,
 						($item_cout>1)?S_ITEM:null,
 						S_LOCAL_TIME,
 						S_SOURCE,
 						S_SEVERITY,
-						S_EVENT_ID,
 						S_VALUE),'header');
 
 				$table->ShowStart(); // to solve memory leak we call 'Show' method by steps
@@ -424,13 +424,6 @@ include_once "include/page_header.php";
 							)
 					);
 
-				if($row['source'] == '' && $row['logeventid'] == '0'){
-					array_push($new_row,new CCol(' - '));
-				}
-				else{
-					array_push($new_row,$row['logeventid']);
-				}
-
 				$row['value'] = trim($row['value'],"\r\n");
 				$row['value'] = encode_log($row['value']);
 //				array_push($new_row,htmlspecialchars($row['value']));
@@ -446,7 +439,7 @@ include_once "include/page_header.php";
 						$int_color = ($max_color - $min_color) / count($_REQUEST['itemid']);
 						$int_color *= array_search($row['itemid'],$_REQUEST['itemid']);
 						$int_color += $min_color;
-						$crow->setAttribute('style','background-color: '.sprintf("#%X%X%X",$int_color,$int_color,$int_color));
+						$crow->addOption('style','background-color: '.sprintf("#%X%X%X",$int_color,$int_color,$int_color));
 					}
 					else {
 						$crow->setClass($color_style);
@@ -483,7 +476,7 @@ include_once "include/page_header.php";
 			if(!isset($_REQUEST['plaintext'])){
 				$table = new CTableInfo();
 				$table->setHeader(array(S_TIMESTAMP, S_VALUE));
-				$table->setAttribute('id','graph');
+				$table->addOption('id','graph');
 				$table->ShowStart(); // to solve memory leak we call 'Show' method by steps
 			}
 			else{
@@ -539,27 +532,21 @@ COpt::profiling_stop('history');
 	if(!isset($_REQUEST['plaintext'])){
 
 		if(str_in_array($_REQUEST['action'],array('showvalues','showgraph'))){
-
+		
 			$stime = get_min_itemclock_by_itemid($_REQUEST['itemid']);
 			$stime = (is_null($stime))?0:$stime;
 			$bstime = time()-$effectiveperiod;
-
+			
 			if(isset($_REQUEST['stime'])){
 				$bstime = $_REQUEST['stime'];
 				$bstime = mktime(substr($bstime,8,2),substr($bstime,10,2),0,substr($bstime,4,2),substr($bstime,6,2),substr($bstime,0,4));
 			}
-
+		
  			$script = 'scrollinit(0,'.$effectiveperiod.','.$stime.',0,'.$bstime.'); showgraphmenu("graph");';
 			if(isset($dom_graph_id))
 				$script.='graph_zoom_init("'.$dom_graph_id.'",'.$bstime.','.$effectiveperiod.',ZBX_G_WIDTH, 200, true);';
-
 			zbx_add_post_js($script);
-
-			$scroll_div = new CDiv();
-			$scroll_div->setAttribute('id','scroll_cntnr');
-			$scroll_div->setAttribute('style','border: 0px #CC0000 solid; height: 25px; width: 800px;');
-			$scroll_div->show();
-	//		navigation_bar("history.php",$to_save_request);
+			//		navigation_bar("history.php",$to_save_request);		}
 		}
 	}
 ?>

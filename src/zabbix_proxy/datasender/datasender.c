@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2006 SIA Zabbix
 **
@@ -45,6 +45,11 @@ struct history_table_t {
 	ZBX_HISTORY_FIELD	fields[ZBX_MAX_FIELDS];
 };
 
+struct last_ids {
+	ZBX_HISTORY_TABLE	*ht;
+	zbx_uint64_t		lastid;
+};
+
 static ZBX_HISTORY_TABLE ht={
 	"proxy_history", "history_lastid", 0,
 		{
@@ -53,7 +58,6 @@ static ZBX_HISTORY_TABLE ht={
 		{"source",	ZBX_PROTO_TAG_LOGSOURCE,	ZBX_JSON_TYPE_STRING,	""},
 		{"severity",	ZBX_PROTO_TAG_LOGSEVERITY,	ZBX_JSON_TYPE_INT,	"0"},
 		{"value",	ZBX_PROTO_TAG_VALUE,		ZBX_JSON_TYPE_STRING,	NULL},
-		{"logeventid",	ZBX_PROTO_TAG_LOGEVENTID,	ZBX_JSON_TYPE_INT,	"0"},
 		{NULL}
 		}
 };
@@ -63,22 +67,12 @@ static ZBX_HISTORY_TABLE dht={
 		{
 		{"clock",	ZBX_PROTO_TAG_CLOCK,		ZBX_JSON_TYPE_INT,	NULL},
 		{"druleid",	ZBX_PROTO_TAG_DRULE,		ZBX_JSON_TYPE_INT,	NULL},
-		{"dcheckid",	ZBX_PROTO_TAG_DCHECK,		ZBX_JSON_TYPE_INT,	NULL},
 		{"type",	ZBX_PROTO_TAG_TYPE,		ZBX_JSON_TYPE_INT,	NULL},
 		{"ip",		ZBX_PROTO_TAG_IP,		ZBX_JSON_TYPE_STRING,	NULL},
-		{"port",	ZBX_PROTO_TAG_PORT,	 	ZBX_JSON_TYPE_INT,	"0"},
-		{"key_",	ZBX_PROTO_TAG_KEY,		ZBX_JSON_TYPE_STRING,	""},
-		{"value",	ZBX_PROTO_TAG_VALUE,		ZBX_JSON_TYPE_STRING,	""},
-		{"status",	ZBX_PROTO_TAG_STATUS,		ZBX_JSON_TYPE_INT,	"0"},
-		{NULL}
-		}
-};
-
-static ZBX_HISTORY_TABLE areg={
-	"proxy_autoreg_host", "autoreg_host_lastid", 0,
-		{
-		{"clock",	ZBX_PROTO_TAG_CLOCK,		ZBX_JSON_TYPE_INT,	NULL},
-		{"host",	ZBX_PROTO_TAG_HOST,		ZBX_JSON_TYPE_STRING,	NULL},
+		{"port",	ZBX_PROTO_TAG_PORT,	 	ZBX_JSON_TYPE_INT,	NULL},
+		{"key_",	ZBX_PROTO_TAG_KEY,		ZBX_JSON_TYPE_STRING,	NULL},
+		{"value",	ZBX_PROTO_TAG_VALUE,		ZBX_JSON_TYPE_STRING,	NULL},
+		{"status",	ZBX_PROTO_TAG_STATUS,		ZBX_JSON_TYPE_INT,	NULL},
 		{NULL}
 		}
 };
@@ -93,7 +87,7 @@ static ZBX_HISTORY_TABLE areg={
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -108,7 +102,7 @@ static void	get_lastid(const ZBX_HISTORY_TABLE *ht, zbx_uint64_t *lastid)
 	zabbix_log(LOG_LEVEL_DEBUG, "In get_lastid() [%s.%s]",
 			ht->table,
 			ht->lastfieldname);
-
+	
 	result = DBselect("select nextid from ids where table_name='%s' and field_name='%s'",
 			ht->table,
 			ht->lastfieldname);
@@ -116,10 +110,10 @@ static void	get_lastid(const ZBX_HISTORY_TABLE *ht, zbx_uint64_t *lastid)
 	if (NULL == (row = DBfetch(result)))
 		*lastid = 0;
 	else
-		ZBX_STR2UINT64(*lastid, row[0])
+		*lastid = zbx_atoui64(row[0]);
 
 	DBfree_result(result);
-
+	
 	zabbix_log(LOG_LEVEL_DEBUG, "End of get_lastid() [%s.%s]:" ZBX_FS_UI64,
 			ht->table,
 			ht->lastfieldname,
@@ -134,7 +128,7 @@ static void	get_lastid(const ZBX_HISTORY_TABLE *ht, zbx_uint64_t *lastid)
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -150,7 +144,7 @@ static void	set_lastid(const ZBX_HISTORY_TABLE *ht, const zbx_uint64_t lastid)
 			ht->table,
 			ht->lastfieldname,
 			lastid);
-
+			
 	result = DBselect("select 1 from ids where table_name='%s' and field_name='%s'",
 			ht->table,
 			ht->lastfieldname);
@@ -179,7 +173,7 @@ static void	set_lastid(const ZBX_HISTORY_TABLE *ht, const zbx_uint64_t lastid)
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -217,7 +211,7 @@ static int get_history_data(struct zbx_json *j, const ZBX_HISTORY_TABLE *ht, zbx
 	while (NULL != (row = DBfetch(result))) {
 		zbx_json_addobject(j, NULL);
 
-		ZBX_STR2UINT64(*lastid, row[0])
+		*lastid = zbx_atoui64(row[0]);
 		zbx_json_addstring(j, ZBX_PROTO_TAG_HOST, row[1], ZBX_JSON_TYPE_STRING);
 		zbx_json_addstring(j, ZBX_PROTO_TAG_KEY, row[2], ZBX_JSON_TYPE_STRING);
 		*lastclock = atoi(row[ht->cidx + 3]);
@@ -248,7 +242,7 @@ static int get_history_data(struct zbx_json *j, const ZBX_HISTORY_TABLE *ht, zbx
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -286,12 +280,12 @@ static int get_dhistory_data(struct zbx_json *j, const ZBX_HISTORY_TABLE *ht, zb
 	while (NULL != (row = DBfetch(result))) {
 		zbx_json_addobject(j, NULL);
 
-		ZBX_STR2UINT64(*lastid, row[0])
+		*lastid = zbx_atoui64(row[0]);
 		*lastclock = atoi(row[ht->cidx + 1]);
 
 		for (f = 0; ht->fields[f].field != NULL; f ++)
 		{
-			if (NULL != ht->fields[f].default_value && 0 == strcmp(row[f + 1], ht->fields[f].default_value))
+			if (NULL != ht->fields[f].default_value && 0 == strcmp(row[f + 3], ht->fields[f].default_value))
 				continue;
 
 			zbx_json_addstring(j, ht->fields[f].tag, row[f + 1], ht->fields[f].jt);
@@ -315,7 +309,7 @@ static int get_dhistory_data(struct zbx_json *j, const ZBX_HISTORY_TABLE *ht, zb
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -324,8 +318,11 @@ static int get_dhistory_data(struct zbx_json *j, const ZBX_HISTORY_TABLE *ht, zb
  ******************************************************************************/
 static void	history_sender(struct zbx_json *j, int *records, int *lastclock)
 {
+	int		i;
 	zbx_sock_t	sock;
 	zbx_uint64_t	lastid;
+	struct last_ids li[ZBX_SENDER_TABLE_COUNT];
+	int		li_no = 0;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In history_sender()");
 
@@ -337,8 +334,12 @@ static void	history_sender(struct zbx_json *j, int *records, int *lastclock)
 
 	zbx_json_addarray(j, ZBX_PROTO_TAG_DATA);
 
-	*records = get_history_data(j, &ht, &lastid, lastclock);
-
+	if (0 != (*records = get_history_data(j, &ht, &lastid, lastclock)))
+	{
+		li[li_no].ht = &ht;
+		li[li_no].lastid = lastid;
+		li_no++;
+	}
 	zbx_json_close(j);
 
 	zbx_json_adduint64(j, ZBX_PROTO_TAG_CLOCK, (int)time(NULL));
@@ -351,7 +352,8 @@ retry:
 			if (SUCCEED == put_data_to_server(&sock, j))
 			{
 				DBbegin();
-				set_lastid(&ht, lastid);
+				for (i = 0; i < li_no; i++)
+					set_lastid(li[i].ht, li[i].lastid);
 				DBcommit();
 			}
 			else
@@ -375,7 +377,7 @@ retry:
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -384,8 +386,11 @@ retry:
  ******************************************************************************/
 static void	dhistory_sender(struct zbx_json *j, int *records, int *lastclock)
 {
+	int		i;
 	zbx_sock_t	sock;
 	zbx_uint64_t	lastid;
+	struct last_ids li[ZBX_SENDER_TABLE_COUNT];
+	int		li_no = 0;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In dhistory_sender()");
 
@@ -397,68 +402,12 @@ static void	dhistory_sender(struct zbx_json *j, int *records, int *lastclock)
 
 	zbx_json_addarray(j, ZBX_PROTO_TAG_DATA);
 
-	*records = get_dhistory_data(j, &dht, &lastid, lastclock);
-
-	zbx_json_close(j);
-
-	zbx_json_adduint64(j, ZBX_PROTO_TAG_CLOCK, (int)time(NULL));
-
-	if (*records > 0)
+	if (0 != (*records = get_dhistory_data(j, &dht, &lastid, lastclock)))
 	{
-retry:
-		if (SUCCEED == connect_to_server(&sock, 600))	/* alarm !!! */
-		{
-			if (SUCCEED == put_data_to_server(&sock, j))
-			{
-				DBbegin();
-				set_lastid(&dht, lastid);
-				DBcommit();
-			}
-			else
-				*records = 0;
-
-			disconnect_server(&sock);
-		}
-		else
-		{
-			sleep(CONFIG_DATASENDER_FREQUENCY);
-			goto retry;
-		}
+		li[li_no].ht = &dht;
+		li[li_no].lastid = lastid;
+		li_no++;
 	}
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: autoreg_host_sender                                              *
- *                                                                            *
- * Purpose:                                                                   *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value:                                                              *
- *                                                                            *
- * Author: Aleksander Vladishev                                               *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-static void	autoreg_host_sender(struct zbx_json *j, int *records, int *lastclock)
-{
-	zbx_sock_t	sock;
-	zbx_uint64_t	lastid;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In autoreg_host_sender()");
-
-	*lastclock = 0;
-
-	zbx_json_clean(j);
-	zbx_json_addstring(j, ZBX_PROTO_TAG_REQUEST, ZBX_PROTO_VALUE_AUTO_REGISTRATION_DATA, ZBX_JSON_TYPE_STRING);
-	zbx_json_addstring(j, ZBX_PROTO_TAG_HOST, CONFIG_HOSTNAME, ZBX_JSON_TYPE_STRING);
-
-	zbx_json_addarray(j, ZBX_PROTO_TAG_DATA);
-
-	*records = get_dhistory_data(j, &areg, &lastid, lastclock);
-
 	zbx_json_close(j);
 
 	zbx_json_adduint64(j, ZBX_PROTO_TAG_CLOCK, (int)time(NULL));
@@ -471,7 +420,8 @@ retry:
 			if (SUCCEED == put_data_to_server(&sock, j))
 			{
 				DBbegin();
-				set_lastid(&areg, lastid);
+				for (i = 0; i < li_no; i++)
+					set_lastid(li[i].ht, li[i].lastid);
 				DBcommit();
 			}
 			else
@@ -495,7 +445,7 @@ retry:
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -513,9 +463,9 @@ int	main_datasender_loop()
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In main_datasender_loop()");
 
-	phan.sa_sigaction = child_signal_handler;
+	phan.sa_handler = child_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 	sigaction(SIGALRM, &phan, NULL);
 
 	zbx_setproctitle("data sender [connecting to the database]");
@@ -544,13 +494,6 @@ retry_dhistory:
 
 		if (r == ZBX_MAX_HRECORDS && lastclock && time(NULL) - lastclock > CONFIG_DATASENDER_FREQUENCY * 2)
 			goto retry_dhistory;
-
-retry_autoreg_host:
-		autoreg_host_sender(&j, &r, &lastclock);
-		records += r;
-
-		if (r == ZBX_MAX_HRECORDS && lastclock && time(NULL) - lastclock > CONFIG_DATASENDER_FREQUENCY * 2)
-			goto retry_autoreg_host;
 
 		zabbix_log(LOG_LEVEL_DEBUG, "Datasender spent " ZBX_FS_DBL " seconds while processing %3d values.",
 				zbx_time() - sec,

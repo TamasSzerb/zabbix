@@ -19,7 +19,7 @@
 **/
 ?>
 <?php
-	function add_service($name,$triggerid,$algorithm,$showsla,$goodsla,$sortorder,$service_times=array(),$parentid,$childs){
+	function	add_service($name,$triggerid,$algorithm,$showsla,$goodsla,$sortorder,$service_times=array(),$parentid,$childs){
 
 		foreach($childs as $id => $child){		//add childs
 			if((bccomp($parentid , $child['serviceid'])==0)){
@@ -397,38 +397,41 @@ return ($time['mon'].'/'.$time['mday'].'/'.$time['year'].' '.$time['hours'].':'.
 
 		$data[$period_start]['alarm'] = get_last_service_value($serviceid,$period_start);
 
-/* sort by time stamp */
-		$sql = 'SELECT sa.servicealarmid, sa.clock, sa.value '.
-				' FROM service_alarms sa '.
-				' WHERE sa.serviceid='.$serviceid.
-					' AND sa.clock>='.$period_start.
-					' AND sa.clock<='.$period_end.
-				' ORDER BY sa.clock asc, sa.servicealarmid asc';
-		$service_alarms = DBselect($sql);
+		$service_alarms = DBselect('SELECT servicealarmid,clock,value '.
+							' FROM service_alarms '.
+							' WHERE serviceid='.$serviceid.
+								' AND clock>='.$period_start.
+								' AND clock<='.$period_end.
+							' ORDER BY servicealarmid');
+
+		/* add alarms */
 		while($db_alarm_row = DBfetch($service_alarms)){
 			$data[$db_alarm_row['clock']]['alarm'] = $db_alarm_row['value'];
 		}
 
-// add periodical uptimes
-		$sql = 'SELECT st.ts_from, st.ts_to '.
-				' FROM services_times st'.
-				' WHERE st.type='.SERVICE_TIME_TYPE_UPTIME.
-					' AND st.serviceid='.$serviceid;
-		$service_times = DBselect($sql);
+		/* add periodical downtimes */
+		$service_times = DBselect('SELECT ts_from,ts_to '.
+						' FROM services_times '.
+						' WHERE type='.SERVICE_TIME_TYPE_UPTIME.
+							' AND serviceid='.$serviceid);
+
 		if($db_time_row = DBfetch($service_times)){
-// if exist any uptime - unmarked time is downtime
+			/* if exist any uptime - unmarked time is downtime */
 			$unmarked_period_type = 'dt';
 			do{
-				expand_periodical_service_times($data,$period_start, $period_end,$db_time_row['ts_from'], $db_time_row['ts_to'],'ut');
+				expand_periodical_service_times($data,
+					$period_start, $period_end,
+					$db_time_row['ts_from'], $db_time_row['ts_to'],
+					'ut');
 
 			}while($db_time_row = DBfetch($service_times));
 		}
 		else{
-// if missed any uptime - unmarked time is uptime
+			/* if missed any uptime - unmarked time is uptime */
 			$unmarked_period_type = 'ut';
 		}
 
-// add periodical downtimes
+		/* add periodical downtimes */
 		$sql = 'SELECT ts_from,ts_to '.
 				' FROM services_times '.
 				' WHERE type='.SERVICE_TIME_TYPE_DOWNTIME.
@@ -438,12 +441,8 @@ return ($time['mon'].'/'.$time['mday'].'/'.$time['year'].' '.$time['hours'].':'.
 			expand_periodical_service_times($data,$period_start, $period_end,$db_time_row['ts_from'], $db_time_row['ts_to'],'dt');
 		}
 
-// add one-time downtimes
-		$sql = 'SELECT ts_from,ts_to '.
-				' FROM services_times '.
-				' WHERE type='.SERVICE_TIME_TYPE_ONETIME_DOWNTIME.
-					' AND serviceid='.$serviceid;
-		$service_times = DBselect($sql);
+		/* add one-time downtimes */
+		$service_times = DBselect('SELECT ts_from,ts_to FROM services_times WHERE type='.SERVICE_TIME_TYPE_ONETIME_DOWNTIME.' and serviceid='.$serviceid);
 		while($db_time_row = DBfetch($service_times)){
 
 			if( ($db_time_row['ts_to'] < $period_start) || ($db_time_row['ts_from'] > $period_end)) continue;
@@ -463,8 +462,7 @@ return ($time['mon'].'/'.$time['mday'].'/'.$time['year'].' '.$time['hours'].':'.
 		}
 		if(!isset($data[$period_end])) $data[$period_end] = array();
 
-// sort by time stamp
-		ksort($data);
+		ksort($data); /* sort by time stamp */
 /*
 		if($serviceid == 1 || $serviceid == 2){
 		print('<br>'.$serviceid.':<br>');
@@ -627,7 +625,7 @@ if($serviceid == 1 || $serviceid == 2){
 		$res =  DBSelect($query);
 		while($row = DBFetch($res)){
 			$childs[] = $row['servicedownid'];
-			$childs = zbx_array_merge($childs, get_service_childs($row['servicedownid']));
+			$childs = array_merge($childs, get_service_childs($row['servicedownid']));
 		}
 		return $childs;
 	}
@@ -656,8 +654,7 @@ if($serviceid == 1 || $serviceid == 2){
 					}
 				}
 			}
-		}
-		else {
+		} else {
 			$rows['caption'] = new CSpan($rows['caption'],'unknown');
 			$temp[$rows['serviceid'].'.'.$linkid]=$rows;
 		}
@@ -691,7 +688,7 @@ if($serviceid == 1 || $serviceid == 2){
 		}
 		else {
 			$rows['caption'] = new CSpan($rows['caption']);
-			$rows['caption']->setAttribute('style','color: #888888;');
+			$rows['caption']->AddOption('style','color: #888888;');
 			$temp[$rows['serviceid'].'.'.$linkid]=$rows;
 		}
 	return ;

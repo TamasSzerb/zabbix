@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -50,7 +50,7 @@
  *                                                                            *
  ******************************************************************************/
 void __zbx_zabbix_syslog(const char *fmt, ...)
-{
+{ 
 	va_list		ap;
 	char		value_str[MAX_STRING_LEN];
 
@@ -78,7 +78,7 @@ void __zbx_zabbix_syslog(const char *fmt, ...)
 
 	while((row=DBfetch(result)))
 	{
-		DBget_item_from_db(&item, row);
+		DBget_item_from_db(&item,row);
 
 		va_start(ap,fmt);
 		vsnprintf(value_str,sizeof(value_str),fmt,ap);
@@ -89,7 +89,7 @@ void __zbx_zabbix_syslog(const char *fmt, ...)
 		SET_STR_RESULT(&agent, strdup(value_str));
 
 		process_new_value(&item, &agent, now);
-
+		
 		free_result(&agent);
 	}
 

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -92,7 +92,7 @@ static struct zbx_option longopts[] =
 
 /* short options */
 
-static char	shortopts[] =
+static char	shortopts[] = 
 	"c:n:hV"
 #if defined (_WINDOWS)
 	"idsx"
@@ -105,7 +105,7 @@ pid_t	*threads=NULL;
 
 int	CONFIG_CONFSYNCER_FORKS		= 1;
 int	CONFIG_DATASENDER_FORKS		= 1;
-int	CONFIG_DBSYNCER_FORKS		= 1;
+int	CONFIG_DBSYNCER_FORKS		= 0;
 int	CONFIG_DISCOVERER_FORKS		= 1;
 int	CONFIG_HOUSEKEEPER_FORKS	= 1;
 int	CONFIG_PINGER_FORKS		= 1;
@@ -166,7 +166,7 @@ int	CONFIG_ENABLE_LOG		= 1;
 
 int	CONFIG_REFRESH_UNSUPPORTED	= 600;
 
-/* Zabbix server startup time */
+/* Zabbix server sturtup time */
 int     CONFIG_SERVER_STARTUP_TIME      = 0;
 
 /* Mutex for node syncs */
@@ -444,12 +444,12 @@ int MAIN_ZABBIX_ENTRY(void)
 		i <= CONFIG_CONFSYNCER_FORKS + CONFIG_DATASENDER_FORKS + CONFIG_POLLER_FORKS
 			+ CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_HOUSEKEEPER_FORKS
 			+ CONFIG_UNREACHABLE_POLLER_FORKS + CONFIG_HTTPPOLLER_FORKS + CONFIG_DISCOVERER_FORKS
-			+ CONFIG_DBSYNCER_FORKS + CONFIG_IPMIPOLLER_FORKS;
+			+ CONFIG_DBSYNCER_FORKS + CONFIG_IPMIPOLLER_FORKS; 
 		i++)
 	{
 		if ((pid = zbx_fork()) == 0) {
 			server_num = i;
-			break;
+			break; 
 		} else
 			threads[i] = pid;
 	}
@@ -462,7 +462,7 @@ int MAIN_ZABBIX_ENTRY(void)
 				server_num);
 
 		main_heart_loop();
-
+		
 		for (;;)
 			zbx_sleep(3600);
 	}
@@ -593,7 +593,7 @@ void	zbx_on_exit()
 {
 	zabbix_log(LOG_LEVEL_INFORMATION, "zbx_on_exit()");
 #if !defined(_WINDOWS)
-
+	
 	int i = 0;
 
 	if (threads != NULL) {
@@ -605,12 +605,12 @@ void	zbx_on_exit()
 		{
 			if (threads[i]) {
 				kill(threads[i], SIGTERM);
-				threads[i] = (ZBX_THREAD_HANDLE)NULL;
+				threads[i] = (ZBX_THREAD_HANDLE)0;
 			}
 		}
 		zbx_free(threads);
 	}
-
+	
 #endif /* not _WINDOWS */
 
 #ifdef USE_PID_FILE
@@ -633,7 +633,7 @@ void	zbx_on_exit()
 #endif
 
 	zabbix_close_log();
-
+	
 #ifdef  HAVE_SQLITE3
 	php_sem_remove(&sqlite_access);
 #endif /* HAVE_SQLITE3 */
@@ -644,3 +644,4 @@ void	zbx_on_exit()
 
 	exit(SUCCEED);
 }
+

@@ -503,7 +503,7 @@
 
 							$data['key_'] = $data['key'];
 							$data['hostid'] = $this->data[XML_TAG_HOST]['hostid'];
-							$data['applications'] = array_unique(zbx_array_merge($data['applications'],get_applications_by_itemid($item['itemid'])));
+							$data['applications'] = array_unique(array_merge($data['applications'],get_applications_by_itemid($item['itemid'])));
 							$data['templateid'] = $item['templateid'];
 
 							check_db_fields($item, $data);
@@ -557,8 +557,8 @@
 						$data['expression'] = str_replace('{{HOSTNAME}:','{'.$this->data[XML_TAG_HOST]['name'].':',$data['expression']);
 
 						$result = DBselect('SELECT DISTINCT t.triggerid,t.templateid,t.expression '.
-							' FROM triggers t,functions f,items i '.
-							' WHERE t.triggerid=f.triggerid '.
+ 							' FROM triggers t,functions f,items i '.
+ 							' WHERE t.triggerid=f.triggerid '.
 								' AND f.itemid=i.itemid'.
 	 							' AND i.hostid='.$this->data[XML_TAG_HOST]['hostid'].
 								' AND t.description='.zbx_dbstr($data['description']));
@@ -623,15 +623,7 @@
 						break; // case
 					}
 
-					if(!isset($data['ymin_type']))		$data['ymin_type']		= 0;
-					if(!isset($data['ymax_type']))		$data['ymax_type']		= 0;
-
-					if(!isset($data['ymin_item_key']))	$data['ymin_item_key']	= '';
-					if(!isset($data['ymax_item_key']))	$data['ymax_item_key']	= '';
-
-					if(!isset($data['ymin_itemid']))	$data['ymin_itemid']	= 0;
-					if(!isset($data['ymax_itemid']))	$data['ymax_itemid']	= 0;
-
+					if(!isset($data['yaxistype']))			$data['yaxistype']		= 0;
 					if(!isset($data['show_work_period']))	$data['show_work_period']	= 1;
 					if(!isset($data['show_triggers']))		$data['show_triggers']		= 1;
 					if(!isset($data['graphtype']))			$data['graphtype']		= 0;
@@ -642,49 +634,6 @@
 					if(!isset($data['percent_left']))		$data['percent_left']		= 0;
 					if(!isset($data['percent_right']))		$data['percent_right']		= 0;
 					if(!isset($data['items']))				$data['items']			= array();
-
-
-
-					if(!empty($data['ymin_item_key'])){
-						$data['ymin_item_key'] = explode(':', $data['ymin_item_key']);
-						if(count($data['ymin_item_key']) < 2){
-							$this->data[XML_TAG_GRAPH]['error'] = true;
-							error('Incorrect y min item for graph ['.$data['name'].']');
-							break; // case
-						}
-
-						$data['host']	= array_shift($data['ymin_item_key']);
-						$data['ymin_item_key']	= implode(':', $data['ymin_item_key']);
-
-						if(!$item = get_item_by_key($data['ymin_item_key'], $data['host'])){
-							$this->data[XML_TAG_GRAPH]['error'] = true;
-
-							error('Missed item ['.$data['ymin_item_key'].'] for host ['.$data['host'].']');
-							break; // case
-						}
-
-						$data['ymin_itemid'] = $item['itemid'];
-					}
-
-					if(!empty($data['ymax_item_key'])){
-						$data['ymax_item_key'] = explode(':', $data['ymax_item_key']);
-						if(count($data['ymax_item_key']) < 2){
-							$this->data[XML_TAG_GRAPH]['error'] = true;
-							error('Incorrect y max item for graph ['.$data['name'].']');
-							break; // case
-						}
-
-						$data['host']	= array_shift($data['ymax_item_key']);
-						$data['ymax_item_key']	= implode(':', $data['ymax_item_key']);
-
-						if(!$item = get_item_by_key($data['ymax_item_key'], $data['host'])){
-							$this->data[XML_TAG_GRAPH]['error'] = true;
-
-							error('Missed item ['.$data['ymax_item_key'].'] for host ['.$data['host'].']');
-							break; // case
-						}
-						$data['ymax_itemid'] = $item['itemid'];
-					}
 
 					if(!isset($this->data[XML_TAG_HOST]['hostid']) || !$this->data[XML_TAG_HOST]['hostid']){
 						if(isset($this->data[XML_TAG_HOST]['skip']) && $this->data[XML_TAG_HOST]['skip']){
@@ -714,25 +663,22 @@
 							$data['graphid'] = $graph['graphid'];
 
 							update_graph_with_items(
-								$data['graphid'],
-								$data['name'],
-								$data['width'],
-								$data['height'],
-								$data['ymin_type'],
-								$data['ymax_type'],
-								$data['yaxismin'],
-								$data['yaxismax'],
-								$data['ymin_itemid'],
-								$data['ymax_itemid'],
-								$data['show_work_period'],
-								$data['show_triggers'],
-								$data['graphtype'],
-								$data['show_legend'],
-								$data['show_3d'],
-								$data['percent_left'],
-								$data['percent_right'],
-								$data['items'],
-								$graph['templateid']);
+									$data['graphid'],
+									$data['name'],
+									$data['width'],
+									$data['height'],
+									$data['yaxistype'],
+									$data['yaxismin'],
+									$data['yaxismax'],
+									$data['show_work_period'],
+									$data['show_triggers'],
+									$data['graphtype'],
+									$data['show_legend'],
+									$data['show_3d'],
+									$data['percent_left'],
+									$data['percent_right'],
+									$data['items'],
+									$graph['templateid']);
 						}
 						else{ /* missed */
 							// continue [add_group]
@@ -746,24 +692,21 @@
 						}
 
 						$data['graphid'] = add_graph_with_items(
-							$data['name'],
-							$data['width'],
-							$data['height'],
-							$data['ymin_type'],
-							$data['ymax_type'],
-							$data['yaxismin'],
-							$data['yaxismax'],
-							$data['ymin_itemid'],
-							$data['ymax_itemid'],
-							$data['show_work_period'],
-							$data['show_triggers'],
-							$data['graphtype'],
-							$data['show_legend'],
-							$data['show_3d'],
-							$data['percent_left'],
-							$data['percent_right'],
-							$data['items']
-							);
+												$data['name'],
+												$data['width'],
+												$data['height'],
+												$data['yaxistype'],
+												$data['yaxismin'],
+												$data['yaxismax'],
+												$data['show_work_period'],
+												$data['show_triggers'],
+												$data['graphtype'],
+												$data['show_legend'],
+												$data['show_3d'],
+												$data['percent_left'],
+												$data['percent_right'],
+												$data['items']
+											);
 					}
 
 					break; // case
@@ -788,7 +731,7 @@
 					if(!isset($data['drawtype']))		$data['drawtype']	= 0;
 					if(!isset($data['sortorder']))		$data['sortorder']	= 0;
 					if(!isset($data['color']))		$data['color']		= 'Dark Green';
-					if(!isset($data['yaxisside']))		$data['yaxisside']	= 0;
+					if(!isset($data['yaxisside']))		$data['yaxisside']	= 1;
 					if(!isset($data['calc_fnc']))		$data['calc_fnc']	= 2;
 					if(!isset($data['type']))		$data['type']		= 0;
 					if(!isset($data['periods_cnt']))	$data['periods_cnt']	= 5;

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -133,7 +133,7 @@ int	add_perf_counter(const char *name, const char *counterPath, int interval)
 
 		zbx_free(alias_name);
 	}
-
+		
 	return result;
 }
 
@@ -279,7 +279,7 @@ void	close_perf_collector()
 			PdhRemoveCounter(cptr->handle);
 			cptr->handle = NULL;
 		}
-
+	
 	PdhCloseQuery(ppsd->pdh_query);
 	ppsd->pdh_query = NULL;
 
@@ -319,7 +319,7 @@ void	collect_perfstat()
 		zabbix_log( LOG_LEVEL_ERR, "Call to PdhCollectQueryData() failed: %s", strerror_from_module(status,"PDH.DLL"));
 		return;
 	}
-
+		
 	/* Process user-defined counters */
 	for ( cptr = ppsd->pPerfCounterList; cptr != NULL; cptr = cptr->next )
 	{

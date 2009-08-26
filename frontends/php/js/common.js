@@ -16,38 +16,27 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-// javascript document
+
+
 var agt = navigator.userAgent.toLowerCase();
 var OP = (agt.indexOf("opera") != -1) && window.opera;
 var IE = (agt.indexOf("msie") != -1) && document.all && !OP;
-var IE8 = (agt.indexOf("msie 8.0") != -1) && document.all && !OP;
-var IE7 = IE && !IE8 && document.all && !OP;
-var IE6 = (agt.indexOf("msie 6.0") != -1) && document.all && !OP;
 var CR = (agt.indexOf('chrome') != -1);
-var SF = (agt.indexOf("safari") != -1) && !CR;
-var WK = (agt.indexOf("applewebkit") != -1);
-var KQ = (agt.indexOf("khtml") != -1) && !WK;
-var GK = (agt.indexOf("gecko") != -1) && !KQ && !WK;
+var SF = (agt.indexOf("safari") != -1);
+var KQ = (agt.indexOf("khtml") != -1) && (!SF);
+var GK = (agt.indexOf("gecko") != -1) && !KQ && !SF;
 var MC = (agt.indexOf('mac') != -1)
 
-function checkBrowser(){
- if(OP) alert('Opera');
- if(IE) alert('IE');
- if(IE6) alert('IE6');
- if(IE7) alert('IE7');
- if(IE8) alert('IE8');
- if(CR) alert('Chrome');
- if(SF) alert('Safari');
- if(WK) alert('Apple Webkit');
- if(KQ) alert('Konqueror');
- if(MC) alert('Mac');
- if(GK) alert('FireFox');
-return 0;
-}
 
-function isset(key, obj){
-	if(typeof(obj[key]) != 'undefined') return true;
-return false;
+function checkBrowser(){
+	if(OP) SDI('Opera');
+	if(IE) SDI('IE');
+	if(CR) SDI('Chrome');
+	if(SF) SDI('Safari');
+	if(KQ) SDI('Konqueror');
+	if(MC) SDI('Mac');
+	if(GK) SDI('FireFox');
+return 0;
 }
 
 function empty(obj){
@@ -65,33 +54,16 @@ return false;
 }
 
 function is_number(obj){
-	return (typeof(obj) === 'number');
+	return (typeof(obj) == 'number');
 }
 
 function is_string(obj){
-	return (typeof(obj) === 'string');
+	return (typeof(obj) == 'string');
 }
 
 function is_array(obj) {
 	return obj != null && typeof obj == "object" &&
-	'splice' in obj && 'join' in obj;
-}
-
-if (!Array.prototype.forEach)
-{
-	Array.prototype.forEach = function(fun /*, thisp*/)
-	{
-		var len = this.length;
-		if (typeof fun != "function")
-			throw new TypeError();
-
-		var thisp = arguments[1];
-		for (var i = 0; i < len; i++)
-		{
-			if (i in this)
-				fun.call(thisp, this[i], i, this);
-		}
-	};
+      'splice' in obj && 'join' in obj;
 }
 
 function SDI(msg){
@@ -101,25 +73,17 @@ function SDI(msg){
 		var div_help = document.createElement('div');
 		var doc_body = document.getElementsByTagName('body')[0];
 		doc_body.appendChild(div_help);
-		
+
 		div_help.setAttribute('id','div_help');
-		div_help.setAttribute('style','position: absolute; right: 10px; top: 100px; border: 1px red solid; width: 500px; height: 400px; background-color: white; overflow: auto; z-index: 20;');
-		
-//		new Draggable(div_help,{});
+		div_help.setAttribute('style','position: absolute; left: 10px; top: 100px; border: 1px red solid; width: 500px; height: 400px; background-color: white; overflow: auto; z-index: 20;');
 	}
-	
+
 	div_help.appendChild(document.createTextNode("DEBUG INFO: "));
 	div_help.appendChild(document.createElement("br"));
 	div_help.appendChild(document.createTextNode(msg));
 	div_help.appendChild(document.createElement("br"));
 	div_help.appendChild(document.createElement("br"));
 }
-
-/*
-function SDI(msg){
-	alert("DEBUG INFO: " + msg);
-}
-//*/
 
 function SDJ(obj){
 	var debug = '';
@@ -130,28 +94,29 @@ function SDJ(obj){
 	SDI('\n'+debug);
 }
 
+
 /// Alpha-Betic sorting
 
 function addListener(element, eventname, expression, bubbling){
 	bubbling = bubbling || false;
 
-	element = $(element);
 	if(window.addEventListener){
 		element.addEventListener(eventname, expression, bubbling);
 		return true;
-	} 
+	}
 	else if(window.attachEvent){
 		element.attachEvent('on'+eventname, expression);
 		return true;
-	} 
+	}
 	else return false;
 }
 
+
 function add_variable(o_el, s_name, x_value, s_formname, o_document){
 	var form;
-	
+
 	if(!o_document)	o_document = document;
-	
+
 	if(s_formname){
 		if( !(form = o_document.forms[s_formname]) )
 			 throw "Missing form with name '"+s_formname+"'.";
@@ -164,23 +129,23 @@ function add_variable(o_el, s_name, x_value, s_formname, o_document){
 		if( !(form = this.form) )
 			throw "Missing form in 'this' object";
 	}
-	
+
 	var o_variable = o_document.createElement('input');
-	
+
 	if( !o_variable )	throw "Can't create element";
-	
+
 	o_variable.type = 'hidden';
 	o_variable.name = s_name;
 	o_variable.id = s_name;
 	o_variable.value = x_value;
 
 	form.appendChild(o_variable);
-	
+
 return true;
 }
 
 function cancelEvent(e){
-	if (!e) var e = window.event;	
+	if (!e) var e = window.event;
 //SDI(e);
 	if(e){
 		if(IE){
@@ -195,54 +160,22 @@ function cancelEvent(e){
 return false;
 }
 
-function checkAll(form_name, chkMain, shkName){
+function CheckAll(form_name, chkMain, shkName){
 	var frmForm = document.forms[form_name];
 	var value = frmForm.elements[chkMain].checked;
-
-	chkbxRange.checkAll(shkName, value);
-	return true;
-}
-
-
-function clearAllForm(form){
-	form = $(form);
-	var count = 0;
-	
-	var inputs = form.getElementsByTagName('input');
-	for(var i=0; i<inputs.length;i++){
-		var type = inputs[i].getAttribute('type');
-
-		switch(type){
-			case 'button':
-			case 'hidden':
-			case 'submit':
-				break;
-			case 'checkbox':
-				inputs[i].checked = false;
-				break;
-			case 'text':
-			case 'password':
-			default:
-				inputs[i].value = '';
-		}
+	for (var i=0; i < frmForm.length; i++){
+		name = frmForm.elements[i].name.split('[')[0];
+		if(frmForm.elements[i].type != 'checkbox') continue;
+		if(name == chkMain) continue;
+		if(shkName && shkName != name) continue;
+		if(frmForm.elements[i].disabled == true) continue;
+		frmForm.elements[i].checked = value;
 	}
-
-	var selects = form.getElementsByTagName('select');
-	for(var i=0; i<selects.length;i++){
-		selects[i].selectedIndex = 0;
-	}
-	
-	var areas = form.getElementsByTagName('textarea');
-	for(var i=0; i<areas.length;i++){
-		areas[i].innerHTML = '';
-	}
-
-return true;
 }
 
 function close_window(){
-	
-	window.setTimeout('window.close();', 500); /* Solve bug for Internet Explorer */
+
+	window.setTimeout("window.close()", 500); /* Solve bug for Internet Explorer */
 	return false;
 }
 
@@ -254,31 +187,26 @@ function Confirm(msg){
 }
 
 function create_var(form_name, var_name, var_val, subm){
+
 	var frmForm = (is_string(form_name))?document.forms[form_name]:form_name;
 	if(!frmForm) return false;
 
-	var objVar = (typeof(frmForm[var_name]) != 'undefined')?frmForm[var_name]:null;
-//	objVar=(objVar.length>0)?objVar[0]:null;
+	var objVar = document.getElementsByName(var_name);
+	objVar=(objVar.length>0)?objVar[0]:null;
 
 	if(is_null(objVar)){
 		objVar = document.createElement('input');
-		objVar.setAttribute('type',	'hidden');
-		
+		objVar.setAttribute('type', 	'hidden');
+
 		if(!objVar) return false;
 
 		frmForm.appendChild(objVar);
-		
-		objVar.setAttribute('name',	var_name);
-		objVar.setAttribute('id',	var_name);
+
+		objVar.setAttribute('name', 	var_name);
+		objVar.setAttribute('id', 		var_name);
 	}
 
-	if(is_null(var_val)){
-		objVar.parentNode.removeChild(objVar);
-	}
-	else{
-		objVar.value = var_val;
-	}
-	
+	objVar.value = var_val;
 	if(subm)
 		frmForm.submit();
 
@@ -296,6 +224,24 @@ function deselectAll(){
 	}
 }
 
+function empty_form(id){
+	id = $(id);
+	var count = 0;
+
+	var inputs = id.getElementsByTagName('input');
+	for(var i=0; i<inputs.length;i++){
+		if((inputs[i].type == 'text') && (typeof(inputs[i].hidden) == 'undefined') && !empty(inputs[i].value)) return false;
+		if((inputs[i].type == 'checkbox') && (inputs[i].checked)) return false;
+	}
+
+	var selects = id.getElementsByTagName('select');
+	for(var i=0; i<selects.length;i++){
+		if((typeof(selects[i].hidden) == 'undefined') && (selects[i].selectedIndex)) return false;
+	}
+
+return true;
+}
+
 function eventTarget(e){
 	var targ = false;
 
@@ -309,30 +255,14 @@ function eventTarget(e){
 return targ;
 }
 
-function getParent(obj, name){
-	if(obj.parentNode.nodeName.toLowerCase() == name.toLowerCase()) return obj.parentNode;
-	else if(obj.parentNode.nodeName.toLowerCase() == 'body') return null;
-	else return getParent(obj.parentNode, name);
-}
-
 function getPosition(obj){
-	obj = $(obj);
 	var pos = {top: 0, left: 0};
-	if(!is_null(obj) && (typeof(obj.offsetParent) != 'undefined')){
+	if(typeof(obj.offsetParent) != 'undefined') {
 		pos.left = obj.offsetLeft;
 		pos.top = obj.offsetTop;
-		try{
-			while(!is_null(obj.offsetParent)){
-				obj=obj.offsetParent;
-				pos.left += obj.offsetLeft;
-				pos.top += obj.offsetTop;
-
-				if(IE && (obj.offsetParent.toString() == 'unknown')){
-//					alert(obj.offsetParent.toString());
-					break;
-				}
-			}
-		} catch(e){
+		while (obj = obj.offsetParent) {
+			pos.left += obj.offsetLeft;
+			pos.top += obj.offsetTop;
 		}
 	}
 return pos;
@@ -375,12 +305,14 @@ function get_cursor_position(e){
 	if(e.pageX || e.pageY){
 		cursor.x = e.pageX;
 		cursor.y = e.pageY;
-	} 
+	}
 	else {
 		var de = document.documentElement;
 		var b = document.body;
-		cursor.x = e.clientX + (de.scrollLeft || b.scrollLeft) - (de.clientLeft || 0);
-		cursor.y = e.clientY + (de.scrollTop || b.scrollTop) - (de.clientTop || 0);
+		cursor.x = e.clientX +
+		(de.scrollLeft || b.scrollLeft) - (de.clientLeft || 0);
+		cursor.y = e.clientY +
+		(de.scrollTop || b.scrollTop) - (de.clientTop || 0);
 	}
 	return cursor;
 }
@@ -405,26 +337,9 @@ function get_scroll_pos(){
 	return [ scrOfX, scrOfY ];
 }
 
-function is_empty_form(id){
-	id = $(id);
-	var count = 0;
-
-	var inputs = id.getElementsByTagName('input');
-	for(var i=0; i<inputs.length;i++){
-		if((inputs[i].type == 'text') && (typeof(inputs[i].hidden) == 'undefined') && !empty(inputs[i].value)) return false;
-		if((inputs[i].type == 'checkbox') && (inputs[i].checked)) return false;
-	}
-
-	var selects = id.getElementsByTagName('select');
-	for(var i=0; i<selects.length;i++){
-		if((typeof(selects[i].hidden) == 'undefined') && (selects[i].selectedIndex)) return false;
-	}
-
-return true;
-}
 
 function openWinCentered(loc, winname, iwidth, iheight, params){
-		var uri = new Curl(loc);
+		var uri = new url(loc);
 		loc = uri.getUrl();
 
 		tp=Math.ceil((screen.height-iheight)/2);
@@ -442,7 +357,7 @@ function PopUp(url,width,height,form_name){
 	if(!height) height = 450;
 	if(!form_name) form_name = 'zbx_popup';
 
-	var left = (screen.width-(width+150))/2; 
+	var left = (screen.width-(width+150))/2;
 	var top = (screen.height-(height+150))/2;
 
 	var popup = window.open(url,form_name,'width=' + width +',height=' + height + ',top='+ top +',left='+ left +
@@ -454,24 +369,10 @@ function PopUp(url,width,height,form_name){
 }
 
 function redirect(uri) {
-	uri = new Curl(uri);
+	uri = new url(uri);
 	var loc = uri.getUrl();
 	window.location = loc;
 	return false;
-}
-
-function removeListener(element, eventname, expression, bubbling){
-	bubbling = bubbling || false;
-
-	if(window.removeEventListener){
-		element.removeEventListener(eventname, expression, bubbling);
-		return true;
-	} 
-	else if(window.detachEvent){
-		element.detachEvent('on'+eventname, expression);
-		return true;
-	} 
-	else return false;
 }
 
 function remove_childs(form_name,rmvbyname,tag){
@@ -499,10 +400,10 @@ function remove_element(elmnt,tag){
 	if(!is_null(elmnt)){
 		if(('undefined' != typeof(elmnt.nodeName)) && (elmnt.nodeName.toLowerCase() == tag.toLowerCase())){
 			elmnt.parentNode.removeChild(elmnt);
-		} 
+		}
 		else if(elmnt.nodeType == 9){
 			return false;
-		} 
+		}
 		else {
 			remove_element(elmnt.parentNode,tag);
 		}
@@ -510,12 +411,30 @@ function remove_element(elmnt,tag){
 return true;
 }
 
-function ShowHide(obj,style){
-	if(typeof(style) == 'undefined') var style = 'inline';
+function resizeiframe(id){
+	id = id || 'iframe';
+	var iframe = document.getElementById(id);
+	var indoc = (IE)?iframe.contentWindow.document:iframe.contentDocument;
+	if(typeof(indoc) == 'undefined') return;
+	var height = parseInt(indoc.getElementsByTagName('body')[0].scrollHeight);
+	var height2 = parseInt(indoc.getElementsByTagName('body')[0].offsetHeight);
 
+	if(height2 > height){
+		height = height2;
+	}
+
+	iframe.style.height = (height)+'px';
+
+	if(!is_null($('scroll')) && showgraphmenu){
+		showgraphmenu('iframe');
+	}
+}
+
+function ShowHide(obj,style){
+	if(typeof(style) == 'undefined')
+		var style = 'inline';
 	if(is_string(obj))
 		obj = document.getElementById(obj);
-
 	if(!obj){
 		throw 'ShowHide(): Object not found.';
 		return false;
@@ -529,49 +448,6 @@ function ShowHide(obj,style){
 		obj.style.display = style;
 		return 1;
 	}
-}
-
-function showHideEffect(obj, eff, time, cb_afterFinish){
-	obj = $(obj);
-	if(!obj){
-		throw 'showHideEffect(): Object not found.';
-		return false;
-	}
-
-	if(typeof(Effect) == 'undefined'){
-		eff = 'none';
-	}
-	
-	if(typeof(cb_afterFinish) == 'undefined'){
-		cb_afterFinish = function(){};
-	}
-
-	var timeShow = (typeof(time) == 'undefined')?0.5:(parseInt(time)/1000);
-	var show = (obj.style.display != 'none')?0:1;
-
-	switch(eff){
-		case 'blind':
-			if(show)
-				Effect.BlindDown(obj, { afterFinish: cb_afterFinish, duration: timeShow, queue: {position: 'end',scope: eff,limit: 2}} );
-			else
-				Effect.BlindUp(obj, { afterFinish: cb_afterFinish, duration: timeShow, queue: {position: 'end',scope: eff,limit: 2}} );
-			break;
-		case 'slide':
-			if(show)
-				Effect.SlideDown(obj, { afterFinish: cb_afterFinish, duration: timeShow, queue: {position: 'end',scope: eff,limit: 2}} );
-			else
-				Effect.SlideUp(obj, { afterFinish: cb_afterFinish, duration: timeShow, queue: {position: 'end',scope: eff,limit: 2}} );
-			break;
-		default:
-			if(show)
-				obj.show();
-			else
-				obj.hide();
-
-			cb_afterFinish();
-			break;
-	}
-return show;
 }
 
 function switchElementsClass(obj,class1,class2){
@@ -591,16 +467,8 @@ return false;
 
 
 /************************************************************************************/
-/*									Pages stuff										*/
+/*					Pages stuff					*/
 /************************************************************************************/
-function openPage(start){
-	var lnk = new Curl(location.href); 
-	lnk.setArgument('start', start);
-	location.href = lnk.getUrl();
-	
-return false;
-}
-
 function ScaleChartToParenElement(obj_name){
 	var obj = document.getElementsByName(obj_name);
 
@@ -612,11 +480,8 @@ function ScaleChartToParenElement(obj_name){
 }
 
 function insert_in_element(element_name, text){
-	if(IE8)
-		var elems = $$('div[name='+element_name+']');
-	else
-		var elems = document.getElementsByName(element_name);
-
+	var elems = document.getElementsByName(element_name);
+	
 	for(var key=0; key < elems.length; key++){
 		if((typeof(elems[key]) != 'undefined') && !is_null(elems[key])){
 			$(elems[key]).update(text);
@@ -639,22 +504,19 @@ var MMenu = {
 menus:			{'empty': 0, 'view': 0, 'cm': 0, 'reports': 0, 'config': 0, 'admin': 0},
 def_label:		null,
 sub_active: 	false,
-timeout_reset:	null,
-timeout_change:	null,
+timeout: 		null,
 
 mouseOver: function(show_label){
-	clearTimeout(this.timeout_reset);
-	this.timeout_change = setTimeout('MMenu.showSubMenu("'+show_label+'")', 200);
+	clearTimeout(this.timeout);
+	MMenu.showSubMenu(show_label);
 },
 
 submenu_mouseOver: function(){
-	clearTimeout(this.timeout_reset);
-	clearTimeout(this.timeout_change);
+	clearTimeout(this.timeout);
 },
 
 mouseOut: function(){
-	clearTimeout(this.timeout_change);
-	this.timeout_reset = setTimeout('MMenu.showSubMenu("'+this.def_label+'")', 2500);
+	this.timeout = setTimeout('MMenu.showSubMenu("'+this.def_label+'")', 2000);
 },
 
 showSubMenu: function(show_label){
@@ -681,25 +543,18 @@ showSubMenu: function(show_label){
 /************************************************************************************/
 // Author: Aly
 
-var chkbxRange = {
-startbox:			null,			// start checkbox obj
+var chkbx_range_ext = {
+startbox: 			null,			// start checkbox obj
 startbox_name: 		null,			// start checkbox name
 chkboxes:			new Array(),	// ckbx list
-pageGoName:			null,			// wich checkboxes should be counted by Go button
-pageGoCount:		0,				// selected checkboxes
 
 init: function(){
 	var chk_bx = document.getElementsByTagName('input');
-
 	for(var i=0; i < chk_bx.length; i++){
 		if((typeof(chk_bx[i]) != 'undefined') && (chk_bx[i].type.toLowerCase() == 'checkbox')){
 			this.implement(chk_bx[i]);
 		}
 	}
-	
-	var goButton = $('goButton');
-	if(!is_null(goButton))
-		addListener(goButton, 'click', this.submitGo.bindAsEventListener(this), false);
 },
 
 implement: function(obj){
@@ -709,168 +564,71 @@ implement: function(obj){
 	this.chkboxes[obj_name].push(obj);
 
 	addListener(obj, 'click', this.check.bindAsEventListener(this), false);
-	if(obj.checked){
-		this.setGo();
-	}
 },
 
 check: function(e){
 	var e = e || window.event;
+	if(!e.ctrlKey) return true;
 	var obj = eventTarget(e);
 
-	if((typeof(obj) == 'undefined') || (obj.type.toLowerCase() != 'checkbox')){
-		return true;
-	}
+	if((typeof(obj) != 'undefined') && (obj.type.toLowerCase() == 'checkbox')){
+		var obj_name = obj.name.split('[')[0];
 
-	this.setGo();
-
-	if(!(e.ctrlKey || e.shiftKey)) return true;
-
-	var obj_name = obj.name.split('[')[0];
-
-	if(!is_null(this.startbox) && (this.startbox_name == obj_name) && (obj.name != this.startbox.name)){
-		var chkbx_list = this.chkboxes[obj_name];
-		var flag = false;
-
-		for(var i=0; i < chkbx_list.length; i++){
-			if(typeof(chkbx_list[i]) !='undefined'){
-//alert(obj.name+' == '+chkbx_list[i].name);
-				if(flag){
-					chkbx_list[i].checked = this.startbox.checked;
-				}
-
-				if(obj.name == chkbx_list[i].name) break;
-				if(this.startbox.name == chkbx_list[i].name) flag = true;
-			}
-		}
-
-		if(flag){
-			this.startbox = null;
-			this.startbox_name = null;
-
-			this.setGo();
-			return true;
-		}
-		else{
-			for(var i=chkbx_list.length-1; i >= 0; i--){
+		if(!is_null(this.startbox) && (this.startbox_name == obj_name) && (obj.name != this.startbox.name)){
+			var chkbx_list = this.chkboxes[obj_name];
+			var flag = false;
+			
+			for(var i=0; i < chkbx_list.length; i++){
 				if(typeof(chkbx_list[i]) !='undefined'){
 //alert(obj.name+' == '+chkbx_list[i].name);
 					if(flag){
 						chkbx_list[i].checked = this.startbox.checked;
 					}
 
-					if(obj.name == chkbx_list[i].name){
-						this.startbox = null;
-						this.startbox_name = null;
-
-						this.setGo();
-						return true;
-					}
-
+					if(obj.name == chkbx_list[i].name) break;
 					if(this.startbox.name == chkbx_list[i].name) flag = true;
 				}
 			}
-		}
-
-	}
-	else{
-		if(!is_null(this.startbox)) this.startbox.checked = !this.startbox.checked;
-
-		this.startbox = obj;
-		this.startbox_name = obj_name;
-	}
-
-	this.setGo();
-},
-
-checkAll: function(name, value){
-	if(typeof(this.chkboxes[name]) == 'undefined') return false;
-
-	var chk_bx = this.chkboxes[name];
-	for(var i=0; i < chk_bx.length; i++){
-		if((typeof(chk_bx[i]) !='undefined') && (chk_bx[i].disabled != true)){
-			var box = chk_bx[i];
-			var obj_name = chk_bx[i].name.split('[')[0];
-
-			if(obj_name == name){
-				chk_bx[i].checked = value;
+			if(flag){
+				this.startbox = null;
+				this.startbox_name = null;
+				return true;
 			}
-
-		}
-	}
-},
-
-setGo: function(){
-	if(!is_null(this.pageGoName)){
-		var countChecked = 0;
-
-		if(typeof(this.chkboxes[this.pageGoName]) == 'undefined'){
-			alert('CheckBoxes with name '+this.pageGoName+' doesn\'t exist');
-			return false;
-		}
-
-		var chk_bx = this.chkboxes[this.pageGoName];
-		for(var i=0; i < chk_bx.length; i++){
-			if(typeof(chk_bx[i]) !='undefined'){
-				var box = chk_bx[i];
-				var obj_name = box.name.split('[')[0];
-				var crow = getParent(box,'tr');
-
-				if(box.checked){
-					if(!is_null(crow)){
-						var oldClass = crow.getAttribute('oldClass');
-						if(is_null(oldClass))
-							crow.setAttribute('oldClass',crow.className);
-							
-						crow.className = 'selected';
-					}
-					
-					if(obj_name == this.pageGoName) countChecked++;
-				}
-				else{
-					if(!is_null(crow)){
-						var oldClass = crow.getAttribute('oldClass');
-
-						if(!is_null(oldClass)){
-							crow.className = oldClass;
-							crow.removeAttribute('oldClass');
+			else{
+				for(var i=chkbx_list.length-1; i >= 0; i--){
+					if(typeof(chkbx_list[i]) !='undefined'){
+//alert(obj.name+' == '+chkbx_list[i].name);
+						if(flag){
+							chkbx_list[i].checked = this.startbox.checked;
 						}
+						
+						if(obj.name == chkbx_list[i].name){
+							this.startbox = null;
+							this.startbox_name = null;
+							return true;
+						}
+						if(this.startbox.name == chkbx_list[i].name) flag = true;
 					}
-				}
-
+				}	
 			}
+
 		}
-
-		var tmp_val = $('goButton').value.split(' ');
-		$('goButton').value = tmp_val[0]+' ('+countChecked+')';
-
-		this.pageGoCount = countChecked;
-	}
-	else{
-//		alert('Not isset pageGoName')
-	}
-},
-
-submitGo: function(e){
-	var e = e || window.event;
-	if(this.pageGoCount > 0){
-		return true;
-	}
-	else{
-		alert('No elements selected!');
-		Event.stop(e);
-		return false;
+		else{
+			if(!is_null(this.startbox)) this.startbox.checked = !this.startbox.checked;
+			
+			this.startbox = obj;
+			this.startbox_name = obj_name;
+		}
 	}
 }
 }
-
 /************************************************************************************/
 /*			Replace Standart Blink functionality				*/
 /************************************************************************************/
 // Author: Aly
 var blink = {
 	blinkobjs: new Array(),
-
+	
 	init: function(){
 		this.blinkobjs = document.getElementsByName("blink");
 		if(this.blinkobjs.length > 0) this.view();

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -51,7 +51,7 @@
  *                                                                            *
  ******************************************************************************/
 void __zbx_zabbix_syslog(const char *fmt, ...)
-{
+{ 
 	va_list		ap;
 	char		value_str[MAX_STRING_LEN];
 
@@ -67,21 +67,19 @@ void __zbx_zabbix_syslog(const char *fmt, ...)
 	if(CONFIG_ENABLE_LOG == 0)	return;
 
 	result = DBselect("select %s where h.hostid=i.hostid and h.status=%d and i.status=%d"
-			" and h.proxy_hostid=0 and i.key_='%s' and i.value_type=%d"
-			" and (h.maintenance_status=%d or h.maintenance_type=%d)" DB_NODE,
+			" and h.proxy_hostid=0 and i.key_='%s' and i.value_type=%d" DB_NODE,
 			ZBX_SQL_ITEM_SELECT,
 			ITEM_STATUS_ACTIVE,
 			HOST_STATUS_MONITORED,
 			SERVER_ZABBIXLOG_KEY,
 			ITEM_VALUE_TYPE_STR,
-			HOST_MAINTENANCE_STATUS_OFF, MAINTENANCE_TYPE_NORMAL,
 			DBnode_local("h.hostid"));
 
 	now = time(NULL);
 
 	while((row=DBfetch(result)))
 	{
-		DBget_item_from_db(&item, row);
+		DBget_item_from_db(&item,row);
 
 		va_start(ap,fmt);
 		vsnprintf(value_str,sizeof(value_str),fmt,ap);

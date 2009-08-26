@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -24,7 +24,6 @@
 /* time_t */
 #include <time.h>
 
-#include "zbxmacros.h"
 #include "common.h"
 #include "zbxdb.h"
 #include "dbschema.h"
@@ -208,11 +207,6 @@ typedef enum {
 #define DSERVICE_VALUE_LEN		255
 #define DSERVICE_VALUE_LEN_MAX		DSERVICE_VALUE_LEN+1
 
-#define HTTPTEST_HTTP_USER_LEN		64
-#define HTTPTEST_HTTP_USER_LEN_MAX	HTTPTEST_HTTP_USER_LEN+1
-#define HTTPTEST_HTTP_PASSWORD_LEN	64
-#define HTTPTEST_HTTP_PASSWORD_LEN_MAX	HTTPTEST_HTTP_PASSWORD_LEN+1
-
 #define PROXY_DHISTORY_IP_LEN		39
 #define PROXY_DHISTORY_IP_LEN_MAX	PROXY_DHISTORY_IP_LEN+1
 #define PROXY_DHISTORY_KEY_LEN		255
@@ -229,9 +223,9 @@ typedef enum {
 #define HTTPSTEP_REQUIRED_LEN		255
 #define HTTPSTEP_REQUIRED_LEN_MAX	HTTPSTEP_REQUIRED_LEN+1
 
-#define ZBX_SQL_ITEM_FIELDS	"i.itemid,i.key_,h.host,h.port,i.delay,i.description,i.nextcheck,i.type,i.snmp_community,i.snmp_oid,h.useip,h.ip,i.history,i.lastvalue,i.prevvalue,i.hostid,h.status,i.value_type,h.errors_from,i.snmp_port,i.delta,i.prevorgvalue,i.lastclock,i.units,i.multiplier,i.snmpv3_securityname,i.snmpv3_securitylevel,i.snmpv3_authpassphrase,i.snmpv3_privpassphrase,i.formula,h.available,i.status,i.trapper_hosts,i.logtimefmt,i.valuemapid,i.delay_flex,h.dns,i.params,i.trends,h.useipmi,h.ipmi_port,h.ipmi_authtype,h.ipmi_privilege,h.ipmi_username,h.ipmi_password,i.ipmi_sensor,h.maintenance_status,h.maintenance_type,h.maintenance_from,i.lastlogsize,i.data_type,h.ipmi_ip"
+#define ZBX_SQL_ITEM_FIELDS	"i.itemid,i.key_,h.host,h.port,i.delay,i.description,i.nextcheck,i.type,i.snmp_community,i.snmp_oid,h.useip,h.ip,i.history,i.lastvalue,i.prevvalue,i.hostid,h.status,i.value_type,h.errors_from,i.snmp_port,i.delta,i.prevorgvalue,i.lastclock,i.units,i.multiplier,i.snmpv3_securityname,i.snmpv3_securitylevel,i.snmpv3_authpassphrase,i.snmpv3_privpassphrase,i.formula,h.available,i.status,i.trapper_hosts,i.logtimefmt,i.valuemapid,i.delay_flex,h.dns,i.params,i.trends,h.useipmi,h.ipmi_port,h.ipmi_authtype,h.ipmi_privilege,h.ipmi_username,h.ipmi_password,i.ipmi_sensor,i.lastlogsize"
 #define ZBX_SQL_ITEM_TABLES	"hosts h, items i"
-#define ZBX_SQL_ITEM_FIELDS_NUM	52
+#define ZBX_SQL_ITEM_FIELDS_NUM	47
 #define ZBX_SQL_ITEM_SELECT	ZBX_SQL_ITEM_FIELDS " from " ZBX_SQL_ITEM_TABLES
 
 #define ZBX_MAX_SQL_LEN			65535
@@ -240,26 +234,29 @@ DB_DRULE
 {
 	zbx_uint64_t	druleid;
 	char		*iprange;
+	int		delay;
+	int		nextcheck;
 	char		*name;
-	zbx_uint64_t	unique_dcheckid;
+	int		status;
 };
 
 DB_DCHECK
 {
 	zbx_uint64_t	dcheckid;
+	zbx_uint64_t	druleid;
 	int		type;
 	char		*ports;
 	char		*key_;
 	char		*snmp_community;
-	char		*snmpv3_securityname;
-	int		snmpv3_securitylevel;
-	char		*snmpv3_authpassphrase;
-	char		*snmpv3_privpassphrase;
+	int		status;
+	char		value[DSERVICE_VALUE_LEN_MAX];
 };
 
 DB_DHOST
 {
 	zbx_uint64_t	dhostid;
+	zbx_uint64_t	druleid;
+	char		ip[HOST_IP_LEN_MAX];
 	int		status;
 	int		lastup;
 	int		lastdown;
@@ -268,10 +265,14 @@ DB_DHOST
 DB_DSERVICE
 {
 	zbx_uint64_t	dserviceid;
+	zbx_uint64_t	dhostid;
+	int		type;
+	int		port;
 	int		status;
 	int		lastup;
 	int		lastdown;
 	char		value[DSERVICE_VALUE_LEN_MAX];
+	char		key_[ITEM_KEY_LEN_MAX];
 };
 
 DB_EVENT
@@ -332,7 +333,6 @@ DB_ITEM
 	zbx_uint64_t	itemid;
 	zbx_uint64_t	hostid;
 	zbx_item_type_t	type;
-	zbx_item_data_type_t	data_type;
 	zbx_item_status_t	status;
 	char	*description;
 	char	*key;
@@ -382,7 +382,6 @@ DB_ITEM
 	int	timestamp;
 	int	eventlog_severity;
 	char	*eventlog_source;
-	int	logeventid;
 
 	char	*logtimefmt;
 	zbx_uint64_t	valuemapid;
@@ -397,12 +396,8 @@ DB_ITEM
 	char	*ipmi_username;
 	char	*ipmi_password;
 	char	*ipmi_sensor;
-
-	int	maintenance_status;
-	int	maintenance_type;
-	int	maintenance_from;
 };
-
+ 
 DB_FUNCTION
 {
 	zbx_uint64_t     functionid;
@@ -452,7 +447,6 @@ DB_TRIGGER
 /*	int	prevvalue; */
 	int	priority;
 	int	type;
-	char	error[TRIGGER_ERROR_LEN_MAX];
 };
 
 DB_ACTION
@@ -526,9 +520,6 @@ DB_HTTPTEST
 	char		*agent;
 	double		speed;
 	double		time;
-	int		authentication;
-	char		*http_user;
-	char		*http_password;
 };
 
 DB_HTTPSTEP
@@ -638,7 +629,7 @@ void    DBescape_string(const char *from, char *to, int maxlen);
 char*   DBdyn_escape_string(const char *str);
 char*	DBdyn_escape_string_len(const char *src, int max_src_len);
 
-void    DBget_item_from_db(DB_ITEM *item, DB_ROW row);
+void    DBget_item_from_db(DB_ITEM *item,DB_ROW row);
 
 zbx_uint64_t	DBadd_host(char *server, int port, int status, int useip, char *ip, int disable_until, int available);
 int	DBhost_exists(char *server);
@@ -692,8 +683,7 @@ int	DBadd_trend(zbx_uint64_t itemid, double value, int clock);
 int	DBadd_trend_uint(zbx_uint64_t itemid, zbx_uint64_t value, int clock);
 
 int	DBadd_history(zbx_uint64_t itemid, double value, int clock);
-int	DBadd_history_log(zbx_uint64_t itemid, char *value, int clock, int timestamp, char *source, int severity,
-		int logeventid, int lastlogsize);
+int	DBadd_history_log(zbx_uint64_t itemid, char *value, int clock, int timestamp, char *source, int severity, int lastlogsize);
 int	DBadd_history_str(zbx_uint64_t itemid, char *value, int clock);
 int	DBadd_history_text(zbx_uint64_t itemid, char *value, int clock);
 int	DBadd_history_uint(zbx_uint64_t itemid, zbx_uint64_t value, int clock);
@@ -702,19 +692,14 @@ void	DBproxy_add_history(zbx_uint64_t itemid, double value, int clock);
 void	DBproxy_add_history_uint(zbx_uint64_t itemid, zbx_uint64_t value, int clock);
 void	DBproxy_add_history_str(zbx_uint64_t itemid, char *value, int clock);
 void	DBproxy_add_history_text(zbx_uint64_t itemid, char *value, int clock);
-void	DBproxy_add_history_log(zbx_uint64_t itemid, char *value, int clock, int timestamp, char *source, int severity,
-		int logeventid, int lastlogsize);
+void	DBproxy_add_history_log(zbx_uint64_t itemid, char *value, int clock, int timestamp, char *source, int severity, int lastlogsize);
 
 
 void	DBadd_condition_alloc(char **sql, int *sql_alloc, int *sql_offset, const char *fieldname, const zbx_uint64_t *values, const int num);
 char	*zbx_host_key_string(zbx_uint64_t itemid);
 char	*zbx_host_key_string_by_item(DB_ITEM *item);
 char	*zbx_host_key_function_string(zbx_uint64_t functionid);
-char	*zbx_user_string(zbx_uint64_t userid);
 
 double	DBmultiply_value_float(DB_ITEM *item, double value);
 zbx_uint64_t	DBmultiply_value_uint64(DB_ITEM *item, zbx_uint64_t value);
-
-void	DBregister_host(zbx_uint64_t proxy_hostid, const char *host, int now);
-void	DBproxy_register_host(const char *host);
 #endif

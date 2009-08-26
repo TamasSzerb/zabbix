@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -92,7 +92,7 @@ double	zbx_time(void)
 
 	_ftime(&current);
 
-	return (((double)current.time) + 1.0e-3 * ((double)current.millitm));
+	return (((double)current.time) + 1.0e-6 * ((double)current.millitm));
 
 #else /* not _WINDOWS */
 
@@ -110,7 +110,7 @@ double	zbx_time(void)
  *                                                                            *
  * Function: zbx_current_time                                                 *
  *                                                                            *
- * Purpose: Gets the current time including UTC offset                        *
+ * Purpose: Gets the current time include UTC offset                          *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
@@ -296,7 +296,7 @@ static time_t	get_next_flexible_interval(char *delay_flex, time_t now)
  *                                                                            *
  * Function: calculate_item_nextcheck                                         *
  *                                                                            *
- * Purpose: calculate nextcheck timestamp for item                            *
+ * Purpose: calculate nextcheck timespamp for item                            *
  *                                                                            *
  * Parameters: delay - item's refresh rate in sec                             *
  *             now - current timestamp                                        *
@@ -368,7 +368,7 @@ int	calculate_item_nextcheck(zbx_uint64_t itemid, int item_type, int delay, char
  *                                                                            *
  * Parameters: ip - string                                                    *
  *                                                                            *
- * Return value: SUCCEED - is IPv4 address                                    *
+ * Return value: SUCCEED - is IPv4 address                                    * 
  *               FAIL - otherwise                                             *
  *                                                                            *
  * Author: Alexei Vladishev, Aleksander Vladishev                             *
@@ -418,7 +418,7 @@ static int	is_ip4(const char *ip)
  *                                                                            *
  * Parameters: ip - string                                                    *
  *                                                                            *
- * Return value: SUCCEED - is IPv6 address                                    *
+ * Return value: SUCCEED - is IPv6 address                                    * 
  *               FAIL - otherwise                                             *
  *                                                                            *
  * Author: Aleksader Vladishev                                                *
@@ -473,7 +473,7 @@ static int	is_ip6(const char *ip)
  *                                                                            *
  * Parameters: ip - string                                                    *
  *                                                                            *
- * Return value: SUCCEED - is IP address                                      *
+ * Return value: SUCCEED - is IP address                                      * 
  *               FAIL - otherwise                                             *
  *                                                                            *
  * Author: Aleksader Vladishev                                                *
@@ -505,7 +505,7 @@ int	is_ip(const char *ip)
  * Parameters: ip - IPv6 IPs [12fc::2]                                        *
  *             buf - result value [12fc:0000:0000:0000:0000:0000:0000:0002]   *
  *                                                                            *
- * Return value: FAIL - invalid IP address, SUCCEED - conversion OK           *
+ * Return value: FAIL - invlid IP address, SUCCEED - conversion OK            *
  *                                                                            *
  * Author: Alksander Vladishev                                                *
  *                                                                            *
@@ -516,7 +516,9 @@ int	expand_ipv6(const char *ip, char *str, size_t str_len )
 {
 	unsigned int	i[8]; /* x:x:x:x:x:x:x:x */
 	char		buf[5], *ptr;
-	int		c, dc, pos = 0, j, len, ip_len;
+	int		c, dc, pos = 0, j, len, ip_len, ret = FAIL;
+
+	zabbix_log(LOG_LEVEL_DEBUG, "In expand_ipv6(ip:%s)", ip);
 
 	c = 0; /* colons count */
 	for(ptr = strchr(ip, ':'); ptr != NULL; ptr = strchr(ptr + 1, ':'))
@@ -526,13 +528,13 @@ int	expand_ipv6(const char *ip, char *str, size_t str_len )
 
 	if(c < 2 || c > 7)
 	{
-		return FAIL;
+		goto out;
 	}
 
 	ip_len = strlen(ip);
 	if((ip[0] == ':' && ip[1] != ':') || (ip[ip_len - 1] == ':' && ip[ip_len - 2] != ':'))
 	{
-		return FAIL;
+		goto out;
 	}
 
 	memset(i, 0x00, sizeof(i));
@@ -544,11 +546,15 @@ int	expand_ipv6(const char *ip, char *str, size_t str_len )
 		if((ip[j] >= '0' && ip[j] <= '9') || (ip[j] >= 'A' && ip[j] <= 'F') || (ip[j] >= 'a' && ip[j] <= 'f'))
 		{
 			if(len > 3)
-				return FAIL;
+			{
+				goto out;
+			}
 			buf[len ++] = ip[j];
 		}
 		else if(ip[j] != ':')
-			return FAIL;
+		{
+			goto out;
+		}
 
 		if(ip[j] == ':' || ip[j + 1] == '\0')
 		{
@@ -568,85 +574,23 @@ int	expand_ipv6(const char *ip, char *str, size_t str_len )
 					pos = ( 8 - c ) + pos + (j == 0 ? 1 : 0);
 				}
 				else
-					return FAIL;
+				{
+					goto out;
+				}
 			}
 		}
 	}
-
 	zbx_snprintf(str, str_len, "%04x:%04x:%04x:%04x:%04x:%04x:%04x:%04x", i[0], i[1], i[2], i[3], i[4], i[5], i[6], i[7]);
+	ret = SUCCEED;
+out:
+	zabbix_log(LOG_LEVEL_DEBUG, "End expand_ipv6(ip:%s):%s", ip, ret == SUCCEED ? "SUCCEED" : "FAIL");
 
-	return SUCCEED;
+	return ret;
 }
 
 /******************************************************************************
  *                                                                            *
- * Function: collapse_ipv6                                                    *
- *                                                                            *
- * Purpose: convert array to IPv6 collapsed type                              *
- *                                                                            *
- * Parameters: ip - [IN] full IPv6 address [12fc:0:0:0:0:0:0:2]               *
- *                  [OUT] short IPv6 address [12fc::0]                        *
- *             ip_len - [IN] ip buffer len                                    *
- *                                                                            *
- * Return value: pointer to result buffer                                     *
- *                                                                            *
- * Author: Alksander Vladishev                                                *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-char	*collapse_ipv6(char *str, size_t str_len)
-{
-	int		i, c = 0, m = 0, idx = -1, idx2 = -1, offset = 0;
-	unsigned int	j[8];
-
-	if (8 != sscanf(str, "%x:%x:%x:%x:%x:%x:%x:%x", &j[0], &j[1], &j[2], &j[3], &j[4], &j[5], &j[6], &j[7]))
-		return str;
-
-	for (i = 0; i <= 8; i++)
-	{
-		if (i < 8 && j[i] == 0)
-		{
-			if (idx2 == -1)
-				idx2 = i;
-			c++;
-		}
-		else
-		{
-			if (c != 0 && c > m)
-			{
-				m = c;
-				idx = idx2;
-			}
-			c = 0;
-			idx2 = -1;
-		}
-	}
-
-	for (i = 0; i < 8; i++)
-	{
-		if (j[i] != 0 || idx == -1 || i < idx)
-		{
-			offset += zbx_snprintf(str + offset, str_len - offset, "%x", j[i]);
-			if (i > idx)
-				idx = -1;
-			if (i < 7)
-				offset += zbx_snprintf(str + offset, str_len - offset, ":");
-		}
-		else if (idx == i)
-		{
-			offset += zbx_snprintf(str + offset, str_len - offset, ":");
-			if (idx == 0)
-				offset += zbx_snprintf(str + offset, str_len - offset, ":");
-		}
-	}
-
-	return str;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: ip6_in_list                                                      *
+ * Function: ip_in_list_ipv6                                                  *
  *                                                                            *
  * Purpose: check if ip matches range of ip addresses                         *
  *                                                                            *
@@ -659,12 +603,12 @@ char	*collapse_ipv6(char *str, size_t str_len)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	ip6_in_list(char *list, char *ip)
+int	ip_in_list_ipv6(char *list, char *ip)
 {
 	char	*start, *comma = NULL, *dash = NULL, buffer[MAX_STRING_LEN];
 	int	i[8], j[9], ret = FAIL;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In ip6_in_list(list:%s,ip:%s)", list, ip);
+	zabbix_log(LOG_LEVEL_DEBUG, "In ip_in_list(list:%s,ip:%s)", list, ip);
 
 	if(FAIL == expand_ipv6(ip, buffer, sizeof(buffer)))
 	{
@@ -708,9 +652,9 @@ static int	ip6_in_list(char *list, char *ip)
 			j[8] = j[7];
 		}
 
-		if(i[0] == j[0] && i[1] == j[1] && i[2] == j[2] && i[3] == j[3] &&
-			i[4] == j[4] && i[5] == j[5] && i[6] == j[6] &&
-			i[7] >= j[7] && i[7] <= j[8])
+		if(i[0] == j[0] && i[1] == j[1] && i[2] == j[2] && i[3] == j[3] && 
+		   i[4] == j[4] && i[5] == j[5] && i[6] == j[6] && 
+		   i[7] >= j[7] && i[7] <= j[8])
 		{
 			ret = SUCCEED;
 			break;
@@ -744,9 +688,7 @@ out:
 		comma[0] = ',';
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of ip6_in_list():%s",
-			zbx_result_string(ret));
-
+	zabbix_log(LOG_LEVEL_DEBUG, "End ip_in_list(ret:%s)", ret == SUCCEED ? "SUCCEED" : "FAIL");
 	return ret;
 }
 #endif /*HAVE_IPV6*/
@@ -776,7 +718,7 @@ int	ip_in_list(char *list, char *ip)
 	if(sscanf(ip, "%d.%d.%d.%d", &i[0], &i[1], &i[2], &i[3]) != 4)
 	{
 #if defined(HAVE_IPV6)
-		ret = ip6_in_list(list, ip);
+		ret = ip_in_list_ipv6(list, ip);
 #endif /*HAVE_IPV6*/
 		goto out;
 	}
@@ -842,9 +784,7 @@ out:
 		comma[0] = ',';
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of ip_in_list():%s",
-			zbx_result_string(ret));
-
+	zabbix_log( LOG_LEVEL_DEBUG, "End ip_in_list(ret:%s)", ret == SUCCEED ? "SUCCEED" : "FAIL");
 	return ret;
 }
 
@@ -878,11 +818,11 @@ int	int_in_list(char *list, int value)
 		end=strchr(start, ',');
 
 		if(end != NULL)
-		{
+		{	
 			c=end[0];
 			end[0]='\0';
 		}
-
+		
 		if(sscanf(start,"%d-%d",&i1,&i2) == 2)
 		{
 			if(value>=i1 && value<=i2)
@@ -916,8 +856,7 @@ int	int_in_list(char *list, int value)
 		end[0]=c;
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of int_in_list():%s",
-			zbx_result_string(ret));
+	zabbix_log( LOG_LEVEL_DEBUG, "End int_in_list(ret:%s)", ret == SUCCEED?"SUCCEED":"FAIL");
 
 	return ret;
 }
@@ -929,7 +868,7 @@ int	int_in_list(char *list, int value)
  * Purpose: check if current time is within given period                      *
  *                                                                            *
  * Parameters: period - time period in format [d1-d2,hh:mm-hh:mm]*            *
- *             now    - timestamp for comparison                             *
+ *             now    - timestamp for comporation                             *
  *                      if NULL - use current timestamp.                      *
  *                                                                            *
  * Return value: 0 - out of period, 1 - within the period                     *
@@ -952,7 +891,7 @@ int	check_time_period(char *period, time_t now)
 
 	if (now == (time_t)NULL)
 		now = time(NULL);
-
+	
 	tm = localtime(&now);
 
 	day = tm->tm_wday;
@@ -1037,7 +976,7 @@ int	cmp_double(double a,double b)
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
- * Comments: the functions supports prefixes K,M,G                            *
+ * Comments: the functions support prefixes K,M,G                             *
  *                                                                            *
  ******************************************************************************/
 int	is_double_prefix(char *c)
@@ -1095,7 +1034,7 @@ int	is_double_prefix(char *c)
 	const char *endstr = str + strlen(str);
 	char *endptr = NULL;
 	double x;
-
+       
 	x = strtod(str, &endptr);
 
 	if(endptr == str || errno != 0)
@@ -1135,13 +1074,13 @@ int	is_double(char *c)
 		if(c[i]==' ') /* check right spaces */
 		{
 			for( ; c[i]==' ' && c[i]!=0;i++); /* trim right spaces */
-
+			
 			if(c[i]==0) break; /* SUCCEED */
 		}
 
 		return FAIL;
 	}
-
+	
 	if(len <= 0) return FAIL;
 
 	if(len == 1 && dot!=-1) return FAIL;
@@ -1171,25 +1110,25 @@ int	is_uint(char *c)
 	int	len;
 
 	for(i=0; c[i]==' ' && c[i]!=0;i++); /* trim left spaces */
-
+	
 	for(len=0; c[i]!=0; i++,len++)
 	{
 		if((c[i]>='0')&&(c[i]<='9'))
 		{
 			continue;
 		}
-
+		
 		if(c[i]==' ') /* check right spaces */
 		{
 			for( ; c[i]==' ' && c[i]!=0;i++); /* trim right spaces */
-
+			
 			if(c[i]==0) break; /* SUCCEED */
 		}
 		return FAIL;
 	}
 
 	if(len <= 0) return FAIL;
-
+	
 	return SUCCEED;
 }
 
@@ -1237,86 +1176,6 @@ int	is_uint64(register char *str, zbx_uint64_t *value)
 
 /******************************************************************************
  *                                                                            *
- * Function: is_uoct                                                          *
- *                                                                            *
- * Purpose: check if the string is unsigned octal                             *
- *                                                                            *
- * Parameters: c - string to check                                            *
- *                                                                            *
- * Return value:  SUCCEED - the string is unsigned octal                      *
- *                FAIL - otherwise                                            *
- *                                                                            *
- * Author: Aleksander Vladishev                                               *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-int	is_uoct(char *str)
-{
-	int	res = FAIL;
-
-	while (' ' == *str)	/* trim left spaces */
-		str++;
-
-	for (; '\0' != *str; str++)
-	{
-		if (*str < '0' || *str > '7')
-			break;
-
-		res = SUCCEED;
-	}
-
-	while (' ' == *str)	/* check right spaces */
-		str++;
-
-	if ('\0' != *str)
-		return FAIL;
-
-	return res;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: is_uhex                                                          *
- *                                                                            *
- * Purpose: check if the string is unsigned hexadecimal                       *
- *                                                                            *
- * Parameters: c - string to check                                            *
- *                                                                            *
- * Return value:  SUCCEED - the string is unsigned hexadecimal                *
- *                FAIL - otherwise                                            *
- *                                                                            *
- * Author: Aleksander Vladishev                                               *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-int	is_uhex(char *str)
-{
-	int	res = FAIL;
-
-	while (' ' == *str)	/* trim left spaces */
-		str++;
-
-	for (; '\0' != *str; str++)
-	{
-		if ((*str < '0' || *str > '9') && (*str < 'a' || *str > 'f') && (*str < 'A' || *str > 'F'))
-			break;
-
-		res = SUCCEED;
-	}
-
-	while (' ' == *str)	/* check right spaces */
-		str++;
-
-	if ('\0' != *str)
-		return FAIL;
-
-	return res;
-}
-
-/******************************************************************************
- *                                                                            *
  * Function: uint64_in_list                                                   *
  *                                                                            *
  * Purpose: check if uin64 integer matches a list of integers                 *
@@ -1345,11 +1204,11 @@ int	uint64_in_list(char *list, zbx_uint64_t value)
 		end=strchr(start, ',');
 
 		if(end != NULL)
-		{
+		{	
 			c=end[0];
 			end[0]='\0';
 		}
-
+		
 		if(sscanf(start,ZBX_FS_UI64 "-" ZBX_FS_UI64,&i1,&i2) == 2)
 		{
 			if(value>=i1 && value<=i2)
@@ -1384,8 +1243,7 @@ int	uint64_in_list(char *list, zbx_uint64_t value)
 		end[0]=c;
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of int_in_list():%s",
-			zbx_result_string(ret));
+	zabbix_log( LOG_LEVEL_DEBUG, "End int_in_list(ret:%s)", ret == SUCCEED?"SUCCEED":"FAIL");
 
 	return ret;
 }
@@ -1448,7 +1306,7 @@ static int	get_nearestindex(zbx_uint64_t *values, int num, zbx_uint64_t value)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	uint64_array_add(zbx_uint64_t **values, int *alloc, int *num, zbx_uint64_t value, int alloc_step)
+int	uint64_array_add(zbx_uint64_t **values, int *alloc, int *num, zbx_uint64_t value)
 {
 	int	index;
 
@@ -1458,7 +1316,7 @@ int	uint64_array_add(zbx_uint64_t **values, int *alloc, int *num, zbx_uint64_t v
 
 	if (*alloc == *num)
 	{
-		*alloc += alloc_step;
+		*alloc += 100;
 		*values = zbx_realloc(*values, *alloc * sizeof(zbx_uint64_t));
 	}
 
@@ -1468,29 +1326,6 @@ int	uint64_array_add(zbx_uint64_t **values, int *alloc, int *num, zbx_uint64_t v
 	(*num)++;
 
 	return index;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: uint64_array_merge                                               *
- *                                                                            *
- * Purpose: merge two uint64 arrays                                           *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value:                                                              *
- *                                                                            *
- * Author: Aleksander Vladishev                                               *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-void	uint64_array_merge(zbx_uint64_t **values, int *alloc, int *num, zbx_uint64_t *value, int value_num, int alloc_step)
-{
-	int	i;
-
-	for (i = 0; i < value_num; i++)
-		uint64_array_add(values, alloc, num, value[i], alloc_step);
 }
 
 /******************************************************************************

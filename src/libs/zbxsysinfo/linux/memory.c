@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -30,8 +30,8 @@ static int	VM_MEMORY_CACHED(const char *cmd, const char *param, unsigned flags, 
 
 	assert(result);
 
-	init_result(result);
-
+        init_result(result);
+		
 	if(NULL == (f = fopen("/proc/meminfo","r") ))
 	{
 		return	SYSINFO_RET_FAIL;
@@ -44,11 +44,11 @@ static int	VM_MEMORY_CACHED(const char *cmd, const char *param, unsigned flags, 
 			t=(char *)strtok(NULL," ");
 			sscanf(t, ZBX_FS_UI64, &res );
 			t=(char *)strtok(NULL," ");
-
+			
 			if(strcasecmp(t,"kb"))		res <<= 10;
-			else if(strcasecmp(t, "mb"))	res <<= 20;
-			else if(strcasecmp(t, "gb"))	res <<= 30;
-			else if(strcasecmp(t, "tb"))	res <<= 40;
+			else if(strcasecmp(t, "mb")) 	res <<= 20;
+			else if(strcasecmp(t, "gb")) 	res <<= 30;
+			else if(strcasecmp(t, "tb")) 	res <<= 40;
 
 			break;
 		}
@@ -65,8 +65,8 @@ static int	VM_MEMORY_BUFFERS(const char *cmd, const char *param, unsigned flags,
 
 	assert(result);
 
-	init_result(result);
-
+        init_result(result);
+		
 	if( 0 == sysinfo(&info))
 	{
 #ifdef HAVE_SYSINFO_MEM_UNIT
@@ -88,8 +88,8 @@ static int	VM_MEMORY_SHARED(const char *cmd, const char *param, unsigned flags, 
 
 	assert(result);
 
-	init_result(result);
-
+        init_result(result);
+		
 	if( 0 == sysinfo(&info))
 	{
 #ifdef HAVE_SYSINFO_MEM_UNIT
@@ -111,8 +111,8 @@ static int	VM_MEMORY_TOTAL(const char *cmd, const char *param, unsigned flags, A
 
 	assert(result);
 
-	init_result(result);
-
+        init_result(result);
+	
 	if( 0 == sysinfo(&info))
 	{
 #ifdef HAVE_SYSINFO_MEM_UNIT
@@ -134,8 +134,8 @@ static int	VM_MEMORY_FREE(const char *cmd, const char *param, unsigned flags, AG
 
 	assert(result);
 
-	init_result(result);
-
+        init_result(result);
+		
 	if( 0 == sysinfo(&info))
 	{
 #ifdef HAVE_SYSINFO_MEM_UNIT
@@ -167,7 +167,7 @@ static int      VM_MEMORY_PFREE(const char *cmd, const char *param, unsigned fla
 			return  SYSINFO_RET_FAIL;
 	tot_val = result_tmp.ui64;
 
-	/* Check for division by zero */
+	/* Check fot division by zero */
 	if(tot_val == 0)
 	{
 		free_result(&result_tmp);
@@ -227,7 +227,7 @@ MEM_FNCLIST
 	int (*function)();
 };
 
-	MEM_FNCLIST fl[] =
+	MEM_FNCLIST fl[] = 
 	{
 		{"free",	VM_MEMORY_FREE},
 		{"pfree",	VM_MEMORY_PFREE},
@@ -238,29 +238,29 @@ MEM_FNCLIST
 		{"available",	VM_MEMORY_AVAILABLE},
 		{0,	0}
 	};
-	char    mode[MAX_STRING_LEN];
+        char    mode[MAX_STRING_LEN];
 	int i;
 
-	assert(result);
+        assert(result);
 
-	init_result(result);
+        init_result(result);
 
-	if(num_param(param) > 1)
-	{
-		return SYSINFO_RET_FAIL;
-	}
+        if(num_param(param) > 1)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	if(get_param(param, 1, mode, sizeof(mode)) != 0)
-	{
-		mode[0] = '\0';
-	}
+        if(get_param(param, 1, mode, sizeof(mode)) != 0)
+        {
+                mode[0] = '\0';
+        }
 
-	if(mode[0] == '\0')
+        if(mode[0] == '\0')
 	{
 		/* default parameter */
 		zbx_snprintf(mode, sizeof(mode), "total");
 	}
-
+	
 	for(i=0; fl[i].mode!=0; i++)
 	{
 		if(strncmp(mode, fl[i].mode, MAX_STRING_LEN)==0)
@@ -268,6 +268,7 @@ MEM_FNCLIST
 			return (fl[i].function)(cmd, param, flags, result);
 		}
 	}
-
+	
 	return SYSINFO_RET_FAIL;
 }
+

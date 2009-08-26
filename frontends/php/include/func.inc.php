@@ -1,7 +1,7 @@
 <?php
 /*
 ** ZABBIX
-** Copyright (C) 2000-2009 SIA Zabbix
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,178 +19,41 @@
 **/
 ?>
 <?php
-
-/************* PAGING *************/
-function getPagingLine(&$items, $autotrim=true){
-	global $USER_DETAILS;
-	$config = select_config();
-
-	$search_limit = '';
-	if($config['search_limit'] < count($items)){
-		array_pop($items);
-		$search_limit = '+';
-	}
-
-	$start = get_request('start',0);
-	$rows_per_page = $USER_DETAILS['rows_per_page'];
-
-	$cnt_items = count($items);
-	$cnt_pages = ceil($cnt_items / $rows_per_page);
-
-	if($cnt_pages < 1) $cnt_pages = 1;
-
-	$crnt_page = floor($start / $rows_per_page) + 1;
-
-	if($autotrim){
-		$items = array_slice($items, $start, $rows_per_page, true);
-	}
-
-// Viewed pages (better to use not odd)
-	$view_pages = 11;
-
-	$endPage = $crnt_page + floor($view_pages/2);
-	if($endPage < $view_pages) $endPage = $view_pages;
-	if($endPage > $cnt_pages) $endPage = $cnt_pages;
-
-	$startPage = ($endPage > $view_pages)?($endPage - $view_pages + 1):1;
-
-// Page line
-	$pageline = array();
-
-	$table = BR();
-	if($cnt_pages > 1){
-		if($startPage > 1){
-			$page = new CSpan('<< '.S_FIRST, 'darklink');
-			$page->setAttribute('onclick', 'javascript: openPage(0);');
-
-			$pageline[] = $page;
-			$pageline[] = '&nbsp;&nbsp;';
-		}
-
-		if($crnt_page > 1){
-			$page = new CSpan('< '.S_PREVIOUS, 'darklink');
-			$page->setAttribute('onclick', 'javascript: openPage('.(($crnt_page-2) * $rows_per_page).');');
-
-			$pageline[] = $page;
-			$pageline[] = ' | ';
-		}
-
-		for($p=$startPage; $p <= $cnt_pages; $p++){
-			if($p > $endPage)	break;
-
-			if($p == $crnt_page){
-				$page = new CSpan($p, 'bold textcolorstyles');
-			}
-			else{
-				$page = new CSpan($p, 'darklink');
-				$page->setAttribute('onclick', 'javascript: openPage('.(($p-1) * $rows_per_page).');');
-			}
-
-			$pageline[] = $page;
-			$pageline[] = ' | ';
-		}
-
-		array_pop($pageline);
-
-		if($crnt_page <  $cnt_pages){
-			$page = new CSpan(S_NEXT.' >', 'darklink');
-			$page->setAttribute('onclick', 'javascript: openPage('.($crnt_page * $rows_per_page).');');
-
-			$pageline[] = ' | ';
-			$pageline[] = $page;
-		}
-
-		if($p < $cnt_pages){
-			$page = new CSpan(S_LAST.' >>', 'darklink');
-			$page->setAttribute('onclick', 'javascript: openPage('.(($cnt_pages-1) * $rows_per_page).');');
-
-			$pageline[] = '&nbsp;&nbsp;';
-			$pageline[] = $page;
-		}
-
-		$table = new CTable(null, 'paging');
-		$table ->addRow(new CCol($pageline));
-	}
-// Table view
-
-	$view_from_page = ($crnt_page-1) * $rows_per_page + 1;
-
-	$view_till_page = $crnt_page * $rows_per_page;
-	if($view_till_page > $cnt_items) $view_till_page = $cnt_items;
-
-	$page_view = array();
-	$page_view[] = S_DISPLAYING.SPACE;
-	if($cnt_items > 0){
-		$page_view[] = new CSpan($view_from_page,'info');
-		$page_view[] = SPACE.S_TO_SMALL.SPACE;
-	}
-
-	$page_view[] = new CSpan($view_till_page,'info');
-	$page_view[] = SPACE.S_OF_SMALL.SPACE;
-	$page_view[] = new CSpan($cnt_items,'info');
-	$page_view[] = $search_limit;
-	$page_view[] = SPACE.S_FOUND_SMALL;
-
-	$page_view = new CJSscript($page_view);
-
-	zbx_add_post_js('insert_in_element("numrows",'.zbx_jsvalue($page_view->toString()).');');
-
-return $table;
-}
-
 /************* DYNAMIC REFRESH *************/
-function add_doll_objects($ref_tab, $pmid='mainpage'){
-	$upd_script = array();
-	foreach($ref_tab as $id => $doll){
-		$upd_script[$doll['id']] = format_doll_init($doll);
-	}
 
-	zbx_add_post_js('initPMaster('.zbx_jsvalue($pmid).','.zbx_jsvalue($upd_script).');');
+function add_refresh_objects($ref_tab){
+	$min = 2147483647; // PHP_INT_MAX
+	foreach($ref_tab as $id => $obj){
+		$obj['interval'] = (isset($obj['interval']))?$obj['interval']:60;
+		zbx_add_post_js(get_refresh_obj_script($obj));
+
+		$min = ($min < $obj['interval'])?$min:$obj['interval'];
+	}
+	zbx_add_post_js('updater.interval = 10; updater.check4Update();');
 }
 
-function format_doll_init($doll){
-	global $USER_DETAILS;
-
-	$args = array('frequency' => 60,
-					'url' => '',
-					'counter' => 0,
-					'darken' => 0,
-					'params' => array()
-				);
-
-	foreach($args as $key => $def){
-		if(isset($doll[$key])) $obj[$key] = $doll[$key];
-		else $obj[$key] = $def;
-	}
-
+function get_refresh_obj_script($obj){
+	$obj['url'] = isset($obj['url'])?$obj['url']:'';
 	$obj['url'].= (zbx_empty($obj['url'])?'?':'&').'output=html';
 
-	$obj['params']['favobj'] = 'refresh';
-	$obj['params']['favid'] = $doll['id'];
-
-return $obj;
+return 'updater.setObj4Update("'.$obj['id'].'",'.$obj['interval'].',"'.$obj['url'].'",{"favobj": "refresh", "favid": "'.$obj['id'].'"});';
 }
 
-function get_update_doll_script($pmasterid, $dollid, $key, $value=''){
-	$script = 'PMasters['.zbx_jsvalue($pmasterid).'].dolls['.zbx_jsvalue($dollid).'].'.$key.'('.zbx_jsvalue($value).');';
-return $script;
-}
+function make_refresh_menu($id,$cur_interval,&$menu,&$submenu){
 
-function make_refresh_menu($pmid,$dollid,$cur_interval,$params=null,&$menu,&$submenu){
-
-	$menu['menu_'.$dollid][] = array(S_REFRESH, null, null, array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader')));
-	$intervals = array('10','30','60','120','600','900');
+	$menu['menu_'.$id][] = array(S_REFRESH, null, null, array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader')));
+	$intervals = array('10','30','60', '120','600','900');
 
 	foreach($intervals as $key => $value){
-		$menu['menu_'.$dollid][] = array(
+		$menu['menu_'.$id][] = array(
 					S_EVERY.SPACE.$value.SPACE.S_SECONDS_SMALL,
-					'javascript: setRefreshRate('.zbx_jsvalue($pmid).','.zbx_jsvalue($dollid).','.$value.','.zbx_jsvalue($params).');'.
+					'javascript: setRefreshRate("'.$id.'",'.$value.');'.
 					'void(0);',
 					null,
 					array('outer' => ($value == $cur_interval)?'pum_b_submenu':'pum_o_submenu', 'inner'=>array('pum_i_submenu')
 			));
 	}
-	$submenu['menu_'.$dollid][] = array();
+	$submenu['menu_'.$id][] = array();
 }
 
 /************* END REFRESH *************/
@@ -221,11 +84,11 @@ function inarr_isset($keys, $array=null){
 
 /************ COOKIES ************/
 /* function:
- *	get_cookie
+ *      get_cookie
  *
  * description:
- *	return cookie value by name,
- *	if cookie is not present return $default_value.
+ *      return cookie value by name,
+ *      if cookie is not present return $default_value.
  *
  * author: Eugene Grigorjev
  */
@@ -236,10 +99,10 @@ function get_cookie($name, $default_value=null){
 }
 
 /* function:
- *	zbx_setcookie
+ *      zbx_setcookie
  *
  * description:
- *	set cookies.
+ *      set cookies.
  *
  * author: Eugene Grigorjev
  */
@@ -249,10 +112,10 @@ function zbx_setcookie($name, $value, $time=null){
 }
 
 /* function:
- *	zbx_unsetcookie
+ *      zbx_unsetcookie
  *
  * description:
- *	unset and clear cookies.
+ *      unset and clear cookies.
  *
  * author: Aly
  */
@@ -284,14 +147,14 @@ function zbx_flush_post_cookies($unset=false){
 }
 
 /* function:
- *	zbx_set_post_cookie
+ *      zbx_set_post_cookie
  *
  * description:
- *	set cookies after authorisation.
- *	require calling 'zbx_flush_post_cookies' function
+ *      set cookies after authorisation.
+ *      require calling 'zbx_flush_post_cookies' function
  *	Called from:
- *	   a) in 'include/page_header.php'
- *	   b) from 'redirect()'
+ *         a) in 'include/page_header.php'
+ *         b) from 'redirect()'
  *
  * author: Eugene Grigorjev
  */
@@ -305,10 +168,10 @@ function zbx_set_post_cookie($name, $value, $time=null){
 
 /************* DATE *************/
 /* function:
- *	zbx_date2str
+ *      zbx_date2str
  *
  * description:
- *	Convert timestamp to string representation. Retun 'Never' if 0.
+ *      Convert timestamp to string representation. Retun 'Never' if 0.
  *
  * author: Alexei Vladishev
  */
@@ -317,10 +180,10 @@ function zbx_date2str($format, $timestamp){
 }
 
 /* function:
- *	zbx_date2age
+ *      zbx_date2age
  *
  * description:
- *	Calculate and convert timestamp to string representation.
+ *      Calculate and convert timestamp to string representation.
  *
  * author: Aly
  */
@@ -371,7 +234,8 @@ function zbx_date2age($start_date,$end_date=0,$utime = false){
 			(($hours && !$years)?$hours.'h ':'').
 			(($minutes && !$years && !$weeks)?$minutes.'m ':'').
 			((!$years && !$weeks && !$days && (!$ms || $seconds))?$seconds.'s ':'').
-			(($ms && !$years && !$weeks && !$days && !$hours)?$ms.'ms':'');return $str;
+			(($ms && !$years && !$weeks && !$days && !$hours)?$ms.'ms':'');
+return $str;
 }
 
 function getmicrotime(){
@@ -379,27 +243,6 @@ function getmicrotime(){
 	return ((float)$usec + (float)$sec);
 }
 
-function getDateStringByType($type, $timestamp){
-	$str = 'Wrong type';
-	switch($type){
-		case TIMEPERIOD_TYPE_HOURLY:
-			$str = date('H:i', $timestamp);
-			break;
-		case TIMEPERIOD_TYPE_DAILY:
-			$str = date('D H:i', $timestamp);
-			break;
-		case TIMEPERIOD_TYPE_WEEKLY:
-			$str = S_WEEK.' '.date('W', $timestamp);
-			break;
-		case TIMEPERIOD_TYPE_MONTHLY:
-			$str = date('M', $timestamp);
-			break;
-		case TIMEPERIOD_TYPE_YEARLY:
-			$str = date('Y', $timestamp);
-			break;
-	}
-return $str;
-}
 /************* END DATE *************/
 
 
@@ -431,10 +274,10 @@ return $array;
 
 
 /* function:
- *	zbx_rksort
+ *      zbx_rksort
  *
  * description:
- *	Recursively sort an array by key
+ *      Recursively sort an array by key
  *
  * author: Eugene Grigorjev
  */
@@ -448,237 +291,7 @@ function zbx_rksort(&$array, $flags=NULL){
 	return $array;
 }
 
-
-function array_quicksort(&$data, $sortfield, $sortorder=ZBX_SORT_UP, $level=0){
-	$return = array();
-	$greater = array();
-	$less = array();
-	$pivotList = array();
-
-	if(count($data) < 2) return $data;
-
-	foreach($data as $id => $row){
-		$pivot = $row;
-		$pivotid = $id;
-		break;
-	}
-
-	foreach($data as $id => $row){
-		$value = '';
-		$compareValue = '';
-
-		$value = strtolower($row[$sortfield]);
-		$compareValue = strtolower($pivot[$sortfield]);
-	  
-		if ($value < $compareValue) $less[$id] = $row;
-		if ($value == $compareValue) $pivotList[$id] = $row;
-		if ($value > $compareValue) $greater[$id] = $row;
-	}
-
-	$return += array_quicksort($less,$sortfield,$sortorder, $level+1);
-	$return += $pivotList;
-	$return += array_quicksort($greater,$sortfield,$sortorder, $level+1);
-
-	if(($level == 0) && ($sortorder == ZBX_SORT_DOWN)) $return = array_reverse($return, true);
-
-return $return;
-}
-
-// This function will preserve keys!!!
-// author: Aly
-function zbx_array_merge(){
-	$args = func_get_args();
-
-	$result = array();
-	foreach($args as &$array){
-		if(!is_array($array)) return false;
-
-		foreach($array as $key => $value){
-			$result[$key] = $value;
-		}
-	}
-
-return $result;
-}
 /************* END SORT *************/
-
-
-/*************** CONVERTING ******************/
-function rgb2hex($color){
-	$HEX = array(
-		dechex($color[0]),
-		dechex($color[1]),
-		dechex($color[2])
-	);
-
-	foreach($HEX as $id => $value){
-		if(strlen($value) != 2) $HEX[$id] = '0'.$value;
-	}
-
-return $HEX[0].$HEX[1].$HEX[2];
-}
-
-function zbx_num2bitstr($num,$rev=false){
-	if(!is_numeric($num)) return 0;
-
-	$sbin = 0;
-	$strbin = '';
-
-	$len = 32;
-	if($num > 2147483647) $len = 64;
-
-	for($i=0;$i<$len;$i++){
-		$sbin= 1 << $i;
-		$bit = ($sbin & $num)?'1':'0';
-		if($rev){
-			$strbin.=$bit;
-		}
-		else{
-			$strbin = $bit.$strbin;
-		}
-	}
-
-return $strbin;
-}
-
-function empty2null($var){
-	return ($var == "") ? null : $var;
-}
-
-function str2mem($val){
-	$val = trim($val);
-	$last = strtolower($val{strlen($val)-1});
-	switch($last){
-		// The 'G' modifier is available since PHP 5.1.0
-		case 'g':
-			$val *= 1024;
-		case 'm':
-			$val *= 1024;
-		case 'k':
-			$val *= 1024;
-	}
-
-	return $val;
-}
-
-function mem2str($size){
-	$prefix = 'B';
-	if($size > 1048576) {	$size = $size/1048576;	$prefix = 'M'; }
-	elseif($size > 1024) {	$size = $size/1024;	$prefix = 'K'; }
-	return round($size, 6).$prefix;
-}
-
-/* Do not forget to sync it with add_value_suffix in evalfunc.c! */
-function convert_units($value,$units){
-// Special processing for unix timestamps
-	if($units=='unixtime'){
-		$ret=date('Y.m.d H:i:s',$value);
-		return $ret;
-	}
-//Special processing of uptime
-	if($units=='uptime'){
-		$ret='';
-		$days=floor($value/(24*3600));
-		if($days>0){
-			$value=$value-$days*(24*3600);
-		}
-		$hours=floor($value/(3600));
-		if($hours>0){
-			$value=$value-$hours*3600;
-		}
-		$min=floor($value/(60));
-		if($min>0){
-			$value=$value-$min*(60);
-		}
-		if($days==0){
-			$ret = sprintf("%02d:%02d:%02d", $hours, $min, $value);
-		}
-		else{
-			$ret = sprintf("%d days, %02d:%02d:%02d", $days, $hours, $min, $value);
-		}
-		return $ret;
-	}
-// Special processing for seconds
-	if($units=='s'){
-		return zbx_date2age(0,$value,true);
-	}
-
-	$u='';
-
-// Special processing for bits (kilo=1000, not 1024 for bits)
-	if( ($units=='b') || ($units=='bps')){
-		$abs=abs($value);
-
-		if($abs<1000){
-			$u="";
-		}
-		else if($abs<1000*1000){
-			$u='K';
-			$value=$value/1000;
-		}
-		else if($abs<1000*1000*1000){
-			$u='M';
-			$value=$value/(1000*1000);
-		}
-		else{
-			$u='G';
-			$value=$value/(1000*1000*1000);
-		}
-
-		if(round($value) == round($value,2)){
-			$s=sprintf('%.0f',$value);
-		}
-		else{
-			$s=sprintf('%.2f',$value);
-		}
-
-	return "$s $u$units";
-	}
-
-
-	if($units==''){
-		if(round($value) == round($value,2)){
-			return sprintf('%.0f',$value);
-		}
-		else{
-			return sprintf('%.2f',$value);
-		}
-	}
-
-	$abs=abs($value);
-
-	if($abs<1024){
-		$u='';
-	}
-	else if($abs<1024*1024){
-		$u='K';
-		$value=$value/1024;
-	}
-	else if($abs<1024*1024*1024){
-		$u='M';
-		$value=$value/(1024*1024);
-	}
-	else if($abs<1024*1024*1024*1024){
-		$u='G';
-		$value=$value/(1024*1024*1024);
-	}
-	else{
-		$u='T';
-		$value=$value/(1024*1024*1024*1024);
-	}
-
-	if(round($value) == round($value,2)){
-		$s=sprintf('%.0f',$value);
-	}
-	else{
-		$s=sprintf('%.2f',$value);
-	}
-
-return "$s $u$units";
-}
-
-/*************** END CONVERTING ******************/
-
 
 /************* ZBX MISC *************/
 
@@ -737,8 +350,9 @@ return $pos;
 }
 
 function zbx_substring($haystack, $start, $end=null){
-	if(!is_null($end) && ($end < $start)) return '';
+	if($end < $start) return '';
 
+	$len = zbx_strlen($haystack);
 	if(is_null($end))
 		$result = substr($haystack, $start);
 	else
@@ -747,27 +361,10 @@ function zbx_substring($haystack, $start, $end=null){
 return $result;
 }
 
-function zbx_str_revert(&$str){
-	$result = '';
-
-	$str_rep = 	str_split($str);
-	foreach($str_rep as $num => $symb){
-		$result = $symb.$result;
-	}
-return $result;
-}
-
 function uint_in_array($needle,$haystack){
 	foreach($haystack as $id => $value)
 		if(bccomp($needle,$value) == 0) return true;
 return false;
-}
-
-function zbx_uint_array_intersect(&$array1, &$array2){
-	$result = array();
-	foreach($array1 as $key => $value)
-		if(uint_in_array($value, $array2)) $result[$key] = $value;
-return $result;
 }
 
 function str_in_array($needle,$haystack,$strict=false){
@@ -797,12 +394,7 @@ return $str_res;
 function zbx_value2array(&$values){
 	if(!is_array($values) && !is_null($values)){
 		$tmp = array();
-
-		if(is_object($values))
-			$tmp[] = $values;
-		else
-			$tmp[$values] = $values;
-
+		$tmp[$values] = $values;
 		$values = $tmp;
 	}
 }

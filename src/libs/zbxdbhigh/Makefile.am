@@ -12,7 +12,6 @@ libzbxdbhigh_a_SOURCES = \
 	host.c \
 	${ODBC_SRC} \
 	db.c \
-	dbschema.c \
-	macro.c
+	dbschema.c
 
 libzbxdbhigh_a_CFLAGS = -I@top_srcdir@/src/zabbix_server/

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -30,14 +30,14 @@ int	SYSTEM_LOCALTIME(const char *cmd, const char *param, unsigned flags, AGENT_R
 {
 	assert(result);
 
-	init_result(result);
-
+        init_result(result);
+	
 	SET_UI64_RESULT(result, time(NULL));
 
 	return SYSINFO_RET_OK;
 }
 
-int	SYSTEM_UNUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+int     SYSTEM_UNUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 #if defined(_WINDOWS)
 	char	counter_path[64];
@@ -46,15 +46,15 @@ int	SYSTEM_UNUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 
 	return PERF_MONITOR(cmd, counter_path, flags, result);
 #else
-	assert(result);
+        assert(result);
 
-	init_result(result);
+        init_result(result);
 
-	return EXECUTE_INT(cmd, "who|wc -l", flags, result);
+        return EXECUTE_INT(cmd, "who|wc -l", flags, result);
 #endif /* _WINDOWS */
 }
 
-int	SYSTEM_UNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+int     SYSTEM_UNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 #if defined(_WINDOWS)
 	DWORD	dwSize;
@@ -71,7 +71,7 @@ int	SYSTEM_UNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 		versionInfo;
 
 	dwSize = sizeof(computerName);
-
+	
 	if( 0 == GetComputerName(computerName,&dwSize))
 		computerName[0] = '\0';
 
@@ -81,8 +81,8 @@ int	SYSTEM_UNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 	{
 		case VER_PLATFORM_WIN32_WINDOWS:
 			zbx_snprintf(
-				osVersion,
-				sizeof(osVersion),
+				osVersion, 
+				sizeof(osVersion), 
 				"Windows %s-%s",
 				versionInfo.dwMinorVersion==0 ? "95" :
 					(versionInfo.dwMinorVersion==10 ? "98" :
@@ -148,8 +148,8 @@ int	SYSTEM_UNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 	}
 
 	zbx_snprintf(
-		buffer,
-		sizeof(buffer),
+		buffer, 
+		sizeof(buffer), 
 		"Windows %s %d.%d.%d %s %s",
 		computerName,
 		versionInfo.dwMajorVersion,
@@ -163,15 +163,15 @@ int	SYSTEM_UNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 
 	return SYSINFO_RET_OK;
 #else
-	assert(result);
+        assert(result);
 
-	init_result(result);
+        init_result(result);
 
-	return EXECUTE_STR(cmd, "uname -a", flags, result);
+        return EXECUTE_STR(cmd, "uname -a", flags, result);
 #endif /* _WINDOWS */
 }
 
-int	SYSTEM_HOSTNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+int     SYSTEM_HOSTNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 #if defined(_WINDOWS)
 	DWORD dwSize;
@@ -188,10 +188,10 @@ int	SYSTEM_HOSTNAME(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
 	return SYSINFO_RET_OK;
 #else
-	assert(result);
+        assert(result);
 
-	init_result(result);
+        init_result(result);
 
-	return EXECUTE_STR(cmd, "hostname", flags, result);
+        return EXECUTE_STR(cmd, "hostname", flags, result);
 #endif /* _WINDOWS */
 }

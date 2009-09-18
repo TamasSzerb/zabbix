@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,21 +17,18 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
+/*
+#define FDI(f, m) fprintf(stderr, "DEBUG INFO: " f "\n" , m) // show debug info to stderr
+#define SDI(m) FDI("%s", m) // string info
+#define IDI(i) FDI("%i", i) // integer info
+*/
 
-void	refresh_diskdevices()
-{
-}
-
-int	get_diskstat(const char *devname, zbx_uint64_t *dstat)
-{
-	return FAIL;
-}
-
-#if OFF
+#if 0
 /*
  * hidden
  */
@@ -85,7 +82,7 @@ typedef struct disk_data
 } DISK_DATA;
 #endif
 
-#if OFF
+#if 0
 /*
  * hidden
  */
@@ -102,12 +99,12 @@ static DISK_DATA *get_disk_data_record(const char *device)
 
       if (p)
 	{
-	  zbx_strlcpy(p->name, device, MAX_STRING_LEN);
+	  strncpy(p->name, device, MAX_STRING_LEN);
 
           if (p->name)
             {
 	      p->next = disks;
-
+              
               disks = p;
             }
 
@@ -124,13 +121,13 @@ static DISK_DATA *get_disk_data_record(const char *device)
 }
 #endif
 
-#if OFF
+#if 0
 /*
  * hidden
  */
 static int get_disk_kstat_record(const char *name,
                                  hrtime_t *crtime,
-                                 hrtime_t *snaptime,
+                                 hrtime_t *snaptime, 
                                  kstat_io_t *returned_data)
 {
   int result = SYSINFO_RET_FAIL;
@@ -161,9 +158,9 @@ static int get_disk_kstat_record(const char *name,
 
   return result;
 }
-#endif
+#endif 
 
-#if OFF
+#if 0
 /*
  * hidden
  */
@@ -203,7 +200,7 @@ int	DISKSVC(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *re
 }
 #endif
 
-#if OFF
+#if 0
 /*
  * hidden
  */
@@ -226,7 +223,7 @@ int	DISKBUSY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *r
              if (snaptime > p->busy.clock)
                 *value = ((kio.rtime - p->busy.rtime) * 100.0) / (snaptime - p->busy.clock);
 
-   	     else
+   	     else 
                *value = 0.0;
 
              p->busy.clock = snaptime;
@@ -255,7 +252,7 @@ static int get_kstat_io(
 	if (kt)
 	{
 	    if (kt->ks_type == KSTAT_TYPE_IO)
-	    {
+	    {	
 		if(kstat_read(kc, kt, returned_data) != -1)
 		{
 		    result = SYSINFO_RET_OK;
@@ -341,7 +338,7 @@ DEV_FNCLIST
 	int (*function)();
 };
 
-	DEV_FNCLIST fl[] =
+	DEV_FNCLIST fl[] = 
 	{
 		{"bytes", 	VFS_DEV_WRITE_BYTES},
 		{"operations", 	VFS_DEV_WRITE_OPERATIONS},
@@ -351,31 +348,31 @@ DEV_FNCLIST
 	char devname[MAX_STRING_LEN];
 	char mode[MAX_STRING_LEN];
 	int i;
-
+	
         assert(result);
 
         init_result(result);
-
+	
         if(num_param(param) > 2)
         {
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, devname, sizeof(mode)) != 0)
+        if(get_param(param, 1, devname, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
         }
-
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+	
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "bytes");
+		sprintf(mode, "bytes");
 	}
-
+	
 	for(i=0; fl[i].mode!=0; i++)
 	{
 		if(strncmp(mode, fl[i].mode, MAX_STRING_LEN)==0)
@@ -383,7 +380,7 @@ DEV_FNCLIST
 			return (fl[i].function)(cmd, devname, flags, result);
 		}
 	}
-
+	
 	return SYSINFO_RET_FAIL;
 }
 
@@ -397,7 +394,7 @@ DEV_FNCLIST
 	int (*function)();
 };
 
-	DEV_FNCLIST fl[] =
+	DEV_FNCLIST fl[] = 
 	{
 		{"bytes",	VFS_DEV_READ_BYTES},
 		{"operations",	VFS_DEV_READ_OPERATIONS},
@@ -407,29 +404,29 @@ DEV_FNCLIST
 	char devname[MAX_STRING_LEN];
 	char mode[MAX_STRING_LEN];
 	int i;
-
+	
         assert(result);
 
         init_result(result);
-
+	
         if(num_param(param) > 2)
         {
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, devname, sizeof(devname)) != 0)
+        if(get_param(param, 1, devname, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
         }
-
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+	
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "bytes");
+		sprintf(mode, "bytes");
 	}
 	for(i=0; fl[i].mode!=0; i++)
 	{
@@ -449,3 +446,4 @@ int	OLD_IO(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *res
 
         return SYSINFO_RET_FAIL;
 }
+

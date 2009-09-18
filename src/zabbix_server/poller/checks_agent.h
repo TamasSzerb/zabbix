@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,11 +20,27 @@
 #ifndef ZABBIX_CHECKS_AGENT_H
 #define ZABBIX_CHECKS_AGENT_H
 
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+
+#include "config.h"
+
+#ifdef HAVE_NETDB_H
+	#include <netdb.h>
+#endif
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
+#include "common.h"
 #include "db.h"
-#include "sysinfo.h"
+#include "log.h"
 
-extern char	*CONFIG_SOURCE_IP;
+extern  int     CONFIG_NOTIMEWAIT;
 
-int	get_value_agent(DB_ITEM *item, AGENT_RESULT *result);
+extern	int	get_value_agent(DB_ITEM *item, AGENT_RESULT *result);
 
 #endif

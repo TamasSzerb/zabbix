@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,28 +20,12 @@
 #ifndef ZABBIX_TRAPPER_H
 #define ZABBIX_TRAPPER_H
 
-#include "common.h"
-#include "comms.h"
+extern	int	server_num;
 
-extern int	CONFIG_TIMEOUT;
-extern int	CONFIG_TRAPPER_TIMEOUT;
+extern	int	CONFIG_TIMEOUT;
 
-#define AGENT_VALUE	struct zbx_agent_value_t
+extern	void	signal_handler( int sig );
 
-AGENT_VALUE
-{
-	int	clock;
-	char	host_name[HOST_HOST_LEN_MAX];
-	char	key[ITEM_KEY_LEN_MAX];
-	char	*value;
-	int	lastlogsize;
-	int	timestamp;
-	char	*source;
-	int	severity;
-	int	logeventid;
-};
-
-int	send_result(zbx_sock_t *sock, int result, char *info);
-void	child_trapper_main(zbx_process_t p, zbx_sock_t *s);
+pid_t	child_trapper_make(int i,int listenfd, int addrlen);
 
 #endif

@@ -1,10 +1,11 @@
-#!/bin/bash
+#!/bin/sh
 
 clear
+
 rm -f WARNINGS
 
 echo Pre-making...
-aclocal -I m4
+aclocal
 autoconf
 autoheader
 automake -a
@@ -25,22 +26,17 @@ automake
 #tar cvzf zabbix.tgz zabbix
 #exit
 echo Configuring...
-#export CFLAGS="-Wall -Wuninitialized -O -DDEBUG"
-export CFLAGS="-Wall -Wuninitialized -O -g"
+export CFLAGS="-Wall"
 #export CFLAGS="-Wall -pedantic"
-#for db in sqlite3 pgsql mysql; do
-for db in mysql; do
-	./configure --enable-proxy --enable-agent --enable-server --with-jabber --with-ldap --with-libcurl --with-$db --with-net-snmp --prefix=`pwd` --enable-ipv6 --with-openipmi 2>>WARNINGS >/dev/null
-# ORACLE parameters --with-oracle --with-oracle-include=/usr/include/oracle/11.1/client64/ --with-oracle-lib=/usr/lib/oracle/11.1/client64/lib/>/dev/null
-	echo Cleaning...
-	make -j4 clean 2>>WARNINGS >/dev/null
-	echo Making dbschema...
-	make -j4 dbschema 2>>WARNINGS >/dev/null
-	echo Making...
-	make 2>>WARNINGS >/dev/null
-	echo Installing...
-	make -j4 install 2>>WARNINGS >/dev/null
-done
+./configure --enable-agent --enable-server --with-mysql --with-net-snmp --prefix=`pwd` 2>>WARNINGS >/dev/null
+#./configure --enable-agent --enable-server --with-pgsql --with-net-snmp --prefix=`pwd` 2>>WARNINGS >/dev/null
+#./configure --enable-agent --enable-server --with-oracle=/home/zabbix/sqlora8 --with-net-snmp --prefix=`pwd` 2>>WARNINGS >/dev/null
+echo Cleaning...
+make clean 2>>WARNINGS >/dev/null
+echo Making...
+make 2>>WARNINGS >/dev/null
+#echo Installing...
+make install 2>>WARNINGS >/dev/null
 
 echo
 echo WARNINGS

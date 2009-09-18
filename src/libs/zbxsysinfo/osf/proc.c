@@ -17,18 +17,19 @@
  * ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  * **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 #define DO_SUM 0
 #define DO_MAX 1
 #define DO_MIN 2
 #define DO_AVG 3
-
+				    
 int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 { /* usage: <function name>[ <process name>, <user name>, <mode>, <command> ] */
-
+	
     DIR		*dir;
     int		proc;
 
@@ -36,7 +37,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
     struct  stat	buf;
     struct passwd	*usrinfo = NULL;
     struct prpsinfo	psinfo;
-
+    
     char	filename[MAX_STRING_LEN];
 
     char	procname[MAX_STRING_LEN];
@@ -54,7 +55,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	assert(result);
 
 	init_result(result);
-
+	
 	if(num_param(param) > 4)
 	{
 		return SYSINFO_RET_FAIL;
@@ -64,7 +65,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	{
 		return SYSINFO_RET_FAIL;
 	}
-
+    
 	if(get_param(param, 2, usrname, MAX_STRING_LEN) != 0)
 	{
 		usrname[0] = 0;
@@ -77,7 +78,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 			if(usrinfo == NULL)
 			{ /* incorrect user name */
 				return SYSINFO_RET_FAIL;
-			}
+			}			        
 		}
 	}
 
@@ -111,7 +112,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	{
 		return SYSINFO_RET_FAIL;
 	}
-
+    
 	if(get_param(param, 4, proccomm, MAX_STRING_LEN) != 0)
 	{
 		proccomm[0] = '\0';
@@ -125,7 +126,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
 	while((entries=readdir(dir))!=NULL)
 	{
-		strscpy(filename,"/proc/");
+		strscpy(filename,"/proc/");	
 		zbx_strlcat(filename,entries->d_name,MAX_STRING_LEN);
 
 		if(stat(filename,&buf)==0)
@@ -133,19 +134,19 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 			proc = open(filename,O_RDONLY);
 			if(proc == -1)
 				goto lbl_skip_procces;
-
+			
 			if(ioctl(proc,PIOCPSINFO,&psinfo) == -1)
 				goto lbl_skip_procces;
 
 			/* Self process information. It leads to incorrect results for proc_cnt[zabbix_agentd] */
 			if(psinfo.pr_pid == curr_pid)
 				goto lbl_skip_procces;
-
+			
 			if(procname[0] != 0)
 				if(strcmp(procname,psinfo.pr_fname) != 0)
 					goto lbl_skip_procces;
-
-
+			
+			
 			if(usrinfo != NULL)
 				if(usrinfo->pw_uid != psinfo.pr_uid)
 					goto lbl_skip_procces;
@@ -153,9 +154,9 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 			if(proccomm[0] != '\0')
 				if(zbx_regexp_match(psinfo.pr_psargs,proccomm,NULL) == NULL)
 					goto lbl_skip_procces;
-
+			
 			proccount++;
-
+				
 			if(memsize < 0) /* First inicialization */
 			{
 				memsize = (double) (psinfo.pr_rssize * pgsize);
@@ -175,7 +176,7 @@ int     PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 					memsize +=  (double) (psinfo.pr_rssize * pgsize);
 				}
 			}
-lbl_skip_procces:
+lbl_skip_procces:			
 			if(proc) close(proc);
 		}
 	}
@@ -202,7 +203,7 @@ lbl_skip_procces:
 
 int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 { /* usage: <function name>[ <process name>, <user name>, <process state>, <command> ] */
-
+	
     DIR		*dir;
     int		proc;
 
@@ -210,7 +211,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
     struct  stat	buf;
     struct passwd	*usrinfo = NULL;
     struct prpsinfo	psinfo;
-
+    
     char	filename[MAX_STRING_LEN];
 
     char	procname[MAX_STRING_LEN];
@@ -226,7 +227,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 	assert(result);
 
 	init_result(result);
-
+	
 	if(num_param(param) > 4)
 	{
 		return SYSINFO_RET_FAIL;
@@ -236,7 +237,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 	{
 		return SYSINFO_RET_FAIL;
 	}
-
+    
 	if(get_param(param, 2, usrname, MAX_STRING_LEN) != 0)
 	{
 		usrname[0] = 0;
@@ -249,7 +250,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 			if(usrinfo == NULL)
 			{ /* incorrect user name */
 				return SYSINFO_RET_FAIL;
-			}
+			}			        
 		}
 	}
 
@@ -262,7 +263,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 	{
 		strscpy(procstat, "all");
 	}
-
+    
         if(strcmp(procstat,"run") == 0)
         {
 		procstat[0] = PR_SRUN;		procstat[1] = '\0';
@@ -283,7 +284,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
         {
 		return SYSINFO_RET_FAIL;
         }
-
+    
 	if(get_param(param, 4, proccomm, MAX_STRING_LEN) != 0)
 	{
 		proccomm[0] = '\0';
@@ -297,7 +298,7 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 
 	while((entries=readdir(dir))!=NULL)
 	{
-		strscpy(filename,"/proc/");
+		strscpy(filename,"/proc/");	
 		zbx_strlcat(filename,entries->d_name,MAX_STRING_LEN);
 
 		if(stat(filename,&buf)==0)
@@ -305,22 +306,22 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 			proc = open(filename,O_RDONLY);
 			if(proc == -1)
 				goto lbl_skip_procces;
-
+			
 			if(ioctl(proc,PIOCPSINFO,&psinfo) == -1)
 				goto lbl_skip_procces;
 
 			/* Self process information. It leads to incorrect results for proc_cnt[zabbix_agentd] */
 			if(psinfo.pr_pid == curr_pid)
 				goto lbl_skip_procces;
-
+			
 			if(procname[0] != 0)
 				if(strcmp(procname,psinfo.pr_fname) != 0)
 					goto lbl_skip_procces;
-
+			
 			if(usrinfo != NULL)
 				if(usrinfo->pw_uid != psinfo.pr_uid)
 					goto lbl_skip_procces;
-
+			
 			if(procstat[0] != '\0')
 				if(psinfo.pr_sname != procstat[0])
 					goto lbl_skip_procces;
@@ -328,10 +329,10 @@ int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 			if(proccomm[0] != '\0')
 				if(zbx_regexp_match(psinfo.pr_psargs,proccomm,NULL) == NULL)
 					goto lbl_skip_procces;
-
+			
 			proccount++;
-
-lbl_skip_procces:
+				
+lbl_skip_procces:			
 			if(proc) close(proc);
 		}
 	}

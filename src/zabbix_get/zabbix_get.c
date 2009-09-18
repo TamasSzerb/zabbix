@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,72 +17,71 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
+#include "config.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <netinet/in.h>
+#include <netdb.h>
+
+#include <string.h>
+
+/* OpenBSD*/
+#ifdef HAVE_SYS_SOCKET_H
+	#include <sys/socket.h>
+#endif
+
+#include <signal.h>
+#include <time.h>
+
+#include <errno.h>
+
+#include <string.h>
+
 #include "common.h"
 
-#include "threads.h"
-#include "comms.h"
-#include "cfg.h"
-#include "log.h"
-#include "zbxgetopt.h"
-
 char *progname = NULL;
-char title_message[] = "ZABBIX Get";
-char usage_message[] = "[-hV] -s<host name or IP> [-p<port>] [-I<ip address>] -k<key>";
-
-#ifdef HAVE_GETOPT_LONG
+char title_message[] = "ZABBIX get - Communicate with ZABBIX agent";
+char usage_message[] = "[-hv] -s<host name or IP> [-p<port number>] -k<key>";
+#ifndef HAVE_GETOPT_LONG
 char *help_message[] = {
         "Options:",
-	"  -s --host <host name or IP>          Specify host name or IP address of a host.",
-	"  -p --port <port number>              Specify port number of agent running on the host. Default is 10050.",
-	"  -I --source-address <ip address>     Specify source IP address",
+	"  -p <port number>         Specify port number of agent running on the host. Default is 10050.",
+	"  -s <host name or IP>     Specify host name or IP address of a host.",
+	"  -k <key of metric>       Specify metric name (key) we want to retrieve.",
+	"  -h                       give this help",
+	"  -v                       display version number",
 	"",
-	"  -k --key <key of metric>             Specify metric name (key) we want to retrieve.",
-	"",
-	"  -h --help                            Give this help",
-	"  -V --version                         Display version number",
-	"",
-	"Example: zabbix_get -s127.0.0.1 -p10050 -k\"system.cpu.load[all,avg1]\"",
+	"Example: zabbix_get -s127.0.0.1 -p10050 -k\"system[procload]\"",
         0 /* end of text */
 };
 #else
 char *help_message[] = {
         "Options:",
-	"  -s <host name or IP>         Specify host name or IP address of a host.",
-	"  -p <port number>             Specify port number of agent running on the host. Default is 10050.",
-	"  -I <ip address>              Specify source IP address",
+	"  -p --port <port number>        Specify port number of agent running on the host. Default is 10050.",
+	"  -s --host <host name or IP>    Specify host name or IP address of a host.",
+	"  -k --key <key of metric>       Specify metric name (key) we want to retrieve.",
+	"  -h --help                      give this help",
+	"  -v --version                   display version number",
 	"",
-	"  -k <key of metric>           Specify metric name (key) we want to retrieve.",
-	"",
-	"  -h                           Give this help",
-	"  -V                           Display version number",
-	"",
-	"Example: zabbix_get -s127.0.0.1 -p10050 -k\"system.cpu.load[all,avg1]\"",
+	"Example: zabbix_get -s127.0.0.1 -p10050 -k\"system[procload]\"",
         0 /* end of text */
 };
 #endif
 
-/* COMMAND LINE OPTIONS */
-
-/* long options */
-struct zbx_option longopts[] =
+struct option longopts[] =
 {
-	{"host",		1,	0,	's'},
-	{"port",		1,	0,	'p'},
-	{"key",			1,	0,	'k'},
-	{"source-address",	1,	0,	'I'},
-	{"help",		0,	0,	'h'},
-	{"version",		0,	0,	'V'},
+	{"port",	1,	0,	'p'},
+	{"host",	1,	0,	's'},
+	{"key",		1,	0,	'k'},
+	{"help",	0,	0,	'h'},
+	{"version",	0,	0,	'v'},
 	{0,0,0,0}
 };
 
-/* short options */
-
-static char     shortopts[] = "s:p:k:I:hV";
-
-/* end of COMMAND LINE OPTIONS*/
-
-
-#if !defined(_WINDOWS)
 
 /******************************************************************************
  *                                                                            *
@@ -104,17 +103,15 @@ void    signal_handler( int sig )
 	if( SIGALRM == sig )
 	{
 		signal( SIGALRM, signal_handler );
-		zbx_error("Timeout while executing operation.");
+		fprintf(stderr,"Timeout while executing operation.\n");
 	}
-
+ 
 	if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig )
 	{
-/*		zbx_error("\nGot QUIT or INT or TERM signal. Exiting..." ); */
+/*		fprintf(stderr,"\nGot QUIT or INT or TERM signal. Exiting..." ); */
 	}
 	exit( FAIL );
 }
-
-#endif /* not WINDOWS */
 
 /******************************************************************************
  *                                                                            *
@@ -122,53 +119,90 @@ void    signal_handler( int sig )
  *                                                                            *
  * Purpose: connect to ZABBIX agent and receive value for given key           *
  *                                                                            *
- * Parameters: host   - serv name or IP address                               *
+ * Parameters: server - serv name or IP address                               *
  *             port   - port number                                           *
  *             key    - item's key                                            *
- *             value_max_len - maximal size of value                          *
  *                                                                            *
  * Return value: SUCCEED - ok, FAIL - otherwise                               *
  *             value   - retrieved value                                      *
  *                                                                            *
- * Author: Eugene Grigorjev                                                   *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	get_value(
-	const char	*source_ip,
-	const char	*host,
-	unsigned short	port,
-	const char	*key,
-	char		**value
-	)
+static int	get_value(char *server,int port,char *key,char *value)
 {
-	zbx_sock_t	s;
-	int	ret;
-	char	*buf,
-		request[1024];
+	int	i,s;
+	char	tosend[1024];
+	struct hostent *hp;
 
-	assert(value);
+	struct sockaddr_in myaddr_in;
+	struct sockaddr_in servaddr_in;
 
-	*value = NULL;
+/*	struct linger ling;*/
 
-	if (SUCCEED == (ret = zbx_tcp_connect(&s, source_ip, host, port, SENDER_TIMEOUT))) {
-		zbx_snprintf(request, sizeof(request),"%s\n",key);
-		if( SUCCEED == (ret = zbx_tcp_send(&s, request)) )
-		{
-			if( SUCCEED == (ret = zbx_tcp_recv_ext(&s, &buf, ZBX_TCP_READ_UNTIL_CLOSE)) )
-			{
-				zbx_rtrim(buf,"\r\n\0");
-				*value = strdup(buf);
-			}
-		}
+/*	printf("get_value([%s],[%d],[%s])",server,port,key);*/
+
+	servaddr_in.sin_family=AF_INET;
+	hp=gethostbyname(server);
+
+	if(hp==NULL)
+	{
+		fprintf(stderr, "Error: %s\n", strerror(errno));
+		return	FAIL;
 	}
-	zbx_tcp_close(&s);
 
-	if (FAIL == ret)
-		zbx_error("Get value error: %s", zbx_tcp_strerror());
+	servaddr_in.sin_addr.s_addr=((struct in_addr *)(hp->h_addr))->s_addr;
 
-	return ret;
+	servaddr_in.sin_port=htons(port);
+
+	s=socket(AF_INET,SOCK_STREAM,0);
+	if(s == -1)
+	{
+		fprintf(stderr, "Error: %s\n", strerror(errno));
+		return	FAIL;
+	}
+
+	myaddr_in.sin_family = AF_INET;
+	myaddr_in.sin_port=0;
+	myaddr_in.sin_addr.s_addr=INADDR_ANY;
+
+	if( connect(s,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )
+	{
+		fprintf(stderr, "Error: %s\n", strerror(errno));
+		close(s);
+		return	FAIL;
+	}
+
+	snprintf(tosend,sizeof(tosend)-1,"%s\n",key);
+
+	if(write(s,tosend,strlen(tosend)) == -1)
+/*	if( sendto(s,tosend,strlen(tosend),0,(struct sockaddr *)&servaddr_in,sizeof(struct sockaddr_in)) == -1 )*/
+	{
+		fprintf(stderr, "Error: %s\n", strerror(errno));
+		close(s);
+		return	FAIL;
+	} 
+/*	i=sizeof(struct sockaddr_in);
+	i=recvfrom(s,value,1023,0,(struct sockaddr *)&servaddr_in,(socklen_t *)&i);*/
+	memset(value,0,MAX_STRING_LEN);
+	i=read(s,value, MAX_STRING_LEN-1);
+	if(i==-1)
+	{
+		fprintf(stderr, "Error: %s\n", strerror(errno));
+		close(s);
+		return	FAIL;
+	}
+
+	delete_reol(value);
+
+	if( close(s)!=0 )
+	{
+		/* Ignore */
+	}
+
+	return SUCCEED;
 }
 
 /******************************************************************************
@@ -181,51 +215,47 @@ static int	get_value(
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Eugene Grigorjev                                                   *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
 int main(int argc, char **argv)
 {
-	unsigned short	port	= 10050;
-	int	ret	= SUCCEED;
-	char	*value	= NULL;
-	char	*host	= NULL;
-	char	*key	= NULL;
-	char	*source_ip = NULL;
-	char	ch;
+	int	port = 10050;
+	int	ret=SUCCEED;
+	char	value[MAX_STRING_LEN];
+	char	*host=NULL;
+	char	*key=NULL;
+	int	ch;
 
-	progname = get_programm_name(argv[0]);
+	progname = argv[0];
 
 	/* Parse the command-line. */
-	while ((ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts, NULL)) != (char)EOF)
-		switch (ch) {
-			case 'k':
-				key = strdup(zbx_optarg);
-				break;
-			case 'p':
-				port = (unsigned short)atoi(zbx_optarg);
-				break;
-			case 's':
-				host = strdup(zbx_optarg);
-				break;
-			case 'I':
-				source_ip = strdup(zbx_optarg);
-				break;
-			case 'h':
-				help();
-				exit(-1);
-				break;
-			case 'V':
-				version();
-				exit(-1);
-				break;
-			default:
-				usage();
-				exit(-1);
-				break;
-		}
+	while ((ch = getopt_long(argc, argv, "k:p:s:hv", longopts, NULL)) != EOF)
+	switch ((char) ch) {
+		case 'k':
+			key = optarg;
+			break;
+		case 'p':
+			port = atoi(optarg);
+			break;
+		case 's':
+			host = optarg;
+			break;
+		case 'h':
+			help();
+			exit(-1);
+			break;
+		case 'v':
+			version();
+			exit(-1);
+			break;
+		default:
+			usage();
+			exit(-1);
+			break;
+	}
 
 	if( (host==NULL) || (key==NULL))
 	{
@@ -235,26 +265,24 @@ int main(int argc, char **argv)
 
 	if(ret == SUCCEED)
 	{
-
-#if !defined(_WINDOWS)
 		signal( SIGINT,  signal_handler );
-		signal( SIGTERM, signal_handler );
 		signal( SIGQUIT, signal_handler );
+		signal( SIGTERM, signal_handler );
 		signal( SIGALRM, signal_handler );
-#endif /* not WINDOWS */
 
-		ret = get_value(source_ip, host, port, key, &value);
+		alarm(SENDER_TIMEOUT);
+
+/*	printf("Host [%s] Port [%d] Key [%s]\n",host,port,key);*/
+
+		ret = get_value(host,port,key,value);
+
+		alarm(0);
 
 		if(ret == SUCCEED)
 		{
 			printf("%s\n",value);
 		}
-
-		zbx_free(value);
 	}
-
-	zbx_free(host);
-	zbx_free(key);
 
 	return ret;
 }

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -16,166 +16,299 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-/*
-#define ZABBIX_TEST
-*/
-#include "common.h"
+
+#include "config.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+
+#include <string.h>
+
+
+/* Required for getpwuid */
+#include <pwd.h>
+
+#include <signal.h>
+#include <errno.h>
+
+#include <time.h>
+/* getopt() */
+#include <unistd.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 #include "cfg.h"
 #include "pid.h"
 #include "db.h"
-#include "dbcache.h"
 #include "log.h"
 #include "zlog.h"
-#include "zbxgetopt.h"
-#include "mutexs.h"
 
+#include "common.h"
+#include "functions.h"
+#include "expression.h"
 #include "sysinfo.h"
-#include "zbxserver.h"
-
-#include "daemon.h"
 
 #include "alerter/alerter.h"
-#include "dbsyncer/dbsyncer.h"
-#include "discoverer/discoverer.h"
-#include "httppoller/httppoller.h"
 #include "housekeeper/housekeeper.h"
 #include "pinger/pinger.h"
 #include "poller/poller.h"
-#include "poller/checks_ipmi.h"
+#include "poller/checks_snmp.h"
 #include "timer/timer.h"
 #include "trapper/trapper.h"
-#include "nodewatcher/nodewatcher.h"
-#include "watchdog/watchdog.h"
-#include "utils/nodechange.h"
-#include "escalator/escalator.h"
 
-#ifdef ZABBIX_TEST
-#include <time.h>
-#endif
+#define       LISTENQ 1024
 
 char *progname = NULL;
 char title_message[] = "ZABBIX Server (daemon)";
-char usage_message[] = "[-hV] [-c <file>] [-n <nodeid>]";
+char usage_message[] = "[-hv] [-c <file>]";
 
 #ifndef HAVE_GETOPT_LONG
 char *help_message[] = {
         "Options:",
         "  -c <file>       Specify configuration file",
         "  -h              give this help",
-        "  -n <nodeid>     convert database data to new nodeid",
-        "  -V              display version number",
+        "  -v              display version number",
         0 /* end of text */
 };
 #else
 char *help_message[] = {
         "Options:",
-        "  -c --config <file>       Specify configuration file",
-        "  -h --help                give this help",
-        "  -n --new-nodeid <nodeid> convert database data to new nodeid",
-        "  -V --version             display version number",
+        "  -c --config <file>    Specify configuration file",
+        "  -h --help             give this help",
+        "  -v --version          display version number",
         0 /* end of text */
 };
 #endif
 
-/* COMMAND LINE OPTIONS */
-
-/* long options */
-
-static struct zbx_option longopts[] =
+struct option longopts[] =
 {
 	{"config",	1,	0,	'c'},
 	{"help",	0,	0,	'h'},
-	{"new-nodeid",	1,	0,	'n'},
-	{"version",	0,	0,	'V'},
-
-#if defined (_WINDOWS)
-
-	{"install",	0,	0,	'i'},
-	{"uninstall",	0,	0,	'd'},
-
-	{"start",	0,	0,	's'},
-	{"stop",	0,	0,	'x'},
-
-#endif /* _WINDOWS */
-
+	{"version",	0,	0,	'v'},
 	{0,0,0,0}
 };
 
-/* short options */
 
-static char	shortopts[] =
-	"c:n:hV"
-#if defined (_WINDOWS)
-	"idsx"
-#endif /* _WINDOWS */
-	;
+pid_t	*pids=NULL;
 
-/* end of COMMAND LINE OPTIONS*/
+int	server_num=0;
 
-pid_t	*threads=NULL;
-
-int	CONFIG_ALERTER_FORKS		= 1;
-int	CONFIG_DBSYNCER_FORKS		= 1;
-int	CONFIG_DISCOVERER_FORKS		= 1;
-int	CONFIG_HOUSEKEEPER_FORKS	= 1;
-int	CONFIG_NODEWATCHER_FORKS	= 1;
-int	CONFIG_PINGER_FORKS		= 1;
-int	CONFIG_POLLER_FORKS		= 5;
-int	CONFIG_HTTPPOLLER_FORKS		= 1;
-int	CONFIG_IPMIPOLLER_FORKS		= 0;
-int	CONFIG_TIMER_FORKS		= 1;
-int	CONFIG_TRAPPERD_FORKS		= 5;
-int	CONFIG_UNREACHABLE_POLLER_FORKS	= 1;
-int	CONFIG_ESCALATOR_FORKS		= 1;
-
+int	CONFIG_POLLER_FORKS		= POLLER_FORKS;
+/* For trapper */
+int	CONFIG_TRAPPERD_FORKS		= TRAPPERD_FORKS;
 int	CONFIG_LISTEN_PORT		= 10051;
 char	*CONFIG_LISTEN_IP		= NULL;
-char	*CONFIG_SOURCE_IP		= NULL;
-int	CONFIG_TRAPPER_TIMEOUT		= ZABBIX_TRAPPER_TIMEOUT;
+int	CONFIG_TRAPPER_TIMEOUT		= TRAPPER_TIMEOUT;
 /**/
 /*int	CONFIG_NOTIMEWAIT		=0;*/
+int	CONFIG_TIMEOUT			= POLLER_TIMEOUT;
 int	CONFIG_HOUSEKEEPING_FREQUENCY	= 1;
 int	CONFIG_SENDER_FREQUENCY		= 30;
-int	CONFIG_DBSYNCER_FREQUENCY	= 5;
 int	CONFIG_PINGER_FREQUENCY		= 60;
-/*int	CONFIG_DISABLE_PINGER		= 0;*/
+int	CONFIG_DISABLE_PINGER		= 0;
 int	CONFIG_DISABLE_HOUSEKEEPING	= 0;
 int	CONFIG_UNREACHABLE_PERIOD	= 45;
 int	CONFIG_UNREACHABLE_DELAY	= 15;
 int	CONFIG_UNAVAILABLE_DELAY	= 60;
 int	CONFIG_LOG_LEVEL		= LOG_LEVEL_WARNING;
+char	*CONFIG_FILE			= NULL;
+char	*CONFIG_PID_FILE		= NULL;
+char	*CONFIG_LOG_FILE		= NULL;
 char	*CONFIG_ALERT_SCRIPTS_PATH	= NULL;
-char	*CONFIG_EXTERNALSCRIPTS		= NULL;
-char	*CONFIG_TMPDIR			= NULL;
 char	*CONFIG_FPING_LOCATION		= NULL;
-#ifdef HAVE_IPV6
-char	*CONFIG_FPING6_LOCATION		= NULL;
-#endif /* HAVE_IPV6 */
 char	*CONFIG_DBHOST			= NULL;
 char	*CONFIG_DBNAME			= NULL;
 char	*CONFIG_DBUSER			= NULL;
 char	*CONFIG_DBPASSWORD		= NULL;
 char	*CONFIG_DBSOCKET		= NULL;
-int	CONFIG_DBPORT			= 0;
+int	CONFIG_DBPORT			= 3306;
 int	CONFIG_ENABLE_REMOTE_COMMANDS	= 0;
-
-int	CONFIG_NODEID			= 0;
-int	CONFIG_MASTER_NODEID		= 0;
-int	CONFIG_NODE_NOEVENTS		= 0;
-int	CONFIG_NODE_NOHISTORY		= 0;
-
-/* Global variable to control if we should write warnings to log[] */
-int	CONFIG_ENABLE_LOG		= 1;
 
 /* From table config */
 int	CONFIG_REFRESH_UNSUPPORTED	= 0;
 
-/* Zabbix server startup time */
-int     CONFIG_SERVER_STARTUP_TIME      = 0;
+/******************************************************************************
+ *                                                                            *
+ * Function: uninit                                                           *
+ *                                                                            *
+ * Purpose: kill all child processes, if any, and exit                        *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+void	uninit(void)
+{
+	int i;
 
-/* Mutex for node syncs */
-ZBX_MUTEX	node_sync_access;
+	if(server_num == 0)
+	{
+		if(pids != NULL)
+		{
+			for(i=0;i<CONFIG_POLLER_FORKS+CONFIG_TRAPPERD_FORKS-1;i++)
+			{
+				if(kill(pids[i],SIGTERM) !=0 )
+				{
+					zabbix_log( LOG_LEVEL_WARNING, "Cannot kill process. PID=[%d] [%s]", pids[i], strerror(errno));
+				}
+				else
+				{
+					zabbix_log( LOG_LEVEL_DEBUG, "%d. Killing PID=[%d]", i, pids[i]);
+				}
+			}
+		}
+
+		if(unlink(CONFIG_PID_FILE) != 0)
+		{
+			zabbix_log( LOG_LEVEL_DEBUG, "Cannot remove PID file [%s] [%s]",
+				CONFIG_PID_FILE, strerror(errno));
+		}
+		zabbix_log( LOG_LEVEL_CRIT, "ZABBIX server is down.");
+	}
+	exit(FAIL);
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: signal_handler                                                   *
+ *                                                                            *
+ * Purpose: handle signals                                                    *
+ *                                                                            *
+ * Parameters: sig - signal id                                                *
+ *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+void	signal_handler( int sig )
+{
+	if( SIGALRM == sig )
+	{
+		signal( SIGALRM, signal_handler );
+ 
+		zabbix_log( LOG_LEVEL_DEBUG, "Timeout while executing operation." );
+	}
+	else if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig || SIGPIPE == sig )
+	{
+		zabbix_log( LOG_LEVEL_DEBUG, "Server [%d]. Got QUIT or INT or TERM or PIPE signal. Exiting...", server_num );
+		uninit();
+	}
+        else if( (SIGCHLD == sig) && (server_num == 0) )
+	{
+		zabbix_log( LOG_LEVEL_CRIT, "One server process died. Shutting down...");
+		uninit();
+	}
+/*	else if( SIGCHLD == sig )
+	{
+		zabbix_log( LOG_LEVEL_ERR, "One child died. Exiting ..." );
+		uninit();
+		exit( FAIL );
+	}*/
+	else if( SIGPIPE == sig)
+	{
+		zabbix_log( LOG_LEVEL_WARNING, "Got SIGPIPE. Where it came from???");
+	}
+	else
+	{
+		zabbix_log( LOG_LEVEL_WARNING, "Got signal [%d]. Ignoring ...", sig);
+	}
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: daemon-init                                                      *
+ *                                                                            *
+ * Purpose: init process as daemon                                            *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments: it doesn't allow running under 'root'                            *
+ *                                                                            *
+ ******************************************************************************/
+void	daemon_init(void)
+{
+	int		i;
+	pid_t		pid;
+	struct passwd	*pwd;
+
+	/* running as root ?*/
+	if((getuid()==0) || (getgid()==0))
+	{
+		pwd = getpwnam("zabbix");
+		if ( pwd == NULL )
+		{
+			fprintf(stderr,"User zabbix does not exist.\n");
+			fprintf(stderr, "Cannot run as root !\n");
+			exit(FAIL);
+		}
+		if( (setgid(pwd->pw_gid) ==-1) || (setuid(pwd->pw_uid) == -1) )
+		{
+			fprintf(stderr,"Cannot setgid or setuid to zabbix [%s]", strerror(errno));
+			exit(FAIL);
+		}
+
+#ifdef HAVE_FUNCTION_SETEUID
+		if( setegid(pwd->pw_gid) ==-1)
+		{
+			fprintf(stderr,"Cannot setegid to zabbix [%s]\n", strerror(errno));
+			exit(FAIL);
+		}
+		if( seteuid(pwd->pw_uid) ==-1)
+		{
+			fprintf(stderr,"Cannot seteuid to zabbix [%s]\n", strerror(errno));
+			exit(FAIL);
+		}
+#endif
+/*		fprintf(stderr,"UID [%d] GID [%d] EUID[%d] GUID[%d]\n", getuid(), getgid(), geteuid(), getegid());*/
+
+	}
+
+	if(CONFIG_LOG_FILE == NULL)
+	{
+		zabbix_open_log(LOG_TYPE_SYSLOG,CONFIG_LOG_LEVEL,NULL);
+	}
+	else
+	{
+		zabbix_open_log(LOG_TYPE_FILE,CONFIG_LOG_LEVEL,CONFIG_LOG_FILE);
+	}
+
+	if( (pid = zbx_fork()) != 0 )
+	{
+		exit( 0 );
+	}
+	setsid();
+
+	signal( SIGHUP, SIG_IGN );
+
+	if( (pid = zbx_fork()) !=0 )
+	{
+		exit( 0 );
+	}
+
+	chdir("/");
+
+/*	umask(0022);*/
+	umask(0002);
+
+	for(i=0; i<MAXFD; i++)	close(i);
+
+	redirect_std(CONFIG_LOG_FILE);
+}
 
 /******************************************************************************
  *                                                                            *
@@ -197,53 +330,40 @@ void	init_config(void)
 	static struct cfg_line cfg[]=
 	{
 /*		 PARAMETER	,VAR	,FUNC,	TYPE(0i,1s),MANDATORY,MIN,MAX	*/
-		{"StartDBSyncers",&CONFIG_DBSYNCER_FORKS,0,TYPE_INT,PARM_OPT,0,16},
-		{"StartDiscoverers",&CONFIG_DISCOVERER_FORKS,0,TYPE_INT,PARM_OPT,0,255},
-		{"StartHTTPPollers",&CONFIG_HTTPPOLLER_FORKS,0,TYPE_INT,PARM_OPT,0,255},
-		{"StartPingers",&CONFIG_PINGER_FORKS,0,TYPE_INT,PARM_OPT,0,255},
-		{"StartPollers",&CONFIG_POLLER_FORKS,0,TYPE_INT,PARM_OPT,0,255},
-		{"StartIPMIPollers",&CONFIG_IPMIPOLLER_FORKS,0,TYPE_INT,PARM_OPT,0,255},
-		{"StartPollersUnreachable",&CONFIG_UNREACHABLE_POLLER_FORKS,0,TYPE_INT,PARM_OPT,0,255},
-		{"StartTrappers",&CONFIG_TRAPPERD_FORKS,0,TYPE_INT,PARM_OPT,0,255},
+		{"StartPollers",&CONFIG_POLLER_FORKS,0,TYPE_INT,PARM_OPT,6,255},
 		{"HousekeepingFrequency",&CONFIG_HOUSEKEEPING_FREQUENCY,0,TYPE_INT,PARM_OPT,1,24},
 		{"SenderFrequency",&CONFIG_SENDER_FREQUENCY,0,TYPE_INT,PARM_OPT,5,3600},
 		{"PingerFrequency",&CONFIG_PINGER_FREQUENCY,0,TYPE_INT,PARM_OPT,1,3600},
-		{"TmpDir",&CONFIG_TMPDIR,0,TYPE_STRING,PARM_OPT,0,0},
 		{"FpingLocation",&CONFIG_FPING_LOCATION,0,TYPE_STRING,PARM_OPT,0,0},
-#ifdef HAVE_IPV6
-		{"Fping6Location",&CONFIG_FPING6_LOCATION,0,TYPE_STRING,PARM_OPT,0,0},
-#endif /* HAVE_IPV6 */
 		{"Timeout",&CONFIG_TIMEOUT,0,TYPE_INT,PARM_OPT,1,30},
-		{"TrapperTimeout",&CONFIG_TRAPPER_TIMEOUT,0,TYPE_INT,PARM_OPT,1,300},
+		{"StartTrappers",&CONFIG_TRAPPERD_FORKS,0,TYPE_INT,PARM_OPT,2,255},
+		{"TrapperTimeout",&CONFIG_TRAPPER_TIMEOUT,0,TYPE_INT,PARM_OPT,1,30},
 		{"UnreachablePeriod",&CONFIG_UNREACHABLE_PERIOD,0,TYPE_INT,PARM_OPT,1,3600},
 		{"UnreachableDelay",&CONFIG_UNREACHABLE_DELAY,0,TYPE_INT,PARM_OPT,1,3600},
 		{"UnavailableDelay",&CONFIG_UNAVAILABLE_DELAY,0,TYPE_INT,PARM_OPT,1,3600},
 		{"ListenIP",&CONFIG_LISTEN_IP,0,TYPE_STRING,PARM_OPT,0,0},
 		{"ListenPort",&CONFIG_LISTEN_PORT,0,TYPE_INT,PARM_OPT,1024,32768},
-		{"SourceIP",&CONFIG_SOURCE_IP,0,TYPE_STRING,PARM_OPT,0,0},
 /*		{"NoTimeWait",&CONFIG_NOTIMEWAIT,0,TYPE_INT,PARM_OPT,0,1},*/
-/*		{"DisablePinger",&CONFIG_DISABLE_PINGER,0,TYPE_INT,PARM_OPT,0,1},*/
+		{"DisablePinger",&CONFIG_DISABLE_PINGER,0,TYPE_INT,PARM_OPT,0,1},
 		{"DisableHousekeeping",&CONFIG_DISABLE_HOUSEKEEPING,0,TYPE_INT,PARM_OPT,0,1},
 		{"DebugLevel",&CONFIG_LOG_LEVEL,0,TYPE_INT,PARM_OPT,0,4},
-		{"PidFile",&APP_PID_FILE,0,TYPE_STRING,PARM_OPT,0,0},
+		{"PidFile",&CONFIG_PID_FILE,0,TYPE_STRING,PARM_OPT,0,0},
 		{"LogFile",&CONFIG_LOG_FILE,0,TYPE_STRING,PARM_OPT,0,0},
-		{"LogFileSize",&CONFIG_LOG_FILE_SIZE,0,TYPE_INT,PARM_OPT,0,1024},
 		{"AlertScriptsPath",&CONFIG_ALERT_SCRIPTS_PATH,0,TYPE_STRING,PARM_OPT,0,0},
-		{"ExternalScripts",&CONFIG_EXTERNALSCRIPTS,0,TYPE_STRING,PARM_OPT,0,0},
 		{"DBHost",&CONFIG_DBHOST,0,TYPE_STRING,PARM_OPT,0,0},
 		{"DBName",&CONFIG_DBNAME,0,TYPE_STRING,PARM_MAND,0,0},
 		{"DBUser",&CONFIG_DBUSER,0,TYPE_STRING,PARM_OPT,0,0},
 		{"DBPassword",&CONFIG_DBPASSWORD,0,TYPE_STRING,PARM_OPT,0,0},
 		{"DBSocket",&CONFIG_DBSOCKET,0,TYPE_STRING,PARM_OPT,0,0},
 		{"DBPort",&CONFIG_DBPORT,0,TYPE_INT,PARM_OPT,1024,65535},
-		{"NodeID",&CONFIG_NODEID,0,TYPE_INT,PARM_OPT,0,65535},
-		{"NodeNoEvents",&CONFIG_NODE_NOEVENTS,0,TYPE_INT,PARM_OPT,0,1},
-		{"NodeNoHistory",&CONFIG_NODE_NOHISTORY,0,TYPE_INT,PARM_OPT,0,1},
 		{0}
 	};
 
-	CONFIG_SERVER_STARTUP_TIME = time(NULL);
 
+	if(CONFIG_FILE == NULL)
+	{
+		CONFIG_FILE=strdup("/etc/zabbix/zabbix_server.conf");
+	}
 
 	parse_cfg_file(CONFIG_FILE,cfg);
 
@@ -252,45 +372,115 @@ void	init_config(void)
 		zabbix_log( LOG_LEVEL_CRIT, "DBName not in config file");
 		exit(1);
 	}
-	if(APP_PID_FILE == NULL)
+	if(CONFIG_PID_FILE == NULL)
 	{
-		APP_PID_FILE=strdup("/tmp/zabbix_server.pid");
+		CONFIG_PID_FILE=strdup("/tmp/zabbix_server.pid");
 	}
 	if(CONFIG_ALERT_SCRIPTS_PATH == NULL)
 	{
 		CONFIG_ALERT_SCRIPTS_PATH=strdup("/home/zabbix/bin");
 	}
-	if(CONFIG_TMPDIR == NULL)
-	{
-		CONFIG_TMPDIR=strdup("/tmp");
-	}
 	if(CONFIG_FPING_LOCATION == NULL)
 	{
 		CONFIG_FPING_LOCATION=strdup("/usr/sbin/fping");
 	}
-#ifdef HAVE_IPV6
-	if(CONFIG_FPING6_LOCATION == NULL)
+
+}
+
+/*
+void	trend(void)
+{
+	char		sql[MAX_STRING_LEN];
+ 
+	DB_RESULT	result;
+	DB_RESULT	result2;
+
+	int		i,j;
+
+	snprintf(sql,sizeof(sql)-1,"select itemid from items");
+	result2 = DBselect(sql);
+	for(i=0;i<DBnum_rows(result2);i++)
 	{
-		CONFIG_FPING6_LOCATION=strdup("/usr/sbin/fping6");
+		snprintf(sql,sizeof(sql)-1,"select clock-clock%%3600, count(*),min(value),avg(value),max(value) from history where itemid=%d group by 1",atoi(DBget_field(result2,i,0)));
+		result = DBselect(sql);
+	
+		for(j=0;j<DBnum_rows(result);j++)
+		{
+			snprintf(sql,sizeof(sql)-1,"insert into trends (itemid, clock, num, value_min, value_avg, value_max) values (%d,%d,%d,%f,%f,%f)",atoi(DBget_field(result2,i,0)), atoi(DBget_field(result,j,0)),atoi(DBget_field(result,j,1)),atof(DBget_field(result,j,2)),atof(DBget_field(result,j,3)),atof(DBget_field(result,j,4)));
+			DBexecute(sql);
+		}
+		DBfree_result(result);
 	}
-#endif /* HAVE_IPV6 */
-	if(CONFIG_EXTERNALSCRIPTS == NULL)
+	DBfree_result(result2);
+}
+*/
+
+int	tcp_listen(const char *host, int port, socklen_t *addrlenp)
+{
+	int	sockfd;
+	struct	sockaddr_in      serv_addr;
+	int	on;
+/*	struct linger ling;*/
+
+	if ( (sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 	{
-		CONFIG_EXTERNALSCRIPTS=strdup("/etc/zabbix/externalscripts");
+		zabbix_log( LOG_LEVEL_CRIT, "Cannot create socket");
+		exit(1);
 	}
-#ifndef	HAVE_LIBCURL
-	CONFIG_HTTPPOLLER_FORKS = 0;
-#endif
-#ifndef	HAVE_OPENIPMI
-	CONFIG_IPMIPOLLER_FORKS = 0;
-#endif
+
+	/* Enable address reuse */
+	/* This is to immediately use the address even if it is in TIME_WAIT state */
+	/* http://www-128.ibm.com/developerworks/linux/library/l-sockpit/index.html */
+	on = 1;
+	if( -1 == setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on) ))
+	{
+		zabbix_log(LOG_LEVEL_WARNING, "Cannot setsockopt SO_REUSEADDR [%s]", strerror(errno));
+	}
+
+/*	if(CONFIG_NOTIMEWAIT == 1)
+	{
+		ling.l_onoff=1;
+		ling.l_linger=0;
+		if(setsockopt(sockfd,SOL_SOCKET,SO_LINGER,&ling,sizeof(ling))==-1)
+		{
+			zabbix_log(LOG_LEVEL_WARNING, "Cannot setsockopt SO_LINGER [%s]", strerror(errno));
+		}
+	}*/
+
+	bzero((char *) &serv_addr, sizeof(serv_addr));
+	serv_addr.sin_family      = AF_INET;
+	if(CONFIG_LISTEN_IP == NULL)
+	{
+		serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+	}
+	else
+	{
+		serv_addr.sin_addr.s_addr = inet_addr(CONFIG_LISTEN_IP);
+	}
+	serv_addr.sin_port        = htons(port);
+
+	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
+	{
+		zabbix_log( LOG_LEVEL_CRIT, "Cannot bind to port %d. Another zabbix_server running? Shutting down...", port);
+		uninit();
+	}
+	
+	if(listen(sockfd, LISTENQ) !=0 )
+	{
+		zabbix_log( LOG_LEVEL_CRIT, "listen() failed");
+		uninit();
+	}
+
+	*addrlenp = sizeof(serv_addr);
+
+	return  sockfd;
 }
 
 /******************************************************************************
  *                                                                            *
  * Function: test                                                             *
  *                                                                            *
- * Purpose: test custom developed functions                                   *
+ * Purpose: test a custom developed functions                                 *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
@@ -302,750 +492,20 @@ void	init_config(void)
  *                                                                            *
  ******************************************************************************/
 
-#ifdef ZABBIX_TEST
+/* #define USE_TEST_FUNCTION 1 */
 
-void test_params()
-{
 
-#define ZBX_PARAM struct zbx_param_t
+#ifdef USE_TEST_FUNCTION
 
-ZBX_PARAM
-{
-        char	*exp;
-        int	num;
-	int	test_num;
-	int	expected_ret;
-	char	*expected_result;
-};
-
-ZBX_PARAM expressions[]=
-{
-		{"1,0",		2,	1,	0,	"1"},
-		{"0",		1,	1,	0,	"0"},
-		{"0",		1,	2,	1,	""},
-		{"\"0\",\"1\"",	2,	2,	0,	"1"},
-		{"\"0\",1\"",	2,	2,	0,	"1\""},
-		{"\"0\"",	1,	1,	0,	"0"},
-		{"\\\"",	1,	1,	0,	"\\\""},
-		{"\"0\",\\\"",	2,	2,	0,	"\\\""},
-		{NULL}
-};
-
-	int result;
-	int i;
-
-	char *exp=NULL;
-	char str[MAX_STRING_LEN];
-
-	printf("-= Test parameters =-\n\n");
-
-	for(i=0;expressions[i].exp!=NULL;i++)
-	{
-		printf("Testing get_patam(%d,\"%s\")\n", expressions[i].test_num, expressions[i].exp);
-
-		exp=zbx_malloc(exp,1024);
-		zbx_snprintf(exp,1024,"%s",expressions[i].exp);
-		str[0]='\0';
-
-		if(num_param(exp) != expressions[i].num)
-		{
-			printf("Wrong num_param(%s) Got %d Expected %d\n", exp, num_param(exp), expressions[i].num);
-		}
-		result = get_param(exp, expressions[i].test_num, str, sizeof(str));
-		if(result != expressions[i].expected_ret)
-		{
-			printf("Wrong result of get_param(%s) Got %d Expected %d\n", exp, result, expressions[i].expected_ret);
-		}
-		else if(strcmp(str, expressions[i].expected_result)!=0)
-		{
-			printf("Wrong result string of get_param(%d,\"%s\") Got [%s] Expected [%s]\n",
-				expressions[i].test_num,
-				exp,
-				str,
-				expressions[i].expected_result);
-		}
-		zbx_free(exp);
-	}
-	exit(-1);
-}
-
-void test_expressions()
-{
-
-#define ZBX_EXP struct zbx_exp_t
-
-ZBX_EXP
-{
-        char	*exp;
-        int	expected_result;
-};
-
-ZBX_EXP expressions[]=
-{
-/* Supported operators /+-*|&#<>= */
-		{"1+2",		3},
-		{"1-2",		-1},
-		{"6/2",		3},
-		{"1",		1},
-		{"0",		0},
-		{"1*1",		1},
-		{"2*1-2",	0},
-		{"-2*1-2",	-4},
-		{"-8*-2-10*3",	-14},
-		{"(1+5)*(1+2)",	18},
-		{"8/2*2",	8},
-		{"8*2/2*2",	16},
-		{NULL}
-};
-
-	int result;
-	int i;
-
-	char *exp=NULL;
-	char error[MAX_STRING_LEN];
-
-	printf("-= Test expressions =-\n\n");
-
-	for(i=0;expressions[i].exp!=NULL;i++)
-	{
-		exp=zbx_malloc(exp,1024);
-		zbx_snprintf(exp,1024,"%s",expressions[i].exp);
-		if(SUCCEED != evaluate_expression(&result,&exp, 0, error, sizeof(error)-1))
-		{
-			zabbix_log(LOG_LEVEL_DEBUG, "Evaluation of expression [%s] failed [%s]",
-				&exp,
-				error);
-		}
-		printf("Testing \"%s\" Expected result %d Got %d Result: %s\n",
-			expressions[i].exp,
-			expressions[i].expected_result,
-			result,
-			(expressions[i].expected_result==result)?"OK":"NOT OK");
-		zbx_free(exp);
-	}
-	exit(-1);
-}
-
-
-void test_compress_signs()
-{
-
-#define ZBX_SIGN struct zbx_sign_t
-ZBX_SIGN
-{
-        char	*str;
-        char	*expected;
-};
-
-ZBX_SIGN expressions[]=
-{
-		{"1",		"1"},
-		{"0",		"0"},
-		{"1*1",		"1*1"},
-		{"2*1-2",	"2*1+N2"},
-		{"-2*1-2",	"N2*1+N2"},
-		{"--2--3",	"2+3"},
-		{"-+2+-3",	"N2+N3"},
-		{"++2--3",	"2+3"},
-		{"+-+2",	"N2"},
-		{"+++2",	"2"},
-		{"2/+2",	"2/2"},
-		{"2+2",		"2+2"},
-		{"-2",		"N2"},
-		{"1/-2",	"1/N2"},
-		{"2-3+5",	"2+N3+5"},
-		{"2-3",		"2+N3"},
-		{"+-+123",	"N123"},
-		{NULL}
-};
-
-	int i;
-
-	char *exp=NULL;
-
-	printf("-= Test compress signs =-\n");
-
-	for(i=0;expressions[i].str!=NULL;i++)
-	{
-		exp=zbx_malloc(exp,1024);
-		zbx_snprintf(exp,1024,"%s",expressions[i].str);
-		compress_signs(exp);
-		if(strcmp(expressions[i].expected, exp)!=0)
-		{
-			printf("FAILED \"%s\" Expected result %s Got %s\n",
-			expressions[i].str,
-			expressions[i].expected,
-			exp);
-		}
-		zbx_free(exp);
-	}
-	printf("Passed OK\n");
-}
-
-void test_db_connection(void)
-{
-	DB_RESULT sel_res;
-	DB_ROW row_val;
-
-	DBconnect(ZBX_DB_CONNECT_EXIT);
-
-	sel_res = DBselect("select userid, alias from users where alias='%s'", "guest");
-	row_val = DBfetch(sel_res);
-
-	if( row_val )
-	{
-		fprintf(stderr, "DB result: [%s] [%s]\n", row_val[0], row_val[1]);
-	}
-	else
-	{
-		fprintf(stderr, "DB FAIL");
-	}
-	DBfree_result(sel_res);
-
-	DBclose();
-}
-
-void test_variable_argument_list(void)
-{
-//	char incorrect[] = "incorrect";
-//	char format_incorrect[] = "%s";
-	char correct[] = "correct";
-//	char format[] = "%s";
-
-	zabbix_log(LOG_LEVEL_CRIT, "%s", "correct");
-	zabbix_log(LOG_LEVEL_CRIT, "%s", correct);
-	zabbix_log(LOG_LEVEL_CRIT, "correct");
-/*
-	zabbix_log(LOG_LEVEL_CRIT, format, "correct");
-	zabbix_log(LOG_LEVEL_CRIT, format, correct);
-	zabbix_log(LOG_LEVEL_CRIT, incorrect);
-	zabbix_log(LOG_LEVEL_CRIT, format_incorrect);
-*/
-}
-
-void test_zbx_gethost(void)
-{
-/*        struct hostent* host;
-
-	char hostname[]="194.8.11.69";
-
-	host = zbx_gethost_by_ip(hostname);
-
-	printf("Host1 [%s]\n", host->h_name);*/
-}
-
-void test_templates()
-{
-	DBconnect(ZBX_DB_CONNECT_EXIT);
-
-	DBsync_host_with_template(10096, 10004);
-
-	DBclose();
-}
-
-/*
-void test_calc_timestamp()
-{
-#define ZBX_TEST_TIME struct zbx_test_time_t
-ZBX_TEST_TIME
-{
-	char	*line;
-	char	*format;
-	char	*expected;
-};
-
-ZBX_TEST_TIME expressions[]=
-{
-		{"2006/11/10 10:20:56 Long file record....",	"yyyy MM dd hh mm ss",	"2006/11/10 10:20:56"},
-		{"2007/01/02 11:22:33 Long file record....",	"yyyy MM dd hh mm ss",	"2007/01/02 11:22:33"},
-		{"2007/12/01 11:22:00 Long file record....",	"yyyy MM dd hh mm ss",	"2007/12/01 11:22:00"},
-		{"2000/01/01 00:00:00 Long file record....",	"yyyy MM dd hh mm ss",	"2000/01/01 00:00:00"},
-		{"2000/01/01 00:00:00 Long file record....",	"yyyy MM dd hh mm",	"2000/01/01 00:00:00"},
-		{NULL}
-};
-	int	i;
-	int	t;
-	time_t	time;
-	char	str_time[MAX_STRING_LEN];
-	struct	tm *local_time = NULL;
-
-	printf("-= Test calc_timestamp =-\n");
-
-	for(i=0;expressions[i].line!=NULL;i++)
-	{
-		calc_timestamp(expressions[i].line,&t, expressions[i].format);
-		time = (time_t)t;
-		local_time = localtime(&time);
-		strftime( str_time, MAX_STRING_LEN, "%Y/%m/%d %H:%M:%S", local_time );
-		printf("format [%s] expected [%s] got [%s]\n",
-			expressions[i].format,
-			expressions[i].expected,
-			str_time);
-		if(strcmp(expressions[i].expected, str_time)!=0)
-		{
-			printf("FAILED!\n");
-			exit(-1);
-		}
-	}
-	printf("Passed OK\n");
-}
-*/
-/*
-void	test_email()
-{
-	char str_error[MAX_STRING_LEN];
-
-	alarm(5);
-	if ( FAIL == send_email(
-			"mail.apollo.lv",
-			"",
-			"",
-			"",
-			"This is a TEST message",
-			"Big message\r\n"
-			" 1 Line\n"
-			" 2 line\r\n"
-			" 3 Line\n"
-			" 4 Line\n"
-			" 5 Line\n"
-			" 6 Line\n"
-			" 7 Line\n"
-			" 8 Line\n"
-			" 9 Line\n"
-			" 10 Line\n\n\n"
-			" 11 Line\n"
-			" 12 Line\n"
-			" 13 Line\n"
-			" 14 Line\n"
-			" 15 Line\n"
-			" 16 Line\n"
-			" 17 Line\n\n\n"
-			" 18 Line\n",
-			str_error,
-			sizeof(str_error)
-
-		  ) )
-		printf("ERROR: %s\n", str_error);
-	else
-		printf("OK\n");
-	alarm(0);
-
-}
-*/
-
-/*
-void test_extract_numbers(void)
-{
-	char simple_expression[] = "{44444444}>0&{4444}<=12K&(123*12K>999)|({444}&{4}>(12314-3213))";
-
-	char	**numbers;
-	int	count, i;
-
-	printf("PARSE: %s\n", simple_expression);
-
-	numbers = extract_numbers(simple_expression, &count);
-
-	printf("FOUNDED: %i numbers\n", count);
-
-	for ( i = 0; i < count; i++ )
-	{
-		printf("%i: %s\n", i, numbers[i]);
-	}
-
-	zbx_free_numbers(&numbers, count);
-}
-*/
-/*
-void test_trigger_description()
-{
-	char *data = NULL;
-
-	DBconnect(ZBX_DB_CONNECT_EXIT);
-
-	data = strdup("!!!test $0 $1 $2 $3 $5 $6 $7 $8 $9 $10 $11");
-
-	printf("Descriptioni (before): [%s]\n", data);
-
-	expand_trigger_description_simple(&data, 100000000012896);
-
-	printf("Description  (after) : [%s]\n", data);
-
-	zbx_free(data);
-
-	DBclose();
-}
-
-void test_zbx_tcp_connect(void)
-{
-#define ZBX_TEST_TCP_CONNECT struct zbx_test_tcp_connect_t
-ZBX_TEST_TCP_CONNECT
-{
-        char           *hostname;
-        unsigned short  port;
-};
-
-ZBX_TEST_TCP_CONNECT expressions[]=
-{
-	{"127.0.00.1",   80},
-	{"81.171.84.52",	80},
-	{"::1",   80},
-	{"::1",   22},
-	{"12fc::5",	80},
-	{"192.168.3.5",	80},
-	{NULL}
-};
-
-	int		i;
-	zbx_sock_t	s;
-	char		host[MAX_STRING_LEN];
-	char		ip_list[] = "81.171.84.52,nf-in-f103.google.com,127.000.0.1";
-
-	for(i = 0; expressions[i].hostname != NULL; i ++)
-	{
-		zbx_gethost_by_ip(expressions[i].hostname, host, sizeof(host));
-		printf("[%25s]:%-5d %-30s ", expressions[i].hostname, expressions[i].port, host);
-
-		alarm(5);
-		switch(zbx_tcp_connect(&s, expressions[i].hostname, expressions[i].port))
-		{
-			case SUCCEED :
-				printf("Succeed");
-
-				if(FAIL == zbx_tcp_check_security(&s, ip_list, 0))
-				{
-					printf(" \n%s", zbx_tcp_strerror());
-				}
-				zbx_tcp_close(&s);
-				break;
-			case FAIL    :
-				printf("Fail %s\n", zbx_tcp_strerror());
-				break;
-		}
-		alarm(0);
-		printf("\n");
-	}
-}
-
-static void test_child_signal_handler(int sig)
-{
-	printf( "sdfsdfsdfsf" );
-}
-*/
-
-void test_ip_in_list()
-{
-#define ZBX_TEST_IP struct zbx_test_ip_t
-ZBX_TEST_IP
-{
-	char	*list;
-	char	*ip;
-	int	result;
-};
-
-ZBX_TEST_IP expressions[]=
-{
-		{"10.0.0.1-29",						"10.0.0.30",		FAIL},
-		{"192.168.0.1-255,192.168.1.1-255",			"192.168.2.201",	FAIL},
-		{"172.16.0.0,172.16.0.1,172.16.0.2,172.16.0.44-250",	"172.16.0.201",		SUCCEED},
-		{"172.31.255.43-55",					"172.31.255.47",	SUCCEED},
-		{"86.57.15.94",						"86.57.15.95",		FAIL},
-		{"86.57.15.94",						"86.57.15.94",		SUCCEED},
-#if defined(HAVE_IPV6)
-		{"2312:333::32-64,12fc::1-fffc",			"12fc::ffff",		FAIL},
-		{"2312:333::32-64,12fc::1-fffc",			"2312:333::44",		SUCCEED},
-		{"::a:b:a,::a:b:b,::a:b:c-e",				"::a:b:f",		FAIL},
-		{"192.168.200.1,::a:b:a,::a:b:b,::a:b:c-e,10.0.0.2",	"::a:b:d",		SUCCEED},
-		{"192.168.200.1,::a:b:a,::a:b:b,::a:b:c-e,10.0.0.2",	"10.0.0.2",		SUCCEED},
-		{"192.168.200.1,::a:b:a,::a:b:b,::a:b:c-,10.0.0.2",	"::a:b:d",		FAIL},
-		{"a:b:c::-f",						"a:b:c::3",		SUCCEED},
-#endif /*HAVE_IPV6*/
-		{NULL}
-};
-	int	i;
-	int	result;
-	char    list[MAX_STRING_LEN];
-
-	printf("-= Test ip_in_list =-\n");
-
-	for(i=0;expressions[i].list!=NULL;i++)
-	{
-		strcpy(list, expressions[i].list);
-		result = ip_in_list(list, expressions[i].ip);
-
-		printf("list [%50s] ip [%20s] expected [%7s] got [%7s]\n",
-			expressions[i].list,
-			expressions[i].ip,
-			expressions[i].result == SUCCEED ? "SUCCEED" : "FAIL",
-			result == SUCCEED ? "SUCCEED" : "FAIL");
-		if(expressions[i].result!=result)
-		{
-			printf("FAILED!\n");
-			exit(-1);
-		}
-	}
-	printf("Passed OK\n");
-}
-
-void test_binary2hex()
-{
-#define ZBX_TEST_HEX struct zbx_test_hex_t
-ZBX_TEST_HEX
-{
-	char	*bin;
-	char	*hex;
-};
-
-ZBX_TEST_HEX expressions[]=
-{
-	{"a", "61"},
-	{"abcd", "61626364"},
-	{"abcdefghijk^^^", "6162636465666768696a6b5e5e5e"},
-	{"abcdefghijk***", "6162636465666768696a6b2a2a2a"},
-	{"\xffwabcdefghijkTUVabcdefghijk", "ff776162636465666768696a6b5455566162636465666768696a6b"},
-	{NULL}
-};
-	int	len, ilen;
-	int	i;
-	char	*buffer = NULL, tmp[MAX_STRING_LEN];
-
-	printf("-= Test binary_to_hex =-\n");
-
-	len = 1024;
-	buffer = zbx_malloc(buffer, len);
-	for(i = 0; expressions[i].bin != NULL; i++)
-	{
-		ilen = strlen(expressions[i].bin);
-		zbx_binary2hex((u_char *)expressions[i].bin, ilen, &buffer, &len);
-		printf("bin [%s] hex [%s] got [%s] [%s]\n",
-			expressions[i].bin,
-			expressions[i].hex,
-			buffer,
-			(strcmp(expressions[i].hex, buffer) == 0 ? "SUCCEED" : "FAIL"));
-		if(strcmp(expressions[i].hex, buffer) != 0)
-		{
-			printf("FAILED!\n");
-			exit(-1);
-		}
-
-		strcpy(tmp, expressions[i].hex);
-		zbx_hex2binary(tmp);
-		printf("hex [%s] bin [%s] got [%s] [%s]\n",
-			expressions[i].hex,
-			expressions[i].bin,
-			tmp,
-			(strcmp(expressions[i].bin, tmp) == 0 ? "SUCCEED" : "FAIL"));
-		if(strcmp(expressions[i].bin, tmp) != 0)
-		{
-			printf("FAILED!\n");
-			exit(-1);
-		}
-	}
-	printf("Passed OK\n");
-}
-
-void test_macros()
-{
-#define ZBX_TEST struct zbx_test_t
-ZBX_TEST
-{
-	char	*data;
-	char	*result;
-	int	macro_type;
-};
-
-ZBX_TEST expressions[]=
-{
-	{"{TRIGGER.ID}", "99900000000018378", MACRO_TYPE_MESSAGE_BODY},
-	{"{TRIGGER.NAME}", "TEST TRIGGER", MACRO_TYPE_MESSAGE_BODY},
-	{"{TRIGGER.COMMENT}", "TEST COMMENTS", MACRO_TYPE_MESSAGE_BODY},
-	{"{TRIGGER.VALUE}", "1", MACRO_TYPE_MESSAGE_BODY},
-	{"{EVENT.ID}", "99900000000008378", MACRO_TYPE_MESSAGE_BODY},
-	{"{EVENT.DATE}", "2009.05.20", MACRO_TYPE_MESSAGE_BODY},
-	{"{EVENT.TIME}", "16:58:18", MACRO_TYPE_MESSAGE_BODY},
-	{"{EVENT.AGE}", NULL, MACRO_TYPE_MESSAGE_BODY},
-	{"{PROFILE.DEVICETYPE}", "TEST DEVICETYPE", MACRO_TYPE_MESSAGE_BODY},
-	{"{PROFILE.NAME}", "TEST NAME", MACRO_TYPE_MESSAGE_BODY},
-	{"{PROFILE.OS}", "TEST OS", MACRO_TYPE_MESSAGE_BODY},
-	{"{PROFILE.SERIALNO}", "TEST SERIALNO", MACRO_TYPE_MESSAGE_BODY},
-	{"{PROFILE.TAG}", "TEST TAG", MACRO_TYPE_MESSAGE_BODY},
-	{"{PROFILE.MACADDRESS}", "TEST MACADDRESS", MACRO_TYPE_MESSAGE_BODY},
-	{"{PROFILE.HARDWARE}", "TEST HARDWARE", MACRO_TYPE_MESSAGE_BODY},
-	{"{PROFILE.SOFTWARE}", "TEST SOFTWARE", MACRO_TYPE_MESSAGE_BODY},
-	{"{PROFILE.CONTACT}", "TEST CONTACT", MACRO_TYPE_MESSAGE_BODY},
-	{"{PROFILE.LOCATION}", "TEST LOCATIONS", MACRO_TYPE_MESSAGE_BODY},
-	{"{PROFILE.NOTES}", "TEST NOTES", MACRO_TYPE_MESSAGE_BODY},
-	{"{DATE}", NULL, MACRO_TYPE_MESSAGE_BODY},
-	{"{TIME}", NULL, MACRO_TYPE_MESSAGE_BODY},
-	{"{HOSTNAME}", "TEST HOST", MACRO_TYPE_MESSAGE_BODY},
-	{"{IPADDRESS}", "2001:0db8:85a3:0000:0000:8a2e:0370:7334", MACRO_TYPE_MESSAGE_BODY},
-	{"{HOST.DNS}", "localhost", MACRO_TYPE_MESSAGE_BODY},
-	{"{HOST.CONN}", "2001:0db8:85a3:0000:0000:8a2e:0370:7334", MACRO_TYPE_MESSAGE_BODY},
-	{"{ITEM.NAME}", "TEST ITEM 1", MACRO_TYPE_MESSAGE_BODY},
-	{"{TRIGGER.KEY}", "test.item.1[]", MACRO_TYPE_MESSAGE_BODY},
-	{"{TRIGGER.SEVERITY}", "High", MACRO_TYPE_MESSAGE_BODY},
-	{"{TRIGGER.NSEVERITY}", "4", MACRO_TYPE_MESSAGE_BODY},
-	{"{TRIGGER.STATUS}", "PROBLEM", MACRO_TYPE_MESSAGE_BODY},
-	{"{STATUS}", "PROBLEM", MACRO_TYPE_MESSAGE_BODY},
-	{"{TRIGGER.URL}", "TEST URL", MACRO_TYPE_MESSAGE_BODY},
-	{"{ITEM.LASTVALUE}", "1", MACRO_TYPE_MESSAGE_BODY},
-	{"{ESC.HISTORY}", NULL, MACRO_TYPE_MESSAGE_BODY},
-	{"{ITEM.LOG.DATE}", "2009.05.20", MACRO_TYPE_MESSAGE_BODY},
-	{"{ITEM.LOG.TIME}", "15:58:18", MACRO_TYPE_MESSAGE_BODY},
-	{"{ITEM.LOG.AGE}", NULL, MACRO_TYPE_MESSAGE_BODY},
-	{"{ITEM.LOG.SOURCE}", "TEST SOURCE", MACRO_TYPE_MESSAGE_BODY},
-	{"{ITEM.LOG.SEVERITY}", "Average", MACRO_TYPE_MESSAGE_BODY},
-	{"{ITEM.LOG.NSEVERITY}", "3", MACRO_TYPE_MESSAGE_BODY},
-	{"{ITEM.LOG.EVENTID}", "1800", MACRO_TYPE_MESSAGE_BODY},
-	{"{{{{NOT.SUPPORTED.MACRO}}}}{}", "{{{{NOT.SUPPORTED.MACRO}}}}{}", MACRO_TYPE_MESSAGE_BODY},
-	{NULL}
-};
-	DB_EVENT	event;
-	char		*data = NULL;
-	int		i, r, retry = 1000000, res = SUCCEED;
-
-	printf("-= Test substitute_simple_macros =-\n");
-
-	event.eventid = (zbx_uint64_t)__UINT64_C(99900000000008378);
-	event.source = EVENT_SOURCE_TRIGGERS;
-	event.object = EVENT_OBJECT_TRIGGER;
-	event.objectid = (zbx_uint64_t)__UINT64_C(99900000000018378);
-	event.clock = 1242827898;	/* 2009-05-20 16:58:18 */
-	event.value = TRIGGER_VALUE_TRUE;
-	event.acknowledged = 1;
-/*	int		skip_actions;*/
-	zbx_snprintf(event.trigger_description, TRIGGER_DESCRIPTION_LEN_MAX, "TEST TRIGGER");
-	event.trigger_priority = TRIGGER_SEVERITY_HIGH;
-	event.trigger_url = strdup("TEST URL");
-	event.trigger_comments = strdup("TEST COMMENTS");
-/*	int		trigger_type;*/
-
-	DBconnect(ZBX_DB_CONNECT_EXIT);
-
-	DBexecute("insert into events (eventid,source,object,objectid,clock,value,acknowledged)"
-			" values (" ZBX_FS_UI64 ",%d,%d," ZBX_FS_UI64 ",%d,%d,%d)",
-			event.eventid,
-			event.source,
-			event.object,
-			event.objectid,
-			event.clock,
-			event.value,
-			event.acknowledged);
-
-	DBexecute("insert into triggers (triggerid,expression,description,url,status,value,priority,"
-			"lastchange,comments,type) values (" ZBX_FS_UI64 ",'%s','%s','%s',%d,%d,%d,%d,'%s',%d)",
-			event.objectid,
-			"{99900000000028378}>0",
-			event.trigger_description,
-			event.trigger_url,
-			TRIGGER_STATUS_ENABLED,
-			event.value,
-			event.trigger_priority,
-			event.clock,
-			event.trigger_comments,
-			TRIGGER_TYPE_NORMAL);
-
-	DBexecute("insert into functions (functionid,itemid,triggerid,lastvalue,function,parameter)"
-			" values (99900000000028378,99900000000108378," ZBX_FS_UI64 ",'%s','%s','%s')",
-			event.objectid,
-			"1",
-			"last",
-			"0");
-
-	DBexecute("insert into items (itemid,type,hostid,description,key_,status,value_type,lastvalue) values"
-			" (99900000000108378,%d,99900000000208378,'%s','%s',%d,%d,'%s')",
-			ITEM_TYPE_ZABBIX_ACTIVE,
-			"TEST ITEM 1",
-			"test.item.1[]",
-			ITEM_STATUS_ACTIVE,
-			ITEM_VALUE_TYPE_LOG,
-			"1");
-
-	DBexecute("insert into hosts (hostid,host,ip,dns,useip) values (99900000000208378,'TEST HOST',"
-			"'2001:0db8:85a3:0000:0000:8a2e:0370:7334','localhost',1)");
-
-	DBexecute("insert into hosts_profiles (hostid,devicetype,name,os,serialno,tag,macaddress,hardware,software,contact,location,notes)"
-			" values (99900000000208378,'TEST DEVICETYPE','TEST NAME','TEST OS','TEST SERIALNO','TEST TAG','TEST MACADDRESS',"
-			"'TEST HARDWARE','TEST SOFTWARE','TEST CONTACT','TEST LOCATIONS','TEST NOTES')");
-
-	DBexecute("insert into history_log (id,itemid,clock,timestamp,source,severity,value,logeventid) values"
-			"(99900000000000001,99900000000108378,%d,%d,'%s',%d,'%s',%d)",
-			event.clock,
-			event.clock - 3600,
-			"TEST SOURCE",
-			3,
-			"1",
-			1800);
-
-	for (i = 0; expressions[i].data != NULL && SUCCEED == res; i++)
-	{
-		res = SUCCEED;
-		for (r = 0; r < retry && SUCCEED == res; r ++)
-		{
-			data = zbx_dsprintf(data, "%s", expressions[i].data);
-			substitute_simple_macros(&event, NULL, NULL, NULL, &data, expressions[i].macro_type);
-			if (NULL != expressions[i].result && 0 != strcmp(expressions[i].result, data))
-				res = FAIL;
-		}
-
-		printf("[%d] %-30s => %-55s : %s\n", r, expressions[i].data, data, zbx_result_string(res));
-		fflush(stdout);
-		zbx_free(data);
-	}
-
-	DBexecute("delete from events where eventid=" ZBX_FS_UI64, event.eventid);
-	DBexecute("delete from triggers where triggerid=" ZBX_FS_UI64, event.objectid);
-	DBexecute("delete from functions where functionid=99900000000028378");
-	DBexecute("delete from items where itemid=99900000000108378");
-	DBexecute("delete from hosts where hostid=99900000000208378");
-	DBexecute("delete from hosts_profiles where hostid=99900000000208378");
-	DBexecute("delete from history_log where id=99900000000000001");
-
-	DBclose();
-
-	zbx_free(event.trigger_comments);
-
-	printf("Passed OK\n");
-	fflush(stdout);
-}
+void    run_commands(DB_TRIGGER *trigger,DB_ACTION *action);
 
 void test()
 {
-
-	if(CONFIG_LOG_FILE == NULL)
-	{
-		zabbix_open_log(LOG_TYPE_UNDEFINED,LOG_LEVEL_DEBUG,NULL);
-	}
-	else
-	{
-		zabbix_open_log(LOG_TYPE_FILE,LOG_LEVEL_DEBUG,CONFIG_LOG_FILE);
-	}
-
-	zabbix_log( LOG_LEVEL_INFORMATION, "Starting zabbix_server. ZABBIX %s (revision %s).",
-			ZABBIX_VERSION,
-			ZABBIX_REVISION);
-
-	printf("-= Test Started =-\n\n");
-
-/*	test_params();*/
-/*	test_compress_signs(); */
-/*	test_expressions(); */
-/*	test_db_connection(); */
-/*	test_variable_argument_list(); */
-/*	test_templates();*/
-/*	test_calc_timestamp();*/
-/*	test_zbx_gethost();*/
-/*	test_email(); */
-/*	test_extract_numbers(); */
-/*	test_trigger_description(); */
-/*	test_zbx_tcp_connect( );*/
-/*	test_ip_in_list(); */
-/*	test_binary2hex();*/
-	test_macros();
-
-	printf("\n-= Test completed =-\n");
+	printf("-= Test Started =-\n");
+	
+	printf("-= Test completed =-\n");
 }
-
-#endif /* ZABBIX_TEST */
+#endif
 
 /******************************************************************************
  *                                                                            *
@@ -1057,36 +517,79 @@ void test()
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Eugene Grigorjev                                                   *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
 int main(int argc, char **argv)
 {
-	zbx_task_t	task  = ZBX_TASK_START;
-	char    ch      = '\0';
+	int	ch;
+	int	i;
+	pid_t	pid;
 
-	int	nodeid = 0;
+	struct	sigaction phan;
+
+	int		listenfd;
+	socklen_t	addrlen;
+
+	char		host[128];
+
+	char sql[MAX_STRING_LEN];
+	DB_RESULT	result;
+	DB_ROW		row;
+#ifdef HAVE_ZZZ
+	const char ** v;
+#endif
+
+
+
+#ifdef HAVE_ZZZ
+	init_config();
+
+	DBconnect();
+//	result = DBselect("select * from history where itemid=20272");
+	result = DBselect("select NULL from history where itemid=20272222");
+	row=DBfetch(result);
+	if(!row) printf("OK");
+	exit(0);
+	while((row=DBfetch(result)))
+	{
+		printf("[%s]\n",row[0]);
+	}
+	DBfree_result(result);
+	DBclose();
+	return 0;
+#endif
+#ifdef HAVE_ZZZ
+/* */
+	DBconnect();
+/*	DBexecute("update history set value=value-10 where itemid=20272");*/
+	result = DBselect("select itemid,key_,description from items");
+	while ( SQLO_SUCCESS == sqlo_fetch(result, 1))
+	{
+		v = sqlo_values(result, NULL, 1);
+		printf("%s %s %s\n",v[0],v[1],v[2]);
+	}
+	DBfree_result(result);
+	DBclose();
+/* */
+	return 0;
+#endif
 
 	progname = argv[0];
 
-	/* Parse the command-line. */
-	while ((ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts,NULL)) != (char)EOF)
-	switch (ch) {
+/* Parse the command-line. */
+	while ((ch = getopt_long(argc, argv, "c:hv",longopts,NULL)) != EOF)
+	switch ((char) ch) {
 		case 'c':
-			CONFIG_FILE = strdup(zbx_optarg);
+			CONFIG_FILE = optarg;
 			break;
 		case 'h':
 			help();
 			exit(-1);
 			break;
-		case 'n':
-			nodeid=0;
-			if(zbx_optarg)	nodeid = atoi(zbx_optarg);
-			task = ZBX_TASK_CHANGE_NODEID;
-			break;
-		case 'V':
+		case 'v':
 			version();
 			exit(-1);
 			break;
@@ -1096,63 +599,11 @@ int main(int argc, char **argv)
 			break;
         }
 
-	if(CONFIG_FILE == NULL)
-	{
-		CONFIG_FILE=strdup("/etc/zabbix/zabbix_server.conf");
-	}
-
-	/* Required for simple checks */
 	init_metrics();
 
 	init_config();
 
-#ifdef HAVE_OPENIPMI
-	init_ipmi_handler();
-#endif
-
-	switch (task) {
-		case ZBX_TASK_CHANGE_NODEID:
-			change_nodeid(0,nodeid);
-			exit(-1);
-			break;
-		default:
-			break;
-	}
-
-#ifdef ZABBIX_TEST
-/*	struct sigaction  phan;
-
-	phan.sa_handler = test_child_signal_handler;
-	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = 0;
-
-	sigaction(SIGINT,       &phan, NULL);
-	sigaction(SIGQUIT,      &phan, NULL);
-	sigaction(SIGTERM,      &phan, NULL);
-	sigaction(SIGPIPE,      &phan, NULL);
-	sigaction(SIGCHLD,      &phan, NULL);
-*/
-	test();
-
-	zbx_on_exit();
-	return 0;
-#endif /* ZABBIX_TEST */
-
-	return daemon_start(CONFIG_ALLOW_ROOT);
-}
-
-int MAIN_ZABBIX_ENTRY(void)
-{
-        DB_RESULT       result;
-        DB_ROW          row;
-
-	int	i;
-	pid_t	pid;
-
-	zbx_sock_t	listen_sock;
-
-	int		server_num = 0;
-
+#ifdef USE_TEST_FUNCTION
 	if(CONFIG_LOG_FILE == NULL)
 	{
 		zabbix_open_log(LOG_TYPE_SYSLOG,CONFIG_LOG_LEVEL,NULL);
@@ -1162,72 +613,49 @@ int MAIN_ZABBIX_ENTRY(void)
 		zabbix_open_log(LOG_TYPE_FILE,CONFIG_LOG_LEVEL,CONFIG_LOG_FILE);
 	}
 
-#ifdef  HAVE_SNMP
-#	define SNMP_FEATURE_STATUS "YES"
-#else
-#	define SNMP_FEATURE_STATUS " NO"
+	zabbix_log( LOG_LEVEL_WARNING, "Starting zabbix_server. ZABBIX %s.", ZABBIX_VERSION);
+	DBconnect();
+	test();
+	DBclose();
+	return 0;
 #endif
-#ifdef  HAVE_LIBCURL
-#	define LIBCURL_FEATURE_STATUS "YES"
-#else
-#	define LIBCURL_FEATURE_STATUS " NO"
-#endif
-#ifdef  HAVE_JABBER
-#	define JABBER_FEATURE_STATUS "YES"
-#else
-#	define JABBER_FEATURE_STATUS " NO"
-#endif
-#ifdef  HAVE_ODBC
-#	define ODBC_FEATURE_STATUS "YES"
-#else
-#	define ODBC_FEATURE_STATUS " NO"
-#endif
-#ifdef  HAVE_IPV6
-#       define IPV6_FEATURE_STATUS "YES"
-#else
-#       define IPV6_FEATURE_STATUS " NO"
-#endif
+	
+	daemon_init();
 
-/*	zabbix_log( LOG_LEVEL_WARNING, "INFO [%s]", ZBX_SQL_MOD(a,%d)); */
-	zabbix_log( LOG_LEVEL_WARNING, "Starting zabbix_server. ZABBIX %s (revision %s).",
-			ZABBIX_VERSION,
-			ZABBIX_REVISION);
+	phan.sa_handler = &signal_handler; /* set up sig handler using sigaction() */
+	sigemptyset(&phan.sa_mask);
+	phan.sa_flags = 0;
+	sigaction(SIGINT, &phan, NULL);
+	sigaction(SIGQUIT, &phan, NULL);
+	sigaction(SIGTERM, &phan, NULL);
+	sigaction(SIGPIPE, &phan, NULL);
 
-	zabbix_log( LOG_LEVEL_WARNING, "**** Enabled features ****");
-	zabbix_log( LOG_LEVEL_WARNING, "SNMP monitoring:       " SNMP_FEATURE_STATUS	);
-	zabbix_log( LOG_LEVEL_WARNING, "WEB monitoring:        " LIBCURL_FEATURE_STATUS	);
-	zabbix_log( LOG_LEVEL_WARNING, "Jabber notifications:  " JABBER_FEATURE_STATUS	);
-	zabbix_log( LOG_LEVEL_WARNING, "ODBC:                  " ODBC_FEATURE_STATUS	);
-	zabbix_log( LOG_LEVEL_WARNING, "IPv6 support:          " IPV6_FEATURE_STATUS	);
-	zabbix_log( LOG_LEVEL_WARNING, "**************************");
-
-#ifdef  HAVE_SQLITE3
-	if(ZBX_MUTEX_ERROR == php_sem_get(&sqlite_access, CONFIG_DBNAME))
+/* Moved to daemon_init() */
+/*	if(CONFIG_LOG_FILE == NULL)
 	{
-		zbx_error("Unable to create mutex for sqlite");
+		zabbix_open_log(LOG_TYPE_SYSLOG,CONFIG_LOG_LEVEL,NULL);
+	}
+	else
+	{
+		zabbix_open_log(LOG_TYPE_FILE,CONFIG_LOG_LEVEL,CONFIG_LOG_FILE);
+	}*/
+
+	if( FAIL == create_pid_file(CONFIG_PID_FILE))
+	{
 		exit(FAIL);
 	}
-#endif /* HAVE_SQLITE3 */
 
-	DBconnect(ZBX_DB_CONNECT_EXIT);
+	zabbix_log( LOG_LEVEL_WARNING, "Starting zabbix_server. ZABBIX %s.", ZABBIX_VERSION);
 
-	result = DBselect("select refresh_unsupported from config where 1=1" DB_NODE,
-		DBnode_local("configid"));
+	DBconnect();
+
+	snprintf(sql,sizeof(sql)-1,"select refresh_unsupported from config");
+	result = DBselect(sql);
 	row = DBfetch(result);
 
-	if( (row != NULL) && DBis_null(row[0]) != SUCCEED)
+	if(row && DBis_null(row[0]) != SUCCEED)
 	{
 		CONFIG_REFRESH_UNSUPPORTED = atoi(row[0]);
-	}
-	DBfree_result(result);
-
-	result = DBselect("select masterid from nodes where nodeid=%d",
-		CONFIG_NODEID);
-	row = DBfetch(result);
-
-	if( (row != NULL) && DBis_null(row[0]) != SUCCEED)
-	{
-		CONFIG_MASTER_NODEID = atoi(row[0]);
 	}
 	DBfree_result(result);
 
@@ -1235,19 +663,6 @@ int MAIN_ZABBIX_ENTRY(void)
 /* DBconnect() already made in init_config() */
 /*	DBconnect();*/
 	DBupdate_triggers_status_after_restart();
-	DBclose();
-
-/* To make sure that we can connect to the database before forking new processes */
-/*	DBconnect(ZBX_DB_CONNECT_EXIT);*/
-/* Do not close database. It is required for database cache */
-/*	DBclose();*/
-
-	if (ZBX_MUTEX_ERROR == zbx_mutex_create_force(&node_sync_access, ZBX_MUTEX_NODE_SYNC)) {
-		zbx_error("Unable to create mutex for node syncs");
-		exit(FAIL);
-	}
-
-	init_database_cache(ZBX_PROCESS_SERVER);
 
 /*#define CALC_TREND*/
 
@@ -1255,240 +670,92 @@ int MAIN_ZABBIX_ENTRY(void)
 	trend();
 	return 0;
 #endif
-	threads = calloc(1 + CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-			+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS
-			+ CONFIG_NODEWATCHER_FORKS + CONFIG_HTTPPOLLER_FORKS + CONFIG_DISCOVERER_FORKS + CONFIG_DBSYNCER_FORKS
-			+ CONFIG_ESCALATOR_FORKS + CONFIG_IPMIPOLLER_FORKS, sizeof(pid_t));
+	DBclose();
+	pids=calloc(CONFIG_POLLER_FORKS+CONFIG_TRAPPERD_FORKS-1,sizeof(pid_t));
 
-	if(CONFIG_TRAPPERD_FORKS > 0)
-	{
-		if( FAIL == zbx_tcp_listen(&listen_sock, CONFIG_LISTEN_IP, (unsigned short)CONFIG_LISTEN_PORT) )
-		{
-			zabbix_log(LOG_LEVEL_CRIT, "Listener failed with error: %s.", zbx_tcp_strerror());
-			exit(1);
-		}
-	}
-
-	for ( i = 1; i <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-			+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS
-			+ CONFIG_NODEWATCHER_FORKS + CONFIG_HTTPPOLLER_FORKS + CONFIG_DISCOVERER_FORKS + CONFIG_DBSYNCER_FORKS
-			+ CONFIG_ESCALATOR_FORKS + CONFIG_IPMIPOLLER_FORKS;
-		i++)
+	for(i=1;i<CONFIG_POLLER_FORKS;i++)
 	{
 		if((pid = zbx_fork()) == 0)
 		{
-			server_num = i;
+			server_num=i;
 			break;
 		}
 		else
 		{
-			threads[i]=pid;
+			pids[i-1]=pid;
 		}
 	}
 
-/*	zabbix_log( LOG_LEVEL_WARNING, "zabbix_server #%d started",server_num); */
-	/* Main process */
-	if (server_num == 0)
+/*	zabbix_log( LOG_LEVEL_WARNING, "zabbix_server #%d started",server_num);*/
+
+	if( server_num == 0)
 	{
-		init_main_process();
-		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [Watchdog]",
-			server_num);
-		main_watchdog_loop();
-/*		for(;;)	zbx_sleep(3600);*/
-	}
-
-
-	if (server_num <= CONFIG_POLLER_FORKS)
-	{
-#ifdef HAVE_SNMP
-		init_snmp("zabbix_server");
-#endif /* HAVE_SNMP */
-
-		zabbix_log(LOG_LEVEL_WARNING, "server #%d started [Poller. SNMP:"SNMP_FEATURE_STATUS"]",
-				server_num);
-
-		main_poller_loop(ZBX_PROCESS_SERVER, ZBX_POLLER_TYPE_NORMAL, server_num);
-	}
-	else if (server_num <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "server #%d started [Trapper]",
-				server_num);
-
+		sigaction(SIGCHLD, &phan, NULL);
 /* Run trapper processes then do housekeeping */
-		child_trapper_main(ZBX_PROCESS_SERVER, &listen_sock);
+		if(gethostname(host,127) != 0)
+		{
+			zabbix_log( LOG_LEVEL_CRIT, "gethostname() failed");
+			exit(FAIL);
+		}
 
-/*		threads[i] = child_trapper_make(i, listenfd, addrlen); */
-/*		child_trapper_make(server_num, listenfd, addrlen); */
-	}
-	else if (server_num <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "server #%d started [ICMP pinger]",
-				server_num);
+		listenfd = tcp_listen(host,CONFIG_LISTEN_PORT,&addrlen);
 
-		main_pinger_loop(ZBX_PROCESS_SERVER, server_num - (CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS));
-	}
-	else if (server_num <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "server #%d started [Alerter]",
-				server_num);
+		for(i = CONFIG_POLLER_FORKS; i< CONFIG_POLLER_FORKS+CONFIG_TRAPPERD_FORKS; i++)
+		{
+			pids[i-1] = child_trapper_make(i, listenfd, addrlen);
+		}
 
-		main_alerter_loop();
-	}
-	else if (server_num <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-			+ CONFIG_HOUSEKEEPER_FORKS)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "server #%d started [Housekeeper]",
-				server_num);
+/* First instance of zabbix_server performs housekeeping procedures */
+		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [Housekeeper]",server_num);
+
+		for(i=0;i<CONFIG_POLLER_FORKS+CONFIG_TRAPPERD_FORKS-1;i++)
+		{
+				zabbix_log( LOG_LEVEL_DEBUG, "%d. PID=[%d]", i, pids[i]);
+		}
+		zabbix_log( LOG_LEVEL_CRIT, "ZABBIX server is up.");
 
 		main_housekeeper_loop();
 	}
-	else if (server_num <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-			+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS)
+	else if(server_num == 1)
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "server #%d started [Timer]",
-				server_num);
-
+/* Second instance of zabbix_server sends alerts to users */
+		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [Alerter]",server_num);
+		main_alerter_loop();
+	}
+	else if(server_num == 2)
+	{
+/* Third instance of zabbix_server periodically re-calculates time-related functions */
+		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [Timer]",server_num);
 		main_timer_loop();
 	}
-	else if (server_num <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-			+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS)
+	else if(server_num == 3)
+	{
+/* Fourth instance of zabbix_server periodically pings hosts */
+		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [ICMP pinger]",server_num);
+		main_pinger_loop();
+	}
+	else if(server_num == 4)
 	{
 #ifdef HAVE_SNMP
 		init_snmp("zabbix_server");
-#endif /* HAVE_SNMP */
+		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [Poller for unreachable hosts. SNMP:ON]",server_num);
+#else
+		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [Poller for unreachable hosts. SNMP:OFF]",server_num);
+#endif
 
-		zabbix_log(LOG_LEVEL_WARNING, "server #%d started [Poller for unreachable hosts. SNMP:"SNMP_FEATURE_STATUS"]",
-				server_num);
-
-		main_poller_loop(ZBX_PROCESS_SERVER, ZBX_POLLER_TYPE_UNREACHABLE, server_num - (CONFIG_POLLER_FORKS
-				+ CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-				+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS));
+		main_poller_loop();
 	}
-	else if (server_num <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-			+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS
-			+ CONFIG_NODEWATCHER_FORKS)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "server #%d started [Node watcher. Node ID:%d]",
-				server_num,
-				CONFIG_NODEID);
-
-		main_nodewatcher_loop();
-	}
-	else if (server_num <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-			+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS
-			+ CONFIG_NODEWATCHER_FORKS + CONFIG_HTTPPOLLER_FORKS)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "server #%d started [HTTP Poller]",
-				server_num);
-
-		main_httppoller_loop(ZBX_PROCESS_SERVER, server_num - CONFIG_POLLER_FORKS - CONFIG_TRAPPERD_FORKS
-				- CONFIG_PINGER_FORKS - CONFIG_ALERTER_FORKS - CONFIG_HOUSEKEEPER_FORKS - CONFIG_TIMER_FORKS
-				- CONFIG_UNREACHABLE_POLLER_FORKS - CONFIG_NODEWATCHER_FORKS);
-	}
-	else if (server_num <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-			+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS
-			+ CONFIG_NODEWATCHER_FORKS + CONFIG_HTTPPOLLER_FORKS + CONFIG_DISCOVERER_FORKS)
+	else
 	{
 #ifdef HAVE_SNMP
 		init_snmp("zabbix_server");
-#endif /* HAVE_SNMP */
+		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [Poller. SNMP:ON]",server_num);
+#else
+		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [Poller. SNMP:OFF]",server_num);
+#endif
 
-		zabbix_log( LOG_LEVEL_WARNING, "server #%d started [Discoverer. SNMP:"SNMP_FEATURE_STATUS"]",
-				server_num);
-
-		main_discoverer_loop(ZBX_PROCESS_SERVER, server_num - CONFIG_POLLER_FORKS - CONFIG_TRAPPERD_FORKS
-				- CONFIG_PINGER_FORKS - CONFIG_ALERTER_FORKS - CONFIG_HOUSEKEEPER_FORKS - CONFIG_TIMER_FORKS
-				- CONFIG_UNREACHABLE_POLLER_FORKS - CONFIG_NODEWATCHER_FORKS - CONFIG_HTTPPOLLER_FORKS);
-	}
-	else if (server_num <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-			+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS
-			+ CONFIG_NODEWATCHER_FORKS + CONFIG_HTTPPOLLER_FORKS + CONFIG_DISCOVERER_FORKS + CONFIG_DBSYNCER_FORKS)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "server #%d started [DB Syncer]",
-				server_num);
-
-		main_dbsyncer_loop();
-	}
-	else if (server_num <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-			+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS
-			+ CONFIG_NODEWATCHER_FORKS + CONFIG_HTTPPOLLER_FORKS + CONFIG_DISCOVERER_FORKS + CONFIG_DBSYNCER_FORKS
-			+ CONFIG_ESCALATOR_FORKS)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "server #%d started [Escalator]",
-				server_num);
-
-		main_escalator_loop();
-	}
-	else if (server_num <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-			+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS
-			+ CONFIG_NODEWATCHER_FORKS + CONFIG_HTTPPOLLER_FORKS + CONFIG_DISCOVERER_FORKS + CONFIG_DBSYNCER_FORKS
-			+ CONFIG_ESCALATOR_FORKS + CONFIG_IPMIPOLLER_FORKS)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "server #%d started [IPMI Poller]",
-				server_num);
-
-		main_poller_loop(ZBX_PROCESS_SERVER, ZBX_POLLER_TYPE_IPMI, server_num - (CONFIG_POLLER_FORKS
-				+ CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-				+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS
-				+ CONFIG_NODEWATCHER_FORKS + CONFIG_HTTPPOLLER_FORKS + CONFIG_DISCOVERER_FORKS + CONFIG_DBSYNCER_FORKS
-				+ CONFIG_ESCALATOR_FORKS));
+		main_poller_loop();
 	}
 
 	return SUCCEED;
-}
-
-void	zbx_on_exit()
-{
-#if !defined(_WINDOWS)
-
-	int i = 0;
-
-	if(threads != NULL)
-	{
-		for (i = 1; i <= CONFIG_POLLER_FORKS + CONFIG_TRAPPERD_FORKS + CONFIG_PINGER_FORKS + CONFIG_ALERTER_FORKS
-				+ CONFIG_HOUSEKEEPER_FORKS + CONFIG_TIMER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS
-				+ CONFIG_NODEWATCHER_FORKS + CONFIG_HTTPPOLLER_FORKS + CONFIG_DISCOVERER_FORKS + CONFIG_DBSYNCER_FORKS
-				+ CONFIG_ESCALATOR_FORKS + CONFIG_IPMIPOLLER_FORKS; i++)
-		{
-			if (threads[i]) {
-				kill(threads[i], SIGTERM);
-				threads[i] = (ZBX_THREAD_HANDLE)NULL;
-			}
-		}
-		zbx_free(threads);
-	}
-
-#endif /* not _WINDOWS */
-
-#ifdef USE_PID_FILE
-
-	daemon_stop();
-
-#endif /* USE_PID_FILE */
-
-	free_metrics();
-
-	zbx_sleep(2); /* wait for all threads closing */
-
-	DBconnect(ZBX_DB_CONNECT_EXIT);
-	free_database_cache();
-	DBclose();
-
-	zbx_mutex_destroy(&node_sync_access);
-
-#ifdef HAVE_OPENIPMI
-	free_ipmi_handler();
-#endif
-
-	zabbix_close_log();
-
-#ifdef  HAVE_SQLITE3
-	php_sem_remove(&sqlite_access);
-#endif /* HAVE_SQLITE3 */
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "ZABBIX Server stopped. ZABBIX %s (revision %s).",
-			ZABBIX_VERSION,
-			ZABBIX_REVISION);
-
-	exit(SUCCEED);
 }

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -30,9 +30,8 @@
 #include <time.h>
 
 #include "common.h"
+#include "functions.h"
 #include "log.h"
-#include "zbxserver.h"
-
 #include "zlog.h"
 
 /******************************************************************************
@@ -50,50 +49,39 @@
  * Comments: do nothing if no zabbix[log] items                               *
  *                                                                            *
  ******************************************************************************/
-void __zbx_zabbix_syslog(const char *fmt, ...)
-{
+void zabbix_syslog(const char *fmt, ...)
+{ 
 	va_list		ap;
+	char		sql[MAX_STRING_LEN];
 	char		value_str[MAX_STRING_LEN];
 
 	DB_ITEM		item;
 	DB_RESULT	result;
-	DB_ROW		row;
+	DB_ROW	row;
+
 	AGENT_RESULT	agent;
-	time_t		now;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In zabbix_log()");
 
-	/* This is made to disable writing to database for watchdog */
-	if(CONFIG_ENABLE_LOG == 0)	return;
-
-	result = DBselect("select %s where h.hostid=i.hostid and h.status=%d and i.status=%d"
-			" and h.proxy_hostid=0 and i.key_='%s' and i.value_type=%d"
-			" and (h.maintenance_status=%d or h.maintenance_type=%d)" DB_NODE,
-			ZBX_SQL_ITEM_SELECT,
-			ITEM_STATUS_ACTIVE,
-			HOST_STATUS_MONITORED,
-			SERVER_ZABBIXLOG_KEY,
-			ITEM_VALUE_TYPE_STR,
-			HOST_MAINTENANCE_STATUS_OFF, MAINTENANCE_TYPE_NORMAL,
-			DBnode_local("h.hostid"));
-
-	now = time(NULL);
+	snprintf(sql,sizeof(sql)-1,"select %s where h.hostid=i.hostid and i.key_='%s' and i.value_type=%d", ZBX_SQL_ITEM_SELECT, SERVER_ZABBIXLOG_KEY, ITEM_VALUE_TYPE_STR);
+	result = DBselect(sql);
 
 	while((row=DBfetch(result)))
 	{
-		DBget_item_from_db(&item, row);
+		DBget_item_from_db(&item,row);
 
 		va_start(ap,fmt);
+/*		vsprintf(value_str,fmt,ap);*/
 		vsnprintf(value_str,sizeof(value_str),fmt,ap);
 		value_str[MAX_STRING_LEN-1]=0;
 		va_end(ap);
 
 		init_result(&agent);
 		SET_STR_RESULT(&agent, strdup(value_str));
-
-		process_new_value(&item, &agent, now);
-
+		process_new_value(&item,&agent);
 		free_result(&agent);
+
+		update_triggers(item.itemid);
 	}
 
 	DBfree_result(result);

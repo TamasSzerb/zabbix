@@ -34,7 +34,7 @@ struct host {
   char *hostname;
   char *community;
 } hosts[10000] = {
-/*  { "192.168.1.60",		"public" }, */
+//  { "192.168.1.60",		"public" },
   { NULL }
 };
 
@@ -47,7 +47,7 @@ struct oid {
   oid Oid[MAX_OID_LEN];
   int OidLen;
 } oids[10000] = {
-/*  { "192.168.1.5", ".1.3.6.1.2.1.1.6.5" }, */
+//  { "192.168.1.5", ".1.3.6.1.2.1.1.6.5" },
   { NULL }
 };
 
@@ -79,7 +79,7 @@ int	DBnum_rows(MYSQL_RES *result)
 	{
 		return	0;
 	}
-
+	
 /* This is necessary to exclude situations like
  * atoi(DBget_field(result,0,0). This leads to coredump.
  */
@@ -98,7 +98,7 @@ MYSQL_RES *DBselect(char *query)
 		printf("Query:%s\n",query);
 		printf("Query failed:%s [%d]\n", mysql_error(&mysql), mysql_errno(&mysql) );
 
-		if( (ER_SERVER_SHUTDOWN   != mysql_errno(&mysql)) &&
+		if( (ER_SERVER_SHUTDOWN   != mysql_errno(&mysql)) && 
             (CR_SERVER_GONE_ERROR != mysql_errno(&mysql)) &&
             (CR_CONNECTION_ERROR  != mysql_errno(&mysql)))
 		{
@@ -121,13 +121,13 @@ void load_oids(void)
 	struct host *h;
 	struct oid *o;
 
-	zbx_snprintf(sql, sizeof(sql), "select h.ip,i.snmp_community,i.snmp_oid from hosts h,items i where i.hostid=h.hostid and i.type=1 and i.status=0 and h.status=0 and h.useip=1");
+	sprintf(sql,"select h.ip,i.snmp_community,i.snmp_oid from hosts h,items i where i.hostid=h.hostid and i.type=1 and i.status=0 and h.status=0 and h.useip=1");
 
 	result=DBselect(sql);
 
 	for(i=0;i<DBnum_rows(result);i++)
 	{
-/*		printf("[%s] [%s] [%s]\n",DBget_field(result,i,0),DBget_field(result,i,1),DBget_field(result,i,2)); */
+//		printf("[%s] [%s] [%s]\n",DBget_field(result,i,0),DBget_field(result,i,1),DBget_field(result,i,2));
 
 		hostname = DBget_field(result,i,0);
 		community = DBget_field(result,i,1);
@@ -183,7 +183,7 @@ void load_oids(void)
 void initialize (void)
 {
 	struct oid *op;
-
+  
 	init_snmp("asynchapp");
 
 	load_oids();
@@ -191,7 +191,7 @@ void initialize (void)
 /* parse the oids */
 	op = oids;
 	while (op->hostname) {
-/*		printf("[%s]\n",op->hostname); */
+//		printf("[%s]\n",op->hostname);
 		op->OidLen = sizeof(op->Oid)/sizeof(op->Oid[0]);
 		if (!read_objid(op->Name, op->Oid, &op->OidLen)) {
 			snmp_perror("read_objid");
@@ -272,12 +272,12 @@ int asynch_response(int operation, struct snmp_session *sp, int reqid,
 
 	if (operation == NETSNMP_CALLBACK_OP_RECEIVED_MESSAGE) {
 		if (print_result(STAT_SUCCESS, host->sess, pdu)) {
-/*			host->current_oid++;			*/ /* send next GET (if any) */
+//			host->current_oid++;			/* send next GET (if any) */
 			op = host->current_oid;
 			op++;
 			while(op->hostname)
 			{
-/*				printf("[%s] [%s]\n",op->hostname, host->current_oid->hostname); */
+//				printf("[%s] [%s]\n",op->hostname, host->current_oid->hostname);
 				if(strcmp(op->hostname,host->current_oid->hostname)==0) {
 					host->current_oid = op;
 					break;
@@ -297,14 +297,14 @@ int asynch_response(int operation, struct snmp_session *sp, int reqid,
 			}
 			else
 			{
-/*				printf("No more OIDs for [%s]\n", host->current_oid->hostname); */
+//				printf("No more OIDs for [%s]\n", host->current_oid->hostname);
 			}
 		}
 	}
 	else
 		print_result(STAT_TIMEOUT, host->sess, pdu);
 
-/* something went wrong (or end of variables)
+/* something went wrong (or end of variables) 
 * this host not active any more
 */
 	active_hosts--;
@@ -324,7 +324,7 @@ void asynchronous(void)
 		struct snmp_session sess;
 		snmp_sess_init(&sess);			/* initialize session */
 		sess.version = SNMP_VERSION_1;
-		/*    sess.version = SNMP_VERSION_2c; */
+		//    sess.version = SNMP_VERSION_2c;
 		sess.peername = strdup(hp->hostname);
 		sess.community = strdup(hp->community);
 		sess.community_len = strlen(sess.community);
@@ -347,7 +347,7 @@ void asynchronous(void)
 			printf("No OIDs for [%s]\n", hp->hostname);
 			continue;
 		}
-/*		printf("Sending request [%s] [%s]\n",hp->hostname, hs->current_oid->Name); */
+//		printf("Sending request [%s] [%s]\n",hp->hostname, hs->current_oid->Name);
 		req = snmp_pdu_create(SNMP_MSG_GET);	/* send the first GET */
 		snmp_add_null_var(req, hs->current_oid->Oid, hs->current_oid->OidLen);
 		if (snmp_send(hs->sess, req))
@@ -416,7 +416,7 @@ int	DBexecute(char *query)
 		printf("Query::%s\n",query);
 		printf("Query failed:%s [%d]\n", mysql_error(&mysql), mysql_errno(&mysql) );
 
-		if( (ER_SERVER_SHUTDOWN   != mysql_errno(&mysql)) &&
+		if( (ER_SERVER_SHUTDOWN   != mysql_errno(&mysql)) && 
             (CR_SERVER_GONE_ERROR != mysql_errno(&mysql)) &&
             (CR_CONNECTION_ERROR  != mysql_errno(&mysql)))
 		{

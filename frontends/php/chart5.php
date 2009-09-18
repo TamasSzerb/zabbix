@@ -1,5 +1,5 @@
-<?php
-/*
+<?php 
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -19,42 +19,37 @@
 **/
 ?>
 <?php
-	require_once 'include/config.inc.php';
-	require_once 'include/services.inc.php';
+	include "include/config.inc.php";
 
-	$page['file']	= 'chart5.php';
-	$page['title']	= "S_CHART";
-	$page['type']	= PAGE_TYPE_IMAGE;
+#	PARAMETERS:
+	
+#	itemid
+#	type
 
-include_once 'include/page_header.php';
+	$start_time=time(NULL);
 
-?>
-<?php
-//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-	$fields=array(
-		'serviceid'=>		array(T_ZBX_INT, O_MAND,P_SYS,	DB_ID,		NULL)
-	);
-
-	check_fields($fields);
-?>
-<?php
-	if(!DBfetch(DBselect('select serviceid from services where serviceid='.$_REQUEST['serviceid']))){
-		fatal_error(S_NO_IT_SERVICE_DEFINED);
+	if(!isset($_REQUEST["type"]))
+	{
+		$_REQUEST["type"]="week";
 	}
 
-	$available_triggers = get_accessible_triggers(PERM_READ_ONLY, array(), PERM_RES_IDS_ARRAY);
-
-	$sql = 'SELECT s.serviceid '.
-				' FROM services s '.
-				' WHERE (s.triggerid is NULL OR '.DBcondition('s.triggerid',$available_triggers).') '.
-					' AND s.serviceid='.$_REQUEST['serviceid'];
-
-	if(!$service = DBfetch(DBselect($sql,1))){
-		access_deny();
+	if($_REQUEST["type"] == "month")
+	{
+		$period=30*24*3600;
 	}
-?>
-<?php
-	$start_time = time(NULL);
+	else if($_REQUEST["type"] == "week")
+	{
+		$period=7*24*3600;
+	}
+	else if($_REQUEST["type"] == "year")
+	{
+		$period=365*24*3600;
+	}
+	else
+	{
+		$period=7*24*3600;
+		$type="week";
+	}
 
 	$sizeX=900;
 	$sizeY=300;
@@ -63,115 +58,170 @@ include_once 'include/page_header.php';
 	$shiftYup=17;
 	$shiftYdown=25+15*3;
 
-	$im = imagecreate($sizeX+$shiftX+61,$sizeY+$shiftYup+$shiftYdown+10);
+	set_image_header();
 
-	$red=imagecolorallocate($im,255,0,0);
-	$darkred=imagecolorallocate($im,150,0,0);
-	$green=imagecolorallocate($im,0,255,0);
-	$darkgreen=imagecolorallocate($im,0,150,0);
-	$blue=imagecolorallocate($im,0,0,255);
-	$darkblue=imagecolorallocate($im,0,0,150);
-	$yellow=imagecolorallocate($im,255,255,0);
-	$darkyellow=imagecolorallocate($im,150,150,0);
-	$cyan=imagecolorallocate($im,0,255,255);
-	$black=imagecolorallocate($im,0,0,0);
-	$gray=imagecolorallocate($im,150,150,150);
-	$white=imagecolorallocate($im,255,255,255);
-	$bg=imagecolorallocate($im,6+6*16,7+7*16,8+8*16);
+	check_authorisation();
 
-	$x=imagesx($im);
+	$im = imagecreate($sizeX+$shiftX+61,$sizeY+$shiftYup+$shiftYdown+10); 
+  
+	$red=ImageColorAllocate($im,255,0,0); 
+	$darkred=ImageColorAllocate($im,150,0,0); 
+	$green=ImageColorAllocate($im,0,255,0); 
+	$darkgreen=ImageColorAllocate($im,0,150,0); 
+	$blue=ImageColorAllocate($im,0,0,255); 
+	$darkblue=ImageColorAllocate($im,0,0,150); 
+	$yellow=ImageColorAllocate($im,255,255,0); 
+	$darkyellow=ImageColorAllocate($im,150,150,0); 
+	$cyan=ImageColorAllocate($im,0,255,255); 
+	$black=ImageColorAllocate($im,0,0,0); 
+	$gray=ImageColorAllocate($im,150,150,150); 
+	$white=ImageColorAllocate($im,255,255,255); 
+	$bg=ImageColorAllocate($im,6+6*16,7+7*16,8+8*16);
+
+	$x=imagesx($im); 
 	$y=imagesy($im);
+  
+//	ImageFilledRectangle($im,0,0,$sizeX+$shiftX+61,$sizeY+$shiftYup+$shiftYdown+10,$white);
+	ImageFilledRectangle($im,0,0,$x,$y,$white);
+	ImageRectangle($im,0,0,$x-1,$y-1,$black);
 
-	imagefilledrectangle($im,0,0,$x,$y,$white);
-	imagerectangle($im,0,0,$x-1,$y-1,$black);
+//	if(!check_right_on_trigger("R",$_REQUEST["triggerid"]))
+//	{
+//		ImageOut($im); 
+//		ImageDestroy($im); 
+//		exit;
+//	}
 
-	$str=$service['name'].' (year '.date('Y').')';
-	$x=imagesx($im)/2-imagefontwidth(4)*strlen($str)/2;
-	imagestring($im, 4,$x,1, $str , $darkred);
+
+	$service=get_service_by_serviceid($_REQUEST["serviceid"]);
+
+	$str=$service["name"]." (year ".date("Y").")";
+	$x=imagesx($im)/2-ImageFontWidth(4)*strlen($str)/2;
+	ImageString($im, 4,$x,1, $str , $darkred);
 
 	$now = time(NULL);
 	$to_time=$now;
+	$from_time=$to_time-$period;
+	$from_time_now=$to_time-24*3600;
 
 	$count_now=array();
 	$problem=array();
 
-	$year=date('Y');
+	$year=date("Y");
 	$start=mktime(0,0,0,1,1,$year);
 
-	$wday=date('w',$start);
+	$wday=date("w",$start);
 	if($wday==0) $wday=7;
 	$start=$start-($wday-1)*24*3600;
-
-	$weeks = (int)(date('z')/7 +1);
-
-	for($i=0;$i<52;$i++){
-		if(($period_start=$start+7*24*3600*$i) > time())
-			break;
-
-		if(($period_end=$start+7*24*3600*($i+1)) > time())
-			$period_end = time();
-
-		$stat = calculate_service_availability($_REQUEST['serviceid'],$period_start,$period_end);
-		$problem[$i]=$stat['problem'];
-		$ok[$i]=$stat['ok'];
+	for($i=0;$i<52;$i++)
+	{
+		$period_start=$start+7*24*3600*$i;
+		$period_end=$start+7*24*3600*($i+1);
+		$stat=calculate_service_availability($_REQUEST["serviceid"],$period_start,$period_end);
+		
+		$problem[$i]=$stat["problem"];
+		$ok[$i]=$stat["ok"];
 		$count_now[$i]=1;
 	}
 
-	for($i=0;$i<=$sizeY;$i+=$sizeY/10){
+	for($i=0;$i<=$sizeY;$i+=$sizeY/10)
+	{
 		DashedLine($im,$shiftX,$i+$shiftYup,$sizeX+$shiftX,$i+$shiftYup,$gray);
 	}
 
-	for($i = 0, $period_start = $start; $i <= $sizeX; $i += $sizeX/52){
+	$j=0;
+	for($i=0;$i<=$sizeX;$i+=$sizeX/52)
+	{
 		DashedLine($im,$i+$shiftX,$shiftYup,$i+$shiftX,$sizeY+$shiftYup,$gray);
-		imagestringup($im, 1,$i+$shiftX-4, $sizeY+$shiftYup+32, date('d.M',$period_start) , $black);
-
-		$period_start += 7*24*3600;
+		$period_start=$start+7*24*3600*$j;
+		ImageStringUp($im, 1,$i+$shiftX-4, $sizeY+$shiftYup+32, date("d.M",$period_start) , $black);
+		$j++;
 	}
 
-	$maxY = max(max($problem), 100);
-	$minY = 0;
+	$maxY=100;
+	$tmp=max($problem);
+	if($tmp>$maxY)
+	{
+		$maxY=$tmp;
+	}
+	$minY=0;
 
-	$maxX = 900;
-	$minX = 0;
+	$maxX=900;
+	$minX=0;
 
-	for($i=1;$i<=$weeks;$i++){
-		if(!isset($ok[$i-1])) continue;
-		$x2=($sizeX/52)*($i-1-$minX)*$sizeX/($maxX-$minX);
+	for($i=1;$i<=52;$i++)
+	{
+//		$x1=(900/52)*$sizeX*($i-$minX)/($maxX-$minX);
+//		$y1=$sizeY*($problem[$i]-$minY)/($maxY-$minY);
+//		$x2=(900/52)*$sizeX*($i-$minX-1)/($maxX-$minX);
+//		$y2=$sizeY*($problem[$i-1]-$minY)/($maxY-$minY);
+//		$y1=$sizeY-$y1;
+//		$y2=$sizeY-$y2;
 
+//		ImageLine($im,$x1+$shiftX,$y1+$shiftYup,$x2+$shiftX,$y2+$shiftYup,$darkred);
+
+//		ImageRectangle($im,$x1+$shiftX-1,$y1+$shiftYup-1,$x1+$shiftX+1,$y1+$shiftYup+1,$darkred);
+//		ImageRectangle($im,$x2+$shiftX-1,$y2+$shiftYup-1,$x2+$shiftX+1,$y2+$shiftYup+1,$darkred);
+
+
+//		$x1=(900/52)*$sizeX*($i-$minX)/($maxX-$minX);
+//		$y1=$sizeY*($ok[$i]-$minY)/($maxY-$minY);
+		$x2=(900/52)*$sizeX*($i-$minX-1)/($maxX-$minX);
 		$y2=$sizeY*($ok[$i-1]-$minY)/($maxY-$minY);
+//		$y1=$sizeY-$y1;
 		$y2=$sizeY-$y2;
 
-		imagefilledrectangle($im,$x2+$shiftX,$y2+$shiftYup,$x2+$shiftX+8,$sizeY+$shiftYup,imagecolorallocate($im,120,235,120));
-		imagerectangle($im,$x2+$shiftX,$y2+$shiftYup,$x2+$shiftX+8,$sizeY+$shiftYup,$black);
+//		ImageLine($im,$x1+$shiftX,$y1+$shiftYup,$x2+$shiftX,$y2+$shiftYup,$darkgreen);
 
-		imagefilledrectangle($im,$x2+$shiftX,$shiftYup,$x2+$shiftX+8,$y2+$shiftYup,imagecolorallocate($im,235,120,120));
-		imagerectangle($im,$x2+$shiftX,$shiftYup,$x2+$shiftX+8,$y2+$shiftYup,$black);
+//		ImageRectangle($im,$x1+$shiftX-1,$y1+$shiftYup-1,$x1+$shiftX+1,$y1+$shiftYup+1,$darkgreen);
+//		ImageRectangle($im,$x2+$shiftX-1,$y2+$shiftYup-1,$x2+$shiftX+1,$y2+$shiftYup+1,$darkgreen);
+
+		ImageFilledRectangle($im,$x2+$shiftX,$y2+$shiftYup,$x2+$shiftX+8,$sizeY+$shiftYup,ImageColorAllocate($im,120,200,120));
+		ImageRectangle($im,$x2+$shiftX,$y2+$shiftYup,$x2+$shiftX+8,$sizeY+$shiftYup,$black);
+// Doesn't work for some reason
+		ImageFilledRectangle($im,$x2+$shiftX,$shiftYup,$x2+$shiftX+8,$y2+$shiftYup,ImageColorAllocate($im,200,120,120));
+		ImageRectangle($im,$x2+$shiftX,$shiftYup,$x2+$shiftX+8,$y2+$shiftYup,$black);
+//		ImageRectangle($im,$x2+$shiftX,$sizeY+$shiftYup,$x2+$shiftX+8,$shiftYup,$black);
+
+
+/*
+		$x1=(900/52)*$sizeX*($i-$minX)/($maxX-$minX);
+		$y1=$sizeY*($unknown[$i]-$minY)/($maxY-$minY);
+		$x2=(900/52)*$sizeX*($i-$minX-1)/($maxX-$minX);
+		$y2=$sizeY*($unknown[$i-1]-$minY)/($maxY-$minY);
+		$y1=$sizeY-$y1;
+		$y2=$sizeY-$y2;
+
+		ImageLine($im,$x1+$shiftX,$y1+$shiftYup,$x2+$shiftX,$y2+$shiftYup,$darkyellow);
+
+		ImageRectangle($im,$x1+$shiftX-1,$y1+$shiftYup-1,$x1+$shiftX+1,$y1+$shiftYup+1,$darkyellow);
+		ImageRectangle($im,$x2+$shiftX-1,$y2+$shiftYup-1,$x2+$shiftX+1,$y2+$shiftYup+1,$darkyellow);*/
+
+#			ImageStringUp($im, 1, $x1+10, $sizeY+$shiftYup+15, $i , $red);
 	}
 
-	for($i=0;$i<=$sizeY;$i+=$sizeY/10){
-		imagestring($im, 1, $sizeX+5+$shiftX, $sizeY-$i-4+$shiftYup, ($i*($maxY-$minY)/$sizeY+$minY).'%' , imagecolorallocate($im,200,40,40));
+	for($i=0;$i<=$sizeY;$i+=$sizeY/10)
+	{
+		ImageString($im, 1, $sizeX+5+$shiftX, $sizeY-$i-4+$shiftYup, ($i*($maxY-$minY)/$sizeY+$minY)."%" , ImageColorAllocate($im,200,120,120));
 	}
 
-	imagefilledrectangle($im,$shiftX,$sizeY+$shiftYup+39+15*0,$shiftX+5,$sizeY+$shiftYup+35+9+15*0,imagecolorallocate($im,120,235,120));
-	imagerectangle($im,$shiftX,$sizeY+$shiftYup+39+15*0,$shiftX+5,$sizeY+$shiftYup+35+9+15*0,$black);
-	imageStringTTF($im, 9, 0, $shiftX+9, $sizeY+$shiftYup+15*0+35+11, $black, 'OK (%)');
-	//imagestring($im, 2,$shiftX+9,$sizeY+$shiftYup+15*0+35, 'OK (%)', $black);
+	ImageFilledRectangle($im,$shiftX,$sizeY+$shiftYup+39+15*0,$shiftX+5,$sizeY+$shiftYup+35+9+15*0,ImageColorAllocate($im,120,200,120));
+	ImageRectangle($im,$shiftX,$sizeY+$shiftYup+39+15*0,$shiftX+5,$sizeY+$shiftYup+35+9+15*0,$black);
+	ImageString($im, 2,$shiftX+9,$sizeY+$shiftYup+15*0+35, "OK (%)", $black);
 
-	imagefilledrectangle($im,$shiftX,$sizeY+$shiftYup+39+15*1,$shiftX+5,$sizeY+$shiftYup+35+9+15*1,$darkred);
-	imagerectangle($im,$shiftX,$sizeY+$shiftYup+39+15*1,$shiftX+5,$sizeY+$shiftYup+15+9+35*1,$black);
-	imageStringTTF($im, 9, 0, $shiftX+9, $sizeY+$shiftYup+15*1+35+11, $black, 'PROBLEMS (%)');
-	//imagestring($im, 2,$shiftX+9,$sizeY+$shiftYup+15*1+35, 'PROBLEMS (%)', $black);
+	ImageFilledRectangle($im,$shiftX,$sizeY+$shiftYup+39+15*1,$shiftX+5,$sizeY+$shiftYup+35+9+15*1,$darkred);
+	ImageRectangle($im,$shiftX,$sizeY+$shiftYup+39+15*1,$shiftX+5,$sizeY+$shiftYup+15+9+35*1,$black);
+	ImageString($im, 2,$shiftX+9,$sizeY+$shiftYup+15*1+35, "PROBLEMS (%)", $black);
 
-	imagestringup($im,0,imagesx($im)-10,imagesy($im)-50, 'http://www.zabbix.com', $gray);
+//	ImageFilledRectangle($im,$shiftX,$sizeY+$shiftYup+39+15*2,$shiftX+5,$sizeY+$shiftYup+35+9+15*2,$darkyellow);
+//	ImageRectangle($im,$shiftX,$sizeY+$shiftYup+39+15*2,$shiftX+5,$sizeY+$shiftYup+35+9+15*2,$black);
+//	ImageString($im, 2,$shiftX+9,$sizeY+$shiftYup+15*2+35, "UNKNOWN (%)", $black);
+
+	ImageStringUp($im,0,imagesx($im)-10,imagesy($im)-50, "http://www.zabbix.com", $gray);
 
 	$end_time=time(NULL);
-	imagestring($im, 0,imagesx($im)-100,imagesy($im)-12,'Generated in '.($end_time-$start_time).' sec', $gray);
+	ImageString($im, 0,imagesx($im)-100,imagesy($im)-12,"Generated in ".($end_time-$start_time)." sec", $gray);
 
-	ImageOut($im);
-	imagedestroy($im);
-?>
-<?php
-
-include_once 'include/page_footer.php';
-
+	ImageOut($im); 
+	ImageDestroy($im); 
 ?>

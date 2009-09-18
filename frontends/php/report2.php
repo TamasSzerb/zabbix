@@ -1,7 +1,7 @@
 <?php
-/*
+/* 
 ** ZABBIX
-** Copyright (C) 2000-2009 SIA Zabbix
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,244 +19,147 @@
 **/
 ?>
 <?php
-	require_once 'include/config.inc.php';
-	require_once 'include/hosts.inc.php';
-	require_once 'include/reports.inc.php';
-
-	$page['title']	= 'S_AVAILABILITY_REPORT';
-	$page['file']	= 'report2.php';
-	$page['hist_arg'] = array('config','groupid','hostid','tpl_triggerid');
-	$page['scripts'] = array('calendar.js','scriptaculous.js?load=effects');
-	$page['type'] = detect_page_type(PAGE_TYPE_HTML);
-
-include_once 'include/page_header.php';
-
+	include "include/config.inc.php";
+	$page["title"] = "S_AVAILABILITY_REPORT";
+	$page["file"] = "report2.php";
+	show_header($page["title"],0,0);
 ?>
+
 <?php
-//		VAR				TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
+	if(!check_anyright("Host","R"))
+	{
+		show_table_header("<font color=\"AA0000\">".S_NO_PERMISSIONS."</font>");
+		show_page_footer();
+		exit;
+	}
+?>
+
+<?php
+//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		'config'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	IN('0,1'),		NULL),
-		'filter_groupid'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,			NULL),
-		'hostgroupid'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,			NULL),
-		'filter_hostid'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,			NULL),
-		'tpl_triggerid'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,			NULL),
-
-		'triggerid'=>		array(T_ZBX_INT, O_OPT,	P_SYS|P_NZERO,	DB_ID,		NULL),
-
-// filter
-		"filter_rst"=>		array(T_ZBX_INT, O_OPT,	P_SYS,	IN(array(0,1)),	NULL),
-		"filter_set"=>		array(T_ZBX_STR, O_OPT,	P_SYS,	null,	NULL),
-
-		'filter_timesince'=>	array(T_ZBX_INT, O_OPT,	P_UNSET_EMPTY,	null,	NULL),
-		'filter_timetill'=>	array(T_ZBX_INT, O_OPT,	P_UNSET_EMPTY,	null,	NULL),
-
-//ajax
-		'favobj'=>		array(T_ZBX_STR, O_OPT, P_ACT,	NULL,			NULL),
-		'favid'=>		array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,		'isset({favobj})'),
-		'state'=>		array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,		'isset({favobj}) && ("filter"=={favobj})'),
+		"groupid"=>		array(T_ZBX_INT, O_OPT,	P_SYS|P_NZERO,	DB_ID,			NULL),
+		"hostid"=>		array(T_ZBX_INT, O_OPT,	P_SYS|P_NZERO,	DB_ID,			NULL),
+		"triggerid"=>		array(T_ZBX_INT, O_OPT,	P_SYS|P_NZERO,	DB_ID,			NULL)
 	);
 
 	check_fields($fields);
-
-/* AJAX */
-	if(isset($_REQUEST['favobj'])){
-		if('filter' == $_REQUEST['favobj']){
-			update_profile('web.avail_report.filter.state',$_REQUEST['state'], PROFILE_TYPE_INT);
-		}
-	}
-
-	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		exit();
-	}
-
-//--------
-/* FILTER */
-	if(isset($_REQUEST['filter_rst'])){
-		$_REQUEST['filter_groupid'] = 0;
-		$_REQUEST['filter_hostid'] = 0;
-		$_REQUEST['filter_timesince'] = 0;
-		$_REQUEST['filter_timetill'] = 0;
-	}
-
-	$_REQUEST['filter_groupid'] = get_request('filter_groupid',0);
-	$_REQUEST['filter_hostid'] = get_request('filter_hostid',0);
-	$_REQUEST['filter_timesince'] = get_request('filter_timesince',get_profile('web.avail_report.filter.timesince',0));
-	$_REQUEST['filter_timetill'] = get_request('filter_timetill',get_profile('web.avail_report.filter.timetill',0));
-
-	if(($_REQUEST['filter_timetill'] > 0) && ($_REQUEST['filter_timesince'] > $_REQUEST['filter_timetill'])){
-		$tmp = $_REQUEST['filter_timesince'];
-		$_REQUEST['filter_timesince'] = $_REQUEST['filter_timetill'];
-		$_REQUEST['filter_timetill'] = $tmp;
-	}
-
-	if(isset($_REQUEST['filter_set']) || isset($_REQUEST['filter_rst'])){
-		update_profile('web.avail_report.filter.timesince',$_REQUEST['filter_timesince'], PROFILE_TYPE_INT);
-		update_profile('web.avail_report.filter.timetill',$_REQUEST['filter_timetill'], PROFILE_TYPE_INT);
-	}
-
-	$_REQUEST['groupid'] = $_REQUEST['filter_groupid'];
-	$_REQUEST['hostid'] = $_REQUEST['filter_hostid'];
-// --------------
-
-	$config = get_request('config',get_profile('web.avail_report.config',0));
-	update_profile('web.avail_report.config', $config, PROFILE_TYPE_INT);
-
-	$params = array();
-	$options = array('allow_all_hosts','with_items');
-
-	if(0 == $config) array_push($options,'monitored_hosts');
-	else array_push($options,'templated_hosts');
-
-	if(!$ZBX_WITH_ALL_NODES)	array_push($options,'only_current_node');
-	foreach($options as $option) $params[$option] = 1;
-
-	$PAGE_GROUPS = get_viewed_groups(PERM_READ_ONLY, $params);
-	$PAGE_HOSTS = get_viewed_hosts(PERM_READ_ONLY, $PAGE_GROUPS['selected'], $params);
-
-	validate_group_with_host($PAGE_GROUPS,$PAGE_HOSTS);
-//SDI($_REQUEST['groupid'].' : '.$_REQUEST['hostid']);
 ?>
+
 <?php
-	$rep2_wdgt = new CWidget();
+	update_profile("web.menu.reports.last",$page["file"]);
+?>
 
-// HEADER
-	if(0 == $config){
-		$available_groups = $PAGE_GROUPS['groupids'];
-		$available_hosts = $PAGE_HOSTS['hostids'];
-	}
-	else{
-		$available_groups = get_accessible_groups_by_user($USER_DETAILS,PERM_READ_ONLY);
+<?php
+	$h1=SPACE.S_AVAILABILITY_REPORT_BIG;
 
-		if($PAGE_HOSTS['selected'] != 0)
-			$PAGE_HOSTS['hostids'] = $available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY);
-		else
-			$available_hosts = $PAGE_HOSTS['hostids'];
-	}
-
-	$available_triggers = get_accessible_triggers(PERM_READ_ONLY,$available_hosts);
-
-	$rep2_wdgt->addPageHeader(S_AVAILABILITY_REPORT_BIG);
-//	show_report2_header($config, $PAGE_GROUPS, $PAGE_HOSTS);
-
-	if(isset($_REQUEST['triggerid'])){
-		if(isset($available_triggers[$_REQUEST['triggerid']])){
-			$sql = 'SELECT DISTINCT t.*, h.host, h.hostid '.
-					' FROM triggers t, functions f, items i, hosts h '.
-					' WHERE t.triggerid='.$_REQUEST['triggerid'].
-						' AND t.triggerid=f.triggerid '.
-						' AND f.itemid=i.itemid '.
-						' AND i.hostid=h.hostid ';
-			$trigger_data = DBfetch(DBselect($sql));
-		}
-		else{
-			unset($_REQUEST['triggerid']);
-		}
-	}
-
-
-	if(isset($_REQUEST['triggerid'])){
-		$rep2_wdgt->addHeader(array(
-									new CLink($trigger_data['host'],'?filter_groupid='.$_REQUEST['groupid'].'&filter_hostid='.$_REQUEST['hostid']),
-									' : ',
-									expand_trigger_description_by_data($trigger_data)
-								),
-								SPACE);
-
-		$table = new CTableInfo(null,'graph');
-		$table->addRow(new CImg('chart4.php?triggerid='.$_REQUEST['triggerid']));
-
-		$rep2_wdgt->addItem($table);
-		$rep2_wdgt->show();
-	}
-	else if(isset($_REQUEST['hostid'])){
-
-		$r_form = new CForm();
-		$r_form->setMethod('get');
-
-		$cmbConf = new CComboBox('config',$config,'submit()');
-		$cmbConf->addItem(0,S_BY_HOST);
-		$cmbConf->addItem(1,S_BY_TRIGGER_TEMPLATE);
-
-		$r_form->addItem($cmbConf);
-
-		$rep2_wdgt->addHeader(S_REPORT_BIG, array(S_MODE.SPACE,$r_form));
-		$rep2_wdgt->addItem(BR());
-
-// FILTER
-		$filterForm = get_report2_filter($config, $PAGE_GROUPS, $PAGE_HOSTS);
-		$rep2_wdgt->addFlicker($filterForm, get_profile('web.avail_report.filter.state',0));
-//-------
-
-		$sql_from = '';
-		$sql_where = '';
-
-		if(0 == $config){
-			if($_REQUEST['groupid'] > 0){
-				$sql_from .= ',hosts_groups hg ';
-				$sql_where.= ' AND hg.hostid=h.hostid AND hg.groupid='.$_REQUEST['groupid'];
+	$h2=S_GROUP.SPACE;
+	$h2=$h2."<select class=\"biginput\" name=\"groupid\" onChange=\"submit()\">";
+	$h2=$h2.form_select("groupid",0,S_ALL_SMALL);
+	$result=DBselect("select groupid,name from groups order by name");
+	while($row=DBfetch($result))
+	{
+// Check if at least one host with read permission exists for this group
+		$result2=DBselect("select h.hostid,h.host from hosts h,items i,hosts_groups hg where h.status=".HOST_STATUS_MONITORED." and h.hostid=i.hostid and hg.groupid=".$row["groupid"]." and hg.hostid=h.hostid group by h.hostid,h.host order by h.host");
+		$cnt=0;
+		while($row2=DBfetch($result2))
+		{
+			if(!check_right("Host","R",$row2["hostid"]))
+			{
+				continue;
 			}
-
-			if($_REQUEST['hostid'] > 0){
-				$sql_where.= ' AND h.hostid='.$_REQUEST['hostid'];
-			}
+			$cnt=1; break;
 		}
-		else{
-			if($_REQUEST['hostid'] > 0){
-				$sql_from.=',hosts_templates ht ';
-				$sql_where.=' AND ht.hostid=h.hostid AND ht.templateid='.$_REQUEST['hostid'];
-			}
-
-			if(isset($_REQUEST['tpl_triggerid']) && ($_REQUEST['tpl_triggerid'] > 0))
-				$sql_where.= ' AND t.templateid='.$_REQUEST['tpl_triggerid'];
+		if($cnt!=0)
+		{
+			$h2=$h2.form_select("groupid",$row["groupid"],$row["name"]);
 		}
+	}
+	$h2=$h2."</select>";
 
-		$result = DBselect('SELECT DISTINCT h.hostid,h.host,t.triggerid,t.expression,t.description,t.value '.
-			' FROM triggers t,hosts h,items i,functions f '.$sql_from.
-			' WHERE h.status='.HOST_STATUS_MONITORED.
-				' AND '.DBcondition('h.hostid',$available_hosts).
-				' AND i.hostid=h.hostid '.
-				' AND i.status='.ITEM_STATUS_ACTIVE.
-				' AND f.itemid=i.itemid '.
-				' AND t.triggerid=f.triggerid '.
-				' AND t.status='.TRIGGER_STATUS_ENABLED.
-				$sql_where.
-			' ORDER BY h.host, t.description');
+	$h2=$h2.SPACE.S_HOST.SPACE;
+	$h2=$h2."<select class=\"biginput\" name=\"hostid\" onChange=\"submit()\">";
+	$h2=$h2.form_select("hostid",0,S_SELECT_HOST_DOT_DOT_DOT);
 
+	if(isset($_REQUEST["groupid"]))
+	{
+		$sql="select h.hostid,h.host from hosts h,items i,hosts_groups hg where h.status=".HOST_STATUS_MONITORED." and h.hostid=i.hostid and hg.groupid=".$_REQUEST["groupid"]." and hg.hostid=h.hostid group by h.hostid,h.host order by h.host";
+	}
+	else
+	{
+		$sql="select h.hostid,h.host from hosts h,items i where h.status=".HOST_STATUS_MONITORED." and h.hostid=i.hostid group by h.hostid,h.host order by h.host";
+	}
+
+	$result=DBselect($sql);
+	while($row=DBfetch($result))
+	{
+		if(!check_right("Host","R",$row["hostid"]))
+		{
+			continue;
+		}
+		$h2=$h2.form_select("hostid",$row["hostid"],$row["host"]);
+	}
+	$h2=$h2."</select>";
+
+	show_header2($h1, $h2, "<form name=\"form2\" method=\"get\" action=\"report2.php\">", "</form>");
+?>
+
+<?php
+	if(isset($_REQUEST["hostid"])&&!isset($_REQUEST["triggerid"]))
+	{
+		echo "<br>";
+		$result=DBselect("select host from hosts where hostid=".$_REQUEST["hostid"]);
+		$row=DBfetch($result);
+		show_table_header($row["host"]);
+
+		$result=DBselect("select distinct h.hostid,h.host,t.triggerid,t.expression,t.description,t.value from triggers t,hosts h,items i,functions f where f.itemid=i.itemid and h.hostid=i.hostid and t.status=0 and t.triggerid=f.triggerid and h.hostid=".$_REQUEST["hostid"]." and h.status=".HOST_STATUS_MONITORED." and i.status=0 order by h.host, t.description");
 
 		$table = new CTableInfo();
-		$table->setHeader(
-				array(is_show_all_nodes()?S_NODE : null,
-				(($_REQUEST['hostid'] == 0) || (1 == $config))?S_HOST:NULL,
-				S_NAME,
-				S_PROBLEMS,
-				S_OK,
-				S_UNKNOWN,
-				S_GRAPH));
+		$table->setHeader(array(S_NAME,S_TRUE,S_FALSE,S_UNKNOWN,S_GRAPH));
+		while($row=DBfetch($result))
+		{
+			if(!check_right_on_trigger("R",$row["triggerid"])) 
+			{
+				continue;
+			}
+			$lasthost=$row["host"];
 
-		while($row=DBfetch($result)){
-			if(!check_right_on_trigger_by_triggerid(null, $row['triggerid'])) continue;
+			$description=expand_trigger_description($row["triggerid"]);
+			$description=new CLink($description,"alarms.php?triggerid=".$row["triggerid"],"action");
+	
+			$availability=calculate_availability($row["triggerid"],0,0);
 
-			$availability = calculate_availability($row['triggerid'],$_REQUEST['filter_timesince'],$_REQUEST['filter_timetill']);
-
-			$true	= new CSpan(sprintf("%.4f%%",$availability['true']), 'on');
-			$false	= new CSpan(sprintf("%.4f%%",$availability['false']), 'off');
-			$unknown= new CSpan(sprintf("%.4f%%",$availability['unknown']), 'unknown');
-			$actions= new CLink(S_SHOW,'report2.php?filter_groupid='.$_REQUEST['groupid'].'&filter_hostid='.$_REQUEST['hostid'].'&triggerid='.$row['triggerid']);
+			$true=new CSpan(sprintf("%.4f%%",$availability["true"]), "on");
+			$false=new CSpan(sprintf("%.4f%%",$availability["false"]), "off");
+			$unknown=new CSpan(sprintf("%.4f%%",$availability["unknown"]), "unknown");
+			$actions=new CLink(S_SHOW,"report2.php?hostid=".$_REQUEST["hostid"]."&triggerid=".$row["triggerid"],"action");
 
 			$table->addRow(array(
-				get_node_name_by_elid($row['hostid']),
-				(($_REQUEST['hostid'] == 0) || (1 == $config))?$row['host']:NULL,
-				new CLink(expand_trigger_description_by_data($row),'events.php?triggerid='.$row['triggerid']),
+				$description,
 				$true,
 				$false,
 				$unknown,
 				$actions
 				));
 		}
-
-		$rep2_wdgt->addItem($table);
-		$rep2_wdgt->show();
+		$table->show();
 	}
+?>
 
-include_once 'include/page_footer.php';
+<?php
+	if(isset($_REQUEST["triggerid"]))
+	{
+		echo "<TABLE BORDER=0 COLS=4 align=center WIDTH=100% BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
+		echo "<TR BGCOLOR=#EEEEEE>";
+		echo "<TR BGCOLOR=#DDDDDD>";
+		echo "<TD ALIGN=CENTER>";
+		echo "<IMG SRC=\"chart4.php?triggerid=".$_REQUEST["triggerid"]."\" border=0>";
+		echo "</TD>";
+		echo "</TR>";
+		echo "</TABLE>";
+	}
+?>
+
+
+<?php
+	show_page_footer();
 ?>

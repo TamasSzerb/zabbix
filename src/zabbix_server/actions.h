@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -24,7 +24,6 @@
 #include "common.h"
 #include "db.h"
 
-int	check_action_condition(DB_EVENT *event, DB_CONDITION *condition);
-void    process_actions(DB_EVENT *event);
+void    apply_actions(DB_TRIGGER *trigger,int alarmid,int trigger_value);
 
 #endif

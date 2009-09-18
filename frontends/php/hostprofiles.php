@@ -1,7 +1,7 @@
 <?php
-/*
+/* 
 ** ZABBIX
-** Copyright (C) 2000-2009 SIA Zabbix
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,213 +19,135 @@
 **/
 ?>
 <?php
-require_once('include/config.inc.php');
-require_once('include/hosts.inc.php');
-require_once('include/forms.inc.php');
-
-$page['title'] = "S_HOST_PROFILES";
-$page['file'] = 'hostprofiles.php';
-$page['hist_arg'] = array('groupid','hostid');
-
-include_once('include/page_header.php');
-
+	include "include/config.inc.php";
+	include "include/forms.inc.php";
+	$page["title"] = "S_HOST_PROFILES";
+	$page["file"] = "hostprofiles.php";
+	show_header($page["title"],0,0);
 ?>
-<?php
-//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-	$fields=array(
-		'groupid'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,	NULL),
-		'hostid'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,	NULL),
-		'prof_type'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	null,	NULL),
-	);
 
-	check_fields($fields);
-	validate_sort_and_sortorder('h.host',ZBX_SORT_UP);
+<?php
+        if(!check_anyright("Host","R"))
+        {
+                show_table_header("<font color=\"AA0000\">".S_NO_PERMISSIONS."</font>");
+                show_page_footer();
+                exit;
+        }
+	
+        if(isset($_REQUEST["hostid"])&&!check_right("Host","R",$_REQUEST["hostid"]))
+        {
+                show_table_header("<font color=\"AA0000\">".S_NO_PERMISSIONS."</font>");
+                show_page_footer();
+                exit;
+        }
 ?>
+
 <?php
-	$reset_hostid = (isset($_REQUEST['hostid'])) ? false : true;
+	validate_group_with_host("R", array("allow_all_hosts","monitored_hosts","with_items"));
+?>
 
-	$params = array();
-	$options = array('allow_all_hosts','real_hosts');
+<?php
+	update_profile("web.menu.cm.last",$page["file"]);
+?>
 
-	if(!$ZBX_WITH_ALL_NODES)	array_push($options,'only_current_node');
-	foreach($options as $option) $params[$option] = 1;
+<?php
+	$form = new CForm();
 
-	$PAGE_GROUPS = get_viewed_groups(PERM_READ_ONLY, $params);
-	$PAGE_HOSTS = get_viewed_hosts(PERM_READ_ONLY, $PAGE_GROUPS['selected'], $params);
-	validate_group($PAGE_GROUPS, $PAGE_HOSTS, $reset_hostid);
+	$form->AddItem(S_GROUP.SPACE);
+	$cmbGroup = new CComboBox("groupid",get_request("groupid",0),"submit()");
+	$cmbGroup->AddItem(0,S_ALL_SMALL);
 
-
-// Host profiles Table
-	$hostprof_wdgt = new CWidget();
-
-	$r_form = new CForm();
-	$r_form->setMethod('get');
-
-/// +++ find out what type of profile selected group hosts contains	+++ ///
-/// if they contain only one type profile, combobox with Profile types won't appear ///
-	$profile_types = 0;
-	$sql_where = '';
-	if($_REQUEST['groupid'] > 0){
-		$sql_where = ' AND hg.groupid='.$_REQUEST['groupid'];
-	}
-	else {
-		$sql_where = ' AND '.DBcondition('hg.groupid', $PAGE_GROUPS['groupids']);
-
-	}
-	$sql = 'SELECT p.hostid'.
-			' FROM hosts_profiles p, hosts_groups hg'.
-			' WHERE hg.hostid=p.hostid '.
-				$sql_where;
-	$result = DBselect($sql,1);
-	if(DBfetch($result)) $profile_types += 1;
-
-	$sql = 'SELECT pe.hostid'.
-			' FROM hosts_profiles_ext pe, hosts_groups hg'.
-			' WHERE hg.hostid=pe.hostid '.
-				$sql_where;
-	$result = DBselect($sql,1);
-	if(DBfetch($result)) $profile_types += 2;
-
-	switch($profile_types) {
-		case 2:
-			$prof_type = 1;
-		break;
-		case 3:
-			$prof_type = get_request('prof_type',0);
-			$cmbProf = new CComboBox('prof_type', $prof_type, 'javascript: submit();');
-			$cmbProf->additem(0, S_NORMAL);
-			$cmbProf->additem(1, S_EXTENDED);
-			$r_form->addItem(array(SPACE.S_HOST_PROFILES.SPACE,$cmbProf));
-		break;
-		case 1:
-		default:
-			$prof_type = 0;
-		break;
-
-	}
-/// --- --- ///
-
-	$hostprof_wdgt->addPageHeader(S_HOST_PROFILES_BIG, $r_form);
-
-	if(isset($_REQUEST['hostid']) && ($_REQUEST['hostid']>0)){
-		echo SBR;
-
-		if($prof_type){
-			$hostprof_wdgt->addItem(insert_host_profile_ext_form());
-		}
-		else{
-			$hostprof_wdgt->addItem(insert_host_profile_form());
+	$result=DBselect("select groupid,name from groups order by name");
+	while($row=DBfetch($result))
+	{
+// Check if at least one host with read permission exists for this group
+		$result2=DBselect("select h.hostid,h.host from hosts h,items i,hosts_groups hg".
+			" where h.status=".HOST_STATUS_MONITORED." and h.hostid=i.hostid and".
+			" hg.groupid=".$row["groupid"]." and hg.hostid=h.hostid group by h.hostid,h.host".
+			" order by h.host");
+		while($row2=DBfetch($result2))
+		{
+			if(!check_right("Host","R",$row2["hostid"]))	continue;
+			$cmbGroup->AddItem($row["groupid"],$row["name"]);
+			break;
 		}
 	}
-	else{
+	$form->AddItem($cmbGroup);
 
-		$r_form = new CForm();
-		$r_form->setMethod('get');
+	$form->AddItem(SPACE.S_HOST.SPACE);
 
-		$cmbGroups = new CComboBox('groupid',$PAGE_GROUPS['selected'],'javascript: submit();');
-		$cmbGroups->addItem(0, S_ALL_S);
+	$cmbHost = new CComboBox("hostid",get_request("hostid",0),"submit()");
 
-		$sql = 'SELECT DISTINCT hg.groupid, g.name '.
-				' FROM hosts_profiles p, hosts_profiles_ext pe, hosts_groups hg, groups g'.
-				' WHERE (hg.hostid=p.hostid OR hg.hostid=pe.hostid) '.
-					' AND g.groupid=hg.groupid '.
-					' AND '.DBcondition('hg.groupid', $PAGE_GROUPS['groupids']);
-		$result = DBselect($sql);
-		while($row = DBfetch($result)) {
-			$cmbGroups->addItem($row['groupid'], get_node_name_by_elid($row['groupid']).$row['name']);
-		}
+	if($_REQUEST["groupid"] > 0)
+	{
+		$sql="select h.hostid,h.host from hosts h,items i,hosts_groups hg".
+			" where h.status=".HOST_STATUS_MONITORED." and h.hostid=i.hostid and".
+			" hg.groupid=".$_REQUEST["groupid"]." and hg.hostid=h.hostid".
+			" group by h.hostid,h.host order by h.host";
+	}
+	else
+	{
+		$cmbHost->AddItem(0,S_ALL_SMALL);
+		$sql="select h.hostid,h.host from hosts h,items i where h.status=".HOST_STATUS_MONITORED.
+			" and h.hostid=i.hostid group by h.hostid,h.host order by h.host";
+	}
 
-		$r_form->addItem(array(S_GROUP.SPACE,$cmbGroups));
+	$result=DBselect($sql);
+	while($row=DBfetch($result))
+	{
+		if(!check_right("Host","R",$row["hostid"]))	continue;
+		$cmbHost->AddItem($row["hostid"],$row["host"]);
+	}
+	$form->AddItem($cmbHost);
+	
+	show_header2(S_HOST_PROFILES_BIG, $form);
+?>
 
-		$numrows = new CDiv();
-		$numrows->setAttribute('name','numrows');
-
-		$hostprof_wdgt->addHeader(S_HOSTS_BIG, $r_form);
-//		$hostprof_wdgt->addHeader($numrows);
-
+<?php
+	if($_REQUEST["hostid"] > 0)
+	{
+		echo BR;
+		insert_host_profile_form();
+	}
+	else
+	{
 		$table = new CTableInfo();
-		if($prof_type){
-			$table->setHeader(array(
-				is_show_all_nodes() ? make_sorting_link(S_NODE,'h.hostid') : null,
-				make_sorting_link(S_HOST,'h.host'),
-			   ($_REQUEST['groupid'] > 0)?null:make_sorting_link(S_GROUP,'g.name'),
-				make_sorting_link(S_DEVICE_OS_SHORT,'hpe.device_os_short'),
-				make_sorting_link(S_DEVICE_HW_ARCH,'hpe.device_hw_arch'),
-				make_sorting_link(S_DEVICE_TYPE,'hpe.device_type'),
-				make_sorting_link(S_DEVICE_STATUS,'hpe.device_status'))
-			);
+		$table->setHeader(array(S_HOST,S_NAME,S_OS,S_SERIALNO,S_TAG,S_MACADDRESS));
 
-			$sql_where = '';
-			if($_REQUEST['groupid'] > 0){
-				$sql_where = ' AND hg.groupid='.$_REQUEST['groupid'];
-			}
-
-			$sql='SELECT DISTINCT g.name, h.hostid,h.host,hpe.device_os_short,hpe.device_hw_arch,hpe.device_type,hpe.device_status'.
-				' FROM hosts h,hosts_profiles_ext hpe,hosts_groups hg,groups g '.
-				' WHERE h.hostid=hpe.hostid '.
-					' AND h.hostid=hg.hostid '.
-					' AND g.groupid=hg.groupid '.
-					' AND '.DBcondition('h.hostid',$PAGE_HOSTS['hostids']).
-					$sql_where.
-				order_by('h.host,h.hostid,g.name,hpe.device_os_short,hpe.device_hw_arch,hpe.device_type,hpe.device_status');
-			$result=DBselect($sql);
-			while($row=DBfetch($result)){
-				$table->addRow(array(
-					get_node_name_by_elid($row['hostid']),
-					new CLink($row['host'],'?hostid='.$row['hostid'].url_param('groupid').'&prof_type='.$prof_type),
-					($_REQUEST['groupid'] > 0)?null:$row['name'],
-					$row['device_os_short'],
-					$row['device_hw_arch'],
-					$row['device_type'],
-					$row['device_status']
-				));
-			}
-
+		if($_REQUEST["groupid"] > 0)
+		{
+			$sql="select h.hostid,h.host,p.name,p.os,p.serialno,p.tag,p.macaddress".
+				" from hosts h,hosts_profiles p,hosts_groups hg where h.hostid=p.hostid".
+				" and h.hostid=hg.hostid and hg.groupid=".$_REQUEST["groupid"].
+				" order by h.host";
 		}
-		else{
-			$table->setHeader(array(
-				is_show_all_nodes() ? make_sorting_link(S_NODE,'h.hostid') : null,
-				make_sorting_link(S_HOST,'h.host'),
-				make_sorting_link(S_NAME,'p.name'),
-				make_sorting_link(S_OS,'p.os'),
-				make_sorting_link(S_SERIALNO,'p.serialno'),
-				make_sorting_link(S_TAG,'p.tag'),
-				make_sorting_link(S_MACADDRESS,'p.macaddress'))
-			);
-
-			$sql_from = '';
-			$sql_where = '';
-			if($_REQUEST['groupid'] > 0){
-				$sql_from = ', hosts_groups hg ';
-				$sql_where = ' and h.hostid=hg.hostid AND hg.groupid='.$_REQUEST['groupid'];
-			}
-			$sql='SELECT h.hostid,h.host,p.name,p.os,p.serialno,p.tag,p.macaddress'.
-				' FROM hosts h,hosts_profiles p '.$sql_from.
-				' WHERE h.hostid=p.hostid'.
-					' and '.DBcondition('h.hostid',$PAGE_HOSTS['hostids']).
-					$sql_where.
-				order_by('h.host,h.hostid,p.name,p.os,p.serialno,p.tag,p.macaddress');
-			$result=DBselect($sql);
-			while($row=DBfetch($result)){
-				$table->addRow(array(
-					get_node_name_by_elid($row['hostid']),
-					new CLink($row['host'],'?hostid='.$row['hostid'].url_param('groupid').'&prof_type='.$prof_type),
-					$row['name'],
-					$row['os'],
-					$row['serialno'],
-					$row['tag'],
-					$row['macaddress']
-				));
-			}
+		else
+		{
+			$sql="select h.hostid,h.host,p.name,p.os,p.serialno,p.tag,p.macaddress".
+				" from hosts h,hosts_profiles p where h.hostid=p.hostid order by h.host";
 		}
 
-		$hostprof_wdgt->addItem($table);
+		$result=DBselect($sql);
+		while($row=DBfetch($result))
+		{
+        		if(!check_right("Host","R",$row["hostid"]))
+			{
+				continue;
+			}
+
+			$table->AddRow(array(
+				$row["host"],
+				$row["name"],
+				$row["os"],
+				$row["serialno"],
+				$row["tag"],
+				$row["macaddress"]
+				));
+		}
+		$table->show();
 	}
-
-	$hostprof_wdgt->show();
 ?>
+
 <?php
-
-include_once('include/page_footer.php');
-
+	show_page_footer();
 ?>

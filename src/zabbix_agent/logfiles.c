@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,80 +17,68 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
+#include "config.h"
+
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "common.h"
-#include "logfiles.h"
+
 #include "log.h"
+#include "logfiles.h"
 
-/******************************************************************************
- *                                                                            *
- * Function: process_log                                                      *
- *                                                                            *
- * Purpose: Get message from logfile                                          *
- *                                                                            *
- * Parameters: filename - logfile name                                        *
- *             lastlogsize - offset for message                               *
- *             value - pointer for logged message                             *
- *                                                                            *
- * Return value: returns SUCCEED on succesful reading,                        *
- *               FAIL on other cases                                          *
- *                                                                            *
- * Author: Eugene Grigorjev                                                   *
- *                                                                            *
- * Comments:                                                                  *
- *    This function allocates memory for 'value', because use zbx_free.       *
- *    Return SUCCEED and NULL value if end of file received.                  *
- *                                                                            *
- *                                                                            *
- ******************************************************************************/
-int	process_log(char *filename, long *lastlogsize, char **value, const char *encoding)
+int   process_log(char *filename,long *lastlogsize, char *value)
 {
-	int		f;
+	FILE	*f;
 	struct stat	buf;
-	int		nbytes, ret = FAIL;
-	char		buffer[MAX_BUF_LEN];
 
-	assert(filename);
-	assert(lastlogsize);
-	assert(value);
-	assert(encoding);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In process_log() filename:'%s' lastlogsize:%li", filename, *lastlogsize);
+	zabbix_log( LOG_LEVEL_DEBUG, "In process log (%s,%ld)", filename, *lastlogsize);
 
 	/* Handling of file shrinking */
-	if (0 != zbx_stat(filename, &buf))
+	if(stat(filename,&buf) == 0)
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "Cannot open [%s] [%s]", filename, strerror(errno));
-		return ret;
-	}
-
-	if (buf.st_size < *lastlogsize)
-		*lastlogsize = 0;
-
-	if (-1 == (f = zbx_open(filename, O_RDONLY)))
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "Cannot open [%s] [%s]", filename, strerror(errno));
-		return ret;
-	}
-
-	if ((off_t)-1 != lseek(f, (off_t)*lastlogsize, SEEK_SET))
-	{
-		if (-1 != (nbytes = zbx_read(f, buffer, sizeof(buffer), encoding)))
+		if(buf.st_size<*lastlogsize)
 		{
-			if (0 != nbytes)
-			{
-				*lastlogsize += nbytes;
-				*value = convert_to_utf8(buffer, nbytes, encoding);
-				zbx_rtrim(*value, "\r\n ");
-			}
-			ret = SUCCEED;
+			*lastlogsize=0;
 		}
-		else
-			zabbix_log(LOG_LEVEL_WARNING, "Cannot read from [%s] [%s]", filename, strerror(errno));
 	}
 	else
-		zabbix_log(LOG_LEVEL_WARNING, "Cannot set position to [%li] for [%s] [%s]", *lastlogsize, filename, strerror(errno));
+	{
+		zabbix_log( LOG_LEVEL_WARNING, "Cannot open [%s] [%s]", filename, strerror(errno));
+		snprintf(value,MAX_STRING_LEN-1,"%s","ZBX_NOTSUPPORTED\n");
+		return 1;
+	}
 
-	close(f);
+	f=fopen(filename,"r");
+	if(NULL == f)
+	{
+		zabbix_log( LOG_LEVEL_WARNING, "Cannot open [%s] [%s]", filename, strerror(errno));
+		snprintf(value,MAX_STRING_LEN-1,"%s","ZBX_NOTSUPPORTED\n");
+		return 1;
+	}
 
-	return ret;
+	if(-1 == fseek(f,*lastlogsize,SEEK_SET))
+	{
+		zabbix_log( LOG_LEVEL_WARNING, "Cannot set postition to [%ld] for [%s] [%s]", *lastlogsize, filename, strerror(errno));
+		snprintf(value,MAX_STRING_LEN-1,"%s","ZBX_NOTSUPPORTED\n");
+		fclose(f);
+		return 1;
+	}
+
+	if(NULL == fgets(value, MAX_STRING_LEN-1, f))
+	{
+		/* EOF */
+		fclose(f);
+		return 1;
+	}
+	fclose(f);
+
+	*lastlogsize+=strlen(value);
+
+	return 0;
 }

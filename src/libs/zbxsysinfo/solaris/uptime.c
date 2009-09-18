@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,38 +17,39 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	kstat_ctl_t	*kc;
-	kstat_t		*kp;
-	kstat_named_t	*kn;
-	time_t		now;
-	int		ret = SYSINFO_RET_FAIL;
+    kstat_ctl_t   *kc;
+    kstat_t       *kp;
+    kstat_named_t *kn;
 
-	assert(result);
+    time_t now;
+    
+    int ret = SYSINFO_RET_FAIL;
 
-	init_result(result);
+    assert(result);
 
-	if (NULL == (kc = kstat_open()))
-		return ret;
+    init_result(result);
 
-	if (NULL != (kp = kstat_lookup(kc, "unix", 0, "system_misc")))
+    kc = kstat_open();
+
+    if (kc)
+    {
+	kp = kstat_lookup(kc, "unix", 0, "system_misc");
+        if ((kp) && (kstat_read(kc, kp, 0) != -1))
 	{
-		if (-1 != kstat_read(kc, kp, 0))
-		{
-			if (NULL != (kn = (kstat_named_t*)kstat_data_lookup(kp, "boot_time")))
-			{
-				time(&now);
-				SET_UI64_RESULT(result, difftime(now, (time_t) kn->value.ul));
-				ret = SYSINFO_RET_OK;
-			}
-		}
-	}
+		kn = (kstat_named_t*) kstat_data_lookup(kp, "boot_time");
+		time(&now);
+		SET_UI64_RESULT(result, difftime(now, (time_t) kn->value.ul));
+		ret = SYSINFO_RET_OK;
+        }
 	kstat_close(kc);
-
-	return ret;
+    }
+    return ret;
 }
+

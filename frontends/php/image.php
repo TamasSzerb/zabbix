@@ -1,5 +1,5 @@
 <?php
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -19,15 +19,7 @@
 **/
 ?>
 <?php
-	require_once "include/config.inc.php";
-	require_once "include/images.inc.php";
-
-	$page['file']	= 'image.php';
-	$page['title']	= 'S_IMAGE';
-	$page['type']	= PAGE_TYPE_IMAGE;
-
-include_once "include/page_header.php";
-
+	include "include/config.inc.php";
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
@@ -40,71 +32,77 @@ include_once "include/page_header.php";
 ?>
 <?php
 
+#	PARAMETERS:
+
+#	imageid
+
+	set_image_header();
+
+	check_authorisation();
+
 	$resize = 0;
 
-	if(isset($_REQUEST["width"]) || isset($_REQUEST["height"])){
+	if(isset($_REQUEST["width"]) || isset($_REQUEST["height"]))
+	{
 		$resize = 1;
-		$th_width = get_request('width',0);
-		$th_height = get_request('height',0);
+		$th_width = get_request("width",0);
+		$th_height = get_request("height",0);
 	}
 
-	if(!($row = get_image_by_imageid($_REQUEST['imageid']))){
-		error('Incorrect image index');
-		include_once "include/page_footer.php";
-	}
+	//$result=DBselect("select image from images where imageid=".$_REQUEST["imageid"]);
+	//$row=DBfetch($result);
+	$row = get_image_by_imageid($_REQUEST["imageid"]);
 
-	$source = imagecreatefromstring($row['image']);
+	if($row["image"] == "") exit;
 
-	unset($row);
+	$source = ImageCreateFromString($row["image"]);
 
-	if($resize == 1){
+	if($resize == 1)
+	{
 		$src_width	= imagesx($source);
 		$src_height	= imagesy($source);
 
 		if($src_width > $th_width || $src_height > $th_height){
-			if($th_width == 0){
+			if($th_width == 0)
+			{
 				$th_width = $th_height * $src_width/$src_height;
-			}
-			else if($th_height == 0){
+			} else if($th_height == 0)
+			{
 				$th_height = $th_width * $src_height/$src_width;
-			}
-			else {
+			} else {
 				$a = $th_width/$th_height;
 				$b = $src_width/$src_height;
 
 				if($a > $b){
 					$th_width  = $b * $th_height;
 					$th_height = $th_height;
-				}
-				else {
+				} else {
 					$th_height = $th_width/$b;
 					$th_width  = $th_width;
 				}
 			}
 
-			if(function_exists('imagecreatetruecolor') && @imagecreatetruecolor(1,1)){
+			if(function_exists("imagecreatetruecolor")&&@imagecreatetruecolor(1,1))
+			{
 				$thumb = imagecreatetruecolor($th_width,$th_height);
 			}
-			else{
+			else
+			{
 				$thumb = imagecreate($th_width,$th_height);
 			}
 
 			imagecopyresized(
 				$thumb, $source,
-				0, 0,
-				0, 0,
-				$th_width, $th_height,
+				0, 0, 
+				0, 0, 
+				$th_width, $th_height, 
 				$src_width, $src_height);
 
-			imagedestroy($source);
-
-			$source = $thumb;
+			ImageOut($thumb);
+			ImageDestroy($thumb);
+			exit;
 		}
 	}
-	imageout($source);
-?>
-<?php
-
-include_once "include/page_footer.php";
-
+	ImageOut($source);
+	ImageDestroy($source);
 ?>

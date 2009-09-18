@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,13 +17,14 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-#if defined(HAVE_SYSINFO_UPTIME)
+#ifdef HAVE_SYSINFO_UPTIME
 	struct sysinfo info;
 
 	assert(result);
@@ -39,29 +40,34 @@ int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 	{
 		return SYSINFO_RET_FAIL;
 	}
-#elif defined(HAVE_FUNCTION_SYSCTL_KERN_BOOTTIME)
-	int		mib[2], now;
-	size_t		len;
+#else
+#ifdef HAVE_FUNCTION_SYSCTL_KERN_BOOTTIME
+	int	mib[2],len;
 	struct timeval	uptime;
+	int	now;
 
 	assert(result);
 
         init_result(result);
 
-	mib[0] = CTL_KERN;
-	mib[1] = KERN_BOOTTIME;
+	mib[0]=CTL_KERN;
+	mib[1]=KERN_BOOTTIME;
 
-	len = sizeof(uptime);
+	len=sizeof(uptime);
 
-	if (0 != sysctl(mib, 2, &uptime, &len, NULL, 0))
-		return SYSINFO_RET_FAIL;
+	if(sysctl(mib,2,&uptime,(size_t *)&len,NULL,0) != 0)
+	{
+		return	SYSINFO_RET_FAIL;
+/*		printf("Errno [%m]\n");*/
+	}
 
-	now = time(NULL);
-
-	SET_UI64_RESULT(result, now - uptime.tv_sec);
-
+	now=time(NULL);
+	
+	SET_UI64_RESULT(result, now-uptime.tv_sec);
 	return SYSINFO_RET_OK;
-#elif defined(HAVE_KSTAT_H)	/* Solaris */
+#else
+/* Solaris */
+#ifdef HAVE_KSTAT_H
 	kstat_ctl_t   *kc;
 	kstat_t       *kp;
 	kstat_named_t *kn;
@@ -72,7 +78,7 @@ int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESU
         assert(result);
 
         init_result(result);
-
+	
 	hz = sysconf(_SC_CLK_TCK);
 
 	/* open kstat */
@@ -109,5 +115,7 @@ int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESU
         init_result(result);
 
 	return	SYSINFO_RET_FAIL;
+#endif
+#endif
 #endif
 }

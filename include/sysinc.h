@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,7 +20,9 @@
 #ifndef ZABBIX_SYSINC_H
 #define ZABBIX_SYSINC_H
 
-#include "config.h"
+#if !defined(WIN32)
+#	include "config.h"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,56 +35,12 @@
 #	include <errno.h>
 #endif
 
-#ifdef HAVE_WINSOCK2_H
-#	include <winsock2.h>
-#endif
-
-#ifdef HAVE_WS2TCPIP_H
-#	include <ws2tcpip.h>
-#endif
-
-#ifdef HAVE_WINDOWS_H
-#	include <windows.h>
-#endif
-
-#ifdef HAVE_PROCESS_H
-#	include <process.h>
-#endif
-
-#ifdef HAVE_CONIO_H
-#	include <conio.h>
-#endif
-
-#ifdef HAVE_PDH_H
-#	include <pdh.h>
-#endif
-
-#ifdef HAVE_PDHMSG_H
-#	include <pdhmsg.h>
-#endif
-
-#ifdef HAVE_PSAPI_H
-#	include <psapi.h>
-#endif
-
-#ifdef HAVE_STDARG_H
-#	include <stdarg.h>
-#endif
-
 #ifdef HAVE_CTYPE_H
 #	include <ctype.h>
 #endif
 
-#ifdef HAVE_GRP_H
-#	include <grp.h>
-#endif
-
 #ifdef HAVE_SYS_TYPES_H
 #	include <sys/types.h>
-#endif
-
-#ifdef HAVE_INTTYPES_H
-#	include <inttypes.h>
 #endif
 
 #ifdef HAVE_STRING_H
@@ -109,14 +67,6 @@
 #	include <dirent.h>
 #endif
 
-#ifdef HAVE_SYS_DKSTAT_H
-#	include <sys/dkstat.h>
-#endif
-
-#ifdef HAVE_DEVSTAT_H
-#	include <devstat.h>
-#endif
-
 #ifdef HAVE_FCNTL_H
 #	include <fcntl.h>
 #endif
@@ -129,19 +79,8 @@
 #	include <kstat.h>
 #endif
 
-#ifdef HAVE_LDAP
-#	include <ldap.h>
-#endif
-
-#ifdef HAVE_WINLDAP_H
-#	undef SEC_I_INCOMPLETE_CREDENTIALS
-#	undef SEC_E_INCOMPLETE_CREDENTIALS
-#	undef SEC_I_RENEGOTIATE
-#	include <Winldap.h>
-#endif
-
-#ifdef HAVE_WINBER_H
-#	include <Winber.h>
+#ifdef HAVE_LDAP_H
+	#include <ldap.h>
 #endif
 
 #ifdef HAVE_MACH_HOST_INFO_H
@@ -158,10 +97,6 @@
 
 #ifdef HAVE_NETDB_H
 #	include <netdb.h>
-#endif
-
-#ifdef HAVE_SYS_WAIT_H
-#	include <sys/wait.h>
 #endif
 
 #ifdef HAVE_NETINET_IN_H
@@ -202,10 +137,6 @@
 #	include <sys/pstat.h>
 #endif
 
-#ifdef HAVE_PTHREAD_H
-#	include <pthread.h>
-#endif
-
 #ifdef HAVE_SYS_DK_H
 #	include <sys/dk.h>
 #endif
@@ -216,6 +147,10 @@
 
 #ifdef HAVE_SYS_DISK_H
 #	include <sys/disk.h>
+#endif
+
+#ifdef HAVE_SYS_DKSTAT_H
+#	include <sys/dkstat.h>
 #endif
 
 #ifdef HAVE_SYS_SOCKET_H
@@ -262,28 +197,12 @@
 #	include <sys/vmmeter.h>
 #endif
 
-#ifdef HAVE_LIBPERFSTAT
-#	include <libperfstat.h>
-#endif
-
-#ifdef HAVE_SYS_RESOURCE_H
-#	include <sys/resource.h>
-#endif
-
 #ifdef HAVE_NLIST_H
 #	include <nlist.h>
 #endif
 
 #ifdef HAVE_NET_IF_H
 #	include <net/if.h>
-#endif
-
-#ifdef HAVE_NET_IF_MIB_H
-#	include <net/if_mib.h>
-#endif
-
-#ifdef HAVE_SYS_USER_H
-#	include <sys/user.h>
 #endif
 
 #ifdef HAVE_KVM_H
@@ -308,35 +227,9 @@
 
 #ifdef HAVE_GETOPT_H
 #	ifdef HAVE_GETOPT_LONG
-#		if !defined(_GNU_SOURCE)
-#			define _GNU_SOURCE
-#		endif
+#		define _GNU_SOURCE
 #		include <getopt.h>
 #	endif
-#endif
-
-#ifdef HAVE_SYS_IPC_H
-#	include <sys/ipc.h>
-#endif
-
-#ifdef HAVE_SYS_SEM_H
-#	include <sys/sem.h>
-#endif
-
-#ifdef HAVE_SYS_SHM_H
-#	include <sys/shm.h>
-#endif
-
-#ifdef HAVE_SYS_FILE_H
-#	include <sys/file.h>
-#endif
-
-#ifdef HAVE_MATH_H
-#	include <math.h>
-#endif
-
-#ifdef HAVE_REGEX_H
-#	include <regex.h>
 #endif
 
 #ifdef HAVE_VM_VM_PARAM_H
@@ -351,51 +244,9 @@
 #	include <sys/mount.h>
 #endif
 
-#ifdef HAVE_SYS_TIMEB_H
-#	include <sys/timeb.h>
-#endif
-
 #ifdef HAVE_PROCINFO_H
 #	undef T_NULL /* to solve definition conflict */
 #	include <procinfo.h>
-#endif
-
-#ifdef HAVE_LIBCURL
-#	include <curl/curl.h>
-#endif
-
-/* NET-SNMP is used */
-#ifdef HAVE_NETSNMP
-#	include <net-snmp/net-snmp-config.h>
-#	include <net-snmp/net-snmp-includes.h>
-#endif
-
-/* Required for SNMP support*/
-#ifdef HAVE_UCDSNMP
-#	include <ucd-snmp/ucd-snmp-config.h>
-#	include <ucd-snmp/ucd-snmp-includes.h>
-#	include <ucd-snmp/system.h>
-/* For usmHMACMD5AuthProtocol */
-#	include <ucd-snmp/transform_oids.h>
-/* For generate_Ku() */
-#	include <ucd-snmp/keytools.h>
-#endif
-
-/* Required for advanced sigaction */
-#ifdef HAVE_SYS_UCONTEXT_H
-#	include <sys/ucontext.h>
-#endif
-
-#ifdef HAVE_ICONV
-#	include <iconv.h>
-#endif
-
-#ifdef HAVE_IO_H
-#	include <io.h>
-#endif
-
-#ifdef HAVE_FCNTL_H
-#	include <fcntl.h>
 #endif
 
 #endif

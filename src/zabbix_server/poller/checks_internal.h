@@ -20,12 +20,15 @@
 #ifndef ZABBIX_CHECKS_INTERNAL_H
 #define ZABBIX_CHECKS_INTERNAL_H
 
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "common.h"
+#include "config.h"
 #include "db.h"
 #include "log.h"
-#include "sysinfo.h"
 
-extern	int	CONFIG_SERVER_STARTUP_TIME;
 extern	int	get_value_internal(DB_ITEM *item, AGENT_RESULT *result);
 
 #endif

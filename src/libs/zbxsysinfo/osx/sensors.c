@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 #include "md5.h"
@@ -36,8 +37,8 @@ static int	get_sensor(const char *name, unsigned flags, AGENT_RESULT *result)
 
         assert(result);
 
-        init_result(result);
-
+        init_result(result);	
+	
 	dir=opendir("/proc/sys/dev/sensors");
 	if(NULL == dir)
 	{
@@ -46,18 +47,19 @@ static int	get_sensor(const char *name, unsigned flags, AGENT_RESULT *result)
 
 	while((entries=readdir(dir))!=NULL)
 	{
-		strscpy(filename,"/proc/sys/dev/sensors/");
+		strscpy(filename,"/proc/sys/dev/sensors/");	
 		zbx_strlcat(filename,entries->d_name,MAX_STRING_LEN);
 		zbx_strlcat(filename,name,MAX_STRING_LEN);
 
 		if(stat(filename,&buf)==0)
 		{
-			if(NULL == (f = fopen(filename,"r") ))
+			f=fopen(filename,"r");
+			if(f==NULL)
 			{
 				continue;
 			}
 			fgets(line,MAX_STRING_LEN,f);
-			zbx_fclose(f);
+			fclose(f);
 
 			if(sscanf(line,"%lf\t%lf\t%lf\n",&d1, &d2, &d3) == 3)
 			{
@@ -114,3 +116,4 @@ int     OLD_SENSOR(const char *cmd, const char *param, unsigned flags, AGENT_RES
 
         return ret;
 }
+

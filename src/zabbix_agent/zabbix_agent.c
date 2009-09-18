@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,26 +17,24 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
-#include "zabbix_agent.h"
+#include "config.h"
 
-#include "comms.h"
+#include "common.h"
 #include "cfg.h"
 #include "log.h"
 #include "sysinfo.h"
-#include "zbxconf.h"
-#include "zbxgetopt.h"
-#include "alias.h"
+#include "security.h"
+#include "zabbix_agent.h"
 
 char *progname = NULL;
 char title_message[] = "ZABBIX Agent";
-char usage_message[] = "[-Vhp] [-c <file>] [-t <metric>]";
+char usage_message[] = "[-vhp] [-c <file>] [-t <metric>]";
 #ifndef HAVE_GETOPT_LONG
 char *help_message[] = {
 	"Options:",
 	"  -c <file>     Specify configuration file",
 	"  -h            give this help",
-	"  -V            display version number",
+	"  -v            display version number",
 	"  -p            print supported metrics and exit",
 	"  -t <metric>   test specified metric and exit",
 	0 /* end of text */
@@ -46,41 +44,55 @@ char *help_message[] = {
 	"Options:",
 	"  -c --config <file>  Specify configuration file",
 	"  -h --help           give this help",
-	"  -V --version        display version number",
+	"  -v --version        display version number",
 	"  -p --print          print supported metrics and exit",
 	"  -t --test <metric>  test specified metric and exit",
 	0 /* end of text */
 };
 #endif
 
-struct zbx_option longopts[] =
+struct option longopts[] =
 {
 	{"config",	1,	0,	'c'},
 	{"help",	0,	0,	'h'},
-	{"version",	0,	0,	'V'},
+	{"version",	0,	0,	'v'},
 	{"print",	0,	0,	'p'},
 	{"test",	1,	0,	't'},
 	{0,0,0,0}
 };
 
-void	child_signal_handler( int sig )
+char	*CONFIG_FILE			= NULL;
+static	char	*CONFIG_HOSTS_ALLOWED	= NULL;
+static	int	CONFIG_TIMEOUT		= AGENT_TIMEOUT;
+int		CONFIG_ENABLE_REMOTE_COMMANDS	= 0;
+
+void	signal_handler( int sig )
 {
 	if( SIGALRM == sig )
 	{
-		signal( SIGALRM, child_signal_handler );
+		signal( SIGALRM, signal_handler );
 	}
-
+ 
 	if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig )
 	{
 	}
 	exit( FAIL );
 }
 
-#ifdef _WINDOWS
-	static char	DEFAULT_CONFIG_FILE[]	= "C:\\zabbix_agent.conf";
-#else /* not _WINDOWS */
-	static char	DEFAULT_CONFIG_FILE[]	= "/etc/zabbix/zabbix_agent.conf";
-#endif /* _WINDOWS */
+int	add_parameter(char *value)
+{
+	char	*value2;
+
+	value2=strstr(value,",");
+	if(NULL == value2)
+	{
+		return	FAIL;
+	}
+	value2[0]=0;
+	value2++;
+	add_user_parameter(value, value2);
+	return	SUCCEED;
+}
 
 void    init_config(void)
 {
@@ -90,24 +102,25 @@ void    init_config(void)
 */
 		{"Server",&CONFIG_HOSTS_ALLOWED,0,TYPE_STRING,PARM_MAND,0,0},
 		{"Timeout",&CONFIG_TIMEOUT,0,TYPE_INT,PARM_OPT,1,30},
+		{"UserParameter",0,&add_parameter,0,0,0,0},
 		{0}
 	};
 
+	if(CONFIG_FILE == NULL)
+	{
+		CONFIG_FILE = strdup("/etc/zabbix/zabbix_agent.conf");
+	}
+	
 	parse_cfg_file(CONFIG_FILE,cfg);
 }
 
 int	main(int argc, char **argv)
 {
-	char		ch = '\0';
+	char		s[MAX_STRING_LEN];
+	char		value[MAX_STRING_LEN];
+	int             ch;
 	int		task = ZBX_TASK_START;
 	char		*TEST_METRIC = NULL;
-	zbx_sock_t	s_in;
-	zbx_sock_t	s_out;
-
-	int		ret;
-	char	**value,
-		*command;
-
 	AGENT_RESULT	result;
 
 	memset(&result, 0, sizeof(AGENT_RESULT));
@@ -115,16 +128,16 @@ int	main(int argc, char **argv)
 	progname = argv[0];
 
 /* Parse the command-line. */
-	while ((ch = (char)zbx_getopt_long(argc, argv, "c:hVpt:", longopts, NULL)) != (char)EOF)
-		switch (ch) {
+	while ((ch = getopt_long(argc, argv, "c:hvpt:", longopts, NULL)) != EOF)
+		switch ((char) ch) {
 		case 'c':
-			CONFIG_FILE = strdup(zbx_optarg);
+			CONFIG_FILE = optarg;
 			break;
 		case 'h':
 			help();
 			exit(-1);
 			break;
-		case 'V':
+		case 'v':
 			version();
 			exit(-1);
 			break;
@@ -136,7 +149,7 @@ int	main(int argc, char **argv)
 			if(task == ZBX_TASK_START)
 			{
 				task = ZBX_TASK_TEST_METRIC;
-				TEST_METRIC = strdup(zbx_optarg);
+				TEST_METRIC = optarg;
 			}
 			break;
 		default:
@@ -144,89 +157,62 @@ int	main(int argc, char **argv)
 			break;
 	}
 
-	if(CONFIG_FILE == NULL)
-	{
-		CONFIG_FILE = DEFAULT_CONFIG_FILE;
-	}
+/* Must be before init_config() */
+	init_metrics();
+	init_config();
 
-	init_metrics(); /* Must be before init_config() */
-
-	if( ZBX_TASK_START == task )
-		load_config();
-
-	load_user_parameters();
-
-	/* Do not create debug files */
+/* Do not create debug files */
 	zabbix_open_log(LOG_TYPE_SYSLOG,LOG_LEVEL_EMPTY,NULL);
 
-	switch(task)
-	{
-		case ZBX_TASK_PRINT_SUPPORTED:
-			test_parameters();
-			exit(-1);
-			break;
-		case ZBX_TASK_TEST_METRIC:
-			test_parameter(TEST_METRIC, PROCESS_TEST);
-			exit(-1);
-			break;
-		case ZBX_TASK_SHOW_USAGE:
-			usage();
-			exit(-1);
-			break;
-	}
+        switch(task)
+        {
+                case ZBX_TASK_PRINT_SUPPORTED:
+                        test_parameters();
+                        exit(-1);
+                        break;
+                case ZBX_TASK_TEST_METRIC:
+                        test_parameter(TEST_METRIC);
+                        exit(-1);
+                        break;
+                case ZBX_TASK_SHOW_USAGE:
+                        usage();
+                        exit(-1);
+                        break;
+        }
 
-#if !defined(_WINDOWS)
-	signal( SIGINT,  child_signal_handler);
-	signal( SIGTERM, child_signal_handler );
-	signal( SIGQUIT, child_signal_handler );
-	signal( SIGALRM, child_signal_handler );
+	signal( SIGINT,  signal_handler );
+	signal( SIGQUIT, signal_handler );
+	signal( SIGTERM, signal_handler );
+	signal( SIGALRM, signal_handler );
 
 	alarm(CONFIG_TIMEOUT);
-#endif /* not WONDOWS */
 
-	zbx_tcp_init(&s_in, (ZBX_SOCKET)fileno(stdin));
-	zbx_tcp_init(&s_out, (ZBX_SOCKET)fileno(stdout));
-
-	if( SUCCEED == (ret = zbx_tcp_check_security(&s_in, CONFIG_HOSTS_ALLOWED, 0)) )
+	if(check_security(0,CONFIG_HOSTS_ALLOWED,0) == FAIL)
 	{
-		if( SUCCEED == (ret = zbx_tcp_recv(&s_in, &command)) )
-		{
-			zbx_rtrim(command, "\r\n\0");
-
-			zabbix_log(LOG_LEVEL_DEBUG, "Requested [%s]", command);
-
-			init_result(&result);
-
-			process(command, 0, &result);
-
-			if( NULL == (value = GET_TEXT_RESULT(&result)) )
-				value = GET_MSG_RESULT(&result);
-
-			if(value)
-			{
-				zabbix_log(LOG_LEVEL_DEBUG, "Sending back [%s]", *value);
-
-				ret = zbx_tcp_send(&s_out, *value);
-			}
-
-			free_result(&result);
-		}
-
-		if( FAIL == ret )
-		{
-			zabbix_log(LOG_LEVEL_DEBUG, "Processing  error: %s", zbx_tcp_strerror());
-		}
+		exit(FAIL);
 	}
+
+	fgets(s,MAX_STRING_LEN,stdin);
+	
+	process(s, 0, &result);
+	if(result.type & AR_DOUBLE)
+		snprintf(value, MAX_STRING_LEN-1, "%f", result.dbl);
+	else if(result.type & AR_UINT64)
+		snprintf(value, MAX_STRING_LEN-1, ZBX_FS_UI64, result.ui64);
+	else if(result.type & AR_STRING)
+		snprintf(value, MAX_STRING_LEN-1, "%s", result.str);
+	else if(result.type & AR_TEXT)
+		snprintf(value, MAX_STRING_LEN-1, "%s", result.text);
+	else if(result.type & AR_MESSAGE)
+		snprintf(value, MAX_STRING_LEN-1, "%s", result.msg);
+	free_result(&result);
+  
+	printf("%s\n",value);
 
 	fflush(stdout);
 
-	free_metrics();
-	alias_list_free();
-
-#if !defined(_WINDOWS)
 	alarm(0);
-#endif /* not WONDOWS */
-	zabbix_close_log();
 
 	return SUCCEED;
 }
+

@@ -1,5 +1,4 @@
-## Process this file with automake to produce Makefile.in
-
-noinst_LIBRARIES = libzbxtimer.a
-
-libzbxtimer_a_SOURCES = timer.c timer.h
+SUBDIRS=
+INCLUDES=-I@top_srcdir@/include @MYSQL_INCLUDE@ @ORACLE_INCLUDE@ @PGSQL_INCLUDE@
+lib_LIBRARIES=libzbxtimer.a
+libzbxtimer_a_SOURCES=timer.c

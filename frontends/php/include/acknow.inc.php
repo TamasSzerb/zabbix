@@ -19,57 +19,32 @@
 **/
 ?>
 <?php
-
-function get_last_event_by_triggerid($triggerid){
-	$event_data = DBfetch(DBselect('SELECT * '.
-				' FROM events '.
-				' WHERE objectid='.$triggerid.
-					' and object='.EVENT_OBJECT_TRIGGER.
-				' ORDER BY objectid desc, object desc, eventid desc', 1));
-	if(!$event_data)
-		return FALSE;
-return $event_data;
-}
-
-function get_acknowledges_by_eventid($eventid){
-	return DBselect("select * from acknowledges where eventid=$eventid");
-}
-
-function add_acknowledge_coment($eventid, $userid, $message){
-	$result = set_event_acnowledged($eventid);
-	if(!$result)
-		return $result;
-
-	$acknowledgeid = get_dbid("acknowledges","acknowledgeid");
-
-	$result =  DBexecute("insert into acknowledges (acknowledgeid,userid,eventid,clock,message)".
-		" values ($acknowledgeid,$userid,$eventid,".time().",".zbx_dbstr($message).")");
-
-	if(!$result)
-		return $result;
-
-	return $acknowledgeid;
-}
-
-function set_event_acnowledged($eventid){
-	return DBexecute("update events set acknowledged=1 where eventid=$eventid");
-}
-
-function make_acktab_by_eventid($eventid){
-	$table = new CTableInfo();
-	$table->SetHeader(array(S_TIME,S_USER, S_COMMENTS));
-
-	$acks = get_acknowledges_by_eventid($eventid);
-
-	while($ack = DBfetch($acks)){
-		$user = get_user_by_userid($ack['userid']);
-		$table->AddRow(array(
-			date('d-m-Y h:i:s A',$ack['clock']),
-			$user['alias'],
-			new CCol(zbx_nl2br($ack['message']),'wraptext')
-		));
+	function	get_last_alarm_by_triggerid($triggerid)
+	{
+		$db_alarms = DBselect("select * from alarms where triggerid=$triggerid".
+			" order by clock desc",1);
+		$row=DBfetch($db_alarms);
+		if(!$row)	return FALSE;
+		return $row;
 	}
 
-return $table;
-}
+	function 	get_acknowledges_by_alarmid($alarmid)
+	{
+		return DBselect("select * from acknowledges where alarmid=$alarmid");
+	}
+
+	function	add_acknowledge_coment($alarmid, $userid, $message)
+	{
+		$result = set_alarm_acnowledged($alarmid);
+		if(!$result)
+			return $result;
+
+		return DBexecute("insert into acknowledges (userid,alarmid,clock,message)".
+			" values ($userid,$alarmid,".time().",".zbx_dbstr($message).")");
+	}
+
+	function	set_alarm_acnowledged($alarmid)
+	{
+		return DBexecute("update alarms set acknowledged=1 where alarmid=$alarmid");
+	}
 ?>

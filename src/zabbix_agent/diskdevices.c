@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,135 +17,449 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
+#include "config.h"
+
+#include <netdb.h>
+
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <unistd.h>
+#include <signal.h>
+
+#include <errno.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#include <time.h>
+
+/* No warning for bzero */
+#include <string.h>
+#include <strings.h>
+
+/* For config file operations */
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+/* For setpriority */
+#include <sys/time.h>
+#include <sys/resource.h>
+
+/* for minor(), major() under Solaris */
+#ifdef HAVE_SYS_SYSMACROS_H
+	#include <sys/sysmacros.h>
+#endif
+
+/* Required for getpwuid */
+#include <pwd.h>
+
+#include <dirent.h>
+
 #include "common.h"
-#include "diskdevices.h"
-#include "stats.h"
+#include "sysinfo.h"
+#include "security.h"
+#include "zabbix_agent.h"
+
 #include "log.h"
+#include "cfg.h"
+#include "diskdevices.h"
 
-static void	apply_diskstat(ZBX_SINGLE_DISKDEVICE_DATA *device, time_t now, zbx_uint64_t *dstat)
+DISKDEVICE diskdevices[MAX_DISKDEVICES];
+
+int	get_device_name(char *device,int mjr,int diskno)
 {
-	register int	i;
-	int		clock[ZBX_AVGMAX], index[ZBX_AVGMAX], sec;
+	DIR	*dir;
+	struct	dirent *entries;
+	struct	stat buf;
+	char	filename[1204];
 
-	assert(device);
-
-	device->index++;
-
-	if (device->index == MAX_COLLECTOR_HISTORY)
-		device->index = 0;
-
-	device->clock[device->index] = now;
-	device->r_sect[device->index] = dstat[ZBX_DSTAT_R_SECT];
-	device->r_oper[device->index] = dstat[ZBX_DSTAT_R_OPER];
-	device->r_byte[device->index] = dstat[ZBX_DSTAT_R_BYTE];
-	device->w_sect[device->index] = dstat[ZBX_DSTAT_W_SECT];
-	device->w_oper[device->index] = dstat[ZBX_DSTAT_W_OPER];
-	device->w_byte[device->index] = dstat[ZBX_DSTAT_W_BYTE];
-
-	clock[ZBX_AVG1] = clock[ZBX_AVG5] = clock[ZBX_AVG15] = now + 1;
-	index[ZBX_AVG1] = index[ZBX_AVG5] = index[ZBX_AVG15] = -1;
-
-	for (i = 0; i < MAX_COLLECTOR_HISTORY; i++)
+	dir=opendir("/dev");
+	while((entries=readdir(dir))!=NULL)
 	{
-		if (0 == device->clock[i])
+		zbx_strlcpy(filename,"/dev/",1024);	
+		zbx_strlcat(filename,entries->d_name,1024);
+
+		if(stat(filename,&buf)==0)
+		{
+/*			printf("%s %d %d\n",filename,major(buf.st_rdev),minor(buf.st_rdev));*/
+			if(S_ISBLK(buf.st_mode)&&(mjr==major(buf.st_rdev))&&(0 == minor(buf.st_rdev)))
+			{
+				/* We've gor /dev/hda here */
+				strcpy(device,entries->d_name);
+				/* diskno specifies a,b,c,d,e,f,g,h etc */
+				device[strlen(device)-1] = (char)((int)'a' + (int)diskno);
+
+/*				printf("%s [%d %d] %d %d\n",filename,mjr, diskno, major(buf.st_rdev),minor(buf.st_rdev));*/
+				closedir(dir);
+				return 0;
+			}
+		}
+	}
+	closedir(dir);
+	return	1;
+}
+
+void	init_stats_diskdevices()
+{
+	FILE	*file;
+	char	*s,*s2;
+	char	line[1024+1];
+	char	device[1024+1];
+	int	i,j;
+	int	major,diskno;
+	int	noinfo;
+	int	read_io_ops;
+	int	blks_read;
+	int	write_io_ops;
+	int	blks_write;
+
+	for(i=0;i<MAX_DISKDEVICES;i++)
+	{
+		diskdevices[i].device=0;
+		for(j=0;j<60*15;j++)
+		{
+			diskdevices[i].clock[j]=0;
+		}
+	}
+
+	file=fopen("/proc/stat","r");
+	if(NULL == file)
+	{
+		fprintf(stderr, "Cannot open [%s] [%s]\n","/proc/stat", strerror(errno));
+		return;
+	}
+	i=0;
+	while(fgets(line,1024,file) != NULL)
+	{
+		if( (s=strstr(line,"disk_io:")) == NULL)
 			continue;
 
-#define DISKSTAT(t)\
-		if ((device->clock[i] >= (now - (t * 60))) && (clock[ZBX_AVG ## t] > device->clock[i]))\
-		{\
-			clock[ZBX_AVG ## t] = device->clock[i];\
-			index[ZBX_AVG ## t] = i;\
+		s=line;
+
+		for(;;)
+		{
+			if( (s=strchr(s,' ')) == NULL)
+				break;
+			s++;
+			if( (s2=strchr(s,')')) == NULL)
+				break;
+			if( (s2=strchr(s2+1,')')) == NULL)
+				break;
+			s2++;
+	
+			zbx_strlcpy(device,s,s2-s);
+			device[s2-s]=0;
+			sscanf(device,"(%d,%d):(%d,%d,%d,%d,%d)",&major,&diskno,&noinfo,&read_io_ops,&blks_read,&write_io_ops,&blks_write);
+/*			printf("Major:[%d] Minor:[%d] read_io_ops[%d]\n",major,diskno,read_io_ops);*/
+	
+			if(get_device_name(device,major,diskno)==0)
+			{
+/*				printf("Device:%s\n",device);*/
+				diskdevices[i].device=strdup(device);
+				diskdevices[i].major=major;
+				diskdevices[i].diskno=diskno;
+				i++;
+			}
+			s=s2;
+		}
+	}
+
+	fclose(file);
+}
+
+void	report_stats_diskdevices(FILE *file, int now)
+{
+	int	time=0,
+		time1=0,
+		time5=0,
+		time15=0;
+
+	/* [1] - avg1
+	 * [2] - avg5
+	 * [3] - avg15
+	 */
+	float   read_io_ops[4];
+	float   blks_read[4];
+	float   write_io_ops[4];
+	float   blks_write[4];
+
+	int	i,j;
+
+	for(i=0;i<MAX_DISKDEVICES;i++)
+	{
+		if(diskdevices[i].device==0)
+		{
+			break;
+		}
+/*		printf("IF [%s]\n",diskdevices[i].interface);*/
+		for(j=0;j<4;j++)
+		{
+			read_io_ops[j]=0;
+			blks_read[j]=0;
+			write_io_ops[j]=0;
+			blks_write[j]=0;
 		}
 
-		DISKSTAT(1);
-		DISKSTAT(5);
-		DISKSTAT(15);
+		time=now+1;
+		time1=now+1;
+		time5=now+1;
+		time15=now+1;
+		for(j=0;j<60*15;j++)
+		{
+			if(diskdevices[i].clock[j]==0)
+			{
+				continue;
+			}
+			if(diskdevices[i].clock[j]==now)
+			{
+				continue;
+			}
+			if((diskdevices[i].clock[j] >= now-60) && (time1 > diskdevices[i].clock[j]))
+			{
+				time1=diskdevices[i].clock[j];
+			}
+			if((diskdevices[i].clock[j] >= now-5*60) && (time5 > diskdevices[i].clock[j]))
+			{
+				time5=diskdevices[i].clock[j];
+			}
+			if((diskdevices[i].clock[j] >= now-15*60) && (time15 > diskdevices[i].clock[j]))
+			{
+				time15=diskdevices[i].clock[j];
+			}
+		}
+		for(j=0;j<60*15;j++)
+		{
+			if(diskdevices[i].clock[j]==now)
+			{
+				read_io_ops[0]=diskdevices[i].read_io_ops[j];
+				blks_read[0]=diskdevices[i].blks_read[j];
+				write_io_ops[0]=diskdevices[i].write_io_ops[j];
+				blks_write[0]=diskdevices[i].blks_write[j];
+			}
+			if(diskdevices[i].clock[j]==time1)
+			{
+				read_io_ops[1]=diskdevices[i].read_io_ops[j];
+				blks_read[1]=diskdevices[i].blks_read[j];
+				write_io_ops[1]=diskdevices[i].write_io_ops[j];
+				blks_write[1]=diskdevices[i].blks_write[j];
+			}
+			if(diskdevices[i].clock[j]==time5)
+			{
+				read_io_ops[2]=diskdevices[i].read_io_ops[j];
+				blks_read[2]=diskdevices[i].blks_read[j];
+				write_io_ops[2]=diskdevices[i].write_io_ops[j];
+				blks_write[2]=diskdevices[i].blks_write[j];
+			}
+			if(diskdevices[i].clock[j]==time15)
+			{
+				read_io_ops[3]=diskdevices[i].read_io_ops[j];
+				blks_read[3]=diskdevices[i].blks_read[j];
+				write_io_ops[3]=diskdevices[i].write_io_ops[j];
+				blks_write[3]=diskdevices[i].blks_write[j];
+			}
+		}
+
+		if((read_io_ops[0]!=0)&&(read_io_ops[1]!=0))
+		{
+			fprintf(file,"disk_read_ops1[%s] %f\n", diskdevices[i].device, (float)((read_io_ops[0]-read_io_ops[1])/(now-time1)));
+		}
+		else
+		{
+			fprintf(file,"disk_read_ops1[%s] 0\n", diskdevices[i].device);
+		}
+		if((read_io_ops[0]!=0)&&(read_io_ops[2]!=0))
+		{
+			fprintf(file,"disk_read_ops5[%s] %f\n", diskdevices[i].device, (float)((read_io_ops[0]-read_io_ops[2])/(now-time5)));
+		}
+		else
+		{
+			fprintf(file,"disk_read_ops5[%s] 0\n", diskdevices[i].device);
+		}
+		if((read_io_ops[0]!=0)&&(read_io_ops[3]!=0))
+		{
+			fprintf(file,"disk_read_ops15[%s] %f\n", diskdevices[i].device, (float)((read_io_ops[0]-read_io_ops[3])/(now-time15)));
+		}
+		else
+		{
+			fprintf(file,"disk_read_ops15[%s] 0\n", diskdevices[i].device);
+		}
+
+		if((blks_read[0]!=0)&&(blks_read[1]!=0))
+		{
+			fprintf(file,"disk_read_blks1[%s] %f\n", diskdevices[i].device, (float)((blks_read[0]-blks_read[1])/(now-time1)));
+		}
+		else
+		{
+			fprintf(file,"disk_read_blks1[%s] 0\n", diskdevices[i].device);
+		}
+		if((blks_read[0]!=0)&&(blks_read[2]!=0))
+		{
+			fprintf(file,"disk_read_blks5[%s] %f\n", diskdevices[i].device, (float)((blks_read[0]-blks_read[2])/(now-time5)));
+		}
+		else
+		{
+			fprintf(file,"disk_read_blks5[%s] 0\n", diskdevices[i].device);
+		}
+		if((blks_read[0]!=0)&&(blks_read[3]!=0))
+		{
+			fprintf(file,"disk_read_blks15[%s] %f\n", diskdevices[i].device, (float)((blks_read[0]-blks_read[3])/(now-time15)));
+		}
+		else
+		{
+			fprintf(file,"disk_read_blks15[%s] 0\n", diskdevices[i].device);
+		}
+
+		if((write_io_ops[0]!=0)&&(write_io_ops[1]!=0))
+		{
+			fprintf(file,"disk_write_ops1[%s] %f\n", diskdevices[i].device, (float)((write_io_ops[0]-write_io_ops[1])/(now-time1)));
+		}
+		else
+		{
+			fprintf(file,"disk_write_ops1[%s] 0\n", diskdevices[i].device);
+		}
+		if((write_io_ops[0]!=0)&&(write_io_ops[2]!=0))
+		{
+			fprintf(file,"disk_write_ops5[%s] %f\n", diskdevices[i].device, (float)((write_io_ops[0]-write_io_ops[2])/(now-time5)));
+		}
+		else
+		{
+			fprintf(file,"disk_write_ops5[%s] 0\n", diskdevices[i].device);
+		}
+		if((write_io_ops[0]!=0)&&(write_io_ops[3]!=0))
+		{
+			fprintf(file,"disk_write_ops15[%s] %f\n", diskdevices[i].device, (float)((write_io_ops[0]-write_io_ops[3])/(now-time15)));
+		}
+		else
+		{
+			fprintf(file,"disk_write_ops15[%s] 0\n", diskdevices[i].device);
+		}
+
+		if((blks_write[0]!=0)&&(blks_write[1]!=0))
+		{
+			fprintf(file,"disk_write_blks1[%s] %f\n", diskdevices[i].device, (float)((blks_write[0]-blks_write[1])/(now-time1)));
+		}
+		else
+		{
+			fprintf(file,"disk_write_blks1[%s] 0\n", diskdevices[i].device);
+		}
+		if((blks_write[0]!=0)&&(blks_write[2]!=0))
+		{
+			fprintf(file,"disk_write_blks5[%s] %f\n", diskdevices[i].device, (float)((blks_write[0]-blks_write[2])/(now-time5)));
+		}
+		else
+		{
+			fprintf(file,"disk_write_blks5[%s] 0\n", diskdevices[i].device);
+		}
+		if((blks_write[0]!=0)&&(blks_write[3]!=0))
+		{
+			fprintf(file,"disk_write_blks15[%s] %f\n", diskdevices[i].device, (float)((blks_write[0]-blks_write[3])/(now-time15)));
+		}
+		else
+		{
+			fprintf(file,"disk_write_blks15[%s] 0\n", diskdevices[i].device);
+		}
+
 	}
 
-#define SAVE_DISKSTAT(t)\
-	if (-1 == index[ZBX_AVG ## t] || 0 == now - device->clock[index[ZBX_AVG ## t]])\
-	{\
-		device->r_sps[ZBX_AVG ## t] = 0;\
-		device->r_ops[ZBX_AVG ## t] = 0;\
-		device->r_bps[ZBX_AVG ## t] = 0;\
-		device->w_sps[ZBX_AVG ## t] = 0;\
-		device->w_ops[ZBX_AVG ## t] = 0;\
-		device->w_bps[ZBX_AVG ## t] = 0;\
-	}\
-	else\
-	{\
-		sec = now - device->clock[index[ZBX_AVG ## t]];\
-		device->r_sps[ZBX_AVG ## t] = (dstat[ZBX_DSTAT_R_SECT] - device->r_sect[index[ZBX_AVG ## t]]) / (double)sec;\
-		device->r_ops[ZBX_AVG ## t] = (dstat[ZBX_DSTAT_R_OPER] - device->r_oper[index[ZBX_AVG ## t]]) / (double)sec;\
-		device->r_bps[ZBX_AVG ## t] = (dstat[ZBX_DSTAT_R_BYTE] - device->r_byte[index[ZBX_AVG ## t]]) / (double)sec;\
-		device->w_sps[ZBX_AVG ## t] = (dstat[ZBX_DSTAT_W_SECT] - device->w_sect[index[ZBX_AVG ## t]]) / (double)sec;\
-		device->w_ops[ZBX_AVG ## t] = (dstat[ZBX_DSTAT_W_OPER] - device->w_oper[index[ZBX_AVG ## t]]) / (double)sec;\
-		device->w_bps[ZBX_AVG ## t] = (dstat[ZBX_DSTAT_W_BYTE] - device->w_byte[index[ZBX_AVG ## t]]) / (double)sec;\
+}
+
+
+void	add_values_diskdevices(int now,int major,int diskno,float read_io_ops,float blks_read,float write_io_ops,float blks_write)
+{
+	int i,j;
+
+/*	printf("Add_values [%s] [%f] [%f]\n",interface,value_sent,value_received);*/
+
+	for(i=0;i<MAX_DISKDEVICES;i++)
+	{
+		if((diskdevices[i].major==major)&&(diskdevices[i].diskno==diskno))
+		{
+			for(j=0;j<15*60;j++)
+			{
+				if(diskdevices[i].clock[j]<now-15*60)
+				{
+					diskdevices[i].clock[j]=now;
+					diskdevices[i].read_io_ops[j]=read_io_ops;
+					diskdevices[i].blks_read[j]=blks_read;
+					diskdevices[i].write_io_ops[j]=write_io_ops;
+					diskdevices[i].blks_write[j]=blks_write;
+					break;
+				}
+			}
+			break;
+		}
 	}
-
-	SAVE_DISKSTAT(1);
-	SAVE_DISKSTAT(5);
-	SAVE_DISKSTAT(15);
 }
 
-static void	process_diskstat(ZBX_SINGLE_DISKDEVICE_DATA *device)
+void	collect_stats_diskdevices(FILE *outfile)
 {
-	time_t		now;
-	zbx_uint64_t	dstat[ZBX_DSTAT_MAX];
+#ifdef HAVE_PROC_STAT
 
-	now = time(NULL);
-	if (FAIL == get_diskstat(device->name, dstat))
-		return;
+	FILE	*file;
 
-	apply_diskstat(device, now, dstat);
-}
-
-void	collect_stats_diskdevices(ZBX_DISKDEVICES_DATA *diskdevices)
-{
-	static int	s = 0;
-	register int	i;
-
-	s = s % 60;
-	if (0 == s++)	/* refresh device list every 60 seconds */
-		refresh_diskdevices();
-
-	for (i = 0; i < diskdevices->count; i++)
-		process_diskstat(&diskdevices->device[i]);
-}
-
-ZBX_SINGLE_DISKDEVICE_DATA	*collector_diskdevice_get(const char *devname)
-{
+	char	*s,*s2;
+	char	line[MAX_STRING_LEN];
 	int	i;
+	char	device[MAX_STRING_LEN];
+	int	now;
+	int	major,diskno;
+	int	noinfo;
+	int	read_io_ops;
+	int	blks_read;
+	int	write_io_ops;
+	int	blks_write;
 
-	assert(devname);
+	/* Must be static */
+	static	int initialised=0;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In collector_diskdevice_get(\"%s\")", devname);
+	if( 0 == initialised)
+	{
+		init_stats_diskdevices();
+		initialised=1;
+	}
 
-	for (i = 0; i < collector->diskdevices.count; i ++)
-		if (0 == strcmp(devname, collector->diskdevices.device[i].name))
-			return &collector->diskdevices.device[i];
+	now=time(NULL);
 
-	return NULL;
-}
+	file=fopen("/proc/stat","r");
+	if(NULL == file)
+	{
+		fprintf(stderr, "Cannot open [%s] [%s]\n","/proc/stat", strerror(errno));
+		return;
+	}
+	i=0;
+	while(fgets(line,1024,file) != NULL)
+	{
+		if( (s=strstr(line,"disk_io:")) == NULL)
+			continue;
 
-ZBX_SINGLE_DISKDEVICE_DATA	*collector_diskdevice_add(const char *devname)
-{
-	ZBX_SINGLE_DISKDEVICE_DATA	*device;
+		s=line;
 
-	assert(devname);
+		for(;;)
+		{
+			if( (s=strchr(s,' ')) == NULL)
+				break;
+			s++;
+			if( (s2=strchr(s,')')) == NULL)
+				break;
+			if( (s2=strchr(s2+1,')')) == NULL)
+				break;
+			s2++;
+	
+			zbx_strlcpy(device,s,s2-s);
+			device[s2-s]=0;
+			sscanf(device,"(%d,%d):(%d,%d,%d,%d,%d)",&major,&diskno,&noinfo,&read_io_ops,&blks_read,&write_io_ops,&blks_write);
+/*			printf("Major:[%d] Minor:[%d] read_io_ops[%d]\n",major,diskno,read_io_ops);*/
+			add_values_diskdevices(now,major,diskno,read_io_ops,blks_read,write_io_ops,blks_write);
+	
+			s=s2;
+		}
+	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In collector_diskdevice_add(\"%s\")", devname);
+	fclose(file);
 
-	/* collector is full */
-	if (collector->diskdevices.count == MAX_DISKDEVICES)
-		return NULL;
+	report_stats_diskdevices(outfile, now);
 
-	device = &collector->diskdevices.device[collector->diskdevices.count];
-	zbx_strlcpy(device->name, devname, sizeof(device->name));
-	device->index = -1;
-	collector->diskdevices.count++;
-
-	process_diskstat(device);
-
-	return device;
+#endif /* HAVE_PROC_STAT */
 }

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,6 +17,8 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
+#include "config.h"
+
 #include "common.h"
 #include "sysinfo.h"
 
@@ -32,111 +34,112 @@ struct net_stat_s {
 	zbx_uint64_t colls;
 };
 
-static int get_net_stat(const char *if_name, struct net_stat_s *result)
+static int get_net_stat(const char *interface, struct net_stat_s *result)
 {
 	int ret = SYSINFO_RET_FAIL;
 	char line[MAX_STRING_LEN];
 
 	char name[MAX_STRING_LEN];
 	zbx_uint64_t tmp = 0;
-
+	
 	FILE *f;
 	char	*p;
 
 	assert(result);
 
-	if(NULL != (f = fopen("/proc/net/dev","r") ))
+	f=fopen("/proc/net/dev","r");
+	if(f)
 	{
-
+		
 		while(fgets(line,MAX_STRING_LEN,f) != NULL)
 		{
 
 			p = strstr(line,":");
 			if(p) p[0]='\t';
-
-			if(sscanf(line,"%s\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t"
+			
+			if(sscanf(line,"%s\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" 
 					ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t \
-					" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t"
+					" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" 
 					ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\t" ZBX_FS_UI64 "\n",
-				name,
-				&(result->ibytes),	/* bytes */
+				name, 
+				&(result->ibytes), 	/* bytes */
 				&(result->ipackets),	/* packets */
-				&(result->ierr),	/* errs */
+				&(result->ierr), 	/* errs */
 				&(result->idrop),	/* drop */
-				&(tmp),			/* fifo */
+			        &(tmp), 		/* fifo */
 				&(tmp),			/* frame */
-				&(tmp),			/* compressed */
+				&(tmp), 		/* compressed */
 				&(tmp),			/* multicast */
-				&(result->obytes),	/* bytes */
+				&(result->obytes), 	/* bytes */
 				&(result->opackets),	/* packets*/
 				&(result->oerr),	/* errs */
 				&(result->odrop),	/* drop */
-				&(tmp),			/* fifo */
+			        &(tmp), 		/* fifo */
 				&(result->colls),	/* icolls */
-				&(tmp),			/* carrier */
-				&(tmp)			/* compressed */
+			        &(tmp), 		/* carrier */
+			        &(tmp)	 		/* compressed */
 				) == 17)
 			{
-				if(strncmp(name, if_name, MAX_STRING_LEN) == 0)
+				if(strncmp(name, interface, MAX_STRING_LEN) == 0)
 				{
 					ret = SYSINFO_RET_OK;
 					break;
 				}
 			}
 		}
-		zbx_fclose(f);
+		fclose(f);
 	}
 
 	if(ret != SYSINFO_RET_OK)
 	{
 		memset(result, 0, sizeof(struct net_stat_s));
 	}
-
+	
 	return ret;
 }
 
 int	NET_IF_IN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	struct net_stat_s	ns;
-
-	char	if_name[MAX_STRING_LEN];
+	
+	char	interface[MAX_STRING_LEN];
 	char	mode[MAX_STRING_LEN];
-
+	
 	int ret = SYSINFO_RET_FAIL;
-
+        
 	assert(result);
 
-	init_result(result);
+        init_result(result);
 
-	if(num_param(param) > 2)
-	{
-		return SYSINFO_RET_FAIL;
-	}
+        if(num_param(param) > 2)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	if(get_param(param, 1, if_name, sizeof(if_name)) != 0)
-	{
-		return SYSINFO_RET_FAIL;
-	}
-
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
-	{
-		mode[0] = '\0';
-	}
-	if(mode[0] == '\0')
+        if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+	
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
+        {
+                mode[0] = '\0';
+        }
+        if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "bytes");
+		sprintf(mode, "bytes");
 	}
 
-	ret = get_net_stat(if_name, &ns);
-
+	ret = get_net_stat(interface, &ns);
+	
 
 	if(ret == SYSINFO_RET_OK)
 	{
 		if(strncmp(mode, "bytes", MAX_STRING_LEN) == 0)
 		{
 			SET_UI64_RESULT(result, ns.ibytes);
-		}
+		} 
 		else if(strncmp(mode, "packets", MAX_STRING_LEN) == 0)
 		{
 			SET_UI64_RESULT(result, ns.ipackets);
@@ -154,52 +157,52 @@ int	NET_IF_IN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *
 			ret = SYSINFO_RET_FAIL;
 		}
 	}
-
+	
 	return ret;
 }
 
 int	NET_IF_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	struct net_stat_s	ns;
-
-	char	if_name[MAX_STRING_LEN];
+	
+	char	interface[MAX_STRING_LEN];
 	char	mode[MAX_STRING_LEN];
-
-	int	ret = SYSINFO_RET_FAIL;
-
+	
+	int ret = SYSINFO_RET_FAIL;
+        
 	assert(result);
 
-	init_result(result);
+        init_result(result);
 
-	if(num_param(param) > 2)
-	{
-		return SYSINFO_RET_FAIL;
-	}
+        if(num_param(param) > 2)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	if(get_param(param, 1, if_name, sizeof(if_name)) != 0)
-	{
-	return SYSINFO_RET_FAIL;
-	}
-
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
-	{
-		mode[0] = '\0';
-	}
-	if(mode[0] == '\0')
+        if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+	
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
+        {
+                mode[0] = '\0';
+        }
+        if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "bytes");
+		sprintf(mode, "bytes");
 	}
 
-	ret = get_net_stat(if_name, &ns);
-
+	ret = get_net_stat(interface, &ns);
+	
 
 	if(ret == SYSINFO_RET_OK)
 	{
 		if(strncmp(mode, "bytes", MAX_STRING_LEN) == 0)
 		{
 			SET_UI64_RESULT(result, ns.obytes);
-		}
+		} 
 		else if(strncmp(mode, "packets", MAX_STRING_LEN) == 0)
 		{
 			SET_UI64_RESULT(result, ns.opackets);
@@ -217,52 +220,52 @@ int	NET_IF_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT 
 			ret = SYSINFO_RET_FAIL;
 		}
 	}
-
+	
 	return ret;
 }
 
 int	NET_IF_TOTAL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	struct net_stat_s	ns;
-
-	char	if_name[MAX_STRING_LEN];
+	
+	char	interface[MAX_STRING_LEN];
 	char	mode[MAX_STRING_LEN];
-
+	
 	int ret = SYSINFO_RET_FAIL;
-
+        
 	assert(result);
 
-	init_result(result);
+        init_result(result);
 
-	if(num_param(param) > 2)
-	{
-		return SYSINFO_RET_FAIL;
-	}
+        if(num_param(param) > 2)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	if(get_param(param, 1, if_name, sizeof(if_name)) != 0)
-	{
-		return SYSINFO_RET_FAIL;
-	}
-
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
-	{
-		mode[0] = '\0';
-	}
-	if(mode[0] == '\0')
+        if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+	
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
+        {
+                mode[0] = '\0';
+        }
+        if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "bytes");
+		sprintf(mode, "bytes");
 	}
 
-	ret = get_net_stat(if_name, &ns);
-
+	ret = get_net_stat(interface, &ns);
+	
 
 	if(ret == SYSINFO_RET_OK)
 	{
 		if(strncmp(mode, "bytes", MAX_STRING_LEN) == 0)
 		{
 			SET_UI64_RESULT(result, ns.ibytes + ns.obytes);
-		}
+		} 
 		else if(strncmp(mode, "packets", MAX_STRING_LEN) == 0)
 		{
 			SET_UI64_RESULT(result, ns.ipackets + ns.opackets);
@@ -280,49 +283,50 @@ int	NET_IF_TOTAL(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 			ret = SYSINFO_RET_FAIL;
 		}
 	}
-
+	
 	return ret;
 }
 
-int	NET_TCP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+int     NET_TCP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	assert(result);
+        assert(result);
 
-	init_result(result);
-
+        init_result(result);
+	
 	return SYSINFO_RET_FAIL;
 }
 
-int	NET_IF_COLLISIONS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+int     NET_IF_COLLISIONS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	struct net_stat_s	ns;
-
-	char	if_name[MAX_STRING_LEN];
-
+	
+	char	interface[MAX_STRING_LEN];
+	
 	int ret = SYSINFO_RET_FAIL;
-
+        
 	assert(result);
 
-	init_result(result);
+        init_result(result);
 
-	if(num_param(param) > 1)
-	{
-		return SYSINFO_RET_FAIL;
-	}
+        if(num_param(param) > 1)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	if(get_param(param, 1, if_name, MAX_STRING_LEN) != 0)
-	{
-		return SYSINFO_RET_FAIL;
-	}
+        if(get_param(param, 1, interface, MAX_STRING_LEN) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+	
 
-
-	ret = get_net_stat(if_name, &ns);
-
+	ret = get_net_stat(interface, &ns);
+	
 
 	if(ret == SYSINFO_RET_OK)
 	{
 		SET_UI64_RESULT(result, ns.colls);
 	}
-
+	
 	return ret;
 }
+

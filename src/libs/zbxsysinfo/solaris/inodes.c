@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 #include "md5.h"
@@ -26,21 +27,21 @@
 static int	get_fs_inodes_stat(char *fs, double *total, double *free, double *usage)
 {
 	struct statvfs   s;
-
+	
 	assert(fs);
-
-	if ( statvfs( fs, &s) != 0 )
+	
+	if ( statvfs( fs, &s) != 0 ) 
 	{
 		return	SYSINFO_RET_FAIL;
 	}
-
+        
 	if(total)
 		(*total) = (double)(s.f_files);
 	if(free)
 		(*free)  = (double)(s.f_favail);
 	if(usage)
 		(*usage) = (double)(s.f_files - s.f_favail);
-
+	
 	return SYSINFO_RET_OK;
 }
 
@@ -48,7 +49,7 @@ static int	VFS_FS_INODE_USED(const char *cmd, const char *param, unsigned flags,
 {
 	char 	mountPoint[MAX_STRING_LEN];
 	double	value = 0;
-
+	
 	assert(result);
 
 	init_result(result);
@@ -61,9 +62,9 @@ static int	VFS_FS_INODE_USED(const char *cmd, const char *param, unsigned flags,
 
 	if(get_fs_inodes_stat(mountPoint, NULL, NULL, &value) != SYSINFO_RET_OK)
 		return  SYSINFO_RET_FAIL;
-
+	
 	SET_UI64_RESULT(result, value);
-
+		
 	return SYSINFO_RET_OK;
 }
 
@@ -71,7 +72,7 @@ static int	VFS_FS_INODE_FREE(const char *cmd, const char *param, unsigned flags,
 {
 	char 	mountPoint[MAX_STRING_LEN];
 	double	value = 0;
-
+	
 	assert(result);
 
 	init_result(result);
@@ -84,9 +85,9 @@ static int	VFS_FS_INODE_FREE(const char *cmd, const char *param, unsigned flags,
 
 	if(get_fs_inodes_stat(mountPoint, NULL, &value, NULL) != SYSINFO_RET_OK)
 		return  SYSINFO_RET_FAIL;
-
+	
 	SET_UI64_RESULT(result, value);
-
+		
 	return SYSINFO_RET_OK;
 }
 
@@ -94,7 +95,7 @@ static int	VFS_FS_INODE_TOTAL(const char *cmd, const char *param, unsigned flags
 {
 	char 	mountPoint[MAX_STRING_LEN];
 	double	value = 0;
-
+	
 	assert(result);
 
 	init_result(result);
@@ -105,13 +106,13 @@ static int	VFS_FS_INODE_TOTAL(const char *cmd, const char *param, unsigned flags
         if(get_param(param, 1, mountPoint, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
-        }
+        }	
 
 	if(get_fs_inodes_stat(mountPoint, &value, NULL, NULL) != SYSINFO_RET_OK)
 		return  SYSINFO_RET_FAIL;
-
+	
 	SET_UI64_RESULT(result, value);
-
+		
 	return SYSINFO_RET_OK;
 }
 
@@ -120,7 +121,7 @@ static int	VFS_FS_INODE_PFREE(const char *cmd, const char *param, unsigned flags
 	char 	mountPoint[MAX_STRING_LEN];
 	double	tot_val = 0;
 	double	free_val = 0;
-
+	
 	assert(result);
 
 	init_result(result);
@@ -133,9 +134,9 @@ static int	VFS_FS_INODE_PFREE(const char *cmd, const char *param, unsigned flags
 
 	if(get_fs_inodes_stat(mountPoint, &tot_val, &free_val, NULL) != SYSINFO_RET_OK)
 		return  SYSINFO_RET_FAIL;
-
+	
 	SET_DBL_RESULT(result, (100.0 * free_val) / tot_val);
-
+		
 	return SYSINFO_RET_OK;
 }
 
@@ -144,7 +145,7 @@ static int	VFS_FS_INODE_PUSED(const char *cmd, const char *param, unsigned flags
 	char 	mountPoint[MAX_STRING_LEN];
 	double	tot_val = 0;
 	double	usg_val = 0;
-
+	
 	assert(result);
 
 	init_result(result);
@@ -157,9 +158,9 @@ static int	VFS_FS_INODE_PUSED(const char *cmd, const char *param, unsigned flags
 
 	if(get_fs_inodes_stat(mountPoint, &tot_val, NULL, &usg_val) != SYSINFO_RET_OK)
 		return  SYSINFO_RET_FAIL;
-
+	
 	SET_DBL_RESULT(result, (100.0 * usg_val) / tot_val);
-
+		
 	return SYSINFO_RET_OK;
 }
 
@@ -173,7 +174,7 @@ FS_FNCLIST
 	int (*function)();
 };
 
-	FS_FNCLIST fl[] =
+	FS_FNCLIST fl[] = 
 	{
 		{"free" ,	VFS_FS_INODE_FREE},
 		{"total" ,	VFS_FS_INODE_TOTAL},
@@ -186,31 +187,31 @@ FS_FNCLIST
 	char fsname[MAX_STRING_LEN];
 	char mode[MAX_STRING_LEN];
 	int i;
-
+	
         assert(result);
 
         init_result(result);
-
+	
         if(num_param(param) > 2)
         {
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, fsname, sizeof(fsname)) != 0)
+        if(get_param(param, 1, fsname, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
         }
-
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+	
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "total");
+		sprintf(mode, "total");
 	}
-
+	
 	for(i=0; fl[i].mode!=0; i++)
 	{
 		if(strncmp(mode, fl[i].mode, MAX_STRING_LEN)==0)
@@ -218,6 +219,7 @@ FS_FNCLIST
 			return (fl[i].function)(cmd, fsname, flags, result);
 		}
 	}
-
+	
 	return SYSINFO_RET_FAIL;
 }
+

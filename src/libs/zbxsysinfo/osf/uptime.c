@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -61,7 +62,7 @@ int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 	}
 
 	now=time(NULL);
-
+	
 	SET_UI64_RESULT(result, now-uptime.tv_sec);
 	return SYSINFO_RET_OK;
 #else
@@ -77,7 +78,7 @@ int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESU
         assert(result);
 
         init_result(result);
-
+	
 	hz = sysconf(_SC_CLK_TCK);
 
 	/* open kstat */

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 #include "md5.h"
@@ -34,10 +35,10 @@ static int	get_sensor(const char *name, unsigned flags, AGENT_RESULT *result)
 
 	FILE	*f;
 
-	assert(result);
+        assert(result);
 
-	init_result(result);
-
+        init_result(result);	
+	
 	dir=opendir("/proc/sys/dev/sensors");
 	if(NULL == dir)
 	{
@@ -46,22 +47,19 @@ static int	get_sensor(const char *name, unsigned flags, AGENT_RESULT *result)
 
 	while((entries=readdir(dir))!=NULL)
 	{
-		strscpy(filename,"/proc/sys/dev/sensors/");
+		strscpy(filename,"/proc/sys/dev/sensors/");	
 		zbx_strlcat(filename,entries->d_name,MAX_STRING_LEN);
 		zbx_strlcat(filename,name,MAX_STRING_LEN);
 
 		if(stat(filename,&buf)==0)
 		{
-			if( NULL == (f = fopen(filename,"r") ))
+			f=fopen(filename,"r");
+			if(f==NULL)
 			{
 				continue;
 			}
-			if(NULL == fgets(line,MAX_STRING_LEN,f))
-			{
-				zbx_fclose(f);
-				continue;
-			}
-			zbx_fclose(f);
+			fgets(line,MAX_STRING_LEN,f);
+			fclose(f);
 
 			if(sscanf(line,"%lf\t%lf\t%lf\n",&d1, &d2, &d3) == 3)
 			{
@@ -82,39 +80,40 @@ static int	get_sensor(const char *name, unsigned flags, AGENT_RESULT *result)
 
 int     OLD_SENSOR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	key[MAX_STRING_LEN];
-	int	ret;
+        char    key[MAX_STRING_LEN];
+        int     ret;
 
-	assert(result);
+        assert(result);
 
-	init_result(result);
+        init_result(result);
 
-	if(num_param(param) > 1)
-	{
-		return SYSINFO_RET_FAIL;
-	}
+        if(num_param(param) > 1)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	if(get_param(param, 1, key, MAX_STRING_LEN) != 0)
-	{
-		return SYSINFO_RET_FAIL;
-	}
+        if(get_param(param, 1, key, MAX_STRING_LEN) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	if(strcmp(key,"temp1") == 0)
-	{
-	ret = get_sensor("temp1", flags, result);
-	}
-	else if(strcmp(key,"temp2") == 0)
-	{
-	ret = get_sensor("temp2", flags, result);
-	}
-	else if(strcmp(key,"temp3") == 0)
-	{
-	ret = get_sensor("temp3", flags, result);
-	}
-	else
-	{
-	ret = SYSINFO_RET_FAIL;
-	}
+        if(strcmp(key,"temp1") == 0)
+        {
+                ret = get_sensor("temp1", flags, result);
+        }
+        else if(strcmp(key,"temp2") == 0)
+        {
+                ret = get_sensor("temp2", flags, result);
+        }
+        else if(strcmp(key,"temp3") == 0)
+        {
+                ret = get_sensor("temp3", flags, result);
+        }
+        else
+        {
+                ret = SYSINFO_RET_FAIL;
+        }
 
-	return ret;
+        return ret;
 }
+

@@ -1,63 +1,47 @@
-/*
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
-**
-** This program is free software; you can redistribute it and/or modify
-** it under the terms of the GNU General Public License as published by
-** the Free Software Foundation; either version 2 of the License, or
-** (at your option) any later version.
-**
-** This program is distributed in the hope that it will be useful,
-** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-** GNU General Public License for more details.
-**
-** You should have received a copy of the GNU General Public License
-** along with this program; if not, write to the Free Software
-** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-**/
-
 #include "common.h"
+#include "log.h"
 
-static char	data_static[ZBX_MAX_B64_LEN];
+#include <stdio.h>
+#include <string.h>
 
 /* Get DATA from <tag>DATA</tag> */
-int xml_get_data_dyn(const char *xml, const char *tag, char **data)
+int xml_get_data(char *xml,char *tag, char *data, int maxlen)
 {
-	int	len;
-	char	*start, *end;
-	size_t	sz;
+	int ret = SUCCEED;
+	char *start, *end;
+	char tag_open[MAX_STRING_LEN];
+	char tag_close[MAX_STRING_LEN];
+	int len;
 
-	sz = sizeof(data_static);
+	snprintf(tag_open,MAX_STRING_LEN-1,"<%s>",tag);
+	snprintf(tag_close,MAX_STRING_LEN-1,"</%s>",tag);
 
-	len = zbx_snprintf(data_static, sz, "<%s>", tag);
-	if (NULL == (start = strstr(xml, data_static)))
-		return FAIL;
+	if(NULL==(start=strstr(xml,tag_open)))
+	{
+		ret = FAIL;
+	}
 
-	zbx_snprintf(data_static, sz, "</%s>", tag);
-	if (NULL == (end = strstr(xml, data_static)))
-		return FAIL;
+	if(NULL==(end=strstr(xml,tag_close)))
+	{
+		ret = FAIL;
+	}
 
-	if (end < start)
-		return FAIL;
+	if(ret == SUCCEED)
+	{
+		if(end<start)
+		{
+			ret = FAIL;
+		}
+	}
 
-	start += len;
-	len = end - start;
+	if(ret == SUCCEED)
+	{
+		len=end-(start+strlen(tag_open));
 
-	if (len > (int)sz - 1)
-		*data = zbx_malloc(*data, len + 1);
-	else
-		*data = data_static;
+		if(len>maxlen)	len=maxlen;
 
-	zbx_strlcpy(*data, start, len + 1);
+		zbx_strlcpy(data, start+strlen(tag_open),len+1);
+	}
 
-	return SUCCEED;
-}
-
-void	xml_free_data_dyn(char **data)
-{
-	if (*data == data_static)
-		*data = NULL;
-	else
-		zbx_free(*data);
+	return ret;
 }

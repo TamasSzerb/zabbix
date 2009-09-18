@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,8 +20,6 @@
 
 #ifndef ZABBIX_EMAIL_H
 #define ZABBIX_EMAIL_H
-
-extern char	*CONFIG_SOURCE_IP;
 
 int	send_email(char *smtp_server,char *smtp_helo,char *smtp_email,char *mailto,char *mailsubject,char *mailbody, char *error, int max_error_len);
 

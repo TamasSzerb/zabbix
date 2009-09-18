@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 int	NET_IF_IN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -27,7 +28,7 @@ int	NET_IF_IN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *
         assert(result);
 
         init_result(result);
-
+	
 	return SYSINFO_RET_FAIL;
 }
 
@@ -37,7 +38,7 @@ int	NET_IF_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT 
         assert(result);
 
         init_result(result);
-
+	
 	return SYSINFO_RET_FAIL;
 }
 
@@ -47,7 +48,7 @@ int	NET_IF_TOTAL(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
         assert(result);
 
         init_result(result);
-
+	
 	return SYSINFO_RET_FAIL;
 }
 
@@ -56,7 +57,7 @@ int     NET_TCP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT
         assert(result);
 
         init_result(result);
-
+	
 	return SYSINFO_RET_FAIL;
 }
 
@@ -65,6 +66,6 @@ int     NET_IF_COLLISIONS(const char *cmd, const char *param, unsigned flags, AG
         assert(result);
 
         init_result(result);
-
+	
 	return SYSINFO_RET_FAIL;
 }

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,34 +20,10 @@
 #ifndef ZABBIX_STATS_H
 #define ZABBIX_STATS_H
 
-#include "threads.h"
-#include "cpustat.h"
-#include "perfstat.h"
 #include "interfaces.h"
 #include "diskdevices.h"
+#include "cpustat.h"
 
-/* NOTE:
- *   Mandatory static structure,
- *   don't use dinamic allocation
- *   for structure elements.
- *   Cause data for collector allocated once
- *   in init_collector_data.
- */
-typedef struct s_collector_data
-{
-	ZBX_CPUS_STAT_DATA	cpus;
-	ZBX_INTERFACES_DATA	interfaces;
-	ZBX_DISKDEVICES_DATA	diskdevices;
-#ifdef _WINDOWS
-	ZBX_PERF_STAT_DATA	perfs;
-#endif /* _WINDOWS */
-} ZBX_COLLECTOR_DATA;
-
-extern ZBX_COLLECTOR_DATA *collector;
-
-ZBX_THREAD_ENTRY(collector_thread, pSemColectorStarted);
-
-void	init_collector_data(void);
-void	free_collector_data(void);
+void	collect_statistics();
 
 #endif

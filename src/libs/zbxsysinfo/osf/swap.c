@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 #include "md5.h"
@@ -64,13 +65,13 @@ point them all to the same buffer */
 	/* grab all swap info */
 	swapctl(SC_LIST, swt);
 
-	/* walk through the structs and sum up the fields */
+	/* walk thru the structs and sum up the fields */
 	t = f = 0;
 	ste = &(swt->swt_ent[0]);
 	i = cnt;
 	while (--i >= 0)
 	{
-		/* don't count slots being deleted */
+		/* dont count slots being deleted */
 		if (!(ste->ste_flags & ST_INDEL) &&
 		!(ste->ste_flags & ST_DOINGDEL))
 		{
@@ -167,7 +168,7 @@ static int	SYSTEM_SWAP_TOTAL(const char *cmd, const char *param, unsigned flags,
         init_result(result);
 
 	get_swapinfo(&swaptotal,&swapfree);
-
+	
 	SET_UI64_RESULT(result, swaptotal);
 	return SYSINFO_RET_OK;
 #else
@@ -191,21 +192,19 @@ static int	SYSTEM_SWAP_PFREE(const char *cmd, const char *param, unsigned flags,
         init_result(result);
         init_result(&result_tmp);
 
-	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
-		!(result_tmp.type & AR_UINT64))
-	                return  SYSINFO_RET_FAIL;
+	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
 	tot_val = result_tmp.ui64;
 
-	/* Check for division by zero */
+	/* Check fot division by zero */
 	if(tot_val == 0)
 	{
 		free_result(&result_tmp);
                 return  SYSINFO_RET_FAIL;
 	}
 
-	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
-		!(result_tmp.type & AR_UINT64))
-                	return  SYSINFO_RET_FAIL;
+	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
 	free_val = result_tmp.ui64;
 
 	free_result(&result_tmp);
@@ -226,21 +225,19 @@ static int	SYSTEM_SWAP_PUSED(const char *cmd, const char *param, unsigned flags,
         init_result(result);
         init_result(&result_tmp);
 
-	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
-		!(result_tmp.type & AR_UINT64))
-                	return  SYSINFO_RET_FAIL;
+	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
 	tot_val = result_tmp.ui64;
 
-	/* Check for division by zero */
+	/* Check fot division by zero */
 	if(tot_val == 0)
 	{
 		free_result(&result_tmp);
                 return  SYSINFO_RET_FAIL;
 	}
 
-	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK ||
-		!(result_tmp.type & AR_UINT64))
-                	return  SYSINFO_RET_FAIL;
+	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
 	free_val = result_tmp.ui64;
 
 	free_result(&result_tmp);
@@ -260,7 +257,7 @@ SWP_FNCLIST
 	int (*function)();
 };
 
-	SWP_FNCLIST fl[] =
+	SWP_FNCLIST fl[] = 
 	{
 		{"total",	SYSTEM_SWAP_TOTAL},
 		{"free",	SYSTEM_SWAP_FREE},
@@ -272,17 +269,17 @@ SWP_FNCLIST
 	char swapdev[MAX_STRING_LEN];
 	char mode[MAX_STRING_LEN];
 	int i;
-
+	
         assert(result);
 
         init_result(result);
-
+	
         if(num_param(param) > 2)
         {
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, swapdev, sizeof(swapdev)) != 0)
+        if(get_param(param, 1, swapdev, MAX_STRING_LEN) != 0)
         {
                 return SYSINFO_RET_FAIL;
         }
@@ -290,23 +287,23 @@ SWP_FNCLIST
         if(swapdev[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(swapdev, sizeof(swapdev), "all");
+		sprintf(swapdev, "all");
 	}
 
-	if(strncmp(swapdev, "all", sizeof(swapdev)) != 0)
+	if(strncmp(swapdev, "all", MAX_STRING_LEN))
 	{
 		return SYSINFO_RET_FAIL;
 	}
-
-	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+	
+	if(get_param(param, 2, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
-
+	
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "free");
+		sprintf(mode, "free");
 	}
 
 	for(i=0; fl[i].mode!=0; i++)
@@ -316,7 +313,7 @@ SWP_FNCLIST
 			return (fl[i].function)(cmd, param, flags, result);
 		}
 	}
-
+	
 	return SYSINFO_RET_FAIL;
 }
 
@@ -366,3 +363,4 @@ int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RE
     /* in this moment this function for this platform unsupported */
     return	SYSINFO_RET_FAIL;
 }
+

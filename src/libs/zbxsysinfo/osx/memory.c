@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,8 +17,9 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
+#include "config.h"
 
+#include "common.h"
 #include "sysinfo.h"
 
 static int	VM_MEMORY_CACHED(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -33,11 +34,11 @@ static int	VM_MEMORY_CACHED(const char *cmd, const char *param, unsigned flags, 
 
         init_result(result);
 
-        if(NULL == (f = fopen("/proc/meminfo","r") ))
+        f=fopen("/proc/meminfo","r");
+        if(NULL == f)
         {
                 return  SYSINFO_RET_FAIL;
         }
-
         while(NULL!=fgets(c,MAX_STRING_LEN,f))
         {
                 if(strncmp(c,"Cached:",7) == 0)
@@ -55,7 +56,7 @@ static int	VM_MEMORY_CACHED(const char *cmd, const char *param, unsigned flags, 
                         break;
                 }
         }
-        zbx_fclose(f);
+        fclose(f);
 
         SET_UI64_RESULT(result, res);
         return SYSINFO_RET_OK;
@@ -63,7 +64,7 @@ static int	VM_MEMORY_CACHED(const char *cmd, const char *param, unsigned flags, 
 	assert(result);
 
         init_result(result);
-
+		
 	return SYSINFO_RET_FAIL;
 #endif
 }
@@ -76,7 +77,7 @@ static int	VM_MEMORY_BUFFERS(const char *cmd, const char *param, unsigned flags,
 	assert(result);
 
         init_result(result);
-
+		
 	if( 0 == sysinfo(&info))
 	{
 #ifdef HAVE_SYSINFO_MEM_UNIT
@@ -94,7 +95,7 @@ static int	VM_MEMORY_BUFFERS(const char *cmd, const char *param, unsigned flags,
 	assert(result);
 
         init_result(result);
-
+		
 	return	SYSINFO_RET_FAIL;
 #endif
 }
@@ -107,7 +108,7 @@ static int	VM_MEMORY_SHARED(const char *cmd, const char *param, unsigned flags, 
 	assert(result);
 
         init_result(result);
-
+		
 	if( 0 == sysinfo(&info))
 	{
 #ifdef HAVE_SYSINFO_MEM_UNIT
@@ -128,7 +129,7 @@ static int	VM_MEMORY_SHARED(const char *cmd, const char *param, unsigned flags, 
 	assert(result);
 
         init_result(result);
-
+		
 	len=sizeof(struct vmtotal);
 	mib[0]=CTL_VM;
 	mib[1]=VM_METER;
@@ -151,16 +152,16 @@ static int	VM_MEMORY_TOTAL(const char *cmd, const char *param, unsigned flags, A
 	assert(result);
 
         init_result(result);
-
+		
 	if(pstat_getstatic(&pst, sizeof(pst), (size_t)1, 0) == -1)
 	{
 		return SYSINFO_RET_FAIL;
 	}
 	else
 	{
-		/* Get page size */
+		/* Get page size */	
 		page = pst.page_size;
-		/* Total physical memory in bytes */
+		/* Total physical memory in bytes */	
 		SET_UI64_RESULT(result, (zbx_uint64_t)page*(zbx_uint64_t)pst.physical_memory);
 		return SYSINFO_RET_OK;
 	}
@@ -170,7 +171,7 @@ static int	VM_MEMORY_TOTAL(const char *cmd, const char *param, unsigned flags, A
 	assert(result);
 
         init_result(result);
-
+		
 	if( 0 == sysinfo(&info))
 	{
 #ifdef HAVE_SYSINFO_MEM_UNIT
@@ -191,7 +192,7 @@ static int	VM_MEMORY_TOTAL(const char *cmd, const char *param, unsigned flags, A
 	assert(result);
 
         init_result(result);
-
+		
 	len=sizeof(struct vmtotal);
 	mib[0]=CTL_VM;
 	mib[1]=VM_METER;
@@ -205,11 +206,11 @@ static int	VM_MEMORY_TOTAL(const char *cmd, const char *param, unsigned flags, A
 	size_t len;
 	unsigned int memory;
 	int ret;
-
+	
 	assert(result);
 
         init_result(result);
-
+		
 	len=sizeof(memory);
 
 	if(0==sysctl(mib,2,&memory,&len,NULL,0))
@@ -226,7 +227,7 @@ static int	VM_MEMORY_TOTAL(const char *cmd, const char *param, unsigned flags, A
 	assert(result);
 
         init_result(result);
-
+		
 	return	SYSINFO_RET_FAIL;
 #endif
 }
@@ -241,14 +242,14 @@ static int	VM_MEMORY_FREE(const char *cmd, const char *param, unsigned flags, AG
 	assert(result);
 
         init_result(result);
-
+		
 	if(pstat_getstatic(&pst, sizeof(pst), (size_t)1, 0) == -1)
 	{
 		return SYSINFO_RET_FAIL;
 	}
 	else
 	{
-		/* Get page size */
+		/* Get page size */	
 		page = pst.page_size;
 /*		return pst.physical_memory;*/
 
@@ -280,12 +281,12 @@ static int	VM_MEMORY_FREE(const char *cmd, const char *param, unsigned flags, AG
 	assert(result);
 
         init_result(result);
-
+		
 	if( 0 == sysinfo(&info))
 	{
 #ifdef HAVE_SYSINFO_MEM_UNIT
 		SET_UI64_RESULT(result, (zbx_uint64_t)info.freeram * (zbx_uint64_t)info.mem_unit);
-#else
+#else	
 		SET_UI64_RESULT(result, info.freeram);
 #endif
 		return SYSINFO_RET_OK;
@@ -301,7 +302,7 @@ static int	VM_MEMORY_FREE(const char *cmd, const char *param, unsigned flags, AG
 	assert(result);
 
         init_result(result);
-
+		
 	len=sizeof(struct vmtotal);
 	mib[0]=CTL_VM;
 	mib[1]=VM_METER;
@@ -317,11 +318,11 @@ static int	VM_MEMORY_FREE(const char *cmd, const char *param, unsigned flags, AG
 	mach_msg_type_number_t count;
 	kern_return_t kret;
 	int ret;
-
+	
 	assert(result);
 
         init_result(result);
-
+		
 	pagesize = 0;
 	kret = host_page_size (mach_host_self(), &pagesize);
 
@@ -351,7 +352,7 @@ static int	VM_MEMORY_FREE(const char *cmd, const char *param, unsigned flags, AG
 	assert(result);
 
         init_result(result);
-
+		
 	return	SYSINFO_RET_FAIL;
 #endif
 }
@@ -365,7 +366,7 @@ MEM_FNCLIST
 	int (*function)();
 };
 
-	MEM_FNCLIST fl[] =
+	MEM_FNCLIST fl[] = 
 	{
 		{"free",	VM_MEMORY_FREE},
 		{"shared",	VM_MEMORY_SHARED},
@@ -386,7 +387,7 @@ MEM_FNCLIST
                 return SYSINFO_RET_FAIL;
         }
 
-        if(get_param(param, 1, mode, sizeof(mode)) != 0)
+        if(get_param(param, 1, mode, MAX_STRING_LEN) != 0)
         {
                 mode[0] = '\0';
         }
@@ -394,9 +395,9 @@ MEM_FNCLIST
         if(mode[0] == '\0')
 	{
 		/* default parameter */
-		zbx_snprintf(mode, sizeof(mode), "total");
+		sprintf(mode, "total");
 	}
-
+	
 	for(i=0; fl[i].mode!=0; i++)
 	{
 		if(strncmp(mode, fl[i].mode, MAX_STRING_LEN)==0)
@@ -404,6 +405,7 @@ MEM_FNCLIST
 			return (fl[i].function)(cmd, param, flags, result);
 		}
 	}
-
+	
 	return SYSINFO_RET_FAIL;
 }
+

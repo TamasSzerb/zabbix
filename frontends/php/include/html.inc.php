@@ -19,251 +19,151 @@
 **/
 ?>
 <?php
-	function bold($str){
+	function	bold($str)
+	{
 		if(is_array($str)){
 			foreach($str as $key => $val)
-				if(is_string($val)){
-					$b = new CTag('strong','yes');
-					$b->addItem($val);
-					$str[$key] = $b;
-				}
+				if(is_string($val))
+					 $str[$key] = "<b>$val</b>";
+		} elseif(is_string($str)) {
+			$str = "<b>$str</b>";
 		}
-		else if(is_string($str)) {
-			$b = new CTag('strong','yes','');
-			$b->addItem($str);
-			$str = $b;
-		}
-	return $str;
-	}
-
-	function make_decoration($haystack, $needle, $class=null){
-		$result = $haystack;
-
-		$pos = stripos($haystack,$needle);
-		if($pos !== FALSE){
-			$start = zbx_substring($haystack, 0, $pos);
-//			$middle = substr($haystack, $pos, zbx_strlen($needle));
-			$middle = $needle;
-			$end = substr($haystack, $pos+zbx_strlen($needle));
-
-			if(is_null($class)){
-				$result = array($start, bold($middle), $end);
-			}
-			else{
-				$result = array($start, new CSpan($middle, $class), $end);
-			}
-		}
-
-	return $result;
-	}
-
-	function bfirst($str){
-// mark first symbol of string as bold
-		$res = bold($str[0]);
-		for($i=1,$max=strlen($str); $i<$max; $i++)	$res .= $str[$i];
-		$str = $res;
 		return $str;
 	}
 
-	function nbsp($str){
-		return str_replace(" ",SPACE,$str);
+	function	bfirst($str) // mark first symbol of string as bold
+	{
+		$res = bold($str[0]);
+		for($i=1,$max=strlen($str); $i<$max; $i++)	$res .= $str[$i];
+		$str = $res;
+		return $str;	
 	}
 
-	function url1_param($parameter){
-		if(isset($_REQUEST[$parameter])){
+	function	nbsp($str)
+	{
+		return str_replace(" ",SPACE,$str);;
+	}
+
+	function form_select($var, $value, $label)
+	{
+		global $_REQUEST;
+
+		$selected = "";
+		if(!is_null($var))
+		{
+			if(isset($_REQUEST[$var])&&$_REQUEST[$var]==$value)
+				$selected = "selected";
+		}
+		return "<option value=\"$value\" $selected>$label";
+	}
+
+	function form_input($name, $value, $size)
+	{
+		return "<input class=\"biginput\" name=\"$name\" size=$size value=\"$value\">";
+	}
+
+	function form_textarea($name, $value, $cols, $rows)
+	{
+		return "<textarea name=\"$name\" cols=\"$cols\" ROWS=\"$rows\" wrap=\"soft\">$value</TEXTAREA>";
+	}
+
+	function url1_param($parameter)
+	{
+		global $_REQUEST;
+	
+		if(isset($_REQUEST[$parameter]))
+		{
 			return "$parameter=".$_REQUEST[$parameter];
 		}
-		else{
+		else
+		{
 			return "";
 		}
 	}
 
-	function prepare_url(&$var, $varname=null){
-		$result = '';
-
-		if(is_array($var)){
-			foreach($var as $id => $par)
-				$result .= prepare_url($par,isset($varname) ? $varname."[".$id."]": $id);
-		}
-		else{
-			$result = '&'.$varname.'='.urlencode($var);
+	function url_param($parameter)
+	{
+		global $_REQUEST;
+	
+		$result = "";
+		if(isset($_REQUEST[$parameter]))
+		{
+			if(is_array($_REQUEST[$parameter]))
+			{
+				foreach($_REQUEST[$parameter] as $par)
+					$result .= "&".$parameter."[]=".$par;
+			}
+			else
+			{
+				$result = "&".$parameter."=".$_REQUEST[$parameter];
+			}
 		}
 		return $result;
 	}
 
-	function url_param($parameter,$request=true,$name=null){
-		$result = '';
-		if(!is_array($parameter)){
-			if(!isset($name)){
-				if(!$request)
-					fatal_error('not request variable require url name [url_param]');
+	function table_begin($class="tableinfo")
+	{
+		echo "<table class=\"$class\" border=0 width=\"100%\" bgcolor='#AAAAAA' cellspacing=1 cellpadding=3>";
+		echo "\n";
+	}
 
-				$name = $parameter;
+	function table_header($elements)
+	{
+		echo "<tr bgcolor='#CCCCCC'>";
+		while(list($num,$element)=each($elements))
+		{
+			echo "<td><b>".$element."</b></td>";
+		}
+		echo "</tr>";
+		echo "\n";
+	}
+
+	function table_row($elements, $rownum)
+	{
+		if($rownum%2 == 1)	{ echo "<TR BGCOLOR=\"#DDDDDD\">"; }
+		else			{ echo "<TR BGCOLOR=\"#EEEEEE\">"; }
+
+		while(list($num,$element)=each($elements))
+		{
+			if(is_array($element)&&isset($element["hide"])&&($element["hide"]==1))	continue;
+			if(is_array($element))
+			{
+				if(isset($element["class"]))
+					echo "<td class=\"".$element["class"]."\">".$element["value"]."</td>";
+				else
+					echo "<td>".$element["value"]."</td>";
+			}
+			else
+			{
+				echo "<td>".$element."</td>";
 			}
 		}
-
-		if($request){
-			$var =& $_REQUEST[$parameter];
-		}
-		else{
-			$var =& $parameter;
-		}
-
-		if(isset($var)){
-			$result = prepare_url($var,$name);
-		}
-
-	return $result;
-	}
-
-	function BR(){
-		return new CTag('br','no');
-	}
-
-	function create_hat($caption,$items,$addicons=null,$id=null,$state=null){
-		if(is_null($id)){
-			list($usec, $sec) = explode(' ',microtime());
-			$id = 'hat_'.((int)($sec % 10)).((int)($usec * 1000));
-		}
-
-		$td_l = new CCol(SPACE);
-		$td_l->setAttribute('width','100%');
-
-		$icons_row = array($td_l);
-		if(!is_null($addicons)){
-			if(!is_array($addicons)) $addicons = array($addicons);
-			foreach($addicons as $value) $icons_row[] = $value;
-		}
-
-		if(!is_null($state)){
-			$icon = new CDiv(SPACE, $state?'arrowup':'arrowdown');
-			$icon->setAttribute('id',$id.'_icon');
-			$icon->addAction('onclick',new CJSscript("javascript: change_hat_state(this,'".$id."');"));
-			$icon->setAttribute('title',S_SHOW.'/'.S_HIDE);
-			$icons_row[] = $icon;
-		}
-		else{
-			$state = true;
-		}
-
-		$icon_tab = new CTable();
-		$icon_tab->setAttribute('width','100%');
-
-		$icon_tab->addRow($icons_row);
-
-		$table = new CTable();
-		$table->setAttribute('width','100%');
-		$table->setCellPadding(0);
-		$table->setCellSpacing(0);
-		$table->addRow(get_table_header($caption,$icon_tab));
-
-		$div = new CDiv($items);
-		$div->setAttribute('id',$id);
-		if(!$state) $div->setAttribute('style','display: none;');
-
-		$table->addRow($div);
-	return $table;
+		echo "</tr>";
+		echo "\n";
 	}
 
 
-/* Function:
- *	hide_form_items()
- *
- * Desc:
- *	Searches items/objects for Form tags like "<input"/Form classes like CForm, and makes it empty
- *
- * Author:
- *	Aly
- */
-	function hide_form_items(&$obj){
-		if(is_array($obj)){
-			foreach($obj as $id => $item){
-				hide_form_items($obj[$id]);			// Attention recursion;
-			}
-		}
-		else if(is_object($obj)){
-			if(str_in_array(strtolower(get_class($obj)),array('cform','ccheckbox','cselect','cbutton','cbuttonqmessage','cbuttondelete','cbuttoncancel'))){
-				$obj=SPACE;
-			}
-			if(isset($obj->items) && !empty($obj->items)){
-				foreach($obj->items as $id => $item){
-					hide_form_items($obj->items[$id]); 		// Recursion
-				}
-			}
-		}
-		else{
-			foreach(array('<form','<input','<select') as $item){
-				if(strpos($obj,$item) !== FALSE) $obj = SPACE;
-			}
-		}
+	function table_end()
+	{
+		echo "</table>";
+		echo "\n";
 	}
 
-	function get_thin_table_header($col1, $col2=NULL){
-
-		$table = new CTable(NULL,'thin_header');
-//		$table->setAttribute('border',1);
-		$table->setCellSpacing(0);
-		$table->setCellPadding(1);
-
-		if(!is_null($col2)){
-			$td_r = new CCol($col2,'thin_header_r');
-			$td_r->setAttribute('align','right');
-			$table->addRow(array(new CCol($col1,'thin_header_l'), $td_r));
-		}
-		else{
-			$td_c = new CCol($col1,'thin_header_c');
-			$td_c->setAttribute('align','center');
-
-			$table->addRow($td_c);
-		}
-
-	return $table;
+	function table_td($text,$attr)
+	{
+		echo "<td $attr>$text</td>";
 	}
 
-	function show_thin_table_header($col1, $col2=NULL){
-		$table = get_thin_table_header($col1, $col2);
-		$table->Show();
-	}
-
-	function get_table_header($col1, $col2=SPACE){
-		if(isset($_REQUEST['print'])){
-			hide_form_items($col1);
-			hide_form_items($col2);
-		//if empty header than do not show it
-			if(($col1 == SPACE) && ($col2 == SPACE)) return new CJSscript('');
-		}
-
-		$td_l = new CCol(SPACE,'header_r');
-		$td_l->setAttribute('width','100%');
-
-		$right_row = array($td_l);
-
-		if(!is_null($col2)){
-			if(!is_array($col2)) $col2 = array($col2);
-
-			foreach($col2 as $num => $r_item)
-				$right_row[] = new CCol($r_item,'header_r');
-		}
-
-		$right_tab = new CTable(null,'nowrap');
-		$right_tab->setAttribute('width','100%');
-
-		$right_tab->addRow($right_row);
-
-		$table = new CTable(NULL,'header');
-//		$table->setAttribute('border',0);
-		$table->setCellSpacing(0);
-		$table->setCellPadding(1);
-
-		$td_r = new CCol($right_tab,'header_r');
-		$td_r->setAttribute('align','right');
-
-		$table->addRow(array(new CCol($col1,'header_l'), $td_r));
-	return $table;
-	}
-
-	function show_table_header($col1, $col2=SPACE){
-		$table = get_table_header($col1, $col2);
-		$table->Show();
+	function table_nodata($text="...")
+	{
+		cr();
+		echo "<TABLE BORDER=0 align=center WIDTH=\"100%\" BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
+		echo "<TR BGCOLOR=\"#DDDDDD\">";
+		echo "<TD ALIGN=CENTER>";
+		echo $text;
+		echo "</TD>";
+		echo "</TR>";
+		echo "</TABLE>";
+		cr();
 	}
 ?>

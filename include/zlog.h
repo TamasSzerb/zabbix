@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -22,13 +22,6 @@
 
 #include <stdarg.h>
 
-extern	int	CONFIG_ENABLE_LOG;
-
-#ifdef HAVE___VA_ARGS__
-#	define zabbix_syslog(fmt, ...) __zbx_zabbix_syslog(ZBX_CONST_STRING(fmt), ##__VA_ARGS__)
-#else
-#	define zabbix_syslog __zbx_zabbix_syslog
-#endif /* HAVE___VA_ARGS__ */
-void	__zbx_zabbix_syslog(const char *fmt, ...);
+void	zabbix_syslog(const char *fmt, ...);
 
 #endif

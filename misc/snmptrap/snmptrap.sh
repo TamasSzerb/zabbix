@@ -21,8 +21,8 @@
 
 # CONFIGURATION
 
-ZABBIX_SERVER="localhost";
-ZABBIX_PORT="10051";
+ZABBIX_SERVER="zabbix";
+ZABBIX_PORT="10001";
 
 ZABBIX_SENDER="~zabbix/bin/zabbix_sender";
 
@@ -49,4 +49,4 @@ community=`echo $community|cut -f2 -d'"'`
 
 str="$hostname $address $community $enterprise $oid"
 
-$ZABBIX_SENDER -z $ZABBIX_SERVER -p $ZABBIX_PORT -s $HOST -k $KEY -o "$str"
+$ZABBIX_SENDER $ZABBIX_SERVER $ZABBIX_PORT $HOST $KEY "$str"

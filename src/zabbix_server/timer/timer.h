@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,6 +20,14 @@
 #ifndef ZABBIX_TIMER_H
 #define ZABBIX_TIMER_H
 
-void main_timer_loop();
+/*
+extern	void	signal_handler(int);
+extern  int     server_num;
+
+extern  int     CONFIG_TIMEOUT;
+extern  int     CONFIG_SUCKERD_FORKS;
+*/
+
+int main_timer_loop();
 
 #endif

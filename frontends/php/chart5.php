@@ -1,5 +1,5 @@
-<?php
-/*
+<?php 
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -43,7 +43,7 @@ include_once 'include/page_header.php';
 	}
 
 	$available_triggers = get_accessible_triggers(PERM_READ_ONLY, array(), PERM_RES_IDS_ARRAY);
-
+	
 	$sql = 'SELECT s.serviceid '.
 				' FROM services s '.
 				' WHERE (s.triggerid is NULL OR '.DBcondition('s.triggerid',$available_triggers).') '.
@@ -63,25 +63,25 @@ include_once 'include/page_header.php';
 	$shiftYup=17;
 	$shiftYdown=25+15*3;
 
-	$im = imagecreate($sizeX+$shiftX+61,$sizeY+$shiftYup+$shiftYdown+10);
-
-	$red=imagecolorallocate($im,255,0,0);
-	$darkred=imagecolorallocate($im,150,0,0);
-	$green=imagecolorallocate($im,0,255,0);
-	$darkgreen=imagecolorallocate($im,0,150,0);
-	$blue=imagecolorallocate($im,0,0,255);
-	$darkblue=imagecolorallocate($im,0,0,150);
-	$yellow=imagecolorallocate($im,255,255,0);
-	$darkyellow=imagecolorallocate($im,150,150,0);
-	$cyan=imagecolorallocate($im,0,255,255);
-	$black=imagecolorallocate($im,0,0,0);
-	$gray=imagecolorallocate($im,150,150,150);
-	$white=imagecolorallocate($im,255,255,255);
+	$im = imagecreate($sizeX+$shiftX+61,$sizeY+$shiftYup+$shiftYdown+10); 
+  
+	$red=imagecolorallocate($im,255,0,0); 
+	$darkred=imagecolorallocate($im,150,0,0); 
+	$green=imagecolorallocate($im,0,255,0); 
+	$darkgreen=imagecolorallocate($im,0,150,0); 
+	$blue=imagecolorallocate($im,0,0,255); 
+	$darkblue=imagecolorallocate($im,0,0,150); 
+	$yellow=imagecolorallocate($im,255,255,0); 
+	$darkyellow=imagecolorallocate($im,150,150,0); 
+	$cyan=imagecolorallocate($im,0,255,255); 
+	$black=imagecolorallocate($im,0,0,0); 
+	$gray=imagecolorallocate($im,150,150,150); 
+	$white=imagecolorallocate($im,255,255,255); 
 	$bg=imagecolorallocate($im,6+6*16,7+7*16,8+8*16);
 
-	$x=imagesx($im);
+	$x=imagesx($im); 
 	$y=imagesy($im);
-
+  
 	imagefilledrectangle($im,0,0,$x,$y,$white);
 	imagerectangle($im,0,0,$x-1,$y-1,$black);
 
@@ -102,12 +102,10 @@ include_once 'include/page_header.php';
 	if($wday==0) $wday=7;
 	$start=$start-($wday-1)*24*3600;
 
-	$weeks = (int)(date('z')/7 +1);
-
 	for($i=0;$i<52;$i++){
 		if(($period_start=$start+7*24*3600*$i) > time())
 			break;
-
+			
 		if(($period_end=$start+7*24*3600*($i+1)) > time())
 			$period_end = time();
 
@@ -121,11 +119,9 @@ include_once 'include/page_header.php';
 		DashedLine($im,$shiftX,$i+$shiftYup,$sizeX+$shiftX,$i+$shiftYup,$gray);
 	}
 
-	for($i = 0, $period_start = $start; $i <= $sizeX; $i += $sizeX/52){
+	for($i = 0, $period_start = $start; $i <= $sizeX; $i += $sizeX/52, $period_start += 7*24*3600){
 		DashedLine($im,$i+$shiftX,$shiftYup,$i+$shiftX,$sizeY+$shiftYup,$gray);
 		imagestringup($im, 1,$i+$shiftX-4, $sizeY+$shiftYup+32, date('d.M',$period_start) , $black);
-
-		$period_start += 7*24*3600;
 	}
 
 	$maxY = max(max($problem), 100);
@@ -134,7 +130,7 @@ include_once 'include/page_header.php';
 	$maxX = 900;
 	$minX = 0;
 
-	for($i=1;$i<=$weeks;$i++){
+	for($i=1;$i<=52;$i++){
 		if(!isset($ok[$i-1])) continue;
 		$x2=($sizeX/52)*($i-1-$minX)*$sizeX/($maxX-$minX);
 
@@ -154,21 +150,19 @@ include_once 'include/page_header.php';
 
 	imagefilledrectangle($im,$shiftX,$sizeY+$shiftYup+39+15*0,$shiftX+5,$sizeY+$shiftYup+35+9+15*0,imagecolorallocate($im,120,235,120));
 	imagerectangle($im,$shiftX,$sizeY+$shiftYup+39+15*0,$shiftX+5,$sizeY+$shiftYup+35+9+15*0,$black);
-	imagetext($im, 2, 0, $shiftX+9, $sizeY+$shiftYup+15*0+35, $black, 'OK (%)');
-	//imagestring($im, 2,$shiftX+9,$sizeY+$shiftYup+15*0+35, 'OK (%)', $black);
+	imagestring($im, 2,$shiftX+9,$sizeY+$shiftYup+15*0+35, 'OK (%)', $black);
 
 	imagefilledrectangle($im,$shiftX,$sizeY+$shiftYup+39+15*1,$shiftX+5,$sizeY+$shiftYup+35+9+15*1,$darkred);
 	imagerectangle($im,$shiftX,$sizeY+$shiftYup+39+15*1,$shiftX+5,$sizeY+$shiftYup+15+9+35*1,$black);
-	imagetext($im, 2, 0, $shiftX+9, $sizeY+$shiftYup+15*1+35, $black, 'PROBLEMS (%)');
-	//imagestring($im, 2,$shiftX+9,$sizeY+$shiftYup+15*1+35, 'PROBLEMS (%)', $black);
+	imagestring($im, 2,$shiftX+9,$sizeY+$shiftYup+15*1+35, 'PROBLEMS (%)', $black);
 
 	imagestringup($im,0,imagesx($im)-10,imagesy($im)-50, 'http://www.zabbix.com', $gray);
 
 	$end_time=time(NULL);
 	imagestring($im, 0,imagesx($im)-100,imagesy($im)-12,'Generated in '.($end_time-$start_time).' sec', $gray);
 
-	ImageOut($im);
-	imagedestroy($im);
+	ImageOut($im); 
+	imagedestroy($im); 
 ?>
 <?php
 

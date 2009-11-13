@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -37,12 +37,12 @@
  *                                                                            *
  * Function: execute_action                                                   *
  *                                                                            *
- * Purpose: execute an action depending on mediatype                          *
+ * Purpose: executa an action depending on mediatype                          *
  *                                                                            *
  * Parameters: alert - alert details                                          *
  *             mediatype - media details                                      *
  *                                                                            *
- * Return value: SUCCESS - action executed sucessfully                        *
+ * Return value: SUCCESS - action executed sucesfully                         * 
  *               FAIL - otherwise, error will contain error message           *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
@@ -171,7 +171,7 @@ int execute_action(DB_ALERT *alert,DB_MEDIATYPE *mediatype, char *error, int max
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
@@ -188,10 +188,9 @@ int main_alerter_loop()
 	DB_ALERT		alert;
 	DB_MEDIATYPE		mediatype;
 
-/*	phan.sa_handler = child_signal_handler;*/
-        phan.sa_sigaction = child_signal_handler;
+	phan.sa_handler = child_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 	sigaction(SIGALRM, &phan, NULL);
 
 	zbx_setproctitle("connecting to the database");

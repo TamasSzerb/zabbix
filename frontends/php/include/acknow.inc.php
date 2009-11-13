@@ -62,7 +62,7 @@ function make_acktab_by_eventid($eventid){
 	$acks = get_acknowledges_by_eventid($eventid);
 
 	while($ack = DBfetch($acks)){
-		$user = CUser::getById(array('userid' => $ack['userid']));
+		$user = get_user_by_userid($ack['userid']);
 		$table->AddRow(array(
 			date(S_DATE_FORMAT_YMDHMS,$ack['clock']),
 			$user['alias'],

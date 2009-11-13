@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -27,6 +27,5 @@ int	tcp_expect(const char	*host, unsigned short port, const char *request, const
 int	TCP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 int	CHECK_PORT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 int	CHECK_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
-int	CHECK_DNS_QUERY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 
 #endif /* SYSINFO_COMMON_NET_H_INCLUDED */

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -24,10 +24,8 @@
 
 #define ZBX_PROTO_TAG_CLOCK		"clock"
 #define ZBX_PROTO_TAG_DATA		"data"
-#define ZBX_PROTO_TAG_REGEXP		"regexp"
 #define	ZBX_PROTO_TAG_DELAY		"delay"
 #define	ZBX_PROTO_TAG_DRULE		"drule"
-#define	ZBX_PROTO_TAG_DCHECK		"dcheck"
 #define ZBX_PROTO_TAG_HOST		"host"
 #define ZBX_PROTO_TAG_INFO		"info"
 #define ZBX_PROTO_TAG_IP		"ip"
@@ -37,7 +35,6 @@
 #define ZBX_PROTO_TAG_LOGTIMESTAMP	"timestamp"
 #define ZBX_PROTO_TAG_LOGSOURCE		"source"
 #define ZBX_PROTO_TAG_LOGSEVERITY	"severity"
-#define ZBX_PROTO_TAG_LOGEVENTID	"eventid"
 #define ZBX_PROTO_TAG_PORT		"port"
 #define ZBX_PROTO_TAG_PROXY		"proxy"
 #define ZBX_PROTO_TAG_REQUEST		"request"
@@ -54,7 +51,6 @@
 #define	ZBX_PROTO_VALUE_PROXY_HEARTBEAT		"proxy heartbeat"
 #define ZBX_PROTO_VALUE_DISCOVERY_DATA		"discovery data"
 #define ZBX_PROTO_VALUE_HISTORY_DATA		"history data"
-#define ZBX_PROTO_VALUE_AUTO_REGISTRATION_DATA	"auto registration"
 #define	ZBX_PROTO_VALUE_SENDER_DATA		"sender data"
 #define	ZBX_PROTO_VALUE_AGENT_DATA		"agent data"
 

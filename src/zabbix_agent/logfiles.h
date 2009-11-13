@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,6 +20,10 @@
 #ifndef ZABBIX_LOGFILES_H
 #define ZABBIX_LOGFILES_H
 
-int	process_log(char *filename, long *lastlogsize, char **value, const char *encoding);
+int   process_log(
+	char *filename,
+	long *lastlogsize,
+	char **value
+	);
 
 #endif

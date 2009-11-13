@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -67,7 +67,7 @@ void	add_metric(ZBX_METRIC *new)
 				commands[i].test_param=NULL;
 			else
 				commands[i].test_param=strdup(new->test_param);
-
+			
 			commands = zbx_realloc(commands,(i+2)*sizeof(ZBX_METRIC));
 			memset(&commands[i+1], 0, sizeof(ZBX_METRIC));
 			break;
@@ -86,8 +86,8 @@ int	add_user_parameter(char *key, char *command)
 	{
 		zabbix_log( LOG_LEVEL_WARNING, "Can't add user specifed key \"%s\". Can't parse key!", key);
 		return FAIL;
-	}
-	else if (2 == i)				/* with specified parameters */
+	} 
+	else if (2 == i)				/* with specifed parameters */
 	{
 		if (0 != strcmp(usr_param, "*"))	/* must be '*' parameters */
 		{
@@ -111,13 +111,13 @@ int	add_user_parameter(char *key, char *command)
 			commands[i + 1].key = NULL;
 			break;
 		}
-
+		
 		/* Replace existing parameters */
 		if (0 == strcmp(commands[i].key, key))
 		{
-			if (commands[i].main_param)
+			if (commands[i].main_param)	
 				zbx_free(commands[i].main_param);
-			if (commands[i].test_param)
+			if (commands[i].test_param)	
 				zbx_free(commands[i].test_param);
 
 			commands[i].flags = flag;
@@ -133,7 +133,7 @@ int	add_user_parameter(char *key, char *command)
 
 void	init_metrics(void)
 {
-	register int	i;
+	register int 	i;
 
 	commands = malloc(sizeof(ZBX_METRIC));
 	commands[0].key=NULL;
@@ -207,11 +207,11 @@ void    escape_string(char *from, char *to, int maxlen)
 	to[maxlen-1]=0;
 }
 
-int	copy_result(AGENT_RESULT *src, AGENT_RESULT *dist)
+int 	copy_result(AGENT_RESULT *src, AGENT_RESULT *dist)
 {
 	assert(src);
 	assert(dist);
-
+	
 	free_result(dist);
 	dist->type = src->type;
 	dist->dbl = src->dbl;
@@ -244,9 +244,9 @@ void	init_result(AGENT_RESULT *result)
  /* don't use `free_result(result)`, dangerous recycling */
 
 	result->type = 0;
-
+	
 	result->ui64 = 0;
-	result->dbl = 0;
+	result->dbl = 0;	
 	result->str = NULL;
 	result->text = NULL;
 	result->msg = NULL;
@@ -265,12 +265,12 @@ int parse_command( /* return value: 0 - error; 1 - command without parameters; 2
 	int ret = 2;
 
 	zbx_strlcpy(localstr, command, MAX_STRING_LEN);
-
+	
 	if(cmd)
 		zbx_strlcpy(cmd, "", cmd_max_len);
 	if(param)
 		zbx_strlcpy(param, "", param_max_len);
-
+	
 	pl = strchr(localstr, '[');
 	pr = strrchr(localstr, ']');
 
@@ -279,7 +279,7 @@ int parse_command( /* return value: 0 - error; 1 - command without parameters; 2
 
 	if((pl && !pr) || (!pl && pr))
 		return 0;
-
+	
 	if(pl != NULL)
 		pl[0] = 0;
 	if(pr != NULL)
@@ -293,7 +293,7 @@ int parse_command( /* return value: 0 - error; 1 - command without parameters; 2
 
 	if(!pl && !pr)
 		ret = 1;
-
+	
 	return ret;
 }
 
@@ -341,16 +341,16 @@ int	replace_param(const char *cmd, const char *param, char *out, int outlen)
 	char buf[MAX_STRING_LEN];
 	char command[MAX_STRING_LEN];
 	register char *pl, *pr;
-
+	
 	assert(out);
 
 	out[0] = '\0';
 
 	if(!cmd && !param)
 		return ret;
-
+	
 	zbx_strlcpy(command, cmd, MAX_STRING_LEN);
-
+			
 	pl = command;
 	while((pr = strchr(pl, '$')) && outlen > 0)
 	{
@@ -358,7 +358,7 @@ int	replace_param(const char *cmd, const char *param, char *out, int outlen)
 		zbx_strlcat(out, pl, outlen);
 		outlen -= MIN((int)strlen(pl), (int)outlen);
 		pr[0] = '$';
-
+		
 		if (pr[1] >= '0' && pr[1] <= '9')
 		{
 			buf[0] = '\0';
@@ -371,24 +371,24 @@ int	replace_param(const char *cmd, const char *param, char *out, int outlen)
 			{
 				get_param(param, (int)(pr[1] - '0'), buf, MAX_STRING_LEN);
 			}
-
+			
 			zbx_strlcat(out, buf, outlen);
 			outlen -= MIN((int)strlen(buf), (int)outlen);
-
+					
 			pl = pr + 2;
 			continue;
 		} else if(pr[1] == '$')
 		{
 			pr++; /* remove second '$' symbol */
 		}
-
+		
 		pl = pr + 1;
 		zbx_strlcat(out, "$", outlen);
 		outlen -= 1;
 	}
 	zbx_strlcat(out, pl, outlen);
 	outlen -= MIN((int)strlen(pl), (int)outlen);
-
+	
 	return ret;
 }
 
@@ -400,20 +400,20 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 	int	(*function)() = NULL;
 	int	ret = SUCCEED;
 	int	err = SYSINFO_RET_OK;
-
+	
 	char	usr_cmd[MAX_STRING_LEN];
 	char	usr_param[MAX_STRING_LEN];
-
+	
 	char	usr_command[MAX_STRING_LEN];
-	int	usr_command_len;
+	int 	usr_command_len;
 
 	char	param[MAX_STRING_LEN];
-
-	assert(result);
-	init_result(result);
-
+		
+        assert(result);
+        init_result(result);
+	
 	alias_expand(in_command, usr_command, MAX_STRING_LEN);
-
+	
 	usr_command_len = (int)strlen(usr_command);
 
 	for( p=usr_command+usr_command_len-1; p>usr_command && ( *p=='\r' || *p =='\n' || *p == ' ' ); --p );
@@ -422,9 +422,9 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 	{
 		p[1]=0;
 	}
-
+	
 	function=0;
-
+	
 	if(parse_command(usr_command, usr_cmd, MAX_STRING_LEN, usr_param, MAX_STRING_LEN) != 0)
 	{
 		for(i=0; commands[i].key != 0; i++)
@@ -437,22 +437,22 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 		}
 	}
 
-	param[0] = '\0';
+	param[0] = '\0';	
 	if(function != 0)
 	{
-
+		
 		if(commands[i].flags & CF_USEUPARAM)
 		{
 			if((flags & PROCESS_TEST) && (flags & PROCESS_USE_TEST_PARAM) && commands[i].test_param)
 			{
 				zbx_strlcpy(usr_param, commands[i].test_param, MAX_STRING_LEN);
 			}
-		}
+		} 
 		else
 		{
 			usr_param[0] = '\0';
 		}
-
+		
 		if(commands[i].main_param)
 		{
 			if(commands[i].flags & CF_USEUPARAM)
@@ -487,7 +487,7 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 	{
 		err = NOTSUPPORTED;
 	}
-
+	
 	if(flags & PROCESS_TEST)
 	{
 		printf("%s", usr_cmd);
@@ -497,10 +497,10 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 			i = (int)strlen(param)+2;
 		} else	i = 0;
 		i += (int)strlen(usr_cmd);
-
+		
 #define COLUMN_2_X 45 /* max of spaces count */
 		i = i > COLUMN_2_X ? 1 : (COLUMN_2_X - i);
-
+	
 		printf("%-*.*s", i, i, " "); /* print spaces */
 	}
 
@@ -548,7 +548,7 @@ static int	DBchk_double(double value)
 	return SUCCEED;
 }
 
-int	set_result_type(AGENT_RESULT *result, int value_type, int data_type, char *c)
+int	set_result_type(AGENT_RESULT *result, int value_type, char *c)
 {
 	int		ret = FAIL;
 	zbx_uint64_t	value_uint64;
@@ -562,39 +562,13 @@ int	set_result_type(AGENT_RESULT *result, int value_type, int data_type, char *c
 		zbx_ltrim(c, " \"");
 		del_zeroes(c);
 
-		switch (data_type) {
-		case ITEM_DATA_TYPE_OCTAL:
-			if (SUCCEED == is_uoct(c))
-			{
-				ZBX_OCT2UINT64(value_uint64, c);
-				if (SUCCEED == DBchk_uint64(value_uint64))
-				{
-					SET_UI64_RESULT(result, value_uint64);
-					ret = SUCCEED;
-				}
-			}
+		if (SUCCEED != is_uint64(c, &value_uint64))
 			break;
-		case ITEM_DATA_TYPE_HEXADECIMAL:
-			if (SUCCEED == is_uhex(c))
-			{
-				ZBX_HEX2UINT64(value_uint64, c);
-				if (SUCCEED == DBchk_uint64(value_uint64))
-				{
-					SET_UI64_RESULT(result, value_uint64);
-					ret = SUCCEED;
-				}
-			}
+		if (SUCCEED != DBchk_uint64(value_uint64))
 			break;
-		default:	/* ITEM_DATA_TYPE_DECIMAL */
-			if (SUCCEED == is_uint64(c, &value_uint64))
-			{
-				if (SUCCEED == DBchk_uint64(value_uint64))
-				{
-					SET_UI64_RESULT(result, value_uint64);
-					ret = SUCCEED;
-				}
-			}
-		}
+
+		SET_UI64_RESULT(result, value_uint64)
+		ret = SUCCEED;
 		break;
 	case ITEM_VALUE_TYPE_FLOAT:
 		zbx_rtrim(c, " \"");
@@ -752,11 +726,11 @@ static char** get_result_str_value(AGENT_RESULT *result)
 	}
 	else if(ISSET_UI64(result))
 	{
-		SET_STR_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_UI64, result->ui64))
+		 SET_STR_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_UI64, result->ui64))
 	}
 	else if(ISSET_DBL(result))
 	{
-		SET_STR_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_DBL, result->dbl))
+		 SET_STR_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_DBL, result->dbl))
 	}
 	/* skip AR_MESSAGE - it is information field */
 
@@ -782,11 +756,11 @@ static char** get_result_text_value(AGENT_RESULT *result)
 	}
 	else if(ISSET_UI64(result))
 	{
-		SET_TEXT_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_UI64, result->ui64))
+		 SET_TEXT_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_UI64, result->ui64))
 	}
 	else if(ISSET_DBL(result))
 	{
-		SET_TEXT_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_DBL, result->dbl))
+		 SET_TEXT_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_DBL, result->dbl))
 	}
 	/* skip AR_MESSAGE - it is information field */
 
@@ -802,11 +776,11 @@ static char** get_result_text_value(AGENT_RESULT *result)
  *                                                                            *
  * Function: get_result_value_by_type                                         *
  *                                                                            *
- * Purpose: return value of result in special type                            *
- *          if value missing, convert existing value to requested type        *
+ * Purpose: return vslue of result in special type                            *
+ *          if falue missed convert existed value to requested type           *
  *                                                                            *
  * Return value:                                                              *
- *         NULL - if value is missing or can't be converted                   *
+ *         NULL - if value are missed or can't be conferted                   *
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
@@ -817,7 +791,7 @@ static char** get_result_text_value(AGENT_RESULT *result)
  *                GET_TEXT_RESULT                                             *
  *                GET_MSG_RESULT                                              *
  *                                                                            *
- *    AR_MESSAGE - skiped in conversion                                       *
+ *    AR_MESSAGE - skiped in convertion                                       *
  *                                                                            *
  ******************************************************************************/
 void	*get_result_value_by_type(AGENT_RESULT *result, int require_type)
@@ -826,7 +800,7 @@ void	*get_result_value_by_type(AGENT_RESULT *result, int require_type)
 
 	switch(require_type)
 	{
-		case AR_UINT64:
+		case AR_UINT64: 
 			return (void*)get_result_ui64_value(result);
 			break;
 		case AR_DOUBLE:
@@ -843,6 +817,40 @@ void	*get_result_value_by_type(AGENT_RESULT *result, int require_type)
 			break;
 		default:
 			break;
+	}
+	return NULL;
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: get_result_value_by_value_type                                   *
+ *                                                                            *
+ * Purpose: return value of result in special type                            *
+ *          if value missed convert existed value to requested type           *
+ *                                                                            *
+ * Return value:                                                              *
+ *         NULL - if value are missed or can't be converted                   *
+ *                                                                            *
+ * Author: Aleksander Vladishev                                               *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+void	*get_result_value_by_value_type(AGENT_RESULT *result, int value_type)
+{
+	assert(result);
+
+	switch (value_type)
+	{
+		case ITEM_VALUE_TYPE_FLOAT:
+			return (void *)get_result_dbl_value(result);
+		case ITEM_VALUE_TYPE_STR:
+		case ITEM_VALUE_TYPE_LOG:
+			return (void *)get_result_str_value(result);
+		case ITEM_VALUE_TYPE_UINT64:
+			return (void *)get_result_ui64_value(result);
+		case ITEM_VALUE_TYPE_TEXT:
+			return (void *)get_result_text_value(result);
 	}
 	return NULL;
 }

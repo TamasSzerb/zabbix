@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -58,9 +58,7 @@ void zabbix_close_log(void);
 void zabbix_set_log_level(int level);
 
 char *strerror_from_system(unsigned long error);
-#ifdef _WINDOWS
-char *strerror_from_module(unsigned long error, LPCTSTR module);
-#endif
+char *strerror_from_module(unsigned long error, const char *module);
 
 #if defined(_WINDOWS)
 #	define redirect_std(filename)

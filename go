@@ -31,15 +31,14 @@ export CFLAGS="-Wall -Wuninitialized -O -g"
 #for db in sqlite3 pgsql mysql; do
 for db in mysql; do
 	./configure --enable-proxy --enable-agent --enable-server --with-jabber --with-ldap --with-libcurl --with-$db --with-net-snmp --prefix=`pwd` --enable-ipv6 2>>WARNINGS >/dev/null
-# ORACLE parameters --with-oracle --with-oracle-include=/usr/include/oracle/11.1/client64/ --with-oracle-lib=/usr/lib/oracle/11.1/client64/lib/>/dev/null
 	echo Cleaning...
-	make -j4 clean 2>>WARNINGS >/dev/null
+	make clean 2>>WARNINGS >/dev/null
 	echo Making dbschema...
-	make -j4 dbschema 2>>WARNINGS >/dev/null
+	make dbschema 2>>WARNINGS >/dev/null
 	echo Making...
 	make 2>>WARNINGS >/dev/null
 	echo Installing...
-	make -j4 install 2>>WARNINGS >/dev/null
+	make install 2>>WARNINGS >/dev/null
 done
 
 echo

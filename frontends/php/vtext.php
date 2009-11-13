@@ -1,7 +1,7 @@
-<?php
-/*
+<?php 
+/* 
 ** ZABBIX
-** Copyright (C) 2000-2009 SIA Zabbix
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,46 +19,46 @@
 **/
 ?>
 <?php
-	define('ZBX_PAGE_NO_AUTHORIZATION', 1);
-
-	require_once('include/config.inc.php');
+	define('ZBX_PAGE_NO_AUTHERIZATION', 1);
+	
+	require_once "include/config.inc.php";
 
 	$page['file'] = 'vtext.php';
 	$page['type'] = PAGE_TYPE_IMAGE;
 
-	require_once ('include/page_header.php');
+include_once "include/page_header.php";
 
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		'text'=>		array(T_ZBX_STR, O_OPT,	P_SYS,	null,		null),
-		'font'=>		array(T_ZBX_INT, O_OPT,	null,	BETWEEN(1,5),	null),
+		"text"=>		array(T_ZBX_STR, O_OPT,	P_SYS,	null,		null),
+		"font"=>		array(T_ZBX_INT, O_OPT,	null,	BETWEEN(1,5),	null),
 	);
 
 	check_fields($fields);
 ?>
 <?php
 
-	$text = get_request('text', ' ');;
-	$font = get_request('font', 3);
+	$text = get_request("text",' ');;
+	$font = get_request("font",3);
+	
+	$width = ImageFontWidth($font) * strlen($text);
+	$height = ImageFontHeight($font);
 
-	$size = imageTextSize(9, 90, $text);
+	$im = imagecreate($height,$width); 
+  
+	$backgroud_color = ImageColorAllocate($im,255,255,255); 
+	$text_color = ImageColorAllocate($im,0,0,0); 
 
-	$im = imagecreatetruecolor($size['width']+6, $size['height']);
-	ImageAlphaBlending($im, false);
-	imageSaveAlpha($im, true);
+	ImageStringUp($im,$font,0,$width-1,$text,$text_color);
+	imagecolortransparent($im,$backgroud_color);
 
-	$transparentColor = imagecolorallocatealpha($im, 200, 200, 200, 127);
-	imagefill($im, 0, 0, $transparentColor);
+	ImageOut($im); 
+	ImageDestroy($im); 
+?>
+<?php
 
-	$text_color = imagecolorallocate($im, 0, 0, 0);
+include_once "include/page_footer.php";
 
-	imageText($im, 9, 90, $size['width']+3, $size['height'], $text_color, $text);
-
-	imageOut($im);
-	imagedestroy($im);
-
-
-include_once('include/page_footer.php');
 ?>

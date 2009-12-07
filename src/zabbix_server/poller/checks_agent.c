@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -30,11 +30,11 @@
  *                                                                            *
  * Parameters: item - item we are interested in                               *
  *                                                                            *
- * Return value: SUCCEED - data successfully retrieved and stored in result   *
+ * Return value: SUCCEED - data succesfully retrieved and stored in result    *
  *                         and result_str (as string)                         *
- *               NETWORK_ERROR - network related error occurred               *
+ *               NETWORK_ERROR - network related error occured                *
  *               NOTSUPPORTED - item not supported by the agent               *
- *               AGENT_ERROR - uncritical error on agent side occurred        *
+ *               AGENT_ERROR - uncritical error on agent side occured         *
  *               FAIL - otherwise                                             *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
@@ -42,18 +42,21 @@
  * Comments: error will contain error message                                 *
  *                                                                            *
  ******************************************************************************/
-int	get_value_agent(DC_ITEM *item, AGENT_RESULT *result)
+int	get_value_agent(DB_ITEM *item, AGENT_RESULT *result)
 {
-	const char	*__function_name = "get_value_agent";
 	zbx_sock_t	s;
-	char		*buf, buffer[MAX_STRING_LEN], *conn;
+	char		*addr, *buf, buffer[MAX_STRING_LEN];
 	int		ret = SUCCEED;
 
-	conn = item->host.useip == 1 ? item->host.ip : item->host.dns;
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() host:'%s' addr:'%s' key:'%s'",
-			__function_name, item->host.host, conn, item->key_orig);
+	init_result(result);
 
-	if (SUCCEED == (ret = zbx_tcp_connect(&s, CONFIG_SOURCE_IP, conn, item->host.port, 0)))
+	addr = (item->useip == 1) ? item->host_ip : item->host_dns;
+	zabbix_log( LOG_LEVEL_DEBUG, "In get_value_agent(host:%s,addr:%s,key:%s)",
+			item->host_name,
+			addr,
+			item->key);
+
+	if (SUCCEED == (ret = zbx_tcp_connect(&s, CONFIG_SOURCE_IP, addr, item->port, 0)))
 	{
 		zbx_snprintf(buffer, sizeof(buffer), "%s\n", item->key);
 		zabbix_log(LOG_LEVEL_DEBUG, "Sending [%s]", buffer);
@@ -72,25 +75,24 @@ int	get_value_agent(DC_ITEM *item, AGENT_RESULT *result)
 
 		if (0 == strcmp(buf, "ZBX_NOTSUPPORTED"))
 		{
-			zbx_snprintf(buffer, sizeof(buffer), "Not supported by Zabbix Agent");
+			zbx_snprintf(buffer, sizeof(buffer), "Not supported by ZABBIX agent");
 			SET_MSG_RESULT(result, strdup(buffer));
 			ret = NOTSUPPORTED;
 		}
 		else if (0 == strcmp(buf, "ZBX_ERROR"))
 		{
-			zbx_snprintf(buffer, sizeof(buffer), "Zabbix Agent non-critical error");
+			zbx_snprintf(buffer, sizeof(buffer), "ZABBIX agent non-critical error");
 			SET_MSG_RESULT(result, strdup(buffer));
 			ret = AGENT_ERROR;
 		}
 		else if ('\0' == *buf)	/* The section should be improved */
 		{
-			zbx_snprintf(buffer, sizeof(buffer), "Got empty string from [%s]."
-					" Assuming that agent dropped connection because of access permissions",
-					conn);
+			zbx_snprintf(buffer, sizeof(buffer), "Got empty string from [%s]. Assuming that agent dropped connection because of access permissions",
+					item->useip ? item->host_ip : item->host_dns);
 			SET_MSG_RESULT(result, strdup(buffer));
 			ret = NETWORK_ERROR;
 		}
-		else if (SUCCEED != set_result_type(result, item->value_type, item->data_type, buf))
+		else if (SUCCEED != set_result_type(result, item->value_type, buf))
 			ret = NOTSUPPORTED;
 	}
 	else

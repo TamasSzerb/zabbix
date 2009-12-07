@@ -1,5 +1,5 @@
 <?php
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2007 SIA Zabbix
 **
@@ -48,18 +48,18 @@ if(isset($_REQUEST['execute'])){
 		if($script['host_access'] == PERM_READ_WRITE){
 			$hosts_read_write = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_RES_IDS_ARRAY);
 
-			if(isset($hosts_read_write[$_REQUEST['hostid']])){
+			if(uint_in_array($_REQUEST['hostid'],$hosts_read_write)){
 //SDI('WRITE: '.$_REQUEST['scriptid'].' : '.$_REQUEST['hostid']);
 //				$result = execute_script($_REQUEST['scriptid'],$_REQUEST['hostid']);
 //				insert_command_result_form($result["flag"],$result["message"]);
 				insert_command_result_form($_REQUEST['scriptid'],$_REQUEST['hostid']);
 /*				echo nl2br(htmlspecialchars($result));*/
 			}
-		}
+		} 
 		else {
 			$hosts_read_only  = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
 
-			if(isset($hosts_read_only[$_REQUEST['hostid']])){
+			if(uint_in_array($_REQUEST['hostid'],$hosts_read_only)){
 //SDI('READ: '.$_REQUEST['scriptid'].' : '.$_REQUEST['hostid']);
 //				$result = execute_script($_REQUEST['scriptid'],$_REQUEST['hostid']);
 //				insert_command_result_form($result["flag"],$result["message"]);

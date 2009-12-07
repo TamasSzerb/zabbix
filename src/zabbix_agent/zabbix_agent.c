@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -29,7 +29,7 @@
 #include "alias.h"
 
 char *progname = NULL;
-char title_message[] = "Zabbix Agent";
+char title_message[] = "ZABBIX Agent";
 char usage_message[] = "[-Vhp] [-c <file>] [-t <metric>]";
 #ifndef HAVE_GETOPT_LONG
 char *help_message[] = {
@@ -69,7 +69,7 @@ void	child_signal_handler( int sig )
 	{
 		signal( SIGALRM, child_signal_handler );
 	}
-
+ 
 	if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig )
 	{
 	}
@@ -95,7 +95,7 @@ void    init_config(void)
 
 	parse_cfg_file(CONFIG_FILE,cfg);
 }
-
+	  
 int	main(int argc, char **argv)
 {
 	char		ch = '\0';
@@ -208,8 +208,8 @@ int	main(int argc, char **argv)
 
 				ret = zbx_tcp_send(&s_out, *value);
 			}
-
-			free_result(&result);
+			
+			free_result(&result);	
 		}
 
 		if( FAIL == ret )
@@ -217,7 +217,7 @@ int	main(int argc, char **argv)
 			zabbix_log(LOG_LEVEL_DEBUG, "Processing  error: %s", zbx_tcp_strerror());
 		}
 	}
-
+  
 	fflush(stdout);
 
 	free_metrics();
@@ -230,3 +230,4 @@ int	main(int argc, char **argv)
 
 	return SUCCEED;
 }
+

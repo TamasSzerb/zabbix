@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -27,16 +27,15 @@
 #include "dbcache.h"
 #include "dbsyncer.h"
 
-extern int	ZBX_SYNC_MAX;
 /******************************************************************************
  *                                                                            *
  * Function: main_dbsyncer_loop                                               *
  *                                                                            *
- * Purpose: periodically synchronises data in memory cache with database      *
+ * Purpose: periodically syncronises data in memory cache with database       *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
@@ -110,7 +109,7 @@ int main_dbsyncer_loop()
 				sleeptime);
 
 		if (sleeptime > 0) {
-			zbx_setproctitle("db syncer [sleeping for %d seconds]",
+			zbx_setproctitle("db syncer [sleeping for %d seconds]", 
 					sleeptime);
 
 			sleep(sleeptime);

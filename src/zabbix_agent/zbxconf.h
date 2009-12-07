@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -32,7 +32,6 @@ extern int	CONFIG_REFRESH_ACTIVE_CHECKS;
 extern char	*CONFIG_LISTEN_IP;
 extern int	CONFIG_LOG_LEVEL;
 extern char	CONFIG_LOG_UNRES_SYMB;
-extern int	CONFIG_MAX_LINES_PER_SECOND;
 
 void    load_config();
 void    load_user_parameters(void);

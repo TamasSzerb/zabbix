@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -63,7 +63,7 @@ static int get_minnextcheck(int now)
 	if(!row || DBis_null(row[0])==SUCCEED || DBis_null(row[1])==SUCCEED)
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "No httptests to process in get_minnextcheck.");
-		res = FAIL;
+		res = FAIL; 
 	}
 	else
 	{
@@ -96,7 +96,7 @@ static int get_minnextcheck(int now)
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-void main_httppoller_loop(int num)
+void main_httppoller_loop(zbx_process_t p, int num)
 {
 	int	now;
 	int	nextcheck,sleeptime;
@@ -113,7 +113,7 @@ void main_httppoller_loop(int num)
 		zbx_setproctitle("http poller [getting values]");
 
 		now=time(NULL);
-		process_httptests(now);
+		process_httptests(p, now);
 
 		zabbix_log( LOG_LEVEL_DEBUG, "Spent %d seconds while processing HTTP tests",
 			(int)time(NULL)-now);
@@ -144,7 +144,7 @@ void main_httppoller_loop(int num)
 			zabbix_log( LOG_LEVEL_DEBUG, "Sleeping for %d seconds",
 					sleeptime );
 
-			zbx_setproctitle("http poller [sleeping for %d seconds]",
+			zbx_setproctitle("http poller [sleeping for %d seconds]", 
 					sleeptime);
 
 			sleep( sleeptime );

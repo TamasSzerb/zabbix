@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -96,7 +96,7 @@ rollback:
  *                                                                            *
  * Parameters: now - current timestamp                                        *
  *                                                                            *
- * Return value: SUCCEED - information removed successfully                   *
+ * Return value: SUCCEED - information removed succesfully                    *
  *               FAIL - otherwise                                             *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
@@ -112,7 +112,6 @@ static int housekeeping_history(int now)
 
 	records += delete_history("proxy_history", "history_lastid", now);
 	records += delete_history("proxy_dhistory", "dhistory_lastid", now);
-	records += delete_history("proxy_autoreg_host", "autoreg_host_lastid", now);
 
         return records;
 }

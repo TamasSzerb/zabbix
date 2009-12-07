@@ -42,13 +42,18 @@ function mbstrings_available(){
 		function_exists('mb_strtoupper') &&
 		function_exists('mb_strpos') &&
 		function_exists('mb_substr') &&
+		function_exists('mb_ereg') &&
+		function_exists('mb_eregi') &&
+		function_exists('mb_ereg_replace') &&
+		function_exists('mb_eregi_replace') &&
+		function_exists('mb_split');
+/* This function is supported by PHP5 only
 		function_exists('mb_stristr') &&
-		function_exists('mb_strstr');
-
+		function_exists('mb_strstr') &&
+//*/
 return $mbstrings_fnc_exist;
 }
-
-// Translate global array $TRANSLATION into constants
+# Translate global array $TRANSLATION into constants
 function process_locales(){
 	global $TRANSLATION;
 //SDI(count($TRANSLATION).' : '.$TRANSLATION['S_HTML_CHARSET']);

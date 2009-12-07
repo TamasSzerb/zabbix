@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2006 SIA Zabbix
 **
@@ -36,7 +36,7 @@
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -81,13 +81,13 @@ disconnect:
 
 /******************************************************************************
  *                                                                            *
- * Function : process_history_table_data:                                     *
+ * Function : process_hstory_table_data:                                      *
  *                                                                            *
  * Purpose: process new history data                                          *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -105,10 +105,10 @@ static void	process_history_table_data(ZBX_TABLE *table, int master_nodeid, int 
 
 	zabbix_log( LOG_LEVEL_DEBUG, "In process_history_table_data()");
 
+	DBbegin();
+
 	if ((table->flags & ZBX_HISTORY) && FAIL == get_history_lastid(master_nodeid, nodeid, table, &lastid))
 		return;
-
-	DBbegin();
 
 	data = zbx_malloc(data, data_allocated);
 	tmp = zbx_malloc(tmp, tmp_allocated);
@@ -216,7 +216,7 @@ static void	process_history_table_data(ZBX_TABLE *table, int master_nodeid, int 
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -248,7 +248,7 @@ static void process_history_tables(int master_nodeid, int nodeid)
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *

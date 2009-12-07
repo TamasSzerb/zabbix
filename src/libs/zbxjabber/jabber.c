@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -28,11 +28,11 @@
 static void
 zbx_io_close (void *socket)
 {
-	int *sock = (int*) socket;
+        int *sock = (int*) socket;
 
 	if( !sock ) return;
 
-	close (*sock);
+        close (*sock);
 }
 
 static int		zbx_j_sock = -1;
@@ -41,60 +41,60 @@ static const char	*__module_name = "JABBER";
 static int
 zbx_io_connect (iksparser *prs, void **socketptr, const char *server, int port)
 {
-	int tmp;
+        int tmp;
 #ifdef HAVE_GETADDRINFO
-	struct addrinfo hints;
-	struct addrinfo *addr_res, *addr_ptr;
-	char port_str[6];
+        struct addrinfo hints;
+        struct addrinfo *addr_res, *addr_ptr;
+        char port_str[6];
 
-	*socketptr = (void *) NULL;
+        *socketptr = (void *) NULL;
 
-	hints.ai_flags = AI_CANONNAME;
-	hints.ai_family = PF_UNSPEC;
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_protocol = 0;
-	hints.ai_addrlen = 0;
-	hints.ai_canonname = NULL;
-	hints.ai_addr = NULL;
-	hints.ai_next = NULL;
-	zbx_snprintf(port_str, sizeof(port_str), "%i", port);
+        hints.ai_flags = AI_CANONNAME;
+        hints.ai_family = PF_UNSPEC;
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_protocol = 0;
+        hints.ai_addrlen = 0;
+        hints.ai_canonname = NULL;
+        hints.ai_addr = NULL;
+        hints.ai_next = NULL;
+        zbx_snprintf(port_str, sizeof(port_str), "%i", port);
 
-	if (getaddrinfo (server, port_str, &hints, &addr_res) != 0)
-		return IKS_NET_NODNS;
+        if (getaddrinfo (server, port_str, &hints, &addr_res) != 0)
+                return IKS_NET_NODNS;
 
-	addr_ptr = addr_res;
-	while (addr_ptr) {
-		zbx_j_sock = socket (addr_ptr->ai_family, addr_ptr->ai_socktype, addr_ptr->ai_protocol);
-		if (zbx_j_sock != -1) break;
-		addr_ptr = addr_ptr->ai_next;
-	}
-	if (zbx_j_sock == -1) return IKS_NET_NOSOCK;
+        addr_ptr = addr_res;
+        while (addr_ptr) {
+                zbx_j_sock = socket (addr_ptr->ai_family, addr_ptr->ai_socktype, addr_ptr->ai_protocol);
+                if (zbx_j_sock != -1) break;
+                addr_ptr = addr_ptr->ai_next;
+        }
+        if (zbx_j_sock == -1) return IKS_NET_NOSOCK;
 
-	tmp = connect (zbx_j_sock, addr_ptr->ai_addr, addr_ptr->ai_addrlen);
-	freeaddrinfo (addr_res);
+        tmp = connect (zbx_j_sock, addr_ptr->ai_addr, addr_ptr->ai_addrlen);
+        freeaddrinfo (addr_res);
 #else
-	struct hostent *host;
-	struct sockaddr_in sin;
+        struct hostent *host;
+        struct sockaddr_in sin;
 
-	host = gethostbyname (server);
-	if (!host) return IKS_NET_NODNS;
+        host = gethostbyname (server);
+        if (!host) return IKS_NET_NODNS;
 
-	memcpy (&sin.sin_addr, host->h_addr, host->h_length);
-	sin.sin_family = host->h_addrtype;
-	sin.sin_port = htons (port);
-	zbx_j_sock = socket (host->h_addrtype, SOCK_STREAM, 0);
-	if (zbx_j_sock == -1) return IKS_NET_NOSOCK;
+        memcpy (&sin.sin_addr, host->h_addr, host->h_length);
+        sin.sin_family = host->h_addrtype;
+        sin.sin_port = htons (port);
+        zbx_j_sock = socket (host->h_addrtype, SOCK_STREAM, 0);
+        if (zbx_j_sock == -1) return IKS_NET_NOSOCK;
 
-	tmp = connect (zbx_j_sock, (struct sockaddr *)&sin, sizeof (struct sockaddr_in));
+        tmp = connect (zbx_j_sock, (struct sockaddr *)&sin, sizeof (struct sockaddr_in));
 #endif
-	if (tmp != 0) {
-		zbx_io_close ((void *) &zbx_j_sock);
-		return IKS_NET_NOCONN;
-	}
+        if (tmp != 0) {
+                zbx_io_close ((void *) &zbx_j_sock);
+                return IKS_NET_NOCONN;
+        }
 
-	*socketptr = (void *) &zbx_j_sock;
+        *socketptr = (void *) &zbx_j_sock;
 
-	return IKS_OK;
+        return IKS_OK;
 }
 
 static int
@@ -111,29 +111,29 @@ zbx_io_send (void *socket, const char *data, size_t len)
 static int
 zbx_io_recv (void *socket, char *buffer, size_t buf_len, int timeout)
 {
-	int *sock = (int*) socket;
-	fd_set fds;
-	struct timeval tv, *tvptr;
-	int len;
+        int *sock = (int*) socket;
+        fd_set fds;
+        struct timeval tv, *tvptr;
+        int len;
 
 	if( !sock ) return -1;
 
-	tv.tv_sec = 0;
-	tv.tv_usec = 0;
+        tv.tv_sec = 0;
+        tv.tv_usec = 0;
 
-	FD_ZERO (&fds);
-	FD_SET (*sock, &fds);
-	tv.tv_sec = timeout;
-	if (timeout != -1) tvptr = &tv; else tvptr = NULL;
-	if (select (*sock + 1, &fds, NULL, NULL, tvptr) > 0) {
-		len = recv (*sock, buffer, buf_len, 0);
-		if (len > 0) {
-			return len;
-		} else if (len <= 0) {
-			return -1;
-		}
-	}
-	return 0;
+        FD_ZERO (&fds);
+        FD_SET (*sock, &fds);
+        tv.tv_sec = timeout;
+        if (timeout != -1) tvptr = &tv; else tvptr = NULL;
+        if (select (*sock + 1, &fds, NULL, NULL, tvptr) > 0) {
+                len = recv (*sock, buffer, buf_len, 0);
+                if (len > 0) {
+                        return len;
+                } else if (len <= 0) {
+                        return -1;
+                }
+        }
+        return 0;
 }
 
 ikstransport zbx_iks_transport = {
@@ -202,10 +202,10 @@ static int disconnect_jabber()
 	const char	*__function_name = "disconnect_jabber";
 
 	zabbix_log(LOG_LEVEL_DEBUG, "%s: In %s()", __module_name, __function_name);
-
+	
 	if (JABBER_DISCONNECTED != jsess->status)
 		iks_disconnect(jsess->prs);
-
+	
 	if (jsess->my_filter)
 	{
 		iks_filter_delete (jsess->my_filter);
@@ -308,7 +308,7 @@ static int on_stream(jabber_session_p sess, int type, iks *node)
 	}
 
 	if (node)
-		iks_delete(node);
+	       iks_delete(node);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "%s: End of %s()", __module_name, __function_name);
 
@@ -340,7 +340,7 @@ static void on_log (jabber_session_p sess, const char *data, size_t size, int is
  *                                                                            *
  * Parameters: ... ... ...                                                    *
  *                                                                            *
- * Return value:  SUCCEED on successful connection                            *
+ * Return value:  SUCCEED on successfull connection                           *
  *                FAIL - otherwise                                            *
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
@@ -353,7 +353,7 @@ static int connect_jabber(const char *jabber_id, const char *password, int use_s
 	const char	*__function_name = "connect_jabber";
 	char		*buf = NULL;
 	int		iks_error, timeout, ret = FAIL;
-
+		
 	zabbix_log(LOG_LEVEL_DEBUG, "%s: In %s('%s')",
 			__module_name, __function_name, jabber_id);
 
@@ -468,7 +468,7 @@ lbl_fail:
  *                                                                            *
  * Parameters: ... ... ...                                                    *
  *                                                                            *
- * Return value:  SUCCEED if message sent                                     *
+ * Return value:  SUCCEED if message sended                                   *
  *                FAIL - otherwise                                            *
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
@@ -539,3 +539,4 @@ lbl_fail:
 
 	return ret;
 }
+

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -87,7 +87,7 @@ static int	evaluate_aggregate(AGENT_RESULT *res,char *grpfunc, char *hostgroup, 
 	char		sql[MAX_STRING_LEN];
 	char		sql2[MAX_STRING_LEN];
 	char		hostgroup_esc[MAX_STRING_LEN],itemkey_esc[MAX_STRING_LEN];
-
+ 
 	DB_RESULT	result;
 	DB_ROW		row;
 
@@ -230,7 +230,7 @@ static int	evaluate_aggregate(AGENT_RESULT *res,char *grpfunc, char *hostgroup, 
  *                                                                            *
  * Parameters: item - item we are interested in                               *
  *                                                                            *
- * Return value: SUCCEED - data successfully retrieved and stored in result   *
+ * Return value: SUCCEED - data succesfully retrieved and stored in result    *
  *                         and result_str (as string)                         *
  *               NOTSUPPORTED - requested item is not supported               *
  *                                                                            *
@@ -239,7 +239,7 @@ static int	evaluate_aggregate(AGENT_RESULT *res,char *grpfunc, char *hostgroup, 
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	get_value_aggregate(DC_ITEM *item, AGENT_RESULT *result)
+int	get_value_aggregate(DB_ITEM *item, AGENT_RESULT *result)
 {
 	char	function_grp[MAX_STRING_LEN];
 	char	key[MAX_STRING_LEN];
@@ -249,11 +249,11 @@ int	get_value_aggregate(DC_ITEM *item, AGENT_RESULT *result)
 	char	parameter[MAX_STRING_LEN];
 	char	*p,*p2;
 
-	int	ret = SUCCEED;
+	int 	ret = SUCCEED;
 
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In get_value_aggregate() key:'%s'",
-			item->key_orig);
+	zabbix_log( LOG_LEVEL_DEBUG, "In get_value_aggregate([%s])",
+		item->key);
 
 	init_result(result);
 
@@ -355,7 +355,7 @@ int	get_value_aggregate(DC_ITEM *item, AGENT_RESULT *result)
 	}
 
 	zabbix_log( LOG_LEVEL_DEBUG, "Evaluating aggregate[%s] grpfunc[%s] group[%s] itemkey[%s] itemfunc [%s] parameter [%s]",
-		item->key_orig,
+		item->key,
 		function_grp,
 		group,
 		itemkey,

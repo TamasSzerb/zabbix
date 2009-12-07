@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -36,19 +36,19 @@
  * Parameters: params - list of params                                        *
  *             param_name - name of requested parameter                       *
  *                                                                            *
- * Return value: NULL - if parameter missing param_name,                      *
+ * Return value: NULL - if parameter missedparam_name,                        *
  *               else return value in new allocated memory                    *
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
- * Comments: this function allocates memory, required zbx_free for result!!!  *
+ * Comments: this function allocate memory, required zbx_free for result!!!   *
  *           one parameter format: param1_name=param1_value                   *
- *           parameters separated by '\n'                                     *
+ *           parameters splited by '\n'                                       *
  *                                                                            *
  ******************************************************************************/
 static char* get_param_value(char* params, const char* param_name)
 {
-	char
+	char 
 		*p = NULL,
 		*l = NULL,
 		*n = NULL,
@@ -74,7 +74,7 @@ static char* get_param_value(char* params, const char* param_name)
 				/* compare parameter name */
 				if(l - p != strlen(param_name))		break;
 				if(strncmp(p, param_name, l - p))	break;
-
+				
 				r = n+1;
 				break;
 			}
@@ -82,14 +82,14 @@ static char* get_param_value(char* params, const char* param_name)
 
 		/* find EOL */
 		for(p = n; *p && *p != '\n'; p++);
-
+		
 		/* allocate result */
 		if(r)
 		{
 			/* trim right EOL symbols */
 			while(*p == '\r' || *p == '\n' || *p == '\0') p--;
 			p++;
-
+			
 			/* allocate result */
 			buf = zbx_malloc(buf, p - r + 1);
 			memmove(buf, r, p - r);
@@ -98,7 +98,7 @@ static char* get_param_value(char* params, const char* param_name)
 			break;
 		}
 	}
-
+	
 	if(buf == NULL)
 	{
 		/* allocate result */
@@ -117,7 +117,7 @@ static char* get_param_value(char* params, const char* param_name)
  *                                                                            *
  * Parameters: item - item we are interested in                               *
  *                                                                            *
- * Return value: SUCCEED - data successfully retrieved and stored in result   *
+ * Return value: SUCCEED - data succesfully retrieved and stored in result    *
  *               NOTSUPPORTED - requested item is not supported               *
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
@@ -125,7 +125,7 @@ static char* get_param_value(char* params, const char* param_name)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	get_value_db(DC_ITEM *item, AGENT_RESULT *result)
+int	get_value_db(DB_ITEM *item, AGENT_RESULT *result)
 {
 #ifdef HAVE_ODBC
 	ZBX_ODBC_DBH	dbh;
@@ -137,17 +137,17 @@ int	get_value_db(DC_ITEM *item, AGENT_RESULT *result)
 		*db_pass = NULL,
 		*db_sql = NULL;
 #endif /* HAVE_ODBC */
-
+	
 	int	ret = NOTSUPPORTED;
 
 	init_result(result);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In database monitor: %s", item->key_orig);
-
+	zabbix_log(LOG_LEVEL_DEBUG, "In database monitor: %s", item->key);
+	
 #ifdef HAVE_ODBC
 
 	#define DB_ODBC_SELECT_KEY "db.odbc.select["
-
+	
 	if(strncmp(item->key, DB_ODBC_SELECT_KEY, strlen(DB_ODBC_SELECT_KEY)) == 0)
 	{
 		db_dsn = get_param_value(item->params,"DSN");
@@ -159,7 +159,7 @@ int	get_value_db(DC_ITEM *item, AGENT_RESULT *result)
 		{
 			if( NULL != (row = odbc_DBfetch(odbc_DBselect(&dbh, db_sql))) )
 			{
-				if (SUCCEED == set_result_type(result, item->value_type, item->data_type, row[0]))
+				if (SUCCEED == set_result_type(result, item->value_type, row[0]))
 					ret = SUCCEED;
 			}
 			else
@@ -178,7 +178,7 @@ int	get_value_db(DC_ITEM *item, AGENT_RESULT *result)
 		zbx_free(db_pass);
 		zbx_free(db_sql);
 	}
-
+	
 #endif /* HAVE_ODBC */
 
 	/*
@@ -187,7 +187,7 @@ int	get_value_db(DC_ITEM *item, AGENT_RESULT *result)
 	 * db.*.select[]
 	 * db.*.ping
 	 *   ...
-	 *
+	 * 
 	 */
 
 	return ret;

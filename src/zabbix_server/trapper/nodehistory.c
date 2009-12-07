@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -41,8 +41,8 @@ static int	buffer_allocated, tmp_allocated;
  * Parameters: sock - opened socket of node-node connection                   *
  *             record                                                         *
  *                                                                            *
- * Return value:  SUCCEED - sent successfully                                 *
- *                FAIL - an error occurred                                    *
+ * Return value:  SUCCEED - sent succesfully                                  *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -156,7 +156,7 @@ fail:
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
@@ -239,7 +239,7 @@ static void	begin_history_sql(char **sql, int *sql_allocated, int *sql_offset, c
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
@@ -366,7 +366,7 @@ error:
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author:                                                                    *
  *                                                                            *
@@ -481,12 +481,12 @@ error:
  *                                                                            *
  * Function: node_history                                                     *
  *                                                                            *
- * Purpose: process new history received from a slave node                    *
+ * Purpose: process new history received from a salve node                    *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
@@ -508,6 +508,7 @@ int	node_history(char *data, size_t datalen)
 
 	assert(data);
 
+/*	zabbix_set_log_level(LOG_LEVEL_DEBUG);*/
 	zabbix_log(LOG_LEVEL_DEBUG, "In node_history()");
 
 	buffer_allocated = 4096;
@@ -601,5 +602,6 @@ int	node_history(char *data, size_t datalen)
 	zbx_free(sql3);
 	zbx_free(buffer);
 
+/*	zabbix_set_log_level(LOG_LEVEL_WARNING);*/
 	return res;
 }

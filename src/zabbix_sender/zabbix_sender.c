@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -28,7 +28,7 @@
 
 char *progname = NULL;
 
-char title_message[] = "Zabbix Sender";
+char title_message[] = "ZABBIX Sender";
 
 char usage_message[] = "[-Vhv] {[-zpsI] -ko | [-zpI] -T -i <file>} [-c <file>]";
 
@@ -37,7 +37,7 @@ char *help_message[] = {
 	"Options:",
 	"  -c --config <File>                   Specify configuration file",
 	"",
-	"  -z --zabbix-server <Server>          Hostname or IP address of Zabbix Server",
+	"  -z --zabbix-server <Server>          Hostname or IP address of ZABBIX Server",
 	"  -p --port <Server port>              Specify port number of server trapper running on the server. Default is 10051",
 	"  -s --host <Hostname>                 Specify host name. Host IP address and DNS name will not work.",
 	"  -I --source-address <ip address>     Specify source IP address",
@@ -55,14 +55,14 @@ char *help_message[] = {
 	" Other options:",
 	"  -h --help                            Give this help",
 	"  -V --version                         Display version number",
-	0 /* end of text */
+        0 /* end of text */
 };
 #else
 char *help_message[] = {
 	"Options:",
 	"  -c <File>                    Specify configuration file",
 	"",
-	"  -z <Server>                  Hostname or IP address of Zabbix Server.",
+	"  -z <Server>                  Hostname or IP address of ZABBIX Server.",
 	"  -p <Server port>             Specify port number of server trapper running on the server. Default is 10051.",
 	"  -s <Hostname>                Specify hostname or IP address of a host.",
 	"  -I <ip address>              Specify source IP address",
@@ -80,7 +80,7 @@ char *help_message[] = {
 	" Other options:",
 	"  -h                           Give this help.",
 	"  -V                           Display version number.",
-	0 /* end of text */
+        0 /* end of text */
 };
 #endif
 
@@ -99,15 +99,15 @@ static struct zbx_option longopts[] =
 	{"value",		1,	NULL,	'o'},
 	{"input-file",		1,	NULL,	'i'},
 	{"with-timestamps",	0,	NULL,	'T'},
-	{"verbose",		0,	NULL,	'v'},
-	{"help",		0,	NULL,	'h'},
-	{"version",		0,	NULL,	'V'},
+	{"verbose",        	0,      NULL,	'v'},
+	{"help",        	0,      NULL,	'h'},
+	{"version",     	0,      NULL,	'V'},
 	{0,0,0,0}
 };
 
 /* short options */
 
-static char	shortopts[] = "c:I:z:p:s:k:o:Ti:vhV";
+static char     shortopts[] = "c:I:z:p:s:k:o:Ti:vhV";
 
 /* end of COMMAND LINE OPTIONS*/
 
@@ -125,14 +125,14 @@ static char*	ZABBIX_KEY_VALUE = NULL;
 
 #if !defined(_WINDOWS)
 
-static void	send_signal_handler( int sig )
+static void    send_signal_handler( int sig )
 {
 	if( SIGALRM == sig )
 	{
 		signal( SIGALRM, send_signal_handler );
 		zabbix_log( LOG_LEVEL_WARNING, "Timeout while executing operation");
 	}
-
+ 
 	if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig )
 	{
 /*		fprintf(stderr,"\nGot QUIT or INT or TERM signal. Exiting..." ); */
@@ -158,7 +158,7 @@ typedef struct zbx_active_metric_type
  * Parameters: result SUCCEED or FAIL                                         *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
@@ -167,7 +167,7 @@ typedef struct zbx_active_metric_type
  ******************************************************************************/
 static int	check_response(char *response)
 {
-	struct		zbx_json_parse jp;
+	struct 		zbx_json_parse jp;
 	const char 	*p;
 	char		value[MAX_STRING_LEN];
 	char		info[MAX_STRING_LEN];
@@ -278,7 +278,7 @@ static void    init_config(const char* config_file)
 
 		if (NULL != config_source_ip_from_conf)
 		{
-			if (NULL == CONFIG_SOURCE_IP)	/* apply parameter only if unset */
+			if (NULL == CONFIG_SOURCE_IP)	/* apply parameter only if unsetted */
 			{
 				CONFIG_SOURCE_IP = strdup(config_source_ip_from_conf);
 			}
@@ -288,7 +288,7 @@ static void    init_config(const char* config_file)
 		if( zabbix_server_from_conf )
 		{
 			if( !ZABBIX_SERVER )
-			{ /* apply parameter only if unset */
+			{ /* apply parameter only if unsetted */
 				if( (c = strchr(zabbix_server_from_conf, ',')) )
 				{ /* get only first server */
 					*c = '\0';
@@ -299,14 +299,14 @@ static void    init_config(const char* config_file)
 		}
 
 		if( !ZABBIX_SERVER_PORT && zabbix_server_port_from_conf )
-		{ /* apply parameter only if unset */
+		{ /* apply parameter only if unsetted */
 			ZABBIX_SERVER_PORT = zabbix_server_port_from_conf;
 		}
 
 		if( zabbix_hostname_from_conf )
 		{
 			if( !ZABBIX_HOSTNAME )
-			{ /* apply parameter only if unset */
+			{ /* apply parameter only if unsetted */
 				ZABBIX_HOSTNAME = strdup(zabbix_hostname_from_conf);
 			}
 			zbx_free(zabbix_hostname_from_conf);
@@ -333,10 +333,10 @@ static zbx_task_t parse_commandline(int argc, char **argv)
 				version();
 				exit(-1);
 				break;
-			case 'I':
+			case 'I': 
 				CONFIG_SOURCE_IP = strdup(zbx_optarg);
 				break;
-			case 'z':
+			case 'z': 
 				ZABBIX_SERVER = strdup(zbx_optarg);
 				break;
 			case 'p':
@@ -563,3 +563,4 @@ exit:
 
 	return ret;
 }
+

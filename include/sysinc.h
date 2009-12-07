@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -383,27 +383,6 @@
 #	include <ucd-snmp/transform_oids.h>
 /* For generate_Ku() */
 #	include <ucd-snmp/keytools.h>
-#endif
-
-/* Required for advanced sigaction */
-#ifdef HAVE_SYS_UCONTEXT_H
-#	include <sys/ucontext.h>
-#endif
-
-#ifdef HAVE_ICONV
-#	include <iconv.h>
-#endif
-
-#ifdef HAVE_SSH2
-#	include <libssh2.h>
-#endif
-
-#ifdef HAVE_IO_H
-#	include <io.h>
-#endif
-
-#ifdef HAVE_FCNTL_H
-#	include <fcntl.h>
 #endif
 
 #endif

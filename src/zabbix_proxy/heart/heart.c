@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -29,11 +29,11 @@
  *                                                                            *
  * Function: process_nodes                                                    *
  *                                                                            *
- * Purpose: calculates checksum of config data                                *
+ * Purpose: calculates checks sum of config data                              *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -44,7 +44,7 @@ static void	send_heartbeat()
 {
 	zbx_sock_t		sock;
 	struct zbx_json		j;
-
+	
 	zabbix_log(LOG_LEVEL_DEBUG, "In send_heartbeat()");
 
 	zbx_json_init(&j, 128);
@@ -82,15 +82,14 @@ void main_heart_loop()
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In main_heart_loop()");
 
-/*	phan.sa_handler = child_signal_handler;*/
-        phan.sa_sigaction = child_signal_handler;
+	phan.sa_handler = child_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 	sigaction(SIGALRM, &phan, NULL);
 
 	if (CONFIG_HEARTBEAT_FREQUENCY == 0) {
 		zbx_setproctitle("heartbeat sender [do nothing]");
-
+		
 		for (;;) /* Do nothing */
 			sleep(3600);
 	}

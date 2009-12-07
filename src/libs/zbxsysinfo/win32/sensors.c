@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -32,3 +32,4 @@ int     OLD_SENSOR(const char *cmd, const char *param, unsigned flags, AGENT_RES
 
 	return SYSINFO_RET_FAIL;
 }
+

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -107,12 +107,12 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 	register int
 		i, lineno;
 
-	char
+	char	
 		line[MAX_STRING_LEN],
 		*parameter,
 		*value;
 
-	zbx_uint64_t	var;
+	int	var;
 
 	int	result = SUCCEED;
 
@@ -189,8 +189,7 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 					}
 					else if(TYPE_INT == cfg[i].type)
 					{
-						if (FAIL == str2uint64(value, &var))
-							goto lbl_incorrect_config;
+						var = atoi(value);
 
 						if ( (cfg[i].min && var < cfg[i].min) ||
 							(cfg[i].max && var > cfg[i].max) )
@@ -207,9 +206,6 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 			fclose(file);
 		}
 	}
-
-	if (1 != level)	/* skip mandatory parameters check  for included files */
-		return result;
 
 	/* Check for mandatory parameters */
 	for(i = 0; cfg[i].parameter != 0; i++)
@@ -240,7 +236,7 @@ lbl_missing_mandatory:
 	exit(1);
 
 lbl_incorrect_config:
-	zbx_error("Wrong value for [%s] in line %d.", cfg[i].parameter, lineno);
+	zbx_error("Wrong value of [%s] in line %d.", cfg[i].parameter, lineno);
 	exit(1);
 }
 

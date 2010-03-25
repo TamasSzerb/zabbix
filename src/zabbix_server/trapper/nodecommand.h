@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -25,7 +25,6 @@
 #include "zbxjson.h"
 
 extern int	CONFIG_TIMEOUT;
-extern int	CONFIG_TRAPPER_TIMEOUT;
 extern char	*CONFIG_SOURCE_IP;
 
 int	node_process_command(zbx_sock_t *sock, const char *data, struct zbx_json_parse *jp);

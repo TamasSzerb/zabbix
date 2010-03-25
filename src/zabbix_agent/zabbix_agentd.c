@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -56,14 +56,14 @@ char *progname = NULL;
 /* application TITLE */
 
 char title_message[] = APPLICATION_NAME
-#if defined(_WIN64)
+#if defined(_WIN64)		
 				" Win64"
-#elif defined(WIN32)
+#elif defined(WIN32)		
 				" Win32"
 #endif /* WIN32 */
-#if defined(ZABBIX_SERVICE)
+#if defined(ZABBIX_SERVICE)	
 				" (service)"
-#elif defined(ZABBIX_DAEMON)
+#elif defined(ZABBIX_DAEMON)	
 				" (daemon)"
 #endif /* ZABBIX_SERVICE */
 	;
@@ -72,7 +72,7 @@ char title_message[] = APPLICATION_NAME
 
 /* application USAGE message */
 
-char usage_message[] =
+char usage_message[] = 
 	"[-Vhp]"
 #if defined(_WINDOWS)
 	" [-idsx] [-m]"
@@ -88,7 +88,7 @@ char usage_message[] =
 char *help_message[] = {
 	"Options:",
 	"",
-	"  -c --config <file>    Specify configuration file. Use absolute path",
+	"  -c --config <file>    Specify configuration file",
 	"  -h --help             give this help",
 	"  -V --version          display version number",
 	"  -p --print            print supported metrics and exit",
@@ -102,11 +102,11 @@ char *help_message[] = {
 	"",
 	"Functions:",
 	"",
-	"  -i --install          install Zabbix agent as service",
-	"  -d --uninstall        uninstall Zabbix agent from service",
+	"  -i --install          install ZABBIX agent as service",
+	"  -d --uninstall        uninstall ZABBIX agent from service",
 
-	"  -s --start            start Zabbix agent service",
-	"  -x --stop             stop Zabbix agent service",
+	"  -s --start            start ZABBIX agent service",
+	"  -x --stop             stop ZABBIX agent service",
 
 	"  -m --multiple-agents  service name will include hostname",
 
@@ -148,7 +148,7 @@ static struct zbx_option longopts[] =
 
 /* short options */
 
-static char	shortopts[] =
+static char	shortopts[] = 
 	"c:hVpt:"
 #if defined (_WINDOWS)
 	"idsxm"
@@ -168,7 +168,7 @@ static void parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
 	char	ch	= '\0';
 
 	t->task = ZBX_TASK_START;
-
+	
 	/* Parse the command-line. */
 	while ((ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts, NULL)) != (char)EOF)
 		switch (ch) {
@@ -188,7 +188,7 @@ static void parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
 				t->task = ZBX_TASK_PRINT_SUPPORTED;
 			break;
 		case 't':
-			if(t->task == ZBX_TASK_START)
+			if(t->task == ZBX_TASK_START) 
 			{
 				t->task = ZBX_TASK_TEST_METRIC;
 				TEST_METRIC = strdup(zbx_optarg);
@@ -229,17 +229,21 @@ int MAIN_ZABBIX_ENTRY(void)
 	int	i = 0;
 
 	zbx_sock_t	listen_sock;
-	
-	if (NULL == CONFIG_LOG_FILE || ('\0' == *CONFIG_LOG_FILE))
-	{
-		zabbix_open_log(LOG_TYPE_SYSLOG, CONFIG_LOG_LEVEL, NULL);
-	}
-	else
-	{
-		zabbix_open_log(LOG_TYPE_FILE, CONFIG_LOG_LEVEL, CONFIG_LOG_FILE);
-	}
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "Zabbix Agent started. Zabbix %s (revision %s).",
+	zabbix_open_log(
+#if ON	/* !!! normal case must be ON !!! */
+		LOG_TYPE_FILE
+#elif OFF	/* !!! normal case must be OFF !!! */
+		LOG_TYPE_SYSLOG
+#else	/* !!! for debug only, print log with zbx_error !!! */ 
+		LOG_TYPE_UNDEFINED
+#endif
+		,
+		CONFIG_LOG_LEVEL,
+		CONFIG_LOG_FILE
+		);
+
+	zabbix_log(LOG_LEVEL_INFORMATION, "zabbix_agentd started. ZABBIX %s (revision %s).",
 			ZABBIX_VERSION,
 			ZABBIX_REVISION);
 
@@ -264,7 +268,7 @@ int MAIN_ZABBIX_ENTRY(void)
 		CONFIG_ZABBIX_FORKS = 0;/* Listeners won't be needed for passive checks. */
 	}
 
-	/* Allocate memory for a collector, all listeners and an active check. */
+	/* Allocate memory for a collector, all listeners and an active check. */	
 	threads = calloc(1 + CONFIG_ZABBIX_FORKS + ((0 == CONFIG_DISABLE_ACTIVE) ? 1 : 0), sizeof(ZBX_THREAD_HANDLE));
 
 	/* Start the collector thread. */
@@ -320,7 +324,7 @@ void	zbx_on_exit()
 		{
 			if(threads[i]) {
 				zbx_thread_kill(threads[i]);
-				threads[i] = (ZBX_THREAD_HANDLE)NULL;
+				threads[i] = (ZBX_THREAD_HANDLE)0;
 			}
 		}
 		zbx_free(threads);
@@ -340,7 +344,7 @@ void	zbx_on_exit()
 
 	zbx_sleep(2); /* wait for all threads closing */
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "Zabbix Agent stopped. Zabbix %s (revision %s).",
+	zabbix_log(LOG_LEVEL_INFORMATION, "ZABBIX Agent stopped. ZABBIX %s (revision %s).",
 			ZABBIX_VERSION,
 			ZABBIX_REVISION);
 
@@ -353,14 +357,6 @@ int	main(int argc, char **argv)
 {
 	ZBX_TASK_EX	t;
 
-#if defined (_WINDOWS)
-	/* Provide, so our process handles errors instead of the system itself. */
-	/* Attention!!! */
-	/* The system does not display the critical-error-handler message box. */
-	/* Instead, the system sends the error to the calling process.*/
-	SetErrorMode(SEM_FAILCRITICALERRORS);
-#endif /* _WINDOWS */	
-	
 	memset(&t, 0, sizeof(t));
 	t.task = ZBX_TASK_START;
 
@@ -385,7 +381,7 @@ int	main(int argc, char **argv)
 	switch (t.task) {
 #if defined (_WINDOWS)
 		case ZBX_TASK_INSTALL_SERVICE:
-			exit(ZabbixCreateService(argv[0], (t.flags & ZBX_TASK_FLAG_MULTIPLE_AGENTS)));
+			exit(ZabbixCreateService(argv[0]));
 			break;
 		case ZBX_TASK_UNINSTALL_SERVICE:
 			exit(ZabbixRemoveService());

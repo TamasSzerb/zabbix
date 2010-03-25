@@ -1,5 +1,5 @@
 <?php
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -26,7 +26,7 @@
 	$page["file"] = "popup_trexpr.php";
 
 	define('ZBX_PAGE_NO_MENU', 1);
-
+	
 include_once "include/page_header.php";
 
 ?>
@@ -50,7 +50,7 @@ include_once "include/page_header.php";
 				'T' => T_ZBX_INT,	/* type */
 				'M' => $metrics		/* metrcis */
 			     ));
-
+	
 	$param1_str = array(
 			array(
 				'C' => 'T',		/* caption */
@@ -123,15 +123,15 @@ include_once "include/page_header.php";
 			'operators'     => $operators,
 			'params'	=> $param1_sec_count
 			)
-
+		
 	);
-
-
+	
+		
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
 		"dstfrm"=>	array(T_ZBX_STR, O_MAND,P_SYS,	NOT_EMPTY,	null),
 		"dstfld1"=>	array(T_ZBX_STR, O_MAND,P_SYS,	NOT_EMPTY,	null),
-
+		
 		"expression"=>	array(T_ZBX_STR, O_OPT, null,	null,		null),
 
 		"itemid"=>	array(T_ZBX_INT, O_OPT,	null,	null,						'isset({insert})'),
@@ -145,36 +145,36 @@ include_once "include/page_header.php";
 
 	check_fields($fields);
 
-	if(isset($_REQUEST['expression'])){
-//		if(($res = ereg('^'.ZBX_EREG_SIMPLE_EXPRESSION_FORMAT.'(['.implode('',array_keys($operators)).'])'.'([[:print:]]{1,})',$_REQUEST['expression'],$expr_res))){
-		$res = preg_match('/^'.ZBX_PREG_SIMPLE_EXPRESSION_FORMAT.'(['.implode('',array_keys($operators)).'])'.'(['.ZBX_PREG_PRINT.']{1,})/',
-						$_REQUEST['expression'],
-						$expr_res);
-		if($res){
-			$sql = 'SELECT i.itemid '.
-					' FROM items i, hosts h '.
-					' WHERE i.hostid=h.hostid '.
-						' AND h.host='.zbx_dbstr($expr_res[ZBX_SIMPLE_EXPRESSION_HOST_ID]).
-						' AND i.key_='.zbx_dbstr($expr_res[ZBX_SIMPLE_EXPRESSION_KEY_ID]);
+	if(isset($_REQUEST['expression']))
+	{
 
-			$itemid = DBfetch(DBselect($sql));
+		if( ($res = ereg(
+			'^'.ZBX_EREG_SIMPLE_EXPRESSION_FORMAT.'(['.implode('',array_keys($operators)).'])'.'([[:print:]]{1,})',
+			$_REQUEST['expression'],
+			$expr_res))
+		)
+		{
+			$itemid = DBfetch(DBselect('select i.itemid from items i, hosts h '.
+					' where i.hostid=h.hostid and h.host='.zbx_dbstr($expr_res[ZBX_SIMPLE_EXPRESSION_HOST_ID]).
+					' and i.key_='.zbx_dbstr($expr_res[ZBX_SIMPLE_EXPRESSION_KEY_ID])));
 
 			$_REQUEST['itemid'] = $itemid['itemid'];
-
+			
 			$_REQUEST['paramtype'] = PARAM_TYPE_SECONDS;
 			$_REQUEST['param'] = $expr_res[ZBX_SIMPLE_EXPRESSION_FUNCTION_PARAM_ID];
-			if($_REQUEST['param'][0] == '#'){
+			if($_REQUEST['param'][0] == '#')
+			{
 				$_REQUEST['paramtype'] = PARAM_TYPE_COUNTS;
 				$_REQUEST['param'] = ltrim($_REQUEST['param'],'#');
 			}
-
+				
 			$operator = $expr_res[count($expr_res) - 2];
-
+			
 			$_REQUEST['expr_type'] = $expr_res[ZBX_SIMPLE_EXPRESSION_FUNCTION_NAME_ID].'['.$operator.']';
-
-
+				
+			
 			$_REQUEST['value'] = $expr_res[count($expr_res) - 1];
-
+			
 		}
 	}
 	unset($expr_res);
@@ -184,7 +184,7 @@ include_once "include/page_header.php";
 	$itemid		= get_request("itemid",		0);
 
 	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
-
+	
 	if($item_data = DBfetch(DBselect('SELECT DISTINCT h.host,i.* '.
 						' FROM hosts h,items i '.
 						' WHERE h.hostid=i.hostid '.
@@ -199,8 +199,7 @@ include_once "include/page_header.php";
 	}
 
 	$expr_type	= get_request("expr_type",	'last[=]');
-//	if(eregi('^([a-z]{1,})\[(['.implode('',array_keys($operators)).'])\]$',$expr_type,$expr_res)){
-	if(preg_match('/^([a-z]{1,})\[(['.implode('',array_keys($operators)).'])\]$/i',$expr_type,$expr_res)){
+	if(eregi('^([a-z]{1,})\[(['.implode('',array_keys($operators)).'])\]$',$expr_type,$expr_res)){
 		$function = $expr_res[1];
 		$operator = $expr_res[2];
 
@@ -209,21 +208,24 @@ include_once "include/page_header.php";
 	unset($expr_res);
 
 	if(!isset($function))	$function = 'last';
-
+		
 	if(!str_in_array($operator, array_keys($functions[$function]['operators'])))	unset($operator);
 	if(!isset($operator))	$operator = '=';
-
+	
 	$expr_type = $function.'['.$operator.']';
-
+	
 	$param		= get_request('param',	0);
 	$paramtype	= get_request('paramtype',	PARAM_TYPE_SECONDS);
 	$value		= get_request('value',		0);
 
-	if( !is_array($param) ){
-		if(isset($functions[$function]['params'])){
-			$param = explode(',', $param, count($functions[$function]['params']));
+	if( !is_array($param) )
+	{
+		if( isset($functions[$function]['params']) )
+		{
+			$param = split(',', $param, count($functions[$function]['params']));
 		}
-		else{
+		else
+		{
 			$param = array($param);
 		}
 	}
@@ -231,7 +233,8 @@ include_once "include/page_header.php";
 ?>
 <script language="JavaScript" type="text/javascript">
 <!--
-function add_var_to_opener_obj(obj,name,value){
+function add_var_to_opener_obj(obj,name,value)
+{
         new_variable = window.opener.document.createElement('input');
         new_variable.type = 'hidden';
         new_variable.name = name;
@@ -240,32 +243,28 @@ function add_var_to_opener_obj(obj,name,value){
         obj.appendChild(new_variable);
 }
 
-function InsertText(obj, value){
-    <?php if ($dstfld1 == 'expression') { ?>
-	if(IE){
+function InsertText(obj, value)
+{
+	if (navigator.appName == "Microsoft Internet Explorer") {
 		obj.focus();
 		var s = window.opener.document.selection.createRange();
 		s.text = value;
-	}
-	else if (obj.selectionStart || obj.selectionStart == '0') {
+	} else if (obj.selectionStart || obj.selectionStart == '0') {
 		var s = obj.selectionStart;
 		var e = obj.selectionEnd;
 		obj.value = obj.value.substring(0, s) + value + obj.value.substring(e, obj.value.length);
-	}
-	else {
+	} else {
 		obj.value += value;
 	}
-    <?php } else { ?>
-	obj.value = value;
-	<?php } ?>
 }
 -->
 </script>
 <?php
 
-	if(isset($_REQUEST['insert'])){
+	if(isset($_REQUEST['insert']))
+	{
 
-		$expression = sprintf("{%s:%s.%s(%s%s)}%s%s",
+		$expression = sprintf("{%s:%s.%s(%s%s)}%s%s", 
 			$item_data['host'],
 			$item_data['key_'],
 			$function,
@@ -279,10 +278,12 @@ function InsertText(obj, value){
 <!--
 var form = window.opener.document.forms['<?php echo $dstfrm; ?>'];
 
-if(form){
+if(form)
+{
 	var el = form.elements['<?php echo $dstfld1; ?>'];
 
-	if(el){
+	if(el)
+	{
 		InsertText(el, <?php echo zbx_jsvalue($expression); ?>);
 		close_window();
 	}
@@ -297,11 +298,11 @@ if(form){
 	$form = new CFormTable(S_CONDITION);
 	$form->SetHelp('config_triggers.php');
 	$form->SetName('expression');
-	$form->addVar('dstfrm', $dstfrm);
-	$form->addVar('dstfld1', $dstfld1);
+	$form->AddVar('dstfrm', $dstfrm);
+	$form->AddVar('dstfld1', $dstfld1);
 
-	$form->addVar('itemid',$itemid);
-	$form->addRow(S_ITEM, array(
+	$form->AddVar('itemid',$itemid);
+	$form->AddRow(S_ITEM, array(
 		new CTextBox('description', $description, 50, 'yes'),
 		new CButton('select', S_SELECT, "return PopUp('popup.php?dstfrm=".$form->GetName().
 				"&dstfld1=itemid&dstfld2=description&".
@@ -309,58 +310,68 @@ if(form){
 		));
 
 	$cmbFnc = new CComboBox('expr_type', $expr_type	, 'submit()');
-	foreach($functions as  $id => $f){
-		foreach($f['operators'] as $op => $txt_op){
-			$cmbFnc->addItem($id.'['.$op.']', str_replace('{OP}', $txt_op, $f['description']));
+	foreach($functions as  $id => $f)
+	{
+		foreach($f['operators'] as $op => $txt_op)
+		{
+			$cmbFnc->AddItem($id.'['.$op.']', str_replace('{OP}', $txt_op, $f['description']));
 		}
 	}
-	$form->addRow(S_FUNCTION, $cmbFnc);
+	$form->AddRow(S_FUNCTION, $cmbFnc);
 
-	if(isset($functions[$function]['params'])){
-		foreach($functions[$function]['params'] as $pid => $pf ){
+	if(isset($functions[$function]['params']))
+	{
+		foreach($functions[$function]['params'] as $pid => $pf )
+		{
 			$pv = (isset($param[$pid])) ? $param[$pid] : null;
 
-			if($pf['T'] == T_ZBX_INT){
-				if( 0 == $pid){
-					if( isset($pf['M']) && is_array($pf['M'])){
+			if($pf['T'] == T_ZBX_INT)
+			{
+				if( 0 == $pid) 
+				{
+					if( isset($pf['M']) && is_array($pf['M']))
+					{
 						$cmbParamType = new CComboBox('paramtype', $paramtype);
-						foreach( $pf['M'] as $mid => $caption ){
-							$cmbParamType->addItem($mid, $caption);
+						foreach( $pf['M'] as $mid => $caption )
+						{
+							$cmbParamType->AddItem($mid, $caption);
 						}
-					}
-					else {
-						$form->addVar('paramtype', PARAM_TYPE_SECONDS);
+					} else {
+						$form->AddVar('paramtype', PARAM_TYPE_SECONDS);
 						$cmbParamType = S_SECONDS;
 					}
 				}
-				else{
+				else
+				{
 					$cmbParamType = null;
 				}
-
-
-				$form->addRow(S_LAST_OF.' ', array(
+					
+				
+				$form->AddRow(S_LAST_OF.' ', array(
 					new CNumericBox('param['.$pid.']', $pv, 10),
 					$cmbParamType
-					));
+					)); 
 			}
-			else{
-				$form->addRow($pf['C'], new CTextBox('param['.$pid.']', $pv, 30));
-				$form->addVar('paramtype', PARAM_TYPE_SECONDS);
+			else
+			{
+				$form->AddRow($pf['C'], new CTextBox('param['.$pid.']', $pv, 30));
+				$form->AddVar('paramtype', PARAM_TYPE_SECONDS);
 			}
 		}
 	}
-	else{
-		$form->addVar('paramtype', PARAM_TYPE_SECONDS);
-		$form->addVar('param', 0);
+	else
+	{
+		$form->AddVar('paramtype', PARAM_TYPE_SECONDS);
+		$form->AddVar('param', 0);
 	}
 
-	$form->addRow('N', new CTextBox('value', $value, 10));
-
-	$form->addItemToBottomRow(new CButton('insert',S_INSERT));
-	$form->show();
+	$form->AddRow('N', new CTextBox('value', $value, 10));
+	
+	$form->AddItemToBottomRow(new CButton('insert',S_INSERT));
+	$form->Show();
 ?>
 <?php
 
-include_once('include/page_footer.php');
+include_once "include/page_footer.php";
 
 ?>

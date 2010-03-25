@@ -28,7 +28,8 @@
 //        of ZABBIX software. See http://www.zabbix.com.
 //debugger;
 
-function show_popup_menu(e, content, width){
+function show_popup_menu(e, content, width)
+{
 	if(!width) width = 170;
 
 	var pos = [
@@ -80,7 +81,7 @@ function popup_menu (a_items, a_tpl, x, y) {
 	this.a_index = [];
 	this.a_children = [];
 
-	// assign methods and event handlers
+	// assigh methods and event handlers
 	this.expand      = menu_expand;
 	this.collapse    = menu_collapse;
 
@@ -96,7 +97,7 @@ function popup_menu (a_items, a_tpl, x, y) {
 	this.set_y_direction = mitem_set_y_direction;
 	this.get_y_direction = mitem_get_y_direction;
 
-	// default level scope description structure
+	// default level scope description structure 
 	this.a_tpl_def = {
 		'block_top'  : 0,
 		'block_left' : 0,
@@ -115,7 +116,7 @@ function popup_menu (a_items, a_tpl, x, y) {
 	};
 
 	
-	// assign methods and properties required to emulate parent item
+	// assign methods and properties required to imulate parent item
 	this.getprop = function (s_key) {
 		return this.a_tpl_def[s_key];
 	};
@@ -220,16 +221,16 @@ function menu_expand (n_id) {
 // --------------------------------------------------------------------------------
 function menu_onclick (n_id) {
 	// don't go anywhere if item has no link defined
-	// lookup new item's object
+	// lookup new item's object	
 	if(Boolean(this.a_index[n_id].a_config[1])){
-		// lookup new item's object
+		// lookup new item's object	
 		var o_item = this.a_index[n_id];
 
 		// apply rollout
 		o_item.e_oelement.className = o_item.getstyle(0, 0);
 		o_item.e_ielement.className = o_item.getstyle(1, 0);
 		
-		// update status line
+		// update status line	
 		o_item.upstatus(7);
 		
 		this.o_hidetimer = setTimeout('A_MENUS['+ this.n_id +'].collapse();', 100);//o_item.getprop('hide_delay'));
@@ -243,14 +244,14 @@ function menu_onclick (n_id) {
 // --------------------------------------------------------------------------------
 function menu_onmouseout (n_id) {
 
-	// lookup new item's object
+	// lookup new item's object	
 	var o_item = this.a_index[n_id];
 
 	// apply rollout
 	o_item.e_oelement.className = o_item.getstyle(0, 0);
 	o_item.e_ielement.className = o_item.getstyle(1, 0);
 	
-	// update status line
+	// update status line	
 	o_item.upstatus(7);
 
 	// run mouseover timer
@@ -265,10 +266,10 @@ function menu_onmouseover (n_id) {
 	this.o_hidetimer = null;
 	clearTimeout(this.o_showtimer);
 
-	// lookup new item's object
+	// lookup new item's object	
 	var o_item = this.a_index[n_id];
 
-	// update status line
+	// update status line	
 	o_item.upstatus();
 
 	// apply rollover
@@ -289,7 +290,7 @@ function menu_onmouseover (n_id) {
 // called when mouse button is pressed on menu item
 // --------------------------------------------------------------------------------
 function menu_onmousedown (n_id) {
-	// lookup new item's object
+	// lookup new item's object	
 	var o_item = this.a_index[n_id];
 
 	// apply mouse down style
@@ -386,8 +387,8 @@ function menu_item (o_parent, n_order) {
 	}
 
 	if(!is_null(this.a_config[1]) && (this.a_config[1].indexOf('javascript') == -1)){
-		var url = new Curl(this.a_config[1]);
-		this.a_config[1] = url.getUrl();
+		var uri = new url(this.a_config[1]);
+		this.a_config[1] = uri.getUrl();
 	}
 	
 	// generate item's HMTL
@@ -437,7 +438,7 @@ function menu_item (o_parent, n_order) {
 }
 
 function A_MENUS_onclick(){	return A_MENUS[this.o_root_n_id].onclick(this.this_n_id); }
-function A_MENUS_onmouseout(){	return A_MENUS[this.o_root_n_id].onmouseout(this.this_n_id); }// 
+function A_MENUS_onmouseout(){	return A_MENUS[this.o_root_n_id].onmouseout(this.this_n_id); }// false;}// 
 function A_MENUS_onmouseover(){	return A_MENUS[this.o_root_n_id].onmouseover(this.this_n_id); }
 function A_MENUS_onmousedown(){	return A_MENUS[this.o_root_n_id].onmousedown(this.this_n_id); }
 

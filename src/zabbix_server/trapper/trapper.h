@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -24,7 +24,6 @@
 #include "comms.h"
 
 extern int	CONFIG_TIMEOUT;
-extern int	CONFIG_TRAPPER_TIMEOUT;
 
 #define AGENT_VALUE	struct zbx_agent_value_t
 
@@ -35,11 +34,9 @@ AGENT_VALUE
 	char	key[ITEM_KEY_LEN_MAX];
 	char	*value;
 	int	lastlogsize;
-	int	mtime;
 	int	timestamp;
 	char	*source;
 	int	severity;
-	int	logeventid;
 };
 
 int	send_result(zbx_sock_t *sock, int result, char *info);

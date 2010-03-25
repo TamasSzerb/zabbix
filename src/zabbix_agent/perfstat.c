@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -53,7 +53,6 @@ int	add_perf_counter(const char *name, const char *counterPath, int interval)
 	PERF_COUNTERS	*cptr;
 	PDH_STATUS	status;
 	char		*alias_name;
-	LPTSTR		wcounterPath;
 	int		result = FAIL;
 
 	assert(counterPath);
@@ -87,27 +86,22 @@ int	add_perf_counter(const char *name, const char *counterPath, int interval)
 							sizeof(PDH_RAW_COUNTER) * interval);
 			cptr->CurrentNum	= 1;
 
-			wcounterPath = zbx_utf8_to_unicode(cptr->counterPath);
-
 			/* Add user counters to query */
-			if (ERROR_SUCCESS != (status = PdhAddCounter(ppsd->pdh_query, wcounterPath, 0, &cptr->handle)))
-			{
+			if (ERROR_SUCCESS != (status = PdhAddCounter(ppsd->pdh_query, cptr->counterPath, 0, &cptr->handle))) {
 				cptr->status	= ITEM_STATUS_NOTSUPPORTED;
-				cptr->error	= zbx_dsprintf(cptr->error, "%s", strerror_from_module(status, L"PDH.DLL"));
+				cptr->error	= zbx_dsprintf(cptr->error, "%s", strerror_from_module(status, "PDH.DLL"));
 				zbx_rtrim(cptr->error, " \r\n");
 
 				zabbix_log( LOG_LEVEL_ERR, "Unable to add performance counter '%s' to query: %s",
 						cptr->counterPath,
 						cptr->error);
-			}
-			else
+			} else
 			{
 				cptr->status	= ITEM_STATUS_ACTIVE;
 				zabbix_log(LOG_LEVEL_DEBUG, "PerfCounter '%s' successfully added. Interval %d seconds",
 						cptr->counterPath, interval);
 			}
 
-			zbx_free(wcounterPath);
 			zbx_mutex_lock(&perfstat_access);
 
 			cptr->next		= ppsd->pPerfCounterList;
@@ -139,7 +133,7 @@ int	add_perf_counter(const char *name, const char *counterPath, int interval)
 
 		zbx_free(alias_name);
 	}
-
+		
 	return result;
 }
 
@@ -163,8 +157,7 @@ int	add_perfs_from_config(const char *line)
 	char	name[MAX_STRING_LEN],
 		counterPath[PDH_MAX_COUNTER_PATH],
 		interval[MAX_STRING_LEN];
-	LPTSTR	wcounterPath = NULL;
-	
+
 	assert(line);
 
 	if (num_param(line) != 3)
@@ -175,21 +168,6 @@ int	add_perfs_from_config(const char *line)
 
         if (0 != get_param(line, 2, counterPath, sizeof(counterPath)))
 		goto lbl_syntax_error;
-
-	if (NULL == (wcounterPath = zbx_acp_to_unicode(counterPath)))
-	{
-		zabbix_log(LOG_LEVEL_DEBUG, "PerfCounter \"%s\" could not be converted to UNICODE.", counterPath);
-		return FAIL;
-	}
-	
-	if (FAIL == zbx_unicode_to_utf8_static(wcounterPath, counterPath, PDH_MAX_COUNTER_PATH))
-	{
-		zabbix_log(LOG_LEVEL_DEBUG, "PerfCounter \"%s\" could not be converted to UTF-8.", counterPath);
-		zbx_free(wcounterPath);
-		return FAIL;
-	}
-	
-	zbx_free(wcounterPath);
 
         if (0 != get_param(line, 3, interval, sizeof(interval)))
 		goto lbl_syntax_error;
@@ -303,7 +281,7 @@ void	close_perf_collector()
 			PdhRemoveCounter(cptr->handle);
 			cptr->handle = NULL;
 		}
-
+	
 	PdhCloseQuery(ppsd->pdh_query);
 	ppsd->pdh_query = NULL;
 
@@ -333,7 +311,6 @@ void	collect_perfstat()
 	PDH_STATISTICS	statData;
 	PDH_STATUS	status;
 	time_t		now;
-	LPTSTR		wcounterPath;
 
 	if (NULL == ppsd->pdh_query)	/* collector is not started */
 		return;
@@ -347,19 +324,17 @@ void	collect_perfstat()
 	if (ppsd->nextcheck <= now)
 	{
 		for (cptr = ppsd->pPerfCounterList; cptr != NULL; cptr = cptr->next)
- 		{
+		{
 			if (cptr->status != ITEM_STATUS_NOTSUPPORTED)
 				continue;
 
-			wcounterPath = zbx_utf8_to_unicode(cptr->counterPath);
-
 			/* Add user counters to query */
 			if (ERROR_SUCCESS != (status = PdhAddCounter(ppsd->pdh_query,
-					wcounterPath, 0, &cptr->handle)))
+					cptr->counterPath, 0, &cptr->handle)))
 			{
 				cptr->status    = ITEM_STATUS_NOTSUPPORTED;
 				cptr->error     = zbx_dsprintf(cptr->error, "%s",
-						strerror_from_module(status, L"PDH.DLL"));
+						strerror_from_module(status, "PDH.DLL"));
 				zbx_rtrim(cptr->error, " \r\n");
 
 				zabbix_log(LOG_LEVEL_ERR, "Unable to add performance"
@@ -374,8 +349,6 @@ void	collect_perfstat()
 						" added. Interval %d seconds",
 						cptr->counterPath, cptr->interval);
 			}
-
-			zbx_free(wcounterPath);
 		}
 
 		ppsd->nextcheck = now + UNSUPPORTED_REFRESH_PERIOD;
@@ -384,16 +357,16 @@ void	collect_perfstat()
 	if (ERROR_SUCCESS != (status = PdhCollectQueryData(ppsd->pdh_query)))
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "Call to PdhCollectQueryData() failed: %s",
-				strerror_from_module(status, L"PDH.DLL"));
+				strerror_from_module(status, "PDH.DLL"));
 		return;
 	}
-
+		
 	/* Process user-defined counters */
 	for ( cptr = ppsd->pPerfCounterList; cptr != NULL; cptr = cptr->next )
 	{
 		if (cptr->status == ITEM_STATUS_NOTSUPPORTED)	/* Inactive counter? */
 			continue;
-
+			
 		PdhGetRawCounterValue(
 			cptr->handle,
 			NULL,

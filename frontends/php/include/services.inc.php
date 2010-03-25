@@ -19,11 +19,11 @@
 **/
 ?>
 <?php
-	function add_service($name,$triggerid,$algorithm,$showsla,$goodsla,$sortorder,$service_times=array(),$parentid,$childs){
+	function	add_service($name,$triggerid,$algorithm,$showsla,$goodsla,$sortorder,$service_times=array(),$parentid,$childs){
 
 		foreach($childs as $id => $child){		//add childs
 			if((bccomp($parentid , $child['serviceid'])==0)){
-				error(S_SERVICE_CANNOT_BE_PARENT_AND_CHILD_AT_THE_SAME_TIME);
+				error('Service can\'t be parent and child in onetime.');
 				return FALSE;
 			}
 		}
@@ -71,7 +71,7 @@
 	function	update_service($serviceid,$name,$triggerid,$algorithm,$showsla,$goodsla,$sortorder,$service_times=array(),$parentid,$childs){
 		foreach($childs as $id => $child){		//add childs
 			if((bccomp($parentid , $child['serviceid'])==0)){
-				error(S_SERVICE_CANNOT_BE_PARENT_AND_CHILD_AT_THE_SAME_TIME);
+				error('Service can\'t be parent and child in onetime.');
 				return FALSE;
 			}
 		}
@@ -113,7 +113,7 @@
 								' AND h.hostid=i.hostid '.
 								' AND i.itemid=f.itemid '.
 								' AND f.triggerid=t.triggerid '.
-								' AND '.DBin_node('t.triggerid', false)
+								' AND '.DBin_node('t.triggerid', get_current_nodeid(false))
 							);
 
 		while($row=DBfetch($result)){
@@ -136,7 +136,7 @@
 	 * Function: get_service_status
 	 *
 	 * Description:
-	 *     Retrieve true status
+	 *     retrive true status
 	 *
 	 * Author:
 	 *     Aly
@@ -271,12 +271,12 @@
 
 	function add_service_link($servicedownid,$serviceupid,$softlink){
 		if( ($softlink==0) && (is_service_hardlinked($servicedownid)==true) ){
-			error(S_CANNOT_LINK_HARDLINKED_SERVICE);
+			error("cannot link hardlinked service.");
 			return	false;
 		}
 
 		if((bccomp($servicedownid, $serviceupid)==0)){
-			error(S_CANNOT_LINK_SERVICE_TO_ITSELF);
+			error("cannot link service to itself.");
 			return	false;
 		}
 
@@ -297,7 +297,7 @@
 		}
 
 		if((bccomp($servicedownid, $serviceupid)==0)){
-			error(S_CANNOT_LINK_SERVICE_TO_ITSELF);
+			error("cannot link service to itself.");
 			return	false;
 		}
 
@@ -339,43 +339,35 @@ function VDI($time,$show=1){
 	$time = (is_array($time))?$time:getdate($time);
 return ($time['mon'].'/'.$time['mday'].'/'.$time['year'].' '.$time['hours'].':'.$time['minutes'].':'.$time['seconds']);
 }
-//*/
+*/
 	function expand_periodical_service_times(&$data,  $period_start, $period_end, $ts_from, $ts_to, $type='ut'){ /* 'ut' OR 'dt' */
-// sdii($data);
-// SDI("PERIOD: ".VDI($period_start).' - '.VDI($period_end));
-// SDI('serv time: '.VDI($ts_from,0).' - '.VDI($ts_to,0));
+//SDI("PERIOD: ".VDI($period_start).' - '.VDI($period_end));
+//SDI('serv time: '.VDI($ts_from,0).' - '.VDI($ts_to,0));
 			/* calculate period FROM '-1 week' to know period name for  $period_start */
 
 			for($curr = ($period_start - (7*24*3600)); $curr<=$period_end;$curr+=86400){
-// SDI('FROM00 '.date('d-M-Y H:i:s', $curr));
+
 				$curr_date = getdate($curr);
 				$from_date = getdate($ts_from);
 
-// SDI('FROM0 '.VDI($curr_date,0));
 				if($curr_date['wday'] == $from_date['wday']){
 					$curr_from = mktime(
 						$from_date['hours'],$from_date['minutes'],$from_date['seconds'],
 						$curr_date['mon'],$curr_date['mday'],$curr_date['year']
-					);
-
+						);
+//SDI('FROM '.VDI($curr_from,0));
+					$curr_to = $curr_from + ($ts_to - $ts_from);
 
 					$curr_from	= max($curr_from, $period_start);
 					$curr_from	= min($curr_from, $period_end);
-
-					$curr_to = $curr_from + ($ts_to - $ts_from);
-					
-// SDI('FROM2 '.VDI($curr_from,0));
-// SDI('TO '.VDI($curr_to,0));
-
-// SDI('FROM3 '.date('d-M-Y H:i:s', $curr_to));
+//SDI('FROM2 '.VDI($curr_from,0));
+//SDI('TO '.VDI($curr_to,0));
 					$curr_to	= max($curr_to, $period_start);
-// SDI('FROM4 '.date('d-M-Y H:i:s', $curr_to));
 					$curr_to	= min($curr_to, $period_end);
-// SDI('FROM5 '.date('d-M-Y H:i:s', $curr_to));
-
-// SDI('TO2 '.VDI($curr_to,0).' : '.VDI($curr,0));
+//SDI('TO2 '.VDI($curr_to,0).' : '.VDI($curr,0));
 					$curr = $curr_to;
-// SDI('CURR '.VDI($curr,0));
+//SDI('CURR '.VDI($curr,0));
+
 					if(isset($data[$curr_from][$type.'_s']))
 						$data[$curr_from][$type.'_s'] ++;
 					else
@@ -405,38 +397,41 @@ return ($time['mon'].'/'.$time['mday'].'/'.$time['year'].' '.$time['hours'].':'.
 
 		$data[$period_start]['alarm'] = get_last_service_value($serviceid,$period_start);
 
-/* sort by time stamp */
-		$sql = 'SELECT sa.servicealarmid, sa.clock, sa.value '.
-				' FROM service_alarms sa '.
-				' WHERE sa.serviceid='.$serviceid.
-					' AND sa.clock>='.$period_start.
-					' AND sa.clock<='.$period_end.
-				' ORDER BY sa.clock asc, sa.servicealarmid asc';
-		$service_alarms = DBselect($sql);
+		$service_alarms = DBselect('SELECT servicealarmid,clock,value '.
+							' FROM service_alarms '.
+							' WHERE serviceid='.$serviceid.
+								' AND clock>='.$period_start.
+								' AND clock<='.$period_end.
+							' ORDER BY servicealarmid');
+
+		/* add alarms */
 		while($db_alarm_row = DBfetch($service_alarms)){
 			$data[$db_alarm_row['clock']]['alarm'] = $db_alarm_row['value'];
 		}
 
-// add periodical uptimes
-		$sql = 'SELECT st.ts_from, st.ts_to '.
-				' FROM services_times st'.
-				' WHERE st.type='.SERVICE_TIME_TYPE_UPTIME.
-					' AND st.serviceid='.$serviceid;
-		$service_times = DBselect($sql);
+		/* add periodical downtimes */
+		$service_times = DBselect('SELECT ts_from,ts_to '.
+						' FROM services_times '.
+						' WHERE type='.SERVICE_TIME_TYPE_UPTIME.
+							' AND serviceid='.$serviceid);
+
 		if($db_time_row = DBfetch($service_times)){
-// if exist any uptime - unmarked time is downtime
+			/* if exist any uptime - unmarked time is downtime */
 			$unmarked_period_type = 'dt';
 			do{
-				expand_periodical_service_times($data,$period_start, $period_end,$db_time_row['ts_from'], $db_time_row['ts_to'],'ut');
+				expand_periodical_service_times($data,
+					$period_start, $period_end,
+					$db_time_row['ts_from'], $db_time_row['ts_to'],
+					'ut');
 
 			}while($db_time_row = DBfetch($service_times));
 		}
 		else{
-// if missed any uptime - unmarked time is uptime
+			/* if missed any uptime - unmarked time is uptime */
 			$unmarked_period_type = 'ut';
 		}
 
-// add periodical downtimes
+		/* add periodical downtimes */
 		$sql = 'SELECT ts_from,ts_to '.
 				' FROM services_times '.
 				' WHERE type='.SERVICE_TIME_TYPE_DOWNTIME.
@@ -446,12 +441,8 @@ return ($time['mon'].'/'.$time['mday'].'/'.$time['year'].' '.$time['hours'].':'.
 			expand_periodical_service_times($data,$period_start, $period_end,$db_time_row['ts_from'], $db_time_row['ts_to'],'dt');
 		}
 
-// add one-time downtimes
-		$sql = 'SELECT ts_from,ts_to '.
-				' FROM services_times '.
-				' WHERE type='.SERVICE_TIME_TYPE_ONETIME_DOWNTIME.
-					' AND serviceid='.$serviceid;
-		$service_times = DBselect($sql);
+		/* add one-time downtimes */
+		$service_times = DBselect('SELECT ts_from,ts_to FROM services_times WHERE type='.SERVICE_TIME_TYPE_ONETIME_DOWNTIME.' and serviceid='.$serviceid);
 		while($db_time_row = DBfetch($service_times)){
 
 			if( ($db_time_row['ts_to'] < $period_start) || ($db_time_row['ts_from'] > $period_end)) continue;
@@ -471,8 +462,7 @@ return ($time['mon'].'/'.$time['mday'].'/'.$time['year'].' '.$time['hours'].':'.
 		}
 		if(!isset($data[$period_end])) $data[$period_end] = array();
 
-// sort by time stamp
-		ksort($data);
+		ksort($data); /* sort by time stamp */
 /*
 		if($serviceid == 1 || $serviceid == 2){
 		print('<br>'.$serviceid.':<br>');
@@ -596,7 +586,7 @@ if($serviceid == 1 || $serviceid == 2){
 		$res = DBfetch(DBselect("SELECT * FROM services WHERE serviceid=".$serviceid));
 		if(!$res)
 		{
-			error(S_NO_SERVICE_WITH." serviceid=[".$serviceid."]");
+			error("No service with serviceid=[".$serviceid."]");
 			return	FALSE;
 		}
 		return $res;
@@ -606,7 +596,7 @@ if($serviceid == 1 || $serviceid == 2){
 		$result=DBselect("SELECT * FROM services_links WHERE linkid=$linkid");
 		$res = DBfetch($result);
 		if(!$res){
-			error(S_NO_SERVICE_LINKAGE_WITH." linkid=[$linkid]");
+			error("No service linkage with linkid=[$linkid]");
 			return	FALSE;
 		}
 		return $res;
@@ -635,7 +625,7 @@ if($serviceid == 1 || $serviceid == 2){
 		$res =  DBSelect($query);
 		while($row = DBFetch($res)){
 			$childs[] = $row['servicedownid'];
-			$childs = zbx_array_merge($childs, get_service_childs($row['servicedownid']));
+			$childs = array_merge($childs, get_service_childs($row['servicedownid']));
 		}
 		return $childs;
 	}
@@ -650,9 +640,7 @@ if($serviceid == 1 || $serviceid == 2){
 	//---------------------------- if not leaf -----------------------------
 		$rows['parentid'] = $parentid;
 		if($soft == 0){
-			$caption_tmp = $rows['caption'];
-			$rows['caption'] = new CSpan($rows['caption'],'link');
-			$rows['caption']->setAttribute('onclick','javascript: call_menu(event, '.zbx_jsvalue($rows['serviceid']).','.zbx_jsvalue($caption_tmp).');');
+			$rows['caption'] = new CLink($rows['caption'],'#',null,'javascript: call_menu(event, '.zbx_jsvalue($rows['serviceid']).','.zbx_jsvalue($rows['caption']).'); return false;');
 
 			$temp[$rows['serviceid']]=$rows;
 
@@ -666,8 +654,7 @@ if($serviceid == 1 || $serviceid == 2){
 					}
 				}
 			}
-		}
-		else {
+		} else {
 			$rows['caption'] = new CSpan($rows['caption'],'unknown');
 			$temp[$rows['serviceid'].'.'.$linkid]=$rows;
 		}
@@ -701,7 +688,7 @@ if($serviceid == 1 || $serviceid == 2){
 		}
 		else {
 			$rows['caption'] = new CSpan($rows['caption']);
-			$rows['caption']->setAttribute('style','color: #888888;');
+			$rows['caption']->AddOption('style','color: #888888;');
 			$temp[$rows['serviceid'].'.'.$linkid]=$rows;
 		}
 	return ;
@@ -759,7 +746,7 @@ function update_services_rec($serviceid){
 			DBexecute('UPDATE services SET status='.$status.' WHERE serviceid='.$serviceupid);
 		}
 		else{
-			error(S_UNKNOWN_CALC_ALGORITHM_OF_SERVICE_STATUS.SPACE.'['.$algorithm.']');
+			error('Unknown calculation algorithm of service status ['.$algorithm.']');
 			return false;
 		}
 	}

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -26,8 +26,10 @@
 #include "zbxconf.h"
 #include "perfmon.h"
 
+static int ZabbixRemoveEventSource(void);
+static int ZabbixInstallEventSource(char *path);
+
 #define uninit() { zbx_on_exit(); }
-#define EVENTLOG_REG_PATH TEXT("SYSTEM\\CurrentControlSet\\Services\\EventLog\\")
 
 /*
  * Static data
@@ -54,6 +56,7 @@ static void	parent_signal_handler(int sig)
 /*
  * ZABBIX service control handler
  */
+
 static VOID WINAPI ServiceCtrlHandler(DWORD ctrlCode)
 {
 	int do_exit = 0;
@@ -81,8 +84,8 @@ static VOID WINAPI ServiceCtrlHandler(DWORD ctrlCode)
 
 			serviceStatus.dwCurrentState	= SERVICE_STOPPED;
 			serviceStatus.dwWaitHint	= 0;
-			serviceStatus.dwCheckPoint	= 0;
-			serviceStatus.dwWin32ExitCode	= 0;
+			serviceStatus.dwCheckPoint	= 0; 
+			serviceStatus.dwWin32ExitCode	= 0; 
 			break;
 		default:
 			break;
@@ -94,13 +97,10 @@ static VOID WINAPI ServiceCtrlHandler(DWORD ctrlCode)
 /*
  * The entry point for a ZABBIX service.
  */
-static VOID WINAPI ServiceEntry(DWORD argc, LPTSTR *argv)
-{
-	LPTSTR	wservice_name;
 
-	wservice_name = zbx_utf8_to_unicode(ZABBIX_SERVICE_NAME);
-	serviceHandle = RegisterServiceCtrlHandler(wservice_name, ServiceCtrlHandler);
-	zbx_free(wservice_name);
+static VOID WINAPI ServiceEntry(DWORD argc,LPTSTR *argv)
+{
+	serviceHandle = RegisterServiceCtrlHandler(ZABBIX_SERVICE_NAME, ServiceCtrlHandler);
 
 	/* Now we start service initialization */
 	serviceStatus.dwServiceType		= SERVICE_WIN32_OWN_PROCESS;
@@ -125,244 +125,163 @@ static VOID WINAPI ServiceEntry(DWORD argc, LPTSTR *argv)
 /*
  * Initialize service
  */
+
 void service_start(void)
 {
-	int				ret;
-	static SERVICE_TABLE_ENTRY	serviceTable[2];
+	int c = 0;
+	static SERVICE_TABLE_ENTRY serviceTable[] = {
+		{ ZABBIX_SERVICE_NAME, (LPSERVICE_MAIN_FUNCTION)ServiceEntry },
+		{ NULL,NULL } 
+		};
 
-	serviceTable[0].lpServiceName = zbx_utf8_to_unicode(ZABBIX_SERVICE_NAME);
-	serviceTable[0].lpServiceProc = (LPSERVICE_MAIN_FUNCTION)ServiceEntry;
-	serviceTable[1].lpServiceName = NULL;
-	serviceTable[1].lpServiceProc = NULL;
+	/* Create synchronization stuff */
+/*	eventShutdown = CreateEvent(NULL,TRUE,FALSE,NULL); */
 
-	ret = StartServiceCtrlDispatcher(serviceTable);
-	zbx_free(serviceTable[0].lpServiceName);
-
-	if (0 == ret)
+	if (!StartServiceCtrlDispatcher(serviceTable))
 	{
-		if (ERROR_FAILED_SERVICE_CONTROLLER_CONNECT == GetLastError())
+		if(ERROR_FAILED_SERVICE_CONTROLLER_CONNECT == GetLastError())
 		{
-			zbx_error("\n\n\t!!!ATTENTION!!! Zabbix Agent started as a console application. !!!ATTENTION!!!\n");
+			zbx_error("\n\n\t!!!ATTENTION!!! ZABBIX Agent runned as a console application. !!!ATTENTION!!!\n");
 			MAIN_ZABBIX_ENTRY();
 		}
 		else
+		{
 			zbx_error("StartServiceCtrlDispatcher() failed: %s", strerror_from_system(GetLastError()));
-	}
-}
+		}
 
-/*
- * Establishes a connection to the service control manager
- */
-static int	svc_OpenSCManager(SC_HANDLE *mgr)
-{
-	if (NULL != (*mgr = OpenSCManager(NULL, NULL, GENERIC_WRITE)))
-		return SUCCEED;
-
-	zbx_error("ERROR: Cannot connect to Service Manager: %s", strerror_from_system(GetLastError()));
-
-	return FAIL;
-}
-
-/*
- * Opens an existing service
- */
-static int	svc_OpenService(SC_HANDLE mgr, SC_HANDLE *service, DWORD desired_access)
-{
-	LPTSTR	wservice_name;
-	int	ret = SUCCEED;
-
-	wservice_name = zbx_utf8_to_unicode(ZABBIX_SERVICE_NAME);
-
-	if (NULL == (*service = OpenService(mgr, wservice_name, desired_access)))
-	{
-		zbx_error("ERROR: Cannot open service named \"%s\" [%s]",
-				ZABBIX_SERVICE_NAME, strerror_from_system(GetLastError()));
-		ret = FAIL;
 	}
 
-	zbx_free(wservice_name);
-
-	return ret;
+/*	CloseHandle(eventShutdown); */
 }
 
-static void	svc_get_fullpath(const char *path, LPTSTR fullpath, size_t max_fullpath)
-{
-	LPTSTR	wpath;
-
-	wpath = zbx_acp_to_unicode(path);
-	zbx_fullpath(fullpath, wpath, max_fullpath);
-	zbx_free(wpath);
-}
-
-/*
- * Create command line
- */
-static void	svc_get_command_line(const char *path, int multiple_agents, LPTSTR cmdLine, size_t max_cmdLine)
-{
-	TCHAR	path1[MAX_PATH], path2[MAX_PATH];
-
-	svc_get_fullpath(path, path2, MAX_PATH);
-
-	if (NULL == zbx_strstr(path2, TEXT(".exe")))
-		zbx_wsnprintf(path1, MAX_PATH, TEXT("%s.exe"), path2);
-	else
-		zbx_wsnprintf(path1, MAX_PATH, path2);
-
-	if (NULL == CONFIG_FILE)
-		zbx_wsnprintf(cmdLine, max_cmdLine, TEXT("\"%s\""), path1);
-	else
-	{
-		svc_get_fullpath(CONFIG_FILE, path2, MAX_PATH);
-		zbx_wsnprintf(cmdLine, max_cmdLine, TEXT("\"%s\" %s--config \"%s\""),
-				path1,
-				(0 == multiple_agents) ? TEXT("") : TEXT("--multiple-agents "),
-				path2);
-	}
-}
-
-/*
- * Install event source
- */
-static int	svc_install_event_source(const char *path)
-{
-	HKEY	hKey;
-	DWORD	dwTypes = EVENTLOG_ERROR_TYPE | EVENTLOG_WARNING_TYPE | EVENTLOG_INFORMATION_TYPE;
-	TCHAR	execName[MAX_PATH];
-	TCHAR	regkey[256], *wevent_source;
-
-	svc_get_fullpath(path, execName, MAX_PATH);
-
-	wevent_source = zbx_utf8_to_unicode(ZABBIX_EVENT_SOURCE);
-	zbx_wsnprintf(regkey, sizeof(regkey)/sizeof(TCHAR), EVENTLOG_REG_PATH TEXT("System\\%s"), wevent_source);
-	zbx_free(wevent_source);
-
-	if (ERROR_SUCCESS != RegCreateKeyEx(HKEY_LOCAL_MACHINE, regkey, 0, NULL, REG_OPTION_NON_VOLATILE,
-			KEY_SET_VALUE, NULL, &hKey, NULL))
-	{
-		zbx_error("Unable to create registry key [%s]", strerror_from_system(GetLastError()));
-		return FAIL;
-	}
-
-	RegSetValueEx(hKey, TEXT("TypesSupported"), 0, REG_DWORD, (BYTE *)&dwTypes, sizeof(DWORD));
-	RegSetValueEx(hKey, TEXT("EventMessageFile"), 0, REG_EXPAND_SZ, (BYTE *)execName,
-			(DWORD)(zbx_strlen(execName) + 1) * sizeof(TCHAR));
-	RegCloseKey(hKey);
-
-	zbx_error("Event source \"%s\" installed successfully.", ZABBIX_EVENT_SOURCE);
-
-	return SUCCEED;
-}
 
 /*
  * Create service
  */
-int	ZabbixCreateService(const char *path, int multiple_agents)
+
+int ZabbixCreateService(char *path)
 {
 #define MAX_CMD_LEN MAX_PATH*2
 
-	SC_HANDLE		mgr, service;
+	SC_HANDLE		mgr,service;
 	SERVICE_DESCRIPTION	sd;
-	TCHAR			cmdLine[MAX_CMD_LEN];
-	LPTSTR			wservice_name;
-	DWORD			code;
-	int			ret = FAIL;
+	LPTSTR			szDesc = TEXT("Provides system monitoring");
+	char			execName[MAX_PATH];
+	char			configFile[MAX_PATH];
+	char			cmdLine[MAX_CMD_LEN];
+	int			ret = SUCCEED;
 
-	if (FAIL == svc_OpenSCManager(&mgr))
-		return ret;
+	_fullpath(execName, path, MAX_PATH);
 
-	svc_get_command_line(path, multiple_agents, cmdLine, MAX_CMD_LEN);
+	if( NULL == strstr(execName, ".exe") )
+		zbx_strlcat(execName, ".exe", sizeof(execName));
 
-	wservice_name = zbx_utf8_to_unicode(ZABBIX_SERVICE_NAME);
-
-	if (NULL == (service = CreateService(mgr, wservice_name, wservice_name, GENERIC_READ, SERVICE_WIN32_OWN_PROCESS,
-			SERVICE_AUTO_START, SERVICE_ERROR_NORMAL, cmdLine, NULL, NULL, NULL, NULL, NULL)))
+	mgr = OpenSCManager(NULL,NULL,GENERIC_WRITE);
+	if ( NULL == mgr )
 	{
-		if (ERROR_SERVICE_EXISTS == (code = GetLastError()))
-			zbx_error("ERROR: Service named \"%s\" already exists", ZABBIX_SERVICE_NAME);
+		zbx_error("ERROR: Cannot connect to Service Manager [%s]",strerror_from_system(GetLastError()));
+		return FAIL;
+	}
+
+	if(NULL == CONFIG_FILE)
+	{
+		zbx_snprintf(cmdLine, sizeof(cmdLine), "\"%s\"", execName);
+	}
+	else
+	{
+		_fullpath(configFile, CONFIG_FILE, MAX_PATH);
+		zbx_snprintf(cmdLine, sizeof(cmdLine), "\"%s\" --config \"%s\"", execName, configFile);
+	}
+
+	service = CreateService(mgr,
+		ZABBIX_SERVICE_NAME,
+		ZABBIX_EVENT_SOURCE,
+		GENERIC_READ,
+		SERVICE_WIN32_OWN_PROCESS,
+		SERVICE_AUTO_START,
+		SERVICE_ERROR_NORMAL,
+		cmdLine,NULL,NULL,NULL,NULL,NULL);
+
+	if (service == NULL)
+	{
+		DWORD code = GetLastError();
+
+		if (ERROR_SERVICE_EXISTS == code)
+		{
+			zbx_error("ERROR: Service named '%s' already exist", ZABBIX_SERVICE_NAME);
+		}
 		else
-			zbx_error("ERROR: Cannot create service named \"%s\" [%s]",
-					ZABBIX_SERVICE_NAME, strerror_from_system(code));
+		{
+			zbx_error("ERROR: Cannot create service named '%s' [%s]", ZABBIX_SERVICE_NAME, strerror_from_system(code));
+		}
+		ret = FAIL;
 	}
 	else
 	{
 		zbx_error("Service \"%s\" installed successfully.", ZABBIX_SERVICE_NAME);
 		CloseServiceHandle(service);
-		ret = SUCCEED;
-
+    
 		/* Updates the service description */
-		if (SUCCEED == svc_OpenService(mgr, &service, SERVICE_CHANGE_CONFIG))
-		{
-			sd.lpDescription = TEXT("Provides system monitoring");
-			if (0 == ChangeServiceConfig2(service, SERVICE_CONFIG_DESCRIPTION, &sd))
-				zbx_error("Service description update failed [%s]", strerror_from_system(GetLastError()));
-			CloseServiceHandle(service);
-		}
+		service = OpenService(mgr, ZABBIX_SERVICE_NAME, SERVICE_CHANGE_CONFIG);
+		sd.lpDescription = szDesc;
+		if (0 == ChangeServiceConfig2(service, SERVICE_CONFIG_DESCRIPTION, &sd))
+			zbx_error("Service description update failed. %x", GetLastError());
+		CloseServiceHandle(service);
 	}
-
-	zbx_free(wservice_name);
-
 	CloseServiceHandle(mgr);
 
-	if (SUCCEED == ret)
-		ret = svc_install_event_source(path);
-
-	return ret;
-}
-
-/*
- * Remove event source
- */
-static int	svc_RemoveEventSource()
-{
-	TCHAR	regkey[256];
-	LPTSTR	wevent_source;
-	int	ret = FAIL;
-
-	wevent_source = zbx_utf8_to_unicode(ZABBIX_EVENT_SOURCE);
-	zbx_wsnprintf(regkey, sizeof(regkey)/sizeof(TCHAR), EVENTLOG_REG_PATH TEXT("System\\%s"), wevent_source);
-	zbx_free(wevent_source);
-
-	if (ERROR_SUCCESS == RegDeleteKey(HKEY_LOCAL_MACHINE, regkey))
+	if(ret != SUCCEED)
 	{
-		zbx_error("Event source \"%s\" uninstalled successfully.", ZABBIX_EVENT_SOURCE);
-		ret = SUCCEED;
+		return FAIL;
 	}
-	else
-		zbx_error("Unable to uninstall event source \"%s\" [%s]",
-				ZABBIX_EVENT_SOURCE, strerror_from_system(GetLastError()));
 
-	return SUCCEED;
+	return ZabbixInstallEventSource(execName);
 }
+
 
 /*
  * Remove service
  */
+
 int ZabbixRemoveService(void)
 {
-	SC_HANDLE	mgr, service;
-	int		ret = FAIL;
+	SC_HANDLE mgr,service;
+	int ret = SUCCEED;
 
-	if (FAIL == svc_OpenSCManager(&mgr))
-		return ret;
-
-	if (SUCCEED == svc_OpenService(mgr, &service, DELETE))
+	mgr=OpenSCManager(NULL,NULL,GENERIC_WRITE);
+	if (mgr==NULL)
 	{
-		if (0 != DeleteService(service))
+		zbx_error("ERROR: Cannot connect to Service Manager [%s]",strerror_from_system(GetLastError()));
+		return FAIL;
+	}
+
+	service=OpenService(mgr,ZABBIX_SERVICE_NAME,DELETE);
+	if (service==NULL)
+	{
+		zbx_error("ERROR: Cannot open service named '%s' [%s]", ZABBIX_SERVICE_NAME, strerror_from_system(GetLastError()));
+		ret = FAIL;
+	}
+	else
+	{
+		if (DeleteService(service))
 		{
 			zbx_error("Service \"%s\" uninstalled successfully", ZABBIX_SERVICE_NAME);
-			ret = SUCCEED;
 		}
 		else
-			zbx_error("ERROR: Cannot remove service named \"%s\" [%s]",
-					ZABBIX_SERVICE_NAME, strerror_from_system(GetLastError()));
+		{
+			zbx_error("ERROR: Cannot remove service named '%s' [%s]", ZABBIX_SERVICE_NAME, strerror_from_system(GetLastError()));
+			ret = FAIL;
+		}
 
 		CloseServiceHandle(service);
 	}
 
 	CloseServiceHandle(mgr);
 
-	if (SUCCEED == ret)
-		ret = svc_RemoveEventSource();
+	if(ret == SUCCEED)
+	{
+		ret = ZabbixRemoveEventSource();
+	}
 
 	return ret;
 }
@@ -371,62 +290,150 @@ int ZabbixRemoveService(void)
 /*
  * Start service
  */
+
 int ZabbixStartService(void)
 {
-	SC_HANDLE	mgr, service;
-	int		ret = FAIL;
+	SC_HANDLE mgr,service;
+	int ret = SUCCEED;
 
-	if (FAIL == svc_OpenSCManager(&mgr))
-		return ret;
+	mgr=OpenSCManager(NULL,NULL,GENERIC_WRITE);
 
-	if (SUCCEED == svc_OpenService(mgr, &service, SERVICE_START))
+	if (mgr==NULL)
 	{
-		if (0 != StartService(service, 0, NULL))
+		zbx_error("ERROR: Cannot connect to Service Manager [%s]",strerror_from_system(GetLastError()));
+		return FAIL;
+	}
+
+	service=OpenService(mgr,ZABBIX_SERVICE_NAME,SERVICE_START);
+
+	if (service==NULL)
+	{
+		zbx_error("ERROR: Cannot open service named '%s' [%s]", ZABBIX_SERVICE_NAME, strerror_from_system(GetLastError()));
+		ret = FAIL;
+	}
+	else
+	{
+		if (StartService(service,0,NULL))
 		{
 			zbx_error("Service \"%s\" started successfully.", ZABBIX_SERVICE_NAME);
-			ret = SUCCEED;
 		}
 		else
-			zbx_error("ERROR: Cannot start service named \"%s\" [%s]",
-					ZABBIX_SERVICE_NAME, strerror_from_system(GetLastError()));
+		{
+			zbx_error("ERROR: Cannot start service named '%s' [%s]", ZABBIX_SERVICE_NAME, strerror_from_system(GetLastError()));
+			ret = FAIL;
+		}
 
 		CloseServiceHandle(service);
 	}
 
 	CloseServiceHandle(mgr);
-
 	return ret;
 }
+
 
 /*
  * Stop service
  */
+
 int ZabbixStopService(void)
 {
-	SC_HANDLE	mgr, service;
-	SERVICE_STATUS	status;
-	int		ret = FAIL;
+	SC_HANDLE mgr,service;
+	int ret = SUCCEED;
 
-	if (FAIL == svc_OpenSCManager(&mgr))
-		return ret;
-
-	if (SUCCEED == svc_OpenService(mgr, &service, SERVICE_STOP))
+	mgr=OpenSCManager(NULL,NULL,GENERIC_WRITE);
+	if (mgr==NULL)
 	{
-		if (0 != ControlService(service, SERVICE_CONTROL_STOP, &status))
+		zbx_error("ERROR: Cannot connect to Service Manager [%s]",strerror_from_system(GetLastError()));
+		return FAIL;
+	}
+
+	service=OpenService(mgr,ZABBIX_SERVICE_NAME,SERVICE_STOP);
+	if (service==NULL)
+	{
+		zbx_error("ERROR: Cannot open service named '%s' [%s]", ZABBIX_SERVICE_NAME, strerror_from_system(GetLastError()));
+		ret = FAIL;
+	}
+	else
+	{
+		SERVICE_STATUS status;
+
+		if (ControlService(service,SERVICE_CONTROL_STOP,&status))
 		{
 			zbx_error("Service \"%s\" stopped successfully.", ZABBIX_SERVICE_NAME);
-			ret = SUCCEED;
 		}
 		else
-			zbx_error("ERROR: Cannot stop service named \"%s\" [%s]",
-					ZABBIX_SERVICE_NAME, strerror_from_system(GetLastError()));
+		{
+			zbx_error("ERROR: Cannot stop service named '%s' [%s]", ZABBIX_SERVICE_NAME, strerror_from_system(GetLastError()));
+			ret = FAIL;
+		}
 
 		CloseServiceHandle(service);
 	}
 
 	CloseServiceHandle(mgr);
-
 	return ret;
+}
+
+
+/*
+ * Install event source
+ */
+static int ZabbixInstallEventSource(char *path)
+{
+	HKEY	hKey;
+	DWORD	dwTypes = EVENTLOG_ERROR_TYPE | EVENTLOG_WARNING_TYPE | EVENTLOG_INFORMATION_TYPE;
+	char	execName[MAX_PATH];
+	char	regkey[MAX_STRING_LEN];
+
+	_fullpath(execName, path, MAX_PATH);
+
+	zbx_snprintf(regkey, sizeof(regkey), "System\\CurrentControlSet\\Services\\EventLog\\System\\%s", ZABBIX_EVENT_SOURCE);
+
+	if (ERROR_SUCCESS != RegCreateKeyEx(HKEY_LOCAL_MACHINE,
+		regkey,
+		0,
+		NULL,
+		REG_OPTION_NON_VOLATILE,
+		KEY_SET_VALUE,
+		NULL,
+		&hKey,
+		NULL))
+	{
+		zbx_error("Unable to create registry key: %s",strerror_from_system(GetLastError()));
+		return FAIL;
+	}
+
+	RegSetValueEx(hKey,"TypesSupported",0,REG_DWORD,(BYTE *)&dwTypes,sizeof(DWORD));
+	RegSetValueEx(hKey,"EventMessageFile",0,REG_EXPAND_SZ,(BYTE *)execName,(DWORD)strlen(execName)+1);
+
+	RegCloseKey(hKey);
+	zbx_error("Event source \"%s\" installed successfully.", ZABBIX_EVENT_SOURCE);
+
+	return SUCCEED;
+}
+
+
+/*
+ * Remove event source
+ */
+
+static int ZabbixRemoveEventSource(void)
+{
+	char	regkey[MAX_STRING_LEN];
+
+	zbx_snprintf(regkey, sizeof(regkey), "System\\CurrentControlSet\\Services\\EventLog\\System\\%s", ZABBIX_EVENT_SOURCE);
+
+	if (ERROR_SUCCESS == RegDeleteKey(HKEY_LOCAL_MACHINE, regkey))
+	{
+		zbx_error("Event source \"%s\" uninstalled successfully.", ZABBIX_EVENT_SOURCE);
+	}
+	else
+	{
+		zbx_error("Unable to uninstall event source \"%s\": [%s]", ZABBIX_EVENT_SOURCE, strerror_from_system(GetLastError()));
+		return FAIL;
+	}
+
+	return SUCCEED;
 }
 
 void	init_main_process(void)

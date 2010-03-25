@@ -10,6 +10,4 @@ libzbxtrapper_a_SOURCES = \
 	nodecommand.c nodecommand.h \
 	../nodewatcher/nodesender.c ../nodewatcher/nodesender.h \
 	proxyconfig.c proxyconfig.h \
-	proxydiscovery.c proxydiscovery.h \
-	proxyautoreg.c proxyautoreg.h \
-	proxyhosts.c proxyhosts.h
+	proxydiscovery.c proxydiscovery.h

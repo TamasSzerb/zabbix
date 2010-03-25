@@ -1,7 +1,7 @@
 <?php
-/*
+/* 
 ** ZABBIX
-** Copyright (C) 2000-2009 SIA Zabbix
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,317 +19,145 @@
 **/
 ?>
 <?php
-require_once('include/config.inc.php');
-require_once('include/maps.inc.php');
-require_once('include/ident.inc.php');
-require_once('include/forms.inc.php');
+	require_once "include/config.inc.php";
+	require_once "include/maps.inc.php";
+	require_once "include/forms.inc.php";
 
-if(isset($_REQUEST['go']) && ($_REQUEST['go'] == 'export') && isset($_REQUEST['maps'])){
-	$EXPORT_DATA = true;
-
-	$page['type'] = $page['type'] = detect_page_type(PAGE_TYPE_XML);
-	$page['file'] = 'zbx_maps_export.xml';
-
-	require_once('include/export.inc.php');
-}
-else{
-	$EXPORT_DATA = false;
-
-	$page['type'] = detect_page_type(PAGE_TYPE_HTML);
-	$page['title'] = 'S_NETWORK_MAPS';
-	$page['file'] = 'sysmaps.php';
+	$page["title"] = "S_NETWORK_MAPS";
+	$page["file"] = "sysmaps.php";
 	$page['hist_arg'] = array();
-}
 
-include_once('include/page_header.php');
+include_once "include/page_header.php";
+
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		'maps'=>			array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID, NULL),
-		'sysmapid'=>		array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,NULL),
-		'name'=>			array(T_ZBX_STR, O_OPT,	 NULL,	NOT_EMPTY,			'isset({save})'),
-		'width'=>			array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,65535),	'isset({save})'),
-		'height'=>			array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,65535),	'isset({save})'),
-		'backgroundid'=>	array(T_ZBX_INT, O_OPT,	 NULL,	DB_ID,				'isset({save})'),
-		'expandproblem'=>	array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,1),		null),
-		'highlight'=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,1),		null),
-		'label_type'=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,4),		'isset({save})'),
-		'label_location'=>	array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,3),		'isset({save})'),
+		"sysmapid"=>		array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,NULL),
 
-// Actions
-		'save'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
-		'delete'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
-		'cancel'=>			array(T_ZBX_STR, O_OPT, P_SYS, NULL,	NULL),
-		'go'=>				array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, NULL, NULL),
+		"name"=>		array(T_ZBX_STR, O_OPT,	 NULL,	NOT_EMPTY,		"isset({save})"),
+		"width"=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,65535),	"isset({save})"),
+		"height"=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,65535),	"isset({save})"),
+		"backgroundid"=>	array(T_ZBX_INT, O_OPT,	 NULL,	DB_ID,			"isset({save})"),
+		"label_type"=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,4),		"isset({save})"),
+		"label_location"=>	array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,3),		"isset({save})"),
 
-// Form
-		'form'=>			array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
-		'form_refresh'=>	array(T_ZBX_INT, O_OPT,	NULL,	NULL,	NULL),
+/* Actions */
+		"save"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+		"delete"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+		"cancel"=>		array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
 
-// Import
-		'rules' =>			array(T_ZBX_STR, O_OPT,	null,	DB_ID,		null),
-		'import' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL)
+/* Form */
+		"form"=>		array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
+		"form_refresh"=>	array(T_ZBX_INT, O_OPT,	NULL,	NULL,	NULL)
+
 	);
-
 	check_fields($fields);
-	validate_sort_and_sortorder('name', ZBX_SORT_UP);
-
-	if(isset($_REQUEST['sysmapid'])){
-		$options = array(
-			'sysmapids' => $_REQUEST['sysmapid'],
-			'editable' => 1,
-			'extendoutput' => 1,
-		);
-
-		$maps = CMap::get($options);
-
-		if(empty($maps)) access_deny();
-		else $sysmap = reset($maps);
+	validate_sort_and_sortorder('sm.name',ZBX_SORT_UP);
+	
+	if(isset($_REQUEST["sysmapid"])){
+		if(!sysmap_accessible($_REQUEST["sysmapid"],PERM_READ_WRITE))
+			access_deny();
+	
+		$sysmap = DBfetch(DBselect("select * from sysmaps where sysmapid=".$_REQUEST["sysmapid"]));
 	}
 ?>
 <?php
-// EXPORT ///////////////////////////////////
-
-	if($EXPORT_DATA){
-// SELECT MAPS
-		$maps = get_request('maps', array());
-
-		$options = array(
-			'sysmapids' => $maps,
-			'select_selements' => API_OUTPUT_EXTEND,
-			'select_links' => API_OUTPUT_EXTEND,
-			'output' => API_OUTPUT_EXTEND
-		);
-
-		$sysmaps = CMap::get($options);
-
-		prepareMapExport($sysmaps);
-
-		$xml = zbxXML::arrayToXML($sysmaps, 'sysmaps');
-		print($xml);
-
-		exit();
-	}
-
-// IMPORT ///////////////////////////////////
-	$rules = get_request('rules', array());
-	if(!isset($_REQUEST['form_refresh'])){
-		foreach(array('map') as $key){
-			$rules[$key]['exist'] = 1;
-			$rules[$key]['missed'] = 1;
-		}
-	}
-
-	if(isset($_FILES['import_file']) && is_file($_FILES['import_file']['tmp_name'])){
-		require_once('include/export.inc.php');
-		DBstart();
-
-		$result = zbxXML::import($_FILES['import_file']['tmp_name']);
-		if($result) $result = zbxXML::parseMap($rules);
-
-		$result = DBend($result);
-		show_messages($result, S_IMPORTED.SPACE.S_SUCCESSEFULLY_SMALL, S_IMPORT.SPACE.S_FAILED_SMALL);
-	}
-
-?>
-<?php
-	$_REQUEST['go'] = get_request('go', 'none');
-
 	if(isset($_REQUEST["save"])){
 		if(isset($_REQUEST["sysmapid"])){
-// TODO check permission by new value.
-			$_REQUEST['highlight'] = get_request('highlight', 0);
-			$_REQUEST['expandproblem'] = get_request('expandproblem', 0);
-
-			$map = array(
-					'sysmapid' => $_REQUEST['sysmapid'],
-					'name' => $_REQUEST['name'],
-					'width' => $_REQUEST['width'],
-					'height' => $_REQUEST['height'],
-					'backgroundid' => $_REQUEST['backgroundid'],
-					'highlight' => $_REQUEST['highlight'],
-					'expandproblem' => $_REQUEST['expandproblem'],
-					'label_type' => $_REQUEST['label_type'],
-					'label_location' => $_REQUEST['label_location']
-				);
-
+			// TODO check permission by new value.
 			DBstart();
-			$result = CMap::update($map);
-			$result = DBend($result);
-
+			update_sysmap($_REQUEST["sysmapid"],$_REQUEST["name"],$_REQUEST["width"],
+				$_REQUEST["height"],$_REQUEST["backgroundid"],$_REQUEST["label_type"],
+				$_REQUEST["label_location"]);
+			$result = DBend();
+			
 			add_audit_if($result,AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_MAP,'Name ['.$_REQUEST['name'].']');
-			show_messages($result,S_MAP_UPDATED,S_CANNOT_UPDATE_MAP);
-		}
+			show_messages($result,"Network map updated","Cannot update network map");
+		} 
 		else {
 			if(!count(get_accessible_nodes_by_user($USER_DETAILS,PERM_READ_WRITE,PERM_RES_IDS_ARRAY)))
 				access_deny();
-
-			$_REQUEST['highlight'] = get_request('highlight', 0);
-			$_REQUEST['expandproblem'] = get_request('expandproblem', 0);
 			
-			$map = array(
-					'name' => $_REQUEST['name'],
-					'width' => $_REQUEST['width'],
-					'height' => $_REQUEST['height'],
-					'backgroundid' => $_REQUEST['backgroundid'],
-					'highlight' => $_REQUEST['highlight'],
-					'expandproblem' => $_REQUEST['expandproblem'],
-					'label_type' => $_REQUEST['label_type'],
-					'label_location' => $_REQUEST['label_location']
-				);
-
 			DBstart();
-			$result = CMap::create($map);
-			$result = DBend($result);
-
+			add_sysmap($_REQUEST["name"],$_REQUEST["width"],$_REQUEST["height"],
+				$_REQUEST["backgroundid"],$_REQUEST["label_type"],$_REQUEST["label_location"]);
+			$result = DBend();
+			
 			add_audit_if($result,AUDIT_ACTION_ADD,AUDIT_RESOURCE_MAP,'Name ['.$_REQUEST['name'].']');
-			show_messages($result,S_MAP_ADDED,S_CANNOT_ADD_MAP);
+			show_messages($result,"Network map added","Cannot add network map");
 		}
 		if($result){
 			unset($_REQUEST["form"]);
 		}
 	}
 	else if(isset($_REQUEST["delete"])&&isset($_REQUEST["sysmapid"])){
-		$maps = zbx_toObject($_REQUEST["sysmapid"], 'sysmapid');
-
 		DBstart();
-		$result = CMap::delete($maps);
-		$result = DBend($result);
-
+		delete_sysmap($_REQUEST["sysmapid"]);
+		$result = DBend();
+		
 		add_audit_if($result,AUDIT_ACTION_DELETE,AUDIT_RESOURCE_MAP,'Name ['.$sysmap['name'].']');
-		show_messages($result, S_MAP_DELETED, S_CANNOT_DELETE_MAP);
+		show_messages($result,"Network map deleted","Cannot delete network map");
 		if($result){
 			unset($_REQUEST["form"]);
 		}
 	}
-	else if($_REQUEST['go'] == 'delete'){
-		$go_result = true;
-		$maps = get_request('maps', array());
-
-		$maps = zbx_toObject($maps, 'sysmapid');
-
-		DBstart();
-		$result = CMap::delete($maps);
-		$go_result = DBend($result);
-		
-
-		if($go_result){
-			unset($_REQUEST["form"]);
-		}
-		show_messages($go_result, S_MAP_DELETED, S_CANNOT_DELETE_MAP);
-	}
-
-	if(($_REQUEST['go'] != 'none') && isset($go_result) && $go_result){
-		$url = new CUrl();
-		$path = $url->getPath();
-		insert_js('cookie.eraseArray("'.$path.'")');
-	}
-
 ?>
 <?php
 	$form = new CForm();
-	$form->setMethod('get');
-
-	$form->addItem(new CButton('form', S_CREATE_MAP));
-	$form->addItem(new CButton('form', S_IMPORT_MAP));
-
+	$form->SetMethod('get');
+	
+	$form->AddItem(new CButton("form",S_CREATE_MAP));
 	show_table_header(S_CONFIGURATION_OF_NETWORK_MAPS, $form);
+	echo SBR;
 ?>
 <?php
-//	COpt::savesqlrequest(0,'/////////////////////////////////////////////////////////////////////////////////////////////////////////');
-	if(isset($_REQUEST['form'])){
-		if($_REQUEST['form'] == S_IMPORT_MAP)
-			import_map_form($rules);
-		else if(($_REQUEST['form'] == S_CREATE_MAP) || ($_REQUEST['form'] == 'update'))
-			insert_map_form();
+	if(isset($_REQUEST["form"])){
+		insert_map_form();
 	}
 	else{
-		$map_wdgt = new CWidget();
-
-		$form = new CForm();
-		$form->setName('frm_maps');
-
-		$numrows = new CDiv();
-		$numrows->setAttribute('name','numrows');
-
-		$map_wdgt->addHeader(S_MAPS_BIG);
-		$map_wdgt->addHeader($numrows);
+		$row_count = 0;
+		$numrows = new CSpan(null,'info');
+		$numrows->addOption('name','numrows');	
+		$header = get_table_header(array(S_MAPS_BIG,
+						new CSpan(SPACE.SPACE.'|'.SPACE.SPACE, 'divider'),
+						S_FOUND.': ',$numrows,)
+						);			
+		show_table_header($header);
 
 		$table = new CTableInfo(S_NO_MAPS_DEFINED);
-		$table->setHeader(array(
-			new CCheckBox('all_maps',NULL,"checkAll('".$form->getName()."','all_maps','maps');"),
-			make_sorting_header(S_NAME,'name'),
-			make_sorting_header(S_WIDTH,'width'),
-			make_sorting_header(S_HEIGHT,'height'),
-			S_EDIT));
+		$table->SetHeader(array(
+			make_sorting_link(S_NAME,'sm.name'),
+			make_sorting_link(S_WIDTH,'sm.width'),
+			make_sorting_link(S_HEIGHT,'sm.height'),
+			S_MAP
+			));
 
+		$result = DBselect('SELECT sm.sysmapid,sm.name,sm.width,sm.height '.
+						' FROM sysmaps sm'.
+						' WHERE '.DBin_node('sm.sysmapid').
+						order_by('sm.name,sm.width,sm.height','sm.sysmapid'));
+						
+		while($row=DBfetch($result)){
+			if(!sysmap_accessible($row["sysmapid"],PERM_READ_WRITE)) continue;
 
-		$sortfield = getPageSortField('name');
-		$sortorder = getPageSortOrder();
-
-		$options = array(
-			'editable' => 1,
-			'extendoutput' => 1,
-			'sortfield' => $sortfield,
-			'sortorder' => $sortorder,
-			'limit' => ($config['search_limit']+1)
-		);
-		$maps = CMap::get($options);
-
-// sorting
-		order_result($maps, $sortfield, $sortorder);
-		$paging = getPagingLine($maps);
-//-------
-
-		foreach($maps as $mnum => $map){
-			$table->addRow(array(
-				new CCheckBox('maps['.$map['sysmapid'].']', NULL, NULL, $map['sysmapid']),
-				new CLink($map['name'], 'sysmap.php?sysmapid='.$map['sysmapid']),
-				$map['width'],
-				$map['height'],
-				new CLink(S_EDIT, 'sysmaps.php?form=update&sysmapid='.$map['sysmapid'].'#form')
+			$table->AddRow(array(
+				new CLink($row["name"], "sysmaps.php?form=update".
+					"&sysmapid=".$row["sysmapid"]."#form",'action'),
+				$row["width"],
+				$row["height"],
+				new CLink(S_EDIT,"sysmap.php?sysmapid=".$row["sysmapid"])
 				));
+			$row_count++;
 		}
-
-// goBox
-		$goBox = new CComboBox('go');
-		$goBox->addItem('export', S_EXPORT_SELECTED);
-
-		$goOption = new CComboItem('delete', S_DELETE_SELECTED);
-		$goOption->setAttribute('confirm',S_DELETE_SELECTED_MAPS_Q);
-
-		$goBox->addItem($goOption);
-
-// goButton name is necessary!!!
-		$goButton = new CButton('goButton',S_GO);
-		$goButton->setAttribute('id','goButton');
-
-		$jsLocale = array(
-			'S_CLOSE',
-			'S_NO_ELEMENTS_SELECTED'
-		);
-
-		zbx_addJSLocale($jsLocale);
-
-		zbx_add_post_js('chkbxRange.pageGoName = "maps";');
-
-		$footer = get_table_header(array($goBox, $goButton));
-//------
-
-// PAGING FOOTER
-		$table = array($paging, $table, $paging, $footer);
-//---------
-
-		$form->addItem($table);
-
-		$map_wdgt->addItem($form);
-		$map_wdgt->show();
+		$table->Show();
 	}
+	if(isset($row_count))
+		zbx_add_post_js('insert_in_element("numrows","'.$row_count.'");');
 
 ?>
 <?php
 
-include_once('include/page_footer.php');
+include_once "include/page_footer.php";
 
 ?>

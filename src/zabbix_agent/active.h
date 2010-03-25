@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -27,33 +27,8 @@ extern char	*CONFIG_HOSTNAME;
 extern int	CONFIG_REFRESH_ACTIVE_CHECKS;
 extern int	CONFIG_BUFFER_SEND;
 extern int	CONFIG_BUFFER_SIZE;
-extern int	CONFIG_MAX_LINES_PER_SECOND;
 
-/*#define MAX_LINES_PER_SECOND	100*/	/*obsolete, configuration parameter must be used*/
-
-/*define minimal and maximal values of lines to send by agent*/
-/*per second for checks `log' and `eventlog', used to parse key parameters*/
-#define	MIN_VALUE_LINES	1
-#define	MAX_VALUE_LINES	1000
-
-/*Windows event types for `eventlog' check*/
-#if defined (_WINDOWS)
-#ifndef INFORMATION_TYPE
-#define INFORMATION_TYPE	"Information"
-#endif
-#ifndef WARNING_TYPE
-#define WARNING_TYPE		"Warning"
-#endif
-#ifndef ERROR_TYPE
-#define ERROR_TYPE		"Error"
-#endif
-#ifndef AUDIT_FAILURE
-#define AUDIT_FAILURE		"Failure Audit"
-#endif
-#ifndef AUDIT_SUCCESS
-#define AUDIT_SUCCESS		"Success Audit"
-#endif
-#endif	/*if defined (_WINDOWS)*/
+#define MAX_LINES_PER_SECOND	100
 
 typedef struct zbx_active_metric_type
 {
@@ -63,8 +38,6 @@ typedef struct zbx_active_metric_type
 	int	status;
 /* Must be long for fseek() */
 	long	lastlogsize;
-	int	mtime;
-	unsigned char	skip_old_data;	/* for processing [event]log metrics */
 } ZBX_ACTIVE_METRIC;
 
 typedef struct active_ckeck_args
@@ -83,8 +56,6 @@ typedef struct zbx_active_buffer_element_type
 	int	severity;
 	long	lastlogsize;
 	int	clock;
-	int	logeventid;
-	int	mtime;
 } ZBX_ACTIVE_BUFFER_ELEMENT;
 
 typedef struct zbx_active_buffer_type

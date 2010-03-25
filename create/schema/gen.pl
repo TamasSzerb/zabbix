@@ -34,7 +34,6 @@ local $output;
 	"before"	=>	"",
 	"after"		=>	"",
 	"table_options"	=>	" type=InnoDB",
-	"exec_cmd"	=>	";\n",
 	"t_bigint"	=>	"bigint unsigned",
 	"t_id"		=>	"bigint unsigned",
 	"t_integer"	=>	"integer",
@@ -50,13 +49,12 @@ local $output;
 	"t_history_text"=>	"text",
 	"t_blob"	=>	"blob",
 	"t_item_param"	=>	"text",
-	"t_cksum_text"	=>	"text"
+	"t_cksum_text"	=>	"text"  
 );
 
 %c=(	"type"		=>	"code",
 	"database"	=>	"",
 	"after"		=>	"\t{0}\n};\n",
-	"exec_cmd"	=>	"\n",
 	"t_bigint"	=>	"ZBX_TYPE_UINT",
 	"t_id"		=>	"ZBX_TYPE_ID",
 	"t_integer"	=>	"ZBX_TYPE_INT",
@@ -103,29 +101,27 @@ ZBX_TABLE	tables[]={
 	"before"	=>	"",
 	"after"		=>	"",
 	"type"		=>	"sql",
-	"exec_cmd"	=>	"\n/\n\n",
 	"t_id"		=>	"number(20)",
 	"t_integer"	=>	"number(10)",
 	"t_time"	=>	"number(10)",
 	"t_serial"	=>	"number(20)",
 	"t_double"	=>	"number(20,4)",
-	"t_varchar"	=>	"nvarchar2",
-	"t_char"	=>	"nvarchar2",
+	"t_varchar"	=>	"varchar2",
+	"t_char"	=>	"varchar2",
 	"t_image"	=>	"blob",
-	"t_history_log"	=>	"nclob",
-	"t_history_text"=>	"nclob",
-	"t_blob"	=>	"nvarchar2(2048)",
-	"t_item_param"	=>	"nvarchar2(2048)",
-	"t_cksum_text"	=>	"nclob"  
+	"t_history_log"	=>	"varchar2(2048)",
+	"t_history_text"=>	"clob",
+	"t_blob"	=>	"varchar2(2048)",
+	"t_item_param"	=>	"varchar2(2048)",
+	"t_cksum_text"	=>	"clob"  
 );
 
-%postgresql=("t_bigint"	=>	"numeric(20)",
+%postgresql=("t_bigint"	=>	"bigint",
 	"database"	=>	"postgresql",
 	"before"	=>	"",
 	"after"		=>	"",
 	"type"		=>	"sql",
 	"table_options"	=>	" with OIDS",
-	"exec_cmd"	=>	";\n",
 	"t_id"		=>	"bigint",
 	"t_integer"	=>	"integer",
 	"t_serial"	=>	"serial",
@@ -146,7 +142,6 @@ ZBX_TABLE	tables[]={
 	"before"	=>	"BEGIN TRANSACTION;\n",
 	"after"		=>	"COMMIT;\n",
 	"type"		=>	"sql",
-	"exec_cmd"	=>	";\n",
 	"t_id"		=>	"bigint",
 	"t_integer"	=>	"integer",
 	"t_time"	=>	"integer",
@@ -169,17 +164,16 @@ sub newstate
 	switch ($state)
 	{
 		case "field"	{
-			if($output{"type"} eq "sql" && $new eq "index") { print "$pkey\n)$output{'table_options'}$output{'exec_cmd'}"; }
-			if($output{"type"} eq "sql" && $new eq "table") { print "$pkey\n)$output{'table_options'}$output{'exec_cmd'}"; }
-			if($output{"type"} eq "code" && $new eq "table") { print ",\n\t\t{0}\n\t\t}\n\t},$output{'exec_cmd'}"; }
+			if($output{"type"} eq "sql" && $new eq "index") { print "$pkey\n)$output{'table_options'};\n"; }
+			if($output{"type"} eq "sql" && $new eq "table") { print "$pkey\n)$output{'table_options'};\n"; }
+			if($output{"type"} eq "code" && $new eq "table") { print ",\n\t\t{0}\n\t\t}\n\t},\n"; }
 			if($new eq "field") { print ",\n" }
 		}
 		case "index"	{
-			if($output{"type"} eq "sql" && $new eq "table") { print "${statements}"; }
-			if($output{"type"} eq "code" && $new eq "table") { print ",\n\t\t{0}\n\t\t}\n\t},$output{'exec_cmd'}"; }
+			if($output{"type"} eq "sql" && $new eq "table") { print ""; }
+			if($output{"type"} eq "code" && $new eq "table") { print ",\n\t\t{0}\n\t\t}\n\t},\n"; }
 		}
 	 	case "table"	{
-			if($output{"type"} eq "sql" && $new eq "table") { print "${statements}"; }
 			print "";
 		}
 	}
@@ -192,7 +186,6 @@ sub process_table
 
 	newstate("table");
 	($table_name,$pkey,$flags)=split(/\|/, $line,4);
-	$statements="";
 
 	if($output{"type"} eq "code")
 	{
@@ -217,7 +210,13 @@ sub process_table
 			$pkey="";
 		}
 
-		print "CREATE TABLE $table_name (\n";
+		$ifnotexists = "";
+		if ($output{"database"} eq "sqlite")
+		{
+			$ifnotexists = "IF NOT EXISTS ";
+		}
+
+		print "CREATE TABLE $ifnotexists$table_name (\n";
 	}
 }
 
@@ -268,16 +267,13 @@ sub process_field
 		}
 
 		# Special processing for Oracle "default 'ZZZ' not null" -> "default 'ZZZ'. NULL=='' in Oracle!"
-		if(($output{"database"} eq "oracle") && ((0==index($type_2,"nvarchar2")) || (0==index($type_2,"nclob"))))
+		if(($output{"database"} eq "oracle") && (0==index($type_2,"varchar2")))
 		{
+		#	$default="DEFAULT NULL";
 			$null="";
 		}
-		else
-		{
-			$null="\t${null}";
-		}
 
-		$row="\t$name\t\t$type_2\t\t$default${null}";
+		$row="\t$name\t\t$type_2\t\t$default\t$null";
 
 		if($type eq "t_serial")
 		{
@@ -289,19 +285,6 @@ sub process_field
 			elsif($output{"database"} eq "mysql")
 			{
 				$row="$row\tauto_increment unique";
-			}
-			elsif($output{"database"} eq "oracle")
-			{
-				$statements="${statements}CREATE SEQUENCE ${table_name}_seq\n";
-				$statements="${statements}START WITH 1\n";
-				$statements="${statements}INCREMENT BY 1\n";
-				$statements="${statements}NOMAXVALUE$output{'exec_cmd'}";
-				$statements="${statements}CREATE TRIGGER ${table_name}_tr\n";
-				$statements="${statements}BEFORE INSERT ON ${table_name}\n";
-				$statements="${statements}FOR EACH ROW\n";
-				$statements="${statements}BEGIN\n";
-				$statements="${statements}SELECT proxy_history_seq.nextval INTO :new.id FROM dual;\n";
-				$statements="${statements}END;$output{'exec_cmd'}";
 			}
 		}
 		print $row;
@@ -322,13 +305,19 @@ sub process_index
 
 	($name,$fields)=split(/\|/, $line,2);
 
+	$ifnotexists = "";
+	if($output{"database"} eq "sqlite")
+	{
+		$ifnotexists = "IF NOT EXISTS ";
+	}
+
 	if($unique == 1)
 	{
-		print "CREATE UNIQUE INDEX ${table_name}_$name\ on $table_name ($fields)$output{'exec_cmd'}";
+		print "CREATE UNIQUE INDEX $ifnotexists${table_name}_$name\ on $table_name ($fields);\n";
 	}
 	else
 	{
-		print "CREATE INDEX ${table_name}_$name\ on $table_name ($fields)$output{'exec_cmd'}";
+		print "CREATE INDEX $ifnotexists${table_name}_$name\ on $table_name ($fields);\n";
 	}
 }
 
@@ -378,6 +367,7 @@ sub main
 			case "FIELD"	{ process_field($line); }
 		}
 	}
+
 }
 
 main();

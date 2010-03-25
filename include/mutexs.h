@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -26,10 +26,10 @@
 #	define ZBX_MUTEX_ERROR		(0)
 #	define ZBX_MUTEX_OK		(1)
 
-#	define ZBX_MUTEX_NAME		wchar_t *
+#	define ZBX_MUTEX_NAME		char*
 
-#	define ZBX_MUTEX_LOG    	TEXT("ZBX_MUTEX_LOG")
-#	define ZBX_MUTEX_PERFSTAT  	TEXT("ZBX_MUTEX_PERFSTAT")
+#	define ZBX_MUTEX_LOG    	"ZBX_MUTEX_LOG"
+#	define ZBX_MUTEX_PERFSTAT  	"ZBX_MUTEX_PERFSTAT"
 
 #else /* not _WINDOWS */
 
@@ -37,16 +37,15 @@
 
 #	define ZBX_MUTEX_ERROR		(-1)
 #	define ZBX_MUTEX_OK		(1)
-
+	
 #	define ZBX_MUTEX_NAME		int
 
 #	define ZBX_MUTEX_LOG		0
 #	define ZBX_MUTEX_NODE_SYNC	1
 #	define ZBX_MUTEX_CACHE		2
 #	define ZBX_MUTEX_CACHE_IDS	3
-#	define ZBX_MUTEX_CONFIG		4
 /* This has to be the last MUTEX in the list with MAX number */
-#	define ZBX_MUTEX_COUNT		5
+#	define ZBX_MUTEX_COUNT		4
 
 #	define ZBX_MUTEX_MAX_TRIES	20 /* seconds */
 

@@ -1,5 +1,5 @@
 <?php
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2009 SIA Zabbix
 **
@@ -19,207 +19,161 @@
 **/
 ?>
 <?php
-	require_once('include/config.inc.php');
-	require_once('include/hosts.inc.php');
-	require_once('include/forms.inc.php');
+	require_once "include/config.inc.php";
+	require_once "include/hosts.inc.php";
+	require_once "include/forms.inc.php";
 
-	$page['title'] = 'S_HOST_PROFILES';
-	$page['file'] = 'hostprofiles.php';
-	$page['hist_arg'] = array('groupid', 'hostid');
+	$page["title"] = "S_HOST_PROFILES";
+	$page["file"] = "hostprofiles.php";
+	$page['hist_arg'] = array('groupid','hostid');
+	
+include_once "include/page_header.php";
 
-	include_once('include/page_header.php');
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
 		'groupid'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,	NULL),
 		'hostid'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,	NULL),
-		'prof_type'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	NULL,	NULL),
+		'prof_type'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	null,	NULL),
 	);
-
 	check_fields($fields);
-	validate_sort_and_sortorder('host', ZBX_SORT_UP);
+	validate_sort_and_sortorder('h.host',ZBX_SORT_UP);
+	
+	$reset_hostid = (isset($_REQUEST['hostid'])) ? false : true;
+	
+	$params = array();
+	$options = array('allow_all_hosts','real_hosts');
+	if(!$ZBX_WITH_SUBNODES)	array_push($options,'only_current_node');	
+	foreach($options as $option) $params[$option] = 1;
+
+	$PAGE_GROUPS = get_viewed_groups(PERM_READ_ONLY, $params);
+	$PAGE_HOSTS = get_viewed_hosts(PERM_READ_ONLY, $PAGE_GROUPS['selected'], $params);
+	validate_group($PAGE_GROUPS, $PAGE_HOSTS, $reset_hostid);
+	$prof_type = get_request('prof_type',0);
 ?>
 <?php
-// permission check, imo should be remuved in future.
-	$_REQUEST['hostid'] = get_request('hostid', 0);
-	if($_REQUEST['hostid'] > 0){
-		$res = CHost::get(array('real_hosts' => 1, 'hostids' => $_REQUEST['hostid']));
-		if(empty($res)) access_deny();
+	$available_hosts = $PAGE_HOSTS['hostids'];
+	
+	$r_form = new CForm();
+	$r_form->setMethod('get');
+	$cmbGroups = new CComboBox('groupid',$PAGE_GROUPS['selected'],'javascript: submit();');
+	foreach($PAGE_GROUPS['groups'] as $groupid => $name){
+		$cmbGroups->addItem($groupid, get_node_name_by_elid($groupid).$name);
 	}
-
-
-	if(isset($_REQUEST['groupid'])){
-		CProfile::update('web.'.$page['menu'].'.groupid', $_REQUEST['groupid'], PROFILE_TYPE_ID);
-	}
-	else{
-		$_REQUEST['groupid'] = CProfile::get('web.'.$page['menu'].'.groupid', 0);
-	}
-
-	$_REQUEST['prof_type'] = get_request('prof_type', 0);
-
-	$hostprof_wdgt = new CWidget();
-
-	$profile_form = new CForm(null, 'get');
-	// $profile_form->addVar('sort', 'host');
-	// $profile_form->addVar('sortorder', ZBX_SORT_UP);
-	$cmbProf = new CComboBox('prof_type', $_REQUEST['prof_type'], 'javascript: submit();');
+	$r_form->addItem(array(S_GROUP.SPACE,$cmbGroups));
+	
+	$cmbProf = new CComboBox('prof_type',$prof_type,'javascript: submit();');
 	$cmbProf->additem(0, S_NORMAL);
 	$cmbProf->additem(1, S_EXTENDED);
-	$profile_form->addItem(array(SPACE.S_HOST_PROFILES.SPACE, $cmbProf));
+	
+	$r_form->addItem(array(SPACE.S_HOST_PROFILES.SPACE,$cmbProf));
+	
+	show_table_header(S_HOST_PROFILES_BIG, $r_form);
+?>
 
-	$hostprof_wdgt->addPageHeader(S_HOST_PROFILES_BIG, $profile_form);
-
-
-	if($_REQUEST['hostid'] > 0){
+<?php
+	if(isset($_REQUEST['hostid']) && ($_REQUEST['hostid']>0)){
 		echo SBR;
 
-		if($_REQUEST['prof_type']){
-			$hostprof_wdgt->addItem(insert_host_profile_ext_form());
+		if($prof_type){
+			insert_host_profile_ext_form();
 		}
 		else{
-			$hostprof_wdgt->addItem(insert_host_profile_form());
+			insert_host_profile_form();
 		}
 	}
 	else{
-// get groups {{{
-		$options = array(
-			'nodeids' => get_current_nodeid(),
-			'real_hosts' => 1,
-			'extendoutput' => 1
-		);
-		$groups = CHostGroup::get($options);
-		$groups = zbx_toHash($groups, 'groupid');
-
-		if(!isset($groups[$_REQUEST['groupid']])) $_REQUEST['groupid'] = 0;
-// }}} get groups
-
-
-		$sortfield = getPageSortField('host');
-		$sortorder = getPageSortOrder();
-		$options = array(
-			'extendoutput' => 1,
-			'sortfield' => $sortfield,
-			'sortorder' => $sortorder,
-			'select_profile' => 1,
-			'select_groups' => 1,
-			'limit' => ($config['search_limit']+1)
-		);
-		if($_REQUEST['groupid'] > 0){
-			$options['groupids'] = $_REQUEST['groupid'];
-		}
-		else{
-			$options['groupids'] = zbx_objectValues($groupids, 'groupid');
-		}
-		$hosts = CHost::get($options);
-
-
-	// unset hosts without profiles, and copy some profile fileds to the uppers array level for sorting
-		$pr = ($_REQUEST['prof_type'] == 0) ? 'profile' : 'profile_ext';
-		$profile = array();
-		foreach($hosts as $num => $host){
-			if(empty($host[$pr])){
-				unset($hosts[$num]);
-			}
-			else{
-				if($_REQUEST['prof_type'] == 0){
-					$hosts[$num]['pr_name'] = $host['profile']['name'];
-					$hosts[$num]['pr_os'] = $host['profile']['os'];
-					$hosts[$num]['pr_serialno'] = $host['profile']['serialno'];
-					$hosts[$num]['pr_tag'] = $host['profile']['tag'];
-					$hosts[$num]['pr_macaddress'] = $host['profile']['macaddress'];
-				}
-				else{
-					$hosts[$num]['pre_device_os_short'] = $host['profile_ext']['device_os_short'];
-					$hosts[$num]['pre_device_hw_arch'] = $host['profile_ext']['device_hw_arch'];
-					$hosts[$num]['pre_device_type'] = $host['profile_ext']['device_type'];
-					$hosts[$num]['pre_device_status'] = $host['profile_ext']['device_status'];
-				}
-			}
-		}
-
-		$r_form = new CForm(null, 'get');
-		$r_form->addVar('prof_type', $_REQUEST['prof_type']);
-
-		$cmbGroups = new CComboBox('groupid', $_REQUEST['groupid'], 'javascript: submit();');
-		$cmbGroups->addItem(0, S_ALL_S);
-		order_result($groups, 'name');
-		foreach($groups as $group){
-			$cmbGroups->addItem($group['groupid'], get_node_name_by_elid($group['groupid'], null, ': ').$group['name']);
-		}
-		$r_form->addItem(array(S_GROUP.SPACE, $cmbGroups));
-
-		$hostprof_wdgt->addHeader(S_HOSTS_BIG, $r_form);
-
-		$numrows = new CDiv();
-		$numrows->setAttribute('name', 'numrows');
-		$hostprof_wdgt->addHeader($numrows);
-
-
-		order_result($hosts, $sortfield, $sortorder);
-		$paging = getPagingLine($hosts);
-
 		$table = new CTableInfo();
-
-		if(0 == $_REQUEST['prof_type']){
+		if($prof_type){
 			$table->setHeader(array(
-				is_show_all_nodes() ? make_sorting_header(S_NODE, 'hostid') : null,
-				make_sorting_header(S_HOST, 'host'),
-				S_GROUP,
-				make_sorting_header(S_NAME, 'pr_name'),
-				make_sorting_header(S_OS, 'pr_os'),
-				make_sorting_header(S_SERIALNO, 'pr_serialno'),
-				make_sorting_header(S_TAG, 'pr_tag'),
-				make_sorting_header(S_MACADDRESS, 'pr_macaddress'))
+				is_show_subnodes() ? make_sorting_link(S_NODE,'h.hostid') : null,
+				make_sorting_link(S_HOST,'h.host'),
+			   ($_REQUEST['groupid'] > 0)?null:make_sorting_link(S_GROUP,'g.name'),
+				make_sorting_link(S_DEVICE_OS_SHORT,'hpe.device_os_short'),
+				make_sorting_link(S_DEVICE_HW_ARCH,'hpe.device_hw_arch'),
+				make_sorting_link(S_DEVICE_TYPE,'hpe.device_type'),
+				make_sorting_link(S_DEVICE_STATUS,'hpe.device_status'))
 			);
+			
+			if($_REQUEST['groupid'] > 0){
+				$sql='SELECT DISTINCT h.hostid,h.host,hpe.device_os_short,hpe.device_hw_arch,hpe.device_type,hpe.device_status'.
+					' FROM hosts h,hosts_profiles_ext hpe,hosts_groups hg,groups g '.
+					' WHERE h.hostid=hpe.hostid '.
+						' AND h.hostid=hg.hostid '.
+						' AND hg.groupid='.$_REQUEST['groupid'].
+						' AND '.DBcondition('h.hostid',$available_hosts).
+					order_by('h.host,h.hostid,g.name,hpe.device_os_short,hpe.device_hw_arch,hpe.device_type,hpe.device_status');
+			}
+			else{
+				$sql='SELECT h.hostid,h.host,g.name,hpe.device_os_short,hpe.device_hw_arch,hpe.device_type,hpe.device_status'.
+					' FROM hosts h,hosts_profiles_ext hpe,hosts_groups hg,groups g '.
+					' WHERE h.hostid=hpe.hostid'.
+						' AND h.hostid=hg.hostid '.
+						' AND hg.groupid=g.groupid'.
+						' AND '.DBcondition('h.hostid',$available_hosts).
+					order_by('h.host,h.hostid,g.name,hpe.device_os_short,hpe.device_hw_arch,hpe.device_type,hpe.device_status');
+			}
+			$result=DBselect($sql);
+			while($row=DBfetch($result)){
+				$table->AddRow(array(
+					get_node_name_by_elid($row['hostid']),
+					new CLink($row["host"],"?hostid=".$row["hostid"].url_param("groupid").'&prof_type='.$prof_type,"action"),
+					($_REQUEST["groupid"] > 0)?null:$row["name"],
+					$row["device_os_short"],
+					$row["device_hw_arch"],
+					$row["device_type"],
+					$row["device_status"]
+				));
+			}
+
 		}
 		else{
 			$table->setHeader(array(
-				is_show_all_nodes() ? make_sorting_header(S_NODE, 'hostid') : null,
-				make_sorting_header(S_HOST, 'host'),
-				S_GROUP,
-				make_sorting_header(S_DEVICE_OS_SHORT, 'pre_device_os_short'),
-				make_sorting_header(S_DEVICE_HW_ARCH, 'pre_device_hw_arch'),
-				make_sorting_header(S_DEVICE_TYPE, 'pre_device_type'),
-				make_sorting_header(S_DEVICE_STATUS, 'pre_device_status'))
+				is_show_subnodes() ? make_sorting_link(S_NODE,'h.hostid') : null,
+				make_sorting_link(S_HOST,'h.host'),
+				make_sorting_link(S_NAME,'p.name'),
+				make_sorting_link(S_OS,'p.os'),
+				make_sorting_link(S_SERIALNO,'p.serialno'),
+				make_sorting_link(S_TAG,'p.tag'),
+				make_sorting_link(S_MACADDRESS,'p.macaddress'))
 			);
-		}
-
-		foreach($hosts as $host){
-			$host_groups = array();
-			foreach($host['groups'] as $group){
-				$host_groups[] = $group['name'];
-			}
-			natcasesort($host_groups);
-			$host_groups = implode(', ', $host_groups);
-
-			$row = array(
-				get_node_name_by_elid($host['hostid']),
-				new CLink($host['host'],'?hostid='.$host['hostid'].url_param('groupid').'&prof_type='.$_REQUEST['prof_type']),
-				$host_groups);
-			if(0 == $_REQUEST['prof_type']){
-				$row[] = $host['profile']['name'];
-				$row[] = $host['profile']['os'];
-				$row[] = $host['profile']['serialno'];
-				$row[] = $host['profile']['tag'];
-				$row[] = $host['profile']['macaddress'];
+			if($_REQUEST["groupid"] > 0){
+				$sql='SELECT h.hostid,h.host,p.name,p.os,p.serialno,p.tag,p.macaddress'.
+					' FROM hosts h,hosts_profiles p,hosts_groups hg '.
+					' WHERE h.hostid=p.hostid'.
+						' and h.hostid=hg.hostid '.
+						' and hg.groupid='.$_REQUEST['groupid'].
+						' and '.DBcondition('h.hostid',$available_hosts).
+					order_by('h.host,h.hostid,p.name,p.os,p.serialno,p.tag,p.macaddress');
 			}
 			else{
-				$row[] = $host['profile_ext']['device_os_short'];
-				$row[] = $host['profile_ext']['device_hw_arch'];
-				$row[] = $host['profile_ext']['device_type'];
-				$row[] = $host['profile_ext']['device_status'];
+				$sql='SELECT h.hostid,h.host,p.name,p.os,p.serialno,p.tag,p.macaddress'.
+					' FROM hosts h,hosts_profiles p '.
+					' WHERE h.hostid=p.hostid'.
+						' AND '.DBcondition('h.hostid',$available_hosts).
+					order_by('h.host,h.hostid,p.name,p.os,p.serialno,p.tag,p.macaddress');
+			}
+			$result=DBselect($sql);
+			while($row=DBfetch($result)){
+				$table->AddRow(array(
+					get_node_name_by_elid($row['hostid']),
+					new CLink($row["host"],'?hostid='.$row['hostid'].url_param('groupid').'&prof_type='.$prof_type,"action"),
+					$row["name"],
+					$row["os"],
+					$row["serialno"],
+					$row["tag"],
+					$row["macaddress"]
+				));
 			}
 
-			$table->addRow($row);
 		}
 
-		$table = array($paging, $table, $paging);
-		$hostprof_wdgt->addItem($table);
+		$table->show();
 	}
+?>
+<?php
 
-	$hostprof_wdgt->show();
+include_once "include/page_footer.php";
 
-
-include_once('include/page_footer.php');
 ?>

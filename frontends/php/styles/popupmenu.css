@@ -12,7 +12,6 @@
 	margin: 0px;
 }
 .pum_o_item:hover {
-	cursor:pointer;
 	text-decoration: underline;
 	background-color: #FDFDFF;
 }
@@ -32,7 +31,6 @@
 	margin: 0px;
 }
 .pum_b_submenu:hover {
-	cursor:pointer;
 	text-decoration: none;
 	background-color: #FDFDFF;
 }
@@ -46,7 +44,6 @@
 	margin: 0px;
 }
 .pum_o_submenu:hover {
-	cursor:pointer;
 	text-decoration: none;
 	background-color: #FDFDFF;
 }
@@ -56,18 +53,17 @@
 }
 
 /* menu group header */
-.pum_oheader {
+.pum_oheader { 
 	cursor: default;
 	text-decoration: none;
 	border: black 1px solid;
 	background: #5C7099 url('../images/gradients/table_head2.gif') repeat-x top left;
 	margin: 0px;
 }
-.pum_oheader:hover {
-	cursor:pointer;
+.pum_oheader:hover { 
 	text-decoration: none;
 }
-.pum_iheader {
+.pum_iheader { 
 	color: #FFFFFF;
 	font-weight: bold;
 	margin: 3px 0px 0px 8px;

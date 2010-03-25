@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -19,18 +19,16 @@
 
 #include "common.h"
 #include "checks_internal.h"
-#include "log.h"
-#include "dbcache.h"
 
 /******************************************************************************
  *                                                                            *
  * Function: get_value_internal                                               *
  *                                                                            *
- * Purpose: retrieve data from ZABBIX server (internally supported items)     *
+ * Purpose: retrieve data from ZABBIX server (internally supported intems)    *
  *                                                                            *
  * Parameters: item - item we are interested in                               *
  *                                                                            *
- * Return value: SUCCEED - data successfully retrieved and stored in result   *
+ * Return value: SUCCEED - data succesfully retrieved and stored in result    *
  *                         and result_str (as string)                         *
  *               NOTSUPPORTED - requested item is not supported               *
  *                                                                            *
@@ -39,21 +37,21 @@
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
+int	get_value_internal(DB_ITEM *item, AGENT_RESULT *result)
 {
 	zbx_uint64_t	i;
 	char		tmp[MAX_STRING_LEN], params[MAX_STRING_LEN],
-			tmp1[HOST_HOST_LEN_MAX];
+			hostname[HOST_HOST_LEN_MAX];
 	int		nparams;
 
 	init_result(result);
 
-	if (0 != strncmp(item->key, "zabbix[", 7))
+	if (0 != strncmp(item->key,"zabbix[",7))
 		goto not_supported;
 
 	if (parse_command(item->key, NULL, 0, params, sizeof(params)) != 2)
 		goto not_supported;
-
+				
 	if (get_param(params, 1, tmp, sizeof(tmp)) != 0)
 		goto not_supported;
 
@@ -143,116 +141,19 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		if (3 != nparams)
 			goto not_supported;
 
-		if (get_param(params, 2, tmp1, sizeof(tmp1)) != 0)
+		if (get_param(params, 2, hostname, sizeof(hostname)) != 0)
 			goto not_supported;
 
 		if (0 != get_param(params, 3, tmp, sizeof(tmp)))
 			goto not_supported;
 
 		if (0 == strcmp(tmp, "lastaccess")) {
-			if (FAIL == (i = DBget_proxy_lastaccess(tmp1)))
+			if (FAIL == (i = DBget_proxy_lastaccess(hostname)))
 				goto not_supported;
 		} else
 			goto not_supported;
 
 		SET_UI64_RESULT(result, i);
-	}
-	else if (0 == strcmp(tmp, "wcache"))
-	{
-		if (nparams > 3)
-			goto not_supported;
-
-		if (get_param(params, 2, tmp, sizeof(tmp)) != 0)
-			goto not_supported;
-
-		if (get_param(params, 3, tmp1, sizeof(tmp1)) != 0)
-			*tmp1 = '\0';
-
-		if (0 == strcmp(tmp, "values"))
-		{
-			if ('\0' == *tmp1 || 0 == strcmp(tmp1, "all"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_HISTORY_COUNTER))
-			else if (0 == strcmp(tmp1, "float"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_HISTORY_FLOAT_COUNTER))
-			else if (0 == strcmp(tmp1, "uint"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_HISTORY_UINT_COUNTER))
-			else if (0 == strcmp(tmp1, "str"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_HISTORY_STR_COUNTER))
-			else if (0 == strcmp(tmp1, "log"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_HISTORY_LOG_COUNTER))
-			else if (0 == strcmp(tmp1, "text"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_HISTORY_TEXT_COUNTER))
-			else
-				goto not_supported;
-		}
-		else if (0 == strcmp(tmp, "history"))
-		{
-			if ('\0' == *tmp1 || 0 == strcmp(tmp1, "pfree"))
-				SET_DBL_RESULT(result, *(double *)DCget_stats(ZBX_STATS_HISTORY_PFREE))
-			else if (0 == strcmp(tmp1, "total"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_HISTORY_TOTAL))
-			else if (0 == strcmp(tmp1, "used"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_HISTORY_USED))
-			else if (0 == strcmp(tmp1, "free"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_HISTORY_FREE))
-			else
-				goto not_supported;
-		}
-		else if (0 == strcmp(tmp, "trend"))
-		{
-			if ('\0' == *tmp1 || 0 == strcmp(tmp1, "pfree"))
-				SET_DBL_RESULT(result, *(double *)DCget_stats(ZBX_STATS_TREND_PFREE))
-			else if (0 == strcmp(tmp1, "total"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_TREND_TOTAL))
-			else if (0 == strcmp(tmp1, "used"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_TREND_USED))
-			else if (0 == strcmp(tmp1, "free"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_TREND_FREE))
-			else
-				goto not_supported;
-		}
-		else if (0 == strcmp(tmp, "text"))
-		{
-			if ('\0' == *tmp1 || 0 == strcmp(tmp1, "pfree"))
-				SET_DBL_RESULT(result, *(double *)DCget_stats(ZBX_STATS_TEXT_PFREE))
-			else if (0 == strcmp(tmp1, "total"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_TEXT_TOTAL))
-			else if (0 == strcmp(tmp1, "used"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_TEXT_USED))
-			else if (0 == strcmp(tmp1, "free"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_TEXT_FREE))
-			else
-				goto not_supported;
-		}
-		else
-			goto not_supported;
-	}
-	else if (0 == strcmp(tmp, "rcache"))
-	{
-		if (nparams > 3)
-			goto not_supported;
-
-		if (get_param(params, 2, tmp, sizeof(tmp)) != 0)
-			goto not_supported;
-
-		if (get_param(params, 3, tmp1, sizeof(tmp1)) != 0)
-			*tmp1 = '\0';
-
-		if (0 == strcmp(tmp, "buffer"))
-		{
-			if ('\0' == *tmp1 || 0 == strcmp(tmp1, "pfree"))
-				SET_DBL_RESULT(result, *(double *)DCconfig_get_stats(ZBX_CONFSTATS_BUFFER_PFREE))
-			else if (0 == strcmp(tmp1, "total"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCconfig_get_stats(ZBX_CONFSTATS_BUFFER_TOTAL))
-			else if (0 == strcmp(tmp1, "used"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCconfig_get_stats(ZBX_CONFSTATS_BUFFER_USED))
-			else if (0 == strcmp(tmp1, "free"))
-				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCconfig_get_stats(ZBX_CONFSTATS_BUFFER_FREE))
-			else
-				goto not_supported;
-		}
-		else
-			goto not_supported;
 	}
 	else
 		goto not_supported;
@@ -260,7 +161,7 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 	return SUCCEED;
 not_supported:
 	zbx_snprintf(tmp, sizeof(tmp), "Internal check [%s] is not supported",
-			item->key_orig);
+			item->key);
 	zabbix_log(LOG_LEVEL_WARNING, "%s",
 			tmp);
 

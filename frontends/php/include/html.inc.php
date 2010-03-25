@@ -19,23 +19,6 @@
 **/
 ?>
 <?php
-	function italic($str){
-		if(is_array($str)){
-			foreach($str as $key => $val)
-				if(is_string($val)){
-					$em = new CTag('em','yes');
-					$em->addItem($val);
-					$str[$key] = $em;
-				}
-		}
-		else if(is_string($str)) {
-			$em = new CTag('em','yes','');
-			$em->addItem($str);
-			$str = $em;
-		}
-	return $str;
-	}
-
 	function bold($str){
 		if(is_array($str)){
 			foreach($str as $key => $val)
@@ -53,31 +36,10 @@
 	return $str;
 	}
 
-	function make_decoration($haystack, $needle, $class=null){
-		$result = $haystack;
-
-		$pos = stripos($haystack,$needle);
-		if($pos !== FALSE){
-			$start = zbx_substring($haystack, 0, $pos);
-//			$middle = substr($haystack, $pos, zbx_strlen($needle));
-			$middle = $needle;
-			$end = substr($haystack, $pos+zbx_strlen($needle));
-
-			if(is_null($class)){
-				$result = array($start, bold($middle), $end);
-			}
-			else{
-				$result = array($start, new CSpan($middle, $class), $end);
-			}
-		}
-
-	return $result;
-	}
-
 	function bfirst($str){
 // mark first symbol of string as bold
 		$res = bold($str[0]);
-		for($i=1,$max=zbx_strlen($str); $i<$max; $i++)	$res .= $str[$i];
+		for($i=1,$max=strlen($str); $i<$max; $i++)	$res .= $str[$i];
 		$str = $res;
 		return $str;
 	}
@@ -137,14 +99,17 @@
 		return new CTag('br','no');
 	}
 
-	function create_hat($caption,$items,$addicons=null,$id=null,$state=null){
+	function create_hat($caption,$items,$addicons=null,$id=null,$state=1){
+// dirty FIX !!!!!!!!!!!!!	 FIX this one
+		global $page;
+//---------------------------------------
 		if(is_null($id)){
 			list($usec, $sec) = explode(' ',microtime());
 			$id = 'hat_'.((int)($sec % 10)).((int)($usec * 1000));
 		}
 
 		$td_l = new CCol(SPACE);
-		$td_l->setAttribute('width','100%');
+		$td_l->addOption('width','100%');
 
 		$icons_row = array($td_l);
 		if(!is_null($addicons)){
@@ -152,33 +117,91 @@
 			foreach($addicons as $value) $icons_row[] = $value;
 		}
 
-		if(!is_null($state)){
-			$icon = new CDiv(SPACE, $state?'arrowup':'arrowdown');
-			$icon->setAttribute('id',$id.'_icon');
-			$icon->addAction('onclick',new CJSscript("javascript: change_hat_state(this,'".$id."');"));
-			$icon->setAttribute('title',S_SHOW.'/'.S_HIDE);
+		$icon = new CDiv(SPACE,($state)?'arrowup':'arrowdown');
+		$icon->addAction('onclick',new CScript("javascript: change_hat_state(this,'".$id."');"));
+		$icon->addOption('title',S_SHOW.'/'.S_HIDE);
+
+// dirty FIX !!!!!!!!!!!!!	 FIX this one
+		global $page;
+		if(!str_in_array($page['file'],array('charts.php','screens.php')))
 			$icons_row[] = $icon;
-		}
-		else{
-			$state = true;
-		}
+//---------------------------------------
+//		$icons_row[] = $icon;
 
 		$icon_tab = new CTable();
-		$icon_tab->setAttribute('width','100%');
+		$icon_tab->addOption('width','100%');
 
 		$icon_tab->addRow($icons_row);
 
 		$table = new CTable();
-		$table->setAttribute('width','100%');
+		$table->addOption('width','100%');
 		$table->setCellPadding(0);
 		$table->setCellSpacing(0);
 		$table->addRow(get_table_header($caption,$icon_tab));
 
 		$div = new CDiv($items);
-		$div->setAttribute('id',$id);
-		if(!$state) $div->setAttribute('style','display: none;');
+		$div->addOption('id',$id);
+		if(!$state) $div->AddOption('style','display: none;');
 
 		$table->addRow($div);
+	return $table;
+	}
+
+	function create_filter($col_l,$col_r,$items,$id='zbx_filter',$state=1){
+
+		if(isset($_REQUEST['print'])) $state = 0;
+
+		$table = new CTable();
+		$table->AddOption('width','100%');
+		$table->SetCellPadding(0);
+		$table->SetCellSpacing(0);
+		$table->AddOption('border',0);
+
+		$icon = new CDiv(SPACE,($state)?'filteropened':'filterclosed');
+		$icon->AddAction('onclick',new CScript("javascript: change_filter_state(this,'".$id."');"));
+		$icon->AddOption('title',S_MAXIMIZE.'/'.S_MINIMIZE);
+		$icon->AddAction('id','filter_icon');
+
+		$td_icon = new CCol($icon);
+		$td_icon->AddOption('valign','bottom');
+
+		$icons_row = array($td_icon,SPACE);
+		$icons_row[] = $col_l;
+
+		$icon_tab = new CTable();
+		$icon_tab->SetCellSpacing(0);
+		$icon_tab->SetCellPadding(0);
+
+		$icon_tab->AddRow($icons_row);
+
+		$table->AddRow(get_thin_table_header($icon_tab,$col_r));
+
+		$div = new CDiv($items);
+		$div->AddOption('id',$id);
+		if(!$state) $div->AddOption('style','display: none;');
+
+		$tab = new CTable();
+		$tab->AddRow($div);
+
+//		$table->AddRow($tab);
+		$table->AddRow($div);
+	return $table;
+	}
+
+	function create_filter_hat($col_l,$col_r,$items,$id,$state=1){
+
+		$table = new CTable(NULL,"filter");
+		$table->SetCellSpacing(0);
+		$table->SetCellPadding(1);
+
+
+
+		$td_l = new CCol($icon_tab,"filter_l");
+
+		$td_r = new CCol($col_r,"filter_r");
+		$td_r->AddOption('align','right');
+
+		$table->AddRow(array($td_l, $td_r));
 	return $table;
 	}
 
@@ -199,11 +222,9 @@
 			}
 		}
 		else if(is_object($obj)){
-			$formObjects = array('cform','ccheckbox','cselect','cbutton','cbuttonqmessage','cbuttondelete','cbuttoncancel');
-			if(is_object($obj) && str_in_array(zbx_strtolower(get_class($obj)), $formObjects)){
+			if(str_in_array(strtolower(get_class($obj)),array('cform','ccheckbox','cselect','cbutton','cbuttonqmessage','cbuttondelete','cbuttoncancel'))){
 				$obj=SPACE;
 			}
-
 			if(isset($obj->items) && !empty($obj->items)){
 				foreach($obj->items as $id => $item){
 					hide_form_items($obj->items[$id]); 		// Recursion
@@ -212,34 +233,26 @@
 		}
 		else{
 			foreach(array('<form','<input','<select') as $item){
-				if(zbx_strpos($obj,$item) !== FALSE) $obj = SPACE;
+				if(strpos($obj,$item) !== FALSE) $obj = SPACE;
 			}
 		}
 	}
 
-	function get_thin_table_header($col1, $col2=NULL){
+	function get_thin_table_header($col1, $col2=SPACE){
 
-		$table = new CTable(NULL,'thin_header');
-//		$table->setAttribute('border',1);
-		$table->setCellSpacing(0);
-		$table->setCellPadding(1);
+		$table = new CTable(NULL,"filter");
+//		$table->AddOption('border',1);
+		$table->SetCellSpacing(0);
+		$table->SetCellPadding(1);
 
-		if(!is_null($col2)){
-			$td_r = new CCol($col2,'thin_header_r');
-			$td_r->setAttribute('align','right');
-			$table->addRow(array(new CCol($col1,'thin_header_l'), $td_r));
-		}
-		else{
-			$td_c = new CCol($col1,'thin_header_c');
-			$td_c->setAttribute('align','center');
+		$td_r = new CCol($col2,"filter_r");
+		$td_r->AddOption('align','right');
 
-			$table->addRow($td_c);
-		}
-
+		$table->AddRow(array(new CCol($col1,"filter_l"), $td_r));
 	return $table;
 	}
 
-	function show_thin_table_header($col1, $col2=NULL){
+	function	show_thin_table_header($col1, $col2=SPACE){
 		$table = get_thin_table_header($col1, $col2);
 		$table->Show();
 	}
@@ -249,39 +262,23 @@
 			hide_form_items($col1);
 			hide_form_items($col2);
 		//if empty header than do not show it
-			if(($col1 == SPACE) && ($col2 == SPACE)) return new CJSscript('');
+			if(($col1 == SPACE) && ($col2 == SPACE)) return new CScript('');
 		}
 
-		$td_l = new CCol(SPACE,'header_r');
-		$td_l->setAttribute('width','100%');
+		$table = new CTable(NULL,"header");
+//		$table->AddOption('border',1);
+		$table->SetCellSpacing(0);
+		$table->SetCellPadding(1);
 
-		$right_row = array($td_l);
+		$td_r = new CCol($col2,"header_r");
+		$td_r->AddOption('align','right');
 
-		if(!is_null($col2)){
-			if(!is_array($col2)) $col2 = array($col2);
-
-			foreach($col2 as $num => $r_item)
-				$right_row[] = new CCol($r_item,'header_r');
-		}
-
-		$right_tab = new CTable(null,'nowrap');
-		$right_tab->setAttribute('width','100%');
-
-		$right_tab->addRow($right_row);
-
-		$table = new CTable(NULL,'header');
-//		$table->setAttribute('border',0);
-		$table->setCellSpacing(0);
-		$table->setCellPadding(1);
-
-		$td_r = new CCol($right_tab,'header_r');
-		$td_r->setAttribute('align','right');
-
-		$table->addRow(array(new CCol($col1,'header_l'), $td_r));
+		$table->AddRow(array(new CCol($col1,"header_l"), $td_r));
 	return $table;
 	}
 
-	function show_table_header($col1, $col2=SPACE){
+	function	show_table_header($col1, $col2=SPACE)
+	{
 		$table = get_table_header($col1, $col2);
 		$table->Show();
 	}

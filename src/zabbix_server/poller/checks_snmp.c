@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -18,7 +18,6 @@
 **/
 
 #include "checks_snmp.h"
-#include "comms.h"
 
 #ifdef HAVE_SNMP
 
@@ -41,7 +40,7 @@ static int		snmpidx_count = 0, snmpidx_alloc = 16;
  *                                                                            *
  * Return value: index of new record                                          *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alekasander Vladishev                                              *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -92,7 +91,7 @@ end:
  *                                                                            *
  * Purpose:                                                                   *
  *                                                                            *
- * Parameters:                                                                *
+ * Parameters:                                                                * 
  *                                                                            *
  * Return value: -                                                            *
  ******************************************************************************/
@@ -131,7 +130,7 @@ end:
  *                                                                            *
  * Purpose:                                                                   *
  *                                                                            *
- * Parameters:                                                                *
+ * Parameters:                                                                * 
  *                                                                            *
  * Return value: -                                                            *
  ******************************************************************************/
@@ -176,7 +175,7 @@ end:
  *                                                                            *
  * Purpose:                                                                   *
  *                                                                            *
- * Parameters:                                                                *
+ * Parameters:                                                                * 
  *                                                                            *
  * Return value: -                                                            *
  ******************************************************************************/
@@ -209,168 +208,6 @@ end:
 			__function_name);
 }
 
-/******************************************************************************
- * Function: snmp_open_session                                                *
- *                                                                            *
- * Purpose:                                                                   *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value: -                                                            *
- ******************************************************************************/
-static struct snmp_session	*snmp_open_session(DC_ITEM *item, char *err)
-{
-	const char		*__function_name = "snmp_open_session";
-	struct snmp_session	session, *ss;
-	char			addr[128], *conn;
-#ifdef HAVE_IPV6
-	int			family;
-#endif	/* HAVE_IPV6 */
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
-
-	snmp_sess_init(&session);
-
-	if (item->type == ITEM_TYPE_SNMPv1)
-		session.version = SNMP_VERSION_1;
-	else if(item->type == ITEM_TYPE_SNMPv2c)
-		session.version = SNMP_VERSION_2c;
-	else if(item->type == ITEM_TYPE_SNMPv3)
-		session.version = SNMP_VERSION_3;
-	else
-		/* this should never happen */;
-
-	conn = item->host.useip == 1 ? item->host.ip : item->host.dns;
-
-#ifdef HAVE_IPV6
-	if (SUCCEED != get_address_family(conn, &family, err, MAX_STRING_LEN))
-		return NULL;
-
-	if (family == PF_INET)
-		zbx_snprintf(addr, sizeof(addr), "%s:%d", conn, item->snmp_port);
-	else
-		zbx_snprintf(addr, sizeof(addr), "udp6:[%s]:%d", conn, item->snmp_port);
-#else
-	zbx_snprintf(addr, sizeof(addr), "%s:%d", conn, item->snmp_port);
-#endif	/* HAVE_IPV6 */
-	session.peername = addr;
-	session.remote_port = item->snmp_port;
-
-	if (session.version == SNMP_VERSION_1 || session.version == SNMP_VERSION_2c)
-	{
-		session.community = (u_char *)item->snmp_community;
-		session.community_len = strlen((void *)session.community);
-		zabbix_log(LOG_LEVEL_DEBUG, "SNMP [%s@%s:%d]",
-				session.community,
-				session.peername,
-				session.remote_port);
-	}
-	else if (session.version == SNMP_VERSION_3)
-	{
-		/* set the SNMPv3 user name */
-		session.securityName = item->snmpv3_securityname;
-		session.securityNameLen = strlen(session.securityName);
-
-		/* set the security level to authenticated, but not encrypted */
-		if (item->snmpv3_securitylevel == ITEM_SNMPV3_SECURITYLEVEL_NOAUTHNOPRIV)
-		{
-			session.securityLevel = SNMP_SEC_LEVEL_NOAUTH;
-		}
-		else if (item->snmpv3_securitylevel == ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV)
-		{
-			session.securityLevel = SNMP_SEC_LEVEL_AUTHNOPRIV;
-
-			/* set the authentication method to MD5 */
-			session.securityAuthProto = usmHMACMD5AuthProtocol;
-			session.securityAuthProtoLen = USM_AUTH_PROTO_MD5_LEN;
-			session.securityAuthKeyLen = USM_AUTH_KU_LEN;
-
-			if (SNMPERR_SUCCESS != generate_Ku(session.securityAuthProto,
-					session.securityAuthProtoLen,
-					(u_char *)item->snmpv3_authpassphrase,
-					strlen(item->snmpv3_authpassphrase),
-					session.securityAuthKey,
-					&session.securityAuthKeyLen))
-			{
-				zbx_snprintf(err, MAX_STRING_LEN, "Error generating Ku from authentication pass phrase");
-				return NULL;
-			}
-		}
-		else if (item->snmpv3_securitylevel == ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV)
-		{
-			session.securityLevel = SNMP_SEC_LEVEL_AUTHPRIV;
-
-			/* set the authentication method to MD5 */
-			session.securityAuthProto = usmHMACMD5AuthProtocol;
-			session.securityAuthProtoLen = USM_AUTH_PROTO_MD5_LEN;
-			session.securityAuthKeyLen = USM_AUTH_KU_LEN;
-
-			if (SNMPERR_SUCCESS != generate_Ku(session.securityAuthProto,
-					session.securityAuthProtoLen,
-					(u_char *)item->snmpv3_authpassphrase,
-					strlen(item->snmpv3_authpassphrase),
-					session.securityAuthKey,
-					&session.securityAuthKeyLen))
-			{
-				zbx_snprintf(err, MAX_STRING_LEN, "Error generating Ku from authentication pass phrase");
-				return NULL;
-			}
-
-			/* set the private method to DES */
-			session.securityPrivProto = usmDESPrivProtocol;
-			session.securityPrivProtoLen = USM_PRIV_PROTO_DES_LEN;
-			session.securityPrivKeyLen = USM_PRIV_KU_LEN;
-
-			if (SNMPERR_SUCCESS != generate_Ku(session.securityAuthProto,
-					session.securityAuthProtoLen,
-					(u_char *)item->snmpv3_privpassphrase,
-					strlen(item->snmpv3_privpassphrase),
-					session.securityPrivKey,
-					&session.securityPrivKeyLen))
-			{
-				zbx_snprintf(err, MAX_STRING_LEN, "Error generating Ku from priv pass phrase");
-				return NULL;
-			}
-		}
-		zabbix_log(LOG_LEVEL_DEBUG, "SNMPv3 [%s@%s:%d]",
-				session.securityName,
-				session.peername,
-				session.remote_port);
-	}
-
-#ifdef HAVE_SNMP_SESSION_LOCALNAME
-	if (NULL != CONFIG_SOURCE_IP)
-		session.localname = CONFIG_SOURCE_IP;
-#endif
-
-	SOCK_STARTUP;
-	ss = snmp_open(&session);
-
-	if (ss == NULL)
-	{
-		SOCK_CLEANUP;
-
-		zbx_snprintf(err, MAX_STRING_LEN, "Error doing snmp_open()");
-		return NULL;
-	}
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
-
-	return ss;
-}
-
-static void	snmp_close_session(struct snmp_session *session)
-{
-	const char *__function_name = "snmp_close_session";
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
-
-	snmp_close(session);
-	SOCK_CLEANUP;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
-}
-
 /* Function: snmp_get_index                                                   *
  *                                                                            *
  * Purpose: find index of OID with given value                                *
@@ -384,9 +221,10 @@ static void	snmp_close_session(struct snmp_session *session)
  *                NETWORK_ERROR - recoverable network error                   *
  *                SUCCEED - success, variable 'idx' contains index having     *
  *                          value 'value'                                     */
-static int snmp_get_index(struct snmp_session *ss, DC_ITEM * item, char *OID, char *value, int *idx, char *err, int bulk)
+static int snmp_get_index(DB_ITEM * item, char *OID, char *value, int *idx, char *err, int bulk)
 {
 	const char *__function_name = "snmp_get_index";
+	struct snmp_session session, *ss;
 	struct snmp_pdu *pdu;
 	struct snmp_pdu *response;
 
@@ -395,7 +233,7 @@ static int snmp_get_index(struct snmp_session *ss, DC_ITEM * item, char *OID, ch
 	size_t anOID_len = MAX_OID_LEN;
 	size_t rootOID_len = MAX_OID_LEN;
 
-	char temp[MAX_STRING_LEN], *conn;
+	char temp[MAX_STRING_LEN];
 	char strval[MAX_STRING_LEN];
 	struct variable_list *vars;
 
@@ -411,6 +249,133 @@ static int snmp_get_index(struct snmp_session *ss, DC_ITEM * item, char *OID, ch
 
 	*idx = 0;
 	*err = '\0';
+
+	assert(item->type == ITEM_TYPE_SNMPv1 || item->type == ITEM_TYPE_SNMPv2c || item->type == ITEM_TYPE_SNMPv3);
+
+	snmp_sess_init (&session);
+
+	if (item->type == ITEM_TYPE_SNMPv1)
+		session.version = SNMP_VERSION_1;
+	else if(item->type == ITEM_TYPE_SNMPv2c)
+		session.version = SNMP_VERSION_2c;
+	else if(item->type == ITEM_TYPE_SNMPv3)
+		session.version = SNMP_VERSION_3;
+	else
+		/* this should never happen */;
+
+	if (item->useip == 1)
+	{
+		zbx_snprintf (temp, sizeof (temp), "%s:%d", item->host_ip,
+					  item->snmp_port);
+		session.peername = temp;
+		session.remote_port = item->snmp_port;
+	}
+	else
+	{
+		zbx_snprintf (temp, sizeof (temp), "%s:%d",
+					  item->host_dns, item->snmp_port);
+		session.peername = temp;
+		session.remote_port = item->snmp_port;
+	}
+
+	if (session.version == SNMP_VERSION_1 || item->type == ITEM_TYPE_SNMPv2c)
+	{
+		session.community = (u_char *) item->snmp_community;
+		session.community_len = strlen ((void *) session.community);
+		zabbix_log (LOG_LEVEL_DEBUG, "SNMP [%s@%s:%d]",
+					session.community, session.peername, session.remote_port);
+	}
+	else if (session.version == SNMP_VERSION_3)
+	{
+		/* set the SNMPv3 user name */
+		session.securityName = item->snmpv3_securityname;
+		session.securityNameLen = strlen (session.securityName);
+
+		/* set the security level to authenticated, but not encrypted */
+
+		if (item->snmpv3_securitylevel ==
+			ITEM_SNMPV3_SECURITYLEVEL_NOAUTHNOPRIV)
+		{
+			session.securityLevel = SNMP_SEC_LEVEL_NOAUTH;
+		}
+		else if (item->snmpv3_securitylevel ==
+				 ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV)
+		{
+			session.securityLevel = SNMP_SEC_LEVEL_AUTHNOPRIV;
+
+			/* set the authentication method to MD5 */
+			session.securityAuthProto = usmHMACMD5AuthProtocol;
+			session.securityAuthProtoLen = USM_AUTH_PROTO_MD5_LEN;
+			session.securityAuthKeyLen = USM_AUTH_KU_LEN;
+
+			if (generate_Ku (session.securityAuthProto,
+							 session.securityAuthProtoLen,
+							 (u_char *) item->snmpv3_authpassphrase,
+							 strlen (item->snmpv3_authpassphrase),
+							 session.securityAuthKey,
+							 &session.securityAuthKeyLen) != SNMPERR_SUCCESS)
+			{
+				zbx_snprintf(err, MAX_STRING_LEN, "Error generating Ku from authentication pass phrase");
+				return NOTSUPPORTED;
+			}
+		}
+		else if (item->snmpv3_securitylevel ==
+				 ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV)
+		{
+			session.securityLevel = SNMP_SEC_LEVEL_AUTHPRIV;
+
+			/* set the authentication method to MD5 */
+			session.securityAuthProto = usmHMACMD5AuthProtocol;
+			session.securityAuthProtoLen = USM_AUTH_PROTO_MD5_LEN;
+			session.securityAuthKeyLen = USM_AUTH_KU_LEN;
+
+			if (generate_Ku (session.securityAuthProto,
+							 session.securityAuthProtoLen,
+							 (u_char *) item->snmpv3_authpassphrase,
+							 strlen (item->snmpv3_authpassphrase),
+							 session.securityAuthKey,
+							 &session.securityAuthKeyLen) != SNMPERR_SUCCESS)
+			{
+				zbx_snprintf(err, MAX_STRING_LEN, "Error generating Ku from authentication pass phrase");
+				return NOTSUPPORTED;
+			}
+
+			/* set the private method to DES */
+			session.securityPrivProto = usmDESPrivProtocol;
+			session.securityPrivProtoLen = USM_PRIV_PROTO_DES_LEN;
+			session.securityPrivKeyLen = USM_PRIV_KU_LEN;
+
+			if (generate_Ku (session.securityAuthProto,
+							 session.securityAuthProtoLen,
+							 (u_char *) item->snmpv3_privpassphrase,
+							 strlen (item->snmpv3_privpassphrase),
+							 session.securityPrivKey,
+							 &session.securityPrivKeyLen) != SNMPERR_SUCCESS)
+			{
+				zbx_snprintf(err, MAX_STRING_LEN, "Error generating Ku from priv pass phrase");
+				return NOTSUPPORTED;
+			}
+		}
+		zabbix_log (LOG_LEVEL_DEBUG, "SNMPv3 [%s@%s:%d]",
+					session.securityName,
+					session.peername, session.remote_port);
+	}
+
+#ifdef HAVE_SNMP_SESSION_LOCALNAME
+	if (NULL != CONFIG_SOURCE_IP)
+		session.localname = CONFIG_SOURCE_IP;
+#endif
+
+	SOCK_STARTUP;
+	ss = snmp_open (&session);
+
+	if (ss == NULL)
+	{
+		SOCK_CLEANUP;
+
+		zbx_snprintf(err, MAX_STRING_LEN, "Error doing snmp_open()");
+		return NOTSUPPORTED;
+	}
 
 	/* create OID from string */
 	snmp_parse_oid (OID, rootOID, &rootOID_len);
@@ -499,9 +464,8 @@ static int snmp_get_index(struct snmp_session *ss, DC_ITEM * item, char *OID, ch
 			}
 			else if(status == STAT_TIMEOUT)
 			{
-				conn = item->host.useip == 1 ? item->host.ip : item->host.dns;
-				zbx_snprintf(err, MAX_STRING_LEN, "Timeout while connecting to [%s:%d]",
-						conn, item->snmp_port);
+				zbx_snprintf(err, MAX_STRING_LEN, "Timeout while connecting to [%s]",
+						session.peername);
 				running = 0;
 				ret = NETWORK_ERROR;
 			}
@@ -520,29 +484,177 @@ static int snmp_get_index(struct snmp_session *ss, DC_ITEM * item, char *OID, ch
 		}
 	}						/* while(running) */
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s",
-			__function_name,
-			zbx_result_string(ret));
+	snmp_close(ss);
+
+	SOCK_CLEANUP;
+
+	zabbix_log(LOG_LEVEL_DEBUG, "%s: end", __function_name);
 
 	return ret;
 }
 
 
-int	get_snmp(struct snmp_session *ss, DC_ITEM *item, char *snmp_oid, AGENT_RESULT *value)
+int	get_snmp(DB_ITEM *item, char *snmp_oid, AGENT_RESULT *value)
 {
-	const char		*__function_name = "get_snmp";
-	struct snmp_pdu		*pdu, *response;
-	char			temp[MAX_STRING_LEN], *ptemp, *conn;
-	oid			anOID[MAX_OID_LEN];
-	size_t			anOID_len = MAX_OID_LEN;
-	struct variable_list	*vars;
-	int			status, ret = SUCCEED;
+	const char *__function_name = "get_snmp";
+
+	#define NEW_APPROACH
+
+	struct snmp_session session, *ss;
+	struct snmp_pdu *pdu;
+	struct snmp_pdu *response;
+
+	char temp[MAX_STRING_LEN];
+
+	oid anOID[MAX_OID_LEN];
+	size_t anOID_len = MAX_OID_LEN;
+
+	struct variable_list *vars;
+	int status;
+
+	int ret=SUCCEED;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s(oid:%s)",
 			__function_name,
 			snmp_oid);
 
 	init_result(value);
+
+	assert(item->type == ITEM_TYPE_SNMPv1 || item->type == ITEM_TYPE_SNMPv2c || item->type == ITEM_TYPE_SNMPv3);
+
+	snmp_sess_init( &session );
+
+	if (item->type == ITEM_TYPE_SNMPv1)
+		session.version = SNMP_VERSION_1;
+	else if(item->type == ITEM_TYPE_SNMPv2c)
+		session.version = SNMP_VERSION_2c;
+	else if(item->type == ITEM_TYPE_SNMPv3)
+		session.version = SNMP_VERSION_3;
+	else
+		/* this should never happen */;
+
+	if (item->useip == 1)
+	{
+	#ifdef NEW_APPROACH
+		zbx_snprintf(temp,sizeof(temp),"%s:%d",
+			item->host_ip,
+			item->snmp_port);
+		session.peername = temp;
+		session.remote_port = item->snmp_port;
+	#else
+		session.peername = item->host_ip;
+		session.remote_port = item->snmp_port;
+	#endif
+	}
+	else
+	{
+	#ifdef NEW_APPROACH
+		zbx_snprintf(temp, sizeof(temp), "%s:%d",
+			item->host_dns,
+			item->snmp_port);
+		session.peername = temp;
+		session.remote_port = item->snmp_port;
+	#else
+		session.peername = item->host_dns;
+		session.remote_port = item->snmp_port;
+	#endif
+	}
+
+	if (session.version == SNMP_VERSION_1 || item->type == ITEM_TYPE_SNMPv2c)
+	{
+		session.community = (u_char *)item->snmp_community;
+		session.community_len = strlen((void *)session.community);
+		zabbix_log( LOG_LEVEL_DEBUG, "SNMP [%s@%s:%d]",
+			session.community,
+			session.peername,
+			session.remote_port);
+	}
+	else if (session.version == SNMP_VERSION_3)
+	{
+		/* set the SNMPv3 user name */
+		session.securityName = item->snmpv3_securityname;
+		session.securityNameLen = strlen(session.securityName);
+
+		/* set the security level to authenticated, but not encrypted */
+
+		if(item->snmpv3_securitylevel == ITEM_SNMPV3_SECURITYLEVEL_NOAUTHNOPRIV)
+		{
+			session.securityLevel = SNMP_SEC_LEVEL_NOAUTH;
+		}
+		else if(item->snmpv3_securitylevel == ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV)
+		{
+			session.securityLevel = SNMP_SEC_LEVEL_AUTHNOPRIV;
+			
+			/* set the authentication method to MD5 */
+			session.securityAuthProto = usmHMACMD5AuthProtocol;
+			session.securityAuthProtoLen = USM_AUTH_PROTO_MD5_LEN;
+			session.securityAuthKeyLen = USM_AUTH_KU_LEN;
+
+			if (generate_Ku(session.securityAuthProto,
+				session.securityAuthProtoLen,
+				(u_char *) item->snmpv3_authpassphrase, strlen(item->snmpv3_authpassphrase),
+				session.securityAuthKey,
+				&session.securityAuthKeyLen) != SNMPERR_SUCCESS)
+			{
+				SET_MSG_RESULT(value, zbx_dsprintf(NULL, "Error generating Ku from authentication pass phrase"));
+				return NOTSUPPORTED;
+			}
+		}
+		else if(item->snmpv3_securitylevel == ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV)
+		{
+			session.securityLevel = SNMP_SEC_LEVEL_AUTHPRIV;
+
+			/* set the authentication method to MD5 */
+			session.securityAuthProto = usmHMACMD5AuthProtocol;
+			session.securityAuthProtoLen = USM_AUTH_PROTO_MD5_LEN;
+			session.securityAuthKeyLen = USM_AUTH_KU_LEN;
+
+			if (generate_Ku(session.securityAuthProto,
+				session.securityAuthProtoLen,
+				(u_char *) item->snmpv3_authpassphrase, strlen(item->snmpv3_authpassphrase),
+				session.securityAuthKey,
+				&session.securityAuthKeyLen) != SNMPERR_SUCCESS)
+			{
+				SET_MSG_RESULT(value, zbx_dsprintf(NULL, "Error generating Ku from authentication pass phrase"));
+				return NOTSUPPORTED;
+			}
+			
+			/* set the private method to DES */
+			session.securityPrivProto = usmDESPrivProtocol;
+    			session.securityPrivProtoLen = USM_PRIV_PROTO_DES_LEN;
+			session.securityPrivKeyLen = USM_PRIV_KU_LEN;
+			
+			if (generate_Ku(session.securityAuthProto,
+				session.securityAuthProtoLen,
+		                (u_char *) item->snmpv3_privpassphrase, strlen(item->snmpv3_privpassphrase),
+				session.securityPrivKey,
+				&session.securityPrivKeyLen) != SNMPERR_SUCCESS) 
+			{
+				SET_MSG_RESULT(value, zbx_dsprintf(NULL, "Error generating Ku from priv pass phrase"));
+				return NOTSUPPORTED;
+			}
+		}
+		zabbix_log( LOG_LEVEL_DEBUG, "SNMPv3 [%s@%s:%d]",
+			session.securityName,
+			session.peername,
+			session.remote_port);
+	}
+
+#ifdef HAVE_SNMP_SESSION_LOCALNAME
+	if (NULL != CONFIG_SOURCE_IP)
+		session.localname = CONFIG_SOURCE_IP;
+#endif
+
+	SOCK_STARTUP;
+	ss = snmp_open(&session);
+
+	if(ss == NULL)
+	{
+		SOCK_CLEANUP;
+
+		SET_MSG_RESULT(value, zbx_dsprintf(NULL, "Error doing snmp_open()"));
+		return NOTSUPPORTED;
+	}
 
 	pdu = snmp_pdu_create(SNMP_MSG_GET);
 /* Changed to snmp_parse_oid */
@@ -556,86 +668,120 @@ int	get_snmp(struct snmp_session *ss, DC_ITEM *item, char *snmp_oid, AGENT_RESUL
 #endif
 
 	snmp_add_null_var(pdu, anOID, anOID_len);
-
+  
 	status = snmp_synch_response(ss, pdu, &response);
 	zabbix_log( LOG_LEVEL_DEBUG, "Status send [%d]", status);
 
 	if (status == STAT_SUCCESS && response->errstat == SNMP_ERR_NOERROR)
 	{
-		for (vars = response->variables; vars; vars = vars->next_variable)
+		for(vars = response->variables; vars; vars = vars->next_variable)
 		{
 			memset(temp, '\0', sizeof(temp));
 			snprint_value(temp, sizeof(temp) - 1, vars->name, vars->name_length, vars);
-			zabbix_log(LOG_LEVEL_DEBUG, "AV loop OID [%s] Type [0x%02X] '%s'",
+			zabbix_log(LOG_LEVEL_DEBUG, "AV loop OID [%s] Type [0x%02X] %s",
 					snmp_oid, vars->type, temp);
 
 			if (vars->type == ASN_OCTET_STR)
 			{
 				if (0 == strncmp(temp, "STRING: ", 8))
-					ptemp = temp + 8;
+				{
+					SET_STR_RESULT(value, strdup(temp + 8));
+				}
 				else if (0 == strncmp(temp, "Hex-STRING: ", 12))
-					ptemp = temp + 12;
+				{
+					SET_STR_RESULT(value, strdup(temp + 12));
+				}
 				else
-					ptemp = temp;
-				if (FAIL == set_result_type(value, item->value_type, item->data_type, ptemp))
-					ret = NOTSUPPORTED;
+				{
+					SET_STR_RESULT(value, strdup(temp));
+				}
 			}
-			else if (vars->type == ASN_UINTEGER || vars->type == ASN_COUNTER ||
+			else if((vars->type == ASN_UINTEGER)||
+				(vars->type == ASN_COUNTER) ||
 #ifdef OPAQUE_SPECIAL_TYPES
-					vars->type == ASN_UNSIGNED64 ||
+				(vars->type == ASN_UNSIGNED64) ||
 #endif
-					vars->type == ASN_TIMETICKS || vars->type == ASN_GAUGE)
+				(vars->type == ASN_TIMETICKS) ||
+				(vars->type == ASN_GAUGE)
+			)
 			{
+/*				*result=(long)*vars->val.integer;*/
+				/*
+				 * This solves situation when large numbers are stored as negative values
+				 * http://sourceforge.net/tracker/index.php?func=detail&aid=700145&group_id=23494&atid=378683
+				 */ 
+				/*zbx_snprintf(result_str,sizeof(result_str),"%ld",(long)*vars->val.integer);*/
+/*				zbx_snprintf(result_str,sizeof(result_str),"%lu",(long)*vars->val.integer);*/
+
+				/* Not correct. Returns huge values. */
+/*				SET_UI64_RESULT(value, (zbx_uint64_t)*vars->val.integer);*/
 				SET_UI64_RESULT(value, (unsigned long)*vars->val.integer);
+				zabbix_log( LOG_LEVEL_DEBUG, "OID [%s] Type [%d] UI64[" ZBX_FS_UI64 "]",
+					snmp_oid,
+					vars->type,
+					(zbx_uint64_t)*vars->val.integer);
+				zabbix_log( LOG_LEVEL_DEBUG, "OID [%s] Type [%d] ULONG[%lu]",
+					snmp_oid,
+					vars->type,
+					(zbx_uint64_t)(unsigned long)*vars->val.integer);
 			}
-			else if (vars->type == ASN_COUNTER64)
+			else if(vars->type == ASN_COUNTER64)
 			{
 				/* Incorrect code for 32 bit platforms */
 /*				SET_UI64_RESULT(value, ((vars->val.counter64->high)<<32)+(vars->val.counter64->low));*/
-				SET_UI64_RESULT(value, (((zbx_uint64_t)vars->val.counter64->high) << 32) +
-						(zbx_uint64_t)vars->val.counter64->low);
+				SET_UI64_RESULT(value, (((zbx_uint64_t)vars->val.counter64->high)<<32)+((zbx_uint64_t)vars->val.counter64->low));
 			}
-			else if (vars->type == ASN_INTEGER ||
+			else if(vars->type == ASN_INTEGER
+#define ASN_FLOAT           (ASN_APPLICATION | 8)
+#define ASN_DOUBLE          (ASN_APPLICATION | 9)
+
 #ifdef OPAQUE_SPECIAL_TYPES
-					vars->type == ASN_INTEGER64
+				|| (vars->type == ASN_INTEGER64)
 #endif
-					)
+			)
 			{
 				/* Negative integer values are converted to double */
-				if (*vars->val.integer < 0)
-					SET_DBL_RESULT(value, (double)*vars->val.integer)
+				if(*vars->val.integer<0)
+				{
+					SET_DBL_RESULT(value, (double)*vars->val.integer);
+				}
 				else
-					SET_UI64_RESULT(value, (zbx_uint64_t)*vars->val.integer)
+				{
+					SET_UI64_RESULT(value, (zbx_uint64_t)*vars->val.integer);
+				}
 			}
 #ifdef OPAQUE_SPECIAL_TYPES
-			else if (vars->type == ASN_FLOAT)
+			else if(vars->type == ASN_FLOAT)
 			{
-				SET_DBL_RESULT(value, *vars->val.floatVal)
+				SET_DBL_RESULT(value, *vars->val.floatVal);
 			}
-			else if (vars->type == ASN_DOUBLE)
+			else if(vars->type == ASN_DOUBLE)
 			{
-				SET_DBL_RESULT(value, *vars->val.doubleVal)
+				SET_DBL_RESULT(value, *vars->val.doubleVal);
 			}
 #endif
-			else if (vars->type == ASN_IPADDRESS)
+			else if(vars->type == ASN_IPADDRESS)
 			{
 				SET_STR_RESULT(value, zbx_dsprintf(NULL, "%d.%d.%d.%d",
 						vars->val.string[0],
 						vars->val.string[1],
 						vars->val.string[2],
-						vars->val.string[3]))
+						vars->val.string[3]));
 			}
 			else
 			{
 				SET_MSG_RESULT(value, zbx_dsprintf(NULL, "OID [%s] value has unknown type [0x%02X]",
 						snmp_oid,
 						vars->type));
-				ret = NOTSUPPORTED;
 			}
-
-			if (SUCCEED == ret)
-				break;
 		}
+
+		if (ISSET_RESULT(value))
+		{
+			UNSET_MSG_RESULT(value);
+		}
+		else
+			ret = NOTSUPPORTED;
 	}
 	else
 	{
@@ -647,9 +793,8 @@ int	get_snmp(struct snmp_session *ss, DC_ITEM *item, char *snmp_oid, AGENT_RESUL
 		}
 		else if(status == STAT_TIMEOUT)
 		{
-			conn = item->host.useip == 1 ? item->host.ip : item->host.dns;
-			SET_MSG_RESULT(value, zbx_dsprintf(NULL, "Timeout while connecting to [%s:%d]",
-					conn, item->snmp_port));
+			SET_MSG_RESULT(value, zbx_dsprintf(NULL, "Timeout while connecting to [%s]",
+					session.peername));
 			ret = NETWORK_ERROR;
 		}
 		else
@@ -661,12 +806,12 @@ int	get_snmp(struct snmp_session *ss, DC_ITEM *item, char *snmp_oid, AGENT_RESUL
 	}
 
 	if (response)
+	{
 		snmp_free_pdu(response);
+	}
+	snmp_close(ss);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s",
-			__function_name,
-			zbx_result_string(ret));
-
+	SOCK_CLEANUP;
 	return ret;
 }
 
@@ -737,7 +882,7 @@ static ZBX_MIB_NORM mibs[]=
 					mibs[i].replace,
 					oid + sz);
 			break;
-		}
+		} 
 	}
 	if (0 == found)
 		zbx_strlcpy(buf, oid, maxlen);
@@ -747,10 +892,9 @@ static ZBX_MIB_NORM mibs[]=
 			buf);
 }
 
-int	get_value_snmp(DC_ITEM *item, AGENT_RESULT *value)
+int	get_value_snmp(DB_ITEM *item, AGENT_RESULT *value)
 {
-	const char		*__function_name = "get_value_snmp";
-	struct snmp_session	*ss;
+	const char	*__function_name = "get_value_snmp";
 	int	ret = SUCCEED;
 	char	method[MAX_STRING_LEN];
 	char	oid_normalized[MAX_STRING_LEN];
@@ -762,24 +906,10 @@ int	get_value_snmp(DC_ITEM *item, AGENT_RESULT *value)
 	char	*pl;
 	int	num;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() key:'%s' oid:'%s'",
-			__function_name, item->key_orig, item->snmp_oid);
-
-	assert(item->type == ITEM_TYPE_SNMPv1 || item->type == ITEM_TYPE_SNMPv2c ||
-			item->type == ITEM_TYPE_SNMPv3);
-
-	if (NULL == (ss = snmp_open_session(item, err)))
-	{
-		ret = NOTSUPPORTED;
-
-		SET_MSG_RESULT(value, strdup(err));
-
-		zabbix_log(LOG_LEVEL_DEBUG, "%s", err);
-		zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s",
-				__function_name,
-				zbx_result_string(ret));
-		return ret;
-	}
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s(key:%s,oid:%s)",
+			__function_name,
+			item->key,
+			item->snmp_oid);
 
 	num = num_key_param(item->snmp_oid);
 
@@ -788,7 +918,7 @@ int	get_value_snmp(DC_ITEM *item, AGENT_RESULT *value)
 	case 0:
 		zabbix_log( LOG_LEVEL_DEBUG,"Standard processing");
 		snmp_normalize(oid_normalized, item->snmp_oid, sizeof(oid_normalized));
-		ret = get_snmp(ss, item, oid_normalized, value);
+		ret = get_snmp(item, oid_normalized, value);
 		break;
 	case 3:
 		do {
@@ -823,10 +953,10 @@ int	get_value_snmp(DC_ITEM *item, AGENT_RESULT *value)
 				zbx_snprintf(oid_full, sizeof(oid_full), "%s.%d",
 						oid_normalized,
 						idx);
-				ret = snmp_get_index(ss, item, oid_full, index_value, &idx, err, 0);
+				ret = snmp_get_index(item, oid_full, index_value, &idx, err, 0);
 			}
 
-			if (SUCCEED != ret && SUCCEED != (ret = snmp_get_index(ss, item, oid_normalized, index_value, &idx, err, 1)))
+			if (SUCCEED != ret && SUCCEED != (ret = snmp_get_index(item, oid_normalized, index_value, &idx, err, 1)))
 			{
 				cache_del_snmp_index(oid_normalized, index_value);
 
@@ -855,7 +985,7 @@ int	get_value_snmp(DC_ITEM *item, AGENT_RESULT *value)
 				oid_normalized,
 				idx);
 			zabbix_log( LOG_LEVEL_DEBUG,"Full OID:%s", oid_full);
-			ret = get_snmp(ss, item, oid_full, value);
+			ret = get_snmp(item, oid_full, value);
 			pl[0]='[';
 		} while(0);
 		break;
@@ -865,11 +995,14 @@ int	get_value_snmp(DC_ITEM *item, AGENT_RESULT *value)
 		ret = NOTSUPPORTED;
 	}
 
-	snmp_close_session(ss);
+	if (SUCCEED == ret && NULL == get_result_value_by_value_type(value, item->value_type))
+	{
+		SET_MSG_RESULT(value, zbx_dsprintf(NULL, "Type of received value [%s] is not suitable for value type [%s]",
+				GET_STR_RESULT(value) ? value->str : "",
+				zbx_item_value_type_string(item->value_type)));
+		ret = NOTSUPPORTED;
+	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s",
-			__function_name,
-			zbx_result_string(ret));
 	return ret;
 }
 

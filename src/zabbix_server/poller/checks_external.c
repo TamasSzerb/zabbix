@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -30,7 +30,7 @@
  *                                                                            *
  * Parameters: item - item we are interested in                               *
  *                                                                            *
- * Return value: SUCCEED - data successfully retrieved and stored in result   *
+ * Return value: SUCCEED - data succesfully retrieved and stored in result    *
  *                         and result_str (as string)                         *
  *               NOTSUPPORTED - requested item is not supported               *
  *                                                                            *
@@ -38,38 +38,38 @@
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
- ******************************************************************************/
-int     get_value_external(DC_ITEM *item, AGENT_RESULT *result)
+ **************************************************  ****************************/
+int     get_value_external(DB_ITEM *item, AGENT_RESULT *result)
 {
-	FILE*	fp;
-	char	*conn, scriptname[MAX_STRING_LEN];
-	char	key[MAX_STRING_LEN];
-	char	params[MAX_STRING_LEN];
-	char	error[MAX_STRING_LEN];
-	char	cmd[MAX_STRING_LEN];
-	char	msg[MAX_STRING_LEN];
-	char	*p,*p2;
-	int	i;
+	FILE*   fp;
+	char    scriptname[MAX_STRING_LEN];
+	char    key[MAX_STRING_LEN];
+	char    params[MAX_STRING_LEN];
+	char    cmd[MAX_STRING_LEN];
+	char    msg[MAX_STRING_LEN];
+	char    *p,*p2;
+	int     i;
 
-	int	ret = SUCCEED;
+	int     ret = SUCCEED;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In get_value_external() key:'%s'", item->key_orig);
-
-	conn = item->host.useip == 1 ? item->host.ip : item->host.dns;
+	zabbix_log( LOG_LEVEL_DEBUG, "In get_value_external([%s])",item->key);
 
 	init_result(result);
 
-	strscpy(params, "");
 	strscpy(key, item->key);
 	if((p2=strchr(key,'[')) != NULL)
 	{
 		*p2=0;
 		strscpy(scriptname,key);
-		zabbix_log( LOG_LEVEL_DEBUG, "DEBUG [%s]",scriptname);
+		zabbix_log( LOG_LEVEL_DEBUG, "scriptname [%s]",scriptname);
 		*p2='[';
 		p2++;
+	}
+	else    ret = NOTSUPPORTED;
 
-		if((p=strchr(p2,']')) != NULL)
+	if(ret == SUCCEED)
+	{
+		if((ret == SUCCEED) && (p=strchr(p2,']')) != NULL)
 		{
 			*p=0;
 			strscpy(params,p2);
@@ -77,28 +77,25 @@ int     get_value_external(DC_ITEM *item, AGENT_RESULT *result)
 			*p=']';
 			p++;
 		}
-		else
-		{
-			zbx_snprintf(error, sizeof(error), "External check is not supported. No closing bracket ']' found.");
-			SET_MSG_RESULT(result, strdup(error));
-			return NOTSUPPORTED;
-		}
+		else    ret = NOTSUPPORTED;
 	}
-	else
+
+	if (ret == NOTSUPPORTED)
 	{
-		strscpy(scriptname,key);
+		SET_MSG_RESULT(result, strdup("External check is not supported"));
+		return NOTSUPPORTED;
 	}
 
 	zbx_snprintf(cmd, MAX_STRING_LEN-1, "%s/%s %s %s",
 		CONFIG_EXTERNALSCRIPTS,
 		scriptname,
-		conn,
+/*		item->host_name,*/
+		item->useip == 1 ? item->host_ip : item->host_dns,
 		params);
 	zabbix_log( LOG_LEVEL_DEBUG, "%s", cmd );
-	if (NULL == (fp = popen(cmd, "r")))
+	if (NULL == (fp = popen(cmd, "r"))) 
 	{
-		zbx_snprintf(error, sizeof(error), "External check is not supported, failed execution");
-		SET_MSG_RESULT(result, strdup(error));
+		SET_MSG_RESULT(result, strdup("External check is not supported, failed execution"));
 		return NOTSUPPORTED;
 	}
 
@@ -106,9 +103,9 @@ int     get_value_external(DC_ITEM *item, AGENT_RESULT *result)
 	memset(msg,0,sizeof(msg));
 	if(NULL != fgets(msg, sizeof(msg)-1, fp))
 	{
-		for (i = 0; i < MAX_STRING_LEN && msg[i] != 0; ++i)
+		for (i = 0; i < MAX_STRING_LEN && msg[i] != 0; ++i) 
 		{
-			if (msg[i] == '\n')
+			if (msg[i] == '\n') 
 			{
 				msg[i] = 0;
 				break;
@@ -116,15 +113,14 @@ int     get_value_external(DC_ITEM *item, AGENT_RESULT *result)
 		}
 		zabbix_log( LOG_LEVEL_DEBUG, "Result [%s]", msg);
 
-		if (SUCCEED != set_result_type(result, item->value_type, item->data_type, msg))
+		if (SUCCEED != set_result_type(result, item->value_type, msg))
 			ret = NOTSUPPORTED;
 	}
 	else
 	{
-		zbx_snprintf(error, sizeof(error), "Script %s/%s returned nothing.",
-			CONFIG_EXTERNALSCRIPTS,
-			scriptname);
-		SET_MSG_RESULT(result, strdup(error));
+		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Script %s/%s returned nothing.",
+				CONFIG_EXTERNALSCRIPTS,
+				scriptname));
 		ret = NOTSUPPORTED;
 	}
 

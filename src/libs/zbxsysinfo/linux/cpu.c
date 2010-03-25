@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -78,7 +78,7 @@ int	SYSTEM_CPU_UTIL(const char *cmd, const char *param, unsigned flags, AGENT_RE
 		cpu_num = 0;
 	else
 	{
-		cpu_num = atoi(tmp) + 1;
+		cpu_num = atoi(tmp);
 		if (cpu_num < 1 || cpu_num > collector->cpus.count)
 			return SYSINFO_RET_FAIL;
 	}
@@ -134,7 +134,7 @@ int	SYSTEM_CPU_LOAD(const char *cmd, const char *param, unsigned flags, AGENT_RE
 		return SYSINFO_RET_FAIL;
 
 	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
-		*tmp = '\0';
+		return SYSINFO_RET_FAIL;
 
 	if ('\0' != *tmp && 0 != strcmp(tmp, "all"))	/* default parameter */
 		return SYSINFO_RET_FAIL;
@@ -161,39 +161,18 @@ int	SYSTEM_CPU_LOAD(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
 int     SYSTEM_CPU_SWITCHES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	int		ret = SYSINFO_RET_FAIL;
-	char		line[MAX_STRING_LEN], name[32];
-	zbx_uint64_t	value = 0;
-	FILE		*f;
-
 	assert(result);
 
 	init_result(result);
-
-	if (NULL == (f = fopen("/proc/stat", "r")))
-		return SYSINFO_RET_FAIL;
-
-	while (NULL != fgets(line, sizeof(line), f))
-	{
-		if (2 != sscanf(line, "%s " ZBX_FS_UI64, name, &value))
-			continue;
-
-		if (0 == strcmp(name, "ctxt"))
-		{
-			SET_UI64_RESULT(result, value);
-			ret = SYSINFO_RET_OK;
-			break;
-		}
-	}
-	zbx_fclose(f);
-
-	return ret;
+	
+	return SYSINFO_RET_FAIL;
 }
 
 int     SYSTEM_CPU_INTR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	int		ret = SYSINFO_RET_FAIL;
-	char		line[MAX_STRING_LEN], name[32];
+	char		line[MAX_STRING_LEN],
+			name[32];
 	zbx_uint64_t	value = 0;
 	FILE		*f;
 
@@ -206,7 +185,7 @@ int     SYSTEM_CPU_INTR(const char *cmd, const char *param, unsigned flags, AGEN
 
 	while (NULL != fgets(line, sizeof(line), f))
 	{
-		if (2 != sscanf(line, "%s " ZBX_FS_UI64, name, &value))
+		if (2 != sscanf(line, "%s " ZBX_FS_UI64, name, &value)) 
 			continue;
 
 		if (0 == strcmp(name, "intr"))

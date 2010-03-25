@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -22,12 +22,10 @@
 
 int process_eventlog(
 	const char		*source,
-	long			*lastlogsize,
-	unsigned long	*out_timestamp,
-	char			**out_source,
+	long			*lastlogsize, 
+	unsigned long	*out_timestamp, 
+	char			**out_source, 
 	unsigned short	*out_severity,
-	char			**out_message,
-	unsigned long	*out_eventid,
-	unsigned char	skip_old_data);
+	char			**out_message);
 
 #endif /* ZABBIX_EVENTLOG_H */

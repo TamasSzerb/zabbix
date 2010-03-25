@@ -1,5 +1,5 @@
 <?php
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -25,7 +25,7 @@
 	$page["title"] = "S_QUEUE_BIG";
 	$page["file"] = "queue.php";
 	$page['hist_arg'] = array('config');
-
+	
 	define('ZBX_PAGE_DO_REFRESH', 1);
 
 include_once "include/page_header.php";
@@ -38,17 +38,17 @@ include_once "include/page_header.php";
 	);
 
 	check_fields($fields);
-
+	
 	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY);
 ?>
 
 <?php
-	$_REQUEST['config'] = get_request('config', CProfile::get('web.queue.config', 0));
-	CProfile::update('web.queue.config',$_REQUEST['config'], PROFILE_TYPE_INT);
+	$_REQUEST['config'] = get_request('config', get_profile('web.queue.config', 0));
+	update_profile('web.queue.config',$_REQUEST['config'], PROFILE_TYPE_INT);
 
 	$form = new CForm();
 	$form->SetMethod('get');
-
+	
 	$cmbMode = new CComboBox("config", $_REQUEST["config"], "submit();");
 	$cmbMode->AddItem(0, S_OVERVIEW);
 	$cmbMode->AddItem(1, S_OVERVIEW_BY_PROXY);
@@ -61,53 +61,30 @@ include_once "include/page_header.php";
 <?php
 	$now = time();
 
-	$norm_item_types = array(
-			ITEM_TYPE_ZABBIX_ACTIVE,
-			ITEM_TYPE_SSH,
-			ITEM_TYPE_TELNET,
-			ITEM_TYPE_SIMPLE,
-			ITEM_TYPE_INTERNAL,
-			ITEM_TYPE_AGGREGATE,
-			ITEM_TYPE_EXTERNAL,
-			ITEM_TYPE_CALCULATED);
-	$zbx_item_types = array(
-			ITEM_TYPE_ZABBIX);
-	$snmp_item_types = array(
-			ITEM_TYPE_SNMPV1,
-			ITEM_TYPE_SNMPV2C,
-			ITEM_TYPE_SNMPV3);
-	$ipmi_item_types = array(
-			ITEM_TYPE_IPMI);
-
 	$item_types = array(
 			ITEM_TYPE_ZABBIX,
 			ITEM_TYPE_ZABBIX_ACTIVE,
 			ITEM_TYPE_SNMPV1,
+			//ITEM_TYPE_TRAPPER,
 			ITEM_TYPE_SNMPV2C,
 			ITEM_TYPE_SNMPV3,
 			ITEM_TYPE_IPMI,
-			ITEM_TYPE_SSH,
-			ITEM_TYPE_TELNET,
 			ITEM_TYPE_SIMPLE,
 			ITEM_TYPE_INTERNAL,
 			ITEM_TYPE_AGGREGATE,
-			ITEM_TYPE_EXTERNAL,
-			ITEM_TYPE_CALCULATED);
+			//ITEM_TYPE_HTTPTEST,
+			ITEM_TYPE_EXTERNAL);
 
-	$result = DBselect('SELECT i.itemid,i.lastclock,i.description,i.key_,i.type,h.host,h.hostid,h.proxy_hostid,i.delay,i.delay_flex'.
-		' FROM items i,hosts h'.
-		' WHERE i.hostid=h.hostid'.
-			' AND h.status='.HOST_STATUS_MONITORED.
-			' AND i.status='.ITEM_STATUS_ACTIVE.
-			' AND i.value_type not in ('.ITEM_VALUE_TYPE_LOG.')'.
-			' AND i.key_ NOT IN ('.zbx_dbstr('status').','.zbx_dbstr('zabbix[log]').')'.
-			' AND NOT i.lastclock IS NULL'.
-			' AND ('.
-				' i.type in ('.implode(',',$norm_item_types).')'.
-				' OR (h.available<>'.HOST_AVAILABLE_FALSE.' AND i.type in ('.implode(',',$zbx_item_types).'))'.
-				' OR (h.snmp_available<>'.HOST_AVAILABLE_FALSE.' AND i.type in ('.implode(',',$snmp_item_types).'))'.
-				' OR (h.ipmi_available<>'.HOST_AVAILABLE_FALSE.' AND i.type in ('.implode(',',$ipmi_item_types).'))'.
-				')'.
+	$result = DBselect('SELECT i.itemid,i.lastclock,i.description,i.key_,i.type,h.host,h.hostid,h.proxy_hostid,i.delay,i.delay_flex '.
+		' FROM items i,hosts h '.
+		' WHERE i.status='.ITEM_STATUS_ACTIVE.
+			' AND i.type in ('.implode(',',$item_types).') '.
+			' AND ((h.status='.HOST_STATUS_MONITORED.' AND h.available != '.HOST_AVAILABLE_FALSE.') '.
+				' OR (h.status='.HOST_STATUS_MONITORED.' AND h.available='.HOST_AVAILABLE_FALSE.' AND h.disable_until<='.$now.')) '.
+			' AND i.hostid=h.hostid '.
+/*			' AND i.nextcheck + 5 <'.$now.*/
+			' AND i.key_ NOT IN ('.zbx_dbstr('status').','.zbx_dbstr('icmpping').','.zbx_dbstr('icmppingsec').','.zbx_dbstr('zabbix[log]').') '.
+			' AND i.value_type not in ('.ITEM_VALUE_TYPE_LOG.') '.
 			' AND '.DBcondition('h.hostid',$available_hosts).
 			' AND '.DBin_node('h.hostid', get_current_nodeid()).
 		' ORDER BY i.lastclock,h.host,i.description,i.key_');
@@ -143,7 +120,7 @@ include_once "include/page_header.php";
 			else	$sec_rest[$row['type']]++;
 
 		}
-
+		
 		$table->setHeader(array(S_ITEMS,S_5_SECONDS,S_10_SECONDS,S_30_SECONDS,S_1_MINUTE,S_5_MINUTES,S_MORE_THAN_10_MINUTES));
 		foreach($item_types as $type){
 			$elements=array(
@@ -155,7 +132,7 @@ include_once "include/page_header.php";
 				new CCol($sec_600[$type],($sec_600[$type])?"high":"normal"),
 				new CCol($sec_rest[$type],($sec_rest[$type])?"disaster":"normal")
 			);
-
+			
 			$table->addRow($elements);
 		}
 	}
@@ -232,7 +209,7 @@ include_once "include/page_header.php";
 		$table->SetHeader(array(
 				S_NEXT_CHECK,
 				S_DELAYED_BY,
-				is_show_all_nodes() ? S_NODE : null,
+				is_show_subnodes() ? S_NODE : null,
 				S_HOST,
 				S_DESCRIPTION
 				));

@@ -20,8 +20,6 @@
 ?>
 <?php
 	function unset_request($key,$requester='unknown'){
-		unset($_GET[$key]);
-		unset($_POST[$key]);
 		unset($_REQUEST[$key]);
 	}
 
@@ -41,8 +39,7 @@
 	}
 
 	function is_hex_color($value){
-//		return eregi('^[0-9,A-F]{6}$', $value);
-		return preg_match('/^([0-9,A-F]{6})$/i', $value);
+		return eregi('^[0-9,A-F]{6}$', $value);
 	}
 
 	function BETWEEN($min,$max,$var=NULL){
@@ -58,25 +55,17 @@
 
 		return "str_in_array({".$var."},array(".$array."))&&";
 	}
-
 	function HEX($var=NULL){
-//		return "ereg(\"^[a-zA-Z0-9]{1,}$\",{".$var."})&&";
-		return 'preg_match("/^([a-zA-Z0-9]+)$/",{'.$var.'})&&';
+		return "ereg(\"^[a-zA-Z0-9]{1,}$\",{".$var."})&&";
 	}
-
 	function KEY_PARAM($var=NULL){
-//		return 'ereg(\'^([0-9a-zA-Z\_\.[.'.ZBX_EREG_MINUS_SYMB.'.]\$ ]+)$\',{'.$var.'})&&';
-		return 'preg_match("/^([0-9a-zA-Z_\.\-\$ ]+)$/",{'.$var.'})&&';
+		return 'ereg(\'^([0-9a-zA-Z\_\.[.'.ZBX_EREG_MINUS_SYMB.'.]\$ ]+)$\',{'.$var.'})&&';
 	}
-
 	function validate_ipv4($str,&$arr){
-//		if( !ereg('^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$', $str, $arr) )	return false;
-		if( !preg_match('/^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$/', $str, $arr) )	return false;
+		if( !ereg('^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$', $str, $arr) )	return false;
 		for($i=1; $i<=4; $i++)	if( !is_numeric($arr[$i]) || $arr[$i] > 255 || $arr[$i] < 0 )	return false;
 		return true;
 	}
-
-/* EREG
 	function validate_ipv6($str,&$arr){
 		$pattern1 = '([A-Fa-f0-9]{1,4}:){7}[A-Fa-f0-9]{1,4}';
 		$pattern2 = ':(:[A-Fa-f0-9]{1,4}){1,7}';
@@ -86,147 +75,97 @@
 		$pattern6 = '([A-Fa-f0-9]{1,4}:){4}:([A-Fa-f0-9]{1,4}:){0,2}[A-Fa-f0-9]{1,4}';
 		$pattern7 = '([A-Fa-f0-9]{1,4}:){5}:([A-Fa-f0-9]{1,4}:){0,1}[A-Fa-f0-9]{1,4}';
 		$pattern8 = '([A-Fa-f0-9]{1,4}:){6}:[A-Fa-f0-9]{1,4}';
-		$pattern9 = '([A-Fa-f0-9]{1,4}:){1,7}:';
-		$pattern10 = '::';
 
-		$full = "^($pattern1)$|^($pattern2)$|^($pattern3)$|^($pattern4)$|^($pattern5)$|^($pattern6)$|^($pattern7)$|^($pattern8)$|^($pattern9)$|^($pattern10)$";
+		$full = "^($pattern1)$|^($pattern2)$|^($pattern3)$|^($pattern4)$|^($pattern5)$|^($pattern6)$|^($pattern7)$|^($pattern8)$";
 
 		if( !ereg($full, $str, $arr) )	return false;
 		return true;
 	}
-//*/
-
-	function validate_ipv6($str,&$arr){
-		$pattern1 = '([a-f0-9]{1,4}:){7}[a-f0-9]{1,4}';
-		$pattern2 = ':(:[a-f0-9]{1,4}){1,7}';
-		$pattern3 = '[a-f0-9]{1,4}::([a-f0-9]{1,4}:){0,5}[a-f0-9]{1,4}';
-		$pattern4 = '([a-f0-9]{1,4}:){2}:([a-f0-9]{1,4}:){0,4}[a-f0-9]{1,4}';
-		$pattern5 = '([a-f0-9]{1,4}:){3}:([a-f0-9]{1,4}:){0,3}[a-f0-9]{1,4}';
-		$pattern6 = '([a-f0-9]{1,4}:){4}:([a-f0-9]{1,4}:){0,2}[a-f0-9]{1,4}';
-		$pattern7 = '([a-f0-9]{1,4}:){5}:([a-f0-9]{1,4}:){0,1}[a-f0-9]{1,4}';
-		$pattern8 = '([a-f0-9]{1,4}:){6}:[a-f0-9]{1,4}';
-		$pattern9 = '([a-f0-9]{1,4}:){1,7}:';
-		$pattern10 = '::';
-
-		$full = "/^($pattern1)$|^($pattern2)$|^($pattern3)$|^($pattern4)$|^($pattern5)$|^($pattern6)$|^($pattern7)$|^($pattern8)$|^($pattern9)$|^($pattern10)$/i";
-
-		if(!preg_match($full, $str)) return false;
-
-	return true;
-	}
 
 	function validate_ip($str,&$arr){
-		if(validate_ipv4($str,$arr)) return true;
-		if(defined('ZBX_HAVE_IPV6')) return validate_ipv6($str,$arr);
-
-	return false;
+		if(validate_ipv4($str,$arr))
+			return true;
+		if(defined('ZBX_HAVE_IPV6')){
+			return validate_ipv6($str,$arr);
+		}
+		return false;
 	}
 
-/*
- * Validate IP mask. IP/bits
- */
-	function validate_ip_range_mask($ip_range){
-		$parts = explode('/', $ip_range);
+/*	function validate_ip_range($str){
+		foreach(explode(',',$str) as $ip_range){
+			$ip_parts = explode('.', $ip_range);
+			if(count($ip_parts) != 4) return false;
 
-		if( 2 != ($parts_count = count($parts)) )
-			return false;
+			if( !is_numeric($ip_parts[0]) || $ip_parts[0] < 0 || $ip_parts[0] > 255 ) return false;
+			if( !is_numeric($ip_parts[1]) || $ip_parts[1] < 0 || $ip_parts[1] > 255 ) return false;
+			if( !is_numeric($ip_parts[2]) || $ip_parts[2] < 0 || $ip_parts[2] > 255 ) return false;
 
-		if(validate_ipv4($parts[0], $arr)){
-			$ip_parts = explode('.', $parts[0]);
-
-//			if( !ereg('^[0-9]{1,2}$', $parts[1])) return false;
-			if(!preg_match('/^([0-9]{1,2})$/', $parts[1])) return false;
-
-			sscanf($parts[1], "%d", $mask);
-
-			if( $mask > 32 ) return false;
-		}
-		else if( defined('ZBX_HAVE_IPV6') && validate_ipv6($parts[0], $arr) ){
-			$ip_parts = explode(':', $parts[0]);
-
-//			if( !ereg('^[0-9]{1,3}$', $parts[1]) ) return false;
-			if(!preg_match('/^([0-9]{1,3})$/', $parts[1])) return false;
-
-			sscanf($parts[1], "%d", $mask);
-
-			if($mask > 128) return false;
-		}
-		else{
-			return false;
-		}
-
-	return true;
-	}
-
-/*
- * Validate IP range. ***.***.***.***[-***]
- */
-	function validate_ip_range_range($ip_range){
-		$parts = explode('-', $ip_range);
-
-		if( 2 < ($parts_count = count($parts)) )
-			return false;
-
-		if( validate_ipv4($parts[0], $arr) ){
-			$ip_parts = explode('.', $parts[0]);
-
-			if( $parts_count == 2 ){
-//				if( !ereg('^[0-9]{1,3}$', $parts[1]) ) return false;
-				if(!preg_match('/^([0-9]{1,3})$/', $parts[1])) return false;
-
-				sscanf($ip_parts[3], "%d", $from_value);
-				sscanf($parts[1], "%d", $to_value);
-
-				if(($to_value > 255) || ($from_value > $to_value)) return false;
+			$last_part = explode('-', $ip_parts[3]);
+			if(count($last_part) > 2) return false;
+			foreach($last_part as $ip_p){
+				if( !is_numeric($ip_p) || $ip_p < 0 || $ip_p > 255 ) return false;
 			}
+			if(count($last_part) == 2 && $last_part[0] > $last_part[1]) return false;
+
 		}
-		else if( defined('ZBX_HAVE_IPV6') && validate_ipv6($parts[0], $arr) ){
-			$ip_parts = explode(':', $parts[0]);
-			$ip_parts_count = count($ip_parts);
-
-			if( $parts_count == 2 ){
-//				if(!ereg('^[A-Fa-f0-9]{1,4}$', $parts[1])) return false;
-				if(!preg_match('/^([a-f0-9]{1,4})$/i', $parts[1])) return false;
-
-				sscanf($ip_parts[$ip_parts_count - 1], "%x", $from_value);
-				sscanf($parts[1], "%x", $to_value);
-
-				if($from_value > $to_value) return false;
-			}
-		}
-		else{
-			return false;
-		}
-
-	return true;
+		return true;
 	}
-
+*/
 	function validate_ip_range($str){
 		foreach(explode(',',$str) as $ip_range){
-			if(false !== zbx_strpos($ip_range, '/') ) {
-				if(false === validate_ip_range_mask($ip_range) )
-					return false;
+			$parts = explode('-', $ip_range);
+			$parts_count = count($parts);
+			if($parts_count > 2) return false;
+
+			if(validate_ipv4($parts[0], $arr)){
+				$ip_parts = explode('.', $parts[0]);
+
+				if( $parts_count == 2 ){
+					if( !ereg('^[0-9]{1,3}$', $parts[1]) ) return false;
+
+					sscanf($ip_parts[3], "%d", $from_value);
+					sscanf($parts[1], "%d", $to_value);
+					if($to_value > 255 || $from_value > $to_value) return false;
+				}
+			}
+			else if( defined('ZBX_HAVE_IPV6') && validate_ipv6($parts[0], $arr) ){
+				$ip_parts = explode(':', $parts[0]);
+				$ip_parts_count = count($ip_parts);
+
+				if( $parts_count == 2 ){
+					if( !ereg('^[A-Fa-f0-9]{1,4}$', $parts[1]) ) return false;
+
+					sscanf($ip_parts[$ip_parts_count - 1], "%x", $from_value);
+					sscanf($parts[1], "%x", $to_value);
+					if($from_value > $to_value) return false;
+				}
 			}
 			else{
-				if(false === validate_ip_range_range($ip_range) )
-					return false;
+				return false;
 			}
-		}
 
-	return true;
+		}
+		return true;
 	}
 
+/*	function	validate_ip_range($str){
+		if(defined('ZBX_HAVE_IPV6')){
+			return validate_ipv4_ipv6_range($str);
+		}
+		else{
+			return validate_ipv4_range($str);
+		}
+		return false;
+	}
+*/
 	function validate_port_list($str){
 		foreach(explode(',',$str) as $port_range){
 			$port_range = explode('-', $port_range);
 			if(count($port_range) > 2) return false;
-
-			foreach($port_range as $port){
+			foreach($port_range as $port)
 				if( !is_numeric($port) || $port > 65535 || $port < 0 )
 					return false;
-			}
 		}
-
 	return true;
 	}
 
@@ -242,7 +181,7 @@
 			// If an unset variable used in expression, return FALSE
 			if(zbx_strstr($expression,'{'.$f.'}')&&!isset($_REQUEST[$f])){
 //SDI("Variable [$f] is not set. $expression is FALSE");
-//info('Variable ['.$f.'] is not set. '.$expression.' is FALSE');
+//info("Variable [$f] is not set. $expression is FALSE");
 //				return FALSE;
 			}
 //*/
@@ -253,7 +192,6 @@
 
 		$expression = trim($expression,'& ');
 		$exec = 'return ('.$expression.')?1:0;';
-
 		$ret = eval($exec);
 //echo $debug;
 //echo "$field - result: ".$ret." exec: $exec".SBR.SBR;
@@ -263,7 +201,6 @@
 
 	function calc_exp($fields,$field,$expression){
 //SDI("$field - expression: ".$expression);
-
 		if(zbx_strstr($expression,'{}') && !isset($_REQUEST[$field]))
 			return FALSE;
 
@@ -272,8 +209,7 @@
 
 		if(zbx_strstr($expression,'{}') && is_array($_REQUEST[$field])){
 			foreach($_REQUEST[$field] as $key => $val){
-//				if(!ereg('^[a-zA-Z0-9_]+$',$key)) return FALSE;
-				if(!preg_match('/^([a-zA-Z0-9_]+)$/', $key)) return FALSE;
+				if(!ereg('^[a-zA-Z0-9_]+$',$key)) return FALSE;
 
 				$expression2 = str_replace('{}','$_REQUEST["'.$field.'"]["'.$key.'"]',$expression);
 				if(calc_exp2($fields,$field,$expression2)==FALSE)
@@ -333,11 +269,11 @@
 		if($type == T_ZBX_IP){
 			if( !validate_ip($var,$arr) ){
 				if($flags&P_SYS){
-					info('Critical error. Field ['.$field.'] is not IP');
+					info("Critical error. Field [".$field."] is not IP");
 					return ZBX_VALID_ERROR;
 				}
 				else{
-					info('Warning. Field ['.$field.'] is not IP');
+					info("Warning. Field [".$field."] is not IP");
 					return ZBX_VALID_WARNING;
 				}
 			}
@@ -347,11 +283,11 @@
 		if($type == T_ZBX_IP_RANGE){
 			if( !validate_ip_range($var) ){
 				if($flags&P_SYS){
-					info(S_CRITICAL_ERROR.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_NOT_IP_RANGE_SMALL);
+					info("Critical error. Field [".$field."] is not IP range");
 					return ZBX_VALID_ERROR;
 				}
 				else{
-					info(S_WARNING.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_NOT_IP_RANGE_SMALL);
+					info("Warning. Field [".$field."] is not IP range");
 					return ZBX_VALID_WARNING;
 				}
 			}
@@ -369,11 +305,11 @@
 		if($type == T_ZBX_INT_RANGE){
 			if( !is_int_range($var) ){
 				if($flags&P_SYS){
-					info(S_CRITICAL_ERROR.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_NOT_INTEGER_RANGE_SMALL);
+					info("Critical error. Field [".$field."] is not integer range");
 					return ZBX_VALID_ERROR;
 				}
 				else{
-					info(S_WARNING.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_NOT_INTEGER_RANGE_SMALL);
+					info("Warning. Field [".$field."] is not integer range");
 					return ZBX_VALID_WARNING;
 				}
 			}
@@ -382,44 +318,44 @@
 
 		if(($type == T_ZBX_INT) && !is_numeric($var)) {
 			if($flags&P_SYS){
-				info(S_CRITICAL_ERROR.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_NOT_INTEGER_SMALL);
+				info("Critical error. Field [".$field."] is not integer");
 				return ZBX_VALID_ERROR;
 			}
 			else{
-				info(S_WARNING.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_NOT_INTEGER_SMALL);
+				info("Warning. Field [".$field."] is not integer");
 				return ZBX_VALID_WARNING;
 			}
 		}
 
 		if(($type == T_ZBX_DBL) && !is_numeric($var)) {
 			if($flags&P_SYS){
-				info(S_CRITICAL_ERROR.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_NOT_DOUBLE_SMALL);
+				info("Critical error. Field [".$field."] is not double");
 				return ZBX_VALID_ERROR;
 			}
 			else{
-				info(S_WARNING.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_NOT_DOUBLE_SMALL);
+				info("Warning. Field [".$field."] is not double");
 				return ZBX_VALID_WARNING;
 			}
 		}
 
 		if(($type == T_ZBX_STR) && !is_string($var)) {
 			if($flags&P_SYS){
-				info(S_CRITICAL_ERROR.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_NOT_STRING_SMALL);
+				info("Critical error. Field [".$field."] is not string");
 				return ZBX_VALID_ERROR;
 			}
 			else{
-				info(S_WARNING.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_NOT_STRING_SMALL);
+				info("Warning. Field [".$field."] is not string");
 				return ZBX_VALID_WARNING;
 			}
 		}
 //*
-		if(($type == T_ZBX_STR) && !defined('ZBX_ALLOW_UNICODE') && (zbx_strlen($var) != zbx_strlen($var))){
+		if(($type == T_ZBX_STR) && !defined('ZBX_ALLOW_UNICODE') && (strlen($var) != zbx_strlen($var))){
 			if($flags&P_SYS){
-				info(S_CRITICAL_ERROR.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_CONTAINS_MULTIBYTE_CHARS_SMALL);
+				info("Critical error. Field [".$field."] contains Multibyte chars");
 				return ZBX_VALID_ERROR;
 			}
 			else{
-				info(S_WARNING.'.'.SPACE.S_FIELD.SPACE.'['.$field.'] - '.S_MULTIBYTE_CHARS_ARE_RESTRICTED_SMALL);
+				info("Warning. Field [".$field."] - multibyte chars are restricted");
 				return ZBX_VALID_ERROR;
 			}
 		}
@@ -427,11 +363,11 @@
 		if(($type == T_ZBX_CLR) && !is_hex_color($var)) {
 			$var = 'FFFFFF';
 			if($flags&P_SYS){
-				info(S_CRITICAL_ERROR.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_NOT_A_COLOUR_SMALL);
+				info("Critical error. Field [".$field."] is not a colour");
 				return ZBX_VALID_ERROR;
 			}
 			else{
-				info(S_WARNING.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_NOT_A_COLOUR_SMALL);
+				info("Warning. Field [".$field."] is not a colour");
 				return ZBX_VALID_WARNING;
 			}
 		}
@@ -450,19 +386,16 @@
 	}
 
 	function check_field(&$fields, &$field, $checks){
-		if(!isset($checks[5])) $checks[5] = $field;
-		list($type,$opt,$flags,$validation,$exception,$caption)=$checks;
-                                                            	
+		list($type,$opt,$flags,$validation,$exception)=$checks;
+
 		if($flags&P_UNSET_EMPTY && isset($_REQUEST[$field]) && $_REQUEST[$field]==''){
 			unset_request($field,'P_UNSET_EMPTY');
 		}
 
 //echo "Field: $field<br>";
 
-		if($exception==NULL)
-			$except=FALSE;
-		else
-			$except=calc_exp($fields,$field,$exception);
+		if($exception==NULL)	$except=FALSE;
+		else			$except=calc_exp($fields,$field,$exception);
 
 		if($opt == O_MAND &&	$except)	$opt = O_NO;
 		else if($opt == O_OPT && $except)	$opt = O_MAND;
@@ -471,11 +404,11 @@
 		if($opt == O_MAND){
 			if(!isset($_REQUEST[$field])){
 				if($flags&P_SYS){
-					info(S_CRITICAL_ERROR.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_MANDATORY_SMALL);
+					info("Critical error. Field [".$field."] is mandatory");
 					return ZBX_VALID_ERROR;
 				}
 				else{
-					info(S_WARNING.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_IS_MANDATORY_SMALL);
+					info("Warning. Field [".$field."] is mandatory");
 					return ZBX_VALID_WARNING;
 				}
 			}
@@ -487,11 +420,11 @@
 			unset_request($field,'O_NO');
 
 			if($flags&P_SYS){
-				info(S_CRITICAL_ERROR.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_MUST_BE_MISSING_SMALL);
+				info("Critical error. Field [".$field."] must be missing");
 				return ZBX_VALID_ERROR;
 			}
 			else{
-				info(S_WARNING.'.'.SPACE.S_FIELD.SPACE.'['.$field.']'.SPACE.S_MUST_BE_MISSING_SMALL);
+				info("Warning. Field [".$field."] must be missing");
 				return ZBX_VALID_WARNING;
 			}
 		}
@@ -501,11 +434,11 @@
 			}
 			else if($flags&P_ACT){
 				if(!isset($_REQUEST['sid'])){
-					info(S_OPERATION_CANNOT_PERFORMED_UNAUTH_REQUEST);
+					info('Operation cannot be performed due to unauthorized request');
 					return ZBX_VALID_ERROR;
 				}
 				else if(isset($_COOKIE['zbx_sessionid']) && ($_REQUEST['sid'] != substr($_COOKIE['zbx_sessionid'],16,16))){
-					info(S_OPERATION_CANNOT_PERFORMED_UNAUTH_REQUEST);
+					info('Operation cannot be performed due to unauthorized request');
 					return ZBX_VALID_ERROR;
 				}
 			}
@@ -517,42 +450,37 @@
 		if($err != ZBX_VALID_OK)
 			return $err;
 
-//sdi($field. '| exception ='.$exception.' | except ='.$except.' | validation= '.$validation);
-
-		if(is_null($exception) || ($except == true)){
-
-			if(!$validation)	$valid = TRUE;
-			else				$valid = calc_exp($fields,$field,$validation);
+		if(($exception==NULL)||($except==TRUE)){
+			if(!$validation)	$valid=TRUE;
+			else			$valid=calc_exp($fields,$field,$validation);
 
 			if(!$valid){
 				if($flags&P_SYS){
-					info(S_CRITICAL_ERROR.'.'.SPACE.S_INCORRECT_VALUE_FOR.SPACE.'['.$caption.'] = "'.$_REQUEST[$field].'"');
+					info("Critical error. Incorrect value for [".$field."] = '".$_REQUEST[$field]."'");
 					return ZBX_VALID_ERROR;
 				}
 				else{
-					info(S_WARNING.'.'.SPACE.S_INCORRECT_VALUE_FOR.SPACE.'['.$caption.']');
+					info("Warning. Incorrect value for [".$field."]");
 					return ZBX_VALID_WARNING;
 				}
 			}
 		}
 
-	return ZBX_VALID_OK;
+
+		return ZBX_VALID_OK;
 	}
 
 //		VAR							TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-	$system_fields = array(
-		'sid'=>				array(T_ZBX_STR, O_OPT,	P_SYS,	HEX(),		NULL),
+	$system_fields=array(
+		'sid'=>		array(T_ZBX_STR, O_OPT,	 P_SYS,	HEX(), NULL),
 //
-		'switch_node'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,		NULL),
-		'triggers_hash'=>	array(T_ZBX_STR, O_OPT,	P_SYS,	NOT_EMPTY,	NULL),
-		'print'=>			array(T_ZBX_INT, O_OPT,	P_SYS,	IN('1'),	NULL),
-
-// paging
-		'start'=>			array(T_ZBX_INT, O_OPT,	P_SYS,	NULL,		NULL),
+		'switch_node'=>		array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,NULL),
+		'triggers_hash'=>	array(T_ZBX_STR, O_OPT,	 P_SYS,	NOT_EMPTY,NULL),
+		'print'=>			array(T_ZBX_INT, O_OPT,	 P_SYS,	IN('1'),NULL),
 
 // table sorting
-		'sort'=>			array(T_ZBX_STR, O_OPT,	P_SYS,	NULL,		NULL),
-		'sortorder'=>		array(T_ZBX_STR, O_OPT,	P_SYS,	NULL,		NULL)
+		'sort'=>			array(T_ZBX_STR, O_OPT,	 P_SYS,	NULL,NULL),
+		'sortorder'=>		array(T_ZBX_STR, O_OPT,	 P_SYS,	NULL,NULL)
 	);
 
 	function invalid_url($msg=S_INVALID_URL_PARAMS){
@@ -567,7 +495,7 @@
 
 		$err = ZBX_VALID_OK;
 
-		$fields = zbx_array_merge($fields, $system_fields);
+		$fields = array_merge($fields, $system_fields);
 
 		foreach($fields as $field => $checks){
 			$err |= check_field($fields, $field,$checks);
@@ -580,13 +508,13 @@
 		}
 
 		$fields = null;
+
 		if($err&ZBX_VALID_ERROR){
 			invalid_url();
 		}
 
-		if($show_messages && ($err!=ZBX_VALID_OK))
-			show_messages($err==ZBX_VALID_OK, NULL, S_PAGE_RECEIVED_INCORRECT_DATA);
+		if($show_messages) show_messages();
 
-	return ($err==ZBX_VALID_OK ? 1 : 0);
+		return ($err==ZBX_VALID_OK ? 1 : 0);
 	}
 ?>

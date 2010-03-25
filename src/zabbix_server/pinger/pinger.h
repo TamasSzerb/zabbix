@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -23,7 +23,8 @@
 #include "common.h"
 
 extern	int	CONFIG_PINGER_FORKS;
+extern	int	CONFIG_PINGER_FREQUENCY;
 
-void	main_pinger_loop(int num);
+void	main_pinger_loop(zbx_process_t p, int num);
 
 #endif

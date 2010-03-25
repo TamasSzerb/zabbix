@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -32,115 +32,68 @@
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value: SUCCEED - information removed successfully                   *
+ * Return value: SUCCEED - information removed succesfully                    *
  *               FAIL - otherwise                                             *
  *                                                                            *
- * Author: Alexei Vladishev, Dmitry Borovikov                                 *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
- * Comments: sqlite3 does not use CONFIG_MAX_HOUSEKEEPER_DELETE, deletes all  *
+ * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	housekeeping_process_log()
+static int housekeeping_process_log()
 {
-	const char	*__function_name = "housekeeping_process_log";
 	DB_HOUSEKEEPER	housekeeper;
+
 	DB_RESULT	result;
 	DB_ROW		row;
-	long		deleted;
-	char		*sql = NULL;
-	int		sql_alloc = 512, sql_offset = 0;
-	zbx_uint64_t	*ids = NULL;
-	int		ids_alloc = 0, ids_num = 0;
+	int		res = SUCCEED;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	long		deleted;
+
+	zabbix_log( LOG_LEVEL_DEBUG, "In housekeeping_process_log()");
 
 	/* order by tablename to effectively use DB cache */
-	result = DBselect(
-			"select housekeeperid,tablename,field,value"
-			" from housekeeper"
-			" order by tablename");
+	result = DBselect("select housekeeperid, tablename, field, value from housekeeper order by tablename");
 
-	while (NULL != (row = DBfetch(result)))
+	while((row=DBfetch(result)))
 	{
-		ZBX_STR2UINT64(housekeeper.housekeeperid, row[0]);
-		housekeeper.tablename = row[1];
-		housekeeper.field = row[2];
-		ZBX_STR2UINT64(housekeeper.value, row[3]);
+		ZBX_STR2UINT64(housekeeper.housekeeperid,row[0]);
+		housekeeper.tablename=row[1];
+		housekeeper.field=row[2];
+		ZBX_STR2UINT64(housekeeper.value,row[3]);
 
-		if (0 == CONFIG_MAX_HOUSEKEEPER_DELETE)
+#ifdef HAVE_ORACLE
+		deleted = DBexecute("delete from %s where %s=" ZBX_FS_UI64 " and rownum<500",
+			housekeeper.tablename,
+			housekeeper.field,
+			housekeeper.value);
+#elif defined(HAVE_POSTGRESQL)
+		deleted = DBexecute("delete from %s where oid in (select oid from %s where %s=" ZBX_FS_UI64 " limit 500)",
+				housekeeper.tablename, 
+				housekeeper.tablename, 
+				housekeeper.field,
+				housekeeper.value);
+#else
+		deleted = DBexecute("delete from %s where %s=" ZBX_FS_UI64 " limit 500",
+			housekeeper.tablename,
+			housekeeper.field,
+			housekeeper.value);
+#endif
+		if(deleted == 0)
 		{
-			deleted = DBexecute(
-					"delete from %s"
-					" where %s=" ZBX_FS_UI64,
-					housekeeper.tablename,
-					housekeeper.field,
-					housekeeper.value);
+			DBexecute("delete from housekeeper where housekeeperid=" ZBX_FS_UI64,
+				housekeeper.housekeeperid);
 		}
 		else
 		{
-#ifdef HAVE_ORACLE
-			deleted = DBexecute(
-					"delete from %s"
-					" where %s=" ZBX_FS_UI64
-						" and rownum<=%d",
-					housekeeper.tablename,
-					housekeeper.field,
-					housekeeper.value,
-					CONFIG_MAX_HOUSEKEEPER_DELETE);
-#elif defined(HAVE_POSTGRESQL)
-			deleted = DBexecute(
-					"delete from %s"
-					" where %s=" ZBX_FS_UI64
-						" and oid in (select oid from %s"
-							" where %s=" ZBX_FS_UI64 " limit %d)",
-					housekeeper.tablename,
-					housekeeper.field,
-					housekeeper.value,
-					housekeeper.tablename,
-					housekeeper.field,
-					housekeeper.value,
-					CONFIG_MAX_HOUSEKEEPER_DELETE);
-#elif defined(HAVE_MYSQL)
-			deleted = DBexecute(
-					"delete from %s"
-					" where %s=" ZBX_FS_UI64 " limit %d",
-					housekeeper.tablename,
-					housekeeper.field,
-					housekeeper.value,
-					CONFIG_MAX_HOUSEKEEPER_DELETE);
-#else	/* HAVE_SQLITE3 */
-			deleted = 0;
-#endif
-		}
-
-		if (0 == deleted || 0 == CONFIG_MAX_HOUSEKEEPER_DELETE ||
-				CONFIG_MAX_HOUSEKEEPER_DELETE > deleted)
-			uint64_array_add(&ids, &ids_alloc, &ids_num, housekeeper.housekeeperid, 64);
-
-		if (deleted > 0)
-		{
 			zabbix_log( LOG_LEVEL_DEBUG, "Deleted [%ld] records from table [%s]",
-					deleted, housekeeper.tablename);
+				deleted,
+				housekeeper.tablename);
 		}
 	}
 	DBfree_result(result);
 
-	if (NULL != ids)
-	{
-		sql = zbx_malloc(sql, sql_alloc * sizeof(char));
-
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 32,
-				"delete from housekeeper where");
-		DBadd_condition_alloc(&sql, &sql_alloc, &sql_offset,
-				"housekeeperid", ids, ids_num);
-
-		DBexecute("%s", sql);
-
-		zbx_free(sql);
-		zbx_free(ids);
-	}
-
-	return SUCCEED;
+	return res;
 }
 
 
@@ -210,7 +163,7 @@ static int housekeeping_events(int now)
 	result = DBselect("select event_history from config");
 
 	row1=DBfetch(result);
-
+	
 	if(!row1 || DBis_null(row1[0])==SUCCEED)
 	{
 		zabbix_log( LOG_LEVEL_ERR, "No records in table 'config'.");
@@ -225,17 +178,17 @@ static int housekeeping_events(int now)
 		while((row2=DBfetch(result2)))
 		{
 			ZBX_STR2UINT64(eventid,row2[0]);
-
+			
 			DBexecute("delete from acknowledges where eventid=" ZBX_FS_UI64,
 				eventid);
-
+			
 			DBexecute("delete from events where eventid=" ZBX_FS_UI64,
 				eventid);
 		}
 		DBfree_result(result2);
 
 	}
-
+	
 	DBfree_result(result);
 	return res;
 }
@@ -261,7 +214,7 @@ static int	delete_history(const char *table, zbx_uint64_t itemid, int keep_histo
 	DB_ROW          row;
 	int             min_clock;
 
-	zabbix_log( LOG_LEVEL_DEBUG, "In delete_history(%s," ZBX_FS_UI64 ",%d,%d)",
+	zabbix_log( LOG_LEVEL_DEBUG, "In delete_history(%s," ZBX_FS_UI64 "," ZBX_FS_UI64 ",%d)",
 		table,
 		itemid,
 		keep_history,
@@ -304,7 +257,7 @@ static int	delete_history(const char *table, zbx_uint64_t itemid, int keep_histo
  *                                                                            *
  * Parameters: now - current timestamp                                        *
  *                                                                            *
- * Return value: SUCCEED - information removed successfully                   *
+ * Return value: SUCCEED - information removed succesfully                    *
  *               FAIL - otherwise                                             *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *

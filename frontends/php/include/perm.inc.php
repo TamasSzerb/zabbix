@@ -45,19 +45,134 @@ function permission2str($group_permission){
 *****************************************/
 
 function check_authorisation(){
+	global	$DB;
+	global	$page;
+	global	$PHP_AUTH_USER,$PHP_AUTH_PW;
+	global	$USER_DETAILS;
+	global	$ZBX_LOCALNODEID;
+
+	$USER_DETAILS = NULL;
+	$login = FALSE;
+
 	$sessionid = get_cookie('zbx_sessionid');
+	if(!is_null($sessionid)){
+		$sql = 'SELECT u.*,s.* '.
+				' FROM sessions s,users u'.
+				' WHERE s.sessionid='.zbx_dbstr($sessionid).
+					' AND s.status='.ZBX_SESSION_ACTIVE.
+					' AND s.userid=u.userid'.
+					' AND ((s.lastaccess+u.autologout>'.time().') OR (u.autologout=0))'.
+					' AND '.DBin_node('u.userid', $ZBX_LOCALNODEID);
 
-	$user = array('sessionid'=>$sessionid);
-	if(!$auth = CUser::checkAuthentication($user)){
-		
-		include_once('include/locales/en_gb.inc.php');
-		process_locales();
+		$login = $USER_DETAILS = DBfetch(DBselect($sql));
+		if(!$USER_DETAILS){
+			$incorrect_session = true;
+		}
+		else if($login['attempt_failed']){
+			error(new CScript(array(
+						bold($login['attempt_failed']),
+						'failed login attempts logged. Last failed attempt was from ',
+						bold($login['attempt_ip']),
+						' on ',
+						bold(date('d.m.Y H:i',$login['attempt_clock'])),
+						'.')));
 
-		include('index.php');
-		exit();
+			DBexecute('UPDATE users SET attempt_failed=0 WHERE userid='.$login['userid']);
+		}
 	}
 
-return $auth;
+	if(!$USER_DETAILS && !isset($_SERVER['PHP_AUTH_USER'])){
+		$sql = 'SELECT u.* '.
+				' FROM users u '.
+				' WHERE u.alias='.zbx_dbstr(ZBX_GUEST_USER).
+					' AND '.DBin_node('u.userid', $ZBX_LOCALNODEID);
+		$login = $USER_DETAILS = DBfetch(DBselect($sql));
+		if(!$USER_DETAILS){
+			$missed_user_guest = true;
+		}
+		else{
+			$sessionid = zbx_session_start($USER_DETAILS['userid'], ZBX_GUEST_USER, '');
+		}
+	}
+
+	if($login){
+		$login = (check_perm2login($USER_DETAILS['userid']) && check_perm2system($USER_DETAILS['userid']));
+	}
+
+	if(!$login){
+		$USER_DETAILS = NULL;
+	}
+
+	if($login && !isset($incorrect_session)){
+		zbx_setcookie('zbx_sessionid',$sessionid,$USER_DETAILS['autologin']?(time()+86400*31):0);	//1 month
+		DBexecute('UPDATE sessions SET lastaccess='.time().' WHERE sessionid='.zbx_dbstr($sessionid));
+	}
+	else{
+		zbx_unsetcookie('zbx_sessionid');
+		DBexecute('UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.' WHERE sessionid='.zbx_dbstr($sessionid));
+		unset($sessionid);
+	}
+
+	if($USER_DETAILS){
+		$USER_DETAILS['node'] = DBfetch(DBselect('SELECT * FROM nodes WHERE nodeid='.id2nodeid($USER_DETAILS['userid'])));
+
+		if(empty($USER_DETAILS['node'])){
+			$USER_DETAILS['node']['name'] = '- unknown -';
+			$USER_DETAILS['node']['nodeid'] = $ZBX_LOCALNODEID;
+		}
+	}
+	else{
+		$USER_DETAILS = array(
+			'alias'	=>ZBX_GUEST_USER,
+			'userid'=>0,
+			'lang'	=>'en_gb',
+			'type'	=>'0',
+			'node'	=>array(
+				'name'	=>'- unknown -',
+				'nodeid'=>0));
+	}
+
+	if(!$login || isset($incorrect_session) || isset($missed_user_guest)){
+
+		if(isset($incorrect_session))	$message = 'Session terminated, please re-login!';
+		else if(isset($missed_user_guest)){
+			$row = DBfetch(DBselect('SELECT count(u.userid) as user_cnt FROM users u'));
+			if(!$row || $row['user_cnt'] == 0){
+				$message = 'Table users is empty. Possible database corruption.';
+			}
+		}
+
+		if(!isset($_REQUEST['message']) && isset($message)) $_REQUEST['message'] = $message;
+
+		include('index.php');
+		exit;
+	}
+}
+
+/*****************************************
+	LDAP AUTHENTICATION
+*****************************************/
+function ldap_authentication($user,$passwd,$cnf=NULL){
+	if(is_null($cnf)){
+		$config = select_config();
+		foreach($config as $id => $value){
+			if(strpos($id,'ldap_') !== false){
+				$cnf[str_replace('ldap_','',$id)] = $config[$id];
+			}
+		}
+	}
+
+	if(!function_exists('ldap_connect')){
+		info('Probably php-ldap module is missing.');
+		return false;
+	}
+
+	$ldap = new CLdap($cnf);
+	$ldap->connect();
+
+	$result = $ldap->checkPass($user,$passwd);
+
+return $result;
 }
 
 
@@ -114,10 +229,7 @@ return (GROUP_GUI_ACCESS_DISABLED == $res)?false:true;
  * Author: Aly
  */
 function get_user_auth($userid){
-	global $USER_DETAILS;
-
-	if(($userid == $USER_DETAILS['userid']) && isset($USER_DETAILS['gui_access'])) return $USER_DETAILS['gui_access'];
-	else $result = GROUP_GUI_ACCESS_SYSTEM;
+	$result = GROUP_GUI_ACCESS_SYSTEM;
 
 	$sql = 'SELECT MAX(g.gui_access) as gui_access '.
 		' FROM usrgrp g, users_groups ug '.
@@ -125,35 +237,9 @@ function get_user_auth($userid){
 			' AND g.usrgrpid=ug.usrgrpid ';
 	$acc = DBfetch(DBselect($sql));
 
-	if(!zbx_empty($acc['gui_access'])){
-		$result = $acc['gui_access'];
-	}
+	if(!zbx_empty($acc['gui_access'])) $result=$acc['gui_access'];
 
 return $result;
-}
-
-function get_user_api_access($userid){
-	$sql = 'SELECT g.usrgrpid '.
-			' FROM usrgrp g, users_groups ug '.
-			' WHERE ug.userid = '.$userid.
-				' AND g.usrgrpid = ug.usrgrpid '.
-				' AND g.api_access = '.GROUP_API_ACCESS_ENABLED;
-	if($res = DBfetch(DBselect($sql,1))){
-		return true;
-	}
-return false;
-}
-
-function get_user_debug_mode($userid){
-	$sql = 'SELECT g.usrgrpid '.
-			' FROM usrgrp g, users_groups ug '.
-			' WHERE ug.userid = '.$userid.
-				' AND g.usrgrpid = ug.usrgrpid '.
-				' AND g.debug_mode = '.GROUP_DEBUG_MODE_ENABLED;
-	if($res = DBfetch(DBselect($sql,1))){
-		return true;
-	}
-return false;
 }
 
 /* Function: get_user_system_auth()
@@ -167,24 +253,17 @@ return false;
  * Author: Aly
  */
 function get_user_system_auth($userid){
-	$config = select_config();
-	
-	$result = get_user_auth($userid);
+	$result = ZBX_AUTH_INTERNAL;
 
-	switch($result){
+	$user_auth = get_user_auth($userid);
+
+	switch($user_auth){
 		case GROUP_GUI_ACCESS_SYSTEM:
+			$config = select_config();
 			$result = $config['authentication_type'];
-		break;
+			break;
 		case GROUP_GUI_ACCESS_INTERNAL:
-			if($config['authentication_type'] == ZBX_AUTH_HTTP){
-				$result = ZBX_AUTH_HTTP;
-			}
-			else{
-				$result = ZBX_AUTH_INTERNAL;
-			}
-		break;
 		case GROUP_GUI_ACCESS_DISABLED:
-			$result = $config['authentication_type'];
 		default:
 			break;
 	}
@@ -195,47 +274,6 @@ return $result;
 /***********************************************
 	GET ACCESSIBLE RESOURCES BY USERID
 ************************************************/
-
-function available_groups($groupids, $editable=null){
-	$options = array();
-	$options['groupids'] = $groupids;
-	$options['editable'] = $editable;
-
-	$groups = CHostGroup::get($options);
-return zbx_objectValues($groups, 'groupid');
-}
-function available_hosts($hostids, $editable=null){
-	$options = array();
-	$options['hostids'] = $hostids;
-	$options['editable'] = $editable;
-	$options['templated_hosts'] = 1;
-
-	$hosts = CHost::get($options);
-
-return zbx_objectValues($hosts, 'hostid');
-}
-
-function available_triggers($triggerids, $editable=null){
-	$options = array(
-		'triggerids' => $triggerids,
-		'editable' => $editable,
-		'nodes' => get_current_nodeid(true)
-	);
-
-	$triggers = CTrigger::get($options);
-
-return zbx_objectValues($triggers, 'triggerid');
-}
-
-function available_graphs($graphids, $editable=null){
-	$options = array();
-	$options['graphids'] = $graphids;
-	$options['editable'] = $editable;
-	$options['nodes'] = get_current_nodeid(true);
-
-	$graphs = CGraph::get($options);
-return zbx_objectValues($graphs, 'graphid');
-}
 
 function get_accessible_hosts_by_user(&$user_data,$perm,$perm_res=null,$nodeid=null,$cache=1){
 //		global $DB;
@@ -346,7 +384,7 @@ function get_accessible_groups_by_user($user_data,$perm,$perm_res=null,$nodeid=n
 	$result = array();
 
 	$userid =& $user_data['userid'];
-	if(!isset($userid)) fatal_error(S_INCORRECT_USER_DATA_IN.SPACE.'"get_accessible_groups_by_user"');
+	if(!isset($userid)) fatal_error('Incorrect user data in "get_accessible_groups_by_user"');
 	$user_type =& $user_data['type'];
 
 COpt::counter_up('perm_group['.$userid.','.$perm.','.$perm_res.','.$nodeid.']');
@@ -420,7 +458,6 @@ return $result;
 
 function get_accessible_nodes_by_user(&$user_data,$perm,$perm_res=null,$nodeid=null,$cache=1){
 	global $ZBX_LOCALNODEID, $ZBX_NODES_IDS;
-	static $available_nodes;
 
 	if(is_null($perm_res)) $perm_res = PERM_RES_IDS_ARRAY;
 	if(is_null($nodeid)) $nodeid = $ZBX_NODES_IDS;
@@ -428,22 +465,14 @@ function get_accessible_nodes_by_user(&$user_data,$perm,$perm_res=null,$nodeid=n
 
 	$userid		=& $user_data['userid'];
 	$user_type	=& $user_data['type'];
-	if(!isset($userid)) fatal_error(S_INCORRECT_USER_DATA_IN.SPACE.'"get_accessible_nodes_by_user"');
-
-
-	$nodeid_str =(is_array($nodeid))?md5(implode('',$nodeid)):strval($nodeid);
-
-	if($cache && isset($available_nodes[$userid][$perm][$perm_res][$nodeid_str])){
-//SDI('Cache!!! '."[$userid][$perm][$perm_res]");
-		return $available_nodes[$userid][$perm][$perm_res][$nodeid_str];
-	}
+	if(!isset($userid)) fatal_error('Incorrect user data in "get_accessible_nodes_by_user"');
 
 	$node_data = array();
 	$result = array();
 
 //COpt::counter_up('perm');
 	if(USER_TYPE_SUPER_ADMIN == $user_type){
-		$nodes = DBselect('SELECT nodeid FROM nodes');
+		$nodes = DBselect('SELECT nodeid FROM nodes');// WHERE '.DBcondition('nodeid',$ZBX_NODES_IDS));
 		while($node = DBfetch($nodes)){
 			$node_data[$node['nodeid']] = $node;
 			$node_data[$node['nodeid']]['permission'] = PERM_READ_WRITE;
@@ -465,7 +494,7 @@ function get_accessible_nodes_by_user(&$user_data,$perm,$perm_res=null,$nodeid=n
 	foreach($node_data as $nodeid => $node){
 		switch($perm_res){
 			case PERM_RES_DATA_ARRAY:
-				$db_node = DBfetch(DBselect('SELECT * FROM nodes WHERE nodeid='.$nodeid.' ORDER BY name'));
+				$db_node = DBfetch(DBselect('SELECT * FROM nodes WHERE nodeid='.$nodeid));
 
 				if(!ZBX_DISTRIBUTED){
 					if(!$node){
@@ -481,7 +510,7 @@ function get_accessible_nodes_by_user(&$user_data,$perm,$perm_res=null,$nodeid=n
 					}
 				}
 
-				$result[$nodeid] = zbx_array_merge($db_node,$node);
+				$result[$nodeid] = array_merge($db_node,$node);
 
 				break;
 			default:
@@ -496,8 +525,6 @@ function get_accessible_nodes_by_user(&$user_data,$perm,$perm_res=null,$nodeid=n
 		else
 			$result = implode(',',$result);
 	}
-
-	$available_nodes[$userid][$perm][$perm_res][$nodeid_str] = $result;
 
 return $result;
 }
@@ -660,7 +687,6 @@ function get_accessible_nodes_by_rights(&$rights,$user_type,$perm,$perm_res=null
 	$node_data = array();
 	$result = array();
 
-//COpt::counter_up('perm_nodes['.$userid.','.$perm.','.$perm_mode.','.$perm_res.','.$nodeid.']');
 //COpt::counter_up('perm');
 //SDI(get_accessible_groups_by_rights($rights,$user_type,$perm,PERM_RES_DATA_ARRAY,$nodeid));
 	$available_groups = get_accessible_groups_by_rights($rights,$user_type,$perm,PERM_RES_DATA_ARRAY,$nodeid);
@@ -708,7 +734,7 @@ function get_accessible_nodes_by_rights(&$rights,$user_type,$perm,$perm_res=null
 					}
 				}
 
-				$result[$nodeid] = zbx_array_merge($db_node,$node);
+				$result[$nodeid] = array_merge($db_node,$node);
 
 				break;
 			default:

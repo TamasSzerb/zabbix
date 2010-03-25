@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -16,6 +16,7 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+
 
 #ifndef ZABBIX_ZBXDB_H
 #define ZABBIX_ZBXDB_H
@@ -37,15 +38,8 @@ extern MYSQL	*conn;
 #endif /* HAVE_MYSQL */
 
 #ifdef HAVE_ORACLE
-#	include "oci.h"
-typedef struct zbx_oracle_db_handle_s {
-	OCIEnv *envhp;
-	OCIError *errhp;
-	OCISvcCtx *svchp;
-	OCIServer *srvhp;
-} zbx_oracle_db_handle_t;
-
-extern zbx_oracle_db_handle_t oracle;
+#	include "sqlora.h"
+extern sqlo_db_handle_t oracle;
 #endif /* HAVE_ORACLE */
 
 #ifdef HAVE_POSTGRESQL
@@ -86,7 +80,7 @@ extern sqlite3		*conn;
 void	SQ_DBfree_result(DB_RESULT result);
 
 	extern PHP_MUTEX	sqlite_access;
-
+	
 #endif
 
 #ifdef HAVE_MYSQL
@@ -109,25 +103,15 @@ void	SQ_DBfree_result(DB_RESULT result);
 		DB_ROW		values;
 	} ZBX_PG_DB_RESULT;
 
+extern	int	ZBX_PG_BYTEAOID;
 void	PG_DBfree_result(DB_RESULT result);
 
 #endif
 
 #ifdef HAVE_ORACLE
-	#define	DB_RESULT ZBX_OCI_DB_RESULT*
-	#define	DBfree_result OCI_DBfree_result
+	#define	DB_RESULT	sqlo_stmt_handle_t
+	#define	DBfree_result	sqlo_close
 	#define DB_ROW		char **
-
-	typedef struct zbx_oci_db_result_s
-	{
-		OCIStmt	*stmthp;
-		int 	ncolumn;
-		DB_ROW	values;
-	} ZBX_OCI_DB_RESULT;
-
-	void	OCI_DBfree_result(DB_RESULT result);
-	ub4	OCI_DBserver_status();
-	char*	zbx_oci_error(sword status);
 #endif
 
 int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *dbsocket, int port);
@@ -148,6 +132,7 @@ int	__zbx_zbx_db_execute(const char *fmt, ...);
 DB_RESULT	zbx_db_vselect(const char *fmt, va_list args);
 DB_RESULT	zbx_db_select_n(char *query, int n);
 DB_ROW		zbx_db_fetch(DB_RESULT result);
+zbx_uint64_t	zbx_db_insert_id(int exec_result, const char *table, const char *field);
 int		zbx_db_is_null(char *field);
 void		zbx_db_begin();
 void		zbx_db_commit();

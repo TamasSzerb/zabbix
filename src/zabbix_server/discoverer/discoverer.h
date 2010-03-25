@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -24,8 +24,9 @@
 
 extern	int	CONFIG_DISCOVERER_FORKS;
 
-void	update_host(DB_DHOST *dhost, const char *ip, int status, int now);
-void	update_service(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhost, char *ip, int port, int status, const char *value, int now);
+void	register_host(DB_DHOST *dhost, const char *ip, int status);
+void	update_host_status(DB_DHOST *dhost, int status, int now);
+void	update_service(DB_DHOST *dhost, DB_DCHECK *check, char *ip, int port, int now);
 
 void	main_discoverer_loop(zbx_process_t p, int num);
 

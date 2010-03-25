@@ -61,9 +61,8 @@
 				GRAPH_ITEM_DRAWTYPE_FILLED_REGION,
 				GRAPH_ITEM_DRAWTYPE_BOLD_LINE,
 				GRAPH_ITEM_DRAWTYPE_DOT,
-				GRAPH_ITEM_DRAWTYPE_DASHED_LINE,
-				GRAPH_ITEM_DRAWTYPE_GRADIENT_LINE
-			);
+				GRAPH_ITEM_DRAWTYPE_DASHED_LINE
+			    );
 	}
 
 /*
@@ -80,16 +79,16 @@
 		if($type == GRAPH_ITEM_AGGREGATED) return '-';
 
 		switch($drawtype){
-			case GRAPH_ITEM_DRAWTYPE_LINE:			$drawtype = S_LINE;		break;
-			case GRAPH_ITEM_DRAWTYPE_FILLED_REGION:		$drawtype = S_FILLED_REGION;	break;
-			case GRAPH_ITEM_DRAWTYPE_BOLD_LINE:		$drawtype = S_BOLD_LINE;	break;
-			case GRAPH_ITEM_DRAWTYPE_DOT:			$drawtype = S_DOT;		break;
-			case GRAPH_ITEM_DRAWTYPE_DASHED_LINE:		$drawtype = S_DASHED_LINE;	break;
-			case GRAPH_ITEM_DRAWTYPE_GRADIENT_LINE:	$drawtype = S_GRADIENT_LINE;  break;
+			case GRAPH_ITEM_DRAWTYPE_LINE:			$drawtype = S_LINE;				break;
+			case GRAPH_ITEM_DRAWTYPE_FILLED_REGION:	$drawtype = S_FILLED_REGION;	break;
+			case GRAPH_ITEM_DRAWTYPE_BOLD_LINE:		$drawtype = S_BOLD_LINE;		break;
+			case GRAPH_ITEM_DRAWTYPE_DOT:			$drawtype = S_DOT;				break;
+			case GRAPH_ITEM_DRAWTYPE_DASHED_LINE:	$drawtype = S_DASHED_LINE;		break;
 			default: $drawtype = S_UNKNOWN;		break;
 		}
 	return $drawtype;
 	}
+
 /*
  * Function: graph_item_calc_fnc2str
  *
@@ -104,50 +103,14 @@
 		if($type == GRAPH_ITEM_AGGREGATED) return '-';
 
 		switch($calc_fnc){
-			case 0:			$calc_fnc = S_COUNT;		break;
-			case CALC_FNC_ALL:	$calc_fnc = S_ALL_SMALL;	break;
-			case CALC_FNC_MIN:	$calc_fnc = S_MIN_SMALL;	break;
-			case CALC_FNC_MAX:	$calc_fnc = S_MAX_SMALL;	break;
-			case CALC_FNC_LST:	$calc_fnc = S_LST_SMALL;	break;
+			case CALC_FNC_ALL:      $calc_fnc = S_ALL_SMALL;        break;
+			case CALC_FNC_MIN:      $calc_fnc = S_MIN_SMALL;        break;
+			case CALC_FNC_MAX:      $calc_fnc = S_MAX_SMALL;        break;
+			case CALC_FNC_LST:		$calc_fnc = S_LST_SMALL;		break;
 			case CALC_FNC_AVG:
-			default:		$calc_fnc = S_AVG_SMALL;	break;
+			default:		$calc_fnc = S_AVG_SMALL;        break;
 		}
 	return $calc_fnc;
-	}
-
-	function getGraphDims($graphid){
-// ZOOM featers
-		$graphDims = array();
-
-		$sql = 'SELECT MAX(g.graphtype) as graphtype, MIN(gi.yaxisside) as yaxissidel, MAX(gi.yaxisside) as yaxissider, MAX(g.height) as height'.
-				' FROM graphs g, graphs_items gi '.
-				' WHERE g.graphid='.$graphid.
-					' AND gi.graphid=g.graphid ';
-		$res = DBselect($sql);
-		if($graph=DBfetch($res)){
-			$graphDims['graphtype'] = $graph['graphtype'];
-			$graphDims['graphHeight'] = $graph['height'];
-			$yaxis = $graph['yaxissider'];
-			$yaxis = ($graph['yaxissidel'] == $yaxis)?($yaxis):(2);
-
-			$graphDims['yaxis'] = $yaxis;
-		}
-
-		if($yaxis == 2){
-			$graphDims['shiftXleft'] = 85;
-			$graphDims['shiftXright'] = 85;
-		}
-		else if($yaxis == 0){
-			$graphDims['shiftXleft'] = 85;
-			$graphDims['shiftXright'] = 30;
-		}
-		else{
-			$graphDims['shiftXleft'] = 30;
-			$graphDims['shiftXright'] = 85;
-		}
-//-------------
-
-	return $graphDims;
 	}
 
 	function get_graph_by_gitemid($gitemid){
@@ -160,12 +123,11 @@
 	}
 
 	function get_graphs_by_hostid($hostid){
-		$sql = 'SELECT distinct g.* '.
-				' FROM graphs g, graphs_items gi, items i '.
-				' WHERE g.graphid=gi.graphid '.
-					' AND gi.itemid=i.itemid '.
-					' AND i.hostid='.$hostid;
-	return DBselect($sql);
+		return DBselect('SELECT distinct g.* '.
+						' FROM graphs g, graphs_items gi, items i '.
+						' WHERE g.graphid=gi.graphid '.
+							' AND gi.itemid=i.itemid '.
+							' AND i.hostid='.$hostid);
 	}
 
 	function get_realhosts_by_graphid($graphid){
@@ -217,6 +179,7 @@
 		}
 	return true;
 	}
+
 
 /*
  * Function: get_accessible_graphs
@@ -289,13 +252,13 @@
  * Function: get_min_itemclock_by_graphid
  *
  * Description:
- *     Return the time of the 1st appearance of items included in graph in trends
+ *     Return the time of the 1st apearance of items included in graph in trends
  *
  * Author:
  *     Aly
  *
  * Comment:
- *	sql is split to many sql's to optimize search on history tables
+ *	   sql is splited to many sql's to optimize search on history tables
  *
  */
 	function get_min_itemclock_by_graphid($graphid){
@@ -315,7 +278,7 @@
  * Function: get_min_itemclock_by_itemid
  *
  * Description:
- *     Return the time of the 1st appearance of item in trends
+ *     Return the time of the 1st apearance of item in trends
  *
  * Author:
  *     Aly
@@ -342,7 +305,7 @@
 		$sql_from = 'history';
 		$sql_from_num = '';
 		if(!empty($items_by_type[ITEM_VALUE_TYPE_FLOAT]) || !empty($items_by_type[ITEM_VALUE_TYPE_UINT64])) {
-			$itemids_numeric = zbx_array_merge($items_by_type[ITEM_VALUE_TYPE_FLOAT], $items_by_type[ITEM_VALUE_TYPE_UINT64]);
+			$itemids_numeric = array_merge($items_by_type[ITEM_VALUE_TYPE_FLOAT], $items_by_type[ITEM_VALUE_TYPE_UINT64]);
 			$sql = 'SELECT MAX(i.history) as history, MAX(i.trends) as trends FROM items i WHERE '.DBcondition('i.itemid', $itemids_numeric);
 
 			if($table_for_numeric = DBfetch(DBselect($sql))){
@@ -350,7 +313,6 @@
 				$result = time() - (86400 * max($table_for_numeric['history'],$table_for_numeric['trends']));
 			}
 		}
-
 		foreach($items_by_type as $type => $items) {
 			if(empty($items)) continue;
 			switch($type) {
@@ -372,7 +334,6 @@
 				default:
 					$sql_from = 'history';
 			}
-
 			foreach($items as $itemid) {
 				$sql = 'SELECT ht.clock '.
 						' FROM '.$sql_from.' ht '.
@@ -388,13 +349,40 @@
 	return $result;
 	}
 
+// Show History Graph
+	function show_history($itemid,$from,$stime,$period){
+		//$till=date(S_DATE_FORMAT_YMDHMS,time(NULL)-$from*3600);
+
+		//show_table_header(S_TILL.SPACE.$till.' ( '.zbx_date2age($stime,$stime+$period).' )');
+
+		$td = new CCol(get_js_sizeable_graph('graph','chart.php?itemid='.$itemid.
+				url_param($from,false,'from').
+				url_param($stime,false,'stime').
+				url_param($period,false,'period')));
+		$td->addOption('align','center');
+
+		$tr = new CRow($td);
+		$tr->addOption('bgcolor','#dddddd');
+
+		$table = new CTable();
+		$table->addOption('width','100%');
+		$table->addOption('bgcolor','#cccccc');
+		$table->addOption('cellspacing','1');
+		$table->addOption('cellpadding','3');
+
+		$table->addRow($tr);
+
+		$table->show();
+		echo SBR;
+	}
+
 	function get_graphitem_by_gitemid($gitemid){
-		$result=DBselect('SELECT * FROM graphs_items WHERE gitemid='.$gitemid);
+		$result=DBselect("SELECT * FROM graphs_items WHERE gitemid=$gitemid");
 		$row=DBfetch($result);
 		if($row){
 			return	$row;
 		}
-		error(S_NO_GRAPH_WITH." gitemid=[$gitemid]");
+		error("No graph item with gitemid=[$gitemid]");
 
 	return	$result;
 	}
@@ -416,7 +404,7 @@
 		if($row){
 			return	$row;
 		}
-		error(S_NO_GRAPH_WITH." graphid=[$graphid]");
+		error("No graph with graphid=[$graphid]");
 		return	false;
 	}
 
@@ -436,13 +424,13 @@
  *
  * Comments: !!! Don't forget sync code with C !!!
  * Only PHP:
- *		$error= true : rise Error if item doesn't exist (error generated), false: special processing (NO error generated)
+ *		$error= true : rise Error if item doesn't exists(error generated), false: special processing (NO error generated)
  */
 	function get_same_graphitems_for_host($gitems, $dest_hostid, $error=true){
 		$result = array();
 
 		foreach($gitems as $gitem){
-			$sql = 'SELECT src.itemid, dest.key_ '.
+			$sql = 'SELECT src.itemid '.
 					' FROM items src, items dest '.
 					' WHERE dest.itemid='.$gitem['itemid'].
 						' AND src.key_=dest.key_ '.
@@ -451,7 +439,7 @@
 			if (!$db_item && $error){
 				$item = get_item_by_itemid($gitem['itemid']);
 				$host = get_host_by_hostid($dest_hostid);
-				error(S_MISSING_KEY.SPACE.'"'.$item['key_'].'"'.SPACE.S_FOR_HOST_SMALL.SPACE.'"'.$host['host'].'"');
+				error('Missing key "'.$item['key_'].'" for host "'.$host['host'].'"');
 				return false;
 			}
 			else if(!$db_item){
@@ -460,7 +448,6 @@
 			}
 			else{
 				$gitem['itemid'] = $db_item['itemid'];
-				$gitem['key_'] = $db_item['key_'];
 			}
 
 			$result[] = $gitem;
@@ -481,14 +468,14 @@
          * Comments: !!! Don't forget sync code with C !!!
          *
          */
-	function add_graph($name,$width,$height,$ymin_type,$ymax_type,$yaxismin,$yaxismax,$ymin_itemid,$ymax_itemid,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right,$templateid=0)
+	function add_graph($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right,$templateid=0)
 	{
 		$graphid = get_dbid("graphs","graphid");
 
 		$result=DBexecute('INSERT INTO graphs '.
-			' (graphid,name,width,height,ymin_type,ymax_type,yaxismin,yaxismax,ymin_itemid,ymax_itemid,templateid,show_work_period,show_triggers,graphtype,show_legend,show_3d,percent_left,percent_right) '.
-			" VALUES ($graphid,".zbx_dbstr($name).",$width,$height,$ymin_type,$ymax_type,$yaxismin,$yaxismax,$ymin_itemid,$ymax_itemid,".
-			" $templateid,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right)");
+			' (graphid,name,width,height,yaxistype,yaxismin,yaxismax,templateid,show_work_period,show_triggers,graphtype,show_legend,show_3d,percent_left,percent_right) '.
+			" VALUES ($graphid,".zbx_dbstr($name).",$width,$height,$yaxistype,$yaxismin,".
+			" $yaxismax,$templateid,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right)");
 
 		return ( $result ? $graphid : $result);
 	}
@@ -505,12 +492,12 @@
          * Comments: !!! Don't forget sync code with C !!!
          *
          */
-	function add_graph_with_items($name,$width,$height,$ymin_type,$ymax_type,$yaxismin,$yaxismax,$ymin_itemid,$ymax_itemid,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right,$gitems=array(),$templateid=0)
+	function add_graph_with_items($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right,$gitems=array(),$templateid=0)
 	{
 		$result = false;
 
 		if(!is_array($gitems) || count($gitems)<1){
-			error(S_MISSING_ITEMS_FOR_GRAPH.SPACE.'"'.$name.'"');
+			error('Missing items for graph "'.$name.'"');
 			return $result;
 		}
 
@@ -527,30 +514,19 @@
 							' WHERE h.hostid=i.hostid '.
 								' AND '.DBcondition('i.itemid',$itemid));
 
-		$graph_hostids = array();
 		while($db_item_host = DBfetch($db_item_hosts)){
 			$host_list[] = '"'.$db_item_host['host'].'"';
-			$graph_hostids[] = $db_item_host['hostid'];
 
 			if(HOST_STATUS_TEMPLATE ==  $db_item_host['status'])
 				$new_host_is_template = true;
 		}
 
 		if(isset($new_host_is_template) && count($host_list)>1){
-			error(S_GRAPH.SPACE.'"'.$name.'"'.SPACE.S_GRAPH_TEMPLATE_HOST_CANNOT_OTHER_ITEMS_HOSTS_SMALL);
+			error('Graph "'.$name.'" with template host can not contain items from other hosts.');
 			return $result;
 		}
-		
-		// $filter = array(
-			// 'name' => $name,
-			// 'hostids' => $graph_hostids
-		// );
-		// if(CGraph::exists($filter)){
-			// error('Graph already exists [ '.$name.' ]');
-			// return false;
-		// }
 
-		if($graphid = add_graph($name,$width,$height,$ymin_type,$ymax_type,$yaxismin,$yaxismax,$ymin_itemid,$ymax_itemid,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right,$templateid)){
+		if($graphid = add_graph($name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right,$templateid)){
 			$result = true;
 			foreach($gitems as $gitem){
 				if (!$result = add_item_to_graph(
@@ -602,31 +578,17 @@
          * Comments: !!! Don't forget sync code with C !!!
          *
          */
-	function update_graph($graphid,$name,$width,$height,$ymin_type,$ymax_type,$yaxismin,$yaxismax,$ymin_itemid,$ymax_itemid,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right,$templateid=0){
-
+	function update_graph($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right,$templateid=0){
 		$g_graph = get_graph_by_graphid($graphid);
 
-		$sql = 'UPDATE graphs SET '.
-				'name='.zbx_dbstr($name).','.
-				'width='.$width.','.
-				'height='.$height.','.
-				'ymin_type='.$ymin_type.','.
-				'ymax_type='.$ymax_type.','.
-				'yaxismin='.$yaxismin.','.
-				'yaxismax='.$yaxismax.','.
-				'ymin_itemid='.$ymin_itemid.','.
-				'ymax_itemid='.$ymax_itemid.','.
-				'templateid='.$templateid.','.
-				'show_work_period='.$showworkperiod.','.
-				'show_triggers='.$showtriggers.','.
-				'graphtype='.$graphtype.','.
-				'show_legend='.$legend.','.
-				'show_3d='.$graph3d.','.
-				'percent_left='.$percent_left.','.
-				'percent_right='.$percent_right.
-			' WHERE graphid='.$graphid;
-
-		if($result = DBexecute($sql)){
+		if ( ($result = DBexecute(
+				'UPDATE graphs '.
+				'SET name='.zbx_dbstr($name).',width='.$width.',height='.$height.
+					',yaxistype='.$yaxistype.',yaxismin='.$yaxismin.',yaxismax='.$yaxismax.',templateid='.$templateid.
+					',show_work_period='.$showworkperiod.',show_triggers='.$showtriggers.',graphtype='.$graphtype.',show_legend='.$legend.
+					',show_3d='.$graph3d.',percent_left='.$percent_left.',percent_right='.$percent_right.
+				' WHERE graphid='.$graphid)) )
+		{
 			if($g_graph['graphtype'] != $graphtype && $graphtype == GRAPH_TYPE_STACKED){
 				$result = DBexecute('UPDATE graphs_items SET calc_fnc='.CALC_FNC_AVG.',drawtype=1,type='.GRAPH_ITEM_SIMPLE.
 					' WHERE graphid='.$graphid);
@@ -635,28 +597,28 @@
 		return $result;
 	}
 
-/*
- * Function: update_graph_with_items
- *
- * Description:
- *     Update graph with items and recursion for template
- *
- * Author:
- *     Eugene Grigorjev
- *
- * Comments: !!! Don't forget sync code with C !!!
- *
- */
-	function update_graph_with_items($graphid,$name,$width,$height,$ymin_type,$ymax_type,$yaxismin,$yaxismax,$ymin_itemid,$ymax_itemid,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right,$gitems=array(),$templateid=0)
+        /*
+         * Function: update_graph_with_items
+         *
+         * Description:
+         *     Update graph with items and recursion for template
+         *
+         * Author:
+         *     Eugene Grigorjev
+         *
+         * Comments: !!! Don't forget sync code with C !!!
+         *
+         */
+	function update_graph_with_items($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right,$gitems=array(),$templateid=0)
 	{
 		$result = false;
 
 		if(!is_array($gitems) || count($gitems) < 1){
-			error(S_MISSING_ITEMS_FOR_GRAPH.SPACE.'"'.$name.'"');
+			error('Missing items for graph "'.$name.'"');
 			return $result;
 		}
 
-// check items for template graph
+		/* check items for template graph */
 		$tmp_hosts = get_hosts_by_graphid($graphid);
 		$host = DBfetch($tmp_hosts);
 		if($host["status"] == HOST_STATUS_TEMPLATE ){
@@ -669,7 +631,7 @@
 			$db_item_hosts = DBselect('SELECT DISTINCT hostid from items where itemid in ('.implode(',', $itemid).')');
 			while($db_item = DBfetch($db_item_hosts)){
 				if ( isset($new_hostid) ){
-					error(S_CANNOT_USE_MULTIPLE_HOST_ITEMS_TEMPLATE_GRAPH.SPACE.'"'.$name.'"');
+					error('Can not use multiple host items for template graph "'.$name.'"');
 					return $result;
 				}
 
@@ -677,24 +639,24 @@
 			}
 
 			if ( (bccomp($host['hostid'] ,$new_hostid ) != 0)){
-				error(S_MUST_USE_ITEMS_ONLY_FROM_HOST.SPACE.'"'.$host['host'].'"'.SPACE.S_FOR_TEMPLATE_GRAPH_SMALL.SPACE.'"'.$name.'"');
+				error('You must use items only from host "'.$host['host'].'" for template graph "'.$name.'"');
 				return $result;
 			}
 		}
 
-// firstly update child graphs
+		/* firstly update child graphs */
 		$chd_graphs = get_graphs_by_templateid($graphid);
 		while($chd_graph = DBfetch($chd_graphs)){
 			$tmp_hosts = get_hosts_by_graphid($chd_graph['graphid']);
 			$chd_host = DBfetch($tmp_hosts);
 
 			if(!$new_gitems = get_same_graphitems_for_host($gitems, $chd_host['hostid'])){ /* skip host with missing items */
-				error(S_CANNOT_UPDATE_GRAPH.SPACE.'"'.$name.'"'.SPACE.S_FOR_HOST_SMALL.SPACE.'"'.$chd_host['host'].'"');
+				error('Can not update graph "'.$name.'" for host "'.$chd_host['host'].'"');
 				return $result;
 			}
 
 			if (!$result = update_graph_with_items($chd_graph['graphid'], $name, $width, $height,
-				$ymin_type,$ymax_type,$yaxismin,$yaxismax,$ymin_itemid,$ymax_itemid,
+				$yaxistype, $yaxismin, $yaxismax,
 				$showworkperiod, $showtriggers, $graphtype, $legend, $graph3d, $percent_left, $percent_right, $new_gitems, $graphid))
 			{
 				return $result;
@@ -704,7 +666,7 @@
 		DBexecute('DELETE FROM graphs_items WHERE graphid='.$graphid);
 
 		foreach($gitems as $gitem){
-			if (!$result = add_item_to_graph(
+			if ( ! ($result = add_item_to_graph(
 					$graphid,
 					$gitem['itemid'],
 					$gitem['color'],
@@ -713,13 +675,13 @@
 					$gitem['yaxisside'],
 					$gitem['calc_fnc'],
 					$gitem['type'],
-					$gitem['periods_cnt']))
+					$gitem['periods_cnt'])) )
 			{
 				return $result;
 			}
 		}
 
-		if ($result = update_graph($graphid,$name,$width,$height,$ymin_type,$ymax_type,$yaxismin,$yaxismax,$ymin_itemid,$ymax_itemid,$showworkperiod,
+		if ($result = update_graph($graphid,$name,$width,$height,$yaxistype,$yaxismin,$yaxismax,$showworkperiod,
 						$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right,$templateid))
 		{
 			$host_list = array();
@@ -728,7 +690,7 @@
 				$host_list[] = '"'.$db_host["host"].'"';
 			}
 
-			info(S_GRAPH.SPACE.'"'.$name.'"'.SPACE.S_UPDATED_FOR_HOSTS.SPACE.implode(',',$host_list));
+			info('Graph "'.$name.'" updated for hosts '.implode(',',$host_list));
 		}
 
 		return $result;
@@ -763,7 +725,7 @@
 			}
 		}
 
-// first remove child graphs
+// firstly remove child graphs
 		$del_chd_graphs = array();
 		$chd_graphs = get_graphs_by_templateid($graphids);
 		while($chd_graph = DBfetch($chd_graphs)){ /* recursion */
@@ -790,23 +752,24 @@
 	return $result;
 	}
 
-/*
- * Function: cmp_graphitems
- *
- * Description:
- *     Compare two graph items
- *
- * Author:
- *     Eugene Grigorjev
- *
- * Comments: !!! Don't forget sync code with C !!!
- *
- */
-	function cmp_graphitems(&$gitem1, &$gitem2){
+        /*
+         * Function: cmp_graphitems
+         *
+         * Description:
+         *     Compare two graph items
+         *
+         * Author:
+         *     Eugene Grigorjev
+         *
+         * Comments: !!! Don't forget sync code with C !!!
+         *
+         */
+	function	cmp_graphitems(&$gitem1, &$gitem2)
+	{
 		if($gitem1["drawtype"]	!= $gitem2["drawtype"])		return 1;
-		if($gitem1["sortorder"]	!= $gitem2["sortorder"])	return 2;
+		if($gitem1["sortorder"] != $gitem2["sortorder"])	return 2;
 		if($gitem1["color"]	!= $gitem2["color"])		return 3;
-		if($gitem1["yaxisside"]	!= $gitem2["yaxisside"])	return 4;
+		if($gitem1["yaxisside"] != $gitem2["yaxisside"])	return 4;
 
 		$item1 = get_item_by_itemid($gitem1["itemid"]);
 		$item2 = get_item_by_itemid($gitem2["itemid"]);
@@ -816,19 +779,20 @@
 		return 0;
 	}
 
-/*
- * Function: add_item_to_graph
- *
- * Description:
- *     Add item to graph
- *
- * Author:
- *     Eugene Grigorjev
- *
- * Comments: !!! Don't forget sync code with C !!!
- *
- */
-	function add_item_to_graph($graphid,$itemid,$color,$drawtype,$sortorder,$yaxisside,$calc_fnc,$type,$periods_cnt){
+        /*
+         * Function: add_item_to_graph
+         *
+         * Description:
+         *     Add item to graph
+         *
+         * Author:
+         *     Eugene Grigorjev
+         *
+         * Comments: !!! Don't forget sync code with C !!!
+         *
+         */
+	function	add_item_to_graph($graphid,$itemid,$color,$drawtype,$sortorder,$yaxisside,$calc_fnc,$type,$periods_cnt)
+	{
 		$gitemid = get_dbid('graphs_items','gitemid');
 
 		$result = DBexecute('insert into graphs_items'.
@@ -868,7 +832,7 @@
 
 			if($unlink_mode){
 				if(DBexecute('UPDATE graphs SET templateid=0 WHERE graphid='.$db_graph['graphid'])){
-					info(S_GRAPH.SPACE.'"'.$db_graph['name'].'"'.SPACE.S_UNLINKED_SMALL);
+					info('Graph "'.$db_graph['name'].'" unlinked');
 				}
 			}
 			else{
@@ -877,18 +841,18 @@
 		}
 	}
 
-        /*
-         * Function: copy_template_graphs
-         *
-         * Description:
-         *     Copy all graphs to the specified host
-         *
-         * Author:
-         *     Eugene Grigorjev
-         *
-         * Comments: !!! Don't forget sync code with C !!!
-         *
-         */
+/*
+ * Function: copy_template_graphs
+ *
+ * Description:
+ *     Copy all graphs to the specified host
+ *
+ * Author:
+ *     Eugene Grigorjev
+ *
+ * Comments: !!! Don't forget sync code with C !!!
+ *
+ */
 	function copy_template_graphs($hostid, $templateid = null /* array format 'arr[key]=id' */, $copy_mode = false){
 		if($templateid == null){
 			$templateid = get_templates_by_hostid($hostid);
@@ -903,51 +867,23 @@
 
 		$db_graphs = get_graphs_by_hostid($templateid);
 
-		if($copy_mode){
-			while($db_graph = DBfetch($db_graphs)){
-				copy_graph_to_host($db_graph["graphid"], $hostid, $copy_mode);
-			}
+		while($db_graph = DBfetch($db_graphs)){
+			copy_graph_to_host($db_graph["graphid"], $hostid, $copy_mode);
 		}
-		else{
-			while($db_graph = DBfetch($db_graphs)){
-				$gitems = CGraphItem::get(array(
-					'graphids' => $db_graph['graphid'],
-					'output' => API_OUTPUT_EXTEND
-				));
-				
-				
-				$filter = array(
-					'name' => $db_graph['name'],
-					'hostids' => $hostid
-				);
-				if(CGraph::exists($filter)){
-					$db_graph['gitems'] = $gitems;
-					$res = CGraph::update($db_graph);
-				}
-				else{
-					$db_graph['templateid'] = $db_graph['graphid'];
-					$db_graph['gitems'] = get_same_graphitems_for_host($gitems, $hostid);
-					$res = CGraph::create($db_graph);
-				}
-				if($res === false) return false;
-			}
-		}
-		
-		return true;
 	}
 
-/*
- * Function: copy_graph_to_host
- *
- * Description:
- *     Copy specified graph to the specified host
- *
- * Author:
- *     Eugene Grigorjev
- *
- * Comments: !!! Don't forget sync code with C !!!
- *
- */
+        /*
+         * Function: copy_graph_to_host
+         *
+         * Description:
+         *     Copy specified graph to the specified host
+         *
+         * Author:
+         *     Eugene Grigorjev
+         *
+         * Comments: !!! Don't forget sync code with C !!!
+         *
+         */
 	function copy_graph_to_host($graphid, $hostid, $copy_mode = false){
 		$result = false;
 
@@ -994,14 +930,14 @@
 						break;
 					}
 
-					/* found equal graph item */
+					/* founded equal graph item */
 					if(!isset($equal))$equal = 0;
 
 					$equal++;
 				}
 
 				if(isset($equal) && (count($new_gitems) == $equal)){
-/* found equal graph */
+/* founded equal graph */
 					$chd_graphid = $chd_graph['graphid'];
 					break;
 				}
@@ -1009,53 +945,37 @@
 
 			if(isset($chd_graphid)){
 				$result = update_graph_with_items($chd_graphid, $db_graph['name'], $db_graph['width'], $db_graph['height'],
-					$db_graph['ymin_type'], $db_graph['ymax_type'], $db_graph['yaxismin'], $db_graph['yaxismax'],
-					$db_graph['ymin_itemid'], $db_graph['ymax_itemid'],
+					$db_graph['yaxistype'], $db_graph['yaxismin'], $db_graph['yaxismax'],
 					$db_graph['show_work_period'], $db_graph['show_triggers'], $db_graph['graphtype'],$db_graph['show_legend'],
 					$db_graph['show_3d'], $db_graph['percent_left'], $db_graph['percent_right'], $new_gitems, ($copy_mode ? 0: $db_graph['graphid']));
 			}
 			else{
 				$result = add_graph_with_items($db_graph['name'], $db_graph['width'], $db_graph['height'],
-					$db_graph['ymin_type'], $db_graph['ymax_type'], $db_graph['yaxismin'], $db_graph['yaxismax'],
-					$db_graph['ymin_itemid'], $db_graph['ymax_itemid'],
+					$db_graph['yaxistype'], $db_graph['yaxismin'], $db_graph['yaxismax'],
 					$db_graph['show_work_period'], $db_graph['show_triggers'], $db_graph['graphtype'],$db_graph['show_legend'],
 					$db_graph['show_3d'], $db_graph['percent_left'], $db_graph['percent_right'], $new_gitems, ($copy_mode ? 0: $db_graph['graphid']));
 			}
 		}
 		else{
 			$host = get_host_by_hostid($hostid);
-			info(S_SKIPPED_COPYING_OF_GRAPH.SPACE.'"'.$db_graph["name"].'"'.SPACE.S_TO_HOST_SMALL.SPACE.'"'.$host['host'].'"');
+			info('Skipped coping of graph "'.$db_graph["name"].'" to host "'.$host['host'].'"');
 		}
 
 	return $result;
 	}
 
-	function navigation_bar_calc($idx=null, $update=false){
-//SDI($_REQUEST['stime']);
-
-		if(!is_null($idx)){
-			if($update){
-				if(isset($_REQUEST['period']) && ($_REQUEST['period'] >= ZBX_MIN_PERIOD))
-					CProfile::update($idx.'.period',$_REQUEST['period'],PROFILE_TYPE_INT);
-					
-				if(isset($_REQUEST['stime']))
-					CProfile::update($idx.'.stime',$_REQUEST['stime'], PROFILE_TYPE_STR);
-			}
-
-			$_REQUEST['period'] = get_request('period', CProfile::get($idx.'.period', ZBX_PERIOD_DEFAULT));
-			$_REQUEST['stime'] = get_request('stime', CProfile::get($idx.'.stime'));
-		}
-
+	function navigation_bar_calc(){
 		$_REQUEST['period'] = get_request('period', ZBX_PERIOD_DEFAULT);
+		$_REQUEST['from'] = get_request('from', 0);
 		$_REQUEST['stime'] = get_request('stime', null);
 
 		if($_REQUEST['period']<ZBX_MIN_PERIOD){
-			show_message(S_WARNING.'. '.S_TIME_PERIOD.SPACE.S_MIN_VALUE_SMALL.': '.ZBX_MIN_PERIOD.' ('.(int)(ZBX_MIN_PERIOD/3600).S_HOUR_SHORT.')');
+			show_message(S_WARNING.'. '.S_TIME_PERIOD.SPACE.S_MIN_VALUE_SMALL.': '.ZBX_MIN_PERIOD.' ('.(int)(ZBX_MIN_PERIOD/3600).'h)');
 			$_REQUEST['period'] = ZBX_MIN_PERIOD;
 
 		}
 		else if($_REQUEST['period'] > ZBX_MAX_PERIOD){
-			show_message(S_WARNING.'. '.S_TIME_PERIOD.SPACE.S_MAX_VALUE_SMALL.': '.ZBX_MAX_PERIOD.' ('.(int)(ZBX_MAX_PERIOD/86400).S_DAY_SHORT.')');
+			show_message(S_WARNING.'. '.S_TIME_PERIOD.SPACE.S_MAX_VALUE_SMALL.': '.ZBX_MAX_PERIOD.' ('.(int)(ZBX_MAX_PERIOD/86400).'d)');
 			$_REQUEST['period'] = ZBX_MAX_PERIOD;
 		}
 
@@ -1066,26 +986,113 @@
 				$_REQUEST['stime'] = date('YmdHi', time()-$_REQUEST['period']);
 			}
 		}
-		else{
-			$_REQUEST['stime'] = date('YmdHi', time()-$_REQUEST['period']);
-		}
-
 	return $_REQUEST['period'];
 	}
 
-/*
- * Function:
- *		make_array_from_gitems
- *
- * Description:
- *     Creates array with items params for prepare_url function
- *
- * Author:
- *     Aly
- *
- * Comments
- *
- */
+	function navigation_bar($url,$ext_saved_request=NULL){
+		$saved_request = array("screenid","itemid","action","from","fullscreen");
+
+		if(is_array($ext_saved_request))
+			$saved_request = array_merge($saved_request, $ext_saved_request);
+		elseif(is_string($ext_saved_request))
+			array_push($saved_request,$ext_saved_request);
+
+		$form = new CForm($url);
+		$form->SetMethod('get');
+
+		$form->AddItem(S_PERIOD.SPACE);
+
+		$period = get_request('period',ZBX_PERIOD_DEFAULT);
+
+		if(uint_in_array($period,array(3600,2*3600,4*3600,8*3600,12*3600,24*3600,7*24*3600,31*24*3600,365*24*3600)))
+			$custom_per = ZBX_MIN_PERIOD;
+		else
+			$custom_per = $period;
+
+		$cmbPeriod = new CComboBox("period",$period,"submit()");
+		$cmbPeriod->AddItem($custom_per,"custom");
+		$cmbPeriod->AddItem(3600,"1h");
+		$cmbPeriod->AddItem(2*3600,"2h");
+		$cmbPeriod->AddItem(4*3600,"4h");
+		$cmbPeriod->AddItem(8*3600,"8h");
+		$cmbPeriod->AddItem(12*3600,"12h");
+		$cmbPeriod->AddItem(24*3600,"24h");
+		$cmbPeriod->AddItem(7*24*3600,"week");
+		$cmbPeriod->AddItem(31*24*3600,"month");
+		$cmbPeriod->AddItem(365*24*3600,"year");
+		$form->AddItem($cmbPeriod);
+
+		$cmbDec = new CComboBox("dec",0,"submit()");
+		$cmbDec->AddItem(0,S_DECREASE);
+		$cmbDec->AddItem(3600,"-1h");
+		$cmbDec->AddItem(4*3600,"-4h");
+		$cmbDec->AddItem(24*3600,"-24h");
+		$cmbDec->AddItem(7*24*3600,"-week");
+		$cmbDec->AddItem(31*24*3600,"-month");
+		$cmbDec->AddItem(365*24*3600,"-year");
+		$form->AddItem($cmbDec);
+
+		$cmbInc = new CComboBox("inc",0,"submit()");
+		$cmbInc->AddItem(0,S_INCREASE);
+		$cmbInc->AddItem(3600,"+1h");
+		$cmbInc->AddItem(4*3600,"+4h");
+		$cmbInc->AddItem(24*3600,"+24h");
+		$cmbInc->AddItem(7*24*3600,"+week");
+		$cmbInc->AddItem(31*24*3600,"+month");
+		$cmbInc->AddItem(365*24*3600,"+year");
+		$form->AddItem($cmbInc);
+
+		$form->AddItem(SPACE.S_MOVE.SPACE);
+
+		$cmbLeft = new CComboBox("left",0,"submit()");
+		$cmbLeft->AddItem(0,S_LEFT_DIR);
+		$cmbLeft->AddItem(1,"-1h");
+		$cmbLeft->AddItem(4,"-4h");
+		$cmbLeft->AddItem(24,"-24h");
+		$cmbLeft->AddItem(7*24,"-week");
+		$cmbLeft->AddItem(31*24,"-month");
+		$cmbLeft->AddItem(365*24,"-year");
+		$form->AddItem($cmbLeft);
+
+		$cmbRight = new CComboBox("right",0,"submit()");
+		$cmbRight->AddItem(0,S_RIGHT_DIR);
+		$cmbRight->AddItem(1,"+1h");
+		$cmbRight->AddItem(4,"+4h");
+		$cmbRight->AddItem(24,"+24h");
+		$cmbRight->AddItem(7*24,"+week");
+		$cmbRight->AddItem(31*24,"+month");
+		$cmbRight->AddItem(365*24,"+year");
+		$form->AddItem($cmbRight);
+
+		$form->AddItem(array(SPACE,
+			new CTextBox("stime","yyyymmddhhmm",12),SPACE,
+			new CButton("action","go"),
+			new CButton("reset","reset")));
+
+		foreach($saved_request as $item)
+			if(isset($_REQUEST[$item]))
+				$form->AddVar($item,$_REQUEST[$item]);
+
+		show_table_header(
+			S_NAVIGATE,
+			$form);
+
+		return;
+	}
+
+	/*
+	 * Function:
+	 *		make_array_from_gitems
+	 *
+	 * Description:
+	 *     Creates array with items params for prepare_url function
+	 *
+	 * Author:
+	 *     Aly
+	 *
+	 * Comments
+	 *
+	 */
 	function make_url_from_gitems($gitems){
 
 		$gurl=array();
@@ -1097,7 +1104,7 @@
 						'yaxisside'	=> 1,
 						'calc_fnc'	=> 1,
 						'type'		=> 1,
-						'periods_cnt'	=> 1
+						'periods_cnt'=>1
 					);
 
 		foreach($gitems as $gitem){
@@ -1111,19 +1118,19 @@
 	return prepare_url($gurl);
 	}
 
-/*
- * Function:
- *		make_array_from_graphid
- *
- * Description:
- *     Creates array with graph params for prepare_url function
- *
- * Author:
- *     Aly
- *
- * Comments
- *	$full= false: for screens(WITHOUT width && height), true=all params
- */
+	/*
+	 * Function:
+	 *		make_array_from_graphid
+	 *
+	 * Description:
+	 *     Creates array with graph params for preapare_url function
+	 *
+	 * Author:
+	 *     Aly
+	 *
+	 * Comments
+	 *	$full= false: for screens(WITHOUT width && height), true=all params
+	 */
 	function make_url_from_graphid($graphid,$full=false){
 
 		$gurl=array();
@@ -1149,202 +1156,5 @@
 			$url=((($gurl['graphtype']==GRAPH_TYPE_PIE) || ($gurl['graphtype']==GRAPH_TYPE_EXPLODED))?'chart7.php?':'chart3.php?').trim($url,'&');
 		}
 	return $url;
-	}
-
-//Author:	Aly
-	function get_next_color($palettetype=0){
-		static $prev_color = array('dark'=>true, 'color'=>0, 'grad'=>0);
-
-		switch($palettetype){
-			case 1: $grad = array(200,150,255,100,50,0); break;
-			case 2: $grad = array(100,50,200,150,250,0); break;
-			case 0:
-			default: $grad = array(255,200,150,100,50,0); break;
-		}
-
-		$set_grad = $grad[$prev_color['grad']];
-
-//		$r = $g = $b = $prev_color['dark']?0:250;
-		$r = $g = $b = (100<$set_grad)?0:255;
-
-		switch($prev_color['color']){
-			case 0: $r = $set_grad; break;
-			case 1: $g = $set_grad; break;
-			case 2:	$b = $set_grad;	break;
-			case 3:	$r = $b = $set_grad; break;
-			case 4: $g = $b = $set_grad; break;
-			case 5: $r = $g = $set_grad; break;
-			case 6: $r = $g = $b = $set_grad; break;
-		}
-//SDI($prev_color);
-		$prev_color['dark'] = $prev_color['dark']?false:true;
-		if($prev_color['color'] == 6) $prev_color['grad'] = ($prev_color['grad']+1) % 6 ;
-		$prev_color['color'] = ($prev_color['color']+1) % 7;
-
-	return array($r,$g,$b);
-	}
-
-//Author:	Aly
-	function get_next_palette($palette=0,$palettetype=0){
-		static $prev_color = array(0,0,0,0);
-
-		switch($palette){
-			case 0: $palettes = array(array(150,0,0), array(0,100,150), array(170,180,180), array(152,100,0),
-									array(130,0,150), array(0,0,150), array(200,100,50),
-									array(250,40,40), array(50,150,150), array(100,150,0));
-				break;
-			case 1: $palettes = array(array(0,100,150), array(153,0,30), array(100,150,0),
-									array(130,0,150), array(0,0,100), array(200,100,50), array(152,100,0),
-									array(0,100,0), array(170,180,180), array(50,150,150));
-				break;
-			case 2: $palettes = array( array(170,180,180), array(152,100,0), array(50,200,200),
-									array(153,0,30), array(0,0,100), array(100,150,0), array(130,0,150),
-									array(0,100,150), array(200,100,50), array(0,100,0),);
-				break;
-			case 3:
-			default:
-				return get_next_color($palettetype);
-		}
-
-		if(isset($palettes[$prev_color[$palette]]) )
-			$result = $palettes[$prev_color[$palette]];
-		else
-			return get_next_color($palettetype);
-
-		switch($palettetype){
-			case 0: $diff = 0; break;
-			case 1:	$diff = -50; break;
-			case 2:	$diff = 50; break;
-		}
-
-		foreach($result as $n => $color){
-			if(($color + $diff) < 0) $result[$n] = 0;
-			else if(($color + $diff) > 255) $result[$n] = 255;
-			else $result[$n] += $diff;
-		}
-
-		$prev_color[$palette]++;
-
-	return $result;
-	}
-
-	function imageText($image, $fontsize, $angle, $x, $y, $color, $string){
-		$gdinfo = gd_info();
-
-		if($gdinfo['FreeType Support'] && function_exists('imagettftext')){
-		
-			if((preg_match(ZBX_PREG_DEF_FONT_STRING, $string) && ($angle != 0)) || (ZBX_FONT_NAME == ZBX_GRAPH_FONT_NAME)){
-				$ttf = ZBX_FONTPATH.'/'.ZBX_FONT_NAME.'.ttf';
-				imagettftext($image, $fontsize, $angle, $x, $y, $color, $ttf, $string);
-			}
-			else if($angle == 0){
-				$ttf = ZBX_FONTPATH.'/'.ZBX_GRAPH_FONT_NAME.'.ttf';
-				imagettftext($image, $fontsize, $angle, $x, $y, $color, $ttf, $string);
-			}
-			else{
-				$ttf = ZBX_FONTPATH.'/'.ZBX_GRAPH_FONT_NAME.'.ttf';
-				
-				$size = imageTextSize($fontsize, 0, $string);
-
-				$imgg = imagecreatetruecolor($size['width']+1, $size['height']);
-				$transparentColor = imagecolorallocatealpha($imgg, 200, 200, 200, 127);
-				imagefill($imgg, 0, 0, $transparentColor);
-
-				imagettftext($imgg, $fontsize, 0, 0, $size['height'], $color, $ttf, $string);
-				
-				$imgg = imagerotate($imgg, $angle, $transparentColor);
-				ImageAlphaBlending($imgg, false);
-				imageSaveAlpha($imgg, true);
-				
-				imagecopy($image, $imgg, $x - $size['height'], $y - $size['width'], 0, 0, $size['height'], $size['width']+1);
-				
-				imagedestroy($imgg);
-			}
-/*
-			$ar = imagettfbbox($fontsize, $angle, $ttf, $string);
-//sdii($ar);
-			if(!$angle)	imagerectangle($image, $x, $y+$ar[1], $x+abs($ar[0] - $ar[4]), $y+$ar[5], $color);
-			else imagerectangle($image, $x, $y, $x-abs($ar[0] - $ar[4]), $y+($ar[5]-$ar[1]), $color);
-//*/
-			
-		}
-		else{
-			$dims = imageTextSize($fontsize, $angle, $string);
-
-			switch($fontsize){
-				case 5: $fontsize = 1; break;
-				case 6: $fontsize = 1; break;
-				case 7: $fontsize = 2; break;
-				case 8: $fontsize = 2; break;
-				case 9:	$fontsize = 3; break;
-				case 10: $fontsize = 3; break;
-				case 11: $fontsize = 4; break;
-				case 12: $fontsize = 4; break;
-				case 13: $fontsize = 5; break;
-				case 14: $fontsize = 5; break;
-				default: $fontsize = 2; break;
-			}
-
-//SDI($dims);
-			if($angle){
-				$x -= $dims['width'];
-				$y -= 2;
-			}
-			else{
-				$y -= $dims['height'] - 2;
-			}
-
-			if($angle > 0)	return imagestringup($image, $fontsize, $x, $y, $string, $color);
-			return imagestring($image, $fontsize, $x, $y, $string, $color);
-		}
-
-	return true;
-	}
-
-	function imageTextSize($fontsize, $angle, $string){
-		$gdinfo = gd_info();
-
-		$result = array();
-		
-		if($gdinfo['FreeType Support'] && function_exists('imagettfbbox')){
-		
-			if(preg_match(ZBX_PREG_DEF_FONT_STRING, $string) && ($angle != 0)){
-				$ttf = ZBX_FONTPATH.'/'.ZBX_FONT_NAME.'.ttf';
-			}
-			else{
-				$ttf = ZBX_FONTPATH.'/'.ZBX_GRAPH_FONT_NAME.'.ttf';
-			}
-
-			$ar = imagettfbbox($fontsize, $angle, $ttf, $string);
-
-			$result['height'] = abs($ar[1] - $ar[5]);
-			$result['width'] = abs($ar[0] - $ar[4]);
-		}
-		else{
-			switch($fontsize){
-				case 5: $fontsize = 1; break;
-				case 6: $fontsize = 1; break;
-				case 7: $fontsize = 2; break;
-				case 8: $fontsize = 2; break;
-				case 9:	$fontsize = 3; break;
-				case 10: $fontsize = 3; break;
-				case 11: $fontsize = 4; break;
-				case 12: $fontsize = 4; break;
-				case 13: $fontsize = 5; break;
-				case 14: $fontsize = 5; break;
-				default: $fontsize = 2; break;
-			}
-
-			if($angle){
-				$result['width'] = imagefontheight($fontsize);
-				$result['height'] = imagefontwidth($fontsize) * zbx_strlen($string);
-			}
-			else{
-				$result['height'] = imagefontheight($fontsize);
-				$result['width'] = imagefontwidth($fontsize) * zbx_strlen($string);
-			}
-		}
-
-	return $result;
 	}
 ?>

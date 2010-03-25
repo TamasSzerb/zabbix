@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2006 SIA Zabbix
 **
@@ -36,8 +36,8 @@
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value: SUCCESS - processed successfully                             *
- *               FAIL - an error occurred                                     *
+ * Return value: SUCCESS - processed succesfully                              * 
+ *               FAIL - an error occured                                      *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -79,13 +79,10 @@ static int	process_proxyconfig_table(struct zbx_json_parse *jp, const char *tabl
 
 	result = DBselect("select %s from %s", table->recid, table->table);
 	while (NULL != (row = DBfetch(result)))
-	{
-		ZBX_STR2UINT64(recid, row[0]);
-		uint64_array_add(&old, &old_alloc, &old_num, recid, 64);
-	}
+		uint64_array_add(&old, &old_alloc, &old_num, zbx_atoui64(row[0]));
 	DBfree_result(result);
 
-/* {"hosts":{"fields":["hostid","host",...],"data":[[1,"zbx01",...],[2,"zbx02",...],...]},"items":{...},...}
+/* {"hosts":{"fields":["hostid","host",...],"data":[[1,"zbx01",...],[2,"zbx02",...],...]},"items":{...},...} 
  *                    ^-------------------^
  */	if (FAIL == zbx_json_brackets_by_name(jp_obj, "fields", &jp_data))
 		goto json_error;
@@ -114,7 +111,7 @@ static int	process_proxyconfig_table(struct zbx_json_parse *jp, const char *tabl
 		field_count++;
 	}
 
-/* {"hosts":{"fields":["hostid","host",...],"data":[[1,"zbx01",...],[2,"zbx02",...],...]},"items":{...},...}
+/* {"hosts":{"fields":["hostid","host",...],"data":[[1,"zbx01",...],[2,"zbx02",...],...]},"items":{...},...} 
  *                                                 ^-----------------------------------^
  */	if (FAIL == zbx_json_brackets_by_name(jp_obj, "data", &jp_data))
 		goto json_error;
@@ -138,11 +135,11 @@ static int	process_proxyconfig_table(struct zbx_json_parse *jp, const char *tabl
 	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 8, "begin\n");
 #endif
 
-/* {"hosts":{"fields":["hostid","host",...],"data":[[1,"zbx01",...],[2,"zbx02",...],...]},"items":{...},...}
+/* {"hosts":{"fields":["hostid","host",...],"data":[[1,"zbx01",...],[2,"zbx02",...],...]},"items":{...},...} 
  *                                                  ^
  */	while (NULL != (p = zbx_json_next(&jp_data, p)))
 	{
-/* {"hosts":{"fields":["hostid","host",...],"data":[[1,"zbx01",...],[2,"zbx02",...],...]},"items":{...},...}
+/* {"hosts":{"fields":["hostid","host",...],"data":[[1,"zbx01",...],[2,"zbx02",...],...]},"items":{...},...} 
  *                                                  ^-------------^
  */		if (FAIL == zbx_json_brackets_open(p, &jp_row))
 			goto json_error;
@@ -151,7 +148,7 @@ static int	process_proxyconfig_table(struct zbx_json_parse *jp, const char *tabl
 		if (NULL == (pf = zbx_json_next_value(&jp_row, pf, buf, sizeof(buf))))
 			goto json_error;
 
-		ZBX_STR2UINT64(recid, buf);
+		recid = zbx_atoui64(buf);
 
 		insert = (SUCCEED == uint64_array_exists(old, old_num, recid)) ? 0 : 1;
 
@@ -170,7 +167,7 @@ static int	process_proxyconfig_table(struct zbx_json_parse *jp, const char *tabl
 			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 128, "update %s set ",
 					table->table);
 
-/* {"hosts":{"fields":["hostid","host",...],"data":[[1,"zbx01",...],[2,"zbx02",...],...]},"items":{...},...}
+/* {"hosts":{"fields":["hostid","host",...],"data":[[1,"zbx01",...],[2,"zbx02",...],...]},"items":{...},...} 
  *                                                   ^
  */		f = 1;
 		while (NULL != (pf = zbx_json_next_value(&jp_row, pf, buf, sizeof(buf))))
@@ -233,14 +230,14 @@ static int	process_proxyconfig_table(struct zbx_json_parse *jp, const char *tabl
 #endif
 		}
 
-		uint64_array_add(&new, &new_alloc, &new_num, recid, 64);
+		uint64_array_add(&new, &new_alloc, &new_num, recid);
 	}
 
 #ifdef HAVE_ORACLE
 	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 8, "end;\n");
 #endif
 
-	uint64_array_remove(old, &old_num, new, new_num);
+	uint64_array_rm(old, &old_num, new, new_num);
 
 	if (old_num > 0)
 	{
@@ -264,7 +261,7 @@ static int	process_proxyconfig_table(struct zbx_json_parse *jp, const char *tabl
 
 	return SUCCEED;
 json_error:
-	zabbix_log(LOG_LEVEL_DEBUG, "Can't process table \"%s\". %s",
+	zabbix_log(LOG_LEVEL_DEBUG, "Can't proceed table \"%s\". %s",
 			tablename,
 			zbx_json_strerror());
 db_error:
@@ -284,8 +281,8 @@ db_error:
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value: SUCCESS - processed successfully                             *
- *               FAIL - an error occurred                                     *
+ * Return value: SUCCESS - processed succesfully                              * 
+ *               FAIL - an error occured                                      *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -304,15 +301,15 @@ static void	process_proxyconfig(struct zbx_json_parse *jp)
 
 	DBbegin();
 /*
- * {"hosts":{"fields":["hostid","host",...],"data":[[1,"zbx01",...],[2,"zbx02",...],...]},"items":{...},...}
+ * {"hosts":{"fields":["hostid","host",...],"data":[[1,"zbx01",...],[2,"zbx02",...],...]},"items":{...},...} 
  *          ^
  */	while (NULL != (p = zbx_json_pair_next(jp, p, buf, len)) && res == SUCCEED)
 	{
-/* {"items":{"fields":["itemid","hostid",...],"data":[[1,1,...],[2,1,...],...]},...}
+/* {"items":{"fields":["itemid","hostid",...],"data":[[1,1,...],[2,1,...],...]},...} 
  *          ^-----------------------------------------------------------------^
  */		if (FAIL == zbx_json_brackets_open(p, &jp_obj))
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "Can't process table \"%s\". %s",
+			zabbix_log(LOG_LEVEL_DEBUG, "Can't proceed table \"%s\". %s",
 					buf,
 					zbx_json_strerror());
 			res = FAIL;
@@ -331,11 +328,11 @@ static void	process_proxyconfig(struct zbx_json_parse *jp)
  *                                                                            *
  * Function: process_configuration_sync                                       *
  *                                                                            *
- * Purpose: calculates checksum of config data                                *
+ * Purpose: calculates checks sum of config data                              *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -347,7 +344,7 @@ static void	process_configuration_sync()
 	zbx_sock_t	sock;
 	char		*data;
 	struct		zbx_json_parse jp;
-
+	
 	zabbix_log(LOG_LEVEL_DEBUG, "In process_configuration_sync()");
 
 	while (FAIL == connect_to_server(&sock, 600)) { /* alarm */
@@ -376,7 +373,7 @@ exit:
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -389,10 +386,9 @@ void	main_proxyconfig_loop()
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In main_proxyconfig_loop()");
 
-/*	phan.sa_handler = child_signal_handler;*/
-	phan.sa_sigaction = child_signal_handler;
+	phan.sa_handler = child_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 	sigaction(SIGALRM, &phan, NULL);
 
 	for (;;) {

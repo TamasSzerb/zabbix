@@ -1,5 +1,5 @@
 <?php
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -19,25 +19,26 @@
 **/
 ?>
 <?php
-require_once('include/config.inc.php');
+	require_once "include/config.inc.php";
+	require_once "include/classes/chart.inc.php";
+	
+	$page["file"]	= "chart.php";
+	$page["title"]	= "S_CHART";
+	$page["type"]	= PAGE_TYPE_IMAGE;
 
-$page['file']	= 'chart.php';
-$page['title']	= "S_CHART";
-$page['type']	= PAGE_TYPE_IMAGE;
-
-include_once('include/page_header.php');
+include_once "include/page_header.php";
 
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		'itemid'=>		array(T_ZBX_INT, O_MAND,P_SYS,	DB_ID,		null),
-		'period'=>		array(T_ZBX_INT, O_OPT,	null,	BETWEEN(ZBX_MIN_PERIOD,ZBX_MAX_PERIOD),	null),
-		'from'=>		array(T_ZBX_INT, O_OPT,	null,	'{}>=0',	null),
-		'width'=>		array(T_ZBX_INT, O_OPT,	null,	'{}>0',		null),
-		'height'=>		array(T_ZBX_INT, O_OPT,	null,	'{}>0',		null),
-		'border'=>		array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	null),
-		'stime'=>		array(T_ZBX_STR, O_OPT,	P_SYS,	null,		null)
+		"itemid"=>		array(T_ZBX_INT, O_MAND,P_SYS,	DB_ID,		null),
+		"period"=>		array(T_ZBX_INT, O_OPT,	null,	BETWEEN(ZBX_MIN_PERIOD,ZBX_MAX_PERIOD),	null),
+		"from"=>		array(T_ZBX_INT, O_OPT,	null,	'{}>=0',	null),
+		"width"=>		array(T_ZBX_INT, O_OPT,	null,	'{}>0',		null),
+		"height"=>		array(T_ZBX_INT, O_OPT,	null,	'{}>0',		null),
+		"border"=>		array(T_ZBX_INT, O_OPT,	null,	IN('0,1'),	null),
+		"stime"=>               array(T_ZBX_STR, O_OPT,	P_SYS,	null,		null)
 	);
 
 	check_fields($fields);
@@ -48,31 +49,43 @@ include_once('include/page_header.php');
 //		show_message(S_NO_ITEM_DEFINED);
 	}
 
-	$options = array(
-		'itemids' => $_REQUEST['itemid'],
-		'webitems' => 1,
-		'nodeids' => get_current_nodeid(true)
-	);
+	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY,PERM_RES_IDS_ARRAY, get_current_nodeid(true));
+	
+	if(!$db_data = DBfetch(DBselect('SELECT i.itemid from items i '.
+					' WHERE '.DBcondition('i.hostid',$available_hosts).
+						' AND i.itemid='.$_REQUEST['itemid'])))
+	{
+		access_deny();
+	}
 
-	$db_data = CItem::get($options);
-	if(empty($db_data)) access_deny();
+	$graph = new Chart();
 
-	$graph = new CChart();
+//	$_REQUEST['stime'] = get_request('stime',get_profile('web.item.graph.stime', null, PROFILE_TYPE_STR, $_REQUEST['itemid']));
+	$_REQUEST['period'] = get_request('period',get_profile('web.item.graph.period', ZBX_PERIOD_DEFAULT, PROFILE_TYPE_INT, $_REQUEST['itemid']));
+	
+	if($_REQUEST['itemid']>0){
+		if(isset($_REQUEST['stime'])) 
+			update_profile('web.item.graph.stime',$_REQUEST['stime'], PROFILE_TYPE_STR, $_REQUEST['itemid']);
 
-	$effectiveperiod = navigation_bar_calc('web.item.graph',false);
-
+		if($_REQUEST['period'] >= ZBX_MIN_PERIOD)
+			update_profile('web.item.graph.period',$_REQUEST['period'], PROFILE_TYPE_INT, $_REQUEST['itemid']);			
+	}
+	
+	$_REQUEST['period'] = navigation_bar_calc();
+	
 	if(isset($_REQUEST['period']))		$graph->SetPeriod($_REQUEST['period']);
 	if(isset($_REQUEST['from']))		$graph->SetFrom($_REQUEST['from']);
 	if(isset($_REQUEST['width']))		$graph->SetWidth($_REQUEST['width']);
 	if(isset($_REQUEST['height']))		$graph->SetHeight($_REQUEST['height']);
 	if(isset($_REQUEST['border']))		$graph->SetBorder(0);
 	if(isset($_REQUEST['stime']))		$graph->setSTime($_REQUEST['stime']);
+	
+	$graph->AddItem($_REQUEST['itemid'], GRAPH_YAXIS_SIDE_RIGHT, CALC_FNC_ALL);
 
-	$graph->addItem($_REQUEST['itemid'], GRAPH_YAXIS_SIDE_LEFT, CALC_FNC_ALL);
-	$graph->draw();
+	$graph->Draw();
 ?>
 <?php
 
-include_once('include/page_footer.php');
+include_once "include/page_footer.php";
 
 ?>

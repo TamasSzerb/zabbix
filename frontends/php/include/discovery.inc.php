@@ -32,23 +32,22 @@
 	}
 
 	function	svc_default_port($type_int){
-		$port = '0';
+		$port = 0;
 
 		switch($type_int){
-			case SVC_SSH:		$port = '22';		break;
-			case SVC_LDAP:		$port = '389';		break;
-			case SVC_SMTP:		$port = '25';		break;
-			case SVC_FTP:		$port = '21';		break;
-			case SVC_HTTP:		$port = '80';		break;
-			case SVC_POP:		$port = '110';		break;
-			case SVC_NNTP:		$port = '119';		break;
-			case SVC_IMAP:		$port = '143';		break;
-			case SVC_TCP:		$port = '80';		break;
-			case SVC_AGENT:		$port = '10050';	break;
-			case SVC_SNMPv1:	$port = '161';		break;
-			case SVC_SNMPv2:	$port = '161';		break;
-			case SVC_SNMPv3:	$port = '161';		break;
-			case SVC_ICMPPING:	$port = '0';		break;
+			case SVC_SSH:		$port = 22;	break;
+			case SVC_LDAP:		$port = 389;	break;
+			case SVC_SMTP:		$port = 25;	break;
+			case SVC_FTP:		$port = 21;	break;
+			case SVC_HTTP:		$port = 80;	break;
+			case SVC_POP:		$port = 110;	break;
+			case SVC_NNTP:		$port = 119;	break;
+			case SVC_IMAP:		$port = 143;	break;
+			case SVC_TCP:		$port = 80;	break;
+			case SVC_AGENT:		$port = 10050;	break;
+			case SVC_SNMPv1:	$port = 161;	break;
+			case SVC_SNMPv2:	$port = 161;	break;
+			case SVC_ICMPPING:	$port = 0;	break;
 		}
 
 	return $port;
@@ -68,31 +67,12 @@
 		$str_type[SVC_AGENT]	= S_ZABBIX_AGENT;
 		$str_type[SVC_SNMPv1]	= S_SNMPV1_AGENT;
 		$str_type[SVC_SNMPv2]	= S_SNMPV2_AGENT;
-		$str_type[SVC_SNMPv3]	= S_SNMPV3_AGENT;
 		$str_type[SVC_ICMPPING]	= S_ICMPPING;
 
 		if(isset($str_type[$type_int]))
 			return $str_type[$type_int];
 
 		return S_UNKNOWN;
-	}
-
-	function	discovery_check2str($type, $snmp_community, $key_, $ports)
-	{
-		$external_param = null;
-		$port_def = svc_default_port($type);
-
-		switch($type)
-		{
-			case SVC_SNMPv1:
-			case SVC_SNMPv2:
-			case SVC_SNMPv3:
-			case SVC_AGENT:
-				$external_param = ' "'.$key_.'"';
-				break;
-		}
-		return discovery_check_type2str($type).($port_def == $ports ? '' : ' ('.$ports.')').
-				$external_param;
 	}
 
 	function	discovery_port2str($type_int, $port)
@@ -133,7 +113,7 @@
 	{
 		$str_stat[DOBJECT_STATUS_UP] = S_UP;
 		$str_stat[DOBJECT_STATUS_DOWN] = S_DOWN;
-		$str_stat[DOBJECT_STATUS_DISCOVER] = S_DISCOVERED;
+		$str_stat[DOBJECT_STATUS_DISCOVER] = S_DISCOVER;
 		$str_stat[DOBJECT_STATUS_LOST] = S_LOST;
 
 		if(isset($str_stat[$status]))
@@ -152,15 +132,12 @@
 		return DBexecute('update drules set status='.$status.' where druleid='.$druleid);
 	}
 
-	function	add_discovery_check($druleid, $type, $ports, $key, $snmp_community,
-			$snmpv3_securityname, $snmpv3_securitylevel, $snmpv3_authpassphrase, $snmpv3_privpassphrase)
+	function	add_discovery_check($druleid, $type, $ports, $key, $snmp_community)
 	{
 		$dcheckid = get_dbid('dchecks', 'dcheckid');
-		$result = DBexecute('insert into dchecks (dcheckid,druleid,type,ports,key_,snmp_community'.
-				',snmpv3_securityname,snmpv3_securitylevel,snmpv3_authpassphrase,snmpv3_privpassphrase) '.
-				' values ('.$dcheckid.','.$druleid.','.$type.','.zbx_dbstr($ports).','.
-				zbx_dbstr($key).','.zbx_dbstr($snmp_community).','.zbx_dbstr($snmpv3_securityname).','.
-				$snmpv3_securitylevel.','.zbx_dbstr($snmpv3_authpassphrase).','.zbx_dbstr($snmpv3_privpassphrase).')');
+		$result = DBexecute('insert into dchecks (dcheckid,druleid,type,ports,key_,snmp_community) '.
+			' values ('.$dcheckid.','.$druleid.','.$type.','.zbx_dbstr($ports).','.
+				zbx_dbstr($key).','.zbx_dbstr($snmp_community).')');
 
 		if(!$result)
 			return $result;
@@ -168,28 +145,24 @@
 		return $dcheckid;
 	}
 
-	function add_discovery_rule($proxy_hostid, $name, $iprange, $delay, $status, $dchecks, $uniqueness_criteria){
-		if( !validate_ip_range($iprange) ){
-			error(S_INCORRECT_IP_RANGE);
+	function	add_discovery_rule($proxy_hostid, $name, $iprange, $delay, $status, $dchecks)
+	{
+		if( !validate_ip_range($iprange) )
+		{
+			error('Incorrect IP range.');
 			return false;
+
 		}
 
 		$druleid = get_dbid('drules', 'druleid');
 		$result = DBexecute('insert into drules (druleid,proxy_hostid,name,iprange,delay,status) '.
 			' values ('.$druleid.','.$proxy_hostid.','.zbx_dbstr($name).','.zbx_dbstr($iprange).','.$delay.','.$status.')');
 
-		if($result && isset($dchecks)){
-			$unique_dcheckid = 0;
-			foreach($dchecks as $id => $data){
-				$data['dcheckid'] = add_discovery_check($druleid, $data['type'], $data['ports'], $data['key'],
-						$data['snmp_community'], $data['snmpv3_securityname'], $data['snmpv3_securitylevel'],
-						$data['snmpv3_authpassphrase'], $data['snmpv3_privpassphrase']);
-				if ($uniqueness_criteria == $id && $data['dcheckid'])
-					$unique_dcheckid = $data['dcheckid'];
-			}
-			DBexecute('UPDATE drules'.
-					' SET unique_dcheckid='.$unique_dcheckid.
-					' WHERE druleid='.$druleid);
+		if($result)
+		{
+			DBexecute('delete from dchecks where druleid='.$druleid);
+			if(isset($dchecks)) foreach($dchecks as $val)
+				add_discovery_check($druleid,$val["type"],$val["ports"],$val["key"],$val["snmp_community"]);
 
 			$result = $druleid;
 		}
@@ -197,9 +170,11 @@
 		return $result;
 	}
 
-	function update_discovery_rule($druleid, $proxy_hostid, $name, $iprange, $delay, $status, $dchecks,	$uniqueness_criteria, $dchecks_deleted){
-		if( !validate_ip_range($iprange) ){
-			error(S_INCORRECT_IP_RANGE);
+	function	update_discovery_rule($druleid, $proxy_hostid, $name, $iprange, $delay, $status, $dchecks)
+	{
+		if( !validate_ip_range($iprange) )
+		{
+			error('Incorrect IP range.');
 			return false;
 
 		}
@@ -207,86 +182,18 @@
 		$result = DBexecute('update drules set proxy_hostid='.$proxy_hostid.',name='.zbx_dbstr($name).',iprange='.zbx_dbstr($iprange).','.
 			'delay='.$delay.',status='.$status.' where druleid='.$druleid);
 
-		if($result && isset($dchecks))
+		if($result)
 		{
-			$unique_dcheckid = 0;
-			foreach($dchecks as $id => $data){
-				if(!isset($data['dcheckid'])){
-					$data['dcheckid'] = add_discovery_check($druleid, $data['type'], $data['ports'], $data['key'],
-							$data['snmp_community'], $data['snmpv3_securityname'], $data['snmpv3_securitylevel'],
-							$data['snmpv3_authpassphrase'], $data['snmpv3_privpassphrase']);
-				}
-				if ($uniqueness_criteria == $id && $data['dcheckid'])
-					$unique_dcheckid = $data['dcheckid'];
-			}
-			DBexecute('UPDATE drules'.
-					' SET unique_dcheckid='.$unique_dcheckid.
-					' WHERE druleid='.$druleid);
+			DBexecute('delete from dchecks where druleid='.$druleid);
+			if(isset($dchecks)) foreach($dchecks as $val)
+				add_discovery_check($druleid,$val["type"],$val["ports"],$val["key"],$val["snmp_community"]);
 		}
-
-		if($result && isset($dchecks_deleted) && !empty($dchecks_deleted))
-			delete_discovery_check($dchecks_deleted);
-
 		return $result;
-	}
-
-	function delete_discovery_check($dcheckids){
-		$actionids = array();
-// conditions
-		$sql = 'SELECT DISTINCT actionid '.
-				' FROM conditions '.
-				' WHERE conditiontype='.CONDITION_TYPE_DCHECK.
-					' AND '.DBcondition('value', $dcheckids, false, true);	// FIXED[POSIBLE value type violation]!!!
-
-		$db_actions = DBselect($sql);
-		while($db_action = DBfetch($db_actions))
-			$actionids[] = $db_action['actionid'];
-
-// disabling actions with deleted conditions
-		if (!empty($actionids))
-		{
-			DBexecute('UPDATE actions '.
-					' SET status='.ACTION_STATUS_DISABLED.
-					' WHERE '.DBcondition('actionid', $actionids));
-
-// delete action conditions
-			DBexecute('DELETE FROM conditions '.
-					' WHERE conditiontype='.CONDITION_TYPE_DCHECK.
-					' AND '.DBcondition('value', $dcheckids, false, true));	// FIXED[POSIBLE value type violation]!!!
-		}
-
-		DBexecute('DELETE FROM dservices WHERE '.DBcondition('dcheckid', $dcheckids));
-
-		DBexecute('DELETE FROM dchecks WHERE '.DBcondition('dcheckid', $dcheckids));
 	}
 
 	function	delete_discovery_rule($druleid)
 	{
 		$result = true;
-
-		$actionids = array();
-// conditions
-		$sql = 'SELECT DISTINCT actionid '.
-				' FROM conditions '.
-				' WHERE conditiontype='.CONDITION_TYPE_DRULE.
-					" AND value='$druleid'";
-
-		$db_actions = DBselect($sql);
-		while($db_action = DBfetch($db_actions))
-			$actionids[] = $db_action['actionid'];
-
-// disabling actions with deleted conditions
-		if (!empty($actionids))
-		{
-			DBexecute('UPDATE actions '.
-					' SET status='.ACTION_STATUS_DISABLED.
-					' WHERE '.DBcondition('actionid', $actionids));
-
-// delete action conditions
-			DBexecute('DELETE FROM conditions '.
-					' WHERE conditiontype='.CONDITION_TYPE_DRULE.
-					" AND value='$druleid'");
-		}
 
 		if ($result) {
 			$db_dhosts = DBselect('select dhostid from dhosts'.

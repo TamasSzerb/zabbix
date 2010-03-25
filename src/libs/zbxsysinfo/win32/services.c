@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -18,37 +18,51 @@
 **/
 
 #include "common.h"
+
 #include "sysinfo.h"
-#include "log.h"
 
 int	SERVICE_STATE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	SC_HANDLE	mgr, service;
-	char		name[MAX_STRING_LEN];
-	LPTSTR		wname;
-	TCHAR		service_name[MAX_STRING_LEN];
-	DWORD		max_len_name = MAX_STRING_LEN;
-	int		i, ret = SYSINFO_RET_FAIL;
-	SERVICE_STATUS	status;
+	SC_HANDLE
+		mgr,
+		service;
 
-	if (num_param(param) > 1)
+	char	name[MAX_STRING_LEN];
+	char	service_name[MAX_STRING_LEN];
+
+	unsigned long
+		max_len_name = MAX_STRING_LEN;
+
+	int	ret = SYSINFO_RET_FAIL;
+	int	i;
+
+	SERVICE_STATUS status;
+
+	if(num_param(param) > 1)
+	{
 		return SYSINFO_RET_FAIL;
+	}
 
-	if (get_param(param, 1, name, sizeof(name)) != 0)
+	if(get_param(param, 1, name, sizeof(name)) != 0)
+	{
+		name[0] = '\0';
+	}
+	if(name[0] == '\0')
+	{
 		return SYSINFO_RET_FAIL;
+	}
 
-	if ('\0' == *name)
+	if(NULL == (mgr = OpenSCManager(NULL,NULL,GENERIC_READ)) )
+	{
 		return SYSINFO_RET_FAIL;
+	}
 
-	if (NULL == (mgr = OpenSCManager(NULL,NULL,GENERIC_READ)) )
-		return SYSINFO_RET_FAIL;
+	service = OpenService(mgr,name,SERVICE_QUERY_STATUS);
 
-	wname = zbx_utf8_to_unicode(name);
-
-	service = OpenService(mgr, wname, SERVICE_QUERY_STATUS);
-	if (NULL == service && 0 != GetServiceKeyName(mgr, wname, service_name, &max_len_name))
-		service = OpenService(mgr, service_name, SERVICE_QUERY_STATUS);
-	zbx_free(wname);
+	if(NULL == service && 0 != GetServiceKeyName(mgr, name, service_name, &max_len_name))
+	{
+		service = OpenService(mgr,service_name,SERVICE_QUERY_STATUS);
+	}
 
 	if(NULL == service)
 	{
@@ -58,12 +72,19 @@ int	SERVICE_STATE(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 	{
 		if (QueryServiceStatus(service, &status))
 		{
-			static DWORD states[7] = {SERVICE_RUNNING, SERVICE_PAUSED, SERVICE_START_PENDING, SERVICE_PAUSE_PENDING,
-					SERVICE_CONTINUE_PENDING, SERVICE_STOP_PENDING, SERVICE_STOPPED};
+			static DWORD states[7] = 
+			{
+				SERVICE_RUNNING,
+				SERVICE_PAUSED,
+				SERVICE_START_PENDING,
+				SERVICE_PAUSE_PENDING,
+				SERVICE_CONTINUE_PENDING,
+				SERVICE_STOP_PENDING,
+				SERVICE_STOPPED 
+			};
 
-			for (i = 0; i < 7 && status.dwCurrentState != states[i]; i++)
-				;
-
+			for(i=0; i < 7 && status.dwCurrentState != states[i]; i++);
+			
 			SET_UI64_RESULT(result, i);
 		}
 		else
@@ -172,20 +193,19 @@ static int	check_service_state(SC_HANDLE h_srv, int service_state)
 			break;
 		}
 	}
-
+	
 	return FAIL;
 }
 
 int	SERVICES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	int				start_type, service_state, ret;
-	char				type[16], state[24], *buf = NULL, *utf8,
-					exclude[MAX_STRING_LEN];
+	char				type[16], state[24], *buf = NULL;
 	SC_HANDLE			h_mgr;
 	ENUM_SERVICE_STATUS_PROCESS	*ssp = NULL;
 	DWORD				sz = 0, szn, i, services, resume_handle = 0;
 
-	if (num_param(param) > 3)
+	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
 
 	if (0 != get_param(param, 1, type, sizeof(type)))
@@ -226,9 +246,6 @@ int	SERVICES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *r
 	else
 		return SYSINFO_RET_FAIL;
 
-	if (0 != get_param(param, 3, exclude, sizeof(exclude)))
-		*exclude = '\0';
-
 	if (NULL == (h_mgr = OpenSCManager(NULL, NULL, GENERIC_READ)))
 		return SYSINFO_RET_FAIL;
 
@@ -244,12 +261,7 @@ int	SERVICES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *r
 
 			if (SUCCEED == check_service_starttype(h_srv, start_type))
 				if (SUCCEED == check_service_state(h_srv, service_state))
-				{
-					utf8 = zbx_unicode_to_utf8(ssp[i].lpServiceName);
-					if (FAIL == str_in_list(exclude, utf8, ','))
-						buf = zbx_strdcatf(buf, "%s\n", utf8);
-					zbx_free(utf8);
-				}
+					buf = zbx_strdcatf(buf, "%s\n", ssp[i].lpServiceName);
 
 			CloseServiceHandle(h_srv);
 		}

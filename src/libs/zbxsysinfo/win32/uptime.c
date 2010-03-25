@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -28,14 +28,5 @@ int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 
 	zbx_snprintf(counter_path, sizeof(counter_path), "\\%d\\%d", PCI_SYSTEM, PCI_SYSTEM_UP_TIME);
 
-	if (SYSINFO_RET_FAIL == PERF_MONITOR(cmd, counter_path, flags, result))
-		return SYSINFO_RET_FAIL;
-
-	/* result must be integer to correctly interpret it in frontend (uptime) */
-	if (!GET_UI64_RESULT(result))
-		return SYSINFO_RET_FAIL;
-
-	UNSET_RESULT_EXCLUDING(result, AR_UINT64);
-
-	return SYSINFO_RET_OK;
+	return PERF_MONITOR(cmd, counter_path, flags, result);
 }

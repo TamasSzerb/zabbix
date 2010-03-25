@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -23,7 +23,7 @@
 
 #include "common.h"
 
-/* agent return value */
+/* agent return value */					 
 typedef struct zbx_result_s {
 	int	 	type;
 	zbx_uint64_t	ui64;
@@ -39,6 +39,66 @@ typedef struct zbx_result_s {
 #define AR_STRING	4
 #define AR_MESSAGE	8
 #define AR_TEXT		16
+
+/* CHECK RESULT */
+
+#define ISSET_DBL(res)		((res)->type & AR_DOUBLE)
+#define ISSET_UI64(res)		((res)->type & AR_UINT64)
+#define ISSET_STR(res)		((res)->type & AR_STRING)
+#define ISSET_TEXT(res)		((res)->type & AR_TEXT)
+#define ISSET_MSG(res)		((res)->type & AR_MESSAGE)
+#define ISSET_RESULT(res)	((res)->type & (AR_DOUBLE | AR_UINT64 | AR_STRING | AR_TEXT))
+
+/* UNSER RESULT */
+
+#define UNSET_DBL_RESULT(res)				\
+	{						\
+		(res)->dbl = (double)(0);		\
+		(res)->type &= ~AR_DOUBLE;		\
+	}
+
+#define UNSET_UI64_RESULT(res)				\
+	{						\
+		(res)->ui64 = (zbx_uint64_t)__UINT64_C(0);\
+		(res)->type &= ~AR_UINT64;		\
+	}
+
+#define UNSET_STR_RESULT(res)				\
+	{						\
+		if (ISSET_STR(res))			\
+		{					\
+			zbx_free((res)->str);		\
+			(res)->type &= ~AR_STRING;	\
+		}					\
+	}
+
+#define UNSET_TEXT_RESULT(res)				\
+	{						\
+		if (ISSET_TEXT(res))			\
+		{					\
+			zbx_free((res)->text);		\
+			(res)->type &= ~AR_TEXT;	\
+		}					\
+	}
+
+#define UNSET_MSG_RESULT(res)				\
+	{						\
+		if (ISSET_MSG(res))			\
+		{					\
+			zbx_free((res)->msg);		\
+			(res)->type &= ~AR_MESSAGE;	\
+		}					\
+	}						\
+
+#define UNSET_RESULT_EXCLUDING(res, exc_type) 				\
+	{								\
+		if (!(exc_type & AR_DOUBLE))	UNSET_DBL_RESULT(res)	\
+		if (!(exc_type & AR_UINT64))	UNSET_UI64_RESULT(res)	\
+		if (!(exc_type & AR_STRING))	UNSET_STR_RESULT(res)	\
+		if (!(exc_type & AR_TEXT))	UNSET_TEXT_RESULT(res)	\
+		if (!(exc_type & AR_MESSAGE))	UNSET_MSG_RESULT(res)	\
+	}
+
 
 
 /* SET RESULT */
@@ -58,80 +118,26 @@ typedef struct zbx_result_s {
 /* NOTE: always allocate new memory for val! DON'T USE STATIC OR STACK MEMORY!!! */
 #define SET_STR_RESULT(res, val) \
 	{ \
+	UNSET_STR_RESULT(res) \
 	(res)->type |= AR_STRING; \
 	(res)->str = (char*)(val); \
-	}
+	} 
 
 /* NOTE: always allocate new memory for val! DON'T USE STATIC OR STACK MEMORY!!! */
 #define SET_TEXT_RESULT(res, val) \
 	{ \
+	UNSET_TEXT_RESULT(res) \
 	(res)->type |= AR_TEXT; \
 	(res)->text = (char*)(val); \
-	}
+	} 
 
 /* NOTE: always allocate new memory for val! DON'T USE STATIC OR STACK MEMORY!!! */
 #define SET_MSG_RESULT(res, val) \
 	{ \
+	UNSET_MSG_RESULT(res) \
 	(res)->type |= AR_MESSAGE; \
 	(res)->msg = (char*)(val); \
 	}
-
-/* CHECK RESULT */
-
-#define ISSET_UI64(res)	((res)->type & AR_UINT64)
-#define ISSET_DBL(res)	((res)->type & AR_DOUBLE)
-#define ISSET_STR(res)	((res)->type & AR_STRING)
-#define ISSET_TEXT(res)	((res)->type & AR_TEXT)
-#define ISSET_MSG(res)	((res)->type & AR_MESSAGE)
-
-/* UNSER RESULT */
-
-#define UNSET_DBL_RESULT(res)           \
-	{                               \
-	(res)->type &= ~AR_DOUBLE;      \
-	(res)->dbl = (double)(0);        \
-	}
-
-#define UNSET_UI64_RESULT(res)             \
-	{                                  \
-	(res)->type &= ~AR_UINT64;         \
-	(res)->ui64 = (zbx_uint64_t)(0); \
-	}
-
-#define UNSET_STR_RESULT(res)                      \
-	{                                          \
-		if((res)->type & AR_STRING){       \
-			zbx_free((res)->str);      \
-			(res)->type &= ~AR_STRING; \
-		}                                  \
-	}
-
-#define UNSET_TEXT_RESULT(res)                   \
-	{                                        \
-		if((res)->type & AR_TEXT){       \
-			zbx_free((res)->text);   \
-			(res)->type &= ~AR_TEXT; \
-		}                                \
-	}
-
-#define UNSET_MSG_RESULT(res)                       \
-	{                                           \
-		if((res)->type & AR_MESSAGE){       \
-			zbx_free((res)->msg);       \
-			(res)->type &= ~AR_MESSAGE; \
-		}                                   \
-	}
-
-#define UNSET_RESULT_EXCLUDING(res, exc_type) 				\
-	{								\
-		if(!(exc_type & AR_DOUBLE))	UNSET_DBL_RESULT(res)	\
-		if(!(exc_type & AR_UINT64))	UNSET_UI64_RESULT(res)	\
-		if(!(exc_type & AR_STRING))	UNSET_STR_RESULT(res)	\
-		if(!(exc_type & AR_TEXT))	UNSET_TEXT_RESULT(res)	\
-		if(!(exc_type & AR_MESSAGE))	UNSET_MSG_RESULT(res)	\
-	}
-
-
 
 /* RETRIVE RESULT VALUE */
 
@@ -142,10 +148,9 @@ typedef struct zbx_result_s {
 #define GET_MSG_RESULT(res)	((char**)get_result_value_by_type(res, AR_MESSAGE))
 
 void    *get_result_value_by_type(AGENT_RESULT *result, int require_type);
+void    *get_result_value_by_value_type(AGENT_RESULT *result, int value_type);
 
 extern int	CONFIG_ENABLE_REMOTE_COMMANDS;
-extern int	CONFIG_LOG_REMOTE_COMMANDS;
-extern int	CONFIG_UNSAFE_USER_PARAMETERS;
 
 /* #define TEST_PARAMETERS */
 
@@ -215,7 +220,7 @@ void   	init_result(AGENT_RESULT *result);
 int    	copy_result(AGENT_RESULT *src, AGENT_RESULT *dist);
 void   	free_result(AGENT_RESULT *result);
 
-int	set_result_type(AGENT_RESULT *result, int value_type, int data_type, char *c);
+int	set_result_type(AGENT_RESULT *result, int value_type, char *c);
 
 /* external system functions */
 
@@ -252,11 +257,6 @@ int	PERF_MONITOR(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 int	SERVICE_STATE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 int	SERVICES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 int	PROC_INFO(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
-int	NET_IF_LIST(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 #endif /* _WINDOWS */
-
-#ifdef _AIX
-int	SYSTEM_STAT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
-#endif	/* _AIX */
 
 #endif

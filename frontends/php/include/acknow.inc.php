@@ -62,10 +62,8 @@ function make_acktab_by_eventid($eventid){
 	$acks = get_acknowledges_by_eventid($eventid);
 
 	while($ack = DBfetch($acks)){
-		$user = CUser::get(array('userids' => $ack['userid'],  'extendoutput' => 1));
-		$user = reset($user);
-
-		$table->addRow(array(
+		$user = get_user_by_userid($ack['userid']);
+		$table->AddRow(array(
 			date(S_DATE_FORMAT_YMDHMS,$ack['clock']),
 			$user['alias'],
 			new CCol(zbx_nl2br($ack['message']),'wraptext')

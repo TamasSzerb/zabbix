@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -21,19 +21,22 @@
 #define ZABBIX_POLLER_H
 
 #include "common.h"
-#include "dbcache.h"
+#include "db.h"
 #include "sysinfo.h"
 
 extern	void	signal_handler(int);
-extern	int	server_num;
+extern  int     server_num;
 
-extern	int	CONFIG_TIMEOUT;
-extern	int	CONFIG_POLLER_FORKS;
-extern	int	CONFIG_IPMIPOLLER_FORKS;
-extern	int	CONFIG_UNREACHABLE_POLLER_FORKS;
-extern	int	CONFIG_UNAVAILABLE_DELAY;
-extern	int	CONFIG_UNREACHABLE_PERIOD;
-extern	int	CONFIG_UNREACHABLE_DELAY;
+extern  int     CONFIG_TIMEOUT;
+extern  int     CONFIG_POLLER_FORKS;
+extern  int     CONFIG_IPMIPOLLER_FORKS;
+extern  int     CONFIG_UNREACHABLE_POLLER_FORKS;
+extern  int     CONFIG_UNAVAILABLE_DELAY;
+extern  int     CONFIG_UNREACHABLE_PERIOD;
+extern  int     CONFIG_UNREACHABLE_DELAY;
 
 void	main_poller_loop(zbx_process_t p, int type, int num);
+
+int	get_value(DB_ITEM *item, AGENT_RESULT *result);
+
 #endif

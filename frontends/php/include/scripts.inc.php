@@ -21,12 +21,9 @@ function add_script($name,$command,$usrgrpid,$groupid,$access){
 return $result;
 }
 
-function delete_script($scriptids){
-	zbx_value2array($scriptids);
-
-	$sql = 'DELETE FROM scripts WHERE '.DBcondition('scriptid',$scriptids);
+function delete_script($scriptid){
+	$sql = 'DELETE FROM scripts WHERE scriptid='.$scriptid;
 	$result = DBexecute($sql);
-
 return $result;
 }
 
@@ -67,41 +64,112 @@ function execute_script($scriptid,$hostid){
 
 	$message = array();
 
-	if(!$socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP)){
+	if (!$socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP)){
 		return false;
 	}
 
 	$res = socket_connect($socket, $ZBX_SERVER, $ZBX_SERVER_PORT);
 
 	if($res){
-		$json = new CJSON();
+		$request =
+			'{'.
+				'"request":"command",'.
+				'"nodeid":'.id2nodeid($hostid).','.
+				'"scriptid":'.$scriptid.','.
+				'"hostid":'.$hostid.
+			'}';
 
-		$array = array();
-		$array['request'] = 'command';
-		$array['nodeid'] = id2nodeid($hostid);
-		$array['scriptid'] = $scriptid;
-		$array['hostid'] = $hostid;
-
-		$send = $json->encode($array, false);
-
-		socket_write($socket, $send);
+		socket_write($socket, $request);
 
 		$res = socket_read($socket, 65535);
 	}
 
 	if($res){
-		$json = new CJSON();
-
-		$rcv = $json->decode($res, true);
+		list($flag,$msg)=split("\255",$res);
+		$message["flag"]=$flag;
+		$message["message"]=$msg;
 	}
 	else{
-		$rcv['response']='failed';
-		$rcv['value'] = S_CONNECT_TO_SERVER_ERROR.' ['.$ZBX_SERVER.':'.$ZBX_SERVER_PORT.']'.
-				' ['.socket_strerror(socket_last_error()).']';
+		$message["flag"]=-1;
+		$message["message"] = S_CONNECT_TO_SERVER_ERROR.' ['.$ZBX_SERVER.':'.$ZBX_SERVER_PORT.'] ['.socket_strerror(socket_last_error).']';
 	}
 
 	socket_close($socket);
-return $rcv;
+return $message;
 }
 
+
+function get_accessible_scripts_by_hosts($hosts){
+	global $USER_DETAILS;
+
+	if(!is_array($hosts)){
+		$hosts = array('0' => hosts);
+	}
+
+// Selecting usrgroups by user
+	$sql = 'SELECT ug.usrgrpid '.
+			' FROM users_groups ug '.
+			' WHERE ug.userid='.$USER_DETAILS['userid'];
+
+	$user_groups = DBfetch(DBselect($sql));
+	$user_groups[] = 0;	// to ALL user groups
+// --
+
+
+// Selecting groups by Hosts
+	$sql = 'SELECT hg.hostid,hg.groupid '.
+			' FROM hosts_groups hg '.
+			' WHERE '.DBcondition('hg.hostid',$hosts);
+
+	$hg_res = DBselect($sql);
+	while($hg_rows = DBfetch($hg_res)){
+		$hosts_groups[$hg_rows['groupid']][$hg_rows['hostid']] = $hg_rows['hostid'];
+		$hg_groups[$hg_rows['groupid']] = $hg_rows['groupid'];
+	}
+	$hg_groups[] = 0;	// to ALL host groups
+// --
+
+	$hosts_read_only  = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY);
+	$hosts_read_write = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_WRITE);
+
+	$hosts_read_only = array_intersect($hosts,$hosts_read_only);
+	$hosts_read_write = array_intersect($hosts,$hosts_read_write);
+
+	$scripts_by_host = array();
+// initialize array
+	foreach($hosts as $id => $hostid){
+		$scripts_by_host[$hostid] = array();
+	}
+//-----
+
+	$sql = 'SELECT s.* '.
+			' FROM scripts s '.
+			' WHERE '.DBin_node('s.scriptid').
+				' AND '.DBcondition('s.groupid',$hg_groups).
+				' AND '.DBcondition('s.usrgrpid',$user_groups).
+			' ORDER BY scriptid ASC';
+
+	$res=DBselect($sql);
+	while($script = DBfetch($res)){
+		$add_to_hosts = array();
+		if(PERM_READ_WRITE == $script['host_access']){
+			if($script['groupid'] > 0)
+				$add_to_hosts = array_intersect($hosts_read_write, $hosts_groups[$script['groupid']]);
+			else
+				$add_to_hosts = $hosts_read_write;
+		}
+		else if(PERM_READ_ONLY == $script['host_access']){
+			if($script['groupid'] > 0)
+				$add_to_hosts = array_intersect($hosts_read_only, $hosts_groups[$script['groupid']]);
+			else
+				$add_to_hosts = $hosts_read_only;
+		}
+
+		foreach($add_to_hosts as $id => $hostid){
+			$scripts_by_host[$hostid][] = $script;
+		}
+	}
+//SDI($scripts_by_host);
+return $scripts_by_host;
+}
 ?>

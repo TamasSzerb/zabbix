@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -111,30 +111,30 @@ int     SYSTEM_CPU_SWITCHES(const char *cmd, const char *param, unsigned flags, 
 
 int	SYSTEM_CPU_UTIL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	tmp[32], type[32];
-	int	cpu_num, mode;
+	char	cpuname[MAX_STRING_LEN],
+		type[MAX_STRING_LEN],
+		mode[MAX_STRING_LEN];
+	int	cpu_num;
 
 	assert(result);
 
 	init_result(result);
 
-	if (!CPU_COLLECTOR_STARTED(collector))
-	{
-		SET_MSG_RESULT(result, strdup("Collector is not started!"));
-		return SYSINFO_RET_OK;
-	}
-
 	if (num_param(param) > 3)
 		return SYSINFO_RET_FAIL;
 
-	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
-		*tmp = '\0';
+	if (0 != get_param(param, 1, cpuname, sizeof(cpuname)))
+		*cpuname = '\0';
 
-	if ('\0' == *tmp || 0 == strcmp(tmp, "all"))	/* default parameter */
+	/* default parameter */
+	if (*cpuname == '\0')
+		zbx_snprintf(cpuname, sizeof(cpuname), "all");
+
+	if (0 == strcmp(cpuname, "all"))
 		cpu_num = 0;
-	else
-	{
-		cpu_num = atoi(tmp) + 1;
+	else {
+		cpu_num = atoi(cpuname) + 1;
+
 		if (cpu_num < 1 || cpu_num > collector->cpus.count)
 			return SYSINFO_RET_FAIL;
 	}
@@ -142,40 +142,140 @@ int	SYSTEM_CPU_UTIL(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	if (0 != get_param(param, 2, type, sizeof(type)))
 		*type = '\0';
 
-	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
-		*tmp = '\0';
+	/* default parameter */
+	if (*type == '\0')
+		zbx_snprintf(type, sizeof(type), "user");
 
-	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
-		mode = ZBX_AVG1;
-	else if (0 == strcmp(tmp, "avg5"))
-		mode = ZBX_AVG5;
-	else if (0 == strcmp(tmp, "avg15"))
-		mode = ZBX_AVG15;
-	else
-		return SYSINFO_RET_FAIL;
+	if (0 != get_param(param, 3, mode, sizeof(mode)))
+		*mode = '\0';
 
-	if ('\0' == *type || 0 == strcmp(type, "user"))	/* default parameter */
-		SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].user[mode])
+	/* default parameter */
+	if (*mode == '\0')
+		zbx_snprintf(mode, sizeof(mode), "avg1");
+
+	if (!CPU_COLLECTOR_STARTED(collector)) {
+		SET_MSG_RESULT(result, strdup("Collector is not started!"));
+		return SYSINFO_RET_OK;
+	}
+
+	if (0 == strcmp(type, "idle")) {
+		if (0 == strcmp(mode, "avg1"))		SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].idle[ZBX_AVG1])
+		else if (0 == strcmp(mode, "avg5"))	SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].idle[ZBX_AVG5])
+		else if (0 == strcmp(mode, "avg15"))	SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].idle[ZBX_AVG15])
+		else return SYSINFO_RET_FAIL;
+	}
 	else if (0 == strcmp(type, "nice"))
-		SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].nice[mode])
+	{
+		if (0 == strcmp(mode, "avg1")) 		SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].nice[ZBX_AVG1])
+		else if (0 == strcmp(mode, "avg5")) 	SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].nice[ZBX_AVG5])
+		else if (0 == strcmp(mode, "avg15"))	SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].nice[ZBX_AVG15])
+		else return SYSINFO_RET_FAIL;
+	}
+	else if (0 == strcmp(type, "user"))
+	{
+		if (0 == strcmp(mode, "avg1")) 		SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].user[ZBX_AVG1])
+		else if (0 == strcmp(mode, "avg5")) 	SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].user[ZBX_AVG5])
+		else if (0 == strcmp(mode, "avg15"))	SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].user[ZBX_AVG15])
+		else return SYSINFO_RET_FAIL;
+	}
 	else if (0 == strcmp(type, "system"))
-		SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].system[mode])
-	else if (0 == strcmp(type, "idle"))
-		SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].idle[mode])
+	{
+		if (0 == strcmp(mode, "avg1")) 		SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].system[ZBX_AVG1])
+		else if (0 == strcmp(mode, "avg5")) 	SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].system[ZBX_AVG5])
+		else if (0 == strcmp(mode, "avg15"))	SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].system[ZBX_AVG15])
+		else return SYSINFO_RET_FAIL;
+	}
 	else if (0 == strcmp(type, "interrupt"))
-		SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].interrupt[mode])
+	{
+		if (0 == strcmp(mode, "avg1"))		SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].interrupt[ZBX_AVG1])
+		else if (0 == strcmp(mode, "avg5"))	SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].interrupt[ZBX_AVG5])
+		else if (0 == strcmp(mode, "avg15"))	SET_DBL_RESULT(result, collector->cpus.cpu[cpu_num].interrupt[ZBX_AVG15])
+		else return SYSINFO_RET_FAIL;
+	}
 	else
 		return SYSINFO_RET_FAIL;
 
 	return SYSINFO_RET_OK;
 }
 
+static int	get_cpuload(double *load1, double *load5, double *load15)
+{
+#ifdef HAVE_GETLOADAVG
+	/* OpenBSD 4.2 i386 */
+	double	load[3];
+
+	if (-1 == getloadavg(load, 3))
+		return SYSINFO_RET_FAIL;
+
+	if (load1)
+		*load1 = load[0];
+	if (load5)
+		*load5 = load[1];
+	if (load15)
+		*load15 = load[2];
+
+	return SYSINFO_RET_OK;
+#else
+	return SYSINFO_RET_FAIL;
+#endif /* HAVE_GETLOADAVG */
+}
+
+static int	SYSTEM_CPU_LOAD1(AGENT_RESULT *result)
+{
+	double	value;
+
+	if (SYSINFO_RET_OK != get_cpuload(&value, NULL, NULL))
+		return SYSINFO_RET_FAIL;
+	
+	SET_DBL_RESULT(result, value);
+		
+	return SYSINFO_RET_OK;
+}
+
+static int	SYSTEM_CPU_LOAD5(AGENT_RESULT *result)
+{
+	double	value;
+
+	if (SYSINFO_RET_OK != get_cpuload(NULL, &value, NULL))
+		return SYSINFO_RET_FAIL;
+	
+	SET_DBL_RESULT(result, value);
+		
+	return SYSINFO_RET_OK;
+}
+
+static int	SYSTEM_CPU_LOAD15(AGENT_RESULT *result)
+{
+	double	value;
+
+	if (SYSINFO_RET_OK != get_cpuload(NULL, NULL, &value))
+		return SYSINFO_RET_FAIL;
+	
+	SET_DBL_RESULT(result, value);
+		
+	return SYSINFO_RET_OK;
+}
+
 int	SYSTEM_CPU_LOAD(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	/* OpenBSD 3.9 i386; OpenBSD 4.3 i386 */
-	char	tmp[32];
-	int	mode;
-	double	load[ZBX_AVGMAX];
+#define CPU_FNCLIST struct cpu_fnclist_s
+CPU_FNCLIST
+{
+	char	*mode;
+	int	(*function)();
+};
+
+	CPU_FNCLIST fl[] = 
+	{
+		{"avg1",	SYSTEM_CPU_LOAD1},
+		{"avg5",	SYSTEM_CPU_LOAD5},
+		{"avg15",	SYSTEM_CPU_LOAD15},
+		{0,		0}
+	};
+
+	char	cpuname[MAX_STRING_LEN],
+		mode[MAX_STRING_LEN];
+	int	i;
 
 	assert(result);
 
@@ -184,32 +284,26 @@ int	SYSTEM_CPU_LOAD(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
 
-	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
-		*tmp = '\0';
+	if (0 != get_param(param, 1, cpuname, sizeof(cpuname)))
+		*cpuname = '\0';
 
-	if ('\0' != *tmp && 0 != strcmp(tmp, "all"))	/* default parameter */
+	/* default parameter */
+	if (*cpuname == '\0')
+		zbx_snprintf(cpuname, sizeof(cpuname), "all");
+
+	if (0 != strncmp(cpuname, "all", sizeof(cpuname)))
 		return SYSINFO_RET_FAIL;
 
-	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
-		*tmp = '\0';
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
 
-	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
-		mode = ZBX_AVG1;
-	else if (0 == strcmp(tmp, "avg5"))
-		mode = ZBX_AVG5;
-	else if (0 == strcmp(tmp, "avg15"))
-		mode = ZBX_AVG15;
-	else
-		return SYSINFO_RET_FAIL;
+	/* default parameter */
+	if (*mode == '\0')
+		zbx_snprintf(mode, sizeof(mode), "avg1");
 
-#ifdef HAVE_GETLOADAVG
-	if (mode >= getloadavg(load, 3))
-		return SYSINFO_RET_FAIL;
-#else
+	for (i = 0; fl[i].mode != 0; i++)
+		if (0 == strncmp(mode, fl[i].mode, MAX_STRING_LEN))
+			return (fl[i].function)(result);
+
 	return SYSINFO_RET_FAIL;
-#endif	/* HAVE_GETLOADAVG */
-
-	SET_DBL_RESULT(result, load[mode]);
-
-	return SYSINFO_RET_OK;
 }

@@ -19,7 +19,7 @@
 **/
 ?>
 <?php
-	require_once('include/config.inc.php');
+	require_once("include/config.inc.php");
 
 	global $USER_DETAILS;
 	global $page;
@@ -29,81 +29,59 @@
 		define ('PAGE_HEADER_LOADED', 1);
 	}
 
-//------------------------------------- <HISTORY> ---------------------------------------
-	if(isset($page['hist_arg']) && ($USER_DETAILS['alias'] != ZBX_GUEST_USER) && ($page['type'] == PAGE_TYPE_HTML) && !defined('ZBX_PAGE_NO_MENU')){
-		add_user_history($page);
-	}
-//------------------------------------- </HISTORY> --------------------------------------
-
-	CProfile::flush();
-	
-// END Transactions if havn't been -----------------
-	if(isset($DB) && isset($DB['TRANSACTIONS']) && ($DB['TRANSACTIONS'] != 0)){
-		error(S_TRANSACTION_HAVE_NOT_BEEN_CLOSED_ABORTING);
-		DBend(false);
-	}
-//--------------------------------------------------
-
 	show_messages();
 
-	$post_script = '';
-	if($page['type'] == PAGE_TYPE_HTML_BLOCK){
-COpt::profiling_stop('script');
-COpt::show();
-	}
-	else if($page['type'] == PAGE_TYPE_HTML){
-		$post_script.= 'var page_refresh = null;'."\n";
-
-		if(isset($JS_TRANSLATE)){
-			$post_script.='var locale = '.zbx_jsvalue($JS_TRANSLATE)."\n";
-		}
-
-		$post_script.= 'function zbxCallPostScripts(){'."\n";
-
+	if($page['type'] == PAGE_TYPE_HTML){
+//------------- <HISTORY> -------------
+		add_user_history($page);
+//------------- </HISTORY> ------------
+?>
+<script language="JavaScript" type="text/javascript">
+<!--
+function zbxCallPostScripts(){
+<?php
 		if(isset($ZBX_PAGE_POST_JS)){
-			foreach($ZBX_PAGE_POST_JS as $num => $script){
-				$post_script.=$script."\n";
+			foreach($ZBX_PAGE_POST_JS as $script){
+				echo $script."\n";
 			}
 		}
+?>
+}
 
-		if(defined('ZBX_PAGE_DO_REFRESH') && $USER_DETAILS['refresh']){
-			$post_script.= 'PageRefresh.init('.($USER_DETAILS['refresh']*1000).');'."\n";
-		}
-
-		$post_script.= 'cookie.init();'."\n";
-		$post_script.= 'chkbxRange.init();'."\n";
-
-		$post_script.='}'."\n";
-//		$post_script.= 'try{ chkbxRange.init(); } catch(e){ throw("Checkbox extension failed!");}';
-
-
-		insert_js($post_script);
-
+try{
+	chkbx_range_ext.init();
+}
+catch(e){
+	throw('Checkbox extension failed!');
+}
+-->
+</script>
+<?php
+//SDI(SBR.'SELECTS: '.$DB['SELECT_COUNT'].SPACE.SPACE.'EXECUTE: '.$DB['EXECUTE_COUNT'].SPACE.SPACE.'TOTAL: '.($DB['EXECUTE_COUNT']+$DB['SELECT_COUNT']));
 		if(!defined('ZBX_PAGE_NO_MENU') && !defined('ZBX_PAGE_NO_FOOTER')){
 			$table = new CTable(NULL,"page_footer");
-			$table->setCellSpacing(0);
-			$table->setCellPadding(1);
-			$table->addRow(array(
+			$table->SetCellSpacing(0);
+			$table->SetCellPadding(1);
+			$table->AddRow(array(
 				new CCol(new CLink(
 					S_ZABBIX.SPACE.ZABBIX_VERSION.SPACE.S_COPYRIGHT_BY.SPACE.S_SIA_ZABBIX,
-					'http://www.zabbix.com', 'highlight', null, true),
-					'page_footer_l'),
+					"http://www.zabbix.com", "highlight", null, true),
+					"page_footer_l"),
 				new CCol(array(
-						new CSpan(SPACE.SPACE.'|'.SPACE.SPACE,'divider'),
-						new CSpan(($USER_DETAILS['userid'] == 0)?S_NOT_CONNECTED:S_CONNECTED_AS.SPACE."'".$USER_DETAILS['alias']."'".
-						(ZBX_DISTRIBUTED ? SPACE.S_FROM_SMALL.SPACE."'".$USER_DETAILS['node']['name']."'" : ''),'footer_sign')
+						new CSpan(SPACE.SPACE."|".SPACE.SPACE,"divider"),
+						new CSpan(($USER_DETAILS['userid'] == 0)?S_NOT_CONNECTED:S_CONNECTED_AS.SPACE."'".$USER_DETAILS["alias"]."'".
+						(ZBX_DISTRIBUTED ? SPACE.S_FROM_SMALL.SPACE."'".$USER_DETAILS["node"]['name']."'" : ''),'footer_sign')
 					),
-					'page_footer_r')
+					"page_footer_r")
 				));
-			$table->show();
+			$table->Show();
 		}
 
-COpt::profiling_stop('script');
-COpt::show();
+COpt::profiling_stop("page");
+COpt::profiling_stop("script");
 
 		echo "</body>\n";
 		echo "</html>\n";
 	}
-
-exit;
+	exit;
 ?>

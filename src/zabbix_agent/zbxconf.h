@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -26,14 +26,12 @@ extern char	*CONFIG_HOSTNAME;
 extern int	CONFIG_DISABLE_ACTIVE;
 extern int	CONFIG_DISABLE_PASSIVE;
 extern int	CONFIG_ENABLE_REMOTE_COMMANDS;
-extern int	CONFIG_UNSAFE_USER_PARAMETERS;
 extern int	CONFIG_LISTEN_PORT;
 extern int	CONFIG_SERVER_PORT;
 extern int	CONFIG_REFRESH_ACTIVE_CHECKS;
 extern char	*CONFIG_LISTEN_IP;
 extern int	CONFIG_LOG_LEVEL;
 extern char	CONFIG_LOG_UNRES_SYMB;
-extern int	CONFIG_MAX_LINES_PER_SECOND;
 
 void    load_config();
 void    load_user_parameters(void);

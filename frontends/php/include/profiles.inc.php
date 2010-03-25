@@ -1,7 +1,7 @@
 <?php
 /*
 ** ZABBIX
-** Copyright (C) 2000-2010 SIA Zabbix
+** Copyright (C) 2000-2008 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -21,200 +21,328 @@
 <?php
 /********** USER PROFILE ***********/
 
-class CProfile{
+//---------- GET USER VALUE -------------
 
-	private static $profiles = null;
-	private static $update = array();
-	private static $insert = array();
-	
-	public static function init(){
-		global $USER_DETAILS;
-		
-		self::$profiles = array();
-		
-		$sql = 'SELECT * '.
-				' FROM profiles '.
-				' WHERE userid='.$USER_DETAILS['userid'].
-					' AND '.DBin_node('profileid', false).
-				' ORDER BY userid ASC, profileid ASC';
-		$db_profiles = DBselect($sql);
-		while($profile = DBfetch($db_profiles)){
-			$value_type = self::getFieldByType($profile['type']);
+function get_profile($idx,$default_value=null,$type=PROFILE_TYPE_UNKNOWN,$idx2=null,$source=null){
+	global $USER_DETAILS;
 
-			if(!isset(self::$profiles[$profile['idx']])) 
-				self::$profiles[$profile['idx']] = array();
-				
-			self::$profiles[$profile['idx']][$profile['idx2']] = $profile[$value_type];
-		}	
-	}
-	
-	public static function flush(){
-		
-		if(!empty(self::$insert) || !empty(self::$update)){
-			
-			DBstart();
-			foreach(self::$insert as $idx => $profile){
-				foreach($profile as $idx2 => $data){
-					$result = self::insertDB($idx, $data['value'], $data['type'], $idx2);
-				}
-			}
-			
-			ksort(self::$update);
-			foreach(self::$update as $idx => $profile){
-				ksort($profile);
-				foreach($profile as $idx2 => $data){			
-					self::updateDB($idx, $data['value'], $data['type'], $idx2);
-				}
-			}
-			DBend();
-		}
-	}
-	
-	public static function clear(){
-		self::$insert= array();
-		self::$update= array();
-	}
-	
-	public static function get($idx, $default_value=null, $idx2=0){
-		if(is_null(self::$profiles)){	
-			self::init();
-		}
-		
-		if(isset(self::$profiles[$idx][$idx2]))
-			return self::$profiles[$idx][$idx2];
-		else
-			return $default_value;
-	}
-	
-	public static function update($idx, $value, $type, $idx2=0){
-		global $USER_DETAILS;
-		
-		if(is_null(self::$profiles)){	
-			self::init();
-		}
-		
-		if($USER_DETAILS['alias'] == ZBX_GUEST_USER) return false;		
-		if(!self::checkValueType($value, $type)) return false;
+	$result = $default_value;
 
-		$profile = array(
-			'idx' => $idx,
-			'value' => $value,
-			'type' => $type,
-			'idx2' => $idx2,
-		);
-
-		$current = CProfile::get($idx, null, $idx2);
-		if(is_null($current)){
-			if(!isset(self::$insert[$idx])) self::$insert[$idx] = array();
-				
-			self::$insert[$idx][$idx2] = $profile;
-		}
-		else{
-			if($current != $value){
-				if(!isset(self::$update[$idx])) 
-					self::$update[$idx] = array();
-					
-				self::$update[$idx][$idx2] = $profile;
-			}
-		}
-		
-		if(!isset(self::$profiles[$idx])) self::$profiles[$idx] = array();
-
-		self::$profiles[$idx][$idx2] = $value;
-	}
-	
-	private static function insertDB($idx, $value, $type, $idx2){
-		global $USER_DETAILS;
-		
-		$value_type = self::getFieldByType($type);
-
-		$values = array(
-			'profileid' => get_dbid('profiles', 'profileid'),
-			'userid' => $USER_DETAILS['userid'],
-			'idx' => zbx_dbstr($idx),
-			$value_type => ($value_type == 'value_str') ? zbx_dbstr($value) : $value,
-			'type' => $type,
-			'idx2' => $idx2
-		);
-
-		$sql = 'INSERT INTO profiles ('.implode(', ', array_keys($values)).') VALUES ('.implode(', ', $values).')';
-
-	return DBexecute($sql);
-	}
-		
-	private static function updateDB($idx, $value, $type, $idx2){
-		global $USER_DETAILS;
-		
+	if($USER_DETAILS["alias"]!=ZBX_GUEST_USER){
 		$sql_cond = '';
-// dirty fix, but havn't figureout something better
-		if($idx != 'web.nodes.switch_node') $sql_cond .= ' AND '.DBin_node('profileid', false);
-// ---
-		if($idx2 > 0) $sql_cond.= ' AND idx2='.$idx2.' AND '.DBin_node('idx2', false);
-		
-		$value_type = self::getFieldByType($type);
-		$value = ($value_type == 'value_str') ? zbx_dbstr($value) : $value;
+		if(profile_type($type,'id'))	$sql_cond.= ' AND '.DBin_node('value_id');
+		if(zbx_numeric($idx2)) 			$sql_cond.= ' AND idx2='.$idx2.' AND '.DBin_node('idx2');
+		if(!is_null($source)) 			$sql_cond.= ' AND source='.zbx_dbstr($source);
 
-		$sql = 'UPDATE profiles SET '.
-					$value_type.'='.$value.','.
-					' type='.$type.
+		$sql = 'SELECT value_id, value_int, value_str, type '.
+				' FROM profiles '.
+				' WHERE userid='.$USER_DETAILS["userid"].
+					' AND idx='.zbx_dbstr($idx).
+					$sql_cond.
+				' ORDER BY profileid ASC';
+
+		$db_profiles = DBselect($sql);
+		if($profile=DBfetch($db_profiles)){
+
+			if(profile_type($type,'unknown')) $type = $profile['type'];
+			$value_type = profile_field_by_type($type);
+
+			if(profile_type($type,'array')){
+				$result[] = $profile[$value_type];
+				while($profile=DBfetch($db_profiles)){
+					$result[] = $profile[$value_type];
+				}
+			}
+			else{
+				$result = $profile[$value_type];
+			}
+		}
+	}
+
+return $result;
+}
+
+
+// multi value
+function get_source_profile($idx,$default_value=array(),$type=PROFILE_TYPE_UNKNOWN,$idx2=null,$source=null){
+	global $USER_DETAILS;
+
+	$result = array();
+
+	if($USER_DETAILS["alias"]!=ZBX_GUEST_USER){
+		$sql_cond = '';
+		if(profile_type($type,'id'))	$sql_cond.= ' AND '.DBin_node('value_id');
+		if(zbx_numeric($idx2)) 			$sql_cond.= ' AND idx2='.$idx2.' AND '.DBin_node('idx2');
+		if(!is_null($source)) 			$sql_cond.= ' AND source='.zbx_dbstr($source);
+
+		$sql = 'SELECT value_id,value_int,value_str,source,type '.
+				' FROM profiles '.
+				' WHERE userid='.$USER_DETAILS["userid"].
+					' AND idx='.zbx_dbstr($idx).
+					$sql_cond.
+				' ORDER BY profileid ASC';
+
+		$db_profiles = DBselect($sql);
+		if($profile=DBfetch($db_profiles)){
+			if(profile_type($type,'unknown')) $type = $profile['type'];
+			$value_type = profile_field_by_type($type);
+
+			if(profile_type($type,'array')){
+				$result[] = array('value'=>$profile[$value_type], 'source'=>$profile['source']);
+
+				while($profile=DBfetch($db_profiles)){
+					$result[] = array('value'=>$profile[$value_type], 'source'=>$profile['source']);
+				}
+			}
+			else{
+				$result = array('value'=>$profile[$value_type], 'source'=>$profile['source']);
+			}
+
+		}
+	}
+	$result = count($result)?$result:$default_value;
+
+return $result;
+}
+
+//----------- ADD/EDIT USERPROFILE -------------
+function update_profile($idx,$value,$type=PROFILE_TYPE_UNKNOWN,$idx2=null,$source=null){
+	global $USER_DETAILS;
+	if($USER_DETAILS["alias"]==ZBX_GUEST_USER) return false;
+
+	if(profile_type($type,'unknown')) $type = profile_type_by_value($value);
+	else $value = profile_value_by_type($value,$type);
+
+	if($value === false) return false;
+
+	$sql_cond = '';
+	if(zbx_numeric($idx2)) 	$sql_cond = ' AND idx2='.$idx2.' AND '.DBin_node('idx2');
+
+	if(profile_type($type,'array')){
+
+		$sql='DELETE FROM profiles '.
+			' WHERE userid='.$USER_DETAILS["userid"].
+				' AND idx='.zbx_dbstr($idx).
+				$sql_cond;
+
+		DBstart();
+		DBexecute($sql);
+		foreach($value as $id => $val){
+			insert_profile($idx,$val,$type,$idx2,$source);
+		}
+		$result = DBend();
+	}
+	else{
+		$sql = 'SELECT profileid '.
+				' FROM profiles '.
 				' WHERE userid='.$USER_DETAILS['userid'].
 					' AND idx='.zbx_dbstr($idx).
 					$sql_cond;
 
-		$result = DBexecute($sql);
+		$row = DBfetch(DBselect($sql));
 
-	return $result;
+		if(!$row){
+			$result = insert_profile($idx,$value,$type,$idx2,$source);
+		}
+		else{
+			$val = array();
+			$value_type = profile_field_by_type($type);
+
+			$val['value_id'] = 0;
+			$val['value_int'] = 0;
+			$val['value_str'] = '';
+
+			$val[$value_type] = $value;
+
+			$idx2 = zbx_numeric($idx2)?$idx2:0;
+			$src = is_null($source)?'':$source;
+
+			if(is_array($value)){
+				$val[$value_type] = isset($value['value'])?$value['value']:'';
+				$src = isset($value['source'])?$value['source']:$src;
+			}
+			if(is_null($val[$value_type])) return false;
+
+			$sql='UPDATE profiles '.
+				' SET value_id='.$val['value_id'].','.
+					' value_int='.$val['value_int'].','.
+					' value_str='.zbx_dbstr($val['value_str']).','.
+					' type='.$type.','.
+					' source='.zbx_dbstr($src).
+				' WHERE userid='.$USER_DETAILS["userid"].
+					' AND idx='.zbx_dbstr($idx).
+					$sql_cond;
+
+			$result = DBexecute($sql);
+		}
 	}
-	
-	public static function getFieldByType($type){
+
+
+return $result;
+}
+
+
+// Author: Aly
+function insert_profile($idx,$value,$type,$idx2,$source){
+	global $USER_DETAILS;
+
+	$profileid = get_dbid('profiles', 'profileid');
+	$value_type = profile_field_by_type($type);
+
+	$val['value_id'] = 0;
+	$val['value_int'] = 0;
+	$val['value_str'] = '';
+
+	$val[$value_type] = $value;
+
+	$idx2 = zbx_numeric($idx2)?$idx2:0;
+	$src = is_null($source)?'':$source;
+
+	if(is_array($value)){
+		$val[$value_type] = isset($value['value'])?$value['value']:'';
+		$src = isset($value['source'])?$value['source']:$src;
+	}
+
+	if(is_null($val[$value_type])) return false;
+
+	$sql='INSERT INTO profiles (profileid,userid,idx,idx2,value_id,value_int,value_str,source,type)'.
+		' VALUES ('.$profileid.','.
+					$USER_DETAILS['userid'].','.
+					zbx_dbstr($idx).','.
+					$idx2.','.
+					$val['value_id'].','.
+					$val['value_int'].','.
+					zbx_dbstr($val['value_str']).','.
+					zbx_dbstr($src).','.
+					$type.')';
+
+	$result = DBexecute($sql);
+
+return $result;
+}
+
+// ----------- MISC PROFILE FUNCTIONS -----------
+function profile_type($type,$profile_type){
+	$profile_type = strtolower($profile_type);
+	switch($profile_type){
+		case 'array':
+			$result = uint_in_array($type,array(PROFILE_TYPE_ARRAY_ID,PROFILE_TYPE_ARRAY_INT,PROFILE_TYPE_ARRAY_STR));
+			break;
+		case 'id':
+			$result = uint_in_array($type,array(PROFILE_TYPE_ID,PROFILE_TYPE_ARRAY_ID));
+			break;
+		case 'int':
+			$result = uint_in_array($type,array(PROFILE_TYPE_INT,PROFILE_TYPE_ARRAY_INT));
+			break;
+		case 'str':
+			$result = uint_in_array($type,array(PROFILE_TYPE_STR,PROFILE_TYPE_ARRAY_STR));
+			break;
+		case 'unknown':
+			$result = ($type == PROFILE_TYPE_UNKNOWN);
+			break;
+		default:
+			$result = false;
+	}
+return $result;
+}
+
+function profile_field_by_type($type){
+	switch($type){
+		case PROFILE_TYPE_INT:
+		case PROFILE_TYPE_ARRAY_INT:
+			$field = 'value_int';
+		break;
+		case PROFILE_TYPE_STR:
+		case PROFILE_TYPE_ARRAY_STR:
+			$field = 'value_str';
+		break;
+		case PROFILE_TYPE_ID:
+		case PROFILE_TYPE_ARRAY_ID:
+		case PROFILE_TYPE_UNKNOWN:
+		default:
+			$field = 'value_id';
+	}
+return $field;
+}
+
+function profile_type_by_value($value,$type=PROFILE_TYPE_UNKNOWN){
+	if(is_array($value)){
+		$value = $value[0];
+
+		if(is_array($value)){
+			if(isset($value['value']))
+				$type=zbx_numeric($value['value'])?PROFILE_TYPE_ARRAY_ID:PROFILE_TYPE_ARRAY_STR;
+		}
+		else{
+			$type=zbx_numeric($value)?PROFILE_TYPE_ARRAY_ID:PROFILE_TYPE_ARRAY_STR;
+		}
+	}
+	else{
+		if(zbx_numeric($value)) $type = PROFILE_TYPE_ID;
+		else $type = PROFILE_TYPE_STR;
+	}
+return $type;
+}
+
+function profile_value_by_type(&$value,$type){
+	if(profile_type($type,'array')){
+		$result = is_array($value)?$value:array($value);
+	}
+	else if(is_array($value)){
+		if(!isset($value['value'])) return false;
+
+		$result = $value;
 		switch($type){
+			case PROFILE_TYPE_ID:
 			case PROFILE_TYPE_INT:
-				$field = 'value_int';
+				if(zbx_numeric($value['value'])){
+					$result['value'] = $value['value'];
+				}
+				else{
+					$result = false;
+				}
 			break;
 			case PROFILE_TYPE_STR:
-				$field = 'value_str';
+				$result['value'] = strval($value['value']);
 			break;
-			case PROFILE_TYPE_ID:
 			default:
-				$field = 'value_id';
+				$result = false;
 		}
-		return $field;
 	}
-	
-	private static function checkValueType($value, $type){
+	else{
 		switch($type){
 			case PROFILE_TYPE_ID:
-				$result = zbx_ctype_digit($value);
+				$result = zbx_ctype_digit($value)?$value:false;
 				break;
 			case PROFILE_TYPE_INT:
-				$result = zbx_numeric($value);
+				$result = zbx_numeric($value)?$value:false;
+				break;
+			case PROFILE_TYPE_STR:
+				$result = strval($value);
 				break;
 			default:
-				$result = true;
+				$result = false;
 		}
-		
-		return $result;
 	}
+return $result;
 }
+
+/********** END MISC ***********/
+
 
 /************ CONFIG **************/
 
-function select_config($cache = true){
+function select_config(){
 	global $page;
-	static $config;
 
-	if($cache && isset($config)) return $config;
-
-	$row = DBfetch(DBselect('SELECT * FROM config WHERE '.DBin_node('configid', get_current_nodeid(false))));
-
+	$row=DBfetch(DBselect('SELECT * FROM config WHERE '.DBin_node('configid', get_current_nodeid(false))));
 	if($row){
-		$config = $row;
-		return $row;
+		return	$row;
 	}
-	elseif($page['title'] != S_INSTALLATION){
-		error(S_UNABLE_TO_SELECT_CONFIGURATION);
+	else if($page['title'] != S_INSTALLATION){
+			error('Unable to select configuration');
 	}
-return $row;
+return	$row;
 }
 
 function update_config($configs){
@@ -243,92 +371,93 @@ function update_config($configs){
 		return NULL;
 	}
 
-return	DBexecute('update config set '.implode(',',$update).' where '.DBin_node('configid', false));
+return	DBexecute('update config set '.implode(',',$update).' where '.DBin_node('configid', get_current_nodeid(false)));
 }
 /************ END CONFIG **************/
 
 /************ HISTORY **************/
+// Author: Aly
 function get_user_history(){
-	global $USER_DETAILS;
-
-	$result = array();
+	$history=array();
 	$delimiter = new CSpan('&raquo;','delimiter');
-
-	$sql = 'SELECT title1, url1, title2, url2, title3, url3, title4, url4, title5, url5
-			FROM user_history WHERE userid='.$USER_DETAILS['userid'];
-	$history = DBfetch(DBSelect($sql));
-
-	if($history)
-		$USER_DETAILS['last_page'] = array('title' => $history['title4'], 'url' => $history['url4']);
-	else
-		$USER_DETAILS['last_page'] = false;
-
-	for($i = 1; $i<6; $i++){
-		if(defined($history['title'.$i])){
-			$url = new CLink(constant($history['title'.$i]), $history['url'.$i], 'history');
-			array_push($result, array(SPACE, $url, SPACE));
-			array_push($result, $delimiter);
+	for($i = 0; $i < ZBX_HISTORY_COUNT; $i++){
+		if($rows = get_source_profile('web.history.'.$i,false)){
+			if($i>0){
+				array_push($history,$delimiter);
+			}
+			$url = new CLink($rows['source'],$rows['value'],'history');
+			array_push($history,array(SPACE,$url,SPACE));
 		}
 	}
-	array_pop($result);
-
-	return $result;
+return $history;
 }
 
+function get_last_history_page($same_page=false){
+	global $page;
+	$title = explode('[',$page['title']);
+	$title = $title[0];
+
+	$rows=false;
+	for($i = 0; $i < ZBX_HISTORY_COUNT; $i++){
+		$new_rows = get_source_profile('web.history.'.$i,false);
+
+		if(!$same_page && ($title == $new_rows['source'])) continue;
+		$rows = $new_rows;
+	}
+
+	if(is_array($rows)){
+		$rows['page'] = $rows['source'];
+		$rows['url'] = $rows['value'];
+	}
+
+return $rows;
+}
+
+// Author: Aly
 function add_user_history($page){
-	global $USER_DETAILS;
 
-	$userid = $USER_DETAILS['userid'];
-	$title = $page['title'];
+	$title = explode('[',$page['title']);
+	$title = $title[0];
 
-	if(isset($page['hist_arg']) && is_array($page['hist_arg'])){
-		$url = '';
-		foreach($page['hist_arg'] as $arg){
-			if(isset($_REQUEST[$arg])){
-				$url .= ((empty($url))? '?' : '&').$arg.'='.$_REQUEST[$arg];
+	if(!(isset($page['hist_arg']) && is_array($page['hist_arg']))){
+		return FALSE;
+	}
+
+	$url = '';
+	foreach($page['hist_arg'] as $key => $arg){
+		if(isset($_REQUEST[$arg]) && !empty($_REQUEST[$arg])){
+			$url.=((empty($url))?('?'):('&')).$arg.'='.$_REQUEST[$arg];
+		}
+	}
+	$url = $page['file'].$url;
+
+
+	$curr = 0;
+	$profile = array();
+	for($i = 0; $i < ZBX_HISTORY_COUNT; $i++){
+		if($history = get_source_profile('web.history.'.$i,false)){
+			if($history['source'] != $title){
+				$profile[$curr] = $history;
+				$curr++;
 			}
 		}
-		$url = $page['file'].$url;
-	}
-	else{
-		$url = $page['file'];
 	}
 
-	$sql = 'SELECT title5, url5
-			FROM user_history WHERE userid='.$userid;
-	$history5 = DBfetch(DBSelect($sql));
+	$history = array('source' => $title,
+					'value' => $url);
 
-	if($history5 && ($history5['title5'] == $title)){ //title is same
-		if($history5['url5'] != $url){ // title same, url isnt, change only url
-			$sql = 'UPDATE user_history '.
-					' SET url5='.zbx_dbstr($url).
-					' WHERE userid='.$userid;
+	if($curr < ZBX_HISTORY_COUNT){
+		for($i = 0; $i < $curr; $i++){
+			update_profile('web.history.'.$i,$profile[$i], PROFILE_TYPE_STR);
 		}
-		else
-			return; // no need to change anything;
+		$result = update_profile('web.history.'.$curr,$history, PROFILE_TYPE_STR);
 	}
-	else{ // new page with new title is added
-		if(!$USER_DETAILS['last_page']){
-			$userhistoryid = get_dbid('user_history', 'userhistoryid');
-			$sql = 'INSERT INTO user_history (userhistoryid, userid, title5, url5)'.
-					' VALUES('.$userhistoryid.', '.$userid.', '.zbx_dbstr($title).', '.zbx_dbstr($url).')';
+	else {
+		for($i = 1; $i < ZBX_HISTORY_COUNT; $i++){
+			update_profile('web.history.'.($i-1),$profile[$i], PROFILE_TYPE_STR);
 		}
-		else{
-			$sql = 'UPDATE user_history '.
-					' SET title1=title2, '.
-						' url1=url2, '.
-						' title2=title3, '.
-						' url2=url3, '.
-						' title3=title4, '.
-						' url3=url4, '.
-						' title4=title5, '.
-						' url4=url5, '.
-						' title5='.zbx_dbstr($title).', '.
-						' url5='.zbx_dbstr($url).
-					' WHERE userid='.$userid;
-		}
+		$result = update_profile('web.history.'.(ZBX_HISTORY_COUNT-1),$history, PROFILE_TYPE_STR);
 	}
-	$result = DBexecute($sql);
 
 return $result;
 }
@@ -336,31 +465,14 @@ return $result;
 
 /********** USER FAVORITES ***********/
 // Author: Aly
-function get_favorites($idx){
-	global $USER_DETAILS;
-
-	$result = array();
-	
-	if($USER_DETAILS['alias'] != ZBX_GUEST_USER){
-		$sql = 'SELECT value_id, source '.
-				' FROM profiles '.
-				' WHERE userid='.$USER_DETAILS['userid'].
-					' AND idx='.zbx_dbstr($idx).
-				' ORDER BY profileid ASC';
-		$db_profiles = DBselect($sql);
-		while($profile = DBfetch($db_profiles)){
-			$result[] = array('value' => $profile['value_id'], 'source' => $profile['source']);
-		}
-	}
-
-	return $result;
+function get_favorites($favobj,$nodeid=null){
+	$fav = get_source_profile($favobj,array(),PROFILE_TYPE_ARRAY_ID);
+return $fav;
 }
 
 // Author: Aly
-function add2favorites($favobj, $favid, $source=null){
-	global $USER_DETAILS;
-	
-	$favorites = get_favorites($favobj);
+function add2favorites($favobj,$favid,$source=null){
+	$favorites = get_favorites($favobj,get_current_nodeid(true));
 
 	foreach($favorites as $id => $favorite){
 		if(($favorite['source'] == $source) && ($favorite['value'] == $favid)){
@@ -368,49 +480,46 @@ function add2favorites($favobj, $favid, $source=null){
 		}
 	}
 
-	DBstart();
-	$values = array(
-		'profileid' => get_dbid('profiles', 'profileid'),
-		'userid' => $USER_DETAILS['userid'],
-		'idx' => zbx_dbstr($favobj),
-		'value_id' =>  $favid,
-		'type' => PROFILE_TYPE_ID
-	);
-	if(!is_null($source)) $values['source'] = zbx_dbstr($source);
-	
-	$sql = 'INSERT INTO profiles ('.implode(', ', array_keys($values)).') VALUES ('.implode(', ', $values).')';
-	$result = DBexecute($sql);
+	$favorites[] = array('value' => $favid);
 
-	$result = DBend($result);
-
+	$result = update_profile($favobj,$favorites,PROFILE_TYPE_ARRAY_ID,null,$source);
 return $result;
 }
 
 // Author: Aly
-function rm4favorites($favobj, $favid=0, $source=null){
-	global $USER_DETAILS;
-	
-	$sql = 'DELETE FROM profiles '.
-		' WHERE userid='.$USER_DETAILS['userid'].
-			' AND idx='.zbx_dbstr($favobj).
-			(($favid > 0) ? ' AND value_id='.$favid : '').
-			(is_null($source) ? '' : ' AND source='.zbx_dbstr($source));
-	
-	return DBexecute($sql);
+function rm4favorites($favobj,$favid,$favcnt=null,$source=null){
+	$favorites = get_favorites($favobj,get_current_nodeid(true));
+
+	$favcnt = (is_null($favcnt))?0:$favcnt;
+	if($favid == 0) $favcnt = ZBX_FAVORITES_ALL;
+
+	foreach($favorites as $key => $favorite){
+		if(((bccomp($favid,$favorite['value']) == 0) || ($favid == 0)) && ($favorite['source'] == $source)){
+			if($favcnt < 1){
+				unset($favorites[$key]);
+				if($favcnt > ZBX_FAVORITES_ALL) break;  // foreach
+			}
+		}
+		$favcnt--;
+	}
+
+	$result = update_profile($favobj,$favorites,PROFILE_TYPE_ARRAY_ID);
+return $result;
 }
 
 // Author: Aly
-function infavorites($favobj, $favid, $source=null){
+function infavorites($favobj,$favid,$source=null){
 
 	$favorites = get_favorites($favobj);
-	foreach($favorites as $id => $favorite){
-		if(bccomp($favid, $favorite['value']) == 0){
-			if(is_null($source) || ($favorite['source'] == $source))
-				return true;
+	if(!empty($favorites)){
+		foreach($favorites as $id => $favorite){
+			if(bccomp($favid,$favorite['value']) == 0){
+				if(is_null($source) || ($favorite['source'] == $source))
+					return true;
+			}
 		}
 	}
-	
-	return false;
+return false;
 }
 /********** END USER FAVORITES ***********/
 ?>

@@ -1,5 +1,5 @@
 <?php
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2008 SIA Zabbix
 **
@@ -20,12 +20,12 @@
 ?>
 <?php
 
-// Maintenance mode
-//define('ZBX_DENY_GUI_ACCESS',1);
+// Maintenance mode 
+//define('ZBX_DENY_GUI_ACCESS',1); 
 
-// IP range, who are allowed to connect to FrontEnd
+// IP range, who allowed to connect to FrontEnd
 //$ZBX_GUI_ACCESS_IP_RANGE = array('127.0.0.1');
 
-// MSG shown on Warning screen!
-//$_REQUEST['warning_msg'] = 'Zabbix is under maintenance.';
+// MSG showed on Warning screen!
+//$_REQUEST['warning_msg'] = 'ZABBIX is under maintenance.';
 ?>

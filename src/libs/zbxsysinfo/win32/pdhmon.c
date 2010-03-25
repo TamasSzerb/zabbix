@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -64,8 +64,7 @@ int	PERF_MONITOR(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 	char				counter_path[PDH_MAX_COUNTER_PATH],
 					tmp[MAX_STRING_LEN];
 	int				ret = SYSINFO_RET_FAIL, interval;
-	PERF_COUNTERS			*perfs;
-	LPTSTR				wcounter_path;
+	PERF_COUNTERS *perfs;
 
 	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
@@ -107,11 +106,9 @@ int	PERF_MONITOR(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 			return SYSINFO_RET_FAIL;
 	}
 
-	wcounter_path = zbx_utf8_to_unicode(counter_path);
-
 	if (ERROR_SUCCESS == (status = PdhOpenQuery(NULL, 0, &query)))
 	{
-		if (ERROR_SUCCESS == (status = PdhAddCounter(query, wcounter_path, 0, &counter)))
+		if (ERROR_SUCCESS == (status = PdhAddCounter(query,counter_path,0,&counter)))
 		{
 			if (ERROR_SUCCESS == (status = PdhCollectQueryData(query)))
 			{
@@ -119,10 +116,10 @@ int	PERF_MONITOR(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 					(rawData.CStatus == PDH_CSTATUS_VALID_DATA || rawData.CStatus == PDH_CSTATUS_NEW_DATA))
 				{
 					if( PDH_CSTATUS_INVALID_DATA == (status = PdhCalculateCounterFromRawValue(
-						counter,
-						PDH_FMT_DOUBLE,
-						&rawData,
-						NULL,
+						counter, 
+						PDH_FMT_DOUBLE, 
+						&rawData, 
+						NULL, 
 						&counterValue
 						)) )
 					{
@@ -130,10 +127,10 @@ int	PERF_MONITOR(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 						PdhCollectQueryData(query);
 						PdhGetRawCounterValue(counter, NULL, &rawData2);
 						status = PdhCalculateCounterFromRawValue(
-							counter,
-							PDH_FMT_DOUBLE,
-							&rawData2,
-							&rawData,
+							counter, 
+							PDH_FMT_DOUBLE, 
+							&rawData2, 
+							&rawData, 
 							&counterValue);
 
 					}
@@ -143,29 +140,27 @@ int	PERF_MONITOR(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 						ret = SYSINFO_RET_OK;
 					} else
 						zabbix_log(LOG_LEVEL_DEBUG, "Can't format counter value \"%s\": %s",
-								counter_path, strerror_from_module(status, L"PDH.DLL"));
+								counter_path, strerror_from_module(status, "PDH.DLL"));
 				} else {
 					if (ERROR_SUCCESS == status)
 						status = rawData.CStatus;
 
 					zabbix_log(LOG_LEVEL_DEBUG, "Can't get counter value \"%s\": %s",
-							counter_path, strerror_from_module(status, L"PDH.DLL"));
+							counter_path, strerror_from_module(status, "PDH.DLL"));
 				}
 			} else
 				zabbix_log(LOG_LEVEL_DEBUG, "Can't collect data \"%s\": %s",
-						counter_path, strerror_from_module(status, L"PDH.DLL"));
+						counter_path, strerror_from_module(status, "PDH.DLL"));
 
 			PdhRemoveCounter(&counter);
 		} else
 			zabbix_log(LOG_LEVEL_DEBUG, "Can't add counter \"%s\": %s",
-					counter_path, strerror_from_module(status, L"PDH.DLL"));
+					counter_path, strerror_from_module(status, "PDH.DLL"));
 
 		PdhCloseQuery(query);
 	} else
 		zabbix_log(LOG_LEVEL_DEBUG, "Can't initialize performance counters \"%s\": %s",
-				counter_path, strerror_from_module(status, L"PDH.DLL"));
-
-	zbx_free(wcounter_path);
+				counter_path, strerror_from_module(status, "PDH.DLL"));
 
 	return ret;
 }

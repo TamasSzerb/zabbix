@@ -57,12 +57,3 @@
 
 /* Define to 1 if you have the <signal.h> header file. */
 #define HAVE_SIGNAL_H
-
-/* Define to 1 if you have the <io.h> header file. */
-#define HAVE_IO_H 1
-
-/* Define to 1 if you have the <fcntl.h> header file. */
-#define HAVE_FCNTL_H
-
-/* Define to 1 if you have the <Iphlpapi.h> header file. */
-#define HAVE_IPHLPAPI_H

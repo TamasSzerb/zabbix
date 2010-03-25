@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -48,20 +48,16 @@ char	*CONFIG_HOSTNAME		= NULL;
 int	CONFIG_DISABLE_ACTIVE		= 0;
 int	CONFIG_DISABLE_PASSIVE		= 0;
 int	CONFIG_ENABLE_REMOTE_COMMANDS	= 0;
-int	CONFIG_LOG_REMOTE_COMMANDS	= 0;
-int	CONFIG_UNSAFE_USER_PARAMETERS	= 0;
 int	CONFIG_LISTEN_PORT	= 10050;
 int	CONFIG_SERVER_PORT	= 10051;
 int	CONFIG_REFRESH_ACTIVE_CHECKS	= 120;
 char	*CONFIG_LISTEN_IP		= NULL;
 char	*CONFIG_SOURCE_IP		= NULL;
-int	CONFIG_LOG_LEVEL		= LOG_LEVEL_WARNING;
+int	CONFIG_LOG_LEVEL		= LOG_LEVEL_INFORMATION;
 char	CONFIG_LOG_UNRES_SYMB		= 0;
 
 int	CONFIG_BUFFER_SIZE		= 100;
 int	CONFIG_BUFFER_SEND		= 5;
-
-int	CONFIG_MAX_LINES_PER_SECOND	= 100;
 
 void    load_config()
 {
@@ -92,11 +88,10 @@ void    load_config()
 
 		{"StartAgents",		&CONFIG_ZABBIX_FORKS,		0,TYPE_INT,	PARM_OPT,	1,16},
 		{"RefreshActiveChecks",	&CONFIG_REFRESH_ACTIVE_CHECKS,	0,TYPE_INT,	PARM_OPT,60,3600},
-		{"MaxLinesPerSecond",	&CONFIG_MAX_LINES_PER_SECOND,	0,TYPE_INT,	PARM_OPT,1,1000},
 		{"AllowRoot",		&CONFIG_ALLOW_ROOT,		0,TYPE_INT,	PARM_OPT,0,1},
-
+		
 		{"LogUnresolvedSymbols",&CONFIG_LOG_UNRES_SYMB,		0,	TYPE_STRING,PARM_OPT,0,1},
-
+		
 		{0}
 	};
 
@@ -104,7 +99,7 @@ void    load_config()
 	char		**value = NULL;
 
 	memset(&result, 0, sizeof(AGENT_RESULT));
-
+	
 	parse_cfg_file(CONFIG_FILE, cfg);
 
 #ifdef USE_PID_FILE
@@ -113,7 +108,7 @@ void    load_config()
 		APP_PID_FILE = DEFAULT_PID_FILE;
 	}
 #endif /* USE_PID_FILE */
-
+	
 	if(CONFIG_HOSTNAME == NULL)
 	{
 	  	if(SUCCEED == process("system.hostname", 0, &result))
@@ -158,10 +153,8 @@ void    load_user_parameters(void)
 /*               PARAMETER,		VAR,	FUNC,		TYPE(0i,1s), MANDATORY,MIN,MAX
 */
 		{"EnableRemoteCommands",&CONFIG_ENABLE_REMOTE_COMMANDS,	0,TYPE_INT,	PARM_OPT,0,1},
-		{"LogRemoteCommands",&CONFIG_LOG_REMOTE_COMMANDS,	0,TYPE_INT,	PARM_OPT,0,1},
-		{"UnsafeUserParameters",&CONFIG_UNSAFE_USER_PARAMETERS,	0,TYPE_INT,	PARM_OPT,0,1},
 
-		{"Alias",		0,	&add_alias_from_config,	TYPE_STRING,PARM_OPT,0,0},
+		{"Alias",		0,	&add_alias_from_config,	TYPE_STRING,PARM_OPT,0,0},		
 		{"UserParameter",	0,	&add_parameter,		0,	0,	0,	0},
 
 #if defined(_WINDOWS)
@@ -173,6 +166,6 @@ void    load_user_parameters(void)
 #endif /* ZABBIX_DAEMON */
 		{0}
 	};
-
+	
 	parse_cfg_file(CONFIG_FILE,cfg);
 }

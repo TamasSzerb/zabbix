@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -33,15 +33,15 @@
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	get_proxyconfig_table(zbx_uint64_t proxy_hostid, struct zbx_json *j, const ZBX_TABLE *table,
-		const char *condition)
+static int	get_proxyconfig_table(zbx_uint64_t proxy_hostid, struct zbx_json *j, ZBX_TABLE *table,
+		const char *reltable, const char *relfield)
 {
 	char		sql[MAX_STRING_LEN];
 	int		offset = 0, f, fld;
@@ -51,7 +51,7 @@ static int	get_proxyconfig_table(zbx_uint64_t proxy_hostid, struct zbx_json *j, 
 	zabbix_log(LOG_LEVEL_DEBUG, "In get_proxyconfig_table() [proxy_hostid:" ZBX_FS_UI64 "] [table:%s]",
 			proxy_hostid,
 			table->table);
-
+	
 	zbx_json_addobject(j, table->table);
 	zbx_json_addarray(j, "fields");
 
@@ -59,7 +59,7 @@ static int	get_proxyconfig_table(zbx_uint64_t proxy_hostid, struct zbx_json *j, 
 			table->recid);
 
 	zbx_json_addstring(j, NULL, table->recid, ZBX_JSON_TYPE_STRING);
-
+	
 	for (f = 0; table->fields[f].name != 0; f ++) {
 		if ((table->fields[f].flags & ZBX_PROXY) == 0)
 			continue;
@@ -72,15 +72,46 @@ static int	get_proxyconfig_table(zbx_uint64_t proxy_hostid, struct zbx_json *j, 
 
 	zbx_json_close(j);
 
-	offset += zbx_snprintf(sql + offset, sizeof(sql) - offset, " from %s t%s",
-			table->table,
-			condition);
+	offset += zbx_snprintf(sql + offset, sizeof(sql) - offset, " from %s t",
+			table->table);
+
+	if (NULL == reltable)
+		offset += zbx_snprintf(sql + offset, sizeof(sql) - offset, " where t.proxy_hostid=" ZBX_FS_UI64,
+				proxy_hostid);
+	else
+		offset += zbx_snprintf(sql + offset, sizeof(sql) - offset, ", %s r where t.%s=r.%s"
+				" and r.proxy_hostid=" ZBX_FS_UI64,
+				reltable,
+				relfield,
+				relfield,
+				proxy_hostid);
+
+	if (0 == strcmp(table->table, "hosts"))
+		offset += zbx_snprintf(sql + offset, sizeof(sql) - offset, " and t.status=%d",
+				HOST_STATUS_MONITORED);
+	if (NULL != reltable && 0 == strcmp(reltable, "hosts"))
+		offset += zbx_snprintf(sql + offset, sizeof(sql) - offset, " and r.status=%d",
+				HOST_STATUS_MONITORED);
+	if (0 == strcmp(table->table, "items"))
+		offset += zbx_snprintf(sql + offset, sizeof(sql) - offset, " and t.status in (%d,%d)"
+				" and t.type in (%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d)",
+				ITEM_STATUS_ACTIVE, ITEM_STATUS_NOTSUPPORTED,
+				ITEM_TYPE_ZABBIX, ITEM_TYPE_ZABBIX_ACTIVE,
+				ITEM_TYPE_SNMPv1, ITEM_TYPE_SNMPv2c, ITEM_TYPE_SNMPv3,
+				ITEM_TYPE_IPMI, ITEM_TYPE_TRAPPER, ITEM_TYPE_SIMPLE,
+				ITEM_TYPE_HTTPTEST, ITEM_TYPE_EXTERNAL, ITEM_TYPE_DB_MONITOR);
+	if (0 == strcmp(table->table, "drules"))
+		offset += zbx_snprintf(sql + offset, sizeof(sql) - offset, " and t.status=%d",
+				DRULE_STATUS_MONITORED);
+	if (NULL != reltable && 0 == strcmp(reltable, "drules"))
+		offset += zbx_snprintf(sql + offset, sizeof(sql) - offset, " and r.status=%d",
+				DRULE_STATUS_MONITORED);
 
 	offset += zbx_snprintf(sql + offset, sizeof(sql) - offset, " order by t.%s",
 			table->recid);
 
 	zbx_json_addarray(j, "data");
-
+		
 	result = DBselect("%s", sql);
 
 	while (NULL != (row = DBfetch(result))) {
@@ -122,7 +153,7 @@ static int	get_proxyconfig_table(zbx_uint64_t proxy_hostid, struct zbx_json *j, 
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -133,106 +164,31 @@ static int	get_proxyconfig_data(zbx_uint64_t proxy_hostid, struct zbx_json *j)
 {
 	struct proxytable_t {
 		const char	*table;
+		const char	*reltable;
+		const char	*relfield;
 	};
 
 	static const struct proxytable_t pt[]={
-		{"hosts"},
-		{"items"},
-		{"hosts_templates"},
-		{"globalmacro"},
-		{"hostmacro"},
-		{"drules"},
-		{"dchecks"},
+		{"hosts",	NULL,		NULL},
+		{"items",	"hosts",	"hostid"},
+		{"drules",	NULL,		NULL},
+		{"dchecks",	"drules",	"druleid"},
 		{NULL}
 	};
-	int		i, ret = SUCCEED;
-	const ZBX_TABLE	*table;
-	char		condition[512];
+	int	t, p, ret = SUCCEED;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In get_proxyconfig_data() [proxy_hostid:" ZBX_FS_UI64 "]",
 			proxy_hostid);
 
-	for (i = 0; pt[i].table != NULL; i++)
+	for (t = 0; tables[t].table != 0; t++)
 	{
-		if (NULL == (table = DBget_table(pt[i].table)))
-			continue;
+		for (p = 0; pt[p].table != NULL; p++)
+		{
+			if (0 != strcmp(tables[t].table, pt[p].table))
+				continue;
 
-		if (0 == strcmp(pt[i].table, "hosts"))
-		{
-			zbx_snprintf(condition, sizeof(condition),
-					" where t.proxy_hostid=" ZBX_FS_UI64
-						" and t.status=%d",
-					proxy_hostid,
-					HOST_STATUS_MONITORED);
+			ret = get_proxyconfig_table(proxy_hostid, j, &tables[t], pt[p].reltable, pt[p].relfield);
 		}
-		else if (0 == strcmp(pt[i].table, "items"))
-		{
-			zbx_snprintf(condition, sizeof(condition),
-					", hosts r where t.hostid=r.hostid"
-						" and r.proxy_hostid=" ZBX_FS_UI64
-						" and r.status=%d"
-						" and t.status in (%d,%d)"
-						" and t.type in (%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d)",
-					proxy_hostid,
-					HOST_STATUS_MONITORED,
-					ITEM_STATUS_ACTIVE, ITEM_STATUS_NOTSUPPORTED,
-					ITEM_TYPE_ZABBIX, ITEM_TYPE_ZABBIX_ACTIVE,
-					ITEM_TYPE_SNMPv1, ITEM_TYPE_SNMPv2c, ITEM_TYPE_SNMPv3,
-					ITEM_TYPE_IPMI, ITEM_TYPE_TRAPPER, ITEM_TYPE_SIMPLE,
-					ITEM_TYPE_HTTPTEST, ITEM_TYPE_EXTERNAL, ITEM_TYPE_DB_MONITOR,
-					ITEM_TYPE_SSH, ITEM_TYPE_TELNET);
-		}
-		else if (0 == strcmp(pt[i].table, "hosts_templates"))
-		{
-			zbx_snprintf(condition, sizeof(condition),
-					", hosts r where t.hostid=r.hostid"
-						" and r.proxy_hostid=" ZBX_FS_UI64
-						" and r.status=%d",
-					proxy_hostid,
-					HOST_STATUS_MONITORED);
-		}
-		else if (0 == strcmp(pt[i].table, "drules"))
-		{
-			zbx_snprintf(condition, sizeof(condition),
-					" where t.proxy_hostid=" ZBX_FS_UI64
-						" and t.status=%d",
-					proxy_hostid,
-					DRULE_STATUS_MONITORED);
-		}
-		else if (0 == strcmp(pt[i].table, "dchecks"))
-		{
-			zbx_snprintf(condition, sizeof(condition),
-					", drules r where t.druleid=r.druleid"
-						" and r.proxy_hostid=" ZBX_FS_UI64
-						" and r.status=%d",
-					proxy_hostid,
-					DRULE_STATUS_MONITORED);
-		}
-		else if (0 == strcmp(pt[i].table, "hostmacro"))
-		{
-			zbx_snprintf(condition, sizeof(condition),
-					" where t.hostid in ("
-							"select hostid"
-							" from hosts"
-							" where proxy_hostid=" ZBX_FS_UI64
-								" and status=%d"
-							")"
-						" or t.hostid in ("
-							"select t.templateid"
-							" from hosts_templates t,hosts h"
-							" where h.hostid=t.hostid"
-								" and h.proxy_hostid=" ZBX_FS_UI64
-								" and h.status=%d"
-							")",
-					proxy_hostid,
-					HOST_STATUS_MONITORED,
-					proxy_hostid,
-					HOST_STATUS_MONITORED);
-		}
-		else
-			*condition = '\0';
-
-		ret = get_proxyconfig_table(proxy_hostid, j, table, condition);
 	}
 
 	return ret;
@@ -247,7 +203,7 @@ static int	get_proxyconfig_data(zbx_uint64_t proxy_hostid, struct zbx_json *j)
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -297,7 +253,7 @@ int	get_proxy_id(struct zbx_json_parse *jp, zbx_uint64_t *hostid)
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -320,7 +276,7 @@ void	update_proxy_lastaccess(const zbx_uint64_t hostid)
  * Parameters:                                                                *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
@@ -339,7 +295,7 @@ int	send_proxyconfig(zbx_sock_t *sock, struct zbx_json_parse *jp)
 		goto exit;
 
 	update_proxy_lastaccess(proxy_hostid);
-
+	
 	zbx_json_init(&j, 512*1024);
 	if (SUCCEED == (res = get_proxyconfig_data(proxy_hostid, &j))) {
 		zabbix_log(LOG_LEVEL_WARNING, "Sending configuration data to proxy. Datalen %d",
@@ -357,3 +313,4 @@ int	send_proxyconfig(zbx_sock_t *sock, struct zbx_json_parse *jp)
 exit:
 	return res;
 }
+

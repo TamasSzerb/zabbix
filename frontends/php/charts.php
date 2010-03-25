@@ -1,7 +1,7 @@
 <?php
-/*
+/* 
 ** ZABBIX
-** Copyright (C) 2000-2009 SIA Zabbix
+** Copyright (C) 2000-2007 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,22 +19,21 @@
 **/
 ?>
 <?php
-require_once('include/config.inc.php');
-require_once('include/hosts.inc.php');
-require_once('include/graphs.inc.php');
+	require_once 'include/config.inc.php';
+	require_once 'include/hosts.inc.php';
+	require_once 'include/graphs.inc.php';
 
-$page['title'] = 'S_CUSTOM_GRAPHS';
-$page['file'] = 'charts.php';
-$page['hist_arg'] = array('hostid','groupid','graphid');
-$page['scripts'] = array('scriptaculous.js?load=effects,dragdrop','class.calendar.js','gtlc.js');
+	$page['title'] = 'S_CUSTOM_GRAPHS';
+	$page['file'] = 'charts.php';
+	$page['hist_arg'] = array('hostid','grouid','graphid','period','dec','inc','left','right','stime');
+	$page['scripts'] = array('gmenu.js','scrollbar.js','sbox.js','sbinit.js');
+	
+	$page['type'] = detect_page_type(PAGE_TYPE_HTML);
+	
+//	define('ZBX_PAGE_DO_REFRESH', 1);
 
-$page['type'] = detect_page_type(PAGE_TYPE_HTML);
+include_once 'include/page_header.php';
 
-define('ZBX_PAGE_DO_REFRESH', 1);
-
-include_once('include/page_header.php');
-?>
-<?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
 		'groupid'=>		array(T_ZBX_INT, O_OPT,	 P_SYS,		DB_ID,NULL),
@@ -44,8 +43,9 @@ include_once('include/page_header.php');
 		'period'=>		array(T_ZBX_INT, O_OPT,  P_SYS, 	null,NULL),
 		'stime'=>		array(T_ZBX_STR, O_OPT,  P_SYS, 	NULL,NULL),
 		'action'=>		array(T_ZBX_STR, O_OPT,  P_SYS, 	IN("'go','add','remove'"),NULL),
+		'reset'=>		array(T_ZBX_STR, O_OPT,  P_SYS, 	IN("'reset'"),NULL),
 		'fullscreen'=>	array(T_ZBX_INT, O_OPT,	P_SYS,		IN('0,1'),NULL),
-
+		
 //ajax
 		'favobj'=>		array(T_ZBX_STR, O_OPT, P_ACT,	NULL,			NULL),
 		'favid'=>		array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,		'isset({favobj})'),
@@ -53,37 +53,27 @@ include_once('include/page_header.php');
 		'state'=>		array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,		NULL),
 		'action'=>		array(T_ZBX_STR, O_OPT, P_ACT, 	IN("'add','remove'"),NULL)
 	);
-
+		
 	check_fields($fields);
 ?>
 <?php
 
 	if(isset($_REQUEST['favobj'])){
-		if('filter' == $_REQUEST['favobj']){
-			CProfile::update('web.charts.filter.state',$_REQUEST['state'], PROFILE_TYPE_INT);
-		}
 		if('hat' == $_REQUEST['favobj']){
-			CProfile::update('web.charts.hats.'.$_REQUEST['favid'].'.state',$_REQUEST['state'], PROFILE_TYPE_INT);
+			update_profile('web.charts.hats.'.$_REQUEST['favid'].'.state',$_REQUEST['state'], PROFILE_TYPE_INT);
 		}
-
-		if('timeline' == $_REQUEST['favobj']){
-			if(isset($_REQUEST['graphid']) && isset($_REQUEST['period'])){
-				navigation_bar_calc('web.graph', true);
-			}
-		}
-
-		if(str_in_array($_REQUEST['favobj'],array('itemid','graphid'))){
+		else if(str_in_array($_REQUEST['favobj'],array('itemid','graphid'))){
 			$result = false;
 			if('add' == $_REQUEST['action']){
-				$result = add2favorites('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
+				$result = add2favorites('web.favorite.graphids',$_REQUEST['favid'],$_REQUEST['favobj']);
 				if($result){
 					print('$("addrm_fav").title = "'.S_REMOVE_FROM.' '.S_FAVOURITES.'";'."\n");
 					print('$("addrm_fav").onclick = function(){rm4favorites("graphid","'.$_REQUEST['favid'].'",0);}'."\n");
 				}
 			}
 			else if('remove' == $_REQUEST['action']){
-				$result = rm4favorites('web.favorite.graphids',$_REQUEST['favid'],$_REQUEST['favobj']);
-
+				$result = rm4favorites('web.favorite.graphids',$_REQUEST['favid'],ZBX_FAVORITES_ALL,$_REQUEST['favobj']);
+				
 				if($result){
 					print('$("addrm_fav").title = "'.S_ADD_TO.' '.S_FAVOURITES.'";'."\n");
 					print('$("addrm_fav").onclick = function(){ add2favorites("graphid","'.$_REQUEST['favid'].'");}'."\n");
@@ -94,28 +84,32 @@ include_once('include/page_header.php');
 				print('switchElementsClass("addrm_fav","iconminus","iconplus");');
 			}
 		}
-	}
+	}	
 
 	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		include_once('include/page_footer.php');
 		exit();
 	}
-?>
-<?php
-	$_REQUEST['graphid'] = get_request('graphid', CProfile::get('web.charts.graphid', 0));
+	
+	$_REQUEST['graphid'] = get_request('graphid', get_profile('web.charts.graphid', 0, PROFILE_TYPE_ID));
 	if(!in_node($_REQUEST['graphid'])) $_REQUEST['graphid'] = 0;
 
+
+	// $_REQUEST['stime'] =	get_request('stime',get_profile('web.graph.stime', null, PROFILE_TYPE_STR, $_REQUEST['graphid']));
+	$_REQUEST['period'] =	get_request('period',get_profile('web.graph.period', ZBX_PERIOD_DEFAULT, PROFILE_TYPE_INT, $_REQUEST['graphid']));
+	
+	$effectiveperiod = navigation_bar_calc();
+		
 	if($_REQUEST['graphid']>0){
 		$sql_from = '';
 		$sql_where = '';
 		if(isset($_REQUEST['groupid']) && ($_REQUEST['groupid'] > 0)){
 			$sql_where.= ' AND hg.groupid='.$_REQUEST['groupid'];
 		}
-
+		
 		if(isset($_REQUEST['hostid']) && ($_REQUEST['hostid'] > 0)){
 			$sql_where.= ' AND hg.hostid='.$_REQUEST['hostid'];
 		}
-
+		
 		$sql = 'SELECT DISTINCT hg.groupid, hg.hostid '.
 				' FROM hosts_groups hg, hosts h, graphs g, graphs_items gi, items i '.
 				' WHERE g.graphid='.$_REQUEST['graphid'].
@@ -130,7 +124,7 @@ include_once('include/page_header.php');
 				$_REQUEST['groupid'] = $host_group['groupid'];
 				$_REQUEST['hostid'] = $host_group['hostid'];
 			}
-			else if((($_REQUEST['groupid']!=$host_group['groupid']) && ($_REQUEST['groupid'] > 0)) ||
+			else if((($_REQUEST['groupid']!=$host_group['groupid']) && ($_REQUEST['groupid'] > 0)) || 
 					(($_REQUEST['hostid']!=$host_group['hostid']) && ($_REQUEST['hostid'] > 0)))
 			{
 				$_REQUEST['graphid'] = 0;
@@ -141,200 +135,238 @@ include_once('include/page_header.php');
 		}
 	}
 
-	$effectiveperiod = navigation_bar_calc('web.graph');
+	if($_REQUEST['graphid']>0){
+		if(isset($_REQUEST['stime'])) 
+			update_profile('web.graph.stime',$_REQUEST['stime'], PROFILE_TYPE_STR, $_REQUEST['graphid']);
 
-	CProfile::update('web.charts.graphid',$_REQUEST['graphid'], PROFILE_TYPE_ID);
+		if($_REQUEST['period'] >= ZBX_MIN_PERIOD)
+			update_profile('web.graph.period',$_REQUEST['period'],PROFILE_TYPE_INT,$_REQUEST['graphid']);			
+	}
+
+	update_profile('web.charts.graphid',$_REQUEST['graphid']);
 
 	$h1 = array();
-
+	
 	$options = array('allow_all_hosts','monitored_hosts','with_graphs');
-	if(!$ZBX_WITH_ALL_NODES)	array_push($options,'only_current_node');
-
+	if(!$ZBX_WITH_SUBNODES)	array_push($options,'only_current_node');
+		
 	$params = array();
 	foreach($options as $option) $params[$option] = 1;
-
 	$PAGE_GROUPS = get_viewed_groups(PERM_READ_ONLY, $params);
 	$PAGE_HOSTS = get_viewed_hosts(PERM_READ_ONLY, $PAGE_GROUPS['selected'], $params);
-
 	validate_group_with_host($PAGE_GROUPS,$PAGE_HOSTS);
-//SDI($_REQUEST['groupid'].' : '.$_REQUEST['hostid']);
+//SDI($_REQUEST['groupid'].' : '.$_REQUEST['hostid']);		
 
 	$available_groups= $PAGE_GROUPS['groupids'];
 	$available_hosts = $PAGE_HOSTS['hostids'];
+	
+	$available_graphs = get_accessible_graphs(PERM_READ_LIST, $available_hosts, PERM_RES_IDS_ARRAY, get_current_nodeid(true));
 
-	if(empty($PAGE_GROUPS['groupids']) || empty($PAGE_HOSTS['hostids'])){
-		$_REQUEST['graphid'] = 0;
-	}
-
-	if($_REQUEST['graphid']>0){
-		$options = array(
-			'graphids' => $_REQUEST['graphid'],
-			'output' => API_OUTPUT_EXTEND,
-			'nodeids' => get_current_nodeid(true)
-		);
-		$db_data = CGraph::get($options);
-		if(empty($db_data)){
-			CProfile::update('web.charts.graphid',0,PROFILE_TYPE_ID);
+	if(($_REQUEST['graphid']>0) && ($row=DBfetch(DBselect('SELECT DISTINCT graphid, name FROM graphs WHERE graphid='.$_REQUEST['graphid'])))){
+		if(!graph_accessible($_REQUEST['graphid'])){
+			update_profile('web.charts.graphid',0);
 			access_deny();
 		}
-
-		$db_data = reset($db_data);
-		array_push($h1, $db_data['name']);
+		array_push($h1, $row['name']);
 	}
 	else{
 		$_REQUEST['graphid'] = 0;
 		array_push($h1, S_SELECT_GRAPH_TO_DISPLAY);
 	}
 
-	$charts_wdgt = new CWidget('hat_charts');
-	
-	$scroll_div = new CDiv();
-	$scroll_div->setAttribute('id','scrollbar_cntr');
-	$charts_wdgt->addFlicker($scroll_div, CProfile::get('web.charts.filter.state',1));
-
-// HEADER
+	$p_elements = array();
 
 	$r_form = new CForm();
 	$r_form->setMethod('get');
-
+	
 	$r_form->addVar('fullscreen', $_REQUEST['fullscreen']);
 
 	$cmbGroups = new CComboBox('groupid',$PAGE_GROUPS['selected'],'javascript: submit();');
 	$cmbHosts = new CComboBox('hostid',$PAGE_HOSTS['selected'],'javascript: submit();');
-
+	
 	foreach($PAGE_GROUPS['groups'] as $groupid => $name){
-		$cmbGroups->addItem($groupid, get_node_name_by_elid($groupid, null, ': ').$name);
+		$cmbGroups->addItem($groupid, get_node_name_by_elid($groupid).$name);
 	}
 	foreach($PAGE_HOSTS['hosts'] as $hostid => $name){
-		$cmbHosts->addItem($hostid, get_node_name_by_elid($hostid, null, ': ').$name);
+		$cmbHosts->addItem($hostid, get_node_name_by_elid($hostid).$name);
 	}
 
 	$r_form->addItem(array(S_GROUP.SPACE,$cmbGroups));
-	$r_form->addItem(array(SPACE.S_HOST.SPACE,$cmbHosts));
-
+	$r_form->addItem(array(SPACE.S_HOST.SPACE,$cmbHosts));	
+		
+//---------------------------------------------_
 	$cmbGraphs = new CComboBox('graphid',$_REQUEST['graphid'],'submit()');
 	$cmbGraphs->addItem(0,S_SELECT_GRAPH_DOT_DOT_DOT);
-
-	$options = array(
-		'extendoutput' => 1,
-		'templated' => 0
-	);
-
-// Filtering
-	if(($PAGE_HOSTS['selected'] > 0) || empty($PAGE_HOSTS['hostids'])){
-		$options['hostids'] = $PAGE_HOSTS['selected'];
+	
+	$sql_from = '';
+	$sql_where = '';
+	if($_REQUEST['groupid'] > 0){
+		$sql_from .= ',hosts_groups hg ';
+		$sql_where.= ' AND hg.hostid=h.hostid AND hg.groupid='.$_REQUEST['groupid'];
 	}
-	else if(($PAGE_GROUPS['selected'] > 0) && !empty($PAGE_HOSTS['hostids'])){
-		$options['hostids'] = $PAGE_HOSTS['hostids'];
+	if($_REQUEST['hostid'] > 0){
+		$sql_where.= ' AND h.hostid='.$_REQUEST['hostid'];
 	}
-	else if(($PAGE_GROUPS['selected'] > 0) || empty($PAGE_GROUPS['groupids'])){
-		$options['groupids'] = $PAGE_GROUPS['selected'];
-	}
+	
+	$sql = 'SELECT DISTINCT g.graphid,g.name '.
+		' FROM graphs g,graphs_items gi,items i,hosts h'.$sql_from.
+		' WHERE gi.graphid=g.graphid '.
+			' AND i.itemid=gi.itemid '.
+			' AND h.hostid=i.hostid '.
+			' AND h.status='.HOST_STATUS_MONITORED.
+			$sql_where.
+			
+			' AND '.DBin_node('g.graphid').
+			' AND '.DBcondition('g.graphid',$available_graphs).
+		' ORDER BY g.name';
 
-	$db_graphs = CGraph::get($options);
-	order_result($db_graphs, 'name');
-	foreach($db_graphs as $num => $db_graph){
-		$cmbGraphs->addItem($db_graph['graphid'], get_node_name_by_elid($db_graph['graphid'], null, ': ').$db_graph['name']);
+	$result = DBselect($sql);
+	while($row=DBfetch($result)){
+		$cmbGraphs->addItem(
+				$row['graphid'],
+				get_node_name_by_elid($row['graphid']).$row['name']
+				);
 	}
 	
 	$r_form->addItem(array(SPACE.S_GRAPH.SPACE,$cmbGraphs));
-
-//	show_table_header(S_GRAPHS_BIG, $r_form);
-//---------------------------------------------
+	
+	$p_elements[] = get_table_header($h1, $r_form);
 ?>
 <?php
 	$table = new CTableInfo('...','chart');
-//	$table->setAttribute('border',1);
-
+//	$table->AddOption('border',1);
+	
 	if($_REQUEST['graphid'] > 0){
-		$dom_graph_id = 'graph';
-		$graphDims = getGraphDims($_REQUEST['graphid']);
+		$graphtype = GRAPH_TYPE_NORMAL;
+		$yaxis = 0;
 
-		if(($graphDims['graphtype'] == GRAPH_TYPE_PIE) || ($graphDims['graphtype'] == GRAPH_TYPE_EXPLODED)){
-			$loadSBox = 0;
-			$scrollWidthByImage = 0;
-			$containerid = 'graph_cont1';
-			$src = 'chart6.php?graphid='.$_REQUEST['graphid'];
+// ZOOM featers
+		$sql = 'SELECT MAX(g.graphtype) as graphtype, MIN(gi.yaxisside) as yaxissidel, MAX(gi.yaxisside) as yaxissider, MAX(g.height) as height'.
+				' FROM graphs g, graphs_items gi '.
+				' WHERE g.graphid='.$_REQUEST['graphid'].
+					' AND gi.graphid=g.graphid ';
+
+		$res = Dbselect($sql);
+		while($graph=DBfetch($res)){
+			$graphtype = $graph['graphtype'];
+			$graph_height = $graph['height'];
+			$yaxis = $graph['yaxissider'];
+			$yaxis = ($graph['yaxissidel'] == $yaxis)?($yaxis):(2);
+		}
+		if($yaxis == 2){
+			$shiftXleft = 60;
+			$shiftXright = 60;
+		}
+		else if($yaxis == 0){
+			$shiftXleft = 60;
+			$shiftXright = 20;
 		}
 		else{
-			$loadSBox = 1;
-			$scrollWidthByImage = 1;
-			$containerid = 'graph_cont1';
-			$src = 'chart2.php?graphid='.$_REQUEST['graphid'];
+			$shiftXleft = 10;
+			$shiftXright = 60;
 		}
+//-------------
 
-		$graph_cont = new CCol();
-		$graph_cont->setAttribute('id', $containerid);
-		$table->addRow($graph_cont);
+		$dom_graph_id = 'graph';
+		
+		if(($graphtype == GRAPH_TYPE_PIE) || ($graphtype == GRAPH_TYPE_EXPLODED)){
+			$row = 	"\n".'<script language="javascript" type="text/javascript">
+				<!--
+				document.write(\'<img id="'.$dom_graph_id.'" src="chart6.php?graphid='.$_REQUEST['graphid'].url_param('stime').
+				'&period='.$effectiveperiod.'" /><br />\');
+				-->
+				</script>'."\n";
+		}
+		else{
+			$row = 	"\n".'<script language="javascript" type="text/javascript">
+				<!--
+				A_SBOX["'.$dom_graph_id.'"] = new Object;
+				A_SBOX["'.$dom_graph_id.'"].shiftT = 17;
+				A_SBOX["'.$dom_graph_id.'"].shiftL = '.$shiftXleft.';
+				
+				var ZBX_G_WIDTH = get_bodywidth();
+				if(!is_number(ZBX_G_WIDTH)) ZBX_G_WIDTH = 900;
+				
+				ZBX_G_WIDTH-= parseInt('.($shiftXleft+$shiftXright).'+parseInt((SF)?27:27));
+				
+				document.write(\'<img id="'.$dom_graph_id.'" src="chart2.php?graphid='.$_REQUEST['graphid'].url_param('stime').
+				'&period='.$effectiveperiod.'&width=\'+ZBX_G_WIDTH+\'" /><br />\');
+				-->
+				</script>'."\n";
+		}
+		
+		$table->addRow(new CScript($row));
 	}
-
+	
+	$p_elements[] = $table;
+	$p_elements[] = BR();
+	
 	$icon = null;
 	$fs_icon = null;
 	$rst_icon = null;
 	if($_REQUEST['graphid'] > 0){
 		if(infavorites('web.favorite.graphids',$_REQUEST['graphid'],'graphid')){
 			$icon = new CDiv(SPACE,'iconminus');
-			$icon->setAttribute('title',S_REMOVE_FROM.' '.S_FAVOURITES);
-			$icon->addAction('onclick',new CJSscript("javascript: rm4favorites('graphid','".$_REQUEST['graphid']."',0);"));
+			$icon->addOption('title',S_REMOVE_FROM.' '.S_FAVOURITES);
+			$icon->addAction('onclick',new CScript("javascript: rm4favorites('graphid','".$_REQUEST['graphid']."',0);"));
 		}
 		else{
 			$icon = new CDiv(SPACE,'iconplus');
-			$icon->setAttribute('title',S_ADD_TO.' '.S_FAVOURITES);
-			$icon->addAction('onclick',new CJSscript("javascript: add2favorites('graphid','".$_REQUEST['graphid']."');"));
+			$icon->addOption('title',S_ADD_TO.' '.S_FAVOURITES);
+			$icon->addAction('onclick',new CScript("javascript: add2favorites('graphid','".$_REQUEST['graphid']."');"));
 		}
-		$icon->setAttribute('id','addrm_fav');
-
-		$url = '?graphid='.$_REQUEST['graphid'].($_REQUEST['fullscreen']?'':'&fullscreen=1');
+		$icon->addOption('id','addrm_fav');
+		
+		$url = '?graphid='.$_REQUEST['graphid'].($_REQUEST['fullscreen']?'':'&fullscreen=1').
+			(isset($_REQUEST['stime'])? '&stime='.$_REQUEST['stime'] : '');
 
 		$fs_icon = new CDiv(SPACE,'fullscreen');
-		$fs_icon->setAttribute('title',$_REQUEST['fullscreen']?S_NORMAL.' '.S_VIEW:S_FULLSCREEN);
-		$fs_icon->addAction('onclick',new CJSscript("javascript: document.location = '".$url."';"));
-
+		$fs_icon->addOption('id', 'fs_icon');
+		$fs_icon->addOption('old_url', $url);
+		$fs_icon->addOption('title',$_REQUEST['fullscreen']?S_NORMAL.' '.S_VIEW:S_FULLSCREEN);
+		$fs_icon->addAction('onclick',new CScript("javascript: document.location = '".$url."';"));
+		
 		$rst_icon = new CDiv(SPACE,'iconreset');
-		$rst_icon->setAttribute('title',S_RESET);
-		$rst_icon->addAction('onclick',new CJSscript("javascript: timeControl.objectReset('".$_REQUEST['graphid']."');"));
+		$rst_icon->addOption('title',S_RESET);
+		$rst_icon->addAction('onclick',new CScript("javascript: graphload(SCROLL_BAR.dom_graphs, ".(time()+100000000).", 3600, false);"));
+		
 	}
+	
+	$charts_hat = create_hat(
+			S_GRAPHS_BIG,
+			$p_elements,
+			array($icon,$rst_icon,$fs_icon),
+			'hat_charts',
+			get_profile('web.charts.hats.hat_charts.state',1)
+	);
 
-	$charts_wdgt->addPageHeader(S_GRAPHS_BIG,array($icon,$rst_icon,$fs_icon));
-
-	$charts_wdgt->addHeader($h1,$r_form);
-	$charts_wdgt->addItem(BR());
-	$charts_wdgt->addItem($table);
-
-	$charts_wdgt->show();
-
+	$charts_hat->Show();
+	
 	if($_REQUEST['graphid'] > 0){
 // NAV BAR
-		$timeline = array();
-		$timeline['period'] = $effectiveperiod;
-		$timeline['starttime'] = get_min_itemclock_by_graphid($_REQUEST['graphid']);
-
+		$stime = get_min_itemclock_by_graphid($_REQUEST['graphid']);
+		$stime = (is_null($stime))?0:$stime;
+		$bstime = time()-$effectiveperiod;
 		if(isset($_REQUEST['stime'])){
 			$bstime = $_REQUEST['stime'];
-			$timeline['usertime'] = mktime(substr($bstime,8,2),substr($bstime,10,2),0,substr($bstime,4,2),substr($bstime,6,2),substr($bstime,0,4));
-			$timeline['usertime'] += $timeline['period'];
+			$bstime = mktime(substr($bstime,8,2),substr($bstime,10,2),0,substr($bstime,4,2),substr($bstime,6,2),substr($bstime,0,4));
+		}
+		
+		$script = 'scrollinit(0,'.$effectiveperiod.','.$stime.',0,'.$bstime.'); showgraphmenu("graph");';
+		
+		if(($graphtype == GRAPH_TYPE_NORMAL) || ($graphtype == GRAPH_TYPE_STACKED)){		
+			$script.= 'graph_zoom_init("'.$dom_graph_id.'",'.$bstime.','.$effectiveperiod.',ZBX_G_WIDTH,'.$graph_height.',true);'; 
 		}
 
-		$objData = array(
-			'id' => $_REQUEST['graphid'],
-			'domid' => $dom_graph_id,
-			'containerid' => $containerid,
-			'src' => $src,
-			'objDims' => $graphDims,
-			'loadSBox' => $loadSBox,
-			'loadImage' => 1,
-			'loadScroll' => 1,
-			'scrollWidthByImage' => $scrollWidthByImage,
-			'dynamic' => 1
-		);
-
-		zbx_add_post_js('timeControl.addObject("'.$dom_graph_id.'",'.zbx_jsvalue($timeline).','.zbx_jsvalue($objData).');');
-		zbx_add_post_js('timeControl.processObjects();');
+		zbx_add_post_js($script);
+//		navigation_bar('charts.php',array('groupid','hostid','graphid'));
 //-------------
 	}
+	
 ?>
 <?php
 
-include_once('include/page_footer.php');
+include_once 'include/page_footer.php';
 
 ?>
+

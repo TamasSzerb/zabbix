@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -30,7 +30,7 @@ extern ZBX_THREAD_HANDLE	*threads;
 
 void service_start(void);
 
-int ZabbixCreateService(const char *path, int multiple_agents);
+int ZabbixCreateService(char *execName);
 int ZabbixRemoveService(void);
 int ZabbixStartService(void);
 int ZabbixStopService(void);

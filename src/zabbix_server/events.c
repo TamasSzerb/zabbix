@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -59,7 +59,7 @@
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
- * Comments: use 'free_trigger_info' function to clear allocated memory       *
+ * Comments: use 'free_trigger_info' function to clear allocated memory     *
  *                                                                            *
  ******************************************************************************/
 static void	add_trigger_info(DB_EVENT *event)
@@ -127,7 +127,7 @@ static void	add_trigger_info(DB_EVENT *event)
 
 /******************************************************************************
  *                                                                            *
- * Function: free_trigger_info                                                *
+ * Function: free_trigger_info                                              *
  *                                                                            *
  * Purpose: clean allocated memory by function 'add_trigger_info'             *
  *                                                                            *
@@ -163,33 +163,43 @@ static void	free_trigger_info(DB_EVENT *event)
  ******************************************************************************/
 int	process_event(DB_EVENT *event)
 {
-	zabbix_log(LOG_LEVEL_DEBUG, "In process_event(eventid:" ZBX_FS_UI64 ",object:%d,objectid:" ZBX_FS_UI64 ")",
+	zabbix_log(LOG_LEVEL_DEBUG,"In process_event(eventid:" ZBX_FS_UI64 ",object:%d,objectid:" ZBX_FS_UI64 ")",
 			event->eventid,
 			event->object,
 			event->objectid);
 
 	add_trigger_info(event);
 
-	if (0 == event->eventid)
-		event->eventid = DBget_maxid("events", "eventid");
-	DBexecute("insert into events (eventid,source,object,objectid,clock,value)"
-			" values (" ZBX_FS_UI64 ",%d,%d," ZBX_FS_UI64 ",%d,%d)",
-			event->eventid,
-			event->source,
-			event->object,
-			event->objectid,
-			event->clock,
-			event->value);
+	if(event->eventid == 0)
+	{
+		event->eventid = DBget_maxid("events","eventid");
+	}
+	DBexecute("insert into events(eventid,source,object,objectid,clock,value) values(" ZBX_FS_UI64 ",%d,%d," ZBX_FS_UI64 ",%d,%d)",
+		event->eventid,
+		event->source,
+		event->object,
+		event->objectid,
+		event->clock,
+		event->value);
 
-	if (0 == event->skip_actions)
+	/* Cancel currently active alerts */
+/*	if(event->value == TRIGGER_VALUE_FALSE || event->value == TRIGGER_VALUE_TRUE)
+	{
+		DBexecute("update alerts set retries=3,error='Trigger changed its status. Will not send repeats.' where eventid=" ZBX_FS_UI64 " and repeats>0 and status=%d",
+			event->eventid, ALERT_STATUS_NOT_SENT);
+	}*/
+
+	if(event->skip_actions == 0)
+	{
 		process_actions(event);
+	}
 
 	if (event->object == EVENT_OBJECT_TRIGGER)
-		DBupdate_services(event->objectid, (TRIGGER_VALUE_TRUE == event->value) ? event->trigger_priority : 0, event->clock);
+		DBupdate_services(event->objectid, (TRIGGER_VALUE_TRUE == event->value) ? event->trigger_priority : 0);
 
 	free_trigger_info(event);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of process_event()");
-
+	zabbix_log(LOG_LEVEL_DEBUG,"End of process_event()");
+	
 	return SUCCEED;
 }

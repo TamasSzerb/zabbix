@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -22,11 +22,11 @@
 
 #include "common.h"
 #include "log.h"
-#include "dbcache.h"
+#include "db.h"
 #include "sysinfo.h"
 
 extern char	*CONFIG_SOURCE_IP;
 
-int	get_value_snmp(DC_ITEM *item, AGENT_RESULT *value);
+int	get_value_snmp(DB_ITEM *item, AGENT_RESULT *value);
 
 #endif

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2006 SIA Zabbix
 **
@@ -68,11 +68,11 @@ int	is_master_node(int current_nodeid, int nodeid)
  *                                                                            *
  * Function: main_nodewatcher_loop                                            *
  *                                                                            *
- * Purpose: periodically calculates checksum of config data                   *
+ * Purpose: periodically calculates checks sum of config data                 *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
@@ -86,15 +86,14 @@ int main_nodewatcher_loop()
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In main_nodeupdater_loop()");
 
-	zbx_setproctitle("connecting to the database");
-
-	DBconnect(ZBX_DB_CONNECT_NORMAL);
-
 	for(;;)
 	{
 		start = time(NULL);
 
+		zbx_setproctitle("connecting to the database");
 		zabbix_log( LOG_LEVEL_DEBUG, "Starting sync with nodes");
+
+		DBconnect(ZBX_DB_CONNECT_NORMAL);
 
 		if(lastrun + 120 < start)
 		{
@@ -105,6 +104,8 @@ int main_nodewatcher_loop()
 
 		/* Send new history data to master node */
 		main_historysender();
+
+		DBclose();
 
 		end = time(NULL);
 
@@ -117,6 +118,4 @@ int main_nodewatcher_loop()
 			sleep(10-(end-start));
 		}
 	}
-
-	DBclose();
 }

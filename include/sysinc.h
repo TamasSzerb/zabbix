@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -45,10 +45,6 @@
 #	include "Wspiapi.h"
 #endif
 
-#ifdef HAVE_IPHLPAPI_H
-#	include <Iphlpapi.h>
-#endif
-
 #ifdef HAVE_WINDOWS_H
 #	include <windows.h>
 #endif
@@ -89,10 +85,6 @@
 #	include <sys/types.h>
 #endif
 
-#ifdef HAVE_SYS_SYSTEMCFG_H
-#	include <sys/systemcfg.h>
-#endif
-
 #ifdef HAVE_INTTYPES_H
 #	include <inttypes.h>
 #endif
@@ -114,9 +106,6 @@
 #endif
 
 #ifdef HAVE_ARPA_NAMESER_H
-#ifdef MAC_OS_X
-#	define BIND_8_COMPAT 1
-#endif
 #	include <arpa/nameser.h>
 #endif
 
@@ -394,27 +383,6 @@
 #	include <ucd-snmp/transform_oids.h>
 /* For generate_Ku() */
 #	include <ucd-snmp/keytools.h>
-#endif
-
-/* Required for advanced sigaction */
-#ifdef HAVE_SYS_UCONTEXT_H
-#	include <sys/ucontext.h>
-#endif
-
-#ifdef HAVE_ICONV
-#	include <iconv.h>
-#endif
-
-#ifdef HAVE_SSH2
-#	include <libssh2.h>
-#endif
-
-#ifdef HAVE_IO_H
-#	include <io.h>
-#endif
-
-#ifdef HAVE_FCNTL_H
-#	include <fcntl.h>
 #endif
 
 #endif

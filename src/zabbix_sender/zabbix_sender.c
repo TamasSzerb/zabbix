@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -28,63 +28,59 @@
 
 char *progname = NULL;
 
-char title_message[] = "Zabbix Sender";
+char title_message[] = "ZABBIX Sender";
 
-char usage_message[] = "[-Vhv] {[-zpsI] -ko | [-zpI] -T -i <file> -r} [-c <file>]";
+char usage_message[] = "[-Vhv] {[-zpsI] -ko | [-zpI] -T -i <file>} [-c <file>]";
 
 #ifdef HAVE_GETOPT_LONG
 char *help_message[] = {
 	"Options:",
 	"  -c --config <File>                   Specify configuration file",
 	"",
-	"  -z --zabbix-server <Server>          Hostname or IP address of Zabbix Server",
+	"  -z --zabbix-server <Server>          Hostname or IP address of ZABBIX Server",
 	"  -p --port <Server port>              Specify port number of server trapper running on the server. Default is 10051",
-	"  -s --host <Hostname>                 Specify host name. Host IP address and DNS name will not work",
+	"  -s --host <Hostname>                 Specify host name. Host IP address and DNS name will not work.",
 	"  -I --source-address <ip address>     Specify source IP address",
 	"",
 	"  -k --key <Key>                       Specify metric name (key) we want to send",
 	"  -o --value <Key value>               Specify value of the key",
 	"",
-	"  -i --input-file <Input file>         Load values from input file. Specify - for standard input",
-	"                                       Each line of file contains blanks delimited: <hostname> <key> <value>",
-	"  -T --with-timestamps                 Each line of file contains blanks delimited: <hostname> <key> <timestamp> <value>",
+	"  -i --input-file <input_file>         Load values from input file",
+	"                                       Each line of file contains space delimited: <hostname> <key> <value>",
+	"  -T --with-timestamps                 Each line of file contains space delimited: <hostname> <key> <timestamp> <value>",
 	"                                       This can be used with --input-file option",
-	"  -r --real-time                       Send metrics one by one as soon as they are received",
-	"                                       This can be used when reading from standard input",
 	"",
 	"  -v --verbose                         Verbose mode, -vv for more details",
 	"",
 	" Other options:",
 	"  -h --help                            Give this help",
 	"  -V --version                         Display version number",
-	0 /* end of text */
+        0 /* end of text */
 };
 #else
 char *help_message[] = {
 	"Options:",
 	"  -c <File>                    Specify configuration file",
 	"",
-	"  -z <Server>                  Hostname or IP address of Zabbix Server",
-	"  -p <Server port>             Specify port number of server trapper running on the server. Default is 10051",
-	"  -s <Hostname>                Specify hostname or IP address of a host",
+	"  -z <Server>                  Hostname or IP address of ZABBIX Server.",
+	"  -p <Server port>             Specify port number of server trapper running on the server. Default is 10051.",
+	"  -s <Hostname>                Specify hostname or IP address of a host.",
 	"  -I <ip address>              Specify source IP address",
 	"",
-	"  -k <Key>                     Specify metric name (key) we want to send",
-	"  -o <Key value>               Specify value of the key",
+	"  -k <Key>                     Specify metric name (key) we want to send.",
+	"  -o <Key value>               Specify value of the key.",
 	"",
-	"  -i <Input file>              Load values from input file. Specify - for standard input",
-	"                               Each line of file contains blanks delimited: <hostname> <key> <value>",
-	"  -T                           Each line of file contains blanks delimited: <hostname> <key> <timestamp> <value>",
+	"  -i <Input file>              Load values from input file.",
+	"                               Each line of file contains space delimited: <hostname> <key> <value>.",
+	"  -T                           Each line of file contains space delimited: <hostname> <key> <timestamp> <value>",
 	"                               This can be used with -i option",
-	"  -r                           Send metrics one by one as soon as they are received",
-	"                               This can be used when reading from standard input",
 	"",
-	"  -v                           Verbose mode, -vv for more details",
+	"  -v                           Verbose mode",
 	"",
 	" Other options:",
-	"  -h                           Give this help",
-	"  -V                           Display version number",
-	0 /* end of text */
+	"  -h                           Give this help.",
+	"  -V                           Display version number.",
+        0 /* end of text */
 };
 #endif
 
@@ -103,16 +99,15 @@ static struct zbx_option longopts[] =
 	{"value",		1,	NULL,	'o'},
 	{"input-file",		1,	NULL,	'i'},
 	{"with-timestamps",	0,	NULL,	'T'},
-	{"real-time",		0,	NULL,	'r'},
-	{"verbose",		0,	NULL,	'v'},
-	{"help",		0,	NULL,	'h'},
-	{"version",		0,	NULL,	'V'},
+	{"verbose",        	0,      NULL,	'v'},
+	{"help",        	0,      NULL,	'h'},
+	{"version",     	0,      NULL,	'V'},
 	{0,0,0,0}
 };
 
 /* short options */
 
-static char	shortopts[] = "c:I:z:p:s:k:o:Ti:rvhV";
+static char     shortopts[] = "c:I:z:p:s:k:o:Ti:vhV";
 
 /* end of COMMAND LINE OPTIONS*/
 
@@ -120,7 +115,6 @@ static int	CONFIG_LOG_LEVEL = LOG_LEVEL_CRIT;
 
 static char*	INPUT_FILE = NULL;
 static int	WITH_TIMESTAMPS = 0;
-static int	REAL_TIME = 0;
 
 static char*	CONFIG_SOURCE_IP = NULL;
 static char*	ZABBIX_SERVER = NULL;
@@ -131,14 +125,14 @@ static char*	ZABBIX_KEY_VALUE = NULL;
 
 #if !defined(_WINDOWS)
 
-static void	send_signal_handler( int sig )
+static void    send_signal_handler( int sig )
 {
 	if( SIGALRM == sig )
 	{
 		signal( SIGALRM, send_signal_handler );
 		zabbix_log( LOG_LEVEL_WARNING, "Timeout while executing operation");
 	}
-
+ 
 	if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig )
 	{
 /*		fprintf(stderr,"\nGot QUIT or INT or TERM signal. Exiting..." ); */
@@ -164,7 +158,7 @@ typedef struct zbx_active_metric_type
  * Parameters: result SUCCEED or FAIL                                         *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
- *                FAIL - an error occurred                                    *
+ *                FAIL - an error occured                                     *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
@@ -173,7 +167,7 @@ typedef struct zbx_active_metric_type
  ******************************************************************************/
 static int	check_response(char *response)
 {
-	struct		zbx_json_parse jp;
+	struct 		zbx_json_parse jp;
 	const char 	*p;
 	char		value[MAX_STRING_LEN];
 	char		info[MAX_STRING_LEN];
@@ -257,7 +251,7 @@ static ZBX_THREAD_ENTRY(send_value, args)
 		zabbix_log(LOG_LEVEL_DEBUG, "Send value error: %s", zbx_tcp_strerror());
 	}
 
-	zbx_thread_exit(ret);
+	zbx_tread_exit(ret);
 }
 
 static void    init_config(const char* config_file)
@@ -284,7 +278,7 @@ static void    init_config(const char* config_file)
 
 		if (NULL != config_source_ip_from_conf)
 		{
-			if (NULL == CONFIG_SOURCE_IP)	/* apply parameter only if unset */
+			if (NULL == CONFIG_SOURCE_IP)	/* apply parameter only if unsetted */
 			{
 				CONFIG_SOURCE_IP = strdup(config_source_ip_from_conf);
 			}
@@ -294,7 +288,7 @@ static void    init_config(const char* config_file)
 		if( zabbix_server_from_conf )
 		{
 			if( !ZABBIX_SERVER )
-			{ /* apply parameter only if unset */
+			{ /* apply parameter only if unsetted */
 				if( (c = strchr(zabbix_server_from_conf, ',')) )
 				{ /* get only first server */
 					*c = '\0';
@@ -305,14 +299,14 @@ static void    init_config(const char* config_file)
 		}
 
 		if( !ZABBIX_SERVER_PORT && zabbix_server_port_from_conf )
-		{ /* apply parameter only if unset */
+		{ /* apply parameter only if unsetted */
 			ZABBIX_SERVER_PORT = zabbix_server_port_from_conf;
 		}
 
 		if( zabbix_hostname_from_conf )
 		{
 			if( !ZABBIX_HOSTNAME )
-			{ /* apply parameter only if unset */
+			{ /* apply parameter only if unsetted */
 				ZABBIX_HOSTNAME = strdup(zabbix_hostname_from_conf);
 			}
 			zbx_free(zabbix_hostname_from_conf);
@@ -339,10 +333,10 @@ static zbx_task_t parse_commandline(int argc, char **argv)
 				version();
 				exit(-1);
 				break;
-			case 'I':
+			case 'I': 
 				CONFIG_SOURCE_IP = strdup(zbx_optarg);
 				break;
-			case 'z':
+			case 'z': 
 				ZABBIX_SERVER = strdup(zbx_optarg);
 				break;
 			case 'p':
@@ -362,9 +356,6 @@ static zbx_task_t parse_commandline(int argc, char **argv)
 				break;
 			case 'T':
 				WITH_TIMESTAMPS = 1;
-				break;
-			case 'r':
-				REAL_TIME = 1;
 				break;
 			case 'v':
 				if(CONFIG_LOG_LEVEL == LOG_LEVEL_WARNING)
@@ -393,17 +384,16 @@ int main(int argc, char **argv)
 	FILE	*in;
 
 	char	in_line[MAX_BUF_LEN],
-		hostname[MAX_STRING_LEN],
-		key[MAX_STRING_LEN],
-		key_value[MAX_BUF_LEN],
-		clock[32];
+		*hostname,
+		*key,
+		*key_value,
+		*clock;
 
 	int	task = ZBX_TASK_START,
 		total_count = 0,
 		succeed_count = 0,
 		buffer_count = 0,
 		ret = SUCCEED;
-	const char	*p;
 
 	ZBX_THREAD_SENDVAL_ARGS sentdval_args;
 
@@ -437,18 +427,9 @@ int main(int argc, char **argv)
 	zbx_json_addstring(&sentdval_args.json, ZBX_PROTO_TAG_REQUEST, ZBX_PROTO_VALUE_SENDER_DATA, ZBX_JSON_TYPE_STRING);
 	zbx_json_addarray(&sentdval_args.json, ZBX_PROTO_TAG_DATA);
 
-	if (INPUT_FILE)
+	if( INPUT_FILE )
 	{
-		if (0 == strcmp(INPUT_FILE, "-"))
-		{
-			in = stdin;
-			if (1 == REAL_TIME)
-			{
-				/* set line buffering on stdin */
-				setvbuf(stdin, (char *)NULL, _IOLBF, 0);
-			}
-		}
-		else if (NULL == (in = fopen(INPUT_FILE, "r")) )
+		if (NULL == (in = fopen(INPUT_FILE, "r")) )
 		{
 			zabbix_log(LOG_LEVEL_WARNING, "Cannot open [%s] [%s]", INPUT_FILE, strerror(errno));
 			ret = FAIL;
@@ -461,36 +442,35 @@ int main(int argc, char **argv)
 
 			zbx_rtrim(in_line, "\r\n");
 
-			p = in_line;
+			hostname = in_line;
 
-			if ('\0' == *p || NULL == (p = get_string(p, hostname, sizeof(hostname))) || '\0' == *hostname)
-			{
-				zabbix_log(LOG_LEVEL_WARNING, "[line %d] 'Hostname' required", total_count);
-				continue;
-			}
-
-			if ('\0' == *p || NULL == (p = get_string(p, key, sizeof(key))) || '\0' == *key)
+			if (NULL == (key = strchr(hostname, ' ')))
 			{
 				zabbix_log(LOG_LEVEL_WARNING, "[line %d] 'Key' required", total_count);
 				continue;
 			}
 
+			*key++ = '\0';
+
 			if (1 == WITH_TIMESTAMPS)
 			{
-				if ('\0' == *p || NULL == (p = get_string(p, clock, sizeof(clock))) || '\0' == *clock)
+				if (NULL == (clock = strchr(key, ' ')))
 				{
 					zabbix_log(LOG_LEVEL_WARNING, "[line %d] 'Timestamp' required", total_count);
 					continue;
 				}
-			}
 
-			if ('\0' != *p && '"' != *p)
-				zbx_strlcpy(key_value, p, sizeof(key_value));
-			else if ('\0' == *p || NULL == (p = get_string(p, key_value, sizeof(key_value))) || '\0' == *key_value)
+				*clock++ = '\0';
+			}
+			else
+				clock = key;
+
+			if (NULL == (key_value = strchr(clock, ' ')))
 			{
 				zabbix_log(LOG_LEVEL_WARNING, "[line %d] 'Key value' required", total_count);
 				continue;
 			}
+			*key_value++ = '\0';
 
 			zbx_rtrim(key_value, "\r\n");
 
@@ -505,13 +485,12 @@ int main(int argc, char **argv)
 			succeed_count++;
 			buffer_count++;
 
-			if (VALUES_MAX == buffer_count || (stdin == in && 1 == REAL_TIME))
+			if (VALUES_MAX == buffer_count)
 			{
 				zbx_json_close(&sentdval_args.json);
 
 				if (1 == WITH_TIMESTAMPS)
 					zbx_json_adduint64(&sentdval_args.json, ZBX_PROTO_TAG_CLOCK, (int)time(NULL));
-
 
 				ret = zbx_thread_wait(zbx_thread_start(send_value, &sentdval_args));
 
@@ -529,12 +508,10 @@ int main(int argc, char **argv)
 			if (1 == WITH_TIMESTAMPS)
 				zbx_json_adduint64(&sentdval_args.json, ZBX_PROTO_TAG_CLOCK, (int)time(NULL));
 
-
 			ret = zbx_thread_wait(zbx_thread_start(send_value, &sentdval_args));
 		}
 
-		if (in != stdin)
-			fclose(in);
+		fclose(in);
 	}
 	else
 	{
@@ -558,10 +535,14 @@ int main(int argc, char **argv)
 				break;
 			}
 
+			hostname	= ZABBIX_HOSTNAME;
+			key		= ZABBIX_KEY;
+			key_value	= ZABBIX_KEY_VALUE;
+
 			zbx_json_addobject(&sentdval_args.json, NULL);
-			zbx_json_addstring(&sentdval_args.json, ZBX_PROTO_TAG_HOST, ZABBIX_HOSTNAME, ZBX_JSON_TYPE_STRING);
-			zbx_json_addstring(&sentdval_args.json, ZBX_PROTO_TAG_KEY, ZABBIX_KEY, ZBX_JSON_TYPE_STRING);
-			zbx_json_addstring(&sentdval_args.json, ZBX_PROTO_TAG_VALUE, ZABBIX_KEY_VALUE, ZBX_JSON_TYPE_STRING);
+			zbx_json_addstring(&sentdval_args.json, ZBX_PROTO_TAG_HOST, hostname, ZBX_JSON_TYPE_STRING);
+			zbx_json_addstring(&sentdval_args.json, ZBX_PROTO_TAG_KEY, key, ZBX_JSON_TYPE_STRING);
+			zbx_json_addstring(&sentdval_args.json, ZBX_PROTO_TAG_VALUE, key_value, ZBX_JSON_TYPE_STRING);
 			zbx_json_close(&sentdval_args.json);
 
 			succeed_count++;
@@ -582,3 +563,4 @@ exit:
 
 	return ret;
 }
+

@@ -1,7 +1,7 @@
 <?php
-/*
+/* 
 ** ZABBIX
-** Copyright (C) 2000-2010 SIA Zabbix
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,43 +19,32 @@
 **/
 ?>
 <?php
-require_once('include/config.inc.php');
-require_once('include/graphs.inc.php');
+	require_once 'include/config.inc.php';
+	require_once 'include/graphs.inc.php';
+	require_once 'include/classes/chart.inc.php';
+	
+	$page['file']	= 'chart3.php';
+	$page['title']	= 'S_CHART';
+	$page['type']	= PAGE_TYPE_IMAGE;
 
-$page['file']	= 'chart3.php';
-$page['title']	= 'S_CHART';
-$page['type']	= PAGE_TYPE_IMAGE;
-
-include_once('include/page_header.php');
+include_once 'include/page_header.php';
 
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
 		'period'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	BETWEEN(ZBX_MIN_PERIOD,ZBX_MAX_PERIOD),	null),
+		'from'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	null,			null),
 		'stime'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	null,			null),
-		
-		'httptestid'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	null,			null),
-		'http_item_type'=>	array(T_ZBX_INT, O_OPT,	null,	null,			null),
-
+		'border'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	IN('0,1'),		null),
 		'name'=>	array(T_ZBX_STR, O_OPT,	NULL,		null,			null),
 		'width'=>	array(T_ZBX_INT, O_OPT,	NULL,		BETWEEN(0,65535),	null),
 		'height'=>	array(T_ZBX_INT, O_OPT,	NULL,		BETWEEN(0,65535),	null),
-
-		'ymin_type'=>	array(T_ZBX_INT, O_OPT,	NULL,		IN('0,1,2'),		null),
-		'ymax_type'=>	array(T_ZBX_INT, O_OPT,	NULL,		IN('0,1,2'),		null),
-
-		'ymin_itemid'=>	array(T_ZBX_INT, O_OPT,	NULL,		DB_ID,	null),
-		'ymax_itemid'=>	array(T_ZBX_INT, O_OPT,	NULL,		DB_ID,	null),
-
-		'showworkperiod'=>	array(T_ZBX_INT, O_OPT,	 NULL,	IN('0,1'),	NULL),
-		'showtriggers'=>	array(T_ZBX_INT, O_OPT,	 NULL,	IN('0,1'),	NULL),
-
+		'yaxistype'=>	array(T_ZBX_INT, O_OPT,	NULL,		IN('0,1,2'),		null),
 		'graphtype'=>	array(T_ZBX_INT, O_OPT,	NULL,		IN('0,1'),		null),
-
 		'yaxismin'=>	array(T_ZBX_DBL, O_OPT,	NULL,		BETWEEN(-65535,65535),	null),
 		'yaxismax'=>	array(T_ZBX_DBL, O_OPT,	NULL,		null,	null),
-
+		'yaxismax'=>	array(T_ZBX_DBL, O_OPT,	NULL,		null,	null),
 		'percent_left'=>	array(T_ZBX_DBL, O_OPT,	 NULL,	BETWEEN(0,100),	null),
 		'percent_right'=>	array(T_ZBX_DBL, O_OPT,	 NULL,	BETWEEN(0,100),	null),
 
@@ -65,102 +54,66 @@ include_once('include/page_header.php');
 	check_fields($fields);
 ?>
 <?php
-	if($httptestid = get_request('httptestid', false)){
+	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS, PERM_READ_ONLY, PERM_RES_IDS_ARRAY, get_current_nodeid(true));
+	
+	$items = get_request('items', array());
+	asort_by_key($items, 'sortorder');
 
-		$color = array(
-			'current' => 0,
-			0  => array('next' => '1'),
-			1  => array('color' => 'Red', 			'next' => '2'),
-			2  => array('color' => 'Dark Green',	'next' => '3'),
-			3  => array('color' => 'Blue', 			'next' => '4'),
-			4  => array('color' => 'Dark Yellow', 	'next' => '5'),
-			5  => array('color' => 'Cyan', 			'next' => '6'),
-			6  => array('color' => 'Gray',			'next' => '7'),
-			7  => array('color' => 'Dark Red',		'next' => '8'),
-			8  => array('color' => 'Green',			'next' => '9'),
-			9  => array('color' => 'Dark Blue', 	'next' => '10'),
-			10 => array('color' => 'Yellow', 		'next' => '11'),
-			11 => array('color' => 'Black',	 		'next' => '1')
-		);
-
-		$items = array();
-		$sql = 'SELECT i.*'.
-				' FROM httpstepitem hi, items i, httpstep hs'.
-				' WHERE i.itemid=hi.itemid'.
-					' AND hs.httptestid='.$httptestid.
-					' AND hs.httpstepid=hi.httpstepid'.
-					' AND hi.type='.get_request('http_item_type', HTTPSTEP_ITEM_TYPE_TIME).
-				' ORDER BY hs.no ASC';
-
-		$db_items = DBselect($sql);
-		while($item_data = DBfetch($db_items)){
-			$item_color = $color[$color['current'] = $color[$color['current']]['next']]['color'];
-			
-			$items[] = array(
-				'itemid' => $item_data['itemid'],
-				'color' => $item_color
-			);
+	foreach($items as $id => $gitem){
+		if(!$host = DBfetch(DBselect('select h.* from hosts h,items i where h.hostid=i.hostid and i.itemid='.$gitem['itemid']))){
+			fatal_error(S_NO_ITEM_DEFINED);
+		}
+		if(!isset($available_hosts[$host['hostid']])){
+			access_deny();
 		}
 	}
-	else{
-		$items = get_request('items', array());
-		asort_by_key($items, 'sortorder');
+	
+	$graph = new Chart(get_request('graphtype'	,GRAPH_TYPE_NORMAL));
 
-		$options = array(
-			'webitems' => 1,
-			'itemids' => zbx_objectValues($items, 'itemid'),
-			'nodeids' => get_current_nodeid(true)
-		);
-
-		$db_data = CItem::get($options);
-		$db_data = zbx_toHash($db_data, 'itemid');
-		foreach($items as $id => $gitem){
-			if(!isset($db_data[$gitem['itemid']])) access_deny();
-		}
+	$chart_header = '';
+	if(id2nodeid($host['hostid']) != get_current_nodeid()){
+		$chart_header = get_node_name_by_elid($host['hostid'],true);
 	}
+	$chart_header.= $host['host'].':'.get_request('name','');
+	
+	$graph->setHeader($chart_header);
 
-	$graph = new CChart(get_request('graphtype', GRAPH_TYPE_NORMAL));
-	$graph->setHeader(get_request('name', ''));
+	unset($host);
 
-	navigation_bar_calc();
+	if(isset($_REQUEST['period']))		$graph->SetPeriod($_REQUEST['period']);
+	if(isset($_REQUEST['from']))		$graph->SetFrom($_REQUEST['from']);
+	if(isset($_REQUEST['stime']))		$graph->SetSTime($_REQUEST['stime']);
+	if(isset($_REQUEST['border']))		$graph->SetBorder(0);
 
-//SDI($_REQUEST['stime']);
-	$graph->setPeriod($_REQUEST['period']);
-	$graph->setSTime($_REQUEST['stime']);
+	$graph->SetWidth(get_request('width',		900));
+	$graph->SetHeight(get_request('height',		200));
 
-	$graph->setWidth(get_request('width',		900));
-	$graph->setHeight(get_request('height',		200));
-
-	$graph->showWorkPeriod(get_request('showworkperiod'	,1));
-	$graph->showTriggers(get_request('showtriggers'		,1));
-
-	$graph->setYMinAxisType(get_request('ymin_type'		,GRAPH_YAXIS_TYPE_CALCULATED));
-	$graph->setYMaxAxisType(get_request('ymax_type'		,GRAPH_YAXIS_TYPE_CALCULATED));
-
-	$graph->setYAxisMin(get_request('yaxismin'		,0.00));
-	$graph->setYAxisMax(get_request('yaxismax'		,100.00));
-
-	$graph->setYMinItemId(get_request('ymin_itemid'		,0));
-	$graph->setYMaxItemId(get_request('ymax_itemid'		,0));
-
+	$graph->ShowWorkPeriod(get_request('showworkperiod'	,1));
+	$graph->ShowTriggers(get_request('showtriggers'		,1));
+	$graph->SetYAxisType(get_request('yaxistype'		,GRAPH_YAXIS_TYPE_CALCULATED));
+	$graph->SetYAxisMin(get_request('yaxismin'		,0.00));
+	$graph->SetYAxisMax(get_request('yaxismax'		,100.00));
 	$graph->setLeftPercentage(get_request('percent_left',0));
 	$graph->setRightPercentage(get_request('percent_right',0));
 
-	foreach($items as $gnum => $gitem){
-		$graph->addItem(
+
+	foreach($items as $id => $gitem){
+		$graph->AddItem(
 			$gitem['itemid'],
-			isset($gitem['yaxisside'])?$gitem['yaxisside']:null,
-			isset($gitem['calc_fnc'])?$gitem['calc_fnc']:null,
-			isset($gitem['color'])?$gitem['color']:null,
-			isset($gitem['drawtype'])?$gitem['drawtype']:null,
-			isset($gitem['type'])?$gitem['type']:null,
-			isset($gitem['periods_cnt'])?$gitem['periods_cnt']:null
+			$gitem['yaxisside'],
+			$gitem['calc_fnc'],
+			$gitem['color'],
+			$gitem['drawtype'],
+			$gitem['type'],
+			$gitem['periods_cnt']
 			);
 
-		unset($items[$gnum]);
+		unset($items[$id]);
 	}
-	$graph->draw();
+	$graph->Draw();
+?>
+<?php
 
-	
-include_once('include/page_footer.php');
+include_once 'include/page_footer.php';
+
 ?>

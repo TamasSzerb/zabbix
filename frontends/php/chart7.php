@@ -1,7 +1,7 @@
 <?php
-/*
+/* 
 ** ZABBIX
-** Copyright (C) 2000-2009 SIA Zabbix
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,80 +19,87 @@
 **/
 ?>
 <?php
-require_once('include/config.inc.php');
-require_once('include/graphs.inc.php');
+	require_once "include/config.inc.php";
+	require_once "include/graphs.inc.php";
+	require_once "include/classes/pie.inc.php";
+	
+	$page["file"]	= "chart7.php";
+	$page["title"]	= "S_CHART";
+	$page["type"]	= PAGE_TYPE_IMAGE;
 
-$page['file']	= 'chart7.php';
-$page['title']	= "S_CHART";
-$page['type']	= PAGE_TYPE_IMAGE;
-
-include_once('include/page_header.php');
+include_once "include/page_header.php";
 
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		'period'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	BETWEEN(ZBX_MIN_PERIOD,ZBX_MAX_PERIOD),	null),
-		'from'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	null,			null),
-		'stime'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	null,			null),
-		'border'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	IN('0,1'),		null),
-		'name'=>	array(T_ZBX_STR, O_OPT,	NULL,		null,			null),
-		'width'=>	array(T_ZBX_INT, O_OPT,	NULL,		BETWEEN(0,65535),	null),
-		'height'=>	array(T_ZBX_INT, O_OPT,	NULL,		BETWEEN(0,65535),	null),
-		'graphtype'=>	array(T_ZBX_INT, O_OPT,	NULL,		IN('2,3'),		null),
-		'graph3d'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	IN('0,1'),		null),
-		'legend'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	IN('0,1'),		null),
-		'items'=>	array(T_ZBX_STR, O_OPT,	NULL,		null,			null)
+		"period"=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	BETWEEN(ZBX_MIN_PERIOD,ZBX_MAX_PERIOD),	null),
+		"from"=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	null,			null),
+		"stime"=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	null,			null),
+		"border"=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	IN('0,1'),		null),
+		"name"=>	array(T_ZBX_STR, O_OPT,	NULL,		null,			null),
+		"width"=>	array(T_ZBX_INT, O_OPT,	NULL,		BETWEEN(0,65535),	null),
+		"height"=>	array(T_ZBX_INT, O_OPT,	NULL,		BETWEEN(0,65535),	null),
+		"graphtype"=>	array(T_ZBX_INT, O_OPT,	NULL,		IN("2,3"),		null),
+		"graph3d"=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	IN('0,1'),		null),
+		"legend"=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	IN('0,1'),		null),
+		"items"=>	array(T_ZBX_STR, O_OPT,	NULL,		null,			null)
 	);
 
 	check_fields($fields);
 ?>
 <?php
+	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS, PERM_READ_ONLY, PERM_RES_IDS_ARRAY, get_current_nodeid(true));
 
 	$items = get_request('items', array());
 	asort_by_key($items, 'sortorder');
 
-	$options = array(
-		'webitems' => 1,
-		'itemids' => zbx_objectValues($items, 'itemid'),
-		'nodeids' => get_current_nodeid(true)
-	);
-
-	$db_data = CItem::get($options);
-	$db_data = zbx_toHash($db_data, 'itemid');
-	foreach($items as $id => $gitem){
-		if(!isset($db_data[$gitem['itemid']])) access_deny();
+	foreach($items as $gitem){
+		if(!$host=DBfetch(DBselect('SELECT h.* FROM hosts h,items i WHERE h.hostid=i.hostid AND i.itemid='.$gitem['itemid']))){
+			fatal_error(S_NO_ITEM_DEFINED);
+		}
+		if(!isset($available_hosts[$host['hostid']])){
+			access_deny();
+		}
 	}
-
+	
+	
 	$effectiveperiod = navigation_bar_calc();
 
-	$graph = new CPie(get_request('graphtype'	,GRAPH_TYPE_NORMAL));
-	$graph->setHeader($host['host'].':'.get_request('name',''));
-
+	if(count($items) == 1){
+		$_REQUEST['period'] = get_request('period',get_profile('web.item.graph.period', ZBX_PERIOD_DEFAULT, null, $items['itemid']));
+		if($_REQUEST['period'] >= ZBX_MIN_PERIOD){
+			update_profile('web.item.graph.period',$_REQUEST['period'], PROFILE_TYPE_INT, $items['itemid']);
+		}
+	}
+	
+	$graph = new Pie(get_request("graphtype"	,GRAPH_TYPE_NORMAL));
+	$graph->SetHeader($host["host"].":".get_request("name",""));
+	
 	$graph3d = get_request('graph3d',0);
 	$legend = get_request('legend',0);
-
-	if($graph3d == 1) $graph->switchPie3D();
-	$graph->switchLegend($legend);
-
+	
+	if($graph3d == 1) $graph->SwitchPie3D();
+	$graph->SwitchLegend($legend);
+	
 	unset($host);
 
-	if(isset($_REQUEST['period']))		$graph->SetPeriod($_REQUEST['period']);
-	if(isset($_REQUEST['from']))		$graph->SetFrom($_REQUEST['from']);
-	if(isset($_REQUEST['stime']))		$graph->SetSTime($_REQUEST['stime']);
-	if(isset($_REQUEST['border']))		$graph->SetBorder(0);
+	if(isset($_REQUEST["period"]))		$graph->SetPeriod($_REQUEST["period"]);
+	if(isset($_REQUEST["from"]))		$graph->SetFrom($_REQUEST["from"]);
+	if(isset($_REQUEST["stime"]))		$graph->SetSTime($_REQUEST["stime"]);
+	if(isset($_REQUEST["border"]))		$graph->SetBorder(0);
 
-	$graph->SetWidth(get_request('width',		400));
-	$graph->SetHeight(get_request('height',		300));
-
+	$graph->SetWidth(get_request("width",		400));
+	$graph->SetHeight(get_request("height",		300));
+	
 	foreach($items as $id => $gitem){
 //		SDI($gitem);
-		$graph->addItem(
-			$gitem['itemid'],
-			$gitem['calc_fnc'],
-			$gitem['color'],
-			$gitem['type'],
-			$gitem['periods_cnt']
+		$graph->AddItem(
+			$gitem["itemid"],
+			$gitem["calc_fnc"],
+			$gitem["color"],
+			$gitem["type"],
+			$gitem["periods_cnt"]
 			);
 
 //		unset($items[$id]);
@@ -101,6 +108,6 @@ include_once('include/page_header.php');
 ?>
 <?php
 
-include_once('include/page_footer.php');
+include_once "include/page_footer.php";
 
 ?>

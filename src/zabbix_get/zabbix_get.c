@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -26,7 +26,7 @@
 #include "zbxgetopt.h"
 
 char *progname = NULL;
-char title_message[] = "Zabbix Get";
+char title_message[] = "ZABBIX Get";
 char usage_message[] = "[-hV] -s<host name or IP> [-p<port>] [-I<ip address>] -k<key>";
 
 #ifdef HAVE_GETOPT_LONG
@@ -106,7 +106,7 @@ void    signal_handler( int sig )
 		signal( SIGALRM, signal_handler );
 		zbx_error("Timeout while executing operation.");
 	}
-
+ 
 	if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig )
 	{
 /*		zbx_error("\nGot QUIT or INT or TERM signal. Exiting..." ); */
@@ -120,7 +120,7 @@ void    signal_handler( int sig )
  *                                                                            *
  * Function: get_value                                                        *
  *                                                                            *
- * Purpose: connect to Zabbix agent and receive value for given key           *
+ * Purpose: connect to ZABBIX agent and receive value for given key           *
  *                                                                            *
  * Parameters: host   - serv name or IP address                               *
  *             port   - port number                                           *

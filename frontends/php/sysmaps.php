@@ -52,7 +52,7 @@ include_once('include/page_header.php');
 		'width'=>			array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,65535),	'isset({save})'),
 		'height'=>			array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,65535),	'isset({save})'),
 		'backgroundid'=>	array(T_ZBX_INT, O_OPT,	 NULL,	DB_ID,				'isset({save})'),
-		'expandproblem'=>	array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,1),		null),
+		'expproblem'=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,1),		null),
 		'highlight'=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,1),		null),
 		'label_type'=>		array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,4),		'isset({save})'),
 		'label_location'=>	array(T_ZBX_INT, O_OPT,	 NULL,	BETWEEN(0,3),		'isset({save})'),
@@ -140,7 +140,7 @@ include_once('include/page_header.php');
 		if(isset($_REQUEST["sysmapid"])){
 // TODO check permission by new value.
 			$_REQUEST['highlight'] = get_request('highlight', 0);
-			$_REQUEST['expandproblem'] = get_request('expandproblem', 0);
+			$_REQUEST['expproblem'] = get_request('expproblem', 0);
 
 			$map = array(
 					'sysmapid' => $_REQUEST['sysmapid'],
@@ -149,10 +149,11 @@ include_once('include/page_header.php');
 					'height' => $_REQUEST['height'],
 					'backgroundid' => $_REQUEST['backgroundid'],
 					'highlight' => $_REQUEST['highlight'],
-					'expandproblem' => $_REQUEST['expandproblem'],
 					'label_type' => $_REQUEST['label_type'],
 					'label_location' => $_REQUEST['label_location']
 				);
+
+			if($_REQUEST['expproblem'] == 0) $map['highlight']+=2;
 
 			DBstart();
 			$result = CMap::update($map);
@@ -166,7 +167,7 @@ include_once('include/page_header.php');
 				access_deny();
 
 			$_REQUEST['highlight'] = get_request('highlight', 0);
-			$_REQUEST['expandproblem'] = get_request('expandproblem', 0);
+			$_REQUEST['expproblem'] = get_request('expproblem', 0);
 			
 			$map = array(
 					'name' => $_REQUEST['name'],
@@ -174,10 +175,11 @@ include_once('include/page_header.php');
 					'height' => $_REQUEST['height'],
 					'backgroundid' => $_REQUEST['backgroundid'],
 					'highlight' => $_REQUEST['highlight'],
-					'expandproblem' => $_REQUEST['expandproblem'],
 					'label_type' => $_REQUEST['label_type'],
 					'label_location' => $_REQUEST['label_location']
 				);
+
+			if($_REQUEST['expproblem'] == 0) $map['highlight']+=2;
 
 			DBstart();
 			$result = CMap::create($map);

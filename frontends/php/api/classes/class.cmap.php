@@ -512,7 +512,6 @@ COpt::memoryPick();
 				'height' => 400,
 				'backgroundid' => 0,
 				'highlight' => SYSMAP_HIGHLIGH_ON,
-				'expandproblem' => SYSMAP_EXPANDPROBLEM_ON,
 				'label_type' => 2,
 				'label_location' => 3
 			);
@@ -530,10 +529,9 @@ COpt::memoryPick();
 			}
 
 			$sysmapid=get_dbid('sysmaps','sysmapid');
-			$result=DBexecute('INSERT INTO sysmaps (sysmapid,name,width,height,backgroundid,label_type,label_location,highlight,expandproblem)'.
+			$result=DBexecute('INSERT INTO sysmaps (sysmapid,name,width,height,backgroundid,highlight,label_type,label_location)'.
 					' VALUES ('.$sysmapid.','.zbx_dbstr($map['name']).','.$map['width'].','.$map['height'].','.
-								$map['backgroundid'].','.$map['label_type'].','.$map['label_location'].','.
-								$map['highlight'].','.$map['expandproblem'].')');
+								$map['backgroundid'].','.$map['highlight'].','.$map['label_type'].','.$map['label_location'].')');
 
 			if(!$result) break;
 
@@ -621,10 +619,9 @@ COpt::memoryPick();
 						' width='.$map['width'].','.
 						' height='.$map['height'].','.
 						' backgroundid='.$map['backgroundid'].','.
-						' label_type='.$map['label_type'].','.
-						' label_location='.$map['label_location'].','.
 						' highlight='.$map['highlight'].','.
-						' expandproblem='.$map['expandproblem'].
+						' label_type='.$map['label_type'].','.
+						' label_location='.$map['label_location'].
 					' WHERE sysmapid='.$map['sysmapid'];
 			$result = DBexecute($sql);
 

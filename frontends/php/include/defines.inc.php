@@ -19,7 +19,7 @@
 **/
 ?>
 <?php
-	define('ZABBIX_VERSION','1.9');
+	define('ZABBIX_VERSION','1.8.2');
 	define('ZABBIX_API_VERSION','1.2');
 /* USER DEFINES */
 
@@ -232,9 +232,6 @@
 
 	define('SYSMAP_HIGHLIGH_OFF',		0);
 	define('SYSMAP_HIGHLIGH_ON',		1);
-	
-	define('SYSMAP_EXPANDPROBLEM_OFF',		0);
-	define('SYSMAP_EXPANDPROBLEM_ON',		1);
 
 	define('ITEM_TYPE_ZABBIX',		0);
 	define('ITEM_TYPE_SNMPV1',		1);

@@ -138,8 +138,51 @@
 	return	$result;
 	}
 
+// Add System Map
+
+	function add_sysmap($name,$width,$height,$backgroundid,$highlight,$label_type,$label_location){
+		$sysmapid=get_dbid('sysmaps','sysmapid');
+
+		$result=DBexecute('insert into sysmaps (sysmapid,name,width,height,backgroundid,highlight,label_type,label_location)'.
+			' VALUES ('.$sysmapid.','.zbx_dbstr($name).','.$width.','.$height.','.$backgroundid.','.$highlight.','.$label_type.','.$label_location.')');
+
+		if(!$result)
+			return $result;
+
+	return $sysmapid;
+	}
+
+// Update System Map
+
+	function update_sysmap($sysmapid,$name,$width,$height,$backgroundid,$highlight,$label_type,$label_location){
+		return	DBexecute('UPDATE sysmaps SET name='.zbx_dbstr($name).',width='.$width.',height='.$height.','.
+			'backgroundid='.$backgroundid.',highlight='.$highlight.',label_type='.$label_type.','.
+			'label_location='.$label_location.' WHERE sysmapid='.$sysmapid);
+	}
+
+// Delete System Map
+
+	function delete_sysmap($sysmapids){
+		zbx_value2array($sysmapids);
+
+		$result = delete_sysmaps_elements_with_sysmapid($sysmapids);
+		if(!$result)	return	$result;
+
+		$res=DBselect('SELECT linkid FROM sysmaps_links WHERE '.DBcondition('sysmapid',$sysmapids));
+		while($rows = DBfetch($res)){
+			$result&=delete_link($rows['linkid']);
+		}
+
+		$result = DBexecute('DELETE FROM sysmaps_elements WHERE '.DBcondition('sysmapid',$sysmapids));
+		$result &= DBexecute("DELETE FROM profiles WHERE idx='web.favorite.sysmapids' AND source='sysmapid' AND ".DBcondition('value_id',$sysmapids));
+		$result &= DBexecute('DELETE FROM screens_items WHERE '.DBcondition('resourceid',$sysmapids).' AND resourcetype='.SCREEN_RESOURCE_MAP);
+		$result &= DBexecute('DELETE FROM sysmaps WHERE '.DBcondition('sysmapid',$sysmapids));
+
+	return $result;
+	}
 
 // LINKS
+
 	function add_link($link){
 		$link_db_fields = array(
 			'sysmapid' => null,

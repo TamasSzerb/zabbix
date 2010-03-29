@@ -408,7 +408,7 @@ static void add_logfile(struct st_logfile **logfiles, int *logfiles_alloc, int *
  *                                                                            *
  *                                                                            *
  ******************************************************************************/
-int	process_logrt(char *filename, long *lastlogsize, int *mtime, char **value, const char *encoding, unsigned char skip_old_data)
+int	process_logrt(char *filename, long *lastlogsize, int *mtime, char **value, const char *encoding)
 {
 	int		i = 0;
 	int		nbytes;
@@ -529,13 +529,8 @@ int	process_logrt(char *filename, long *lastlogsize, int *mtime, char **value, c
 
 #endif/*_WINDOWS*/
 
-	if (1 == skip_old_data)
-		i = logfiles_num ? logfiles_num - 1 : 0;
-	else
-		i = 0;
-
 	/* find the oldest file that match */
-	for ( ; i < logfiles_num; i++)
+	for (i = 0; i < logfiles_num; i++)
 	{
 		if (logfiles[i].mtime < *mtime)
 		{
@@ -575,14 +570,6 @@ int	process_logrt(char *filename, long *lastlogsize, int *mtime, char **value, c
 			zabbix_log(LOG_LEVEL_WARNING, "Cannot open [%s]. Error: [%s]", logfile_candidate, strerror(errno));
 			break;/* must return, situation could have changed */
 		}
-
-		if (1 == skip_old_data)
-		{
-			*lastlogsize = (long)file_buf.st_size;
-			zabbix_log(LOG_LEVEL_DEBUG, "Skipping existing data. filename:'%s' lastlogsize:%li",
-					logfile_candidate, *lastlogsize);
-		}
-
 		*mtime = file_buf.st_mtime;/* must contain the latest mtime as possible */
 		if (file_buf.st_size < *lastlogsize)
 		{
@@ -692,7 +679,7 @@ int	process_logrt(char *filename, long *lastlogsize, int *mtime, char **value, c
  *                                                                            *
  *                                                                            *
  ******************************************************************************/
-int	process_log(char *filename, long *lastlogsize, char **value, const char *encoding, unsigned char skip_old_data)
+int	process_log(char *filename, long *lastlogsize, char **value, const char *encoding)
 {
 	int		f;
 	struct stat	buf;
@@ -711,13 +698,6 @@ int	process_log(char *filename, long *lastlogsize, char **value, const char *enc
 	{
 		zabbix_log(LOG_LEVEL_WARNING, "Cannot open [%s] [%s]", filename, strerror(errno));
 		return ret;
-	}
-
-	if (1 == skip_old_data)
-	{
-		*lastlogsize = (long)buf.st_size;
-		zabbix_log(LOG_LEVEL_DEBUG, "Skipping existing data. filename:'%s' lastlogsize:%li",
-				filename, *lastlogsize);
 	}
 
 	if (buf.st_size < *lastlogsize)

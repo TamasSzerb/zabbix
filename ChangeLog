@@ -1,7 +1,3 @@
-Changes for 1.9
-
- - [DEV-444] added optional suppressing of processing of older data in log[], logrt[] and eventlog[] (Sasha)
-
 Changes for 1.8.2
 
  - [ZBX-2084] fixed JSON decoding class, which didn't worked due to PCRE backtrace limit, enabled native PHP JSON functions, rewrited code with sockets (AM)

@@ -85,6 +85,7 @@ include_once('include/page_header.php');
 <?php
 // ACTION /////////////////////////////////////////////////////////////////////////////
 	if(isset($_REQUEST['favobj'])){
+
 		$json = new CJSON();
 		if('sysmap' == $_REQUEST['favobj']){
 			$sysmapid = get_request('sysmapid',0);
@@ -107,7 +108,8 @@ include_once('include/page_header.php');
 
 					expandMapLabels($db_map);
 
-					$map_info = getSelementsInfo($db_map, $db_map['expandproblem']);
+					$expandProblem = ($db_map['highlight'] > 1)? 0 : 1;
+					$map_info = getSelementsInfo($db_map, $expandProblem);
 //SDII($db_map);
 					add_elementNames($db_map['selements']);
 

@@ -142,6 +142,8 @@ set_time_limit(10);
 		$map['links'] = zbx_toHash($map['links'],'linkid');
 	}
 
+//SDI($selements);
+
 	$map_info = getSelementsInfo($map);
 
 // Draw MAP

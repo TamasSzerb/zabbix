@@ -19,7 +19,7 @@
 **/
 ?>
 <?php
-	define('ZABBIX_VERSION','1.9');
+	define('ZABBIX_VERSION','1.8.3rc2');
 	define('ZABBIX_API_VERSION','1.2');
 /* USER DEFINES */
 
@@ -253,12 +253,6 @@
 
 	define('SYSMAP_HIGHLIGH_OFF',		0);
 	define('SYSMAP_HIGHLIGH_ON',		1);
-	
-	define('SYSMAP_EXPANDPROBLEM_OFF',		0);
-	define('SYSMAP_EXPANDPROBLEM_ON',		1);
-
-	define('SYSMAP_MARKELEMENTS_OFF',		0);
-	define('SYSMAP_MARKELEMENTS_ON',		1);
 
 	define('ITEM_TYPE_ZABBIX',		0);
 	define('ITEM_TYPE_SNMPV1',		1);
@@ -427,7 +421,6 @@
 /* time module tipe */
 	define('TIME_TYPE_LOCAL',	0);
 	define('TIME_TYPE_SERVER',	1);
-	define('TIME_TYPE_HOST',	2);
 
 	define('FILTER_TASK_SHOW',		0);
 	define('FILTER_TASK_HIDE',		1);

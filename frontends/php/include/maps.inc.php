@@ -82,6 +82,7 @@
 	}
 
 // LINKS
+
 	function add_link($link){
 		$link_db_fields = array(
 			'sysmapid' => null,

@@ -17,13 +17,6 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
-?>
-<?php
-require_once('include/events.inc.php');
-require_once('include/actions.inc.php');
-require_once('include/js.inc.php');
-
 ?>
 <?php
 require_once('include/events.inc.php');
@@ -491,17 +484,17 @@ require_once('include/js.inc.php');
 			$id=0;
 
 			if($resourceid > 0){
-				$sql = 'SELECT n.name as node_name,h.host,i.description,i.itemid,i.key_ '.
+				$result=DBselect('SELECT n.name as node_name,h.host,i.description,i.itemid,i.key_ '.
 						' FROM hosts h,items i '.
 							' LEFT JOIN nodes n on n.nodeid='.DBid2nodeid('i.itemid').
 						' WHERE h.hostid=i.hostid '.
 							' AND h.status='.HOST_STATUS_MONITORED.
 							' AND i.status='.ITEM_STATUS_ACTIVE.
 							' AND '.DBcondition('i.hostid',$available_hosts).
-							' AND i.itemid='.$resourceid;
-				$result=DBselect($sql);
+							' AND i.itemid='.$resourceid);
+
 				while($row=DBfetch($result)){
-					$description_ = item_description($row);
+					$description_=item_description($row);
 					$row["node_name"] = isset($row["node_name"]) ? "(".$row["node_name"].") " : '';
 
 					$caption = $row['node_name'].$row['host'].': '.$description_;
@@ -523,11 +516,11 @@ require_once('include/js.inc.php');
 			$id=0;
 
 			if($resourceid > 0){
-				$sql = 'SELECT n.name as node_name, s.sysmapid,s.name '.
+				$result=DBselect('SELECT n.name as node_name, s.sysmapid,s.name '.
 							' FROM sysmaps s'.
 								' LEFT JOIN nodes n ON n.nodeid='.DBid2nodeid('s.sysmapid').
-							' WHERE s.sysmapid='.$resourceid;
-				$result=DBselect($sql);
+							' WHERE s.sysmapid='.$resourceid);
+
 				while($row=DBfetch($result)){
 					$sm = CMap::get(array(
 						'sysmapids' => $row['sysmapid'],
@@ -556,15 +549,15 @@ require_once('include/js.inc.php');
 			$id=0;
 
 			if($resourceid > 0){
-				$sql = 'SELECT n.name as node_name,h.host,i.description,i.itemid,i.key_ '.
+				$result=DBselect('SELECT n.name as node_name,h.host,i.description,i.itemid,i.key_ '.
 						' FROM hosts h,items i '.
 							' LEFT JOIN nodes n on n.nodeid='.DBid2nodeid('i.itemid').
 						' WHERE h.hostid=i.hostid '.
 							' AND h.status='.HOST_STATUS_MONITORED.
 							' AND i.status='.ITEM_STATUS_ACTIVE.
 							' AND '.DBcondition('i.hostid',$available_hosts).
-							' AND i.itemid='.$resourceid;
-				$result=DBselect($sql);
+							' AND i.itemid='.$resourceid);
+
 				while($row=DBfetch($result)){
 					$description_=item_description($row);
 					$row["node_name"] = isset($row["node_name"]) ? '('.$row["node_name"].') ' : '';
@@ -678,11 +671,10 @@ require_once('include/js.inc.php');
 			$id=0;
 
 			if($resourceid > 0){
-				$sql = 'SELECT DISTINCT n.name as node_name,s.screenid,s.name '.
-						' FROM screens s '.
-							' LEFT JOIN nodes n ON n.nodeid='.DBid2nodeid('s.screenid').
-						' WHERE s.screenid='.$resourceid;
-				$result=DBselect($sql);
+				$result=DBselect('SELECT DISTINCT n.name as node_name,s.screenid,s.name '.
+							' FROM screens s '.
+								' LEFT JOIN nodes n ON n.nodeid='.DBid2nodeid('s.screenid').
+							' WHERE s.screenid='.$resourceid);
 
 				while($row=DBfetch($result)){
 					if(!screen_accessible($row['screenid'], PERM_READ_ONLY)) continue;
@@ -709,12 +701,12 @@ require_once('include/js.inc.php');
 
 			$available_groups = get_accessible_groups_by_user($USER_DETAILS,PERM_READ_ONLY);
 			if(remove_nodes_from_id($resourceid) > 0){
-				$sql = 'SELECT DISTINCT n.name as node_name,g.groupid,g.name '.
+				$result=DBselect('SELECT DISTINCT n.name as node_name,g.groupid,g.name '.
 						' FROM hosts_groups hg, groups g '.
 							' LEFT JOIN nodes n ON n.nodeid='.DBid2nodeid('g.groupid').
 						' WHERE '.DBcondition('g.groupid',$available_groups).
-							' AND g.groupid='.$resourceid;
-				$result=DBselect($sql);
+							' AND g.groupid='.$resourceid);
+
 				while($row=DBfetch($result)){
 					$row['node_name'] = isset($row['node_name']) ? '('.$row['node_name'].') ' : '';
 					$caption = $row['node_name'].$row['name'];
@@ -736,46 +728,13 @@ require_once('include/js.inc.php');
 			$form->addVar('resourceid',$id);
 
 			$textfield = new CTextbox('caption',$caption,60,'yes');
-			$selectbtn = new CButton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName()."&dstfld1=resourceid&dstfld2=caption&srctbl=host_group_scr&srcfld1=groupid&srcfld2=name',480,450);");
+			$selectbtn = new Cbutton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName()."&dstfld1=resourceid&dstfld2=caption&srctbl=host_group_scr&srcfld1=groupid&srcfld2=name',480,450);");
 			$selectbtn->setAttribute('onmouseover',"javascript: this.style.cursor = 'pointer';");
 
 			$form->addRow(S_GROUP,array($textfield,SPACE,$selectbtn));
 		}
-		else if($resourcetype == SCREEN_RESOURCE_CLOCK){
-			$caption = get_request('caption', '');
-
-			if(zbx_empty($caption) && (TIME_TYPE_HOST == $style) && ($resourceid > 0)){
-				$options = array(
-					'itemids' => $resourceid,
-					'output' => API_OUTPUT_EXTEND
-				);
-				$items = CItem::get($options);
-				$item = reset($items);
-
-				$caption = $item['description'];
-			}
-
-			$form->addVar('resourceid',$resourceid);
-
-			$cmbStyle = new CComboBox('style', $style, 'javascript: submit();');
-			$cmbStyle->addItem(TIME_TYPE_LOCAL,	S_LOCAL_TIME);
-			$cmbStyle->addItem(TIME_TYPE_SERVER,S_SERVER_TIME);
-			$cmbStyle->addItem(TIME_TYPE_HOST,	S_HOST_TIME);
-			
-			$form->addRow(S_TIME_TYPE,	$cmbStyle);
-
-			if(TIME_TYPE_HOST == $style){
-				$textfield = new CTextbox('caption',$caption,75,'yes');
-				$selectbtn = new CButton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName()."&dstfld1=resourceid&dstfld2=caption&srctbl=items&srcfld1=itemid&srcfld2=description',800,450);");
-				$selectbtn->setAttribute('onmouseover',"javascript: this.style.cursor = 'pointer';");
-	
-				$form->addRow(S_PARAMETER,array($textfield,SPACE,$selectbtn));
-			}
-			else{
-				$form->addVar('caption',$caption);
-			}
-		}
 		else{
+// SCREEN_RESOURCE_CLOCK
 			$form->addVar('resourceid',0);
 		}
 
@@ -790,6 +749,12 @@ require_once('include/js.inc.php');
 			$cmbStyle->addItem(STYLE_LEFT,	S_LEFT);
 			$cmbStyle->addItem(STYLE_TOP,	S_TOP);
 			$form->addRow(S_HOSTS_LOCATION,	$cmbStyle);
+		}
+		else if($resourcetype == SCREEN_RESOURCE_CLOCK){
+			$cmbStyle = new CComboBox('style', $style);
+			$cmbStyle->addItem(TIME_TYPE_LOCAL,	S_LOCAL_TIME);
+			$cmbStyle->addItem(TIME_TYPE_SERVER,	S_SERVER_TIME);
+			$form->addRow(S_TIME_TYPE,	$cmbStyle);
 		}
 		else{
 			$form->addVar('style',	0);
@@ -1415,62 +1380,7 @@ require_once('include/js.inc.php');
 					if($editmode == 1)	array_push($item,new CLink(S_CHANGE,$action));
 				}
 				else if( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_CLOCK) ){
-					$error = null;
-					$timeOffset = null;
-					$timeZone = null;
-					
-					switch($style){
-					 case TIME_TYPE_HOST:
-						$options = array(
-							'itemids' => $resourceid,
-							'select_hosts' => API_OUTPUT_EXTEND,
-							'output' => API_OUTPUT_EXTEND
-						);
-
-						$items = CItem::get($options);
-						$item = reset($items);
-						$host = reset($item['hosts']);
-
-//2010-12-01,12:44:13.324,+4:00
-//						$item['lastvalue'] = '2010-1-15,10:23:13.324,-4:0';
-//						$item['lastclock'] = time();
-
-						$timeType = $host['host'];
-
-						preg_match('/([+-]{1})([\d]{1,2}):([\d]{1,2})/', $item['lastvalue'], $arr);
-						if(!empty($arr)){
-							$timeZone = $arr[2]*3600 + $arr[3]*60;
-							if($arr[1] == '-') $timeZone = 0 - $timeZone;
-						}
-
-						if($lastvalue = strtotime($item['lastvalue'])){
-							$diff = (time() - $item['lastclock']);
-							$timeOffset = $lastvalue + $diff;
-						}
-						else{
-							$error = S_NO_DATA_BIG;
-						}
-
-						break;
-					case TIME_TYPE_SERVER:
-						$error = null;
-						$timeType = S_SERVER_BIG;
-						$timeOffset = time();
-						$timeZone = date('Z');
-						break;
-					default:
-						$error = null;
-						$timeType = S_LOCAL_BIG;
-						$timeOffset = null;
-						$timeZone = null;
-					}
-
-					$item = new CFlashClock($width, $height, $action);
-					$item->setTimeError($error);
-					$item->setTimeType($timeType);
-					$item->setTimeZone($timeZone);
-					$item->setTimeOffset($timeOffset);
-					
+					$item = new CFlashClock($width, $height, $style, $action);
 				}
 				else if( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_SCREEN) ){
 					$item = array(get_screen($resourceid, 2, $effectiveperiod));

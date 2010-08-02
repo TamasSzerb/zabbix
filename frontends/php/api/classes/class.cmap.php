@@ -207,6 +207,22 @@ class CMap extends CZBXAPI{
 						$result[$sysmap['sysmapid']]['links'] = array();
 					}
 
+					if(isset($sysmap['highlight'])){
+						$sysmap['expandproblem'] = ($sysmap['highlight'] & ZBX_MAP_EXPANDPROBLEM) ? 0 : 1;
+						$sysmap['markelements'] = ($sysmap['highlight'] & ZBX_MAP_MARKELEMENTS) ? 1 : 0;
+
+						if(($sysmap['highlight'] & ZBX_MAP_EXTACK_SEPARATED) == ZBX_MAP_EXTACK_SEPARATED){
+							$sysmap['show_unack'] = EXTACK_OPTION_BOTH;
+						}
+						else if($sysmap['highlight'] & ZBX_MAP_EXTACK_UNACK){
+							$sysmap['show_unack'] = EXTACK_OPTION_UNACK;
+						}
+						else{
+							$sysmap['show_unack'] = EXTACK_OPTION_ALL;
+						}
+
+						$sysmap['highlight'] = ($sysmap['highlight'] & ZBX_MAP_HIGHLIGHT) ? 1 : 0;
+					}
 
 					$result[$sysmap['sysmapid']] += $sysmap;
 				}
@@ -472,7 +488,7 @@ COpt::memoryPick();
  * @param array $maps['width']
  * @param int $maps['height']
  * @param string $maps['backgroundid']
-  * @param string $maps['highlight']
+ * @param string $maps['highlight']
  * @param array $maps['label_type']
  * @param int $maps['label_location']
  * @return boolean | array
@@ -486,14 +502,25 @@ COpt::memoryPick();
 
 		self::BeginTransaction(__METHOD__);
 		foreach($maps as $mnum => $map){
+			if($map['markelements'] == 1) $map['highlight'] = $map['highlight'] | ZBX_MAP_MARKELEMENTS;
+			if($map['expandproblem'] == 0) $map['highlight'] = $map['highlight'] | ZBX_MAP_EXPANDPROBLEM;
+
+			if($map['show_unack'] == EXTACK_OPTION_BOTH){
+				$map['highlight'] = $map['highlight'] | ZBX_MAP_EXTACK_SEPARATED;
+			}
+			else if($map['show_unack'] == EXTACK_OPTION_UNACK){
+				$map['highlight'] = $map['highlight'] | ZBX_MAP_EXTACK_UNACK;
+			}
+			else if($map['show_unack'] == EXTACK_OPTION_ALL){
+				$map['highlight'] = $map['highlight'] | ZBX_MAP_EXTACK_TOTAL;
+			}
+
 			$map_db_fields = array(
 				'name' => null,
 				'width' => 600,
 				'height' => 400,
 				'backgroundid' => 0,
 				'highlight' => SYSMAP_HIGHLIGH_ON,
-				'expandproblem' => SYSMAP_EXPANDPROBLEM_ON,
-				'markelements' => SYSMAP_MARKELEMENTS_OFF,
 				'label_type' => 2,
 				'label_location' => 3
 			);
@@ -510,22 +537,10 @@ COpt::memoryPick();
 				break;
 			}
 
-			$sysmapid = get_dbid('sysmaps','sysmapid');
-			$values = array(
-				'sysmapid' => $sysmapid,
-				'name' => zbx_dbstr($map['name']),
-				'width' => $map['width'],
-				'height' => $map['height'],
-				'backgroundid' => $map['backgroundid'],
-				'highlight' => $map['highlight'],
-				'expandproblem' => $map['expandproblem'],
-				'markelements' => $map['markelements'],
-				'show_unack' => $map['show_unack'],
-				'label_type' => $map['label_type'],
-				'label_location' => $map['label_location']
-			);
-			$result = DBexecute('INSERT INTO sysmaps ('.implode(',', array_keys($values)).')'.
-					' VALUES ('.implode(',', array_values($values)).')');
+			$sysmapid=get_dbid('sysmaps','sysmapid');
+			$result=DBexecute('INSERT INTO sysmaps (sysmapid,name,width,height,backgroundid,highlight,label_type,label_location)'.
+					' VALUES ('.$sysmapid.','.zbx_dbstr($map['name']).','.$map['width'].','.$map['height'].','.
+								$map['backgroundid'].','.$map['highlight'].','.$map['label_type'].','.$map['label_location'].')');
 
 			if(!$result) break;
 
@@ -579,6 +594,19 @@ COpt::memoryPick();
 		foreach($maps as $mnum => $map){
 			$map_db_fields = $db_sysmaps[$map['sysmapid']];
 
+			if($map['markelements'] == 1) $map['highlight'] = $map['highlight'] | ZBX_MAP_MARKELEMENTS;
+			if($map['expandproblem'] == 0) $map['highlight'] = $map['highlight'] | ZBX_MAP_EXPANDPROBLEM;
+
+			if($map['show_unack'] == EXTACK_OPTION_BOTH){
+				$map['highlight'] = $map['highlight'] | ZBX_MAP_EXTACK_SEPARATED;
+			}
+			else if($map['show_unack'] == EXTACK_OPTION_UNACK){
+				$map['highlight'] = $map['highlight'] | ZBX_MAP_EXTACK_UNACK;
+			}
+			else if($map['show_unack'] == EXTACK_OPTION_ALL){
+				$map['highlight'] = $map['highlight'] | ZBX_MAP_EXTACK_TOTAL;
+			}
+
 			if(!check_db_fields($map_db_fields, $map)){
 				$result = false;
 				$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => 'Wrong fields for map');
@@ -600,22 +628,16 @@ COpt::memoryPick();
 				$result = false;
 				$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => 'Map [ '.$map['name'].' ] '.S_ALREADY_EXISTS_SMALL);
 				break;
-			}				
+			}
 
-			$values = array(
-				'name' => zbx_dbstr($map['name']),
-				'width' => $map['width'],
-				'height' => $map['height'],
-				'backgroundid' => $map['backgroundid'],
-				'highlight' => $map['highlight'],
-				'expandproblem' => $map['expandproblem'],
-				'markelements' => $map['markelements'],
-				'show_unack' => $map['show_unack'],
-				'label_type' => $map['label_type'],
-				'label_location' => $map['label_location']
-			);
 			$sql = 'UPDATE sysmaps '.
-					' SET '.zbx_implodeHash('=', ',', $values).
+					' SET name='.zbx_dbstr($map['name']).','.
+						' width='.$map['width'].','.
+						' height='.$map['height'].','.
+						' backgroundid='.$map['backgroundid'].','.
+						' highlight='.$map['highlight'].','.
+						' label_type='.$map['label_type'].','.
+						' label_location='.$map['label_location'].
 					' WHERE sysmapid='.$map['sysmapid'];
 			$result = DBexecute($sql);
 

@@ -613,8 +613,8 @@ SDI('/////////////////////////////////');
 					foreach($screen['screenitems'] as $screenitem){
 						$screenitem['screenid'] = $screenids[$snum];
 						$insert_screen_items[] = $screenitem;
+					}
 				}
-			}
 			}
 			self::addItems($insert_screen_items);
 
@@ -647,33 +647,33 @@ SDI('/////////////////////////////////');
 		try{
 			self::BeginTransaction(__METHOD__);
 
-		$options = array(
+			$options = array(
 				'screenids' => zbx_objectValues($screens, 'screenid'),
 				'editable' => 1,
 				'output' => API_OUTPUT_SHORTEN,
 				'preservekeys' => 1,
-		);
-		$upd_screens = self::get($options);
-		foreach($screens as $gnum => $screen){
+			);
+			$upd_screens = self::get($options);
+			foreach($screens as $gnum => $screen){
 				if(!isset($screen['screenid'], $upd_screens[$screen['screenid']])){
 					self::exception(ZBX_API_ERROR_PERMISSIONS, S_NO_PERMISSION);
+				}
 			}
-		}
 
 			foreach($screens as $snum => $screen){
 				if(isset($screen['name'])){
-				$options = array(
-					'filter' => array('name' => $screen['name']),
-					'preservekeys' => 1,
+					$options = array(
+						'filter' => array('name' => $screen['name']),
+						'preservekeys' => 1,
 						'nopermissions' => 1,
 						'output' => API_OUTPUT_SHORTEN,
-				);
-				$exist_screens = self::get($options);
+					);
+					$exist_screens = self::get($options);
 					$exist_screen = reset($exist_screens);
 
 					if($exist_screen && ($exist_screen['screenid'] != $screen['screenid']))
 						self::exception(ZBX_API_ERROR_PERMISSIONS, S_SCREEN.' [ '.$screen['name'].' ] '.S_ALREADY_EXISTS_SMALL);
-					}
+				}
 
 				$screenid = $screen['screenid'];
 				unset($screen['screenid']);
@@ -681,7 +681,7 @@ SDI('/////////////////////////////////');
 					$update[] = array(
 						'values' => $screen,
 						'where' => array('screenid='.$screenid),
-				);
+					);
 				}
 
 				if(isset($screen['screenitems'])){
@@ -718,12 +718,12 @@ SDI('/////////////////////////////////');
 		try{
 			self::BeginTransaction(__METHOD__);
 
-		$options = array(
+			$options = array(
 				'screenids' => $screenids,
 				'editable' => 1,
 				'preservekeys' => 1,
-		);
-		$del_screens = self::get($options);
+			);
+			$del_screens = self::get($options);
 			foreach($screenids as $screenid){
 				if(!isset($del_screens[$screenid])) self::exception(ZBX_API_ERROR_PERMISSIONS, S_NO_PERMISSION);
 			}
@@ -759,20 +759,20 @@ SDI('/////////////////////////////////');
 		foreach($screenitems as $screenitem){
 			$items_db_fields = array(
 				'screenid' => null,
-					'resourcetype' => null,
+				'resourcetype' => null,
 				'resourceid' => null,
 				'x' => null,
 				'y' => null,
-				);
+			);
 			if(!check_db_fields($items_db_fields, $screenitem)){
 				self::exception(ZBX_API_ERROR_PARAMETERS, 'Wrong fields for screen items');
-				}
+			}
 
 			$insert[] = $screenitem;
-				}
+		}
 		DB::insert('screens_items', $insert);
 		return true;
-			}
+	}
 
 	protected static function updateItems($data){
 		$screenids = zbx_toArray($data['screenids']);
@@ -800,8 +800,8 @@ SDI('/////////////////////////////////');
 			);
 			if(!check_db_fields($items_db_fields, $new_item)){
 				self::exception(ZBX_API_ERROR_PARAMETERS, 'Wrong fields for screen items');
+			}
 		}
-	}
 
 		foreach($screens as $screen){
 			$new_items = $data['screenitems'];
@@ -826,9 +826,9 @@ SDI('/////////////////////////////////');
 						unset($screen['screenitems'][$cnum]);
 						unset($new_items[$nnum]);
 						break;
-		}
+					}
+				}
 			}
-		}
 
 			foreach($new_items as $new_item){
 				$items_db_fields = array(
@@ -845,15 +845,15 @@ SDI('/////////////////////////////////');
 
 			foreach($screen['screenitems'] as $del_item){
 				$delete[] = $del_item['screenitemid'];
-				}
 			}
+		}
 
 		if(!empty($insert)) DB::insert('screens_items', $insert);
 		if(!empty($update)) DB::update('screens_items', $update);
 		if(!empty($delete)) DB::delete('screens_items', DBcondition('screenitemid', $delete));
 
-			return true;
-		}
+		return true;
+	}
 
 }
 ?>

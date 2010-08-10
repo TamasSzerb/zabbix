@@ -1,6 +1,6 @@
 /*
 ** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -113,8 +113,8 @@
 #define OFF	0
 
 #define	APPLICATION_NAME	"Zabbix Agent"
-#define	ZABBIX_REVDATE		"7 December 2009"
-#define	ZABBIX_VERSION		"1.9"
+#define	ZABBIX_REVDATE		"10 August 2010"
+#define	ZABBIX_VERSION		"1.8.3rc4"
 #define	ZABBIX_REVISION		"{ZABBIX_REVISION}"
 
 #if defined(_WINDOWS)
@@ -151,13 +151,6 @@ char	*zbx_result_string(int result);
 #define MAX_BUF_LEN	65536
 
 #define ZBX_DM_DELIMITER	'\255'
-
-typedef struct zbx_timespec
-{
-	int	sec;	/* seconds */
-	int	ns;	/* nanoseconds */
-}
-zbx_timespec_t;
 
 /* Item types */
 typedef enum
@@ -803,7 +796,6 @@ void	__zbx_zbx_setproctitle(const char *fmt, ...);
 #define SEC_PER_YEAR (365*SEC_PER_DAY)
 #define ZBX_JAN_1970_IN_SEC   2208988800.0        /* 1970 - 1900 in seconds */
 double	zbx_time(void);
-void	zbx_timespec(zbx_timespec_t *ts);
 double	zbx_current_time(void);
 
 #ifdef HAVE___VA_ARGS__

@@ -19,8 +19,8 @@
 **/
 ?>
 <?php
-	define('ZABBIX_VERSION','1.9');
-	define('ZABBIX_API_VERSION','1.2');
+	define('ZABBIX_VERSION','1.8.4rc1');
+	define('ZABBIX_API_VERSION','1.3');
 /* USER DEFINES */
 
 	define('ZBX_LOGIN_ATTEMPTS',			5);
@@ -38,13 +38,13 @@
 	define('ZBX_FONTPATH',					realpath('fonts'));	// where to search for font (GD > 2.0.18)
 	define('ZBX_GRAPH_FONT_NAME',			'DejaVuSans');		// font file name
 
-	define('ZBX_SCRIPT_TIMEOUT',			360); // in seconds
-	define('ZBX_SCRIPT_BYTES_LIMIT',		1073741824); // 1073741824 is 1MB in bytes
+	define('ZBX_SCRIPT_TIMEOUT',			60); // in seconds
+	define('ZBX_SCRIPT_BYTES_LIMIT',		1048576); // 1048576 is 1MB in bytes
 
 	define('GRAPH_YAXIS_SIDE_DEFAULT',		0); // 0 - LEFT SIDE, 1 - RIGHT SIDE
 
 	define('ZBX_MAX_IMAGE_SIZE',			1024*1024);
-
+ 
 	define('ZBX_UNITS_ROUNDOFF_THRESHOLD', 0.01);
 	define('ZBX_UNITS_ROUNDOFF_UPPER_LIMIT', 2);
 	define('ZBX_UNITS_ROUNDOFF_LOWER_LIMIT', 6);
@@ -263,14 +263,8 @@
 	define('SYSMAP_ELEMENT_ICON_MAINTENANCE',	3);
 	define('SYSMAP_ELEMENT_ICON_DISABLED',		4);
 
-	define('SYSMAP_HIGHLIGHT_OFF',		0);
-	define('SYSMAP_HIGHLIGHT_ON',		1);
-	
-	define('SYSMAP_EXPANDPROBLEM_OFF',		0);
-	define('SYSMAP_EXPANDPROBLEM_ON',		1);
-
-	define('SYSMAP_MARKELEMENTS_OFF',		0);
-	define('SYSMAP_MARKELEMENTS_ON',		1);
+	define('SYSMAP_HIGHLIGH_OFF',		0);
+	define('SYSMAP_HIGHLIGH_ON',		1);
 
 	define('ITEM_TYPE_ZABBIX',			0);
 	define('ITEM_TYPE_SNMPV1',			1);
@@ -444,7 +438,6 @@
 /* time module tipe */
 	define('TIME_TYPE_LOCAL',	0);
 	define('TIME_TYPE_SERVER',	1);
-	define('TIME_TYPE_HOST',	2);
 
 	define('FILTER_TASK_SHOW',			0);
 	define('FILTER_TASK_HIDE',			1);
@@ -760,12 +753,12 @@ if(in_array(ini_get('mbstring.func_overload'), array(2,3,6,7))){
 	define('ZBX_DEFAULT_IMPORT_HOST_GROUP', 'Imported hosts');
 
 // API errors //
-	define('ZBX_API_ERROR_NO_HOST', 1);
 	define('ZBX_API_ERROR_INTERNAL', 111);
 	define('ZBX_API_ERROR_PARAMETERS', 100);
 	define('ZBX_API_ERROR_PERMISSIONS', 120);
 	define('ZBX_API_ERROR_NO_AUTH', 200);
 	define('ZBX_API_ERROR_NO_METHOD', 300);
+
 	//define('ZBX_API_ERROR_PARAMETERS', 100);
 
 	define('API_OUTPUT_SHORTEN', 'shorten');

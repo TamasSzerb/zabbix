@@ -75,15 +75,19 @@ class CMap extends CZBXAPI{
 			'sysmapids'					=> null,
 			'editable'					=> null,
 			'nopermissions'				=> null,
-// filtet
+
+// filter
 			'filter'					=> null,
-			'pattern'					=> '',
+			'search'					=> null,
+			'startSearch'				=> null,
+			'excludeSearch'				=> null,
+
 // OutPut
 			'extendoutput'				=> null,
 			'output'					=> API_OUTPUT_REFER,
 			'select_selements'			=> null,
 			'select_links'				=> null,
-			'count'						=> null,
+			'countOutput'				=> null,
 			'preservekeys'				=> null,
 
 			'sortfield'					=> '',
@@ -117,33 +121,36 @@ class CMap extends CZBXAPI{
 			$sql_parts['where']['sysmapid'] = DBcondition('s.sysmapid', $options['sysmapids']);
 		}
 
-// extendoutput
-		if($options['output'] == API_OUTPUT_EXTEND){
-			$sql_parts['select']['sysmaps'] = 's.*';
-		}
-
-// count
-		if(!is_null($options['count'])){
-			$options['sortfield'] = '';
-
-			$sql_parts['select'] = array('count(DISTINCT s.sysmapid) as rowscount');
-		}
-
-// pattern
-		if(!zbx_empty($options['pattern'])){
-			$sql_parts['where'][] = ' UPPER(s.name) LIKE '.zbx_dbstr('%'.zbx_strtoupper($options['pattern']).'%');
+// search
+		if(!is_null($options['search'])){
+			zbx_db_search('sysmaps s', $options, $sql_parts);
 		}
 
 // filter
 		if(!is_null($options['filter'])){
 			zbx_value2array($options['filter']);
 
-			if(isset($options['filter']['sysmapid'])){
-				$sql_parts['where']['sysmapid'] = 's.sysmapid='.$options['filter']['sysmapid'];
+			if(isset($options['filter']['sysmapid']) && !is_null($options['filter']['sysmapid'])){
+				zbx_value2array($options['filter']['sysmapid']);
+				$sql_parts['where']['sysmapid'] = DBcondition('s.sysmapid', $options['filter']['sysmapid']);
 			}
-			if(isset($options['filter']['name'])){
-				$sql_parts['where']['name'] = 's.name='.zbx_dbstr($options['filter']['name']);
+
+			if(isset($options['filter']['name']) && !is_null($options['filter']['name'])){
+				zbx_value2array($options['filter']['name']);
+				$sql_parts['where']['name'] = DBcondition('s.name', $options['filter']['name'], false, true);
 			}
+		}
+
+// output
+		if($options['output'] == API_OUTPUT_EXTEND){
+			$sql_parts['select']['sysmaps'] = 's.*';
+		}
+
+// countOutput
+		if(!is_null($options['countOutput'])){
+			$options['sortfield'] = '';
+
+			$sql_parts['select'] = array('count(DISTINCT s.sysmapid) as rowscount');
 		}
 
 // order
@@ -189,8 +196,9 @@ class CMap extends CZBXAPI{
 				$sql_order;
 		$res = DBselect($sql, $sql_limit);
 		while($sysmap = DBfetch($res)){
-			if($options['count'])
-				$result = $sysmap;
+			if($options['countOutput']){
+				$result = $sysmap['rowscount'];
+			}
 			else{
 				$sysmapids[$sysmap['sysmapid']] = $sysmap['sysmapid'];
 
@@ -207,6 +215,22 @@ class CMap extends CZBXAPI{
 						$result[$sysmap['sysmapid']]['links'] = array();
 					}
 
+					if(isset($sysmap['highlight'])){
+						$sysmap['expandproblem'] = ($sysmap['highlight'] & ZBX_MAP_EXPANDPROBLEM) ? 0 : 1;
+						$sysmap['markelements'] = ($sysmap['highlight'] & ZBX_MAP_MARKELEMENTS) ? 1 : 0;
+
+						if(($sysmap['highlight'] & ZBX_MAP_EXTACK_SEPARATED) == ZBX_MAP_EXTACK_SEPARATED){
+							$sysmap['show_unack'] = EXTACK_OPTION_BOTH;
+						}
+						else if($sysmap['highlight'] & ZBX_MAP_EXTACK_UNACK){
+							$sysmap['show_unack'] = EXTACK_OPTION_UNACK;
+						}
+						else{
+							$sysmap['show_unack'] = EXTACK_OPTION_ALL;
+						}
+
+						$sysmap['highlight'] = ($sysmap['highlight'] & ZBX_MAP_HIGHLIGHT) ? 1 : 0;
+					}
 
 					$result[$sysmap['sysmapid']] += $sysmap;
 				}
@@ -354,7 +378,7 @@ SDI('///////////////////////////////////////');
 		}
 
 COpt::memoryPick();
-		if(($options['output'] != API_OUTPUT_EXTEND) || !is_null($options['count'])){
+		if(!is_null($options['countOutput'])){
 			if(is_null($options['preservekeys'])) $result = zbx_cleanHashes($result);
 			return $result;
 		}
@@ -478,27 +502,81 @@ COpt::memoryPick();
  * @return boolean | array
  */
 	public static function create($maps){
+		$sysmapids = array();
+
 		$maps = zbx_toArray($maps);
 
 		try{
 			self::BeginTransaction(__METHOD__);
 
+			$newMapNames = zbx_objectValues($maps, 'name');
+// Exists
+			$options = array(
+				'filter' => array('name' => $newMapNames),
+				'output' => 'extend',
+				'nopermissions' => 1
+			);
+			$db_maps = self::get($options);
+			foreach($db_maps as $dbmnum => $db_map){
+				self::exception(ZBX_API_ERROR_PARAMETERS, S_MAP.' [ '.$db_map['name'].' ] '.S_ALREADY_EXISTS_SMALL);
+			}
+//--
+
 			foreach($maps as $mnum => $map){
+				if($map['markelements'] == 1) $map['highlight'] = $map['highlight'] | ZBX_MAP_MARKELEMENTS;
+				if($map['expandproblem'] == 0) $map['highlight'] = $map['highlight'] | ZBX_MAP_EXPANDPROBLEM;
+
+				if($map['show_unack'] == EXTACK_OPTION_BOTH){
+					$map['highlight'] = $map['highlight'] | ZBX_MAP_EXTACK_SEPARATED;
+				}
+				else if($map['show_unack'] == EXTACK_OPTION_UNACK){
+					$map['highlight'] = $map['highlight'] | ZBX_MAP_EXTACK_UNACK;
+				}
+				else if($map['show_unack'] == EXTACK_OPTION_ALL){
+					$map['highlight'] = $map['highlight'] | ZBX_MAP_EXTACK_TOTAL;
+				}
+
 				$map_db_fields = array(
 					'name' => null,
+					'width' => 600,
+					'height' => 400,
+					'backgroundid' => 0,
+					'highlight' => SYSMAP_HIGHLIGH_ON,
+					'label_type' => 2,
+					'label_location' => 3,
+					'selements' => array(),
+					'links' => array(),
 				);
+
 				if(!check_db_fields($map_db_fields, $map)){
 					self::exception(ZBX_API_ERROR_PARAMETERS, 'Wrong fields for map');
 				}
 
 				if(self::exists(array('name' => $map['name']))){
-					self::exception(ZBX_API_ERROR_PARAMETERS, 'Map [ '.$map['name'].' ] already exists.');
+					self::exception(ZBX_API_ERROR_PARAMETERS,'Map [ '.$map['name'].' ] already exists.');
 				}
+
+				$data_map[] = $map;
+			}
+			$sysmapids = DB::insert('sysmaps', $data_map);
+
+			$data_elements = array();
+
+			$sysmapid = reset($sysmapids);
+			foreach($data_map as $mnum => $map){
+				if(!$sysmapid) self::exception(ZBX_API_ERROR_PARAMETERS, 'DBEXECUTE_ERROR');
+
+				foreach($map['selements'] as $snum => $selement){
+					$selement['sysmapid'] = $sysmapid;
+					$data_elements[] = $selement;
+				}
+
+				$sysmapid = next($sysmapids);
 			}
 
-			$sysmapids = DB::insert('sysmaps', $maps);
-
+			self::addElements($data_elements);
 			self::EndTransaction(true, __METHOD__);
+
 			return array('sysmapids' => $sysmapids);
 		}
 		catch(APIException $e){
@@ -513,7 +591,7 @@ COpt::memoryPick();
 /**
  * Update Map
  *
- * @param array $maps multidimensional array with Hosts data
+ * @param _array $maps multidimensional array with Hosts data
  * @param string $maps['sysmapid']
  * @param string $maps['name']
  * @param array $maps['width']
@@ -524,59 +602,85 @@ COpt::memoryPick();
  * @return boolean
  */
 	public static function update($maps){
+		$result = array();
+
 		$maps = zbx_toArray($maps);
 		$sysmapids = array();
 
-		try{
-			self::BeginTransaction(__METHOD__);
+		$options = array(
+			'sysmapids' => zbx_objectValues($maps,'sysmapid'),
+			'preservekeys' => 1,
+			'output' => API_OUTPUT_EXTEND
+		);
+		$db_sysmaps = self::get($options);
+		foreach($maps as $mnum => $map){
+			if(!isset($db_sysmaps[$map['sysmapid']])){
+				self::setError(__METHOD__, ZBX_API_ERROR_PARAMETERS, 'Map with ID ['.$map['sysmapid'].'] does not exist');
+				return false;
+			}
+			$sysmapids[] = $map['sysmapid'];
+		}
 
+		self::BeginTransaction(__METHOD__);
+		foreach($maps as $mnum => $map){
+			$map_db_fields = $db_sysmaps[$map['sysmapid']];
+
+			if($map['markelements'] == 1) $map['highlight'] = $map['highlight'] | ZBX_MAP_MARKELEMENTS;
+			if($map['expandproblem'] == 0) $map['highlight'] = $map['highlight'] | ZBX_MAP_EXPANDPROBLEM;
+
+			if($map['show_unack'] == EXTACK_OPTION_BOTH){
+				$map['highlight'] = $map['highlight'] | ZBX_MAP_EXTACK_SEPARATED;
+			}
+			else if($map['show_unack'] == EXTACK_OPTION_UNACK){
+				$map['highlight'] = $map['highlight'] | ZBX_MAP_EXTACK_UNACK;
+			}
+			else if($map['show_unack'] == EXTACK_OPTION_ALL){
+				$map['highlight'] = $map['highlight'] | ZBX_MAP_EXTACK_TOTAL;
+			}
+
+			if(!check_db_fields($map_db_fields, $map)){
+				$result = false;
+				$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => 'Wrong fields for map');
+				break;
+			}
+// Existance
 			$options = array(
-				'sysmapids' => zbx_objectValues($maps, 'sysmapid'),
-				'preservekeys' => 1,
-				'output' => API_OUTPUT_EXTEND,
+				'filter' => array(
+					'name' => $map['name']
+				),
+				'output' => API_OUTPUT_SHORTEN,
+				'editable' => 1,
+				'nopermissions' => 1
 			);
-			$db_sysmaps = self::get($options);
-			foreach($maps as $mnum => $map){
-				if(!isset($db_sysmaps[$map['sysmapid']])){
-					self::exception(ZBX_API_ERROR_PARAMETERS, 'Map with ID ['.$map['sysmapid'].'] does not exist');
-				}
-				$sysmapids[] = $map['sysmapid'];
+			$map_exists = self::get($options);
+			$map_exists = reset($map_exists);
+
+			if(!empty($map_exists) && ($map_exists['sysmapid'] != $map['sysmapid'])){
+				$result = false;
+				$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => 'Map [ '.$map['name'].' ] '.S_ALREADY_EXISTS_SMALL);
+				break;
 			}
+//----
+			$sql = 'UPDATE sysmaps '.
+					' SET name='.zbx_dbstr($map['name']).','.
+						' width='.$map['width'].','.
+						' height='.$map['height'].','.
+						' backgroundid='.$map['backgroundid'].','.
+						' highlight='.$map['highlight'].','.
+						' label_type='.$map['label_type'].','.
+						' label_location='.$map['label_location'].
+					' WHERE sysmapid='.$map['sysmapid'];
+			$result = DBexecute($sql);
 
-			$update = array();
-			foreach($maps as $mnum => $map){			
-				if(isset($map['name'])){
-					$options = array(
-						'filter' => array(
-							'name' => $map['name']
-						),
-						'output' => API_OUTPUT_SHORTEN,
-						'editable' => 1,
-						'nopermissions' => 1
-					);
-					$map_exists = self::get($options);
-					$map_exists = reset($map_exists);
+			if(!$result) break;
+		}
+		$result = self::EndTransaction($result, __METHOD__);
 
-					if(!empty($map_exists) && ($map_exists['sysmapid'] != $map['sysmapid'])){
-						self::exception(ZBX_API_ERROR_PARAMETERS, 'Map [ '.$map['name'].' ] '.S_ALREADY_EXISTS_SMALL);
-					}
-				}
-
-				$update[] = array(
-					'values' => $map,
-					'where' => array('sysmapid='.$map['sysmapid']),
-				);
-			}
-			DB::update('sysmaps', $update);
-
-			self::EndTransaction(true, __METHOD__);
+		if($result){
 			return array('sysmapids' => $sysmapids);
 		}
-		catch(APIException $e){
-			self::EndTransaction(false, __METHOD__);
-			$error = $e->getErrors();
-			$error = reset($error);
-			self::setError(__METHOD__, $e->getCode(), $error);
+		else{
+			self::setMethodErrors(__METHOD__, $errors);
 			return false;
 		}
 	}
@@ -590,9 +694,23 @@ COpt::memoryPick();
  * @return boolean
  */
 	public static function delete($sysmapids){
+		$result = true;
+
 		try{
 			self::BeginTransaction(__METHOD__);
 
+// Permissions
+			$options = array(
+				'sysmapids' => $sysmapids,
+				'editable' => 1,
+				'preservekeys' => 1
+			);
+			$del_sysmaps = self::get($options);
+			foreach($sysmapids as $snum => $sysmapid){
+				if(!isset($del_sysmaps[$sysmapid]))
+					self::exception(ZBX_API_ERROR_PERMISSIONS, S_NO_PERMISSION);
+			}
+//---
 // delete maps from selements of other maps
 			$selementids = array();
 			$sql = 'SELECT se.selementid '.
@@ -627,17 +745,15 @@ COpt::memoryPick();
 
 			$res = DBselect('SELECT linkid FROM sysmaps_links WHERE '.DBcondition('sysmapid', $sysmapids));
 			while($rows = DBfetch($res)){
-				$result = delete_link($rows['linkid']);
-				if(!$result)
-					self::exception(ZBX_API_ERROR_PARAMETERS, 'Cannot delete link');
+				$result &= delete_link($rows['linkid']);
 			}
 
-			DBexecute('DELETE FROM sysmaps_elements WHERE '.DBcondition('sysmapid', $sysmapids));
-			DBexecute("DELETE FROM profiles WHERE idx='web.favorite.sysmapids' AND source='sysmapid' AND ".DBcondition('value_id', $sysmapids));
-			DBexecute('DELETE FROM screens_items WHERE '.DBcondition('resourceid', $sysmapids).' AND resourcetype='.SCREEN_RESOURCE_MAP);
-			DBexecute('DELETE FROM sysmaps WHERE '.DBcondition('sysmapid', $sysmapids));
+			$result &= DBexecute('DELETE FROM sysmaps_elements WHERE '.DBcondition('sysmapid', $sysmapids));
+			$result &= DBexecute("DELETE FROM profiles WHERE idx='web.favorite.sysmapids' AND source='sysmapid' AND ".DBcondition('value_id', $sysmapids));
+			$result &= DBexecute('DELETE FROM screens_items WHERE '.DBcondition('resourceid', $sysmapids).' AND resourcetype='.SCREEN_RESOURCE_MAP);
+			$result &= DBexecute('DELETE FROM sysmaps WHERE '.DBcondition('sysmapid', $sysmapids));
 
-			self::EndTransaction(true, __METHOD__);
+			$result = self::EndTransaction($result, __METHOD__);
 			return array('sysmapids' => $sysmapids);
 		}
 		catch(APIException $e){
@@ -661,43 +777,47 @@ COpt::memoryPick();
  * @return boolean
  */
 	public static function addLinks($links){
+		$errors = array();
 		$result_links = array();
+		$result = true;
+
 		$links = zbx_toArray($links);
 
-		try{
-			self::BeginTransaction(__METHOD__);
+		self::BeginTransaction(__METHOD__);
 
-			foreach($links as $lnum => $link){
-				$link_db_fields = array(
-					'sysmapid' => null,
-					'label' => '',
-					'selementid1' => null,
-					'selementid2' => null,
-					'drawtype' => 2,
-					'color' => 3
-				);
+		foreach($links as $lnum => $link){
 
-				if(!check_db_fields($link_db_fields, $link)){
-					self::exception(ZBX_API_ERROR_PARAMETERS, 'Wrong fields for link');
-				}
+			$link_db_fields = array(
+				'sysmapid' => null,
+				'label' => '',
+				'selementid1' => null,
+				'selementid2' => null,
+				'drawtype' => 2,
+				'color' => 3
+			);
 
-				$linkid = add_link($link);
-				if(!$linkid){
-					self::exception();
-				}
-
-				$new_link = array('linkid' => $linkid);
-				$result_links[] = array_merge($new_link, $link);
+			if(!check_db_fields($link_db_fields, $link)){
+				$result = false;
+				$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => 'Wrong fields for link');
+				break;
 			}
 
-			self::EndTransaction(true, __METHOD__);
-			return $result_links;
+			$linkid = add_link($link);
+			if(!$linkid){
+				$result = false;
+				break;
+			}
+
+			$new_link = array('linkid' => $linkid);
+			$result_links[] = array_merge($new_link, $link);
 		}
-		catch(APIException $e){
-			self::EndTransaction(false, __METHOD__);
-			$error = $e->getErrors();
-			$error = reset($error);
-			self::setError(__METHOD__, $e->getCode(), $error);
+
+		$result = self::EndTransaction($result, __METHOD__);
+
+		if($result)
+			return $result_links;
+		else{
+			self::setMethodErrors(__METHOD__, $errors);
 			return false;
 		}
 	}
@@ -730,8 +850,7 @@ COpt::memoryPick();
 			$options = array(
 				'sysmapids' => $sysmapids,
 				'editable' => 1,
-				'preservekeys' => 1,
-				'output' => API_OUTPUT_SHORTEN,
+				'preservekeys' => 1
 			);
 			$upd_maps = self::get($options);
 
@@ -742,22 +861,57 @@ COpt::memoryPick();
 			}
 
 			foreach($selements as $snumm => $selement){
+
 				$selement_db_fields = array(
 					'sysmapid' => null,
 					'elementid' => null,
 					'elementtype' => null,
+					'label' => 3,
+					'x' => 50,
+					'y' => 50,
+					'iconid_off' => 15,
+					'iconid_unknown' => 15,
+					'iconid_on' => 15,
+					'iconid_disabled' => 15,
+					'url' => '',
+					'label_location' => 0
 				);
+
 				if(!check_db_fields($selement_db_fields, $selement)){
 					self::exception(ZBX_API_ERROR_PARAMETERS, 'Wrong fields for element');
 				}
-				
+
 				if(check_circle_elements_link($selement['sysmapid'],$selement['elementid'],$selement['elementtype'])){
 					self::exception(S_CIRCULAR_LINK_CANNOT_BE_CREATED.' "'.$selement['label'].'"');
 				}
-			}
-			$selementids = DB::insert('sysmaps_elements', $selements);
 
-			self::EndTransaction(true, __METHOD__);
+				$selementid = get_dbid('sysmaps_elements','selementid');
+				$selementids[] = $selementid;
+
+				$values = array(
+					'selementid' => $selementid,
+					'sysmapid' => $selement['sysmapid'],
+					'elementid' => $selement['elementid'],
+					'elementtype' => $selement['elementtype'],
+					'label' => zbx_dbstr($selement['label']),
+					'label_location' => $selement['label_location'],
+					'iconid_off' => $selement['iconid_off'],
+					'iconid_on' => $selement['iconid_on'],
+					'iconid_unknown' => $selement['iconid_unknown'],
+					'iconid_maintenance' => $selement['iconid_maintenance'],
+					'iconid_disabled' => $selement['iconid_disabled'],
+					'x' => $selement['x'],
+					'y' => $selement['y'],
+					'url' => zbx_dbstr($selement['url'])
+				);
+
+				$result = DBexecute('INSERT INTO sysmaps_elements ('.implode(',', array_keys($values)).')'.
+								' VALUES ('.implode(',', array_values($values)).')');
+
+				if(!$result) self::exception(ZBX_API_ERROR_INTERNAL, 'Map add elements failed');
+			}
+
+			$result = self::EndTransaction($result, __METHOD__);
 
 			return $selementids;
 		}
@@ -804,8 +958,7 @@ COpt::memoryPick();
 			$options = array(
 				'sysmapids' => $sysmapids,
 				'editable' => 1,
-				'preservekeys' => 1,
-				'output' => API_OUTPUT_SHORTEN,
+				'preservekeys' => 1
 			);
 			$upd_maps = self::get($options);
 
@@ -815,30 +968,57 @@ COpt::memoryPick();
 				}
 			}
 
-			$update = array();
 			foreach($selements as $snumm => $selement){
+
 				$selement_db_fields = array(
 					'sysmapid' => null,
 					'selementid' => null,
+					'elementid' => 0,
+					'elementtype' => 5,
+					'label' => '',
+					'label_location' => 0,
 					'iconid_off' => null,
+					'iconid_on' => 0,
+					'iconid_unknown' => 0,
+					'iconid_maintenance' => 0,
+					'iconid_disabled' => 0,
+					'x' => 50,
+					'y' => 50,
+					'url' => ''
 				);
+
 				if(!check_db_fields($selement_db_fields, $selement)){
-					self::exception(ZBX_API_ERROR_PARAMETERS, 'Wrong fields for element');
+					$result = false;
+					$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => 'Wrong fields for element');
+					break;
 				}
 
 				if(check_circle_elements_link($selement['sysmapid'],$selement['elementid'],$selement['elementtype'])){
-					self::exception(S_CIRCULAR_LINK_CANNOT_BE_CREATED.' "'.$selement['label'].'"');
+					throw new Exception(S_CIRCULAR_LINK_CANNOT_BE_CREATED.' "'.$selement['label'].'"');
+					return false;
 				}
 
-				$update[] = array(
-					'values' => $selement,
-					'where' => array('selementid='.$selement['selementid']),				
-				);
+				$result = DBexecute('UPDATE sysmaps_elements '.
+						'SET elementid='.$selement['elementid'].', '.
+							' elementtype='.$selement['elementtype'].', '.
+							' label='.zbx_dbstr($selement['label']).', '.
+							' label_location='.$selement['label_location'].', '.
+							' x='.$selement['x'].', '.
+							' y='.$selement['y'].', '.
+							' iconid_off='.$selement['iconid_off'].', '.
+							' iconid_on='.$selement['iconid_on'].', '.
+							' iconid_unknown='.$selement['iconid_unknown'].', '.
+							' iconid_maintenance='.$selement['iconid_maintenance'].', '.
+							' iconid_disabled='.$selement['iconid_disabled'].', '.
+							' url='.zbx_dbstr($selement['url']).
+						' WHERE selementid='.$selement['selementid']);
+
+				if(!$result) self::exception(ZBX_API_ERROR_INTERNAL, 'Map update elements failed');
+
 				$selementids[] = $selement['selementid'];
 			}
-			DB::update('sysmaps_elements', $update);
 
-			self::EndTransaction(true, __METHOD__);
+			$result = self::EndTransaction($result, __METHOD__);
 			return $selementids;
 		}
 		catch(APIException $e){

@@ -63,7 +63,7 @@ class CAlert extends CZBXAPI{
 			'where' => array(),
 			'order' => array(),
 			'limit' => null,
-			);
+		);
 
 		$def_options = array(
 			'nodeids'				=> null,
@@ -78,10 +78,10 @@ class CAlert extends CZBXAPI{
 			'nopermissions'			=> null,
 
 // filter
-			'status'				=> null,
-			'retries'				=> null,
-			'sendto'				=> null,
-			'alerttype'				=> null,
+			'filter'					=> null,
+			'search'					=> null,
+			'startSearch'				=> null,
+			'excludeSearch'				=> null,
 			'time_from'				=> null,
 			'time_till'				=> null,
 
@@ -91,7 +91,7 @@ class CAlert extends CZBXAPI{
 			'select_mediatypes'		=> null,
 			'select_users'			=> null,
 			'select_hosts'			=> null,
-			'count'					=> null,
+			'countOutput'			=> null,
 			'preservekeys'			=> null,
 			'editable'				=> null,
 
@@ -258,19 +258,14 @@ class CAlert extends CZBXAPI{
 			$sql_parts['where'][] = DBcondition('a.mediatypeid', $options['mediatypeids']);
 		}
 
-// status
-		if(!is_null($options['status'])){
-			$sql_parts['where'][] = 'a.status='.$options['status'];
+// filter
+		if(is_array($options['filter'])){
+			zbx_db_filter('alerts a', $options, $sql_parts);
 		}
 
-// sendto
-		if(!is_null($options['sendto'])){
-			$sql_parts['where'][] = 'a.sendto='.$options['sendto'];
-		}
-
-// alerttype
-		if(!is_null($options['alerttype'])){
-			$sql_parts['where'][] = 'a.alerttype='.$options['alerttype'];
+// search
+		if(is_array($options['search'])){
+			zbx_db_search('alerts a', $options, $sql_parts);
 		}
 
 // time_from
@@ -288,8 +283,8 @@ class CAlert extends CZBXAPI{
 			$sql_parts['select']['alerts'] = 'a.*';
 		}
 
-// count
-		if(!is_null($options['count'])){
+// countOutput
+		if(!is_null($options['countOutput'])){
 			$options['sortfield'] = '';
 
 			$sql_parts['select'] = array('COUNT(DISTINCT a.alertid) as rowscount');
@@ -316,6 +311,7 @@ class CAlert extends CZBXAPI{
 
 		$alertids = array();
 		$userids = array();
+		$hostids = array();
 		$mediatypeids = array();
 
 		$sql_parts['select'] = array_unique($sql_parts['select']);
@@ -340,14 +336,16 @@ class CAlert extends CZBXAPI{
 				$sql_order;
 		$db_res = DBselect($sql, $sql_limit);
 		while($alert = DBfetch($db_res)){
-			if($options['count'])
-				$result = $alert;
+			if($options['countOutput']){
+				$result = $alert['rowscount'];
+			}
 			else{
 				$alertids[$alert['alertid']] = $alert['alertid'];
 
 				if(isset($alert['userid']))
 					$userids[$alert['userid']] = $alert['userid'];
-
+				if(isset($alert['hostid']))
+					$hostids[$alert['hostid']] = $alert['hostid'];
 				if(isset($alert['mediatypeid']))
 					$mediatypeids[$alert['mediatypeid']] = $alert['mediatypeid'];
 
@@ -394,7 +392,7 @@ class CAlert extends CZBXAPI{
 		}
 
 COpt::memoryPick();
-		if(($options['output'] != API_OUTPUT_EXTEND) || !is_null($options['count'])){
+		if(!is_null($options['countOutput'])){
 			if(is_null($options['preservekeys'])) $result = zbx_cleanHashes($result);
 			return $result;
 		}
@@ -472,53 +470,52 @@ COpt::memoryPick();
 	public static function create($alerts){
 		$alerts = zbx_toArray($alerts);
 		$alertids = array();
+		$result = false;
 
-		try{
-			self::BeginTransaction(__METHOD__);
+		self::BeginTransaction(__METHOD__);
+		foreach($alerts as $anum => $alert){
+			$alert_db_fields = array(
+				'actionid'		=> null,
+				'eventid'		=> null,
+				'userid'		=> null,
+				'clock'			=> time(),
+				'mediatypeid'	=> 0,
+				'sendto'		=> null,
+				'subject'		=> '',
+				'message'		=> '',
+				'status'		=> ALERT_STATUS_NOT_SENT,
+				'retries'		=> 0,
+				'error'			=> '',
+				'nextcheck'		=> null,
+				'esc_step'		=> 0,
+				'alerttype'		=> ALERT_TYPE_MESSAGE
+			);
 
-			foreach($alerts as $anum => $alert){
-				$alert_db_fields = array(
-					'actionid'		=> null,
-					'eventid'		=> null,
-					'userid'		=> null,
-					'clock'			=> time(),
-					'mediatypeid'	=> 0,
-					'sendto'		=> null,
-					'subject'		=> '',
-					'message'		=> '',
-					'status'		=> ALERT_STATUS_NOT_SENT,
-					'retries'		=> 0,
-					'error'			=> '',
-					'nextcheck'		=> null,
-					'esc_step'		=> 0,
-					'alerttype'		=> ALERT_TYPE_MESSAGE
-				);
-
-				if(!check_db_fields($alert_db_fields, $alert)){
-					self::exception(ZBX_API_ERROR_PARAMETERS, 'Wrong fields for Alert');
-				}
-
-				$alertid = get_dbid('alerts', 'alertid');
-				$sql = 'INSERT INTO alerts '.
-						'(alertid, actionid, eventid, userid, mediatypeid, clock, sendto, subject, message, status, retries, error, nextcheck, esc_step, alerttype) '.
-						' VALUES ('.$alertid.','.$alert['actionid'].','.$alert['eventid'].','.$alert['userid'].','.$alert['mediatypeid'].','.
-									$alert['clock'].','.zbx_dbstr($alert['sendto']).','.zbx_dbstr($alert['subject']).','.zbx_dbstr($alert['message']).','.
-									$alert['status'].','.$alert['retries'].','.zbx_dbstr($alert['error']).','.$alert['nextcheck'].','.
-									$alert['esc_step'].','.$alert['alerttype'].' )';
-				if(!DBexecute($sql))
-					self::exception(ZBX_API_ERROR_PARAMETERS, 'DBerror');
-
-				$alertids[] = $alertid;
+			if(!check_db_fields($alert_db_fields, $alert)){
+				$result = false;
+				break;
 			}
 
-			self::EndTransaction(true, __METHOD__);
+			$alertid = get_dbid('alerts', 'alertid');
+			$sql = 'INSERT INTO alerts '.
+					'(alertid, actionid, eventid, userid, mediatypeid, clock, sendto, subject, message, status, retries, error, nextcheck, esc_step, alerttype) '.
+					' VALUES ('.$alertid.','.$alert['actionid'].','.$alert['eventid'].','.$alert['userid'].','.$alert['mediatypeid'].','.
+								$alert['clock'].','.zbx_dbstr($alert['sendto']).','.zbx_dbstr($alert['subject']).','.zbx_dbstr($alert['message']).','.
+								$alert['status'].','.$alert['retries'].','.zbx_dbstr($alert['error']).','.$alert['nextcheck'].','.
+								$alert['esc_step'].','.$alert['alerttype'].' )';
+			$result = DBexecute($sql);
+			if(!$result) break;
+
+			$alertids[] = $alertid;
+		}
+
+		$result = self::EndTransaction($result, __METHOD__);
+
+		if($result){
 			return array('alertids'=>$alertids);
 		}
-		catch(APIException $e){
-			self::EndTransaction(false, __METHOD__);
-			$error = $e->getErrors();
-			$error = reset($error);
-			self::setError(__METHOD__, $e->getCode(), $error);
+		else{
+			self::$error[] = array('error' => ZBX_API_ERROR_INTERNAL, 'data' => 'Internal Zabbix error');
 			return false;
 		}
 	}
@@ -530,35 +527,41 @@ COpt::memoryPick();
  * @return boolean
  */
 	public static function delete($alertids){
+		$alerts = zbx_toArray($alerts);
+		$alertids = array();
+		$result = false;
+//------
 
-		try{
-			self::BeginTransaction(__METHOD__);
-
-			$options = array(
-				'alertids' => $alertids,
-				'editable' => 1,
-				'extendoutput' => 1,
-				'preservekeys' => 1
-			);
-			$del_alerts = self::get($options);
-			foreach($alertids as $snum => $alertid){
-				if(!isset($del_alerts[$alertid])){
-					self::exception(ZBX_API_ERROR_PERMISSIONS, S_NO_PERMISSION);
-				}
+		$options = array(
+			'alertids' => zbx_objectValues($alerts, 'alertid'),
+			'editable' => 1,
+			'output' => API_OUTPUT_EXTEND,
+			'preservekeys' => 1
+		);
+		$del_alerts = self::get($options);
+		foreach($alerts as $snum => $alert){
+			if(!isset($del_alerts[$alert['alertid']])){
+				self::setError(__METHOD__, ZBX_API_ERROR_PERMISSIONS, S_NO_PERMISSION);
+				return false;
 			}
 
-			$sql = 'DELETE FROM alerts WHERE '.DBcondition('alertid', $alertids);
-			if(!DBexecute($sql))
-				self::exception(ZBX_API_ERROR_PARAMETERS, 'DBerror');
-
-			self::EndTransaction(true, __METHOD__);
-			return true;
+			$alertids[] = $alert['alertid'];
 		}
-		catch(APIException $e){
-			self::EndTransaction(false, __METHOD__);
-			$error = $e->getErrors();
-			$error = reset($error);
-			self::setError(__METHOD__, $e->getCode(), $error);
+
+		if(!empty($alertids)){
+			$sql = 'DELETE FROM alerts WHERE '.DBcondition('alertid', $alertids);
+			$result = DBexecute($sql);
+		}
+		else{
+			self::setError(__METHOD__, ZBX_API_ERROR_PARAMETERS, S_EMPTY_INPUT_PARAMETER.' [ alertids ]');
+			$result = false;
+		}
+
+		if($result){
+			return array('alertids'=>$alertids);
+		}
+		else{
+			self::setError(__METHOD__);
 			return false;
 		}
 	}

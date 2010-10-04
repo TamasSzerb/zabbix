@@ -840,7 +840,7 @@ return $caption;
 		$result=DBexecute('INSERT INTO triggers '.
 			'  (triggerid,description,type,priority,status,comments,url,value,error,templateid) '.
 			" values ($triggerid,".zbx_dbstr($description).",$type,$priority,$status,".zbx_dbstr($comments).','.
-			zbx_dbstr($url).",2,'Trigger just added. No status update so far.',".zero2null($templateid).")");
+			zbx_dbstr($url).",2,'Trigger just added. No status update so far.',$templateid)");
 
 		if(!$result){
 			return	$result;
@@ -946,7 +946,7 @@ return $caption;
 					' (triggerid,description,type,priority,status,comments,url,value,expression,templateid)'.
 					' VALUES ('.$newtriggerid.','.zbx_dbstr($trigger['description']).','.$trigger['type'].','.$trigger['priority'].','.
 					$trigger['status'].','.zbx_dbstr($trigger['comments']).','.
-					zbx_dbstr($trigger['url']).",2,'0',".($copy_mode ? 'NULL' : $triggerid).')');
+					zbx_dbstr($trigger['url']).",2,'0',".($copy_mode ? 0 : $triggerid).')');
 
 		if(!$result)
 			return $result;
@@ -1552,6 +1552,18 @@ return $caption;
 		return $description;
 	}
 
+	/*
+	 * Function: expand_trigger_description_by_data
+	 *
+	 * Description:
+	 *	 substitute simple macros in data string with real values
+	 *
+	 * Author:
+	 *	 Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments: !!! Don't forget sync code with C !!!
+	 *
+	 */
 	function expand_trigger_description_by_data($row, $flag = ZBX_FLAG_TRIGGER){
 		if($row){
 			$description = expand_trigger_description_constants($row['description'], $row);
@@ -1597,7 +1609,7 @@ return $caption;
 				if(zbx_strstr($description, $macro)){
 					$value=($flag==ZBX_FLAG_TRIGGER)?
 							trigger_get_func_value($row['expression'],ZBX_FLAG_TRIGGER,$i ? $i : 1, 1):
-							trigger_get_func_value($row['expression'],ZBX_FLAG_EVENT,$i ? $i : 1, $row['clock'], $row['ns']);
+							trigger_get_func_value($row['expression'],ZBX_FLAG_EVENT,$i ? $i : 1, $row['clock']);
 
 					$description = str_replace($macro, $value, $description);
 				}
@@ -1611,7 +1623,7 @@ return $caption;
 				$values = array_values($macros);
 
 				$description = str_replace($search, $values, $description);
-		}
+			}
 		}
 		else{
 			$description = '*ERROR*';
@@ -2026,7 +2038,7 @@ return $caption;
 							' WHERE i.hostid='.$hostid.
 								' AND f.itemid=i.itemid '.
 								' AND f.triggerid=t.triggerid '.
-								' AND t.templateid IS NOT NULL';
+								' AND t.templateid > 0';
 		$result = DBselect($sql);
 		while($trigger = DBfetch($result)){
 			if($trigger['templateid'] > 0){
@@ -2358,7 +2370,7 @@ return $caption;
 			}
 
 			if($unlink_mode){
-				if(DBexecute('UPDATE triggers SET templateid=NULL WHERE triggerid='.$trigger['triggerid'])){
+				if(DBexecute('UPDATE triggers SET templateid=0 WHERE triggerid='.$trigger['triggerid'])){
 						info('Trigger "'.$trigger['description'].'" unlinked');
 				}
 			}
@@ -2909,18 +2921,18 @@ return $caption;
 	 * Comments:
 	 *
 	 */
-	function trigger_get_func_value($expression, $flag, $function, $param, $ns = 0){
+	function trigger_get_func_value($expression, $flag, $function, $param){
 		$result = NULL;
 
 		$functionid=trigger_get_N_functionid($expression,$function);
 		if(isset($functionid)){
-			$row=DBfetch(DBselect('select i.itemid,i.value_type from items i,functions f '.
+			$row=DBfetch(DBselect('select i.* from items i, functions f '.
 				' where i.itemid=f.itemid and f.functionid='.$functionid));
 			if($row)
 			{
 				$result=($flag == ZBX_FLAG_TRIGGER)?
 					item_get_history($row, $param):
-					item_get_history($row, 0, $param, $ns);
+					item_get_history($row, 0, $param);
 			}
 		}
 		return $result;
@@ -3899,7 +3911,7 @@ return $caption;
 			if(!isset($triggersData[$str])) {
 
 				if(ZAPCAT_COMPATIBILITY)
-					$tmp_expr = zbx_str_replace('][', ',,', $str);
+					$tmp_expr = str_replace('][', ',,', $str);
 				else
 					$tmp_expr = $str;
 

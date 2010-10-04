@@ -77,7 +77,7 @@ class CGraphDraw{
 			'gridcolor' => 'cccccc',
 			'maingridcolor' => 'aaaaaa',
 			'gridbordercolor' => '000000',
-			'nonworktimecolor' => 'eaeaea',
+			'noneworktimecolor' => 'eaeaea',
 			'leftpercentilecolor' => '00AA00',
 			'righttpercentilecolor' => 'AA0000',
 			'legendview' => '1',

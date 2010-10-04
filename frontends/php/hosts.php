@@ -503,6 +503,11 @@ include_once('include/page_header.php');
 			}
 			$groups = zbx_toObject($groups, 'groupid');
 
+			$macros = get_request('macros', array());
+			foreach($macros as $mnum => $macro){
+				if(zbx_empty($macro['value'])) unset($macros[$mnum]);
+			}
+
 			$host = array(
 				'host' => $_REQUEST['host'],
 				'port' => $_REQUEST['port'],
@@ -520,7 +525,7 @@ include_once('include/page_header.php');
 				'ipmi_password' => $_REQUEST['ipmi_password'],
 				'groups' => $groups,
 				'templates' => $templates,
-				'macros' => get_request('macros', array()),
+				'macros' => $macros,
 				'extendedProfile' => (get_request('useprofile_ext', 'no') == 'yes') ? get_request('ext_host_profiles', array()) : array(),
 			);
 
@@ -569,7 +574,7 @@ include_once('include/page_header.php');
 			$sql = 'SELECT DISTINCT i.itemid, i.description '.
 					' FROM items i '.
 					' WHERE i.hostid='.$clone_hostid.
-						' AND i.templateid IS NULL '.
+						' AND i.templateid=0 '.
 					' ORDER BY i.description';
 
 			$res = DBselect($sql);

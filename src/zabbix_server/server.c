@@ -159,7 +159,6 @@ int	CONFIG_ENABLE_LOG		= 1;
 
 /* From table config */
 int	CONFIG_REFRESH_UNSUPPORTED	= 0;
-int	CONFIG_NS_SUPPORT		= 0;
 
 /* Zabbix server startup time */
 int     CONFIG_SERVER_STARTUP_TIME      = 0;
@@ -450,22 +449,21 @@ int MAIN_ZABBIX_ENTRY(void)
 
 	DBconnect(ZBX_DB_CONNECT_EXIT);
 
-	result = DBselect(
-			"select refresh_unsupported,ns_support"
-			" from config"
-			" where 1=1" DB_NODE,
-			DBnode_local("configid"));
+	result = DBselect("select refresh_unsupported from config where 1=1" DB_NODE,
+		DBnode_local("configid"));
+	row = DBfetch(result);
 
-	if (NULL != (row = DBfetch(result)))
+	if( (row != NULL) && DBis_null(row[0]) != SUCCEED)
 	{
 		CONFIG_REFRESH_UNSUPPORTED = atoi(row[0]);
-		CONFIG_NS_SUPPORT = atoi(row[1]);
 	}
 	DBfree_result(result);
 
-	result = DBselect("select masterid from nodes where nodeid=%d", CONFIG_NODEID);
+	result = DBselect("select masterid from nodes where nodeid=%d",
+		CONFIG_NODEID);
+	row = DBfetch(result);
 
-	if (NULL != (row = DBfetch(result)) && SUCCEED != DBis_null(row[0]))
+	if( (row != NULL) && DBis_null(row[0]) != SUCCEED)
 	{
 		CONFIG_MASTER_NODEID = atoi(row[0]);
 	}

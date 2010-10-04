@@ -73,19 +73,19 @@ class CAction extends CZBXAPI{
 			'mediatypeids'			=> null,
 			'userids'				=> null,
 			'nopermissions'			=> null,
+			'editable'				=> null,
 // filter
-			'eventsource'			=> null,
-			'evaltype'				=> null,
-			'status'				=> null,
-			'esc_period'			=> null,
-			'recovery_msg'			=> null,
-			'pattern'				=> '',
+			'filter'				=> null,
+			'search'				=> null,
+			'startSearch'			=> null,
+			'excludeSearch'			=> null,
+
 // OutPut
 			'extendoutput'			=> null,
 			'output'				=> API_OUTPUT_REFER,
 			'select_conditions'		=> null,
 			'select_operations'		=> null,
-			'count'					=> null,
+			'countOutput'			=> null,
 			'preservekeys'			=> null,
 
 			'sortfield'				=> '',
@@ -300,12 +300,14 @@ class CAction extends CZBXAPI{
 			zbx_value2array($options['mediatypeids']);
 
 			if($options['output'] != API_OUTPUT_SHORTEN){
-				$sql_parts['select']['mediatypeid'] = 'o.mediatypeid';
+				$sql_parts['select']['mediatypeid'] = 'opm.mediatypeid';
 			}
 
+			$sql_parts['from']['opmediatypes'] = 'opmediatypes opm';
 			$sql_parts['from']['operations'] = 'operations o';
 
-			$sql_parts['where'][] = DBcondition('o.mediatypeid', $options['mediatypeids']);
+			$sql_parts['where'][] = DBcondition('opm.mediatypeid', $options['mediatypeids']);
+			$sql_parts['where']['oopm'] = 'opm.operationid=o.operationid';
 			$sql_parts['where']['ao'] = 'a.actionid=o.actionid';
 		}
 
@@ -315,46 +317,26 @@ class CAction extends CZBXAPI{
 // TODO:
 		}
 
-// eventsource
-		if(!is_null($options['eventsource'])){
-			$sql_parts['where'][] = 'a.eventsource='.$options['eventsource'];
+// filter
+		if(is_array($options['filter'])){
+			zbx_db_filter('actions a', $options, $sql_parts);
 		}
 
-// evaltype
-		if(!is_null($options['evaltype'])){
-			$sql_parts['where'][] = 'a.evaltype='.$options['evaltype'];
+// search
+		if(is_array($options['search'])){
+			zbx_db_search('actions a', $options, $sql_parts);
 		}
 
-// status
-		if(!is_null($options['status'])){
-			$sql_parts['where'][] = 'a.status='.$options['status'];
-		}
-
-// esc_period
-		if(!is_null($options['esc_period'])){
-			$sql_parts['where'][] = 'a.esc_period>'.$options['esc_period'];
-		}
-
-// recovery_msg
-		if(!is_null($options['recovery_msg'])){
-			$sql_parts['where'][] = 'a.recovery_msg<'.$options['recovery_msg'];
-		}
-
-// extendoutput
+// output
 		if($options['output'] == API_OUTPUT_EXTEND){
 			$sql_parts['select']['actions'] = 'a.*';
 		}
 
-// count
-		if(!is_null($options['count'])){
+// countOutput
+		if(!is_null($options['countOutput'])){
 			$options['sortfield'] = '';
 
 			$sql_parts['select'] = array('COUNT(DISTINCT a.actionid) as rowscount');
-		}
-
-// pattern
-		if(!zbx_empty($options['pattern'])){
-			$sql_parts['where'][] = ' UPPER(a.name) LIKE '.zbx_dbstr('%'.zbx_strtoupper($options['pattern']).'%');
 		}
 
 // order
@@ -402,8 +384,8 @@ class CAction extends CZBXAPI{
 		$db_res = DBselect($sql, $sql_limit);
 		while($action = DBfetch($db_res)){
 
-			if($options['count']){
-				$result = $action;
+			if($options['countOutput']){
+				$result = $action['rowscount'];
 			}
 			else{
 				$actionids[$action['actionid']] = $action['actionid'];
@@ -428,7 +410,7 @@ class CAction extends CZBXAPI{
 		}
 
 COpt::memoryPick();
-		if(($options['output'] != API_OUTPUT_EXTEND) || !is_null($options['count'])){
+		if(!is_null($options['countOutput'])){
 			if(is_null($options['preservekeys'])) $result = zbx_cleanHashes($result);
 			return $result;
 		}
@@ -453,6 +435,7 @@ COpt::memoryPick();
 			$res = DBselect($sql);
 			while($operation = DBfetch($res)){
 				$operation['opconditions'] = array();
+				$operation['opmediatypes'] = array();
 
 				$operations[$operation['operationid']] = $operation;
 				$operationids[$operation['operationid']] = $operation['operationid'];
@@ -462,6 +445,12 @@ COpt::memoryPick();
 			$res = DBselect($sql);
 			while($opcondition = DBfetch($res)){
 				$operations[$opcondition['operationid']]['opconditions'][] = $opcondition;
+			}
+
+			$sql = 'SELECT op.* FROM opmediatypes op WHERE '.DBcondition('op.operationid', $operationids);
+			$res = DBselect($sql);
+			while($opmediatype = DBfetch($res)){
+				$operations[$opmediatype['operationid']]['opmediatypes'][] = $opmediatype;
 			}
 
 			foreach($operations as $num => $operation){
@@ -478,6 +467,25 @@ COpt::memoryPick();
 	return $result;
 	}
 
+	public static function exists($object){
+		$keyFields = array(array('actionid', 'name'));
+
+		$options = array(
+			'filter' => zbx_array_mintersect($keyFields, $object),
+			'output' => API_OUTPUT_SHORTEN,
+			'nopermissions' => 1,
+			'limit' => 1
+		);
+
+		if(isset($object['node']))
+			$options['nodeids'] = getNodeIdByNodeName($object['node']);
+		else if(isset($object['nodeids']))
+			$options['nodeids'] = $object['nodeids'];
+
+		$objs = self::get($options);
+
+	return !empty($objs);
+	}
 /**
  * Add actions
  *
@@ -493,27 +501,43 @@ COpt::memoryPick();
  */
 	public static function create($actions){
 		$actions = zbx_toArray($actions);
-		$insert = array();
 		$conditions = array();
 		$operations = array();
 
 		try{
 			self::BeginTransaction(__METHOD__);
 
+// Check fields
+			$action_db_fields = array(
+				'name' => null,
+				'eventsource' => null,
+				'evaltype' => null,
+			);
+			$duplicates = array();
 			foreach($actions as $anum => $action){
-				$action_db_fields = array(
-					'name' => null,
-					'eventsource' => null,
-					'evaltype' => null,
-				);
 				if(!check_db_fields($action_db_fields, $action)){
 					self::exception(ZBX_API_ERROR_PARAMETERS, S_INCORRECT_PARAMETER_USED_FOR_ACTION.' [ '.$action['name'].' ]');
 				}
 
-				$insert[$anum] = $action;
+				if(isset($duplicates[$action['name']]))
+					self::exception(ZBX_API_ERROR_PARAMETERS, S_ACTION.' [ '.$action['name'].' ] '.S_ALREADY_EXISTS_SMALL);
+				else
+					$duplicates[$action['name']] = $action['name'];
 			}
 
-			$actionids = DB::insert('actions', $insert);
+			$options = array(
+				'filter' => array( 'name' => $duplicates ),
+				'output' => API_OUTPUT_SHORTEN,
+				'editable' => 1,
+				'nopermissions' => 1
+			);
+			$dbActions = self::get($options);
+			foreach($dbActions as $anum => $dbAction){
+				self::exception(ZBX_API_ERROR_PARAMETERS, S_ACTION.' [ '.$dbAction['name'].' ] '.S_ALREADY_EXISTS_SMALL);
+			}
+//------
+
+			$actionids = DB::insert('actions', $actions);
 
 			foreach($actions as $anum => $action){
 				if(isset($action['conditions']) && !empty($action['conditions'])){
@@ -534,7 +558,6 @@ COpt::memoryPick();
 
 			self::addOperations($operations);
 			self::addConditions($conditions);
-
 
 			self::EndTransaction(true, __METHOD__);
 			return array('actionids' => $actionids);
@@ -565,10 +588,10 @@ COpt::memoryPick();
 	public static function update($actions){
 		$actions = zbx_toArray($actions);
 		$actionids = zbx_objectValues($actions, 'actionid');
+
 		$update = array();
 		$operations = array();
 		$conditions = array();
-
 		try{
 			self::BeginTransaction(__METHOD__);
 
@@ -585,13 +608,39 @@ COpt::memoryPick();
 				}
 			}
 
+// Check fields
+			$action_db_fields = array(
+				'actionid' => null
+			);
+
+			$duplicates = array();
 			foreach($actions as $anum => $action){
-				$action_db_fields = array(
-					'actionid' => null
-				);
 				if(!check_db_fields($action_db_fields, $action)){
 					self::exception(ZBX_API_ERROR_PARAMETERS, S_INCORRECT_PARAMETER_USED_FOR_ACTION.' [ '.$action['name'].' ]');
 				}
+
+				if(!isset($action['name'])) continue;
+
+				if(isset($duplicates[$action['name']]))
+					self::exception(ZBX_API_ERROR_PARAMETERS, S_ACTION.' [ '.$action['name'].' ] '.S_ALREADY_EXISTS_SMALL);
+				else
+					$duplicates[$action['name']] = $action['name'];
+			}
+//------
+
+			foreach($actions as $anum => $action){
+// Existance
+				$options = array(
+					'filter' => array( 'name' => $action['name'] ),
+					'output' => API_OUTPUT_SHORTEN,
+					'editable' => 1,
+					'nopermissions' => 1
+				);
+				$action_exists = self::get($options);
+				if(($action_exist = reset($action_exists)) && ($action_exist['actionid'] != $action['actionid'])){
+					self::exception(ZBX_API_ERROR_PARAMETERS, S_ACTION.' [ '.$action['name'].' ] '.S_ALREADY_EXISTS_SMALL);
+				}
+//----
 
 				if(isset($action['conditions']) && !empty($action['conditions'])){
 					foreach($action['conditions'] as $condition){
@@ -629,6 +678,7 @@ COpt::memoryPick();
 
 			DB::delete('conditions', DBcondition('actionid', $actionids));
 			DB::delete('opconditions', DBcondition('operationid', $operationids));
+			DB::delete('opmediatypes', DBcondition('operationid', $operationids));
 			DB::delete('operations', DBcondition('actionid', $actionids));
 
 			self::addOperations($operations);
@@ -651,7 +701,7 @@ COpt::memoryPick();
  *
  * @param array $conditions multidimensional array with conditions data
  * @param array $conditions[0,...]['actionid']
- * @param array $conditions[0,...]['type']
+ * @param array $conditions[0,...]['conditiontype']
  * @param array $conditions[0,...]['value']
  * @param array $conditions[0,...]['operator']
  * @return boolean
@@ -665,7 +715,7 @@ COpt::memoryPick();
 		}
 
 		foreach($conditions as $cnum => $condition){
-			if(!validate_condition($condition['type'], $condition['value'])){
+			if(!validate_condition($condition['conditiontype'], $condition['value'])){
 				self::exception(ZBX_API_ERROR_PARAMETERS, S_INCORRECT_PARAMETER_USED_FOR_CONDITIONS);
 			}
 			$conditions_insert[] = $condition;
@@ -679,7 +729,7 @@ COpt::memoryPick();
 /**
  * add operations
  *
- * @param _array $operations multidimensional array with operations data
+ * @param array $operations multidimensional array with operations data
  * @param array $operations[0,...]['actionid']
  * @param array $operations[0,...]['operationtype']
  * @param array $operations[0,...]['object']
@@ -731,9 +781,17 @@ COpt::memoryPick();
 					$opcondition_inserts[] = $opcondition;
 				}
 			}
+
+			if($operation['mediatypeid'] > 0){
+				$opmediatype_inserts[] = array(
+					'operationid' => $operationids[$onum],
+					'mediatypeid' => $operation['mediatypeid'],
+				);
+			}
 		}
 
 		DB::insert('opconditions', $opcondition_inserts);
+		DB::insert('opmediatypes', $opmediatype_inserts);
 
 		return true;
 	}
@@ -765,9 +823,22 @@ COpt::memoryPick();
 				}
 			}
 
+			$operationids = array();
+			$sql = 'SELECT operationid FROM operations WHERE '.DBcondition('actionid', $actionids);
+			$operations_db = DBselect($sql);
+			while($operationid = DBfetch($operations_db)){
+				$operationids[] = $operationid['operationid'];
+			}
+
+			DB::delete('conditions', DBcondition('actionid', $actionids));
+			DB::delete('opconditions', DBcondition('operationid', $operationids));
+			DB::delete('opmediatypes', DBcondition('operationid', $operationids));
+			DB::delete('alerts', DBcondition('actionid', $actionids));
+			DB::delete('operations', DBcondition('actionid', $actionids));
 			DB::delete('actions', DBcondition('actionid', $actionids));
 
 			self::EndTransaction(true, __METHOD__);
+
 			return array('actionids' => $actionids);
 		}
 		catch(APIException $e){

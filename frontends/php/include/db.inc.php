@@ -583,14 +583,6 @@ COpt::savesqlrequest(microtime(true)-$time_start,$query);
 			}
 		}
 //*/
-		if($result){
-			foreach($result as $key => $val){
-				if(is_null($val)){
-					$result[$key] = 0;
-				}
-			}
-		}
-
 	return $result;
 	}
 
@@ -755,12 +747,12 @@ else {
 
 		$found = false;
 		do{
-			$min=bcadd(bcmul($nodeid,'100000000000000'),bcmul($ZBX_LOCALNODEID,'100000000000'), 0);
-			$max=bcadd(bcadd(bcmul($nodeid,'100000000000000'),bcmul($ZBX_LOCALNODEID,'100000000000')),'99999999999', 0);
+			$min=bcadd(bcmul($nodeid,'100000000000000'),bcmul($ZBX_LOCALNODEID,'100000000000'));
+			$max=bcadd(bcadd(bcmul($nodeid,'100000000000000'),bcmul($ZBX_LOCALNODEID,'100000000000')),'99999999999');
 			$row = DBfetch(DBselect('SELECT nextid FROM ids WHERE nodeid='.$nodeid .' AND table_name='.zbx_dbstr($table).' AND field_name='.zbx_dbstr($field)));
 			if(!$row){
 				$row = DBfetch(DBselect('SELECT max('.$field.') AS id FROM '.$table.' WHERE '.$field.'>='.$min.' AND '.$field.'<='.$max));
-				if(!$row || ($row['id'] == 0)){
+				if(!$row || is_null($row['id'])){
 					DBexecute("INSERT INTO ids (nodeid,table_name,field_name,nextid) VALUES ($nodeid,'$table','$field',$min)");
 				}
 				else{
@@ -826,6 +818,59 @@ else {
 		);
 	}
 
+	function zbx_db_search($table, $options, &$sql_parts){
+		list($table, $tableShort) = explode(' ', $table);
+
+		$tableSchema = DB::getSchema($table);
+		if(!$tableSchema) info('Error in search request for table ['.$table.']');
+
+		$start = is_null($options['startSearch'])?'%':'';
+		$exclude = is_null($options['excludeSearch'])?'':' NOT ';
+
+		$search = array();
+		foreach($options['search'] as $field => $pattern){
+			if(!isset($tableSchema['fields'][$field]) || zbx_empty($pattern)) continue;
+			if($tableSchema['fields'][$field]['type'] != DB::FIELD_TYPE_CHAR) continue;
+
+			$search[$field] =
+				' UPPER('.$tableShort.'.'.$field.') '.
+				$exclude.' LIKE '.
+				zbx_dbstr($start.zbx_strtoupper($pattern).'%');
+		}
+
+		if(!empty($search)) $sql_parts['where']['search'] = '( '.implode(' OR ', $search).' )';
+	}
+
+
+	function zbx_db_filter($table, $options, &$sql_parts){
+		list($table, $tableShort) = explode(' ', $table);
+
+		$tableSchema = DB::getSchema($table);
+		if(!$tableSchema) info('Error in search request for table ['.$table.']');
+
+		$filter = array();
+		foreach($options['filter'] as $field => $value){
+			if(!isset($tableSchema['fields'][$field]) || zbx_empty($value)) continue;
+
+			zbx_value2array($value);
+			switch($tableSchema['fields'][$field]['type']){
+				case DB::FIELD_TYPE_CHAR:
+					$filter[$field] = DBcondition($tableShort.'.'.$field, $value, false, true);
+					break;
+				case DB::FIELD_TYPE_INT:
+				case DB::FIELD_TYPE_FLOAT:
+				case DB::FIELD_TYPE_ID:
+					$filter[$field] = DBcondition($tableShort.'.'.$field, $value);
+					break;
+				default:
+					continue;
+			}
+		}
+
+		if(!empty($filter)) $sql_parts['where']['filter'] = '( '.implode(' AND ', $filter).' )';
+	}
+
+
 	function remove_nodes_from_id($id){
 		return bcmod($id,'100000000000');
 	}
@@ -882,39 +927,6 @@ else {
 	}
 
 
-	function whereClause($where){
-		$sql = '';
-
-		foreach($where as $cond){
-			$sql .= ($sql == '' ?  '' : ' AND ');
-			$sql .= $cond['field'];
-
-			if($cond['value'] == 0){
-				if($cond['operatot'] == '='){
-					$sql .= ' IS NULL ';
-				}
-				else{
-					$sql .= ' IS NOT NULL ';
-				}
-			}
-			else if(is_array($cond['value'])){
-
-			}
-			else{
-				$sql .= $cond['operatot'] . $cond['value'];
-			}
-		}
-
-		return $sql;
-	}
-
-	function zero2null($val){
-		if($val == 0){
-			return 'NULL';
-		}
-		else return $val;
-	}
-
 
 	class DB{
 		const SCHEMA_FILE = 'schema.inc.php';
@@ -928,7 +940,7 @@ else {
 		const FIELD_TYPE_UINT = 'uint';
 		const FIELD_TYPE_BLOB = 'blob';
 
-		static $schema = null;
+		private static $schema = null;
 
 		private static function exception($code, $errors=array()){
 			throw new APIException($code, $errors);
@@ -949,7 +961,7 @@ else {
 				' WHERE nodeid='.$nodeid .
 					' AND table_name='.zbx_dbstr($table).
 					' AND field_name='.zbx_dbstr($id_name).
-					' FOR UPDATE';
+				' FOR UPDATE';
 			$res = DBfetch(DBselect($sql));
 			if($res){
 				$nextid = bcadd($res['nextid'], 1, 0);
@@ -985,7 +997,7 @@ else {
 		}
 
 
-		protected static function getSchema($table=null){
+		public static function getSchema($table=null){
 			if(is_null(self::$schema)){
 				self::$schema = include(self::SCHEMA_FILE);
 			}
@@ -1010,22 +1022,19 @@ else {
 
 			if($getids)
 				$id = self::reserveIds($table, count($values));
-				
+
 			$table_schema = self::getSchema($table);
 
 			foreach($values as $key => $row){
-				foreach($row as $field => $v){
+				foreach($row as $field => $value){
 					if(!isset($table_schema['fields'][$field])){
 						unset($row[$field]);
 					}
 					else if($table_schema['fields'][$field]['type'] == self::FIELD_TYPE_CHAR){
-						$row[$field] = zbx_dbstr($v);
-					}
-					else if($table_schema['fields'][$field]['type'] == self::FIELD_TYPE_ID){
-						$row[$field] = zero2null($v);
+						$row[$field] = zbx_dbstr($value);
 					}
 				}
-				
+
 				if($getids){
 					$result_ids[$key] = $id;
 					$row[$table_schema['key']] = $id;
@@ -1036,7 +1045,7 @@ else {
 					' VALUES ('.implode(',',array_values($row)).')';
 				if(!DBexecute($sql)) self::exception(self::DBEXECUTE_ERROR, 'DBEXECUTE_ERROR');
 			}
-			
+
 			return $result_ids;
 		}
 
@@ -1055,17 +1064,13 @@ else {
 			$data = zbx_toArray($data);
 			$table_schema = self::getSchema($table);
 
-			foreach($data as $row){
+			foreach($data as $dnum => $row){
 				$sql_set = '';
 				foreach($row['values'] as $field => $value){
-					if(!isset($table_schema['fields'][$field])){
-						continue;
-					}
-					else if($table_schema['fields'][$field]['type'] == self::FIELD_TYPE_CHAR){
+					if(!isset($table_schema['fields'][$field])) continue;
+
+					if($table_schema['fields'][$field]['type'] == self::FIELD_TYPE_CHAR){
 						$value = zbx_dbstr($value);
-					}
-					else if($table_schema['fields'][$field]['type'] == self::FIELD_TYPE_ID){
-						$value = zero2null($value);
 					}
 
 					$sql_set .= $field.'='.$value.',';
@@ -1090,5 +1095,6 @@ else {
 		}
 
 	}
+
 
 ?>

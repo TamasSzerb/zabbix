@@ -229,7 +229,6 @@
 	'S_BACK_BIG'=>				'BACK',
 	'S_NO_DATA_FOR_EXPORT'=>		'No data for export',
 	'S_NO_DATA_SMALL'=>			'no data',
-	'S_NO_DATA_BIG'=>			'NO DATA',
 	'S_RULES'=>				'Rules',
 	'S_EXISTING'=>				'Existing',
 	'S_MISSING'=>				'Missing',
@@ -239,8 +238,6 @@
 	'S_IMPORTED'=>				'Imported',
 	'S_SUCCESSEFULLY_SMALL'=>		'successfully',
 	'S_FAILED_SMALL'=>			'failed',
-	'S_LOCAL_BIG'=>				'LOCAL',
-	'S_SERVER_BIG'=>			'SERVER',
 
 //	export.inc.php
 	'S_EXPORT_DATE_ATTRIBUTE_DATE_FORMAT'=>	'd.m.y',
@@ -1629,7 +1626,6 @@
 	'S_TIME_TYPE'=>				'Time type',
 	'S_SERVER_TIME'=>			'Server time',
 	'S_LOCAL_TIME'=>			'Local time',
-	'S_HOST_TIME'=>				'Host time',
 
 	'S_STYLE'=>				'Style',
 	'S_VERTICAL'=>				'Vertical',
@@ -2388,6 +2384,9 @@
 	'S_CUSER_ERROR_LDAP_MODULE_MISSING'=>			'Probably php-ldap module is missing',
 	'S_CUSER_ERROR_FAILED_LOGIN_ATTEMPTS'=>				'failed login attempts logged.',
 	'S_CUSER_ERROR_LAST_FAILED_ATTEMPTS'=>				'Last failed attempt was from',
+	'S_CUSER_ERROR_ONLY_SUPER_ADMIN_CAN_CREATE_SCRIPTS'=>		'Only Super Admins can create Scripts',
+	'S_CUSER_ERROR_ONLY_SUPER_ADMIN_CAN_UPDATE_SCRIPTS'=>		'Only Super Admins can update Scripts',
+	'S_CUSER_ERROR_ONLY_SUPER_ADMIN_CAN_DELETE_SCRIPTS'=>		'Only Super Admins can delete Scripts',
 	'S_CUSER_ERROR_ONLY_SUPER_ADMIN_CAN_CREATE_USERS'=>		'Only Super Admins can create Users',
 	'S_CUSER_ERROR_ONLY_SUPER_ADMIN_CAN_UPDATE_USERS'=>		'Only Super Admins can update Users',
 	'S_CUSER_ERROR_ONLY_SUPER_ADMIN_CAN_DELETE_USERS'=>		'Only Super Admins can delete Users',
@@ -2453,6 +2452,7 @@
 	'S_LATEST_DATA'=>			'Latest data',
 
 //	Errors
+	'S_DOES_NOT_EXISTS_SMALL'=>		'does not exists',
 	'S_INCORRECT_DESCRIPTION'=>		'Incorrect description',
 	'S_CANT_FORMAT_TREE'=>			'Can\'t format Tree',
 	'S_NO_PERMISSION'=>				'You do not have permission to perform this operation',

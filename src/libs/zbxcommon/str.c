@@ -241,7 +241,7 @@ void	__zbx_zbx_snprintf_alloc(char **str, int *alloc_len, int *offset, int max_l
 		*str = zbx_realloc(*str, *alloc_len);
 	}
 
-	*offset += zbx_vsnprintf(*str + *offset, max_len, fmt, args);
+	*offset += zbx_vsnprintf(*str+*offset, max_len, fmt, args);
 
 	va_end(args);
 }
@@ -276,8 +276,7 @@ void	zbx_strcpy_alloc(char **str, int *alloc_len, int *offset, const char *src)
 
 	if (*offset + sz >= *alloc_len)
 	{
-		while (*offset + sz >= *alloc_len)
-			*alloc_len *= 2;
+		*alloc_len += sz < 32 ? 64 : 2 * sz;
 		*str = zbx_realloc(*str, *alloc_len);
 	}
 
@@ -2006,30 +2005,25 @@ int	zbx_get_next_field(const char **line, char **output, int *olen, char separat
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	str_in_list(const char *list, const char *value, const char delimiter)
+int	str_in_list(char *list, const char *value, const char delimiter)
 {
-	const char	*start, *end;
-	size_t		sz, vsz;
+	char	*start, *end;
+	int	ret = FAIL;
 
-	vsz = strlen(value);
-
-	for (start = list; *start != '\0'; )
-	{
+	for (start = list; *start != '\0' && ret == FAIL;) {
 		if (NULL != (end = strchr(start, delimiter)))
-			sz = end - start;
-		else
-			sz = strlen(start);
+			*end = '\0';
 
-		if (vsz == sz && 0 == strncmp(start, value, sz))
-			return SUCCEED;
+		if (0 == strcmp(start, value))
+			ret = SUCCEED;
 
-		if (end != NULL)
+		if (end != NULL) {
+			*end = delimiter;
 			start = end + 1;
-		else
+		} else
 			break;
 	}
-
-	return FAIL;
+	return ret;
 }
 
 /******************************************************************************
@@ -2370,16 +2364,6 @@ const char	*zbx_dservice_type_string(zbx_dservice_type_t service)
 	case SVC_SNMPv3: return "SNMPv3 agent";
 	case SVC_ICMPPING: return "ICMP Ping";
 	default: return "unknown";
-	}
-}
-
-const char	*zbx_nodetype_string(unsigned char nodetype)
-{
-	switch (nodetype)
-	{
-		case ZBX_NODE_MASTER: return "MASTER";
-		case ZBX_NODE_SLAVE: return "SLAVE";
-		default: return "unknown";
 	}
 }
 

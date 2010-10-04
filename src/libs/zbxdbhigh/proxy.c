@@ -52,7 +52,6 @@ static ZBX_HISTORY_TABLE ht = {
 		{"h.host",	ZBX_PROTO_TAG_HOST,		ZBX_JSON_TYPE_STRING,	NULL},
 		{"i.key_",	ZBX_PROTO_TAG_KEY,		ZBX_JSON_TYPE_STRING,	NULL},
 		{"p.clock",	ZBX_PROTO_TAG_CLOCK,		ZBX_JSON_TYPE_INT,	NULL},
-		{"p.ns",	ZBX_PROTO_TAG_NS,		ZBX_JSON_TYPE_INT,	NULL},
 		{"p.timestamp",	ZBX_PROTO_TAG_LOGTIMESTAMP,	ZBX_JSON_TYPE_INT,	"0"},
 		{"p.source",	ZBX_PROTO_TAG_LOGSOURCE,	ZBX_JSON_TYPE_STRING,	""},
 		{"p.severity",	ZBX_PROTO_TAG_LOGSEVERITY,	ZBX_JSON_TYPE_INT,	"0"},
@@ -252,62 +251,6 @@ static void	get_proxyconfig_table(zbx_uint64_t proxy_hostid, struct zbx_json *j,
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
 
-void	get_proxy_monitored_hostids(zbx_uint64_t proxy_hostid, zbx_uint64_t **hostids, int *hostids_alloc, int *hostids_num)
-{
-	DB_RESULT	result;
-	DB_ROW		row;
-	zbx_uint64_t	hostid, *ids = NULL;
-	int		ids_alloc = 0, ids_num = 0;
-	char		*sql = NULL;
-	int		sql_alloc = 612, sql_offset;
-
-	sql = zbx_malloc(sql, sql_alloc * sizeof(char));
-
-	result = DBselect(
-			"select hostid"
-			" from hosts"
-			" where proxy_hostid=" ZBX_FS_UI64
-				" and status=%d",
-			proxy_hostid,
-			HOST_STATUS_MONITORED);
-
-	while (NULL != (row = DBfetch(result)))
-	{
-		ZBX_STR2UINT64(hostid, row[0])
-
-		uint64_array_add(hostids, hostids_alloc, hostids_num, hostid, 64);
-		uint64_array_add(&ids, &ids_alloc, &ids_num, hostid, 64);
-	}
-	DBfree_result(result);
-
-	while (0 != ids_num)
-	{
-		sql_offset = 0;
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 45,
-				"select templateid"
-				" from hosts_templates"
-				" where");
-		DBadd_condition_alloc(&sql, &sql_alloc, &sql_offset,
-				"hostid", ids, ids_num);
-
-		ids_num = 0;
-
-		result = DBselect("%s", sql);
-
-		while (NULL != (row = DBfetch(result)))
-		{
-			ZBX_STR2UINT64(hostid, row[0])
-
-			uint64_array_add(hostids, hostids_alloc, hostids_num, hostid, 64);
-			uint64_array_add(&ids, &ids_alloc, &ids_num, hostid, 64);
-		}
-		DBfree_result(result);
-	}
-
-	zbx_free(ids);	
-	zbx_free(sql);	
-}
-
 /******************************************************************************
  *                                                                            *
  * Function: get_proxyconfig_data                                             *
@@ -331,11 +274,11 @@ void	get_proxyconfig_data(zbx_uint64_t proxy_hostid, struct zbx_json *j)
 	};
 
 	static const struct proxytable_t pt[]={
-		{"globalmacro"},
 		{"hosts"},
-		{"hosts_templates"},
-		{"hostmacro"},
 		{"items"},
+		{"hosts_templates"},
+		{"globalmacro"},
+		{"hostmacro"},
 		{"drules"},
 		{"dchecks"},
 		{NULL}
@@ -344,37 +287,27 @@ void	get_proxyconfig_data(zbx_uint64_t proxy_hostid, struct zbx_json *j)
 	const char	*__function_name = "get_proxyconfig_data";
 	int		i;
 	const ZBX_TABLE	*table;
-	char		*condition = NULL;
-	int		condition_alloc = 512, condition_offset;
-	zbx_uint64_t	*hostids = NULL;
-	int		hostids_alloc = 0, hostids_num = 0;
+	char		condition[512];
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() proxy_hostid:" ZBX_FS_UI64,
 			__function_name, proxy_hostid);
-
-	assert(proxy_hostid);
-
-	condition = zbx_malloc(condition, condition_alloc * sizeof(char));
-
-	get_proxy_monitored_hostids(proxy_hostid, &hostids, &hostids_alloc, &hostids_num);
 
 	for (i = 0; pt[i].table != NULL; i++)
 	{
 		if (NULL == (table = DBget_table(pt[i].table)))
 			continue;
 
-		condition_offset = 0;
-
 		if (0 == strcmp(pt[i].table, "hosts"))
 		{
-			zbx_snprintf_alloc(&condition, &condition_alloc, &condition_offset, 256,
-					" where");
-			DBadd_condition_alloc(&condition, &condition_alloc, &condition_offset,
-					"t.hostid", hostids, hostids_num);
+			zbx_snprintf(condition, sizeof(condition),
+					" where t.proxy_hostid=" ZBX_FS_UI64
+						" and t.status=%d",
+					proxy_hostid,
+					HOST_STATUS_MONITORED);
 		}
 		else if (0 == strcmp(pt[i].table, "items"))
 		{
-			zbx_snprintf_alloc(&condition, &condition_alloc, &condition_offset, 256,
+			zbx_snprintf(condition, sizeof(condition),
 					", hosts r where t.hostid=r.hostid"
 						" and r.proxy_hostid=" ZBX_FS_UI64
 						" and r.status=%d"
@@ -391,7 +324,7 @@ void	get_proxyconfig_data(zbx_uint64_t proxy_hostid, struct zbx_json *j)
 		}
 		else if (0 == strcmp(pt[i].table, "hosts_templates"))
 		{
-			zbx_snprintf_alloc(&condition, &condition_alloc, &condition_offset, 256,
+			zbx_snprintf(condition, sizeof(condition),
 					", hosts r where t.hostid=r.hostid"
 						" and r.proxy_hostid=" ZBX_FS_UI64
 						" and r.status=%d",
@@ -400,7 +333,7 @@ void	get_proxyconfig_data(zbx_uint64_t proxy_hostid, struct zbx_json *j)
 		}
 		else if (0 == strcmp(pt[i].table, "drules"))
 		{
-			zbx_snprintf_alloc(&condition, &condition_alloc, &condition_offset, 256,
+			zbx_snprintf(condition, sizeof(condition),
 					" where t.proxy_hostid=" ZBX_FS_UI64
 						" and t.status=%d",
 					proxy_hostid,
@@ -408,7 +341,7 @@ void	get_proxyconfig_data(zbx_uint64_t proxy_hostid, struct zbx_json *j)
 		}
 		else if (0 == strcmp(pt[i].table, "dchecks"))
 		{
-			zbx_snprintf_alloc(&condition, &condition_alloc, &condition_offset, 256,
+			zbx_snprintf(condition, sizeof(condition),
 					", drules r where t.druleid=r.druleid"
 						" and r.proxy_hostid=" ZBX_FS_UI64
 						" and r.status=%d",
@@ -417,20 +350,30 @@ void	get_proxyconfig_data(zbx_uint64_t proxy_hostid, struct zbx_json *j)
 		}
 		else if (0 == strcmp(pt[i].table, "hostmacro"))
 		{
-			zbx_snprintf_alloc(&condition, &condition_alloc, &condition_offset, 256,
-					" where");
-			DBadd_condition_alloc(&condition, &condition_alloc, &condition_offset,
-					"t.hostid", hostids, hostids_num);
+			zbx_snprintf(condition, sizeof(condition),
+					" where t.hostid in ("
+							"select hostid"
+							" from hosts"
+							" where proxy_hostid=" ZBX_FS_UI64
+								" and status=%d"
+							")"
+						" or t.hostid in ("
+							"select t.templateid"
+							" from hosts_templates t,hosts h"
+							" where h.hostid=t.hostid"
+								" and h.proxy_hostid=" ZBX_FS_UI64
+								" and h.status=%d"
+							")",
+					proxy_hostid,
+					HOST_STATUS_MONITORED,
+					proxy_hostid,
+					HOST_STATUS_MONITORED);
 		}
 		else
 			*condition = '\0';
 
 		get_proxyconfig_table(proxy_hostid, j, table, condition);
 	}
-
-	zbx_free(condition);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "%s", j->buffer);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
@@ -1329,7 +1272,7 @@ void	process_mass_data(zbx_sock_t *sock, zbx_uint64_t proxy_hostid,
 
 		if (item.host.maintenance_status == HOST_MAINTENANCE_STATUS_ON &&
 				item.host.maintenance_type == MAINTENANCE_TYPE_NODATA &&
-				item.host.maintenance_from <= values[i].ts.sec)
+				item.host.maintenance_from <= values[i].clock)
 			continue;
 
 		if (item.type == ITEM_TYPE_INTERNAL || item.type == ITEM_TYPE_AGGREGATE || item.type == ITEM_TYPE_CALCULATED)
@@ -1347,7 +1290,7 @@ void	process_mass_data(zbx_sock_t *sock, zbx_uint64_t proxy_hostid,
 
 		if (0 == strcmp(values[i].value, "ZBX_NOTSUPPORTED"))
 		{
-			DCadd_nextcheck(item.itemid, (time_t)values[i].ts.sec, values[i].value);
+			DCadd_nextcheck(item.itemid, (time_t)values[i].clock, values[i].value);
 
 			if (NULL != processed)
 				(*processed)++;
@@ -1362,7 +1305,7 @@ void	process_mass_data(zbx_sock_t *sock, zbx_uint64_t proxy_hostid,
 				if (ITEM_VALUE_TYPE_LOG == item.value_type)
 					calc_timestamp(values[i].value, &values[i].timestamp, item.logtimefmt);
 
-				dc_add_history(item.itemid, item.value_type, &agent, &values[i].ts,
+				dc_add_history(item.itemid, item.value_type, &agent, values[i].clock,
 						values[i].timestamp, values[i].source, values[i].severity,
 						values[i].logeventid, values[i].lastlogsize, values[i].mtime);
 
@@ -1373,7 +1316,7 @@ void	process_mass_data(zbx_sock_t *sock, zbx_uint64_t proxy_hostid,
 			{
 				zabbix_log(LOG_LEVEL_WARNING, "Item [%s:%s] error: %s",
 						item.host.host, item.key_orig, agent.msg);
-				DCadd_nextcheck(item.itemid, (time_t)values[i].ts.sec, agent.msg);
+				DCadd_nextcheck(item.itemid, (time_t)values[i].clock, agent.msg);
 			}
 			else
 				THIS_SHOULD_NEVER_HAPPEN; /* set_result_type() always sets MSG result if not SUCCEED */
@@ -1425,7 +1368,7 @@ int	process_hist_data(zbx_sock_t *sock, struct zbx_json_parse *jp,
 	int			ret = SUCCEED;
 	int			processed = 0;
 	double			sec;
-	zbx_timespec_t		ts, proxy_timediff;
+	time_t			now, proxy_timediff = 0;
 
 #define VALUES_MAX	256
 	static AGENT_VALUE	*values = NULL, *av;
@@ -1433,30 +1376,14 @@ int	process_hist_data(zbx_sock_t *sock, struct zbx_json_parse *jp,
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
+	now = time(NULL);
 	sec = zbx_time();
-
-	zbx_timespec(&ts);
-	proxy_timediff.sec = 0;
-	proxy_timediff.ns = 0;
 
 	if (NULL == values)
 		values = zbx_malloc(values, VALUES_MAX * sizeof(AGENT_VALUE));
 
 	if (SUCCEED == zbx_json_value_by_name(jp, ZBX_PROTO_TAG_CLOCK, tmp, sizeof(tmp)))
-	{
-		proxy_timediff.sec = ts.sec - atoi(tmp);
-
-		if (SUCCEED == zbx_json_value_by_name(jp, ZBX_PROTO_TAG_NS, tmp, sizeof(tmp)))
-		{
-			proxy_timediff.ns = ts.ns - atoi(tmp);
-
-			if (proxy_timediff.ns < 0)
-			{
-				proxy_timediff.sec--;
-				proxy_timediff.ns += 1000000000;
-			}
-		}
-	}
+		proxy_timediff = now - atoi(tmp);
 
 /* {"request":"ZBX_SENDER_DATA","data":[{"key":"system.cpu.num",...,...},{...},...]}
  *                                     ^
@@ -1494,24 +1421,9 @@ int	process_hist_data(zbx_sock_t *sock, struct zbx_json_parse *jp,
 		memset(av, 0, sizeof(AGENT_VALUE));
 
 		if (SUCCEED == zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_CLOCK, tmp, sizeof(tmp)))
-		{
-			av->ts.sec = atoi(tmp) + proxy_timediff.sec;
-
-			if (SUCCEED == zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_NS, tmp, sizeof(tmp)))
-			{
-				av->ts.ns = atoi(tmp) + proxy_timediff.ns;
-
-				if (av->ts.ns > 999999999)
-				{
-					av->ts.sec++;
-					av->ts.ns -= 1000000000;
-				}
-			}
-			else
-				av->ts.ns = -1;
-		}
+			av->clock = atoi(tmp) + proxy_timediff;
 		else
-			zbx_timespec(&av->ts);
+			av->clock = now;
 
 		if (FAIL == zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_HOST, av->host_name, sizeof(av->host_name)))
 			continue;
@@ -1660,16 +1572,13 @@ void	process_dhis_data(struct zbx_json_parse *jp)
 		if (0 == last_druleid || drule.druleid != last_druleid)
 		{
 			result = DBselect(
-					"select dcheckid"
-					" from dchecks"
-					" where druleid=" ZBX_FS_UI64
-						" and uniq=1",
+					"select unique_dcheckid"
+					" from drules"
+					" where druleid=" ZBX_FS_UI64,
 					drule.druleid);
 
 			if (NULL != (row = DBfetch(result)))
-			{
-				ZBX_STR2UINT64(drule.unique_dcheckid, row[0])
-			}
+				ZBX_STR2UINT64(drule.unique_dcheckid, row[0]);
 			DBfree_result(result);
 
 			last_druleid = drule.druleid;

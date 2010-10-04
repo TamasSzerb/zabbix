@@ -1,17 +1,7 @@
-Changes for 1.9
-
- - [ZBX-3045] fixed deleting mediatype (Vedmak)
- - [DEV-471] field graph_theme.noneworktimecolor renamed to nonworktimecolor (Sasha)
- - [DEV-471] database integrity - added foreign keys (Sasha,Vedmak)
- - [ZBXNEXT-483] added vfs.file.contents[file,encoding] check (asaveljevs)
- - [ZBXNEXT-457] added support of nanoseconds for history tables (Sasha)
- - [DEV-449] added display of host time in screens (Aly)
- - [DEV-449] added system.localtime[local] check (Sasha)
- - [DEV-444] added optional suppressing of processing of older data in log[], logrt[] and eventlog[] (Sasha)
-
 Changes for 1.8.4rc1
 
  - [ZBX-3070] fixed event date format inconsistency (Vedmak)
+ - [ZBX-2872] greatly improved API methods consistency (Aly)
  - [ZBX-3068] fixed possible crash of server while processing passive proxies (Sasha)
  - [ZBX-3068] fixed server memory leak while processing passive proxies (Sasha)
  - [ZBX-2749] fixed length parameter being ignored for web.page.regexp[] (asaveljevs)
@@ -43,6 +33,7 @@ Changes for 1.8.4rc1
  - [ZBX-1486] when multiple map elements are selected, pressing "Remove" in editing form removes all selected elements (KB)
  - [ZBX-1442] when linking objects during map editing, link "apply" does not close the form any more (KB)
  - [ZBX-2986] acknowledges now are hidden in last 20 issue popup when turned off (KB)
+ - [ZBX-2988] fixed {ITEM.VALUE} macro in Monitoring/Events screen (Sasha)
  - [ZBX-2974] fixed possibility to delete templated applications (Vedmak)
  - [ZBX-1172] added sorting for audit resource dropdown (Vedmak)
  - [ZBX-2982] added IP and port of Zabbix server in dashboard widget "Status of Zabbix" (Vedmak)

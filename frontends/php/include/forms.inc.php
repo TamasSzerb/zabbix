@@ -157,7 +157,7 @@
 		$frm_title = S_DISCOVERY_RULE;
 
 		if(isset($_REQUEST['druleid'])){
-			if($rule_data = DBfetch(DBselect('SELECT * FROM drules WHERE druleid='.$_REQUEST['druleid'])))
+			if( ($rule_data = DBfetch(DBselect('SELECT * FROM drules WHERE druleid='.$_REQUEST['druleid']))))
 				$frm_title = S_DISCOVERY_RULE.' "'.$rule_data['name'].'"';
 		}
 
@@ -180,7 +180,7 @@
 			//TODO init checks
 			$dchecks = array();
 			$db_checks = DBselect('SELECT dcheckid,type,ports,key_,snmp_community,snmpv3_securityname,'.
-						'snmpv3_securitylevel,snmpv3_authpassphrase,snmpv3_privpassphrase,uniq'.
+						'snmpv3_securitylevel,snmpv3_authpassphrase,snmpv3_privpassphrase'.
 						' FROM dchecks'.
 						' WHERE druleid='.$_REQUEST['druleid']);
 			while($check_data = DBfetch($db_checks)){
@@ -191,7 +191,7 @@
 						'snmpv3_securitylevel' => $check_data['snmpv3_securitylevel'],
 						'snmpv3_authpassphrase' => $check_data['snmpv3_authpassphrase'],
 						'snmpv3_privpassphrase' => $check_data['snmpv3_privpassphrase']));
-				if($check_data['uniq'])
+				if ($check_data['dcheckid'] == $rule_data['unique_dcheckid'])
 					$uniqueness_criteria = $count - 1;
 			}
 			$dchecks_deleted = get_request('dchecks_deleted',array());
@@ -5021,26 +5021,6 @@ JAVASCRIPT;
 		return $frmMap;
 	}
 
-	function insert_command_result_form($scriptid,$hostid){
-		$result = execute_script($scriptid,$hostid);
-
-		$sql = 'SELECT name '.
-				' FROM scripts '.
-				' WHERE scriptid='.$scriptid;
-		$script_info = DBfetch(DBselect($sql));
-
-		$frmResult = new CFormTable($script_info['name'].': '.script_make_command($scriptid,$hostid));
-		$message = $result['value'];
-		if($result['response'] == 'failed'){
-			error($message);
-			$message = '';
-		}
-
-		$frmResult->addRow(S_RESULT,new CTextArea('message',$message,100,25,'yes'));
-		$frmResult->addItemToBottomRow(new CButton('close',S_CLOSE,'window.close();'));
-		$frmResult->show();
-	}
-
 	function get_regexp_form(){
 		$frm_title = S_REGULAR_EXPRESSION;
 
@@ -5440,11 +5420,11 @@ JAVASCRIPT;
 			$macros = get_request('macros', array());
 		}
 		else if($hostid > 0){
-			$macros = CUserMacro::get(array('extendoutput' => 1, 'hostids' => $hostid));
+			$macros = CUserMacro::get(array('output' => API_OUTPUT_EXTEND, 'hostids' => $hostid));
 			order_result($macros, 'macro');
 		}
 		else if($hostid === null){
-			$macros = CUserMacro::get(array('extendoutput' => 1, 'globalmacro' => 1));
+			$macros = CUserMacro::get(array('output' => API_OUTPUT_EXTEND, 'globalmacro' => 1));
 			order_result($macros, 'macro');
 		}
 		else{

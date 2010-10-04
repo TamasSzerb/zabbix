@@ -33,7 +33,7 @@
 
 AGENT_VALUE
 {
-	zbx_timespec_t	ts;
+	int	clock;
 	char	host_name[HOST_HOST_LEN_MAX];
 	char	key[ITEM_KEY_LEN_MAX];
 	char	*value;

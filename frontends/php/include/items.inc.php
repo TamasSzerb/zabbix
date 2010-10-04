@@ -414,9 +414,9 @@
 						zbx_dbstr($item['trapper_hosts']).','.$item['snmp_port'].','.zbx_dbstr($item['units']).','.(!$item['multiplier'] ? '0':$item['multiplier']).','.
 						intval($item['delta']).','.zbx_dbstr($item['snmpv3_securityname']).','.intval($item['snmpv3_securitylevel']).','.
 						zbx_dbstr($item['snmpv3_authpassphrase']).','.zbx_dbstr($item['snmpv3_privpassphrase']).','.
-						zbx_dbstr($item['formula']).','.(!$item['trends'] ? '0':$item['trends']).','.zbx_dbstr($item['logtimefmt']).','.(!$item['valuemapid'] ? 'NULL':$item['valuemapid']).','.
+						zbx_dbstr($item['formula']).','.(!$item['trends'] ? '0':$item['trends']).','.zbx_dbstr($item['logtimefmt']).','.(!$item['valuemapid'] ? '0':$item['valuemapid']).','.
 						zbx_dbstr($item['delay_flex']).','.zbx_dbstr($item['params']).','.
-						zbx_dbstr($item['ipmi_sensor']).','.zero2null($item['templateid']).','.intval($item['authtype']).','.
+						zbx_dbstr($item['ipmi_sensor']).','.$item['templateid'].','.intval($item['authtype']).','.
 						zbx_dbstr($item['username']).','.zbx_dbstr($item['password']).','.
 						zbx_dbstr($item['publickey']).','.zbx_dbstr($item['privatekey']).')'
 			);
@@ -645,11 +645,11 @@
 				'formula='.zbx_dbstr($item['formula']).','.
 				'trends='.$item['trends'].','.
 				'logtimefmt='.zbx_dbstr($item['logtimefmt']).','.
-				'valuemapid='.zero2null($item['valuemapid']).','.
+				'valuemapid='.$item['valuemapid'].','.
 				'delay_flex='.zbx_dbstr($item['delay_flex']).','.
 				'params='.zbx_dbstr($item['params']).','.
 				'ipmi_sensor='.zbx_dbstr($item['ipmi_sensor']).','.
-				'templateid='.zero2null($item['templateid']).','.
+				'templateid='.$item['templateid'].','.
 				'authtype='.$item['authtype'].','.
 				'username='.zbx_dbstr($item['username']).','.
 				'password='.zbx_dbstr($item['password']).','.
@@ -767,7 +767,7 @@
 			}
 
 			if($unlink_mode){
-				if(DBexecute('UPDATE items SET templateid=NULL WHERE itemid='.$db_item["itemid"])){
+				if(DBexecute('UPDATE items SET templateid=0 WHERE itemid='.$db_item["itemid"])){
 					info("Item '".$db_item["key_"]."' unlinked");
 				}
 			}
@@ -1480,7 +1480,7 @@
  * Comments:
  *
  */
-	function item_get_history($db_item, $last = 1, $clock = 0, $ns = 0){
+	function item_get_history($db_item, $last = 1, $clock = 0){
 		$value = NULL;
 
 		switch($db_item["value_type"]){
@@ -1502,79 +1502,19 @@
 				break;
 		}
 
-		$config = select_config();
-
 		if($last == 0){
-			if (0 != $config['ns_support']){
-				$sql = 'select value'.
-					' from '.$table.
-					' where itemid='.$db_item['itemid'].
-						' and clock='.$clock.
-						' and ns='.$ns;
-				if(NULL != ($row = DBfetch(DBselect($sql, 1))))
-					$value = $row["value"];
-
-				if(NULL != $value)
-					return $value;
-
-				$max_clock = 0;
-
-				$sql = 'select distinct clock'.
-					' from '.$table.
-					' where itemid='.$db_item['itemid'].
-						' and clock='.$clock.
-						' and ns<'.$ns;
-				if(NULL != ($row = DBfetch(DBselect($sql))))
-					$max_clock = $row['clock'];
-
-				if(0 == $max_clock){
-					$sql = 'select max(clock) as clock'.
-						' from '.$table.
-						' where itemid='.$db_item['itemid'].
-							' and clock<'.$clock;
-					if(NULL != ($row = DBfetch(DBselect($sql))))
-						$max_clock = $row['clock'];
-				}
-
-				if (0 == $max_clock)
-					return $value;
-
-				if ($clock == $max_clock){
-					$sql = 'select value'.
-						' from '.$table.
-						' where itemid='.$db_item['itemid'].
-							' and clock='.$clock.
-							' and ns<'.$ns;
-				}
-				else{
-					$sql = 'select value'.
-						' from '.$table.
-						' where itemid='.$db_item['itemid'].
-							' and clock='.$max_clock.
-						' order by itemid,clock desc,ns desc';
-				}
-
-				if(NULL != ($row = DBfetch(DBselect($sql, 1))))
-					$value = $row["value"];
-			}
-			else{
-				$sql = 'select value from '.$table.' where itemid='.$db_item['itemid'].' and clock<='.$clock.
-						' order by itemid,clock desc';
-				if(NULL != ($row = DBfetch(DBselect($sql, 1))))
-					$value = $row["value"];
-			}
+			$sql = 'select value from '.$table.' where itemid='.$db_item['itemid'].' and clock<='.$clock.
+					' order by itemid,clock desc';
+			$row = DBfetch(DBselect($sql, 1));
+			if($row)
+				$value = $row["value"];
 		}
 		else{
 			$sql = "select max(clock) as clock from $table where itemid=".$db_item["itemid"];
 			$row = DBfetch(DBselect($sql));
 			if($row && !is_null($row["clock"])){
 				$clock = $row["clock"];
-				if (0 != $config['ns_support']){
-					$sql = "select value from $table where itemid=".$db_item["itemid"]." and clock=$clock order by ns desc";
-				}
-				else{
-					$sql = "select value from $table where itemid=".$db_item["itemid"]." and clock=$clock";
-				}
+				$sql = "select value from $table where itemid=".$db_item["itemid"]." and clock=$clock";
 				$row = DBfetch(DBselect($sql, 1));
 				if($row)
 					$value = $row["value"];

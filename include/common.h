@@ -1,6 +1,6 @@
 /*
 ** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -117,8 +117,8 @@
 #define OFF	0
 
 #define	APPLICATION_NAME	"Zabbix Agent"
-#define	ZABBIX_REVDATE		"7 December 2009"
-#define	ZABBIX_VERSION		"1.9"
+#define	ZABBIX_REVDATE		"4 October 2010"
+#define	ZABBIX_VERSION		"1.8.4rc1"
 #define	ZABBIX_REVISION		"{ZABBIX_REVISION}"
 
 #if defined(_WINDOWS)
@@ -158,13 +158,6 @@ const char	*zbx_result_string(int result);
 #define DB_TEXT_LEN_MAX	DB_TEXT_LEN+1
 
 #define ZBX_DM_DELIMITER	'\255'
-
-typedef struct zbx_timespec
-{
-	int	sec;	/* seconds */
-	int	ns;	/* nanoseconds */
-}
-zbx_timespec_t;
 
 /* Item types */
 typedef enum
@@ -589,6 +582,14 @@ const char	*zbx_item_logtype_string(zbx_item_logtype_t logtype);
 #define	NODE_CONFIGLOG_OP_ADD		1
 #define	NODE_CONFIGLOG_OP_DELETE	2
 
+#define	ZBX_TYPE_INT	0
+#define	ZBX_TYPE_CHAR	1
+#define	ZBX_TYPE_FLOAT	2
+#define	ZBX_TYPE_BLOB	3
+#define	ZBX_TYPE_TEXT	4
+#define	ZBX_TYPE_UINT	5
+#define	ZBX_TYPE_ID	6
+
 /* HTTP item types */
 typedef enum
 {
@@ -617,13 +618,17 @@ typedef enum
 
 const char	*zbx_permission_string(int perm);
 
+/* Flags */
+#define	ZBX_SYNC		0x01
+#define ZBX_NOTNULL		0x02
+#define ZBX_HISTORY		0x04
+#define ZBX_HISTORY_SYNC	0x08
+#define ZBX_HISTORY_TRENDS	0x10
+#define ZBX_PROXY		0x20
+
 /* Types of nodes */
 #define	ZBX_NODE_TYPE_REMOTE	0
 #define	ZBX_NODE_TYPE_LOCAL	1
-
-#define	ZBX_NODE_MASTER	0
-#define	ZBX_NODE_SLAVE	1
-const char	*zbx_nodetype_string(unsigned char nodetype);
 
 #define	POLLER_DELAY	5
 #define DISCOVERER_DELAY	60
@@ -775,7 +780,7 @@ int	zbx_pg_unescape_bytea(u_char *io);
 #endif
 int	zbx_get_field(const char *line, char *result, int num, char separator);
 int	zbx_get_next_field(const char **line, char **output, int *olen, char separator);
-int	str_in_list(const char *list, const char *value, const char delimiter);
+int	str_in_list(char *list, const char *value, const char delimiter);
 
 #ifdef HAVE___VA_ARGS__
 #	define zbx_setproctitle(fmt, ...) __zbx_zbx_setproctitle(ZBX_CONST_STRING(fmt), ##__VA_ARGS__)
@@ -791,7 +796,6 @@ void	__zbx_zbx_setproctitle(const char *fmt, ...);
 #define SEC_PER_YEAR (365*SEC_PER_DAY)
 #define ZBX_JAN_1970_IN_SEC   2208988800.0        /* 1970 - 1900 in seconds */
 double	zbx_time();
-void	zbx_timespec(zbx_timespec_t *ts);
 double	zbx_current_time();
 
 #ifdef HAVE___VA_ARGS__

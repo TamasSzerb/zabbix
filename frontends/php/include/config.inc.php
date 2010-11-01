@@ -48,7 +48,6 @@ function __autoload($class_name){
 		'cscreen' => 1,
 		'cscript' => 1,
 		'ctemplate' => 1,
-		'ctemplatescreen' => 1,
 		'ctrigger' => 1,
 		'cuser' => 1,
 		'cusergroup' => 1,
@@ -312,9 +311,6 @@ function __autoload($class_name){
 	function detect_page_type($default=PAGE_TYPE_HTML){
 		if(isset($_REQUEST['output'])){
 			switch($_REQUEST['output']){
-				case 'text':
-					return PAGE_TYPE_TEXT;
-					break;
 				case 'ajax':
 					return PAGE_TYPE_JS;
 					break;

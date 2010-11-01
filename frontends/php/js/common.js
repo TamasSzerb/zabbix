@@ -89,11 +89,6 @@ function is_array(obj) {
 }
 
 function SDI(msg){
-	if(GK || WK){
-		console.log(msg);
-		return true;
-	}
-
 	var div_help = document.getElementById('div_help');
 
 	if((typeof(div_help) == 'undefined') || empty(div_help)){
@@ -124,14 +119,12 @@ function SDI(msg){
 }
 
 function SDJ(obj, name){
-	if(GK || WK){
-		console.dir(obj);
-		return true;
-	}
-
 	var debug = '';
+//	debug = obj.toSource();
+//	SDI(debug);
+//return null;
 
-	var name = name || 'none';
+	name = name || 'none';
 	for(var key in obj){
 		if(typeof(obj[key]) == name) continue;
 

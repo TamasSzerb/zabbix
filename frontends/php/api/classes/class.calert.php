@@ -63,7 +63,7 @@ class CAlert extends CZBXAPI{
 			'where' => array(),
 			'order' => array(),
 			'limit' => null,
-			);
+		);
 
 		$def_options = array(
 			'nodeids'				=> null,
@@ -481,53 +481,52 @@ COpt::memoryPick();
 	public static function create($alerts){
 		$alerts = zbx_toArray($alerts);
 		$alertids = array();
+		$result = false;
 
-		try{
-			self::BeginTransaction(__METHOD__);
+		self::BeginTransaction(__METHOD__);
+		foreach($alerts as $anum => $alert){
+			$alert_db_fields = array(
+				'actionid'		=> null,
+				'eventid'		=> null,
+				'userid'		=> null,
+				'clock'			=> time(),
+				'mediatypeid'	=> 0,
+				'sendto'		=> null,
+				'subject'		=> '',
+				'message'		=> '',
+				'status'		=> ALERT_STATUS_NOT_SENT,
+				'retries'		=> 0,
+				'error'			=> '',
+				'nextcheck'		=> null,
+				'esc_step'		=> 0,
+				'alerttype'		=> ALERT_TYPE_MESSAGE
+			);
 
-			foreach($alerts as $anum => $alert){
-				$alert_db_fields = array(
-					'actionid'		=> null,
-					'eventid'		=> null,
-					'userid'		=> null,
-					'clock'			=> time(),
-					'mediatypeid'	=> 0,
-					'sendto'		=> null,
-					'subject'		=> '',
-					'message'		=> '',
-					'status'		=> ALERT_STATUS_NOT_SENT,
-					'retries'		=> 0,
-					'error'			=> '',
-					'nextcheck'		=> null,
-					'esc_step'		=> 0,
-					'alerttype'		=> ALERT_TYPE_MESSAGE
-				);
-
-				if(!check_db_fields($alert_db_fields, $alert)){
-					self::exception(ZBX_API_ERROR_PARAMETERS, 'Wrong fields for Alert');
-				}
-
-				$alertid = get_dbid('alerts', 'alertid');
-				$sql = 'INSERT INTO alerts '.
-						'(alertid, actionid, eventid, userid, mediatypeid, clock, sendto, subject, message, status, retries, error, nextcheck, esc_step, alerttype) '.
-						' VALUES ('.$alertid.','.$alert['actionid'].','.$alert['eventid'].','.$alert['userid'].','.$alert['mediatypeid'].','.
-									$alert['clock'].','.zbx_dbstr($alert['sendto']).','.zbx_dbstr($alert['subject']).','.zbx_dbstr($alert['message']).','.
-									$alert['status'].','.$alert['retries'].','.zbx_dbstr($alert['error']).','.$alert['nextcheck'].','.
-									$alert['esc_step'].','.$alert['alerttype'].' )';
-				if(!DBexecute($sql))
-					self::exception(ZBX_API_ERROR_PARAMETERS, 'DBerror');
-
-				$alertids[] = $alertid;
+			if(!check_db_fields($alert_db_fields, $alert)){
+				$result = false;
+				break;
 			}
 
-			self::EndTransaction(true, __METHOD__);
+			$alertid = get_dbid('alerts', 'alertid');
+			$sql = 'INSERT INTO alerts '.
+					'(alertid, actionid, eventid, userid, mediatypeid, clock, sendto, subject, message, status, retries, error, nextcheck, esc_step, alerttype) '.
+					' VALUES ('.$alertid.','.$alert['actionid'].','.$alert['eventid'].','.$alert['userid'].','.$alert['mediatypeid'].','.
+								$alert['clock'].','.zbx_dbstr($alert['sendto']).','.zbx_dbstr($alert['subject']).','.zbx_dbstr($alert['message']).','.
+								$alert['status'].','.$alert['retries'].','.zbx_dbstr($alert['error']).','.$alert['nextcheck'].','.
+								$alert['esc_step'].','.$alert['alerttype'].' )';
+			$result = DBexecute($sql);
+			if(!$result) break;
+
+			$alertids[] = $alertid;
+		}
+
+		$result = self::EndTransaction($result, __METHOD__);
+
+		if($result){
 			return array('alertids'=>$alertids);
 		}
-		catch(APIException $e){
-			self::EndTransaction(false, __METHOD__);
-			$error = $e->getErrors();
-			$error = reset($error);
-			self::setError(__METHOD__, $e->getCode(), $error);
+		else{
+			self::$error[] = array('error' => ZBX_API_ERROR_INTERNAL, 'data' => 'Internal Zabbix error');
 			return false;
 		}
 	}
@@ -539,35 +538,41 @@ COpt::memoryPick();
  * @return boolean
  */
 	public static function delete($alertids){
+		$alerts = zbx_toArray($alerts);
+		$alertids = array();
+		$result = false;
+//------
 
-		try{
-			self::BeginTransaction(__METHOD__);
-
-			$options = array(
+		$options = array(
 			'alertids' => zbx_objectValues($alerts, 'alertid'),
 			'editable' => 1,
 			'output' => API_OUTPUT_EXTEND,
 			'preservekeys' => 1
-			);
-			$del_alerts = self::get($options);
-			foreach($alertids as $snum => $alertid){
-				if(!isset($del_alerts[$alertid])){
-					self::exception(ZBX_API_ERROR_PERMISSIONS, S_NO_PERMISSION);
-				}
+		);
+		$del_alerts = self::get($options);
+		foreach($alerts as $snum => $alert){
+			if(!isset($del_alerts[$alert['alertid']])){
+				self::setError(__METHOD__, ZBX_API_ERROR_PERMISSIONS, S_NO_PERMISSION);
+				return false;
 			}
 
-			$sql = 'DELETE FROM alerts WHERE '.DBcondition('alertid', $alertids);
-			if(!DBexecute($sql))
-				self::exception(ZBX_API_ERROR_PARAMETERS, 'DBerror');
-
-			self::EndTransaction(true, __METHOD__);
-			return true;
+			$alertids[] = $alert['alertid'];
 		}
-		catch(APIException $e){
-			self::EndTransaction(false, __METHOD__);
-			$error = $e->getErrors();
-			$error = reset($error);
-			self::setError(__METHOD__, $e->getCode(), $error);
+
+		if(!empty($alertids)){
+			$sql = 'DELETE FROM alerts WHERE '.DBcondition('alertid', $alertids);
+			$result = DBexecute($sql);
+		}
+		else{
+			self::setError(__METHOD__, ZBX_API_ERROR_PARAMETERS, S_EMPTY_INPUT_PARAMETER.' [ alertids ]');
+			$result = false;
+		}
+
+		if($result){
+			return array('alertids'=>$alertids);
+		}
+		else{
+			self::setError(__METHOD__);
 			return false;
 		}
 	}

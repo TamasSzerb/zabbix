@@ -19,25 +19,16 @@
 **/
 ?>
 <?php
-
-	function graphType($type=null){
-		$types = array(
-			GRAPH_TYPE_STACKED => S_STACKED,
-			GRAPH_TYPE_PIE => S_PIE,
-			GRAPH_TYPE_EXPLODED => S_EXPLODED,
-			GRAPH_TYPE_NORMAL => S_NORMAL,
-		);
-
-		if(is_null($type)){
-			order_result($types);
-			return $types;
-		}
-		else if(isset($types[$type]))
-			return $types[$type];
-		else
-			return S_UNKNOWN;
-	}
-
+/*
+ * Function: graph_item_type2str
+ *
+ * Description:
+ *     Represent integer value of graph item type into the string
+ *
+ * Author:
+ *     Eugene Grigorjev
+ *
+ */
 	function graph_item_type2str($type,$count=null){
 		switch($type){
 			case GRAPH_ITEM_SUM:
@@ -54,6 +45,16 @@
 	return $type;
 	}
 
+/*
+ * Function: graph_item_drawtypes
+ *
+ * Description:
+ *     Return available drawing types for graph item
+ *
+ * Author:
+ *     Eugene Grigorjev
+ *
+ */
 	function graph_item_drawtypes(){
 		return array(
 				GRAPH_ITEM_DRAWTYPE_LINE,
@@ -384,8 +385,8 @@
 
 		$result=DBexecute('INSERT INTO graphs '.
 			' (graphid,name,width,height,ymin_type,ymax_type,yaxismin,yaxismax,ymin_itemid,ymax_itemid,templateid,show_work_period,show_triggers,graphtype,show_legend,show_3d,percent_left,percent_right) '.
-			" VALUES ($graphid,".zbx_dbstr($name).",$width,$height,$ymin_type,$ymax_type,$yaxismin,$yaxismax,".zero2null($ymin_itemid).",".zero2null($ymax_itemid).",".
-			zero2null($templateid).",$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right)");
+			" VALUES ($graphid,".zbx_dbstr($name).",$width,$height,$ymin_type,$ymax_type,$yaxismin,$yaxismax,$ymin_itemid,$ymax_itemid,".
+			" $templateid,$showworkperiod,$showtriggers,$graphtype,$legend,$graph3d,$percent_left,$percent_right)");
 
 		return ( $result ? $graphid : $result);
 	}
@@ -511,9 +512,9 @@
 				'ymax_type='.$ymax_type.','.
 				'yaxismin='.$yaxismin.','.
 				'yaxismax='.$yaxismax.','.
-				'ymin_itemid='.zero2null($ymin_itemid).','.
-				'ymax_itemid='.zero2null($ymax_itemid).','.
-				'templateid='.zero2null($templateid).','.
+				'ymin_itemid='.$ymin_itemid.','.
+				'ymax_itemid='.$ymax_itemid.','.
+				'templateid='.$templateid.','.
 				'show_work_period='.$showworkperiod.','.
 				'show_triggers='.$showtriggers.','.
 				'graphtype='.$graphtype.','.
@@ -671,13 +672,6 @@
 			$result &= delete_graph($del_chd_graphs);
 		}
 
-
-		$sql = 'SELECT graphid FROM graph_discovery WHERE '.DBcondition('parent_graphid', $graphids);
-		$db_graphs = DBselect($sql);
-		while($graph = DBfetch($db_graphs)){
-			$graphids[] = $graph['graphid'];
-		}
-
 		DBexecute('DELETE FROM screens_items WHERE '.DBcondition('resourceid',$graphids).' AND resourcetype='.SCREEN_RESOURCE_GRAPH);
 
 // delete graph
@@ -772,13 +766,12 @@
 			}
 
 			if($unlink_mode){
-				if(DBexecute('UPDATE graphs SET templateid=NULL WHERE graphid='.$db_graph['graphid'])){
+				if(DBexecute('UPDATE graphs SET templateid=0 WHERE graphid='.$db_graph['graphid'])){
 					info(S_GRAPH.SPACE.'"'.$db_graph['name'].'"'.SPACE.S_UNLINKED_SMALL);
 				}
 			}
 			else{
-				DBexecute('UPDATE graphs SET templateid=NULL WHERE graphid='.$db_graph['graphid']);
-				CGraph::delete($db_graph['graphid']);
+				delete_graph($db_graph['graphid']);
 			}
 		}
 	}
@@ -870,7 +863,7 @@
 				'calc_fnc'	=> $db_gitem['calc_fnc'],
 				'type'		=> $db_gitem['type'],
 				'periods_cnt'	=> $db_gitem['periods_cnt']
-			);
+				);
 		}
 
 		$db_graph = get_graph_by_graphid($graphid);
@@ -915,16 +908,16 @@
 			if(isset($chd_graphid)){
 				$result = update_graph_with_items($chd_graphid, $db_graph['name'], $db_graph['width'], $db_graph['height'],
 					$db_graph['ymin_type'], $db_graph['ymax_type'], $db_graph['yaxismin'], $db_graph['yaxismax'],
-					zero2null($db_graph['ymin_itemid']), zero2null($db_graph['ymax_itemid']),
+					$db_graph['ymin_itemid'], $db_graph['ymax_itemid'],
 					$db_graph['show_work_period'], $db_graph['show_triggers'], $db_graph['graphtype'],$db_graph['show_legend'],
-					$db_graph['show_3d'], $db_graph['percent_left'], $db_graph['percent_right'], $new_gitems, zero2null(($copy_mode ? 0: $db_graph['graphid'])));
+					$db_graph['show_3d'], $db_graph['percent_left'], $db_graph['percent_right'], $new_gitems, ($copy_mode ? 0: $db_graph['graphid']));
 			}
 			else{
 				$result = add_graph_with_items($db_graph['name'], $db_graph['width'], $db_graph['height'],
 					$db_graph['ymin_type'], $db_graph['ymax_type'], $db_graph['yaxismin'], $db_graph['yaxismax'],
-					zero2null($db_graph['ymin_itemid']), zero2null($db_graph['ymax_itemid']),
+					$db_graph['ymin_itemid'], $db_graph['ymax_itemid'],
 					$db_graph['show_work_period'], $db_graph['show_triggers'], $db_graph['graphtype'],$db_graph['show_legend'],
-					$db_graph['show_3d'], $db_graph['percent_left'], $db_graph['percent_right'], $new_gitems, zero2null(($copy_mode ? 0: $db_graph['graphid'])));
+					$db_graph['show_3d'], $db_graph['percent_left'], $db_graph['percent_right'], $new_gitems, ($copy_mode ? 0: $db_graph['graphid']));
 			}
 		}
 		else{

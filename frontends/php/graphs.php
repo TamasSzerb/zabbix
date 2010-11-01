@@ -35,8 +35,10 @@ include_once('include/page_header.php');
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields = array(
-		'groupid'=>	array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,	NULL),
-		'hostid'=>	array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,	NULL),
+//  NEW  templates.php; hosts.php; items.php; triggers.php; graphs.php; maintenances.php;
+// 	OLD  0 - hosts; 1 - groups; 2 - linkages; 3 - templates; 4 - applications; 5 - Proxies; 6 - maintenance
+		'groupid'=>	array(T_ZBX_INT, O_OPT,	 NULL,	DB_ID,	NULL),
+		'hostid'=>	array(T_ZBX_INT, O_OPT,	 NULL,	DB_ID,	NULL),
 
 		'copy_type'	=>array(T_ZBX_INT, O_OPT,	 P_SYS,	IN('0,1'),'isset({copy})'),
 		'copy_mode'	=>array(T_ZBX_INT, O_OPT,	 P_SYS,	IN('0'),NULL),
@@ -137,7 +139,7 @@ include_once('include/page_header.php');
 				'nodeids'=>get_current_nodeid(true),
 				'itemids'=>$itemids,
 				'webitems'=>1,
-				'editable'=>1,
+				'editable'=>1
 			);
 			$db_items = CItem::get($options);
 			$db_items = zbx_toHash($db_items, 'itemid');
@@ -191,7 +193,7 @@ include_once('include/page_header.php');
 				'show_work_period' => get_request('showworkperiod',0),
 				'show_triggers' => get_request('showtriggers',0),
 				'graphtype' => $_REQUEST['graphtype'],
-				'show_legend' => get_request('legend', 1),
+				'show_legend' => get_request('legend', 0),
 				'show_3d' => get_request('graph3d', 0),
 				'percent_left' => $percent_left,
 				'percent_right' => $percent_right,
@@ -352,10 +354,8 @@ include_once('include/page_header.php');
 	$form = new CForm(null, 'get');
 
 // Config
-	if(!isset($_REQUEST['form'])){
-		$form->cleanItems();
+	if(!isset($_REQUEST['form']))
 		$form->addItem(new CButton('form', S_CREATE_GRAPH));
-	}
 
 	show_table_header(S_CONFIGURATION_OF_GRAPHS_BIG,$form);
 
@@ -372,8 +372,7 @@ include_once('include/page_header.php');
 			$table->addRow(new CImg('chart7.php?period=3600'.url_param('name').
 					url_param('legend').url_param('graph3d').url_param('width').
 					url_param('height').url_param('graphtype').url_param('items')));
-		}
-		else if($dataValid){
+		}else if($dataValid){
 			$table->addRow(new CImg('chart3.php?period=3600'.url_param('name').url_param('width').url_param('height').
 				url_param('ymin_type').url_param('ymax_type').url_param('yaxismin').url_param('yaxismax').
 				url_param('ymin_itemid').url_param('ymax_itemid').
@@ -382,7 +381,7 @@ include_once('include/page_header.php');
 		}
 		$table->show();
 	}
-	else{
+	else {
 /* Table HEADER */
 		$graphs_wdgt = new CWidget();
 
@@ -391,6 +390,7 @@ include_once('include/page_header.php');
 		}
 
 		$r_form = new CForm(null, 'get');
+
 		$r_form->addItem(array(S_GROUP.SPACE,$pageFilter->getGroupsCB()));
 		$r_form->addItem(array(SPACE.S_HOST.SPACE,$pageFilter->getHostsCB()));
 
@@ -402,7 +402,7 @@ include_once('include/page_header.php');
 
 // Header Host
 		if($_REQUEST['hostid'] > 0){
-			$tbl_header_host = get_header_host_table($_REQUEST['hostid'], 'graphs');
+			$tbl_header_host = get_header_host_table($_REQUEST['hostid'], array('items', 'triggers', 'applications'));
 			$graphs_wdgt->addItem($tbl_header_host);
 		}
 
@@ -429,7 +429,7 @@ include_once('include/page_header.php');
 		if($pageFilter->hostsSelected){
 			$options = array(
 				'editable' => 1,
-				'output' => array('graphid', 'name', 'graphtype'),
+				'extendoutput' => 1,
 				'sortfield' => $sortfield,
 				'sortorder' => $sortorder,
 				'limit' => ($config['search_limit']+1)
@@ -443,12 +443,6 @@ include_once('include/page_header.php');
 			$graphs = CGraph::get($options);
 		}
 
-// Change graphtype from numbers to names, for correct sorting
-		if($sortfield == 'graphtype'){
-			foreach($graphs as $gnum => $graph){
-				$graphs[$gnum]['graphtype'] = graphType($graph['graphtype']);
-			}
-		}
 // sorting && paging
 		order_result($graphs, $sortfield, $sortorder);
 		$paging = getPagingLine($graphs);
@@ -459,15 +453,29 @@ include_once('include/page_header.php');
 			'graphids' => $graphids,
 			'output' => API_OUTPUT_EXTEND,
 			'select_hosts' => API_OUTPUT_EXTEND,
-			'select_templates' => API_OUTPUT_EXTEND,
-			'selectDiscoveryRule' => API_OUTPUT_EXTEND,
+			'select_templates' => API_OUTPUT_EXTEND
 		);
 		$graphs = CGraph::get($options);
 
-// Change graphtype from numbers to names, for correct sorting
+		// Change graphtype from numbers to names, for correct sorting
 		foreach($graphs as $gnum => $graph){
-			$graphs[$gnum]['graphtype'] = graphType($graph['graphtype']);
+			switch($graph['graphtype']){
+				case GRAPH_TYPE_STACKED:
+					$graphtype = S_STACKED;
+				break;
+				case GRAPH_TYPE_PIE:
+					$graphtype = S_PIE;
+				break;
+				case GRAPH_TYPE_EXPLODED:
+					$graphtype = S_EXPLODED;
+				break;
+				default:
+					$graphtype = S_NORMAL;
+				break;
+			}
+			$graphs[$gnum]['graphtype'] = $graphtype;
 		}
+
 		order_result($graphs, $sortfield, $sortorder);
 
 		foreach($graphs as $gnum => $graph){
@@ -491,12 +499,6 @@ include_once('include/page_header.php');
 				$real_hosts = get_realhosts_by_graphid($graph['templateid']);
 				$real_host = DBfetch($real_hosts);
 				$name[] = new CLink($real_host['host'], 'graphs.php?'.'hostid='.$real_host['hostid'], 'unknown');
-				$name[] = ':'.$graph['name'];
-			}
-
-			if(!empty($graph['discoveryRule'])){
-				$name[] = new CLink($graph['discoveryRule']['description'], 'graph_prototypes.php?parent_discoveryid='.
-					$graph['discoveryRule']['itemid'],'discoveryName');
 				$name[] = ':'.$graph['name'];
 			}
 			else{
@@ -531,7 +533,7 @@ include_once('include/page_header.php');
 
 		zbx_add_post_js('chkbxRange.pageGoName = "group_graphid";');
 
-		$footer = get_table_header(array($goBox, $goButton));
+		$footer = get_table_header(new CCol(array($goBox, $goButton)));
 //----
 
 // PAGING FOOTER

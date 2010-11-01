@@ -38,24 +38,6 @@
 			    );
 	}
 
-	function sysmap_element_types($type=null){
-		$types = array(
-			SYSMAP_ELEMENT_TYPE_HOST => S_HOST,
-			SYSMAP_ELEMENT_TYPE_HOST_GROUP => S_HOST_GROUP,
-			SYSMAP_ELEMENT_TYPE_TRIGGER => S_TRIGGER,
-			SYSMAP_ELEMENT_TYPE_MAP => S_MAP,
-			SYSMAP_ELEMENT_TYPE_IMAGE => S_IMAGE,
-		);
-
-		if(is_null($type)){
-			natsort($types);
-			return $types;
-		}
-		else if(isset($types[$type]))
-			return $types[$type];
-		else
-			return S_UNKNOWN;
-	}
 /*
  * Function: map_link_drawtype2str
  *
@@ -87,6 +69,7 @@
 	}
 
 // LINKS
+
 	function add_link($link){
 		$link_db_fields = array(
 			'sysmapid' => null,
@@ -338,17 +321,14 @@
 				$host = $hosts[$db_element['elementid']];
 				if($host['status'] == HOST_STATUS_MONITORED){
 					$host_nodeid = id2nodeid($db_element['elementid']);
-					$tools_menus = '';
 					foreach($scripts_by_hosts[$db_element['elementid']] as $id => $script){
 						$script_nodeid = id2nodeid($script['scriptid']);
 						if((bccomp($host_nodeid ,$script_nodeid ) == 0))
-							$tools_menus.= "['".$script['name']."',\"javascript: openWinCentered('scripts_exec.php?execute=1&hostid=".$db_element["elementid"]."&scriptid=".$script['scriptid']."','".S_TOOLS."',760,540,'titlebar=no, resizable=yes, scrollbars=yes, dialog=no');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
+							$menus.= "['".$script['name']."',\"javascript: openWinCentered('scripts_exec.php?execute=1&hostid=".$db_element["elementid"]."&scriptid=".$script['scriptid']."','".S_TOOLS."',760,540,'titlebar=no, resizable=yes, scrollbars=yes, dialog=no');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
 					}
 
-					if(!empty($tools_menus)){
-						$menus .= "['".S_TOOLS."',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],";
-						$menus .= $tools_menus;
-					}
+					$menus = "['".S_TOOLS."',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}]," . $menus;
+
 					$links_menus .= "['".S_STATUS_OF_TRIGGERS."',\"javascript: redirect('tr_status.php?hostid=".$db_element['elementid']."');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
 				}
 			}
@@ -361,18 +341,13 @@
 			else if($db_element['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST_GROUP){
 				$links_menus.= "['".S_STATUS_OF_TRIGGERS."',\"javascript: redirect('events.php?source=0&groupid=".$db_element['elementid']."');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
 			}
- 
-			if(!empty($links_menus)){
-				$menus .= "['".S_GO_TO."',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],";
-				$menus .= $links_menus;
-			}
 
-			if(!empty($db_element['urls'])){
-				order_result($db_element['urls'], 'name');
+
+			if(!empty($db_element['url']) || !empty($links_menus)){
 				$menus .= "['".S_LINKS."',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],";
-				foreach($db_element['urls'] as $url){
-					$menus.= "[".zbx_jsvalue($url['name']).",".zbx_jsvalue($url['url']).", 'nosid'],";
-				}
+				$menus .= $links_menus;
+				if(!empty($db_element['url']))
+					$menus .= "['".S_URL."',\"javascript: location.replace('".$db_element['url']."');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
 			}
 
 			$menus = trim($menus,',');
@@ -1597,19 +1572,10 @@
 		try{
 			foreach($exportMaps as $mnum => &$sysmap){
 				unset($sysmap['sysmapid']);
-				foreach($sysmap['urls'] as $unum => $url){
-					unset($sysmap['urls'][$unum]['sysmapurlid']);
-				}
-
 				$sysmap['backgroundid'] = ($sysmap['backgroundid'] > 0)?$images[$sysmap['backgroundid']]:'';
 
 				foreach($sysmap['selements'] as $snum => &$selement){
 					unset($selement['sysmapid']);
-
-					foreach($selement['urls'] as $unum => $url){
-						unset($selement['urls'][$unum]['sysmapelementurlid']);
-						unset($selement['urls'][$unum]['selementid']);
-					}
 					switch($selement['elementtype']){
 						case SYSMAP_ELEMENT_TYPE_MAP:
 							$selement['elementid'] = $sysmaps[$selement['elementid']];
@@ -1744,7 +1710,7 @@
 			$iconX = imagesx($img);
 			$iconY = imagesy($img);
 
-			if(($map['highlight']%2) == SYSMAP_HIGHLIGHT_ON){
+			if(($map['highlight']%2) == SYSMAP_HIGHLIGH_ON){
 				$hl_color = null;
 				$st_color = null;
 
@@ -1866,7 +1832,7 @@
 
 			$hl_color = null;
 			$st_color = null;
-			if(!isset($_REQUEST['noselements']) && (($map['highlight']%2) == SYSMAP_HIGHLIGHT_ON)){
+			if(!isset($_REQUEST['noselements']) && (($map['highlight']%2) == SYSMAP_HIGHLIGH_ON)){
 				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_ON) $hl_color = true;
 				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_UNKNOWN) $hl_color = true;
 
@@ -2049,7 +2015,7 @@
 
 			$hl_color = null;
 			$st_color = null;
-			if(!isset($_REQUEST['noselements']) && (($map['highlight']%2) == SYSMAP_HIGHLIGHT_ON)){
+			if(!isset($_REQUEST['noselements']) && (($map['highlight']%2) == SYSMAP_HIGHLIGH_ON)){
 				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_ON) $hl_color = true;
 				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_UNKNOWN) $hl_color = true;
 

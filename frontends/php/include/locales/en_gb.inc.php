@@ -229,7 +229,6 @@
 	'S_BACK_BIG'=>				'BACK',
 	'S_NO_DATA_FOR_EXPORT'=>		'No data for export',
 	'S_NO_DATA_SMALL'=>			'no data',
-	'S_NO_DATA_BIG'=>			'NO DATA',
 	'S_RULES'=>				'Rules',
 	'S_EXISTING'=>				'Existing',
 	'S_MISSING'=>				'Missing',
@@ -239,8 +238,6 @@
 	'S_IMPORTED'=>				'Imported',
 	'S_SUCCESSEFULLY_SMALL'=>		'successfully',
 	'S_FAILED_SMALL'=>			'failed',
-	'S_LOCAL_BIG'=>				'LOCAL',
-	'S_SERVER_BIG'=>			'SERVER',
 
 //	export.inc.php
 	'S_EXPORT_DATE_ATTRIBUTE_DATE_FORMAT'=>	'd.m.y',
@@ -1201,31 +1198,7 @@
 	'S_DELETE_HISTORY_SELECTED_ITEMS_Q'=>			'Delete history of selected items?',
 	'S_DELETE_SELECTED_ITEMS_Q'=>				'Delete selected items?',
 	'S_FORMULA'=>						'Formula',
-	'S_RULE'=>						'Rule',
 
-// host_discovery.php
-	'S_CONFIGURATION_OF_DISCOVERY_RULES_BIG' => 'CONFIGURATION OF DISCOVERY RULES',
-	'S_PROTOTYPES' => 'Prototypes',
-	'S_REGEXP' => 'Regexp',
-	'S_DISCOVERY_RULES' => 'Discovery rules',
-	
-// disc_prototypes.php
-	'S_CONFIGURATION_OF_ITEM_PROTOTYPES_BIG' => 'CONFIGURATION OF ITEM PROTOTYPES', 
-	'S_ITEM_PROTOTYPES_OF_BIG' => 'ITEM PROTOTYPES OF', 
-	'S_ADD_PROTOTYPE' => 'Add prototype', 
-	'S_SELECT_PROTOTYPE' => 'Select prototype', 
-	'S_CREATE_PROTOTYPE' => 'Create prototype', 
-	'S_ITEM_PROTOTYPE' => 'Item prototype', 
-	
-	'S_CONFIGURATION_OF_GRAPHS_PROTOTYPES_BIG' => 'CONFIGURATION OF GRAPH PROTOTYPES',
-	
-// trigger_prototypes.php
-	'S_CONFIGURATION_OF_TRIGGERS_PROTOTYPES_BIG' => 'CONFIGURATION OF TRIGGER PROTOTYPES',
-	'S_TRIGGER_PROTOTYPES_OF_BIG' => 'TRIGGER PROTOTYPES OF',
-
-// graph_prototypes.php
-	'S_GRAPH_PROTOTYPES_OF_BIG' => 'GRAPH PROTOTYPES OF',
-	
 //	events.php
 	'S_EVENT'=>				'Event',
 	'S_EVENT_DETAILS'=>			'Event details',
@@ -1262,7 +1235,6 @@
 	'S_LINK'=>				'Link',
 	'S_LABEL'=>				'Label',
 	'S_GRID'=>				'Grid',
-	'S_GO_TO'=>				'Go to',
 	'S_X'=>					'X',
 	'S_ICON_PROBLEM'=>			'Icon (problem)',
 	'S_ICON_OK'=>				'Icon (OK)',
@@ -1634,7 +1606,6 @@
 	'S_CANNOT_FIND_GRAPH'=>			'Cannot find graph',
 	'S_CANNOT_FIND_ITEM'=>			'Cannot find item',
 	'S_USED_IN_EXPORTED_SCREEN_SMALL'=>'used in exported screen',
-	'S_TEMPLATED'=>'Templated',
 
 //	screenedit.php
 	'S_MAP'=>					'Map',
@@ -1656,7 +1627,6 @@
 	'S_TIME_TYPE'=>				'Time type',
 	'S_SERVER_TIME'=>			'Server time',
 	'S_LOCAL_TIME'=>			'Local time',
-	'S_HOST_TIME'=>				'Host time',
 
 	'S_STYLE'=>				'Style',
 	'S_VERTICAL'=>				'Vertical',
@@ -1675,7 +1645,6 @@
 //	screens.php
 	'S_CUSTOM_SCREENS'=>			'Custom screens',
 	'S_SCREENS_BIG'=>				'SCREENS',
-	'S_HOST_SCREENS'=>				'Host screens',
 
 	'S_SLIDESHOW_UPDATED'=>			'Slideshow updated',
 	'S_CANNOT_UPDATE_SLIDESHOW'=>		'Cannot_update slideshow',

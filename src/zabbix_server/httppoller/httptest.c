@@ -56,7 +56,6 @@ static int	process_value(zbx_uint64_t itemid, AGENT_RESULT *value)
 	DB_RESULT	result;
 	DB_ROW		row;
 	unsigned char	value_type;
-	zbx_timespec_t	ts;
 
 	INIT_CHECK_MEMORY();
 
@@ -89,9 +88,7 @@ static int	process_value(zbx_uint64_t itemid, AGENT_RESULT *value)
 
 	value_type = (unsigned char)atoi(row[1]);
 
-	zbx_timespec(&ts);
-
-	dc_add_history(itemid, value_type, 0, value, &ts, 0, NULL, 0, 0, 0, 0);
+	dc_add_history(itemid, value_type, value, time(NULL), 0, NULL, 0, 0, 0, 0);
 
 	DBfree_result(result);
 
@@ -154,11 +151,11 @@ static void	process_test_data(DB_HTTPTEST *httptest, S_ZBX_HTTPSTAT *stat)
 		switch (httptestitem.type) {
 			case ZBX_HTTPITEM_TYPE_TIME:
 				SET_DBL_RESULT(&value, stat->test_total_time);
-				process_value(httptestitem.itemid, &value);
+				process_value(httptestitem.itemid,&value);
 				break;
 			case ZBX_HTTPITEM_TYPE_LASTSTEP:
 				SET_UI64_RESULT(&value, stat->test_last_step);
-				process_value(httptestitem.itemid, &value);
+				process_value(httptestitem.itemid,&value);
 				break;
 			case ZBX_HTTPITEM_TYPE_SPEED:
 				SET_UI64_RESULT(&value, stat->speed_download);

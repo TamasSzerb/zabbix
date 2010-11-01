@@ -2204,6 +2204,7 @@ static void	add_value_suffix_normal(char *value, int max_len, const char *units)
  * Purpose: Add suffix for value                                              *
  *                                                                            *
  * Parameters: value - value for replacing                                    *
+ *             valuemapid - index of value map                                *
  *                                                                            *
  * Return value: SUCCEED - suffix added successfully, value contains new value*
  *               FAIL - adding failed, value contains old value               *

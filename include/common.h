@@ -1,6 +1,6 @@
 /*
 ** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -117,8 +117,8 @@
 #define OFF	0
 
 #define	APPLICATION_NAME	"Zabbix Agent"
-#define	ZABBIX_REVDATE		"26 October 2010"
-#define	ZABBIX_VERSION		"1.9.0"
+#define	ZABBIX_REVDATE		"1 November 2010"
+#define	ZABBIX_VERSION		"1.8.4rc2"
 #define	ZABBIX_REVISION		"{ZABBIX_REVISION}"
 
 #if defined(_WINDOWS)
@@ -156,13 +156,6 @@ const char	*zbx_result_string(int result);
 
 #define ZBX_DM_DELIMITER	'\255'
 
-typedef struct zbx_timespec
-{
-	int	sec;	/* seconds */
-	int	ns;	/* nanoseconds */
-}
-zbx_timespec_t;
-
 /* Item types */
 typedef enum
 {
@@ -183,10 +176,6 @@ typedef enum
 	ITEM_TYPE_TELNET,
 	ITEM_TYPE_CALCULATED
 } zbx_item_type_t;
-
-#define ZBX_FLAG_DISCOVERY		0x01	/* low-level discovery rule */
-#define ZBX_FLAG_DISCOVERY_CHILD	0x02	/* low-level discovery proto-item, proto-trigger or proto-graph */
-#define ZBX_FLAG_DISCOVERY_CREATED	0x04	/* auto-created item, trigger or graph */
 
 typedef enum
 {
@@ -590,6 +579,14 @@ const char	*zbx_item_logtype_string(zbx_item_logtype_t logtype);
 #define	NODE_CONFIGLOG_OP_ADD		1
 #define	NODE_CONFIGLOG_OP_DELETE	2
 
+#define	ZBX_TYPE_INT	0
+#define	ZBX_TYPE_CHAR	1
+#define	ZBX_TYPE_FLOAT	2
+#define	ZBX_TYPE_BLOB	3
+#define	ZBX_TYPE_TEXT	4
+#define	ZBX_TYPE_UINT	5
+#define	ZBX_TYPE_ID	6
+
 /* HTTP item types */
 typedef enum
 {
@@ -618,9 +615,13 @@ typedef enum
 
 const char	*zbx_permission_string(int perm);
 
-#define	ZBX_NODE_MASTER	0
-#define	ZBX_NODE_SLAVE	1
-const char	*zbx_nodetype_string(unsigned char nodetype);
+/* Flags */
+#define	ZBX_SYNC		0x01
+#define ZBX_NOTNULL		0x02
+#define ZBX_HISTORY		0x04
+#define ZBX_HISTORY_SYNC	0x08
+#define ZBX_HISTORY_TRENDS	0x10
+#define ZBX_PROXY		0x20
 
 #define POLLER_DELAY		5
 #define DISCOVERER_DELAY	60
@@ -764,7 +765,7 @@ int	zbx_pg_unescape_bytea(u_char *io);
 #endif
 int	zbx_get_field(const char *line, char *result, int num, char separator);
 int	zbx_get_next_field(const char **line, char **output, int *olen, char separator);
-int	str_in_list(const char *list, const char *value, const char delimiter);
+int	str_in_list(char *list, const char *value, const char delimiter);
 
 #ifdef HAVE___VA_ARGS__
 #	define zbx_setproctitle(fmt, ...) __zbx_zbx_setproctitle(ZBX_CONST_STRING(fmt), ##__VA_ARGS__)
@@ -780,7 +781,6 @@ void	__zbx_zbx_setproctitle(const char *fmt, ...);
 #define SEC_PER_YEAR (365*SEC_PER_DAY)
 #define ZBX_JAN_1970_IN_SEC   2208988800.0        /* 1970 - 1900 in seconds */
 double	zbx_time();
-void	zbx_timespec(zbx_timespec_t *ts);
 double	zbx_current_time();
 
 #ifdef HAVE___VA_ARGS__
@@ -891,7 +891,6 @@ int	uint64_array_add(zbx_uint64_t **values, int *alloc, int *num, zbx_uint64_t v
 void	uint64_array_merge(zbx_uint64_t **values, int *alloc, int *num, zbx_uint64_t *value, int value_num, int alloc_step);
 int	uint64_array_exists(zbx_uint64_t *values, int num, zbx_uint64_t value);
 void	uint64_array_remove(zbx_uint64_t *values, int *num, zbx_uint64_t *rm_values, int rm_num);
-void	uint64_array_remove_both(zbx_uint64_t *values, int *num, zbx_uint64_t *rm_values, int *rm_num);
 
 #ifdef _WINDOWS
 LPTSTR	zbx_acp_to_unicode(LPCSTR acp_string);

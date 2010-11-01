@@ -17,46 +17,13 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
 ?>
 <?php
 require_once('include/events.inc.php');
 require_once('include/actions.inc.php');
 require_once('include/js.inc.php');
-
 ?>
 <?php
-
-	function screen_resources($res=null){
-		$resources = array(
-			SCREEN_RESOURCE_CLOCK => S_CLOCK,
-			SCREEN_RESOURCE_DATA_OVERVIEW => S_DATA_OVERVIEW,
-			SCREEN_RESOURCE_GRAPH => S_GRAPH,
-			SCREEN_RESOURCE_ACTIONS => S_HISTORY_OF_ACTIONS,
-			SCREEN_RESOURCE_EVENTS => S_HISTORY_OF_EVENTS,
-			SCREEN_RESOURCE_HOSTS_INFO => S_HOSTS_INFO,
-			SCREEN_RESOURCE_MAP => S_MAP,
-			SCREEN_RESOURCE_PLAIN_TEXT => S_PLAIN_TEXT,
-			SCREEN_RESOURCE_SCREEN => S_SCREEN,
-			SCREEN_RESOURCE_SERVER_INFO => S_SERVER_INFO,
-			SCREEN_RESOURCE_SIMPLE_GRAPH => S_SIMPLE_GRAPH,
-			SCREEN_RESOURCE_HOSTGROUP_TRIGGERS => S_STATUS_OF_HOSTGROUP_TRIGGERS,
-			SCREEN_RESOURCE_HOST_TRIGGERS => S_STATUS_OF_HOST_TRIGGERS,
-			SCREEN_RESOURCE_SYSTEM_STATUS => S_SYSTEM_STATUS,
-			SCREEN_RESOURCE_TRIGGERS_INFO => S_TRIGGERS_INFO,
-			SCREEN_RESOURCE_TRIGGERS_OVERVIEW => S_TRIGGERS_OVERVIEW,
-			SCREEN_RESOURCE_URL => S_URL,
-		);
-
-		if(is_null($res)){
-			natsort($resources);
-			return $resources;
-		}
-		else if(isset($resources[$res]))
-			return $resources[$res];
-		else
-			return S_UNKNOW;
-	}
 
 	function add_screen_item($resourcetype,$screenid,$x,$y,$resourceid,$width,$height,$colspan,$rowspan,$elements,$valign,$halign,$style,$url,$dynamic){
 		$sql='DELETE FROM screens_items WHERE screenid='.$screenid.' and x='.$x.' and y='.$y;
@@ -359,56 +326,20 @@ require_once('include/js.inc.php');
 	return FALSE;
 	}
 
-	function templated_screen($screenid){
-		$result = false;
-
-		$sql = 'SELECT resourceid, resourcetype '.
-				' FROM screens_items'.
-				' WHERE screenid='.$_REQUEST['screenid'];
-		$db_sitems = DBSelect($sql);
-		while($sitem = DBfetch($db_sitems)){
-			if(in_array($sitem['resourcetype'], array(SCREEN_RESOURCE_DATA_OVERVIEW, SCREEN_RESOURCE_ACTIONS,
-				SCREEN_RESOURCE_EVENTS, SCREEN_RESOURCE_HOSTS_INFO, SCREEN_RESOURCE_MAP, SCREEN_RESOURCE_SCREEN,
-				SCREEN_RESOURCE_SERVER_INFO, SCREEN_RESOURCE_HOSTGROUP_TRIGGERS, SCREEN_RESOURCE_HOST_TRIGGERS,
-				SCREEN_RESOURCE_SYSTEM_STATUS, SCREEN_RESOURCE_TRIGGERS_INFO, SCREEN_RESOURCE_TRIGGERS_OVERVIEW
-			))){
-				$result = false;
-				break;
-			}
-			else if($sitem['resourcetype'] == SCREEN_RESOURCE_GRAPH){
-				$tpl = CTemplate::get(array(
-					'graphids' => $sitem['resourceid'],
-					'output' => API_OUTPUT_SHORTEN,
-					'editable' => 1,
-				));
-				$tpl = reset($tpl);
-				$result = $tpl ? $tpl['templateid'] : false;
-				break;
-			}
-			else if($sitem['resourcetype'] == SCREEN_RESOURCE_SIMPLE_GRAPH){
-				$tpl = CTemplate::get(array(
-					'itemids' => $sitem['resourceid'],
-					'output' => API_OUTPUT_SHORTEN,
-					'editable' => 1,
-				));
-				$tpl = reset($tpl);
-				$result = $tpl ? $tpl['templateid'] : false;
-				break;
-			}
-		}
-
-		return $result;
-	}
-
-	function get_screen_item_form($screen){
+	function get_screen_item_form(){
 		global $USER_DETAILS;
 
-		$form = new CFormTable(S_SCREEN_CELL_CONFIGURATION, 'screenedit.php?screenid='.$_REQUEST['screenid']);
-		$form->setName('screen_item_form');
+		$form = new CFormTable(S_SCREEN_CELL_CONFIGURATION,'screenedit.php?screenid='.$_REQUEST['screenid']);
+		$form->SetHelp('web.screenedit.cell.php');
 
 		if(isset($_REQUEST['screenitemid'])){
+			$sql = 'SELECT * '.
+					' FROM screens_items'.
+					' WHERE screenid='.$_REQUEST['screenid'].
+						' AND screenitemid='.$_REQUEST['screenitemid'];
+			$iresult=DBSelect($sql);
+
 			$form->addVar('screenitemid',$_REQUEST['screenitemid']);
-			$screenItems = zbx_toHash($screen['screenitems'], 'screenitemid');
 		}
 		else{
 			$form->addVar('x',$_REQUEST['x']);
@@ -416,20 +347,20 @@ require_once('include/js.inc.php');
 		}
 
 		if(isset($_REQUEST['screenitemid']) && !isset($_REQUEST['form_refresh'])){
-			$screenItem = $screenItems[$_REQUEST['screenitemid']];
 
-			$resourcetype	= $screenItem['resourcetype'];
-			$resourceid	= $screenItem['resourceid'];
-			$width		= $screenItem['width'];
-			$height		= $screenItem['height'];
-			$colspan	= $screenItem['colspan'];
-			$rowspan	= $screenItem['rowspan'];
-			$elements	= $screenItem['elements'];
-			$valign		= $screenItem['valign'];
-			$halign		= $screenItem['halign'];
-			$style		= $screenItem['style'];
-			$url		= $screenItem['url'];
-			$dynamic	= $screenItem['dynamic'];
+			$irow = DBfetch($iresult);
+			$resourcetype	= $irow['resourcetype'];
+			$resourceid	= $irow['resourceid'];
+			$width		= $irow['width'];
+			$height		= $irow['height'];
+			$colspan	= $irow['colspan'];
+			$rowspan	= $irow['rowspan'];
+			$elements	= $irow['elements'];
+			$valign		= $irow['valign'];
+			$halign		= $irow['halign'];
+			$style		= $irow['style'];
+			$url		= $irow['url'];
+			$dynamic	= $irow['dynamic'];
 		}
 		else{
 			$resourcetype	= get_request('resourcetype',	0);
@@ -447,19 +378,26 @@ require_once('include/js.inc.php');
 		}
 
 		$form->addVar('screenid',$_REQUEST['screenid']);
-
-		$cmbRes = new CCombobox('resourcetype', $resourcetype, 'submit()');
-
-		$sress = screen_resources();
-		if($screen['templateid']){
-			unset($sress[SCREEN_RESOURCE_DATA_OVERVIEW], $sress[SCREEN_RESOURCE_ACTIONS], $sress[SCREEN_RESOURCE_EVENTS],
-				$sress[SCREEN_RESOURCE_HOSTS_INFO], $sress[SCREEN_RESOURCE_MAP], $sress[SCREEN_RESOURCE_SCREEN],
-				$sress[SCREEN_RESOURCE_SERVER_INFO], $sress[SCREEN_RESOURCE_HOSTGROUP_TRIGGERS], $sress[SCREEN_RESOURCE_HOST_TRIGGERS],
-				$sress[SCREEN_RESOURCE_SYSTEM_STATUS], $sress[SCREEN_RESOURCE_TRIGGERS_INFO], $sress[SCREEN_RESOURCE_TRIGGERS_OVERVIEW]);
-		}
-
-		$cmbRes->addItems($sress);
-		$form->addRow(S_RESOURCE, $cmbRes);
+// a-z order!!!
+		$cmbRes = new CCombobox('resourcetype',$resourcetype,'submit()');
+		$cmbRes->addItem(SCREEN_RESOURCE_CLOCK,				S_CLOCK);
+		$cmbRes->addItem(SCREEN_RESOURCE_DATA_OVERVIEW,		S_DATA_OVERVIEW);
+		$cmbRes->addItem(SCREEN_RESOURCE_GRAPH,				S_GRAPH);
+		$cmbRes->addItem(SCREEN_RESOURCE_ACTIONS,			S_HISTORY_OF_ACTIONS);
+		$cmbRes->addItem(SCREEN_RESOURCE_EVENTS,			S_HISTORY_OF_EVENTS);
+		$cmbRes->addItem(SCREEN_RESOURCE_HOSTS_INFO,		S_HOSTS_INFO);
+		$cmbRes->addItem(SCREEN_RESOURCE_MAP,				S_MAP);
+		$cmbRes->addItem(SCREEN_RESOURCE_PLAIN_TEXT,		S_PLAIN_TEXT);
+		$cmbRes->addItem(SCREEN_RESOURCE_SCREEN,			S_SCREEN);
+		$cmbRes->addItem(SCREEN_RESOURCE_SERVER_INFO,		S_SERVER_INFO);
+		$cmbRes->addItem(SCREEN_RESOURCE_SIMPLE_GRAPH,		S_SIMPLE_GRAPH);
+		$cmbRes->addItem(SCREEN_RESOURCE_HOSTGROUP_TRIGGERS,	S_STATUS_OF_HOSTGROUP_TRIGGERS);
+		$cmbRes->addItem(SCREEN_RESOURCE_HOST_TRIGGERS,			S_STATUS_OF_HOST_TRIGGERS);
+		$cmbRes->addItem(SCREEN_RESOURCE_SYSTEM_STATUS,     S_SYSTEM_STATUS);
+		$cmbRes->addItem(SCREEN_RESOURCE_TRIGGERS_INFO,		S_TRIGGERS_INFO);
+		$cmbRes->addItem(SCREEN_RESOURCE_TRIGGERS_OVERVIEW,	S_TRIGGERS_OVERVIEW);
+		$cmbRes->addItem(SCREEN_RESOURCE_URL,				S_URL);
+		$form->addRow(S_RESOURCE,$cmbRes);
 
 		if($resourcetype == SCREEN_RESOURCE_GRAPH){
 // User-defined graph
@@ -489,20 +427,9 @@ require_once('include/js.inc.php');
 
 			$form->addVar('resourceid',$id);
 
-			$textfield = new CTextbox('caption', $caption, 75, 'yes');
-			if($screen['templateid']){
-				$selectbtn = new CButton('select', S_SELECT,
-					"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName().
-							"&templated_hosts=1&only_hostid=".$screen['templateid']."&dstfld1=resourceid&".
-							"dstfld2=caption&srctbl=graphs&srcfld1=graphid&srcfld2=name',800,450);");
-			}
-			else{
-				$selectbtn = new CButton('select', S_SELECT,
-					"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName().
-							"&real_hosts=1&dstfld1=resourceid&dstfld2=caption&srctbl=graphs&srcfld1=graphid".
-							"&srcfld2=name',800,450);");
-			}
-
+			$textfield = new CTextbox('caption',$caption,75,'yes');
+			$selectbtn = new CButton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName()."&real_hosts=1&dstfld1=resourceid&dstfld2=caption&srctbl=graphs&srcfld1=graphid&srcfld2=name',800,450);");
+			$selectbtn->setAttribute('onmouseover',"javascript: this.style.cursor = 'pointer';");
 
 			$form->addRow(S_GRAPH_NAME,array($textfield,SPACE,$selectbtn));
 
@@ -517,7 +444,7 @@ require_once('include/js.inc.php');
 			$items = CItem::get($options);
 
 			$caption = '';
-			$id = 0;
+			$id=0;
 
 			if(!empty($items)){
 				$id = $resourceid;
@@ -534,21 +461,11 @@ require_once('include/js.inc.php');
 
 			$form->addVar('resourceid',$id);
 
-			$textfield = new Ctextbox('caption', $caption, 75, 'yes');
-			if($screen['templateid']){
-				$selectbtn = new CButton('select', S_SELECT,
-					"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName().
-							"&templated_hosts=1&only_hostid=".$screen['templateid']."&dstfld1=resourceid&".
-							"dstfld2=caption&srctbl=simple_graph&srcfld1=itemid&srcfld2=description',800,450);");
-			}
-			else{
-				$selectbtn = new CButton('select', S_SELECT,
-					"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName().
-							"&real_hosts=1&dstfld1=resourceid&dstfld2=caption&srctbl=simple_graph&srcfld1=itemid".
-							"&srcfld2=description',800,450);");
-			}
+			$textfield = new Ctextbox('caption',$caption,75,'yes');
+			$selectbtn = new Cbutton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&real_hosts=1&dstfrm=".$form->getName()."&dstfld1=resourceid&dstfld2=caption&srctbl=simple_graph&srcfld1=itemid&srcfld2=description',800,450);");
+			$selectbtn->setAttribute('onmouseover',"javascript: this.style.cursor = 'pointer';");
 
-			$form->addRow(S_PARAMETER, array($textfield, SPACE, $selectbtn));
+			$form->addRow(S_PARAMETER,array($textfield,SPACE,$selectbtn));
 		}
 		else if($resourcetype == SCREEN_RESOURCE_MAP){
 // Map
@@ -575,6 +492,7 @@ require_once('include/js.inc.php');
 			$textfield = new Ctextbox('caption',$caption,60,'yes');
 
 			$selectbtn = new Cbutton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName()."&dstfld1=resourceid&dstfld2=caption&srctbl=sysmaps&srcfld1=sysmapid&srcfld2=name',400,450);");
+			$selectbtn->setAttribute('onmouseover',"javascript: this.style.cursor = 'pointer';");
 
 			$form->addRow(S_PARAMETER,array($textfield,SPACE,$selectbtn));
 
@@ -606,26 +524,15 @@ require_once('include/js.inc.php');
 
 			$form->addVar('resourceid',$id);
 
-			$textfield = new CTextbox('caption', $caption, 75, 'yes');
+			$textfield = new CTextbox('caption',$caption,75,'yes');
+			$selectbtn = new CButton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName()."&dstfld1=resourceid&dstfld2=caption&srctbl=plain_text&srcfld1=itemid&srcfld2=description',800,450);");
+			$selectbtn->setAttribute('onmouseover',"javascript: this.style.cursor = 'pointer';");
 
-			if($screen['templateid']){
-				$selectbtn = new CButton('select', S_SELECT,
-					"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName().
-							"&templated_hosts=1&only_hostid=".$screen['templateid']."&dstfld1=resourceid&".
-							"dstfld2=caption&srctbl=plain_text&srcfld1=itemid&srcfld2=description', 800, 450);");
-			}
-			else{
-				$selectbtn = new CButton('select', S_SELECT,
-					"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName().
-							"&real_hosts=1&dstfld1=resourceid&dstfld2=caption&srctbl=plain_text&srcfld1=itemid".
-							"&srcfld2=description', 800, 450);");
-			}
-
-			$form->addRow(S_PARAMETER, array($textfield, SPACE, $selectbtn));
-			$form->addRow(S_SHOW_LINES, new CNumericBox('elements', $elements, 2));
-			$form->addRow(S_SHOW_TEXT_AS_HTML, new CCheckBox('style', $style, null, 1));
+			$form->addRow(S_PARAMETER,array($textfield,SPACE,$selectbtn));
+			$form->addRow(S_SHOW_LINES, new CNumericBox('elements',$elements,2));
+			$form->addRow(S_SHOW_TEXT_AS_HTML, new CCheckBox('style',$style,null,1));
 		}
-		else if(in_array($resourcetype, array(SCREEN_RESOURCE_HOSTGROUP_TRIGGERS,SCREEN_RESOURCE_HOST_TRIGGERS))){
+		else if(uint_in_array($resourcetype,array(SCREEN_RESOURCE_HOSTGROUP_TRIGGERS,SCREEN_RESOURCE_HOST_TRIGGERS))){
 // Status of triggers
 			$caption = '';
 			$id=0;
@@ -645,12 +552,14 @@ require_once('include/js.inc.php');
 					}
 				}
 
-				$form->addVar('resourceid', $id);
+				$form->addVar('resourceid',$id);
 
-				$textfield = new CTextbox('caption', $caption, 60, 'yes');
-				$selectbtn = new CButton('select', S_SELECT, "javascript: return PopUp('popup.php?writeonly=1&dstfrm=" . $form->getName() . "&dstfld1=resourceid&dstfld2=caption&srctbl=host_group&srcfld1=groupid&srcfld2=name',800,450);");
+				$textfield = new CTextbox('caption',$caption,60,'yes');
+				$selectbtn = new CButton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName()."&dstfld1=resourceid&dstfld2=caption&srctbl=host_group&srcfld1=groupid&srcfld2=name',800,450);");
+				$selectbtn->setAttribute('onmouseover',"javascript: this.style.cursor = 'pointer';");
 
-				$form->addRow(S_GROUP, array($textfield, SPACE, $selectbtn));
+				$form->addRow(S_GROUP,array($textfield,SPACE,$selectbtn));
+
 			}
 			else{
 				if($resourceid > 0){
@@ -671,22 +580,23 @@ require_once('include/js.inc.php');
 
 				$textfield = new CTextbox('caption',$caption,60,'yes');
 				$selectbtn = new CButton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName()."&dstfld1=resourceid&dstfld2=caption&srctbl=hosts&srcfld1=hostid&srcfld2=host',800,450);");
+				$selectbtn->setAttribute('onmouseover',"javascript: this.style.cursor = 'pointer';");
 
 				$form->addRow(S_HOST,array($textfield,SPACE,$selectbtn));
 			}
 
-			$form->addRow(S_SHOW_LINES, new CNumericBox('elements', $elements, 2));
+			$form->addRow(S_SHOW_LINES, new CNumericBox('elements',$elements,2));
 		}
-		else if(in_array($resourcetype, array(SCREEN_RESOURCE_EVENTS, SCREEN_RESOURCE_ACTIONS))){
+		else if(uint_in_array($resourcetype,array(SCREEN_RESOURCE_EVENTS,SCREEN_RESOURCE_ACTIONS))){
 // History of actions
 // History of events
-			$form->addRow(S_SHOW_LINES, new CNumericBox('elements', $elements, 2));
-			$form->addVar('resourceid', 0);
+			$form->addRow(S_SHOW_LINES, new CNumericBox('elements',$elements,2));
+			$form->addVar('resourceid',0);
 		}
-		else if(in_array($resourcetype, array(SCREEN_RESOURCE_TRIGGERS_OVERVIEW, SCREEN_RESOURCE_DATA_OVERVIEW))){
+		else if(uint_in_array($resourcetype,array(SCREEN_RESOURCE_TRIGGERS_OVERVIEW,SCREEN_RESOURCE_DATA_OVERVIEW))){
 // Overviews
 			$caption = '';
-			$id = 0;
+			$id=0;
 
 			if($resourceid > 0){
 				$options = array(
@@ -706,6 +616,7 @@ require_once('include/js.inc.php');
 
 			$textfield = new CTextbox('caption',$caption,75,'yes');
 			$selectbtn = new CButton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName()."&dstfld1=resourceid&dstfld2=caption&srctbl=overview&srcfld1=groupid&srcfld2=name',800,450);");
+			$selectbtn->setAttribute('onmouseover',"javascript: this.style.cursor = 'pointer';");
 
 			$form->addRow(S_GROUP,array($textfield,SPACE,$selectbtn));
 		}
@@ -715,11 +626,10 @@ require_once('include/js.inc.php');
 			$id=0;
 
 			if($resourceid > 0){
-				$sql = 'SELECT DISTINCT n.name as node_name,s.screenid,s.name '.
-						' FROM screens s '.
-							' LEFT JOIN nodes n ON n.nodeid='.DBid2nodeid('s.screenid').
-						' WHERE s.screenid='.$resourceid;
-				$result=DBselect($sql);
+				$result=DBselect('SELECT DISTINCT n.name as node_name,s.screenid,s.name '.
+							' FROM screens s '.
+								' LEFT JOIN nodes n ON n.nodeid='.DBid2nodeid('s.screenid').
+							' WHERE s.screenid='.$resourceid);
 
 				while($row=DBfetch($result)){
 					$r = CScreen::get(array(
@@ -739,6 +649,7 @@ require_once('include/js.inc.php');
 
 			$textfield = new Ctextbox('caption',$caption,60,'yes');
 			$selectbtn = new Cbutton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName()."&dstfld1=resourceid&dstfld2=caption&srctbl=screens2&srcfld1=screenid&srcfld2=name&screenid=".$_REQUEST['screenid']."',800,450);");
+			$selectbtn->setAttribute('onmouseover',"javascript: this.style.cursor = 'pointer';");
 
 			$form->addRow(S_PARAMETER,array($textfield,SPACE,$selectbtn));
 		}
@@ -749,12 +660,12 @@ require_once('include/js.inc.php');
 
 			$available_groups = get_accessible_groups_by_user($USER_DETAILS,PERM_READ_ONLY);
 			if(remove_nodes_from_id($resourceid) > 0){
-				$sql = 'SELECT DISTINCT n.name as node_name,g.groupid,g.name '.
+				$result=DBselect('SELECT DISTINCT n.name as node_name,g.groupid,g.name '.
 						' FROM hosts_groups hg, groups g '.
 							' LEFT JOIN nodes n ON n.nodeid='.DBid2nodeid('g.groupid').
 						' WHERE '.DBcondition('g.groupid',$available_groups).
-							' AND g.groupid='.$resourceid;
-				$result=DBselect($sql);
+							' AND g.groupid='.$resourceid);
+
 				while($row=DBfetch($result)){
 					$row['node_name'] = isset($row['node_name']) ? '('.$row['node_name'].') ' : '';
 					$caption = $row['node_name'].$row['name'];
@@ -776,86 +687,61 @@ require_once('include/js.inc.php');
 			$form->addVar('resourceid',$id);
 
 			$textfield = new CTextbox('caption',$caption,60,'yes');
-			$selectbtn = new CButton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName()."&dstfld1=resourceid&dstfld2=caption&srctbl=host_group_scr&srcfld1=groupid&srcfld2=name',480,450);");
+			$selectbtn = new Cbutton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName()."&dstfld1=resourceid&dstfld2=caption&srctbl=host_group_scr&srcfld1=groupid&srcfld2=name',480,450);");
+			$selectbtn->setAttribute('onmouseover',"javascript: this.style.cursor = 'pointer';");
 
 			$form->addRow(S_GROUP,array($textfield,SPACE,$selectbtn));
 		}
-		else if($resourcetype == SCREEN_RESOURCE_CLOCK){
-			$caption = get_request('caption', '');
-
-			if(zbx_empty($caption) && (TIME_TYPE_HOST == $style) && ($resourceid > 0)){
-				$options = array(
-					'itemids' => $resourceid,
-					'output' => API_OUTPUT_EXTEND
-				);
-				$items = CItem::get($options);
-				$item = reset($items);
-
-				$caption = $item['description'];
-			}
-
-			$form->addVar('resourceid',$resourceid);
-
-			$cmbStyle = new CComboBox('style', $style, 'javascript: submit();');
-			$cmbStyle->addItem(TIME_TYPE_LOCAL,	S_LOCAL_TIME);
-			$cmbStyle->addItem(TIME_TYPE_SERVER,S_SERVER_TIME);
-			$cmbStyle->addItem(TIME_TYPE_HOST,	S_HOST_TIME);
-
-			$form->addRow(S_TIME_TYPE,	$cmbStyle);
-
-			if(TIME_TYPE_HOST == $style){
-				$textfield = new CTextbox('caption',$caption,75,'yes');
-				$selectbtn = new CButton('select',S_SELECT,"javascript: return PopUp('popup.php?writeonly=1&dstfrm=".$form->getName()."&dstfld1=resourceid&dstfld2=caption&srctbl=items&srcfld1=itemid&srcfld2=description',800,450);");
-
-				$form->addRow(S_PARAMETER,array($textfield,SPACE,$selectbtn));
-			}
-			else{
-				$form->addVar('caption',$caption);
-			}
-		}
 		else{
+// SCREEN_RESOURCE_CLOCK
 			$form->addVar('resourceid',0);
 		}
 
-		if(in_array($resourcetype, array(SCREEN_RESOURCE_HOSTS_INFO,SCREEN_RESOURCE_TRIGGERS_INFO))){
-			$cmbStyle = new CComboBox('style', $style);
+		if(uint_in_array($resourcetype,array(SCREEN_RESOURCE_HOSTS_INFO,SCREEN_RESOURCE_TRIGGERS_INFO))){
+			$cmbStyle = new CComboBox("style", $style);
 			$cmbStyle->addItem(STYLE_HORISONTAL,	S_HORIZONTAL);
 			$cmbStyle->addItem(STYLE_VERTICAL,	S_VERTICAL);
 			$form->addRow(S_STYLE,	$cmbStyle);
 		}
-		else if(in_array($resourcetype, array(SCREEN_RESOURCE_TRIGGERS_OVERVIEW,SCREEN_RESOURCE_DATA_OVERVIEW))){
+		else if(uint_in_array($resourcetype,array(SCREEN_RESOURCE_TRIGGERS_OVERVIEW,SCREEN_RESOURCE_DATA_OVERVIEW))){
 			$cmbStyle = new CComboBox('style', $style);
 			$cmbStyle->addItem(STYLE_LEFT,	S_LEFT);
 			$cmbStyle->addItem(STYLE_TOP,	S_TOP);
 			$form->addRow(S_HOSTS_LOCATION,	$cmbStyle);
 		}
+		else if($resourcetype == SCREEN_RESOURCE_CLOCK){
+			$cmbStyle = new CComboBox('style', $style);
+			$cmbStyle->addItem(TIME_TYPE_LOCAL,	S_LOCAL_TIME);
+			$cmbStyle->addItem(TIME_TYPE_SERVER,	S_SERVER_TIME);
+			$form->addRow(S_TIME_TYPE,	$cmbStyle);
+		}
 		else{
 			$form->addVar('style',	0);
 		}
 
-		if(in_array($resourcetype, array(SCREEN_RESOURCE_URL))){
-			$form->addRow(S_URL, new CTextBox('url', $url, 60));
+		if(uint_in_array($resourcetype,array(SCREEN_RESOURCE_URL))){
+			$form->addRow(S_URL, new CTextBox('url',$url,60));
 		}
 		else{
-			$form->addVar('url', '');
+			$form->addVar('url',	'');
 		}
 
-		if(in_array($resourcetype, array(SCREEN_RESOURCE_GRAPH,SCREEN_RESOURCE_SIMPLE_GRAPH,SCREEN_RESOURCE_CLOCK,SCREEN_RESOURCE_URL))){
-			$form->addRow(S_WIDTH,	new CNumericBox('width', $width, 5));
-			$form->addRow(S_HEIGHT,	new CNumericBox('height', $height, 5));
+		if(uint_in_array($resourcetype,array(SCREEN_RESOURCE_GRAPH,SCREEN_RESOURCE_SIMPLE_GRAPH,SCREEN_RESOURCE_CLOCK,SCREEN_RESOURCE_URL))){
+			$form->addRow(S_WIDTH,	new CNumericBox('width',$width,5));
+			$form->addRow(S_HEIGHT,	new CNumericBox('height',$height,5));
 		}
 		else{
-			$form->addVar('width', 500);
-			$form->addVar('height', 100);
+			$form->addVar('width',	500);
+			$form->addVar('height',	100);
 		}
 
-		if(in_array($resourcetype, array(SCREEN_RESOURCE_GRAPH,SCREEN_RESOURCE_SIMPLE_GRAPH,SCREEN_RESOURCE_MAP,
+		if(uint_in_array($resourcetype,array(SCREEN_RESOURCE_GRAPH,SCREEN_RESOURCE_SIMPLE_GRAPH,SCREEN_RESOURCE_MAP,
 			SCREEN_RESOURCE_CLOCK,SCREEN_RESOURCE_URL))){
-			$cmbHalign = new CComboBox('halign', $halign);
-			$cmbHalign->addItem(HALIGN_CENTER, S_CENTRE);
-			$cmbHalign->addItem(HALIGN_LEFT, S_LEFT);
-			$cmbHalign->addItem(HALIGN_RIGHT, S_RIGHT);
-			$form->addRow(S_HORIZONTAL_ALIGN, $cmbHalign);
+			$cmbHalign = new CComboBox('halign',$halign);
+			$cmbHalign->addItem(HALIGN_CENTER,	S_CENTRE);
+			$cmbHalign->addItem(HALIGN_LEFT,	S_LEFT);
+			$cmbHalign->addItem(HALIGN_RIGHT,	S_RIGHT);
+			$form->addRow(S_HORIZONTAL_ALIGN,	$cmbHalign);
 		}
 		else{
 			$form->addVar('halign',	0);
@@ -871,49 +757,67 @@ require_once('include/js.inc.php');
 		$form->addRow(S_ROW_SPAN,	new CNumericBox('rowspan',$rowspan,2));
 
 // dynamic AddOn
-		if(($screen['templateid'] == 0) && in_array($resourcetype, array(SCREEN_RESOURCE_GRAPH,SCREEN_RESOURCE_SIMPLE_GRAPH,SCREEN_RESOURCE_PLAIN_TEXT))){
+		if(uint_in_array($resourcetype,array(SCREEN_RESOURCE_GRAPH,SCREEN_RESOURCE_SIMPLE_GRAPH,SCREEN_RESOURCE_PLAIN_TEXT))){
 			$form->addRow(S_DYNAMIC_ITEM,	new CCheckBox('dynamic',$dynamic,null,1));
 		}
 
-		$form->addItemToBottomRow(new CButton('save', S_SAVE));
+		$form->addItemToBottomRow(new CButton('save',S_SAVE));
 		if(isset($_REQUEST['screenitemid'])){
-			$form->addItemToBottomRow(array(SPACE, new CButtonDelete(null,
-				url_param('form').url_param('screenid').url_param('screenitemid'))));
+			$form->addItemToBottomRow(SPACE);
+			$form->addItemToBottomRow(new CButtonDelete(null,
+				url_param('form').url_param('screenid').url_param('screenitemid')));
 		}
-		$form->addItemToBottomRow(array(SPACE, new CButtonCancel(url_param('screenid'))));
-
+		$form->addItemToBottomRow(SPACE);
+		$form->addItemToBottomRow(new CButtonCancel(url_param('screenid')));
 		return $form;
 	}
 
-// editmode: 0 - view with actions, 1 - edit mode, 2 - view without any actions
-	function get_screen($screen, $editmode, $effectiveperiod=null){
-		if(is_null($effectiveperiod)) $effectiveperiod = ZBX_MIN_PERIOD;
+	// editmode: 0 - view with actions, 1 - edit mode, 2 - view without any actions
+	function get_screen($screenid, $editmode, $effectiveperiod=NULL){
+		global $USER_DETAILS;
 
-		if(!$screen) return new CTableInfo(S_NO_SCREENS_DEFINED);
+		if($screenid == 0) return new CTableInfo(S_NO_SCREENS_DEFINED);
+		$r = CScreen::get(array(
+			'screenids' => $screenid,
+			'editable' => ($editmode == 1 ? 1 : null),
+			'output' => API_OUTPUT_SHORTEN
+		));
+		if(empty($r))
+			access_deny();
+
+		if(is_null($effectiveperiod))
+			$effectiveperiod = ZBX_MIN_PERIOD;
+
+		$result=DBselect('SELECT name,hsize,vsize FROM screens WHERE screenid='.$screenid);
+		$row=DBfetch($result);
+		if(!$row) return new CTableInfo(S_NO_SCREENS_DEFINED);
+
+		$sql = 'SELECT * FROM screens_items WHERE screenid='.$screenid;
+		$iresult = DBSelect($sql);
 
 		$skip_field = array();
-		$screenItems = array();
-		foreach($screen['screenitems'] as $sinum => $screenItem){
-			$screenItems[] = $screenItem;
-			for($i = 0; $i < $screenItem['rowspan'] || $i == 0; $i++){
-				for($j = 0; $j < $screenItem['colspan'] || $j == 0; $j++){
-					if($i != 0 || $j != 0){
-						if(!isset($skip_field[$screenItem['y'] + $i])) $skip_field[$screenItem['y'] + $i] = array();
-						$skip_field[$screenItem['y'] + $i][$screenItem['x'] + $j] = 1;
+		$irows = array();
+		while($irow = DBfetch($iresult)){
+			$irows[] = $irow;
+			for($i=0; $i < $irow['rowspan'] || $i==0; $i++){
+				for($j=0; $j < $irow['colspan'] || $j==0; $j++){
+					if($i!=0 || $j!=0){
+						if(!isset($skip_field[$irow['y']+$i])) $skip_field[$irow['y']+$i] = array();
+						$skip_field[$irow['y']+$i][$irow['x']+$j] = 1;
 					}
 				}
 			}
 		}
 
-		$table = new CTable(new CLink(S_NO_ROWS_IN_SCREEN.SPACE.$screen['name'],'screenconf.php?config=0&form=update&screenid='.$screen['screenid']),
+		$table = new CTable(new CLink(S_NO_ROWS_IN_SCREEN.SPACE.$row['name'],'screenconf.php?config=0&form=update&screenid='.$screenid),
 			($editmode == 0 || $editmode == 2) ? 'screen_view' : 'screen_edit');
 		$table->setAttribute('id', 'iframe');
 
 		if($editmode == 1){
 			$new_cols = array(new Ccol(new Cimg('images/general/zero.gif','zero',1,1)));
-			for($c=0;$c<$screen['hsize']+1;$c++){
+			for($c=0;$c<$row['hsize']+1;$c++){
 				$add_icon = new Cimg('images/general/closed.gif', NULL, NULL, NULL, 'pointer');
-            $add_icon->addAction('onclick', "javascript: location.href = 'screenedit.php?config=1&screenid=".$screen['screenid']."&add_col=$c';");
+            $add_icon->addAction('onclick', "javascript: location.href = 'screenedit.php?config=1&screenid=$screenid&add_col=$c';");
 				array_push($new_cols, new Ccol($add_icon));
 			}
 			$table->addRow($new_cols);
@@ -921,43 +825,43 @@ require_once('include/js.inc.php');
 
 		$empty_screen_col = array();
 
-		for($r=0; $r < $screen['vsize']; $r++){
+		for($r=0; $r < $row['vsize']; $r++){
 			$new_cols = array();
 			$empty_screen_row = true;
 
 			if($editmode == 1){
 				$add_icon = new Cimg('images/general/closed.gif', NULL, NULL, NULL, 'pointer');
-            $add_icon->addAction('onclick', "javascript: location.href = 'screenedit.php?config=1&screenid=".$screen['screenid']."&add_row=$r';");
+            $add_icon->addAction('onclick', "javascript: location.href = 'screenedit.php?config=1&screenid=$screenid&add_row=$r';");
 				array_push($new_cols, new Ccol($add_icon));
 			}
 
-			for($c=0; $c < $screen['hsize']; $c++){
+			for($c=0; $c < $row['hsize']; $c++){
 				$item = array();
 				if(isset($skip_field[$r][$c])) continue;
 				$item_form = false;
 
-				$screenItem = false;
-				foreach($screenItems as $tmprow){
+				$irow = false;
+				foreach($irows as $tmprow){
 					if(($tmprow['x'] == $c) && ($tmprow['y'] == $r)){
-						$screenItem = $tmprow;
+						$irow = $tmprow;
 						break;
 					}
 				}
 
-				if($screenItem){
-					$screenitemid	= $screenItem['screenitemid'];
-					$resourcetype	= $screenItem['resourcetype'];
-					$resourceid	= $screenItem['resourceid'];
-					$width		= $screenItem['width'];
-					$height		= $screenItem['height'];
-					$colspan	= $screenItem['colspan'];
-					$rowspan	= $screenItem['rowspan'];
-					$elements	= $screenItem['elements'];
-					$valign		= $screenItem['valign'];
-					$halign		= $screenItem['halign'];
-					$style		= $screenItem['style'];
-					$url		= $screenItem['url'];
-					$dynamic	= $screenItem['dynamic'];
+				if($irow){
+					$screenitemid	= $irow['screenitemid'];
+					$resourcetype	= $irow['resourcetype'];
+					$resourceid	= $irow['resourceid'];
+					$width		= $irow['width'];
+					$height		= $irow['height'];
+					$colspan	= $irow['colspan'];
+					$rowspan	= $irow['rowspan'];
+					$elements	= $irow['elements'];
+					$valign		= $irow['valign'];
+					$halign		= $irow['halign'];
+					$style		= $irow['style'];
+					$url		= $irow['url'];
+					$dynamic	= $irow['dynamic'];
 				}
 				else{
 					$screenitemid	= 0;
@@ -993,12 +897,12 @@ require_once('include/js.inc.php');
 
 				if(($editmode == 1) && isset($_REQUEST['form']) && isset($_REQUEST['x']) && $_REQUEST['x']==$c &&
 					isset($_REQUEST['y']) && $_REQUEST['y']==$r){ // click on empty field
-					$item = get_screen_item_form($screen);
+					$item = get_screen_item_form();
 					$item_form = true;
 				}
 				else if(($editmode == 1) && isset($_REQUEST['form']) &&	isset($_REQUEST['screenitemid']) &&
 					(bccomp($_REQUEST['screenitemid'], $screenitemid)==0)){ // click on element
-					$item = get_screen_item_form($screen);
+					$item = get_screen_item_form();
 					$item_form = true;
 				}
 				else if( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_GRAPH) ){
@@ -1449,71 +1353,10 @@ require_once('include/js.inc.php');
 					if($editmode == 1)	array_push($item,new CLink(S_CHANGE,$action));
 				}
 				else if( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_CLOCK) ){
-					$error = null;
-					$timeOffset = null;
-					$timeZone = null;
-
-					switch($style){
-					 case TIME_TYPE_HOST:
-						$options = array(
-							'itemids' => $resourceid,
-							'select_hosts' => API_OUTPUT_EXTEND,
-							'output' => API_OUTPUT_EXTEND
-						);
-
-						$items = CItem::get($options);
-						$item = reset($items);
-						$host = reset($item['hosts']);
-
-//2010-12-01,12:44:13.324,+4:00
-//						$item['lastvalue'] = '2010-1-15,10:23:13.324,-4:0';
-//						$item['lastclock'] = time();
-
-						$timeType = $host['host'];
-
-						preg_match('/([+-]{1})([\d]{1,2}):([\d]{1,2})/', $item['lastvalue'], $arr);
-						if(!empty($arr)){
-							$timeZone = $arr[2]*3600 + $arr[3]*60;
-							if($arr[1] == '-') $timeZone = 0 - $timeZone;
-						}
-
-						if($lastvalue = strtotime($item['lastvalue'])){
-							$diff = (time() - $item['lastclock']);
-							$timeOffset = $lastvalue + $diff;
-						}
-						else{
-							$error = S_NO_DATA_BIG;
-						}
-
-						break;
-					case TIME_TYPE_SERVER:
-						$error = null;
-						$timeType = S_SERVER_BIG;
-						$timeOffset = time();
-						$timeZone = date('Z');
-						break;
-					default:
-						$error = null;
-						$timeType = S_LOCAL_BIG;
-						$timeOffset = null;
-						$timeZone = null;
-					}
-
-					$item = new CFlashClock($width, $height, $action);
-					$item->setTimeError($error);
-					$item->setTimeType($timeType);
-					$item->setTimeZone($timeZone);
-					$item->setTimeOffset($timeOffset);
-
+					$item = new CFlashClock($width, $height, $style, $action);
 				}
 				else if( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_SCREEN) ){
-					$subScreens = CScreen::get(array(
-						'screenids' => $screen['screenid'],
-						'output' => API_OUTPUT_EXTEND,
-						'select_screenitems' => API_OUTPUT_EXTEND
-					));
-					$subScreen = reset($subScreens);
-					$item = array(get_screen($subScreen, 2, $effectiveperiod));
+					$item = array(get_screen($resourceid, 2, $effectiveperiod));
 					if($editmode == 1)	array_push($item,new CLink(S_CHANGE,$action));
 				}
 				else if( ($screenitemid!=0) && ($resourcetype==SCREEN_RESOURCE_TRIGGERS_OVERVIEW) ){
@@ -1621,11 +1464,11 @@ require_once('include/js.inc.php');
 			if($editmode == 1){
 				$rmv_icon = new Cimg('images/general/opened.gif', NULL, NULL, NULL, 'pointer');
 				if($empty_screen_row){
-					$rmv_row_link = "javascript: location.href = 'screenedit.php?config=1&screenid=".$screen['screenid']."&rmv_row=$r';";
+					$rmv_row_link = "javascript: location.href = 'screenedit.php?config=1&screenid=$screenid&rmv_row=$r';";
 				}
 				else{
 					$rmv_row_link = "javascript: if(Confirm('".S_THIS_SCREEN_ROW_NOT_EMPTY.'. '.S_DELETE_IT_Q."')){".
-									" location.href = 'screenedit.php?config=1&screenid=".$screen['screenid']."&rmv_row=$r';}";
+									" location.href = 'screenedit.php?config=1&screenid=$screenid&rmv_row=$r';}";
 				}
 				$rmv_icon->addAction('onclick',$rmv_row_link);
 
@@ -1636,16 +1479,16 @@ require_once('include/js.inc.php');
 
 		if($editmode == 1){
          $add_icon = new Cimg('images/general/closed.gif', NULL, NULL, NULL, 'pointer');
-         $add_icon->addAction('onclick', "javascript: location.href = 'screenedit.php?config=1&screenid=".$screen['screenid']."&add_row=".$screen['vsize']."';");
+         $add_icon->addAction('onclick', "javascript: location.href = 'screenedit.php?config=1&screenid=$screenid&add_row={$row['vsize']}';");
 			$new_cols = array(new Ccol($add_icon));
-			for($c=0;$c<$screen['hsize'];$c++){
+			for($c=0;$c<$row['hsize'];$c++){
 				$rmv_icon = new Cimg('images/general/opened.gif', NULL, NULL, NULL, 'pointer');
 				if(isset($empty_screen_col[$c])){
 					$rmv_col_link = "javascript: if(Confirm('".S_THIS_SCREEN_COLUMN_NOT_EMPTY.'. '.S_DELETE_IT_Q."')){".
-										" location.href = 'screenedit.php?config=1&screenid=".$screen['screenid']."&rmv_col=$c';}";
+										" location.href = 'screenedit.php?config=1&screenid=$screenid&rmv_col=$c';}";
 				}
 				else{
-					$rmv_col_link = "javascript: location.href = 'screenedit.php?config=1&screenid=".$screen['screenid']."&rmv_col=$c';";
+					$rmv_col_link = "javascript: location.href = 'screenedit.php?config=1&screenid=$screenid&rmv_col=$c';";
 				}
 				$rmv_icon->addAction('onclick',$rmv_col_link);
 				array_push($new_cols, new Ccol($rmv_icon));
@@ -1732,12 +1575,10 @@ require_once('include/js.inc.php');
 		try{
 			foreach($exportScreens as $snum => &$screen){
 				unset($screen['screenid']);
-				unset($screen['hostid']);
 
 				foreach($screen['screenitems'] as $snum => &$screenItem){
 					unset($screenItem['screenid']);
 					unset($screenItem['screenitemid']);
-					unset($screenItem['dynamic']);
 					if($screenItem['resourceid'] == 0) continue;
 
 					switch($screenItem['resourcetype']){

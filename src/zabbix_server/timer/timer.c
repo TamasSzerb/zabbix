@@ -56,7 +56,6 @@ static void	process_time_functions()
 	zbx_uint64_t	triggerid;
 	int		trigger_type, trigger_value, exp_value;
 	const char	*trigger_error;
-	zbx_timespec_t	ts;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
@@ -90,19 +89,17 @@ static void	process_time_functions()
 		trigger_error = row[3];
 		exp = strdup(row[4]);
 
-		zbx_timespec(&ts);
-
-		if (SUCCEED != evaluate_expression(&exp_value, &exp, ts.sec, triggerid, trigger_value, error, sizeof(error)))
+		if (SUCCEED != evaluate_expression(&exp_value, &exp, time(NULL), triggerid, trigger_value, error, sizeof(error)))
 		{
 			zabbix_log(LOG_LEVEL_WARNING, "Expression [%s] cannot be evaluated: %s", exp, error);
 			zabbix_syslog("Expression [%s] cannot be evaluated: %s", exp, error);
 
 			DBupdate_trigger_value(triggerid, trigger_type, trigger_value,
-					trigger_error, TRIGGER_VALUE_UNKNOWN, &ts, error);
+					trigger_error, TRIGGER_VALUE_UNKNOWN, time(NULL), error);
 		}
 		else
 			DBupdate_trigger_value(triggerid, trigger_type, trigger_value,
-					trigger_error, exp_value, &ts, NULL);
+					trigger_error, exp_value, time(NULL), NULL);
 
 		zbx_free(exp);
 	}
@@ -206,8 +203,6 @@ static void	process_maintenance_hosts(zbx_host_maintenance_t **hm, int *hm_alloc
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	assert(maintenanceid);
-
 	result = DBselect(
 			"select h.hostid,h.maintenanceid,h.maintenance_status,h.maintenance_type,h.maintenance_from "
 			"from maintenances_hosts mh,hosts h "
@@ -220,7 +215,7 @@ static void	process_maintenance_hosts(zbx_host_maintenance_t **hm, int *hm_alloc
 	while (NULL != (row = DBfetch(result)))
 	{
 		ZBX_STR2UINT64(host_hostid, row[0]);
-		ZBX_DBROW2UINT64(host_maintenanceid, row[1]);
+		ZBX_STR2UINT64(host_maintenanceid, row[1]);
 		host_maintenance_status = atoi(row[2]);
 		host_maintenance_type = atoi(row[3]);
 		host_maintenance_from = atoi(row[4]);
@@ -244,7 +239,7 @@ static void	process_maintenance_hosts(zbx_host_maintenance_t **hm, int *hm_alloc
 	while (NULL != (row = DBfetch(result)))
 	{
 		ZBX_STR2UINT64(host_hostid, row[0]);
-		ZBX_DBROW2UINT64(host_maintenanceid, row[1]);
+		ZBX_STR2UINT64(host_maintenanceid, row[1]);
 		host_maintenance_status = atoi(row[2]);
 		host_maintenance_type = atoi(row[3]);
 		host_maintenance_from = atoi(row[4]);
@@ -551,7 +546,7 @@ static void	update_maintenance_hosts(zbx_host_maintenance_t *hm, int hm_count, i
 	sql_offset = 0;
 	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 128,
 			"update hosts"
-			" set maintenanceid=null,"
+			" set maintenanceid=0,"
 				"maintenance_status=%d,"
 				"maintenance_type=0,"
 				"maintenance_from=0"

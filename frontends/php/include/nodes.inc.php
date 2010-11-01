@@ -295,7 +295,7 @@
 		$nodetype = 0;
 		$sql = 'INSERT INTO nodes (nodeid,name,timezone,ip,port,slave_history,slave_trends, nodetype,masterid) '.
 			' VALUES ('.$new_nodeid.','.zbx_dbstr($name).','.$timezone.','.zbx_dbstr($ip).','.$port.','.$slave_history.','.
-			$slave_trends.','.$nodetype.','.zero2null($masterid).')';
+			$slave_trends.','.$nodetype.','.$masterid.')';
 		$result = DBexecute($sql);
 
 		if($result && $node_type == ZBX_NODE_MASTER){
@@ -335,7 +335,7 @@
 				// DBexecute("insert into housekeeper (housekeeperid,tablename,field,value)".
 					// " values ($housekeeperid,'nodes','nodeid',$nodeid)") &&
 				DBexecute('delete from nodes where nodeid='.$nodeid) &&
-				DBexecute('update nodes set masterid=NULL where masterid='.$nodeid)
+				DBexecute('update nodes set masterid=0 where masterid='.$nodeid)
 				);
 			error(S_DATABASE_STILL_CONTAINS_DATA_RELATED_DELETED_NODE);
 		}

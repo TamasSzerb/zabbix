@@ -153,11 +153,11 @@ include_once('include/page_header.php');
 		}
 	}
 	else if(inarr_isset(array('clone','druleid'))){
-		unset($_REQUEST['druleid']);
+		unset($_REQUEST["druleid"]);
 		$dchecks = $_REQUEST['dchecks'];
 		foreach($dchecks as $id => $data)
 			unset($dchecks[$id]['dcheckid']);
-		$_REQUEST['form'] = 'clone';
+		$_REQUEST["form"] = "clone";
 	}
 	else if(inarr_isset(array('delete', 'druleid'))){
 		$result = delete_discovery_rule($_REQUEST['druleid']);
@@ -241,7 +241,7 @@ include_once('include/page_header.php');
 			//TODO init checks
 			$dchecks = array();
 			$db_checks = DBselect('SELECT dcheckid,type,ports,key_,snmp_community,snmpv3_securityname,'.
-						'snmpv3_securitylevel,snmpv3_authpassphrase,snmpv3_privpassphrase,uniq'.
+						'snmpv3_securitylevel,snmpv3_authpassphrase,snmpv3_privpassphrase'.
 						' FROM dchecks'.
 						' WHERE druleid='.$_REQUEST['druleid']);
 			while($check_data = DBfetch($db_checks)){
@@ -252,7 +252,7 @@ include_once('include/page_header.php');
 						'snmpv3_securitylevel' => $check_data['snmpv3_securitylevel'],
 						'snmpv3_authpassphrase' => $check_data['snmpv3_authpassphrase'],
 						'snmpv3_privpassphrase' => $check_data['snmpv3_privpassphrase']));
-				if($check_data['uniq'])
+				if ($check_data['dcheckid'] == $rule_data['unique_dcheckid'])
 					$uniqueness_criteria = $count - 1;
 			}
 			$dchecks_deleted = get_request('dchecks_deleted',array());

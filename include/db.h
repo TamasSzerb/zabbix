@@ -248,11 +248,6 @@ typedef enum {
 #define	ZBX_SQL_STRVAL_NE(str)	"<>", str
 #endif
 
-#define ZBX_DBROW2UINT64(uint, row)	if (SUCCEED == DBis_null(row))		\
-						uint = 0;			\
-					else					\
-						sscanf(row, ZBX_FS_UI64, &uint);
-
 #define ZBX_MAX_SQL_LEN		65535
 
 DB_DRULE
@@ -309,7 +304,6 @@ DB_EVENT
 	char		*trigger_comments;
 	int		trigger_type;
 	zbx_uint64_t	ack_eventid;
-	int		ns;
 };
 
 DB_HOST
@@ -353,7 +347,6 @@ DB_ITEM
 	double	lastvalue_dbl;
 	zbx_uint64_t	lastvalue_uint64;
 	int	lastclock;
-	int	lastns;
 	int     lastvalue_null;
 	char	*prevvalue_str;
 	double	prevvalue_dbl;
@@ -436,12 +429,11 @@ DB_OPERATION
 {
 	zbx_uint64_t	operationid;
 	zbx_uint64_t	actionid;
-	zbx_uint64_t	objectid;
-	zbx_uint64_t	mediatypeid;
-	char		*shortdata;
-	char		*longdata;
 	int		operationtype;
 	int		object;
+	zbx_uint64_t	objectid;
+	char		*shortdata;
+	char		*longdata;
 	int		esc_period;
 	int		default_msg;
 	int		evaltype;
@@ -539,12 +531,13 @@ DB_ESCALATION
 #define DBnode_local(fieldid) DBnode(fieldid, CONFIG_NODEID)
 const char *DBnode(const char *fieldid, const int nodeid);
 
-int	DBping(void);
+int	DBping();
 
 void    DBconnect(int flag);
 void	DBinit();
 
-void    DBclose(void);
+void    DBclose();
+void    DBvacuum();
 
 #ifdef HAVE___VA_ARGS__
 #	define DBexecute(fmt, ...) __zbx_DBexecute(ZBX_CONST_STRING(fmt), ##__VA_ARGS__)
@@ -573,39 +566,16 @@ const ZBX_FIELD	*DBget_field(const ZBX_TABLE *table, const char *fieldname);
 zbx_uint64_t	DBget_maxid_num(const char *tablename, int num);
 zbx_uint64_t	DBget_nextid(const char *tablename, int num);
 
-/******************************************************************************
- *                                                                            *
- * Type: ZBX_GRAPH_ITEMS                                                      *
- *                                                                            *
- * Purpose: represent graph item data                                         *
- *                                                                            *
- * Author: Eugene Grigorjev                                                   *
- *                                                                            *
- ******************************************************************************/
-typedef struct
-{
-	zbx_uint64_t	itemid; /* itemid should come first for correct sorting */
-	zbx_uint64_t	gitemid;
-	char		key[ITEM_KEY_LEN_MAX];
-	int		drawtype;
-	int		sortorder;
-	char		color[GRAPH_ITEM_COLOR_LEN_MAX];
-	int		yaxisside;
-	int		calc_fnc;
-	int		type;
-	int		periods_cnt;
-	unsigned char	flags;
-}
-ZBX_GRAPH_ITEMS;
-
 int	DBupdate_item_status_to_notsupported(DB_ITEM *item, int clock, const char *error);
+int	DBadd_service_alarm(zbx_uint64_t serviceid, int status, int clock);
+int	DBadd_alert(zbx_uint64_t actionid, zbx_uint64_t eventid, zbx_uint64_t userid, zbx_uint64_t mediatypeid, char *sendto, char *subject, char *message);
 int	DBstart_escalation(zbx_uint64_t actionid, zbx_uint64_t triggerid, zbx_uint64_t eventid);
 int	DBstop_escalation(zbx_uint64_t actionid, zbx_uint64_t triggerid, zbx_uint64_t eventid);
 int	DBremove_escalation(zbx_uint64_t escalationid);
 void	DBupdate_triggers_status_after_restart(void);
 int	DBget_prev_trigger_value(zbx_uint64_t triggerid);
 int     DBupdate_trigger_value(zbx_uint64_t triggerid, int type, int value,
-		const char *trigger_error, int new_value, zbx_timespec_t *ts, const char *reason);
+		const char *trigger_error, int new_value, int now, const char *reason);
 
 int	DBget_row_count(const char *table_name);
 int	DBget_items_unsupported_count();
@@ -643,7 +613,6 @@ int	DBadd_graph_item_to_linked_hosts(int gitemid,int hostid);
 int	DBdelete_template_elements(zbx_uint64_t hostid, zbx_uint64_t templateid);
 int	DBcopy_template_elements(zbx_uint64_t hostid, zbx_uint64_t templateid);
 int	DBdelete_host(zbx_uint64_t hostid);
-void	DBget_graphitems(const char *sql, ZBX_GRAPH_ITEMS **gitems, int *gitems_alloc, int *gitems_num);
 void	DBupdate_services(zbx_uint64_t triggerid, int status, int clock);
 
 /* History related functions */
@@ -664,8 +633,4 @@ void	DBregister_host(zbx_uint64_t proxy_hostid, const char *host, int now);
 void	DBproxy_register_host(const char *host);
 void	DBexecute_overflowed_sql(char **sql, int *sql_allocated, int *sql_offset);
 char	*DBget_unique_hostname_by_sample(char *host_name_sample);
-
-char	*DBsql_id_cmp(zbx_uint64_t id);
-char	*DBsql_id_ins(zbx_uint64_t id);
-
 #endif

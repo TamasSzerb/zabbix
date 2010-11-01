@@ -48,11 +48,6 @@ $ZBX_MENU = array(
 						'sub_pages'=>array('history.php','chart.php')
 					),
 				array(
-						'url'=>'hosts_mon.php',
-						'label'=>S_HOSTS,
-						'sub_pages'=>array('host_screen.php')
-					),
-				array(
 						'url'=>'tr_status.php',
 						'label'=>S_TRIGGERS,
 						'sub_pages'=>array('acknow.php','tr_comments.php','chart4.php','scripts_exec.php')
@@ -147,23 +142,10 @@ $ZBX_MENU = array(
 						'label'=>S_TEMPLATES
 					),
 				array(
-					'url'=>'hosts.php',
-					'label'=>S_HOSTS,
-					'sub_pages'=>array(
-						'items.php',
-						'triggers.php',
-						'graphs.php',
-						'applications.php',
-						'tr_logform.php',
-						'tr_testexpr.php',
-						'popup_trexpr.php',
-						'popup_gitem.php',
-						'host_discovery.php',
-						'disc_prototypes.php',
-						'graph_prototypes.php',
-						'trigger_prototypes.php',
-					)
-				),
+						'url'=>'hosts.php',
+						'label'=>S_HOSTS,
+						'sub_pages'=>array('items.php','triggers.php','graphs.php','applications.php','tr_logform.php','tr_testexpr.php','popup_trexpr.php','popup_gitem.php')
+					),
 				array(
 						'url'=>'maintenance.php',
 						'label'=>S_MAINTENANCE

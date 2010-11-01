@@ -300,12 +300,14 @@ class CAction extends CZBXAPI{
 			zbx_value2array($options['mediatypeids']);
 
 			if($options['output'] != API_OUTPUT_SHORTEN){
-				$sql_parts['select']['mediatypeid'] = 'o.mediatypeid';
+				$sql_parts['select']['mediatypeid'] = 'opm.mediatypeid';
 			}
 
+			$sql_parts['from']['opmediatypes'] = 'opmediatypes opm';
 			$sql_parts['from']['operations'] = 'operations o';
 
-			$sql_parts['where'][] = DBcondition('o.mediatypeid', $options['mediatypeids']);
+			$sql_parts['where'][] = DBcondition('opm.mediatypeid', $options['mediatypeids']);
+			$sql_parts['where']['oopm'] = 'opm.operationid=o.operationid';
 			$sql_parts['where']['ao'] = 'a.actionid=o.actionid';
 		}
 
@@ -433,6 +435,7 @@ COpt::memoryPick();
 			$res = DBselect($sql);
 			while($operation = DBfetch($res)){
 				$operation['opconditions'] = array();
+				$operation['opmediatypes'] = array();
 
 				$operations[$operation['operationid']] = $operation;
 				$operationids[$operation['operationid']] = $operation['operationid'];
@@ -442,6 +445,12 @@ COpt::memoryPick();
 			$res = DBselect($sql);
 			while($opcondition = DBfetch($res)){
 				$operations[$opcondition['operationid']]['opconditions'][] = $opcondition;
+			}
+
+			$sql = 'SELECT op.* FROM opmediatypes op WHERE '.DBcondition('op.operationid', $operationids);
+			$res = DBselect($sql);
+			while($opmediatype = DBfetch($res)){
+				$operations[$opmediatype['operationid']]['opmediatypes'][] = $opmediatype;
 			}
 
 			foreach($operations as $num => $operation){
@@ -669,6 +678,7 @@ COpt::memoryPick();
 
 			DB::delete('conditions', DBcondition('actionid', $actionids));
 			DB::delete('opconditions', DBcondition('operationid', $operationids));
+			DB::delete('opmediatypes', DBcondition('operationid', $operationids));
 			DB::delete('operations', DBcondition('actionid', $actionids));
 
 			self::addOperations($operations);
@@ -771,9 +781,17 @@ COpt::memoryPick();
 					$opcondition_inserts[] = $opcondition;
 				}
 			}
+
+			if($operation['mediatypeid'] > 0){
+				$opmediatype_inserts[] = array(
+					'operationid' => $operationids[$onum],
+					'mediatypeid' => $operation['mediatypeid'],
+				);
+			}
 		}
 
 		DB::insert('opconditions', $opcondition_inserts);
+		DB::insert('opmediatypes', $opmediatype_inserts);
 
 		return true;
 	}
@@ -805,9 +823,22 @@ COpt::memoryPick();
 				}
 			}
 
+			$operationids = array();
+			$sql = 'SELECT operationid FROM operations WHERE '.DBcondition('actionid', $actionids);
+			$operations_db = DBselect($sql);
+			while($operationid = DBfetch($operations_db)){
+				$operationids[] = $operationid['operationid'];
+			}
+
+			DB::delete('conditions', DBcondition('actionid', $actionids));
+			DB::delete('opconditions', DBcondition('operationid', $operationids));
+			DB::delete('opmediatypes', DBcondition('operationid', $operationids));
+			DB::delete('alerts', DBcondition('actionid', $actionids));
+			DB::delete('operations', DBcondition('actionid', $actionids));
 			DB::delete('actions', DBcondition('actionid', $actionids));
 
 			self::EndTransaction(true, __METHOD__);
+
 			return array('actionids' => $actionids);
 		}
 		catch(APIException $e){

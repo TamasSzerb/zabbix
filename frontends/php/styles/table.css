@@ -1109,6 +1109,16 @@ table.requirements tr td{
 
 /********** </REQUIREMENTS> ************/
 
+/********** <INFOBOX> ************/
+table.infobox{
+	width: 100%;
+	margin-top: 4px;
+	border: 1px #3377AA solid;
+	background-color: #FFFFFF;
+	text-align: center;
+}
+/********** </INFOBOX> ************/
+
 /********** <FILTER> ************/
 table.filter{
 	width: 100%;
@@ -1189,7 +1199,6 @@ table.header_wide{
 	border: 1px #3377AA solid;
 	vertical-align: middle;
 	background-color:#FFFFFF;
-	margin-top: 5px;
 }
 
 table.header_wide tr.first td.header_l{

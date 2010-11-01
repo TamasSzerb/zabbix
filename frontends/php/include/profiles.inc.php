@@ -22,80 +22,77 @@
 /********** USER PROFILE ***********/
 
 class CProfile{
-	private static $userDetails = array();
+
 	private static $profiles = null;
 	private static $update = array();
 	private static $insert = array();
-
+	
 	public static function init(){
 		global $USER_DETAILS;
-
-		self::$userDetails = $USER_DETAILS;
+		
 		self::$profiles = array();
-
+		
 		$sql = 'SELECT * '.
 				' FROM profiles '.
-				' WHERE userid='.self::$userDetails['userid'].
+				' WHERE userid='.$USER_DETAILS['userid'].
 					' AND '.DBin_node('profileid', false).
 				' ORDER BY userid ASC, profileid ASC';
 		$db_profiles = DBselect($sql);
 		while($profile = DBfetch($db_profiles)){
 			$value_type = self::getFieldByType($profile['type']);
 
-			if(!isset(self::$profiles[$profile['idx']]))
+			if(!isset(self::$profiles[$profile['idx']])) 
 				self::$profiles[$profile['idx']] = array();
-
+				
 			self::$profiles[$profile['idx']][$profile['idx2']] = $profile[$value_type];
-		}
+		}	
 	}
-
+	
 	public static function flush(){
-// if not initialised, no changes were made
-		if(is_null(self::$profiles)) return true;
-
-		if(self::$userDetails['userid'] <= 0) return;
-
+		
 		if(!empty(self::$insert) || !empty(self::$update)){
-
+			
 			DBstart();
 			foreach(self::$insert as $idx => $profile){
 				foreach($profile as $idx2 => $data){
-					self::insertDB($idx, $data['value'], $data['type'], $idx2);
+					$result = self::insertDB($idx, $data['value'], $data['type'], $idx2);
 				}
 			}
-
+			
 			ksort(self::$update);
 			foreach(self::$update as $idx => $profile){
 				ksort($profile);
-				foreach($profile as $idx2 => $data){
+				foreach($profile as $idx2 => $data){			
 					self::updateDB($idx, $data['value'], $data['type'], $idx2);
 				}
 			}
 			DBend();
 		}
 	}
-
+	
 	public static function clear(){
 		self::$insert= array();
 		self::$update= array();
 	}
-
+	
 	public static function get($idx, $default_value=null, $idx2=0){
-		if(is_null(self::$profiles)){
+		if(is_null(self::$profiles)){	
 			self::init();
 		}
-
+		
 		if(isset(self::$profiles[$idx][$idx2]))
 			return self::$profiles[$idx][$idx2];
 		else
 			return $default_value;
 	}
-
+	
 	public static function update($idx, $value, $type, $idx2=0){
-		if(is_null(self::$profiles)){
+		global $USER_DETAILS;
+		
+		if(is_null(self::$profiles)){	
 			self::init();
 		}
-
+		
 		if(!self::checkValueType($value, $type)) return false;
 
 		$profile = array(
@@ -108,29 +105,31 @@ class CProfile{
 		$current = CProfile::get($idx, null, $idx2);
 		if(is_null($current)){
 			if(!isset(self::$insert[$idx])) self::$insert[$idx] = array();
-
+				
 			self::$insert[$idx][$idx2] = $profile;
 		}
 		else{
 			if($current != $value){
-				if(!isset(self::$update[$idx]))
+				if(!isset(self::$update[$idx])) 
 					self::$update[$idx] = array();
-
+					
 				self::$update[$idx][$idx2] = $profile;
 			}
 		}
-
+		
 		if(!isset(self::$profiles[$idx])) self::$profiles[$idx] = array();
 
 		self::$profiles[$idx][$idx2] = $value;
 	}
-
+	
 	private static function insertDB($idx, $value, $type, $idx2){
+		global $USER_DETAILS;
+		
 		$value_type = self::getFieldByType($type);
 
 		$values = array(
 			'profileid' => get_dbid('profiles', 'profileid'),
-			'userid' => self::$userDetails['userid'],
+			'userid' => $USER_DETAILS['userid'],
 			'idx' => zbx_dbstr($idx),
 			$value_type => ($value_type == 'value_str') ? zbx_dbstr($value) : $value,
 			'type' => $type,
@@ -141,21 +140,23 @@ class CProfile{
 
 	return DBexecute($sql);
 	}
-
+		
 	private static function updateDB($idx, $value, $type, $idx2){
+		global $USER_DETAILS;
+		
 		$sql_cond = '';
 // dirty fix, but havn't figureout something better
 		if($idx != 'web.nodes.switch_node') $sql_cond .= ' AND '.DBin_node('profileid', false);
 // ---
 		if($idx2 > 0) $sql_cond.= ' AND idx2='.$idx2.' AND '.DBin_node('idx2', false);
-
+		
 		$value_type = self::getFieldByType($type);
 		$value = ($value_type == 'value_str') ? zbx_dbstr($value) : $value;
 
 		$sql = 'UPDATE profiles SET '.
 					$value_type.'='.$value.','.
 					' type='.$type.
-				' WHERE userid='.self::$userDetails['userid'].
+				' WHERE userid='.$USER_DETAILS['userid'].
 					' AND idx='.zbx_dbstr($idx).
 					$sql_cond;
 
@@ -163,7 +164,7 @@ class CProfile{
 
 	return $result;
 	}
-
+	
 	public static function getFieldByType($type){
 		switch($type){
 			case PROFILE_TYPE_INT:
@@ -178,7 +179,7 @@ class CProfile{
 		}
 		return $field;
 	}
-
+	
 	private static function checkValueType($value, $type){
 		switch($type){
 			case PROFILE_TYPE_ID:
@@ -190,7 +191,7 @@ class CProfile{
 			default:
 				$result = true;
 		}
-
+		
 		return $result;
 	}
 }
@@ -209,7 +210,7 @@ function select_config($cache = true){
 		$config = $row;
 		return $row;
 	}
-	else if($page['title'] != "S_INSTALLATION"){
+	else if(isset($page['title']) && ($page['title'] != "S_INSTALLATION")){
 		error(S_UNABLE_TO_SELECT_CONFIGURATION);
 	}
 return $row;
@@ -232,14 +233,8 @@ function update_config($configs){
 	}
 
 	foreach($configs as $key => $value){
-		if(!is_null($value)){
-			if($key == 'alert_usrgrpid'){
-				$update[] = $key.'='.zero2null($value);
-			}
-			else{
-				$update[] = $key.'='.zbx_dbstr($value);
-			}
-		}
+		if(!is_null($value))
+			$update[] = $key.'='.zbx_dbstr($value);
 	}
 
 	if(count($update) == 0){
@@ -345,7 +340,7 @@ function get_favorites($idx){
 	global $USER_DETAILS;
 
 	$result = array();
-
+	
 	$sql = 'SELECT value_id, source '.
 			' FROM profiles '.
 			' WHERE userid='.$USER_DETAILS['userid'].
@@ -362,7 +357,7 @@ function get_favorites($idx){
 // Author: Aly
 function add2favorites($favobj, $favid, $source=null){
 	global $USER_DETAILS;
-
+	
 	$favorites = get_favorites($favobj);
 
 	foreach($favorites as $id => $favorite){
@@ -380,7 +375,7 @@ function add2favorites($favobj, $favid, $source=null){
 		'type' => PROFILE_TYPE_ID
 	);
 	if(!is_null($source)) $values['source'] = zbx_dbstr($source);
-
+	
 	$sql = 'INSERT INTO profiles ('.implode(', ', array_keys($values)).') VALUES ('.implode(', ', $values).')';
 	$result = DBexecute($sql);
 
@@ -392,13 +387,13 @@ return $result;
 // Author: Aly
 function rm4favorites($favobj, $favid=0, $source=null){
 	global $USER_DETAILS;
-
+	
 	$sql = 'DELETE FROM profiles '.
 		' WHERE userid='.$USER_DETAILS['userid'].
 			' AND idx='.zbx_dbstr($favobj).
 			(($favid > 0) ? ' AND value_id='.$favid : '').
 			(is_null($source) ? '' : ' AND source='.zbx_dbstr($source));
-
+	
 	return DBexecute($sql);
 }
 
@@ -412,7 +407,7 @@ function infavorites($favobj, $favid, $source=null){
 				return true;
 		}
 	}
-
+	
 	return false;
 }
 /********** END USER FAVORITES ***********/

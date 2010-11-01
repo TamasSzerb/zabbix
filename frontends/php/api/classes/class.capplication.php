@@ -225,10 +225,10 @@ class CApplication extends CZBXAPI{
 // inherited
 		if(!is_null($options['inherited'])){
 			if($options['inherited']){
-				$sql_parts['where'][] = 'a.templateid IS NOT NULL';
+				$sql_parts['where'][] = 'a.templateid<>0';
 			}
 			else{
-				$sql_parts['where'][] = 'a.templateid IS NULL';
+				$sql_parts['where'][] = 'a.templateid=0';
 			}
 		}
 
@@ -429,7 +429,7 @@ COpt::memoryPick();
 /**
  * Add Applications
  *
- * @param array $applications
+ * @param _array $applications
  * @param array $app_data['name']
  * @param array $app_data['hostid']
  * @return boolean

@@ -374,7 +374,13 @@ Copt::memoryPick();
 /**
  * Add Users
  *
- * @param array $users multidimensional array with Users data
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
+ *
+ * @param _array $users multidimensional array with Users data
  * @param string $users['name']
  * @param string $users['surname']
  * @param array $users['alias']
@@ -397,96 +403,100 @@ Copt::memoryPick();
  */
 	public static function create($users){
 		global $USER_DETAILS;
+		$result = false;
+		$errors = array();
 
-		try{
-			self::BeginTransaction(__METHOD__);
+		if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
+			self::setError(__METHOD__, ZBX_API_ERROR_PERMISSIONS, S_CUSER_ERROR_ONLY_SUPER_ADMIN_CAN_CREATE_USERS);
+			return false;
+		}
 
-			if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
-				self::exception(ZBX_API_ERROR_PERMISSIONS, S_NO_PERMISSIONS);
+		$users = zbx_toArray($users);
+		$userids = array();
+
+		self::BeginTransaction(__METHOD__);
+		foreach($users as $unum => $user){
+
+			$user_db_fields = array(
+				'name' => 'ZABBIX',
+				'surname' => 'USER',
+				'alias' => null,
+				'passwd' => 'zabbix',
+				'url' => '',
+				'autologin' => 0,
+				'autologout' => 900,
+				'lang' => 'en_gb',
+				'theme' => 'default.css',
+				'refresh' => 30,
+				'rows_per_page' => 50,
+				'type' => USER_TYPE_ZABBIX_USER,
+				'user_medias' => array(),
+			);
+			if(!check_db_fields($user_db_fields, $user)){
+				$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => S_CUSER_ERROR_WRONG_FIELD_FOR_USER);
+				$result = false;
+				break;
 			}
 
-			$users = zbx_toArray($users);
-			$userids = array();
 
+			$user_exist = self::getObjects(array('alias' => $user['alias']));
+			if(!empty($user_exist)){
+				$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => S_CUSER_ERROR_USER_EXISTS_FIRST_PART.' '.$user_exist[0]['alias'].' '.S_CUSER_ERROR_USER_EXISTS_SECOND_PART);
+				$result = false;
+				break;
+			}
 
-			foreach($users as $unum => $user){
+			$userid = get_dbid('users', 'userid');
+			$result = DBexecute('INSERT INTO users (userid, name, surname, alias, passwd, url, autologin, autologout, lang, theme,
+				refresh, rows_per_page, type) '.
+				' VALUES ('.
+					$userid.','.
+					zbx_dbstr($user['name']).','.
+					zbx_dbstr($user['surname']).','.
+					zbx_dbstr($user['alias']).','.
+					zbx_dbstr(md5($user['passwd'])).','.
+					zbx_dbstr($user['url']).','.
+					$user['autologin'].','.
+					$user['autologout'].','.
+					zbx_dbstr($user['lang']).','.
+					zbx_dbstr($user['theme']).','.
+					$user['refresh'].','.
+					$user['rows_per_page'].','.
+					$user['type'].
+				')');
 
-				$user_db_fields = array(
-					'name' => 'ZABBIX',
-					'surname' => 'USER',
-					'alias' => null,
-					'passwd' => 'zabbix',
-					'url' => '',
-					'autologin' => 0,
-					'autologout' => 900,
-					'lang' => 'en_gb',
-					'theme' => 'default.css',
-					'refresh' => 30,
-					'rows_per_page' => 50,
-					'type' => USER_TYPE_ZABBIX_USER,
-					'user_medias' => array(),
-				);
-				if(!check_db_fields($user_db_fields, $user)){
-					self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_WRONG_FIELD_FOR_USER);
-				}
-
-
-				$user_exist = self::getObjects(array('alias' => $user['alias']));
-				if(!empty($user_exist)){
-					self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_USER_EXISTS_FIRST_PART);
-				}
-
-				$userid = get_dbid('users', 'userid');
-				$sql = 'INSERT INTO users (userid, name, surname, alias, passwd, url, autologin, autologout, lang, theme,
-					refresh, rows_per_page, type) '.
-					' VALUES ('.
-						$userid.','.
-						zbx_dbstr($user['name']).','.
-						zbx_dbstr($user['surname']).','.
-						zbx_dbstr($user['alias']).','.
-						zbx_dbstr(md5($user['passwd'])).','.
-						zbx_dbstr($user['url']).','.
-						$user['autologin'].','.
-						$user['autologout'].','.
-						zbx_dbstr($user['lang']).','.
-						zbx_dbstr($user['theme']).','.
-						$user['refresh'].','.
-						$user['rows_per_page'].','.
-						$user['type'].
-					')';
-				if(!DBexecute($sql))
-					self::exception(ZBX_API_ERROR_PARAMETERS, 'DBerror');
-
+			if($result){
 				$usrgrps = zbx_objectValues($user['usrgrps'], 'usrgrpid');
 				foreach($usrgrps as $groupid){
+					if(!$result) break;
 					$users_groups_id = get_dbid("users_groups","id");
-					$sql = 'INSERT INTO users_groups (id,usrgrpid,userid)'.
-						'values('.$users_groups_id.','.$groupid.','.$userid.')';
-					if(!DBexecute($sql))
-						self::exception(ZBX_API_ERROR_PARAMETERS, 'DBerror');
+					$result = DBexecute('INSERT INTO users_groups (id,usrgrpid,userid)'.
+						'values('.$users_groups_id.','.$groupid.','.$userid.')');
 				}
-
-				foreach($user['user_medias'] as $media_data){
-					$mediaid = get_dbid('media', 'mediaid');
-					$sql = 'INSERT INTO media (mediaid,userid,mediatypeid,sendto,active,severity,period)'.
-						' VALUES ('.$mediaid.','.$userid.','.$media_data['mediatypeid'].','.
-						zbx_dbstr($media_data['sendto']).','.$media_data['active'].','.$media_data['severity'].','.
-						zbx_dbstr($media_data['period']).')';
-					if(!DBexecute($sql))
-						self::exception(ZBX_API_ERROR_PARAMETERS, 'DBerror');
-				}
-
-				$userids[] = $userid;
 			}
 
-			self::EndTransaction(true, __METHOD__);
+			if($result){
+				foreach($user['user_medias'] as $media_data){
+					if(!$result) break;
+					$mediaid = get_dbid('media', 'mediaid');
+					$result = DBexecute('INSERT INTO media (mediaid,userid,mediatypeid,sendto,active,severity,period)'.
+						' VALUES ('.$mediaid.','.$userid.','.$media_data['mediatypeid'].','.
+						zbx_dbstr($media_data['sendto']).','.$media_data['active'].','.$media_data['severity'].','.
+						zbx_dbstr($media_data['period']).')');
+				}
+			}
+
+// } copy from frontend
+			if(!$result) break;
+
+			$userids[] = $userid;
+		}
+		$result = self::EndTransaction($result, __METHOD__);
+		if($result){
 			return array('userids' => $userids);
 		}
-		catch(APIException $e){
-			self::EndTransaction(false, __METHOD__);
-			$error = $e->getErrors();
-			$error = reset($error);
-			self::setError(__METHOD__, $e->getCode(), $error);
+		else{
+			self::setMethodErrors(__METHOD__, $errors);
 			return false;
 		}
 	}
@@ -494,7 +504,13 @@ Copt::memoryPick();
 /**
  * Update Users
  *
- * @param array $users multidimensional array with Users data
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
+ *
+ * @param _array $users multidimensional array with Users data
  * @param string $users['userid']
  * @param string $users['name']
  * @param string $users['surname']
@@ -518,168 +534,44 @@ Copt::memoryPick();
  */
 	public static function update($users){
 		global $USER_DETAILS;
+		$errors = array();
+		$result = true;
 		$self = false;
 
-		try{
-			self::BeginTransaction(__METHOD__);
-
-			if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
-				self::exception(ZBX_API_ERROR_PERMISSIONS, S_CUSER_ERROR_ONLY_SUPER_ADMIN_CAN_UPDATE_USERS);
-			}
-
-			$users = zbx_toArray($users);
-
-			$options = array(
-				'userids' => zbx_objectValues($users, 'userid'),
-			'output' => API_OUTPUT_EXTEND,
-				'preservekeys' => 1
-			);
-			$upd_users = self::get($options);
-			foreach($users as $gnum => $user){
-				//add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_USER, 'User ['.$user['alias'].']');
-			}
-
-			if(bccomp($USER_DETAILS['userid'], $user['userid']) == 0){
-				$self = true;
-			}
-
-			foreach($users as $unum => $user){
-				$user_db_fields = $upd_users[$user['userid']];
-
-	// check if we change guest user
-				if(($user_db_fields['alias'] == ZBX_GUEST_USER) && isset($user['alias']) && ($user['alias'] != ZBX_GUEST_USER)){
-					self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_CANT_RENAME_GUEST_USER);
-				}
-
-
-	// unset if not changed passwd
-				if(isset($user['passwd']) && !is_null($user['passwd'])){
-					$user['passwd'] = md5($user['passwd']);
-				}
-				else{
-					unset($user['passwd']);
-				}
-	//---------
-
-				if(!check_db_fields($user_db_fields, $user)){
-					self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_WRONG_FIELD_FOR_USER);
-				}
-
-	// copy from frontend {
-				$sql = 'SELECT userid '.
-						' FROM users '.
-						' WHERE alias='.zbx_dbstr($user['alias']).
-							' AND '.DBin_node('userid', id2nodeid($user['userid']));
-				$db_user = DBfetch(DBselect($sql));
-				if($db_user && ($db_user['userid'] != $user['userid'])){
-					self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_USER_EXISTS_FIRST_PART.' '.$user['alias'].' '.S_CUSER_ERROR_USER_EXISTS_SECOND_PART);
-				}
-
-				$sql = 'UPDATE users SET '.
-							' name='.zbx_dbstr($user['name']).', '.
-							' surname='.zbx_dbstr($user['surname']).', '.
-							' alias='.zbx_dbstr($user['alias']).', '.
-							' passwd='.zbx_dbstr($user['passwd']).', '.
-							' url='.zbx_dbstr($user['url']).', '.
-							' autologin='.$user['autologin'].', '.
-							' autologout='.$user['autologout'].', '.
-							' lang='.zbx_dbstr($user['lang']).', '.
-							' theme='.zbx_dbstr($user['theme']).', '.
-							' refresh='.$user['refresh'].', '.
-							' rows_per_page='.$user['rows_per_page'].', '.
-							' type='.$user['type'].
-						' WHERE userid='.$user['userid'];
-				if(!DBexecute($sql))
-					self::exception(ZBX_API_ERROR_PARAMETERS, 'DBerror');
-
-				// if(isset($user['usrgrps']) && !is_null($user['usrgrps'])){
-					// $user_groups = CHostGroup::get(array('userids' => $user['userid']));
-					// $user_groupids = zbx_objectValues($user_groups, 'usrgrpid');
-					// $new_groupids = zbx_objectValues($user['usrgrps'], 'usrgrpid');
-
-					// $groups_to_add = array_diff($new_groupids, $user_groupids);
-
-					// if(!empty($groups_to_add)){
-						// $result &= self::massAdd(array('users' => $user, 'usrgrps' => $groups_to_add));
-					// }
-
-					// $groups_to_del = array_diff($user_groupids, $new_groupids);
-					// if(!empty($groups_to_del)){
-						// $result &= self::massRemove(array('users' => $user, 'usrgrps' => $groups_to_del));
-					// }
-				// }
-
-
-
-				if(isset($user['usrgrps']) && !is_null($user['usrgrps'])){
-					DBexecute('DELETE FROM users_groups WHERE userid='.$user['userid']);
-
-				$options = array(
-						'usrgrpids' => zbx_objectValues($user['usrgrps'], 'usrgrpid'),
-					'output' => API_OUTPUT_EXTEND,
-					'preservekeys' => 1
-				);
-				$usrgrps = CUserGroup::get($options);
-
-					foreach($usrgrps as $groupid => $group){
-						if(($group['gui_access'] == GROUP_GUI_ACCESS_DISABLED) && $self){
-							self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_USER_UNABLE_RESTRICT_SELF_GUI_ACCESS_PART1);
-						}
-
-						if(($group['users_status'] == GROUP_STATUS_DISABLED) && $self){
-							self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_USER_CANT_DISABLE_SELF_PART1);
-						}
-
-						$users_groups_id = get_dbid('users_groups', 'id');
-						$sql = 'INSERT INTO users_groups (id, usrgrpid, userid)'.
-								' VALUES ('.$users_groups_id.','.$groupid.','.$user['userid'].')';
-						if(!DBexecute($sql))
-							self::exception(ZBX_API_ERROR_PARAMETERS, 'DBerror');
-					}
-				}
-	/*
-				if($result && !is_null($user['user_medias'])){
-					$result = DBexecute('DELETE FROM media WHERE userid='.$userid);
-					foreach($user['user_medias'] as $media_data){
-						if(!$result) break;
-						$mediaid = get_dbid('media', 'mediaid');
-						$result = DBexecute('INSERT INTO media (mediaid, userid, mediatypeid, sendto, active, severity, period)'.
-							' VALUES ('.$mediaid.','.$userid.','.$media_data['mediatypeid'].','.
-								zbx_dbstr($media_data['sendto']).','.$media_data['active'].','.$media_data['severity'].','.
-								zbx_dbstr($media_data['period']).')');
-					}
-				}
-	//*/
-			}
-
-			self::EndTransaction(true, __METHOD__);
-			return true;
-		}
-		catch(APIException $e){
-			self::EndTransaction(false, __METHOD__);
-			$error = $e->getErrors();
-			$error = reset($error);
-			self::setError(__METHOD__, $e->getCode(), $error);
+		if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
+			self::setError(__METHOD__, ZBX_API_ERROR_PERMISSIONS, S_CUSER_ERROR_ONLY_SUPER_ADMIN_CAN_UPDATE_USERS);
 			return false;
 		}
-	}
 
-	public static function updateProfile($user){
-		global $USER_DETAILS;
+		$users = zbx_toArray($users);
+		$userids = zbx_objectValues($users, 'userid');
 
-		try{
-			self::BeginTransaction(__METHOD__);
-
-			$options = array(
-				'nodeids' => id2nodeid($USER_DETAILS['userid']),
-				'userids' => $USER_DETAILS['userid'],
+		$options = array(
+			'userids' => zbx_objectValues($users, 'userid'),
 			'output' => API_OUTPUT_EXTEND,
-				'preservekeys' => 1
-			);
-			$upd_users = self::get($options);
-			$upd_user = reset($upd_users);
+			'preservekeys' => 1
+		);
+		$upd_users = self::get($options);
+		foreach($users as $gnum => $user){
+			//add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_USER, 'User ['.$user['alias'].']');
+		}
 
-			$user_db_fields = $upd_user;
+		self::BeginTransaction(__METHOD__);
+
+		if(bccomp($USER_DETAILS['userid'], $user['userid']) == 0){
+			$self = true;
+		}
+
+		foreach($users as $unum => $user){
+			$user_db_fields = $upd_users[$user['userid']];
+
+// check if we change guest user
+			if(($user_db_fields['alias'] == ZBX_GUEST_USER) && isset($user['alias']) && ($user['alias'] != ZBX_GUEST_USER)){
+				$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => S_CUSER_ERROR_CANT_RENAME_GUEST_USER);
+				$result = false;
+				break;
+			}
+
 
 // unset if not changed passwd
 			if(isset($user['passwd']) && !is_null($user['passwd'])){
@@ -691,10 +583,27 @@ Copt::memoryPick();
 //---------
 
 			if(!check_db_fields($user_db_fields, $user)){
-				self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_WRONG_FIELD_FOR_USER);
+				$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => S_CUSER_ERROR_WRONG_FIELD_FOR_USER);
+				$result = false;
+				break;
+			}
+
+// copy from frontend {
+			$sql = 'SELECT userid '.
+					' FROM users '.
+					' WHERE alias='.zbx_dbstr($user['alias']).
+						' AND '.DBin_node('userid', id2nodeid($user['userid']));
+			$db_user = DBfetch(DBselect($sql));
+			if($db_user && ($db_user['userid'] != $user['userid'])){
+				$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => S_CUSER_ERROR_USER_EXISTS_FIRST_PART.' '.$user['alias'].' '.S_CUSER_ERROR_USER_EXISTS_SECOND_PART);
+				$result = false;
+				break;
 			}
 
 			$sql = 'UPDATE users SET '.
+						' name='.zbx_dbstr($user['name']).', '.
+						' surname='.zbx_dbstr($user['surname']).', '.
+						' alias='.zbx_dbstr($user['alias']).', '.
 						' passwd='.zbx_dbstr($user['passwd']).', '.
 						' url='.zbx_dbstr($user['url']).', '.
 						' autologin='.$user['autologin'].', '.
@@ -702,77 +611,263 @@ Copt::memoryPick();
 						' lang='.zbx_dbstr($user['lang']).', '.
 						' theme='.zbx_dbstr($user['theme']).', '.
 						' refresh='.$user['refresh'].', '.
-						' rows_per_page='.$user['rows_per_page'].
+						' rows_per_page='.$user['rows_per_page'].', '.
+						' type='.$user['type'].
 					' WHERE userid='.$user['userid'];
-			if(!DBexecute($sql))
-				self::exception(ZBX_API_ERROR_PARAMETERS, 'DBerror');
+
+			$result = DBexecute($sql);
+
+			// if(isset($user['usrgrps']) && !is_null($user['usrgrps'])){
+				// $user_groups = CHostGroup::get(array('userids' => $user['userid']));
+				// $user_groupids = zbx_objectValues($user_groups, 'usrgrpid');
+				// $new_groupids = zbx_objectValues($user['usrgrps'], 'usrgrpid');
+
+				// $groups_to_add = array_diff($new_groupids, $user_groupids);
+
+				// if(!empty($groups_to_add)){
+					// $result &= self::massAdd(array('users' => $user, 'usrgrps' => $groups_to_add));
+				// }
+
+				// $groups_to_del = array_diff($user_groupids, $new_groupids);
+				// if(!empty($groups_to_del)){
+					// $result &= self::massRemove(array('users' => $user, 'usrgrps' => $groups_to_del));
+				// }
+			// }
 
 
-			self::EndTransaction(true, __METHOD__);
-			return true;
+
+			if($result && isset($user['usrgrps']) && !is_null($user['usrgrps'])){
+				DBexecute('DELETE FROM users_groups WHERE userid='.$user['userid']);
+
+				$options = array(
+					'usrgrpids' => zbx_objectValues($user['usrgrps'], 'usrgrpid'),
+					'output' => API_OUTPUT_EXTEND,
+					'preservekeys' => 1
+				);
+				$usrgrps = CUserGroup::get($options);
+
+				foreach($usrgrps as $groupid => $group){
+					if(!$result) break;
+
+					if(($group['gui_access'] == GROUP_GUI_ACCESS_DISABLED) && $self){
+						$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => S_CUSER_ERROR_USER_UNABLE_RESTRICT_SELF_GUI_ACCESS_PART1.' '.$group['name'].' '.S_CUSER_ERROR_USER_UNABLE_RESTRICT_SELF_GUI_ACCESS_PART2);
+						$result = false;
+						break;
+					}
+
+					if(($group['users_status'] == GROUP_STATUS_DISABLED) && $self){
+						$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => S_CUSER_ERROR_USER_CANT_DISABLE_SELF_PART1.' '.$group['name'].' '.S_CUSER_ERROR_USER_CANT_DISABLE_SELF_PART2);
+						$result = false;
+						break;
+					}
+
+					$users_groups_id = get_dbid('users_groups', 'id');
+					$result = DBexecute('INSERT INTO users_groups (id, usrgrpid, userid) VALUES ('.$users_groups_id.','.$groupid.','.$user['userid'].')');
+				}
+			}
+/*
+			if($result && !is_null($user['user_medias'])){
+				$result = DBexecute('DELETE FROM media WHERE userid='.$userid);
+				foreach($user['user_medias'] as $media_data){
+					if(!$result) break;
+					$mediaid = get_dbid('media', 'mediaid');
+					$result = DBexecute('INSERT INTO media (mediaid, userid, mediatypeid, sendto, active, severity, period)'.
+						' VALUES ('.$mediaid.','.$userid.','.$media_data['mediatypeid'].','.
+							zbx_dbstr($media_data['sendto']).','.$media_data['active'].','.$media_data['severity'].','.
+							zbx_dbstr($media_data['period']).')');
+				}
+			}
+//*/
+// } copy from frontend
 		}
-		catch(APIException $e){
-			self::EndTransaction(false, __METHOD__);
-			$error = $e->getErrors();
-			$error = reset($error);
-			self::setError(__METHOD__, $e->getCode(), $error);
+
+		$result = self::EndTransaction($result, __METHOD__);
+
+		if($result){
+			return array('userids' => $userids);
+		}
+		else{
+			self::setMethodErrors(__METHOD__, $errors);
+			return false;
+		}
+	}
+
+
+/**
+ * Update Users
+ *
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
+ *
+ * @param _array $users multidimensional array with Users data
+ * @param string $users['userid']
+ * @param string $users['name']
+ * @param string $users['surname']
+ * @param array $users['alias']
+ * @param string $users['passwd']
+ * @param string $users['url']
+ * @param int $users['autologin']
+ * @param int $users['autologout']
+ * @param string $users['lang']
+ * @param string $users['theme']
+ * @param int $users['refresh']
+ * @param int $users['rows_per_page']
+ * @param int $users['type']
+ * @param array $users['user_medias']
+ * @param string $users['user_medias']['mediatypeid']
+ * @param string $users['user_medias']['address']
+ * @param int $users['user_medias']['severity']
+ * @param int $users['user_medias']['active']
+ * @param string $users['user_medias']['period']
+ * @return boolean
+ */
+	public static function updateProfile($user){
+		global $USER_DETAILS;
+		$errors = array();
+		$result = true;
+
+		$options = array(
+			'nodeids' => id2nodeid($USER_DETAILS['userid']),
+			'userids' => $USER_DETAILS['userid'],
+			'output' => API_OUTPUT_EXTEND,
+			'preservekeys' => 1
+		);
+		$upd_users = self::get($options);
+		$upd_user = reset($upd_users);
+//add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_USER, 'User ['.$user['alias'].']');
+
+		self::BeginTransaction(__METHOD__);
+
+
+		$user_db_fields = $upd_user;
+
+// unset if not changed passwd
+		if(isset($user['passwd']) && !is_null($user['passwd'])){
+			$user['passwd'] = md5($user['passwd']);
+		}
+		else{
+			unset($user['passwd']);
+		}
+//---------
+
+		if(!check_db_fields($user_db_fields, $user)){
+			$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => S_CUSER_ERROR_WRONG_FIELD_FOR_USER);
+			$result = false;
+			break;
+		}
+
+// copy from frontend {
+
+		$sql = 'UPDATE users SET '.
+					' passwd='.zbx_dbstr($user['passwd']).', '.
+					' url='.zbx_dbstr($user['url']).', '.
+					' autologin='.$user['autologin'].', '.
+					' autologout='.$user['autologout'].', '.
+					' lang='.zbx_dbstr($user['lang']).', '.
+					' theme='.zbx_dbstr($user['theme']).', '.
+					' refresh='.$user['refresh'].', '.
+					' rows_per_page='.$user['rows_per_page'].
+				' WHERE userid='.$user['userid'];
+
+		$result = DBexecute($sql);
+
+
+		$result = self::EndTransaction($result, __METHOD__);
+
+		if($result){
+			$options = array(
+					'nodeids' => id2nodeid($USER_DETAILS['userid']),
+					'userids' => $USER_DETAILS['userid'],
+					'extendoutput' => 1
+				);
+
+			$upd_users = self::get($options);
+			return $upd_users;
+		}
+		else{
+			self::setMethodErrors(__METHOD__, $errors);
 			return false;
 		}
 	}
 /**
  * Delete Users
  *
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
+ *
  * @param array $users
  * @param array $users[0,...]['userids']
  * @return boolean
  */
-	public static function delete($userids){
+	public static function delete($users){
 		global $USER_DETAILS;
+		$errors = array();
 
-		try{
-			self::BeginTransaction(__METHOD__);
-
-			if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
-				self::exception(ZBX_API_ERROR_PERMISSIONS, S_CUSER_ERROR_ONLY_SUPER_ADMIN_CAN_DELETE_USERS);
-			}
-
-			$options = array(
-				'userids' => $userids,
-				'output' => API_OUTPUT_EXTEND,
-				'preservekeys' => 1
-			);
-			$del_users = self::get($options);
-			foreach($del_users as $gnum => $user){
-				if(bccomp($USER_DETAILS['userid'], $user['userid']) == 0){
-					self::exception(ZBX_API_ERROR_PARAMETERS, S_USER_CANNOT_DELETE_ITSELF);
-				}
-
-				if($del_users[$user['userid']]['alias'] == ZBX_GUEST_USER){
-					self::exception(ZBX_API_ERROR_PARAMETERS, S_CANNOT_DELETE_USER.' [ '.ZBX_GUEST_USER.' ]');
-				}
-			}
-
-			DBexecute('DELETE FROM operations WHERE object='.OPERATION_OBJECT_USER.' AND '.DBcondition('objectid', $userids));
-			DBexecute('DELETE FROM media WHERE '.DBcondition('userid', $userids));
-			DBexecute('DELETE FROM profiles WHERE '.DBcondition('userid', $userids));
-			DBexecute('DELETE FROM users_groups WHERE '.DBcondition('userid', $userids));
-			DBexecute('DELETE FROM users WHERE '.DBcondition('userid', $userids));
-
-
-			self::EndTransaction(true, __METHOD__);
-			return true;
+		if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
+			self::setError(__METHOD__, ZBX_API_ERROR_PERMISSIONS, S_CUSER_ERROR_ONLY_SUPER_ADMIN_CAN_DELETE_USERS);
+			return false;
 		}
-		catch(APIException $e){
-			self::EndTransaction(false, __METHOD__);
-			$error = $e->getErrors();
-			$error = reset($error);
-			self::setError(__METHOD__, $e->getCode(), $error);
+
+		$users = zbx_toArray($users);
+		$userids = array();
+		$result = true;
+
+		$options = array(
+			'userids'=> zbx_objectValues($users, 'userid'),
+			'output'=> API_OUTPUT_EXTEND,
+			'preservekeys'=>1
+		);
+		$del_users = self::get($options);
+
+		foreach($del_users as $gnum => $user){
+			if(bccomp($USER_DETAILS['userid'], $user['userid']) == 0){
+				$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => S_USER_CANNOT_DELETE_ITSELF);
+				$result = false;
+			}
+
+			if($del_users[$user['userid']]['alias'] == ZBX_GUEST_USER){
+				$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => S_CANNOT_DELETE_USER.' [ '.ZBX_GUEST_USER.' ]');
+				$result = false;
+			}
+
+			$userids[] = $user['userid'];
+			//add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_USER, 'User ['.$user['alias'].']');
+		}
+
+		self::BeginTransaction(__METHOD__);
+		if(!empty($userids) && $result){
+			$result = DBexecute('DELETE FROM operations WHERE object='.OPERATION_OBJECT_USER.' AND '.DBcondition('objectid', $userids));
+			$result = DBexecute('DELETE FROM media WHERE '.DBcondition('userid', $userids));
+			$result = DBexecute('DELETE FROM profiles WHERE '.DBcondition('userid', $userids));
+			$result = DBexecute('DELETE FROM users_groups WHERE '.DBcondition('userid', $userids));
+			$result = DBexecute('DELETE FROM users WHERE '.DBcondition('userid', $userids));
+		}
+
+		$result = self::EndTransaction($result, __METHOD__);
+
+		if($result){
+			return array('userids' => $userids);
+		}
+		else{
+			self::setMethodErrors(__METHOD__, $errors);
 			return false;
 		}
 	}
 
 /**
  * Add Medias for User
+ *
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
  *
  * @param array $media_data
  * @param string $media_data['userid']
@@ -786,47 +881,45 @@ Copt::memoryPick();
 	public static function addMedia($media_data){
 		global $USER_DETAILS;
 
-		try{
-			self::BeginTransaction(__METHOD__);
+		$result = true;
 
-			$medias = zbx_toArray($media_data['medias']);
-			$users = zbx_toArray($media_data['users']);
-			$mediaids = array();
+		$medias = zbx_toArray($media_data['medias']);
+		$users = zbx_toArray($media_data['users']);
 
 		$userids = array();
 
-			if($USER_DETAILS['type'] < USER_TYPE_ZABBIX_ADMIN){
-				self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_ONLY_ADMIN_CAN_ADD_USER_MEDIAS);
-			}
+		if($USER_DETAILS['type'] < USER_TYPE_ZABBIX_ADMIN){
+			self::setError(__METHOD__, ZBX_API_ERROR_PERMISSIONS, S_CUSER_ERROR_ONLY_ADMIN_CAN_ADD_USER_MEDIAS);
+			return false;
+		}
 
-			foreach($users as $unum => $user){
+		foreach($users as $unum => $user){
 			$userids[] = $user['userid'];
 
-				foreach($medias as $mnum => $media){
-					if(!validate_period($media['period'])){
-						self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_INCORRECT_TIME_PERIOD);
-					}
-
-					$mediaid = get_dbid('media','mediaid');
-
-					$sql='INSERT INTO media (mediaid,userid,mediatypeid,sendto,active,severity,period) '.
-							' VALUES ('.$mediaid.','.$user['userid'].','.$media['mediatypeid'].','.
-										zbx_dbstr($media['sendto']).','.$media['active'].','.$media['severity'].','.
-										zbx_dbstr($media['period']).')';
-					if(!DBexecute($sql))
-						self::exception(ZBX_API_ERROR_PARAMETERS, 'DBerror');
-					$mediaids[] = $mediaid;
+			foreach($medias as $mnum => $media){
+				if(!validate_period($media['period'])){
+					self::setError(__METHOD__, ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_INCORRECT_TIME_PERIOD);
+					return false;
 				}
-			}
 
-			self::EndTransaction(true, __METHOD__);
-			return array('mediaids' => $mediaids);
+				$mediaid = get_dbid('media','mediaid');
+
+				$sql='INSERT INTO media (mediaid,userid,mediatypeid,sendto,active,severity,period) '.
+						' VALUES ('.$mediaid.','.$user['userid'].','.$media['mediatypeid'].','.
+									zbx_dbstr($media['sendto']).','.$media['active'].','.$media['severity'].','.
+									zbx_dbstr($media['period']).')';
+
+				$result = DBexecute($sql);
+
+				if(!$result) break 2;
+			}
 		}
-		catch(APIException $e){
-			self::EndTransaction(false, __METHOD__);
-			$error = $e->getErrors();
-			$error = reset($error);
-			self::setError(__METHOD__, $e->getCode(), $error);
+
+		if($result){
+			return array('userids'=>$userids);
+		}
+		else{
+			self::$error[] = array('error' => ZBX_API_ERROR_INTERNAL, 'data' => S_CUSER_ERROR_INTERNAL_ZABBIX_ERROR);
 			return false;
 		}
 	}
@@ -834,36 +927,47 @@ Copt::memoryPick();
 /**
  * Delete User Medias
  *
- * @param array $mediaids
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
+ *
+ * @param array $medias
+ * @param array $medias[...][mediaid]
  * @return boolean
  */
-	public static function deleteMedia($mediaids){
+	public static function deleteMedia($medias){
 		global $USER_DETAILS;
 
-		try{
-			$mediaids = zbx_toArray($mediaids);
+		$medias = zbx_toArray($medias);
+		$mediaids = zbx_objectValues($medias, 'mediaid');
 
-			if($USER_DETAILS['type'] < USER_TYPE_ZABBIX_ADMIN){
-				self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_ONLY_ADMIN_CAN_REMOVE_USER_MEDIAS);
-			}
+		if($USER_DETAILS['type'] < USER_TYPE_ZABBIX_ADMIN){
+			self::setError(__METHOD__, ZBX_API_ERROR_PERMISSIONS, S_CUSER_ERROR_ONLY_ADMIN_CAN_REMOVE_USER_MEDIAS);
+			return false;
+		}
 
-			$sql = 'DELETE FROM media WHERE '.DBcondition('mediaid', $mediaids);
-			if(!DBexecute($sql))
-				self::exception(ZBX_API_ERROR_PARAMETERS, 'DBerror');
+		$sql = 'DELETE FROM media WHERE '.DBcondition('mediaid', $mediaids);
+		$result = DBexecute($sql);
 
+		if($result){
 			return array('mediaids'=>$mediaids);
 		}
-		catch(APIException $e){
-			self::EndTransaction(false, __METHOD__);
-			$error = $e->getErrors();
-			$error = reset($error);
-			self::setError(__METHOD__, $e->getCode(), $error);
+		else{
+			self::$error[] = array('error' => ZBX_API_ERROR_INTERNAL, 'data' => S_CUSER_ERROR_INTERNAL_ZABBIX_ERROR);
 			return false;
 		}
 	}
 
 /**
  * Update Medias for User
+ *
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
  *
  * @param array $media_data
  * @param array $media_data['users']
@@ -879,7 +983,6 @@ Copt::memoryPick();
 	public static function updateMedia($media_data){
 		global $USER_DETAILS;
 
-
 		$new_medias = zbx_toArray($media_data['medias']);
 		$users = zbx_toArray($media_data['users']);
 
@@ -887,7 +990,8 @@ Copt::memoryPick();
 			self::BeginTransaction(__METHOD__);
 
 			if($USER_DETAILS['type'] < USER_TYPE_ZABBIX_ADMIN){
-				self::exception(ZBX_API_ERROR_PERMISSIONS, S_CUSER_ERROR_ONLY_ADMIN_CAN_CHANGE_USER_MEDIAS);
+				self::setError(__METHOD__, ZBX_API_ERROR_PERMISSIONS, S_CUSER_ERROR_ONLY_ADMIN_CAN_CHANGE_USER_MEDIAS);
+				return false;
 			}
 
 			$upd_medias = array();
@@ -915,17 +1019,16 @@ Copt::memoryPick();
 
 // DELETE
 			if(!empty($del_medias)){
-				$mediaids = zbx_objectValues($del_medias, 'mediaid');
-				$result = self::deleteMedia($mediaids);
+				$result = self::deleteMedia($del_medias);
 				if(!$result){
-					self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_CANT_DELETE_USER_MEDIAS);
+					throw new APIException(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_CANT_DELETE_USER_MEDIAS);
 				}
 			}
 
 // UPDATE
 			foreach($upd_medias as $mnum => $media){
 				if(!validate_period($media['period'])){
-					self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_WRONG_PERIOD_PART1.' '.$media['period'].' '.S_CUSER_ERROR_WRONG_PERIOD_PART2);
+					throw new APIException(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_WRONG_PERIOD_PART1.' '.$media['period'].' '.S_CUSER_ERROR_WRONG_PERIOD_PART2);
 				}
 
 				$sql = 'UPDATE media '.
@@ -937,7 +1040,7 @@ Copt::memoryPick();
 						' WHERE mediaid='.$media['mediaid'];
 				$result = DBexecute($sql);
 				if(!$result){
-					self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_CANT_UPDATE_USER_MEDIAS);
+					throw new APIException(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_CANT_UPDATE_USER_MEDIAS);
 				}
 			}
 
@@ -945,16 +1048,16 @@ Copt::memoryPick();
 			if(!empty($new_medias)){
 				$result = self::addMedia(array('users' => $users, 'medias' => $new_medias));
 				if(!$result){
-					self::exception(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_CANT_INSERT_USER_MEDIAS);
+					throw new APIException(ZBX_API_ERROR_PARAMETERS, S_CUSER_ERROR_CANT_INSERT_USER_MEDIAS);
 				}
 			}
 
 			self::EndTransaction(true, __METHOD__);
 			return array('userids'=>$userids);
-			return true;
 		}
 		catch(APIException $e){
 			self::EndTransaction(false, __METHOD__);
+
 			$error = $e->getErrors();
 			$error = reset($error);
 			self::setError(__METHOD__, $e->getCode(), $error);
@@ -1030,6 +1133,12 @@ Copt::memoryPick();
 	}
 /**
  * Authenticate user
+ *
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
  *
  * @param _array $user
  * @param array $user['user'] User alias
@@ -1199,6 +1308,12 @@ Copt::memoryPick();
 
 /**
  * Check if session ID is authenticated
+ *
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
  *
  * @param _array $session
  * @param array $session['sessionid'] Session ID

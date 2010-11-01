@@ -127,14 +127,12 @@ class CHost extends CZBXAPI{
 			'select_groups'				=> null,
 			'selectParentTemplates'		=> null,
 			'select_items'				=> null,
-			'select_discoveries'		=> null,
 			'select_triggers'			=> null,
 			'select_graphs'				=> null,
 			'select_dhosts'				=> null,
 			'select_dservices'			=> null,
 			'select_applications'		=> null,
 			'select_macros'				=> null,
-			'selectScreens'				=> null,
 			'select_profile'			=> null,
 			'countOutput'				=> null,
 			'groupCount'				=> null,
@@ -550,41 +548,43 @@ class CHost extends CZBXAPI{
 					if(!is_null($options['select_groups']) && !isset($result[$host['hostid']]['groups'])){
 						$result[$host['hostid']]['groups'] = array();
 					}
+
 					if(!is_null($options['selectParentTemplates']) && !isset($result[$host['hostid']]['parentTemplates'])){
 						$result[$host['hostid']]['parentTemplates'] = array();
 					}
+
 					if(!is_null($options['select_items']) && !isset($result[$host['hostid']]['items'])){
 						$result[$host['hostid']]['items'] = array();
-					}
-					if(!is_null($options['select_discoveries']) && !isset($result[$host['hostid']]['discoveries'])){
-						$result[$host['hostid']]['discoveries'] = array();
 					}
 					if(!is_null($options['select_profile']) && !isset($result[$host['hostid']]['profile'])){
 						$result[$host['hostid']]['profile'] = array();
 						$result[$host['hostid']]['profile_ext'] = array();
 					}
+
 					if(!is_null($options['select_triggers']) && !isset($result[$host['hostid']]['triggers'])){
 						$result[$host['hostid']]['triggers'] = array();
 					}
+
 					if(!is_null($options['select_graphs']) && !isset($result[$host['hostid']]['graphs'])){
 						$result[$host['hostid']]['graphs'] = array();
 					}
+
 					if(!is_null($options['select_dhosts']) && !isset($result[$host['hostid']]['dhosts'])){
 						$result[$host['hostid']]['dhosts'] = array();
 					}
+
 					if(!is_null($options['select_dservices']) && !isset($result[$host['hostid']]['dservices'])){
 						$result[$host['hostid']]['dservices'] = array();
 					}
+
 					if(!is_null($options['select_applications']) && !isset($result[$host['hostid']]['applications'])){
 						$result[$host['hostid']]['applications'] = array();
 					}
+
 					if(!is_null($options['select_macros']) && !isset($result[$host['hostid']]['macros'])){
 						$result[$host['hostid']]['macros'] = array();
 					}
 
-					if(!is_null($options['selectScreens']) && !isset($result[$host['hostid']]['screens'])){
-						$result[$host['hostid']]['screens'] = array();
-					}
 //					if(!is_null($options['select_maintenances']) && !isset($result[$host['hostid']]['maintenances'])){
 //						$result[$host['hostid']]['maintenances'] = array();
 //					}
@@ -758,10 +758,10 @@ Copt::memoryPick();
 			$obj_params = array(
 				'nodeids' => $nodeids,
 				'hostids' => $hostids,
-				'filter' => array('flags' => array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)),
 				'nopermissions' => 1,
 				'preservekeys' => 1
 			);
+
 			if(is_array($options['select_items']) || str_in_array($options['select_items'], $subselects_allowed_outputs)){
 				$obj_params['output'] = $options['select_items'];
 				$items = CItem::get($obj_params);
@@ -792,50 +792,6 @@ Copt::memoryPick();
 						$result[$hostid]['items'] = $items[$hostid]['rowscount'];
 					else
 						$result[$hostid]['items'] = 0;
-				}
-			}
-		}
-
-// Adding Discoveries
-		if(!is_null($options['select_discoveries'])){
-			$obj_params = array(
-				'nodeids' => $nodeids,
-				'hostids' => $hostids,
-				'filter' => array('flags' => ZBX_FLAG_DISCOVERY),
-				'nopermissions' => 1,
-				'preservekeys' => 1,
-			);
-
-			if(is_array($options['select_discoveries']) || str_in_array($options['select_discoveries'], $subselects_allowed_outputs)){
-				$obj_params['output'] = $options['select_discoveries'];
-				$items = CItem::get($obj_params);
-
-				if(!is_null($options['limitSelects'])) order_result($items, 'description');
-				foreach($items as $itemid => $item){
-					unset($items[$itemid]['hosts']);
-					foreach($item['hosts'] as $hnum => $host){
-						if(!is_null($options['limitSelects'])){
-							if(!isset($count[$host['hostid']])) $count[$host['hostid']] = 0;
-							$count[$host['hostid']]++;
-
-							if($count[$host['hostid']] > $options['limitSelects']) continue;
-						}
-
-						$result[$host['hostid']]['discoveries'][] = &$items[$itemid];
-					}
-				}
-			}
-			else if(API_OUTPUT_COUNT == $options['select_discoveries']){
-				$obj_params['countOutput'] = 1;
-				$obj_params['groupCount'] = 1;
-
-				$items = CItem::get($obj_params);
-				$items = zbx_toHash($items, 'hostid');
-				foreach($result as $hostid => $host){
-					if(isset($items[$hostid]))
-						$result[$hostid]['discoveries'] = $items[$hostid]['rowscount'];
-					else
-						$result[$hostid]['discoveries'] = 0;
 				}
 			}
 		}
@@ -1006,7 +962,6 @@ Copt::memoryPick();
 				$obj_params['groupCount'] = 1;
 
 				$applications = CApplication::get($obj_params);
-
 				$applications = zbx_toHash($applications, 'hostid');
 				foreach($result as $hostid => $host){
 					if(isset($applications[$hostid]))
@@ -1032,47 +987,6 @@ Copt::memoryPick();
 				unset($macro['hosts']);
 				foreach($mhosts as $num => $host){
 					$result[$host['hostid']]['macros'][] = $macro;
-				}
-			}
-		}
-
-// Adding screens
-		if(!is_null($options['selectScreens'])){
-			$obj_params = array(
-				'nodeids' => $nodeids,
-				'hostids' => $hostids,
-				'editable' => $options['editable'],
-				'nopermissions' => 1,
-				'preservekeys' => 1
-			);
-
-			if(is_array($options['selectScreens']) || str_in_array($options['selectScreens'], $subselects_allowed_outputs)){
-				$obj_params['output'] = $options['selectScreens'];
-
-				$screens = CTemplateScreen::get($obj_params);
-				if(!is_null($options['limitSelects'])) order_result($screens, 'name');
-
-				foreach($screens as $snum => $screen){
-					if(!is_null($options['limitSelects'])){
-						if(count($result[$screen['hostid']]['screens']) >= $options['limitSelects']) continue;
-					}
-
-					unset($screens[$snum]['hosts']);
-					$result[$screen['hostid']]['screens'][] = &$screens[$snum];
-				}
-			}
-			else if(API_OUTPUT_COUNT == $options['selectScreens']){
-				$obj_params['countOutput'] = 1;
-				$obj_params['groupCount'] = 1;
-
-				$screens = CTemplateScreen::get($obj_params);
-				$screens = zbx_toHash($screens, 'hostid');
-
-				foreach($result as $hostid => $host){
-					if(isset($screens[$hostid]))
-						$result[$hostid]['screens'] = $screens[$hostid]['rowscount'];
-					else
-						$result[$hostid]['screens'] = 0;
 				}
 			}
 		}
@@ -1187,7 +1101,21 @@ Copt::memoryPick();
 			foreach($hosts as $num => $host){
 				$host_db_fields = array(
 					'host' => null,
+					'port' => 0,
+					'status' => 0,
+					'useip' => 0,
+					'dns' => '',
+					'ip' => '0.0.0.0',
+					'proxy_hostid' => 0,
+					'useipmi' => 0,
+					'ipmi_ip' => '',
+					'ipmi_port' => 623,
+					'ipmi_authtype' => 0,
+					'ipmi_privilege' => 0,
+					'ipmi_username' => '',
+					'ipmi_password' => '',
 				);
+
 				if(!check_db_fields($host_db_fields, $host)){
 					self::exception(ZBX_API_ERROR_PARAMETERS, 'Wrong fields for host [ '.$host['host'].' ]');
 				}
@@ -1207,9 +1135,31 @@ Copt::memoryPick();
 				}
 
 
-				$hostid = DB::insert('hosts', array($host));
-				$hostids[] = $hostid = reset($hostid);
-
+				$hostid = get_dbid('hosts', 'hostid');
+				$hostids[] = $hostid;
+				$result = DBexecute('INSERT INTO hosts (hostid, proxy_hostid, host, port, status, useip, dns, ip, disable_until, available,'.
+					'useipmi,ipmi_port,ipmi_authtype,ipmi_privilege,ipmi_username,ipmi_password,ipmi_ip) VALUES ('.
+					$hostid.','.
+					$host['proxy_hostid'].','.
+					zbx_dbstr($host['host']).','.
+					$host['port'].','.
+					$host['status'].','.
+					$host['useip'].','.
+					zbx_dbstr($host['dns']).','.
+					zbx_dbstr($host['ip']).
+					',0,'.
+					HOST_AVAILABLE_UNKNOWN.','.
+					$host['useipmi'].','.
+					$host['ipmi_port'].','.
+					$host['ipmi_authtype'].','.
+					$host['ipmi_privilege'].','.
+					zbx_dbstr($host['ipmi_username']).','.
+					zbx_dbstr($host['ipmi_password']).','.
+					zbx_dbstr($host['ipmi_ip']).')'
+				);
+				if(!$result){
+					self::exception(ZBX_API_ERROR_PARAMETERS, 'DBerror');
+				}
 
 				$host['hostid'] = $hostid;
 				$options = array();
@@ -1466,15 +1416,28 @@ Copt::memoryPick();
 				self::exception(ZBX_API_ERROR_PARAMETERS, 'Incorrect characters used for DNS [ '.$data['dns'].' ]');
 			}
 
+			$sql_set = array();
+			if(isset($data['proxy_hostid'])) $sql_set[] = 'proxy_hostid='.$data['proxy_hostid'];
+			if(isset($data['host'])) $sql_set[] = 'host='.zbx_dbstr($data['host']);
+			if(isset($data['port'])) $sql_set[] = 'port='.$data['port'];
+			if(isset($data['status'])) $sql_set[] = 'status='.$data['status'];
+			if(isset($data['useip'])) $sql_set[] = 'useip='.$data['useip'];
+			if(isset($data['dns'])) $sql_set[] = 'dns='.zbx_dbstr($data['dns']);
+			if(isset($data['ip'])) $sql_set[] = 'ip='.zbx_dbstr($data['ip']);
+			if(isset($data['useipmi'])) $sql_set[] = 'useipmi='.$data['useipmi'];
+			if(isset($data['ipmi_port'])) $sql_set[] = 'ipmi_port='.$data['ipmi_port'];
+			if(isset($data['ipmi_authtype'])) $sql_set[] = 'ipmi_authtype='.$data['ipmi_authtype'];
+			if(isset($data['ipmi_privilege'])) $sql_set[] = 'ipmi_privilege='.$data['ipmi_privilege'];
+			if(isset($data['ipmi_username'])) $sql_set[] = 'ipmi_username='.zbx_dbstr($data['ipmi_username']);
+			if(isset($data['ipmi_password'])) $sql_set[] = 'ipmi_password='.zbx_dbstr($data['ipmi_password']);
+			if(isset($data['ipmi_ip'])) $sql_set[] = 'ipmi_ip='.zbx_dbstr($data['ipmi_ip']);
 
-			$update = array(
-				'values' => $data,
-				'where' => array(DBcondition('hostid', $hostids))
-			);
-			DB::update('hosts', $update);
-			if(isset($data['status']))
-				update_host_status($hostids, $data['status']);
-
+			if(!empty($sql_set)){
+				$sql = 'UPDATE hosts SET ' . implode(', ', $sql_set) . ' WHERE '.DBcondition('hostid', $hostids);
+				$result = DBexecute($sql);
+				if(isset($data['status']))
+					update_host_status($hostids, $data['status']);
+			}
 // }}} UPDATE HOSTS PROPERTIES
 
 
@@ -1552,7 +1515,7 @@ Copt::memoryPick();
 			}
 // }}} UPDATE TEMPLATE LINKAGE
 
-
+			
 // UPDATE MACROS {{{
 			if(isset($data['macros']) && !is_null($data['macros'])){
 				$macrosToAdd = zbx_toHash($data['macros'], 'macro');

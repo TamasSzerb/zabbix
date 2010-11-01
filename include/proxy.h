@@ -33,7 +33,7 @@
 
 AGENT_VALUE
 {
-	zbx_timespec_t	ts;
+	int	clock;
 	char	host_name[HOST_HOST_LEN_MAX];
 	char	key[ITEM_KEY_LEN_MAX];
 	char	*value;
@@ -68,7 +68,5 @@ int	process_hist_data(zbx_sock_t *sock, struct zbx_json_parse *jp,
 		const zbx_uint64_t proxy_hostid, char *info, int max_info_size);
 void	process_dhis_data(struct zbx_json_parse *jp);
 void	process_areg_data(struct zbx_json_parse *jp, zbx_uint64_t proxy_hostid);
-
-void	DBlld_process_discovery_rule(zbx_uint64_t discovery_itemid, char *value);
 
 #endif

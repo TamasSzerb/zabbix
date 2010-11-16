@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -61,13 +61,13 @@ point them all to the same buffer */
 	/* grab all swap info */
 	swapctl(SC_LIST, swt);
 
-	/* walk through the structs and sum up the fields */
+	/* walk thru the structs and sum up the fields */
 	t = f = 0;
 	ste = &(swt->swt_ent[0]);
 	i = cnt;
 	while (--i >= 0)
 	{
-		/* don't count slots being deleted */
+		/* dont count slots being deleted */
 		if (!(ste->ste_flags & ST_INDEL) &&
 		!(ste->ste_flags & ST_DOINGDEL))
 		{
@@ -108,7 +108,7 @@ int	SYSTEM_SWAP_TOTAL(const char *cmd, const char *param, unsigned flags, AGENT_
         init_result(result);
 
 	get_swapinfo(&swaptotal,&swapfree);
-
+	
 	SET_UI64_RESULT(result, swaptotal);
 	return SYSINFO_RET_OK;
 }
@@ -129,7 +129,7 @@ static int	SYSTEM_SWAP_PFREE(const char *cmd, const char *param, unsigned flags,
 	                return  SYSINFO_RET_FAIL;
 	tot_val = result_tmp.ui64;
 
-	/* Check for division by zero */
+	/* Check fot division by zero */
 	if(tot_val == 0)
 	{
 		free_result(&result_tmp);
@@ -164,7 +164,7 @@ static int	SYSTEM_SWAP_PUSED(const char *cmd, const char *param, unsigned flags,
                 	return  SYSINFO_RET_FAIL;
 	tot_val = result_tmp.ui64;
 
-	/* Check for division by zero */
+	/* Check fot division by zero */
 	if(tot_val == 0)
 	{
 		free_result(&result_tmp);
@@ -193,7 +193,7 @@ SWP_FNCLIST
 	int (*function)();
 };
 
-	SWP_FNCLIST fl[] =
+	SWP_FNCLIST fl[] = 
 	{
 		{"total",	SYSTEM_SWAP_TOTAL},
 		{"free",	SYSTEM_SWAP_FREE},
@@ -205,11 +205,11 @@ SWP_FNCLIST
 	char swapdev[MAX_STRING_LEN];
 	char mode[MAX_STRING_LEN];
 	int i;
-
+	
         assert(result);
 
         init_result(result);
-
+	
         if(num_param(param) > 2)
         {
                 return SYSINFO_RET_FAIL;
@@ -230,12 +230,12 @@ SWP_FNCLIST
 	{
 		return SYSINFO_RET_FAIL;
 	}
-
+	
 	if(get_param(param, 2, mode, sizeof(mode)) != 0)
         {
                 mode[0] = '\0';
         }
-
+	
         if(mode[0] == '\0')
 	{
 		/* default parameter */
@@ -249,8 +249,43 @@ SWP_FNCLIST
 			return (fl[i].function)(cmd, param, flags, result);
 		}
 	}
-
+	
 	return SYSINFO_RET_FAIL;
+}
+
+int     OLD_SWAP(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+        char    key[MAX_STRING_LEN];
+        int     ret;
+
+        assert(result);
+
+        init_result(result);
+
+        if(num_param(param) > 1)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+        if(get_param(param, 1, key, MAX_STRING_LEN) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+        if(strcmp(key,"free") == 0)
+        {
+                ret = SYSTEM_SWAP_FREE(cmd, param, flags, result);
+        }
+        else if(strcmp(key,"total") == 0)
+        {
+                ret = SYSTEM_SWAP_TOTAL(cmd, param, flags, result);
+        }
+        else
+        {
+                ret = SYSINFO_RET_FAIL;
+        }
+
+        return ret;
 }
 
 #define	DO_SWP_IN	1
@@ -263,13 +298,13 @@ int	get_swap_io(double *swapin, double *pgswapin, double *swapout, double *pgswa
     kstat_ctl_t	    *kc;
     kstat_t	    *k;
     cpu_stat_t	    *cpu;
-
+    
     int	    cpu_count = 0;
-
+    
     kc = kstat_open();
 
     if(kc != NULL)
-    {
+    {    
 	k = kc->kc_chain;
   	while (k != NULL)
 	{
@@ -318,11 +353,11 @@ int	SYSTEM_SWAP_IN(const char *cmd, const char *param, unsigned flags, AGENT_RES
     char    swapdev[MAX_STRING_LEN];
     char    mode[MAX_STRING_LEN];
     double  value = 0;
-
+        
     assert(result);
 
     init_result(result);
-
+	
     if(num_param(param) > 2)
     {
         return SYSINFO_RET_FAIL;
@@ -343,17 +378,17 @@ int	SYSTEM_SWAP_IN(const char *cmd, const char *param, unsigned flags, AGENT_RES
     {
 	return SYSINFO_RET_FAIL;
     }
-
+    
     if(get_param(param, 2, mode, sizeof(mode)) != 0)
     {
 	mode[0] = '\0';
     }
-
+    
     if(mode[0] == '\0')
     {
         zbx_snprintf(mode, sizeof(mode), "count");
     }
-
+    
     if(strcmp(mode,"count") == 0)
     {
 	ret = get_swap_io(&value, NULL, NULL, NULL);
@@ -380,11 +415,11 @@ int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RE
     char    swapdev[MAX_STRING_LEN];
     char    mode[MAX_STRING_LEN];
     double  value = 0;
-
+        
     assert(result);
 
     init_result(result);
-
+	
     if(num_param(param) > 2)
     {
         return SYSINFO_RET_FAIL;
@@ -405,17 +440,17 @@ int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RE
     {
 	return SYSINFO_RET_FAIL;
     }
-
+    
     if(get_param(param, 2, mode, sizeof(mode)) != 0)
     {
 	mode[0] = '\0';
     }
-
+    
     if(mode[0] == '\0')
     {
         zbx_snprintf(mode, sizeof(mode), "count");
     }
-
+    
     if(strcmp(mode,"count") == 0)
     {
 	ret = get_swap_io(NULL, NULL, &value, NULL);
@@ -435,3 +470,4 @@ int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RE
     SET_UI64_RESULT(result, value);
     return ret;
 }
+

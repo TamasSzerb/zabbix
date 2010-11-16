@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -23,36 +23,28 @@
 #if defined(_WINDOWS)
 
 #	define ZBX_MUTEX		HANDLE
-#	define ZBX_MUTEX_NULL		NULL
-
 #	define ZBX_MUTEX_ERROR		(0)
 #	define ZBX_MUTEX_OK		(1)
 
-#	define ZBX_MUTEX_NAME		wchar_t *
+#	define ZBX_MUTEX_NAME		char*
 
-#	define ZBX_MUTEX_LOG    	TEXT("ZBX_MUTEX_LOG")
-#	define ZBX_MUTEX_PERFSTAT  	TEXT("ZBX_MUTEX_PERFSTAT")
+#	define ZBX_MUTEX_LOG    	"ZBX_MUTEX_LOG"
+#	define ZBX_MUTEX_NODE_SYNC    	"ZBX_MUTEX_NODE_SYNC"
 
 #else /* not _WINDOWS */
 
 #	define ZBX_MUTEX		int
-#	define ZBX_MUTEX_NULL		0
 
 #	define ZBX_MUTEX_ERROR		(-1)
 #	define ZBX_MUTEX_OK		(1)
-
+	
 #	define ZBX_MUTEX_NAME		int
 
-#	define ZBX_NO_MUTEX		(-1)
 #	define ZBX_MUTEX_LOG		0
 #	define ZBX_MUTEX_NODE_SYNC	1
 #	define ZBX_MUTEX_CACHE		2
-#	define ZBX_MUTEX_TRENDS		3
-#	define ZBX_MUTEX_CACHE_IDS	4
-#	define ZBX_MUTEX_CONFIG		5
-#	define ZBX_MUTEX_STRPOOL	6
-/* This has to be the last MUTEX in the list with MAX number */
-#	define ZBX_MUTEX_COUNT		7
+
+#	define ZBX_MUTEX_COUNT		3
 
 #	define ZBX_MUTEX_MAX_TRIES	20 /* seconds */
 
@@ -64,13 +56,10 @@
 
 #define zbx_mutex_create(mutex, name)		zbx_mutex_create_ext(mutex, name, 0)
 #define zbx_mutex_create_force(mutex, name)	zbx_mutex_create_ext(mutex, name, 1)
-#define zbx_mutex_lock(mutex)			__zbx_mutex_lock(__FILE__, __LINE__, mutex)
-#define zbx_mutex_unlock(mutex)			__zbx_mutex_unlock(__FILE__, __LINE__, mutex)
-
-int	zbx_mutex_create_ext(ZBX_MUTEX *mutex, ZBX_MUTEX_NAME name, unsigned char forced);
-void	__zbx_mutex_lock(const char *filename, int line, ZBX_MUTEX *mutex);
-void	__zbx_mutex_unlock(const char *filename, int line, ZBX_MUTEX *mutex);
-int	zbx_mutex_destroy(ZBX_MUTEX *mutex);
+int zbx_mutex_create_ext(ZBX_MUTEX	*mutex, ZBX_MUTEX_NAME name, unsigned char forced);
+int zbx_mutex_lock(ZBX_MUTEX	*mutex);
+int zbx_mutex_unlock(ZBX_MUTEX	*mutex);
+int zbx_mutex_destroy(ZBX_MUTEX	*mutex);
 
 /*********************************************************/
 /*** PHP Semaphore functions using System V semaphores ***/

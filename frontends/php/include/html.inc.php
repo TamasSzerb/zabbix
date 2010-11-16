@@ -19,115 +19,143 @@
 **/
 ?>
 <?php
-	function italic($str){
+	function BR(){
+		return new CTag('br','no');
+	}
+	
+	function	bold($str)
+	{
 		if(is_array($str)){
 			foreach($str as $key => $val)
-				if(is_string($val)){
-					$em = new CTag('em','yes');
-					$em->addItem($val);
-					$str[$key] = $em;
-				}
+				if(is_string($val))
+					 $str[$key] = "<b>$val</b>";
+		} elseif(is_string($str)) {
+			$str = "<b>$str</b>";
 		}
-		else if(is_string($str)) {
-			$em = new CTag('em','yes','');
-			$em->addItem($str);
-			$str = $em;
-		}
-	return $str;
+		return $str;
 	}
 
-	function bold($str){
-		if(is_array($str)){
-			foreach($str as $key => $val)
-				if(is_string($val)){
-					$b = new CTag('strong','yes');
-					$b->addItem($val);
-					$str[$key] = $b;
-				}
-		}
-		else{
-			$b = new CTag('strong','yes','');
-			$b->addItem($str);
-			$str = $b;
-		}
-	return $str;
+	function	bfirst($str) // mark first symbol of string as bold
+	{
+		$res = bold($str[0]);
+		for($i=1,$max=strlen($str); $i<$max; $i++)	$res .= $str[$i];
+		$str = $res;
+		return $str;	
 	}
 
-	function make_decoration($haystack, $needle, $class=null){
-		$result = $haystack;
+	function	nbsp($str)
+	{
+		return str_replace(" ",SPACE,$str);;
+	}
 
-		$pos = stripos($haystack,$needle);
-		if($pos !== FALSE){
-			$start = zbx_substring($haystack, 0, $pos);
-//			$middle = substr($haystack, $pos, zbx_strlen($needle));
-			$middle = $needle;
-			$end = substr($haystack, $pos+zbx_strlen($needle));
+	function utf8_strlen($s)
+	{
+		return preg_match_all('/([\x01-\x7f]|([\xc0-\xff][\x80-\xbf]{1,5}))/', $s, $tmp);
+	}
 
-			if(is_null($class)){
-				$result = array($start, bold($middle), $end);
-			}
-			else{
-				$result = array($start, new CSpan($middle, $class), $end);
-			}
+	function utf8_strtop($s, $len)
+	{
+		preg_match('/^([\x01-\x7f]|([\xc0-\xff][\x80-\xbf]{1,5})){0,'.$len.'}/', $s, $tmp);
+		return (isset($tmp[0])) ? $tmp[0] : false;
+	}
+
+	function form_select($var, $value, $label)
+	{
+		global $_REQUEST;
+
+		$selected = "";
+		if(!is_null($var))
+		{
+			if(isset($_REQUEST[$var])&&$_REQUEST[$var]==$value)
+				$selected = "selected";
 		}
-
-	return $result;
+		return "<option value=\"$value\" $selected>$label";
 	}
 
-	function nbsp($str){
-		return str_replace(" ",SPACE,$str);
+	function form_input($name, $value, $size)
+	{
+		return "<input class=\"biginput\" name=\"$name\" size=$size value=\"$value\">";
 	}
 
-	function prepare_url(&$var, $varname=null){
-		$result = '';
+	function form_textarea($name, $value, $cols, $rows)
+	{
+		return "<textarea name=\"$name\" cols=\"$cols\" ROWS=\"$rows\" wrap=\"soft\">$value</TEXTAREA>";
+	}
 
-		if(is_array($var)){
+	function url1_param($parameter)
+	{
+		global $_REQUEST;
+	
+		if(isset($_REQUEST[$parameter]))
+		{
+			return "$parameter=".$_REQUEST[$parameter];
+		}
+		else
+		{
+			return "";
+		}
+	}
+
+	function	prepare_url(&$var, $varname)
+	{
+		$result = "";
+
+		if(is_array($var))
+		{
 			foreach($var as $id => $par)
-				$result .= prepare_url($par,isset($varname) ? $varname."[".$id."]": $id);
+				$result .= prepare_url($par,
+					isset($varname) ? $varname."[".$id."]": $id
+					);
 		}
-		else{
-			$result = '&'.$varname.'='.urlencode($var);
+		else
+		{
+			$result = "&".$varname."=".urlencode($var);
 		}
-
-	return $result;
+		return $result;
 	}
 
-	function url_param($parameter,$request=true,$name=null){
-		$result = '';
-		if(!is_array($parameter)){
-			if(is_null($name)){
-				if(!$request) fatal_error('not request variable require url name [url_param]');
+	function url_param($parameter,$request=true,$name=null)
+	{
+		$result = "";
+
+		
+		if(!is_array($parameter))
+		{
+			if(!isset($name))
+			{
+				if(!$request)
+					fatal_error('not request variable require url name [url_param]');
 
 				$name = $parameter;
 			}
 		}
-
-		if($request){
+		
+		if($request)
+		{
+			global $_REQUEST;
+			
 			$var =& $_REQUEST[$parameter];
 		}
-		else{
+		else
+		{
 			$var =& $parameter;
 		}
-
-		if(isset($var)){
+		
+		if(isset($var))
+		{
 			$result = prepare_url($var,$name);
 		}
-
-	return $result;
+		return $result;
 	}
-
-	function BR(){
-		return new CTag('br','no');
-	}
-
-	function create_hat($caption,$items,$addicons=null,$id=null,$state=null){
+	
+	function create_hat($caption,$items,$addicons=null,$id=null,$state=1){
 		if(is_null($id)){
-			list($usec, $sec) = explode(' ',microtime());
+			list($usec, $sec) = explode(' ',microtime());	
 			$id = 'hat_'.((int)($sec % 10)).((int)($usec * 1000));
 		}
 
 		$td_l = new CCol(SPACE);
-		$td_l->setAttribute('width','100%');
+		$td_l->AddOption('width','100%');
 
 		$icons_row = array($td_l);
 		if(!is_null($addicons)){
@@ -135,273 +163,170 @@
 			foreach($addicons as $value) $icons_row[] = $value;
 		}
 
-		if(!is_null($state)){
-			$icon = new CIcon(S_SHOW.'/'.S_HIDE, $state?'arrowup':'arrowdown', "change_hat_state(this,'".$id."');");
-			$icon->setAttribute('id',$id.'_icon');
-			$icons_row[] = $icon;
-		}
-		else{
-			$state = true;
-		}
+		$icon = new CDiv(SPACE,($state)?'arrowup':'arrowdown');
+		$icon->AddOption('id',$id.'_icon');
+		$icon->AddAction('onclick',new CScript("javascript: change_hat_state(this,'".$id."');"));
+		$icon->AddOption('title',S_SHOW.'/'.S_HIDE);
+
+		$icons_row[] = $icon;
 
 		$icon_tab = new CTable();
-		$icon_tab->setAttribute('width','100%');
-
-		$icon_tab->addRow($icons_row);
-
+		$icon_tab->AddOption('width','100%');
+		
+		$icon_tab->AddRow($icons_row);
+		
 		$table = new CTable();
-		$table->setAttribute('width','100%');
-		$table->setCellPadding(0);
-		$table->setCellSpacing(0);
-		$table->addRow(get_table_header($caption,$icon_tab));
+		$table->AddOption('width','100%');
+		$table->SetCellPadding(0);
+		$table->SetCellSpacing(0);
+		$table->AddRow(get_table_header($caption,$icon_tab));
 
 		$div = new CDiv($items);
-		$div->setAttribute('id',$id);
-		if(!$state) $div->setAttribute('style','display: none;');
+		$div->AddOption('id',$id);
+		if(!$state) $div->AddOption('style','display: none;');
+		
+		$table->AddRow($div);
+	return $table;
+	}
+	
+	function create_filter($col_l,$col_r,$items,$id='zbx_filter',$state=1){
 
-		$table->addRow($div);
+		if(isset($_REQUEST['print'])) $state = 0;
+		
+		$table = new CTable();
+		$table->AddOption('width','100%');
+		$table->SetCellPadding(0);
+		$table->SetCellSpacing(0);
+		$table->AddOption('border',0);
+		
+		$icon = new CDiv(SPACE,($state)?'filteropened':'filterclosed');
+		$icon->AddAction('onclick',new CScript("javascript: change_filter_state(this,'".$id."');"));
+		$icon->AddOption('title',S_MAXIMIZE.'/'.S_MINIMIZE);
+		$icon->AddAction('id','filter_icon');
+
+		$td_icon = new CCol($icon);
+		$td_icon->AddOption('valign','bottom');
+
+		$icons_row = array($td_icon,SPACE);
+		$icons_row[] = $col_l;
+
+		$icon_tab = new CTable();
+		$icon_tab->SetCellSpacing(0);
+		$icon_tab->SetCellPadding(0);
+		
+		$icon_tab->AddRow($icons_row);
+		
+		$table->AddRow(get_thin_table_header($icon_tab,$col_r));
+
+		$div = new CDiv($items);
+		$div->AddOption('id',$id);
+		if(!$state) $div->AddOption('style','display: none;');
+		
+		$tab = new CTable();
+		$tab->AddRow($div);
+		
+//		$table->AddRow($tab);
+		$table->AddRow($div);
+	return $table;
+	}
+	
+	function create_filter_hat($col_l,$col_r,$items,$id,$state=1){
+		
+		$table = new CTable(NULL,"filter");
+		$table->SetCellSpacing(0);
+		$table->SetCellPadding(1);
+
+
+
+		$td_l = new CCol($icon_tab,"filter_l");
+				
+		$td_r = new CCol($col_r,"filter_r");
+		$td_r->AddOption('align','right');
+				
+		$table->AddRow(array($td_l, $td_r));
+	return $table;
+	}
+	
+	function get_thin_table_header($col1, $col2=SPACE){
+		
+		$table = new CTable(NULL,"filter");
+//		$table->AddOption('border',1);
+		$table->SetCellSpacing(0);
+		$table->SetCellPadding(1);
+		
+		$td_r = new CCol($col2,"filter_r");
+		$td_r->AddOption('align','right');
+		
+		$table->AddRow(array(new CCol($col1,"filter_l"), $td_r));
 	return $table;
 	}
 
-
-/* Function:
- *	hide_form_items()
- *
- * Desc:
- *	Searches items/objects for Form tags like "<input"/Form classes like CForm, and makes it empty
- *
- * Author:
- *	Aly
- */
-	function hide_form_items(&$obj){
-		if(is_array($obj)){
-			foreach($obj as $id => $item){
-				hide_form_items($obj[$id]);			// Attention recursion;
-			}
-		}
-		else if(is_object($obj)){
-			$formObjects = array('cform','ccheckbox','cselect','cbutton','cbuttonqmessage','cbuttondelete','cbuttoncancel');
-			if(is_object($obj) && str_in_array(zbx_strtolower(get_class($obj)), $formObjects)){
-				$obj=SPACE;
-			}
-
-			if(isset($obj->items) && !empty($obj->items)){
-				foreach($obj->items as $id => $item){
-					hide_form_items($obj->items[$id]); 		// Recursion
-				}
-			}
-		}
-		else{
-			foreach(array('<form','<input','<select') as $item){
-				if(zbx_strpos($obj,$item) !== FALSE) $obj = SPACE;
-			}
-		}
-	}
-
-	function get_table_header($col1, $col2=SPACE){
-		if(isset($_REQUEST['print'])){
-			hide_form_items($col1);
-			hide_form_items($col2);
-//if empty header than do not show it
-			if(($col1 == SPACE) && ($col2 == SPACE)) return new CJSscript('');
-		}
-
-		$td_l = new CCol(SPACE,'header_r');
-		$td_l->setAttribute('width','100%');
-
-		$right_row = array($td_l);
-
-		if(!is_null($col2)){
-			if(!is_array($col2)) $col2 = array($col2);
-
-			foreach($col2 as $num => $r_item)
-				$right_row[] = new CCol($r_item,'header_r');
-		}
-
-		$right_tab = new CTable(null,'nowrap');
-		$right_tab->setAttribute('width','100%');
-
-		$right_tab->addRow($right_row);
-
-		$table = new CTable(NULL,'header');
-//		$table->setAttribute('border',0);
-		$table->setCellSpacing(0);
-		$table->setCellPadding(1);
-
-		$td_r = new CCol($right_tab,'header_r');
-		$td_r->setAttribute('align','right');
-
-		$table->addRow(array(new CCol($col1,'header_l'), $td_r));
-	return $table;
-	}
-
-	function show_table_header($col1, $col2=SPACE){
-		$table = get_table_header($col1, $col2);
+	function	show_thin_table_header($col1, $col2=SPACE){
+		$table = get_thin_table_header($col1, $col2);
 		$table->Show();
 	}
 
-	function get_icon($name, $params=array()){
-
-		switch($name){
-			case 'favourite':
-				if(infavorites($params['fav'], $params['elid'], $params['elname'])){
-					$icon = new CIcon(
-						S_REMOVE_FROM.' '.S_FAVOURITES,
-						'iconminus',
-						'rm4favorites("'.$params['elname'].'","'.$params['elid'].'", 0);'
-					);
-				}
-				else{
-					$icon = new CIcon(
-						S_ADD_TO.' '.S_FAVOURITES,
-						'iconplus',
-						'add2favorites("'.$params['elname'].'","'.$params['elid'].'");'
-					);
-				}
-				$icon->setAttribute('id','addrm_fav');
-			break;
-			case 'fullscreen':
-				$url = new Curl();
-				$url->setArgument('fullscreen', $params['fullscreen'] ? '0' : '1');
-				$icon = new CIcon(
-					$_REQUEST['fullscreen'] ? S_NORMAL.' '.S_VIEW : S_FULLSCREEN,
-					'fullscreen',
-					"document.location = '".$url->getUrl()."';"
-				);
-			break;
-			case 'menu':
-				$icon = new CIcon(S_MENU, 'iconmenu', 'create_page_menu(event, "'.$params['menu'].'");');
-			break;
-			case 'reset':
-				$icon = new CIcon(S_RESET, 'iconreset', 'timeControl.objectReset("'.$params['id'].'");');
-			break;
-		}
-
-		return $icon;
+	function table_begin($class="tableinfo")
+	{
+		echo "<table class=\"$class\" border=0 width=\"100%\" bgcolor='#AAAAAA' cellspacing=1 cellpadding=3>";
+		echo "\n";
 	}
 
-/**
-* returns Ctable object with host header
-*
-* {@source}
-* @access public
-* @static
-* @version 1
-*
-* @param string $hostid
-* @param array $elemnts [items, triggers, graphs, applications]
-* @return object
-*/
-	function get_header_host_table($hostid, $current=null){
-		$elements = array(
-			'items' => 'items',
-			'triggers' => 'triggers',
-			'graphs' => 'graphs',
-			'applications' => 'applications',
-			'screens' => 'screens',
-			'discoveries' => 'discoveries'
-		);
-
-		if(!is_null($current))
-			unset($elements[$current]);
-
-		$header_host_opt = array(
-			'hostids' => $hostid,
-			'output' => API_OUTPUT_EXTEND,
-			'templated_hosts' => 1,
-		);
-		if(isset($elements['items'])) $header_host_opt['select_items'] = API_OUTPUT_COUNT;
-		if(isset($elements['triggers'])) $header_host_opt['select_triggers'] = API_OUTPUT_COUNT;
-		if(isset($elements['graphs'])) $header_host_opt['select_graphs'] = API_OUTPUT_COUNT;
-		if(isset($elements['applications'])) $header_host_opt['select_applications'] = API_OUTPUT_COUNT;
-		if(isset($elements['screens'])) $header_host_opt['selectScreens'] = API_OUTPUT_COUNT;
-		if(isset($elements['discoveries'])) $header_host_opt['select_discoveries'] = API_OUTPUT_COUNT;
-
-		$header_host = CHost::get($header_host_opt);
-		$header_host = array_pop($header_host);
-
-		$description = array();
-		if($header_host['proxy_hostid']){
-			$proxy = get_host_by_hostid($header_host['proxy_hostid']);
-			$description[] = $proxy['host'].':';
+	function table_header($elements)
+	{
+		echo "<tr bgcolor='#CCCCCC'>";
+		while(list($num,$element)=each($elements))
+		{
+			echo "<td><b>".$element."</b></td>";
 		}
-		$description[] = $header_host['host'];
+		echo "</tr>";
+		echo "\n";
+	}
 
-		$list = new CList();
-		if($header_host['status'] == HOST_STATUS_TEMPLATE)
-			$list->addItem(new CLink(bold(S_TEMPLATE_LIST), 'templates.php?templateid='.$header_host['hostid'].url_param('groupid')));
-		else
-			$list->addItem(new CLink(bold(S_HOST_LIST), 'hosts.php?hostid='.$header_host['hostid'].url_param('groupid')));
+	function table_row($elements, $rownum)
+	{
+		if($rownum%2 == 1)	{ echo "<TR BGCOLOR=\"#DDDDDD\">"; }
+		else			{ echo "<TR BGCOLOR=\"#EEEEEE\">"; }
 
-		if(isset($elements['items'])){
-			$list->addItem(array(new CLink(S_ITEMS, 'items.php?hostid='.$header_host['hostid']),' ('.$header_host['items'].')'));
-		}
-
-		if(isset($elements['triggers'])){
-			$list->addItem(array(new CLink(S_TRIGGERS, 'triggers.php?hostid='.$header_host['hostid']),' ('.$header_host['triggers'].')'));
-		}
-
-		if(isset($elements['graphs'])){
-			$list->addItem(array(new CLink(S_GRAPHS, 'graphs.php?hostid='.$header_host['hostid']),' ('.$header_host['graphs'].')'));
-		}
-
-		if(isset($elements['applications'])){
-			$list->addItem(array(new CLink(S_APPLICATIONS, 'applications.php?hostid='.$header_host['hostid']),' ('.$header_host['applications'].')'));
-		}
-
-		if(isset($elements['discoveries'])){
-			$list->addItem(array(new CLink(S_DISCOVERY, 'host_discovery.php?hostid='.$header_host['hostid']),' ('.$header_host['discoveries'].')'));
-		}
-
-
-		$tbl_header_host = new CDiv();
-		if($header_host['status'] == HOST_STATUS_TEMPLATE){
-			if(isset($elements['screens'])){
-				$list->addItem(array(new CLink(S_SCREENS, 'screenconf.php?templateid='.$header_host['hostid']), ' ('.$header_host['screens'].')'));
+		while(list($num,$element)=each($elements))
+		{
+			if(is_array($element)&&isset($element["hide"])&&($element["hide"]==1))	continue;
+			if(is_array($element))
+			{
+				if(isset($element["class"]))
+					echo "<td class=\"".$element["class"]."\">".$element["value"]."</td>";
+				else
+					echo "<td>".$element["value"]."</td>";
 			}
-
-			$list->addItem(array(bold(S_TEMPLATE.': '), $description));
-
-			$tbl_header_host->addItem($list);
-		}
-		else{
-			$dns = empty($header_host['dns']) ? '-' : $header_host['dns'];
-			$ip = empty($header_host['ip']) ? '-' : $header_host['ip'];
-			$port = empty($header_host['port']) ? '-' : $header_host['port'];
-			if(1 == $header_host['useip'])
-				$ip = bold($ip);
 			else
-				$dns = bold($dns);
-
-			switch($header_host['status']){
-				case HOST_STATUS_MONITORED:
-					$status = new CSpan(S_MONITORED, 'off');
-					break;
-				case HOST_STATUS_NOT_MONITORED:
-					$status = new CSpan(S_NOT_MONITORED, 'off');
-					break;
-				default:
-					$status = S_UNKNOWN;
+			{
+				echo "<td>".$element."</td>";
 			}
-
-			if($header_host['available'] == HOST_AVAILABLE_TRUE)
-				$available = new CSpan(S_AVAILABLE, 'off');
-			else if($header_host['available'] == HOST_AVAILABLE_FALSE)
-				$available = new CSpan(S_NOT_AVAILABLE, 'on');
-			else if($header_host['available'] == HOST_AVAILABLE_UNKNOWN)
-				$available = new CSpan(S_UNKNOWN, 'unknown');
-
-			$list->addItem(array(bold(S_HOST.': '), $description));
-			$list->addItem(array(bold(S_DNS.': '), $dns));
-			$list->addItem(array(bold(S_IP.': '), $ip));
-			$list->addItem(array(bold(S_PORT.': '), $port));
-			$list->addItem(array(bold(S_STATUS.': '), $status));
-			$list->addItem(array(bold(S_AVAILABILITY.': '), $available));
-
-			$tbl_header_host->addItem($list);
 		}
-		$tbl_header_host->setClass('objectlist');
+		echo "</tr>";
+		echo "\n";
+	}
 
-		return $tbl_header_host;
+
+	function table_end()
+	{
+		echo "</table>";
+		echo "\n";
+	}
+
+	function table_td($text,$attr)
+	{
+		echo "<td $attr>$text</td>";
+	}
+
+	function table_nodata($text="...")
+	{
+		echo "<TABLE BORDER=0 align=center WIDTH=\"100%\" BGCOLOR=\"#CCCCCC\" cellspacing=1 cellpadding=3>";
+		echo "<TR BGCOLOR=\"#DDDDDD\">";
+		echo "<TD ALIGN=CENTER>";
+		echo $text;
+		echo "</TD>";
+		echo "</TR>";
+		echo "</TABLE>";
 	}
 ?>

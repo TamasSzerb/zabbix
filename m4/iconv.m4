@@ -70,7 +70,6 @@ AC_DEFUN([LIBICONV_CHECK_CONFIG],
 	fi
 
 	if test "x$found_iconv" = "xyes"; then
-		AC_DEFINE([HAVE_ICONV], 1, [Define to 1 if you have the 'libiconv' library (-liconv)])
 		AC_MSG_RESULT(yes)
 	else
 		ICONV_CFLAGS=""

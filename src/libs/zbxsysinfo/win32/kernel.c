@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -38,3 +38,10 @@ int	KERNEL_MAXPROC(const char *cmd, const char *param, unsigned flags, AGENT_RES
 
 	return SYSINFO_RET_FAIL;
 }
+
+int     OLD_KERNEL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	/* SKIP REALIZATEION */
+	return SYSINFO_RET_FAIL;
+}
+

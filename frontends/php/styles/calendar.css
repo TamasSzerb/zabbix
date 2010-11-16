@@ -1,12 +1,11 @@
 /* CSS Document */
 
 div.calendar{
-	position: absolute;
-	width: 180px;
-	top: 10px;
-	right: 30px;
+	position: absolute; 
+	width: 180px; 
+	top: 10px; 
+	right: 30px; 
 	border: 1px blue solid;
-	z-index: 100;
 }
 
 div.calendardays{
@@ -14,9 +13,9 @@ div.calendardays{
 }
 
 div.calendartime{
-	background-color: #DDEEFF;
-	text-align: center;
-	padding-top: 2px;
+	background-color: #DDEEFF; 
+	text-align: center; 
+	padding-top: 2px; 
 	padding-bottom: 2px;
 }
 
@@ -81,30 +80,30 @@ table.calendartab tr td.selected{
 
 /* SPAN */
 
-div.calendar span.title{
+span.title{
 	text-align:center;
 	color:#000099;
 }
 
-div.calendar span.clndr_left_arrow{
+span.clndr_left_arrow{
 	padding-left: 5px;
 }
 
-div.calendar span.clndr_left_arrow:hover{
+span.clndr_left_arrow:hover{
 	cursor: pointer;
 }
 
-div.calendar span.clndr_right_arrow{
+span.clndr_right_arrow{
 	padding-right: 5px;
 }
 
-div.calendar span.clndr_right_arrow:hover{
+span.clndr_right_arrow:hover{
 	cursor: pointer;
 }
 
 /* INPUT */
 
-div.calendar input.calendar_textbox{
+input.calendar_textbox{
 	font-family: Verdana, Arial, Helvetica, sans-serif;
 	font-size: 11px;
 	text-align: center;

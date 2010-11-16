@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -21,11 +21,9 @@
 
 #include "sysinfo.h"
 
-extern char	*CONFIG_SOURCE_IP;
-
-int	tcp_expect(const char *host, unsigned short port, const char *request,
-		const char *expect, const char *sendtoclose, int *value_int);
-int	NET_TCP_PORT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
+int	tcp_expect(const char	*host, unsigned short port, const char *request, const char *expect, const char *sendtoclose, int *value_int);
+int	TCP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
+int	CHECK_PORT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 int	CHECK_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 int	CHECK_DNS_QUERY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 

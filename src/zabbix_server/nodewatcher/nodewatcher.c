@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2006 SIA Zabbix
 **
@@ -25,6 +25,7 @@
 
 #include "nodewatcher.h"
 #include "nodesender.h"
+#include "events.h"
 #include "history.h"
 
 /******************************************************************************
@@ -35,124 +36,44 @@
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:  SUCCEED - master_nodeid is a master node of current_nodeid  *
- *                FAIL - otherwise                                            *
+ * Return value:  SUCCEED - nodeid is master node                             *
+ *                FAIL - nodeid is slave node                                 *
  *                                                                            *
  * Author: Aleksander Vladishev                                               *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	is_master_node(int current_nodeid, int master_nodeid)
+int	is_master_node(int current_nodeid, int nodeid)
 {
-	DB_RESULT	result;
-	DB_ROW		row;
+	DB_RESULT	dbresult;
+	DB_ROW		dbrow;
 	int		res = FAIL;
 
-	result = DBselect("select masterid from nodes where nodeid=%d",
+	dbresult = DBselect("select masterid from nodes where nodeid=%d",
 		current_nodeid);
 
-	if (NULL != (row = DBfetch(result)))
-	{
-		current_nodeid = (SUCCEED == DBis_null(row[0])) ? 0 : atoi(row[0]);
-		if (current_nodeid == master_nodeid)
+	if (NULL != (dbrow = DBfetch(dbresult))) {
+		current_nodeid = atoi(dbrow[0]);
+		if (current_nodeid == nodeid)
 			res = SUCCEED;
 		else if (0 != current_nodeid)
-			res = is_master_node(current_nodeid, master_nodeid);
+			res = is_master_node(current_nodeid, nodeid);
 	}
-	DBfree_result(result);
+	DBfree_result(dbresult);
 
 	return res;
 }
 
 /******************************************************************************
  *                                                                            *
- * Function: is_slave_node                                                    *
- *                                                                            *
- * Purpose:                                                                   *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value:  SUCCEED - slave_nodeid is a slave node of current_nodeid    *
- *                FAIL - otherwise                                            *
- *                                                                            *
- * Author: Aleksandrs Saveljevs                                               *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-int	is_slave_node(int current_nodeid, int slave_nodeid)
-{
-	DB_RESULT	result;
-	DB_ROW		row;
-	int		nodeid;
-	int		ret = FAIL;
-
-	result = DBselect(
-			"select nodeid"
-			" from nodes"
-			" where masterid=%d",
-			current_nodeid);
-
-	while (FAIL == ret && NULL != (row = DBfetch(result)))
-	{
-		nodeid = atoi(row[0]);
-		if (nodeid == slave_nodeid)
-			ret = SUCCEED;
-		else
-			ret = is_slave_node(nodeid, slave_nodeid);
-	}
-	DBfree_result(result);
-
-	return ret;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: is_direct_slave_node                                             *
- *                                                                            *
- * Purpose:                                                                   *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value:  SUCCEED - slave_nodeid is our direct slave node             *
- *                FAIL - otherwise                                            *
- *                                                                            *
- * Author: Aleksander Vladishev                                               *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-int	is_direct_slave_node(int slave_nodeid)
-{
-	DB_RESULT	result;
-	DB_ROW		row;
-	int		ret = FAIL;
-
-	result = DBselect(
-			"select nodeid"
-			" from nodes"
-			" where nodeid=%d"
-				" and masterid=%d",
-			slave_nodeid,
-			CONFIG_NODEID);
-
-	if (NULL != (row = DBfetch(result)))
-		ret = SUCCEED;
-	DBfree_result(result);
-
-	return ret;
-}
-
-/******************************************************************************
- *                                                                            *
  * Function: main_nodewatcher_loop                                            *
  *                                                                            *
- * Purpose: periodically calculates checksum of config data                   *
+ * Purpose: periodically calculates checks sum of config data                 *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value:                                                              * 
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
@@ -161,20 +82,21 @@ int	is_direct_slave_node(int slave_nodeid)
  ******************************************************************************/
 int main_nodewatcher_loop()
 {
-	int	start, end;
+	int start, end;
 	int	lastrun = 0;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In main_nodewatcher_loop()");
-
-	zbx_setproctitle("connecting to the database");
-
-	DBconnect(ZBX_DB_CONNECT_NORMAL);
-
+	zabbix_log( LOG_LEVEL_DEBUG, "In main_nodeupdater_loop()");
 	for(;;)
 	{
 		start = time(NULL);
 
+		zbx_setproctitle("connecting to the database");
 		zabbix_log( LOG_LEVEL_DEBUG, "Starting sync with nodes");
+
+		DBconnect(ZBX_DB_CONNECT_NORMAL);
+
+		/* Send new events to master node */
+		main_eventsender();
 
 		if(lastrun + 120 < start)
 		{
@@ -182,9 +104,10 @@ int main_nodewatcher_loop()
 
 			lastrun = start;
 		}
-
 		/* Send new history data to master node */
 		main_historysender();
+
+		DBclose();
 
 		end = time(NULL);
 
@@ -197,6 +120,4 @@ int main_nodewatcher_loop()
 			sleep(10-(end-start));
 		}
 	}
-
-	DBclose();
 }

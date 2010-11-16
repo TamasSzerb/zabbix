@@ -60,7 +60,7 @@ AC_DEFUN([LIBCURL_CHECK_CONFIG],
 
   AC_ARG_WITH(libcurl,
      [If you want to use cURL library:
-AC_HELP_STRING([--with-libcurl@<:@=DIR@:>@],[use cURL package @<:@default=yes@:>@, optionally specify path to curl-config])],
+AC_HELP_STRING([--with-libcurl@<:@=DIR@:>@],[use cURL package @<:@default=yes@:>@, optionally specify path to curl_config])],
         [
         if test "$withval" = "no"; then
             want_curl="no"
@@ -114,9 +114,6 @@ AC_HELP_STRING([--with-libcurl@<:@=DIR@:>@],[use cURL package @<:@default=yes@:>
 		_full_libcurl_libs=`$_libcurl_config --libs`
 		for i in $_full_libcurl_libs; do
 			case $i in
-				-l*)
-					LIBCURL_LDFLAGS="$LIBCURL_LDFLAGS $i"
-			;;
 				-L*)
 					LIBCURL_LDFLAGS="$LIBCURL_LDFLAGS $i"
 			;;
@@ -135,7 +132,6 @@ AC_HELP_STRING([--with-libcurl@<:@=DIR@:>@],[use cURL package @<:@default=yes@:>
 							],[
 								AC_MSG_ERROR([Not found $_lib_name library])
 							])
-
 				;;
 				esac
 			done
@@ -200,10 +196,7 @@ AC_HELP_STRING([--with-libcurl@<:@=DIR@:>@],[use cURL package @<:@default=yes@:>
 		LDFLAGS="${LDFLAGS} ${LIBCURL_LDFLAGS}"
 		CFLAGS="${CFLAGS} ${LIBCURL_CFLAGS}"
 
-           AC_LINK_IFELSE(AC_LANG_PROGRAM([#include <curl/curl.h>
-#ifndef NULL
-#define NULL (void *)0
-#endif],[
+           AC_LINK_IFELSE(AC_LANG_PROGRAM([#include <curl/curl.h>],[
 /* Try and use a few common options to force a failure if we are
    missing symbols or can't link. */
 int x;
@@ -239,10 +232,6 @@ x=CURLOPT_VERBOSE;
            AC_CHECK_FUNC(curl_free,,
   	      AC_DEFINE(curl_free,free,
 		[Define curl_free() as free() if our version of curl lacks curl_free.]))
-
-           AC_CHECK_FUNC(curl_easy_escape,
-  	      AC_DEFINE(HAVE_FUNCTION_CURL_EASY_ESCAPE,1,
-		[Define to 1 if function 'curl_easy_escape' exists.]))
 
 		LIBS="${_save_curl_libs}"
 		LDFLAGS="${_save_curl_ldflags}"

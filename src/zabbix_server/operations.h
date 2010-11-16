@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,6 +17,7 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
+
 #ifndef ZABBIX_OPERATIONS_H
 #define ZABBIX_OPERATIONS_H
 
@@ -25,12 +26,11 @@
 
 void	op_template_add(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation);
 void	op_template_del(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation);
-void	op_group_add(DB_EVENT *event, DB_OPERATION *operation);
+void	op_group_add(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation);
 void	op_group_del(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation);
 void	op_host_add(DB_EVENT *event);
 void	op_host_del(DB_EVENT *event);
-void	op_host_enable(DB_EVENT *event);
-void	op_host_disable(DB_EVENT *event);
-void    op_run_commands(char *cmd_list);
+void	op_run_commands(DB_EVENT *event, DB_OPERATION *operation);
+void	op_notify_user(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation);
 
 #endif

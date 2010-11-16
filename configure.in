@@ -1,6 +1,6 @@
 dnl 
 dnl ZABBIX
-dnl Copyright (C) 2000-2008 SIA Zabbix
+dnl Copyright (C) 2000-2005 SIA Zabbix
 dnl
 dnl This program is free software; you can redistribute it and/or modify
 dnl it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@ dnl
 dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT(src/zabbix_server/server.c)
-AM_INIT_AUTOMAKE([zabbix],[1.9.1])
+AM_INIT_AUTOMAKE([zabbix],[1.0.0])
 
 AC_MSG_NOTICE([Configuring $PACKAGE_NAME $PACKAGE_VERSION])
 
@@ -32,7 +32,6 @@ AC_CANONICAL_HOST
 
 dnl Checks for programs.
 AC_PROG_CC
-AM_PROG_CC_C_O
 dnl AC_PROG_RANLIB
 dnl AM_PROG_LIBTOOL
 
@@ -41,76 +40,18 @@ AC_HEADER_STDC
 AC_CHECK_HEADERS(stdio.h stdlib.h string.h unistd.h netdb.h signal.h \
   syslog.h time.h errno.h sys/types.h sys/stat.h netinet/in.h \
   math.h sys/socket.h dirent.h ctype.h \
-  mtent.h fcntl.h sys/param.h arpa/inet.h \
+  mtent.h fcntl.h sys/param.h sys/mount.h arpa/inet.h \
   sys/vfs.h sys/pstat.h sys/sysinfo.h sys/statvfs.h \
-  sys/socket.h sys/loadavg.h arpa/inet.h \
-  sys/vmmeter.h strings.h vm/vm_param.h \
+  sys/socket.h sys/loadavg.h netinet/in.h arpa/inet.h \
+  sys/swap.h sys/vmmeter.h strings.h sys/sysctl.h vm/vm_param.h \
   sys/time.h kstat.h sys/syscall.h sys/sysmacros.h sys/procfs.h \
-  stdint.h mach/host_info.h mach/mach_host.h knlist.h pwd.h \
-  sys/var.h arpa/nameser.h assert.h sys/dkstat.h sys/disk.h \
-  nlist.h kvm.h linux/kernel.h getopt.h procinfo.h sys/dk.h \
+  stdint.h mach/host_info.h mach/mach_host.h knlist.h pwd.h sys/proc.h \
+  sys/var.h resolv.h arpa/nameser.h assert.h sys/dkstat.h sys/disk.h \
+  nlist.h net/if.h kvm.h linux/kernel.h getopt.h procinfo.h sys/dk.h \
   sys/resource.h pthread.h windows.h process.h conio.h sys/wait.h regex.h \
   stdarg.h winsock2.h pdh.h psapi.h sys/sem.h sys/ipc.h sys/shm.h Winldap.h \
   sys/timeb.h Winber.h lber.h ws2tcpip.h inttypes.h sys/file.h grp.h \
-  execinfo.h libperfstat.h sys/systemcfg.h sys/mnttab.h mntent.h)
-AC_CHECK_HEADERS(resolv.h, [], [], [
-  #ifdef HAVE_SYS_TYPES_H
-  #  include <sys/types.h>
-  #endif
-  #ifdef HAVE_NETINET_IN_H
-  #  include <netinet/in.h>
-  #endif
-  #ifdef HAVE_ARPA_NAMESER_H
-  #  include <arpa/nameser.h>
-  #endif
-  #ifdef HAVE_NETDB_H
-  #  include <netdb.h>
-  #endif
-])
-AC_CHECK_HEADERS(net/if.h net/if_mib.h, [], [], [
-  #include <stdio.h>
-  #ifdef STDC_HEADERS
-  #  include <stdlib.h>
-  #  include <stddef.h>
-  #else
-  #  ifdef HAVE_STDLIB_H
-  #    include <stdlib.h>
-  #  endif
-  #endif
-  #ifdef HAVE_SYS_TYPES_H
-  #  include <sys/types.h>
-  #endif
-  #ifdef HAVE_SYS_SOCKET_H
-  #  include <sys/socket.h>
-  #endif
-  /* for net/if_mib.h */
-  #ifdef HAVE_NET_IF_H
-  #  include <net/if.h>
-  #endif
-]) 
-AC_CHECK_HEADERS(sys/mount.h sys/proc.h sys/sysctl.h sys/user.h, [], [], [
-  #ifdef HAVE_SYS_TYPES_H
-  #  include <sys/types.h>
-  #endif
-  #ifdef HAVE_SYS_PARAM_H
-  #  include <sys/param.h>
-  #endif
-])
-AC_CHECK_HEADERS(sys/swap.h, [], [], [
-  #ifdef HAVE_SYS_PARAM_H
-  #  include <sys/param.h>
-  #endif
-]) 
-AC_CHECK_HEADERS(sys/ucontext.h, [], [], [
-  #ifdef HAVE_SIGNAL_H
-  #  include <signal.h>
-  #endif
-])
-AC_CHECK_HEADERS(devstat.h, [], [], [
-  #ifdef HAVE_SYS_DKSTAT_H
-  #  include <sys/dkstat.h>
-  #endif
-])
+  libperfstat.h net/if_mib.h sys/user.h devstat.h)
 
 dnl Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -126,27 +67,48 @@ AC_SEARCH_LIBS(socket, socket)
 #Solaris SNMP requires this
 AC_SEARCH_LIBS(kstat_open, kstat)
 AC_SEARCH_LIBS(gethostbyname, nsl)
-AC_SEARCH_LIBS(clock_gettime, rt)
-#AC_SEARCH_LIBS(__res_query, resolv bind socket)
+AC_SEARCH_LIBS(__res_query, resolv bind socket)
 #Solaris 8 requires this. It does not have symbol __res_query.
-#AC_SEARCH_LIBS(res_query, resolv bind socket)
+AC_SEARCH_LIBS(res_query, resolv bind socket)
 #Aix 6.x requires this
 AC_SEARCH_LIBS(perfstat_memory_total, perfstat, [AC_DEFINE([HAVE_LIBPERFSTAT], 1, [Define to 1 if you have the 'libperfstat' library (-lperfstat)])])
-AC_SEARCH_LIBS(devstat_getdevs, devstat, [AC_DEFINE([HAVE_LIBDEVSTAT], 1, [Define to 1 if you have the 'libdevstat' library (-ldevstat)])])
-AC_SEARCH_LIBS(getdevs, devstat, [AC_DEFINE([HAVE_LIBDEVSTAT], 1, [Define to 1 if you have the 'libdevstat' library (-ldevstat)])])
-dnl On FreeBSD we have to link with -lexecinfo to get backtraces
-AC_SEARCH_LIBS(backtrace_symbols, execinfo, [AC_DEFINE([HAVE_LIBEXECINFO], 1, [Define to 1 if you have the 'libexecinfo' library (-lexecinfo)])])
+AC_SEARCH_LIBS(devstat_getdevs, devstat, [AC_DEFINE([HAVE_DEVSTAT], 1, [Define to 1 if you have the 'libdevstat' library (-ldevstat)])])
+AC_SEARCH_LIBS(getdevs, devstat, [AC_DEFINE([HAVE_DEVSTAT], 1, [Define to 1 if you have the 'libdevstat' library (-ldevstat)])])
 AC_CHECK_LIB(m, main)
 AC_CHECK_LIB(kvm, main)
 dnl AC_CHECK_LIB(pthread, main)
 
-found_resolv="no"
-dnl Check for DNS lookup functions
-LIBRESOLV_CHECK_CONFIG([no])
-if test "x$found_resolv" != "xyes"; then
-	AC_MSG_ERROR([Unable to DNS lookup functions "${found_resolv}"])
-fi
-LIBS="${LIBS} ${RESOLV_LIBS}"
+dnl Check for function res_query
+AC_MSG_CHECKING(for function res_query)
+AC_TRY_COMPILE(
+[
+#ifdef HAVE_SYS_TYPES_H
+#	include <sys/types.h>
+#endif
+#ifdef HAVE_NETINET_IN_H
+#	include <netinet/in.h>
+#endif
+#ifdef HAVE_ARPA_NAMESER_H
+#	include <arpa/nameser.h>
+#endif
+#include <resolv.h>
+#if !defined(C_IN)
+#       define C_IN     ns_c_in
+#endif /* C_IN */
+
+#if !defined(T_SOA)
+#       define T_SOA    ns_t_soa
+#endif /* T_SOA */
+],
+[
+	char zone[1024];
+	char respbuf[1024];
+	res_query(zone, C_IN, T_SOA, (unsigned char *)respbuf, sizeof(respbuf));
+],
+AC_DEFINE(HAVE_RES_QUERY, 1 ,[Define to 1 if function 'res_query' exist.])
+AC_MSG_RESULT(yes),
+AC_MSG_RESULT(no))
+
 
 dnl Check for union semun
 AC_MSG_CHECKING(for union semun)
@@ -191,35 +153,6 @@ AC_TRY_COMPILE([
 AC_MSG_RESULT(yes),
 [AC_DEFINE(socklen_t, int, [Define socklen_t type])
 AC_MSG_RESULT(no)])
-
-dnl Check for actual socklen_t parameter type in socket functions
-AC_MSG_CHECKING(for actual socklen_t parameter type in socket functions)
-zbx_socklen_t=
-for arg2 in "struct sockaddr" void; do
-  for arg3 in socklen_t size_t int; do
-    AC_TRY_COMPILE([
-      #ifdef HAVE_SYS_TYPES_H
-      #  include <sys/types.h>
-      #endif
-      #ifdef HAVE_SYS_SOCKET_H
-      #  include <sys/socket.h>
-      #endif
-      extern int getpeername(int sockfd, $arg2 *addr, $arg3 *addrlen);
-    ],[
-      $arg3 addrlen;
-      getpeername(0, 0, &addrlen);
-    ],[
-      zbx_socklen_t="$arg3"
-      break 2
-    ])
-  done
-done
-if test "x$zbx_socklen_t" != "x"; then
-  AC_MSG_RESULT($zbx_socklen_t)
-  AC_DEFINE_UNQUOTED(ZBX_SOCKLEN_T, $zbx_socklen_t, [Define actual socklen_t parameter type in socket functions])
-else
-  AC_MSG_RESULT(leaving undefined)
-fi
 
 dnl Check for /proc filesystem
 AC_MSG_CHECKING(for /proc filesystem)
@@ -284,41 +217,6 @@ else
 	AC_MSG_RESULT(no)
 fi
 
-dnl Check for tm_gmtoff in struct tm
-AC_MSG_CHECKING(for tm_gmtoff in struct tm)
-AC_TRY_COMPILE([
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif	/* HAVE_SYS_TIME_H */
-
-#ifdef HAVE_TIME_H
-#include <time.h>
-#endif	/* HAVE_TIME_H */
-],
-[
-	struct tm tm;
-	tm.tm_gmtoff;
-],
-AC_DEFINE(HAVE_TM_TM_GMTOFF,1,[Define to 1 if 'tm.tm_gmtoff' exist.])
-AC_MSG_RESULT(yes),
-AC_MSG_RESULT(no))
-
-dnl Check for function clock_gettime in time.h
-AC_MSG_CHECKING(for clock_gettime in time.h)
-AC_TRY_LINK([
-#ifdef HAVE_TIME_H
-#	include <time.h>
-#elif HAVE_SYS_TIME_H
-#	include <sys/time.h>
-#endif	/* HAVE_SYS_TIME_H */
-],
-[struct timespec tp;
-clock_gettime(CLOCK_REALTIME, &tp);
-],
-AC_DEFINE(HAVE_TIME_CLOCK_GETTIME,1,[Define to 1 if function 'clock_gettime' exist.])
-AC_MSG_RESULT(yes),
-AC_MSG_RESULT(no))
-
 dnl Check for mem_unit in struct sysinfo
 AC_MSG_CHECKING(for mem_unit in struct sysinfo)
 AC_TRY_COMPILE([#include <sys/sysinfo.h>],
@@ -336,20 +234,6 @@ AC_TRY_COMPILE([#include <sys/sysinfo.h>],
 sysinfo.freeswap=0;
 ],
 AC_DEFINE(HAVE_SYSINFO_FREESWAP,1,[Define to 1 if 'sysinfo.freeswap' exist.])
-AC_MSG_RESULT(yes),
-AC_MSG_RESULT(no))
-
-dnl Check for libperfstat 5.3.0.60 fileset
-AC_MSG_CHECKING(for AIX OS level 5300-06)
-AC_TRY_COMPILE([#include <libperfstat.h>],
-[perfstat_partition_total_t	lparstats;
-lparstats.type.b.donate_enabled = 0;
-lparstats.idle_donated_purr = 0;
-lparstats.busy_donated_purr = 0;
-lparstats.idle_stolen_purr = 0;
-lparstats.busy_stolen_purr = 0;
-],
-AC_DEFINE(HAVE_AIXOSLEVEL_530006,1,[Define to 1 if AIX OS level 5300-06 exist.])
 AC_MSG_RESULT(yes),
 AC_MSG_RESULT(no))
 
@@ -420,99 +304,19 @@ AC_TRY_COMPILE(
 #ifdef HAVE_SYS_VMMETER_H
 #include <sys/vmmeter.h>
 #endif /* HAVE_SYS_VMMETER_H */
-
-#ifndef NULL
-#define NULL (void *)0
-#endif
 ],
 [
-	int		mib[] = {CTL_VM, VM_METER};
 	size_t		len;
+	int		mib[2];
 	struct vmtotal	v;
 
 	len = sizeof(struct vmtotal);
+	mib[0] = CTL_VM;
+	mib[1] = VM_METER;
 
 	sysctl(mib, 2, &v, &len, NULL, 0);
 ],
 AC_DEFINE(HAVE_SYS_VMMETER_VMTOTAL,1,[Define to 1 if struct 'vmtotal' exist .])
-AC_MSG_RESULT(yes),
-AC_MSG_RESULT(no))
-
-dnl Check for uvmexp_sysctl in uvm/uvm_extern.h
-AC_MSG_CHECKING(for uvmexp_sysctl in struct uvm/uvm_extern.h)
-AC_TRY_COMPILE(
-[
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif /* HAVE_SYS_TYPES_H */
-
-#ifdef HAVE_SYS_PARAM_H
-#include <sys/param.h>
-#endif /* HAVE_SYS_PARAM_H */ 
-
-#include <sys/sysctl.h>
-
-#ifdef HAVE_VM_VM_PARAM_H
-#include <vm/vm_param.h>
-#endif /* HAVE_VM_VM_PARAM_H */
-
-#ifdef HAVE_SYS_VMMETER_H
-#include <sys/vmmeter.h>
-#endif /* HAVE_SYS_VMMETER_H */
-
-#ifndef NULL
-#define NULL (void *)0
-#endif
-],
-[
-	int			mib[] = {CTL_VM, VM_UVMEXP2};
-	size_t			len;
-	struct uvmexp_sysctl	v;
-
-	len = sizeof(struct uvmexp_sysctl);
-
-	sysctl(mib, 2, &v, &len, NULL, 0);
-],
-AC_DEFINE(HAVE_UVM_UVMEXP2,1,[Define to 1 if struct 'uvmexp_sysctl' exist .])
-AC_MSG_RESULT(yes),
-AC_MSG_RESULT(no))
-
-dnl Check for uvmexp in uvm/uvm_extern.h
-AC_MSG_CHECKING(for uvmexp in struct uvm/uvm_extern.h)
-AC_TRY_COMPILE(
-[
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif /* HAVE_SYS_TYPES_H */
-
-#ifdef HAVE_SYS_PARAM_H
-#include <sys/param.h>
-#endif /* HAVE_SYS_PARAM_H */ 
-
-#include <sys/sysctl.h>
-
-#ifdef HAVE_VM_VM_PARAM_H
-#include <vm/vm_param.h>
-#endif /* HAVE_VM_VM_PARAM_H */
-
-#ifdef HAVE_SYS_VMMETER_H
-#include <sys/vmmeter.h>
-#endif /* HAVE_SYS_VMMETER_H */
-
-#ifndef NULL
-#define NULL (void *)0
-#endif
-],
-[
-	int		mib[] = {CTL_VM, VM_UVMEXP};
-	size_t		len;
-	struct uvmexp	v;
-
-	len = sizeof(struct uvmexp);
-
-	sysctl(mib, 2, &v, &len, NULL, 0);
-],
-AC_DEFINE(HAVE_UVM_UVMEXP,1,[Define to 1 if struct 'uvmexp' exist .])
 AC_MSG_RESULT(yes),
 AC_MSG_RESULT(no))
 
@@ -524,10 +328,6 @@ AC_TRY_COMPILE(
 #include <sys/types.h>
 #include <sys/syscall.h>
 #include <sys/swap.h>
-
-#ifndef NULL
-#define NULL (void *)0
-#endif
 ],
 [
     register int cnt, i;
@@ -561,13 +361,13 @@ point
     /* grab all swap info */
     swapctl(SC_LIST, swt);
 
-    /* walk through the structs and sum up the fields */
+    /* walk thru the structs and sum up the fields */
     t = f = 0;
     ste = &(swt->swt_ent[0]);
     i = cnt;
     while (--i >= 0)
     {
-  /* don't count slots being deleted */
+  /* dont count slots being deleted */
   if (!(ste->ste_flags & ST_INDEL) &&
       !(ste->ste_flags & ST_DOINGDEL))
   {
@@ -662,10 +462,6 @@ AC_TRY_LINK(
 #include <sys/types.h>
 #endif /* HAVE_SYS_TYPES_H */
 
-#ifdef HAVE_SYS_PARAM_H
-#include <sys/param.h>
-#endif /* HAVE_SYS_PARAM_H */ 
-
 #include <sys/sysctl.h>
 ],
 [
@@ -728,38 +524,6 @@ AC_TRY_COMPILE(
         sysctl(mib, 2, &maxproc, &len, 0, 0);
 ],
 AC_DEFINE(HAVE_FUNCTION_SYSCTL_KERN_MAXPROC,1,[Define to 1 if 'KERN_MAXPROC' exist.])
-AC_MSG_RESULT(yes),
-AC_MSG_RESULT(no))
-
-dnl Check for function sysctl (KERN_CPTIME,KERN_CPTIME2)
-AC_MSG_CHECKING(for function sysctl (KERN_CPTIME,KERN_CPTIME2))
-AC_TRY_COMPILE(
-[
-#include <sys/param.h>
-#include <sys/sysctl.h>
-#include <sys/dkstat.h>
-],
-[
-size_t	sz;
-int	i[] = {CP_USER, CP_NICE, CP_SYS, CP_INTR, CP_IDLE};
-
-{
-	long	states[CPUSTATES];
-	int	mib[2] = {CTL_KERN, KERN_CPTIME};
-
-	sz = sizeof(states);
-	sysctl(mib, 2, &states, &sz, NULL, 0);
-}
-
-{
-	u_int64_t	states[CPUSTATES];
-	int		mib[3] = {CTL_KERN, KERN_CPTIME2, 0};
-
-	sz = sizeof(states);
-	sysctl(mib, 3, &states, &sz, NULL, 0);
-}
-],
-AC_DEFINE(HAVE_FUNCTION_SYSCTL_KERN_CPTIME,1,[Define to 1 if 'KERN_CPTIME,KERN_CPTIME2' exist.])
 AC_MSG_RESULT(yes),
 AC_MSG_RESULT(no))
 
@@ -892,29 +656,14 @@ AC_CHECK_FUNCS(vasprintf)
 AC_CHECK_FUNCS(asprintf)
 AC_CHECK_FUNCS(vsnprintf)
 AC_CHECK_FUNCS(hstrerror)
+AC_CHECK_FUNCS(atoll)
 AC_CHECK_FUNCS(getopt_long)
-AC_CHECK_FUNCS(getenv)
-AC_CHECK_FUNCS(putenv)
+AC_CHECK_FUNCS(strcasestr)
 
-dnl Option -rdynamic is needed for readable backtraces.
-AC_MSG_CHECKING(for -rdynamic linking option)
-saved_LDFLAGS="$LDFLAGS"
-LDFLAGS="-rdynamic $LDFLAGS"
-AC_TRY_LINK([#include <execinfo.h>],
-[void *bcktrc[6];
-(void)backtrace(bcktrc, 6);
-],
-LDFLAGS="-rdynamic $saved_LDFLAGS"
-AC_MSG_RESULT(yes),
-LDFLAGS="$saved_LDFLAGS"
-AC_MSG_RESULT(no))
-
+dnl Check if we want to compile everything with static
 AC_ARG_ENABLE(static,[  --enable-static         Build statically linked binaries],
-[case "${enableval}" in
-  yes) LDFLAGS="${LDFLAGS} -static" ;;
-  no) ;;
-  *) AC_MSG_ERROR([bad value ${enableval} for --enable-static]) ;;
-esac])
+[ LDFLAGS="${LDFLAGS} -static";
+ enable_static=yes])
 
 AC_ARG_ENABLE(server,[  --enable-server         Turn on build of server],
 [case "${enableval}" in
@@ -925,15 +674,6 @@ esac],
 [server=no])
 AM_CONDITIONAL(SERVER, test x$server = xyes)
 
-AC_ARG_ENABLE(proxy,[  --enable-proxy          Turn on build of proxy server],
-[case "${enableval}" in
-  yes) proxy=yes ;;
-  no)  proxy=no ;;
-  *) AC_MSG_ERROR([bad value ${enableval} for --enable-proxy]) ;;
-esac],
-[proxy=no])
-AM_CONDITIONAL(PROXY, test x$proxy = xyes)
-
 AC_ARG_ENABLE(agent,[  --enable-agent          Turn on build of agent],
 [case "${enableval}" in
   yes) agent=yes ;;
@@ -943,43 +683,46 @@ esac],
 [agent=no])
 AM_CONDITIONAL(AGENT, test x$agent = xyes)
 
-AC_ARG_ENABLE(ipv6,[  --enable-ipv6           Turn on support of IPv6],
-[case "${enableval}" in
-  yes) ipv6=yes ;;
-  no)  ipv6=no ;;
-  *) AC_MSG_ERROR([bad value ${enableval} for --enable-ipv6]) ;;
-esac],
-[ipv6=no])
-
 have_db="no"
-have_odbc="no"
 have_web_monitoring="no"
 have_jabber="no"
 have_snmp="no"
-have_ipmi="no"
-have_ipv6="no"
 
-if test "$ipv6" = "yes"; then
-	AC_DEFINE(HAVE_IPV6,1,[Define to 1 if IPv6 should be enabled.])
-	have_ipv6="yes"
-fi
+if test "$server" = "yes"; then
 
-if test "$server" = "yes" || test "$proxy" = "yes"; then
-
-	have_multirow_insert="no"
-
-	dnl Checking for IBM DB2 support
-	AX_LIB_IBM_DB2()
-	if test "x$want_ibm_db2" = "xyes"; then
+	dnl Checking for Oracle support
+	LIBSQLORA8_CHECK_CONFIG()
+	if test "x$want_sqlora8" = "xyes"; then
 		if test "x$have_db" != "xno"; then
 			AC_MSG_ERROR([You can configure for only one database.])
 		fi
-		
-		if test "x$found_ibm_db2" = "xyes"; then
-			have_db="IBM DB2"
-			have_multirow_insert="yes"
+
+		if test "x$found_sqlora8" = "xyes"; then
+			have_db="Oracle"
+
+			ORACLE_CPPFLAGS="$SQLORA8_CPPFLAGS"
+			ORACLE_LDFLAGS="$SQLORA8_LDFLAGS"
+
+			AC_SUBST(ORACLE_CPPFLAGS)
+			AC_SUBST(ORACLE_LDFLAGS)
+
+			AC_DEFINE(HAVE_ORACLE,1,[Define to 1 if Oracle should be enabled.])
 		else
-			AC_MSG_ERROR([IBM DB2 library not found])
+			AC_MSG_ERROR([Not found Sqlora8 library])
+		fi
+	fi
+
+	dnl Checking for SQLite3 support
+	AX_LIB_SQLITE3()
+	if test "x$WANT_SQLITE3" = "xyes"; then
+		if test "x$have_db" != "xno"; then
+			AC_MSG_ERROR([You can configure for only one database.])
+		fi
+
+		if test "x$found_sqlite3" = "xyes"; then
+			have_db="SQLite v3.x"
+		else
+			AC_MSG_ERROR([Not found SQLite3 library])
 		fi
 	fi
 
@@ -991,34 +734,19 @@ if test "$server" = "yes" || test "$proxy" = "yes"; then
 		fi
 
 		if test "x$found_mysql" = "xyes"; then
+
 			have_db="MySQL"
-			have_multirow_insert="yes"
+
+			dnl Check forql_autocommit in MySQL
+			AC_MSG_CHECKING(for mysql_autocommit in MySQL)
+			AC_TRY_COMPILE(
+			[#include <mysql.h>
+			],[mysql_autocommit(NULL, 0);],
+			AC_DEFINE(HAVE_MYSQL_AUTOCOMMIT,1,[Define to 1 if 'mysql_autocommit' exist .])
+			AC_MSG_RESULT(yes),
+			AC_MSG_RESULT(no))
 		else
-			AC_MSG_ERROR([MySQL library not found])
-		fi
-	fi
-
-	dnl Checking for Oracle support
-	AX_LIB_ORACLE_OCI([10.0])
-	if test "x$WANT_ORACLE_OCI" = "xyes"; then
-		if test "x$have_db" != "xno"; then
-			AC_MSG_ERROR([You can configure for only one database.])
-		fi
-
-		if test "x$HAVE_ORACLE_OCI" = "xyes"; then
-			have_db="Oracle"
-
-			ORACLE_CPPFLAGS="$ORACLE_OCI_CFLAGS"
-			ORACLE_LDFLAGS="$ORACLE_OCI_LDFLAGS"
-			ORACLE_LIBS="$ORACLE_OCI_LIBS"
-
-			AC_SUBST(ORACLE_CPPFLAGS)
-			AC_SUBST(ORACLE_LDFLAGS)
-			AC_SUBST(ORACLE_LIBS)
-
-			AC_DEFINE(HAVE_ORACLE,1,[Define to 1 if Oracle should be enabled.])
-		else
-			AC_MSG_ERROR([Oracle OCI library not found])
+			AC_MSG_ERROR([Not found MySQL library])
 		fi
 	fi
 
@@ -1032,63 +760,26 @@ if test "$server" = "yes" || test "$proxy" = "yes"; then
 		if test "x$found_postgresql" = "xyes"; then
 
 			have_db="PostgreSQL"
-
-			if test "$postgresql_version_number" -ge 8002000; then
-				have_multirow_insert="yes"
-			fi
-
+			
+			dnl To avoid linking of crypt with the agent
+			dnl It seems PostgreSQL does not require this
+			dnl AC_CHECK_FUNC(crypt, , AC_CHECK_LIB(crypt, crypt,  POSTGRESQL_LDFLAGS="-lcrypt $POSTGRESQL_LDFLAGS"))
 		else
-			AC_MSG_ERROR([PostgreSQL library not found])
+			AC_MSG_ERROR([Not found PostgreSQL library])
 		fi
 	fi
 
-	dnl Checking for SQLite3 support
-	AX_LIB_SQLITE3()
-	if test "x$WANT_SQLITE3" = "xyes"; then
-		if test "x$have_db" != "xno"; then
-			AC_MSG_ERROR([You can configure for only one database.])
-		fi
-
-		if test "x$found_sqlite3" = "xyes"; then
-			have_db="SQLite v3.x"
-
-			saved_CPPFLAGS="$CPPFLAGS"
-			CPPFLAGS="$CPPFLAGS $SQLITE3_CPPFLAGS $SQLITE3_LDFLAGS"
-
-			AC_MSG_CHECKING([for function sqlite3_open_v2() in sqlite3.h])
-			AC_TRY_LINK([#include <sqlite3.h>],
-				[sqlite3 *conn = 0;
-				sqlite3_open_v2("dbname", &conn, SQLITE_OPEN_READWRITE, 0);
-				],
-				AC_DEFINE(HAVE_FUNCTION_SQLITE3_OPEN_V2,1,[Define to 1 if function 'sqlite3_open_v2' exist.])
-				AC_MSG_RESULT(yes),
-				AC_MSG_RESULT(no))
-
-			CPPFLAGS="$saved_CPPFLAGS"
-		else
-			AC_MSG_ERROR([SQLite3 library not found])
-		fi
-	fi
-
-	AC_MSG_CHECKING(for Zabbix server database selection)
+	AC_MSG_CHECKING(for ZABBIX server database selection)
 	if test "x$have_db" = "xno"; then
 		AC_MSG_RESULT(error)
-		AC_MSG_ERROR([No database selected for Zabbix server. Use --with-ibm-db2 or --with-mysql or --with-oracle or --with-postgresql or --with-sqlite3.])
+		AC_MSG_ERROR([No database selected for ZABBIX server. Use --with-mysql or --with-oracle or --with-pgsql or --with-sqlite3.])
 	else
 		AC_MSG_RESULT(ok)
 	fi
 
-	AC_MSG_CHECKING(for multirow insert statements)
-	if test "x$have_multirow_insert" = "xyes"; then
-		AC_DEFINE(HAVE_MULTIROW_INSERT,1,[Define to 1 if database supports multirow insert statements.])
-		AC_MSG_RESULT(yes)
-	else
-		AC_MSG_RESULT(no)
-	fi
-
-	DB_CPPFLAGS="$IBM_DB2_CPPFLAGS $MYSQL_CFLAGS $ORACLE_CPPFLAGS $POSTGRESQL_CPPFLAGS $SQLITE3_CPPFLAGS"
-	DB_LDFLAGS="$IBM_DB2_LDFLAGS $MYSQL_LDFLAGS $ORACLE_LDFLAGS $POSTGRESQL_LDFLAGS $SQLITE3_LDFLAGS"
-	DB_LIBS="$IBM_DB2_LIBS $MYSQL_LIBS $ORACLE_LIBS $POSTGRESQL_LIBS $SQLITE3_LIBS"
+	DB_CPPFLAGS="$ORACLE_CPPFLAGS $SQLITE3_CPPFLAGS $MYSQL_CFLAGS $POSTGRESQL_CPPFLAGS"
+	DB_LDFLAGS="$ORACLE_LDFLAGS $SQLITE3_LDFLAGS $MYSQL_LDFLAGS $POSTGRESQL_LDFLAGS"
+	DB_LIBS="$ORACLE_LIBS $SQLITE3_LIBS $MYSQL_LIBS $POSTGRESQL_LIBS"
 
 	AC_SUBST(DB_CPPFLAGS)
 	AC_SUBST(DB_LDFLAGS)
@@ -1098,14 +789,11 @@ if test "$server" = "yes" || test "$proxy" = "yes"; then
 	SERVER_LDFLAGS="${SERVER_LDFLAGS} ${DB_LDFLAGS}"
 	SERVER_LIBS="${SERVER_LIBS} ${DB_LIBS}"
 	
-	PROXY_LDFLAGS="${PROXY_LDFLAGS} ${DB_LDFLAGS}"
-	PROXY_LIBS="${PROXY_LIBS} ${DB_LIBS}"
-	
 	dnl Checking for Jabber libraries
 	JABBER_CHECK_CONFIG()
 	if test "x$want_jabber" = "xyes"; then
 		if test "x$found_jabber" != "xyes"; then
-			AC_MSG_ERROR([Jabber library not found])
+			AC_MSG_ERROR([Not found Jabber library])
 		else
 			have_jabber="yes"
 		fi
@@ -1114,73 +802,20 @@ if test "$server" = "yes" || test "$proxy" = "yes"; then
 	SERVER_LDFLAGS="${SERVER_LDFLAGS} ${JABBER_LDFLAGS}"
 	SERVER_LIBS="${SERVER_LIBS} ${JABBER_LIBS}"
 
-	PROXY_LDFLAGS="${PROXY_LDFLAGS}"
-	PROXY_LIBS="${PROXY_LIBS}"
-
 	dnl Check for libCurl [default - yes]
 	LIBCURL_CHECK_CONFIG(, [7.13.1], [],[])
 	if test "x$want_curl" = "xyes"; then
 		if test "x$found_curl" != "xyes"; then
-			AC_MSG_ERROR([Curl library not found])
+			AC_MSG_ERROR([Not found Curl library])
 		fi
 	fi
 	if test "x$found_curl" = "xyes"; then
 		have_web_monitoring="cURL"
 	fi
 
-	CFLAGS="${CFLAGS} ${LIBCURL_CPPFLAGS}"
+	CFLAGS="${CFLAGS} ${LIBCURL_CFLAGS}"
 	SERVER_LDFLAGS="${SERVER_LDFLAGS} ${LIBCURL_LDFLAGS}"
 	SERVER_LIBS="${SERVER_LIBS} ${LIBCURL_LIBS}"
-
-	PROXY_LDFLAGS="${PROXY_LDFLAGS} ${LIBCURL_LDFLAGS}"
-	PROXY_LIBS="${PROXY_LIBS} ${LIBCURL_LIBS}"
-
-	have_odbc="no"
-
-	dnl Checking for iODBC support
-	LIBIODBC_CHECK_CONFIG([no])
-	if test "x$want_iodbc" = "xyes"; then
-		if test "x$found_iodbc" = "xyes"; then
-			have_odbc="iODBC"
-		else
-			AC_MSG_ERROR([iODBC library not found])
-		fi
-	fi
-
-	dnl Checking for unixODBC support
-	LIBUNIXODBC_CHECK_CONFIG([no])
-	if test "x$want_unixodbc" = "xyes"; then
-		if test "x$have_odbc" != "xno"; then
-			AC_MSG_ERROR([You can configure for only one ODBC driver.])
-		fi
-
-		if test "x$found_unixodbc" = "xyes"; then
-			have_odbc="unixODBC"
-		else
-			AC_MSG_ERROR([unixODBC library not found])
-		fi
-	fi
-
-	if test x$have_odbc != xno; then
-
-		ODBC_CFLAGS="${IODBC_CFLAGS} ${UNIXODBC_CFLAGS}"
-		ODBC_LDFLAGS="${IODBC_LDFLAGS} ${UNIXODBC_LDFLAGS}"
-		ODBC_LIBS="${IODBC_LIBS} ${UNIXODBC_LIBS}"
-
-		AC_SUBST(ODBC_CFLAGS)
-		AC_SUBST(ODBC_LDFLAGS)
-		AC_SUBST(ODBC_LIBS)
-
-		AC_DEFINE(HAVE_ODBC,1,[Define to 1 if ODBC Driver Manager should be used.])
-
-		CFLAGS="${CFLAGS} ${ODBC_CFLAGS}"
-		SERVER_LDFLAGS="${SERVER_LDFLAGS} ${ODBC_LDFLAGS}"
-		SERVER_LIBS="${SERVER_LIBS} ${ODBC_LIBS}"
-
-		PROXY_LDFLAGS="${PROXY_LDFLAGS} ${ODBC_LDFLAGS}"
-		PROXY_LIBS="${PROXY_LIBS} ${ODBC_LIBS}"
-
-	fi
 
 	dnl Check for NET-SNMP [by default - skip]
 	LIBNETSNMP_CHECK_CONFIG([no])
@@ -1194,9 +829,6 @@ if test "$server" = "yes" || test "$proxy" = "yes"; then
 	CFLAGS="${CFLAGS} ${SNMP_CFLAGS}"
 	SERVER_LDFLAGS="${SERVER_LDFLAGS} ${SNMP_LDFLAGS}"
 	SERVER_LIBS="${SERVER_LIBS} ${SNMP_LIBS}"
-
-	PROXY_LDFLAGS="${PROXY_LDFLAGS} ${SNMP_LDFLAGS}"
-	PROXY_LIBS="${PROXY_LIBS} ${SNMP_LIBS}"
 
 	dnl Check for UCD-SNMP [by default - skip]
 	LIBSNMP_CHECK_CONFIG([no])
@@ -1214,60 +846,19 @@ if test "$server" = "yes" || test "$proxy" = "yes"; then
 	CFLAGS="${CFLAGS} ${SNMP_CPPFLAGS}"
 	SERVER_LDFLAGS="${SERVER_LDFLAGS} ${SNMP_LDFLAGS}"
 
-	PROXY_LDFLAGS="${PROXY_LDFLAGS} ${SNMP_LDFLAGS}"
-
-	dnl Check for LIBSSH2 [by default - skip] at least of version 1.0.0.
-	LIBSSH2_CHECK_CONFIG([no])
-	if test "x$want_ssh2" = "xyes"; then
-		if test "x$found_ssh2" != "xyes"; then
-			AC_MSG_ERROR([SSH2 library not found])
-		elif test "x$accept_ssh2_version" != "xyes"; then
-			AC_MSG_ERROR([SSH2 library version requirement not met (>= 1.0.0)])
-		else
-			have_ssh2="yes"
-		fi
-	fi
-	CFLAGS="${CFLAGS} ${SSH2_CFLAGS}"
-	SERVER_LDFLAGS="${SERVER_LDFLAGS} ${SSH2_LDFLAGS}"
-	SERVER_LIBS="${SERVER_LIBS} ${SSH2_LIBS}"
-
-	PROXY_LDFLAGS="${PROXY_LDFLAGS} ${SSH2_LDFLAGS}"
-	PROXY_LIBS="${PROXY_LIBS} ${SSH2_LIBS}"
-
-	found_openipmi="no"
-	dnl Check for libOpenIPMI [by default - skip]
-	LIBOPENIPMI_CHECK_CONFIG([no])
-	if test "x$want_openipmi" = "xyes"; then
-		if test "x$found_openipmi" != "xyes"; then
-			AC_MSG_ERROR([Invalid OPENIPMI directory - unable to find ipmiif.h])
-		else
-			have_ipmi="openipmi"
-		fi
-	fi
-	CFLAGS="${CFLAGS} ${OPENIPMI_CFLAGS}"
-	SERVER_LDFLAGS="${SERVER_LDFLAGS} ${OPENIPMI_LDFLAGS}"
-	SERVER_LIBS="${SERVER_LIBS} ${OPENIPMI_LIBS}"
-
-	PROXY_LDFLAGS="${PROXY_LDFLAGS} ${OPENIPMI_LDFLAGS}"
-	PROXY_LIBS="${PROXY_LIBS} ${OPENIPMI_LIBS}"
-
 	AC_SUBST(SERVER_LDFLAGS)
 	AC_SUBST(SERVER_LIBS)
-
-	AC_SUBST(PROXY_LDFLAGS)
-	AC_SUBST(PROXY_LIBS)
 
 fi
 
 AM_CONDITIONAL(JABBER,  test "x$found_jabber" = "xyes")
-AM_CONDITIONAL(WITH_ODBC, test "x$have_odbc" != "xno")
 
 found_ldap="no"
 dnl Check for libLDAP [by default - skip]
 LIBLDAP_CHECK_CONFIG([no])
 if test "x$want_ldap" = "xyes"; then
 	if test "x$found_ldap" != "xyes"; then
-		AC_MSG_ERROR([Invalid LDAP directory - unable to find ldap.h])
+		AC_MSG_ERROR([Invalid LDAP directory - unable to find ldap.h "${found_ldap}"])
 	fi
 fi
 CFLAGS="${CFLAGS} ${LDAP_CPPFLAGS}"
@@ -1323,7 +914,6 @@ darwin*|rhapsody*)
 	ARCH="osx"
 
 	AC_MSG_RESULT([ok (${host_os})])
-	AC_DEFINE([MAC_OS_X], 1, [Define to 1 if you're using Mac OS X])
 ;;
 *solaris*)
 	ARCH="solaris"
@@ -1362,26 +952,28 @@ openbsd*)
 dnl	AC_MSG_ERROR(${host_os} not supported)
 ;;
 esac
-	AC_DEFINE_UNQUOTED([ARCH], "${ARCH}", [Define to OS name for code managing])
+	AC_DEFINE_UNQUOTED([ARCH], "${ARCH}", [Define to os name for code  managing])
 
 AC_SUBST(ARCH)
 
 AC_OUTPUT([
 	Makefile
 	create/Makefile
+	create/schema/Makefile
 	misc/Makefile
 	src/Makefile
 	src/libs/Makefile
 	src/libs/zbxlog/Makefile
-	src/libs/zbxalgo/Makefile
-	src/libs/zbxmemory/Makefile
 	src/libs/zbxcrypto/Makefile
 	src/libs/zbxconf/Makefile
-	src/libs/zbxdbcache/Makefile
 	src/libs/zbxdbhigh/Makefile
-	src/libs/zbxmedia/Makefile
+	src/libs/zbxemail/Makefile
 	src/libs/zbxsysinfo/Makefile
+	src/libs/zbxsms/Makefile
+	src/libs/zbxjabber/Makefile
 	src/libs/zbxcommon/Makefile
+	src/libs/zbxjson/Makefile
+	src/libs/zbxdbcache/Makefile
 	src/libs/zbxsysinfo/common/Makefile
 	src/libs/zbxsysinfo/simple/Makefile
 	src/libs/zbxsysinfo/linux/Makefile
@@ -1398,18 +990,12 @@ AC_OUTPUT([
 	src/libs/zbxplugin/Makefile
 	src/libs/zbxsys/Makefile
 	src/libs/zbxcomms/Makefile
-	src/libs/zbxcommshigh/Makefile
 	src/libs/zbxdb/Makefile
-	src/libs/zbxjson/Makefile
-	src/libs/zbxserver/Makefile
-	src/libs/zbxicmpping/Makefile
 	src/zabbix_agent/Makefile
 	src/zabbix_get/Makefile
 	src/zabbix_sender/Makefile
 	src/zabbix_server/Makefile
 	src/zabbix_server/alerter/Makefile
-	src/zabbix_server/dbsyncer/Makefile
-	src/zabbix_server/dbconfig/Makefile
 	src/zabbix_server/discoverer/Makefile
 	src/zabbix_server/housekeeper/Makefile
 	src/zabbix_server/httppoller/Makefile
@@ -1420,75 +1006,51 @@ AC_OUTPUT([
 	src/zabbix_server/trapper/Makefile
 	src/zabbix_server/utils/Makefile
 	src/zabbix_server/watchdog/Makefile
-	src/zabbix_server/escalator/Makefile
-	src/zabbix_server/proxypoller/Makefile
-	src/zabbix_proxy/Makefile
-	src/zabbix_proxy/heart/Makefile
-	src/zabbix_proxy/housekeeper/Makefile
-	src/zabbix_proxy/proxyconfig/Makefile
-	src/zabbix_proxy/datasender/Makefile
 	upgrades/Makefile
-	man/Makefile
 	])
 
 echo "
 
 Configuration:
 
-  Detected OS:           ${host_os}
-  Install path:          ${prefix}
-  Compilation arch:      ${ARCH}
+  Detected OS:        ${host_os}
+  Install path:       ${prefix}
+  Compilation arch:   ${ARCH}
 
-  Compiler:              ${CC}
-  Compiler flags:        ${CFLAGS}
+  Compiler:           ${CC}
+  Compiler flags:     ${CFLAGS}
 
-  Enable server:         ${server}"
+  Enable server:      ${server}"
 
 if test "x$server" != "xno"; then
 
-echo "  With database:         ${have_db}
-  WEB Monitoring via:    ${have_web_monitoring}
-  Native Jabber:         ${have_jabber}
-  SNMP:                  ${have_snmp}
-  IPMI:                  ${have_ipmi}
-  Linker flags:          ${LDFLAGS} ${SERVER_LDFLAGS}
-  Libraries:             ${LIBS} ${SERVER_LIBS}"
+echo "  With database:      ${have_db}
+  WEB Monitoring via: ${have_web_monitoring}
+  Native Jabber:      ${have_jabber}
+  SNMP:               ${have_snmp}
+  Linker flags:       ${LDFLAGS} ${SERVER_LDFLAGS}
+  Libraries:          ${LIBS} ${SERVER_LIBS}"
 
 fi
 
 echo "
-  Enable proxy:          ${proxy}"
-
-if test "x$proxy" != "xno"; then
-
-echo "  With database:         ${have_db}
-  WEB Monitoring via:    ${have_web_monitoring}
-  SNMP:                  ${have_snmp}
-  IPMI:                  ${have_ipmi}
-  Linker flags:          ${LDFLAGS} ${PROXY_LDFLAGS}
-  Libraries:             ${LIBS} ${PROXY_LIBS}"
-
-fi
-
-echo "
-  Enable agent:          ${agent}"
+  Enable agent:       ${agent}"
 
 if test "x$agent" != "xno"; then
 
-echo "  Linker flags:          ${LDFLAGS}
-  Libraries:             ${LIBS}"
+echo "  Linker flags:       ${LDFLAGS}
+  Libraries:          ${LIBS}"
 
 fi
 
 echo "
-  LDAP support:          ${found_ldap}
-  IPv6 support:          ${have_ipv6}"
+  LDAP support:       ${found_ldap}"
 
 echo
 echo "***********************************************************"
 echo "*            Now run '${am_make} install'                       *"
 echo "*                                                         *"
-echo "*            Thank you for using Zabbix!                  *"
+echo "*            Thank you for using ZABBIX!                  *"
 echo "*              <http://www.zabbix.com>                    *"
 echo "***********************************************************"
 echo

@@ -1,54 +1,40 @@
 ## Process this file with automake to produce Makefile.in
 
 DIST_SUBDIRS = \
-	zbxdbcache \
 	zbxdbhigh \
 	zbxdb \
-	zbxmemory \
-	zbxalgo \
-	zbxmedia \
+	zbxemail \
+	zbxsms \
 	zbxcrypto \
 	zbxcommon \
 	zbxcomms \
-	zbxcommshigh \
 	zbxlog \
 	zbxnix \
 	zbxconf \
 	zbxsysinfo \
 	zbxplugin \
 	zbxsys \
+	zbxjabber \
 	zbxjson \
-	zbxserver \
-	zbxicmpping
-
-if PROXY
-PROXY_SUBDIRS = \
-	zbxcommshigh \
-	zbxdb \
-	zbxdbcache \
-	zbxdbhigh \
-	zbxmemory \
-	zbxserver \
-	zbxicmpping
-endif
+	zbxdbcache
 
 if SERVER
 SERVER_SUBDIRS = \
-	zbxcommshigh \
 	zbxdb \
-	zbxdbcache \
 	zbxdbhigh \
-	zbxmemory \
-	zbxserver \
-	zbxicmpping \
-	zbxmedia
+	zbxemail \
+	zbxsms \
+	zbxdbcache
+endif
+
+if JABBER
+JABBER_SUBDIRS = zbxjabber
 endif
 
 SUBDIRS = \
 	zbxcrypto \
 	zbxcommon \
 	zbxlog \
-	zbxalgo \
 	zbxnix \
 	zbxconf \
 	zbxsysinfo \
@@ -56,7 +42,7 @@ SUBDIRS = \
 	zbxsys \
 	zbxcomms \
 	zbxjson \
-	$(PROXY_SUBDIRS) \
+	$(JABBER_SUBDIRS) \
 	$(SERVER_SUBDIRS)
 
 EXTRA_DIST = zbxwin32

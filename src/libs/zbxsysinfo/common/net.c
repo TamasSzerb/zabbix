@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -26,95 +26,158 @@
 
 #include "net.h"
 
-/*
+/* 
  * 0 - NOT OK
  * 1 - OK
  * */
-int	tcp_expect(const char *host, unsigned short port, const char *request,
-		const char *expect, const char *sendtoclose, int *value_int)
+int	tcp_expect(
+		   const char		*host, 
+		   unsigned short	port,
+		   const char		*request, 
+		   const char		*expect, 
+		   const char		*sendtoclose, 
+		   int				*value_int
+	   )
 {
 	zbx_sock_t	s;
-	char		*buf;
-	int		net, val = SUCCEED;
+	char	*buf;
+	int	ret;
 
 	assert(value_int);
 
 	*value_int = 0;
 
-	if (SUCCEED == (net = zbx_tcp_connect(&s, CONFIG_SOURCE_IP, host, port, 0)))
-	{
-		if (NULL != request)
-		{
-			net = zbx_tcp_send_raw(&s, request);
-		}
-
-		if (NULL != expect && SUCCEED == net)
-		{
-			if (SUCCEED == (net = zbx_tcp_recv(&s, &buf)))
-			{
-				if (0 != strncmp(buf, expect, strlen(expect)))
-				{
-					val = FAIL;
-				}
-			}
-		}
-
-		if (NULL != sendtoclose && SUCCEED == net && SUCCEED == val)
-		{
-			zbx_tcp_send_raw(&s, sendtoclose);
-		}
-
-		if (SUCCEED == net && SUCCEED == val)
+	if (SUCCEED == (ret = zbx_tcp_connect(&s, host, port, 0))) {
+		if( NULL == request )
 		{
 			*value_int = 1;
 		}
+		else if( SUCCEED == (ret = zbx_tcp_send_raw(&s, request)) )
+		{
+			if( NULL == expect )
+			{
+				*value_int = 1;
+			}
+			else if( SUCCEED == (ret = zbx_tcp_recv(&s, &buf)) )
+			{
+				if( 0 == strncmp(buf, expect, strlen(expect)) )
+				{
+					*value_int = 1;
+				}
+			}
 
-		zbx_tcp_close(&s);
+			if(SUCCEED == ret && NULL != sendtoclose)
+			{
+				/* ret = (skip errors) */ zbx_tcp_send_raw(&s, sendtoclose);
+			}
+		}
 	}
+	zbx_tcp_close(&s);
 
-	if (FAIL == net)
-		zabbix_log(LOG_LEVEL_DEBUG, "TCP expect network error: %s", zbx_tcp_strerror());
-
-	if (FAIL == val)
-		zabbix_log(LOG_LEVEL_DEBUG, "TCP expect content error: expected [%s] received [%s]", expect, buf);
+	if( FAIL == ret )
+	{
+		zabbix_log(LOG_LEVEL_DEBUG, "TCP expect error: %s", zbx_tcp_strerror());
+	}
 
 	return SYSINFO_RET_OK;
 }
 
-int	NET_TCP_PORT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+int	TCP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	unsigned short	port;
-	int		value_int, ret;
-	char		ip[64], port_str[8];
+#ifdef HAVE_PROC
+	FILE	*f = NULL;
+	char	c[MAX_STRING_LEN];
+	char	porthex[MAX_STRING_LEN];
+	char	pattern[MAX_STRING_LEN];
+	int	ret = SYSINFO_RET_FAIL;
 
-	assert(result);
+        assert(result);
+
+        init_result(result);	
+
+        if(num_param(param) > 1)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+        if(get_param(param, 1, porthex, MAX_STRING_LEN) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }	
+	
+	strscpy(pattern,porthex);
+	zbx_strlcat(pattern," 00000000:0000 0A", MAX_STRING_LEN);
+
+	if(NULL == (f = fopen("/proc/net/tcp","r")))
+	{
+		return	SYSINFO_RET_FAIL;
+	}
+
+	while (NULL != fgets(c,MAX_STRING_LEN,f))
+	{
+		if(NULL != strstr(c,pattern))
+		{
+			SET_UI64_RESULT(result, 1);
+			ret = SYSINFO_RET_OK;
+			break;
+		}
+	}
+	zbx_fclose(f);
+
+	SET_UI64_RESULT(result, 0);
+	
+	return ret;
+#else
+	return	SYSINFO_RET_FAIL;
+#endif
+}
+
+int	CHECK_PORT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	short	port=0;
+	int	value_int;
+	int	ret;
+	char	ip[MAX_STRING_LEN];
+	char	port_str[MAX_STRING_LEN];
+
+        assert(result);
 
 	init_result(result);
-
-	if (num_param(param) > 2)
-		return SYSINFO_RET_FAIL;
-
-	if (0 != get_param(param, 1, ip, sizeof(ip)))
-		*ip = '\0';
-
-	if ('\0' == *ip)
+		
+    if(num_param(param) > 2)
+    {
+        return SYSINFO_RET_FAIL;
+    }
+        
+	if(get_param(param, 1, ip, MAX_STRING_LEN) != 0)
+    {
+           ip[0] = '\0';
+    }
+	
+	if(ip[0] == '\0')
+	{
 		strscpy(ip, "127.0.0.1");
+	}
 
-	if (0 != get_param(param, 2, port_str, sizeof(port_str)))
-		*port_str = '\0';
+	if(get_param(param, 2, port_str, MAX_STRING_LEN) != 0)
+    {
+        port_str[0] = '\0';
+    }
 
-	if (SUCCEED != is_ushort(port_str, &port))
+	if(port_str[0] == '\0')
+	{
 		return SYSINFO_RET_FAIL;
+	}
 
-	alarm(CONFIG_TIMEOUT);
+	port=atoi(port_str);
 
-	if (SYSINFO_RET_OK == (ret = tcp_expect(ip, port, NULL, NULL, NULL, &value_int)))
+	ret = tcp_expect(ip,port,NULL,NULL,"",&value_int);
+		
+	if(ret == SYSINFO_RET_OK)
 	{
 		SET_UI64_RESULT(result, value_int);
 	}
-
-	alarm(0);
-
+	
 	return ret;
 }
 
@@ -125,9 +188,6 @@ int	NET_TCP_PORT(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 #	define C_IN	ns_c_in
 #endif	/* C_IN */
 
-#ifndef T_ANY
-#	define T_ANY	ns_t_any
-#endif
 #ifndef T_A
 #	define T_A	ns_t_a
 #endif
@@ -179,10 +239,8 @@ int	NET_TCP_PORT(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 
 static char	*decode_type(int q_type)
 {
-	static char	buf[16];
-
-	switch (q_type)
-	{
+	static char buf[16];
+	switch (q_type) {
 		case T_A:	return "A";	/* "address"; */
 		case T_NS:	return "NS";	/* "name server"; */
 		case T_MD:	return "MD";	/* "mail forwarder"; */
@@ -217,7 +275,6 @@ static char	*get_name(unsigned char *msg, unsigned char *msg_end, unsigned char 
 
 	return buffer;
 }
-
 #endif /* HAVE_RES_QUERY */
 #endif /* not _WINDOWS */
 
@@ -225,9 +282,9 @@ int	CHECK_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *
 {
 #if !defined(_WINDOWS)
 #ifdef HAVE_RES_QUERY
-	int		res;
-	char		ip[MAX_STRING_LEN];
-	char		zone[MAX_STRING_LEN];
+	int	res;
+	char	ip[MAX_STRING_LEN];
+	char	zone[MAX_STRING_LEN];
 #if defined(NS_PACKETSZ)
 	char	respbuf[NS_PACKETSZ];
 #elif defined(PACKETSZ)
@@ -239,19 +296,20 @@ int	CHECK_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *
 
 	/* extern char *h_errlist[]; */
 
-	assert(result);
+        assert(result);
 
-	init_result(result);
-
-	if (num_param(param) > 2)
-		return SYSINFO_RET_FAIL;
-
+        init_result(result);
+	
+        if(num_param(param) > 2)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+        
 	if(get_param(param, 1, ip, MAX_STRING_LEN) != 0)
         {
                ip[0] = '\0';
         }
-
-	/* default parameter */
+	
 	if(ip[0] == '\0')
 	{
 		strscpy(ip, "127.0.0.1");
@@ -262,7 +320,6 @@ int	CHECK_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *
                 zone[0] = '\0';
         }
 
-	/* default parameter */
 	if(zone[0] == '\0')
 	{
 		strscpy(zone, "localhost");
@@ -275,20 +332,20 @@ int	CHECK_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *
 		return SYSINFO_RET_FAIL;
 	}
 
-	if (!(_res.options & RES_INIT))
-		res_init();
+	res_init();
 
 	res = res_query(zone, C_IN, T_SOA, (unsigned char *)respbuf, sizeof(respbuf));
 
 	SET_UI64_RESULT(result, res != -1 ? 1 : 0);
 
 	return SYSINFO_RET_OK;
-#else /* HAVE_RES_QUERY is not defined */
+#else
 	return SYSINFO_RET_FAIL;
-#endif /* ifdef HAVE_RES_QUERY */
-#else /* _WINDOWS is defined */
+#endif /* not HAVE_RES_QUERY */
 	return SYSINFO_RET_FAIL;
-#endif /* if !defined(_WINDOWS) */
+#else
+	return SYSINFO_RET_FAIL;
+#endif /* not WINDOWS */
 }
 
 int	CHECK_DNS_QUERY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -350,7 +407,7 @@ int	CHECK_DNS_QUERY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
 	if (num_param(param) > 3)
 		return SYSINFO_RET_FAIL;
-
+ 
 	if (get_param(param, 2, zone, sizeof(zone)) != 0)
 		*zone = '\0';
 
@@ -410,11 +467,9 @@ int	CHECK_DNS_QUERY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 		GETLONG(q_ttl, msg_ptr);
 		GETSHORT(q_len, msg_ptr);
 
-		switch (q_type)
-		{
+		switch (q_type) {
 			case T_A:
-				switch (q_class)
-				{
+				switch (q_class) {
 					case C_IN:
 					case C_HS:
 						bcopy(msg_ptr, &inaddr, INADDRSZ);
@@ -565,10 +620,11 @@ int	CHECK_DNS_QUERY(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	SET_TEXT_RESULT(result, strdup(buffer));
 
 	return SYSINFO_RET_OK;
-#else /* HAVE_RES_QUERY is not defined */
+#else
 	return SYSINFO_RET_FAIL;
-#endif /* ifdef HAVE_RES_QUERY */
-#else /* _WINDOWS is defined */
+#endif /* not HAVE_RES_QUERY */
 	return SYSINFO_RET_FAIL;
-#endif /* ifndef _WINDOWS */
+#else
+	return SYSINFO_RET_FAIL;
+#endif /* not WINDOWS */
 }

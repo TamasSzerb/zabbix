@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,14 +20,12 @@
 #ifndef ZABBIX_TRAPPER_H
 #define ZABBIX_TRAPPER_H
 
-#include "common.h"
-#include "comms.h"
-#include "db.h"
-#include "zbxjson.h"
+extern	int	server_num;
 
-extern int	CONFIG_TIMEOUT;
-extern int	CONFIG_TRAPPER_TIMEOUT;
+extern	int	CONFIG_TIMEOUT;
 
-void	child_trapper_main(unsigned char p, zbx_sock_t *s);
+extern	void	signal_handler( int sig );
+
+void	child_trapper_main(int i, zbx_sock_t *s);
 
 #endif

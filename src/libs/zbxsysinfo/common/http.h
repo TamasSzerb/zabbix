@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,8 +20,6 @@
 #if !defined(SYSINFO_COMMON_HTTP_H_INCLUDED)
 
 #include "sysinfo.h"
-
-extern char	*CONFIG_SOURCE_IP;
 
 int	WEB_PAGE_GET(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 int	WEB_PAGE_PERF(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);

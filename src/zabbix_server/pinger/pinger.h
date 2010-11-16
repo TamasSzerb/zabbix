@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,9 +20,8 @@
 #ifndef ZABBIX_PINGER_H
 #define ZABBIX_PINGER_H
 
-#include "common.h"
-
 extern	int	CONFIG_PINGER_FORKS;
+extern	int	CONFIG_PINGER_FREQUENCY;
 
 void	main_pinger_loop(int num);
 

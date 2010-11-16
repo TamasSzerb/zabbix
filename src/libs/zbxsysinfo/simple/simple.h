@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -21,7 +21,6 @@
 
 #include "sysinfo.h"
 
-extern char		*CONFIG_SOURCE_IP;
 extern ZBX_METRIC	parameters_simple[];
 
 int	CHECK_SERVICE_PERF(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);

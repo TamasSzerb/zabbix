@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -102,6 +102,15 @@ int	SYSTEM_SWAP_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_R
 	return SYSINFO_RET_OK;
 }
 
+int     OLD_SWAP(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+#ifdef TODO
+#error Realize function OLD_SWAP!!!
+#endif /* todo */
+
+	return SYSINFO_RET_FAIL;
+}
+
 int	SYSTEM_SWAP_IN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 #ifdef TODO
@@ -119,3 +128,4 @@ int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
 	return SYSINFO_RET_FAIL;
 }
+

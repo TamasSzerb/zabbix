@@ -1,37 +1,16 @@
 /* CSS Document */
 
-form {margin: 0}
-
 /**************** FORM ELEMENTS ****************/
-input, select, textarea{
+select{
+	cursor: pointer;
+}
+
+.biginput{
 	font-family: Verdana, Helvetica, Geneva;
 	font-size: 10px;
-	line-height: 14px;
-}
-
-.select{
-	border: 1px solid gray;
-	cursor: pointer;
-	margin: 1px 4px 1px 2px;
-}
-
-.selectShorten{
-	width: 200px;
-}
-
-.select:focus{
-	border-color: black;
-}
-.select:hover{
-	border-color: black;
-}
-
-.biginput, .biginput[disabled]:hover{
 	border: 1px solid gray;
 	background-color: white;
-	padding: 0 1px 0 0;
-	margin: 1px 2px 0 2px;
-	vertical-align: top;
+	margin: 2px;
 }
 .biginput:focus	{
 	border-color: black;
@@ -40,34 +19,40 @@ input, select, textarea{
 	border-color: black;
 }
 
-.biginput[readonly], .biginput[readonly]:hover{
+.biginput[readonly]{
 /* NOTE: Ignored by IE */
 	border-color: #D0D0D0;
 	background-color: #EEEEEE;
 }
 
-.button, .button[disabled]:hover{
+.button{
+	font-family: Verdana, Helvetica, Geneva;
+	font-size: 10px;
 	background: #F0F0F0 url('../images/gradients/button.gif') repeat-x top left;
 	border: 1px solid #808080;
-	vertical-align: top;
-	margin: 1px 2px 0 0;
+	height: 18px;
+	padding: 0px 5px 0px 5px;
+	margin: 2px;
+	cursor: pointer;
 }
 
 .button:hover{
 	text-decoration: underline;
 	border-color: black;
-	cursor: pointer;
-}
-
-.button[disabled], .button[disabled]:hover{
-	cursor: default;
 }
 
 .checkbox{
 	cursor: pointer;
 }
 
-form.thin .biginput{
-	font-size: 11px;
+/* SPECIAL FOR FILTER */
+table.filter .button{
 	height: 14px;
+	margin: 0px;
+}
+
+table.filter .biginput{
+	font-size: 9px;
+	height: 10px;
+	margin: 0px;
 }

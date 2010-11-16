@@ -17,39 +17,26 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+	require_once('include/defines.inc.php');
+	require_once('include/items.inc.php');
 ?>
 <?php
-require_once('include/defines.inc.php');
-require_once('include/items.inc.php');
-
-	function httptest_authentications($type=null){
-		$authentication_types = array(
-			HTTPTEST_AUTH_NONE => S_NONE,
-			HTTPTEST_AUTH_BASIC => S_BASIC_AUTHENTICATION,
-			HTTPTEST_AUTH_NTLM => S_NTLM_AUTHENTICATION,
-		);
-
-		if(is_null($type))
-			return $authentication_types;
-		else if(isset($authentication_types[$type]))
-			return $authentication_types[$type];
-		else
-			return S_UNKNOWN;
-	}
-
-	function httptest_status2str($status){
-		switch($status){
+	function	httptest_status2str($status)
+	{
+		switch($status)
+		{
 			case HTTPTEST_STATUS_ACTIVE:	$status = S_ACTIVE;		break;
 			case HTTPTEST_STATUS_DISABLED:	$status = S_DISABLED;		break;
 			default:
 				$status = S_UNKNOWN;		break;
 		}
-
-	return $status;
+		return $status;
 	}
-
-	function httptest_status2style($status){
-		switch($status){
+	
+	function	httptest_status2style($status)
+	{
+		switch($status)
+		{
 			case HTTPTEST_STATUS_ACTIVE:	$status = 'off';	break;
 			case HTTPTEST_STATUS_DISABLED:	$status = 'on';		break;
 			default:
@@ -58,22 +45,19 @@ require_once('include/items.inc.php');
 		return $status;
 	}
 
-	function db_save_step($hostid, $applicationid, $httptestid, $testname, $name, $no, $timeout, $url, $posts, $required, $status_codes, $delay, $history, $trends){
-		if($no <= 0){
-			error(S_SCENARIO_STEP_NUMBER_CANNOT_BE_LESS_ONE);
+	function	db_save_step($hostid, $applicationid, $httptestid, $testname, $name, $no, $timeout, $url, $posts, $required, $status_codes, $delay, $history, $trends)
+	{
+		if( $no <= 0 )
+		{
+			error('Scenario step number can\'t be less then 1');
 			return false;
 		}
 
-//		if(!eregi('^([0-9a-zA-Z\_\.[.-.]\$ ]+)$', $name)){
-		if(!preg_match('/'.ZBX_PREG_PARAMS.'/i', $name)){
-			error(S_SCENARIO_STEP_NAME_SHOULD_CONTAIN.SPACE.S_PRINTABLE_ONLY);
-			return false;
-		}
-
-		if(!$httpstep_data = DBfetch(DBselect('select httpstepid from httpstep where httptestid='.$httptestid.' and name='.zbx_dbstr($name)))){
-
+		if(!($httpstep_data = DBfetch(DBselect('select httpstepid from httpstep '.
+			' where httptestid='.$httptestid.' and name='.zbx_dbstr($name)))))
+		{
 			$httpstepid = get_dbid("httpstep","httpstepid");
-
+			
 			if (!DBexecute('insert into httpstep'.
 				' (httpstepid, httptestid, name, no, url, timeout, posts, required, status_codes) '.
 				' values ('.$httpstepid.','.$httptestid.','.zbx_dbstr($name).','.$no.','.
@@ -81,7 +65,8 @@ require_once('include/items.inc.php');
 				zbx_dbstr($posts).','.zbx_dbstr($required).','.zbx_dbstr($status_codes).')'
 				)) return false;
 		}
-		else{
+		else
+		{
 			$httpstepid = $httpstep_data['httpstepid'];
 
 			if (!DBexecute('update httpstep set '.
@@ -95,7 +80,7 @@ require_once('include/items.inc.php');
 				'description'	=> 'Download speed for step \'$2\' of scenario \'$1\'',
 				'key_'		=> 'web.test.in['.$testname.','.$name.',bps]',
 				'type'		=> ITEM_VALUE_TYPE_FLOAT,
-				'units'		=> 'Bps',
+				'units'		=> 'bps',
 				'httpstepitemtype'=> HTTPSTEP_ITEM_TYPE_IN),
 			array(
 				'description'	=> 'Response time for step \'$2\' of scenario \'$1\'',
@@ -110,73 +95,39 @@ require_once('include/items.inc.php');
 				'units'		=> '',
 				'httpstepitemtype'=> HTTPSTEP_ITEM_TYPE_RSPCODE),
 			);
-
-		foreach($monitored_items as $item){
+		
+		foreach($monitored_items as $item)
+		{
 			$item_data = DBfetch(DBselect('select i.itemid,i.history,i.trends,i.status,i.delta,i.valuemapid '.
 				' from items i, httpstepitem hi '.
 				' where hi.httpstepid='.$httpstepid.' and hi.itemid=i.itemid '.
 				' and hi.type='.$item['httpstepitemtype']));
 
-			if(!$item_data){
+			if(!$item_data)
+			{
 				$item_data = DBfetch(DBselect('select i.itemid,i.history,i.trends,i.status,i.delta,i.valuemapid '.
 					' from items i where i.key_='.zbx_dbstr($item['key_']).' and i.hostid='.$hostid));
 			}
 
-			$item_args = array(
-				'description'		=> $item['description'],
-				'key_'			=> $item['key_'],
-				'hostid'		=> $hostid,
-				'delay'			=> $delay,
-				'type'			=> ITEM_TYPE_HTTPTEST,
-				'snmp_community'=>	'',
-				'snmp_oid'		=> '',
-				'value_type'		=> $item['type'],
-				'data_type'		=> ITEM_DATA_TYPE_DECIMAL,
-				'trapper_hosts'		=> 'localhost',
-				'snmp_port'		=> 161,
-				'units'			=> $item['units'],
-				'multiplier'		=> 0,
-				'snmpv3_securityname'	=> '',
-				'snmpv3_securitylevel'	=> 0,
-				'snmpv3_authpassphrase'	=> '',
-				'snmpv3_privpassphrase'	=> '',
-				'formula'		=> 0,
-				'logtimefmt'		=> '',
-				'delay_flex'		=> '',
-				'authtype'		=> 0,
-				'username'		=> '',
-				'password'		=> '',
-				'publickey'		=> '',
-				'privatekey'		=> '',
-				'params'		=> '',
-				'ipmi_sensor'		=> '',
-				'applications'		=> array($applicationid));
-
-			if(!$item_data){
-				$item_args['history'] = $history;
-				$item_args['status'] = ITEM_STATUS_ACTIVE;
-				$item_args['delta'] = 0;
-				$item_args['trends'] = $trends;
-				$item_args['valuemapid'] = 0;
-
-				if(!$itemid = add_item($item_args)){
+			if(!$item_data)
+			{
+				if (!($itemid = add_item($item['description'], $item['key_'], $hostid, $delay,
+					$history, ITEM_STATUS_ACTIVE, ITEM_TYPE_HTTPTEST, '', '', $item['type'], 'localhost',
+					161, $item['units'], 0, 0, '', 0, '', '', '0', $trends, '', 0, '', array($applicationid))))
 					return false;
-				}
 			}
-			else{
+			else
+			{
 				$itemid = $item_data['itemid'];
 
-				$item_args['history'] = $item_data['history'];
-				$item_args['status'] = $item_data['status'];
-				$item_args['delta'] = $item_data['delta'];
-				$item_args['trends'] = $item_data['trends'];
-				$item_args['valuemapid'] = $item_data['valuemapid'];
-
-				if(!update_item($itemid, $item_args)){
+				if (!(update_item($itemid, $item['description'], $item['key_'], $hostid, $delay, $item_data['history'],
+					$item_data['status'], ITEM_TYPE_HTTPTEST, '', '', $item['type'], 'localhost', 161,
+					$item['units'], 0, 0, $item_data['delta'], 0, '', '', '0', $item_data['trends'], '',
+					$item_data['valuemapid'], '', array($applicationid))))
 					return false;
-				}
 			}
 
+			
 			$httpstepitemid = get_dbid('httpstepitem', 'httpstepitemid');
 
 			DBexecute('delete from httpstepitem where itemid='.$itemid);
@@ -191,118 +142,99 @@ require_once('include/items.inc.php');
 		return $httpstepid;
 	}
 
-	function db_save_httptest($httptestid, $hostid, $application, $name, $authentication, $http_user, $http_password, $delay, $status, $agent, $macros, $steps){
-		$history = 30; // TODO !!! Allow user to set this parameter
-		$trends = 90; // TODO !!! Allow user to set this parameter
-
-		if(!preg_match('/^(['.ZBX_PREG_PRINT.'])+$/u', $name)){
-			error(S_ONLY_CHARACTERS_ARE_ALLOWED);
-			return false;
-		}
+	function db_save_httptest($httptestid, $hostid, $application, $name, $authentication, $http_user, $http_password, $delay, $status, $agent, $macros, $steps)
+	{
+		$history = 30; // TODO !!! Allow user set this parametr
+		$trends = 90; // TODO !!! Allow user set this parametr
 
 		DBstart();
-
-		try{
-
-			$sql = 'SELECT t.httptestid'.
-					' FROM httptest t, applications a'.
-					' WHERE t.applicationid=a.applicationid'.
-						' AND a.hostid='.$hostid.
-						' AND t.name='.zbx_dbstr($name);
-			$t = DBfetch(DBselect($sql));
-			if((isset($httptestid) && $t && ($t['httptestid'] != $httptestid)) || ($t && !isset($httptestid))){
-				throw new Exception(S_SCENARIO_WITH_NAME.' [ '.$name.' ] '.S_ALREADY_EXISTS_SMALL);
+		
+		if($applicationid = DBfetch(DBselect('select applicationid from applications '.
+			' where name='.zbx_dbstr($application).
+			' and hostid='.$hostid)))
+		{
+			$applicationid = $applicationid['applicationid'];
+		}
+		else
+		{
+			$applicationid = add_application($application, $hostid);
+			if(!$applicationid)
+			{
+				error('Can\'t add new application. ['.$application.']');
+				return false;
 			}
-
-
-			$sql = 'SELECT applicationid FROM applications WHERE name='.zbx_dbstr($application).' AND hostid='.$hostid;
-			if($applicationid = DBfetch(DBselect($sql))){
-				$applicationid = $applicationid['applicationid'];
+		}
+		
+		if(isset($httptestid))
+		{
+			$result = DBexecute('update httptest'.
+				' set applicationid='.$applicationid.', name='.zbx_dbstr($name).','.
+					' authentication='.$authentication.','.' http_user='.zbx_dbstr($http_user).','.' http_password='.zbx_dbstr($http_password).','.
+					' delay='.$delay.','.' status='.$status.', agent='.zbx_dbstr($agent).', macros='.zbx_dbstr($macros).','.
+					' error='.zbx_dbstr('').', curstate='.HTTPTEST_STATE_UNKNOWN.
+				' where httptestid='.$httptestid);
+		}
+		else
+		{
+			$httptestid = get_dbid("httptest","httptestid");
+			
+			if(DBfetch(DBselect('select t.httptestid from httptest t, applications a where t.applicationid=a.applicationid '.
+				' and a.hostid='.$hostid.' and t.name='.zbx_dbstr($name))))
+			{
+				error('Scenario with name ['.$name.'] already exist');
+				return false;
 			}
-			else{
-				$result = CApplication::create(array('name' => $application, 'hostid' => $hostid));
-				if(!$result){
-					throw new Exception(S_CANNOT_ADD_NEW_APPLICATION.' [ '.$application.' ]');
-				}
-				else{
-					$applicationid = reset($result['applicationids']);
-				}
-			}
-
-			if(isset($httptestid)){
-				$sql = 'UPDATE httptest SET '.
-					' applicationid='.$applicationid.', '.
-					' name='.zbx_dbstr($name).', '.
-					' authentication='.$authentication.', '.
-					' http_user='.zbx_dbstr($http_user).', '.
-					' http_password='.zbx_dbstr($http_password).', '.
-					' delay='.$delay.', '.
-					' status='.$status.', '.
-					' agent='.zbx_dbstr($agent).', '.
-					' macros='.zbx_dbstr($macros).', '.
-					' error='.zbx_dbstr('').', '.
-					' curstate='.HTTPTEST_STATE_UNKNOWN.
-				' WHERE httptestid='.$httptestid;
-				if(!DBexecute($sql)){
-					throw new Exception('DBerror');
-				}
-			}
-			else{
-				$httptestid = get_dbid('httptest', 'httptestid');
-
-				$values = array(
-					'httptestid' => $httptestid,
-					'applicationid' => $applicationid,
-					'name' => zbx_dbstr($name),
-					'authentication' => $authentication,
-					'http_user' => zbx_dbstr($http_user),
-					'http_password' => zbx_dbstr($http_password),
-					'delay' => $delay,
-					'status' => $status,
-					'agent' => zbx_dbstr($agent),
-					'macros' => zbx_dbstr($macros),
-					'curstate' => HTTPTEST_STATE_UNKNOWN,
+			
+			$result = DBexecute('insert into httptest'.
+				' (httptestid, applicationid, name, authentication, http_user, http_password, delay, status, agent, macros, curstate) '.
+				' values ('.$httptestid.','.$applicationid.','.zbx_dbstr($name).','.
+				$authentication.','.zbx_dbstr($http_user).','.zbx_dbstr($http_password).','.
+				$delay.','.$status.','.zbx_dbstr($agent).','.zbx_dbstr($macros).','.HTTPTEST_STATE_UNKNOWN.')'
 				);
-				$sql = 'INSERT INTO httptest ('.implode(', ', array_keys($values)).') VALUES ('.implode(', ', $values).')';
-				if(!DBexecute($sql)){
-					throw new Exception('DBerror');
-				}
-			}
 
+			$test_added = true;
+		}
+
+		if($result)
+		{
 			$httpstepids = array();
-			foreach($steps as $sid => $s){
+			foreach($steps as $sid => $s)
+			{
 				if(!isset($s['name']))		$s['name'] = '';
 				if(!isset($s['timeout']))	$s['timeout'] = 15;
-				if(!isset($s['url']))		$s['url'] = '';
-				if(!isset($s['posts']))		$s['posts'] = '';
-				if(!isset($s['required']))	$s['required'] = '';
-				if(!isset($s['status_codes']))	$s['status_codes'] = '';
-
-				$result = db_save_step($hostid, $applicationid, $httptestid, $name, $s['name'], $sid+1, $s['timeout'],
-					$s['url'], $s['posts'], $s['required'],$s['status_codes'], $delay, $history, $trends);
-
-				if(!$result){
-					throw new Exception('Cannot create web step');
-				}
-
+				if(!isset($s['url']))       	$s['url'] = '';
+				if(!isset($s['posts']))       	$s['posts'] = '';
+				if(!isset($s['required']))      $s['required'] = '';
+				if(!isset($s['status_codes']))  $s['status_codes'] = '';
+			
+				$result = db_save_step($hostid, $applicationid, $httptestid,
+						$name, $s['name'], $sid+1, $s['timeout'], $s['url'], $s['posts'], $s['required'],$s['status_codes'],
+						$delay, $history, $trends);
+				
+				if(!$result) break;
+				
 				$httpstepids[$result] = $result;
 			}
-
-/* clean unneeded steps */
-			$sql = 'SELECT httpstepid FROM httpstep WHERE httptestid='.$httptestid;
-			$db_steps = DBselect($sql);
-			while($step_data = DBfetch($db_steps)){
-				if(!isset($httpstepids[$step_data['httpstepid']])){
+			if($result)
+			{
+				/* clean unneeded steps */
+				$db_steps = DBselect('select httpstepid from httpstep where httptestid='.$httptestid);
+				while($step_data = DBfetch($db_steps))
+				{
+					if(isset($httpstepids[$step_data['httpstepid']]))	continue;
 					delete_httpstep($step_data['httpstepid']);
 				}
 			}
+		}
 
+		if($result)
+		{
 			$monitored_items = array(
 				array(
 					'description'	=> 'Download speed for scenario \'$1\'',
 					'key_'		=> 'web.test.in['.$name.',,bps]',
 					'type'		=> ITEM_VALUE_TYPE_FLOAT,
-					'units'		=> 'Bps',
+					'units'		=> 'bps',
 					'httptestitemtype'=> HTTPSTEP_ITEM_TYPE_IN),
 				array(
 					'description'	=> 'Failed step of scenario \'$1\'',
@@ -310,231 +242,162 @@ require_once('include/items.inc.php');
 					'type'		=> ITEM_VALUE_TYPE_UINT64,
 					'units'		=> '',
 					'httptestitemtype'=> HTTPSTEP_ITEM_TYPE_LASTSTEP)
-			);
-
-			foreach($monitored_items as $item){
+				);
+			
+			foreach($monitored_items as $item)
+			{
 				$item_data = DBfetch(DBselect('select i.itemid,i.history,i.trends,i.status,i.delta,i.valuemapid '.
 					' from items i, httptestitem hi '.
 					' where hi.httptestid='.$httptestid.' and hi.itemid=i.itemid '.
 					' and hi.type='.$item['httptestitemtype']));
 
-				if(!$item_data){
+				if(!$item_data)
+				{
 					$item_data = DBfetch(DBselect('select i.itemid,i.history,i.trends,i.status,i.delta,i.valuemapid '.
 						' from items i where i.key_='.zbx_dbstr($item['key_']).' and i.hostid='.$hostid));
 				}
 
-				$item_args = array(
-					'description'	=> $item['description'],
-					'key_'			=> $item['key_'],
-					'hostid'		=> $hostid,
-					'delay'			=> $delay,
-					'type'			=> ITEM_TYPE_HTTPTEST,
-					'snmp_community'=> '',
-					'snmp_oid'		=> '',
-					'value_type'	=> $item['type'],
-					'data_type'		=> ITEM_DATA_TYPE_DECIMAL,
-					'trapper_hosts'	=> 'localhost',
-					'snmp_port'		=> 161,
-					'units'			=> $item['units'],
-					'multiplier'	=> 0,
-					'snmpv3_securityname'	=> '',
-					'snmpv3_securitylevel'	=> 0,
-					'snmpv3_authpassphrase'	=> '',
-					'snmpv3_privpassphrase'	=> '',
-					'formula'			=> 0,
-					'logtimefmt'		=> '',
-					'delay_flex'		=> '',
-					'authtype'		=> 0,
-					'username'		=> '',
-					'password'		=> '',
-					'publickey'		=> '',
-					'privatekey'		=> '',
-					'params'			=> '',
-					'ipmi_sensor'		=> '',
-					'applications'		=> array($applicationid));
-
-				if(!$item_data){
-					$item_args['history'] = $history;
-					$item_args['status'] = ITEM_STATUS_ACTIVE;
-					$item_args['delta'] = 0;
-					$item_args['trends'] = $trends;
-					$item_args['valuemapid'] = 0;
-
-					if(!$itemid = add_item($item_args)){
-						throw new Exception('Cannot add item');
+				if(!$item_data)
+				{
+					if (!($itemid = add_item($item['description'], $item['key_'], $hostid, $delay,
+						$history, ITEM_STATUS_ACTIVE, ITEM_TYPE_HTTPTEST, '', '', $item['type'], 'localhost',
+						161, $item['units'], 0, 0, '', 0, '', '', '0', $trends, '', 0, '', array($applicationid))))
+					{
+						$result = false;
+						break;
 					}
 				}
-				else{
+				else
+				{
 					$itemid = $item_data['itemid'];
 
-					$item_args['history'] = $item_data['history'];
-					$item_args['status'] = $item_data['status'];
-					$item_args['delta'] = $item_data['delta'];
-					$item_args['trends'] = $item_data['trends'];
-					$item_args['valuemapid'] = $item_data['valuemapid'];
-
-					if(!update_item($itemid, $item_args)){
-						throw new Exception('Cannot update item');
+					if (!(update_item($itemid, $item['description'], $item['key_'], $hostid, $delay, $item_data['history'],
+						$item_data['status'], ITEM_TYPE_HTTPTEST, '', '', $item['type'], 'localhost', 161,
+						$item['units'], 0, 0, $item_data['delta'], 0, '', '', '0', $item_data['trends'], '',
+						$item_data['valuemapid'], '', array($applicationid))))
+					{
+						$result = false;
+						break;
 					}
 				}
 
+				
 				$httptestitemid = get_dbid('httptestitem', 'httptestitemid');
 
 				DBexecute('delete from httptestitem where itemid='.$itemid);
 
-				if(!DBexecute('insert into httptestitem (httptestitemid, httptestid, itemid, type) '.
-					' values ('.$httptestitemid.','.$httptestid.','.$itemid.','.$item['httptestitemtype'].')')){
-					throw new Exception('DBerror');
+				if (!DBexecute('insert into httptestitem'.
+					' (httptestitemid, httptestid, itemid, type) '.
+					' values ('.$httptestitemid.','.$httptestid.','.$itemid.','.$item['httptestitemtype'].')'
+					))
+				{
+					$result = false;
+					break;
 				}
 			}
+		}
 
-			return DBend(true);
-		}
-		catch(Exception $e){
-			error($e->getMessage());
-			return DBend(false);
-		}
+		if(!$result && isset($test_added))	delete_httptest($httptestid);
+		else	$restult = $httptestid;
+
+		DBend($result);
+
+		return $result;
 	}
-
-	function add_httptest($hostid, $application, $name, $authentication, $http_user, $http_password, $delay, $status, $agent, $macros, $steps){
+	
+	function	add_httptest($hostid, $application, $name, $authentication, $http_user, $http_password, $delay, $status, $agent, $macros, $steps)
+	{
 		$result = db_save_httptest(null, $hostid, $application, $name, $authentication, $http_user, $http_password, $delay, $status, $agent, $macros, $steps);
+		
+		if($result) info("Sceanrio '".$name."' added");
 
-		if($result) info(S_SCENARIO.SPACE."'".$name."'".SPACE.S_ADDED_SMALL);
-
-	return $result;
+		return $result;
 	}
-
-	function update_httptest($httptestid, $hostid, $application, $name, $authentication, $http_user, $http_password, $delay, $status, $agent, $macros, $steps){
+	
+	function	update_httptest($httptestid, $hostid, $application, $name, $authentication, $http_user, $http_password, $delay, $status, $agent, $macros, $steps)
+	{
 		$result = db_save_httptest($httptestid, $hostid, $application, $name, $authentication, $http_user, $http_password, $delay, $status, $agent, $macros, $steps);
+		
+		if($result)	info("Sceanrio '".$name."' updated");
 
-		if($result)	info(S_SCENARIO.SPACE."'".$name."'".SPACE.S_UPDATED_SMALL);
-
-	return $result;
+		return $result;
 	}
-
-	function delete_httpstep($httpstepids){
-		zbx_value2array($httpstepids);
-
-		$db_httpstepitems = DBselect('SELECT DISTINCT * FROM httpstepitem WHERE '.DBcondition('httpstepid',$httpstepids));
-		while($httpstepitem_data = DBfetch($db_httpstepitems)){
-			if(!DBexecute('DELETE FROM httpstepitem WHERE httpstepitemid='.$httpstepitem_data['httpstepitemid'])) return false;
+	
+	function	delete_httpstep($httpstepid)
+	{
+		$db_httpstepitems = DBselect('select distinct * from httpstepitem where httpstepid='.$httpstepid);
+		while($httpstepitem_data = DBfetch($db_httpstepitems))
+		{
+			if(!DBexecute('delete from httpstepitem where httpstepitemid='.$httpstepitem_data['httpstepitemid'])) return false;
 			if(!delete_item($httpstepitem_data['itemid'])) return false;
 		}
+			
+		return DBexecute('delete from httpstep where httpstepid='.$httpstepid);
+	}
+	
+	function	delete_httptest($httptestid)
+	{
+		if (!($httptest = DBfetch(DBselect('select * from httptest where httptestid='.$httptestid)))) return false;
+		
+		$db_httpstep = DBselect('select distinct s.httpstepid from httpstep s '.
+			' where s.httptestid='.$httptestid);
+		while($httpstep_data = DBfetch($db_httpstep))
+		{
+			delete_httpstep($httpstep_data['httpstepid']);
+		}
+		
+		$db_httptestitems = DBselect('select distinct httptestitemid, itemid from httptestitem where httptestid='.$httptestid);
+		while($httptestitem_data = DBfetch($db_httptestitems))
+		{
+			if(!DBexecute('delete from httptestitem where httptestitemid='.$httptestitem_data['httptestitemid'])) return false;
+			if(!delete_item($httptestitem_data['itemid'])) return false;
+		}
+		
+		if(!DBexecute('delete from httptest where httptestid='.$httptestid)) return false;
+		
+		info("Sceanrio '".$httptest["name"]."' deleted");
 
-	return DBexecute('DELETE FROM httpstep WHERE '.DBcondition('httpstepid',$httpstepids));
+		return true;
+	}
+	
+	function	activate_httptest($httptestid)
+	{
+		return DBexecute('update httptest set status='.HTTPTEST_STATUS_ACTIVE.' where httptestid='.$httptestid);
 	}
 
-	function delete_httptest($httptestids){
-		zbx_value2array($httptestids);
-
-		$httptests = array();
-		foreach($httptestids as $id => $httptestid){
-			$httptests[$httptestid] =  DBfetch(DBselect('SELECT * FROM httptest WHERE httptestid='.$httptestid));
-		}
-
-		$db_httpstep = DBselect('SELECT DISTINCT s.httpstepid '.
-								' FROM httpstep s '.
-								' WHERE '.DBcondition('s.httptestid',$httptestids));
-		$del_httpsteps = array();
-		while($httpstep_data = DBfetch($db_httpstep)){
-			$del_httpsteps[$httpstep_data['httpstepid']] = $httpstep_data['httpstepid'];
-		}
-		delete_httpstep($del_httpsteps);
-
-		$httptestitemids_del = array();
-		$itemids_del = array();
-		$sql = 'SELECT httptestitemid, itemid '.
-				' FROM httptestitem '.
-				' WHERE '.DBcondition('httptestid',$httptestids);
-
-		$db_httptestitems = DBselect($sql);
-		while($httptestitem_data = DBfetch($db_httptestitems)){
-			$httptestitemids_del[$httptestitem_data['httptestitemid']] = $httptestitem_data['httptestitemid'];
-			$itemids_del[$httptestitem_data['itemid']] = $httptestitem_data['itemid'];
-		}
-
-		if(!DBexecute('DELETE FROM httptestitem WHERE '.DBcondition('httptestitemid',$httptestitemids_del))) return false;
-		if (!delete_item($itemids_del)) return false;
-
-		if(!DBexecute('DELETE FROM httptest WHERE '.DBcondition('httptestid',$httptestids))) return false;
-
-		foreach($httptests as $id => $httptest){
-			info(S_SCENARIO.SPACE."'".$httptest["name"]."'".SPACE.S_DELETED_SMALL);
-		}
-
-	return true;
+	function	disable_httptest($httptestid)
+	{
+		return DBexecute('update httptest set status='.HTTPTEST_STATUS_DISABLED.' where httptestid='.$httptestid);
 	}
 
-	function activate_httptest($httptestid){
-		$r = DBexecute('UPDATE httptest SET status='.HTTPTEST_STATUS_ACTIVE.' WHERE httptestid='.$httptestid);
-
-		$itemids = array();
-		$sql = 'SELECT hti.itemid FROM httptestitem hti WHERE hti.httptestid='.$httptestid;
-		$items_db = DBselect($sql);
-		while($itemid = Dbfetch($items_db)){
-			$itemids[] = $itemid['itemid'];
-		}
-
-		$sql = 'SELECT hsi.itemid FROM httpstep hs, httpstepitem hsi WHERE '.
-			' hs.httptestid='.$httptestid.' AND hs.httpstepid=hsi.httpstepid';
-		$items_db = DBselect($sql);
-		while($itemid = Dbfetch($items_db)){
-			$itemids[] = $itemid['itemid'];
-		}
-
-		$sql = 'UPDATE items SET status='.ITEM_STATUS_ACTIVE.' WHERE '.DBcondition('itemid', $itemids);
-		$r &= DBexecute($sql);
-		return $r;
-	}
-
-	function disable_httptest($httptestid){
-		$r = DBexecute('UPDATE httptest SET status='.HTTPTEST_STATUS_DISABLED.' WHERE httptestid='.$httptestid);
-
-		$itemids = array();
-		$sql = 'SELECT hti.itemid FROM httptestitem hti WHERE hti.httptestid='.$httptestid;
-		$items_db = DBselect($sql);
-		while($itemid = Dbfetch($items_db)){
-			$itemids[] = $itemid['itemid'];
-		}
-
-		$sql = 'SELECT hsi.itemid FROM httpstep hs, httpstepitem hsi WHERE '.
-			' hs.httptestid='.$httptestid.' AND hs.httpstepid=hsi.httpstepid';
-		$items_db = DBselect($sql);
-		while($itemid = Dbfetch($items_db)){
-			$itemids[] = $itemid['itemid'];
-		}
-
-		$sql = 'UPDATE items SET status='.ITEM_STATUS_DISABLED.' WHERE '.DBcondition('itemid', $itemids);
-		$r &= DBexecute($sql);
-		return $r;
-	}
-
-	function delete_history_by_httptestid($httptestid){
-		$db_items = DBselect('SELECT DISTINCT i.itemid '.
-							' FROM items i, httpstepitem si, httpstep s '.
-							' WHERE s.httptestid='.$httptestid.
-								' AND si.httpstepid=s.httpstepid '.
-								' AND i.itemid=si.itemid');
-		while($item_data = DBfetch($db_items)){
+	function	delete_history_by_httptestid($httptestid)
+	{
+		$db_items = DBselect('select distinct i.itemid from items i, httpstepitem si, httpstep s '.
+			' where s.httptestid='.$httptestid.' and si.httpstepid=s.httpstepid and i.itemid=si.itemid');
+		while($item_data = DBfetch($db_items))
+		{
 			if(!delete_history_by_itemid($item_data['itemid'], 0 /* use housekeeper */)) return false;
 		}
 		return true;
 	}
 
-	function get_httptest_by_httptestid($httptestid){
+	function	get_httptest_by_httptestid($httptestid)
+	{
 		return DBfetch(DBselect('select * from httptest where httptestid='.$httptestid));
 	}
 
-	function get_httpstep_by_no($httptestid, $no){
-		return DBfetch(DBselect('select * from httpstep where httptestid='.$httptestid.' and no='.$no));
+	function	&get_httpsteps_by_httptestid($httptestid)
+	{
+		return DBselect('select * from httpstep where httptestid='.$httptestid);
 	}
 
-	function get_httptests_by_hostid($hostids){
-		zbx_value2array($hostids);
-		$sql = 'SELECT DISTINCT ht.* '.
-				' FROM httptest ht, applications ap '.
-				' WHERE '.DBcondition('ap.hostid',$hostids).
-					' AND ht.applicationid=ap.applicationid';
-	return DBselect($sql);
+	function	get_httpstep_by_httpstepid($httpstepid)
+	{
+		return DBfetch(DBselect('select * from httpstep where httpstepid='.$httpstepid));
+	}
+
+	function	get_httpstep_by_no($httptestid, $no)
+	{
+		return DBfetch(DBselect('select * from httpstep where httptestid='.$httptestid.' and no='.$no));
 	}
 ?>

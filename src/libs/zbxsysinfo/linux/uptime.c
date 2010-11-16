@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -18,20 +18,24 @@
 **/
 
 #include "common.h"
+
 #include "sysinfo.h"
 
 int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	struct sysinfo	info;
+	struct sysinfo info;
 
 	assert(result);
 
-	init_result(result);
+        init_result(result);
 
-	if (0 != sysinfo(&info))
+	if( 0 == sysinfo(&info))
+	{
+		SET_UI64_RESULT(result, info.uptime);
+		return SYSINFO_RET_OK;
+	}
+	else
+	{
 		return SYSINFO_RET_FAIL;
-
-	SET_UI64_RESULT(result, info.uptime);
-
-	return SYSINFO_RET_OK;
+	}
 }

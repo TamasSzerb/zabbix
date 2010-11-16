@@ -19,8 +19,6 @@
 
 #if !defined(SYSINFO_SYMPLE_NTP_H_INCLUDED)
 
-extern char	*CONFIG_SOURCE_IP;
-
 int	check_ntp(char *host, unsigned short port, int *value_int);
 
 #endif /* SYSINFO_SYMPLE_NTP_H_INCLUDED */

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -21,61 +21,15 @@
 #include "cfg.h"
 #include "log.h"
 
+
 char	*CONFIG_FILE			= NULL;
-int	CONFIG_ZABBIX_FORKS		= 3;
+int	CONFIG_ZABBIX_FORKS		= 5;
+
 
 char	*CONFIG_LOG_FILE		= NULL;
 int	CONFIG_LOG_FILE_SIZE		= 1;
 char	CONFIG_ALLOW_ROOT		= 0;
-int	CONFIG_TIMEOUT			= 3;
-
-static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int level, int optional);
-
-static int	parse_cfg_object(const char *cfg_file, struct cfg_line *cfg, int level)
-{
-#ifdef _WINDOWS
-	return __parse_cfg_file(cfg_file, cfg, level, 0);
-#else
-	DIR		*dir;
-	struct stat	sb;
-	struct dirent	*d;
-	char		*incl_file = NULL;
-	int		result = SUCCEED;
-
-	if (stat(cfg_file, &sb) == -1) {
-		zbx_error("%s: %s\n", cfg_file, strerror(errno));
-		return FAIL;
-	}
-
-	if (!S_ISDIR(sb.st_mode))
-		return __parse_cfg_file(cfg_file, cfg, level, 0);
-
-	if (NULL == (dir = opendir(cfg_file))) {
-		zbx_error("%s: %s\n", cfg_file, strerror(errno));
-		return FAIL;
-	}
-
-	while (NULL != (d = readdir(dir))) {
-		incl_file = zbx_dsprintf(incl_file, "%s/%s", cfg_file, d->d_name);
-
-		if (stat(incl_file, &sb) == -1 || !S_ISREG(sb.st_mode))
-			continue;
-
-		if (__parse_cfg_file(incl_file, cfg, level, 0) == FAIL) {
-			result = FAIL;
-			break;
-		}
-	}
-	zbx_free(incl_file);
-
-	if (closedir(dir) == -1) {
-		zbx_error("%s: %s\n", cfg_file, strerror(errno));
-		return FAIL;
-	}
-
-	return result;
-#endif
-}
+int	CONFIG_TIMEOUT			= AGENT_TIMEOUT;
 
 /******************************************************************************
  *                                                                            *
@@ -83,10 +37,10 @@ static int	parse_cfg_object(const char *cfg_file, struct cfg_line *cfg, int leve
  *                                                                            *
  * Purpose: parse configuration file                                          *
  *                                                                            *
- * Parameters: cfg_file - full name of config file                            *
+ * Parameters: cfg_file - full name of config filesocker descriptor           *
  *             cfg - pointer to configuration parameter structure             *
  *                                                                            *
- * Return value: SUCCEED - parsed successfully                                *
+ * Return value: SUCCEED - parsed succesfully                                 *
  *               FAIL - error processing config file                          *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
@@ -95,38 +49,40 @@ static int	parse_cfg_object(const char *cfg_file, struct cfg_line *cfg, int leve
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int level, int optional)
+int	parse_cfg_file(const char *cfg_file,struct cfg_line *cfg)
 {
 	FILE	*file;
+
+	static int level = 0;
 
 #define ZBX_MAX_INCLUDE_LEVEL 10
 
 #define ZBX_CFG_LTRIM_CHARS "\t "
-#define ZBX_CFG_RTRIM_CHARS ZBX_CFG_LTRIM_CHARS "\r\n"
+#define ZBX_CFG_RTRIM_CHARS ZBX_CFG_LTRIM_CHARS "\r\n\0"
 
 	register int
 		i, lineno;
 
-	char
+	char	
 		line[MAX_STRING_LEN],
 		*parameter,
 		*value;
 
-	zbx_uint64_t	var;
+	int	var;
 
 	int	result = SUCCEED;
 
 	assert(cfg);
 
-	if (++level > ZBX_MAX_INCLUDE_LEVEL)
+	if(++level > ZBX_MAX_INCLUDE_LEVEL)
 	{
-		zbx_error("Recursion detected! Skipped processing of '%s'", cfg_file);
-		return FAIL;
+		/* Ignore include files of depth 10 */
+		return result;
 	}
 
-	if (cfg_file)
+	if(cfg_file)
 	{
-		if (NULL == (file = fopen(cfg_file,"r")))
+		if( NULL == (file = fopen(cfg_file,"r")) )
 		{
 			goto lbl_cannot_open;
 		}
@@ -161,8 +117,7 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 
 				if(strcmp(parameter, "Include") == 0)
 				{
-					if (FAIL == (result = parse_cfg_object(value, cfg, level)))
-						break;
+					parse_cfg_file(value, cfg);
 				}
 
 				for(i = 0; value[i] != '\0'; i++)
@@ -189,8 +144,7 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 					}
 					else if(TYPE_INT == cfg[i].type)
 					{
-						if (FAIL == str2uint64(value, &var))
-							goto lbl_incorrect_config;
+						var = atoi(value);
 
 						if ( (cfg[i].min && var < cfg[i].min) ||
 							(cfg[i].max && var > cfg[i].max) )
@@ -207,9 +161,6 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 			fclose(file);
 		}
 	}
-
-	if (1 != level)	/* skip mandatory parameters check  for included files */
-		return result;
 
 	/* Check for mandatory parameters */
 	for(i = 0; cfg[i].parameter != 0; i++)
@@ -229,11 +180,9 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 		}
 	}
 
-	return result;
+	return	SUCCEED;
 
 lbl_cannot_open:
-	if (optional)
-		return result;
 	zbx_error("Cannot open config file [%s] [%s].",cfg_file,strerror(errno));
 	exit(1);
 
@@ -242,16 +191,6 @@ lbl_missing_mandatory:
 	exit(1);
 
 lbl_incorrect_config:
-	zbx_error("Wrong value for [%s] in line %d.", cfg[i].parameter, lineno);
+	zbx_error("Wrong value of [%s] in line %d.", cfg[i].parameter, lineno);
 	exit(1);
-}
-
-int	parse_cfg_file(const char *cfg_file, struct cfg_line *cfg)
-{
-	return __parse_cfg_file(cfg_file, cfg, 0, 0);
-}
-
-int	parse_opt_cfg_file(const char *cfg_file, struct cfg_line *cfg)
-{
-	return __parse_cfg_file(cfg_file, cfg, 0, 1);
 }

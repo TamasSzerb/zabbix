@@ -1,7 +1,7 @@
-<?php
-/*
+<?php 
+/* 
 ** ZABBIX
-** Copyright (C) 2000-2009 SIA Zabbix
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,21 +19,21 @@
 **/
 ?>
 <?php
-define('ZBX_PAGE_NO_AUTHERIZATION', 1);
+	define('ZBX_PAGE_NO_AUTHERIZATION', 1);
+	
+	require_once('include/config.inc.php');
+	require_once('include/maps.inc.php');
+	
+	$page['file'] = 'imgstore.php';
+	$page['type'] = detect_page_type(PAGE_TYPE_IMAGE);
 
-require_once('include/config.inc.php');
-require_once('include/maps.inc.php');
-
-$page['file'] = 'imgstore.php';
-$page['type'] = detect_page_type(PAGE_TYPE_IMAGE);
-
-include_once('include/page_header.php');
+include_once "include/page_header.php";
 
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		'css'=>			array(T_ZBX_INT, O_OPT,	P_SYS,	null,		null),
+		'css'=>			array(T_ZBX_INT, O_OPT,	P_SYS,	null,		null),	
 		'imageid'=>		array(T_ZBX_STR, O_OPT,	P_SYS,	null,		null),
 		'iconid'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,		null),
 	);
@@ -42,58 +42,57 @@ include_once('include/page_header.php');
 ?>
 <?php
 	if(isset($_REQUEST['css'])){
-		$css= 'div.sysmap_iconid_0{'.
-				' height: 50px; '.
-				' width: 50px; '.
-				' background-image: url("images/general/no_icon.png"); }'."\n";
-
-		$options = array(
-			'filter'=> array('imagetype'=> IMAGE_TYPE_ICON),
-			'output'=> API_OUTPUT_EXTEND,
-			'select_image'=> 1
-		);
-		$images = CImage::get($options);
-		foreach($images as $inum => $image){
-//SDI($image['image']);
-			$image['image'] = zbx_unescape_image(base64_decode($image['image']));
-
-			$ico = imagecreatefromstring($image['image']);
-			$w = imagesx($ico);
-			$h = imagesy($ico);
-
+		$css = '';
+		$sql = 'SELECT * FROM images WHERE imagetype=1';
+		$res = DBselect($sql);
+		while($image = DBfetch($res)){
+			$img = imagecreatefromstring($image['image']);
+			
+			$w=imagesx($img); 
+			$h=imagesy($img);
+			
 			$css.= 'div.sysmap_iconid_'.$image['imageid'].'{'.
 						' height: '.$h.'px; '.
 						' width: '.$w.'px; '.
 						' background-image: url("imgstore.php?iconid='.$image['imageid'].'");'.
 						' background-repeat:no-repeat; }'."\n";
 		}
-
 		print($css);
 	}
 	else if(isset($_REQUEST['iconid'])){
-		$iconid = get_request('iconid',0);
-
-		if($iconid > 0){
-			$image = get_image_by_imageid($iconid);
-			print($image['image']);
+		$image = get_image_by_imageid($_REQUEST['iconid']);
+		$img = imagecreatefromstring($image['image']);
+		
+		unset($image);
+		
+		$w=imagesx($img); 
+		$h=imagesy($img);
+		
+		if(function_exists('imagecreatetruecolor') && @imagecreatetruecolor(1,1)){
+			$im = imagecreatetruecolor($w,$h);
 		}
 		else{
-			$image = get_default_image(true);
-			ImageOut($image);
+			$im = imagecreate($w,$h);
 		}
+
+		imagefilledrectangle($im,0,0,$w,$h, imagecolorallocate($im,255,255,255));
+
+		imagecopy($im,$img,0,0,0,0,$w,$h);
+		imagedestroy($img);
+		
+		imagepng($im);
 	}
 	else if(isset($_REQUEST['imageid'])){
 		session_start();
 		$imageid = get_request('imageid',0);
-
-		if(isset($_SESSION['image_id'][$imageid])){
-			echo $_SESSION['image_id'][$imageid];
-			unset($_SESSION['image_id'][$imageid]);
+		if(isset($_SESSION['imageid'][$imageid])){
+			echo $_SESSION['imageid'][$imageid];
+			unset($_SESSION['imageid'][$imageid]);
 		}
 	}
 ?>
 <?php
 
-include_once('include/page_footer.php');
+include_once "include/page_footer.php";
 
 ?>

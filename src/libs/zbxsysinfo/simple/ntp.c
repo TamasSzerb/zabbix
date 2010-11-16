@@ -22,7 +22,6 @@
 #include "comms.h"
 #include "log.h"
 #include "cfg.h"
-#include "ntp.h"
 
 #define NTP_SCALE  4294967296.0        /* 2^32, of course! */
 
@@ -54,19 +53,19 @@
 
 typedef struct ntp_data_s {
 
-    unsigned char
-	    status,
-	    version,
-	    mode,
-	    stratum,
-	    polling,
+    unsigned char 
+	    status, 
+	    version, 
+	    mode, 
+	    stratum, 
+	    polling, 
 	    precision;
-    double
-	    dispersion,
-	    reference,
-	    originate,
-	    receive,
-	    transmit,
+    double 
+	    dispersion, 
+	    reference, 
+	    originate, 
+	    receive, 
+	    transmit, 
 	    current;
 
 } ntp_data;
@@ -76,7 +75,7 @@ static void make_packet (ntp_data *data)
 	data->status	= NTP_LI_FUDGE<<6;
 	data->stratum	= NTP_STRATUM;
 	data->reference = data->dispersion = 0.0;
-
+    
 	data->version	= NTP_VERSION;
 	data->mode	= 1;
 	data->polling	= NTP_POLLING;
@@ -191,7 +190,7 @@ int	check_ntp(char *host, unsigned short port, int *value_int)
 
 	*value_int = 0;
 
-	if (SUCCEED == (ret = zbx_tcp_connect(&s, CONFIG_SOURCE_IP, host, port, 0))) {
+	if (SUCCEED == (ret = zbx_tcp_connect(&s, host, port, 0))) {
 		make_packet(&data);
 
 		pack_ntp((unsigned char*)packet, sizeof(packet), &data);
@@ -200,10 +199,10 @@ int	check_ntp(char *host, unsigned short port, int *value_int)
 		{
 			if( SUCCEED == (ret = zbx_tcp_recv(&s, &buf)) )
 			{
-
+			
 				unpack_ntp(&data, (unsigned char *)buf, (int)strlen(buf));
 
-#if OFF
+#if OFF 
 			/* local time */	*value_int = time(NULL);
 #else
 			/* server time */	*value_int = (data.receive > 0) ? (int)(data.receive - ZBX_JAN_1970_IN_SEC) : 0;
@@ -220,3 +219,4 @@ int	check_ntp(char *host, unsigned short port, int *value_int)
 
 	return SYSINFO_RET_OK;
 }
+

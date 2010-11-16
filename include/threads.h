@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -24,10 +24,9 @@
 
 #if defined(_WINDOWS)
 
-	#define ZBX_THREAD_ERROR 0
+	#define ZBX_THREAD_ERROR (0)
 
 	#define ZBX_THREAD_HANDLE HANDLE
-	#define ZBX_THREAD_HANDLE_NULL NULL
 
 	#define ZBX_THREAD_ENTRY_POINTER(pointer_name) \
 		unsigned (__stdcall * pointer_name )(void *)
@@ -35,7 +34,7 @@
 	#define ZBX_THREAD_ENTRY(entry_name, arg_name)	\
 		unsigned __stdcall entry_name (void * arg_name)
 
-	#define zbx_thread_exit(status) \
+	#define zbx_tread_exit(status) \
 		_endthreadex((unsigned int)(status)); \
 		return ((unsigned)(status))
 
@@ -44,13 +43,12 @@
 	#define zbx_thread_kill(h) TerminateThread(h, SUCCEED);
 
 #else /* not _WINDOWS */
-
+	
 	int	zbx_fork();
 
 	#define ZBX_THREAD_ERROR (-1)
 
 	#define ZBX_THREAD_HANDLE pid_t
-	#define ZBX_THREAD_HANDLE_NULL 0
 
 	#define ZBX_THREAD_ENTRY_POINTER(pointer_name) \
 		unsigned (* pointer_name )(void *)
@@ -58,7 +56,7 @@
 	#define ZBX_THREAD_ENTRY(entry_name, arg_name)	\
 		unsigned entry_name (void * arg_name )
 
-	#define zbx_thread_exit(status) \
+	#define zbx_tread_exit(status) \
 		exit((int)(status)); \
 		return ((unsigned)(status))
 
@@ -70,7 +68,7 @@
 
 ZBX_THREAD_HANDLE zbx_thread_start(ZBX_THREAD_ENTRY_POINTER(handler), void *args);
 int zbx_thread_wait(ZBX_THREAD_HANDLE thread);
-/* zbx_thread_exit(status) -- declared as define !!! */
+/* zbx_tread_exit(status) // declared as define !!! */
 long int zbx_get_thread_id(void);
 
 #endif /* ZABBIX_THREADS_H */

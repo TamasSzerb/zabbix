@@ -191,7 +191,7 @@ static int	check_trigger_condition(DB_EVENT *event, DB_CONDITION *condition)
 						triggerid = 0;
 					else
 					{
-						ZBX_DBROW2UINT64(triggerid, row[0]);
+						ZBX_STR2UINT64(triggerid, row[0]);
 						if (triggerid == condition_value)
 							ret = SUCCEED;
 					}
@@ -211,7 +211,7 @@ static int	check_trigger_condition(DB_EVENT *event, DB_CONDITION *condition)
 	{
 		tmp_str = zbx_dsprintf(tmp_str, "%s", event->trigger_description);
 
-		substitute_simple_macros(event, NULL, NULL, NULL, &tmp_str, MACRO_TYPE_TRIGGER_DESCRIPTION, NULL, 0);
+		substitute_simple_macros(event, NULL, NULL, NULL, NULL, &tmp_str, MACRO_TYPE_TRIGGER_DESCRIPTION, NULL, 0);
 
 		switch (condition->operator)
 		{
@@ -853,7 +853,7 @@ static int	check_auto_registration_condition(DB_EVENT *event, DB_CONDITION *cond
 	const char	*__function_name = "check_auto_registration_condition";
 	DB_RESULT	result;
 	DB_ROW		row;
-	zbx_uint64_t	condition_value, id;
+	zbx_uint64_t	condition_value;
 	int		ret = FAIL;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
@@ -891,30 +891,27 @@ static int	check_auto_registration_condition(DB_EVENT *event, DB_CONDITION *cond
 		ZBX_STR2UINT64(condition_value, condition->value);
 
 		result = DBselect(
-				"select proxy_hostid"
+				"select host"
 				" from autoreg_host"
-				" where autoreg_hostid=" ZBX_FS_UI64,
+				" where proxy_hostid=" ZBX_FS_UI64
+					" and autoreg_hostid=" ZBX_FS_UI64,
+				condition_value,
 				event->objectid);
 
-		if (NULL != (row = DBfetch(result)))
+		switch (condition->operator)
 		{
-			ZBX_DBROW2UINT64(id, row[0]);
-
-			switch (condition->operator)
-			{
-			case CONDITION_OPERATOR_EQUAL:
-				if (id == condition_value)
-					ret = SUCCEED;
-				break;
-			case CONDITION_OPERATOR_NOT_EQUAL:
-				if (id != condition_value)
-					ret = SUCCEED;
-				break;
-			default:
-				zabbix_log(LOG_LEVEL_ERR, "Unsupported operator [%d] for condition id [" ZBX_FS_UI64 "]",
-						condition->operator,
-						condition->conditionid);
-			}
+		case CONDITION_OPERATOR_EQUAL:
+			if (NULL != DBfetch(result))
+				ret = SUCCEED;
+			break;
+		case CONDITION_OPERATOR_NOT_EQUAL:
+			if (NULL == DBfetch(result))
+				ret = SUCCEED;
+			break;
+		default:
+			zabbix_log(LOG_LEVEL_ERR, "Unsupported operator [%d] for condition id [" ZBX_FS_UI64 "]",
+					condition->operator,
+					condition->conditionid);
 		}
 		DBfree_result(result);
 	}

@@ -10,7 +10,7 @@ class CPageFilter{
 
 // profiles idx
 	private $_profileIdx = array();
-
+	
 	private $_profileIds = array();
 	private $_requestIds = array();
 
@@ -92,11 +92,11 @@ options = array(
 		}
 
 // groups
-
 		if(isset($options['groups'])){
 			if(!isset($options['groupid']) && isset($options['hostid'])){
 				$options['groupid'] = 0;
 			}
+
 			$this->_initGroups($options['groupid'], $options['groups']);
 		}
 
@@ -153,15 +153,18 @@ options = array(
 		$this->_requestIds['hostid'] = isset($options['hostid'])?$options['hostid']:null;
 		$this->_requestIds['graphid'] = isset($options['graphid'])?$options['graphid']:null;
 		$this->_requestIds['triggerid'] = isset($options['triggerid'])?$options['triggerid']:null;
+
+//SDII($this->_profileIds);
+//SDII($this->_requestIds);
 	}
 
 	private function _updateByGraph(&$options){
 		$graphs = CGraph::get(array(
 			'graphids' => $options['graphid'],
 			'output' => API_OUTPUT_EXTEND,
-			'selectHosts' => API_OUTPUT_REFER,
+			'select_hosts' => API_OUTPUT_REFER,
 			'select_templates' => API_OUTPUT_REFER,
-			'selectGroups' => API_OUTPUT_REFER,
+			'select_groups' => API_OUTPUT_REFER,
 		));
 
 		if($graph = reset($graphs)){
@@ -202,7 +205,7 @@ options = array(
 			'hostids' => $options['hostid'],
 			'templated_hosts' => 1,
 			'output' => array('hostid', 'host'),
-			'selectGroups' => API_OUTPUT_REFER,
+			'select_groups' => API_OUTPUT_REFER,
 		));
 
 		if($host = reset($hosts)){
@@ -222,9 +225,9 @@ options = array(
 		$triggers = CTrigger::get(array(
 			'triggerids' => $options['triggerid'],
 			'output' => API_OUTPUT_EXTEND,
-			'selectHosts' => API_OUTPUT_REFER,
+			'select_hosts' => API_OUTPUT_REFER,
 			'select_templates' => API_OUTPUT_REFER,
-			'selectGroups' => API_OUTPUT_REFER,
+			'select_groups' => API_OUTPUT_REFER,
 		));
 
 		if($trigger = reset($triggers)){
@@ -292,7 +295,6 @@ options = array(
 		}
 
 		$this->isSelected['groupsSelected'] = (($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL) && !empty($this->data['groups'])) || ($groupid > 0);
-
 		$this->isSelected['groupsAll'] = (($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL) && !empty($this->data['groups']) && ($groupid == 0));
 		$this->ids['groupid'] = $groupid;
 	}
@@ -418,7 +420,7 @@ options = array(
 		return $this->_getCB('groupid', $this->groupid, $this->groups, $withNode);
 	}
 
-	public function getGraphsCB($withNode=false){
+	public function getGraphsCB($withNode=false){		
 		$cmb = new CComboBox('graphid', $this->graphid, 'javascript: submit();');
 		$items = $this->graphs;
 

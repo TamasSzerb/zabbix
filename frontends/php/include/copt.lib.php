@@ -253,6 +253,7 @@ if(defined('USE_PROFILING')){
 			global $sqlmark;
 			global $perf_counter;
 			global $var_list;
+			global $USER_DETAILS;
 			global $DB;
 
 			$endtime = COpt::getmicrotime();

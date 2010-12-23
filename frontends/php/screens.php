@@ -146,11 +146,10 @@
 
 	$screens = CScreen::get(array(
 		'nodeids' => get_current_nodeid(),
-		'output' => API_OUTPUT_EXTEND,
-		'select_screenitems' => API_OUTPUT_EXTEND
+		'extendoutput' => 1
 	));
 
-
+	
 
 	//if screen name is provided it takes priority over elementid
 	if ($use_screen_name) {
@@ -166,7 +165,7 @@
 
 	//no screens defined at all
 	if(empty($screens)){
-		$screens_wdgt->addPageHeader(_s('SCREENS'), $formHeader);
+		$screens_wdgt->addPageHeader(S_SCREENS_BIG, $formHeader);
 		$screens_wdgt->addItem(BR());
 		$screens_wdgt->addItem(new CTableInfo(S_NO_SCREENS_DEFINED));
 		$screens_wdgt->show();
@@ -205,8 +204,8 @@
 			'elid' => $screen['screenid'],
 		));
 		$fs_icon = get_icon('fullscreen', array('fullscreen' => $_REQUEST['fullscreen']));
-
-		$screens_wdgt->addPageHeader(_s('SCREENS'), array($formHeader, SPACE, $icon, $fs_icon));
+		
+		$screens_wdgt->addPageHeader(S_SCREENS_BIG, array($formHeader, SPACE, $icon, $fs_icon));
 		$screens_wdgt->addItem(BR());
 // }}} PAGE HEADER
 
@@ -243,7 +242,7 @@
 			foreach($options as $option) $params[$option] = 1;
 			$PAGE_GROUPS = get_viewed_groups(PERM_READ_ONLY, $params);
 			$PAGE_HOSTS = get_viewed_hosts(PERM_READ_ONLY, $PAGE_GROUPS['selected'], $params);
-
+//SDI($_REQUEST['groupid'].' : '.$_REQUEST['hostid']);
 			validate_group_with_host($PAGE_GROUPS,$PAGE_HOSTS);
 
 			$cmbGroups = new CComboBox('groupid', $PAGE_GROUPS['selected'], 'javascript: submit();');
@@ -261,7 +260,7 @@
 			$form->addItem(array(SPACE.S_HOST.SPACE, $cmbHosts));
 		}
 
-		$element = get_screen($screen, 0, $effectiveperiod);
+		$element = get_screen($screen['screenid'], 0, $effectiveperiod);
 
 		if(2 != $_REQUEST['fullscreen']){
 			$timeline = array(
@@ -297,9 +296,6 @@
 		echo SBR;
 	}
 
-?>
-<?php
 
 include_once('include/page_footer.php');
-
 ?>

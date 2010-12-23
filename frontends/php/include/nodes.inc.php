@@ -103,7 +103,7 @@
 			if(isset($_REQUEST['select_nodes']))
 				// CProfile::update('web.nodes.selected', $ZBX_VIEWED_NODES['nodeids'], PROFILE_TYPE_ARRAY_ID);
 				update_node_profile($ZBX_VIEWED_NODES['nodeids']);
-
+			
 			if(isset($_REQUEST['switch_node']))
 				CProfile::update('web.nodes.switch_node', $ZBX_VIEWED_NODES['selected'], PROFILE_TYPE_ID);
 		}
@@ -152,7 +152,10 @@
 	}
 
 	function get_viewed_nodes($options=array()) {
-		global $USER_DETAILS, $ZBX_LOCALNODEID;
+		global $USER_DETAILS;
+		global $ZBX_LOCALNODEID, $ZBX_AVAILABLE_NODES;
+
+		$config = select_config();
 
 		$def_options = array(
 			'allow_all' => 0
@@ -173,6 +176,7 @@
 		$selected_nodeids = get_request('selected_nodes', get_node_profile(array($USER_DETAILS['node']['nodeid'])));
 
 // +++ Fill $result['NODEIDS'], $result['NODES'] +++
+		$nodes = array();
 		$nodeids = array();
 		foreach($selected_nodeids as $num => $nodeid) {
 			if(isset($available_nodes[$nodeid])) {
@@ -217,7 +221,7 @@
 	}
 
 	function getNodeIdByNodeName($nodeName){
-		global $ZBX_NODES;
+		global $ZBX_NODES, $ZBX_LOCALNODEID;
 
 		foreach($ZBX_NODES as $nodeid => $node){
 			if($node['name'] == $nodeName) return $nodeid;
@@ -291,7 +295,7 @@
 		$nodetype = 0;
 		$sql = 'INSERT INTO nodes (nodeid,name,timezone,ip,port,slave_history,slave_trends, nodetype,masterid) '.
 			' VALUES ('.$new_nodeid.','.zbx_dbstr($name).','.$timezone.','.zbx_dbstr($ip).','.$port.','.$slave_history.','.
-			$slave_trends.','.$nodetype.','.zero2null($masterid).')';
+			$slave_trends.','.$nodetype.','.$masterid.')';
 		$result = DBexecute($sql);
 
 		if($result && $node_type == ZBX_NODE_MASTER){
@@ -331,7 +335,7 @@
 				// DBexecute("insert into housekeeper (housekeeperid,tablename,field,value)".
 					// " values ($housekeeperid,'nodes','nodeid',$nodeid)") &&
 				DBexecute('delete from nodes where nodeid='.$nodeid) &&
-				DBexecute('update nodes set masterid=NULL where masterid='.$nodeid)
+				DBexecute('update nodes set masterid=0 where masterid='.$nodeid)
 				);
 			error(S_DATABASE_STILL_CONTAINS_DATA_RELATED_DELETED_NODE);
 		}

@@ -45,9 +45,8 @@ void	__zbx_zabbix_syslog(const char *fmt, ...)
 	va_list		ap;
 	char		value_str[MAX_STRING_LEN];
 	DC_ITEM		*items = NULL;
-	int		i, num;
+	int		i, num, now;
 	AGENT_RESULT	agent;
-	zbx_timespec_t	ts;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
@@ -56,6 +55,8 @@ void	__zbx_zabbix_syslog(const char *fmt, ...)
 		return;
 
 	init_result(&agent);
+
+	now = (int)time(NULL);
 
 	va_start(ap,fmt);
 	vsnprintf(value_str, sizeof(value_str), fmt, ap);
@@ -66,10 +67,7 @@ void	__zbx_zabbix_syslog(const char *fmt, ...)
 
 	num = DCconfig_get_items(0, SERVER_ZABBIXLOG_KEY, &items);
 	for (i = 0; i < num; i++)
-	{
-		zbx_timespec(&ts);
-		dc_add_history(items[i].itemid, items[i].value_type, items[i].flags, &agent, &ts, 0, NULL, 0, 0, 0, 0);
-	}
+		dc_add_history(items[i].itemid, items[i].value_type, &agent, now, 0, NULL, 0, 0, 0, 0);
 
 	zbx_free(items);
 	free_result(&agent);

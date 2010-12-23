@@ -56,158 +56,28 @@ function process_locales(){
 		}
 	}
 	unset($GLOBALS['TRANSLATION']);
-
-
 }
 
 function set_zbx_locales(){
 	global $ZBX_LOCALES;
 	$ZBX_LOCALES = array(
-		'en_GB'=>  S_ENGLISH_GB,
-		'zh_CN'=>  S_CHINESE_CN,
-		'cs_CZ'=>  S_CZECH_CZ,
-		'nl_NL'=>  S_DUTCH_NL,
-		'fr_FR'=>  S_FRENCH_FR,
-		'de_DE'=>  S_GERMAN_DE,
-		'hu_HU'=>  S_HUNGARIAN_HU,
-		'it_IT'=>  S_ITALIAN_IT,
-		'ko_KR'=>  S_KOREAN_KR,
-		'ja_JP'=>  S_JAPANESE_JP,
-		'lv_LV'=>  S_LATVIAN_LV,
-		'pl_PL'=>  S_POLISH_PL,
-		'pt_BR'=>  S_PORTUGUESE_PT,
-		'ru_RU'=>  S_RUSSIAN_RU,
-		'es_ES'=>  S_SPANISH_ES,
-		'sv_SE'=>  S_SWEDISH_SE,
-		'uk_UA'=>  S_UKRAINIAN_UA,
+		'en_gb'=>  S_ENGLISH_GB,
+		'cn_zh'=>  S_CHINESE_CN,
+		'cs_cz'=>  S_CZECH_CZ,
+		'nl_nl'=>  S_DUTCH_NL,
+		'fr_fr'=>  S_FRENCH_FR,
+		'de_de'=>  S_GERMAN_DE,
+		'hu_hu'=>  S_HUNGARIAN_HU,
+		'it_it'=>  S_ITALIAN_IT,
+		'ko_kr'=>  S_KOREAN_KO,
+		'ja_jp'=>  S_JAPANESE_JP,
+		'lv_lv'=>  S_LATVIAN_LV,
+		'pl_pl'=>  S_POLISH_PL,
+		'pt_br'=>  S_PORTUGUESE_PT,
+		'ru_ru'=>  S_RUSSIAN_RU,
+		'sp_sp'=>  S_SPANISH_SP,
+		'sv_se'=>  S_SWEDISH_SE,
+		'ua_ua'=>  S_UKRAINIAN_UA,
 	);
-}
-
-
-/**
- * Return an array of locale name variants based of language.
- *
- * @param string $language in format 'ru_RU', 'en_EN' and so on
- * @return array a list of possible locale names
- */
-function zbx_locale_variants($language){
-	if(stristr($_SERVER['SERVER_SOFTWARE'], 'win32') !== false)
-		$result = zbx_locale_variants_win($language);
-	else
-		$result = zbx_locale_variants_unix($language);
-return $result;
-}
-
-function zbx_locale_variants_unix($language){
-	$postfixes = array(
-		'',
-		'.utf8',
-		'.UTF-8',
-
-		'.iso885915',
-		'.ISO8859-1',
-		'.ISO8859-2',
-		'.ISO8859-4',
-		'.ISO8859-5',
-		'.ISO8859-15',
-		'.ISO8859-13',
-
-		'.CP1131',
-		'.CP1251',
-		'.CP1251',
-		'.CP949',
-
-		'.KOI8-U',
-		'.US-ASCII',
-		'.eucKR',
-		'.eucJP',
-		'.SJIS',
-		'.GB18030',
-		'.GB2312',
-		'.GBK',
-		'.eucCN',
-		'.Big5HKSCS',
-		'.Big5',
-		'.armscii8',
-		'.cp1251',
-		'.eucjp',
-		'.euckr',
-		'.euctw',
-		'.gb18030',
-		'.gbk',
-		'.koi8r',
-		'.tcvn',
-	);
-
-	$result = array();
-	foreach($postfixes as $postfix){
-		$result[] = $language.$postfix;
-	}
-return $result;
-}
-
-function zbx_locale_variants_win($language){
-// windows locales are written like language[_country][.charset]
-	$winLanguageName = array(
-		'en_gb'=>  'english',
-		'zh_cn'=>  'chinese',
-		'cs_cz'=>  'czech',
-		'nl_nl'=>  'dutch',
-		'fr_fr'=>  'french',
-		'de_de'=>  'german',
-		'hu_hu'=>  'hungarian',
-		'it_it'=>  'italian',
-		'ko_kr'=>  'korean',
-		'ja_jp'=>  'japanese',
-		'lv_lv'=>  'latvian',
-		'pl_pl'=>  'polish',
-		'pt_br'=>  'portuguese',
-		'ru_ru'=>  'russian',
-		'es_es'=>  'spanish',
-		'sv_se'=>  'swedish',
-		'uk_ua'=>  'ukrainian'
-	);
-
-	$winCountries = array(
-// most common
-		'united states', 'us',
-		'united kingdom', 'england',
-
-// abc
-		'america', 'australia', 'austria',
-		'belgium', 'brazil',
-		'czech', 'canada', 'china',
-		'denmark',	
-		'finland', 'france',
-		'germany', 'great britain', 'greece',
-		'hong kong',
-		'ireland', 'italy',
-		'japan',
-		'korea',
-		'latvia',
-		'mexico',
-		'netherlands', 'norway',
-		'poland', 'portugal',
-		'russia',
-		'slovak', 'spain', 'sweden', 'switzerland',
-		'taiwan',
-		'usa',
-	);
-
-	$winCodepages = array(
-// common
-		'utf8', 'UTF-8', '1252', '1251', '1250',
-		'932', '936',
-// other
-		'1253','1254','1255','1256','1257','1258','874','936','949', '950', 
-	);
-
-	$winLang = $winLanguageName[strtolower($language)];
-
-	$result = array();
-	foreach($winCountries as $country){
-		foreach($winCodepages as $codepage) $result[] = $winLang.'_'.$country.'.'.$codepage;
-	}
-return $result;
 }
 ?>

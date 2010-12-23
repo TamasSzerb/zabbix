@@ -28,7 +28,7 @@ require_once('include/requirements.inc.php');
 
 // Author: Aly
 function make_favorite_graphs(){
-	$favList = new CList(null, 'favorites');
+	$table = new CTableInfo();
 
 	$graphids = array();
 	$itemids = array();
@@ -45,7 +45,7 @@ function make_favorite_graphs(){
 
 	$options = array(
 			'graphids' => $graphids,
-			'selectHosts' => API_OUTPUT_EXTEND,
+			'select_hosts' => API_OUTPUT_EXTEND,
 			'output' => API_OUTPUT_EXTEND,
 		);
 	$graphs = CGraph::get($options);
@@ -53,8 +53,7 @@ function make_favorite_graphs(){
 
 	$options = array(
 			'itemids' => $itemids,
-			'selectHosts' => API_OUTPUT_EXTEND,
-			'filter' => array('flags' => array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)),
+			'select_hosts' => API_OUTPUT_EXTEND,
 			'output' => API_OUTPUT_EXTEND,
 			'webitems' => 1,
 		);
@@ -74,6 +73,12 @@ function make_favorite_graphs(){
 
 			$link = new CLink(get_node_name_by_elid($sourceid, null, ': ').$host['host'].':'.$item['description'],'history.php?action=showgraph&itemid='.$sourceid);
 			$link->setTarget('blank');
+
+			$capt = new CSpan($link);
+			$capt->setAttribute('style','line-height: 14px; vertical-align: middle;');
+
+			$icon = new CLink(new CImg('images/general/chart.png','chart',18,18,'borderless'),'history.php?action=showgraph&itemid='.$sourceid.'&fullscreen=1');
+			$icon->setTarget('blank');
 		}
 		else{
 			if(!isset($graphs[$sourceid])) continue;
@@ -83,17 +88,31 @@ function make_favorite_graphs(){
 
 			$link = new CLink(get_node_name_by_elid($sourceid, null, ': ').$ghost['host'].':'.$graph['name'],'charts.php?graphid='.$sourceid);
 			$link->setTarget('blank');
+
+			$capt = new CSpan($link);
+			$capt->setAttribute('style','line-height: 14px; vertical-align: middle;');
+
+			$icon = new CLink(new CImg('images/general/chart.png','chart',18,18,'borderless'),'charts.php?graphid='.$sourceid.'&fullscreen=1');
+			$icon->setTarget('blank');
 		}
 
-		$favList->addItem($link, 'nowrap');
+		$table->addRow(new CCol(array(
+			$icon,
+			SPACE,
+			$capt)
+		));
 	}
+	$td = new CCol(array(new CLink(S_GRAPHS.' &raquo;','charts.php','highlight')));
+	$td->setAttribute('style','text-align: right;');
 
-return $favList;
+	$table->setFooter($td);
+
+return $table;
 }
 
 // Author: Aly
 function make_favorite_screens(){
-	$favList = new CList(null, 'favorites');
+	$table = new CTableInfo();
 
 	$fav_screens = get_favorites('web.favorite.screenids');
 
@@ -121,6 +140,12 @@ function make_favorite_screens(){
 
 			$link = new CLink(get_node_name_by_elid($sourceid, null, ': ').$slide['name'],'slides.php?elementid='.$sourceid);
 			$link->setTarget('blank');
+
+			$capt = new CSpan($link);
+			$capt->setAttribute('style','line-height: 14px; vertical-align: middle;');
+
+			$icon = new CLink(new CImg('images/general/chart.png','screen',18,18,'borderless'),'slides.php?elementid='.$sourceid.'&fullscreen=1');
+			$icon->setTarget('blank');
 		}
 		else{
 			if(!isset($screens[$sourceid])) continue;
@@ -128,18 +153,32 @@ function make_favorite_screens(){
 
 			$link = new CLink(get_node_name_by_elid($sourceid, null, ': ').$screen['name'],'screens.php?elementid='.$sourceid);
 			$link->setTarget('blank');
+
+			$capt = new CSpan($link);
+			$capt->setAttribute('style','line-height: 14px; vertical-align: middle;');
+
+			$icon = new CLink(new CImg('images/general/chart.png','screen',18,18,'borderless'),'screens.php?elementid='.$sourceid.'&fullscreen=1');
+			$icon->setTarget('blank');
 		}
 
-		$favList->addItem($link, 'nowrap');
+		$table->addRow(new CCol(array(
+			$icon,
+			SPACE,
+			$capt)
+		));
 	}
 
+	$td = new CCol(array(new CLink(S_SCREENS.' &raquo;','screens.php','highlight')));
+	$td->setAttribute('style','text-align: right;');
 
-return $favList;
+	$table->setFooter($td);
+
+return $table;
 }
 
 // Author: Aly
 function make_favorite_maps(){
-	$favList = new CList(null, 'favorites');
+	$table = new CTableInfo();
 
 	$fav_sysmaps = get_favorites('web.favorite.sysmapids');
 
@@ -160,10 +199,25 @@ function make_favorite_maps(){
 		$link = new CLink(get_node_name_by_elid($sysmapid, null, ': ').$sysmap['name'],'maps.php?sysmapid='.$sysmapid);
 		$link->setTarget('blank');
 
-		$favList->addItem($link, 'nowrap');
+		$capt = new CSpan($link);
+		$capt->setAttribute('style','line-height: 14px; vertical-align: middle;');
+
+		$icon = new CLink(new CImg('images/general/chart.png','map',18,18,'borderless'),'maps.php?sysmapid='.$sysmapid.'&fullscreen=1');
+		$icon->setTarget('blank');
+
+		$table->addRow(new CCol(array(
+			$icon,
+			SPACE,
+			$capt)
+		));
 	}
 
-return $favList;
+	$td = new CCol(array(new CLink(S_MAPS.' &raquo;','maps.php','highlight')));
+	$td->setAttribute('style','text-align: right;');
+
+	$table->setFooter($td);
+
+return $table;
 }
 
 // Author: Aly
@@ -230,30 +284,24 @@ function make_system_status($filter){
 	foreach($triggers as $tnum => $trigger){
 		$options = array(
 			'nodeids' => get_current_nodeid(),
-			'object' => EVENT_SOURCE_TRIGGERS,
 			'triggerids' => $trigger['triggerid'],
-			'filter'=> array(
-				'value' => TRIGGER_VALUE_TRUE,
-				'value_changed' => TRIGGER_VALUE_CHANGED_YES
-			),
+			'object' => EVENT_SOURCE_TRIGGERS,
+			'value' => TRIGGER_VALUE_TRUE,
 			'output' => API_OUTPUT_EXTEND,
 			'nopermissions' => 1,
-			'select_acknowledges' => API_OUTPUT_COUNT,
-			'sortfield' => 'clock',
-			'sortorder' => ZBX_SORT_DOWN,
-			'limit' => 1
+			'limit' => 1,
+			'sortfield' => 'eventid',
+			'sortorder' => ZBX_SORT_DOWN
 		);
-		$events = CEvent::get($options);
-		if(empty($events)){
+		$event = CEvent::get($options);
+		if(empty($event)){
 			$trigger['event'] = array(
-				'value_changed' => 0,
-				'value' => $trigger['value'],
 				'acknowledged' => 1,
 				'clock' => $trigger['lastchange'],
 			);
 		}
 		else{
-			$trigger['event'] = reset($events);
+			$trigger['event'] = reset($event);
 		}
 
 		foreach($trigger['groups'] as $group){
@@ -294,32 +342,29 @@ function make_system_status($filter){
 					S_HOST,
 					S_ISSUE,
 					S_AGE,
-					S_INFO,
 					($config['event_ack_enable']) ? S_ACK : NULL,
 					S_ACTIONS
 				));
 
 				foreach($data['triggers'] as $tnum => $trigger){
 					$event = $trigger['event'];
-					$ack = getEventAckState($event);
+					if($config['event_ack_enable'] && isset($event['eventid'])){
+						$ack = $event['acknowledged']
+								? new CLink(S_YES, 'acknow.php?eventid='.$event['eventid'], 'off')
+								: new CLink(S_NO, 'acknow.php?eventid='.$event['eventid'], 'on');
 
-					if(isset($event['eventid'])) $actions = get_event_actions_status($event['eventid']);
-					else $actions = S_NO_DATA_SMALL;
-
-// Unknown triggers
-					$unknown = SPACE;
-					if($trigger['value_flags'] == TRIGGER_VALUE_FLAG_UNKNOWN){
-						$unknown = new CDiv(SPACE,'iconunknown');
-						$unknown->setHint($trigger['error'], '', 'on');
+						$actions = get_event_actions_status($event['eventid']);
 					}
-//----
-	
+					else{
+						$ack = '-';
+						$actions = S_NO_DATA_SMALL;
+					}
+
 					$table_inf->addRow(array(
 						get_node_name_by_elid($trigger['triggerid']),
 						$trigger['host'],
 						new CCol($trigger['description'], get_severity_style($trigger['priority'])),
 						zbx_date2age($event['clock']),
-						$unknown,
 						($config['event_ack_enable']) ? (new CCol($ack, 'center')) : NULL,
 						$actions
 					));
@@ -334,32 +379,27 @@ function make_system_status($filter){
 					S_HOST,
 					S_ISSUE,
 					S_AGE,
-					S_INFO,
 					($config['event_ack_enable']) ? S_ACK : NULL,
 					S_ACTIONS
 				));
 
 				foreach($data['triggers_unack'] as $tnum => $trigger){
 					$event = $trigger['event'];
-					$ack = getEventAckState($event);
 
-					if(isset($event['eventid'])) $actions = get_event_actions_status($event['eventid']);
-					else $actions = S_NO_DATA_SMALL;
-
-// Unknown triggers
-					$unknown = SPACE;
-					if($trigger['value_flags'] == TRIGGER_VALUE_FLAG_UNKNOWN){
-						$unknown = new CDiv(SPACE,'iconunknown');
-						$unknown->setHint($trigger['error'], '', 'on');
+					if($config['event_ack_enable']){
+						$ack = new CLink(S_NO, 'acknow.php?eventid='.$event['eventid'], 'on');
+						$actions = get_event_actions_status($event['eventid']);
 					}
-//----
+					else{
+						$ack = '-';
+						$actions = S_NO_DATA_SMALL;
+					}
 
 					$table_inf_unack->addRow(array(
 						get_node_name_by_elid($trigger['triggerid']),
 						$trigger['host'],
 						new CCol($trigger['description'], get_severity_style($trigger['priority'])),
 						zbx_date2age($event['clock']),
-						$unknown,
 						($config['event_ack_enable']) ? (new CCol($ack, 'center')) : NULL,
 						$actions
 					));
@@ -405,10 +445,9 @@ function make_system_status($filter){
 		$table->addRow($group_row);
 	}
 
-	$footer = new CDiv(S_UPDATED.': '.zbx_date2str(S_BLOCKS_SYSTEM_SUMMARY_TIME_FORMAT), 'textwhite');
-	$footer->setAttribute('style', 'height: 0px; position: relative; padding-left: 4px; top: 5px;');
+	$table->setFooter(new CCol(S_UPDATED.': '.zbx_date2str(S_BLOCKS_SYSTEM_SUMMARY_TIME_FORMAT)));
 
-return new CDiv(array($table, $footer));
+	return $table;
 }
 
 function make_hoststat_summary($filter){
@@ -465,7 +504,7 @@ function make_hoststat_summary($filter){
 			'monitored' => 1,
 			'maintenance' => $filter['maintenance'],
 			'withLastEventUnacknowledged' => 1,
-			'selectHosts' => API_OUTPUT_REFER,
+			'select_hosts' => API_OUTPUT_REFER,
 			'filter' => array(
 				'priority' => $filter['severity'],
 				'value' => TRIGGER_VALUE_TRUE
@@ -722,10 +761,9 @@ function make_hoststat_summary($filter){
 		$table->addRow($group_row);
 	}
 
-	$footer = new CDiv(S_UPDATED.': '.zbx_date2str(S_BLOCKS_SYSTEM_SUMMARY_TIME_FORMAT), 'textwhite');
-	$footer->setAttribute('style', 'height: 0px; position: relative; padding-left: 4px; top: 5px;');
+	$table->setFooter(new CCol(S_UPDATED.': '.zbx_date2str(S_BLOCKS_HOSTSTAT_SUMMARY_TIME_FORMAT)));
 
-return new CDiv(array($table, $footer));
+	return $table;
 }
 
 // Author: Aly
@@ -801,15 +839,17 @@ function make_status_of_zbx(){
 	}
 // }}}CHECK REQUIREMENTS
 
-	$footer = new CDiv(S_UPDATED.': '.zbx_date2str(S_BLOCKS_SYSTEM_SUMMARY_TIME_FORMAT), 'textwhite');
-	$footer->setAttribute('style', 'height: 0px; position: relative; padding-left: 4px; top: 5px;');
 
-return new CDiv(array($table, $footer));
+	$table->setFooter(new CCol(S_UPDATED.': '.zbx_date2str(S_BLOCKS_ZBX_STATUS_TIME_FORMAT)));
+
+return $table;
 }
 
 
 // author Aly
 function make_latest_issues($filter = array()){
+	global $page;
+	
 	$config = select_config();
 
 	$limit = isset($filter['limit']) ? $filter['limit'] : 20;
@@ -820,10 +860,10 @@ function make_latest_issues($filter = array()){
 		'skipDependent' => 1,
 		'filter' => array(
 			'priority' => $filter['severity'],
-			'value' => TRIGGER_VALUE_TRUE,
+			'value' => TRIGGER_VALUE_TRUE
 		),
-		'selectGroups' => API_OUTPUT_EXTEND,
-		'selectHosts' => array('hostid', 'host', 'maintenance_status', 'maintenanceid'),
+		'select_groups' => API_OUTPUT_EXTEND,
+		'select_hosts' => API_OUTPUT_EXTEND,
 		'output' => API_OUTPUT_EXTEND,
 		'sortfield' => 'lastchange',
 		'sortorder' => ZBX_SORT_DOWN,
@@ -858,7 +898,6 @@ function make_latest_issues($filter = array()){
 		S_ISSUE,
 		S_LAST_CHANGE,
 		S_AGE,
-		S_INFO,
 		($config['event_ack_enable'])? S_ACK : NULL,
 		S_ACTIONS
 	));
@@ -882,7 +921,7 @@ function make_latest_issues($filter = array()){
 				$menus.= "[".zbx_jsvalue($script['name']).",\"javascript: openWinCentered('scripts_exec.php?execute=1&hostid=".$trigger['hostid']."&scriptid=".$script['scriptid']."','".S_TOOLS."',760,540,'titlebar=no, resizable=yes, scrollbars=yes, dialog=no');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
 		}
 
-		if(!empty($scripts_by_hosts[$trigger['hostid']])){
+		if(!empty($scripts_by_hosts)){
 			$menus = "['".S_TOOLS."',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],".$menus;
 		}
 
@@ -937,40 +976,40 @@ function make_latest_issues($filter = array()){
 		$host = new CSpan($trigger['host'], $style.' pointer');
 		$host->setAttribute('onclick','javascript: '.$menus);
 		if(!is_null($text)) $host->setHint($text, '', '', false);
+
 // }}} Maintenance
 
-// Unknown triggers
-		$unknown = SPACE;
-		if($trigger['value_flags'] == TRIGGER_VALUE_FLAG_UNKNOWN){
-			$unknown = new CDiv(SPACE,'iconunknown');
-			$unknown->setHint($trigger['error'], '', 'on');
-		}
-//----
-		$options = array(
-			'output' => API_OUTPUT_EXTEND,
-			'select_acknowledges' => API_OUTPUT_COUNT,
-			'triggerids' => $trigger['triggerid'],
-			'filter' => array(
-				'object' => EVENT_OBJECT_TRIGGER,
-				'value' => TRIGGER_VALUE_TRUE,
-			),
-			'sortfield' => 'object',
-			'sortorder' => ZBX_SORT_DOWN,
-			'limit' => 1
-		);
-		$events = CEvent::get($options);
-		if($event = reset($events)){
-			$ack = getEventAckState($event);
+		$event_sql = 'SELECT e.eventid, e.value, e.clock, e.objectid as triggerid, e.acknowledged'.
+					' FROM events e'.
+					' WHERE e.object='.EVENT_OBJECT_TRIGGER.
+						' AND e.objectid='.$trigger['triggerid'].
+						' AND e.value='.TRIGGER_VALUE_TRUE.
+					' ORDER by e.object DESC, e.objectid DESC, e.eventid DESC';
+		$res_events = DBSelect($event_sql,1);
+		while($row_event=DBfetch($res_events)){
+			$ack = NULL;
+			if($config['event_ack_enable']){
+				if($row_event['acknowledged'] == 1){
+					$ack_info = make_acktab_by_eventid($row_event['eventid']);
+					$ack_info->setAttribute('style','width: auto;');
 
-			$description = expand_trigger_description_by_data(zbx_array_merge($trigger, array('clock'=>$event['clock'], 'ns'=>$event['ns'])),ZBX_FLAG_EVENT);
+					$ack=new CLink(S_YES,'acknow.php?eventid='.$row_event['eventid'].'&backurl='.$page['file'],'off');
+					$ack->setHint($ack_info, '', '', false);
+				}
+				else{
+					$ack= new CLink(S_NO,'acknow.php?eventid='.$row_event['eventid'].'&backurl='.$page['file'],'on');
+				}
+			}
 
+//			$description = expand_trigger_description($row['triggerid']);
+			$description = expand_trigger_description_by_data(zbx_array_merge($trigger, array('clock'=>$row_event['clock'])),ZBX_FLAG_EVENT);
 
 //actions
-			$actions = get_event_actions_stat_hints($event['eventid']);
+			$actions = get_event_actions_stat_hints($row_event['eventid']);
 
 			$clock = new CLink(
-					zbx_date2str(S_BLOCKS_LATEST_ISSUES_DATE_FORMAT,$event['clock']),
-					'events.php?triggerid='.$trigger['triggerid'].'&source=0&show_unknown=1&nav_time='.$event['clock']
+					zbx_date2str(S_BLOCKS_LATEST_ISSUES_DATE_FORMAT,$row_event['clock']),
+					'events.php?triggerid='.$trigger['triggerid'].'&source=0&show_unknown=1&nav_time='.$row_event['clock']
 					);
 
 			if($trigger['url'])
@@ -979,15 +1018,14 @@ function make_latest_issues($filter = array()){
 				$description = new CSpan($description,'pointer');
 
 			$description = new CCol($description,get_severity_style($trigger['priority']));
-			$description->setHint(make_popup_eventlist($event['eventid'], $trigger['type'], $trigger['triggerid']), '', '', false);
+			$description->setHint(make_popup_eventlist($row_event['eventid'], $trigger['type'], $trigger['triggerid']), '', '', false);
 		
 			$table->addRow(array(
 				get_node_name_by_elid($trigger['triggerid']),
 				$host,
 				$description,
 				$clock,
-				zbx_date2age($event['clock']),
-				$unknown,
+				zbx_date2age($row_event['clock']),
 				$ack,
 				$actions
 			));
@@ -995,10 +1033,9 @@ function make_latest_issues($filter = array()){
 		unset($trigger,$description,$actions);
 	}
 
-	$footer = new CDiv(S_UPDATED.': '.zbx_date2str(S_BLOCKS_SYSTEM_SUMMARY_TIME_FORMAT), 'textwhite');
-	$footer->setAttribute('style', 'height: 0px; position: relative; padding-left: 4px; top: 5px;');
+	$table->setFooter(new CCol(S_UPDATED.': '.zbx_date2str(S_BLOCKS_LATEST_ISSUES_TIME_FORMAT)));
 
-return new CDiv(array($table, $footer));
+return $table;
 }
 
 // author Aly
@@ -1073,11 +1110,8 @@ function make_webmon_overview($filter){
 			new CSpan($apps[HTTPTEST_STATE_UNKNOWN],'unknown')
 		));
 	}
-
-	$footer = new CDiv(S_UPDATED.': '.zbx_date2str(S_BLOCKS_SYSTEM_SUMMARY_TIME_FORMAT), 'textwhite');
-	$footer->setAttribute('style', 'height: 0px; position: relative; padding-left: 4px; top: 5px;');
-
-return new CDiv(array($table, $footer));
+	$table->setFooter(new CCol(S_UPDATED.': '.zbx_date2str(S_BLOCKS_WEBMON_TIME_FORMAT)));
+return $table;
 }
 
 // Author: Aly
@@ -1122,11 +1156,9 @@ function make_discovery_status(){
 			new CSpan($drule['down'],($drule['down'] > 0)? 'red':'green')
 		));
 	}
+	$table->setFooter(new CCol(S_UPDATED.': '.zbx_date2str(S_BLOCKS_DISCOVERY_STATUS_TIME_FORMAT)));
 
-	$footer = new CDiv(S_UPDATED.': '.zbx_date2str(S_BLOCKS_SYSTEM_SUMMARY_TIME_FORMAT), 'textwhite');
-	$footer->setAttribute('style', 'height: 0px; position: relative; padding-left: 4px; top: 5px;');
-
-return new CDiv(array($table, $footer));
+return 	$table;
 }
 
 function make_graph_menu(&$menu,&$submenu){
@@ -1139,7 +1171,7 @@ function make_graph_menu(&$menu,&$submenu){
 		);
 
 	$menu['menu_graphs'][] = array(
-				S_ADD.' '.S_GRAPH,
+				S_ADD.SPACE.S_GRAPH,
 				'javascript: '.
 				"PopUp('popup.php?srctbl=graphs".
 					'&srcfld1=graphid'.
@@ -1151,7 +1183,7 @@ function make_graph_menu(&$menu,&$submenu){
 				array('outer' => 'pum_o_submenu', 'inner'=>array('pum_i_submenu'))
 		);
 	$menu['menu_graphs'][] = array(
-				S_ADD.' '.S_SIMPLE_GRAPH,
+				S_ADD.SPACE.S_SIMPLE_GRAPH,
 				'javascript: '.
 				"PopUp('popup.php?srctbl=simple_graph".
 					'&srcfld1=itemid'.
@@ -1187,7 +1219,7 @@ function make_graph_submenu(){
 
 	$options = array(
 			'graphids' => $graphids,
-			'selectHosts' => array('hostid', 'host'),
+			'select_hosts' => array('hostid', 'host'),
 			'output' => API_OUTPUT_EXTEND
 		);
 	$graphs = CGraph::get($options);
@@ -1195,8 +1227,7 @@ function make_graph_submenu(){
 
 	$options = array(
 			'itemids' => $itemids,
-			'selectHosts' => array('hostid', 'host'),
-			'filter' => array('flags' => array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)),
+			'select_hosts' => array('hostid', 'host'),
 			'output' => API_OUTPUT_EXTEND,
 			'webitems' => 1,
 		);
@@ -1243,7 +1274,7 @@ function make_graph_submenu(){
 
 	if(isset($graph_added)){
 			$favGraphs[] = array(
-			'name'	=>	S_REMOVE.' '.S_ALL_S.' '.S_GRAPHS,
+			'name'	=>	S_REMOVE.SPACE.S_ALL_S.SPACE.S_GRAPHS,
 			'favobj'=>	'graphid',
 			'favid'	=>	0,
 			'action'=>	'remove'
@@ -1252,7 +1283,7 @@ function make_graph_submenu(){
 
 	if(isset($item_added)){
 		$favGraphs[] = array(
-			'name'	=>	S_REMOVE.' '.S_ALL_S.' '.S_SIMPLE_GRAPHS,
+			'name'	=>	S_REMOVE.SPACE.S_ALL_S.SPACE.S_SIMPLE_GRAPHS,
 			'favobj'=>	'itemid',
 			'favid'	=>	0,
 			'action'=>	'remove'
@@ -1266,7 +1297,7 @@ function make_sysmap_menu(&$menu,&$submenu){
 
 	$menu['menu_sysmaps'][] = array(S_FAVOURITE_MAPS, null, null, array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader')));
 	$menu['menu_sysmaps'][] = array(
-				S_ADD.' '.S_MAP,
+				S_ADD.SPACE.S_MAP,
 				'javascript: '.
 				"PopUp('popup.php?srctbl=sysmaps".
 					'&srcfld1=sysmapid'.
@@ -1306,7 +1337,7 @@ function make_sysmap_submenu(){
 
 	if(!empty($favMaps)){
 		$favMaps[] = array(
-				'name'	=>	S_REMOVE.' '.S_ALL_S.' '.S_MAPS,
+				'name'	=>	S_REMOVE.SPACE.S_ALL_S.SPACE.S_MAPS,
 				'favobj'=>	'sysmapid',
 				'favid'	=>	0,
 				'action'=>	'remove'
@@ -1320,7 +1351,7 @@ function make_screen_menu(&$menu,&$submenu){
 
 	$menu['menu_screens'][] = array(S_FAVOURITE_SCREENS, null, null, array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader')));
 	$menu['menu_screens'][] = array(
-				S_ADD.' '.S_SCREEN,
+				S_ADD.SPACE.S_SCREEN,
 				'javascript: '.
 				"PopUp('popup.php?srctbl=screens".
 					'&srcfld1=screenid'.
@@ -1331,7 +1362,7 @@ function make_screen_menu(&$menu,&$submenu){
 				array('outer' => 'pum_o_submenu', 'inner'=>array('pum_i_submenu')
 		));
 	$menu['menu_screens'][] = array(
-				S_ADD.' '.S_SLIDESHOW,
+				S_ADD.SPACE.S_SLIDESHOW,
 				'javascript: '.
 				"PopUp('popup.php?srctbl=slides".
 					'&srcfld1=slideshowid'.
@@ -1399,7 +1430,7 @@ function make_screen_submenu(){
 
 	if(isset($screen_added)){
 		$favScreens[] = array(
-			'name'	=>	S_REMOVE.' '.S_ALL_S.' '.S_SCREENS,
+			'name'	=>	S_REMOVE.SPACE.S_ALL_S.SPACE.S_SCREENS,
 			'favobj'=>	'screenid',
 			'favid'	=>	0,
 			'action'=>	'remove'
@@ -1408,7 +1439,7 @@ function make_screen_submenu(){
 
 	if(isset($slide_added)){
 		$favScreens[] = array(
-			'name'	=>	S_REMOVE.' '.S_ALL_S.' '.S_SLIDES,
+			'name'	=>	S_REMOVE.SPACE.S_ALL_S.SPACE.S_SLIDES,
 			'favobj'=>	'slideshowid',
 			'favid'	=>	0,
 			'action'=>	'remove'

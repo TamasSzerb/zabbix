@@ -251,13 +251,9 @@ include_once('include/page_header.php');
 			if(!is_null($val = get_request('work_period')))
 				$msg[] = S_WORKING_TIME.' ['.$val.']';
 			if(!is_null($val = get_request('discovery_groupid'))){
-				$val = CHostGroup::get(array(
-					'groupids' => $val,
-					'editable' => 1,
-					'output' => API_OUTPUT_EXTEND
-				));
-
+				$val = CHostGroup::get(array('groupids' => $val, 'editable' => 1, 'extendoutput' => 1));
 				if(!empty($val)){
+
 					$val = array_pop($val);
 					$msg[] = S_GROUP_FOR_DISCOVERED_HOSTS.' ['.$val['name'].']';
 
@@ -539,19 +535,19 @@ include_once('include/page_header.php');
 //----
 				if(!empty($macrosToDelete)){
 					if(!CUserMacro::deleteGlobal($macrosToDelete))
-						throw new Exception(_('Cannot remove macro'));
+						throw new Exception(S_CANNOT_REMOVE_MACRO);
 				}
 
 				if(!empty($macrosToUpdate)){
 					if(!CUsermacro::updateGlobal($macrosToUpdate))
-						throw new Exception(_('Cannot update macro'));
+						throw new Exception(S_CANNOT_UPDATE_MACRO);
 				}
 
 				if(!empty($newMacros)){
 					$macrosToAdd = array_values($newMacros);
 					$new_macroids = CUsermacro::createGlobal($macrosToAdd);
 					if(!$new_macroids)
-						throw new Exception('Cannot add macro');
+						throw new Exception(S_CANNOT_ADD_MACRO);
 				}
 
 				if(!empty($macrosToAdd)){
@@ -608,13 +604,13 @@ include_once('include/page_header.php');
 	if(!isset($_REQUEST['form'])){
 		switch($_REQUEST['config']){
 			case 3:
-				$form->addItem(new CSubmit('form',S_CREATE_IMAGE));
+				$form->addItem(new CButton('form',S_CREATE_IMAGE));
 				break;
 			case 6:
-				$form->addItem(new CSubmit('form',S_CREATE_VALUE_MAP));
+				$form->addItem(new CButton('form',S_CREATE_VALUE_MAP));
 				break;
 			case 10:
-				$form->addItem(new CSubmit('form',S_NEW_REGULAR_EXPRESSION));
+				$form->addItem(new CButton('form',S_NEW_REGULAR_EXPRESSION));
 				break;
 		}
 	}
@@ -641,7 +637,7 @@ include_once('include/page_header.php');
 		$frmHouseKeep->addRow(S_DO_NOT_KEEP_EVENTS_OLDER_THAN,
 			new CNumericBox("event_history", $config["event_history"], 5));
 
-		$frmHouseKeep->addItemToBottomRow(new CSubmit("save", S_SAVE));
+		$frmHouseKeep->addItemToBottomRow(new CButton("save", S_SAVE));
 
 		$cnf_wdgt->addItem($frmHouseKeep);
 	}
@@ -691,7 +687,7 @@ include_once('include/page_header.php');
 					new CImg('imgstore.php?iconid='.$imageid,'no image',null),'image.php?imageid='.$row['imageid']));
 			}
 
-			$frmImages->addItemToBottomRow(new CSubmit('save',S_SAVE));
+			$frmImages->addItemToBottomRow(new CButton('save',S_SAVE));
 			if(isset($_REQUEST['imageid'])){
 				$frmImages->addItemToBottomRow(SPACE);
 				$frmImages->addItemToBottomRow(new CButtonDelete(S_DELETE_SELECTED_IMAGE,
@@ -779,11 +775,7 @@ include_once('include/page_header.php');
 			new CNumericBox('refresh_unsupported', $config['refresh_unsupported'], 5));
 
 		$cmbGrp = new CComboBox('discovery_groupid', $config['discovery_groupid']);
-		$groups = CHostGroup::get(array(
-			'sortfield'=>'name',
-			'editable' => 1,
-			'output' => API_OUTPUT_EXTEND
-		));
+		$groups = CHostGroup::get(array('sortfield'=>'name', 'editable' => 1, 'extendoutput' => 1));
 		foreach($groups as $gnum => $group){
 			$cmbGrp->addItem($group['groupid'], $group['name']);
 		}
@@ -802,7 +794,7 @@ include_once('include/page_header.php');
 					);
 		$frmOther->addRow(S_USER_GROUP_FOR_DATABASE_DOWN_MESSAGE, $cmbUsrGrp);
 
-		$frmOther->addItemToBottomRow(new CSubmit('save', S_SAVE));
+		$frmOther->addItemToBottomRow(new CButton('save', S_SAVE));
 
 		$cnf_wdgt->addItem($frmOther);
 	}
@@ -813,7 +805,7 @@ include_once('include/page_header.php');
 		if(isset($_REQUEST['form'])){
 			$frmValmap = new CFormTable(S_VALUE_MAP);
 			$frmValmap->setHelp("web.mapping.php");
-			$frmValmap->addVar("config", 6);
+			$frmValmap->addVar("config",get_request("config",6));
 
 			if(isset($_REQUEST["valuemapid"])){
 				$frmValmap->addVar("valuemapid",$_REQUEST["valuemapid"]);
@@ -830,9 +822,10 @@ include_once('include/page_header.php');
 				$mapname = $db_valuemap["name"];
 				$mappings = DBselect("select * FROM mappings WHERE valuemapid=".$_REQUEST["valuemapid"]);
 				while($mapping = DBfetch($mappings)) {
-					$valuemap[] = array(
+					$value = array(
 						"value" => $mapping["value"],
 						"newvalue" => $mapping["newvalue"]);
+					array_push($valuemap, $value);
 				}
 			}
 			else{
@@ -856,14 +849,13 @@ include_once('include/page_header.php');
 				$i++;
 			}
 
-			$saveButton = new CSubmit('save', S_SAVE);
+			$saveButton = new CButton('save', S_SAVE);
 
 			if(count($valuemap_el)==0) {
 				array_push($valuemap_el, S_NO_MAPPING_DEFINED);
 				$saveButton->setAttribute('disabled', 'true');
-			}
-			else{
-				array_push($valuemap_el, new CSubmit('del_map',S_DELETE_SELECTED));
+			} else {
+				array_push($valuemap_el, new CButton('del_map',S_DELETE_SELECTED));
 			}
 
 			$frmValmap->addRow(S_MAPPING, $valuemap_el);
@@ -872,27 +864,20 @@ include_once('include/page_header.php');
 				new CSpan(RARR,"rarr"),
 				new CTextBox("add_newvalue","",10),
 				SPACE,
-				new CSubmit("add_map",S_ADD)
+				new CButton("add_map",S_ADD)
 				),'new');
 
-			$buttons = array($saveButton);
+			$frmValmap->addItemToBottomRow($saveButton);
 			if(isset($_REQUEST["valuemapid"])){
-				$sql = 'SELECT COUNT(itemid) as cnt FROM items WHERE valuemapid='.$_REQUEST['valuemapid'];
-				$count = DBfetch(DBselect($sql));
-				if($count['cnt']){
-					$confirmMesage = _n('Delete selected value mapping? It is used for %d item!',
-						'Delete selected value mapping? It is used for %d items!', $count['cnt']);
-				}
-				else{
-					$confirmMesage = _s('Delete selected value mapping?');
-				}
-
-				$buttons[] = new CButtonDelete($confirmMesage,
-					url_param("form").url_param("valuemapid").url_param("config"));
+				$frmValmap->addItemToBottomRow(SPACE);
+				$frmValmap->addItemToBottomRow(new CButtonDelete(S_DELETE_SELECTED_VALUE_MAPPING,
+					url_param("form").url_param("valuemapid").url_param("config")));
 			}
-			$buttons[] = new CButtonCancel(url_param("config"));
+			else {
+			}
+			$frmValmap->addItemToBottomRow(SPACE);
+			$frmValmap->addItemToBottomRow(new CButtonCancel(url_param("config")));
 
-			$frmValmap->addItemToBottomRow($buttons);
 			$cnf_wdgt->addItem($frmValmap);
 		}
 		else{
@@ -954,7 +939,7 @@ include_once('include/page_header.php');
 		$frmHouseKeep->addRow(S_WORKING_TIME,
 			new CTextBox("work_period",$config["work_period"], 35));
 
-		$frmHouseKeep->addItemToBottomRow(new CSubmit("save", S_SAVE));
+		$frmHouseKeep->addItemToBottomRow(new CButton("save", S_SAVE));
 
 		$cnf_wdgt->addItem($frmHouseKeep);
 	}
@@ -995,7 +980,7 @@ include_once('include/page_header.php');
 			new CTextBox('event_expire',$config['event_expire'],5));
 		$frmGUI->addRow(S_MAX_COUNT_OF_EVENTS,
 			new CTextBox('event_show_max',$config['event_show_max'],5));
-		$frmGUI->addItemToBottomRow(new CSubmit("save",S_SAVE));
+		$frmGUI->addItemToBottomRow(new CButton("save",S_SAVE));
 
 		$cnf_wdgt->addItem($frmGUI);
 	}

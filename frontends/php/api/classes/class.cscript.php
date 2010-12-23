@@ -80,8 +80,8 @@ class CScript extends CZBXAPI{
 // OutPut
 			'extendoutput'			=> null,
 			'output'				=> API_OUTPUT_REFER,
-			'selectGroups'			=> null,
-			'selectHosts'			=> null,
+			'select_groups'			=> null,
+			'select_hosts'			=> null,
 			'countOutput'			=> null,
 			'preservekeys'			=> null,
 
@@ -96,11 +96,11 @@ class CScript extends CZBXAPI{
 		if(!is_null($options['extendoutput'])){
 			$options['output'] = API_OUTPUT_EXTEND;
 
-			if(!is_null($options['selectGroups'])){
-				$options['selectGroups'] = API_OUTPUT_EXTEND;
+			if(!is_null($options['select_groups'])){
+				$options['select_groups'] = API_OUTPUT_EXTEND;
 			}
-			if(!is_null($options['selectHosts'])){
-				$options['selectHosts'] = API_OUTPUT_EXTEND;
+			if(!is_null($options['select_hosts'])){
+				$options['select_hosts'] = API_OUTPUT_EXTEND;
 			}
 		}
 
@@ -121,8 +121,8 @@ class CScript extends CZBXAPI{
 			$sql_parts['where'][] = 'hg.groupid=r.id';
 			$sql_parts['where'][] = 'r.groupid=ug.usrgrpid';
 			$sql_parts['where'][] = 'ug.userid='.$userid;
-			$sql_parts['where'][] = '(hg.groupid=s.groupid OR s.groupid IS NULL)';
-			$sql_parts['where'][] = '(ug.usrgrpid=s.usrgrpid OR s.usrgrpid IS NULL)';
+			$sql_parts['where'][] = '(hg.groupid=s.groupid OR s.groupid=0)';
+			$sql_parts['where'][] = '(ug.usrgrpid=s.usrgrpid OR s.usrgrpid=0)';
 		}
 
 // nodeids
@@ -138,7 +138,7 @@ class CScript extends CZBXAPI{
 				$sql_parts['select']['scripts'] = 's.scriptid, s.groupid';
 			}
 
-			$sql_parts['where'][] = '('.DBcondition('s.groupid', $options['groupids']).' OR s.groupid IS NULL)';
+			$sql_parts['where'][] = DBcondition('s.groupid', $options['groupids']);
 		}
 
 // hostids
@@ -152,7 +152,7 @@ class CScript extends CZBXAPI{
 			$sql_parts['from']['hosts_groups'] = 'hosts_groups hg';
 			$sql_parts['where'][] = '(('.DBcondition('hg.hostid', $options['hostids']).' AND hg.groupid=s.groupid)'.
 									' OR '.
-									'(s.groupid IS NULL))';
+									'(s.groupid=0))';
 		}
 
 // scriptids
@@ -225,7 +225,6 @@ class CScript extends CZBXAPI{
 				' WHERE '.DBin_node('s.scriptid', $nodeids).
 					$sql_where.
 				$sql_order;
-//SDI($sql);
 		$res = DBselect($sql, $sql_limit);
 		while($script = DBfetch($res)){
 			if($options['countOutput']){
@@ -241,16 +240,16 @@ class CScript extends CZBXAPI{
 					if(!isset($result[$script['scriptid']]))
 						$result[$script['scriptid']] = array();
 
-					if(!is_null($options['selectGroups']) && !isset($result[$script['scriptid']]['groups'])){
+					if(!is_null($options['select_groups']) && !isset($result[$script['scriptid']]['groups'])){
 						$result[$script['scriptid']]['groups'] = array();
 					}
 
-					if(!is_null($options['selectHosts']) && !isset($result[$script['scriptid']]['hosts'])){
+					if(!is_null($options['select_hosts']) && !isset($result[$script['scriptid']]['hosts'])){
 						$result[$script['scriptid']]['hosts'] = array();
 					}
 
 // groupids
-					if(isset($script['groupid']) && is_null($options['selectGroups'])){
+					if(isset($script['groupid']) && is_null($options['select_groups'])){
 						if(!isset($result[$script['scriptid']]['groups']))
 							$result[$script['scriptid']]['groups'] = array();
 
@@ -258,7 +257,7 @@ class CScript extends CZBXAPI{
 					}
 
 // hostids
-					if(isset($script['hostid']) && is_null($options['selectHosts'])){
+					if(isset($script['hostid']) && is_null($options['select_hosts'])){
 						if(!isset($result[$script['scriptid']]['hosts']))
 							$result[$script['scriptid']]['hosts'] = array();
 
@@ -278,10 +277,10 @@ class CScript extends CZBXAPI{
 
 // Adding Objects
 // Adding groups
-		if(!is_null($options['selectGroups']) && str_in_array($options['selectGroups'], $subselects_allowed_outputs)){
+		if(!is_null($options['select_groups']) && str_in_array($options['select_groups'], $subselects_allowed_outputs)){
 			foreach($result as $scriptid => $script){
 				$obj_params = array(
-					'output' => $options['selectGroups'],
+					'output' => $options['select_groups'],
 				);
 
 				if($script['host_access'] == PERM_READ_WRITE){
@@ -299,10 +298,10 @@ class CScript extends CZBXAPI{
 		}
 
 // Adding hosts
-		if(!is_null($options['selectHosts']) && str_in_array($options['selectHosts'], $subselects_allowed_outputs)){
+		if(!is_null($options['select_hosts']) && str_in_array($options['select_hosts'], $subselects_allowed_outputs)){
 			foreach($result as $scriptid => $script){
 				$obj_params = array(
-					'extendoutput' => $options['selectHosts'],
+					'extendoutput' => $options['select_hosts'],
 				);
 
 				if($script['host_access'] == PERM_READ_WRITE){
@@ -365,7 +364,6 @@ class CScript extends CZBXAPI{
  */
 	public static function create($scripts){
 		global $USER_DETAILS;
-		$scripts = zbx_toArray($scripts);
 
 		try{
 			self::BeginTransaction(__METHOD__);
@@ -381,13 +379,20 @@ class CScript extends CZBXAPI{
 				$script_db_fields = array(
 					'name' => null,
 					'command' => null,
+					'usrgrpid' => 0,
+					'groupid' => 0,
+					'host_access' => 2,
 				);
 				if(!check_db_fields($script_db_fields, $script)){
 					self::exception(ZBX_API_ERROR_PARAMETERS, 'Wrong fields for script');
 				}
-			}
 
-			$scriptids = DB::insert('scripts', $scripts);
+				$result = add_script($script['name'], $script['command'], $script['usrgrpid'], $script['groupid'], $script['host_access']);
+				if(!$result)
+					self::exception(ZBX_API_ERROR_PARAMETERS, 'Cannot add script');
+
+				$scriptids[] = $result;
+			}
 
 			self::EndTransaction(true, __METHOD__);
 			return array('scriptids' => $scriptids);
@@ -435,14 +440,16 @@ class CScript extends CZBXAPI{
 				}
 			}
 
-			$update = array();
 			foreach($scripts as $num => $script){
-				$update[] = array(
-					'values' => $script,
-					'where' => array('scriptid='.$script['scriptid']),
-				);
+				$script_db_fields = $upd_scripts[$script['scriptid']];
+				if(!check_db_fields($script_db_fields, $script)){
+					self::exception(ZBX_API_ERROR_PARAMETERS, 'Wrong fields for script');
+				}
+
+				$result = update_script($script['scriptid'], $script['name'], $script['command'], $script['usrgrpid'], $script['groupid'], $script['host_access']);
+				if(!$result)
+					self::exception(ZBX_API_ERROR_PARAMETERS, 'cannot update script');
 			}
-			DB::update('scripts', $update);
 
 			self::EndTransaction(true, __METHOD__);
 			return array('scriptids' => $scriptids);
@@ -492,7 +499,7 @@ class CScript extends CZBXAPI{
 
 			$sql = 'DELETE FROM scripts WHERE '.DBcondition('scriptid',$scriptids);
 			if(!$result = DBexecute($sql))
-					self::exception(ZBX_API_ERROR_PARAMETERS, 'Cannot delete script');
+				self::exception(ZBX_API_ERROR_PARAMETERS, 'Cannot delete script');
 
 			self::EndTransaction(true, __METHOD__);
 			return array('scriptids' => $scriptids);
@@ -612,7 +619,7 @@ class CScript extends CZBXAPI{
 */
 		}
 		catch(APIException $e){
-			if(is_resource($socket)) fclose($socket);
+			fclose($socket);
 			$error = $e->getErrors();
 			$error = reset($error);
 			self::setError(__METHOD__, $e->getCode(), $error);
@@ -644,8 +651,6 @@ class CScript extends CZBXAPI{
 			$scripts_by_host[$hostid] = array();
 		}
 //-----
-
-
 		$options = array(
 			'hostids' => $hostids,
 			'output' => API_OUTPUT_EXTEND,
@@ -655,8 +660,8 @@ class CScript extends CZBXAPI{
 
 		$obj_params = array(
 			'groupids' => zbx_objectValues($groups, 'groupid'),
+         'sortfield' => 'name',
 			'output' => API_OUTPUT_EXTEND,
-			'sortfield' => 'name',
 			'preservekeys' => 1
 		);
 		$scripts  = CScript::get($obj_params);

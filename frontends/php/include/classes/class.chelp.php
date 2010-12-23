@@ -20,9 +20,14 @@
 ?>
 <?php
 class CHelp extends CIcon{
-	public function __construct($url='index.php', $side='right'){
-		if($side != 'right'){
+	public function __construct($url='index.php',$side=null){
+		if(is_null($side)) $side = 'right';
+		if($side == 'right'){
+			$pside = 'left';
+		}
+		else{
 			$side = 'left';
+			$pside = 'right';
 		}
 
 		parent::__construct("http://www.zabbix.com/documentation",'iconhelp');//'http://www.zabbix.com/manual/v1.1/'.$url);

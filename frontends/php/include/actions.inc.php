@@ -170,7 +170,7 @@ function condition_value2str($conditiontype, $value){
 				'triggerids' => $value,
 				'expandTriggerDescriptions' => true,
 				'output' => API_OUTPUT_EXTEND,
-				'selectHosts' => API_OUTPUT_EXTEND,
+				'select_hosts' => API_OUTPUT_EXTEND,
 				'nodeids' => get_current_nodeid(true),
 			));
 			$trig = reset($trig);
@@ -580,6 +580,8 @@ function	update_action_status($actionid, $status)
 }
 
 function validate_condition($conditiontype, $value){
+	global $USER_DETAILS;
+
 	switch($conditiontype){
 		case CONDITION_TYPE_HOST_GROUP:
 			$groups = CHostGroup::get(array(
@@ -884,7 +886,7 @@ return $table;
 }
 
 // Author: Aly
-function get_action_msgs_for_event($event){
+function get_action_msgs_for_event($eventid){
 
 	$table = new CTableInfo(S_NO_ACTIONS_FOUND);
 	$table->setHeader(array(
@@ -899,48 +901,56 @@ function get_action_msgs_for_event($event){
 	));
 
 
-	$alerts = $event['alerts'];
-	foreach($alerts as $alertid => $alert){
-		if($alert['alerttype'] != ALERT_TYPE_MESSAGE) continue;
+	$alerts = CAlert::get(array(
+		'eventids' => $eventid,
+		'filter' => array(
+			'alerttype' => ALERT_TYPE_MESSAGE,
+		),
+		'output' => API_OUTPUT_EXTEND,
+		'select_mediatypes' => API_OUTPUT_EXTEND,
+		'sortfield' => 'clock',
+		'sortorder' => ZBX_SORT_DOWN
+	));
 
+	foreach($alerts as $alertid => $row){
 // mediatypes
-		$mediatype = array_pop($alert['mediatypes']);
+		$mediatype = array_pop($row['mediatypes']);
 
-		$time=zbx_date2str(S_EVENT_ACTION_MESSAGES_DATE_FORMAT,$alert["clock"]);
-		if($alert['esc_step'] > 0){
-			$time = array(bold(S_STEP.': '),$alert["esc_step"],br(),bold(S_TIME.': '),br(),$time);
+		$time=zbx_date2str(S_EVENT_ACTION_MESSAGES_DATE_FORMAT,$row["clock"]);
+		if($row['esc_step'] > 0){
+			$time = array(bold(S_STEP.': '),$row["esc_step"],br(),bold(S_TIME.': '),br(),$time);
 		}
 
-		if($alert["status"] == ALERT_STATUS_SENT){
+		if($row["status"] == ALERT_STATUS_SENT){
 			$status=new CSpan(S_SENT,"green");
 			$retries=new CSpan(SPACE,"green");
 		}
-		else if($alert["status"] == ALERT_STATUS_NOT_SENT){
+		else if($row["status"] == ALERT_STATUS_NOT_SENT){
 			$status=new CSpan(S_IN_PROGRESS,"orange");
-			$retries=new CSpan(ALERT_MAX_RETRIES - $alert["retries"],"orange");
+			$retries=new CSpan(ALERT_MAX_RETRIES - $row["retries"],"orange");
 		}
 		else{
 			$status=new CSpan(S_NOT_SENT,"red");
 			$retries=new CSpan(0,"red");
 		}
-		$sendto=$alert["sendto"];
+		$sendto=$row["sendto"];
 
-		$message = array(bold(S_SUBJECT.':'),br(),$alert["subject"],br(),br(),bold(S_MESSAGE.':'));
-		$msg = explode("\n",$alert['message']);
+		$message = array(bold(S_SUBJECT.':'),br(),$row["subject"],br(),br(),bold(S_MESSAGE.':'));
+		$msg = explode("\n",$row['message']);
 
 		foreach($msg as $m){
 			array_push($message, BR(), $m);
 		}
 
-		if(empty($alert["error"])){
+		if(empty($row["error"])){
 			$error=new CSpan(SPACE,"off");
 		}
 		else{
-			$error=new CSpan($alert["error"],"on");
+			$error=new CSpan($row["error"],"on");
 		}
 
 		$table->addRow(array(
-			get_node_name_by_elid($alert['alertid']),
+			get_node_name_by_elid($row['alertid']),
 			new CCol($time, 'top'),
 			new CCol((!empty($mediatype['description']) ? $mediatype['description'] : ''), 'top'),
 			new CCol($status, 'top'),
@@ -954,7 +964,7 @@ return $table;
 }
 
 // Author: Aly
-function get_action_cmds_for_event($event){
+function get_action_cmds_for_event($eventid){
 
 	$table = new CTableInfo(S_NO_ACTIONS_FOUND);
 	$table->setHeader(array(
@@ -965,16 +975,24 @@ function get_action_cmds_for_event($event){
 		S_ERROR
 	));
 
-	$alerts = $event['alerts'];
-	foreach($alerts as $alertid => $alert){
-		if($alert['alerttype'] != ALERT_TYPE_COMMAND) continue;
 
-		$time = zbx_date2str(S_EVENT_ACTION_CMDS_DATE_FORMAT, $alert['clock']);
-		if($alert['esc_step'] > 0){
-			$time = array(bold(S_STEP.': '), $alert['esc_step'], br(), bold(S_TIME.': '), br(), $time);
+	$alerts = CAlert::get(array(
+		'eventids' => $eventid,
+		'filter' => array(
+			'alerttype' => ALERT_TYPE_COMMAND
+		),
+		'output' => API_OUTPUT_EXTEND,
+		'sortfield' => 'clock',
+		'sortorder' => ZBX_SORT_DOWN
+	));
+
+	foreach($alerts as $alertid => $row){
+		$time = zbx_date2str(S_EVENT_ACTION_CMDS_DATE_FORMAT, $row['clock']);
+		if($row['esc_step'] > 0){
+			$time = array(bold(S_STEP.': '), $row['esc_step'], br(), bold(S_TIME.': '), br(), $time);
 		}
 
-		switch($alert['status']){
+		switch($row['status']){
 			case ALERT_STATUS_SENT:
 				$status = new CSpan(S_EXECUTED, 'green');
 			break;
@@ -987,16 +1005,16 @@ function get_action_cmds_for_event($event){
 		}
 
 		$message = array(bold(S_COMMAND.':'));
-		$msg = explode('\n', $alert['message']);
+		$msg = explode('\n', $row['message']);
 		foreach($msg as $m){
 			array_push($message, BR(), $m);
 		}
 
-		$error = empty($alert['error']) ? new CSpan(SPACE, 'off') : new CSpan($alert['error'], 'on');
+		$error = empty($row['error']) ? new CSpan(SPACE, 'off') : new CSpan($row['error'], 'on');
 
 
 		$table->addRow(array(
-			get_node_name_by_elid($alert['alertid']),
+			get_node_name_by_elid($row['alertid']),
 			new CCol($time, 'top'),
 			new CCol($status, 'top'),
 			new CCol($message, 'wraptext top'),
@@ -1059,12 +1077,15 @@ function get_actions_hint_by_eventid($eventid,$status=NULL){
 
 		if($row["status"] == ALERT_STATUS_SENT){
 			$status=new CSpan(S_SENT,"green");
+			$retries=new CSpan(SPACE,"green");
 		}
 		else if($row["status"] == ALERT_STATUS_NOT_SENT){
 			$status=new CSpan(S_IN_PROGRESS,"orange");
+			$retries=new CSpan(ALERT_MAX_RETRIES - $row["retries"],"orange");
 		}
 		else{
 			$status=new CSpan(S_NOT_SENT,"red");
+			$retries=new CSpan(0,"red");
 		}
 
 		switch($row['alerttype']){

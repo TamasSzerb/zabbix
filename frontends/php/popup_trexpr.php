@@ -61,7 +61,7 @@
 				'M' => $metrics		/* metrcis */
 			     )
 	);
-
+	
 	$param1_sec = array(
 			array(
 				'C' => S_LAST_OF.' (T)',	/* caption */
@@ -255,12 +255,11 @@
 
 		'expression'=>	array(T_ZBX_STR, O_OPT, null,	null,		null),
 
-		"itemid"=>	array(T_ZBX_INT, O_OPT,	null,	null,						'isset({insert})'),
-		"parent_discoveryid"=>	array(T_ZBX_INT, O_OPT,	null,	null,			null),
-		"expr_type"=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,					'isset({insert})'),
-		"param"=>	array(T_ZBX_STR, O_OPT,	null,	0,						'isset({insert})'),
-		"paramtype"=>	array(T_ZBX_INT, O_OPT, null,	IN(PARAM_TYPE_SECONDS.','.PARAM_TYPE_COUNTS),	'isset({insert})'),
-		"value"=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,					'isset({insert})'),
+		'itemid'=>	array(T_ZBX_INT, O_OPT,	null,	null,						'isset({insert})'),
+		'expr_type'=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,					'isset({insert})'),
+		'param'=>	array(T_ZBX_STR, O_OPT,	null,	0,						'isset({insert})'),
+		'paramtype'=>	array(T_ZBX_INT, O_OPT, null,	IN(PARAM_TYPE_SECONDS.','.PARAM_TYPE_COUNTS),	'isset({insert})'),
+		'value'=>	array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,					'isset({insert})'),
 
 		'insert'=>	array(T_ZBX_STR,	O_OPT,	P_SYS|P_ACT,	null,	null)
 	);
@@ -274,34 +273,34 @@
 
 		if(!isset($functions[$function])) unset($function);
 	}
-
-
+	
+	
 	$dstfrm = get_request('dstfrm', 0);
 	$dstfld1 = get_request('dstfld1', '');
 	$itemid = get_request('itemid', 0);
 	$value = get_request('value', 0);
 	$param = get_request('param', 0);
 	$paramtype = get_request('paramtype');
-
+	
 	if(!isset($function)) $function = 'last';
 	if(!isset($functions[$function]['operators'][$operator])) $operator = '=';
 
 	$expr_type = $function.'['.$operator.']';
-
+	
 	if($itemid){
 		$options = array(
 			'output' => API_OUTPUT_EXTEND,
 			'itemids' => $itemid,
 			'webitems' => 1,
-			'selectHosts' => API_OUTPUT_EXTEND
+			'select_hosts' => API_OUTPUT_EXTEND
 		);
-		$items_data = CItem::get($options);
-		$item_data = reset($items_data);
+		$item_data = CItem::get($options);
+		$item_data = reset($item_data);
 		$item_key = $item_data['key_'];
 
 		$item_host = reset($item_data['hosts']);
 		$item_host = $item_host['host'];
-
+		
 		$description = $item_host.':'.item_description($item_data);
 	}
 	else{
@@ -309,17 +308,15 @@
 	}
 
 
-
 	if(is_null($paramtype) && isset($functions[$function]['params']['M'])){
-		$paramtype = is_array($functions[$function]['params']['M'])
+		$paramtype = is_array($functions[$function]['params']['M'])  
 				? reset($functions[$function]['params']['M'])
 				: $functions[$function]['params']['M'];
 	}
 	else if(is_null($paramtype)){
 		$paramtype = PARAM_TYPE_SECONDS;
 	}
-
-
+		
 	if(!is_array($param)){
 		if(isset($functions[$function]['params'])){
 			$param = explode(',', $param, count($functions[$function]['params']));
@@ -395,31 +392,18 @@ if(form){
 
 	echo SBR;
 
-	$parent_discoveryid = get_request('parent_discoveryid');
-
 	$form = new CFormTable(S_CONDITION);
 	$form->SetName('expression');
 	$form->addVar('dstfrm', $dstfrm);
 	$form->addVar('dstfld1', $dstfld1);
 	$form->addVar('itemid',$itemid);
-	if($parent_discoveryid)
-		$form->addVar('parent_discoveryid', $parent_discoveryid);
 
-	$normal_only = ($parent_discoveryid) ? '&normal_only=1' : '';
-
-	$row = array(
+	$form->addRow(S_ITEM, array(
 		new CTextBox('description', $description, 50, 'yes'),
 		new CButton('select', S_SELECT, "return PopUp('popup.php?dstfrm=".$form->GetName().
-				"&dstfld1=itemid&dstfld2=description&submitParent=1".$normal_only.
-				"&srctbl=items&srcfld1=itemid&srcfld2=description',0,0,'zbx_popup_item');"),
-	);
-	if($parent_discoveryid){
-		$row[] = new CButton('select', S_SELECT_PROTOTYPE, "return PopUp('popup.php?dstfrm=".$form->GetName().
-				"&dstfld1=itemid&dstfld2=description&submitParent=1".url_param('parent_discoveryid', true).
-				"&srctbl=prototypes&srcfld1=itemid&srcfld2=description',0,0,'zbx_popup_item');");
-	}
-
-	$form->addRow(S_ITEM, $row);
+				"&dstfld1=itemid&dstfld2=description&submitParent=1&".
+				"srctbl=items&srcfld1=itemid&srcfld2=description',0,0,'zbx_popup_item');")
+		));
 
 	$cmbFnc = new CComboBox('expr_type', $expr_type	, 'submit()');
 	$cmbFnc->addStyle('width: auto;');
@@ -456,21 +440,21 @@ if(form){
 				if(0 == $pid){
 					if(isset($pf['M'])){
 						if(is_array($pf['M'])){
-						$cmbParamType = new CComboBox('paramtype', $paramtype);
-						foreach( $pf['M'] as $mid => $caption ){
-							$cmbParamType->addItem($mid, $caption);
+							$cmbParamType = new CComboBox('paramtype', $paramtype);
+							foreach( $pf['M'] as $mid => $caption ){
+								$cmbParamType->addItem($mid, $caption);
+							}
 						}
-					}
 						else if($pf['M'] == PARAM_TYPE_SECONDS){
-						$form->addVar('paramtype', PARAM_TYPE_SECONDS);
-						$cmbParamType = S_SECONDS;
-					}
+							$form->addVar('paramtype', PARAM_TYPE_SECONDS);
+							$cmbParamType = S_SECONDS;
+						}
 						else if($pf['M'] == PARAM_TYPE_COUNTS){
 							$form->addVar('paramtype', PARAM_TYPE_COUNTS);
 							$cmbParamType = S_COUNT;
-				}
+						}
 					}
-				else{
+					else{
 						$form->addVar('paramtype', PARAM_TYPE_SECONDS);
 						$cmbParamType = S_SECONDS;
 					}
@@ -486,7 +470,7 @@ if(form){
 				$form->addRow($pf['C'].' ', array(
 					new CNumericBox('param['.$pid.']', $pv, 10),
 					$cmbParamType
-					));
+				));
 			}
 			else{
 				$form->addRow($pf['C'], new CTextBox('param['.$pid.']', $pv, 30));
@@ -501,7 +485,7 @@ if(form){
 
 	$form->addRow('N', new CTextBox('value', $value, 10));
 
-	$form->addItemToBottomRow(new CSubmit('insert',S_INSERT));
+	$form->addItemToBottomRow(new CButton('insert',S_INSERT));
 	$form->show();
 
 

@@ -63,10 +63,11 @@ class CTree{
 
 /* private */
 	private function makeHeaders(){
-		$c = 0;
-		$tr = new CRow($this->fields['caption'], 'header');
+		$c=0;
+		$tr = new CRow();
+		$tr->addItem($this->fields['caption']);
+		$tr->setClass('header');
 		unset($this->fields['caption']);
-
 		foreach($this->fields as $id => $caption){
 			$tr->addItem($caption);
 			$fields[$c] = $id;
@@ -163,7 +164,7 @@ class CTree{
 												" if(IE6) showPopupDiv('div_node_tree','select_iframe');"); // IE6 Fix
 
 						$img->setAttribute('id','idi_'.$id);
-						$img->setAttribute('class', 'pointer');
+						$img->setClass('pointer');
 					}
 					else {
 						$img = new CImg('images/general/tree/pointl.gif','y','22','14');
@@ -182,7 +183,7 @@ class CTree{
 												" if(IE6) showPopupDiv('div_node_tree','select_iframe');");	// IE6 Fix
 
 						$img->setAttribute('id','idi_'.$id);
-						$img->setAttribute('class', 'pointer');
+						$img->setClass('pointer');
 					}
 					else {
 						$td->setAttribute('style','width:22px; background-image:url(images/general/tree/pointc.gif);');

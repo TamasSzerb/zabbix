@@ -36,7 +36,7 @@
  *                                                                            *
  * Return value: NULL if script not found                                     *
  *                                                                            *
- * Author: Alexander Vladishev                                                *
+ * Author: Aleksander Vladishev                                               *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -71,7 +71,7 @@ static char	*get_command_by_scriptid(zbx_uint64_t scriptid)
  * Return value:  SUCCEED - processed successfully                            *
  *                FAIL - an error occurred                                    *
  *                                                                            *
- * Author: Alexander Vladishev                                                *
+ * Author: Aleksander Vladishev                                               *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -83,18 +83,19 @@ static int	execute_script(zbx_uint64_t scriptid, zbx_uint64_t hostid, char **res
 	int		result_alloc = 256, result_offset = 0,
 			ret = FAIL;
 	FILE		*f;
-	DC_ITEM		item;
+	DC_HOST		host;
 #ifdef HAVE_OPENIPMI
+	DB_RESULT	db_result;
+	DB_ROW		db_row;
+	DC_ITEM		item;
 	int		val;
-	char		error[MAX_STRING_LEN], *port;
+	char		error[MAX_STRING_LEN];
 #endif
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In execute_script() scriptid:" ZBX_FS_UI64
 			" hostid:" ZBX_FS_UI64, scriptid, hostid);
 
-	memset(&item, 0, sizeof(item));
-
-	if (FAIL == DCget_host_by_hostid(&item.host, hostid))
+	if (FAIL == DCget_host_by_hostid(&host, hostid))
 	{
 		*result = zbx_dsprintf(*result, "NODE %d: Unknown Host ID [" ZBX_FS_UI64 "]",
 				CONFIG_NODEID, hostid);
@@ -108,7 +109,7 @@ static int	execute_script(zbx_uint64_t scriptid, zbx_uint64_t hostid, char **res
 		return ret;
 	}
 
-	substitute_simple_macros(NULL, NULL, &item.host, NULL,
+	substitute_simple_macros(NULL, NULL, &host, NULL, NULL,
 			&command, MACRO_TYPE_SCRIPT, NULL, 0);
 
 	zabbix_log(LOG_LEVEL_WARNING, "NODE %d: Executing command: '%s'",
@@ -121,52 +122,61 @@ static int	execute_script(zbx_uint64_t scriptid, zbx_uint64_t hostid, char **res
 #ifdef HAVE_OPENIPMI
 	if (0 == strncmp(p, "IPMI", 4))
 	{
-		if (SUCCEED == (ret = DCconfig_get_interface_by_type(&item.interface, item.host.hostid,
-				INTERFACE_TYPE_IPMI, 1)))
-		{
-			item.interface.addr = strdup(item.interface.useip ? item.interface.ip_orig : item.interface.dns_orig);
-			substitute_simple_macros(NULL, NULL, &item.host, NULL,
-					&item.interface.addr, MACRO_TYPE_INTERFACE_ADDR, NULL, 0);
+		db_result = DBselect(
+				"select hostid,host,useip,ip,dns,port,useipmi,ipmi_ip,ipmi_port,ipmi_authtype,"
+					"ipmi_privilege,ipmi_username,ipmi_password"
+				" from hosts"
+				" where hostid=" ZBX_FS_UI64
+					DB_NODE,
+				hostid,
+				DBnode_local("hostid"));
 
-			port = strdup(item.interface.port_orig);
-			substitute_simple_macros(NULL, &item.host.hostid, NULL, NULL,
-					&port, MACRO_TYPE_INTERFACE_PORT, NULL, 0);
-			if (SUCCEED == (ret = is_ushort(port, &item.interface.port)))
+		if (NULL != (db_row = DBfetch(db_result)))
+		{
+			memset(&item, 0, sizeof(item));
+
+			ZBX_STR2UINT64(item.host.hostid, db_row[0]);
+			zbx_strlcpy(item.host.host, db_row[1], sizeof(item.host.host));
+			item.host.useip = (unsigned char)atoi(db_row[2]);
+			zbx_strlcpy(item.host.ip, db_row[3], sizeof(item.host.ip));
+			zbx_strlcpy(item.host.dns, db_row[4], sizeof(item.host.dns));
+			item.host.port = (unsigned short)atoi(db_row[5]);
+
+			if (1 == atoi(db_row[6]))
 			{
-				if (SUCCEED == (ret = parse_ipmi_command(p, item.ipmi_sensor, &val)))
+				zbx_strlcpy(item.host.ipmi_ip_orig, db_row[7], sizeof(item.host.ipmi_ip));
+				item.host.ipmi_port = (unsigned short)atoi(db_row[8]);
+				item.host.ipmi_authtype = atoi(db_row[9]);
+				item.host.ipmi_privilege = atoi(db_row[10]);
+				zbx_strlcpy(item.host.ipmi_username, db_row[11], sizeof(item.host.ipmi_username));
+				zbx_strlcpy(item.host.ipmi_password, db_row[12], sizeof(item.host.ipmi_password));
+			}
+
+			if (SUCCEED == (ret = parse_ipmi_command(p, item.ipmi_sensor, &val)))
+			{
+				if (SUCCEED == (ret = set_ipmi_control_value(&item, val,
+						error, sizeof(error))))
 				{
-					if (SUCCEED == (ret = set_ipmi_control_value(&item, val,
-							error, sizeof(error))))
-					{
-						*result = zbx_dsprintf(*result, "NODE %d: IPMI command successfully executed",
-								CONFIG_NODEID);
-					}
-					else
-					{
-						*result = zbx_dsprintf(*result, "NODE %d: Cannot execute IPMI command: %s",
-								CONFIG_NODEID, error);
-						ret = FAIL;
-					}
+					*result = zbx_dsprintf(*result, "NODE %d: IPMI command successfully executed",
+							CONFIG_NODEID);
 				}
 				else
-					 *result = zbx_dsprintf(*result, "NODE %d: Cannot parse IPMI command",
-							CONFIG_NODEID);
+					*result = zbx_dsprintf(*result, "NODE %d: Cannot execute IPMI command: %s",
+							CONFIG_NODEID, error);
 			}
 			else
-				*result = zbx_dsprintf(*result, "NODE %d: Invalid port number [%s]",
-						CONFIG_NODEID, item.interface.port_orig);
-
-			zbx_free(port);
-			zbx_free(item.interface.addr);
+				 *result = zbx_dsprintf(*result, "NODE %d: Cannot parse IPMI command",
+						CONFIG_NODEID);
 		}
 		else
-			*result = zbx_dsprintf(*result, "NODE %d: IPMI host interface is not defined for host [%s]",
-					CONFIG_NODEID, item.host.host);
+			*result = zbx_dsprintf(*result, "NODE %d: Unknown Host ID [" ZBX_FS_UI64 "]",
+					CONFIG_NODEID, hostid);
+		DBfree_result(db_result);
 	}
 	else
 	{
 #endif
-		if (0 != (f = popen(p, "r")))
+		if(0 != (f = popen(p, "r")))
 		{
 			*result = zbx_malloc(*result, result_alloc);
 			**result = '\0';
@@ -202,7 +212,7 @@ static int	execute_script(zbx_uint64_t scriptid, zbx_uint64_t hostid, char **res
  * Return value:  SUCCEED - processed successfully                            *
  *                FAIL - an error occurred                                    *
  *                                                                            *
- * Author: Alexander Vladishev                                                *
+ * Author: Aleksander Vladishev                                               *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -267,7 +277,7 @@ exit_sock:
  * Return value:  SUCCEED - processed successfully                            *
  *                FAIL - an error occurred                                    *
  *                                                                            *
- * Author: Alexander Vladishev                                                *
+ * Author: Aleksander Vladishev                                               *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
@@ -281,11 +291,9 @@ static int	get_next_point_to_node(int current_nodeid, int slave_nodeid, int *nod
 	db_result = DBselect("select nodeid from nodes where masterid=%d",
 		current_nodeid);
 
-	while (NULL != (db_row = DBfetch(db_result)))
-	{
+	while (NULL != (db_row = DBfetch(db_result))) {
 		id = atoi(db_row[0]);
-		if (id == slave_nodeid || SUCCEED == get_next_point_to_node(id, slave_nodeid, NULL))
-		{
+		if (id == slave_nodeid || SUCCEED == get_next_point_to_node(id, slave_nodeid, NULL)) {
 			if (NULL != nodeid)
 				*nodeid = id;
 			res = SUCCEED;
@@ -308,7 +316,7 @@ static int	get_next_point_to_node(int current_nodeid, int slave_nodeid, int *nod
  * Return value:  SUCCEED - processed successfully                            *
  *                FAIL - an error occurred                                    *
  *                                                                            *
- * Author: Alexander Vladishev                                                *
+ * Author: Aleksander Vladishev                                               *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *

@@ -276,8 +276,7 @@ void	zbx_strcpy_alloc(char **str, int *alloc_len, int *offset, const char *src)
 
 	if (*offset + sz >= *alloc_len)
 	{
-		while (*offset + sz >= *alloc_len)
-			*alloc_len *= 2;
+		*alloc_len += sz < 32 ? 64 : 2 * sz;
 		*str = zbx_realloc(*str, *alloc_len);
 	}
 
@@ -2493,22 +2492,6 @@ const char	*zbx_item_value_type_string(zbx_item_value_type_t value_type)
 	}
 }
 
-const char	*zbx_interface_type_string(zbx_interface_type_t type)
-{
-	switch (type)
-	{
-		case INTERFACE_TYPE_AGENT:
-			return "Zabbix agent";
-		case INTERFACE_TYPE_SNMP:
-			return "SNMP";
-		case INTERFACE_TYPE_IPMI:
-			return "IPMI";
-		case INTERFACE_TYPE_UNKNOWN:
-		default:
-			return "unknown";
-	}
-}
-
 const char	*zbx_result_string(int result)
 {
 	switch (result) {
@@ -2565,16 +2548,6 @@ const char	*zbx_dservice_type_string(zbx_dservice_type_t service)
 	case SVC_SNMPv3: return "SNMPv3 agent";
 	case SVC_ICMPPING: return "ICMP Ping";
 	default: return "unknown";
-	}
-}
-
-const char	*zbx_nodetype_string(unsigned char nodetype)
-{
-	switch (nodetype)
-	{
-		case ZBX_NODE_MASTER: return "MASTER";
-		case ZBX_NODE_SLAVE: return "SLAVE";
-		default: return "unknown";
 	}
 }
 

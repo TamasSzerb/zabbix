@@ -107,10 +107,12 @@ static void	DCrelease_nextchecks()
  ******************************************************************************/
 void	DCadd_nextcheck(zbx_uint64_t itemid, time_t now, const char *error_msg)
 {
+	const char	*__function_name = "DCadd_nextcheck";
+
 	int	i;
 	size_t	sz;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In DCadd_nextcheck()");
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
 	if (NULL == error_msg)
 		return;
@@ -144,6 +146,8 @@ void	DCadd_nextcheck(zbx_uint64_t itemid, time_t now, const char *error_msg)
 	nextchecks[i].error_msg = (NULL != error_msg) ? strdup(error_msg) : NULL;
 
 	nextcheck_num++;
+
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
 
 struct event_objectid_clock
@@ -162,13 +166,15 @@ struct event_objectid_clock
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Aleksander Vladishev, Dmitry Borovikov                             *
+ * Author: Alexander Vladishev, Dmitry Borovikov                              *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
 void	DCflush_nextchecks()
 {
+	const char	*__function_name = "DCflush_nextchecks";
+
 	int		i, sql_offset = 0, sql_allocated = 4096;
 	char		*sql = NULL;
 
@@ -192,7 +198,7 @@ void	DCflush_nextchecks()
 	struct event_objectid_clock 	*events = NULL;
 	int		events_num = 0, events_allocated = 32;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In DCflush_nextchecks()");
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
 	if (nextcheck_num == 0)
 		return;
@@ -237,11 +243,11 @@ void	DCflush_nextchecks()
 				" from triggers t,functions f,items i"
 				" where t.triggerid=f.triggerid"
 					" and f.itemid=i.itemid"
-					" and t.status=%d"
-					" and t.value_flags<>%d"
+					" and t.status in (%d)"
+					" and t.value not in (%d)"
 					" and",
 				TRIGGER_STATUS_ENABLED,
-				TRIGGER_VALUE_FLAG_UNKNOWN);
+				TRIGGER_VALUE_UNKNOWN);
 		DBadd_condition_alloc(&sql_select, &sql_select_allocated, &sql_select_offset,
 				"i.itemid", ids, ids_num);
 		result = DBselect("%s", sql_select);
@@ -271,8 +277,8 @@ void	DCflush_nextchecks()
 
 			error_msg_esc = DBdyn_escape_string_len(nextchecks[i].error_msg, TRIGGER_ERROR_LEN);
 			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 128 + strlen(error_msg_esc),
-					"update triggers set value_flags=%d,lastchange=%d,error='%s' where triggerid=" ZBX_FS_UI64";\n",
-							TRIGGER_VALUE_FLAG_UNKNOWN,
+					"update triggers set value=%d,lastchange=%d,error='%s' where triggerid=" ZBX_FS_UI64";\n",
+							TRIGGER_VALUE_UNKNOWN,
 							nextchecks[i].now,
 							error_msg_esc,
 							triggerid);
@@ -297,15 +303,14 @@ void	DCflush_nextchecks()
 			events_maxid = DBget_maxid("events");
 
 			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 256,
-					"insert into events (eventid,source,object,objectid,clock,value,value_changed) "
-					"values (" ZBX_FS_UI64 ",%d,%d," ZBX_FS_UI64 ",%d,%d,%d);\n",
+					"insert into events (eventid,source,object,objectid,clock,value) "
+					"values (" ZBX_FS_UI64 ",%d,%d," ZBX_FS_UI64 ",%d,%d);\n",
 					events_maxid,
 					EVENT_SOURCE_TRIGGERS,
 					EVENT_OBJECT_TRIGGER,
 					events[i].objectid,
 					events[i].clock,
-					TRIGGER_VALUE_UNKNOWN,
-					TRIGGER_VALUE_CHANGED_NO);
+					TRIGGER_VALUE_UNKNOWN);
 
 			DBexecute_overflowed_sql(&sql, &sql_allocated, &sql_offset);
 		}
@@ -328,5 +333,5 @@ void	DCflush_nextchecks()
 
 	DBcommit();
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of DCflush_nextchecks()");
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }

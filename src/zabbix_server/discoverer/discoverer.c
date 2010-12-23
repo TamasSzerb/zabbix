@@ -49,7 +49,7 @@ int			discoverer_num;
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static void	proxy_update_service(DB_DRULE *drule, DB_DCHECK *dcheck, char *ip, int port, int status, const char *value, int now)
+static void proxy_update_service(DB_DRULE *drule, DB_DCHECK *dcheck, char *ip, int port, int status, const char *value, int now)
 {
 	char	*ip_esc, *key_esc, *value_esc;
 
@@ -89,7 +89,7 @@ static void	proxy_update_service(DB_DRULE *drule, DB_DCHECK *dcheck, char *ip, i
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static void	proxy_update_host(DB_DRULE *drule, char *ip, int status, int now)
+static void proxy_update_host(DB_DRULE *drule, char *ip, int status, int now)
 {
 	char	*ip_esc;
 
@@ -194,13 +194,11 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
 			case SVC_SNMPv2c:
 			case SVC_SNMPv3:
 				memset(&item, 0, sizeof(DC_ITEM));
-
-				strscpy(item.key_orig, dcheck->key_);
+				zbx_strlcpy(item.key_orig, dcheck->key_, sizeof(item.key_orig));
 				item.key = item.key_orig;
-				
-				item.interface.useip = 1;
-				item.interface.addr = ip;
-				item.interface.port = port;
+				zbx_strlcpy(item.host.ip, ip, sizeof(item.host.ip));
+				item.host.useip	= 1;
+				item.host.port	= port;
 
 				item.value_type	= ITEM_VALUE_TYPE_STR;
 
@@ -234,12 +232,13 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
 				else
 #ifdef HAVE_SNMP
 				{
+					item.snmp_port = port;
 					item.snmp_community = strdup(dcheck->snmp_community);
 					item.snmp_oid = strdup(dcheck->key_);
 
-					substitute_simple_macros(NULL, NULL, NULL, NULL,
+					substitute_simple_macros(NULL, NULL, NULL, NULL, NULL,
 							&item.snmp_community, MACRO_TYPE_ITEM_FIELD, NULL, 0);
-					substitute_simple_macros(NULL, NULL, NULL, NULL,
+					substitute_simple_macros(NULL, NULL, NULL, NULL, NULL,
 							&item.snmp_oid, MACRO_TYPE_ITEM_FIELD, NULL, 0);
 
 					if (ITEM_TYPE_SNMPv3 == item.type)
@@ -249,11 +248,11 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
 						item.snmpv3_authpassphrase = strdup(dcheck->snmpv3_authpassphrase);
 						item.snmpv3_privpassphrase = strdup(dcheck->snmpv3_privpassphrase);
 
-						substitute_simple_macros(NULL, NULL, NULL, NULL,
+						substitute_simple_macros(NULL, NULL, NULL, NULL, NULL,
 								&item.snmpv3_securityname, MACRO_TYPE_ITEM_FIELD, NULL, 0);
-						substitute_simple_macros(NULL, NULL, NULL, NULL,
+						substitute_simple_macros(NULL, NULL, NULL, NULL, NULL,
 								&item.snmpv3_authpassphrase, MACRO_TYPE_ITEM_FIELD, NULL, 0);
-						substitute_simple_macros(NULL, NULL, NULL, NULL,
+						substitute_simple_macros(NULL, NULL, NULL, NULL, NULL,
 								&item.snmpv3_privpassphrase, MACRO_TYPE_ITEM_FIELD, NULL, 0);
 					}
 
@@ -321,7 +320,7 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static void	process_check(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhost, int *host_status, char *ip)
+static void process_check(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhost, int *host_status, char *ip)
 {
 	const char	*__function_name = "process_check";
 	int		port, first, last, now;
@@ -458,13 +457,13 @@ static void	process_checks(DB_DRULE *drule, DB_DHOST *dhost, int *host_status, c
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static void	process_rule(DB_DRULE *drule)
+static void process_rule(DB_DRULE *drule)
 {
 	const char	*__function_name = "process_rule";
 	DB_DHOST	dhost;
 	int		host_status, now;
 	unsigned int	j[9], i, first, last, mask, network, broadcast;
-	char		ip[INTERFACE_IP_LEN_MAX], *curr_range, *next_range, *dash, *slash;
+	char		ip[HOST_IP_LEN_MAX], *curr_range, *next_range, *dash, *slash;
 #if defined(HAVE_IPV6)
 	int		ipv6;
 #endif
@@ -674,29 +673,21 @@ static void	process_rule(DB_DRULE *drule)
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
 
-static void	process_discovery(int now)
+static void process_discovery(int now)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
 	DB_DRULE	drule;
 
-	result = DBselect(
-			"select distinct r.druleid,r.iprange,r.name,c.dcheckid"
-			" from drules r"
-				" left join dchecks c"
-					" on c.druleid=r.druleid"
-						" and uniq=1"
-			" where r.proxy_hostid is null"
-				" and r.status=%d"
-				" and (r.nextcheck<=%d or r.nextcheck>%d+r.delay)"
-				" and " ZBX_SQL_MOD(r.druleid,%d) "=%d"
-				DB_NODE,
+	result = DBselect("select druleid,iprange,name,unique_dcheckid from drules"
+			" where proxy_hostid=0 and status=%d and (nextcheck<=%d or nextcheck>%d+delay)"
+			" and " ZBX_SQL_MOD(druleid,%d) "=%d" DB_NODE,
 			DRULE_STATUS_MONITORED,
 			now,
 			now,
 			CONFIG_DISCOVERER_FORKS,
 			discoverer_num - 1,
-			DBnode_local("r.druleid"));
+			DBnode_local("druleid"));
 
 	while (NULL != (row = DBfetch(result))) {
 		memset(&drule, 0, sizeof(drule));
@@ -704,7 +695,7 @@ static void	process_discovery(int now)
 		ZBX_STR2UINT64(drule.druleid, row[0]);
 		drule.iprange 	= row[1];
 		drule.name	= row[2];
-		ZBX_DBROW2UINT64(drule.unique_dcheckid, row[3]);
+		ZBX_STR2UINT64(drule.unique_dcheckid, row[3]);
 
 		process_rule(&drule);
 
@@ -715,19 +706,14 @@ static void	process_discovery(int now)
 	DBfree_result(result);
 }
 
-static int	get_minnextcheck(int now)
+static int get_minnextcheck(int now)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
 	int		res = FAIL;
 
-	result = DBselect(
-			"select count(*),min(nextcheck)"
-			" from drules"
-			" where proxy_hostid is null"
-				" and status=%d"
-				" and " ZBX_SQL_MOD(druleid,%d) "=%d"
-				DB_NODE,
+	result = DBselect("select count(*),min(nextcheck) from drules where proxy_hostid=0 and status=%d"
+			" and " ZBX_SQL_MOD(druleid,%d) "=%d" DB_NODE,
 			DRULE_STATUS_MONITORED,
 			CONFIG_DISCOVERER_FORKS,
 			discoverer_num - 1,

@@ -1,7 +1,4 @@
 /* CSS Document */
-div.min-width{
-	min-width: 1000px;
-}
 
 div.disaster{
 	background-color: #FF0000;
@@ -133,7 +130,14 @@ div.formElement_footer{
 /* </FORM ELEMENT> */
 
 /**** SCREEN DRAG & DROP ****/
-div.draggable { cursor: move; }
+div.draggable {
+	cursor: pointer;
+}
+
+div.hoverclass123{
+	border:1px solid red;
+}
+/***************************/
 
 /********* DIV IMG *********/
 div.zabbix_logo{
@@ -143,8 +147,7 @@ div.zabbix_logo{
 	cursor: pointer;
 }
 
-.menu_icon{
-	display: inline-block;
+div.menu_icon{
 	background-repeat:no-repeat;
 	height: 16px;
 	width: 16px;
@@ -155,72 +158,50 @@ div.zabbix_logo{
 	-o-border-radius: 2px;
 	border-radius: 2px;
 }
-
-.menu_icon:hover{
+div.menu_icon:hover{
 	-webkit-box-shadow: 0 0 6px white;
 	-moz-box-shadow: 0 0 6px white;
 	box-shadow: 0 0 6px white;
 }
 
-.iconminus{
+div.iconminus{
 	background-image: url('../images/general/bttn/minus.png');
 }
-.iconplus{
+div.iconplus{
 	background-image: url('../images/general/bttn/plus.png');
 }
-.iconmenu{
+div.iconmenu{
 	background-image: url('../images/general/bttn/menu.png');
 }
-.iconmenu_b{
+div.iconmenu_b{
 	background-image: url('../images/general/bttn/menu.png');
 	background-color: #5572AA;
 }
-.arrowup{
+div.arrowup{
 	background-image: url('../images/general/bttn/arrowup.png');
 }
-.arrowdown{
+div.arrowdown{
 	background-image: url('../images/general/bttn/arrowdown.png');
 }
-.arrowleft{
+div.arrowleft{
 	background-image: url('../images/general/bttn/arrowleft.png');
 }
-.arrowright{
+div.arrowright{
 	background-image: url('../images/general/bttn/arrowright.png');
 }
-.fullscreen{
+div.fullscreen{
 	background-image: url('../images/general/bttn/fullscreen.png');
 }
-.iconhelp{
+div.iconhelp{
 	background-image: url('../images/general/bttn/help.png');
 }
-.iconconfig{
+div.iconconfig{
 	background-image: url('../images/general/bttn/config.png');
 }
-.iconconfig_hl{
+div.iconconfig_hl{
 	background-image: url('../images/general/bttn/config_hl.png');
 }
-
-.iconsound{
-	background-image: url('../images/general/bttn/sound.png');
-}
-.iconmute{
-	background-image: url('../images/general/bttn/mute.png');
-}
-.iconreset{
-	background-image: url('../images/general/bttn/reset.png');
-}
-.iconsnooze{
-	background-image: url('../images/general/bttn/snooze.png');
-}
-.iconclose{
-	background-image: url('../images/general/bttn/close.png');
-}
-.iconmove{
-	background-image: url('../images/general/bttn/move.png');
-	cursor: move;
-}
-
-.filterclosed{
+div.filterclosed{
 	height: 9px;
 	width: 9px;
 	background-image: url('../images/general/closed.gif');
@@ -228,7 +209,7 @@ div.zabbix_logo{
 	cursor:pointer;
 }
 
-.filteropened{
+div.filteropened{
 	height: 9px;
 	width: 9px;
 	background-image: url('../images/general/opened.gif');
@@ -236,86 +217,99 @@ div.zabbix_logo{
 	cursor:pointer;
 }
 
-.iconerror{
+div.iconsound{
+	background-image: url('../images/general/bttn/sound.png');
+}
+div.iconmute{
+	background-image: url('../images/general/bttn/mute.png');
+}
+div.iconreset{
+	background-image: url('../images/general/bttn/reset.png');
+}
+div.iconsnooze{
+	background-image: url('../images/general/bttn/snooze.png');
+}
+div.iconclose{
+	background-image: url('../images/general/bttn/close.png');
+}
+div.iconmove{
+	background-image: url('../images/general/bttn/move.png');
+	cursor: move;
+}
+
+
+div.iconerror{
 	height: 14px;
 	width: 14px;
 	background-image: url('../images/general/error_icon.png');
 	background-repeat:no-repeat;
 	cursor:pointer;
 }
-.iconok{
+div.iconok{
 	height: 14px;
 	width: 14px;
 	background-image: url('../images/general/ok_icon.png');
 	background-repeat:no-repeat;
 }
 
-.iconunknown{
-	height: 14px;
-	width: 14px;
-	background-image: url('../images/general/unknown_icon.png');
-	background-repeat:no-repeat;
-	cursor: pointer;
-}
-
 /* <status icons> */
-.iconzbxunknown{
+div.iconzbxunknown{
 	height: 14px;
 	width: 14px;
 	background-image: url('../images/general/zabbix_unknown.png');
 	background-repeat:no-repeat;
 	margin: 0 1px;
 }
-.iconzbxavailable{
+div.iconzbxavailable{
 	height: 14px;
 	width: 14px;
 	background-image: url('../images/general/zabbix_available.png');
 	background-repeat:no-repeat;
 	margin: 0 1px;
 }
-.iconzbxunavailable{
+div.iconzbxunavailable{
 	height: 14px;
 	width: 14px;
 	background-image: url('../images/general/zabbix_unavailable.png');
 	background-repeat:no-repeat;
 	margin: 0 1px;
 }
-.iconsnmpunknown{
+div.iconsnmpunknown{
 	height: 14px;
 	width: 14px;
 	background-image: url('../images/general/snmp_unknown.png');
 	background-repeat:no-repeat;
 	margin: 0 1px;
 }
-.iconsnmpavailable{
+div.iconsnmpavailable{
 	height: 14px;
 	width: 14px;
 	background-image: url('../images/general/snmp_available.png');
 	background-repeat:no-repeat;
 	margin: 0 1px;
 }
-.iconsnmpunavailable{
+div.iconsnmpunavailable{
 	height: 14px;
 	width: 14px;
 	background-image: url('../images/general/snmp_unavailable.png');
 	background-repeat:no-repeat;
 	margin: 0 1px;
 }
-.iconipmiunknown{
+div.iconipmiunknown{
 	height: 14px;
 	width: 14px;
 	background-image: url('../images/general/ipmi_unknown.png');
 	background-repeat:no-repeat;
 	margin: 0 1px;
 }
-.iconipmiavailable{
+div.iconipmiavailable{
 	height: 14px;
 	width: 14px;
 	background-image: url('../images/general/ipmi_available.png');
 	background-repeat:no-repeat;
 	margin: 0 1px;
 }
-.iconipmiunavailable{
+div.iconipmiunavailable{
 	height: 14px;
 	width: 14px;
 	background-image: url('../images/general/ipmi_unavailable.png');
@@ -325,7 +319,7 @@ div.zabbix_logo{
 /* </status icons> */
 
 
-.dbl_arrow_down{
+div.dbl_arrow_down{
 	height: 10px;
 	width: 9px;
 	background-image: url('../images/general/dbl_arrow_down2.png');
@@ -333,7 +327,7 @@ div.zabbix_logo{
 	display:block;
 	cursor:pointer;
 }
-.dbl_arrow_up{
+div.dbl_arrow_up{
 	height: 10px;
 	width: 9px;
 	background-image: url('../images/general/dbl_arrow_up2.png');
@@ -341,105 +335,182 @@ div.zabbix_logo{
 	cursor:pointer;
 }
 
-.sla_green{
+div.sla_green{
 	height: 15px;
 	background-image: url('../images/gradients/sla_green15.png');
 	background-repeat:repeat-x;
 }
-.sla_red{
+div.sla_red{
 	height: 15px;
 	background-image: url('../images/gradients/sla_red15.png');
 	background-repeat:repeat-x;
 }
 
-.icon_sortup{
+div.icon_sortup{
 	height: 16px;
 	width: 19px;
 	background-image: url('../images/general/sort_up.gif');
 	background-repeat:no-repeat;
 	cursor: pointer;
 }
-.icon_sortdown{
+div.icon_sortdown{
 	height: 16px;
 	width: 19px;
 	background-image: url('../images/general/sort_down.gif');
 	background-repeat:no-repeat;
 	cursor: pointer;
 }
+
 /********* DIV IMG END *********/
 
-/********** <OBJECT LIST> ************/
-.objectgroup { padding: 4px; margin: 5px 0px 5px 0px; }
-.border_dotted{ border: 1px dotted #6C80B9; }
-.border_none{ border: 0px; }
+.link{
+	cursor: pointer;
+	color:#3C3089;
+	text-decoration: underline;
+}
 
-.footer { padding-left: 1.6em; }
-.footer .dt { float: left; width: 20%; }
-.footer .dt input.main{ border-color: #FFAA33;}
-.footer .dt input.main:hover{ border-color: #DD7711; }
-.footer .dd { width: 70%; padding-left: 21%; }
-/***************************/
+.link:hover{
+	color:#6C80B9;
+	text-decoration: underline;
+}
 
-.link{ cursor: pointer; color:#3C3089; text-decoration: underline; }
-.link:hover{ color:#6C80B9; text-decoration: underline; }
+.darklink{
+	color:#3C3089;
+	cursor: pointer;
+	text-decoration: underline;
+}
 
-.darklink{ color:#3C3089; cursor: pointer; text-decoration: underline; }
-.darklink:hover{ color:#6C80B9; text-decoration: underline; }
+.darklink:hover{
+	color:#6C80B9;
+	text-decoration: underline;
+}
 
-.blacklink{ color:#1A1A1A; cursor: pointer; text-decoration: underline;}
-.blacklink:hover{ color:#3A3A3A; }
+.blacklink{
+	color:#1A1A1A;
+	cursor: pointer;
+	text-decoration: underline;
+}
 
-.whitelink{ color:#F3F3F3; cursor: pointer; text-decoration: underline; }
-.whitelink:hover { color:#DADADA; }
+.blacklink:hover{
+	color:#3A3A3A;
+}
 
-.link_menu{ color: #3C3089; cursor: pointer; text-decoration: none; border-bottom: 1px dotted #3C3089; }
-.link_menu:hover { color: #6C80B9; text-decoration: none; border-bottom: 1px dotted #6C80B9; }
+.whitelink{
+	color:#F3F3F3;
+	cursor: pointer;
+	text-decoration: underline;
+}
 
-.underline{ text-decoration: underline; }
+.whitelink:hover{
+	color:#DADADA;
+}
 
-span.footer_sign{ padding-right: 5px; padding-left: 5px; }
-span.divider{ color: #000000; font-weight: normal;}
+.link_menu{
+	color: #3C3089;
+	cursor: pointer;
+	text-decoration: none;
+	border-bottom: 1px dotted #3C3089;
+}
+
+.link_menu:hover{
+	color: #6C80B9;
+	text-decoration: none;
+	border-bottom: 1px dotted #6C80B9;
+}
+
+.underline{
+	text-decoration: underline;
+}
+
+span.footer_sign{
+	padding-right: 5px;
+	padding-left: 5px;
+}
+
+span.divider{
+	color: #000000;
+	font-family: Verdana, Arial, sans-serif;
+	font-size: 10px;
+	font-weight: normal;
+}
 
 /********** <SUBFILTER BUTTONS> ************/
-span.subfilter_enabled{ color: #00AA00; cursor: pointer; text-decoration: none; border-bottom: 1px dashed; }
-span.subfilter_enabled:hover{ color:#44CC44; }
-span.subfilter_disabled{ color:maroon; cursor: pointer; text-decoration: none; border-bottom: 1px dashed; }
-span.subfilter_disabled:hover{ color:#CC4444; }
-span.subfilter_inactive{ color: #777777; }
-span.subfilter_inactive:hover{ color: #999999; }
-span.subfilter_active{ color: teal; }
+span.subfilter_enabled{
+	color: #00AA00;
+	cursor: pointer;
+	text-decoration: none;
+	border-bottom: 1px dashed;
+}
+span.subfilter_enabled:hover{
+	color:#44CC44;
+}
+span.subfilter_disabled{
+	color:maroon;
+	cursor: pointer;
+	text-decoration: none;
+	border-bottom: 1px dashed;
+}
+span.subfilter_disabled:hover{
+	color:#CC4444;
+}
+span.subfilter_inactive{
+	color: #777777;
+}
+span.subfilter_inactive:hover{
+
+	color: #999999;
+}
+span.subfilter_active{
+	color: teal;
+}
 /********** </SUBFILTER BUTTONS> ************/
 
 /********** REQUIREMENTS TABLE *************/
 
-span.ok{ white-space: normal; color: #00AA00; font-weight: bold; }
-span.fail{ color: #AA0000; font-weight: bold; }
-span.fail:hover{ color:	#AA0000; }
-
-span.green { color: #00AA00; }
-span.red { color: #AA0000; }
-span.orange { color: #EE6000; }
-span.blue { color: #0033FF; }
-span.info{ font-weight: bold; color: #444444; font-size: 11px; }
-span.discoveryName{ color: #999900; }
-
-
-/* Sortable */
-.column{ margin: 5px 0px 5px 5px; min-width: 240px; padding-bottom: 100px; }
-
-.column .widget{ padding: 2px; margin-bottom: 5px; overflow: hidden;}
-
-.column .widget .header{
-	height: 18px;
-	line-height: 18px;
-	font-size: 1.1em;
-	font-weight: bold;
-	padding: 3px;
-	margin-bottom: 2px;
+span.ok{
+	white-space: normal;
+	color:		#00AA00;
+	font-weight:	bold;
 }
 
-.widget .header .menu_icon{ float: right; margin-right: 2px; }
+span.fail{
+	color:		#AA0000;
+	font-weight:	bold;
+}
+span.fail:hover{
+	color:		#AA0000;
+}
 
-.widget .footer { color: white; line-height: 12px; height: 12px; padding: 4px 4px; margin-top: 2px;}
+span.green{
+	color:		#00AA00;
+}
 
-.inlineblock{ display: inline-block; }
+span.red{
+	color:		#AA0000;
+}
+
+span.orange{
+	color:		#EE6000;
+}
+
+span.blue{
+	color:		#0033FF;
+}
+
+span.info{
+ font-weight: bold;
+	color: #444444;
+	font-size: 11px;
+}
+
+.biglink{
+	font-weight: bold;
+	font-size: 13px;
+	color:#3C3089;
+	cursor: pointer;
+	text-decoration: underline;
+}
+.biglink:hover{
+	color:#6C80B9;
+	text-decoration: underline;
+}

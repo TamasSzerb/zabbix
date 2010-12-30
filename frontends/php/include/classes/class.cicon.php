@@ -19,9 +19,9 @@
 **/
 ?>
 <?php
-class CIcon extends CSpan{
+class CIcon extends CDiv{
 	public function __construct($title, $class, $action=''){
-		parent::__construct(SPACE, $class.' menu_icon shadow');
+		parent::__construct(SPACE, $class.' menu_icon');
 
 		$this->setAttribute('title', $title);
 

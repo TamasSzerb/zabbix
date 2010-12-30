@@ -27,7 +27,13 @@ class CColorCell extends CDiv{
 		$this->setAttribute('title', '#'.$value);
 		$this->setAttribute('style', 'display: inline; width: 10px; height: 10px; text-decoration: none; border: 1px solid black; background-color: #'.$value);
 
-		$this->setAttribute('onclick', $action);
+		$this->setAction($action);
+	}
+
+	public function setAction($action=null){
+		if(!isset($action)) return false;
+
+		return $this->addAction('onclick', $action);
 	}
 }
 ?>

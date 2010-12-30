@@ -471,8 +471,8 @@ class CStringParser {
 	private function saveSymbols() {
 		//$this->saveDebug("Saving symbol {$this->levelData[$this->currentLevel]['levelType']}\n");
 
-//		$strStart = $this->levelData[$this->currentLevel]['openSymbolNum'];
-//		$strEnd = $this->levelData[$this->currentLevel]['closeSymbolNum'];
+		$strStart = $this->levelData[$this->currentLevel]['openSymbolNum'];
+		$strEnd = $this->levelData[$this->currentLevel]['closeSymbolNum'];
 		//$this->levelData[$this->currentLevel]['value'] = mb_substr($this->expression, $strStart, $strEnd-$strStart+1); // should be changed to zbx_substr
 
 		//$this->saveDebug(print_r($this->levelData, true));
@@ -667,10 +667,11 @@ class CStringParser {
                                 if(!is_callable($customFunction)) continue;
 
         			$ret = call_user_func_array($customFunction, Array(&$parent, &$levelData, $index, &$this->expression, &$this->ess[$levelData['levelType']]));
+
         			if(isset($ret['valid']) && $ret['valid'] === false && isset($ret['errArray']) && is_array($ret['errArray']) && isset($ret['errArray']['errorCode']) && isset($ret['errArray']['errStart']) && isset($ret['errArray']['errEnd'])) {
         				$this->errors[] = $ret['errArray'];
 	        		}
-			}
+                        }
 		}
 
 		if(isset($levelData['parts']) && is_array($levelData['parts']))
@@ -865,63 +866,52 @@ function triggerExpressionValidateHost(&$parent, &$levelData, $index, &$expressi
 }
 
 function triggerExpressionValidateItemKey(&$parent, &$levelData, $index, &$expression, &$rules) {
-	if(!isset($parent['indexes']['keyName']) || !count($parent['indexes']['keyName'])){
-		return;
-	}
+        if(!isset($parent['indexes']['keyName']) || !count($parent['indexes']['keyName']))
+                return;
 
-	reset($parent['indexes']['keyName']);
+        reset($parent['indexes']['keyName']);
 	$kData =& $parent['indexes']['keyName'][key($parent['indexes']['keyName'])];
-	$keyName = zbx_substr($expression, $kData['openSymbolNum'] + zbx_strlen($kData['openSymbol']),
-			$kData['closeSymbolNum'] - $kData['openSymbolNum'] - zbx_strlen($kData['closeSymbol']));
+	$keyName = zbx_substr($expression, $kData['openSymbolNum']+zbx_strlen($kData['openSymbol']), $kData['closeSymbolNum']-$kData['openSymbolNum']-zbx_strlen($kData['closeSymbol']));
 
-	if(isset($parent['indexes']['keyParams']) && count($parent['indexes']['keyParams']) > 0){
-		reset($parent['indexes']['keyParams']);
-		$kpData =& $parent['indexes']['keyParams'][key($parent['indexes']['keyParams'])];
-		$keyParams = isset($parent['indexes']['keyParams']) &&
-				count($parent['indexes']['keyParams']) > 0 ? zbx_substr($expression, $kpData['openSymbolNum'],
-				$kpData['closeSymbolNum'] - $kpData['openSymbolNum'] + zbx_strlen($kpData['closeSymbol'])) : '';
-	}
-	else{
-		$keyParams = '';
-	}
+	if(isset($parent['indexes']['keyParams']) && count($parent['indexes']['keyParams']) > 0) {
+	        reset($parent['indexes']['keyParams']);
+        	$kpData =& $parent['indexes']['keyParams'][key($parent['indexes']['keyParams'])];
+        	$keyParams = isset($parent['indexes']['keyParams']) && count($parent['indexes']['keyParams']) > 0 ? zbx_substr($expression, $kpData['openSymbolNum'], $kpData['closeSymbolNum']-$kpData['openSymbolNum']+zbx_strlen($kpData['closeSymbol'])) : '';
+        }else{
+                $keyParams = '';
+        }
 
-	reset($parent['indexes']['server']);
+        reset($parent['indexes']['server']);
 	$hData =& $parent['indexes']['server'][key($parent['indexes']['server'])];
-	if(isset($hData['levelDBData']) && $hData['levelDBData']['hostid'] > 0){
+	if(isset($hData['levelDBData']) && $hData['levelDBData']['hostid'] > 0) {
 		$hostId = $hData['levelDBData']['hostid'];
-	}
-	else{
+	}else{
 		return;
 	}
 
-	if(ZAPCAT_COMPATIBILITY){
+	if(ZAPCAT_COMPATIBILITY)
 		$keyParams = str_replace(',,', '][', $keyParams);
+		
+	$itemFound = CItem::get(Array('filter' => Array('hostid' => $hostId, 'key_' => $keyName.$keyParams), 'output' => API_OUTPUT_EXTEND, 'webitems' => true));
+	if(count($itemFound) > 0) {
+		$itemFound = array_shift($itemFound);
+		if(isset($itemFound['itemid']) && $itemFound['itemid'] > 0) $itemId = $itemFound['itemid'];
 	}
 
-	$itemFound = CItem::get(array(
-		'filter' => array(
-			'hostid' => $hostId,
-			'key_' => $keyName.$keyParams
-		),
-		'output' => API_OUTPUT_EXTEND,
-		'webitems' => true
-	));
-	$itemFound = reset($itemFound);
-	if($itemFound){
+	if(!isset($itemId)) {
+		return Array(
+				'valid' => false,
+				'errArray' => Array(
+					'errorCode' => 9,
+					'errorMsg' => 'Key of item host does not exists.'.$levelData['levelType'].'. Check expression starting from symbol #'.($levelData['openSymbolNum']+1).' up to symbol #'.$levelData['closeSymbolNum'].'.',
+					'errStart' => $levelData['openSymbolNum'],
+					'errEnd' => $levelData['closeSymbolNum'],
+					'errValues' => Array($keyName.$keyParams))
+				);
+	}else{
+	        $levelData['levelDBData'] = Array();
 		$levelData['levelDBData'] = $itemFound;
-		$levelData['levelDBData']['itemid'] = $itemFound['itemid'];
-	}
-	else{
-		return array(
-			'valid' => false,
-			'errArray' => array(
-				'errorCode' => 9,
-				'errorMsg' => 'Key of item host does not exists.'.$levelData['levelType'].'. Check expression starting from symbol #'.($levelData['openSymbolNum']+1).' up to symbol #'.$levelData['closeSymbolNum'].'.',
-				'errStart' => $levelData['openSymbolNum'],
-				'errEnd' => $levelData['closeSymbolNum'],
-				'errValues' => array($keyName.$keyParams)
-			)
-		);
+		$levelData['levelDBData']['itemid'] = $itemId;
 	}
 }
 

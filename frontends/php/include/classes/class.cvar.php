@@ -40,16 +40,14 @@ class CVar{
 
 	public function parseValue($name, $value){
 		if(is_array($value)){
-			foreach($value as $key => $item){
+			foreach($value as $itemid => $item){
 				if( is_null($item) ) continue;
-				$this->parseValue($name.'['.$key.']', $item);
+				$this->parseValue($name.'['.$itemid.']', $item);
 			}
 			return;
 		}
 
-		$hiddenVar = new CInput('hidden', $name, zbx_htmlstr($value));
-		$hiddenVar->removeAttribute('class');
-		$this->var_container[] = $hiddenVar;
+		array_push($this->var_container, new CVarTag($name, $value));
 	}
 
 	public function toString(){

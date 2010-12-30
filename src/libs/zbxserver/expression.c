@@ -23,59 +23,8 @@
 #include "db.h"
 #include "log.h"
 #include "zlog.h"
-#include "zbxalgo.h"
 
-/******************************************************************************
- *                                                                            *
- * Function: DBget_macro_value_by_triggerid                                   *
- *                                                                            *
- * Purpose: get value of a user macro                                         *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value:                                                              *
- *                                                                            *
- * Author: Alexander Vladishev                                                *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-static void	DBget_macro_value_by_triggerid(zbx_uint64_t triggerid, const char *macro, char **replace_to)
-{
-	const char		*__function_name = "DBget_macro_value_by_triggerid";
-
-	DB_RESULT		result;
-	DB_ROW			row;
-	zbx_vector_uint64_t	hostids;
-	zbx_uint64_t		hostid;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() triggerid:" ZBX_FS_UI64, __function_name, triggerid);
-
-	zbx_vector_uint64_create(&hostids);
-	zbx_vector_uint64_reserve(&hostids, 8);
-
-	result = DBselect(
-			"select distinct i.hostid"
-			" from items i,functions f"
-			" where f.itemid=i.itemid"
-				" and f.triggerid=" ZBX_FS_UI64,
-			triggerid);
-
-	while (NULL != (row = DBfetch(result)))
-	{
-		ZBX_STR2UINT64(hostid, row[0]);
-		zbx_vector_uint64_append(&hostids, hostid);
-	}
-	DBfree_result(result);
-
-	zbx_vector_uint64_sort(&hostids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
-
-	DCget_user_macro(hostids.values, hostids.values_num, macro, replace_to);
-
-	zbx_vector_uint64_destroy(&hostids);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
-}
+static DB_MACROS	*macros = NULL;
 
 /******************************************************************************
  *                                                                            *
@@ -889,7 +838,7 @@ static void	item_description(char **data, const char *key, zbx_uint64_t hostid)
 		{
 			c = *++n;
 			*n = '\0';
-			DCget_user_macro(&hostid, 1, m - 1, &replace_to);
+			zbxmacros_get_value(macros, &hostid, 1, m - 1, &replace_to);
 
 			if (NULL != replace_to)
 			{
@@ -1002,8 +951,8 @@ static int	DBget_trigger_value_by_triggerid(zbx_uint64_t triggerid, char **repla
 {
 	DB_RESULT	result;
 	DB_ROW		row;
-	DC_HOST		dc_host;
-	char		expression[TRIGGER_EXPRESSION_LEN_MAX], *key;
+	DB_ITEM		item;
+	char		expression[TRIGGER_EXPRESSION_LEN_MAX];
 	zbx_uint64_t	functionid, proxy_hostid;
 	int		ret = FAIL;
 
@@ -1014,61 +963,46 @@ static int	DBget_trigger_value_by_triggerid(zbx_uint64_t triggerid, char **repla
 		return ret;
 
 	result = DBselect(
-			"select i.description,i.key_,h.hostid,h.host,"
-				"ni.useip,ni.ip,ni.dns,h.proxy_hostid"
-			" from functions f,hosts h,items i"
-				" left join interface ni"
-					" on ni.interfaceid=i.interfaceid"
-			" where f.itemid=i.itemid"
-				" and i.hostid=h.hostid"
+			"select %s,h.proxy_hostid"
+			" from %s,functions f"
+			" where h.hostid=i.hostid"
+				" and i.itemid=f.itemid"
 				" and f.functionid=" ZBX_FS_UI64,
-			functionid);
+			ZBX_SQL_ITEM_FIELDS, ZBX_SQL_ITEM_TABLES, functionid);
 
 	if (NULL != (row = DBfetch(result)))
 	{
+		DBget_item_from_db(&item, row);
+
 		switch (request)
 		{
 			case ZBX_REQUEST_HOST_NAME:
-				*replace_to = zbx_dsprintf(*replace_to, "%s", row[3]);
+				*replace_to = zbx_strdup(*replace_to, item.host_name);
 				ret = SUCCEED;
 				break;
 			case ZBX_REQUEST_HOST_IPADDRESS:
-				*replace_to = zbx_dsprintf(*replace_to, "%s", row[5]);
+				*replace_to = zbx_strdup(*replace_to, item.host_ip);
 				ret = SUCCEED;
 				break;
 			case ZBX_REQUEST_HOST_DNS:
-				*replace_to = zbx_dsprintf(*replace_to, "%s", row[6]);
+				*replace_to = zbx_strdup(*replace_to, item.host_dns);
 				ret = SUCCEED;
 				break;
 			case ZBX_REQUEST_HOST_CONN:
-				*replace_to = zbx_dsprintf(*replace_to, "%s",
-						atoi(row[4]) ? row[5] : row[6]);
+				*replace_to = zbx_strdup(*replace_to, item.useip == 1 ? item.host_ip : item.host_dns);
 				ret = SUCCEED;
 				break;
 			case ZBX_REQUEST_ITEM_NAME:
+				*replace_to = zbx_strdup(*replace_to, item.description);
+				item_description(replace_to, item.key, item.hostid);
+				ret = SUCCEED;
+				break;
 			case ZBX_REQUEST_ITEM_KEY:
-				memset(&dc_host, 0, sizeof(dc_host));
-				ZBX_STR2UINT64(dc_host.hostid, row[2]);
-				strscpy(dc_host.host, row[3]);
-
-				key = strdup(row[1]);
-				substitute_simple_macros(NULL, NULL, &dc_host, NULL, &key, MACRO_TYPE_ITEM_KEY, NULL, 0);
-
-				if (ZBX_REQUEST_ITEM_NAME == request)
-				{
-					*replace_to = zbx_dsprintf(*replace_to, "%s", row[0]);
-					item_description(replace_to, key, dc_host.hostid);
-					zbx_free(key);
-				}
-				else /* ZBX_REQUEST_ITEM_KEY */
-				{
-					zbx_free(*replace_to);
-					*replace_to = key;
-				}
+				*replace_to = zbx_strdup(*replace_to, item.key);
 				ret = SUCCEED;
 				break;
 			case ZBX_REQUEST_PROXY_NAME:
-				ZBX_DBROW2UINT64(proxy_hostid, row[7]);
+				ZBX_STR2UINT64(proxy_hostid, row[ZBX_SQL_ITEM_FIELDS_NUM]);
 
 				if (0 == proxy_hostid)
 				{
@@ -1296,140 +1230,6 @@ static int	DBget_drule_value_by_event(DB_EVENT *event, char **replace_to, const 
 
 /******************************************************************************
  *                                                                            *
- * Function: DBget_history_value                                              *
- *                                                                            *
- * Purpose: retrieve value by clock                                           *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value: upon successful completion return SUCCEED                    *
- *               otherwise FAIL                                               *
- *                                                                            *
- * Author: Alexander Vladishev                                                *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-static int	DBget_history_value(zbx_uint64_t itemid, char **replace_to,
-		const char *tablename, const char *fieldname, int clock, int ns)
-{
-	DB_RESULT	result;
-	DB_ROW		row;
-	char		sql[MAX_STRING_LEN];
-	int		max_clock = 0, ret = FAIL;
-
-	if (0 == CONFIG_NS_SUPPORT)
-	{
-		zbx_snprintf(sql, sizeof(sql),
-				"select %s"
-				" from %s"
-				" where itemid=" ZBX_FS_UI64
-					" and clock<=%d"
-				" order by itemid,clock desc",
-				fieldname, tablename, itemid, clock);
-
-		result = DBselectN(sql, 1);
-
-		if (NULL != (row = DBfetch(result)))
-		{
-			*replace_to = zbx_strdup(*replace_to, row[0]);
-			ret = SUCCEED;
-		}
-
-		DBfree_result(result);
-
-		return ret;
-	}
-
-	zbx_snprintf(sql, sizeof(sql),
-			"select %s"
-			" from %s"
-			" where itemid=" ZBX_FS_UI64
-				" and clock=%d"
-				" and ns=%d",
-			fieldname, tablename, itemid, clock, ns);
-
-	result = DBselectN(sql, 1);
-
-	if (NULL != (row = DBfetch(result)))
-	{
-		*replace_to = zbx_strdup(*replace_to, row[0]);
-		ret = SUCCEED;
-	}
-
-	DBfree_result(result);
-
-	if (SUCCEED == ret)
-		return ret;
-
-	result = DBselect(
-			"select distinct clock"
-			" from %s"
-			" where itemid=" ZBX_FS_UI64
-				" and clock=%d"
-				" and ns<%d",
-			tablename, itemid, clock, ns);
-
-	if (NULL != (row = DBfetch(result)) && SUCCEED != DBis_null(row[0]))
-		max_clock = atoi(row[0]);
-
-	DBfree_result(result);
-
-	if (0 == max_clock)
-	{
-		result = DBselect(
-				"select max(clock)"
-				" from %s"
-				" where itemid=" ZBX_FS_UI64
-					" and clock<%d",
-				tablename, itemid, clock);
-
-		if (NULL != (row = DBfetch(result)) && SUCCEED != DBis_null(row[0]))
-			max_clock = atoi(row[0]);
-
-		DBfree_result(result);
-	}
-
-	if (0 == max_clock)
-		return ret;
-
-	if (clock == max_clock)
-	{
-		zbx_snprintf(sql, sizeof(sql),
-				"select %s"
-				" from %s"
-				" where itemid=" ZBX_FS_UI64
-					" and clock=%d"
-					" and ns<%d"
-				" order by itemid,clock desc,ns desc",
-				fieldname, tablename, itemid, clock, ns);
-	}
-	else
-	{
-		zbx_snprintf(sql, sizeof(sql),
-				"select %s"
-				" from %s"
-				" where itemid=" ZBX_FS_UI64
-					" and clock=%d"
-				" order by itemid,clock desc,ns desc",
-				fieldname, tablename, itemid, max_clock);
-	}
-
-	result = DBselectN(sql, 1);
-
-	if (NULL != (row = DBfetch(result)))
-	{
-		*replace_to = zbx_strdup(*replace_to, row[0]);
-		ret = SUCCEED;
-	}
-
-	DBfree_result(result);
-
-	return ret;
-}
-
-/******************************************************************************
- *                                                                            *
  * Function: DBget_history_log_value_by_triggerid                             *
  *                                                                            *
  * Purpose: retrieve a particular attribute of a log value                    *
@@ -1444,14 +1244,16 @@ static int	DBget_history_value(zbx_uint64_t itemid, char **replace_to,
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	DBget_history_log_value_by_triggerid(zbx_uint64_t triggerid,
-		char **replace_to, int N_functionid, const char *fieldname, int clock, int ns)
+static int	DBget_history_log_value_by_triggerid(zbx_uint64_t triggerid, char **replace_to, int N_functionid, const char *fieldname)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
+	DB_RESULT	h_result;
+	DB_ROW		h_row;
 	char		expression[TRIGGER_EXPRESSION_LEN_MAX];
-	zbx_uint64_t	functionid, itemid;
+	zbx_uint64_t	functionid;
 	int		value_type, ret = FAIL;
+	char		sql[MAX_STRING_LEN];
 
 	if (FAIL == DBget_trigger_expression_by_triggerid(triggerid, expression, sizeof(expression)))
 		return FAIL;
@@ -1465,11 +1267,25 @@ static int	DBget_history_log_value_by_triggerid(zbx_uint64_t triggerid,
 
 	if (NULL != (row = DBfetch(result)) && SUCCEED != DBis_null(row[0]))
 	{
-		ZBX_STR2UINT64(itemid, row[0]);
 		value_type = atoi(row[1]);
 
 		if (value_type == ITEM_VALUE_TYPE_LOG)
-			ret = DBget_history_value(itemid, replace_to, "history_log", fieldname, clock, ns);
+		{
+			zbx_snprintf(sql, sizeof(sql), "select %s from history_log"
+					" where itemid=%s order by id desc",
+					fieldname,
+					row[0]);
+
+			h_result = DBselectN(sql, 1);
+
+			if (NULL != (h_row = DBfetch(h_result)) && SUCCEED != DBis_null(h_row[0]))
+			{
+				*replace_to = zbx_strdup(*replace_to, h_row[0]);
+				ret = SUCCEED;
+			}
+
+			DBfree_result(h_result);
+		}
 	}
 
 	DBfree_result(result);
@@ -1520,7 +1336,7 @@ static int	DBget_item_lastvalue_by_triggerid(zbx_uint64_t triggerid, char **last
 	if (NULL != (row = DBfetch(result)) && SUCCEED != DBis_null(row[4]))
 	{
 		value_type = atoi(row[1]);
-		ZBX_DBROW2UINT64(valuemapid, row[2]);
+		ZBX_STR2UINT64(valuemapid, row[2]);
 
 		switch (value_type)
 		{
@@ -1581,12 +1397,14 @@ static int	DBget_item_lastvalue_by_triggerid(zbx_uint64_t triggerid, char **last
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	DBget_item_value_by_triggerid(zbx_uint64_t triggerid, char **value, int N_functionid, int clock, int ns)
+static int	DBget_item_value_by_triggerid(zbx_uint64_t triggerid, char **value, int N_functionid, int clock)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
+	DB_RESULT	h_result;
+	DB_ROW		h_row;
 	char		expression[TRIGGER_EXPRESSION_LEN_MAX];
-	zbx_uint64_t	functionid, itemid, valuemapid;
+	zbx_uint64_t	functionid, valuemapid;
 	int		value_type, ret = FAIL;
 	char		tmp[MAX_STRING_LEN];
 
@@ -1605,17 +1423,30 @@ static int	DBget_item_value_by_triggerid(zbx_uint64_t triggerid, char **value, i
 
 	if (NULL != (row = DBfetch(result)))
 	{
-		ZBX_STR2UINT64(itemid, row[0]);
 		value_type = atoi(row[1]);
-		ZBX_DBROW2UINT64(valuemapid, row[2]);
+		ZBX_STR2UINT64(valuemapid, row[2]);
 
-		if (SUCCEED == (ret = DBget_history_value(itemid, value, get_table_by_value_type(value_type), "value", clock, ns)))
+		zbx_snprintf(tmp, sizeof(tmp), "select value from %s where itemid=%s and clock<=%d order by itemid,clock desc",
+				get_table_by_value_type(value_type), row[0], clock);
+
+		h_result = DBselectN(tmp, 1);
+		if (NULL != (h_row = DBfetch(h_result)))
 		{
 			switch (value_type)
 			{
-				case ITEM_VALUE_TYPE_FLOAT:
-				case ITEM_VALUE_TYPE_UINT64:
-					zbx_strlcpy(tmp, *value, sizeof(tmp));
+				case ITEM_VALUE_TYPE_LOG:
+				case ITEM_VALUE_TYPE_TEXT:
+					*value = zbx_strdup(*value, h_row[0]);
+					break;
+				case ITEM_VALUE_TYPE_STR:
+					zbx_strlcpy(tmp, h_row[0], sizeof(tmp));
+
+					replace_value_by_map(tmp, sizeof(tmp), valuemapid);
+
+					*value = zbx_strdup(*value, tmp);
+					break;
+				default:
+					zbx_strlcpy(tmp, h_row[0], sizeof(tmp));
 
 					if (ITEM_VALUE_TYPE_FLOAT == value_type)
 						del_zeroes(tmp);
@@ -1624,17 +1455,10 @@ static int	DBget_item_value_by_triggerid(zbx_uint64_t triggerid, char **value, i
 
 					*value = zbx_strdup(*value, tmp);
 					break;
-				case ITEM_VALUE_TYPE_STR:
-					zbx_strlcpy(tmp, *value, sizeof(tmp));
-
-					replace_value_by_map(tmp, sizeof(tmp), valuemapid);
-
-					*value = zbx_strdup(*value, tmp);
-					break;
-				default:
-					;
 			}
+			ret = SUCCEED;
 		}
+		DBfree_result(h_result);
 	}
 	DBfree_result(result);
 
@@ -1699,17 +1523,16 @@ static int	get_escalation_history(DB_EVENT *event, DB_ESCALATION *escalation, ch
 
 	result = DBselect("select a.clock,a.status,m.description,a.sendto,a.error,a.esc_step,a.userid"
 			" from alerts a"
-			" left join media_type m on m.mediatypeid=a.mediatypeid"
+			" left join media_type m on m.mediatypeid = a.mediatypeid"
 			" where a.eventid=" ZBX_FS_UI64 " and a.alerttype=%d order by a.clock",
 			escalation != NULL ? escalation->eventid : event->eventid,
 			ALERT_TYPE_MESSAGE);
 
-	while (NULL != (row = DBfetch(result)))
-	{
+	while (NULL != (row = DBfetch(result))) {
 		now		= atoi(row[0]);
 		status		= atoi(row[1]);
 		esc_step	= atoi(row[5]);
-		ZBX_DBROW2UINT64(userid, row[6]);
+		ZBX_STR2UINT64(userid, row[6]);
 
 		if (esc_step != 0)
 			zbx_snprintf_alloc(&buf, &buf_allocated, &buf_offset, 16, "%d. ", esc_step);
@@ -1941,12 +1764,7 @@ static int	get_autoreg_value_by_event(DB_EVENT *event, char **replace_to, const 
 
 	if (NULL != (row = DBfetch(result)))
 	{
-		if (SUCCEED == DBis_null(row[0]))
-		{
-			zbx_free(*replace_to);
-		}
-		else
-			*replace_to = zbx_strdup(*replace_to, row[0]);
+		*replace_to = zbx_strdup(*replace_to, row[0]);
 		ret = SUCCEED;
 	}
 	DBfree_result(result);
@@ -1967,7 +1785,6 @@ static int	get_autoreg_value_by_event(DB_EVENT *event, char **replace_to, const 
 #define MVAR_IPADDRESS			"{IPADDRESS}"
 #define MVAR_HOST_DNS			"{HOST.DNS}"
 #define MVAR_HOST_CONN			"{HOST.CONN}"
-#define MVAR_HOST_PORT			"{HOST.PORT}"
 #define MVAR_TIME			"{TIME}"
 #define MVAR_ITEM_LASTVALUE		"{ITEM.LASTVALUE}"
 #define MVAR_ITEM_VALUE			"{ITEM.VALUE}"
@@ -2057,8 +1874,9 @@ static const char	*ex_suffix[EX_SUFFIX_NUM] = {"}", "1}", "2}", "3}", "4}", "5}"
  *           {TRIGGER.NAME}, {TRIGGER.KEY}, {TRIGGER.SEVERITY}                *
  *                                                                            *
  ******************************************************************************/
-int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_host,
-		DB_ESCALATION *escalation, char **data, int macro_type, char *error, int maxerrlen)
+int	substitute_simple_macros(DB_EVENT *event, DB_ITEM *item, DC_HOST *dc_host,
+		DC_ITEM *dc_item, DB_ESCALATION *escalation,
+		char **data, int macro_type, char *error, int maxerrlen)
 {
 	const char	*__function_name = "substitute_simple_macros";
 
@@ -2066,7 +1884,9 @@ int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_
 	const char	*suffix, *m;
 	int		i, n, N_functionid, ret, res = SUCCEED;
 	size_t		len;
-	DC_INTERFACE	interface;
+
+	if (NULL == macros)
+		zbxmacros_init(&macros);
 
 	if (NULL == data || NULL == *data || '\0' == **data)
 	{
@@ -2125,7 +1945,7 @@ int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_
 				if (0 == strcmp(m, MVAR_TRIGGER_NAME))
 				{
 					replace_to = zbx_strdup(replace_to, event->trigger_description);
-					substitute_simple_macros(event, hostid, dc_host, escalation, &replace_to,
+					substitute_simple_macros(event, item, dc_host, dc_item, escalation, &replace_to,
 							MACRO_TYPE_TRIGGER_DESCRIPTION, error, maxerrlen);
 				}
 				else if (0 == strcmp(m, MVAR_TRIGGER_COMMENT))
@@ -2173,42 +1993,38 @@ int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_
 				else if (0 == strcmp(m, MVAR_ITEM_LASTVALUE))
 					ret = DBget_item_lastvalue_by_triggerid(event->objectid, &replace_to, N_functionid);
 				else if (0 == strcmp(m, MVAR_ITEM_VALUE))
-					ret = DBget_item_value_by_triggerid(event->objectid, &replace_to, N_functionid,
-							event->clock, event->ns);
+					ret = DBget_item_value_by_triggerid(event->objectid, &replace_to, N_functionid, event->clock);
 				else if (0 == strcmp(m, MVAR_ITEM_LOG_DATE))
 				{
 					if (SUCCEED == (ret = DBget_history_log_value_by_triggerid(event->objectid, &replace_to,
-									N_functionid, "timestamp", event->clock, event->ns)))
+									N_functionid, "timestamp")))
 						replace_to = zbx_strdup(replace_to, zbx_date2str((time_t)atoi(replace_to)));
 				}
 				else if (0 == strcmp(m, MVAR_ITEM_LOG_TIME))
 				{
 					if (SUCCEED == (ret = DBget_history_log_value_by_triggerid(event->objectid, &replace_to,
-									N_functionid, "timestamp", event->clock, event->ns)))
+									N_functionid, "timestamp")))
 						replace_to = zbx_strdup(replace_to, zbx_time2str((time_t)atoi(replace_to)));
 				}
 				else if (0 == strcmp(m, MVAR_ITEM_LOG_AGE))
 				{
 					if (SUCCEED == (ret = DBget_history_log_value_by_triggerid(event->objectid, &replace_to,
-									N_functionid, "timestamp", event->clock, event->ns)))
+									N_functionid, "timestamp")))
 						replace_to = zbx_strdup(replace_to, zbx_age2str(time(NULL) - atoi(replace_to)));
 				}
 				else if (0 == strcmp(m, MVAR_ITEM_LOG_SOURCE))
-					ret = DBget_history_log_value_by_triggerid(event->objectid, &replace_to,
-							N_functionid, "source", event->clock, event->ns);
+					ret = DBget_history_log_value_by_triggerid(event->objectid, &replace_to, N_functionid, "source");
 				else if (0 == strcmp(m, MVAR_ITEM_LOG_SEVERITY))
 				{
 					if (SUCCEED == (ret = DBget_history_log_value_by_triggerid(event->objectid, &replace_to,
-									N_functionid, "severity", event->clock, event->ns)))
+									N_functionid, "severity")))
 						replace_to = zbx_strdup(replace_to,
 								zbx_item_logtype_string((zbx_item_logtype_t)atoi(replace_to)));
 				}
 				else if (0 == strcmp(m, MVAR_ITEM_LOG_NSEVERITY))
-					ret = DBget_history_log_value_by_triggerid(event->objectid, &replace_to,
-							N_functionid, "severity", event->clock, event->ns);
+					ret = DBget_history_log_value_by_triggerid(event->objectid, &replace_to, N_functionid, "severity");
 				else if (0 == strcmp(m, MVAR_ITEM_LOG_EVENTID))
-					ret = DBget_history_log_value_by_triggerid(event->objectid, &replace_to,
-							N_functionid, "logeventid", event->clock, event->ns);
+					ret = DBget_history_log_value_by_triggerid(event->objectid, &replace_to, N_functionid, "logeventid");
 				else if (0 == strcmp(m, MVAR_DATE))
 					replace_to = zbx_strdup(replace_to, zbx_date2str(time(NULL)));
 				else if (0 == strcmp(m, MVAR_TIME))
@@ -2318,7 +2134,7 @@ int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_
 					{
 						zbx_uint64_t	proxy_hostid;
 
-						ZBX_DBROW2UINT64(proxy_hostid, replace_to);
+						ZBX_STR2UINT64(proxy_hostid, replace_to);
 
 						if (0 == proxy_hostid)
 							replace_to = zbx_strdup(replace_to, "");
@@ -2347,17 +2163,13 @@ int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_
 					ret = get_node_value_by_event(event, &replace_to, "name");
 				else if (0 == strcmp(m, MVAR_HOSTNAME))
 					ret = get_autoreg_value_by_event(event, &replace_to, "host");
-				else if (0 == strcmp(m, MVAR_IPADDRESS))
-					ret = get_autoreg_value_by_event(event, &replace_to, "listen_ip");
-				else if (0 == strcmp(m, MVAR_HOST_PORT))
-					ret = get_autoreg_value_by_event(event, &replace_to, "listen_port");
 				else if (0 == strcmp(m, MVAR_PROXY_NAME))
 				{
 					if (SUCCEED == (ret = get_autoreg_value_by_event(event, &replace_to, "proxy_hostid")))
 					{
 						zbx_uint64_t	proxy_hostid;
 
-						ZBX_DBROW2UINT64(proxy_hostid, replace_to);
+						ZBX_STR2UINT64(proxy_hostid, replace_to);
 
 						if (0 == proxy_hostid)
 							replace_to = zbx_strdup(replace_to, "");
@@ -2377,10 +2189,9 @@ int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_
 				else if (0 == strcmp(m, MVAR_ITEM_LASTVALUE))
 					ret = DBget_item_lastvalue_by_triggerid(event->objectid, &replace_to, N_functionid);
 				else if (0 == strcmp(m, MVAR_ITEM_VALUE))
-					ret = DBget_item_value_by_triggerid(event->objectid, &replace_to, N_functionid,
-							event->clock, event->ns);
+					ret = DBget_item_value_by_triggerid(event->objectid, &replace_to, N_functionid, event->clock);
 				else if (0 == strncmp(m, "{$", 2))	/* user defined macros */
-					DBget_macro_value_by_triggerid(event->objectid, m, &replace_to);
+					zbxmacros_get_value_by_triggerid(macros, event->objectid, m, &replace_to);
 			}
 		}
 		else if (macro_type & MACRO_TYPE_TRIGGER_EXPRESSION)
@@ -2391,54 +2202,57 @@ int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_
 					replace_to = zbx_dsprintf(replace_to, "%d", event->value);
 				else if (0 == strncmp(m, "{$", 2))	/* user defined macros */
 				{
-					DBget_macro_value_by_triggerid(event->objectid, m, &replace_to);
+					zbxmacros_get_value_by_triggerid(macros, event->objectid, m, &replace_to);
 					if (NULL != replace_to && FAIL == (res = is_double_prefix(replace_to)) && NULL != error)
 						zbx_snprintf(error, maxerrlen, "Macro '%s' value is not numeric", m);
 				}
 			}
 		}
-		else if (macro_type & (MACRO_TYPE_ITEM_KEY | MACRO_TYPE_INTERFACE_ADDR))
+		else if (macro_type & (MACRO_TYPE_ITEM_KEY | MACRO_TYPE_HOST_IPMI_IP))
 		{
-			if (0 == strncmp(m, "{$", 2))	/* user defined macros */
-				DCget_user_macro(&dc_host->hostid, 1, m, &replace_to);
-			else if (0 == strcmp(m, MVAR_HOSTNAME))
-				replace_to = zbx_dsprintf(replace_to, "%s", dc_host->host);
-			else if (SUCCEED == DCconfig_get_interface_by_type(&interface, dc_host->hostid, INTERFACE_TYPE_AGENT, 1))
+			if (NULL != item)
 			{
-				if (0 == strcmp(m, MVAR_IPADDRESS))
-					replace_to = zbx_dsprintf(replace_to, "%s", interface.ip_orig);
+				if (0 == strcmp(m, MVAR_HOSTNAME))
+					replace_to = zbx_strdup(replace_to, item->host_name);
+				else if (0 == strcmp(m, MVAR_IPADDRESS))
+					replace_to = zbx_strdup(replace_to, item->host_ip);
 				else if	(0 == strcmp(m, MVAR_HOST_DNS))
-					replace_to = zbx_dsprintf(replace_to, "%s", interface.dns_orig);
+					replace_to = zbx_strdup(replace_to, item->host_dns);
 				else if (0 == strcmp(m, MVAR_HOST_CONN))
-					replace_to = zbx_dsprintf(replace_to, "%s",
-							interface.useip ? interface.ip_orig : interface.dns_orig);
+					replace_to = zbx_strdup(replace_to, item->useip ? item->host_ip : item->host_dns);
+				else if (0 == strncmp(m, "{$", 2))	/* user defined macros */
+					zbxmacros_get_value(macros, &item->hostid, 1, m, &replace_to);
 			}
-		}
-		else if (macro_type & MACRO_TYPE_INTERFACE_PORT)
-		{
-			if (0 == strncmp(m, "{$", 2))	/* user defined macros */
+			else if (NULL != dc_item)
 			{
-				if (NULL != hostid)
-					DCget_user_macro(hostid, 1, m, &replace_to);
-				else
-					DCget_user_macro(NULL, 0, m, &replace_to);
+				if (0 == strcmp(m, MVAR_HOSTNAME))
+					replace_to = zbx_strdup(replace_to, dc_item->host.host);
+				else if (0 == strcmp(m, MVAR_IPADDRESS))
+					replace_to = zbx_strdup(replace_to, dc_item->host.ip);
+				else if	(0 == strcmp(m, MVAR_HOST_DNS))
+					replace_to = zbx_strdup(replace_to, dc_item->host.dns);
+				else if (0 == strcmp(m, MVAR_HOST_CONN))
+					replace_to = zbx_strdup(replace_to,
+							dc_item->host.useip ? dc_item->host.ip : dc_item->host.dns);
+				else if (0 == strncmp(m, "{$", 2))	/* user defined macros */
+					zbxmacros_get_value(macros, &dc_item->host.hostid, 1, m, &replace_to);
 			}
 		}
 		else if (macro_type & MACRO_TYPE_ITEM_FIELD)
 		{
 			if (0 == strncmp(m, "{$", 2))	/* user defined macros */
 			{
-				if (NULL == dc_host)
-					DCget_user_macro(NULL, 0, m, &replace_to);
+				if (NULL == dc_item)
+					zbxmacros_get_value(macros, NULL, 0, m, &replace_to);
 				else
-					DCget_user_macro(&dc_host->hostid, 1, m, &replace_to);
+					zbxmacros_get_value(macros, &dc_item->host.hostid, 1, m, &replace_to);
 			}
 		}
 		else if (macro_type & MACRO_TYPE_ITEM_EXPRESSION)
 		{
 			if (0 == strncmp(m, "{$", 2))	/* user defined macros */
 			{
-				DCget_user_macro(&dc_host->hostid, 1, m, &replace_to);
+				zbxmacros_get_value(macros, &dc_item->host.hostid, 1, m, &replace_to);
 				if (NULL != replace_to && FAIL == (res = is_double_prefix(replace_to)) && NULL != error)
 					zbx_snprintf(error, maxerrlen, "Macro '%s' value is not numeric", m);
 			}
@@ -2446,22 +2260,19 @@ int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_
 		else if (macro_type & MACRO_TYPE_FUNCTION_PARAMETER)
 		{
 			if (0 == strncmp(m, "{$", 2))	/* user defined macros */
-				DCget_user_macro(hostid, 1, m, &replace_to);
+				zbxmacros_get_value(macros, &item->hostid, 1, m, &replace_to);
 		}
 		else if (macro_type & MACRO_TYPE_SCRIPT)
 		{
 			if (0 == strcmp(m, MVAR_HOSTNAME))
 				replace_to = zbx_strdup(replace_to, dc_host->host);
-			else if (SUCCEED == DCconfig_get_interface_by_type(&interface, dc_host->hostid, INTERFACE_TYPE_AGENT, 1))
-			{
-				if (0 == strcmp(m, MVAR_IPADDRESS))
-					replace_to = zbx_dsprintf(replace_to, "%s", interface.ip_orig);
-				else if	(0 == strcmp(m, MVAR_HOST_DNS))
-					replace_to = zbx_dsprintf(replace_to, "%s", interface.dns_orig);
-				else if (0 == strcmp(m, MVAR_HOST_CONN))
-					replace_to = zbx_dsprintf(replace_to, "%s",
-							interface.useip ? interface.ip_orig : interface.dns_orig);
-			}
+			else if (0 == strcmp(m, MVAR_IPADDRESS))
+				replace_to = zbx_strdup(replace_to, dc_host->ip);
+			else if	(0 == strcmp(m, MVAR_HOST_DNS))
+				replace_to = zbx_strdup(replace_to, dc_host->dns);
+			else if (0 == strcmp(m, MVAR_HOST_CONN))
+				replace_to = zbx_strdup(replace_to,
+						dc_host->useip ? dc_host->ip : dc_host->dns);
 		}
 
 		if (FAIL == ret)
@@ -2534,7 +2345,7 @@ void	substitute_macros(DB_EVENT *event, DB_ESCALATION *escalation, char **data)
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() data:'%s'", __function_name, *data);
 
-	substitute_simple_macros(event, NULL, NULL, escalation, data, MACRO_TYPE_MESSAGE, NULL, 0);
+	substitute_simple_macros(event, NULL, NULL, NULL, escalation, data, MACRO_TYPE_MESSAGE, NULL, 0);
 
 	pl = *data;
 
@@ -2745,7 +2556,7 @@ int	evaluate_expression(int *result, char **expression, time_t now,
 	event.objectid = triggerid;
 	event.value = trigger_value;
 
-	if (SUCCEED == substitute_simple_macros(&event, NULL, NULL, NULL, expression, MACRO_TYPE_TRIGGER_EXPRESSION,
+	if (SUCCEED == substitute_simple_macros(&event, NULL, NULL, NULL, NULL, expression, MACRO_TYPE_TRIGGER_EXPRESSION,
 			error, maxerrlen))
 	{
 		/* Evaluate expression */
@@ -2775,71 +2586,4 @@ out:
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 
 	return ret;
-}
-
-void	substitute_discovery_macros(char **data, struct zbx_json_parse *jp_row)
-{
-	const char	*__function_name = "substitute_discovery_macros";
-
-	char		*src, *dst, *replace_to = NULL, c;
-	size_t		l, r, sz_data, sz_macro, sz_value,
-			replace_to_alloc = 0, data_alloc;
-	int		res;
-
-	assert(data);
-	assert(*data);
-	assert(jp_row);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() data:'%s'", __function_name, *data);
-
-	sz_data = strlen(*data);
-	data_alloc = sz_data + 1;
-
-	for (l = 0; l < sz_data; l++)
-	{
-		if ((*data)[l] != '{' || (*data)[l + 1] != '#')
-			continue;
-
-		for (r = l + 2; r < sz_data && (*data)[r] != '}'; r++)
-			;
-
-		if (r == sz_data)
-			break;
-
-		c = (*data)[r + 1];
-		(*data)[r + 1] = '\0';
-
-		res = zbx_json_value_by_name_dyn(jp_row, &(*data)[l], &replace_to, &replace_to_alloc);
-
-		(*data)[r + 1] = c;
-
-		sz_macro = r - l + 1;
-
-		if (SUCCEED == res)
-		{
-			sz_value = strlen(replace_to);
-
-			sz_data += sz_value - sz_macro;
-
-			while (data_alloc <= sz_data)
-			{
-				data_alloc *= 2;
-				*data = realloc(*data, data_alloc);
-			}
-
-			src = *data + l + sz_macro;
-			dst = *data + l + sz_value;
-
-			memmove(dst, src, sz_data - l - sz_value + 1);
-
-			memcpy(&(*data)[l], replace_to, sz_value);
-		}
-		else
-			zabbix_log(LOG_LEVEL_DEBUG, "%s() Can't substitute macro: \"%.*s\" is not found in value set",
-					__function_name, (int)sz_macro, *data + l);
-	}
-
-	zbx_free(replace_to);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s() data:'%s'", __function_name, *data);
 }

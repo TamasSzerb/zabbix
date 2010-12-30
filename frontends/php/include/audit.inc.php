@@ -71,8 +71,6 @@
 		global $USER_DETAILS;
 
 		if(!isset($USER_DETAILS['userid']))	check_authorisation();
-		if($USER_DETAILS['userid'] == 0) return true;
-
 
 		$auditid = get_dbid('auditlog','auditid');
 
@@ -112,7 +110,7 @@
 		$auditid = get_dbid('auditlog', 'auditid');
 
 		if (zbx_strlen($resourcename) > 255)
-			$resourcename = substr($resourcename, 0, 252).'...';
+			$details = substr($resourcename, 0, 252).'...';
 
 		$ip = (isset($_SERVER['HTTP_X_FORWARDED_FOR']) && !empty($_SERVER['HTTP_X_FORWARDED_FOR']))?$_SERVER['HTTP_X_FORWARDED_FOR']:$_SERVER['REMOTE_ADDR'];
 		/*SDI(

@@ -20,18 +20,12 @@
 ?>
 <?php
 class CList extends CTag{
-public $emptyList;
-
+/* public */
 	public function __construct($value=NULL,$class=NULL){
 		parent::__construct('ul','yes');
 		$this->tag_end = '';
 		$this->addItem($value);
-		$this->setAttribute('class', $class);
-
-		if(is_null($value)){
-			$this->addItem(_('List is empty'), 'empty');
-			$this->emptyList = true;
-		}
+		$this->setClass($class);
 	}
 
 	public function prepareItem($value=NULL,$class=null){
@@ -42,15 +36,9 @@ public $emptyList;
 	}
 
 	public function addItem($value,$class=null){
-		if(!is_null($value) && $this->emptyList){
-			$this->emptyList = false;
-			$this->items = array();
-		}
-
 		if(is_array($value)){
-			parent::addItem($this->prepareItem($value,$class));
-			//foreach($value as $el)
-				//parent::addItem($this->prepareItem($el,$class));
+			foreach($value as $el)
+				parent::addItem($this->prepareItem($el,$class));
 		}
 		else{
 			parent::addItem($this->prepareItem($value,$class));

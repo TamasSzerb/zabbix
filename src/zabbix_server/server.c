@@ -109,7 +109,7 @@ int	CONFIG_TIMER_FORKS		= 1;
 int	CONFIG_TRAPPER_FORKS		= 5;
 int	CONFIG_ESCALATOR_FORKS		= 1;
 
-int	CONFIG_LISTEN_PORT		= ZBX_DEFAULT_SERVER_PORT;
+int	CONFIG_LISTEN_PORT		= 10051;
 char	*CONFIG_LISTEN_IP		= NULL;
 char	*CONFIG_SOURCE_IP		= NULL;
 int	CONFIG_TRAPPER_TIMEOUT		= 300;
@@ -162,7 +162,6 @@ int	CONFIG_ENABLE_LOG		= 1;
 
 /* From table config */
 int	CONFIG_REFRESH_UNSUPPORTED	= 0;
-int	CONFIG_NS_SUPPORT		= 0;
 
 /* Zabbix server startup time */
 int     CONFIG_SERVER_STARTUP_TIME      = 0;
@@ -455,22 +454,21 @@ int	MAIN_ZABBIX_ENTRY(void)
 
 	DBconnect(ZBX_DB_CONNECT_EXIT);
 
-	result = DBselect(
-			"select refresh_unsupported,ns_support"
-			" from config"
-			" where 1=1" DB_NODE,
-			DBnode_local("configid"));
+	result = DBselect("select refresh_unsupported from config where 1=1" DB_NODE,
+		DBnode_local("configid"));
+	row = DBfetch(result);
 
-	if (NULL != (row = DBfetch(result)))
+	if( (row != NULL) && DBis_null(row[0]) != SUCCEED)
 	{
 		CONFIG_REFRESH_UNSUPPORTED = atoi(row[0]);
-		CONFIG_NS_SUPPORT = atoi(row[1]);
 	}
 	DBfree_result(result);
 
-	result = DBselect("select masterid from nodes where nodeid=%d", CONFIG_NODEID);
+	result = DBselect("select masterid from nodes where nodeid=%d",
+		CONFIG_NODEID);
+	row = DBfetch(result);
 
-	if (NULL != (row = DBfetch(result)) && SUCCEED != DBis_null(row[0]))
+	if( (row != NULL) && DBis_null(row[0]) != SUCCEED)
 	{
 		CONFIG_MASTER_NODEID = atoi(row[0]);
 	}

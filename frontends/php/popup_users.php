@@ -100,6 +100,7 @@ function add_users(formname) {
 	$form->addItem($user_tb->get('asdasda','asdasdasdas'));
 // -
 	$button = new CButton('select', S_SELECT, 'add_users("'.$dstfrm.'")');
+	$button->setType('button');
 
 	$form->addItem($button);
 	$form->show();

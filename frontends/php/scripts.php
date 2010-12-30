@@ -21,6 +21,7 @@
 <?php
 include_once('include/config.inc.php');
 require_once('include/hosts.inc.php');
+require_once('include/scripts.inc.php');
 require_once('include/users.inc.php');
 
 $page['title'] = 'S_SCRIPTS';
@@ -65,6 +66,7 @@ validate_sort_and_sortorder('name',ZBX_SORT_UP);
 	if(isset($_REQUEST['action'])){
 
 		if(isset($_REQUEST['save'])){
+
 			$cond = (isset($_REQUEST['scriptid']))?(' AND scriptid<>'.$_REQUEST['scriptid']):('');
 			$scripts = DBfetch(DBselect('SELECT count(scriptid) as cnt FROM scripts WHERE name='.zbx_dbstr($_REQUEST['name']).$cond.' and '.DBin_node('scriptid', get_current_nodeid(false)),1));
 
@@ -73,27 +75,19 @@ validate_sort_and_sortorder('name',ZBX_SORT_UP);
 				show_messages(null,S_ERROR,S_CANNOT_ADD_SCRIPT);
 			}
 			else{
-				$script = array(
-					'name' => $_REQUEST['name'],
-					'command' => $_REQUEST['command'],
-					'usrgrpid' => $_REQUEST['usrgrpid'],
-					'groupid' => $_REQUEST['groupid'],
-					'host_access' => $_REQUEST['access'],
-				);
 
 				if(isset($_REQUEST['scriptid'])){
-					$script['scriptid'] = $_REQUEST['scriptid'];
+					$result = update_script($_REQUEST['scriptid'],$_REQUEST['name'],$_REQUEST['command'],$_REQUEST['usrgrpid'],$_REQUEST['groupid'],$_REQUEST['access']);
 
-					$result = CScript::update($script);
 					show_messages($result, S_SCRIPT_UPDATED, S_CANNOT_UPDATE_SCRIPT);
 					$scriptid = $_REQUEST['scriptid'];
 					$audit_acrion = AUDIT_ACTION_UPDATE;
 				}
-				else{
-					$result = CScript::create($script);
+				else {
+					$result = add_script($_REQUEST['name'],$_REQUEST['command'],$_REQUEST['usrgrpid'],$_REQUEST['groupid'],$_REQUEST['access']);
 
 					show_messages($result, S_SCRIPT_ADDED, S_CANNOT_ADD_SCRIPT);
-					$scriptid = reset($result['scriptids']);
+					$scriptid = $result;
 					$audit_acrion = AUDIT_ACTION_ADD;
 				}
 
@@ -176,14 +170,7 @@ validate_sort_and_sortorder('name',ZBX_SORT_UP);
 		if(isset($_REQUEST['scriptid']) && !isset($_REQUEST['form_refresh'])){
 			$frmScr->addVar('form_refresh',get_request('form_refresh',1));
 
-			$options = array(
-				'scriptids' => $_REQUEST['scriptid'],
-				'output' => API_OUTPUT_EXTEND,
-			);
-			$script = CScript::get($options);
-			$script = reset($script);
-
-			if($script){
+			if($script = get_script_by_scriptid($_REQUEST['scriptid'])){
 				$name = $script['name'];
 				$command  = $script['command'];
 
@@ -200,7 +187,7 @@ validate_sort_and_sortorder('name',ZBX_SORT_UP);
 		$usr_groups = new CCombobox('usrgrpid',$usrgrpid);
 		$usr_groups->addItem(0,S_ALL_S);
 
-		$usrgrps = CUserGroup::get(array('output'=>API_OUTPUT_EXTEND, 'sortfield'=>'name'));
+		$usrgrps = CUserGroup::get(array('extendoutput'=>1, 'sortfield'=>'name'));
 
 		foreach($usrgrps as $ugnum => $usr_group){
 			$usr_groups->addItem($usr_group['usrgrpid'],$usr_group['name']);
@@ -211,7 +198,7 @@ validate_sort_and_sortorder('name',ZBX_SORT_UP);
 		$host_groups = new CCombobox('groupid',$groupid);
 		$host_groups->addItem(0,S_ALL_S);
 
-		$groups = CHostGroup::get(array('output' => API_OUTPUT_EXTEND, 'sortfield'=>'name'));
+		$groups = CHostGroup::get(array('extendoutput' => 1, 'sortfield'=>'name'));
 		foreach($groups as $gnum => $group){
 			$host_groups->addItem($group['groupid'],$group['name']);
 		}
@@ -224,7 +211,7 @@ validate_sort_and_sortorder('name',ZBX_SORT_UP);
 
 		$frmScr->addRow(S_REQUIRED_HOST.SPACE.S_PERMISSIONS_SMALL,$select_acc);
 
-		$frmScr->addItemToBottomRow(new CSubmit('save',S_SAVE,"javascript: document.getElementById('scripts').action+='?action=1'; "));
+		$frmScr->addItemToBottomRow(new CButton('save',S_SAVE,"javascript: document.getElementById('scripts').action+='?action=1'; "));
 		$frmScr->addItemToBottomRow(SPACE);
 
 		if(isset($_REQUEST['scriptid'])) {
@@ -265,13 +252,17 @@ validate_sort_and_sortorder('name',ZBX_SORT_UP);
 		$options = array(
 			'output' => API_OUTPUT_EXTEND,
 			'editable' => 1,
-			'selectGroups' => API_OUTPUT_EXTEND
+			'select_groups' => API_OUTPUT_EXTEND
 		);
 		$scripts = CScript::get($options);
 
 // sorting
 		order_result($scripts, $sortfield, $sortorder);
+
+// PAGING UPPER
 		$paging = getPagingLine($scripts);
+		$scripts_wdgt->addItem($paging);
+//---------
 
 		foreach($scripts as $snum => $script){
 			$scriptid = $script['scriptid'];
@@ -279,7 +270,7 @@ validate_sort_and_sortorder('name',ZBX_SORT_UP);
 			$user_group_name = S_ALL_S;
 
 			if($script['usrgrpid'] > 0){
-				$user_group = CUserGroup::get(array('usrgrpids' => $script['usrgrpid'], 'output' => API_OUTPUT_EXTEND));
+				$user_group = CUserGroup::get(array('usrgrpids' => $script['usrgrpid'], 'extendoutput' => 1));
 				$user_group = reset($user_group);
 
 				$user_group_name = $user_group['name'];
@@ -293,16 +284,20 @@ validate_sort_and_sortorder('name',ZBX_SORT_UP);
 
 
 			$table->addRow(array(
-				new CCheckBox('scripts['.$script['scriptid'].']','no',NULL,$script['scriptid']),
-				new CLink($script['name'],'scripts.php?form=1'.'&scriptid='.$script['scriptid'].'#form'),
-				htmlspecialchars($script['command']),
-				$user_group_name,
-				$host_group_name,
-				((PERM_READ_WRITE == $script['host_access'])?S_WRITE:S_READ)
-			));
+					new CCheckBox('scripts['.$script['scriptid'].']','no',NULL,$script['scriptid']),
+					new CLink($script['name'],'scripts.php?form=1'.'&scriptid='.$script['scriptid'].'#form'),
+					htmlspecialchars($script['command']),
+					$user_group_name,
+					$host_group_name,
+					((PERM_READ_WRITE == $script['host_access'])?S_WRITE:S_READ)
+				));
 		}
 
 
+// PAGING FOOTER
+		$table->addRow(new CCol($paging));
+//		$items_wdgt->addItem($paging);
+//---------
 
 //----- GO ------
 		$goBox = new CComboBox('go');
@@ -311,15 +306,15 @@ validate_sort_and_sortorder('name',ZBX_SORT_UP);
 		$goBox->addItem($goOption);
 
 // goButton name is necessary!!!
-		$goButton = new CSubmit('goButton',S_GO);
+		$goButton = new CButton('goButton',S_GO);
 		$goButton->setAttribute('id','goButton');
 
 		zbx_add_post_js('chkbxRange.pageGoName = "scripts";');
 
-		$footer = get_table_header(array($goBox, $goButton));
+		$table->setFooter(new CCol(array($goBox, $goButton)));
 //----
 
-		$form->addItem(array($paging,$table,$paging,$footer));
+		$form->addItem($table);
 		$scripts_wdgt->addItem($form);
 	}
 

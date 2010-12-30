@@ -541,6 +541,7 @@ COpt::memoryPick();
 	public static function addChecks($checks){
 
 		$error = 'Unknown Zabbix internal error';
+		$result_ids = array();
 		$result = false;
 		$tpl_drule = false;
 
@@ -612,6 +613,7 @@ COpt::memoryPick();
 
 // DEPRECATED
 	public static function deleteChecks($check_list, $force=false){
+		$error = 'Unknown Zabbix internal error';
 		$result = true;
 
 		$druleid = $check_list['druleid'];

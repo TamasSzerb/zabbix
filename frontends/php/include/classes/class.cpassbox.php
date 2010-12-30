@@ -19,9 +19,10 @@
 **/
 ?>
 <?php
-class CPassBox extends CInput{
-	public function __construct($name='password', $value=''){
-		parent::__construct('password', $name, $value);
+class CPassBox extends CTextBox{
+	public function __construct($name='password',$value='',$size=20){
+		parent::__construct($name,$value,$size);
+		$this->attributes['type'] = 'password';
 	}
 }
 ?>

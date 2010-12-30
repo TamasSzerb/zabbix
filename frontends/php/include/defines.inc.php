@@ -19,8 +19,8 @@
 **/
 ?>
 <?php
-	define('ZABBIX_VERSION','1.9.2');
-	define('ZABBIX_API_VERSION','1.2');
+	define('ZABBIX_VERSION','1.8.4rc4');
+	define('ZABBIX_API_VERSION','1.3');
 /* USER DEFINES */
 
 	define('ZBX_LOGIN_ATTEMPTS',			5);
@@ -56,10 +56,12 @@
 /* END OF USERS DEFINES */
 	define('ZAPCAT_COMPATIBILITY', false);
 
-	define('ZBX_FLAG_DISCOVERY_NORMAL', 0x0);
-	define('ZBX_FLAG_DISCOVERY', 0x1);
-	define('ZBX_FLAG_DISCOVERY_CHILD', 0x2);
-	define('ZBX_FLAG_DISCOVERY_CREATED', 0x4);
+	define('ZBX_MAP_HIGHLIGHT', 0x1);
+	define('ZBX_MAP_EXPANDPROBLEM', 0x2);
+	define('ZBX_MAP_MARKELEMENTS', 0x4);
+	define('ZBX_MAP_EXTACK_UNACK', 0x8);
+	define('ZBX_MAP_EXTACK_TOTAL', 0x10);
+	define('ZBX_MAP_EXTACK_SEPARATED', ZBX_MAP_EXTACK_UNACK | ZBX_MAP_EXTACK_TOTAL );
 
 	define('EXTACK_OPTION_ALL',		0);
 	define('EXTACK_OPTION_UNACK',	1);
@@ -91,7 +93,6 @@
 	define('PAGE_TYPE_JSON',			6);	// simple JSON
 	define('PAGE_TYPE_JSON_RPC',		7);	// api call
 	define('PAGE_TYPE_TEXT_FILE',		8);	// api call
-	define('PAGE_TYPE_TEXT',			9); // simple text
 
 
 	define('ZBX_SESSION_ACTIVE',		0);
@@ -225,17 +226,6 @@
 	define('HOST_MAINTENANCE_STATUS_OFF',	0);
 	define('HOST_MAINTENANCE_STATUS_ON',	1);
 
-	define('INTERFACE_SECONDARY',	0);
-	define('INTERFACE_PRIMARY',		1);
-
-	define('INTERFACE_USE_DNS',		0);
-	define('INTERFACE_USE_IP',		1);
-
-	define('INTERFACE_TYPE_UNKNOWN',	0);
-	define('INTERFACE_TYPE_AGENT',		1);
-	define('INTERFACE_TYPE_SNMP',		2);
-	define('INTERFACE_TYPE_IPMI',		3);
-
 	define('MAINTENANCE_STATUS_ACTIVE',		0);
 	define('MAINTENANCE_STATUS_APPROACH',	1);
 	define('MAINTENANCE_STATUS_EXPIRED',	2);
@@ -273,17 +263,12 @@
 
 	define('SYSMAP_ELEMENT_ICON_ON',			0);
 	define('SYSMAP_ELEMENT_ICON_OFF',			1);
+	define('SYSMAP_ELEMENT_ICON_UNKNOWN',		2);
 	define('SYSMAP_ELEMENT_ICON_MAINTENANCE',	3);
 	define('SYSMAP_ELEMENT_ICON_DISABLED',		4);
 
-	define('SYSMAP_HIGHLIGHT_OFF',		0);
-	define('SYSMAP_HIGHLIGHT_ON',		1);
-
-	define('SYSMAP_EXPANDPROBLEM_OFF',		0);
-	define('SYSMAP_EXPANDPROBLEM_ON',		1);
-
-	define('SYSMAP_MARKELEMENTS_OFF',		0);
-	define('SYSMAP_MARKELEMENTS_ON',		1);
+	define('SYSMAP_HIGHLIGH_OFF',		0);
+	define('SYSMAP_HIGHLIGH_ON',		1);
 
 	define('ITEM_TYPE_ZABBIX',			0);
 	define('ITEM_TYPE_SNMPV1',			1);
@@ -354,13 +339,7 @@
 
 	define('TRIGGER_VALUE_FALSE',		0);
 	define('TRIGGER_VALUE_TRUE',		1);
-	define('TRIGGER_VALUE_UNKNOWN',		2); // only in "events" table
-
-	define('TRIGGER_VALUE_FLAG_NORMAL',	0);
-	define('TRIGGER_VALUE_FLAG_UNKNOWN',1);
-
-	define('TRIGGER_VALUE_CHANGED_NO',	0);
-	define('TRIGGER_VALUE_CHANGED_YES',	1);
+	define('TRIGGER_VALUE_UNKNOWN',		2);
 
 	define('TRIGGER_SEVERITY_NOT_CLASSIFIED',	0);
 	define('TRIGGER_SEVERITY_INFORMATION',		1);
@@ -441,9 +420,6 @@
 	define('SCREEN_RESOURCE_SYSTEM_STATUS',		15);
 	define('SCREEN_RESOURCE_HOST_TRIGGERS',		16);
 
-	define('SCREEN_TYPE_NORMAL', 0);
-	define('SCREEN_TYPE_TEMPLATED', 1);
-
 /* alignes */
 	define('HALIGN_DEFAULT',0);
 	define('HALIGN_CENTER',	0);
@@ -461,12 +437,11 @@
 
 /* view style [OVERVIEW]*/
 	define('STYLE_LEFT',	0);
-	define('STYLE_TOP',		1);
+	define('STYLE_TOP',	1);
 
 /* time module tipe */
 	define('TIME_TYPE_LOCAL',	0);
 	define('TIME_TYPE_SERVER',	1);
-	define('TIME_TYPE_HOST',	2);
 
 	define('FILTER_TASK_SHOW',			0);
 	define('FILTER_TASK_HIDE',			1);
@@ -692,7 +667,7 @@ if(in_array(ini_get('mbstring.func_overload'), array(2,3,6,7))){
 	define('ZBX_PREG_FUNCTION_FORMAT', '('.ZBX_PREG_INTERNAL_NAMES.'(\('.ZBX_PREG_PARAMS.'\)))');
 
 	define('ZBX_PREG_SIMPLE_EXPRESSION_FORMAT','(\{'.ZBX_PREG_HOST_FORMAT.'\:'.ZBX_PREG_ITEM_KEY_FORMAT.'\.'.ZBX_PREG_FUNCTION_FORMAT.'\})');
-	define('ZBX_PREG_MACRO_NAME_FORMAT', '(\{[A-Z\.]+\})');
+//	define('ZBX_PREG_MACRO_NAME_FORMAT', '(\{[A-Z\.]+\})');
 	define('ZBX_PREG_EXPRESSION_SIMPLE_MACROS', '(\{TRIGGER.VALUE\})');
 	define('ZBX_PREG_EXPRESSION_USER_MACROS', '(\{\$'.ZBX_PREG_MACRO_NAME.'\})');
 
@@ -819,4 +794,7 @@ if(in_array(ini_get('mbstring.func_overload'), array(2,3,6,7))){
 
 // BC Math scale
 	bcscale(7);
+
+// Numeric Locale to default
+	setLocale(LC_NUMERIC, array('en','en_US','en_US.UTF-8','English_United States.1252'));
 ?>

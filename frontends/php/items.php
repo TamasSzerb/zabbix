@@ -66,8 +66,7 @@ switch($itemType) {
 
 		'groupid'=>			array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,			null),
 		'hostid'=>			array(T_ZBX_INT, O_OPT,  P_SYS,	DB_ID,			null),
-		'form_hostid'=>			array(T_ZBX_INT, O_OPT,  P_SYS,	DB_ID.NOT_ZERO,		'isset({save})', S_HOST),
-		'interfaceid'=>			array(T_ZBX_INT, O_OPT,  P_SYS,	DB_ID,				null, S_INTERFACE),
+		'form_hostid'=>			array(T_ZBX_INT, O_OPT,  null,	DB_ID.NOT_ZERO,		'isset({save})', S_HOST),
 
 
 		'add_groupid'=>		array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,			'(isset({register})&&({register}=="go"))'),
@@ -129,7 +128,7 @@ switch($itemType) {
 													ITEM_TYPE_SNMPV1.','.
 													ITEM_TYPE_SNMPV2C.','.
 													ITEM_TYPE_SNMPV3,'type')),
-		'port'=>		array(T_ZBX_STR, O_OPT,  null,  BETWEEN(0, 65535),	'isset({save})&&isset({type})&&'.IN(
+		'snmp_port'=>		array(T_ZBX_INT, O_OPT,  null,  BETWEEN(0,65535),	'isset({save})&&isset({type})&&'.IN(
 													ITEM_TYPE_SNMPV1.','.
 													ITEM_TYPE_SNMPV2C.','.
 													ITEM_TYPE_SNMPV3,'type')),
@@ -189,7 +188,7 @@ switch($itemType) {
 		'filter_snmp_community'=>array(T_ZBX_STR, O_OPT,  null,  null,	null),
 		'filter_snmpv3_securityname'=>array(T_ZBX_STR, O_OPT,  null,  null,  null),
 		'filter_snmp_oid'=>			array(T_ZBX_STR, O_OPT,  null,  null,	null),
-		'filter_port'=>				array(T_ZBX_INT, O_OPT,  P_UNSET_EMPTY,  BETWEEN(0,65535),	null),
+		'filter_snmp_port'=>		array(T_ZBX_INT, O_OPT,  P_UNSET_EMPTY,  BETWEEN(0,65535),	null),
 		'filter_value_type'=>		array(T_ZBX_INT, O_OPT,  null,  IN('-1,0,1,2,3,4'),null),
 		'filter_data_type'=>		array(T_ZBX_INT, O_OPT,  null,  BETWEEN(-1,ITEM_DATA_TYPE_HEXADECIMAL),null),
 		'filter_delay'=>			array(T_ZBX_INT, O_OPT,  P_UNSET_EMPTY,  BETWEEN(0,86400),null),
@@ -226,7 +225,6 @@ switch($itemType) {
 	if(get_request('itemid', false)){
 		$options = array(
 			'itemids' => $_REQUEST['itemid'],
-			'filter' => array('flags' => array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)),
 			'output' => API_OUTPUT_SHORTEN,
 			'editable' => 1
 		);
@@ -236,7 +234,7 @@ switch($itemType) {
 	else if(get_request('hostid', 0) > 0){
 		$options = array(
 			'hostids' => $_REQUEST['hostid'],
-			'output' => API_OUTPUT_EXTEND,
+			'extendoutput' => 1,
 			'templated_hosts' => 1,
 			'editable' => 1
 		);
@@ -276,7 +274,7 @@ switch($itemType) {
 		$_REQUEST['filter_snmp_community'] = get_request('filter_snmp_community');
 		$_REQUEST['filter_snmpv3_securityname'] = get_request('filter_snmpv3_securityname');
 		$_REQUEST['filter_snmp_oid'] = get_request('filter_snmp_oid');
-		$_REQUEST['filter_port'] = get_request('filter_port');
+		$_REQUEST['filter_snmp_port'] = get_request('filter_snmp_port');
 		$_REQUEST['filter_value_type'] = get_request('filter_value_type', -1);
 		$_REQUEST['filter_data_type'] = get_request('filter_data_type', -1);
 		$_REQUEST['filter_delay'] = get_request('filter_delay');
@@ -296,7 +294,7 @@ switch($itemType) {
 		CProfile::update('web.items.filter_snmp_community', $_REQUEST['filter_snmp_community'], PROFILE_TYPE_STR);
 		CProfile::update('web.items.filter_snmpv3_securityname', $_REQUEST['filter_snmpv3_securityname'], PROFILE_TYPE_STR);
 		CProfile::update('web.items.filter_snmp_oid', $_REQUEST['filter_snmp_oid'], PROFILE_TYPE_STR);
-		CProfile::update('web.items.filter_port', $_REQUEST['filter_port'], PROFILE_TYPE_STR);
+		CProfile::update('web.items.filter_snmp_port', $_REQUEST['filter_snmp_port'], PROFILE_TYPE_STR);
 		CProfile::update('web.items.filter_value_type', $_REQUEST['filter_value_type'], PROFILE_TYPE_INT);
 		CProfile::update('web.items.filter_data_type', $_REQUEST['filter_data_type'], PROFILE_TYPE_INT);
 		CProfile::update('web.items.filter_delay', $_REQUEST['filter_delay'], PROFILE_TYPE_STR);
@@ -317,7 +315,7 @@ switch($itemType) {
 		$_REQUEST['filter_snmp_community'] = CProfile::get('web.items.filter_snmp_community');
 		$_REQUEST['filter_snmpv3_securityname'] = CProfile::get('web.items.filter_snmpv3_securityname');
 		$_REQUEST['filter_snmp_oid'] = CProfile::get('web.items.filter_snmp_oid');
-		$_REQUEST['filter_port'] = CProfile::get('web.items.filter_port');
+		$_REQUEST['filter_snmp_port'] = CProfile::get('web.items.filter_snmp_port');
 		$_REQUEST['filter_value_type'] = CProfile::get('web.items.filter_value_type', -1);
 		$_REQUEST['filter_data_type'] = CProfile::get('web.items.filter_data_type', -1);
 		$_REQUEST['filter_delay'] = CProfile::get('web.items.filter_delay');
@@ -382,91 +380,114 @@ switch($itemType) {
 		$_REQUEST['form'] = 'clone';
 	}
 	else if(isset($_REQUEST['save']) && ($_REQUEST['form_hostid'] > 0)){
+		$applications = get_request('applications',array());
 		$delay_flex = get_request('delay_flex',array());
 		$db_delay_flex = '';
+
 		foreach($delay_flex as $num => $val){
 			$db_delay_flex .= $val['delay'].'/'.$val['period'].';';
 		}
+
 		$db_delay_flex = trim($db_delay_flex,';');
 
-
-		$applications = get_request('applications',array());
-		$fapp = reset($applications);
-		if($fapp == 0) array_shift($applications);
-
-		DBstart();
-
-		if(!zbx_empty($_REQUEST['new_application'])){
-			$new_appid = CApplication::create(array(
-				'name' => $_REQUEST['new_application'],
-				'hostid' => $_REQUEST['form_hostid']
-			));
-			if($new_appid){
-				$new_appid = reset($new_appid['applicationids']);
-				$applications[$new_appid] = $new_appid;
-			}
-		}
-
 		$item = array(
-			'description'	=> get_request('description'),
-			'key_'			=> get_request('key'),
-			'hostid'		=> get_request('form_hostid'),
-			'interfaceid'	=> get_request('interfaceid', 0),
-			'delay'			=> get_request('delay'),
-			'history'		=> get_request('history'),
-			'status'		=> get_request('status'),
-			'type'			=> get_request('type'),
-			'snmp_community'=> get_request('snmp_community'),
-			'snmp_oid'		=> get_request('snmp_oid'),
-			'value_type'	=> get_request('value_type'),
-			'trapper_hosts'	=> get_request('trapper_hosts'),
-			'port'		=> get_request('port'),
-			'units'			=> get_request('units'),
+				'description'	=> get_request('description'),
+				'key_'			=> get_request('key'),
+				'hostid'		=> get_request('form_hostid'),
+				'delay'			=> get_request('delay'),
+				'history'		=> get_request('history'),
+				'status'		=> get_request('status'),
+				'type'			=> get_request('type'),
+				'snmp_community'=> get_request('snmp_community'),
+				'snmp_oid'		=> get_request('snmp_oid'),
+				'value_type'	=> get_request('value_type'),
+				'trapper_hosts'	=> get_request('trapper_hosts'),
+				'snmp_port'		=> get_request('snmp_port'),
+				'units'			=> get_request('units'),
 			'multiplier'	=> get_request('multiplier', 0),
-			'delta'			=> get_request('delta'),
-			'snmpv3_securityname'	=> get_request('snmpv3_securityname'),
-			'snmpv3_securitylevel'	=> get_request('snmpv3_securitylevel'),
-			'snmpv3_authpassphrase'	=> get_request('snmpv3_authpassphrase'),
-			'snmpv3_privpassphrase'	=> get_request('snmpv3_privpassphrase'),
-			'formula'			=> get_request('formula'),
-			'trends'			=> get_request('trends'),
-			'logtimefmt'		=> get_request('logtimefmt'),
-			'valuemapid'		=> get_request('valuemapid'),
-			'delay_flex'		=> $db_delay_flex,
-			'authtype'		=> get_request('authtype'),
-			'username'		=> get_request('username'),
-			'password'		=> get_request('password'),
-			'publickey'		=> get_request('publickey'),
-			'privatekey'		=> get_request('privatekey'),
-			'params'			=> get_request('params'),
-			'ipmi_sensor'		=> get_request('ipmi_sensor'),
-			'data_type'		=> get_request('data_type'),
-			'applications' => $applications,
+				'delta'			=> get_request('delta'),
+				'snmpv3_securityname'	=> get_request('snmpv3_securityname'),
+				'snmpv3_securitylevel'	=> get_request('snmpv3_securitylevel'),
+				'snmpv3_authpassphrase'	=> get_request('snmpv3_authpassphrase'),
+				'snmpv3_privpassphrase'	=> get_request('snmpv3_privpassphrase'),
+				'formula'			=> get_request('formula'),
+				'trends'			=> get_request('trends'),
+				'logtimefmt'		=> get_request('logtimefmt'),
+				'valuemapid'		=> get_request('valuemapid'),
+				'delay_flex'		=> $db_delay_flex,
+				'authtype'		=> get_request('authtype'),
+				'username'		=> get_request('username'),
+				'password'		=> get_request('password'),
+				'publickey'		=> get_request('publickey'),
+				'privatekey'		=> get_request('privatekey'),
+				'params'			=> get_request('params'),
+				'ipmi_sensor'		=> get_request('ipmi_sensor'),
+			'data_type'		=> get_request('data_type')
 		);
 
 		if(isset($_REQUEST['itemid'])){
+			DBstart();
+
+			$new_appid = true;
+			$result = false;
+
+			if(!zbx_empty($_REQUEST['new_application'])){
+				if($new_appid = add_application($_REQUEST['new_application'],$_REQUEST['form_hostid']))
+					$applications[$new_appid] = $new_appid;
+			}
+
+			if((count($applications) == 1) && in_array(0, $applications))
+				$applications = array();
+			$item['applications'] = $applications;
+
 			$db_item = get_item_by_itemid_limited($_REQUEST['itemid']);
 			$db_item['applications'] = get_applications_by_itemid($_REQUEST['itemid']);
 
+// sdii($item['applications']);
+// sdii($db_item['applications']);
+
 			foreach($item as $field => $value){
-				if($item[$field] == $db_item[$field]) unset($item[$field]);
+				if($item[$field] == $db_item[$field]) $item[$field] = null;
 			}
 
-			$item['itemid'] = $_REQUEST['itemid'];
-			$result = CItem::update($item);
+			if($new_appid){
+				$result = smart_update_item($_REQUEST['itemid'],$item);
+			}
+
+			$result = DBend($result);
+
+			$itemid = $_REQUEST['itemid'];
+/*			$action = AUDIT_ACTION_UPDATE;*/
 
 			show_messages($result, S_ITEM_UPDATED, S_CANNOT_UPDATE_ITEM);
 		}
 		else{
-			$result = CItem::create($item);
+			DBstart();
+
+			$new_appid = true;
+			$itemid = false;
+			if(!zbx_empty($_REQUEST['new_application'])){
+				if($new_appid = add_application($_REQUEST['new_application'],$_REQUEST['form_hostid']))
+					$applications[$new_appid] = $new_appid;
+			}
+
+			$item['applications'] = $applications;
+
+			if($new_appid){
+				$itemid = add_item($item);
+			}
+
+			$result = DBend($itemid);
+
+/*			$action = AUDIT_ACTION_ADD;*/
 			show_messages($result, S_ITEM_ADDED, S_CANNOT_ADD_ITEM);
 		}
 
-		$result = DBend($result);
 		if($result){
 /*			$host = get_host_by_hostid($_REQUEST['hostid']);
 
 			add_audit($action, AUDIT_RESOURCE_ITEM, S_ITEM.' ['.$_REQUEST['key'].'] ['.$itemid.'] '.S_HOST.' ['.$host['host'].']');*/
+
 			unset($_REQUEST['itemid']);
 			unset($_REQUEST['form']);
 		}
@@ -492,76 +513,22 @@ switch($itemType) {
 	}
 	else if(isset($_REQUEST['update']) && isset($_REQUEST['massupdate']) && isset($_REQUEST['group_itemid'])){
 
-		$delay_flex = get_request('delay_flex');
-		if(!is_null($delay_flex)){
-			$db_delay_flex = '';
-			foreach($delay_flex as $val)
-				$db_delay_flex .= $val['delay'].'/'.$val['period'].';';
-			$db_delay_flex = trim($db_delay_flex,';');
-		}
-		else{
-			$db_delay_flex = null;
-		}
+		$delay_flex = get_request('delay_flex',array());
+		$db_delay_flex = '';
+		foreach($delay_flex as $val)
+			$db_delay_flex .= $val['delay'].'/'.$val['period'].';';
+		$db_delay_flex = trim($db_delay_flex,';');
 
-		if(!is_null(get_request('formula', null))) $_REQUEST['multiplier']=1;
-		if('0' === get_request('formula', null)) $_REQUEST['multiplier']=0;
+		if(!is_null(get_request('formula',null))) $_REQUEST['multiplier']=1;
+		if('0' === get_request('formula',null)) $_REQUEST['multiplier']=0;
 
-		$applications = get_request('applications', null);
-		if(isset($applications[0]) && $applications[0] == '0') $applications = array();
+		$group_itemid = $_REQUEST['group_itemid'];
+		$result = false;
 
 		$item = array(
-			'interfaceid'	=> get_request('interfaceid'),
-			'delay'			=> get_request('delay'),
-			'history'		=> get_request('history'),
-			'status'		=> get_request('status'),
-			'type'			=> get_request('type'),
-			'snmp_community'	=> get_request('snmp_community'),
-			'snmp_oid'		=> get_request('snmp_oid'),
-			'value_type'	=> get_request('value_type'),
-			'trapper_hosts'	=> get_request('trapper_hosts'),
-			'port'		=> get_request('port'),
-			'units'			=> get_request('units'),
-			'multiplier'	=> get_request('multiplier'),
-			'delta'			=> get_request('delta'),
-			'snmpv3_securityname'	=> get_request('snmpv3_securityname'),
-			'snmpv3_securitylevel'	=> get_request('snmpv3_securitylevel'),
-			'snmpv3_authpassphrase'	=> get_request('snmpv3_authpassphrase'),
-			'snmpv3_privpassphrase'	=> get_request('snmpv3_privpassphrase'),
-			'formula'			=> get_request('formula'),
-			'trends'			=> get_request('trends'),
-			'logtimefmt'		=> get_request('logtimefmt'),
-			'valuemapid'		=> get_request('valuemapid'),
-			'delay_flex'		=> $db_delay_flex,
-			'authtype'		=> get_request('authtype'),
-			'username'		=> get_request('username'),
-			'password'		=> get_request('password'),
-			'publickey'		=> get_request('publickey'),
-			'privatekey'		=> get_request('privatekey'),
-			'ipmi_sensor'		=> get_request('ipmi_sensor'),
-			'applications'		=> $applications,
-			'data_type'		=> get_request('data_type')
-		);
-		foreach($item as $fnum => $field){
-			if(is_null($field)) unset($item[$fnum]);
-		}
-
-		DBstart();
-		foreach($_REQUEST['group_itemid'] as $id){
-			$item['itemid'] = $id;
-			$result = CItem::update($item);
-			if(!$result) break;
-		}
-		$result = DBend($result);
-
-		show_messages($result, S_ITEMS_UPDATED);
-		unset($_REQUEST['group_itemid'], $_REQUEST['massupdate'], $_REQUEST['update'], $_REQUEST['form']);
-	}
-	else if(isset($_REQUEST['register'])){
-		if($_REQUEST['register']=='do'){
-			$item = array(
-				'description'	=> get_request('description'),
-				'key_'			=> get_request('key'),
-				'hostid'		=> get_request('hostid'),
+				'description'	=> null,
+				'key_'			=> null,
+				'hostid'		=> null,
 				'delay'			=> get_request('delay'),
 				'history'		=> get_request('history'),
 				'status'		=> get_request('status'),
@@ -570,7 +537,7 @@ switch($itemType) {
 				'snmp_oid'		=> get_request('snmp_oid'),
 				'value_type'	=> get_request('value_type'),
 				'trapper_hosts'	=> get_request('trapper_hosts'),
-				'port'		=> get_request('port'),
+				'snmp_port'		=> get_request('snmp_port'),
 				'units'			=> get_request('units'),
 				'multiplier'	=> get_request('multiplier'),
 				'delta'			=> get_request('delta'),
@@ -582,17 +549,67 @@ switch($itemType) {
 				'trends'			=> get_request('trends'),
 				'logtimefmt'		=> get_request('logtimefmt'),
 				'valuemapid'		=> get_request('valuemapid'),
-//					'delay_flex'		=> $db_delay_flex,
+				'delay_flex'		=> $db_delay_flex,
 				'authtype'		=> get_request('authtype'),
 				'username'		=> get_request('username'),
 				'password'		=> get_request('password'),
 				'publickey'		=> get_request('publickey'),
 				'privatekey'		=> get_request('privatekey'),
-				'params'			=> get_request('params'),
+				'params'			=> null,
 				'ipmi_sensor'		=> get_request('ipmi_sensor'),
-//				'applications'		=> $applications
-				'data_type'		=> get_request('data_type'),
-			);
+				'applications'		=> get_request('applications',null),
+				'data_type'		=> get_request('data_type'));
+
+		DBstart();
+		foreach($group_itemid as $id){
+			$result |= smart_update_item($id,$item);
+		}
+		$result = DBend($result);
+
+		show_messages($result, S_ITEMS_UPDATED);
+		unset($_REQUEST['group_itemid'], $_REQUEST['massupdate'], $_REQUEST['update'], $_REQUEST['form']);
+		$url = new CUrl();
+		$path = $url->getPath();
+		insert_js('cookie.eraseArray("'.$path.'")');
+	}
+	else if(isset($_REQUEST['register'])){
+
+		if($_REQUEST['register']=='do'){
+			$item = array(
+					'description'	=> get_request('description'),
+					'key_'			=> get_request('key'),
+					'hostid'		=> get_request('hostid'),
+					'delay'			=> get_request('delay'),
+					'history'		=> get_request('history'),
+					'status'		=> get_request('status'),
+					'type'			=> get_request('type'),
+				'snmp_community'	=> get_request('snmp_community'),
+					'snmp_oid'		=> get_request('snmp_oid'),
+					'value_type'	=> get_request('value_type'),
+					'trapper_hosts'	=> get_request('trapper_hosts'),
+					'snmp_port'		=> get_request('snmp_port'),
+					'units'			=> get_request('units'),
+					'multiplier'	=> get_request('multiplier'),
+					'delta'			=> get_request('delta'),
+					'snmpv3_securityname'	=> get_request('snmpv3_securityname'),
+					'snmpv3_securitylevel'	=> get_request('snmpv3_securitylevel'),
+					'snmpv3_authpassphrase'	=> get_request('snmpv3_authpassphrase'),
+					'snmpv3_privpassphrase'	=> get_request('snmpv3_privpassphrase'),
+					'formula'			=> get_request('formula'),
+					'trends'			=> get_request('trends'),
+					'logtimefmt'		=> get_request('logtimefmt'),
+					'valuemapid'		=> get_request('valuemapid'),
+//					'delay_flex'		=> $db_delay_flex,
+					'authtype'		=> get_request('authtype'),
+					'username'		=> get_request('username'),
+					'password'		=> get_request('password'),
+					'publickey'		=> get_request('publickey'),
+					'privatekey'		=> get_request('privatekey'),
+					'params'			=> get_request('params'),
+					'ipmi_sensor'		=> get_request('ipmi_sensor'),
+//					'applications'		=> $applications
+					'data_type'		=> get_request('data_type'),
+				);
 
 			if($_REQUEST['action']=='add to group'){
 				$applications = get_request('applications',array());
@@ -703,7 +720,7 @@ switch($itemType) {
 			DBstart();
 			foreach($_REQUEST['group_itemid'] as $item_id)
 				foreach($hosts_ids as $host_id){
-					$go_result |= copy_item_to_host($item_id, $host_id);
+					$go_result |= copy_item_to_host($item_id, $host_id, true);
 				}
 
 			$go_result = DBend($go_result);
@@ -786,7 +803,7 @@ switch($itemType) {
 		$form->addVar('form_hostid', $hostid);
 
 // Config
-	$form->addItem(array(SPACE, new CSubmit('form', S_CREATE_ITEM)));
+	$form->addItem(array(SPACE, new CButton('form', S_CREATE_ITEM)));
 
 	$items_wdgt->addPageHeader(S_CONFIGURATION_OF_ITEMS_BIG, $form);
 //	show_table_header(S_CONFIGURATION_OF_ITEMS_BIG, $form);
@@ -824,14 +841,13 @@ switch($itemType) {
 		$sortfield = getPageSortField('description');
 		$sortorder = getPageSortOrder();
 		$options = array(
-			'filter' => array('flags' => array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)),
+			'filter' => array(),
 			'search' => array(),
 			'output' => API_OUTPUT_EXTEND,
 			'editable' => 1,
-			'selectHosts' => API_OUTPUT_EXTEND,
+			'select_hosts' => API_OUTPUT_EXTEND,
 			'select_triggers' => API_OUTPUT_EXTEND,
 			'select_applications' => API_OUTPUT_EXTEND,
-			'selectDiscoveryRule' => API_OUTPUT_EXTEND,
 			'sortfield' => $sortfield,
 			'sortorder' => $sortorder,
 			'limit' => ($config['search_limit']+1)
@@ -868,8 +884,8 @@ switch($itemType) {
 		if(isset($_REQUEST['filter_snmp_oid']) && !zbx_empty($_REQUEST['filter_snmp_oid']))
 			$options['filter']['snmp_oid'] = $_REQUEST['filter_snmp_oid'];
 
-		if(isset($_REQUEST['filter_port']) && !zbx_empty($_REQUEST['filter_port']))
-			$options['filter']['port'] = $_REQUEST['filter_port'];
+		if(isset($_REQUEST['filter_snmp_port']) && !zbx_empty($_REQUEST['filter_snmp_port']))
+			$options['filter']['snmp_port'] = $_REQUEST['filter_snmp_port'];
 
 		if(isset($_REQUEST['filter_value_type']) && !zbx_empty($_REQUEST['filter_value_type']) && $_REQUEST['filter_value_type'] != -1)
 			$options['filter']['value_type'] = $_REQUEST['filter_value_type'];
@@ -908,7 +924,7 @@ switch($itemType) {
 
 // Header Host
 		if($hostid > 0){
-			$tbl_header_host = get_header_host_table($hostid, 'items');
+			$tbl_header_host = get_header_host_table($hostid, array('triggers', 'applications', 'graphs'));
 			$items_wdgt->addItem($tbl_header_host);
 			$show_host = false;
 		}
@@ -1008,7 +1024,7 @@ switch($itemType) {
 		foreach($items as $inum => $item){
 
 			if($show_host){
-				$host = reset($item['hosts']);
+				$host = array_pop($item['hosts']);
 				$host = $host['host'];
 			}
 			else{
@@ -1018,20 +1034,11 @@ switch($itemType) {
 			$description = array();
 			if($item['templateid']){
 				$template_host = get_realhost_by_itemid($item['templateid']);
-
 				$description[] = new CLink($template_host['host'],'?hostid='.$template_host['hostid'], 'unknown');
 				$description[] = ':';
 			}
 			$item['description_expanded'] = item_description($item);
-
-			if(!empty($item['discoveryRule'])){
-				$description[] = new CLink($item['discoveryRule']['description'], 'disc_prototypes.php?parent_discoveryid='.
-					$item['discoveryRule']['itemid'], 'discoveryName');
-				$description[] = ':'.$item['description_expanded'];
-			}
-			else{
-				$description[] = new CLink($item['description_expanded'], '?form=update&itemid='.$item['itemid']);
-			}
+			$description[] = new CLink($item['description_expanded'], '?form=update&itemid='.$item['itemid']);
 
 			$status = new CCol(new CLink(item_status2str($item['status']), '?group_itemid='.$item['itemid'].'&go='.
 				($item['status']? 'activate':'disable'), item_status2style($item['status'])));
@@ -1046,8 +1053,10 @@ switch($itemType) {
 			}
 
 
-			$applications = null;
-			if(!empty($item['applications'])){
+			if(empty($item['applications'])){
+				$applications = '-';
+			}
+			else{
 				$applications = array();
 				foreach($item['applications'] as $anum => $app){
 					$applications[] = $app['name'];
@@ -1077,14 +1086,9 @@ switch($itemType) {
 				}
 
 				$trigger['description_expanded'] = expand_trigger_description($triggerid);
-				if($trigger['flags'] == ZBX_FLAG_DISCOVERY_CREATED){
-					$tr_description[] = new CSpan($trigger['description_expanded']);
-				}
-				else{
-					$tr_description[] = new CLink($trigger['description_expanded'], 'triggers.php?form=update&triggerid='.$triggerid);
-				}
+				$tr_description[] = new CLink($trigger['description_expanded'], 'triggers.php?form=update&triggerid='.$triggerid);
 
-				if($trigger['value_flags'] == TRIGGER_VALUE_FLAG_UNKNOWN) $trigger['error'] = '';
+				if($trigger['value'] != TRIGGER_VALUE_UNKNOWN) $trigger['error'] = '';
 
 				switch($trigger['priority']){
 					case 0: $priority = S_NOT_CLASSIFIED; break;
@@ -1155,11 +1159,8 @@ switch($itemType) {
 				$menuicon = SPACE;
 			}
 
-			$cb = new CCheckBox('group_itemid['.$item['itemid'].']',null,null,$item['itemid']);
-			$cb->setEnabled(empty($item['discoveryRule']));
-
 			$table->addRow(array(
-				$cb,
+				new CCheckBox('group_itemid['.$item['itemid'].']',null,null,$item['itemid']),
 				$menuicon,
 				$host,
 				$description,
@@ -1202,7 +1203,7 @@ switch($itemType) {
 		$goBox->addItem($goOption);
 
 // goButton name is necessary!!!
-		$goButton = new CSubmit('goButton',S_GO);
+		$goButton = new CButton('goButton',S_GO);
 		$goButton->setAttribute('id','goButton');
 
 		zbx_add_post_js('chkbxRange.pageGoName = "group_itemid";');

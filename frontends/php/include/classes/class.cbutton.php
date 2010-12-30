@@ -19,12 +19,26 @@
 **/
 ?>
 <?php
-class CButton extends CInput{
-	public function __construct($name='button', $caption='', $action=NULL, $class=null){
-		parent::__construct('button', $name, $caption, $class);
-		$this->addAction('onclick', $action);
+class CButton extends CTag{
+	public function __construct($name='button', $caption='', $action=NULL, $submit=true){
+		parent::__construct('input','no');
+		$this->tag_body_start = '';
+		
+		$this->attributes['type'] = $submit?'submit':'button';
 
-		return $this;
+		$this->setAttribute('value', $caption);
+		$this->attributes['class'] = 'button';
+		$this->attributes['id'] = $name;
+		$this->setName($name);
+		$this->setAction($action);
+	}
+
+	public function setAction($value=null){
+		$this->addAction('onclick', $value);
+	}
+
+	public function setTitle($value='button title'){
+		$this->setAttribute('title', $value);
 	}
 
 	public function setAccessKey($value='B'){
@@ -33,6 +47,10 @@ class CButton extends CInput{
 				$this->setTitle($this->attributes['value'].' [Alt+'.$value.']');
 
 		return $this->setAttribute('accessKey', $value);
+	}
+
+	public function setType($type='button'){
+		$this->setAttribute('type',$type);
 	}
 }
 ?>

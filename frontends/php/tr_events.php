@@ -67,33 +67,31 @@
 		exit();
 	}
 //--------
-	$options = array(
-		'triggerids' => $_REQUEST['triggerid'],
-		'expandData' => 1,
-		'expandDescription' => 1,
-		'output' => API_OUTPUT_EXTEND
-	);
-	$triggers = CTrigger::get($options);
-	if(empty($triggers)) access_deny();
 
-	$trigger = reset($triggers);
 
 	$options = array(
-		'eventids' => $_REQUEST['eventid'],
 		'triggerids' => $_REQUEST['triggerid'],
-		'select_alerts' => API_OUTPUT_EXTEND,
-		'select_acknowledges' => API_OUTPUT_EXTEND,
 		'output' => API_OUTPUT_EXTEND,
-		'selectHosts' => API_OUTPUT_EXTEND
+		'select_hosts' => API_OUTPUT_EXTEND
 	);
-	$events = CEvent::get($options);
-	$event = reset($events);
+	$trigger = CTrigger::get($options);
+	if(!$trigger){
+		access_deny();
+	}
+	else{
+		$trigger = reset($trigger);
+		$trigger['host'] = reset($trigger['hosts']);
+		$trigger['host'] = $trigger['host']['host'];
+	}
+
+	$trigger['exp_expr'] = explode_exp($trigger['expression'], 1, false, true);
+	$trigger['exp_desc'] = expand_trigger_description_by_data($trigger);
 
 	$tr_event_wdgt = new CWidget();
 	$tr_event_wdgt->setClass('header');
 
 // Main widget header
-	$text = array(S_EVENTS_BIG.': "'.$trigger['description'].'"');
+	$text = array(S_EVENTS_BIG.': "'.$trigger['exp_desc'].'"');
 
 	$fs_icon = get_icon('fullscreen', array('fullscreen' => $_REQUEST['fullscreen']));
 	$tr_event_wdgt->addHeader($text, $fs_icon);
@@ -105,14 +103,14 @@
 	$left_tab->setAttribute('border',0);
 
 // tr details
-	$tr_dtl = new CWidget('hat_triggerdetails', make_trigger_details($trigger));
+	$tr_dtl = new CWidget('hat_triggerdetails', make_trigger_details($_REQUEST['triggerid'], $trigger));
 	$tr_dtl->setClass('header');
 	$tr_dtl->addHeader(S_EVENT.SPACE.S_SOURCE.SPACE.S_DETAILS, SPACE);
 	$left_tab->addRow($tr_dtl);
 //----------------
 
 // event details
-	$event_dtl = new CWidget('hat_eventdetails', make_event_details($event, $trigger));
+	$event_dtl = new CWidget('hat_eventdetails', make_event_details($_REQUEST['eventid']));
 	$event_dtl->addHeader(S_EVENT_DETAILS, SPACE);
 	$event_dtl->setClass('header');
 	$left_tab->addRow($event_dtl);
@@ -123,12 +121,16 @@
 	$right_tab->setCellSpacing(3);
 	$right_tab->setAttribute('border',0);
 
+	//getting current cunfiguration settings
+	$config = select_config();
 
-//if acknowledges are not disabled by confuguration, let's show them
+// event ack
+
+	//if acknowledges are not disabled by confuguration, let's show them
 	if ($config['event_ack_enable']) {
 		$event_ack = new CWidget(
 			'hat_eventack',
-			make_acktab_by_eventid($event),
+			make_acktab_by_eventid($_REQUEST['eventid']),
 			CProfile::get('web.tr_events.hats.hat_eventack.state', 1)
 		);
 		$event_ack->addHeader(S_ACKNOWLEDGES);
@@ -140,7 +142,7 @@
 // event sms actions
 	$actions_sms = new CWidget(
 		'hat_eventactionmsgs',
-		get_action_msgs_for_event($event),
+		get_action_msgs_for_event($_REQUEST['eventid']),
 		CProfile::get('web.tr_events.hats.hat_eventactionmsgs.state',1)
 	);
 	$actions_sms->addHeader(S_MESSAGE_ACTIONS);
@@ -150,7 +152,7 @@
 // event cmd actions
 	$actions_cmd = new CWidget(
 		'hat_eventactionmcmds',
-		get_action_cmds_for_event($event),//null,
+		get_action_cmds_for_event($_REQUEST['eventid']),//null,
 		CProfile::get('web.tr_events.hats.hat_eventactioncmds.state',1)
 	);
 	$actions_cmd->addHeader(S_COMMAND_ACTIONS);
@@ -161,7 +163,7 @@
 
 	$events_histry = new CWidget(
 		'hat_eventlist',
-		make_small_eventlist($event),
+		make_small_eventlist($_REQUEST['eventid'], $trigger),
 		CProfile::get('web.tr_events.hats.hat_eventlist.state',1)
 	);
 	$events_histry->addHeader(S_EVENTS.SPACE.S_LIST.SPACE.'['.S_PREVIOUS_EVENTS.' 20]');

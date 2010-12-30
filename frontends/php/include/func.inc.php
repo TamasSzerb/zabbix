@@ -272,6 +272,7 @@ function zbx_date2age($start_date,$end_date=0,$utime = false){
 	}
 
 	$original_time = $time = abs($end_date-$start_date);
+//SDI($start_date.' - '.$end_date.' = '.$time);
 
 	$years = (int) ($time / (365*86400));
 	$time -= $years*365*86400;
@@ -431,6 +432,8 @@ function convert_units($value, $units, $convert=ITEM_CONVERT_WITH_UNITS){
 	if($units=='s'){
 		return zbx_date2age(0,$value,true);
 	}
+
+	$u='';
 
 // Any other unit
 //-------------------
@@ -801,10 +804,10 @@ function zbx_rksort(&$array, $flags=NULL){
 
 
 // used only in morder_result
-function sortSub($data, $sortorder){
+function sortSub($array, $sortorder){
 	$result = array();
 
-	$keys = array_keys($data);
+	$keys = array_keys($array);
 	natcasesort($keys);
 
 
@@ -812,28 +815,28 @@ function sortSub($data, $sortorder){
 		$keys = array_reverse($keys);
 
 	foreach($keys as $key){
-		$tst = reset($data[$key]);
+		$tst = reset($array[$key]);
 		if(isset($tst[0]) && !is_array($tst[0])){
-			$data[$key] = sortSub($data[$key], $sortorder);
+			$array[$key] = sortSub($array[$key], $sortorder);
 		}
 
-		foreach($data[$key] as $id){
+		foreach($array[$key] as $id){
 			$result[] = $id;
 		}
 	}
 	return $result;
 }
 
-function morder_result(&$data, $sortfields, $sortorder=ZBX_SORT_UP){
+function morder_result(&$array, $sortfields, $sortorder=ZBX_SORT_UP){
 	$tmp = array();
 	$result = array();
 
-	foreach($data as $key => $value){
+	foreach($array as $key => $el){
 		unset($pointer);
 		$pointer =& $tmp;
 		foreach($sortfields as $f){
-			if(!isset($pointer[$value[$f]])) $pointer[$value[$f]] = array();
-			$pointer =& $pointer[$value[$f]];
+			if(!isset($pointer[$el[$f]])) $pointer[$el[$f]] = array();
+			$pointer =& $pointer[$el[$f]];
 		}
 		$pointer[] = $key;
 	}
@@ -841,21 +844,16 @@ function morder_result(&$data, $sortfields, $sortorder=ZBX_SORT_UP){
 	$order = sortSub($tmp, $sortorder);
 
 	foreach($order as $key){
-		$result[$key] = $data[$key];
+		$result[$key] = $array[$key];
 	}
 
-	$data = $result;
+	$array = $result;
 	return true;
 }
 
 
 function order_result(&$data, $sortfield=null, $sortorder=ZBX_SORT_UP){
 	if(empty($data)) return false;
-
-	if(is_array($sortfield)){
-		morder_result($data, $sortfield, $sortorder);
-		return true;
-	}
 
 	if(is_null($sortfield)){
 		natcasesort($data);
@@ -905,8 +903,8 @@ function zbx_implodeHash($glue1, $glue2, $hash){
 	$str = '';
 
 	foreach($hash as $key => $value){
-		if(!empty($str)) $str.= $glue2;
-		$str.= $key.$glue1.$value;
+		if(!empty($str)) $str.= $glue1;
+		$str.= $key.$glue2.$value;
 	}
 
 return $str;
@@ -931,9 +929,9 @@ return $result;
 
 function uint_in_array($needle,$haystack){
 //TODO: REMOVE
-//	if(!empty($haystack) && !is_numeric(key($haystack))){
+	if(!empty($haystack) && !is_numeric(key($haystack))){
 //		info('uint_in_array: possible pasted associated array');
-//	}
+	}
 //----
 
 	foreach($haystack as $id => $value)
@@ -974,17 +972,6 @@ function zbx_value2array(&$values){
 			$tmp[$values] = $values;
 
 		$values = $tmp;
-	}
-}
-
-// creates chain of relation parent -> childs, for all chain levels
-function createParentToChildRelation(&$chain, $link, $parentField, $childField){
-	if(!isset($chain[$link[$parentField]]))
-		$chain[$link[$parentField]] = array();
-
-	$chain[$link[$parentField]][$link[$childField]] = $link[$childField];
-	if(isset($chain[$link[$childField]])){
-		$chain[$link[$parentField]] = zbx_array_merge($chain[$link[$parentField]], $chain[$link[$childField]]);
 	}
 }
 
@@ -1365,6 +1352,8 @@ function add_doll_objects($ref_tab, $pmid='mainpage'){
 }
 
 function format_doll_init($doll){
+	global $USER_DETAILS;
+
 	$args = array('frequency' => 60,
 					'url' => '',
 					'counter' => 0,

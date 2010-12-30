@@ -25,7 +25,7 @@ class CRow extends CTag{
 		parent::__construct('tr','yes');
 
 		$this->addItem($item);
-		$this->setAttribute('class', $class);
+		$this->setClass($class);
 	}
 
 	public function setAlign($value){

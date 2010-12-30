@@ -382,7 +382,7 @@ Copt::memoryPick();
 			}
 		}
 
-// selectHosts
+// select_hosts
 		if(!is_null($options['selectHosts'])){
 			$obj_params = array(
 				'nodeids' => $nodeids,

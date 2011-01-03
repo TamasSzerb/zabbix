@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -19,11 +19,18 @@
 
 #include "common.h"
 
+#include "cfg.h"
+#include "pid.h"
 #include "db.h"
 #include "log.h"
+#include "zlog.h"
 
+#include "../functions.h"
+#include "../expression.h"
 #include "httptest.h"
 #include "httppoller.h"
+
+#include "daemon.h"
 
 int	httppoller_num;
 
@@ -33,48 +40,49 @@ int	httppoller_num;
  *                                                                            *
  * Purpose: calculate when we have to process earliest httptest               *
  *                                                                            *
- * Parameters: now - current timestamp (not used)                             *
+ * Parameters: now - current timestamp                                        *
  *                                                                            *
  * Return value: timestamp of earliest check or -1 if not found               *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
- * Comments:                                                                  *
+ * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-static int	get_minnextcheck(int now)
+static int get_minnextcheck(int now)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
+
 	int		res;
 
-	result = DBselect(
-			"select min(t.nextcheck)"
-			" from httptest t,applications a,hosts h"
-			" where t.applicationid=a.applicationid"
-				" and a.hostid=h.hostid"
-				" and " ZBX_SQL_MOD(t.httptestid,%d) "=%d"
-				" and t.status=%d"
-				" and h.status=%d"
-				" and (h.maintenance_status=%d or h.maintenance_type=%d)"
-				DB_NODE,
-			CONFIG_HTTPPOLLER_FORKS, httppoller_num - 1,
-			HTTPTEST_STATUS_MONITORED,
-			HOST_STATUS_MONITORED,
-			HOST_MAINTENANCE_STATUS_OFF, MAINTENANCE_TYPE_NORMAL,
-			DBnode_local("t.httptestid"));
+	result = DBselect("select count(*),min(nextcheck) from httptest t where t.status=%d and " ZBX_SQL_MOD(t.httptestid,%d) "=%d and " ZBX_COND_NODEID,
+		HTTPTEST_STATUS_MONITORED,
+		CONFIG_HTTPPOLLER_FORKS,
+		httppoller_num-1,
+		LOCAL_NODE("t.httptestid"));
 
-	if (NULL == (row = DBfetch(result)) || SUCCEED == DBis_null(row[0]))
+	row=DBfetch(result);
+
+	if(!row || DBis_null(row[0])==SUCCEED || DBis_null(row[1])==SUCCEED)
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "No httptests to process in get_minnextcheck.");
-		res = FAIL;
+		res = FAIL; 
 	}
 	else
-		res = atoi(row[0]);
-
+	{
+		if( atoi(row[0]) == 0)
+		{
+			res = FAIL;
+		}
+		else
+		{
+			res = atoi(row[1]);
+		}
+	}
 	DBfree_result(result);
 
-	return res;
+	return	res;
 }
 
 /******************************************************************************
@@ -92,17 +100,19 @@ static int	get_minnextcheck(int now)
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-void	main_httppoller_loop(int num)
+void main_httppoller_loop(int num)
 {
-	int	now, nextcheck, sleeptime;
+	int	now;
+	int	nextcheck,sleeptime;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In main_httppoller_loop() num:%d", num);
+	zabbix_log( LOG_LEVEL_DEBUG, "In main_httppoller_loop(num:%d)",
+		num);
 
 	httppoller_num = num;
 
 	DBconnect(ZBX_DB_CONNECT_NORMAL);
 
-	for (;;)
+	for(;;)
 	{
 		zbx_setproctitle("http poller [getting values]");
 
@@ -138,7 +148,7 @@ void	main_httppoller_loop(int num)
 			zabbix_log( LOG_LEVEL_DEBUG, "Sleeping for %d seconds",
 					sleeptime );
 
-			zbx_setproctitle("http poller [sleeping for %d seconds]",
+			zbx_setproctitle("http poller [sleeping for %d seconds]", 
 					sleeptime);
 
 			sleep( sleeptime );
@@ -147,5 +157,9 @@ void	main_httppoller_loop(int num)
 		{
 			zabbix_log( LOG_LEVEL_DEBUG, "No sleeping" );
 		}
+
+#ifdef ZABBIX_TEST
+		break;
+#endif /* ZABBIX_TEST */
 	}
 }

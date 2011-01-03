@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -22,22 +22,17 @@
 
 extern char	*CONFIG_HOSTS_ALLOWED;
 extern char	*CONFIG_HOSTNAME;
+/* extern int	CONFIG_NOTIMEWAIT;		*/
 extern int	CONFIG_DISABLE_ACTIVE;
-extern int	CONFIG_DISABLE_PASSIVE;
 extern int	CONFIG_ENABLE_REMOTE_COMMANDS;
-extern int	CONFIG_UNSAFE_USER_PARAMETERS;
 extern int	CONFIG_LISTEN_PORT;
 extern int	CONFIG_SERVER_PORT;
 extern int	CONFIG_REFRESH_ACTIVE_CHECKS;
 extern char	*CONFIG_LISTEN_IP;
 extern int	CONFIG_LOG_LEVEL;
-extern int	CONFIG_MAX_LINES_PER_SECOND;
+extern char	CONFIG_LOG_UNRES_SYMB;
 
 void    load_config();
-void    load_user_parameters(int optional);
-
-#ifdef _AIX
-void	tl_version();
-#endif /* _AIX */
+void    load_user_parameters(void);
 
 #endif /* ZABBIX_ZBXCONF_H */

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,43 +20,33 @@
 #ifndef ZABBIX_CPUSTAT_H
 #define ZABBIX_CPUSTAT_H
 
-#include "sysinfo.h"
-
 #if defined (_WINDOWS)
 
+	#define MAX_CPU	16
 	#define MAX_CPU_HISTORY 900 /* 15 min in seconds */
 
 	typedef struct s_single_cpu_stat_data
 	{
-		PDH_HCOUNTER	usage_counter;
+		PDH_HCOUNTER	usage_couter;
 		PDH_RAW_COUNTER	usage;
 		PDH_RAW_COUNTER	usage_old;
 
-		double	util1;
-		double	util5;
-		double	util15;
-
-		LONG	util1sum;
-		LONG	util5sum;
-		LONG	util15sum;
+		double util1;
+		double util5;
+		double util15;
 
 		LONG	h_usage[MAX_CPU_HISTORY]; /* usage history */
 		int	h_usage_index;
-	}
-	ZBX_SINGLE_CPU_STAT_DATA;
+	} ZBX_SINGLE_CPU_STAT_DATA;
 
 	typedef struct s_cpus_stat_data
 	{
+		ZBX_SINGLE_CPU_STAT_DATA cpu[MAX_CPU+1];
 		int	count;
-		ZBX_SINGLE_CPU_STAT_DATA *cpu; /* count + 1 */
 
 		double	load1;
 		double	load5;
 		double	load15;
-
-		LONG	load1sum;
-		LONG	load5sum;
-		LONG	load15sum;
 
 		LONG	h_queue[MAX_CPU_HISTORY]; /* queue history */
 		int	h_queue_index;
@@ -64,13 +54,14 @@
 		HQUERY		pdh_query;
 		PDH_RAW_COUNTER	queue;
 		PDH_HCOUNTER	queue_counter;
-	}
-	ZBX_CPUS_STAT_DATA;
+
+	} ZBX_CPUS_STAT_DATA;
 
 #	define CPU_COLLECTOR_STARTED(collector)	((collector) && (collector)->cpus.pdh_query)
 
 #else /* not _WINDOWS */
 
+	#define MAX_CPU	16
 	#define MAX_CPU_HISTORY 900 /* 15 min in seconds */
 
 	typedef struct s_single_cpu_stat_data
@@ -81,33 +72,33 @@
 		zbx_uint64_t	h_system[MAX_CPU_HISTORY];
 		zbx_uint64_t	h_nice[MAX_CPU_HISTORY];
 		zbx_uint64_t	h_idle[MAX_CPU_HISTORY];
-		zbx_uint64_t	h_interrupt[MAX_CPU_HISTORY];
-		zbx_uint64_t	h_iowait[MAX_CPU_HISTORY];
-		zbx_uint64_t	h_softirq[MAX_CPU_HISTORY];
-		zbx_uint64_t	h_steal[MAX_CPU_HISTORY];
 
 		/* public */
-		double	user[ZBX_AVGMAX];
-		double	system[ZBX_AVGMAX];
-		double	nice[ZBX_AVGMAX];
-		double	idle[ZBX_AVGMAX];
-		double	interrupt[ZBX_AVGMAX];
-		double	iowait[ZBX_AVGMAX];
-		double	softirq[ZBX_AVGMAX];
-		double	steal[ZBX_AVGMAX];
-	}
-	ZBX_SINGLE_CPU_STAT_DATA;
+		double	idle1;
+		double	idle5;
+		double	idle15;
+		double	user1;
+		double	user5;
+		double	user15;
+		double	system1;
+		double	system5;
+		double	system15;
+		double	nice1;
+		double	nice5;
+		double	nice15;
+
+	} ZBX_SINGLE_CPU_STAT_DATA;
 
 	typedef struct s_cpus_stat_data
 	{
+		ZBX_SINGLE_CPU_STAT_DATA cpu[MAX_CPU+1];
 		int	count;
-		ZBX_SINGLE_CPU_STAT_DATA *cpu; /* count + 1 */
-	}
-	ZBX_CPUS_STAT_DATA;
 
-#	define CPU_COLLECTOR_STARTED(collector)	(collector)
+	} ZBX_CPUS_STAT_DATA;
 
+#	define CPU_COLLECTOR_STARTED(pcpus)	(collector)
 #endif /* _WINDOWS */
+
 
 int	init_cpu_collector(ZBX_CPUS_STAT_DATA *pcpus);
 void	collect_cpustat(ZBX_CPUS_STAT_DATA *pcpus);

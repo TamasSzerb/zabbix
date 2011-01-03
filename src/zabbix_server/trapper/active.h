@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -24,11 +24,7 @@
 #include "common.h"
 #include "db.h"
 #include "comms.h"
-#include "zbxjson.h"
 
-extern int	CONFIG_TIMEOUT;
-
-int	send_list_of_active_checks(zbx_sock_t *sock, char *request, unsigned char zbx_process);
-int	send_list_of_active_checks_json(zbx_sock_t *sock, struct zbx_json_parse *json, unsigned char zbx_process);
+int	send_list_of_active_checks(zbx_sock_t *sock, const char *host);
 
 #endif

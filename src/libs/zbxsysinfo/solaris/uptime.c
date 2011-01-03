@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -18,6 +18,7 @@
 **/
 
 #include "common.h"
+
 #include "sysinfo.h"
 
 int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -27,6 +28,10 @@ int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 	kstat_named_t	*kn;
 	time_t		now;
 	int		ret = SYSINFO_RET_FAIL;
+
+	assert(result);
+
+	init_result(result);
 
 	if (NULL == (kc = kstat_open()))
 		return ret;

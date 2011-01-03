@@ -2,17 +2,20 @@
 #
 # Zabbix server start/stop script.
 #
-# Written by A. Tophofen
+# Written by A.Tophofen
 NAME=zabbix_server
 PATH=/bin:/usr/bin:/sbin:/usr/sbin:/home/zabbix/bin
 DAEMON=/home/zabbix/bin/${NAME}
-DESC="Zabbix server"
+DESC="Zabbix 1.4"
 PID=/home/zabbix/lock/$NAME.pid
+
+
 
 opts="${opts} reload"
 
+
 depend() {
-	need net
+		need net
 }
 
 start() {
@@ -23,7 +26,9 @@ start() {
 }
 stop() {
 	ebegin "Stopping $DESC: $NAME"
-	start-stop-daemon --stop --pidfile $PID \
+	start-stop-daemon  --stop  --pidfile $PID \
 		--exec $DAEMON
 	eend
 }
+
+

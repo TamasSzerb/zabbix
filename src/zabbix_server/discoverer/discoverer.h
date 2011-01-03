@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,10 +20,8 @@
 #ifndef ZABBIX_DISCOVERER_H
 #define ZABBIX_DISCOVERER_H
 
-#include "common.h"
-
 extern	int	CONFIG_DISCOVERER_FORKS;
 
-void	main_discoverer_loop(unsigned char p, int num);
+void main_discoverer_loop(int num);
 
 #endif

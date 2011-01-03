@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -40,48 +40,46 @@ static int	AGENT_PING(const char *cmd, const char *param, unsigned flags, AGENT_
 static int	AGENT_VERSION(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 static int	ONLY_ACTIVE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 
-ZBX_METRIC	parameters_common[] =
-/*      KEY                     FLAG		FUNCTION        ADD_PARAM       TEST_PARAM */
-{
+ZBX_METRIC	parameters_common[]=
+/*      KEY                     FLAG    FUNCTION        ADD_PARAM       TEST_PARAM */
+	{
 	{"agent.ping",		0,		AGENT_PING, 		0,	0},
 	{"agent.version",	0,		AGENT_VERSION,		0,	0},
 
-	{"system.localtime",	CF_USEUPARAM,	SYSTEM_LOCALTIME,	0,	"utc"},
+	{"system.localtime",	0,		SYSTEM_LOCALTIME,	0,	0},
 	{"system.run",		CF_USEUPARAM,	RUN_COMMAND,	 	0,	"echo test"},
 
 	{"web.page.get",	CF_USEUPARAM,	WEB_PAGE_GET,	 	0,	"localhost,,80"},
 	{"web.page.perf",	CF_USEUPARAM,	WEB_PAGE_PERF,	 	0,	"localhost,,80"},
 	{"web.page.regexp",	CF_USEUPARAM,	WEB_PAGE_REGEXP,	0,	"localhost,,80,OK"},
 
-	{"vfs.file.size",	CF_USEUPARAM,	VFS_FILE_SIZE, 		0,	VFS_TEST_FILE},
-	{"vfs.file.time",	CF_USEUPARAM,	VFS_FILE_TIME,		0,	VFS_TEST_FILE ",modify"},
 	{"vfs.file.exists",	CF_USEUPARAM,	VFS_FILE_EXISTS,	0,	VFS_TEST_FILE},
-	{"vfs.file.contents",	CF_USEUPARAM,	VFS_FILE_CONTENTS,	0,	VFS_TEST_FILE},
+	{"vfs.file.time",       CF_USEUPARAM,   VFS_FILE_TIME,          0,      VFS_TEST_FILE ",modify"},
+	{"vfs.file.size",	CF_USEUPARAM,	VFS_FILE_SIZE, 		0,	VFS_TEST_FILE},
 	{"vfs.file.regexp",	CF_USEUPARAM,	VFS_FILE_REGEXP,	0,	VFS_TEST_FILE "," VFS_TEST_REGEXP},
 	{"vfs.file.regmatch",	CF_USEUPARAM,	VFS_FILE_REGMATCH, 	0,	VFS_TEST_FILE "," VFS_TEST_REGEXP},
-	{"vfs.file.md5sum",	CF_USEUPARAM,	VFS_FILE_MD5SUM,	0,	VFS_TEST_FILE},
 	{"vfs.file.cksum",	CF_USEUPARAM,	VFS_FILE_CKSUM,		0,	VFS_TEST_FILE},
+	{"vfs.file.md5sum",	CF_USEUPARAM,	VFS_FILE_MD5SUM,	0,	VFS_TEST_FILE},
 
-	{"net.tcp.dns",		CF_USEUPARAM,	NET_TCP_DNS,		0,	",localhost"},
-	{"net.tcp.dns.query",	CF_USEUPARAM,	NET_TCP_DNS_QUERY,	0,	",localhost"},
-	{"net.tcp.port",	CF_USEUPARAM,	NET_TCP_PORT,		0,	",80"},
+	{"net.tcp.dns",		CF_USEUPARAM,	CHECK_DNS,		0,	"127.0.0.1,localhost"},
+	{"net.tcp.port",	CF_USEUPARAM,	CHECK_PORT,		0,	",80"},
 
 	{"system.hostname",	0,		SYSTEM_HOSTNAME,	0,	0},
 	{"system.uname",	0,		SYSTEM_UNAME,		0,	0},
 
-	{"system.users.num",	0,		SYSTEM_USERS_NUM,	0,	0},
-
+	{"system.users.num",	0,		SYSTEM_UNUM, 		0,	0},
 	{"log",			CF_USEUPARAM,	ONLY_ACTIVE, 		0,	"logfile"},
-	{"logrt",		CF_USEUPARAM,	ONLY_ACTIVE,		0,	"logfile"},
 	{"eventlog",		CF_USEUPARAM,	ONLY_ACTIVE, 		0,	"system"},
 
 	{0}
-};
+	};
 
 static int	ONLY_ACTIVE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	SET_MSG_RESULT(result, strdup("Accessible only as active check!"));
+	assert(result);
 
+        init_result(result);	
+	SET_MSG_RESULT(result, strdup("Accessible only as active check!"));
 	return SYSINFO_RET_FAIL;
 }
 
@@ -93,18 +91,22 @@ int	getPROC(char *file, int lineno, int fieldno, unsigned flags, AGENT_RESULT *r
 	char	c[MAX_STRING_LEN];
 	int	i;
 	double	value = 0;
+        
+	assert(result);
 
+        init_result(result);	
+		
 	if(NULL == (f = fopen(file,"r")))
 	{
-		return SYSINFO_RET_FAIL;
+		return	SYSINFO_RET_FAIL;
 	}
 
 	for(i=1; i<=lineno; i++)
-	{
+	{	
 		if(NULL == fgets(c,MAX_STRING_LEN,f))
 		{
 			zbx_fclose(f);
-			return SYSINFO_RET_FAIL;
+			return	SYSINFO_RET_FAIL;
 		}
 	}
 
@@ -127,17 +129,27 @@ int	getPROC(char *file, int lineno, int fieldno, unsigned flags, AGENT_RESULT *r
 
 static int	AGENT_PING(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	SET_UI64_RESULT(result, 1);
+        assert(result);
 
+        init_result(result);	
+	
+	SET_UI64_RESULT(result, 1);
 	return SYSINFO_RET_OK;
 }
 
 static int	AGENT_VERSION(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	SET_STR_RESULT(result, strdup(ZABBIX_VERSION));
+	static	char	version[]=ZABBIX_VERSION;
 
-	return SYSINFO_RET_OK;
+	assert(result);
+
+        init_result(result);
+		
+	SET_STR_RESULT(result, strdup(version));
+	
+	return	SYSINFO_RET_OK;
 }
+
 
 int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
@@ -148,7 +160,6 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 	PROCESS_INFORMATION pi = {0};
 	SECURITY_ATTRIBUTES sa;
 	HANDLE hWrite=NULL, hRead=NULL;
-	LPTSTR	wcommand;
 
 #else /* not _WINDOWS */
 
@@ -163,9 +174,9 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 	char	*command=NULL;
 	int	len;
 
-	assert(result);
+        assert(result);
 
-	init_result(result);
+        init_result(result);
 
 	cmd_result = zbx_dsprintf(cmd_result,"");
 	memset(stat_buf, 0, sizeof(stat_buf));
@@ -173,12 +184,12 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 #if defined(_WINDOWS)
 
 	/* Set the bInheritHandle flag so pipe handles are inherited */
-	sa.nLength = sizeof(SECURITY_ATTRIBUTES);
-	sa.bInheritHandle = TRUE;
-	sa.lpSecurityDescriptor = NULL;
+	sa.nLength = sizeof(SECURITY_ATTRIBUTES); 
+	sa.bInheritHandle = TRUE; 
+	sa.lpSecurityDescriptor = NULL; 
 
 	/* Create a pipe for the child process's STDOUT */
-	if (! CreatePipe(&hRead, &hWrite, &sa, sizeof(cmd_result)))
+	if (! CreatePipe(&hRead, &hWrite, &sa, sizeof(cmd_result))) 
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "Unable to create pipe [%s]", strerror_from_system(GetLastError()));
 		ret = SYSINFO_RET_FAIL;
@@ -195,18 +206,14 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 
 	command = zbx_dsprintf(command, "cmd /C \"%s\"", param);
 
-	wcommand = zbx_utf8_to_unicode(command);
-
 	/* Create new process */
-	if (!CreateProcess(NULL,wcommand,NULL,NULL,TRUE,0,NULL,NULL,&si,&pi))
+	if (!CreateProcess(NULL,command,NULL,NULL,TRUE,0,NULL,NULL,&si,&pi))
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "Unable to create process: '%s' [%s]", command, strerror_from_system(GetLastError()));
 
 		ret = SYSINFO_RET_FAIL;
-		zbx_free(wcommand);
 		goto lbl_exit;
 	}
-	zbx_free(wcommand);
 	CloseHandle(hWrite);	hWrite = NULL;
 
 	/* Read process output */
@@ -226,7 +233,7 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 	CloseHandle(pi.hThread);
 
 	CloseHandle(hRead);	hRead = NULL;
-
+		
 
 #else /* not _WINDOWS */
 	command = zbx_dsprintf(command, "%s", param);
@@ -235,12 +242,8 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 	{
 		switch (errno)
 		{
-			case	EINTR:
-				ret = SYSINFO_RET_TIMEOUT;
-				break;
-			default:
-				ret = SYSINFO_RET_FAIL;
-				break;
+			case	EINTR:	ret = SYSINFO_RET_TIMEOUT;
+			default:	ret = SYSINFO_RET_FAIL;
 		}
 		goto lbl_exit;
 	}
@@ -257,12 +260,8 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 	{
 		switch (errno)
 		{
-			case	EINTR:
-				ret = SYSINFO_RET_TIMEOUT;
-				break;
-			default:
-				ret = SYSINFO_RET_FAIL;
-				break;
+			case	EINTR:	ret = SYSINFO_RET_TIMEOUT;
+			default:	ret = SYSINFO_RET_FAIL;
 		}
 		goto lbl_exit;
 	}
@@ -271,12 +270,8 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 	{
 		switch (errno)
 		{
-			case	EINTR:
-				ret = SYSINFO_RET_TIMEOUT;
-				break;
-			default:
-				ret = SYSINFO_RET_FAIL;
-				break;
+			case	EINTR:	ret = SYSINFO_RET_TIMEOUT;
+			default:	ret = SYSINFO_RET_FAIL;
 		}
 		goto lbl_exit;
 	}
@@ -287,7 +282,7 @@ int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 
 	zabbix_log(LOG_LEVEL_DEBUG, "Before");
 
-	zbx_rtrim(cmd_result, "\r\n");
+	zbx_rtrim(cmd_result,"\n\r\0");
 
 	/* We got EOL only */
 	if(cmd_result[0] == '\0')
@@ -317,36 +312,23 @@ lbl_exit:
 	return ret;
 }
 
-int	EXECUTE_DBL(const char *cmd, const char *command, unsigned flags, AGENT_RESULT *result)
-{
-	if (SYSINFO_RET_OK != EXECUTE_STR(cmd, command, flags, result))
-		return SYSINFO_RET_FAIL;
-
-	if (NULL == GET_DBL_RESULT(result))
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "Remote command [%s] result is not double", command);
-		return SYSINFO_RET_FAIL;
-	}
-
-	UNSET_RESULT_EXCLUDING(result, AR_DOUBLE);
-
-	return SYSINFO_RET_OK;
-}
-
 int	EXECUTE_INT(const char *cmd, const char *command, unsigned flags, AGENT_RESULT *result)
 {
-	if (SYSINFO_RET_OK != EXECUTE_STR(cmd, command, flags, result))
-		return SYSINFO_RET_FAIL;
+	int	ret	= SYSINFO_RET_FAIL;
 
-	if (NULL == GET_UI64_RESULT(result))
+	ret = EXECUTE_STR(cmd,command,flags,result);
+
+	if(SYSINFO_RET_OK == ret)
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "Remote command [%s] result is not unsigned integer", command);
-		return SYSINFO_RET_FAIL;
+		if( NULL == GET_DBL_RESULT(result) )
+		{
+			zabbix_log(LOG_LEVEL_WARNING, "Remote command [%s] result is not double", command);
+			ret = SYSINFO_RET_FAIL;
+		}
+		UNSET_RESULT_EXCLUDING(result, AR_DOUBLE);
 	}
 
-	UNSET_RESULT_EXCLUDING(result, AR_UINT64);
-
-	return SYSINFO_RET_OK;
+	return ret;
 }
 
 int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -361,56 +343,69 @@ int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 	PROCESS_INFORMATION  pi;
 
 	char	full_command[MAX_STRING_LEN];
-	LPTSTR	wcommand;
-	int	ret = SYSINFO_RET_FAIL;
 #else /* not _WINDOWS */
 	pid_t	pid;
 #endif
 
-	if (CONFIG_ENABLE_REMOTE_COMMANDS != 1)
+	
+        assert(result);
+
+	init_result(result);
+	
+
+	if(CONFIG_ENABLE_REMOTE_COMMANDS != 1)
 	{
 		SET_MSG_RESULT(result, strdup("ZBX_NOTSUPPORTED"));
+		return  SYSINFO_RET_FAIL;
+	}
+	
+        if(num_param(param) > 2)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+        
+	if(get_param(param, 1, command, sizeof(command)) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+	if(command[0] == '\0')
+	{
 		return SYSINFO_RET_FAIL;
 	}
 
-	if (num_param(param) > 2)
+	zabbix_log(LOG_LEVEL_DEBUG, "Run command '%s'",command);
+	
+	if(get_param(param, 2, flag, sizeof(flag)) != 0)
+        {
+                flag[0] = '\0';
+        }
+
+	if(flag[0] == '\0')
+	{
+		zbx_snprintf(flag,sizeof(flag),"wait");
+	}
+
+	if(strcmp(flag,"wait") == 0)
+	{
+		return EXECUTE_STR(cmd,command,flags,result);
+	}
+	else if(strcmp(flag,"nowait") != 0)
+	{
 		return SYSINFO_RET_FAIL;
-
-	if (0 != get_param(param, 1, command, sizeof(command)))
-		return SYSINFO_RET_FAIL;
-
-	if (*command == '\0')
-		return SYSINFO_RET_FAIL;
-
-	if (CONFIG_LOG_REMOTE_COMMANDS == 1)
-		zabbix_log(LOG_LEVEL_WARNING, "Executing command '%s'", command);
-	else
-		zabbix_log(LOG_LEVEL_DEBUG, "Executing command '%s'", command);
-
-	if (0 != get_param(param, 2, flag, sizeof(flag)))
-		*flag = '\0';
-
-	if (*flag == '\0')
-		zbx_snprintf(flag, sizeof(flag), "wait");
-
-	if (0 == strcmp(flag, "wait"))
-		return EXECUTE_STR(cmd, command, flags, result);
-	else if (0 != strcmp(flag, "nowait"))
-		return SYSINFO_RET_FAIL;
-
+	}
+	
 #if defined(_WINDOWS)
 
 	zbx_snprintf(full_command, sizeof(full_command), "cmd /C \"%s\"", command);
 
 	GetStartupInfo(&si);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "Executing full command '%s'", full_command);
+	zabbix_log(LOG_LEVEL_DEBUG, "Execute command '%s'",full_command);
 
-	wcommand = zbx_utf8_to_unicode(full_command);
-
-	if (!CreateProcess(
+	if(!CreateProcess(
 		NULL,	/* No module name (use command line) */
-		wcommand,/* Name of app to launch */
+		full_command,/* Name of app to launch */
 		NULL,	/* Default process security attributes */
 		NULL,	/* Default thread security attributes */
 		FALSE,	/* Don't inherit handles from the parent */
@@ -420,17 +415,9 @@ int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 		&si,	/* Startup Information */
 		&pi))	/* Process information stored upon return */
 	{
-		zabbix_log(LOG_LEVEL_DEBUG, "Creation of the process failed");
-		goto lbl_exit;
+		return SYSINFO_RET_FAIL;
 	}
 
-	ret = SYSINFO_RET_OK;
-
-	SET_UI64_RESULT(result, 1);
-lbl_exit:
-	zbx_free(wcommand);
-
-	return ret;
 
 #else /* not _WINDOWS */
 
@@ -441,22 +428,22 @@ lbl_exit:
 		zabbix_log(LOG_LEVEL_WARNING, "fork failed for command '%s'",command);
 		return SYSINFO_RET_FAIL;
 	case 0:
-		pid = zbx_fork(); /* run new thread 2 to replace by command */
+		pid = zbx_fork(); /* run new tread 2 to replace by command */
 		switch(pid)
 		{
 		case -1:
 			zabbix_log(LOG_LEVEL_WARNING, "fork2 failed for '%s'",command);
 			return SYSINFO_RET_FAIL;
 		case 0:
-			/*
+			/* 
 			 * DON'T REMOVE SLEEP
 			 * sleep needed to return server result as "1"
 			 * then we can run "execl"
 			 * otherwise command print result into socket with STDOUT id
 			 */
-			sleep(3);
+			sleep(3); 
 			/**/
-
+			
 			/* replace thread 2 by the execution of command */
 			if(execl("/bin/sh", "sh", "-c", command, (char *)0))
 			{
@@ -474,8 +461,9 @@ lbl_exit:
 		break;
 	}
 
-	SET_UI64_RESULT(result, 1);
-
-	return SYSINFO_RET_OK;
 #endif /* _WINDOWS */
+
+	SET_UI64_RESULT(result, 1);
+	
+	return	SYSINFO_RET_OK;
 }

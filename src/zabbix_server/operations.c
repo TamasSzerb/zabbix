@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,18 +17,142 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <netinet/in.h>
+#include <netdb.h>
+
+#include <signal.h>
+
+#include <string.h>
+
+#include <time.h>
+
 #include "common.h"
 #include "comms.h"
 #include "db.h"
 #include "log.h"
 #include "zlog.h"
-#include "zbxserver.h"
-
-#include "operations.h"
 
 #include "poller/poller.h"
 #include "poller/checks_agent.h"
-#include "poller/checks_ipmi.h"
+
+/******************************************************************************
+ *                                                                            *
+ * Function: send_to_user_medias                                              *
+ *                                                                            *
+ * Purpose: send notifications to user's medias (email, sms, whatever)        *
+ *                                                                            *
+ * Parameters: trigger - trigger data                                         *
+ *             action  - action data                                          *
+ *             userid  - user id                                              *
+ *                                                                            *
+ * Return value: nothing                                                      *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments: Cannot use action->userid as it may also be groupid              *
+ *                                                                            *
+ ******************************************************************************/
+static	void	send_to_user_medias(DB_EVENT *event,DB_OPERATION *operation, zbx_uint64_t userid)
+{
+	DB_MEDIA media;
+	DB_RESULT result;
+	DB_ROW	row;
+
+	zabbix_log( LOG_LEVEL_DEBUG, "In send_to_user_medias(objectid:" ZBX_FS_UI64 ")",
+		event->objectid);
+
+	result = DBselect("select mediatypeid,sendto,active,severity,period from media where active=%d and userid=" ZBX_FS_UI64,
+		MEDIA_STATUS_ACTIVE,
+		userid);
+
+	while((row=DBfetch(result)))
+	{
+		ZBX_STR2UINT64(media.mediatypeid, row[0]);
+
+		media.sendto	= row[1];
+		media.active	= atoi(row[2]);
+		media.severity	= atoi(row[3]);
+		media.period	= row[4];
+
+		zabbix_log( LOG_LEVEL_DEBUG, "Trigger severity [%d] Media severity [%d] Period [%s]",
+			event->trigger_priority,
+			media.severity,
+			media.period);
+		if(((1<<event->trigger_priority)&media.severity)==0)
+		{
+			zabbix_log( LOG_LEVEL_DEBUG, "Won't send message (severity)");
+			continue;
+		}
+		if(check_time_period(media.period, (time_t)NULL) == 0)
+		{
+			zabbix_log( LOG_LEVEL_DEBUG, "Won't send message (period)");
+			continue;
+		}
+
+		DBadd_alert(operation->actionid, userid, event->objectid, media.mediatypeid,media.sendto,operation->shortdata,operation->longdata);
+	}
+	DBfree_result(result);
+
+	zabbix_log(LOG_LEVEL_DEBUG, "End send_to_user_medias()");
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: op_notify_user                                                   *
+ *                                                                            *
+ * Purpose: send notifications to user or user groupd                         *
+ *                                                                            *
+ * Parameters: trigger - trigger data                                         *
+ *             action  - action data                                          *
+ *                                                                            *
+ * Return value: nothing                                                      *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments: action->recipient specifies user or group                        *
+ *                                                                            *
+ ******************************************************************************/
+void	op_notify_user(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation)
+{
+	DB_RESULT	result;
+	DB_ROW		row;
+	zbx_uint64_t	userid;
+
+	zabbix_log(LOG_LEVEL_DEBUG, "In send_to_user()");
+
+	if(operation->object == OPERATION_OBJECT_USER)
+	{
+		send_to_user_medias(event, operation, operation->objectid);
+	}
+	else if(operation->object == OPERATION_OBJECT_GROUP)
+	{
+		result = DBselect("select u.userid from users u, users_groups ug where ug.usrgrpid=" ZBX_FS_UI64 " and ug.userid=u.userid",
+			operation->objectid);
+		while((row=DBfetch(result)))
+		{
+			ZBX_STR2UINT64(userid, row[0]);
+			send_to_user_medias(event, operation, userid);
+		}
+		DBfree_result(result);
+	}
+	else
+	{
+		zabbix_log( LOG_LEVEL_WARNING, "Unknown object type [%d] for operationid [" ZBX_FS_UI64 "]",
+			operation->object,
+			operation->operationid);
+		zabbix_syslog("Unknown object type [%d] for operationid [" ZBX_FS_UI64 "]",
+			operation->object,
+			operation->operationid);
+	}
+	zabbix_log(LOG_LEVEL_DEBUG, "End send_to_user()");
+}
+
 
 /******************************************************************************
  *                                                                            *
@@ -46,19 +170,16 @@
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static void	run_remote_command(char *host_name, char *command)
+
+static void run_remote_command(char* host_name, char* command)
 {
-	int		ret = FAIL;
+	int ret = 9;
+	
 	AGENT_RESULT	agent_result;
-	DC_ITEM         item;
+	DB_ITEM         item;
 	DB_RESULT	result;
 	DB_ROW		row;
-	char		error[MAX_STRING_LEN], *p, *host_esc, *param;
-#ifdef HAVE_OPENIPMI
-	int		val;
-	char		*port;
-#endif
-
+	
 	assert(host_name);
 	assert(command);
 
@@ -66,103 +187,28 @@ static void	run_remote_command(char *host_name, char *command)
 		host_name,
 		command);
 
-	host_esc = DBdyn_escape_string(host_name);
-	result = DBselect(
-			"select hostid,ipmi_authtype,ipmi_privilege,ipmi_username,ipmi_password"
-			" from hosts"
-			" where status in (%d)"
-				" and host='%s'"
-				DB_NODE,
-			HOST_STATUS_MONITORED,
-			host_esc,
-			DBnode_local("hostid"));
-	zbx_free(host_esc);
-
-	if (NULL != (row = DBfetch(result)))
+	result = DBselect("select distinct host,ip,useip,port,dns from hosts where host='%s' and " ZBX_COND_NODEID,
+			host_name,
+			LOCAL_NODE("hostid"));
+	row = DBfetch(result);
+	if(row)
 	{
-		memset(&item, 0, sizeof(item));
+		item.host_name = row[0];
+		item.host_ip=row[1];
+		item.useip=atoi(row[2]);
+		item.port=atoi(row[3]);
+		item.host_dns=row[4];
+		
+		zbx_snprintf(item.key,ITEM_KEY_LEN_MAX,"system.run[%s,nowait]",command);
+		
+		alarm(CONFIG_TIMEOUT);
+		
+		ret = get_value_agent(&item, &agent_result);
 
-		ZBX_STR2UINT64(item.host.hostid, row[0]);
-		strscpy(item.host.host, host_name);
-
-		p = command;
-		while (*p == ' ' && *p != '\0')
-			p++;
-
-		*error = '\0';
-
-#ifdef HAVE_OPENIPMI
-		if (0 == strncmp(p, "IPMI", 4))
-		{
-			item.host.ipmi_authtype = (signed char)atoi(row[1]);
-			item.host.ipmi_privilege = (unsigned char)atoi(row[2]);
-			strscpy(item.host.ipmi_username, row[3]);
-			strscpy(item.host.ipmi_password, row[4]);
-
-			if (SUCCEED == DCconfig_get_interface_by_type(&item.interface, item.host.hostid,
-					INTERFACE_TYPE_IPMI, 1))
-			{
-				item.interface.addr = strdup(item.interface.useip ? item.interface.ip_orig : item.interface.dns_orig);
-				substitute_simple_macros(NULL, NULL, &item.host, NULL,
-						&item.interface.addr, MACRO_TYPE_INTERFACE_ADDR, NULL, 0);
-
-				port = strdup(item.interface.port_orig);
-				substitute_simple_macros(NULL, &item.host.hostid, NULL, NULL,
-						&port, MACRO_TYPE_INTERFACE_PORT, NULL, 0);
-				if (SUCCEED == is_ushort(port, &item.interface.port))
-				{
-					if (SUCCEED == (ret = parse_ipmi_command(p, item.ipmi_sensor, &val)))
-					{
-						item.key = item.ipmi_sensor;
-						ret = set_ipmi_control_value(&item, val, error, sizeof(error));
-					}
-					else
-						zbx_snprintf(error, sizeof(error), "incorrect format of IPMI command");
-				}
-				else
-					zbx_snprintf(error, sizeof(error), "Invalid port number [%s]",
-								item.interface.port_orig);
-
-				zbx_free(port);
-				zbx_free(item.interface.addr);
-			}
-			else
-				zbx_snprintf(error, sizeof(error), "IPMI interface is not defined for host [%s]", host_name);
-		}
-		else
-		{
-#endif
-			if (SUCCEED == DCconfig_get_interface_by_type(&item.interface, item.host.hostid,
-					INTERFACE_TYPE_AGENT, 1))
-			{
-				param = dyn_escape_param(p);
-				item.key = zbx_dsprintf(NULL, "system.run[\"%s\",\"nowait\"]", param);
-				zbx_free(param);
-
-				init_result(&agent_result);
-
-				alarm(CONFIG_TIMEOUT);
-				ret = get_value_agent(&item, &agent_result);
-				alarm(0);
-
-				free_result(&agent_result);
-
-				zbx_free(item.key);
-			}
-			else
-				zbx_snprintf(error, sizeof(error), "Zabbix Agent interface is not defined for host [%s]", host_name);
-#ifdef HAVE_OPENIPMI
-		}
-#endif
-
-		if (ret != SUCCEED && '\0' != error)
-		{
-			zabbix_log(LOG_LEVEL_WARNING, "Cannot execute remote command [%s]: %s",
-					p, error);
-		}
+		alarm(0);
 	}
 	DBfree_result(result);
-
+	
 	zabbix_log(LOG_LEVEL_DEBUG, "End run_remote_command(result:%d)",
 		ret);
 }
@@ -179,7 +225,7 @@ static void	run_remote_command(char *host_name, char *command)
  *                               1 if alias is a group name                   *
  *             command - (output) remote command                              *
  *                                                                            *
- * Return value: 0 - correct command is read                                  *
+ * Return value: 0 - correct comand is readed                                 *
  *               1 - EOL                                                      *
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
@@ -191,12 +237,12 @@ static void	run_remote_command(char *host_name, char *command)
 #define CMD_ALIAS 0
 #define CMD_REM_COMMAND 1
 
-static int	get_next_command(char **command_list, char **alias, int *is_group, char **command)
+static int get_next_command(char** command_list, char** alias, int* is_group, char** command)
 {
 	int state = CMD_ALIAS;
 	int len = 0;
 	int i = 0;
-
+	
 	assert(alias);
 	assert(is_group);
 	assert(command);
@@ -207,6 +253,7 @@ static int	get_next_command(char **command_list, char **alias, int *is_group, ch
 	*alias = NULL;
 	*is_group = 0;
 	*command = NULL;
+	
 
 	if((*command_list)[0] == '\0' || (*command_list)==NULL) {
 		zabbix_log(LOG_LEVEL_DEBUG, "Result get_next_command [EOL]");
@@ -253,13 +300,13 @@ static int	get_next_command(char **command_list, char **alias, int *is_group, ch
 		*alias,
 		*is_group,
 		*command);
-
+	
 	return 0;
 }
 
 /******************************************************************************
  *                                                                            *
- * Function: op_run_commands                                                  *
+ * Function: run_commands                                                     *
  *                                                                            *
  * Purpose: run remote commandlist for specific action                        *
  *                                                                            *
@@ -270,157 +317,132 @@ static int	get_next_command(char **command_list, char **alias, int *is_group, ch
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
- * Comments: commands separated with newline                                  *
+ * Comments: commands devided with newline                                    *
  *                                                                            *
  ******************************************************************************/
-void	op_run_commands(char *cmd_list)
+void	op_run_commands(DB_EVENT *event, DB_OPERATION *operation)
 {
-	DB_RESULT	result;
+	DB_RESULT result;
 	DB_ROW		row;
-	char		*alias, *alias_esc, *command;
-	int		is_group;
 
-	assert(cmd_list);
+	char *cmd_list = NULL;
+	char *alias = NULL;
+	char *command = NULL;
+	int is_group = 0;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In run_commands()");
+	assert(event);
+	assert(operation);
 
-	while (1 != get_next_command(&cmd_list, &alias, &is_group, &command))
+	zabbix_log( LOG_LEVEL_DEBUG, "In run_commands(operationid:" ZBX_FS_UI64 ")",
+		operation->operationid);
+
+	cmd_list = operation->longdata;
+	while(get_next_command(&cmd_list,&alias,&is_group,&command)!=1)
 	{
-		if (!alias || *alias == '\0' || !command || *command == '\0')
-			continue;
-
-		if (is_group)
+		if(!alias || !command) continue;
+		if(alias == '\0' || command == '\0') continue;
+		if(is_group)
 		{
-			alias_esc = DBdyn_escape_string(alias);
-			result = DBselect("select distinct h.host from hosts_groups hg,hosts h,groups g"
-					" where hg.hostid=h.hostid and hg.groupid=g.groupid and g.name='%s'" DB_NODE,
-					alias_esc,
-					DBnode_local("h.hostid"));
-			zbx_free(alias_esc);
-
-			while (NULL != (row = DBfetch(result)))
+			result = DBselect("select distinct h.host from hosts_groups hg,hosts h, groups g where hg.hostid=h.hostid and hg.groupid=g.groupid and g.name='%s' and" ZBX_COND_NODEID,
+				alias,
+				LOCAL_NODE("h.hostid"));
+			while((row=DBfetch(result)))
+			{
 				run_remote_command(row[0], command);
-
+			}
+			
 			DBfree_result(result);
 		}
 		else
+		{
 			run_remote_command(alias, command);
+		}
+/*		DBadd_alert(action->actionid,trigger->triggerid, userid, media.mediatypeid,media.sendto,action->subject,action->scripts); */ /* TODO !!! Add alert for remote commands !!! */
 	}
 	zabbix_log( LOG_LEVEL_DEBUG, "End run_commands()");
 }
 
 /******************************************************************************
  *                                                                            *
- * Function: select_discovered_host                                           *
+ * Function: select dhostid by dserviceid                                     *
  *                                                                            *
- * Purpose: select hostid of discovered host                                  *
+ * Purpose: select discovered host id                                         *
  *                                                                            *
- * Parameters: dhostid - discovered host id                                   *
+ * Parameters: dserviceid - servce id                                         *
  *                                                                            *
- * Return value: hostid - existing hostid, 0 - if not found                   *
+ * Return value: dhostid - existing dhostid, 0 - if not found                   *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static zbx_uint64_t	select_discovered_host(DB_EVENT *event)
+static zbx_uint64_t	select_dhostid_by_dserviceid(zbx_uint64_t dserviceid)
 {
-	const char	*__function_name = "select_discovered_host";
+	DB_RESULT	result;
+	DB_ROW		row;
+	zbx_uint64_t	dhostid = 0;
+
+	zabbix_log(LOG_LEVEL_DEBUG, "In select_dhostid_by_dserviceid(dserviceid:" ZBX_FS_UI64 ")",
+		dserviceid);
+
+	result = DBselect("select dhostid from dservices where dserviceid=" ZBX_FS_UI64,
+		dserviceid);
+	row = DBfetch(result);
+	if(row && DBis_null(row[0]) != SUCCEED)
+	{
+		ZBX_STR2UINT64(dhostid, row[0]);
+	}
+	DBfree_result(result);
+
+	zabbix_log(LOG_LEVEL_DEBUG, "End select_dhostid_by_dserviceid()");
+
+	return dhostid;
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: select hostid of discovered host                                 *
+ *                                                                            *
+ * Purpose: select discovered host                                            *
+ *                                                                            *
+ * Parameters: dhostid - discovered host id                                   *
+ *                                                                            *
+ * Return value: hostid - existing hostid, o - if not found                   *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+static zbx_uint64_t	select_discovered_host(zbx_uint64_t dhostid)
+{
 	DB_RESULT	result;
 	DB_ROW		row;
 	zbx_uint64_t	hostid = 0;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s(eventid:" ZBX_FS_UI64 ")",
-			__function_name, event->eventid);
+	zabbix_log(LOG_LEVEL_DEBUG, "In select_discovered_host(dhostid:" ZBX_FS_UI64 ")",
+		dhostid);
 
-	switch (event->object) {
-	case EVENT_OBJECT_DHOST:
-		result = DBselect(
-				"select h.hostid"
-				" from hosts h,dservices ds"
-				" where ds.ip=h.ip"
-					" and ds.dhostid=" ZBX_FS_UI64,
-				event->objectid);
-		break;
-	case EVENT_OBJECT_DSERVICE:
-		result = DBselect(
-				"select h.hostid"
-				" from hosts h,dservices ds"
-				" where ds.ip=h.ip"
-					" and ds.dserviceid =" ZBX_FS_UI64,
-				event->objectid);
-		break;
-	case EVENT_OBJECT_ZABBIX_ACTIVE:
-		result = DBselect(
-				"select h.hostid"
-				" from hosts h,autoreg_host a"
-				" where a.proxy_hostid=h.proxy_hostid"
-					" and a.host=h.host"
-					" and a.autoreg_hostid=" ZBX_FS_UI64,
-				event->objectid);
-		break;
-	default:
-		return 0;
-	}
-
-	if (NULL != (row = DBfetch(result)))
+	result = DBselect("select h.hostid from dhosts d,hosts h where h.ip=d.ip and d.dhostid=" ZBX_FS_UI64,
+		dhostid);
+	row = DBfetch(result);
+	if(row && DBis_null(row[0]) != SUCCEED)
 	{
 		ZBX_STR2UINT64(hostid, row[0]);
 	}
 	DBfree_result(result);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "End select_discovered_host()");
 
 	return hostid;
 }
 
 /******************************************************************************
  *                                                                            *
- * Function: add_discovered_host_group                                        *
+ * Function: add host if not added already                                    *
  *                                                                            *
- * Purpose: add group to host if not added already                            *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value:                                                              *
- *                                                                            *
- * Author: Alexander Vladishev                                                *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-static void	add_discovered_host_group(zbx_uint64_t hostid, zbx_uint64_t groupid)
-{
-	DB_RESULT	result;
-	DB_ROW		row;
-	zbx_uint64_t	hostgroupid;
-
-	result = DBselect(
-			"select hostgroupid"
-			" from hosts_groups"
-			" where groupid=" ZBX_FS_UI64
-				" and hostid=" ZBX_FS_UI64,
-			groupid,
-			hostid);
-
-	if (NULL == (row = DBfetch(result)))
-	{
-		hostgroupid = DBget_maxid("hosts_groups");
-		DBexecute("insert into hosts_groups (hostgroupid,hostid,groupid)"
-				" values (" ZBX_FS_UI64 "," ZBX_FS_UI64 "," ZBX_FS_UI64 ")",
-				hostgroupid,
-				hostid,
-				groupid);
-	}
-	DBfree_result(result);
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: add_discovered_host                                              *
- *                                                                            *
- * Purpose: add discovered host if it was not added already                   *
+ * Purpose: add discovered host                                               *
  *                                                                            *
  * Parameters: dhostid - discovered host id                                   *
  *                                                                            *
@@ -431,222 +453,60 @@ static void	add_discovered_host_group(zbx_uint64_t hostid, zbx_uint64_t groupid)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static zbx_uint64_t	add_discovered_host(DB_EVENT *event)
+static zbx_uint64_t	add_discovered_host(zbx_uint64_t dhostid)
 {
-	const char	*__function_name = "add_discovered_host";
 	DB_RESULT	result;
 	DB_RESULT	result2;
 	DB_ROW		row;
 	DB_ROW		row2;
-	zbx_uint64_t	dhostid, hostid = 0, proxy_hostid, host_proxy_hostid;
-	char		host[MAX_STRING_LEN], *host_esc, *host_unique, *host_unique_esc;
-	unsigned short	port;
-	zbx_uint64_t	groupid = 0;
-	unsigned char	svc_type, interface_type;
+	zbx_uint64_t	hostid = 0;
+	char		*ip;
+	char		host[MAX_STRING_LEN], host_esc[MAX_STRING_LEN];
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s(eventid:" ZBX_FS_UI64 ")",
-			__function_name, event->eventid);
+	zabbix_log(LOG_LEVEL_DEBUG, "In add_discovered_host(dhostid:" ZBX_FS_UI64 ")",
+		dhostid);
 
-	result = DBselect(
-			"select discovery_groupid"
-			" from config"
-			" where 1=1"
-				DB_NODE,
-			DBnode_local("configid"));
-
-	if (NULL != (row = DBfetch(result)))
-		ZBX_STR2UINT64(groupid, row[0]);
-	DBfree_result(result);
-
-	if (0 == groupid)
+	result = DBselect("select ip from dhosts where dhostid=" ZBX_FS_UI64,
+		dhostid);
+	row = DBfetch(result);
+	if(row && DBis_null(row[0]) != SUCCEED)
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "Can't add discovered host:"
-				" Group for discovered hosts is not defined");
-		return hostid;
-	}
+		ip=row[0];
 
-	if (EVENT_OBJECT_DHOST == event->object || EVENT_OBJECT_DSERVICE == event->object)
-	{
-		if (EVENT_OBJECT_DHOST == event->object)
+		alarm(CONFIG_TIMEOUT);
+		zbx_gethost_by_ip(ip, host, sizeof(host));
+		alarm(0);
+
+		DBescape_string(host, host_esc, sizeof(host_esc));
+
+		result2 = DBselect("select hostid from hosts where ip='%s' and " ZBX_COND_NODEID,
+			ip,
+			LOCAL_NODE("hostid"));
+		row2 = DBfetch(result2);
+		if(!row2 || DBis_null(row2[0]) == SUCCEED)
 		{
-			result = DBselect(
-					"select ds.dhostid,dr.proxy_hostid,ds.ip,ds.port,ds.type"
-					" from drules dr,dchecks dc,dservices ds"
-					" where dc.druleid=dr.druleid"
-						" and ds.dcheckid=dc.dcheckid"
-						" and ds.dhostid=" ZBX_FS_UI64
-					" order by ds.dserviceid",
-					event->objectid);
+			hostid = DBget_maxid("hosts","hostid");
+			DBexecute("insert into hosts (hostid,host,useip,ip,dns) values (" ZBX_FS_UI64 ",'%s',1,'%s','%s')",
+				hostid,
+				(host[0] != '\0' ? host_esc : ip), /* Use host name if exists, IP otherwise */
+				ip,
+				host_esc);
 		}
 		else
 		{
-			result = DBselect(
-					"select ds.dhostid,dr.proxy_hostid,ds.ip,ds.port,ds.type"
-					" from drules dr,dchecks dc,dservices ds,dservices ds1"
-					" where dc.druleid=dr.druleid"
-						" and ds.dcheckid=dc.dcheckid"
-						" and ds1.dhostid=ds.dhostid"
-						" and ds1.dserviceid=" ZBX_FS_UI64
-					" order by ds.dserviceid",
-					event->objectid);
-		}
-
-		while (NULL != (row = DBfetch(result)))
-		{
-			ZBX_STR2UINT64(dhostid, row[0]);
-			ZBX_DBROW2UINT64(proxy_hostid, row[1]);
-			svc_type = (unsigned char)atoi(row[4]);
-
-			switch (svc_type)
+			ZBX_STR2UINT64(hostid, row2[0]);
+			if(host_esc[0] != '\0')
 			{
-				case SVC_AGENT:
-					port = (unsigned short)atoi(row[3]);
-					interface_type = INTERFACE_TYPE_AGENT;
-					break;
-				case SVC_SNMPv1:
-				case SVC_SNMPv2c:
-				case SVC_SNMPv3:
-					port = (unsigned short)atoi(row[3]);
-					interface_type = INTERFACE_TYPE_SNMP;
-					break;
-				default:
-					port = ZBX_DEFAULT_AGENT_PORT;
-					interface_type = INTERFACE_TYPE_AGENT;
-			}
-
-			alarm(CONFIG_TIMEOUT);
-			zbx_gethost_by_ip(row[2], host, sizeof(host));
-			alarm(0);
-
-			if (0 == hostid)
-			{
-				result2 = DBselect(
-						"select distinct h.hostid,h.proxy_hostid"
-						" from hosts h,interface i,dservices ds"
-						" where h.hostid=i.hostid"
-							" and i.ip=ds.ip"
-							" and ds.dhostid=" ZBX_FS_UI64
-						       	DB_NODE
-						" order by h.hostid",
-						dhostid,
-						DBnode_local("h.hostid"));
-
-				if (NULL != (row2 = DBfetch(result2)))
-				{
-					ZBX_STR2UINT64(hostid, row2[0]);
-					ZBX_DBROW2UINT64(host_proxy_hostid, row2[1]);
-				}
-				DBfree_result(result2);
-			}
-
-			if (0 == hostid)
-			{
-				hostid = DBget_maxid("hosts");
-
-				/* for host uniqueness purposes */
-				if ('\0' != *host)
-				{
-					/* by host name */
-					make_hostname(host); /* replace not-allowed symbols */
-					host_unique = DBget_unique_hostname_by_sample(host);
-				}
-				else
-				{
-					/* by ip */
-					make_hostname(row[2]); /* replace not-allowed symbols */
-					host_unique = DBget_unique_hostname_by_sample(row[2]);
-				}				
-
-				host_unique_esc = DBdyn_escape_string(host_unique);
-
-				DBexecute("insert into hosts"
-							" (hostid,proxy_hostid,host)"
-						" values"
-							" (" ZBX_FS_UI64 ",%s,'%s')",
-						hostid, DBsql_id_ins(proxy_hostid), host_unique_esc);
-
-				DBadd_interface(hostid, interface_type, 1, row[2], host, port);
-
-				zbx_free(host_unique);
-				zbx_free(host_unique_esc);
-			}
-			else
-			{
-				if (host_proxy_hostid != proxy_hostid)
-				{
-					DBexecute("update hosts"
-							" set proxy_hostid=%s"
-							" where hostid=" ZBX_FS_UI64,
-							DBsql_id_ins(proxy_hostid),
-							hostid);
-				}
-
-				DBadd_interface(hostid, interface_type, 1, row[2], host, port);
-			}
-		}
-		DBfree_result(result);
-	}
-	else if (EVENT_OBJECT_ZABBIX_ACTIVE == event->object)
-	{
-		result = DBselect(
-				"select proxy_hostid,host,listen_ip,listen_port"
-				" from autoreg_host"
-				" where autoreg_hostid=" ZBX_FS_UI64,
-				event->objectid);
-
-		if (NULL != (row = DBfetch(result)))
-		{
-			ZBX_DBROW2UINT64(proxy_hostid, row[0]);
-			host_esc = DBdyn_escape_string_len(row[1], HOST_HOST_LEN);
-			port = (unsigned short)atoi(row[3]);
-
-			result2 = DBselect(
-					"select hostid,proxy_hostid"
-					" from hosts"
-					" where host='%s'"
-						DB_NODE,
+				DBexecute("update hosts set dns='%s' where hostid=" ZBX_FS_UI64,
 					host_esc,
-					DBnode_local("hostid"));
-
-			if (NULL == (row2 = DBfetch(result2)))
-			{
-				hostid = DBget_maxid("hosts");
-
-				DBexecute("insert into hosts"
-							" (hostid,proxy_hostid,host)"
-						" values"
-							" (" ZBX_FS_UI64 ",%s,'%s')",
-						hostid, DBsql_id_ins(proxy_hostid), host_esc);
-
-				DBadd_interface(hostid, INTERFACE_TYPE_AGENT, 1, row[2], row[1], port);
+					hostid);
 			}
-			else
-			{
-				ZBX_STR2UINT64(hostid, row2[0]);
-				ZBX_DBROW2UINT64(host_proxy_hostid, row2[1]);
-
-				if (host_proxy_hostid != proxy_hostid)
-				{
-					DBexecute("update hosts"
-							" set proxy_hostid=%s"
-							" where hostid=" ZBX_FS_UI64,
-							DBsql_id_ins(proxy_hostid),
-							hostid);
-				}
-
-				DBadd_interface(hostid, INTERFACE_TYPE_AGENT, 1, row[2], row[1], port);
-			}
-			DBfree_result(result2);
-
-			zbx_free(host_esc);
 		}
-		DBfree_result(result);
+		DBfree_result(result2);
 	}
+	DBfree_result(result);
 
-	if (0 != hostid)
-		add_discovered_host_group(hostid, groupid);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "End add_discovered_host()");
 
 	return hostid;
 }
@@ -669,19 +529,23 @@ static zbx_uint64_t	add_discovered_host(DB_EVENT *event)
  ******************************************************************************/
 void	op_host_add(DB_EVENT *event)
 {
-	const char	*__function_name = "op_host_add";
+	zbx_uint64_t	hostid;
+	zbx_uint64_t	dhostid = 0;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In op_host_add()");
 
-	if (event->source != EVENT_SOURCE_DISCOVERY && event->source != EVENT_SOURCE_AUTO_REGISTRATION)
-		return;
+	if(event->object == EVENT_OBJECT_DHOST)
+	{
+		dhostid = event->objectid;
+	}
+	else if(event->object == EVENT_OBJECT_DSERVICE)
+	{
+		dhostid = select_dhostid_by_dserviceid(event->objectid);
+	}
 
-	if (event->object != EVENT_OBJECT_DHOST && event->object != EVENT_OBJECT_DSERVICE && event->object != EVENT_OBJECT_ZABBIX_ACTIVE)
-		return;
+	hostid = add_discovered_host(dhostid);
 
-	add_discovered_host(event);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "End op_host_add()");
 }
 
 /******************************************************************************
@@ -701,105 +565,26 @@ void	op_host_add(DB_EVENT *event)
  ******************************************************************************/
 void	op_host_del(DB_EVENT *event)
 {
-	const char	*__function_name = "op_host_del";
-	zbx_uint64_t	hostid;
+	zbx_uint64_t	hostid, dhostid;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In op_host_del()");
 
-	if (event->source != EVENT_SOURCE_DISCOVERY)
-		return;
+	if(event->object == EVENT_OBJECT_DSERVICE)
+	{
+		dhostid = select_dhostid_by_dserviceid(event->objectid);
+	}
+	else
+	{
+		dhostid = event->objectid;
+	}
 
-	if (event->object != EVENT_OBJECT_DHOST && event->object != EVENT_OBJECT_DSERVICE)
-		return;
+	hostid = select_discovered_host(dhostid);
+	if(hostid != 0)
+	{
+		DBdelete_host(hostid);
+	}
 
-	if (0 == (hostid = select_discovered_host(event)))
-		return;
-
-	DBdelete_host(hostid);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: op_host_enable                                                   *
- *                                                                            *
- * Purpose: enable discovered                                                 *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value: nothing                                                      *
- *                                                                            *
- * Author: Alexander Vladishev                                                *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-void	op_host_enable(DB_EVENT *event)
-{
-	const char	*__function_name = "op_host_enable";
-	zbx_uint64_t	hostid;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
-
-	if (event->source != EVENT_SOURCE_DISCOVERY)
-		return;
-
-	if (event->object != EVENT_OBJECT_DHOST && event->object != EVENT_OBJECT_DSERVICE)
-		return;
-
-	if (0 == (hostid = add_discovered_host(event)))
-		return;
-
-	DBexecute(
-			"update hosts"
-			" set status=%d"
-			" where hostid=" ZBX_FS_UI64,
-			HOST_STATUS_MONITORED,
-			hostid);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: op_host_disable                                                  *
- *                                                                            *
- * Purpose: disable host                                                      *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value: nothing                                                      *
- *                                                                            *
- * Author: Alexander Vladishev                                                *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-void	op_host_disable(DB_EVENT *event)
-{
-	const char	*__function_name = "op_host_disable";
-	zbx_uint64_t	hostid;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
-
-	if (event->source != EVENT_SOURCE_DISCOVERY && event->source != EVENT_SOURCE_AUTO_REGISTRATION)
-		return;
-
-	if (event->object != EVENT_OBJECT_DHOST && event->object != EVENT_OBJECT_DSERVICE && event->object != EVENT_OBJECT_ZABBIX_ACTIVE)
-		return;
-
-	if (0 == (hostid = add_discovered_host(event)))
-		return;
-
-	DBexecute(
-			"update hosts"
-			" set status=%d"
-			" where hostid=" ZBX_FS_UI64,
-			HOST_STATUS_NOT_MONITORED,
-			hostid);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "End op_host_del()");
 }
 
 /******************************************************************************
@@ -808,8 +593,8 @@ void	op_host_disable(DB_EVENT *event)
  *                                                                            *
  * Purpose: add group to discovered host                                      *
  *                                                                            *
- * Parameters: event   - [IN] event data                                      *
- *             groupid - [IN] group identificator from database               *
+ * Parameters: trigger - trigger data                                         *
+ *             action  - action data                                          *
  *                                                                            *
  * Return value: nothing                                                      *
  *                                                                            *
@@ -818,25 +603,48 @@ void	op_host_disable(DB_EVENT *event)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-void	op_group_add(DB_EVENT *event, zbx_uint64_t groupid)
+void	op_group_add(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation)
 {
-	const char	*__function_name = "op_group_add";
-	zbx_uint64_t	hostid;
+	DB_RESULT	result;
+	DB_ROW		row;
+	zbx_uint64_t	hostgroupid, groupid, hostid, dhostid;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In op_group_add(object:%d)",
+		event->object);
 
-	if (event->source != EVENT_SOURCE_DISCOVERY && event->source != EVENT_SOURCE_AUTO_REGISTRATION)
-		return;
+	if(operation->operationtype != OPERATION_TYPE_GROUP_ADD)				return;
+	if(event->object != EVENT_OBJECT_DHOST && event->object != EVENT_OBJECT_DSERVICE)	return;
 
-	if (event->object != EVENT_OBJECT_DHOST && event->object != EVENT_OBJECT_DSERVICE && event->object != EVENT_OBJECT_ZABBIX_ACTIVE)
-		return;
 
-	if (0 == (hostid = add_discovered_host(event)))
-		return;
+	if(event->object == EVENT_OBJECT_DSERVICE)
+	{
+		dhostid = select_dhostid_by_dserviceid(event->objectid);
+	}
+	else
+	{
+		dhostid = event->objectid;
+	}
 
-	add_discovered_host_group(hostid, groupid);
+	hostid = add_discovered_host(dhostid);
+	if(hostid != 0)
+	{
+		groupid = operation->objectid;
+		result = DBselect("select hostgroupid from hosts_groups where groupid=" ZBX_FS_UI64 " and hostid=" ZBX_FS_UI64,
+			groupid,
+			hostid);
+		row = DBfetch(result);
+		if(!row || DBis_null(row[0]) == SUCCEED)
+		{
+			hostgroupid = DBget_maxid("hosts_groups","hostgroupid");
+			DBexecute("insert into hosts_groups (hostgroupid,hostid,groupid) values (" ZBX_FS_UI64 "," ZBX_FS_UI64 "," ZBX_FS_UI64 ")",
+				hostgroupid,
+				hostid,
+				groupid);
+		}
+		DBfree_result(result);
+	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "End op_group_add()");
 }
 
 /******************************************************************************
@@ -845,8 +653,8 @@ void	op_group_add(DB_EVENT *event, zbx_uint64_t groupid)
  *                                                                            *
  * Purpose: delete group from discovered host                                 *
  *                                                                            *
- * Parameters: event   - [IN] event data                                      *
- *             groupid - [IN] group identificator from database               *
+ * Parameters: trigger - trigger data                                         *
+ *             action  - action data                                          *
  *                                                                            *
  * Return value: nothing                                                      *
  *                                                                            *
@@ -855,30 +663,34 @@ void	op_group_add(DB_EVENT *event, zbx_uint64_t groupid)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-void	op_group_del(DB_EVENT *event, zbx_uint64_t groupid)
+void	op_group_del(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation)
 {
-	const char	*__function_name = "op_group_del";
-	zbx_uint64_t	hostid;
+	zbx_uint64_t	groupid, hostid, dhostid;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In op_group_del()");
 
-	if (event->source != EVENT_SOURCE_DISCOVERY)
-		return;
+	if(operation->operationtype != OPERATION_TYPE_GROUP_REMOVE)	return;
+	if(event->object != EVENT_OBJECT_DHOST && event->object != EVENT_OBJECT_DSERVICE)	return;
 
-	if (event->object != EVENT_OBJECT_DHOST && event->object != EVENT_OBJECT_DSERVICE)
-		return;
+	if(event->object == EVENT_OBJECT_DSERVICE)
+	{
+		dhostid = select_dhostid_by_dserviceid(event->objectid);
+	}
+	else
+	{
+		dhostid = event->objectid;
+	}
 
-	if (0 == (hostid = select_discovered_host(event)))
-		return;
+	hostid = select_discovered_host(dhostid);
+	if(hostid != 0)
+	{
+		groupid = operation->objectid;
+		DBexecute("delete from hosts_groups where hostid=" ZBX_FS_UI64 " and groupid=" ZBX_FS_UI64,
+				hostid,
+				groupid);
+	}
 
-	DBexecute(
-			"delete from hosts_groups"
-			" where hostid=" ZBX_FS_UI64
-				" and groupid=" ZBX_FS_UI64,
-			hostid,
-			groupid);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "End op_group_del()");
 }
 
 /******************************************************************************
@@ -887,8 +699,7 @@ void	op_group_del(DB_EVENT *event, zbx_uint64_t groupid)
  *                                                                            *
  * Purpose: link host with template                                           *
  *                                                                            *
- * Parameters: event      - [IN] event data                                   *
- *             templateid - [IN] host template identificator from database    *
+ * Parameters:                                                                *
  *                                                                            *
  * Return value: nothing                                                      *
  *                                                                            *
@@ -897,25 +708,55 @@ void	op_group_del(DB_EVENT *event, zbx_uint64_t groupid)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-void	op_template_add(DB_EVENT *event, zbx_uint64_t templateid)
+void	op_template_add(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation)
 {
-	const char	*__function_name = "op_template_add";
-	zbx_uint64_t	hostid;
+	DB_RESULT	result;
+	DB_ROW		row;
+	zbx_uint64_t	hosttemplateid, templateid, hostid, dhostid;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In op_template_add(object:%d)",
+		event->object);
 
-	if (event->source != EVENT_SOURCE_DISCOVERY && event->source != EVENT_SOURCE_AUTO_REGISTRATION)
-		return;
+	if(operation->operationtype != OPERATION_TYPE_TEMPLATE_ADD)				return;
+	if(event->object != EVENT_OBJECT_DHOST && event->object != EVENT_OBJECT_DSERVICE)	return;
 
-	if (event->object != EVENT_OBJECT_DHOST && event->object != EVENT_OBJECT_DSERVICE && event->object != EVENT_OBJECT_ZABBIX_ACTIVE)
-		return;
 
-	if (0 == (hostid = add_discovered_host(event)))
-		return;
+	if(event->object == EVENT_OBJECT_DSERVICE)
+	{
+		dhostid = select_dhostid_by_dserviceid(event->objectid);
+	}
+	else
+	{
+		dhostid = event->objectid;
+	}
 
-	DBcopy_template_elements(hostid, templateid);
+	hostid = add_discovered_host(dhostid);
+	if(hostid != 0)
+	{
+		templateid = operation->objectid;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+		result = DBselect("select hosttemplateid from hosts_templates where templateid=" ZBX_FS_UI64 " and hostid=" ZBX_FS_UI64,
+			templateid,
+			hostid);
+		row = DBfetch(result);
+		if(!row || DBis_null(row[0]) == SUCCEED)
+		{
+			hosttemplateid = DBget_maxid("hosts_templates","hosttemplateid");
+			DBexecute("begin;");
+
+			DBexecute("insert into hosts_templates (hosttemplateid,hostid,templateid) values (" ZBX_FS_UI64 "," ZBX_FS_UI64 "," ZBX_FS_UI64 ")",
+				hosttemplateid,
+				hostid,
+				templateid);
+
+			DBsync_host_with_template(hostid, templateid);
+
+			DBexecute("commit;");
+		}
+		DBfree_result(result);
+	}
+
+	zabbix_log(LOG_LEVEL_DEBUG, "End op_template_add()");
 }
 
 /******************************************************************************
@@ -924,8 +765,7 @@ void	op_template_add(DB_EVENT *event, zbx_uint64_t templateid)
  *                                                                            *
  * Purpose: unlink and clear host from template                               *
  *                                                                            *
- * Parameters: event      - [IN] event data                                   *
- *             templateid - [IN] host template identificator from database    *
+ * Parameters:                                                                *
  *                                                                            *
  * Return value: nothing                                                      *
  *                                                                            *
@@ -934,23 +774,53 @@ void	op_template_add(DB_EVENT *event, zbx_uint64_t templateid)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-void	op_template_del(DB_EVENT *event, zbx_uint64_t templateid)
+void	op_template_del(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation)
 {
-	const char	*__function_name = "op_template_del";
-	zbx_uint64_t	hostid;
+	DB_RESULT	result;
+	DB_ROW		row;
+	zbx_uint64_t	templateid, hostid, dhostid;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In op_template_del(object:%d)",
+		event->object);
 
-	if (event->source != EVENT_SOURCE_DISCOVERY)
-		return;
+	if(operation->operationtype != OPERATION_TYPE_TEMPLATE_REMOVE)				return;
+	if(event->object != EVENT_OBJECT_DHOST && event->object != EVENT_OBJECT_DSERVICE)	return;
 
-	if (event->object != EVENT_OBJECT_DHOST && event->object != EVENT_OBJECT_DSERVICE)
-		return;
 
-	if (0 == (hostid = select_discovered_host(event)))
-		return;
+	if(event->object == EVENT_OBJECT_DSERVICE)
+	{
+		dhostid = select_dhostid_by_dserviceid(event->objectid);
+	}
+	else
+	{
+		dhostid = event->objectid;
+	}
 
-	DBdelete_template_elements(hostid, templateid);
+	hostid = select_discovered_host(dhostid);
+	if(hostid != 0)
+	{
+		templateid = operation->objectid;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+		result = DBselect("select hosttemplateid from hosts_templates where templateid=" ZBX_FS_UI64 " and hostid=" ZBX_FS_UI64,
+			templateid,
+			hostid);
+
+		if( (row = DBfetch(result)) )
+		{
+			DBexecute("begin;");
+
+			DBdelete_template_elements(hostid, templateid, 0 /* not a unlink mode */);
+
+			DBexecute("delete from hosts_templates where "
+					"hostid=" ZBX_FS_UI64 " and templateid=" ZBX_FS_UI64,
+				hostid,
+				templateid);
+
+			DBexecute("commit;");
+		}
+		DBfree_result(result);
+	}
+
+	zabbix_log(LOG_LEVEL_DEBUG, "End op_template_del()");
 }
+

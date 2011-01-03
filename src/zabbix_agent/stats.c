@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -35,107 +35,20 @@
 #	include "service.h"
 #else
 #	include "daemon.h"
-#	include "ipc.h"
 #endif /* _WINDOWS */
 
-ZBX_COLLECTOR_DATA	*collector = NULL;
+ZBX_COLLECTOR_DATA *collector = NULL;
 
-#define ZBX_GET_SHM_KEY(shm_key)						\
-										\
-	if (-1 == (shm_key = zbx_ftok(CONFIG_FILE, ZBX_IPC_COLLECTOR_ID)))	\
-	{									\
-		zbx_error("Cannot create IPC key for agent collector");		\
-		exit(1);							\
-	}
-
-/******************************************************************************
- *                                                                            *
- * Function: zbx_get_cpu_num                                                  *
- *                                                                            *
- * Purpose: returns the number of processors which are currently online       *
- *          (i.e., available).                                                *
- *                                                                            *
- * Return value: number of CPUs                                               *
- *                                                                            *
- * Author: Eugene Grigorjev                                                   *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-static int	zbx_get_cpu_num()
-{
-#if defined(_WINDOWS)
-	SYSTEM_INFO	sysInfo;
-
-	GetSystemInfo(&sysInfo);
-
-	return (int)(sysInfo.dwNumberOfProcessors);
-#elif defined(HAVE_SYS_PSTAT_H)
-	struct pst_dynamic psd;
-
-	if (-1 == pstat_getdynamic(&psd, sizeof(struct pst_dynamic), 1, 0))
-		goto return_one;
-
-	return (int)(psd.psd_proc_cnt);
-return_one:
-#elif defined(_SC_NPROCESSORS_ONLN)
-	/* Solaris 10 x86 */
-	/* FreeBSD 7.0 x86 */
-	int	ncpu;
-
-	if (-1 == (ncpu = sysconf(_SC_NPROCESSORS_ONLN)))
-		goto return_one;
-
-	return ncpu;
-return_one:
-#elif defined(HAVE_FUNCTION_SYSCTL_HW_NCPU)
-	/* NetBSD 3.1 x86; NetBSD 4.0 x86 */
-	/* OpenBSD 4.2 x86 */
-	/* FreeBSD 6.2 x86; FreeBSD 7.0 x86 */
-	size_t	len;
-	int	mib[] = {CTL_HW, HW_NCPU}, ncpu;
-
-	len = sizeof(ncpu);
-
-	if (0 != sysctl(mib, 2, &ncpu, &len, NULL, 0))
-		goto return_one;
-
-	return ncpu;
-return_one:
-#elif defined(HAVE_PROC_CPUINFO)
-	FILE	*f = NULL;
-	int	ncpu = 0;
-
-	if (NULL == (file = fopen("/proc/cpuinfo", "r")))
-		goto return_one;
-
-	while (fgets(line, 1024, file) != NULL)
-	{
-		if (strstr(line, "processor") == NULL)
-			continue;
-		ncpu++;
-	}
-	zbx_fclose(file);
-
-	if (ncpu == 0)
-		goto return_one;
-
-	return ncpu;
-return_one:
-#elif defined(HAVE_LIBPERFSTAT)
-	/* AIX 6.1 */
-	perfstat_cpu_total_t	ps_cpu_total;
-
-	if (-1 == perfstat_cpu_total(NULL, &ps_cpu_total, sizeof(ps_cpu_total), 1))
-		goto return_one;
-
-	return (int)ps_cpu_total.ncpus;
-return_one:
-#endif
-
-	zabbix_log(LOG_LEVEL_WARNING, "Can not determine number of CPUs, adjust to 1");
-	return 1;
-}
+#define ZBX_GET_SHM_KEY(smk_key) 														\
+	{if( -1 == (shm_key = ftok(CONFIG_FILE, (int)'z') )) 										\
+        { 																\
+                zbx_error("Can not create IPC key for path '%s', try to create for path '.' [%s]", CONFIG_FILE, strerror(errno)); 	\
+                if( -1 == (shm_key = ftok(".", (int)'z') )) 										\
+                { 															\
+                        zbx_error("Can not create IPC key for path '.' [%s]", strerror(errno)); 					\
+                        exit(1); 													\
+                } 															\
+        }}
 
 /******************************************************************************
  *                                                                            *
@@ -149,40 +62,30 @@ return_one:
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
- * Comments: Linux version allocates memory as shared.                        *
+ * Comments: Linux version allocate memory as shared.                         *
  *                                                                            *
  ******************************************************************************/
-void	init_collector_data()
+
+void	init_collector_data(void)
 {
-	int	cpu_count;
-	size_t	sz, sz_cpu;
-#ifndef _WINDOWS
-#define ZBX_MAX_ATTEMPTS 10
-	int	attempts = 0, shm_id;
-	key_t	shm_key;
-#endif
+#if defined (_WINDOWS)
 
-	cpu_count = zbx_get_cpu_num();
+	collector = zbx_malloc(collector, sizeof(ZBX_COLLECTOR_DATA));
 
-	sz = sizeof(ZBX_COLLECTOR_DATA);
-	sz_cpu = sizeof(ZBX_SINGLE_CPU_STAT_DATA) * (cpu_count + 1);
-
-#ifdef _WINDOWS
-
-	collector = zbx_malloc(collector, sz + sz_cpu);
-	memset(collector, 0, sz + sz_cpu);
-
-	collector->cpus.cpu = (ZBX_SINGLE_CPU_STAT_DATA *)(collector + 1);
-	collector->cpus.count = cpu_count;
-
-	init_perf_collector(&collector->perfs);
+	memset(collector, 0, sizeof(ZBX_COLLECTOR_DATA));
 
 #else /* not _WINDOWS */
+
+#define ZBX_MAX_ATTEMPTS 10
+	int	attempts = 0;
+
+	key_t	shm_key;
+	int	shm_id;
 
 	ZBX_GET_SHM_KEY(shm_key);
 
 lbl_create:
-	if ( -1 == (shm_id = shmget(shm_key, sz + sz_cpu, IPC_CREAT | IPC_EXCL | 0666 /* 0022 */)) )
+	if ( -1 == (shm_id = shmget(shm_key, sizeof(ZBX_COLLECTOR_DATA), IPC_CREAT | IPC_EXCL | 0666 /* 0022 */)) )
 	{
 		if( EEXIST == errno )
 		{
@@ -198,7 +101,7 @@ lbl_create:
 			}
 			if ( attempts > (ZBX_MAX_ATTEMPTS / 2) )
 			{
-				zabbix_log(LOG_LEVEL_DEBUG, "Wait 1 sec for next attempt of collector shared memory allocation.");
+				zabbix_log(LOG_LEVEL_DEBUG, "Wait 1 sec for next attemtion of collector shared memory allocation.");
 				zbx_sleep(1);
 			}
 			goto lbl_create;
@@ -209,20 +112,14 @@ lbl_create:
 			exit(1);
 		}
 	}
-
-	collector = shmat(shm_id, NULL, 0);
+	
+	collector = shmat(shm_id, 0, 0);
 
 	if ((void*)(-1) == collector)
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "Can't attach shared memory for collector. [%s]",strerror(errno));
+		zabbix_log(LOG_LEVEL_CRIT, "Can't attache shared memory for collector. [%s]",strerror(errno));
 		exit(1);
 	}
-
-	collector->cpus.cpu = (ZBX_SINGLE_CPU_STAT_DATA *)(collector + 1);
-	collector->cpus.count = cpu_count;
-#ifdef _AIX
-	memset(&collector->vmstat, 0, sizeof(collector->vmstat));
-#endif
 
 #endif /* _WINDOWS */
 }
@@ -231,7 +128,7 @@ lbl_create:
  *                                                                            *
  * Function: free_collector_data                                              *
  *                                                                            *
- * Purpose: Free memory allocated for collector                               *
+ * Purpose: Free memory aloccated for collector                               *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
@@ -239,10 +136,11 @@ lbl_create:
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
- * Comments: Linux version allocates memory as shared.                        *
+ * Comments: Linux version allocate memory as shared.                         *
  *                                                                            *
  ******************************************************************************/
-void	free_collector_data()
+
+void	free_collector_data(void)
 {
 
 #if defined (_WINDOWS)
@@ -254,9 +152,8 @@ void	free_collector_data()
 	key_t	shm_key;
 	int	shm_id;
 
-	if (NULL == collector)
-		return;
-
+	if(NULL == collector) return;
+	
 	ZBX_GET_SHM_KEY(shm_key);
 
 	shm_id = shmget(shm_key, sizeof(ZBX_COLLECTOR_DATA), 0);
@@ -274,6 +171,7 @@ void	free_collector_data()
 	collector = NULL;
 }
 
+
 /******************************************************************************
  *                                                                            *
  * Function: collector_thread                                                 *
@@ -289,40 +187,34 @@ void	free_collector_data()
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
+
 ZBX_THREAD_ENTRY(collector_thread, args)
 {
-	zabbix_log(LOG_LEVEL_INFORMATION, "zabbix_agentd collector started");
+	zabbix_log( LOG_LEVEL_INFORMATION, "zabbix_agentd collector started");
 
-	if (0 != init_cpu_collector(&(collector->cpus)))
+	if ( init_cpu_collector(&(collector->cpus)) )
 		close_cpu_collector(&(collector->cpus));
 
-	collector_diskdevice_add("");
+	if( init_perf_collector(&(collector->perfs)) )
+		close_perf_collector(&(collector->perfs));
 
-	while (ZBX_IS_RUNNING())
+	while(ZBX_IS_RUNNING)
 	{
-		if (CPU_COLLECTOR_STARTED(collector))
-			collect_cpustat(&(collector->cpus));
-#ifdef _WINDOWS
-		collect_perfstat();
-#endif /* _WINDOWS */
+		collect_cpustat(&(collector->cpus));
+		collect_perfstat(&(collector->perfs));
 
 		collect_stats_interfaces(&(collector->interfaces)); /* TODO */
 		collect_stats_diskdevices(&(collector->diskdevices)); /* TODO */
-#ifdef _AIX
-		collect_vmstat_data(&collector->vmstat);
-#endif
+
 		zbx_sleep(1);
 	}
 
-#ifdef _WINDOWS
-	close_perf_collector();
-#endif /* _WINDOWS */
-	if (CPU_COLLECTOR_STARTED(collector))
-		close_cpu_collector(&(collector->cpus));
+	close_perf_collector(&(collector->perfs));
+	close_cpu_collector(&(collector->cpus));
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "zabbix_agentd collector stopped");
+	zabbix_log( LOG_LEVEL_INFORMATION, "zabbix_agentd collector stopped");
 
 	ZBX_DO_EXIT();
 
-	zbx_thread_exit(0);
+	zbx_tread_exit(0);
 }

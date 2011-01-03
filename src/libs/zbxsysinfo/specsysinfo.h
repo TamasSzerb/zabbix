@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,9 +17,8 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#ifndef ZABBIX_SPECSYSINFO_H
-#define ZABBIX_SPECSYSINFO_H
+#if !defined(SPECSYSINFO_H_INCLUDED)
 
-extern ZBX_METRIC	parameters_specific[];
+extern ZBX_METRIC      parameters_specific[];
 
-#endif /* ZABBIX_SPECSYSINFO_H */
+#endif /* SPECSYSINFO_H_INCLUDED */

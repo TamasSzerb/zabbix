@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -25,108 +25,49 @@
 #include "cfg.h"
 #include "log.h"
 
-#include "fatal.h"
-
-char	*CONFIG_PID_FILE = NULL;
+char	*APP_PID_FILE	= NULL;
 
 static int	parent = 0;
-static int	parent_pid = (-1);
-static int	exiting = 0;
 
-#define CHECKED_FIELD(siginfo, field)			(NULL == siginfo ? -1 : siginfo->field)
-#define CHECKED_FIELD_TYPE(siginfo, field, type)	(NULL == siginfo ? (type)-1 : siginfo->field)
+#define uninit() { if(parent == 1) zbx_on_exit(); }
 
-void	child_signal_handler(int sig, siginfo_t *siginfo, void *context)
+void	child_signal_handler(int sig)
 {
-	if (NULL == siginfo)
-		zabbix_log(LOG_LEVEL_DEBUG, "Received [signal:%d(%s)] with NULL siginfo.",
-				sig, get_signal_name(sig));
-	if (NULL == context)
-		zabbix_log(LOG_LEVEL_DEBUG, "Received [signal:%d(%s)] with NULL context.",
-				sig, get_signal_name(sig));
-
-	switch (sig)
+	switch(sig)
 	{
 	case SIGALRM:
-		zabbix_log(LOG_LEVEL_DEBUG, "Timeout while answering request");
-		break;
-	case SIGILL:
-	case SIGFPE:
-	case SIGSEGV:
-	case SIGBUS:
-		zabbix_log(LOG_LEVEL_CRIT, "Got signal [signal:%d(%s),reason:%d,refaddr:%p]. Crashing ...",
-				sig, get_signal_name(sig),
-				CHECKED_FIELD(siginfo, si_code),
-				CHECKED_FIELD_TYPE(siginfo, si_addr, void *));
-		print_fatal_info(sig, siginfo, context);
-		exit(FAIL);
+/*		signal(SIGALRM , child_signal_handler);*/
+		zabbix_log( LOG_LEVEL_WARNING, "Timeout while answering request");
 		break;
 	case SIGQUIT:
 	case SIGINT:
 	case SIGTERM:
-		zabbix_log(parent_pid == CHECKED_FIELD(siginfo, si_pid) ? LOG_LEVEL_DEBUG : LOG_LEVEL_WARNING,
-				"Got signal [signal:%d(%s),sender_pid:%d,sender_uid:%d,reason:%d]. Exiting ...",
-				sig, get_signal_name(sig),
-				CHECKED_FIELD(siginfo, si_pid),
-				CHECKED_FIELD(siginfo, si_uid),
-				CHECKED_FIELD(siginfo, si_code));
-		if (1 == parent)
-		{
-			if (0 == exiting)
-			{
-				exiting = 1;
-				zbx_on_exit();
-			}
-		}
-		else
-			exit(FAIL);
+		zabbix_log( LOG_LEVEL_DEBUG, "Got signal. Exiting ...");
+		uninit();
+		exit( FAIL );
 		break;
 	case SIGPIPE:
-		zabbix_log(LOG_LEVEL_DEBUG, "Got signal [signal:%d(%s),sender_pid:%d]. Ignoring ...",
-			sig, get_signal_name(sig),
-			CHECKED_FIELD(siginfo, si_pid));
+		zabbix_log( LOG_LEVEL_WARNING, "Got SIGPIPE. Where it came from???");
 		break;
 	default:
-		zabbix_log(LOG_LEVEL_WARNING, "Got signal [signal:%d(%s),sender_pid:%d,sender_uid:%d]. Ignoring ...",
-			sig, get_signal_name(sig),
-			CHECKED_FIELD(siginfo, si_pid),
-			CHECKED_FIELD(siginfo, si_uid));
+		zabbix_log( LOG_LEVEL_WARNING, "Got signal [%d]. Ignoring ...", sig);
 	}
 }
 
-static void	parent_signal_handler(int sig, siginfo_t *siginfo, void *context)
+static void	parent_signal_handler(int sig)
 {
-	switch (sig)
+	switch(sig)
 	{
 	case SIGCHLD:
-		if (1 == parent)
-		{
-			if (0 == exiting)
-			{
-				int		i, found = 0;
-				extern int	threads_num;
-				extern pid_t	*threads;
-				
-				for (i = 1; i < threads_num && !found; i++)
-					found = (threads[i] == CHECKED_FIELD(siginfo, si_pid));
-
-				if (!found)	/* we should not worry too much about non-Zabbix child */
-					return;	/* processes, like watchdog alert scripts, terminating */
-
-				zabbix_log(LOG_LEVEL_CRIT, "One child process died (PID:%d,exitcode/signal:%d). Exiting ...",
-						CHECKED_FIELD(siginfo, si_pid),
-						CHECKED_FIELD(siginfo, si_status));
-				exiting = 1;
-				zbx_on_exit();
-			}
-		}
-		else
-			exit(FAIL);
+		zabbix_log( LOG_LEVEL_WARNING, "One child process died. Exiting ...");
+		uninit();
+		exit( FAIL );
 		break;
 	default:
-		child_signal_handler(sig, siginfo, context);
+		child_signal_handler(sig);
 	}
 }
+
 
 /******************************************************************************
  *                                                                            *
@@ -134,18 +75,19 @@ static void	parent_signal_handler(int sig, siginfo_t *siginfo, void *context)
  *                                                                            *
  * Purpose: init process as daemon                                            *
  *                                                                            *
- * Parameters: allow_root - allow root permission for application             *
+ * Parameters: allow_root - allow root permision for application              *
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
- * Comments: it doesn't allow running under 'root' if allow_root is zero      *
+ * Comments: it doesn't allow running under 'root' if allow_root is zerro     *
  *                                                                            *
  ******************************************************************************/
+
 int	daemon_start(int allow_root)
 {
-	pid_t			pid;
+	pid_t   		pid;
 	struct passwd		*pwd;
 	struct sigaction	phan;
 	char			user[7] = "zabbix";
@@ -161,7 +103,7 @@ int	daemon_start(int allow_root)
 			zbx_error("Cannot run as root !");
 			exit(FAIL);
 		}
-		if(setgid(pwd->pw_gid) == -1)
+		if(setgid(pwd->pw_gid) ==-1)
 		{
 			zbx_error("Cannot setgid to %s [%s].",
 				user,
@@ -169,7 +111,7 @@ int	daemon_start(int allow_root)
 			exit(FAIL);
 		}
 #ifdef HAVE_FUNCTION_INITGROUPS
-		if(initgroups(user, pwd->pw_gid) == -1)
+		if(initgroups(user, pwd->pw_gid) == -1) 
 		{
 			zbx_error("Cannot initgroups to %s [%s].",
 				user,
@@ -195,19 +137,19 @@ int	daemon_start(int allow_root)
 
 	}
 
-	if( (pid = zbx_fork()) != 0 )
-	{
-		exit( 0 );
-	}
+	if( (pid = zbx_fork()) != 0 )	
+	{				
+		exit( 0 );		
+	}				
 
 	setsid();
-
+	
 	signal( SIGHUP, SIG_IGN );
 
-	if( (pid = zbx_fork()) !=0 )
-	{
-		exit( 0 );
-	}
+	if( (pid = zbx_fork()) !=0 )	
+	{				
+		exit( 0 );		
+	}				
 
 	/* This is to eliminate warning: ignoring return value of chdir */
 	if(-1 == chdir("/"))
@@ -229,49 +171,41 @@ int	daemon_start(int allow_root)
 
 /*------------------------------------------------*/
 
-	if( FAIL == create_pid_file(CONFIG_PID_FILE))
+	if( FAIL == create_pid_file(APP_PID_FILE))
 	{
 		exit(FAIL);
 	}
 
-	parent_pid = (int)getpid();
-
-/*	phan.sa_handler = child_signal_handler;*/
-	phan.sa_sigaction = child_signal_handler;
+	phan.sa_handler = child_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 
 	sigaction(SIGINT,	&phan, NULL);
 	sigaction(SIGQUIT,	&phan, NULL);
 	sigaction(SIGTERM,	&phan, NULL);
 	sigaction(SIGPIPE,	&phan, NULL);
 
-	sigaction(SIGILL,	&phan, NULL);
-	sigaction(SIGFPE,	&phan, NULL);
-	sigaction(SIGSEGV,	&phan, NULL);
-	sigaction(SIGBUS,	&phan, NULL);
-
 	zbx_setproctitle("main process");
 
 	return MAIN_ZABBIX_ENTRY();
 }
 
-void	daemon_stop()
-{
-	drop_pid_file(CONFIG_PID_FILE);
+void	daemon_stop(void)
+{	
+	drop_pid_file(APP_PID_FILE);
 }
 
-void	init_main_process()
+void	init_main_process(void)
 {
 	struct sigaction	phan;
-
-	parent = 1; /* signalize signal_handler that this process is a PARENT process */
-
-/*	phan.sa_handler = parent_signal_handler;*/
-	phan.sa_sigaction = parent_signal_handler;
+	
+	parent = 1; /* signalize signal_handler what this process isi a PARENT process */
+	
+	phan.sa_handler = parent_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 
 	/* For parent only. To avoid problems with EXECUTE_INT */
 	sigaction(SIGCHLD,	&phan, NULL);
 }
+

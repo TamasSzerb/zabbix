@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -18,21 +18,26 @@
 **/
 
 #include "common.h"
+
 #include "sysinfo.h"
 
 int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 #ifdef HAVE_FUNCTION_SYSCTL_KERN_BOOTTIME
-	int		mib[2], now;
 	size_t		len;
+	int		mib[2], now;
 	struct timeval	uptime;
+
+	assert(result);
+
+	init_result(result);
 
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_BOOTTIME;
 
 	len = sizeof(struct timeval);
 
-	if (0 != sysctl(mib, 2, &uptime, &len, NULL, 0))
+	if (-1 == sysctl(mib, 2, &uptime, &len, NULL, 0))
 		return SYSINFO_RET_FAIL;
 
 	now = time(NULL);
@@ -44,3 +49,4 @@ int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 	return SYSINFO_RET_FAIL;
 #endif /* HAVE_FUNCTION_SYSCTL_KERN_BOOTTIME */
 }
+

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -18,7 +18,9 @@
 **/
 
 #include "common.h"
+
 #include "sysinfo.h"
+#include "zabbix_agent.h"
 
 #include "cfg.h"
 #include "log.h"
@@ -41,7 +43,8 @@
 #	include "daemon.h"
 #endif /* ZABBIX_DAEMON */
 
-const char	*progname = NULL;
+
+char *progname = NULL;
 
 /* Default config file location */
 #ifdef _WINDOWS
@@ -52,15 +55,15 @@ const char	*progname = NULL;
 
 /* application TITLE */
 
-const char	title_message[] = APPLICATION_NAME
-#if defined(_WIN64)
+char title_message[] = APPLICATION_NAME
+#if defined(_WIN64)		
 				" Win64"
-#elif defined(WIN32)
+#elif defined(WIN32)		
 				" Win32"
 #endif /* WIN32 */
-#if defined(ZABBIX_SERVICE)
+#if defined(ZABBIX_SERVICE)	
 				" (service)"
-#elif defined(ZABBIX_DAEMON)
+#elif defined(ZABBIX_DAEMON)	
 				" (daemon)"
 #endif /* ZABBIX_SERVICE */
 	;
@@ -69,12 +72,12 @@ const char	title_message[] = APPLICATION_NAME
 
 /* application USAGE message */
 
-const char	usage_message[] =
+char usage_message[] = 
 	"[-Vhp]"
 #if defined(_WINDOWS)
 	" [-idsx] [-m]"
 #endif /* _WINDOWS */
-	" [-c <file>] [-t <item>]";
+	" [-c <file>] [-t <metric>]";
 
 /*end of application USAGE message */
 
@@ -82,26 +85,26 @@ const char	usage_message[] =
 
 /* application HELP message */
 
-const char	*help_message[] = {
+char *help_message[] = {
 	"Options:",
 	"",
-	"  -c --config <file>    Specify configuration file. Use absolute path",
+	"  -c --config <file>    Specify configuration file",
 	"  -h --help             give this help",
 	"  -V --version          display version number",
-	"  -p --print            print supported items and exit",
-	"  -t --test <item>      test specified item and exit",
-/*	"  -u --usage <item>     test specified item and exit",	*/ /* !!! TODO - print item usage !!! */
+	"  -p --print            print supported metrics and exit",
+	"  -t --test <metric>    test specified metric and exit",
+/*	"  -u --usage <metric> test specified metric and exit",	*/ /* !!! TODO - print metric usage !!! */
 
 #if defined (_WINDOWS)
 
 	"",
 	"Functions:",
 	"",
-	"  -i --install          install Zabbix agent as service",
-	"  -d --uninstall        uninstall Zabbix agent from service",
+	"  -i --install          install ZABBIX agent as service",
+	"  -d --uninstall        uninstall ZABBIX agent from service",
 
-	"  -s --start            start Zabbix agent service",
-	"  -x --stop             stop Zabbix agent service",
+	"  -s --start            start ZABBIX agent service",
+	"  -x --stop             stop ZABBIX agent service",
 
 	"  -m --multiple-agents  service name will include hostname",
 
@@ -143,7 +146,7 @@ static struct zbx_option longopts[] =
 
 /* short options */
 
-static char	shortopts[] =
+static char	shortopts[] = 
 	"c:hVpt:"
 #if defined (_WINDOWS)
 	"idsxm"
@@ -156,18 +159,16 @@ static char	shortopts[] =
 
 static char	*TEST_METRIC = NULL;
 
-int			threads_num = 0;
-ZBX_THREAD_HANDLE	*threads = NULL;
+static ZBX_THREAD_HANDLE	*threads = NULL;
 
-static void	parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
+static void parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
 {
-	char	ch = '\0';
+	char	ch	= '\0';
 
 	t->task = ZBX_TASK_START;
-
+	
 	/* Parse the command-line. */
 	while ((ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts, NULL)) != (char)EOF)
-	{
 		switch (ch) {
 		case 'c':
 			CONFIG_FILE = strdup(zbx_optarg);
@@ -178,9 +179,6 @@ static void	parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
 			break;
 		case 'V':
 			version();
-#ifdef _AIX
-			tl_version();
-#endif /* _AIX */
 			exit(-1);
 			break;
 		case 'p':
@@ -188,7 +186,7 @@ static void	parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
 				t->task = ZBX_TASK_PRINT_SUPPORTED;
 			break;
 		case 't':
-			if(t->task == ZBX_TASK_START)
+			if(t->task == ZBX_TASK_START) 
 			{
 				t->task = ZBX_TASK_TEST_METRIC;
 				TEST_METRIC = strdup(zbx_optarg);
@@ -215,7 +213,6 @@ static void	parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
 			t->task = ZBX_TASK_SHOW_USAGE;
 			break;
 		}
-	}
 
 	if(CONFIG_FILE == NULL)
 	{
@@ -230,55 +227,43 @@ int MAIN_ZABBIX_ENTRY(void)
 	int	i = 0;
 
 	zbx_sock_t	listen_sock;
-	
-	if (NULL == CONFIG_LOG_FILE || ('\0' == *CONFIG_LOG_FILE))
-	{
-		zabbix_open_log(LOG_TYPE_SYSLOG, CONFIG_LOG_LEVEL, NULL);
-	}
-	else
-	{
-		zabbix_open_log(LOG_TYPE_FILE, CONFIG_LOG_LEVEL, CONFIG_LOG_FILE);
-	}
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "Zabbix Agent started. Zabbix %s (revision %s).",
-			ZABBIX_VERSION,
-			ZABBIX_REVISION);
+	zabbix_open_log(
+#if ON	/* !!! normal case must be ON !!! */
+		LOG_TYPE_FILE
+#elif OFF	/* !!! normal case must be OFF !!! */
+		LOG_TYPE_SYSLOG
+#else	/* !!! for debug only, print log with zbx_error !!! */ 
+		LOG_TYPE_UNDEFINED
+#endif
+		,
+		CONFIG_LOG_LEVEL,
+		CONFIG_LOG_FILE
+		);
 
-	if(0 == CONFIG_DISABLE_PASSIVE)
+	zabbix_log(LOG_LEVEL_INFORMATION, "zabbix_agentd started. ZABBIX %s.", ZABBIX_VERSION);
+
+	if( FAIL == zbx_tcp_listen(&listen_sock, CONFIG_LISTEN_IP, (unsigned short)CONFIG_LISTEN_PORT) )
 	{
-		if( FAIL == zbx_tcp_listen(&listen_sock, CONFIG_LISTEN_IP, (unsigned short)CONFIG_LISTEN_PORT) )
-		{
-			zabbix_log(LOG_LEVEL_CRIT, "Listener failed with error: %s.", zbx_tcp_strerror());
-			exit(1);
-		}
+		zabbix_log(LOG_LEVEL_CRIT, "Listener failed with error: %s.", zbx_tcp_strerror());
+		exit(1);
 	}
 
 	init_collector_data();
 
-	load_user_parameters(0);
-
 	/* --- START THREADS ---*/
 
-	if(1 == CONFIG_DISABLE_PASSIVE)
-	{
-		/* Only main process and active checks will be started */
-		CONFIG_ZABBIX_FORKS = 0;/* Listeners won't be needed for passive checks. */
-	}
+	threads = calloc(CONFIG_ZABBIX_FORKS, sizeof(ZBX_THREAD_HANDLE));
 
-	/* Allocate memory for a collector, all listeners and an active check. */
-	threads_num = 1 + CONFIG_ZABBIX_FORKS + (0 == CONFIG_DISABLE_ACTIVE ? 1 : 0);
-	threads = calloc(threads_num, sizeof(ZBX_THREAD_HANDLE));
-
-	/* Start the collector thread. */
 	threads[i=0] = zbx_thread_start(collector_thread, NULL);
 
 	/* start listeners */
-	for(i++; i <= CONFIG_ZABBIX_FORKS; i++)
+	for(i++; i < CONFIG_ZABBIX_FORKS - ((0 == CONFIG_DISABLE_ACTIVE) ? 1 : 0); i++)
 	{
 		threads[i] = zbx_thread_start(listener_thread, &listen_sock);
 	}
 
-	/* start active check */
+	/* start active chack */
 	if(0 == CONFIG_DISABLE_ACTIVE)
 	{
 		activechk_args.host = CONFIG_HOSTS_ALLOWED;
@@ -291,7 +276,7 @@ int MAIN_ZABBIX_ENTRY(void)
 	init_main_process();
 
 	/* wait for all threads exiting */
-	for(i = 0; i < 1 + CONFIG_ZABBIX_FORKS +((0 == CONFIG_DISABLE_ACTIVE) ? 1 : 0); i++)
+	for(i = 0; i < CONFIG_ZABBIX_FORKS; i++)
 	{
 		if(threads && threads[i])
 		{
@@ -311,25 +296,25 @@ int MAIN_ZABBIX_ENTRY(void)
 
 void	zbx_on_exit()
 {
-	zabbix_log(LOG_LEVEL_DEBUG, "zbx_on_exit() called");
+
+	int i = 0;
 
 	ZBX_DO_EXIT();
 
-	if (threads != NULL)
+	if(threads != NULL)
 	{
-		int	i;
-
-		for (i = 0; i < 1 + CONFIG_ZABBIX_FORKS + (0 == CONFIG_DISABLE_ACTIVE ? 1 : 0); i++)
+		for(i = 0; i<CONFIG_ZABBIX_FORKS ; i++)
 		{
-			if (threads[i])
-			{
+			if(threads[i]) {
 				zbx_thread_kill(threads[i]);
-				threads[i] = ZBX_THREAD_HANDLE_NULL;
+				threads[i] = (ZBX_THREAD_HANDLE)NULL;
 			}
 		}
-
-		zbx_free(threads);
 	}
+	
+	zbx_free(threads);
+	
+	zabbix_log(LOG_LEVEL_DEBUG, "zbx_on_exit() called.");
 
 #ifdef USE_PID_FILE
 
@@ -340,34 +325,27 @@ void	zbx_on_exit()
 	free_metrics();
 	free_collector_data();
 	alias_list_free();
+	perfs_list_free();
 
 	zbx_sleep(2); /* wait for all threads closing */
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "Zabbix Agent stopped. Zabbix %s (revision %s).",
-			ZABBIX_VERSION,
-			ZABBIX_REVISION);
+	zabbix_log(LOG_LEVEL_INFORMATION, "ZABBIX Agent stopped");
 
 	zabbix_close_log();
 
 	exit(SUCCEED);
 }
 
+#ifndef ZABBIX_TEST
+
 int	main(int argc, char **argv)
 {
 	ZBX_TASK_EX	t;
 
-#if defined (_WINDOWS)
-	/* Provide, so our process handles errors instead of the system itself. */
-	/* Attention!!! */
-	/* The system does not display the critical-error-handler message box. */
-	/* Instead, the system sends the error to the calling process.*/
-	SetErrorMode(SEM_FAILCRITICALERRORS);
-#endif /* _WINDOWS */	
-	
 	memset(&t, 0, sizeof(t));
 	t.task = ZBX_TASK_START;
 
-	progname = get_program_name(argv[0]);
+	progname = get_programm_name(argv[0]);
 
 	parse_commandline(argc, argv, &t);
 
@@ -379,18 +357,18 @@ int	main(int argc, char **argv)
 		load_config();
 
 #if defined (_WINDOWS)
-	if (t.flags & ZBX_TASK_FLAG_MULTIPLE_AGENTS)
-	{
+	if (t.flags & ZBX_TASK_FLAG_MULTIPLE_AGENTS) {
 		zbx_snprintf(ZABBIX_SERVICE_NAME, sizeof(ZABBIX_SERVICE_NAME), "%s [%s]", APPLICATION_NAME, CONFIG_HOSTNAME);
 		zbx_snprintf(ZABBIX_EVENT_SOURCE, sizeof(ZABBIX_EVENT_SOURCE), "%s [%s]", APPLICATION_NAME, CONFIG_HOSTNAME);
 	}
 #endif /* _WINDOWS */
 
-	switch (t.task)
-	{
+	load_user_parameters();
+
+	switch (t.task) {
 #if defined (_WINDOWS)
 		case ZBX_TASK_INSTALL_SERVICE:
-			exit(ZabbixCreateService(argv[0], t.flags & ZBX_TASK_FLAG_MULTIPLE_AGENTS));
+			exit(ZabbixCreateService(argv[0]));
 			break;
 		case ZBX_TASK_UNINSTALL_SERVICE:
 			exit(ZabbixRemoveService());
@@ -403,20 +381,12 @@ int	main(int argc, char **argv)
 			break;
 #endif /* _WINDOWS */
 		case ZBX_TASK_PRINT_SUPPORTED:
-#if defined (_WINDOWS)
-			init_collector_data(); /* required for reading PerfCounter */
-#endif /* _WINDOWS */
-			load_user_parameters(1);
 			test_parameters();
 			free_metrics();
 			exit(SUCCEED);
 			break;
 		case ZBX_TASK_TEST_METRIC:
-#if defined (_WINDOWS)
-			init_collector_data(); /* required for reading PerfCounter */
-#endif /* _WINDOWS */
-			load_user_parameters(1);
-			test_parameter(TEST_METRIC, PROCESS_TEST);
+			test_parameter(TEST_METRIC);
 			exit(SUCCEED);
 			break;
 		case ZBX_TASK_SHOW_USAGE:
@@ -432,3 +402,60 @@ int	main(int argc, char **argv)
 
 	exit(SUCCEED);
 }
+
+#else /* ZABBIX_TEST */
+/* #	define ENABLE_CHECK_MEMOTY 1 */
+
+#if defined(_WINDOWS)
+#	include "messages.h"
+#endif /* _WINDOWS */
+
+int main()
+{
+#if OFF
+	int res, val;
+
+	if(FAIL == zbx_sock_init())
+	{
+		return 1;
+	}
+
+
+	res = check_ntp("142.3.100.15",123,&val);
+
+	zbx_error("check_ntp result '%i' value '%i'", res, val);
+
+#elif OFF
+
+	zbx_error("%s",strerror_from_module(MSG_ZABBIX_MESSAGE, NULL));
+
+#elif OFF
+	
+	char buffer[100*1024];
+
+	get_http_page("www.zabbix.com", "", 80, buffer, 100*1024);
+
+	printf("Back [%d] [%s]\n", strlen(buffer), buffer);
+	
+#elif OFF
+
+	char s[] = "ABCDEFGH";
+	char p[] = "D(.){0,}E";
+	int len=2;
+
+	printf("String: \t %s\n", s);
+	printf("Pattern:\t %s\n", p);
+	printf("Result: \t [%s] [%d]\n", zbx_regexp_match(s, p, &len), len);
+/*
+#elif OFF or ON
+
+Place your test code HERE!!!
+*/
+
+#endif /* 0 */
+
+	return 0;
+}
+
+#endif /* not ZABBIX_TEST */
+

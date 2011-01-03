@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -24,37 +24,36 @@
 #	error "This module allowed only for Windows OS"
 #endif /* _WINDOWS */
 
-/*
- * Performance Counter Indexes
- */
+//
+// Performance Counter Indexes
+//
 
 #define PCI_SYSTEM			(2)
 #define PCI_PROCESSOR			(238)
 #define PCI_PROCESSOR_TIME		(6)
 #define PCI_PROCESSOR_QUEUE_LENGTH	(44)
 #define PCI_SYSTEM_UP_TIME		(674)
-#define PCI_TERMINAL_SERVICES		(2176)
-#define PCI_TOTAL_SESSIONS		(2178)
 
-/*
- * Performance Countername structure
- */
+//
+// Performance Countername structure
+//
+
+#define MAX_PERFCOUNTER_NAME_LEN      (108)	/* old naming <MAX_COUNTER_NAME> */
 
 struct perfcounter
 {
 	struct perfcounter *next;
 	unsigned long	pdhIndex;
-	TCHAR		name[PDH_MAX_COUNTER_NAME];
-	/* must be character array! if you want to rewrite  */
-	/* to use dynamic memory allocation CHECK for usage */
-	/* of sizeof function                               */
+	char		name[MAX_PERFCOUNTER_NAME_LEN];	
+	/* must be caracter array! if you want to rewrite */
+	/* to dinacal memory allocation CHECK for usage   */
+	/* of sizeof function                             */
 };
 
 typedef struct perfcounter PERFCOUNTER;
 
 extern PERFCOUNTER *PerfCounterList;
 
-LPTSTR	GetCounterName(DWORD pdhIndex);
-int	check_counter_path(char *counterPath);
+char *GetCounterName(unsigned long index);
 
 #endif /* ZABBIX_PERFMON_H */

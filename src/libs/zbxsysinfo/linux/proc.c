@@ -1,23 +1,24 @@
 /*
-** ZABBIX
-** Copyright (C) 2000-2005 SIA Zabbix
-**
-** This program is free software; you can redistribute it and/or modify
-** it under the terms of the GNU General Public License as published by
-** the Free Software Foundation; either version 2 of the License, or
-** (at your option) any later version.
-**
-** This program is distributed in the hope that it will be useful,
-** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-** GNU General Public License for more details.
-**
-** You should have received a copy of the GNU General Public License
-** along with this program; if not, write to the Free Software
-** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-**/
+ * ** ZABBIX
+ * ** Copyright (C) 2000-2005 SIA Zabbix
+ * **
+ * ** This program is free software; you can redistribute it and/or modify
+ * ** it under the terms of the GNU General Public License as published by
+ * ** the Free Software Foundation; either version 2 of the License, or
+ * ** (at your option) any later version.
+ * **
+ * ** This program is distributed in the hope that it will be useful,
+ * ** but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * ** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * ** GNU General Public License for more details.
+ * **
+ * ** You should have received a copy of the GNU General Public License
+ * ** along with this program; if not, write to the Free Software
+ * ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * **/
 
 #include "common.h"
+
 #include "sysinfo.h"
 
 #define DO_SUM 0
@@ -25,6 +26,11 @@
 #define DO_MIN 2
 #define DO_AVG 3
 
+#define ZBX_PROC_STAT_ALL 0
+#define ZBX_PROC_STAT_RUN 1
+#define ZBX_PROC_STAT_SLEEP 2
+#define ZBX_PROC_STAT_ZOMB 3
+	
 static FILE	*open_proc_file(const char *filename)
 {
 	struct stat	s;
@@ -47,18 +53,21 @@ static int	get_cmdline(FILE *f_cmd, char *line, size_t *n)
 
 static int	get_procname(FILE *f_stat, char *line)
 {
-	char	tmp[MAX_STRING_LEN];
+	char	tmp[MAX_STRING_LEN], *p;
 
 	rewind(f_stat);
 
-	while (NULL != fgets(tmp, sizeof(tmp), f_stat))
-	{
-		if (0 != strncmp(tmp, "Name:\t", 6))
+	while (NULL != fgets(tmp, sizeof(tmp), f_stat)) {
+		if (NULL == (p = strchr(tmp, '\t')))
 			continue;
 
-		zbx_rtrim(tmp, "\n");
-		zbx_strlcpy(line, tmp + 6, MAX_STRING_LEN);
+		*p++ = '\0';
 
+		if (0 != strcmp(tmp, "Name:"))
+			continue;
+
+		zbx_rtrim(p, "\n");
+		zbx_strlcpy(line, p, MAX_STRING_LEN);
 		return SUCCEED;
 	}
 
@@ -73,17 +82,16 @@ static int	check_procname(FILE *f_cmd, FILE *f_stat, const char *procname)
 	if (*procname == '\0')
 		return SUCCEED;
 
-	if (SUCCEED == get_procname(f_stat, tmp) && 0 == strcmp(tmp, procname))
-		return SUCCEED;
-
-	if (SUCCEED == get_cmdline(f_cmd, tmp, &l))
-	{
+	if (SUCCEED == get_cmdline(f_cmd, tmp, &l)) {
 		if (NULL == (p = strrchr(tmp, '/')))
 			p = tmp;
 		else
 			p++;
 
 		if (0 == strcmp(p, procname))
+			return SUCCEED;
+	} else if (SUCCEED == get_procname(f_stat, tmp)) {
+		if (0 == strcmp(tmp, procname))
 			return SUCCEED;
 	}
 
@@ -100,18 +108,19 @@ static int	check_user(FILE *f_stat, struct passwd *usrinfo)
 
 	rewind(f_stat);
 
-	while (NULL != fgets(tmp, sizeof(tmp), f_stat))
-	{
-		if (0 != strncmp(tmp, "Uid:\t", 5))
+	while (NULL != fgets(tmp, sizeof(tmp), f_stat)) {
+		if (NULL == (p = strchr(tmp, '\t')))
 			continue;
 
-		p = tmp + 5;
+		*p++ = '\0';
+
+		if (0 != strcmp(tmp, "Uid:"))
+			continue;
 
 		if (NULL != (p1 = strchr(p, '\t')))
 			*p1 = '\0';
 
 		uid = (uid_t)atoi(p);
-
 		if (usrinfo->pw_uid == uid)
 			return SUCCEED;
 		break;
@@ -128,8 +137,7 @@ static int	check_proccomm(FILE *f_cmd, const char *proccomm)
 	if (*proccomm == '\0')
 		return SUCCEED;
 
-	if (SUCCEED == get_cmdline(f_cmd, tmp, &l))
-	{
+	if (SUCCEED == get_cmdline(f_cmd, tmp, &l)) {
 		for (i = 0; i < l - 1; i++)
 			if (tmp[i] == '\0')
 				tmp[i] = ' ';
@@ -150,15 +158,16 @@ static int	check_procstate(FILE *f_stat, int zbx_proc_stat)
 
 	rewind(f_stat);
 
-	while (NULL != fgets(tmp, sizeof(tmp), f_stat))
-	{
-		if (0 != strncmp(tmp, "State:\t", 7))
+	while (NULL != fgets(tmp, sizeof(tmp), f_stat)) {	
+		if (NULL == (p = strchr(tmp, '\t')))
 			continue;
 
-		p = tmp + 7;
+		*p++ = '\0';
 
-		switch (zbx_proc_stat)
-		{
+		if (0 != strcmp(tmp, "State:"))
+			continue;
+
+		switch (zbx_proc_stat) {
 			case ZBX_PROC_STAT_RUN:
 				return (*p == 'R') ? SUCCEED : FAIL;
 			case ZBX_PROC_STAT_SLEEP:
@@ -169,14 +178,14 @@ static int	check_procstate(FILE *f_stat, int zbx_proc_stat)
 				return FAIL;
 		}
 	}
-
 	return FAIL;
 }
 
-int	PROC_MEM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+int	PROC_MEMORY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	char		tmp[MAX_STRING_LEN], *p, *p1,
 			procname[MAX_STRING_LEN],
+			buffer[MAX_STRING_LEN],
 			proccomm[MAX_STRING_LEN];
 	DIR		*dir;
 	struct dirent	*entries;
@@ -187,41 +196,41 @@ int	PROC_MEM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *r
 	double		memsize = 0;
 	int		proccount = 0;
 
+	assert(result);
+
+	init_result(result);
+
 	if (num_param(param) > 4)
 		return SYSINFO_RET_FAIL;
 
 	if (0 != get_param(param, 1, procname, sizeof(procname)))
 		*procname = '\0';
 
-	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
-		*tmp = '\0';
+	if (0 != get_param(param, 2, buffer, sizeof(buffer)))
+		*buffer = '\0';
 
-	if (*tmp != '\0')
-	{
-		usrinfo = getpwnam(tmp);
+	if (*buffer != '\0') {
+		usrinfo = getpwnam(buffer);
 		if (usrinfo == NULL)	/* incorrect user name */
 			return SYSINFO_RET_FAIL;
-	}
-	else
+	} else
 		usrinfo = NULL;
 
-	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
-		*tmp = '\0';
+	if (0 != get_param(param, 3, buffer, sizeof(buffer)))
+		*buffer = '\0';
 
-	if (*tmp != '\0')
-	{
-		if (0 == strcmp(tmp, "avg"))
+	if (*buffer != '\0') {
+		if (0 == strcmp(buffer, "avg"))
 			do_task = DO_AVG;
-		else if (0 == strcmp(tmp, "max"))
+		else if (0 == strcmp(buffer, "max"))
 			do_task = DO_MAX;
-		else if (0 == strcmp(tmp, "min"))
+		else if (0 == strcmp(buffer, "min"))
 			do_task = DO_MIN;
-		else if (0 == strcmp(tmp, "sum"))
+		else if (0 == strcmp(buffer, "sum"))
 			do_task = DO_SUM;
 		else
 			return SYSINFO_RET_FAIL;
-	}
-	else
+	} else
 		do_task = DO_SUM;
 
 	if (0 != get_param(param, 4, proccomm, sizeof(proccomm)))
@@ -230,8 +239,7 @@ int	PROC_MEM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *r
 	if (NULL == (dir = opendir("/proc")))
 		return SYSINFO_RET_FAIL;
 
-	while (NULL != (entries = readdir(dir)))
-	{
+	while (NULL != (entries = readdir(dir))) {
 		zbx_fclose(f_cmd);
 		zbx_fclose(f_stat);
 
@@ -261,19 +269,21 @@ int	PROC_MEM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *r
 
 		rewind(f_stat);
 
-		while (NULL != fgets(tmp, sizeof(tmp), f_stat))
-		{
-			if (0 != strncmp(tmp, "VmSize:\t", 8))
+		while (NULL != fgets(tmp, sizeof(tmp), f_stat)) {	
+			if (NULL == (p = strchr(tmp, '\t')))
 				continue;
 
-			p = tmp + 8;
+			*p++ = '\0';
+
+			if (0 != strcmp(tmp, "VmSize:"))
+				continue;
 
 			if (NULL == (p1 = strrchr(p, ' ')))
 				continue;
 
 			*p1++ = '\0';
 
-			ZBX_STR2UINT64(value, p);
+			value = zbx_atoui64(p);
 
 			zbx_rtrim(p1, "\n");
 
@@ -288,11 +298,10 @@ int	PROC_MEM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *r
 
 			if (0 == proccount++)
 				memsize = value;
-			else
-			{
+			else {
 				if (do_task == DO_MAX)
 					memsize = MAX(memsize, value);
-				else if (do_task == DO_MIN)
+				else if(do_task == DO_MIN)
 					memsize = MIN(memsize, value);
 				else
 					memsize += value;
@@ -304,20 +313,20 @@ int	PROC_MEM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *r
 	zbx_fclose(f_stat);
 	closedir(dir);
 
-	if (do_task == DO_AVG)
-	{
-		SET_DBL_RESULT(result, proccount == 0 ? 0 : memsize / proccount);
-	}
-	else
+	if (do_task == DO_AVG) {
+		SET_DBL_RESULT(result, proccount == 0 ? 0 : memsize/proccount);
+	} else {
 		SET_UI64_RESULT(result, memsize);
+	}
 
 	return SYSINFO_RET_OK;
 }
 
-int	PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+int	    PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	char		tmp[MAX_STRING_LEN],
 			procname[MAX_STRING_LEN],
+			buffer[MAX_STRING_LEN],
 			proccomm[MAX_STRING_LEN];
 	DIR		*dir;
 	struct dirent	*entries;
@@ -326,41 +335,42 @@ int	PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *r
 	int		zbx_proc_stat;
 	zbx_uint64_t	proccount = 0;
 
+	assert(result);
+
+	init_result(result);
+	
+
 	if (num_param(param) > 4)
 		return SYSINFO_RET_FAIL;
 
 	if (0 != get_param(param, 1, procname, sizeof(procname)))
 		*procname = '\0';
 
-	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
-		*tmp = '\0';
+	if (0 != get_param(param, 2, buffer, sizeof(buffer)))
+		*buffer = '\0';
 
-	if (*tmp != '\0')
-	{
-		usrinfo = getpwnam(tmp);
+	if (*buffer != '\0') {
+		usrinfo = getpwnam(buffer);
 		if (usrinfo == NULL)	/* incorrect user name */
 			return SYSINFO_RET_FAIL;
-	}
-	else
+	} else
 		usrinfo = NULL;
-
-	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
-		*tmp = '\0';
-
-	if (*tmp != '\0')
-	{
-		if (0 == strcmp(tmp, "run"))
+    
+	if (0 != get_param(param, 3, buffer, sizeof(buffer)))
+		*buffer = '\0';
+		
+	if (*buffer != '\0') {
+		if (0 == strcmp(buffer, "run"))
 			zbx_proc_stat = ZBX_PROC_STAT_RUN;
-		else if (0 == strcmp(tmp, "sleep"))
+		else if (0 == strcmp(buffer, "sleep"))
 			zbx_proc_stat = ZBX_PROC_STAT_SLEEP;
-		else if (0 == strcmp(tmp, "zomb"))
+		else if (0 == strcmp(buffer, "zomb"))
 			zbx_proc_stat = ZBX_PROC_STAT_ZOMB;
-		else if (0 == strcmp(tmp, "all"))
+		else if (0 == strcmp(buffer, "all"))
 			zbx_proc_stat = ZBX_PROC_STAT_ALL;
 		else
 			return SYSINFO_RET_FAIL;
-	}
-	else
+	} else
 		zbx_proc_stat = ZBX_PROC_STAT_ALL;
 
 	if (0 != get_param(param, 4, proccomm, sizeof(proccomm)))
@@ -369,8 +379,7 @@ int	PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *r
 	if (NULL == (dir = opendir("/proc")))
 		return SYSINFO_RET_FAIL;
 
-	while (NULL != (entries = readdir(dir)))
-	{
+	while (NULL != (entries = readdir(dir))) {
 		zbx_fclose(f_cmd);
 		zbx_fclose(f_stat);
 
@@ -411,3 +420,4 @@ int	PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *r
 
 	return SYSINFO_RET_OK;
 }
+

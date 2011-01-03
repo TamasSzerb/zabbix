@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -41,9 +41,9 @@ static void	process_listener(zbx_sock_t *s)
 	char	**value = NULL;
 	int		ret;
 
-	if (SUCCEED == (ret = zbx_tcp_recv_to(s, &command, CONFIG_TIMEOUT)))
+	if( SUCCEED == (ret = zbx_tcp_recv(s, &command)) )
 	{
-		zbx_rtrim(command, "\r\n");
+		zbx_rtrim(command, "\r\n\0");
 
 		zabbix_log(LOG_LEVEL_DEBUG, "Requested [%s]", command);
 
@@ -56,10 +56,10 @@ static void	process_listener(zbx_sock_t *s)
 		if(value)
 		{
 			zabbix_log(LOG_LEVEL_DEBUG, "Sending back [%s]", *value);
-			ret = zbx_tcp_send_to(s, *value, CONFIG_TIMEOUT);
+			ret = zbx_tcp_send(s, *value);
 		}
-
-		free_result(&result);
+		
+		free_result(&result);	
 	}
 
 	if( FAIL == ret )
@@ -73,7 +73,7 @@ ZBX_THREAD_ENTRY(listener_thread, pSock)
 #if defined(ZABBIX_DAEMON)
 	struct	sigaction phan;
 #endif
-	int
+	int 
 		ret,
 		local_request_failed = 0;
 
@@ -84,22 +84,20 @@ ZBX_THREAD_ENTRY(listener_thread, pSock)
 	zabbix_log( LOG_LEVEL_INFORMATION, "zabbix_agentd listener started");
 
 #if defined(ZABBIX_DAEMON)
-	phan.sa_sigaction = child_signal_handler;
+	phan.sa_handler = child_signal_handler;
 	sigemptyset(&phan.sa_mask);
-	phan.sa_flags = SA_SIGINFO;
+	phan.sa_flags = 0;
 	sigaction(SIGALRM, &phan, NULL);
 #endif
 
 	memcpy(&s, ((zbx_sock_t *)pSock), sizeof(zbx_sock_t));
 
-	while(ZBX_IS_RUNNING())
+	while(ZBX_IS_RUNNING)
 	{
-		zbx_setproctitle("waiting for connection");
-
 		if( SUCCEED == (ret = zbx_tcp_accept(&s)) )
 		{
 			local_request_failed = 0;     /* Reset consecutive errors counter */
-
+			
 			zbx_setproctitle("processing request");
 
 			zabbix_log(LOG_LEVEL_DEBUG, "Processing request.");
@@ -121,13 +119,13 @@ ZBX_THREAD_ENTRY(listener_thread, pSock)
 			local_request_failed = 0;
 		}
 
-		if(ZBX_IS_RUNNING())
-			zbx_sleep(1);
+		if(ZBX_IS_RUNNING)
+			zbx_sleep(1);		
 	}
 
 	zabbix_log( LOG_LEVEL_INFORMATION, "zabbix_agentd listener stopped");
 
 	ZBX_DO_EXIT();
 
-	zbx_thread_exit(0);
+	zbx_tread_exit(0);
 }

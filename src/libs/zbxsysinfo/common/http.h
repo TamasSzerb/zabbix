@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,8 +17,7 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#ifndef ZABBIX_SYSINFO_COMMON_HTTP_H
-#define ZABBIX_SYSINFO_COMMON_HTTP_H
+#if !defined(SYSINFO_COMMON_HTTP_H_INCLUDED)
 
 #include "sysinfo.h"
 
@@ -28,4 +27,4 @@ int	WEB_PAGE_GET(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 int	WEB_PAGE_PERF(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 int	WEB_PAGE_REGEXP(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 
-#endif /* ZABBIX_SYSINFO_COMMON_HTTP_H */
+#endif /* SYSINFO_COMMON_HTTP_H_INCLUDED */

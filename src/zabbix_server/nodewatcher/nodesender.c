@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2006 SIA Zabbix
 **
@@ -24,872 +24,477 @@
 #include "log.h"
 #include "zlog.h"
 
-#include "nodesender.h"
-#include "nodewatcher.h"
+#include "dbsync.h"
 #include "nodecomms.h"
-#include "../trapper/nodesync.h"
+#include "nodesender.h"
+
+#define	ZBX_NODE_MASTER	0
+#define	ZBX_NODE_SLAVE	1
 
 /******************************************************************************
  *                                                                            *
- * Function: calculate_checksums                                              *
+ * Function: send_config_data                                                 *
  *                                                                            *
- * Purpose: calculate checksums of configuration data                         *
+ * Purpose: send configuration changes to required node                       *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value: SUCCESS - calculated successfully                            *
- *               FAIL - an error occurred                                     *
+ * Return value: SUCCESS - processed succesfully                              * 
+ *               FAIL - an error occured                                      *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int calculate_checksums(int nodeid, const char *tablename, const zbx_uint64_t id)
+static int send_config_data(int nodeid, int dest_nodeid, zbx_uint64_t maxlogid, int node_type)
 {
-	const char	*__function_name = "calculate_checksums";
-	char	*sql = NULL;
-	int	sql_allocated = 2048, sql_offset;
-	int	t, f, res = SUCCEED;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
-
-	sql = zbx_malloc(sql, sql_allocated);
-	sql_offset = 0;
-
-	zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 64,
-			"delete from node_cksum"
-			" where nodeid=%d"
-				" and cksumtype=%d",
-			nodeid,
-			NODE_CKSUM_TYPE_NEW);
-
-	if (NULL != tablename)
-		zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 128,
-				" and tablename='%s'",
-				tablename);
-
-	if (0 != id)
-		zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 64,
-				" and recordid=" ZBX_FS_UI64,
-				id);
-
-	if (ZBX_DB_OK > DBexecute("%s", sql))
-		res = FAIL;
-
-	for (t = 0; 0 != tables[t].table && SUCCEED == res; t++) {
-		/* Do not sync some of tables */
-		if ((tables[t].flags & ZBX_SYNC) == 0)
-			continue;
-
-		if (NULL != tablename && 0 != strcmp(tablename, tables[t].table))
-			continue;
-
-		sql_offset = 0;
-		zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 256,
-			"insert into node_cksum (nodeid,tablename,recordid,cksumtype,cksum)"
-			" select %d,'%s',%s,%d,",
-			nodeid,
-			tables[t].table,
-			tables[t].recid,
-			NODE_CKSUM_TYPE_NEW);
-#ifdef HAVE_MYSQL
-		zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 16, "concat_ws(',',");
-#endif
-
-		for (f = 0; tables[t].fields[f].name != 0; f ++) {
-			if ((tables[t].fields[f].flags & ZBX_SYNC) == 0)
-				continue;
-
-			if (tables[t].fields[f].flags & ZBX_NOTNULL) {
-				switch ( tables[t].fields[f].type ) {
-				case ZBX_TYPE_ID	:
-				case ZBX_TYPE_INT	:
-				case ZBX_TYPE_UINT	:
-					zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, ZBX_FIELDNAME_LEN + 1, "%s",
-							tables[t].fields[f].name);
-					break;
-				default	:
-					zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, ZBX_FIELDNAME_LEN + 6, "md5(%s)",
-							tables[t].fields[f].name);
-					break;
-				}
-			} else {
-				switch ( tables[t].fields[f].type ) {
-				case ZBX_TYPE_ID	:
-				case ZBX_TYPE_INT	:
-				case ZBX_TYPE_UINT	:
-					zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 192,
-							"case when %s is null then 'NULL' else cast(%s as char) end",
-							tables[t].fields[f].name,
-							tables[t].fields[f].name);
-					break;
-				default	:
-					zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 192,
-							"case when %s is null then 'NULL' else md5(%s) end",
-							tables[t].fields[f].name,
-							tables[t].fields[f].name);
-					break;
-				}
-			}
-#ifdef HAVE_MYSQL
-			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 2,
-					",");
-#else
-			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 8,
-					"||','||");
-#endif
-		}
-
-		/* remove last delimiter */
-		if (f > 0) {
-#ifdef HAVE_MYSQL
-			sql_offset --;
-			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 2, ")");
-#else
-			sql_offset -= 7;
-#endif
-		}
-
-		zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 256,
-				" from %s where 1=1" DB_NODE,
-				tables[t].table,
-				DBnode(tables[t].recid, nodeid));
-
-		if (0 != id) {
-			zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 128,
-					" and %s=" ZBX_FS_UI64,
-					tables[t].recid,
-					id);
-		}
-
-		if (ZBX_DB_OK > DBexecute("%s", sql))
-			res = FAIL;
-	}
-
-	zbx_free(sql);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(res));
-
-	return res;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: DMcolect_table_data                                              *
- *                                                                            *
- * Purpose: obtain configuration changes to required node                     *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value: SUCCESS - processed successfully                             *
- *               FAIL - an error occurred                                     *
- *                                                                            *
- * Author: Alexander Vladishev                                                *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-static void	DMcollect_table_data(int nodeid, int dest_nodetype, const ZBX_TABLE *table,
-		char **data, int *data_alloc, int *data_offset)
-{
-#define ZBX_REC_UPDATED	'1'
-#define ZBX_REC_DELETED	'2'
-	const char	*__function_name = "DMcolect_table_data";
 	DB_RESULT	result;
 	DB_RESULT	result2;
 	DB_ROW		row;
 	DB_ROW		row2;
 
-	char	*hex = NULL, *sql = NULL, sync[129], *s,
-		*curr_cksum, *d_curr_cksum, *prev_cksum, *d_prev_cksum;
-	int	sql_offset = 0;
-	int	hex_allocated = 1024, sql_allocated = 8 * 1024;
-	int	f, j, rowlen;
+	char	*xml = NULL, *hex = NULL;
+	char	fields[MAX_STRING_LEN];
+	int	offset=0;
+	int	allocated=1024;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() [table:'%s']", __function_name, table->table);
+	int	found=0;
 
-	hex = zbx_malloc(hex, hex_allocated);
-	sql = zbx_malloc(sql, sql_allocated);
+	int	i, j, hex_allocated=1024, rowlen;
 
-	result = DBselect(
-			/* Find new records */
-			"select curr.recordid,prev.cksum,curr.cksum,curr.sync"
-			" from node_cksum curr"
-				" left join node_cksum prev"
-					" on prev.nodeid=curr.nodeid"
-						" and prev.tablename=curr.tablename"
-						" and prev.recordid=curr.recordid"
-						" and prev.cksumtype=%d"
-			" where curr.nodeid=%d"
-				" and curr.tablename='%s'"
-				" and curr.cksumtype=%d"
-				" and prev.tablename is null"
-			" union all "
-			/* Find updated records */
-			"select curr.recordid,prev.cksum,curr.cksum,prev.sync"
-			" from node_cksum curr,node_cksum prev"
-			" where curr.nodeid=prev.nodeid"
-				" and curr.tablename=prev.tablename"
-				" and curr.recordid=prev.recordid"
-				" and curr.nodeid=%d"
-				" and curr.tablename='%s'"
-				" and curr.cksumtype=%d"
-				" and prev.cksumtype=%d"
-			" union all "
-			/* Find deleted records */
-			"select prev.recordid,prev.cksum,curr.cksum,prev.sync"
-			" from node_cksum prev"
-				" left join node_cksum curr"
-					" on curr.nodeid=prev.nodeid"
-						" and curr.tablename=prev.tablename"
-						" and curr.recordid=prev.recordid"
-						" and curr.cksumtype=%d"
-			" where prev.nodeid=%d"
-				" and prev.tablename='%s'"
-				" and prev.cksumtype=%d"
-				" and curr.tablename is null",
-			NODE_CKSUM_TYPE_OLD, nodeid, table->table, NODE_CKSUM_TYPE_NEW,
-			nodeid, table->table, NODE_CKSUM_TYPE_NEW, NODE_CKSUM_TYPE_OLD,
-			NODE_CKSUM_TYPE_NEW, nodeid, table->table, NODE_CKSUM_TYPE_OLD);
+	xml=zbx_malloc(xml, allocated);
+	hex=zbx_malloc(hex, hex_allocated);
 
-	while (NULL != (row = DBfetch(result)))
+	memset(xml,0,allocated);
+
+
+	zabbix_log( LOG_LEVEL_DEBUG, "In send_config_data(nodeid:%d,dest_node:%d,maxlogid:" ZBX_FS_UI64 ",type:%d)",
+		nodeid,
+		dest_nodeid,
+		maxlogid,
+		node_type);
+
+	/* Begin work */
+	if(node_type == ZBX_NODE_MASTER)
 	{
-		if (FAIL == DBis_null(row[3]))
-			zbx_strlcpy(sync, row[3], sizeof(sync));
-		else
-			memset(sync, ' ', sizeof(sync));
+		result=DBselect("select tablename,recordid,operation from node_configlog where nodeid=%d and sync_master=0 and conflogid<=" ZBX_FS_UI64 " order by tablename,operation",
+			nodeid,
+			maxlogid);
+	}
+	else
+	{
+		result=DBselect("select tablename,recordid,operation from node_configlog where nodeid=%d and sync_slave=0 and conflogid<=" ZBX_FS_UI64 " order by tablename,operation",
+			nodeid,
+			maxlogid);
+	}
 
+	zbx_snprintf_alloc(&xml, &allocated, &offset, 128, "Data%c%d%c%d",
+		ZBX_DM_DELIMITER,
+		CONFIG_NODEID,
+		ZBX_DM_DELIMITER,
+		nodeid);
+
+	while((row=DBfetch(result)))
+	{
+		found = 1;
+
+		zabbix_log( LOG_LEVEL_DEBUG, "Fetched [%s,%s,%s]",row[0],row[1],row[2]);
 		/* Special (simpler) processing for operation DELETE */
-		if (SUCCEED == DBis_null(row[2]))
+		if(atoi(row[2]) == NODE_CONFIGLOG_OP_DELETE)
 		{
-			if ((dest_nodetype == ZBX_NODE_SLAVE && sync[0] != ZBX_REC_DELETED) ||
-					(dest_nodetype == ZBX_NODE_MASTER && sync[1] != ZBX_REC_DELETED))
-			{
-				zbx_snprintf_alloc(data, data_alloc, data_offset, 128, "\n%s%c%s%c%d",
-						table->table, ZBX_DM_DELIMITER, row[0], ZBX_DM_DELIMITER,
-						NODE_CONFIGLOG_OP_DELETE);
-			}
-			continue;
-		}
-
-		prev_cksum = DBis_null(row[1]) == SUCCEED ? NULL : row[1];
-		curr_cksum = row[2];
-		s = sync;
-		f = 0;
-
-		sql_offset = 0;
-		zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 128, "select ");
-
-		do
-		{
-			while (0 == (table->fields[f].flags & ZBX_SYNC))
-				f++;
-
-			d_prev_cksum = NULL;
-			if (NULL != prev_cksum && NULL != (d_prev_cksum = strchr(prev_cksum, ',')))
-				*d_prev_cksum = '\0';
-
-			d_curr_cksum = NULL;
-			if (NULL != curr_cksum && NULL != (d_curr_cksum = strchr(curr_cksum, ',')))
-				*d_curr_cksum = '\0';
-
-			if (prev_cksum == NULL || curr_cksum == NULL ||
-					(dest_nodetype == ZBX_NODE_SLAVE && s[0] != ZBX_REC_UPDATED) ||
-					(dest_nodetype == ZBX_NODE_MASTER && s[1] != ZBX_REC_UPDATED) ||
-					0 != strcmp(prev_cksum, curr_cksum))
-			{
-				zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 128, "%s,",
-						table->fields[f].name);
-
-				if (table->fields[f].type == ZBX_TYPE_BLOB)
-				{
-					zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 128, "length(%s),",
-							table->fields[f].name);
-				}
-			}
-			s += 2;
-			f++;
-
-			if (d_prev_cksum != NULL)
-			{
-				*d_prev_cksum = ',';
-				prev_cksum = d_prev_cksum + 1;
-			}
-			else
-				prev_cksum = NULL;
-
-			if (d_curr_cksum != NULL)
-			{
-				*d_curr_cksum = ',';
-				curr_cksum = d_curr_cksum + 1;
-			}
-			else
-				curr_cksum = NULL;
-		}
-		while (d_prev_cksum != NULL || d_curr_cksum != NULL);
-
-		if (sql[sql_offset - 1] != ',')
-			continue;
-
-		sql_offset--;
-		zbx_snprintf_alloc(&sql, &sql_allocated, &sql_offset, 128, " from %s where %s=%s",
-				table->table, table->recid, row[0]);
-
-		result2 = DBselect("%s", sql);
-		if (NULL == (row2 = DBfetch(result2)))
-			goto out;
-
-		zbx_snprintf_alloc(data, data_alloc, data_offset, 128, "\n%s%c%s%c%d",
-				table->table, ZBX_DM_DELIMITER, row[0], ZBX_DM_DELIMITER,
-				NODE_CONFIGLOG_OP_UPDATE);
-
-		prev_cksum = DBis_null(row[1]) == SUCCEED ? NULL : row[1];
-		curr_cksum = row[2];
-		s = sync;
-		f = 0;
-		j = 0;
-
-		do
-		{
-			while (0 == (table->fields[f].flags & ZBX_SYNC))
-				f++;
-
-			d_prev_cksum = NULL;
-			if (NULL != prev_cksum && NULL != (d_prev_cksum = strchr(prev_cksum, ',')))
-				*d_prev_cksum = '\0';
-
-			d_curr_cksum = NULL;
-			if (NULL != curr_cksum && NULL != (d_curr_cksum = strchr(curr_cksum, ',')))
-				*d_curr_cksum = '\0';
-
-			if (prev_cksum == NULL || curr_cksum == NULL ||
-					(dest_nodetype == ZBX_NODE_SLAVE && s[0] != ZBX_REC_UPDATED) ||
-					(dest_nodetype == ZBX_NODE_MASTER && s[1] != ZBX_REC_UPDATED) ||
-					0 != strcmp(prev_cksum, curr_cksum))
-			{
-				zbx_snprintf_alloc(data, data_alloc, data_offset, 128, "%c%s%c%d%c",
-						ZBX_DM_DELIMITER, table->fields[f].name,
-						ZBX_DM_DELIMITER, table->fields[f].type,
-						ZBX_DM_DELIMITER);
-
-				/* Fieldname, type, value */
-				if (SUCCEED == DBis_null(row2[j]))
-				{
-					zbx_snprintf_alloc(data, data_alloc, data_offset, 5, "NULL");
-				}
-				else if (table->fields[f].type == ZBX_TYPE_INT ||
-					table->fields[f].type == ZBX_TYPE_UINT ||
-					table->fields[f].type == ZBX_TYPE_ID ||
-					table->fields[f].type == ZBX_TYPE_FLOAT)
-				{
-					zbx_snprintf_alloc(data, data_alloc, data_offset, 128, "%s", row2[j]);
-				}
-				else
-				{
-					if (table->fields[f].type == ZBX_TYPE_BLOB)
-						rowlen = atoi(row2[j + 1]);
-					else
-						rowlen = strlen(row2[j]);
-					rowlen = zbx_binary2hex((u_char *)row2[j], rowlen, &hex, &hex_allocated);
-					zbx_snprintf_alloc(data, data_alloc, data_offset, rowlen + 1, "%s", hex);
-				}
-
-				if (table->fields[f].type == ZBX_TYPE_BLOB)
-					j += 2;
-				else
-					j++;
-			}
-			s += 2;
-			f++;
-
-			if (d_prev_cksum != NULL)
-			{
-				*d_prev_cksum = ',';
-				prev_cksum = d_prev_cksum + 1;
-			}
-			else
-				prev_cksum = NULL;
-
-			if (d_curr_cksum != NULL)
-			{
-				*d_curr_cksum = ',';
-				curr_cksum = d_curr_cksum + 1;
-			}
-			else
-				curr_cksum = NULL;
-		}
-		while (d_prev_cksum != NULL || d_curr_cksum != NULL);
-out:
-		DBfree_result(result2);
-	}
-	DBfree_result(result);
-
-	zbx_free(hex);
-	zbx_free(sql);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: DMget_table_data                                                 *
- *                                                                            *
- * Purpose: get configuration changes to required node for specified table    *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value: SUCCESS - processed successfully                             *
- *               FAIL - an error occurred                                     *
- *                                                                            *
- * Author: Alexander Vladishev                                                *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-static int	DMget_table_data(int nodeid, int dest_nodetype, const ZBX_TABLE *table,
-		char **data, int *data_alloc, int *data_offset,
-		char **ptbls, int *ptbls_alloc, int *ptbls_offset)
-{
-	const char	*__function_name = "DMget_table_data";
-
-	int		f, res = SUCCEED;
-	const ZBX_TABLE	*fk_table;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() [table:'%s']",
-			__function_name, table->table);
-
-	if (SUCCEED == str_in_list(*ptbls, table->table, ','))
-		return SUCCEED;
-
-	zbx_snprintf_alloc(ptbls, ptbls_alloc, ptbls_offset, ZBX_TABLENAME_LEN + 2, "%s%s",
-			*ptbls_offset ? "," : "", table->table);
-
-	for (f = 0; NULL != table->fields[f].name; f++)
-	{
-		if (0 == (table->fields[f].flags & ZBX_SYNC))
-			continue;
-
-		if (NULL == table->fields[f].fk_table)
-			continue;
-
-		fk_table = DBget_table(table->fields[f].fk_table);
-		DMget_table_data(nodeid, dest_nodetype, fk_table,
-				data, data_alloc, data_offset,
-				ptbls, ptbls_alloc, ptbls_offset);
-	}
-	DMcollect_table_data(nodeid, dest_nodetype, table,
-			data, data_alloc, data_offset);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s",
-			__function_name, zbx_result_string(res));
-
-	return res;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: DMget_config_data                                                *
- *                                                                            *
- * Purpose: get configuration changes to required node                        *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value: SUCCESS - processed successfully                             *
- *               FAIL - an error occurred                                     *
- *                                                                            *
- * Author: Alexander Vladishev                                                *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-char	*DMget_config_data(int nodeid, int dest_nodetype)
-{
-	const char	*__function_name = "DMget_config_data";
-
-	char		*ptbls = NULL;	/* list of processed tables */
-	int		ptbls_alloc = 1024, ptbls_offset = 0;
-	char		*data = NULL;
-	int		data_alloc = 1024, data_offset = 0;
-	int		t;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() [node:%d] [dest_nodetype:%s]", __function_name,
-			nodeid, zbx_nodetype_string(dest_nodetype));
-
-	ptbls = zbx_malloc(ptbls, ptbls_alloc);
-	data = zbx_malloc(data, data_alloc);
-
-	zbx_snprintf_alloc(&data, &data_alloc, &data_offset, 16, "Data%c%d%c%d",
-			ZBX_DM_DELIMITER, CONFIG_NODEID, ZBX_DM_DELIMITER, nodeid);
-
-	for (t = 0; NULL != tables[t].table; t++)
-	{
-		if (0 == (tables[t].flags & ZBX_SYNC))
-			continue;
-
-		DMget_table_data(nodeid, dest_nodetype, &tables[t],
-				&data, &data_alloc, &data_offset,
-				&ptbls, &ptbls_alloc, &ptbls_offset);
-	}
-
-	zbx_free(ptbls);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
-
-	return data;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: update_checksums                                                 *
- *                                                                            *
- * Purpose: overwrite old checksums with new ones                             *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value: SUCCESS - calculated successfully                            *
- *               FAIL - an error occurred                                     *
- *                                                                            *
- * Author: Alexei Vladishev                                                   *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-int update_checksums(int nodeid, int synked_nodetype, int synked, const char *tablename, const zbx_uint64_t id, char *fields)
-{
-	const char	*__function_name = "update_checksums";
-	char		*r[2], *d[2], sync[129], *s;
-	char		c[2], sql[2][256];
-	char		cksum[32*64+32], *ck;
-	char		*exsql = NULL;
-	int		exsql_alloc = 65536, exsql_offset = 0, cksumtype;
-	DB_RESULT	result;
-	DB_ROW		row;
-	int		f;
-	const ZBX_TABLE	*table;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
-
-	exsql = zbx_malloc(exsql, exsql_alloc);
-
-	DBbegin();
-
-#ifdef HAVE_ORACLE
-	zbx_snprintf_alloc(&exsql, &exsql_alloc, &exsql_offset, 8, "begin\n");
-#endif
-
-	c[0] = synked == SUCCEED ? '1' : ' ';	/* for new and updated records */
-	c[1] = synked == SUCCEED ? '2' : ' ';	/* for deleted records */
-
-	if (NULL != tablename) {
-		zbx_snprintf(sql[0], sizeof(sql[0]), " and curr.tablename='%s' and curr.recordid=" ZBX_FS_UI64,
-			tablename, id);
-		zbx_snprintf(sql[1], sizeof(sql[1]), " and prev.tablename='%s' and prev.recordid=" ZBX_FS_UI64,
-			tablename, id);
-	} else {
-		*sql[0] = '\0';
-		*sql[1] = '\0';
-	}
-
-	result = DBselect(
-			/* Find new records */
-			"select curr.tablename,curr.recordid,prev.cksum,curr.cksum,NULL"
-			" from node_cksum curr"
-				" left join node_cksum prev"
-					" on prev.nodeid=curr.nodeid"
-						" and prev.tablename=curr.tablename"
-						" and prev.recordid=curr.recordid"
-						" and prev.cksumtype=%d"
-			" where curr.nodeid=%d"
-				" and curr.cksumtype=%d"
-				" and prev.tablename is null%s"
-			" union all "
-			/* Find updated records */
-			"select curr.tablename,curr.recordid,prev.cksum,curr.cksum,prev.sync"
-			" from node_cksum curr, node_cksum prev"
-			" where curr.nodeid=%d"
-				" and prev.nodeid=curr.nodeid"
-				" and curr.tablename=prev.tablename"
-				" and curr.recordid=prev.recordid"
-				" and curr.cksumtype=%d"
-				" and prev.cksumtype=%d%s"
-			" union all "
-			/* Find deleted records */
-			"select prev.tablename,prev.recordid,prev.cksum,curr.cksum,prev.sync"
-			" from node_cksum prev"
-				" left join node_cksum curr"
-					" on curr.nodeid=prev.nodeid"
-						" and curr.tablename=prev.tablename"
-						" and curr.recordid=prev.recordid"
-						" and curr.cksumtype=%d"
-			" where prev.nodeid=%d"
-				" and prev.cksumtype=%d"
-				" and curr.tablename is null%s",
-			NODE_CKSUM_TYPE_OLD, nodeid, NODE_CKSUM_TYPE_NEW, sql[0],
-			nodeid, NODE_CKSUM_TYPE_NEW, NODE_CKSUM_TYPE_OLD, sql[0],
-			NODE_CKSUM_TYPE_NEW, nodeid, NODE_CKSUM_TYPE_OLD, sql[1]);
-
-	while (NULL != (row = DBfetch(result)))
-	{
-		/* Found table */
-		if (NULL == (table = DBget_table(row[0])))
-		{
-			zabbix_log(LOG_LEVEL_WARNING, "Cannot find table [%s]",
-					row[0]);
-			continue;
-		}
-
-		if (FAIL == DBis_null(row[4]))
-			zbx_strlcpy(sync, row[4], sizeof(sync));
-		else
-			memset(sync, ' ', sizeof(sync));
-
-		s = sync;
-		ck = cksum;
-		*ck = '\0';
-
-		/* Special (simpler) processing for operation DELETE */
-		if (SUCCEED == DBis_null(row[3]))
-		{
-			if (synked == SUCCEED)
-			{
-				if (synked_nodetype == ZBX_NODE_SLAVE)
-					s[0] = c[1];
-				else if (synked_nodetype == ZBX_NODE_MASTER)
-					s[1] = c[1];
-			}
-
-			if ((0 == CONFIG_MASTER_NODEID || s[1] == c[1]) &&
-					(CONFIG_NODEID == nodeid || s[0] == c[1]))
-			{
-				zbx_snprintf_alloc(&exsql, &exsql_alloc, &exsql_offset, 256,
-						"delete from node_cksum"
-						" where nodeid=%d"
-							" and cksumtype=%d"
-							" and tablename='%s'"
-							" and recordid=%s;\n",
-						nodeid, NODE_CKSUM_TYPE_OLD, row[0], row[1]);
-
-				DBexecute_overflowed_sql(&exsql, &exsql_alloc, &exsql_offset);
+			zbx_snprintf_alloc(&xml, &allocated, &offset, 16*1024, "\n%s%c%s%c%s",
+				row[0],
+				ZBX_DM_DELIMITER,
+				row[1],
+				ZBX_DM_DELIMITER,
+				row[2]);
 				continue;
-			}
-
-			s += 2;
 		}
-		else
+		for(i=0;tables[i].table!=0;i++)
 		{
-			r[0] = DBis_null(row[2]) == SUCCEED ? NULL : row[2];
-			r[1] = row[3];
-			f = 0;
+			if(strcmp(tables[i].table, row[0])==0)	break;
+		}
 
-			do {
-				while ((table->fields[f].flags & ZBX_SYNC) == 0)
-					f++;
+		/* Found table */
+		if(tables[i].table!=0)
+		{
+			fields[0]=0;
+			/* for each field */
+			for(j=0;tables[i].fields[j].name!=0;j++)
+			{
+				zbx_strlcat(fields,tables[i].fields[j].name,sizeof(fields));
+				zbx_strlcat(fields,",",sizeof(fields));
 
-				d[0] = NULL;
-				d[1] = NULL;
-				if (NULL != r[0] && NULL != (d[0] = strchr(r[0], ',')))
-					*d[0] = '\0';
-				if (NULL != r[1] && NULL != (d[1] = strchr(r[1], ',')))
-					*d[1] = '\0';
+				zbx_strlcat(fields,"length(",sizeof(fields));
+				zbx_strlcat(fields,tables[i].fields[j].name,sizeof(fields));
+				zbx_strlcat(fields,"),",sizeof(fields));
+			}
+			if(fields[0]!=0)	fields[strlen(fields)-1]=0;
 
-				if (NULL == tablename || SUCCEED == str_in_list(fields, table->fields[f].name, ','))
+			result2=DBselect("select %s from %s where %s=%s",
+				fields,
+				row[0],
+				tables[i].recid,
+				row[1]);
+ 
+			row2=DBfetch(result2);
+
+			if(row2)
+			{
+				zbx_snprintf_alloc(&xml, &allocated, &offset, 16*1024, "\n%s%c%s%c%s",
+					row[0],
+					ZBX_DM_DELIMITER,
+					row[1],
+					ZBX_DM_DELIMITER,
+					row[2]);
+				/* for each field */
+				for(j=0;tables[i].fields[j].name!=0;j++)
 				{
-					ck += zbx_snprintf(ck, 64, "%s,", NULL != r[1] ? r[1] : r[0]);
-
-					if (r[0] == NULL || r[1] == NULL || strcmp(r[0], r[1]) != 0)
+					if( (tables[i].fields[j].flags & ZBX_SYNC) ==0)	continue;
+					/* Fieldname, type, value */
+					if(DBis_null(row2[j*2]) == SUCCEED)
 					{
-						if (synked_nodetype == ZBX_NODE_SLAVE)
-						{
-							s[0] = c[0];
-							s[1] = ' ';
-						}
-						else if (synked_nodetype == ZBX_NODE_MASTER)
-						{
-							s[0] = ' ';
-							s[1] = c[0];
-						}
+/*						zabbix_log( LOG_LEVEL_WARNING, "Field name [%s] [%s]",tables[i].fields[j].name,row2[j*2]);*/
+						zbx_snprintf_alloc(&xml, &allocated, &offset, 16*1024, "%c%s%c%d%cNULL",
+							ZBX_DM_DELIMITER,
+							tables[i].fields[j].name,
+							ZBX_DM_DELIMITER,
+							tables[i].fields[j].type,
+							ZBX_DM_DELIMITER);
 					}
 					else
 					{
-						if (synked == SUCCEED)
+						if(tables[i].fields[j].type == ZBX_TYPE_INT ||
+						   tables[i].fields[j].type == ZBX_TYPE_UINT ||
+						   tables[i].fields[j].type == ZBX_TYPE_ID ||
+						   tables[i].fields[j].type == ZBX_TYPE_FLOAT)
 						{
-							if (synked_nodetype == ZBX_NODE_SLAVE)
-								s[0] = c[0];
-							else if (synked_nodetype == ZBX_NODE_MASTER)
-								s[1] = c[0];
+							zbx_snprintf_alloc(&xml, &allocated, &offset, 16*1024, "%c%s%c%d%c%s",
+								ZBX_DM_DELIMITER,
+								tables[i].fields[j].name,
+								ZBX_DM_DELIMITER,
+								tables[i].fields[j].type,
+								ZBX_DM_DELIMITER,
+								row2[j*2]);
+						}
+						else
+						{
+							rowlen = atoi(row2[j*2+1]);
+							zbx_binary2hex((u_char *)row2[j*2], rowlen, &hex, &hex_allocated);
+							zbx_snprintf_alloc(&xml, &allocated, &offset, 16*1024, "%c%s%c%d%c%s",
+								ZBX_DM_DELIMITER,
+								tables[i].fields[j].name,
+								ZBX_DM_DELIMITER,
+								tables[i].fields[j].type,
+								ZBX_DM_DELIMITER,
+								hex);
 						}
 					}
 				}
-				else
-					ck += zbx_snprintf(ck, 64, "%s,", NULL != r[0] ? r[0] : "");
-				s += 2;
-				f++;
+			}
+			else
+			{
+				/* We assume that the record was just deleted, so we change operation to DELETE */
+				zabbix_log( LOG_LEVEL_DEBUG, "Cannot select %s from table %s where %s=%s",
+					fields,
+					row[0],
+					tables[i].recid,
+					row[1]);
 
-				if (d[0] != NULL)
-				{
-					*d[0] = ',';
-					r[0] = d[0] + 1;
-				}
-				else
-					r[0] = NULL;
-
-				if (d[1] != NULL)
-				{
-					*d[1] = ',';
-					r[1] = d[1] + 1;
-				}
-				else
-					r[1] = NULL;
-			} while (d[0] != NULL || d[1] != NULL);
-
-			*--ck = '\0';
+				zbx_snprintf_alloc(&xml, &allocated, &offset, 16*1024, "\n%s%c%s%c%d",
+					row[0],
+					ZBX_DM_DELIMITER,
+					row[1],
+					ZBX_DM_DELIMITER,
+					NODE_CONFIGLOG_OP_DELETE);
+			}
+			DBfree_result(result2);
 		}
-
-		*s = '\0';
-
-		if (SUCCEED == DBis_null(row[2]) || SUCCEED == DBis_null(row[3]) ||
-				0 != strcmp(row[4], sync) || 0 != strcmp(row[2], row[3]))
+		else
 		{
-			cksumtype = (DBis_null(row[2]) == SUCCEED) ? NODE_CKSUM_TYPE_NEW : NODE_CKSUM_TYPE_OLD;
-			zbx_snprintf_alloc(&exsql, &exsql_alloc, &exsql_offset, 2560,
-					"update node_cksum"
-					" set cksumtype=%d,"
-						"cksum='%s',"
-						"sync='%s'"
-					" where nodeid=%d"
-						" and cksumtype=%d"
-						" and tablename='%s'"
-						" and recordid=%s;\n",
-					NODE_CKSUM_TYPE_OLD, cksum, sync,
-					nodeid, cksumtype, row[0], row[1]);
-
-			DBexecute_overflowed_sql(&exsql, &exsql_alloc, &exsql_offset);
+			zabbix_log( LOG_LEVEL_WARNING, "Cannot find table [%s]",
+				row[0]);
 		}
 	}
+	zabbix_log( LOG_LEVEL_DEBUG, "DATA [%s]",
+		xml);
+	if( (found == 1) && send_to_node("configuration changes", dest_nodeid, nodeid, xml) == SUCCEED)
+	{
+		if(node_type == ZBX_NODE_MASTER)
+		{
+			DBexecute("update node_configlog set sync_master=1 where nodeid=%d and sync_master=0 and conflogid<=" ZBX_FS_UI64,
+				nodeid,
+				maxlogid);
+		}
+		else
+		{
+			DBexecute("update node_configlog set sync_slave=1 where nodeid=%d and sync_slave=0 and conflogid<=" ZBX_FS_UI64,
+				nodeid,
+				maxlogid);
+		}
+	}
+
 	DBfree_result(result);
-
-#ifdef HAVE_ORACLE
-	zbx_snprintf_alloc(&exsql, &exsql_alloc, &exsql_offset, 8, "end;\n");
-#endif
-
-	if (exsql_offset > 16) /* In ORACLE always present begin..end; */
-		DBexecute("%s", exsql);
-	zbx_free(exsql);
-
-	DBcommit();
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	zbx_free(xml);
+	zbx_free(hex);
+	/* Commit */
 
 	return SUCCEED;
 }
 
 /******************************************************************************
  *                                                                            *
- * Function: node_sync_lock                                                   *
+ * Function: get_slave_node                                                   *
  *                                                                            *
- * Purpose:                                                                   *
+ * Purpose: send configuration changes to required node                       *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value: SUCCESS - processed succesfully                              * 
+ *               FAIL - an error occured                                      *
  *                                                                            *
- * Author: Aleksander Vladishev                                               *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-void node_sync_lock(int nodeid)
-{
-	zbx_mutex_lock(&node_sync_access);
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: node_sync_unlock                                                 *
- *                                                                            *
- * Purpose:                                                                   *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value:                                                              *
- *                                                                            *
- * Author: Aleksander Vladishev                                               *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-void node_sync_unlock(int nodeid)
-{
-	zbx_mutex_unlock(&node_sync_access);
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: process_nodes                                                    *
- *                                                                            *
- * Purpose: calculates checksums of config data                               *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value:                                                              *
- *                                                                            *
- * Author: Aleksander Vladishev                                               *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-void process_nodes()
+static int get_slave_node(int nodeid)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
-	int		nodeid;
-	int		master_nodeid;
-	char		*data, *answer;
-	zbx_sock_t	sock;
-	int		res;
-	int		sender_nodeid;
+	int		ret = 0;
+	int		m;
 
-	master_nodeid = CONFIG_MASTER_NODEID;
-	if (0 == master_nodeid)
-		return;
+	zabbix_log( LOG_LEVEL_DEBUG, "In get_slave_node(%d)",
+		nodeid);
 
-	result = DBselect("select nodeid from nodes");
-	while (NULL != (row=DBfetch(result))) {
-		nodeid = atoi(row[0]);
-		if (SUCCEED == is_master_node(CONFIG_NODEID, nodeid))
-			continue;
-
-		node_sync_lock(nodeid);
-
-/*		DBbegin();*/
-
-		res = calculate_checksums(nodeid, NULL, 0);
-		if (SUCCEED == res && NULL != (data = DMget_config_data(nodeid, ZBX_NODE_MASTER))) {
-			zabbix_log( LOG_LEVEL_WARNING, "NODE %d: Sending configuration changes to master node %d for node %d datalen %d",
-				CONFIG_NODEID,
-				master_nodeid,
-				nodeid,
-				strlen(data));
-			if (SUCCEED == (res = connect_to_node(master_nodeid, &sock))) {
-				if (SUCCEED == res)
-					res = send_data_to_node(master_nodeid, &sock, data);
-				if (SUCCEED == res)
-					res = recv_data_from_node(master_nodeid, &sock, &answer);
-				if (SUCCEED == res && 0 == strncmp(answer, "Data", 4)) {
-					res = update_checksums(nodeid, ZBX_NODE_MASTER, SUCCEED, NULL, 0, NULL);
-					if (SUCCEED == res)
-						res = node_sync(answer, &sender_nodeid, &nodeid);
-					send_data_to_node(master_nodeid, &sock, SUCCEED == res ? "OK" : "FAIL");
-				}
-				disconnect_node(&sock);
-			}
-			zbx_free(data);
+	result = DBselect("select masterid from nodes where nodeid=%d",
+		nodeid);
+	row = DBfetch(result);
+	if(row)
+	{
+		m = atoi(row[0]);
+		if(m == CONFIG_NODEID)
+		{
+			ret = nodeid;
 		}
-
-/*		DBcommit();*/
-
-		node_sync_unlock(nodeid);
+		else if(m ==0)
+		{
+			ret = m;
+		}
+		else	ret = get_slave_node(m);
 	}
+	DBfree_result(result);
+
+	return ret;
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: get_master_node                                                  *
+ *                                                                            *
+ * Purpose: send configuration changes to required node                       *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
+ * Return value: SUCCESS - processed succesfully                              * 
+ *               FAIL - an error occured                                      *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+int get_master_node(int nodeid)
+{
+	DB_RESULT	result;
+	DB_ROW		row;
+	int		ret = 0;
+
+	zabbix_log( LOG_LEVEL_DEBUG, "In get_master_node(%d)",
+		nodeid);
+
+	result = DBselect("select masterid from nodes where nodeid=%d",
+		CONFIG_NODEID);
+	row = DBfetch(result);
+	if(row)
+	{
+		ret = atoi(row[0]);
+	}
+	DBfree_result(result);
+
+	return ret;
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: send_config_data                                                 *
+ *                                                                            *
+ * Purpose: send configuration changes to required node                       *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
+ * Return value: SUCCESS - processed succesfully                              * 
+ *               FAIL - an error occured                                      *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+static int send_to_master_and_slave(int nodeid)
+{
+	DB_RESULT	result;
+	DB_ROW		row;
+	int		master_nodeid,
+			slave_nodeid,
+			master_result = FAIL,
+			slave_result = FAIL;
+	zbx_uint64_t	maxlogid;
+
+	zabbix_log( LOG_LEVEL_DEBUG, "In send_to_master_and_slave(node:%d)",
+		nodeid);
+
+	result = DBselect("select max(conflogid) from node_configlog where nodeid=%d",
+		nodeid);
+
+	row = DBfetch(result);
+
+	if(row && DBis_null(row[0]) == SUCCEED)
+	{
+		zabbix_log( LOG_LEVEL_DEBUG, "No configuration changes of node %d",
+			nodeid);
+		DBfree_result(result);
+		return SUCCEED;
+	}
+	ZBX_STR2UINT64(maxlogid,row[0]);
+	DBfree_result(result);
+
+
+	master_nodeid=get_master_node(nodeid);
+	slave_nodeid=get_slave_node(nodeid);
+
+	if(master_nodeid != 0)
+	{
+		master_result = send_config_data(nodeid, master_nodeid, maxlogid, ZBX_NODE_MASTER);
+	}
+
+	if(slave_nodeid != 0)
+	{
+		slave_result = send_config_data(nodeid, slave_nodeid, maxlogid, ZBX_NODE_SLAVE);
+	}
+
+	if( (master_nodeid!=0) && (slave_nodeid != 0))
+	{
+		if((master_result == SUCCEED) && (slave_result == SUCCEED))
+		{
+			DBexecute("delete from node_configlog where nodeid=%d and sync_slave=1 and sync_master=1 and conflogid<=" ZBX_FS_UI64,
+				nodeid,
+				maxlogid);
+		}
+	}
+
+	if(master_nodeid!=0)
+	{
+		if(master_result == SUCCEED)
+		{
+			DBexecute("delete from node_configlog where nodeid=%d and sync_master=1 and conflogid<=" ZBX_FS_UI64,
+				nodeid,
+				maxlogid);
+		}
+	}
+
+	if(slave_nodeid!=0)
+	{
+		if(slave_result == SUCCEED)
+		{
+			DBexecute("delete from node_configlog where nodeid=%d and sync_slave=1 and conflogid<=" ZBX_FS_UI64,
+				nodeid,
+				maxlogid);
+		}
+	}
+
+	return SUCCEED;
+}
+
+
+/******************************************************************************
+ *                                                                            *
+ * Function: process_node                                                     *
+ *                                                                            *
+ * Purpose: select all related nodes and send config changes                  *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
+ * Return value: SUCCESS - processed succesfully                              * 
+ *               FAIL - an error occured                                      *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
+ ******************************************************************************/
+static int process_node(int nodeid)
+{
+	DB_RESULT	result;
+	DB_ROW		row;
+
+	zabbix_log( LOG_LEVEL_DEBUG, "In process_node(node:%d)",
+		nodeid);
+
+	send_to_master_and_slave(nodeid);
+
+	result = DBselect("select nodeid from nodes where masterid=%d and nodeid not in (%d)",
+		nodeid,
+		nodeid);
+	while((row=DBfetch(result)))
+	{
+		process_node(atoi(row[0]));
+	}
+	DBfree_result(result);
+
+	return SUCCEED;
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: main_nodesender                                                  *
+ *                                                                            *
+ * Purpose: periodically sends config changes and history to related nodes    *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
+ * Return value:                                                              * 
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments: never returns                                                    *
+ *                                                                            *
+ ******************************************************************************/
+void main_nodesender()
+{
+	DB_RESULT	result;
+	DB_ROW		row;
+
+	zabbix_log( LOG_LEVEL_DEBUG, "In main_nodesender()");
+
+	result = DBselect("select nodeid from nodes where nodetype=%d",
+		ZBX_NODE_TYPE_LOCAL);
+
+	row = DBfetch(result);
+
+	if(row)
+	{
+		if(CONFIG_NODEID != atoi(row[0]))
+		{
+			zabbix_log( LOG_LEVEL_WARNING, "NodeID does not match configuration settings. Processing of the node is disabled.");
+		}
+		else
+		{
+			process_node(atoi(row[0]));
+		}
+	}
+
 	DBfree_result(result);
 }

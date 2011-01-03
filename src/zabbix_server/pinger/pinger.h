@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,10 +20,16 @@
 #ifndef ZABBIX_PINGER_H
 #define ZABBIX_PINGER_H
 
-#include "common.h"
+extern char	*CONFIG_SOURCE_IP;
+extern	int	CONFIG_PINGER_FORKS;
+extern	int	CONFIG_PINGER_FREQUENCY;
+extern	char	*CONFIG_FPING_LOCATION;
+#ifdef HAVE_IPV6
+extern	char	*CONFIG_FPING6_LOCATION;
+#endif /* HAVE_IPV6 */
 
-extern int	CONFIG_PINGER_FORKS;
+extern	void	signal_handler( int sig );
 
-void	main_pinger_loop(int num);
+void main_pinger_loop(int num);
 
 #endif

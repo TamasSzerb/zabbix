@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,12 +20,19 @@
 #ifndef ZABBIX_PERFSTAT_H
 #define ZABBIX_PERFSTAT_H
 
-#ifdef _WINDOWS
+#if defined (_WINDOWS)
 
 #	include "perfmon.h"
 
 #	define PERF_COLLECTOR_STARTED(collector)	((collector) && (collector)->perfs.pdh_query)
-#	define UNSUPPORTED_REFRESH_PERIOD		600
+
+#else /* not _WINDOWS */
+
+#	define PDH_RAW_COUNTER	void*
+#	define HCOUNTER		void*
+#	define HQUERY		void*
+
+#endif /* _WINDOWS */
 
 struct zbx_perfs
 {
@@ -38,8 +45,6 @@ struct zbx_perfs
    double		lastValue;
    int			CurrentCounter;
    int			CurrentNum;
-   int			status;
-   char			*error;
 };
 
 typedef struct zbx_perfs PERF_COUNTERS;
@@ -48,16 +53,13 @@ typedef struct s_perfs_stat_data
 {
 	PERF_COUNTERS	*pPerfCounterList;
 	HQUERY		pdh_query;
-	time_t		nextcheck;	/* refresh time of not supported counters */
 } ZBX_PERF_STAT_DATA;
 
-int	add_perf_counter(const char *name, const char *counterPath, int interval);
-int	add_perfs_from_config(const char *line);
+int	add_perfs_from_config(char *line);
 void	perfs_list_free(void);
 
 int	init_perf_collector(ZBX_PERF_STAT_DATA *pperf);
-void	collect_perfstat();
-void	close_perf_collector();
-#endif /* _WINDOWS */
+void	collect_perfstat(ZBX_PERF_STAT_DATA *pcpus);
+void	close_perf_collector(ZBX_PERF_STAT_DATA *pcpus);
 
 #endif /* ZABBIX_PERFSTAT_H */

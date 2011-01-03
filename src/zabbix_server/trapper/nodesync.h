@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -21,6 +21,6 @@
 #ifndef ZABBIX_NODESYNC_H
 #define ZABBIX_NODESYNC_H
 
-int	node_sync(char *data, int *sender_nodeid, int *nodeid);
+int	node_sync(char *data);
 
 #endif

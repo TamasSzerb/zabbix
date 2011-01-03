@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -19,226 +19,282 @@
 
 #include "common.h"
 #include "sysinfo.h"
-#include "stats.h"
-#include "diskdevices.h"
+
+#include "../common/common.h"
+
+struct disk_stat_s {
+	zbx_uint64_t rio;
+	zbx_uint64_t rsect;
+	zbx_uint64_t wio;
+	zbx_uint64_t wsect;
+};
 
 #if defined(KERNEL_2_4)
 #	define INFO_FILE_NAME	"/proc/partitions"
-#	define PARSE(line)	if (sscanf(line, "%*d %*d %*d %s " \
+#	define PARSE(line)	if(sscanf(line,"%*d %*d %*d %s " \
 					ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d " \
 					ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d %*d %*d %*d", \
-				name, 		\
-				&ds[ZBX_DSTAT_R_OPER], 	\
-				&ds[ZBX_DSTAT_R_SECT],	\
-				&ds[ZBX_DSTAT_W_OPER], 	\
-				&ds[ZBX_DSTAT_W_SECT]	\
+				name, 			/* name */ \
+				&(result->rio), 	/* rio */ \
+				&(result->rsect),	/* rsect */ \
+				&(result->wio), 	/* rio */ \
+				&(result->wsect)	/* wsect */ \
 				) != 5) continue
 #else
 #	define INFO_FILE_NAME	"/proc/diskstats"
-#	define PARSE(line)	if (sscanf(line, "%*d %*d %s " \
+#	define PARSE(line)	if(sscanf(line, "%*d %*d %s " \
 					ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d " \
 					ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d %*d %*d %*d", \
-				name,		\
-				&ds[ZBX_DSTAT_R_OPER], 	\
-				&ds[ZBX_DSTAT_R_SECT],	\
-				&ds[ZBX_DSTAT_W_OPER], 	\
-				&ds[ZBX_DSTAT_W_SECT]	\
-				) != 5) continue
+				name, 			/* name */ \
+				&(result->rio), 	/* rio */ \
+				&(result->rsect),	/* rsect */ \
+				&(result->wio), 	/* wio */ \
+				&(result->wsect)	/* wsect */ \
+				) != 5)  \
+					if(sscanf(line,"%*d %*d %s " \
+						ZBX_FS_UI64 " " ZBX_FS_UI64 " " \
+						ZBX_FS_UI64 " " ZBX_FS_UI64, \
+					name, 			/* name */ \
+					&(result->rio), 	/* rio */ \
+					&(result->rsect),	/* rsect */ \
+					&(result->wio), 	/* wio */ \
+					&(result->wsect)	/* wsect */ \
+					) != 5) continue
 #endif
 
-int	get_diskstat(const char *devname, zbx_uint64_t *dstat)
+static int get_disk_stat(const char *interface, struct disk_stat_s *result)
 {
-	FILE		*f;
-	char		tmp[MAX_STRING_LEN], name[MAX_STRING_LEN];
-	int		i, ret = FAIL;
-	zbx_uint64_t	ds[ZBX_DSTAT_MAX];
+	int ret = SYSINFO_RET_FAIL;
+	char line[MAX_STRING_LEN];
 
-	assert(devname);
+	char name[MAX_STRING_LEN];
+	
+	FILE *f;
 
-	for (i = 0; i < ZBX_DSTAT_MAX; i++)
-		dstat[i] = (zbx_uint64_t)__UINT64_C(0);
+	assert(result);
 
-	if (NULL == (f = fopen(INFO_FILE_NAME, "r")))
-		return ret;
-
-	while (NULL != fgets(tmp, sizeof(tmp), f))
+	if(NULL != (f = fopen(INFO_FILE_NAME,"r") ))
 	{
-		PARSE(tmp);
-		if ('\0' != *devname && 0 != strcmp(name, devname))
-			continue;
-
-		dstat[ZBX_DSTAT_R_OPER] += ds[ZBX_DSTAT_R_OPER];
-		dstat[ZBX_DSTAT_R_SECT] += ds[ZBX_DSTAT_R_SECT];
-		dstat[ZBX_DSTAT_W_OPER] += ds[ZBX_DSTAT_W_OPER];
-		dstat[ZBX_DSTAT_W_SECT] += ds[ZBX_DSTAT_W_SECT];
-
-		ret = SUCCEED;
+		while(fgets(line,MAX_STRING_LEN,f) != NULL)
+		{
+			PARSE(line);
+		
+			if(strncmp(name, interface, MAX_STRING_LEN) == 0)
+			{
+				ret = SYSINFO_RET_OK;
+				break;
+			}
+		}
+		zbx_fclose(f);
 	}
-	zbx_fclose(f);
 
+	if(ret != SYSINFO_RET_OK)
+	{
+		memset(result, 0, sizeof(struct disk_stat_s));
+	}
+	
 	return ret;
 }
 
 int	VFS_DEV_WRITE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	ZBX_SINGLE_DISKDEVICE_DATA *device;
-	char		devname[32], tmp[16];
-	int		type, mode, nparam;
-	zbx_uint64_t	dstats[ZBX_DSTAT_MAX];
+	struct disk_stat_s ds;
+	char devname[MAX_STRING_LEN];
+	char mode[MAX_STRING_LEN];
+	int ret = SYSINFO_RET_FAIL;
+	
+        assert(result);
 
-	nparam = num_param(param);
-	if (nparam > 3)
-		return SYSINFO_RET_FAIL;
+        init_result(result);
+	
+        if(num_param(param) > 2)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	if (0 != get_param(param, 1, devname, sizeof(devname)))
-		return SYSINFO_RET_FAIL;
-
-	if (0 == strcmp(devname, "all"))
-		*devname = '\0';
-
-	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
-		*tmp = '\0';
-
-	if ('\0' == *tmp || 0 == strcmp(tmp,"sps"))	/* default parameter */
-		type = ZBX_DSTAT_TYPE_SPS;
-	else if (0 == strcmp(tmp,"ops"))
-		type = ZBX_DSTAT_TYPE_OPS;
-	else if (0 == strcmp(tmp, "sectors"))
-		type = ZBX_DSTAT_TYPE_SECT;
-	else if (0 == strcmp(tmp, "operations"))
-		type = ZBX_DSTAT_TYPE_OPER;
-	else
-		return SYSINFO_RET_FAIL;
-
-	if (type == ZBX_DSTAT_TYPE_SECT || type == ZBX_DSTAT_TYPE_OPER)
+        if(get_param(param, 1, devname, sizeof(devname)) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+	
+	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+        {
+                mode[0] = '\0';
+        }
+	
+        if(mode[0] == '\0')
 	{
-		if (nparam > 2)
-			return SYSINFO_RET_FAIL;
-
-		if (FAIL == get_diskstat(devname, dstats))
-			return SYSINFO_RET_FAIL;
-
-		if (type == ZBX_DSTAT_TYPE_SECT)
-			SET_UI64_RESULT(result, dstats[ZBX_DSTAT_W_SECT]);
-		else	/* ZBX_DSTAT_TYPE_OPER */
-			SET_UI64_RESULT(result, dstats[ZBX_DSTAT_W_OPER]);
-
-		return SYSINFO_RET_OK;
+		/* default parameter */
+		zbx_snprintf(mode, sizeof(mode), "sectors");
 	}
+	
+	ret = get_disk_stat(devname, &ds);
 
-	if (!DISKDEVICE_COLLECTOR_STARTED(collector))
+	if(ret == SYSINFO_RET_OK)
 	{
-		SET_MSG_RESULT(result, strdup("Collector is not started!"));
-		return SYSINFO_RET_OK;
+		if(strncmp(mode, "sectors", MAX_STRING_LEN)==0)
+		{
+			SET_UI64_RESULT(result, ds.wsect);
+			ret = SYSINFO_RET_OK;
+		}
+		else if(strncmp(mode, "operations", MAX_STRING_LEN)==0)
+		{
+			SET_UI64_RESULT(result, ds.wio);
+			ret = SYSINFO_RET_OK;
+		}
+		else
+		{
+			ret = SYSINFO_RET_FAIL;
+		}
 	}
-
-	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
-		*tmp = '\0';
-
-	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
-		mode = ZBX_AVG1;
-	else if (0 == strcmp(tmp, "avg5"))
-		mode = ZBX_AVG5;
-	else if (0 == strcmp(tmp, "avg15"))
-		mode = ZBX_AVG15;
-	else
-		return SYSINFO_RET_FAIL;
-
-	if (NULL == (device = collector_diskdevice_get(devname)))
-	{
-		if (FAIL == get_diskstat(devname, dstats))	/* validate device name */
-			return SYSINFO_RET_FAIL;
-
-		if (NULL == (device = collector_diskdevice_add(devname)))
-			return SYSINFO_RET_FAIL;
-	}
-
-	if (type == ZBX_DSTAT_TYPE_SPS)	/* default parameter */
-		SET_DBL_RESULT(result, device->w_sps[mode]);
-	else if (type == ZBX_DSTAT_TYPE_OPS)
-		SET_DBL_RESULT(result, device->w_ops[mode]);
-
-	return SYSINFO_RET_OK;
+	
+	return ret;
 }
 
 int	VFS_DEV_READ(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	ZBX_SINGLE_DISKDEVICE_DATA *device;
-	char		devname[32], tmp[16];
-	int		type, mode, nparam;
-	zbx_uint64_t	dstats[ZBX_DSTAT_MAX];
+	struct disk_stat_s ds;
+	char devname[MAX_STRING_LEN];
+	char mode[MAX_STRING_LEN];
+	int ret = SYSINFO_RET_FAIL;
+	
+        assert(result);
 
-	nparam = num_param(param);
-	if (nparam > 3)
-		return SYSINFO_RET_FAIL;
+        init_result(result);
+	
+        if(num_param(param) > 2)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	if (0 != get_param(param, 1, devname, sizeof(devname)))
-		return SYSINFO_RET_FAIL;
-
-	if (0 == strcmp(devname, "all"))
-		*devname = '\0';
-
-	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
-		*tmp = '\0';
-
-	if ('\0' == *tmp || 0 == strcmp(tmp,"sps"))	/* default parameter */
-		type = ZBX_DSTAT_TYPE_SPS;
-	else if (0 == strcmp(tmp,"ops"))
-		type = ZBX_DSTAT_TYPE_OPS;
-	else if (0 == strcmp(tmp, "sectors"))
-		type = ZBX_DSTAT_TYPE_SECT;
-	else if (0 == strcmp(tmp, "operations"))
-		type = ZBX_DSTAT_TYPE_OPER;
-	else
-		return SYSINFO_RET_FAIL;
-
-	if (type == ZBX_DSTAT_TYPE_SECT || type == ZBX_DSTAT_TYPE_OPER)
+        if(get_param(param, 1, devname, sizeof(devname)) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+	
+	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+        {
+                mode[0] = '\0';
+        }
+	
+        if(mode[0] == '\0')
 	{
-		if (nparam > 2)
-			return SYSINFO_RET_FAIL;
-
-		if (FAIL == get_diskstat(devname, dstats))
-			return SYSINFO_RET_FAIL;
-
-		if (type == ZBX_DSTAT_TYPE_SECT)
-			SET_UI64_RESULT(result, dstats[ZBX_DSTAT_R_SECT]);
-		else	/* ZBX_DSTAT_TYPE_OPER */
-			SET_UI64_RESULT(result, dstats[ZBX_DSTAT_R_OPER]);
-
-		return SYSINFO_RET_OK;
+		/* default parameter */
+		zbx_snprintf(mode, sizeof(mode), "sectors");
 	}
+	
+	ret = get_disk_stat(devname, &ds);
 
-	if (!DISKDEVICE_COLLECTOR_STARTED(collector))
+	if(ret == SYSINFO_RET_OK)
 	{
-		SET_MSG_RESULT(result, strdup("Collector is not started!"));
-		return SYSINFO_RET_OK;
+		if(strncmp(mode, "sectors", MAX_STRING_LEN)==0)
+		{
+			SET_UI64_RESULT(result, ds.rsect);
+			ret = SYSINFO_RET_OK;
+		}
+		else if(strncmp(mode, "operations", MAX_STRING_LEN)==0)
+		{
+			SET_UI64_RESULT(result, ds.rio);
+			ret = SYSINFO_RET_OK;
+		}
+		else
+		{
+			ret = SYSINFO_RET_FAIL;
+		}
 	}
-
-	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
-		*tmp = '\0';
-
-	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
-		mode = ZBX_AVG1;
-	else if (0 == strcmp(tmp, "avg5"))
-		mode = ZBX_AVG5;
-	else if (0 == strcmp(tmp, "avg15"))
-		mode = ZBX_AVG15;
-	else
-		return SYSINFO_RET_FAIL;
-
-	if (NULL == (device = collector_diskdevice_get(devname)))
-	{
-		if (FAIL == get_diskstat(devname, dstats))	/* validate device name */
-			return SYSINFO_RET_FAIL;
-
-		if (NULL == (device = collector_diskdevice_add(devname)))
-			return SYSINFO_RET_FAIL;
-	}
-
-	if (type == ZBX_DSTAT_TYPE_SPS)	/* default parameter */
-		SET_DBL_RESULT(result, device->r_sps[mode]);
-	else if (type == ZBX_DSTAT_TYPE_OPS)
-		SET_DBL_RESULT(result, device->r_ops[mode]);
-
-	return SYSINFO_RET_OK;
+	
+	return ret;
 }
+
+static int	DISK_IO(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+#ifdef	HAVE_PROC
+	return	getPROC("/proc/stat",2,2, flags, result);
+#else
+	return	SYSINFO_RET_FAIL;
+#endif
+}
+
+static int	DISK_RIO(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+#ifdef	HAVE_PROC
+	return	getPROC("/proc/stat",3,2, flags, result);
+#else
+	return	SYSINFO_RET_FAIL;
+#endif
+}
+
+static int	DISK_WIO(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+#ifdef	HAVE_PROC
+	return	getPROC("/proc/stat",4,2, flags, result);
+#else
+	return	SYSINFO_RET_FAIL;
+#endif
+}
+
+static int	DISK_RBLK(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+#ifdef	HAVE_PROC
+	return	getPROC("/proc/stat",5,2, flags, result);
+#else
+	return	SYSINFO_RET_FAIL;
+#endif
+}
+
+static int	DISK_WBLK(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+#ifdef	HAVE_PROC
+	return	getPROC("/proc/stat",6,2, flags, result);
+#else
+	return	SYSINFO_RET_FAIL;
+#endif
+}
+
+int	OLD_IO(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	char    key[MAX_STRING_LEN];
+	int 	ret;
+
+	assert(result);
+
+        init_result(result);
+
+        if(num_param(param) > 1)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+        if(get_param(param, 1, key, MAX_STRING_LEN) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+	if(strcmp(key,"disk_io") == 0)
+	{
+		ret = DISK_IO(cmd, param, flags, result);
+	}
+	else if(strcmp(key,"disk_rio") == 0)
+	{
+		ret = DISK_RIO(cmd, param, flags, result);
+	}
+	else if(strcmp(key,"disk_wio") == 0)
+	{
+		ret = DISK_WIO(cmd, param, flags, result);
+	}
+    	else if(strcmp(key,"disk_rblk") == 0)
+	{
+		ret = DISK_RBLK(cmd, param, flags, result);
+	}
+    	else if(strcmp(key,"disk_wblk") == 0)
+	{
+		ret = DISK_WBLK(cmd, param, flags, result);
+	}
+	else
+	{
+		ret = SYSINFO_RET_FAIL;
+	}
+    
+	return ret;
+}
+

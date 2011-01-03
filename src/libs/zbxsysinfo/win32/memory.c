@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -18,7 +18,9 @@
 **/
 
 #include "common.h"
+
 #include "sysinfo.h"
+
 #include "symbols.h"
 
 int     VM_MEMORY_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -87,3 +89,4 @@ int     VM_MEMORY_SIZE(const char *cmd, const char *param, unsigned flags, AGENT
 	}
 	return SYSINFO_RET_FAIL;
 }
+

@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -22,11 +22,13 @@
 
 #include "db.h"
 
-extern int	CONFIG_SENDER_FREQUENCY;
-extern char	*CONFIG_ALERT_SCRIPTS_PATH;
+extern	int	CONFIG_SENDER_FREQUENCY;
+extern	char	*CONFIG_ALERT_SCRIPTS_PATH;
 
-int	main_alerter_loop();
+extern	void	signal_handler( int sig );
 
-int	execute_action(DB_ALERT *alert, DB_MEDIATYPE *mediatype, char *error, int max_error_len);
+int main_alerter_loop();
+
+int execute_action(DB_ALERT *alert,DB_MEDIATYPE *mediatype, char *error, int max_error_len);
 
 #endif

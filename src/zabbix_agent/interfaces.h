@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -19,6 +19,7 @@
 
 #ifndef ZABBIX_INTERFACES_H
 #define ZABBIX_INTERFACES_H
+
 
 #define	MAX_INTERFACE	(16)
 

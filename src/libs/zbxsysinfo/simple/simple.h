@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -17,8 +17,7 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#ifndef ZABBIX_SYSINFO_SIMPLE_H
-#define ZABBIX_SYSINFO_SIMPLE_H
+#if !defined(SYSINFO_SIMPLE_H_INCLUDED)
 
 #include "sysinfo.h"
 
@@ -28,4 +27,4 @@ extern ZBX_METRIC	parameters_simple[];
 int	CHECK_SERVICE_PERF(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 int	CHECK_SERVICE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 
-#endif /* ZABBIX_SYSINFO_SIMPLE_H */
+#endif /* SYSINFO_SIMPLE_H_INCLUDED */

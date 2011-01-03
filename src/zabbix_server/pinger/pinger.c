@@ -1,4 +1,4 @@
-/*
+/* 
 ** ZABBIX
 ** Copyright (C) 2000-2005 SIA Zabbix
 **
@@ -20,317 +20,78 @@
 #include "common.h"
 
 #include "cfg.h"
-#include "dbcache.h"
+#include "db.h"
+#include "../functions.h"
 #include "log.h"
 #include "zlog.h"
-#include "sysinfo.h"
-#include "zbxserver.h"
-#include "zbxicmpping.h"
+#include "threads.h"
 
 #include "pinger.h"
-#include "dbcache.h"
 
-static int	poller_type;
-static int	poller_num;
+int pinger_num;
 
-/*some defines so the `fping' and `fping6' could successfully process pings*/
-#define 	MIN_COUNT		1
-#define 	MAX_COUNT		10000
-#define 	MIN_INTERVAL		20
-#define		MIN_SIZE		24
-#define		MAX_SIZE		65507
-#define		MIN_TIMEOUT		50
-/*end some defines*/
-
-#define MAX_ITEMS	128
+#define ZBX_FPING_HOST struct zbx_fipng_host
+ZBX_FPING_HOST
+{
+	char		ip[HOST_IP_LEN_MAX];
+	char		dns[HOST_DNS_LEN_MAX];
+	int		alive, useip;
+	double		mseconds;
+};
 
 /******************************************************************************
  *                                                                            *
- * Function: process_value                                                    *
+ * Function: process_new_value                                                *
  *                                                                            *
  * Purpose: process new item value                                            *
  *                                                                            *
- * Parameters:                                                                *
+ * Parameters: key - item key                                                 *
+ *             host - host name                                               *
+ *             value - new value of the item                                  *
  *                                                                            *
- * Return value:                                                              *
+ * Return value: SUCCEED - new value sucesfully processed                     *
+ *               FAIL - otherwise                                             *
  *                                                                            *
- * Author: Alexei Vladishev, Alexander Vladishev                              *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-static void	process_value(zbx_uint64_t itemid, zbx_uint64_t *value_ui64, double *value_dbl,	zbx_timespec_t *ts,
-		int ping_result, char *error)
-{
-	const char	*__function_name = "process_value";
-
-	DC_ITEM		item;
-	AGENT_RESULT	value;
-
-	assert(value_ui64 || value_dbl);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
-
-	if (SUCCEED != DCconfig_get_item_by_itemid(&item, itemid))
-		return;
-
-	if (NOTSUPPORTED == ping_result)
-	{
-		DCadd_nextcheck(item.itemid, ts->sec, error);
-		DCrequeue_reachable_item(item.itemid, ITEM_STATUS_NOTSUPPORTED, ts->sec);
-	}
-	else
-	{
-		init_result(&value);
-
-		if (NULL != value_ui64)
-			SET_UI64_RESULT(&value, *value_ui64);
-		else
-			SET_DBL_RESULT(&value, *value_dbl);
-
-		dc_add_history(item.itemid, item.value_type, item.flags, &value, ts, 0, NULL, 0, 0, 0, 0);
-
-		DCrequeue_reachable_item(item.itemid, ITEM_STATUS_ACTIVE, ts->sec);
-
-		free_result(&value);
-	}
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: process_values                                                   *
- *                                                                            *
- * Purpose: process new item values                                           *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value:                                                              *
- *                                                                            *
- * Author: Alexei Vladishev, Alexander Vladishev                              *
- *                                                                            *
- * Comments:                                                                  *
+ * Comments: can be done in process_data()                                    *
  *                                                                            *
  ******************************************************************************/
-static void	process_values(icmpitem_t *items, int first_index, int last_index, ZBX_FPING_HOST *hosts,
-		int hosts_count, zbx_timespec_t *ts, int ping_result, char *error)
+static int process_value(char *key, ZBX_FPING_HOST *host, AGENT_RESULT *value)
 {
-	const char	*__function_name = "process_values";
-	int		i, h;
-	zbx_uint64_t	value_uint64;
-	double		value_dbl;
+	DB_RESULT	result;
+	DB_ROW		row;
+	DB_ITEM		item;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In process_value(%s@%s)",
+			key,
+			host->useip ? host->ip : host->dns);
 
-	DCinit_nextchecks();
+	result = DBselect("select %s where " ZBX_SQL_MOD(h.hostid,%d) "=%d and h.status=%d and h.hostid=i.hostid"
+			" and h.useip=%d and h.%s='%s' and i.key_='%s' and i.status=%d"
+			" and i.type=%d and" ZBX_COND_NODEID,
+			ZBX_SQL_ITEM_SELECT,
+			CONFIG_PINGER_FORKS,
+			pinger_num - 1,
+			HOST_STATUS_MONITORED,
+			host->useip,
+			host->useip ? "ip" : "dns",
+			host->useip ? host->ip : host->dns,
+			key,
+			ITEM_STATUS_ACTIVE,
+			ITEM_TYPE_SIMPLE,
+			LOCAL_NODE("h.hostid"));
 
-	for (h = 0; h < hosts_count; h++)
-	{
-		if (NOTSUPPORTED == ping_result)
-			zabbix_log(LOG_LEVEL_DEBUG, "Host [%s] %s",
-					hosts[h].addr, error);
-		else
-			zabbix_log(LOG_LEVEL_DEBUG, "Host [%s] cnt=%d rcv=%d min/max/avg=" ZBX_FS_DBL "/" ZBX_FS_DBL "/" ZBX_FS_DBL,
-					hosts[h].addr, hosts[h].cnt, hosts[h].rcv, hosts[h].min, hosts[h].max, hosts[h].avg);
+	while (NULL != (row = DBfetch(result))) {
+		DBget_item_from_db(&item, row);
 
-		for (i = first_index; i < last_index; i++)
-		{
-			if (0 == strcmp(items[i].addr, hosts[h].addr))
-			{
-				switch (items[i].icmpping)
-				{
-					case ICMPPING:
-						value_uint64 = hosts[h].rcv ? 1 : 0;
-						process_value(items[i].itemid, &value_uint64, NULL, ts, ping_result, error);
-						break;
-					case ICMPPINGSEC:
-						switch (items[i].type)
-						{
-							case ICMPPINGSEC_MIN : value_dbl = hosts[h].min; break;
-							case ICMPPINGSEC_MAX : value_dbl = hosts[h].max; break;
-							case ICMPPINGSEC_AVG : value_dbl = hosts[h].avg; break;
-						}
-						process_value(items[i].itemid, NULL, &value_dbl, ts, ping_result, error);
-						break;
-					case ICMPPINGLOSS:
-						if (0 == hosts[h].cnt)
-							value_dbl = 0;
-						else
-							value_dbl = 100 * (1 - (double)hosts[h].rcv / (double)hosts[h].cnt);
-						process_value(items[i].itemid, NULL, &value_dbl, ts, ping_result, error);
-						break;
-				}
-			}
-		}
+		DBbegin();
+		process_new_value(&item, value);
+		DBcommit();
 	}
-
-	DCflush_nextchecks();
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
-}
-
-static int	parse_key_params(const char *key, const char *host_addr, icmpping_t *icmpping, char **addr, int *count,
-		int *interval, int *size, int *timeout, icmppingsec_type_t *type, char *error, int max_error_len)
-{
-	char	cmd[MAX_STRING_LEN], params[MAX_STRING_LEN], buffer[MAX_STRING_LEN];
-	int	num_params;
-
-	if (0 == parse_command(key, cmd, sizeof(cmd), params, sizeof(params)))
-		return NOTSUPPORTED;
-
-	if (0 == strcmp(cmd, SERVER_ICMPPING_KEY))
-		*icmpping = ICMPPING;
-	else if (0 == strcmp(cmd, SERVER_ICMPPINGLOSS_KEY))
-		*icmpping = ICMPPINGLOSS;
-	else if (0 == strcmp(cmd, SERVER_ICMPPINGSEC_KEY))
-		*icmpping = ICMPPINGSEC;
-	else
-	{
-		zbx_snprintf(error, max_error_len, "Unsupported pinger key");
-		return NOTSUPPORTED;
-	}
-
-	num_params = num_param(params);
-
-	if (num_params > 6 || (*icmpping != ICMPPINGSEC && num_params > 5))
-	{
-		zbx_snprintf(error, max_error_len, "Too many arguments");
-		return NOTSUPPORTED;
-	}
-
-	if (0 != get_param(params, 2, buffer, sizeof(buffer)) || *buffer == '\0')
-		*count = 3;
-	else if (FAIL == is_uint(buffer) || (*count = atoi(buffer)) < MIN_COUNT || *count > MAX_COUNT)
-	{
-		zbx_snprintf(error, max_error_len, "Number of packets [%s] is not between %d and %d",
-				buffer, MIN_COUNT, MAX_COUNT);
-		return NOTSUPPORTED;
-	}
-
-	if (0 != get_param(params, 3, buffer, sizeof(buffer)) || *buffer == '\0')
-		*interval = 0;
-	else if (FAIL == is_uint(buffer) || (*interval = atoi(buffer)) < MIN_INTERVAL)
-	{
-		zbx_snprintf(error, max_error_len, "Interval [%s] should be at least %d",
-				buffer, MIN_INTERVAL);
-		return NOTSUPPORTED;
-	}
-
-	if (0 != get_param(params, 4, buffer, sizeof(buffer)) || *buffer == '\0')
-		*size = 0;
-	else if (FAIL == is_uint(buffer) || (*size = atoi(buffer)) < MIN_SIZE || *size > MAX_SIZE)
-	{
-		zbx_snprintf(error, max_error_len, "Packet size [%s] is not between %d and %d",
-				buffer, MIN_SIZE, MAX_SIZE);
-		return NOTSUPPORTED;
-	}
-
-	if (0 != get_param(params, 5, buffer, sizeof(buffer)) || *buffer == '\0')
-		*timeout = 0;
-	else if (FAIL == is_uint(buffer) || (*timeout = atoi(buffer)) < MIN_TIMEOUT)
-	{
-		zbx_snprintf(error, max_error_len, "Timeout [%s] should be at least %d",
-				buffer, MIN_TIMEOUT);
-		return NOTSUPPORTED;
-	}
-
-	if (0 != get_param(params, 6, buffer, sizeof(buffer)) || *buffer == '\0')
-		*type = ICMPPINGSEC_AVG;
-	else
-	{
-		if (0 == strcmp(buffer, "min"))
-			*type = ICMPPINGSEC_MIN;
-		else if (0 == strcmp(buffer, "avg"))
-			*type = ICMPPINGSEC_AVG;
-		else if (0 == strcmp(buffer, "max"))
-			*type = ICMPPINGSEC_MAX;
-		else
-		{
-			zbx_snprintf(error, max_error_len, "Mode [%s] is not supported", buffer);
-			return NOTSUPPORTED;
-		}
-	}
-
-	if (0 != get_param(params, 1, buffer, sizeof(buffer)) || *buffer == '\0')
-		*addr = strdup(host_addr);
-	else
-		*addr = strdup(buffer);
+	DBfree_result(result);
 
 	return SUCCEED;
-}
-
-static int	get_icmpping_nearestindex(icmpitem_t *items, int items_count, int count, int interval, int size, int timeout)
-{
-	int		first_index, last_index, index;
-	icmpitem_t	*item;
-
-	if (items_count == 0)
-		return 0;
-
-	first_index = 0;
-	last_index = items_count - 1;
-	while (1)
-	{
-		index = first_index + (last_index - first_index) / 2;
-		item = &items[index];
-
-		if (item->count == count && item->interval == interval && item->size == size && item->timeout == timeout)
-			return index;
-		else if (last_index == first_index)
-		{
-			if (item->count < count ||
-					(item->count == count && item->interval < interval) ||
-					(item->count == count && item->interval == interval && item->size < size) ||
-					(item->count == count && item->interval == interval && item->size == size && item->timeout < timeout))
-				index++;
-			return index;
-		}
-		else if (item->count < count ||
-				(item->count == count && item->interval < interval) ||
-				(item->count == count && item->interval == interval && item->size < size) ||
-				(item->count == count && item->interval == interval && item->size == size && item->timeout < timeout))
-			first_index = index + 1;
-		else
-			last_index = index;
-	}
-}
-
-static void	add_icmpping_item(icmpitem_t **items, int *items_alloc, int *items_count, int count, int interval,
-		int size, int timeout, zbx_uint64_t itemid, char *addr, icmpping_t icmpping, icmppingsec_type_t type)
-{
-	const char	*__function_name = "add_icmpping_item";
-	int		index;
-	icmpitem_t	*item;
-	size_t		sz;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() addr:'%s' count:%d interval:%d size:%d timeout:%d",
-			__function_name, addr, count, interval, size, timeout);
-
-	index = get_icmpping_nearestindex(*items, *items_count, count, interval, size, timeout);
-
-	if (*items_alloc == *items_count)
-	{
-		*items_alloc += 4;
-		sz = *items_alloc * sizeof(icmpitem_t);
-		*items = zbx_realloc(*items, sz);
-	}
-
-	memmove(&(*items)[index + 1], &(*items)[index], sizeof(icmpitem_t) * (*items_count - index));
-
-	item = &(*items)[index];
-	item->count	= count;
-	item->interval	= interval;
-	item->size	= size;
-	item->timeout	= timeout;
-	item->itemid	= itemid;
-	item->addr	= addr;
-	item->icmpping	= icmpping;
-	item->type	= type;
-
-	(*items_count)++;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
 
 /******************************************************************************
@@ -341,150 +102,253 @@ static void	add_icmpping_item(icmpitem_t **items, int *items_alloc, int *items_c
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value: SUCCEED - the file was created successfully                  *
+ * Return value: SUCCEED - the file was created succesfully                   *
  *               FAIL - otherwise                                             *
  *                                                                            *
- * Author: Alexei Vladishev, Alexander Vladishev                              *
+ * Author: Alexei Vladishev, Aleksander Vladishev                             *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static void	get_pinger_hosts(icmpitem_t **icmp_items, int *icmp_items_alloc, int *icmp_items_count, int now)
+static int get_pinger_hosts(ZBX_FPING_HOST **hosts, int *hosts_allocated, int *hosts_count)
 {
-	const char		*__function_name = "get_pinger_hosts";
-	DC_ITEM			items[MAX_ITEMS];
-	int			i, num, count, interval, size, timeout;
-	char			error[MAX_STRING_LEN], *addr = NULL;
-	icmpping_t		icmpping;
-	icmppingsec_type_t	type;
+	DB_RESULT	result;
+	DB_ROW		row;
+	ZBX_FPING_HOST	*host;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In get_pinger_hosts()");
 
-	DCinit_nextchecks();
+	/* Select hosts monitored by IP */
+	result = DBselect("select distinct h.ip from hosts h,items i where " ZBX_SQL_MOD(h.hostid,%d) "=%d"
+			" and i.hostid=h.hostid and h.status=%d and (i.key_='%s' or i.key_='%s')"
+			" and i.type=%d and i.status=%d and h.useip=1 and" ZBX_COND_NODEID,
+			CONFIG_PINGER_FORKS,
+			pinger_num - 1,
+			HOST_STATUS_MONITORED,
+			SERVER_ICMPPING_KEY,
+			SERVER_ICMPPINGSEC_KEY,
+			ITEM_TYPE_SIMPLE,
+			ITEM_STATUS_ACTIVE,
+			LOCAL_NODE("h.hostid"));
 
-	num = DCconfig_get_poller_items(poller_type, items, MAX_ITEMS);
-
-	for (i = 0; i < num; i++)
-	{
-		items[i].key = strdup(items[i].key_orig);
-		substitute_simple_macros(NULL, NULL, &items[i].host, NULL,
-				&items[i].key, MACRO_TYPE_ITEM_KEY, NULL, 0);
-
-		items[i].interface.addr = strdup(items[i].interface.useip == 1 ? items[i].interface.ip_orig : items[i].interface.dns_orig);
-		substitute_simple_macros(NULL, NULL, &items[i].host, NULL,
-				&items[i].interface.addr, MACRO_TYPE_INTERFACE_ADDR, NULL, 0);
-
-		if (SUCCEED == parse_key_params(items[i].key, items[i].interface.addr, &icmpping, &addr, &count,
-					&interval, &size, &timeout, &type, error, sizeof(error)))
-		{
-			add_icmpping_item(icmp_items, icmp_items_alloc, icmp_items_count, count, interval, size,
-					timeout, items[i].itemid, addr, icmpping, type);
+	while (NULL != (row = DBfetch(result))) {
+		if (*hosts_count == *hosts_allocated) {
+			*hosts_allocated *= 2;
+			*hosts = zbx_realloc(*hosts, *hosts_allocated * sizeof(ZBX_FPING_HOST));
 		}
-		else
-			DCadd_nextcheck(items[i].itemid, now, error);
 
-		zbx_free(items[i].interface.addr);
-		zbx_free(items[i].key);
+		host = &(*hosts)[*hosts_count];
+
+		memset(host, '\0', sizeof(ZBX_FPING_HOST));
+		strscpy(host->ip, row[0]);
+		host->useip = 1;
+
+		(*hosts_count)++;
+
+		zabbix_log(LOG_LEVEL_DEBUG, "IP [%s]", host->ip);
 	}
+	DBfree_result(result);
 
-	DCflush_nextchecks();
+	/* Select hosts monitored by hostname */
+	result = DBselect("select distinct h.dns from hosts h,items i where " ZBX_SQL_MOD(h.hostid,%d) "=%d"
+			" and i.hostid=h.hostid and h.status=%d and (i.key_='%s' or i.key_='%s')"
+			" and i.type=%d and i.status=%d and h.useip=0 and" ZBX_COND_NODEID,
+			CONFIG_PINGER_FORKS,
+			pinger_num - 1,
+			HOST_STATUS_MONITORED,
+			SERVER_ICMPPING_KEY,
+			SERVER_ICMPPINGSEC_KEY,
+			ITEM_TYPE_SIMPLE,
+			ITEM_STATUS_ACTIVE,
+			LOCAL_NODE("h.hostid"));
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%d", __function_name, *icmp_items_count);
-}
+	while (NULL != (row = DBfetch(result))) {
+		if (*hosts_count == *hosts_allocated) {
+			*hosts_allocated *= 2;
+			*hosts = zbx_realloc(*hosts, *hosts_allocated * sizeof(ZBX_FPING_HOST));
+		}
 
-static void	free_hosts(icmpitem_t **items, int *items_count)
-{
-	int	i;
+		host = &(*hosts)[*hosts_count];
 
-	for (i = 0; i < *items_count; i++)
-		zbx_free((*items)[i].addr);
+		memset(host, '\0', sizeof(ZBX_FPING_HOST));
+		strscpy(host->dns, row[0]);
+		host->useip = 0;
 
-	*items_count = 0;
-}
+		(*hosts_count)++;
 
-static void	add_pinger_host(ZBX_FPING_HOST **hosts, int *hosts_alloc, int *hosts_count, char *addr)
-{
-	const char	*__function_name = "add_pinger_host";
-
-	int		i;
-	size_t		sz;
-	ZBX_FPING_HOST	*h;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() addr:'%s'", __function_name, addr);
-
-	for (i = 0; i < *hosts_count; i ++)
-		if (0 == strcmp(addr, (*hosts)[i].addr))
-			return;
-
-	(*hosts_count)++;
-
-	if (*hosts_alloc < *hosts_count)
-	{
-		*hosts_alloc += 4;
-		sz = *hosts_alloc * sizeof(ZBX_FPING_HOST);
-		*hosts = zbx_realloc(*hosts, sz);
+		zabbix_log(LOG_LEVEL_DEBUG, "DNS name [%s]", host->dns);
 	}
+	DBfree_result(result);
 
-	h = &(*hosts)[*hosts_count - 1];
-	memset(h, 0, sizeof(ZBX_FPING_HOST));
-	h->addr = addr;
+	zabbix_log(LOG_LEVEL_DEBUG, "End of get_pinger_hosts()");
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	return SUCCEED;
 }
+
 
 /******************************************************************************
  *                                                                            *
- * Function: process_pinger_hosts                                             *
+ * Function: do_ping                                                          *
  *                                                                            *
- * Purpose:                                                                   *
+ * Purpose: ping hosts listed in the host files                               *
  *                                                                            *
  * Parameters:                                                                *
  *                                                                            *
- * Return value:                                                              *
+ * Return value: SUCCEED - successfully processed                             *
+ *               FAIL - otherwise                                             *
  *                                                                            *
- * Author: Alexander Vladishev                                                *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
- * Comments:                                                                  *
+ * Comments: use external binary 'fping' to avoid superuser priviledges       *
  *                                                                            *
  ******************************************************************************/
-static void	process_pinger_hosts(icmpitem_t *items, int items_count)
+static int do_ping(ZBX_FPING_HOST *hosts, int hosts_count)
 {
-	const char		*__function_name = "process_pinger_hosts";
-	int			i, first_index = 0, ping_result;
-	char			error[ITEM_ERROR_LEN_MAX];
-	static ZBX_FPING_HOST	*hosts = NULL;
-	static int		hosts_alloc = 4;
-	int			hosts_count = 0;
-	zbx_timespec_t		ts;
+	FILE		*f;
+	char		filename[MAX_STRING_LEN];
+	char		tmp[MAX_STRING_LEN];
+	int		i, res = FAIL;
+	char		*c, source_ip[64];
+	ZBX_FPING_HOST	*host;
+	AGENT_RESULT	value;
+#ifdef HAVE_IPV6
+	struct		addrinfo hints, *ai = NULL;
+	char		*fping;
+	int		e;
+#endif
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In do_ping() [hosts_count:%d]",
+			hosts_count);
 
-	if (NULL == hosts)
-		hosts = zbx_malloc(hosts, sizeof(ZBX_FPING_HOST) * hosts_alloc);
+	zbx_snprintf(filename, sizeof(filename), "/tmp/zabbix_server_%li.pinger",
+			zbx_get_thread_id());
 
-	for (i = 0; i < items_count; i++)
-	{
-		add_pinger_host(&hosts, &hosts_alloc, &hosts_count, items[i].addr);
-
-		if (i == items_count - 1 || items[i].count != items[i + 1].count || items[i].interval != items[i + 1].interval ||
-				items[i].size != items[i + 1].size || items[i].timeout != items[i + 1].timeout)
-		{
-			zbx_setproctitle("pinger [pinging hosts]");
-
-			zbx_timespec(&ts);
-
-			ping_result = do_ping(hosts, hosts_count,
-						items[i].count, items[i].interval, items[i].size, items[i].timeout,
-						error, sizeof(error));
-
-			process_values(items, first_index, i + 1, hosts, hosts_count, &ts, ping_result, error);
-
-			hosts_count = 0;
-			first_index = i + 1;
-		}
+	if (NULL == (f = fopen(filename, "w"))) {
+		zabbix_log(LOG_LEVEL_ERR, "Cannot open file [%s] [%s]",
+				filename,
+				strerror(errno));
+		zabbix_syslog("Cannot open file [%s] [%s]",
+				filename,
+				strerror(errno));
+		return FAIL;
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	for (i = 0; i < hosts_count; i++)
+		fprintf(f, "%s\n", hosts[i].useip ? hosts[i].ip : hosts[i].dns);
+
+	fclose(f);
+
+	if (NULL != CONFIG_SOURCE_IP)
+		zbx_snprintf(source_ip, sizeof(source_ip), "-S%s ", CONFIG_SOURCE_IP);
+	else
+		*source_ip = '\0';
+
+#ifdef HAVE_IPV6
+	if (NULL != CONFIG_SOURCE_IP)
+	{
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_family = PF_UNSPEC;
+		hints.ai_flags = AI_NUMERICHOST;
+		hints.ai_socktype = SOCK_STREAM;
+
+		if (0 != (e = getaddrinfo(CONFIG_SOURCE_IP, NULL, &hints, &ai)))
+		{
+			zabbix_log(LOG_LEVEL_WARNING, "Cannot resolve address [%s], error %d: %s",
+				CONFIG_SOURCE_IP, e, gai_strerror(e));
+			goto out;
+		}
+
+		if (ai->ai_family == PF_INET)
+			fping = CONFIG_FPING_LOCATION;
+		else if (ai->ai_family == PF_INET6)
+			fping = CONFIG_FPING6_LOCATION;
+		else
+		{
+			zabbix_log(LOG_LEVEL_WARNING, "Unsupported address family [%s]", CONFIG_SOURCE_IP);
+			goto out;
+		}
+
+		zbx_snprintf(tmp, sizeof(tmp), "%s %s-e 2>/dev/null <%s",
+				fping,
+				source_ip,
+				filename);
+	}
+	else
+		zbx_snprintf(tmp, sizeof(tmp), "%s -e 2>/dev/null <%s;%s -e 2>/dev/null <%s",
+				CONFIG_FPING_LOCATION,
+				filename,
+				CONFIG_FPING6_LOCATION,
+				filename);
+#else /* HAVE_IPV6 */
+	zbx_snprintf(tmp, sizeof(tmp), "%s %s-e 2>/dev/null <%s",
+			CONFIG_FPING_LOCATION,
+			source_ip,
+			filename);
+#endif /* HAVE_IPV6 */
+
+	if (0 == (f = popen(tmp, "r"))) {
+		zabbix_log(LOG_LEVEL_ERR, "Cannot execute [%s] [%s]",
+				CONFIG_FPING_LOCATION,
+				strerror(errno));
+		zabbix_syslog("Cannot execute [%s] [%s]",
+				CONFIG_FPING_LOCATION,
+				strerror(errno));
+		goto out;
+	}
+
+	while (NULL != fgets(tmp, sizeof(tmp), f)) {
+		zabbix_log(LOG_LEVEL_DEBUG, "Update IP [%s]",
+				tmp);
+
+		host = NULL;
+
+		c = strchr(tmp, ' ');
+		if (c != NULL) {
+			*c = '\0';
+			for (i = 0; i < hosts_count; i++)
+				if (0 == strcmp(tmp, hosts[i].useip ? hosts[i].ip : hosts[i].dns)) {
+					host = &hosts[i];
+					break;
+				}
+		}
+
+		if (NULL != host) {
+			c++;
+			
+			if (strstr(c, "alive") != NULL) {
+				host->alive = 1;
+				sscanf(c, "is alive (%lf ms)",
+						&host->mseconds);
+				zabbix_log(LOG_LEVEL_DEBUG, "Mseconds [%lf]",
+						host->mseconds);
+			}
+		}
+	}
+	pclose(f);
+
+	for (i = 0; i < hosts_count; i++) {
+		zabbix_log(LOG_LEVEL_DEBUG, "Host [%s] alive [%d]",
+				hosts[i].useip ? hosts[i].ip : hosts[i].dns,
+				hosts[i].alive);
+
+		init_result(&value);
+		SET_UI64_RESULT(&value, hosts[i].alive);
+		process_value(SERVER_ICMPPING_KEY, &hosts[i], &value);
+		free_result(&value);
+				
+		init_result(&value);
+		SET_DBL_RESULT(&value, hosts[i].mseconds/1000);
+		process_value(SERVER_ICMPPINGSEC_KEY, &hosts[i], &value);
+		free_result(&value);
+	}
+
+	res = SUCCEED;
+out:
+	unlink(filename);
+
+	zabbix_log(LOG_LEVEL_DEBUG, "End of do_ping()");
+
+	return res;
 }
 
 /******************************************************************************
@@ -502,62 +366,45 @@ static void	process_pinger_hosts(icmpitem_t *items, int items_count)
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-void	main_pinger_loop(int num)
+void main_pinger_loop(int num)
 {
-	int			now, nextcheck, sleeptime;
-	double			sec;
-	static icmpitem_t	*items = NULL;
-	static int		items_alloc = 4;
-	int			items_count = 0;
+	int		start, sleeptime;
+	ZBX_FPING_HOST	*hosts = NULL;
+	int		hosts_allocated = 16, hosts_count;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In main_pinger_loop() num:%d", num);
+	zabbix_log(LOG_LEVEL_DEBUG, "In main_pinger_loop(num:%d)",
+			num);
 
-	poller_type = ZBX_POLLER_TYPE_PINGER;
-	poller_num = num - 1;
+	pinger_num = num;
 
-	if (NULL == items)
-		items = zbx_malloc(items, sizeof(icmpitem_t) * items_alloc);
+	hosts = zbx_malloc(hosts, hosts_allocated * sizeof(ZBX_FPING_HOST));
 
-	zbx_setproctitle("pinger [connecting to the database]");
+	for (;;) {
+		start = time(NULL);
 
-	DBconnect(ZBX_DB_CONNECT_NORMAL);
+		zbx_setproctitle("connecting to the database");
 
-	for (;;)
-	{
-		now = time(NULL);
-		sec = zbx_time();
-		get_pinger_hosts(&items, &items_alloc, &items_count, now);
-		process_pinger_hosts(items, items_count);
-		sec = zbx_time() - sec;
+		DBconnect(ZBX_DB_CONNECT_NORMAL);
+	
+		hosts_count = 0;
+		if (SUCCEED == get_pinger_hosts(&hosts, &hosts_allocated, &hosts_count)) {
+			zbx_setproctitle("pinging hosts");
 
-		if (FAIL == (nextcheck = DCconfig_get_poller_nextcheck(poller_type)))
-			sleeptime = POLLER_DELAY;
-		else
-		{
-			sleeptime = nextcheck - time(NULL);
-			if (sleeptime < 0)
-				sleeptime = 0;
-			else if (sleeptime > POLLER_DELAY)
-				sleeptime = POLLER_DELAY;
+			do_ping(hosts, hosts_count);
 		}
+	
+		DBclose();
 
-		zabbix_log(LOG_LEVEL_DEBUG, "Pinger spent " ZBX_FS_DBL " seconds while processing %d items."
-				" Nextcheck after %d sec.",
-				sec,
-				items_count,
-				sleeptime);
+		sleeptime = CONFIG_PINGER_FREQUENCY - (time(NULL) - start);
 
-		free_hosts(&items, &items_count);
-
-		if (sleeptime > 0)
-		{
+		if (sleeptime > 0) {
 			zbx_setproctitle("pinger [sleeping for %d seconds]",
 					sleeptime);
-
+			zabbix_log(LOG_LEVEL_DEBUG, "Sleeping for %d seconds",
+					sleeptime);
 			sleep(sleeptime);
 		}
 	}
 
 	/* Never reached */
-	DBclose();
 }

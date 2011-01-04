@@ -605,8 +605,8 @@ class CUserGroup extends CZBXAPI{
 					DB::insert('users_groups', $users_insert);
 				if(!empty($userids_to_unlink))
 					DB::delete('users_groups', array(
-						'userid'=>$userids_to_unlink,
-						'usrgrpid'=>$usrgrpids,
+						DBcondition('userid', $userids_to_unlink),
+						DBcondition('usrgrpid', $usrgrpids),
 					));
 			}
 
@@ -654,8 +654,8 @@ class CUserGroup extends CZBXAPI{
 
 				if(!empty($rights_to_unlink)){
 					DB::delete('rights', array(
-						'id'=>$rights_to_unlink,
-						'groupid'=>$usrgrpids,
+						DBcondition('id', $rights_to_unlink),
+						DBcondition('groupid', $usrgrpids),
 					));
 				}
 
@@ -698,8 +698,7 @@ class CUserGroup extends CZBXAPI{
 			self::BeginTransaction(__METHOD__);
 
 			if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
-				//GETTEXT: Api exception
-				self::exception(ZBX_API_ERROR_PERMISSIONS, _('Only Super Admins can delete User Groups.'));
+				self::exception(ZBX_API_ERROR_PERMISSIONS, S_ONLY_SUPERADMIN_CAN_DELETE_USERGROUP);
 			}
 
 			//we must check, if this user group is used in one of the scripts. If so, it cannot be deleted
@@ -711,15 +710,16 @@ class CUserGroup extends CZBXAPI{
 						' AND '.DBcondition('s.usrgrpid', $usrgrpids);
 			$res = DBselect($sql);
 			while($group = DBfetch($res)){
-				//GETTEXT: User gets this error message when tries to delete user group used in script
-				$error_array[] = sprintf(_('User group [%1$s] is used in script [%2$s].'), $group['group_name'], $group['script_name']);
+				$error_array[] = sprintf(S_GROUP_IS_USED_IN_SCRIPT, $group['group_name'], $group['script_name']);
 			}
 			if(!empty($error_array))
 				self::exception(ZBX_API_ERROR_PARAMETERS, $error_array);
-			DB::delete('rights', array('groupid'=>$usrgrpids));
-			DB::delete('operations', array('object'=>OPERATION_OBJECT_GROUP, 'objectid'=>$usrgrpids));
-			DB::delete('users_groups', array('usrgrpid'=>$usrgrpids));
-			DB::delete('usrgrp', array('usrgrpid'=>$usrgrpids));
+
+
+			DB::delete('rights', array(DBcondition('groupid', $usrgrpids)));
+			DB::delete('operations', array('object='.OPERATION_OBJECT_GROUP, DBcondition('objectid',$usrgrpids)));
+			DB::delete('users_groups', array(DBcondition('usrgrpid',$usrgrpids)));
+			DB::delete('usrgrp', array(DBcondition('usrgrpid', $usrgrpids)));
 
 			self::EndTransaction(true, __METHOD__);
 			return array('usrgrpids' => $usrgrpids);

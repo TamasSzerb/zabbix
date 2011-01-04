@@ -62,10 +62,6 @@
 			header('Content-Type: text/plain; charset=UTF-8');
 			if(!defined('ZBX_PAGE_NO_MENU')) define('ZBX_PAGE_NO_MENU', 1);
 			break;
-		case PAGE_TYPE_TEXT:
-			header('Content-Type: text/plain; charset=UTF-8');
-			if(!defined('ZBX_PAGE_NO_MENU')) define('ZBX_PAGE_NO_MENU', 1);
-			break;
 		case PAGE_TYPE_TEXT_FILE:
 			header('Content-Type: text/plain; charset=UTF-8');
 			header('Content-Disposition: attachment; filename="'.$page['file'].'"');
@@ -103,7 +99,7 @@
 			}
 
 			if((defined('ZBX_PAGE_DO_REFRESH') || defined('ZBX_PAGE_DO_JS_REFRESH')) && $USER_DETAILS['refresh']){
-				$page_title .= ' ['.S_REFRESHED_EVERY_SMALL.' '.$USER_DETAILS['refresh'].' '.S_SEC_SMALL.']';
+				$page_title .= ' ['.S_REFRESHED_EVERY_SMALL.SPACE.$USER_DETAILS['refresh'].SPACE.S_SEC_SMALL.']';
 			}
 		break;
 	}
@@ -125,8 +121,12 @@
 	<meta name="Author" content="ZABBIX SIA" />
 	<link rel="shortcut icon" href="images/general/zabbix.ico" />
 	<link rel="stylesheet" type="text/css" href="css.css" />
+<!--[if IE 6]>
+	<script type="text/javascript" src="js/ie6fix.js"></script>
+	<link rel="stylesheet" type="text/css" href="styles/ie.css" />
+<![endif]-->
+
 <?php
-	$bodyCSS = 'originalblue';
 	if(isset($DB['DB']) && !is_null($DB['DB'])){
 		$config = select_config();
 
@@ -136,23 +136,11 @@
 			print('<link rel="stylesheet" type="text/css" href="styles/'.$css.'" />'."\n");
 			print('<!--[if IE 6]><link rel="stylesheet" type="text/css" href="styles/ie_'.$css.'" /><![endif]-->'."\n");
 		}
-
-		switch($css){
-			case "css_od.css": $bodyCSS = 'darkorange'; break;
-			case "css_bb.css": $bodyCSS = 'darkblue'; break;
-			default: $bodyCSS = 'originalblue'; break;
-		}
 	}
 
 	if($page['file'] == 'sysmap.php')
 		print('<link rel="stylesheet" type="text/css" href="imgstore.php?css=1&output=css" />');
 ?>
-<!--[if IE 6]>
-	<script type="text/javascript" src="js/ie6fix.js"></script>
-<![endif]-->
-<!--[if lte IE 7]>
-	<link rel="stylesheet" type="text/css" href="styles/ie.css" />
-<![endif]-->
 <script type="text/javascript">	var PHP_TZ_OFFSET = <?php echo date('Z'); ?>;</script>
 <?php
 	$path = 'jsLoader.php?ver='.ZABBIX_VERSION.'&lang='.$USER_DETAILS['lang'];
@@ -166,7 +154,7 @@
 	}
 ?>
 </head>
-	<body class="<?php print($bodyCSS); ?>" >
+<body onload="zbxCallPostScripts();">
 <?php
 	}
 
@@ -277,6 +265,7 @@ COpt::compare_files_with_menu($ZBX_MENU);
 					" \$('div_node_tree').setStyle({top: pos.top+'px'});".
 					" if(IE6) showPopupDiv('div_node_tree','select_iframe');";		// IE6
 				$button_show_tree = new CButton('show_node_tree', S_SELECT_NODES, $jscript); //sdelatj konstatntu!
+				$button_show_tree->setType('button');
 				$button_show_tree->setAttribute('id', 'button_show_tree');
 
 // +++ Create node tree +++
@@ -308,7 +297,7 @@ COpt::compare_files_with_menu($ZBX_MENU);
 				$div_node_tree = new CDiv();
 				$div_node_tree->addItem($node_tree->getHTML());
 
-				$div_node_tree->addItem(new CSubmit('select_nodes', S_SELECT, "javascript: ".
+				$div_node_tree->addItem(new CButton('select_nodes', S_SELECT, "javascript: ".
 																				" if(IE6) hidePopupDiv('select_iframe');".	//IE6 fix
 																				" \$('div_node_tree').setStyle({display:'none'});"));
 
@@ -425,7 +414,9 @@ COpt::compare_files_with_menu($ZBX_MENU);
 
 //------------------------------------- <HISTORY> ---------------------------------------
 	if(isset($page['hist_arg']) && ($USER_DETAILS['alias'] != ZBX_GUEST_USER) && ($page['type'] == PAGE_TYPE_HTML) && !defined('ZBX_PAGE_NO_MENU')){
-		$table = new CTable(null,'history');
+		$table = new CTable();
+		$table->setClass('history');
+
 		$table->setCellSpacing(0);
 		$table->setCellPadding(0);
 

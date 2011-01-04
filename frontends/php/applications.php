@@ -88,31 +88,23 @@ include_once('include/page_header.php');
 /****** APPLICATIONS **********/
 	if(isset($_REQUEST['save'])){
 		DBstart();
-		$application = array(
-			'name' => $_REQUEST['appname'],
-			'hostid' => $_REQUEST['apphostid']
-		);
-
 		if(isset($_REQUEST['applicationid'])){
-			$application['applicationid'] = $_REQUEST['applicationid'];
-			$DBapplications = CApplication::update($application);
-
+			$applicationid = update_application($_REQUEST['applicationid'],$_REQUEST['appname'], $_REQUEST['apphostid']);
 			$action		= AUDIT_ACTION_UPDATE;
 			$msg_ok		= S_APPLICATION_UPDATED;
 			$msg_fail	= S_CANNOT_UPDATE_APPLICATION;
+			
 		}
-		else{
-			$DBapplications = CApplication::create($application);
-
+		else {
+			$applicationid = add_application($_REQUEST['appname'], $_REQUEST['apphostid']);
 			$action		= AUDIT_ACTION_ADD;
 			$msg_ok		= S_APPLICATION_ADDED;
 			$msg_fail	= S_CANNOT_ADD_APPLICATION;
 		}
-		$result = DBend($DBapplications);
+		$result = DBend($applicationid);
 
 		show_messages($result, $msg_ok, $msg_fail);
 		if($result){
-			$applicationid = reset($DBapplications['applicationids']);
 			add_audit($action,AUDIT_RESOURCE_APPLICATION,S_APPLICATION.' ['.$_REQUEST['appname'].' ] ['.$applicationid.']');
 			unset($_REQUEST['form']);
 		}
@@ -218,9 +210,21 @@ include_once('include/page_header.php');
 	$app_wdgt = new CWidget();
 
 	$frmForm = new CForm(null, 'get');
+
+// Config
+	$cmbConf = new CComboBox('config', 'applications.php', 'javascript: redirect(this.options[this.selectedIndex].value);');
+		$cmbConf->addItem('templates.php',S_TEMPLATES);
+		$cmbConf->addItem('hosts.php',S_HOSTS);
+		$cmbConf->addItem('items.php',S_ITEMS);
+		$cmbConf->addItem('triggers.php',S_TRIGGERS);
+		$cmbConf->addItem('graphs.php',S_GRAPHS);
+		$cmbConf->addItem('applications.php',S_APPLICATIONS);
+	$frmForm->addVar('hostid',get_request('hostid', 0));
+	$frmForm->addItem($cmbConf);
+
 	if(!isset($_REQUEST['form'])){
 		$frmForm->addItem(SPACE);
-		$frmForm->addItem(new CSubmit('form', S_CREATE_APPLICATION));
+		$frmForm->addItem(new CButton('form', S_CREATE_APPLICATION));
 	}
 
 	$app_wdgt->addPageheader(S_CONFIGURATION_OF_APPLICATIONS, $frmForm);
@@ -274,7 +278,7 @@ include_once('include/page_header.php');
 				));
 		}
 
-		$frmApp->addItemToBottomRow(new CSubmit('save',S_SAVE));
+		$frmApp->addItemToBottomRow(new CButton('save',S_SAVE));
 		if(isset($_REQUEST['applicationid'])){
 			$frmApp->addItemToBottomRow(SPACE);
 			$frmApp->addItemToBottomRow(new CButtonDelete(S_DELETE_APPLICATION,
@@ -305,7 +309,7 @@ include_once('include/page_header.php');
 		if($pageFilter->hostsSelected){
 // Header Host
 			if($_REQUEST['hostid'] > 0){
-				$tbl_header_host = get_header_host_table($_REQUEST['hostid'], 'applications');
+				$tbl_header_host = get_header_host_table($_REQUEST['hostid'], array('items', 'triggers', 'graphs'));
 				$app_wdgt->addItem($tbl_header_host);
 			}
 
@@ -341,7 +345,7 @@ include_once('include/page_header.php');
 			$options = array(
 				'applicationids' => zbx_objectValues($applications, 'applicationid'),
 				'output' => API_OUTPUT_EXTEND,
-				'selectItems' => API_OUTPUT_REFER,
+				'select_items' => API_OUTPUT_REFER,
 				'expandData' => 1,
 			);
 			$applications = CApplication::get($options);
@@ -386,12 +390,12 @@ include_once('include/page_header.php');
 			$goBox->addItem($goOption);
 
 			// goButton name is necessary!!!
-			$goButton = new CSubmit('goButton',S_GO.' (0)');
+			$goButton = new CButton('goButton',S_GO.' (0)');
 			$goButton->setAttribute('id','goButton');
 
 			zbx_add_post_js('chkbxRange.pageGoName = "applications";');
 
-			$footer = get_table_header(array($goBox, $goButton));
+			$footer = get_table_header(new CCol(array($goBox, $goButton)));
 	//----
 
 			$table = array($paging,$table,$paging,$footer);

@@ -20,7 +20,7 @@ dnl
 dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT(src/zabbix_server/server.c)
-AM_INIT_AUTOMAKE([zabbix],[1.9.2])
+AM_INIT_AUTOMAKE([zabbix],[1.8.4])
 
 AC_MSG_NOTICE([Configuring $PACKAGE_NAME $PACKAGE_VERSION])
 
@@ -60,7 +60,7 @@ AC_CHECK_HEADERS(stdio.h stdlib.h string.h unistd.h netdb.h signal.h \
   sys/resource.h pthread.h windows.h process.h conio.h sys/wait.h regex.h \
   stdarg.h winsock2.h pdh.h psapi.h sys/sem.h sys/ipc.h sys/shm.h Winldap.h \
   sys/timeb.h Winber.h lber.h ws2tcpip.h inttypes.h sys/file.h grp.h \
-  execinfo.h libperfstat.h sys/systemcfg.h sys/mnttab.h mntent.h)
+  execinfo.h libperfstat.h sys/systemcfg.h)
 AC_CHECK_HEADERS(resolv.h, [], [], [
   #ifdef HAVE_SYS_TYPES_H
   #  include <sys/types.h>
@@ -129,7 +129,6 @@ dnl *****************************************************************
 AC_SEARCH_LIBS(socket, socket)
 AC_SEARCH_LIBS(kstat_open, kstat)
 AC_SEARCH_LIBS(gethostbyname, nsl)
-AC_SEARCH_LIBS(clock_gettime, rt)
 
 dnl AIX
 AC_SEARCH_LIBS(perfstat_memory_total, perfstat, [AC_DEFINE([HAVE_LIBPERFSTAT], 1, [Define to 1 if you have the 'libperfstat' library (-lperfstat)])])
@@ -484,24 +483,6 @@ AC_DEFINE(HAVE_SYSINFO_PROCS,1,[Define to 1 if 'sysinfo.procs' exists.])
 AC_MSG_RESULT(yes),
 AC_MSG_RESULT(no))
 
-AC_MSG_CHECKING(for field tm_gmtoff in struct tm)
-AC_TRY_COMPILE([
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif	/* HAVE_SYS_TIME_H */
-
-#ifdef HAVE_TIME_H
-#include <time.h>
-#endif	/* HAVE_TIME_H */
-],
-[
-	struct tm tm;
-	tm.tm_gmtoff;
-],
-AC_DEFINE(HAVE_TM_TM_GMTOFF,1,[Define to 1 if 'tm.tm_gmtoff' exists.])
-AC_MSG_RESULT(yes),
-AC_MSG_RESULT(no))
-
 dnl *****************************************************************
 dnl *                                                               *
 dnl *                     Checks for functions                      *
@@ -737,21 +718,6 @@ int	i[] = {CP_USER, CP_NICE, CP_SYS, CP_INTR, CP_IDLE};
 }
 ],
 AC_DEFINE(HAVE_FUNCTION_SYSCTL_KERN_CPTIME,1,[Define to 1 if 'KERN_CPTIME,KERN_CPTIME2' exists.])
-AC_MSG_RESULT(yes),
-AC_MSG_RESULT(no))
-
-AC_MSG_CHECKING(for function clock_gettime in time.h)
-AC_TRY_LINK([
-#ifdef HAVE_TIME_H
-#	include <time.h>
-#elif HAVE_SYS_TIME_H
-#	include <sys/time.h>
-#endif	/* HAVE_SYS_TIME_H */
-],
-[struct timespec tp;
-clock_gettime(CLOCK_REALTIME, &tp);
-],
-AC_DEFINE(HAVE_TIME_CLOCK_GETTIME,1,[Define to 1 if function 'clock_gettime' exists.])
 AC_MSG_RESULT(yes),
 AC_MSG_RESULT(no))
 
@@ -1081,7 +1047,7 @@ if test "$server" = "yes" || test "$proxy" = "yes"; then
 	AC_MSG_CHECKING(for Zabbix server/proxy database selection)
 	if test "x$have_db" = "xno"; then
 		AC_MSG_RESULT(error)
-		AC_MSG_ERROR([No database selected for Zabbix server/proxy. Use --with-ibm-db2 or --with-mysql or --with-oracle or --with-postgresql or --with-sqlite3.])
+		AC_MSG_ERROR([No database selected for Zabbix server/proxy. Use --with-ibm-db2 or --with-mysql or --with-oracle or --with-pgsql or --with-sqlite3.])
 	else
 		AC_MSG_RESULT(ok)
 	fi

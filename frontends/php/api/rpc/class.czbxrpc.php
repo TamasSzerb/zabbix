@@ -178,19 +178,6 @@ class czbxrpc{
 		self::$result = $result;
 	}
 
-// DiscoveryRule
-	private static function discoveryrule($action, $params){
-
-		CDiscoveryRule::$error = array();
-
-		switch($action){
-			default:
-			$result = call_user_func(array('CDiscoveryRule', $action), $params);
-		}
-
-		self::$result = $result;
-	}
-
 // DRule
 	private static function drule($action, $params){
 
@@ -243,20 +230,6 @@ class czbxrpc{
 		self::$result = $result;
 	}
 
-// GRAPH
-	private static function graphprototype($action, $params){
-
-		CGraphPrototype::$error = array();
-
-		switch($action){
-			default:
-			$result = call_user_func(array('CGraphPrototype', $action), $params);
-		}
-
-		self::$result = $result;
-	}
-
-
 // GRAPHITEM
 	private static function graphitem($action, $params){
 
@@ -297,19 +270,6 @@ class czbxrpc{
 		self::$result = $result;
 	}
 
-// HostInterface
-	private static function hostinterface($action, $params){
-
-		CHostInterface::$error = array();
-
-		switch($action){
-			default:
-			$result = call_user_func(array('CHostInterface', $action), $params);
-		}
-
-		self::$result = $result;
-	}
-
 // HOST GROUP
 	private static function hostgroup($action, $params){
 
@@ -344,19 +304,6 @@ class czbxrpc{
 		switch($action){
 			default:
 			$result = call_user_func(array('CItem', $action), $params);
-		}
-
-		self::$result = $result;
-	}
-
-// ITEM PROTOTYPE
-	private static function itemprototype($action, $params){
-
-		CItemprototype::$error = array();
-
-		switch($action){
-			default:
-			$result = call_user_func(array('CItemprototype', $action), $params);
 		}
 
 		self::$result = $result;
@@ -453,18 +400,6 @@ class czbxrpc{
 		self::$result = $result;
 	}
 
-// TEMPLATESCREEN
-	private static function templateScreen($action, $params){
-
-		CTemplateScreen::$error = array();
-
-		switch($action){
-			default:
-			$result = call_user_func(array('CTemplateScreen', $action), $params);
-		}
-
-		self::$result = $result;
-	}
 
 // TRIGGER
 	private static function trigger($action, $params){
@@ -474,19 +409,6 @@ class czbxrpc{
 		switch($action){
 			default:
 			$result = call_user_func(array('CTrigger', $action), $params);
-		}
-
-		self::$result = $result;
-	}
-
-// TRIGGER PROTOTYPE
-	private static function triggerprototype($action, $params){
-
-		CTriggerPrototype::$error = array();
-
-		switch($action){
-			default:
-			$result = call_user_func(array('CTriggerPrototype', $action), $params);
 		}
 
 		self::$result = $result;
@@ -527,19 +449,6 @@ class czbxrpc{
 		switch($action){
 			default:
 			$result = call_user_func(array('CUserMacro', $action), $params);
-		}
-
-		self::$result = $result;
-	}
-
-// WEBCHECK
-	private static function webcheck($action, $params){
-
-		CWebCheck::$error = array();
-
-		switch($action){
-			default:
-			$result = call_user_func(array('CWebCheck', $action), $params);
 		}
 
 		self::$result = $result;

@@ -103,13 +103,12 @@ include_once('include/page_header.php');
 			'ip' => $search
 		),
 		'limit' => $rows_per_page,
-		'selectGroups' => API_OUTPUT_EXTEND,
-		'selectInterfaces' => API_OUTPUT_EXTEND,
-		'selectItems' => API_OUTPUT_COUNT,
+		'select_groups' => API_OUTPUT_EXTEND,
+		'select_items' => API_OUTPUT_COUNT,
 		'select_triggers' => API_OUTPUT_COUNT,
 		'select_graphs' => API_OUTPUT_COUNT,
 		'select_applications' => API_OUTPUT_COUNT,
-		'output' => array('host','status'),
+		'output' => API_OUTPUT_EXTEND,
 	);
 	$db_hosts = CHost::get($params);
 
@@ -158,11 +157,6 @@ include_once('include/page_header.php');
 
 	foreach($hosts as $hnum => $host){
 		$hostid = $host['hostid'];
-
-		$interface = reset($host['interfaces']);
-		$host['ip'] = $interface['ip'];
-		$host['dns'] = $interface['dns'];
-		$host['port'] = $interface['port'];
 
 		switch($host['status']){
 			case HOST_STATUS_NOT_MONITORED:
@@ -312,10 +306,10 @@ include_once('include/page_header.php');
 		$params = array(
 			'nodeids'=> get_current_nodeid(true),
 			'search' => array('host' => $search),
-			'output' => array('host'),
-			'selectGroups' => API_OUTPUT_REFER,
+			'output' => API_OUTPUT_EXTEND,
+			'select_groups' => API_OUTPUT_REFER,
 			'sortfield' => 'host',
-			'selectItems' => API_OUTPUT_COUNT,
+			'select_items' => API_OUTPUT_COUNT,
 			'select_triggers' => API_OUTPUT_COUNT,
 			'select_graphs' => API_OUTPUT_COUNT,
 			'select_applications' => API_OUTPUT_COUNT,
@@ -415,9 +409,6 @@ include_once('include/page_header.php');
 
 	$search_wdgt->show();
 
-?>
-<?php
 
 include_once('include/page_footer.php');
-
 ?>

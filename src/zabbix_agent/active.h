@@ -28,8 +28,6 @@ extern int	CONFIG_REFRESH_ACTIVE_CHECKS;
 extern int	CONFIG_BUFFER_SEND;
 extern int	CONFIG_BUFFER_SIZE;
 extern int	CONFIG_MAX_LINES_PER_SECOND;
-extern char	*CONFIG_LISTEN_IP;
-extern int	CONFIG_LISTEN_PORT;
 
 /*#define MAX_LINES_PER_SECOND	100*/	/*obsolete, configuration parameter must be used*/
 
@@ -66,7 +64,6 @@ typedef struct zbx_active_metric_type
 /* Must be long for fseek() */
 	long	lastlogsize;
 	int	mtime;
-	unsigned char	skip_old_data;	/* for processing [event]log metrics */
 } ZBX_ACTIVE_METRIC;
 
 typedef struct active_check_args_type
@@ -84,7 +81,7 @@ typedef struct zbx_active_buffer_element_type
 	char	*source;
 	int	severity;
 	long	lastlogsize;
-	zbx_timespec_t	ts;
+	int	clock;
 	int	logeventid;
 	int	mtime;
 	unsigned char	persistent;

@@ -39,7 +39,7 @@ class CImg extends CTag{
 		$this->setSrc($src);
 		$this->setWidth($width);
 		$this->setHeight($height);
-		$this->setAttribute('class', $class);
+		$this->setClass($class);
 	}
 
 	public function setSrc($value){

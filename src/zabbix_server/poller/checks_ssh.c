@@ -83,13 +83,15 @@ static int	ssh_run(DC_ITEM *item, AGENT_RESULT *result, const char *encoding)
 	LIBSSH2_CHANNEL	*channel;
 	int		auth_pw = 0, rc, ret = NOTSUPPORTED,
 			exitcode, bytecount = 0;
-	char		buffer[MAX_BUFFER_LEN], buf[16], *userauthlist,
+	char		*conn, buffer[MAX_BUFFER_LEN], buf[16], *userauthlist,
 			*publickey = NULL, *privatekey = NULL;
 	size_t		sz;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	if (FAIL == zbx_tcp_connect(&s, CONFIG_SOURCE_IP, item->interface.addr, item->interface.port, 0))
+	conn = item->host.useip == 1 ? item->host.ip : item->host.dns;
+
+	if (FAIL == zbx_tcp_connect(&s, CONFIG_SOURCE_IP, conn, item->host.port, 0))
 	{
 		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot connect to SSH server: %s",
 				zbx_tcp_strerror()));
@@ -309,8 +311,9 @@ close:
 
 int	get_value_ssh(DC_ITEM *item, AGENT_RESULT *result)
 {
-	char	cmd[MAX_STRING_LEN], params[MAX_STRING_LEN], dns[INTERFACE_DNS_LEN_MAX],
+	char	cmd[MAX_STRING_LEN], params[MAX_STRING_LEN], dns[HOST_DNS_LEN_MAX],
 		port[8], encoding[32];
+	int	port_int;
 
 	if (0 == parse_command(item->key, cmd, sizeof(cmd), params, sizeof(params)))
 		return NOTSUPPORTED;
@@ -326,8 +329,8 @@ int	get_value_ssh(DC_ITEM *item, AGENT_RESULT *result)
 
 	if ('\0' != *dns)
 	{
-		strscpy(item->interface.dns_orig, dns);
-		item->interface.addr = item->interface.dns_orig;
+		zbx_strlcpy(item->host.dns, dns, sizeof(item->host.dns));
+		item->host.useip = 0;
 	}
 
 	if (0 != get_param(params, 3, port, sizeof(port)))
@@ -338,11 +341,14 @@ int	get_value_ssh(DC_ITEM *item, AGENT_RESULT *result)
 
 	if ('\0' != *port)
 	{
-		if (FAIL == is_ushort(port, &item->interface.port))
+		port_int = atoi(port);
+		if (port_int < 1 || port_int > 65535)
 			return NOTSUPPORTED;
+
+		item->host.port = (unsigned short)port_int;
 	}
 	else
-		item->interface.port = ZBX_DEFAULT_SSH_PORT;
+		item->host.port = ZBX_DEFAULT_SSH_PORT;
 
 	return ssh_run(item, result, encoding);
 }

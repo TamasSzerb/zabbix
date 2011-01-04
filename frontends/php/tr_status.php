@@ -19,15 +19,21 @@
 **/
 ?>
 <?php
-require_once('include/config.inc.php');
+	require_once('include/config.inc.php');
+	require_once('include/hosts.inc.php');
+	require_once('include/acknow.inc.php');
+	require_once('include/triggers.inc.php');
+	require_once('include/events.inc.php');
+	require_once('include/scripts.inc.php');
 
-$page['file'] = 'tr_status.php';
-$page['title'] = 'S_STATUS_OF_TRIGGERS';
-$page['scripts'] = array('effects.js');
-$page['hist_arg'] = array('groupid', 'hostid');
-$page['scripts'] = array('class.cswitcher.js');
+	$page['file'] = 'tr_status.php';
+	$page['title'] = 'S_STATUS_OF_TRIGGERS';
+	$page['scripts'] = array('effects.js');
+	$page['hist_arg'] = array('groupid', 'hostid');
+	$page['scripts'] = array('class.cswitcher.js');
 
-$page['type'] = detect_page_type(PAGE_TYPE_HTML);
+	$page['type'] = detect_page_type(PAGE_TYPE_HTML);
+
 ?>
 <?php
 if($page['type'] == PAGE_TYPE_HTML){
@@ -241,8 +247,8 @@ include_once('include/page_header.php');
 
 	$filterForm->addRow(S_FILTER_BY_NAME, new CTextBox('txt_select', $_REQUEST['txt_select'], 40));
 
-	$filterForm->addItemToBottomRow(new CSubmit('filter_set', S_FILTER));
-	$filterForm->addItemToBottomRow(new CSubmit('filter_rst', S_RESET));
+	$filterForm->addItemToBottomRow(new CButton('filter_set', S_FILTER));
+	$filterForm->addItemToBottomRow(new CButton('filter_rst', S_RESET));
 
 	$trigg_wdgt->addFlicker($filterForm, CProfile::get('web.tr_status.filter.state', 0));
 /*************** FILTER END ******************/
@@ -279,7 +285,6 @@ include_once('include/page_header.php');
 		$config['event_ack_enable'] ? $header_cb : null,
 		make_sorting_header(S_SEVERITY, 'priority'),
 		S_STATUS,
-		S_INFO,
 		make_sorting_header(S_LAST_CHANGE, 'lastchange'),
 		S_AGE,
 		$show_event_col ? S_DURATION : NULL,
@@ -345,8 +350,8 @@ include_once('include/page_header.php');
 		'nodeids' => get_current_nodeid(),
 		'triggerids' => zbx_objectValues($triggers, 'triggerid'),
 		'output' => API_OUTPUT_EXTEND,
-		'selectHosts' => array('hostid', 'host', 'maintenance_status', 'maintenance_type', 'maintenanceid'),
-		'selectItems' => API_OUTPUT_EXTEND,
+		'select_hosts' => array('hostid', 'host', 'maintenance_status', 'maintenance_type', 'maintenanceid'),
+		'select_items' => API_OUTPUT_EXTEND,
 		'select_dependencies' => API_OUTPUT_EXTEND
 	);
 	$triggers = CTrigger::get($options);
@@ -358,15 +363,12 @@ include_once('include/page_header.php');
 	if($config['event_ack_enable']){
 		foreach($triggers as $tnum => $trigger){
 			$options = array(
-				'countOutput' => true,
+				'countOutput' => 1,
 				'triggerids' => $trigger['triggerid'],
-				'filter' => array(
-					'object' => EVENT_OBJECT_TRIGGER,
-					'value_changed' => TRIGGER_VALUE_CHANGED_YES,
-					'acknowledged' => false,
-					'value' => TRIGGER_VALUE_TRUE,
-				),
-				'nopermissions' => true
+				'object' => EVENT_OBJECT_TRIGGER,
+				'acknowledged' => 0,
+				'value' => TRIGGER_VALUE_TRUE,
+				'nopermissions' => 1
 			);
 			$triggers[$tnum]['event_count'] = CEvent::get($options);
 		}
@@ -390,16 +392,12 @@ include_once('include/page_header.php');
 		$ev_options = array(
 			'nodeids' => get_current_nodeid(),
 			'triggerids' => zbx_objectValues($triggers, 'triggerid'),
-			'filter' => array(
-				'value_changed' => TRIGGER_VALUE_CHANGED_YES,
-			),
+			'nopermissions' => 1,
 			'output' => API_OUTPUT_EXTEND,
-			'select_acknowledges' => API_OUTPUT_COUNT,
 			'time_from' => time() - ($config['event_expire']*86400),
 			'time_till' => time(),
 			'sortfield' => 'eventid',
 			'sortorder' => ZBX_SORT_DOWN,
-			'nopermissions' => true,
 			//'limit' => $config['event_show_max']
 		);
 
@@ -407,7 +405,7 @@ include_once('include/page_header.php');
 			case EVENTS_OPTION_ALL:
 			break;
 			case EVENTS_OPTION_NOT_ACK:
-				$ev_options['acknowledged'] = false;
+				$ev_options['acknowledged'] = 0;
 				$ev_options['value'] = TRIGGER_VALUE_TRUE;
 			break;
 		}
@@ -422,7 +420,7 @@ include_once('include/page_header.php');
 
 
 	foreach($triggers as $tnum => $trigger){
-
+		
 		$trigger['desc'] = $description = expand_trigger_description($trigger['triggerid']);
 
 		$items = array();
@@ -457,7 +455,7 @@ include_once('include/page_header.php');
 		$hosts = reset($trigger['hosts']);
 
 		$menu_trigger_conf = 'null';
-		if($admin_links && $trigger['flags'] == ZBX_FLAG_DISCOVERY_NORMAL){
+		if($admin_links){
 			$menu_trigger_conf = "['".S_CONFIGURATION_OF_TRIGGERS."',\"javascript:
 				redirect('triggers.php?form=update&triggerid=".$trigger['triggerid'].'&switch_node='.id2nodeid($trigger['triggerid'])."')\",
 				null, {'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}]";
@@ -474,7 +472,7 @@ include_once('include/page_header.php');
 			zbx_jsvalue($items, true).");"
 		);
 
-
+		
 // }}} trigger description js menu
 
 		if($_REQUEST['show_details']){
@@ -549,8 +547,8 @@ include_once('include/page_header.php');
 
 			$menus = rtrim($menus,',');
 			$menus = 'show_popup_menu(event,['.$menus.'],180);';
-
-
+			
+			
 
 			$maint_span = null;
 			if($trigger_host['maintenance_status']){
@@ -570,11 +568,16 @@ include_once('include/page_header.php');
 				$maint_span->setHint($maint_hint);
 			}
 
+			
+
+
 			$hosts_span = new CSpan($trigger_host['host'], 'link_menu');
 			$hosts_span->setAttribute('onclick','javascript: '.$menus);
 			$hosts_list[] = $hosts_span;
 			$hosts_list[] = $maint_span;
 			$hosts_list[] = ', ';
+
+			
 		}
 
 		array_pop($hosts_list);
@@ -582,6 +585,7 @@ include_once('include/page_header.php');
 		$host->addStyle('white-space: normal;');
 // }}} host JS menu
 
+		
 
 		$status = new CSpan(trigger_value2str($trigger['value']), get_trigger_value_style($trigger['value']));
 		if((time() - $trigger['lastchange']) < TRIGGER_BLINK_PERIOD){
@@ -618,22 +622,12 @@ include_once('include/page_header.php');
 		$severity_col = new CCol(get_severity_description($trigger['priority']), get_severity_style($trigger['priority'], $trigger['value']));
 		if($show_event_col) $severity_col->setColSpan(2);
 
-		
-// Unknown triggers
-		$unknown = SPACE;
-		if($trigger['value_flags'] == TRIGGER_VALUE_FLAG_UNKNOWN){
-			$unknown = new CDiv(SPACE,'iconunknown');
-			$unknown->setHint($trigger['error'], '', 'on');
-		}
-//----
-
 		$table->addRow(array(
 			$open_close,
 			$config['event_ack_enable'] ?
 				($show_event_col ? null : new CCheckBox('triggers['.$trigger['triggerid'].']', 'no', null, $trigger['triggerid'])) : null,
 			$severity_col,
 			$status,
-			$unknown,
 			$lastchange,
 			zbx_date2age($trigger['lastchange']),
 			$show_event_col ? SPACE : NULL,
@@ -651,10 +645,23 @@ include_once('include/page_header.php');
 			foreach($trigger['events'] as $enum => $row_event){
 				$i++;
 
-				$status = new CCol(new CSpan(trigger_value2str($row_event['value']), get_trigger_value_style($row_event['value'])));
-				$status->setColSpan(2);
+				$status = new CSpan(trigger_value2str($row_event['value']), get_trigger_value_style($row_event['value']));
 
-				$ack = getEventAckState($row_event);
+				if($config['event_ack_enable']){
+					if($row_event['value'] == TRIGGER_VALUE_TRUE){
+						if($row_event['acknowledged'] == 1){
+							$acks_cnt = DBfetch(DBselect('SELECT COUNT(*) as cnt FROM acknowledges WHERE eventid='.$row_event['eventid']));
+							$ack = array(new CSpan(S_YES, 'off'),SPACE.'('.$acks_cnt['cnt'].SPACE,
+								new CLink(S_SHOW,'acknow.php?eventid='.$row_event['eventid'].'&backurl='.$page['file']),')');
+						}
+						else{
+							$ack = new CLink(S_NOT_ACKNOWLEDGED, 'acknow.php?eventid='.$row_event['eventid'].'&backurl='.$page['file'], 'on');
+						}
+					}
+					else{
+						$ack = SPACE;
+					}
+				}
 
 				if(($row_event['acknowledged'] == 0) && ($row_event['value'] == TRIGGER_VALUE_TRUE)){
 					$ack_cb = new CCheckBox('events['.$row_event['eventid'].']', 'no', NULL, $row_event['eventid']);
@@ -699,7 +706,7 @@ include_once('include/page_header.php');
 		$goBox->addItem('bulkacknowledge', S_BULK_ACKNOWLEDGE);
 
 // goButton name is necessary!!!
-		$goButton = new CSubmit('goButton', S_GO.' (0)');
+		$goButton = new CButton('goButton', S_GO.' (0)');
 		$goButton->setAttribute('id', 'goButton');
 
 		$show_event_col ? zbx_add_post_js('chkbxRange.pageGoName = "events";') : zbx_add_post_js('chkbxRange.pageGoName = "triggers";');

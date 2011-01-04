@@ -49,7 +49,7 @@ static void	discovery_add_event(int object, zbx_uint64_t objectid, int now, int 
 	event.clock 	= now;
 	event.value 	= value;
 
-	process_event(&event, 1);
+	process_event(&event, 0);
 }
 
 static DB_RESULT	discovery_get_dhost_by_value(zbx_uint64_t dcheckid, const char *value)
@@ -273,7 +273,7 @@ static void	discovery_register_service(DB_DRULE *drule, DB_DCHECK *dcheck,
 			__function_name, ip, port, dcheck->key_);
 
 	key_esc = DBdyn_escape_string_len(dcheck->key_, DSERVICE_KEY_LEN);
-	ip_esc = DBdyn_escape_string_len(ip, INTERFACE_IP_LEN);
+	ip_esc = DBdyn_escape_string_len(ip, HOST_IP_LEN);
 
 	result = DBselect(
 			"select dserviceid,dhostid,status,lastup,lastdown,value"

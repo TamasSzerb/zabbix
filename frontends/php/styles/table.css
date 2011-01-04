@@ -10,6 +10,7 @@ table.whitetext {
 
 table.home{
 	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size:10px;
 }
 
 table.nowrap tr td {
@@ -19,6 +20,8 @@ table.nowrap tr td {
 
 td,tr{
 	color: inherit;
+	font-family:Verdana, Arial, Helvetica, sans-serif;
+	font-size:10px;
 	text-decoration: none;
 }
 
@@ -56,6 +59,8 @@ table.page_header tr td.page_header_l{
 table.page_header tr td.page_header_r{
 	vertical-align: middle;
 	text-align: right;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	font-size: 10pt;
 }
 table.page_header tr td.page_header_r a{
 	margin: 0 5px;
@@ -71,11 +76,15 @@ table.page_footer{
 }
 
 table.page_footer tr td.page_footer_l{
+	font-family:verdana, arial, helvetica, sans-serif;
+	font-size:10px;
 	height: 24px;
 	text-align: center;
 }
 
 table.page_footer tr td.page_footer_r{
+	font-family:verdana, arial, helvetica, sans-serif;
+	font-size:10px;
 	height: 24px;
 	text-align: right;
 }
@@ -93,6 +102,8 @@ table.formtable tr td {
 	padding-left: 5px;
 	padding-right: 5px;
 	color: #000000;
+	font-family: verdana, arial, helvetica, sans-serif;
+	font-size: 10px;
 	height: 24px;
 	white-space: nowrap;
 	word-spacing: 0;
@@ -174,6 +185,8 @@ table.tablestripped tr >/**/ td:first-child{
 table.tablestripped tr td {
 	padding-left: 5px;
 	padding-right: 5px;
+	font-family: verdana, arial, helvetica, sans-serif;
+	font-size:10px;
 	height: 24px;
 	white-space: nowrap;
 	word-spacing: 0;
@@ -338,6 +351,8 @@ table.tableinfo{
 table.tableinfo tr td {
 	white-space: nowrap;
 	word-spacing: 0;
+	font-family:verdana, arial, helvetica, sans-serif;
+	font-size:8pt;
 	font-weight: normal;
 	text-decoration: none;
 	text-align: left;
@@ -496,6 +511,8 @@ table.header{
 
 table.header tr td.header_l{
 	background:none;
+	font-family:verdana, arial, helvetica, sans-serif;
+	font-size:10px;
 	text-align: left;
 	height: 24px;
 	padding-left: 5px;
@@ -503,6 +520,8 @@ table.header tr td.header_l{
 }
 table.header tr td.header_r{
 	background:none;
+	font-family:verdana, arial, helvetica, sans-serif;
+	font-size:10px;
 	text-align: right;
 	height: 24px;
 	padding-right: 5px;
@@ -526,6 +545,8 @@ table.flicker{
 }
 
 table.flicker tr td.flicker_c{
+	font-family:verdana, arial, helvetica, sans-serif;
+	font-size:10px;
 	height: 16px;
 	padding-left: 4px;
 	padding-right: 4px;
@@ -533,12 +554,16 @@ table.flicker tr td.flicker_c{
 }
 
 table.flicker tr td.flicker_l{
+	font-family:verdana, arial, helvetica, sans-serif;
+	font-size:10px;
 	text-align: left;
 	height: 16px;
 	padding-left: 4px;
 	line-height: 12px;
 }
 table.flicker tr td.flicker_r{
+	font-family:verdana, arial, helvetica, sans-serif;
+	font-size:10px;
 	text-align: right;
 	height: 16px;
 	padding-right: 4px;
@@ -664,6 +689,8 @@ table.menu tr{
 
 table.menu td{
 	color: #ffffff;
+	font-family: verdana, arial, helvetica, sans-serif;
+	font-size:10px;
 	font-weight: bold;
 	border: 1px solid #aaaaaa;
 }
@@ -690,6 +717,8 @@ table.sub_menu{
 
 table.sub_menu tr{
 	color: #FFFFFF;
+	font-family:verdana, arial, helvetica, sans-serif;
+	font-size:10px;
 	background: #5C7099 url('../images/gradients/table_head.gif') repeat-x top left;
 	border: 0;
 	padding-right: 5px;
@@ -720,7 +749,8 @@ table.triggers_info tr td {
 	font-weight: bold;
 	color: #191970;
 	text-align: left;
-	font-size: 1.1em;
+	font-family: Verdana, Helvetica, Geneva;
+	font-size: 11px;
 	height: 18px;
 }
 
@@ -753,7 +783,8 @@ table.hosts_info tr td {
 	font-weight: bold;
 	color: #191970;
 	text-align: left;
-	font-size: 1.1em;
+	font-family: Verdana, Helvetica, Geneva;
+	font-size: 11px;
 }
 
 table.hosts_info tr td.header {
@@ -785,7 +816,8 @@ table.server_info tr td {
 	padding-left: 5px;
 	padding-right: 5px;
 	text-align: left;
-	font-size: 1.1em;
+	font-family: Verdana, Helvetica, Geneva;
+	font-size: 11px;
 	background-color: #EFEFEF;
 	white-space: nowrap;
 	word-spacing: 0;
@@ -976,7 +1008,7 @@ table.setup_wizard div.text{
 
 /***************** <HISTORY> *****************/
 table.history{
-	margin: 2px 0px 0px 2px;
+	margin-left: 5px;
 }
 
 table.history tr{
@@ -985,6 +1017,8 @@ table.history tr{
 
 table.history td{
 	color:#448;
+	font-family: Verdana, Helvetica, Geneva;
+	font-size:10px;
 	text-align:left;
 }
 
@@ -992,6 +1026,8 @@ table.history td.caption{
 	width: 48px;
 	color:#448;
 	font-weight:bold;
+	font-family: Verdana, Helvetica, Geneva;
+	font-size:10px;
 	text-align:left;
 }
 
@@ -1006,19 +1042,21 @@ table.msgok{
 
 table.msgok tr td{
 	color:#333;
+	font-family: Verdana, Helvetica, Geneva;
+	font-size:11px;
 	text-align:center;
 }
 
 table.msgok tr td.clr{
 	width: 60px;
 	background-color:#44CC44;
+	font-size:10px;
 	font-weight: bold;
 }
 
 
 table.msgok tr td.msg_main{
 	height: 26px;
-	font-size: 1.1em;
 }
 
 table.msgok tr td.msg{
@@ -1032,18 +1070,20 @@ table.msgerr{
 
 table.msgerr tr td{
 	color:#333;
+	font-family: Verdana, Helvetica, Geneva;
+	font-size:11px;
 	text-align:center;
 }
 
 table.msgerr tr td.clr{
 	width: 60px;
 	background-color:#CC4444;
+	font-size:10px;
 	font-weight: bold;
 }
 
 table.msgerr tr td.msg_main{
 	height: 26px;
-	font-size: 1.1em;
 }
 
 table.msgerr tr td.msg{
@@ -1069,6 +1109,16 @@ table.requirements tr td{
 }
 
 /********** </REQUIREMENTS> ************/
+
+/********** <INFOBOX> ************/
+table.infobox{
+	width: 100%;
+	margin-top: 4px;
+	border: 1px #3377AA solid;
+	background-color: #FFFFFF;
+	text-align: center;
+}
+/********** </INFOBOX> ************/
 
 /********** <FILTER> ************/
 table.filter{
@@ -1133,7 +1183,7 @@ table.paging{
 table.paging tr td{
 	border: 0 black solid;
 	width: 100%;
-	font-size: 1.1em;
+	font-size: 11px;
 	line-height: 18px;
 	text-align: center;
 	vertical-align: middle;
@@ -1150,11 +1200,11 @@ table.header_wide{
 	border: 1px #3377AA solid;
 	vertical-align: middle;
 	background-color:#FFFFFF;
-	margin-top: 2px;
 }
 
 table.header_wide tr.first td.header_l{
-	font-size: 1.3em;
+	font-family: arial, verdana, helvetica, sans-serif;
+	font-size: 14px;
 	font-weight: bold;
 
 	text-align: left;
@@ -1166,6 +1216,8 @@ table.header_wide tr.first td.header_l{
 
 table.header_wide tr.first td.header_r{
 	background:none;
+	font-family:verdana, arial, helvetica, sans-serif;
+	font-size:10px;
 	text-align: right;
 	height: 24px;
 	padding-right: 5px;
@@ -1174,6 +1226,8 @@ table.header_wide tr.first td.header_r{
 
 table.header_wide tr.next td.header_l{
 	background:none;
+	font-family:verdana, arial, helvetica, sans-serif;
+	font-size:10px;
 	text-align: left;
 	height: 20px;
 	padding-left: 5px;
@@ -1182,6 +1236,8 @@ table.header_wide tr.next td.header_l{
 
 table.header_wide tr.next td.header_r{
 	background:none;
+	font-family: Verdana, Arial, Helvetica, Sans-serif;
+	font-size: 10px;
 	text-align: right;
 	height: 20px;
 	padding-right: 5px;

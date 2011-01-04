@@ -72,7 +72,6 @@
 	}
 
 	function delete_valuemap($valuemapid){
-		DBexecute('UPDATE items SET valuemapid=NULL WHERE valuemapid='.$valuemapid);
 		DBexecute('DELETE FROM mappings WHERE valuemapid='.$valuemapid);
 		DBexecute('DELETE FROM valuemaps WHERE valuemapid='.$valuemapid);
 	return TRUE;

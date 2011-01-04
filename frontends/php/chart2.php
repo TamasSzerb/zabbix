@@ -59,8 +59,7 @@ include_once('include/page_header.php');
 	$options = array(
 		'nodeids' => get_current_nodeid(true),
 		'graphids' => $_REQUEST['graphid'],
-		'output' => API_OUTPUT_EXTEND,
-		'templated_hosts' => 1,
+		'output' => API_OUTPUT_EXTEND
 	);
 	$host = CHost::get($options);
 	$host = reset($host);
@@ -90,8 +89,7 @@ include_once('include/page_header.php');
 	$height = get_request('height', 0);
 	if($height <= 0) $height = $db_data['height'];
 
-	$graph->showLegend($db_data['show_legend']);
-	
+//	$graph->showLegend($db_data['show_legend']);
 	$graph->showWorkPeriod($db_data['show_work_period']);
 	$graph->showTriggers($db_data['show_triggers']);
 

@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ const char	*help_message[] = {
 	"  -c --config <file>                   Specify absolute path to the configuration file",
 	"",
 	"  -z --zabbix-server <server>          Hostname or IP address of Zabbix Server",
-	"  -p --port <server port>              Specify port number of server trapper running on the server. Default is " ZBX_DEFAULT_SERVER_PORT_STR,
+	"  -p --port <server port>              Specify port number of server trapper running on the server. Default is 10051",
 	"  -s --host <hostname>                 Specify host name. Host IP address and DNS name will not work",
 	"  -I --source-address <IP address>     Specify source IP address",
 	"",
@@ -65,7 +65,7 @@ const char	*help_message[] = {
 	"  -c <file>                    Specify absolute path to the configuration file",
 	"",
 	"  -z <server>                  Hostname or IP address of Zabbix Server",
-	"  -p <server port>             Specify port number of server trapper running on the server. Default is " ZBX_DEFAULT_SERVER_PORT_STR,
+	"  -p <server port>             Specify port number of server trapper running on the server. Default is 10051",
 	"  -s <hostname>                Specify hostname or IP address of a host",
 	"  -I <IP address>              Specify source IP address",
 	"",
@@ -398,7 +398,7 @@ int main(int argc, char **argv)
 		goto exit;
 	}
 	if (0 == ZABBIX_SERVER_PORT)
-		ZABBIX_SERVER_PORT = ZBX_DEFAULT_SERVER_PORT;
+		ZABBIX_SERVER_PORT = 10051;
 
 	if (MIN_ZABBIX_PORT > ZABBIX_SERVER_PORT)
 	{

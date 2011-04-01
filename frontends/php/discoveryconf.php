@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -154,11 +154,11 @@ include_once('include/page_header.php');
 		}
 	}
 	else if(inarr_isset(array('clone','druleid'))){
-		unset($_REQUEST['druleid']);
+		unset($_REQUEST["druleid"]);
 		$dchecks = $_REQUEST['dchecks'];
 		foreach($dchecks as $id => $data)
 			unset($dchecks[$id]['dcheckid']);
-		$_REQUEST['form'] = 'clone';
+		$_REQUEST["form"] = "clone";
 	}
 	else if(inarr_isset(array('delete', 'druleid'))){
 		$result = delete_discovery_rule($_REQUEST['druleid']);
@@ -177,7 +177,7 @@ include_once('include/page_header.php');
 
 		$go_result = false;
 		foreach($_REQUEST['g_druleid'] as $drid){
-			if(DBexecute('update drules set status='.$status.' where druleid='.$drid)){
+			if(set_discovery_rule_status($drid,$status)){
 				$rule_data = get_discovery_rule_by_druleid($drid);
 				add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_DISCOVERY_RULE,
 					'['.$drid.'] '.$rule_data['name']);
@@ -207,9 +207,9 @@ include_once('include/page_header.php');
 ?>
 <?php
 /* header */
-	$form_button = new CForm('get');
+	$form_button = new CForm(null, 'get');
 	if(!isset($_REQUEST['form'])){
-		$form_button->addItem(new CSubmit('form', S_CREATE_RULE));
+		$form_button->addItem(new CButton('form', S_CREATE_RULE));
 	}
 
 	$dscry_wdgt = new CWidget();
@@ -242,7 +242,7 @@ include_once('include/page_header.php');
 			//TODO init checks
 			$dchecks = array();
 			$db_checks = DBselect('SELECT dcheckid,type,ports,key_,snmp_community,snmpv3_securityname,'.
-						'snmpv3_securitylevel,snmpv3_authpassphrase,snmpv3_privpassphrase,uniq'.
+						'snmpv3_securitylevel,snmpv3_authpassphrase,snmpv3_privpassphrase'.
 						' FROM dchecks'.
 						' WHERE druleid='.$_REQUEST['druleid']);
 			while($check_data = DBfetch($db_checks)){
@@ -253,7 +253,7 @@ include_once('include/page_header.php');
 						'snmpv3_securitylevel' => $check_data['snmpv3_securitylevel'],
 						'snmpv3_authpassphrase' => $check_data['snmpv3_authpassphrase'],
 						'snmpv3_privpassphrase' => $check_data['snmpv3_privpassphrase']));
-				if($check_data['uniq'])
+				if ($check_data['dcheckid'] == $rule_data['unique_dcheckid'])
 					$uniqueness_criteria = $count - 1;
 			}
 			$dchecks_deleted = get_request('dchecks_deleted',array());
@@ -296,7 +296,7 @@ include_once('include/page_header.php');
 
 
 		$form->addRow(S_IP_RANGE, new CTextBox('iprange', $iprange, 27));
-		$form->addRow(_('Delay (seconds)'), new CNumericBox('delay', $delay, 8));
+		$form->addRow(S_DELAY.SPACE.S_SECOND_IN_PARENTHESES, new CNumericBox('delay', $delay, 8));
 
 		$form->addVar('dchecks', $dchecks);
 		$form->addVar('dchecks_deleted', $dchecks_deleted);
@@ -318,7 +318,7 @@ include_once('include/page_header.php');
 		}
 
 		if(count($dchecks)){
-			$dchecks[] = new CSubmit('delete_ckecks', S_DELETE_SELECTED);
+			$dchecks[] = new CButton('delete_ckecks', S_DELETE_SELECTED);
 			$form->addRow(S_CHECKS, $dchecks);
 		}
 
@@ -391,7 +391,7 @@ include_once('include/page_header.php');
 		if($external_param->getNumRows() == 0) $external_param = null;
 		$form->addRow(S_NEW_CHECK, array(
 			$cmbChkType, SPACE,
-			new CSubmit('add_check', S_ADD),
+			new CButton('add_check', S_ADD),
 			$external_param
 		),'new');
 
@@ -402,10 +402,10 @@ include_once('include/page_header.php');
 			$cmbStatus->addItem($st, discovery_status2str($st));
 		$form->addRow(S_STATUS,$cmbStatus);
 
-		$form->addItemToBottomRow(new CSubmit("save",S_SAVE));
+		$form->addItemToBottomRow(new CButton("save",S_SAVE));
 		if(isset($_REQUEST["druleid"])){
 			$form->addItemToBottomRow(SPACE);
-			$form->addItemToBottomRow(new CSubmit("clone",S_CLONE));
+			$form->addItemToBottomRow(new CButton("clone",S_CLONE));
 			$form->addItemToBottomRow(SPACE);
 			$form->addItemToBottomRow(new CButtonDelete(S_DELETE_RULE_Q,
 				url_param("form").url_param("druleid")));
@@ -512,7 +512,7 @@ include_once('include/page_header.php');
 		$goBox->addItem($goOption);
 
 		// goButton name is necessary!!!
-		$goButton = new CSubmit('goButton',S_GO.' (0)');
+		$goButton = new CButton('goButton',S_GO.' (0)');
 		$goButton->setAttribute('id','goButton');
 
 		zbx_add_post_js('chkbxRange.pageGoName = "g_druleid";');

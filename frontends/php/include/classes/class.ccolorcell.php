@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -27,7 +27,13 @@ class CColorCell extends CDiv{
 		$this->setAttribute('title', '#'.$value);
 		$this->setAttribute('style', 'display: inline; width: 10px; height: 10px; text-decoration: none; border: 1px solid black; background-color: #'.$value);
 
-		$this->setAttribute('onclick', $action);
+		$this->setAction($action);
+	}
+
+	public function setAction($action=null){
+		if(!isset($action)) return false;
+
+		return $this->addAction('onclick', $action);
 	}
 }
 ?>

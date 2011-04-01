@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -125,7 +125,7 @@ include_once 'include/page_header.php';
 
 		$txtCondVal = new CTextBox('description',$description,50,'yes');
 
-		$btnSelect = new CSubmit('btn1',S_SELECT,
+		$btnSelect = new CButton('btn1',S_SELECT,
 				"return PopUp('popup.php?dstfrm=".$frmGItem->GetName().
 				'&dstfld1=itemid&dstfld2=description&srctbl=items'.
 				"&srcfld1=itemid&srcfld2=description&monitored_hosts=1');",
@@ -156,7 +156,7 @@ include_once 'include/page_header.php';
 			$frmGItem->addVar('color',$color);
 
 
-		$frmGItem->addItemToBottomRow(new CSubmit('save', isset($gid)?S_SAVE:S_ADD));
+		$frmGItem->addItemToBottomRow(new CButton('save', isset($gid)?S_SAVE:S_ADD));
 
 		$frmGItem->addItemToBottomRow(new CButtonCancel(null,'close_window();'));
 		$frmGItem->Show();

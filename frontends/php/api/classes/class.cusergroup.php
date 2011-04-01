@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -30,24 +30,33 @@ class CUserGroup extends CZBXAPI{
 /**
  * Get UserGroups
  *
- * @param array $options
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
+ *
+ * @param _array $options
  * @param array $options['nodeids'] Node IDs
  * @param array $options['usrgrpids'] UserGroup IDs
  * @param array $options['userids'] User IDs
  * @param boolean $options['status']
  * @param boolean $options['with_gui_access']
+ * @param boolean $options['with_api_access']
  * @param boolean $options['select_users']
+ * @param int $options['extendoutput']
  * @param int $options['count']
  * @param string $options['pattern']
  * @param int $options['limit'] limit selection
  * @param string $options['order']
  * @return array
  */
-	public function get($options=array()){
+	public static function get($options=array()){
+		global $USER_DETAILS;
 
 		$result = array();
-		$user_type = self::$userData['type'];
-		$userid = self::$userData['userid'];
+		$user_type = $USER_DETAILS['type'];
+		$userid = $USER_DETAILS['userid'];
 
 		$sort_columns = array('usrgrpid', 'name'); // allowed columns for sorting
 		$subselects_allowed_outputs = array(API_OUTPUT_REFER, API_OUTPUT_EXTEND); // allowed output options for [ select_* ] params
@@ -66,13 +75,14 @@ class CUserGroup extends CZBXAPI{
 			'userids'					=> null,
 			'status'					=> null,
 			'with_gui_access'			=> null,
+			'with_api_access'			=> null,
 // filter
 			'filter'					=> null,
 			'search'					=> null,
-			'searchByAny'			=> null,
 			'startSearch'				=> null,
 			'excludeSearch'				=> null,
 // OutPut
+			'extendoutput'				=> null,
 			'editable'					=> null,
 			'output'					=> API_OUTPUT_REFER,
 			'select_users'				=> null,
@@ -86,31 +96,27 @@ class CUserGroup extends CZBXAPI{
 
 		$options = zbx_array_merge($def_options, $options);
 
-		if(is_array($options['output'])){
-			unset($sql_parts['select']['usrgrp']);
 
-			$dbTable = DB::getSchema('usrgrp');
-			$sql_parts['select']['usrgrpid'] = 'g.usrgrpid';
-			foreach($options['output'] as $key => $field){
-				if(isset($dbTable['fields'][$field]))
-					$sql_parts['select'][$field] = 'g.'.$field;
+		if(!is_null($options['extendoutput'])){
+			$options['output'] = API_OUTPUT_EXTEND;
+
+			if(!is_null($options['select_users'])){
+				$options['select_users'] = API_OUTPUT_EXTEND;
 			}
-
-			$options['output'] = API_OUTPUT_CUSTOM;
 		}
 
 // PERMISSION CHECK
 		if(USER_TYPE_SUPER_ADMIN == $user_type){
 
 		}
-		else if(is_null($options['editable']) && (self::$userData['type'] == USER_TYPE_ZABBIX_ADMIN)){
+		else if(is_null($options['editable']) && ($USER_DETAILS['type'] == USER_TYPE_ZABBIX_ADMIN)){
 			$sql_parts['where'][] = 'g.usrgrpid IN ('.
 				' SELECT uug.usrgrpid'.
 				' FROM users_groups uug'.
-				' WHERE uug.userid='.self::$userData['userid'].
+				' WHERE uug.userid='.$USER_DETAILS['userid'].
 				' )';
 		}
-		else if(!is_null($options['editable']) && (self::$userData['type']!=USER_TYPE_SUPER_ADMIN)){
+		else if(!is_null($options['editable']) && ($USER_DETAILS['type']!=USER_TYPE_SUPER_ADMIN)){
 			return array();
 		}
 
@@ -146,8 +152,12 @@ class CUserGroup extends CZBXAPI{
 		if(!is_null($options['with_gui_access'])){
 			$sql_parts['where'][] = 'g.gui_access='.GROUP_GUI_ACCESS_ENABLED;
 		}
+// with_api_access
+		if(!is_null($options['with_api_access'])){
+			$sql_parts['where'][] = 'g.api_access='.GROUP_API_ACCESS_ENABLED;
+		}
 
-// output
+// extendoutput
 		if($options['output'] == API_OUTPUT_EXTEND){
 			$sql_parts['select']['usrgrp'] = 'g.*';
 		}
@@ -243,6 +253,7 @@ class CUserGroup extends CZBXAPI{
 		}
 
 		if(!is_null($options['countOutput'])){
+			if(is_null($options['preservekeys'])) $result = zbx_cleanHashes($result);
 			return $result;
 		}
 
@@ -255,7 +266,7 @@ class CUserGroup extends CZBXAPI{
 				'get_access' => ($options['select_users'] == API_OUTPUT_EXTEND)?true:null,
 				'preservekeys' => 1
 			);
-			$users = API::User()->get($obj_params);
+			$users = CUser::get($obj_params);
 			foreach($users as $userid => $user){
 				$uusrgrps = $user['usrgrps'];
 				unset($user['usrgrps']);
@@ -279,7 +290,7 @@ class CUserGroup extends CZBXAPI{
  * @param array $group_data
  * @return string|boolean
  */
-	public function getObjects($group_data){
+	public static function getObjects($group_data){
 		$result = array();
 		$usrgrpids = array();
 
@@ -293,12 +304,12 @@ class CUserGroup extends CZBXAPI{
 		}
 
 		if(!empty($usrgrpids))
-			$result = $this->get(array('usrgrpids'=>$usrgrpids, 'output' => API_OUTPUT_EXTEND));
+			$result = self::get(array('usrgrpids'=>$usrgrpids, 'extendoutput'=>1));
 
 	return $result;
 	}
 
-	public function exists($object){
+	public static function exists($object){
 		$options = array(
 			'filter' => array('name' => $object['name']),
 			'output' => API_OUTPUT_SHORTEN,
@@ -310,7 +321,7 @@ class CUserGroup extends CZBXAPI{
 		else if(isset($object['nodeids']))
 			$options['nodeids'] = $object['nodeids'];
 
-		$objs = $this->get($options);
+		$objs = self::get($options);
 
 		return !empty($objs);
 	}
@@ -321,15 +332,18 @@ class CUserGroup extends CZBXAPI{
  * @param array $usrgrps
  * @return boolean
  */
-	public function create($usrgrps){
+	public static function create($usrgrps){
+		global $USER_DETAILS;
 
-
-		if(USER_TYPE_SUPER_ADMIN != self::$userData['type']){
+		if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
 			self::exception(ZBX_API_ERROR_PERMISSIONS, 'Only Super Admins can add User Groups');
 		}
 
 		$usrgrps = zbx_toArray($usrgrps);
 		$insert = array();
+
+		try{
+			self::BeginTransaction(__METHOD__);
 
 			foreach($usrgrps as $gnum => $usrgrp){
 				$usrgrp_db_fields = array(
@@ -339,7 +353,7 @@ class CUserGroup extends CZBXAPI{
 					self::exception(ZBX_API_ERROR_PARAMETERS, 'Incorrect parameters used for UserGroup');
 				}
 
-				if($this->exists(array('name' => $usrgrp['name'], 'nodeids' => get_current_nodeid(false)))){
+				if(self::exists(array('name' => $usrgrp['name'], 'nodeids' => get_current_nodeid(false)))){
 					self::exception(ZBX_API_ERROR_PARAMETERS, S_USER_GROUP.' [ '.$usrgrp['name'].' ] '.S_ALREADY_EXISTS_SMALL);
 				}
 				$insert[$gnum] = $usrgrp;
@@ -357,12 +371,21 @@ class CUserGroup extends CZBXAPI{
 				}
 				if(!empty($mass_add)){
 					$mass_add['usrgrpids'] = $usrgrpids[$gnum];
-					if(!$this->massAdd($mass_add))
+					if(!self::massAdd($mass_add))
 						self::exception(ZBX_API_ERROR_PARAMETERS, 'Cannot add users');
 				}
 			}
 
+			self::EndTransaction(true, __METHOD__);
 			return array('usrgrpids' => $usrgrpids);
+		}
+		catch(APIException $e){
+			self::EndTransaction(false, __METHOD__);
+			$error = $e->getErrors();
+			$error = reset($error);
+			self::setError(__METHOD__, $e->getCode(), $error);
+			return false;
+		}
 	}
 
 /**
@@ -371,14 +394,17 @@ class CUserGroup extends CZBXAPI{
  * @param array $usrgrps
  * @return boolean
  */
-	public function update($usrgrps){
-
-		if(USER_TYPE_SUPER_ADMIN != self::$userData['type']){
+	public static function update($usrgrps){
+		global $USER_DETAILS;
+		if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
 			self::exception(ZBX_API_ERROR_PERMISSIONS, 'Only Super Admins can add User Groups');
 		}
 
 		$usrgrps = zbx_toArray($usrgrps);
 		$usrgrpids = zbx_objectValues($usrgrps, 'usrgrpid');
+
+		try{
+			self::BeginTransaction(__METHOD__);
 
 			foreach($usrgrps as $ugnum => $usrgrp){
 				$group_db_fields = array('usrgrpid' => null);
@@ -389,16 +415,25 @@ class CUserGroup extends CZBXAPI{
 				$mass_update = $usrgrp;
 				$mass_update['usrgrpids'] = $usrgrp['usrgrpid'];
 				unset($mass_update['usrgrpid']);
-				if(!$this->massUpdate($mass_update))
+				if(!self::massUpdate($mass_update))
 					self::exception(ZBX_API_ERROR_PARAMETERS, 'Cannot update group');
 			}
 
+			self::EndTransaction(true, __METHOD__);
 		return array('usrgrpids'=> $usrgrpids);
+		}
+		catch(APIException $e){
+			self::EndTransaction(false, __METHOD__);
+			$error = $e->getErrors();
+			$error = reset($error);
+			self::setError(__METHOD__, $e->getCode(), $error);
+			return false;
+		}
 	}
 
-	public function massAdd($data){
-
-		if(USER_TYPE_SUPER_ADMIN != self::$userData['type']){
+	public static function massAdd($data){
+		global $USER_DETAILS;
+		if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
 			self::exception(ZBX_API_ERROR_PERMISSIONS, 'Only Super Admins can add User Groups');
 		}
 
@@ -406,16 +441,19 @@ class CUserGroup extends CZBXAPI{
 		$userids = (isset($data['userids']) && !is_null($data['userids'])) ? zbx_toArray($data['userids']) : null;
 		$rights = (isset($data['rights']) && !is_null($data['rights'])) ? zbx_toArray($data['rights']) : null;
 
+		try{
+			self::BeginTransaction(__METHOD__);
+
 			if(!is_null($userids)){
 				$options = array(
 					'usrgrpids' => $usrgrpids,
 					'output' => API_OUTPUT_EXTEND,
 				);
-				$usrgrps = $this->get($options);
+				$usrgrps = self::get($options);
 				foreach($usrgrps as $usrgrp){
 					if((($usrgrp['gui_access'] == GROUP_GUI_ACCESS_DISABLED)
 							|| ($usrgrp['users_status'] == GROUP_STATUS_DISABLED))
-							&& uint_in_array(self::$userData['userid'], $userids)){
+							&& uint_in_array($USER_DETAILS['userid'], $userids)){
 						self::exception(ZBX_API_ERROR_PARAMETERS, S_USER_CANNOT_CHANGE_STATUS);
 					}
 				}
@@ -472,12 +510,21 @@ class CUserGroup extends CZBXAPI{
 				DB::insert('rights', $rights_insert);
 			}
 
+			self::EndTransaction(true, __METHOD__);
 			return array('usrgrpids' => $usrgrpids);
+		}
+		catch(APIException $e){
+			self::EndTransaction(false, __METHOD__);
+			$error = $e->getErrors();
+			$error = reset($error);
+			self::setError(__METHOD__, $e->getCode(), $error);
+			return false;
+		}
 	}
 
-	public function massUpdate($data){
-
-		if(USER_TYPE_SUPER_ADMIN != self::$userData['type']){
+	public static function massUpdate($data){
+		global $USER_DETAILS;
+		if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
 			self::exception(ZBX_API_ERROR_PERMISSIONS, 'Only Super Admins can add User Groups');
 		}
 
@@ -487,18 +534,21 @@ class CUserGroup extends CZBXAPI{
 
 		$update = array();
 
+		try{
+			self::BeginTransaction(__METHOD__);
+
 			if(isset($data['name']) && count($usrgrpids)>1){
 				self::exception(ZBX_API_ERROR_PARAMETERS, 'Multiple Name column');
 			}
 
 			foreach($usrgrpids as $ugnum => $usrgrpid){
 				if(isset($data['name'])){
-					$group_exists = $this->get(array(
+					$group_exists = self::get(array(
 						'filter' => array('name' => $data['name']),
 						'output' => API_OUTPUT_SHORTEN,
 					));
 					$group_exists = reset($group_exists);
-					if($group_exists && (bccomp($group_exists['usrgrpid'],$usrgrpid) != 0) ){
+					if($group_exists && ($group_exists['usrgrpid'] != $usrgrpid)){
 						self::exception(ZBX_API_ERROR_PARAMETERS, S_GROUP . ' ' . $data['name'] . ' ' . S_ALREADY_EXISTS_SMALL);
 					}
 				}
@@ -513,14 +563,14 @@ class CUserGroup extends CZBXAPI{
 			DB::update('usrgrp', $update);
 
 			if(!is_null($userids)){
-				$usrgrps = $this->get(array(
+				$usrgrps = self::get(array(
 					'usrgrpids' => $usrgrpids,
 					'output' => API_OUTPUT_EXTEND,
 				));
 				foreach($usrgrps as $usrgrp){
 					if((($usrgrp['gui_access'] == GROUP_GUI_ACCESS_DISABLED)
 							|| ($usrgrp['users_status'] == GROUP_STATUS_DISABLED))
-							&& uint_in_array(self::$userData['userid'], $userids)){
+							&& uint_in_array($USER_DETAILS['userid'], $userids)){
 						self::exception(ZBX_API_ERROR_PARAMETERS, S_USER_CANNOT_CHANGE_STATUS);
 					}
 				}
@@ -555,8 +605,8 @@ class CUserGroup extends CZBXAPI{
 					DB::insert('users_groups', $users_insert);
 				if(!empty($userids_to_unlink))
 					DB::delete('users_groups', array(
-						'userid'=>$userids_to_unlink,
-						'usrgrpid'=>$usrgrpids,
+						DBcondition('userid', $userids_to_unlink),
+						DBcondition('usrgrpid', $usrgrpids),
 					));
 			}
 
@@ -604,8 +654,8 @@ class CUserGroup extends CZBXAPI{
 
 				if(!empty($rights_to_unlink)){
 					DB::delete('rights', array(
-						'id'=>$rights_to_unlink,
-						'groupid'=>$usrgrpids,
+						DBcondition('id', $rights_to_unlink),
+						DBcondition('groupid', $usrgrpids),
 					));
 				}
 
@@ -615,10 +665,19 @@ class CUserGroup extends CZBXAPI{
 			}
 
 
+			self::EndTransaction(true, __METHOD__);
 			return array('usrgrpids' => $usrgrpids);
+		}
+		catch(APIException $e){
+			self::EndTransaction(false, __METHOD__);
+			$error = $e->getErrors();
+			$error = reset($error);
+			self::setError(__METHOD__, $e->getCode(), $error);
+			return false;
+		}
 	}
 
-	public function massRemove($data){
+	public static function massRemove($data){
 
 	}
 
@@ -628,17 +687,18 @@ class CUserGroup extends CZBXAPI{
  * @param array $usrgrpids
  * @return boolean
  */
-	public function delete($usrgrpids){
-
+	public static function delete($usrgrpids){
+		global $USER_DETAILS;
 
 		$usrgrpids = zbx_toArray($usrgrpids);
 
+		if(empty($usrgrpids)) return true;
 
-		if(empty($usrgrpids)) self::exception(ZBX_API_ERROR_PARAMETERS, _('Empty input parameter'));
+		try{
+			self::BeginTransaction(__METHOD__);
 
-			if(USER_TYPE_SUPER_ADMIN != self::$userData['type']){
-				//GETTEXT: Api exception
-				self::exception(ZBX_API_ERROR_PERMISSIONS, _('Only Super Admins can delete User Groups.'));
+			if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
+				self::exception(ZBX_API_ERROR_PERMISSIONS, S_ONLY_SUPERADMIN_CAN_DELETE_USERGROUP);
 			}
 
 			//we must check, if this user group is used in one of the scripts. If so, it cannot be deleted
@@ -650,72 +710,27 @@ class CUserGroup extends CZBXAPI{
 						' AND '.DBcondition('s.usrgrpid', $usrgrpids);
 			$res = DBselect($sql);
 			while($group = DBfetch($res)){
-				//GETTEXT: User gets this error message when tries to delete user group used in script
-				$error_array[] = sprintf(_('User group [%1$s] is used in script [%2$s].'), $group['group_name'], $group['script_name']);
+				$error_array[] = sprintf(S_GROUP_IS_USED_IN_SCRIPT, $group['group_name'], $group['script_name']);
 			}
 			if(!empty($error_array))
 				self::exception(ZBX_API_ERROR_PARAMETERS, $error_array);
 
-// delete action operation msg
-			$operationids = array();
-			$sql = 'SELECT DISTINCT om.operationid '.
-					' FROM opmessage_grp om '.
-					' WHERE '.DBcondition('om.usrgrpid', $usrgrpids);
-			$dbOperations = DBselect($sql);
-			while($dbOperation = DBfetch($dbOperations))
-				$operationids[$dbOperation['operationid']] = $dbOperation['operationid'];
 
-			DB::delete('opmessage_grp', array('usrgrpid'=>$usrgrpids));
+			DB::delete('rights', array(DBcondition('groupid', $usrgrpids)));
+			DB::delete('operations', array('object='.OPERATION_OBJECT_GROUP, DBcondition('objectid',$usrgrpids)));
+			DB::delete('users_groups', array(DBcondition('usrgrpid',$usrgrpids)));
+			DB::delete('usrgrp', array(DBcondition('usrgrpid', $usrgrpids)));
 
-// delete empty operations
-			$delOperationids = array();
-			$sql = 'SELECT DISTINCT o.operationid '.
-					' FROM operations o '.
-					' WHERE '.DBcondition('o.operationid', $operationids).
-						' AND NOT EXISTS(SELECT om.opmessage_grpid FROM opmessage_grp om WHERE om.operationid=o.operationid)';
-			$dbOperations = DBselect($sql);
-			while($dbOperation = DBfetch($dbOperations))
-				$delOperationids[$dbOperation['operationid']] = $dbOperation['operationid'];
-
-			DB::delete('operations', array('operationid'=>$delOperationids));
-			DB::delete('rights', array('groupid'=>$usrgrpids));
-			DB::delete('users_groups', array('usrgrpid'=>$usrgrpids));
-			DB::delete('usrgrp', array('usrgrpid'=>$usrgrpids));
-
+			self::EndTransaction(true, __METHOD__);
 			return array('usrgrpids' => $usrgrpids);
-	}
-
-	public function isReadable($ids){
-		if(!is_array($ids)) return false;
-		if(empty($ids)) return true;
-
-		$ids = array_unique($ids);
-
-		$count = $this->get(array(
-			'nodeids' => get_current_nodeid(true),
-			'usrgrpids' => $ids,
-			'output' => API_OUTPUT_SHORTEN,
-			'countOutput' => true
-		));
-
-		return (count($ids) == $count);
-	}
-
-	public function isWritable($ids){
-		if(!is_array($ids)) return false;
-		if(empty($ids)) return true;
-
-		$ids = array_unique($ids);
-
-		$count = $this->get(array(
-			'nodeids' => get_current_nodeid(true),
-			'usrgrpids' => $ids,
-			'output' => API_OUTPUT_SHORTEN,
-			'editable' => true,
-			'countOutput' => true
-		));
-
-		return (count($ids) == $count);
+		}
+		catch(APIException $e){
+			self::EndTransaction(false, __METHOD__);
+			$error = $e->getErrors();
+			$error = reset($error);
+			self::setError(__METHOD__, $e->getCode(), $error);
+			return false;
+		}
 	}
 
 }

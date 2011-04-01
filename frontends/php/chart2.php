@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -52,17 +52,16 @@ include_once('include/page_header.php');
 		'graphids' => $_REQUEST['graphid'],
 		'output' => API_OUTPUT_EXTEND
 	);
-	$db_data = API::Graph()->get($options);
+	$db_data = CGraph::get($options);
 	if(empty($db_data)) access_deny();
 	else $db_data = reset($db_data);
 
 	$options = array(
 		'nodeids' => get_current_nodeid(true),
 		'graphids' => $_REQUEST['graphid'],
-		'output' => API_OUTPUT_EXTEND,
-		'templated_hosts' => 1,
+		'output' => API_OUTPUT_EXTEND
 	);
-	$host = API::Host()->get($options);
+	$host = CHost::get($options);
 	$host = reset($host);
 
 	$effectiveperiod = navigation_bar_calc();
@@ -90,8 +89,7 @@ include_once('include/page_header.php');
 	$height = get_request('height', 0);
 	if($height <= 0) $height = $db_data['height'];
 
-	$graph->showLegend($db_data['show_legend']);
-
+//	$graph->showLegend($db_data['show_legend']);
 	$graph->showWorkPeriod($db_data['show_work_period']);
 	$graph->showTriggers($db_data['show_triggers']);
 

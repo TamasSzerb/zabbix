@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -30,14 +30,16 @@ class CDRule extends CZBXAPI{
 /**
 * Get drule data
 *
+* @static
 * @param array $options
 * @return array
 */
-	public function get($options=array()){
+	public static function get($options=array()){
+		global $USER_DETAILS;
 
 		$result = array();
 		$nodeCheck = false;
-		$user_type = self::$userData['type'];
+		$user_type = $USER_DETAILS['type'];
 		$result = array();
 
 		$sort_columns = array('druleid','name'); // allowed columns for sorting
@@ -66,7 +68,6 @@ class CDRule extends CZBXAPI{
 // filter
 			'filter'					=> null,
 			'search'					=> null,
-			'searchByAny'			=> null,
 			'startSearch'				=> null,
 			'excludeSearch'				=> null,
 
@@ -87,9 +88,9 @@ class CDRule extends CZBXAPI{
 // editable + PERMISSION CHECK
 		if(USER_TYPE_SUPER_ADMIN == $user_type){
 		}
-		else if(is_null($options['editable']) && (self::$userData['type'] == USER_TYPE_ZABBIX_ADMIN)){
+		else if(is_null($options['editable']) && ($USER_DETAILS['type'] == USER_TYPE_ZABBIX_ADMIN)){
 		}
-		else if(!is_null($options['editable']) && (self::$userData['type']!=USER_TYPE_SUPER_ADMIN)){
+		else if(!is_null($options['editable']) && ($USER_DETAILS['type']!=USER_TYPE_SUPER_ADMIN)){
 			return array();
 		}
 
@@ -297,6 +298,7 @@ class CDRule extends CZBXAPI{
 
 COpt::memoryPick();
 		if(($options['output'] != API_OUTPUT_EXTEND) || !is_null($options['countOutput'])){
+			if(is_null($options['preservekeys'])) $result = zbx_cleanHashes($result);
 			return $result;
 		}
 
@@ -312,7 +314,7 @@ COpt::memoryPick();
 
 			if(is_array($options['selectDChecks']) || str_in_array($options['selectDChecks'], $subselects_allowed_outputs)){
 				$obj_params['output'] = $options['selectDChecks'];
-				$dchecks = API::DCheck()->get($obj_params);
+				$dchecks = CDCheck::get($obj_params);
 
 				if(!is_null($options['limitSelects'])) order_result($dchecks, 'name');
 				foreach($dchecks as $dcheckid => $dcheck){
@@ -334,7 +336,7 @@ COpt::memoryPick();
 				$obj_params['countOutput'] = 1;
 				$obj_params['groupCount'] = 1;
 
-				$dchecks = API::DCheck()->get($obj_params);
+				$dchecks = CDCheck::get($obj_params);
 				$dchecks = zbx_toHash($dchecks, 'druleid');
 				foreach($result as $dhostid => $dhost){
 					if(isset($dchecks[$druleid]))
@@ -355,7 +357,7 @@ COpt::memoryPick();
 
 			if(is_array($options['selectDHosts']) || str_in_array($options['selectDHosts'], $subselects_allowed_outputs)){
 				$obj_params['output'] = $options['selectDHosts'];
-				$dhosts = API::DHost()->get($obj_params);
+				$dhosts = CDHost::get($obj_params);
 
 				if(!is_null($options['limitSelects'])) order_result($dhosts, 'name');
 				foreach($dhosts as $dhostid => $dhost){
@@ -377,7 +379,7 @@ COpt::memoryPick();
 				$obj_params['countOutput'] = 1;
 				$obj_params['groupCount'] = 1;
 
-				$dhosts = API::DHost()->get($obj_params);
+				$dhosts = CDHost::get($obj_params);
 				$dhosts = zbx_toHash($dhosts, 'druleid');
 				foreach($result as $druleid => $drule){
 					if(isset($dhosts[$druleid]))
@@ -399,7 +401,7 @@ COpt::memoryPick();
 	}
 
 
-	public function exists($object){
+	public static function exists($object){
 		$options = array(
 			'filter' => array(),
 			'output' => API_OUTPUT_SHORTEN,
@@ -414,7 +416,7 @@ COpt::memoryPick();
 		else if(isset($object['nodeids']))
 			$options['nodeids'] = $object['nodeids'];
 
-		$objs = $this->get($options);
+		$objs = self::get($options);
 
 	return !empty($objs);
 	}
@@ -422,35 +424,68 @@ COpt::memoryPick();
 /**
  * Create new drules
  *
+ * @static
  * @param array $drules
  * @return boolean
  */
-	public function create($drules){
+	public static function create($drules){
+		$drules = zbx_toArray($drules);
+		$druleids = array();
 
+		try{
+			self::BeginTransaction(__METHOD__);
+			self::EndTransaction(true, __METHOD__);
 
+			return array('druleids' => $druleids);
+		}
+		catch(APIException $e){
+			self::EndTransaction(false, __METHOD__);
+			$error = $e->getErrors();
+			$error = reset($error);
+			self::setError(__METHOD__, ZBX_API_ERROR_PARAMETERS, $error);
+			return false;
+		}
 	}
 
 /**
  * Update existing drules
  *
+ * @static
  * @param array $drules
  * @return boolean
  */
-	public function update($drules){
+	public static function update($drules){
+		$drules = zbx_toArray($drules);
+		$druleids = array();
 
+		try{
+			self::BeginTransaction(__METHOD__);
 
+			self::EndTransaction(true, __METHOD__);
+			return array('druleids' => $druleids);
+		}
+		catch(APIException $e){
+			self::EndTransaction(false, __METHOD__);
+			$error = $e->getErrors();
+			$error = reset($error);
+			self::setError(__METHOD__, ZBX_API_ERROR_PARAMETERS, $error);
+			return false;
+		}
 	}
 
 /**
  * Delete drules
  *
+ * @static
  * @param array $drules
  * @param array $drules['druleids']
  * @return boolean
  */
-	public function delete($druleids){
+	public static function delete($druleids){
 		$druleids = zbx_toArray($druleids);
 
+		try{
+			self::BeginTransaction(__METHOD__);
 // permissions
 			$options = array(
 				'druleids' => $druleids,
@@ -458,7 +493,7 @@ COpt::memoryPick();
 				'output' => API_OUTPUT_SHORTEN,
 				'preservekeys' => 1
 			);
-			$del_drules = $this->get($options);
+			$del_drules = self::get($options);
 			foreach($drules as $gnum => $drule){
 				if(!isset($del_drules[$drule['druleid']]))
 					self::exception(ZBX_API_ERROR_PERMISSIONS, S_NO_PERMISSION);
@@ -490,13 +525,23 @@ COpt::memoryPick();
 			DBexecute('DELETE FROM dchecks WHERE '.DBcondition('druleid',$druleids));
 			DBexecute('DELETE FROM drules WHERE '.DBcondition('druleid',$druleids));
 
+			self::EndTransaction(true, __METHOD__);
 			return array('druleids' => $druleids);
+		}
+		catch(APIException $e){
+			self::EndTransaction(false, __METHOD__);
+			$error = $e->getErrors();
+			$error = reset($error);
+			self::setError(__METHOD__, $e->getCode(), $error);
+			return false;
+		}
 	}
 
 // DEPRECATED
-	public function addChecks($checks){
+	public static function addChecks($checks){
 
 		$error = 'Unknown Zabbix internal error';
+		$result_ids = array();
 		$result = false;
 		$tpl_drule = false;
 
@@ -518,19 +563,22 @@ COpt::memoryPick();
 				'periods_cnt'	=> 5
 			);
 
-			if(!check_db_fields($drule_db_fields, $check))
-				throw new APIException(ZBX_API_ERROR_INTERNAL, 'Wrong fields for check [ '.$check['checkid'].' ]');
-
+			if(!check_db_fields($drule_db_fields, $check)){
+				self::$error[] = array('error' => ZBX_API_ERROR_INTERNAL, 'data' => 'Wrong fields for check [ '.$check['checkid'].' ]');
+				return false;
+			}
 			$checks[$check['checkid']] = $check;
 			$checkids[$check['checkid']] = $check['checkid'];
 		}
 
 // check if drule is templated drule, then checks cannot be added
-		$drules = $this->getget(array('druleids' => $druleid,  'output' => API_OUTPUT_EXTEND));
-		$drule = reset($drules);
+		$drule = self::get(array('druleids' => $druleid,  'extendoutput' => 1));
+		$drule = reset($drule);
 
-		if($drule['templateid'] != 0)
-			throw new APIException(ZBX_API_ERROR_INTERNAL, 'Cannot edit templated drule : '.$drule['name']);
+		if($drule['templateid'] != 0){
+			self::$error[] = array('error' => ZBX_API_ERROR_INTERNAL, 'data' => 'Cannot edit templated drule : '.$drule['name']);
+			return false;
+		}
 
 		// check if drule belongs to template, if so, only checks from same template can be added
 		$tmp_hosts = get_hosts_by_druleid($druleid);
@@ -543,19 +591,29 @@ COpt::memoryPick();
 						' AND '.DBcondition('i.checkid', $checkids);
 
 			$host_count = DBfetch(DBselect($sql));
-			if($host_count['count'])
-				throw new APIException(ZBX_API_ERROR_INTERNAL, 'You must use checks only from host : '.$host['host'].' for template drule : '.$drule['name']);
-
+			if ($host_count['count']){
+				self::$error[] = array('error' => ZBX_API_ERROR_INTERNAL, 'data' => 'You must use checks only from host : '.$host['host'].' for template drule : '.$drule['name']);
+				return false;
+			}
 			$tpl_drule = true;
 		}
 
-		$result = $this->addchecks_rec($druleid, $checks, $tpl_drule);
+		self::BeginTransaction(__METHOD__);
+		$result = self::addchecks_rec($druleid, $checks, $tpl_drule);
+		$result = self::EndTransaction($result, __METHOD__);
 
-		return $result;
+		if($result){
+			return $result;
+		}
+		else{
+			self::$error[] = array('error' => ZBX_API_ERROR_INTERNAL, 'data' => $error);//'Internal Zabbix error');
+			return false;
+		}
 	}
 
 // DEPRECATED
-	public function deleteChecks($check_list, $force=false){
+	public static function deleteChecks($check_list, $force=false){
+		$error = 'Unknown Zabbix internal error';
 		$result = true;
 
 		$druleid = $check_list['druleid'];
@@ -563,20 +621,20 @@ COpt::memoryPick();
 
 		if(!$force){
 			// check if drule is templated drule, then checks cannot be deleted
-			$drule = $this->get(array('druleids' => $druleid,  'output' => API_OUTPUT_EXTEND));
+			$drule = self::get(array('druleids' => $druleid,  'extendoutput' => 1));
 			$drule = reset($drule);
 
-			if($drule['templateid'] != 0)
-				throw new APIException(ZBX_API_ERROR_INTERNAL, 'Cannot edit templated drule : '.$drule['name']);
-
+			if($drule['templateid'] != 0){
+				self::$error[] = array('error' => ZBX_API_ERROR_INTERNAL, 'data' => 'Cannot edit templated drule : '.$drule['name']);
+				return false;
+			}
 		}
 
 		$chd_drules = get_drules_by_templateid($druleid);
 		while($chd_drule = DBfetch($chd_drules)){
 			$check_list['druleid'] = $chd_drule['druleid'];
-			$result = $this->deletechecks($check_list, true);
-			if(!$result)
-				throw new APIException(ZBX_API_ERROR_INTERNAL, 'Cannot delete check');
+			$result = self::deletechecks($check_list, true);
+			if(!$result) return false;
 		}
 
 

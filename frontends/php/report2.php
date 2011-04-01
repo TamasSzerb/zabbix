@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2011 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -146,11 +146,11 @@ include_once('include/page_header.php');
 		$options = array(
 			'triggerids' => $_REQUEST['triggerid'],
 			'output' => API_OUTPUT_EXTEND,
-			'selectHosts' => API_OUTPUT_EXTEND,
+			'select_hosts' => API_OUTPUT_EXTEND,
 			'nodeids' => get_current_nodeid(true)
 		);
 
-		$trigger_data = API::Trigger()->get($options);
+		$trigger_data = CTrigger::get($options);
 		if(empty($trigger_data)){
 			unset($_REQUEST['triggerid']);
 		}
@@ -212,7 +212,7 @@ include_once('include/page_header.php');
 		}
 		else{
 			if($_REQUEST['hostid'] > 0){
-				$hosts = API::Host()->get(array('templateids' => $_REQUEST['hostid']));
+				$hosts = CHost::get(array('templateids' => $_REQUEST['hostid']));
 				$options['hostids'] = zbx_objectValues($hosts, 'hostid');
 			}
 
@@ -222,7 +222,7 @@ include_once('include/page_header.php');
 		}
 
 
-		$triggers = API::Trigger()->get($options);
+		$triggers = CTrigger::get($options);
 		morder_result($triggers, array('host', 'description'));
 
 		$table = new CTableInfo();

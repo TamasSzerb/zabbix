@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -276,8 +276,7 @@ void	zbx_strcpy_alloc(char **str, int *alloc_len, int *offset, const char *src)
 
 	if (*offset + sz >= *alloc_len)
 	{
-		while (*offset + sz >= *alloc_len)
-			*alloc_len *= 2;
+		*alloc_len += sz < 32 ? 64 : 2 * sz;
 		*str = zbx_realloc(*str, *alloc_len);
 	}
 
@@ -2526,25 +2525,6 @@ const char	*zbx_permission_string(int perm)
 	}
 }
 
-const char	*zbx_host_type_string(zbx_item_type_t item_type)
-{
-	switch (item_type)
-	{
-		case ITEM_TYPE_ZABBIX:
-			return "Zabbix";
-		case ITEM_TYPE_SNMPv1:
-		case ITEM_TYPE_SNMPv2c:
-		case ITEM_TYPE_SNMPv3:
-			return "SNMP";
-		case ITEM_TYPE_IPMI:
-			return "IPMI";
-		case ITEM_TYPE_JMX:
-			return "JMX";
-		default:
-			return "generic";
-	}
-}
-
 const char	*zbx_item_value_type_string(zbx_item_value_type_t value_type)
 {
 	switch (value_type)
@@ -2559,41 +2539,6 @@ const char	*zbx_item_value_type_string(zbx_item_value_type_t value_type)
 			return "Numeric (unsigned)";
 		case ITEM_VALUE_TYPE_TEXT:
 			return "Text";
-		default:
-			return "unknown";
-	}
-}
-
-const char	*zbx_item_data_type_string(zbx_item_data_type_t data_type)
-{
-	switch (data_type)
-	{
-		case ITEM_DATA_TYPE_DECIMAL:
-			return "Decimal";
-		case ITEM_DATA_TYPE_OCTAL:
-			return "Octal";
-		case ITEM_DATA_TYPE_HEXADECIMAL:
-			return "Hexadecimal";
-		case ITEM_DATA_TYPE_BOOLEAN:
-			return "Boolean";
-		default:
-			return "unknown";
-	}
-}
-
-const char	*zbx_interface_type_string(zbx_interface_type_t type)
-{
-	switch (type)
-	{
-		case INTERFACE_TYPE_AGENT:
-			return "Zabbix agent";
-		case INTERFACE_TYPE_SNMP:
-			return "SNMP";
-		case INTERFACE_TYPE_IPMI:
-			return "IPMI";
-		case INTERFACE_TYPE_JMX:
-			return "JMX";
-		case INTERFACE_TYPE_UNKNOWN:
 		default:
 			return "unknown";
 	}
@@ -2615,8 +2560,27 @@ const char	*zbx_result_string(int result)
 			return "TIMEOUT_ERROR";
 		case AGENT_ERROR:
 			return "AGENT_ERROR";
-		case PROXY_ERROR:
-			return "PROXY_ERROR";
+		default:
+			return "unknown";
+	}
+}
+
+const char	*zbx_trigger_severity_string(zbx_trigger_severity_t severity)
+{
+	switch (severity)
+	{
+		case TRIGGER_SEVERITY_NOT_CLASSIFIED:
+			return "Not classified";
+		case TRIGGER_SEVERITY_INFORMATION:
+			return "Information";
+		case TRIGGER_SEVERITY_WARNING:
+			return "Warning";
+		case TRIGGER_SEVERITY_AVERAGE:
+			return "Average";
+		case TRIGGER_SEVERITY_HIGH:
+			return "High";
+		case TRIGGER_SEVERITY_DISASTER:
+			return "Disaster";
 		default:
 			return "unknown";
 	}
@@ -2675,16 +2639,6 @@ const char	*zbx_dservice_type_string(zbx_dservice_type_t service)
 			return "ICMP Ping";
 		default:
 			return "unknown";
-	}
-}
-
-const char	*zbx_nodetype_string(unsigned char nodetype)
-{
-	switch (nodetype)
-	{
-		case ZBX_NODE_MASTER: return "MASTER";
-		case ZBX_NODE_SLAVE: return "SLAVE";
-		default: return "unknown";
 	}
 }
 
@@ -2843,16 +2797,10 @@ int	zbx_unicode_to_utf8_static(LPCTSTR wide_string, LPSTR utf8_string, int utf8_
 }
 #endif
 
-void	zbx_strlower(char *str)
-{
-	for (; '\0' != *str; str++)
-		*str = tolower(*str);
-}
-
 void	zbx_strupper(char *str)
 {
 	for (; '\0' != *str; str++)
-		*str = toupper(*str);
+		*str = toupper((int)*str);
 }
 
 #if defined(_WINDOWS)
@@ -3135,17 +3083,21 @@ void	zbx_replace_invalid_utf8(char *text)
 	*out = '\0';
 }
 
-void	dos2unix(char *str)
+void	win2unix_eol(char *text)
 {
-	char	*o = str;
+	size_t	i, sz;
 
-	while ('\0' != *str)
+	sz = strlen(text);
+
+	for (i = 0; i < sz; i++)
 	{
-		if ('\r' == str[0] && '\n' == str[1])	/* CR+LF (Windows) */
-			str++;
-		*o++ = *str++;
+		if (text[i] == '\r' && text[i + 1] == '\n')	/* CR+LF (Windows) */
+		{
+			text[i] = '\n';	/* LF (Unix) */
+			sz--;
+			memmove(&text[i + 1], &text[i + 2], (sz - i) * sizeof(char));
+		}
 	}
-	*o = '\0';
 }
 
 int	is_ascii_string(const char *str)

@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -40,23 +40,14 @@ class CVar{
 
 	public function parseValue($name, $value){
 		if(is_array($value)){
-			foreach($value as $key => $item){
+			foreach($value as $itemid => $item){
 				if( is_null($item) ) continue;
-				$this->parseValue($name.'['.$key.']', $item);
+				$this->parseValue($name.'['.$itemid.']', $item);
 			}
 			return;
 		}
 
-		if(strpos($value, "\n") === false){
-			$hiddenVar = new CInput('hidden', $name, zbx_htmlstr($value));
-			$hiddenVar->removeAttribute('class');
-		}
-		else{
-			$hiddenVar = new CTextArea($name, $value);
-			$hiddenVar->setAttribute('class','hidden');
-		}
-
-		$this->var_container[] = $hiddenVar;
+		array_push($this->var_container, new CVarTag($name, $value));
 	}
 
 	public function toString(){

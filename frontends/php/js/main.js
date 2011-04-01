@@ -1,7 +1,7 @@
 //Javascript document
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -627,7 +627,7 @@ createBox: function(obj, hint_text, width, className, byClick){
 	box.className = 'hintbox';
 
 	if(!empty(className)){
-		hint_text = "<span class=\"" + className + "\">" + hint_text + "</span>";
+		hint_text = "<span class=" + className + ">" + hint_text + "</"+"span>";
 	}
 
 	if(!empty(width)){
@@ -886,7 +886,7 @@ function set_color(color){
 		curr_lbl.style.background = curr_lbl.style.color = "#" + color;
 		curr_lbl.title = "#" + color;
 	}
-	if(curr_txt) curr_txt.value = color.toString().toUpperCase();
+	if(curr_txt)	curr_txt.value = color;
 
 	hide_color_picker();
 }
@@ -905,6 +905,7 @@ function set_color_by_name(name, color){
 function add2favorites(favobj,favid){
 	if('undefined' == typeof(Ajax)){
 		throw("Prototype.js lib is required!");
+		return false;
 	}
 
 	if((typeof(favid) == 'undefined') || empty(favid)) return;
@@ -924,6 +925,7 @@ function rm4favorites(favobj,favid,menu_rowid){
 //	alert(favobj+','+favid+','+menu_rowid);
 	if('undefined' == typeof(Ajax)){
 		throw("Prototype.js lib is required!");
+		return false;
 	}
 
 	if((typeof(favobj) == 'undefined') || (typeof(favid) == 'undefined'))
@@ -968,33 +970,6 @@ function change_flicker_state(divid){
 	if(typeof(moveSBoxes) != 'undefined') moveSBoxes();
 }
 
-function changeHatStateUI(icon, divid){
-	deselectAll();
-
-
-	var switchIcon = function(){
-		switchElementsClass(icon,"arrowup","arrowdown");
-	}
-
-	jQuery($(divid).parentNode).
-		find('.body').toggle().end().
-		find('.footer').toggle().end();
-
-	switchIcon();
-
-	var hat_state = jQuery(icon).hasClass("arrowup") ? 1 : 0;
-	if(false === hat_state) return false;
-
-	var params = {
-		'action':	'flop',
-		'favobj': 	'hat',
-		'favref': 	divid,
-		'state':	hat_state
-	}
-
-	send_params(params);
-}
-
 function change_hat_state(icon, divid){
 	deselectAll();
 
@@ -1027,13 +1002,13 @@ function send_params(params){
 	url.setQuery('?output=ajax');
 
 	new Ajax.Request(url.getUrl(),
-		{
-			'method': 'post',
-			'parameters':params,
-			'onSuccess': function(resp){ },
-//			'onSuccess': function(resp){ SDI(resp.responseText); },
-			'onFailure': function(){document.location = url.getPath()+'?'+Object.toQueryString(params);}
-		}
+					{
+						'method': 'post',
+						'parameters':params,
+						'onSuccess': function(resp){ },
+//						'onSuccess': function(resp){ SDI(resp.responseText); },
+						'onFailure': function(){document.location = url.getPath()+'?'+Object.toQueryString(params);}
+					}
 	);
 }
 
@@ -1041,6 +1016,7 @@ function send_params(params){
 function setRefreshRate(pmasterid,dollid,interval,params){
 	if(typeof(Ajax) == 'undefined'){
 		throw("Prototype.js lib is required!");
+		return false;
 	}
 
 	if((typeof(params) == 'undefined') || is_null(params))  var params = new Array();

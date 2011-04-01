@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -386,6 +386,10 @@ void	main_housekeeper_loop()
 
 /* Transaction is not required here. It causes timeouts under MySQL. */
 /*		DBcommit();*/
+
+/*		zbx_setproctitle("housekeeper [vacuuming database]");*/
+
+/*		DBvacuum();*/
 
 		DBclose();
 

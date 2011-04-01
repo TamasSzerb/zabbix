@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -150,6 +150,9 @@ class CPie extends CGraphDraw{
 			$this->from_time	= $this->to_time - $this->period;
 		}
 
+		$p = $this->to_time - $this->from_time;		// graph size in time
+		$z = $p - $this->from_time % $p;		//<strong></strong>
+		$x = $this->sizeX;		// graph size in px
 		$strvaluelength = 0;	// we need to know how long in px will be our legend
 
 		for($i=0; $i < $this->num; $i++){
@@ -340,6 +343,7 @@ class CPie extends CGraphDraw{
 							$this->getColor('Black No Alpha')
 						);
 
+			$dims = imageTextSize(8, 0, $str);
 			imageText($this->im,
 						8,
 						0,
@@ -529,6 +533,7 @@ class CPie extends CGraphDraw{
 	public function draw(){
 		$start_time=getmicrotime();
 		set_image_header();
+		check_authorisation();
 
 		$this->selectData();
 
@@ -571,11 +576,23 @@ class CPie extends CGraphDraw{
 		$this->drawRectangle();
 		$this->drawHeader();
 
+		$maxX = $this->sizeX;
+
 // For each metric
 		for($item = 0; $item < $this->num; $item++){
+			$minY = $this->m_minY[$this->items[$item]['axisside']];
+			$maxY = $this->m_maxY[$this->items[$item]['axisside']];
+
 			$data = &$this->data[$this->items[$item]['itemid']][$this->items[$item]['calc_type']];
 
 			if(!isset($data))	continue;
+
+			$drawtype	= $this->items[$item]['drawtype'];
+
+			$max_color	= $this->GetColor('ValueMax');
+			$avg_color	= $this->GetColor($this->items[$item]['color']);
+			$min_color	= $this->GetColor('ValueMin');
+			$minmax_color	= $this->GetColor('ValueMinMax');
 
 			$calc_fnc = $this->items[$item]['calc_fnc'];
 
@@ -614,7 +631,7 @@ class CPie extends CGraphDraw{
 		if($this->drawLegend == 1)	$this->drawLegend();
 
 		$str=sprintf('%0.2f',(getmicrotime()-$start_time));
-		imagestring($this->im, 0,$this->fullSizeX-210,$this->fullSizeY-12, _s('Data from %1$s. Generated in %2$s sec', $this->dataFrom, $str), $this->getColor('Gray'));
+		imagestring($this->im, 0,$this->fullSizeX-210,$this->fullSizeY-12,'Data from '.$this->dataFrom.'. Generated in '.$str.' sec', $this->getColor('Gray'));
 
 		unset($this->items, $this->data);
 

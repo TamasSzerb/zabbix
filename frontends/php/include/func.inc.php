@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -272,6 +272,7 @@ function zbx_date2age($start_date,$end_date=0,$utime = false){
 	}
 
 	$original_time = $time = abs($end_date-$start_date);
+//SDI($start_date.' - '.$end_date.' = '.$time);
 
 	$years = (int) ($time / (365*86400));
 	$time -= $years*365*86400;
@@ -432,6 +433,8 @@ function convert_units($value, $units, $convert=ITEM_CONVERT_WITH_UNITS){
 		return zbx_date2age(0,$value,true);
 	}
 
+	$u='';
+
 // Any other unit
 //-------------------
 // black list wich do not require units metrics..
@@ -554,51 +557,9 @@ function zbx_is_int($var){
 	else
 		if(($var>0) && zbx_ctype_digit($var)) return true;
 
-return preg_match("/^\-?\d{1,20}+$/", $var);
+return preg_match("/^\-?[0-9]+$/", $var);
 }
 
-function zbx_array_diff($primary, $secondary, $field){
-	$fields1 = zbx_objectValues($primary, $field);
-	$fields2 = zbx_objectValues($secondary, $field);
-
-	$first = array_diff($fields1, $fields2);
-	$first = zbx_toHash($first);
-
-	$second = array_diff($fields2, $fields1);
-	$second = zbx_toHash($second);
-
-	$result = array(
-		'first' => array(),
-		'second' => array(),
-		'both' => array()
-	);
-
-	foreach($primary as $array){
-		if(!isset($array[$field]))
-			$result['first'][] = $array;
-		else if(isset($first[$array[$field]]))
-			$result['first'][] = $array;
-		else
-			$result['both'][$array[$field]] = $array;
-	}
-
-	foreach($secondary as $array){
-		if(!isset($array[$field]))
-			$result['second'][] = $array;
-		else if(isset($second[$array[$field]]))
-			$result['second'][] = $array;
-	}
-
-	return $result;
-}
-
-function zbx_array_push(&$array, $add){
-	foreach($array as $key => $value){
-		foreach($add as $newKey => $newValue){
-			$array[$key][$newKey] = $newValue;
-		}
-	}
-}
 
 // STRING FUNCTIONS {{{
 if(!function_exists('zbx_stripslashes')){
@@ -845,38 +806,39 @@ function zbx_rksort(&$array, $flags=NULL){
 
 
 // used only in morder_result
-function sortSub($data, $sortorder){
+function sortSub($array, $sortorder){
 	$result = array();
 
-	$keys = array_keys($data);
+	$keys = array_keys($array);
 	natcasesort($keys);
+
 
 	if($sortorder != ZBX_SORT_UP)
 		$keys = array_reverse($keys);
 
 	foreach($keys as $key){
-		$tst = reset($data[$key]);
-		if(is_array($tst) && isset($tst[0]) && !is_array($tst[0])){
-			$data[$key] = sortSub($data[$key], $sortorder);
+		$tst = reset($array[$key]);
+		if(isset($tst[0]) && !is_array($tst[0])){
+			$array[$key] = sortSub($array[$key], $sortorder);
 		}
 
-		foreach($data[$key] as $id){
+		foreach($array[$key] as $id){
 			$result[] = $id;
 		}
 	}
 	return $result;
 }
 
-function morder_result(&$data, $sortfields, $sortorder=ZBX_SORT_UP){
+function morder_result(&$array, $sortfields, $sortorder=ZBX_SORT_UP){
 	$tmp = array();
 	$result = array();
 
-	foreach($data as $key => $value){
+	foreach($array as $key => $el){
 		unset($pointer);
 		$pointer =& $tmp;
 		foreach($sortfields as $f){
-			if(!isset($pointer[$value[$f]])) $pointer[$value[$f]] = array();
-			$pointer =& $pointer[$value[$f]];
+			if(!isset($pointer[$el[$f]])) $pointer[$el[$f]] = array();
+			$pointer =& $pointer[$el[$f]];
 		}
 		$pointer[] = $key;
 	}
@@ -884,20 +846,16 @@ function morder_result(&$data, $sortfields, $sortorder=ZBX_SORT_UP){
 	$order = sortSub($tmp, $sortorder);
 
 	foreach($order as $key){
-		$result[$key] = $data[$key];
+		$result[$key] = $array[$key];
 	}
 
-	$data = $result;
+	$array = $result;
 	return true;
 }
 
+
 function order_result(&$data, $sortfield=null, $sortorder=ZBX_SORT_UP){
 	if(empty($data)) return false;
-
-	if(is_array($sortfield)){
-		morder_result($data, $sortfield, $sortorder);
-		return true;
-	}
 
 	if(is_null($sortfield)){
 		natcasesort($data);
@@ -942,19 +900,13 @@ return ' ORDER BY '.$tabfield.' '.$sortorder.$allways;
 }
 /************* END SORT *************/
 
-function unsetExcept(&$array, $allowedFields){
-	foreach($array as $key => $value){
-		if(!isset($allowedFields[$key])) unset($array[$key]);
-	}
-}
-
 function zbx_implodeHash($glue1, $glue2, $hash){
 	if(is_null($glue2)) $glue2 = $glue1;
 	$str = '';
 
 	foreach($hash as $key => $value){
-		if(!empty($str)) $str.= $glue2;
-		$str.= $key.$glue1.$value;
+		if(!empty($str)) $str.= $glue1;
+		$str.= $key.$glue2.$value;
 	}
 
 return $str;
@@ -1016,17 +968,6 @@ function zbx_value2array(&$values){
 			$tmp[$values] = $values;
 
 		$values = $tmp;
-	}
-}
-
-// creates chain of relation parent -> childs, for all chain levels
-function createParentToChildRelation(&$chain, $link, $parentField, $childField){
-	if(!isset($chain[$link[$parentField]]))
-		$chain[$link[$parentField]] = array();
-
-	$chain[$link[$parentField]][$link[$childField]] = $link[$childField];
-	if(isset($chain[$link[$childField]])){
-		$chain[$link[$parentField]] = zbx_array_merge($chain[$link[$parentField]], $chain[$link[$childField]]);
 	}
 }
 
@@ -1138,24 +1079,6 @@ function zbx_cleanHashes(&$value){
 
 return $value;
 }
-
-function zbx_toCSV($values){
-	$csv = '';
-
-	$glue = '","';
-	foreach($values as $row){
-		if(!is_array($row)) $row = array($row);
-		foreach($row as $num => $value){
-			if(is_null($value)) unset($row[$num]);
-			else $row[$num] = str_replace('"', '""', $value);
-		}
-
-		$csv .= '"'.implode($glue, $row).'"'."\n";
-	}
-
-return $csv;
-}
-
 // }}} ARRAY FUNCTION
 function zbx_array_mintersect($keys, $array){
 	$result = array();
@@ -1294,7 +1217,7 @@ function zbx_subarray_push(&$mainArray, $sIndex, $element = null) {
 
 /************* PAGING *************/
 function getPagingLine(&$items, $autotrim=true){
-	global $page;
+	global $USER_DETAILS, $page;
 	$config = select_config();
 
 	$search_limit = '';
@@ -1310,7 +1233,7 @@ function getPagingLine(&$items, $autotrim=true){
 		$start = ($last_page == $page['file']) ? CProfile::get('web.paging.start', 0) : 0;
 	}
 
-	$rows_per_page = CWebUser::$data['rows_per_page'];
+	$rows_per_page = $USER_DETAILS['rows_per_page'];
 
 	$cnt_items = count($items);
 	$cnt_pages = ceil($cnt_items / $rows_per_page);
@@ -1431,6 +1354,8 @@ function add_doll_objects($ref_tab, $pmid='mainpage'){
 }
 
 function format_doll_init($doll){
+	global $USER_DETAILS;
+
 	$args = array('frequency' => 60,
 					'url' => '',
 					'counter' => 0,

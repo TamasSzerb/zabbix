@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -108,7 +108,7 @@ include_once('include/page_header.php');
 	$latest_wdgt->addPageHeader(S_LATEST_DATA_BIG,$fs_icon);
 
 // 2nd header
-	$r_form = new CForm('get');
+	$r_form = new CForm(null, 'get');
 
 //	$cmbGroup = new CComboBox('groupid',$_REQUEST['groupid'],"javascript: return updater.onetime_update('".ZBX_PAGE_MAIN_HAT."',this.form);");
 //	$cmbHosts = new CComboBox('hostid',$_REQUEST['hostid'],"javascript: return updater.onetime_update('".ZBX_PAGE_MAIN_HAT."',this.form);");
@@ -145,9 +145,11 @@ include_once('include/page_header.php');
 
 	$filterForm->addRow(S_SHOW_ITEMS_WITH_DESCRIPTION_LIKE, new CTextBox('select',$_REQUEST['select'],20));
 
-	$reset = new CButton("filter_rst",S_RESET,'javascript: var uri = new Curl(location.href); uri.setArgument("filter_rst",1); location.href = uri.getUrl();');
+	$reset = new CButton("filter_rst",S_RESET);
+	$reset->setType('button');
+	$reset->setAction('javascript: var uri = new Curl(location.href); uri.setArgument("filter_rst",1); location.href = uri.getUrl();');
 
-	$filterForm->addItemToBottomRow(new CSubmit("filter_set",S_FILTER));
+	$filterForm->addItemToBottomRow(new CButton("filter_set",S_FILTER));
 	$filterForm->addItemToBottomRow($reset);
 
 	$latest_wdgt->addFlicker($filterForm, CProfile::get('web.latest.filter.state',1));
@@ -250,7 +252,6 @@ include_once('include/page_header.php');
 			' WHERE '.DBcondition('ia.applicationid',$db_appids).
 				' AND i.itemid=ia.itemid AND i.lastvalue IS NOT NULL'.
 				' AND (i.status='.ITEM_STATUS_ACTIVE. ' OR i.status='.ITEM_STATUS_NOTSUPPORTED.')'.
-				' AND '.DBcondition('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)).
 			order_by('i.description,i.itemid,i.lastclock');
 //SDI($sql);
 	$db_items = DBselect($sql);
@@ -283,8 +284,7 @@ include_once('include/page_header.php');
 
 		if(isset($db_item['lastvalue']) && isset($db_item['prevvalue'])
 				&& in_array($db_item['value_type'], array(ITEM_VALUE_TYPE_FLOAT, ITEM_VALUE_TYPE_UINT64))
-				&& ($db_item['lastvalue']-$db_item['prevvalue'] != 0))
-		{
+				&& ($db_item['lastvalue']-$db_item['prevvalue'] != 0)){
 			if($db_item['lastvalue']-$db_item['prevvalue']<0){
 				$change=convert_units($db_item['lastvalue']-$db_item['prevvalue'],$db_item['units']);
 			}
@@ -380,7 +380,6 @@ include_once('include/page_header.php');
 				' AND h.hostid=i.hostid '.
 				' AND h.status='.HOST_STATUS_MONITORED.
 				' AND i.status='.ITEM_STATUS_ACTIVE.
-				' AND '.DBcondition('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)).
 				' AND '.DBcondition('h.hostid',$available_hosts).
 			' ORDER BY h.host';
 
@@ -402,7 +401,6 @@ include_once('include/page_header.php');
 				' AND h.hostid=i.hostid '.
 				' AND h.status='.HOST_STATUS_MONITORED.
 				' AND i.status='.ITEM_STATUS_ACTIVE.
-				' AND '.DBcondition('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)).
 				' AND '.DBcondition('h.hostid',$db_hostids).
 			' ORDER BY i.description,i.itemid';
 	$db_items = DBselect($sql);
@@ -427,12 +425,14 @@ include_once('include/page_header.php');
 		if(isset($showAll) && !empty($apps) && !isset($apps[0])) continue;
 		else if(isset($hideAll) && (empty($apps) || isset($apps[0]))) continue;
 
+
+
 		if(isset($db_item['lastclock']))
 			$lastclock=zbx_date2str(S_LATEST_ITEMS_TRIGGERS_DATE_FORMAT,$db_item['lastclock']);
 		else
 			$lastclock = new CCol(' - ');
 
-		$lastvalue = format_lastvalue($db_item);
+		$lastvalue=format_lastvalue($db_item);
 
 		if( isset($db_item['lastvalue']) && isset($db_item['prevvalue']) &&
 			($db_item['value_type'] == ITEM_VALUE_TYPE_FLOAT || $db_item['value_type'] == ITEM_VALUE_TYPE_UINT64) &&

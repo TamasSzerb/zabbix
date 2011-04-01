@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2010-2011 Zabbix SIA
+** Copyright (C) 2010 Artem "Aly" Suharev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -76,17 +76,23 @@ initialize: function($super, messagesListId, args){
 	addListener(this.dom.snooze, 'click', this.stopSound.bindAsEventListener(this));
 	addListener(this.dom.mute, 'click', this.mute.bindAsEventListener(this));
 
-	if(!IE6){
-		//jQuery(this.dom.container).mouseenter(function(){ jQuery(this).fadeTo('fast', 1); });
-		//jQuery(this.dom.container).mouseleave(function(){ jQuery(this).fadeTo('fast', 0.1); });
+	//addListener(this.dom.header, 'mouseover', function(this.dom.move){} this.mute.bindAsEventListener(this));
 
-		jQuery(this.dom.container).draggable({
-			handle: [this.dom.caption, this.dom.move], //this.dom.header,
-			axis: 'y',
-			containment: [0,0,0,1600],//'document',
-			stop: this.fixIE.bind(this)
-		});
-	}
+	new Draggable(this.dom.container, {
+		handle: this.dom.caption, //this.dom.header,
+		constraint: 'vertical',
+		scroll: window,
+		onEnd: this.fixIE.bind(this),
+		snap: function(x,y){if(y < 0) return [x,0]; else return [x,y];}
+	});
+
+	new Draggable(this.dom.container, {
+		handle: this.dom.move, //this.dom.header,
+		constraint: 'vertical',
+		scroll: window,
+		onEnd: this.fixIE.bind(this),
+		snap: function(x,y){if(y < 0) return [x,0]; else return [x,y];}
+	});
 },
 
 start: function(){
@@ -121,7 +127,7 @@ setSettings: function(settings){
 	this.sounds.repeat = settings['sounds.repeat'];
 	this.sounds.mute = settings['sounds.mute'];
 	if(this.sounds.mute == 1){
-		this.dom.mute.className = 'iconmute menu_icon shadow';
+		this.dom.mute.className = 'iconmute menu_icon';
 	}
 
 	if(settings.enabled != 1) this.stop();
@@ -169,11 +175,7 @@ addMessage: function(newMessage){
 	};
 
 
-	if(this.msgcounter == 1){
-		//$(this.dom.container).show();
-		jQuery(this.dom.container).fadeTo('fast', 0.9);
-	}
-
+	$(this.dom.container).show();
 
 return this.messageList[this.msgcounter];
 },
@@ -293,19 +295,12 @@ closeAllMessages: function(e){
 
 	new RPC.Call(rpcRequest);
 
-	jQuery(this.dom.container).slideUp(this.effectTimeout);
+	Effect.BlindUp(this.dom.container, {duration: (this.effectTimeout / 1000)});
 
-	var count = 0;
-	var effect = false;
 	for(var messageid in this.messageList){
 		if(empty(this.messageList[messageid])) continue;
 
-		if(!effect) 
-			this.closeMessage(this, messageid, effect);
-		else
-			setTimeout(this.closeMessage.bind(this, messageid, effect), count * this.effectTimeout * 0.5);
-
-		count++;
+		setTimeout(this.closeMessage.bind(this, messageid, false), this.effectTimeout);
 	}
 },
 
@@ -409,7 +404,7 @@ createContainer: function(){
 // move
 	this.dom.move = document.createElement('div');
 	this.dom.move.setAttribute('title', locale['S_MOVE']);
-	this.dom.move.className = 'iconmove menu_icon shadow';
+	this.dom.move.className = 'iconmove menu_icon';
 	//this.dom.move.style.display = 'none';
 
 	this.dom.controlList.addItem(this.dom.move, 'linear');
@@ -417,21 +412,21 @@ createContainer: function(){
 // snooze
 	this.dom.snooze = document.createElement('div');
 	this.dom.snooze.setAttribute('title', locale['S_SNOOZE']);
-	this.dom.snooze.className = 'iconsnooze menu_icon shadow';
+	this.dom.snooze.className = 'iconsnooze menu_icon';
 
 	this.dom.controlList.addItem(this.dom.snooze, 'linear');
 
 // mute
 	this.dom.mute = document.createElement('div');
 	this.dom.mute.setAttribute('title', locale['S_MUTE']+'/'+locale['S_UNMUTE']);
-	this.dom.mute.className = 'iconsound menu_icon shadow';
+	this.dom.mute.className = 'iconsound menu_icon';
 
 	this.dom.controlList.addItem(this.dom.mute, 'linear');
 
 // close all
 	this.dom.closeAll = document.createElement('div');
 	this.dom.closeAll.setAttribute('title', locale['S_CLEAR']);
-	this.dom.closeAll.className = 'iconclose menu_icon shadow';
+	this.dom.closeAll.className = 'iconclose menu_icon';
 
 	this.dom.controlList.addItem(this.dom.closeAll, 'linear');
 
@@ -468,6 +463,7 @@ timeout:			60,				// msg timeout
 
 dom:				{},				// msg dom links
 
+
 initialize: function($super, messageList, message){
 	this.messageid = message.messageid;
 	$super('CMessage['+this.messageid+']');
@@ -503,15 +499,12 @@ notify: function(){
 },
 
 remove: function(){
-	this.debug('remove');
-//--
-
 	if(IE6){
 		$(this.dom.listItem).hide();
 	}
 	else{
-		jQuery(this.dom.listItem).slideUp(this.list.effectTimeout);
-		jQuery(this.dom.listItem).fadeOut(this.list.effectTimeout);
+		Effect.BlindUp(this.dom.listItem, {duration: (this.list.effectTimeout / 1000)});
+		Effect.Fade(this.dom.listItem, {duration: (this.list.effectTimeout / 1000)});
 	}
 
 	setTimeout(this.close.bind(this), this.list.effectTimeout);
@@ -572,72 +565,5 @@ fixIE: function(){
 //*/
 		showPopupDiv('zbx_messages','zbx_messages_frame');
 	}
-}
-});
-
-
-// JavaScript Document
-// DOM Classes
-// Author: Aly
-
-var CNode = Class.create({
-node:		null,			// main node (ul)
-initialize: function(nodeName){
-	this.node = document.createElement(nodeName);
-	return this.node;
-},
-
-addItem: function(item){
-
-	if(is_object(item)) this.node.appendChild(item);
-	else if(is_string(item)) this.node.appendChild(documect.createTextNode(item));
-	else return true;
-},
-
-setClass: function(className){
-	className = className || '';
-
-	this.node.className = className;
-}
-});
-
-
-var CList = Class.create(CNode,{
-items:		new Array(),	// items list
-initialize: function($super, className){
-	className = className || '';
-
-	$super('ul');
-	this.setClass(this.classNames);
-
-	Object.extend(this.node, this);
-},
-
-addItem: function($super, item, className){
-	className = className || '';
-
-	if(!is_object(item, CListItem)){
-		item = new CListItem(item, className).node;
-	}
-
-	$super(item);
-	this.items.push(item);
-}
-});
-
-var CListItem = Class.create(CNode,{
-items:		new Array(),	// items list
-initialize: function($super, item, className){
-	className = className || '';
-	item = item || null;
-
-	$super('li');
-	this.setClass(className);
-	this.addItem(item);
-},
-
-addItem: function($super, item){
-	$super(item);
-	this.items.push(item);
 }
 });

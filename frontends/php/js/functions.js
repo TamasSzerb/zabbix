@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -633,24 +633,6 @@ function display_element(name){
 		elmnt.style.display = 'none';
 	}
 }
-
-function cloneRow(elementid, count){
-	if(typeof(cloneRow.count) == 'undefined'){
-		cloneRow.count = count;
-	}
-	cloneRow.count++;
-
-	var tpl = new Template($(elementid).cloneNode(true).wrap('div').innerHTML);
-
-	var emptyEntry = tpl.evaluate({'id' : cloneRow.count});
-
-	var newEntry = $(elementid).insert({'before' : emptyEntry}).previousSibling;
-
-	$(newEntry).descendants().each(function(e){e.removeAttribute('disabled');});
-	newEntry.setAttribute('id', 'entry_'+cloneRow.count);
-	newEntry.style.display = '';
-}
-
 
 //------------------------------------------------------
 //					DASHBOARD JS MENU

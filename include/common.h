@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -117,8 +117,8 @@
 #define OFF	0
 
 #define	APPLICATION_NAME	"Zabbix Agent"
-#define	ZABBIX_REVDATE		"28 March 2011"
-#define	ZABBIX_VERSION		"1.9.4"
+#define	ZABBIX_REVDATE		"1 April 2011"
+#define	ZABBIX_VERSION		"1.8.5rc1"
 #define	ZABBIX_REVISION		"{ZABBIX_REVISION}"
 
 #if defined(_WINDOWS)
@@ -149,7 +149,6 @@ extern char ZABBIX_EVENT_SOURCE[ZBX_SERVICE_NAME_LEN];
 #define	NETWORK_ERROR	(-3)
 #define	TIMEOUT_ERROR	(-4)
 #define	AGENT_ERROR	(-5)
-#define	PROXY_ERROR	(-6)
 const char	*zbx_result_string(int result);
 
 #define MAX_ID_LEN	21
@@ -157,13 +156,6 @@ const char	*zbx_result_string(int result);
 #define MAX_BUFFER_LEN	65536
 
 #define ZBX_DM_DELIMITER	'\255'
-
-typedef struct
-{
-	int	sec;	/* seconds */
-	int	ns;	/* nanoseconds */
-}
-zbx_timespec_t;
 
 /* Item types */
 typedef enum
@@ -183,26 +175,8 @@ typedef enum
 	ITEM_TYPE_IPMI,
 	ITEM_TYPE_SSH,
 	ITEM_TYPE_TELNET,
-	ITEM_TYPE_CALCULATED,
-	ITEM_TYPE_JMX
-}
-zbx_item_type_t;
-const char	*zbx_host_type_string(zbx_item_type_t item_type);
-
-typedef enum
-{
-	INTERFACE_TYPE_UNKNOWN = 0,
-	INTERFACE_TYPE_AGENT,
-	INTERFACE_TYPE_SNMP,
-	INTERFACE_TYPE_IPMI,
-	INTERFACE_TYPE_JMX
-}
-zbx_interface_type_t;
-const char	*zbx_interface_type_string(zbx_interface_type_t type);
-
-#define ZBX_FLAG_DISCOVERY		0x01	/* low-level discovery rule */
-#define ZBX_FLAG_DISCOVERY_CHILD	0x02	/* low-level discovery proto-item, proto-trigger or proto-graph */
-#define ZBX_FLAG_DISCOVERY_CREATED	0x04	/* auto-created item, trigger or graph */
+	ITEM_TYPE_CALCULATED
+} zbx_item_type_t;
 
 typedef enum
 {
@@ -254,10 +228,8 @@ typedef enum
 {
 	ITEM_DATA_TYPE_DECIMAL = 0,
 	ITEM_DATA_TYPE_OCTAL,
-	ITEM_DATA_TYPE_HEXADECIMAL,
-	ITEM_DATA_TYPE_BOOLEAN
+	ITEM_DATA_TYPE_HEXADECIMAL
 } zbx_item_data_type_t;
-const char	*zbx_item_data_type_string(zbx_item_data_type_t data_type);
 
 /* HTTP test states */
 typedef enum
@@ -548,24 +520,19 @@ typedef enum
 /* Trigger values */
 #define TRIGGER_VALUE_FALSE	0
 #define TRIGGER_VALUE_TRUE	1
-#define TRIGGER_VALUE_UNKNOWN	2 /* only in "events" table */
-
-/* Trigger value flags */
-#define TRIGGER_VALUE_FLAG_NORMAL	0
-#define TRIGGER_VALUE_FLAG_UNKNOWN	1
-
-/* Trigger value change flags */
-#define TRIGGER_VALUE_CHANGED_NO	0
-#define TRIGGER_VALUE_CHANGED_YES	1
+#define TRIGGER_VALUE_UNKNOWN	2
 
 /* Trigger severity */
-#define TRIGGER_SEVERITY_NOT_CLASSIFIED	0
-#define TRIGGER_SEVERITY_INFORMATION	1
-#define TRIGGER_SEVERITY_WARNING	2
-#define TRIGGER_SEVERITY_AVERAGE	3
-#define TRIGGER_SEVERITY_HIGH		4
-#define TRIGGER_SEVERITY_DISASTER	5
-#define TRIGGER_SEVERITY_COUNT		6	/* number of trigger severities */
+typedef enum
+{
+	TRIGGER_SEVERITY_NOT_CLASSIFIED = 0,
+	TRIGGER_SEVERITY_INFORMATION,
+	TRIGGER_SEVERITY_WARNING,
+	TRIGGER_SEVERITY_AVERAGE,
+	TRIGGER_SEVERITY_HIGH,
+	TRIGGER_SEVERITY_DISASTER
+} zbx_trigger_severity_t;
+const char	*zbx_trigger_severity_string(zbx_trigger_severity_t severity);
 
 typedef enum
 {
@@ -613,6 +580,14 @@ const char	*zbx_item_logtype_string(zbx_item_logtype_t logtype);
 #define	NODE_CONFIGLOG_OP_ADD		1
 #define	NODE_CONFIGLOG_OP_DELETE	2
 
+#define	ZBX_TYPE_INT	0
+#define	ZBX_TYPE_CHAR	1
+#define	ZBX_TYPE_FLOAT	2
+#define	ZBX_TYPE_BLOB	3
+#define	ZBX_TYPE_TEXT	4
+#define	ZBX_TYPE_UINT	5
+#define	ZBX_TYPE_ID	6
+
 /* HTTP item types */
 typedef enum
 {
@@ -641,15 +616,13 @@ typedef enum
 
 const char	*zbx_permission_string(int perm);
 
-#define	ZBX_NODE_MASTER	0
-#define	ZBX_NODE_SLAVE	1
-const char	*zbx_nodetype_string(unsigned char nodetype);
-
-#define ZBX_SCRIPT_TYPE_SCRIPT		0
-#define ZBX_SCRIPT_TYPE_IPMI		1
-
-#define ZBX_SCRIPT_EXECUTE_ON_AGENT	0
-#define ZBX_SCRIPT_EXECUTE_ON_SERVER	1
+/* Flags */
+#define	ZBX_SYNC		0x01
+#define ZBX_NOTNULL		0x02
+#define ZBX_HISTORY		0x04
+#define ZBX_HISTORY_SYNC	0x08
+#define ZBX_HISTORY_TRENDS	0x10
+#define ZBX_PROXY		0x20
 
 #define POLLER_DELAY		5
 #define DISCOVERER_DELAY	60
@@ -665,13 +638,11 @@ const char	*zbx_nodetype_string(unsigned char nodetype);
 #endif
 
 #define zbx_malloc(old, size)	zbx_malloc2(__FILE__, __LINE__, old, size)
-#define zbx_realloc(old, size)	zbx_realloc2(__FILE__, __LINE__, old, size)
+#define zbx_realloc(src, size)	zbx_realloc2(__FILE__, __LINE__, src, size)
 #define zbx_strdup(old, str)	zbx_strdup2(__FILE__, __LINE__, old, str)
 
-#define ZBX_STRDUP(var, str)	(var = zbx_strdup(var, str))
-
 void    *zbx_malloc2(const char *filename, int line, void *old, size_t size);
-void    *zbx_realloc2(const char *filename, int line, void *old, size_t size);
+void    *zbx_realloc2(const char *filename, int line, void *src, size_t size);
 char    *zbx_strdup2(const char *filename, int line, char *old, const char *str);
 
 #define zbx_free(ptr)		\
@@ -749,7 +720,6 @@ int	is_uint(const char *c);
 int	is_int_prefix(const char *c);
 int	is_uint64(const char *str, zbx_uint64_t *value);
 int	is_ushort(const char *str, unsigned short *value);
-int	is_boolean(const char *str, zbx_uint64_t *value);
 int	is_uoct(const char *str);
 int	is_uhex(const char *str);
 int	is_hex_string(const char *str);
@@ -773,8 +743,8 @@ const char	*get_string(const char *p, char *buf, size_t bufsize);
 int	get_key_param(char *param, int num, char *buf, int maxlen);
 int	num_key_param(char *param);
 char	*dyn_escape_param(const char *src);
-int	calculate_item_nextcheck(zbx_uint64_t interfaceid, zbx_uint64_t itemid, int item_type,
-		int delay, const char *flex_intervals, time_t now, int *effective_delay);
+int	calculate_item_nextcheck(zbx_uint64_t itemid, int item_type, int delay,
+		const char *delay_flex, time_t now, int *effective_delay);
 time_t	calculate_proxy_nextcheck(zbx_uint64_t hostid, unsigned int delay, time_t now);
 int	check_time_period(const char *period, time_t now);
 char	zbx_num2hex(u_char c);
@@ -808,7 +778,6 @@ void	__zbx_zbx_setproctitle(const char *fmt, ...);
 #define SEC_PER_YEAR		(365 * SEC_PER_DAY)
 #define ZBX_JAN_1970_IN_SEC	2208988800.0        /* 1970 - 1900 in seconds */
 double	zbx_time();
-void	zbx_timespec(zbx_timespec_t *ts);
 double	zbx_current_time();
 
 #ifdef HAVE___VA_ARGS__
@@ -869,18 +838,18 @@ int	comms_parse_response(char *xml, char *host, int host_len, char *key, int key
 
 int 	parse_command(const char *command, char *cmd, int cmd_max_len, char *param, int param_max_len);
 
-typedef struct
+typedef struct zbx_regexp_s
 {
 	char			*name;
 	char			*expression;
 	int			expression_type;
 	char			exp_delimiter;
 	zbx_case_sensitive_t	case_sensitive;
-}
-ZBX_REGEXP;
+} ZBX_REGEXP;
 
 /* Regular expressions */
 char    *zbx_regexp_match(const char *string, const char *pattern, int *len);
+/* Non case sensitive */
 char    *zbx_iregexp_match(const char *string, const char *pattern, int *len);
 
 void	clean_regexps_ex(ZBX_REGEXP *regexps, int *regexps_num);
@@ -921,7 +890,6 @@ int	uint64_array_add(zbx_uint64_t **values, int *alloc, int *num, zbx_uint64_t v
 void	uint64_array_merge(zbx_uint64_t **values, int *alloc, int *num, zbx_uint64_t *value, int value_num, int alloc_step);
 int	uint64_array_exists(zbx_uint64_t *values, int num, zbx_uint64_t value);
 void	uint64_array_remove(zbx_uint64_t *values, int *num, zbx_uint64_t *rm_values, int rm_num);
-void	uint64_array_remove_both(zbx_uint64_t *values, int *num, zbx_uint64_t *rm_values, int *rm_num);
 
 #ifdef _WINDOWS
 LPTSTR	zbx_acp_to_unicode(LPCSTR acp_string);
@@ -931,7 +899,6 @@ LPSTR	zbx_unicode_to_utf8(LPCTSTR wide_string);
 int	zbx_unicode_to_utf8_static(LPCTSTR wide_string, LPSTR utf8_string, int utf8_size);
 int	_wis_uint(LPCTSTR wide_string);
 #endif
-void	zbx_strlower(char *str);
 void	zbx_strupper(char *str);
 #if defined(_WINDOWS) || defined(HAVE_ICONV)
 char	*convert_to_utf8(char *in, size_t in_size, const char *encoding);
@@ -942,7 +909,7 @@ int	zbx_strlen_utf8(const char *text);
 char	*zbx_replace_utf8(const char *text);
 void	zbx_replace_invalid_utf8(char *text);
 
-void	dos2unix(char *str);
+void	win2unix_eol(char *text);
 int	str2uint(const char *str);
 int	str2uint64(char *str, zbx_uint64_t *value);
 double	str2double(const char *str);
@@ -971,8 +938,6 @@ int	parse_function(char **exp, char **func, char **params);
 int	parse_host_key(char *exp, char **host, char **key);
 
 void	make_hostname(char *host);
-
-unsigned char	get_interface_type_by_item_type(unsigned char type);
 
 int	calculate_sleeptime(int nextcheck, int max_sleeptime);
 

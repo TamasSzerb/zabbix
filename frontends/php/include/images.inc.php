@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -57,10 +57,10 @@
 		global $DB;
 
 		$result = ($image)?$image:0;
-		if($DB['TYPE'] == ZBX_DB_POSTGRESQL){
+		if($DB['TYPE'] == "POSTGRESQL"){
 			$result = pg_unescape_bytea($image);
 		}
-		else if($DB['TYPE'] == ZBX_DB_SQLITE3){
+		else if($DB['TYPE'] == "SQLITE3"){
 			$result = pack('H*', $image);
 		}
 

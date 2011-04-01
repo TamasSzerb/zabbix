@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -156,7 +156,6 @@ hideObj: function(data) {
 
 	this.disableObj($(data.id), true);
 	$(data.id).style.display = 'none';
-
 },
 
 showObj: function(data){

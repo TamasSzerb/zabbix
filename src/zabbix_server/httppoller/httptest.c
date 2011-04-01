@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -60,7 +60,6 @@ static int	process_value(zbx_uint64_t itemid, AGENT_RESULT *value)
 	DB_RESULT	result;
 	DB_ROW		row;
 	int		ret;
-	zbx_timespec_t	ts;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() itemid:" ZBX_FS_UI64, __function_name, itemid);
 
@@ -83,8 +82,7 @@ static int	process_value(zbx_uint64_t itemid, AGENT_RESULT *value)
 
 	if (NULL != (row = DBfetch(result)))
 	{
-		zbx_timespec(&ts);
-		dc_add_history(itemid, (unsigned char)atoi(row[0]), 0, value, &ts, 0, NULL, 0, 0, 0, 0);
+		dc_add_history(itemid, (unsigned char)atoi(row[0]), value, time(NULL), 0, NULL, 0, 0, 0, 0);
 		ret = SUCCEED;
 	}
 	else
@@ -144,6 +142,7 @@ static void	process_test_data(zbx_uint64_t httptestid, ZBX_HTTPSTAT *stat)
 
 		free_result(&value);
 	}
+
 	DBfree_result(result);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
@@ -196,6 +195,7 @@ static void	process_step_data(zbx_uint64_t httpstepid, ZBX_HTTPSTAT *stat)
 
 		free_result(&value);
 	}
+
 	DBfree_result(result);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
@@ -453,6 +453,7 @@ clean:
 		else
 			THIS_SHOULD_NEVER_HAPPEN;
 	}
+
 	DBfree_result(result);
 
 	err_str_esc = DBdyn_escape_string_len(err_str, HTTPTEST_ERROR_LEN);
@@ -545,6 +546,7 @@ void	process_httptests(int httppoller_num, int now)
 
 		process_httptest(&httptest);
 	}
+
 	DBfree_result(result);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);

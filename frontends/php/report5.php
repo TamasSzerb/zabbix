@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -80,7 +80,7 @@ include_once('include/page_header.php');
 
 	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY);
 	$available_triggers = get_accessible_triggers(PERM_READ_ONLY, array());
-	$scripts_by_hosts = API::Script()->getScriptsByHosts($available_hosts);
+	$scripts_by_hosts = CScript::getScriptsByHosts($available_hosts);
 
 	$triggers = array();
 	$triggerids = array();
@@ -93,7 +93,6 @@ include_once('include/page_header.php');
 				' and t.triggerid=e.objectid '.
 				' and e.object='.EVENT_OBJECT_TRIGGER.
 				' and e.clock>'.(time()-$time_dif).
-				' and e.value_changed='.TRIGGER_VALUE_CHANGED_YES.
 				' and '.DBcondition('t.triggerid',$available_triggers).
 				' and '.DBin_node('t.triggerid').
 			' GROUP BY h.host,t.triggerid,t.description,t.expression,t.priority '.
@@ -154,7 +153,7 @@ include_once('include/page_header.php');
 			get_node_name_by_elid($row['triggerid']),
 			$host,
 			$tr_desc,
-			getSeverityCell($row['priority']),
+			new CCol(get_severity_description($row['priority']),get_severity_style($row['priority'])),
 			$row['cnt_event'],
 		));
 	}

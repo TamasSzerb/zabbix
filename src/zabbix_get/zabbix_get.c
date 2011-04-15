@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -33,7 +33,7 @@ const char	usage_message[] = "[-hV] -s <host name or IP> [-p <port>] [-I <IP add
 const char	*help_message[] = {
         "Options:",
 	"  -s --host <host name or IP>          Specify host name or IP address of a host.",
-	"  -p --port <port number>              Specify port number of agent running on the host. Default is " ZBX_DEFAULT_AGENT_PORT_STR ".",
+	"  -p --port <port number>              Specify port number of agent running on the host. Default is 10050.",
 	"  -I --source-address <IP address>     Specify source IP address",
 	"",
 	"  -k --key <key of metric>             Specify item key to retrieve.",
@@ -41,14 +41,14 @@ const char	*help_message[] = {
 	"  -h --help                            Give this help",
 	"  -V --version                         Display version number",
 	"",
-	"Example: zabbix_get -s 127.0.0.1 -p " ZBX_DEFAULT_AGENT_PORT_STR " -k \"system.cpu.load[all,avg1]\"",
+	"Example: zabbix_get -s 127.0.0.1 -p 10050 -k \"system.cpu.load[all,avg1]\"",
         0 /* end of text */
 };
 #else
 const char	*help_message[] = {
         "Options:",
 	"  -s <host name or IP>         Specify host name or IP address of a host.",
-	"  -p <port number>             Specify port number of agent running on the host. Default is " ZBX_DEFAULT_AGENT_PORT_STR ".",
+	"  -p <port number>             Specify port number of agent running on the host. Default is 10050.",
 	"  -I <IP address>              Specify source IP address",
 	"",
 	"  -k <key of metric>           Specify item key to retrieve.",
@@ -56,7 +56,7 @@ const char	*help_message[] = {
 	"  -h                           Give this help",
 	"  -V                           Display version number",
 	"",
-	"Example: zabbix_get -s 127.0.0.1 -p " ZBX_DEFAULT_AGENT_PORT_STR " -k \"system.cpu.load[all,avg1]\"",
+	"Example: zabbix_get -s 127.0.0.1 -p 10050 -k \"system.cpu.load[all,avg1]\"",
         0 /* end of text */
 };
 #endif
@@ -175,7 +175,7 @@ static int	get_value(const char *source_ip, const char *host, unsigned short por
  ******************************************************************************/
 int main(int argc, char **argv)
 {
-	unsigned short	port	= ZBX_DEFAULT_AGENT_PORT;
+	unsigned short	port	= 10050;
 	int	ret	= SUCCEED;
 	char	*value	= NULL;
 	char	*host	= NULL;

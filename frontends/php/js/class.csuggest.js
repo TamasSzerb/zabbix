@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2010-2011 Zabbix SIA
+** Copyright (C) 2010 Artem "Aly" Suharev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -58,7 +58,7 @@ var CSuggest = Class.create(CDebug,{
 	'sugtab':		null	// DOM node suggests table
 },
 
-'hlIndex':			0,		// indicates what row should be highlighted
+'hlIndex':			0,		// indicates what row should be highlilghted
 'suggestCount':		0,		// suggests shown
 
 'mouseOverSuggest':	false,	// indicates if mouse is over suggests
@@ -118,9 +118,9 @@ searchServer: function(needle){
 		'method': 'host.get',
 		'params': {
 			'startSearch': 1,
-			'search': {'name': needle},
-			'output': ['hostid', 'name', 'host'],
-			'sortfield': 'name',
+			'search': {'host': needle},
+			'output': ['hostid', 'host'],
+			'sortfield': 'host',
 			'limit': this.suggestLimit
 		},
 		'onSuccess': this.serverRespond.bind(this, needle),
@@ -143,7 +143,7 @@ serverRespond: function(needle, respond){
 
 	for(var i=0; i < respond.length; i++){
 		if(!isset(i, respond) || empty(respond[i])) continue;
-		params.list[i] = respond[i].name.toLowerCase();
+		params.list[i] = respond[i].host.toLowerCase();
 	}
 	this.needles[params.needle].list = params.list;
 

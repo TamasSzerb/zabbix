@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,12 +17,6 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 // javascript document
-
-// jQuery no conflict
-if(typeof(jQuery) != 'undefined'){
-	jQuery.noConflict();
-}
-
 var agt = navigator.userAgent.toLowerCase();
 var OP = (agt.indexOf("opera") != -1) && window.opera;
 var IE = (agt.indexOf("msie") != -1) && document.all && !OP;
@@ -54,7 +48,6 @@ return 0;
 }
 
 function isset(key, obj){
-	if(is_null(key) || is_null(obj)) return false;
 	return (typeof(obj[key]) != 'undefined');
 }
 
@@ -96,11 +89,6 @@ function is_array(obj) {
 }
 
 function SDI(msg){
-	if(GK || WK){
-		console.log(msg);
-		return true;
-	}
-
 	var div_help = document.getElementById('div_help');
 
 	if((typeof(div_help) == 'undefined') || empty(div_help)){
@@ -113,7 +101,7 @@ function SDI(msg){
 		div_help.setAttribute('id','div_help');
 		div_help.setAttribute('style','position: absolute; left: 10px; top: 100px; border: 1px red solid; width: 400px; height: 400px; background-color: white; font-size: 12px; overflow: auto; z-index: 20;');
 
-		//jQuery(div_help).draggable();
+		//new Draggable(div_help,{});
 	}
 
 	var pre = document.createElement('pre');
@@ -131,14 +119,12 @@ function SDI(msg){
 }
 
 function SDJ(obj, name){
-	if(GK || WK){
-		console.dir(obj);
-		return true;
-	}
-
 	var debug = '';
+//	debug = obj.toSource();
+//	SDI(debug);
+//return null;
 
-	var name = name || 'none';
+	name = name || 'none';
 	for(var key in obj){
 		if(typeof(obj[key]) == name) continue;
 
@@ -293,7 +279,7 @@ function create_var(form_name, var_name, var_val, subm){
 		frmForm.appendChild(objVar);
 
 		objVar.setAttribute('name',	var_name);
-		objVar.setAttribute('id',	var_name.replace("]","").replace("[","_"));
+		objVar.setAttribute('id',	var_name);
 	}
 
 	if(is_null(var_val)){

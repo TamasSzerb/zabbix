@@ -75,7 +75,7 @@ private $allowed;
 		if(zbx_empty($host))
 			throw new Exception('Empty host name provided in expression.');
 
-		if(!preg_match('/^'.ZBX_PREG_HOST_FORMAT.'$/', $host))
+		if(!preg_match('/^'.ZBX_PREG_HOST_FORMAT.'$/i', $host))
 			throw new Exception('Incorrect host name "'.$host.'" provided in expression.');
 	}
 
@@ -83,9 +83,9 @@ private $allowed;
 		if(zbx_empty($item))
 			throw new Exception('Empty item key "'.$item.'" is used in expression.');
 
-		$itemKey = new cItemKey($item);
-		if(!$itemKey->isValid())
-			throw new Exception('Incorrect item key "'.$item.'" is used in expression. '.$itemKey->getError());
+		$itemCheck = check_item_key($item);
+		if(!$itemCheck['valid'])
+			throw new Exception('Incorrect item key "'.$item.'" is used in expression. '.$itemCheck['description']);
 	}
 
 	public function checkFunction($expression){

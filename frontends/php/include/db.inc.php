@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -30,30 +30,14 @@ if(!isset($DB)){
 	if(isset($DB_PASSWORD))	$DB['PASSWORD'] = $DB_PASSWORD;
 }
 
-
-/**
- * Creates global database connection
- *
- * @param string $error returns a message in case of an error
- * @return bool
- */
 	function DBconnect(&$error){
-		global $DB;
-
-		if(isset($DB['DB']))
-		{
-			$error=_('Cannot create another database connection.');
-			return false;
-		}
-
 		$result = true;
 
-// Global DB handler
+		global $DB;
+
 		$DB['DB'] = null;
-// Level of a nested transation
 		$DB['TRANSACTIONS'] = 0;
-// True - if no statements failed in transaction, False - there are failed statements
-		$DB['TRANSACTION_NO_FAILED_SQLS'] = true;
+
 //Stats
 		$DB['SELECT_COUNT'] = 0;
 		$DB['EXECUTE_COUNT'] = 0;
@@ -68,7 +52,7 @@ if(!isset($DB)){
 			$DB['TYPE'] = zbx_strtoupper($DB['TYPE']);
 
 			switch($DB['TYPE']){
-				case ZBX_DB_MYSQL:
+				case 'MYSQL':
 					$mysql_server = $DB['SERVER'].( !empty($DB['PORT']) ? ':'.$DB['PORT'] : '');
 
 					if (!$DB['DB']= mysql_connect($mysql_server,$DB['USER'],$DB['PASSWORD'])){
@@ -85,8 +69,8 @@ if(!isset($DB)){
 							DBexecute('SET CHARACTER SET utf8');
 						}
 					}
-				break;
-				case ZBX_DB_POSTGRESQL:
+					break;
+				case 'POSTGRESQL':
 					$pg_connection_string =
 						( !empty($DB['SERVER']) ? 'host=\''.$DB['SERVER'].'\' ' : '').
 						'dbname=\''.$DB['DATABASE'].'\' '.
@@ -99,8 +83,8 @@ if(!isset($DB)){
 						$error = 'Error connecting to database';
 						$result = false;
 					}
-				break;
-				case ZBX_DB_ORACLE:
+					break;
+				case 'ORACLE':
 					$connect = '';
 					if (!empty($DB['SERVER'])){
 						$connect = '//'.$DB['SERVER'];
@@ -118,8 +102,8 @@ if(!isset($DB)){
 						$error = 'Error connecting to database';
 						$result = false;
 					}
-				break;
-				case ZBX_DB_DB2:
+					break;
+				case 'IBM_DB2':
 					$connect = '';
 					$connect .= 'DATABASE='.$DB['DATABASE'].';';
 					$connect .= 'HOSTNAME='.$DB['SERVER'].';';
@@ -143,13 +127,54 @@ if(!isset($DB)){
 						}
 					}
 
-				break;
-				case ZBX_DB_SQLITE3:
-					if(file_exists($DB['DATABASE'])){
-						try{
-							$DB['DB']= new SQLite3($DB['DATABASE'],SQLITE3_OPEN_READWRITE);
+					break;
+				case 'SQLITE3':
+					$DB['TRANSACTIONS'] = 0;
+					if(!function_exists('init_db_access')){
+						function init_db_access(){
+							global $DB, $ZBX_SEM_ID;
+
+							$ZBX_SEM_ID = false;
+							if(function_exists('ftok') && function_exists('sem_get') && file_exists($DB['DATABASE'])){
+								$ZBX_SEM_ID = sem_get(ftok($DB['DATABASE'], 'z'), 1);
+							}
 						}
-						catch(Exception $e){
+					}
+
+					if(!function_exists('lock_db_access')){
+						function lock_db_access(){
+							global $ZBX_SEM_ID;
+
+							if($ZBX_SEM_ID && function_exists('sem_acquire')){
+								sem_acquire($ZBX_SEM_ID);
+							}
+						}
+					}
+
+					if(!function_exists('unlock_db_access')){
+						function unlock_db_access(){
+							global $ZBX_SEM_ID;
+
+							if($ZBX_SEM_ID && function_exists('sem_release'))
+								sem_release($ZBX_SEM_ID);
+						}
+					}
+
+					if(!function_exists('free_db_access')){
+						function free_db_access(){
+							global $ZBX_SEM_ID;
+
+							if($ZBX_SEM_ID && function_exists('sem_remove'))
+								sem_remove($ZBX_SEM_ID);
+
+							$ZBX_SEM_ID = false;
+						}
+					}
+
+
+					if(file_exists($DB['DATABASE'])){
+						$DB['DB']= sqlite3_open($DB['DATABASE']);
+						if(!$DB['DB']){
 							$error = 'Error connecting to database';
 							$result = false;
 						}
@@ -159,10 +184,8 @@ if(!isset($DB)){
 						$result = false;
 					}
 
-					if($result){
-						$result = init_sqlite3_access();
-					}
-				break;
+					init_db_access();
+					break;
 				default:
 					$error = 'Unsupported database';
 					$result = false;
@@ -180,31 +203,44 @@ if(!isset($DB)){
 
 		if( isset($DB['DB']) && !empty($DB['DB']) ){
 			switch($DB['TYPE']){
-				case ZBX_DB_MYSQL:
+				case 'MYSQL':
 					$result = mysql_close($DB['DB']);
 					break;
-				case ZBX_DB_POSTGRESQL:
+				case 'POSTGRESQL':
 					$result = pg_close($DB['DB']);
 					break;
-				case ZBX_DB_ORACLE:
+				case 'ORACLE':
 					$result = ocilogoff($DB['DB']);
 					break;
-				case ZBX_DB_DB2:
+				case 'IBM_DB2':
 					$result = db2_close($DB['DB']);
 					break;
-				case ZBX_DB_SQLITE3:
-					$DB['DB']->close();
+				case 'SQLITE3':
 					$result = true;
+					sqlite3_close($DB['DB']);
+					free_db_access();
 					break;
+				default:		break;
 			}
 		}
 
-		unset($DB['DB']);
+		unset(
+			$GLOBALS['DB'],
+			$GLOBALS['DB_TYPE'],
+			$GLOBALS['DB_SERVER'],
+			$GLOBALS['DB_PORT'],
+			$GLOBALS['DB_DATABASE'],
+			$GLOBALS['DB_USER'],
+			$GLOBALS['DB_PASSWORD'],
+			$GLOBALS['SQLITE_TRANSACTION']
+			);
 
 		return $result;
 	}
 
 	function DBloadfile($file, &$error){
+		global $DB;
+
 		if(!file_exists($file)){
 			$error = 'DBloadfile. Missing file['.$file.']';
 			return false;
@@ -237,29 +273,30 @@ if(!isset($DB)){
 
 		if($DB['TRANSACTIONS']>1){
 			info('POSSIBLE ERROR: Used incorrect logic in database processing, started subtransaction!');
-			return false;
+		return $DB['TRANSACTION_STATE'];
 		}
 
-		$DB['TRANSACTION_NO_FAILED_SQLS'] = true;
+		$DB['TRANSACTION_STATE'] = true;
 
 		$result = false;
 		if(isset($DB['DB']) && !empty($DB['DB']))
 		switch($DB['TYPE']){
-			case ZBX_DB_MYSQL:
+			case 'MYSQL':
 				$result = DBexecute('begin');
 				break;
-			case ZBX_DB_POSTGRESQL:
+			case 'POSTGRESQL':
 				$result = DBexecute('begin');
 				break;
-			case ZBX_DB_ORACLE:
+			case 'ORACLE':
 				$result = true;
 // TODO			OCI_DEFAULT
 				break;
-			case ZBX_DB_DB2:
+			case 'IBM_DB2':
 				$result = db2_autocommit($DB['DB'], DB2_AUTOCOMMIT_OFF);
 				break;
-			case ZBX_DB_SQLITE3:
-				if(lock_sqlite3_access()){
+			case 'SQLITE3':
+				if(1 == $DB['TRANSACTIONS']){
+					lock_db_access();
 					$result = DBexecute('begin');
 				}
 				break;
@@ -268,43 +305,37 @@ if(!isset($DB)){
 	}
 
 
-/**
- * Closes transaction
- *
- * @param string $doCommit True - do commit, rollback otherwise. Rollback is also always performed if a sql failed within this transaction.
- * @return bool True - successful commit, False - otherwise
- */
-	function DBend($doCommit=true){
+	function DBend($result=true){
 		global $DB;
-
+//SDI('DBend(): '.$DB['TRANSACTIONS']);
 		if($DB['TRANSACTIONS'] != 1){
 			$DB['TRANSACTIONS']--;
 
 			if($DB['TRANSACTIONS'] < 1){
 				$DB['TRANSACTIONS'] = 0;
-				$DB['TRANSACTION_NO_FAILED_SQLS'] = false;
+				$DB['TRANSACTION_STATE'] = false;
 				info('POSSIBLE ERROR: Used incorrect logic in database processing, transaction not started!');
 			}
 
-			$DB['TRANSACTION_NO_FAILED_SQLS'] = $doCommit && $DB['TRANSACTION_NO_FAILED_SQLS'];
+			$DB['TRANSACTION_STATE'] = $result && $DB['TRANSACTION_STATE'];
 
-			$result =  $DB['TRANSACTION_NO_FAILED_SQLS'];
+		return $DB['TRANSACTION_STATE'];
 		}
-		else{
-			$DBresult = $doCommit && $DB['TRANSACTION_NO_FAILED_SQLS'];
 
-			$DB['TRANSACTIONS'] = 0;
+		$DB['TRANSACTIONS'] = 0;
+		$DBresult = $result && $DB['TRANSACTION_STATE'];
 
-			if($DBresult){ // OK
-				$DBresult = DBcommit();
-			}
+//SDI('Result: '.$result);
 
-			if(!$DBresult){ // FAIL
-				DBrollback();
-			}
-
-			$result = (!is_null($doCommit) && $DBresult)?$doCommit:$DBresult;
+		if($DBresult){ // OK
+			$DBresult = DBcommit();
 		}
+
+		if(!$DBresult){ // FAIL
+			DBrollback();
+		}
+
+		$result = (!is_null($result) && $DBresult)?$result:$DBresult;
 
 	return $result;
 	}
@@ -315,23 +346,22 @@ if(!isset($DB)){
 		$result = false;
 		if( isset($DB['DB']) && !empty($DB['DB']) )
 		switch($DB['TYPE']){
-			case ZBX_DB_MYSQL:
+			case 'MYSQL':
 				$result = DBexecute('commit');
 				break;
-			case ZBX_DB_POSTGRESQL:
+			case 'POSTGRESQL':
 				$result = DBexecute('commit');
 				break;
-			case ZBX_DB_ORACLE:
+			case 'ORACLE':
 				$result = ocicommit($DB['DB']);
 				break;
-			case ZBX_DB_DB2:
+			case 'IBM_DB2':
 				$result = db2_commit($DB['DB']);
 				if($result) db2_autocommit($DB['DB'], DB2_AUTOCOMMIT_ON);
 				break;
-			case ZBX_DB_SQLITE3:
-				if(unlock_sqlite3_access()){
-					$result = DBexecute('commit');
-				}
+			case 'SQLITE3':
+				$result = DBexecute('commit');
+				unlock_db_access();
 				break;
 		}
 
@@ -344,23 +374,22 @@ if(!isset($DB)){
 		$result = false;
 		if( isset($DB['DB']) && !empty($DB['DB']) )
 		switch($DB['TYPE']){
-			case ZBX_DB_MYSQL:
+			case 'MYSQL':
 				$result = DBexecute('rollback');
 				break;
-			case ZBX_DB_POSTGRESQL:
+			case 'POSTGRESQL':
 				$result = DBexecute('rollback');
 				break;
-			case ZBX_DB_ORACLE:
+			case 'ORACLE':
 				$result = ocirollback($DB['DB']);
 				break;
-			case ZBX_DB_DB2:
+			case 'IBM_DB2':
 				$result = db2_rollback($DB['DB']);
 				db2_autocommit($DB['DB'], DB2_AUTOCOMMIT_ON);
 				break;
-			case ZBX_DB_SQLITE3:
-				if(unlock_sqlite3_access()){
-					$result = DBexecute('rollback');
-				}
+			case 'SQLITE3':
+				$result = DBexecute('rollback');
+				unlock_db_access();
 				break;
 		}
 
@@ -381,69 +410,43 @@ if(!isset($DB)){
 		SELECT a FROM tbe WHERE ROWNUM < 15 // ONLY < 15
 		SELECT * FROM (SELECT ROWNUM as RN, * FROM tbl) WHERE RN BETWEEN 6 AND 15
 //*/
-/**
- * Select data from DB. Use function DBexecute for non-selects.
- *
- * Example:
- * DBselect('select * from users')
- * DBselect('select * from users',50,200)
- *
- * @param string $query
- * @param integer $limit max number of record to return
- * @param integer $offset return starting from $offset record
- * @return resource or object, False if failed
- */
-	function &DBselect($query, $limit=null, $offset=0){
-		global $DB;
-		$result = false;
 
-		if(
-			(isset($limit) && ($limit<0 || !zbx_ctype_digit($limit))) ||
-			$offset<0 ||
-			!zbx_ctype_digit($offset))
-		{
-			$moreDetails=isset($limit)?" Limit [$limit] Offset [$offset]":" Offset [$offset]";
-			error("Incorrect parameters for limit and/or offset. Query [$query]".$moreDetails);
-			return $result;
-		}
+	function &DBselect($query, $limit='NO', $offset=0){
+		global $DB;
 
 		$time_start=microtime(true);
+		$result = false;
 
 		if( isset($DB['DB']) && !empty($DB['DB']) ){
 			$DB['SELECT_COUNT']++;
 //SDI('SQL['.$DB['SELECT_COUNT'].']: '.$query);
-			// Process limit and offset
 			switch($DB['TYPE']){
-				case ZBX_DB_MYSQL:
-				case ZBX_DB_POSTGRESQL:
-				case ZBX_DB_SQLITE3:
-					if(isset($limit)){
+				case 'MYSQL':
+					if(zbx_ctype_digit($limit)){
 						$query .= ' LIMIT '.intval($limit).' OFFSET '.intval($offset);
 					}
-				break;
-				case ZBX_DB_ORACLE:
-				case ZBX_DB_DB2:
-					if(isset($limit)){
-						$till = $offset + $limit;
-						$query = 'SELECT * FROM ('.$query.') WHERE rownum BETWEEN '.intval($offset).' AND '.intval($till);
-					}
-				break;
-			}
 
-			switch($DB['TYPE']){
-				case ZBX_DB_MYSQL:
 					$result = mysql_query($query,$DB['DB']);
 					if(!$result){
 						error('Error in query ['.$query.'] ['.mysql_error().']');
 					}
 					break;
-				case ZBX_DB_POSTGRESQL:
+				case 'POSTGRESQL':
+					if(zbx_ctype_digit($limit)){
+						$query .= ' LIMIT '.intval($limit).' OFFSET '.intval($offset);
+					}
+
 					$result = pg_query($DB['DB'],$query);
 					if(!$result){
 						error('Error in query ['.$query.'] ['.pg_last_error().']');
 					}
 					break;
-				case ZBX_DB_ORACLE:
+				case 'ORACLE':
+					if(zbx_ctype_digit($limit)){
+						$till = $offset + $limit;
+						$query = 'SELECT * FROM ('.$query.') WHERE rownum BETWEEN '.intval($offset).' AND '.intval($till);
+					}
+
 					$result=OCIParse($DB['DB'],$query);
 					if(!$result){
 						$e=@ocierror();
@@ -454,7 +457,12 @@ if(!isset($DB)){
 						error('SQL error ['.$e['message'].'] in ['.$e['sqltext'].']');
 					}
 				break;
-				case ZBX_DB_DB2:
+				case 'IBM_DB2':
+					if(zbx_ctype_digit($limit)){
+						$till = $offset + $limit;
+						$query = 'SELECT * FROM ('.$query.') WHERE rownum BETWEEN '.intval($offset).' AND '.intval($till);
+					}
+
 					$options = array();
 					if($DB['TRANSACTIONS']) $options['autocommit'] = DB2_AUTOCOMMIT_OFF;
 
@@ -468,30 +476,43 @@ if(!isset($DB)){
 						$result = false;
 					}
 				break;
-				case ZBX_DB_SQLITE3:
-					$lock=true;
-					if(0 == $DB['TRANSACTIONS']){
-						$lock = lock_sqlite3_access();
+				case 'SQLITE3':
+					if(!$DB['TRANSACTIONS']){
+						lock_db_access();
 					}
 
-					if($lock && (!$result = $DB['DB']->query($query))){
-						error('Error in query ['.$query.'] Error code ['.$DB['DB']->lastErrorCode().'] Message ['.$DB['DB']->lastErrorMsg().']');
+					if(zbx_ctype_digit($limit)){
+						$query .= ' LIMIT '.intval($limit).' OFFSET '.intval($offset);
 					}
 
-					if($lock && (0 == $DB['TRANSACTIONS'])){
-						$lock = unlock_sqlite3_access();
+					if(!$result = sqlite3_query($DB['DB'],$query)){
+						error('Error in query ['.$query.'] ['.sqlite3_error($DB['DB']).']');
 					}
+					else{
+						$data = array();
 
-					if(!$lock){
-						$result = false;
+						while($row = sqlite3_fetch_array($result)){
+							foreach($row as $id => $name){
+								if(!zbx_strstr($id,'.')) continue;
+								$ids = explode('.',$id);
+								$row[array_pop($ids)] = $row[$id];
+								unset($row[$id]);
+							}
+							$data[] = $row;
+						}
+
+						sqlite3_query_close($result);
+
+						$result = &$data;
+					}
+					if(!$DB['TRANSACTIONS']){
+						unlock_db_access();
 					}
 				break;
 			}
-//SDI($result);
 
-			// $result is false only if an error occured
-			if($DB['TRANSACTION_NO_FAILED_SQLS'] && !$result){
-				$DB['TRANSACTION_NO_FAILED_SQLS'] = false;
+			if($DB['TRANSACTIONS'] && !$result){
+				$DB['TRANSACTION_STATE'] &= $result;
 			}
 		}
 COpt::savesqlrequest(microtime(true)-$time_start,$query);
@@ -509,19 +530,19 @@ COpt::savesqlrequest(microtime(true)-$time_start,$query);
 //SDI('SQL xec: '.$query);
 
 			switch($DB['TYPE']){
-				case ZBX_DB_MYSQL:
+				case 'MYSQL':
 					$result = mysql_query($query,$DB['DB']);
 					if(!$result){
 						error('Error in query ['.$query.'] ['.mysql_error().']');
 					}
 				break;
-				case ZBX_DB_POSTGRESQL:
+				case 'POSTGRESQL':
 					$result = (bool) pg_query($DB['DB'],$query);
 					if(!$result){
 						error('Error in query ['.$query.'] ['.pg_last_error().']');
 					}
 				break;
-				case ZBX_DB_ORACLE:
+				case 'ORACLE':
 					$result=OCIParse($DB['DB'],$query);
 					if(!$result){
 						$e=@ocierror();
@@ -536,7 +557,8 @@ COpt::savesqlrequest(microtime(true)-$time_start,$query);
 						$result = true;
 					}
 				break;
-				case ZBX_DB_DB2:
+				case 'IBM_DB2':
+					$options = array();
 					if(!$result = db2_prepare($DB['DB'], $query)){
 						$e = @db2_stmt_errormsg($result);
 						error('SQL error ['.$query.'] in ['.$e.']');
@@ -550,27 +572,24 @@ COpt::savesqlrequest(microtime(true)-$time_start,$query);
 						$result = true;
 					}
 				break;
-				case ZBX_DB_SQLITE3:
-					$lock = true;
-					if(0 == $DB['TRANSACTIONS']){
-						$lock = lock_sqlite3_access();
+				case 'SQLITE3':
+					if(!$DB['TRANSACTIONS']){
+						lock_db_access();
 					}
 
-					if($lock && (!$result = $DB['DB']->exec($query))) {
-						error('Error in query ['.$query.'] Error code ['.$DB['DB']->lastErrorCode().'] Message ['.$DB['DB']->lastErrorMsg().']');
+					$result = sqlite3_exec($DB['DB'], $query);
+					if(!$result){
+						error('Error in query ['.$query.'] ['.sqlite3_error($DB['DB']).']');
 					}
 
-					if($lock && (0 == $DB['TRANSACTIONS'])){
-						$lock = unlock_sqlite3_access();
-					}
-
-					if(!$lock) {
-						$result = false;
+					if(!$DB['TRANSACTIONS']){
+						unlock_db_access();
 					}
 					break;
 			}
+
 			if($DB['TRANSACTIONS'] && !$result){
-				$DB['TRANSACTION_NO_FAILED_SQLS']  = false;
+				$DB['TRANSACTION_STATE'] &= $result;
 			}
 		}
 COpt::savesqlrequest(microtime(true)-$time_start,$query);
@@ -584,19 +603,19 @@ COpt::savesqlrequest(microtime(true)-$time_start,$query);
 
 		if(isset($DB['DB']) && !empty($DB['DB']))
 		switch($DB['TYPE']){
-			case ZBX_DB_MYSQL:
+			case 'MYSQL':
 				$result = mysql_fetch_assoc($cursor);
 				if(!$result){
 					mysql_free_result($cursor);
 				}
 				break;
-			case ZBX_DB_POSTGRESQL:
+			case 'POSTGRESQL':
 				$result = pg_fetch_assoc($cursor);
 				if(!$result){
 					pg_free_result($cursor);
 				}
 				break;
-			case ZBX_DB_ORACLE:
+			case 'ORACLE':
 				if(ocifetchinto($cursor, $row, (OCI_ASSOC+OCI_RETURN_NULLS))){
 					$result = array();
 					foreach($row as $key => $value){
@@ -611,33 +630,33 @@ COpt::savesqlrequest(microtime(true)-$time_start,$query);
 					}
 				}
 				break;
-			case ZBX_DB_DB2:
+			case 'IBM_DB2':
 				$result = db2_fetch_assoc($cursor);
 				if(!$result){
 					db2_free_result($cursor);
 				}
 				break;
-			case ZBX_DB_SQLITE3:
-				$result = $cursor->fetchArray(SQLITE3_ASSOC);
-				if(!$result){
-					unset($cursor);
+			case 'SQLITE3':
+				if($cursor){
+					$result = array_shift($cursor);
+					if(is_null($result)) $result = false;
 				}
 				break;
 		}
-
-		if($result){
-			foreach($result as $key => $val){
-				if(is_null($val)){
-					$result[$key] = 0;
-				}
+/*
+		if($result === false){
+			switch($DB['TYPE']){
+				case 'MYSQL': mysql_free_result($cursor); break;
+				case 'POSTGRESQL': pg_free_result($cursor); break;
+				case 'ORACLE': oci_free_statement($cursor); break;
 			}
 		}
-
+//*/
 	return $result;
 	}
 
 // string value prepearing
-if(isset($DB['TYPE']) && $DB['TYPE'] == ZBX_DB_MYSQL) {
+if(isset($DB['TYPE']) && $DB['TYPE'] == "MYSQL") {
 	function zbx_dbstr($var){
 		if(is_array($var)){
 			foreach($var as $vnum => $value) $var[$vnum] = "'".mysql_real_escape_string($value)."'";
@@ -651,7 +670,7 @@ if(isset($DB['TYPE']) && $DB['TYPE'] == ZBX_DB_MYSQL) {
 		return ' CAST('.$field.' AS UNSIGNED) ';
 	}
 }
-else if(isset($DB['TYPE']) && $DB['TYPE'] == ZBX_DB_POSTGRESQL) {
+else if(isset($DB['TYPE']) && $DB['TYPE'] == "POSTGRESQL") {
 	function zbx_dbstr($var){
 		if(is_array($var)){
 			foreach($var as $vnum => $value) $var[$vnum] = "'".pg_escape_string($value)."'";
@@ -665,7 +684,7 @@ else if(isset($DB['TYPE']) && $DB['TYPE'] == ZBX_DB_POSTGRESQL) {
 		return ' CAST('.$field.' AS BIGINT) ';
 	}
 }
-else if(isset($DB['TYPE']) && $DB['TYPE'] == ZBX_DB_ORACLE) {
+else if(isset($DB['TYPE']) && $DB['TYPE'] == 'ORACLE') {
 	function zbx_dbstr($var){
 		if(is_array($var)){
 			foreach($var as $vnum => $value) $var[$vnum] = "'".preg_replace('/\'/','\'\'',$value)."'";
@@ -679,7 +698,7 @@ else if(isset($DB['TYPE']) && $DB['TYPE'] == ZBX_DB_ORACLE) {
 		return ' CAST('.$field.' AS NUMBER(20)) ';
 	}
 }
-else if(isset($DB['TYPE']) && $DB['TYPE'] == ZBX_DB_DB2) {
+else if(isset($DB['TYPE']) && $DB['TYPE'] == 'IBM_DB2') {
 	function zbx_dbstr($var){
 		if(is_array($var)){
 			foreach($var as $vnum => $value) $var[$vnum] = "'".db2_escape_string($value)."'";
@@ -712,7 +731,7 @@ else {
 		global $DB;
 
 		switch($DB['TYPE']){
-			case ZBX_DB_SQLITE3:
+			case "SQLITE3":
 				return implode(' || ',$params);
 			default:
 				return 'CONCAT('.implode(',',$params).')';
@@ -723,7 +742,7 @@ else {
 		global $DB;
 
 		switch($DB['TYPE']){
-			case ZBX_DB_SQLITE3:
+			case "SQLITE3":
 				return ' ('.$x.' %% '.$y.')';
 			default:
 				return ' MOD('.$x.','.$y.')';
@@ -734,10 +753,10 @@ else {
 		global $DB;
 
 		switch($DB['TYPE']){
-			case ZBX_DB_MYSQL:
+			case "MYSQL":
 				$result = '('.$id_name.' div 100000000000000)';
 				break;
-			case ZBX_DB_ORACLE:
+			case "ORACLE":
 				$result = 'round('.$id_name.'/100000000000000)';
 				break;
 			default:
@@ -805,24 +824,21 @@ else {
 	function get_dbid($table,$field){
 // PGSQL on transaction failure on all queries returns false..
 		global $DB, $ZBX_LOCALNODEID;
-
-		if(($DB['TYPE'] == ZBX_DB_POSTGRESQL) && $DB['TRANSACTIONS'] && !$DB['TRANSACTION_NO_FAILED_SQLS']) return 0;
+		if(($DB['TYPE'] == 'POSTGRESQL') && $DB['TRANSACTIONS'] && !$DB['TRANSACTION_STATE']) return 0;
 //------
 		$nodeid = get_current_nodeid(false);
 
 		$found = false;
 		do{
-			$min=bcadd(bcmul($nodeid,'100000000000000'),bcmul($ZBX_LOCALNODEID,'100000000000'), 0);
-			$max=bcadd(bcadd(bcmul($nodeid,'100000000000000'),bcmul($ZBX_LOCALNODEID,'100000000000')),'99999999999', 0);
-			$dbSelect = DBselect('SELECT nextid FROM ids WHERE nodeid='.$nodeid .' AND table_name='.zbx_dbstr($table).' AND field_name='.zbx_dbstr($field));
-
-			if(!$dbSelect) return false;
-
-			$row = DBfetch($dbSelect);
+			$min=bcadd(bcmul($nodeid,'100000000000000'),bcmul($ZBX_LOCALNODEID,'100000000000'));
+			$max=bcadd(bcadd(bcmul($nodeid,'100000000000000'),bcmul($ZBX_LOCALNODEID,'100000000000')),'99999999999');
+			$db_select = DBselect('SELECT nextid FROM ids WHERE nodeid='.$nodeid .' AND table_name='.zbx_dbstr($table).' AND field_name='.zbx_dbstr($field));
+			if(!is_resource($db_select)) return false;
+			$row = DBfetch($db_select);
 
 			if(!$row){
 				$row = DBfetch(DBselect('SELECT max('.$field.') AS id FROM '.$table.' WHERE '.$field.'>='.$min.' AND '.$field.'<='.$max));
-				if(!$row || ($row['id'] == 0)){
+				if(!$row || is_null($row['id'])){
 					DBexecute("INSERT INTO ids (nodeid,table_name,field_name,nextid) VALUES ($nodeid,'$table','$field',$min)");
 				}
 				else{
@@ -878,6 +894,15 @@ else {
 	function zbx_db_distinct($sql_parts){
 		if(count($sql_parts['from']) > 1) return ' DISTINCT ';
 		else return ' ';
+
+		$distinct_tables = array(
+			'hosts_groups', 'hosts_templates',
+			'functions', 'graphs_items', 'screens_items', 'slides',
+			'httpstepitem', 'items_applications',
+			'maintenances_hosts', 'maintenances_groups',
+			'sysmaps_elements', 'sysmaps_link_triggers',
+			'rights', 'users_groups'
+		);
 	}
 
 
@@ -895,23 +920,19 @@ else {
 			if(!isset($tableSchema['fields'][$field]) || zbx_empty($pattern)) continue;
 			if($tableSchema['fields'][$field]['type'] != DB::FIELD_TYPE_CHAR) continue;
 
-// escaping parameter that is about to be used in LIKE statement
-			$pattern = str_replace(array("!","%","_"),  array("!!","!%","!_"), $pattern);
+			// escaping parameter that is about to be used in LIKE statement
+			$pattern = str_replace("!", "!!", $pattern);
+			$pattern = str_replace("%", "!%", $pattern);
+			$pattern = str_replace("_", "!_", $pattern);
 
-			$search[$field] = ' UPPER('.$tableShort.'.'.$field.') '.$exclude.' LIKE '.zbx_dbstr($start.zbx_strtoupper($pattern).'%')." ESCAPE '!' ";
+			$search[$field] =
+				' UPPER('.$tableShort.'.'.$field.') '.
+				$exclude.' LIKE '.
+				zbx_dbstr($start.zbx_strtoupper($pattern).'%').
+				" ESCAPE '!'";
 		}
 
-		if(!empty($search)){
-			if(isset($sql_parts['where']['search'])){
-				$search[] = $sql_parts['where']['search'];
-			}
-
-			$glue = is_null($options['searchByAny']) || $options['searchByAny'] === false ? ' AND ' : ' OR ';
-			$sql_parts['where']['search'] = '( '.implode($glue, $search).' )';
-			return true;
-		}
-
-	return false;
+		if(!empty($search)) $sql_parts['where']['search'] = '( '.implode(' OR ', $search).' )';
 	}
 
 
@@ -926,20 +947,21 @@ else {
 			if(!isset($tableSchema['fields'][$field]) || zbx_empty($value)) continue;
 
 			zbx_value2array($value);
-			$filter[$field] = DBcondition($tableShort.'.'.$field, $value);
-		}
-
-		if(!empty($filter)){
-			if(isset($sql_parts['where']['filter'])){
-				$filter[] = $sql_parts['where']['filter'];
+			switch($tableSchema['fields'][$field]['type']){
+				case DB::FIELD_TYPE_CHAR:
+					$filter[$field] = DBcondition($tableShort.'.'.$field, $value, false, true);
+					break;
+				case DB::FIELD_TYPE_INT:
+				case DB::FIELD_TYPE_FLOAT:
+				case DB::FIELD_TYPE_ID:
+					$filter[$field] = DBcondition($tableShort.'.'.$field, $value);
+					break;
+				default:
+					continue;
 			}
-
-			$glue = is_null($options['searchByAny']) || $options['searchByAny'] === false ? ' AND ' : ' OR ';
-			$sql_parts['where']['filter'] = '( '.implode($glue, $filter).' )';
-			return true;
 		}
 
-	return false;
+		if(!empty($filter)) $sql_parts['where']['filter'] = '( '.implode(' AND ', $filter).' )';
 	}
 
 
@@ -947,7 +969,7 @@ else {
 		return bcmod($id,'100000000000');
 	}
 
-	function check_db_fields($db_fields, &$args){
+	function check_db_fields(&$db_fields, &$args){
 		if(!is_array($args)) return false;
 
 		foreach($db_fields as $field => $def){
@@ -963,7 +985,7 @@ else {
 	return true;
 	}
 
-	function DBcondition($fieldname, $array, $notin=false){
+	function DBcondition($fieldname, $array, $notin=false, $string=false){
 		$condition = '';
 
 		if(!is_array($array)){
@@ -976,71 +998,29 @@ else {
 
 		$items = array_chunk($array, 950);
 		foreach($items as $id => $values){
+			if($string) $values = zbx_dbstr($values);
+			else foreach($values as $value){
+				if(!is_numeric($value)){
+					info('DBcondition Error: ['.$value.'] incorrect value for numeric field');
+					return ' 1=0 ';
+				}
+			}
+
 			$condition.=!empty($condition) ? ')'.$concat.$fieldname.$in.'(':'';
-			$condition.= implode(',',zbx_dbstr($values));
+			$condition.= implode(',',$values);
 		}
 
-		if(zbx_empty($condition))  return ' 1=0 ';
+		if(zbx_empty($condition)) $condition = $string ? "'-1'":'-1';
 
 	return ' ('.$fieldname.$in.'('.$condition.')) ';
 	}
 
-	function zero2null($val){
-// string 0 beacause ('any string' == 0) = true
-		if($val == '0'){
-			return 'NULL';
-		}
-		else return $val;
-	}
 
-/**
- * Initialize access to SQLite3 database
- *
- * The function creates a semaphore for exclusive SQLite3 access. It is
- * shared between Zabbix front-end and Zabbix Server.
- *
- * @return bool
- */
-if(isset($DB['TYPE']) && ZBX_DB_SQLITE3 == $DB['TYPE']){
-	function init_sqlite3_access(){
-		global $DB, $ZBX_SEM_ID;
-
-		$ZBX_SEM_ID = sem_get(ftok($DB['DATABASE'], 'z'), 1, 0660);
-		return $ZBX_SEM_ID;
-	}
-}
-
-/**
- * Get exclusive lock on SQLite3 database
- *
- * @return bool
- */
-if(isset($DB['TYPE']) && ZBX_DB_SQLITE3 == $DB['TYPE']){
-	function lock_sqlite3_access(){
-		global $ZBX_SEM_ID,$DB;
-
-		return sem_acquire($ZBX_SEM_ID);
-	}
-}
-
-/**
- * Release exclusive lock on SQLite3 database
- *
- * @return bool
- */
-if(isset($DB['TYPE']) && ZBX_DB_SQLITE3 == $DB['TYPE']){
-	function unlock_sqlite3_access(){
-		global $ZBX_SEM_ID;
-
-		return sem_release($ZBX_SEM_ID);
-	}
-}
 
 	class DB{
 		const SCHEMA_FILE = 'schema.inc.php';
 		const DBEXECUTE_ERROR = 1;
 		const RESERVEIDS_ERROR = 2;
-		const SCHEMA_ERROR = 3;
 
 		const FIELD_TYPE_INT = 'int';
 		const FIELD_TYPE_CHAR = 'char';
@@ -1048,7 +1028,6 @@ if(isset($DB['TYPE']) && ZBX_DB_SQLITE3 == $DB['TYPE']){
 		const FIELD_TYPE_FLOAT = 'float';
 		const FIELD_TYPE_UINT = 'uint';
 		const FIELD_TYPE_BLOB = 'blob';
-		const FIELD_TYPE_TEXT = 'text';
 
 		private static $schema = null;
 
@@ -1057,7 +1036,7 @@ if(isset($DB['TYPE']) && ZBX_DB_SQLITE3 == $DB['TYPE']){
 		}
 
 		protected static function reserveIds($table, $count){
-			global $ZBX_LOCALNODEID,$DB;
+			global $ZBX_LOCALNODEID;
 
 			$nodeid = get_current_nodeid(false);
 			$id_name = self::getSchema($table);
@@ -1070,14 +1049,8 @@ if(isset($DB['TYPE']) && ZBX_DB_SQLITE3 == $DB['TYPE']){
 				' FROM ids '.
 				' WHERE nodeid='.$nodeid .
 					' AND table_name='.zbx_dbstr($table).
-					' AND field_name='.zbx_dbstr($id_name);
-
-			// SQLite3 does not support this syntax. Since we are in transation, it can be ignored.
-			if($DB['TYPE'] != ZBX_DB_SQLITE3)
-			{
-				$sql  = $sql.' FOR UPDATE';
-			}
-
+					' AND field_name='.zbx_dbstr($id_name).
+				' FOR UPDATE';
 			$res = DBfetch(DBselect($sql));
 			if($res){
 				$nextid = bcadd($res['nextid'], 1, 0);
@@ -1122,12 +1095,10 @@ if(isset($DB['TYPE']) && ZBX_DB_SQLITE3 == $DB['TYPE']){
 				return self::$schema;
 			else if(isset(self::$schema[$table]))
 				return self::$schema[$table];
-			else
-				self::exception(self::SCHEMA_ERROR, _s('Table "%s" does not exist.', $table));
+			else return false;
 		}
 
 		public static function checkValueTypes($table, &$values){
-			global $DB;
 			$table_schema = self::getSchema($table);
 
 			foreach($values as $field => $value){
@@ -1136,66 +1107,26 @@ if(isset($DB['TYPE']) && ZBX_DB_SQLITE3 == $DB['TYPE']){
 					continue;
 				}
 
-				if(is_null($values[$field])){
-					if($table_schema['fields'][$field]['null'])
-						$values[$field] = 'NULL';
-					else if(isset($table_schema['fields'][$field]['default']))
-						$values[$field] = $table_schema['fields'][$field]['default'];
-					else
-						self::exception(self::DBEXECUTE_ERROR, _s('Mandatory field "%1$s" is missing in table "%2$s".', $field, $table));
-				}
-
-				if(isset($table_schema['fields'][$field]['ref_table'])){
-					if($table_schema['fields'][$field]['null'])
-						$values[$field] = zero2null($values[$field]);
-				}
-
-
-				if($values[$field] === 'NULL'){
-					if(!$table_schema['fields'][$field]['null'])
-						self::exception(self::DBEXECUTE_ERROR, _s('Incorrect value "NULL" for NOT NULL field "%s".', $field));
-				}
-				else{
-					switch($table_schema['fields'][$field]['type']){
-						case self::FIELD_TYPE_CHAR:
-							$values[$field] = zbx_dbstr($values[$field]);
-							$length = zbx_strlen($values[$field]) - 2;
-// -2 is not to count ' around string
-							if($length > $table_schema['fields'][$field]['length']){
-								self::exception(self::SCHEMA_ERROR, _s('Value "%1$s" is too long for field "%2$s" - %3$d characters. Allowed length is %4$d characters.',
-									$values[$field], $field, $length, $table_schema['fields'][$field]['length']));
-							}
-							break;
-						case self::FIELD_TYPE_ID:
-						case self::FIELD_TYPE_UINT:
-							if(!zbx_ctype_digit($values[$field]))
-								self::exception(self::DBEXECUTE_ERROR, _s('Incorrect value "%1$s" for unsigned int field "%2$s".', $values[$field], $field));
-							$values[$field] = zbx_dbstr($values[$field]);
-							break;
-						case self::FIELD_TYPE_INT:
-							if(!zbx_is_int($values[$field]))
-								self::exception(self::DBEXECUTE_ERROR, _s('Incorrect value "%1$s" for int field "%2$s".', $values[$field], $field));
-							$values[$field] = zbx_dbstr($values[$field]);
-							break;
-						case self::FIELD_TYPE_FLOAT:
-							if(!is_numeric($values[$field]))
-								self::exception(self::DBEXECUTE_ERROR, _s('Incorrect value "%1$s" for float field "%2$s".', $values[$field], $field));
-							$values[$field] = zbx_dbstr($values[$field]);
-							break;
-						case self::FIELD_TYPE_TEXT:
-							$values[$field] = zbx_dbstr($values[$field]);
-
-							if(($DB['TYPE'] == ZBX_DB_DB2)){
-								$length = zbx_strlen($values[$field]) - 2;
-								if($length > 2048){
-									self::exception(self::SCHEMA_ERROR, _s('Value "%1$s" is too long for field "%2$s" - %3$d characters. Allowed length is 2048 characters.',
-										$values[$field], $field, $length));
-								}
-							}
-							break;
-					}
+				switch($table_schema['fields'][$field]['type']){
+					case self::FIELD_TYPE_CHAR:
+						$values[$field] = zbx_dbstr($value);
+						break;
+					case self::FIELD_TYPE_ID:
+					case self::FIELD_TYPE_UINT:
+						if(!zbx_ctype_digit($value))
+							self::exception(self::DBEXECUTE_ERROR, 'Incorrect value for unsigned int field');
+						break;
+					case self::FIELD_TYPE_INT:
+						if(!zbx_is_int($value))
+							self::exception(self::DBEXECUTE_ERROR, 'Incorrect value for int field');
+						break;
+					case self::FIELD_TYPE_FLOAT:
+						if(!is_numeric($value))
+							self::exception(self::DBEXECUTE_ERROR, 'Incorrect value for float field');
+						break;
 				}
 			}
+
 		}
 
 /**
@@ -1207,11 +1138,10 @@ if(isset($DB['TYPE']) && ZBX_DB_SQLITE3 == $DB['TYPE']){
  */
 		public static function insert($table, $values, $getids=true){
 			if(empty($values)) return true;
-			$resultIds = array();
+			$result_ids = array();
 
-			if($getids){
+			if($getids)
 				$id = self::reserveIds($table, count($values));
-			}
 
 			$table_schema = self::getSchema($table);
 
@@ -1219,18 +1149,17 @@ if(isset($DB['TYPE']) && ZBX_DB_SQLITE3 == $DB['TYPE']){
 				self::checkValueTypes($table, $row);
 
 				if($getids){
-					$resultIds[$key] = $id;
+					$result_ids[$key] = $id;
 					$row[$table_schema['key']] = $id;
 					$id = bcadd($id, 1, 0);
 				}
 
 				$sql = 'INSERT INTO '.$table.' ('.implode(',',array_keys($row)).')'.
 					' VALUES ('.implode(',',array_values($row)).')';
-
 				if(!DBexecute($sql)) self::exception(self::DBEXECUTE_ERROR, 'DBEXECUTE_ERROR');
 			}
 
-			return $resultIds;
+			return $result_ids;
 		}
 
 /**
@@ -1247,15 +1176,15 @@ if(isset($DB['TYPE']) && ZBX_DB_SQLITE3 == $DB['TYPE']){
 
 			$data = zbx_toArray($data);
 
-			foreach($data as $row){
+			foreach($data as $dnum => $row){
 				$sql_set = '';
 
-				self::checkValueTypes($table, $row['values']);
+				$values = $row['values'];
+				self::checkValueTypes($table, $values);
 
-				foreach($row['values'] as $field => $value){
+				foreach($values as $field => $value){
 					$sql_set .= $field.'='.$value.',';
 				}
-
 				$sql_set = rtrim($sql_set, ',');
 
 				if(!empty($sql_set)){
@@ -1267,55 +1196,16 @@ if(isset($DB['TYPE']) && ZBX_DB_SQLITE3 == $DB['TYPE']){
 			return true;
 		}
 
+		public static function delete($table, $where){
+			$where = zbx_toArray($where);
 
-/**
- * Delete data from DB
- *
- * Example:
- * DB::delete('applications', array('applicationid'=>array(1, 8, 6)));
- * DELETE FROM applications WHERE applicationid IN (1, 8, 6)
- *
- * DB::delete('applications', array('applicationid'=>array(1), 'templateid'=array(10)));
- * DELETE FROM applications WHERE applicationid IN (1) AND templateid IN (10)
- *
- * @param string $table
- * @param array $where pair of fieldname => fieldvalues
- * @return bool
- */
-		public static function delete($table, $wheres, $use_or=false){
-			if(empty($wheres) || !is_array($wheres)){
-				return true;
-			}
+			$sql = 'DELETE FROM '.$table.' WHERE '.implode(' AND ', $where);
+			if(!DBexecute($sql)) self::exception(self::DBEXECUTE_ERROR, 'DBEXECUTE_ERROR');
 
-			$table_schema = self::getSchema($table);
-			$sql_wheres = array();
-
-//for every field
-			foreach($wheres as $field => $values){
-//if this field does not exist, just skip it
-				if(!isset($table_schema['fields'][$field]) || is_null($values)){
-					continue;
-				}
-				$values = zbx_toArray($values);
-				$is_string = ($table_schema['fields'][$field]['type'] == self::FIELD_TYPE_CHAR);
-
-//false = not NOT IN
-				$sql_wheres[] = DBcondition($field, $values, false, $is_string);
-			}
-
-//we will not delete everything from a table just like this
-			if(count($sql_wheres) == 0){
-				return false;
-			}
-
-			$sql = 'DELETE FROM '.$table.' WHERE '.implode(($use_or ? ' OR ' : ' AND '), $sql_wheres);
-
-			if(!DBexecute($sql)) {
-				self::exception(self::DBEXECUTE_ERROR, 'DBEXECUTE_ERROR');
-			}
 			return true;
 		}
 
 	}
+
 
 ?>

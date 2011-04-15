@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -86,7 +86,7 @@ include_once('include/page_header.php');
 	$alerts_wdgt = new CWidget();
 
 // HEADER
-	$frmForm = new CForm('get');
+	$frmForm = new CForm(null, 'get');
 
 	$cmbConf = new CComboBox('config','auditacts.php');
 	$cmbConf->setAttribute('onchange','javascript: redirect(this.options[this.selectedIndex].value);');
@@ -100,7 +100,7 @@ include_once('include/page_header.php');
 	$numrows = new CDiv();
 	$numrows->setAttribute('name', 'numrows');
 
-	$alerts_wdgt->addHeader(_('ACTIONS'));
+	$alerts_wdgt->addHeader(S_ACTIONS_BIG);
 	$alerts_wdgt->addHeader($numrows);
 //--------
 
@@ -121,9 +121,11 @@ include_once('include/page_header.php');
 
 	$filterForm->addRow($row);
 
-	$reset = new CButton('filter_rst', S_RESET, 'javascript: var uri = new Curl(location.href); uri.setArgument("filter_rst",1); location.href = uri.getUrl();');
+	$reset = new CButton('filter_rst', S_RESET);
+	$reset->setType('button');
+	$reset->setAction('javascript: var uri = new Curl(location.href); uri.setArgument("filter_rst",1); location.href = uri.getUrl();');
 
-	$filterForm->addItemToBottomRow(new CSubmit("filter_set", S_FILTER));
+	$filterForm->addItemToBottomRow(new CButton("filter_set", S_FILTER));
 	$filterForm->addItemToBottomRow($reset);
 
 	$alerts_wdgt->addFlicker($filterForm, CProfile::get('web.auditacts.filter.state',1));
@@ -141,7 +143,7 @@ include_once('include/page_header.php');
 		S_STATUS,
 		S_RETRIES_LEFT,
 		S_RECIPIENTS,
-		_('Message'),
+		S_MESSAGE,
 		S_ERROR
 	));
 
@@ -161,11 +163,11 @@ include_once('include/page_header.php');
 	);
 
 	if($_REQUEST['alias']){
-		$users = API::User()->get(array('filter' => array('alias' => $_REQUEST['alias'])));
+		$users = CUser::get(array('filter' => array('alias' => $_REQUEST['alias'])));
 		$options['userids'] = zbx_objectValues($users, 'userid');
 	}
 
-	$alerts = API::Alert()->get($options);
+	$alerts = CAlert::get($options);
 
 // get first event for selected filters, to get starttime for timeline bar
 	unset($options['userids']);
@@ -174,7 +176,7 @@ include_once('include/page_header.php');
 	unset($options['select_mediatypes']);
 	$options['limit'] = 1;
 	$options['sortorder'] = ZBX_SORT_UP;
-	$firstAlert = API::Alert()->get($options);
+	$firstAlert = CAlert::get($options);
 	$firstAlert = reset($firstAlert);
 	$starttime = $firstAlert ? $firstAlert['clock'] : time()-3600;
 
@@ -198,14 +200,14 @@ include_once('include/page_header.php');
 			$retries=new CSpan(ALERT_MAX_RETRIES - $row['retries'],'orange');
 		}
 		else{
-			$status=new CSpan(_('not sent'), 'red');
+			$status=new CSpan(S_NOT_SENT,'red');
 			$retries=new CSpan(0,'red');
 		}
 
 		if($row['alerttype'] == ALERT_TYPE_MESSAGE)
-			$message = array(bold(_('Subject').': '), br(), $row['subject'], br(), br(), bold(_('Message').': '), br(), zbx_nl2br($row['message']));
+			$message = array(bold(S_SUBJECT.': '), br(), $row['subject'], br(), br(), bold(S_MESSAGE.': '), br(), $row['message']);
 		else
-			$message = array(bold(S_COMMAND.': '), br(), zbx_nl2br($row['message']));
+			$message = array(bold(S_COMMAND.': '), br(), $row['message']);
 
 		$error = empty($row['error']) ? new CSpan(SPACE,'off') : new CSpan($row['error'],'on');
 

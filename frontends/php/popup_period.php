@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -183,7 +183,7 @@ include_once 'include/page_header.php';
 			$frmPd->addVar('color',$color);
 
 
-		$frmPd->addItemToBottomRow(new CSubmit('save', isset($_REQUEST['period_id'])?S_UPDATE:S_ADD));
+		$frmPd->addItemToBottomRow(new CButton('save', isset($_REQUEST['period_id'])?S_UPDATE:S_ADD));
 
 		$frmPd->addItemToBottomRow(new CButtonCancel(null,'close_window();'));
 		$frmPd->Show();

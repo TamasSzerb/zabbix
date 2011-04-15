@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -203,8 +203,6 @@ static int	process_record_event(int sender_nodeid, int nodeid, const ZBX_TABLE *
 			event.value = atoi(buffer);
 		} else if (0 == strcmp(table->fields[f].name, "acknowledged")) {
 			event.acknowledged = atoi(buffer);
-		} else if (0 == strcmp(table->fields[f].name, "ns")) {
-			event.ns = atoi(buffer);
 		}
 	}
 
@@ -421,7 +419,7 @@ static int	process_items(char **sql, int *sql_allocated, int *sql_offset, int se
 		len = zbx_get_next_field(&r, &buffer, &buffer_allocated, ZBX_DM_DELIMITER);
 
 		if (0 == strcmp(table->fields[f].name, "itemid"))
-			ZBX_STR2UINT64(itemid, buffer);
+			ZBX_STR2UINT64(itemid, buffer)
 
 		if (table->fields[f].type == ZBX_TYPE_INT ||
 				table->fields[f].type == ZBX_TYPE_UINT ||
@@ -443,7 +441,7 @@ static int	process_items(char **sql, int *sql_allocated, int *sql_offset, int se
 				if (value_type == ZBX_TYPE_FLOAT)
 					value_double = atof(buffer);
 				else if (value_type == ZBX_TYPE_UINT)
-					ZBX_STR2UINT64(value_uint64, buffer);
+					ZBX_STR2UINT64(value_uint64, buffer)
 			}
 		}
 		else	/* ZBX_TYPE_TEXT, ZBX_TYPE_CHAR */

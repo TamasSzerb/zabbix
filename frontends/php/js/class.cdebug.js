@@ -1,7 +1,7 @@
 // JavaScript Document
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2008 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -38,7 +38,7 @@ debug: function(str, id){
 
 		if(typeof(id) != 'undefined') str+= ' :'+id;
 
-		if(this.debug_prev == str) return true;
+		//if(this.debug_prev == str) return true;
 
 		this.debug_info += str+'\n';		
 		if(this.debug_status == 2){

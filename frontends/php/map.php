@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -54,7 +54,8 @@ set_time_limit(10);
 		'select_links' => API_OUTPUT_EXTEND,
 		'output' => API_OUTPUT_EXTEND
 	);
-	$maps = API::Map()->get($options);
+
+	$maps = CMap::get($options);
 
 	if(empty($maps)) access_deny();
 	else $map = reset($maps);
@@ -97,10 +98,10 @@ set_time_limit(10);
 		imagecopy($im,$back,0,0,0,0,imagesx($back),imagesy($back));
 	}
 	unset($db_image);
-
+	
 	$x=imagesx($im)/2-ImageFontWidth(4)*zbx_strlen($name)/2;
 	imagetext($im, 10, 0, $x, 25, $colors['Dark Red'], $name);
-
+	
 
 	$str = zbx_date2str(S_MAPS_DATE_FORMAT,time(NULL));
 	imagestring($im, 0,imagesx($im)-120,imagesy($im)-12,$str, $colors['Gray']);
@@ -141,6 +142,8 @@ set_time_limit(10);
 		$map['links'] = zbx_toHash($map['links'],'linkid');
 	}
 
+//SDI($selements);
+
 	$map_info = getSelementsInfo($map);
 
 // Draw MAP
@@ -155,7 +158,7 @@ set_time_limit(10);
 	drawMapLinkLabels($im, $map, $map_info);
 
 	if(!isset($_REQUEST['noselements']) && ($map['markelements'] == 1)){
-		drawMapSelementsMarks($im, $map, $map_info);
+		drawMapSelemetsMarks($im, $map, $map_info);
 	}
 //--
 

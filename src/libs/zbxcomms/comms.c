@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2006 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -124,6 +124,7 @@ static void	__zbx_zbx_set_tcp_strerror(const char *fmt, ...)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
+
 #if defined(HAVE_IPV6)
 void	zbx_gethost_by_ip(const char *ip, char *host, size_t hostlen)
 {
@@ -133,14 +134,12 @@ void	zbx_gethost_by_ip(const char *ip, char *host, size_t hostlen)
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = PF_UNSPEC;
-
-	if (0 != getaddrinfo(ip, NULL, &hints, &ai))
+	if(0 != getaddrinfo(ip, NULL, &hints, &ai))
 	{
 		host[0] = '\0';
 		goto out;
 	}
-
-	if (0 != getnameinfo(ai->ai_addr, ai->ai_addrlen, host, hostlen, NULL, 0, NI_NAMEREQD))
+	if(0 != getnameinfo(ai->ai_addr, ai->ai_addrlen, host, hostlen, NULL, 0, NI_NAMEREQD))
 	{
 		host[0] = '\0';
 		goto out;
@@ -157,13 +156,13 @@ void	zbx_gethost_by_ip(const char *ip, char *host, size_t hostlen)
 
 	assert(ip);
 
-	if (0 == inet_aton(ip, &addr))
+	if(inet_aton(ip, &addr) == 0)
 	{
 		host[0] = '\0';
 		return;
 	}
 
-	if (NULL == (hst = gethostbyaddr((char *)&addr, sizeof(addr), AF_INET)))
+	if(NULL == (hst = gethostbyaddr((char *)&addr, sizeof(addr), AF_INET)))
 	{
 		host[0] = '\0';
 		return;
@@ -445,7 +444,7 @@ int	zbx_tcp_connect(zbx_sock_t *s, const char *source_ip, const char *ip, unsign
 
 	if (ZBX_TCP_ERROR == connect(s->socket, ai->ai_addr, ai->ai_addrlen))
 	{
-		zbx_set_tcp_strerror("Cannot connect to [%s]:%d [%s]", ip, port, strerror_from_system(zbx_sock_last_error()));
+		zbx_set_tcp_strerror("*** Cannot connect to [%s]:%d [%s]", ip, port, strerror_from_system(zbx_sock_last_error()));
 		zbx_tcp_close(s);
 		goto out;
 	}
@@ -1063,7 +1062,7 @@ void	zbx_tcp_free(zbx_sock_t *s)
  ******************************************************************************/
 int	zbx_tcp_recv_ext(zbx_sock_t *s, char **data, unsigned char flags, int timeout)
 {
-#define ZBX_BUF_LEN	ZBX_STAT_BUF_LEN * 8
+#define ZBX_BUF_LEN	ZBX_STAT_BUF_LEN*8
 
 	ssize_t		nbytes, left;
 	ssize_t		read_bytes;

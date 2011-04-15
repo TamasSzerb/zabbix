@@ -27,33 +27,13 @@ function zbx_jsvalue($value, $object = null){
 
 	foreach($value as $id => $v){
 		if((!isset($is_object) && is_string($id)) || $object) $is_object = true;
-		$value[$id] = (isset($is_object) ? '\''.str_replace('\'','\\\'', $id).'\' : ' : '').zbx_jsvalue($v, $object);
+		$value[$id] = (isset($is_object) ? '\''.$id.'\' : ' : '').zbx_jsvalue($v, $object);
 	}
 
 	if(isset($is_object))
 		return '{'.implode(',',$value).'}';
 	else
 		return '['.implode(',',$value).']';
-}
-
-function encodeValues(&$value, $encodeTwice=true){
-	if(is_string($value)){
-		$value = htmlentities($value, ENT_COMPAT, 'UTF-8');
-
-		if($encodeTwice){
-			$value = htmlentities($value, ENT_COMPAT, 'UTF-8');
-		}
-	}
-	else if(is_array(($value))){
-		foreach($value as $key => $elem){
-			encodeValues($value[$key]);
-		}
-	}
-	else if(is_object(($value))){
-		foreach($value->items as $key => $item){
-			encodeValues($value->items[$key], false);
-		}
-	}
 }
 
 /* function:
@@ -226,7 +206,7 @@ function insert_javascript_for_tweenbox(){
 						result &= create_var(formname, objname+"["+from.options[i].value+"]", from.options[i].value, false);
 					}
 					else if(action.toLowerCase() == "rmv"){
-						result &= remove_element(objname+"_"+from.options[i].value,"input");
+						result &= remove_element(objname+"["+from.options[i].value+"]","input");
 					}
 
 					while(true){
@@ -506,13 +486,7 @@ function insert_js_function($fnct_name){
 					var chkBoxes = form.getInputs("checkbox");
 					for(var i=0; i < chkBoxes.length; i++){
 						if(chkBoxes[i].checked && (chkBoxes[i].name.indexOf("all_") < 0)){
-							var value = {};
-							if(isset(chkBoxes[i].value, popupReference))
-								value = popupReference[chkBoxes[i].value];
-							else
-								value[object] = chkBoxes[i].value;
-
-							items["values"].push(value);
+							items["values"].push(chkBoxes[i].value);
 						}
 					}
 
@@ -526,13 +500,7 @@ function insert_js_function($fnct_name){
 					var parent = window.opener;
 					if(!parent) return close_window();
 
-					var value = {};
-					if(isset(singleValue, popupReference))
-						value = popupReference[singleValue];
-					else
-						value[object] = singleValue;
-
-					var items = { "object": object, "values": new Array(value) };
+					var items = { "object": object, "values": new Array(singleValue) };
 
 					parent.addPopupValues(items);
 					close_window();
@@ -545,23 +513,24 @@ function insert_js_function($fnct_name){
 					if(!parentDocument) return close_window();
 
 					var parentDocumentForm = $(parentDocument.body).select("form[name="+frame+"]");
+
 					var submitParent = submitParent || false;
 
-					var frmStorage = null;
+					var tmpStorage = null;
 					for(var key in values){
 						if(is_null(values[key])) continue;
 
-						if(parentDocumentForm.length > 0)
-							frmStorage = jQuery(parentDocumentForm[0]).find("#"+key).get(0);
+						if(parentDocumentForm.length)
+							tmpStorage = $(parentDocumentForm[0].parentNode).select("#"+key).first();
 
-						if(typeof(frmStorage) == "undefined" || is_null(frmStorage))
-							frmStorage = parentDocument.getElementById(key);
+						if(typeof(tmpStorage) == "undefined" || is_null(tmpStorage))
+							tmpStorage = parentDocument.getElementById(key);
 
-						frmStorage.value = values[key];
+						tmpStorage.value = values[key];
 					}
 
-					if(!is_null(frmStorage) && submitParent){
-						frmStorage.form.submit();
+					if(!is_null(tmpStorage) && submitParent){
+						tmpStorage.form.submit();
 					}
 
 					close_window();
@@ -576,15 +545,13 @@ function insert_js_function($fnct_name){
 		case 'removeSelectedItems':
 			insert_js('function removeSelectedItems(formobject, name){
 					formobject = $(formobject);
-
 					if(is_null(formobject)) return false;
 
 					for(var i=0; i < formobject.options.length; i++){
 						if(!isset(i, formobject.options)) continue;
 
 						if(formobject.options[i].selected){
-							var obj = $(name+"_"+formobject.options[i].value);
-
+							var obj = $(name+"["+formobject.options[i].value+"]");
 							if(!is_null(obj)) obj.remove();
 						}
 					}
@@ -598,10 +565,7 @@ function insert_js_function($fnct_name){
 };
 
 function insert_js($script){
-	print(get_js($script));
+	print('<script type="text/javascript">// <![CDATA['."\n".$script."\n".'// ]]></script>');
 }
 
-function get_js($script){
-	return('<script type="text/javascript">// <![CDATA['."\n".$script."\n".'// ]]></script>');
-}
 ?>

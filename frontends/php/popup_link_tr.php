@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -59,17 +59,17 @@ include_once('include/page_header.php');
 					'nodeids' => get_current_nodeid(true),
 					'triggerids'=> $_REQUEST['linktriggers'],
 					'editable'=> 1,
-					'selectHosts' => array('hostid', 'name'),
+					'select_hosts' => array('hostid', 'host'),
 					'output' => API_OUTPUT_EXTEND
 				);
 
-			$dbTriggers = API::Trigger()->get($options);
+			$dbTriggers = CTrigger::get($options);
 			order_result($dbTriggers, 'description');
 
 			foreach($dbTriggers as $tnum => $trigger){
 				$host = reset($trigger['hosts']);
 
-				$triggers[$trigger['triggerid']] = $host['name'].':'.expand_trigger_description_by_data($trigger);
+				$triggers[$trigger['triggerid']] = $host['host'].':'.expand_trigger_description_by_data($trigger);
 			}
 		}
 
@@ -106,11 +106,11 @@ include_once('include/page_header.php');
 					'nodeids' => get_current_nodeid(true),
 					'triggerids'=> $_REQUEST['linktriggers'],
 					'editable'=> 1,
-					'selectHosts' => array('hostid', 'name'),
+					'select_hosts' => array('hostid', 'host'),
 					'output' => API_OUTPUT_EXTEND
 				);
 
-			$triggers = API::Trigger()->get($options);
+			$triggers = CTrigger::get($options);
 			order_result($triggers, 'description');
 		}
 		$triggerids = zbx_objectValues($triggers, 'triggerid');
@@ -140,8 +140,9 @@ include_once('include/page_header.php');
 				'&multiselect=1'.
 				"&writeonly=1');",
 				'T');
+		$btnSelect->setType('button');
 
-		$btnRemove = new CSubmit('remove', S_REMOVE);
+		$btnRemove = new CButton('remove', S_REMOVE);
 
 // END preparation
 
@@ -149,18 +150,18 @@ include_once('include/page_header.php');
 		if(empty($triggers)) $trList->setAttribute('style', 'width: 300px;');
 
 		foreach($triggers as $tnum => $trigger){
-			$dbTriggers = API::Trigger()->get($options);
+			$dbTriggers = CTrigger::get($options);
 			order_result($dbTriggers, 'description');
 
 			$host = reset($trigger['hosts']);
-			$trList->addItem($trigger['triggerid'], $host['name'].':'.expand_trigger_description_by_data($trigger));
+			$trList->addItem($trigger['triggerid'], $host['host'].':'.expand_trigger_description_by_data($trigger));
 		}
 
 		$frmCnct->addRow(S_TRIGGERS, array($trList, BR(), $btnSelect, $btnRemove));
 		$frmCnct->addRow(S_TYPE.' ('.S_PROBLEM_BIG.')', $cmbType);
 		$frmCnct->addRow(S_COLOR.' ('.S_PROBLEM_BIG.')', new CColor('color', $color));
 
-		$frmCnct->addItemToBottomRow(new CSubmit('save', (isset($_REQUEST['triggerid'])) ? S_SAVE : S_ADD));
+		$frmCnct->addItemToBottomRow(new CButton('save', (isset($_REQUEST['triggerid'])) ? S_SAVE : S_ADD));
 		$frmCnct->addItemToBottomRow(SPACE);
 		$frmCnct->addItemToBottomRow(new CButton('cancel', S_CANCEL, 'javascript: window.close();'));
 
@@ -175,7 +176,7 @@ function addPopupValues(list){
 
 	if(list.object == 'linktrigger'){
 		for(var i=0; i < list.values.length; i++){
-			create_var('connector_form', 'new_linktriggers['+i+']', list.values[i].triggerid, false);
+			create_var('connector_form', 'new_linktriggers['+i+']', list.values[i], false);
 		}
 
 		create_var('connector_form','add_dependence', 1, true);
@@ -200,9 +201,9 @@ function addLinkTriggers(mapid,triggers,drawtype,color){
 			'color': color
 		};
 
-		window.opener.ZBX_SYSMAPS[mapid].map.form_link_addLinktrigger(linktrigger);
+		window.opener.ZBX_SYSMAPS[mapid].map.linkForm_addLinktrigger(linktrigger);
 	}
-
+	
 	window.close();
 
 return true;

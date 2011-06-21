@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -22,31 +22,17 @@
 
 extern char	*CONFIG_HOSTS_ALLOWED;
 extern char	*CONFIG_HOSTNAME;
-extern char	*CONFIG_HOSTNAME_ITEM;
+/* extern int	CONFIG_NOTIMEWAIT;		*/
 extern int	CONFIG_DISABLE_ACTIVE;
-extern int	CONFIG_DISABLE_PASSIVE;
 extern int	CONFIG_ENABLE_REMOTE_COMMANDS;
-extern int	CONFIG_UNSAFE_USER_PARAMETERS;
 extern int	CONFIG_LISTEN_PORT;
 extern int	CONFIG_SERVER_PORT;
 extern int	CONFIG_REFRESH_ACTIVE_CHECKS;
 extern char	*CONFIG_LISTEN_IP;
 extern int	CONFIG_LOG_LEVEL;
-extern int	CONFIG_MAX_LINES_PER_SECOND;
-extern char	**CONFIG_ALIASES;
-extern char	**CONFIG_USER_PARAMETERS;
-#ifdef _WINDOWS
-extern char	**CONFIG_PERF_COUNTERS;
-#endif
+extern char	CONFIG_LOG_UNRES_SYMB;
 
-void	load_aliases(char **lines);
-void	load_user_parameters(char **lines);
-#ifdef _WINDOWS
-void	load_perf_counters(const char **lines);
-#endif
-
-#ifdef _AIX
-void	tl_version();
-#endif
+void    load_config();
+void    load_user_parameters(void);
 
 #endif /* ZABBIX_ZBXCONF_H */

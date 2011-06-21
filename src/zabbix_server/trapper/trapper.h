@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,11 +20,12 @@
 #ifndef ZABBIX_TRAPPER_H
 #define ZABBIX_TRAPPER_H
 
-#include "comms.h"
+extern	int	server_num;
 
-extern int	CONFIG_TIMEOUT;
-extern int	CONFIG_TRAPPER_TIMEOUT;
+extern	int	CONFIG_TIMEOUT;
 
-void	main_trapper_loop(unsigned char p, zbx_sock_t *s);
+extern	void	signal_handler( int sig );
+
+void	child_trapper_main(int i, zbx_sock_t *s);
 
 #endif

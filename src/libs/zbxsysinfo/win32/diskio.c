@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -18,9 +18,76 @@
 **/
 
 #include "common.h"
+
 #include "sysinfo.h"
 
-int	get_diskstat(const char *devname, zbx_uint64_t *dstat)
+
+int	VFS_DEV_WRITE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	return FAIL;
+#ifdef TODO
+#error Realize function VFS_DEV_WRITE!!!
+#endif /* todo */
+
+	return SYSINFO_RET_FAIL;
 }
+
+int	VFS_DEV_READ(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+#ifdef TODO
+#error Realize function VFS_DEV_READ!!!
+#endif /* todo */
+
+	return SYSINFO_RET_FAIL;
+}
+
+static int	DISK_IO(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+#ifdef TODO
+#error Realize function DISK_IO!!!
+#endif /* todo */
+
+	return SYSINFO_RET_FAIL;
+}
+
+static int	DISK_RIO(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+#ifdef TODO
+#error Realize function DISK_RIO!!!
+#endif /* todo */
+
+	return SYSINFO_RET_FAIL;
+}
+
+static int	DISK_WIO(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+#ifdef TODO
+#error Realize function DISK_WIO!!!
+#endif /* todo */
+
+	return SYSINFO_RET_FAIL;
+}
+
+static int	DISK_RBLK(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+#ifdef TODO
+#error Realize function DISK_RBLK!!!
+#endif /* todo */
+
+	return SYSINFO_RET_FAIL;
+}
+
+static int	DISK_WBLK(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+#ifdef TODO
+#error Realize function DISK_WBLK!!!
+#endif /* todo */
+
+	return SYSINFO_RET_FAIL;
+}
+
+int	OLD_IO(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	/* SKIP REALIZATION */
+	return SYSINFO_RET_FAIL;	
+}
+

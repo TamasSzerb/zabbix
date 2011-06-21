@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,26 +20,32 @@
 #ifndef ZABBIX_HTTPTEST_H
 #define ZABBIX_HTTPTEST_H
 
-typedef struct
+#define S_ZBX_HTTPPAGE	struct s_zbx_httppage_t
+S_ZBX_HTTPPAGE
 {
-	char	*data;
-	int	allocated;
-	int	offset;
-}
-ZBX_HTTPPAGE;
+	char		*data;
+	int		allocated;
+	int		offset;
+};
 
-typedef struct
+#define S_ZBX_HTTPSTAT	struct s_zbx_httpstat_t
+S_ZBX_HTTPSTAT
 {
-	long   	rspcode;
-	double 	total_time;
-	double 	speed_download;
-	double	test_total_time;
-	int	test_last_step;
-}
-ZBX_HTTPSTAT;
+	long    	rspcode;
+	double  	total_time;
+	double  	speed_download;
+	double		test_total_time;
+	int		test_last_step;
+};
 
-extern int	CONFIG_HTTPPOLLER_FORKS;
+#ifdef	HAVE_LIBCURL
+	void process_httptests(int now);
+#else
+#	define process_httptests(now)
+#endif /* HAVE_LIBCURL */
 
-void	process_httptests(int httppoller_num, int now);
+extern	int	httppoller_num;
+
+extern  int     CONFIG_HTTPPOLLER_FORKS;
 
 #endif

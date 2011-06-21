@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -27,6 +27,10 @@ int	SYSTEM_BOOTTIME(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	int		mib[2];
 	struct timeval	boottime;
 
+	assert(result);
+
+	init_result(result);
+
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_BOOTTIME;
 
@@ -42,3 +46,4 @@ int	SYSTEM_BOOTTIME(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	return SYSINFO_RET_FAIL;
 #endif /* HAVE_FUNCTION_SYSCTL_KERN_BOOTTIME */
 }
+

@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 **/
 
 #include "common.h"
+
 #include "sysinfo.h"
 
 int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -25,18 +26,28 @@ int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 #ifdef HAVE_SYSINFO_UPTIME
 	struct sysinfo info;
 
+	assert(result);
+
+        init_result(result);
+
 	if( 0 == sysinfo(&info))
 	{
 		SET_UI64_RESULT(result, info.uptime);
 		return SYSINFO_RET_OK;
 	}
 	else
+	{
 		return SYSINFO_RET_FAIL;
+	}
 #else
 #ifdef HAVE_FUNCTION_SYSCTL_KERN_BOOTTIME
 	int	mib[2],len;
 	struct timeval	uptime;
 	int	now;
+
+	assert(result);
+
+        init_result(result);
 
 	mib[0]=CTL_KERN;
 	mib[1]=KERN_BOOTTIME;
@@ -44,10 +55,13 @@ int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 	len=sizeof(uptime);
 
 	if(sysctl(mib,2,&uptime,(size_t *)&len,NULL,0) != 0)
-		return SYSINFO_RET_FAIL;
+	{
+		return	SYSINFO_RET_FAIL;
+/*		printf("Errno [%m]\n");*/
+	}
 
 	now=time(NULL);
-
+	
 	SET_UI64_RESULT(result, now-uptime.tv_sec);
 	return SYSINFO_RET_OK;
 #else
@@ -60,12 +74,18 @@ int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 	long          hz;
 	long          secs;
 
+        assert(result);
+
+        init_result(result);
+	
 	hz = sysconf(_SC_CLK_TCK);
 
 	/* open kstat */
 	kc = kstat_open();
 	if (0 == kc)
+	{
 		return SYSINFO_RET_FAIL;
+	}
 
 	/* read uptime counter */
 	kp = kstat_lookup(kc, "unix", 0, "system_misc");
@@ -89,7 +109,11 @@ int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 	SET_UI64_RESULT(result, secs);
 	return SYSINFO_RET_OK;
 #else
-	return SYSINFO_RET_FAIL;
+        assert(result);
+
+        init_result(result);
+
+	return	SYSINFO_RET_FAIL;
 #endif
 #endif
 #endif

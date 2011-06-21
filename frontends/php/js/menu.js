@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -25,10 +25,11 @@
 // Tech. Support: http://www.softcomplex.com/forum/forumdisplay.php?fid=40
 // Notes: This script is free. Visit official site for further details.
 //        This script adapted by Eugene Grigorjev for using as popup menu
-//        of Zabbix software. See http://www.zabbix.com.
+//        of ZABBIX software. See http://www.zabbix.com.
 //debugger;
 
-function show_popup_menu(e, content, width){
+function show_popup_menu(e, content, width)
+{
 	if(!width) width = 170;
 
 	var pos = [
@@ -38,7 +39,7 @@ function show_popup_menu(e, content, width){
 
 	var cursor = get_cursor_position(e);
 
-	new popup_menu(content, pos, cursor.x, cursor.y);
+	new popup_menu (content, pos, cursor.x, cursor.y);
 
 	return false;
 }
@@ -58,11 +59,13 @@ function popup_menu (a_items, a_tpl, x, y) {
 	this.n_scroll_left = get_scroll_pos()[0];
 	this.n_scroll_top = get_scroll_pos()[1];
 
-	if(document.body.clientWidth){
+	if(document.body.clientWidth)
+	{
 		this.n_scr_width = document.body.clientWidth;
 		this.n_scr_height = document.body.clientHeight;
 	}
-	else{
+	else
+	{
 		this.n_scr_width = document.width;
 		this.n_scr_height = document.height;
 	}
@@ -80,7 +83,7 @@ function popup_menu (a_items, a_tpl, x, y) {
 	this.a_index = [];
 	this.a_children = [];
 
-	// assign methods and event handlers
+	// assigh methods and event handlers
 	this.expand      = menu_expand;
 	this.collapse    = menu_collapse;
 
@@ -96,7 +99,7 @@ function popup_menu (a_items, a_tpl, x, y) {
 	this.set_y_direction = mitem_set_y_direction;
 	this.get_y_direction = mitem_get_y_direction;
 
-	// default level scope description structure
+	// default level scope description structure 
 	this.a_tpl_def = {
 		'block_top'  : 0,
 		'block_left' : 0,
@@ -114,8 +117,8 @@ function popup_menu (a_items, a_tpl, x, y) {
 		'inner' : ['pum_i_item']
 	};
 
-
-	// assign methods and properties required to emulate parent item
+	
+	// assign methods and properties required to imulate parent item
 	this.getprop = function (s_key) {
 		return this.a_tpl_def[s_key];
 	};
@@ -172,8 +175,7 @@ function menu_collapse (n_id) {
 			}
 		}
 		A_MENUS.splice(this.o_root.n_id);
-	}
-	else {
+	} else {
 		// hide all items over the level specified
 		for (n_id = 0; n_id < this.a_index.length; n_id++) {
 			var o_curritem = this.a_index[n_id];
@@ -220,18 +222,18 @@ function menu_expand (n_id) {
 // --------------------------------------------------------------------------------
 function menu_onclick (n_id) {
 	// don't go anywhere if item has no link defined
-	// lookup new item's object
+	// lookup new item's object	
 	if(Boolean(this.a_index[n_id].a_config[1])){
-		// lookup new item's object
+		// lookup new item's object	
 		var o_item = this.a_index[n_id];
 
 		// apply rollout
 		o_item.e_oelement.className = o_item.getstyle(0, 0);
 		o_item.e_ielement.className = o_item.getstyle(1, 0);
-
-		// update status line
+		
+		// update status line	
 		o_item.upstatus(7);
-
+		
 		this.o_hidetimer = setTimeout('A_MENUS['+ this.n_id +'].collapse();', 100);//o_item.getprop('hide_delay'));
 		//this.collapse();
 		//alert(A_MENUS[this.n_id].a_config[1][1]);
@@ -243,19 +245,18 @@ function menu_onclick (n_id) {
 // --------------------------------------------------------------------------------
 function menu_onmouseout (n_id) {
 
-	// lookup new item's object
+	// lookup new item's object	
 	var o_item = this.a_index[n_id];
 
 	// apply rollout
 	o_item.e_oelement.className = o_item.getstyle(0, 0);
 	o_item.e_ielement.className = o_item.getstyle(1, 0);
-
-	// update status line
+	
+	// update status line	
 	o_item.upstatus(7);
 
 	// run mouseover timer
-	this.o_hidetimer = setTimeout('if(typeof(A_MENUS['+ this.n_id +']) != "undefined") A_MENUS['+ this.n_id +'].collapse();',
-			o_item.getprop('hide_delay'));
+	this.o_hidetimer = setTimeout('A_MENUS['+ this.n_id +'].collapse();', o_item.getprop('hide_delay'));
 }
 
 // --------------------------------------------------------------------------------
@@ -266,16 +267,16 @@ function menu_onmouseover (n_id) {
 	this.o_hidetimer = null;
 	clearTimeout(this.o_showtimer);
 
-	// lookup new item's object
+	// lookup new item's object	
 	var o_item = this.a_index[n_id];
 
-	// update status line
+	// update status line	
 	o_item.upstatus();
 
 	// apply rollover
 	o_item.e_oelement.className = o_item.getstyle(0, 1);
 	o_item.e_ielement.className = o_item.getstyle(1, 1);
-
+	
 	// if onclick open is set then no more actions required
 	if (o_item.getprop('expd_delay') < 0)
 		return;
@@ -290,7 +291,7 @@ function menu_onmouseover (n_id) {
 // called when mouse button is pressed on menu item
 // --------------------------------------------------------------------------------
 function menu_onmousedown (n_id) {
-	// lookup new item's object
+	// lookup new item's object	
 	var o_item = this.a_index[n_id];
 
 	// apply mouse down style
@@ -314,7 +315,7 @@ function menu_item (o_parent, n_order) {
 	this.a_config = o_parent.a_config[n_order + item_offset];
 
 	// return if required parameters are missing
-	if (!this.a_config || !this.a_config[0])
+	if (!this.a_config || !this.a_config[0]) 
 	{
 		return;
 	}
@@ -332,7 +333,7 @@ function menu_item (o_parent, n_order) {
 	// calculate item's coordinates
 	var o_root = this.o_root,
 		a_tpl  = this.o_root.a_tpl;
-
+	
 	this.a_css = this.a_config[3] ? this.a_config[3] : null;
 
 	// assign methods
@@ -349,7 +350,7 @@ function menu_item (o_parent, n_order) {
 	{
 		// calculate menu direction in first element
 		o_parent.set_x_direction(
-			(this.getprop('width') + o_parent.n_x + this.getprop('block_left')
+			(this.getprop('width') + o_parent.n_x + this.getprop('block_left') 
 				> o_root.n_scr_width + o_root.n_scroll_left)
 			? -1 : 1
 			);
@@ -364,37 +365,28 @@ function menu_item (o_parent, n_order) {
 		this.n_x -= this.getprop('width');
 	}
 
-	if(!o_parent.n_y_direction && !n_order){
-//alert("w: " +this.getprop('height') +" i:" + (o_parent.a_config.length - item_offset) );
-
-// calculate menu direction in first element
-/* calculates Wrongly! <c> Aly
-		var mi_height = this.getprop('height') * (o_parent.a_config.length - item_offset) + o_parent.n_y + this.getprop('block_top');
-		var scr_height = o_root.n_scr_height + o_root.n_scroll_top;
-		var mi_direction = (mi_height > scr_height)?-1:1;
-//*/
-		var mi_direction = 1;  //	always show menu in down direction.
-		o_parent.set_y_direction(mi_direction);
+	if(!o_parent.n_y_direction && !n_order)
+	{
+		//alert("w: " +this.getprop('height') +" i:" + (o_parent.a_config.length - item_offset) );
+		// calculate menu direction in first element
+		o_parent.set_y_direction(
+			(this.getprop('height') * (o_parent.a_config.length - item_offset) + o_parent.n_y + this.getprop('block_top') 
+				> o_root.n_scr_height + o_root.n_scroll_top)
+			? -1 : 1
+			);
 	}
 
-// TOP
 	this.n_y = n_order
 		? o_parent.a_children[n_order - 1].n_y + this.getprop('top')
 		: o_parent.n_y + this.getprop('block_top') * (o_parent == o_root ? o_parent.get_y_direction() : 1);
 
-	if(-1 == o_parent.get_y_direction() && !n_order){
+	if(-1 == o_parent.get_y_direction() && !n_order)
+	{
 		this.n_y -= this.getprop('height') * (o_parent.a_config.length - item_offset);
 	}
 
-	if(!is_null(this.a_config[1])
-		&& (this.a_config[1].indexOf('javascript') == -1)
-		&& !(!is_null(this.a_config[2]) || this.a_config[2] == 'nosid')){
-		var url = new Curl(this.a_config[1]);
-		this.a_config[1] = url.getUrl();
-	}
-
 	// generate item's HMTL
-	var el = document.createElement('a');
+	var el = document.createElement("a");
 	el.setAttribute('id', 'e' + o_root.n_id + '_' + this.n_id + 'o');
 	el.setAttribute('href', this.a_config[1]);
 
@@ -408,7 +400,7 @@ function menu_item (o_parent, n_order) {
 	el.style.width = this.getprop('width') + 'px';
 	el.style.height = this.getprop('height') + 'px';
 	el.style.visibility = 'hidden';
-	el.style.zIndex = parseInt(this.n_depth, 10) + 100;
+	el.style.zIndex = this.n_depth;
 
 	el.o_root_n_id = o_root.n_id;
 	el.this_n_id = this.n_id;
@@ -418,51 +410,19 @@ function menu_item (o_parent, n_order) {
 	el.onmouseover = A_MENUS_onmouseover;
 	el.onmousedown = A_MENUS_onmousedown;
 
-	var eldiv = document.createElement('div');
-	eldiv.setAttribute('id', 'e' + o_root.n_id + '_' + this.n_id +'i');
-	eldiv.className = this.getstyle(1, 0);
-
-	//truncating long strings - they don't fit in the popup menu'
-	if(typeof(this.a_config[0])=='string' && this.a_config[0].length > 35)
-		eldiv.setAttribute('title', this.a_config[0]);
-
-	eldiv.innerHTML = this.a_config[0];
-
-	el.appendChild(eldiv);
-
+	el.innerHTML = '<div  id="e' + o_root.n_id + '_' + this.n_id +'i" class="' + this.getstyle(1, 0) + '">' + this.a_config[0] + '</div>';
 //	console.log(el,el.innerHTML);
 	document.body.appendChild(el);
-
 
 	this.e_ielement = document.getElementById('e' + o_root.n_id + '_' + this.n_id + 'i');
 	this.e_oelement = document.getElementById('e' + o_root.n_id + '_' + this.n_id + 'o');
 
 	this.b_visible = !this.n_depth;
 
-	var newResult = 0;
-	var nText = '';
-
-	newResult = (this.e_ielement.scrollWidth - this.getprop('width'));
-	if(newResult > 0){
-		// anti down
-		var x=500;
-		while(x){
-			newResult = (this.e_ielement.scrollWidth - this.getprop('width'));
-			nText = this.e_ielement.innerHTML;
-			this.e_ielement.innerHTML = nText.substring(0, nText.length-10);
-			x--;
-			if(newResult < 1) {
-				this.e_ielement.innerHTML = this.e_ielement.innerHTML + '...';
-				x=0;
-				break;
-			}
-		}
-	}
-
 	// no more initialization if leaf
 	if (this.a_config.length < item_offset)
 		return;
-
+		
 	// node specific methods and properties
 	this.a_children = [];
 
@@ -471,9 +431,8 @@ function menu_item (o_parent, n_order) {
 		new menu_item(this, n_order);
 }
 
-function A_MENUS_onclick(){	return A_MENUS[this.o_root_n_id].onclick(this.this_n_id); }
-// function A_MENUS_onmouseout(){	}
-function A_MENUS_onmouseout(){	return A_MENUS[this.o_root_n_id].onmouseout(this.this_n_id); }//
+function A_MENUS_onclick(){		return A_MENUS[this.o_root_n_id].onclick(this.this_n_id); }
+function A_MENUS_onmouseout(){	return A_MENUS[this.o_root_n_id].onmouseout(this.this_n_id); }
 function A_MENUS_onmouseover(){	return A_MENUS[this.o_root_n_id].onmouseover(this.this_n_id); }
 function A_MENUS_onmousedown(){	return A_MENUS[this.o_root_n_id].onmousedown(this.this_n_id); }
 
@@ -503,20 +462,19 @@ function mitem_getstyle (n_pos, n_state) {
 	// request recursively from parent levels if not defined
 	if(!a_css)
 		a_css = this.o_root.a_css_def;
-
+	
 	//var a_css = this.o_root.a_css;
 
 	var a_oclass = a_css[n_pos ? 'inner' : 'outer'];
 
-	// same class for all states
+	// same class for all states	
 	if (typeof(a_oclass) == 'string')
 		return a_oclass;
 
-
 	// inherit class from previous state if not explicitly defined
-	for (var n_currst = n_state; n_currst >= 0; n_currst--){
-		if(a_oclass[n_currst]) return a_oclass[n_currst];
-	}
+	for (var n_currst = n_state; n_currst >= 0; n_currst--)
+		if (a_oclass[n_currst])
+			return a_oclass[n_currst];
 }
 
 // ------------------------------------------------------------------------------------------

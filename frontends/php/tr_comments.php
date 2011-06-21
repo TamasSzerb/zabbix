@@ -1,7 +1,7 @@
 <?php
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,93 +19,76 @@
 **/
 ?>
 <?php
-require_once('include/config.inc.php');
-require_once('include/triggers.inc.php');
-require_once('include/forms.inc.php');
+	require_once "include/config.inc.php";
+	require_once "include/triggers.inc.php";
+	require_once "include/forms.inc.php";
 
-$page['title'] = 'S_TRIGGER_COMMENTS';
-$page['file'] = 'tr_comments.php';
+	$page["title"] = "S_TRIGGER_COMMENTS";
+	$page["file"] = "tr_comments.php";
 
-include_once('include/page_header.php');
+include_once "include/page_header.php";
 
 ?>
 <?php
 
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		'triggerid'=>	array(T_ZBX_INT, O_MAND, P_SYS,	DB_ID, null),
-		'comments'=>	array(T_ZBX_STR, O_OPT,  null,	null, 'isset({save})'),
+		"triggerid"=>	array(T_ZBX_INT, O_MAND, P_SYS,	DB_ID, null),
+		"comments"=>	array(T_ZBX_STR, O_OPT,  null,	NOT_EMPTY,'isset({save})'),
 
-		'save'=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
-		'cancel'=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
+/* actions */
+		"save"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
+		"cancel"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
+/* other */
 /*
 		"form"=>		array(T_ZBX_STR, O_OPT, P_SYS,	null,	null),
 		"form_copy_to"=>	array(T_ZBX_STR, O_OPT, P_SYS,	null,	null),
 		"form_refresh"=>	array(T_ZBX_INT, O_OPT,	null,	null,	null)
 */
 	);
+
 	check_fields($fields);
 ?>
 <?php
+	$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY, PERM_MODE_LT);
 
-	if(!isset($_REQUEST['triggerid'])) fatal_error(S_NO_TRIGGER_DEFINED);
-
-	$options = array(
-		'nodeids' => get_current_nodeid(true),
-		'triggerids' => $_REQUEST['triggerid'],
-		'output' => API_OUTPUT_EXTEND,
-		'expandDescription' => true,
-	);
-	$trigger = API::Trigger()->get($options);
-	$trigger = reset($trigger);
-
-	if(!$trigger) access_deny();
-
-
-	if(isset($_REQUEST['save'])){
-		$result = DBexecute('UPDATE triggers '.
-						' SET comments='.zbx_dbstr($_REQUEST['comments']).
-						' WHERE triggerid='.$_REQUEST['triggerid']);
+	if(! ($db_data = DBfetch(DBselect('select * from items i, functions f '.
+	                        ' where i.itemid=f.itemid and f.triggerid='.$_REQUEST["triggerid"].
+				" and i.hostid not in (".$denyed_hosts.")".
+				' and '.DBin_node('f.triggerid')
+				))))
+	{
+		access_deny();
+	}
+	$trigger_hostid = $db_data['hostid'];
+	
+	if(isset($_REQUEST["save"]))
+	{
+		$result = update_trigger_comments($_REQUEST["triggerid"],$_REQUEST["comments"]);
+	
 		show_messages($result, S_COMMENT_UPDATED, S_CANNOT_UPDATE_COMMENT);
 
-		$trigger['comments'] = $_REQUEST['comments'];
-
-		if($result){
+		if($result)
+		{
 			add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_TRIGGER,
-				S_TRIGGER.' ['.$_REQUEST['triggerid'].'] ['.$trigger['description'].'] '.
-				S_COMMENTS.' ['.$_REQUEST['comments'].']');
+				S_TRIGGER." [".$_REQUEST["triggerid"]."] [".expand_trigger_description($_REQUEST["triggerid"])."] ".
+				S_COMMENTS." [".$_REQUEST["comments"]."]");
 		}
 	}
-	else if(isset($_REQUEST['cancel'])){
-		jsRedirect('tr_status.php');
-		exit();
+	else if(isset($_REQUEST["cancel"]))
+	{
+		Redirect('tr_status.php?hostid='.$trigger_hostid);
+		exit;
+		
 	}
-
+?>
+<?php
 	show_table_header(S_TRIGGER_COMMENTS_BIG);
-
-	//if user has no permissions to edit comments, no "save" button for him
-	$triggerEditable = API::Trigger()->get(array(
-		'editable' => 1,
-		'trigegrids' => $_REQUEST['triggerid'],
-		'output' => API_OUTPUT_SHORTEN,
-	));
-	$triggerEditable = !empty($triggerEditable);
-
-	$frmComent = new CFormTable(S_COMMENTS.' for "'.$trigger['description'].'"');
-	$frmComent->addVar('triggerid', $_REQUEST['triggerid']);
-	$frmComent->addRow(S_COMMENTS, new CTextArea('comments', $trigger['comments'], 100, 25, !$triggerEditable));
-
-	if($triggerEditable){
-		$frmComent->addItemToBottomRow(new CSubmit("save",S_SAVE));
-	}
-
-	$frmComent->addItemToBottomRow(new CButtonCancel('&triggerid='.$_REQUEST['triggerid']));
-
-	$frmComent->show();
-
+	echo BR;
+	insert_trigger_comment_form($_REQUEST["triggerid"]);
 ?>
 <?php
 
-include_once('include/page_footer.php');
+include_once "include/page_footer.php";
 
 ?>

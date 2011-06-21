@@ -5,17 +5,15 @@ noinst_LIBRARIES = libspecsysinfo.a
 libspecsysinfo_a_CFLAGS = -I@top_srcdir@/src/zabbix_agent/
 
 libspecsysinfo_a_SOURCES = \
-	boottime.c \
 	cpu.c \
 	diskio.c \
 	diskspace.c \
-	hardware.c hardware.h \
 	inodes.c \
 	kernel.c \
 	memory.c \
 	net.c \
 	proc.c \
 	sensors.c \
-	software.c software.h \
 	swap.c \
-	uptime.c
+	uptime.c \
+	boottime.c

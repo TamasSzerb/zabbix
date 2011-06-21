@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,8 +20,11 @@
 #ifndef ZABBIX_HTTPPOLLER_H
 #define ZABBIX_HTTPPOLLER_H
 
-extern int	CONFIG_HTTPPOLLER_FORKS;
+extern	void	signal_handler(int);
+extern  int     server_num;
 
-void	main_httppoller_loop();
+extern  int     CONFIG_HTTPPOLLER_FORKS;
+
+void main_httppoller_loop(int num);
 
 #endif

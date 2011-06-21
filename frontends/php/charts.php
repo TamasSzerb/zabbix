@@ -1,7 +1,7 @@
 <?php
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,202 +19,225 @@
 **/
 ?>
 <?php
-require_once('include/config.inc.php');
-require_once('include/hosts.inc.php');
-require_once('include/graphs.inc.php');
+	require_once "include/config.inc.php";
+	require_once "include/hosts.inc.php";
+	require_once "include/graphs.inc.php";
 
-$page['title'] = 'S_CUSTOM_GRAPHS';
-$page['file'] = 'charts.php';
-$page['hist_arg'] = array('hostid','groupid','graphid');
-$page['scripts'] = array('class.calendar.js', 'gtlc.js');
+	$page["title"] = "S_CUSTOM_GRAPHS";
+	$page["file"] = "charts.php";
+?>
+<?php
+	if(isset($_REQUEST["fullscreen"]))
+	{
+		define('ZBX_PAGE_NO_MENU', 1);
+	}
 
-$page['type'] = detect_page_type(PAGE_TYPE_HTML);
+	if(isset($_REQUEST["graphid"]) && $_REQUEST["graphid"] > 0 && !isset($_REQUEST["period"]) && !isset($_REQUEST["stime"]))
+	{
+		define('ZBX_PAGE_DO_REFRESH', 1);
+	}
+	
+include_once "include/page_header.php";
 
-define('ZBX_PAGE_DO_REFRESH', 1);
-
-include_once('include/page_header.php');
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		'groupid'=>		array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,	null),
-		'hostid'=>		array(T_ZBX_INT, O_OPT,  P_SYS,	DB_ID,	null),
-		'graphid'=>		array(T_ZBX_INT, O_OPT,  P_SYS,	DB_ID,	null),
-		'period'=>		array(T_ZBX_INT, O_OPT,  P_SYS, null,	null),
-		'stime'=>		array(T_ZBX_STR, O_OPT,  P_SYS, null,	null),
-		'action'=>		array(T_ZBX_STR, O_OPT,  P_SYS, IN("'go','add','remove'"),null),
-		'fullscreen'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	IN('0,1'),null),
-//ajax
-		'favobj'=>		array(T_ZBX_STR, O_OPT, P_ACT,	null,			null),
-		'favref'=>		array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,		null),
-		'favid'=>		array(T_ZBX_INT, O_OPT, P_ACT,  null,			null),
-
-		'state'=>		array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,		null),
-		'action'=>		array(T_ZBX_STR, O_OPT, P_ACT, 	IN("'add','remove'"),null)
+		"groupid"=>		array(T_ZBX_INT, O_OPT,	 P_SYS,		DB_ID,NULL),
+		"hostid"=>		array(T_ZBX_INT, O_OPT,  P_SYS,		DB_ID,NULL),
+		"graphid"=>		array(T_ZBX_INT, O_OPT,  P_SYS,		DB_ID,NULL),
+		"dec"=>			array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
+		"inc"=>			array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
+		"left"=>		array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
+		"right"=>		array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
+		"from"=>		array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(0,65535*65535),NULL),
+		"period"=>		array(T_ZBX_INT, O_OPT,  P_SYS, 	BETWEEN(ZBX_MIN_PERIOD,ZBX_MAX_PERIOD),NULL),
+		"stime"=>		array(T_ZBX_STR, O_OPT,  P_SYS, 	NULL,NULL),
+		"action"=>		array(T_ZBX_STR, O_OPT,  P_SYS, 	IN("'go'"),NULL),
+		"reset"=>		array(T_ZBX_STR, O_OPT,  P_SYS, 	IN("'reset'"),NULL),
+		"fullscreen"=>		array(T_ZBX_INT, O_OPT,	P_SYS,		IN("1"),		NULL)
 	);
 
 	check_fields($fields);
 ?>
 <?php
-	if(isset($_REQUEST['favobj'])){
-		if('filter' == $_REQUEST['favobj']){
-			CProfile::update('web.charts.filter.state',$_REQUEST['state'], PROFILE_TYPE_INT);
-		}
-		if('hat' == $_REQUEST['favobj']){
-			CProfile::update('web.charts.hats.'.$_REQUEST['favref'].'.state',$_REQUEST['state'], PROFILE_TYPE_INT);
-		}
-		if('timeline' == $_REQUEST['favobj']){
-			if(isset($_REQUEST['graphid']) && isset($_REQUEST['period'])){
-				navigation_bar_calc('web.graph',$_REQUEST['favid'], true);
-			}
-		}
-		// saving fixed/dynamic setting to profile
-		if('timelinefixedperiod' == $_REQUEST['favobj']){
-			if(isset($_REQUEST['favid'])){
-				CProfile::update('web.charts.timelinefixed', $_REQUEST['favid'], PROFILE_TYPE_INT);
-			}
-		}
-
-		if(str_in_array($_REQUEST['favobj'],array('itemid','graphid'))){
-			$result = false;
-			if('add' == $_REQUEST['action']){
-				$result = add2favorites('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
-				if($result){
-					print('$("addrm_fav").title = "'.S_REMOVE_FROM.' '.S_FAVOURITES.'";'."\n");
-					print('$("addrm_fav").onclick = function(){rm4favorites("graphid","'.$_REQUEST['favid'].'",0);}'."\n");
-				}
-			}
-			else if('remove' == $_REQUEST['action']){
-				$result = rm4favorites('web.favorite.graphids',$_REQUEST['favid'],$_REQUEST['favobj']);
-
-				if($result){
-					print('$("addrm_fav").title = "'.S_ADD_TO.' '.S_FAVOURITES.'";'."\n");
-					print('$("addrm_fav").onclick = function(){ add2favorites("graphid","'.$_REQUEST['favid'].'");}'."\n");
-				}
-			}
-
-			if((PAGE_TYPE_JS == $page['type']) && $result){
-				print('switchElementsClass("addrm_fav","iconminus","iconplus");');
-			}
-		}
+	if(isset($_REQUEST["graphid"]) && !isset($_REQUEST["hostid"]))
+	{
+		$_REQUEST["groupid"] = $_REQUEST["hostid"] = 0;
 	}
 
-	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		include_once('include/page_footer.php');
-		exit();
+	$_REQUEST["graphid"] = get_request("graphid", get_profile("web.charts.graphid", 0));
+	
+	$_REQUEST["keep"] = get_request("keep", 1); // possible excessed REQUEST variable !!!
+
+	$_REQUEST["period"] = get_request("period",get_profile("web.graph[".$_REQUEST["graphid"]."].period", ZBX_PERIOD_DEFAULT));
+	$effectiveperiod = navigation_bar_calc();
+
+	validate_group_with_host(PERM_READ_ONLY,array("allow_all_hosts","monitored_hosts","with_items", "always_select_first_host"));
+
+	if($_REQUEST["graphid"] > 0 && $_REQUEST["hostid"] > 0)
+	{
+		$result=DBselect("select g.graphid from graphs g, graphs_items gi, items i".
+			" where i.hostid=".$_REQUEST["hostid"]." and gi.itemid = i.itemid".
+			" and gi.graphid = g.graphid and g.graphid=".$_REQUEST["graphid"]);
+		if(!DBfetch($result))
+			$_REQUEST["graphid"] = 0;
 	}
 ?>
 <?php
-	$options = array(
-		'groups' => array('monitored_hosts' => 1, 'with_graphs' => 1),
-		'hosts' => array('monitored_hosts' => 1, 'with_graphs' => 1),
-		'groupid' => get_request('groupid', null),
-		'hostid' => get_request('hostid', null),
-		'graphs' => array('templated' => 0),
-		'graphid' => get_request('graphid', null),
-	);
-	$pageFilter = new CPageFilter($options);
-
-	$_REQUEST['graphid'] = $pageFilter->graphid;
-
-// resets get params for proper page refresh
-	if(isset($_REQUEST['period']) || isset($_REQUEST['stime'])){
-		navigation_bar_calc('web.graph',$_REQUEST['graphid'], true);
-		resetGetParams(array('period', 'stime'));
+	if($_REQUEST["graphid"] > 0 && $_REQUEST["period"] >= ZBX_MIN_PERIOD)
+	{
+		update_profile("web.graph[".$_REQUEST["graphid"]."].period",$_REQUEST["period"]);
 	}
-//--
 
-	$effectiveperiod = navigation_bar_calc('web.graph',$_REQUEST['graphid']);
-
-	$r_form = new CForm('get');
-	$r_form->addVar('fullscreen', $_REQUEST['fullscreen']);
-
-	$r_form->addItem(array(S_GROUP.SPACE, $pageFilter->getGroupsCB(true)));
-	$r_form->addItem(array(SPACE.S_HOST.SPACE, $pageFilter->getHostsCB(true)));
-	$r_form->addItem(array(SPACE.S_GRAPH.SPACE, $pageFilter->getGraphsCB(true)));
-
+	update_profile("web.charts.graphid",$_REQUEST["graphid"]);
 ?>
 <?php
+	$h1 = array(S_GRAPHS_BIG.SPACE."/".SPACE);
+	
+	$availiable_groups = get_accessible_groups_by_user($USER_DETAILS,PERM_READ_LIST, null, null, get_current_nodeid());
+	$denyed_hosts = get_accessible_hosts_by_user($USER_DETAILS,PERM_READ_ONLY, PERM_MODE_LT);
 
-	$icons = array();
-	$charts_wdgt = new CWidget('hat_charts');
+	if($_REQUEST['graphid'] > 0 && DBfetch(DBselect('select distinct graphid from graphs where graphid='.$_REQUEST['graphid'])))
+	{
+		if(! ($row = DBfetch(DBselect(" select distinct h.host, g.name from hosts h, items i, graphs_items gi, graphs g ".
+					" where h.status=".HOST_STATUS_MONITORED.
+					" and h.hostid=i.hostid and g.graphid=".$_REQUEST["graphid"].
+					" and i.itemid=gi.itemid and gi.graphid=g.graphid".
+					" and h.hostid not in (".$denyed_hosts.") ".
+					' and '.DBin_node('g.graphid').
+					" order by h.host, g.name"
+				))))
+		{
+			update_profile("web.charts.graphid",0);
+			access_deny();
+		}
+		array_push($h1, new CLink($row["name"], "?graphid=".$_REQUEST["graphid"].(isset($_REQUEST["fullscreen"]) ? "&fullscreen=1" : "")));
+	}
+	else
+	{
+		$_REQUEST['graphid'] = 0;
+		array_push($h1, S_SELECT_GRAPH_TO_DISPLAY);
+	}
+
+	$r_form = new CForm();
+	$r_form->SetMethod('get');
+
+	if(isset($_REQUEST['fullscreen']))
+		$r_form->AddVar('fullscreen', 1);
+
+	$cmbGroup = new CComboBox("groupid",$_REQUEST["groupid"],"submit()");
+	$cmbHosts = new CComboBox("hostid",$_REQUEST["hostid"],"submit()");
+	$cmbGraph = new CComboBox("graphid",$_REQUEST["graphid"],"submit()");
+
+	$cmbGroup->AddItem(0,S_ALL_SMALL);
+	
+	$result=DBselect("select distinct g.groupid,g.name from groups g, hosts_groups hg, hosts h, items i, graphs_items gi ".
+		" where g.groupid in (".$availiable_groups.") ".
+		" and hg.groupid=g.groupid and h.status=".HOST_STATUS_MONITORED.
+		" and h.hostid=i.hostid and hg.hostid=h.hostid and i.itemid=gi.itemid ".
+		" order by g.name");
+	while($row=DBfetch($result))
+	{
+		$cmbGroup->AddItem(
+				$row['groupid'],
+				get_node_name_by_elid($row['groupid']).$row["name"]
+				);
+	}
+	$r_form->AddItem(array(S_GROUP.SPACE,$cmbGroup));
+	
+	if($_REQUEST["groupid"] > 0)
+	{
+		$sql = " select distinct h.hostid,h.host from hosts h,items i,hosts_groups hg, graphs_items gi ".
+			" where h.status=".HOST_STATUS_MONITORED.
+			" and h.hostid=i.hostid and hg.groupid=".$_REQUEST["groupid"]." and hg.hostid=h.hostid ".
+			" and h.hostid not in (".$denyed_hosts.") and i.itemid=gi.itemid".
+			" order by h.host";
+	}
+	else
+	{
+		$cmbHosts->AddItem(0,S_ALL_SMALL);
+		$sql = "select distinct h.hostid,h.host from hosts h,items i, graphs_items gi where h.status=".HOST_STATUS_MONITORED.
+			" and i.status=".ITEM_STATUS_ACTIVE." and h.hostid=i.hostid".
+			" and h.hostid not in (".$denyed_hosts.") and i.itemid=gi.itemid".
+			" order by h.host";
+	}
+	$result=DBselect($sql);
+	while($row=DBfetch($result))
+	{
+		$cmbHosts->AddItem(
+				$row['hostid'],
+				get_node_name_by_elid($row['hostid']).$row['host']
+				);
+	}
+
+	$r_form->AddItem(array(SPACE.S_HOST.SPACE,$cmbHosts));
+
+	$cmbGraph->AddItem(0,S_SELECT_GRAPH_DOT_DOT_DOT);
+
+	if($_REQUEST["hostid"] > 0)
+	{
+		$sql = "select distinct g.graphid,g.name from graphs g,graphs_items gi,items i".
+			" where i.itemid=gi.itemid and g.graphid=gi.graphid and i.hostid=".$_REQUEST["hostid"].
+			' and '.DBin_node('g.graphid').
+			" and i.hostid not in (".$denyed_hosts.") ".
+			" order by g.name";
+	}
+	elseif ($_REQUEST["groupid"] > 0)
+	{
+		$sql = "select distinct g.graphid,g.name from graphs g,graphs_items gi,items i,hosts_groups hg,hosts h".
+			" where i.itemid=gi.itemid and g.graphid=gi.graphid and i.hostid=hg.hostid and hg.groupid=".$_REQUEST["groupid"].
+			" and i.hostid=h.hostid and h.status=".HOST_STATUS_MONITORED.
+			' and '.DBin_node('g.graphid').
+			" and h.hostid not in (".$denyed_hosts.") ".
+			" order by g.name";
+	}
+	else
+	{
+		$sql = "select distinct g.graphid,g.name from graphs g,graphs_items gi,items i,hosts h".
+			" where i.itemid=gi.itemid and g.graphid=gi.graphid ".
+			" and i.hostid=h.hostid and h.status=".HOST_STATUS_MONITORED.
+			' and '.DBin_node('g.graphid').
+			" and h.hostid not in (".$denyed_hosts.") ".
+			" order by g.name";
+	}
+
+	$result = DBselect($sql);
+	while($row=DBfetch($result))
+	{
+		$cmbGraph->AddItem(
+				$row['graphid'],
+				get_node_name_by_elid($row['graphid']).$row['name']
+				);
+	}
+	
+	$r_form->AddItem(array(SPACE.S_GRAPH.SPACE,$cmbGraph));
+	
+	show_table_header($h1, $r_form);
+?>
+<?php
 	$table = new CTableInfo('...','chart');
-	$header = null;
 
-	if($pageFilter->graphsSelected){
-		$header = $pageFilter->graphs[$pageFilter->graphid];
-
-		$scroll_div = new CDiv();
-		$scroll_div->setAttribute('id','scrollbar_cntr');
-		$charts_wdgt->addFlicker($scroll_div, CProfile::get('web.charts.filter.state',1));
-
-		$graphDims = getGraphDims($_REQUEST['graphid']);
-
-		if(($graphDims['graphtype'] == GRAPH_TYPE_PIE) || ($graphDims['graphtype'] == GRAPH_TYPE_EXPLODED)){
-			$loadSBox = 0;
-			$scrollWidthByImage = 0;
-			$containerid = 'graph_cont1';
-			$src = 'chart6.php?graphid='.$_REQUEST['graphid'];
-		}
-		else{
-			$loadSBox = 1;
-			$scrollWidthByImage = 1;
-			$containerid = 'graph_cont1';
-			$src = 'chart2.php?graphid='.$_REQUEST['graphid'];
-		}
-
-		$graph_cont = new CCol();
-		$graph_cont->setAttribute('id', $containerid);
-		$table->addRow($graph_cont);
-
-		$icon = get_icon('favourite', array(
-			'fav' => 'web.favorite.graphids',
-			'elname' => 'graphid',
-			'elid' => $_REQUEST['graphid'],
-		));
-		$fs_icon = get_icon('fullscreen', array('fullscreen' => $_REQUEST['fullscreen']));
-		$rst_icon = get_icon('reset', array('id' => $_REQUEST['graphid']));
-		array_push($icons, $icon, $rst_icon, $fs_icon);
-
-// NAV BAR
-		$utime = zbxDateToTime($_REQUEST['stime']);
-		$starttime = get_min_itemclock_by_graphid($_REQUEST['graphid']);
-		if($utime < $starttime) $starttime = $utime;
-
-		$timeline = array(
-			'starttime' => date('YmdHis', $starttime),
-			'period' => $effectiveperiod,
-			'usertime' => date('YmdHis', $utime + $effectiveperiod)
-		);
-
-		$dom_graph_id = 'graph';
-		$objData = array(
-			'id' => $_REQUEST['graphid'],
-			'domid' => $dom_graph_id,
-			'containerid' => $containerid,
-			'src' => $src,
-			'objDims' => $graphDims,
-			'loadSBox' => $loadSBox,
-			'loadImage' => 1,
-			'loadScroll' => 1,
-			'scrollWidthByImage' => $scrollWidthByImage,
-			'dynamic' => 1,
-			'periodFixed' => CProfile::get('web.charts.timelinefixed', 1)
-		);
-
-		zbx_add_post_js('timeControl.addObject("'.$dom_graph_id.'",'.zbx_jsvalue($timeline).','.zbx_jsvalue($objData).');');
-		zbx_add_post_js('timeControl.processObjects();');
+	if($_REQUEST["graphid"] > 0)
+	{
+		$row = 	"\n<script language=\"JavaScript\">\n".
+			"if(window.innerWidth) width=window.innerWidth; else width=document.body.clientWidth;\n".
+			"document.write(\"<IMG SRC='chart2.php?graphid=".$_REQUEST["graphid"].url_param("stime").url_param("from").
+			"&period=".$effectiveperiod."&width=\"+(width-108)+\"'>\")\n".
+			"</script>";
+		
+		$table->AddRow($row);
 	}
+	$table->Show();
 
-	$charts_wdgt->addPageHeader(S_GRAPHS_BIG, $icons);
-	$charts_wdgt->addHeader($header, $r_form);
-	$charts_wdgt->addItem(BR());
-	$charts_wdgt->addItem($table);
-	$charts_wdgt->show();
-
+	if($_REQUEST["graphid"] > 0)
+	{
+		navigation_bar('charts.php',array('groupid','hostid','graphid'));
+	}
+	
 ?>
 <?php
 
-include_once('include/page_footer.php');
+include_once "include/page_footer.php";
 
 ?>

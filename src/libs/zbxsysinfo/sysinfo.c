@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -23,120 +23,153 @@
 #include "cfg.h"
 #include "alias.h"
 
+#include "common/common.h"
+
 #if defined(WITH_COMMON_METRICS)
 #	include "common/common.h"
-#endif
+#endif /* USE_COMMON_METRICS */
 
 #if defined(WITH_SIMPLE_METRICS)
 #	include "simple/simple.h"
-#endif
+#endif /* USE_SIMPLE_METRICS */
 
 #if defined(WITH_SPECIFIC_METRICS)
 #	include "specsysinfo.h"
-#endif
+#endif /* USE_SPECIFIC_METRICS */
 
-static ZBX_METRIC	*commands = NULL;
+ZBX_METRIC *commands=NULL;
 
 void	add_metric(ZBX_METRIC *new)
 {
-	int	i = 0;
+	register int i;
 
 	assert(new);
 
-	if (NULL == new->key)
+	if(new->key == NULL)
 		return;
 
-	while (NULL != commands[i].key)
-		i++;
+	for(i=0;;i++)
+	{
+		if(commands[i].key == NULL)
+		{
 
-	commands[i].key = zbx_strdup(NULL, new->key);
-	commands[i].flags = new->flags;
-	commands[i].function = new->function;
-	commands[i].main_param = (NULL == new->main_param ? NULL : zbx_strdup(NULL, new->main_param));
-	commands[i].test_param = (NULL == new->test_param ? NULL : zbx_strdup(NULL, new->test_param));
+			commands[i].key = strdup(new->key);
+			commands[i].flags = new->flags;
 
-	commands = zbx_realloc(commands, (i + 2) * sizeof(ZBX_METRIC));
-	memset(&commands[i + 1], 0, sizeof(ZBX_METRIC));
+			commands[i].function=new->function;
+
+			if(new->main_param == NULL)
+				commands[i].main_param=NULL;
+			else
+				commands[i].main_param=strdup(new->main_param);
+
+			if(new->test_param == NULL)
+				commands[i].test_param=NULL;
+			else
+				commands[i].test_param=strdup(new->test_param);
+			
+			commands = zbx_realloc(commands,(i+2)*sizeof(ZBX_METRIC));
+			memset(&commands[i+1], 0, sizeof(ZBX_METRIC));
+			break;
+		}
+	}
 }
 
-int	add_user_parameter(const char *key, char *command)
+void	add_user_parameter(char *key,char *command)
 {
-	int		i;
-	char		usr_cmd[MAX_STRING_LEN], usr_param[MAX_STRING_LEN];
+	register int i;
+	char	usr_cmd[MAX_STRING_LEN];
+	char	usr_param[MAX_STRING_LEN];
 	unsigned	flag = 0;
-
-	if (0 == (i = parse_command(key, usr_cmd, sizeof(usr_cmd), usr_param, sizeof(usr_param))))
+	
+	i = parse_command(key, usr_cmd, MAX_STRING_LEN, usr_param, MAX_STRING_LEN);
+	if(i == 0)
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "failed to add UserParameter \"%s\": parsing error", key);
-		return FAIL;
-	}
-	else if (2 == i)				/* with specified parameters */
+		zabbix_log( LOG_LEVEL_WARNING, "Can't add user specifed key \"%s\". Can't parse key!", key);
+		return;
+	} 
+	else if(i == 2) /* with specifed parameters */
 	{
-		if (0 != strcmp(usr_param, "*"))	/* must be '*' parameters */
-		{
-			zabbix_log(LOG_LEVEL_WARNING, "failed to add UserParameter \"%s\": invalid key", key);
-			return FAIL;
+		if(strcmp(usr_param,"*")){ /* must be '*' parameters */
+			zabbix_log(LOG_LEVEL_WARNING, "Can't add user specifed key \"%s\". Incorrect key!", key);
+			return;
 		}
 		flag |= CF_USEUPARAM;
 	}
 
-	for (i = 0;; i++)
+	for(i=0;;i++)
 	{
-		/* add new parameters */
-		if (NULL == commands[i].key)
+		/* Add new parameters */
+		if( commands[i].key == 0)
 		{
-			commands[i].key = zbx_strdup(NULL, usr_cmd);
+			commands[i].key = strdup(usr_cmd);
 			commands[i].flags = flag;
-			commands[i].function = &EXECUTE_USER_PARAMETER;
-			commands[i].main_param = zbx_strdup(NULL, command);
+			commands[i].function = &EXECUTE_STR;
+			commands[i].main_param = strdup(command);
 			commands[i].test_param = 0;
+			commands = zbx_realloc(commands,(i+2)*sizeof(ZBX_METRIC));
+			commands[i+1].key=NULL;
 
-			commands = zbx_realloc(commands, (i + 2) * sizeof(ZBX_METRIC));
-			commands[i + 1].key = NULL;
 			break;
 		}
-
-		/* treat duplicate UserParameters as error */
-		if (0 == strcmp(commands[i].key, usr_cmd))
+		
+		/* Replace existing parameters */
+		if(strcmp(commands[i].key, key) == 0)
 		{
-			zabbix_log(LOG_LEVEL_CRIT, "failed to add UserParameter \"%s\": duplicate key", key);
-			exit(FAIL);
+			if(commands[i].key)
+				free(commands[i].key);
+			if(commands[i].main_param)	
+				free(commands[i].main_param);
+			if(commands[i].test_param)	
+				free(commands[i].test_param);
+
+			commands[i].key = strdup(key);
+			commands[i].flags = flag;
+			commands[i].function = &EXECUTE_STR;
+			commands[i].main_param = strdup(command);
+			commands[i].test_param = 0;
+
+			break;
 		}
 	}
-
-	return SUCCEED;
 }
 
-void	init_metrics()
+void	init_metrics(void)
 {
-	int	i;
+	register int 	i;
 
-	commands = zbx_malloc(commands, sizeof(ZBX_METRIC));
-	commands[0].key = NULL;
+	commands = malloc(sizeof(ZBX_METRIC));
+	commands[0].key=NULL;
 
 #if defined(WITH_COMMON_METRICS)
-	for (i = 0; NULL != parameters_common[i].key; i++)
+	for(i=0;parameters_common[i].key!=0;i++)
+	{
 		add_metric(&parameters_common[i]);
-#endif
+	}
+#endif /* USE_COMMON_METRICS */
 
 #if defined(WITH_SPECIFIC_METRICS)
-	for (i = 0; NULL != parameters_specific[i].key; i++)
+	for(i=0;parameters_specific[i].key!=0;i++)
+	{
 		add_metric(&parameters_specific[i]);
-#endif
+	}
+#endif /* USE_SPECIFIC_METRICS */
 
 #if defined(WITH_SIMPLE_METRICS)
-	for (i = 0; NULL != parameters_simple[i].key; i++)
+	for(i=0;parameters_simple[i].key!=0;i++)
+	{
 		add_metric(&parameters_simple[i]);
-#endif
+	}
+#endif /* USE_SIMPLE_METRICS */
 }
 
-void	free_metrics()
+void	free_metrics(void)
 {
-	if (NULL != commands)
-	{
-		int	i;
+	int i = 0;
 
-		for (i = 0; NULL != commands[i].key; i++)
+	if( commands )
+	{
+		for(i=0; NULL != commands[i].key; i++)
 		{
 			zbx_free(commands[i].key);
 			zbx_free(commands[i].main_param);
@@ -147,585 +180,565 @@ void	free_metrics()
 	}
 }
 
-void	init_result(AGENT_RESULT *result)
+void    escape_string(char *from, char *to, int maxlen)
 {
-	result->type = 0;
+	register int     i,ptr;
+	char    *f;
 
-	result->ui64 = 0;
-	result->dbl = 0;
-	result->str = NULL;
-	result->text = NULL;
-	result->msg = NULL;
+	ptr=0;
+	f=(char *)strdup(from);
+	for(i=0;f[i]!=0;i++)
+	{
+		if( (f[i]=='\'') || (f[i]=='\\'))
+		{
+			if(ptr>maxlen-1)        break;
+			to[ptr]='\\';
+			if(ptr+1>maxlen-1)      break;
+			to[ptr+1]=f[i];
+			ptr+=2;
+		}
+		else
+		{
+			if(ptr>maxlen-1)        break;
+			to[ptr]=f[i];
+			ptr++;
+		}
+	}
+	free(f);
+
+	to[ptr]=0;
+	to[maxlen-1]=0;
+}
+
+int 	copy_result(AGENT_RESULT *src, AGENT_RESULT *dist)
+{
+	assert(src);
+	assert(dist);
+	
+	free_result(dist);
+	dist->type = src->type;
+	dist->dbl = src->dbl;
+	if(src->str)
+	{
+		dist->str = strdup(src->str);
+		if(!dist->str)
+			return 1;
+	}
+	if(src->msg)
+	{
+		dist->msg = strdup(src->msg);
+		if(!dist->msg)
+			return 1;
+	}
+	return 0;
 }
 
 void	free_result(AGENT_RESULT *result)
 {
-	UNSET_UI64_RESULT(result);
 	UNSET_DBL_RESULT(result);
+	UNSET_UI64_RESULT(result);
 	UNSET_STR_RESULT(result);
 	UNSET_TEXT_RESULT(result);
 	UNSET_MSG_RESULT(result);
 }
 
-/*
- * return value: 0 - error;
- *               1 - command without parameters;
- *               2 - command with parameters
- */
-int	parse_command(const char *command, char *cmd, size_t cmd_max_len, char *param, size_t param_max_len)
+void	init_result(AGENT_RESULT *result)
 {
-	char	*pl, *pr;
-	size_t	sz;
+ /* don't use `free_result(result)`, dangerous recycling */
 
-	pl = strchr(command, '[');
-	pr = strrchr(command, ']');
-
-	if (pl > pr)
-		return 0;
-
-	if (NULL != pl && NULL == pr)
-		return 0;
-
-	if (NULL == pl && NULL != pr)
-		return 0;
-
-	if (NULL == pl && NULL == pr) /* simple check? */
-	{
-		if (NULL != (pl = strchr(command, ',')))
-		{
-			for (pr = pl + 1; '\0' != *pr; pr++);
-		}
-	}
-
-	if (NULL != cmd)
-	{
-		if (NULL != pl)
-		{
-			if (cmd_max_len < (sz = (size_t)(pl - command) + 1))
-				sz = cmd_max_len;
-			memcpy(cmd, command, sz - 1);
-			cmd[sz - 1] = '\0';
-		}
-		else
-			zbx_strlcpy(cmd, command, cmd_max_len);
-	}
-
-	if (NULL != param)
-		*param = '\0';
-
-	if (NULL != pl && NULL != pr)
-	{
-		if (NULL != param)
-		{
-			if (param_max_len < (sz = (size_t)(pr - pl)))
-				sz = param_max_len;
-			memcpy(param, pl + 1, sz - 1);
-			param[sz - 1] = '\0';
-		}
-	}
-	else
-		return 1;
-
-	return 2;
+	result->type = 0;
+	
+	result->ui64 = 0;
+	result->dbl = 0;	
+	result->str = NULL;
+	result->text = NULL;
+	result->msg = NULL;
 }
 
-void	test_parameter(const char *key, unsigned flags)
+int parse_command( /* return value: 0 - error; 1 - command without parameters; 2 - command with parameters */
+		const char *command,
+		char *cmd,
+		int cmd_max_len,
+		char *param,
+		int param_max_len
+		)
+{
+	char *pl, *pr;
+	char localstr[MAX_STRING_LEN];
+	int ret = 2;
+
+	zbx_strlcpy(localstr, command, MAX_STRING_LEN);
+	
+	if(cmd)
+		zbx_strlcpy(cmd, "", cmd_max_len);
+	if(param)
+		zbx_strlcpy(param, "", param_max_len);
+	
+	pl = strchr(localstr, '[');
+	pr = strrchr(localstr, ']');
+
+	if(pl > pr)
+		return 0;
+
+	if((pl && !pr) || (!pl && pr))
+		return 0;
+	
+	if(pl != NULL)
+		pl[0] = 0;
+	if(pr != NULL)
+		pr[0] = 0;
+
+	if(cmd)
+		zbx_strlcpy(cmd, localstr, cmd_max_len);
+
+	if(pl && pr && param)
+		zbx_strlcpy(param, &pl[1] , param_max_len);
+
+	if(!pl && !pr)
+		ret = 1;
+	
+	return ret;
+}
+
+void	test_parameter(char* key)
 {
 	AGENT_RESULT	result;
 
-	init_result(&result);
-
-	process(key, flags, &result);
-
-	if (ISSET_UI64(&result))
-		printf(" [u|" ZBX_FS_UI64 "]", result.ui64);
-
-	if (ISSET_DBL(&result))
+	memset(&result, 0, sizeof(AGENT_RESULT));
+	process(key, PROCESS_TEST, &result);
+	if(result.type & AR_DOUBLE)
+	{
 		printf(" [d|" ZBX_FS_DBL "]", result.dbl);
-
-	if (ISSET_STR(&result))
+	}
+	if(result.type & AR_UINT64)
+	{
+		printf(" [u|" ZBX_FS_UI64 "]", result.ui64);
+	}
+	if(result.type & AR_STRING)
+	{
 		printf(" [s|%s]", result.str);
-
-	if (ISSET_TEXT(&result))
+	}
+	if(result.type & AR_TEXT)
+	{
 		printf(" [t|%s]", result.text);
-
-	if (ISSET_MSG(&result))
+	}
+	if(result.type & AR_MESSAGE)
+	{
 		printf(" [m|%s]", result.msg);
+	}
 
 	free_result(&result);
-
 	printf("\n");
 
 	fflush(stdout);
 }
 
-void	test_parameters()
+void	test_parameters(void)
 {
-	int	i;
+	register int	i;
+	AGENT_RESULT	result;
 
-	for (i = 0; NULL != commands[i].key; i++)
-		test_parameter(commands[i].key, PROCESS_TEST | PROCESS_USE_TEST_PARAM);
+	memset(&result, 0, sizeof(AGENT_RESULT));
+	
+	for(i=0; 0 != commands[i].key; i++)
+	{
+		process(commands[i].key, PROCESS_TEST | PROCESS_USE_TEST_PARAM, &result);
+		if(result.type & AR_DOUBLE)
+		{
+			printf(" [d|" ZBX_FS_DBL "]", result.dbl);
+		}
+		if(result.type & AR_UINT64)
+		{
+			printf(" [u|" ZBX_FS_UI64 "]", result.ui64);
+		}
+		if(result.type & AR_STRING)
+		{
+			printf(" [s|%s]", result.str);
+		}
+		if(result.type & AR_TEXT)
+		{
+			printf(" [t|%s]", result.text);
+		}
+		if(result.type & AR_MESSAGE)
+		{
+			printf(" [m|%s]", result.msg);
+		}
+		free_result(&result);
+		printf("\n");
+
+		fflush(stdout);
+	}
 }
 
-static int	replace_param(const char *cmd, const char *param, char *out, int outlen, char *error, int max_error_len)
+int	replace_param(const char *cmd, const char *param, char *out, int outlen)
 {
-	int		ret = SUCCEED;
-	char		buf[MAX_STRING_LEN];
-	char		command[MAX_STRING_LEN];
-	char		*pl, *pr;
-	const char	suppressed_chars[] = "\\'\"`*?[]{}~$!&;()<>|#@", *c;
-
+	int ret = SUCCEED;
+	char buf[MAX_STRING_LEN];
+	char command[MAX_STRING_LEN];
+	register char *pl, *pr;
+	
 	assert(out);
 
 	out[0] = '\0';
 
-	if (NULL == cmd && NULL == param)
+	if(!cmd && !param)
 		return ret;
-
-	strscpy(command, cmd);
-
+	
+	zbx_strlcpy(command, cmd, MAX_STRING_LEN);
+			
 	pl = command;
-
-	while (NULL != (pr = strchr(pl, '$')) && outlen > 0)
+	while((pr = strchr(pl, '$')) && outlen > 0)
 	{
 		pr[0] = '\0';
 		zbx_strlcat(out, pl, outlen);
 		outlen -= MIN((int)strlen(pl), (int)outlen);
 		pr[0] = '$';
-
-		if ('0' <= pr[1] && pr[1] <= '9')
+		
+		if (pr[1] >= '0' && pr[1] <= '9')
 		{
 			buf[0] = '\0';
 
-			if ('0' == pr[1])
+			if(pr[1] == '0')
 			{
-				strscpy(buf, command);
+				zbx_strlcpy(buf, command, MAX_STRING_LEN);
 			}
 			else
 			{
-				get_param(param, (int)(pr[1] - '0'), buf, sizeof(buf));
-
-				if (0 == CONFIG_UNSAFE_USER_PARAMETERS)
-				{
-					for (c = suppressed_chars; '\0' != *c; c++)
-					{
-						if (NULL != strchr(buf, *c))
-						{
-							zbx_snprintf(error, max_error_len, "Special characters '%s'"
-									" are not allowed in the parameters",
-									suppressed_chars);
-							ret = FAIL;
-							break;
-						}
-					}
-				}
+				get_param(param, (int)(pr[1] - '0'), buf, MAX_STRING_LEN);
 			}
-
-			if (FAIL == ret)
-				break;
-
+			
 			zbx_strlcat(out, buf, outlen);
 			outlen -= MIN((int)strlen(buf), (int)outlen);
-
+					
 			pl = pr + 2;
 			continue;
-		}
-		else if ('$' == pr[1])
+		} else if(pr[1] == '$')
 		{
-			pr++;	/* remove second '$' symbol */
+			pr++; /* remove second '$' symbol */
 		}
-
+		
 		pl = pr + 1;
 		zbx_strlcat(out, "$", outlen);
 		outlen -= 1;
 	}
-
 	zbx_strlcat(out, pl, outlen);
 	outlen -= MIN((int)strlen(pl), (int)outlen);
-
+	
 	return ret;
 }
 
 int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 {
-	char	*p;
-	int	i = 0;
+	register char	*p;
+	register int	i = 0;
 
 	int	(*function)() = NULL;
 	int	ret = SUCCEED;
 	int	err = SYSINFO_RET_OK;
-
+	
 	char	usr_cmd[MAX_STRING_LEN];
 	char	usr_param[MAX_STRING_LEN];
-
+	
 	char	usr_command[MAX_STRING_LEN];
-	int	usr_command_len;
+	int 	usr_command_len;
 
-	char	param[MAX_STRING_LEN], error[MAX_STRING_LEN];
-
-	assert(result);
-	init_result(result);
-
-	*error = '\0';
-
-	alias_expand(in_command, usr_command, sizeof(usr_command));
-
+	char	param[MAX_STRING_LEN];
+		
+        assert(result);
+        init_result(result);
+	
+	alias_expand(in_command, usr_command, MAX_STRING_LEN);
+	
 	usr_command_len = (int)strlen(usr_command);
 
-	for (p = usr_command + usr_command_len - 1; p > usr_command && NULL != strchr(ZBX_WHITESPACE, *p); --p)
-		;
+	for( p=usr_command+usr_command_len-1; p>usr_command && ( *p=='\r' || *p =='\n' || *p == ' ' ); --p );
 
-	if (NULL != strchr(ZBX_WHITESPACE, p[1]))
-		p[1] = '\0';
-
-	if (0 != parse_command(usr_command, usr_cmd, sizeof(usr_cmd), usr_param, sizeof(usr_param)))
+	if( (p[1]=='\r') || (p[1]=='\n') || (p[1]==' '))
 	{
-		for (i = 0; NULL != commands[i].key; i++)
+		p[1]=0;
+	}
+	
+	function=0;
+	
+	if(parse_command(usr_command, usr_cmd, MAX_STRING_LEN, usr_param, MAX_STRING_LEN) != 0)
+	{
+
+		for(i=0; commands[i].key != 0; i++)
 		{
-			if (0 == strcmp(commands[i].key, usr_cmd))
+			if( strcmp(commands[i].key, usr_cmd) == 0)
 			{
-				function = commands[i].function;
+				function=commands[i].function;
 				break;
 			}
 		}
 	}
 
-	param[0] = '\0';
-
-	if (NULL != function)
+	param[0] = '\0';	
+	if(function != 0)
 	{
-		if (0 != (commands[i].flags & CF_USEUPARAM))
+		
+		if(commands[i].flags & CF_USEUPARAM)
 		{
-			if (0 != (flags & PROCESS_TEST) &&
-					0 != (flags & PROCESS_USE_TEST_PARAM) &&
-					NULL != commands[i].test_param)
+			if((flags & PROCESS_TEST) && (flags & PROCESS_USE_TEST_PARAM) && commands[i].test_param)
 			{
-				strscpy(usr_param, commands[i].test_param);
+				zbx_strlcpy(usr_param, commands[i].test_param, MAX_STRING_LEN);
 			}
-		}
+		} 
 		else
-			usr_param[0] = '\0';
-
-		if (NULL != commands[i].main_param)
 		{
-			if (0 != (commands[i].flags & CF_USEUPARAM))
+			usr_param[0] = '\0';
+		}
+		
+		if(commands[i].main_param)
+		{
+			if(commands[i].flags & CF_USEUPARAM)
 			{
-				err = replace_param(commands[i].main_param, usr_param,
-						param, sizeof(param), error, sizeof(error));
+				err = replace_param(
+					commands[i].main_param,
+					usr_param,
+					param,
+					MAX_STRING_LEN);
 			}
 			else
-				strscpy(param, commands[i].main_param);
+			{
+				zbx_snprintf(param, sizeof(param), "%s", commands[i].main_param);
+			}
 		}
 		else
-			strscpy(param, usr_param);
+		{
+			zbx_snprintf(param, sizeof(param), "%s", usr_param);
+		}
 
-		if (FAIL != err)
+		if(err != FAIL)
 		{
 			err = function(usr_command, param, flags, result);
 
-			if (SYSINFO_RET_FAIL == err)
+			if(err == SYSINFO_RET_FAIL)
 				err = NOTSUPPORTED;
-		}
-		else
-		{
-			err = NOTSUPPORTED;
-			if ('\0' != *error)
-				zabbix_log(LOG_LEVEL_WARNING, "item [%s] error: %s", in_command, error);
+			else if(err == SYSINFO_RET_TIMEOUT)
+				err = TIMEOUT_ERROR;
 		}
 	}
 	else
+	{
 		err = NOTSUPPORTED;
-
-	if (0 != (flags & PROCESS_TEST))
+	}
+	
+	if(flags & PROCESS_TEST)
 	{
 		printf("%s", usr_cmd);
-
-		if (0 != (commands[i].flags & CF_USEUPARAM))
+		if(commands[i].flags & CF_USEUPARAM)
 		{
-			printf("[%s]", usr_param);
-			i = 2 + (int)strlen(usr_param);
-		}
-		else
-			i = 0;
-
+			printf("[%s]", param);
+			i = (int)strlen(param)+2;
+		} else	i = 0;
 		i += (int)strlen(usr_cmd);
-
-#define COLUMN_2_X 45	/* max space count */
-		i = (i > COLUMN_2_X ? 1 : COLUMN_2_X - i);
-
-		printf("%-*.*s", i, i, " ");	/* print spaces */
+		
+#define COLUMN_2_X 45 /* max of spaces count */
+		i = i > COLUMN_2_X ? 1 : (COLUMN_2_X - i);
+	
+		printf("%-*.*s", i, i, " "); /* print spaces */
 	}
 
-	if (NOTSUPPORTED == err)
+	if(err == NOTSUPPORTED)
 	{
-		if (!ISSET_MSG(result))
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "ZBX_NOTSUPPORTED"));
-
+		if(!(result->type & AR_MESSAGE))
+		{
+			SET_MSG_RESULT(result, strdup("ZBX_NOTSUPPORTED"));
+		}
 		ret = NOTSUPPORTED;
 	}
-	else if (TIMEOUT_ERROR == err)
+	else if(err == TIMEOUT_ERROR)
 	{
-		if (!ISSET_MSG(result))
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "ZBX_ERROR"));
-
+		if(!(result->type & AR_MESSAGE))
+		{
+			SET_MSG_RESULT(result, strdup("ZBX_ERROR"));
+		}
 		ret = TIMEOUT_ERROR;
 	}
 
 	return ret;
 }
 
-int	set_result_type(AGENT_RESULT *result, int value_type, int data_type, char *c)
+int	set_result_type(AGENT_RESULT *result, int value_type, char *c)
 {
-	int		ret = FAIL;
-	zbx_uint64_t	value_uint64;
-	double		value_double;
+	int ret = FAIL;
 
 	assert(result);
 
-	switch (value_type)
+	if(value_type == ITEM_VALUE_TYPE_UINT64)
 	{
-		case ITEM_VALUE_TYPE_UINT64:
-			zbx_rtrim(c, " \"");
-			zbx_ltrim(c, " \"+");
-			del_zeroes(c);
-
-			switch (data_type)
-			{
-				case ITEM_DATA_TYPE_BOOLEAN:
-					if (SUCCEED == is_boolean(c, &value_uint64))
-					{
-						SET_UI64_RESULT(result, value_uint64);
-						ret = SUCCEED;
-					}
-					break;
-				case ITEM_DATA_TYPE_OCTAL:
-					if (SUCCEED == is_uoct(c))
-					{
-						ZBX_OCT2UINT64(value_uint64, c);
-						SET_UI64_RESULT(result, value_uint64);
-						ret = SUCCEED;
-					}
-					break;
-				case ITEM_DATA_TYPE_DECIMAL:
-					if (SUCCEED == is_uint64(c, &value_uint64))
-					{
-						SET_UI64_RESULT(result, value_uint64);
-						ret = SUCCEED;
-					}
-					break;
-				case ITEM_DATA_TYPE_HEXADECIMAL:
-					if (SUCCEED == is_uhex(c))
-					{
-						ZBX_HEX2UINT64(value_uint64, c);
-						SET_UI64_RESULT(result, value_uint64);
-						ret = SUCCEED;
-					}
-					else if (SUCCEED == is_hex_string(c))
-					{
-						zbx_remove_whitespace(c);
-						ZBX_HEX2UINT64(value_uint64, c);
-						SET_UI64_RESULT(result, value_uint64);
-						ret = SUCCEED;
-					}
-					break;
-				default:
-					THIS_SHOULD_NEVER_HAPPEN;
-					break;
-			}
-			break;
-		case ITEM_VALUE_TYPE_FLOAT:
-			zbx_rtrim(c, " \"");
-			zbx_ltrim(c, " \"+");
-
-			if (SUCCEED != is_double(c))
-				break;
-			value_double = atof(c);
-
-			SET_DBL_RESULT(result, value_double);
+		del_zeroes(c);
+		if(is_uint(c) == SUCCEED)
+		{
+			SET_UI64_RESULT(result, zbx_atoui64(c));
 			ret = SUCCEED;
-			break;
-		case ITEM_VALUE_TYPE_STR:
-		case ITEM_VALUE_TYPE_LOG:
-			zbx_replace_invalid_utf8(c);
-			SET_STR_RESULT(result, strdup(c));
-			ret = SUCCEED;
-			break;
-		case ITEM_VALUE_TYPE_TEXT:
-			zbx_replace_invalid_utf8(c);
-			SET_TEXT_RESULT(result, strdup(c));
-			ret = SUCCEED;
-			break;
+		}
 	}
-
-	if (SUCCEED != ret)
+	else if(value_type == ITEM_VALUE_TYPE_FLOAT)
 	{
-		char	*error = NULL;
-
-		zbx_remove_chars(c, "\r\n");
-
-		if (ITEM_VALUE_TYPE_UINT64 == value_type)
-			error = zbx_dsprintf(error,
-					"Received value [%s] is not suitable for value type [%s] and data type [%s]",
-					c, zbx_item_value_type_string(value_type), zbx_item_data_type_string(data_type));
-		else
-			error = zbx_dsprintf(error,
-					"Received value [%s] is not suitable for value type [%s]",
-					c, zbx_item_value_type_string(value_type));
-
-		SET_MSG_RESULT(result, error);
+		if(is_double(c) == SUCCEED)
+		{
+			SET_DBL_RESULT(result, atof(c));
+			ret = SUCCEED;
+		}
+		else if(is_uint(c) == SUCCEED)
+		{
+			SET_DBL_RESULT(result, strtod(c, NULL));
+			ret = SUCCEED;
+		}
+	}
+	else if(value_type == ITEM_VALUE_TYPE_STR)
+	{
+		SET_STR_RESULT(result, strdup(c));
+		ret = SUCCEED;
+	}
+	else if(value_type == ITEM_VALUE_TYPE_TEXT)
+	{
+		SET_TEXT_RESULT(result, strdup(c));
+		ret = SUCCEED;
+	}
+	else if(value_type == ITEM_VALUE_TYPE_LOG)
+	{
+		SET_STR_RESULT(result, strdup(c));
+		ret = SUCCEED;
 	}
 
 	return ret;
 }
 
-static zbx_uint64_t	*get_result_ui64_value(AGENT_RESULT *result)
+static zbx_uint64_t* get_result_ui64_value(AGENT_RESULT *result)
 {
-	zbx_uint64_t	value;
+	zbx_uint64_t tmp;
 
 	assert(result);
 
-	if (ISSET_UI64(result))
+	if(ISSET_UI64(result))
 	{
 		/* nothing to do */
 	}
-	else if (ISSET_DBL(result))
+	else if(ISSET_DBL(result))
 	{
 		SET_UI64_RESULT(result, result->dbl);
 	}
-	else if (ISSET_STR(result))
+	else if(ISSET_STR(result))
 	{
-		zbx_rtrim(result->str, " \"");
-		zbx_ltrim(result->str, " \"+");
-		del_zeroes(result->str);
-
-		if (SUCCEED != is_uint64(result->str, &value))
-			return NULL;
-
-		SET_UI64_RESULT(result, value);
+		if(EOF != sscanf(result->str, ZBX_FS_UI64, &tmp))
+			SET_UI64_RESULT(result, tmp);
 	}
-	else if (ISSET_TEXT(result))
+	else if(ISSET_TEXT(result))
 	{
-		zbx_rtrim(result->text, " \"");
-		zbx_ltrim(result->text, " \"+");
-		del_zeroes(result->text);
-
-		if (SUCCEED != is_uint64(result->text, &value))
-			return NULL;
-
-		SET_UI64_RESULT(result, value);
+		if(EOF != sscanf(result->text, ZBX_FS_UI64, &tmp))
+			SET_UI64_RESULT(result, tmp);
 	}
 	/* skip AR_MESSAGE - it is information field */
 
-	if (ISSET_UI64(result))
+	if(ISSET_UI64(result))
+	{
 		return &result->ui64;
+	}
 
 	return NULL;
 }
 
-static double	*get_result_dbl_value(AGENT_RESULT *result)
+static double* get_result_dbl_value(AGENT_RESULT *result)
 {
-	double	value;
+	double tmp;
 
 	assert(result);
 
-	if (ISSET_DBL(result))
+	if(ISSET_DBL(result))
 	{
 		/* nothing to do */
 	}
-	else if (ISSET_UI64(result))
+	else if(ISSET_UI64(result))
 	{
 		SET_DBL_RESULT(result, result->ui64);
 	}
-	else if (ISSET_STR(result))
+	else if(ISSET_STR(result))
 	{
-		zbx_rtrim(result->str, " \"");
-		zbx_ltrim(result->str, " \"+");
-
-		if (SUCCEED != is_double(result->str))
-			return NULL;
-		value = atof(result->str);
-
-		SET_DBL_RESULT(result, value);
+		if(EOF != sscanf(result->str, ZBX_FS_DBL, &tmp))
+			SET_DBL_RESULT(result, tmp);
 	}
-	else if (ISSET_TEXT(result))
+	else if(ISSET_TEXT(result))
 	{
-		zbx_rtrim(result->text, " \"");
-		zbx_ltrim(result->text, " \"+");
-
-		if (SUCCEED != is_double(result->text))
-			return NULL;
-		value = atof(result->text);
-
-		SET_DBL_RESULT(result, value);
+		if(EOF != sscanf(result->text, ZBX_FS_DBL, &tmp))
+			SET_DBL_RESULT(result, tmp);
 	}
 	/* skip AR_MESSAGE - it is information field */
 
-	if (ISSET_DBL(result))
+	if(ISSET_DBL(result))
+	{
 		return &result->dbl;
+	}
 
 	return NULL;
 }
 
-static char	**get_result_str_value(AGENT_RESULT *result)
+static char** get_result_str_value(AGENT_RESULT *result)
 {
-	char	*p, tmp;
+	register char *p, tmp;
 
 	assert(result);
 
-	if (ISSET_STR(result))
+	if(ISSET_STR(result))
 	{
 		/* nothing to do */
 	}
-	else if (ISSET_TEXT(result))
+	else if(ISSET_TEXT(result))
 	{
 		/* NOTE: copy only line */
-		for (p = result->text; '\0' != *p && '\r' != *p && '\n' != *p; p++);
+		for(p = result->text; *p != '\0' && *p != '\r' && *p != '\n'; p++);
 		tmp = *p; /* remember result->text character */
-		*p = '\0'; /* replace to NUL */
-		SET_STR_RESULT(result, zbx_strdup(NULL, result->text)); /* copy line */
+		*p = '\0'; /* replace to EOL */
+		SET_STR_RESULT(result, strdup(result->text)); /* copy line */
 		*p = tmp; /* restore result->text character */
 
 	}
-	else if (ISSET_UI64(result))
+	else if(ISSET_UI64(result))
 	{
-		SET_STR_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_UI64, result->ui64));
+		 SET_STR_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_UI64, result->ui64))
 	}
-	else if (ISSET_DBL(result))
+	else if(ISSET_DBL(result))
 	{
-		SET_STR_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_DBL, result->dbl));
+		 SET_STR_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_DBL, result->dbl))
 	}
 	/* skip AR_MESSAGE - it is information field */
 
-	if (ISSET_STR(result))
+	if(ISSET_STR(result))
+	{
 		return &result->str;
+	}
 
 	return NULL;
 }
 
-static char	**get_result_text_value(AGENT_RESULT *result)
+static char** get_result_text_value(AGENT_RESULT *result)
 {
 	assert(result);
 
-	if (ISSET_TEXT(result))
+	if(ISSET_TEXT(result))
 	{
 		/* nothing to do */
 	}
-	else if (ISSET_STR(result))
+	else if(ISSET_STR(result))
 	{
-		SET_TEXT_RESULT(result, zbx_strdup(NULL, result->str));
+		SET_TEXT_RESULT(result, strdup(result->str));
 	}
-	else if (ISSET_UI64(result))
+	else if(ISSET_UI64(result))
 	{
-		SET_TEXT_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_UI64, result->ui64));
+		 SET_TEXT_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_UI64, result->ui64))
 	}
-	else if (ISSET_DBL(result))
+	else if(ISSET_DBL(result))
 	{
-		SET_TEXT_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_DBL, result->dbl));
+		 SET_TEXT_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_DBL, result->dbl))
 	}
 	/* skip AR_MESSAGE - it is information field */
 
-	if (ISSET_TEXT(result))
+	if(ISSET_TEXT(result))
+	{
 		return &result->text;
+	}
 
 	return NULL;
 }
@@ -734,45 +747,47 @@ static char	**get_result_text_value(AGENT_RESULT *result)
  *                                                                            *
  * Function: get_result_value_by_type                                         *
  *                                                                            *
- * Purpose: return value of result in special type                            *
- *          if value missing, convert existing value to requested type        *
+ * Purpose: return vslue of result in special type                            *
+ *          if falue missed convert existed value to requested type           *
  *                                                                            *
  * Return value:                                                              *
- *         NULL - if value is missing or can't be converted                   *
+ *         NULL - if value are missed or can't be conferted                   *
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
- * Comments:  better use definitions                                          *
+ * Comments:  beter use definitions                                           *
  *                GET_UI64_RESULT                                             *
  *                GET_DBL_RESULT                                              *
  *                GET_STR_RESULT                                              *
  *                GET_TEXT_RESULT                                             *
  *                GET_MSG_RESULT                                              *
  *                                                                            *
- *    AR_MESSAGE - skipped in conversion                                      *
+ *    AR_MESSAGE - skiped in convertion                                       *
  *                                                                            *
  ******************************************************************************/
 void	*get_result_value_by_type(AGENT_RESULT *result, int require_type)
 {
 	assert(result);
 
-	switch (require_type)
+	switch(require_type)
 	{
-		case AR_UINT64:
-			return (void *)get_result_ui64_value(result);
+		case AR_UINT64: 
+			return (void*)get_result_ui64_value(result);
+			break;
 		case AR_DOUBLE:
-			return (void *)get_result_dbl_value(result);
+			return (void*)get_result_dbl_value(result);
+			break;
 		case AR_STRING:
-			return (void *)get_result_str_value(result);
+			return (void*)get_result_str_value(result);
+			break;
 		case AR_TEXT:
-			return (void *)get_result_text_value(result);
+			return (void*)get_result_text_value(result);
+			break;
 		case AR_MESSAGE:
-			if (ISSET_MSG(result))
-				return (void *)(&result->msg);
+			if(ISSET_MSG(result))	return (void*)(&result->msg);
 			break;
 		default:
 			break;
 	}
-
 	return NULL;
 }

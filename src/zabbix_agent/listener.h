@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -24,4 +24,4 @@
 
 ZBX_THREAD_ENTRY(listener_thread, pSock);
 
-#endif
+#endif /* ZABBIX_LISTENER_H */

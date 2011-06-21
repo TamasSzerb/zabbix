@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -18,32 +18,37 @@
 **/
 
 #include "common.h"
+
 #include "sysinfo.h"
 
 int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	kstat_ctl_t	*kc;
-	kstat_t		*kp;
-	kstat_named_t	*kn;
-	time_t		now;
-	int		ret = SYSINFO_RET_FAIL;
+    kstat_ctl_t   *kc;
+    kstat_t       *kp;
+    kstat_named_t *kn;
 
-	if (NULL == (kc = kstat_open()))
-		return ret;
+    time_t now;
+    
+    int ret = SYSINFO_RET_FAIL;
 
-	if (NULL != (kp = kstat_lookup(kc, "unix", 0, "system_misc")))
+    assert(result);
+
+    init_result(result);
+
+    kc = kstat_open();
+
+    if (kc)
+    {
+	kp = kstat_lookup(kc, "unix", 0, "system_misc");
+        if ((kp) && (kstat_read(kc, kp, 0) != -1))
 	{
-		if (-1 != kstat_read(kc, kp, 0))
-		{
-			if (NULL != (kn = (kstat_named_t*)kstat_data_lookup(kp, "boot_time")))
-			{
-				time(&now);
-				SET_UI64_RESULT(result, difftime(now, (time_t) kn->value.ul));
-				ret = SYSINFO_RET_OK;
-			}
-		}
-	}
+		kn = (kstat_named_t*) kstat_data_lookup(kp, "boot_time");
+		time(&now);
+		SET_UI64_RESULT(result, difftime(now, (time_t) kn->value.ul));
+		ret = SYSINFO_RET_OK;
+        }
 	kstat_close(kc);
-
-	return ret;
+    }
+    return ret;
 }
+

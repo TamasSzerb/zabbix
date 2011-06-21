@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,13 +17,13 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
+
 #ifndef ZABBIX_ACTIONS_H
 #define ZABBIX_ACTIONS_H
 
 #include "common.h"
 #include "db.h"
 
-int	check_action_condition(DB_EVENT *event, DB_CONDITION *condition);
 void    process_actions(DB_EVENT *event);
 
 #endif

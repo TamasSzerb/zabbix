@@ -1,7 +1,7 @@
 <?php
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,138 +19,114 @@
 **/
 ?>
 <?php
-	require_once('include/config.inc.php');
-	require_once('include/triggers.inc.php');
-	require_once('include/forms.inc.php');
-	require_once('include/js.inc.php');
+	require_once "include/config.inc.php";
+	require_once "include/triggers.inc.php";
+	require_once "include/forms.inc.php";
 
-	$dstfrm		= get_request('dstfrm',		0);	// destination form
+	$dstfrm		= get_request("dstfrm",		0);	// destination form
 
-	$page['title'] = "S_MEDIA";
-	$page['file'] = 'popup_media.php';
+	$page["title"] = "S_MEDIA";
+	$page["file"] = "popup_media.php";
 
 	define('ZBX_PAGE_NO_MENU', 1);
+	
+include_once "include/page_header.php";
 
-include_once('include/page_header.php');
-
-	if($USER_DETAILS['alias'] == ZBX_GUEST_USER) {
-		access_deny();
-	}
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		'dstfrm'=>		array(T_ZBX_STR, O_MAND,P_SYS,	NOT_EMPTY,		NULL),
+		"dstfrm"=>	array(T_ZBX_STR, O_MAND,P_SYS,	NOT_EMPTY,		NULL),
+		"mediatypeid"=>	array(T_ZBX_INT, O_NO,	P_SYS,	DB_ID,		'isset({add})'),
+		"sendto"=>	array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({add})'),
+		"period"=>	array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({add})'),
+		"active"=>	array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({add})'),
 
-		'media'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	NULL,			NULL),
-		'mediatypeid'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,			'isset({add})'),
-		'sendto'=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,		'isset({add})'),
-		'period'=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,		'isset({add})'),
-		'active'=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,		'isset({add})'),
-
-		'severity'=>	array(T_ZBX_INT, O_OPT,	NULL,	NOT_EMPTY,	NULL),
+		"severity"=>	array(T_ZBX_INT, O_OPT,	NULL,	NOT_EMPTY,	NULL),
 /* actions */
-		'add'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+		"add"=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 /* other */
-		'form'=>		array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
-		'form_refresh'=>array(T_ZBX_STR, O_OPT, NULL,	NULL,	NULL)
+		"form"=>	array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
+		"form_refresh"=>array(T_ZBX_STR, O_OPT, NULL,	NULL,	NULL)
 	);
 
 	check_fields($fields);
+?>
+<script language="JavaScript" type="text/javascript">
+<!--
 
-	insert_js_function('add_media');
+function add_var_to_opener_obj(obj,name,value)
+{
+        new_variable = window.opener.document.createElement('input');
+        new_variable.type = 'hidden';
+        new_variable.name = name;
+        new_variable.value = value;
 
-	if(isset($_REQUEST['add'])){
-		if( !validate_period($_REQUEST['period']) ){
-			error(S_INCORRECT_TIME_PERIOD);
+        obj.appendChild(new_variable);
+}
+
+function add_media(formname,mediatypeid,sendto,period,active,severity)
+{
+        var form = window.opener.document.forms[formname];
+
+        if(!form)
+        {
+                close_window();
+		return false;
+        }
+
+	add_var_to_opener_obj(form,'new_media[mediatypeid]',mediatypeid);
+	add_var_to_opener_obj(form,'new_media[sendto]',sendto);
+	add_var_to_opener_obj(form,'new_media[period]',period);
+	add_var_to_opener_obj(form,'new_media[active]',active);
+	add_var_to_opener_obj(form,'new_media[severity]',severity);
+
+	form.submit();
+	close_window();
+	return true;
+}
+-->
+</script>
+<?php
+	if(isset($_REQUEST['add']))
+	{
+		if( !validate_period($_REQUEST['period']) )
+		{
+			error("Icorrect time period");
 		}
-		else{
+		else
+		{
 			$severity = 0;
 			$_REQUEST['severity'] = get_request('severity',array());
 			foreach($_REQUEST['severity'] as $id)
 				$severity |= 1 << $id;
 
-			echo '<script language="JavaScript" type="text/javascript"><!--
-					add_media("'.$_REQUEST['dstfrm'].'",'.
-								$_REQUEST['media'].','.
-								zbx_jsvalue($_REQUEST['mediatypeid']).',"'.
-								$_REQUEST['sendto'].'","'.
-								$_REQUEST['period'].'",'.
-								$_REQUEST['active'].','.
-								$severity.');'."\n".
-				'--></script>';
+?>
+<script language="JavaScript" type="text/javascript">
+<!--
+<?php
+			echo "add_media('".
+				$_REQUEST['dstfrm']."',".
+				$_REQUEST['mediatypeid'].",'".
+				$_REQUEST['sendto']."','".
+				$_REQUEST['period']."',".
+				$_REQUEST['active'].",".
+				$severity.");\n";
+?>
+-->
+</script>
+<?php
 		}
 	}
+?>
+<?php
+	echo BR;
 
-	echo SBR;
+	insert_media_form();
 
-	if(isset($_REQUEST['media']) && !isset($_REQUEST['form_refresh'])){
-		$rq_severity	= get_request('severity',63);
+?>
+<?php
 
-		$severity = array();
-		for($i=0; $i<TRIGGER_SEVERITY_COUNT; $i++){
-			if($rq_severity & (1 << $i)) $severity[$i] = $i;
-		}
-	}
-	else{
-		$severity	= get_request('severity',array(0,1,2,3,4,5));
-	}
+include_once "include/page_footer.php";
 
-	$media		= get_request('media',-1);
-	$sendto		=  get_request('sendto','');
-	$mediatypeid	= get_request('mediatypeid',0);
-	$active		= get_request('active',0);
-	$period		= get_request('period',ZBX_DEFAULT_INTERVAL);
-
-
-	$frmMedia = new CFormTable(S_NEW_MEDIA);
-	$frmMedia->SetHelp('web.media.php');
-
-	$frmMedia->addVar('media',$media);
-	$frmMedia->addVar('dstfrm',$_REQUEST['dstfrm']);
-
-	$cmbType = new CComboBox('mediatypeid',$mediatypeid);
-	$sql = 'SELECT mediatypeid,description '.
-			' FROM media_type'.
-			' WHERE '.DBin_node('mediatypeid').
-			' ORDER BY type';
-	$types = DBselect($sql);
-	while($type=DBfetch($types)){
-		$cmbType->addItem(
-				$type['mediatypeid'],
-				get_node_name_by_elid($type['mediatypeid'], null, ': ').$type['description']
-				);
-	}
-	$frmMedia->addRow(S_TYPE,$cmbType);
-
-	$frmMedia->addRow(S_SEND_TO, new CTextBox('sendto',$sendto,20));
-	$frmMedia->addRow(S_WHEN_ACTIVE, new CTextBox('period',$period,48));
-
-	$frm_row = array();
-	for($i=0; $i<=5; $i++){
-		array_push($frm_row,
-			array(
-				new CCheckBox(
-					'severity['.$i.']',
-					str_in_array($i,$severity)?'yes':'no',
-					null,		/* action */
-					$i),		/* value */
-				getSeverityCaption($i)
-			),
-			BR());
-	}
-	$frmMedia->addRow(S_USE_IF_SEVERITY,$frm_row);
-
-	$cmbStat = new CComboBox('active',$active);
-	$cmbStat->addItem(0,S_ENABLED);
-	$cmbStat->addItem(1,S_DISABLED);
-	$frmMedia->addRow(S_STATUS,$cmbStat);
-
-	$frmMedia->addItemToBottomRow(new CSubmit('add', ($media > -1)?S_SAVE:S_ADD));
-	$frmMedia->addItemToBottomRow(SPACE);
-	$frmMedia->addItemToBottomRow(new CButtonCancel(null, 'close_window();'));
-	$frmMedia->Show();
-
-
-include_once('include/page_footer.php');
 ?>

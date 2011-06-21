@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -25,38 +25,32 @@
 #include "log.h"
 #include "zbxgetopt.h"
 
-const char	*progname = NULL;
-const char	title_message[] = "Zabbix Get";
-const char	usage_message[] = "[-hV] -s <host name or IP> [-p <port>] [-I <IP address>] -k <key>";
+char *progname = NULL;
+char title_message[] = "ZABBIX get - Communicate with ZABBIX agent";
+char usage_message[] = "[-hV] -s<host name or IP> [-p<port>] -k<key>";
 
-#ifdef HAVE_GETOPT_LONG
-const char	*help_message[] = {
+#ifndef HAVE_GETOPT_LONG
+char *help_message[] = {
         "Options:",
-	"  -s --host <host name or IP>          Specify host name or IP address of a host.",
-	"  -p --port <port number>              Specify port number of agent running on the host. Default is " ZBX_DEFAULT_AGENT_PORT_STR ".",
-	"  -I --source-address <IP address>     Specify source IP address",
+	"  -p <port number>         Specify port number of agent running on the host. Default is 10050.",
+	"  -s <host name or IP>     Specify host name or IP address of a host.",
+	"  -k <key of metric>       Specify metric name (key) we want to retrieve.",
+	"  -h                       give this help",
+	"  -V                       display version number",
 	"",
-	"  -k --key <key of metric>             Specify item key to retrieve.",
-	"",
-	"  -h --help                            Give this help",
-	"  -V --version                         Display version number",
-	"",
-	"Example: zabbix_get -s 127.0.0.1 -p " ZBX_DEFAULT_AGENT_PORT_STR " -k \"system.cpu.load[all,avg1]\"",
+	"Example: zabbix_get -s127.0.0.1 -p10050 -k\"system[procload]\"",
         0 /* end of text */
 };
 #else
-const char	*help_message[] = {
+char *help_message[] = {
         "Options:",
-	"  -s <host name or IP>         Specify host name or IP address of a host.",
-	"  -p <port number>             Specify port number of agent running on the host. Default is " ZBX_DEFAULT_AGENT_PORT_STR ".",
-	"  -I <IP address>              Specify source IP address",
+	"  -p --port <port number>        Specify port number of agent running on the host. Default is 10050.",
+	"  -s --host <host name or IP>    Specify host name or IP address of a host.",
+	"  -k --key <key of metric>       Specify metric name (key) we want to retrieve.",
+	"  -h --help                      give this help",
+	"  -V --version                   display version number",
 	"",
-	"  -k <key of metric>           Specify item key to retrieve.",
-	"",
-	"  -h                           Give this help",
-	"  -V                           Display version number",
-	"",
-	"Example: zabbix_get -s 127.0.0.1 -p " ZBX_DEFAULT_AGENT_PORT_STR " -k \"system.cpu.load[all,avg1]\"",
+	"Example: zabbix_get -s127.0.0.1 -p10050 -k\"system[procload]\"",
         0 /* end of text */
 };
 #endif
@@ -66,26 +60,26 @@ const char	*help_message[] = {
 /* long options */
 struct zbx_option longopts[] =
 {
-	{"host",		1,	0,	's'},
-	{"port",		1,	0,	'p'},
-	{"key",			1,	0,	'k'},
-	{"source-address",	1,	0,	'I'},
-	{"help",		0,	0,	'h'},
-	{"version",		0,	0,	'V'},
+	{"port",	1,	0,	'p'},
+	{"host",	1,	0,	's'},
+	{"key",		1,	0,	'k'},
+	{"help",	0,	0,	'h'},
+	{"version",	0,	0,	'V'},
 	{0,0,0,0}
 };
 
 /* short options */
 
-static char     shortopts[] = "s:p:k:I:hV";
+static char     shortopts[] = "k:p:s:hV";
 
-/* end of COMMAND LINE OPTIONS */
+/* end of COMMAND LINE OPTIONS*/
+
 
 #if !defined(_WINDOWS)
 
 /******************************************************************************
  *                                                                            *
- * Function: get_signal_handler                                               *
+ * Function: signal_handler                                                   *
  *                                                                            *
  * Purpose: process signals                                                   *
  *                                                                            *
@@ -98,12 +92,19 @@ static char     shortopts[] = "s:p:k:I:hV";
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static void	get_signal_handler(int sig)
+void    signal_handler( int sig )
 {
-	if (SIGALRM == sig)
-		zbx_error("Timeout while executing operation");
-
-	exit(FAIL);
+	if( SIGALRM == sig )
+	{
+		signal( SIGALRM, signal_handler );
+		zbx_error("Timeout while executing operation.");
+	}
+ 
+	if( SIGQUIT == sig || SIGINT == sig || SIGTERM == sig )
+	{
+/*		zbx_error("\nGot QUIT or INT or TERM signal. Exiting..." ); */
+	}
+	exit( FAIL );
 }
 
 #endif /* not WINDOWS */
@@ -112,48 +113,49 @@ static void	get_signal_handler(int sig)
  *                                                                            *
  * Function: get_value                                                        *
  *                                                                            *
- * Purpose: connect to Zabbix agent and receive value for given key           *
+ * Purpose: connect to ZABBIX agent and receive value for given key           *
  *                                                                            *
- * Parameters: host   - server name or IP address                             *
+ * Parameters: host   - serv name or IP address                               *
  *             port   - port number                                           *
  *             key    - item's key                                            *
+ *             value_max_len - maximal size of value                          *
  *                                                                            *
  * Return value: SUCCEED - ok, FAIL - otherwise                               *
- *             value  - retrieved value                                       *
+ *             value   - retrieved value                                      *
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	get_value(const char *source_ip, const char *host, unsigned short port, const char *key, char **value)
+static int	get_value(
+	const char	*host,
+	unsigned short	port,
+	const char	*key,
+	char		**value
+	)
 {
 	zbx_sock_t	s;
-	int		ret;
-	char		*buf, request[1024];
+	int	ret;
+	char	*buf,
+		request[1024];
 
 	assert(value);
 
 	*value = NULL;
 
-	if (SUCCEED == (ret = zbx_tcp_connect(&s, source_ip, host, port, GET_SENDER_TIMEOUT)))
-	{
-		zbx_snprintf(request, sizeof(request), "%s\n", key);
-
-		if (SUCCEED == (ret = zbx_tcp_send(&s, request)))
+	if (SUCCEED == (ret = zbx_tcp_connect(&s, host, port, SENDER_TIMEOUT))) {
+		zbx_snprintf(request, sizeof(request),"%s\n",key);
+		if( SUCCEED == (ret = zbx_tcp_send(&s, request)) )
 		{
-			if (SUCCEED == (ret = SUCCEED_OR_FAIL(zbx_tcp_recv_ext(&s, &buf, ZBX_TCP_READ_UNTIL_CLOSE, 0))))
+			if( SUCCEED == (ret = zbx_tcp_recv_ext(&s, &buf, ZBX_TCP_READ_UNTIL_CLOSE)) )
 			{
-				zbx_rtrim(buf, "\r\n");
+				zbx_rtrim(buf,"\r\n\0");
 				*value = strdup(buf);
 			}
 		}
-
-		zbx_tcp_close(&s);
 	}
-
-	if (FAIL == ret)
-		zbx_error("Get value error: %s", zbx_tcp_strerror());
+	zbx_tcp_close(&s);
 
 	return ret;
 }
@@ -175,17 +177,18 @@ static int	get_value(const char *source_ip, const char *host, unsigned short por
  ******************************************************************************/
 int main(int argc, char **argv)
 {
-	unsigned short	port = ZBX_DEFAULT_AGENT_PORT;
-	int		ret = SUCCEED;
-	char		*value = NULL, *host = NULL, *key = NULL, *source_ip = NULL, ch;
+	unsigned short	port	= 10050;
+	int	ret	= SUCCEED;
+	char	*value	= NULL;
+	char	*host	= NULL;
+	char	*key	= NULL;
+	char	ch;
 
-	progname = get_program_name(argv[0]);
+	progname = get_programm_name(argv[0]);
 
-	/* parse the command-line */
-	while ((char)EOF != (ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts, NULL)))
-	{
-		switch (ch)
-		{
+	/* Parse the command-line. */
+	while ((ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts, NULL)) != (char)EOF)
+		switch (ch) {
 			case 'k':
 				key = strdup(zbx_optarg);
 				break;
@@ -194,9 +197,6 @@ int main(int argc, char **argv)
 				break;
 			case 's':
 				host = strdup(zbx_optarg);
-				break;
-			case 'I':
-				source_ip = strdup(zbx_optarg);
 				break;
 			case 'h':
 				help();
@@ -211,28 +211,30 @@ int main(int argc, char **argv)
 				exit(-1);
 				break;
 		}
-	}
 
-	if (NULL == host || NULL == key)
+	if( (host==NULL) || (key==NULL))
 	{
 		usage();
 		ret = FAIL;
 	}
 
-	if (SUCCEED == ret)
+	if(ret == SUCCEED)
 	{
 
 #if !defined(_WINDOWS)
-		signal(SIGINT,  get_signal_handler);
-		signal(SIGTERM, get_signal_handler);
-		signal(SIGQUIT, get_signal_handler);
-		signal(SIGALRM, get_signal_handler);
-#endif
+		signal( SIGINT,  signal_handler );
+		signal( SIGTERM, signal_handler );
 
-		ret = get_value(source_ip, host, port, key, &value);
+		signal( SIGQUIT, signal_handler );
+		signal( SIGALRM, signal_handler );
+#endif /* not WINDOWS */
 
-		if (SUCCEED == ret)
+		ret = get_value(host, port, key, &value);
+
+		if(ret == SUCCEED)
+		{
 			printf("%s\n",value);
+		}
 
 		zbx_free(value);
 	}

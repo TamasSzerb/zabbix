@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@
 #include "sysinfo.h"
 #include "comms.h"
 #include "log.h"
-#include "ntp.h"
+#include "cfg.h"
 
 #define NTP_SCALE  4294967296.0        /* 2^32, of course! */
 
@@ -51,31 +51,31 @@
 #define RESET_MIN            15        /* Minimum period between resets */
 #define ABSCISSA            3.0        /* Scale factor for standard errors */
 
-typedef struct
-{
-	unsigned char
-		status,
-		version,
-		mode,
-		stratum,
-		polling,
-		precision;
-	double
-		dispersion,
-		reference,
-		originate,
-		receive,
-		transmit,
-		current;
-}
-ntp_data;
+typedef struct ntp_data_s {
 
-static void	make_packet(ntp_data *data)
+    unsigned char 
+	    status, 
+	    version, 
+	    mode, 
+	    stratum, 
+	    polling, 
+	    precision;
+    double 
+	    dispersion, 
+	    reference, 
+	    originate, 
+	    receive, 
+	    transmit, 
+	    current;
+
+} ntp_data;
+
+static void make_packet (ntp_data *data)
 {
-	data->status	= NTP_LI_FUDGE << 6;
+	data->status	= NTP_LI_FUDGE<<6;
 	data->stratum	= NTP_STRATUM;
 	data->reference = data->dispersion = 0.0;
-
+    
 	data->version	= NTP_VERSION;
 	data->mode	= 1;
 	data->polling	= NTP_POLLING;
@@ -84,129 +84,139 @@ static void	make_packet(ntp_data *data)
 	data->current	= data->transmit = zbx_current_time();
 }
 
-static void	pack_ntp(unsigned char *packet, int length, ntp_data *data)
+static void pack_ntp (unsigned char *packet, int length, ntp_data *data)
 {
-	/* Pack the essential data into an NTP packet, bypassing struct layout and
-	endian problems.  Note that it ignores fields irrelevant to SNTP. */
 
-	int	i, k;
-	double	d;
+/* Pack the essential data into an NTP packet, bypassing struct layout and
+endian problems.  Note that it ignores fields irrelevant to SNTP. */
 
-	assert(length >= (NTP_TRANSMIT + 8));
+    int i, k;
+    double d;
 
-	memset(packet, 0, (size_t)length);
+    assert(length >= (NTP_TRANSMIT + 8));
 
-	packet[0] = (data->status << 6) | (data->version << 3) | data->mode;
-	packet[1] = data->stratum;
-	packet[2] = data->polling;
-	packet[3] = data->precision;
+    memset(packet,0,(size_t)length);
 
-	d = data->originate / NTP_SCALE;
-	for (i = 0; i < 8; i++)
-	{
-		if ((k = (int)(d *= 256.0)) >= 256)
-			k = 255;
-		packet[NTP_ORIGINATE + i] = k;
-		d -= k;
-	}
+    packet[0] = (data->status << 6) | (data->version << 3) | data->mode;
+    packet[1] = data->stratum;
+    packet[2] = data->polling;
+    packet[3] = data->precision;
 
-	d = data->receive / NTP_SCALE;
-	for (i = 0; i < 8; i++)
-	{
-		if ((k = (int)(d *= 256.0)) >= 256)
-			k = 255;
-		packet[NTP_RECEIVE + i] = k;
-		d -= k;
-	}
+    d = data->originate / NTP_SCALE;
+    for (i = 0; i < 8; ++i) {
+        if ((k = (int)(d *= 256.0)) >= 256) k = 255;
+        packet[NTP_ORIGINATE + i] = k;
+        d -= k;
+    }
 
-	d = data->transmit / NTP_SCALE;
-	for (i = 0; i < 8; i++)
-	{
-		if ((k = (int)(d *= 256.0)) >= 256)
-			k = 255;
-		packet[NTP_TRANSMIT + i] = k;
-		d -= k;
-	}
+    d = data->receive / NTP_SCALE;
+    for (i = 0; i < 8; ++i) {
+        if ((k = (int)(d *= 256.0)) >= 256) k = 255;
+        packet[NTP_RECEIVE + i] = k;
+        d -= k;
+    }
+
+    d = data->transmit / NTP_SCALE;
+    for (i = 0; i < 8; ++i) {
+        if ((k = (int)(d *= 256.0)) >= 256) k = 255;
+        packet[NTP_TRANSMIT + i] = k;
+        d -= k;
+    }
 }
 
-static void	unpack_ntp(ntp_data *data, unsigned char *packet, int length)
-{
-	/* Unpack the essential data from an NTP packet, bypassing struct layout and
-	endian problems.  Note that it ignores fields irrelevant to SNTP. */
+static void unpack_ntp (ntp_data *data, unsigned char *packet, int length) {
 
-	int	i;
-	double	d;
+/* Unpack the essential data from an NTP packet, bypassing struct layout and
+endian problems.  Note that it ignores fields irrelevant to SNTP. */
 
-	memset(data, 0, sizeof(ntp_data));
+    int i;
+    double d;
 
-	if (0 == length)
-		return;
+    memset(data, 0, sizeof(ntp_data));
 
-	assert(length >= (NTP_TRANSMIT + 8));
+    if(length == 0)
+	    return;
 
-	data->current	= zbx_current_time();    /* best to come first */
-	data->status	= (packet[0] >> 6);
-	data->version	= (packet[0] >> 3) & 0x07;
-	data->mode	= packet[0] & 0x07;
-	data->stratum	= packet[1];
-	data->polling	= packet[2];
-	data->precision	= packet[3];
+    assert(length >= (NTP_TRANSMIT + 8));
 
-	d = 0.0;
-	for (i = 0; i < 4; i++)
-		d = 256.0 * d + packet[NTP_DISP_FIELD + i];
-	data->dispersion = d / 65536.0;
+    data->current	= zbx_current_time();    /* Best to come first */
+    data->status	= (packet[0] >> 6);
+    data->version	= (packet[0] >> 3) & 0x07;
+    data->mode		= packet[0] & 0x07;
+    data->stratum	= packet[1];
+    data->polling	= packet[2];
+    data->precision	= packet[3];
 
-	d = 0.0;
-	for (i = 0; i < 8; i++)
-		d = 256.0 * d + packet[NTP_REFERENCE + i];
-	data->reference = d / NTP_SCALE;
-
-	d = 0.0;
-	for (i = 0; i < 8; i++)
-		d = 256.0 * d + packet[NTP_ORIGINATE + i];
-	data->originate = d / NTP_SCALE;
-
-	d = 0.0;
-	for (i = 0; i < 8; i++)
-		d = 256.0 * d + packet[NTP_RECEIVE + i];
-	data->receive = d / NTP_SCALE;
-
-	d = 0.0;
-	for (i = 0; i < 8; i++)
-		d = 256.0 * d + packet[NTP_TRANSMIT + i];
-	data->transmit = d / NTP_SCALE;
+    d = 0.0;
+    for (i = 0; i < 4; ++i) d = 256.0 * d + packet[NTP_DISP_FIELD + i];
+    data->dispersion = d / 65536.0;
+    d = 0.0;
+    for (i = 0; i < 8; ++i) d = 256.0 * d + packet[NTP_REFERENCE + i];
+    data->reference = d / NTP_SCALE;
+    d = 0.0;
+    for (i = 0; i < 8; ++i) d = 256.0 * d + packet[NTP_ORIGINATE + i];
+    data->originate = d / NTP_SCALE;
+    d = 0.0;
+    for (i = 0; i < 8; ++i) d = 256.0 * d + packet[NTP_RECEIVE + i];
+    data->receive = d / NTP_SCALE;
+    d = 0.0;
+    for (i = 0; i < 8; ++i) d = 256.0 * d + packet[NTP_TRANSMIT + i];
+    data->transmit = d / NTP_SCALE;
 }
 
-int	check_ntp(char *host, unsigned short port, int timeout, int *value_int)
+/*
+static void display_data (ntp_data *data) {
+
+    printf("sta = %d ver = %d mod = %d str = %d pol = %d dis = " ZBX_FS_DBL_EXT(6) " ref = " ZBX_FS_DBL_EXT(6) "\n",
+        data->status,data->version,data->mode,data->stratum,data->polling,
+        data->dispersion,data->reference);
+    printf("ori = " ZBX_FS_DBL_EXT(6) " rec = " ZBX_FS_DBL_EXT(6) "\n",data->originate, data->receive);
+    printf("tra = " ZBX_FS_DBL_EXT(6) " cur = " ZBX_FS_DBL_EXT(6) "\n",data->transmit, data->current);
+}
+*/
+
+int	check_ntp(char *host, unsigned short port, int *value_int)
 {
+
 	zbx_sock_t	s;
+
 	int		ret;
-	char		*buf = NULL, packet[NTP_PACKET_MIN];
+	char	*buf = NULL;
+
 	ntp_data	data;
+	char		packet[NTP_PACKET_MIN];
+
+	assert(value_int);
 
 	*value_int = 0;
 
-	if (SUCCEED == (ret = zbx_tcp_connect(&s, CONFIG_SOURCE_IP, host, port, timeout)))
-	{
+	if (SUCCEED == (ret = zbx_tcp_connect(&s, host, port, 0))) {
 		make_packet(&data);
 
-		pack_ntp((unsigned char *)packet, sizeof(packet), &data);
+		pack_ntp((unsigned char*)packet, sizeof(packet), &data);
 
-		if (SUCCEED == (ret = zbx_tcp_send_raw(&s, packet)))
+		if( SUCCEED == (ret = zbx_tcp_send_raw(&s, packet)) )
 		{
-			if (SUCCEED == (ret = zbx_tcp_recv(&s, &buf)))
+			if( SUCCEED == (ret = zbx_tcp_recv(&s, &buf)) )
 			{
+			
 				unpack_ntp(&data, (unsigned char *)buf, (int)strlen(buf));
-				*value_int = (0 < data.receive ? (int)(data.receive - ZBX_JAN_1970_IN_SEC) : 0);
+
+#if OFF 
+			/* local time */	*value_int = time(NULL);
+#else
+			/* server time */	*value_int = (data.receive > 0) ? (int)(data.receive - ZBX_JAN_1970_IN_SEC) : 0;
+#endif
 			}
 		}
-
-		zbx_tcp_close(&s);
 	}
+	zbx_tcp_close(&s);
 
-	if (FAIL == ret)
+	if( FAIL == ret )
+	{
 		zabbix_log(LOG_LEVEL_DEBUG, "NTP check error: %s", zbx_tcp_strerror());
+	}
 
 	return SYSINFO_RET_OK;
 }
+

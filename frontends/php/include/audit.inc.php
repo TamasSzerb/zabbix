@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,114 +19,60 @@
 **/
 ?>
 <?php
-	function audit_resource2str($resource_type=null){
-		$resources = array(
-			AUDIT_RESOURCE_USER => S_USER,
-			AUDIT_RESOURCE_ZABBIX_CONFIG => S_CONFIGURATION_OF_ZABBIX,
-			AUDIT_RESOURCE_MEDIA_TYPE => S_MEDIA_TYPE,
-			AUDIT_RESOURCE_HOST => S_HOST,
-			AUDIT_RESOURCE_ACTION => S_ACTION,
-			AUDIT_RESOURCE_GRAPH => S_GRAPH,
-			AUDIT_RESOURCE_GRAPH_ELEMENT => S_GRAPH_ELEMENT,
-			AUDIT_RESOURCE_USER_GROUP => S_USER_GROUP,
-			AUDIT_RESOURCE_APPLICATION => S_APPLICATION,
-			AUDIT_RESOURCE_TRIGGER => S_TRIGGER,
-			AUDIT_RESOURCE_HOST_GROUP => S_HOST_GROUP,
-			AUDIT_RESOURCE_ITEM => S_ITEM,
-			AUDIT_RESOURCE_IMAGE => S_IMAGE,
-			AUDIT_RESOURCE_VALUE_MAP => S_VALUE_MAP,
-			AUDIT_RESOURCE_IT_SERVICE => S_IT_SERVICE,
-			AUDIT_RESOURCE_MAP => S_MAP,
-			AUDIT_RESOURCE_SCREEN => S_SCREEN,
-			AUDIT_RESOURCE_NODE => S_NODE,
-			AUDIT_RESOURCE_SCENARIO => S_SCENARIO,
-			AUDIT_RESOURCE_DISCOVERY_RULE => S_DISCOVERY_RULE,
-			AUDIT_RESOURCE_SLIDESHOW => S_SLIDESHOW,
-			AUDIT_RESOURCE_PROXY => S_PROXY,
-			AUDIT_RESOURCE_REGEXP => S_REGULAR_EXPRESSION,
-			AUDIT_RESOURCE_MAINTENANCE => S_MAINTENANCE,
-			AUDIT_RESOURCE_SCRIPT => S_SCRIPT,
-			AUDIT_RESOURCE_MACRO => S_MACRO,
-			AUDIT_RESOURCE_TEMPLATE => S_TEMPLATE,
-		);
+	function	audit_resource2str($resource_type)
+	{
+		$str_resource[AUDIT_RESOURCE_USER] 		= S_USER;
+		$str_resource[AUDIT_RESOURCE_ZABBIX_CONFIG] 	= S_CONFIGURATION_OF_ZABBIX;
+		$str_resource[AUDIT_RESOURCE_MEDIA_TYPE] 	= S_MEDIA_TYPE;
+		$str_resource[AUDIT_RESOURCE_HOST] 		= S_HOST;
+		$str_resource[AUDIT_RESOURCE_ACTION] 		= S_ACTION;
+		$str_resource[AUDIT_RESOURCE_GRAPH] 		= S_GRAPH;
+		$str_resource[AUDIT_RESOURCE_GRAPH_ELEMENT]	= S_GRAPH_ELEMENT;
+		$str_resource[AUDIT_RESOURCE_USER_GROUP] 	= S_USER_GROUP;
+		$str_resource[AUDIT_RESOURCE_APPLICATION] 	= S_APPLICATION;
+		$str_resource[AUDIT_RESOURCE_TRIGGER] 		= S_TRIGGER;
+		$str_resource[AUDIT_RESOURCE_HOST_GROUP]	= S_HOST_GROUP;
+		$str_resource[AUDIT_RESOURCE_ITEM]		= S_ITEM;
+		$str_resource[AUDIT_RESOURCE_IMAGE]		= S_IMAGE;
+		$str_resource[AUDIT_RESOURCE_VALUE_MAP]		= S_VALUE_MAP;
+		$str_resource[AUDIT_RESOURCE_IT_SERVICE]	= S_IT_SERVICE;
+		$str_resource[AUDIT_RESOURCE_MAP]		= S_MAP;
+		$str_resource[AUDIT_RESOURCE_SCREEN]		= S_SCREEN;
+		$str_resource[AUDIT_RESOURCE_NODE]		= S_NODE;
+		$str_resource[AUDIT_RESOURCE_SCENARIO]		= S_SCENARIO;
+		$str_resource[AUDIT_RESOURCE_DISCOVERY_RULE]	= S_DISCOVERY_RULE;
+		$str_resource[AUDIT_RESOURCE_SLIDESHOW]		= S_SLIDESHOW;
 
-		if(is_null($resource_type)){
-			natsort($resources);
-			return $resources;
-		}
-		else if(isset($resources[$resource_type]))
-			return $resources[$resource_type];
-		else
-			return S_UNKNOWN_RESOURCE;
+		if(isset($str_resource[$resource_type]))
+			return $str_resource[$resource_type];
+
+		return S_UNKNOWN_RESOURCE;
 	}
 
-	function add_audit_if($condition,$action,$resourcetype,$details){
-		if($condition)
+	function add_audit_if($condition,$action,$resourcetype,$details)
+	{
+		if($condition) 
 			return add_audit($action,$resourcetype,$details);
 
 		return false;
 	}
+	
+	function add_audit($action,$resourcetype,$details)
+	{
+		global $USER_DETAILS;
 
-	function add_audit($action,$resourcetype,$details){
-		if(CWebUser::$data['userid'] == 0) return true;
+		if(!isset($USER_DETAILS["userid"]))	check_authorisation();
+		
+		$auditid	= get_dbid("auditlog","auditid");
 
+		if(strlen($details) > 128)
+			$details = substr($details, 0, 125).'...';
 
-		$auditid = get_dbid('auditlog','auditid');
-
-		if(zbx_strlen($details) > 128)
-			$details = zbx_substr($details, 0, 125).'...';
-
-		$ip = (isset($_SERVER['HTTP_X_FORWARDED_FOR']) && !empty($_SERVER['HTTP_X_FORWARDED_FOR']))?$_SERVER['HTTP_X_FORWARDED_FOR']:$_SERVER['REMOTE_ADDR'];
-
-		if(($result = DBexecute('INSERT INTO auditlog (auditid,userid,clock,action,resourcetype,details,ip) '.
-			' VALUES ('.$auditid.','.CWebUser::$data['userid'].','.time().','.
-						$action.','.$resourcetype.','.zbx_dbstr($details).','.
-						zbx_dbstr($ip).')')))
+		if(($result = DBexecute("insert into auditlog (auditid,userid,clock,action,resourcetype,details) ".
+			" values ($auditid,".$USER_DETAILS["userid"].",".time().",$action,$resourcetype,".zbx_dbstr($details).")")))
 		{
 			$result = $auditid;
 		}
-
-		return $result;
-	}
-
-	function add_audit_ext($action, $resourcetype, $resourceid, $resourcename, $table_name, $values_old, $values_new){
-
-		if($action == AUDIT_ACTION_UPDATE){
-			$values_diff = array();
-			foreach($values_new as $id => $value){
-				if($values_old[$id] !== $value)
-					array_push($values_diff, $id);
-			}
-
-			if(0 == count($values_diff))
-				return true;
-		}
-
-		$auditid = get_dbid('auditlog', 'auditid');
-
-		if(zbx_strlen($resourcename) > 255)
-			$resourcename = zbx_substr($resourcename, 0, 252).'...';
-
-		$ip = (isset($_SERVER['HTTP_X_FORWARDED_FOR']) && !empty($_SERVER['HTTP_X_FORWARDED_FOR']))?$_SERVER['HTTP_X_FORWARDED_FOR']:$_SERVER['REMOTE_ADDR'];
-		/*SDI(
-			'INSERT INTO auditlog (auditid,userid,clock,ip,action,resourcetype,resourceid,resourcename)'.
-			' values ('.$auditid.','.CWebUser::$data['userid'].','.time().','.zbx_dbstr($ip).
-			','.$action.','.$resourcetype.','.$resourceid.','.zbx_dbstr($resourcename).')');*/
-		$result = DBexecute('INSERT INTO auditlog (auditid,userid,clock,ip,action,resourcetype,resourceid,resourcename)'.
-				' values ('.$auditid.','.CWebUser::$data['userid'].','.time().','.zbx_dbstr($ip).
-				','.$action.','.$resourcetype.','.$resourceid.','.zbx_dbstr($resourcename).')');
-
-		if($result && $action == AUDIT_ACTION_UPDATE){
-			foreach ($values_diff as $id){
-				$auditdetailid = get_dbid('auditlog_details', 'auditdetailid');
-				$result &= DBexecute('insert into auditlog_details (auditdetailid,auditid,table_name,field_name,oldvalue,newvalue)'.
-						' values ('.$auditdetailid.','.$auditid.','.zbx_dbstr($table_name).','.
-						zbx_dbstr($id).','.zbx_dbstr($values_old[$id]).','.zbx_dbstr($values_new[$id]).')');
-			}
-		}
-
-		if($result)
-			$result = $auditid;
 
 		return $result;
 	}

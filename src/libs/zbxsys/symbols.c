@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@ BOOL	(__stdcall *zbx_GetProcessIoCounters)(HANDLE,PIO_COUNTERS)		= NULL;
 BOOL	(__stdcall *zbx_GetPerformanceInfo)(PPERFORMANCE_INFORMATION,DWORD)	= NULL;
 BOOL	(__stdcall *zbx_GlobalMemoryStatusEx)(LPMEMORYSTATUSEX)			= NULL;
 
+
 static FARPROC GetProcAddressAndLog(HMODULE hModule,LPCSTR procName)
 {
 	FARPROC ptr;
@@ -42,7 +43,7 @@ void import_symbols(void)
 {
 	HMODULE hModule;
 
-	if(NULL != (hModule = GetModuleHandle(TEXT("USER32.DLL"))) )
+	if(NULL != (hModule = GetModuleHandle("USER32.DLL")) )
 	{
 		zbx_GetGuiResources = (DWORD (__stdcall *)(HANDLE,DWORD))GetProcAddressAndLog(hModule,"GetGuiResources");
 	}
@@ -51,7 +52,7 @@ void import_symbols(void)
 		zabbix_log( LOG_LEVEL_DEBUG, "Unable to get handle to USER32.DLL");
 	}
 
-	if(NULL != (hModule=GetModuleHandle(TEXT("KERNEL32.DLL"))) )
+	if(NULL != (hModule=GetModuleHandle("KERNEL32.DLL")) )
 	{
 		zbx_GetProcessIoCounters = (BOOL (__stdcall *)(HANDLE,PIO_COUNTERS))GetProcAddressAndLog(hModule,"GetProcessIoCounters");
 		zbx_GlobalMemoryStatusEx = (BOOL (__stdcall *)(LPMEMORYSTATUSEX))GetProcAddressAndLog(hModule,"GlobalMemoryStatusEx");
@@ -61,7 +62,7 @@ void import_symbols(void)
 		zabbix_log( LOG_LEVEL_DEBUG, "Unable to get handle to KERNEL32.DLL");
 	}
 
-	if(NULL != (hModule=GetModuleHandle(TEXT("PSAPI.DLL"))) )
+	if(NULL != (hModule=GetModuleHandle("PSAPI.DLL")) )
 	{
 		zbx_GetPerformanceInfo = (BOOL (__stdcall *)(PPERFORMANCE_INFORMATION,DWORD))GetProcAddressAndLog(hModule,"GetPerformanceInfo");
 	}

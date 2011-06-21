@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,26 +17,33 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
+
 #ifndef ZABBIX_DAEMON_H
 #define ZABBIX_DAEMON_H
 
 #if defined(_WINDOWS)
-#	error "This module allowed only for Unix OS"
+#	error "This module allowed only for Linux OS"
 #endif /* _WINDOWS */
 
-#define USE_PID_FILE	1
+#define USE_PID_FILE (1)
 
-extern char	*CONFIG_PID_FILE;
+extern char	*APP_PID_FILE;
 
 #include "threads.h"
 
+#define	MAXFD	64
+
+void    child_signal_handler(int sig);
+
 int	daemon_start(int allow_root);
-void	daemon_stop();
+void	daemon_stop(void);
 
-void	set_parent_signal_handler();
-void	set_child_signal_handler();
+void	init_main_process(void);
 
-#define ZBX_IS_RUNNING()	1
+/* ask for application closing status - NOT needed for linux forks */
+#define ZBX_IS_RUNNING (1)
+
+/* tall all threads what application must be closed  - NOT needed for linux forks */
 #define ZBX_DO_EXIT()
 
 #define START_MAIN_ZABBIX_ENTRY(a)	daemon_start(a)

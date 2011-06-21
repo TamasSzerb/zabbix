@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,21 +17,20 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
+
 #ifndef ZABBIX_OPERATIONS_H
 #define ZABBIX_OPERATIONS_H
 
 #include "common.h"
 #include "db.h"
 
-extern int	CONFIG_TIMEOUT;
-
-void	op_template_add(DB_EVENT *event, zbx_uint64_t templateid);
-void	op_template_del(DB_EVENT *event, zbx_uint64_t templateid);
-void	op_group_add(DB_EVENT *event, zbx_uint64_t groupid);
-void	op_group_del(DB_EVENT *event, zbx_uint64_t groupid);
+void	op_template_add(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation);
+void	op_template_del(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation);
+void	op_group_add(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation);
+void	op_group_del(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation);
 void	op_host_add(DB_EVENT *event);
 void	op_host_del(DB_EVENT *event);
-void	op_host_enable(DB_EVENT *event);
-void	op_host_disable(DB_EVENT *event);
+void	op_run_commands(DB_EVENT *event, DB_OPERATION *operation);
+void	op_notify_user(DB_EVENT *event, DB_ACTION *action, DB_OPERATION *operation);
 
 #endif

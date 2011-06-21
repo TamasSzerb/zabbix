@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -18,116 +18,126 @@
 **/
 
 #include "common.h"
+
 #include "sysinfo.h"
 #include "threads.h"
+
 #include "stats.h"
+
 #include "log.h"
 
-int	USER_PERF_COUNTER(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+int	USER_PERFCOUNTER(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	const char		*__function_name = "USER_PERF_COUNTER";
-	PERF_COUNTER_DATA	*perfs = NULL;
-	int			ret = SYSINFO_RET_FAIL;
-	double			value;
+	PERF_COUNTERS *perfs = NULL;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	int	ret = SYSINFO_RET_FAIL;
 
-	if (!PERF_COLLECTOR_STARTED(collector))
+	if ( !PERF_COLLECTOR_STARTED(collector) )
 	{
-		zabbix_log(LOG_LEVEL_DEBUG, "Collector is not started!");
-		return ret;
+		SET_MSG_RESULT(result, strdup("Collector is not started!"));
+		return SYSINFO_RET_OK;
 	}
 
-	for (perfs = collector->perfs.pPerfCounterList; NULL != perfs; perfs = perfs->next)
+	for(perfs = collector->perfs.pPerfCounterList; perfs; perfs=perfs->next)
 	{
-		if (NULL != perfs->name && 0 == strcmp(perfs->name, param))
+		if ( 0 == strcmp(perfs->name, param) )
 		{
-			if (PERF_COUNTER_ACTIVE == perfs->status)
-			{
-				SET_DBL_RESULT(result, compute_average_value(__function_name, perfs, USE_DEFAULT_INTERVAL));
-				ret = SYSINFO_RET_OK;
-			}
-
+			SET_DBL_RESULT(result, perfs->lastValue);
+			ret = SYSINFO_RET_OK;
 			break;
 		}
 	}
 
-	if (SYSINFO_RET_OK != ret && NULL != perfs)
-	{
-		if (ERROR_SUCCESS == calculate_counter_value(__function_name, perfs->counterpath, &value))
-		{
-			perfs->status = PERF_COUNTER_INITIALIZED;
-			SET_DBL_RESULT(result, value);
-			ret = SYSINFO_RET_OK;
-		}
-	}
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
-
 	return ret;
 }
 
-int	PERF_COUNTER(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+int	PERF_MONITOR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	const char		*__function_name = "PERF_COUNTER";
-	char			counterpath[PDH_MAX_COUNTER_PATH], tmp[MAX_STRING_LEN];
-	int			ret = SYSINFO_RET_FAIL, interval;
-	double			value;
-	PERF_COUNTER_DATA	*perfs = NULL;
+	HQUERY		query;
+	HCOUNTER	counter;
+	PDH_STATUS	status;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	PDH_RAW_COUNTER		rawData, rawData2;
+	PDH_FMT_COUNTERVALUE	counterValue;
 
-	if (2 < num_param(param))
-		goto clean;
+	char	counter_name[MAX_STRING_LEN];
 
-	if (0 != get_param(param, 1, counterpath, sizeof(counterpath)) || '\0' == *counterpath)
-		goto clean;
+	int	ret = SYSINFO_RET_FAIL;
 
-	if (0 != get_param(param, 2, tmp, sizeof(tmp)) || '\0' == *tmp)
-		interval = 1;
-	else if (FAIL == is_uint(tmp))
-		goto clean;
-	else
-		interval = atoi(tmp);
-
-	if (FAIL == check_counter_path(counterpath))
-		goto clean;
-
-	if (1 < interval)
+	if(num_param(param) > 1)
 	{
-		if (!PERF_COLLECTOR_STARTED(collector))
-		{
-			zabbix_log(LOG_LEVEL_DEBUG, "Collector is not started!");
-			goto clean;
-		}
+		return SYSINFO_RET_FAIL;
+	}
 
-		for (perfs = collector->perfs.pPerfCounterList; NULL != perfs; perfs = perfs->next)
+	if(get_param(param, 1, counter_name, sizeof(counter_name)) != 0)
+	{
+		counter_name[0] = '\0';
+	}
+	if(counter_name[0] == '\0')
+	{
+		return SYSINFO_RET_FAIL;
+	}
+
+	if (ERROR_SUCCESS == PdhOpenQuery(NULL,0,&query))
+	{
+		if (ERROR_SUCCESS == (status = PdhAddCounter(query,counter_name,0,&counter)))
 		{
-			if (0 == strcmp(perfs->counterpath, counterpath) && perfs->interval == interval)
+			if (ERROR_SUCCESS == (status = PdhCollectQueryData(query)))
 			{
-				if (PERF_COUNTER_ACTIVE != perfs->status)
-					break;
+				if(ERROR_SUCCESS == (status = PdhGetRawCounterValue(counter, NULL, &rawData)) &&
+					(rawData.CStatus == PDH_CSTATUS_VALID_DATA || rawData.CStatus == PDH_CSTATUS_NEW_DATA))
+				{
+					if( PDH_CSTATUS_INVALID_DATA == (status = PdhCalculateCounterFromRawValue(
+						counter, 
+						PDH_FMT_DOUBLE, 
+						&rawData, 
+						NULL, 
+						&counterValue
+						)) )
+					{
+						zbx_sleep(1);
+						PdhCollectQueryData(query);
+						PdhGetRawCounterValue(counter, NULL, &rawData2);
+						status = PdhCalculateCounterFromRawValue(
+							counter, 
+							PDH_FMT_DOUBLE, 
+							&rawData2, 
+							&rawData, 
+							&counterValue);
 
-				SET_DBL_RESULT(result, compute_average_value(__function_name, perfs, USE_DEFAULT_INTERVAL));
-				ret = SYSINFO_RET_OK;
-				goto clean;
+					}
+
+					if(ERROR_SUCCESS == status)
+					{
+						SET_DBL_RESULT(result, counterValue.doubleValue);
+						ret = SYSINFO_RET_OK;
+					}
+					else
+					{
+						zabbix_log(LOG_LEVEL_DEBUG, "Can't format counter value [%s] [%s]", counter_name, strerror_from_module(status,"PDH.DLL"));
+					}
+				}
+				else
+				{
+					if(ERROR_SUCCESS == status) status = rawData.CStatus;
+
+					zabbix_log(LOG_LEVEL_DEBUG, "Can't get counter value [%s] [%s]", counter_name, strerror_from_module(status,"PDH.DLL"));
+				}
 			}
+			else
+			{
+				zabbix_log(LOG_LEVEL_DEBUG, "Can't collect data [%s] [%s]", counter_name, strerror_from_module(status,"PDH.DLL"));
+			}
+			PdhRemoveCounter(&counter);
+		}
+		else
+		{
+			zabbix_log(LOG_LEVEL_DEBUG, "Can't add counter [%s] [%s]", counter_name, strerror_from_module(status,"PDH.DLL"));
 		}
 
-		if (NULL == perfs && NULL == (perfs = add_perf_counter(NULL, counterpath, interval)))
-			goto clean;
-	}
 
-	if (ERROR_SUCCESS == calculate_counter_value(__function_name, counterpath, &value))
-	{
-		if (NULL != perfs)
-			perfs->status = PERF_COUNTER_INITIALIZED;
-
-		SET_DBL_RESULT(result, value);
-		ret = SYSINFO_RET_OK;
+		PdhCloseQuery(query);
 	}
-clean:
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 
 	return ret;
 }

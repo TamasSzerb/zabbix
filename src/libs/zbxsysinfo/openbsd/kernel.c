@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -18,50 +18,88 @@
 **/
 
 #include "common.h"
+
 #include "sysinfo.h"
 
 int	KERNEL_MAXFILES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-#ifdef HAVE_FUNCTION_SYSCTL_KERN_MAXFILES
-	int	mib[2];
-	size_t	len;
+	int	mib[2],len;
 	int	maxfiles;
 
-	mib[0] = CTL_KERN;
-	mib[1] = KERN_MAXFILES;
+	assert(result);
 
-	len = sizeof(maxfiles);
+        init_result(result);	
 
-	if (0 != sysctl(mib, 2, &maxfiles, &len, NULL, 0))
-		return SYSINFO_RET_FAIL;
+	mib[0]=CTL_KERN;
+	mib[1]=KERN_MAXFILES;
+
+	len=sizeof(maxfiles);
+
+	if(sysctl(mib,2,&maxfiles,(size_t *)&len,NULL,0) != 0)
+	{
+		return	SYSINFO_RET_FAIL;
+	}
 
 	SET_UI64_RESULT(result, maxfiles);
-
 	return SYSINFO_RET_OK;
-#else
-	return SYSINFO_RET_FAIL;
-#endif
 }
 
 int	KERNEL_MAXPROC(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-#ifdef HAVE_FUNCTION_SYSCTL_KERN_MAXPROC
-	int	mib[2];
-	size_t	len;
+	int	mib[2],len;
 	int	maxproc;
 
-	mib[0] = CTL_KERN;
-	mib[1] = KERN_MAXPROC;
+	assert(result);
 
-	len = sizeof(maxproc);
+        init_result(result);	
+	
+	mib[0]=CTL_KERN;
+	mib[1]=KERN_MAXPROC;
 
-	if (0 != sysctl(mib, 2, &maxproc, &len, NULL, 0))
-		return SYSINFO_RET_FAIL;
+	len=sizeof(maxproc);
+
+	if(sysctl(mib,2,&maxproc,(size_t *)&len,NULL,0) != 0)
+	{
+		return	SYSINFO_RET_FAIL;
+/*		printf("Errno [%m]");*/
+	}
 
 	SET_UI64_RESULT(result, maxproc);
-
 	return SYSINFO_RET_OK;
-#else
-	return SYSINFO_RET_FAIL;
-#endif
 }
+
+int     OLD_KERNEL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	char    key[MAX_STRING_LEN];
+        int     ret;
+
+        assert(result);
+
+        init_result(result);	
+
+        if(num_param(param) > 1)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+        if(get_param(param, 1, key, MAX_STRING_LEN) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+        if(strcmp(key,"maxfiles") == 0)
+        {
+                ret = KERNEL_MAXFILES(cmd, param, flags, result);
+        }
+        else if(strcmp(key,"maxproc") == 0)
+        {
+                ret = KERNEL_MAXPROC(cmd, param, flags, result);
+        }
+        else
+        {
+                ret = SYSINFO_RET_FAIL;
+        }
+
+        return ret;
+}
+

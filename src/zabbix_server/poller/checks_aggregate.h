@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,9 +20,11 @@
 #ifndef ZABBIX_CHECKS_AGGREGATE_H
 #define ZABBIX_CHECKS_AGGREGATE_H
 
-#include "dbcache.h"
+#include "common.h"
+#include "db.h"
+#include "log.h"
 #include "sysinfo.h"
 
-extern	int	get_value_aggregate(DC_ITEM *item, AGENT_RESULT *result);
+extern	int	get_value_aggregate(DB_ITEM *item, AGENT_RESULT *result);
 
 #endif

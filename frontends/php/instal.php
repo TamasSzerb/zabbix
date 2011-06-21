@@ -1,7 +1,7 @@
 <?php
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,15 +19,15 @@
 **/
 ?>
 <?php
-require_once('include/config.inc.php');
-require_once('include/forms.inc.php');
+	require_once "include/config.inc.php";
+	require_once "include/forms.inc.php";
 
-$page["title"] = "S_INSTALLATION";
-$page["file"] = 'instal.php';
+        $page["title"] = "S_INSTALLATION";
+        $page["file"] = "instal.php";
 
-include_once('include/page_header.php');
-include_once('setup.php');
-include_once('include/page_footer.php');
+include_once "include/page_header.php";
+include_once "setup.php";
+include_once "include/page_footer.php";
 
 /*******************************/
 /* THIS POINT NEVER BE REACHED */
@@ -45,35 +45,36 @@ include_once('include/page_footer.php');
 	check_fields($fields);
 ?>
 <?php
-	if(isset($_REQUEST['install'])){
-		jsRedirect('setup.php');
-		exit();
+	if(isset($_REQUEST['install']))
+	{
+		Redirect('setup.php');
 	}
-	else if(isset($_REQUEST['update'])){
+	elseif(isset($_REQUEST['update']))
+	{
 		error('*UNDER CONSTRUCTION*');
 	}
 
 	$form = new CFormTable(S_INSTALLATION_UPDATE);
-	$form->setHelp('install_source_web.php');
-	$form->addRow(
-		array(bold(S_NEW_INSTALLATION_BIG),BR(),BR(),
-			bold(S_DESCRIPTION),BR(),
+	$form->SetHelp('install_source_web.php');
+	$form->AddRow(
+		array(bold(S_NEW_INSTALLATION_BIG),BR,BR,
+			bold(S_DESCRIPTION),BR,
 			'Not implemented yet!',
-			BR(),BR(),BR()
+			BR,BR,BR
 			),
-		new CSubmit('install',S_NEW_INSTALLATION));
-	$form->addRow(
-		array(bold(S_UPDATE_BIG),BR(),BR(),
-			bold(S_DESCRIPTION),BR(),
+		new CButton('install',S_NEW_INSTALLATION));
+	$form->AddRow(
+		array(bold(S_UPDATE_BIG),BR,BR,
+			bold(S_DESCRIPTION),BR,
 			'Not implemented yet!',
-			BR(),BR(),BR()
+			BR,BR,BR
 			),
-		new CSubmit('update',S_UPDATE));
-	$form->show();
-
+		new CButton('update',S_UPDATE));
+	$form->Show();
+	
 ?>
 <?php
 
-include_once('include/page_footer.php');
+include_once "include/page_footer.php"
 
 ?>

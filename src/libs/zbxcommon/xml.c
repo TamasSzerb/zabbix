@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -18,46 +18,46 @@
 **/
 
 #include "common.h"
-
-static char	data_static[ZBX_MAX_B64_LEN];
+#include "log.h"
 
 /* Get DATA from <tag>DATA</tag> */
-int xml_get_data_dyn(const char *xml, const char *tag, char **data)
+int xml_get_data(char *xml,char *tag, char *data, int maxlen)
 {
-	int	len;
-	char	*start, *end;
-	size_t	sz;
+	int ret = SUCCEED;
+	char *start, *end;
+	char tag_open[MAX_STRING_LEN];
+	char tag_close[MAX_STRING_LEN];
+	int len;
 
-	sz = sizeof(data_static);
+	zbx_snprintf(tag_open, sizeof(tag_open),"<%s>",tag);
+	zbx_snprintf(tag_close, sizeof(tag_close),"</%s>",tag);
 
-	len = zbx_snprintf(data_static, sz, "<%s>", tag);
-	if (NULL == (start = strstr(xml, data_static)))
-		return FAIL;
+	if(NULL==(start=strstr(xml,tag_open)))
+	{
+		ret = FAIL;
+	}
 
-	zbx_snprintf(data_static, sz, "</%s>", tag);
-	if (NULL == (end = strstr(xml, data_static)))
-		return FAIL;
+	if(NULL==(end=strstr(xml,tag_close)))
+	{
+		ret = FAIL;
+	}
 
-	if (end < start)
-		return FAIL;
+	if(ret == SUCCEED)
+	{
+		if(end<start)
+		{
+			ret = FAIL;
+		}
+	}
 
-	start += len;
-	len = end - start;
+	if(ret == SUCCEED)
+	{
+		len = (int)(end - start - strlen(tag_open));
 
-	if (len > (int)sz - 1)
-		*data = zbx_malloc(*data, len + 1);
-	else
-		*data = data_static;
+		if(len>maxlen)	len=maxlen;
 
-	zbx_strlcpy(*data, start, len + 1);
+		zbx_strlcpy(data, start+strlen(tag_open),len+1);
+	}
 
-	return SUCCEED;
-}
-
-void	xml_free_data_dyn(char **data)
-{
-	if (*data == data_static)
-		*data = NULL;
-	else
-		zbx_free(*data);
+	return ret;
 }

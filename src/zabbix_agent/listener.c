@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -29,95 +29,93 @@
 
 #if defined(ZABBIX_SERVICE)
 #	include "service.h"
-#elif defined(ZABBIX_DAEMON)
+#elif defined(ZABBIX_DAEMON) /* ZABBIX_SERVICE */
 #	include "daemon.h"
-#endif
+#endif /* ZABBIX_DAEMON */
 
 static void	process_listener(zbx_sock_t *s)
 {
 	AGENT_RESULT	result;
-	char		*command;
-	char		**value = NULL;
+
+	char	*command;
+	char	**value = NULL;
 	int		ret;
 
-	if (SUCCEED == (ret = zbx_tcp_recv_to(s, &command, CONFIG_TIMEOUT)))
+	if( SUCCEED == (ret = zbx_tcp_recv(s, &command)) )
 	{
-		zbx_rtrim(command, "\r\n");
+		zbx_rtrim(command, "\r\n\0");
 
 		zabbix_log(LOG_LEVEL_DEBUG, "Requested [%s]", command);
 
 		init_result(&result);
 		process(command, 0, &result);
 
-		if (NULL == (value = GET_TEXT_RESULT(&result)))
+		if( NULL == (value = GET_TEXT_RESULT(&result)) )
 			value = GET_MSG_RESULT(&result);
 
-		if (NULL != value)
+		if(value)
 		{
 			zabbix_log(LOG_LEVEL_DEBUG, "Sending back [%s]", *value);
-			ret = zbx_tcp_send_to(s, *value, CONFIG_TIMEOUT);
+			ret = zbx_tcp_send(s, *value);
 		}
-
-		free_result(&result);
+		
+		free_result(&result);	
 	}
 
-	if (FAIL == ret)
+	if( FAIL == ret )
+	{
 		zabbix_log(LOG_LEVEL_DEBUG, "Process listener error: %s", zbx_tcp_strerror());
+	}
 }
 
-ZBX_THREAD_ENTRY(listener_thread, args)
+ZBX_THREAD_ENTRY(listener_thread, pSock)
 {
-	int		ret, local_request_failed = 0;
+	int 
+		ret,
+		local_request_failed = 0;
+
 	zbx_sock_t	s;
 
-	assert(args);
-	assert(((zbx_thread_args_t *)args)->args);
+	assert(pSock);
 
-	zabbix_log(LOG_LEVEL_WARNING, "agent #%d started [listener]", ((zbx_thread_args_t *)args)->thread_num);
+	zabbix_log( LOG_LEVEL_INFORMATION, "zabbix_agentd listener started");
 
-	memcpy(&s, (zbx_sock_t *)((zbx_thread_args_t *)args)->args, sizeof(zbx_sock_t));
+	memcpy(&s, ((zbx_sock_t *)pSock), sizeof(zbx_sock_t));
 
-	zbx_free(args);
-
-#ifdef ZABBIX_DAEMON
-	set_child_signal_handler();
-#endif
-
-	while (ZBX_IS_RUNNING())
+	while(ZBX_IS_RUNNING)
 	{
-		zbx_setproctitle("listener [waiting for connection]");
-
-		if (SUCCEED == (ret = zbx_tcp_accept(&s)))
+		if( SUCCEED == (ret = zbx_tcp_accept(&s)) )
 		{
 			local_request_failed = 0;     /* Reset consecutive errors counter */
+			
+			zbx_setproctitle("processing request");
 
-			zbx_setproctitle("listener [processing request]");
 			zabbix_log(LOG_LEVEL_DEBUG, "Processing request.");
-
-			if (SUCCEED == (ret = zbx_tcp_check_security(&s, CONFIG_HOSTS_ALLOWED, 0)))
+			if( SUCCEED == (ret = zbx_tcp_check_security(&s, CONFIG_HOSTS_ALLOWED, 0)) )
+			{
 				process_listener(&s);
+			}
 
 			zbx_tcp_unaccept(&s);
 		}
 
-		if (SUCCEED == ret)
-			continue;
+		if( SUCCEED == ret )	continue;
 
 		zabbix_log(LOG_LEVEL_DEBUG, "Listener error: %s", zbx_tcp_strerror());
 
 		if (local_request_failed++ > 1000)
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "Too many consecutive errors on accept() call.");
+			zabbix_log( LOG_LEVEL_WARNING, "Too many consecutive errors on accept() call.");
 			local_request_failed = 0;
 		}
 
-		if (ZBX_IS_RUNNING())
-			zbx_sleep(1);
+		if(ZBX_IS_RUNNING)
+			zbx_sleep(1);		
 	}
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "zabbix_agentd listener stopped");
+	zabbix_log( LOG_LEVEL_INFORMATION, "zabbix_agentd listener stopped");
 
 	ZBX_DO_EXIT();
 
-	zbx_thread_exit(0);
+	zbx_tread_exit(0);
 }

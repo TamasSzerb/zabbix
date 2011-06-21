@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,9 +20,9 @@
 #ifndef ZABBIX_HOUSEKEEPER_H
 #define ZABBIX_HOUSEKEEPER_H
 
-extern int	CONFIG_HOUSEKEEPING_FREQUENCY;
-extern int	CONFIG_MAX_HOUSEKEEPER_DELETE;
+extern	int	CONFIG_DISABLE_HOUSEKEEPING;
+extern	int	CONFIG_HOUSEKEEPING_FREQUENCY;
 
-void	main_housekeeper_loop();
+int main_housekeeper_loop();
 
 #endif

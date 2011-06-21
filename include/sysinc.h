@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -22,13 +22,8 @@
 
 #include "config.h"
 
-#ifdef HAVE_STDIO_H
-#	include <stdio.h>
-#endif
-
-#ifdef HAVE_STDLIB_H
-#	include <stdlib.h>
-#endif
+#include <stdio.h>
+#include <stdlib.h>
 
 #ifdef HAVE_ASSERT_H
 #	include <assert.h>
@@ -44,14 +39,6 @@
 
 #ifdef HAVE_WS2TCPIP_H
 #	include <ws2tcpip.h>
-#endif
-
-#ifdef HAVE_WSPIAPI_H
-#	include "Wspiapi.h"
-#endif
-
-#ifdef HAVE_IPHLPAPI_H
-#	include <Iphlpapi.h>
 #endif
 
 #ifdef HAVE_WINDOWS_H
@@ -94,10 +81,6 @@
 #	include <sys/types.h>
 #endif
 
-#ifdef HAVE_SYS_SYSTEMCFG_H
-#	include <sys/systemcfg.h>
-#endif
-
 #ifdef HAVE_INTTYPES_H
 #	include <inttypes.h>
 #endif
@@ -114,31 +97,16 @@
 #	include <sys/time.h>
 #endif
 
-#ifdef HAVE_SYS_TIMES_H
-#	include <sys/times.h>
-#endif
-
 #ifdef HAVE_LINUX_KERNEL_H
 #	include <linux/kernel.h>
 #endif
 
 #ifdef HAVE_ARPA_NAMESER_H
-#ifdef MAC_OS_X
-#	define BIND_8_COMPAT 1
-#endif
 #	include <arpa/nameser.h>
 #endif
 
 #ifdef HAVE_DIRENT_H
 #	include <dirent.h>
-#endif
-
-#ifdef HAVE_SYS_DKSTAT_H
-#	include <sys/dkstat.h>
-#endif
-
-#ifdef HAVE_DEVSTAT_H
-#	include <devstat.h>
 #endif
 
 #ifdef HAVE_FCNTL_H
@@ -153,8 +121,8 @@
 #	include <kstat.h>
 #endif
 
-#ifdef HAVE_LDAP
-#	include <ldap.h>
+#ifdef HAVE_LDAP_H
+	#include <ldap.h>
 #endif
 
 #ifdef HAVE_WINLDAP_H
@@ -242,6 +210,10 @@
 #	include <sys/disk.h>
 #endif
 
+#ifdef HAVE_SYS_DKSTAT_H
+#	include <sys/dkstat.h>
+#endif
+
 #ifdef HAVE_SYS_SOCKET_H
 #	include <sys/socket.h>
 #endif
@@ -286,10 +258,6 @@
 #	include <sys/vmmeter.h>
 #endif
 
-#ifdef HAVE_LIBPERFSTAT
-#	include <libperfstat.h>
-#endif
-
 #ifdef HAVE_SYS_RESOURCE_H
 #	include <sys/resource.h>
 #endif
@@ -300,14 +268,6 @@
 
 #ifdef HAVE_NET_IF_H
 #	include <net/if.h>
-#endif
-
-#ifdef HAVE_NET_IF_MIB_H
-#	include <net/if_mib.h>
-#endif
-
-#ifdef HAVE_SYS_USER_H
-#	include <sys/user.h>
 #endif
 
 #ifdef HAVE_KVM_H
@@ -386,9 +346,6 @@
 
 #ifdef HAVE_LIBCURL
 #	include <curl/curl.h>
-#	if !defined(HAVE_FUNCTION_CURL_EASY_ESCAPE)
-#		define curl_easy_escape(handle, string, length) curl_escape(string, length)
-#	endif
 #endif
 
 /* NET-SNMP is used */
@@ -406,31 +363,6 @@
 #	include <ucd-snmp/transform_oids.h>
 /* For generate_Ku() */
 #	include <ucd-snmp/keytools.h>
-#endif
-
-/* Required for advanced sigaction */
-#ifdef HAVE_SYS_UCONTEXT_H
-#	include <sys/ucontext.h>
-#endif
-
-#ifdef HAVE_ICONV
-#	include <iconv.h>
-#endif
-
-#ifdef HAVE_SSH2
-#	include <libssh2.h>
-#endif
-
-#ifdef HAVE_IO_H
-#	include <io.h>
-#endif
-
-#ifdef HAVE_SYS_MNTTAB_H
-#	include <sys/mnttab.h>
-#endif
-
-#ifdef HAVE_MNTENT_H
-#	include <mntent.h>
 #endif
 
 #endif

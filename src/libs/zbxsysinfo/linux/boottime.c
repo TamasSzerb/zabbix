@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -18,9 +18,10 @@
 **/
 
 #include "common.h"
+
 #include "sysinfo.h"
 
-static int	getPROC2(char *file, char *param, int fieldno, unsigned flags, int type, AGENT_RESULT *result)
+static int getPROC2(char *file, char *param, int fieldno, unsigned flags, int type, AGENT_RESULT *result)
 {
 
 	FILE	*f;
@@ -30,7 +31,7 @@ static int	getPROC2(char *file, char *param, int fieldno, unsigned flags, int ty
 	int	found;
 	unsigned long uValue;
 	double fValue;
-
+        
 	if (NULL == (f = fopen(file,"r")))
 	{
 		return SYSINFO_RET_FAIL;
@@ -38,7 +39,7 @@ static int	getPROC2(char *file, char *param, int fieldno, unsigned flags, int ty
 
 	/* find line */
 	found = 0;
-	while ( fgets(buf, MAX_STRING_LEN, f) != NULL )
+	while ( fgets(buf, MAX_STRING_LEN, f) != NULL ) 
 	{
 		if (strncmp(buf, "btime", 5) == 0)
 		{
@@ -46,8 +47,6 @@ static int	getPROC2(char *file, char *param, int fieldno, unsigned flags, int ty
 			break;
 		}
 	}
-
-	zbx_fclose(f);
 
 	if (!found) return SYSINFO_RET_FAIL;
 
@@ -57,6 +56,8 @@ static int	getPROC2(char *file, char *param, int fieldno, unsigned flags, int ty
 	{
 		res = (char *)strtok(NULL," ");
 	}
+
+	zbx_fclose(f);
 
 	if ( res == NULL )
 	{
@@ -75,7 +76,7 @@ static int	getPROC2(char *file, char *param, int fieldno, unsigned flags, int ty
 		SET_DBL_RESULT(result, fValue);
 		break;
 	case AR_STRING: default:
-		SET_STR_RESULT(result, strdup(buf));
+		SET_STR_RESULT(result, buf);
 		break;
 	}
 
@@ -84,5 +85,9 @@ static int	getPROC2(char *file, char *param, int fieldno, unsigned flags, int ty
 
 int	SYSTEM_BOOTTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	return getPROC2("/proc/stat", "btime", 1, flags, AR_UINT64, result);
+	assert(result);
+
+        init_result(result);
+
+	return  getPROC2("/proc/stat", "btime", 1, flags, AR_UINT64, result);
 }

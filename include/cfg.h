@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,22 +20,23 @@
 #ifndef ZABBIX_CFG_H
 #define ZABBIX_CFG_H
 
-#define	TYPE_INT		0
-#define	TYPE_STRING		1
-#define	TYPE_MULTISTRING	2
+#define	TYPE_INT	0
+#define	TYPE_STRING	1
 
 #define	PARM_OPT	0
 #define	PARM_MAND	1
 
-/* config file parsing options */
-#define	ZBX_CFG_FILE_REQUIRED	0
-#define	ZBX_CFG_FILE_OPTIONAL	1
+/*
+ * Application flags
+ */
 
-#define	ZBX_CFG_NOT_STRICT	0
-#define	ZBX_CFG_STRICT		1
+#define AF_STANDALONE               0x0001
+#define AF_USE_EVENT_LOG            0x0002
+#define AF_LOG_UNRESOLVED_SYMBOLS   0x0004
 
-extern int	CONFIG_ZABBIX_FORKS;	/* contains the number of listeners for processing passive checks */
+extern int	CONFIG_ZABBIX_FORKS;
 extern char	*CONFIG_FILE;
+
 extern char	*CONFIG_LOG_FILE;
 extern char	CONFIG_ALLOW_ROOT;
 extern int	CONFIG_TIMEOUT;
@@ -44,12 +45,13 @@ struct cfg_line
 {
 	char	*parameter;
 	void	*variable;
+	int	(*function)();
 	int	type;
 	int	mandatory;
 	int	min;
 	int	max;
 };
 
-int	parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int optional, int strict);
+int	parse_cfg_file(const char *cfg_file,struct cfg_line *cfg);
 
 #endif

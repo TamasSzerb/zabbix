@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,8 +19,11 @@
 
 #include "common.h"
 
+#include "cfg.h"
+#include "pid.h"
 #include "db.h"
 #include "log.h"
+#include "zlog.h"
 
 #include "httpmacro.h"
 
@@ -39,7 +42,7 @@
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-void	http_substitute_macros(DB_HTTPTEST *httptest, char *data, int data_max_len)
+void http_substitute_macros(DB_HTTPTEST *httptest, char *data, int data_max_len)
 {
 	char
 		*pl = NULL,
@@ -47,7 +50,7 @@ void	http_substitute_macros(DB_HTTPTEST *httptest, char *data, int data_max_len)
 		str_out[MAX_STRING_LEN],
 		replace_to[MAX_STRING_LEN],
 		*c,*c2, save,*replacement,save2;
-	int
+	int	
 		outlen,
 		var_len;
 
@@ -94,7 +97,7 @@ void	http_substitute_macros(DB_HTTPTEST *httptest, char *data, int data_max_len)
 						zbx_snprintf(replace_to, sizeof(replace_to), "%s", replacement);
 					}
 				}
-
+				
 			}
 /*			result = DBselect("select value from httpmacro where macro='%s' and httptestid=" ZBX_FS_UI64,
 				pr, httptest->httptestid);

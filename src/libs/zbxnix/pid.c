@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,62 +19,75 @@
 
 #include "common.h"
 #include "pid.h"
+
 #include "log.h"
 #include "threads.h"
+
+#include <sysinc.h>
+
 static FILE	*fpid = NULL;
 static int	fdpid = -1;
 
 int	create_pid_file(const char *pidfile)
 {
-	int		fd;
-	struct stat	buf;
-	struct flock	fl;
+	struct  stat    buf;
+	int fd = 0;
 
-	fl.l_type = F_WRLCK;
-	fl.l_whence = SEEK_SET;
-	fl.l_start = 0;
-	fl.l_len = 0;
-	fl.l_pid = zbx_get_thread_id();
+#ifdef HAVE_FCNTL_H
+	struct flock fl;
+
+	fl.l_type   = F_WRLCK;  /* F_RDLCK, F_WRLCK, F_UNLCK    */
+	fl.l_whence = SEEK_SET; /* SEEK_SET, SEEK_CUR, SEEK_END */
+	fl.l_start  = 0;        /* Offset from l_whence         */
+	fl.l_len    = 0;        /* length, 0 = to EOF           */
+	fl.l_pid    = zbx_get_thread_id(); /* our PID           */
+
+#endif /* HAVE_FCNTL_H */
 
 	/* check if pid file already exists */
-	if (0 == stat(pidfile, &buf))
+	if(stat(pidfile,&buf) == 0)
 	{
-		if (-1 == (fd = open(pidfile, O_WRONLY | O_APPEND)))
+#ifdef HAVE_FCNTL_H
+		if( -1 == (fd = open(pidfile, O_WRONLY | O_APPEND)))
+#else
+		if( -1 == (fd = open(pidfile, O_APPEND)))
+#endif /* HAVE_FCNTL_H */
 		{
-			zbx_error("cannot open PID file [%s]: %s", pidfile, zbx_strerror(errno));
-			zabbix_log(LOG_LEVEL_CRIT, "cannot open PID file [%s]: %s", pidfile, zbx_strerror(errno));
+			zbx_error("Cannot open PID file [%s] [%s]", pidfile, strerror(errno));
+			zabbix_log( LOG_LEVEL_CRIT, "Cannot open PID file [%s] [%s]", pidfile, strerror(errno));
 			return FAIL;
 		}
-
-		if (-1 == fcntl(fd, F_SETLK, &fl) && EAGAIN == errno)
+#ifdef HAVE_FCNTL_H
+    		if(-1 == fcntl(fd, F_SETLK, &fl) && EAGAIN == errno)
+#else
+		if(-1 == flock(fd, LOCK_EX | LOCK_NB) && EWOULDBLOCK == errno)
+#endif /* HAVE_FCNTL_H */
 		{
-			close(fd);
-			zbx_error("File [%s] exists and is locked. Is this process already running?", pidfile);
-			zabbix_log(LOG_LEVEL_CRIT, "File [%s] exists and is locked. Is this process already running?", pidfile);
+			zbx_error("File [%s] exists and locked. Is this process already running ?", pidfile);
+			zabbix_log( LOG_LEVEL_CRIT, "File [%s] exists and locked. Is this process already running ?", pidfile);
 			return FAIL;
 		}
-
 		close(fd);
 	}
 
 	/* open pid file */
-	if (NULL == (fpid = fopen(pidfile, "w")))
+	if( NULL == (fpid = fopen(pidfile, "w")))
 	{
-		zbx_error("cannot create PID file [%s]: %s", pidfile, zbx_strerror(errno));
-		zabbix_log(LOG_LEVEL_CRIT, "cannot create PID file [%s]: %s", pidfile, zbx_strerror(errno));
+		zbx_error("Cannot create PID file [%s] [%s]", pidfile, strerror(errno));
+		zabbix_log( LOG_LEVEL_CRIT, "Cannot create PID file [%s] [%s]", pidfile, strerror(errno));
+
 		return FAIL;
 	}
 
 	/* lock file */
 	fdpid = fileno(fpid);
+#ifdef HAVE_FCNTL_H
+	if(-1 != fdpid) fcntl(fdpid, F_SETLK, &fl);
+#else
+	if(-1 != fdpid) flock(fdpid, LOCK_EX);
+#endif /* HAVE_FCNTL_H */
 
-	if (-1 != fdpid)
-	{
-		fcntl(fdpid, F_SETLK, &fl);
-		fcntl(fdpid, F_SETFD, FD_CLOEXEC);
-	}
-
-	/* write pid to file */
+	/* frite pid to file */
 	fprintf(fpid, "%li", zbx_get_thread_id());
 	fflush(fpid);
 
@@ -83,20 +96,29 @@ int	create_pid_file(const char *pidfile)
 
 void	drop_pid_file(const char *pidfile)
 {
-	struct flock	fl;
+#ifdef HAVE_FCNTL_H
+	struct flock fl;
 
-	fl.l_type = F_UNLCK;
-	fl.l_whence = SEEK_SET;
-	fl.l_start = 0;
-	fl.l_len = 0;
-	fl.l_pid = zbx_get_thread_id();
+	fl.l_type   = F_UNLCK;  /* tell it to unlock the region */
+	fl.l_whence = SEEK_SET; /* SEEK_SET, SEEK_CUR, SEEK_END */
+	fl.l_start  = 0;        /* Offset from l_whence         */
+	fl.l_len    = 0;        /* length, 0 = to EOF           */
+	fl.l_pid    = zbx_get_thread_id(); /* our PID           */
+
+#endif /* HAVE_FCNTL_H */
 
 	/* unlock file */
-	if (-1 != fdpid)
-		fcntl(fdpid, F_SETLK, &fl);
+#ifdef HAVE_FCNTL_H
+	if(-1 != fdpid) fcntl(fdpid, F_SETLK, &fl);
+#else
+	if(-1 != fdpid) flock(fdpid, LOCK_UN);
+#endif /* HAVE_FCNTL_H */
 
 	/* close pid file */
 	zbx_fclose(fpid);
 
-	unlink(pidfile);
+	if(-1 == unlink(pidfile))
+	{
+		zabbix_log( LOG_LEVEL_DEBUG, "Cannot remove PID file [%s] [%s]", pidfile, strerror(errno));
+	}
 }

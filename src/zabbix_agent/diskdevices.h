@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,39 +20,44 @@
 #ifndef ZABBIX_DISKDEVICES_H
 #define ZABBIX_DISKDEVICES_H
 
-#include "sysinfo.h"
 
 #define	MAX_DISKDEVICES	8
 
 typedef struct c_single_diskdevice_data
 {
-	char		name[32];
-	int		index;
-	time_t		clock[MAX_COLLECTOR_HISTORY];
-	zbx_uint64_t	r_sect[MAX_COLLECTOR_HISTORY];
-	zbx_uint64_t	r_oper[MAX_COLLECTOR_HISTORY];
-	zbx_uint64_t	r_byte[MAX_COLLECTOR_HISTORY];
-	zbx_uint64_t	w_sect[MAX_COLLECTOR_HISTORY];
-	zbx_uint64_t	w_oper[MAX_COLLECTOR_HISTORY];
-	zbx_uint64_t	w_byte[MAX_COLLECTOR_HISTORY];
-	double		r_sps[ZBX_AVG_COUNT];
-	double		r_ops[ZBX_AVG_COUNT];
-	double		r_bps[ZBX_AVG_COUNT];
-	double		w_sps[ZBX_AVG_COUNT];
-	double		w_ops[ZBX_AVG_COUNT];
-	double		w_bps[ZBX_AVG_COUNT];
+	char    *name;
+	int	major;
+	int	diskno;
+	int	clock[60*15];
+	double	read_io_ops[60*15];
+	double	blks_read[60*15];
+	double	write_io_ops[60*15];
+	double	blks_write[60*15];
 } ZBX_SINGLE_DISKDEVICE_DATA;
 
 typedef struct c_diskdevices_data
 {
-	int				count;
-	ZBX_SINGLE_DISKDEVICE_DATA	device[MAX_DISKDEVICES];
+	ZBX_SINGLE_DISKDEVICE_DATA device[MAX_DISKDEVICES];
 } ZBX_DISKDEVICES_DATA;
 
-#define DISKDEVICE_COLLECTOR_STARTED(collector) collector
+void	collect_stats_diskdevices(ZBX_DISKDEVICES_DATA *pdiskdevices);
 
-ZBX_SINGLE_DISKDEVICE_DATA	*collector_diskdevice_get(const char *devname);
-ZBX_SINGLE_DISKDEVICE_DATA	*collector_diskdevice_add(const char *devname);
-void				collect_stats_diskdevices(ZBX_DISKDEVICES_DATA *pdiskdevices);
+/*
+#define	MAX_DISKDEVICES	8
 
+#define DISKDEVICE struct diskdevice_type
+DISKDEVICE
+{
+	char    *device;
+	int	major;
+	int	diskno;
+	int	clock[60*15];
+	double	read_io_ops[60*15];
+	double	blks_read[60*15];
+	double	write_io_ops[60*15];
+	double	blks_write[60*15];
+};
+
+void	collect_stats_diskdevices(FILE *outfile);
+*/
 #endif

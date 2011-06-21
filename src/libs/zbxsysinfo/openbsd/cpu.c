@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,31 +19,33 @@
 
 #include "common.h"
 #include "sysinfo.h"
-#include "stats.h"
 
 int	SYSTEM_CPU_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 #ifdef HAVE_FUNCTION_SYSCTL_HW_NCPU
-	/* OpenBSD 4.2,4.3 i386 */
 	size_t	len;
-	int	mib[] = {CTL_HW, HW_NCPU}, ncpu;
+	int	mib[2], ncpu;
 	char	mode[MAX_STRING_LEN];
+
+	assert(result);
+
+	init_result(result);
 
 	if (num_param(param) > 1)
 		return SYSINFO_RET_FAIL;
 
-	if (0 != get_param(param, 1, mode, sizeof(mode)))
-		*mode = '\0';
+	if (0 == get_param(param, 1, mode, sizeof(mode))) {
+		if (*mode != '\0') {
+			if (0 != strcmp(mode, "online"))
+				return SYSINFO_RET_FAIL;
+		}
+	}
 
-	if (*mode == '\0')
-		zbx_snprintf(mode, sizeof(mode), "online");
-
-	if (0 != strcmp(mode, "online"))
-		return SYSINFO_RET_FAIL;
+	mib[0] = CTL_HW;
+	mib[1] = HW_NCPU;
 
 	len = sizeof(ncpu);
-
-	if (0 != sysctl(mib, 2, &ncpu, &len, NULL, 0))
+	if (-1 == sysctl(mib, 2, &ncpu, &len, NULL, 0))
 		return SYSINFO_RET_FAIL;
 
 	SET_UI64_RESULT(result, ncpu);
@@ -54,131 +56,268 @@ int	SYSTEM_CPU_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RES
 #endif /* HAVE_FUNCTION_SYSCTL_HW_NCPU */
 }
 
-int     SYSTEM_CPU_INTR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+static int get_cpu_data(unsigned long long *idle,
+			unsigned long long *user,
+			unsigned long long *nice,
+			unsigned long long *system,
+			unsigned long long *intr)
 {
-#if defined(HAVE_UVM_UVMEXP)
-	/* OpenBSD 4.2 i386 */
-	int		mib[] = {CTL_VM, VM_UVMEXP};
-	size_t		len;
-	struct uvmexp	v;
+	u_int64_t value[CPUSTATES];
+	int ret = SYSINFO_RET_FAIL;
+	int mib[2];
+	size_t l; 
 
-	len = sizeof(struct uvmexp);
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_CLOCKRATE;
 
-	if (0 != sysctl(mib, 2, &v, &len, NULL, 0))
-		return SYSINFO_RET_FAIL;
+	l = sizeof(value);
 
-	SET_UI64_RESULT(result, v.intrs);
+	if (sysctl(mib, 2, value, &l, NULL, 0) == 0 ) 
+	{
+		(*idle)	= value[CP_IDLE];
+		(*user)	= value[CP_USER];
+		(*nice)	= value[CP_NICE];
+		(*system) = value[CP_SYS];
+		(*intr)	= value[CP_INTR];
+		ret = SYSINFO_RET_OK;
+ 	}
 
-	return	SYSINFO_RET_OK;
-#else
-	return	SYSINFO_RET_FAIL;
-#endif /* HAVE_UVM_UVMEXP2 */
+	return ret;
 }
 
-int     SYSTEM_CPU_SWITCHES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
-{
-#if defined(HAVE_UVM_UVMEXP)
-	/* OpenBSD 4.2 i386 */
-	int		mib[] = {CTL_VM, VM_UVMEXP};
-	size_t		len;
-	struct uvmexp	v;
-
-	len = sizeof(struct uvmexp);
-
-	if (0 != sysctl(mib, 2, &v, &len, NULL, 0))
-		return SYSINFO_RET_FAIL;
-
-	SET_UI64_RESULT(result, v.swtch);
-
-	return	SYSINFO_RET_OK;
-#else
-	return	SYSINFO_RET_FAIL;
-#endif /* HAVE_UVM_UVMEXP2 */
-}
+#define CPU_I 0
+#define CPU_U 1
+#define CPU_N 2
+#define CPU_S 3
+#define CPU_T 4
 
 int	SYSTEM_CPU_UTIL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	tmp[16];
-	int	cpu_num, mode, state;
+#define CPU_PARAMLIST struct cpy_paramlist_s
+CPU_PARAMLIST
+{
+	char 	*mode;
+	int 	id;
+};
 
-	if (num_param(param) > 3)
-		return SYSINFO_RET_FAIL;
+	CPU_PARAMLIST pl[] = 
+	{
+		{"idle" ,	CPU_I},
+		{"user" ,	CPU_U},
+		{"nice",	CPU_N},
+		{"system",	CPU_S},
+		{"intr",	CPU_T},
+		{0,		0}
+	};
 
-	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
-		*tmp = '\0';
+    unsigned long long cpu_val[5];
+    unsigned long long interval_size;
 
-	if ('\0' == *tmp || 0 == strcmp(tmp, "all"))	/* default parameter */
-		cpu_num = 0;
-	else if (1 > (cpu_num = atoi(tmp) + 1))
-		return SYSINFO_RET_FAIL;
+    char cpuname[MAX_STRING_LEN];
+    char mode[MAX_STRING_LEN];
 
-	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
-		*tmp = '\0';
+    int i;
 
-	if ('\0' == *tmp || 0 == strcmp(tmp, "user"))	/* default parameter */
-		state = ZBX_CPU_STATE_USER;
-	else if (0 == strcmp(tmp, "nice"))
-		state = ZBX_CPU_STATE_NICE;
-	else if (0 == strcmp(tmp, "system"))
-		state = ZBX_CPU_STATE_SYSTEM;
-	else if (0 == strcmp(tmp, "idle"))
-		state = ZBX_CPU_STATE_IDLE;
-	else if (0 == strcmp(tmp, "interrupt"))
-		state = ZBX_CPU_STATE_INTERRUPT;
-	else
-		return SYSINFO_RET_FAIL;
+    int ret = SYSINFO_RET_FAIL;
 
-	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
-		*tmp = '\0';
+    if(num_param(param) > 2)
+    {
+        return SYSINFO_RET_FAIL;
+    }
 
-	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
-		mode = ZBX_AVG1;
-	else if (0 == strcmp(tmp, "avg5"))
-		mode = ZBX_AVG5;
-	else if (0 == strcmp(tmp, "avg15"))
-		mode = ZBX_AVG15;
-	else
-		return SYSINFO_RET_FAIL;
+    if(get_param(param, 1, cpuname, sizeof(cpuname)) != 0)
+    {
+        cpuname[0] = '\0';
+    }
+    if(cpuname[0] == '\0')
+    {
+        /* default parameter */
+        zbx_snprintf(cpuname, sizeof(cpuname), "all");
+    }
+    if(strncmp(cpuname, "all", sizeof(cpuname)))
+    {
+        return SYSINFO_RET_FAIL;
+    }
 
-	return get_cpustat(result, cpu_num, state, mode);
+    if(get_param(param, 2, mode, sizeof(mode)) != 0)
+    {
+        mode[0] = '\0';
+    }
+
+    if(mode[0] == '\0')
+    {
+        /* default parameter */
+        strscpy(mode, pl[0].mode);
+    }
+
+	for(i=0; pl[i].mode!=0; i++)
+	{
+		if(strncmp(mode, pl[i].mode, MAX_STRING_LEN)==0)
+		{
+			ret = get_cpu_data(
+				&cpu_val[CPU_I], 
+				&cpu_val[CPU_U], 
+				&cpu_val[CPU_N], 
+				&cpu_val[CPU_S], 
+				&cpu_val[CPU_T]);
+			
+			if(ret == SYSINFO_RET_OK)
+			{
+				interval_size = 
+					cpu_val[CPU_I] + 
+					cpu_val[CPU_U] + 
+					cpu_val[CPU_N] + 
+					cpu_val[CPU_S] + 
+					cpu_val[CPU_T];
+
+				if (interval_size > 0)
+				{
+					SET_DBL_RESULT(result, ((double)cpu_val[pl[i].id] * 100.0)/(double)interval_size);
+		
+					ret = SYSINFO_RET_OK;
+				}
+			}
+			break;
+		}
+	}
+
+	return ret;
+}
+
+int	SYSTEM_CPU_LOAD1(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	double	load[3];
+	int ret = SYSINFO_RET_FAIL;
+
+	assert(result);
+
+        init_result(result);
+		
+	if(getloadavg(load, 3))
+	{
+		SET_DBL_RESULT(result, load[0]);
+		ret = SYSINFO_RET_OK;
+	}
+	
+	return ret;
+}
+
+int	SYSTEM_CPU_LOAD5(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	double	load[3];
+	int ret = SYSINFO_RET_FAIL;
+
+	assert(result);
+
+        init_result(result);
+		
+	if(getloadavg(load, 3))
+	{
+		SET_DBL_RESULT(result, load[1]);
+		ret = SYSINFO_RET_OK;
+	}
+	
+	return ret;
+}
+
+int	SYSTEM_CPU_LOAD15(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	double	load[3];
+	int ret = SYSINFO_RET_FAIL;
+
+	assert(result);
+
+        init_result(result);
+		
+	if(getloadavg(load, 3))
+	{
+		SET_DBL_RESULT(result, load[2]);
+		ret = SYSINFO_RET_OK;
+	}
+	
+	return ret;
 }
 
 int	SYSTEM_CPU_LOAD(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	/* OpenBSD 3.9 i386; OpenBSD 4.3 i386 */
-	char	tmp[32];
-	int	mode;
-	double	load[ZBX_AVG_COUNT];
 
-	if (num_param(param) > 2)
+#define CPU_FNCLIST struct cpu_fnclist_s
+CPU_FNCLIST
+{
+	char *mode;
+	int (*function)();
+};
+
+	CPU_FNCLIST fl[] = 
+	{
+		{"avg1" ,	SYSTEM_CPU_LOAD1},
+		{"avg5" ,	SYSTEM_CPU_LOAD5},
+		{"avg15",	SYSTEM_CPU_LOAD15},
+		{0,		0}
+	};
+
+	char cpuname[MAX_STRING_LEN];
+	char mode[MAX_STRING_LEN];
+	int i;
+	
+        assert(result);
+
+        init_result(result);
+	
+        if(num_param(param) > 2)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+        if(get_param(param, 1, cpuname, sizeof(cpuname)) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+	if(cpuname[0] == '\0')
+	{
+		/* default parameter */
+		zbx_snprintf(cpuname, sizeof(cpuname), "all");
+	}
+	if(strncmp(cpuname, "all", sizeof(cpuname)))
+	{
 		return SYSINFO_RET_FAIL;
-
-	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
-		*tmp = '\0';
-
-	if ('\0' != *tmp && 0 != strcmp(tmp, "all"))	/* default parameter */
-		return SYSINFO_RET_FAIL;
-
-	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
-		*tmp = '\0';
-
-	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
-		mode = ZBX_AVG1;
-	else if (0 == strcmp(tmp, "avg5"))
-		mode = ZBX_AVG5;
-	else if (0 == strcmp(tmp, "avg15"))
-		mode = ZBX_AVG15;
-	else
-		return SYSINFO_RET_FAIL;
-
-#ifdef HAVE_GETLOADAVG
-	if (mode >= getloadavg(load, 3))
-		return SYSINFO_RET_FAIL;
-#else
+	}
+	
+	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+        {
+                mode[0] = '\0';
+        }
+        if(mode[0] == '\0')
+	{
+		/* default parameter */
+		zbx_snprintf(mode, sizeof(mode), "avg1");
+	}
+	for(i=0; fl[i].mode!=0; i++)
+	{
+		if(strncmp(mode, fl[i].mode, MAX_STRING_LEN)==0)
+		{
+			return (fl[i].function)(cmd, param, flags, result);
+		}
+	}
+	
 	return SYSINFO_RET_FAIL;
-#endif	/* HAVE_GETLOADAVG */
-
-	SET_DBL_RESULT(result, load[mode]);
-
-	return SYSINFO_RET_OK;
 }
+
+int     SYSTEM_CPU_SWITCHES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+        assert(result);
+
+        init_result(result);
+	
+	return SYSINFO_RET_FAIL;
+}
+
+int     SYSTEM_CPU_INTR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+        assert(result);
+
+        init_result(result);
+	
+	return SYSINFO_RET_FAIL;
+}
+

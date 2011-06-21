@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -18,24 +18,29 @@
 **/
 
 #include "common.h"
+
 #include "sysinfo.h"
 
-static int	read_uint64_from_procfs(const char *path, zbx_uint64_t *value)
+int	KERNEL_MAXFILES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	int	ret = SYSINFO_RET_FAIL;
-	char	line[MAX_STRING_LEN];
+	int ret = SYSINFO_RET_FAIL;
+	char line[MAX_STRING_LEN];
 
-	zbx_uint64_t	tmp;
+	zbx_uint64_t value = 0;
+	
+	FILE 	*f;
 
-	FILE	*f;
+	assert(result);
 
-	if (NULL != (f = fopen(path, "r")))
+        init_result(result);	
+
+	if(NULL != ( f = fopen("/proc/sys/fs/file-max","r") ))
 	{
-		if (NULL != fgets(line, sizeof(line), f))
+		if(fgets(line,MAX_STRING_LEN,f) != NULL);
 		{
-			if (sscanf(line, ZBX_FS_UI64"\n", &tmp) == 1)
+			if(sscanf(line,ZBX_FS_UI64 "\n", &value) == 1)
 			{
-				*value = tmp;
+				SET_UI64_RESULT(result, value);
 				ret = SYSINFO_RET_OK;
 			}
 		}
@@ -45,30 +50,66 @@ static int	read_uint64_from_procfs(const char *path, zbx_uint64_t *value)
 	return ret;
 }
 
-int	KERNEL_MAXFILES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
-{
-	int		ret = SYSINFO_RET_FAIL;
-	zbx_uint64_t	value = 0;
-
-	if (SYSINFO_RET_OK == read_uint64_from_procfs("/proc/sys/fs/file-max", &value))
-	{
-		SET_UI64_RESULT(result, value);
-		ret = SYSINFO_RET_OK;
-	}
-
-	return ret;
-}
-
 int	KERNEL_MAXPROC(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	int		ret = SYSINFO_RET_FAIL;
-	zbx_uint64_t	value = 0;
+#ifdef HAVE_FUNCTION_SYSCTL_KERN_MAXPROC
+	int	mib[2],len;
+	int	maxproc;
 
-	if (SYSINFO_RET_OK == read_uint64_from_procfs("/proc/sys/kernel/pid_max", &value))
+	assert(result);
+
+        init_result(result);	
+	
+	mib[0]=CTL_KERN;
+	mib[1]=KERN_MAXPROC;
+
+	len=sizeof(maxproc);
+
+	if(sysctl(mib,2,&maxproc,(size_t *)&len,NULL,0) != 0)
 	{
-		SET_UI64_RESULT(result, value);
-		ret = SYSINFO_RET_OK;
+		return	SYSINFO_RET_FAIL;
+/*		printf("Errno [%m]");*/
 	}
 
-	return ret;
+	SET_UI64_RESULT(result, maxproc);
+	return SYSINFO_RET_OK;
+#else
+	return	SYSINFO_RET_FAIL;
+#endif
 }
+
+int     OLD_KERNEL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	char    key[MAX_STRING_LEN];
+        int     ret;
+
+        assert(result);
+
+        init_result(result);	
+
+        if(num_param(param) > 1)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+        if(get_param(param, 1, key, MAX_STRING_LEN) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+        if(strcmp(key,"maxfiles") == 0)
+        {
+                ret = KERNEL_MAXFILES(cmd, param, flags, result);
+        }
+        else if(strcmp(key,"maxproc") == 0)
+        {
+                ret = KERNEL_MAXPROC(cmd, param, flags, result);
+        }
+        else
+        {
+                ret = SYSINFO_RET_FAIL;
+        }
+
+        return ret;
+}
+

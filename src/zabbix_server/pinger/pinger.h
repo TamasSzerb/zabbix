@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,6 +20,12 @@
 #ifndef ZABBIX_PINGER_H
 #define ZABBIX_PINGER_H
 
-void	main_pinger_loop();
+extern	int	CONFIG_PINGER_FORKS;
+extern	int	CONFIG_PINGER_FREQUENCY;
+extern	char	*CONFIG_FPING_LOCATION;
+
+extern	void	signal_handler( int sig );
+
+void main_pinger_loop(int num);
 
 #endif

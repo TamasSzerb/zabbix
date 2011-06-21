@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,33 +20,41 @@
 #include "common.h"
 #include "sysinfo.h"
 
-ZBX_METRIC	parameters_specific[] =
-/* 	KEY			FLAG		FUNCTION 	ADD_PARAM	TEST_PARAM */
-{
-	{"vfs.fs.size",		CF_USEUPARAM,	VFS_FS_SIZE,		NULL,	"/,free"},
-	{"vfs.fs.inode",	CF_USEUPARAM,	VFS_FS_INODE,		NULL,	"/,free"},
-	{"vfs.fs.discovery",	0,		VFS_FS_DISCOVERY,	NULL,	NULL},
+ZBX_METRIC	parameters_specific[]=
+/* 	KEY			FLAG	FUNCTION 	ADD_PARAM	TEST_PARAM */
+	{
+	{"kernel.maxfiles",	0,		KERNEL_MAXFILES,	0,	0},
+	{"kernel.maxproc",	0,		KERNEL_MAXPROC, 	0,	0},
 
-	{"net.if.in",		CF_USEUPARAM,	NET_IF_IN,		NULL,	"lo0,bytes"},
-	{"net.if.out",		CF_USEUPARAM,	NET_IF_OUT,		NULL,	"lo0,bytes"},
-	{"net.if.total",	CF_USEUPARAM,	NET_IF_TOTAL,		NULL,	"lo0,bytes"},
-	{"net.if.collisions",	CF_USEUPARAM,	NET_IF_COLLISIONS,	NULL,	"lo0"},
-	{"net.if.discovery",	0,		NET_IF_DISCOVERY,	NULL,	NULL},
+	{"vfs.fs.size",		CF_USEUPARAM,	VFS_FS_SIZE,		0,	"/,free"},
+	{"vfs.fs.inode",	CF_USEUPARAM,	VFS_FS_INODE,		0,	"/,free"},
 
-	{"vm.memory.size",	CF_USEUPARAM,	VM_MEMORY_SIZE,		NULL,	"free"},
+	{"vfs.dev.read",	CF_USEUPARAM,	VFS_DEV_READ,		0,	"hda,ops,avg1"},
+	{"vfs.dev.write",	CF_USEUPARAM,	VFS_DEV_WRITE,		0,	"hda,ops,avg1"},
 
-	{"proc.num",		CF_USEUPARAM,	PROC_NUM,		NULL,	"inetd,,"},
-	{"proc.mem",		CF_USEUPARAM,	PROC_MEM,		NULL,	"inetd,,"},
+	{"net.tcp.listen",      CF_USEUPARAM,   NET_TCP_LISTEN, 	0,      "80"},	
 
-	{"system.cpu.switches",	0,		SYSTEM_CPU_SWITCHES,	NULL,	NULL},
-	{"system.cpu.intr",	0,		SYSTEM_CPU_INTR,	NULL,	NULL},
-	{"system.cpu.util",	CF_USEUPARAM,	SYSTEM_CPU_UTIL,	NULL,	"all,user,avg1"},
-	{"system.cpu.load",	CF_USEUPARAM,	SYSTEM_CPU_LOAD,	NULL,	"all,avg1"},
-	{"system.cpu.num",	CF_USEUPARAM,	SYSTEM_CPU_NUM,		NULL,	"online"},
+	{"net.if.in",		CF_USEUPARAM,	NET_IF_IN,		0,	"lo,bytes"},
+	{"net.if.out",		CF_USEUPARAM,	NET_IF_OUT,		0,	"lo,bytes"},
+	{"net.if.total",	CF_USEUPARAM,	NET_IF_TOTAL,		0,	"lo,bytes"},
+        {"net.if.collisions",   CF_USEUPARAM,   NET_IF_COLLISIONS,      0,      "lo"},
 
-	{"system.uptime",	0,		SYSTEM_UPTIME,		NULL,	NULL},
+	{"vm.memory.size",	CF_USEUPARAM,	VM_MEMORY_SIZE,		0,	"free"},
 
-	{"system.stat",		CF_USEUPARAM,	SYSTEM_STAT,		NULL,	"page,fi"},
+	{"proc.num",		CF_USEUPARAM,	PROC_NUM,		0,	"inetd,,"},
+	{"proc.mem",		CF_USEUPARAM,	PROC_MEMORY,		0,	"inetd,,"},
+
+	{"system.cpu.switches", 0,              SYSTEM_CPU_SWITCHES,    0,      0},
+	{"system.cpu.intr",     0,              SYSTEM_CPU_INTR,        0,      0},
+	{"system.cpu.util",	CF_USEUPARAM,	SYSTEM_CPU_UTIL,	0,	"all,user,avg1"},
+	{"system.cpu.load",	CF_USEUPARAM,	SYSTEM_CPU_LOAD,	0,	"all,avg1"},
+	{"system.cpu.num",	CF_USEUPARAM,	SYSTEM_CPU_NUM,		0,	"online"},
+
+	{"system.swap.size",	CF_USEUPARAM,	SYSTEM_SWAP_SIZE,	0,	"all,free"},
+	{"system.swap.in",      CF_USEUPARAM,   SYSTEM_SWAP_IN,         0,      "all"},
+	{"system.swap.out",     CF_USEUPARAM,   SYSTEM_SWAP_OUT,        0,      "all,count"},	
+
+	{"system.uptime",	0,		SYSTEM_UPTIME,		0,	0},
 
 	{0}
-};
+	};

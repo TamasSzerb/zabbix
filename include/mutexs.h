@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -23,53 +23,42 @@
 #if defined(_WINDOWS)
 
 #	define ZBX_MUTEX		HANDLE
-#	define ZBX_MUTEX_NULL		NULL
-
 #	define ZBX_MUTEX_ERROR		(0)
 #	define ZBX_MUTEX_OK		(1)
 
-#	define ZBX_MUTEX_NAME		wchar_t *
+#	define ZBX_MUTEX_NAME		char*
 
-#	define ZBX_MUTEX_LOG		TEXT("ZBX_MUTEX_LOG")
-#	define ZBX_MUTEX_PERFSTAT	TEXT("ZBX_MUTEX_PERFSTAT")
+#	define ZBX_MUTEX_LOG    	"ZBX_MUTEX_LOG"
+#	define ZBX_MUTEX_NODE_SYNC    	"ZBX_MUTEX_NODE_SYNC"
 
 #else /* not _WINDOWS */
 
 #	define ZBX_MUTEX		int
-#	define ZBX_MUTEX_NULL		0
 
 #	define ZBX_MUTEX_ERROR		(-1)
 #	define ZBX_MUTEX_OK		(1)
-
+	
 #	define ZBX_MUTEX_NAME		int
 
-#	define ZBX_NO_MUTEX		(-1)
 #	define ZBX_MUTEX_LOG		0
 #	define ZBX_MUTEX_NODE_SYNC	1
-#	define ZBX_MUTEX_CACHE		2
-#	define ZBX_MUTEX_TRENDS		3
-#	define ZBX_MUTEX_CACHE_IDS	4
-#	define ZBX_MUTEX_CONFIG		5
-#	define ZBX_MUTEX_STRPOOL	6
-#	define ZBX_MUTEX_SELFMON	7
-#	define ZBX_MUTEX_CPUSTATS	8
-#	define ZBX_MUTEX_COUNT		9
+
+#	define ZBX_MUTEX_COUNT		2
 
 #	define ZBX_MUTEX_MAX_TRIES	20 /* seconds */
+
+#	if defined(HAVE_SQLITE3)
+
+#	endif
 
 #endif /* _WINDOWS */
 
 #define zbx_mutex_create(mutex, name)		zbx_mutex_create_ext(mutex, name, 0)
 #define zbx_mutex_create_force(mutex, name)	zbx_mutex_create_ext(mutex, name, 1)
-#define zbx_mutex_lock(mutex)			__zbx_mutex_lock(__FILE__, __LINE__, mutex)
-#define zbx_mutex_unlock(mutex)			__zbx_mutex_unlock(__FILE__, __LINE__, mutex)
-
-int	zbx_mutex_create_ext(ZBX_MUTEX *mutex, ZBX_MUTEX_NAME name, unsigned char forced);
-void	__zbx_mutex_lock(const char *filename, int line, ZBX_MUTEX *mutex);
-void	__zbx_mutex_unlock(const char *filename, int line, ZBX_MUTEX *mutex);
-int	zbx_mutex_destroy(ZBX_MUTEX *mutex);
-
-#if defined(HAVE_SQLITE3)
+int zbx_mutex_create_ext(ZBX_MUTEX	*mutex, ZBX_MUTEX_NAME name, unsigned char forced);
+int zbx_mutex_lock(ZBX_MUTEX	*mutex);
+int zbx_mutex_unlock(ZBX_MUTEX	*mutex);
+int zbx_mutex_destroy(ZBX_MUTEX	*mutex);
 
 /*********************************************************/
 /*** PHP Semaphore functions using System V semaphores ***/
@@ -78,18 +67,25 @@ int	zbx_mutex_destroy(ZBX_MUTEX *mutex);
 #define PHP_MUTEX_OK	1
 #define PHP_MUTEX_ERROR	0
 
-typedef struct
-{
-	int	semid;
-	int	count;
-}
-PHP_MUTEX;
+typedef struct {
+	int semid;
+	int count;
+} PHP_MUTEX;
 
-int	php_sem_get(PHP_MUTEX *sem_ptr, const char *path_name);
-int	php_sem_acquire(PHP_MUTEX *sem_ptr);
-int	php_sem_release(PHP_MUTEX *sem_ptr);
-int	php_sem_remove(PHP_MUTEX *sem_ptr);
+#if defined(HAVE_SQLITE3) && !defined(_WINDOWS)
 
-#endif	/* HAVE_SQLITE3 */
+int php_sem_get(PHP_MUTEX* sem_ptr, char* path_name);
+int php_sem_acquire(PHP_MUTEX* sem_ptr);
+int php_sem_release(PHP_MUTEX* sem_ptr);
+int php_sem_remove(PHP_MUTEX* sem_ptr);
 
-#endif	/* ZABBIX_MUTEXS_H */
+#else /* !HAVE_SQLITE3 || _WINDOWS */
+
+#	define php_sem_get(sem_ptr, path_name) PHP_MUTEX_OK
+#	define php_sem_acquire(sem_ptr)        PHP_MUTEX_OK
+#	define php_sem_release(sem_ptr)        PHP_MUTEX_OK
+#	define php_sem_remove(sem_ptr)         PHP_MUTEX_OK
+
+#endif  /* HAVE_SQLITE3 && !_WINDOWS */
+
+#endif /* ZABBIX_MUTEXS_H */

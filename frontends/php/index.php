@@ -1,7 +1,7 @@
 <?php
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,105 +19,95 @@
 **/
 ?>
 <?php
-define('ZBX_PAGE_NO_AUTHORIZATION', 1);
-define('ZBX_NOT_ALLOW_ALL_NODES', 1);
-define('ZBX_HIDE_NODE_SELECTION', 1);
+	require_once "include/config.inc.php";
+	require_once "include/forms.inc.php";
 
-require_once('include/config.inc.php');
-require_once('include/forms.inc.php');
-
-$page['title']	= 'S_ZABBIX_BIG';
-$page['file']	= 'index.php';
-
+	$page["title"]	= "S_ZABBIX_BIG";
+	$page["file"]	= "index.php";
+	
+?>
+<?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
-		'name'=>			array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({enter})', _('Username')),
-		'password'=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		'isset({enter})'),
-		'sessionid'=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
-//		'message'=>			array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
-		'reconnect'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	BETWEEN(0,65535),NULL),
-		'enter'=>			array(T_ZBX_STR, O_OPT, P_SYS,	NULL,		NULL),
-		'autologin'=>		array(T_ZBX_INT, O_OPT, NULL,   NULL,   	NULL),
-		'request'=>			array(T_ZBX_STR, O_OPT, NULL, 	NULL,   	NULL),
+		"name"=>		array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({enter})'),
+		"password"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		'isset({enter})'),
+		"sessionid"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
+		"message"=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
+		"reconnect"=>		array(T_ZBX_INT, O_OPT,	P_ACT, BETWEEN(0,65535),NULL),
+                "enter"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,    NULL,   NULL),
+                "form"=>		array(T_ZBX_STR, O_OPT, P_SYS,  NULL,   	NULL),
+                "form_refresh"=>	array(T_ZBX_INT, O_OPT, NULL,   NULL,   	NULL)
 	);
 	check_fields($fields);
 ?>
 <?php
-	$sessionid = get_cookie('zbx_sessionid');
+	$sessionid = get_cookie('zbx_sessionid', null);
+	
+	if(isset($_REQUEST["reconnect"]) && isset($sessionid))
+	{
+		add_audit(AUDIT_ACTION_LOGOUT,AUDIT_RESOURCE_USER,"Manual Logout");
+		
+		zbx_unsetcookie('zbx_sessionid');
+		DBexecute("delete from sessions where sessionid=".zbx_dbstr($sessionid));
+		unset($sessionid);
 
-	if(isset($_REQUEST['reconnect']) && isset($sessionid)){
-		add_audit(AUDIT_ACTION_LOGOUT,AUDIT_RESOURCE_USER, _('Manual Logout'));
-
-		CWebUser::logout($sessionid);
-		clear_messages(1);
-
-		$loginForm = new CView('general.login');
-		$loginForm->render();
-		exit();
+		Redirect("index.php");
+		return;
 	}
 
-	$config = select_config();
+	if(isset($_REQUEST["enter"])&&($_REQUEST["enter"]=="Enter"))
+	{
+		$name = get_request("name","");
+		$password = md5(get_request("password",""));
 
-	if($config['authentication_type'] == ZBX_AUTH_HTTP){
-		if(isset($_SERVER['PHP_AUTH_USER']) && !empty($_SERVER['PHP_AUTH_USER'])){
-			$_REQUEST['enter'] = _('Sign in');
-			$_REQUEST['name'] = $_SERVER['PHP_AUTH_USER'];
-			$_REQUEST['password'] = 'zabbix';//$_SERVER['PHP_AUTH_PW'];
-		}
-		else{
-			access_deny();
-		}
-	}
+		$row = DBfetch(DBselect("select u.userid,u.alias,u.name,u.surname,u.url,u.refresh from users u where".
+			" u.alias=".zbx_dbstr($name)." and u.passwd=".zbx_dbstr($password).
+			' and '.DBin_node('u.userid', $ZBX_LOCALNODEID)));
 
-	$request = get_request('request');
+		if($row)
+		{
+			$sessionid = md5(time().$password.$name.rand(0,10000000));
+			zbx_setcookie('zbx_sessionid',$sessionid);
+			
+			DBexecute("insert into sessions (sessionid,userid,lastaccess)".
+				" values (".zbx_dbstr($sessionid).",".$row["userid"].",".time().")");
 
-	if(isset($_REQUEST['enter']) && ($_REQUEST['enter'] == _('Sign in'))){
-		$name = get_request('name','');
-		$passwd = get_request('password','');
-
-		$login = CWebUser::login($name, $passwd);
-
-		if($login){
-// save remember login preferance
-			$user = array('autologin' => get_request('autologin', 0));
-			if(CWebUser::$data['autologin'] != $user['autologin'])
-				$result = API::User()->updateProfile($user);
-// --
-			add_audit_ext(AUDIT_ACTION_LOGIN, AUDIT_RESOURCE_USER, CWebUser::$data['userid'], '', null,null,null);
-
-			$url = zbx_empty($request) ? CWebUser::$data['url'] : $request;
-			if(zbx_empty($url) || ($url == $page['file'])){
-				$url = 'dashboard.php';
+			add_audit(AUDIT_ACTION_LOGIN,AUDIT_RESOURCE_USER,"Correct login [".$name."]");
+			
+			if(empty($row["url"]))
+			{
+				$row["url"] = "index.php";
 			}
-
-			redirect($url);
-			exit();
+			Redirect($row["url"]);
+			return;
+		}
+		else
+		{
+			$_REQUEST['message'] = "Login name or password is incorrect";
+			add_audit(AUDIT_ACTION_LOGIN,AUDIT_RESOURCE_USER,"Login failed [".$name."]");
 		}
 	}
 
-	if($sessionid)
-		CWebUser::checkAuthentication($sessionid);
-
-//	show_messages();
-
-	if(CWebUser::$data['alias'] == ZBX_GUEST_USER){
-		switch($config['authentication_type']){
-			case ZBX_AUTH_HTTP:
-				break;
-			case ZBX_AUTH_LDAP:
-			case ZBX_AUTH_INTERNAL:
-				if(isset($_REQUEST['enter'])) $_REQUEST['autologin'] = get_request('autologin', 0);
-
-				if($messages = clear_messages()){
-					$messages = array_pop($messages);
-					$_REQUEST['message'] = $messages['message'];
-				}
-
-				$loginForm = new CView('general.login');
-				$loginForm->render();
-		}
+include_once "include/page_header.php";
+	
+	if(isset($_REQUEST['message'])) show_error_message($_REQUEST['message']);
+?>
+<?php
+	if(!isset($sessionid))
+	{
+		insert_login_form();
 	}
-	else{
-		redirect(zbx_empty(CWebUser::$data['url']) ? 'dashboard.php' : CWebUser::$data['url']);
-	}
+	else
+	{
+		$logoff = new CLink('here', '?reconnect=1');
+
+		echo "<div align=center>";
+		echo "Press ".$logoff->ToString()." to disconnect/reconnect";
+		echo "</div>";
+	}	
+?>
+<?php
+
+include_once "include/page_footer.php";
+
 ?>

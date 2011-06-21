@@ -6,27 +6,24 @@ agents_ldadd = \
 	$(top_srcdir)/src/libs/zbxsysinfo/common/libcommonsysinfo.a \
 	$(top_srcdir)/src/libs/zbxsysinfo/simple/libsimplesysinfo.a \
 	$(top_srcdir)/src/libs/zbxlog/libzbxlog.a \
-	$(top_srcdir)/src/libs/zbxalgo/libzbxalgo.a \
 	$(top_srcdir)/src/libs/zbxsys/libzbxsys.a \
 	$(top_srcdir)/src/libs/zbxnix/libzbxnix.a \
 	$(top_srcdir)/src/libs/zbxcomms/libzbxcomms.a \
 	$(top_srcdir)/src/libs/zbxconf/libzbxconf.a \
 	$(top_srcdir)/src/libs/zbxcommon/libzbxcommon.a \
-	$(top_srcdir)/src/libs/zbxcrypto/libzbxcrypto.a \
-	$(top_srcdir)/src/libs/zbxjson/libzbxjson.a \
-	$(top_srcdir)/src/libs/zbxexec/libzbxexec.a
+	$(top_srcdir)/src/libs/zbxcrypto/libzbxcrypto.a
 
 sbin_PROGRAMS = \
 	zabbix_agent \
 	zabbix_agentd
 
 zabbix_agent_SOURCES = \
-	zabbix_agent.c \
+	zabbix_agent.c zabbix_agent.h \
 	stats.c stats.h \
 	cpustat.c cpustat.h \
 	diskdevices.c diskdevices.h \
+	interfaces.c interfaces.h \
 	perfstat.c perfstat.h \
-	vmstats.c vmstats.h \
 	zbxconf.c zbxconf.h
 
 zabbix_agent_LDADD = $(agents_ldadd)
@@ -36,8 +33,8 @@ zabbix_agentd_SOURCES = \
 	stats.c stats.h \
 	cpustat.c cpustat.h \
 	diskdevices.c diskdevices.h \
+	interfaces.c interfaces.h \
 	perfstat.c perfstat.h \
-	vmstats.c vmstats.h \
 	logfiles.c logfiles.h \
 	zabbix_agentd.c \
 	zbxconf.c zbxconf.h \

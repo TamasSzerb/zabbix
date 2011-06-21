@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,11 +17,21 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "common.h"
-#include "sysinfo.h"
-#include "log.h"
-#include "dbcache.h"
 
+#include <stdio.h>
+#include <string.h>
+#include <stdarg.h>
+#include <syslog.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <time.h>
+
+#include "common.h"
+#include "functions.h"
+#include "log.h"
 #include "zlog.h"
 
 /******************************************************************************
@@ -39,40 +49,47 @@
  * Comments: do nothing if no zabbix[log] items                               *
  *                                                                            *
  ******************************************************************************/
-void	__zbx_zabbix_syslog(const char *fmt, ...)
-{
-	const char	*__function_name = "zabbix_log";
+void __zbx_zabbix_syslog(const char *fmt, ...)
+{ 
 	va_list		ap;
 	char		value_str[MAX_STRING_LEN];
-	DC_ITEM		*items = NULL;
-	int		i, num;
+
+	DB_ITEM		item;
+	DB_RESULT	result;
+	DB_ROW		row;
+	struct timeb    tp;
+
 	AGENT_RESULT	agent;
-	zbx_timespec_t	ts;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In zabbix_log()");
 
-	/* this is made to disable writing to database for watchdog */
-	if (0 == CONFIG_ENABLE_LOG)
-		return;
+	/* This is made to disable writing to database for watchdog */
+	if(CONFIG_ENABLE_LOG == 0)	return;
 
-	init_result(&agent);
+	result = DBselect("select %s where h.hostid=i.hostid and i.key_='%s' and i.value_type=%d and" ZBX_COND_NODEID,
+		ZBX_SQL_ITEM_SELECT,
+		SERVER_ZABBIXLOG_KEY,
+		ITEM_VALUE_TYPE_STR,
+		LOCAL_NODE("h.hostid"));
 
-	va_start(ap,fmt);
-	zbx_vsnprintf(value_str, sizeof(value_str), fmt, ap);
-	va_end(ap);
-
-	SET_STR_RESULT(&agent, strdup(value_str));
-
-	num = DCconfig_get_items(0, SERVER_ZABBIXLOG_KEY, &items);
-	for (i = 0; i < num; i++)
+	while((row=DBfetch(result)))
 	{
-		zbx_timespec(&ts);
-		dc_add_history(items[i].itemid, items[i].value_type, items[i].flags, &agent, &ts,
-				ITEM_STATUS_ACTIVE, NULL, 0, NULL, 0, 0, 0, 0);
+		DBget_item_from_db(&item,row);
+
+		va_start(ap,fmt);
+		vsnprintf(value_str,sizeof(value_str),fmt,ap);
+		value_str[MAX_STRING_LEN-1]=0;
+		va_end(ap);
+
+		init_result(&agent);
+		SET_STR_RESULT(&agent, strdup(value_str));
+
+		ftime(&tp);
+		process_new_value(&item, &agent, tp.time, tp.millitm);
+		free_result(&agent);
+
+		update_triggers(item.itemid, tp.time, tp.millitm);
 	}
 
-	zbx_free(items);
-	free_result(&agent);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	DBfree_result(result);
 }

@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,11 +20,16 @@
 #ifndef ZABBIX_POLLER_H
 #define ZABBIX_POLLER_H
 
-extern int	CONFIG_TIMEOUT;
-extern int	CONFIG_UNAVAILABLE_DELAY;
-extern int	CONFIG_UNREACHABLE_PERIOD;
-extern int	CONFIG_UNREACHABLE_DELAY;
+extern	void	signal_handler(int);
+extern  int     server_num;
 
-void	main_poller_loop(unsigned char p, unsigned char poller_type);
+extern  int     CONFIG_TIMEOUT;
+extern  int     CONFIG_POLLER_FORKS;
+extern  int     CONFIG_UNREACHABLE_POLLER_FORKS;
+extern  int     CONFIG_UNAVAILABLE_DELAY;
+extern  int     CONFIG_UNREACHABLE_PERIOD;
+extern  int     CONFIG_UNREACHABLE_DELAY;
+
+void main_poller_loop(int type, int num);
 
 #endif

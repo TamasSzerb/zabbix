@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -18,127 +18,222 @@
 **/
 
 #include "common.h"
-#include "sysinfo.h"
-#include "zbxjson.h"
 
-static int	get_fs_size_stat(const char *fsname, zbx_uint64_t *total, zbx_uint64_t *free,
-		zbx_uint64_t *used, double *pfree, double *pused)
+#include "sysinfo.h"
+
+int	get_fs_size_stat(char *fs, zbx_uint64_t *total, zbx_uint64_t *free, zbx_uint64_t *usage)
 {
 #ifdef HAVE_SYS_STATVFS_H
-#	define ZBX_STATFS	statvfs
-#	define ZBX_BSIZE	f_frsize
+        struct statvfs   s;
 #else
-#	define ZBX_STATFS	statfs
-#	define ZBX_BSIZE	f_bsize
+        struct statfs   s;
 #endif
-	struct ZBX_STATFS	s;
 
-	assert(fsname);
+        assert(fs);
 
-	if (0 != ZBX_STATFS(fsname, &s))
-		return SYSINFO_RET_FAIL;
+#ifdef HAVE_SYS_STATVFS_H
+        if ( statvfs( fs, &s) != 0 )
+#else
+        if ( statfs( fs, &s) != 0 )
+#endif
+        {
+                return  SYSINFO_RET_FAIL;
+        }
 
-	if (total)
-		*total = (zbx_uint64_t)s.f_blocks * s.ZBX_BSIZE;
-	if (free)
-		*free = (zbx_uint64_t)s.f_bavail * s.ZBX_BSIZE;
-	if (used)
-		*used = (zbx_uint64_t)(s.f_blocks - s.f_bfree) * s.ZBX_BSIZE;
-	if (pfree)
-	{
-		if (0 != s.f_blocks - s.f_bfree + s.f_bavail)
-			*pfree = (double)(100.0 * s.f_bavail) /
-					(s.f_blocks - s.f_bfree + s.f_bavail);
-		else
-			*pfree = 0;
-	}
-	if (pused)
-	{
-		if (0 != s.f_blocks - s.f_bfree + s.f_bavail)
-			*pused = 100.0 - (double)(100.0 * s.f_bavail) /
-					(s.f_blocks - s.f_bfree + s.f_bavail);
-		else
-			*pused = 0;
-	}
+#ifdef HAVE_SYS_STATVFS_H
+        if(total)
+                (*total) = (zbx_uint64_t)(s.f_blocks * (s.f_frsize / 1024.0));
+        if(free)
+                (*free)  = (zbx_uint64_t)(s.f_bavail * (s.f_frsize / 1024.0));
+        if(usage)
+                (*usage) = (zbx_uint64_t)((s.f_blocks - s.f_bavail) * (s.f_frsize / 1024.0));
+#else
+        if(total)
+                (*total) = (zbx_uint64_t)(s.f_blocks * (s.f_bsize / 1024.0));
+        if(free)
+                (*free)  = (zbx_uint64_t)(s.f_bfree * (s.f_bsize / 1024.0));
+        if(usage)
+                (*usage) = (zbx_uint64_t)((s.f_blocks - s.f_bfree) * (s.f_bsize / 1024.0));
+#endif
+        return SYSINFO_RET_OK;
+}
 
-	return SYSINFO_RET_OK;
+static int	VFS_FS_USED(const char *cmd, char *param, unsigned flags, AGENT_RESULT *result)
+{
+/*        char    mountPoint[MAX_STRING_LEN];*/
+        zbx_uint64_t  value = 0;
+
+        assert(result);
+
+        init_result(result);
+
+/*        if(num_param(param) > 1)
+                return SYSINFO_RET_FAIL;
+
+        if(get_param(param, 1, mountPoint, MAX_STRING_LEN) != 0)
+                return SYSINFO_RET_FAIL;*/
+
+        if(get_fs_size_stat(param, NULL, NULL, &value) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
+
+	SET_UI64_RESULT(result, value);
+
+        return SYSINFO_RET_OK;
+}
+
+static int	VFS_FS_FREE(const char *cmd, char *param, unsigned flags, AGENT_RESULT *result)
+{
+/*        char    mountPoint[MAX_STRING_LEN];*/
+        zbx_uint64_t  value = 0;
+
+        assert(result);
+
+        init_result(result);
+
+/*        if(num_param(param) > 1)
+                return SYSINFO_RET_FAIL;
+
+        if(get_param(param, 1, mountPoint, MAX_STRING_LEN) != 0)
+                return SYSINFO_RET_FAIL;*/
+
+        if(get_fs_size_stat(param, NULL, &value, NULL) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
+
+	SET_UI64_RESULT(result, value);
+
+        return SYSINFO_RET_OK;
+}
+
+static int	VFS_FS_TOTAL(const char *cmd, char *param, unsigned flags, AGENT_RESULT *result)
+{
+/*        char    mountPoint[MAX_STRING_LEN];*/
+        zbx_uint64_t  value = 0;
+
+        assert(result);
+
+        init_result(result);
+
+/*        if(num_param(param) > 1)
+                return SYSINFO_RET_FAIL;
+
+        if(get_param(param, 1, mountPoint, MAX_STRING_LEN) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }*/
+
+        if(get_fs_size_stat(param, &value, NULL, NULL) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
+
+	SET_UI64_RESULT(result, value);
+
+        return SYSINFO_RET_OK;
+
+}
+
+static int	VFS_FS_PFREE(const char *cmd, char *param, unsigned flags, AGENT_RESULT *result)
+{
+/*        char    mountPoint[MAX_STRING_LEN];*/
+        zbx_uint64_t  tot_val = 0;
+        zbx_uint64_t  free_val = 0;
+
+        assert(result);
+
+        init_result(result);
+
+/*        if(num_param(param) > 1)
+                return SYSINFO_RET_FAIL;
+
+        if(get_param(param, 1, mountPoint, MAX_STRING_LEN) != 0)
+                return SYSINFO_RET_FAIL;*/
+
+        if(get_fs_size_stat(param, &tot_val, &free_val, NULL) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
+
+	SET_DBL_RESULT(result, (100.0 * (double)free_val) / (double)tot_val);
+
+        return SYSINFO_RET_OK;
+}
+
+static int	VFS_FS_PUSED(const char *cmd, char *param, unsigned flags, AGENT_RESULT *result)
+{
+/*        char    mountPoint[MAX_STRING_LEN];*/
+        zbx_uint64_t  tot_val = 0;
+        zbx_uint64_t  usg_val = 0;
+
+        assert(result);
+
+        init_result(result);
+
+/*        if(num_param(param) > 1)
+                return SYSINFO_RET_FAIL;
+
+        if(get_param(param, 1, mountPoint, MAX_STRING_LEN) != 0)
+                return SYSINFO_RET_FAIL;*/
+
+        if(get_fs_size_stat(param, &tot_val, NULL, &usg_val) != SYSINFO_RET_OK)
+                return  SYSINFO_RET_FAIL;
+
+	SET_DBL_RESULT(result, (100.0 * (double)usg_val) / (double)tot_val);
+
+        return SYSINFO_RET_OK;
 }
 
 int	VFS_FS_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		fsname[MAX_STRING_LEN], mode[8];
-	zbx_uint64_t	total, free, used;
-	double		pfree, pused;
 
-	if (num_param(param) > 2)
-		return SYSINFO_RET_FAIL;
-
-	if (0 != get_param(param, 1, fsname, sizeof(fsname)))
-		return SYSINFO_RET_FAIL;
-
-	if (0 != get_param(param, 2, mode, sizeof(mode)))
-		*mode = '\0';
-
-	if (SYSINFO_RET_OK != get_fs_size_stat(fsname, &total, &free, &used, &pfree, &pused))
-		return SYSINFO_RET_FAIL;
-
-	/* default parameter */
-	if ('\0' == *mode || 0 == strcmp(mode, "total"))	/* default parameter */
-		SET_UI64_RESULT(result, total);
-	else if (0 == strcmp(mode, "free"))
-		SET_UI64_RESULT(result, free);
-	else if (0 == strcmp(mode, "used"))
-		SET_UI64_RESULT(result, used);
-	else if (0 == strcmp(mode, "pfree"))
-		SET_DBL_RESULT(result, pfree);
-	else if (0 == strcmp(mode, "pused"))
-		SET_DBL_RESULT(result, pused);
-	else
-		return SYSINFO_RET_FAIL;
-
-	return SYSINFO_RET_OK;
-}
-
-int	VFS_FS_DISCOVERY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+#define FS_FNCLIST struct fs_fnclist_s
+FS_FNCLIST
 {
-	int		ret = SYSINFO_RET_FAIL;
-	char		line[MAX_STRING_LEN], *p, *mpoint;
-	FILE		*f;
-	struct zbx_json	j;
+	char *mode;
+	int (*function)();
+};
 
-	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
-
-	zbx_json_addarray(&j, cmd);
-
-	if (NULL != (f = fopen("/proc/mounts", "r")))
+	FS_FNCLIST fl[] = 
 	{
-		while (NULL != fgets(line, sizeof(line), f))
-		{
-			if (NULL == (p = strstr(line, " ")))
-				continue;
+		{"free" ,	VFS_FS_FREE},
+		{"total" ,	VFS_FS_TOTAL},
+		{"used",	VFS_FS_USED},
+		{"pfree" ,	VFS_FS_PFREE},
+		{"pused" ,	VFS_FS_PUSED},
+		{0,		0}
+	};
 
-			mpoint = ++p;
+	char fsname[MAX_STRING_LEN];
+	char mode[MAX_STRING_LEN];
+	int i;
+	
+        assert(result);
 
-			if (NULL == (p = strstr(mpoint, " ")))
-				continue;
+        init_result(result);
 
-			*p = '\0';
+        if(num_param(param) > 2)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-			zbx_json_addobject(&j, NULL);
-			zbx_json_addstring(&j, "{#FSNAME}", mpoint, ZBX_JSON_TYPE_STRING);
-			zbx_json_close(&j);
-		}
-
-		zbx_fclose(f);
-
-		ret = SYSINFO_RET_OK;
+        if(get_param(param, 1, fsname, sizeof(fsname)) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+	
+	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+        {
+                mode[0] = '\0';
+        }
+        if(mode[0] == '\0')
+	{
+		/* default parameter */
+		zbx_snprintf(mode, sizeof(mode), "total");
 	}
-
-	zbx_json_close(&j);
-
-	SET_STR_RESULT(result, strdup(j.buffer));
-
-	zbx_json_free(&j);
-
-	return ret;
+	
+	for(i=0; fl[i].mode!=0; i++)
+	{
+		if(strncmp(mode, fl[i].mode, MAX_STRING_LEN)==0)
+		{
+			return (fl[i].function)(cmd, fsname, flags, result);
+		}
+	}
+	
+	return SYSINFO_RET_FAIL;
 }
+

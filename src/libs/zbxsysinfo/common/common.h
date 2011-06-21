@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,18 +17,15 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#ifndef ZABBIX_SYSINFO_COMMON_H
-#define ZABBIX_SYSINFO_COMMON_H
+#if !defined(SYSINFO_COMMON_H_INCLUDED)
 
 #include "sysinfo.h"
 
 extern ZBX_METRIC	parameters_common[];
 
 int	getPROC(char *file, int lineno, int fieldno, unsigned flags, AGENT_RESULT *result);
-
-int	EXECUTE_USER_PARAMETER(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
-int	EXECUTE_DBL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
-int	EXECUTE_INT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
+int	EXECUTE_INT(const char *cmd, const char *command, unsigned flags, AGENT_RESULT *result);
+int	RUN_COMMAND(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 
-#endif /* ZABBIX_SYSINFO_COMMON_H */
+#endif /* SYSINFO_COMMON_H_INCLUDED */

@@ -1,6 +1,6 @@
-/*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+/* 
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,6 +17,7 @@
 ** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
+
 #ifndef ZABBIX_ZBXDB_H
 #define ZABBIX_ZBXDB_H
 
@@ -26,157 +27,112 @@
 #define	ZBX_DB_FAIL	(-1)
 #define	ZBX_DB_DOWN	(-2)
 
-#define ZBX_MAX_SQL_SIZE	262144	/* 256KB */
-
-#if defined(HAVE_IBM_DB2)
-
-#	include <sqlcli1.h>
-
-	typedef struct
-	{
-		SQLHANDLE	henv;
-		SQLHANDLE	hdbc;
-	}
-	zbx_ibm_db2_handle_t;
-
-	extern zbx_ibm_db2_handle_t	ibm_db2;
-
-#	define DB_ROW		char **
-#	define DB_RESULT	ZBX_IBM_DB2_RESULT *
-#	define DBfree_result	IBM_DB2free_result
-
-	typedef struct
-	{
-		SQLHANDLE	hstmt;
-		SQLSMALLINT	nalloc;
-		SQLSMALLINT	ncolumn;
-		DB_ROW		values;
-		DB_ROW		values_cli;
-		SQLINTEGER	*values_len;
-	}
-	ZBX_IBM_DB2_RESULT;
-
-	void	IBM_DB2free_result(DB_RESULT result);
-	int	IBM_DB2server_status();
-	int	zbx_ibm_db2_success(SQLRETURN ret);
-	int	zbx_ibm_db2_success_ext(SQLRETURN ret);
-	void	zbx_ibm_db2_log_errors(SQLSMALLINT htype, SQLHANDLE hndl);
-
-#elif defined(HAVE_MYSQL)
-
+#ifdef HAVE_MYSQL
 #	include "mysql.h"
 #	include "errmsg.h"
 #	include "mysqld_error.h"
+#	define	DB_HANDLE	MYSQL
+extern MYSQL	*conn;
+#endif /* HAVE_MYSQL */
 
-	extern MYSQL	*conn;
+#ifdef HAVE_ORACLE
+#	include "sqlora.h"
+extern sqlo_db_handle_t oracle;
+#endif /* HAVE_ORACLE */
 
-#	define DB_ROW		MYSQL_ROW
-#	define DB_RESULT	MYSQL_RES *
-#	define DBfree_result	mysql_free_result
-
-#elif defined(HAVE_ORACLE)
-
-#	include "oci.h"
-
-	typedef struct
-	{
-		OCIEnv		*envhp;
-		OCIError	*errhp;
-		OCISvcCtx	*svchp;
-		OCIServer	*srvhp;
-	}
-	zbx_oracle_db_handle_t;
-
-	extern zbx_oracle_db_handle_t	oracle;
-
-#	define DB_ROW		char **
-#	define DB_RESULT	ZBX_OCI_DB_RESULT *
-#	define DBfree_result	OCI_DBfree_result
-
-	typedef struct
-	{
-		OCIStmt		*stmthp;
-		int 		ncolumn;
-		DB_ROW		values;
-	}
-	ZBX_OCI_DB_RESULT;
-
-	void	OCI_DBfree_result(DB_RESULT result);
-	ub4	OCI_DBserver_status();
-
-#elif defined(HAVE_POSTGRESQL)
-
+#ifdef HAVE_POSTGRESQL
 #	include <libpq-fe.h>
+extern PGconn	*conn;
+#endif /* HAVE_POSTGRESQL */
 
-	extern PGconn	*conn;
+#ifdef HAVE_SQLITE3
+#	include <sqlite3.h>
+extern sqlite3		*conn;
+#endif /* HAVE_SQLITE3 */
 
-#	define DB_ROW		char **
-#	define DB_RESULT	ZBX_PG_DB_RESULT *
-#	define DBfree_result	PG_DBfree_result
+#ifdef HAVE_SQLITE3
+/* We have to put double % here for sprintf */
+#	define ZBX_SQL_MOD(x,y) #x "%%" #y
+#else
+#	define ZBX_SQL_MOD(x,y) "mod(" #x "," #y ")"
+#endif
 
-	typedef struct
+#ifdef HAVE_SQLITE3
+
+	#include "mutexs.h"
+
+	#define DB_ROW		char **
+	#define	DB_RESULT	ZBX_SQ_DB_RESULT*
+	#define	DBfree_result	SQ_DBfree_result
+
+	typedef struct zbx_sq_db_result_s
+	{
+		int		curow;
+		char		**data;
+		int		nrow;
+		int		ncolumn;
+
+		DB_ROW		values;
+	} ZBX_SQ_DB_RESULT;
+
+void	SQ_DBfree_result(DB_RESULT result);
+
+	extern PHP_MUTEX	sqlite_access;
+	
+#endif
+
+#ifdef HAVE_MYSQL
+	#define	DB_RESULT	MYSQL_RES *
+	#define	DBfree_result	mysql_free_result
+	#define DB_ROW		MYSQL_ROW
+#endif
+
+#ifdef HAVE_POSTGRESQL
+	#define DB_ROW		char **
+	#define	DB_RESULT	ZBX_PG_DB_RESULT*
+	#define	DBfree_result	PG_DBfree_result
+
+	typedef struct zbx_pg_db_result_s
 	{
 		PGresult	*pg_result;
 		int		row_num;
 		int		fld_num;
 		int		cursor;
 		DB_ROW		values;
-	}
-	ZBX_PG_DB_RESULT;
+	} ZBX_PG_DB_RESULT;
 
-	void	PG_DBfree_result(DB_RESULT result);
+extern	int	ZBX_PG_BYTEAOID;
+void	PG_DBfree_result(DB_RESULT result);
 
-#elif defined(HAVE_SQLITE3)
-
-#	include <sqlite3.h>
-
-	extern sqlite3		*conn;
-
-#	define DB_ROW		char **
-#	define DB_RESULT	ZBX_SQ_DB_RESULT *
-#	define DBfree_result	SQ_DBfree_result
-
-	typedef struct
-	{
-		int		curow;
-		char		**data;
-		int		nrow;
-		int		ncolumn;
-		DB_ROW		values;
-	}
-	ZBX_SQ_DB_RESULT;
-
-	void	SQ_DBfree_result(DB_RESULT result);
-
-#	include "mutexs.h"
-
-	extern PHP_MUTEX	sqlite_access;
-
-#endif	/* HAVE_SQLITE3 */
-
-#ifdef HAVE_SQLITE3
-	/* we have to put double % here for sprintf */
-#	define ZBX_SQL_MOD(x, y) #x "%%" #y
-#else
-#	define ZBX_SQL_MOD(x, y) "mod(" #x "," #y ")"
 #endif
 
-int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *dbschema, char *dbsocket, int port);
-#ifdef HAVE_SQLITE3
-void	zbx_create_sqlite3_mutex(const char *dbname);
-#endif	/* HAVE_SQLITE3 */
-void	zbx_db_init(char *host, char *user, char *password, char *dbname, char *dbschema, char *dbsocket, int port);
-void    zbx_db_close();
+#ifdef HAVE_ORACLE
+	#define	DB_RESULT	sqlo_stmt_handle_t
+	#define	DBfree_result	sqlo_close
+	#define DB_ROW		char **
+#endif
 
-int	zbx_db_begin();
-int	zbx_db_commit();
-int	zbx_db_rollback();
+int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *dbsocket, int port);
 
-int		zbx_db_vexecute(const char *fmt, va_list args);
+void    zbx_db_close(void);
+void    zbx_db_vacuum(void);
+
+int	zbx_db_vexecute(const char *fmt, va_list args);
+
+#ifdef HAVE___VA_ARGS__
+#	define zbx_db_execute(fmt, ...)	__zbx_zbx_db_execute(ZBX_CONST_STRING(fmt), ##__VA_ARGS__)
+#else
+#	define zbx_db_execute __zbx_zbx_db_execute
+#endif /* HAVE___VA_ARGS__ */
+int	__zbx_zbx_db_execute(const char *fmt, ...);
+
 DB_RESULT	zbx_db_vselect(const char *fmt, va_list args);
-DB_RESULT	zbx_db_select_n(const char *query, int n);
-
+DB_RESULT	zbx_db_select_n(char *query, int n);
 DB_ROW		zbx_db_fetch(DB_RESULT result);
-int		zbx_db_is_null(const char *field);
+zbx_uint64_t	zbx_db_insert_id(int exec_result, const char *table, const char *field);
+int		zbx_db_is_null(char *field);
+void		zbx_db_begin();
+void		zbx_db_commit();
+void		zbx_db_rollback();
 
 #endif

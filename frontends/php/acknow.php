@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -70,10 +70,10 @@ include_once('include/page_header.php');
 	if(!$bulk){
 		$options = array(
 			'output' => API_OUTPUT_EXTEND,
-			'selectTriggers' => API_OUTPUT_EXTEND,
+			'select_triggers' => API_OUTPUT_EXTEND,
 			'eventids' => $_REQUEST['eventid']
 		);
-		$events = API::Event()->get($options);
+		$events = CEvent::get($options);
 		$event = reset($events);
 		$event_trigger = reset($event['triggers']);
 		$event_acknowledged = $event['acknowledged'];
@@ -93,17 +93,16 @@ include_once('include/page_header.php');
 			$options = array(
 				'output' => API_OUTPUT_SHORTEN,
 				'acknowledged' => 0,
-				'triggerids' => $_REQUEST['triggers'],
-				'filter'=> array('value_changed' => TRIGGER_VALUE_CHANGED_YES)
+				'triggerids' => $_REQUEST['triggers']
 			);
-			$_REQUEST['events'] = API::Event()->get($options);
+			$_REQUEST['events'] = CEvent::get($options);
 		}
 
 		$eventsData = array(
 			'eventids' => zbx_objectValues($_REQUEST['events'], 'eventid'),
 			'message' => $_REQUEST['message']
 		);
-		$result = API::Event()->acknowledge($eventsData);
+		$result = CEvent::acknowledge($eventsData);
 
 		show_messages($result, S_EVENT_ACKNOWLEDGED, S_CANNOT_ACKNOWLEDGE_EVENT);
 		if($result){
@@ -137,7 +136,7 @@ include_once('include/page_header.php');
 			$table->setAlign('center');
 
 			while($db_ack = DBfetch($db_acks)){
-				//$db_users = API::User()->get(array('userids' => $db_ack['userid'], 'output' => API_OUTPUT_EXTEND));
+				//$db_users = CUser::get(array('userids' => $db_ack['userid'], 'output' => API_OUTPUT_EXTEND));
 				//$db_user = reset($db_users);
 
 				$table->addRow(array(
@@ -185,9 +184,9 @@ include_once('include/page_header.php');
 	}
 
 
-	$frmMsg->addRow(_('Message'), new CTextArea('message', '', 80, 6));
-	$frmMsg->addItemToBottomRow(new CSubmit('saveandreturn', $btn_txt2));
-	$bulk ? '' : $frmMsg->addItemToBottomRow(new CSubmit('save', $btn_txt));
+	$frmMsg->addRow(S_MESSAGE, new CTextArea('message', '', 80, 6));
+	$frmMsg->addItemToBottomRow(new CButton('saveandreturn', $btn_txt2));
+	$bulk ? '' : $frmMsg->addItemToBottomRow(new CButton('save', $btn_txt));
 	$frmMsg->addItemToBottomRow(new CButtonCancel('&backurl='.$_REQUEST['backurl']));
 
 	$frmMsg->show(false);

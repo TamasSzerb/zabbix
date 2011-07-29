@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #ifndef ZABBIX_EVENTS_H
 #define ZABBIX_EVENTS_H
 
+#include "common.h"
 #include "db.h"
 
 int	process_event(DB_EVENT *event, int force_actions);

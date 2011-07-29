@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -50,11 +50,12 @@ include_once 'include/page_header.php';
 	}
 
 	$options = array(
-		'graphids' => $_REQUEST['graphid'],
-		'selectHosts' => API_OUTPUT_EXTEND,
-		'output' => API_OUTPUT_EXTEND
-	);
-	$db_data = API::Graph()->get($options);
+			'graphids' => $_REQUEST['graphid'],
+			'select_hosts' => 1,
+			'extendoutput' => 1
+		);
+
+	$db_data = CGraph::get($options);
 	if(empty($db_data)) access_deny();
 	else $db_data = reset($db_data);
 

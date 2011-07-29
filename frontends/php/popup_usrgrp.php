@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -99,7 +99,7 @@ if(form){
 			$row['name']
 		));
 	}
-	$table->setFooter(new CCol(new CSubmit('select', S_SELECT)));
+	$table->setFooter(new CCol(new CButton('select', S_SELECT)));
 
 	$form->addItem($table);
 	$form->show();

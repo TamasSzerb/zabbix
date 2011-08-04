@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -91,16 +91,16 @@ static void	init_config()
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	result = DBselect(
-			"select mt.mediatypeid,mt.type,mt.description,mt.smtp_server,"
-				"mt.smtp_helo,mt.smtp_email,mt.exec_path,mt.gsm_modem,"
+	result = DBselect("select mt.mediatypeid,mt.type,mt.description,"
+				"mt.smtp_server,mt.smtp_helo,mt.smtp_email,"
+				"mt.exec_path,mt.gsm_modem,"
 				"mt.username,mt.passwd,m.sendto"
-			" from media m,users_groups u,config c,media_type mt"
-			" where m.userid=u.userid"
-				" and u.usrgrpid=c.alert_usrgrpid"
-				" and m.mediatypeid=mt.mediatypeid"
-				" and m.active=%d",
-			MEDIA_STATUS_ACTIVE);
+				" from media m,users_groups u,config c,media_type mt"
+				" where m.userid=u.userid"
+					" and u.usrgrpid=c.alert_usrgrpid"
+					" and m.mediatypeid=mt.mediatypeid"
+					" and m.active=%d",
+				MEDIA_STATUS_ACTIVE);
 
 	while (NULL != (row = DBfetch(result)))
 	{

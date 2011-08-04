@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -33,118 +33,86 @@ include_once('include/page_header.php');
 ?>
 <?php
 	$fields=array(
-		// VAR					        TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-		'config'=>				array(T_ZBX_INT, O_OPT,	null,	IN('0,3,5,6,7,8,9,10,11,12,13'),	null),
-		// other form
-		'alert_history'=>		array(T_ZBX_INT, O_NO,	null,	BETWEEN(0,65535),	'isset({config})&&({config}==0)&&isset({save})'),
-		'event_history'=>		array(T_ZBX_INT, O_NO,	null,	BETWEEN(0,65535),	'isset({config})&&({config}==0)&&isset({save})'),
-		'work_period'=>			array(T_ZBX_STR, O_NO,	null,	null,			'isset({config})&&({config}==7)&&isset({save})'),
-		'refresh_unsupported'=>	array(T_ZBX_INT, O_NO,	null,	BETWEEN(0,65535),	'isset({config})&&({config}==5)&&isset({save})'),
-		'alert_usrgrpid'=>		array(T_ZBX_INT, O_NO,	null,	DB_ID,			'isset({config})&&({config}==5)&&isset({save})'),
-		'discovery_groupid'=>	array(T_ZBX_INT, O_NO,	null,	DB_ID,			'isset({config})&&({config}==5)&&isset({save})'),
+//		VAR								TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 
-		// image form
+		'config'=>				array(T_ZBX_INT, O_OPT,	NULL,	IN('0,3,5,6,7,8,9,10,11'),	NULL),
+// other form
+		'alert_history'=>		array(T_ZBX_INT, O_NO,	NULL,	BETWEEN(0,65535),	'isset({config})&&({config}==0)&&isset({save})'),
+		'event_history'=>		array(T_ZBX_INT, O_NO,	NULL,	BETWEEN(0,65535),	'isset({config})&&({config}==0)&&isset({save})'),
+		'work_period'=>			array(T_ZBX_STR, O_NO,	NULL,	NULL,			'isset({config})&&({config}==7)&&isset({save})'),
+		'refresh_unsupported'=>	array(T_ZBX_INT, O_NO,	NULL,	BETWEEN(0,65535),	'isset({config})&&({config}==5)&&isset({save})'),
+		'alert_usrgrpid'=>		array(T_ZBX_INT, O_NO,	NULL,	DB_ID,			'isset({config})&&({config}==5)&&isset({save})'),
+		'discovery_groupid'=>	array(T_ZBX_INT, O_NO,	NULL,	DB_ID,			'isset({config})&&({config}==5)&&isset({save})'),
+// image form
 		'imageid'=>				array(T_ZBX_INT, O_NO,	P_SYS,	DB_ID,			'isset({config})&&({config}==3)&&(isset({form})&&({form}=="update"))'),
-		'name'=>				array(T_ZBX_STR, O_NO,	null,	NOT_EMPTY,		'isset({config})&&({config}==3)&&isset({save})'),
-		'imagetype'=>			array(T_ZBX_INT, O_OPT,	null,	IN('1,2'),		'isset({config})&&({config}==3)&&(isset({save}))'),
-
-		// value mapping
+		'name'=>				array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,		'isset({config})&&({config}==3)&&isset({save})'),
+		'imagetype'=>			array(T_ZBX_INT, O_OPT,	NULL,	IN('1,2'),		'isset({config})&&({config}==3)&&(isset({save}))'),
+//value mapping
 		'valuemapid'=>			array(T_ZBX_INT, O_NO,	P_SYS,	DB_ID,			'isset({config})&&({config}==6)&&(isset({form})&&({form}=="update"))'),
-		'mapname'=>				array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY, 		'isset({config})&&({config}==6)&&isset({save})'),
-		'valuemap'=>			array(T_ZBX_STR, O_OPT,	null,	null,	null),
-		'rem_value'=>			array(T_ZBX_INT, O_OPT,	null,	BETWEEN(0,65535), null),
-		'add_value'=>			array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY, 'isset({add_map})'),
-		'add_newvalue'=>		array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY, 'isset({add_map})'),
-
-		// actions
-		'add_map'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
-		'del_map'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
-		'save'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
-		'delete'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
-		'cancel'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
-
-		// GUI
+		'mapname'=>				array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY, 		'isset({config})&&({config}==6)&&isset({save})'),
+		'valuemap'=>			array(T_ZBX_STR, O_OPT,	NULL,	NULL,	NULL),
+		'rem_value'=>			array(T_ZBX_INT, O_OPT,	NULL,	BETWEEN(0,65535), NULL),
+		'add_value'=>			array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY, 'isset({add_map})'),
+		'add_newvalue'=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY, 'isset({add_map})'),
+/* actions */
+		'add_map'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+		'del_map'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+		'save'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+		'delete'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+		'cancel'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+/* GUI */
 		'event_ack_enable'=>		array(T_ZBX_INT, O_OPT, P_SYS|P_ACT,	IN('0,1'),		'isset({config})&&({config}==8)&&isset({save})'),
 		'event_expire'=> 			array(T_ZBX_INT, O_OPT, P_SYS|P_ACT,	BETWEEN(1,99999),	'isset({config})&&({config}==8)&&isset({save})'),
 		'event_show_max'=> 			array(T_ZBX_INT, O_OPT, P_SYS|P_ACT,	BETWEEN(1,99999),	'isset({config})&&({config}==8)&&isset({save})'),
 		'dropdown_first_entry'=>	array(T_ZBX_INT, O_OPT, P_SYS|P_ACT,	IN('0,1,2'),		'isset({config})&&({config}==8)&&isset({save})'),
-		'dropdown_first_remember'=>	array(T_ZBX_INT, O_OPT, P_SYS|P_ACT,	IN('0,1'),	null),
+		'dropdown_first_remember'=>	array(T_ZBX_INT, O_OPT, P_SYS|P_ACT,	IN('0,1'),	NULL),
 		'max_in_table' => 			array(T_ZBX_INT, O_OPT, P_SYS|P_ACT,	BETWEEN(1,99999),	'isset({config})&&({config}==8)&&isset({save})'),
 		'search_limit' => 			array(T_ZBX_INT, O_OPT, P_SYS|P_ACT,	BETWEEN(1,999999),	'isset({config})&&({config}==8)&&isset({save})'),
-
-		// Macros
-		'macros_rem'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
-		'macros'=>				array(T_ZBX_STR, O_OPT, P_SYS,			null,	null),
-		'macro_new'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	'isset({macro_add})'),
-		'value_new'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	'isset({macro_add})'),
-		'macro_add' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
-		'macros_del' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
-
-		// Themes
-		'default_theme'=>		array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,			'isset({config})&&({config}==9)&&isset({save})'),
-
-		// regexp
-		'regexpids'=>			array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,		null),
+/* Macros */
+		'macros_rem'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+		'macros'=>				array(T_ZBX_STR, O_OPT, P_SYS,			NULL,	NULL),
+		'macro_new'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	'isset({macro_add})'),
+		'value_new'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	'isset({macro_add})'),
+		'macro_add' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+		'macros_del' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+/* Themes */
+		'default_theme'=>		array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,			'isset({config})&&({config}==9)&&isset({save})'),
+// regexp
+		'regexpids'=>			array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,		NULL),
 		'regexpid'=>			array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,			'isset({config})&&({config}==10)&&(isset({form})&&({form}=="update"))'),
-		'rename'=>				array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,		'isset({config})&&({config}==10)&&isset({save})', S_NAME),
-		'test_string'=>			array(T_ZBX_STR, O_OPT,	null,	NOT_EMPTY,		'isset({config})&&({config}==10)&&isset({save})', S_TEST_STRING),
-		'delete_regexp'=>		array(T_ZBX_STR, O_OPT,	null,	null,		null),
+		'rename'=>				array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,		'isset({config})&&({config}==10)&&isset({save})', S_NAME),
+		'test_string'=>			array(T_ZBX_STR, O_OPT,	NULL,	NOT_EMPTY,		'isset({config})&&({config}==10)&&isset({save})', S_TEST_STRING),
+		'delete_regexp'=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		null),
 
-		'g_expressionid'=>			array(T_ZBX_INT, O_OPT,	null,	DB_ID,		null),
-		'expressions'=>				array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==10)&&isset({save})'),
-		'new_expression'=>			array(T_ZBX_STR, O_OPT,	null,	null,		null),
-		'cancel_new_expression'=>	array(T_ZBX_STR, O_OPT,	null,	null,		null),
+		'g_expressionid'=>			array(T_ZBX_INT, O_OPT,	NULL,	DB_ID,		null),
+		'expressions'=>				array(T_ZBX_STR, O_OPT,	NULL,	NULL,		'isset({config})&&({config}==10)&&isset({save})'),
+		'new_expression'=>			array(T_ZBX_STR, O_OPT,	NULL,	NULL,		null),
+		'cancel_new_expression'=>	array(T_ZBX_STR, O_OPT,	NULL,	NULL,		null),
 
-		'clone'=>					array(T_ZBX_STR, O_OPT,	null,	null,		null),
-		'add_expression'=>			array(T_ZBX_STR, O_OPT,	null,	null,		null),
-		'edit_expressionid'=>		array(T_ZBX_STR, O_OPT,	null,	null,		null),
-		'delete_expression'=>		array(T_ZBX_STR, O_OPT,	null,	null,		null),
-
-		// Trigger severities
-		'severity_name_0' =>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==12)&&isset({save})'),
-		'severity_color_0' =>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==12)&&isset({save})'),
-		'severity_name_1' =>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==12)&&isset({save})'),
-		'severity_color_1' =>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==12)&&isset({save})'),
-		'severity_name_2' =>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==12)&&isset({save})'),
-		'severity_color_2' =>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==12)&&isset({save})'),
-		'severity_name_3' =>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==12)&&isset({save})'),
-		'severity_color_3' =>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==12)&&isset({save})'),
-		'severity_name_4' =>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==12)&&isset({save})'),
-		'severity_color_4' =>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==12)&&isset({save})'),
-		'severity_name_5' =>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==12)&&isset({save})'),
-		'severity_color_5' =>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==12)&&isset({save})'),
-
-		// Trigger displaying options
-		'problem_unack_color' =>	array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==13)&&isset({save})'),
-		'problem_ack_color' =>		array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==13)&&isset({save})'),
-		'ok_unack_color' =>		    array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==13)&&isset({save})'),
-		'ok_ack_color' =>		    array(T_ZBX_STR, O_OPT,	null,	null,		'isset({config})&&({config}==13)&&isset({save})'),
-		'problem_unack_style' =>	array(T_ZBX_INT, O_OPT,	null,	IN('1'),	 null),
-		'problem_ack_style' =>		array(T_ZBX_INT, O_OPT,	null,	IN('1'),	 null),
-		'ok_unack_style' =>		    array(T_ZBX_INT, O_OPT,	null,	IN('1'),	 null),
-		'ok_ack_style' =>		    array(T_ZBX_INT, O_OPT,	null,	IN('1'),	 null),
-		'ok_period' =>		        array(T_ZBX_INT, O_OPT,	null,	null,		'isset({config})&&({config}==13)&&isset({save})'),
-		'blink_period' =>		    array(T_ZBX_INT, O_OPT,	null,	null,		'isset({config})&&({config}==13)&&isset({save})'),
-
-		'form' =>			        array(T_ZBX_STR, O_OPT, P_SYS,	null,	null),
-		'form_refresh' =>	        array(T_ZBX_INT, O_OPT,	null,	null,	null)
+		'clone'=>					array(T_ZBX_STR, O_OPT,	NULL,	NULL,		null),
+		'add_expression'=>			array(T_ZBX_STR, O_OPT,	NULL,	NULL,		null),
+		'edit_expressionid'=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		null),
+		'delete_expression'=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		null),
+/* other */
+		'form'=>			array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
+		'form_refresh'=>	array(T_ZBX_INT, O_OPT,	NULL,	NULL,	NULL)
 	);
 ?>
 <?php
-	$_REQUEST['config'] = get_request('config', CProfile::get('web.config.config', 0));
+	$_REQUEST['config'] = get_request('config',CProfile::get('web.config.config',0));
 
 	check_fields($fields);
 
-	CProfile::update('web.config.config' ,$_REQUEST['config'], PROFILE_TYPE_INT);
+	CProfile::update('web.config.config',$_REQUEST['config'],PROFILE_TYPE_INT);
 
-	$orig_config = select_config(false, get_current_nodeid(false));
+	$orig_config = select_config();
 
 	$result = 0;
 	if($_REQUEST['config']==3){
 // IMAGES ACTIONS
 		if(isset($_REQUEST['save'])){
 
-			$file = isset($_FILES['image']) && $_FILES['image']['name'] != '' ? $_FILES['image'] : null;
+			$file = isset($_FILES['image']) && $_FILES['image']['name'] != '' ? $_FILES['image'] : NULL;
 			if(!is_null($file)){
 				if($file['error'] != 0 || $file['size']==0){
 					error(S_INCORRECT_IMAGE);
@@ -169,7 +137,7 @@ include_once('include/page_header.php');
 					'imagetype' => $_REQUEST['imagetype'],
 					'image' => is_null($file) ? null : $image
 				);
-				$result = API::Image()->update($val);
+				$result = CImage::update($val);
 
 				$msg_ok = S_IMAGE_UPDATED;
 				$msg_fail = S_CANNOT_UPDATE_IMAGE;
@@ -190,7 +158,7 @@ include_once('include/page_header.php');
 					'imagetype' => $_REQUEST['imagetype'],
 					'image' => $image
 				);
-				$result = API::Image()->create($val);
+				$result = CImage::create($val);
 
 				$msg_ok = S_IMAGE_ADDED;
 				$msg_fail = S_CANNOT_ADD_IMAGE;
@@ -206,7 +174,7 @@ include_once('include/page_header.php');
 		else if(isset($_REQUEST['delete'])&&isset($_REQUEST['imageid'])) {
 			$image = get_image_by_imageid($_REQUEST['imageid']);
 
-			$result = API::Image()->delete($_REQUEST['imageid']);
+			$result = CImage::delete($_REQUEST['imageid']);
 
 			show_messages($result, S_IMAGE_DELETED, S_CANNOT_DELETE_IMAGE);
 			if($result){
@@ -283,17 +251,13 @@ include_once('include/page_header.php');
 			if(!is_null($val = get_request('work_period')))
 				$msg[] = S_WORKING_TIME.' ['.$val.']';
 			if(!is_null($val = get_request('discovery_groupid'))){
-				$val = API::HostGroup()->get(array(
-					'groupids' => $val,
-					'editable' => 1,
-					'output' => API_OUTPUT_EXTEND
-				));
-
+				$val = CHostGroup::get(array('groupids' => $val, 'editable' => 1, 'extendoutput' => 1));
 				if(!empty($val)){
+
 					$val = array_pop($val);
 					$msg[] = S_GROUP_FOR_DISCOVERED_HOSTS.' ['.$val['name'].']';
 
-					if(bccomp($val['groupid'],$orig_config['discovery_groupid']) !=0 ){
+					if($val['groupid'] != $orig_config['discovery_groupid']){
 						setHostGroupInternal($orig_config['discovery_groupid'], ZBX_NOT_INTERNAL_GROUP);
 						setHostGroupInternal($val['groupid'], ZBX_INTERNAL_GROUP);
 					}
@@ -543,7 +507,7 @@ include_once('include/page_header.php');
 					if(zbx_empty($nmacro['value'])) unset($newMacros[$mnum]);
 				}
 
-				$global_macros = API::UserMacro()->get(array(
+				$global_macros = CUserMacro::get(array(
 					'globalmacro' => 1,
 					'output' => API_OUTPUT_EXTEND
 				));
@@ -552,7 +516,7 @@ include_once('include/page_header.php');
 				$newMacroMacros = zbx_objectValues($newMacros, 'macro');
 				$newMacroMacros = zbx_toHash($newMacroMacros, 'macro');
 
-				// Delete
+// Delete
 				$macrosToDelete = array();
 				foreach($global_macros as $gmacro){
 					if(!isset($newMacroMacros[$gmacro['macro']])){
@@ -560,7 +524,7 @@ include_once('include/page_header.php');
 					}
 				}
 
-				// Update
+// Update
 				$macrosToUpdate = array();
 				foreach($newMacros as $mnum => $nmacro){
 					if(isset($global_macros[$nmacro['macro']])){
@@ -568,26 +532,26 @@ include_once('include/page_header.php');
 						unset($newMacros[$mnum]);
 					}
 				}
-
+//----
 				if(!empty($macrosToDelete)){
-					if(!API::UserMacro()->deleteGlobal($macrosToDelete))
-						throw new Exception(_('Cannot remove macro'));
+					if(!CUserMacro::deleteGlobal($macrosToDelete))
+						throw new Exception(S_CANNOT_REMOVE_MACRO);
 				}
 
 				if(!empty($macrosToUpdate)){
-					if(!API::UserMacro()->updateGlobal($macrosToUpdate))
-						throw new Exception(_('Cannot update macro'));
+					if(!CUsermacro::updateGlobal($macrosToUpdate))
+						throw new Exception(S_CANNOT_UPDATE_MACRO);
 				}
 
 				if(!empty($newMacros)){
 					$macrosToAdd = array_values($newMacros);
-					$new_macroids = API::UserMacro()->createGlobal($macrosToAdd);
+					$new_macroids = CUsermacro::createGlobal($macrosToAdd);
 					if(!$new_macroids)
-						throw new Exception('Cannot add macro');
+						throw new Exception(S_CANNOT_ADD_MACRO);
 				}
 
 				if(!empty($macrosToAdd)){
-					$new_macros = API::UserMacro()->get(array(
+					$new_macros = CUserMacro::get(array(
 						'globalmacroids' => $new_macroids['globalmacroids'],
 						'globalmacro' => 1,
 						'output' => API_OUTPUT_EXTEND
@@ -618,76 +582,35 @@ include_once('include/page_header.php');
 		}
 
 	}
-	// Trigger severities
-	else if(($_REQUEST['config'] == 12) && (isset($_REQUEST['save']))){
-		$configs = array(
-			'severity_name_0' => get_request('severity_name_0', _('Not classified')),
-			'severity_color_0' => get_request('severity_color_0', ''),
-			'severity_name_1' => get_request('severity_name_1', _('Information')),
-			'severity_color_1' => get_request('severity_color_1', ''),
-			'severity_name_2' => get_request('severity_name_2', _('Warning')),
-			'severity_color_2' => get_request('severity_color_2', ''),
-			'severity_name_3' => get_request('severity_name_3', _('Average')),
-			'severity_color_3' => get_request('severity_color_3', ''),
-			'severity_name_4' => get_request('severity_name_4', _('High')),
-			'severity_color_4' => get_request('severity_color_4', ''),
-			'severity_name_5' => get_request('severity_name_5', _('Disaster')),
-			'severity_color_5' => get_request('severity_color_5', ''),
-		);
-
-		$result = update_config($configs);
-
-		show_messages($result, S_CONFIGURATION_UPDATED, S_CONFIGURATION_WAS_NOT_UPDATED);
-	}
-	// Trigger displaying options
-	else if(($_REQUEST['config'] == 13) && (isset($_REQUEST['save']))){
-		$configs = array(
-			'ok_period' => get_request('ok_period'),
-			'blink_period' => get_request('blink_period'),
-			'problem_unack_color' => get_request('problem_unack_color'),
-			'problem_ack_color' => get_request('problem_ack_color'),
-			'ok_unack_color' => get_request('ok_unack_color'),
-			'ok_ack_color' => get_request('ok_ack_color'),
-			'problem_unack_style' => get_request('problem_unack_style', 0),
-			'problem_ack_style' => get_request('problem_ack_style', 0),
-			'ok_unack_style' => get_request('ok_unack_style', 0),
-			'ok_ack_style' => get_request('ok_ack_style', 0)
-		);
-
-		$result = update_config($configs);
-
-		show_messages($result, S_CONFIGURATION_UPDATED, S_CONFIGURATION_WAS_NOT_UPDATED);
-	}
 ?>
 
 <?php
-	$form = new CForm();
+	$form = new CForm('config.php', 'get');
+	$cmbConfig = new CCombobox('config',$_REQUEST['config'], 'javascript: redirect("config.php?config="+this.options[this.selectedIndex].value);');
+//	$cmbConfig->addItem(4,S_AUTOREGISTRATION);
+//	$cmbConfig->addItem(2,S_ESCALATION_RULES);
+	$cmbConfig->addItem(8,S_GUI);
+	$cmbConfig->addItem(0,S_HOUSEKEEPER);
+	$cmbConfig->addItem(3,S_IMAGES);
+	$cmbConfig->addItem(10,S_REGULAR_EXPRESSIONS);
+//	$cmbConfig->addItem(9,S_THEMES);
+	$cmbConfig->addItem(11,S_MACROS);
+	$cmbConfig->addItem(6,S_VALUE_MAPPING);
+	$cmbConfig->addItem(7,S_WORKING_TIME);
+	$cmbConfig->addItem(5,S_OTHER);
 
-	$cmbConfig = new CCombobox('configDropDown', $_REQUEST['config'], 'javascript: redirect("config.php?config="+this.options[this.selectedIndex].value);');
-	$cmbConfig->addItems(array(
-		8 => _('GUI'),
-		0 => _('Housekeeper'),
-		3 => _('Images'),
-		10 => _('Regular expressions'),
-		11 => _('Macros'),
-		6 => _('Value mapping'),
-		7 => _('Working time'),
-		12 => _('Trigger severities'),
-		13 => _('Trigger displaying options'),
-		5 => _('Other'),
-	));
 	$form->addItem($cmbConfig);
 
 	if(!isset($_REQUEST['form'])){
 		switch($_REQUEST['config']){
 			case 3:
-				$form->addItem(new CSubmit('form', _('Create image')));
+				$form->addItem(new CButton('form',S_CREATE_IMAGE));
 				break;
 			case 6:
-				$form->addItem(new CSubmit('form', _('Create value map')));
+				$form->addItem(new CButton('form',S_CREATE_VALUE_MAP));
 				break;
 			case 10:
-				$form->addItem(new CSubmit('form', _('New regular expression')));
+				$form->addItem(new CButton('form',S_NEW_REGULAR_EXPRESSION));
 				break;
 		}
 	}
@@ -697,7 +620,7 @@ include_once('include/page_header.php');
 
 
 	if(isset($_REQUEST['config'])){
-		$config = select_config(false, get_current_nodeid(false));
+		$config = select_config(false);
 	}
 
 /////////////////////////////////
@@ -714,7 +637,7 @@ include_once('include/page_header.php');
 		$frmHouseKeep->addRow(S_DO_NOT_KEEP_EVENTS_OLDER_THAN,
 			new CNumericBox("event_history", $config["event_history"], 5));
 
-		$frmHouseKeep->addItemToBottomRow(new CSubmit("save", S_SAVE));
+		$frmHouseKeep->addItemToBottomRow(new CButton("save", S_SAVE));
 
 		$cnf_wdgt->addItem($frmHouseKeep);
 	}
@@ -764,7 +687,7 @@ include_once('include/page_header.php');
 					new CImg('imgstore.php?iconid='.$imageid,'no image',null),'image.php?imageid='.$row['imageid']));
 			}
 
-			$frmImages->addItemToBottomRow(new CSubmit('save',S_SAVE));
+			$frmImages->addItemToBottomRow(new CButton('save',S_SAVE));
 			if(isset($_REQUEST['imageid'])){
 				$frmImages->addItemToBottomRow(SPACE);
 				$frmImages->addItemToBottomRow(new CButtonDelete(S_DELETE_SELECTED_IMAGE,
@@ -802,7 +725,7 @@ include_once('include/page_header.php');
 				'output'=> API_OUTPUT_EXTEND,
 				'sortfield'=> 'name'
 			);
-			$images = API::Image()->get($options);
+			$images = CImage::get($options);
 			foreach($images as $inum => $image){
 				switch($image['imagetype']){
 					case IMAGE_TYPE_ICON:
@@ -852,11 +775,7 @@ include_once('include/page_header.php');
 			new CNumericBox('refresh_unsupported', $config['refresh_unsupported'], 5));
 
 		$cmbGrp = new CComboBox('discovery_groupid', $config['discovery_groupid']);
-		$groups = API::HostGroup()->get(array(
-			'sortfield'=>'name',
-			'editable' => 1,
-			'output' => API_OUTPUT_EXTEND
-		));
+		$groups = CHostGroup::get(array('sortfield'=>'name', 'editable' => 1, 'extendoutput' => 1));
 		foreach($groups as $gnum => $group){
 			$cmbGrp->addItem($group['groupid'], $group['name']);
 		}
@@ -875,7 +794,7 @@ include_once('include/page_header.php');
 					);
 		$frmOther->addRow(S_USER_GROUP_FOR_DATABASE_DOWN_MESSAGE, $cmbUsrGrp);
 
-		$frmOther->addItemToBottomRow(new CSubmit('save', S_SAVE));
+		$frmOther->addItemToBottomRow(new CButton('save', S_SAVE));
 
 		$cnf_wdgt->addItem($frmOther);
 	}
@@ -886,7 +805,7 @@ include_once('include/page_header.php');
 		if(isset($_REQUEST['form'])){
 			$frmValmap = new CFormTable(S_VALUE_MAP);
 			$frmValmap->setHelp("web.mapping.php");
-			$frmValmap->addVar("config", 6);
+			$frmValmap->addVar("config",get_request("config",6));
 
 			if(isset($_REQUEST["valuemapid"])){
 				$frmValmap->addVar("valuemapid",$_REQUEST["valuemapid"]);
@@ -903,9 +822,10 @@ include_once('include/page_header.php');
 				$mapname = $db_valuemap["name"];
 				$mappings = DBselect("select * FROM mappings WHERE valuemapid=".$_REQUEST["valuemapid"]);
 				while($mapping = DBfetch($mappings)) {
-					$valuemap[] = array(
+					$value = array(
 						"value" => $mapping["value"],
 						"newvalue" => $mapping["newvalue"]);
+					array_push($valuemap, $value);
 				}
 			}
 			else{
@@ -929,14 +849,13 @@ include_once('include/page_header.php');
 				$i++;
 			}
 
-			$saveButton = new CSubmit('save', S_SAVE);
+			$saveButton = new CButton('save', S_SAVE);
 
 			if(count($valuemap_el)==0) {
 				array_push($valuemap_el, S_NO_MAPPING_DEFINED);
 				$saveButton->setAttribute('disabled', 'true');
-			}
-			else{
-				array_push($valuemap_el, new CSubmit('del_map',S_DELETE_SELECTED));
+			} else {
+				array_push($valuemap_el, new CButton('del_map',S_DELETE_SELECTED));
 			}
 
 			$frmValmap->addRow(S_MAPPING, $valuemap_el);
@@ -945,27 +864,20 @@ include_once('include/page_header.php');
 				new CSpan(RARR,"rarr"),
 				new CTextBox("add_newvalue","",10),
 				SPACE,
-				new CSubmit("add_map",S_ADD)
+				new CButton("add_map",S_ADD)
 				),'new');
 
-			$buttons = array($saveButton);
+			$frmValmap->addItemToBottomRow($saveButton);
 			if(isset($_REQUEST["valuemapid"])){
-				$sql = 'SELECT COUNT(itemid) as cnt FROM items WHERE valuemapid='.$_REQUEST['valuemapid'];
-				$count = DBfetch(DBselect($sql));
-				if($count['cnt']){
-					$confirmMessage = _n('Delete selected value mapping? It is used for %d item!',
-						'Delete selected value mapping? It is used for %d items!', $count['cnt']);
-				}
-				else{
-					$confirmMessage = _s('Delete selected value mapping?');
-				}
-
-				$buttons[] = new CButtonDelete($confirmMessage,
-					url_param("form").url_param("valuemapid").url_param("config"));
+				$frmValmap->addItemToBottomRow(SPACE);
+				$frmValmap->addItemToBottomRow(new CButtonDelete(S_DELETE_SELECTED_VALUE_MAPPING,
+					url_param("form").url_param("valuemapid").url_param("config")));
 			}
-			$buttons[] = new CButtonCancel(url_param("config"));
+			else {
+			}
+			$frmValmap->addItemToBottomRow(SPACE);
+			$frmValmap->addItemToBottomRow(new CButtonCancel(url_param("config")));
 
-			$frmValmap->addItemToBottomRow($buttons);
 			$cnf_wdgt->addItem($frmValmap);
 		}
 		else{
@@ -1027,7 +939,7 @@ include_once('include/page_header.php');
 		$frmHouseKeep->addRow(S_WORKING_TIME,
 			new CTextBox("work_period",$config["work_period"], 35));
 
-		$frmHouseKeep->addItemToBottomRow(new CSubmit("save", S_SAVE));
+		$frmHouseKeep->addItemToBottomRow(new CButton("save", S_SAVE));
 
 		$cnf_wdgt->addItem($frmHouseKeep);
 	}
@@ -1037,20 +949,20 @@ include_once('include/page_header.php');
 	else if($_REQUEST['config']==8){ // GUI
 
 		$frmGUI = new CFormTable(S_GUI, "config.php");
-		$frmGUI->addVar("config", get_request("config",8));
+		$frmGUI->addVar("config",get_request("config",8));
 
-		$combo_theme = new CComboBox('default_theme', $config['default_theme']);
+		$combo_theme = new CComboBox('default_theme',$config['default_theme']);
 		$combo_theme->addItem('css_ob.css',S_ORIGINAL_BLUE);
 		$combo_theme->addItem('css_bb.css',S_BLACK_AND_BLUE);
 		$combo_theme->addItem('css_od.css',S_DARK_ORANGE);
 
-		$exp_select = new CComboBox('event_ack_enable', $config['event_ack_enable']);
-		$exp_select->addItem(EVENT_ACK_ENABLED,S_ENABLED);
-		$exp_select->addItem(EVENT_ACK_DISABLED,S_DISABLED);
+		$exp_select = new CComboBox('event_ack_enable');
+		$exp_select->addItem(EVENT_ACK_ENABLED,S_ENABLED,$config['event_ack_enable']?'yes':'no');
+		$exp_select->addItem(EVENT_ACK_DISABLED,S_DISABLED,$config['event_ack_enable']?'no':'yes');
 
-		$combo_dd_first_entry = new CComboBox('dropdown_first_entry', $config['dropdown_first_entry']);
-		$combo_dd_first_entry->addItem(ZBX_DROPDOWN_FIRST_NONE, S_NONE);
-		$combo_dd_first_entry->addItem(ZBX_DROPDOWN_FIRST_ALL, S_ALL_S);
+		$combo_dd_first_entry = new CComboBox('dropdown_first_entry');
+		$combo_dd_first_entry->addItem(ZBX_DROPDOWN_FIRST_NONE, S_NONE, ($config['dropdown_first_entry'] == ZBX_DROPDOWN_FIRST_NONE)?'yes':'no');
+		$combo_dd_first_entry->addItem(ZBX_DROPDOWN_FIRST_ALL, S_ALL_S, ($config['dropdown_first_entry'] == ZBX_DROPDOWN_FIRST_ALL)?'yes':'no');
 
 		$check_dd_first_remember = new CCheckBox('dropdown_first_remember', $config['dropdown_first_remember'], null, 1);
 
@@ -1068,7 +980,7 @@ include_once('include/page_header.php');
 			new CTextBox('event_expire',$config['event_expire'],5));
 		$frmGUI->addRow(S_MAX_COUNT_OF_EVENTS,
 			new CTextBox('event_show_max',$config['event_show_max'],5));
-		$frmGUI->addItemToBottomRow(new CSubmit("save",S_SAVE));
+		$frmGUI->addItemToBottomRow(new CButton("save",S_SAVE));
 
 		$cnf_wdgt->addItem($frmGUI);
 	}
@@ -1078,7 +990,7 @@ include_once('include/page_header.php');
 	else if($_REQUEST['config'] == 10){
 		if(isset($_REQUEST['form'])){
 
-			$frmRegExp = new CForm('post','config.php');
+			$frmRegExp = new CForm('config.php', 'post');
 			$frmRegExp->setName(S_REGULAR_EXPRESSION);
 			$frmRegExp->addVar('form', get_request('form', 1));
 
@@ -1090,6 +1002,10 @@ include_once('include/page_header.php');
 				$frmRegExp->addVar('regexpid', $_REQUEST['regexpid']);
 
 			$left_tab = new CTable();
+			$left_tab->setCellPadding(3);
+			$left_tab->setCellSpacing(3);
+
+			$left_tab->setAttribute('border',0);
 
 			$left_tab->addRow(create_hat(
 					S_REGULAR_EXPRESSION,
@@ -1100,12 +1016,17 @@ include_once('include/page_header.php');
 				));
 
 			$right_tab = new CTable();
+			$right_tab->setCellPadding(3);
+			$right_tab->setCellSpacing(3);
+
+			$right_tab->setAttribute('border',0);
 
 			$right_tab->addRow(create_hat(
 					S_EXPRESSIONS,
 					get_expressions_tab(),//null,
 					null,
 					'hat_expressions'
+//					CProfile::get('web.config.hats.hat_expressions.state',1)
 				));
 
 			if(isset($_REQUEST['new_expression'])){
@@ -1114,6 +1035,7 @@ include_once('include/page_header.php');
 						get_expression_form(),//null
 						null,
 						'hat_new_expression'
+//						CProfile::get('web.config.hats.hat_new_expression.state',1)
 					));
 			}
 
@@ -1125,6 +1047,9 @@ include_once('include/page_header.php');
 			$td_r->setAttribute('valign','top');
 
 			$outer_table = new CTable();
+			$outer_table->setAttribute('border',0);
+			$outer_table->setCellPadding(1);
+			$outer_table->setCellSpacing(1);
 			$outer_table->addRow(array($td_l,$td_r));
 
 			$frmRegExp->additem($outer_table);
@@ -1174,12 +1099,12 @@ include_once('include/page_header.php');
 				$regexp[$exp['regexpid']]['expressions'][$exp['expressionid']] = $exp;
 			}
 
-			$form = new CForm();
+			$form = new CForm(null,'post');
 			$form->setName('regexp');
 
 			$table = new CTableInfo();
 			$table->setHeader(array(
-				new CCheckBox('all_regexps',null,"checkAll('".$form->GetName()."','all_regexps','regexpids');"),
+				new CCheckBox('all_regexps',NULL,"checkAll('".$form->GetName()."','all_regexps','regexpids');"),
 				S_NAME,
 				S_EXPRESSIONS
 				));
@@ -1187,7 +1112,7 @@ include_once('include/page_header.php');
 			foreach($regexps as $regexpid => $regexp){
 
 				$table->addRow(array(
-					new CCheckBox('regexpids['.$regexp['regexpid'].']',null,null,$regexp['regexpid']),
+					new CCheckBox('regexpids['.$regexp['regexpid'].']',NULL,NULL,$regexp['regexpid']),
 					new CLink($regexp['name'],'config.php?form=update'.url_param('config').'&regexpid='.$regexp['regexpid'].'#form'),
 					isset($expressions[$regexpid])?$expressions[$regexpid]:'-'
 					));
@@ -1202,10 +1127,11 @@ include_once('include/page_header.php');
 			$cnf_wdgt->addItem($form);
 		}
 	}
+
 /////////////////////////////
 //  config = 11 // Macros  //
 /////////////////////////////
-	else if($_REQUEST['config']==11){
+	else if($_REQUEST['config']==11){	// Macros
 		$form = new CForm();
 		$tbl = new CTable();
 		$tbl->addRow(get_macros_widget());
@@ -1213,70 +1139,6 @@ include_once('include/page_header.php');
 		$tbl->addStyle('margin: 0 auto;');
 		$form->addItem($tbl);
 		$cnf_wdgt->addItem($form);
-	}
-/////////////////////////////////////////
-//  config = 12 // Trigger severities  //
-/////////////////////////////////////////
-	else if($_REQUEST['config']==12){
-		$data = array();
-		$data['form'] = get_request('form', 1);
-		$data['form_refresh'] = get_request('form_refresh', 0);
-
-		if($data['form_refresh']){
-			$data['config']['severity_name_0'] = get_request('severity_name_0');
-			$data['config']['severity_color_0'] = get_request('severity_color_0', '');
-			$data['config']['severity_name_1'] = get_request('severity_name_1');
-			$data['config']['severity_color_1'] = get_request('severity_color_1', '');
-			$data['config']['severity_name_2'] = get_request('severity_name_2');
-			$data['config']['severity_color_2'] = get_request('severity_color_2', '');
-			$data['config']['severity_name_3'] = get_request('severity_name_3');
-			$data['config']['severity_color_3'] = get_request('severity_color_3', '');
-			$data['config']['severity_name_4'] = get_request('severity_name_4');
-			$data['config']['severity_color_4'] = get_request('severity_color_4', '');
-			$data['config']['severity_name_5'] = get_request('severity_name_5');
-			$data['config']['severity_color_5'] = get_request('severity_color_5', '');
-		}
-
-		$triggerSeverityForm = new CView('administration.general.triggerSeverity.edit', $data);
-		$cnf_wdgt->addItem($triggerSeverityForm->render());
-	}
-////////////////////////////////////////////////
-//  config = 13 // Trigger displaying options //
-////////////////////////////////////////////////
-	else if($_REQUEST['config']==13){
-		$data = array();
-		$data['form'] = get_request('form', 1);
-		$data['form_refresh'] = get_request('form_refresh', 0);
-
-		// form has been submitted
-		if($data['form_refresh']){
-			$data['ok_period'] = get_request('ok_period');
-			$data['blink_period'] = get_request('blink_period');
-			$data['problem_unack_color'] = get_request('problem_unack_color');
-			$data['problem_ack_color'] = get_request('problem_ack_color');
-			$data['ok_unack_color'] = get_request('ok_unack_color');
-			$data['ok_ack_color'] = get_request('ok_ack_color');
-			$data['problem_unack_style'] = get_request('problem_unack_style');
-			$data['problem_ack_style'] = get_request('problem_ack_style');
-			$data['ok_unack_style'] = get_request('ok_unack_style');
-			$data['ok_ack_style'] = get_request('ok_ack_style');
-		}
-		else{
-			$config = select_config(false);
-			$data['ok_period'] = $config['ok_period'];
-			$data['blink_period'] = $config['blink_period'];
-			$data['problem_unack_color'] = $config['problem_unack_color'];
-			$data['problem_ack_color'] = $config['problem_ack_color'];
-			$data['ok_unack_color'] = $config['ok_unack_color'];
-			$data['ok_ack_color'] = $config['ok_ack_color'];
-			$data['problem_unack_style'] = $config['problem_unack_style'];
-			$data['problem_ack_style'] = $config['problem_ack_style'];
-			$data['ok_unack_style'] = $config['ok_unack_style'];
-			$data['ok_ack_style'] = $config['ok_ack_style'];
-		}
-
-		$triggerDisplayingForm = new CView('administration.general.triggerDisplayingOptions.edit', $data);
-		$cnf_wdgt->addItem($triggerDisplayingForm->render());
 	}
 
 	$cnf_wdgt->show();

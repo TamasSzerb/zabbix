@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -121,9 +121,9 @@
 #	define S_ISDIR(x) (((x) & S_IFMT) == S_IFDIR)
 #endif
 
-#define ZBX_STR2UINT64(uint, string) sscanf(string, ZBX_FS_UI64, &uint)
-#define ZBX_OCT2UINT64(uint, string) sscanf(string, ZBX_FS_UO64, &uint)
-#define ZBX_HEX2UINT64(uint, string) sscanf(string, ZBX_FS_UX64, &uint)
+#define ZBX_STR2UINT64(uint, string) sscanf(string, ZBX_FS_UI64, &uint);
+#define ZBX_OCT2UINT64(uint, string) sscanf(string, ZBX_FS_UO64, &uint);
+#define ZBX_HEX2UINT64(uint, string) sscanf(string, ZBX_FS_UX64, &uint);
 
 #define ZBX_CONST_STRING(str) ""str
 

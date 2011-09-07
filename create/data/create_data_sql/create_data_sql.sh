@@ -1,9 +1,5 @@
 #!/bin/bash
 
-# TODO for 2.0:
-# what to do for host_inventory if inventory_mode=1 (automatic) ?
-# items, triggers, graphs... skip if flags=0x04 ! (autocreated)
-
 # This script can be used to create data.sql from a database.
 # It creates sql file that is suitable for importing on top of schema.sql.
 # INSERT statements refer to fields by name to avoid field ordering problems,
@@ -77,80 +73,65 @@ fail() {
 [[ "$2" ]] && {
 	TABLES="$2"
 } || {
-# table ordering follows original schema
-TABLES="slideshows \
-slides \
-drules \
-dchecks \
-httptest \
-httpstep \
-httpstepitem \
-httptestitem \
-services_times \
-actions \
-operations \
-opmessage \
-opmessage_grp \
-opmessage_usr \
-opcommand \
-opcommand_hst \
-opcommand_grp \
-opgroup \
-optemplate \
-opconditions \
+TABLES="actions \
 applications \
 conditions \
 config \
+dchecks \
+drules \
+expressions \
 functions \
-graphs \
-graph_discovery \
-graphs_items \
+globalmacro \
 graph_theme \
+graphs \
+graphs_items \
 groups \
 help_items \
-hosts \
-interface \
-globalmacro \
 hostmacro \
+hosts \
 hosts_groups \
-host_inventory \
+hosts_profiles \
+hosts_profiles_ext \
 hosts_templates \
+httpstep \
+httpstepitem \
+httptest \
+httptestitem \
 items \
-item_discovery \
 items_applications \
+maintenances \
+maintenances_groups \
+maintenances_hosts \
+maintenances_windows \
 mappings \
 media \
 media_type \
+opconditions \
+operations \
+opmediatypes \
 profiles \
+regexps \
 rights \
-scripts \
 screens \
 screens_items \
+scripts \
 services \
 services_links \
-sysmaps_links \
-sysmaps_link_triggers \
-sysmaps_elements \
-sysmap_element_url \
+services_times \
+slides \
+slideshows \
 sysmaps \
-sysmap_url \
-triggers \
-trigger_discovery \
-trigger_depends \
-users \
-usrgrp \
-users_groups \
-valuemaps \
-maintenances \
-maintenances_hosts \
-maintenances_groups \
-maintenances_windows \
+sysmaps_elements \
+sysmaps_link_triggers \
+sysmaps_links \
 timeperiods \
-regexps \
-expressions \
-icon_map \
-icon_mapping"
-# nodes \ - after httptestitem in original schema
+trigger_depends \
+triggers \
+users \
+users_groups \
+usrgrp \
+valuemaps"
+# nodes \
 }
 
 for TABLE in $TABLES; do

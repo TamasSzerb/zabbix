@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,13 +19,13 @@
 **/
 ?>
 <?php
-class CIcon extends CSpan {
-	public function __construct($title, $class, $action='') {
-		parent::__construct(SPACE, $class.' menu_icon shadow');
+class CIcon extends CDiv{
+	public function __construct($title, $class, $action=''){
+		parent::__construct(SPACE, $class.' menu_icon');
 
 		$this->setAttribute('title', $title);
 
-		if (!empty($action)) {
+		if(!empty($action)){
 			$this->setAttribute('onclick', 'javascript: '.$action);
 		}
 	}

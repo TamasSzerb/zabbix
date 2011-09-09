@@ -12340,7 +12340,7 @@ INSERT INTO help_items VALUES (7,'eventlog[logtype,&lt;pattern&gt;,&lt;severity&
 INSERT INTO help_items VALUES (7,'kernel.maxfiles','Maximum number of opened files supported by OS.');
 INSERT INTO help_items VALUES (7,'kernel.maxproc','Maximum number of processes supported by OS.');
 INSERT INTO help_items VALUES (7,'log[file,&lt;pattern&gt;,&lt;encoding&gt;,&lt;maxlines&gt;,&lt;mode&gt;]','Monitoring of log file. pattern - regular expression');
-INSERT INTO help_items VALUES (7,'logrt[file_format,&lt;pattern&gt;,&lt;encoding&gt;,&lt;maxlines&gt;,&lt;mode&gt;]', 'Monitoring of log file with rotation. fileformat - [path][regexp], pattern - regular expression');
+INSERT INTO help_items VALUES (7,'logrt[file_format,&lt;pattern&gt;,&lt;encoding&gt;,&lt;maxlines&gt;,&lt;mode&gt;]','Monitoring of log file with rotation. fileformat - [path][regexp], pattern - regular expression');
 INSERT INTO help_items VALUES (7,'net.dns[&lt;ip&gt;,&lt;zone&gt;,&lt;type&gt;,&lt;timeout&gt;,&lt;count&gt;]','Checks if DNS service is up. 0 - DNS is down (server did not respond or DNS resolution failed), 1 - DNS is up.');
 INSERT INTO help_items VALUES (7,'net.dns.record[&lt;ip&gt;,&lt;zone&gt;,&lt;type&gt;,&lt;timeout&gt;,&lt;count&gt;]','Performs a DNS query. On success returns a character string with the required type of information.');
 INSERT INTO help_items VALUES (7,'net.if.collisions[if]','Out-of-window collision. Collisions count.');
@@ -12410,4 +12410,4 @@ INSERT INTO graph_theme VALUES (2,'Black & Blue','css_bb.css','333333','0A0A0A',
 -- Dumping data for table `config`
 --
 
-INSERT INTO config VALUES (1,365,365,600,'1-5,00:00-24:00',7,1,7,100,'css_ob.css',0,'',389,'','','','',1,1,5,50,1000,1,'DBDBDB', 'D6F6FF', 'FFF6A5', 'FFB689', 'FF9999', 'FF3838', 'Not classified', 'Information', 'Warning', 'Average', 'High', 'Disaster', '1800', '1800', 'DC0000', 'DC0000', '00AA00', '00AA00', '1', '1', '1', '1', '1');
+INSERT INTO config VALUES (1,365,365,600,'1-5,00:00-24:00',7,1,7,100,'css_ob.css',0,'',389,'','','','',1,1,5,50,1000,1,'DBDBDB','D6F6FF','FFF6A5','FFB689','FF9999','FF3838','Not classified','Information','Warning','Average','High','Disaster','1800','1800','DC0000','DC0000','00AA00','00AA00','1','1','1','1','1');

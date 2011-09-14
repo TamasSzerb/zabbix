@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 
 #include "comms.h"
 #include "log.h"
+#include "zlog.h"
 #include "zbxjson.h"
 #include "zbxserver.h"
 #include "dbcache.h"
@@ -230,9 +231,10 @@ static int	process_trap(zbx_sock_t	*sock, char *s, int max_len)
 		send_history_last_id(sock, s);
 		return ret;
 	}
-	else
+	else	/* Process information sent by zabbix_sender */
 	{
-		if (0 == strncmp(s, "Data", 4))	/* node data exchange */
+		/* Node data exchange? */
+		if (strncmp(s, "Data", 4) == 0)
 		{
 			node_sync_lock(0);
 
@@ -246,7 +248,7 @@ static int	process_trap(zbx_sock_t	*sock, char *s, int max_len)
 			else
 			{
 				res = calculate_checksums(nodeid, NULL, 0);
-				if (SUCCEED == res && NULL != (data = DMget_config_data(nodeid, ZBX_NODE_SLAVE)))
+				if (SUCCEED == res && NULL != (data = get_config_data(nodeid, ZBX_NODE_SLAVE)))
 				{
 					zabbix_log( LOG_LEVEL_WARNING, "NODE %d: Sending configuration changes"
 							" to slave node %d for node %d datalen " ZBX_FS_SIZE_T,
@@ -269,7 +271,8 @@ static int	process_trap(zbx_sock_t	*sock, char *s, int max_len)
 
 			return ret;
 		}
-		else if (0 == strncmp(s, "History", 7))	/* slave node history */
+		/* Slave node history ? */
+		if (strncmp(s, "History", 7) == 0)
 		{
 			const char	*reply;
 
@@ -277,12 +280,16 @@ static int	process_trap(zbx_sock_t	*sock, char *s, int max_len)
 
 			alarm(CONFIG_TIMEOUT);
 			if (SUCCEED != zbx_tcp_send_raw(sock, reply))
+			{
 				zabbix_log(LOG_LEVEL_WARNING, "Error sending %s to node", reply);
+				zabbix_syslog("Trapper: error sending %s to node", reply);
+			}
 			alarm(0);
 
 			return ret;
 		}
-		else if (SUCCEED == zbx_json_open(s, &jp))	/* JSON protocol */
+		/* JSON protocol? */
+		else if (SUCCEED == zbx_json_open(s, &jp))
 		{
 			if (SUCCEED == zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_REQUEST, value, sizeof(value)))
 			{
@@ -344,14 +351,18 @@ static int	process_trap(zbx_sock_t	*sock, char *s, int max_len)
 					ret = node_process_command(sock, s, &jp);
 				}
 				else
-					zabbix_log(LOG_LEVEL_WARNING, "unknown request received [%s]", value);
+				{
+					zabbix_log(LOG_LEVEL_WARNING, "Unknown request received [%s]",
+							value);
+				}
 			}
 			return ret;
 		}
-		else if ('<' == *s)	/* XML protocol */
+		/* XML protocol? */
+		else if (*s == '<')
 		{
-			comms_parse_response(s, av.host_name, sizeof(av.host_name), av.key, sizeof(av.key), value_dec,
-					sizeof(value_dec), lastlogsize, sizeof(lastlogsize), timestamp, sizeof(timestamp),
+			comms_parse_response(s, av.host_name, sizeof(av.host_name), av.key, sizeof(av.key), value_dec, sizeof(value_dec),
+					lastlogsize, sizeof(lastlogsize), timestamp, sizeof(timestamp),
 					source, sizeof(source),	severity, sizeof(severity));
 
 			av.value	= value_dec;
@@ -382,13 +393,16 @@ static int	process_trap(zbx_sock_t	*sock, char *s, int max_len)
 			av.severity	= 0;
 		}
 
-		zbx_timespec(&av.ts);
+		av.clock = time(NULL);
 
 		process_mass_data(sock, 0, &av, 1, NULL);
 
 		alarm(CONFIG_TIMEOUT);
 		if (SUCCEED != zbx_tcp_send_raw(sock, SUCCEED == ret ? "OK" : "NOT OK"))
+		{
 			zabbix_log(LOG_LEVEL_WARNING, "Error sending result back");
+			zabbix_syslog("Trapper: error sending result back");
+		}
 		alarm(0);
 	}
 	return ret;

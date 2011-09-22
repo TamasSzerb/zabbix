@@ -10,7 +10,6 @@ SUBDIRS = \
 	nodewatcher \
 	pinger \
 	poller \
-	snmptrapper \
 	timer \
 	trapper \
 	utils \
@@ -25,7 +24,7 @@ zabbix_server_SOURCES = \
 	actions.c actions.h \
 	operations.c operations.h \
 	events.c events.h \
-	scripts.c scripts.h \
+	zlog.c \
 	server.c
 
 zabbix_server_LDADD = \
@@ -38,7 +37,6 @@ zabbix_server_LDADD = \
 	housekeeper/libzbxhousekeeper.a \
 	timer/libzbxtimer.a \
 	trapper/libzbxtrapper.a \
-	snmptrapper/libzbxsnmptrapper.a \
 	nodewatcher/libzbxnodewatcher.a \
 	utils/libzbxutils.a \
 	httppoller/libzbxhttppoller.a \

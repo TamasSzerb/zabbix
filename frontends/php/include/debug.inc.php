@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -25,12 +25,12 @@ function SDB($return=false){
 	foreach($backtrace as $n => $bt){
 		$result .= '  --['.$n.']-- '.$bt['file'].' : '.$bt['line'].'<br/>';
 		$result .= "&nbsp;&nbsp;<b>".(isset($bt['class']) ? $bt['class'].$bt['type'].$bt['function'] : $bt['function']).'</b>';
-
+		
 		$args = array();
 		foreach($bt['args'] as $arg){
 			$args[] = is_array($arg) ? print_r($arg, true) : $arg;
 		}
-
+		
 		$result .= '( '.implode(', ', $args).' ) <br/>';
 	}
 	if($return) return $result;
@@ -40,36 +40,5 @@ function SDI($msg='SDI') { echo 'DEBUG INFO: '; var_dump($msg); echo SBR; } // D
 function SDII($msg='SDII') { echo 'DEBUG INFO: '; echo '<pre>'.print_r($msg, true).'</pre>'; echo SBR; } // DEBUG INFO!!!
 function VDP($var, $msg=null) { echo 'DEBUG DUMP: '; if(isset($msg)) echo '"'.$msg.'"'.SPACE; var_dump($var); echo SBR; } // DEBUG INFO!!!
 function TODO($msg) { echo 'TODO: '.$msg.SBR; }  // DEBUG INFO!!!
-function sdff($msg, $fileName = '/tmp/zabbix.log') {
-	$fileStreem = @fopen($fileName, 'a');
-	if (is_array($msg)) {
-		$toImplode = array();
-		foreach ($msg as $key => $value) {
-			$toImplode[] = var_export($key, true).'=>'.var_export($value, true);
-		}
-		@fwrite($fileStreem, 'array('.implode(',', $toImplode).')'."\n\n");
-	} else {
-		@fwrite($fileStreem, var_export($msg, true)."\n\n");
-	}
-	@fclose($fileStreem);
-}
 
-function sdf(&$var) {
-	$value = $var;
-	$var = $new = null;
-	$varname = false;
-	foreach ($GLOBALS as $key => $val) {
-		if ($val === $new) $varname = $key;
-	}
-
-	echo '$'.$varname.'=';
-
-	if (is_array($value) || is_object($value)) {
-		echo '<pre>'.print_r($value, true).'</pre>';
-	}
-	else {
-		echo $value;
-	}
-	echo SBR;
-}
 ?>

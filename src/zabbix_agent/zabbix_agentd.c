@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -559,6 +559,10 @@ void	zbx_on_exit()
 
 		zbx_free(threads);
 	}
+
+#ifdef USE_PID_FILE
+	daemon_stop();
+#endif
 
 #if !defined(_WINDOWS)
 	zbx_sleep(2);	/* wait for all processes to exit */

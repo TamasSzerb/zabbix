@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -42,7 +42,6 @@
 #include "../zabbix_server/poller/poller.h"
 #include "../zabbix_server/poller/checks_ipmi.h"
 #include "../zabbix_server/trapper/trapper.h"
-#include "../zabbix_server/snmptrapper/snmptrapper.h"
 #include "proxyconfig/proxyconfig.h"
 #include "datasender/datasender.h"
 #include "heart/heart.h"
@@ -107,8 +106,6 @@ int	CONFIG_UNREACHABLE_POLLER_FORKS	= 1;
 int	CONFIG_HTTPPOLLER_FORKS		= 0;
 int	CONFIG_IPMIPOLLER_FORKS		= 0;
 int	CONFIG_TRAPPER_FORKS		= 5;
-int	CONFIG_SNMPTRAPPER_FORKS	= 0;
-int	CONFIG_JAVAPOLLER_FORKS		= 0;
 int	CONFIG_SELFMON_FORKS		= 0;
 int	CONFIG_PROXYPOLLER_FORKS	= 0;
 int	CONFIG_ESCALATOR_FORKS		= 0;
@@ -118,7 +115,7 @@ int	CONFIG_NODEWATCHER_FORKS	= 0;
 int	CONFIG_WATCHDOG_FORKS		= 0;
 int	CONFIG_HEARTBEAT_FORKS		= 1;
 
-int	CONFIG_LISTEN_PORT		= ZBX_DEFAULT_SERVER_PORT;
+int	CONFIG_LISTEN_PORT		= 10051;
 char	*CONFIG_LISTEN_IP		= NULL;
 char	*CONFIG_SOURCE_IP		= NULL;
 int	CONFIG_TRAPPER_TIMEOUT		= 300;
@@ -129,7 +126,7 @@ int	CONFIG_PROXY_OFFLINE_BUFFER	= 1;
 
 int	CONFIG_HEARTBEAT_FREQUENCY	= 60;
 
-int	CONFIG_PROXYCONFIG_FREQUENCY	= SEC_PER_HOUR;
+int	CONFIG_PROXYCONFIG_FREQUENCY	= 3600; /* 1h */
 int	CONFIG_PROXYDATA_FREQUENCY	= 1;
 
 int	CONFIG_SENDER_FREQUENCY		= 30;
@@ -137,10 +134,10 @@ int	CONFIG_HISTSYNCER_FORKS		= 4;
 int	CONFIG_HISTSYNCER_FREQUENCY	= 5;
 int	CONFIG_CONFSYNCER_FORKS		= 1;
 int	CONFIG_CONFSYNCER_FREQUENCY	= 60;
-int	CONFIG_CONF_CACHE_SIZE		= 8 * ZBX_MEBIBYTE;
-int	CONFIG_HISTORY_CACHE_SIZE	= 8 * ZBX_MEBIBYTE;
-int	CONFIG_TRENDS_CACHE_SIZE	= 4 * ZBX_MEBIBYTE;
-int	CONFIG_TEXT_CACHE_SIZE		= 16 * ZBX_MEBIBYTE;
+int	CONFIG_CONF_CACHE_SIZE		= 8388608;	/* 8MB */
+int	CONFIG_HISTORY_CACHE_SIZE	= 8388608;	/* 8MB */
+int	CONFIG_TRENDS_CACHE_SIZE	= 4194304;	/* 4MB */
+int	CONFIG_TEXT_CACHE_SIZE		= 16777216;	/* 16MB */
 int	CONFIG_UNREACHABLE_PERIOD	= 45;
 int	CONFIG_UNREACHABLE_DELAY	= 15;
 int	CONFIG_UNAVAILABLE_DELAY	= 60;
@@ -164,23 +161,21 @@ int	CONFIG_LOG_REMOTE_COMMANDS	= 0;
 int	CONFIG_UNSAFE_USER_PARAMETERS	= 0;
 
 char	*CONFIG_SERVER			= NULL;
-int	CONFIG_SERVER_PORT		= ZBX_DEFAULT_SERVER_PORT;
+int	CONFIG_SERVER_PORT		= 10051;
 char	*CONFIG_HOSTNAME		= NULL;
 char	*CONFIG_HOSTNAME_ITEM		= NULL;
 int	CONFIG_NODEID			= -1;
 int	CONFIG_MASTER_NODEID		= 0;
 int	CONFIG_NODE_NOHISTORY		= 0;
 
-char	*CONFIG_SNMPTRAP_FILE		= NULL;
-
-char	*CONFIG_JAVA_PROXY		= NULL;
-int	CONFIG_JAVA_PROXY_PORT		= ZBX_DEFAULT_SERVER_PORT;
-
 char	*CONFIG_SSH_KEY_LOCATION	= NULL;
 
 int	CONFIG_LOG_SLOW_QUERIES		= 0;	/* ms; 0 - disable */
 
-int	CONFIG_NS_SUPPORT		= 0;
+/* Global variable to control if we should write warnings to log[] */
+int	CONFIG_ENABLE_LOG		= 1;
+
+int	CONFIG_REFRESH_UNSUPPORTED	= 600;
 
 /* Zabbix server startup time */
 int	CONFIG_SERVER_STARTUP_TIME	= 0;
@@ -230,9 +225,6 @@ static void	zbx_set_defaults()
 	else if (NULL != CONFIG_HOSTNAME_ITEM)
 		zabbix_log(LOG_LEVEL_WARNING, "both Hostname and HostnameItem defined, using [%s]", CONFIG_HOSTNAME);
 
-	if (NULL == CONFIG_SNMPTRAP_FILE)
-		CONFIG_SNMPTRAP_FILE = zbx_strdup(CONFIG_SNMPTRAP_FILE, "/tmp/zabbix_traps.tmp");
-
 	if (NULL == CONFIG_PID_FILE)
 		CONFIG_PID_FILE = zbx_strdup(CONFIG_PID_FILE, "/tmp/zabbix_proxy.pid");
 
@@ -265,13 +257,6 @@ static void	zbx_set_defaults()
  ******************************************************************************/
 static void	zbx_validate_config()
 {
-
-	if ((NULL == CONFIG_JAVA_PROXY || '\0' == *CONFIG_JAVA_PROXY) && 0 < CONFIG_JAVAPOLLER_FORKS)
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "JavaProxy not in config file or empty");
-		exit(1);
-	}
-
 	if (ZBX_PROXYMODE_ACTIVE == CONFIG_PROXYMODE &&	NULL == CONFIG_SERVER)
 	{
 		zabbix_log(LOG_LEVEL_CRIT, "missing active proxy mandatory parameter [Server] in config file [%s]", CONFIG_FILE);
@@ -322,6 +307,8 @@ static void	zbx_load_config()
 			PARM_OPT,	1,			100},
 		{"StartDiscoverers",		&CONFIG_DISCOVERER_FORKS,		TYPE_INT,
 			PARM_OPT,	0,			250},
+		{"StartHTTPPollers",		&CONFIG_HTTPPOLLER_FORKS,		TYPE_INT,
+			PARM_OPT,	0,			1000},
 		{"StartPingers",		&CONFIG_PINGER_FORKS,			TYPE_INT,
 			PARM_OPT,	0,			1000},
 		{"StartPollers",		&CONFIG_POLLER_FORKS,			TYPE_INT,
@@ -332,16 +319,6 @@ static void	zbx_load_config()
 			PARM_OPT,	0,			1000},
 		{"StartTrappers",		&CONFIG_TRAPPER_FORKS,			TYPE_INT,
 			PARM_OPT,	0,			1000},
-		{"StartJavaPollers",		&CONFIG_JAVAPOLLER_FORKS,		TYPE_INT,
-			PARM_OPT,	0,			1000},
-		{"JavaProxy",			&CONFIG_JAVA_PROXY,			TYPE_STRING,
-			PARM_OPT,	0,			0},
-		{"JavaProxyPort",		&CONFIG_JAVA_PROXY_PORT,		TYPE_INT,
-			PARM_OPT,	1024,			32767},
-		{"SNMPTrapperFile",		&CONFIG_SNMPTRAP_FILE,			TYPE_STRING,
-			PARM_OPT,	0,			0},
-		{"StartSNMPTrapper",		&CONFIG_SNMPTRAPPER_FORKS,		TYPE_INT,
-			PARM_OPT,	0,			1},
 		{"CacheSize",			&CONFIG_CONF_CACHE_SIZE,		TYPE_INT,
 			PARM_OPT,	128 * ZBX_KIBIBYTE,	ZBX_GIBIBYTE},
 		{"HistoryCacheSize",		&CONFIG_HISTORY_CACHE_SIZE,		TYPE_INT,
@@ -470,7 +447,7 @@ int	main(int argc, char **argv)
 
 	progname = get_program_name(argv[0]);
 
-	/* parse the command-line */
+	/* Parse the command-line. */
 	while ((char)EOF != (ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts, NULL)))
 	{
 		switch (ch)
@@ -505,7 +482,7 @@ int	main(int argc, char **argv)
 	if (NULL == CONFIG_FILE)
 		CONFIG_FILE = zbx_strdup(CONFIG_FILE, "/etc/zabbix/zabbix_proxy.conf");
 
-	/* required for simple checks */
+	/* Required for simple checks */
 	init_metrics();
 
 	zbx_load_config();
@@ -522,9 +499,9 @@ int	main(int argc, char **argv)
 
 int	MAIN_ZABBIX_ENTRY()
 {
+	int		i, proxy_num = 0, proxy_count = 0;
 	pid_t		pid;
 	zbx_sock_t	listen_sock;
-	int		i, proxy_num = 0, proxy_count = 0;
 
 	if (NULL == CONFIG_LOG_FILE || '\0' == *CONFIG_LOG_FILE)
 		zabbix_open_log(LOG_TYPE_SYSLOG, CONFIG_LOG_LEVEL, NULL);
@@ -583,7 +560,7 @@ int	MAIN_ZABBIX_ENTRY()
 			+ CONFIG_POLLER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS + CONFIG_TRAPPER_FORKS
 			+ CONFIG_PINGER_FORKS + CONFIG_HOUSEKEEPER_FORKS + CONFIG_HTTPPOLLER_FORKS
 			+ CONFIG_DISCOVERER_FORKS + CONFIG_HISTSYNCER_FORKS + CONFIG_IPMIPOLLER_FORKS
-			+ CONFIG_JAVAPOLLER_FORKS + CONFIG_SNMPTRAPPER_FORKS + CONFIG_SELFMON_FORKS;
+			+ CONFIG_SELFMON_FORKS;
 	threads = zbx_calloc(threads, threads_num, sizeof(pid_t));
 
 	if (0 < CONFIG_TRAPPER_FORKS)
@@ -710,18 +687,6 @@ int	MAIN_ZABBIX_ENTRY()
 
 		main_poller_loop(ZBX_POLLER_TYPE_IPMI);
 	}
-	else if (proxy_num <= (proxy_count += CONFIG_JAVAPOLLER_FORKS))
-	{
-		INIT_PROXY(ZBX_PROCESS_TYPE_JAVAPOLLER, CONFIG_JAVAPOLLER_FORKS);
-
-		main_poller_loop(ZBX_POLLER_TYPE_JAVA);
-	}
-	else if (proxy_num <= (proxy_count += CONFIG_SNMPTRAPPER_FORKS))
-	{
-		INIT_PROXY(ZBX_PROCESS_TYPE_SNMPTRAPPER, CONFIG_SNMPTRAPPER_FORKS);
-
-		main_snmptrapper_loop();
-	}
 	else if (proxy_num <= (proxy_count += CONFIG_SELFMON_FORKS))
 	{
 		INIT_PROXY(ZBX_PROCESS_TYPE_SELFMON, CONFIG_SELFMON_FORKS);
@@ -757,6 +722,10 @@ void	zbx_on_exit()
 
 		zbx_free(threads);
 	}
+
+#ifdef USE_PID_FILE
+	daemon_stop();
+#endif
 
 	free_metrics();
 

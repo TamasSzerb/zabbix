@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -69,9 +69,9 @@ int	SYSTEM_CPU_UTIL(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
 	if ('\0' == *tmp || 0 == strcmp(tmp, "user"))	/* default parameter */
 		state = ZBX_CPU_STATE_USER;
-	else if (0 == strcmp(tmp, "iowait"))
+	else if (0 == strcmp(tmp, "wait"))
 		state = ZBX_CPU_STATE_IOWAIT;
-	else if (0 == strcmp(tmp, "system"))
+	else if (0 == strcmp(tmp, "kernel"))
 		state = ZBX_CPU_STATE_SYSTEM;
 	else if (0 == strcmp(tmp, "idle"))
 		state = ZBX_CPU_STATE_IDLE;

@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -105,7 +105,7 @@ include_once('include/page_header.php');
 	$latest_wdgt->addPageHeader(S_LATEST_DATA_BIG,$fs_icon);
 
 // 2nd header
-	$r_form = new CForm('get');
+	$r_form = new CForm(null, 'get');
 
 	$options = array(
 		'groups' => array(
@@ -135,18 +135,20 @@ include_once('include/page_header.php');
 	$filterForm->setAttribute('name','zbx_filter');
 	$filterForm->setAttribute('id','zbx_filter');
 
-	$filterForm->addRow(_('Show items with name like'), new CTextBox('select',$_REQUEST['select'],20));
-	$filterForm->addRow(_('Show items without data'), new CCheckBox('show_without_data', $_REQUEST['show_without_data'], null, 1));
+	$filterForm->addRow(S_SHOW_ITEMS_WITH_DESCRIPTION_LIKE, new CTextBox('select',$_REQUEST['select'],20));
+	$filterForm->addRow(S_SHOW_ITEMS_WITHOUT_DATA, new CCheckBox('show_without_data', $_REQUEST['show_without_data'], null, 1));
 
-	$reset = new CButton("filter_rst",S_RESET,'javascript: var uri = new Curl(location.href); uri.setArgument("filter_rst",1); location.href = uri.getUrl();');
+	$reset = new CButton("filter_rst",S_RESET);
+	$reset->setType('button');
+	$reset->setAction('javascript: var uri = new Curl(location.href); uri.setArgument("filter_rst",1); location.href = uri.getUrl();');
 
-	$filterForm->addItemToBottomRow(new CSubmit("filter_set",S_FILTER));
+	$filterForm->addItemToBottomRow(new CButton("filter_set",S_FILTER));
 	$filterForm->addItemToBottomRow($reset);
 
 	$latest_wdgt->addFlicker($filterForm, CProfile::get('web.latest.filter.state',1));
 //-------
 
-	validate_sort_and_sortorder('i.name',ZBX_SORT_UP);
+	validate_sort_and_sortorder('i.description',ZBX_SORT_UP);
 
 	$_REQUEST['apps'] = get_request('apps', array());
 	$apps = zbx_toHash($_REQUEST['apps']);
@@ -189,8 +191,8 @@ include_once('include/page_header.php');
 	$table->setHeader(array(
 		$link,
 		is_show_all_nodes()?make_sorting_header(S_NODE,'h.hostid') : null,
-		($_REQUEST['hostid'] ==0)?make_sorting_header(S_HOST,'h.name') : NULL,
-		make_sorting_header(_('Name'), 'i.name'),
+		($_REQUEST['hostid'] ==0)?make_sorting_header(S_HOST,'h.host') : NULL,
+		make_sorting_header(S_DESCRIPTION,'i.description'),
 		make_sorting_header(S_LAST_CHECK,'i.lastclock'),
 		S_LAST_VALUE,
 		S_CHANGE,
@@ -214,13 +216,14 @@ include_once('include/page_header.php');
 	if($_REQUEST['hostid']>0){
 		$sql_where.= ' AND h.hostid='.$_REQUEST['hostid'];
 	}
+
 	// select hosts
-	$sql = 'SELECT DISTINCT h.name as hostname,h.hostid, a.* '.
+	$sql = 'SELECT DISTINCT h.host,h.hostid, a.* '.
 			' FROM applications a, hosts h '.$sql_from.
 			' WHERE a.hostid=h.hostid'.
 				$sql_where.
 				' AND '.DBcondition('h.hostid', $available_hosts).
-			order_by('h.name,h.hostid','a.name,a.applicationid');
+			order_by('h.host,h.hostid','a.name,a.applicationid');
 
 	$db_app_res = DBselect($sql);
 	while($db_app = DBfetch($db_app_res)){
@@ -239,12 +242,11 @@ include_once('include/page_header.php');
 				' AND i.itemid=ia.itemid'.
 				($_REQUEST['show_without_data'] ? '' : ' AND i.lastvalue IS NOT NULL').
 				' AND (i.status='.ITEM_STATUS_ACTIVE.' OR i.status='.ITEM_STATUS_NOTSUPPORTED.')'.
-				' AND '.DBcondition('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)).
-			order_by('i.name,i.itemid,i.lastclock');
+			order_by('i.description,i.itemid,i.lastclock');
 
 	$db_items = DBselect($sql);
 	while($db_item = DBfetch($db_items)){
-		$description = itemName($db_item);
+		$description = item_description($db_item);
 
 		if(!empty($_REQUEST['select']) && !zbx_stristr($description, $_REQUEST['select']) ) continue;
 
@@ -272,8 +274,7 @@ include_once('include/page_header.php');
 
 		if(isset($db_item['lastvalue']) && isset($db_item['prevvalue'])
 				&& in_array($db_item['value_type'], array(ITEM_VALUE_TYPE_FLOAT, ITEM_VALUE_TYPE_UINT64))
-				&& ($db_item['lastvalue']-$db_item['prevvalue'] != 0))
-		{
+				&& ($db_item['lastvalue']-$db_item['prevvalue'] != 0)){
 			if($db_item['lastvalue']-$db_item['prevvalue']<0){
 				$change=convert_units($db_item['lastvalue']-$db_item['prevvalue'],$db_item['units']);
 			}
@@ -349,7 +350,7 @@ include_once('include/page_header.php');
 		$table->addRow(array(
 			$link,
 			get_node_name_by_elid($db_app['applicationid']),
-			($_REQUEST['hostid'] > 0)?NULL:$db_app['hostname'],
+			($_REQUEST['hostid'] > 0)?NULL:$db_app['host'],
 			$col
 		));
 
@@ -364,15 +365,14 @@ include_once('include/page_header.php');
 	$db_hostids = array();
 
 	// select hosts
-	$sql = 'SELECT DISTINCT h.name,h.hostid '.
+	$sql = 'SELECT DISTINCT h.host,h.hostid '.
 			' FROM hosts h'.$sql_from.', items i '.
 				' LEFT JOIN items_applications ia ON ia.itemid=i.itemid'.
 			' WHERE ia.itemid is NULL '.
 				$sql_where.
 				' AND h.hostid=i.hostid '.
-				' AND '.DBcondition('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)).
 				' AND '.DBcondition('h.hostid', $available_hosts).
-			' ORDER BY h.name';
+			' ORDER BY h.host';
 
 	$db_host_res = DBselect($sql);
 	while($db_host = DBfetch($db_host_res)) {
@@ -385,7 +385,7 @@ include_once('include/page_header.php');
 	$tab_rows = array();
 
 	// select items
-	$sql = 'SELECT DISTINCT h.host as hostname,h.hostid,i.* '.
+	$sql = 'SELECT DISTINCT h.host,h.hostid,i.* '.
 			' FROM hosts h'.$sql_from.', items i '.
 				' LEFT JOIN items_applications ia ON ia.itemid=i.itemid'.
 			' WHERE ia.itemid is NULL '.
@@ -393,13 +393,12 @@ include_once('include/page_header.php');
 				' AND h.hostid=i.hostid '.
 				($_REQUEST['show_without_data'] ? '' : ' AND i.lastvalue IS NOT NULL').
 				' AND (i.status='.ITEM_STATUS_ACTIVE.' OR i.status='.ITEM_STATUS_NOTSUPPORTED.')'.
-				' AND '.DBcondition('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)).
 				' AND '.DBcondition('h.hostid', $db_hostids).
-			' ORDER BY i.name,i.itemid';
+			' ORDER BY i.description,i.itemid';
 	$db_items = DBselect($sql);
 	while ($db_item = DBfetch($db_items)) {
 
-		$description = itemName($db_item);
+		$description = item_description($db_item);
 
 		if (!empty($_REQUEST['select']) && !zbx_stristr($description, $_REQUEST['select'])) continue;
 
@@ -457,7 +456,7 @@ include_once('include/page_header.php');
 		array_push($app_rows, new CRow(array(
 			SPACE,
 			is_show_all_nodes() ? ($db_host['item_cnt'] ? SPACE : get_node_name_by_elid($db_item['itemid'])) : null,
-			$_REQUEST['hostid'] ? NULL : ($db_host['item_cnt'] ? SPACE : $db_item['hostname']),
+			$_REQUEST['hostid'] ? NULL : ($db_host['item_cnt'] ? SPACE : $db_item['host']),
 			new CCol(SPACE.SPACE.$description, $item_status),
 			new CCol($lastclock, $item_status),
 			new CCol($lastvalue, $item_status),
@@ -509,7 +508,7 @@ include_once('include/page_header.php');
 		$table->addRow(array(
 			$link,
 			get_node_name_by_elid($db_host['hostid']),
-			($_REQUEST['hostid'] > 0)?NULL:$db_host['name'],
+			($_REQUEST['hostid'] > 0)?NULL:$db_host['host'],
 			$col
 		));
 

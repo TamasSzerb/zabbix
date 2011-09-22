@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -23,7 +23,6 @@
 #include "common.h"
 #include "db.h"
 #include "dbcache.h"
-#include "zbxjson.h"
 
 #define MACRO_TYPE_TRIGGER_DESCRIPTION	0x0001
 #define MACRO_TYPE_MESSAGE_SUBJECT	0x0002
@@ -32,25 +31,19 @@
 #define MACRO_TYPE_TRIGGER_EXPRESSION	0x0008
 #define MACRO_TYPE_TRIGGER_URL		0x0010
 #define MACRO_TYPE_ITEM_KEY		0x0020
-#define MACRO_TYPE_INTERFACE_ADDR	0x0040
-#define MACRO_TYPE_INTERFACE_PORT	0x0080
-#define MACRO_TYPE_FUNCTION_PARAMETER	0x0100
-#define MACRO_TYPE_ITEM_FIELD		0x0200
-#define MACRO_TYPE_SCRIPT		0x0400
-#define MACRO_TYPE_ITEM_EXPRESSION	0x0800
-
-#define STR_CONTAINS_MACROS(str)	(NULL != strchr(str, '{'))
+#define MACRO_TYPE_HOST_IPMI_IP		0x0040
+#define MACRO_TYPE_FUNCTION_PARAMETER	0x0080
+#define MACRO_TYPE_ITEM_FIELD		0x0100
+#define MACRO_TYPE_SCRIPT		0x0200
+#define MACRO_TYPE_ITEM_EXPRESSION	0x0400
 
 int	evaluate_function(char *value, DB_ITEM *item, const char *function, const char *parameters, time_t now);
 
-int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_host,
-		DB_ESCALATION *escalation, char **data, int macro_type, char *error, int maxerrlen);
+int	substitute_simple_macros(DB_EVENT *event, DB_ITEM *item, DC_HOST *host,
+		DC_ITEM *dc_item, DB_ESCALATION *escalation, char **data, int macro_type,
+		char *error, int maxerrlen);
 
-void	evaluate_expressions(zbx_vector_ptr_t *triggers);
+void	evaluate_expressions(DB_TRIGGER_UPDATE *tr, int tr_num);
 int	evaluate(double *value, char *exp, char *error, int maxerrlen);
-void	substitute_discovery_macros(char **data, struct zbx_json_parse *jp_row);
-
-void	zbx_format_value(char *value, size_t max_len, zbx_uint64_t valuemapid,
-		const char *units, unsigned char value_type);
 
 #endif

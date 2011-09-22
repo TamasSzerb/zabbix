@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 #include "threads.h"
 #include "comms.h"
 #include "log.h"
+#include "zlog.h"
 
 extern char	*CONFIG_SOURCE_IP;
 extern char	*CONFIG_FPING_LOCATION;
@@ -98,7 +99,7 @@ static int	process_ping(ZBX_FPING_HOST *hosts, int hosts_count, int count, int i
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() hosts_count:%d", __function_name, hosts_count);
 
-	if (-1 == access(CONFIG_FPING_LOCATION, X_OK))
+	if (-1 == access(CONFIG_FPING_LOCATION, F_OK | X_OK))
 	{
 #if !defined(HAVE_IPV6)
 		zbx_snprintf(error, max_error_len, "%s: %s", CONFIG_FPING_LOCATION, zbx_strerror(errno));
@@ -123,7 +124,7 @@ static int	process_ping(ZBX_FPING_HOST *hosts, int hosts_count, int count, int i
 	}
 
 #ifdef HAVE_IPV6
-	if (-1 == access(CONFIG_FPING6_LOCATION, X_OK))
+	if (-1 == access(CONFIG_FPING6_LOCATION, F_OK | X_OK))
 	{
 		if (0 == (fping_existence & FPING_EXISTS))
 		{
@@ -351,7 +352,10 @@ int	do_ping(ZBX_FPING_HOST *hosts, int hosts_count, int count, int interval, int
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() hosts_count:%d", __function_name, hosts_count);
 
 	if (NOTSUPPORTED == (res = process_ping(hosts, hosts_count, count, interval, size, timeout, error, max_error_len)))
+	{
 		zabbix_log(LOG_LEVEL_ERR, "%s", error);
+		zabbix_syslog("%s", error);
+	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(res));
 

@@ -52,13 +52,11 @@ static ZBX_MUTEX	sm_lock;
 
 extern char	*CONFIG_FILE;
 extern int	CONFIG_POLLER_FORKS;
-extern int	CONFIG_UNREACHABLE_POLLER_FORKS;
-extern int	CONFIG_IPMIPOLLER_FORKS;
 extern int	CONFIG_PINGER_FORKS;
-extern int	CONFIG_JAVAPOLLER_FORKS;
+extern int	CONFIG_IPMIPOLLER_FORKS;
+extern int	CONFIG_UNREACHABLE_POLLER_FORKS;
 extern int	CONFIG_HTTPPOLLER_FORKS;
 extern int	CONFIG_TRAPPER_FORKS;
-extern int	CONFIG_SNMPTRAPPER_FORKS;
 extern int	CONFIG_PROXYPOLLER_FORKS;
 extern int	CONFIG_ESCALATOR_FORKS;
 extern int	CONFIG_HISTSYNCER_FORKS;
@@ -98,14 +96,10 @@ int	get_process_type_forks(unsigned char process_type)
 			return CONFIG_IPMIPOLLER_FORKS;
 		case ZBX_PROCESS_TYPE_PINGER:
 			return CONFIG_PINGER_FORKS;
-		case ZBX_PROCESS_TYPE_JAVAPOLLER:
-			return CONFIG_JAVAPOLLER_FORKS;
 		case ZBX_PROCESS_TYPE_HTTPPOLLER:
 			return CONFIG_HTTPPOLLER_FORKS;
 		case ZBX_PROCESS_TYPE_TRAPPER:
 			return CONFIG_TRAPPER_FORKS;
-		case ZBX_PROCESS_TYPE_SNMPTRAPPER:
-			return CONFIG_SNMPTRAPPER_FORKS;
 		case ZBX_PROCESS_TYPE_PROXYPOLLER:
 			return CONFIG_PROXYPOLLER_FORKS;
 		case ZBX_PROCESS_TYPE_ESCALATOR:
@@ -163,14 +157,10 @@ const char	*get_process_type_string(unsigned char process_type)
 			return "ipmi poller";
 		case ZBX_PROCESS_TYPE_PINGER:
 			return "icmp pinger";
-		case ZBX_PROCESS_TYPE_JAVAPOLLER:
-			return "java poller";
 		case ZBX_PROCESS_TYPE_HTTPPOLLER:
 			return "http poller";
 		case ZBX_PROCESS_TYPE_TRAPPER:
 			return "trapper";
-		case ZBX_PROCESS_TYPE_SNMPTRAPPER:
-			return "snmp trapper";
 		case ZBX_PROCESS_TYPE_PROXYPOLLER:
 			return "proxy poller";
 		case ZBX_PROCESS_TYPE_ESCALATOR:

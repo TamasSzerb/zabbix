@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,20 +19,20 @@
 **/
 ?>
 <?php
-class CJSscript extends CObject {
-	public function __construct($item = null) {
+class CJSscript extends CObject{
+	public function __construct($item=NULL){
 		$this->items = array();
 		$this->addItem($item);
 	}
 
-	public function addItem($value) {
-		if (is_array($value)) {
-			foreach ($value as $item) {
-				array_push($this->items, unpack_object($item));
+	public function addItem($value){
+		if(is_array($value)){
+			foreach($value as $item){
+				array_push($this->items,unpack_object($item));
 			}
 		}
-		elseif (!is_null($value)) {
-			array_push($this->items, unpack_object($value));
+		else if(!is_null($value)){
+			array_push($this->items,unpack_object($value));
 		}
 	}
 }

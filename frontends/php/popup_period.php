@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@
 
 	define('ZBX_PAGE_NO_MENU', 1);
 
-require_once 'include/page_header.php';
+include_once 'include/page_header.php';
 
 ?>
 <?php
@@ -60,7 +60,7 @@ require_once 'include/page_header.php';
 
 	$_REQUEST['report_timesince'] = zbxDateToTime(get_request('report_timesince',date('YmdHis', time()-86400)));
 	$_REQUEST['report_timetill'] = zbxDateToTime(get_request('report_timetill',date('YmdHis')));
-
+	
 	$_REQUEST['caption'] = get_request('caption','');
 	if(zbx_empty($_REQUEST['caption']) && isset($_REQUEST['report_timesince']) && isset($_REQUEST['report_timetill'])){
 		$_REQUEST['caption'] = zbx_date2str(S_POPUP_PERIOD_CAPTION_DATE_FORMAT,  $_REQUEST['report_timesince']).' - '.
@@ -183,7 +183,7 @@ require_once 'include/page_header.php';
 			$frmPd->addVar('color',$color);
 
 
-		$frmPd->addItemToBottomRow(new CSubmit('save', isset($_REQUEST['period_id'])?S_UPDATE:S_ADD));
+		$frmPd->addItemToBottomRow(new CButton('save', isset($_REQUEST['period_id'])?S_UPDATE:S_ADD));
 
 		$frmPd->addItemToBottomRow(new CButtonCancel(null,'close_window();'));
 		$frmPd->Show();
@@ -191,6 +191,6 @@ require_once 'include/page_header.php';
 ?>
 <?php
 
-require_once 'include/page_footer.php';
+include_once 'include/page_footer.php';
 
 ?>

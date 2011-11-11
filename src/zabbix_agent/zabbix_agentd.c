@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -46,7 +46,7 @@ const char	*progname = NULL;
 #ifdef _WINDOWS
 	static char	DEFAULT_CONFIG_FILE[]	= "C:\\zabbix_agentd.conf";
 #else
-	static char	DEFAULT_CONFIG_FILE[]	= SYSCONFDIR "/zabbix_agentd.conf";
+	static char	DEFAULT_CONFIG_FILE[]	= "/etc/zabbix/zabbix_agentd.conf";
 #endif
 
 /* application TITLE */
@@ -559,6 +559,10 @@ void	zbx_on_exit()
 
 		zbx_free(threads);
 	}
+
+#ifdef USE_PID_FILE
+	daemon_stop();
+#endif
 
 #if !defined(_WINDOWS)
 	zbx_sleep(2);	/* wait for all processes to exit */

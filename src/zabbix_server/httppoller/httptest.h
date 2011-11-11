@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -23,8 +23,8 @@
 typedef struct
 {
 	char	*data;
-	size_t	allocated;
-	size_t	offset;
+	int	allocated;
+	int	offset;
 }
 ZBX_HTTPPAGE;
 

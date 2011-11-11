@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,13 +19,17 @@
 **/
 ?>
 <?php
-class CTableInfo extends CTable {
-	public function __construct($message = '...', $class = 'tableinfo') {
-		parent::__construct($message, $class);
+class CTableInfo extends CTable{
+
+	public function __construct($message='...',$class='tableinfo'){
+		parent::__construct($message,$class);
+
 		$this->setOddRowClass('odd_row');
 		$this->setEvenRowClass('even_row');
+
 		$this->attributes['cellpadding'] = 3;
 		$this->attributes['cellspacing'] = 1;
+
 		$this->headerClass = 'header';
 		$this->footerClass = 'footer';
 	}

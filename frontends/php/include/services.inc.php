@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2007 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 	function add_service($name, $triggerid, $algorithm, $showsla, $goodsla, $sortorder, $service_times = array(), $parentid,$childs) {
 		foreach ($childs as $id => $child) {
 			if (bccomp($parentid , $child['serviceid']) == 0) {
-				error(_('Service cannot be parent and child at the same time.'));
+				error(S_SERVICE_CANNOT_BE_PARENT_AND_CHILD_AT_THE_SAME_TIME);
 				return false;
 			}
 		}
@@ -32,13 +32,6 @@
 		}
 
 		$serviceid = get_dbid('services', 'serviceid');
-
-		$result = DBexecute('INSERT INTO services (serviceid,name,status,triggerid,algorithm,showsla,goodsla,sortorder)'.
-							' VALUES ('.$serviceid.','.zbx_dbstr($name).',0,'.$triggerid.','.zbx_dbstr($algorithm).
-								','.$showsla.','.zbx_dbstr($goodsla).','.$sortorder.')');
-		if (!$result) {
-			return false;
-		}
 
 		// removes all links with current serviceid
 		remove_service_links($serviceid);
@@ -54,6 +47,13 @@
 			$result = add_service_link($child['serviceid'], $serviceid, $child['soft']);
 		}
 
+		if (!$result) {
+			return false;
+		}
+
+		$result = DBexecute('INSERT INTO services (serviceid,name,status,triggerid,algorithm,showsla,goodsla,sortorder)'.
+							' VALUES ('.$serviceid.','.zbx_dbstr($name).',0,'.$triggerid.','.zbx_dbstr($algorithm).
+								','.$showsla.','.zbx_dbstr($goodsla).','.$sortorder.')');
 		if (!$result) {
 			return false;
 		}
@@ -78,7 +78,7 @@
 	function update_service($serviceid, $name, $triggerid, $algorithm, $showsla, $goodsla, $sortorder, $service_times = array(), $parentid, $childs) {
 		foreach ($childs as $id => $child) {
 			if (bccomp($parentid, $child['serviceid']) == 0) {
-				error(_('Service cannot be parent and child at the same time.'));
+				error(S_SERVICE_CANNOT_BE_PARENT_AND_CHILD_AT_THE_SAME_TIME);
 				return false;
 			}
 		}
@@ -263,12 +263,12 @@
 
 	function add_service_link($servicedownid, $serviceupid, $softlink) {
 		if ($softlink == 0 && is_service_hardlinked($servicedownid) == true) {
-			error(_('Cannot link hardlinked service.'));
+			error(S_CANNOT_LINK_HARDLINKED_SERVICE);
 			return false;
 		}
 
 		if (bccomp($servicedownid, $serviceupid) == 0) {
-			error(_('Cannot link service to itself.'));
+			error(S_CANNOT_LINK_SERVICE_TO_ITSELF);
 			return false;
 		}
 
@@ -288,9 +288,9 @@
 	}
 
 	function get_last_service_value($serviceid, $clock) {
-		$row = DBfetch(DBselect('SELECT COUNT(*) as cnt,MAX(sa.clock) AS maxx FROM service_alarms sa WHERE sa.serviceid='.$serviceid.' AND sa.clock<='.$clock));
+		$row = DBfetch(DBselect('SELECT COUNT(*) as cnt,MAX(sa.clock) as maxx FROM service_alarms sa WHERE sa.serviceid='.$serviceid.' and sa.clock<='.$clock));
 		if ($row && $row['cnt'] > 0) {
-			$result2 = DBselect('SELECT sa.value FROM service_alarms sa WHERE sa.serviceid='.$serviceid.' AND sa.clock='.$row['maxx']);
+			$result2 = DBselect('SELECT sa.value FROM service_alarms sa WHERE sa.serviceid='.$serviceid.' and sa.clock='.$row['maxx']);
 
 			// assuring that we get very latest service value. There could be several with the same timestamp
 			while ($row2 = DBfetch($result2)) {
@@ -497,7 +497,7 @@
 	function get_service_by_serviceid($serviceid) {
 		$row = DBfetch(DBselect('SELECT s.* FROM services s WHERE s.serviceid='.$serviceid));
 		if (!$row) {
-			error(_('No service with').' serviceid=['.$serviceid.']');
+			error(S_NO_SERVICE_WITH.' serviceid=['.$serviceid.']');
 			return false;
 		}
 		return $row;
@@ -506,7 +506,7 @@
 	function get_services_links_by_linkid($linkid) {
 		$row = DBfetch(DBselect('SELECT sl.* FROM services_links sl WHERE sl.linkid='.$linkid));
 		if (!$row) {
-			error(_('No service linkage with').' linkid=['.$linkid.']');
+			error(S_NO_SERVICE_LINKAGE_WITH.' linkid=['.$linkid.']');
 			return false;
 		}
 		return $row;
@@ -514,15 +514,15 @@
 
 	function algorithm2str($algorithm) {
 		if ($algorithm == SERVICE_ALGORITHM_NONE) {
-			return _('Do not calculate');
+			return S_DO_NOT_CALCULATE;
 		}
 		elseif ($algorithm == SERVICE_ALGORITHM_MAX) {
-			return _('Problem, if at least one child has a problem');
+			return S_PROBLEM_IF_AT_LEAST_ONE;
 		}
 		elseif ($algorithm == SERVICE_ALGORITHM_MIN) {
-			return _('Problem, if all children have problems');
+			return S_PROBLEM_IF_ALL;
 		}
-		return _('Unknown');
+		return S_UNKNOWN;
 	}
 
 	function get_service_childs($serviceid, $soft = 0) {
@@ -630,7 +630,8 @@
 		$result = DBselect('SELECT l.serviceupid,s.algorithm'.
 							' FROM services_links l,services s'.
 							' WHERE s.serviceid=l.serviceupid'.
-								' AND l.servicedownid='.$serviceid);
+								' AND l.servicedownid='.$serviceid
+							);
 		while ($row = DBfetch($result)) {
 			$serviceupid = $row['serviceupid'];
 			$algorithm = $row['algorithm'];
@@ -641,7 +642,7 @@
 				DBexecute('UPDATE services SET status='.$status.' WHERE serviceid='.$serviceupid);
 			}
 			elseif ($algorithm != SERVICE_ALGORITHM_NONE) {
-				error(_('Unknown calculation algorithm of service status').SPACE.'['.$algorithm.']');
+				error(S_UNKNOWN_CALC_ALGORITHM_OF_SERVICE_STATUS.SPACE.'['.$algorithm.']');
 				return false;
 			}
 		}

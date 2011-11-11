@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ $page['file']	= 'chart7.php';
 // $page['title']	= "S_CHART";
 $page['type']	= PAGE_TYPE_IMAGE;
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 
 ?>
 <?php
@@ -58,7 +58,7 @@ require_once('include/page_header.php');
 		'nodeids' => get_current_nodeid(true)
 	);
 
-	$db_data = API::Item()->get($options);
+	$db_data = CItem::get($options);
 	$db_data = zbx_toHash($db_data, 'itemid');
 	foreach($items as $id => $gitem){
 		if(!isset($db_data[$gitem['itemid']])) access_deny();
@@ -101,6 +101,6 @@ require_once('include/page_header.php');
 ?>
 <?php
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 
 ?>

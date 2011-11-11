@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 #include "cfg.h"
 #include "db.h"
 #include "log.h"
+#include "zlog.h"
 #include "daemon.h"
 #include "zbxmedia.h"
 #include "zbxserver.h"
@@ -111,6 +112,7 @@ int	execute_action(DB_ALERT *alert, DB_MEDIATYPE *mediatype, char *error, int ma
 	{
 		zbx_snprintf(error, max_error_len, "unsupported media type [%d]", mediatype->type);
 		zabbix_log(LOG_LEVEL_ERR, "alert ID [" ZBX_FS_UI64 "]: %s", alert->alertid, error);
+		zabbix_syslog("alert ID [" ZBX_FS_UI64 "]: %s", alert->alertid, error);
 	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(res));
@@ -156,7 +158,7 @@ void	main_alerter_loop()
 		while (NULL != (row = DBfetch(result)))
 		{
 			ZBX_STR2UINT64(alert.alertid, row[0]);
-			ZBX_STR2UINT64(alert.mediatypeid, row[1]);
+			alert.mediatypeid = atoi(row[1]);
 			alert.sendto = row[2];
 			alert.subject = row[3];
 			alert.message = row[4];
@@ -187,7 +189,10 @@ void	main_alerter_loop()
 			}
 			else
 			{
-				zabbix_log(LOG_LEVEL_DEBUG, "Error sending alert ID [" ZBX_FS_UI64 "]", alert.alertid);
+				zabbix_log(LOG_LEVEL_DEBUG, "Error sending alert ID [" ZBX_FS_UI64 "]",
+						alert.alertid);
+				zabbix_syslog("Error sending alert ID [" ZBX_FS_UI64 "]",
+						alert.alertid);
 
 				error_esc = DBdyn_escape_string_len(error, ALERT_ERROR_LEN);
 

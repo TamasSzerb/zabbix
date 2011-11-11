@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -83,8 +83,7 @@ retry:
 
 static void	collect_args(char **argv, int argc, char **args, size_t *args_alloc)
 {
-	int	i;
-	size_t	args_offset = 0;
+	int	i, args_offset, len;
 
 	if (0 == *args_alloc)
 	{
@@ -92,8 +91,12 @@ static void	collect_args(char **argv, int argc, char **args, size_t *args_alloc)
 		*args = zbx_malloc(*args, *args_alloc);
 	}
 
+	args_offset = 0;
 	for (i = 0; i < argc; i++)
-		zbx_snprintf_alloc(args, args_alloc, &args_offset, "%s ", argv[i]);
+	{
+		len = (int)(strlen(argv[i]) + 2/* ' '+'\0' */);
+		zbx_snprintf_alloc(args, (int *)args_alloc, &args_offset, len, "%s ", argv[i]);
+	}
 
 	if (0 != args_offset)
 		args_offset--; /* ' ' */

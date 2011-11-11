@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ $page['type'] = detect_page_type(PAGE_TYPE_HTML);
 
 define('ZBX_PAGE_DO_REFRESH', 1);
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
@@ -100,7 +100,7 @@ require_once('include/page_header.php');
 	}
 
 	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		require_once('include/page_footer.php');
+		include_once('include/page_footer.php');
 		exit();
 	}
 ?>
@@ -119,16 +119,16 @@ require_once('include/page_header.php');
 
 // resets get params for proper page refresh
 	if(isset($_REQUEST['period']) || isset($_REQUEST['stime'])){
-		navigation_bar_calc('web.graph',$_REQUEST['graphid'], true);
+		navigation_bar_calc('web.graph', $_REQUEST['graphid'], true);
 		jsRedirect('charts.php?graphid=' . $_REQUEST['graphid']);
-		require_once('include/page_footer.php');
+		include_once('include/page_footer.php');
 		exit();
 	}
 //--
 
 	$effectiveperiod = navigation_bar_calc('web.graph',$_REQUEST['graphid']);
 
-	$r_form = new CForm('get');
+	$r_form = new CForm(null, 'get');
 	$r_form->addVar('fullscreen', $_REQUEST['fullscreen']);
 
 	$r_form->addItem(array(S_GROUP.SPACE, $pageFilter->getGroupsCB(true)));
@@ -217,6 +217,6 @@ require_once('include/page_header.php');
 ?>
 <?php
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 
 ?>

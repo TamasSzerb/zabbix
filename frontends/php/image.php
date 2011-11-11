@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@
 	$page['title']	= 'S_IMAGE';
 	$page['type']	= PAGE_TYPE_IMAGE;
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 
 ?>
 <?php
@@ -50,7 +50,7 @@ require_once('include/page_header.php');
 
 	if(!($row = get_image_by_imageid($_REQUEST['imageid']))){
 		error('Incorrect image index');
-		require_once('include/page_footer.php');
+		include_once('include/page_footer.php');
 	}
 
 	$source = imagecreatefromstring($row['image']);
@@ -105,6 +105,6 @@ require_once('include/page_header.php');
 ?>
 <?php
 
-require_once "include/page_footer.php";
+include_once "include/page_footer.php";
 
 ?>

@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,32 +19,37 @@
 **/
 ?>
 <?php
-class CComboItem extends CTag {
-	public function __construct($value, $caption = null, $selected = null, $enabled = null) {
+class CComboItem extends CTag{
+	public function __construct($value, $caption=NULL, $selected=NULL, $enabled=NULL){
 		parent::__construct('option', 'yes');
 		$this->tag_body_start = '';
 		$this->attributes['value'] = $value;
+		$this->attributes['title'] = $caption;
+
 		$this->addItem($caption);
+
 		$this->setSelected($selected);
 		$this->setEnabled($enabled);
+
 	}
 
-	public function setValue($value) {
+	public function setValue($value){
 		return $this->attributes['value'] = $value;
 	}
 
-	public function getValue() {
+	public function getValue(){
 		return $this->getAttribute('value');
 	}
 
-	public function setCaption($value = null) {
+	public function setCaption($value=NULL){
 		$this->addItem(nbsp($value));
 	}
 
-	public function setSelected($value = 'yes') {
-		if ((is_string($value) && ($value == 'yes' || $value == 'selected' || $value=='on')) || (is_int($value) && $value <> 0)) {
+	public function setSelected($value='yes'){
+		if((is_string($value) && ($value == 'yes' || $value == 'selected' || $value=='on')) || (is_int($value) && $value<>0)){
 			return $this->attributes['selected'] = 'selected';
 		}
+
 		$this->removeAttribute('selected');
 	}
 }

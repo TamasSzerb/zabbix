@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 	// $page['title']	= "S_CHART";
 	$page['type']	= PAGE_TYPE_IMAGE;
 
-require_once 'include/page_header.php';
+include_once 'include/page_header.php';
 
 ?>
 <?php
@@ -51,7 +51,7 @@ require_once 'include/page_header.php';
 			'nodeids' => get_current_nodeid(true)
 		);
 
-		$db_data = API::Trigger()->get($options);
+		$db_data = CTrigger::get($options);
 		if(empty($db_data)) access_deny();
 	}
 ?>
@@ -100,6 +100,6 @@ require_once 'include/page_header.php';
 	ImageOut($im);
 	imagedestroy($im);
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 
 ?>

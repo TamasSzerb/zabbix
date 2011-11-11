@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,10 +19,6 @@
 
 #include "common.h"
 #include "sysinfo.h"
-
-#if !defined(HAVE_SYS_PROCFS_H)
-#	include "../common/common.h"
-#endif
 
 #define DO_SUM 0
 #define DO_MAX 1

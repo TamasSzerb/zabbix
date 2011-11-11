@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ $page['file']	= 'chart4.php';
 // $page['title']	= "S_CHART";
 $page['type']	= PAGE_TYPE_IMAGE;
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 
 ?>
 <?php
@@ -38,7 +38,7 @@ require_once('include/page_header.php');
 	check_fields($fields);
 ?>
 <?php
-	if(!isset($_REQUEST['triggerid'])) fatal_error(S_NO_TRIGGERS_DEFINED);
+	if(!isset($_REQUEST['triggerid'])) fatal_error(S_NO_TRIGGER_DEFINED);
 
 	$options = array(
 		'triggerids' => $_REQUEST['triggerid'],
@@ -46,11 +46,11 @@ require_once('include/page_header.php');
 		'nodeids' => get_current_nodeid(true)
 	);
 
-	$db_data = API::Trigger()->get($options);
+	$db_data = CTrigger::get($options);
 	if(empty($db_data)) access_deny();
 	else $db_data = reset($db_data);
 
-	$start_time = microtime(true);
+	$start_time = time(NULL);
 
 	$sizeX		= 900;
 	$sizeY		= 300;
@@ -83,8 +83,7 @@ require_once('include/page_header.php');
 
 	$str = expand_trigger_description_by_data($db_data);
 
-	$d = zbx_date2str('Y');
-	$str = _s('%1$s (year %2$s)', $str, $d);
+	$str = S_CHART4_HEADER_TITLE_PART1.' '.$str.' '.S_CHART4_HEADER_TITLE_PART2.' '.zbx_date2str(S_CHART4_HEADER_DATE_FORMAT).' '.S_CHART4_HEADER_TITLE_PART3;
 	$x = imagesx($im)/2-imagefontwidth(4)*zbx_strlen($str)/2;
 	//imagestring($im, 4,$x,1, $str , $darkred);
 	imageText($im, 10, 0, $x, 14, $darkred, $str);
@@ -174,18 +173,14 @@ require_once('include/page_header.php');
 
 	imagestringup($im,0,imagesx($im)-10,imagesy($im)-50, 'http://www.zabbix.com', $gray);
 
-
-	$str = sprintf('%0.2f', microtime(true) - $start_time);
-	$str = _s('Generated in %s sec', $str);
-	$strSize = imageTextSize(6, 0, $str);
-	imageText($im, 6, 0, imagesx($im) - $strSize['width'] - 5, imagesy($im) - 5, $gray, $str);
-
+	$end_time=time(NULL);
+	imagestring($im, 0,imagesx($im)-100,imagesy($im)-12,'Generated in '.($end_time-$start_time).' sec', $gray);
 
 	ImageOut($im);
 	imagedestroy($im);
 ?>
 <?php
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 
 ?>

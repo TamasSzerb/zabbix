@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -58,7 +58,7 @@ void	child_signal_handler(int sig)
 	exit(FAIL);
 }
 
-static char	DEFAULT_CONFIG_FILE[] = SYSCONFDIR "/zabbix_agent.conf";
+static char	DEFAULT_CONFIG_FILE[] = "/etc/zabbix/zabbix_agent.conf";
 
 /******************************************************************************
  *                                                                            *

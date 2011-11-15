@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -194,7 +194,7 @@ static void	free_perf_counter_list()
  *           interval must be less than or equal to counter->interval         *
  *                                                                            *
  ******************************************************************************/
-double	compute_average_value(PERF_COUNTER_DATA *counter, int interval)
+double	compute_average_value(const char *function, PERF_COUNTER_DATA *counter, int interval)
 {
 	double	sum = 0;
 	int	i, j, count;

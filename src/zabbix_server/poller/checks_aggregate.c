@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -72,14 +72,14 @@ static void	aggregate_get_items(zbx_uint64_t **ids, int *ids_alloc, int *ids_num
 	DB_ROW		row;
 	zbx_uint64_t	itemid;
 	char		*sql = NULL;
-	size_t		sql_alloc = ZBX_KIBIBYTE, sql_offset = 0;
+	int		sql_alloc = 1024, sql_offset = 0;
 	int		num, n;
 
 	sql = zbx_malloc(sql, sql_alloc);
 
 	esc = DBdyn_escape_string(itemkey);
 
-	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset,
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 192 + strlen(esc),
 			"select i.itemid"
 			" from items i,hosts_groups hg,hosts h,groups g"
 			" where hg.groupid=g.groupid"
@@ -96,7 +96,8 @@ static void	aggregate_get_items(zbx_uint64_t **ids, int *ids_alloc, int *ids_num
 
 	num = num_param(groups);
 
-	zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset, " and g.name in (");
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 32,
+			" and g.name in (");
 
 	for (n = 1; n <= num; n++)
 	{
@@ -105,16 +106,18 @@ static void	aggregate_get_items(zbx_uint64_t **ids, int *ids_alloc, int *ids_num
 
 		esc = DBdyn_escape_string(group);
 
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "'%s'", esc);
-
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 3 + strlen(esc),
+				"'%s'", esc);
+		
 		if (n != num)
-			zbx_chrcpy_alloc(&sql, &sql_alloc, &sql_offset, ',');
+			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 2, ",");
 
 		zbx_free(esc);
 		zbx_free(group);
 	}
 
-	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, ")" DB_NODE, DBnode_local("h.hostid"));
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 128,
+			")" DB_NODE, DBnode_local("h.hostid"));
 
 	result = DBselect("%s", sql);
 
@@ -138,7 +141,7 @@ static int	evaluate_aggregate(AGENT_RESULT *res, char *grpfunc,
 {
 	const char	*__function_name = "evaluate_aggregate";
 	char		*sql = NULL;
-	size_t		sql_alloc = 1024, sql_offset = 0;
+	int		sql_alloc = 1024, sql_offset = 0;
 	zbx_uint64_t	itemid, *ids = NULL;
 	int		ids_alloc = 0, ids_num = 0;
 
@@ -198,7 +201,7 @@ static int	evaluate_aggregate(AGENT_RESULT *res, char *grpfunc,
 
 	if (ZBX_DB_GET_HIST_VALUE == item_func)
 	{
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset,
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 256,
 				"select value_type,lastvalue"
 				" from items"
 				" where lastvalue is not null"
@@ -224,7 +227,7 @@ static int	evaluate_aggregate(AGENT_RESULT *res, char *grpfunc,
 
 		clock_from = time(NULL) - atoi(param);
 
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset,
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 256,
 				"select itemid,value_type"
 				" from items"
 				" where value_type in (%d,%d)"
@@ -239,7 +242,7 @@ static int	evaluate_aggregate(AGENT_RESULT *res, char *grpfunc,
 			ZBX_STR2UINT64(itemid, row[0]);
 			value_type = (unsigned char)atoi(row[1]);
 
-			h_value = DBget_history(itemid, value_type, item_func, clock_from, 0, NULL, NULL, 0);
+			h_value = DBget_history(itemid, value_type, item_func, clock_from, 0, NULL, 0);
 
 			if (NULL != h_value[0])
 				evaluate_one(&d, &num, grp_func, h_value[0], value_type);

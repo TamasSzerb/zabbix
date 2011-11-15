@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,21 +19,23 @@
 **/
 ?>
 <?php
-class CButtonCancel extends CButton {
-	public function __construct($vars = null, $action = null, $class = null) {
-		parent::__construct('cancel', _('Cancel'), $action, $class);
-		if (is_null($action)) {
-			$this->setVars($vars);
-		}
+class CButtonCancel extends CButton{
+	public function __construct($vars=NULL,$action=NULL){
+		parent::__construct('cancel',S_CANCEL);
+		$this->attributes['type'] = 'button';
+		$this->setVars($vars);
+		if(!is_null($action))
+			$this->setAttribute('onclick', $action);
 	}
+	public function setVars($value=NULL){
+		global $page;
 
-	public function setVars($value = null) {
 		$url = '?cancel=1';
-		if (!is_null($value)) {
-			$url .= $value;
-		}
+		if(!is_null($value)) $url.= $value;
+
 		$uri = new Curl($url);
 		$url = $uri->getUrl();
+
 		return $this->setAttribute('onclick', "javascript: return redirect('".$url."');");
 	}
 }

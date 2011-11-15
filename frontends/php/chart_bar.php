@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 	// $page['title']	= "S_CHART";
 	$page['type']	= PAGE_TYPE_IMAGE;
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 
 ?>
 <?php
@@ -73,7 +73,7 @@ require_once('include/page_header.php');
 		$items = get_request('items',array());
 		$scaletype = get_request('scaletype',TIMEPERIOD_TYPE_WEEKLY);
 
-		$timesince = get_request('report_timesince', time() - SEC_PER_DAY);
+		$timesince = get_request('report_timesince',time()-86400);
 		$timetill = get_request('report_timetill',time());
 
 		$str_since['hour'] = date('H',$timesince);
@@ -94,7 +94,7 @@ require_once('include/page_header.php');
 
 		switch($scaletype){
 			case TIMEPERIOD_TYPE_HOURLY:
-				$scaleperiod = SEC_PER_HOUR;
+				$scaleperiod = 3600;
 				$str = $str_since['year'].'-'.$str_since['mon'].'-'.$str_since['day'].' '.$str_since['hour'].':00:00';
 				$timesince = strtotime($str);
 
@@ -103,7 +103,7 @@ require_once('include/page_header.php');
 
 				break;
 			case TIMEPERIOD_TYPE_DAILY:
-				$scaleperiod = SEC_PER_DAY;
+				$scaleperiod = 86400;
 				$str = $str_since['year'].'-'.$str_since['mon'].'-'.$str_since['day'].' 00:00:00';
 				$timesince = strtotime($str);
 
@@ -112,20 +112,20 @@ require_once('include/page_header.php');
 
 				break;
 			case TIMEPERIOD_TYPE_WEEKLY:
-				$scaleperiod = SEC_PER_WEEK;
+				$scaleperiod = 86400 * 7;
 				$str = $str_since['year'].'-'.$str_since['mon'].'-'.$str_since['day'].' 00:00:00';
 				$timesince = strtotime($str);
-				$timesince -= ($str_since['weekday'] - 1) * SEC_PER_DAY;
+				$timesince-= ($str_since['weekday']-1)*86400;
 
 				$str = $str_till['year'].'-'.$str_till['mon'].'-'.$str_till['day'].' 00:00:00';
 				$timetill = strtotime($str);
-				$timetill -= ($str_till['weekday'] - 1) * SEC_PER_DAY;
+				$timetill-= ($str_till['weekday']-1)*86400;
 
 				$timetill+= $scaleperiod;
 
 				break;
 			case TIMEPERIOD_TYPE_MONTHLY:
-				$scaleperiod = SEC_PER_MONTH;
+				$scaleperiod = 86400 * 30;
 				$str = $str_since['year'].'-'.$str_since['mon'].'-01 00:00:00';
 				$timesince = strtotime($str);
 
@@ -135,7 +135,7 @@ require_once('include/page_header.php');
 
 				break;
 			case TIMEPERIOD_TYPE_YEARLY:
-				$scaleperiod = SEC_PER_YEAR;
+				$scaleperiod = 86400 * 365;
 				$str = $str_since['year'].'-01-01 00:00:00';
 				$timesince = strtotime($str);
 
@@ -149,7 +149,7 @@ require_once('include/page_header.php');
 		$p = $timetill - $timesince;				// graph size in time
 		$z = $p - ($timesince % $p);				// graphsize - mod(from_time,p) for Oracle...
 		$x = round($p / $scaleperiod);				// graph size in px
-		$calc_field = 'round('.$x.'*'.zbx_sql_mod(zbx_dbcast_2bigint('clock').'+'.$z, $p).'/('.$p.'),0)';	// required for 'group by' support of Oracle
+		$calc_field = 'round('.$x.'*(mod('.zbx_dbcast_2bigint('clock').'+'.$z.','.$p.'))/('.$p.'),0)';  /* required for 'group by' support of Oracle */
 
 		$period_step = $scaleperiod;
 
@@ -436,7 +436,7 @@ require_once('include/page_header.php');
 		$graph_data['legend'] = array();
 
 
-		$timesince = get_request('report_timesince',time()-SEC_PER_DAY);
+		$timesince = get_request('report_timesince',time()-86400);
 		$timetill = get_request('report_timetill',time());
 
 //SDI(date('Y.m.d H:i:s',$timesince).' - '.date('Y.m.d H:i:s',$timetill));
@@ -458,7 +458,7 @@ require_once('include/page_header.php');
 
 		switch($scaletype){
 			case TIMEPERIOD_TYPE_HOURLY:
-				$scaleperiod = SEC_PER_HOUR;
+				$scaleperiod = 3600;
 				$str = $str_since['year'].'-'.$str_since['mon'].'-'.$str_since['day'].' '.$str_since['hour'].':00:00';
 				$timesince = strtotime($str);
 
@@ -467,7 +467,7 @@ require_once('include/page_header.php');
 
 				break;
 			case TIMEPERIOD_TYPE_DAILY:
-				$scaleperiod = SEC_PER_DAY;
+				$scaleperiod = 86400;
 				$str = $str_since['year'].'-'.$str_since['mon'].'-'.$str_since['day'].' 00:00:00';
 				$timesince = strtotime($str);
 
@@ -476,20 +476,20 @@ require_once('include/page_header.php');
 
 				break;
 			case TIMEPERIOD_TYPE_WEEKLY:
-				$scaleperiod = SEC_PER_WEEK;
+				$scaleperiod = 86400 * 7;
 				$str = $str_since['year'].'-'.$str_since['mon'].'-'.$str_since['day'].' 00:00:00';
 				$timesince = strtotime($str);
-				$timesince -= ($str_since['weekday'] - 1) * SEC_PER_DAY;
+				$timesince-= ($str_since['weekday']-1)*86400;
 
 				$str = $str_till['year'].'-'.$str_till['mon'].'-'.$str_till['day'].' 00:00:00';
 				$timetill = strtotime($str);
-				$timetill -= ($str_till['weekday'] - 1) * SEC_PER_DAY;
+				$timetill-= ($str_till['weekday']-1)*86400;
 
 				$timetill+= $scaleperiod;
 
 				break;
 			case TIMEPERIOD_TYPE_MONTHLY:
-				$scaleperiod = SEC_PER_MONTH;
+				$scaleperiod = 86400 * 30;
 				$str = $str_since['year'].'-'.$str_since['mon'].'-01 00:00:00';
 				$timesince = strtotime($str);
 
@@ -499,7 +499,7 @@ require_once('include/page_header.php');
 
 				break;
 			case TIMEPERIOD_TYPE_YEARLY:
-				$scaleperiod = SEC_PER_YEAR;
+				$scaleperiod = 86400 * 365;
 				$str = $str_since['year'].'-01-01 00:00:00';
 				$timesince = strtotime($str);
 
@@ -515,19 +515,19 @@ require_once('include/page_header.php');
 
 		switch($avgperiod){
 			case TIMEPERIOD_TYPE_HOURLY:
-				$period = SEC_PER_HOUR;
+				$period = 3600;
 				break;
 			case TIMEPERIOD_TYPE_DAILY:
-				$period = SEC_PER_DAY;
+				$period = 86400;
 				break;
 			case TIMEPERIOD_TYPE_WEEKLY:
-				$period = SEC_PER_WEEK;
+				$period = 86400 * 7;
 				break;
 			case TIMEPERIOD_TYPE_MONTHLY:
-				$period = SEC_PER_MONTH;
+				$period = 86400 * 30;
 				break;
 			case TIMEPERIOD_TYPE_YEARLY:
-				$period = SEC_PER_YEAR;
+				$period = 86400 * 365;
 				break;
 		}
 
@@ -573,7 +573,7 @@ require_once('include/page_header.php');
 				$p = $end - $start;						// graph size in time
 				$z = $p - ($start % $p);				// graphsize - mod(from_time,p) for Oracle...
 				$x = floor($scaleperiod / $period);		// graph size in px
-				$calc_field = 'round('.$x.'*'.zbx_sql_mod(zbx_dbcast_2bigint('clock').'+'.$z, $p).'/('.$p.'),0)';	// required for 'group by' support of Oracle
+				$calc_field = 'round('.$x.'*(mod('.zbx_dbcast_2bigint('clock').'+'.$z.','.$p.'))/('.$p.'),0)';  /* required for 'group by' support of Oracle */
 
 				$item_data = null;
 
@@ -655,5 +655,5 @@ require_once('include/page_header.php');
 	$graph->Draw();
 ?>
 <?php
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 ?>

@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -21,15 +21,12 @@
 
 static char	data_static[ZBX_MAX_B64_LEN];
 
-/******************************************************************************
- *                                                                            *
- * Purpose: get DATA from <tag>DATA</tag>                                     *
- *                                                                            *
- ******************************************************************************/
-int	xml_get_data_dyn(const char *xml, const char *tag, char **data)
+/* Get DATA from <tag>DATA</tag> */
+int xml_get_data_dyn(const char *xml, const char *tag, char **data)
 {
-	size_t	len, sz;
+	int	len;
 	char	*start, *end;
+	size_t	sz;
 
 	sz = sizeof(data_static);
 
@@ -47,7 +44,7 @@ int	xml_get_data_dyn(const char *xml, const char *tag, char **data)
 	start += len;
 	len = end - start;
 
-	if (len > sz - 1)
+	if (len > (int)sz - 1)
 		*data = zbx_malloc(*data, len + 1);
 	else
 		*data = data_static;

@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ require_once('include/users.inc.php');
 
 	$page['type'] = detect_page_type(PAGE_TYPE_HTML);
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
@@ -41,7 +41,7 @@ require_once('include/page_header.php');
 		'hostid'=>			array(T_ZBX_INT, O_OPT,	P_SYS|P_NZERO,	DB_ID,	NULL),
 // filter
 		'action'=>			array(T_ZBX_INT, O_OPT,	P_SYS,	BETWEEN(-1,6),	NULL),
-		'resourcetype'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	BETWEEN(-1,31),	NULL),
+		'resourcetype'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	BETWEEN(-1,30),	NULL),
 		'filter_rst'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	IN(array(0,1)),	NULL),
 		'filter_set'=>		array(T_ZBX_STR, O_OPT,	P_SYS,	null,	NULL),
 		'alias' =>			array(T_ZBX_STR, O_OPT,	P_SYS,	null,	NULL),
@@ -76,7 +76,7 @@ require_once('include/page_header.php');
 	}
 
 	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		require_once('include/page_footer.php');
+		include_once('include/page_footer.php');
 		exit();
 	}
 //--------
@@ -141,7 +141,7 @@ require_once('include/page_header.php');
 
 	$cmbAction = new CComboBox('action',$_REQUEST['action']);
 		$cmbAction->addItem(-1,S_ALL_S);
-		$cmbAction->addItem(AUDIT_ACTION_LOGIN,		_('Login'));
+		$cmbAction->addItem(AUDIT_ACTION_LOGIN,		S_LOGIN);
 		$cmbAction->addItem(AUDIT_ACTION_LOGOUT,	S_LOGOUT);
 		$cmbAction->addItem(AUDIT_ACTION_ADD,		S_ADD);
 		$cmbAction->addItem(AUDIT_ACTION_UPDATE,	S_UPDATE);
@@ -158,9 +158,11 @@ require_once('include/page_header.php');
 	$filterForm->addRow(S_RESOURCE, $cmbResource);
 
 
-	$reset = new CButton('filter_rst',S_RESET,'javascript: var uri = new Curl(location.href); uri.setArgument("filter_rst",1); location.href = uri.getUrl();');
+	$reset = new CButton('filter_rst',S_RESET);
+	$reset->setType('button');
+	$reset->setAction('javascript: var uri = new Curl(location.href); uri.setArgument("filter_rst",1); location.href = uri.getUrl();');
 
-	$filterForm->addItemToBottomRow(new CSubmit('filter_set',S_FILTER));
+	$filterForm->addItemToBottomRow(new CButton('filter_set',S_FILTER));
 	$filterForm->addItemToBottomRow($reset);
 
 	$audit_wdgt->addFlicker($filterForm, CProfile::get('web.auditlogs.filter.state',1));
@@ -229,7 +231,7 @@ require_once('include/page_header.php');
 			case AUDIT_ACTION_ADD:		$action = S_ADDED; break;
 			case AUDIT_ACTION_UPDATE:	$action = S_UPDATED; break;
 			case AUDIT_ACTION_DELETE:	$action = S_DELETED; break;
-			case AUDIT_ACTION_LOGIN:	$action = _('Login');	break;
+			case AUDIT_ACTION_LOGIN:	$action = S_LOGIN;	break;
 			case AUDIT_ACTION_LOGOUT:	$action = S_LOGOUT; break;
 			case AUDIT_ACTION_ENABLE:	$action = S_ENABLED; break;
 			case AUDIT_ACTION_DISABLE:	$action = S_DISABLED; break;
@@ -311,5 +313,5 @@ require_once('include/page_header.php');
 	zbx_add_post_js('timeControl.processObjects();');
 
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 ?>

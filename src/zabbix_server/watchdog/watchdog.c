@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@
 #include "db.h"
 #include "zbxdb.h"
 #include "log.h"
+#include "zlog.h"
 #include "daemon.h"
 #include "zbxself.h"
 #include "zbxalgo.h"
@@ -99,16 +100,16 @@ static void	sync_config()
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	result = DBselect_once(
-			"select mt.mediatypeid,mt.type,mt.description,mt.smtp_server,"
-				"mt.smtp_helo,mt.smtp_email,mt.exec_path,mt.gsm_modem,"
+	result = DBselect_once("select mt.mediatypeid,mt.type,mt.description,"
+				"mt.smtp_server,mt.smtp_helo,mt.smtp_email,"
+				"mt.exec_path,mt.gsm_modem,"
 				"mt.username,mt.passwd,m.sendto"
-			" from media m,users_groups u,config c,media_type mt"
-			" where m.userid=u.userid"
-				" and u.usrgrpid=c.alert_usrgrpid"
-				" and m.mediatypeid=mt.mediatypeid"
-				" and m.active=%d",
-			MEDIA_STATUS_ACTIVE);
+				" from media m,users_groups u,config c,media_type mt"
+				" where m.userid=u.userid"
+					" and u.usrgrpid=c.alert_usrgrpid"
+					" and m.mediatypeid=mt.mediatypeid"
+					" and m.active=%d",
+				MEDIA_STATUS_ACTIVE);
 
 	if (NULL == result || (DB_RESULT)ZBX_DB_DOWN == result)
 	{
@@ -205,6 +206,9 @@ void	main_watchdog_loop()
 	int	now, nextsync = 0;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In main_watchdog_loop()");
+
+	/* disable writing to database in zabbix_syslog() */
+	CONFIG_ENABLE_LOG = 0;
 
 	zbx_vector_ptr_create(&recipients);
 

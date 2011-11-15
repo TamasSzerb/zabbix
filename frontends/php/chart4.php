@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ $page['file']	= 'chart4.php';
 // $page['title']	= "S_CHART";
 $page['type']	= PAGE_TYPE_IMAGE;
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 
 ?>
 <?php
@@ -38,7 +38,7 @@ require_once('include/page_header.php');
 	check_fields($fields);
 ?>
 <?php
-	if(!isset($_REQUEST['triggerid'])) fatal_error(S_NO_TRIGGERS_DEFINED);
+	if(!isset($_REQUEST['triggerid'])) fatal_error(S_NO_TRIGGER_DEFINED);
 
 	$options = array(
 		'triggerids' => $_REQUEST['triggerid'],
@@ -46,11 +46,11 @@ require_once('include/page_header.php');
 		'nodeids' => get_current_nodeid(true)
 	);
 
-	$db_data = API::Trigger()->get($options);
+	$db_data = CTrigger::get($options);
 	if(empty($db_data)) access_deny();
 	else $db_data = reset($db_data);
 
-	$start_time = microtime(true);
+	$start_time = time(NULL);
 
 	$sizeX		= 900;
 	$sizeY		= 300;
@@ -83,8 +83,7 @@ require_once('include/page_header.php');
 
 	$str = expand_trigger_description_by_data($db_data);
 
-	$d = zbx_date2str('Y');
-	$str = _s('%1$s (year %2$s)', $str, $d);
+	$str = S_CHART4_HEADER_TITLE_PART1.' '.$str.' '.S_CHART4_HEADER_TITLE_PART2.' '.zbx_date2str(S_CHART4_HEADER_DATE_FORMAT).' '.S_CHART4_HEADER_TITLE_PART3;
 	$x = imagesx($im)/2-imagefontwidth(4)*zbx_strlen($str)/2;
 	//imagestring($im, 4,$x,1, $str , $darkred);
 	imageText($im, 10, 0, $x, 14, $darkred, $str);
@@ -100,13 +99,13 @@ require_once('include/page_header.php');
 
 	$wday=date('w',$start);
 	if($wday==0) $wday=7;
-	$start = $start - ($wday - 1) * SEC_PER_DAY;
+	$start=$start-($wday-1)*24*3600;
 
 	$weeks = (int)(date('z')/7 +1);
 
 	for($i=0;$i<$weeks;$i++){
-		$period_start = $start + SEC_PER_WEEK * $i;
-		$period_end = $start + SEC_PER_WEEK * ($i + 1);
+		$period_start=$start+7*24*3600*$i;
+		$period_end=$start+7*24*3600*($i+1);
 
 		$stat=calculate_availability($_REQUEST['triggerid'],$period_start,$period_end);
 		$true[$i]=$stat['true'];
@@ -126,7 +125,7 @@ require_once('include/page_header.php');
 		//imagestringup($im, 1,$i+$shiftX-4, $sizeY+$shiftYup+32, zbx_date2str(S_CHART4_TIMELINE_DATE_FORMAT,$period_start) , $black);
 		imageText($im, 6, 90, $i+$shiftX+4, $sizeY+$shiftYup+30, $black, zbx_date2str(S_CHART4_TIMELINE_DATE_FORMAT,$period_start));
 
-		$period_start += SEC_PER_WEEK;
+		$period_start += 7*24*3600;
 	}
 
 	$maxY = max(max($true), 100);
@@ -174,18 +173,14 @@ require_once('include/page_header.php');
 
 	imagestringup($im,0,imagesx($im)-10,imagesy($im)-50, 'http://www.zabbix.com', $gray);
 
-
-	$str = sprintf('%0.2f', microtime(true) - $start_time);
-	$str = _s('Generated in %s sec', $str);
-	$strSize = imageTextSize(6, 0, $str);
-	imageText($im, 6, 0, imagesx($im) - $strSize['width'] - 5, imagesy($im) - 5, $gray, $str);
-
+	$end_time=time(NULL);
+	imagestring($im, 0,imagesx($im)-100,imagesy($im)-12,'Generated in '.($end_time-$start_time).' sec', $gray);
 
 	ImageOut($im);
 	imagedestroy($im);
 ?>
 <?php
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 
 ?>

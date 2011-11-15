@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ $page['hist_arg'] = array();
 
 define('ZBX_PAGE_DO_REFRESH', 1);
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
@@ -55,7 +55,7 @@ require_once('include/page_header.php');
 	}
 
 	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		require_once('include/page_footer.php');
+		include_once('include/page_footer.php');
 		exit();
 	}
 //--------
@@ -119,7 +119,7 @@ require_once('include/page_header.php');
 			case 24*7:
 			case 24*30:
 			case 24*365:
-				$period_start = $period_end - ($period * SEC_PER_HOUR);
+				$period_start = $period_end - ($period * 3600);
 			break;
 		}
 
@@ -273,7 +273,7 @@ require_once('include/page_header.php');
 		if($tree){
 // creates form for choosing a preset interval
 			$r_form = new CForm();
-			$r_form->setAttribute('class', 'nowrap');
+			$r_form->setClass('nowrap');
 			$r_form->setMethod('get');
 			$r_form->setAttribute('name', 'period_choice');
 			$r_form->addVar('fullscreen', $_REQUEST['fullscreen']);
@@ -297,5 +297,5 @@ require_once('include/page_header.php');
 	}
 
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 ?>

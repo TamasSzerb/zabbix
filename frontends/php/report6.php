@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2008 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ $page['file']	= 'report6.php';
 $page['hist_arg'] = array('period');
 $page['scripts'] = array('class.calendar.js');
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
@@ -83,7 +83,7 @@ require_once('include/page_header.php');
 	}
 
 	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		require_once('include/page_footer.php');
+		include_once('include/page_footer.php');
 		exit();
 	}
 //--------
@@ -148,8 +148,8 @@ require_once('include/page_header.php');
 <?php
 	$config = $_REQUEST['config'] = get_request('config',1);
 
-	$_REQUEST['report_timesince'] = zbxDateToTime(get_request('report_timesince', date('YmdHis', time() - SEC_PER_DAY)));
-	$_REQUEST['report_timetill'] = zbxDateToTime(get_request('report_timetill', date('YmdHis')));
+	$_REQUEST['report_timesince'] = zbxDateToTime(get_request('report_timesince',date('YmdHis', time()-86400)));
+	$_REQUEST['report_timetill'] = zbxDateToTime(get_request('report_timetill',date('YmdHis')));
 
 	$rep6_wdgt = new CWidget();
 // Header
@@ -218,6 +218,6 @@ require_once('include/page_header.php');
 ?>
 <?php
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 
 ?>

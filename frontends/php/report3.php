@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -26,13 +26,13 @@ $page['title'] = "S_IT_SERVICES_AVAILABILITY_REPORT";
 $page['file'] = 'report3.php';
 $page['hist_arg'] = array();
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
 		'serviceid'=>		array(T_ZBX_INT, O_MAND,P_SYS,	DB_ID,						NULL),
-		'period'=>		array(T_ZBX_STR, O_OPT,	null,	IN('"daily","weekly","monthly","yearly"'),	NULL),
+		'period'=>		array(T_ZBX_STR, O_OPT,	null,	IN('"dayly","weekly","monthly","yearly"'),	NULL),
 		'year'=>		array(T_ZBX_INT, O_OPT,	null,	null,						NULL)
 	);
 
@@ -56,7 +56,7 @@ require_once('include/page_header.php');
 			'nodeids' => get_current_nodeid(true)
 		);
 
-		$db_data = API::Trigger()->get($options);
+		$db_data = CTrigger::get($options);
 		if(empty($db_data)) access_deny();
 	}
 
@@ -70,7 +70,7 @@ require_once('include/page_header.php');
 	$form->addVar('serviceid', $_REQUEST['serviceid']);
 
 	$cmbPeriod = new CComboBox('period', $period, 'submit();');
-	$cmbPeriod->addItem('daily',S_DAILY);
+	$cmbPeriod->addItem('dayly',S_DAILY);
 	$cmbPeriod->addItem('weekly',S_WEEKLY);
 	$cmbPeriod->addItem('monthly',S_MONTHLY);
 	$cmbPeriod->addItem('yearly',S_YEARLY);
@@ -114,7 +114,7 @@ require_once('include/page_header.php');
 				function format_time($t){	return zbx_date2str(S_REPORT3_MONTHLY_DATE_FORMAT,$t);	}
 				function format_time2($t){	return null; };
 				break;
-			case 'daily':
+			case 'dayly':
 				$from	= 1;
 				$to	= 365;
 				array_unshift($header, new CCol(S_DAY,'center'));
@@ -134,7 +134,7 @@ require_once('include/page_header.php');
 					$wd	= date('w', $time);
 					$wd	= $wd == 0 ? 6 : $wd - 1;
 
-					return $time + ($w * 7 - $wd) * SEC_PER_DAY;
+					return ($time + ($w*7 - $wd)*24*3600);
 				}
 				function format_time($t){	return zbx_date2str(S_REPORT3_WEEKLY_DATE_FORMAT,$t);	}
 				function format_time2($t){	return format_time($t); };
@@ -155,22 +155,22 @@ require_once('include/page_header.php');
 
 		$ok 		= new CSpan(
 					sprintf('%dd %dh %dm',
-						$stat['ok_time'] / SEC_PER_DAY,
-						($stat['ok_time'] % SEC_PER_DAY) / SEC_PER_HOUR,
-						($stat['ok_time'] % SEC_PER_HOUR) / SEC_PER_MIN),
+						$stat['ok_time']/(24*3600),
+						($stat['ok_time']%(24*3600))/3600,
+						($stat['ok_time']%(3600))/(60)),
 					'off');
 
 		$problems	= new CSpan(
 					sprintf('%dd %dh %dm',
-						$stat['problem_time'] / SEC_PER_DAY,
-						($stat['problem_time'] % SEC_PER_DAY) / SEC_PER_HOUR,
-						($stat['problem_time'] % SEC_PER_HOUR) /SEC_PER_MIN),
+						$stat['problem_time']/(24*3600),
+						($stat['problem_time']%(24*3600))/3600,
+						($stat['problem_time']%(3600))/(60)),
 					'on');
 
 		$downtime	= sprintf('%dd %dh %dm',
-					$stat['downtime_time'] / SEC_PER_DAY,
-					($stat['downtime_time'] % SEC_PER_DAY) / SEC_PER_HOUR,
-					($stat['downtime_time'] % SEC_PER_HOUR) / SEC_PER_MIN);
+					$stat['downtime_time']/(24*3600),
+					($stat['downtime_time']%(24*3600))/3600,
+					($stat['downtime_time']%(3600))/(60));
 
 		$percentage	= new CSpan(sprintf('%2.2f%%',$stat['ok']) , 'off');
 
@@ -192,6 +192,6 @@ require_once('include/page_header.php');
 ?>
 <?php
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 
 ?>

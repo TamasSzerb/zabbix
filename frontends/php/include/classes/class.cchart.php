@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -118,7 +118,7 @@ class CChart extends CGraphDraw{
 
 		$item = get_item_by_itemid($itemid);
 		$this->items[$this->num] = $item;
-		$this->items[$this->num]['name'] = itemName($item);
+		$this->items[$this->num]['description'] = item_description($item);
 		$this->items[$this->num]['delay'] = getItemDelay($item['delay'], $item['delay_flex']);
 
 		if(strpos($item['units'], ',') !== false)
@@ -129,7 +129,7 @@ class CChart extends CGraphDraw{
 
 		$host = get_host_by_hostid($item['hostid']);
 
-		$this->items[$this->num]['hostname'] = $host['name'];
+		$this->items[$this->num]['host'] = $host['host'];
 		$this->items[$this->num]['color'] = is_null($color) ? 'Dark Green' : $color;
 		$this->items[$this->num]['drawtype'] = is_null($drawtype) ? GRAPH_ITEM_DRAWTYPE_LINE : $drawtype;
 		$this->items[$this->num]['axisside'] = is_null($axis) ? GRAPH_YAXIS_SIDE_DEFAULT : $axis;
@@ -233,7 +233,7 @@ class CChart extends CGraphDraw{
 				$to_time	= $this->to_time;
 			}
 
-			$calc_field = 'round('.$x.'*'.zbx_sql_mod(zbx_dbcast_2bigint('clock').'+'.$z, $p).'/('.$p.'),0)';	// required for 'group by' support of Oracle
+			$calc_field = 'round('.$x.'*(mod('.zbx_dbcast_2bigint('clock').'+'.$z.','.$p.'))/('.$p.'),0)';  /* required for 'group by' support of Oracle */
 
 			$sql_arr = array();
 
@@ -241,8 +241,8 @@ class CChart extends CGraphDraw{
 			if(ZBX_HISTORY_DATA_UPKEEP > -1) $real_item['history'] = ZBX_HISTORY_DATA_UPKEEP;
 //---
 
-			if (($real_item['history'] * SEC_PER_DAY) > (time() - ($this->from_time + $this->period / 2)) &&	// should pick data from history or trends
-				($this->period / $this->sizeX) <= (ZBX_MAX_TREND_DIFF / ZBX_GRAPH_MAX_SKIP_CELL))		// is reasonable to take data from history?
+			if((($real_item['history']*86400) > (time()-($this->from_time+$this->period/2))) &&			// should pick data from history or trends
+				(($this->period / $this->sizeX) <= (ZBX_MAX_TREND_DIFF / ZBX_GRAPH_MAX_SKIP_CELL)))		// is reasonable to take data from history?
 			{
 				$this->dataFrom = 'history';
 				array_push($sql_arr,
@@ -289,7 +289,7 @@ class CChart extends CGraphDraw{
 					' GROUP BY itemid,'.$calc_field
 					);
 
-				$this->items[$i]['delay'] = max($this->items[$i]['delay'], SEC_PER_HOUR);
+				$this->items[$i]['delay'] = max($this->items[$i]['delay'],3600);
 			}
 
 			if(!isset($this->data[$this->items[$i]['itemid']]))
@@ -460,7 +460,7 @@ class CChart extends CGraphDraw{
 
 				if($fnc_cnt['cnt'] != 1) continue;
 
-				$trigger = API::UserMacro()->resolveTrigger($trigger);
+				CUserMacro::resolveTrigger($trigger);
 				if(!preg_match('/\{([0-9]{1,})\}([\<\>\=]{1})([0-9\.]{1,})([K|M|G]{0,1})/i', $trigger['expression'], $arr)) continue;
 
 				$val = $arr[3];
@@ -471,13 +471,22 @@ class CChart extends CGraphDraw{
 				$minY = $this->m_minY[$this->items[$inum]['axisside']];
 				$maxY = $this->m_maxY[$this->items[$inum]['axisside']];
 
-				array_push($this->triggers, array(
+				switch($trigger['priority']){
+					case TRIGGER_SEVERITY_DISASTER:	$color = 'Priority Disaster'; break;
+					case TRIGGER_SEVERITY_HIGH: $color = 'Priority High'; break;
+					case TRIGGER_SEVERITY_AVERAGE: $color = 'Priority Average'; break;
+					case TRIGGER_SEVERITY_WARNING: $color = 'Priority Warning'; break;
+					case TRIGGER_SEVERITY_INFORMATION: $color = 'Priority Information'; break;
+					default: $color = 'Priority';
+				}
+
+				array_push($this->triggers,array(
 					'skipdraw' => ($val <= $minY || $val >= $maxY),
 					'y' => $this->sizeY - (($val-$minY) / ($maxY-$minY)) * $this->sizeY + $this->shiftY,
-					'color' => getSeverityColor($trigger['priority']),
+					'color' => $color,
 					'description' => S_TRIGGER.': '.expand_trigger_description_by_data($trigger),
 					'constant' => '['.$arr[2].' '.$arr[3].$arr[4].']'
-				));
+					));
 				++$cnt;
 			}
 		}
@@ -658,7 +667,8 @@ class CChart extends CGraphDraw{
 
 				if(!isset($val)) continue;
 
-				for($ci=0; $ci < min(count($val),count($shift_val)); $ci++){
+				$size = min(count($val),count($shift_val));
+				for($ci=0; $ci < $size; $ci++){
 					if($data['count'][$ci] == 0) continue;
 
 					$val[$ci] = bcadd($shift_val[$ci], $val[$ci]);
@@ -678,6 +688,8 @@ class CChart extends CGraphDraw{
 	}
 
 	protected function calcZero(){
+		$left = GRAPH_YAXIS_SIDE_LEFT;
+		$right = GRAPH_YAXIS_SIDE_RIGHT;
 		$sides = array(GRAPH_YAXIS_SIDE_LEFT, GRAPH_YAXIS_SIDE_RIGHT);
 
 		foreach($sides as $num => $side){
@@ -934,8 +946,8 @@ class CChart extends CGraphDraw{
 // Sub
 		$intervalX = ($sub_interval * $this->sizeX) / $this->period;
 
-		if ($sub_interval > SEC_PER_DAY) {
-			$offset = (7 - date('w', $this->from_time)) * SEC_PER_DAY;
+		if($sub_interval > 86400){
+			$offset = (7 - date('w',$this->from_time)) * 86400;
 			$offset+= $this->diffTZ;
 
 			$next = $this->from_time + $offset;
@@ -971,8 +983,8 @@ class CChart extends CGraphDraw{
 // Main
 		$intervalX = ($main_interval * $this->sizeX) / $this->period;
 
-		if ($main_interval > SEC_PER_DAY) {
-			$offset = (7 - date('w', $this->from_time)) * SEC_PER_DAY;
+		if($main_interval > 86400){
+			$offset = (7 - date('w',$this->from_time)) * 86400;
 			$offset+= $this->diffTZ;
 			$next = $this->from_time + $offset;
 
@@ -1153,6 +1165,7 @@ class CChart extends CGraphDraw{
 		$main_interval = $this->grid['horizontal']['main']['interval'];
 		$main_intervalX = $this->grid['horizontal']['main']['intervalx'];
 		$main_offset = $this->grid['horizontal']['main']['offset'];
+		$main_offsetX = $this->grid['horizontal']['main']['offsetx'];
 
 		$sub = &$this->grid['horizontal']['sub'];
 		$interval = $sub['interval'];
@@ -1171,28 +1184,28 @@ class CChart extends CGraphDraw{
 			$new_pos = $i*$intervalX+$offsetX;
 
 // DayLightSave
-			if ($interval > SEC_PER_HOUR) {
+			if($interval > 3600){
 				$tz = date('Z',$this->from_time) - date('Z',$new_time);
 				$new_time+=$tz;
 			}
 
 // MAIN Interval Checks
-			if ($interval < SEC_PER_HOUR && date('i', $new_time) == 0) {
+			if(($interval < 3600) && (date('i',$new_time) == 0)){
 				$this->drawMainPeriod($new_time, $new_pos);
 				continue;
 			}
 
-			if (interval >= SEC_PER_HOUR && $interval < SEC_PER_DAY && date('H', $new_time) == 0) {
+			if(($interval >= 3600) && ($interval < 86400) && (date('H',$new_time) == 0)){
 				$this->drawMainPeriod($new_time, $new_pos);
 				continue;
 			}
 
-			if ($interval == SEC_PER_DAY && date('N', $new_time) == 7) {
+			if(($interval == 86400) && (date('N',$new_time) == 7)){
 				$this->drawMainPeriod($new_time, $new_pos);
 				continue;
 			}
 
-			if ($interval > SEC_PER_DAY && ($i * $interval % $main_interval + $offset) == $main_offset) {
+			if(($interval > 86400) && (($i*$interval % $main_interval + $offset) == $main_offset)){
 				$this->drawMainPeriod($new_time, $new_pos);
 				continue;
 			}
@@ -1209,15 +1222,9 @@ class CChart extends CGraphDraw{
 			if($main_intervalX < floor(($main_interval/$interval)*$intervalX)) continue;
 			else if($main_intervalX < (ceil($main_interval/$interval + 1)*$test_dims['width'])) continue;
 
-			if ($interval == SEC_PER_DAY) {
-				$date_format = _('D');
-			}
-			elseif ($interval > SEC_PER_DAY) {
-				$date_format = _('d.m');
-			}
-			elseif ($interval < SEC_PER_DAY) {
-				$date_format = _('H:i');
-			}
+			if($interval == 86400) $date_format = S_CCHARTS_TIMELINE_DAYS_FORMAT;
+			else if($interval > 86400) $date_format = S_CCHARTS_TIMELINE_MONTHDAYS_FORMAT;
+			else if($interval < 86400) $date_format = S_CCHARTS_TIMELINE_HOURS_FORMAT;
 
 			$str = zbx_date2str($date_format, $new_time);
 			$dims = imageTextSize(7, 90, $str);
@@ -1492,7 +1499,7 @@ class CChart extends CGraphDraw{
 			$this->shiftY,
 			$this->sizeX+$this->shiftXleft-2,	// -2 border
 			$this->sizeY+$this->shiftY,
-			$this->getColor($this->graphtheme['nonworktimecolor'], 0)
+			$this->getColor($this->graphtheme['noneworktimecolor'], 0)
 		);
 
 		$now = time();
@@ -1500,9 +1507,9 @@ class CChart extends CGraphDraw{
 			$this->from_time=$this->stime;
 			$this->to_time=$this->stime+$this->period;
 		}
-		else {
-			$this->to_time = $now - SEC_PER_HOUR * $this->from;
-			$this->from_time = $this->to_time - $this->period;
+		else{
+			$this->to_time=$now-3600*$this->from;
+			$this->from_time=$this->to_time-$this->period;
 		}
 
 		$from = $this->from_time;
@@ -1636,8 +1643,8 @@ class CChart extends CGraphDraw{
 
 			$data = &$this->data[$this->items[$i]['itemid']][$this->items[$i]['calc_type']];
 
-			if($this->itemsHost) $item_caption = $this->items[$i]['name'];
-			else $item_caption = $this->items[$i]['hostname'].': '.$this->items[$i]['name'];
+			if($this->itemsHost) $item_caption = $this->items[$i]['description'];
+			else $item_caption = $this->items[$i]['host'].': '.$this->items[$i]['description'];
 
 			if(isset($data) && isset($data['min'])){
 				if($this->items[$i]['axisside'] == GRAPH_YAXIS_SIDE_LEFT)
@@ -1992,9 +1999,11 @@ class CChart extends CGraphDraw{
 	}
 
 	public function draw(){
-		$start_time = microtime(true);
+		$start_time=getmicrotime();
 
 		set_image_header();
+
+		check_authorisation();
 
 		$this->selectData();
 
@@ -2043,6 +2052,7 @@ class CChart extends CGraphDraw{
 		$this->fullSizeY = $this->sizeY+$this->shiftY+$this->legendOffsetY;
 
 		if($this->drawLegend){
+			$trCount = $this->m_showTriggers?count($this->triggers):0;
 			$this->fullSizeY += 14 * ($this->num+1+(($this->sizeY < 120)?0:count($this->triggers))) + 8;
 		}
 
@@ -2179,12 +2189,20 @@ class CChart extends CGraphDraw{
 
 		$this->drawLogo();
 
-		$str = sprintf('%0.2f', microtime(true) - $start_time);
-		$str = _s('Data from %1$s. Generated in %2$s sec', $this->dataFrom, $str);
-		$strSize = imageTextSize(6, 0, $str);
-		imageText($this->im, 6, 0, $this->fullSizeX - $strSize['width'] - 5, $this->fullSizeY - 5, $this->getColor('Gray'), $str);
+		$end_time=getmicrotime();
+		$str=sprintf('%0.2f',(getmicrotime()-$start_time));
+
+// if we get chart from config by get method
+		$datafrom = '';
+		if(isset($this->dataFrom))
+			$datafrom = 'Data from '.$this->dataFrom.'. ';
+
+		imagestring($this->im, 0,$this->fullSizeX-210,$this->fullSizeY-12,$datafrom.'Generated in '.$str.' sec', $this->getColor('Gray'));
 
 		unset($this->items, $this->data);
+
+//debug info
+//		show_messages();
 
 		ImageOut($this->im);
 	}

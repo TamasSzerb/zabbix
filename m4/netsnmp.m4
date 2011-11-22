@@ -22,7 +22,8 @@ AC_DEFUN([LIBNETSNMP_CHECK_CONFIG],
   _libnetsnmp_config="no"
 
   AC_ARG_WITH(net-snmp,
-[What SNMP package do you want to use (please select only one):
+[
+What SNMP package do you want to use (please select only one):
 AC_HELP_STRING([--with-net-snmp@<:@=ARG@:>@],
 		[use NET-SNMP package @<:@default=no@:>@, optionally specify path to net-snmp-config])
 	],[ if test "$withval" = "no"; then
@@ -76,7 +77,7 @@ AC_HELP_STRING([--with-net-snmp@<:@=ARG@:>@],
 				;;
 					-l*)
 						_lib_name="`echo "$i" | cut -b3-`"
-						AC_CHECK_LIB($_lib_name, main, [
+						AC_CHECK_LIB($_lib_name , main,[
 								SNMP_LIBS="$SNMP_LIBS $i"
 							],[
 								AC_MSG_ERROR([Not found $_lib_name library])
@@ -94,7 +95,7 @@ AC_HELP_STRING([--with-net-snmp@<:@=ARG@:>@],
 		LDFLAGS="${LDFLAGS} ${SNMP_LDFLAGS}"
 		CFLAGS="${CFLAGS} ${SNMP_CFLAGS}"
 
-		AC_CHECK_LIB(netsnmp, main, [
+		AC_CHECK_LIB(netsnmp , main,[
 			SNMP_LIBS="-lnetsnmp ${SNMP_LIBS}"
 			],[
 		       	AC_MSG_ERROR([Not found NET-SNMP library])
@@ -131,4 +132,5 @@ AC_HELP_STRING([--with-net-snmp@<:@=ARG@:>@],
   AC_SUBST(SNMP_CFLAGS)
   AC_SUBST(SNMP_LDFLAGS)
   AC_SUBST(SNMP_LIBS)
+
 ])dnl

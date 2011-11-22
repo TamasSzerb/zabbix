@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2007 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,14 +15,14 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
 
-require_once('include/config.inc.php');
-require_once('include/services.inc.php');
-require_once('include/triggers.inc.php');
+include_once('include/config.inc.php');
+include_once('include/services.inc.php');
+include_once('include/triggers.inc.php');
 
 $page['title'] = "S_IT_SERVICES";
 $page['file'] = 'services_form.php';
@@ -30,7 +30,7 @@ $page['scripts'] = array('class.calendar.js');
 
 define('ZBX_PAGE_NO_MENU', 1);
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 
 
 //---------------------------------- CHECKS ------------------------------------
@@ -168,7 +168,7 @@ if(isset($_REQUEST['saction'])){
 	}
 	if($result){
 		zbx_add_post_js("closeForm('services.php');");
-		require_once('include/page_footer.php');
+		include_once('include/page_footer.php');
 	}
 }
 //-------------------------------------------- </ACTIONS> --------------------------------------------
@@ -197,7 +197,8 @@ if(isset($_REQUEST['pservices'])){
 
 		$description = S_ROOT_SMALL;
 
-		$description = new CLink($description,'#',null,'javascript:
+		$description = new CLink($description,'#');
+		$description->setAction('javascript:
 				window.opener.document.forms[0].elements[\'parent_name\'].value = '.zbx_jsvalue(S_ROOT_SMALL).';
 				window.opener.document.forms[0].elements[\'parentname\'].value = '.zbx_jsvalue(S_ROOT_SMALL).';
 				window.opener.document.forms[0].elements[\'parentid\'].value = '.zbx_jsvalue(0).';
@@ -247,7 +248,9 @@ if(isset($_REQUEST['pservices'])){
 		$table->addRow(array(array($prefix,$description),algorithm2str($db_service_data['algorithm']),$trigger));
 	}
 
-	$cb = new CButton('cancel',S_CANCEL,'javascript: self.close();');
+	$cb = new CButton('cancel',S_CANCEL);
+	$cb->setType('button');
+	$cb->setAction('javascript: self.close();');
 
 	$td = new CCol($cb);
 	$td->setAttribute('style','text-align:right;');
@@ -305,12 +308,15 @@ if(isset($_REQUEST['cservices'])){
 			$trigger = expand_trigger_description($db_service_data['triggerid']);
 		}
 
-		$description = new CLink($description,'#',null,'window.opener.add_child_service('.zbx_jsvalue($db_service_data['name']).','.zbx_jsvalue($db_service_data['serviceid']).','.zbx_jsvalue($trigger).','.zbx_jsvalue($db_service_data['triggerid']).'); self.close(); return false;');
+		$description = new CLink($description,'#');
+		$description->setAction('window.opener.add_child_service('.zbx_jsvalue($db_service_data['name']).','.zbx_jsvalue($db_service_data['serviceid']).','.zbx_jsvalue($trigger).','.zbx_jsvalue($db_service_data['triggerid']).'); self.close(); return false;');
 
 		$table->addRow(array(array($prefix,$description),algorithm2str($db_service_data['algorithm']),$trigger));
 	}
 
-	$cb = new CButton('cancel',S_CANCEL,'javascript: self.close();');
+	$cb = new CButton('cancel',S_CANCEL);
+	$cb->setType('button');
+	$cb->setAction('javascript: self.close();');
 
 	$td = new CCol($cb);
 	$td->setAttribute('style','text-align:right;');
@@ -348,7 +354,7 @@ if(isset($_REQUEST['sform'])){
 		}
 		//sdi($new_service_time);
 		while($new_service_time['to'] && ($new_service_time['to'] <= $new_service_time['from']))
-			$new_service_time['to'] += SEC_PER_WEEK;
+			$new_service_time['to'] += 7*24*3600;
 
 		//validating service times that were entered
 		if ($new_service_time['to'] == false){
@@ -361,7 +367,7 @@ if(isset($_REQUEST['sform'])){
 		}
 		elseif(!str_in_array($_REQUEST['service_times'], $new_service_time)){
 			//if this time is not already there, adding it for insertation
-			array_push($_REQUEST['service_times'],$new_service_time);
+			array_push($_REQUEST['service_times'],$new_service_time);		
 		}
 
 	}
@@ -477,18 +483,22 @@ if(isset($_REQUEST['sform'])){
 	$frmService->addVar('parentname',$parentname);
 	$frmService->addVar('parentid',$parentid);
 
-	$cb = new CButton('select_parent',S_CHANGE,"javascript: openWinCentered('services_form.php?pservices=1".url_param('serviceid')."','ZBX_Services_List',740,420,'scrollbars=1, toolbar=0, menubar=0, resizable=1, dialog=0');");
+	$cb = new CButton('select_parent',S_CHANGE);
+	$cb->setType('button');
+	$cb->setAction("javascript: openWinCentered('services_form.php?pservices=1".url_param('serviceid')."','ZBX_Services_List',740,420,'scrollbars=1, toolbar=0, menubar=0, resizable=1, dialog=0');");
 
 	$frmService->addRow(S_PARENT_SERVICE,array($ctb,$cb));
 //----------
 
 //child links
 
-	$table = new CTable(null, 'tableinfo');
+	$table = new CTable();
+
+	$table->setClass('tableinfo');
 	$table->setOddRowClass('even_row');
 	$table->setEvenRowClass('even_row');
-	$table->setCellpadding(3);
-	$table->setCellspacing(1);
+	$table->attributes['cellpadding'] = 3;
+	$table->attributes['cellspacing'] = 1;
 	$table->headerClass = 'header';
 	$table->footerClass = 'footer';
 
@@ -527,9 +537,13 @@ if(isset($_REQUEST['sform'])){
 				));
 	}
 
-	$cb = new CButton('add_child_service',S_ADD,"javascript: openWinCentered('services_form.php?cservices=1".url_param('serviceid')."','ZBX_Services_List',640,520,'scrollbars=1, toolbar=0, menubar=0, resizable=0');");
+	$cb = new CButton('add_child_service',S_ADD);
+	$cb->setType('button');
+	$cb->setAction("javascript: openWinCentered('services_form.php?cservices=1".url_param('serviceid')."','ZBX_Services_List',640,520,'scrollbars=1, toolbar=0, menubar=0, resizable=0');");
 
-	$cb2 = new CButton('del_child_service',S_REMOVE,"javascript: remove_childs('".$frmService->GetName()."','childs_to_del','tr');");
+	$cb2 = new CButton('del_child_service',S_REMOVE);
+	$cb2->setType('button');
+	$cb2->setAction("javascript: remove_childs('".$frmService->GetName()."','childs_to_del','tr');");
 
 	$frmService->addRow(S_DEPENDS_ON,array($table,BR(),$cb,$cb2));
 //----------
@@ -599,7 +613,7 @@ if(isset($_REQUEST['sform'])){
 	if(count($stime_el)==0)
 		array_push($stime_el, S_NO_TIMES_DEFINED);
 	else
-		array_push($stime_el, new CSubmit('del_service_times',S_DELETE_SELECTED));
+		array_push($stime_el, new CButton('del_service_times',S_DELETE_SELECTED));
 
 	$frmService->addRow(S_SERVICE_TIMES, $stime_el);
 
@@ -610,12 +624,14 @@ if(isset($_REQUEST['sform'])){
 
 	$time_param = new CTable();
 
-	$div = new CDiv();
+	$div = new Ctag('div','yes');
 
 	if($new_service_time['type'] == SERVICE_TIME_TYPE_ONETIME_DOWNTIME){
 //		$time_param->addRow(array(S_NOTE, new CTextBox('new_service_time[note]','<short description>',40)));
 //		$time_param->addRow(array(S_FROM, new CTextBox('new_service_time[from]','d M Y H:i',20)));
 //		$time_param->addRow(array(S_TILL, new CTextBox('new_service_time[to]','d M Y H:i',20)));
+
+
 
 		$script = "javascript: ".
 						"if(CLNDR['downtime_since'].clndr.setSDateFromOuterObj()){".
@@ -743,7 +759,7 @@ if(isset($_REQUEST['sform'])){
 	$frmService->addRow(S_SORT_ORDER_0_999, new CTextBox('sortorder',$sortorder,3));
 //---------
 
-	$frmService->addItemToBottomRow(new CSubmit('save_service',S_SAVE,'javascript: document.forms[0].action += \'?saction=1\';'));
+	$frmService->addItemToBottomRow(new CButton('save_service',S_SAVE,'javascript: document.forms[0].action += \'?saction=1\';'));
 	if(isset($service['serviceid'])){
 		$frmService->addItemToBottomRow(SPACE);
 		$frmService->addItemToBottomRow(new CButtonDelete(
@@ -753,7 +769,9 @@ if(isset($_REQUEST['sform'])){
 	}
 	$frmService->addItemToBottomRow(SPACE);
 
-	$cb = new CButton('cancel',S_CANCEL,'javascript: self.close();');
+	$cb = new CButton('cancel',S_CANCEL);
+	$cb->setType('button');
+	$cb->setAction('javascript: self.close();');
 
 	$frmService->addItemToBottomRow($cb);
 	$frmService->show();
@@ -762,6 +780,6 @@ if(isset($_REQUEST['sform'])){
 ?>
 <?php
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 
 ?>

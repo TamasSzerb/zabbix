@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -30,7 +30,7 @@ function getSounds(){
 		list($filename, $type) = explode('.', $file);
 		$fileList[$filename] = $file;
 	}
-
+	
 return $fileList;
 }
 
@@ -39,6 +39,7 @@ function getLatestCloseTime(){
 }
 
 function getMessageSettings(){
+	global $USER_DETAILS;
 
 	$defSeverities = array(
 		TRIGGER_SEVERITY_NOT_CLASSIFIED => 1,
@@ -68,8 +69,8 @@ function getMessageSettings(){
 
 	$sql = 'SELECT idx, source, value_str '.
 			' FROM profiles '.
-			' WHERE userid='.CWebUser::$data['userid'].
-				' AND '.DBcondition('idx',array('web.messages'));
+			' WHERE userid='.$USER_DETAILS['userid'].
+				' AND '.DBcondition('idx',array('web.messages'), false, true);
 	$db_profiles = DBselect($sql);
 	while($profile = DBfetch($db_profiles)){
 		$messages[$profile['source']] = $profile['value_str'];
@@ -84,6 +85,7 @@ return $messages;
 }
 
 function updateMessageSettings($messages){
+	global $USER_DETAILS;
 
 	if(!isset($messages['enabled'])) $messages['enabled'] = 0;
 	if(isset($messages['triggers.severities']))
@@ -91,8 +93,8 @@ function updateMessageSettings($messages){
 
 	$sql = 'SELECT profileid, idx, source, value_str '.
 			' FROM profiles '.
-			' WHERE userid='.CWebUser::$data['userid'].
-				' AND '.DBcondition('idx',array('web.messages'));
+			' WHERE userid='.$USER_DETAILS['userid'].
+				' AND '.DBcondition('idx',array('web.messages'), false, true);
 	$db_profiles = DBselect($sql);
 	while($profile = DBfetch($db_profiles)){
 		$profile['value'] = $profile['value_str'];
@@ -104,7 +106,7 @@ function updateMessageSettings($messages){
 
 	foreach($messages as $key => $value){
 		$values = array(
-			'userid' => CWebUser::$data['userid'],
+			'userid' => $USER_DETAILS['userid'],
 			'idx' => 'web.messages',
 			'source' => $key,
 			'value_str' =>  $value,
@@ -117,7 +119,7 @@ function updateMessageSettings($messages){
 		else if($dbMessages[$key]['value'] != $value){
 			$updates[] = array(
 				'values' => $values,
-				'where' => array('profileid' => $dbMessages[$key]['profileid'])
+				'where' => array('profileid='.$dbMessages[$key]['profileid'])
 			);
 		}
 	}
@@ -127,7 +129,10 @@ function updateMessageSettings($messages){
 		DB::update('profiles', $updates);
 	}
 	catch(APIException $e){
-		error($e->getMessage());
+		$errors = $e->getErrors();
+		$error = reset($errors);
+
+		error($error);
 	}
 
 return $messages;

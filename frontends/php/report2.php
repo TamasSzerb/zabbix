@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2011 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -30,7 +30,7 @@ $page['hist_arg'] = array('config', 'groupid', 'hostid', 'tpl_triggerid');
 $page['scripts'] = array('class.calendar.js');
 $page['type'] = detect_page_type(PAGE_TYPE_HTML);
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 ?>
 <?php
 
@@ -62,7 +62,7 @@ require_once('include/page_header.php');
 		}
 	}
 	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		require_once('include/page_footer.php');
+		include_once('include/page_footer.php');
 		exit();
 	}
 
@@ -146,11 +146,11 @@ require_once('include/page_header.php');
 		$options = array(
 			'triggerids' => $_REQUEST['triggerid'],
 			'output' => API_OUTPUT_EXTEND,
-			'selectHosts' => API_OUTPUT_EXTEND,
+			'select_hosts' => API_OUTPUT_EXTEND,
 			'nodeids' => get_current_nodeid(true)
 		);
 
-		$trigger_data = API::Trigger()->get($options);
+		$trigger_data = CTrigger::get($options);
 		if(empty($trigger_data)){
 			unset($_REQUEST['triggerid']);
 		}
@@ -159,14 +159,14 @@ require_once('include/page_header.php');
 
 			$host = reset($trigger_data['hosts']);
 			$trigger_data['hostid'] = $host['hostid'];
-			$trigger_data['hostname'] = $host['name'];
+			$trigger_data['host'] = $host['host'];
 		}
 	}
 
 
 	if(isset($_REQUEST['triggerid'])){
 		$rep2_wdgt->addHeader(array(
-			new CLink($trigger_data['hostname'], '?filter_groupid=' . $_REQUEST['groupid'] . '&filter_hostid=' . $trigger_data['hostid']),
+			new CLink($trigger_data['host'], '?filter_groupid=' . $_REQUEST['groupid'] . '&filter_hostid=' . $trigger_data['hostid']),
 			' : ',
 			expand_trigger_description_by_data($trigger_data)
 				), SPACE);
@@ -198,8 +198,6 @@ require_once('include/page_header.php');
 			'expandDescription' => true,
 			'expandData' => true,
 			'monitored' => true,
-// Rquired for getting visible host name
-			'selectHosts' => API_OUTPUT_EXTEND,
 			'filter' => array()
 		);
 
@@ -214,7 +212,7 @@ require_once('include/page_header.php');
 		}
 		else{
 			if($_REQUEST['hostid'] > 0){
-				$hosts = API::Host()->get(array('templateids' => $_REQUEST['hostid']));
+				$hosts = CHost::get(array('templateids' => $_REQUEST['hostid']));
 				$options['hostids'] = zbx_objectValues($hosts, 'hostid');
 			}
 
@@ -223,7 +221,7 @@ require_once('include/page_header.php');
 			}
 		}
 
-		$triggers = API::Trigger()->get($options);
+		$triggers = CTrigger::get($options);
 		ArraySorter::sort($triggers, array('host', 'description'));
 
 		$table = new CTableInfo();
@@ -247,7 +245,7 @@ require_once('include/page_header.php');
 
 			$table->addRow(array(
 				get_node_name_by_elid($trigger['hostid']),
-				(($_REQUEST['hostid'] == 0) || (1 == $config)) ? $trigger['hosts'][0]['name'] : NULL,
+				(($_REQUEST['hostid'] == 0) || (1 == $config)) ? $trigger['host'] : NULL,
 				new CLink($trigger['description'], 'events.php?triggerid=' . $trigger['triggerid']),
 				$true,
 				$false,
@@ -261,5 +259,5 @@ require_once('include/page_header.php');
 	}
 ?>
 <?php
-	require_once('include/page_footer.php');
+	include_once('include/page_footer.php');
 ?>

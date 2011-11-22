@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -31,7 +31,7 @@ $page['scripts'] = array('class.pmaster.js', 'class.calendar.js', 'gtlc.js');
 
 $page['type'] = detect_page_type(PAGE_TYPE_HTML);
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 
 ?>
 <?php
@@ -75,6 +75,7 @@ require_once('include/page_header.php');
 				navigation_bar_calc('web.slides', $_REQUEST['elementid'],true);
 			}
 		}
+
 		if(str_in_array($_REQUEST['favobj'],array('screenid','slideshowid'))){
 			$result = false;
 			if('add' == $_REQUEST['action']){
@@ -110,33 +111,19 @@ require_once('include/page_header.php');
 						$slideshow = get_slideshow_by_slideshowid($elementid);
 						$screen = get_slideshow($elementid, $step);
 
-						$screens = API::Screen()->get(array(
-							'screenids' => $screen['screenid']
-						));
-						if(empty($screens)){
-							print alert('No permissions');
-						}
-						else{
-							$screens = API::Screen()->get(array(
-								'screenids' => $screen['screenid'],
-								'output' => API_OUTPUT_EXTEND,
-								'selectScreenItems' => API_OUTPUT_EXTEND
-							));
-							$cur_screen = reset($screens);
-							$element = get_screen($cur_screen,2,$effectiveperiod);
+						$element = get_screen($screen['screenid'],2,$effectiveperiod);
 
-							$refresh_multipl = CProfile::get('web.slides.rf_rate.hat_slides', 1, $elementid);
+						$refresh_multipl = CProfile::get('web.slides.rf_rate.hat_slides', 1, $elementid);
 
-							if($screen['delay'] > 0) $refresh = $screen['delay'];
-							else $refresh = $slideshow['delay'];
+						if($screen['delay'] > 0) $refresh = $screen['delay'];
+						else $refresh = $slideshow['delay'];
 
-							$element->show();
+						$element->show();
 
-							$script = get_update_doll_script('mainpage', $_REQUEST['favref'], 'frequency', $refresh*$refresh_multipl)."\n";
-							$script.= get_update_doll_script('mainpage', $_REQUEST['favref'], 'restartDoll')."\n";
-							$script.= 'timeControl.processObjects();';
-							insert_js($script);
-						}
+						$script = get_update_doll_script('mainpage', $_REQUEST['favref'], 'frequency', $refresh*$refresh_multipl)."\n";
+						$script.= get_update_doll_script('mainpage', $_REQUEST['favref'], 'restartDoll')."\n";
+						$script.= 'timeControl.processObjects();';
+						insert_js($script);
 					}
 					else{
 						print(SBR.S_NO_SLIDESHOWS_DEFINED);
@@ -174,7 +161,7 @@ require_once('include/page_header.php');
 	}
 
 	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		require_once('include/page_footer.php');
+		include_once('include/page_footer.php');
 		exit();
 	}
 ?>
@@ -186,7 +173,7 @@ require_once('include/page_header.php');
 
 	$slides_wdgt = new CWidget('hat_slides');
 
-	$formHeader = new CForm('get');
+	$formHeader = new CForm(null, 'get');
 	$cmbConfig = new CComboBox('config', 'slides.php', 'javascript: redirect(this.options[this.selectedIndex].value);');
 		$cmbConfig->addItem('screens.php', S_SCREENS);
 		$cmbConfig->addItem('slides.php', S_SLIDESHOWS);
@@ -246,7 +233,7 @@ require_once('include/page_header.php');
 // }}} PAGE HEADER
 
 // HEADER {{{
-		$form = new CForm('get');
+		$form = new CForm(null, 'get');
 		$form->addVar('fullscreen', $_REQUEST['fullscreen']);
 
 		$cmbElements = new CComboBox('elementid', $elementid, 'submit()');
@@ -355,7 +342,7 @@ require_once('include/page_header.php');
 	//		$screen = get_slideshow($elementid, 0);
 	//		$element = get_screen($screen['screenid'],2,$effectiveperiod);
 
-			$slides_wdgt->addItem(new CSpan(_('Loading...'), 'textcolorstyles'));
+			$slides_wdgt->addItem(new CSpan(S_LOADING_P, 'textcolorstyles'));
 		}
 		else{
 			$slides_wdgt->addItem(new CTableInfo(S_NO_SLIDES_DEFINED));
@@ -364,6 +351,6 @@ require_once('include/page_header.php');
 		$slides_wdgt->show();
 	}
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 
 ?>

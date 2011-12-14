@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -26,47 +26,46 @@
 /**
  * Class containing methods for operations with Media types
  */
-class CMediatype extends CZBXAPI {
+class CMediatype extends CZBXAPI{
+/**
+ * Get Media types data
+ *
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
+ *
+ * @param _array $options
+ * @param array $options['nodeids'] filter by Node IDs
+ * @param array $options['mediatypeids'] filter by Mediatype IDs
+ * @param boolean $options['type'] filter by Mediatype type [ USER_TYPE_ZABBIX_USER: 1, USER_TYPE_ZABBIX_ADMIN: 2, USER_TYPE_SUPER_ADMIN: 3 ]
+ * @param boolean $options['output'] output only Mediatype IDs if not set.
+ * @param boolean $options['count'] output only count of objects in result. ( result returned in property 'rowscount' )
+ * @param string $options['pattern'] filter by Host name containing only give pattern
+ * @param int $options['limit'] output will be limited to given number
+ * @param string $options['sortfield'] output will be sorted by given property [ 'mediatypeid', 'alias' ]
+ * @param string $options['sortorder'] output will be sorted in given order [ 'ASC', 'DESC' ]
+ * @return array
+ */
+	public static function get($options=array()){
+		global $USER_DETAILS;
 
-	protected $tableName = 'media_type';
-
-	protected $tableAlias = 'mt';
-
-	/**
-	 * Get Media types data
-	 *
-	 * @param array $options
-	 * @param array $options['nodeids'] filter by Node IDs
-	 * @param array $options['mediatypeids'] filter by Mediatype IDs
-	 * @param boolean $options['type'] filter by Mediatype type [ USER_TYPE_ZABBIX_USER: 1, USER_TYPE_ZABBIX_ADMIN: 2, USER_TYPE_SUPER_ADMIN: 3 ]
-	 * @param boolean $options['output'] output only Mediatype IDs if not set.
-	 * @param boolean $options['count'] output only count of objects in result. ( result returned in property 'rowscount' )
-	 * @param string $options['pattern'] filter by Host name containing only give pattern
-	 * @param int $options['limit'] output will be limited to given number
-	 * @param string $options['sortfield'] output will be sorted by given property [ 'mediatypeid', 'alias' ]
-	 * @param string $options['sortorder'] output will be sorted in given order [ 'ASC', 'DESC' ]
-	 * @return array
-	 */
-	public function get($options = array()) {
 		$result = array();
 		$nodeCheck = false;
-		$user_type = self::$userData['type'];
-		$userid = self::$userData['userid'];
+		$user_type = $USER_DETAILS['type'];
+		$userid = $USER_DETAILS['userid'];
 
-		// allowed columns for sorting
-		$sort_columns = array('mediatypeid');
-
-		// allowed output options for [ select_* ] params
-		$subselects_allowed_outputs = array(API_OUTPUT_REFER, API_OUTPUT_EXTEND);
+		$sort_columns = array('mediatypeid'); // allowed columns for sorting
+		$subselects_allowed_outputs = array(API_OUTPUT_REFER, API_OUTPUT_EXTEND); // allowed output options for [ select_* ] params
 
 		$sql_parts = array(
-			'select'	=> array('media_type' => 'mt.mediatypeid'),
-			'from'		=> array('media_type' => 'media_type mt'),
-			'where'		=> array(),
-			'group'		=> array(),
-			'order'		=> array(),
-			'limit'		=> null
-		);
+			'select' => array('media_type' => 'mt.mediatypeid'),
+			'from' => array('media_type' => 'media_type mt'),
+			'where' => array(),
+			'group' => array(),
+			'order' => array(),
+			'limit' => null);
 
 		$def_options = array(
 			'nodeids'					=> null,
@@ -74,123 +73,149 @@ class CMediatype extends CZBXAPI {
 			'mediaids'					=> null,
 			'userids'					=> null,
 			'editable'					=> null,
-			// filter
+// filter
 			'filter'					=> null,
 			'search'					=> null,
-			'searchByAny'				=> null,
 			'startSearch'				=> null,
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
-			// output
+
+// OutPut
+			'extendoutput'				=> null,
 			'output'					=> API_OUTPUT_REFER,
-			'selectUsers'				=> null,
-			'selectMedias'				=> null,
+			'select_users'				=> null,
+			'select_medias'				=> null,
 			'countOutput'				=> null,
 			'groupCount'				=> null,
 			'preservekeys'				=> null,
+
 			'sortfield'					=> '',
 			'sortorder'					=> '',
 			'limit'						=> null
 		);
+
 		$options = zbx_array_merge($def_options, $options);
 
-		// permission check
-		if (USER_TYPE_SUPER_ADMIN == $user_type) {
+		if(!is_null($options['extendoutput'])){
+			$options['output'] = API_OUTPUT_EXTEND;
+
+			if(!is_null($options['select_users'])){
+				$options['select_users'] = API_OUTPUT_EXTEND;
+			}
+			if(!is_null($options['select_medias'])){
+				$options['select_medias'] = API_OUTPUT_EXTEND;
+			}
 		}
-		elseif (is_null($options['editable']) && (self::$userData['type'] == USER_TYPE_ZABBIX_ADMIN)) {
+
+// PERMISSION CHECK
+		if(USER_TYPE_SUPER_ADMIN == $user_type){
 		}
-		elseif (!is_null($options['editable']) || (self::$userData['type'] != USER_TYPE_SUPER_ADMIN)) {
+		else if(is_null($options['editable']) && ($USER_DETAILS['type'] == USER_TYPE_ZABBIX_ADMIN)){
+		}
+		else if(!is_null($options['editable']) || ($USER_DETAILS['type']!=USER_TYPE_SUPER_ADMIN)){
 			return array();
 		}
 
-		// nodeids
+// nodeids
 		$nodeids = !is_null($options['nodeids']) ? $options['nodeids'] : get_current_nodeid();
 
-		// mediatypeids
-		if (!is_null($options['mediatypeids'])) {
+// mediatypeids
+		if(!is_null($options['mediatypeids'])){
 			zbx_value2array($options['mediatypeids']);
 			$sql_parts['where'][] = DBcondition('mt.mediatypeid', $options['mediatypeids']);
 
-			if (!$nodeCheck) {
+			if(!$nodeCheck){
 				$nodeCheck = true;
 				$sql_parts['where'][] = DBin_node('mt.mediatypeid', $nodeids);
 			}
 		}
 
-		// mediaids
-		if (!is_null($options['mediaids'])) {
+// mediaids
+		if(!is_null($options['mediaids'])){
 			zbx_value2array($options['mediaids']);
-			if ($options['output'] != API_OUTPUT_SHORTEN) {
+			if($options['output'] != API_OUTPUT_SHORTEN){
 				$sql_parts['select']['mediaid'] = 'm.mediaid';
 			}
 			$sql_parts['from']['medias'] = 'medias m';
 			$sql_parts['where'][] = DBcondition('m.mediaid', $options['mediaids']);
 			$sql_parts['where']['mmt'] = 'm.mediatypeid=mt.mediatypeid';
 
-			if (!$nodeCheck) {
+			if(!$nodeCheck){
 				$nodeCheck = true;
 				$sql_parts['where'][] = DBin_node('m.mediaid', $nodeids);
 			}
 		}
 
-		// userids
-		if (!is_null($options['userids'])) {
+// userids
+		if(!is_null($options['userids'])){
 			zbx_value2array($options['userids']);
-			if ($options['output'] != API_OUTPUT_SHORTEN) {
+			if($options['output'] != API_OUTPUT_SHORTEN){
 				$sql_parts['select']['userid'] = 'm.userid';
 			}
+
 			$sql_parts['from']['medias'] = 'medias m';
 			$sql_parts['where'][] = DBcondition('m.userid', $options['userids']);
 			$sql_parts['where']['mmt'] = 'm.mediatypeid=mt.mediatypeid';
 
-			if (!$nodeCheck) {
+			if(!$nodeCheck){
 				$nodeCheck = true;
 				$sql_parts['where'][] = DBin_node('m.userid', $nodeids);
 			}
 		}
 
-		// should last, after all ****IDS checks
-		if (!$nodeCheck) {
+// node check !!!!!
+// should last, after all ****IDS checks
+		if(!$nodeCheck){
 			$nodeCheck = true;
 			$sql_parts['where'][] = DBin_node('mt.mediatypeid', $nodeids);
 		}
 
-		// filter
-		if (is_array($options['filter'])) {
+// filter
+		if(is_array($options['filter'])){
 			zbx_db_filter('media_type mt', $options, $sql_parts);
 		}
 
-		// search
-		if (is_array($options['search'])) {
+// search
+		if(is_array($options['search'])){
 			zbx_db_search('media_type mt', $options, $sql_parts);
 		}
 
-		// output
-		if ($options['output'] == API_OUTPUT_EXTEND) {
+// extendoutput
+		if($options['output'] == API_OUTPUT_EXTEND){
 			$sql_parts['select']['media_type'] = 'mt.*';
 		}
 
-		// countOutput
-		if (!is_null($options['countOutput'])) {
+// countOutput
+		if(!is_null($options['countOutput'])){
 			$options['sortfield'] = '';
 			$sql_parts['select'] = array('count(DISTINCT mt.mediatypeid) as rowscount');
 
-			// groupCount
-			if (!is_null($options['groupCount'])) {
-				foreach ($sql_parts['group'] as $key => $fields) {
+//groupCount
+			if(!is_null($options['groupCount'])){
+				foreach($sql_parts['group'] as $key => $fields){
 					$sql_parts['select'][$key] = $fields;
 				}
 			}
 		}
 
-		// sorting
-		zbx_db_sorting($sql_parts, $options, $sort_columns, 'mt');
+// order
+// restrict not allowed columns for sorting
+		$options['sortfield'] = str_in_array($options['sortfield'], $sort_columns) ? $options['sortfield'] : '';
+		if(!zbx_empty($options['sortfield'])){
+			$sortorder = ($options['sortorder'] == ZBX_SORT_DOWN)?ZBX_SORT_DOWN:ZBX_SORT_UP;
 
-		// limit
-		if (zbx_ctype_digit($options['limit']) && $options['limit']) {
-			$sql_parts['limit'] = $options['limit'];
+			$sql_parts['order'][] = 'mt.'.$options['sortfield'].' '.$sortorder;
+
+			if(!str_in_array('mt.'.$options['sortfield'], $sql_parts['select']) && !str_in_array('mt.*', $sql_parts['select'])){
+				$sql_parts['select'][] = 'mt.'.$options['sortfield'];
+			}
 		}
 
+// limit
+		if(zbx_ctype_digit($options['limit']) && $options['limit']){
+			$sql_parts['limit'] = $options['limit'];
+		}
+//-------
 		$mediatypeids = array();
 
 		$sql_parts['select'] = array_unique($sql_parts['select']);
@@ -204,101 +229,92 @@ class CMediatype extends CZBXAPI {
 		$sql_where = '';
 		$sql_group = '';
 		$sql_order = '';
-		if (!empty($sql_parts['select'])) {
-			$sql_select .= implode(',', $sql_parts['select']);
-		}
-		if (!empty($sql_parts['from'])) {
-			$sql_from .= implode(',', $sql_parts['from']);
-		}
-		if (!empty($sql_parts['where'])) {
-			$sql_where .= implode(' AND ', $sql_parts['where']);
-		}
-		if (!empty($sql_parts['group'])) {
-			$sql_where .= ' GROUP BY '.implode(',', $sql_parts['group']);
-		}
-		if (!empty($sql_parts['order'])) {
-			$sql_order .= ' ORDER BY '.implode(',', $sql_parts['order']);
-		}
+		if(!empty($sql_parts['select']))	$sql_select.= implode(',',$sql_parts['select']);
+		if(!empty($sql_parts['from']))		$sql_from.= implode(',',$sql_parts['from']);
+		if(!empty($sql_parts['where']))		$sql_where.= implode(' AND ',$sql_parts['where']);
+		if(!empty($sql_parts['group']))		$sql_where.= ' GROUP BY '.implode(',',$sql_parts['group']);
+		if(!empty($sql_parts['order']))		$sql_order.= ' ORDER BY '.implode(',',$sql_parts['order']);
 		$sql_limit = $sql_parts['limit'];
 
 		$sql = 'SELECT '.zbx_db_distinct($sql_parts).' '.$sql_select.
 				' FROM '.$sql_from.
-				' WHERE '.
-					$sql_where.
-					$sql_group.
-					$sql_order;
+				' WHERE '.$sql_where.
+				$sql_group.
+				$sql_order;
 		$res = DBselect($sql, $sql_limit);
-		while ($mediatype = DBfetch($res)) {
-			if (!is_null($options['countOutput'])) {
-				if (!is_null($options['groupCount'])) {
+		while($mediatype = DBfetch($res)){
+			if(!is_null($options['countOutput'])){
+				if(!is_null($options['groupCount']))
 					$result[] = $mediatype;
-				}
-				else {
+				else
 					$result = $mediatype['rowscount'];
-				}
 			}
-			else {
+			else{
 				$mediatypeids[$mediatype['mediatypeid']] = $mediatype['mediatypeid'];
 
-				if ($options['output'] == API_OUTPUT_SHORTEN) {
+				if($options['output'] == API_OUTPUT_SHORTEN){
 					$result[$mediatype['mediatypeid']] = array('mediatypeid' => $mediatype['mediatypeid']);
 				}
-				else {
-					if (!isset($result[$mediatype['mediatypeid']])) {
-						$result[$mediatype['mediatypeid']] = array();
-					}
+				else{
+					if(!isset($result[$mediatype['mediatypeid']])) $result[$mediatype['mediatypeid']]= array();
 
-					// mediaids
-					if (isset($mediatype['mediaid']) && is_null($options['selectMedias'])) {
-						if (!isset($result[$mediatype['mediatypeid']]['medias'])) {
+// mediaids
+					if(isset($mediatype['mediaid'])  && is_null($options['select_medias'])){
+						if(!isset($result[$mediatype['mediatypeid']]['medias']))
 							$result[$mediatype['mediatypeid']]['medias'] = array();
-						}
+
 						$result[$mediatype['mediatypeid']]['medias'][] = array('mediaid' => $mediatype['mediaid']);
 						unset($mediatype['mediaid']);
 					}
 
-					// userids
-					if (isset($mediatype['userid']) && is_null($options['selectUsers'])) {
-						if (!isset($result[$mediatype['mediatypeid']]['users'])) {
+// userids
+					if(isset($mediatype['userid'])  && is_null($options['select_users'])){
+						if(!isset($result[$mediatype['mediatypeid']]['users']))
 							$result[$mediatype['mediatypeid']]['users'] = array();
-						}
+
 						$result[$mediatype['mediatypeid']]['users'][] = array('userid' => $mediatype['userid']);
 						unset($mediatype['userid']);
 					}
+
+
 					$result[$mediatype['mediatypeid']] += $mediatype;
 				}
 			}
 		}
 
-		if (!is_null($options['countOutput'])) {
+Copt::memoryPick();
+		if(!is_null($options['countOutput'])){
+			if(is_null($options['preservekeys'])) $result = zbx_cleanHashes($result);
 			return $result;
 		}
 
-		/*
-		 * Adding objects
-		 */
-		// adding users
-		if (!is_null($options['selectUsers']) && str_in_array($options['selectUsers'], $subselects_allowed_outputs)) {
+
+// Adding Objects
+// Adding users
+		if(!is_null($options['select_users']) && str_in_array($options['select_users'], $subselects_allowed_outputs)){
 			$obj_params = array(
-				'output' => $options['selectUsers'],
+				'output' => $options['select_users'],
 				'mediatypeids' => $mediatypeids,
-				'preservekeys' => true
+				'preservekeys' => 1
 			);
-			$users = API::User()->get($obj_params);
-			foreach ($users as $userid => $user) {
+			$users = CUser::get($obj_params);
+			foreach($users as $userid => $user){
 				$umediatypes = $user['mediatypes'];
 				unset($user['mediatypes']);
-				foreach ($umediatypes as $mediatype) {
+				foreach($umediatypes as $num => $mediatype){
 					$result[$mediatype['mediatypeid']]['users'][] = $user;
 				}
 			}
 		}
+// TODO
+// Adding medias (need media class)
 
-		// removing keys (hash -> array)
-		if (is_null($options['preservekeys'])) {
+// removing keys (hash -> array)
+		if(is_null($options['preservekeys'])){
 			$result = zbx_cleanHashes($result);
 		}
-		return $result;
+
+	return $result;
 	}
 
 /**
@@ -316,10 +332,13 @@ class CMediatype extends CZBXAPI {
  * @param string $mediatypes['passwd']
  * @return array|boolean
  */
-	public function create($mediatypes){
+	public static function create($mediatypes){
+		global $USER_DETAILS;
 
+		try{
+			self::BeginTransaction(__METHOD__);
 
-			if(USER_TYPE_SUPER_ADMIN != self::$userData['type']){
+			if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
 				self::exception(ZBX_API_ERROR_PERMISSIONS, S_CMEDIATYPE_ERROR_ONLY_SUPER_ADMIN_CAN_CREATE_MEDIATYPES);
 			}
 
@@ -343,15 +362,24 @@ class CMediatype extends CZBXAPI {
 					'filter' => array('description' => $mediatype['description']),
 					'output' => API_OUTPUT_EXTEND
 				);
-				$mediatype_exist = $this->get($options);
+				$mediatype_exist = self::get($options);
 				if(!empty($mediatype_exist)){
-					self::exception(ZBX_API_ERROR_PARAMETERS, S_MEDIA_TYPE_ALREADY_EXISTS . ' ' . $mediatype_exist[0]['description']);
+					self::exception(ZBX_API_ERROR_PARAMETERS, S_MEDIATYPE_ALREADY_EXISTS . ' ' . $mediatype_exist[0]['description']);
 				}
 
 			}
 			$mediatypeids = DB::insert('media_type', $mediatypes);
 
+			self::EndTransaction(true, __METHOD__);
 			return array('mediatypeids' => $mediatypeids);
+		}
+		catch(APIException $e){
+			self::EndTransaction(false, __METHOD__);
+			$error = $e->getErrors();
+			$error = reset($error);
+			self::setError(__METHOD__, $e->getCode(), $error);
+			return false;
+		}
 	}
 
 /**
@@ -369,10 +397,13 @@ class CMediatype extends CZBXAPI {
  * @param string $mediatypes['passwd']
  * @return boolean
  */
-	public function update($mediatypes){
+	public static function update($mediatypes){
+		global $USER_DETAILS;
 
+		try{
+			self::BeginTransaction(__METHOD__);
 
-			if(USER_TYPE_SUPER_ADMIN != self::$userData['type']){
+			if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
 				self::exception(ZBX_API_ERROR_PERMISSIONS, S_NO_PERMISSIONS);
 			}
 			$mediatypes = zbx_toArray($mediatypes);
@@ -393,11 +424,11 @@ class CMediatype extends CZBXAPI {
 						'preservekeys' => 1,
 						'output' => API_OUTPUT_SHORTEN,
 					);
-					$exist_mediatypes = $this->get($options);
+					$exist_mediatypes = self::get($options);
 					$exist_mediatype = reset($exist_mediatypes);
 
-					if($exist_mediatype && (bccomp($exist_mediatype['mediatypeid'],$mediatype['mediatypeid']) != 0))
-						self::exception(ZBX_API_ERROR_PARAMETERS, S_MEDIA_TYPE_ALREADY_EXISTS . ' ' . $mediatype['description']);
+					if($exist_mediatype && ($exist_mediatype['mediatypeid'] != $mediatype['mediatypeid']))
+						self::exception(ZBX_API_ERROR_PARAMETERS, S_MEDIATYPE_ALREADY_EXISTS . ' ' . $mediatype['description']);
 				}
 
 				if(array_key_exists('passwd', $mediatype) && empty($mediatype['passwd'])){
@@ -414,45 +445,75 @@ class CMediatype extends CZBXAPI {
 				if(!empty($mediatype)){
 					$update[] = array(
 						'values' => $mediatype,
-						'where' => array('mediatypeid'=>$mediatypeid),
+						'where' => array('mediatypeid='.$mediatypeid),
 					);
 				}
 			}
 			$mediatypeids = DB::update('media_type', $update);
 
+			self::EndTransaction(true, __METHOD__);
 			return array('mediatypeids' => $mediatypeids);
+		}
+		catch(APIException $e){
+			self::EndTransaction(false, __METHOD__);
+
+			$error = $e->getErrors();
+			$error = reset($error);
+			self::setError(__METHOD__, $e->getCode(), $error);
+			return false;
+		}
 	}
 
 /**
  * Delete Media types
  *
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
+ *
  * @param array $mediatypes
  * @param array $mediatypes[0,...]['mediatypeids']
  * @return boolean
  */
-	public function delete($mediatypeids){
+	public static function delete($mediatypeids){
+		global $USER_DETAILS;
 
-
-		if(USER_TYPE_SUPER_ADMIN != self::$userData['type']){
+		if(USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']){
 			self::exception(ZBX_API_ERROR_PERMISSIONS, S_CMEDIATYPE_ERROR_ONLY_SUPER_ADMIN_CAN_DELETE_MEDIATYPES);
 		}
 
 		$mediatypeids = zbx_toArray($mediatypeids);
+
+		try{
+			self::BeginTransaction(__METHOD__);
 
 			$options = array(
 				'mediatypeids' => $mediatypeids,
 				'output' => API_OUTPUT_EXTEND,
 				'preservekeys' => 1,
 			);
-			$actions = API::Action()->get($options);
+			$actions = CAction::get($options);
 			if(!empty($actions)){
 				$action = reset($actions);
-				self::exception(ZBX_API_ERROR_PARAMETERS, S_MEDIA_TYPES_USED_BY_ACTIONS . ' ' . $action['name']);
+				self::exception(ZBX_API_ERROR_PARAMETERS, S_MEDIATYPE_USED_BY_ACTIONS . ' ' . $action['name']);
 			}
 
-			DB::delete('media_type', array('mediatypeid'=>$mediatypeids));
+			DB::delete('media', DBcondition('mediatypeid', $mediatypeids));
+			DB::delete('alerts', DBcondition('mediatypeid', $mediatypeids));
+			DB::delete('media_type', DBcondition('mediatypeid', $mediatypeids));
 
+			self::EndTransaction(true, __METHOD__);
 			return array('mediatypeids' => $mediatypeids);
+		}
+		catch(APIException $e){
+			self::EndTransaction(false, __METHOD__);
+			$error = $e->getErrors();
+			$error = reset($error);
+			self::setError(__METHOD__, $e->getCode(), $error);
+			return false;
+		}
 	}
 }
 ?>

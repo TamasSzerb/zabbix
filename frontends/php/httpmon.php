@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -30,7 +30,7 @@ $page['hist_arg'] = array('open','groupid','hostid');
 
 define('ZBX_PAGE_DO_REFRESH', 1);
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 
 ?>
 <?php
@@ -62,7 +62,7 @@ require_once('include/page_header.php');
 	}
 
 	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		require_once('include/page_footer.php');
+		include_once('include/page_footer.php');
 		exit();
 	}
 //--------
@@ -134,7 +134,7 @@ require_once('include/page_header.php');
 
 	$available_hosts = $pageFilter->hostsSelected ? array_keys($pageFilter->hosts) : array();
 
-	$r_form = new CForm('get');
+	$r_form = new CForm(null, 'get');
 	$r_form->addVar('fullscreen',$_REQUEST['fullscreen']);
 
 	$r_form->addItem(array(S_GROUP.SPACE,$pageFilter->getGroupsCB(true)));
@@ -144,7 +144,7 @@ require_once('include/page_header.php');
 	$httpmon_wdgt->addItem(SPACE);
 
 // TABLE
-	$form = new CForm('get');
+	$form = new CForm(null, 'get');
 	$form->setName('scenarios');
 	$form->addVar('hostid', $_REQUEST['hostid']);
 
@@ -156,13 +156,12 @@ require_once('include/page_header.php');
 	$table  = new CTableInfo();
 	$table->SetHeader(array(
 		is_show_all_nodes() ? make_sorting_header(S_NODE,'h.hostid') : null,
-		$_REQUEST['hostid'] ==0 ? make_sorting_header(S_HOST,'h.name') : NULL,
+		$_REQUEST['hostid'] ==0 ? make_sorting_header(S_HOST,'h.host') : NULL,
 		make_sorting_header(array($link, SPACE, S_NAME),'wt.name'),
-		_('Number of steps'),
+		S_NUMBER_OF_STEPS,
 		S_STATE,
 		S_LAST_CHECK,
-		S_STATUS
-	));
+		S_STATUS));
 
 	$any_app_exist = false;
 
@@ -174,12 +173,12 @@ require_once('include/page_header.php');
 		$sql_where = ' AND h.hostid='.$_REQUEST['hostid'];
 	}
 
-	$sql = 'SELECT DISTINCT h.name as hostname,h.hostid,a.* '.
+	$sql = 'SELECT DISTINCT h.host,h.hostid,a.* '.
 			' FROM applications a,hosts h '.
 			' WHERE a.hostid=h.hostid '.
 				$sql_where.
 				' AND '.DBcondition('h.hostid',$available_hosts).
-			order_by('a.applicationid,h.name,h.hostid','a.name');
+			order_by('a.applicationid,h.host,h.hostid','a.name');
 //SDI($sql);
 	$db_app_res = DBselect($sql);
 	while($db_app = DBfetch($db_app_res)){
@@ -193,7 +192,7 @@ require_once('include/page_header.php');
 	$db_httptests = array();
 	$db_httptestids = array();
 
-	$sql = 'SELECT wt.*,a.name as application,h.name as hostname,h.hostid'.
+	$sql = 'SELECT wt.*,a.name as application,h.host,h.hostid'.
 			' FROM httptest wt,applications a,hosts h'.
 			' WHERE wt.applicationid=a.applicationid'.
 				' AND a.hostid=h.hostid'.
@@ -292,17 +291,12 @@ require_once('include/page_header.php');
 				url_param('groupid').url_param('hostid').url_param('applications').
 				url_param('select'));
 
-		$col = new CCol(array(
-			$link,
-			SPACE,
-			bold($db_app['name']),
-			SPACE.'('._n('%1$d scenario', '%1$d scenarios', $db_app['scenarios_cnt']).')'
-		));
-		$col->setColSpan(6);
+		$col = new CCol(array($link,SPACE,bold($db_app['name']),SPACE.'('.$db_app['scenarios_cnt'].SPACE.S_SCENARIOS.')'));
+		$col->SetColSpan(6);
 
 		$table->addRow(array(
 				get_node_name_by_elid($db_app['applicationid']),
-				($_REQUEST['hostid'] > 0)?NULL:$db_app['hostname'],
+				($_REQUEST['hostid'] > 0)?NULL:$db_app['host'],
 				$col
 			));
 
@@ -319,6 +313,6 @@ require_once('include/page_header.php');
 	$httpmon_wdgt->show();
 
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 
 ?>

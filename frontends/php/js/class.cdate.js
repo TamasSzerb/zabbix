@@ -1,6 +1,7 @@
+// JavaScript Document
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,10 +15,13 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-**/
-
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+**
+*/
+// Title: CDate class
 // Author: Aly
+
+// [!CDATA[
 // Should be commented!!!
 //var PHP_TZ_OFFSET = 0;			// PHP Server TimeZone offset (seconds)
 
@@ -68,7 +72,7 @@ calcTZdiff: function(time){
 getZBXDate: function(){
 //	this.debug('getZBXDate');
 //--
-	var thedate = [];
+	var thedate = new Array();
 	thedate[0] = this.serverDate.getDate();
 	thedate[1] = this.serverDate.getMonth()+1;
 	thedate[2] = this.serverDate.getFullYear();
@@ -235,8 +239,8 @@ setMinutes: function(arg){
 //--
 
 	this.server = 1;
-
-	this.serverDate.setMinutes(arg);
+	
+	this.serverDate.setMinutes(arg);;
 	this.calcTZdiff();
 },
 

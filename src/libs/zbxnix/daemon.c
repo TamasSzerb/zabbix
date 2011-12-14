@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -184,14 +184,14 @@ int	daemon_start(int allow_root)
 	struct sigaction	phan;
 	char			user[7] = "zabbix";
 
-	if (0 == allow_root && (0 == getuid() || 0 == getgid()))	/* running as root? */
+	/* running as root ? */
+	if (0 == allow_root && (0 == getuid() || 0 == getgid()))
 	{
 		pwd = getpwnam(user);
-
 		if (NULL == pwd)
 		{
 			zbx_error("user %s does not exist", user);
-			zbx_error("cannot run as root!");
+			zbx_error("Cannot run as root!");
 			exit(FAIL);
 		}
 
@@ -234,7 +234,8 @@ int	daemon_start(int allow_root)
 	if (0 != (pid = zbx_fork()))
 		exit(0);
 
-	if (-1 == chdir("/"))	/* this is to eliminate warning: ignoring return value of chdir */
+	/* this is to eliminate warning: ignoring return value of chdir */
+	if (-1 == chdir("/"))
 		assert(0);
 
 	umask(0002);
@@ -246,10 +247,10 @@ int	daemon_start(int allow_root)
 		zbx_error("Unable to set process priority to 5. Leaving default.");
 #endif
 
+/*------------------------------------------------*/
+
 	if (FAIL == create_pid_file(CONFIG_PID_FILE))
 		exit(FAIL);
-
-	atexit(daemon_stop);
 
 	parent_pid = (int)getpid();
 
@@ -281,12 +282,6 @@ int	daemon_start(int allow_root)
 
 void	daemon_stop()
 {
-	/* this function is registered using atexit() to be called when we terminate */
-	/* there should be nothing like logging or calls to exit() beyond this point */
-
-	if (parent_pid != (int)getpid())
-		return;
-
 	drop_pid_file(CONFIG_PID_FILE);
 }
 

@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -49,13 +49,13 @@ $refresh_rate = 30; //seconds
 		redirect('index.php');
 	}
 //	clear_messages();
-CWebUser::$data['refresh'] = $refresh_rate;
+$USER_DETAILS['refresh'] = $refresh_rate;
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 
 unset($USER_DETAILS);
 
-	$table = new CTable(null, 'warningTable');
+	$table = new CTable(null, 'warning');
 	$table->setAlign('center');
 	$table->setAttribute('style','width: 480px; margin-top: 100px;');
 	$table->setHeader(array(new CCol(S_ZABBIX.SPACE.ZABBIX_VERSION, 'left')),'header');
@@ -70,7 +70,10 @@ unset($USER_DETAILS);
 	$msg = new CSpan(bold(SPACE.$warning_msg));
 	$msg->setAttribute('style','line-height: 20px; vertical-align: top;');
 
-	$table->addRow(new CCol(array($img, $msg),'center'));
+	$table->addRow(new CCol(array(
+						$img,
+						$msg),
+						'center'));
 	$table->addRow(SPACE);
 
 	$table->setFooter(new CCol(new CButton('retry',S_RETRY,'javascript: document.location.reload();'),'left'),'footer');
@@ -80,5 +83,5 @@ unset($USER_DETAILS);
 	echo SBR;
 ?>
 <?php
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 ?>

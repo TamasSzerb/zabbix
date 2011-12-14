@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -111,8 +111,10 @@ const char	*zbx_strpool_intern(const char *str)
 
 	if (NULL == record)
 	{
-		record = zbx_hashset_insert_ext(strpool.hashset, str - REFCOUNT_FIELD_SIZE,
-				REFCOUNT_FIELD_SIZE + strlen(str) + 1, REFCOUNT_FIELD_SIZE);
+		record = zbx_hashset_insert_ext(strpool.hashset,
+						str - REFCOUNT_FIELD_SIZE,
+						REFCOUNT_FIELD_SIZE + strlen(str) + 1,
+						REFCOUNT_FIELD_SIZE);
 		*(uint32_t *)record = 0;
 	}
 
@@ -145,7 +147,7 @@ void	zbx_strpool_release(const char *str)
 	LOCK_POOL;
 
 	refcount = (uint32_t *)(str - REFCOUNT_FIELD_SIZE);
-	if (0 == --(*refcount))
+	if (--(*refcount) == 0)
 		zbx_hashset_remove(strpool.hashset, str - REFCOUNT_FIELD_SIZE);
 
 	UNLOCK_POOL;

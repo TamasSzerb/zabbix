@@ -13,8 +13,8 @@ libzbxdbhigh_a_SOURCES = \
 	${ODBC_SRC} \
 	db.c \
 	dbschema.c \
+	macro.c	\
 	proxy.c \
-	discovery.c \
-	lld.c
+	discovery.c
 
 libzbxdbhigh_a_CFLAGS = -I@top_srcdir@/src/zabbix_server/

@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -25,9 +25,9 @@ require_once('include/forms.inc.php');
 $page["title"] = "S_INSTALLATION";
 $page["file"] = 'instal.php';
 
-require_once('include/page_header.php');
-require_once('setup.php');
-require_once('include/page_footer.php');
+include_once('include/page_header.php');
+include_once('setup.php');
+include_once('include/page_footer.php');
 
 /*******************************/
 /* THIS POINT NEVER BE REACHED */
@@ -61,19 +61,19 @@ require_once('include/page_footer.php');
 			'Not implemented yet!',
 			BR(),BR(),BR()
 			),
-		new CSubmit('install',S_NEW_INSTALLATION));
+		new CButton('install',S_NEW_INSTALLATION));
 	$form->addRow(
 		array(bold(S_UPDATE_BIG),BR(),BR(),
 			bold(S_DESCRIPTION),BR(),
 			'Not implemented yet!',
 			BR(),BR(),BR()
 			),
-		new CSubmit('update',S_UPDATE));
+		new CButton('update',S_UPDATE));
 	$form->show();
 
 ?>
 <?php
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 
 ?>

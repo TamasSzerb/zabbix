@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -26,80 +26,70 @@
 /**
  * Class containing methods for operations with Discovery checks for discovery rules
  */
-class CDCheck extends CZBXAPI {
+class CDCheck extends CZBXAPI{
+	public static function get($options){
+		global $USER_DETAILS;
 
-	protected $tableName = 'dchecks';
-
-	protected $tableAlias = 'dc';
-
-	public function get($options) {
 		$result = array();
 		$nodeCheck = false;
-		$user_type = self::$userData['type'];
+		$user_type = $USER_DETAILS['type'];
 
-		// allowed columns for sorting
-		$sort_columns = array('dcheckid', 'druleid');
-
-		// allowed output options for [ select_* ] params
-		$subselects_allowed_outputs = array(API_OUTPUT_REFER, API_OUTPUT_EXTEND, API_OUTPUT_CUSTOM);
+		$sort_columns = array('dcheckid', 'druleid'); // allowed columns for sorting
+		$subselects_allowed_outputs = array(API_OUTPUT_REFER, API_OUTPUT_EXTEND, API_OUTPUT_CUSTOM); // allowed output options for [ select_* ] params
 
 		$sql_parts = array(
-			'select'	=> array('dchecks' => 'dc.dcheckid'),
-			'from'		=> array('dchecks' => 'dchecks dc'),
-			'where'		=> array(),
-			'group'		=> array(),
-			'order'		=> array(),
-			'limit'		=> null
-		);
+			'select' => array('dchecks' => 'dc.dcheckid'),
+			'from' => array('dchecks' => 'dchecks dc'),
+			'where' => array(),
+			'group' => array(),
+			'order' => array(),
+			'limit' => null);
 
 		$def_options = array(
 			'nodeids'					=> null,
 			'dcheckids'					=> null,
 			'druleids'					=> null,
 			'dhostids'					=> null,
-			'dserviceids'				=> null,
 			'editable'					=> null,
 			'nopermissions'				=> null,
-			// filter
+// filter
 			'filter'					=> null,
 			'search'					=> null,
-			'searchByAny'				=> null,
 			'startSearch'				=> null,
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
-			// output
+
+// OutPut
 			'output'					=> API_OUTPUT_REFER,
 			'selectDRules'				=> null,
 			'selectDHosts'				=> null,
-			'selectHosts'				=> null,
 			'countOutput'				=> null,
 			'groupCount'				=> null,
 			'preservekeys'				=> null,
+
 			'sortfield'					=> '',
 			'sortorder'					=> '',
 			'limit'						=> null,
 			'limitSelects'				=> null
 		);
+
 		$options = zbx_array_merge($def_options, $options);
 
-		if (is_array($options['output'])) {
+		if(is_array($options['output'])){
 			unset($sql_parts['select']['dchecks']);
-
-			$dbTable = DB::getSchema('dchecks');
-			foreach ($options['output'] as $field) {
-				if (isset($dbTable['fields'][$field])) {
-					$sql_parts['select'][$field] = 'dc.'.$field;
-				}
+			foreach($options['output'] as $key => $field){
+				$sql_parts['select'][$field] = ' dc.'.$field;
 			}
+
 			$options['output'] = API_OUTPUT_CUSTOM;
 		}
 
 // editable + PERMISSION CHECK
 		if(USER_TYPE_SUPER_ADMIN == $user_type){
 		}
-		else if(is_null($options['editable']) && (self::$userData['type'] == USER_TYPE_ZABBIX_ADMIN)){
+		else if(is_null($options['editable']) && ($USER_DETAILS['type'] == USER_TYPE_ZABBIX_ADMIN)){
 		}
-		else if(!is_null($options['editable']) && (self::$userData['type']!=USER_TYPE_SUPER_ADMIN)){
+		else if(!is_null($options['editable']) && ($USER_DETAILS['type']!=USER_TYPE_SUPER_ADMIN)){
 			return array();
 		}
 
@@ -113,7 +103,7 @@ class CDCheck extends CZBXAPI {
 
 			if(!$nodeCheck){
 				$nodeCheck = true;
-				$sql_parts['where'][] = DBin_node('dc.dcheckid', $nodeids);
+				$sql_parts['where'][] = DBin_node('ds.dcheckid', $nodeids);
 			}
 		}
 
@@ -209,8 +199,18 @@ class CDCheck extends CZBXAPI {
 			zbx_db_search('dchecks dc', $options, $sql_parts);
 		}
 
-		// sorting
-		zbx_db_sorting($sql_parts, $options, $sort_columns, 'dc');
+// order
+// restrict not allowed columns for sorting
+		$options['sortfield'] = str_in_array($options['sortfield'], $sort_columns) ? $options['sortfield'] : '';
+		if(!zbx_empty($options['sortfield'])){
+			$sortorder = ($options['sortorder'] == ZBX_SORT_DOWN)?ZBX_SORT_DOWN:ZBX_SORT_UP;
+
+			$sql_parts['order'][$options['sortfield']] = 'dc.'.$options['sortfield'].' '.$sortorder;
+
+			if(!str_in_array('dc.'.$options['sortfield'], $sql_parts['select']) && !str_in_array('dc.*', $sql_parts['select'])){
+				$sql_parts['select'][$options['sortfield']] = 'dc.'.$options['sortfield'];
+			}
+		}
 
 // limit
 		if(zbx_ctype_digit($options['limit']) && $options['limit']){
@@ -293,6 +293,7 @@ class CDCheck extends CZBXAPI {
 
 Copt::memoryPick();
 		if(!is_null($options['countOutput'])){
+			if(is_null($options['preservekeys'])) $result = zbx_cleanHashes($result);
 			return $result;
 		}
 
@@ -307,7 +308,7 @@ Copt::memoryPick();
 
 			if(is_array($options['selectDRules']) || str_in_array($options['selectDRules'], $subselects_allowed_outputs)){
 				$obj_params['output'] = $options['selectDRules'];
-				$drules = API::DRule()->get($obj_params);
+				$drules = CDRule::get($obj_params);
 
 				if(!is_null($options['limitSelects'])) order_result($drules, 'name');
 				foreach($drules as $druleid => $drule){
@@ -329,7 +330,7 @@ Copt::memoryPick();
 				$obj_params['countOutput'] = 1;
 				$obj_params['groupCount'] = 1;
 
-				$drules = API::DRule()->get($obj_params);
+				$drules = CDRule::get($obj_params);
 				$drules = zbx_toHash($drules, 'dcheckid');
 				foreach($result as $dcheckid => $dcheck){
 					if(isset($drules[$dcheckid]))
@@ -350,7 +351,7 @@ Copt::memoryPick();
 
 			if(is_array($options['selectDHosts']) || str_in_array($options['selectDHosts'], $subselects_allowed_outputs)){
 				$obj_params['output'] = $options['selectDHosts'];
-				$dhosts = API::DHost()->get($obj_params);
+				$dhosts = CDHost::get($obj_params);
 
 				if(!is_null($options['limitSelects'])) order_result($dhosts, 'dhostid');
 				foreach($dhosts as $dhostid => $dhost){
@@ -371,7 +372,7 @@ Copt::memoryPick();
 				$obj_params['countOutput'] = 1;
 				$obj_params['groupCount'] = 1;
 
-				$dhosts = API::DHost()->get($obj_params);
+				$dhosts = CDHost::get($obj_params);
 				$dhosts = zbx_toHash($dhosts, 'dhostid');
 				foreach($result as $dcheckid => $dcheck){
 					if(isset($dhosts[$dcheckid]))
@@ -382,7 +383,7 @@ Copt::memoryPick();
 			}
 		}
 
-// selectHosts
+// select_hosts
 		if(!is_null($options['selectHosts'])){
 			$obj_params = array(
 				'nodeids' => $nodeids,
@@ -393,7 +394,7 @@ Copt::memoryPick();
 
 			if(is_array($options['selectHosts']) || str_in_array($options['selectHosts'], $subselects_allowed_outputs)){
 				$obj_params['output'] = $options['selectHosts'];
-				$hosts = API::Host()->get($obj_params);
+				$hosts = CHost::get($obj_params);
 
 				if(!is_null($options['limitSelects'])) order_result($hosts, 'hostid');
 
@@ -415,7 +416,7 @@ Copt::memoryPick();
 				$obj_params['countOutput'] = 1;
 				$obj_params['groupCount'] = 1;
 
-				$hosts = API::Host()->get($obj_params);
+				$hosts = CHost::get($obj_params);
 				$hosts = zbx_toHash($hosts, 'hostid');
 				foreach($result as $dcheckid => $dcheck){
 					if(isset($hosts[$dcheckid]))
@@ -433,53 +434,6 @@ Copt::memoryPick();
 		}
 
 	return $result;
-	}
-
-	/**
-	 * Check if user has read permissions for discovery checks.
-	 *
-	 * @param array $ids
-	 * @return bool
-	 */
-	public function isReadable(array $ids) {
-		if (empty($ids)) {
-			return true;
-		}
-
-		$ids = array_unique($ids);
-
-		$count = $this->get(array(
-			'nodeids' => get_current_nodeid(true),
-			'dcheckids' => $ids,
-			'output' => API_OUTPUT_SHORTEN,
-			'countOutput' => true
-		));
-
-		return (count($ids) == $count);
-	}
-
-	/**
-	 * Check if user has write permissions for discovery checks.
-	 *
-	 * @param array $ids
-	 * @return bool
-	 */
-	public function isWritable(array $ids) {
-		if (empty($ids)) {
-			return true;
-		}
-
-		$ids = array_unique($ids);
-
-		$count = $this->get(array(
-			'nodeids' => get_current_nodeid(true),
-			'dcheckids' => $ids,
-			'output' => API_OUTPUT_SHORTEN,
-			'editable' => true,
-			'countOutput' => true
-		));
-
-		return (count($ids) == $count);
 	}
 }
 ?>

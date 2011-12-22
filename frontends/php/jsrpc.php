@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -27,7 +27,7 @@ $page['hist_arg'] = array();
 
 $page['type'] = detect_page_type(PAGE_TYPE_JSON);
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 
 //		VAR				TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields = array();
@@ -53,12 +53,12 @@ require_once('include/page_header.php');
 			$options = array(
 				'startSearch' => 1,
 				'search' => $search,
-				'output' => array('hostid', 'host', 'name'),
-				'sortfield' => 'name',
+				'output' => array('hostid', 'host'),
+				'sortfield' => 'host',
 				'limit' => 15
 			);
 
-			$result = API::Host()->get($options);
+			$result = CHost::get($options);
 			break;
 		case 'message.mute':
 			$msgsettings = getMessageSettings();
@@ -77,7 +77,7 @@ require_once('include/page_header.php');
 			$params = $data['params'];
 // Events
 			$msgsettings = getMessageSettings();
-
+			
 // timeout
 			$timeOut = (time() - $msgsettings['timeout']);
 			$lastMsgTime = 0;
@@ -85,7 +85,7 @@ require_once('include/page_header.php');
 				$lastMsgTime = $params['messageLast']['events']['time'];
 			}
 //---
-
+			
 			$options = array(
 				'nodeids' => get_current_nodeid(true),
 				'lastChangeSince' => max(array($lastMsgTime, $msgsettings['last.clock'], $timeOut)),
@@ -125,7 +125,7 @@ require_once('include/page_header.php');
 					'time' => $event['clock'],
 					'priority' => $priority,
 					'sound' => $sound,
-					'color' => getSeverityColor($trigger['priority'], $event['value']),
+					'color' => getEventColor($trigger['priority'], $event['value']),
 					'title' => $title.' '.get_node_name_by_elid($host['hostid'],null,':').'[url='.$url_tr_status.']'.$host['host'].'[/url]',
 					'body' => array(
 						S_DETAILS.': '.' [url='.$url_events.']'.$trigger['description'].'[/url]',
@@ -165,12 +165,12 @@ require_once('include/page_header.php');
 			'result' => $result,
 			'id' => $data['id']
 		);
-
+		
 		print($json->encode($rpcResp));
 	}
 ?>
 <?php
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 
 ?>

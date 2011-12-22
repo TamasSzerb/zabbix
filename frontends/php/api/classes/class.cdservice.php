@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -27,13 +27,14 @@
  * Class containing methods for operations with Discovered Services
  */
 class CDService extends CZBXAPI{
-
-	protected $tableName = 'dservices';
-
-	protected $tableAlias = 'ds';
-
 /**
  * Get Service data
+ *
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
  *
  * @param _array $options
  * @param array $options['nodeids'] Node IDs
@@ -50,13 +51,15 @@ class CDService extends CZBXAPI{
  * @param boolean $options['with_monitored_httptests'] only with monitored http tests
  * @param boolean $options['with_graphs'] only with graphs
  * @param boolean $options['editable'] only with read-write permission. Ignored for SuperAdmins
- * @param boolean $options['selectGroups'] select ServiceGroups
- * @param boolean $options['selectTemplates'] select Templates
- * @param boolean $options['selectItems'] select Items
- * @param boolean $options['selectTriggers'] select Triggers
- * @param boolean $options['selectGraphs'] select Graphs
- * @param boolean $options['selectApplications'] select Applications
- * @param boolean $options['selectMacros'] select Macros
+ * @param int $options['extendoutput'] return all fields for Services
+ * @param boolean $options['select_groups'] select ServiceGroups
+ * @param boolean $options['select_templates'] select Templates
+ * @param boolean $options['select_items'] select Items
+ * @param boolean $options['select_triggers'] select Triggers
+ * @param boolean $options['select_graphs'] select Graphs
+ * @param boolean $options['select_applications'] select Applications
+ * @param boolean $options['select_macros'] select Macros
+ * @param boolean $options['select_profile'] select Profile
  * @param int $options['count'] count Services, returned column name is rowscount
  * @param string $options['pattern'] search hosts by pattern in Service name
  * @param string $options['extendPattern'] search hosts by pattern in Service name, ip and DNS
@@ -65,24 +68,24 @@ class CDService extends CZBXAPI{
  * @param string $options['sortorder'] sort order
  * @return array|boolean Service data as array or false if error
  */
-	public function get($options = array()) {
+	public static function get($options=array()){
+		global $USER_DETAILS;
+
 		$result = array();
 		$nodeCheck = false;
-		$user_type = self::$userData['type'];
+		$user_type = $USER_DETAILS['type'];
 
-		// allowed columns for sorting
-		$sort_columns = array('dserviceid', 'dhostid', 'ip');
+		$sort_columns = array('dserviceid', 'dhostid'); // allowed columns for sorting
+		$subselects_allowed_outputs = array(API_OUTPUT_REFER, API_OUTPUT_EXTEND, API_OUTPUT_CUSTOM); // allowed output options for [ select_* ] params
 
-		// allowed output options for [ select_* ] params
-		$subselects_allowed_outputs = array(API_OUTPUT_REFER, API_OUTPUT_EXTEND, API_OUTPUT_CUSTOM);
 
 		$sql_parts = array(
-			'select'	=> array('dservices' => 'ds.dserviceid'),
-			'from'		=> array('dservices' => 'dservices ds'),
-			'where'		=> array(),
-			'group'		=> array(),
-			'order'		=> array(),
-			'limit'		=> null
+			'select' => array('dservices' => 'ds.dserviceid'),
+			'from' => array('dservices' => 'dservices ds'),
+			'where' => array(),
+			'group' => array(),
+			'order' => array(),
+			'limit' => null
 		);
 
 		$def_options = array(
@@ -93,14 +96,15 @@ class CDService extends CZBXAPI{
 			'druleids'					=> null,
 			'editable'					=> null,
 			'nopermissions'				=> null,
-			// filter
+
+// filter
 			'filter'					=> null,
 			'search'					=> null,
-			'searchByAny'				=> null,
 			'startSearch'				=> null,
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
-			// output
+
+// OutPut
 			'output'					=> API_OUTPUT_REFER,
 			'selectDRules'				=> null,
 			'selectDHosts'				=> null,
@@ -109,31 +113,30 @@ class CDService extends CZBXAPI{
 			'countOutput'				=> null,
 			'groupCount'				=> null,
 			'preservekeys'				=> null,
+
 			'sortfield'					=> '',
 			'sortorder'					=> '',
 			'limit'						=> null,
 			'limitSelects'				=> null
 		);
+
 		$options = zbx_array_merge($def_options, $options);
 
-		if (is_array($options['output'])) {
+		if(is_array($options['output'])){
 			unset($sql_parts['select']['dservices']);
-
-			$dbTable = DB::getSchema('dservices');
-			foreach ($options['output'] as $field) {
-				if (isset($dbTable['fields'][$field])) {
-					$sql_parts['select'][$field] = 's.'.$field;
-				}
+			foreach($options['output'] as $key => $field){
+				$sql_parts['select'][$field] = ' ds.'.$field;
 			}
+
 			$options['output'] = API_OUTPUT_CUSTOM;
 		}
 
 // editable + PERMISSION CHECK
 		if(USER_TYPE_SUPER_ADMIN == $user_type){
 		}
-		else if(is_null($options['editable']) && (self::$userData['type'] == USER_TYPE_ZABBIX_ADMIN)){
+		else if(is_null($options['editable']) && ($USER_DETAILS['type'] == USER_TYPE_ZABBIX_ADMIN)){
 		}
-		else if(!is_null($options['editable']) && (self::$userData['type']!=USER_TYPE_SUPER_ADMIN)){
+		else if(!is_null($options['editable']) && ($USER_DETAILS['type']!=USER_TYPE_SUPER_ADMIN)){
 			return array();
 		}
 
@@ -248,8 +251,18 @@ class CDService extends CZBXAPI{
 			zbx_db_search('dservices ds', $options, $sql_parts);
 		}
 
-		// sorting
-		zbx_db_sorting($sql_parts, $options, $sort_columns, 'ds');
+// order
+// restrict not allowed columns for sorting
+		$options['sortfield'] = str_in_array($options['sortfield'], $sort_columns) ? $options['sortfield'] : '';
+		if(!zbx_empty($options['sortfield'])){
+			$sortorder = ($options['sortorder'] == ZBX_SORT_DOWN)?ZBX_SORT_DOWN:ZBX_SORT_UP;
+
+			$sql_parts['order'][$options['sortfield']] = 'ds.'.$options['sortfield'].' '.$sortorder;
+
+			if(!str_in_array('ds.'.$options['sortfield'], $sql_parts['select']) && !str_in_array('ds.*', $sql_parts['select'])){
+				$sql_parts['select'][$options['sortfield']] = 'ds.'.$options['sortfield'];
+			}
+		}
 
 // limit
 		if(zbx_ctype_digit($options['limit']) && $options['limit']){
@@ -345,6 +358,7 @@ class CDService extends CZBXAPI{
 
 Copt::memoryPick();
 		if(!is_null($options['countOutput'])){
+			if(is_null($options['preservekeys'])) $result = zbx_cleanHashes($result);
 			return $result;
 		}
 
@@ -359,7 +373,7 @@ Copt::memoryPick();
 
 			if(is_array($options['selectDRules']) || str_in_array($options['selectDRules'], $subselects_allowed_outputs)){
 				$obj_params['output'] = $options['selectDRules'];
-				$drules = API::DRule()->get($obj_params);
+				$drules = CDRule::get($obj_params);
 
 				if(!is_null($options['limitSelects'])) order_result($drules, 'name');
 				foreach($drules as $druleid => $drule){
@@ -381,7 +395,7 @@ Copt::memoryPick();
 				$obj_params['countOutput'] = 1;
 				$obj_params['groupCount'] = 1;
 
-				$drules = API::DRule()->get($obj_params);
+				$drules = CDRule::get($obj_params);
 				$drules = zbx_toHash($drules, 'dserviceid');
 				foreach($result as $dserviceid => $dservice){
 					if(isset($drules[$dserviceid]))
@@ -402,7 +416,7 @@ Copt::memoryPick();
 
 			if(is_array($options['selectDHosts']) || str_in_array($options['selectDHosts'], $subselects_allowed_outputs)){
 				$obj_params['output'] = $options['selectDHosts'];
-				$dhosts = API::DHost()->get($obj_params);
+				$dhosts = CDHost::get($obj_params);
 
 				if(!is_null($options['limitSelects'])) order_result($dhosts, 'dhostid');
 				foreach($dhosts as $dhostid => $dhost){
@@ -423,7 +437,7 @@ Copt::memoryPick();
 				$obj_params['countOutput'] = 1;
 				$obj_params['groupCount'] = 1;
 
-				$dhosts = API::DHost()->get($obj_params);
+				$dhosts = CDHost::get($obj_params);
 				$dhosts = zbx_toHash($dhosts, 'dhostid');
 				foreach($result as $dserviceid => $dservice){
 					if(isset($dhosts[$dserviceid]))
@@ -434,7 +448,7 @@ Copt::memoryPick();
 			}
 		}
 
-// selectHosts
+// select_hosts
 		if(!is_null($options['selectHosts'])){
 			$obj_params = array(
 				'nodeids' => $nodeids,
@@ -445,7 +459,7 @@ Copt::memoryPick();
 
 			if(is_array($options['selectHosts']) || str_in_array($options['selectHosts'], $subselects_allowed_outputs)){
 				$obj_params['output'] = $options['selectHosts'];
-				$hosts = API::Host()->get($obj_params);
+				$hosts = CHost::get($obj_params);
 
 				if(!is_null($options['limitSelects'])) order_result($hosts, 'hostid');
 
@@ -467,7 +481,7 @@ Copt::memoryPick();
 				$obj_params['countOutput'] = 1;
 				$obj_params['groupCount'] = 1;
 
-				$hosts = API::Host()->get($obj_params);
+				$hosts = CHost::get($obj_params);
 				$hosts = zbx_toHash($hosts, 'hostid');
 				foreach($result as $dserviceid => $dservice){
 					if(isset($hosts[$dserviceid]))
@@ -487,7 +501,7 @@ Copt::memoryPick();
 	return $result;
 	}
 
-	public function exists($object){
+	public static function exists($object){
 		$keyFields = array(array('dserviceid'));
 
 		$options = array(
@@ -501,30 +515,94 @@ Copt::memoryPick();
 		else if(isset($object['nodeids']))
 			$options['nodeids'] = $object['nodeids'];
 
-		$objs = $this->get($options);
+		$objs = self::get($options);
 
 	return !empty($objs);
 	}
 
 /**
  * Add Service
+ *
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
+ *
+ * @param _array $dservices multidimensional array with Services data
  */
-	public function create($dservices){
+	public static function create($dservices){
+		$errors = array();
+		$dservices = zbx_toArray($dservices);
+		$dserviceids = array();
+		$groupids = array();
+		$result = false;
 
+		if($result){
+			return array('dserviceids' => $dserviceids);
+		}
+		else{
+			self::setMethodErrors(__METHOD__, $errors);
+			return false;
+		}
 	}
 
 /**
  * Update DService
+ *
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
+ *
+ * @param _array $dservices multidimensional array with Services data
  */
-	public function update($dservices){
+	public static function update($dservices){
+		$errors = array();
+		$result = true;
 
+		$dservices = zbx_toArray($dservices);
+		$dserviceids = zbx_objectValues($dservices, 'hostid');
+
+		try{
+			return array('dserviceids' => $dserviceids);
+		}
+		catch(APIException $e){
+			if(isset($transaction)) self::EndTransaction(false, __METHOD__);
+
+			$error = $e->getErrors();
+			$error = reset($error);
+
+			self::setError(__METHOD__, $e->getCode(), $error);
+			return false;
+		}
 	}
 
 /**
  * Delete Discovered Service
+ *
+ * {@source}
+ * @access public
+ * @static
+ * @since 1.8
+ * @version 1
+ *
+ * @param array $dservices
+ * @param array $dservices[0, ...]['hostid'] Service ID to delete
+ * @return array|boolean
  */
-	public function delete($dservices){
+	public static function delete($dservices){
+		$dservices = zbx_toArray($dservices);
+		$dserviceids = array();
 
+		if($result){
+			return array('hostids' => $dserviceids);
+		}
+		else{
+			self::setError(__METHOD__);
+			return false;
+		}
 	}
 
 }

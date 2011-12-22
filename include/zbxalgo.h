@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_ZBXALGO_H
@@ -50,13 +50,11 @@ typedef int (*zbx_compare_func_t)(const void *d1, const void *d2);
 int	zbx_default_int_compare_func(const void *d1, const void *d2);
 int	zbx_default_uint64_compare_func(const void *d1, const void *d2);
 int	zbx_default_uint64_ptr_compare_func(const void *d1, const void *d2);
-int	zbx_default_str_compare_func(const void *d1, const void *d2);
 int	zbx_default_ptr_compare_func(const void *d1, const void *d2);
 
 #define ZBX_DEFAULT_INT_COMPARE_FUNC		zbx_default_int_compare_func
 #define ZBX_DEFAULT_UINT64_COMPARE_FUNC		zbx_default_uint64_compare_func
 #define ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC	zbx_default_uint64_ptr_compare_func
-#define ZBX_DEFAULT_STR_COMPARE_FUNC		zbx_default_str_compare_func
 #define ZBX_DEFAULT_PTR_COMPARE_FUNC		zbx_default_ptr_compare_func
 
 typedef void *(*zbx_mem_malloc_func_t)(void *old, size_t size);
@@ -73,15 +71,6 @@ void	zbx_default_mem_free_func(void *ptr);
 
 int	is_prime(int n);
 int	next_prime(int n);
-
-/* pair */
-
-typedef struct
-{
-	void	*first;
-	void	*second;
-}
-zbx_ptr_pair_t;
 
 /* hashset */
 
@@ -142,8 +131,8 @@ void	zbx_hashset_iter_remove(zbx_hashset_iter_t *iter);
 /* currently, we only have a very specialized hashmap */
 /* that maps zbx_uint64_t keys into non-negative ints */
 
-#define ZBX_HASHMAP_ENTRY_T	struct zbx_hashmap_entry_s
-#define ZBX_HASHMAP_SLOT_T	struct zbx_hashmap_slot_s
+#define	ZBX_HASHMAP_ENTRY_T	struct zbx_hashmap_entry_s
+#define	ZBX_HASHMAP_SLOT_T	struct zbx_hashmap_slot_s
 
 ZBX_HASHMAP_ENTRY_T
 {
@@ -191,8 +180,8 @@ void	zbx_hashmap_clear(zbx_hashmap_t *hm);
 /* currently, we only have a very specialized binary heap that can */
 /* store zbx_uint64_t keys with arbitrary auxiliary information */
 
-#define ZBX_BINARY_HEAP_OPTION_EMPTY	0
-#define ZBX_BINARY_HEAP_OPTION_DIRECT	(1<<0)	/* support for direct update() and remove() operations */
+#define	ZBX_BINARY_HEAP_OPTION_EMPTY	0
+#define	ZBX_BINARY_HEAP_OPTION_DIRECT	(1<<0)	/* support for direct update() and remove() operations */
 
 typedef struct
 {
@@ -233,7 +222,7 @@ void			zbx_binary_heap_clear(zbx_binary_heap_t *heap);
 
 /* vector */
 
-#define ZBX_VECTOR_DECL(__id, __type)										\
+#define	ZBX_VECTOR_DECL(__id, __type)										\
 														\
 typedef struct													\
 {														\
@@ -255,7 +244,6 @@ void	zbx_vector_ ## __id ## _destroy(zbx_vector_ ## __id ## _t *vector);					\
 														\
 void	zbx_vector_ ## __id ## _append(zbx_vector_ ## __id ## _t *vector, __type value);			\
 void	zbx_vector_ ## __id ## _remove_noorder(zbx_vector_ ## __id ## _t *vector, int index);			\
-void	zbx_vector_ ## __id ## _remove(zbx_vector_ ## __id ## _t *vector, int index);				\
 														\
 void	zbx_vector_ ## __id ## _sort(zbx_vector_ ## __id ## _t *vector, zbx_compare_func_t compare_func);	\
 void	zbx_vector_ ## __id ## _uniq(zbx_vector_ ## __id ## _t *vector, zbx_compare_func_t compare_func);	\
@@ -264,15 +252,11 @@ int	zbx_vector_ ## __id ## _bsearch(zbx_vector_ ## __id ## _t *vector, __type va
 									zbx_compare_func_t compare_func);	\
 int	zbx_vector_ ## __id ## _lsearch(zbx_vector_ ## __id ## _t *vector, __type value, int *index,		\
 									zbx_compare_func_t compare_func);	\
-int	zbx_vector_ ## __id ## _search(zbx_vector_ ## __id ## _t *vector, __type value,				\
-									zbx_compare_func_t compare_func);	\
 														\
 void	zbx_vector_ ## __id ## _reserve(zbx_vector_ ## __id ## _t *vector, size_t size);			\
 void	zbx_vector_ ## __id ## _clear(zbx_vector_ ## __id ## _t *vector);
 
 ZBX_VECTOR_DECL(uint64, zbx_uint64_t);
-ZBX_VECTOR_DECL(str, char *);
 ZBX_VECTOR_DECL(ptr, void *);
-ZBX_VECTOR_DECL(ptr_pair, zbx_ptr_pair_t);
 
 #endif

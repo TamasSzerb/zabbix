@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2008 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -43,7 +43,7 @@ function add_regexp($regexp=array()){
 
 	$sql = 'SELECT regexpid FROM regexps WHERE name='.zbx_dbstr($regexp['name']);
 	if(DBfetch(DBselect($sql))){
-		info(_s('Regular expression "%s" already exists.', $regexp['name']));
+		info(S_REGULAR_EXPRESSION.' ['.$regexp['name'].'] '.S_ALREADY_EXISTS_SMALL);
 		return false;
 	}
 
@@ -72,7 +72,7 @@ function update_regexp($regexpid, $regexp=array()){
 	$sql = 'SELECT regexpid FROM regexps WHERE name='.zbx_dbstr($regexp['name']);
 	if($db_regexp = DBfetch(DBselect($sql))){
 		if(bccomp($regexpid,$db_regexp['regexpid']) != 0){
-			info(_s('Regular expression "%s" already exists.', $regexp['name']));
+			info(S_REGULAR_EXPRESSION.' ['.$regexp['name'].'] '.S_ALREADY_EXISTS_SMALL);
 			return false;
 		}
 	}

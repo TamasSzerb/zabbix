@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -112,13 +112,13 @@ class CChart extends CGraphDraw{
 		$this->m_showTriggers = ($value==1)?1:0;
 	}
 
-	public function addItem($itemid, $axis = GRAPH_YAXIS_SIDE_DEFAULT, $calc_fnc = CALC_FNC_AVG, $color = null, $drawtype = null, $type = null) {
+	public function addItem($itemid, $axis=GRAPH_YAXIS_SIDE_DEFAULT, $calc_fnc=CALC_FNC_AVG, $color=null, $drawtype=null, $type=null, $periods_cnt=null){
 		if($this->type == GRAPH_TYPE_STACKED /* stacked graph */)
 			$drawtype = GRAPH_ITEM_DRAWTYPE_FILLED_REGION;
 
 		$item = get_item_by_itemid($itemid);
 		$this->items[$this->num] = $item;
-		$this->items[$this->num]['name'] = itemName($item);
+		$this->items[$this->num]['description'] = item_description($item);
 		$this->items[$this->num]['delay'] = getItemDelay($item['delay'], $item['delay_flex']);
 
 		if(strpos($item['units'], ',') !== false)
@@ -129,12 +129,13 @@ class CChart extends CGraphDraw{
 
 		$host = get_host_by_hostid($item['hostid']);
 
-		$this->items[$this->num]['hostname'] = $host['name'];
+		$this->items[$this->num]['host'] = $host['host'];
 		$this->items[$this->num]['color'] = is_null($color) ? 'Dark Green' : $color;
 		$this->items[$this->num]['drawtype'] = is_null($drawtype) ? GRAPH_ITEM_DRAWTYPE_LINE : $drawtype;
 		$this->items[$this->num]['axisside'] = is_null($axis) ? GRAPH_YAXIS_SIDE_DEFAULT : $axis;
 		$this->items[$this->num]['calc_fnc'] = is_null($calc_fnc) ? CALC_FNC_AVG : $calc_fnc;
 		$this->items[$this->num]['calc_type'] = is_null($type) ? GRAPH_ITEM_SIMPLE : $type;
+		$this->items[$this->num]['periods_cnt'] = is_null($periods_cnt) ? 0 : $periods_cnt;
 
 		if($this->items[$this->num]['axisside'] == GRAPH_YAXIS_SIDE_LEFT)
 			$this->yaxisleft=1;
@@ -222,10 +223,17 @@ class CChart extends CGraphDraw{
 			}
 
 			$type = $this->items[$i]['calc_type'];
-			$from_time = $this->from_time;
-			$to_time = $this->to_time;
+			if($type == GRAPH_ITEM_AGGREGATED) {
+// skip current period
+				$from_time	= $this->from_time - $this->period * $this->items[$i]['periods_cnt'];
+				$to_time	= $this->from_time;
+			}
+			else {
+				$from_time	= $this->from_time;
+				$to_time	= $this->to_time;
+			}
 
-			$calc_field = 'round('.$x.'*'.zbx_sql_mod(zbx_dbcast_2bigint('clock').'+'.$z, $p).'/('.$p.'),0)';	// required for 'group by' support of Oracle
+			$calc_field = 'round('.$x.'*(mod('.zbx_dbcast_2bigint('clock').'+'.$z.','.$p.'))/('.$p.'),0)';  /* required for 'group by' support of Oracle */
 
 			$sql_arr = array();
 
@@ -233,8 +241,8 @@ class CChart extends CGraphDraw{
 			if(ZBX_HISTORY_DATA_UPKEEP > -1) $real_item['history'] = ZBX_HISTORY_DATA_UPKEEP;
 //---
 
-			if (($real_item['history'] * SEC_PER_DAY) > (time() - ($this->from_time + $this->period / 2)) &&	// should pick data from history or trends
-				($this->period / $this->sizeX) <= (ZBX_MAX_TREND_DIFF / ZBX_GRAPH_MAX_SKIP_CELL))		// is reasonable to take data from history?
+			if((($real_item['history']*86400) > (time()-($this->from_time+$this->period/2))) &&			// should pick data from history or trends
+				(($this->period / $this->sizeX) <= (ZBX_MAX_TREND_DIFF / ZBX_GRAPH_MAX_SKIP_CELL)))		// is reasonable to take data from history?
 			{
 				$this->dataFrom = 'history';
 				array_push($sql_arr,
@@ -281,7 +289,7 @@ class CChart extends CGraphDraw{
 					' GROUP BY itemid,'.$calc_field
 					);
 
-				$this->items[$i]['delay'] = max($this->items[$i]['delay'], SEC_PER_HOUR);
+				$this->items[$i]['delay'] = max($this->items[$i]['delay'],3600);
 			}
 
 			if(!isset($this->data[$this->items[$i]['itemid']]))
@@ -452,7 +460,7 @@ class CChart extends CGraphDraw{
 
 				if($fnc_cnt['cnt'] != 1) continue;
 
-				$trigger = API::UserMacro()->resolveTrigger($trigger);
+				CUserMacro::resolveTrigger($trigger);
 				if(!preg_match('/\{([0-9]{1,})\}([\<\>\=]{1})([0-9\.]{1,})([K|M|G]{0,1})/i', $trigger['expression'], $arr)) continue;
 
 				$val = $arr[3];
@@ -463,13 +471,22 @@ class CChart extends CGraphDraw{
 				$minY = $this->m_minY[$this->items[$inum]['axisside']];
 				$maxY = $this->m_maxY[$this->items[$inum]['axisside']];
 
-				array_push($this->triggers, array(
+				switch($trigger['priority']){
+					case TRIGGER_SEVERITY_DISASTER:	$color = 'Priority Disaster'; break;
+					case TRIGGER_SEVERITY_HIGH: $color = 'Priority High'; break;
+					case TRIGGER_SEVERITY_AVERAGE: $color = 'Priority Average'; break;
+					case TRIGGER_SEVERITY_WARNING: $color = 'Priority Warning'; break;
+					case TRIGGER_SEVERITY_INFORMATION: $color = 'Priority Information'; break;
+					default: $color = 'Priority';
+				}
+
+				array_push($this->triggers,array(
 					'skipdraw' => ($val <= $minY || $val >= $maxY),
 					'y' => $this->sizeY - (($val-$minY) / ($maxY-$minY)) * $this->sizeY + $this->shiftY,
-					'color' => getSeverityColor($trigger['priority']),
+					'color' => $color,
 					'description' => S_TRIGGER.': '.expand_trigger_description_by_data($trigger),
 					'constant' => '['.$arr[2].' '.$arr[3].$arr[4].']'
-				));
+					));
 				++$cnt;
 			}
 		}
@@ -533,148 +550,146 @@ class CChart extends CGraphDraw{
 		}
 	}
 
-	// Calculation of minimum Y axis
-	protected function calculateMinY($side) {
-		if ($this->ymin_type == GRAPH_YAXIS_TYPE_FIXED) {
+// Calculation of minimum Y axis
+	protected function calculateMinY($side){
+		if($this->ymin_type == GRAPH_YAXIS_TYPE_FIXED){
 			return $this->yaxismin;
 		}
-		if ($this->ymin_type == GRAPH_YAXIS_TYPE_ITEM_VALUE) {
+		else if($this->ymin_type == GRAPH_YAXIS_TYPE_ITEM_VALUE){
 			$item = get_item_by_itemid($this->ymin_itemid);
-			if ($item && isset($item['lastvalue']) && !is_null($item['lastvalue'])) {
+			if($item && isset($item['lastvalue']) && !is_null($item['lastvalue']))
 				return $item['lastvalue'];
-			}
 		}
 
 		$minY = null;
-		for($i = 0; $i < $this->num; $i++) {
-			if ($this->items[$i]['axisside'] != $side) {
-				continue;
-			}
+		for($i=0; $i<$this->num; $i++){
+			if($this->items[$i]['axisside'] != $side) continue;
 
-			if (!isset($this->data[$this->items[$i]['itemid']][GRAPH_ITEM_SIMPLE])) {
-				continue;
-			}
+			foreach(array(GRAPH_ITEM_SIMPLE, GRAPH_ITEM_AGGREGATED) as $type){
 
-			$data = &$this->data[$this->items[$i]['itemid']][GRAPH_ITEM_SIMPLE];
+				if(!isset($this->data[$this->items[$i]['itemid']][$type]))
+					continue;
 
-			if (!isset($data)) {
-				continue;
-			}
+				$data = &$this->data[$this->items[$i]['itemid']][$type];
 
-			$calc_fnc = $this->items[$i]['calc_fnc'];
+				if(!isset($data))	continue;
 
-			switch ($calc_fnc) {
-				case CALC_FNC_ALL:	/* use min */
-				case CALC_FNC_MIN:
-					$val = $data['min'];
-					$shift_val = $data['shift_min'];
-					break;
-				case CALC_FNC_MAX:
-					$val = $data['max'];
-					$shift_val = $data['shift_max'];
-					break;
-				case CALC_FNC_AVG:
-				default:
-					$val = $data['avg'];
-					$shift_val = $data['shift_avg'];
-			}
+				if($type == GRAPH_ITEM_AGGREGATED)
+					$calc_fnc = CALC_FNC_ALL;
+				else
+					$calc_fnc = $this->items[$i]['calc_fnc'];
 
-			if (!isset($val)) {
-				continue;
-			}
+				switch($calc_fnc){
+					case CALC_FNC_ALL:	/* use min */
+					case CALC_FNC_MIN:
+						$val = $data['min'];
+						$shift_val = $data['shift_min'];
+						break;
+					case CALC_FNC_MAX:
+						$val = $data['max'];
+						$shift_val = $data['shift_max'];
+						break;
+					case CALC_FNC_AVG:
+					default:
+						$val = $data['avg'];
+						$shift_val = $data['shift_avg'];
+				}
 
-			if ($this->type == GRAPH_TYPE_STACKED) {
-				$min_val_shift = min(count($val), count($shift_val));
-				for ($ci = 0; $ci < $min_val_shift; $ci++) {
-					if ($shift_val[$ci] < 0) {
-						$val[$ci] += bcadd($shift_val[$ci], $val[$ci]);
+				if(!isset($val)) continue;
+
+				if($this->type == GRAPH_TYPE_STACKED){
+					$min_val_shift = min(count($val), count($shift_val));
+					for($ci=0; $ci < $min_val_shift; $ci++){
+						if($shift_val[$ci] < 0){
+							$val[$ci] += bcadd($shift_val[$ci], $val[$ci]);
+						}
+					}
+
+				}
+
+				if(!isset($minY)){
+					if(isset($val) && count($val) > 0){
+						$minY = min($val);
 					}
 				}
-			}
-
-			if (!isset($minY)) {
-				if (isset($val) && count($val) > 0) {
-					$minY = min($val);
+				else{
+					$minY = min($minY, min($val));
 				}
 			}
-			else {
-				$minY = min($minY, min($val));
-			}
 		}
-		return $minY;
+
+	return $minY;
 	}
 
-	// Calculation of maximum Y of a side (left/right)
-	protected function calculateMaxY($side) {
-		if ($this->ymax_type == GRAPH_YAXIS_TYPE_FIXED) {
+// Calculation of maximum Y of a side (left/right)
+	protected function calculateMaxY($side){
+		if($this->ymax_type==GRAPH_YAXIS_TYPE_FIXED){
 			return $this->yaxismax;
 		}
-		if ($this->ymax_type == GRAPH_YAXIS_TYPE_ITEM_VALUE) {
+		else if($this->ymax_type==GRAPH_YAXIS_TYPE_ITEM_VALUE){
 			$item = get_item_by_itemid($this->ymax_itemid);
-			if ($item && isset($item['lastvalue']) && !is_null($item['lastvalue'])) {
+			if($item && isset($item['lastvalue']) && !is_null($item['lastvalue'])){
 				 return $item['lastvalue'];
 			}
 		}
 
 		$maxY = null;
-		for ($i = 0; $i < $this->num; $i++) {
-			if ($this->items[$i]['axisside'] != $side) {
-				continue;
-			}
+		for($i=0; $i<$this->num; $i++){
+			if($this->items[$i]['axisside'] != $side) continue;
 
-			if (!isset($this->data[$this->items[$i]['itemid']][GRAPH_ITEM_SIMPLE])) {
-				continue;
-			}
+			foreach(array(GRAPH_ITEM_SIMPLE, GRAPH_ITEM_AGGREGATED) as $type){
+				if(!isset($this->data[$this->items[$i]['itemid']][$type])) continue;
 
-			$data = &$this->data[$this->items[$i]['itemid']][GRAPH_ITEM_SIMPLE];
+				$data = &$this->data[$this->items[$i]['itemid']][$type];
 
-			if (!isset($data)) {
-				continue;
-			}
+				if(!isset($data)) continue;
 
-			$calc_fnc = $this->items[$i]['calc_fnc'];
+				if($type == GRAPH_ITEM_AGGREGATED)
+					$calc_fnc = CALC_FNC_ALL;
+				else
+					$calc_fnc = $this->items[$i]['calc_fnc'];
 
-			switch ($calc_fnc) {
-				case CALC_FNC_ALL:	/* use max */
-				case CALC_FNC_MAX:
-					$val = $data['max'];
-					$shift_val = $data['shift_max'];
-					break;
-				case CALC_FNC_MIN:
-					$val = $data['min'];
-					$shift_val = $data['shift_min'];
-					break;
-				case CALC_FNC_AVG:
-				default:
-					$val = $data['avg'];
-					$shift_val = $data['shift_avg'];
-			}
-
-			if (!isset($val)) {
-				continue;
-			}
-
-			for ($ci = 0; $ci < min(count($val), count($shift_val)); $ci++) {
-				if ($data['count'][$ci] == 0) {
-					continue;
+				switch($calc_fnc){
+					case CALC_FNC_ALL:	/* use max */
+					case CALC_FNC_MAX:
+						$val = $data['max'];
+						$shift_val = $data['shift_max'];
+						break;
+					case CALC_FNC_MIN:
+						$val = $data['min'];
+						$shift_val = $data['shift_min'];
+						break;
+					case CALC_FNC_AVG:
+					default:
+						$val = $data['avg'];
+						$shift_val = $data['shift_avg'];
 				}
 
-				$val[$ci] = bcadd($shift_val[$ci], $val[$ci]);
-			}
+				if(!isset($val)) continue;
 
-			if (!isset($maxY)) {
-				if (isset($val) && count($val) > 0) {
-					$maxY = max($val);
+				$size = min(count($val),count($shift_val));
+				for($ci=0; $ci < $size; $ci++){
+					if($data['count'][$ci] == 0) continue;
+
+					$val[$ci] = bcadd($shift_val[$ci], $val[$ci]);
 				}
-			}
-			else {
-				$maxY = max($maxY, max($val));
+				if(!isset($maxY)){
+					if(isset($val) && count($val) > 0){
+						$maxY = max($val);
+					}
+				}
+				else{
+					$maxY = max($maxY, max($val));
+				}
 			}
 		}
-		return $maxY;
+
+	return $maxY;
 	}
 
 	protected function calcZero(){
+		$left = GRAPH_YAXIS_SIDE_LEFT;
+		$right = GRAPH_YAXIS_SIDE_RIGHT;
 		$sides = array(GRAPH_YAXIS_SIDE_LEFT, GRAPH_YAXIS_SIDE_RIGHT);
 
 		foreach($sides as $num => $side){
@@ -931,8 +946,8 @@ class CChart extends CGraphDraw{
 // Sub
 		$intervalX = ($sub_interval * $this->sizeX) / $this->period;
 
-		if ($sub_interval > SEC_PER_DAY) {
-			$offset = (7 - date('w', $this->from_time)) * SEC_PER_DAY;
+		if($sub_interval > 86400){
+			$offset = (7 - date('w',$this->from_time)) * 86400;
 			$offset+= $this->diffTZ;
 
 			$next = $this->from_time + $offset;
@@ -968,8 +983,8 @@ class CChart extends CGraphDraw{
 // Main
 		$intervalX = ($main_interval * $this->sizeX) / $this->period;
 
-		if ($main_interval > SEC_PER_DAY) {
-			$offset = (7 - date('w', $this->from_time)) * SEC_PER_DAY;
+		if($main_interval > 86400){
+			$offset = (7 - date('w',$this->from_time)) * 86400;
 			$offset+= $this->diffTZ;
 			$next = $this->from_time + $offset;
 
@@ -1150,6 +1165,7 @@ class CChart extends CGraphDraw{
 		$main_interval = $this->grid['horizontal']['main']['interval'];
 		$main_intervalX = $this->grid['horizontal']['main']['intervalx'];
 		$main_offset = $this->grid['horizontal']['main']['offset'];
+		$main_offsetX = $this->grid['horizontal']['main']['offsetx'];
 
 		$sub = &$this->grid['horizontal']['sub'];
 		$interval = $sub['interval'];
@@ -1168,57 +1184,47 @@ class CChart extends CGraphDraw{
 			$new_pos = $i*$intervalX+$offsetX;
 
 // DayLightSave
-			if ($interval > SEC_PER_HOUR) {
+			if($interval > 3600){
 				$tz = date('Z',$this->from_time) - date('Z',$new_time);
 				$new_time+=$tz;
 			}
 
 // MAIN Interval Checks
-			if ($interval < SEC_PER_HOUR && date('i', $new_time) == 0) {
+			if(($interval < 3600) && (date('i',$new_time) == 0)){
 				$this->drawMainPeriod($new_time, $new_pos);
 				continue;
 			}
 
-			if ($interval >= SEC_PER_HOUR && $interval < SEC_PER_DAY && date('H', $new_time) == "00") {
+			if(($interval >= 3600) && ($interval < 86400) && (date('H',$new_time) == 0)){
 				$this->drawMainPeriod($new_time, $new_pos);
 				continue;
 			}
 
-			if ($interval == SEC_PER_DAY && date('N', $new_time) == 7) {
+			if(($interval == 86400) && (date('N',$new_time) == 7)){
 				$this->drawMainPeriod($new_time, $new_pos);
 				continue;
 			}
 
-			if ($interval > SEC_PER_DAY && ($i * $interval % $main_interval + $offset) == $main_offset) {
+			if(($interval > 86400) && (($i*$interval % $main_interval + $offset) == $main_offset)){
 				$this->drawMainPeriod($new_time, $new_pos);
 				continue;
 			}
 //----------
 
 			dashedline($this->im,
-					$this->shiftXleft + $new_pos,
+					$this->shiftXleft+$new_pos,
 					$this->shiftY,
-					$this->shiftXleft + $new_pos,
-					$this->sizeY + $this->shiftY,
+					$this->shiftXleft+$new_pos,
+					$this->sizeY+$this->shiftY,
 					$this->getColor($this->graphtheme['gridcolor'], 0)
 			);
 
-			if ($main_intervalX < floor(($main_interval / $interval) * $intervalX)) {
-				continue;
-			}
-			elseif ($main_intervalX < (ceil($main_interval / $interval + 1) * $test_dims['width'])) {
-				continue;
-			}
+			if($main_intervalX < floor(($main_interval/$interval)*$intervalX)) continue;
+			else if($main_intervalX < (ceil($main_interval/$interval + 1)*$test_dims['width'])) continue;
 
-			if ($interval == SEC_PER_DAY) {
-				$date_format = _('D');
-			}
-			elseif ($interval > SEC_PER_DAY) {
-				$date_format = _('d.m');
-			}
-			elseif ($interval < SEC_PER_DAY) {
-				$date_format = _('H:i');
-			}
+			if($interval == 86400) $date_format = S_CCHARTS_TIMELINE_DAYS_FORMAT;
+			else if($interval > 86400) $date_format = S_CCHARTS_TIMELINE_MONTHDAYS_FORMAT;
+			else if($interval < 86400) $date_format = S_CCHARTS_TIMELINE_HOURS_FORMAT;
 
 			$str = zbx_date2str($date_format, $new_time);
 			$dims = imageTextSize(7, 90, $str);
@@ -1226,36 +1232,36 @@ class CChart extends CGraphDraw{
 			imageText($this->im,
 						7,
 						90,
-						$this->shiftXleft + $new_pos+round($dims['width'] / 2),
-						$this->sizeY + $this->shiftY+$dims['height'] + 6,
-						$this->getColor($this->graphtheme['textcolor'], 0),
+						$this->shiftXleft+$new_pos+round($dims['width']/2),
+						$this->sizeY+$this->shiftY+$dims['height']+6,
+						$this->getColor($this->graphtheme['textcolor'],0),
 						$str
 			);
 		}
 
 // First && Last
 // Start
-		$str = zbx_date2str(S_CCHARTS_TIMELINE_START_DATE_FORMAT, $this->stime);
+		$str = zbx_date2str(S_CCHARTS_TIMELINE_START_DATE_FORMAT,$this->stime);
 		$dims = imageTextSize(8, 90, $str);
 		imageText($this->im,
 					8,
 					90,
-					$this->shiftXleft + round($dims['width'] / 2),
-					$this->sizeY + $this->shiftY + $dims['height'] + 6,
+					$this->shiftXleft + round($dims['width']/2),
+					$this->sizeY+$this->shiftY + $dims['height'] + 6,
 					$this->getColor($this->graphtheme['highlightcolor'], 0),
 					$str
 			);
 
 // End
-		$endtime = $this->to_time;
+		$endtime = $this->to_time;// - $this->diffTZ;
 
-		$str = zbx_date2str(S_CCHARTS_TIMELINE_END_DATE_FORMAT, $endtime);
+		$str = zbx_date2str(S_CCHARTS_TIMELINE_END_DATE_FORMAT,$endtime);
 		$dims = imageTextSize(8, 90, $str);
 		imageText($this->im,
 					8,
 					90,
-					$this->sizeX + $this->shiftXleft + round($dims['width'] / 2),
-					$this->sizeY + $this->shiftY + $dims['height'] + 6,
+					$this->sizeX+$this->shiftXleft + round($dims['width']/2),
+					$this->sizeY+$this->shiftY + $dims['height'] + 6,
 					$this->getColor($this->graphtheme['highlightcolor'], 0),
 					$str
 			);
@@ -1493,7 +1499,7 @@ class CChart extends CGraphDraw{
 			$this->shiftY,
 			$this->sizeX+$this->shiftXleft-2,	// -2 border
 			$this->sizeY+$this->shiftY,
-			$this->getColor($this->graphtheme['nonworktimecolor'], 0)
+			$this->getColor($this->graphtheme['noneworktimecolor'], 0)
 		);
 
 		$now = time();
@@ -1501,9 +1507,9 @@ class CChart extends CGraphDraw{
 			$this->from_time=$this->stime;
 			$this->to_time=$this->stime+$this->period;
 		}
-		else {
-			$this->to_time = $now - SEC_PER_HOUR * $this->from;
-			$this->from_time = $this->to_time - $this->period;
+		else{
+			$this->to_time=$now-3600*$this->from;
+			$this->from_time=$this->to_time-$this->period;
 		}
 
 		$from = $this->from_time;
@@ -1617,32 +1623,28 @@ class CChart extends CGraphDraw{
 		$legend->addRow($row);
 		$colNum = $legend->getNumRows();
 
-		$i = ($this->type == GRAPH_TYPE_STACKED) ? $this->num - 1 : 0;
-		while ($i >= 0 && $i < $this->num) {
-			$color = $this->getColor($this->items[$i]['color'], GRAPH_STACKED_ALFA);
-			switch ($this->items[$i]['calc_fnc']) {
-				case CALC_FNC_MIN:
-					$fnc_name = S_MIN_SMALL;
-					break;
-				case CALC_FNC_MAX:
-					$fnc_name = S_MAX_SMALL;
-					break;
-				case CALC_FNC_ALL:
-					$fnc_name = S_ALL_SMALL;
-					break;
-				case CALC_FNC_AVG:
-				default:
-					$fnc_name = S_AVG_SMALL;
+		$i = ($this->type == GRAPH_TYPE_STACKED)?($this->num-1):0;
+		while(($i>=0) && ($i<$this->num)){
+
+			if($this->items[$i]['calc_type'] == GRAPH_ITEM_AGGREGATED){
+				$fnc_name = 'agr('.$this->items[$i]['periods_cnt'].')';
+				$color = $this->getColor('HistoryMinMax');
+			}
+			else{
+				$color = $this->getColor($this->items[$i]['color'], GRAPH_STACKED_ALFA);
+				switch($this->items[$i]['calc_fnc']){
+					case CALC_FNC_MIN:	$fnc_name = S_MIN_SMALL;	break;
+					case CALC_FNC_MAX:	$fnc_name = S_MAX_SMALL;	break;
+					case CALC_FNC_ALL:	$fnc_name = S_ALL_SMALL;	break;
+					case CALC_FNC_AVG:
+					default:		$fnc_name = S_AVG_SMALL;
+				}
 			}
 
 			$data = &$this->data[$this->items[$i]['itemid']][$this->items[$i]['calc_type']];
 
-			if ($this->itemsHost) {
-				$item_caption = $this->items[$i]['name'];
-			}
-			else {
-				$item_caption = $this->items[$i]['hostname'].': '.$this->items[$i]['name'];
-			}
+			if($this->itemsHost) $item_caption = $this->items[$i]['description'];
+			else $item_caption = $this->items[$i]['host'].': '.$this->items[$i]['description'];
 
 			if(isset($data) && isset($data['min'])){
 				if($this->items[$i]['axisside'] == GRAPH_YAXIS_SIDE_LEFT)
@@ -1997,9 +1999,11 @@ class CChart extends CGraphDraw{
 	}
 
 	public function draw(){
-		$start_time = microtime(true);
+		$start_time=getmicrotime();
 
 		set_image_header();
+
+		check_authorisation();
 
 		$this->selectData();
 
@@ -2048,6 +2052,7 @@ class CChart extends CGraphDraw{
 		$this->fullSizeY = $this->sizeY+$this->shiftY+$this->legendOffsetY;
 
 		if($this->drawLegend){
+			$trCount = $this->m_showTriggers?count($this->triggers):0;
 			$this->fullSizeY += 14 * ($this->num+1+(($this->sizeY < 120)?0:count($this->triggers))) + 8;
 		}
 
@@ -2090,7 +2095,17 @@ class CChart extends CGraphDraw{
 
 			if(!isset($data))	continue;
 
-			if ($this->type == GRAPH_TYPE_STACKED) {
+			if($this->items[$item]['calc_type'] == GRAPH_ITEM_AGGREGATED){
+				$drawtype	= GRAPH_ITEM_DRAWTYPE_LINE;
+
+				$max_color	= $this->getColor('HistoryMax');
+				$avg_color	= $this->getColor('HistoryAvg');
+				$min_color	= $this->getColor('HistoryMin');
+				$minmax_color	= $this->getColor('HistoryMinMax');
+
+				$calc_fnc	= CALC_FNC_ALL;
+			}
+			else if($this->type == GRAPH_TYPE_STACKED){
 				$drawtype	= $this->items[$item]['drawtype'];
 
 				$max_color	= $this->getColor('ValueMax',GRAPH_STACKED_ALFA);
@@ -2125,6 +2140,9 @@ class CChart extends CGraphDraw{
 					$draw = (boolean) ($diff < (ZBX_GRAPH_MAX_SKIP_CELL * $cell));
 				else
 					$draw = (boolean) ($diff < (ZBX_GRAPH_MAX_SKIP_DELAY * $delay));
+
+				if(($draw == false) && ($this->items[$item]['calc_type'] == GRAPH_ITEM_AGGREGATED))
+					$draw = $i - $j < 5;
 
 				if($this->items[$item]['type'] == ITEM_TYPE_TRAPPER) $draw = true;
 
@@ -2171,12 +2189,20 @@ class CChart extends CGraphDraw{
 
 		$this->drawLogo();
 
-		$str = sprintf('%0.2f', microtime(true) - $start_time);
-		$str = _s('Data from %1$s. Generated in %2$s sec', $this->dataFrom, $str);
-		$strSize = imageTextSize(6, 0, $str);
-		imageText($this->im, 6, 0, $this->fullSizeX - $strSize['width'] - 5, $this->fullSizeY - 5, $this->getColor('Gray'), $str);
+		$end_time=getmicrotime();
+		$str=sprintf('%0.2f',(getmicrotime()-$start_time));
+
+// if we get chart from config by get method
+		$datafrom = '';
+		if(isset($this->dataFrom))
+			$datafrom = 'Data from '.$this->dataFrom.'. ';
+
+		imagestring($this->im, 0,$this->fullSizeX-210,$this->fullSizeY-12,$datafrom.'Generated in '.$str.' sec', $this->getColor('Gray'));
 
 		unset($this->items, $this->data);
+
+//debug info
+//		show_messages();
 
 		ImageOut($this->im);
 	}

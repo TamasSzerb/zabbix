@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_EVALFUNC_H
@@ -30,7 +30,9 @@ extern int     CONFIG_SERVER_STARTUP_TIME;
 
 int	cmp_double(double a, double b);
 
-int	evaluate_macro_function(char *value, const char *host, const char *key,
-		const char *function, const char *parameter);
+int	evaluate_macro_function(char *value, const char *host, const char *key, const char *function, const char *parameter);
+
+int	replace_value_by_map(char *value, int max_len, zbx_uint64_t valuemapid);
+int	add_value_suffix(char *value, int max_len, const char *units, int value_type);
 
 #endif

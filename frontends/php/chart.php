@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -25,7 +25,7 @@ $page['file']	= 'chart.php';
 // $page['title']	= "S_CHART";
 $page['type']	= PAGE_TYPE_IMAGE;
 
-require_once('include/page_header.php');
+include_once('include/page_header.php');
 
 ?>
 <?php
@@ -44,7 +44,7 @@ require_once('include/page_header.php');
 ?>
 <?php
 	if(!DBfetch(DBselect('select itemid from items where itemid='.$_REQUEST['itemid']))){
-		show_error_message(_('No items defined.'));
+		show_error_message(S_NO_ITEM_DEFINED);
 	}
 
 	$options = array(
@@ -53,7 +53,7 @@ require_once('include/page_header.php');
 		'nodeids' => get_current_nodeid(true)
 	);
 
-	$db_data = API::Item()->get($options);
+	$db_data = CItem::get($options);
 	if(empty($db_data)) access_deny();
 
 	$graph = new CChart();
@@ -73,6 +73,6 @@ require_once('include/page_header.php');
 ?>
 <?php
 
-require_once('include/page_footer.php');
+include_once('include/page_footer.php');
 
 ?>

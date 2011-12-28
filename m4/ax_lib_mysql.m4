@@ -87,7 +87,7 @@ dnl            AC_MSG_CHECKING([for MySQL libraries])
             MYSQL_CFLAGS="`$MYSQL_CONFIG --cflags`"
 
             _full_libmysql_libs="`$MYSQL_CONFIG --libs`"
-
+ 
             for i in $_full_libmysql_libs; do
                 case $i in
                 -lmysqlclient)
@@ -99,14 +99,14 @@ dnl            AC_MSG_CHECKING([for MySQL libraries])
             done
 
             if test "x$enable_static" = "xyes"; then
-
+ 
                for i in $_full_libmysql_libs; do
                    case $i in
            	      -lmysqlclient)
            	    ;;
                       -l*)
 				_lib_name="`echo "$i" | cut -b3-`"
-				AC_CHECK_LIB($_lib_name, main, [
+				AC_CHECK_LIB($_lib_name , main,[
 						MYSQL_LIBS="$MYSQL_LIBS $i"
 					],[
 						AC_MSG_ERROR([Not found $_lib_name library])
@@ -123,7 +123,7 @@ dnl            AC_MSG_CHECKING([for MySQL libraries])
 		LDFLAGS="${LDFLAGS} ${MYSQL_LDFLAGS}"
 		CFLAGS="${CFLAGS} ${MYSQL_CFLAGS}"
 
-		AC_CHECK_LIB(mysqlclient, main, [
+		AC_CHECK_LIB(mysqlclient , main,[
 			MYSQL_LIBS="-lmysqlclient ${MYSQL_LIBS}"
 			],[
 			AC_MSG_ERROR([Not found mysqlclient library])

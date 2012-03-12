@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,14 +15,14 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-	require_once dirname(__FILE__).'/include/config.inc.php';
-	require_once dirname(__FILE__).'/include/hosts.inc.php';
-	require_once dirname(__FILE__).'/include/httptest.inc.php';
-	require_once dirname(__FILE__).'/include/forms.inc.php';
+	require_once('include/config.inc.php');
+	require_once('include/hosts.inc.php');
+	require_once('include/httptest.inc.php');
+	require_once('include/forms.inc.php');
 
 	$page['title'] = 'S_DETAILS_OF_SCENARIO';
 	$page['file'] = 'httpdetails.php';
@@ -33,7 +33,7 @@
 
 	define('ZBX_PAGE_DO_REFRESH', 1);
 
-	require_once dirname(__FILE__).'/include/page_header.php';
+	include_once('include/page_header.php');
 ?>
 <?php
 
@@ -49,7 +49,7 @@
 		'favobj'=>		array(T_ZBX_STR, O_OPT, P_ACT,	NULL,			NULL),
 		'favref'=>		array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,		null),
 		'favid'=>		array(T_ZBX_INT, O_OPT, P_ACT,  null,			null),
-		'favstate'=>	array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,		NULL),
+		'state'=>		array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,		NULL),
 	);
 
 	if(!check_fields($fields)) exit();
@@ -57,7 +57,7 @@
 <?php
 	if(isset($_REQUEST['favobj'])){
 		if('filter' == $_REQUEST['favobj']){
-			CProfile::update('web.httpdetails.filter.state',$_REQUEST['favstate'], PROFILE_TYPE_INT);
+			CProfile::update('web.httpdetails.filter.state',$_REQUEST['state'], PROFILE_TYPE_INT);
 		}
 		if('timeline' == $_REQUEST['favobj']){
 			if(isset($_REQUEST['favid']) && isset($_REQUEST['period'])){
@@ -73,7 +73,7 @@
 	}
 
 	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		require_once dirname(__FILE__).'/include/page_footer.php';
+		include_once('include/page_footer.php');
 		exit();
 	}
 ?>
@@ -99,7 +99,7 @@
 	$rst_icon = get_icon('reset', array('id' => $_REQUEST['httptestid']));
 
 	$details_wdgt->addPageHeader(
-		array(S_DETAILS_OF_SCENARIO_BIG.SPACE, bold($httptest_data['name']),' ['.date(_('d M Y H:i:s'), $httptest_data['lastcheck']).']'),
+		array(S_DETAILS_OF_SCENARIO_BIG.SPACE, bold($httptest_data['name']),' ['.date(S_DATE_FORMAT_YMDHMS, $httptest_data['lastcheck']).']'),
 		array($rst_icon, $fs_icon)
 	);
 //-------------
@@ -119,17 +119,17 @@
 	);
 
 	while($httpstep_data = DBfetch($db_httpsteps)){
-		$status['msg'] = _('OK');
+		$status['msg'] = S_OK_BIG;
 		$status['style'] = 'enabled';
 
 		if(HTTPTEST_STATE_BUSY == $httptest_data['curstate'] ){
 			if($httptest_data['curstep'] == ($httpstep_data['no'])){
-				$status['msg'] = _('In progress');
+				$status['msg'] = S_IN_PROGRESS;
 				$status['style'] = 'unknown';
 				$status['skip'] = true;
 			}
 			else if($httptest_data['curstep'] < ($httpstep_data['no'])){
-				$status['msg'] = _('Unknown');
+				$status['msg'] = S_UNKNOWN;
 				$status['style'] = 'unknown';
 				$status['skip'] = true;
 			}
@@ -142,20 +142,20 @@
 					//$status['skip'] = true;
 				}
 				else if($httptest_data['lastfailedstep'] < ($httpstep_data['no'])){
-					$status['msg'] = _('Unknown');
+					$status['msg'] = S_UNKNOWN;
 					$status['style'] = 'unknown';
 					$status['skip'] = true;
 				}
 			}
 		}
 		else{
-			$status['msg'] = _('Unknown');
+			$status['msg'] = S_UNKNOWN;
 			$status['style'] = 'unknown';
 			$status['skip'] = true;
 		}
 
 		$itemids = array();
-		$sql = 'SELECT i.lastvalue, i.lastclock, i.value_type, i.valuemapid, i.units, i.itemid, hi.type as httpitem_type '.
+		$sql = 'SELECT i.lastvalue, i.value_type, i.valuemapid, i.units, i.itemid, hi.type as httpitem_type '.
 				' FROM items i, httpstepitem hi '.
 				' WHERE hi.itemid=i.itemid '.
 					' AND hi.httpstepid='.$httpstep_data['httpstepid'];
@@ -167,7 +167,6 @@
 
 			if($item_data['httpitem_type'] == HTTPSTEP_ITEM_TYPE_TIME){
 				$totalTime['lastvalue'] += $item_data['lastvalue'];
-				$totalTime['lastclock'] = $item_data['lastclock'];
 				$totalTime['value_type'] = $item_data['value_type'];
 				$totalTime['valuemapid'] = $item_data['valuemapid'];
 				$totalTime['units'] = $item_data['units'];
@@ -177,29 +176,26 @@
 		}
 
 		$speed = format_lastvalue($httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_IN]);
-		$resp = format_lastvalue($httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_RSPCODE]);
-
 		$respTime = $httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_TIME]['lastvalue'];
-		$respItemTime = format_lastvalue($httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_TIME]);
-
+		$resp = format_lastvalue($httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_RSPCODE]);
 		$table->addRow(array(
 			$httpstep_data['name'],
-			$speed,
-			($respTime == 0 ? '-' : $respItemTime),
-			$resp,
+			($speed == 0 ? '-' : $speed),
+			($respTime == 0 ? '-' : format_lastvalue($httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_TIME])),
+			($resp == 0 ? '-' : $resp),
 			new CSpan($status['msg'], $status['style'])
 		));
 	}
 
-	$status['msg'] = _('OK');
+	$status['msg'] = S_OK_BIG;
 	$status['style'] = 'enabled';
 
 	if( HTTPTEST_STATE_BUSY == $httptest_data['curstate'] ){
-		$status['msg'] = _('In progress');
+		$status['msg'] = S_IN_PROGRESS;
 		$status['style'] = 'unknown';
 	}
 	else if ( HTTPTEST_STATE_UNKNOWN == $httptest_data['curstate'] ){
-		$status['msg'] = _('Unknown');
+		$status['msg'] = S_UNKNOWN;
 		$status['style'] = 'unknown';
 	}
 	else if($httptest_data['lastfailedstep'] > 0){
@@ -208,9 +204,9 @@
 	}
 
 	$table->addRow(array(
-		bold(S_TOTAL_BIG),
+		new CSpan(S_TOTAL_BIG, 'bold'),
 		SPACE,
-		bold(format_lastvalue($totalTime)),
+		new CSpan(format_lastvalue($totalTime), 'bold'),
 		SPACE,
 		new CSpan($status['msg'], $status['style'].' bold')
 	));
@@ -224,7 +220,7 @@
 
 	$scroll_div = new CDiv();
 	$scroll_div->setAttribute('id','scrollbar_cntr');
-	$graphsWidget->addFlicker($scroll_div, CProfile::get('web.httpdetails.filter.state', 0));
+	$graphsWidget->addFlicker($scroll_div, CProfile::get('web.httpdetails.filter.state',0));
 	$graphsWidget->addItem(SPACE);
 
 	$graphTable = new CTableInfo();
@@ -275,8 +271,7 @@
 		'loadScroll' => 0,
 		'dynamic' => 1,
 		'mainObject' => 1,
-		'periodFixed' => CProfile::get('web.httptest.timelinefixed', 1),
-		'sliderMaximumTimePeriod' => ZBX_MAX_PERIOD
+		'periodFixed' => CProfile::get('web.httptest.timelinefixed', 1)
 	);
 	zbx_add_post_js('timeControl.addObject("'.$dom_graph_id.'",'.zbx_jsvalue($timeline).','.zbx_jsvalue($objData).');');
 
@@ -301,8 +296,7 @@
 		'loadScroll' => 0,
 		'dynamic' => 1,
 		'mainObject' => 1,
-		'periodFixed' => CProfile::get('web.httptest.timelinefixed', 1),
-		'sliderMaximumTimePeriod' => ZBX_MAX_PERIOD
+		'periodFixed' => CProfile::get('web.httptest.timelinefixed', 1)
 	);
 	zbx_add_post_js('timeControl.addObject("'.$dom_graph_id.'",'.zbx_jsvalue($timeline).','.zbx_jsvalue($objData).');');
 //-------------
@@ -317,8 +311,7 @@
 		'scrollWidthByImage' => 0,
 		'dynamic' => 1,
 		'mainObject' => 1,
-		'periodFixed' => CProfile::get('web.httptest.timelinefixed', 1),
-		'sliderMaximumTimePeriod' => ZBX_MAX_PERIOD
+		'periodFixed' => CProfile::get('web.httptest.timelinefixed', 1)
 	);
 
 	zbx_add_post_js('timeControl.addObject("'.$dom_graph_id.'",'.zbx_jsvalue($timeline).','.zbx_jsvalue($objData).');');
@@ -328,5 +321,5 @@
 
 ?>
 <?php
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');
 ?>

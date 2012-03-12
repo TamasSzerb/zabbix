@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,49 +15,65 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/forms.inc.php';
+require_once('include/config.inc.php');
+require_once('include/forms.inc.php');
 
-$page['title'] = _('Installation');
-$page['file'] = 'instal.php';
+$page["title"] = "S_INSTALLATION";
+$page["file"] = 'instal.php';
 
-require_once dirname(__FILE__).'/include/page_header.php';
-require_once dirname(__FILE__).'/setup.php';
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_header.php');
+include_once('setup.php');
+include_once('include/page_footer.php');
 
 /*******************************/
 /* THIS POINT NEVER BE REACHED */
 /*******************************/
-// VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
-$fields = array(
-	'install' =>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null),
-	'update' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null)
-);
-check_fields($fields);
+?>
+<?php
+	$fields=array(
+//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 
-if (isset($_REQUEST['install'])) {
-	jsRedirect('setup.php');
-	exit();
-}
-elseif (isset($_REQUEST['update'])) {
-	error('*UNDER CONSTRUCTION*');
-}
+/* actions */
+		"install"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+		"update"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
+	);
 
-$form = new CFormTable(_('Installation/Update'));
-$form->setHelp('install_source_web.php');
-$form->addRow(
-	array(bold(_('NEW INSTALLATION')), BR(), BR(), bold(_('Description')), BR(), 'Not implemented yet!', BR(),BR(),BR()),
-	new CSubmit('install', _('New installation'))
-);
-$form->addRow(
-	array(bold(_('UPDATE')), BR(), BR(), bold(_('Description')), BR(), 'Not implemented yet!', BR(), BR(), BR()),
-	new CSubmit('update', _('Update'))
-);
-$form->show();
+	check_fields($fields);
+?>
+<?php
+	if(isset($_REQUEST['install'])){
+		jsRedirect('setup.php');
+		exit();
+	}
+	else if(isset($_REQUEST['update'])){
+		error('*UNDER CONSTRUCTION*');
+	}
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+	$form = new CFormTable(S_INSTALLATION_UPDATE);
+	$form->setHelp('install_source_web.php');
+	$form->addRow(
+		array(bold(S_NEW_INSTALLATION_BIG),BR(),BR(),
+			bold(S_DESCRIPTION),BR(),
+			'Not implemented yet!',
+			BR(),BR(),BR()
+			),
+		new CButton('install',S_NEW_INSTALLATION));
+	$form->addRow(
+		array(bold(S_UPDATE_BIG),BR(),BR(),
+			bold(S_DESCRIPTION),BR(),
+			'Not implemented yet!',
+			BR(),BR(),BR()
+			),
+		new CButton('update',S_UPDATE));
+	$form->show();
+
+?>
+<?php
+
+include_once('include/page_footer.php');
+
 ?>

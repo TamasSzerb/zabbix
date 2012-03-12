@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,24 +15,24 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-require_once dirname(__FILE__).'/include/config.inc.php';
+require_once('include/config.inc.php');
 
 $page['file']	= 'chart.php';
 // $page['title']	= "S_CHART";
 $page['type']	= PAGE_TYPE_IMAGE;
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
 		'itemid'=>		array(T_ZBX_INT, O_MAND,P_SYS,	DB_ID,		null),
-		'period'=>		array(T_ZBX_INT, O_OPT,	null,	BETWEEN(ZBX_MIN_PERIOD, ZBX_MAX_PERIOD),	null),
+		'period'=>		array(T_ZBX_INT, O_OPT,	null,	BETWEEN(ZBX_MIN_PERIOD,ZBX_MAX_PERIOD),	null),
 		'from'=>		array(T_ZBX_INT, O_OPT,	null,	'{}>=0',	null),
 		'width'=>		array(T_ZBX_INT, O_OPT,	null,	'{}>0',		null),
 		'height'=>		array(T_ZBX_INT, O_OPT,	null,	'{}>0',		null),
@@ -44,7 +44,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 ?>
 <?php
 	if(!DBfetch(DBselect('select itemid from items where itemid='.$_REQUEST['itemid']))){
-		show_error_message(_('No items defined.'));
+		show_error_message(S_NO_ITEM_DEFINED);
 	}
 
 	$options = array(
@@ -53,12 +53,12 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		'nodeids' => get_current_nodeid(true)
 	);
 
-	$db_data = API::Item()->get($options);
+	$db_data = CItem::get($options);
 	if(empty($db_data)) access_deny();
 
 	$graph = new CChart();
 
-	$effectiveperiod = navigation_bar_calc('web.item.graph', $_REQUEST['itemid']);
+	$effectiveperiod = navigation_bar_calc('web.item.graph',$_REQUEST['itemid']);
 
 	if(isset($_REQUEST['period']))		$graph->setPeriod($_REQUEST['period']);
 	if(isset($_REQUEST['from']))		$graph->setFrom($_REQUEST['from']);
@@ -73,6 +73,6 @@ require_once dirname(__FILE__).'/include/page_header.php';
 ?>
 <?php
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');
 
 ?>

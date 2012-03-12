@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,13 +15,13 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/hosts.inc.php';
-require_once dirname(__FILE__).'/include/triggers.inc.php';
-require_once dirname(__FILE__).'/include/html.inc.php';
+require_once('include/config.inc.php');
+require_once('include/hosts.inc.php');
+require_once('include/triggers.inc.php');
+require_once('include/html.inc.php');
 
 $page['title'] = 'S_DASHBOARD_CONFIGURATION';
 $page['file'] = 'dashconf.php';
@@ -30,7 +30,7 @@ $page['scripts'] = array();
 
 $page['type'] = detect_page_type(PAGE_TYPE_HTML);
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 
 //		VAR				TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields = array(
@@ -39,9 +39,9 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		'groupids'=>	array(T_ZBX_INT, O_OPT, P_SYS,	NULL,				NULL),
 		'new_right'=>	array(T_ZBX_STR, O_OPT,	null,	null,				null),
 		'trgSeverity'=>	array(T_ZBX_INT, O_OPT, P_SYS,	NULL,				NULL),
-		'grpswitch'=>	array(T_ZBX_INT, O_OPT, P_SYS,	BETWEEN(0, 1),		NULL),
+		'grpswitch'=>	array(T_ZBX_INT, O_OPT, P_SYS,	BETWEEN(0,1),		NULL),
 
-		'maintenance'=>	array(T_ZBX_INT, O_OPT, P_SYS,	BETWEEN(0, 1),		NULL),
+		'maintenance'=>	array(T_ZBX_INT, O_OPT, P_SYS,	BETWEEN(0,1),		NULL),
 		'extAck'=>	array(T_ZBX_INT, O_OPT, P_SYS,	null,		NULL),
 
 		'form_refresh'=>array(T_ZBX_INT, O_OPT, P_SYS,	null,				NULL),
@@ -53,12 +53,12 @@ require_once dirname(__FILE__).'/include/page_header.php';
 ?>
 <?php
 // ACTION /////////////////////////////////////////////////////////////////////////////
-	if (isset($_REQUEST['save'])) {
+	if(isset($_REQUEST['save'])){
 // FILTER
 		$filterEnable = get_request('filterEnable', 0);
 		CProfile::update('web.dashconf.filter.enable', $filterEnable, PROFILE_TYPE_INT);
 
-		if ($filterEnable == 1) {
+		if($filterEnable == 1){
 // GROUPS
 			$groupids = get_request('groupids', array());
 
@@ -85,18 +85,18 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 		jsRedirect('dashboard.php');
 	}
-	elseif (isset($_REQUEST['new_right'])) {
+	else if(isset($_REQUEST['new_right'])){
 		$_REQUEST['groupids'] = get_request('groupids', array());
 
-		foreach ($_REQUEST['new_right'] as $id => $group) {
+		foreach($_REQUEST['new_right'] as $id => $group){
 			$_REQUEST['groupids'][$id] = $id;
 		}
 	}
-	elseif (isset($_REQUEST['delete'])) {
-		$del_groups = get_request('del_groups', array());
+	else if(isset($_REQUEST['delete'])){
+		$del_groups = get_request('del_groups',array());
 
-		foreach ($del_groups as $gnum => $groupid) {
-			if (!isset($_REQUEST['groupids'][$groupid])) continue;
+		foreach($del_groups as $gnum => $groupid){
+			if(!isset($_REQUEST['groupids'][$groupid])) continue;
 
 			unset($_REQUEST['groupids'][$groupid]);
 		}
@@ -111,18 +111,11 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 //-------------
 // GROUPS
-	$divTabs = new CTabView(array('remember'=>1));
-	if(!isset($_REQUEST['form_refresh']))
-		$divTabs->setSelected(0);
-
-	$dashForm = new CForm();
+	$dashForm = new CFormTable(S_FILTER);
+	$dashForm->addVar('form_refresh', 1);
 	$dashForm->setName('dashconf');
 	$dashForm->setAttribute('id', 'dashform');
 
-	$form_refresh = get_request('form_refresh', 0);
-	$dashForm->addVar('form_refresh', ++$form_refresh);
-
-	$dashList = new CFormList('dashlist');
 	if(isset($_REQUEST['form_refresh'])){
 		$filterEnable = get_request('filterEnable', 0);
 
@@ -162,45 +155,43 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		$cbFilter->setAttribute('onclick', "$('dashform').enable(); create_var('" . $dashForm->getName() . "', 'filterEnable', 1, true);");
 	}
 
-	$dashList->addRow(S_DASHBOARD_FILTER, $cbFilter);
+	$dashForm->addRow(S_DASHBOARD_FILTER, $cbFilter);
 
 	$dashForm->addVar('groupids', $groupids);
 
 	$cmbGroups = new CComboBox('grpswitch', $grpswitch, 'submit();');
-	$cmbGroups->addItem(0, _('All'));
+	$cmbGroups->addItem(0, S_ALL_S);
 	$cmbGroups->addItem(1, S_SELECTED);
 
 	if(!$filterEnable) $cmbGroups->setAttribute('disabled', 'disabled');
 
-	$dashList->addRow(_('Host groups'), $cmbGroups);
+	$dashForm->addRow(S_HOST_GROUPS, $cmbGroups);
 
-	if ($grpswitch == 1) {
+	if($grpswitch == 1){
 		$options = array(
 			'nodeids' => get_current_nodeid(true),
 			'groupids' => $groupids,
 			'output' => API_OUTPUT_EXTEND
 		);
-		$groups = API::HostGroup()->get($options);
+		$groups = CHostGroup::get($options);
 		order_result($groups, 'name');
 
 		$lstGroups = new CListBox('del_groups[]', null, 15);
 		$lstGroups->setAttribute('style', 'width: 200px;');
-		foreach ($groups as $gnum => $group) {
-			$lstGroups->addItem($group['groupid'], get_node_name_by_elid($group['groupid'], true, ':').$group['name']);
+		foreach($groups as $gnum => $group){
+			$lstGroups->addItem($group['groupid'], get_node_name_by_elid($group['groupid'], true, ':') . $group['name']);
 		}
 
-		if (!$filterEnable) {
-			$lstGroups->setAttribute('disabled', 'disabled');
-		}
+		if(!$filterEnable) $lstGroups->setAttribute('disabled', 'disabled');
 
-		$addButton = new CButton('add', _('Add'), "return PopUp('popup_right.php?dstfrm=".$dashForm->getName()."&permission=".PERM_READ_WRITE."',450,450);");
-		$addButton->setEnabled($filterEnable);
+		$addButton = new CButton('add', S_ADD, "return PopUp('popup_right.php?dstfrm=" . $dashForm->getName() . "&permission=" . PERM_READ_WRITE . "',450,450);");
+		if(!$filterEnable) $addButton->setAttribute('disabled', 'disabled');
 
-		$delButton = new CSubmit('delete', _('Delete selected'));
-		$delButton->setEnabled($filterEnable);
+		$delButton = new CButton('delete', S_DELETE_SELECTED);
+		if(!$filterEnable) $delButton->setAttribute('disabled', 'disabled');
 
-		$dashList->addRow(
-			_('Groups'),
+		$dashForm->addRow(
+			S_GROUPS,
 			array($lstGroups, BR(), $addButton, $delButton)
 		);
 	}
@@ -210,7 +201,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	$cbMain = new CCheckBox('maintenance', $maintenance, null, '1');
 	if(!$filterEnable) $cbMain->setAttribute('disabled', 'disabled');
 
-	$dashList->addRow(S_HOSTS, array($cbMain, S_SHOW_HOSTS_IN_MAINTENANCE));
+	$dashForm->addRow(S_HOSTS, array($cbMain, S_SHOW_HOSTS_IN_MAINTENANCE));
 
 // Trigger
 	$severity = zbx_toHash($severity);
@@ -232,12 +223,12 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	}
 	array_pop($trgSeverities);
 
-	$dashList->addRow(S_TRIGGERS_WITH_SEVERITY, $trgSeverities);
+	$dashForm->addRow(S_TRIGGERS_WITH_SEVERITY, $trgSeverities);
 
 	$config = select_config();
 	$cb = new CComboBox('extAck', $extAck);
 	$cb->addItems(array(
-		EXTACK_OPTION_ALL => _('All'),
+		EXTACK_OPTION_ALL => S_O_ALL,
 		EXTACK_OPTION_BOTH => S_O_SEPARATED,
 		EXTACK_OPTION_UNACK => S_O_UNACKNOWLEDGED_ONLY,
 	));
@@ -245,18 +236,10 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	if(!$config['event_ack_enable']){
 		$cb->setAttribute('title', S_EVENT_ACKNOWLEDGING_DISABLED);
 	}
-	$dashList->addRow(S_PROBLEM_DISPLAY, $cb);
+	$dashForm->addRow(S_PROBLEM_DISPLAY, $cb);
 //-----
 
-	$divTabs->addTab('dashFilterTab', S_FILTER, $dashList);
-
-	$dashForm->addItem($divTabs);
-
-// Footer
-	$main = array(new CSubmit('save', S_SAVE));
-	$others = array();
-
-	$dashForm->addItem(makeFormFooter($main, $others));
+	$dashForm->addItemToBottomRow(new CButton('save', S_SAVE));
 
 	$dashboard_wdgt->addItem($dashForm);
 	$dashboard_wdgt->show();
@@ -264,6 +247,5 @@ require_once dirname(__FILE__).'/include/page_header.php';
 ?>
 <?php
 
-require_once dirname(__FILE__).'/include/page_footer.php';
-
+include_once('include/page_footer.php');
 ?>

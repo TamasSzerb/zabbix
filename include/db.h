@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,14 +14,14 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_DB_H
 #define ZABBIX_DB_H
 
+#include "zbxmacros.h"
 #include "common.h"
-#include "zbxalgo.h"
 #include "zbxdb.h"
 #include "dbschema.h"
 
@@ -35,18 +35,16 @@ extern int	CONFIG_DBPORT;
 extern int	CONFIG_NODEID;
 extern int	CONFIG_MASTER_NODEID;
 extern int	CONFIG_HISTSYNCER_FORKS;
+extern int	CONFIG_REFRESH_UNSUPPORTED;
 extern int	CONFIG_UNAVAILABLE_DELAY;
 extern int	CONFIG_LOG_SLOW_QUERIES;
 
-typedef enum
-{
+typedef enum {
 	GRAPH_TYPE_NORMAL = 0,
 	GRAPH_TYPE_STACKED = 1
-}
-zbx_graph_types;
+} zbx_graph_types;
 
-typedef enum
-{
+typedef enum {
 	SCREEN_RESOURCE_GRAPH = 0,
 	SCREEN_RESOURCE_SIMPLE_GRAPH,
 	SCREEN_RESOURCE_MAP,
@@ -64,29 +62,25 @@ typedef enum
 	SCREEN_RESOURCE_HOSTGROUP_TRIGGERS,
 	SCREEN_RESOURCE_SYSTEM_STATUS,
 	SCREEN_RESOURCE_HOST_TRIGGERS
-}
-zbx_screen_resources;
+} zbx_screen_resources;
 
-typedef enum
-{
+typedef enum {
 	CALC_FNC_MIN = 1,
 	CALC_FNC_AVG = 2,
 	CALC_FNC_MAX = 4,
 	CALC_FNC_ALL = 7
-}
-zbx_graph_item_calc_function;
+} zbx_graph_item_calc_function;
 
-typedef enum
-{
+typedef enum {
 	GRAPH_ITEM_SIMPLE = 0,
 	GRAPH_ITEM_AGGREGATED = 1
-}
-zbx_graph_item_type;
+} zbx_graph_item_type;
 
 #define ZBX_DB_CONNECT_NORMAL	0
 #define ZBX_DB_CONNECT_EXIT	1
 #define ZBX_DB_CONNECT_ONCE	2
 
+/* Trigger related defines */
 #define TRIGGER_DESCRIPTION_LEN		1020
 #define TRIGGER_DESCRIPTION_LEN_MAX	TRIGGER_DESCRIPTION_LEN+1
 #define TRIGGER_EXPRESSION_LEN		255
@@ -96,21 +90,18 @@ zbx_graph_item_type;
 
 #define HOST_HOST_LEN			MAX_ZBX_HOSTNAME_LEN
 #define HOST_HOST_LEN_MAX		HOST_HOST_LEN+1
+#define HOST_DNS_LEN			64
+#define HOST_DNS_LEN_MAX		HOST_DNS_LEN+1
+#define HOST_IP_LEN			39
+#define HOST_IP_LEN_MAX			HOST_IP_LEN+1
+#define HOST_ADDR_LEN			64	/* MAX(HOST_DNS_LEN,HOST_IP_LEN) */
+#define HOST_ADDR_LEN_MAX		HOST_ADDR_LEN+1
 #define HOST_ERROR_LEN			128
 #define HOST_ERROR_LEN_MAX		HOST_ERROR_LEN+1
 #define HOST_IPMI_USERNAME_LEN		16
 #define HOST_IPMI_USERNAME_LEN_MAX	HOST_IPMI_USERNAME_LEN+1
 #define HOST_IPMI_PASSWORD_LEN		20
 #define HOST_IPMI_PASSWORD_LEN_MAX	HOST_IPMI_PASSWORD_LEN+1
-
-#define INTERFACE_DNS_LEN		64
-#define INTERFACE_DNS_LEN_MAX		INTERFACE_DNS_LEN+1
-#define INTERFACE_IP_LEN		39
-#define INTERFACE_IP_LEN_MAX		INTERFACE_IP_LEN+1
-#define INTERFACE_ADDR_LEN		64 /* MAX(INTERFACE_DNS_LEN,INTERFACE_IP_LEN) */
-#define INTERFACE_ADDR_LEN_MAX		INTERFACE_ADDR_LEN+1
-#define INTERFACE_PORT_LEN		64
-#define INTERFACE_PORT_LEN_MAX		INTERFACE_PORT_LEN+1
 
 #define ITEM_KEY_LEN			1020
 #define ITEM_KEY_LEN_MAX		ITEM_KEY_LEN+1
@@ -172,13 +163,14 @@ zbx_graph_item_type;
 #define ALERT_SENDTO_LEN_MAX		ALERT_SENDTO_LEN+1
 #define ALERT_SUBJECT_LEN		255
 #define ALERT_SUBJECT_LEN_MAX		ALERT_SUBJECT_LEN+1
-#define ALERT_MESSAGE_LEN		65535
-#define ALERT_MESSAGE_LEN_MAX		ALERT_MESSAGE_LEN+1
 #define ALERT_ERROR_LEN			128
 #define ALERT_ERROR_LEN_MAX		ALERT_ERROR_LEN+1
 
 #define GRAPH_ITEM_COLOR_LEN		6
 #define GRAPH_ITEM_COLOR_LEN_MAX	GRAPH_ITEM_COLOR_LEN+1
+
+#define DHOST_IP_LEN			39
+#define DHOST_IP_LEN_MAX		DHOST_IP_LEN+1
 
 #define DSERVICE_KEY_LEN		255
 #define DSERVICE_KEY_LEN_MAX		DSERVICE_KEY_LEN+1
@@ -190,6 +182,8 @@ zbx_graph_item_type;
 #define HTTPTEST_HTTP_PASSWORD_LEN	64
 #define HTTPTEST_HTTP_PASSWORD_LEN_MAX	HTTPTEST_HTTP_PASSWORD_LEN+1
 
+#define PROXY_DHISTORY_IP_LEN		39
+#define PROXY_DHISTORY_IP_LEN_MAX	PROXY_DHISTORY_IP_LEN+1
 #define PROXY_DHISTORY_KEY_LEN		255
 #define PROXY_DHISTORY_KEY_LEN_MAX	PROXY_DHISTORY_KEY_LEN+1
 #define PROXY_DHISTORY_VALUE_LEN	255
@@ -204,41 +198,28 @@ zbx_graph_item_type;
 #define HTTPSTEP_REQUIRED_LEN		255
 #define HTTPSTEP_REQUIRED_LEN_MAX	HTTPSTEP_REQUIRED_LEN+1
 
-#define ZBX_SQL_ITEM_FIELDS	"i.itemid,i.key_,h.host,i.type,i.history,i.lastvalue,"		\
-				"i.prevvalue,i.hostid,i.value_type,i.delta,i.prevorgvalue,"	\
-				"i.lastclock,i.units,i.multiplier,i.formula,i.status,"		\
-				"i.valuemapid,i.trends,i.data_type"
+#define ZBX_SQL_ITEM_FIELDS	"i.itemid,i.key_,h.host,h.port,i.delay,i.description,i.type,h.useip,"	\
+				"h.ip,i.history,i.lastvalue,i.prevvalue,i.hostid,i.value_type,i.delta,"	\
+				"i.prevorgvalue,i.lastclock,i.units,i.multiplier,i.formula,i.status,"	\
+				"i.valuemapid,h.dns,i.trends,i.lastlogsize,i.data_type,i.mtime"
 #define ZBX_SQL_ITEM_TABLES	"hosts h,items i"
 #define ZBX_SQL_TIME_FUNCTIONS	"'nodata','date','dayofmonth','dayofweek','time','now'"
-#define ZBX_SQL_ITEM_FIELDS_NUM	19
+#define ZBX_SQL_ITEM_FIELDS_NUM	27
 #define ZBX_SQL_ITEM_SELECT	ZBX_SQL_ITEM_FIELDS " from " ZBX_SQL_ITEM_TABLES
 
 #ifdef HAVE_ORACLE
-#define	DBbegin_multiple_update(sql, sql_alloc, sql_offset)	zbx_strcpy_alloc(sql, sql_alloc, sql_offset, "begin\n")
-#define	DBend_multiple_update(sql, sql_alloc, sql_offset)	zbx_strcpy_alloc(sql, sql_alloc, sql_offset, "end;\n")
-
-#define	ZBX_SQL_STRCMP		"%s%s%s"
-#define	ZBX_SQL_STRVAL_EQ(str)	'\0' != *str ? "='"  : "",		\
-				'\0' != *str ? str   : " is null",	\
-				'\0' != *str ? "'"   : ""
-#define	ZBX_SQL_STRVAL_NE(str)	'\0' != *str ? "<>'" : "",		\
-				'\0' != *str ? str   : " is not null",	\
-				'\0' != *str ? "'"   : ""
+#define ZBX_SQL_STRCMP		"%s%s%s"
+#define ZBX_SQL_STRVAL_EQ(str)	str[0] != '\0' ? "='"  : "",			\
+				str[0] != '\0' ? str   : " is null",		\
+				str[0] != '\0' ? "'"   : ""
+#define	ZBX_SQL_STRVAL_NE(str)	str[0] != '\0' ? "<>'" : "",			\
+				str[0] != '\0' ? str   : " is not null",	\
+				str[0] != '\0' ? "'"   : ""
 #else
-#define	DBbegin_multiple_update(sql, sql_alloc, sql_offset)
-#define	DBend_multiple_update(sql, sql_alloc, sql_offset)
-
-#define	ZBX_SQL_STRCMP		"%s'%s'"
-#define	ZBX_SQL_STRVAL_EQ(str)	"=", str
-#define	ZBX_SQL_STRVAL_NE(str)	"<>", str
+#define ZBX_SQL_STRCMP		"%s'%s'"
+#define ZBX_SQL_STRVAL_EQ(str)	"=", str
+#define ZBX_SQL_STRVAL_NE(str)	"<>", str
 #endif
-
-#define ZBX_SQL_NULLCMP(f1, f2)	"((" f1 " is null and " f2 " is null) or " f1 "=" f2 ")"
-
-#define ZBX_DBROW2UINT64(uint, row)	if (SUCCEED == DBis_null(row))		\
-						uint = 0;			\
-					else					\
-						sscanf(row, ZBX_FS_UI64, &uint)
 
 #define ZBX_MAX_SQL_LEN		65535
 
@@ -298,6 +279,20 @@ DB_TRIGGER;
 
 typedef struct
 {
+	zbx_uint64_t	triggerid;
+	char		*expression;
+	char		*error;
+	char		*new_error;
+	int		lastchange;
+	int		value;
+	int		new_value;
+	unsigned char	type;
+	unsigned char	add_event;
+}
+DB_TRIGGER_UPDATE;
+
+typedef struct
+{
 	DB_TRIGGER	trigger;
 	zbx_uint64_t	eventid;
 	zbx_uint64_t	objectid;
@@ -306,9 +301,8 @@ typedef struct
 	int		object;
 	int		clock;
 	int		value;
-	unsigned char	value_changed;
 	int		acknowledged;
-	int		ns;
+	int		skip_actions;
 }
 DB_EVENT;
 
@@ -328,22 +322,33 @@ typedef struct
 	zbx_item_type_t		type;
 	zbx_item_data_type_t	data_type;
 	zbx_item_status_t	status;
+	char			*description;
 	char			*key;
+	char			*key_orig;
 	char			*host_name;
+	char			*host_ip;
+	char			*host_dns;
+	int			useip;
+	int			port;
+	int			delay;
 	int			history;
 	int			trends;
+	int			lastclock;
 	char			*lastvalue[2];
 	int			prevorgvalue_null;
 	history_value_t		prevorgvalue;
-	int			lastclock;
-	int			lastns;
 	time_t 			lastcheck;
 	zbx_item_value_type_t	value_type;
 	int			delta;
 	int			multiplier;
 	char			*units;
+
 	char			*formula;
+	int			lastlogsize;
+	int			mtime;
+
 	zbx_uint64_t		valuemapid;
+
 	char			*error;
 
 	char			*h_lastvalue[2];
@@ -384,8 +389,13 @@ typedef struct
 	zbx_uint64_t	operationid;
 	zbx_uint64_t	actionid;
 	int		operationtype;
+	int		object;
+	zbx_uint64_t	objectid;
+	char		*shortdata;
+	char		*longdata;
 	int		esc_period;
-	unsigned char	evaltype;
+	int		default_msg;
+	int		evaltype;
 }
 DB_OPERATION;
 
@@ -486,13 +496,12 @@ DB_ESCALATION;
 #define DB_NODE			"%s"
 #define DBnode_local(fieldid)	DBnode(fieldid, CONFIG_NODEID)
 const char	*DBnode(const char *fieldid, int nodeid);
-#define DBis_node_local_id(id)	DBis_node_id(id, CONFIG_NODEID)
-int	DBis_node_id(zbx_uint64_t id, int nodeid);
 
 int	DBconnect(int flag);
 void	DBinit();
 
 void	DBclose();
+void	DBvacuum();
 
 #ifdef HAVE___VA_ARGS__
 #	define DBexecute(fmt, ...) __zbx_DBexecute(ZBX_CONST_STRING(fmt), ##__VA_ARGS__)
@@ -523,37 +532,16 @@ const ZBX_FIELD	*DBget_field(const ZBX_TABLE *table, const char *fieldname);
 #define DBget_maxid(table)	DBget_maxid_num(table, 1)
 zbx_uint64_t	DBget_maxid_num(const char *tablename, int num);
 
-/******************************************************************************
- *                                                                            *
- * Type: ZBX_GRAPH_ITEMS                                                      *
- *                                                                            *
- * Purpose: represent graph item data                                         *
- *                                                                            *
- * Author: Eugene Grigorjev                                                   *
- *                                                                            *
- ******************************************************************************/
-typedef struct
-{
-	zbx_uint64_t	itemid; /* itemid should come first for correct sorting */
-	zbx_uint64_t	gitemid;
-	char		key[ITEM_KEY_LEN_MAX];
-	int		drawtype;
-	int		sortorder;
-	char		color[GRAPH_ITEM_COLOR_LEN_MAX];
-	int		yaxisside;
-	int		calc_fnc;
-	int		type;
-	unsigned char	flags;
-}
-ZBX_GRAPH_ITEMS;
-
 int	DBupdate_item_status_to_notsupported(DB_ITEM *item, int clock, const char *error);
-void	DBstart_escalation(zbx_uint64_t actionid, zbx_uint64_t triggerid, zbx_uint64_t eventid);
-void	DBstop_escalation(zbx_uint64_t actionid, zbx_uint64_t triggerid, zbx_uint64_t eventid);
+int	DBadd_service_alarm(zbx_uint64_t serviceid, int status, int clock);
+int	DBstart_escalation(zbx_uint64_t actionid, zbx_uint64_t triggerid, zbx_uint64_t eventid);
+int	DBstop_escalation(zbx_uint64_t actionid, zbx_uint64_t triggerid, zbx_uint64_t eventid);
+int	DBremove_escalation(zbx_uint64_t escalationid);
 void	DBupdate_triggers_status_after_restart();
-int	DBget_trigger_update_sql(char **sql, size_t *sql_alloc, size_t *sql_offset, zbx_uint64_t triggerid,
-		unsigned char type, int value, int value_flags, const char *error, int new_value, const char *new_error,
-		const zbx_timespec_t *ts, unsigned char *add_event, unsigned char *value_changed);
+int	DBget_trigger_update_sql(char **sql, int *sql_alloc, int *sql_offset, zbx_uint64_t triggerid,
+		unsigned char type, int value, const char *error, int new_value, const char *new_error, int lastchange,
+		unsigned char *add_event);
+
 int	DBget_row_count(const char *table_name);
 int	DBget_items_unsupported_count();
 int	DBget_queue_count(int from, int to);
@@ -582,18 +570,16 @@ void	DBdelete_sysmaps_hosts_by_hostid(zbx_uint64_t hostid);
 
 int	DBadd_graph_item_to_linked_hosts(int gitemid,int hostid);
 
-int	DBcopy_template_elements(zbx_uint64_t hostid, zbx_vector_uint64_t *lnk_templateids);
-int	DBdelete_template_elements(zbx_uint64_t hostid, zbx_vector_uint64_t *del_templateids);
-
-void	DBdelete_items(zbx_vector_uint64_t *itemids);
-void	DBdelete_host(zbx_uint64_t hostid);
-void	DBget_graphitems(const char *sql, ZBX_GRAPH_ITEMS **gitems, size_t *gitems_alloc, size_t *gitems_num);
+int	DBdelete_template_elements(zbx_uint64_t hostid, zbx_uint64_t templateid);
+int	DBcopy_template_elements(zbx_uint64_t hostid, zbx_uint64_t templateid);
+int	DBdelete_host(zbx_uint64_t hostid);
 void	DBupdate_services(zbx_uint64_t triggerid, int status, int clock);
 
-void	DBadd_trend(zbx_uint64_t itemid, double value, int clock);
-void	DBadd_trend_uint(zbx_uint64_t itemid, zbx_uint64_t value, int clock);
+/* History related functions */
+int	DBadd_trend(zbx_uint64_t itemid, double value, int clock);
+int	DBadd_trend_uint(zbx_uint64_t itemid, zbx_uint64_t value, int clock);
 
-void	DBadd_condition_alloc(char **sql, size_t *sql_alloc, size_t *sql_offset, const char *fieldname, const zbx_uint64_t *values, const int num);
+void	DBadd_condition_alloc(char **sql, int *sql_alloc, int *sql_offset, const char *fieldname, const zbx_uint64_t *values, const int num);
 
 const char	*zbx_host_string(zbx_uint64_t hostid);
 const char	*zbx_host_key_string(zbx_uint64_t itemid);
@@ -603,19 +589,10 @@ const char	*zbx_user_string(zbx_uint64_t userid);
 double	DBmultiply_value_float(DB_ITEM *item, double value);
 zbx_uint64_t	DBmultiply_value_uint64(DB_ITEM *item, zbx_uint64_t value);
 
-void	DBregister_host(zbx_uint64_t proxy_hostid, const char *host, const char *ip, const char *dns, unsigned short port, int now);
-void	DBproxy_register_host(const char *host, const char *ip, const char *dns, unsigned short port);
-int	DBexecute_overflowed_sql(char **sql, size_t *sql_alloc, size_t *sql_offset);
-char	*DBget_unique_hostname_by_sample(const char *host_name_sample);
-
-const char	*DBsql_id_cmp(zbx_uint64_t id);
-const char	*DBsql_id_ins(zbx_uint64_t id);
-
-zbx_uint64_t	DBadd_interface(zbx_uint64_t hostid, unsigned char type,
-		unsigned char useip, const char *ip, const char *dns, unsigned short port);
-
-const char	*DBget_inventory_field(unsigned char inventory_link);
-unsigned short	DBget_inventory_field_len(unsigned char inventory_link);
+void	DBregister_host(zbx_uint64_t proxy_hostid, const char *host, int now);
+void	DBproxy_register_host(const char *host);
+void	DBexecute_overflowed_sql(char **sql, int *sql_allocated, int *sql_offset);
+char	*DBget_unique_hostname_by_sample(char *host_name_sample);
 
 #define ZBX_DB_GET_HIST_MIN	0
 #define ZBX_DB_GET_HIST_AVG	1
@@ -624,8 +601,7 @@ unsigned short	DBget_inventory_field_len(unsigned char inventory_link);
 #define ZBX_DB_GET_HIST_COUNT	4
 #define ZBX_DB_GET_HIST_DELTA	5
 #define ZBX_DB_GET_HIST_VALUE	6
-char	**DBget_history(zbx_uint64_t itemid, unsigned char value_type, int function, int clock_from, int clock_to,
-		zbx_timespec_t *ts, const char *field_name, int last_n);
+char	**DBget_history(zbx_uint64_t itemid, unsigned char value_type, int function, int clock_from, int clock_to, const char *field_name, int last_n);
 void	DBfree_history(char **value);
 
 int	DBtxn_status();

@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -26,14 +26,14 @@ $page['file']	= 'chart6.php';
 // $page['title']	= "S_CHART";
 $page['type']	= PAGE_TYPE_IMAGE;
 
-require_once 'include/page_header.php';
+include_once 'include/page_header.php';
 
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
 		'graphid'=>		array(T_ZBX_INT, O_MAND,	P_SYS,	DB_ID,		null),
-		'period'=>		array(T_ZBX_INT, O_OPT,		P_NZERO,	BETWEEN(ZBX_MIN_PERIOD, ZBX_MAX_PERIOD),	null),
+		'period'=>		array(T_ZBX_INT, O_OPT,		P_NZERO,	BETWEEN(ZBX_MIN_PERIOD,ZBX_MAX_PERIOD),	null),
 		'stime'=>		array(T_ZBX_STR, O_OPT,		P_SYS,		null,		null),
 		'border'=>		array(T_ZBX_INT, O_OPT,		P_NZERO,	IN('0,1'),	null),
 		'width'=>		array(T_ZBX_INT, O_OPT,		P_NZERO,	'{}>0',		null),
@@ -46,15 +46,16 @@ require_once 'include/page_header.php';
 ?>
 <?php
 	if(!DBfetch(DBselect('select graphid from graphs where graphid='.$_REQUEST['graphid']))){
-		show_error_message(S_NO_GRAPHS_DEFINED);
+		show_error_message(S_NO_GRAPH_DEFINED);
 	}
 
 	$options = array(
-		'graphids' => $_REQUEST['graphid'],
-		'selectHosts' => API_OUTPUT_EXTEND,
-		'output' => API_OUTPUT_EXTEND
-	);
-	$db_data = API::Graph()->get($options);
+			'graphids' => $_REQUEST['graphid'],
+			'select_hosts' => 1,
+			'extendoutput' => 1
+		);
+
+	$db_data = CGraph::get($options);
 	if(empty($db_data)) access_deny();
 	else $db_data = reset($db_data);
 
@@ -92,13 +93,14 @@ require_once 'include/page_header.php';
 			$db_data['itemid'],
 			$db_data['calc_fnc'],
 			$db_data['color'],
-			$db_data['type']
+			$db_data['type'],
+			$db_data['periods_cnt']
 			);
 	}
 	$graph->draw();
 ?>
 <?php
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');
 
 ?>

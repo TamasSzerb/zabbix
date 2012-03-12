@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,14 +15,14 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/hosts.inc.php';
-require_once dirname(__FILE__).'/include/triggers.inc.php';
-require_once dirname(__FILE__).'/include/items.inc.php';
+require_once('include/config.inc.php');
+require_once('include/hosts.inc.php');
+require_once('include/triggers.inc.php');
+require_once('include/items.inc.php');
 
 $page['title'] = "S_OVERVIEW";
 $page['file'] = 'overview.php';
@@ -33,7 +33,7 @@ define('ZBX_PAGE_DO_REFRESH', 1);
 define('SHOW_TRIGGERS',0);
 define('SHOW_DATA',1);
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 ?>
 <?php
 if(isset($_REQUEST['select']) && ($_REQUEST['select']!='')){
@@ -49,7 +49,7 @@ if(isset($_REQUEST['select']) && ($_REQUEST['select']!='')){
 //ajax
 		'favobj'=>		array(T_ZBX_STR, O_OPT, P_ACT,	NULL,			NULL),
 		'favref'=>		array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,		'isset({favobj})'),
-		'favstate'=>	array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,		'isset({favobj})'),
+		'state'=>		array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,		'isset({favobj})'),
 	);
 
 	check_fields($fields);
@@ -58,17 +58,15 @@ if(isset($_REQUEST['select']) && ($_REQUEST['select']!='')){
 /* AJAX	*/
 	if(isset($_REQUEST['favobj'])){
 		if('hat' == $_REQUEST['favobj']){
-			CProfile::update('web.overview.hats.'.$_REQUEST['favref'].'.state',$_REQUEST['favstate'], PROFILE_TYPE_INT);
+			CProfile::update('web.overview.hats.'.$_REQUEST['favref'].'.state',$_REQUEST['state'], PROFILE_TYPE_INT);
 		}
 	}
 
 	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		require_once dirname(__FILE__).'/include/page_footer.php';
+		include_once('include/page_footer.php');
 		exit();
 	}
-
-	// js templates
-	require_once dirname(__FILE__).'/include/views/js/general.script.confirm.js.php';
+//--------
 
 	$_REQUEST['view_style'] = get_request('view_style',CProfile::get('web.overview.view.style',STYLE_TOP));
 	CProfile::update('web.overview.view.style',$_REQUEST['view_style'],PROFILE_TYPE_INT);
@@ -94,7 +92,7 @@ if(isset($_REQUEST['select']) && ($_REQUEST['select']!='')){
 	$_REQUEST['groupid'] = $pageFilter->groupid;
 
 
-	$form = new CForm('get');
+	$form = new CForm(null, 'get');
 	$form->addItem(array(S_GROUP.SPACE, $pageFilter->getGroupsCB(true)));
 
 	$cmbType = new CComboBox('type', $_REQUEST['type'], 'submit()');
@@ -110,37 +108,35 @@ if(isset($_REQUEST['select']) && ($_REQUEST['select']!='')){
 		$help_table->addRow(array(new CCol(SPACE, 'normal'), S_DISABLED));
 	}
 
-	for($i=0; $i<TRIGGER_SEVERITY_COUNT; $i++){
-		$help_table->addRow(array(getSeverityCell($i), S_ENABLED));
-	}
+	foreach(array(1,2,3,4,5) as $tr_severity)
+		$help_table->addRow(array(new CCol(get_severity_description($tr_severity),get_severity_style($tr_severity)),S_ENABLED));
 
-	$help_table->addRow(array(new CCol(SPACE, 'trigger_unknown'), _('Unknown')));
+	$help_table->addRow(array(new CCol(SPACE, 'unknown_trigger'), S_UNKNOWN));
 
 	if($_REQUEST['type']==SHOW_TRIGGERS){
-		// blinking preview in help popup (only if blinking is enabled)
-		$config = select_config();
-		if($config['blink_period'] > 0){
-			$col = new CCol(SPACE, 'not_classified');
-			$col->setAttribute('style','background-image: url(images/gradients/blink.gif); '.
-				'background-position: top left; background-repeat: repeat;');
-			$help_table->addRow(array($col, _s("Age less than %s", convertUnitsS($config['blink_period']))));
-		}
-
+		$col = new CCol(SPACE, 'unknown_trigger');
+		$col->setAttribute('style','background-image: url(images/gradients/blink1.gif); '.
+			'background-position: top left; background-repeat: repeate;');
+		$help_table->addRow(array($col, S_5_MIN));
+		$col = new CCol(SPACE, 'unknown_trigger');
+		$col->setAttribute('style','background-image: url(images/gradients/blink2.gif); '.
+			'background-position: top left; background-repeat: repeate;');
+		$help_table->addRow(array($col, S_15_MIN));
 		$help_table->addRow(array(new CCol(SPACE), S_NO_TRIGGER));
 	}
 	else{
 		$help_table->addRow(array(new CCol(SPACE), S_DISABLED.' '.S_OR.' '.S_NO_TRIGGER));
 	}
 
-	$help->setHint($help_table, '', '', true, false, true);
+	$help->setHint($help_table);
 
 	$over_wdgt = new CWidget();
 // Header
 	$fs_icon = get_icon('fullscreen', array('fullscreen' => $_REQUEST['fullscreen']));
-	$over_wdgt->addPageHeader(S_OVERVIEW_BIG, array($fs_icon, SPACE, $help));
+	$over_wdgt->addPageHeader(S_OVERVIEW_BIG, array($fs_icon, $help));
 
 // 2nd header
-	$form_l = new CForm('get');
+	$form_l = new CForm(null, 'get');
 	$form_l->addVar('groupid',$_REQUEST['groupid']);
 
 	$cmbStyle = new CComboBox('view_style',$_REQUEST['view_style'],'submit()');
@@ -172,6 +168,6 @@ if(isset($_REQUEST['select']) && ($_REQUEST['select']!='')){
 ?>
 <?php
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');
 
 ?>

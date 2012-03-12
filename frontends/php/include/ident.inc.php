@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,90 +15,104 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
 
-function screenIdents($screenids) {
+function screenIdents($screenids){
 	$idents = array();
 
-	$screens = API::Screen()->get(array(
+	$options = array(
 		'screenids' => $screenids,
 		'output' => API_OUTPUT_EXTEND,
-		'nodeids' => get_current_nodeid(true)
-	));
-	foreach ($screens as $screen) {
+		'nodeids'=> get_current_nodeid(true)
+	);
+
+	$screens = CScreen::get($options);
+	foreach($screens as $inum => $screen){
 		$idents[$screen['screenid']] = array(
 			'node' => get_node_name_by_elid($screen['screenid'], true),
 			'name' => $screen['name']
 		);
 	}
-	return $idents;
+
+return $idents;
 }
 
-function sysmapIdents($sysmapids) {
+function sysmapIdents($sysmapids){
 	$idents = array();
 
-	$sysmaps = API::Map()->get(array(
+	$options = array(
 		'sysmapids' => $sysmapids,
 		'output' => API_OUTPUT_EXTEND,
-		'nodeids' => get_current_nodeid(true)
-	));
-	foreach ($sysmaps as $sysmap) {
+		'nodeids'=> get_current_nodeid(true)
+	);
+
+	$sysmaps = CMap::get($options);
+	foreach($sysmaps as $snum => $sysmap){
 		$idents[$sysmap['sysmapid']] = array(
 			'node' => get_node_name_by_elid($sysmap['sysmapid'], true),
 			'name' => $sysmap['name']
 		);
 	}
-	return $idents;
+
+return $idents;
 }
 
-function hostgroupIdents($groupids) {
+function hostgroupIdents($groupids){
 	$idents = array();
 
-	$groups = API::HostGroup()->get(array(
+	$options = array(
 		'groupids' => $groupids,
 		'output' => API_OUTPUT_EXTEND,
-		'nodeids' => get_current_nodeid(true)
-	));
-	foreach ($groups as $group) {
+		'nodeids'=> get_current_nodeid(true)
+	);
+
+	$groups = CHostgroup::get($options);
+	foreach($groups as $gnum => $group){
 		$idents[$group['groupid']] = array(
 			'node' => get_node_name_by_elid($group['groupid'], true),
 			'name' => $group['name']
 		);
 	}
-	return $idents;
+
+return $idents;
 }
 
-function hostIdents($hostids) {
+function hostIdents($hostids){
 	$idents = array();
 
-	$hosts = API::Host()->get(array(
+	$options = array(
 		'hostids' => $hostids,
 		'output' => API_OUTPUT_EXTEND,
-		'nodeids' => get_current_nodeid(true)
-	));
-	foreach ($hosts as $host) {
+		'nodeids'=> get_current_nodeid(true)
+	);
+
+	$hosts = CHost::get($options);
+	foreach($hosts as $hnum => $host){
 		$idents[$host['hostid']] = array(
 			'node' => get_node_name_by_elid($host['hostid'], true),
 			'host' => $host['host']
 		);
 	}
-	return $idents;
+
+return $idents;
 }
 
 function itemIdents($itemids){
 	$idents = array();
 
-	$items = API::Item()->get(array(
+	$options = array(
 		'itemids' => $itemids,
 		'output' => API_OUTPUT_EXTEND,
-		'selectHosts' => array('hostid', 'host'),
-		'nodeids' => get_current_nodeid(true),
-		'webitems' => true
-	));
-	foreach ($items as $item) {
+		'select_hosts' => array('hostid', 'host'),
+		'nodeids'=> get_current_nodeid(true),
+		'webitems' => 1,
+	);
+
+	$items = CItem::get($options);
+	foreach($items as $inum => $item){
 		$host = reset($item['hosts']);
 
 		$idents[$item['itemid']] = array(
@@ -107,19 +121,22 @@ function itemIdents($itemids){
 			'key_' => $item['key_']
 		);
 	}
-	return $idents;
+
+return $idents;
 }
 
-function triggerIdents($triggerids) {
+function triggerIdents($triggerids){
 	$idents = array();
 
-	$triggers = API::Trigger()->get(array(
+	$options = array(
 		'triggerids' => $triggerids,
-		'selectHosts' => array('hostid', 'host'),
+		'select_hosts' => array('hostid', 'host'),
 		'output' => API_OUTPUT_EXTEND,
-		'nodeids' => get_current_nodeid(true)
-	));
-	foreach ($triggers as $trigger) {
+		'nodeids'=> get_current_nodeid(true)
+	);
+
+	$triggers = CTrigger::get($options);
+	foreach($triggers as $tnum => $trigger){
 		$host = reset($trigger['hosts']);
 
 		$idents[$trigger['triggerid']] = array(
@@ -129,19 +146,22 @@ function triggerIdents($triggerids) {
 			'expression' => explode_exp($trigger['expression'])
 		);
 	}
-	return $idents;
+
+return $idents;
 }
 
-function graphIdents($graphids) {
+function graphIdents($graphids){
 	$idents = array();
 
-	$graphs = API::Graph()->get(array(
+	$options = array(
 		'graphids' => $graphids,
-		'selectHosts' => array('hostid', 'host'),
+		'select_hosts' => array('hostid', 'host'),
 		'output' => API_OUTPUT_EXTEND,
-		'nodeids' => get_current_nodeid(true)
-	));
-	foreach ($graphs as $graph) {
+		'nodeids'=> get_current_nodeid(true)
+	);
+
+	$graphs = CGraph::get($options);
+	foreach($graphs as $inum => $graph){
 		$host = reset($graph['hosts']);
 
 		$idents[$graph['graphid']] = array(
@@ -150,72 +170,65 @@ function graphIdents($graphids) {
 			'name' => $graph['name']
 		);
 	}
-	return $idents;
+
+return $idents;
 }
 
-function imageIdents($imageids) {
+function imageIdents($imageids){
 	$idents = array();
 
-	$images = API::Image()->get(array(
+	$options = array(
 		'imageids' => $imageids,
 		'output' => API_OUTPUT_EXTEND,
-		'nodeids' => get_current_nodeid(true)
-	));
-	foreach ($images as $image) {
+		'nodeids'=> get_current_nodeid(true)
+	);
+
+	$images = CImage::get($options);
+	foreach($images as $inum => $image){
 		$idents[$image['imageid']] = array(
 			'node' => get_node_name_by_elid($image['imageid'], true),
 			'name' => $image['name']
 		);
 	}
-	return $idents;
+
+return $idents;
 }
 
-function getImageByIdent($ident) {
+function getImageByIdent($ident){
 	zbx_value2array($ident);
 
-	if (!isset($ident['name'])) {
-		return 0;
-	}
+	if(!isset($ident['name'])) return 0;
 
 	static $images;
-	if (is_null($images)) {
+	if(is_null($images)){
+// get All images
 		$images = array();
-
-		$dbImages = API::Image()->get(array(
+		$options = array(
 			'output' => API_OUTPUT_EXTEND,
 			'nodeids' => get_current_nodeid(true)
-		));
-		foreach ($dbImages as $image) {
-			if (!isset($images[$image['name']])) {
-				$images[$image['name']] = array();
-			}
+		);
 
-			$nodeName = get_node_name_by_elid($image['imageid'], true);
+		$dbImages = CImage::get($options);
+		foreach($dbImages as $inum => $img){
+			if(!isset($images[$img['name']])) $images[$img['name']] = array();
 
-			if (!is_null($nodeName)) {
-				$images[$image['name']][$nodeName] = $image;
-			}
-			else {
-				$images[$image['name']][] = $image;
-			}
+			$nodeName = get_node_name_by_elid($img['imageid'], true);
+
+			if(!is_null($nodeName))
+				$images[$img['name']][$nodeName] = $img;
+			else
+				$images[$img['name']][] = $img;
 		}
+//------
 	}
 
-	$ident['name'] = trim($ident['name'], ' ');
-	if (!isset($images[$ident['name']])) {
-		return 0;
-	}
+	$ident['name'] = trim($ident['name'],' ');
+	if(!isset($images[$ident['name']])) return 0;
 
-	$searchedImages = $images[$ident['name']];
+	$sImages = $images[$ident['name']];
 
-	if (!isset($ident['node'])) {
-		return reset($searchedImages);
-	}
-	elseif (isset($searchedImages[$ident['node']])) {
-		return $searchedImages[$ident['node']];
-	}
-	else {
-		return 0;
-	}
+	if(!isset($ident['node'])) return reset($sImages);
+	else if(isset($sImages[$ident['node']])) return $sImages[$ident['node']];
+	else return 0;
 }
 ?>

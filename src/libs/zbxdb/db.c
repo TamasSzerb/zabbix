@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -22,7 +22,6 @@
 #include "db.h"
 #include "zbxdb.h"
 #include "log.h"
-#include "mutexs.h"
 
 static int	txn_level = 0;	/* transaction level, nested transactions are not supported */
 static int	txn_error = 0;	/* failed transaction */
@@ -41,7 +40,7 @@ int				ZBX_PG_SVERSION = 0;
 char				ZBX_PG_ESCAPE_BACKSLASH = 1;
 #elif defined(HAVE_SQLITE3)
 static sqlite3			*conn = NULL;
-static PHP_MUTEX		sqlite_access;
+PHP_MUTEX			sqlite_access;
 #endif
 
 #if defined(HAVE_ORACLE)
@@ -194,7 +193,7 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 
 	if (ZBX_DB_OK == ret)
 	{
-		DBexecute("set names utf8");
+		DBexecute("SET NAMES utf8");
 	}
 
 	if (ZBX_DB_FAIL == ret)
@@ -355,8 +354,8 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 		else
 			*path = '\0';
 
-		DBexecute("PRAGMA synchronous = 0");	/* OFF */
-		DBexecute("PRAGMA temp_store = 2");	/* MEMORY */
+		DBexecute("PRAGMA synchronous = 0"); /* OFF */
+		DBexecute("PRAGMA temp_store = 2"); /* MEMORY */
 		DBexecute("PRAGMA temp_store_directory = '%s'", path);
 
 		zbx_free(path);
@@ -376,11 +375,6 @@ void	zbx_create_sqlite3_mutex(const char *dbname)
 		zbx_error("cannot create mutex for SQLite3");
 		exit(FAIL);
 	}
-}
-
-void	zbx_remove_sqlite3_mutex()
-{
-	php_sem_remove(&sqlite_access);
 }
 #endif	/* HAVE_SQLITE3 */
 

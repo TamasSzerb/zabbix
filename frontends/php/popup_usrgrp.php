@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,19 +15,19 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-	require_once dirname(__FILE__).'/include/config.inc.php';
-	require_once dirname(__FILE__).'/include/users.inc.php';
+	require_once('include/config.inc.php');
+	require_once('include/users.inc.php');
 
 	$page['title'] = "S_GROUPS";
 	$page['file'] = 'popup_usrgrp.php';
 
 	define('ZBX_PAGE_NO_MENU', 1);
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 
 ?>
 <?php
@@ -86,7 +86,7 @@ if(form){
 
 	$form->setName('groups');
 
-	$table = new CTableInfo(_('No user groups defined.'));
+	$table = new CTableInfo(S_NO_GROUPS_DEFINED);
 	$table->setHeader(array(
 		new CCheckBox("all_groups",NULL,"checkAll('".$form->getName()."','all_groups','new_groups');"),
 		S_NAME
@@ -99,13 +99,13 @@ if(form){
 			$row['name']
 		));
 	}
-	$table->setFooter(new CCol(new CSubmit('select', S_SELECT)));
+	$table->setFooter(new CCol(new CButton('select', S_SELECT)));
 
 	$form->addItem($table);
 	$form->show();
 ?>
 <?php
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');
 
 ?>

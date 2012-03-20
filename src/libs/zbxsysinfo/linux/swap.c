@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -40,16 +40,27 @@ int	SYSTEM_SWAP_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_R
 	if (0 != sysinfo(&info))
 		return SYSINFO_RET_FAIL;
 
+#ifdef HAVE_SYSINFO_MEM_UNIT
 	if ('\0' == *mode || 0 == strcmp(mode, "free"))
 		SET_UI64_RESULT(result, info.freeswap * (zbx_uint64_t)info.mem_unit);
 	else if (0 == strcmp(mode, "total"))
 		SET_UI64_RESULT(result, info.totalswap * (zbx_uint64_t)info.mem_unit);
 	else if (0 == strcmp(mode, "used"))
 		SET_UI64_RESULT(result, (info.totalswap - info.freeswap) * (zbx_uint64_t)info.mem_unit);
+#else
+	if ('\0' == *mode || 0 == strcmp(mode, "free"))
+		SET_UI64_RESULT(result, info.freeswap);
+	else if (0 == strcmp(mode, "total"))
+		SET_UI64_RESULT(result, info.totalswap);
+	else if (0 == strcmp(mode, "used"))
+		SET_UI64_RESULT(result, info.totalswap - info.freeswap);
+#endif
 	else if (0 == strcmp(mode, "pfree"))
-		SET_DBL_RESULT(result, info.totalswap ? 100.0 * (info.freeswap / (double)info.totalswap) : 0.0);
+		SET_DBL_RESULT(result, info.totalswap ? 100.0 * ((double)info.freeswap /
+					(double)info.totalswap) : 0.0);
 	else if (0 == strcmp(mode, "pused"))
-		SET_DBL_RESULT(result, info.totalswap ? 100.0 - 100.0 * (info.freeswap / (double)info.totalswap) : 0.0);
+		SET_DBL_RESULT(result, info.totalswap ? 100.0 - 100.0 * ((double)info.freeswap /
+					(double)info.totalswap) : 0.0);
 	else
 		return SYSINFO_RET_FAIL;
 
@@ -69,48 +80,44 @@ swap_stat_t;
 
 #if defined(KERNEL_2_4)
 #	define INFO_FILE_NAME	"/proc/partitions"
-#	define PARSE(line)								\
-											\
-		if (sscanf(line, "%d %d %*d %*s "					\
-				ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d "			\
-				ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d %*d %*d %*d",	\
-				&rdev_major, 		/* major */			\
-				&rdev_minor, 		/* minor */			\
-				&(result->rio),		/* rio */			\
-				&(result->rsect),	/* rsect */			\
-				&(result->wio),		/* wio */			\
-				&(result->wsect)	/* wsect */			\
+#	define PARSE(line)	if (sscanf(line, "%d %d %*d %*s " \
+					ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d " \
+					ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d %*d %*d %*d", \
+				&rdev_major, 		/* major */ \
+				&rdev_minor, 		/* minor */ \
+				&(result->rio),		/* rio */ \
+				&(result->rsect),	/* rsect */ \
+				&(result->wio),		/* rio */ \
+				&(result->wsect)	/* wsect */ \
 				) != 6) continue
 #else
 #	define INFO_FILE_NAME	"/proc/diskstats"
-#	define PARSE(line)								\
-											\
-		if (sscanf(line, "%d %d %*s "						\
-				ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d "			\
-				ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d %*d %*d %*d",	\
-				&rdev_major, 		/* major */			\
-				&rdev_minor, 		/* minor */			\
-				&(result->rio),		/* rio */			\
-				&(result->rsect),	/* rsect */			\
-				&(result->wio),		/* wio */			\
-				&(result->wsect)	/* wsect */			\
-				) != 6)							\
-			if (sscanf(line, "%d %d %*s "					\
-					ZBX_FS_UI64 " " ZBX_FS_UI64 " "			\
-					ZBX_FS_UI64 " " ZBX_FS_UI64,			\
-					&rdev_major, 		/* major */		\
-					&rdev_minor, 		/* minor */		\
-					&(result->rio),		/* rio */		\
-					&(result->rsect),	/* rsect */		\
-					&(result->wio),		/* wio */		\
-					&(result->wsect)	/* wsect */		\
+#	define PARSE(line)	if (sscanf(line, "%d %d %*s " \
+					ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d " \
+					ZBX_FS_UI64 " %*d " ZBX_FS_UI64 " %*d %*d %*d %*d", \
+				&rdev_major, 		/* major */ \
+				&rdev_minor, 		/* minor */ \
+				&(result->rio),		/* rio */ \
+				&(result->rsect),	/* rsect */ \
+				&(result->wio),		/* wio */ \
+				&(result->wsect)	/* wsect */ \
+				) != 6)  \
+					if (sscanf(line, "%d %d %*s " \
+						ZBX_FS_UI64 " " ZBX_FS_UI64 " " \
+						ZBX_FS_UI64 " " ZBX_FS_UI64, \
+					&rdev_major, 		/* major */ \
+					&rdev_minor, 		/* minor */ \
+					&(result->rio),		/* rio */ \
+					&(result->rsect),	/* rsect */ \
+					&(result->wio),		/* wio */ \
+					&(result->wsect)	/* wsect */ \
 					) != 6) continue
 #endif
 
 static int	get_swap_dev_stat(const char *interface, swap_stat_t *result)
 {
 	int		ret = SYSINFO_RET_FAIL;
-	char		line[MAX_STRING_LEN];
+	char		line[MAX_STRING_LEN]/*, name[MAX_STRING_LEN]*/;
 	int		rdev_major, rdev_minor;
 	struct stat	dev_st;
 	FILE		*f;
@@ -146,14 +153,14 @@ static int	get_swap_pages(swap_stat_t *result)
 	zbx_uint64_t	value1, value2;
 	FILE		*f;
 
-	if (NULL != (f = fopen("/proc/stat", "r")))
+	if(NULL != (f = fopen("/proc/stat","r")) )
 	{
-		while (NULL != fgets(line, sizeof(line), f))
+		while(fgets(line, sizeof(line), f))
 		{
-			if (3 != sscanf(line, "%10s " ZBX_FS_UI64 " " ZBX_FS_UI64, name, &value1, &value2))
+			if(sscanf(line, "%10s " ZBX_FS_UI64 " " ZBX_FS_UI64, name, &value1, &value2) != 3)
 				continue;
 
-			if (0 != strcmp(name, "swap"))
+			if(strcmp(name, "swap"))
 				continue;
 
 			result->wpag = value1;
@@ -162,11 +169,10 @@ static int	get_swap_pages(swap_stat_t *result)
 			ret = SYSINFO_RET_OK;
 			break;
 		};
-
 		zbx_fclose(f);
 	}
 
-	if (SYSINFO_RET_OK != ret)
+	if(ret != SYSINFO_RET_OK)
 	{
 		result->wpag = 0;
 		result->rpag = 0;
@@ -210,10 +216,10 @@ static int	get_swap_stat(const char *interface, swap_stat_t *result)
 
 		if (SYSINFO_RET_OK == get_swap_dev_stat(line, &curr))
 		{
-			result->rio += curr.rio;
-			result->rsect += curr.rsect;
-			result->wio += curr.wio;
-			result->wsect += curr.wsect;
+			result->rio	+= curr.rio;
+			result->rsect	+= curr.rsect;
+			result->wio	+= curr.wio;
+			result->wsect	+= curr.wsect;
 
 			ret = SYSINFO_RET_OK;
 		}
@@ -243,7 +249,8 @@ int	SYSTEM_SWAP_IN(const char *cmd, const char *param, unsigned flags, AGENT_RES
 	if (SYSINFO_RET_OK != get_swap_stat(swapdev, &ss))
 		return SYSINFO_RET_FAIL;
 
-	if (('\0' == *mode || 0 == strcmp(mode, "pages")) && 0 == strcmp(swapdev, "all"))	/* default parameter */
+	if (('\0' == *mode || 0 == strcmp(mode, "pages"))
+			&& 0 == strcmp(swapdev, "all"))	/* default parameter */
 		SET_UI64_RESULT(result, ss.wpag);
 	else if (0 == strcmp(mode, "sectors"))
 		SET_UI64_RESULT(result, ss.wsect);
@@ -275,7 +282,8 @@ int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	if (SYSINFO_RET_OK != get_swap_stat(swapdev, &ss))
 		return SYSINFO_RET_FAIL;
 
-	if (('\0' == *mode || 0 == strcmp(mode, "pages")) && 0 == strcmp(swapdev, "all"))	/* default parameter */
+	if (('\0' == *mode || 0 == strcmp(mode, "pages"))
+			&& 0 == strcmp(swapdev, "all"))	/* default parameter */
 		SET_UI64_RESULT(result, ss.rpag);
 	else if (0 == strcmp(mode, "sectors"))
 		SET_UI64_RESULT(result, ss.rsect);

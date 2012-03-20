@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,18 +15,18 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/graphs.inc.php';
+require_once('include/config.inc.php');
+require_once('include/graphs.inc.php');
 
 $page['file']	= 'chart7.php';
 // $page['title']	= "S_CHART";
 $page['type']	= PAGE_TYPE_IMAGE;
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 
 ?>
 <?php
@@ -37,8 +37,8 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		'stime'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	null,			null),
 		'border'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	IN('0,1'),		null),
 		'name'=>	array(T_ZBX_STR, O_OPT,	NULL,		null,			null),
-		'width'=>	array(T_ZBX_INT, O_OPT,	NULL,		BETWEEN(0, 65535),	null),
-		'height'=>	array(T_ZBX_INT, O_OPT,	NULL,		BETWEEN(0, 65535),	null),
+		'width'=>	array(T_ZBX_INT, O_OPT,	NULL,		BETWEEN(0,65535),	null),
+		'height'=>	array(T_ZBX_INT, O_OPT,	NULL,		BETWEEN(0,65535),	null),
 		'graphtype'=>	array(T_ZBX_INT, O_OPT,	NULL,		IN('2,3'),		null),
 		'graph3d'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	IN('0,1'),		null),
 		'legend'=>	array(T_ZBX_INT, O_OPT,	P_NZERO,	IN('0,1'),		null),
@@ -58,7 +58,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		'nodeids' => get_current_nodeid(true)
 	);
 
-	$db_data = API::Item()->get($options);
+	$db_data = CItem::get($options);
 	$db_data = zbx_toHash($db_data, 'itemid');
 	foreach($items as $id => $gitem){
 		if(!isset($db_data[$gitem['itemid']])) access_deny();
@@ -69,8 +69,8 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	$graph = new CPie(get_request('graphtype', GRAPH_TYPE_NORMAL));
 	$graph->setHeader(get_request('name', ''));
 
-	$graph3d = get_request('graph3d', 0);
-	$legend = get_request('legend', 0);
+	$graph3d = get_request('graph3d',0);
+	$legend = get_request('legend',0);
 
 	if($graph3d == 1) $graph->switchPie3D();
 	$graph->showLegend($legend);
@@ -91,7 +91,8 @@ require_once dirname(__FILE__).'/include/page_header.php';
 			$gitem['itemid'],
 			$gitem['calc_fnc'],
 			$gitem['color'],
-			$gitem['type']
+			$gitem['type'],
+			$gitem['periods_cnt']
 			);
 
 //		unset($items[$id]);
@@ -100,6 +101,6 @@ require_once dirname(__FILE__).'/include/page_header.php';
 ?>
 <?php
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');
 
 ?>

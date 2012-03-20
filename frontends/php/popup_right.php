@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,18 +15,18 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-require_once dirname(__FILE__).'/include/config.inc.php';
+require_once('include/config.inc.php');
 
-$page['title'] = _('Resource');
+$page['title'] = "S_RESOURCE";
 $page['file'] = 'popup_right.php';
 
 define('ZBX_PAGE_NO_MENU', 1);
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
@@ -53,7 +53,7 @@ check_fields($fields);
 		$available_nodes = get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_ONLY, PERM_RES_IDS_ARRAY);
 
 		$cmbResourceNode = new CComboBox('nodeid',$nodeid,'submit();');
-		$cmbResourceNode->addItem(0, _('All'));
+		$cmbResourceNode->addItem(0, S_ALL_S);
 
 		$sql = 'SELECT name,nodeid '.
 			' FROM nodes '.
@@ -63,7 +63,7 @@ check_fields($fields);
 			$cmbResourceNode->addItem($node['nodeid'], $node['name']);
 		}
 
-		$frmTitle->addItem(array(_('Node'), SPACE, $cmbResourceNode));
+		$frmTitle->addItem(array(S_NODE, SPACE, $cmbResourceNode));
 	}
 
 	show_table_header(permission2str($permission),$frmTitle);
@@ -77,7 +77,7 @@ check_fields($fields);
 // NODES
 	if($nodeid == 0) $nodeids = get_current_nodeid(true);
 	else $nodeids = $nodeid;
-
+	
 	$count=0;
 	$grouplist = array();
 
@@ -85,7 +85,7 @@ check_fields($fields);
 		'nodeids' => $nodeids,
 		'output' => API_OUTPUT_EXTEND
 	);
-	$groups = API::HostGroup()->get($options);
+	$groups = CHostGroup::get($options);
 	foreach($groups as $gnum => $row){
 		$groups[$gnum]['nodename'] = get_node_name_by_elid($row['groupid'], true, ':').$row['name'];
 		if($nodeid == 0) $groups[$gnum]['name'] = $groups[$gnum]['nodename'];
@@ -107,6 +107,7 @@ check_fields($fields);
 	insert_js('var grouplist = '.zbx_jsvalue($grouplist).';');
 
 	$button = new CButton('select', S_SELECT, 'add_groups("'.$dstfrm.'")');
+	$button->setType('button');
 	$table->setFooter(new CCol($button,'right'));
 
 	$form->addItem($table);
@@ -139,6 +140,6 @@ function check_all(value) {
 </script>
 <?php
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');
 
 ?>

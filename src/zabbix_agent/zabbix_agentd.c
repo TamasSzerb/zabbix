@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -46,7 +46,7 @@ const char	*progname = NULL;
 #ifdef _WINDOWS
 	static char	DEFAULT_CONFIG_FILE[]	= "C:\\zabbix_agentd.conf";
 #else
-	static char	DEFAULT_CONFIG_FILE[]	= SYSCONFDIR "/zabbix_agentd.conf";
+	static char	DEFAULT_CONFIG_FILE[]	= "/etc/zabbix/zabbix_agentd.conf";
 #endif
 
 /* application TITLE */
@@ -77,22 +77,22 @@ const char	usage_message[] =
 const char	*help_message[] = {
 	"Options:",
 	"",
-	"  -c --config <config-file>  Absolute path to the configuration file",
-	"  -p --print                 Print known items and exit",
-	"  -t --test <item key>       Test specified item and exit",
-	"  -h --help                  Give this help",
-	"  -V --version               Display version number",
+	"  -c --config <config-file>  absolute path to the configuration file",
+	"  -h --help                  give this help",
+	"  -V --version               display version number",
+	"  -p --print                 print known items and exit",
+	"  -t --test <item key>       test specified item and exit",
 #ifdef _WINDOWS
 	"",
 	"Functions:",
 	"",
-	"  -i --install          Install Zabbix agent as service",
-	"  -d --uninstall        Uninstall Zabbix agent from service",
+	"  -i --install          install Zabbix agent as service",
+	"  -d --uninstall        uninstall Zabbix agent from service",
 
-	"  -s --start            Start Zabbix agent service",
-	"  -x --stop             Stop Zabbix agent service",
+	"  -s --start            start Zabbix agent service",
+	"  -x --stop             stop Zabbix agent service",
 
-	"  -m --multiple-agents  Service name will include hostname",
+	"  -m --multiple-agents  service name will include hostname",
 #endif
 	NULL	/* end of text */
 };
@@ -559,6 +559,10 @@ void	zbx_on_exit()
 
 		zbx_free(threads);
 	}
+
+#ifdef USE_PID_FILE
+	daemon_stop();
+#endif
 
 #if !defined(_WINDOWS)
 	zbx_sleep(2);	/* wait for all processes to exit */

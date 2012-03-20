@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -24,13 +24,13 @@
 
 	$dstfrm		= get_request('dstfrm',		0);	// destination form
 
-	$page['title'] = _('Period');
+	$page['title'] = "S_PERIOD";
 	$page['file'] = 'popup_period.php';
 	$page['scripts'] = array('class.calendar.js');
 
 	define('ZBX_PAGE_NO_MENU', 1);
 
-require_once 'include/page_header.php';
+include_once 'include/page_header.php';
 
 ?>
 <?php
@@ -58,9 +58,9 @@ require_once 'include/page_header.php';
 	insert_js_function('add_period');
 	insert_js_function('update_period');
 
-	$_REQUEST['report_timesince'] = zbxDateToTime(get_request('report_timesince', date('YmdHis', time() - SEC_PER_DAY)));
-	$_REQUEST['report_timetill'] = zbxDateToTime(get_request('report_timetill', date('YmdHis')));
-
+	$_REQUEST['report_timesince'] = zbxDateToTime(get_request('report_timesince',date('YmdHis', time()-86400)));
+	$_REQUEST['report_timetill'] = zbxDateToTime(get_request('report_timetill',date('YmdHis')));
+	
 	$_REQUEST['caption'] = get_request('caption','');
 	if(zbx_empty($_REQUEST['caption']) && isset($_REQUEST['report_timesince']) && isset($_REQUEST['report_timetill'])){
 		$_REQUEST['caption'] = zbx_date2str(S_POPUP_PERIOD_CAPTION_DATE_FORMAT,  $_REQUEST['report_timesince']).' - '.
@@ -89,7 +89,7 @@ require_once 'include/page_header.php';
 	else{
 		echo SBR;
 
-		$frmPd = new CFormTable(_('Period'));
+		$frmPd = new CFormTable(S_PERIOD);
 		$frmPd->setName('period');
 
 		$frmPd->addVar('dstfrm',$_REQUEST['dstfrm']);
@@ -99,8 +99,8 @@ require_once 'include/page_header.php';
 		$caption	= get_request('caption', 	'');
 		$color		= get_request('color', 		'009900');
 
-		$report_timesince = get_request('report_timesince', time() - SEC_PER_DAY);
-		$report_timetill = get_request('report_timetill', time());
+		$report_timesince = get_request('report_timesince',time()-86400);
+		$report_timetill = get_request('report_timetill',time());
 
 		$frmPd->addVar('config',$config);
 		$frmPd->addVar('report_timesince', date('YmdHis', $report_timesince));
@@ -110,9 +110,12 @@ require_once 'include/page_header.php';
 			$frmPd->addVar('period_id',$_REQUEST['period_id']);
 
 
-		$frmPd->addRow(array( new CVisibilityBox('caption_visible', !zbx_empty($caption), 'caption', _('Default')),
-			_('Caption')), new CTextBox('caption',$caption,42));
+		$frmPd->addRow(array( new CVisibilityBox('caption_visible', !zbx_empty($caption), 'caption', S_DEFAULT),
+			S_CAPTION), new CTextBox('caption',$caption,42));
 
+//		$frmPd->addRow(S_CAPTION, new CTextBox('caption',$caption,10));
+
+//*
 		$clndr_icon = new CImg('images/general/bar/cal.gif','calendar', 16, 12, 'pointer');
 		$clndr_icon->addAction('onclick','javascript: '.
 											'var pos = getPosition(this); '.
@@ -172,15 +175,15 @@ require_once 'include/page_header.php';
 						);
 
 
-		$frmPd->addRow(_('Period'), $reporttimetab);
+		$frmPd->addRow(S_PERIOD, $reporttimetab);
 //*/
 		if($config != 1)
-			$frmPd->addRow(_('Colour'), new CColor('color',$color));
+			$frmPd->addRow(S_COLOR, new CColor('color',$color));
 		else
 			$frmPd->addVar('color',$color);
 
 
-		$frmPd->addItemToBottomRow(new CSubmit('save', isset($_REQUEST['period_id'])?S_UPDATE:S_ADD));
+		$frmPd->addItemToBottomRow(new CButton('save', isset($_REQUEST['period_id'])?S_UPDATE:S_ADD));
 
 		$frmPd->addItemToBottomRow(new CButtonCancel(null,'close_window();'));
 		$frmPd->Show();
@@ -188,6 +191,6 @@ require_once 'include/page_header.php';
 ?>
 <?php
 
-require_once 'include/page_footer.php';
+include_once 'include/page_footer.php';
 
 ?>

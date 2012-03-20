@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,28 +15,30 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/hosts.inc.php';
-require_once dirname(__FILE__).'/include/graphs.inc.php';
-require_once dirname(__FILE__).'/include/forms.inc.php';
+require_once('include/config.inc.php');
+require_once('include/hosts.inc.php');
+require_once('include/graphs.inc.php');
+require_once('include/forms.inc.php');
 
-$page['title'] = _('Configuration of graphs');
+$page['title'] = 'S_CONFIGURATION_OF_GRAPHS';
 $page['file'] = 'graphs.php';
 $page['hist_arg'] = array();
 $page['scripts'] = array();
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields = array(
-		'groupid'=>	array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,	NULL),
-		'hostid'=>	array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID,	NULL),
+//  NEW  templates.php; hosts.php; items.php; triggers.php; graphs.php; maintenances.php;
+// 	OLD  0 - hosts; 1 - groups; 2 - linkages; 3 - templates; 4 - applications; 5 - Proxies; 6 - maintenance
+		'groupid'=>	array(T_ZBX_INT, O_OPT,	 NULL,	DB_ID,	NULL),
+		'hostid'=>	array(T_ZBX_INT, O_OPT,	 NULL,	DB_ID,	NULL),
 
 		'copy_type'	=>array(T_ZBX_INT, O_OPT,	 P_SYS,	IN('0,1'),'isset({copy})'),
 		'copy_mode'	=>array(T_ZBX_INT, O_OPT,	 P_SYS,	IN('0'),NULL),
@@ -93,34 +95,27 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	$_REQUEST['go'] = get_request('go', 'none');
 
 // PERMISSIONS
-	if (get_request('graphid', false)) {
+	if(get_request('graphid', false)){
 		$options = array(
 			'nodeids' => get_current_nodeid(true),
-			'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
 			'graphids' => $_REQUEST['graphid'],
-			'editable' => true,
-			'preservekeys' => true
+			'editable' => 1
 		);
-		$graphs = API::Graph()->get($options);
-		if(empty($graphs)) {
-			access_deny();
-		}
+		$graphs = CGraph::get($options);
+		if(empty($graphs)) access_deny();
 	}
-	elseif (get_request('hostid', 0) > 0) {
+	else if(get_request('hostid', 0) > 0){
 		$options = array(
 			'hostids' => $_REQUEST['hostid'],
-			'output' => API_OUTPUT_EXTEND,
-			'templated_hosts' => true,
-			'editable' => true,
-			'preservekeys' => true
+			'extendoutput' => 1,
+			'templated_hosts' => 1,
+			'editable' => 1
 		);
-		$hosts = API::Host()->get($options);
-		if(empty($hosts)) {
-			access_deny();
-		}
+		$hosts = CHost::get($options);
+		if(empty($hosts)) access_deny();
 	}
-
-
+?>
+<?php
 	$_REQUEST['items'] = get_request('items', array());
 	$_REQUEST['group_gid'] = get_request('group_gid', array());
 	$_REQUEST['graph3d'] = get_request('graph3d', 0);
@@ -143,11 +138,10 @@ require_once dirname(__FILE__).'/include/page_header.php';
 			$options = array(
 				'nodeids'=>get_current_nodeid(true),
 				'itemids'=>$itemids,
-				'filter' => array('flags' => array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)),
 				'webitems'=>1,
-				'editable'=>1,
+				'editable'=>1
 			);
-			$db_items = API::Item()->get($options);
+			$db_items = CItem::get($options);
 			$db_items = zbx_toHash($db_items, 'itemid');
 
 			foreach($itemids as $inum => $itemid){
@@ -158,7 +152,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		}
 
 		if(empty($items)){
-			info(_('Items required for graph'));
+			info(S_REQUIRED_ITEMS_FOR_GRAPH);
 			$result = false;
 		}
 		else{
@@ -199,46 +193,46 @@ require_once dirname(__FILE__).'/include/page_header.php';
 				'show_work_period' => get_request('showworkperiod',0),
 				'show_triggers' => get_request('showtriggers',0),
 				'graphtype' => $_REQUEST['graphtype'],
-				'show_legend' => get_request('legend', 1),
+				'show_legend' => get_request('legend', 0),
 				'show_3d' => get_request('graph3d', 0),
 				'percent_left' => $percent_left,
 				'percent_right' => $percent_right,
 				'gitems' => $items
 			);
 
-			if(isset($_REQUEST['graphid'])){
+			if (isset($_REQUEST['graphid'])) {
 				$graph['graphid'] = $_REQUEST['graphid'];
 
-				$result = API::Graph()->update($graph);
+				$result = CGraph::update($graph);
 
-				if($result){
-					add_audit(AUDIT_ACTION_UPDATE,AUDIT_RESOURCE_GRAPH,'Graph ID ['.$_REQUEST['graphid'].'] Graph ['.$_REQUEST['name'].']');
+				if ($result) {
+					add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_GRAPH, 'Graph ID ['.$_REQUEST['graphid'].'] Graph ['.$_REQUEST['name'].']');
 				}
 			}
-			else{
-				$result = API::Graph()->create($graph);
+			else {
+				$result = CGraph::create($graph);
 
-				if($result){
+				if ($result) {
 					add_audit(AUDIT_ACTION_ADD, AUDIT_RESOURCE_GRAPH, 'Graph ['.$_REQUEST['name'].']');
 				}
 			}
-			if($result){
+			if ($result) {
 				unset($_REQUEST['form']);
 			}
 		}
-		if(isset($_REQUEST['graphid'])){
-			show_messages($result, _('Graph updated'), _('Cannot update graph'));
+		if (isset($_REQUEST['graphid'])) {
+			show_messages($result, S_GRAPH_UPDATED, S_CANNOT_UPDATE_GRAPH);
 		}
-		else{
-			show_messages($result, _('Graph added'), _('Cannot add graph'));
+		else {
+			show_messages($result, S_GRAPH_ADDED, S_CANNOT_ADD_GRAPH);
 		}
 	}
-	else if(isset($_REQUEST['delete']) && isset($_REQUEST['graphid'])){
-		$result = API::Graph()->delete($_REQUEST['graphid']);
-		if($result){
+	elseif (isset($_REQUEST['delete']) && isset($_REQUEST['graphid'])) {
+		$result = CGraph::delete($_REQUEST['graphid']);
+		if ($result) {
 			unset($_REQUEST['form']);
 		}
-		show_messages($result, _('Graph deleted'), _('Cannot delete graph'));
+		show_messages($result, S_GRAPH_DELETED, S_CANNOT_DELETE_GRAPH);
 	}
 	else if(isset($_REQUEST['delete_item']) && isset($_REQUEST['group_gid'])){
 
@@ -251,11 +245,13 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	else if(isset($_REQUEST['new_graph_item'])){
 		$new_gitem = get_request('new_graph_item', array());
 
-		foreach ($_REQUEST['items'] as $data) {
-			if (bccomp($new_gitem['itemid'], $data['itemid']) == 0
-					&& $new_gitem['yaxisside'] == $data['yaxisside']
-					&& $new_gitem['calc_fnc'] == $data['calc_fnc']
-					&& $new_gitem['type'] == $data['type']) {
+		foreach($_REQUEST['items'] as $gid => $data){
+			if(	(bccomp($new_gitem['itemid'] , $data['itemid'])==0) &&
+				$new_gitem['yaxisside'] == $data['yaxisside'] &&
+				$new_gitem['calc_fnc'] == $data['calc_fnc'] &&
+				$new_gitem['type'] == $data['type'] &&
+				$new_gitem['periods_cnt'] == $data['periods_cnt'])
+			{
 				$already_exist = true;
 				break;
 			}
@@ -283,8 +279,8 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	}
 //------ GO -------
 	else if(($_REQUEST['go'] == 'delete') && isset($_REQUEST['group_graphid'])){
-		$go_result = API::Graph()->delete($_REQUEST['group_graphid']);
-		show_messages($go_result, _('Graphs deleted'), _('Cannot delete graphs'));
+		$go_result = CGraph::delete($_REQUEST['group_graphid']);
+		show_messages($go_result, S_GRAPHS_DELETED, S_CANNOT_DELETE_GRAPHS);
 	}
 	else if(($_REQUEST['go'] == 'copy_to') && isset($_REQUEST['copy'])&&isset($_REQUEST['group_graphid'])){
 		if(isset($_REQUEST['copy_targetid']) && $_REQUEST['copy_targetid'] > 0 && isset($_REQUEST['copy_type'])){
@@ -303,7 +299,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 				zbx_value2array($_REQUEST['copy_targetid']);
 
 				$opt = array('groupids'=>$_REQUEST['copy_targetid'], 'editable'=>1, 'nodes'=>get_current_nodeid(true));
-				$db_groups = API::HostGroup()->get($opt);
+				$db_groups = CHostGroup::get($opt);
 				$db_groups = zbx_toHash($db_groups, 'groupid');
 
 				foreach($_REQUEST['copy_targetid'] as $gnum => $groupid){
@@ -315,22 +311,25 @@ require_once dirname(__FILE__).'/include/page_header.php';
 				$options['groupids'] = $_REQUEST['copy_targetid'];
 			}
 
-			$db_hosts = API::Host()->get($options);
+			$db_hosts = CHost::get($options);
 
 			DBstart();
 			foreach($_REQUEST['group_graphid'] as $gnum => $graph_id){
 				foreach($db_hosts as $hnum => $host){
-					$go_result &= (bool) copy_graph_to_host($graph_id, $host['hostid']);
+					$go_result = copy_graph_to_host($graph_id, $host['hostid'], true);
 
+					if (!$go_result) {
+						break 2;
+					}
 				}
 			}
 			$go_result = DBend($go_result);
 
-			show_messages($go_result, _('Graphs copied'), _('Cannot copy graphs'));
+			show_messages($go_result, S_GRAPHS_COPIED, S_CANNOT_COPY_GRAPHS);
 			$_REQUEST['go'] = 'none2';
 		}
 		else{
-			error(_('No target selected'));
+			error(S_NO_TARGET_SELECTED);
 		}
 		show_messages();
 	}
@@ -341,8 +340,8 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		insert_js('cookie.eraseArray("'.$path.'")');
 	}
 // ----</ACTIONS>----
-
-
+?>
+<?php
 	$options = array(
 		'groups' => array('not_proxy_hosts' => 1, 'editable' => 1),
 		'hosts' => array('editable' => 1, 'templated_hosts' => 1),
@@ -353,23 +352,22 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	$pageFilter = new CPageFilter($options);
 	$_REQUEST['groupid'] = $pageFilter->groupid;
 	$_REQUEST['hostid'] = $pageFilter->hostid;
+?>
+<?php
+	$form = new CForm(null, 'get');
 
+// Config
+	if(!isset($_REQUEST['form']))
+		$form->addItem(new CButton('form', S_CREATE_GRAPH));
 
-	$form = new CForm('get');
+	show_table_header(S_CONFIGURATION_OF_GRAPHS_BIG,$form);
 
-	if (!isset($_REQUEST['form'])) {
-		$form->cleanItems();
-		$form->addItem(new CSubmit('form', _('Create graph')));
+	if(($_REQUEST['go'] == 'copy_to') && isset($_REQUEST['group_graphid'])){
+		$graphs_wdgt = new CWidget();
+		$graphs_wdgt->addItem(insert_copy_elements_to_forms('group_graphid'));
+		$graphs_wdgt->show();
 	}
-
-	show_table_header(_('CONFIGURATION OF GRAPHS'), $form);
-
-	if ($_REQUEST['go'] == 'copy_to' && isset($_REQUEST['group_graphid'])) {
-		$triggersView = new CView('configuration.copy.elements', getCopyElementsFormData('group_graphid'));
-		$triggersView->render();
-		$triggersView->show();
-	}
-	elseif (isset($_REQUEST['form'])) {
+	else if(isset($_REQUEST['form'])){
 		insert_graph_form();
 		echo SBR;
 		$table = new CTable(NULL,'graph');
@@ -377,8 +375,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 			$table->addRow(new CImg('chart7.php?period=3600'.url_param('name').
 					url_param('legend').url_param('graph3d').url_param('width').
 					url_param('height').url_param('graphtype').url_param('items')));
-		}
-		else if($dataValid){
+		}else if($dataValid){
 			$table->addRow(new CImg('chart3.php?period=3600'.url_param('name').url_param('width').url_param('height').
 				url_param('ymin_type').url_param('ymax_type').url_param('yaxismin').url_param('yaxismax').
 				url_param('ymin_itemid').url_param('ymax_itemid').
@@ -387,7 +384,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		}
 		$table->show();
 	}
-	else{
+	else {
 /* Table HEADER */
 		$graphs_wdgt = new CWidget();
 
@@ -395,19 +392,20 @@ require_once dirname(__FILE__).'/include/page_header.php';
 			unset($_REQUEST['graphid']);
 		}
 
-		$r_form = new CForm('get');
-		$r_form->addItem(array(_('Group').SPACE,$pageFilter->getGroupsCB()));
+		$r_form = new CForm(null, 'get');
+
+		$r_form->addItem(array(S_GROUP.SPACE,$pageFilter->getGroupsCB()));
 		$r_form->addItem(array(SPACE.S_HOST.SPACE,$pageFilter->getHostsCB()));
 
 		$numrows = new CDiv();
 		$numrows->setAttribute('name','numrows');
 
-		$graphs_wdgt->addHeader(_('GRAPHS'), $r_form);
+		$graphs_wdgt->addHeader(S_GRAPHS_BIG, $r_form);
 		$graphs_wdgt->addHeader($numrows);
 
 // Header Host
 		if($_REQUEST['hostid'] > 0){
-			$tbl_header_host = get_header_host_table($_REQUEST['hostid'], 'graphs');
+			$tbl_header_host = get_header_host_table($_REQUEST['hostid'], array('items', 'triggers', 'applications'));
 			$graphs_wdgt->addItem($tbl_header_host);
 		}
 
@@ -416,25 +414,25 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		$form->setName('graphs');
 		$form->addVar('hostid',$_REQUEST['hostid']);
 
-		$table = new CTableInfo(_('No graphs defined.'));
+		$table = new CTableInfo(S_NO_GRAPHS_DEFINED);
 		$table->setHeader(array(
 			new CCheckBox('all_graphs',NULL,"checkAll('".$form->getName()."','all_graphs','group_graphid');"),
 			$_REQUEST['hostid'] != 0 ? NULL : S_HOSTS,
 			make_sorting_header(S_NAME,'name'),
 			S_WIDTH,
 			S_HEIGHT,
-			make_sorting_header(_('Graph type'),'graphtype')));
+			make_sorting_header(S_GRAPH_TYPE,'graphtype')));
 
 // get Graphs
 		$graphs = array();
 
-		$sortfield = getPageSortField('name');
+		$sortfield = getPageSortField('description');
 		$sortorder = getPageSortOrder();
 
 		if($pageFilter->hostsSelected){
 			$options = array(
 				'editable' => 1,
-				'output' => array('graphid', 'name', 'graphtype'),
+				'extendoutput' => 1,
 				'sortfield' => $sortfield,
 				'sortorder' => $sortorder,
 				'limit' => ($config['search_limit']+1)
@@ -445,15 +443,9 @@ require_once dirname(__FILE__).'/include/page_header.php';
 			else if($pageFilter->groupid > 0)
 				$options['groupids'] = $pageFilter->groupid;
 
-			$graphs = API::Graph()->get($options);
+			$graphs = CGraph::get($options);
 		}
 
-// Change graphtype from numbers to names, for correct sorting
-		if($sortfield == 'graphtype'){
-			foreach($graphs as $gnum => $graph){
-				$graphs[$gnum]['graphtype'] = graphType($graph['graphtype']);
-			}
-		}
 // sorting && paging
 		order_result($graphs, $sortfield, $sortorder);
 		$paging = getPagingLine($graphs);
@@ -463,16 +455,30 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		$options = array(
 			'graphids' => $graphids,
 			'output' => API_OUTPUT_EXTEND,
-			'selectHosts' => API_OUTPUT_EXTEND,
-			'selectTemplates' => API_OUTPUT_EXTEND,
-			'selectDiscoveryRule' => API_OUTPUT_EXTEND,
+			'select_hosts' => API_OUTPUT_EXTEND,
+			'select_templates' => API_OUTPUT_EXTEND
 		);
-		$graphs = API::Graph()->get($options);
+		$graphs = CGraph::get($options);
 
-// Change graphtype from numbers to names, for correct sorting
+		// Change graphtype from numbers to names, for correct sorting
 		foreach($graphs as $gnum => $graph){
-			$graphs[$gnum]['graphtype'] = graphType($graph['graphtype']);
+			switch($graph['graphtype']){
+				case GRAPH_TYPE_STACKED:
+					$graphtype = S_STACKED;
+				break;
+				case GRAPH_TYPE_PIE:
+					$graphtype = S_PIE;
+				break;
+				case GRAPH_TYPE_EXPLODED:
+					$graphtype = S_EXPLODED;
+				break;
+				default:
+					$graphtype = S_NORMAL;
+				break;
+			}
+			$graphs[$gnum]['graphtype'] = $graphtype;
 		}
+
 		order_result($graphs, $sortfield, $sortorder);
 
 		foreach($graphs as $gnum => $graph){
@@ -482,11 +488,11 @@ require_once dirname(__FILE__).'/include/page_header.php';
 			if($_REQUEST['hostid'] == 0){
 				$host_list = array();
 				foreach($graph['hosts'] as $host){
-					$host_list[$host['host']] = $host['host'];
+					$host_list[] = $host['host'];
 				}
 
 				foreach($graph['templates'] as $template){
-					$host_list[$template['host']] = $template['host'];
+					$host_list[] = $template['host'];
 				}
 				$host_list = implode(', ', $host_list);
 			}
@@ -495,12 +501,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 			if($graph['templateid'] != 0){
 				$real_hosts = get_realhosts_by_graphid($graph['templateid']);
 				$real_host = DBfetch($real_hosts);
-				$name[] = new CLink($real_host['name'], 'graphs.php?'.'hostid='.$real_host['hostid'], 'unknown');
-				$name[] = ':'.$graph['name'];
-			}
-			else if(!empty($graph['discoveryRule'])){
-				$name[] = new CLink($graph['discoveryRule']['name'], 'graph_prototypes.php?parent_discoveryid='.
-						$graph['discoveryRule']['itemid'],'gold');
+				$name[] = new CLink($real_host['host'], 'graphs.php?'.'hostid='.$real_host['hostid'], 'unknown');
 				$name[] = ':'.$graph['name'];
 			}
 			else{
@@ -509,8 +510,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 
 			$chkBox = new CCheckBox('group_graphid['.$graphid.']', NULL, NULL, $graphid);
-			if(($graph['templateid'] > 0) || !empty($graph['discoveryRule']))
-				$chkBox->setEnabled(false);
+			if($graph['templateid'] > 0) $chkBox->setEnabled(false);
 
 			$table->addRow(array(
 				$chkBox,
@@ -524,19 +524,19 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 //----- GO ------
 		$goBox = new CComboBox('go');
-		$goBox->addItem('copy_to', _('Copy selected to ...'));
+		$goBox->addItem('copy_to',S_COPY_SELECTED_TO);
 
-		$goOption = new CComboItem('delete', _('Delete selected'));
-		$goOption->setAttribute('confirm',_('Delete selected graphs?'));
+		$goOption = new CComboItem('delete',S_DELETE_SELECTED);
+		$goOption->setAttribute('confirm',S_DELETE_SELECTED_GRAPHS);
 		$goBox->addItem($goOption);
 
 // goButton name is necessary!!!
-		$goButton = new CSubmit('goButton',_('Go'));
+		$goButton = new CButton('goButton',S_GO);
 		$goButton->setAttribute('id','goButton');
 
 		zbx_add_post_js('chkbxRange.pageGoName = "group_graphid";');
 
-		$footer = get_table_header(array($goBox, $goButton));
+		$footer = get_table_header(new CCol(array($goBox, $goButton)));
 //----
 
 // PAGING FOOTER
@@ -548,9 +548,9 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		$graphs_wdgt->show();
 	}
 
+?>
+<?php
 
-
-
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');
 
 ?>

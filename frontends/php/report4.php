@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,17 +15,17 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-require_once dirname(__FILE__).'/include/config.inc.php';
+require_once('include/config.inc.php');
 
 $page['title'] = "S_IT_NOTIFICATIONS";
 $page['file'] = 'report4.php';
 $page['hist_arg'] = array('media_type','period','year');
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 
 ?>
 <?php
@@ -49,6 +49,14 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	$_REQUEST['media_type']	= $media_type;
 
 	$css = getUserTheme($USER_DETAILS);
+	$vTextColor = ($css == 'css_od.css')?'&color=white':'';
+
+	$header = array();
+	$db_users = DBselect('select * from users where '.DBin_node('userid').' order by alias,userid');
+	while($user_data = DBfetch($db_users)){
+		array_push($header, new CImg('vtext.php?text='.urlencode($user_data['alias']).$vTextColor));
+		$users[$user_data['userid']] = $user_data['alias'];
+	}
 
 	$media_types = array();
 
@@ -64,10 +72,11 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	// if no media types were defined, we have nothing to show
 	if (zbx_empty($media_types)){
 		show_table_header(S_NOTIFICATIONS_BIG);
-		$table = new CTableInfo(_('No media types defined.'));
+		$table = new CTableInfo(S_NO_MEDIA_TYPES_DEFINED);
 		$table->Show();
 	}
-	else{
+	else
+	{
 		$table = new CTableInfo();
 
 		if( ($min_time = DBfetch(DBselect('select min(clock) as clock from alerts'))) && $min_time['clock'])
@@ -82,9 +91,9 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		$form = new CForm();
 		$form->SetMethod('get');
 
-		$form->addItem(SPACE._('Media type').SPACE);
+		$form->addItem(SPACE.S_MEDIA_TYPE.SPACE);
 		$cmbMedia = new CComboBox('media_type', $media_type, 'submit();');
-		$cmbMedia->addItem(0, _('all'));
+		$cmbMedia->addItem(0,S_ALL_SMALL);
 
 		foreach($media_types as $media_type_id => $media_type_description){
 			$cmbMedia->addItem($media_type_id, $media_type_description);
@@ -93,9 +102,10 @@ require_once dirname(__FILE__).'/include/page_header.php';
 				unset($media_types[$media_type_id]);
 			}
 		}
+
 		$form->addItem($cmbMedia);
 
-		$form->addItem(SPACE._('Period').SPACE);
+		$form->addItem(SPACE.S_PERIOD.SPACE);
 		$cmbPeriod = new CComboBox('period', $period, 'submit();');
 		$cmbPeriod->addItem('daily',	S_DAILY);
 		$cmbPeriod->addItem('weekly',	S_WEEKLY);
@@ -112,13 +122,6 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		}
 
 		show_table_header(S_NOTIFICATIONS_BIG, $form);
-
-		$header = array();
-		$db_users = DBselect('select * from users where '.DBin_node('userid').' order by alias,userid');
-		while($user_data = DBfetch($db_users)){
-			array_push($header, new CImg('vtext.php?text='.urlencode($user_data['alias']).'&theme='.$css));
-			$users[$user_data['userid']] = $user_data['alias'];
-		}
 
 		switch($period){
 			case 'yearly':
@@ -138,8 +141,8 @@ require_once dirname(__FILE__).'/include/page_header.php';
 				function format_time2($t){	return null; }
 				break;
 			case 'daily':
-				$from = 1;
-				$to = DAY_IN_YEAR;
+				$from	= 1;
+				$to	= 365;
 				array_unshift($header, new CCol(S_DAY,'center'));
 				function get_time($d)	{	global $year;	return mktime(0,0,0,1,$d,$year);	}
 				function format_time($t){	return zbx_date2str(S_REPORT4_DAILY_DATE_FORMAT,$t);	}
@@ -157,7 +160,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 					$wd	= date('w', $time);
 					$wd	= $wd == 0 ? 6 : $wd - 1;
 
-					return $time + ($w * 7 - $wd) * SEC_PER_DAY;
+					return ($time + ($w*7 - $wd)*24*3600);
 				}
 				function format_time($t){	return zbx_date2str(S_REPORT4_WEEKLY_DATE_FORMAT,$t);	}
 				function format_time2($t){	return format_time($t); }
@@ -175,22 +178,22 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 			$table_row = array(format_time($start),format_time2($end));
 
-			// getting all alerts in this period of time
+			//getting all alerts in this period of time
 			$options = array(
 				'output'=> array('mediatypeid', 'userid'),
 				'time_from'=>$start,
 				'time_till'=>$end
 			);
 
-			// if we must get only specific media type, no need to select the other ones
+			//if we must get only specific media type, no need to select the other ones
 			if ($media_type > 0){
 				$options['mediatypeids'] = $media_type;
 			}
 
-			// getting data through API
-			$alert_info = API::Alert()->get($options);
+			//getting data through API
+			$alert_info = CAlert::get($options);
 
-			// counting alert count for each user and media type
+			//counting alert count for each user and media type
 			$summary = array();
 			foreach($users as $userid => $alias){
 				$summary[$userid] = array();
@@ -226,15 +229,19 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 			$links = array();
 			foreach($media_types as $id => $description){
-				$links[] = new CLink($description, 'media_types.php?form=edit&mediatypeid=' . $id);
+				$links[] = new CLink($description, 'media_types.php?form=update&mediatypeid=' . $id);
 				$links[] = SPACE . '/' . SPACE;
 			}
 			array_pop($links);
 
-			$linksDiv = new CDiv(array(SPACE . _('all') . SPACE . '(' . SPACE, $links, SPACE.')'));
+			$linksDiv = new CDiv(array(SPACE . S_ALL_SMALL . SPACE . '(' . SPACE, $links, SPACE.')'));
 			$linksDiv->show();
 		}
 	}
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+?>
+<?php
+
+include_once('include/page_footer.php');
+
 ?>

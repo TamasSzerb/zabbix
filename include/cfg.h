@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_CFG_H
@@ -34,7 +34,6 @@
 #define	ZBX_CFG_NOT_STRICT	0
 #define	ZBX_CFG_STRICT		1
 
-extern int	CONFIG_ZABBIX_FORKS;	/* contains the number of listeners for processing passive checks */
 extern char	*CONFIG_FILE;
 extern char	*CONFIG_LOG_FILE;
 extern int	CONFIG_ALLOW_ROOT;

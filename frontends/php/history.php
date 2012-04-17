@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,13 +15,13 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/items.inc.php';
-require_once dirname(__FILE__).'/include/graphs.inc.php';
+require_once('include/config.inc.php');
+require_once('include/items.inc.php');
+require_once('include/graphs.inc.php');
 
 $page['file']	= 'history.php';
 $page['title']	= 'S_HISTORY';
@@ -33,7 +33,8 @@ $page['type'] = detect_page_type(PAGE_TYPE_HTML);
 if(isset($_REQUEST['plaintext'])) define('ZBX_PAGE_NO_MENU', 1);
 else if(PAGE_TYPE_HTML == $page['type']) define('ZBX_PAGE_DO_REFRESH', 1);
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
+
 ?>
 <?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
@@ -59,8 +60,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		'favobj'=>		array(T_ZBX_STR, O_OPT, P_ACT,	NULL,			NULL),
 		'favref'=>		array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,		NULL),
 		'favid'=>		array(T_ZBX_INT, O_OPT, P_ACT,  NULL,			NULL),
-		'favaction' =>	array(T_ZBX_STR, O_OPT, P_ACT, 	IN("'add','remove','flop'"), null),
-		'favstate'=>	array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,		NULL),
+		'state'=>		array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,		NULL),
 /* actions */
 		'remove_log'=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
 		'reset'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
@@ -71,8 +71,8 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		'form_refresh'=>	array(T_ZBX_INT, O_OPT,	null,	null,	null),
 		'fullscreen'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	null,	null)
 	);
-
 	check_fields($fields);
+
 ?>
 <?php
 	if(isset($_REQUEST['favobj'])){
@@ -80,22 +80,22 @@ require_once dirname(__FILE__).'/include/page_header.php';
 			navigation_bar_calc('web.item.graph', $_REQUEST['favid'], true);
 		}
 		if('filter' == $_REQUEST['favobj']){
-			CProfile::update('web.history.filter.state',$_REQUEST['favstate'], PROFILE_TYPE_INT);
+			CProfile::update('web.history.filter.state',$_REQUEST['state'], PROFILE_TYPE_INT);
 		}
 		if(str_in_array($_REQUEST['favobj'],array('itemid','graphid'))){
 			$result = false;
-			if('add' == $_REQUEST['favaction']){
+			if('add' == $_REQUEST['action']){
 				$result = add2favorites('web.favorite.graphids',$_REQUEST['favid'],$_REQUEST['favobj']);
 				if($result){
-					print('$("addrm_fav").title = "'._('Remove from favourites.').'";'."\n");
+					print('$("addrm_fav").title = "'.S_REMOVE_FROM.' '.S_FAVOURITES.'";'."\n");
 					print('$("addrm_fav").onclick = function(){rm4favorites("itemid","'.$_REQUEST['favid'].'",0);}'."\n");
 				}
 			}
-			else if('remove' == $_REQUEST['favaction']){
+			else if('remove' == $_REQUEST['action']){
 				$result = rm4favorites('web.favorite.graphids',$_REQUEST['favid'],$_REQUEST['favobj']);
 
 				if($result){
-					print('$("addrm_fav").title = "'._('Add to favourites.').'";'."\n");
+					print('$("addrm_fav").title = "'.S_ADD_TO.' '.S_FAVOURITES.'";'."\n");
 					print('$("addrm_fav").onclick = function(){ add2favorites("itemid","'.$_REQUEST['favid'].'");}'."\n");
 				}
 			}
@@ -113,7 +113,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	}
 
 	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		require_once dirname(__FILE__).'/include/page_footer.php';
+		include_once('include/page_footer.php');
 		exit();
 	}
 ?>
@@ -149,27 +149,27 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		'nodeids' => get_current_nodeid(),
 		'itemids' => $_REQUEST['itemid'],
 		'webitems' => 1,
-		'selectHosts' => array('hostid','name'),
-		'output' => API_OUTPUT_EXTEND,
-		'preservekeys' => true
+		'select_hosts' => array('hostid','host'),
+		'output' => API_OUTPUT_EXTEND
 	);
 
-	$items = API::Item()->get($options);
+	$items = CItem::get($options);
+	$items = zbx_toHash($items, 'itemid');
 
-	foreach($_REQUEST['itemid'] as $itemid){
+	foreach($_REQUEST['itemid'] as $inum =>  $itemid){
 		if(!isset($items[$itemid])) access_deny();
 	}
 
 	$item = reset($items);
 	$host = reset($item['hosts']);
-	$item['hostname'] = $host['name'];
+	$item['host'] = $host['host'];
 
 // resets get params for proper page refresh
-	if((isset($_REQUEST['period']) || isset($_REQUEST['stime']))){
+	if (isset($_REQUEST['period']) || isset($_REQUEST['stime'])) {
 		navigation_bar_calc('web.item.graph', $item['itemid'], true);
 		if ($_REQUEST['action'] != 'showvalues') {
-			jsRedirect('history.php?action=' . get_request('action', 'showgraph') . '&itemid=' . $item['itemid']);
-			require_once dirname(__FILE__).'/include/page_footer.php';
+			jsRedirect('history.php?action='.get_request('action', 'showgraph').'&itemid='.$item['itemid']);
+			include_once('include/page_footer.php');
 			exit();
 		}
 	}
@@ -187,7 +187,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 // HEADER
 	$header = array(
-		'left' => count($items).SPACE._('ITEMS'),
+		'left' => count($items).SPACE.S_ITEMS_BIG,
 		'right' => array()
 	);
 
@@ -196,12 +196,12 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		'body' => array()
 	);
 
-	if(count($items) == 1){
-		$ptData['header'][] = $item['hostname'].': '.itemName($item);
+	if (count($items) == 1) {
+		$ptData['header'][] = $item['host'].': '.item_description($item);
 
-		$header['left'] = array(new CLink($item['hostname'], 'latest.php?hostid='.$item['hostid']), ': ', itemName($item));
+		$header['left'] = array(new CLink($item['host'],'latest.php?hostid='.$item['hostid']),': ',item_description($item));
 
-		if('showgraph' == $_REQUEST['action']){
+		if ($_REQUEST['action'] == 'showgraph') {
 			$header['right'][] = get_icon('favourite', array(
 				'fav' => 'web.favorite.graphids',
 				'elid' => $item['itemid'],
@@ -210,7 +210,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		}
 	}
 
-	$form = new CForm('get');
+	$form = new CForm(null, 'get');
 	$form->addVar('itemid', $_REQUEST['itemid']);
 
 	if(isset($_REQUEST['filter_task']))	$form->addVar('filter_task',$_REQUEST['filter_task']);
@@ -219,14 +219,14 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 	$cmbAction = new CComboBox('action',$_REQUEST['action'],'submit()');
 
-	if(isset($iv_numeric[$item['value_type']])) $cmbAction->addItem('showgraph',_('Graph'));
-	$cmbAction->addItem('showvalues',_('Values'));
-	$cmbAction->addItem('showlatest', _('500 latest values'));
+	if(isset($iv_numeric[$item['value_type']])) $cmbAction->addItem('showgraph',S_GRAPH);
+	$cmbAction->addItem('showvalues',S_VALUES);
+	$cmbAction->addItem('showlatest',S_500_LATEST_VALUES);
 
 	$form->addItem($cmbAction);
 
 	if($_REQUEST['action'] != 'showgraph')
-		$form->addItem(array(SPACE, new CSubmit('plaintext',_('As plain text'))));
+		$form->addItem(array(SPACE, new CButton('plaintext',S_AS_PLAIN_TEXT)));
 
 	array_unshift($header['right'], $form, SPACE);
 //--
@@ -257,43 +257,42 @@ require_once dirname(__FILE__).'/include/page_header.php';
 				}
 
 				$host = reset($item['hosts']);
-				$cmbitemlist->addItem($itemid,$host['name'].': '.itemName($item));
+				$cmbitemlist->addItem($itemid,$host['host'].': '.item_description($item));
 			}
 
-			$addItemBttn = new CButton('add_log',_('Add'),"return PopUp('popup.php?multiselect=1&real_hosts=1".
-				'&reference=itemid&srctbl=items&value_types[]='.$item['value_type']."&srcfld1=itemid');");
+			$addItemBttn = new CButton('add_log',S_ADD,"return PopUp('popup.php?multiselect=1".'&reference=itemid&srctbl=items&value_types[]='.$item['value_type']."&srcfld1=itemid');");
 			$delItemBttn = null;
 
 			if(count($items) > 1){
 				insert_js_function('removeSelectedItems');
-				$delItemBttn = new CSubmit('remove_log',_('Remove selected'), "javascript: removeSelectedItems('cmbitemlist_', 'itemid')");
+				$delItemBttn = new CButton('remove_log',S_REMOVE_SELECTED, "javascript: removeSelectedItems('cmbitemlist[]', 'itemid')");
 			}
 
-			$filterForm->addRow(_('Items list'), array($cmbitemlist, BR(), $addItemBttn, $delItemBttn));
+			$filterForm->addRow(S_ITEMS_LIST, array($cmbitemlist, BR(), $addItemBttn, $delItemBttn));
 
-			$filterForm->addRow(_('Select rows with value like'), new CTextBox('filter',$filter,25));
+			$filterForm->addRow(S_SELECT_ROWS_WITH_VALUE_LIKE, new CTextBox('filter',$filter,25));
 
 			$cmbFTask = new CComboBox('filter_task',$filter_task,'submit()');
-			$cmbFTask->addItem(FILTER_TASK_SHOW,_('Show selected'));
-			$cmbFTask->addItem(FILTER_TASK_HIDE,_('Hide selected'));
-			$cmbFTask->addItem(FILTER_TASK_MARK,_('Mark selected'));
-			$cmbFTask->addItem(FILTER_TASK_INVERT_MARK,_('Mark others'));
+			$cmbFTask->addItem(FILTER_TASK_SHOW,S_SHOW_SELECTED);
+			$cmbFTask->addItem(FILTER_TASK_HIDE,S_HIDE_SELECTED);
+			$cmbFTask->addItem(FILTER_TASK_MARK,S_MARK_SELECTED);
+			$cmbFTask->addItem(FILTER_TASK_INVERT_MARK,S_MARK_OTHERS);
 
 			$tmp = array($cmbFTask);
 
 			if(str_in_array($filter_task,array(FILTER_TASK_MARK,FILTER_TASK_INVERT_MARK))){
 				$cmbColor = new CComboBox('mark_color',$mark_color);
-				$cmbColor->addItem(MARK_COLOR_RED,_('as Red'));
-				$cmbColor->addItem(MARK_COLOR_GREEN,_('as Green'));
-				$cmbColor->addItem(MARK_COLOR_BLUE,_('as Blue'));
+				$cmbColor->addItem(MARK_COLOR_RED,S_AS_RED);
+				$cmbColor->addItem(MARK_COLOR_GREEN,S_AS_GREEN);
+				$cmbColor->addItem(MARK_COLOR_BLUE,S_AS_BLUE);
 
 				$tmp[] = SPACE;
 				$tmp[] = $cmbColor;
 			}
 
-			$filterForm->addRow(_('Selected'), $tmp);
+			$filterForm->addRow(S_SELECTED, $tmp);
 
-			$filterForm->addItemToBottomRow(new CSubmit('select',_('Filter')));
+			$filterForm->addItemToBottomRow(new CButton('select',S_FILTER));
 		}
 // ------
 
@@ -323,15 +322,15 @@ require_once dirname(__FILE__).'/include/page_header.php';
 			// is this an eventlog item? If so, we must show some additional columns
 			$eventLogItem = (strpos($item['key_'], 'eventlog[') === 0);
 
-			$table = new CTableInfo(_('No history defined.'));
+			$table = new CTableInfo('...');
 			$table->setHeader(array(
-				_('Timestamp'),
+				S_TIMESTAMP,
 				$fewItems ? S_ITEM : null,
-				$logItem ? _('Local time') : null,
-				(($eventLogItem && $logItem) ? _('Source') : null),
-				(($eventLogItem && $logItem) ? _('Severity') : null),
-				(($eventLogItem && $logItem) ? _('Event ID') : null),
-				_('Value')
+				$logItem ? S_LOCAL_TIME : null,
+				(($eventLogItem && $logItem) ? S_SOURCE : null),
+				(($eventLogItem && $logItem) ? S_SEVERITY : null),
+				(($eventLogItem && $logItem) ? S_EVENT_ID : null),
+				S_VALUE
 			), 'header');
 
 			if(isset($_REQUEST['filter']) && !zbx_empty($_REQUEST['filter']) && in_array($_REQUEST['filter_task'], array(FILTER_TASK_SHOW, FILTER_TASK_HIDE))){
@@ -342,7 +341,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 			}
 
 			$options['sortfield'] = 'id';
-			$hData = API::History()->get($options);
+			$hData = CHistory::get($options);
 
 			foreach($hData as $hnum => $data){
 				$color_style = null;
@@ -370,11 +369,10 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 				$row = array(nbsp(zbx_date2str(S_HISTORY_LOG_ITEM_DATE_FORMAT, $data['clock'])));
 
-				if ($fewItems) {
-					$row[] = $host['name'].':'.itemName($item);
-				}
+				if($fewItems)
+					$row[] = $host['host'].':'.item_description($item);
 
-				if ($logItem) {
+				if($logItem){
 					$row[] = ($data['timestamp'] == 0) ? '-' : zbx_date2str(S_HISTORY_LOG_LOCALTIME_DATE_FORMAT, $data['timestamp']);
 
 					// if this is a eventLog item, showing additional info
@@ -390,6 +388,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 				$data['value'] = encode_log(trim($data['value'], "\r\n"));
 				$row[] = new CCol($data['value'], 'pre');
 
+
 				$crow = new CRow($row);
 				if(is_null($color_style)){
 					$min_color = 0x98;
@@ -400,7 +399,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 					$crow->setAttribute('style','background-color: '.sprintf("#%X%X%X",$int_color,$int_color,$int_color));
 				}
 				else if(!is_null($color_style)){
-					$crow->setAttribute('class', $color_style);
+					$crow->setClass($color_style);
 				}
 
 				$table->addRow($crow);
@@ -414,11 +413,11 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		}
 		else{
 // NUMERIC, FLOAT
-			$table = new CTableInfo(_('No history defined.'));
-			$table->setHeader(array(_('Timestamp'), _('Value')));
+			$table = new CTableInfo();
+			$table->setHeader(array(S_TIMESTAMP, S_VALUE));
 
-			$options['sortfield'] = array('itemid', 'clock');
-			$hData = API::History()->get($options);
+			$options['sortfield'] = 'clock';
+			$hData = CHistory::get($options);
 			foreach($hData as $hnum => $data){
 				$item = $items[$data['itemid']];
 				$host = reset($item['hosts']);
@@ -426,7 +425,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 				if(!isset($data['value'])) $data['value'] = '';
 
 				if($item['valuemapid'] > 0){
-					$value = applyValueMap($data['value'], $item['valuemapid']);
+					$value = replace_value_by_map($data['value'], $item['valuemapid']);
 					$value_mapped = true;
 				}
 				else{
@@ -459,7 +458,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		$containerid = 'graph_cont1';
 		$src = 'chart.php?itemid='.$item['itemid'];
 
-		$table = new CTableInfo(_('No charts defined.'), 'chart');
+		$table = new CTableInfo('...','chart');
 		$graph_cont = new CCol();
 		$graph_cont->setAttribute('id', $containerid);
 
@@ -482,8 +481,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		);
 
 		$objData = array(
-			'periodFixed' => CProfile::get('web.history.timelinefixed', 1),
-			'sliderMaximumTimePeriod' => ZBX_MAX_PERIOD
+			'periodFixed' => CProfile::get('web.history.timelinefixed', 1)
 		);
 
 		if(isset($dom_graph_id)){
@@ -520,7 +518,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		$historyWidget->addPageHeader($header['left'], $right);
 
 		if(isset($iv_string[$item['value_type']])){
-			$historyWidget->addFlicker($filterForm, CProfile::get('web.history.filter.state', 1));
+			$historyWidget->addFlicker($filterForm, CProfile::get('web.history.filter.state',1));
 		}
 
 		$historyWidget->addItem($table);
@@ -531,7 +529,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 			$scroll_div = new CDiv();
 			$scroll_div->setAttribute('id','scrollbar_cntr');
-			$historyWidget->addFlicker($scroll_div, CProfile::get('web.history.filter.state', 1));
+			$historyWidget->addFlicker($scroll_div, CProfile::get('web.history.filter.state',1));
 		}
 
 		$historyWidget->show();
@@ -563,7 +561,7 @@ function addPopupValues(list){
 		for(var i=0; i < list.values.length; i++){
 			if(!isset(i, list.values) || empty(list.values[i])) continue;
 
-			create_var('zbx_filter', 'itemid['+list.values[i].itemid+']', list.values[i].itemid, false);
+			create_var('zbx_filter', 'itemid['+list.values[i]+']', list.values[i], false);
 		}
 
 		$('zbx_filter').submit();
@@ -573,6 +571,6 @@ function addPopupValues(list){
 </script>
 <?php
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+require_once('include/page_footer.php');
 
 ?>

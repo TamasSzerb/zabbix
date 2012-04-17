@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #if defined(_WINDOWS)
@@ -232,7 +232,7 @@ out:
 }
 
 int	process_eventlog(const char *source, long *lastlogsize, unsigned long *out_timestamp, char **out_source,
-		unsigned short *out_severity, char **out_message, unsigned long	*out_eventid, unsigned char skip_old_data)
+		unsigned short *out_severity, char **out_message, unsigned long	*out_eventid)
 {
 	const char	*__function_name = "process_eventlog";
 	int		ret = FAIL;
@@ -269,13 +269,6 @@ int	process_eventlog(const char *source, long *lastlogsize, unsigned long *out_t
 	{
 		LastID += FirstID;
 
-		if (1 == skip_old_data)
-		{
-			*lastlogsize = LastID - 1;
-			zabbix_log(LOG_LEVEL_DEBUG, "Skipping existing data. lastlogsize:%li",
-					*lastlogsize);
-		}
-
 		if (*lastlogsize > LastID)
 			*lastlogsize = FirstID;
 		else if (*lastlogsize >= FirstID)
@@ -299,7 +292,7 @@ int	process_eventlog(const char *source, long *lastlogsize, unsigned long *out_t
 				source, strerror_from_system(GetLastError()));
 
 	zbx_free(wsource);
-
+	
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 
 	return ret;

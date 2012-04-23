@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -62,33 +62,24 @@ static void	evaluate_one(double *result, int *num, int grp_func, const char *val
 	*num += 1;
 }
 
-/******************************************************************************
- *                                                                            *
- * Function: aggregate_get_items                                              *
- *                                                                            *
- * Purpose: get array of items specified by key for selected groups           *
- *                                                                            *
- * Parameters: ids - result, list of items                                    *
- *             groups - list of comma-separated host groups                   *
- *             itemkey - item key to aggregate                                *
- *                                                                            *
- ******************************************************************************/
-static void	aggregate_get_items(zbx_uint64_t **ids, int *ids_alloc, int *ids_num, const char *groups,
-		const char *itemkey)
+/*
+ * get array of items with specified key for selected groups
+ */
+static void	aggregate_get_items(zbx_uint64_t **ids, int *ids_alloc, int *ids_num, const char *groups, const char *itemkey)
 {
 	char		*group, *esc;
 	DB_RESULT	result;
 	DB_ROW		row;
 	zbx_uint64_t	itemid;
 	char		*sql = NULL;
-	size_t		sql_alloc = ZBX_KIBIBYTE, sql_offset = 0;
+	int		sql_alloc = 1024, sql_offset = 0;
 	int		num, n;
 
 	sql = zbx_malloc(sql, sql_alloc);
 
 	esc = DBdyn_escape_string(itemkey);
 
-	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset,
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 192 + strlen(esc),
 			"select i.itemid"
 			" from items i,hosts_groups hg,hosts h,groups g"
 			" where hg.groupid=g.groupid"
@@ -105,7 +96,8 @@ static void	aggregate_get_items(zbx_uint64_t **ids, int *ids_alloc, int *ids_num
 
 	num = num_param(groups);
 
-	zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset, " and g.name in (");
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 32,
+			" and g.name in (");
 
 	for (n = 1; n <= num; n++)
 	{
@@ -114,16 +106,18 @@ static void	aggregate_get_items(zbx_uint64_t **ids, int *ids_alloc, int *ids_num
 
 		esc = DBdyn_escape_string(group);
 
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "'%s'", esc);
-
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 3 + strlen(esc),
+				"'%s'", esc);
+		
 		if (n != num)
-			zbx_chrcpy_alloc(&sql, &sql_alloc, &sql_offset, ',');
+			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 2, ",");
 
 		zbx_free(esc);
 		zbx_free(group);
 	}
 
-	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, ")" DB_NODE, DBnode_local("h.hostid"));
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 128,
+			")" DB_NODE, DBnode_local("h.hostid"));
 
 	result = DBselect("%s", sql);
 
@@ -137,26 +131,17 @@ static void	aggregate_get_items(zbx_uint64_t **ids, int *ids_alloc, int *ids_num
 	DBfree_result(result);
 }
 
-/******************************************************************************
- *                                                                            *
- * Function: evaluate_aggregate                                               *
- *                                                                            *
- * Parameters: grpfunc - grpavg, grpmax, grpmin, grpsum                       *
- *             groups - list of comma-separated host groups                   *
- *             itemkey - item key to aggregate                                *
- *             itemfunc - avg, count, last, max, min, sum                     *
- *             param - itemfunc parameter (optional)                          *
- *                                                                            *
- * Return value: SUCCEED - aggregate item evaluated successfully              *
- *               FAIL - otherwise                                             *
- *                                                                            *
- ******************************************************************************/
-static int	evaluate_aggregate(AGENT_RESULT *res, const char *grpfunc, const char *groups, const char *itemkey,
+/*
+ * grpfunc: grpavg, grpmax, grpmin, grpsum
+ * itemfunc: avg, count, last, max, min, sum
+ */
+static int	evaluate_aggregate(AGENT_RESULT *res, char *grpfunc,
+		const char *groups, const char *itemkey,
 		const char *itemfunc, const char *param)
 {
 	const char	*__function_name = "evaluate_aggregate";
 	char		*sql = NULL;
-	size_t		sql_alloc = 1024, sql_offset = 0;
+	int		sql_alloc = 1024, sql_offset = 0;
 	zbx_uint64_t	itemid, *ids = NULL;
 	int		ids_alloc = 0, ids_num = 0;
 
@@ -181,7 +166,10 @@ static int	evaluate_aggregate(AGENT_RESULT *res, const char *grpfunc, const char
 	else if (0 == strcmp(grpfunc, "grpsum"))
 		grp_func = ZBX_GRP_FUNC_SUM;
 	else
+	{
+		SET_MSG_RESULT(res, zbx_strdup(NULL, "unsupported group function"));
 		goto clean;
+	}
 
 	if (0 == strcmp(itemfunc, "min"))
 		item_func = ZBX_DB_GET_HIST_MIN;
@@ -197,7 +185,7 @@ static int	evaluate_aggregate(AGENT_RESULT *res, const char *grpfunc, const char
 		item_func = ZBX_DB_GET_HIST_VALUE;
 	else
 	{
-		SET_MSG_RESULT(res, zbx_strdup(NULL, "Invalid third parameter"));
+		SET_MSG_RESULT(res, zbx_strdup(NULL, "unsupported item function"));
 		goto clean;
 	}
 
@@ -213,7 +201,7 @@ static int	evaluate_aggregate(AGENT_RESULT *res, const char *grpfunc, const char
 
 	if (ZBX_DB_GET_HIST_VALUE == item_func)
 	{
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset,
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 256,
 				"select value_type,lastvalue"
 				" from items"
 				" where lastvalue is not null"
@@ -234,19 +222,12 @@ static int	evaluate_aggregate(AGENT_RESULT *res, const char *grpfunc, const char
 	}
 	else
 	{
-		int		clock_from;
-		unsigned int	period;
-		char		**h_value;
+		int	clock_from;
+		char	**h_value;
 
-		if (FAIL == is_uint_suffix(param, &period))
-		{
-			SET_MSG_RESULT(res, zbx_strdup(NULL, "Invalid fourth parameter"));
-			goto clean;
-		}
+		clock_from = time(NULL) - atoi(param);
 
-		clock_from = time(NULL) - period;
-
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset,
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 256,
 				"select itemid,value_type"
 				" from items"
 				" where value_type in (%d,%d)"
@@ -261,7 +242,7 @@ static int	evaluate_aggregate(AGENT_RESULT *res, const char *grpfunc, const char
 			ZBX_STR2UINT64(itemid, row[0]);
 			value_type = (unsigned char)atoi(row[1]);
 
-			h_value = DBget_history(itemid, value_type, item_func, clock_from, 0, NULL, NULL, 0);
+			h_value = DBget_history(itemid, value_type, item_func, clock_from, 0, NULL, 0);
 
 			if (NULL != h_value[0])
 				evaluate_one(&d, &num, grp_func, h_value[0], value_type);
@@ -276,7 +257,7 @@ static int	evaluate_aggregate(AGENT_RESULT *res, const char *grpfunc, const char
 		goto clean;
 	}
 
-	if (ZBX_GRP_FUNC_AVG == grp_func)
+	if (0 == strcmp(grpfunc, "grpavg"))
 		d = d / num;
 
 	SET_DBL_RESULT(res, d);
@@ -325,10 +306,7 @@ int	get_value_aggregate(DC_ITEM *item, AGENT_RESULT *result)
 		return NOTSUPPORTED;
 
 	if (num_param(params) != 4)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid number of parameters"));
 		return NOTSUPPORTED;
-	}
 
 	if (0 != get_param(params, 1, groups, sizeof(groups)))
 		return NOTSUPPORTED;

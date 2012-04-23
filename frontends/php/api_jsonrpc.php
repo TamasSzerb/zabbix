@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,12 +15,12 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
 define('ZBX_RPC_REQUEST', 1);
-require_once dirname(__FILE__).'/include/config.inc.php';
+require_once('include/config.inc.php');
 
 $allowed_content = array(
 	'application/json-rpc'		=> 'json-rpc',
@@ -49,9 +49,12 @@ $data = $http_request->body();
 if($allowed_content[$content_type] == 'json-rpc'){
 	header('Content-Type: application/json');
 
-	$jsonRpc = new CJSONrpc($data);
+	$json_rpc = new CJSONrpc();
 
-	print($jsonRpc->execute());
+	$json_rpc->process($data);
+	$data = $json_rpc->result();
+
+	echo $data;
 }
 else if($allowed_content[$content_type] == 'xml-rpc'){
 

@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -44,7 +44,7 @@ int	USER_PERF_COUNTER(const char *cmd, const char *param, unsigned flags, AGENT_
 		{
 			if (PERF_COUNTER_ACTIVE == perfs->status)
 			{
-				SET_DBL_RESULT(result, compute_average_value(perfs, USE_DEFAULT_INTERVAL));
+				SET_DBL_RESULT(result, compute_average_value(__function_name, perfs, USE_DEFAULT_INTERVAL));
 				ret = SYSINFO_RET_OK;
 			}
 
@@ -108,7 +108,7 @@ int	PERF_COUNTER(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 				if (PERF_COUNTER_ACTIVE != perfs->status)
 					break;
 
-				SET_DBL_RESULT(result, compute_average_value(perfs, USE_DEFAULT_INTERVAL));
+				SET_DBL_RESULT(result, compute_average_value(__function_name, perfs, USE_DEFAULT_INTERVAL));
 				ret = SYSINFO_RET_OK;
 				goto clean;
 			}

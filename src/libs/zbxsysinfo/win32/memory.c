@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -26,66 +26,64 @@ int     VM_MEMORY_SIZE(const char *cmd, const char *param, unsigned flags, AGENT
 	PERFORMANCE_INFORMATION pfi;
 	MEMORYSTATUSEX		ms_ex;
 	MEMORYSTATUS		ms;
-	char			mode[16];
 
-	if (1 < num_param(param))
-		return SYSINFO_RET_FAIL;
+	char	mode[10];
 
-	if (0 != get_param(param, 1, mode, sizeof(mode)) || '\0' == *mode)
-		strscpy(mode, "total");
-
-	if (0 == strcmp(mode, "cached"))
+	if(num_param(param) > 1)
 	{
-		if (NULL == zbx_GetPerformanceInfo)
+		return SYSINFO_RET_FAIL;
+	}
+
+	if(get_param(param, 1, mode, sizeof(mode)) != 0)
+	{
+		mode[0] = '\0';
+	}
+	if(mode[0] == '\0')
+	{
+		/* default parameter */
+		zbx_snprintf(mode, sizeof(mode), "total");
+	}
+
+	if (strcmp(mode,"cached") == 0)
+	{
+		if(NULL == zbx_GetPerformanceInfo)
 			return SYSINFO_RET_FAIL;
 
-		zbx_GetPerformanceInfo(&pfi, sizeof(PERFORMANCE_INFORMATION));
+		zbx_GetPerformanceInfo(&pfi,sizeof(PERFORMANCE_INFORMATION));
 
-		SET_UI64_RESULT(result, (zbx_uint64_t)pfi.SystemCache * pfi.PageSize);
+		SET_UI64_RESULT(result, (zbx_uint64_t)pfi.SystemCache * (zbx_uint64_t)pfi.PageSize);
 
 		return SYSINFO_RET_OK;
 	}
 
-	if (NULL != zbx_GlobalMemoryStatusEx)
-	{
+	if(NULL != zbx_GlobalMemoryStatusEx) {
 		ms_ex.dwLength = sizeof(MEMORYSTATUSEX);
 
 		zbx_GlobalMemoryStatusEx(&ms_ex);
 
-		if (0 == strcmp(mode, "total"))
+		if (strcmp(mode, "total") == 0)	{
 			SET_UI64_RESULT(result, ms_ex.ullTotalPhys);
-		else if (0 == strcmp(mode, "free"))
+			return SYSINFO_RET_OK;
+		} else if (strcmp(mode, "free") == 0) {
 			SET_UI64_RESULT(result, ms_ex.ullAvailPhys);
-		else if (0 == strcmp(mode, "used"))
-			SET_UI64_RESULT(result, ms_ex.ullTotalPhys - ms_ex.ullAvailPhys);
-		else if (0 == strcmp(mode, "pused") && 0 != ms_ex.ullTotalPhys)
-			SET_DBL_RESULT(result, (ms_ex.ullTotalPhys - ms_ex.ullAvailPhys) / (double)ms_ex.ullTotalPhys * 100);
-		else if (0 == strcmp(mode, "available"))
-			SET_UI64_RESULT(result, ms_ex.ullAvailPhys);
-		else if (0 == strcmp(mode, "pavailable") && 0 != ms_ex.ullTotalPhys)
-			SET_DBL_RESULT(result, ms_ex.ullAvailPhys / (double)ms_ex.ullTotalPhys * 100);
-		else
-			return SYSINFO_RET_FAIL;
-	}
-	else
-	{
+			return SYSINFO_RET_OK;
+		} else if (strcmp(mode, "pfree") == 0) {
+			SET_UI64_RESULT(result, (100.0 * (double)ms_ex.ullAvailPhys) / (double)ms_ex.ullTotalPhys);
+			return SYSINFO_RET_OK;
+		}
+	} else {
 		GlobalMemoryStatus(&ms);
 
-		if (0 == strcmp(mode, "total"))
+		if (strcmp(mode,"total") == 0) {
 			SET_UI64_RESULT(result, ms.dwTotalPhys);
-		else if (0 == strcmp(mode, "free"))
+			return SYSINFO_RET_OK;
+		} else if (strcmp(mode,"free") == 0) {
 			SET_UI64_RESULT(result, ms.dwAvailPhys);
-		else if (0 == strcmp(mode, "used"))
-			SET_UI64_RESULT(result, ms.dwTotalPhys - ms.dwAvailPhys);
-		else if (0 == strcmp(mode, "pused") && 0 != ms.dwTotalPhys)
-			SET_DBL_RESULT(result, (ms.dwTotalPhys - ms.dwAvailPhys) / (double)ms.dwTotalPhys * 100);
-		else if (0 == strcmp(mode, "available"))
-			SET_UI64_RESULT(result, ms.dwAvailPhys);
-		else if (0 == strcmp(mode, "pavailable") && 0 != ms.dwTotalPhys)
-			SET_DBL_RESULT(result, ms.dwAvailPhys / (double)ms.dwTotalPhys * 100);
-		else
-			return SYSINFO_RET_FAIL;
+			return SYSINFO_RET_OK;
+		} else if (strcmp(mode,"pfree") == 0) {
+			SET_UI64_RESULT(result, (100.0 * (double)ms.dwAvailPhys) / (double)ms.dwTotalPhys);
+			return SYSINFO_RET_OK;
+		}
 	}
-
-	return SYSINFO_RET_OK;
+	return SYSINFO_RET_FAIL;
 }

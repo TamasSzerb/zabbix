@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,12 +15,11 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-
-class CTextArea extends CTag {
+class CTextArea extends CTag{
 
 	/**
 	 * The "&" symbol in the textarea should be encoded.
@@ -29,46 +28,38 @@ class CTextArea extends CTag {
 	 */
 	protected $encStrategy = self::ENC_ALL;
 
-	public function __construct($name = 'textarea', $value = '', $rows = ZBX_TEXTAREA_STANDARD_ROWS, $width = ZBX_TEXTAREA_STANDARD_WIDTH, $readonly = false) {
-		parent::__construct('textarea', 'yes');
-		$this->attr('class', 'input');
-		$this->attr('id', zbx_formatDomId($name));
-		$this->attr('name', $name);
-		$this->attr('rows', $rows);
+
+	public function __construct($name='textarea',$value='',$cols=77,$rows=7,$readonly='no'){
+		parent::__construct('textarea','yes');
+		$this->attributes['class'] = 'biginput';
+
+		$this->attributes['id'] = $name;
+		$this->attributes['name'] = $name;
+		$this->attributes['rows'] = $rows;
+		$this->attributes['cols'] = $cols;
 		$this->setReadonly($readonly);
+
 		$this->addItem($value);
-
-		// set width
-		if ($width == ZBX_TEXTAREA_STANDARD_WIDTH) {
-			$this->addClass('textarea_standard');
-		}
-		elseif ($width == ZBX_TEXTAREA_BIG_WIDTH) {
-			$this->addClass('textarea_big');
-		}
-		else {
-			$this->attr('style', 'width: '.$width.'px;');
-		}
 	}
 
-	public function setReadonly($value = true) {
-		if ($value) {
-			$this->attr('readonly', 'readonly');
-		}
-		else {
-			$this->removeAttribute('readonly');
-		}
+	public function setReadonly($value='yes'){
+		if($value==='yes' || $value === true)
+			return $this->attributes['readonly'] = 'readonly';
+
+		$this->removeAttribute('readonly');
 	}
 
-	public function setValue($value = '') {
+	public function setValue($value=''){
 		return $this->addItem($value);
 	}
 
-	public function setRows($value) {
-		$this->attr('rows', $value);
+	public function setRows($value){
+		return $this->attributes['rows'] = $value;
 	}
 
-	public function setCols($value) {
-		$this->attr('cols', $value);
+	public function setCols($value){
+		return $this->attributes['cols'] = $value;
+
 	}
 }
 ?>

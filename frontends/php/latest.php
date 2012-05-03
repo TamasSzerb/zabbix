@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,15 +15,15 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/hosts.inc.php';
-require_once dirname(__FILE__).'/include/items.inc.php';
+require_once('include/config.inc.php');
+require_once('include/hosts.inc.php');
+require_once('include/items.inc.php');
 
-$page['title'] = _('Latest data');
+$page['title'] = 'S_LATEST_DATA';
 $page['file'] = 'latest.php';
 $page['hist_arg'] = array('groupid','hostid','show','select','open','applicationid');
 $page['scripts'] = array();
@@ -37,7 +37,7 @@ if(PAGE_TYPE_HTML == $page['type']){
 }
 //	define('ZBX_PAGE_DO_JS_REFRESH', 1);
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 ?>
 <?php
 //		VAR			     			 TYPE	   OPTIONAL FLAGS	VALIDATION	EXCEPTION
@@ -59,7 +59,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 //ajax
 		'favobj'=>				array(T_ZBX_STR, O_OPT, P_ACT,	NULL,		NULL),
 		'favref'=>				array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,	'isset({favobj})'),
-		'favstate'=>			array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,	'isset({favobj})'),
+		'state'=>				array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,	'isset({favobj})'),
 	);
 
 	check_fields($fields);
@@ -68,12 +68,12 @@ require_once dirname(__FILE__).'/include/page_header.php';
 /* AJAX */
 	if(isset($_REQUEST['favobj'])){
 		if('filter' == $_REQUEST['favobj']){
-			CProfile::update('web.latest.filter.state',$_REQUEST['favstate'], PROFILE_TYPE_INT);
+			CProfile::update('web.latest.filter.state',$_REQUEST['state'], PROFILE_TYPE_INT);
 		}
 	}
 
 	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
-		require_once dirname(__FILE__).'/include/page_footer.php';
+		include_once('include/page_footer.php');
 		exit();
 	}
 //--------
@@ -102,10 +102,10 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 // Header
 	$fs_icon = get_icon('fullscreen', array('fullscreen' => $_REQUEST['fullscreen']));
-	$latest_wdgt->addPageHeader(_('LATEST DATA'), $fs_icon);
+	$latest_wdgt->addPageHeader(S_LATEST_DATA_BIG,$fs_icon);
 
 // 2nd header
-	$r_form = new CForm('get');
+	$r_form = new CForm(null, 'get');
 
 	$options = array(
 		'groups' => array(
@@ -123,30 +123,32 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 	$available_hosts = $pageFilter->hostsSelected ? array_keys($pageFilter->hosts) : array();
 
-	$r_form->addItem(array(_('Group').SPACE, $pageFilter->getGroupsCB(true)));
-	$r_form->addItem(array(SPACE._('Host').SPACE, $pageFilter->getHostsCB(true)));
+	$r_form->addItem(array(S_GROUP.SPACE,$pageFilter->getGroupsCB(true)));
+	$r_form->addItem(array(SPACE.S_HOST.SPACE,$pageFilter->getHostsCB(true)));
 
-	$latest_wdgt->addHeader(_('Items'), $r_form);
+	$latest_wdgt->addHeader(S_ITEMS_BIG,$r_form);
 //-------------
 
 /************************* FILTER **************************/
 /***********************************************************/
-	$filterForm = new CFormTable(null, null, 'get');
+	$filterForm = new CFormTable();
 	$filterForm->setAttribute('name','zbx_filter');
 	$filterForm->setAttribute('id','zbx_filter');
 
-	$filterForm->addRow(_('Show items with name like'), new CTextBox('select',$_REQUEST['select'],20));
-	$filterForm->addRow(_('Show items without data'), new CCheckBox('show_without_data', $_REQUEST['show_without_data'], null, 1));
+	$filterForm->addRow(S_SHOW_ITEMS_WITH_DESCRIPTION_LIKE, new CTextBox('select',$_REQUEST['select'],20));
+	$filterForm->addRow(S_SHOW_ITEMS_WITHOUT_DATA, new CCheckBox('show_without_data', $_REQUEST['show_without_data'], null, 1));
 
-	$reset = new CButton("filter_rst", _('Reset'), 'javascript: var uri = new Curl(location.href); uri.setArgument("filter_rst",1); location.href = uri.getUrl();');
+	$reset = new CButton("filter_rst",S_RESET);
+	$reset->setType('button');
+	$reset->setAction('javascript: var uri = new Curl(location.href); uri.setArgument("filter_rst",1); location.href = uri.getUrl();');
 
-	$filterForm->addItemToBottomRow(new CSubmit("filter_set", _('Filter')));
+	$filterForm->addItemToBottomRow(new CButton("filter_set",S_FILTER));
 	$filterForm->addItemToBottomRow($reset);
 
-	$latest_wdgt->addFlicker($filterForm, CProfile::get('web.latest.filter.state', 1));
+	$latest_wdgt->addFlicker($filterForm, CProfile::get('web.latest.filter.state',1));
 //-------
 
-	validate_sort_and_sortorder('i.name',ZBX_SORT_UP);
+	validate_sort_and_sortorder('i.description',ZBX_SORT_UP);
 
 	$_REQUEST['apps'] = get_request('apps', array());
 	$apps = zbx_toHash($_REQUEST['apps']);
@@ -168,10 +170,6 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 ?>
 <?php
-
-	// js templates
-	require_once dirname(__FILE__).'/include/views/js/general.script.confirm.js.php';
-
 	if(isset($showAll)){
 		$url = '?close=1'.
 			url_param('groupid').
@@ -189,17 +187,16 @@ require_once dirname(__FILE__).'/include/page_header.php';
 //		$link = new CLink(new CImg('images/general/closed.gif'),$url,null,"javascript: return updater.onetime_update('".ZBX_PAGE_MAIN_HAT."','".$url."');");
 	}
 
-	$table = new CTableInfo(_('No latest data defined.'));
+	$table=new CTableInfo();
 	$table->setHeader(array(
 		$link,
-		is_show_all_nodes() ? make_sorting_header(_('Node'), 'h.hostid') : null,
-		($_REQUEST['hostid'] == 0) ? make_sorting_header(_('Host'), 'h.name') : NULL,
-		make_sorting_header(_('Name'), 'i.name'),
-		make_sorting_header(_('Last check'), 'i.lastclock'),
-		_('Last value'),
-		_('Change'),
-		_('History')
-	));
+		is_show_all_nodes()?make_sorting_header(S_NODE,'h.hostid') : null,
+		($_REQUEST['hostid'] ==0)?make_sorting_header(S_HOST,'h.host') : NULL,
+		make_sorting_header(S_DESCRIPTION,'i.description'),
+		make_sorting_header(S_LAST_CHECK,'i.lastclock'),
+		S_LAST_VALUE,
+		S_CHANGE,
+		S_HISTORY));
 
 //	$table->ShowStart();
 
@@ -209,43 +206,24 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	$db_apps = array();
 	$db_appids = array();
 
-	$options = array(
-		'output' => array('name', 'hostid'),
-		'hostids' => $available_hosts,
-		'selectAppllications' => API_OUTPUT_EXTEND,
-		'selectScreens' => API_OUTPUT_COUNT,
-		'selectInventory' => true,
-		'selectGroups' => API_OUTPUT_REFER,
-		'preservekeys' => true
-	);
-
 	$sql_from = '';
 	$sql_where = '';
 	if($_REQUEST['groupid'] > 0){
 		$sql_from .= ',hosts_groups hg ';
 		$sql_where.= ' AND hg.hostid=h.hostid AND hg.groupid='.$_REQUEST['groupid'];
-
-		$options['groupid'] = $_REQUEST['groupid'];
 	}
 
 	if($_REQUEST['hostid']>0){
 		$sql_where.= ' AND h.hostid='.$_REQUEST['hostid'];
-
-		$options['hostids'] = $_REQUEST['hostid'];
 	}
 
-	$hosts = API::Host()->get($options);
-
-	// fetch scripts for the host JS menu
-	$hostScripts = API::Script()->getScriptsByHosts($options['hostids']);
-
 	// select hosts
-	$sql = 'SELECT DISTINCT h.name as hostname,h.hostid, a.* '.
+	$sql = 'SELECT DISTINCT h.host,h.hostid, a.* '.
 			' FROM applications a, hosts h '.$sql_from.
 			' WHERE a.hostid=h.hostid'.
 				$sql_where.
 				' AND '.DBcondition('h.hostid', $available_hosts).
-			order_by('h.name,h.hostid','a.name,a.applicationid');
+			order_by('h.host,h.hostid','a.name,a.applicationid');
 
 	$db_app_res = DBselect($sql);
 	while($db_app = DBfetch($db_app_res)){
@@ -264,12 +242,11 @@ require_once dirname(__FILE__).'/include/page_header.php';
 				' AND i.itemid=ia.itemid'.
 				($_REQUEST['show_without_data'] ? '' : ' AND i.lastvalue IS NOT NULL').
 				' AND (i.status='.ITEM_STATUS_ACTIVE.' OR i.status='.ITEM_STATUS_NOTSUPPORTED.')'.
-				' AND '.DBcondition('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)).
-			order_by('i.name,i.itemid,i.lastclock');
+			order_by('i.description,i.itemid,i.lastclock');
 
 	$db_items = DBselect($sql);
 	while($db_item = DBfetch($db_items)){
-		$description = itemName($db_item);
+		$description = item_description($db_item);
 
 		if(!empty($_REQUEST['select']) && !zbx_stristr($description, $_REQUEST['select']) ) continue;
 
@@ -288,19 +265,16 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		if(isset($showAll) && !empty($apps) && !isset($apps[$db_app['applicationid']])) continue;
 		else if(isset($hideAll) && (empty($apps) || isset($apps[$db_app['applicationid']]))) continue;
 
-		if (isset($db_item['lastclock'])) {
-			$lastclock = zbx_date2str(_('d M Y H:i:s'), $db_item['lastclock']);
-		}
-		else {
+		if(isset($db_item['lastclock']))
+			$lastclock=zbx_date2str(S_LATEST_ITEMS_TRIGGERS_DATE_FORMAT,$db_item['lastclock']);
+		else
 			$lastclock = ' - ';
-		}
 
 		$lastvalue = format_lastvalue($db_item);
 
 		if(isset($db_item['lastvalue']) && isset($db_item['prevvalue'])
 				&& in_array($db_item['value_type'], array(ITEM_VALUE_TYPE_FLOAT, ITEM_VALUE_TYPE_UINT64))
-				&& ($db_item['lastvalue']-$db_item['prevvalue'] != 0))
-		{
+				&& ($db_item['lastvalue']-$db_item['prevvalue'] != 0)){
 			if($db_item['lastvalue']-$db_item['prevvalue']<0){
 				$change=convert_units($db_item['lastvalue']-$db_item['prevvalue'],$db_item['units']);
 			}
@@ -314,10 +288,10 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		}
 
 		if(($db_item['value_type']==ITEM_VALUE_TYPE_FLOAT) || ($db_item['value_type']==ITEM_VALUE_TYPE_UINT64)){
-			$actions = new CLink(_('Graph'),'history.php?action=showgraph&itemid='.$db_item['itemid']);
+			$actions = new CLink(S_GRAPH,'history.php?action=showgraph&itemid='.$db_item['itemid']);
 		}
 		else{
-			$actions = new CLink(_('History'),'history.php?action=showvalues&period=3600&itemid='.$db_item['itemid']);
+			$actions = new CLink(S_HISTORY,'history.php?action=showvalues&period=3600&itemid='.$db_item['itemid']);
 		}
 
 		$item_status = $db_item['status'] == ITEM_STATUS_NOTSUPPORTED ? 'unknown' : null;
@@ -336,10 +310,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	unset($app_rows);
 	unset($db_app);
 
-	foreach ($db_apps as $appid => $db_app) {
-		$host = $hosts[$db_app['hostid']];
-		$group = reset($host['groups']);
-
+	foreach($db_apps as $appid => $db_app){
 		if(!isset($tab_rows[$appid])) continue;
 
 		$app_rows = $tab_rows[$appid];
@@ -373,18 +344,13 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		$url.= url_param('groupid').url_param('hostid').url_param('fullscreen').url_param('select');
 		$link = new CLink($img,$url);
 
-		$col = new CCol(array(bold($db_app['name']),SPACE.'('._n('%1$s Item', '%1$s Items', $db_app['item_cnt']).')'));
-
+		$col = new CCol(array(bold($db_app['name']),SPACE.'('.$db_app['item_cnt'].SPACE.S_ITEMS.')'));
 		$col->setColSpan(5);
-		// host JS menu link
-		$hostSpan = new CSpan($host['name'], 'link_menu menu-host');
-		$scripts = ($hostScripts[$host['hostid']]) ? $hostScripts[$host['hostid']] : array();
-		$hostSpan->setAttribute('data-menu', hostMenuData($host, $scripts));
 
 		$table->addRow(array(
 			$link,
 			get_node_name_by_elid($db_app['applicationid']),
-			($_REQUEST['hostid'] > 0) ? null : $hostSpan,
+			($_REQUEST['hostid'] > 0)?NULL:$db_app['host'],
 			$col
 		));
 
@@ -399,15 +365,14 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	$db_hostids = array();
 
 	// select hosts
-	$sql = 'SELECT DISTINCT h.name,h.hostid '.
+	$sql = 'SELECT DISTINCT h.host,h.hostid '.
 			' FROM hosts h'.$sql_from.', items i '.
 				' LEFT JOIN items_applications ia ON ia.itemid=i.itemid'.
 			' WHERE ia.itemid is NULL '.
 				$sql_where.
 				' AND h.hostid=i.hostid '.
-				' AND '.DBcondition('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)).
 				' AND '.DBcondition('h.hostid', $available_hosts).
-			' ORDER BY h.name';
+			' ORDER BY h.host';
 
 	$db_host_res = DBselect($sql);
 	while($db_host = DBfetch($db_host_res)) {
@@ -420,7 +385,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	$tab_rows = array();
 
 	// select items
-	$sql = 'SELECT DISTINCT h.host as hostname,h.hostid,i.* '.
+	$sql = 'SELECT DISTINCT h.host,h.hostid,i.* '.
 			' FROM hosts h'.$sql_from.', items i '.
 				' LEFT JOIN items_applications ia ON ia.itemid=i.itemid'.
 			' WHERE ia.itemid is NULL '.
@@ -428,12 +393,12 @@ require_once dirname(__FILE__).'/include/page_header.php';
 				' AND h.hostid=i.hostid '.
 				($_REQUEST['show_without_data'] ? '' : ' AND i.lastvalue IS NOT NULL').
 				' AND (i.status='.ITEM_STATUS_ACTIVE.' OR i.status='.ITEM_STATUS_NOTSUPPORTED.')'.
-				' AND '.DBcondition('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)).
 				' AND '.DBcondition('h.hostid', $db_hostids).
-			' ORDER BY i.name,i.itemid';
+			' ORDER BY i.description,i.itemid';
 	$db_items = DBselect($sql);
 	while ($db_item = DBfetch($db_items)) {
-		$description = itemName($db_item);
+
+		$description = item_description($db_item);
 
 		if (!empty($_REQUEST['select']) && !zbx_stristr($description, $_REQUEST['select'])) continue;
 
@@ -453,12 +418,10 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		else if (isset($hideAll) && (empty($apps) || isset($apps[0]))) continue;
 
 		// column "lastclock"
-		if (isset($db_item['lastclock'])) {
-			$lastclock = zbx_date2str(_('d M Y H:i:s'), $db_item['lastclock']);
-		}
-		else {
+		if (isset($db_item['lastclock']))
+			$lastclock = zbx_date2str(S_LATEST_ITEMS_TRIGGERS_DATE_FORMAT, $db_item['lastclock']);
+		else
 			$lastclock = ' - ';
-		}
 
 		// column "lastvalue"
 		$lastvalue = format_lastvalue($db_item);
@@ -482,17 +445,18 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 		// column "action"
 		if (($db_item['value_type'] == ITEM_VALUE_TYPE_FLOAT) || ($db_item['value_type'] == ITEM_VALUE_TYPE_UINT64)) {
-			$actions = new CLink(_('Graph'), 'history.php?action=showgraph&itemid='.$db_item['itemid']);
+			$actions = new CLink(S_GRAPH, 'history.php?action=showgraph&itemid='.$db_item['itemid']);
 		}
 		else{
-			$actions = new CLink(_('History'), 'history.php?action=showvalues&period=3600&itemid='.$db_item['itemid']);
+			$actions = new CLink(S_HISTORY, 'history.php?action=showvalues&period=3600&itemid='.$db_item['itemid']);
 		}
 
 		$item_status = $db_item['status'] == ITEM_STATUS_NOTSUPPORTED ? 'unknown' : null;
+
 		array_push($app_rows, new CRow(array(
 			SPACE,
 			is_show_all_nodes() ? ($db_host['item_cnt'] ? SPACE : get_node_name_by_elid($db_item['itemid'])) : null,
-			$_REQUEST['hostid'] ? null : SPACE,
+			$_REQUEST['hostid'] ? NULL : ($db_host['item_cnt'] ? SPACE : $db_item['host']),
 			new CCol(SPACE.SPACE.$description, $item_status),
 			new CCol($lastclock, $item_status),
 			new CCol($lastvalue, $item_status),
@@ -503,9 +467,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	unset($app_rows);
 	unset($db_host);
 
-	foreach ($db_hosts as $hostid => $db_host) {
-		$host = $hosts[$db_host['hostid']];
-		$group = reset($host['groups']);
+	foreach($db_hosts as $hostid => $db_host){
 
 		if(!isset($tab_rows[$hostid])) continue;
 		$app_rows = $tab_rows[$hostid];
@@ -540,18 +502,13 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		$link = new CLink($img,$url);
 
 
-		$col = new CCol(array(bold('- '.('other').' -'), SPACE.'('._n('%1$s Item', '%1$s Items', $db_host['item_cnt']).')'));
+		$col = new CCol(array(bold(S_MINUS_OTHER_MINUS),SPACE.'('.$db_host['item_cnt'].SPACE.S_ITEMS.')'));
 		$col->setColSpan(5);
-
-		// host JS menu link
-		$hostSpan = new CSpan($host['name'], 'link_menu menu-host');
-		$scripts = ($hostScripts[$host['hostid']]) ? $hostScripts[$host['hostid']] : array();
-		$hostSpan->setAttribute('data-menu', hostMenuData($host, $scripts));
 
 		$table->addRow(array(
 			$link,
 			get_node_name_by_elid($db_host['hostid']),
-			($_REQUEST['hostid'] > 0) ? null : $hostSpan,
+			($_REQUEST['hostid'] > 0)?NULL:$db_host['host'],
 			$col
 		));
 
@@ -559,8 +516,20 @@ require_once dirname(__FILE__).'/include/page_header.php';
 			$table->addRow($row);
 	}
 
+/*
+// Refresh tab
+	$refresh_tab = array(
+		array('id'	=> ZBX_PAGE_MAIN_HAT,
+				'interval' 	=> $USER_DETAILS['refresh'],
+				'url'	=>	zbx_empty($_SERVER['QUERY_STRING'])?'':'?'.$_SERVER['QUERY_STRING'],
+			)
+	);
+//*/
+
 	$latest_wdgt->addItem($table);
 	$latest_wdgt->show();
 
-require_once 'include/page_footer.php';
+//	add_refresh_objects($refresh_tab);
+
+include_once 'include/page_footer.php';
 ?>

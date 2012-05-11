@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
@@ -26,18 +26,18 @@ class CPUMenu{
 	var $width;
 	*/
 /* public */
-	public function __construct($items=array(), $width=null) {
+	public function __construct($items=array(), $width=null){
 		/*********************** ITEM ARRAY ***********************
-		ITEM: array(name, url, param, css, submenu1, submenu2, ... , submenuN)
+		 ITEM: array(name, url, param, css, submenu1, submenu2, ... , submenuN)
 
-		name:  text
-		url:   text (url for href perameter)
-		param: array(tw => t_val, sb => s_val)
+		 name:  text
+		 url:   text (url for href perameter)
+		 param: array(tw => t_val, sb => s_val)
 				tw: target parameter
 				t_val: one of '_blank', '_parent', '_self', '_top'
 				sb: text for statusbar)
 				s_val: text
-		css:   array(outer => cssarray, inner => cssarray)
+		 css:   array(outer => cssarray, inner => cssarray)
 				outer -> style for outer div element
 				inner -> style for inner link element with text
 				cssarray -> array(normal, mouseover, mousedown)
@@ -47,10 +47,9 @@ class CPUMenu{
 		$this->width = $width;
 	}
 
-	public function getOnActionJS() {
-		if (count($this->items) <= 0) {
-			return null;
-		}
+	public function getOnActionJS(){
+		if(count($this->items) <= 0) return NULL;
+
 		return 'return show_popup_menu(event,'.zbx_jsvalue($this->items).','.zbx_jsvalue($this->width).');';
 	}
 }

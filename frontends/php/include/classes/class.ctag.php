@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,11 +15,10 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-
 class CTag extends CObject {
 
 	/**
@@ -49,15 +48,16 @@ class CTag extends CObject {
 
 	public function __construct($tagname = null, $paired = 'no', $body = null, $class = null) {
 		parent::__construct();
+
 		$this->attributes = array();
-		$this->dataAttributes = array();
 
 		if (!is_string($tagname)) {
-			return $this->error('Incorrect tagname for CTag "'.$tagname.'".');
+			return $this->error('Incorrect tagname for CTag ['.$tagname.']');
 		}
 
 		$this->tagname = $tagname;
 		$this->paired = $paired;
+
 		$this->tag_start = $this->tag_end = $this->tag_body_start = $this->tag_body_end = '';
 
 		if (is_null($body)) {
@@ -66,7 +66,8 @@ class CTag extends CObject {
 		else {
 			$this->addItem($body);
 		}
-		$this->addClass($class);
+
+		$this->setClass($class);
 	}
 
 	public function showStart() {
@@ -81,9 +82,11 @@ class CTag extends CObject {
 		echo $this->endToString();
 	}
 
-	// do not put new line symbol (\n) before or after html tags, it adds spaces in unwanted places
+	// Do not put new line symbol (\n) before or after html tags,
+	// it adds spaces in unwanted places
 	public function startToString() {
 		$res = $this->tag_start.'<'.$this->tagname;
+
 		foreach ($this->attributes as $key => $value) {
 			// a special encoding strategy should be used for the "value" attribute
 			$value = $this->encode($value, ($key == 'value') ? $this->valueEncStrategy : self::ENC_NOAMP);
@@ -101,6 +104,7 @@ class CTag extends CObject {
 	public function endToString() {
 		$res = ($this->paired === 'yes') ? $this->tag_body_end.'</'.$this->tagname.'>' : '';
 		$res .= $this->tag_end;
+
 		return $res;
 	}
 
@@ -108,9 +112,11 @@ class CTag extends CObject {
 		$res = $this->startToString();
 		$res .= $this->bodyToString();
 		$res .= $this->endToString();
+
 		if ($destroy) {
 			$this->destroy();
 		}
+
 		return $res;
 	}
 
@@ -124,92 +130,73 @@ class CTag extends CObject {
 	}
 
 	public function setName($value) {
-		if (is_null($value)) {
-			return $value;
-		}
+		if (is_null($value)) return $value;
+
 		if (!is_string($value)) {
-			return $this->error('Incorrect value for SetName "'.$value.'".');
+			return $this->error("Incorrect value for SetName [$value]");
 		}
-		return $this->setAttribute('name', $value);
+		return $this->setAttribute("name", $value);
 	}
 
 	public function getName() {
-		if (isset($this->attributes['name'])) {
-			return $this->attributes['name'];
-		}
-		return null;
+		return (isset($this->attributes['name'])) ? $this->attributes['name'] : null;
 	}
 
-	public function addClass($cssClass) {
-		if (!isset($this->attributes['class']) || zbx_empty($this->attributes['class'])) {
-			$this->attributes['class'] = $cssClass;
+	public function setClass($value) {
+		if (isset($value)) {
+			$this->attributes['class'] = $value;
 		}
 		else {
-			$this->attributes['class'] .= ' '.$cssClass;
+			unset($this->attributes['class']);
 		}
-		return $this->attributes['class'];
-	}
 
-	public function attr($name, $value) {
-		if (!is_null($value)) {
-			$this->setAttribute($name, $value);
-		}
+		return $value;
 	}
 
 	public function getAttribute($name) {
-		return isset($this->attributes[$name]) ? $this->attributes[$name] : null;
+		$ret = null;
+		if (isset($this->attributes[$name])) {
+			$ret = $this->attributes[$name];
+		}
+
+		return $ret;
 	}
 
 	public function setAttribute($name, $value) {
-		if (!is_null($value)) {
-			if (is_object($value)) {
-				$value = unpack_object($value);
-			}
-			elseif (is_array($value)) {
-				$value = CHtml::serialize($value);
-			}
+		if (is_object($value)) {
+			$this->attributes[$name] = unpack_object($value);
+		}
+		else if (isset($value)) {
 			$this->attributes[$name] = $value;
 		}
 		else {
-			$this->removeAttribute($name);
+			unset($this->attributes[$name]);
 		}
 	}
 
-	/**
-	 * Sets multiple HTML attributes.
-	 *
-	 * @param array $attributes     defined as array(attributeName1 => value1, attributeName2 => value2, ...)
-	 */
-	public function setAttributes(array $attributes) {
-		foreach ($attributes as $name => $value) {
-			$this->setAttribute($name, $value);
-		}
-	}
-
-	public function removeAttr($name) {
-		$this->removeAttribute($name);
-	}
-
-	public function removeAttribute($name) {
+	public function removeAttribute($name){
 		unset($this->attributes[$name]);
 	}
 
 	public function addAction($name, $value) {
-		$this->attributes[$name] = $value;
+		// strip new lines from scripts
+		$value = str_replace(array("\n", "\r"), '', $value);
+
+		$this->setAttribute($name, $value);
 	}
 
-	public function setHint($text, $width = '', $class = '', $byClick = true, $encode = true) {
+	public function setHint($text, $width = '', $class = '', $byclick = true) {
 		if (empty($text)) {
 			return false;
 		}
-		encodeValues($text);
+
 		$text = unpack_object($text);
 
-		$this->addAction('onmouseover', 'hintBox.HintWraper(event, this, '.zbx_jsvalue($text).', \''.$width.'\', \''.$class.'\');');
-		if ($byClick) {
-			$this->addAction('onclick', 'hintBox.showStaticHint(event, this, '.zbx_jsvalue($text).', \''.$width.'\', \''.$class.'\');');
+		$this->addAction('onmouseover', "javascript: hintBox.showOver(event,this,".zbx_jsvalue($text).",'".$width."','".$class."');");
+		$this->addAction('onmouseout', "javascript: hintBox.hideOut(event,this);");
+		if ($byclick) {
+			$this->addAction('onclick', "javascript: hintBox.onClick(event,this,".zbx_jsvalue($text).",'".$width."','".$class."');");
 		}
-		return true;
 	}
 
 	public function onClick($handle_code) {
@@ -220,6 +207,7 @@ class CTag extends CObject {
 		if (!isset($this->attributes['style'])) {
 			$this->attributes['style'] = '';
 		}
+
 		if (isset($value)) {
 			$this->attributes['style'] .= htmlspecialchars(strval($value));
 		}
@@ -229,10 +217,10 @@ class CTag extends CObject {
 	}
 
 	public function setEnabled($value = 'yes') {
-		if ((is_string($value) && ($value == 'yes' || $value == 'enabled' || $value == 'on') || $value == '1') || (is_int($value) && $value <> 0)) {
+		if ((is_string($value) && ($value == 'yes' || $value == 'enabled' || $value == 'on') || $value == '1') || (is_int($value) && $value != 0)) {
 			unset($this->attributes['disabled']);
 		}
-		elseif ((is_string($value) && ($value == 'no' || $value == 'disabled' || $value == 'off') || $value == '0') || (is_int($value) && $value == 0)) {
+		else if ((is_string($value) && ($value == 'no' || $value == 'disabled' || $value == 'off') || $value == '0') || (is_int($value) && $value == 0)) {
 			$this->attributes['disabled'] = 'disabled';
 		}
 	}
@@ -240,16 +228,6 @@ class CTag extends CObject {
 	public function error($value) {
 		error('class('.get_class($this).') - '.$value);
 		return 1;
-	}
-
-	public function getForm($method = 'post', $action = null, $enctype = null) {
-		$form = new CForm($method, $action, $enctype);
-		$form->addItem($this);
-		return $form;
-	}
-
-	public function setTitle($value = 'title') {
-		$this->setAttribute('title', $value);
 	}
 
 	/**
@@ -261,14 +239,7 @@ class CTag extends CObject {
 	 * @return string
 	 */
 	protected function encode($value, $strategy = self::ENC_NOAMP) {
-		if ($strategy == self::ENC_NOAMP) {
-			$value = str_replace(array('<', '>', '"'), array('&lt;', '&gt;', '&quot;'), $value);
-		}
-		else {
-			$value = CHtml::encode($value);
-		}
-
-		return $value;
+		return ($strategy == self::ENC_NOAMP) ? zbx_htmlstr($value) : htmlspecialchars($value);
 	}
 
 	/**

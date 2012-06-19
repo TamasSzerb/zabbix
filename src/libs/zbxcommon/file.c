@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -22,7 +22,7 @@
 #if defined(_WINDOWS) && defined(_UNICODE)
 int	__zbx_stat(const char *path, struct stat *buf)
 {
-	int	ret;
+	int		ret;
 	wchar_t	*wpath;
 
 	wpath = zbx_utf8_to_unicode(path);
@@ -34,7 +34,7 @@ int	__zbx_stat(const char *path, struct stat *buf)
 
 int	__zbx_open(const char *pathname, int flags)
 {
-	int	ret;
+	int		ret;
 	wchar_t	*wpathname;
 
 	wpathname = zbx_utf8_to_unicode(pathname);
@@ -57,15 +57,11 @@ int	zbx_read(int fd, char *buf, size_t count, const char *encoding)
 	size_t		i, szbyte;
 	const char	*cr, *lf;
 	int		nbytes;
-#ifdef _WINDOWS
-	__int64		offset;
-#else
 	off_t		offset;
-#endif
 
 	offset = lseek(fd, 0, SEEK_CUR);
 
-	if (0 >= (nbytes = (int)read(fd, buf, count)))
+	if ((nbytes = (int)read(fd, buf, count)) <= 0)
 		return nbytes;
 
 	if (0 == strcmp(encoding, "UNICODE") || 0 == strcmp(encoding, "UNICODELITTLE") ||
@@ -122,7 +118,7 @@ int	zbx_read(int fd, char *buf, size_t count, const char *encoding)
 
 	lseek(fd, offset + i, SEEK_SET);
 
-	return (int)i;
+	return i;
 }
 
 int	zbx_is_regular_file(const char *path)

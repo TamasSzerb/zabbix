@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2012 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,116 +15,56 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
-
-function get_default_image() {
-	$image = imagecreate(50, 50);
-	$color = imagecolorallocate($image, 250, 50, 50);
-	imagefill($image, 0, 0, $color);
+?>
+<?php
+	function get_default_image($image=false, $imagetype=IMAGE_TYPE_ICON){
+		if($image){
+			$image = imagecreate(50, 50);
+			$color = imagecolorallocate($image, 250, 50, 50);
+			imagefill($image, 0, 0, $color);
+		}
+		else{
+			$sql = 'SELECT i.imageid '.
+				' FROM images i '.
+				' WHERE '.DBin_node('i.imageid', false).
+					' AND imagetype='.$imagetype.
+				' ORDER BY name ASC';
+			$result = DBselect($sql,1);
+			if($image = DBfetch($result)) return $image;
+			else{
+				$image = array();
+				$image['imageid'] = 0;
+			}
+		}
 
 	return $image;
-}
-
-/**
- * Get image data from db, cache is used
- * @param  $imageid
- * @return array image data from db
- */
-function get_image_by_imageid($imageid) {
-	static $images = array();
-
-	if (!isset($images[$imageid])) {
-		$row = DBfetch(DBselect('SELECT i.* FROM images i WHERE i.imageid='.$imageid));
-		$row['image'] = zbx_unescape_image($row['image']);
-		$images[$imageid] = $row;
 	}
-	return $images[$imageid];
-}
 
-function zbx_unescape_image($image) {
-	global $DB;
+	function get_image_by_imageid($imageid){
 
-	$result = $image ? $image : 0;
-	if ($DB['TYPE'] == ZBX_DB_POSTGRESQL) {
-		$result = pg_unescape_bytea($image);
+		$sql = 'SELECT * FROM images WHERE imageid='.$imageid;
+		$result = DBselect($sql);
+		if($row = DBfetch($result)){
+			$row['image'] = zbx_unescape_image($row['image']);
+		}
+
+	return $row;
 	}
-	elseif ($DB['TYPE'] == ZBX_DB_SQLITE3) {
-		$result = pack('H*', $image);
-	}
+
+	function zbx_unescape_image($image){
+		global $DB;
+
+		$result = ($image)?$image:0;
+		if($DB['TYPE'] == "POSTGRESQL"){
+			$result = pg_unescape_bytea($image);
+		}
+		else if($DB['TYPE'] == "SQLITE3"){
+			$result = pack('H*', $image);
+		}
+
 	return $result;
-}
-
-/**
- * Resizes the given image resource to the specified size keeping the original
- * proportions of the image.
- *
- * @param resource $source
- * @param int $thumbWidth
- * @param int $thumbHeight
- *
- * @return resource
- */
-function imageThumb($source, $thumbWidth = 0, $thumbHeight = 0) {
-	$srcWidth	= imagesx($source);
-	$srcHeight	= imagesy($source);
-
-	if ($srcWidth > $thumbWidth || $srcHeight > $thumbHeight) {
-		if ($thumbWidth == 0) {
-			$thumbWidth = $thumbHeight * $srcWidth / $srcHeight;
-		}
-		elseif ($thumbHeight == 0) {
-			$thumbHeight = $thumbWidth * $srcHeight / $srcWidth;
-		}
-		else {
-			$a = $thumbWidth / $thumbHeight;
-			$b = $srcWidth / $srcHeight;
-
-			if ($a > $b) {
-				$thumbWidth = $b * $thumbHeight;
-			}
-			else {
-				$thumbHeight = $thumbWidth / $b;
-			}
-		}
-
-		if (function_exists('imagecreatetruecolor') && @imagecreatetruecolor(1, 1)) {
-			$thumb = imagecreatetruecolor($thumbWidth, $thumbHeight);
-		}
-		else {
-			$thumb = imagecreate($thumbWidth, $thumbHeight);
-		}
-
-		// preserve png transparency
-		imagealphablending($thumb, false);
-		imagesavealpha($thumb, true);
-
-		imagecopyresampled(
-			$thumb, $source,
-			0, 0,
-			0, 0,
-			$thumbWidth, $thumbHeight,
-			$srcWidth, $srcHeight);
-
-		imagedestroy($source);
-		$source = $thumb;
 	}
-	return $source;
-}
 
-/**
- * Creates an image from a string preserving PNG transparency.
- *
- * @param $imageString
- *
- * @return resource
- */
-function imageFromString($imageString) {
-	$image = imagecreatefromstring($imageString);
-
-	// preserve PNG transparency
-	imagealphablending($image, false);
-	imagesavealpha($image, true);
-	return $image;
-}
+?>

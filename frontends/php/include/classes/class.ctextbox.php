@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,25 +15,41 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
-
-class CTextBox extends CInput {
-
-	private $caption;
-
-	public function __construct($name = 'textbox', $value = '', $size = 20, $readonly = 'no', $maxlength = 255) {
-		parent::__construct('text', $name, $value);
-		$this->setReadonly($readonly);
+?>
+<?php
+class CTextBox extends CTag{
+ private $caption;
+	public function __construct($name='textbox',$value='',$size=20,$readonly='no'){
 		$this->caption = null;
+		parent::__construct('input','no');
 		$this->tag_body_start = '';
-		$this->setAttribute('size', $size);
-		$this->setAttribute('maxlength', $maxlength);
+		$this->attributes['class'] = 'biginput';
+		$this->setAttribute('name', $name);
+		$this->setAttribute('id', $name);
 
-		// require for align input field using css width
-		if ($size == ZBX_TEXTBOX_STANDARD_SIZE) {
-			$this->setAttribute('style', 'width: '.ZBX_TEXTAREA_STANDARD_WIDTH.'px;');
-		}
+		$this->setAttribute('type', 'text');
+
+		$this->setAttribute('size', $size);
+		$this->setAttribute('value',$value);
+		$this->setReadonly($readonly);
+	}
+
+	public function setReadonly($value='yes'){
+		if((is_string($value) && ($value=='yes' || $value=='checked' || $value=='on') || $value=='1') || (is_int($value) && $value<>0))
+			return $this->attributes['readonly'] = 'readonly';
+
+		$this->removeAttribute('readonly');
+	}
+
+	public function setValue($value=NULL){
+		$this->attributes['value'] = $value;
+	}
+
+	public function setSize($value){
+		$this->attributes['size'] = $value;
+
 	}
 }
+?>

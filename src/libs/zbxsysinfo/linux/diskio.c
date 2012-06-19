@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -75,7 +75,6 @@ int	get_diskstat(const char *devname, zbx_uint64_t *dstat)
 	int		i, ret = FAIL, dev_exists = FAIL;
 	zbx_uint64_t	ds[ZBX_DSTAT_MAX], rdev_major, rdev_minor;
 	struct stat 	dev_st;
-	int		found = 0;
 
 	assert(devname);
 
@@ -99,18 +98,9 @@ int	get_diskstat(const char *devname, zbx_uint64_t *dstat)
 	while (NULL != fgets(tmp, sizeof(tmp), f))
 	{
 		PARSE(tmp);
-		if ('\0' != *devname)
-		{
-			if (0 != strcmp(name, devname))
-			{
-				if (SUCCEED != dev_exists
-					|| major(dev_st.st_rdev) != rdev_major
-					|| minor(dev_st.st_rdev) != rdev_minor)
-					continue;
-			}
-			else
-				found = 1;
-		}
+		if ('\0' != *devname && 0 != strcmp(name, devname))
+			if (SUCCEED != dev_exists || major(dev_st.st_rdev) != rdev_major || minor(dev_st.st_rdev) != rdev_minor)
+				continue;
 
 		dstat[ZBX_DSTAT_R_OPER] += ds[ZBX_DSTAT_R_OPER];
 		dstat[ZBX_DSTAT_R_SECT] += ds[ZBX_DSTAT_R_SECT];
@@ -118,9 +108,6 @@ int	get_diskstat(const char *devname, zbx_uint64_t *dstat)
 		dstat[ZBX_DSTAT_W_SECT] += ds[ZBX_DSTAT_W_SECT];
 
 		ret = SUCCEED;
-
-		if (1 == found)
-			break;
 	}
 	zbx_fclose(f);
 
@@ -214,6 +201,12 @@ static int	vfs_dev_rw(const char *param, AGENT_RESULT *result, int rw)
 		else
 			SET_UI64_RESULT(result, dstats[(ZBX_DEV_READ == rw ? ZBX_DSTAT_R_OPER : ZBX_DSTAT_W_OPER)]);
 
+		return SYSINFO_RET_OK;
+	}
+
+	if (!DISKDEVICE_COLLECTOR_STARTED(collector))
+	{
+		SET_MSG_RESULT(result, strdup("Collector is not started!"));
 		return SYSINFO_RET_OK;
 	}
 

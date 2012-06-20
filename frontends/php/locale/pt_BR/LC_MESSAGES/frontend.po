@@ -2,8 +2,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Zabbix 1.9\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2012-06-02 09:04+0300\n"
-"PO-Revision-Date: 2012-05-18 23:02+0200\n"
+"POT-Creation-Date: 2012-06-02 02:25+0300\n"
+"PO-Revision-Date: 2012-05-25 19:19+0200\n"
 "Last-Translator: jrprado <jrpradojunior@gmail.com>\n"
 "Language-Team: Zabbix <info@zabbix.com>\n"
 "Language: pt_BR\n"
@@ -397,7 +397,7 @@ msgstr "Adicionar elemento"
 #: include/views/configuration.graph.edit.php:208
 #: include/views/configuration.graph.edit.php:266
 msgid "Add graph items first"
-msgstr ""
+msgstr "Adicionar primeiro o item do gráfico"
 
 #: include/actions.inc.php:270 include/actions.inc.php:475
 msgid "Add host"
@@ -869,7 +869,7 @@ msgstr "CONFIGURAÇÃO DE AUTENTICAÇÃO"
 #: include/views/configuration.discovery.edit.php:25
 #: include/views/configuration.discovery.list.php:28
 msgid "CONFIGURATION OF DISCOVERY RULE"
-msgstr "CONFIGURAÇÃO DA REGRA DE DISCOVERY"
+msgstr "CONFIGURAÇÃO DA REGRA DE BUSCA"
 
 #: host_discovery.php:263
 #: include/views/configuration.host.discovery.list.php:30
@@ -905,7 +905,7 @@ msgstr "CONFIGURAÇÃO DO HOUSEKEEPER"
 
 #: adm.iconmapping.php:111
 msgid "CONFIGURATION OF ICON MAPPING"
-msgstr ""
+msgstr "CONFIGURAÇÃO DO ÍCONE DE MAPA"
 
 #: adm.images.php:145
 msgid "CONFIGURATION OF IMAGES"
@@ -994,7 +994,7 @@ msgstr "CONFIGURAÇÃO DE TIPOS DE TRIGGERS"
 
 #: adm.triggerseverities.php:94
 msgid "CONFIGURATION OF TRIGGER SEVERITIES"
-msgstr ""
+msgstr "CONFIGURAÇÃO DE SEVERIDADES DA TRIGGER"
 
 #: include/views/configuration.triggers.edit.php:39
 #: include/views/configuration.triggers.list.php:46
@@ -1004,7 +1004,7 @@ msgstr "CONFIGURAÇÃO DE TRIGGERS"
 
 #: include/views/administration.users.edit.php:30
 msgid "CONFIGURATION OF USER"
-msgstr "CONFIGURAÇÃO DO USUÁRIO"
+msgstr "CONFIGURAÇÃO DE USUÁRIO"
 
 #: include/views/administration.usergroups.edit.php:23
 msgid "CONFIGURATION OF USER GROUP"
@@ -1026,7 +1026,7 @@ msgstr "CONFIGURAÇÃO DO MONITORAMENTO WEB"
 
 #: adm.workingtime.php:76
 msgid "CONFIGURATION OF WORKING TIME"
-msgstr ""
+msgstr "CONFIGURAÇÃO DO HORÁRIO DE TRABALHO"
 
 #: adm.triggerdisplayoptions.php:92
 msgid "CONFIGURATION OF ZABBIX"
@@ -1187,7 +1187,7 @@ msgstr "Serviço não foi incluído"
 
 #: slideconf.php:88
 msgid "Cannot add slide show"
-msgstr ""
+msgstr "Não foi possível adicionar o slide"
 
 #: templates.php:183
 msgid "Cannot add template"
@@ -1249,7 +1249,7 @@ msgstr "Não foi possível clonar protótipos da trigger."
 
 #: scripts_exec.php:64
 msgid "Cannot connect to the trapper port of zabbix server daemon, but it should be available to run the script."
-msgstr ""
+msgstr "Não foi possível conectar na porta de trapper do daemon do servidor zabbix, mas ele deve estar disponível para executar o script."
 
 #: graphs.php:349
 msgid "Cannot copy graphs"
@@ -1433,7 +1433,7 @@ msgstr "Serviço não foi removido"
 
 #: slideconf.php:102 slideconf.php:122
 msgid "Cannot delete slide show"
-msgstr ""
+msgstr "Não foi possível deletar o slide"
 
 #: templates.php:331 templates.php:349 templates.php:374
 msgid "Cannot delete template"
@@ -1515,7 +1515,7 @@ msgid "Cannot find group \"%1$s\" used in map \"%2$s\"."
 msgstr "Não foi encontrado o grupo \"%1$s\" usado no mapa \"%2$s\"."
 
 #: include/classes/import/importers/CAbstractScreenImporter.php:53
-#, fuzzy, php-format
+#, php-format
 msgid "Cannot find group \"%1$s\" used in screen \"%2$s\"."
 msgstr "Não foi encontrado o grupo \"%1$s\" usado na tela \"%2$s\"."
 
@@ -1543,12 +1543,12 @@ msgstr "Não foi encontrado o host \"%1$s\" usado na tela \"%2$s\"."
 #: include/items.inc.php:285 include/items.inc.php:341
 #, php-format
 msgid "Cannot find host interface on \"%1$s\" for item key \"%2$s\"."
-msgstr ""
+msgstr "Não foi encontrado a interface do host em \"%1$s\" para a chave do item \"%2$s\"."
 
 #: api/classes/CDiscoveryRule.php:1095
 #, php-format
 msgid "Cannot find host interface on host \"%1$s\" for item key \"%2$s\"."
-msgstr ""
+msgstr "Não foi encontrada a interface do host no host \"%1$s\" para a chave do item \"%2$s\"."
 
 #: include/classes/import/CXmlImport18.php:709
 #, php-format

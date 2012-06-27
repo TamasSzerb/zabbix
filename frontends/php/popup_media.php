@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,23 +15,23 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-	require_once dirname(__FILE__).'/include/config.inc.php';
-	require_once dirname(__FILE__).'/include/triggers.inc.php';
-	require_once dirname(__FILE__).'/include/forms.inc.php';
-	require_once dirname(__FILE__).'/include/js.inc.php';
+	require_once('include/config.inc.php');
+	require_once('include/triggers.inc.php');
+	require_once('include/forms.inc.php');
+	require_once('include/js.inc.php');
 
 	$dstfrm		= get_request('dstfrm',		0);	// destination form
 
-	$page['title'] = _('Media');
+	$page['title'] = "S_MEDIA";
 	$page['file'] = 'popup_media.php';
 
 	define('ZBX_PAGE_NO_MENU', 1);
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 
 	if($USER_DETAILS['alias'] == ZBX_GUEST_USER) {
 		access_deny();
@@ -62,7 +62,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 	if(isset($_REQUEST['add'])){
 		if( !validate_period($_REQUEST['period']) ){
-			error(_('Incorrect time period'));
+			error(S_INCORRECT_TIME_PERIOD);
 		}
 		else{
 			$severity = 0;
@@ -88,7 +88,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		$rq_severity	= get_request('severity',63);
 
 		$severity = array();
-		for($i=0; $i<TRIGGER_SEVERITY_COUNT; $i++){
+		for($i=0; $i<6; $i++){
 			if($rq_severity & (1 << $i)) $severity[$i] = $i;
 		}
 	}
@@ -100,10 +100,10 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	$sendto		=  get_request('sendto','');
 	$mediatypeid	= get_request('mediatypeid',0);
 	$active		= get_request('active',0);
-	$period		= get_request('period',ZBX_DEFAULT_INTERVAL);
+	$period		= get_request('period','1-7,00:00-23:59');
 
 
-	$frmMedia = new CFormTable(_('New media'));
+	$frmMedia = new CFormTable(S_NEW_MEDIA);
 	$frmMedia->SetHelp('web.media.php');
 
 	$frmMedia->addVar('media',$media);
@@ -121,10 +121,10 @@ require_once dirname(__FILE__).'/include/page_header.php';
 				get_node_name_by_elid($type['mediatypeid'], null, ': ').$type['description']
 				);
 	}
-	$frmMedia->addRow(_('Type'),$cmbType);
+	$frmMedia->addRow(S_TYPE,$cmbType);
 
-	$frmMedia->addRow(_('Send to'), new CTextBox('sendto',$sendto,20));
-	$frmMedia->addRow(_('When active'), new CTextBox('period',$period,48));
+	$frmMedia->addRow(S_SEND_TO, new CTextBox('sendto',$sendto,20));
+	$frmMedia->addRow(S_WHEN_ACTIVE, new CTextBox('period',$period,48));
 
 	$frm_row = array();
 	for($i=0; $i<=5; $i++){
@@ -135,22 +135,22 @@ require_once dirname(__FILE__).'/include/page_header.php';
 					str_in_array($i,$severity)?'yes':'no',
 					null,		/* action */
 					$i),		/* value */
-				getSeverityCaption($i)
+				get_severity_description($i)
 			),
 			BR());
 	}
-	$frmMedia->addRow(_('Use if severity'),$frm_row);
+	$frmMedia->addRow(S_USE_IF_SEVERITY,$frm_row);
 
 	$cmbStat = new CComboBox('active',$active);
-	$cmbStat->addItem(0,_('Enabled'));
-	$cmbStat->addItem(1,_('Disabled'));
-	$frmMedia->addRow(_('Status'),$cmbStat);
+	$cmbStat->addItem(0,S_ENABLED);
+	$cmbStat->addItem(1,S_DISABLED);
+	$frmMedia->addRow(S_STATUS,$cmbStat);
 
-	$frmMedia->addItemToBottomRow(new CSubmit('add', ($media > -1)?_('Save'):_('Add')));
+	$frmMedia->addItemToBottomRow(new CButton('add', ($media > -1)?S_SAVE:S_ADD));
 	$frmMedia->addItemToBottomRow(SPACE);
 	$frmMedia->addItemToBottomRow(new CButtonCancel(null, 'close_window();'));
 	$frmMedia->Show();
 
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');
 ?>

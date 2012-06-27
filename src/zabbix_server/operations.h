@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_OPERATIONS_H
@@ -24,15 +24,14 @@
 #include "db.h"
 #include "zbxalgo.h"
 
-extern int	CONFIG_TIMEOUT;
-
-void	op_template_add(DB_EVENT *event, zbx_vector_uint64_t *lnk_templateids);
-void	op_template_del(DB_EVENT *event, zbx_vector_uint64_t *del_templateids);
+void	op_template_add(DB_EVENT *event, zbx_uint64_t templateid);
+void	op_template_del(DB_EVENT *event, zbx_uint64_t templateid);
 void	op_groups_add(DB_EVENT *event, zbx_vector_uint64_t *groupids);
 void	op_groups_del(DB_EVENT *event, zbx_vector_uint64_t *groupids);
 void	op_host_add(DB_EVENT *event);
 void	op_host_del(DB_EVENT *event);
 void	op_host_enable(DB_EVENT *event);
 void	op_host_disable(DB_EVENT *event);
+void    op_run_commands(char *cmd_list);
 
 #endif

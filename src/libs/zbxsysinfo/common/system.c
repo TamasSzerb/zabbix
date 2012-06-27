@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -28,67 +28,7 @@
 
 int	SYSTEM_LOCALTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		type[16], buf[32];
-	struct tm	*tm;
-	size_t		offset;
-	int		gmtoff, ms;
-	unsigned short	h, m;
-#if defined(_WINDOWS)
-        struct _timeb	tv;
-#else
-	struct timeval	tv;
-	struct timezone	tz;
-#endif
-
-	if (3 < num_param(param))
-		return SYSINFO_RET_FAIL;
-
-	if (0 != get_param(param, 1, type, sizeof(type)))
-		return SYSINFO_RET_FAIL;
-
-	if ('\0' == *type || 0 == strcmp(type, "utc"))
-	{
-		SET_UI64_RESULT(result, time(NULL));
-	}
-	else if (0 == strcmp(type, "local"))
-	{
-#if defined(_WINDOWS)
-	        _ftime(&tv);
-		tm = localtime(&tv.time);
-		ms = tv.millitm;
-#else
-		gettimeofday(&tv, &tz);
-		tm = localtime(&tv.tv_sec);
-		ms = (int)(tv.tv_usec / 1000);
-#endif
-		offset = zbx_snprintf(buf, sizeof(buf), "%04d-%02d-%02d,%02d:%02d:%02d.%03d,",
-				1900 + tm->tm_year, 1 + tm->tm_mon, tm->tm_mday,
-				tm->tm_hour, tm->tm_min, tm->tm_sec, ms);
-
-		/* timezone offset */
-#if defined(HAVE_TM_TM_GMTOFF)
-		gmtoff = tm->tm_gmtoff;
-#else
-		gmtoff = -timezone;
-#endif
-#if defined(_WINDOWS)
-		if (0 < tm->tm_isdst)		/* daylight saving time */
-			gmtoff += SEC_PER_HOUR;	/* assume DST is one hour */
-#endif
-		h = (unsigned short)(abs(gmtoff) / SEC_PER_HOUR);
-		m = (unsigned short)((abs(gmtoff) - h * SEC_PER_HOUR) / SEC_PER_MIN);
-
-		if (0 <= gmtoff)
-			offset += zbx_snprintf(buf + offset, sizeof(buf) - offset, "+");
-		else
-			offset += zbx_snprintf(buf + offset, sizeof(buf) - offset, "-");
-
-		offset += zbx_snprintf(buf + offset, sizeof(buf) - offset, "%02d:%02d", (int)h, (int)m);
-
-		SET_STR_RESULT(result, strdup(buf));
-	}
-	else
-		return SYSINFO_RET_FAIL;
+	SET_UI64_RESULT(result, time(NULL));
 
 	return SYSINFO_RET_OK;
 }
@@ -102,17 +42,19 @@ int	SYSTEM_USERS_NUM(const char *cmd, const char *param, unsigned flags, AGENT_R
 
 	return PERF_COUNTER(cmd, counter_path, flags, result);
 #else
-	return EXECUTE_INT(cmd, "who | wc -l", flags, result);
-#endif
+	return EXECUTE_INT(cmd, "who|wc -l", flags, result);
+#endif /* _WINDOWS */
 }
 
 int	SYSTEM_UNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 #if defined(_WINDOWS)
-	DWORD		dwSize = 256;
-	TCHAR		computerName[256], osVersion[256], *cpuType, wide_buffer[MAX_STRING_LEN];
-	SYSTEM_INFO	sysInfo;
-	OSVERSIONINFO	versionInfo;
+	DWORD	dwSize = 256;
+	TCHAR	computerName[256], osVersion[256], *cpuType, wide_buffer[MAX_STRING_LEN];
+	SYSTEM_INFO
+		sysInfo;
+	OSVERSIONINFO
+		versionInfo;
 
 	/* Buffer size is chosen large enough to contain any DNS name, not just MAX_COMPUTERNAME_LENGTH + 1 */
 	/* characters. MAX_COMPUTERNAME_LENGTH is usually less than 32, but it varies among systems, so we  */
@@ -121,94 +63,76 @@ int	SYSTEM_UNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 		*computerName = '\0';
 
 	versionInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-
 	GetVersionEx(&versionInfo);
-
-	switch (versionInfo.dwPlatformId)
-	{
-		case VER_PLATFORM_WIN32_WINDOWS:
-			switch (versionInfo.dwMinorVersion)
-			{
-				case 0:
-					zbx_wsnprintf(osVersion, sizeof(osVersion) / sizeof(TCHAR),
-							TEXT("Windows 95-%s"), versionInfo.szCSDVersion);
-					break;
-				case 10:
-					zbx_wsnprintf(osVersion, sizeof(osVersion) / sizeof(TCHAR),
-							TEXT("Windows 98-%s"), versionInfo.szCSDVersion);
-					break;
-				case 90:
-					zbx_wsnprintf(osVersion, sizeof(osVersion) / sizeof(TCHAR),
-							TEXT("Windows Me-%s"), versionInfo.szCSDVersion);
-					break;
-				default:
-					zbx_wsnprintf(osVersion, sizeof(osVersion) / sizeof(TCHAR),
-							TEXT("Windows [Unknown Version]"));
+	switch (versionInfo.dwPlatformId) {
+	case VER_PLATFORM_WIN32_WINDOWS:
+		switch (versionInfo.dwMinorVersion) {
+		case 0:
+			zbx_wsnprintf(osVersion, sizeof(osVersion)/sizeof(TCHAR), TEXT("Windows 95-%s"), versionInfo.szCSDVersion);
+			break;
+		case 10:
+			zbx_wsnprintf(osVersion, sizeof(osVersion)/sizeof(TCHAR), TEXT("Windows 98-%s"), versionInfo.szCSDVersion);
+			break;
+		case 90:
+			zbx_wsnprintf(osVersion, sizeof(osVersion)/sizeof(TCHAR), TEXT("Windows Me-%s"), versionInfo.szCSDVersion);
+			break;
+		default:
+			zbx_wsnprintf(osVersion, sizeof(osVersion)/sizeof(TCHAR), TEXT("Windows [Unknown Version]"));
+		}
+		break;
+	case VER_PLATFORM_WIN32_NT:
+		switch (versionInfo.dwMajorVersion) {
+		case 4:
+			zbx_wsnprintf(osVersion, sizeof(osVersion)/sizeof(TCHAR), TEXT("Windows NT 4.0 %s"), versionInfo.szCSDVersion);
+			break;
+		case 5:
+			switch (versionInfo.dwMinorVersion) {
+			case 1:
+				zbx_wsnprintf(osVersion, sizeof(osVersion)/sizeof(TCHAR), TEXT("Windows XP %s"), versionInfo.szCSDVersion);
+				break;
+			case 2:
+				zbx_wsnprintf(osVersion, sizeof(osVersion)/sizeof(TCHAR), TEXT("Windows Server 2003 %s"),
+						versionInfo.szCSDVersion);
+				break;
+			default:
+				zbx_wsnprintf(osVersion, sizeof(osVersion)/sizeof(TCHAR), TEXT("Windows [Unknown Version]"));
 			}
 			break;
-		case VER_PLATFORM_WIN32_NT:
-			switch (versionInfo.dwMajorVersion)
-			{
-				case 4:
-					zbx_wsnprintf(osVersion, sizeof(osVersion) / sizeof(TCHAR),
-							TEXT("Windows NT 4.0 %s"), versionInfo.szCSDVersion);
-					break;
-				case 5:
-					switch (versionInfo.dwMinorVersion)
-					{
-						case 1:
-							zbx_wsnprintf(osVersion, sizeof(osVersion) / sizeof(TCHAR),
-									TEXT("Windows XP %s"),
-									versionInfo.szCSDVersion);
-							break;
-						case 2:
-							zbx_wsnprintf(osVersion, sizeof(osVersion) / sizeof(TCHAR),
-									TEXT("Windows Server 2003 %s"),
-									versionInfo.szCSDVersion);
-							break;
-						default:
-							zbx_wsnprintf(osVersion, sizeof(osVersion) / sizeof(TCHAR),
-									TEXT("Windows [Unknown Version]"));
-					}
-					break;
-				case 6:
-					zbx_wsnprintf(osVersion, sizeof(osVersion) / sizeof(TCHAR),
-							TEXT("Windows Server 2008 %s"), versionInfo.szCSDVersion);
-					break;
-				default:
-					zbx_wsnprintf(osVersion, sizeof(osVersion) / sizeof(TCHAR),
-							TEXT("Windows [Unknown Version]"));
-					break;
-			}
+		case 6:
+			zbx_wsnprintf(osVersion, sizeof(osVersion)/sizeof(TCHAR), TEXT("Windows Server 2008 %s"), versionInfo.szCSDVersion);
+			break;
+		default:
+			zbx_wsnprintf(osVersion, sizeof(osVersion)/sizeof(TCHAR), TEXT("Windows [Unknown Version]"));
+			break;
+		}
 	}
 
 	GetSystemInfo(&sysInfo);
-
-	switch (sysInfo.wProcessorArchitecture)
+	switch(sysInfo.wProcessorArchitecture)
 	{
 		case PROCESSOR_ARCHITECTURE_INTEL:
-			cpuType = TEXT("Intel IA-32");
+			cpuType=TEXT("Intel IA-32");
 			break;
 		case PROCESSOR_ARCHITECTURE_MIPS:
-			cpuType = TEXT("MIPS");
+			cpuType=TEXT("MIPS");
 			break;
 		case PROCESSOR_ARCHITECTURE_ALPHA:
-			cpuType = TEXT("Alpha");
+			cpuType=TEXT("Alpha");
 			break;
 		case PROCESSOR_ARCHITECTURE_PPC:
-			cpuType = TEXT("PowerPC");
+			cpuType=TEXT("PowerPC");
 			break;
 		case PROCESSOR_ARCHITECTURE_IA64:
-			cpuType = TEXT("Intel IA-64");
+			cpuType=TEXT("Intel IA-64");
 			break;
 		case PROCESSOR_ARCHITECTURE_IA32_ON_WIN64:
-			cpuType = TEXT("IA-32 on IA-64");
+			cpuType=TEXT("IA-32 on IA-64");
 			break;
 		case PROCESSOR_ARCHITECTURE_AMD64:
-			cpuType = TEXT("AMD-64");
+			cpuType=TEXT("AMD-64");
 			break;
 		default:
-			cpuType = TEXT("unknown");
+			cpuType=TEXT("unknown");
 			break;
 	}
 
@@ -226,14 +150,14 @@ int	SYSTEM_UNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 	return SYSINFO_RET_OK;
 #else
 	return EXECUTE_STR(cmd, "uname -a", flags, result);
-#endif
+#endif /* _WINDOWS */
 }
 
 int	SYSTEM_HOSTNAME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 #if defined(_WINDOWS)
 	DWORD	dwSize = 256;
-	TCHAR	computerName[256];
+	TCHAR	computerName[256]; 
 	char	buffer[256];
 	int	netbios, ret;
 	WSADATA sockInfo;
@@ -277,5 +201,5 @@ int	SYSTEM_HOSTNAME(const char *cmd, const char *param, unsigned flags, AGENT_RE
 		return SYSINFO_RET_FAIL;
 #else
 	return EXECUTE_STR(cmd, "hostname", flags, result);
-#endif
+#endif	/* _WINDOWS */
 }

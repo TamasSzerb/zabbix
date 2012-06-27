@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_SYSINFO_COMMON_NET_H
@@ -22,13 +22,13 @@
 
 #include "sysinfo.h"
 
-#if defined(HAVE_RES_QUERY) || defined(_WINDOWS)
+/* define DNS class and record types to use common names on all systems, see RFC1035 standard for the types */
+#if !defined(_WINDOWS) && defined(HAVE_RES_QUERY)
 
-#	if !defined(C_IN) && !defined(_WINDOWS)
-#		define C_IN	ns_c_in
+#	ifndef C_IN
+#		define C_IN	1
 #	endif
 
-/* define DNS record types to use common names on all systems, see RFC1035 standard for the types */
 #	ifndef T_ANY
 #		define T_ANY	255
 #	endif
@@ -84,14 +84,14 @@
 #		define T_SRV	33
 #	endif
 
-#endif /* defined(HAVE_RES_QUERY) || defined(_WINDOWS) */
+#endif	/* !defined(_WINDOWS) && defined(HAVE_RES_QUERY) */
 
 extern char	*CONFIG_SOURCE_IP;
 
 int	tcp_expect(const char *host, unsigned short port, int timeout, const char *request,
 		const char *expect, const char *sendtoclose, int *value_int);
-int	NET_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
-int	NET_DNS_RECORD(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
+int	NET_TCP_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
+int	NET_TCP_DNS_QUERY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 int	NET_TCP_PORT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 
-#endif /* ZABBIX_SYSINFO_COMMON_NET_H */
+#endif	/* ZABBIX_SYSINFO_COMMON_NET_H */

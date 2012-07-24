@@ -17,18 +17,19 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/../include/class.cwebtest.php';
 
 class testFormAdministrationGeneralRegexp extends CWebTest {
-
 	private $regexp = 'test_regexp1';
 	private $regexp2 = 'test_regexp2';
 	private $cloned_regexp = 'test_regexp1_clone';
 
 	public function testFormAdministrationGeneralRegexp_Layout() {
+
 		$this->login('adm.gui.php');
+		$this->assertElementPresent('configDropDown');
 		$this->dropdown_select_wait('configDropDown', 'Regular expressions');
 		$this->checkTitle('Configuration of regular expressions');
 		$this->ok('CONFIGURATION OF REGULAR EXPRESSIONS');
@@ -40,21 +41,25 @@ class testFormAdministrationGeneralRegexp extends CWebTest {
 
 		$this->checkTitle('Configuration of regular expressions');
 		$this->ok('CONFIGURATION OF REGULAR EXPRESSIONS');
+		$this->ok('Regular expression');
 		$this->ok('Name');
-		$this->ok('Expressions');
-		$this->assertElementPresent('name');
-		$this->assertAttribute("//input[@id='name']/@maxlength", '128');
-		$this->assertAttribute("//input[@id='name']/@size", '50');
+		$this->assertElementPresent('rename');
+		$this->assertAttribute("//input[@id='rename']/@maxlength", '128');
+		$this->assertAttribute("//input[@id='rename']/@size", '60');
+		$this->assertElementPresent('test_string', 'save', 'test', 'cancel', 'new_expression', 'delete_expression');
 
+		$this->ok(array('Test string', 'Expressions', 'Result', 'Expression', 'Expected result', 'Case sensitive', 'Edit'));
+		$this->button_click('new_expression');
+		$this->wait();
+		$this->ok(array('New expression', 'Expression', 'Expression type', 'Case sensitive'));
 
-		$this->assertAttribute("//input[@id='expressionNew']/@maxlength", '255');
-		$this->assertAttribute("//input[@id='expressionNew']/@size", '50');
-
-		$this->assertElementPresent("//select[@id='typeNew']/option[text()='Character string included']");
-		$this->assertElementPresent("//select[@id='typeNew']/option[text()='Any character string included']");
-		$this->assertElementPresent("//select[@id='typeNew']/option[text()='Character string not included']");
-		$this->assertElementPresent("//select[@id='typeNew']/option[text()='Result is TRUE']");
-		$this->assertElementPresent("//select[@id='typeNew']/option[text()='Result is FALSE']");
+		$this->assertAttribute("//input[@id='new_expression_expression']/@maxlength", '255');
+		$this->assertAttribute("//input[@id='new_expression_expression']/@size", '60');
+		$this->assertElementPresent("//select[@id='new_expression_expression_type']/option[text()='Character string included']");
+		$this->assertElementPresent("//select[@id='new_expression_expression_type']/option[text()='Any character string included']");
+		$this->assertElementPresent("//select[@id='new_expression_expression_type']/option[text()='Character string not included']");
+		$this->assertElementPresent("//select[@id='new_expression_expression_type']/option[text()='Result is TRUE']");
+		$this->assertElementPresent("//select[@id='new_expression_expression_type']/option[text()='Result is FALSE']");
 	}
 
 	// Creating regexps
@@ -80,23 +85,26 @@ class testFormAdministrationGeneralRegexp extends CWebTest {
 	 * @dataProvider dataCreate
 	 */
 	public function testFormAdministrationGeneralRegexp_Create($result, $name, $test_string, $expression, $expression_type, $exp_delimiter, $case_sensitive) {
+
 		$this->login('adm.regexps.php');
 		// clicking "New regular expression" button
 		$this->button_click('form');
 		$this->wait();
 
 		// adding regexp
-		$this->input_type('name', $name);
+		$this->input_type('rename', $name);
 		$this->input_type('test_string', $test_string);
-		$this->button_click('add');
+		$this->button_click('new_expression');
+		$this->wait();
 
 		// clicking button "add_expression"
-		$this->input_type('expressionNew', $expression);
+		$this->input_type('new_expression[expression]', $expression);
 
 		// $this->dropdown_select_wait('new_expression[expression_type]', 'Character string included');
-		$this->dropdown_select('typeNew', $expression_type);
-		$this->checkbox_select('case_sensitiveNew');
-		$this->button_click('saveExpression');
+		$this->dropdown_select_wait('new_expression_expression_type', $expression_type);
+		$this->checkbox_select('new_expression_case_sensitive');
+		$this->button_click('add_expression');
+		$this->wait();
 		$this->button_click('save');
 		$this->wait();
 		$this->ok('Regular expression added');
@@ -117,6 +125,7 @@ class testFormAdministrationGeneralRegexp extends CWebTest {
 	 * @dataProvider dataUpdate
 	 */
 	public function testFormAdministrationGeneralRegexp_AddExisting($name) {
+
 		$this->login('adm.regexps.php');
 
 		// clicking "New regular expression" button
@@ -124,66 +133,89 @@ class testFormAdministrationGeneralRegexp extends CWebTest {
 		$this->wait();
 
 		// adding regexp
-		$this->input_type('name', $name);
+		$this->input_type('rename', $name);
 		$this->input_type('test_string', 'first test string');
-		$this->button_click('add');
+		$this->button_click('new_expression');
+		$this->wait();
 
 		// clicking button "add_expression"
-		$this->input_type('expressionNew', 'first test string');
-		$this->checkbox_select('case_sensitiveNew');
-		$this->button_click('saveExpression');
+		$this->input_type('new_expression[expression]', 'first test string');
+		$this->checkbox_select('new_expression[case_sensitive]');
+		$this->button_click('add_expression');
+		$this->wait();
 		$this->button_click('save');
 		$this->wait();
 		$this->ok(array('ERROR: Cannot add regular expression', 'Regular expression', 'already exists.'));
 	}
 
 	public function testFormAdministrationGeneralRegexp_AddIncorrect() {
-		// creating regexp without expression
+
+		// creating regexp without teststring
 		$this->login('adm.regexps.php');
 
 		// clicking "New regular expression" button
 		$this->button_click('form');
 		$this->wait();
 
-		$this->input_type('name', '1_regexp3');
+		$this->input_type('rename', '1_regexp3');
+		$this->button_click('save');
+		$this->wait();
+		$this->ok(array('ERROR: Page received incorrect data', 'Warning. Incorrect value for field "Test string"', 'Warning. Field "expressions" is mandatory.'));
+	}
+
+	public function testFormAdministrationGeneralRegexp_AddIncorrect2() {
+
+		// Creating regexp without expression
+		$this->login('adm.regexps.php');
+		$this->button_click('form');
+		$this->wait();
+		$this->input_type('test_string', 'first test string');
+		$this->button_click('new_expression');
+		$this->wait();
 		$this->button_click('save');
 		$this->wait();
 		$this->ok(array('ERROR: Page received incorrect data', 'Warning. Field "expressions" is mandatory.'));
 	}
 
 	public function testFormAdministrationGeneralRegexp_Test() {
+
 		// Testing regexp using Test button in the regexp properties form
 		$this->login('adm.regexps.php');
 		$this->click('link='.$this->regexp);
 		$this->wait();
 
-		$this->click('link=Test');
 		// Test #1 for the result=True
-		$this->waitForCondition("selenium.browserbot.getCurrentWindow().jQuery.active == 0", 3000);
+		$this->button_click('test');
+		$this->wait();
+		$this->checkTitle('Configuration of regular expressions');
 		$this->ok('TRUE');
 	}
 
 	public function testFormAdministrationGeneralRegexp_Test2() {
+
 		$this->login('adm.regexps.php');
 		// test #2 for the result=False
 		$this->click('link='.$this->regexp);
 		$this->wait();
-		$this->click('link=Test');
-
 		$this->input_type('test_string', 'abcdef');
-		$this->button_click('testExpression');
-		$this->waitForCondition("selenium.browserbot.getCurrentWindow().jQuery.active == 0", 3000);
+		$this->button_click('test');
+		$this->wait();
 
+		// Should also check for the error "Incorrect expression" when clicking button "test", then will need to save this regexp
+		$this->button_click('test');
+		$this->wait();
 		$this->ok('FALSE');
 	}
 
 	public function testFormAdministrationGeneralRegexp_Clone() {
+
 		// cloning regexp
 		$this->login('adm.regexps.php');
 		$this->click('link='.$this->regexp);
 		$this->wait();
 		$this->button_click('clone');
-		$this->input_type('name', $this->regexp.'_clone');
+		$this->wait();
+		$this->input_type('rename', $this->regexp.'_clone');
 		$this->button_click('save');
 		$this->wait();
 		$this->ok('Regular expression added');
@@ -193,11 +225,12 @@ class testFormAdministrationGeneralRegexp extends CWebTest {
 	}
 
 	public function testFormAdministrationGeneralRegexp_Update() {
+
 		// Updating regexp
 		$this->login('adm.regexps.php');
 		$this->click('link='.$this->regexp);
 		$this->wait();
-		$this->input_type('name', $this->regexp.'2');
+		$this->input_type('rename', $this->regexp.'2');
 		$this->button_click('save');
 		$this->wait();
 		$this->ok('Regular expression updated');
@@ -217,17 +250,16 @@ class testFormAdministrationGeneralRegexp extends CWebTest {
 	 * @dataProvider dataDelete
 	 */
 	public function testFormAdministrationGeneralRegexp_Delete($name) {
+
 		DBsave_tables('regexps');
 
 		// deleting regexp using "Delete" button in the regexp properties form
 		$this->login('adm.regexps.php');
-
+		$this->chooseOkOnNextConfirmation();
 		$this->click('link='.$this->regexp2);
 		$this->wait();
-
-		$this->chooseOkOnNextConfirmation();
 		$this->button_click('delete');
-		$this->getConfirmation();
+		$this->waitForConfirmation();
 		$this->wait();
 		$this->ok(array('Regular expression deleted', 'CONFIGURATION OF REGULAR EXPRESSIONS', 'Regular expressions', 'Name', 'Expressions'));
 
@@ -244,13 +276,13 @@ class testFormAdministrationGeneralRegexp extends CWebTest {
 	}
 
 	public function testFormAdministrationGeneralRegexp_DeleteAll() {
+
 		$this->login('adm.regexps.php');
 		$this->checkbox_select('all_regexps');
 		$this->dropdown_select('go', 'Delete selected');
-
 		$this->chooseOkOnNextConfirmation();
 		$this->click('goButton');
-		$this->getConfirmation();
+		$this->waitForConfirmation();
 		$this->wait();
 		$this->ok('Regular expressions deleted');
 
@@ -261,3 +293,4 @@ class testFormAdministrationGeneralRegexp extends CWebTest {
 		$this->assertEquals(0, DBcount($sql), 'Chuck Norris: Regexp expressions has not been deleted from the DB');
 	}
 }
+?>

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Zabbix 1.9\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2012-07-29 18:28+0300\n"
+"POT-Creation-Date: 2012-07-18 01:26+0300\n"
 "PO-Revision-Date: 2012-04-05 23:44+0200\n"
 "Last-Translator: Jakub <lauda.jakub@gmail.com>\n"
 "Language-Team: Zabbix <info@zabbix.com>\n"
@@ -82,7 +82,7 @@ msgstr[0] "%d zařízení"
 msgstr[1] "%d zařízení"
 msgstr[2] "%d zařízení"
 
-#: include/views/configuration.action.edit.php:424
+#: include/views/configuration.action.edit.php:426
 msgid "(0 - infinitely)"
 msgstr ""
 
@@ -103,7 +103,7 @@ msgstr ""
 msgid "(in sec)"
 msgstr "(v sek)"
 
-#: include/views/configuration.action.edit.php:434
+#: include/views/configuration.action.edit.php:436
 msgid "(minimum 60 seconds, 0 - use action default)"
 msgstr "(minimum 60 sekund, 0 - použij defaultní nastavení akce)"
 
@@ -170,14 +170,14 @@ msgid "ALARM ACKNOWLEDGES"
 msgstr "POTVRZENÍ ALARMŮ"
 
 #: include/triggers.inc.php:1746 include/triggers.inc.php:1802
-#: include/views/configuration.action.edit.php:114
-#: include/views/configuration.action.edit.php:880
+#: include/views/configuration.action.edit.php:117
+#: include/views/configuration.action.edit.php:887
 #: include/views/configuration.triggers.edit.php:102 tr_logform.php:290
 msgid "AND"
 msgstr "A"
 
-#: include/views/configuration.action.edit.php:113
-#: include/views/configuration.action.edit.php:879
+#: include/views/configuration.action.edit.php:116
+#: include/views/configuration.action.edit.php:886
 msgid "AND / OR"
 msgstr "A / NEBO"
 
@@ -209,7 +209,7 @@ msgstr "Účet zablokován na %s sekund"
 #: events.php:518 events.php:531 include/actions.inc.php:189
 #: include/blocks.inc.php:832 include/blocks.inc.php:1344
 #: include/events.inc.php:134 include/events.inc.php:204
-#: include/views/configuration.action.edit.php:938
+#: include/views/configuration.action.edit.php:945
 msgid "Ack"
 msgstr "Potvrzeno"
 
@@ -256,16 +256,16 @@ msgstr "Potvrzování přijetí deaktivováno"
 
 #: include/audit.inc.php:28 include/views/administration.auditlogs.list.php:62
 #: include/views/administration.auditlogs.list.php:89
-#: include/views/configuration.action.edit.php:75
-#: include/views/configuration.action.edit.php:317
-#: include/views/configuration.action.edit.php:321
-#: include/views/configuration.action.edit.php:473
-#: include/views/configuration.action.edit.php:482
-#: include/views/configuration.action.edit.php:594
-#: include/views/configuration.action.edit.php:823
-#: include/views/configuration.action.edit.php:965
+#: include/views/configuration.action.edit.php:78
+#: include/views/configuration.action.edit.php:320
+#: include/views/configuration.action.edit.php:323
+#: include/views/configuration.action.edit.php:480
+#: include/views/configuration.action.edit.php:489
+#: include/views/configuration.action.edit.php:601
+#: include/views/configuration.action.edit.php:830
+#: include/views/configuration.action.edit.php:972
 #: include/views/configuration.graph.edit.php:76
-#: include/views/configuration.host.massupdate.php:91
+#: include/views/configuration.host.massupdate.php:90
 #: include/views/configuration.httpconf.edit.php:135
 #: include/views/configuration.item.edit.php:273
 #: include/views/configuration.item.massupdate.php:271
@@ -304,7 +304,7 @@ msgstr "Akce byla přidána"
 msgid "Action deleted"
 msgstr "Akce byla smazána"
 
-#: include/views/configuration.action.edit.php:399
+#: include/views/configuration.action.edit.php:401
 msgid "Action operations"
 msgstr "Operace akce"
 
@@ -349,12 +349,11 @@ msgstr "Aktivní do"
 #: dashconf.php:211 history.php:263 include/blocks.inc.php:1083
 #: include/blocks.inc.php:1089 include/blocks.inc.php:1194
 #: include/blocks.inc.php:1239 include/blocks.inc.php:1245
-#: include/forms.inc.php:1668 include/reports.inc.php:326
-#: include/reports.inc.php:422 include/reports.inc.php:462
+#: include/forms.inc.php:1668 include/forms.inc.php:1972
+#: include/reports.inc.php:326 include/reports.inc.php:422
+#: include/reports.inc.php:462
 #: include/views/administration.auditlogs.list.php:45
 #: include/views/administration.general.iconmap.edit.php:112
-#: include/views/administration.general.regularexpressions.edit.php:43
-#: include/views/administration.general.regularexpressions.edit.php:56
 #: include/views/administration.general.valuemapping.edit.php:40
 #: include/views/administration.usergroups.edit.php:101
 #: include/views/administration.usergroups.edit.php:105
@@ -362,20 +361,20 @@ msgstr "Aktivní do"
 #: include/views/administration.users.edit.php:83
 #: include/views/administration.users.edit.php:163
 #: include/views/common.macros.php:51
-#: include/views/configuration.action.edit.php:302
-#: include/views/configuration.action.edit.php:477
-#: include/views/configuration.action.edit.php:486
-#: include/views/configuration.action.edit.php:747
-#: include/views/configuration.action.edit.php:780
-#: include/views/configuration.action.edit.php:944
-#: include/views/configuration.action.edit.php:953
+#: include/views/configuration.action.edit.php:305
+#: include/views/configuration.action.edit.php:484
+#: include/views/configuration.action.edit.php:493
+#: include/views/configuration.action.edit.php:754
+#: include/views/configuration.action.edit.php:787
+#: include/views/configuration.action.edit.php:951
+#: include/views/configuration.action.edit.php:960
 #: include/views/configuration.graph.edit.php:105
 #: include/views/configuration.host.edit.php:225
 #: include/views/configuration.host.edit.php:242
 #: include/views/configuration.host.edit.php:258
 #: include/views/configuration.host.edit.php:273
 #: include/views/configuration.host.edit.php:494
-#: include/views/configuration.host.massupdate.php:106
+#: include/views/configuration.host.massupdate.php:105
 #: include/views/configuration.httpconf.edit.php:198
 #: include/views/configuration.httpconf.popup.php:74
 #: include/views/configuration.item.edit.php:314
@@ -389,11 +388,10 @@ msgstr "Aktivní do"
 #: include/views/configuration.triggers.edit.php:94
 #: include/views/configuration.triggers.edit.php:288
 #: include/views/configuration.triggers.massupdate.php:96
-#: include/views/js/adm.regexprs.edit.js.php:252
 #: include/views/js/configuration.action.edit.js.php:275
 #: include/views/js/configuration.discovery.edit.js.php:66
 #: include/views/js/configuration.sysmaps.js.php:175
-#: include/views/js/configuration.sysmaps.js.php:256 popup_bitem.php:151
+#: include/views/js/configuration.sysmaps.js.php:256 popup_bitem.php:157
 #: popup_media.php:141 popup_period.php:183 tr_logform.php:289
 #: tr_status.php:658
 msgid "Add"
@@ -445,7 +443,7 @@ msgstr "Přidat do oblíbených"
 msgid "Add to host group"
 msgstr "Přidat hostitele do skupiny"
 
-#: include/actions.inc.php:309 include/views/configuration.action.edit.php:766
+#: include/actions.inc.php:309 include/views/configuration.action.edit.php:773
 msgid "Add to host groups"
 msgstr "Přidat hostitele do skupin"
 
@@ -520,7 +518,7 @@ msgstr "zarovnat ikony"
 #: include/views/administration.script.list.php:82
 #: include/views/administration.usergroups.edit.php:43
 #: include/views/administration.users.list.php:36
-#: include/views/configuration.action.edit.php:519
+#: include/views/configuration.action.edit.php:526
 #: include/views/configuration.hostgroups.edit.php:39
 #: include/views/configuration.sysmap.edit.php:138 jsLoader.php:83
 #: popup_right.php:56 tr_status.php:211
@@ -550,7 +548,7 @@ msgstr "Povolení hostitelé"
 msgid "Any"
 msgstr "Jakýkoliv"
 
-#: include/regexp.inc.php:178 include/views/js/adm.regexprs.edit.js.php:116
+#: include/regexp.inc.php:181
 msgid "Any character string included"
 msgstr "Obsahuje libovolný řetězec"
 
@@ -711,7 +709,7 @@ msgstr "Autentizace"
 msgid "Authentication algorithm"
 msgstr "Autentizační algoritmus"
 
-#: include/views/configuration.action.edit.php:673
+#: include/views/configuration.action.edit.php:680
 #: include/views/configuration.item.edit.php:173
 #: include/views/configuration.item.massupdate.php:200
 msgid "Authentication method"
@@ -742,7 +740,7 @@ msgid "Auto-logout (min 90 seconds)"
 msgstr "Automatické odhlášení (min 90 sekund)"
 
 #: include/views/configuration.host.edit.php:554
-#: include/views/configuration.host.massupdate.php:182
+#: include/views/configuration.host.massupdate.php:179
 msgid "Automatic"
 msgstr "Automaticky"
 
@@ -776,7 +774,7 @@ msgstr "Střední"
 msgid "Average by"
 msgstr "Průměr za"
 
-#: popup_bitem.php:141
+#: popup_bitem.php:147
 msgid "Axis side"
 msgstr "Poloha osy"
 
@@ -967,7 +965,7 @@ msgstr "NASTAVENÍ UZLŮ"
 msgid "CONFIGURATION OF PROXIES"
 msgstr "NASTAVENÍ PROXY"
 
-#: adm.regexps.php:184
+#: adm.regexps.php:204
 msgid "CONFIGURATION OF REGULAR EXPRESSIONS"
 msgstr "NASTAVENÍ PRO REGULAR EXPRESSIONS"
 
@@ -1090,10 +1088,10 @@ msgid "Canada (136 characters)"
 msgstr "Kanada (136 znaků)"
 
 #: include/classes/class.cbuttoncancel.php:25 include/config.inc.php:254
-#: include/forms.inc.php:1670 include/js.inc.php:222 include/setup.inc.php:138
-#: include/views/administration.general.regularexpressions.edit.php:58
-#: include/views/configuration.action.edit.php:946
-#: include/views/configuration.action.edit.php:955
+#: include/forms.inc.php:1670 include/forms.inc.php:1973
+#: include/js.inc.php:222 include/setup.inc.php:138
+#: include/views/configuration.action.edit.php:953
+#: include/views/configuration.action.edit.php:962
 #: include/views/configuration.services.parent.list.php:62
 #: include/views/js/administration.general.triggerDisplayOptions.js.php:55
 #: include/views/js/administration.general.triggerSeverity.js.php:38
@@ -1181,7 +1179,7 @@ msgstr "Nelze přidat uzel"
 msgid "Cannot add proxy"
 msgstr "Nelze přidat proxy"
 
-#: adm.regexps.php:108
+#: adm.regexps.php:84
 msgid "Cannot add regular expression"
 msgstr "Nelze přidat regulární výraz"
 
@@ -1416,7 +1414,7 @@ msgstr "Nelze smazat uzel"
 msgid "Cannot delete proxy"
 msgstr "Nelze smazat proxy"
 
-#: adm.regexps.php:141
+#: adm.regexps.php:117
 #, fuzzy
 msgid "Cannot delete regular expression"
 msgid_plural "Cannot delete regular expressions"
@@ -1924,7 +1922,7 @@ msgstr "Nelze upravit uzel"
 msgid "Cannot update proxy"
 msgstr "Nelze upravit proxy"
 
-#: adm.regexps.php:102
+#: adm.regexps.php:78
 msgid "Cannot update regular expression"
 msgstr "Nelze upravit regulární výraz"
 
@@ -1985,12 +1983,11 @@ msgstr "Nelze aktualizovat stav uživatele"
 msgid "Cannot update value map"
 msgstr "Nelze aktualizovat mapu hodnot"
 
-#: popup_bitem.php:116 popup_period.php:114
+#: popup_bitem.php:122 popup_period.php:114
 msgid "Caption"
 msgstr "Popisek"
 
-#: include/views/administration.general.regularexpressions.edit.php:40
-#: include/views/administration.general.regularexpressions.edit.php:54
+#: include/forms.inc.php:1871 include/forms.inc.php:1967
 msgid "Case sensitive"
 msgstr "Rozlišovat velikost"
 
@@ -2027,11 +2024,11 @@ msgstr "Změnit heslo"
 msgid "Character"
 msgstr "Znak"
 
-#: include/regexp.inc.php:177 include/views/js/adm.regexprs.edit.js.php:113
+#: include/regexp.inc.php:178
 msgid "Character string included"
 msgstr "Obsahuje řetězec"
 
-#: include/regexp.inc.php:179 include/views/js/adm.regexprs.edit.js.php:119
+#: include/regexp.inc.php:184
 msgid "Character string not included"
 msgstr "Neobsahuje řetězec"
 
@@ -2114,7 +2111,7 @@ msgstr ""
 msgid "Clear history for selected"
 msgstr "Pročistit historii vybraných"
 
-#: include/views/configuration.host.massupdate.php:120
+#: include/views/configuration.host.massupdate.php:119
 msgid "Clear when unlinking"
 msgstr "Pročistit při odpojování"
 
@@ -2122,11 +2119,11 @@ msgstr "Pročistit při odpojování"
 msgid "Clock"
 msgstr "Hodiny"
 
+#: include/forms.inc.php:1835
 #: include/views/administration.general.iconmap.edit.php:141
-#: include/views/administration.general.regularexpressions.edit.php:87
 #: include/views/administration.proxy.edit.php:94
 #: include/views/administration.script.edit.php:121
-#: include/views/configuration.action.edit.php:973
+#: include/views/configuration.action.edit.php:980
 #: include/views/configuration.application.edit.php:72
 #: include/views/configuration.discovery.edit.php:87
 #: include/views/configuration.graph.edit.php:305
@@ -2158,7 +2155,7 @@ msgstr ""
 #: include/views/administration.general.triggerSeverity.edit.php:28
 #: include/views/configuration.graph.edit.php:75
 #: include/views/js/configuration.sysmaps.js.php:248 popup_bitem.php:47
-#: popup_bitem.php:146 popup_period.php:178
+#: popup_bitem.php:152 popup_period.php:178
 msgid "Colour"
 msgstr "Barva"
 
@@ -2179,12 +2176,12 @@ msgstr "Rozsah sloupců"
 msgid "Columns"
 msgstr "Sloupce"
 
-#: include/views/js/adm.regexprs.edit.js.php:23
+#: include/forms.inc.php:1807
 msgid "Combined result"
 msgstr "Kombinovaný výsledek"
 
-#: include/actions.inc.php:846 include/actions.inc.php:880
-#: include/actions.inc.php:948
+#: include/actions.inc.php:841 include/actions.inc.php:875
+#: include/actions.inc.php:943
 #: include/views/administration.auditacts.list.php:106
 #: include/views/administration.script.edit.php:68
 msgid "Command"
@@ -2200,8 +2197,8 @@ msgstr ""
 
 #: include/views/administration.script.edit.php:63
 #: include/views/administration.script.list.php:40
-#: include/views/configuration.action.edit.php:723
-#: include/views/configuration.action.edit.php:727 popup.php:1971
+#: include/views/configuration.action.edit.php:730
+#: include/views/configuration.action.edit.php:734 popup.php:1971
 #: popup.php:1978
 msgid "Commands"
 msgstr ""
@@ -2231,9 +2228,9 @@ msgstr ""
 msgid "Condition"
 msgstr "Podmínka"
 
-#: include/views/configuration.action.edit.php:117
-#: include/views/configuration.action.edit.php:898
-#: include/views/configuration.action.edit.php:966
+#: include/views/configuration.action.edit.php:120
+#: include/views/configuration.action.edit.php:905
+#: include/views/configuration.action.edit.php:973
 #: include/views/configuration.action.list.php:51
 msgid "Conditions"
 msgstr "Podmínky"
@@ -2488,7 +2485,7 @@ msgid "Could not save image!"
 msgstr "Nepodařilo se uložit obrázek!"
 
 #: include/graphs.inc.php:84
-#: include/views/configuration.triggers.expression.php:92 popup_bitem.php:132
+#: include/views/configuration.triggers.expression.php:92 popup_bitem.php:138
 #: popup_trexpr.php:45
 msgid "Count"
 msgstr "Počet"
@@ -2741,7 +2738,7 @@ msgstr "Vlastní multiplikátor"
 msgid "Custom screens"
 msgstr "Vlastní obrazovky"
 
-#: include/views/configuration.action.edit.php:646
+#: include/views/configuration.action.edit.php:653
 msgid "Custom script"
 msgstr ""
 
@@ -2967,11 +2964,11 @@ msgstr "Desítkový"
 
 #: include/hosts.inc.php:38
 #: include/views/administration.general.iconmap.edit.php:127
-#: include/views/configuration.action.edit.php:355
+#: include/views/configuration.action.edit.php:356
 #: include/views/configuration.host.edit.php:219
 #: include/views/js/configuration.sysmaps.js.php:122
 #: include/views/monitoring.screen.php:114
-#: include/views/monitoring.slides.php:85 jsLoader.php:140 popup_bitem.php:115
+#: include/views/monitoring.slides.php:85 jsLoader.php:140 popup_bitem.php:121
 #: popup_period.php:113
 msgid "Default"
 msgstr "Výchozí"
@@ -2984,8 +2981,8 @@ msgstr "Výchozí autentizace"
 msgid "Default delay (in seconds)"
 msgstr ""
 
-#: include/views/configuration.action.edit.php:51
-#: include/views/configuration.action.edit.php:534
+#: include/views/configuration.action.edit.php:54
+#: include/views/configuration.action.edit.php:541
 msgid "Default message"
 msgstr "Výchozí zpráva"
 
@@ -2993,7 +2990,7 @@ msgstr "Výchozí zpráva"
 msgid "Default operation step duration"
 msgstr ""
 
-#: include/views/configuration.action.edit.php:50
+#: include/views/configuration.action.edit.php:53
 msgid "Default subject"
 msgstr "Výchozí předmět"
 
@@ -3020,7 +3017,7 @@ msgstr ""
 msgid "Delayed by"
 msgstr "Zpožděno o"
 
-#: include/classes/class.cbuttondelete.php:25
+#: include/classes/class.cbuttondelete.php:25 include/forms.inc.php:1901
 #: include/views/administration.auditlogs.list.php:47
 #: include/views/configuration.triggers.edit.php:152 jsLoader.php:99
 #: tr_logform.php:333 tr_logform.php:350
@@ -3043,7 +3040,7 @@ msgstr ""
 msgid "Delete application?"
 msgstr ""
 
-#: include/views/configuration.action.edit.php:974
+#: include/views/configuration.action.edit.php:981
 msgid "Delete current action?"
 msgstr ""
 
@@ -3097,7 +3094,7 @@ msgstr ""
 msgid "Delete proxy?"
 msgstr ""
 
-#: include/views/administration.general.regularexpressions.edit.php:88
+#: include/forms.inc.php:1837
 msgid "Delete regular expression?"
 msgstr "Smazat regulární výraz?"
 
@@ -3346,7 +3343,8 @@ msgstr ""
 msgid "Deleted: Trigger prototype \"%1$s\" on \"%2$s\"."
 msgstr ""
 
-#: include/views/administration.general.regularexpressions.edit.php:53
+#: include/forms.inc.php:1798 include/forms.inc.php:1879
+#: include/forms.inc.php:1959
 msgid "Delimiter"
 msgstr "Oddělovač"
 
@@ -3401,12 +3399,12 @@ msgstr ""
 msgid "Description"
 msgstr "Popis"
 
-#: include/actions.inc.php:915 include/blocks.inc.php:686
+#: include/actions.inc.php:910 include/blocks.inc.php:686
 #: include/config.inc.php:341
 #: include/views/administration.auditlogs.list.php:92
 #: include/views/administration.mediatypes.list.php:43
-#: include/views/configuration.action.edit.php:317
-#: include/views/configuration.action.edit.php:321 jsrpc.php:132 queue.php:50
+#: include/views/configuration.action.edit.php:320
+#: include/views/configuration.action.edit.php:323 jsrpc.php:132 queue.php:50
 msgid "Details"
 msgstr "Detaily"
 
@@ -3520,7 +3518,7 @@ msgstr "Zakázat vybrané spouštěče?"
 #: include/views/administration.users.list.php:129
 #: include/views/configuration.action.list.php:70
 #: include/views/configuration.host.edit.php:544
-#: include/views/configuration.host.massupdate.php:180
+#: include/views/configuration.host.massupdate.php:177
 #: include/views/configuration.item.list.php:146
 #: include/views/configuration.item.massupdate.php:250
 #: include/views/configuration.triggers.list.php:189
@@ -3796,7 +3794,7 @@ msgstr ""
 msgid "Duration"
 msgstr "Trvání"
 
-#: include/views/configuration.action.edit.php:317
+#: include/views/configuration.action.edit.php:320
 msgid "Duration (sec)"
 msgstr ""
 
@@ -3825,13 +3823,13 @@ msgstr "UDÁLOSTI"
 msgid "Each URL should have a unique name. Please make sure there is only one URL named"
 msgstr ""
 
+#: include/forms.inc.php:1872 include/forms.inc.php:1886
 #: include/views/administration.users.edit.php:157
-#: include/views/configuration.action.edit.php:364
-#: include/views/configuration.action.edit.php:377
+#: include/views/configuration.action.edit.php:366
+#: include/views/configuration.action.edit.php:379
 #: include/views/configuration.maintenance.edit.php:97
 #: include/views/configuration.screen.list.php:59
 #: include/views/configuration.triggers.edit.php:77
-#: include/views/js/adm.regexprs.edit.js.php:7
 #: include/views/js/configuration.sysmaps.js.php:377 sysmaps.php:268
 #: sysmaps.php:292
 msgid "Edit"
@@ -4033,7 +4031,7 @@ msgstr "Povolit vybrané spouštěče?"
 #: include/views/administration.users.edit.php:135
 #: include/views/administration.users.list.php:128
 #: include/views/administration.users.list.php:129
-#: include/views/configuration.action.edit.php:64
+#: include/views/configuration.action.edit.php:67
 #: include/views/configuration.action.list.php:76
 #: include/views/configuration.discovery.edit.php:71
 #: include/views/configuration.item.edit.php:433
@@ -4048,8 +4046,8 @@ msgstr "Povoleno"
 msgid "English (en_GB)"
 msgstr "Anglicky (en_GB)"
 
-#: include/actions.inc.php:686 include/actions.inc.php:771
-#: include/actions.inc.php:847 include/items.inc.php:35
+#: include/actions.inc.php:681 include/actions.inc.php:766
+#: include/actions.inc.php:842 include/items.inc.php:35
 #: include/views/administration.auditacts.list.php:76
 #: include/views/configuration.host.discovery.list.php:59
 #: include/views/configuration.item.list.php:64
@@ -4172,7 +4170,7 @@ msgstr ""
 
 #: include/views/administration.script.edit.php:58
 #: include/views/administration.script.list.php:39
-#: include/views/configuration.action.edit.php:664
+#: include/views/configuration.action.edit.php:671
 #: include/views/js/configuration.action.edit.js.php:114 popup.php:1970
 #: popup.php:1977
 msgid "Execute on"
@@ -4193,6 +4191,10 @@ msgstr ""
 #: include/views/configuration.sysmap.edit.php:83
 msgid "Expand single problem"
 msgstr "Rozvést jeden problém"
+
+#: include/forms.inc.php:1739 include/forms.inc.php:1870
+msgid "Expected result"
+msgstr "Očekávaný výsledek"
 
 #: api/rpc/class.cjsonrpc.php:81
 #, php-format
@@ -4217,11 +4219,9 @@ msgstr "Exportovat vybrané"
 msgid "Export to CSV"
 msgstr ""
 
-#: include/triggers.inc.php:1631
+#: include/forms.inc.php:1738 include/forms.inc.php:1869
+#: include/forms.inc.php:1942 include/triggers.inc.php:1631
 #: include/views/administration.general.iconmap.edit.php:41
-#: include/views/administration.general.regularexpressions.edit.php:38
-#: include/views/administration.general.regularexpressions.edit.php:51
-#: include/views/administration.general.regularexpressions.edit.php:73
 #: include/views/configuration.item.list.php:111
 #: include/views/configuration.triggers.edit.php:132
 #: include/views/configuration.triggers.edit.php:143
@@ -4239,7 +4239,7 @@ msgstr ""
 msgid "Expression Variable Elements"
 msgstr "Proměnné výrazu"
 
-#: include/triggers.inc.php:651 include/views/js/adm.regexprs.edit.js.php:220
+#: include/triggers.inc.php:651
 msgid "Expression cannot be empty"
 msgstr "Výraz nemůže být prázdný"
 
@@ -4247,14 +4247,11 @@ msgstr "Výraz nemůže být prázdný"
 msgid "Expression constructor"
 msgstr ""
 
-#: include/views/administration.general.regularexpressions.edit.php:39
-#: include/views/administration.general.regularexpressions.edit.php:52
-#: include/views/administration.general.regularexpressions.edit.php:73
+#: include/forms.inc.php:1951
 msgid "Expression type"
 msgstr "Typ výrazu"
 
-#: include/views/administration.general.regularexpressions.edit.php:47
-#: include/views/administration.general.regularexpressions.edit.php:78
+#: include/views/administration.general.regularexpressions.edit.php:33
 #: include/views/administration.general.regularexpressions.list.php:29
 msgid "Expressions"
 msgstr "Výrazy"
@@ -4273,8 +4270,7 @@ msgctxt "Friday short"
 msgid "F"
 msgstr ""
 
-#: include/views/js/adm.regexprs.edit.js.php:365
-#: include/views/js/adm.regexprs.edit.js.php:374
+#: include/forms.inc.php:1794 include/forms.inc.php:1814
 msgid "FALSE"
 msgstr "NEPRAVDA"
 
@@ -4288,7 +4284,7 @@ msgstr "FTP"
 msgid "Fail"
 msgstr "Selhalo"
 
-#: include/actions.inc.php:1020 include/blocks.inc.php:965
+#: include/actions.inc.php:1015 include/blocks.inc.php:965
 msgid "Failed"
 msgstr "Selhalo"
 
@@ -4435,7 +4431,7 @@ msgid "Friday"
 msgstr "pátek"
 
 #: include/reports.inc.php:124 include/reports.inc.php:235
-#: include/reports.inc.php:604 include/views/configuration.action.edit.php:418
+#: include/reports.inc.php:604 include/views/configuration.action.edit.php:420
 #: include/views/configuration.services.edit.php:190
 #: include/views/configuration.services.edit.php:233 popup_period.php:130
 #: report3.php:146 report4.php:147
@@ -4467,7 +4463,7 @@ msgid "Fullscreen"
 msgstr "Celá obrazovka"
 
 #: include/views/configuration.graph.edit.php:71
-#: include/views/configuration.triggers.expression.php:68 popup_bitem.php:134
+#: include/views/configuration.triggers.expression.php:68 popup_bitem.php:140
 msgid "Function"
 msgstr "Funkce"
 
@@ -4491,7 +4487,7 @@ msgid "GSM modem"
 msgstr "GSM modem"
 
 #: adm.gui.php:88 adm.housekeeper.php:67 adm.iconmapping.php:93
-#: adm.images.php:127 adm.macros.php:158 adm.other.php:100 adm.regexps.php:166
+#: adm.images.php:127 adm.macros.php:158 adm.other.php:100 adm.regexps.php:186
 #: adm.triggerdisplayingoptions.php:76 adm.triggerdisplayoptions.php:76
 #: adm.triggerseverities.php:79 adm.valuemapping.php:115
 #: adm.workingtime.php:57 include/views/administration.general.gui.edit.php:51
@@ -4527,11 +4523,11 @@ msgstr "giga"
 msgid "Given expression is not a macro"
 msgstr "Zadaný výraz není makro"
 
-#: include/classes/class.globalregexp.php:78
+#: include/classes/class.globalregexp.php:71
 msgid "Global expression does not exist."
 msgstr ""
 
-#: include/views/configuration.action.edit.php:649
+#: include/views/configuration.action.edit.php:656
 msgid "Global script"
 msgstr ""
 
@@ -4970,7 +4966,6 @@ msgstr "Vodorovné zarovnání"
 #: include/views/configuration.graph.list.php:52
 #: include/views/configuration.host.edit.php:52
 #: include/views/configuration.host.edit.php:477
-#: include/views/configuration.host.massupdate.php:212
 #: include/views/configuration.httpconf.list.php:42
 #: include/views/configuration.httpconf.list.php:67
 #: include/views/configuration.item.edit.php:64
@@ -5229,7 +5224,7 @@ msgid "Hours"
 msgstr "hodin"
 
 #: adm.gui.php:89 adm.housekeeper.php:68 adm.iconmapping.php:94
-#: adm.images.php:128 adm.macros.php:159 adm.other.php:101 adm.regexps.php:167
+#: adm.images.php:128 adm.macros.php:159 adm.other.php:101 adm.regexps.php:187
 #: adm.triggerdisplayingoptions.php:77 adm.triggerdisplayoptions.php:77
 #: adm.triggerseverities.php:80 adm.valuemapping.php:116
 #: adm.workingtime.php:58
@@ -5289,9 +5284,8 @@ msgstr ""
 #: include/hosts.inc.php:477 include/items.inc.php:185
 #: include/views/administration.script.edit.php:49
 #: include/views/administration.script.list.php:54
-#: include/views/configuration.action.edit.php:645
+#: include/views/configuration.action.edit.php:652
 #: include/views/configuration.host.edit.php:523
-#: include/views/configuration.host.massupdate.php:214
 msgid "IPMI"
 msgstr ""
 
@@ -5299,7 +5293,7 @@ msgstr ""
 msgid "IPMI agent"
 msgstr "IPMI agent"
 
-#: include/views/configuration.host.massupdate.php:141
+#: include/views/configuration.host.massupdate.php:139
 msgid "IPMI authentication algorithm"
 msgstr "IPMI autentizační algoritmus"
 
@@ -5307,11 +5301,11 @@ msgstr "IPMI autentizační algoritmus"
 msgid "IPMI interfaces"
 msgstr ""
 
-#: include/views/configuration.host.massupdate.php:170
+#: include/views/configuration.host.massupdate.php:168
 msgid "IPMI password"
 msgstr "IPMI heslo"
 
-#: include/views/configuration.host.massupdate.php:152
+#: include/views/configuration.host.massupdate.php:150
 msgid "IPMI privilege level"
 msgstr "IPMI úroveň oprávnění"
 
@@ -5320,7 +5314,7 @@ msgstr "IPMI úroveň oprávnění"
 msgid "IPMI sensor"
 msgstr "IPMI senzor"
 
-#: include/views/configuration.host.massupdate.php:161
+#: include/views/configuration.host.massupdate.php:159
 msgid "IPMI username"
 msgstr "IPMI uživatelské jméno"
 
@@ -5460,7 +5454,7 @@ msgstr ""
 
 #: adm.gui.php:91 adm.housekeeper.php:70 adm.iconmapping.php:96
 #: adm.iconmapping.php:159 adm.images.php:130 adm.macros.php:161
-#: adm.other.php:103 adm.regexps.php:169 adm.triggerdisplayingoptions.php:79
+#: adm.other.php:103 adm.regexps.php:189 adm.triggerdisplayingoptions.php:79
 #: adm.triggerdisplayoptions.php:79 adm.triggerseverities.php:82
 #: adm.valuemapping.php:118 adm.workingtime.php:60
 msgid "Icon mapping"
@@ -5477,10 +5471,6 @@ msgstr ""
 
 #: include/views/js/configuration.sysmaps.js.php:111
 msgid "Icons"
-msgstr ""
-
-#: include/views/js/adm.regexprs.edit.js.php:225
-msgid "Identical expression already exists"
 msgstr ""
 
 #: include/config.inc.php:250
@@ -5518,7 +5508,7 @@ msgid "Image updated"
 msgstr "Obrázek byl aktualizován"
 
 #: adm.gui.php:90 adm.housekeeper.php:69 adm.iconmapping.php:95
-#: adm.images.php:129 adm.macros.php:160 adm.other.php:102 adm.regexps.php:168
+#: adm.images.php:129 adm.macros.php:160 adm.other.php:102 adm.regexps.php:188
 #: adm.triggerdisplayingoptions.php:78 adm.triggerdisplayoptions.php:78
 #: adm.triggerseverities.php:81 adm.valuemapping.php:117
 #: adm.workingtime.php:59
@@ -5531,7 +5521,7 @@ msgstr "Obrázky"
 msgid "Images for all maps will be updated!"
 msgstr ""
 
-#: include/views/configuration.action.edit.php:356
+#: include/views/configuration.action.edit.php:357
 msgid "Immediately"
 msgstr "Ihned"
 
@@ -5583,9 +5573,9 @@ msgstr "Ve skupinách"
 msgid "In maintenance"
 msgstr "Probíhá údržba"
 
-#: include/actions.inc.php:719 include/actions.inc.php:799
-#: include/actions.inc.php:873 include/actions.inc.php:937
-#: include/actions.inc.php:1014
+#: include/actions.inc.php:714 include/actions.inc.php:794
+#: include/actions.inc.php:868 include/actions.inc.php:932
+#: include/actions.inc.php:1009
 #: include/views/administration.auditacts.list.php:94
 msgid "In progress"
 msgstr "Probíhá"
@@ -5815,6 +5805,10 @@ msgstr ""
 msgid "Incorrect dependency."
 msgstr ""
 
+#: adm.regexps.php:159
+msgid "Incorrect expression"
+msgstr "Neplatný výraz"
+
 #: include/classes/db/DB.php:460 include/classes/db/DB.php:540
 #, php-format
 msgid "Incorrect field \"%1$s\" name or value in where statement for table \"%2$s\"."
@@ -5903,7 +5897,7 @@ msgstr ""
 msgid "Incorrect item ID \"%s\" provided for screen element."
 msgstr ""
 
-#: api/classes/CGraphGeneral.php:289
+#: api/classes/CGraphGeneral.php:283
 msgid "Incorrect item for axis value."
 msgstr ""
 
@@ -6379,7 +6373,6 @@ msgid "Invalid view name given \"%s\". Allowed chars: \"a-z\" and \".\"."
 msgstr ""
 
 #: include/menu.inc.php:105
-#: include/views/configuration.host.massupdate.php:215
 msgid "Inventory"
 msgstr "Inventář"
 
@@ -6387,7 +6380,7 @@ msgstr "Inventář"
 msgid "Inventory field"
 msgstr ""
 
-#: include/views/configuration.host.massupdate.php:185
+#: include/views/configuration.host.massupdate.php:182
 msgid "Inventory mode"
 msgstr ""
 
@@ -6699,7 +6692,7 @@ msgstr ""
 msgid "Key cannot be empty."
 msgstr ""
 
-#: include/views/configuration.action.edit.php:710
+#: include/views/configuration.action.edit.php:717
 #: include/views/js/configuration.item.edit.js.php:126
 msgid "Key passphrase"
 msgstr ""
@@ -6751,8 +6744,8 @@ msgstr ""
 msgid "LOST"
 msgstr ""
 
-#: include/maps.inc.php:45 include/views/configuration.action.edit.php:75
-#: include/views/configuration.action.edit.php:823
+#: include/maps.inc.php:45 include/views/configuration.action.edit.php:78
+#: include/views/configuration.action.edit.php:830
 #: include/views/js/configuration.sysmaps.js.php:66
 #: include/views/js/configuration.sysmaps.js.php:214
 #: include/views/js/configuration.sysmaps.js.php:301
@@ -6863,7 +6856,7 @@ msgstr "Litevsky (lv_LV)"
 #: include/views/js/configuration.graph.edit.js.php:71
 #: include/views/js/configuration.sysmaps.js.php:74
 #: include/views/js/configuration.sysmaps.js.php:313 overview.php:132
-#: popup_bitem.php:138
+#: popup_bitem.php:144
 msgid "Left"
 msgstr "vlevo"
 
@@ -6906,7 +6899,7 @@ msgstr ""
 msgid "Link should have both \"name\" and \"url\" fields for map \"%s\"."
 msgstr ""
 
-#: include/views/configuration.host.massupdate.php:128
+#: include/views/configuration.host.massupdate.php:127
 msgid "Link templates"
 msgstr ""
 
@@ -6918,7 +6911,7 @@ msgstr "Připojit šablonu"
 msgid "Link to templates"
 msgstr ""
 
-#: include/views/configuration.action.edit.php:802
+#: include/views/configuration.action.edit.php:809
 msgid "Link with templates"
 msgstr ""
 
@@ -7089,7 +7082,7 @@ msgid "Macro with hostmacroid \"%1$s\" does not exist."
 msgstr ""
 
 #: adm.gui.php:93 adm.housekeeper.php:72 adm.iconmapping.php:98
-#: adm.images.php:132 adm.macros.php:163 adm.other.php:105 adm.regexps.php:171
+#: adm.images.php:132 adm.macros.php:163 adm.other.php:105 adm.regexps.php:191
 #: adm.triggerdisplayingoptions.php:81 adm.triggerdisplayoptions.php:81
 #: adm.triggerseverities.php:84 adm.valuemapping.php:120
 #: adm.workingtime.php:62
@@ -7165,7 +7158,7 @@ msgid "Mandatory parameter is missing."
 msgstr ""
 
 #: include/views/configuration.host.edit.php:549
-#: include/views/configuration.host.massupdate.php:181
+#: include/views/configuration.host.massupdate.php:178
 msgid "Manual"
 msgstr ""
 
@@ -7260,7 +7253,8 @@ msgstr "Označit ostatní"
 msgid "Mark selected"
 msgstr "Označit vybrané"
 
-#: hosts.php:867 include/views/configuration.item.list.php:245
+#: hosts.php:867 include/views/configuration.host.massupdate.php:209
+#: include/views/configuration.item.list.php:245
 #: include/views/configuration.item.massupdate.php:447
 #: include/views/configuration.triggers.list.php:231
 msgid "Mass update"
@@ -7404,12 +7398,12 @@ msgid "Menu"
 msgstr "Menu"
 
 #: acknow.php:208 include/actions.inc.php:351 include/actions.inc.php:360
-#: include/actions.inc.php:366 include/actions.inc.php:685
-#: include/actions.inc.php:734 include/actions.inc.php:770
-#: include/actions.inc.php:814
+#: include/actions.inc.php:366 include/actions.inc.php:680
+#: include/actions.inc.php:729 include/actions.inc.php:765
+#: include/actions.inc.php:809
 #: include/views/administration.auditacts.list.php:75
 #: include/views/administration.auditacts.list.php:103
-#: include/views/configuration.action.edit.php:546
+#: include/views/configuration.action.edit.php:553
 msgid "Message"
 msgstr "Zpráva"
 
@@ -7617,16 +7611,15 @@ msgstr ""
 msgid "NTLM authentication"
 msgstr ""
 
-#: actionconf.php:34 actionconf.php:157 adm.regexps.php:37 adm.regexps.php:115
-#: adm.regexps.php:145 disc_prototypes.php:43 graphs.php:42
+#: actionconf.php:34 actionconf.php:157 adm.regexps.php:36 adm.regexps.php:91
+#: adm.regexps.php:121 disc_prototypes.php:43 graphs.php:42
 #: host_discovery.php:41 hostinventories.php:159 hosts.php:653 hosts.php:684
 #: httpconf.php:43 httpmon.php:143 include/forms.inc.php:549
-#: include/hosts.inc.php:115 include/reports.inc.php:376
-#: include/setup.inc.php:319
+#: include/forms.inc.php:1733 include/hosts.inc.php:115
+#: include/reports.inc.php:376 include/setup.inc.php:319
 #: include/views/administration.general.iconmap.edit.php:28
 #: include/views/administration.general.iconmap.list.php:23
 #: include/views/administration.general.image.edit.php:33
-#: include/views/administration.general.regularexpressions.edit.php:32
 #: include/views/administration.general.regularexpressions.list.php:29
 #: include/views/administration.general.valuemapping.edit.php:34
 #: include/views/administration.general.valuemapping.list.php:23
@@ -7639,8 +7632,8 @@ msgstr ""
 #: include/views/administration.users.edit.php:50
 #: include/views/administration.users.list.php:55
 #: include/views/configuration.action.edit.php:41
-#: include/views/configuration.action.edit.php:75
-#: include/views/configuration.action.edit.php:823
+#: include/views/configuration.action.edit.php:78
+#: include/views/configuration.action.edit.php:830
 #: include/views/configuration.action.list.php:50
 #: include/views/configuration.application.edit.php:60
 #: include/views/configuration.discovery.edit.php:38
@@ -7650,7 +7643,7 @@ msgstr ""
 #: include/views/configuration.graph.list.php:75
 #: include/views/configuration.host.discovery.list.php:51
 #: include/views/configuration.hostgroups.list.php:50
-#: include/views/configuration.host.massupdate.php:91
+#: include/views/configuration.host.massupdate.php:90
 #: include/views/configuration.httpconf.edit.php:54
 #: include/views/configuration.httpconf.edit.php:130
 #: include/views/configuration.httpconf.list.php:68
@@ -7712,9 +7705,9 @@ msgstr "Nikdy"
 msgid "Never executed"
 msgstr ""
 
-#: include/views/configuration.action.edit.php:396
-#: include/views/configuration.action.edit.php:596
-#: include/views/configuration.action.edit.php:896
+#: include/forms.inc.php:1900 include/views/configuration.action.edit.php:398
+#: include/views/configuration.action.edit.php:603
+#: include/views/configuration.action.edit.php:903
 #: include/views/configuration.discovery.edit.php:54
 #: include/views/configuration.maintenance.edit.php:112
 msgid "New"
@@ -7724,13 +7717,17 @@ msgstr "Nová"
 msgid "New application"
 msgstr "Nová aplikace"
 
-#: include/views/configuration.action.edit.php:306
+#: include/views/configuration.action.edit.php:309
 msgid "New condition"
 msgstr "Nová podmínka"
 
 #: jsLoader.php:146
 msgid "New element"
 msgstr "Nový prvek"
+
+#: include/views/administration.general.regularexpressions.edit.php:36
+msgid "New expression"
+msgstr "Nový výraz"
 
 #: disc_prototypes.php:50 host_discovery.php:52
 #: include/views/configuration.item.edit.php:304
@@ -7759,7 +7756,7 @@ msgstr "Nové servisní okno"
 msgid "New media"
 msgstr "Nové médium"
 
-#: adm.regexps.php:180
+#: adm.regexps.php:200
 msgid "New regular expression"
 msgstr "Nový regulární výraz"
 
@@ -7781,10 +7778,10 @@ msgid "Next check"
 msgstr "Příští kontrola"
 
 #: events.php:690 include/config.inc.php:560 include/events.inc.php:277
-#: include/events.inc.php:291 include/triggers.inc.php:1633
+#: include/events.inc.php:291 include/forms.inc.php:1885
+#: include/triggers.inc.php:1633
 #: include/views/administration.users.list.php:75
 #: include/views/administration.users.list.php:78
-#: include/views/js/adm.regexprs.edit.js.php:146
 msgid "No"
 msgstr "Ne"
 
@@ -7819,8 +7816,8 @@ msgstr ""
 msgid "No actions defined."
 msgstr ""
 
-#: include/actions.inc.php:677 include/actions.inc.php:762
-#: include/actions.inc.php:841 include/actions.inc.php:910
+#: include/actions.inc.php:672 include/actions.inc.php:757
+#: include/actions.inc.php:836 include/actions.inc.php:905
 msgid "No actions found."
 msgstr ""
 
@@ -7863,8 +7860,8 @@ msgstr ""
 msgid "No command type specified for action operation."
 msgstr ""
 
-#: include/views/configuration.action.edit.php:72
-#: include/views/configuration.action.edit.php:821
+#: include/views/configuration.action.edit.php:75
+#: include/views/configuration.action.edit.php:828
 msgid "No conditions defined."
 msgstr ""
 
@@ -8117,7 +8114,7 @@ msgstr ""
 msgid "No nodes defined."
 msgstr ""
 
-#: include/views/configuration.action.edit.php:314
+#: include/views/configuration.action.edit.php:317
 msgid "No operations defined."
 msgstr ""
 
@@ -8293,7 +8290,7 @@ msgstr "Není vybrán cíl"
 msgid "No target selected."
 msgstr ""
 
-#: include/views/configuration.host.massupdate.php:88 popup.php:628
+#: include/views/configuration.host.massupdate.php:87 popup.php:628
 #: popup.php:735 popup.php:789 templates.php:439
 msgid "No templates defined."
 msgstr ""
@@ -8376,8 +8373,8 @@ msgstr "Uzel byl aktualizován"
 msgid "Node with same ID already exists."
 msgstr ""
 
-#: include/actions.inc.php:679 include/actions.inc.php:764
-#: include/actions.inc.php:843 include/actions.inc.php:913
+#: include/actions.inc.php:674 include/actions.inc.php:759
+#: include/actions.inc.php:838 include/actions.inc.php:908
 #: include/forms.inc.php:169
 #: include/views/administration.auditacts.list.php:69
 #: include/views/administration.node.list.php:25
@@ -8404,7 +8401,7 @@ msgstr "Normální"
 msgid "Normal view"
 msgstr ""
 
-#: include/actions.inc.php:189 include/views/configuration.action.edit.php:937
+#: include/actions.inc.php:189 include/views/configuration.action.edit.php:944
 msgid "Not Ack"
 msgstr "Nepotvrzeno"
 
@@ -8560,8 +8557,8 @@ msgid "OOB subnet mask"
 msgstr ""
 
 #: include/triggers.inc.php:1746 include/triggers.inc.php:1802
-#: include/views/configuration.action.edit.php:115
-#: include/views/configuration.action.edit.php:881
+#: include/views/configuration.action.edit.php:118
+#: include/views/configuration.action.edit.php:888
 #: include/views/configuration.triggers.edit.php:109 tr_logform.php:291
 msgid "OR"
 msgstr "NEBO"
@@ -8603,7 +8600,7 @@ msgstr "říjen"
 msgid "Off"
 msgstr "Off"
 
-#: include/actions.inc.php:1017 include/blocks.inc.php:964
+#: include/actions.inc.php:1012 include/blocks.inc.php:964
 #: include/classes/class.ctriggersinfo.php:134
 #: include/views/administration.users.list.php:86 report2.php:226
 #: report3.php:86
@@ -8734,11 +8731,11 @@ msgstr ""
 msgid "Operation cannot be performed due to unauthorized request."
 msgstr ""
 
-#: include/views/configuration.action.edit.php:949
+#: include/views/configuration.action.edit.php:956
 msgid "Operation condition"
 msgstr "podmínka operace"
 
-#: include/views/configuration.action.edit.php:957
+#: include/views/configuration.action.edit.php:964
 msgid "Operation details"
 msgstr ""
 
@@ -8750,11 +8747,11 @@ msgstr ""
 msgid "Operation has no template to operate."
 msgstr ""
 
-#: include/views/configuration.action.edit.php:447
+#: include/views/configuration.action.edit.php:454
 msgid "Operation type"
 msgstr "Typ operace"
 
-#: include/views/configuration.action.edit.php:967
+#: include/views/configuration.action.edit.php:974
 #: include/views/configuration.action.list.php:52
 msgid "Operations"
 msgstr "Operace"
@@ -8767,13 +8764,13 @@ msgstr "operator"
 #: include/views/configuration.host.massupdate.php:52
 #: include/views/configuration.host.massupdate.php:68
 #: include/views/configuration.host.massupdate.php:81
-#: include/views/configuration.host.massupdate.php:130
-#: include/views/configuration.host.massupdate.php:143
-#: include/views/configuration.host.massupdate.php:154
-#: include/views/configuration.host.massupdate.php:163
-#: include/views/configuration.host.massupdate.php:172
-#: include/views/configuration.host.massupdate.php:187
-#: include/views/configuration.host.massupdate.php:203
+#: include/views/configuration.host.massupdate.php:129
+#: include/views/configuration.host.massupdate.php:141
+#: include/views/configuration.host.massupdate.php:152
+#: include/views/configuration.host.massupdate.php:161
+#: include/views/configuration.host.massupdate.php:170
+#: include/views/configuration.host.massupdate.php:184
+#: include/views/configuration.host.massupdate.php:200
 #: include/views/configuration.item.massupdate.php:47
 #: include/views/configuration.item.massupdate.php:81
 #: include/views/configuration.item.massupdate.php:97
@@ -8812,7 +8809,7 @@ msgid "Original blue"
 msgstr "Původní modrá"
 
 #: adm.gui.php:98 adm.housekeeper.php:77 adm.iconmapping.php:103
-#: adm.images.php:137 adm.macros.php:168 adm.other.php:110 adm.regexps.php:176
+#: adm.images.php:137 adm.macros.php:168 adm.other.php:110 adm.regexps.php:196
 #: adm.triggerdisplayingoptions.php:86 adm.triggerdisplayoptions.php:86
 #: adm.triggerseverities.php:89 adm.valuemapping.php:125
 #: adm.workingtime.php:67 include/classes/class.ctweenbox.php:77
@@ -9038,7 +9035,7 @@ msgstr ""
 #: include/views/configuration.screen.constructor.edit.php:274
 #: include/views/configuration.screen.constructor.edit.php:422
 #: include/views/configuration.screen.constructor.edit.php:509
-#: popup_bitem.php:46 popup_bitem.php:126
+#: popup_bitem.php:46 popup_bitem.php:132
 msgid "Parameter"
 msgstr "Parametr"
 
@@ -9101,8 +9098,8 @@ msgstr "Pasivní"
 #: include/views/administration.mediatypes.edit.php:84
 #: include/views/administration.users.edit.php:57
 #: include/views/administration.users.edit.php:68
-#: include/views/configuration.action.edit.php:668
-#: include/views/configuration.action.edit.php:701
+#: include/views/configuration.action.edit.php:675
+#: include/views/configuration.action.edit.php:708
 #: include/views/configuration.host.edit.php:522
 #: include/views/configuration.httpconf.edit.php:62
 #: include/views/configuration.item.edit.php:171
@@ -9233,7 +9230,7 @@ msgstr ""
 #: include/views/administration.node.edit.php:78
 #: include/views/administration.node.list.php:44
 #: include/views/administration.proxy.edit.php:55
-#: include/views/configuration.action.edit.php:715
+#: include/views/configuration.action.edit.php:722
 #: include/views/configuration.host.edit.php:218
 #: include/views/configuration.item.edit.php:161
 #: include/views/configuration.item.massupdate.php:149 items.php:115
@@ -9309,7 +9306,7 @@ msgstr ""
 msgid "Print"
 msgstr "Tisk"
 
-#: include/views/configuration.action.edit.php:694
+#: include/views/configuration.action.edit.php:701
 #: include/views/configuration.item.edit.php:180
 #: include/views/configuration.item.massupdate.php:230
 msgid "Private key file"
@@ -9419,13 +9416,13 @@ msgstr "Název proxy"
 msgid "Proxy updated"
 msgstr "Proxy byla aktualizována"
 
-#: include/views/configuration.action.edit.php:669
+#: include/views/configuration.action.edit.php:676
 #: include/views/configuration.item.edit.php:172
 #: include/views/configuration.item.massupdate.php:197
 msgid "Public key"
 msgstr "Veřejný klíč"
 
-#: include/views/configuration.action.edit.php:687
+#: include/views/configuration.action.edit.php:694
 #: include/views/configuration.item.edit.php:177
 #: include/views/configuration.item.massupdate.php:220
 msgid "Public key file"
@@ -9470,7 +9467,7 @@ msgstr "Přijatá hodnota"
 msgid "Recipient"
 msgstr "Příjemce"
 
-#: include/actions.inc.php:684 include/actions.inc.php:769
+#: include/actions.inc.php:679 include/actions.inc.php:764
 #: include/views/administration.auditacts.list.php:74
 msgid "Recipient(s)"
 msgstr "Příjemci"
@@ -9479,12 +9476,12 @@ msgstr "Příjemci"
 msgid "Recovery"
 msgstr ""
 
-#: actionconf.php:43 include/views/configuration.action.edit.php:54
-#: include/views/configuration.action.edit.php:57
+#: actionconf.php:43 include/views/configuration.action.edit.php:57
+#: include/views/configuration.action.edit.php:60
 msgid "Recovery message"
 msgstr "Zpráva při obnovení"
 
-#: actionconf.php:42 include/views/configuration.action.edit.php:56
+#: actionconf.php:42 include/views/configuration.action.edit.php:59
 msgid "Recovery subject"
 msgstr "Předmět zprávy při obnovení"
 
@@ -9514,6 +9511,7 @@ msgid "Regexp"
 msgstr ""
 
 #: include/audit.inc.php:47
+#: include/views/administration.general.regularexpressions.edit.php:30
 msgid "Regular expression"
 msgstr "Regulární výraz"
 
@@ -9522,11 +9520,11 @@ msgstr "Regulární výraz"
 msgid "Regular expression \"%s\" already exists."
 msgstr ""
 
-#: adm.regexps.php:107
+#: adm.regexps.php:83
 msgid "Regular expression added"
 msgstr "Regulární výraz byl přidán"
 
-#: adm.regexps.php:140
+#: adm.regexps.php:116
 #, fuzzy
 msgid "Regular expression deleted"
 msgid_plural "Regular expressions deleted"
@@ -9538,12 +9536,12 @@ msgstr[2] "Regulární výraz byl smazán"
 msgid "Regular expression does not exist."
 msgstr ""
 
-#: adm.regexps.php:101
+#: adm.regexps.php:77
 msgid "Regular expression updated"
 msgstr "Regulární výraz byl aktualizován"
 
 #: adm.gui.php:92 adm.housekeeper.php:71 adm.iconmapping.php:97
-#: adm.images.php:131 adm.macros.php:162 adm.other.php:104 adm.regexps.php:170
+#: adm.images.php:131 adm.macros.php:162 adm.other.php:104 adm.regexps.php:190
 #: adm.triggerdisplayingoptions.php:80 adm.triggerdisplayoptions.php:80
 #: adm.triggerseverities.php:83 adm.valuemapping.php:119
 #: adm.workingtime.php:61
@@ -9566,11 +9564,11 @@ msgstr "Vzdálený příkaz"
 #: include/views/administration.general.iconmap.edit.php:69
 #: include/views/administration.general.iconmap.edit.php:106
 #: include/views/common.macros.php:38
-#: include/views/configuration.action.edit.php:102
-#: include/views/configuration.action.edit.php:367
-#: include/views/configuration.action.edit.php:380
-#: include/views/configuration.action.edit.php:846
-#: include/views/configuration.host.massupdate.php:98
+#: include/views/configuration.action.edit.php:105
+#: include/views/configuration.action.edit.php:369
+#: include/views/configuration.action.edit.php:382
+#: include/views/configuration.action.edit.php:853
+#: include/views/configuration.host.massupdate.php:97
 #: include/views/configuration.httpconf.edit.php:181
 #: include/views/configuration.item.edit.php:286
 #: include/views/configuration.item.massupdate.php:284
@@ -9582,7 +9580,6 @@ msgstr "Vzdálený příkaz"
 #: include/views/configuration.triggers.edit.php:278
 #: include/views/configuration.triggers.massupdate.php:87
 #: include/views/js/administration.general.valuemapping.edit.js.php:14
-#: include/views/js/adm.regexprs.edit.js.php:8
 #: include/views/js/common.macros.js.php:14
 #: include/views/js/configuration.action.edit.js.php:9
 #: include/views/js/configuration.action.edit.js.php:21
@@ -9621,7 +9618,7 @@ msgstr ""
 msgid "Remove from host group"
 msgstr ""
 
-#: include/actions.inc.php:312 include/views/configuration.action.edit.php:767
+#: include/actions.inc.php:312 include/views/configuration.action.edit.php:774
 msgid "Remove from host groups"
 msgstr ""
 
@@ -9637,7 +9634,7 @@ msgstr "Odstranit spojnici"
 msgid "Remove selected"
 msgstr "Odstranit vybrané"
 
-#: include/views/configuration.host.massupdate.php:116
+#: include/views/configuration.host.massupdate.php:115
 #: include/views/configuration.triggers.edit.php:116
 msgid "Replace"
 msgstr "Nahradit"
@@ -9765,17 +9762,16 @@ msgstr "Odezva"
 msgid "Response time for step \"%1$s\" of scenario \"%2$s\"."
 msgstr ""
 
-#: include/views/administration.general.regularexpressions.edit.php:73
-#: include/views/administration.general.regularexpressions.edit.php:74
-#: tr_testexpr.php:129 tr_testexpr.php:161
+#: include/forms.inc.php:1740 include/forms.inc.php:1822 tr_testexpr.php:129
+#: tr_testexpr.php:161
 msgid "Result"
 msgstr "Výsledek"
 
-#: include/regexp.inc.php:181 include/views/js/adm.regexprs.edit.js.php:125
+#: include/regexp.inc.php:190
 msgid "Result is FALSE"
 msgstr "Výsledek je NEPRAVDA"
 
-#: include/regexp.inc.php:180 include/views/js/adm.regexprs.edit.js.php:122
+#: include/regexp.inc.php:187
 msgid "Result is TRUE"
 msgstr "Výsledek je PRAVDA"
 
@@ -9788,7 +9784,7 @@ msgstr ""
 msgid "Result type"
 msgstr "Typ výsledku"
 
-#: include/actions.inc.php:683 include/actions.inc.php:768
+#: include/actions.inc.php:678 include/actions.inc.php:763
 #: include/views/administration.auditacts.list.php:73
 msgid "Retries left"
 msgstr "Zbývá pokusů"
@@ -9802,7 +9798,7 @@ msgstr "Znovu zkusit"
 #: include/views/configuration.sysmap.edit.php:132
 #: include/views/js/configuration.graph.edit.js.php:72
 #: include/views/js/configuration.sysmaps.js.php:75
-#: include/views/js/configuration.sysmaps.js.php:314 popup_bitem.php:139
+#: include/views/js/configuration.sysmaps.js.php:314 popup_bitem.php:145
 msgid "Right"
 msgstr "vpravo"
 
@@ -10013,7 +10009,7 @@ msgid "SQL statement execution has failed \"%1$s\"."
 msgstr ""
 
 #: include/discovery.inc.php:57
-#: include/views/configuration.action.edit.php:647
+#: include/views/configuration.action.edit.php:654
 #: include/views/js/configuration.discovery.edit.js.php:133
 msgid "SSH"
 msgstr "SSH"
@@ -10052,6 +10048,7 @@ msgid "Saturday"
 msgstr "sobota"
 
 #: acknow.php:174 dashconf.php:270 include/forms.inc.php:1668
+#: include/forms.inc.php:1826 include/forms.inc.php:1972
 #: include/views/administration.authentication.edit.php:76
 #: include/views/administration.general.gui.edit.php:57
 #: include/views/administration.general.housekeeper.edit.php:34
@@ -10060,7 +10057,6 @@ msgstr "sobota"
 #: include/views/administration.general.image.edit.php:55
 #: include/views/administration.general.macros.edit.php:34
 #: include/views/administration.general.other.edit.php:48
-#: include/views/administration.general.regularexpressions.edit.php:91
 #: include/views/administration.general.triggerDisplayOptions.edit.php:120
 #: include/views/administration.general.triggerSeverity.edit.php:76
 #: include/views/administration.general.valuemapping.edit.php:61
@@ -10075,7 +10071,7 @@ msgstr "sobota"
 #: include/views/administration.users.edit.php:320
 #: include/views/administration.users.edit.php:328
 #: include/views/administration.users.edit.php:331
-#: include/views/configuration.action.edit.php:978
+#: include/views/configuration.action.edit.php:985
 #: include/views/configuration.application.edit.php:70
 #: include/views/configuration.application.edit.php:80
 #: include/views/configuration.discovery.edit.php:85
@@ -10096,7 +10092,7 @@ msgstr "sobota"
 #: include/views/configuration.sysmap.edit.php:205
 #: include/views/configuration.template.edit.php:382
 #: include/views/configuration.triggers.edit.php:312
-#: include/views/configuration.triggers.massupdate.php:124 popup_bitem.php:151
+#: include/views/configuration.triggers.massupdate.php:124 popup_bitem.php:157
 #: popup_media.php:141 sysmap.php:181 tr_comments.php:93 tr_logform.php:371
 msgid "Save"
 msgstr "Uložit"
@@ -10350,15 +10346,15 @@ msgstr "sekund"
 #: include/reports.inc.php:688
 #: include/views/administration.auditacts.list.php:45
 #: include/views/administration.auditlogs.list.php:59
-#: include/views/configuration.action.edit.php:139
-#: include/views/configuration.action.edit.php:152
-#: include/views/configuration.action.edit.php:165
-#: include/views/configuration.action.edit.php:178
-#: include/views/configuration.action.edit.php:212
-#: include/views/configuration.action.edit.php:225
-#: include/views/configuration.action.edit.php:237
-#: include/views/configuration.action.edit.php:249
-#: include/views/configuration.action.edit.php:653
+#: include/views/configuration.action.edit.php:142
+#: include/views/configuration.action.edit.php:155
+#: include/views/configuration.action.edit.php:168
+#: include/views/configuration.action.edit.php:181
+#: include/views/configuration.action.edit.php:215
+#: include/views/configuration.action.edit.php:228
+#: include/views/configuration.action.edit.php:240
+#: include/views/configuration.action.edit.php:252
+#: include/views/configuration.action.edit.php:660
 #: include/views/configuration.application.edit.php:46
 #: include/views/configuration.graph.edit.php:86
 #: include/views/configuration.graph.edit.php:183
@@ -10387,7 +10383,7 @@ msgstr "sekund"
 #: include/views/js/configuration.sysmaps.js.php:83
 #: include/views/js/configuration.sysmaps.js.php:90
 #: include/views/js/configuration.sysmaps.js.php:97
-#: include/views/js/configuration.sysmaps.js.php:104 popup_bitem.php:120
+#: include/views/js/configuration.sysmaps.js.php:104 popup_bitem.php:126
 #: popup.php:648 popup.php:718 popup.php:775 popup.php:872 popup.php:934
 #: popup.php:1062 popup.php:1172 popup.php:1261 popup.php:1427 popup.php:1535
 #: popup.php:1606 popup.php:1720 popup.php:1782 popup.php:2037
@@ -10441,7 +10437,7 @@ msgstr ""
 msgid "Send message to users"
 msgstr ""
 
-#: include/views/configuration.action.edit.php:531
+#: include/views/configuration.action.edit.php:538
 msgid "Send only to"
 msgstr "Poslat pouze na"
 
@@ -10449,15 +10445,15 @@ msgstr "Poslat pouze na"
 msgid "Send to"
 msgstr "Poslat na"
 
-#: include/views/configuration.action.edit.php:515
+#: include/views/configuration.action.edit.php:522
 msgid "Send to User groups"
 msgstr ""
 
-#: include/views/configuration.action.edit.php:516
+#: include/views/configuration.action.edit.php:523
 msgid "Send to Users"
 msgstr ""
 
-#: include/actions.inc.php:934
+#: include/actions.inc.php:929
 msgid "Sent"
 msgstr ""
 
@@ -10879,7 +10875,7 @@ msgstr "Skládaný"
 msgid "Standard items"
 msgstr ""
 
-#: include/views/configuration.action.edit.php:317
+#: include/views/configuration.action.edit.php:320
 msgid "Start in"
 msgstr ""
 
@@ -10888,9 +10884,9 @@ msgid "State"
 msgstr "Stav"
 
 #: events.php:442 events.php:451 events.php:515 events.php:528 hosts.php:692
-#: httpdetails.php:133 httpmon.php:146 include/actions.inc.php:682
-#: include/actions.inc.php:767 include/actions.inc.php:845
-#: include/actions.inc.php:916 include/events.inc.php:131
+#: httpdetails.php:133 httpmon.php:146 include/actions.inc.php:677
+#: include/actions.inc.php:762 include/actions.inc.php:840
+#: include/actions.inc.php:911 include/events.inc.php:131
 #: include/events.inc.php:204 include/events.inc.php:207
 #: include/forms.inc.php:498 include/forms.inc.php:836
 #: include/views/administration.auditacts.list.php:72
@@ -10960,8 +10956,8 @@ msgstr "Pouze stav"
 msgid "Status updated"
 msgstr "Stav byl aktualizován"
 
-#: httpdetails.php:133 include/actions.inc.php:785 include/actions.inc.php:859
-#: include/views/configuration.action.edit.php:439
+#: httpdetails.php:133 include/actions.inc.php:780 include/actions.inc.php:854
+#: include/views/configuration.action.edit.php:441
 msgid "Step"
 msgstr "Krok"
 
@@ -10975,7 +10971,7 @@ msgstr ""
 msgid "Step \"%s\" already exists."
 msgstr ""
 
-#: include/views/configuration.action.edit.php:430
+#: include/views/configuration.action.edit.php:432
 msgid "Step duration"
 msgstr ""
 
@@ -10983,7 +10979,7 @@ msgstr ""
 msgid "Step of scenario"
 msgstr "Krok scénáře"
 
-#: httpconf.php:48 include/views/configuration.action.edit.php:317
+#: httpconf.php:48 include/views/configuration.action.edit.php:320
 #: include/views/configuration.httpconf.edit.php:202
 #: include/views/configuration.httpconf.edit.php:210
 msgid "Steps"
@@ -11012,10 +11008,10 @@ msgid "Subfilter [affects only filtered data!]"
 msgstr ""
 
 #: include/actions.inc.php:350 include/actions.inc.php:359
-#: include/actions.inc.php:365 include/actions.inc.php:729
-#: include/actions.inc.php:809
+#: include/actions.inc.php:365 include/actions.inc.php:724
+#: include/actions.inc.php:804
 #: include/views/administration.auditacts.list.php:103
-#: include/views/configuration.action.edit.php:542
+#: include/views/configuration.action.edit.php:549
 msgid "Subject"
 msgstr "Předmět"
 
@@ -11097,8 +11093,7 @@ msgstr "CELKEM"
 msgid "TRIGGER COMMENTS"
 msgstr "KOMENTÁŘE KE SPOUŠTĚČI"
 
-#: include/views/js/adm.regexprs.edit.js.php:365
-#: include/views/js/adm.regexprs.edit.js.php:374
+#: include/forms.inc.php:1792 include/forms.inc.php:1811
 msgid "TRUE"
 msgstr "PRAVDA"
 
@@ -11126,7 +11121,7 @@ msgstr ""
 msgid "Tag"
 msgstr "Označení"
 
-#: include/views/configuration.action.edit.php:594
+#: include/views/configuration.action.edit.php:601
 #: include/views/configuration.copy.elements.php:93
 #: include/views/configuration.item.copy.php:74
 #: include/views/configuration.triggers.edit.php:142
@@ -11134,7 +11129,7 @@ msgstr "Označení"
 msgid "Target"
 msgstr "Cíl"
 
-#: include/views/configuration.action.edit.php:641
+#: include/views/configuration.action.edit.php:648
 msgid "Target list"
 msgstr ""
 
@@ -11144,7 +11139,7 @@ msgid "Target type"
 msgstr "Typ cíle"
 
 #: include/discovery.inc.php:71
-#: include/views/configuration.action.edit.php:648
+#: include/views/configuration.action.edit.php:655
 #: include/views/js/configuration.discovery.edit.js.php:134
 msgid "Telnet"
 msgstr ""
@@ -11240,7 +11235,6 @@ msgstr "Položky ze šablony"
 #: hosts.php:691 include/menu.inc.php:168
 #: include/views/configuration.host.edit.php:503
 #: include/views/configuration.hostgroups.list.php:109
-#: include/views/configuration.host.massupdate.php:213
 #: include/views/conf.import.php:28 popup.php:37 search.php:263 search.php:292
 #: search.php:297 search.php:304 search.php:367 search.php:445
 #: templates.php:433 templates.php:443
@@ -11256,8 +11250,8 @@ msgstr ""
 msgid "Tera"
 msgstr "tera"
 
+#: include/forms.inc.php:1831
 #: include/views/administration.authentication.edit.php:88
-#: include/views/administration.general.regularexpressions.edit.php:79
 #: include/views/configuration.triggers.edit.php:211 tr_testexpr.php:25
 #: tr_testexpr.php:115 tr_testexpr.php:164
 msgid "Test"
@@ -11275,12 +11269,7 @@ msgstr ""
 msgid "Test data"
 msgstr "Testovací data"
 
-#: include/views/administration.general.regularexpressions.edit.php:69
-msgid "Test expressions"
-msgstr ""
-
-#: adm.regexps.php:38
-#: include/views/administration.general.regularexpressions.edit.php:66
+#: adm.regexps.php:37 include/forms.inc.php:1734
 msgid "Test string"
 msgstr "Testovací řetězec"
 
@@ -11382,9 +11371,9 @@ msgid "Till"
 msgstr "Do"
 
 #: events.php:438 events.php:447 events.php:511 events.php:524
-#: include/acknow.inc.php:42 include/actions.inc.php:680
-#: include/actions.inc.php:765 include/actions.inc.php:788
-#: include/actions.inc.php:844 include/actions.inc.php:862
+#: include/acknow.inc.php:42 include/actions.inc.php:675
+#: include/actions.inc.php:760 include/actions.inc.php:783
+#: include/actions.inc.php:839 include/actions.inc.php:857
 #: include/events.inc.php:116 include/events.inc.php:130
 #: include/events.inc.php:204 include/events.inc.php:207
 #: include/screens.inc.php:1238
@@ -11427,7 +11416,7 @@ msgstr "Časové razítko"
 msgid "Title"
 msgstr "Titulek"
 
-#: include/views/configuration.action.edit.php:420
+#: include/views/configuration.action.edit.php:422
 msgid "To"
 msgstr "Do"
 
@@ -11536,7 +11525,7 @@ msgid "Trigger deleted"
 msgstr "Spouštěč byl smazán"
 
 #: adm.gui.php:97 adm.housekeeper.php:76 adm.iconmapping.php:102
-#: adm.images.php:136 adm.macros.php:167 adm.other.php:109 adm.regexps.php:175
+#: adm.images.php:136 adm.macros.php:167 adm.other.php:109 adm.regexps.php:195
 #: adm.triggerdisplayingoptions.php:85 adm.triggerdisplayoptions.php:85
 #: adm.triggerseverities.php:88 adm.valuemapping.php:124
 #: adm.workingtime.php:66
@@ -11594,7 +11583,7 @@ msgid "Trigger prototypes of"
 msgstr ""
 
 #: adm.gui.php:96 adm.housekeeper.php:75 adm.iconmapping.php:101
-#: adm.images.php:135 adm.macros.php:166 adm.other.php:108 adm.regexps.php:174
+#: adm.images.php:135 adm.macros.php:166 adm.other.php:108 adm.regexps.php:194
 #: adm.triggerdisplayingoptions.php:84 adm.triggerdisplayoptions.php:84
 #: adm.triggerseverities.php:87 adm.valuemapping.php:123
 #: adm.workingtime.php:65
@@ -11696,8 +11685,8 @@ msgstr "Musí být vybrané dva prvky"
 msgid "Two items (\"%1$s\" and \"%2$s\") cannot populate one host inventory field \"%3$s\", this would lead to a conflict."
 msgstr ""
 
-#: hostinventories.php:160 include/actions.inc.php:681
-#: include/actions.inc.php:766 include/forms.inc.php:494
+#: hostinventories.php:160 include/actions.inc.php:676
+#: include/actions.inc.php:761 include/forms.inc.php:494
 #: include/hosts.inc.php:105
 #: include/views/administration.auditacts.list.php:71
 #: include/views/administration.general.image.edit.php:34
@@ -11708,7 +11697,7 @@ msgstr ""
 #: include/views/administration.node.list.php:43
 #: include/views/administration.script.edit.php:51
 #: include/views/administration.script.list.php:38
-#: include/views/configuration.action.edit.php:657
+#: include/views/configuration.action.edit.php:664
 #: include/views/configuration.graph.edit.php:70
 #: include/views/configuration.host.discovery.list.php:57
 #: include/views/configuration.item.edit.php:82
@@ -11734,8 +11723,8 @@ msgstr ""
 msgid "Type (OK)"
 msgstr "Typ (OK)"
 
-#: include/views/configuration.action.edit.php:116
-#: include/views/configuration.action.edit.php:884
+#: include/views/configuration.action.edit.php:119
+#: include/views/configuration.action.edit.php:891
 msgid "Type of calculation"
 msgstr "Způsob vyhodnocení"
 
@@ -11878,7 +11867,7 @@ msgstr "Jednotky"
 #: include/items.inc.php:157 include/maintenances.inc.php:41
 #: include/maps.inc.php:39 include/maps.inc.php:681 include/maps.inc.php:771
 #: include/maps.inc.php:868 include/media.inc.php:39 include/nodes.inc.php:257
-#: include/perm.inc.php:30 include/regexp.inc.php:191
+#: include/perm.inc.php:30 include/regexp.inc.php:193
 #: include/screens.inc.php:55 include/triggers.inc.php:260
 #: include/triggers.inc.php:367 include/triggers.inc.php:385
 #: include/users.inc.php:50 include/users.inc.php:65
@@ -11937,7 +11926,7 @@ msgstr "Odpojit a pročistit"
 msgid "Unlink from template"
 msgstr "Odpojit od šablony"
 
-#: include/actions.inc.php:336 include/views/configuration.action.edit.php:803
+#: include/actions.inc.php:336 include/views/configuration.action.edit.php:810
 msgid "Unlink from templates"
 msgstr ""
 
@@ -12006,11 +11995,10 @@ msgid "Up"
 msgstr ""
 
 #: include/views/administration.auditlogs.list.php:46
-#: include/views/configuration.action.edit.php:953
-#: include/views/configuration.host.massupdate.php:219
+#: include/views/configuration.action.edit.php:960
+#: include/views/configuration.host.massupdate.php:213
 #: include/views/configuration.httpconf.popup.php:74
-#: include/views/configuration.item.massupdate.php:451
-#: include/views/js/adm.regexprs.edit.js.php:258 popup_period.php:183
+#: include/views/configuration.item.massupdate.php:451 popup_period.php:183
 msgid "Update"
 msgstr "Aktualizovat"
 
@@ -12112,13 +12100,13 @@ msgstr "Použít pro závažnost"
 msgid "Used in actions"
 msgstr ""
 
-#: httpconf.php:52 include/acknow.inc.php:42 include/actions.inc.php:914
+#: httpconf.php:52 include/acknow.inc.php:42 include/actions.inc.php:909
 #: include/audit.inc.php:24 include/forms.inc.php:37 include/forms.inc.php:40
 #: include/hosts.inc.php:68 include/setup.inc.php:278
 #: include/views/administration.auditlogs.list.php:56
 #: include/views/administration.auditlogs.list.php:86
 #: include/views/administration.users.edit.php:282
-#: include/views/configuration.action.edit.php:482
+#: include/views/configuration.action.edit.php:489
 #: include/views/configuration.httpconf.edit.php:61
 msgid "User"
 msgstr "Uživatel"
@@ -12157,7 +12145,7 @@ msgstr "Uživatel byl smazán"
 #: include/views/administration.script.list.php:41
 #: include/views/administration.usergroups.edit.php:119
 #: include/views/administration.users.list.php:41
-#: include/views/configuration.action.edit.php:473
+#: include/views/configuration.action.edit.php:480
 msgid "User group"
 msgstr "Skupina uživatelů"
 
@@ -12200,7 +12188,7 @@ msgstr ""
 msgid "User may not modify system status for himself by becoming a member of user group \"%s\"."
 msgstr ""
 
-#: include/views/configuration.action.edit.php:680
+#: include/views/configuration.action.edit.php:687
 #: include/views/configuration.item.edit.php:174
 #: include/views/configuration.item.massupdate.php:210
 msgid "User name"
@@ -12337,7 +12325,7 @@ msgid "Value map with valuemapid \"%1$s\" does not exist."
 msgstr ""
 
 #: adm.gui.php:94 adm.housekeeper.php:73 adm.iconmapping.php:99
-#: adm.images.php:133 adm.macros.php:164 adm.other.php:106 adm.regexps.php:172
+#: adm.images.php:133 adm.macros.php:164 adm.other.php:106 adm.regexps.php:192
 #: adm.triggerdisplayingoptions.php:82 adm.triggerdisplayoptions.php:82
 #: adm.triggerseverities.php:85 adm.valuemapping.php:121
 #: adm.valuemapping.php:177 adm.workingtime.php:63
@@ -12584,7 +12572,7 @@ msgid "Wizard"
 msgstr ""
 
 #: adm.gui.php:95 adm.housekeeper.php:74 adm.iconmapping.php:100
-#: adm.images.php:134 adm.macros.php:165 adm.other.php:107 adm.regexps.php:173
+#: adm.images.php:134 adm.macros.php:165 adm.other.php:107 adm.regexps.php:193
 #: adm.triggerdisplayingoptions.php:83 adm.triggerdisplayoptions.php:83
 #: adm.triggerseverities.php:86 adm.valuemapping.php:122
 #: adm.workingtime.php:64
@@ -12786,9 +12774,8 @@ msgstr "ročně"
 #: events.php:690 include/blocks.inc.php:694
 #: include/classes/class.cserverinfo.php:35 include/config.inc.php:560
 #: include/events.inc.php:280 include/events.inc.php:294
-#: include/triggers.inc.php:1633
+#: include/forms.inc.php:1885 include/triggers.inc.php:1633
 #: include/views/administration.users.list.php:74
-#: include/views/js/adm.regexprs.edit.js.php:143
 msgid "Yes"
 msgstr "Ano"
 
@@ -12933,7 +12920,7 @@ msgstr "Zabbix uživatel"
 
 #: include/discovery.inc.php:66 include/items.inc.php:76
 #: include/views/administration.script.edit.php:56
-#: include/views/configuration.action.edit.php:662
+#: include/views/configuration.action.edit.php:669
 #: include/views/js/configuration.action.edit.js.php:120
 #: include/views/js/configuration.discovery.edit.js.php:135
 msgid "Zabbix agent"
@@ -12966,7 +12953,7 @@ msgstr ""
 #: include/classes/class.cserverinfo.php:39
 #: include/classes/class.cserverinfo.php:40 include/setup.inc.php:368
 #: include/views/administration.script.edit.php:57
-#: include/views/configuration.action.edit.php:663
+#: include/views/configuration.action.edit.php:670
 #: include/views/js/configuration.action.edit.js.php:125
 msgid "Zabbix server"
 msgstr ""
@@ -13066,8 +13053,8 @@ msgstr "vše"
 msgid "already exists"
 msgstr "již existuje"
 
-#: include/views/configuration.action.edit.php:862
 #: include/views/configuration.action.edit.php:869
+#: include/views/configuration.action.edit.php:876
 #: include/views/js/configuration.action.edit.js.php:444
 #: include/views/js/configuration.action.edit.js.php:445
 #: include/views/js/configuration.action.edit.js.php:453
@@ -13089,7 +13076,7 @@ msgstr "červeně"
 #: include/classes/class.cchart.php:1752 include/classes/class.cchart.php:1774
 #: include/graphs.inc.php:95
 #: include/views/js/configuration.graph.edit.js.php:40
-#: include/views/js/configuration.graph.edit.js.php:48 popup_bitem.php:130
+#: include/views/js/configuration.graph.edit.js.php:48 popup_bitem.php:136
 msgid "avg"
 msgstr "průměr"
 
@@ -13162,10 +13149,6 @@ msgstr ""
 msgid "default"
 msgstr ""
 
-#: include/views/js/adm.regexprs.edit.js.php:130
-msgid "delimiter"
-msgstr ""
-
 #: jsLoader.php:86
 msgid "dynamic"
 msgstr "dynamický"
@@ -13191,7 +13174,7 @@ msgstr "každé"
 msgid "exactly"
 msgstr ""
 
-#: include/actions.inc.php:870
+#: include/actions.inc.php:865
 #: include/views/administration.auditacts.list.php:89
 msgid "executed"
 msgstr "vykonáno"
@@ -13274,7 +13257,7 @@ msgstr ""
 msgid "macro(s)"
 msgstr ""
 
-#: include/actions.inc.php:144 include/views/configuration.action.edit.php:205
+#: include/actions.inc.php:144 include/views/configuration.action.edit.php:208
 msgid "maintenance"
 msgstr "údržba"
 
@@ -13285,14 +13268,14 @@ msgstr ""
 #: include/classes/class.cchart.php:1753 include/classes/class.cchart.php:1767
 #: include/graphs.inc.php:90
 #: include/views/js/configuration.graph.edit.js.php:41
-#: include/views/js/configuration.graph.edit.js.php:49 popup_bitem.php:131
+#: include/views/js/configuration.graph.edit.js.php:49 popup_bitem.php:137
 msgid "max"
 msgstr "max"
 
 #: include/classes/class.cchart.php:1751 include/classes/class.cchart.php:1764
 #: include/graphs.inc.php:88
 #: include/views/js/configuration.graph.edit.js.php:39
-#: include/views/js/configuration.graph.edit.js.php:47 popup_bitem.php:129
+#: include/views/js/configuration.graph.edit.js.php:47 popup_bitem.php:135
 msgid "min"
 msgstr "min"
 
@@ -13362,8 +13345,8 @@ msgstr "neběží"
 msgid "not selected"
 msgstr "nevybráno"
 
-#: include/actions.inc.php:723 include/actions.inc.php:803
-#: include/actions.inc.php:876 include/actions.inc.php:940
+#: include/actions.inc.php:718 include/actions.inc.php:798
+#: include/actions.inc.php:871 include/actions.inc.php:935
 #: include/views/administration.auditacts.list.php:98
 msgid "not sent"
 msgstr "neposláno"
@@ -13386,8 +13369,8 @@ msgstr "každého"
 msgid "on"
 msgstr "v"
 
-#: include/views/configuration.action.edit.php:865
-#: include/views/configuration.action.edit.php:868
+#: include/views/configuration.action.edit.php:872
+#: include/views/configuration.action.edit.php:875
 #: include/views/js/configuration.action.edit.js.php:448
 #: include/views/js/configuration.action.edit.js.php:449
 #: include/views/js/configuration.action.edit.js.php:452
@@ -13433,7 +13416,7 @@ msgstr "sec"
 msgid "seconds"
 msgstr "sekund"
 
-#: include/actions.inc.php:715 include/actions.inc.php:795
+#: include/actions.inc.php:710 include/actions.inc.php:790
 #: include/views/administration.auditacts.list.php:86
 msgid "sent"
 msgstr "posláno"

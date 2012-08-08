@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,23 +15,44 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+class CCheckBox extends CTag{
+/* public */
+	public function __construct($name='checkbox',$checked='no',$action=null,$value='yes'){
+		parent::__construct('input','no');
+		$this->tag_body_start = '';
 
+		$this->setAttribute('class','checkbox');
+		$this->setAttribute('type','checkbox');
+		$this->setAttribute('value',$value);
+		$this->setAttribute('name',$name);
+		$this->setAttribute('id',$name);
 
-class CCheckBox extends CInput {
-
-	public function __construct($name = 'checkbox', $checked = 'no', $action = null, $value = 'yes') {
-		parent::__construct('checkbox', $name, $value, 'checkbox pointer');
-		$this->setAttribute('onclick', $action);
+		$this->setAction($action);
 		$this->setChecked($checked);
 	}
 
-	public function setChecked($value = 'yes') {
-		if ($value === true || (is_numeric($value) && $value != 0) || (is_string($value) && ($value == 'yes' || $value == 'checked' || $value == 'on') || $value == '1')) {
-			return $this->attributes['checked'] = 'checked';
+	public function setEnabled($value='yes'){
+		if($value === 'yes' || $value == true || $value == 1){
+			return $this->removeAttribute('disabled');
 		}
+		$this->attributes['disabled'] = 'disabled';
+
+	return true;
+	}
+
+	public function setChecked($value='yes'){
+		if((is_numeric($value) && ($value!=0)) || (is_string($value) && ($value=='yes' || $value=='checked' || $value=='on') || $value=='1'))
+			return $this->attributes['checked'] = 'checked';
+
 		$this->removeAttribute('checked');
-		return $this;
+	}
+
+	public function setAction($value='submit()', $event='onclick'){
+		$this->addAction('onclick', $value);
 	}
 }
+?>

@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,57 +15,48 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+class CVar{
+ public $var_container;
+ public $var_name;
 
-
-class CVar {
-
-	public $var_container;
-	public $var_name;
-	public $element_id;
-
-	public function __construct($name, $value = null, $id = null) {
+	public function __construct($name,$value=null){
 		$this->var_container = array();
 		$this->var_name = $name;
-		$this->element_id = $id;
+
 		$this->setValue($value);
 	}
 
-	public function setValue($value) {
+	public function setValue($value){
 		$this->var_container = array();
-		if (is_null($value)) {
-			return;
-		}
+
+		if(is_null($value)) return;
+
 		$this->parseValue($this->var_name, $value);
 	}
 
-	public function parseValue($name, $value) {
-		if (is_array($value)) {
-			foreach ($value as $key => $item) {
-				if (is_null($item)) {
-					continue;
-				}
-				$this->parseValue($name.'['.$key.']', $item);
+	public function parseValue($name, $value){
+		if(is_array($value)){
+			foreach($value as $itemid => $item){
+				if( is_null($item) ) continue;
+				$this->parseValue($name.'['.$itemid.']', $item);
 			}
-			return null;
+			return;
 		}
-		if (strpos($value, "\n") === false) {
-			$hiddenVar = new CInput('hidden', $name, $value, null, $this->element_id);
-			$hiddenVar->removeAttribute('class');
-		}
-		else {
-			$hiddenVar = new CTextArea($name, $value);
-			$hiddenVar->setAttribute('class', 'hidden');
-		}
-		$this->var_container[] = $hiddenVar;
+
+		array_push($this->var_container, new CVarTag($name, $value));
 	}
 
-	public function toString() {
+	public function toString(){
 		$res = '';
-		foreach ($this->var_container as $item) {
+
+		foreach($this->var_container as $item){
 			$res .= $item->toString();
 		}
-		return $res;
+	return $res;
 	}
 }
+?>

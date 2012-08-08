@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,17 +15,14 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-
-class CPassBox extends CInput {
-
-	public function __construct($name = 'password', $value = '', $size = 50, $maxlength = 255) {
-		parent::__construct('password', $name, $value);
-		$this->setAttribute('size', $size);
-		$this->setAttribute('maxlength', $maxlength);
+class CPassBox extends CTextBox{
+	public function __construct($name='password',$value='',$size=20){
+		parent::__construct($name,$value,$size);
+		$this->attributes['type'] = 'password';
 	}
 }
 ?>

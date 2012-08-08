@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,18 +14,15 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_PERFSTAT_H
 #define ZABBIX_PERFSTAT_H
 
-#ifndef _WINDOWS
-#	error "This module is only available for Windows OS"
-#endif
+#ifdef _WINDOWS
 
-#include "perfmon.h"
-
+#define PERF_COLLECTOR_STARTED(collector)	((collector) && (collector)->perfs.pdh_query)
 #define UNSUPPORTED_REFRESH_PERIOD		600
 #define USE_DEFAULT_INTERVAL			0
 
@@ -37,16 +34,15 @@ typedef struct
 }
 ZBX_PERF_STAT_DATA;
 
-extern ZBX_PERF_STAT_DATA	ppsd;
-
 PERF_COUNTER_DATA	*add_perf_counter(const char *name, const char *counterpath, int interval);
 void			remove_perf_counter(PERF_COUNTER_DATA *counter);
 
-double	compute_average_value(PERF_COUNTER_DATA *counter, int interval);
+double	compute_average_value(const char *function, PERF_COUNTER_DATA *counter, int interval);
 
-int	init_perf_collector(int multithreaded);
+int	init_perf_collector(ZBX_PERF_STAT_DATA *pperf);
 void	free_perf_collector();
-int	perf_collector_started();
 void	collect_perfstat();
 
-#endif
+#endif /* _WINDOWS */
+
+#endif /* ZABBIX_PERFSTAT_H */

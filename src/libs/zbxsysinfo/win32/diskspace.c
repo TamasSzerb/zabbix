@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,12 +14,11 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
-#include "zbxjson.h"
 
 int	VFS_FS_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
@@ -57,70 +56,6 @@ int	VFS_FS_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 				(double)(__int64)totalBytes.QuadPart);
 	else
 		return SYSINFO_RET_FAIL;
-
-	return SYSINFO_RET_OK;
-}
-
-int	VFS_FS_DISCOVERY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
-{
-	TCHAR		fsName[MAX_PATH + 1];
-	LPTSTR		buffer = NULL, p;
-	char		*utf8;
-	DWORD		dwSize;
-	size_t		sz;
-	struct zbx_json	j;
-
-	/* Make an initial call to GetLogicalDriveStrings to
-	   get the necessary size into the dwSize variable */
-	if (0 == (dwSize = GetLogicalDriveStrings(0, buffer)))
-		return SYSINFO_RET_FAIL;
-
-	buffer = (LPTSTR)zbx_malloc(buffer, (dwSize + 1) * sizeof(TCHAR));
-
-	/* Make a second call to GetLogicalDriveStrings to get
-	   the actual data we require */
-	if (0 == (dwSize = GetLogicalDriveStrings(dwSize, buffer)))
-	{
-		zbx_free(buffer);
-		return SYSINFO_RET_FAIL;
-	}
-
-	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
-
-	zbx_json_addarray(&j, ZBX_PROTO_TAG_DATA);
-
-	for (p = buffer, sz = wcslen(p); sz > 0; p += sz + 1, sz = wcslen(p))
-	{
-		zbx_json_addobject(&j, NULL);
-
-		utf8 = zbx_unicode_to_utf8(p);
-
-		/* remove trailing backslash */
-		if ('A' <= utf8[0] && utf8[0] <= 'Z' && ':' == utf8[1] && '\\' == utf8[2] && '\0' == utf8[3])
-			utf8[2] = '\0';
-
-		zbx_json_addstring(&j, "{#FSNAME}", utf8, ZBX_JSON_TYPE_STRING);
-		zbx_free(utf8);
-
-		if (TRUE == GetVolumeInformation(p, NULL, 0, NULL, NULL, NULL, fsName, sizeof(fsName) / sizeof(TCHAR)))
-		{
-			utf8 = zbx_unicode_to_utf8(fsName);
-			zbx_json_addstring(&j, "{#FSTYPE}", utf8, ZBX_JSON_TYPE_STRING);
-			zbx_free(utf8);
-		}
-		else
-			zbx_json_addstring(&j, "{#FSTYPE}", "UNKNOWN", ZBX_JSON_TYPE_STRING);
-
-		zbx_json_close(&j);
-	}
-
-	zbx_free(buffer);
-
-	zbx_json_close(&j);
-
-	SET_STR_RESULT(result, strdup(j.buffer));
-
-	zbx_json_free(&j);
 
 	return SYSINFO_RET_OK;
 }

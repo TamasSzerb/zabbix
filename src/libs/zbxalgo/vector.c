@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -25,6 +25,8 @@
 #define	ARRAY_GROWTH_FACTOR	3/2
 
 #define	ZBX_VECTOR_IMPL(__id, __type)										\
+														\
+static void	__vector_ ## __id ## _ensure_free_space(zbx_vector_ ## __id ## _t *vector);			\
 														\
 static void	__vector_ ## __id ## _ensure_free_space(zbx_vector_ ## __id ## _t *vector)			\
 {														\
@@ -95,19 +97,6 @@ void	zbx_vector_ ## __id ## _remove_noorder(zbx_vector_ ## __id ## _t *vector, i
 	vector->values[index] = vector->values[--vector->values_num];						\
 }														\
 														\
-void	zbx_vector_ ## __id ## _remove(zbx_vector_ ## __id ## _t *vector, int index)				\
-{														\
-	if (!(0 <= index && index < vector->values_num))							\
-	{													\
-		zabbix_log(LOG_LEVEL_CRIT, "removing a non-existent element at index %d", index);		\
-		exit(FAIL);											\
-	}													\
-														\
-	vector->values_num--;											\
-	memmove(&vector->values[index], &vector->values[index + 1],						\
-			sizeof(__type) * (vector->values_num - index));						\
-}														\
-														\
 void	zbx_vector_ ## __id ## _sort(zbx_vector_ ## __id ## _t *vector, zbx_compare_func_t compare_func)	\
 {														\
 	if (2 <= vector->values_num)										\
@@ -152,31 +141,17 @@ int	zbx_vector_ ## __id ## _lsearch(zbx_vector_ ## __id ## _t *vector, __type va
 	{													\
 		int	c = compare_func(&vector->values[*index], &value);					\
 														\
-		if (0 > c)											\
+		if (c < 0)											\
 		{												\
 			(*index)++;										\
 			continue;										\
 		}												\
 														\
-		if (0 == c)											\
+		if (c == 0)											\
 			return SUCCEED;										\
 														\
-		if (0 < c)											\
+		if (c > 0)											\
 			break;											\
-	}													\
-														\
-	return FAIL;												\
-}														\
-														\
-int	zbx_vector_ ## __id ## _search(zbx_vector_ ## __id ## _t *vector, __type value,				\
-									zbx_compare_func_t compare_func)	\
-{														\
-	int	index;												\
-														\
-	for (index = 0; index < vector->values_num; index++)							\
-	{													\
-		if (0 == compare_func(&vector->values[index], &value))						\
-			return index;										\
 	}													\
 														\
 	return FAIL;												\
@@ -203,6 +178,4 @@ void	zbx_vector_ ## __id ## _clear(zbx_vector_ ## __id ## _t *vector)					\
 }
 
 ZBX_VECTOR_IMPL(uint64, zbx_uint64_t);
-ZBX_VECTOR_IMPL(str, char *);
 ZBX_VECTOR_IMPL(ptr, void *);
-ZBX_VECTOR_IMPL(ptr_pair, zbx_ptr_pair_t);

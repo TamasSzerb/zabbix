@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -22,9 +22,10 @@
 #include "comms.h"
 #include "log.h"
 #include "cfg.h"
-#include "telnet.h"
+
 #include "../common/net.h"
 #include "ntp.h"
+
 #include "simple.h"
 
 ZBX_METRIC	parameters_simple[] =
@@ -36,6 +37,7 @@ ZBX_METRIC	parameters_simple[] =
 	};
 
 #ifdef HAVE_LDAP
+
 static int    check_ldap(const char *host, unsigned short port, int timeout, int *value_int)
 {
 	LDAP		*ldap	= NULL;
@@ -48,9 +50,9 @@ static int    check_ldap(const char *host, unsigned short port, int timeout, int
 	char	**valRes = NULL;
 	int	ldapErr = 0;
 
-	alarm(timeout);
-
 	*value_int = 0;
+
+	alarm(timeout);
 
 	if (NULL == (ldap = ldap_init(host, port)))
 	{
@@ -74,6 +76,7 @@ static int    check_ldap(const char *host, unsigned short port, int timeout, int
 	valRes = ldap_get_values(ldap, msg, attr);
 
 	*value_int = 1;
+
 lbl_ret:
 	alarm(0);
 
@@ -90,13 +93,16 @@ lbl_ret:
 
 	return SYSINFO_RET_OK;
 }
+
 #endif	/* HAVE_LDAP */
 
 static int	check_ssh(const char *host, unsigned short port, int timeout, int *value_int)
 {
 	int		ret;
 	zbx_sock_t	s;
-	char		send_buf[MAX_STRING_LEN], *recv_buf, *ssh_server, *ssh_proto;
+	char		send_buf[MAX_BUFFER_LEN];
+	char		*recv_buf;
+	char		*ssh_server, *ssh_proto;
 
 	*value_int = 0;
 
@@ -128,110 +134,33 @@ static int	check_ssh(const char *host, unsigned short port, int timeout, int *va
 	return SYSINFO_RET_OK;
 }
 
-#ifdef HAVE_LIBCURL
-static int	check_https(const char *host, unsigned short port, int timeout, int *value_int)
-{
-	const char	*__function_name = "check_https";
-	int		err, opt;
-	char		https_host[MAX_STRING_LEN];
-	CURL            *easyhandle;
-
-	*value_int = 0;
-
-	if (NULL == (easyhandle = curl_easy_init()))
-	{
-		zabbix_log(LOG_LEVEL_DEBUG, "%s: could not init cURL library", __function_name);
-		goto clean;
-	}
-
-	zbx_snprintf(https_host, sizeof(https_host), "%s%s", (0 == strncmp(host, "https://", 8) ? "" : "https://"), host);
-
-	if (CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_USERAGENT, "Zabbix " ZABBIX_VERSION)) ||
-		CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_URL, https_host)) ||
-		CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_PORT, (long)port)) ||
-		CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_NOBODY, 1L)) ||
-		CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_SSL_VERIFYPEER, 0L)) ||
-		CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_SSL_VERIFYHOST, 0L)) ||
-		CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_TIMEOUT, (long)timeout)))
-	{
-		zabbix_log(LOG_LEVEL_DEBUG, "%s: could not set cURL option [%d]: %s",
-				__function_name, opt, curl_easy_strerror(err));
-		goto clean;
-	}
-
-	if (CURLE_OK == (err = curl_easy_perform(easyhandle)))
-		*value_int = 1;
-	else
-		zabbix_log(LOG_LEVEL_DEBUG, "%s: curl_easy_perform failed for [%s:%hu]: %s",
-				__function_name, host, port, curl_easy_strerror(err));
-clean:
-	curl_easy_cleanup(easyhandle);
-
-	return SYSINFO_RET_OK;
-}
-#endif	/* HAVE_LIBCURL */
-
-static int	check_telnet(const char *host, unsigned short port, int timeout, int *value_int)
-{
-	const char	*__function_name = "check_telnet";
-	zbx_sock_t	s;
-#ifdef _WINDOWS
-	u_long		argp = 1;
-#else
-	int		flags;
-#endif
-
-	*value_int = 0;
-
-	if (SUCCEED == zbx_tcp_connect(&s, CONFIG_SOURCE_IP, host, port, timeout))
-	{
-#ifdef _WINDOWS
-		ioctlsocket(s.socket, FIONBIO, &argp);	/* non-zero value sets the socket to non-blocking */
-#else
-		flags = fcntl(s.socket, F_GETFL);
-		if (0 == (flags & O_NONBLOCK))
-			fcntl(s.socket, F_SETFL, flags | O_NONBLOCK);
-#endif
-
-		if (SUCCEED == telnet_test_login(s.socket))
-			*value_int = 1;
-		else
-			zabbix_log(LOG_LEVEL_DEBUG, "Telnet check error: no login prompt");
-
-		zbx_tcp_close(&s);
-	}
-	else
-		zabbix_log(LOG_LEVEL_DEBUG, "%s error: %s", __function_name, zbx_tcp_strerror());
-
-	return SYSINFO_RET_OK;
-}
-
-int	check_service(const char *params, const char *default_addr, AGENT_RESULT *result, int perf)
+static int	check_service(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result, int perf)
 {
 	unsigned short	port = 0;
 	char		service[16], ip[64], str_port[8];
-	int		value_int, ret = SYSINFO_RET_FAIL;
+	int		value_int = 0, ret = SYSINFO_RET_FAIL;
 	double		check_time;
+
+	assert(result);
+
+	init_result(result);
 
 	check_time = zbx_time();
 
-	if (3 < num_param(params))
+	if (num_param(param) > 3)
 		return ret;
 
-	if (0 != get_param(params, 1, service, sizeof(service)))
+	if (0 != get_param(param, 1, service, sizeof(service)))
 		return ret;
 
-	if (0 != get_param(params, 2, ip, sizeof(ip)) || '\0' == *ip)
-		strscpy(ip, default_addr);
+	if (0 != get_param(param, 2, ip, sizeof(ip)) || '\0' == *ip)
+		strscpy(ip, "127.0.0.1");
 
-	if (0 != get_param(params, 3, str_port, sizeof(str_port)))
+	if (0 != get_param(param, 3, str_port, sizeof(str_port)))
 		*str_port = '\0';
 
 	if ('\0' != *str_port && FAIL == is_ushort(str_port, &port))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Invalid \"port\" parameter"));
 		return ret;
-	}
 
 	if (0 == strcmp(service, "ssh"))
 	{
@@ -239,7 +168,7 @@ int	check_service(const char *params, const char *default_addr, AGENT_RESULT *re
 			port = ZBX_DEFAULT_SSH_PORT;
 		ret = check_ssh(ip, port, CONFIG_TIMEOUT, &value_int);
 	}
-	else if (0 == strcmp(service, "ntp") || 0 == strcmp(service, "service.ntp" /* deprecated */))
+	else if (0 == strcmp(service, "ntp") || 0 == strcmp(service, "service.ntp" /* obsolete */))
 	{
 		if ('\0' == *str_port)
 			port = ZBX_DEFAULT_NTP_PORT;
@@ -252,7 +181,7 @@ int	check_service(const char *params, const char *default_addr, AGENT_RESULT *re
 			port = ZBX_DEFAULT_LDAP_PORT;
 		ret = check_ldap(ip, port, CONFIG_TIMEOUT, &value_int);
 	}
-#endif
+#endif	/* HAVE_LDAP */
 	else if (0 == strcmp(service, "smtp"))
 	{
 		if ('\0' == *str_port)
@@ -292,28 +221,11 @@ int	check_service(const char *params, const char *default_addr, AGENT_RESULT *re
 	else if (0 == strcmp(service, "tcp"))
 	{
 		if ('\0' == *str_port)
-		{
-			SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Required \"port\" parameter missing"));
 			return ret;
-		}
 		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, NULL, NULL, &value_int);
 	}
-#ifdef HAVE_LIBCURL
-	else if (0 == strcmp(service, "https"))
-	{
-		if ('\0' == *str_port)
-			port = ZBX_DEFAULT_HTTPS_PORT;
-		ret = check_https(ip, port, CONFIG_TIMEOUT, &value_int);
-	}
-#endif
-	else if (0 == strcmp(service, "telnet"))
-	{
-		if ('\0' == *str_port)
-			port = ZBX_DEFAULT_TELNET_PORT;
-		ret = check_telnet(ip, port, CONFIG_TIMEOUT, &value_int);
-	}
 	else
-		return ret;
+		return SYSINFO_RET_FAIL;
 
 	if (SYSINFO_RET_OK == ret)
 	{
@@ -350,10 +262,10 @@ int	check_service(const char *params, const char *default_addr, AGENT_RESULT *re
 
 int	CHECK_SERVICE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	return check_service(param, "127.0.0.1", result, 0);
+	return check_service(cmd, param, flags, result, 0);
 }
 
 int	CHECK_SERVICE_PERF(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	return check_service(param, "127.0.0.1", result, 1);
+	return check_service(cmd, param, flags, result, 1);
 }

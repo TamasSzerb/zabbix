@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -26,13 +26,13 @@
 #include "zbxgetopt.h"
 
 const char	*progname = NULL;
-const char	title_message[] = "Zabbix get";
+const char	title_message[] = "Zabbix Get";
 const char	usage_message[] = "[-hV] -s <host name or IP> [-p <port>] [-I <IP address>] -k <key>";
 
 const char	*help_message[] = {
 	"Options:",
 	"  -s --host <host name or IP>          Specify host name or IP address of a host",
-	"  -p --port <port number>              Specify port number of agent running on the host. Default is " ZBX_DEFAULT_AGENT_PORT_STR,
+	"  -p --port <port number>              Specify port number of agent running on the host. Default is 10050",
 	"  -I --source-address <IP address>     Specify source IP address",
 	"",
 	"  -k --key <key of metric>             Specify key of item to retrieve value for",
@@ -40,7 +40,7 @@ const char	*help_message[] = {
 	"  -h --help                            Give this help",
 	"  -V --version                         Display version number",
 	"",
-	"Example: zabbix_get -s 127.0.0.1 -p " ZBX_DEFAULT_AGENT_PORT_STR " -k \"system.cpu.load[all,avg1]\"",
+	"Example: zabbix_get -s 127.0.0.1 -p 10050 -k \"system.cpu.load[all,avg1]\"",
 	NULL	/* end of text */
 };
 
@@ -124,7 +124,7 @@ static int	get_value(const char *source_ip, const char *host, unsigned short por
 
 		if (SUCCEED == (ret = zbx_tcp_send(&s, request)))
 		{
-			if (SUCCEED == (ret = SUCCEED_OR_FAIL(zbx_tcp_recv_ext(&s, &buf, ZBX_TCP_READ_UNTIL_CLOSE, 0))))
+			if (SUCCEED == (ret = zbx_tcp_recv_ext(&s, &buf, ZBX_TCP_READ_UNTIL_CLOSE, 0)))
 			{
 				zbx_rtrim(buf, "\r\n");
 				*value = strdup(buf);
@@ -157,17 +157,19 @@ static int	get_value(const char *source_ip, const char *host, unsigned short por
  ******************************************************************************/
 int main(int argc, char **argv)
 {
-	unsigned short	port = ZBX_DEFAULT_AGENT_PORT;
-	int		ret = SUCCEED;
-	char		*value = NULL, *host = NULL, *key = NULL, *source_ip = NULL, ch;
+	unsigned short	port	= 10050;
+	int	ret	= SUCCEED;
+	char	*value	= NULL;
+	char	*host	= NULL;
+	char	*key	= NULL;
+	char	*source_ip = NULL;
+	char	ch;
 
 	progname = get_program_name(argv[0]);
 
-	/* parse the command-line */
-	while ((char)EOF != (ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts, NULL)))
-	{
-		switch (ch)
-		{
+	/* Parse the command-line. */
+	while ((ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts, NULL)) != (char)EOF)
+		switch (ch) {
 			case 'k':
 				key = strdup(zbx_optarg);
 				break;
@@ -193,15 +195,14 @@ int main(int argc, char **argv)
 				exit(-1);
 				break;
 		}
-	}
 
-	if (NULL == host || NULL == key)
+	if( (host==NULL) || (key==NULL))
 	{
 		usage();
 		ret = FAIL;
 	}
 
-	if (SUCCEED == ret)
+	if(ret == SUCCEED)
 	{
 
 #if !defined(_WINDOWS)
@@ -209,12 +210,14 @@ int main(int argc, char **argv)
 		signal(SIGTERM, get_signal_handler);
 		signal(SIGQUIT, get_signal_handler);
 		signal(SIGALRM, get_signal_handler);
-#endif
+#endif /* not WINDOWS */
 
 		ret = get_value(source_ip, host, port, key, &value);
 
-		if (SUCCEED == ret)
+		if(ret == SUCCEED)
+		{
 			printf("%s\n",value);
+		}
 
 		zbx_free(value);
 	}

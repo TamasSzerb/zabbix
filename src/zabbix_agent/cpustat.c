@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,15 +14,12 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "stats.h"
 #include "cpustat.h"
-#ifdef _WINDOWS
-#	include "perfstat.h"
-#endif
 #include "mutexs.h"
 #include "log.h"
 
@@ -87,7 +84,7 @@ clean:
 	if (ZBX_MUTEX_ERROR == zbx_mutex_create_force(&cpustats_lock, ZBX_MUTEX_CPUSTATS))
 	{
 		zbx_error("unable to create mutex for cpu collector");
-		exit(EXIT_FAILURE);
+		exit(FAIL);
 	}
 
 	for (cpu_num = 0; cpu_num <= pcpus->count; cpu_num++)

@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -156,14 +156,14 @@ static int	VFS_FS_INODE_PUSED(const char *cmd, const char *param, unsigned flags
 
 int	VFS_FS_INODE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	const MODE_FUNCTION	fl[] =
+	MODE_FUNCTION fl[] =
 	{
 		{"free" ,	VFS_FS_INODE_FREE},
 		{"total" ,	VFS_FS_INODE_TOTAL},
 		{"used",	VFS_FS_INODE_USED},
 		{"pfree" ,	VFS_FS_INODE_PFREE},
 		{"pused" ,	VFS_FS_INODE_PUSED},
-		{NULL,		0}
+		{0,		0}
 	};
 
 	char	fsname[MAX_STRING_LEN];

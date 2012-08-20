@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,69 +15,40 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+class CFlashClock extends CFlash{
 
+ public $timetype;
+ public $src;
 
-class CFlashClock extends CFlash {
-
-	public $timetype;
-	public $src;
-
-	public function __construct($width = 200, $height = 200, $url = null) {
+	public function __construct($width = 200, $height = 200, $timetype = TIME_TYPE_LOCAL, $url = NULL){
 		$this->timetype = null;
 
-		if (!is_numeric($width) || $width < 24) {
-			$width = 200;
-		}
-		if (!is_numeric($height) || $height < 24) {
-			$height = 200;
-		}
+		if(!is_numeric($width) || $width < 24) $width = 200;
+		if(!is_numeric($height) || $height< 24) $height = 200;
 
 		$this->src = 'images/flash/zbxclock.swf?analog=1&smooth=1';
-		if (!is_null($url)) {
-			$this->src .= '&url='.urlencode($url);
-		}
-		$this->timeError = null;
-		$this->timeType = null;
-		$this->timeZone = null;
-		$this->timeOffset = null;
+		if(!is_null($url))	$this->src .= '&url='.urlencode($url);
 
-		parent::__construct($this->src, $width, $height);
+		parent::__construct($this->src,$width,$height);
+		$this->setTimeType($timetype);
 	}
 
-	public function setTimeType($value) {
-		$this->timeType = $value;
+	public function setTimeType($value){
+		if($value != TIME_TYPE_LOCAL && $value != TIME_TYPE_SERVER)
+			return $this->error('Incorrect value vor SetTimeType ['.$value.']');
+
+		$this->timetype = $value;
 	}
 
-	public function setTimeZone($value) {
-		$this->timeZone = $value;
-	}
+	public function bodyToString(){
+		if($this->timetype == TIME_TYPE_SERVER)
+			$this->setSrc($this->src.'&timestamp='.(time() + date('Z')));
 
-	public function setTimeOffset($value) {
-		$this->timeOffset = $value;
-	}
-
-	public function setTimeError($value) {
-		$this->timeError = $value;
-	}
-
-	public function bodyToString() {
-		$src = $this->src;
-		if (!empty($this->timeError)) {
-			$src .= '&timeerror='.$this->timeError;
-		}
-		if (!empty($this->timeType)) {
-			$src .= '&timetype='.urlencode($this->timeType);
-		}
-		if (!is_null($this->timeZone)) {
-			$src .= '&timezone='.urlencode($this->timeZone);
-		}
-		if (!is_null($this->timeOffset)) {
-			$src .= '&timeoffset='.$this->timeOffset;
-		}
-		$this->setSrc($src);
-
-		return parent::bodyToString();
+	return parent::bodyToString();
 	}
 }
+?>

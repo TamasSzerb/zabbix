@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,13 +14,13 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
 #include "threads.h"
-#include "perfstat.h"
+#include "stats.h"
 #include "log.h"
 
 int	USER_PERF_COUNTER(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
@@ -32,19 +32,19 @@ int	USER_PERF_COUNTER(const char *cmd, const char *param, unsigned flags, AGENT_
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	if (SUCCEED != perf_collector_started())
+	if (!PERF_COLLECTOR_STARTED(collector))
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "Collector is not started!");
 		return ret;
 	}
 
-	for (perfs = ppsd.pPerfCounterList; NULL != perfs; perfs = perfs->next)
+	for (perfs = collector->perfs.pPerfCounterList; NULL != perfs; perfs = perfs->next)
 	{
 		if (NULL != perfs->name && 0 == strcmp(perfs->name, param))
 		{
 			if (PERF_COUNTER_ACTIVE == perfs->status)
 			{
-				SET_DBL_RESULT(result, compute_average_value(perfs, USE_DEFAULT_INTERVAL));
+				SET_DBL_RESULT(result, compute_average_value(__function_name, perfs, USE_DEFAULT_INTERVAL));
 				ret = SYSINFO_RET_OK;
 			}
 
@@ -95,20 +95,20 @@ int	PERF_COUNTER(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 
 	if (1 < interval)
 	{
-		if (SUCCEED != perf_collector_started())
+		if (!PERF_COLLECTOR_STARTED(collector))
 		{
 			zabbix_log(LOG_LEVEL_DEBUG, "Collector is not started!");
 			goto clean;
 		}
 
-		for (perfs = ppsd.pPerfCounterList; NULL != perfs; perfs = perfs->next)
+		for (perfs = collector->perfs.pPerfCounterList; NULL != perfs; perfs = perfs->next)
 		{
 			if (0 == strcmp(perfs->counterpath, counterpath) && perfs->interval == interval)
 			{
 				if (PERF_COUNTER_ACTIVE != perfs->status)
 					break;
 
-				SET_DBL_RESULT(result, compute_average_value(perfs, USE_DEFAULT_INTERVAL));
+				SET_DBL_RESULT(result, compute_average_value(__function_name, perfs, USE_DEFAULT_INTERVAL));
 				ret = SYSINFO_RET_OK;
 				goto clean;
 			}

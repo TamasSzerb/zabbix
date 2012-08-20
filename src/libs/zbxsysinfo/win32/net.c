@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,13 +14,12 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
 #include "log.h"
-#include "zbxjson.h"
 
 /*
  * returns interface statistics by IP address or interface name
@@ -56,7 +55,7 @@ static int	get_if_stats(const char *if_name, MIB_IFROW *pIfRow)
 	/* Allocate memory for our pointers. */
 	dwSize = sizeof(MIB_IFTABLE);
 	pIfTable = (MIB_IFTABLE *)zbx_malloc(pIfTable, dwSize);
-
+	
 	/* Before calling GetIfEntry, we call GetIfTable to make
 	   sure there are entries to get and retrieve the interface index.
 	   Make an initial call to GetIfTable to get the necessary size into dwSize */
@@ -106,7 +105,7 @@ static int	get_if_stats(const char *if_name, MIB_IFROW *pIfRow)
 				}
 			}
 		}
-
+		
 		if (SUCCEED == ret)
 			break;
 	}
@@ -236,67 +235,60 @@ int	NET_IF_TOTAL(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 	return SYSINFO_RET_OK;
 }
 
-int	NET_IF_DISCOVERY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+int	NET_TCP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	DWORD		dwSize, dwRetVal, i;
-	int		ret = SYSINFO_RET_FAIL;
-	/* variables used for GetIfTable and GetIfEntry */
-	MIB_IFTABLE	*pIfTable = NULL;
-	MIB_IFROW	pIfRow;
-	struct zbx_json	j;
-	LPTSTR		wdescr;
-	LPSTR		utf8_descr;
+	/* Declare and initialize variables */
+	MIB_TCPTABLE	*pTcpTable = NULL;
+	DWORD		dwSize, dwRetVal;
+	int		i, ret = SYSINFO_RET_FAIL;
+	zbx_uint64_t	port;
+	char		tmp[8];
 
-	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
+	if (num_param(param) > 1)
+		return SYSINFO_RET_FAIL;
 
-	zbx_json_addarray(&j, ZBX_PROTO_TAG_DATA);
+	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
+		return SYSINFO_RET_FAIL;
 
-	/* Allocate memory for our pointers. */
-	dwSize = sizeof(MIB_IFTABLE);
-	pIfTable = (MIB_IFTABLE *)zbx_malloc(pIfTable, dwSize);
+	if (SUCCEED != is_uint64(tmp, &port))
+		return SYSINFO_RET_FAIL;
 
-	/* Before calling GetIfEntry, we call GetIfTable to make
-	   sure there are entries to get and retrieve the interface index.
-	   Make an initial call to GetIfTable to get the necessary size into dwSize */
-	if (ERROR_INSUFFICIENT_BUFFER == GetIfTable(pIfTable, &dwSize, 0))
-		pIfTable = (MIB_IFTABLE *)zbx_realloc(pIfTable, dwSize);
+	if (port > 65535)
+		return SYSINFO_RET_FAIL;
 
-	/* Make a second call to GetIfTable to get the actual data we want. */
-	if (NO_ERROR != (dwRetVal = GetIfTable(pIfTable, &dwSize, 0)))
+	dwSize = sizeof(MIB_TCPTABLE);
+	pTcpTable = (MIB_TCPTABLE *)zbx_malloc(pTcpTable, dwSize);
+
+	/* Make an initial call to GetTcpTable to
+	   get the necessary size into the dwSize variable */
+	if (ERROR_INSUFFICIENT_BUFFER == (dwRetVal = GetTcpTable(pTcpTable, &dwSize, TRUE)))
+		pTcpTable = (MIB_TCPTABLE *)zbx_realloc(pTcpTable, dwSize);
+
+	/* Make a second call to GetTcpTable to get
+	   the actual data we require */
+	if (NO_ERROR == (dwRetVal = GetTcpTable(pTcpTable, &dwSize, TRUE)))
 	{
-		zabbix_log(LOG_LEVEL_DEBUG, "GetIfTable failed with error: %s", strerror_from_system(dwRetVal));
+		for (i = 0; i < (int) pTcpTable->dwNumEntries; i++)
+		{
+			if (MIB_TCP_STATE_LISTEN == pTcpTable->table[i].dwState &&
+					(u_short)port == ntohs((u_short)pTcpTable->table[i].dwLocalPort))
+			{
+				SET_UI64_RESULT(result, 1);
+				break;
+			}
+		}
+		ret = SYSINFO_RET_OK;
+	}
+	else
+	{
+		zabbix_log(LOG_LEVEL_DEBUG, "GetTcpTable failed with error: %s", strerror_from_system(dwRetVal));
 		goto clean;
 	}
 
-	for (i = 0; i < pIfTable->dwNumEntries; i++)
-	{
-		pIfRow.dwIndex = pIfTable->table[i].dwIndex;
-		if (NO_ERROR != (dwRetVal = GetIfEntry(&pIfRow)))
-		{
-			zabbix_log(LOG_LEVEL_DEBUG, "GetIfEntry failed with error: %s", strerror_from_system(dwRetVal));
-			continue;
-		}
-
-		zbx_json_addobject(&j, NULL);
-
-		wdescr = zbx_acp_to_unicode(pIfRow.bDescr);
-		utf8_descr = zbx_unicode_to_utf8(wdescr);
-		zbx_json_addstring(&j, "{#IFNAME}", utf8_descr, ZBX_JSON_TYPE_STRING);
-		zbx_free(utf8_descr);
-		zbx_free(wdescr);
-
-		zbx_json_close(&j);
-	}
-
-	zbx_json_close(&j);
-
-	SET_STR_RESULT(result, strdup(j.buffer));
-
-	zbx_json_free(&j);
-
-	ret = SYSINFO_RET_OK;
+	if (!ISSET_UI64(result))
+		SET_UI64_RESULT(result, 0);
 clean:
-	zbx_free(pIfTable);
+	zbx_free(pTcpTable);
 
 	return ret;
 }
@@ -332,8 +324,7 @@ int	NET_IF_LIST(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 {
 	DWORD		dwSize, dwRetVal, i, j;
 	char		*buf = NULL;
-	size_t		buf_alloc = 512, buf_offset = 0;
-	int		ret = SYSINFO_RET_FAIL;
+	int		buf_alloc = 512, buf_offset = 0, ret = SYSINFO_RET_FAIL;
 	/* variables used for GetIfTable and GetIfEntry */
 	MIB_IFTABLE	*pIfTable = NULL;
 	MIB_IFROW	pIfRow;
@@ -361,7 +352,7 @@ int	NET_IF_LIST(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 	/* Allocate memory for our pointers. */
 	dwSize = sizeof(MIB_IFTABLE);
 	pIfTable = (MIB_IFTABLE *)zbx_malloc(pIfTable, dwSize);
-
+	
 	/* Before calling GetIfEntry, we call GetIfTable to make
 	   sure there are entries to get and retrieve the interface index.
 	   Make an initial call to GetIfTable to get the necessary size into dwSize */
@@ -392,27 +383,27 @@ int	NET_IF_LIST(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 				continue;
 			}
 
-			zbx_snprintf_alloc(&buf, &buf_alloc, &buf_offset,
+			zbx_snprintf_alloc(&buf, &buf_alloc, &buf_offset, 32,
 					"%-25s", get_if_type_string(pIfRow.dwType));
 
-			zbx_snprintf_alloc(&buf, &buf_alloc, &buf_offset,
+			zbx_snprintf_alloc(&buf, &buf_alloc, &buf_offset, 16,
 					" %-8s", get_if_adminstatus_string(pIfRow.dwAdminStatus));
 
 			for (j = 0; j < pIPAddrTable->dwNumEntries; j++)
 				if (pIPAddrTable->table[j].dwIndex == pIfRow.dwIndex)
 				{
 					in_addr.S_un.S_addr = pIPAddrTable->table[j].dwAddr;
-					zbx_snprintf_alloc(&buf, &buf_alloc, &buf_offset,
+					zbx_snprintf_alloc(&buf, &buf_alloc, &buf_offset, 17,
 							" %-15s", inet_ntoa(in_addr));
 					break;
 				}
 
 			if (j == pIPAddrTable->dwNumEntries)
-				zbx_strcpy_alloc(&buf, &buf_alloc, &buf_offset, " -");
+				zbx_snprintf_alloc(&buf, &buf_alloc, &buf_offset, 3, " -");
 
 			wdescr = zbx_acp_to_unicode(pIfRow.bDescr);
 			utf8_descr = zbx_unicode_to_utf8(wdescr);
-			zbx_snprintf_alloc(&buf, &buf_alloc, &buf_offset, " %s\n", utf8_descr);
+			zbx_snprintf_alloc(&buf, &buf_alloc, &buf_offset, strlen(utf8_descr) + 3, " %s\n", utf8_descr);
 			zbx_free(utf8_descr);
 			zbx_free(wdescr);
 		}
@@ -424,64 +415,6 @@ int	NET_IF_LIST(const char *cmd, const char *param, unsigned flags, AGENT_RESULT
 clean:
 	zbx_free(pIfTable);
 	zbx_free(pIPAddrTable);
-
-	return ret;
-}
-
-int	NET_TCP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
-{
-	MIB_TCPTABLE	*pTcpTable = NULL;
-	DWORD		dwSize, dwRetVal;
-	int		i, ret = SYSINFO_RET_FAIL;
-	unsigned short	port;
-	char		tmp[8];
-
-	assert(result);
-
-	init_result(result);
-
-	if (num_param(param) > 1)
-		return SYSINFO_RET_FAIL;
-
-	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
-		return SYSINFO_RET_FAIL;
-
-	if (SUCCEED != is_ushort(tmp, &port))
-		return SYSINFO_RET_FAIL;
-
-	dwSize = sizeof(MIB_TCPTABLE);
-	pTcpTable = (MIB_TCPTABLE *)zbx_malloc(pTcpTable, dwSize);
-
-	/* Make an initial call to GetTcpTable to
-	   get the necessary size into the dwSize variable */
-	if (ERROR_INSUFFICIENT_BUFFER == (dwRetVal = GetTcpTable(pTcpTable, &dwSize, TRUE)))
-		pTcpTable = (MIB_TCPTABLE *)zbx_realloc(pTcpTable, dwSize);
-
-	/* Make a second call to GetTcpTable to get
-	   the actual data we require */
-	if (NO_ERROR == (dwRetVal = GetTcpTable(pTcpTable, &dwSize, TRUE)))
-	{
-		for (i = 0; i < (int)pTcpTable->dwNumEntries; i++)
-		{
-			if (MIB_TCP_STATE_LISTEN == pTcpTable->table[i].dwState &&
-					port == ntohs((u_short)pTcpTable->table[i].dwLocalPort))
-			{
-				SET_UI64_RESULT(result, 1);
-				break;
-			}
-		}
-		ret = SYSINFO_RET_OK;
-	}
-	else
-	{
-		zabbix_log(LOG_LEVEL_DEBUG, "GetTcpTable failed with error: %s", strerror_from_system(dwRetVal));
-		goto clean;
-	}
-
-	if (!ISSET_UI64(result))
-		SET_UI64_RESULT(result, 0);
-clean:
-	zbx_free(pTcpTable);
 
 	return ret;
 }

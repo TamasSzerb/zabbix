@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,56 +15,53 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
-
-class CArea extends CTag {
-
-	public function __construct($coords, $href, $alt, $shape) {
-		parent::__construct('area', 'no');
+?>
+<?php
+class CArea extends CTag{
+	public function __construct($coords,$href,$alt,$shape){
+		parent::__construct('area','no');
 		$this->setCoords($coords);
 		$this->setShape($shape);
 		$this->setHref($href);
 		$this->setAlt($alt);
 	}
 
-	public function setCoords($value) {
-		if (!is_array($value)) {
-			return $this->error('Incorrect value for setCoords "'.$value.'".');
-		}
-		if (count($value) < 3) {
-			return $this->error('Incorrect values count for setCoords "'.count($value).'".');
-		}
+	public function setCoords($value){
+		if(!is_array($value))
+			return $this->error('Incorrect value for setCoords ['.$value.']');
+		if(count($value)<3)
+			return $this->error('Incorrect values count for setCoords ['.count($value).']');
 
 		$str_val = '';
-		foreach ($value as $val) {
-			if (!is_numeric($val)) {
-				return $this->error('Incorrect value for setCoords "'.$val.'".');
-			}
+		foreach($value as $val){
+			if(!is_numeric($val))
+				return $this->error('Incorrect value for setCoords ['.$val.']');
+
 			$str_val .= $val.',';
 		}
-		$this->setAttribute('coords', trim($str_val, ','));
+		$this->setAttribute('coords',trim($str_val,','));
 	}
 
-	public function setShape($value) {
-		if (!is_string($value)) {
-			return $this->error('Incorrect value for setShape "'.$value.'".');
-		}
-		$this->setAttribute('shape', $value);
+	public function setShape($value){
+		if(!is_string($value))
+			return $this->error('Incorrect value for setShape ['.$value.']');
+
+		$this->setAttribute('shape',$value);
 	}
 
-	public function setHref($value) {
-		if (!is_string($value)) {
-			return $this->error('Incorrect value for setHref "'.$value.'".');
-		}
-		$this->setAttribute('href', $value);
+	public function setHref($value){
+
+		if(!is_string($value)) return $this->error('Incorrect value for setHref ['.$value.']');
+		$this->setAttribute('href',$value);
 	}
 
-	public function setAlt($value) {
-		if (!is_string($value)) {
-			return $this->error('Incorrect value for setAlt "'.$value.'".');
-		}
-		$this->setAttribute('alt', $value);
+	public function setAlt($value){
+		if(!is_string($value))
+			return $this->error('Incorrect value for setAlt ['.$value.']');
+
+		$this->setAttribute('alt',$value);
 	}
 }
+?>

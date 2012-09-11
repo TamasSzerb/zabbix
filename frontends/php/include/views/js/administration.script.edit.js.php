@@ -1,6 +1,9 @@
 <script type="text/javascript">
 
 jQuery(document).ready(function(){
+
+	jQuery("#name").focus();
+
 // Type change
 	jQuery("#type").change(function(){
 		var ipmi = jQuery(this).val() == '1';

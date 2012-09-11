@@ -74,10 +74,7 @@ if (!$this->data['is_discovery_rule']) {
 		));
 	}
 }
-
-$nameTextBox = new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE, $this->data['limited']);
-$nameTextBox->attr('autofocus', 'autofocus');
-$itemFormList->addRow(_('Name'), $nameTextBox);
+$itemFormList->addRow(_('Name'), new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE, $this->data['limited']));
 
 // append type to form list
 if ($this->data['limited']) {

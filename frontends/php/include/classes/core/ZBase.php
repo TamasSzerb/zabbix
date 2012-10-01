@@ -120,7 +120,6 @@ class ZBase {
 			$this->rootDir.'/include/classes/helpers/trigger',
 			$this->rootDir.'/include/classes/tree',
 			$this->rootDir.'/api/classes',
-			$this->rootDir.'/api/classes/managers',
 			$this->rootDir.'/api/rpc'
 		);
 	}

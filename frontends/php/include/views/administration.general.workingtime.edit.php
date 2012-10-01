@@ -17,12 +17,11 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 $workingTimeTab = new CFormList('scriptsTab');
-$wtTextBox = new CTextBox('work_period', $this->data['config']['work_period'], ZBX_TEXTBOX_STANDARD_SIZE);
-$wtTextBox->attr('autofocus', 'autofocus');
-$workingTimeTab->addRow(_('Working time'), $wtTextBox);
+$workingTimeTab->addRow(_('Working time'), new CTextBox('work_period', $this->data['config']['work_period'], ZBX_TEXTBOX_STANDARD_SIZE));
 
 $workingTimeView = new CTabView();
 $workingTimeView->addTab('workingTime', _('Working time'), $workingTimeTab);
@@ -35,3 +34,4 @@ $workingTimeForm->addItem($workingTimeView);
 $workingTimeForm->addItem(makeFormFooter(array(new CSubmit('save', _('Save')))));
 
 return $workingTimeForm;
+?>

@@ -51,9 +51,7 @@ $httpFormList->addRow(_('Application'), array(
 		'formlist'
 	)
 ));
-$nameTextBox = new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE, 'no', 64);
-$nameTextBox->attr('autofocus', 'autofocus');
-$httpFormList->addRow(_('Name'), $nameTextBox);
+$httpFormList->addRow(_('Name'), new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE, 'no', 64));
 
 // append authentication to form list
 $authenticationComboBox = new CComboBox('authentication', $this->data['authentication'], 'submit();');

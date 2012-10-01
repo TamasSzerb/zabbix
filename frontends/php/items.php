@@ -314,12 +314,7 @@ if (isset($_REQUEST['filter_hostname']) && !zbx_empty($_REQUEST['filter_hostname
 		$hostid = API::Template()->getObjects(array('name' => $_REQUEST['filter_hostname']));
 	}
 	$hostid = reset($hostid);
-	if ($hostid) {
-		$hostid = isset($hostid['hostid']) ? $hostid['hostid'] : $hostid['templateid'];
-	}
-	else {
-		$hostid = 0;
-	}
+	$hostid = $hostid ? $hostid['hostid'] : 0;
 }
 
 // subfilters

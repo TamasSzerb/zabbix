@@ -34,9 +34,7 @@ if (isset($this->data['maintenanceid'])) {
  * Maintenance tab
  */
 $maintenanceFormList = new CFormList('maintenanceFormList');
-$nameTextBox = new CTextBox('mname', $this->data['mname'], ZBX_TEXTBOX_STANDARD_SIZE);
-$nameTextBox->attr('autofocus', 'autofocus');
-$maintenanceFormList->addRow(_('Name'), $nameTextBox);
+$maintenanceFormList->addRow(_('Name'), new CTextBox('mname', $this->data['mname'], ZBX_TEXTBOX_STANDARD_SIZE));
 $typeComboBox = new CComboBox('maintenance_type', $this->data['maintenance_type']);
 $typeComboBox->addItem(MAINTENANCE_TYPE_NORMAL, _('With data collection'));
 $typeComboBox->addItem(MAINTENANCE_TYPE_NODATA, _('No data collection'));
@@ -44,16 +42,46 @@ $maintenanceFormList->addRow(_('Maintenance type'), $typeComboBox);
 $maintenanceForm->addVar('active_since', date('YmdHi', $this->data['active_since']));
 $maintenanceForm->addVar('active_till', date('YmdHi', $this->data['active_till']));
 
-$maintenanceFormList->addRow(_('Active since'), createDateSelector('active_since', $this->data['active_since'], 'active_till'));
-$maintenanceFormList->addRow(_('Active till'), createDateSelector('active_till', $this->data['active_till'], 'active_since'));
+$calendarIcon = new CImg('images/general/bar/cal.gif', 'calendar', 16, 12, 'pointer');
+$calendarIcon->addAction('onclick', 'javascript: var pos = getPosition(this); pos.top += 10; pos.left += 16; CLNDR["mntc_active_since"].clndr.clndrshow(pos.top, pos.left); CLNDR["mntc_active_till"].clndr.clndrhide();');
+$maintenanceSinceDay = new CNumericBox('mntc_since_day', $this->data['active_since'] > 0 ? date('d', $this->data['active_since']) : '', 2);
+$maintenanceSinceDay->setAttribute('placeholder', _('dd'));
+$maintenanceSinceMonth = new CNumericBox('mntc_since_month', $this->data['active_since'] > 0 ? date('m', $this->data['active_since']) : '', 2);
+$maintenanceSinceMonth->setAttribute('placeholder', _('mm'));
+$maintenanceSinceYear = new CNumericBox('mntc_since_year', $this->data['active_since'] > 0 ? date('Y', $this->data['active_since']) : '', 4);
+$maintenanceSinceYear->setAttribute('placeholder', _('yyyy'));
+$maintenanceSinceHour = new CNumericBox('mntc_since_hour', $this->data['active_since'] > 0 ? date('H', $this->data['active_since']) : '', 2);
+$maintenanceSinceHour->setAttribute('placeholder', _('hh'));
+$maintenanceSinceMinute = new CNumericBox('mntc_since_minute', $this->data['active_since'] > 0 ? date('i', $this->data['active_since']) : '', 2);
+$maintenanceSinceMinute->setAttribute('placeholder', _('mm'));
+
+$maintenanceFormList->addRow(_('Active since'), array($maintenanceSinceDay, '/', $maintenanceSinceMonth, '/', $maintenanceSinceYear, SPACE, $maintenanceSinceHour, ':', $maintenanceSinceMinute, $calendarIcon));
+zbx_add_post_js('create_calendar(null, ["mntc_since_day", "mntc_since_month", "mntc_since_year", "mntc_since_hour", "mntc_since_minute"], "mntc_active_since", "active_since");');
+
+$calendarIcon->addAction('onclick', 'javascript: var pos = getPosition(this); pos.top += 10; pos.left += 16; CLNDR["mntc_active_till"].clndr.clndrshow(pos.top, pos.left); CLNDR["mntc_active_since"].clndr.clndrhide();');
+$maintenanceTillDay = new CNumericBox('mntc_till_day', $this->data['active_till'] > 0 ? date('d', $this->data['active_till']) : '', 2);
+$maintenanceTillDay->setAttribute('placeholder', _('dd'));
+$maintenanceTillMonth = new CNumericBox('mntc_till_month', $this->data['active_till'] > 0 ? date('m', $this->data['active_till']) : '', 2);
+$maintenanceTillMonth->setAttribute('placeholder', _('mm'));
+$maintenanceTillYear = new CNumericBox('mntc_till_year', $this->data['active_till'] > 0 ? date('Y', $this->data['active_till']) : '', 4);
+$maintenanceTillYear->setAttribute('placeholder', _('yyyy'));
+$maintenanceTillHour = new CNumericBox('mntc_till_hour', $this->data['active_till'] > 0 ? date('H', $this->data['active_till']) : '', 2);
+$maintenanceTillHour->setAttribute('placeholder', _('hh'));
+$maintenanceTillMinute = new CNumericBox('mntc_till_minute', $this->data['active_till'] > 0 ? date('i', $this->data['active_till']) : '', 2);
+$maintenanceTillMinute->setAttribute('placeholder', _('mm'));
+
+$maintenanceFormList->addRow(_('Active till'), array($maintenanceTillDay, '/', $maintenanceTillMonth, '/', $maintenanceTillYear, SPACE, $maintenanceTillHour, ':', $maintenanceTillMinute, $calendarIcon));
+zbx_add_post_js('create_calendar(null, ["mntc_till_day", "mntc_till_month", "mntc_till_year", "mntc_till_hour", "mntc_till_minute"], "mntc_active_till", "active_till");');
+
 $maintenanceFormList->addRow(_('Description'), new CTextArea('description', $this->data['description']));
 
 /*
  * Maintenance period tab
  */
 $maintenancePeriodFormList = new CFormList('maintenancePeriodFormList');
-$maintenancePeriodTable = new CTable(_('No maintenance period defined.'), 'formElementTable');
+$maintenancePeriodTable = new CTableInfo(_('No maintenance period defined.'));
 $maintenancePeriodTable->setHeader(array(
+	new CCheckBox('all_periods', null, 'checkAll("'.$maintenanceForm->getName().'", "all_periods", "g_timeperiodid");'),
 	_('Period type'),
 	_('Schedule'),
 	_('Period'),
@@ -62,14 +90,11 @@ $maintenancePeriodTable->setHeader(array(
 
 foreach ($this->data['timeperiods'] as $id => $timeperiod) {
 	$maintenancePeriodTable->addRow(array(
+		new CCheckBox('g_timeperiodid[]', 'no', null, $id),
 		timeperiod_type2str($timeperiod['timeperiod_type']),
 		new CCol(shedule2str($timeperiod), 'wraptext'),
 		zbx_date2age(0, $timeperiod['period']),
-		array(
-			new CSubmit('edit_timeperiodid['.$id.']', _('Edit'), null, 'link_menu'),
-			SPACE.SPACE,
-			new CSubmit('del_timeperiodid['.$id.']', _('Remove'), null, 'link_menu')
-		)
+		new CSubmit('edit_timeperiodid['.$id.']', _('Edit'), null, 'link_menu')
 	));
 	if (isset($timeperiod['timeperiodid'])) {
 		$maintenanceForm->addVar('timeperiods['.$id.'][timeperiodid]', $timeperiod['timeperiodid']);
@@ -84,29 +109,19 @@ foreach ($this->data['timeperiods'] as $id => $timeperiod) {
 	$maintenanceForm->addVar('timeperiods['.$id.'][period]', $timeperiod['period']);
 }
 
-$periodsDiv = new CDiv($maintenancePeriodTable, 'objectgroup inlineblock border_dotted');
-if (!isset($_REQUEST['new_timeperiod'])) {
-	$periodsDiv->addItem(new CSubmit('new_timeperiod', _('New'), null, 'link_menu'));
-}
-$maintenancePeriodFormList->addRow(_('Periods'), $periodsDiv);
+$maintenancePeriodFormList->addRow(_('Periods'),
+	array(
+		$maintenancePeriodTable,
+		new CSubmit('new_timeperiod', _('New'), null, 'link_menu'),
+		SPACE,
+		SPACE,
+		new CSubmit('del_timeperiod', _('Delete selected'), null, 'link_menu')
+	)
+);
 
 if (isset($_REQUEST['new_timeperiod'])) {
-	if (is_array($_REQUEST['new_timeperiod']) && isset($_REQUEST['new_timeperiod']['id'])) {
-		$saveLabel = _('Save');
-	}
-	else {
-		$saveLabel = _('Add');
-	}
-
-	$footer = array(
-		new CSubmit('add_timeperiod', $saveLabel, null, 'link_menu'),
-		SPACE.SPACE,
-		new CSubmit('cancel_new_timeperiod', _('Cancel'), null, 'link_menu')
-	);
-
-	$maintenancePeriodFormList->addRow(_('Maintenance period'),
-		new CDiv(array(get_timeperiod_form(), $footer), 'objectgroup inlineblock border_dotted')
-	);
+	$label = (is_array($_REQUEST['new_timeperiod']) && isset($_REQUEST['new_timeperiod']['id'])) ? _('Edit maintenance period') : _('New maintenance period');
+	$maintenancePeriodFormList->addRow(SPACE, array(BR(), create_hat($label, get_timeperiod_form(), null, 'hat_new_timeperiod')));
 }
 
 /*
@@ -162,5 +177,4 @@ else {
 }
 
 $maintenanceWidget->addItem($maintenanceForm);
-
 return $maintenanceWidget;

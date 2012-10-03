@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/include/config.inc.php';
 require_once dirname(__FILE__).'/include/hosts.inc.php';
 require_once dirname(__FILE__).'/include/maintenances.inc.php';
@@ -49,12 +49,13 @@ $fields = array(
 	'active_till' =>			array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	'isset({save})'),
 	'new_timeperiod' =>			array(T_ZBX_STR, O_OPT, null,	null,		'isset({add_timeperiod})'),
 	'timeperiods' =>			array(T_ZBX_STR, O_OPT, null,	null,		null),
-	'del_timeperiodid' =>		array(null,      O_OPT, P_ACT,	DB_ID,		null),
-	'edit_timeperiodid' =>		array(null,      O_OPT, P_ACT,	DB_ID,		null),
+	'g_timeperiodid' =>			array(null,		 O_OPT, null,	null,		null),
+	'edit_timeperiodid' =>		array(null,		 O_OPT, P_ACT,	DB_ID,		null),
 	'twb_groupid' =>			array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
 	// actions
 	'go' =>						array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'add_timeperiod' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
+	'del_timeperiod' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'cancel_new_timeperiod' =>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'save' =>					array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'clone' =>					array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
@@ -266,11 +267,11 @@ elseif (isset($_REQUEST['add_timeperiod']) && isset($_REQUEST['new_timeperiod'])
 		unset($_REQUEST['new_timeperiod']);
 	}
 }
-elseif (isset($_REQUEST['del_timeperiodid'])) {
+elseif (isset($_REQUEST['del_timeperiod']) && isset($_REQUEST['g_timeperiodid'])) {
 	$_REQUEST['timeperiods'] = get_request('timeperiods', array());
-	$delTimeperiodId = array_keys($_REQUEST['del_timeperiodid']);
-	$delTimeperiodId = reset($delTimeperiodId);
-	unset($_REQUEST['timeperiods'][$delTimeperiodId]);
+	foreach ($_REQUEST['g_timeperiodid'] as $val) {
+		unset($_REQUEST['timeperiods'][$val]);
+	}
 }
 elseif (isset($_REQUEST['edit_timeperiodid'])) {
 	$_REQUEST['edit_timeperiodid'] = array_keys($_REQUEST['edit_timeperiodid']);
@@ -442,3 +443,4 @@ else {
 }
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

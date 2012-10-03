@@ -17,7 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 // include js + templates
 include('include/views/js/administration.script.edit.js.php');
@@ -40,7 +41,6 @@ if ($this->get('scriptid')) {
 // name
 $nameTB = new CTextBox('name', $this->get('name'));
 $nameTB->setAttribute('maxlength', 255);
-$nameTB->attr('autofocus', 'autofocus');
 $nameTB->addStyle('width: 50em;');
 $scriptTab->addRow(_('Name'), $nameTB);
 
@@ -129,3 +129,5 @@ $frmScr->addItem($footer);
 $scripts_wdgt->addItem($frmScr);
 
 return $scripts_wdgt;
+
+?>

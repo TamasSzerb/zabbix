@@ -354,10 +354,6 @@ function copyApplications($srcHostId, $dstHostId) {
 		'output' => API_OUTPUT_EXTEND,
 		'inherited' => false
 	));
-	if (empty($apps_to_clone)) {
-		return true;
-	}
-
 	foreach ($apps_to_clone as &$app) {
 		$app['hostid'] = $dstHostId;
 		unset($app['applicationid'], $app['templateid']);
@@ -914,23 +910,7 @@ function formatItemValue(array $item, $unknownString = '-') {
 	}
 
 	$value = formatItemValueType($item);
-
-	if ($item['value_type'] == ITEM_VALUE_TYPE_STR
-			|| $item['value_type'] == ITEM_VALUE_TYPE_TEXT
-			|| $item['value_type'] == ITEM_VALUE_TYPE_LOG) {
-
-		$mapping = getMappedValue($value, $item['valuemapid']);
-
-		if (zbx_strlen($value) > 20) {
-			$value = zbx_substr($value, 0, 20).'...';
-		}
-		$value = nbsp(htmlspecialchars($value));
-
-		if ($mapping !== false) {
-			$value = $mapping.' ('.$value.')';
-		}
-	}
-	else {
+	if ($item['valuemapid'] > 0) {
 		$value = applyValueMap($value, $item['valuemapid']);
 	}
 
@@ -952,6 +932,10 @@ function formatItemValueType(array $item) {
 			|| $item['value_type'] == ITEM_VALUE_TYPE_TEXT
 			|| $item['value_type'] == ITEM_VALUE_TYPE_LOG) {
 		$value = $item['lastvalue'];
+		if (zbx_strlen($value) > 20) {
+			$value = zbx_substr($value, 0, 20).' ...';
+		}
+		$value = nbsp(htmlspecialchars($value));
 	}
 	else {
 		$value = _('Unknown value type');

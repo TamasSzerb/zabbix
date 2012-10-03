@@ -36,9 +36,7 @@ if (isset($_REQUEST['usrgrpid'])) {
  * User group tab
 */
 $userGroupFormList = new CFormList('userGroupFormList');
-$nameTextBox = new CTextBox('gname', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE);
-$nameTextBox->attr('autofocus', 'autofocus');
-$userGroupFormList->addRow(_('Group name'), $nameTextBox);
+$userGroupFormList->addRow(_('Group name'), new CTextBox('gname', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE));
 
 // append groups to form list
 $groupsComboBox = new CComboBox('selusrgrp', $this->data['selected_usrgrp'], 'submit()');

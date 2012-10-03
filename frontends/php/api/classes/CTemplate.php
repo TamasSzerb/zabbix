@@ -355,7 +355,6 @@ class CTemplate extends CHostGeneral {
 			}
 			else{
 				$template['templateid'] = $template['hostid'];
-				unset($template['hostid']);
 				$templateids[$template['templateid']] = $template['templateid'];
 
 				if ($options['output'] == API_OUTPUT_SHORTEN) {
@@ -379,8 +378,8 @@ class CTemplate extends CHostGeneral {
 					if (!is_null($options['selectItems']) && !isset($result[$template['templateid']]['items'])) {
 						$template['items'] = array();
 					}
-					if (!is_null($options['selectDiscoveries']) && !isset($result[$template['templateid']]['discoveries'])) {
-						$result[$template['templateid']]['discoveries'] = array();
+					if (!is_null($options['selectDiscoveries']) && !isset($result[$template['hostid']]['discoveries'])) {
+						$result[$template['hostid']]['discoveries'] = array();
 					}
 					if (!is_null($options['selectTriggers']) && !isset($result[$template['templateid']]['triggers'])) {
 						$template['triggers'] = array();
@@ -435,10 +434,10 @@ class CTemplate extends CHostGeneral {
 
 					// triggerids
 					if (isset($template['triggerid']) && is_null($options['selectTriggers'])) {
-						if (!isset($result[$template['templateid']]['triggers']))
-							$result[$template['templateid']]['triggers'] = array();
+						if (!isset($result[$template['hostid']]['triggers']))
+							$result[$template['hostid']]['triggers'] = array();
 
-						$result[$template['templateid']]['triggers'][] = array('triggerid' => $template['triggerid']);
+						$result[$template['hostid']]['triggers'][] = array('triggerid' => $template['triggerid']);
 						unset($template['triggerid']);
 					}
 
@@ -473,7 +472,7 @@ class CTemplate extends CHostGeneral {
 			foreach ($groups as $groupid => $group) {
 				$ghosts = $group['hosts'];
 				unset($group['hosts']);
-				foreach ($ghosts as $template) {
+				foreach ($ghosts as $hnum => $template) {
 					$result[$template['hostid']]['groups'][] = $group;
 				}
 			}
@@ -500,7 +499,7 @@ class CTemplate extends CHostGeneral {
 						foreach ($template['parentTemplates'] as $parentTemplate) {
 							if (!is_null($options['limitSelects'])) {
 								if (!isset($count[$parentTemplate['templateid']])) $count[$parentTemplate['templateid']] = 0;
-								$count[$parentTemplate['templateid']]++;
+								$count[$parentTemplate['hostid']]++;
 
 								if ($count[$parentTemplate['templateid']] > $options['limitSelects']) continue;
 							}
@@ -515,7 +514,7 @@ class CTemplate extends CHostGeneral {
 				$objParams['groupCount'] = 1;
 
 				$templates = API::Template()->get($objParams);
-				$templates = zbx_toHash($templates, 'templateid');
+				$templates = zbx_toHash($templates, 'hostid');
 				foreach ($result as $templateid => $template) {
 					if (isset($templates[$groupid]))
 						$result[$templateid]['templates'] = $templates[$templateid]['rowscount'];
@@ -601,7 +600,7 @@ class CTemplate extends CHostGeneral {
 				$objParams['groupCount'] = 1;
 
 				$templates = API::Template()->get($objParams);
-				$templates = zbx_toHash($templates, 'templateid');
+				$templates = zbx_toHash($templates, 'hostid');
 				foreach ($result as $templateid => $template) {
 					if (isset($templates[$groupid]))
 						$result[$templateid]['parentTemplates'] = $templates[$templateid]['rowscount'];
@@ -847,11 +846,11 @@ class CTemplate extends CHostGeneral {
 
 				foreach ($screens as $screenid => $screen) {
 					if (!is_null($options['limitSelects'])) {
-						if (count($result[$screen['templateid']]['screens']) >= $options['limitSelects']) continue;
+						if (count($result[$screen['hostid']]['screens']) >= $options['limitSelects']) continue;
 					}
 
 					unset($screens[$screenid]['templates']);
-					$result[$screen['templateid']]['screens'][] = &$screens[$screenid];
+					$result[$screen['hostid']]['screens'][] = &$screens[$screenid];
 				}
 			}
 			elseif (API_OUTPUT_COUNT == $options['selectScreens']) {
@@ -859,7 +858,7 @@ class CTemplate extends CHostGeneral {
 				$objParams['groupCount'] = 1;
 
 				$screens = API::TemplateScreen()->get($objParams);
-				$screens = zbx_toHash($screens, 'templateid');
+				$screens = zbx_toHash($screens, 'hostid');
 				foreach ($result as $templateid => $template) {
 					if (isset($screens[$templateid]))
 						$result[$templateid]['screens'] = $screens[$templateid]['rowscount'];
@@ -1241,7 +1240,7 @@ class CTemplate extends CHostGeneral {
 		// TODO: remove info from API
 		foreach ($delTemplates as $template) {
 			info(_s('Deleted: Template "%1$s".', $template['name']));
-			add_audit_ext(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_HOST, $template['templateid'], $template['host'], 'hosts', NULL, NULL);
+			add_audit_ext(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_HOST, $template['hostid'], $template['host'], 'hosts', NULL, NULL);
 		}
 
 		return array('templateids' => $templateids);

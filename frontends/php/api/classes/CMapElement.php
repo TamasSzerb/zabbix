@@ -17,8 +17,12 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
+/**
+ * File containing CMapElement class for API.
+ * @package API
+ */
 /**
  * Class containing methods for operations with Maps Elements
  */
@@ -28,23 +32,23 @@ abstract class CMapElement extends CZBXAPI {
 
 	protected $tableAlias = 'se';
 
-	/**
-	 * Get Map data
-	 *
-	 * @param array $options
-	 * @param array $options['nodeids'] Node IDs
-	 * @param boolean $options['editable'] only with read-write permission. Ignored for SuperAdmins
-	 * @param int $options['countoutput'] count Hosts, returned column name is rowscount
-	 * @param string $options['search'] search hosts by pattern in host names
-	 * @param int $options['limit'] limit selection
-	 * @param string $options['sortorder']
-	 * @param string $options['sortfield']
-	 *
-	 * @return array|boolean Host data as array or false if error
-	 */
+/**
+ * Get Map data
+ *
+ * @param _array $options
+ * @param array $options['nodeids'] Node IDs
+ * @param boolean $options['editable'] only with read-write permission. Ignored for SuperAdmins
+ * @param int $options['countoutput'] count Hosts, returned column name is rowscount
+ * @param string $options['search'] search hosts by pattern in host names
+ * @param int $options['limit'] limit selection
+ * @param string $options['sortorder']
+ * @param string $options['sortfield']
+ * @return array|boolean Host data as array or false if error
+ */
 	protected function getSelements($options = array()) {
 		$result = array();
 		$nodeCheck = false;
+		$userType = self::$userData['type'];
 
 		// allowed columns for sorting
 		$sortColumns = array('selementid');
@@ -137,6 +141,7 @@ abstract class CMapElement extends CZBXAPI {
 // node check !!!!!
 // should last, after all ****IDS checks
 		if (!$nodeCheck) {
+			$nodeCheck = true;
 			$sqlParts['where'][] = DBin_node('se.selementid', $nodeids);
 		}
 
@@ -270,7 +275,7 @@ abstract class CMapElement extends CZBXAPI {
 				$mapLinks[$linkTrigger['linkid']]['linktriggers'][] = $linkTrigger;
 			}
 
-			foreach ($mapLinks as $link) {
+			foreach ($mapLinks as $num => $link) {
 				if (!isset($result[$link['selementid1']]['links']))
 					$result[$link['selementid1']]['links'] = array();
 
@@ -299,8 +304,11 @@ abstract class CMapElement extends CZBXAPI {
 	protected function getLinks($options=array()) {
 		$result = array();
 		$nodeCheck = false;
+		$userType = self::$userData['type'];
 
 		$sortColumns = array('linkid'); // allowed columns for sorting
+		$subselectsAllowedOutputs = array(API_OUTPUT_REFER, API_OUTPUT_EXTEND); // allowed output options for [ select_* ] params
+
 
 		$sqlParts = array(
 			'select' => array('sysmaps_links' => 'sl.linkid'),
@@ -340,7 +348,7 @@ abstract class CMapElement extends CZBXAPI {
 
 			$dbTable = DB::getSchema('sysmaps_links');
 			$sqlParts['select']['linkid'] = 'sl.linkid';
-			foreach ($options['output'] as $field) {
+			foreach ($options['output'] as $key => $field) {
 				if (isset($dbTable['fields'][$field]))
 					$sqlParts['select'][$field] = 'sl.'.$field;
 			}
@@ -387,6 +395,7 @@ abstract class CMapElement extends CZBXAPI {
 // node check !!!!!
 // should last, after all ****IDS checks
 		if (!$nodeCheck) {
+			$nodeCheck = true;
 			$sqlParts['where'][] = DBin_node('sl.linkid', $nodeids);
 		}
 
@@ -473,6 +482,7 @@ abstract class CMapElement extends CZBXAPI {
 	}
 
 	protected function checkSelementInput(&$selements, $method) {
+		$create = ($method == 'createSelements');
 		$update = ($method == 'updateSelements');
 		$delete = ($method == 'deleteSelements');
 
@@ -528,7 +538,9 @@ abstract class CMapElement extends CZBXAPI {
 		return ($update || $delete) ? $dbSelements : true;
 	}
 
+
 	protected function checkLinkInput($links, $method) {
+		$create = ($method == 'createLink');
 		$update = ($method == 'updateLink');
 		$delete = ($method == 'deleteLink');
 
@@ -553,20 +565,14 @@ abstract class CMapElement extends CZBXAPI {
 			);
 		}
 
-		$colorValidator = new CColorValidator();
 		foreach ($links as $link) {
 			if (!check_db_fields($linkDbFields, $link)) {
 				self::exception(ZBX_API_ERROR_PARAMETERS, _('Wrong fields for map link'));
 			}
 
-			if (isset($link['color']) && !$colorValidator->validate($link['color'])) {
-				self::exception(ZBX_API_ERROR_PARAMETERS, $colorValidator->getError());
-			}
-
 			if ($update || $delete) {
-				if (!isset($dbLinks[$link['linkid']])) {
+				if (!isset($dbLinks[$link['linkid']]))
 					self::exception(ZBX_API_ERROR_PARAMETERS, _('No permissions to referred object or it does not exist!'));
-				}
 			}
 		}
 
@@ -591,21 +597,21 @@ abstract class CMapElement extends CZBXAPI {
 		return false;
 	}
 
-	/**
-	 * Add Element to Sysmap
-	 *
-	 * @param array $elements[0,...]['sysmapid']
-	 * @param array $elements[0,...]['elementid']
-	 * @param array $elements[0,...]['elementtype']
-	 * @param array $elements[0,...]['label']
-	 * @param array $elements[0,...]['x']
-	 * @param array $elements[0,...]['y']
-	 * @param array $elements[0,...]['iconid_off']
-	 * @param array $elements[0,...]['iconid_on']
-	 * @param array $elements[0,...]['iconid_disabled']
-	 * @param array $elements[0,...]['urls'][0,...]
-	 * @param array $elements[0,...]['label_location']
-	 */
+/**
+ * Add Element to Sysmap
+ *
+ * @param array $elements[0,...]['sysmapid']
+ * @param array $elements[0,...]['elementid']
+ * @param array $elements[0,...]['elementtype']
+ * @param array $elements[0,...]['label']
+ * @param array $elements[0,...]['x']
+ * @param array $elements[0,...]['y']
+ * @param array $elements[0,...]['iconid_off']
+ * @param array $elements[0,...]['iconid_on']
+ * @param array $elements[0,...]['iconid_disabled']
+ * @param array $elements[0,...]['urls'][0,...]
+ * @param array $elements[0,...]['label_location']
+ */
 	protected function createSelements($selements) {
 		$selements = zbx_toArray($selements);
 
@@ -626,22 +632,23 @@ abstract class CMapElement extends CZBXAPI {
 	return array('selementids' => $selementids);
 	}
 
-	/**
-	 * Update Element to Sysmap
-	 *
-	 * @param array $elements[0,...]['selementid']
-	 * @param array $elements[0,...]['sysmapid']
-	 * @param array $elements[0,...]['elementid']
-	 * @param array $elements[0,...]['elementtype']
-	 * @param array $elements[0,...]['label']
-	 * @param array $elements[0,...]['x']
-	 * @param array $elements[0,...]['y']
-	 * @param array $elements[0,...]['iconid_off']
-	 * @param array $elements[0,...]['iconid_on']
-	 * @param array $elements[0,...]['iconid_disabled']
-	 * @param array $elements[0,...]['url']
-	 * @param array $elements[0,...]['label_location']
-	 */
+
+/**
+ * Update Element to Sysmap
+ *
+ * @param array $elements[0,...]['selementid']
+ * @param array $elements[0,...]['sysmapid']
+ * @param array $elements[0,...]['elementid']
+ * @param array $elements[0,...]['elementtype']
+ * @param array $elements[0,...]['label']
+ * @param array $elements[0,...]['x']
+ * @param array $elements[0,...]['y']
+ * @param array $elements[0,...]['iconid_off']
+ * @param array $elements[0,...]['iconid_on']
+ * @param array $elements[0,...]['iconid_disabled']
+ * @param array $elements[0,...]['url']
+ * @param array $elements[0,...]['label_location']
+ */
 	protected function updateSelements($selements) {
 		$selements = zbx_toArray($selements);
 		$selementids = array();
@@ -668,7 +675,7 @@ abstract class CMapElement extends CZBXAPI {
 			}
 
 // update url
-			foreach ($diffUrls['both'] as $updUrl)
+			foreach ($diffUrls['both'] as $unum => $updUrl)
 				$urlsToUpdate[] = array(
 					'values' => $updUrl,
 					'where' => array('selementid'=>$selement['selementid'],'name'=>$updUrl['name'])
@@ -692,12 +699,12 @@ abstract class CMapElement extends CZBXAPI {
 	return array('selementids' => $selementids);
 	}
 
-	/**
-	 * Delete Element from map
-	 *
-	 * @param array $selements multidimensional array with selement objects
-	 * @param array $selements[0, ...]['selementid'] selementid to delete
-	 */
+/**
+ * Delete Element from map
+ *
+ * @param array $selements multidimensional array with selement objects
+ * @param array $selements[0, ...]['selementid'] selementid to delete
+ */
 	protected function deleteSelements($selements) {
 		$selements = zbx_toArray($selements);
 		$selementids = zbx_objectValues($selements, 'selementid');
@@ -709,18 +716,17 @@ abstract class CMapElement extends CZBXAPI {
 	return $selementids;
 	}
 
-	/**
-	 * createLink Link
-	 *
-	 * @param array $links
-	 * @param array $links[0,...]['sysmapid']
-	 * @param array $links[0,...]['selementid1']
-	 * @param array $links[0,...]['selementid2']
-	 * @param array $links[0,...]['drawtype']
-	 * @param array $links[0,...]['color']
-	 *
-	 * @return boolean
-	 */
+/**
+ * createLink Link
+ *
+ * @param array $links
+ * @param array $links[0,...]['sysmapid']
+ * @param array $links[0,...]['selementid1']
+ * @param array $links[0,...]['selementid2']
+ * @param array $links[0,...]['drawtype']
+ * @param array $links[0,...]['color']
+ * @return boolean
+ */
 	protected function createLinks($links) {
 		$links = zbx_toArray($links);
 
@@ -731,26 +737,27 @@ abstract class CMapElement extends CZBXAPI {
 		return array('linkids' => $linkids);
 	}
 
+
 	protected function updateLinks($links) {
 		$links = zbx_toArray($links);
 
 		$this->checkLinkInput($links, __FUNCTION__);
 
 		$udpateLinks = array();
-		foreach ($links as $link)
+		foreach ($links as $lnum => $link)
 			$udpateLinks[] = array('values' => $link, 'where' => array('linkid'=>$link['linkid']));
 
 		DB::update('sysmaps_links', $udpateLinks);
 
-		return array('linkids' => zbx_objectValues($links, 'linkid'));
+	return array('linkids' => zbx_objectValues($links, 'linkid'));
 	}
 
-	/**
-	 * Delete Link from map
-	 *
-	 * @param array $links multidimensional array with link objects
-	 * @param array $links[0, ...]['linkid'] link ID to delete
-	 */
+/**
+ * Delete Link from map
+ *
+ * @param array $links multidimensional array with link objects
+ * @param array $links[0, ...]['linkid'] link ID to delete
+ */
 	protected function deleteLinks($links) {
 		zbx_value2array($links);
 		$linkids = zbx_objectValues($links, 'linkid');
@@ -759,53 +766,51 @@ abstract class CMapElement extends CZBXAPI {
 
 		DB::delete('sysmaps_links', array('linkid' => $linkids));
 
-		return array('linkids' => $linkids);
+	return array('linkids' => $linkids);
 	}
 
-	/**
-	 * Add link trigger to link (Sysmap)
-	 *
-	 * @param array $links[0,...]['linkid']
-	 * @param array $links[0,...]['triggerid']
-	 * @param array $links[0,...]['drawtype']
-	 * @param array $links[0,...]['color']
-	 */
+/**
+ * Add link trigger to link (Sysmap)
+ *
+ * @param array $links[0,...]['linkid']
+ * @param array $links[0,...]['triggerid']
+ * @param array $links[0,...]['drawtype']
+ * @param array $links[0,...]['color']
+ */
 	protected function createLinkTriggers($linktriggers) {
 		$linktriggers = zbx_toArray($linktriggers);
 
-		$this->validateCreateLinkTriggers($linktriggers);
+		$linktriggerDbFields = array(
+			'linkid' => null,
+			'triggerid' => null,
+			'drawtype' => 0,
+			'color' => 'DD0000'
+		);
+
+		foreach ($linktriggers as $linktrigger) {
+			if (!check_db_fields($linktriggerDbFields, $linktrigger))
+				self::exception(ZBX_API_ERROR_PARAMETERS, _('Wrong fields for linktrigger'));
+		}
 
 		$linktriggerids = DB::insert('sysmaps_link_triggers', $linktriggers);
 
 		return array('linktriggerids' => $linktriggerids);
 	}
 
-	protected function validateCreateLinkTriggers(array $linkTriggers) {
-		$linktriggerDbFields = array(
-			'linkid' => null,
-			'triggerid' => null,
-		);
-
-		$colorValidator = new CColorValidator();
-		foreach ($linkTriggers as $linkTrigger) {
-			if (!check_db_fields($linktriggerDbFields, $linkTrigger)) {
-				self::exception(ZBX_API_ERROR_PARAMETERS, _('Wrong fields for linktrigger'));
-			}
-
-			if (isset($linkTrigger['color']) && !$colorValidator->validate($linkTrigger['color'])) {
-				self::exception(ZBX_API_ERROR_PARAMETERS, $colorValidator->getError());
-			}
-		}
-	}
 
 	protected function updateLinkTriggers($linktriggers) {
 		$linktriggers = zbx_toArray($linktriggers);
-		$this->validateUpdateLinkTriggers($linktriggers);
-
 		$linktriggerids = zbx_objectValues($linktriggers, 'linktriggerid');
+
+		$linktriggerDbFields = array(
+			'linktriggerid' => null
+		);
 
 		$updateLinkTriggers = array();
 		foreach ($linktriggers as $linktrigger) {
+			if (!check_db_fields($linktriggerDbFields, $linktrigger))
+				self::exception(ZBX_API_ERROR_PARAMETERS, _('Wrong fields for linktrigger update'));
+
 			$updateLinkTriggers[] = array(
 				'values' => $linktrigger,
 				'where' => array('linktriggerid'=>$linktrigger['linktriggerid'])
@@ -817,43 +822,24 @@ abstract class CMapElement extends CZBXAPI {
 		return array('linktriggerids' => $linktriggerids);
 	}
 
-	protected function validateUpdateLinkTriggers(array $linkTriggers) {
+	protected function deleteLinkTriggers($linktriggers) {
+		$linktriggers = zbx_toArray($linktriggers);
+		$linktriggerids = zbx_objectValues($linktriggers, 'linktriggerid');
+
 		$linktriggerDbFields = array(
 			'linktriggerid' => null
 		);
 
-		$colorValidator = new CColorValidator();
-		foreach ($linkTriggers as $linkTrigger) {
-			if (!check_db_fields($linktriggerDbFields, $linkTrigger)) {
-				self::exception(ZBX_API_ERROR_PARAMETERS, _('Wrong fields for linktrigger update'));
-			}
-
-			if (isset($linkTrigger['color']) && !$colorValidator->validate($linkTrigger['color'])) {
-				self::exception(ZBX_API_ERROR_PARAMETERS, $colorValidator->getError());
-			}
+		foreach ($linktriggers as $linktrigger) {
+			if (!check_db_fields($linktriggerDbFields, $linktrigger))
+				self::exception(ZBX_API_ERROR_PARAMETERS, _('Wrong fields for linktrigger delete'));
 		}
-	}
-
-	protected function deleteLinkTriggers($linktriggers) {
-		$linktriggers = zbx_toArray($linktriggers);
-		$this->validateDeleteLinkTriggers($linktriggers);
-
-		$linktriggerids = zbx_objectValues($linktriggers, 'linktriggerid');
 
 		DB::delete('sysmaps_link_triggers', array('linktriggerid' => $linktriggerids));
 
 		return array('linktriggerids' => $linktriggerids);
 	}
 
-	protected function validateDeleteLinkTriggers(array $linkTriggers) {
-		$linktriggerDbFields = array(
-			'linktriggerid' => null
-		);
-
-		foreach ($linkTriggers as $linkTrigger) {
-			if (!check_db_fields($linktriggerDbFields, $linkTrigger)) {
-				self::exception(ZBX_API_ERROR_PARAMETERS, _('Wrong fields for linktrigger delete'));
-			}
-		}
-	}
 }
+
+?>

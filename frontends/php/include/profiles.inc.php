@@ -273,11 +273,10 @@ function update_config($configs) {
 		'ok_unack_color',
 		'ok_ack_color'
 	);
-	$colorvalidator = new CColorValidator();
 	foreach ($colors as $color) {
 		if (isset($configs[$color]) && !is_null($configs[$color])) {
-			if (!$colorvalidator->validate($configs[$color])) {
-				error($colorvalidator->getError());
+			if (!preg_match('/[0-9a-f]{6}/i', $configs[$color])) {
+				error(_('Colour is not correct: expecting hexadecimal colour code (6 symbols).'));
 				return false;
 			}
 		}

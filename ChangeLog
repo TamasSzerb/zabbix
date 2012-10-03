@@ -1,29 +1,3 @@
-Changes for 2.1.0
-
-New features:
-..F.....S. [ZBX-3236] added support of value mapping for a character data (Sasha, Vedmak)
-..F....... [ZBX-875] fixed duplicate Y-scale (Oleg)
-.......P.. [ZBX-3817] improved performance of the "data sender" process (Sasha)
-.......PS. [ZBX-5436] added support of AllowRoot paramater by server and proxy daemons (Sasha)
-..F....... [ZBX-5180] maintenance periods form redesign (Vedmak)
-.......PS. [ZBXNEXT-1335] pingers work without connection to a database (Sasha)
-..F....... [ZBX-5127] regular expressions form redesign (Vedmak)
-
-Bug fixes:
-..F....... [ZBX-3934] unified color codes validation in frontend (Vedmak)
-A......... [ZBX-3684] fixed template.get method returns excessive 'hostid' field (Vedmak)
-A......... [ZBX-5498] improved performance of template linkage operations in API (Vedmak)
-A......... [ZBX-5498] applications api refactoring (Vedmak)
-..F....... [ZBX-5560] fixed recovery sound saved incorrectly in user profile (Vedmak)
-..F....... [ZBX-2770] added autofocus for first fields in frontend forms (Vedmak)
-..F....... [ZBX-5463] fixed inability to login if http auth is enabled and frontend access is set to internal (Vedmak)
-...G...PS. [ZBX-5383] maximum data size accepted via Zabbix communication protocol is limited to 64 MB (Andris)
-..F....... [ZBX-5167] fixed incorrect screen count on the templated screen configuration page (Vedmak)
-..F....... [ZBX-5142] changed media type field label from 'Description' to 'Name' (Vedmak)
-....I..... [ZBX-5314] increased size of autoincrement fields for PostgreSQL database (Sasha)
-..F....... [ZBX-1845] added tabs to host massupdate form (Vedmak)
-
---------------------------------------------------------------------------------
 Changes for 2.0.3
 
 2.0.3rc2 was released as 2.0.3 without any changes
@@ -1045,7 +1019,6 @@ New features:
 --------------------------------------------------------------------------------
 Changes for 1.8.16rc1
 
-A......... [ZBX-4097] changed the "application", "host" and "group" parameters for item.get and trigger.get to be case sensitive (Pavels)
 ..F....... [ZBX-5514] fixed sql query in get_min_itemclock_by_itemid function (Eduard)
 A......... [ZBX-5505] fixed incorrect sql query building using limits (Eduard)
 A......... [ZBX-5512] fixed undefined index in screens (Eduard)

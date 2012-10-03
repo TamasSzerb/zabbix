@@ -862,7 +862,6 @@ class CGraphPrototype extends CGraphGeneral {
 	 */
 	protected function checkInput($graphs, $update = false) {
 		$itemids = array();
-		$colorValidator = new CColorValidator();
 
 		foreach ($graphs as $graph) {
 			// graph fields
@@ -884,8 +883,8 @@ class CGraphPrototype extends CGraphGeneral {
 				}
 
 				// check color
-				if (!$colorValidator->validate($gitem['color'])) {
-					self::exception(ZBX_API_ERROR_PARAMETERS, $colorValidator->getError());
+				if (!preg_match('/^[A-F0-9]{6}$/i', $gitem['color'])) {
+					self::exception(ZBX_API_ERROR_PARAMETERS, _s('Incorrect colour "%1$s".', $gitem['color']));
 				}
 
 				// assigning with key preservs unique itemids

@@ -122,7 +122,7 @@ elseif (isset($_REQUEST['del_read_only']) && isset($_REQUEST['right_to_del']['re
 		if (!isset($_REQUEST['group_rights'][$name])) {
 			continue;
 		}
-		if ($_REQUEST['group_rights'][$name]['permission'] == PERM_READ) {
+		if ($_REQUEST['group_rights'][$name]['permission'] == PERM_READ_ONLY) {
 			unset($_REQUEST['group_rights'][$name]);
 		}
 	}

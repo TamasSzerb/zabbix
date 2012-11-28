@@ -81,7 +81,7 @@ show_table_header(_('TRIGGER COMMENTS'));
 $triggerEditable = API::Trigger()->get(array(
 	'editable' => true,
 	'triggerids' => $_REQUEST['triggerid'],
-	'output' => array('triggerid')
+	'output' => API_OUTPUT_SHORTEN
 ));
 $triggerEditable = !empty($triggerEditable);
 

@@ -21,7 +21,7 @@
 
 class DB {
 
-	const SCHEMA_FILE = 'schema.inc.php';
+	const SCHEMA_FILE = 'include/schema.inc.php';
 
 	const DBEXECUTE_ERROR = 1;
 	const RESERVEIDS_ERROR = 2;
@@ -185,7 +185,7 @@ class DB {
 	public static function getSchema($table = null) {
 		if (is_null(self::$schema)) {
 
-			self::$schema = include(dirname(__FILE__).'/../../'.self::SCHEMA_FILE);
+			self::$schema = include(Z::getRootDir().'/'.self::SCHEMA_FILE);
 		}
 
 		if (is_null($table)) {
@@ -411,53 +411,6 @@ class DB {
 				self::exception(self::DBEXECUTE_ERROR, _s('SQL statement execution has failed "%1$s".', $sql));
 			}
 		}
-		return $resultIds;
-	}
-
-	/**
-	 * Insert batch data into DB
-	 *
-	 * @param string $table
-	 * @param array  $values pair of fieldname => fieldvalue
-	 * @param bool   $getids
-	 *
-	 * @return array    an array of ids with the keys preserved
-	 */
-	public static function insertBatch($table, $values, $getids = true) {
-		if (empty($values)) {
-			return true;
-		}
-		$resultIds = array();
-
-		if ($getids) {
-			$id = self::reserveIds($table, count($values));
-		}
-
-		$tableSchema = self::getSchema($table);
-
-		$values = self::addMissingFields($tableSchema, $values);
-
-		$fields = array_keys($values[0]);
-
-		$sql = 'INSERT INTO '.$table.' ('.implode(',', $fields).','.($getids ? $tableSchema['key'] : '').') VALUES ';
-
-		foreach ($values as $key => $row) {
-			if ($getids) {
-				$resultIds[$key] = $id;
-				$row[$tableSchema['key']] = $id;
-				$id = bcadd($id, 1, 0);
-			}
-
-			self::checkValueTypes($table, $row);
-
-			$sql .= '('.implode(',', array_values($row)).'),';
-		}
-		$sql[strlen($sql) - 1] = ' ';
-
-		if (!DBexecute($sql)) {
-			self::exception(self::DBEXECUTE_ERROR, _s('SQL statement execution has failed "%1$s".', $sql));
-		}
-
 		return $resultIds;
 	}
 

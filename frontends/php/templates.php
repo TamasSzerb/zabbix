@@ -151,7 +151,7 @@ elseif (isset($_REQUEST['full_clone']) && isset($_REQUEST['templateid'])) {
  * Save
  */
 elseif (isset($_REQUEST['save'])) {
-	if (!count(get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+	if (!count(get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
 		access_deny();
 	}
 
@@ -261,7 +261,7 @@ elseif (isset($_REQUEST['save'])) {
 
 			// clone triggers
 			$triggers = API::Trigger()->get(array(
-				'output' => array('triggerid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'hostids' => $clone_templateid,
 				'inherited' => false
 			));
@@ -303,7 +303,7 @@ elseif (isset($_REQUEST['save'])) {
 			// clone screens
 			$screens = API::TemplateScreen()->get(array(
 				'templateids' => $clone_templateid,
-				'output' => array('screenid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'preservekeys' => true,
 				'inherited' => false
 			));
@@ -462,7 +462,6 @@ else {
 		_('Graphs'),
 		_('Screens'),
 		_('Discovery'),
-		_('Web'),
 		_('Linked templates'),
 		_('Linked to')
 	));
@@ -505,8 +504,7 @@ else {
 		'selectApplications' => API_OUTPUT_COUNT,
 		'selectDiscoveries' => API_OUTPUT_COUNT,
 		'selectScreens' => API_OUTPUT_COUNT,
-		'selectHttpTests' => API_OUTPUT_COUNT,
-		'nopermissions' => 1
+		'nopermissions' => 1,
 	);
 
 	$templates = API::Template()->get($options);
@@ -531,10 +529,8 @@ else {
 			' ('.$template['graphs'].')');
 		$screens = array(new CLink(_('Screens'), 'screenconf.php?templateid='.$template['templateid']),
 			' ('.$template['screens'].')');
-		$discoveries = array(new CLink(_('Discovery'), 'host_discovery.php?&hostid='.$template['templateid']),
+		$discoveries = array(new CLink(_('Discovery'), 'host_discovery.php?&hostid='.$template['hostid']),
 			' ('.$template['discoveries'].')');
-		$httpTests = array(new CLink(_('Web'), 'httpconf.php?groupid='.$_REQUEST['groupid'].'&hostid='.$template['templateid']),
-			' ('.$template['httpTests'].')');
 
 
 		$i = 0;
@@ -578,15 +574,15 @@ else {
 			switch($linked_to_host['status']){
 				case HOST_STATUS_NOT_MONITORED:
 					$style = 'on';
-					$url = 'hosts.php?form=update&hostid='.$linked_to_host['objectid'].'&groupid='.$_REQUEST['groupid'];
+					$url = 'hosts.php?form=update&hostid='.$linked_to_host['hostid'].'&groupid='.$_REQUEST['groupid'];
 				break;
 				case HOST_STATUS_TEMPLATE:
 					$style = 'unknown';
-					$url = 'templates.php?form=update&templateid='.$linked_to_host['objectid'];
+					$url = 'templates.php?form=update&templateid='.$linked_to_host['hostid'];
 				break;
 				default:
 					$style = null;
-					$url = 'hosts.php?form=update&hostid='.$linked_to_host['objectid'].'&groupid='.$_REQUEST['groupid'];
+					$url = 'hosts.php?form=update&hostid='.$linked_to_host['hostid'].'&groupid='.$_REQUEST['groupid'];
 				break;
 			}
 
@@ -605,7 +601,6 @@ else {
 			$graphs,
 			$screens,
 			$discoveries,
-			$httpTests,
 			(empty($linked_templates_output) ? '-' : new CCol($linked_templates_output, 'wraptext')),
 			(empty($linked_to_output) ? '-' : new CCol($linked_to_output, 'wraptext'))
 		));

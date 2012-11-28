@@ -64,7 +64,7 @@ if ($dashconf['filterEnable'] == 1) {
 		$dashconf['groupids'] = null;
 	}
 	else {
-		$groupids = CFavorite::get('web.dashconf.groups.groupids');
+		$groupids = get_favorites('web.dashconf.groups.groupids');
 		$dashconf['groupids'] = zbx_objectValues($groupids, 'value');
 	}
 
@@ -144,11 +144,11 @@ if (isset($_REQUEST['favobj'])) {
 			zbx_value2array($_REQUEST['favid']);
 
 			foreach ($_REQUEST['favid'] as $sourceid) {
-				$result = CFavorite::add('web.favorite.graphids', $sourceid, $_REQUEST['favobj']);
+				$result = add2favorites('web.favorite.graphids', $sourceid, $_REQUEST['favobj']);
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
-			$result = CFavorite::remove('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = rm4favorites('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
 		}
 
 		if ($page['type'] == PAGE_TYPE_JS && $result) {
@@ -167,11 +167,11 @@ if (isset($_REQUEST['favobj'])) {
 		if ($_REQUEST['favaction'] == 'add') {
 			zbx_value2array($_REQUEST['favid']);
 			foreach ($_REQUEST['favid'] as $sourceid) {
-				$result = CFavorite::add('web.favorite.sysmapids', $sourceid, $_REQUEST['favobj']);
+				$result = add2favorites('web.favorite.sysmapids', $sourceid, $_REQUEST['favobj']);
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
-			$result = CFavorite::remove('web.favorite.sysmapids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = rm4favorites('web.favorite.sysmapids', $_REQUEST['favid'], $_REQUEST['favobj']);
 		}
 
 		if ($page['type'] == PAGE_TYPE_JS&& $result) {
@@ -190,11 +190,11 @@ if (isset($_REQUEST['favobj'])) {
 		if ($_REQUEST['favaction'] == 'add') {
 			zbx_value2array($_REQUEST['favid']);
 			foreach ($_REQUEST['favid'] as $sourceid) {
-				$result = CFavorite::add('web.favorite.screenids', $sourceid, $_REQUEST['favobj']);
+				$result = add2favorites('web.favorite.screenids', $sourceid, $_REQUEST['favobj']);
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
-			$result = CFavorite::remove('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = rm4favorites('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
 		}
 
 		if ($page['type'] == PAGE_TYPE_JS && $result) {
@@ -289,7 +289,7 @@ $refresh_tab = array(
 $rightColumn = array();
 
 // status of zbx
-if (CWebUser::$data['type'] == USER_TYPE_SUPER_ADMIN) {
+if ($USER_DETAILS['type'] == USER_TYPE_SUPER_ADMIN) {
 	$refresh_menu = get_icon('menu', array('menu' => 'hat_stszbx'));
 	$zbxStatus = new CUIWidget('hat_stszbx', new CSpan(_('Loading...'), 'textcolorstyles'), CProfile::get('web.dashboard.hats.hat_stszbx.state', 1));
 	$zbxStatus->setHeader(_('Status of Zabbix'), array($refresh_menu));
@@ -327,7 +327,7 @@ $rightColumn[] = $web_mon;
 
 // discovery info
 $drules = DBfetch(DBselect('SELECT COUNT(d.druleid) AS cnt FROM drules d WHERE '.DBin_node('d.druleid').' AND d.status='.DRULE_STATUS_ACTIVE));
-if ($drules['cnt'] > 0 && check_right_on_discovery(PERM_READ)) {
+if ($drules['cnt'] > 0 && check_right_on_discovery(PERM_READ_ONLY)) {
 	$refresh_tab[] = array('id' => 'hat_dscvry', 'frequency' => CProfile::get('web.dashboard.rf_rate.hat_dscvry', 60));
 	$refresh_menu = get_icon('menu', array('menu' => 'hat_dscvry'));
 	$dcvr_mon = new CUIWidget('hat_dscvry', new CSpan(_('Loading...'), 'textcolorstyles'), CProfile::get('web.dashboard.hats.hat_dscvry.state', 1));

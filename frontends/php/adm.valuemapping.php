@@ -210,3 +210,4 @@ $cnf_wdgt->addItem($valueMappingForm->render());
 $cnf_wdgt->show();
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

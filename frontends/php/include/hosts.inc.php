@@ -573,7 +573,7 @@ function updateHostStatus($hostids, $status) {
 
 // retrieve groups for dropdown
 function get_viewed_groups($perm, $options = array(), $nodeid = null, $sql = array()) {
-	global $page;
+	global $USER_DETAILS, $page;
 
 	$def_sql = array(
 		'select' =>	array('g.groupid', 'g.name'),
@@ -631,7 +631,7 @@ function get_viewed_groups($perm, $options = array(), $nodeid = null, $sql = arr
 			: get_current_nodeid(false);
 	}
 
-	$available_groups = get_accessible_groups_by_user(CWebUser::$data, $perm, PERM_RES_IDS_ARRAY, $nodeid, AVAILABLE_NOCACHE);
+	$available_groups = get_accessible_groups_by_user($USER_DETAILS, $perm, PERM_RES_IDS_ARRAY, $nodeid, AVAILABLE_NOCACHE);
 
 	// nodes
 	if (ZBX_DISTRIBUTED) {
@@ -835,9 +835,9 @@ function get_viewed_groups($perm, $options = array(), $nodeid = null, $sql = arr
  *     Retrieve groups for dropdown
  */
 function get_viewed_hosts($perm, $groupid = 0, $options = array(), $nodeid = null, $sql = array()) {
-	global $page;
+	global $USER_DETAILS, $page;
 
-	$userid = CWebUser::$data['userid'];
+	$userid = $USER_DETAILS['userid'];
 
 	$def_sql = array(
 		// hostname to avoid confusion with node name
@@ -913,7 +913,7 @@ function get_viewed_hosts($perm, $groupid = 0, $options = array(), $nodeid = nul
 		}
 	}
 
-	if (USER_TYPE_SUPER_ADMIN != CWebUser::$data['type']) {
+	if (USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']) {
 			$def_sql['from']['hg'] = 'hosts_groups hg';
 			$def_sql['from']['r'] = 'rights r';
 			$def_sql['from']['ug'] = 'users_groups ug';
@@ -929,7 +929,7 @@ function get_viewed_hosts($perm, $groupid = 0, $options = array(), $nodeid = nul
 										' AND rr.id=hgg.groupid'.
 										' AND rr.groupid=gg.usrgrpid'.
 										' AND gg.userid='.$userid.
-										' AND rr.permission='.PERM_DENY.')';
+										' AND rr.permission<'.$perm.')';
 	}
 
 	// nodes

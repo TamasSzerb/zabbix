@@ -92,9 +92,17 @@ static int	trigger_get_N_functionid(DB_TRIGGER *trigger, int N_functionid, zbx_u
 {
 	const char	*__function_name = "trigger_get_N_functionid";
 
-	enum state_t {NORMAL, ID}	state = NORMAL;
-	int				num = 0, ret = FAIL;
-	const char			*c, *p_functionid = NULL;
+	typedef enum
+	{
+		ZBX_EXP_NONE,
+		ZBX_EXP_FUNCTIONID
+	}
+	zbx_parser_state_t;
+
+	zbx_parser_state_t	state = ZBX_EXP_NONE;
+	int			num = 0, ret = FAIL;
+	char			*p_functionid = NULL;
+	register char		*c;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() expression:'%s' N_functionid:%d",
 			__function_name, trigger->expression, N_functionid);
@@ -106,12 +114,14 @@ static int	trigger_get_N_functionid(DB_TRIGGER *trigger, int N_functionid, zbx_u
 	{
 		if ('{' == *c)
 		{
-			state = ID;
+			state = ZBX_EXP_FUNCTIONID;
 			p_functionid = c + 1;
 		}
-		else if ('}' == *c && ID == state && NULL != p_functionid)
+		else if ('}' == *c && ZBX_EXP_FUNCTIONID == state && p_functionid)
 		{
-			if (SUCCEED == is_uint64_n(p_functionid, c - p_functionid, functionid))
+			*c = '\0';
+
+			if (SUCCEED == is_uint64(p_functionid, functionid))
 			{
 				if (++num == N_functionid)
 				{
@@ -121,7 +131,8 @@ static int	trigger_get_N_functionid(DB_TRIGGER *trigger, int N_functionid, zbx_u
 				}
 			}
 
-			state = NORMAL;
+			*c = '}';
+			state = ZBX_EXP_NONE;
 		}
 	}
 fail:
@@ -548,13 +559,12 @@ static void	item_description(char **data, const char *key, zbx_uint64_t hostid)
 
 	switch (parse_command(key, NULL, 0, params, sizeof(params)))
 	{
-		case ZBX_COMMAND_ERROR:
+		case 0:
 			return;
-		case ZBX_COMMAND_WITHOUT_PARAMS:
+		case 1:
 			*params = '\0';
-		case ZBX_COMMAND_WITH_PARAMS:
-			/* do nothing */
-			;
+		case 2:
+			/* do nothing */;
 	}
 
 	p = *data;
@@ -1362,6 +1372,8 @@ static int	DBget_item_value(DB_TRIGGER *trigger, char **value, int N_functionid,
 					zbx_format_value(tmp, sizeof(tmp), valuemapid, row[3], value_type);
 					ZBX_STRDUP(*value, tmp);
 					break;
+				default:
+					;
 			}
 		}
 	}
@@ -2200,19 +2212,33 @@ int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_
 			{
 				if (0 == strcmp(m, MVAR_TRIGGER_NAME))
 				{
-					replace_to = zbx_strdup(replace_to, event->trigger.description);
-					substitute_simple_macros(event, hostid, dc_host, dc_item, escalation,
-							&replace_to, MACRO_TYPE_TRIGGER_DESCRIPTION, error, maxerrlen);
+					if (0 != event->trigger.triggerid)
+					{
+						replace_to = zbx_strdup(replace_to, event->trigger.description);
+						substitute_simple_macros(event, hostid, dc_host, dc_item, escalation,
+								&replace_to, MACRO_TYPE_TRIGGER_DESCRIPTION,
+								error, maxerrlen);
+					}
+					else
+						ret = FAIL;
 				}
 				else if (0 == strcmp(m, MVAR_TRIGGER_EXPRESSION))
 				{
-					replace_to = zbx_strdup(replace_to, event->trigger.expression);
-					DCexpand_trigger_expression(&replace_to);
+					if (0 != event->trigger.triggerid)
+					{
+						replace_to = zbx_strdup(replace_to, event->trigger.expression);
+						DCexpand_trigger_expression(&replace_to);
+					}
+					else
+						ret = FAIL;
 				}
 				else if (0 == strcmp(m, MVAR_TRIGGER_DESCRIPTION) ||
 						0 == strcmp(m, MVAR_TRIGGER_COMMENT))	/* deprecated */
 				{
-					replace_to = zbx_strdup(replace_to, event->trigger.comments);
+					if (0 != event->trigger.triggerid)
+						replace_to = zbx_strdup(replace_to, event->trigger.comments);
+					else
+						ret = FAIL;
 				}
 				else if (0 == strncmp(m, MVAR_INVENTORY, sizeof(MVAR_INVENTORY) - 1) ||
 						0 == strncmp(m, MVAR_PROFILE, sizeof(MVAR_PROFILE) - 1))	/* deprecated */
@@ -2295,9 +2321,14 @@ int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_
 					replace_to = zbx_dsprintf(replace_to, "%d", event->value);
 				else if (0 == strcmp(m, MVAR_TRIGGER_URL))
 				{
-					replace_to = zbx_strdup(replace_to, event->trigger.url);
-					substitute_simple_macros(event, hostid, dc_host, dc_item, escalation,
-							&replace_to, MACRO_TYPE_TRIGGER_URL, error, maxerrlen);
+					if (0 != event->trigger.triggerid)
+					{
+						replace_to = zbx_strdup(replace_to, event->trigger.url);
+						substitute_simple_macros(event, hostid, dc_host, dc_item, escalation,
+								&replace_to, MACRO_TYPE_TRIGGER_URL, error, maxerrlen);
+					}
+					else
+						ret = FAIL;
 				}
 				else if (0 == strcmp(m, MVAR_TRIGGER_EVENTS_ACK))
 					ret = DBget_trigger_event_count(event->objectid, &replace_to, 0, 1);
@@ -2324,7 +2355,12 @@ int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_
 				else if (0 == strcmp(m, MVAR_TRIGGER_SEVERITY))
 					ret = DCget_trigger_severity_name(event->trigger.priority, &replace_to);
 				else if (0 == strcmp(m, MVAR_TRIGGER_NSEVERITY))
-					replace_to = zbx_dsprintf(replace_to, "%d", (int)event->trigger.priority);
+				{
+					if (0 != event->trigger.triggerid)
+						replace_to = zbx_dsprintf(replace_to, "%d", (int)event->trigger.priority);
+					else
+						ret = FAIL;
+				}
 				else if (0 == strcmp(m, MVAR_NODE_ID))
 					ret = DBget_node_value(&event->trigger, &replace_to, N_functionid, "nodeid");
 				else if (0 == strcmp(m, MVAR_NODE_NAME))
@@ -2581,7 +2617,8 @@ int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_
 			else if (0 == strcmp(m, MVAR_HOST_CONN))
 				ret = DBget_interface_value(dc_host->hostid, &replace_to, ZBX_REQUEST_HOST_CONN, 1);
 		}
-		else if (macro_type & (MACRO_TYPE_COMMON | MACRO_TYPE_SNMP_OID))
+		else if (macro_type & (MACRO_TYPE_INTERFACE_PORT | MACRO_TYPE_LLD_LIFETIME | MACRO_TYPE_ITEM_FIELD |
+				MACRO_TYPE_FUNCTION_PARAMETER | MACRO_TYPE_SNMP_OID))
 		{
 			if (0 == strncmp(m, "{$", 2))	/* user defined macros */
 			{
@@ -2603,21 +2640,6 @@ int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_
 		else if (macro_type & MACRO_TYPE_SCRIPT)
 		{
 			if (0 == strcmp(m, MVAR_HOST_HOST) || 0 == strcmp(m, MVAR_HOSTNAME))
-				replace_to = zbx_strdup(replace_to, dc_host->host);
-			else if (0 == strcmp(m, MVAR_HOST_NAME))
-				replace_to = zbx_strdup(replace_to, dc_host->name);
-			else if (0 == strcmp(m, MVAR_HOST_IP) || 0 == strcmp(m, MVAR_IPADDRESS))
-				ret = DBget_interface_value(dc_host->hostid, &replace_to, ZBX_REQUEST_HOST_IPADDRESS, 0);
-			else if	(0 == strcmp(m, MVAR_HOST_DNS))
-				ret = DBget_interface_value(dc_host->hostid, &replace_to, ZBX_REQUEST_HOST_DNS, 0);
-			else if (0 == strcmp(m, MVAR_HOST_CONN))
-				ret = DBget_interface_value(dc_host->hostid, &replace_to, ZBX_REQUEST_HOST_CONN, 0);
-		}
-		else if (macro_type & MACRO_TYPE_HTTPTEST_FIELD)
-		{
-			if (0 == strncmp(m, "{$", 2))	/* user defined macros */
-				DCget_user_macro(&dc_host->hostid, 1, m, &replace_to);
-			else if (0 == strcmp(m, MVAR_HOST_HOST) || 0 == strcmp(m, MVAR_HOSTNAME))
 				replace_to = zbx_strdup(replace_to, dc_host->host);
 			else if (0 == strcmp(m, MVAR_HOST_NAME))
 				replace_to = zbx_strdup(replace_to, dc_host->name);
@@ -3173,28 +3195,16 @@ void	evaluate_expressions(zbx_vector_ptr_t *triggers)
  *                                                                            *
  * Function: substitute_discovery_macros                                      *
  *                                                                            *
- * Parameters: data   - [IN/OUT] pointer to a buffer                          *
- *             jp_row - [IN] discovery data                                   *
- *             flags  - [IN] ZBX_MACRO_ANY - any macros will resolved         *
- *                           ZBX_MACRO_NUMERIC - all macros should be numeric *
- *             error  - [OUT] should be not NULL if ZBX_MACRO_NUMERIC flag is *
- *                            set                                             *
- *                                                                            *
- * Return value: Always SUCCEED if numeric flag is not set, otherwise SUCCEED *
- *               if all discovery macros resoved to numeric values, otherwise *
- *               FAIL with an error message                                   *
- *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-int	substitute_discovery_macros(char **data, struct zbx_json_parse *jp_row, int flags,
-		char *error, size_t max_error_len)
+void	substitute_discovery_macros(char **data, struct zbx_json_parse *jp_row)
 {
 	const char	*__function_name = "substitute_discovery_macros";
 
 	char		*replace_to = NULL, c;
 	size_t		l, r, replace_to_alloc = 0;
-	int		rc, ret = SUCCEED;
+	int		res;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() data:'%s'", __function_name, *data);
 
@@ -3212,32 +3222,16 @@ int	substitute_discovery_macros(char **data, struct zbx_json_parse *jp_row, int 
 		c = (*data)[r + 1];
 		(*data)[r + 1] = '\0';
 
-		if (SUCCEED != (rc = zbx_json_value_by_name_dyn(jp_row, &(*data)[l], &replace_to, &replace_to_alloc)))
-		{
-			zabbix_log(LOG_LEVEL_DEBUG, "%s() cannot substitute macro \"%s\": not found in value set",
-					__function_name, *data + l);
-
-			if (ZBX_MACRO_NUMERIC == flags)
-			{
-				zbx_snprintf(error, max_error_len, "no value for macro \"%s\"", *data + l);
-				ret = FAIL;
-			}
-		}
-		else if (ZBX_MACRO_NUMERIC == flags)
-		{
-			if (SUCCEED != is_double_suffix(replace_to))
-			{
-				zbx_snprintf(error, max_error_len, "macro \"%s\" value is not numeric", *data + l);
-				ret = FAIL;
-			}
-		}
+		res = zbx_json_value_by_name_dyn(jp_row, &(*data)[l], &replace_to, &replace_to_alloc);
 
 		(*data)[r + 1] = c;
 
-		if (SUCCEED != ret)
-			break;
-
-		if (SUCCEED == rc)
+		if (SUCCEED != res)
+		{
+			zabbix_log(LOG_LEVEL_DEBUG, "%s() cannot substitute macro \"%.*s\": not found in value set",
+					__function_name, (int)(r - l + 1), *data + l);
+		}
+		else
 			zbx_replace_string(data, l, &r, replace_to);
 
 		l = r;
@@ -3245,9 +3239,7 @@ int	substitute_discovery_macros(char **data, struct zbx_json_parse *jp_row, int 
 
 	zbx_free(replace_to);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s data:'%s'", __function_name, zbx_result_string(ret), *data);
-
-	return ret;
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s() data:'%s'", __function_name, *data);
 }
 
 static void	unquote_key_param(char *param)
@@ -3360,7 +3352,7 @@ int	substitute_key_macros(char **data, zbx_uint64_t *hostid, DC_ITEM *dc_item, s
 						&param, macro_type, NULL, 0);
 			}
 			else
-				substitute_discovery_macros(&param, jp_row, ZBX_MACRO_ANY, NULL, 0);
+				substitute_discovery_macros(&param, jp_row);
 
 			i--; zbx_replace_string(data, 0, &i, param); i++;
 
@@ -3445,10 +3437,7 @@ int	substitute_key_macros(char **data, zbx_uint64_t *hostid, DC_ITEM *dc_item, s
 									&param, macro_type, NULL, 0);
 						}
 						else
-						{
-							substitute_discovery_macros(&param, jp_row, ZBX_MACRO_ANY,
-									NULL, 0);
-						}
+							substitute_discovery_macros(&param, jp_row);
 
 						quote_key_param(&param, 0);
 						i--; zbx_replace_string(data, l, &i, param); i++;
@@ -3480,10 +3469,7 @@ int	substitute_key_macros(char **data, zbx_uint64_t *hostid, DC_ITEM *dc_item, s
 									&param, macro_type, NULL, 0);
 						}
 						else
-						{
-							substitute_discovery_macros(&param, jp_row, ZBX_MACRO_ANY,
-									NULL, 0);
-						}
+							substitute_discovery_macros(&param, jp_row);
 
 						quote_key_param(&param, 1);
 						zbx_replace_string(data, l, &i, param);

@@ -38,13 +38,6 @@ class CConfigurationExport {
 	 */
 	protected $data;
 
-	/**
-	 * Array with data fields that must be exported.
-	 *
-	 * @var array
-	 */
-	protected $dataFields;
-
 
 	/**
 	 * Constructor.
@@ -73,27 +66,6 @@ class CConfigurationExport {
 			'screens' => array(),
 			'images' => array(),
 			'maps' => array()
-		);
-
-		$this->dataFields = array(
-			'item' => array('hostid', 'multiplier', 'type', 'snmp_community', 'snmp_oid', 'name', 'key_', 'delay', 'history',
-				'trends', 'status', 'value_type', 'trapper_hosts', 'units', 'delta', 'snmpv3_securityname', 'snmpv3_securitylevel',
-				'snmpv3_authprotocol', 'snmpv3_authpassphrase', 'snmpv3_privprotocol', 'snmpv3_privpassphrase', 'formula',
-				'valuemapid', 'delay_flex', 'params', 'ipmi_sensor', 'data_type', 'authtype', 'username', 'password',
-				'publickey', 'privatekey', 'interfaceid', 'port', 'description', 'inventory_link', 'flags'
-			),
-			'drule' => array('itemid', 'hostid', 'type', 'snmp_community', 'snmp_oid', 'name', 'key_', 'delay', 'history',
-				'trends', 'status', 'value_type', 'trapper_hosts', 'units', 'delta', 'snmpv3_securityname', 'snmpv3_securitylevel',
-				'snmpv3_authprotocol', 'snmpv3_authpassphrase', 'snmpv3_privprotocol', 'snmpv3_privpassphrase', 'formula',
-				'valuemapid', 'delay_flex', 'params', 'ipmi_sensor', 'data_type', 'authtype', 'username', 'password',
-				'publickey', 'privatekey', 'interfaceid', 'port', 'description', 'inventory_link', 'flags', 'filter', 'lifetime'
-			),
-			'discoveryrule' => array('hostid', 'multiplier', 'type', 'snmp_community', 'snmp_oid', 'name', 'key_', 'delay',
-				'history', 'trends', 'status', 'value_type', 'trapper_hosts', 'units', 'delta', 'snmpv3_securityname',
-				'snmpv3_securitylevel', 'snmpv3_authprotocol', 'snmpv3_authpassphrase', 'snmpv3_privprotocol', 'snmpv3_privpassphrase',
-				'formula', 'valuemapid', 'delay_flex', 'params', 'ipmi_sensor', 'data_type', 'authtype', 'username',
-				'password', 'publickey', 'privatekey', 'interfaceid', 'port', 'description', 'inventory_link', 'flags'
-			)
 		);
 	}
 
@@ -324,7 +296,11 @@ class CConfigurationExport {
 	protected function gatherHostItems() {
 		$items = API::Item()->get(array(
 			'hostids' => $this->options['hosts'],
-			'output' => $this->dataFields['item'],
+			'output' => array('hostid', 'multiplier', 'type', 'snmp_community', 'snmp_oid', 'name', 'key_', 'delay', 'history', 'trends',
+				'status', 'value_type', 'trapper_hosts', 'units', 'delta', 'snmpv3_securityname', 'snmpv3_securitylevel',
+				'snmpv3_authpassphrase', 'snmpv3_privpassphrase', 'formula', 'valuemapid', 'delay_flex', 'params',
+				'ipmi_sensor', 'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey',
+				'interfaceid', 'port', 'description', 'inventory_link', 'flags'),
 			'selectApplications' => API_OUTPUT_EXTEND,
 			'inherited' => false,
 			'filter' => array('flags' => array(ZBX_FLAG_DISCOVERY_NORMAL)),
@@ -346,7 +322,11 @@ class CConfigurationExport {
 	protected function gatherTemplateItems() {
 		$items = API::Item()->get(array(
 			'hostids' => $this->options['templates'],
-			'output' => $this->dataFields['item'],
+			'output' => array('hostid', 'multiplier', 'type', 'snmp_community', 'snmp_oid', 'name', 'key_', 'delay', 'history', 'trends',
+				'status', 'value_type', 'trapper_hosts', 'units', 'delta', 'snmpv3_securityname', 'snmpv3_securitylevel',
+				'snmpv3_authpassphrase', 'snmpv3_privpassphrase', 'formula', 'valuemapid', 'delay_flex', 'params',
+				'ipmi_sensor', 'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey',
+				'interfaceid', 'port', 'description', 'inventory_link', 'flags'),
 			'selectApplications' => API_OUTPUT_EXTEND,
 			'inherited' => false,
 			'filter' => array('flags' => array(ZBX_FLAG_DISCOVERY_NORMAL)),
@@ -397,7 +377,11 @@ class CConfigurationExport {
 	protected function gatherHostDiscoveryRules() {
 		$items = API::DiscoveryRule()->get(array(
 			'hostids' => $this->options['hosts'],
-			'output' => $this->dataFields['drule'],
+			'output' => array('itemid', 'hostid', 'type', 'snmp_community', 'snmp_oid', 'name', 'key_', 'delay', 'history', 'trends',
+				'status', 'value_type', 'trapper_hosts', 'units', 'delta', 'snmpv3_securityname', 'snmpv3_securitylevel',
+				'snmpv3_authpassphrase', 'snmpv3_privpassphrase', 'formula', 'valuemapid', 'delay_flex', 'params',
+				'ipmi_sensor', 'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey',
+				'interfaceid', 'port', 'description', 'inventory_link', 'flags', 'filter', 'lifetime'),
 			'inherited' => false,
 			'preservekeys' => true
 		));
@@ -418,7 +402,11 @@ class CConfigurationExport {
 	protected function gatherTemplateDiscoveryRules() {
 		$items = API::DiscoveryRule()->get(array(
 			'hostids' => $this->options['templates'],
-			'output' => $this->dataFields['drule'],
+			'output' => array('itemid', 'hostid', 'type', 'snmp_community', 'snmp_oid', 'name', 'key_', 'delay', 'history', 'trends',
+				'status', 'value_type', 'trapper_hosts', 'units', 'delta', 'snmpv3_securityname', 'snmpv3_securitylevel',
+				'snmpv3_authpassphrase', 'snmpv3_privpassphrase', 'formula', 'valuemapid', 'delay_flex', 'params',
+				'ipmi_sensor', 'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey',
+				'interfaceid', 'port', 'description', 'inventory_link', 'flags', 'filter', 'lifetime'),
 			'inherited' => false,
 			'preservekeys' => true
 		));
@@ -451,7 +439,11 @@ class CConfigurationExport {
 		// gather item prototypes
 		$prototypes = API::ItemPrototype()->get(array(
 			'discoveryids' => zbx_objectValues($items, 'itemid'),
-			'output' => $this->dataFields['discoveryrule'],
+			'output' => array('hostid', 'multiplier', 'type', 'snmp_community', 'snmp_oid', 'name', 'key_', 'delay', 'history', 'trends',
+				'status', 'value_type', 'trapper_hosts', 'units', 'delta', 'snmpv3_securityname', 'snmpv3_securitylevel',
+				'snmpv3_authpassphrase', 'snmpv3_privpassphrase', 'formula', 'valuemapid', 'delay_flex', 'params',
+				'ipmi_sensor', 'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey',
+				'interfaceid', 'port', 'description', 'inventory_link', 'flags'),
 			'selectApplications' => API_OUTPUT_EXTEND,
 			'inherited' => false,
 			'preservekeys' => true

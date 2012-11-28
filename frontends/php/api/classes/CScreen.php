@@ -88,6 +88,18 @@ class CScreen extends CZBXAPI {
 		);
 		$options = zbx_array_merge($defOptions, $options);
 
+		if (is_array($options['output'])) {
+			unset($sqlParts['select']['screens']);
+
+			$dbTable = DB::getSchema('screens');
+			foreach ($options['output'] as $field) {
+				if (isset($dbTable['fields'][$field])) {
+					$sqlParts['select'][$field] = 's.'.$field;
+				}
+			}
+			$options['output'] = API_OUTPUT_CUSTOM;
+		}
+
 		// screenids
 		if (!is_null($options['screenids'])) {
 			zbx_value2array($options['screenids']);
@@ -115,6 +127,24 @@ class CScreen extends CZBXAPI {
 			zbx_db_search('screens s', $options, $sqlParts);
 		}
 
+		// output
+		if ($options['output'] == API_OUTPUT_EXTEND) {
+			$sqlParts['select']['screens'] = 's.*';
+		}
+
+		// countOutput
+		if (!is_null($options['countOutput'])) {
+			$options['sortfield'] = '';
+			$sqlParts['select'] = array('COUNT(DISTINCT s.screenid) AS rowscount');
+
+			// groupCount
+			if (!is_null($options['groupCount'])) {
+				foreach ($sqlParts['group'] as $key => $fields) {
+					$sqlParts['select'][$key] = $fields;
+				}
+			}
+		}
+
 		// sorting
 		zbx_db_sorting($sqlParts, $options, $sortColumns, 's');
 
@@ -125,7 +155,6 @@ class CScreen extends CZBXAPI {
 
 		$screenids = array();
 
-		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$res = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
 		while ($screen = DBfetch($res)) {
@@ -140,21 +169,26 @@ class CScreen extends CZBXAPI {
 			else {
 				$screenids[$screen['screenid']] = $screen['screenid'];
 
-				if (!isset($result[$screen['screenid']])) {
-					$result[$screen['screenid']]= array();
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$screen['screenid']] = array('screenid' => $screen['screenid']);
 				}
-				if (!is_null($options['selectScreenItems']) && !isset($result[$screen['screenid']]['screenitems'])) {
-					$result[$screen['screenid']]['screenitems'] = array();
-				}
-				if (isset($screen['screenitemid']) && is_null($options['selectScreenItems'])) {
-					if (!isset($result[$screen['screenid']]['screenitems'])) {
+				else {
+					if (!isset($result[$screen['screenid']])) {
+						$result[$screen['screenid']]= array();
+					}
+					if (!is_null($options['selectScreenItems']) && !isset($result[$screen['screenid']]['screenitems'])) {
 						$result[$screen['screenid']]['screenitems'] = array();
 					}
-					$result[$screen['screenid']]['screenitems'][] = array('screenitemid' => $screen['screenitemid']);
-					unset($screen['screenitemid']);
-				}
+					if (isset($screen['screenitemid']) && is_null($options['selectScreenItems'])) {
+						if (!isset($result[$screen['screenid']]['screenitems'])) {
+							$result[$screen['screenid']]['screenitems'] = array();
+						}
+						$result[$screen['screenid']]['screenitems'][] = array('screenitemid' => $screen['screenitemid']);
+						unset($screen['screenitemid']);
+					}
 
-				$result[$screen['screenid']] += $screen;
+					$result[$screen['screenid']] += $screen;
+				}
 			}
 		}
 
@@ -365,7 +399,7 @@ class CScreen extends CZBXAPI {
 		$options = array(
 			'filter' => zbx_array_mintersect($keyFields, $data),
 			'preservekeys' => true,
-			'output' => array('screenid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => true,
 			'limit' => 1
 		);
@@ -457,7 +491,7 @@ class CScreen extends CZBXAPI {
 		$updScreens = $this->get(array(
 			'screenids' => zbx_objectValues($screens, 'screenid'),
 			'editable' => true,
-			'output' => array('screenid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'preservekeys' => true
 		));
 		foreach ($screens as $screen) {
@@ -479,7 +513,7 @@ class CScreen extends CZBXAPI {
 					'filter' => array('name' => $screen['name']),
 					'preservekeys' => true,
 					'nopermissions' => true,
-					'output' => array('screenid')
+					'output' => API_OUTPUT_SHORTEN
 				));
 				$existScreen = reset($existScreen);
 

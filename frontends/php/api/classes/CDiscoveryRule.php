@@ -109,7 +109,7 @@ class CDiscoveryRule extends CItemGeneral {
 		if (USER_TYPE_SUPER_ADMIN == $userType || $options['nopermissions']) {
 		}
 		else {
-			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ;
+			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ_ONLY;
 
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
 			$sqlParts['from']['rights'] = 'rights r';
@@ -126,7 +126,7 @@ class CDiscoveryRule extends CItemGeneral {
 					' AND rr.id=hgg.groupid'.
 					' AND rr.groupid=gg.usrgrpid'.
 					' AND gg.userid='.$userid.
-					' AND rr.permission='.PERM_DENY.')';
+					' AND rr.permission<'.$permission.')';
 		}
 
 		// nodeids
@@ -313,30 +313,35 @@ class CDiscoveryRule extends CItemGeneral {
 			else {
 				$itemids[$item['itemid']] = $item['itemid'];
 
-				if (!isset($result[$item['itemid']])) {
-					$result[$item['itemid']]= array();
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$item['itemid']] = array('itemid' => $item['itemid']);
 				}
-				if (!is_null($options['selectHosts']) && !isset($result[$item['itemid']]['hosts'])) {
-					$result[$item['itemid']]['hosts'] = array();
-				}
-				if (!is_null($options['selectItems']) && !isset($result[$item['itemid']]['items'])) {
-					$result[$item['itemid']]['items'] = array();
-				}
-				if (!is_null($options['selectTriggers']) && !isset($result[$item['itemid']]['triggers'])) {
-					$result[$item['itemid']]['triggers'] = array();
-				}
-				if (!is_null($options['selectGraphs']) && !isset($result[$item['itemid']]['graphs'])) {
-					$result[$item['itemid']]['graphs'] = array();
-				}
-
-				// hostids
-				if (isset($item['hostid']) && is_null($options['selectHosts'])) {
-					if (!isset($result[$item['itemid']]['hosts'])) {
+				else {
+					if (!isset($result[$item['itemid']])) {
+						$result[$item['itemid']]= array();
+					}
+					if (!is_null($options['selectHosts']) && !isset($result[$item['itemid']]['hosts'])) {
 						$result[$item['itemid']]['hosts'] = array();
 					}
-					$result[$item['itemid']]['hosts'][] = array('hostid' => $item['hostid']);
+					if (!is_null($options['selectItems']) && !isset($result[$item['itemid']]['items'])) {
+						$result[$item['itemid']]['items'] = array();
+					}
+					if (!is_null($options['selectTriggers']) && !isset($result[$item['itemid']]['triggers'])) {
+						$result[$item['itemid']]['triggers'] = array();
+					}
+					if (!is_null($options['selectGraphs']) && !isset($result[$item['itemid']]['graphs'])) {
+						$result[$item['itemid']]['graphs'] = array();
+					}
+
+					// hostids
+					if (isset($item['hostid']) && is_null($options['selectHosts'])) {
+						if (!isset($result[$item['itemid']]['hosts'])) {
+							$result[$item['itemid']]['hosts'] = array();
+						}
+						$result[$item['itemid']]['hosts'][] = array('hostid' => $item['hostid']);
+					}
+					$result[$item['itemid']] += $item;
 				}
-				$result[$item['itemid']] += $item;
 			}
 		}
 
@@ -507,7 +512,7 @@ class CDiscoveryRule extends CItemGeneral {
 	public function exists($object) {
 		$options = array(
 			'filter' => array('key_' => $object['key_']),
-			'output' => array('itemid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => true,
 			'limit' => 1
 		);
@@ -567,7 +572,6 @@ class CDiscoveryRule extends CItemGeneral {
 		if (empty($ruleids)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Empty input parameter.'));
 		}
-		$delRuleIds = zbx_toArray($ruleids);
 		$ruleids = zbx_toHash($ruleids);
 
 		$options = array(
@@ -637,7 +641,7 @@ class CDiscoveryRule extends CItemGeneral {
 			$host = reset($item['hosts']);
 			info(_s('Deleted: Discovery rule "%1$s" on "%2$s".', $item['name'], $host['name']));
 		}
-		return array('ruleids' => $delRuleIds);
+		return array('ruleids' => $ruleids);
 	}
 
 	/**
@@ -729,6 +733,7 @@ class CDiscoveryRule extends CItemGeneral {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'itemids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'countOutput' => true
 		));
 
@@ -755,6 +760,7 @@ class CDiscoveryRule extends CItemGeneral {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'itemids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'editable' => true,
 			'countOutput' => true
 		));

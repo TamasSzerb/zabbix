@@ -29,7 +29,7 @@ function make_favorite_graphs() {
 	$graphids = array();
 	$itemids = array();
 
-	$fav_graphs = CFavorite::get('web.favorite.graphids');
+	$fav_graphs = get_favorites('web.favorite.graphids');
 	foreach ($fav_graphs as $favorite) {
 		if ('itemid' == $favorite['source']) {
 			$itemids[$favorite['value']] = $favorite['value'];
@@ -87,7 +87,7 @@ function make_favorite_graphs() {
 
 function make_favorite_screens() {
 	$favList = new CList(null, 'favorites');
-	$fav_screens = CFavorite::get('web.favorite.screenids');
+	$fav_screens = get_favorites('web.favorite.screenids');
 	$screenids = array();
 	foreach ($fav_screens as $favorite) {
 		if ('screenid' == $favorite['source']) {
@@ -107,7 +107,7 @@ function make_favorite_screens() {
 		$sourceid = $favorite['value'];
 
 		if ('slideshowid' == $source) {
-			if (!slideshow_accessible($sourceid, PERM_READ)) {
+			if (!slideshow_accessible($sourceid, PERM_READ_ONLY)) {
 				continue;
 			}
 			if (!$slide = get_slideshow_by_slideshowid($sourceid)) {
@@ -133,7 +133,7 @@ function make_favorite_screens() {
 
 function make_favorite_maps() {
 	$favList = new CList(null, 'favorites');
-	$fav_sysmaps = CFavorite::get('web.favorite.sysmapids');
+	$fav_sysmaps = get_favorites('web.favorite.sysmapids');
 	$sysmapids = array();
 
 	foreach ($fav_sysmaps as $favorite) {
@@ -972,7 +972,7 @@ function make_webmon_overview($filter) {
 		'groupids' => array_keys($groups),
 		'monitored_hosts' => true,
 		'filter' => array('maintenance_status' => $filter['maintenance']),
-		'output' => array('hostid'),
+		'output' => API_OUTPUT_SHORTEN,
 		'preservekeys' => true
 	));
 	$availableHostIds = array_keys($availableHosts);
@@ -1124,7 +1124,7 @@ function make_graph_submenu() {
 	$graphids = array();
 	$itemids = array();
 
-	$fav_graphs = CFavorite::get('web.favorite.graphids');
+	$fav_graphs = get_favorites('web.favorite.graphids');
 	foreach ($fav_graphs as $key => $favorite) {
 		if ('itemid' == $favorite['source']) {
 			$itemids[$favorite['value']] = $favorite['value'];
@@ -1220,7 +1220,7 @@ function make_sysmap_menu(&$menu, &$submenu) {
 }
 
 function make_sysmap_submenu() {
-	$fav_sysmaps = CFavorite::get('web.favorite.sysmapids');
+	$fav_sysmaps = get_favorites('web.favorite.sysmapids');
 	$favMaps = array();
 	$sysmapids = array();
 	foreach ($fav_sysmaps as $favorite) {
@@ -1271,7 +1271,7 @@ function make_screen_menu(&$menu, &$submenu) {
 }
 
 function make_screen_submenu() {
-	$fav_screens = CFavorite::get('web.favorite.screenids');
+	$fav_screens = get_favorites('web.favorite.screenids');
 	$screenids = array();
 	foreach ($fav_screens as $favorite) {
 		if ('screenid' == $favorite['source']) {
@@ -1290,7 +1290,7 @@ function make_screen_submenu() {
 		$source = $favorite['source'];
 		$sourceid = $favorite['value'];
 		if ('slideshowid' == $source) {
-			if (!slideshow_accessible($sourceid, PERM_READ)) {
+			if (!slideshow_accessible($sourceid, PERM_READ_ONLY)) {
 				continue;
 			}
 			if (!$slide = get_slideshow_by_slideshowid($sourceid)) {

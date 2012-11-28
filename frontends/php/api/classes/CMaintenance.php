@@ -133,77 +133,54 @@ class CMaintenance extends CZBXAPI {
 			}
 		}
 		else {
-			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ;
+			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ_ONLY;
 
 			$sql = 'SELECT DISTINCT m.maintenanceid'.
 					' FROM maintenances m'.
 					' WHERE NOT EXISTS ('.
-						// deny section
-						'SELECT mh3.maintenanceid'.
+						' SELECT mh3.maintenanceid'.
 						' FROM maintenances_hosts mh3,rights r3,users_groups ug3,hosts_groups hg3'.
 						' WHERE mh3.maintenanceid=m.maintenanceid'.
 							' AND r3.groupid=ug3.usrgrpid'.
 							' AND hg3.hostid=mh3.hostid'.
 							' AND r3.id=hg3.groupid'.
 							' AND ug3.userid='.$userid.
-							' AND r3.permission='.PERM_DENY.
-						')'.
-						' AND NOT EXISTS ('.
-							'SELECT mh4.maintenanceid'.
-							' FROM maintenances_hosts mh4'.
-							' WHERE mh4.maintenanceid=m.maintenanceid'.
-								' AND NOT EXISTS ('.
-									'SELECT r5.id'.
-									' FROM rights r5,users_groups ug5,hosts_groups hg5'.
-									' WHERE r5.groupid=ug5.usrgrpid'.
-										' AND hg5.hostid=mh4.hostid'.
-										' AND r5.id=hg5.groupid'.
-										' AND ug5.userid='.$userid.
-								')'.
-						')'.
-						' AND NOT EXISTS ('.
-							'SELECT mg2.maintenanceid'.
-							' FROM maintenances_groups mg2,rights r3,users_groups ug3'.
-							' WHERE mg2.maintenanceid=m.maintenanceid'.
-								' AND r3.groupid=ug3.usrgrpid'.
-								' AND r3.id=mg2.groupid'.
-								' AND ug3.userid='.$userid.
-								' AND r3.permission='.PERM_DENY.
-						')'.
-						' AND NOT EXISTS ('.
-							'SELECT mg3.maintenanceid'.
-							' FROM maintenances_groups mg3'.
-							' WHERE mg3.maintenanceid=m.maintenanceid'.
-								' AND NOT EXISTS ('.
-									'SELECT r5.id'.
-									' FROM rights r5,users_groups ug5,hosts_groups hg5'.
-									' WHERE r5.groupid=ug5.usrgrpid'.
-										' AND r5.id=mg3.groupid'.
-										' AND ug5.userid='.$userid.
-								')'.
-						')'.
-						// allow section
-						' AND (
-							EXISTS ('.
-								'SELECT mh3.maintenanceid'.
-								' FROM maintenances_hosts mh3,rights r3,users_groups ug3,hosts_groups hg3'.
-								' WHERE mh3.maintenanceid=m.maintenanceid'.
-									' AND r3.groupid=ug3.usrgrpid'.
-									' AND hg3.hostid=mh3.hostid'.
-									' AND r3.id=hg3.groupid'.
-									' AND ug3.userid='.$userid.
-									' AND r3.permission>='.$permission.
+							' AND r3.permission<'.$permission.
+					')'.
+					' AND NOT EXISTS ('.
+						'SELECT mh4.maintenanceid'.
+						' FROM maintenances_hosts mh4'.
+						' WHERE mh4.maintenanceid=m.maintenanceid'.
+							' AND NOT EXISTS('.
+								'SELECT r5.id'.
+								' FROM rights r5,users_groups ug5,hosts_groups hg5'.
+								' WHERE r5.groupid=ug5.usrgrpid'.
+									' AND hg5.hostid=mh4.hostid'.
+									' AND r5.id=hg5.groupid'.
+									' AND ug5.userid='.$userid.
 							')'.
-							' OR EXISTS ('.
-								'SELECT mg2.maintenanceid'.
-								' FROM maintenances_groups mg2,rights r3,users_groups ug3'.
-								' WHERE mg2.maintenanceid=m.maintenanceid'.
-									' AND r3.groupid=ug3.usrgrpid'.
-									' AND r3.id=mg2.groupid'.
-									' AND ug3.userid='.$userid.
-									' AND r3.permission>='.$permission.
+					')'.
+					' AND NOT EXISTS ('.
+						'SELECT mg2.maintenanceid'.
+						' FROM maintenances_groups mg2,rights r3,users_groups ug3'.
+						' WHERE mg2.maintenanceid=m.maintenanceid'.
+							' AND r3.groupid=ug3.usrgrpid'.
+							' AND r3.id=mg2.groupid'.
+							' AND ug3.userid='.$userid.
+							' AND r3.permission<'.$permission.
+					')'.
+					' AND NOT EXISTS ('.
+						'SELECT mg3.maintenanceid'.
+						' FROM maintenances_groups mg3'.
+						' WHERE mg3.maintenanceid=m.maintenanceid'.
+							' AND NOT EXISTS ('.
+								'SELECT r5.id'.
+								' FROM rights r5,users_groups ug5,hosts_groups hg5'.
+								' WHERE r5.groupid=ug5.usrgrpid'.
+									' AND r5.id=mg3.groupid'.
+									' AND ug5.userid='.$userid.
 							')'.
-						')';
+					')';
 
 			if (!is_null($options['groupids'])) {
 				zbx_value2array($options['groupids']);
@@ -263,6 +240,24 @@ class CMaintenance extends CZBXAPI {
 			$sqlParts['where'][] = DBcondition('m.maintenanceid', $options['maintenanceids']);
 		}
 
+		// output
+		if ($options['output'] == API_OUTPUT_EXTEND) {
+			$sqlParts['select']['maintenance'] = 'm.*';
+		}
+
+		// countOutput
+		if (!is_null($options['countOutput'])) {
+			$options['sortfield'] = '';
+			$sqlParts['select'] = array('COUNT(DISTINCT m.maintenanceid) AS rowscount');
+
+			// groupCount
+			if (!is_null($options['groupCount'])) {
+				foreach ($sqlParts['group'] as $key => $fields) {
+					$sqlParts['select'][$key] = $fields;
+				}
+			}
+		}
+
 		// filter
 		if (is_array($options['filter'])) {
 			zbx_db_filter('maintenances m', $options, $sqlParts);
@@ -280,9 +275,6 @@ class CMaintenance extends CZBXAPI {
 		if (zbx_ctype_digit($options['limit']) && $options['limit']) {
 			$sqlParts['limit'] = $options['limit'];
 		}
-
-		// output
-		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 
 		$maintenanceids = array();
 
@@ -332,35 +324,40 @@ class CMaintenance extends CZBXAPI {
 			else {
 				$maintenanceids[$maintenance['maintenanceid']] = $maintenance['maintenanceid'];
 
-				if (!isset($result[$maintenance['maintenanceid']])) {
-					$result[$maintenance['maintenanceid']] = array();
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$maintenance['maintenanceid']] = array('maintenanceid' => $maintenance['maintenanceid']);
 				}
+				else {
+					if (!isset($result[$maintenance['maintenanceid']])) {
+						$result[$maintenance['maintenanceid']] = array();
+					}
 
-				if (!is_null($options['selectGroups']) && !isset($result[$maintenance['maintenanceid']]['groups'])) {
-					$result[$maintenance['maintenanceid']]['groups'] = array();
-				}
-				if (!is_null($options['selectHosts']) && !isset($result[$maintenance['maintenanceid']]['hosts'])) {
-					$result[$maintenance['maintenanceid']]['hosts'] = array();
-				}
-
-				// groupids
-				if (isset($maintenance['groupid']) && is_null($options['selectGroups'])) {
-					if (!isset($result[$maintenance['maintenanceid']]['groups'])) {
+					if (!is_null($options['selectGroups']) && !isset($result[$maintenance['maintenanceid']]['groups'])) {
 						$result[$maintenance['maintenanceid']]['groups'] = array();
 					}
-					$result[$maintenance['maintenanceid']]['groups'][] = array('groupid' => $maintenance['groupid']);
-					unset($maintenance['groupid']);
-				}
-
-				// hostids
-				if (isset($maintenance['hostid']) && is_null($options['selectHosts'])) {
-					if (!isset($result[$maintenance['maintenanceid']]['hosts'])) {
+					if (!is_null($options['selectHosts']) && !isset($result[$maintenance['maintenanceid']]['hosts'])) {
 						$result[$maintenance['maintenanceid']]['hosts'] = array();
 					}
-					$result[$maintenance['maintenanceid']]['hosts'][] = array('hostid' => $maintenance['hostid']);
-					unset($maintenance['hostid']);
+
+					// groupids
+					if (isset($maintenance['groupid']) && is_null($options['selectGroups'])) {
+						if (!isset($result[$maintenance['maintenanceid']]['groups'])) {
+							$result[$maintenance['maintenanceid']]['groups'] = array();
+						}
+						$result[$maintenance['maintenanceid']]['groups'][] = array('groupid' => $maintenance['groupid']);
+						unset($maintenance['groupid']);
+					}
+
+					// hostids
+					if (isset($maintenance['hostid']) && is_null($options['selectHosts'])) {
+						if (!isset($result[$maintenance['maintenanceid']]['hosts'])) {
+							$result[$maintenance['maintenanceid']]['hosts'] = array();
+						}
+						$result[$maintenance['maintenanceid']]['hosts'][] = array('hostid' => $maintenance['hostid']);
+						unset($maintenance['hostid']);
+					}
+					$result[$maintenance['maintenanceid']] += $maintenance;
 				}
-				$result[$maintenance['maintenanceid']] += $maintenance;
 			}
 		}
 
@@ -390,7 +387,7 @@ class CMaintenance extends CZBXAPI {
 
 		$options = array(
 			'filter' => zbx_array_mintersect($keyFields, $object),
-			'output' => array('maintenanceid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => true,
 			'limit' => 1
 		);
@@ -426,7 +423,7 @@ class CMaintenance extends CZBXAPI {
 		$options = array(
 			'hostids' => $hostids,
 			'editable' => true,
-			'output' => array('hostid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'preservekeys' => true
 		);
 		$updHosts = API::Host()->get($options);
@@ -439,7 +436,7 @@ class CMaintenance extends CZBXAPI {
 		$options = array(
 			'groupids' => $groupids,
 			'editable' => true,
-			'output' => array('groupid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'preservekeys' => true
 		);
 		$updGroups = API::HostGroup()->get($options);
@@ -618,7 +615,7 @@ class CMaintenance extends CZBXAPI {
 		$options = array(
 			'hostids' => $hostids,
 			'editable' => true,
-			'output' => array('hostid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'preservekeys' => true
 		);
 		$updHosts = API::Host()->get($options);
@@ -631,7 +628,7 @@ class CMaintenance extends CZBXAPI {
 		$options = array(
 			'groupids' => $groupids,
 			'editable' => true,
-			'output' => array('groupid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'preservekeys' => true
 		);
 		$updGroups = API::HostGroup()->get($options);
@@ -737,7 +734,7 @@ class CMaintenance extends CZBXAPI {
 			$options = array(
 				'maintenanceids' => $maintenanceids,
 				'editable' => true,
-				'output' => array('maintenanceid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'preservekeys' => true
 			);
 			$maintenances = $this->get($options);
@@ -763,7 +760,7 @@ class CMaintenance extends CZBXAPI {
 			// remove maintenanceid from hosts table
 			$options = array(
 				'real_hosts' => true,
-				'output' => array('hostid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'filter' => array('maintenanceid' => $maintenanceids)
 			);
 			$hosts = API::Host()->get($options);
@@ -894,7 +891,7 @@ class CMaintenance extends CZBXAPI {
 			);
 			while ($tp = DBfetch($query)) {
 				$refId = $tp['maintenanceid'];
-				$tp = $this->unsetExtraFields($tp, $options['selectTimeperiods']);
+				$tp = $this->unsetExtraFields('timeperiods', $tp, $options['selectTimeperiods']);
 				$result[$refId]['timeperiods'][] = $tp;
 			}
 		}

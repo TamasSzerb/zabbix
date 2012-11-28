@@ -167,7 +167,6 @@ if ($_REQUEST['groupid'] > 0) {
 
 $hostTB = new CTextBox('host', $host, ZBX_TEXTBOX_STANDARD_SIZE);
 $hostTB->setAttribute('maxlength', 64);
-$hostTB->setAttribute('autofocus', 'autofocus');
 $hostList->addRow(_('Host name'), $hostTB);
 
 $visiblenameTB = new CTextBox('visiblename', $visiblename, ZBX_TEXTBOX_STANDARD_SIZE);
@@ -186,10 +185,11 @@ foreach ($all_groups as $group) {
 
 $hostList->addRow(_('Groups'), $grp_tb->get(_('In groups'), _('Other groups')));
 
+global $USER_DETAILS;
 $newgroupTB = new CTextBox('newgroup', $newgroup, ZBX_TEXTBOX_SMALL_SIZE);
 $newgroupTB->setAttribute('maxlength', 64);
 $tmp_label = _('New host group');
-if (CWebUser::$data['type'] != USER_TYPE_SUPER_ADMIN) {
+if ($USER_DETAILS['type'] != USER_TYPE_SUPER_ADMIN) {
 	$tmp_label .= SPACE._('(Only superadmins can create group)');
 	$newgroupTB->setReadonly(true);
 }

@@ -59,7 +59,7 @@
 			$data['user_type']		= $user['type'];
 			$data['messages'] 		= getMessageSettings();
 
-			$userGroups = API::UserGroup()->get(array('userids' => $userid, 'output' => 'usrgrpid'));
+			$userGroups = API::UserGroup()->get(array('userids' => $userid, 'output' => API_OUTPUT_SHORTEN));
 			$userGroup = zbx_objectValues($userGroups, 'usrgrpid');
 			$data['user_groups']	= zbx_toHash($userGroup);
 
@@ -95,12 +95,12 @@
 			$data['user_medias']	= get_request('user_medias', array());
 
 			// set messages
-			$data['messages'] = get_request('messages', array());
+			$data['messages'] 		= get_request('messages', array());
 			if (!isset($data['messages']['enabled'])) {
 				$data['messages']['enabled'] = 0;
 			}
 			if (!isset($data['messages']['sounds.recovery'])) {
-				$data['messages']['sounds.recovery'] = 'alarm_ok.wav';
+				$data['messages']['sounds.recovery'] = 0;
 			}
 			if (!isset($data['messages']['triggers.recovery'])) {
 				$data['messages']['triggers.recovery'] = 0;
@@ -146,13 +146,10 @@
 			}
 			$db_rights = DBselect('SELECT r.* FROM rights r WHERE '.DBcondition('r.groupid', $group_ids));
 
-			// deny beat all, read-write beat read
 			$tmp_permitions = array();
 			while ($db_right = DBfetch($db_rights)) {
-				if (isset($tmp_permitions[$db_right['id']]) && $tmp_permitions[$db_right['id']] != PERM_DENY) {
-					$tmp_permitions[$db_right['id']] = ($db_right['permission'] == PERM_DENY)
-						? PERM_DENY
-						: max($tmp_permitions[$db_right['id']], $db_right['permission']);
+				if (isset($tmp_permitions[$db_right['id']])) {
+					$tmp_permitions[$db_right['id']] = min($tmp_permitions[$db_right['id']], $db_right['permission']);
 				}
 				else {
 					$tmp_permitions[$db_right['id']] = $db_right['permission'];
@@ -182,7 +179,7 @@
 			$nodes = get_accessible_nodes_by_rights($rights, $user_type, PERM_DENY, PERM_RES_DATA_ARRAY);
 			foreach ($nodes as $node) {
 				switch($node['permission']) {
-					case PERM_READ:
+					case PERM_READ_ONLY:
 						$list_name = 'read_only';
 						break;
 					case PERM_READ_WRITE:
@@ -210,7 +207,7 @@
 
 		foreach ($groups as $group) {
 			switch($group['permission']) {
-				case PERM_READ:
+				case PERM_READ_ONLY:
 					$list_name = 'read_only';
 					break;
 				case PERM_READ_WRITE:
@@ -237,7 +234,7 @@
 
 		foreach ($hosts as $host) {
 			switch($host['permission']) {
-				case PERM_READ:
+				case PERM_READ_ONLY:
 					$list_name = 'read_only';
 					break;
 				case PERM_READ_WRITE:
@@ -464,7 +461,7 @@
 		$snmpCommunityField->setEnabled('no');
 
 		// SNMPv3 security name
-		$snmpSecurityLabel = new CSpan(array(bold(_('Security name')), SPACE._('like').': '));
+		$snmpSecurityLabel = new CSpan(array(bold(_('SNMPv3 security name')), SPACE._('like').': '));
 		$snmpSecurityLabel->setAttribute('id', 'filter_snmpv3_securityname_label');
 
 		$snmpSecurityField = new CTextBox('filter_snmpv3_securityname', $filter_snmpv3_securityname, ZBX_TEXTBOX_FILTER_SIZE);
@@ -909,9 +906,7 @@
 			'new_delay_flex' => get_request('new_delay_flex', array('delay' => 50, 'period' => ZBX_DEFAULT_INTERVAL)),
 			'snmpv3_securityname' => get_request('snmpv3_securityname', ''),
 			'snmpv3_securitylevel' => get_request('snmpv3_securitylevel', 0),
-			'snmpv3_authprotocol' => get_request('snmpv3_authprotocol', ITEM_AUTHPROTOCOL_MD5),
 			'snmpv3_authpassphrase' => get_request('snmpv3_authpassphrase', ''),
-			'snmpv3_privprotocol' => get_request('snmpv3_privprotocol', ITEM_PRIVPROTOCOL_DES),
 			'snmpv3_privpassphrase' => get_request('snmpv3_privpassphrase', ''),
 			'ipmi_sensor' => get_request('ipmi_sensor', ''),
 			'authtype' => get_request('authtype', 0),
@@ -1062,9 +1057,7 @@
 			$data['params'] = $data['item']['params'];
 			$data['snmpv3_securityname'] = $data['item']['snmpv3_securityname'];
 			$data['snmpv3_securitylevel'] = $data['item']['snmpv3_securitylevel'];
-			$data['snmpv3_authprotocol'] = $data['item']['snmpv3_authprotocol'];
 			$data['snmpv3_authpassphrase'] = $data['item']['snmpv3_authpassphrase'];
-			$data['snmpv3_privprotocol'] = $data['item']['snmpv3_privprotocol'];
 			$data['snmpv3_privpassphrase'] = $data['item']['snmpv3_privpassphrase'];
 			$data['ipmi_sensor'] = $data['item']['ipmi_sensor'];
 			$data['authtype'] = $data['item']['authtype'];
@@ -1392,7 +1385,7 @@
 	}
 
 	function get_timeperiod_form() {
-		$tblPeriod = new CTable(null, 'formElementTable');
+		$tblPeriod = new CTableInfo();
 
 		// init new_timeperiod variable
 		$new_timeperiod = get_request('new_timeperiod', array());
@@ -1575,13 +1568,26 @@
 			));
 			$tblPeriod->addRow(array(_('Month'), $tabMonths));
 
-			$tblPeriod->addRow(array(_('Date'), array(
-				new CRadioButton('new_timeperiod[month_date_type]', '0', null, null, !$new_timeperiod['month_date_type'], 'submit()'),
-				_('Day'),
-				SPACE,
-				new CRadioButton('new_timeperiod[month_date_type]', '1', null, null, $new_timeperiod['month_date_type'], 'submit()'),
-				_('Day of week')))
-			);
+			$radioDaily = new CTag('input');
+			$radioDaily->setAttribute('type', 'radio');
+			$radioDaily->setAttribute('name', 'new_timeperiod[month_date_type]');
+			$radioDaily->setAttribute('value', '0');
+			$radioDaily->setAttribute('onclick', 'submit()');
+
+			$radioDaily2 = new CTag('input');
+			$radioDaily2->setAttribute('type', 'radio');
+			$radioDaily2->setAttribute('name', 'new_timeperiod[month_date_type]');
+			$radioDaily2->setAttribute('value', '1');
+			$radioDaily2->setAttribute('onclick', 'submit()');
+
+			if ($new_timeperiod['month_date_type']) {
+				$radioDaily2->setAttribute('checked', 'checked');
+			}
+			else {
+				$radioDaily->setAttribute('checked', 'checked');
+			}
+
+			$tblPeriod->addRow(array(_('Date'), array($radioDaily, _('Day'), SPACE, SPACE, $radioDaily2, _('Day of week'))));
 
 			if ($new_timeperiod['month_date_type'] > 0) {
 				$tblPeriod->addItem(new CVar('new_timeperiod[day]', $new_timeperiod['day']));
@@ -1622,31 +1628,65 @@
 			$tblPeriod->addItem(new CVar('new_timeperiod[month_date_type]', $new_timeperiod['month_date_type']));
 			$tblPeriod->addItem(new CVar('new_timeperiod[dayofweek]', bindec($bit_dayofweek)));
 
-			$start_date = zbxDateToTime($new_timeperiod['start_date']);
+			$clndr_icon = new CImg('images/general/bar/cal.gif', 'calendar', 16, 12, 'pointer');
+			$clndr_icon->addAction('onclick', 'javascript: var pos = getPosition(this); pos.top += 10; pos.left += 16; CLNDR["new_timeperiod_date"].clndr.clndrshow(pos.top, pos.left);');
 
-			$tblPeriod->addRow(array(_('Date'), createDateSelector('new_timeperiod_start_date', $start_date)));
+			$filtertimetab = new CTable(null, 'calendar');
+			$filtertimetab->setAttribute('width', '10%');
+			$filtertimetab->setCellPadding(0);
+			$filtertimetab->setCellSpacing(0);
+
+			$start_date = zbxDateToTime($new_timeperiod['start_date']);
+			$filtertimetab->addRow(array(
+				new CNumericBox('new_timeperiod_day', ($start_date > 0) ? date('d', $start_date) : '', 2),
+				'/',
+				new CNumericBox('new_timeperiod_month', ($start_date > 0) ? date('m', $start_date) : '', 2),
+				'/',
+				new CNumericBox('new_timeperiod_year', ($start_date > 0) ? date('Y', $start_date) : '', 4),
+				SPACE,
+				new CNumericBox('new_timeperiod_hour', ($start_date > 0) ? date('H', $start_date) : '', 2),
+				':',
+				new CNumericBox('new_timeperiod_minute', ($start_date > 0) ? date('i', $start_date) : '', 2),
+				$clndr_icon
+			));
+			zbx_add_post_js('create_calendar(null, ["new_timeperiod_day", "new_timeperiod_month", "new_timeperiod_year", "new_timeperiod_hour", "new_timeperiod_minute"], "new_timeperiod_date", "new_timeperiod_start_date");');
+
+			$tblPeriod->addRow(array(_('Date'), $filtertimetab));
 		}
 
 		if ($new_timeperiod['timeperiod_type'] != TIMEPERIOD_TYPE_ONETIME) {
-			$tblPeriod->addRow(array(_('At (hour:minute)'), array(
-				new CNumericBox('new_timeperiod[hour]', $new_timeperiod['hour'], 2),
-				':',
-				new CNumericBox('new_timeperiod[minute]', $new_timeperiod['minute'], 2)))
-			);
+			$tabTime = new CTable(null, 'calendar');
+			$tabTime->addRow(array(new CNumericBox('new_timeperiod[hour]', $new_timeperiod['hour'], 2), ':', new CNumericBox('new_timeperiod[minute]', $new_timeperiod['minute'], 2)));
+			$tblPeriod->addRow(array(_('At (hour:minute)'), $tabTime));
 		}
 
-		$perHours = new CComboBox('new_timeperiod[period_hours]', $new_timeperiod['period_hours'], null, range(0, 23));
-		$perMinutes = new CComboBox('new_timeperiod[period_minutes]', $new_timeperiod['period_minutes'], null, range(0, 59));
+		$perHours = new CComboBox('new_timeperiod[period_hours]', $new_timeperiod['period_hours']);
+		for ($i = 0; $i < 24; $i++) {
+			$perHours->addItem($i, $i);
+		}
+		$perMinutes = new CComboBox('new_timeperiod[period_minutes]', $new_timeperiod['period_minutes']);
+		for ($i = 0; $i < 60; $i++) {
+			$perMinutes->addItem($i, $i);
+		}
 		$tblPeriod->addRow(array(
 			_('Maintenance period length'),
 			array(
 				new CNumericBox('new_timeperiod[period_days]', $new_timeperiod['period_days'], 3),
 				_('Days').SPACE.SPACE,
 				$perHours,
-				_('Hours').SPACE.SPACE,
+				SPACE._('Hours'),
 				$perMinutes,
-				_('Minutes')
+				SPACE._('Minutes')
 		)));
+
+		$td = new CCol(array(
+			new CSubmit('add_timeperiod', $new ? _('Save') : _('Add')),
+			SPACE,
+			new CSubmit('cancel_new_timeperiod', _('Cancel'))
+		));
+		$td->setAttribute('colspan', '3');
+		$td->setAttribute('style', 'text-align: right;');
+		$tblPeriod->setFooter($td);
 
 		return $tblPeriod;
 	}
@@ -1673,3 +1713,285 @@
 		return $frmHostP;
 	}
 
+	function get_regexp_form(){
+		if(isset($_REQUEST['regexpid']) && !isset($_REQUEST['form_refresh'])){
+			$sql = 'SELECT re.* '.
+				' FROM regexps re '.
+				' WHERE '.DBin_node('re.regexpid').
+					' AND re.regexpid='.$_REQUEST['regexpid'];
+			$regexp = DBfetch(DBSelect($sql));
+
+			$rename			= $regexp['name'];
+			$test_string	= $regexp['test_string'];
+
+			$expressions = array();
+			$sql = 'SELECT e.* '.
+					' FROM expressions e '.
+					' WHERE '.DBin_node('e.expressionid').
+						' AND e.regexpid='.$regexp['regexpid'].
+					' ORDER BY e.expression_type';
+
+			$db_exps = DBselect($sql);
+			while($exp = DBfetch($db_exps)){
+				$expressions[] = $exp;
+			}
+		}
+		else{
+			$rename			= get_request('rename','');
+			$test_string	= get_request('test_string','');
+
+			$expressions 	= get_request('expressions',array());
+		}
+
+		$tblRE = new CTable('','formtable nowrap');
+
+		$tblRE->addRow(array(_('Name'), new CTextBox('rename', $rename, 60, 'no', 128)));
+		$tblRE->addRow(array(_('Test string'), new CTextArea('test_string', $test_string)));
+
+		$tabExp = new CTableInfo();
+
+		$td1 = new CCol(_('Expression'));
+		$td2 = new CCol(_('Expected result'));
+		$td3 = new CCol(_('Result'));
+
+		$tabExp->setHeader(array($td1,$td2,$td3));
+
+		$final_result = !empty($test_string);
+
+		foreach($expressions as $id => $expression){
+
+			$results = array();
+			$paterns = array($expression['expression']);
+
+			if(!empty($test_string)){
+				if($expression['expression_type'] == EXPRESSION_TYPE_ANY_INCLUDED){
+					$paterns = explode($expression['exp_delimiter'],$expression['expression']);
+				}
+
+				if(uint_in_array($expression['expression_type'], array(EXPRESSION_TYPE_TRUE,EXPRESSION_TYPE_FALSE))){
+					if($expression['case_sensitive'])
+						$results[$id] = preg_match('/'.$paterns[0].'/',$test_string);
+					else
+						$results[$id] = preg_match('/'.$paterns[0].'/i',$test_string);
+
+					if($expression['expression_type'] == EXPRESSION_TYPE_TRUE)
+						$final_result &= $results[$id];
+					else
+						$final_result &= !$results[$id];
+				}
+				else{
+					$results[$id] = true;
+
+					$tmp_result = false;
+					if($expression['case_sensitive']){
+						foreach($paterns as $pid => $patern){
+							$tmp_result |= (zbx_strstr($test_string,$patern) !== false);
+						}
+					}
+					else{
+						foreach($paterns as $pid => $patern){
+							$tmp_result |= (zbx_stristr($test_string,$patern) !== false);
+						}
+					}
+
+					if(uint_in_array($expression['expression_type'], array(EXPRESSION_TYPE_INCLUDED, EXPRESSION_TYPE_ANY_INCLUDED)))
+						$results[$id] &= $tmp_result;
+					else if($expression['expression_type'] == EXPRESSION_TYPE_NOT_INCLUDED){
+						$results[$id] &= !$tmp_result;
+					}
+					$final_result &= $results[$id];
+				}
+			}
+
+			if(isset($results[$id]) && $results[$id])
+				$exp_res = new CSpan(_('TRUE'), 'green bold');
+			else
+				$exp_res = new CSpan(_('FALSE'), 'red bold');
+
+			$expec_result = expression_type2str($expression['expression_type']);
+			if(EXPRESSION_TYPE_ANY_INCLUDED == $expression['expression_type'])
+				$expec_result.=' ('._('Delimiter')."='".$expression['exp_delimiter']."')";
+
+			$tabExp->addRow(array(
+				$expression['expression'],
+				$expec_result,
+				$exp_res
+			));
+		}
+
+		$td = new CCol(_('Combined result'), 'bold');
+		$td->setColSpan(2);
+
+		if ($final_result) {
+			$final_result = new CSpan(_('TRUE'), 'green bold');
+		}
+		else {
+			$final_result = new CSpan(_('FALSE'), 'red bold');
+		}
+
+		$tabExp->addRow(array(
+			$td,
+			$final_result
+		));
+
+		$tblRE->addRow(array(_('Result'), $tabExp));
+
+		$tblFoot = new CTableInfo(null);
+
+		$td = new CCol(array(new CSubmit('save', _('Save'))));
+		$td->setColSpan(2);
+		$td->addStyle('text-align: right;');
+
+		$td->addItem(SPACE);
+		$td->addItem(new CSubmit('test', _('Test')));
+
+		if (isset($_REQUEST['regexpid'])) {
+			$td->addItem(SPACE);
+			$td->addItem(new CSubmit('clone', _('Clone')));
+			$td->addItem(SPACE);
+			$td->addItem(new CButtonDelete(_('Delete regular expression?'), url_param('form').url_param('config').url_param('regexpid').url_param('delete', false, 'go')));
+		}
+
+		$td->addItem(SPACE);
+		$td->addItem(new CButtonCancel(url_param("regexpid")));
+
+		$tblFoot->setFooter($td);
+
+		return array($tblRE, $tblFoot);
+	}
+
+	function get_expressions_tab() {
+		if (isset($_REQUEST['regexpid']) && !isset($_REQUEST['form_refresh'])) {
+			$expressions = array();
+			$sql = 'SELECT e.* '.
+					' FROM expressions e '.
+					' WHERE '.DBin_node('e.expressionid').
+						' AND e.regexpid='.$_REQUEST['regexpid'].
+					' ORDER BY e.expression_type';
+
+			$db_exps = DBselect($sql);
+			while ($exp = DBfetch($db_exps)) {
+				$expressions[] = $exp;
+			}
+		}
+		else {
+			$expressions = get_request('expressions',array());
+		}
+
+		$tblExp = new CTableInfo();
+		$tblExp->setHeader(array(
+			new CCheckBox('all_expressions', null, 'checkAll("regularExpressionsForm", "all_expressions", "g_expressionid");'),
+			_('Expression'),
+			_('Expected result'),
+			_('Case sensitive'),
+			_('Edit')
+		));
+
+		foreach($expressions as $id => $expression){
+
+			$exp_result = expression_type2str($expression['expression_type']);
+			if(EXPRESSION_TYPE_ANY_INCLUDED == $expression['expression_type'])
+				$exp_result.=' ('._('Delimiter')."='".$expression['exp_delimiter']."')";
+
+			$tblExp->addRow(array(
+				new CCheckBox('g_expressionid[]', 'no', null, $id),
+				$expression['expression'],
+				$exp_result,
+				$expression['case_sensitive'] ? _('Yes') : _('No'),
+				new CSubmit('edit_expressionid['.$id.']', _('Edit'))
+			));
+
+			if (isset($expression['expressionid'])) {
+				$tblExp->addItem(new CVar('expressions['.$id.'][expressionid]', $expression['expressionid']));
+			}
+			$tblExp->addItem(new CVar('expressions['.$id.'][expression]', $expression['expression']));
+			$tblExp->addItem(new CVar('expressions['.$id.'][expression_type]', $expression['expression_type']));
+			$tblExp->addItem(new CVar('expressions['.$id.'][case_sensitive]', $expression['case_sensitive']));
+			$tblExp->addItem(new CVar('expressions['.$id.'][exp_delimiter]', $expression['exp_delimiter']));
+		}
+
+		$buttons = array();
+		if(!isset($_REQUEST['new_expression'])){
+			$buttons[] = new CSubmit('new_expression', _('New'));
+			$buttons[] = new CSubmit('delete_expression', _('Delete'));
+		}
+
+		$td = new CCol($buttons);
+		$td->setAttribute('colspan', '5');
+		$td->setAttribute('style', 'text-align: right;');
+		$tblExp->setFooter($td);
+
+		return $tblExp;
+	}
+
+	function get_expression_form(){
+		$tblExp = new CTable();
+
+		/* init new_timeperiod variable */
+		$new_expression = get_request('new_expression', array());
+
+		if(is_array($new_expression) && isset($new_expression['id'])){
+			$tblExp->addItem(new Cvar('new_expression[id]', $new_expression['id']));
+		}
+
+		if(!is_array($new_expression)){
+			$new_expression = array();
+		}
+
+		if (isset($new_expression['expressionid'])) {
+			$tblExp->addItem(new CVar('new_expression[expressionid]', $new_expression['expressionid']));
+		}
+		if (!isset($new_expression['expression'])) {
+			$new_expression['expression'] = '';
+		}
+		if (!isset($new_expression['expression_type'])) {
+			$new_expression['expression_type'] = EXPRESSION_TYPE_INCLUDED;
+		}
+		if (!isset($new_expression['case_sensitive'])) {
+			$new_expression['case_sensitive'] = 0;
+		}
+		if (!isset($new_expression['exp_delimiter'])) {
+			$new_expression['exp_delimiter'] = ',';
+		}
+
+		$tblExp->addRow(array(_('Expression'), new CTextBox('new_expression[expression]', $new_expression['expression'], 60)));
+
+		$cmbType = new CComboBox('new_expression[expression_type]', $new_expression['expression_type'], 'javascript: submit();');
+		$cmbType->addItem(EXPRESSION_TYPE_INCLUDED, expression_type2str(EXPRESSION_TYPE_INCLUDED));
+		$cmbType->addItem(EXPRESSION_TYPE_ANY_INCLUDED, expression_type2str(EXPRESSION_TYPE_ANY_INCLUDED));
+		$cmbType->addItem(EXPRESSION_TYPE_NOT_INCLUDED, expression_type2str(EXPRESSION_TYPE_NOT_INCLUDED));
+		$cmbType->addItem(EXPRESSION_TYPE_TRUE, expression_type2str(EXPRESSION_TYPE_TRUE));
+		$cmbType->addItem(EXPRESSION_TYPE_FALSE, expression_type2str(EXPRESSION_TYPE_FALSE));
+
+		$tblExp->addRow(array(_('Expression type'), $cmbType));
+
+		if(EXPRESSION_TYPE_ANY_INCLUDED == $new_expression['expression_type']){
+			$cmbDelimiter = new CComboBox('new_expression[exp_delimiter]', $new_expression['exp_delimiter']);
+			$cmbDelimiter->addItem(',', ',');
+			$cmbDelimiter->addItem('.', '.');
+			$cmbDelimiter->addItem('/', '/');
+
+			$tblExp->addRow(array(_('Delimiter'), $cmbDelimiter));
+		}
+		else{
+			$tblExp->addItem(new Cvar('new_expression[exp_delimiter]', $new_expression['exp_delimiter']));
+		}
+
+		$chkbCase = new CCheckBox('new_expression[case_sensitive]', $new_expression['case_sensitive'], null, 1);
+
+		$tblExp->addRow(array(_('Case sensitive'), $chkbCase));
+
+		$tblExpFooter = new CTableInfo($tblExp);
+
+		$oper_buttons = array();
+		$oper_buttons[] = new CSubmit('add_expression', isset($new_expression['id']) ? _('Save') : _('Add'));
+		$oper_buttons[] = new CSubmit('cancel_new_expression', _('Cancel'));
+
+		$td = new CCol($oper_buttons);
+		$td->setAttribute('colspan', 2);
+		$td->setAttribute('style', 'text-align: right;');
+
+		$tblExpFooter->setFooter($td);
+
+	return $tblExpFooter;
+	}

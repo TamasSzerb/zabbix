@@ -116,6 +116,18 @@ class CDService extends CZBXAPI{
 		);
 		$options = zbx_array_merge($defOptions, $options);
 
+		if (is_array($options['output'])) {
+			unset($sqlParts['select']['dservices']);
+
+			$dbTable = DB::getSchema('dservices');
+			foreach ($options['output'] as $field) {
+				if (isset($dbTable['fields'][$field])) {
+					$sqlParts['select'][$field] = 's.'.$field;
+				}
+			}
+			$options['output'] = API_OUTPUT_CUSTOM;
+		}
+
 // editable + PERMISSION CHECK
 		if (USER_TYPE_SUPER_ADMIN == $userType) {
 		}
@@ -142,8 +154,10 @@ class CDService extends CZBXAPI{
 // dhostids
 		if (!is_null($options['dhostids'])) {
 			zbx_value2array($options['dhostids']);
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['dhostid'] = 'ds.dhostid';
+			}
 
-			$sqlParts['select']['dhostid'] = 'ds.dhostid';
 			$sqlParts['where'][] = DBcondition('ds.dhostid', $options['dhostids']);
 
 			if (!is_null($options['groupCount'])) {
@@ -160,13 +174,15 @@ class CDService extends CZBXAPI{
 // dcheckids
 		if (!is_null($options['dcheckids'])) {
 			zbx_value2array($options['dcheckids']);
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['dcheckid'] = 'dc.dcheckid';
+			}
 
-			$sqlParts['select']['dcheckid'] = 'dc.dcheckid';
 			$sqlParts['from']['dhosts'] = 'dhosts dh';
 			$sqlParts['from']['dchecks'] = 'dchecks dc';
 
 			$sqlParts['where'][] = DBcondition('dc.dcheckid', $options['dcheckids']);
-			$sqlParts['where']['dhds'] = 'dh.dhostid=ds.dhostid';
+			$sqlParts['where']['dhds'] = 'dh.hostid=ds.hostid';
 			$sqlParts['where']['dcdh'] = 'dc.druleid=dh.druleid';
 
 			if (!is_null($options['groupCount'])) {
@@ -177,8 +193,10 @@ class CDService extends CZBXAPI{
 // druleids
 		if (!is_null($options['druleids'])) {
 			zbx_value2array($options['druleids']);
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['druleid'] = 'dh.druleid';
+			}
 
-			$sqlParts['select']['druleid'] = 'dh.druleid';
 			$sqlParts['from']['dhosts'] = 'dhosts dh';
 
 			$sqlParts['where']['druleid'] = DBcondition('dh.druleid', $options['druleids']);
@@ -201,6 +219,25 @@ class CDService extends CZBXAPI{
 			$sqlParts['where'][] = DBin_node('ds.dserviceid', $nodeids);
 		}
 
+
+// output
+		if ($options['output'] == API_OUTPUT_EXTEND) {
+			$sqlParts['select']['dservices'] = 'ds.*';
+		}
+
+// countOutput
+		if (!is_null($options['countOutput'])) {
+			$options['sortfield'] = '';
+			$sqlParts['select'] = array('count(DISTINCT ds.dserviceid) as rowscount');
+
+//groupCount
+			if (!is_null($options['groupCount'])) {
+				foreach ($sqlParts['group'] as $key => $fields) {
+					$sqlParts['select'][$key] = $fields;
+				}
+			}
+		}
+
 // filter
 		if (is_array($options['filter'])) {
 			zbx_db_filter('dservices ds', $options, $sqlParts);
@@ -220,8 +257,6 @@ class CDService extends CZBXAPI{
 		}
 //-------
 
-		// output
-		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 
 		$dserviceids = array();
 
@@ -260,49 +295,51 @@ class CDService extends CZBXAPI{
 			else{
 				$dserviceids[$dservice['dserviceid']] = $dservice['dserviceid'];
 
-				if (!isset($result[$dservice['dserviceid']])) $result[$dservice['dserviceid']]= array();
-
-				if (!is_null($options['selectDRules']) && !isset($result[$dservice['dserviceid']]['drules'])) {
-					$result[$dservice['dserviceid']]['drules'] = array();
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$dservice['dserviceid']] = array('dserviceid' => $dservice['dserviceid']);
 				}
+				else{
+					if (!isset($result[$dservice['dserviceid']])) $result[$dservice['dserviceid']]= array();
 
-				if (!is_null($options['selectDHosts']) && !isset($result[$dservice['dserviceid']]['dhosts'])) {
-					$result[$dservice['dserviceid']]['dhosts'] = array();
-				}
-
-				if (!is_null($options['selectDChecks']) && !isset($result[$dservice['dserviceid']]['dchecks'])) {
-					$result[$dservice['dserviceid']]['dchecks'] = array();
-				}
-
-				if (!is_null($options['selectHosts']) && !isset($result[$dservice['dserviceid']]['hosts'])) {
-					$result[$dservice['dserviceid']]['hosts'] = array();
-				}
-
-				// druleids
-				if (isset($dservice['druleid']) && is_null($options['selectDRules'])) {
-					if (!isset($result[$dservice['dserviceid']]['drules']))
+					if (!is_null($options['selectDRules']) && !isset($result[$dservice['dserviceid']]['drules'])) {
 						$result[$dservice['dserviceid']]['drules'] = array();
+					}
 
-					$result[$dservice['dserviceid']]['drules'][] = array('druleid' => $dservice['druleid']);
-				}
-
-				// dhostids
-				if (isset($dservice['dhostid']) && is_null($options['selectDHosts'])) {
-					if (!isset($result[$dservice['dserviceid']]['dhosts']))
+					if (!is_null($options['selectDHosts']) && !isset($result[$dservice['dserviceid']]['dhosts'])) {
 						$result[$dservice['dserviceid']]['dhosts'] = array();
+					}
 
-					$result[$dservice['dserviceid']]['dhosts'][] = array('dhostid' => $dservice['dhostid']);
-				}
-
-				// dcheckids
-				if (isset($dservice['dcheckid']) && is_null($options['selectDChecks'])) {
-					if (!isset($result[$dservice['dserviceid']]['dchecks']))
+					if (!is_null($options['selectDChecks']) && !isset($result[$dservice['dserviceid']]['dchecks'])) {
 						$result[$dservice['dserviceid']]['dchecks'] = array();
+					}
 
-					$result[$dservice['dserviceid']]['dchecks'][] = array('dcheckid' => $dservice['dcheckid']);
+					if (!is_null($options['selectHosts']) && !isset($result[$dservice['dserviceid']]['hosts'])) {
+						$result[$dservice['dserviceid']]['hosts'] = array();
+					}
+// druleids
+					if (isset($dservice['druleid']) && is_null($options['selectDRules'])) {
+						if (!isset($result[$dservice['dserviceid']]['drules']))
+							$result[$dservice['dserviceid']]['drules'] = array();
+
+						$result[$dservice['dserviceid']]['drules'][] = array('druleid' => $dservice['druleid']);
+					}
+// dhostids
+					if (isset($dservice['dhostid']) && is_null($options['selectDHosts'])) {
+						if (!isset($result[$dservice['dserviceid']]['dhosts']))
+							$result[$dservice['dserviceid']]['dhosts'] = array();
+
+						$result[$dservice['dserviceid']]['dhosts'][] = array('dhostid' => $dservice['dhostid']);
+					}
+// dcheckids
+					if (isset($dservice['dcheckid']) && is_null($options['selectDChecks'])) {
+						if (!isset($result[$dservice['dserviceid']]['dchecks']))
+							$result[$dservice['dserviceid']]['dchecks'] = array();
+
+						$result[$dservice['dserviceid']]['dchecks'][] = array('dcheckid' => $dservice['dcheckid']);
+					}
+
+					$result[$dservice['dserviceid']] += $dservice;
 				}
-
-				$result[$dservice['dserviceid']] += $dservice;
 			}
 		}
 
@@ -453,7 +490,7 @@ class CDService extends CZBXAPI{
 
 		$options = array(
 			'filter' => zbx_array_mintersect($keyFields, $object),
-			'output' => array('dserviceid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => 1,
 			'limit' => 1
 		);

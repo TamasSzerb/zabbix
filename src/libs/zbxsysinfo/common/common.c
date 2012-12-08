@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -44,26 +44,23 @@ static int	SYSTEM_RUN(const char *cmd, const char *param, unsigned flags, AGENT_
 ZBX_METRIC	parameters_common[] =
 /*      KEY                     FLAG		FUNCTION        ADD_PARAM       TEST_PARAM */
 {
-	{"system.localtime",	CF_USEUPARAM,	SYSTEM_LOCALTIME,	0,	"utc"},
+	{"system.localtime",	0,		SYSTEM_LOCALTIME,	0,	0},
 	{"system.run",		CF_USEUPARAM,	SYSTEM_RUN,	 	0,	"echo test"},
 
 	{"web.page.get",	CF_USEUPARAM,	WEB_PAGE_GET,	 	0,	"localhost,,80"},
 	{"web.page.perf",	CF_USEUPARAM,	WEB_PAGE_PERF,	 	0,	"localhost,,80"},
 	{"web.page.regexp",	CF_USEUPARAM,	WEB_PAGE_REGEXP,	0,	"localhost,,80,OK"},
 
-	{"vfs.file.size",	CF_USEUPARAM,	VFS_FILE_SIZE, 		0,	VFS_TEST_FILE},
-	{"vfs.file.time",	CF_USEUPARAM,	VFS_FILE_TIME,		0,	VFS_TEST_FILE ",modify"},
 	{"vfs.file.exists",	CF_USEUPARAM,	VFS_FILE_EXISTS,	0,	VFS_TEST_FILE},
-	{"vfs.file.contents",	CF_USEUPARAM,	VFS_FILE_CONTENTS,	0,	VFS_TEST_FILE},
+	{"vfs.file.time",	CF_USEUPARAM,	VFS_FILE_TIME,		0,	VFS_TEST_FILE ",modify"},
+	{"vfs.file.size",	CF_USEUPARAM,	VFS_FILE_SIZE, 		0,	VFS_TEST_FILE},
 	{"vfs.file.regexp",	CF_USEUPARAM,	VFS_FILE_REGEXP,	0,	VFS_TEST_FILE "," VFS_TEST_REGEXP},
 	{"vfs.file.regmatch",	CF_USEUPARAM,	VFS_FILE_REGMATCH, 	0,	VFS_TEST_FILE "," VFS_TEST_REGEXP},
-	{"vfs.file.md5sum",	CF_USEUPARAM,	VFS_FILE_MD5SUM,	0,	VFS_TEST_FILE},
 	{"vfs.file.cksum",	CF_USEUPARAM,	VFS_FILE_CKSUM,		0,	VFS_TEST_FILE},
+	{"vfs.file.md5sum",	CF_USEUPARAM,	VFS_FILE_MD5SUM,	0,	VFS_TEST_FILE},
 
-	{"net.dns",		CF_USEUPARAM,	NET_DNS,		0,	",zabbix.com"},
-	{"net.dns.record",	CF_USEUPARAM,	NET_DNS_RECORD,		0,	",zabbix.com"},
-	{"net.tcp.dns",		CF_USEUPARAM,	NET_DNS,		0,	",zabbix.com"}, /* deprecated */
-	{"net.tcp.dns.query",	CF_USEUPARAM,	NET_DNS_RECORD,		0,	",zabbix.com"}, /* deprecated */
+	{"net.tcp.dns",		CF_USEUPARAM,	NET_TCP_DNS,		0,	",zabbix.com"},
+	{"net.tcp.dns.query",	CF_USEUPARAM,	NET_TCP_DNS_QUERY,	0,	",zabbix.com"},
 	{"net.tcp.port",	CF_USEUPARAM,	NET_TCP_PORT,		0,	",80"},
 
 	{"system.hostname",	CF_USEUPARAM,	SYSTEM_HOSTNAME,	0,	0},
@@ -85,21 +82,41 @@ static int	ONLY_ACTIVE(const char *cmd, const char *param, unsigned flags, AGENT
 	return SYSINFO_RET_FAIL;
 }
 
-int	EXECUTE_USER_PARAMETER(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+int	getPROC(char *file, int lineno, int fieldno, unsigned flags, AGENT_RESULT *result)
 {
-	int	ret;
+#ifdef	HAVE_PROC
+	FILE	*f;
+	char	*t, c[MAX_STRING_LEN];
+	int	i;
+	double	value = 0;
 
-	ret = EXECUTE_STR(cmd, param, flags, result);
+	if (NULL == (f = fopen(file,"r")))
+		return SYSINFO_RET_FAIL;
 
-	if (SYSINFO_RET_FAIL == ret && 0 == result->type)
+	for(i=1; i<=lineno; i++)
 	{
-		/* only whitespace */
-
-		SET_TEXT_RESULT(result, zbx_strdup(NULL, ""));
-		ret = SYSINFO_RET_OK;
+		if(NULL == fgets(c,MAX_STRING_LEN,f))
+		{
+			zbx_fclose(f);
+			return SYSINFO_RET_FAIL;
+		}
 	}
 
-	return ret;
+	t=(char *)strtok(c," ");
+	for(i=2; i<=fieldno; i++)
+	{
+		t=(char *)strtok(NULL," ");
+	}
+
+	zbx_fclose(f);
+
+	sscanf(t, "%lf", &value);
+	SET_DBL_RESULT(result, value);
+
+	return SYSINFO_RET_OK;
+#else
+	return SYSINFO_RET_FAIL;
+#endif /* HAVE_PROC */
 }
 
 int	EXECUTE_STR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)

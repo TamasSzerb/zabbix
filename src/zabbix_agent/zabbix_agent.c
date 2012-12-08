@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -27,16 +27,16 @@
 #include "alias.h"
 
 const char	*progname = NULL;
-const char	title_message[] = "Zabbix agent";
+const char	title_message[] = "Zabbix Agent";
 const char	usage_message[] = "[-Vhp] [-c <file>] [-t <item>]";
 
 const char	*help_message[] = {
 	"Options:",
-	"  -c --config <file>  Absolute path to the configuration file",
-	"  -p --print          Print known items and exit",
-	"  -t --test <item>    Test specified item and exit",
-	"  -h --help           Give this help",
-	"  -V --version        Display version number",
+	"  -c --config <file>  absolute path to the configuration file",
+	"  -h --help           give this help",
+	"  -V --version        display version number",
+	"  -p --print          print known items and exit",
+	"  -t --test <item>    test specified item and exit",
 	NULL	/* end of text */
 };
 
@@ -58,7 +58,7 @@ void	child_signal_handler(int sig)
 	exit(FAIL);
 }
 
-static char	DEFAULT_CONFIG_FILE[] = SYSCONFDIR "/zabbix_agent.conf";
+static char	DEFAULT_CONFIG_FILE[] = "/etc/zabbix/zabbix_agent.conf";
 
 /******************************************************************************
  *                                                                            *
@@ -183,7 +183,7 @@ int	main(int argc, char **argv)
 	else
 		zbx_load_config(ZBX_CFG_FILE_REQUIRED);
 
-	/* metrics should be initialized before loading user parameters */
+	/* metrics should be initialized befor loading user parameters */
 	init_metrics();
 
 	/* user parameters */

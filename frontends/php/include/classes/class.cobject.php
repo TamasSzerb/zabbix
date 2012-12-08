@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,12 +15,11 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
-
+?>
+<?php
 class CObject {
-
 	public $items;
 
 	public function __construct($items = null) {
@@ -35,11 +34,8 @@ class CObject {
 		if ($destroy) {
 			$this->destroy();
 		}
-		return $res;
-	}
 
-	public function __toString() {
-		return $this->toString();
+		return $res;
 	}
 
 	public function show($destroy = true) {
@@ -67,27 +63,27 @@ class CObject {
 		}
 		elseif (is_array($value)) {
 			foreach ($value as $item) {
-				$this->addItem($item); // attention, recursion !!!
+				$this->addItem($item); // Attention, recursion !!!
 			}
 		}
 		elseif (!is_null($value)) {
 			array_push($this->items, unpack_object($value));
 		}
-		return $this;
 	}
 }
 
 function unpack_object(&$item) {
 	$res = '';
+
 	if (is_object($item)) {
 		$res = $item->toString(false);
 	}
-	elseif (is_array($item)) {
+	else if (is_array($item)) {
 		foreach ($item as $id => $dat) {
-			$res .= unpack_object($item[$id]); // attention, recursion !!!
+			$res .= unpack_object($item[$id]); // Attention, recursion !!!
 		}
 	}
-	elseif (!is_null($item)) {
+	else if (!is_null($item)) {
 		$res = strval($item);
 		unset($item);
 	}

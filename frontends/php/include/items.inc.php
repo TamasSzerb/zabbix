@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2012 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -10,1355 +10,1751 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
 
-
-/**
- * Convert windows events type constant in to the string representation
+/*
+ * Function: get_item_logtype_description
  *
- * @param int $logtype
- * @return string
+ * Description:
+ *	 convert windows events type constant in to the string representation
+ *
+ * Author:
+ *	 Alexander Vladishev
+ *
+ * Comments:
+ *
  */
-function get_item_logtype_description($logtype) {
-	switch ($logtype) {
-		case ITEM_LOGTYPE_INFORMATION:
-			return _('Information');
-		case ITEM_LOGTYPE_WARNING:
-			return _('Warning');
-		case ITEM_LOGTYPE_ERROR:
-			return _('Error');
-		case ITEM_LOGTYPE_FAILURE_AUDIT:
-			return _('Failure Audit');
-		case ITEM_LOGTYPE_SUCCESS_AUDIT:
-			return _('Success Audit');
-		default:
-			return _('Unknown');
-	}
-}
-
-/**
- * Convert windows events type constant in to the CSS style name
- *
- * @param int $logtype
- * @return string
- */
-function get_item_logtype_style($logtype) {
-	switch ($logtype) {
-		case ITEM_LOGTYPE_INFORMATION:
-			return 'information';
-		case ITEM_LOGTYPE_WARNING:
-			return 'warning';
-		case ITEM_LOGTYPE_ERROR:
-			return 'high';
-		case ITEM_LOGTYPE_FAILURE_AUDIT:
-			return 'high';
-		case ITEM_LOGTYPE_SUCCESS_AUDIT:
-			return 'information';
-		default:
-			return 'normal';
-	}
-}
-
-/**
- * Get item type string name by item type number, or array of all item types if null passed
- *
- * @param int|null $type
- * @return array|string
- */
-function item_type2str($type = null) {
-	$types = array(
-		ITEM_TYPE_ZABBIX => _('Zabbix agent'),
-		ITEM_TYPE_ZABBIX_ACTIVE => _('Zabbix agent (active)'),
-		ITEM_TYPE_SIMPLE => _('Simple check'),
-		ITEM_TYPE_SNMPV1 => _('SNMPv1 agent'),
-		ITEM_TYPE_SNMPV2C => _('SNMPv2 agent'),
-		ITEM_TYPE_SNMPV3 => _('SNMPv3 agent'),
-		ITEM_TYPE_SNMPTRAP => _('SNMP trap'),
-		ITEM_TYPE_INTERNAL => _('Zabbix internal'),
-		ITEM_TYPE_TRAPPER => _('Zabbix trapper'),
-		ITEM_TYPE_AGGREGATE => _('Zabbix aggregate'),
-		ITEM_TYPE_EXTERNAL => _('External check'),
-		ITEM_TYPE_DB_MONITOR => _('Database monitor'),
-		ITEM_TYPE_IPMI => _('IPMI agent'),
-		ITEM_TYPE_SSH => _('SSH agent'),
-		ITEM_TYPE_TELNET => _('TELNET agent'),
-		ITEM_TYPE_JMX => _('JMX agent'),
-		ITEM_TYPE_CALCULATED => _('Calculated'),
-		ITEM_TYPE_HTTPTEST => _('Web monitoring')
-	);
-	if (is_null($type)) {
-		return $types;
-	}
-	elseif (isset($types[$type])) {
-		return $types[$type];
-	}
-	else {
-		return _('Unknown');
-	}
-}
-
-/**
- * Returns human readable an item value type
- *
- * @param integer $valueType
- *
- * @return string
- */
-function itemValueTypeString($valueType) {
-	switch ($valueType) {
-		case ITEM_VALUE_TYPE_UINT64:
-			return _('Numeric (unsigned)');
-		case ITEM_VALUE_TYPE_FLOAT:
-			return _('Numeric (float)');
-		case ITEM_VALUE_TYPE_STR:
-			return _('Character');
-		case ITEM_VALUE_TYPE_LOG:
-			return _('Log');
-		case ITEM_VALUE_TYPE_TEXT:
-			return _('Text');
-	}
-	return _('Unknown');
-}
-
-function item_data_type2str($type = null) {
-	$types = array(
-		ITEM_DATA_TYPE_BOOLEAN => _('Boolean'),
-		ITEM_DATA_TYPE_OCTAL => _('Octal'),
-		ITEM_DATA_TYPE_DECIMAL => _('Decimal'),
-		ITEM_DATA_TYPE_HEXADECIMAL => _('Hexadecimal')
-	);
-	if (is_null($type)) {
-		return $types;
-	}
-	elseif (isset($types[$type])) {
-		return $types[$type];
-	}
-	else {
-		return _('Unknown');
-	}
-}
-
-function item_status2str($type = null) {
-	$types = array(
-		ITEM_STATUS_ACTIVE => _('Enabled'),
-		ITEM_STATUS_DISABLED => _('Disabled'),
-		ITEM_STATUS_NOTSUPPORTED => _('Not supported')
-	);
-	if (is_null($type)) {
-		return $types;
-	}
-	elseif (isset($types[$type])) {
-		return $types[$type];
-	}
-	else {
-		return _('Unknown');
-	}
-}
-
-function item_status2style($status) {
-	switch ($status) {
-		case ITEM_STATUS_ACTIVE:
-			return 'off';
-		case ITEM_STATUS_DISABLED:
-			return 'on';
-		case ITEM_STATUS_NOTSUPPORTED:
-		default:
-			return 'unknown';
-	}
-}
-
-/**
- * Returns the name of the given interface type.
- *
- * @param int $type
- *
- * @return null
- */
-function interfaceType2str($type) {
-	$interfaceGroupLabels = array(
-		INTERFACE_TYPE_AGENT => _('Agent'),
-		INTERFACE_TYPE_SNMP => _('SNMP'),
-		INTERFACE_TYPE_JMX => _('JMX'),
-		INTERFACE_TYPE_IPMI => _('IPMI'),
-	);
-
-	return isset($interfaceGroupLabels[$type]) ? $interfaceGroupLabels[$type] : null;
-}
-
-function itemTypeInterface($type = null) {
-	$types = array(
-		ITEM_TYPE_SNMPV1 => INTERFACE_TYPE_SNMP,
-		ITEM_TYPE_SNMPV2C => INTERFACE_TYPE_SNMP,
-		ITEM_TYPE_SNMPV3 => INTERFACE_TYPE_SNMP,
-		ITEM_TYPE_SNMPTRAP => INTERFACE_TYPE_SNMP,
-		ITEM_TYPE_IPMI => INTERFACE_TYPE_IPMI,
-		ITEM_TYPE_ZABBIX => INTERFACE_TYPE_AGENT,
-		ITEM_TYPE_SIMPLE => INTERFACE_TYPE_ANY,
-		ITEM_TYPE_EXTERNAL => INTERFACE_TYPE_ANY,
-		ITEM_TYPE_SSH => INTERFACE_TYPE_ANY,
-		ITEM_TYPE_TELNET => INTERFACE_TYPE_ANY,
-		ITEM_TYPE_JMX => INTERFACE_TYPE_JMX
-	);
-	if (is_null($type)) {
-		return $types;
-	}
-	elseif (isset($types[$type])) {
-		return $types[$type];
-	}
-	else {
-		return false;
-	}
-}
-
-function update_item_status($itemids, $status) {
-	zbx_value2array($itemids);
-	$result = true;
-
-	$db_items = DBselect('SELECT i.* FROM items i WHERE '.DBcondition('i.itemid', $itemids));
-	while ($item = DBfetch($db_items)) {
-		$old_status = $item['status'];
-		if ($status != $old_status) {
-			$result &= DBexecute('UPDATE items SET status='.$status.
-				($status != ITEM_STATUS_NOTSUPPORTED ? ",error=''" : '').
-				' WHERE itemid='.$item['itemid']);
-			if ($result) {
-				$host = get_host_by_hostid($item['hostid']);
-				$item_new = get_item_by_itemid($item['itemid']);
-				add_audit_ext(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ITEM, $item['itemid'], $host['host'].':'.$item['name'], 'items', $item, $item_new);
-			}
-		}
-	}
-	return $result;
-}
-
-function copyItemsToHosts($srcItemIds, $dstHostIds) {
-	$srcItems = API::Item()->get(array(
-		'itemids' => $srcItemIds,
-		'output' => array(
-			'type', 'snmp_community', 'snmp_oid', 'name', 'key_', 'delay', 'history', 'trends', 'status', 'value_type',
-			'trapper_hosts', 'units', 'multiplier', 'delta', 'snmpv3_securityname', 'snmpv3_securitylevel', 'snmpv3_authprotocol',
-			'snmpv3_authpassphrase', 'snmpv3_privprotocol', 'snmpv3_privpassphrase', 'formula', 'logtimefmt', 'valuemapid',
-			'delay_flex', 'params', 'ipmi_sensor', 'data_type', 'authtype', 'username', 'password', 'publickey',
-			'privatekey', 'flags', 'filter', 'port', 'description', 'inventory_link'
-		),
-		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-		'selectApplications' => API_OUTPUT_REFER
-	));
-	foreach ($srcItems as &$srcItem) {
-		if ($srcItem['status'] == ITEM_STATUS_NOTSUPPORTED) {
-			$srcItem['status'] = ITEM_STATUS_ACTIVE;
+	function get_item_logtype_description($logtype){
+		switch ($logtype){
+			case ITEM_LOGTYPE_INFORMATION:		return S_INFORMATION;
+			case ITEM_LOGTYPE_WARNING:		return S_WARNING;
+			case ITEM_LOGTYPE_ERROR:		return S_ERROR;
+			case ITEM_LOGTYPE_FAILURE_AUDIT:	return S_FAILURE_AUDIT;
+			case ITEM_LOGTYPE_SUCCESS_AUDIT:	return S_SUCCESS_AUDIT;
+			default:				return S_UNKNOWN;
 		}
 	}
 
-	$dstHosts = API::Host()->get(array(
-		'output' => array('hostid', 'host', 'status'),
-		'selectInterfaces' => array('interfaceid', 'type', 'main'),
-		'hostids' => $dstHostIds,
-		'preservekeys' => true,
-		'nopermissions' => true,
-		'templated_hosts' => true
-	));
-
-	foreach ($dstHosts as $dstHost) {
-		$interfaceids = array();
-		foreach ($dstHost['interfaces'] as $interface) {
-			if ($interface['main'] == 1) {
-				$interfaceids[$interface['type']] = $interface['interfaceid'];
-			}
+/*
+ * Function: get_item_logtype_style
+ *
+ * Description:
+ *	 convert windows events type constant in to the CSS style name
+ *
+ * Author:
+ *	 Alexander Vladishev
+ *
+ * Comments:
+ *
+ */
+	function get_item_logtype_style($logtype){
+		switch($logtype){
+			case ITEM_LOGTYPE_INFORMATION:		return 'information';
+			case ITEM_LOGTYPE_WARNING:		return 'warning';
+			case ITEM_LOGTYPE_ERROR:		return 'high';
+			case ITEM_LOGTYPE_FAILURE_AUDIT:	return 'high';
+			case ITEM_LOGTYPE_SUCCESS_AUDIT:	return 'information';
+			default:				return 'normal';
 		}
-		foreach ($srcItems as &$srcItem) {
-			if ($dstHost['status'] != HOST_STATUS_TEMPLATE) {
-				$type = itemTypeInterface($srcItem['type']);
+	}
 
-				if ($type == INTERFACE_TYPE_ANY) {
-					foreach (array(INTERFACE_TYPE_AGENT, INTERFACE_TYPE_SNMP, INTERFACE_TYPE_JMX, INTERFACE_TYPE_IPMI) as $itype) {
-						if (isset($interfaceids[$itype])) {
-							$srcItem['interfaceid'] = $interfaceids[$itype];
-							break;
-						}
-					}
-				}
-				elseif ($type !== false) {
-					if (!isset($interfaceids[$type])) {
-						error(_s('Cannot find host interface on "%1$s" for item key "%2$s".', $dstHost['host'], $srcItem['key_']));
-						return false;
-					}
-					$srcItem['interfaceid'] = $interfaceids[$type];
-				}
-			}
-			unset($srcItem['itemid']);
-			$srcItem['hostid'] = $dstHost['hostid'];
-			$srcItem['applications'] = get_same_applications_for_host(zbx_objectValues($srcItem['applications'], 'applicationid'), $dstHost['hostid']);
+	function item_type2str($type=null){
+		$types = array(
+			ITEM_TYPE_ZABBIX => S_ZABBIX_AGENT,
+			ITEM_TYPE_ZABBIX_ACTIVE => S_ZABBIX_AGENT_ACTIVE,
+			ITEM_TYPE_SIMPLE => S_SIMPLE_CHECK,
+			ITEM_TYPE_SNMPV1 => S_SNMPV1_AGENT,
+			ITEM_TYPE_SNMPV2C => S_SNMPV2_AGENT,
+			ITEM_TYPE_SNMPV3 => S_SNMPV3_AGENT,
+			ITEM_TYPE_INTERNAL => S_ZABBIX_INTERNAL,
+			ITEM_TYPE_TRAPPER => S_ZABBIX_TRAPPER,
+			ITEM_TYPE_AGGREGATE => S_ZABBIX_AGGREGATE,
+			ITEM_TYPE_EXTERNAL => S_EXTERNAL_CHECK,
+			ITEM_TYPE_DB_MONITOR => S_ZABBIX_DATABASE_MONITOR,
+			ITEM_TYPE_IPMI => S_IPMI_AGENT,
+			ITEM_TYPE_SSH => S_SSH_AGENT,
+			ITEM_TYPE_TELNET => S_TELNET_AGENT,
+			ITEM_TYPE_CALCULATED => S_CALCULATED,
+			ITEM_TYPE_HTTPTEST => S_WEB_MONITORING,
+		);
+
+		if(is_null($type)){
+//			natsort($types);
+			return $types;
 		}
-		if (!API::Item()->create($srcItems)) {
+		else if(isset($types[$type]))
+			return $types[$type];
+		else
+			return S_UNKNOWN;
+	}
+
+	/*
+	 * Function: item_value_type2str
+	 *
+	 * Description:
+	 *     Represent integer value of item value type as string
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments:
+	 *
+	 */
+	function item_value_type2str($value_type){
+		switch($value_type){
+			case ITEM_VALUE_TYPE_UINT64:	$value_type = S_NUMERIC_UNSIGNED;		break;
+			case ITEM_VALUE_TYPE_FLOAT:	$value_type = S_NUMERIC_FLOAT;		break;
+			case ITEM_VALUE_TYPE_STR:	$value_type = S_CHARACTER;		break;
+			case ITEM_VALUE_TYPE_LOG:	$value_type = S_LOG;			break;
+			case ITEM_VALUE_TYPE_TEXT:	$value_type = S_TEXT;			break;
+			default:$value_type = S_UNKNOWN;			break;
+		}
+	return $value_type;
+	}
+
+	/*
+	 * Function: item_data_type2str
+	 *
+	 * Description:
+	 *     Represent integer value of item data type as string
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments:
+	 *
+	 */
+	function item_data_type2str($data_type){
+		switch($data_type){
+			case ITEM_DATA_TYPE_DECIMAL:		$data_type = S_DECIMAL;		break;
+			case ITEM_DATA_TYPE_OCTAL:		$data_type = S_OCTAL;		break;
+			case ITEM_DATA_TYPE_HEXADECIMAL:	$data_type = S_HEXADECIMAL;	break;
+			default:$data_type = S_UNKNOWN;		break;
+		}
+	return $data_type;
+	}
+
+	/*
+	 * Function: item_status2str
+	 *
+	 * Description:
+	 *     Represent integer value of item status as string
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments:
+	 *
+	 */
+	function item_status2str($status){
+		switch($status){
+			case ITEM_STATUS_ACTIVE:	$status = S_ACTIVE;		break;
+			case ITEM_STATUS_DISABLED:	$status = S_DISABLED;		break;
+			case ITEM_STATUS_NOTSUPPORTED:	$status = S_NOT_SUPPORTED;	break;
+			default:
+				$status = S_UNKNOWN;		break;
+		}
+	return $status;
+	}
+
+	/*
+	 * Function: item_status2style
+	 *
+	 * Description:
+	 *     Represent integer value of item status as CSS style name
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments:
+	 *
+	 */
+	function	item_status2style($status){
+		switch($status){
+			case ITEM_STATUS_ACTIVE:	$status = 'off';	break;
+			case ITEM_STATUS_DISABLED:	$status = 'on';		break;
+			case ITEM_STATUS_NOTSUPPORTED:
+			default:
+				$status = 'unknown';	break;
+		}
+	return $status;
+	}
+	# Update Item definition for selected group
+
+	function update_item_in_group($groupid,$itemid,$item){
+		$sql='SELECT i.itemid,i.hostid '.
+				' FROM hosts_groups hg,items i '.
+				' WHERE hg.groupid='.$groupid.
+					' and i.key_='.zbx_dbstr($item['key_']).
+					' and hg.hostid=i.hostid';
+		$result=DBSelect($sql);
+		while($row=DBfetch($result)){
+			$item['hostid'] = $row['hostid'];
+			update_item($row['itemid'],$item);
+		}
+	return true;
+	}
+
+// Delete Item definition from selected group
+	function delete_item_from_group($groupid,$itemid){
+		if(!isset($itemid)){
+			return 0;
+		}
+
+		$item=get_item_by_itemid($itemid);
+		if(!$item){
+			return 0;
+		}
+
+		$del_items = array();
+		$sql='SELECT i.itemid '.
+			' FROM hosts_groups hg,items i'.
+			' WHERE hg.groupid='.$groupid.
+				' AND i.key_='.zbx_dbstr($item["key_"]).
+				' AND hg.hostid=i.hostid';
+		$result=DBSelect($sql);
+		while($row=DBfetch($result)){
+			$del_items[$row['itemid']] = $row['itemid'];
+		}
+		if(!empty($del_items)){
+			delete_item($del_items);
+		}
+	return 1;
+	}
+
+	# Add Item definition to selected group
+
+	function add_item_to_group($groupid,$item){
+		$sql='SELECT hostid FROM hosts_groups WHERE groupid='.$groupid;
+		$result=DBSelect($sql);
+		while($row=DBfetch($result)){
+			$item['hostid'] = $row['hostid'];
+			add_item($item);
+		}
+	return true;
+	}
+
+	// function is used to validate item before puting it to a database
+	function itemIsValid($key, $type, $value_type, $delay, $delay_flex, $snmp_port) {
+		if (($type == ITEM_TYPE_DB_MONITOR && $key == 'db.odbc.select[<unique short description>]') ||
+				($type == ITEM_TYPE_SSH && $key == 'ssh.run[<unique short description>,<ip>,<port>,<encoding>]') ||
+				($type == ITEM_TYPE_TELNET && $key == 'telnet.run[<unique short description>,<ip>,<port>,<encoding>]')) {
+			error(S_ITEMS_CHECK_KEY_DEFAULT_EXAMPLE_PASSED);
 			return false;
 		}
-	}
-	return true;
-}
 
-function copyItems($srcHostId, $dstHostId) {
-	$srcItems = API::Item()->get(array(
-		'hostids' => $srcHostId,
-		'output' => array(
-			'type', 'snmp_community', 'snmp_oid', 'name', 'key_', 'delay', 'history', 'trends', 'status', 'value_type',
-			'trapper_hosts', 'units', 'multiplier', 'delta', 'snmpv3_securityname', 'snmpv3_securitylevel', 'snmpv3_authprotocol',
-			'snmpv3_authpassphrase', 'snmpv3_privprotocol', 'snmpv3_privpassphrase', 'formula', 'logtimefmt', 'valuemapid',
-			'delay_flex', 'params', 'ipmi_sensor', 'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey',
-			'flags', 'filter', 'port', 'description', 'inventory_link'
-		),
-		'inherited' => false,
-		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-		'selectApplications' => API_OUTPUT_REFER
-	));
-
-	foreach ($srcItems as &$srcItem) {
-		if ($srcItem['status'] == ITEM_STATUS_NOTSUPPORTED) {
-			$srcItem['status'] = ITEM_STATUS_ACTIVE;
-		}
-	}
-
-	$dstHosts = API::Host()->get(array(
-		'output' => array('hostid', 'host', 'status'),
-		'selectInterfaces' => array('interfaceid', 'type', 'main'),
-		'hostids' => $dstHostId,
-		'preservekeys' => true,
-		'nopermissions' => true,
-		'templated_hosts' => true
-	));
-	$dstHost = reset($dstHosts);
-
-	foreach ($srcItems as &$srcItem) {
-		if ($dstHost['status'] != HOST_STATUS_TEMPLATE) {
-			// find a matching interface
-			$interface = CItem::findInterfaceForItem($srcItem, $dstHost['interfaces']);
-			if ($interface) {
-				$srcItem['interfaceid'] = $interface['interfaceid'];
-			}
-			// no matching interface found, throw an error
-			elseif ($interface !== false) {
-				error(_s('Cannot find host interface on "%1$s" for item key "%2$s".', $dstHost['host'], $srcItem['key_']));
+		if ($type != ITEM_TYPE_ZABBIX_ACTIVE && $type != ITEM_TYPE_TRAPPER) {
+			$res = calculate_item_nextcheck(0, $type, $delay, $delay_flex, time());
+			if (SEC_PER_YEAR == $res['delay'])	{
+				error(S_ITEM_WILL_NOT_BE_REFRESHED_PLEASE_ENTER_A_CORRECT_UPDATE_INTERVAL);
+				return false;
 			}
 		}
-		unset($srcItem['itemid']);
-		unset($srcItem['templateid']);
-		$srcItem['hostid'] = $dstHostId;
-		$srcItem['applications'] = get_same_applications_for_host(zbx_objectValues($srcItem['applications'], 'applicationid'), $dstHostId);
-	}
 
-	return API::Item()->create($srcItems);
-}
+		if (in_array($type, array(ITEM_TYPE_SNMPV1, ITEM_TYPE_SNMPV2C, ITEM_TYPE_SNMPV3)) && ($snmp_port < 1 || $snmp_port > 65535)) {
+			error(S_INVALID_SNMP_PORT);
+			return false;
+		}
 
-function copyApplications($srcHostId, $dstHostId) {
-	$apps_to_clone = API::Application()->get(array(
-		'hostids' => $srcHostId,
-		'output' => API_OUTPUT_EXTEND,
-		'inherited' => false
-	));
-	if (empty($apps_to_clone)) {
+		$itemKey = new CItemKey($key);
+		if (!$itemKey->isValid()) {
+			error(S_ERROR_IN_ITEM_KEY.SPACE.$itemKey->getError());
+			return false;
+		}
+
+		if ($type == ITEM_TYPE_AGGREGATE) {
+			if (!str_in_array($itemKey->getKeyId(), array('grpmax', 'grpmin', 'grpsum', 'grpavg'))) {
+				error(S_GROUP_FUNCTION.SPACE.'['.$itemKey->getKeyId().']'.SPACE.S_IS_NOT_ONE_OF.SPACE.'[grpmax, grpmin, grpsum, grpavg]');
+				return false;
+			}
+
+			$params = $itemKey->getParameters();
+
+			if (count($params) != 4) {
+				error(S_KEY_DOES_NOT_MATCH.SPACE.'groupfunc["Host group", "Item key", "item func", "parameter"]');
+				return false;
+			}
+
+			if (!str_in_array($params[2], array('last', 'min', 'max', 'avg', 'sum', 'count'))) {
+				error(S_ITEM_FUNCTION.SPACE.'['.$params[2].']'.SPACE.S_IS_NOT_ONE_OF.SPACE.'[last, min, max, avg, sum, count]');
+				return false;
+			}
+
+			if ($value_type != ITEM_VALUE_TYPE_FLOAT) {
+				error(S_VALUE_TYPE_MUST_FLOAT_FOR_AGGREGATE_ITEMS);
+				return false;
+			}
+		}
+
+		if (str_in_array($itemKey->getKeyId(), array('log', 'logrt', 'eventlog')) && $value_type != ITEM_VALUE_TYPE_LOG) {
+			error(S_TYPE_INFORMATION_BUST_LOG_FOR_LOG_KEY);
+			return false;
+		}
+
 		return true;
 	}
 
-	foreach ($apps_to_clone as &$app) {
-		$app['hostid'] = $dstHostId;
-		unset($app['applicationid'], $app['templateid']);
-	}
-	return API::Application()->create($apps_to_clone);
-}
+	/******************************************************************************
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
+	function add_item($item) {
+		$item_db_fields = array(
+				'description'		=> null,
+				'key_'			=> null,
+				'hostid'		=> null,
+				'delay'			=> 60,
+				'history'		=> 7,
+				'status'		=> ITEM_STATUS_ACTIVE,
+				'type'			=> ITEM_TYPE_ZABBIX,
+				'snmp_community'	=> '',
+				'snmp_oid'		=> '',
+				'value_type'		=> ITEM_VALUE_TYPE_STR,
+				'data_type'		=> ITEM_DATA_TYPE_DECIMAL,
+				'trapper_hosts'		=> '',
+				'snmp_port'		=> 161,
+				'units'			=> '',
+				'multiplier'		=> 0,
+				'delta'			=> 0,
+				'snmpv3_securityname'	=> '',
+				'snmpv3_securitylevel'	=> 0,
+				'snmpv3_authpassphrase'	=> '',
+				'snmpv3_privpassphrase'	=> '',
+				'formula'		=> 0,
+				'trends'		=> 365,
+				'logtimefmt'		=> '',
+				'valuemapid'		=> 0,
+				'delay_flex'		=> '',
+				'authtype'		=> 0,
+				'username'		=> '',
+				'password'		=> '',
+				'publickey'		=> '',
+				'privatekey'		=> '',
+				'params'		=> '',
+				'ipmi_sensor'		=> '',
+				'applications'		=> array(),
+				'templateid'		=> 0);
 
-function activate_item($itemids) {
-	zbx_value2array($itemids);
-
-	// first update status for child items
-	$child_items = array();
-	$db_items = DBselect('SELECT i.itemid,i.hostid FROM items i WHERE '.DBcondition('i.templateid', $itemids));
-	while ($item = DBfetch($db_items)) {
-		$child_items[$item['itemid']] = $item['itemid'];
-	}
-	if (!empty($child_items)) {
-		activate_item($child_items); // Recursion !!!
-	}
-	return update_item_status($itemids, ITEM_STATUS_ACTIVE);
-}
-
-function disable_item($itemids) {
-	zbx_value2array($itemids);
-
-	// first update status for child items
-	$chd_items = array();
-	$db_tmp_items = DBselect('SELECT i.itemid,i.hostid FROM items i WHERE '.DBcondition('i.templateid', $itemids));
-	while ($db_tmp_item = DBfetch($db_tmp_items)) {
-		$chd_items[$db_tmp_item['itemid']] = $db_tmp_item['itemid'];
-	}
-	if (!empty($chd_items)) {
-		disable_item($chd_items); // Recursion !!!
-	}
-	return update_item_status($itemids, ITEM_STATUS_DISABLED);
-}
-
-function get_items_by_hostid($hostids) {
-	zbx_value2array($hostids);
-	return DBselect('SELECT i.* FROM items i WHERE '.DBcondition('i.hostid', $hostids));
-}
-
-function get_item_by_key($key, $host = '') {
-	$item = false;
-	$sql_from = '';
-	$sql_where = '';
-	if (!empty($host)) {
-		$sql_from = ',hosts h ';
-		$sql_where = ' AND h.host='.zbx_dbstr($host).' AND i.hostid=h.hostid ';
-	}
-	$sql = 'SELECT DISTINCT i.*'.
-			' FROM items i '.$sql_from.
-			' WHERE i.key_='.zbx_dbstr($key).
-				$sql_where;
-	if ($item = DBfetch(DBselect($sql))) {
-		$item = $item;
-	}
-	return $item;
-}
-
-function get_item_by_itemid($itemid) {
-	$db_items = DBfetch(DBselect('SELECT i.* FROM items i WHERE i.itemid='.$itemid));
-	if ($db_items) {
-		return $db_items;
-	}
-	error(_s('No item with itemid="%1$s".', $itemid));
-	return false;
-}
-
-function get_item_by_itemid_limited($itemid) {
-	$row = DBfetch(DBselect(
-		'SELECT i.itemid,i.interfaceid,i.name,i.key_,i.hostid,i.delay,i.history,i.status,i.type,i.lifetime,'.
-			'i.snmp_community,i.snmp_oid,i.value_type,i.data_type,i.trapper_hosts,i.port,i.units,i.multiplier,i.delta,'.
-			'i.snmpv3_securityname,i.snmpv3_securitylevel,i.snmpv3_authprotocol,i.snmpv3_authpassphrase,i.snmpv3_privprotocol,'.
-			'i.snmpv3_privpassphrase,i.formula,i.trends,i.logtimefmt,i.valuemapid,i.delay_flex,i.params,i.ipmi_sensor,i.templateid,'.
-			'i.authtype,i.username,i.password,i.publickey,i.privatekey,i.flags,i.filter,i.description,i.inventory_link'.
-		' FROM items i'.
-		' WHERE i.itemid='.$itemid));
-	if ($row) {
-		return $row;
-	}
-	error(_s('No item with itemid "%1$s".', $itemid));
-	return false;
-}
-
-/**
- * Description:
- * Replace items for specified host
- *
- * Comments:
- * $error= true : rise Error if item doesn't exist (error generated), false: special processing (NO error generated)
- */
-function get_same_item_for_host($item, $dest_hostids) {
-	$return_array = is_array($dest_hostids);
-	zbx_value2array($dest_hostids);
-
-	if (!is_array($item)) {
-		$itemid = $item;
-	}
-	elseif (isset($item['itemid'])) {
-		$itemid = $item['itemid'];
-	}
-
-	$same_item = null;
-	$same_items = array();
-
-	if (isset($itemid)) {
-		$db_items = DBselect(
-			'SELECT src.*'.
-			' FROM items src,items dest'.
-			' WHERE dest.itemid='.$itemid.
-				' AND src.key_=dest.key_'.
-				' AND '.DBcondition('src.hostid', $dest_hostids)
-		);
-		while ($db_item = DBfetch($db_items)) {
-			if (is_array($item)) {
-				$same_item = $db_item;
-				$same_items[$db_item['itemid']] = $db_item;
-			}
-			else {
-				$same_item = $db_item['itemid'];
-				$same_items[$db_item['itemid']] = $db_item['itemid'];
-			}
+		if (!check_db_fields($item_db_fields, $item)) {
+			error(S_INCORRECT_ARGUMENTS_PASSED_TO_FUNCTION.SPACE.'[add_item]');
+			return false;
 		}
-		if ($return_array) {
-			return $same_items;
+
+		if (!$host = get_host_by_hostid($item['hostid'])) {
+			return false;
 		}
-		else {
-			return $same_item;
+
+		if (($i = array_search(0, $item['applications'])) !== FALSE) {
+			unset($item['applications'][$i]);
 		}
-	}
-	return false;
-}
 
-/**
- * Resolve macros in item key.
- * Resolve {HOSTNAME}, {IPADDRESS}, {HOST.IP}, {HOST.DNS}, {HOST.CONN}, {HOST.HOST}, {HOST.NAME} and user macros.
- * Macros related to interface resolved only for host items.
- *
- * @param array $item
- *
- * @return string
- */
-function resolveItemKeyMacros(array $item) {
-	$key =& $item['key_'];
-	$macStack = array();
-	$macros = array('{HOSTNAME}', '{IPADDRESS}', '{HOST.IP}', '{HOST.DNS}', '{HOST.CONN}', '{HOST.HOST}', '{HOST.NAME}');
-
-	foreach ($macros as $macro) {
-		if (zbx_strpos($key, $macro) !== false) {
-			$macStack[] = $macro;
+		if (!itemIsValid($item['key_'], $item['type'], $item['value_type'], $item['delay'], $item['delay_flex'], $item['snmp_port'])) {
+			return false;
 		}
-	}
 
-	if (!empty($macStack)) {
-		$options = array(
-			'itemids' => $item['itemid'],
-			'selectInterfaces' => array('ip', 'dns', 'useip'),
-			'selectHosts' => array('host', 'name'),
-			'webitems' => true,
-			'output' => API_OUTPUT_REFER,
-			'filter' => array('flags' => null)
-		);
-		$dbItem = API::Item()->get($options);
-		$dbItem = reset($dbItem);
+		if ($item['value_type'] == ITEM_VALUE_TYPE_STR) {
+			$item['delta'] = 0;
+		}
 
-		$host = reset($dbItem['hosts']);
-		$interface = reset($dbItem['interfaces']);
+		if ($item['value_type'] != ITEM_VALUE_TYPE_UINT64) {
+			$item['data_type'] = 0;
+		}
 
-		// if item without interface or template item, resolve interface related macros to *UNKNOWN*
-		if (!$interface) {
-			$interface = array(
-				'ip' => UNRESOLVED_MACRO_STRING,
-				'dns' => UNRESOLVED_MACRO_STRING,
-				'useip' => false,
+		$sql = 'SELECT itemid, hostid, templateid '.
+				' FROM items '.
+				' WHERE hostid='.$item['hostid'].
+					' AND key_='.zbx_dbstr($item['key_']);
+		$db_item = DBfetch(DBselect($sql));
+		if($db_item && (($item['templateid'] == 0) || (($db_item['templateid'] != 0) && ($item['templateid'] != 0) && ($item['templateid'] != $db_item['templateid'])))){
+			error(S_AN_ITEM_WITH_THE_KEY.SPACE.'['.$item['key_'].']'.SPACE.S_ALREADY_EXISTS_FOR_HOST_SMALL.SPACE.'['.$host['host'].'].'.SPACE.S_THE_KEY_MUST_BE_UNIQUE);
+			return FALSE;
+		}
+		else if ($db_item && $item['templateid'] != 0){
+			$item['hostid'] = $db_item['hostid'];
+			$item['applications'] = get_same_applications_for_host($item['applications'], $db_item['hostid']);
+
+			$result = update_item($db_item['itemid'], $item);
+
+			return $result;
+		}
+
+		// first add mother item
+		$itemid=get_dbid('items','itemid');
+		$result=DBexecute('INSERT INTO items '.
+				' (itemid,description,key_,hostid,delay,history,status,type,'.
+					'snmp_community,snmp_oid,value_type,data_type,trapper_hosts,'.
+					'snmp_port,units,multiplier,'.
+					'delta,snmpv3_securityname,snmpv3_securitylevel,snmpv3_authpassphrase,'.
+					'snmpv3_privpassphrase,formula,trends,logtimefmt,valuemapid,'.
+					'delay_flex,params,ipmi_sensor,templateid,authtype,username,password,publickey,privatekey)'.
+			' VALUES ('.$itemid.','.zbx_dbstr($item['description']).','.zbx_dbstr($item['key_']).','.(!$item['hostid']? '0':$item['hostid']).','.
+						(!$item['delay']? '0':$item['delay']).','.(!$item['history']? '0':$item['history']).','.(!$item['status']? '0':$item['status']).','.(!$item['type']? '0':$item['type']).','.
+						zbx_dbstr($item['snmp_community']).','.zbx_dbstr($item['snmp_oid']).','.(!$item['value_type']? '0':$item['value_type']).','.(!$item['data_type']? '0':$item['data_type']).','.
+						zbx_dbstr($item['trapper_hosts']).','.$item['snmp_port'].','.zbx_dbstr($item['units']).','.(!$item['multiplier'] ? '0':$item['multiplier']).','.
+						intval($item['delta']).','.zbx_dbstr($item['snmpv3_securityname']).','.intval($item['snmpv3_securitylevel']).','.
+						zbx_dbstr($item['snmpv3_authpassphrase']).','.zbx_dbstr($item['snmpv3_privpassphrase']).','.
+						zbx_dbstr($item['formula']).','.(!$item['trends'] ? '0':$item['trends']).','.zbx_dbstr($item['logtimefmt']).','.(!$item['valuemapid'] ? '0':$item['valuemapid']).','.
+						zbx_dbstr($item['delay_flex']).','.zbx_dbstr($item['params']).','.
+						zbx_dbstr($item['ipmi_sensor']).','.$item['templateid'].','.intval($item['authtype']).','.
+						zbx_dbstr($item['username']).','.zbx_dbstr($item['password']).','.
+						zbx_dbstr($item['publickey']).','.zbx_dbstr($item['privatekey']).')'
 			);
+
+		if ($result)
+			add_audit_ext(AUDIT_ACTION_ADD, AUDIT_RESOURCE_ITEM, $itemid, $host['host'].':'.$item['description'], NULL, NULL, NULL);
+		else
+			return $result;
+
+		foreach($item['applications'] as $key => $appid){
+			$itemappid=get_dbid('items_applications','itemappid');
+			DBexecute('INSERT INTO items_applications (itemappid,itemid,applicationid) VALUES('.$itemappid.','.$itemid.','.$appid.')');
 		}
 
-		foreach ($macStack as $macro) {
-			switch ($macro) {
-				case '{HOST.NAME}':
-					$key = str_replace('{HOST.NAME}', $host['name'], $key);
-					break;
-				case '{HOSTNAME}': // deprecated
-					$key = str_replace('{HOSTNAME}', $host['host'], $key);
-					break;
-				case '{HOST.HOST}':
-					$key = str_replace('{HOST.HOST}', $host['host'], $key);
-					break;
-				case '{HOST.IP}':
-					$key = str_replace('{HOST.IP}', $interface['ip'], $key);
-					break;
-				case '{IPADDRESS}': // deprecated
-					$key = str_replace('{IPADDRESS}', $interface['ip'], $key);
-					break;
-				case '{HOST.DNS}':
-					$key = str_replace('{HOST.DNS}', $interface['dns'], $key);
-					break;
-				case '{HOST.CONN}':
-					$key = str_replace('{HOST.CONN}', $interface['useip'] ? $interface['ip'] : $interface['dns'], $key);
-					break;
-			}
+		info(S_ADDED_NEW_ITEM.SPACE.'"'.$host['host'].':'.$item['key_'].'"');
+
+// add items to child hosts
+
+		$db_hosts = get_hosts_by_templateid($host['hostid']);
+		while($db_host = DBfetch($db_hosts)){
+// recursion
+			$item['hostid'] = $db_host['hostid'];
+			$item['applications'] = get_same_applications_for_host($item['applications'], $db_host['hostid']);
+			$item['templateid'] = $itemid;
+
+			$result = add_item($item);
+			if(!$result) break;
 		}
-	}
 
-	if (preg_match('/'.ZBX_PREG_EXPRESSION_USER_MACROS.'/', $key)) {
-		$item = API::UserMacro()->resolveItem($item);
-	}
+		if($result)
+			return $itemid;
 
-	return $item['key_'];
-}
-
-/**
- * Expand macros inside key name and return it
- * Example:
- *	key: 'test.key[a, b, "{HOSTNAME}"]'
- *	name: 'Test item $1, $2, $3'
- *	result: 'Test item a, b, Zabbix-server'
- *
- * @param array $item
- * @return string
- */
-function itemName($item) {
-	$name = $item['name'];
-
-	// if item name contains $1..$9 macros, we need to expand them
-	if (preg_match('/\$[1-9]/', $name)) {
-		$key = resolveItemKeyMacros($item);
-
-		// parsing key to get the parameters out of it
-		$ItemKey = new CItemKey($key);
-		if ($ItemKey->isValid()) {
-			$keyParameters = $ItemKey->getParameters();
-			$searchOffset = 0;
-			while (preg_match('/\$[1-9]/', $name, $matches, PREG_OFFSET_CAPTURE, $searchOffset)) {
-				// matches[0][0] - matched param, [1] - second character of it
-				$paramNumber = $matches[0][0][1] - 1;
-				$replaceString = isset($keyParameters[$paramNumber]) ? $keyParameters[$paramNumber] : '';
-
-				$name = substr_replace($name, $replaceString, $matches[0][1], 2);
-				$searchOffset = $matches[0][1] + strlen($replaceString);
-			}
+		if($item['templateid'] == 0){
+			delete_item($itemid);
 		}
-	}
-	if (preg_match_all('/'.ZBX_PREG_EXPRESSION_USER_MACROS.'/', $name, $arr)) {
-		$macros = API::UserMacro()->getMacros(array(
-			'macros' => $arr[1],
-			'itemid' => $item['itemid']
-		));
-		$name = str_replace(array_keys($macros), array_values($macros), $name);
-	}
-	return $name;
-}
-
-function get_realhost_by_itemid($itemid) {
-	$item = get_item_by_itemid($itemid);
-	if ($item['templateid'] <> 0) {
-		return get_realhost_by_itemid($item['templateid']); // attention recursion!
-	}
-	return get_host_by_itemid($itemid);
-}
-
-function fillItemsWithChildTemplates(&$items) {
-	$processSecondLevel = false;
-	$dbItems = DBselect('SELECT i.itemid,i.templateid FROM items i WHERE '.DBcondition('i.itemid', zbx_objectValues($items, 'templateid')));
-	while ($dbItem = DBfetch($dbItems)) {
-		foreach ($items as $itemid => $item) {
-			if ($item['templateid'] == $dbItem['itemid'] && !empty($dbItem['templateid'])) {
-				$items[$itemid]['templateid'] = $dbItem['templateid'];
-				$processSecondLevel = true;
-			}
-		}
-	}
-	if ($processSecondLevel) {
-		fillItemsWithChildTemplates($items); // attention recursion!
-	}
-}
-
-function get_realrule_by_itemid_and_hostid($itemid, $hostid) {
-	$item = get_item_by_itemid($itemid);
-	if (bccomp($hostid,$item['hostid']) == 0) {
-		return $item['itemid'];
-	}
-	if ($item['templateid'] <> 0) {
-		return get_realrule_by_itemid_and_hostid($item['templateid'], $hostid);
-	}
-	return $item['itemid'];
-}
-
-/**
- * Retrieve overview table object for items.
- *
- * @param $hostids
- * @param null $view_style
- *
- * @return CTableInfo
- */
-function get_items_data_overview($hostids, $view_style) {
-	$db_items = DBselect(
-		'SELECT DISTINCT h.hostid,h.name AS hostname,i.itemid,i.key_,i.value_type,i.lastvalue,i.units,i.lastclock,'.
-			'i.name,t.priority,i.valuemapid,t.value AS tr_value,t.triggerid'.
-		' FROM hosts h,items i'.
-			' LEFT JOIN functions f ON f.itemid=i.itemid'.
-			' LEFT JOIN triggers t ON t.triggerid=f.triggerid AND t.status='.TRIGGER_STATUS_ENABLED.
-		' WHERE '.DBcondition('h.hostid', $hostids).
-			' AND h.status='.HOST_STATUS_MONITORED.
-			' AND h.hostid=i.hostid'.
-			' AND i.status='.ITEM_STATUS_ACTIVE.
-			' AND '.DBcondition('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)).
-		' ORDER BY i.name,i.itemid'
-	);
-
-	// fetch data for the host JS menu
-	$hosts = API::Host()->get(array(
-		'output' => array('name', 'hostid'),
-		'selectScreens' => API_OUTPUT_COUNT,
-		'selectInventory' => true,
-		'monitored_hosts' => true,
-		'hostids' => $hostids,
-		'with_monitored_items' => true,
-		'preservekeys' => true
-	));
-	$hostScripts = API::Script()->getScriptsByHosts(zbx_objectValues($hosts, 'hostid'));
-	foreach ($hostScripts as $hostid => $scripts) {
-		$hosts[$hostid]['scripts'] = $scripts;
-	}
-
-	$items = array();
-	while ($row = DBfetch($db_items)) {
-		$descr = itemName($row);
-		$row['hostname'] = get_node_name_by_elid($row['hostid'], null, ': ').$row['hostname'];
-		$hostnames[$row['hostid']] = $row['hostname'];
-
-		// a little tricky check for attempt to overwrite active trigger (value=1) with
-		// inactive or active trigger with lower priority.
-		if (!isset($items[$descr][$row['hostname']])
-				|| (($items[$descr][$row['hostname']]['tr_value'] == TRIGGER_VALUE_FALSE && $row['tr_value'] == TRIGGER_VALUE_TRUE)
-					|| (($items[$descr][$row['hostname']]['tr_value'] == TRIGGER_VALUE_FALSE || $row['tr_value'] == TRIGGER_VALUE_TRUE)
-						&& $row['priority'] > $items[$descr][$row['hostname']]['severity']))) {
-			$items[$descr][$row['hostname']] = array(
-				'itemid' => $row['itemid'],
-				'value_type' => $row['value_type'],
-				'lastvalue' => $row['lastvalue'],
-				'lastclock' => $row['lastclock'],
-				'units' => $row['units'],
-				'name' => $row['name'],
-				'valuemapid' => $row['valuemapid'],
-				'severity' => $row['priority'],
-				'tr_value' => $row['tr_value'],
-				'triggerid' => $row['triggerid']
-			);
-		}
-	}
-
-	$table = new CTableInfo(_('No items defined.'));
-	if (empty($hostnames)) {
-		return $table;
-	}
-	$table->makeVerticalRotation();
-	order_result($hostnames);
-
-	if ($view_style == STYLE_TOP) {
-		$header = array(new CCol(_('Items'), 'center'));
-		foreach ($hostnames as $hostname) {
-			$header[] = new CCol($hostname, 'vertical_rotation');
-		}
-		$table->setHeader($header, 'vertical_header');
-
-		foreach ($items as $descr => $ithosts) {
-			$tableRow = array(nbsp($descr));
-			foreach ($hostnames as $hostname) {
-				$tableRow = get_item_data_overview_cells($tableRow, $ithosts, $hostname);
-			}
-			$table->addRow($tableRow);
-		}
-	}
-	else {
-		$header = array(new CCol(_('Hosts'), 'center'));
-		foreach ($items as $descr => $ithosts) {
-			$header[] = new CCol($descr, 'vertical_rotation');
-		}
-		$table->setHeader($header, 'vertical_header');
-
-		foreach ($hostnames as $hostid => $hostname) {
-			$host = $hosts[$hostid];
-
-			// host js menu link
-			$hostSpan = new CSpan(nbsp($host['name']), 'link_menu menu-host');
-			$scripts = ($hostScripts[$host['hostid']]) ? $hostScripts[$host['hostid']] : array();
-			$hostSpan->setAttribute('data-menu', hostMenuData($host, $scripts));
-
-			$tableRow = array(new CCol($hostSpan));
-			foreach ($items as $ithosts) {
-				$tableRow = get_item_data_overview_cells($tableRow, $ithosts, $hostname);
-			}
-			$table->addRow($tableRow);
-		}
-	}
-
-	return $table;
-}
-
-function get_item_data_overview_cells(&$table_row, &$ithosts, $hostname) {
-	$css_class = '';
-	unset($it_ov_menu);
-
-	$value = '-';
-	$ack = null;
-	if (isset($ithosts[$hostname])) {
-		if ($ithosts[$hostname]['tr_value'] == TRIGGER_VALUE_TRUE) {
-			$css_class = getSeverityStyle($ithosts[$hostname]['severity']);
-			$ack = get_last_event_by_triggerid($ithosts[$hostname]['triggerid']);
-			$ack = ($ack['acknowledged'] == 1)
-				? array(SPACE, new CImg('images/general/tick.png', 'ack'))
-				: null;
-		}
-		$value = formatItemValue($ithosts[$hostname]);
-
-		$it_ov_menu = array(
-			array(_('Values'), null, null, array('outer' => array('pum_oheader'), 'inner' => array('pum_iheader'))),
-			array(_('500 latest values'), 'history.php?action=showlatest&itemid='.$ithosts[$hostname]['itemid'], array('tw' => '_blank'))
-		);
-
-		switch ($ithosts[$hostname]['value_type']) {
-			case ITEM_VALUE_TYPE_UINT64:
-			case ITEM_VALUE_TYPE_FLOAT:
-				$it_ov_menu = array_merge(array(
-					// name, url, (target [tw], statusbar [sb]), css, submenu
-					array(_('Graphs'), null, null,
-						array('outer' => array('pum_oheader'), 'inner' => array('pum_iheader'))
-					),
-					array(_('Last hour graph'), 'history.php?period=3600&action=showgraph&itemid='.$ithosts[$hostname]['itemid'], array('tw' => '_blank')),
-					array(_('Last week graph'), 'history.php?period=604800&action=showgraph&itemid='.$ithosts[$hostname]['itemid'], array('tw' => '_blank')),
-					array(_('Last month graph'), 'history.php?period=2678400&action=showgraph&itemid='.$ithosts[$hostname]['itemid'], array('tw' => '_blank'))
-				), $it_ov_menu);
-				break;
-			default:
-				break;
-		}
-	}
-
-	if ($value != '-') {
-		$value = new CSpan($value, 'link');
-	}
-	$value_col = new CCol(array($value, $ack), $css_class);
-
-	if (isset($it_ov_menu)) {
-		$it_ov_menu = new CPUMenu($it_ov_menu, 170);
-		$value_col->onClick($it_ov_menu->getOnActionJS());
-		unset($it_ov_menu);
-	}
-	array_push($table_row, $value_col);
-
-	return $table_row;
-}
-
-/******************************************************************************
- *                                                                            *
- * Comments: !!! Don't forget sync code with C !!!                            *
- *                                                                            *
- ******************************************************************************/
-function get_same_applications_for_host($applications, $hostid) {
-	$child_applications = array();
-	$db_apps = DBselect(
-		'SELECT a1.applicationid'.
-		' FROM applications a1,applications a2'.
-		' WHERE a1.name=a2.name'.
-			' AND a1.hostid='.$hostid.
-			' AND '.DBcondition('a2.applicationid', $applications)
-	);
-	while ($app = DBfetch($db_apps)) {
-		$child_applications[] = $app['applicationid'];
-	}
-
-	return $child_applications;
-}
-
-/******************************************************************************
- *                                                                            *
- * Comments: !!! Don't forget sync code with C !!!                            *
- *                                                                            *
- ******************************************************************************/
-function get_applications_by_itemid($itemids, $field = 'applicationid') {
-	zbx_value2array($itemids);
-	$result = array();
-	$db_applications = DBselect(
-		'SELECT DISTINCT app.'.$field.' AS result'.
-		' FROM applications app,items_applications ia'.
-		' WHERE app.applicationid=ia.applicationid'.
-			' AND '.DBcondition('ia.itemid', $itemids)
-	);
-	while ($db_application = DBfetch($db_applications)) {
-		array_push($result, $db_application['result']);
-	}
 
 	return $result;
-}
+	}
 
-/**
- * Clear items history and trends.
+// Update Item status
+
+	function update_item_status($itemids, $status){
+		zbx_value2array($itemids);
+		$result = true;
+
+		$db_items = DBselect('SELECT * FROM items WHERE '.DBcondition('itemid',$itemids));
+		while($row = DBfetch($db_items)){
+			$old_status=$row['status'];
+
+			if($status != $old_status){
+/*				unset($itemids[$row['itemid']]);*/
+				if ($status==ITEM_STATUS_ACTIVE)
+					$sql='UPDATE items SET status='.$status.",error='' ".
+						' WHERE itemid='.$row['itemid'];
+				else
+					$sql='UPDATE items SET status='.$status.
+						' WHERE itemid='.$row['itemid'];
+
+				$result &= DBexecute($sql);
+				if ($result){
+					$host=get_host_by_hostid($row['hostid']);
+					$item_new = get_item_by_itemid($row['itemid']);
+					add_audit_ext(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ITEM, $row['itemid'], $host['host'].':'.$row['description'], 'items', $row, $item_new);
+				}
+			}
+		}
+/*		if(!empty($itemids)){
+			update_trigger_value_to_unknown_by_itemid($itemids);
+
+			if($status==ITEM_STATUS_ACTIVE)
+				$sql='UPDATE items SET status='.$status.",error='' ".
+					' WHERE '.DBcondition('itemid',$itemids);
+			else
+				$sql='UPDATE items SET status='.$status.
+					' WHERE '.DBcondition('itemid',$itemids);
+
+			$result = DBexecute($sql);
+		}*/
+
+	return $result;
+	}
+
+	/******************************************************************************
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
+	function update_item($itemid, $item) {
+		$upd_app = (isset($item['applications']) && !is_null($item['applications']));
+		$item_in_params = $item;
+
+		$item_data = get_item_by_itemid_limited($itemid);
+		$item_data['applications'] = get_applications_by_itemid($itemid);
+
+		if (!check_db_fields($item_data, $item)) {
+			error(S_INCORRECT_ARGUMENTS_PASSED_TO_FUNCTION.SPACE.'[update_item]');
+			return false;
+		}
+
+		if (!$host = get_host_by_hostid($item['hostid'])) {
+			return false;
+		}
+
+		if (($i = array_search(0,$item['applications'])) !== FALSE) {
+			unset($item['applications'][$i]);
+		}
+
+		if (!itemIsValid($item['key_'], $item['type'], $item['value_type'], $item['delay'], $item['delay_flex'], $item['snmp_port'])) {
+			return false;
+		}
+
+		if ($item['value_type'] == ITEM_VALUE_TYPE_STR) {
+			$item['delta'] = 0;
+		}
+
+		if ($item['value_type'] != ITEM_VALUE_TYPE_UINT64) {
+			$item['data_type'] = 0;
+		}
+
+		$sql = 'SELECT itemid, hostid, templateid '.
+				' FROM items '.
+				' WHERE hostid='.$item['hostid'].
+					' AND itemid<>'.$itemid.
+					' AND key_='.zbx_dbstr($item['key_']);
+		$db_item = DBfetch(DBselect($sql));
+		if($db_item && (($db_item['templateid'] != 0) || ($item['templateid'] == 0))){
+			error(S_AN_ITEM_WITH_THE_KEY.SPACE.'['.$item['key_'].']'.SPACE.S_ALREADY_EXISTS_FOR_HOST_SMALL.SPACE.'['.$host['host'].'].'.SPACE.S_THE_KEY_MUST_BE_UNIQUE);
+			return FALSE;
+		}
+// first update child items
+		$db_tmp_items = DBselect('SELECT itemid, hostid FROM items WHERE templateid='.$itemid);
+		while($db_tmp_item = DBfetch($db_tmp_items)){
+			$child_item_params = $item_in_params;
+
+			$child_item_params['hostid'] = $db_tmp_item['hostid'];
+			$child_item_params['templateid'] = $itemid;
+
+			if($upd_app){
+				$child_item_params['applications'] = get_same_applications_for_host($item['applications'], $db_tmp_item['hostid']);
+			}
+			else{
+				$child_item_params['applications'] = null;
+			}
+
+			if(!check_db_fields($db_tmp_item, $child_item_params)){
+				error(S_INCORRECT_ARGUMENTS_PASSED_TO_FUNCTION.SPACE.'[update_item]');
+				return false;
+			}
+
+			$result = update_item($db_tmp_item['itemid'], $child_item_params);		// recursion!!!
+
+			if(!$result)
+				return $result;
+		}
+
+		if($db_item && $item['templateid'] != 0){
+			$result = delete_item($db_item['itemid']);
+			if(!$result) {
+				error(S_CANNOT_UPDATE_ITEM.SPACE."'".$host["host"].':'.$item['key_']."'");
+				return FALSE;
+			}
+		}
+
+		//validating item key
+		$itemKey = new CItemKey($item['key_']);
+		if(!$itemKey->isValid()){
+			error(S_ERROR_IN_ITEM_KEY.SPACE.$itemKey->getError());
+			return false;
+		}
+
+		$item_old = get_item_by_itemid($itemid);
+		DBexecute('UPDATE items SET lastlogsize=0, mtime=0 WHERE itemid='.$itemid.' AND key_<>'.zbx_dbstr($item['key_']));
+
+		if($upd_app){
+			$result = DBexecute('DELETE FROM items_applications WHERE itemid='.$itemid);
+			foreach($item['applications'] as $appid){
+				$itemappid=get_dbid('items_applications','itemappid');
+				DBexecute('INSERT INTO items_applications (itemappid,itemid,applicationid) VALUES ('.$itemappid.','.$itemid.','.$appid.')');
+			}
+		}
+
+		if($item['status'] == ITEM_STATUS_ACTIVE)
+			DBexecute("UPDATE items SET error='' WHERE itemid=".$itemid.' and status<>'.$item['status']);
+
+		$result=DBexecute(
+			'UPDATE items '.
+			' SET description='.zbx_dbstr($item['description']).','.
+				'key_='.zbx_dbstr($item['key_']).','.
+				'hostid='.$item['hostid'].','.
+				'delay='.$item['delay'].','.
+				'history='.$item['history'].','.
+				'type='.$item['type'].','.
+				'snmp_community='.zbx_dbstr($item['snmp_community']).','.
+				'snmp_oid='.zbx_dbstr($item['snmp_oid']).','.
+				'value_type='.$item['value_type'].','.
+				'data_type='.$item['data_type'].','.
+				'trapper_hosts='.zbx_dbstr($item['trapper_hosts']).','.
+				'snmp_port='.$item['snmp_port'].','.
+				'units='.zbx_dbstr($item['units']).','.
+				'multiplier='.$item['multiplier'].','.
+				'delta='.$item['delta'].','.
+				'snmpv3_securityname='.zbx_dbstr($item['snmpv3_securityname']).','.
+				'snmpv3_securitylevel='.$item['snmpv3_securitylevel'].','.
+				'snmpv3_authpassphrase='.($item['snmpv3_securitylevel'] == ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV || $item['snmpv3_securitylevel'] == ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV ? zbx_dbstr($item['snmpv3_authpassphrase']) : "''").','.
+				'snmpv3_privpassphrase='.($item['snmpv3_securitylevel'] == ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV ? zbx_dbstr($item['snmpv3_privpassphrase']) : "''").','.
+				'formula='.zbx_dbstr($item['formula']).','.
+				'trends='.$item['trends'].','.
+				'logtimefmt='.zbx_dbstr($item['logtimefmt']).','.
+				'valuemapid='.$item['valuemapid'].','.
+				'delay_flex='.zbx_dbstr($item['delay_flex']).','.
+				'params='.zbx_dbstr($item['params']).','.
+				'ipmi_sensor='.zbx_dbstr($item['ipmi_sensor']).','.
+				'templateid='.$item['templateid'].','.
+				'authtype='.$item['authtype'].','.
+				'username='.zbx_dbstr($item['username']).','.
+				'password='.zbx_dbstr($item['password']).','.
+				'publickey='.zbx_dbstr($item['publickey']).','.
+				'privatekey='.zbx_dbstr($item['privatekey']).
+			' WHERE itemid='.$itemid);
+
+		if ($result){
+			$item_new = get_item_by_itemid($itemid);
+			add_audit_ext(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ITEM, $itemid, $host['host'].':'.$item_old['description'], 'items', $item_old, $item_new);
+		}
+
+		update_item_status($itemid, $item['status']);
+
+		if($result){
+			info(S_ITEM.SPACE.'"'.$host['host'].':'.$item['key_'].'"'.SPACE.S_UPDATED_SMALL);
+		}
+
+	return $result;
+	}
+
+/*
+ * Function: smart_update_item
  *
- * @param $itemIds
+ * Description:
+ *     Update specified fields of item
  *
- * @return bool
+ * Author:
+ *     Aly
+ *
+ * Comments:
+ *
  */
-function delete_history_by_itemid($itemIds) {
-	zbx_value2array($itemIds);
-	$result = delete_trends_by_itemid($itemIds);
-	if (!$result) {
+	function smart_update_item($itemid, $item=array()){
+		$item_data = get_item_by_itemid_limited($itemid);
+
+		$restore_rules= array(
+			'description'		=> array(),
+			'key_'			=> array(),
+			'hostid'		=> array(),
+			'delay'			=> array('template' => 1),
+			'history'		=> array('template' => 1 , 'httptest' => 1),
+			'status'		=> array('template' => 1 , 'httptest' => 1),
+			'type'			=> array(),
+			'snmp_community'	=> array('template' => 1),
+			'snmp_oid'		=> array(),
+			'snmp_port'		=> array('template' => 1),
+			'snmpv3_securityname'	=> array('template' => 1),
+			'snmpv3_securitylevel'	=> array('template' => 1),
+			'snmpv3_authpassphrase'	=> array('template' => 1),
+			'snmpv3_privpassphrase'	=> array('template' => 1),
+			'value_type'		=> array(),
+			'data_type'		=> array(),
+			'trapper_hosts'		=> array('template' =>1 ),
+			'units'			=> array(),
+			'multiplier'		=> array(),
+			'delta'			=> array('template' => 1 , 'httptest' => 1),
+			'formula'		=> array(),
+			'trends'		=> array('template' => 1 , 'httptest' => 1),
+			'logtimefmt'		=> array(),
+			'valuemapid'		=> array('httptest' => 1),
+			'authtype'		=> array('template' => 1),
+			'username'		=> array('template' => 1),
+			'password'		=> array('template' => 1),
+			'publickey'		=> array('template' => 1),
+			'privatekey'		=> array('template' => 1),
+			'params'		=> array('template' => 1),
+			'delay_flex'		=> array('template' => 1),
+			'ipmi_sensor'		=> array()
+		);
+
+		foreach($restore_rules as $var_name => $info){
+			if(!isset($info['template']) && (0 != $item_data['templateid'])){
+				$item[$var_name] = $item_data[$var_name];
+			}
+
+			if(!array_key_exists($var_name,$item)){
+				$item[$var_name] = $item_data[$var_name];
+			}
+		}
+
+		return update_item($itemid,$item);
+	}
+
+	/*
+	 * Function: delete_template_items
+	 *
+	 * Description:
+	 *     Delete items from host by templateid
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments: !!! Don't forget sync code with C !!!
+	 *
+	 */
+	function delete_template_items($hostid, $templateids = null, $unlink_mode = false){
+		zbx_value2array($templateids);
+
+		$db_items = get_items_by_hostid($hostid);
+
+		$host = get_host_by_hostid($hostid);
+
+		while ($db_item = DBfetch($db_items)) {
+			if ($db_item["templateid"] == 0) {
+				continue;
+			}
+
+			if (!is_null($templateids)) {
+				$db_tmp_item = get_item_by_itemid($db_item["templateid"]);
+
+				if (!uint_in_array($db_tmp_item["hostid"], $templateids)) {
+					continue;
+				}
+			}
+
+			if ($unlink_mode) {
+				if (DBexecute('UPDATE items SET templateid=0 WHERE itemid='.$db_item["itemid"])) {
+					info(sprintf(S_ITEM_UNLINKED, $host['host'].':'.$db_item["key_"]));
+				}
+			}
+			else {
+				delete_item($db_item["itemid"]);
+			}
+		}
+	}
+
+	/*
+	 * Function: copy_item_to_host
+	 *
+	 * Description:
+	 *     Copy specified item to the host
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments:
+	 *
+	 */
+	function copy_item_to_host($itemid, $hostid, $copy_mode = false){
+		$db_tmp_item = get_item_by_itemid_limited($itemid);
+
+		$db_tmp_item['hostid'] = $hostid;
+		$db_tmp_item['applications'] = get_same_applications_for_host(get_applications_by_itemid($db_tmp_item['itemid']),$hostid);
+		$db_tmp_item['templateid'] = $copy_mode?0:$db_tmp_item['itemid'];
+
+		$result = add_item($db_tmp_item);
 		return $result;
 	}
 
-	DBexecute('DELETE FROM history_text WHERE '.DBcondition('itemid', $itemIds));
-	DBexecute('DELETE FROM history_log WHERE '.DBcondition('itemid', $itemIds));
-	DBexecute('DELETE FROM history_uint WHERE '.DBcondition('itemid', $itemIds));
-	DBexecute('DELETE FROM history_str WHERE '.DBcondition('itemid', $itemIds));
-	DBexecute('DELETE FROM history WHERE '.DBcondition('itemid', $itemIds));
-
-	return true;
-}
-
-/**
- * Clear trends history for provided item ids.
- *
- * @param mixed $itemIds IDs of items for which history should be cleared
- *
- * @return bool
- */
-function delete_trends_by_itemid($itemIds) {
-	zbx_value2array($itemIds);
-	$r1 = DBexecute('DELETE FROM trends WHERE '.DBcondition('itemid', $itemIds));
-	$r2 = DBexecute('DELETE FROM trends_uint WHERE '.DBcondition('itemid', $itemIds));
-
-	return $r1 && $r2;
-}
-
-/**
- * Format item lastvalue.
- * First format the value according to the configuration of the item. Then apply the value mapping to the formatted (!)
- * value.
- *
- * @param array $item
- * @param string $unknownString the text to be used if the item has no data
- *
- * @return string
- */
-function formatItemValue(array $item, $unknownString = '-') {
-	if (!isset($item['lastvalue']) || $item['lastclock'] == 0) {
-		return $unknownString;
-	}
-
-	$value = formatItemValueType($item);
-
-	if ($item['value_type'] == ITEM_VALUE_TYPE_STR
-			|| $item['value_type'] == ITEM_VALUE_TYPE_TEXT
-			|| $item['value_type'] == ITEM_VALUE_TYPE_LOG) {
-
-		$mapping = getMappedValue($value, $item['valuemapid']);
-
-		if (zbx_strlen($value) > 20) {
-			$value = zbx_substr($value, 0, 20).'...';
+	/*
+	 * Function: copy_template_items
+	 *
+	 * Description:
+	 *     Copy items from template to the host
+	 *
+	 * Author:
+	 *     Eugene Grigorjev (eugene.grigorjev@zabbix.com)
+	 *
+	 * Comments: !!! Don't forget sync code with C !!!
+	 *
+	 */
+	function copy_template_items($hostid, $templateid = null, $copy_mode = false){
+		if($templateid == null){
+			$templateid = array_keys(get_templates_by_hostid($hostid));
 		}
-		$value = nbsp(htmlspecialchars($value));
 
-		if ($mapping !== false) {
-			$value = $mapping.' ('.$value.')';
+		if(is_array($templateid)){
+			foreach($templateid as $id)
+				copy_template_items($hostid, $id, $copy_mode); // attention recursion
+			return;
+		}
+
+		$db_tmp_items = get_items_by_hostid($templateid);
+		while($db_tmp_item = DBfetch($db_tmp_items)){
+			$db_tmp_item['hostid'] = $hostid;
+			$db_tmp_item['applications'] = get_same_applications_for_host(get_applications_by_itemid($db_tmp_item['itemid']),$hostid);
+			$db_tmp_item['templateid'] = $copy_mode?0:$db_tmp_item['itemid'];
+
+			add_item($db_tmp_item);
 		}
 	}
-	else {
-		$value = applyValueMap($value, $item['valuemapid']);
+
+// Activate Item
+
+	function activate_item($itemids){
+		zbx_value2array($itemids);
+
+// first update status for child items
+		$chd_items = array();
+		$db_tmp_items = DBselect('SELECT itemid, hostid FROM items WHERE '.DBcondition('templateid',$itemids));
+		while($db_tmp_item = DBfetch($db_tmp_items)){
+			$chd_items[$db_tmp_item['itemid']] = $db_tmp_item['itemid'];
+		}
+		if(!empty($chd_items)){
+			activate_item($chd_items);  // Recursion !!!
+		}
+
+	return update_item_status($itemids, ITEM_STATUS_ACTIVE);
 	}
 
-	return $value;
-}
+// Disable Item
+	function disable_item($itemids){
+		zbx_value2array($itemids);
 
-/**
- * Format item lastvalue depending on it's value type.
- *
- * @param array $item
- *
- * @return string
- */
-function formatItemValueType(array $item) {
-	if ($item['value_type'] == ITEM_VALUE_TYPE_FLOAT || $item['value_type'] == ITEM_VALUE_TYPE_UINT64) {
-		$value = convert_units($item['lastvalue'], $item['units']);
-	}
-	elseif ($item['value_type'] == ITEM_VALUE_TYPE_STR
-			|| $item['value_type'] == ITEM_VALUE_TYPE_TEXT
-			|| $item['value_type'] == ITEM_VALUE_TYPE_LOG) {
-		$value = $item['lastvalue'];
-	}
-	else {
-		$value = _('Unknown value type');
+// first update status for child items
+		$chd_items = array();
+		$db_tmp_items = DBselect('SELECT itemid, hostid FROM items WHERE '.DBcondition('templateid',$itemids));
+		while($db_tmp_item = DBfetch($db_tmp_items)){
+			$chd_items[$db_tmp_item['itemid']] = $db_tmp_item['itemid'];
+		}
+		if(!empty($chd_items)){
+			disable_item($chd_items);  // Recursion !!!
+		}
+
+		return update_item_status($itemids, ITEM_STATUS_DISABLED);
 	}
 
-	return $value;
-}
+	function get_items_by_hostid($hostids){
+		zbx_value2array($hostids);
+	return DBselect('SELECT * FROM items WHERE '.DBcondition('hostid',$hostids));
+	}
+
+	function get_item_by_key($key,$host=''){
+		$item = false;
+
+		$sql_from = '';
+		$sql_where = '';
+		if(!empty($host)){
+			$sql_from = ',hosts h ';
+			$sql_where = ' AND h.host='.zbx_dbstr($host).' AND i.hostid=h.hostid ';
+		}
+		$sql = 'SELECT DISTINCT i.* '.
+			' FROM items i '.$sql_from.
+			' WHERE i.key_='.zbx_dbstr($key).
+				$sql_where;
+		if($item = DBfetch(DBselect($sql))){
+			$item = $item;
+		}
+	return $item;
+	}
+
+	function get_item_by_itemid($itemid){
+		$row = DBfetch(DBselect('select * from items where itemid='.$itemid));
+		if($row){
+			return	$row;
+		}
+		error(S_NO_ITEM_WITH.SPACE.'itemid=['.$itemid.']');
+	return	FALSE;
+	}
+
+	function get_item_by_itemid_limited($itemid){
+		$sql = 'SELECT itemid,description,key_,hostid,delay,history,status,type,'.
+					'snmp_community,snmp_oid,value_type,data_type,trapper_hosts,snmp_port,units,multiplier,delta,'.
+					'snmpv3_securityname,snmpv3_securitylevel,snmpv3_authpassphrase,snmpv3_privpassphrase,'.
+					'formula,trends,logtimefmt,valuemapid,delay_flex,params,ipmi_sensor,templateid,'.
+					'authtype,username,password,publickey,privatekey '.
+			' FROM items '.
+			' WHERE itemid='.$itemid;
+		$row = DBfetch(DBselect($sql));
+		if($row){
+			return	$row;
+		}
+		error(S_NO_ITEM_WITH.SPACE.'itemid=['.$itemid.']');
+	return	FALSE;
+	}
 
 /*
+ * Function: get_same_items_for_host
+ *
+ * Description:
+ *		Replace items for specified host
+ *
+ * Author:
+ *		Aly
+ *
+ * Comments:
+ *		$error= true : rise Error if item doesn't exist (error generated), false: special processing (NO error generated)
+ */
+	function get_same_item_for_host($item,$dest_hostids){
+		$return_array = is_array($dest_hostids);
+		zbx_value2array($dest_hostids);
+
+		if(!is_array($item)){
+			$itemid = $item;
+		}
+		else if(isset($item['itemid'])){
+			$itemid = $item['itemid'];
+		}
+
+		$same_item = null;
+		$same_items = array();
+		if(isset($itemid)){
+			$sql = 'SELECT src.* '.
+							' FROM items src, items dest '.
+							' WHERE dest.itemid='.$itemid.
+								' AND src.key_=dest.key_ '.
+								' AND '.DBcondition('src.hostid',$dest_hostids);
+
+			$res = DBselect($sql);
+			while($db_item = DBfetch($res)){
+				if(is_array($item)){
+					$same_item = $db_item;
+					$same_items[$db_item['itemid']] = $db_item;
+				}
+				else{
+					$same_item = $db_item['itemid'];
+					$same_items[$db_item['itemid']] = $db_item['itemid'];
+				}
+			}
+
+			if($return_array)
+				return $same_items;
+			else
+				return $same_item;
+		}
+	return false;
+	}
+
+	/******************************************************************************
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
+	function delete_item($itemids){
+		zbx_value2array($itemids);
+		if(empty($itemids)) return true;
+
+// Get items INFO before delete them!
+		$items = array();
+		$item_res = DBselect('SELECT itemid, description, key_ FROM items WHERE '.DBcondition('itemid',$itemids));
+		while($item_rows = DBfetch($item_res)){
+			$items[$item_rows['itemid']] = $item_rows;
+		}
+// --
+		$hosts = array();
+		$hosts = get_host_by_itemid($itemids);
+// first delete child items
+		$del_cld_items = array();
+		$db_items = DBselect('SELECT itemid FROM items WHERE '.DBcondition('templateid',$itemids));
+		while($db_item = DBfetch($db_items)){		// recursion !!!!
+			$del_cld_items[$db_item['itemid']] = $db_item['itemid'];
+		}
+		if(!empty($del_cld_items)){
+			$result = delete_item($del_cld_items);
+			if(!$result)	return	$result;
+		}
+//--
+// triggers
+		$result = delete_triggers_by_itemid($itemids);
+		if(!$result)	return	$result;
+//--
+
+// delete graphs
+		$del_graphs = array();
+		$sql = 'SELECT gi.graphid'.
+			' FROM graphs_items gi'.
+			' WHERE '.DBcondition('gi.itemid', $itemids).
+				' AND NOT EXISTS ('.
+					' SELECT gii.gitemid'.
+					' FROM graphs_items gii'.
+					' WHERE gii.graphid=gi.graphid'.
+						' AND '.DBcondition('gii.itemid', $itemids, true, false).
+					' )';
+		$db_graphs = DBselect($sql);
+		while($db_graph = DBfetch($db_graphs)){
+			$del_graphs[$db_graph['graphid']] = $db_graph['graphid'];
+		}
+
+		if(!empty($del_graphs)){
+			$result = delete_graph($del_graphs);
+			if(!$result)	return	$result;
+		}
+
+		DBexecute('DELETE FROM graphs_items WHERE '.DBcondition('itemid', $itemids));
+//--
+
+		$result = delete_history_by_itemid($itemids, 1 /* use housekeeper */);
+		if(!$result)	return	$result;
+
+		$temp_arr = array(SCREEN_RESOURCE_SIMPLE_GRAPH,SCREEN_RESOURCE_PLAIN_TEXT);
+
+		DBexecute('DELETE FROM screens_items WHERE '.DBcondition('resourceid',$itemids).' AND '.DBcondition('resourcetype', $temp_arr));
+		DBexecute('DELETE FROM items_applications WHERE '.DBcondition('itemid',$itemids));
+		DBexecute("DELETE FROM profiles WHERE idx='web.favorite.graphids' AND source='itemid' AND ".DBcondition('value_id',$itemids));
+
+		foreach ($itemids as $id) {	/* The section should be improved */
+			$item_old = get_item_by_itemid($id);
+			$result = DBexecute('DELETE FROM items WHERE itemid='.$id);
+			if ($result)
+				add_audit_ext(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_ITEM, $id, $item_old['description'], 'items', NULL, NULL);
+			else
+				break;
+		}
+
+/*		$result = DBexecute('DELETE FROM items WHERE '.DBcondition('itemid',$itemids));*/
+		if($result){
+			foreach($items as $itemid => $item){
+				info(S_ITEM.SPACE.'"'.$hosts[$itemid]['host'].':'.$item['key_'].'"'.SPACE.S_DELETED_SMALL);
+			}
+		}
+	return $result;
+	}
+
+
+	function expand_item_key_by_data($item){
+		$key =& $item['key_'];
+		$macStack = array();
+
+		$macros = array('{HOSTNAME}', '{IPADDRESS}', '{HOST.DNS}', '{HOST.CONN}');
+
+		foreach($macros as $macro){
+			$pos = 0;
+			while($pos = zbx_strpos($key, $macro, $pos)){
+				$pos++;
+				$macStack[] = $macro;
+			}
+		}
+
+		if(!empty($macStack)){
+			$host = get_host_by_itemid($item['itemid']);
+
+			foreach($macStack as $macro){
+				switch($macro){
+					case '{HOSTNAME}':
+						$key = str_replace('{HOSTNAME}', $host['host'], $key);
+					break;
+					case '{IPADDRESS}':
+						$key = str_replace('{IPADDRESS}', $host['ip'], $key);
+					break;
+					case '{HOST.DNS}':
+						$key = str_replace('{HOST.DNS}', $host['dns'], $key);
+					break;
+					case '{HOST.CONN}':
+						$key = str_replace('{HOST.CONN}', $host['useip'] ? $host['ip'] : $host['dns'], $key);
+					break;
+				}
+			}
+		}
+
+		CUserMacro::resolveItem($item);
+
+		return $item['key_'];
+	}
+
+
+	/**
+	 * Expand macros inside key name and return it
+	 * Example:
+	 *   key: 'test.key[a, b, "{HOSTNAME}"]'
+	 *   name: 'Test item $1, $2, $3'
+	 *   result: 'Test item a, b, Zabbix-server'
+	 *
+	 * @param array $item
+	 * @return string
+	 */
+	function item_description($item){
+		$name = $item['description'];
+		// if item name contains $1..$9 macros, we need to expand them
+		if(preg_match('/\$[1-9]/', $name)){
+			$key = expand_item_key_by_data($item);
+
+			// parsing key to get the parameters out of it
+			$ItemKey = new cItemKey($key);
+
+			if($ItemKey->isValid()){
+				$keyParameters = $ItemKey->getParameters();
+
+				$searchOffset = 0;
+				while(preg_match('/\$[1-9]/', $name, $matches, PREG_OFFSET_CAPTURE, $searchOffset)){
+					// matches[0][0] - matched param, [1] - second character of it
+					$paramNumber = $matches[0][0][1] - 1;
+					$replaceString = isset($keyParameters[$paramNumber]) ? $keyParameters[$paramNumber] : '';
+
+					$name = substr_replace($name, $replaceString, $matches[0][1], 2);
+					$searchOffset = $matches[0][1] + strlen($replaceString);
+				}
+			}
+		}
+
+		if(preg_match_all('/'.ZBX_PREG_EXPRESSION_USER_MACROS.'/', $name, $arr)){
+			$macros = CUserMacro::getMacros($arr[1], array('itemid' => $item['itemid']));
+			$name = str_replace(array_keys($macros), array_values($macros), $name);
+		}
+
+		return $name;
+	}
+
+	function get_realhost_by_itemid($itemid){
+		$item = get_item_by_itemid($itemid);
+		if($item['templateid'] <> 0)
+			return get_realhost_by_itemid($item['templateid']);
+
+	return get_host_by_itemid($itemid);
+	}
+
+	/**
+	 * Retrieve overview table object for items.
+	 * @param $hostids
+	 * @param null $view_style
+	 * @return CTableInfo
+	 */
+	function get_items_data_overview($hostids,$view_style=null){
+		global $USER_DETAILS;
+
+		if(is_null($view_style)) $view_style = CProfile::get('web.overview.view.style',STYLE_TOP);
+
+		$table = new CTableInfo(S_NO_ITEMS_DEFINED);
+
+// COpt::profiling_start('prepare_data');
+		$result = DBselect('SELECT DISTINCT h.hostid, h.host,i.itemid, i.key_, i.value_type, i.lastvalue, i.units, '.
+				' i.description, t.priority, i.valuemapid, t.value as tr_value, t.triggerid '.
+			' FROM hosts h, items i '.
+				' LEFT JOIN functions f on f.itemid=i.itemid '.
+				' LEFT JOIN triggers t on t.triggerid=f.triggerid and t.status='.TRIGGER_STATUS_ENABLED.
+			' WHERE '.DBcondition('h.hostid',$hostids).
+				' AND h.status='.HOST_STATUS_MONITORED.
+				' AND h.hostid=i.hostid '.
+				' AND i.status='.ITEM_STATUS_ACTIVE.
+			' ORDER BY i.description,i.itemid');
+
+		unset($items);
+		unset($hosts);
+// get rid of warnings about $triggers undefined
+		$items = array();
+		while($row = DBfetch($result)){
+			$descr = item_description($row);
+			$row['host'] = get_node_name_by_elid($row['hostid'], null, ': ').$row['host'];
+			$hosts[zbx_strtolower($row['host'])] = $row['host'];
+
+// A little tricky check for attempt to overwrite active trigger (value=1) with
+// inactive or active trigger with lower priority.
+			if (!isset($items[$descr][$row['host']]) ||
+				(
+					(($items[$descr][$row['host']]['tr_value'] == TRIGGER_VALUE_FALSE) && ($row['tr_value'] == TRIGGER_VALUE_TRUE)) ||
+					(
+						(($items[$descr][$row['host']]['tr_value'] == TRIGGER_VALUE_FALSE) || ($row['tr_value'] == TRIGGER_VALUE_TRUE)) &&
+						($row['priority'] > $items[$descr][$row['host']]['severity'])
+					)
+				)
+			)
+			{
+				$items[$descr][$row['host']] = array(
+					'itemid'	=> $row['itemid'],
+					'value_type'=> $row['value_type'],
+					'lastvalue'	=> $row['lastvalue'],
+					'units'		=> $row['units'],
+					'description'=> $row['description'],
+					'valuemapid' => $row['valuemapid'],
+					'severity'	=> $row['priority'],
+					'tr_value'	=> $row['tr_value'],
+					'triggerid'	=> $row['triggerid']
+				);
+			}
+		}
+
+		if(!isset($hosts)){
+			return $table;
+		}
+
+		ksort($hosts, SORT_STRING);
+// COpt::profiling_stop('prepare_data');
+// COpt::profiling_start('prepare_table');
+
+		$css = getUserTheme($USER_DETAILS);
+		$vTextColor = ($css == 'css_od.css')?'&color=white':'';
+		if($view_style == STYLE_TOP){
+			$header=array(new CCol(S_ITEMS,'center'));
+			foreach($hosts as $hostname){
+				$header = array_merge($header,array(new CImg('vtext.php?text='.urlencode($hostname).$vTextColor)));
+			}
+
+			$table->SetHeader($header,'vertical_header');
+			$curr_rime = time();
+
+			foreach($items as $descr => $ithosts){
+				$table_row = array(nbsp($descr));
+				foreach($hosts as $hostname){
+					$table_row = get_item_data_overview_cells($table_row,$ithosts,$hostname);
+				}
+				$table->AddRow($table_row);
+			}
+		}
+		else{
+			$header=array(new CCol(S_HOSTS,'center'));
+			foreach($items as $descr => $ithosts){
+				$header = array_merge($header,array(new CImg('vtext.php?text='.urlencode($descr).$vTextColor)));
+			}
+
+			$table->SetHeader($header,'vertical_header');
+			$curr_rime = time();
+
+			foreach($hosts as $hostname){
+				$table_row = array(nbsp($hostname));
+				foreach($items as $descr => $ithosts){
+					$table_row = get_item_data_overview_cells($table_row,$ithosts,$hostname);
+				}
+				$table->AddRow($table_row);
+			}
+		}
+// COpt::profiling_stop('prepare_table');
+
+	return $table;
+	}
+
+	function get_item_data_overview_cells(&$table_row,&$ithosts,$hostname){
+		$css_class = '';
+		unset($it_ov_menu);
+
+		$value = '-';
+		$ack = null;
+		if(isset($ithosts[$hostname])){
+			if($ithosts[$hostname]['tr_value'] == TRIGGER_VALUE_TRUE){
+				$css_class = get_severity_style($ithosts[$hostname]['severity']);
+				$ack = get_last_event_by_triggerid($ithosts[$hostname]['triggerid']);
+				if ( 1 == $ack['acknowledged'] )
+					$ack = array(SPACE, new CImg('images/general/tick.png','ack'));
+				else
+					$ack = null;
+			}
+
+			$value = format_lastvalue($ithosts[$hostname]);
+
+			$it_ov_menu = array(
+				array(S_VALUES,	null, null,
+					array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader'))),
+				array(S_500_LATEST_VALUES, 'history.php?action=showlatest&itemid='.$ithosts[$hostname]['itemid'],
+					array('tw'=>'_blank'))
+				);
+
+			switch($ithosts[$hostname]['value_type']){
+				case ITEM_VALUE_TYPE_UINT64:
+				case ITEM_VALUE_TYPE_FLOAT:
+					$it_ov_menu = array_merge(array(
+						/* name, url, (target [tw], statusbar [sb]), css, submenu */
+						array(S_GRAPHS, null,  null,
+							array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader'))
+							),
+						array(S_LAST_HOUR_GRAPH, 'history.php?period=3600&action=showgraph&itemid='.
+							$ithosts[$hostname]['itemid'], array('tw'=>'_blank')),
+						array(S_LAST_WEEK_GRAPH, 'history.php?period=604800&action=showgraph&itemid='.
+							$ithosts[$hostname]['itemid'], array('tw'=>'_blank')),
+						array(S_LAST_MONTH_GRAPH, 'history.php?period=2678400&action=showgraph&itemid='.
+							$ithosts[$hostname]['itemid'], array('tw'=>'_blank'))
+						), $it_ov_menu);
+					break;
+				default:
+					break;
+			}
+		}
+
+		if($value != '-')	$value = new CSpan($value,'link');
+		$value_col = new CCol(array($value,$ack),$css_class);
+
+		if(isset($it_ov_menu)){
+			$it_ov_menu  = new CPUMenu($it_ov_menu,170);
+			$value_col->onClick($it_ov_menu->getOnActionJS());
+			unset($it_ov_menu);
+		}
+
+		array_push($table_row,$value_col);
+	return $table_row;
+	}
+
+	/******************************************************************************
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
+	function get_same_applications_for_host($applications, $hostid){
+		$child_applications = array();
+
+		foreach($applications as $appid){
+			$db_apps = DBselect("select a1.applicationid from applications a1, applications a2".
+					" where a1.name=a2.name and a1.hostid=".$hostid." and a2.applicationid=".$appid);
+			$db_app = DBfetch($db_apps);
+			if(!$db_app) continue;
+			array_push($child_applications,$db_app["applicationid"]);
+		}
+	return $child_applications;
+	}
+
+	/******************************************************************************
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
+	function get_applications_by_itemid($itemids, $field='applicationid'){
+		zbx_value2array($itemids);
+
+		$result = array();
+
+		$db_applications = DBselect('SELECT DISTINCT app.'.$field.' as result '.
+										' FROM applications app, items_applications ia '.
+										' WHERE app.applicationid=ia.applicationid '.
+											' AND '.DBcondition('ia.itemid',$itemids));
+		while($db_application = DBfetch($db_applications))
+			array_push($result,$db_application['result']);
+
+	return $result;
+	}
+
+	/******************************************************************************
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
+	function delete_history_by_itemid($itemids, $use_housekeeper=0){
+		zbx_value2array($itemids);
+
+		$result = delete_trends_by_itemid($itemids,$use_housekeeper);
+		if(!$result)	return $result;
+
+		if($use_housekeeper){
+			foreach($itemids as $id => $itemid){
+				$housekeeperid = get_dbid('housekeeper','housekeeperid');
+				$sql = 'INSERT INTO housekeeper (housekeeperid,tablename,field,value)'.
+							" VALUES ($housekeeperid,'history_text','itemid',$itemid)";
+				DBexecute($sql);
+
+				$housekeeperid = get_dbid('housekeeper','housekeeperid');
+				$sql = 'INSERT INTO housekeeper (housekeeperid,tablename,field,value)'.
+							" VALUES ($housekeeperid,'history_log','itemid',$itemid)";
+				DBexecute($sql);
+
+				$housekeeperid = get_dbid('housekeeper','housekeeperid');
+				$sql = 'INSERT INTO housekeeper (housekeeperid,tablename,field,value)'.
+							" VALUES ($housekeeperid,'history_uint','itemid',$itemid)";
+				DBexecute($sql);
+
+				$housekeeperid = get_dbid('housekeeper','housekeeperid');
+				$sql = 'INSERT INTO housekeeper (housekeeperid,tablename,field,value)'.
+							" VALUES ($housekeeperid,'history_str','itemid',$itemid)";
+				DBexecute($sql);
+
+				$housekeeperid = get_dbid('housekeeper','housekeeperid');
+				$sql = 'INSERT INTO housekeeper (housekeeperid,tablename,field,value)'.
+							" VALUES ($housekeeperid,'history','itemid',$itemid)";
+				DBexecute($sql);
+			}
+			return TRUE;
+		}
+
+		DBexecute('DELETE FROM history_text WHERE '.DBcondition('itemid',$itemids));
+		DBexecute('DELETE FROM history_log WHERE '.DBcondition('itemid',$itemids));
+		DBexecute('DELETE FROM history_uint WHERE '.DBcondition('itemid',$itemids));
+		DBexecute('DELETE FROM history_str WHERE '.DBcondition('itemid',$itemids));
+		DBexecute('DELETE FROM history WHERE '.DBcondition('itemid',$itemids));
+	return TRUE;
+	}
+
+	/**
+	 * Clear trends history for provided itemIDs or schedule this work for housekeeper
+	 *
+	 * @param mixed $itemIds IDs of items for which history should be cleared
+	 * @param bool $useHousekeeper schedule deletion for housekeeper instead of deleting now
+	 * @return bool
+	 */
+	function delete_trends_by_itemid($itemIds, $useHousekeeper = false){
+		zbx_value2array($itemIds);
+
+		if($useHousekeeper){
+			foreach($itemIds as $itemId){
+				$housekeeperid = get_dbid('housekeeper','housekeeperid');
+				DBexecute('INSERT INTO housekeeper (housekeeperid,tablename,field,value)'.
+					" VALUES ($housekeeperid,'trends','itemid',$itemId)");
+				$housekeeperid = get_dbid('housekeeper','housekeeperid');
+				DBexecute('INSERT INTO housekeeper (housekeeperid,tablename,field,value)'.
+					" VALUES ($housekeeperid,'trends_uint','itemid',$itemId)");
+			}
+			return true;
+		}
+		$r1 = DBexecute('DELETE FROM trends WHERE '.DBcondition('itemid', $itemIds));
+		$r2 = DBexecute('DELETE FROM trends_uint WHERE '.DBcondition('itemid', $itemIds));
+		return $r1 && $r2;
+	}
+
+	function format_lastvalue($db_item){
+		if(isset($db_item["lastvalue"])){
+			if($db_item["value_type"] == ITEM_VALUE_TYPE_FLOAT){
+				$lastvalue=convert_units($db_item["lastvalue"],$db_item["units"]);
+			}
+			else if($db_item["value_type"] == ITEM_VALUE_TYPE_UINT64){
+				$lastvalue=convert_units($db_item["lastvalue"],$db_item["units"]);
+			}
+			else if($db_item["value_type"] == ITEM_VALUE_TYPE_STR ||
+					$db_item["value_type"] == ITEM_VALUE_TYPE_TEXT ||
+					$db_item["value_type"] == ITEM_VALUE_TYPE_LOG){
+				$lastvalue=$db_item["lastvalue"];
+				if(zbx_strlen($lastvalue) > 20)
+					$lastvalue = zbx_substr($lastvalue,0,20)." ...";
+				$lastvalue = nbsp(htmlspecialchars($lastvalue));
+			}
+			else{
+				$lastvalue=S_UNKNOWN_VALUE_TYPE;
+			}
+			if($db_item["valuemapid"] > 0);
+				$lastvalue = replace_value_by_map($lastvalue, $db_item["valuemapid"]);
+
+		}
+		else{
+			$lastvalue = "-";
+		}
+	return $lastvalue;
+	}
+
+/*
+ * Function: item_get_history
+ *
+ * Description:
+ *     Get value from history
+ *
  * Parameters:
  *     itemid - item ID
  *     last  - 0 - last value (clock is used), 1 - last value
+ *
+ * Author:
+ *     Alexei Vladishev
+ *
+ * Comments:
+ *
  */
-function item_get_history($db_item, $last = 1, $clock = 0, $ns = 0) {
-	$value = null;
+	function item_get_history($db_item, $last = 1, $clock = 0){
+		$value = NULL;
 
-	switch ($db_item['value_type']) {
-		case ITEM_VALUE_TYPE_FLOAT:
-			$table = 'history';
-			break;
-		case ITEM_VALUE_TYPE_UINT64:
-			$table = 'history_uint';
-			break;
-		case ITEM_VALUE_TYPE_TEXT:
-			$table = 'history_text';
-			break;
-		case ITEM_VALUE_TYPE_STR:
-			$table = 'history_str';
-			break;
-		case ITEM_VALUE_TYPE_LOG:
-		default:
-			$table = 'history_log';
-			break;
-	}
-
-	if ($last == 0) {
-		$sql = 'SELECT value'.
-				' FROM '.$table.
-				' WHERE itemid='.$db_item['itemid'].
-					' AND clock='.$clock.
-					' AND ns='.$ns;
-		if (null != ($row = DBfetch(DBselect($sql, 1)))) {
-			$value = $row['value'];
-		}
-		if ($value != null) {
-			return $value;
+		switch($db_item["value_type"]){
+			case ITEM_VALUE_TYPE_FLOAT:
+				$table = "history";
+				break;
+			case ITEM_VALUE_TYPE_UINT64:
+				$table = "history_uint";
+				break;
+			case ITEM_VALUE_TYPE_TEXT:
+				$table = "history_text";
+				break;
+			case ITEM_VALUE_TYPE_STR:
+				$table = "history_str";
+				break;
+			case ITEM_VALUE_TYPE_LOG:
+			default:
+				$table = "history_log";
+				break;
 		}
 
-		$max_clock = 0;
-
-		$sql = 'SELECT DISTINCT clock'.
-				' FROM '.$table.
-				' WHERE itemid='.$db_item['itemid'].
-					' AND clock='.$clock.
-					' AND ns<'.$ns;
-		if (null != ($row = DBfetch(DBselect($sql)))) {
-			$max_clock = $row['clock'];
+		if($last == 0){
+			$sql = 'select value from '.$table.' where itemid='.$db_item['itemid'].' and clock<='.$clock.
+					' order by itemid,clock desc';
+			$row = DBfetch(DBselect($sql, 1));
+			if($row)
+				$value = $row["value"];
 		}
-		if ($max_clock == 0) {
-			$sql = 'SELECT MAX(clock) AS clock'.
-					' FROM '.$table.
-					' WHERE itemid='.$db_item['itemid'].
-						' AND clock<'.$clock;
-			if (null != ($row = DBfetch(DBselect($sql)))) {
-				$max_clock = $row['clock'];
+		else{
+			$sql = "select max(clock) as clock from $table where itemid=".$db_item["itemid"];
+			$row = DBfetch(DBselect($sql));
+			if($row && !is_null($row["clock"])){
+				$clock = $row["clock"];
+				$sql = "select value from $table where itemid=".$db_item["itemid"]." and clock=$clock";
+				$row = DBfetch(DBselect($sql, 1));
+				if($row)
+					$value = $row["value"];
 			}
 		}
-		if ($max_clock == 0) {
-			return $value;
-		}
-
-		if ($clock == $max_clock) {
-			$sql = 'SELECT value'.
-					' FROM '.$table.
-					' WHERE itemid='.$db_item['itemid'].
-						' AND clock='.$clock.
-						' AND ns<'.$ns;
-		}
-		else {
-			$sql = 'SELECT value'.
-					' FROM '.$table.
-					' WHERE itemid='.$db_item['itemid'].
-						' AND clock='.$max_clock.
-					' ORDER BY itemid,clock desc,ns desc';
-		}
-
-		if (null != ($row = DBfetch(DBselect($sql, 1)))) {
-			$value = $row['value'];
-		}
-	}
-	else {
-		$row = DBfetch(DBselect('SELECT MAX(clock) AS clock FROM '.$table.' WHERE itemid='.$db_item['itemid']));
-		if (!empty($row['clock'])) {
-			$row = DBfetch(DBselect('SELECT value FROM '.$table.' WHERE itemid='.$db_item['itemid'].' AND clock='.$row['clock'].' ORDER BY ns DESC', 1));
-			if (!empty($row['value'])) {
-				$value = $row['value'];
-			}
-		}
-	}
-
 	return $value;
-}
+	}
 
-/**
- * Check if current time is within given period
+/*
+ * Function: check_time_period
  *
- * @param array $period              time period format: "wd[-wd2],hh:mm-hh:mm"
- * @param int $now                   current timestamp
+ * Purpose: check if current time is within given period
  *
- * @return bool                      true - within in a period, false - out of period
+ * Parameters: period - [IN] time period in format [wd[-wd2],hh:mm-hh:mm]
+ *             now    - [IN] timestamp for comparison
+ *
+ * Return value: 0 - out of period, 1 - within the period
+ *
+ * Author: Alexander Vladishev
+ *
+ * Comments:
+ *        !!! Don't forget sync code with C !!!
  */
-function checkTimePeriod($period, $now) {
-	if (sscanf($period, '%d-%d,%d:%d-%d:%d', $d1, $d2, $h1, $m1, $h2, $m2) != 6) {
-		if (sscanf($period, '%d,%d:%d-%d:%d', $d1, $h1, $m1, $h2, $m2) != 5) {
-			// delay period format is wrong - skip
-			return false;
-		}
-		$d2 = $d1;
-	}
+	function check_time_period($period, $now){
+		$tm = localtime($now, true);
+		$day = (0 == $tm['tm_wday']) ? 7 : $tm['tm_wday'];
+		$sec = 3600 * $tm['tm_hour'] + 60 * $tm['tm_min'] + $tm['tm_sec'];
 
-	$tm = localtime($now, true);
-	$day = ($tm['tm_wday'] == 0) ? 7 : $tm['tm_wday'];
-	$sec = SEC_PER_HOUR * $tm['tm_hour'] + SEC_PER_MIN * $tm['tm_min'] + $tm['tm_sec'];
+		$flag = (6 == sscanf($period, "%d-%d,%d:%d-%d:%d", $d1, $d2, $h1, $m1, $h2, $m2));
 
-	$sec1 = SEC_PER_HOUR * $h1 + SEC_PER_MIN * $m1;
-	$sec2 = SEC_PER_HOUR * $h2 + SEC_PER_MIN * $m2;
-
-	return $d1 <= $day && $day <= $d2 && $sec1 <= $sec && $sec < $sec2;
-}
-
-function getItemDelay($delay, $flexIntervals) {
-	if (!empty($delay) || zbx_empty($flexIntervals)) {
-		return $delay;
-	}
-	$minDelay = SEC_PER_YEAR;
-	$flexIntervals = explode(';', $flexIntervals);
-	foreach ($flexIntervals as $flexInterval) {
-		if (sscanf($flexInterval, "%d/%29s", $flexDelay, $flexPeriod) != 2) {
-			continue;
-		}
-		$minDelay = min($minDelay, $flexDelay);
-	}
-	return $minDelay;
-}
-
-/**
- * Return delay value that is currently applicable
- *
- * @param int $delay                 default delay
- * @param array $arrOfFlexIntervals  array of intervals in format: "d/wd[-wd2],hh:mm-hh:mm"
- * @param int $now                   current timestamp
- *
- * @return int                       delay for a current timestamp
- */
-function getCurrentDelay($delay, array $arrOfFlexIntervals, $now) {
-	if (empty($arrOfFlexIntervals)) {
-		return $delay;
-	}
-
-	$currentDelay = SEC_PER_YEAR;
-
-	foreach ($arrOfFlexIntervals as $flexInterval) {
-		if (sscanf($flexInterval, '%d/%29s', $flexDelay, $flexPeriod) != 2) {
-			continue;
-		}
-		if ($flexDelay < $currentDelay && checkTimePeriod($flexPeriod, $now)) {
-			$currentDelay = $flexDelay;
-		}
-	}
-
-	if ($currentDelay == SEC_PER_YEAR) {
-		return $delay;
-	}
-
-	return $currentDelay == 0 ? SEC_PER_YEAR : $currentDelay;
-}
-
-/**
- * Return time of next flexible interval
- *
- * @param array $arrOfFlexIntervals  array of intervals in format: "d/wd[-wd2],hh:mm-hh:mm"
- * @param int $now                   current timestamp
- * @param int $nextInterval          timestamp of a next interval
- *
- * @return bool                      false if no flexible intervals defined
- */
-function getNextDelayInterval(array $arrOfFlexIntervals, $now, &$nextInterval) {
-	if (empty($arrOfFlexIntervals)) {
-		return false;
-	}
-
-	$next = 0;
-	$tm = localtime($now, true);
-	$day = ($tm['tm_wday'] == 0) ? 7 : $tm['tm_wday'];
-	$sec = SEC_PER_HOUR * $tm['tm_hour'] + SEC_PER_MIN * $tm['tm_min'] + $tm['tm_sec'];
-
-	foreach ($arrOfFlexIntervals as $flexInterval) {
-		if (sscanf($flexInterval, '%d/%d-%d,%d:%d-%d:%d', $delay, $d1, $d2, $h1, $m1, $h2, $m2) != 7) {
-			if (sscanf($flexInterval, '%d/%d,%d:%d-%d:%d', $delay, $d1, $h1, $m1, $h2, $m2) != 6) {
-				continue;
-			}
+		if(!$flag){
+			$flag = (5 == sscanf($period, "%d,%d:%d-%d:%d", $d1, $h1, $m1, $h2, $m2));
 			$d2 = $d1;
 		}
 
-		$sec1 = SEC_PER_HOUR * $h1 + SEC_PER_MIN * $m1;
-		$sec2 = SEC_PER_HOUR * $h2 + SEC_PER_MIN * $m2;
-
-		// current period
-		if ($d1 <= $day && $day <= $d2 && $sec1 <= $sec && $sec < $sec2) {
-			if ($next == 0 || $next > $now - $sec + $sec2) {
-				// the next second after the current interval's upper bound
-				$next = $now - $sec + $sec2;
+		if(!$flag){
+			/* Delay period format is wrong - skip */;
+		}
+		else{
+			if(($day >= $d1) &&
+				($day <= $d2) &&
+				($sec >= (3600*$h1+60*$m1)) &&
+				($sec <= (3600*$h2+60*$m2)))
+			{
+				return true;
 			}
 		}
-		// will be active today
-		elseif ($d1 <= $day && $d2 >= $day && $sec < $sec1) {
-			if ($next == 0 || $next > $now - $sec + $sec1) {
-				$next = $now - $sec + $sec1;
-			}
-		}
-		else {
-			$nextDay = ($day + 1 <= 7) ? $day + 1 : 1;
 
-			// will be active tomorrow
-			if ($d1 <= $nextDay && $nextDay <= $d2) {
-				if ($next == 0 || $next > $now - $sec + SEC_PER_DAY + $sec1) {
-					$next = $now - $sec + SEC_PER_DAY + $sec1;
-				}
-			}
-			// later in the future
-			else {
-				$dayDiff = -1;
-
-				if ($day < $d1) {
-					$dayDiff = $d1 - $day;
-				}
-				if ($day >= $d2) {
-					$dayDiff = ($d1 + 7) - $day;
-				}
-				if ($d1 <= $day && $day < $d2) {
-					// should never happen, could not deduce day difference
-					$dayDiff = -1;
-				}
-				if ($dayDiff != -1 && ($next == 0 || $next > $now - $sec + SEC_PER_DAY * $dayDiff + $sec1)) {
-					$next = $now - $sec + SEC_PER_DAY * $dayDiff + $sec1;
-				}
-			}
-		}
+	return false;
 	}
-	if ($next != 0) {
-		$nextInterval = $next;
-	}
-	return $next != 0;
-}
 
-/**
- * Calculate nextcheck timestamp for an item
+	function getItemDelay($delay, $flexIntervals){
+		if(!empty($delay) || zbx_empty($flexIntervals)) return $delay;
+
+		$minDelay = SEC_PER_YEAR;
+		$flexIntervals = explode(';', $flexIntervals);
+		foreach($flexIntervals as $fnum => $flexInterval){
+			if(2 != sscanf($flexInterval, "%d/%29s", $flexDelay, $flexPeriod)) continue;
+
+			$minDelay = min($minDelay, $flexDelay);
+		}
+
+	return $minDelay;
+	}
+/*
+ * Function: get_current_delay
  *
- * the parameter $flexIntervals accepts data in a format:
+ * Purpose: return delay value that is currently applicable
  *
- *           +------------[;]<----------+
- *           |                          |
- *         ->+-[d/wd[-wd2],hh:mm-hh:mm]-+
+ * Parameters: delay          - [IN] default delay
+ *             flex_intervals - [IN] separated flexible intervals
  *
- *         d       - delay (0-n)
- *         wd, wd2 - day of week (1-7)
- *         hh      - hours (0-24)
- *         mm      - minutes (0-59)
+ *                                   +------------[;]<----------+
+ *                                   |                          |
+ *                                 ->+-[d/wd[-wd2],hh:mm-hh:mm]-+
  *
- * @param string $interfaceid
- * @param string $itemid
- * @param int $itemType
- * @param int $delay                 default delay
- * @param string $flexIntervals      flexible intervals
- * @param int $now                   current timestamp
+ *                                 d       - delay (0-n)
+ *                                 wd, wd2 - day of week (1-7)
+ *                                 hh      - hours (0-24)
+ *                                 mm      - minutes (0-59)
  *
- * @return array
+ *             now            - [IN] current time
+ *
+ * Return value: delay value - either default or minimum delay value
+ *                             out of all applicable intervals
+ *
+ * Author: Alexander Vladishev
  */
-function calculateItemNextcheck($interfaceid, $itemid, $itemType, $delay, $flexIntervals, $now) {
-	if ($delay == 0) {
-		$delay = SEC_PER_YEAR;
-	}
+	function get_current_delay($delay, $flex_intervals, $now){
+		if(zbx_empty($flex_intervals)) return $delay;
 
-	// special processing of active items to see better view in queue
-	if ($itemType == ITEM_TYPE_ZABBIX_ACTIVE) {
-		$nextcheck = $now + $delay;
-	}
-	else {
-		// try to find the nearest 'nextcheck' value with condition 'now' < 'nextcheck' < 'now' + SEC_PER_YEAR
+		$current_delay = SEC_PER_YEAR;
 
-		$arrOfFlexIntervals = explode(';', $flexIntervals);
-		$t = $now;
-		$tmax = $now + SEC_PER_YEAR;
-		$try = 0;
+		$arr_of_flex_intervals = explode(';', $flex_intervals);
 
-		$shift = ($itemType == ITEM_TYPE_JMX) ? $interfaceid : $itemid;
+		foreach($arr_of_flex_intervals as $fnum => $flex_interval){
+			if(2 != sscanf($flex_interval, "%d/%29s", $flex_delay, $flex_period)) continue;
 
-		while ($t < $tmax) {
-			// calculate 'nextcheck' value for the current interval
-			$currentDelay = getCurrentDelay($delay, $arrOfFlexIntervals, $t);
-
-			$nextcheck = $currentDelay * floor($t / $currentDelay) + ($shift % $currentDelay);
-
-			if ($try == 0) {
-				while ($nextcheck <= $t) {
-					$nextcheck += $currentDelay;
-				}
-			}
-			else {
-				while ($nextcheck < $t) {
-					$nextcheck += $currentDelay;
-				}
-			}
-
-			// 'nextcheck' < end of the current interval ?
-			// the end of the current interval is the beginning of the next interval - 1
-			if (getNextDelayInterval($arrOfFlexIntervals, $t, $nextInterval) && $nextcheck >= $nextInterval) {
-				// 'nextcheck' is beyond the current interval
-				$t = $nextInterval;
-				$try++;
-			}
-			else {
-				break;
+			if(($flex_delay < $current_delay) && check_time_period($flex_period, $now)){
+				$current_delay = $flex_delay;
 			}
 		}
-		$delay = $currentDelay;
+
+		if($current_delay == SEC_PER_YEAR) return $delay;
+
+	return ($current_delay == 0) ? SEC_PER_YEAR : $current_delay;
 	}
-
-	return array('nextcheck' => $nextcheck, 'delay' => $delay);
-}
-
-/**
- * Check if given character is a valid key id char
- * this function is a copy of is_key_char() from /src/libs/zbxcommon/misc.c
- * don't forget to take look in there before changing anything
- *
- * @author Konstantin Buravcov
- * @param string $char
- * @return bool
- */
-function isKeyIdChar($char) {
-	return (
-		($char >= 'a' && $char <= 'z')
-		|| $char == '.' || $char == '_' || $char == '-'
-		|| ($char >= 'A' && $char <= 'Z')
-		|| ($char >= '0' && $char <= '9')
-	);
-}
 
 /*
- * Description:
- *	Function returns true if http items exists in the $items array.
- *	The array should contain a field 'type'
+ * Function: get_next_delay_interval
+ *
+ * Purpose: return time of next flexible interval
+ *
+ * Parameters: flex_intervals - [IN] separated flexible intervals
+	 *
+ *                                   +------------[;]<----------+
+ *                                   |                          |
+ *                                 ->+-[d/wd[-wd2],hh:mm-hh:mm]-+
+	 *
+ *                                 d       - delay (0-n)
+ *                                 wd, wd2 - day of week (1-7)
+ *                                 hh      - hours (0-24)
+ *                                 mm      - minutes (0-59)
+	 *
+ *             now            - [IN] current time
+ *
+ * Return value: start of next interval
+ *
+ * Author: Alexei Vladishev, Alexander Vladishev
  */
-function httpItemExists($items) {
-	foreach ($items as $item) {
-		if ($item['type'] == ITEM_TYPE_HTTPTEST) {
-			return true;
+	function get_next_delay_interval($flex_intervals, $now, &$next_interval){
+		if(zbx_empty($flex_intervals)) return false;
+
+		$next = 0;
+		$tm = localtime($now, true);
+		$day = (0 == $tm['tm_wday']) ? 7 : $tm['tm_wday'];
+		$sec = 3600 * $tm['tm_hour'] + 60 * $tm['tm_min'] + $tm['tm_sec'];
+
+		$arr_of_flex_intervals = explode(';', $flex_intervals);
+
+		foreach($arr_of_flex_intervals as $flex_interval){
+			if(7 != sscanf($flex_interval, "%d/%d-%d,%d:%d-%d:%d", $delay, $d1, $d2, $h1, $m1, $h2, $m2)){
+				if(6 != sscanf($flex_interval, "%d/%d,%d:%d-%d:%d", $delay, $d1, $h1, $m1, $h2, $m2)) continue;
+
+				$d2 = $d1;
+			}
+
+			$sec1 = 3600 * $h1 + 60 * $m1;
+			$sec2 = 3600 * $h2 + 60 * $m2;
+
+			if(($day >= $d1) && ($day <= $d2) && ($sec >= $sec1) && ($sec <= $sec2)){
+// current period
+				if(($next == 0) || ($next > ($now - $sec + $sec2)))	$next = $now - $sec + $sec2;
+			}
+			else if(($day >= $d1) && ($day <= $d2) && ($sec < $sec1)){
+// will be active today
+				if (($next == 0) || ($next > ($now - $sec + $sec1))) $next = $now - $sec + $sec1;
+			}
+			else{
+				$next_day = (($day + 1 <= 7) ? ($day + 1) : 1);
+
+				if(($next_day >= $d1) && ($next_day <= $d2)){
+// will be active tomorrow
+					if(($next == 0) || ($next > ($now - $sec + SEC_PER_DAY + $sec1)))
+						$next = $now - $sec + SEC_PER_DAY + $sec1;
+				}
+				else{
+					if($day < $d1) $day_diff = $d1 - $day;
+					if($day >= $d2) $day_diff = ($d1 + 7) - $day;
+					if(($day >= $d1) && ($day < $d2)){
+// should never happen
+// Could not deduce day difference
+						$day_diff = -1;
+					}
+
+					if($day_diff != -1){
+						if(($next == 0) || ($next > ($now - $sec + SEC_PER_DAY * $day_diff + $sec1)))
+							$next = $now - $sec + SEC_PER_DAY * $day_diff + $sec1;
+					}
+				}
+			}
 		}
-	}
-	return false;
-}
 
-function getParamFieldNameByType($itemType) {
-	switch ($itemType) {
-		case ITEM_TYPE_SSH:
-		case ITEM_TYPE_TELNET:
-		case ITEM_TYPE_JMX:
-			return 'params_es';
-		case ITEM_TYPE_DB_MONITOR:
-			return 'params_ap';
-		case ITEM_TYPE_CALCULATED:
-			return 'params_f';
-		default:
-			return 'params';
-	}
-}
+		if($next != 0) $next_interval = $next;
 
-function getParamFieldLabelByType($itemType) {
-	switch ($itemType) {
-		case ITEM_TYPE_SSH:
-		case ITEM_TYPE_TELNET:
-		case ITEM_TYPE_JMX:
-			return _('Executed script');
-		case ITEM_TYPE_DB_MONITOR:
-			return _('Additional parameters');
-		case ITEM_TYPE_CALCULATED:
-			return _('Formula');
-		default:
-			return 'params';
+	return $next;
 	}
-}
 
-/**
- * Quoting $param if it contain special characters.
+/*
+ * Function: calculate_item_nextcheck
  *
- * @param string $param
+ * Description:
+ *     calculate nextcheck timestamp for item
  *
- * @return string
+ * Parameters:
+ *     itemid - item ID
+ *     item_type - item type
+ *     delay - item's refresh rate in sec
+ *     flex_intervals - item's flexible refresh rate
+ *     now - current timestamp
+ *
+ * Author:
+ *     Alexander Vladishev
+ *
+ * Comments:
+ *     !!! Don't forget sync code with C !!!
  */
-function quoteItemKeyParam($param) {
-	if (!isset($param[0]) || ($param[0] != '"' && false === strpos($param, ',') && false === strpos($param, ']'))) {
-		return $param;
+	function calculate_item_nextcheck($itemid, $item_type, $delay, $flex_intervals, $now){
+		if(0 == $delay) $delay = SEC_PER_YEAR;
+
+// Special processing of active items to see better view in queue
+		if($item_type == ITEM_TYPE_ZABBIX_ACTIVE){
+			$nextcheck = $now + $delay;
+		}
+		else{
+			$current_delay = get_current_delay($delay, $flex_intervals, $now);
+
+			if(get_next_delay_interval($flex_intervals, $now, $next_interval) && ($now + $current_delay) > $next_interval){
+// next check falls out of the current interval
+				do{
+					$current_delay = get_current_delay($delay, $flex_intervals, $next_interval + 1);
+
+					/* as soon as item check in the interval is not forbidden with delay=0, use it */
+					if (SEC_PER_YEAR != $current_delay)
+						break;
+
+					get_next_delay_interval($flex_intervals, $next_interval + 1, $next_interval);
+				}
+				while($next_interval - $now < SEC_PER_WEEK);
+// checking the nearest week for delay!=0
+
+				$now = $next_interval;
+			}
+
+			$delay = $current_delay;
+			$nextcheck = $delay * floor($now / $delay) + ($itemid % $delay);
+
+			while($nextcheck <= $now) $nextcheck += $delay;
+		}
+
+	return array('nextcheck' => $nextcheck, 'delay' => $delay);
 	}
 
-	return '"'.str_replace('"', '\\"', $param).'"';
-}
+
+	/**
+	 * Check if given character is a valid key id char
+	 * this function is a copy of is_key_char() from /src/libs/zbxcommon/misc.c
+	 * don't forget to take look in there before changing anything
+	 *
+	 * @author Konstantin Buravcov
+	 * @param string $char
+	 * @return bool
+	 */
+	function isKeyIdChar($char){
+		return (
+			($char >= 'a' && $char <= 'z')
+			|| ($char == '.' || $char == '_' || $char == '-')
+			|| ($char >= 'A' && $char <= 'Z')
+			|| ($char >= '0' && $char <= '9')
+		);
+	}
+
+/*
+ * Function: httpitemExists
+ *
+ * Description:
+ *     Function returns true if http item exists in the $items array.
+ *     The array should contain a field 'type'
+ *
+ * Author:
+ *     Alexander Vladishev
+ *
+ * Comments:
+ *
+ */
+	function httpitemExists($items){
+		foreach($items as $item)
+			if ($item['type'] == ITEM_TYPE_HTTPTEST)
+				return true;
+
+		return false;
+	}
+?>

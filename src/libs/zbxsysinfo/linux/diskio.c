@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -75,7 +75,6 @@ int	get_diskstat(const char *devname, zbx_uint64_t *dstat)
 	int		i, ret = FAIL, dev_exists = FAIL;
 	zbx_uint64_t	ds[ZBX_DSTAT_MAX], rdev_major, rdev_minor;
 	struct stat 	dev_st;
-	int		found = 0;
 
 	assert(devname);
 
@@ -99,18 +98,9 @@ int	get_diskstat(const char *devname, zbx_uint64_t *dstat)
 	while (NULL != fgets(tmp, sizeof(tmp), f))
 	{
 		PARSE(tmp);
-		if ('\0' != *devname)
-		{
-			if (0 != strcmp(name, devname))
-			{
-				if (SUCCEED != dev_exists
-					|| major(dev_st.st_rdev) != rdev_major
-					|| minor(dev_st.st_rdev) != rdev_minor)
-					continue;
-			}
-			else
-				found = 1;
-		}
+		if ('\0' != *devname && 0 != strcmp(name, devname))
+			if (SUCCEED != dev_exists || major(dev_st.st_rdev) != rdev_major || minor(dev_st.st_rdev) != rdev_minor)
+				continue;
 
 		dstat[ZBX_DSTAT_R_OPER] += ds[ZBX_DSTAT_R_OPER];
 		dstat[ZBX_DSTAT_R_SECT] += ds[ZBX_DSTAT_R_SECT];
@@ -118,9 +108,6 @@ int	get_diskstat(const char *devname, zbx_uint64_t *dstat)
 		dstat[ZBX_DSTAT_W_SECT] += ds[ZBX_DSTAT_W_SECT];
 
 		ret = SUCCEED;
-
-		if (1 == found)
-			break;
 	}
 	zbx_fclose(f);
 
@@ -178,7 +165,7 @@ static int	vfs_dev_rw(const char *param, AGENT_RESULT *result, int rw)
 	int				type, mode, nparam;
 	zbx_uint64_t			dstats[ZBX_DSTAT_MAX];
 
-	if (3 < (nparam = num_param(param)))	/* too many parameters? */
+	if (3 < (nparam = num_param(param)))
 		return SYSINFO_RET_FAIL;
 
 	if (0 != get_param(param, 1, devname, sizeof(devname)))
@@ -217,6 +204,12 @@ static int	vfs_dev_rw(const char *param, AGENT_RESULT *result, int rw)
 		return SYSINFO_RET_OK;
 	}
 
+	if (!DISKDEVICE_COLLECTOR_STARTED(collector))
+	{
+		SET_MSG_RESULT(result, strdup("Collector is not started!"));
+		return SYSINFO_RET_OK;
+	}
+
 	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
 		*tmp = '\0';
 
@@ -228,17 +221,6 @@ static int	vfs_dev_rw(const char *param, AGENT_RESULT *result, int rw)
 		mode = ZBX_AVG15;
 	else
 		return SYSINFO_RET_FAIL;
-
-	if (NULL == collector)
-	{
-		/* CPU statistics collector and (optionally) disk statistics collector is started only when Zabbix */
-		/* agentd is running as a daemon. When Zabbix agent or agentd is started with "-p" or "-t" parameter */
-		/* the collectors are not available and keys "vfs.dev.read", "vfs.dev.write" with some parameters */
-		/* (e.g. sps, ops) are not supported. */
-
-		SET_MSG_RESULT(result, strdup("This parameter is available only in daemon mode when collectors are started."));
-		return SYSINFO_RET_FAIL;
-	}
 
 	if ('\0' == *devname)
 		*kernel_devname = '\0';

@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_ZBXDB_H
@@ -138,6 +138,10 @@
 
 	void	SQ_DBfree_result(DB_RESULT result);
 
+#	include "mutexs.h"
+
+	extern PHP_MUTEX	sqlite_access;
+
 #endif	/* HAVE_SQLITE3 */
 
 #ifdef HAVE_SQLITE3
@@ -147,18 +151,11 @@
 #	define ZBX_SQL_MOD(x, y) "mod(" #x "," #y ")"
 #endif
 
-#ifdef HAVE_MULTIROW_INSERT
-#	define ZBX_ROW_DL	","
-#else
-#	define ZBX_ROW_DL	";\n"
-#endif
-
 int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *dbschema, char *dbsocket, int port);
 #ifdef HAVE_SQLITE3
 void	zbx_create_sqlite3_mutex(const char *dbname);
-void	zbx_remove_sqlite3_mutex();
 #endif	/* HAVE_SQLITE3 */
-void	zbx_db_init(char *dbname);
+void	zbx_db_init(char *host, char *user, char *password, char *dbname, char *dbschema, char *dbsocket, int port);
 void    zbx_db_close();
 
 int	zbx_db_begin();

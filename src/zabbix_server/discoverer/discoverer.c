@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -48,24 +48,21 @@ extern int		process_num;
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-static void	proxy_update_service(DB_DRULE *drule, DB_DCHECK *dcheck, const char *ip,
-		const char *dns, int port, int status, const char *value, int now)
+static void proxy_update_service(DB_DRULE *drule, DB_DCHECK *dcheck, char *ip, int port, int status, const char *value, int now)
 {
-	char	*ip_esc, *dns_esc, *key_esc, *value_esc;
+	char	*ip_esc, *key_esc, *value_esc;
 
-	ip_esc = DBdyn_escape_string_len(ip, INTERFACE_IP_LEN);
-	dns_esc = DBdyn_escape_string_len(dns, INTERFACE_DNS_LEN);
+	ip_esc = DBdyn_escape_string_len(ip, PROXY_DHISTORY_IP_LEN);
 	key_esc = DBdyn_escape_string_len(dcheck->key_, PROXY_DHISTORY_KEY_LEN);
 	value_esc = DBdyn_escape_string_len(value, PROXY_DHISTORY_VALUE_LEN);
 
-	DBexecute("insert into proxy_dhistory (clock,druleid,dcheckid,type,ip,dns,port,key_,value,status)"
-			" values (%d," ZBX_FS_UI64 "," ZBX_FS_UI64 ",%d,'%s','%s',%d,'%s','%s',%d)",
+	DBexecute("insert into proxy_dhistory (clock,druleid,dcheckid,type,ip,port,key_,value,status)"
+			" values (%d," ZBX_FS_UI64 "," ZBX_FS_UI64 ",%d,'%s',%d,'%s','%s',%d)",
 			now, drule->druleid, dcheck->dcheckid, dcheck->type,
-			ip_esc, dns_esc, port, key_esc, value_esc, status);
+			ip_esc, port, key_esc, value_esc, status);
 
 	zbx_free(value_esc);
 	zbx_free(key_esc);
-	zbx_free(dns_esc);
 	zbx_free(ip_esc);
 }
 
@@ -80,18 +77,16 @@ static void	proxy_update_service(DB_DRULE *drule, DB_DCHECK *dcheck, const char 
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-static void	proxy_update_host(DB_DRULE *drule, const char *ip, const char *dns, int status, int now)
+static void proxy_update_host(DB_DRULE *drule, char *ip, int status, int now)
 {
-	char	*ip_esc, *dns_esc;
+	char	*ip_esc;
 
-	ip_esc = DBdyn_escape_string_len(ip, INTERFACE_IP_LEN);
-	dns_esc = DBdyn_escape_string_len(dns, INTERFACE_DNS_LEN);
+	ip_esc = DBdyn_escape_string_len(ip, PROXY_DHISTORY_IP_LEN);
 
-	DBexecute("insert into proxy_dhistory (clock,druleid,type,ip,dns,status)"
-			" values (%d," ZBX_FS_UI64 ",-1,'%s','%s',%d)",
-			now, drule->druleid, ip_esc, dns_esc, status);
+	DBexecute("insert into proxy_dhistory (clock,druleid,type,ip,status)"
+			" values (%d," ZBX_FS_UI64 ",-1,'%s',%d)",
+			now, drule->druleid, ip_esc, status);
 
-	zbx_free(dns_esc);
 	zbx_free(ip_esc);
 }
 
@@ -150,12 +145,6 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
 		case SVC_TCP:
 			service = "tcp";
 			break;
-		case SVC_HTTPS:
-			service = "https";
-			break;
-		case SVC_TELNET:
-			service = "telnet";
-			break;
 		case SVC_AGENT:
 		case SVC_SNMPv1:
 		case SVC_SNMPv2c:
@@ -169,9 +158,9 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
 
 	if (SUCCEED == ret)
 	{
-		alarm(CONFIG_TIMEOUT);
+		alarm(10);
 
-		switch (dcheck->type)
+		switch(dcheck->type)
 		{
 			/* simple checks */
 			case SVC_SSH:
@@ -183,8 +172,6 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
 			case SVC_NNTP:
 			case SVC_IMAP:
 			case SVC_TCP:
-			case SVC_HTTPS:
-			case SVC_TELNET:
 				zbx_snprintf(key, sizeof(key), "net.tcp.service[%s,%s,%d]", service, ip, port);
 
 				if (SUCCEED != process(key, 0, &result) || NULL == GET_UI64_RESULT(&result) ||
@@ -199,13 +186,11 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
 			case SVC_SNMPv2c:
 			case SVC_SNMPv3:
 				memset(&item, 0, sizeof(DC_ITEM));
-
-				strscpy(item.key_orig, dcheck->key_);
+				zbx_strlcpy(item.key_orig, dcheck->key_, sizeof(item.key_orig));
 				item.key = item.key_orig;
-
-				item.interface.useip = 1;
-				item.interface.addr = ip;
-				item.interface.port = port;
+				zbx_strlcpy(item.host.ip, ip, sizeof(item.host.ip));
+				item.host.useip = 1;
+				item.host.port = port;
 
 				item.value_type	= ITEM_VALUE_TYPE_STR;
 
@@ -235,13 +220,14 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
 				else
 #ifdef HAVE_SNMP
 				{
+					item.snmp_port = port;
 					item.snmp_community = strdup(dcheck->snmp_community);
 					item.snmp_oid = strdup(dcheck->key_);
 
 					substitute_simple_macros(NULL, NULL, NULL, NULL, NULL,
-							&item.snmp_community, MACRO_TYPE_COMMON, NULL, 0);
-					substitute_key_macros(&item.snmp_oid, NULL, NULL, NULL,
-							MACRO_TYPE_SNMP_OID, NULL, 0);
+							&item.snmp_community, MACRO_TYPE_ITEM_FIELD, NULL, 0);
+					substitute_simple_macros(NULL, NULL, NULL, NULL, NULL,
+							&item.snmp_oid, MACRO_TYPE_ITEM_FIELD, NULL, 0);
 
 					if (ITEM_TYPE_SNMPv3 == item.type)
 					{
@@ -249,15 +235,13 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
 						item.snmpv3_securitylevel = dcheck->snmpv3_securitylevel;
 						item.snmpv3_authpassphrase = strdup(dcheck->snmpv3_authpassphrase);
 						item.snmpv3_privpassphrase = strdup(dcheck->snmpv3_privpassphrase);
-						item.snmpv3_authprotocol = dcheck->snmpv3_authprotocol;
-						item.snmpv3_privprotocol = dcheck->snmpv3_privprotocol;
 
 						substitute_simple_macros(NULL, NULL, NULL, NULL, NULL,
-								&item.snmpv3_securityname, MACRO_TYPE_COMMON, NULL, 0);
+								&item.snmpv3_securityname, MACRO_TYPE_ITEM_FIELD, NULL, 0);
 						substitute_simple_macros(NULL, NULL, NULL, NULL, NULL,
-								&item.snmpv3_authpassphrase, MACRO_TYPE_COMMON, NULL, 0);
+								&item.snmpv3_authpassphrase, MACRO_TYPE_ITEM_FIELD, NULL, 0);
 						substitute_simple_macros(NULL, NULL, NULL, NULL, NULL,
-								&item.snmpv3_privpassphrase, MACRO_TYPE_COMMON, NULL, 0);
+								&item.snmpv3_privpassphrase, MACRO_TYPE_ITEM_FIELD, NULL, 0);
 					}
 
 					if (SUCCEED == get_value_snmp(&item, &result) && NULL != GET_STR_RESULT(&result))
@@ -297,7 +281,6 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
 			default:
 				break;
 		}
-
 		alarm(0);
 	}
 	free_result(&result);
@@ -318,8 +301,7 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  ******************************************************************************/
-static void	process_check(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhost,
-		int *host_status, char *ip, const char *dns)
+static void process_check(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhost, int *host_status, char *ip)
 {
 	const char	*__function_name = "process_check";
 	int		port, first, last, now;
@@ -365,9 +347,9 @@ static void	process_check(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhost,
 			DBbegin();
 
 			if (0 != (daemon_type & ZBX_DAEMON_TYPE_SERVER))
-				discovery_update_service(drule, dcheck, dhost, ip, dns, port, status, value, now);
+				discovery_update_service(drule, dcheck, dhost, ip, port, status, value, now);
 			else if (0 != (daemon_type & ZBX_DAEMON_TYPE_PROXY))
-				proxy_update_service(drule, dcheck, ip, dns, port, status, value, now);
+				proxy_update_service(drule, dcheck, ip, port, status, value, now);
 
 			DBcommit();
 		}
@@ -383,30 +365,31 @@ static void	process_check(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhost,
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-static void	process_checks(DB_DRULE *drule, DB_DHOST *dhost, int *host_status,
-		char *ip, const char *dns, int unique)
+static void	process_checks(DB_DRULE *drule, DB_DHOST *dhost, int *host_status, char *ip, int unique)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
 	DB_DCHECK	dcheck;
 	char		sql[MAX_STRING_LEN];
-	size_t		offset = 0;
+	int		offset = 0;
 
 	offset += zbx_snprintf(sql + offset, sizeof(sql) - offset,
 			"select dcheckid,type,key_,snmp_community,snmpv3_securityname,snmpv3_securitylevel,"
-				"snmpv3_authpassphrase,snmpv3_privpassphrase,snmpv3_authprotocol,snmpv3_privprotocol,"
-				"ports"
+				"snmpv3_authpassphrase,snmpv3_privpassphrase,ports"
 			" from dchecks"
 			" where druleid=" ZBX_FS_UI64,
 			drule->druleid);
 
 	if (0 != drule->unique_dcheckid)
 	{
-		offset += zbx_snprintf(sql + offset, sizeof(sql) - offset, " and dcheckid%s" ZBX_FS_UI64,
-				unique ? "=" : "<>", drule->unique_dcheckid);
+		offset += zbx_snprintf(sql + offset, sizeof(sql) - offset,
+				" and dcheckid%s" ZBX_FS_UI64,
+				unique ? "=" : "<>",
+				drule->unique_dcheckid);
 	}
 
-	offset += zbx_snprintf(sql + offset, sizeof(sql) - offset, " order by dcheckid");
+	offset += zbx_snprintf(sql + offset, sizeof(sql) - offset,
+			" order by dcheckid");
 
 	result = DBselect("%s", sql);
 
@@ -419,14 +402,12 @@ static void	process_checks(DB_DRULE *drule, DB_DHOST *dhost, int *host_status,
 		dcheck.key_ = row[2];
 		dcheck.snmp_community = row[3];
 		dcheck.snmpv3_securityname = row[4];
-		dcheck.snmpv3_securitylevel = (unsigned char)atoi(row[5]);
+		dcheck.snmpv3_securitylevel = atoi(row[5]);
 		dcheck.snmpv3_authpassphrase = row[6];
 		dcheck.snmpv3_privpassphrase = row[7];
-		dcheck.snmpv3_authprotocol = (unsigned char)atoi(row[8]);
-		dcheck.snmpv3_privprotocol = (unsigned char)atoi(row[9]);
-		dcheck.ports = row[10];
+		dcheck.ports = row[8];
 
-		process_check(drule, &dcheck, dhost, host_status, ip, dns);
+		process_check(drule, &dcheck, dhost, host_status, ip);
 	}
 	DBfree_result(result);
 }
@@ -446,8 +427,7 @@ static void	process_rule(DB_DRULE *drule)
 	DB_DHOST	dhost;
 	int		host_status, now;
 	unsigned int	j[9], i, first, last, mask, network, broadcast;
-	char		ip[INTERFACE_IP_LEN_MAX], *curr_range, *next_range,
-			*dash, *slash, dns[INTERFACE_DNS_LEN_MAX];
+	char		ip[HOST_IP_LEN_MAX], *curr_range, *next_range, *dash, *slash;
 	int		ipv6;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() rule:'%s' range:'%s'", __function_name,
@@ -612,14 +592,14 @@ static void	process_rule(DB_DRULE *drule)
 		for (i = first; i <= last; i++)
 		{
 			memset(&dhost, 0, sizeof(dhost));
-			host_status = -1;
+			host_status	= -1;
 
 			now = time(NULL);
 
 #ifdef HAVE_IPV6
 			switch (ipv6)
 			{
-				case 0:
+				case 0 :
 #endif
 					zbx_snprintf(ip, sizeof(ip), "%u.%u.%u.%u",
 							(i & 0xff000000) >> 24,
@@ -628,7 +608,7 @@ static void	process_rule(DB_DRULE *drule)
 							(i & 0x000000ff));
 #ifdef HAVE_IPV6
 					break;
-				case 1:
+				case 1 :
 					zbx_snprintf(ip, sizeof(ip), "%x:%x:%x:%x:%x:%x:%x:%x",
 							j[0], j[1], j[2], j[3], j[4], j[5],
 							(i & 0xffff0000) >> 16, (i & 0x0000ffff));
@@ -639,20 +619,17 @@ static void	process_rule(DB_DRULE *drule)
 
 			zabbix_log(LOG_LEVEL_DEBUG, "%s() IP:'%s'", __function_name, ip);
 
-			alarm(CONFIG_TIMEOUT);
-			zbx_gethost_by_ip(ip, dns, sizeof(dns));
-			alarm(0);
-
 			if (drule->unique_dcheckid)
-				process_checks(drule, &dhost, &host_status, ip, dns, 1);
-			process_checks(drule, &dhost, &host_status, ip, dns, 0);
+				process_checks(drule, &dhost, &host_status, ip, 1);
+
+			process_checks(drule, &dhost, &host_status, ip, 0);
 
 			DBbegin();
 
 			if (0 != (daemon_type & ZBX_DAEMON_TYPE_SERVER))
 				discovery_update_host(&dhost, ip, host_status, now);
 			else if (0 != (daemon_type & ZBX_DAEMON_TYPE_PROXY))
-				proxy_update_host(drule, ip, dns, host_status, now);
+				proxy_update_host(drule, ip, host_status, now);
 
 			DBcommit();
 		}
@@ -667,23 +644,15 @@ static void	process_discovery(int now)
 	DB_ROW		row;
 	DB_DRULE	drule;
 
-	result = DBselect(
-			"select distinct r.druleid,r.iprange,r.name,c.dcheckid"
-			" from drules r"
-				" left join dchecks c"
-					" on c.druleid=r.druleid"
-						" and uniq=1"
-			" where r.proxy_hostid is null"
-				" and r.status=%d"
-				" and (r.nextcheck<=%d or r.nextcheck>%d+r.delay)"
-				" and " ZBX_SQL_MOD(r.druleid,%d) "=%d"
-				DB_NODE,
+	result = DBselect("select druleid,iprange,name,unique_dcheckid from drules"
+			" where proxy_hostid=0 and status=%d and (nextcheck<=%d or nextcheck>%d+delay)"
+			" and " ZBX_SQL_MOD(druleid,%d) "=%d" DB_NODE,
 			DRULE_STATUS_MONITORED,
 			now,
 			now,
 			CONFIG_DISCOVERER_FORKS,
 			process_num - 1,
-			DBnode_local("r.druleid"));
+			DBnode_local("druleid"));
 
 	while (NULL != (row = DBfetch(result)))
 	{
@@ -692,7 +661,7 @@ static void	process_discovery(int now)
 		ZBX_STR2UINT64(drule.druleid, row[0]);
 		drule.iprange = row[1];
 		drule.name = row[2];
-		ZBX_DBROW2UINT64(drule.unique_dcheckid, row[3]);
+		ZBX_STR2UINT64(drule.unique_dcheckid, row[3]);
 
 		process_rule(&drule);
 
@@ -708,13 +677,8 @@ static int	get_minnextcheck(int now)
 	DB_ROW		row;
 	int		res = FAIL;
 
-	result = DBselect(
-			"select count(*),min(nextcheck)"
-			" from drules"
-			" where proxy_hostid is null"
-				" and status=%d"
-				" and " ZBX_SQL_MOD(druleid,%d) "=%d"
-				DB_NODE,
+	result = DBselect("select count(*),min(nextcheck) from drules where proxy_hostid=0 and status=%d"
+			" and " ZBX_SQL_MOD(druleid,%d) "=%d" DB_NODE,
 			DRULE_STATUS_MONITORED, CONFIG_DISCOVERER_FORKS, process_num - 1,
 			DBnode_local("druleid"));
 

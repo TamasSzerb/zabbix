@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,91 +15,83 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
-
-class CComboBox extends CTag {
-
+?>
+<?php
+class CComboBox extends CTag{
 	public $value;
 
-	public function __construct($name = 'combobox', $value = null, $action = null, $items = null) {
+	public function __construct($name='combobox', $value=NULL, $action=NULL){
 		parent::__construct('select', 'yes');
 		$this->tag_end = '';
-		$this->attr('id', zbx_formatDomId($name));
-		$this->attr('name', $name);
-		$this->attr('class', 'input select');
-		$this->attr('size', 1);
+
+		$this->attributes['id'] = $name;
+		$this->attributes['name'] = $name;
+
+		$this->attributes['class'] = 'select';
+		$this->attributes['size'] = 1;
+
 		$this->value = $value;
-		$this->attr('onchange', $action);
-		if (is_array($items)) {
-			$this->addItems($items);
+		$this->setAction($action);
+	}
+
+	public function setAction($value='submit()', $event='onchange'){
+		$this->setAttribute($event,$value);
+	}
+
+	public function setValue($value=NULL){
+		$this->value = $value;
+	}
+
+	public function addItem($value, $caption='', $selected=NULL, $enabled='yes'){
+//			if($enabled=='no') return;	/* disable item method 1 */
+		if(is_object($value) && (zbx_strtolower(get_class($value)) == 'ccomboitem')){
+			parent::addItem($value);
+		}
+		else{
+			if(zbx_strlen($caption) > 44){
+				$this->setAttribute('class', 'select selectShorten');
+			}
+
+			if(is_null($selected)){
+				$selected = 'no';
+				if(is_array($this->value)) {
+					if(str_in_array($value,$this->value))
+						$selected = 'yes';
+				}
+				else if(strcmp($value,$this->value) == 0){
+					$selected = 'yes';
+				}
+			}
+
+			parent::addItem(new CComboItem($value, $caption, $selected, $enabled));
 		}
 	}
 
-	public function setValue($value = null) {
-		$this->value = $value;
-	}
-
-	public function addItems($items) {
-		foreach ($items as $value => $caption) {
+	public function addItems($items){
+		foreach($items as $value => $caption){
 			$selected = (int) ($value == $this->value);
 			parent::addItem(new CComboItem($value, $caption, $selected));
 		}
 	}
-
-	public function addItemsInGroup($label, $items) {
+	
+	public function addItemsInGroup($label, $items){
 		$group = new COptGroup($label);
-		foreach ($items as $value => $caption) {
+		foreach($items as $value => $caption){
 			$selected = (int) ($value == $this->value);
 			$group->addItem(new CComboItem($value, $caption, $selected));
-
-			if (strcmp($value, $this->value) == 0) {
-				$this->value_exist = 1;
-			}
 		}
 		parent::addItem($group);
 	}
-
-	public function addItem($value, $caption = '', $selected = null, $enabled = 'yes') {
-		if ($value instanceof CComboItem || $value instanceof COptGroup) {
-			parent::addItem($value);
-		}
-		else {
-			$title = false;
-			// if caption is too long ( > 44 symbols), we add new class - 'selectShorten',
-			// so that the select box would not stretch
-			if (zbx_strlen($caption) > 44 && !$this->hasClass('selectShorten')) {
-				$this->setAttribute('class', $this->getAttribute('class').' selectShorten');
-				$title = true;
-			}
-			if (is_null($selected)) {
-				$selected = 'no';
-				if (is_array($this->value)) {
-					if (str_in_array($value, $this->value)) {
-						$selected = 'yes';
-					}
-				}
-				elseif (strcmp($value, $this->value) == 0) {
-					$selected = 'yes';
-				}
-			}
-			else {
-				$selected = 'yes';
-			}
-			$citem = new CComboItem($value, $caption, $selected, $enabled);
-			if ($title) {
-				$citem->setTitle($caption);
-			}
-			parent::addItem($citem);
-		}
-	}
 }
 
-class COptGroup extends CTag {
-
-	public function __construct($label) {
+class COptGroup extends CTag{
+	public function __construct($label){
 		parent::__construct('optgroup', 'yes');
-		$this->setAttribute('label', $label);
+		
+		$this->setAttribute('label', $label);	
 	}
 }
+
+?>

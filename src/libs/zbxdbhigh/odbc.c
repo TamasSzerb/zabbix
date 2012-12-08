@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -33,9 +33,9 @@ const char	*get_last_odbc_strerror()
 #else
 #	define set_last_odbc_strerror __zbx_set_last_odbc_strerror
 #endif /* HAVE___VA_ARGS__ */
-static void	__zbx_set_last_odbc_strerror(const char *fmt, ...)
+static void __zbx_set_last_odbc_strerror(const char *fmt, ...)
 {
-	va_list	args;
+	va_list args;
 
 	va_start(args, fmt);
 
@@ -46,44 +46,46 @@ static void	__zbx_set_last_odbc_strerror(const char *fmt, ...)
 
 #define clean_odbc_strerror() zbx_last_odbc_strerror[0]='\0'
 
-static void	odbc_free_row_data(ZBX_ODBC_DBH *pdbh)
+static void odbc_free_row_data(ZBX_ODBC_DBH *pdbh)
 {
-	SQLSMALLINT	i;
+	SQLSMALLINT i;
 
-	if (NULL != pdbh->row_data)
+	if(pdbh->row_data)
 	{
-		for (i = 0; i < pdbh->col_num; i++)
+		for(i = 0; i < pdbh->col_num; i++)
 			zbx_free(pdbh->row_data[i]);
 
 		zbx_free(pdbh->row_data);
+		pdbh->row_data = NULL;
 	}
-
-	zbx_free(pdbh->data_len);
-
+	if(pdbh->data_len)
+	{
+		zbx_free(pdbh->data_len);
+		pdbh->data_len = NULL;
+	}
 	pdbh->col_num = 0;
 }
 
 void	odbc_DBclose(ZBX_ODBC_DBH *pdbh)
 {
-	if (NULL == pdbh)
-		return;
-
-	if (NULL != pdbh->hstmt)
+	if(pdbh->hstmt)
 	{
 		SQLFreeHandle(SQL_HANDLE_STMT, pdbh->hstmt);
 		pdbh->hstmt = NULL;
 	}
 
-	if (NULL != pdbh->hdbc)
+	if(pdbh->hdbc)
 	{
-		if (pdbh->connected)
+		if(pdbh->connected)
+		{
 			SQLDisconnect(pdbh->hdbc);
+		}
 
 		SQLFreeHandle(SQL_HANDLE_DBC, pdbh->hdbc);
 		pdbh->hdbc = NULL;
 	}
 
-	if (NULL != pdbh->henv)
+	if(pdbh->henv)
 	{
 		SQLFreeHandle(SQL_HANDLE_ENV, pdbh->henv);
 		pdbh->henv = NULL;
@@ -94,169 +96,266 @@ void	odbc_DBclose(ZBX_ODBC_DBH *pdbh)
 
 int	odbc_DBconnect(ZBX_ODBC_DBH *pdbh, const char *db_dsn, const char *user, const char *pass)
 {
-	const char	*__function_name = "odbc_DBconnect";
-	SQLCHAR		err_msg[128];
-	SQLINTEGER	err_int;
-	int		ret = FAIL;
+	SQLCHAR
+		err_stat[10],
+		err_msg[100];
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() db_dsn:'%s' user:'%s'", __function_name, db_dsn, user);
+	SQLINTEGER
+		err_int;
 
-	clean_odbc_strerror();
+	SQLSMALLINT
+		err_msg_len;
 
-	memset(pdbh, 0, sizeof(ZBX_ODBC_DBH));
-
-	/* allocate environment handle */
-	if (0 == SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &(pdbh->henv))))
-	{
-		set_last_odbc_strerror("%s", "Cannot create ODBC environment handle.");
-		goto end;
-	}
-
-	/* set the ODBC version environment attribute */
-	if (0 == SQL_SUCCEEDED(SQLSetEnvAttr(pdbh->henv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0)))
-	{
-		set_last_odbc_strerror("%s", "Cannot set ODBC version.");
-		goto end;
-	}
-
-	/* allocate connection handle */
-	if (0 == SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_DBC, pdbh->henv, &(pdbh->hdbc))))
-	{
-		set_last_odbc_strerror("%s", "Cannot create ODBC connection handle.");
-		goto end;
-	}
-
-	/* set login timeout to 5 seconds */
-	SQLSetConnectAttr(pdbh->hdbc, (SQLINTEGER)SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, (SQLINTEGER)0);
-
-	/* connect to data source */
-	if (0 == SQL_SUCCEEDED(SQLConnect(pdbh->hdbc, (SQLCHAR *)db_dsn, SQL_NTS, (SQLCHAR *)user, SQL_NTS,
-			(SQLCHAR *)pass, SQL_NTS)))
-	{
-		SQLGetDiagRec(SQL_HANDLE_DBC, pdbh->hdbc, 1, NULL, &err_int, err_msg, sizeof(err_msg), NULL);
-
-		set_last_odbc_strerror("Cannot connect to ODBC DSN '%s': %s (%d).", db_dsn, err_msg, err_int);
-		goto end;
-	}
-
-	/* allocate statement handle */
-	if (0 == SQL_SUCCEEDED(SQLAllocHandle(SQL_HANDLE_STMT, pdbh->hdbc, &(pdbh->hstmt))))
-	{
-		set_last_odbc_strerror("%s", "Cannot create ODBC statement handle.");
-		goto end;
-	}
-
-	pdbh->connected = 1;
-
-	ret = SUCCEED;
-end:
-	if (SUCCEED != ret)
-	{
-		odbc_DBclose(pdbh);
-		zabbix_log(LOG_LEVEL_ERR, "%s", get_last_odbc_strerror());
-	}
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
-
-	return ret;
-}
-
-ZBX_ODBC_ROW	odbc_DBfetch(ZBX_ODBC_RESULT pdbh)
-{
-	const char	*__function_name = "odbc_DBfetch";
-	SQLCHAR		err_msg[128];
-	SQLINTEGER	err_int;
 	SQLRETURN	retcode;
-	SQLSMALLINT	i;
-	ZBX_ODBC_ROW	result_row = NULL;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
 	clean_odbc_strerror();
 
-	if (NULL == pdbh)
-	{
-		set_last_odbc_strerror("cannot fetch row on an empty connection handle");
-		goto end;
-	}
+	memset(pdbh, 0 , sizeof(ZBX_ODBC_DBH));
 
-	if (SQL_NO_DATA == (retcode = SQLFetch(pdbh->hstmt)))
-	{
-		/* end of rows */
-		goto end;
-	}
+	zabbix_log(LOG_LEVEL_DEBUG, "ODBC connect [%s] [%s]", db_dsn, user);
 
-	if (0 == SQL_SUCCEEDED(retcode))
+	/*Allocate environment handle */
+	retcode = SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &(pdbh->henv));
+	if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO)
 	{
-		SQLGetDiagRec(SQL_HANDLE_STMT, pdbh->hstmt, 1, NULL, &err_int, err_msg, sizeof(err_msg), NULL);
-		set_last_odbc_strerror("cannot fetch row [%s] (%d)", err_msg, err_int);
-		goto end;
+		set_last_odbc_strerror("%s","failed environment handle allocation.");
 	}
-
-	for (i = 0; i < pdbh->col_num; i++)
+	else
 	{
-		/* set NULL column value where appropriate */
-		if (SQL_NULL_DATA == pdbh->data_len[i])
-			zbx_free(pdbh->row_data[i]);
+		/* Set the ODBC version environment attribute */
+		retcode = SQLSetEnvAttr(pdbh->henv, SQL_ATTR_ODBC_VERSION, (void*)SQL_OV_ODBC3, 0);
+		if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO)
+		{
+			set_last_odbc_strerror("%s","failed ODBC version setting.");
+		}
 		else
-			rtrim_spaces(pdbh->row_data[i]);
+		{
+			/* Allocate connection handle */
+			retcode = SQLAllocHandle(SQL_HANDLE_DBC, pdbh->henv, &(pdbh->hdbc));
+			if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO)
+			{
+				set_last_odbc_strerror("%s","failed connection handle allocation.");
+			}
+			else
+			{
+				/* Set login timeout to 5 seconds. */
+				SQLSetConnectAttr(pdbh->hdbc, (SQLINTEGER)SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, (SQLINTEGER)0);
 
-		zabbix_log(LOG_LEVEL_DEBUG, "%s() fetched [%i col]: '%s'", __function_name, i,
-				NULL == pdbh->row_data[i] ? "NULL" : pdbh->row_data[i]);
+				/* Connect to data source */
+				retcode = SQLConnect(pdbh->hdbc,
+					(SQLCHAR*) db_dsn, SQL_NTS,
+					(SQLCHAR*) user, SQL_NTS,
+					(SQLCHAR*) pass, SQL_NTS
+					);
+				if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO)
+				{
+
+					SQLGetDiagRec(SQL_HANDLE_DBC,
+							pdbh->hdbc,
+							1,
+							err_stat,
+							&err_int,
+							err_msg,
+							sizeof(err_msg),
+							&err_msg_len
+							);
+
+					set_last_odbc_strerror("failed connection [%s] (%d)", err_msg, err_int);
+				}
+				else
+				{
+					pdbh->connected = 1;
+
+					/* Allocate statement handle */
+					retcode = SQLAllocHandle(SQL_HANDLE_STMT, pdbh->hdbc, &(pdbh->hstmt));
+
+					if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
+					{
+						return SUCCEED;
+					}
+					else
+					{
+						SQLFreeHandle(SQL_HANDLE_STMT, pdbh->hstmt);
+						pdbh->hstmt = NULL;
+					}
+					SQLDisconnect(pdbh->hdbc);
+				}
+				SQLFreeHandle(SQL_HANDLE_DBC, pdbh->hdbc);
+				pdbh->hdbc = NULL;
+			}
+		}
+		SQLFreeHandle(SQL_HANDLE_ENV, pdbh->henv);
+		pdbh->henv = NULL;
 	}
 
-	result_row = pdbh->row_data;
-end:
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
-
-	return result_row;
+	zabbix_log(LOG_LEVEL_ERR, "Failed to connect to DSN '%s' : Error: %s", db_dsn, get_last_odbc_strerror());
+	return FAIL; /* error */
 }
 
-ZBX_ODBC_RESULT	odbc_DBselect(ZBX_ODBC_DBH *pdbh, const char *query)
-{
-	const char	*__function_name = "odbc_DBselect";
-	SQLCHAR		err_msg[128];
-	SQLINTEGER	err_int;
-	SQLSMALLINT	i = 0;
-	ZBX_ODBC_RESULT	result = NULL;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() query:'%s'", __function_name, query);
+int	odbc_DBexecute(ZBX_ODBC_DBH *pdbh, const char *query)
+{
+	SQLCHAR
+		err_stat[10],
+		err_msg[100];
+
+	SQLINTEGER
+		err_int;
+
+	SQLSMALLINT
+		err_msg_len;
+
+	SQLRETURN	retcode;
 
 	clean_odbc_strerror();
 
 	odbc_free_row_data(pdbh);
 
-	if (0 == SQL_SUCCEEDED(SQLExecDirect(pdbh->hstmt, (SQLCHAR *)query, SQL_NTS)))
-		goto end;
+	retcode = SQLExecDirect(pdbh->hstmt, (SQLCHAR*) query, SQL_NTS);
 
-	if (0 == SQL_SUCCEEDED(SQLNumResultCols(pdbh->hstmt, &pdbh->col_num)))
-		goto end;
+	if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) goto lbl_err_exit;
 
-	pdbh->row_data = zbx_malloc(pdbh->row_data, sizeof(char *) * pdbh->col_num);
-	memset(pdbh->row_data, 0, sizeof(char *) * pdbh->col_num);
+	return SUCCEED;
 
-	pdbh->data_len = zbx_malloc(pdbh->data_len, sizeof(SQLINTEGER) * pdbh->col_num);
-	memset(pdbh->data_len, 0, sizeof(SQLINTEGER) * pdbh->col_num);
+lbl_err_exit:
+
+	SQLGetDiagRec(SQL_HANDLE_STMT,
+			pdbh->hstmt,
+			1,
+			err_stat,
+			&err_int,
+			err_msg,
+			sizeof(err_msg),
+			&err_msg_len
+			);
+
+	set_last_odbc_strerror("Failed select execution [%s] (%d)", err_msg, err_int);
+
+	zabbix_log(LOG_LEVEL_ERR, "%s", get_last_odbc_strerror());
+
+	return FAIL;
+}
+
+ZBX_ODBC_ROW	odbc_DBfetch(ZBX_ODBC_RESULT pdbh)
+{
+	SQLCHAR
+		err_stat[10],
+		err_msg[100];
+
+	SQLINTEGER
+		err_int;
+
+	SQLSMALLINT
+		err_msg_len;
+
+	SQLRETURN	retcode;
+	SQLSMALLINT     i;
+
+	if (pdbh == NULL)	return NULL;
+
+	clean_odbc_strerror();
+
+	zabbix_log(LOG_LEVEL_DEBUG, "ODBC fetch");
+
+	retcode = SQLFetch(pdbh->hstmt);
+	if (retcode == SQL_ERROR) goto lbl_err_exit;
+
+	if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO)
+	{
+		zabbix_log(LOG_LEVEL_DEBUG, "odbc_DBfetch [end of rows received]");
+		return NULL;
+	}
 
 	for (i = 0; i < pdbh->col_num; i++)
+	{
+		rtrim_spaces(pdbh->row_data[i]);
+		zabbix_log(LOG_LEVEL_DEBUG, "Fetched [%i col]: %s", i, pdbh->row_data[i]);
+	}
+
+	return pdbh->row_data;
+
+lbl_err_exit:
+
+	SQLGetDiagRec(SQL_HANDLE_STMT,
+			pdbh->hstmt,
+			1,
+			err_stat,
+			&err_int,
+			err_msg,
+			sizeof(err_msg),
+			&err_msg_len
+			);
+
+	set_last_odbc_strerror("Failed data fetching [%s] (%d)", err_msg, err_int);
+
+	zabbix_log(LOG_LEVEL_ERR, "%s", get_last_odbc_strerror());
+
+	return NULL;
+}
+
+ZBX_ODBC_RESULT	odbc_DBselect(ZBX_ODBC_DBH *pdbh, const char *query)
+{
+	SQLCHAR
+		err_stat[10],
+		err_msg[100];
+
+	SQLINTEGER
+		err_int;
+
+	SQLSMALLINT
+		err_msg_len;
+
+	SQLRETURN	retcode;
+	SQLSMALLINT
+		i = 0,
+		col_num = 0;
+
+	clean_odbc_strerror();
+
+	odbc_free_row_data(pdbh);
+
+	zabbix_log(LOG_LEVEL_DEBUG, "ODBC select [%s]", query);
+
+	retcode = SQLExecDirect(pdbh->hstmt, (SQLCHAR*) query, SQL_NTS);
+
+	if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) goto lbl_err_exit;
+
+	retcode = SQLNumResultCols(pdbh->hstmt, &col_num);
+	if (retcode != SQL_SUCCESS && retcode != SQL_SUCCESS_WITH_INFO) goto lbl_err_exit;
+
+	pdbh->col_num  = col_num;
+
+	pdbh->row_data = zbx_malloc(pdbh->row_data, sizeof(char *) * col_num);
+	memset(pdbh->row_data, 0, sizeof(char *) * col_num);
+
+	pdbh->data_len = zbx_malloc(pdbh->data_len, sizeof(SQLINTEGER) * col_num);
+	memset(pdbh->data_len, 0, sizeof(SQLINTEGER) * col_num);
+
+	for (i = 0; i < col_num; i++)
 	{
 		pdbh->row_data[i] = zbx_malloc(pdbh->row_data[i], MAX_STRING_LEN);
 		SQLBindCol(pdbh->hstmt, i + 1, SQL_C_CHAR, pdbh->row_data[i], MAX_STRING_LEN, &pdbh->data_len[i]);
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "%s() selected %i columns", __function_name, pdbh->col_num);
+	zabbix_log(LOG_LEVEL_DEBUG, "selected %i cols", col_num);
 
-	result = (ZBX_ODBC_RESULT)pdbh;
-end:
-	if (NULL == result)
-	{
-		SQLGetDiagRec(SQL_HANDLE_STMT, pdbh->hstmt, 1, NULL, &err_int, err_msg, sizeof(err_msg), NULL);
+	return (ZBX_ODBC_RESULT)pdbh;
 
-		set_last_odbc_strerror("Cannot execute ODBC query: %s (%d).", err_msg, err_int);
-		zabbix_log(LOG_LEVEL_ERR, "%s", get_last_odbc_strerror());
-	}
+lbl_err_exit:
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	SQLGetDiagRec(SQL_HANDLE_STMT,
+			pdbh->hstmt,
+			1,
+			err_stat,
+			&err_int,
+			err_msg,
+			sizeof(err_msg),
+			&err_msg_len
+			);
 
-	return result;
+	set_last_odbc_strerror("Failed selection [%s] (%d)", err_msg, err_int);
+
+	zabbix_log(LOG_LEVEL_ERR, "%s", get_last_odbc_strerror());
+
+	return NULL;
 }

@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_ZBXSERVER_H
@@ -23,7 +23,6 @@
 #include "common.h"
 #include "db.h"
 #include "dbcache.h"
-#include "zbxjson.h"
 
 #define TRIGGER_EPSILON	0.000001
 
@@ -34,33 +33,19 @@
 #define MACRO_TYPE_TRIGGER_EXPRESSION	0x0008
 #define MACRO_TYPE_TRIGGER_URL		0x0010
 #define MACRO_TYPE_ITEM_KEY		0x0020
-#define MACRO_TYPE_INTERFACE_ADDR	0x0040
-#define MACRO_TYPE_INTERFACE_ADDR_DB	0x0080
-#define MACRO_TYPE_COMMON		0x0100
-#define MACRO_TYPE_PARAMS_FIELD		0x0200
-#define MACRO_TYPE_SCRIPT		0x0400
-#define MACRO_TYPE_ITEM_EXPRESSION	0x0800
-#define MACRO_TYPE_SNMP_OID		0x1000
-#define MACRO_TYPE_HTTPTEST_FIELD	0x2000
-
-#define STR_CONTAINS_MACROS(str)	(NULL != strchr(str, '{'))
+#define MACRO_TYPE_HOST_IPMI_IP		0x0040
+#define MACRO_TYPE_FUNCTION_PARAMETER	0x0080
+#define MACRO_TYPE_ITEM_FIELD		0x0100
+#define MACRO_TYPE_SCRIPT		0x0200
+#define MACRO_TYPE_ITEM_EXPRESSION	0x0400
 
 int	evaluate_function(char *value, DB_ITEM *item, const char *function, const char *parameters, time_t now);
 
-int	substitute_simple_macros(DB_EVENT *event, zbx_uint64_t *hostid, DC_HOST *dc_host, DC_ITEM *dc_item,
-		DB_ESCALATION *escalation, char **data, int macro_type, char *error, int maxerrlen);
+int	substitute_simple_macros(DB_EVENT *event, DB_ITEM *item, DC_HOST *host,
+		DC_ITEM *dc_item, DB_ESCALATION *escalation, char **data, int macro_type,
+		char *error, int maxerrlen);
 
-void	evaluate_expressions(zbx_vector_ptr_t *triggers);
+void	evaluate_expressions(DB_TRIGGER_UPDATE *tr, int tr_num);
 int	evaluate(double *value, char *exp, char *error, int maxerrlen);
-
-void	zbx_format_value(char *value, size_t max_len, zbx_uint64_t valuemapid,
-		const char *units, unsigned char value_type);
-
-#define ZBX_MACRO_ANY		0
-#define ZBX_MACRO_NUMERIC	1
-int	substitute_discovery_macros(char **data, struct zbx_json_parse *jp_row, int flags,
-		char *error, size_t max_error_len);
-int	substitute_key_macros(char **data, zbx_uint64_t *hostid, DC_ITEM *dc_item, struct zbx_json_parse *jp_row,
-		int macro_type, char *error, size_t mexerrlen);
 
 #endif

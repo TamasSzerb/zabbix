@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_SYSINC_H
@@ -55,8 +55,6 @@
 #endif
 
 #ifdef HAVE_WINDOWS_H
-/* to speed build process and reduce size of the Win32 header files */
-#define WIN32_LEAN_AND_MEAN	1
 #	include <windows.h>
 #endif
 
@@ -70,12 +68,6 @@
 
 #ifdef HAVE_PDH_H
 #	include <pdh.h>
-#	ifndef PDH_MAX_COUNTER_NAME
-#		define PDH_MAX_COUNTER_NAME	1024	/* maximum counter name length */
-#	endif
-#	ifndef PDH_MAX_COUNTER_PATH
-#		define PDH_MAX_COUNTER_PATH	2048	/* maximum full counter path length */
-#	endif
 #endif
 
 #ifdef HAVE_PDHMSG_H
@@ -422,14 +414,6 @@
 
 #ifdef HAVE_IO_H
 #	include <io.h>
-#endif
-
-#ifdef HAVE_SYS_MNTTAB_H
-#	include <sys/mnttab.h>
-#endif
-
-#ifdef HAVE_MNTENT_H
-#	include <mntent.h>
 #endif
 
 #endif

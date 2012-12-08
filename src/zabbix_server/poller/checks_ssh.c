@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "checks_ssh.h"
@@ -83,13 +83,15 @@ static int	ssh_run(DC_ITEM *item, AGENT_RESULT *result, const char *encoding)
 	LIBSSH2_CHANNEL	*channel;
 	int		auth_pw = 0, rc, ret = NOTSUPPORTED,
 			exitcode, bytecount = 0;
-	char		buffer[MAX_BUFFER_LEN], buf[16], *userauthlist,
+	char		*conn, buffer[MAX_BUFFER_LEN], buf[16], *userauthlist,
 			*publickey = NULL, *privatekey = NULL, *ssherr;
 	size_t		sz;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	if (FAIL == zbx_tcp_connect(&s, CONFIG_SOURCE_IP, item->interface.addr, item->interface.port, 0))
+	conn = item->host.useip == 1 ? item->host.ip : item->host.dns;
+
+	if (FAIL == zbx_tcp_connect(&s, CONFIG_SOURCE_IP, conn, item->host.port, 0))
 	{
 		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot connect to SSH server: %s",
 				zbx_tcp_strerror()));
@@ -242,7 +244,7 @@ static int	ssh_run(DC_ITEM *item, AGENT_RESULT *result, const char *encoding)
 		}
 	}
 
-	dos2unix(item->params);	/* CR+LF (Windows) => LF (Unix) */
+	win2unix_eol(item->params);	/* CR+LF (Windows) => LF (Unix) */
 	/* request a shell on a channel and execute command */
 	while (0 != (rc = libssh2_channel_exec(channel, item->params)))
 	{
@@ -338,10 +340,11 @@ close:
 
 int	get_value_ssh(DC_ITEM *item, AGENT_RESULT *result)
 {
-	char	cmd[MAX_STRING_LEN], params[MAX_STRING_LEN], dns[INTERFACE_DNS_LEN_MAX],
+	char	cmd[MAX_STRING_LEN], params[MAX_STRING_LEN], dns[HOST_DNS_LEN_MAX],
 		port[8], encoding[32];
+	int	port_int;
 
-	if (ZBX_COMMAND_ERROR == parse_command(item->key, cmd, sizeof(cmd), params, sizeof(params)))
+	if (0 == parse_command(item->key, cmd, sizeof(cmd), params, sizeof(params)))
 		return NOTSUPPORTED;
 
 	if (0 != strcmp(SSH_RUN_KEY, cmd))
@@ -355,8 +358,8 @@ int	get_value_ssh(DC_ITEM *item, AGENT_RESULT *result)
 
 	if ('\0' != *dns)
 	{
-		strscpy(item->interface.dns_orig, dns);
-		item->interface.addr = item->interface.dns_orig;
+		zbx_strlcpy(item->host.dns, dns, sizeof(item->host.dns));
+		item->host.useip = 0;
 	}
 
 	if (0 != get_param(params, 3, port, sizeof(port)))
@@ -367,11 +370,14 @@ int	get_value_ssh(DC_ITEM *item, AGENT_RESULT *result)
 
 	if ('\0' != *port)
 	{
-		if (FAIL == is_ushort(port, &item->interface.port))
+		port_int = atoi(port);
+		if (port_int < 1 || port_int > 65535)
 			return NOTSUPPORTED;
+
+		item->host.port = (unsigned short)port_int;
 	}
 	else
-		item->interface.port = ZBX_DEFAULT_SSH_PORT;
+		item->host.port = ZBX_DEFAULT_SSH_PORT;
 
 	return ssh_run(item, result, encoding);
 }

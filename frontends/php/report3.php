@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,219 +15,229 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/services.inc.php';
+require_once('include/config.inc.php');
+require_once('include/services.inc.php');
 
-$page['title'] = _('IT services availability report');
+$page['title'] = "S_IT_SERVICES_AVAILABILITY_REPORT";
 $page['file'] = 'report3.php';
 $page['hist_arg'] = array();
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 ?>
 <?php
-//	VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-$fields = array(
-	'serviceid' =>	array(T_ZBX_INT, O_MAND,	P_SYS,	DB_ID,										null),
-	'period' =>		array(T_ZBX_STR, O_OPT,		null,	IN('"daily","weekly","monthly","yearly"'),	null),
-	'year' =>		array(T_ZBX_INT, O_OPT,		null,	null,										null)
-);
+//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
+	$fields=array(
+		'serviceid'=>		array(T_ZBX_INT, O_MAND,P_SYS,	DB_ID,						NULL),
+		'period'=>		array(T_ZBX_STR, O_OPT,	null,	IN('"dayly","weekly","monthly","yearly"'),	NULL),
+		'year'=>		array(T_ZBX_INT, O_OPT,	null,	null,						NULL)
+	);
 
-check_fields($fields);
+	check_fields($fields);
 
-$period = get_request('period', 'weekly');
-$year = get_request('year', date('Y'));
+	$period = get_request('period', 'weekly');
+	$year = get_request('year', date('Y'));
 
-define('YEAR_LEFT_SHIFT', 5);
-
-$service = API::Service()->get(array(
-	'output' => array('serviceid', 'name', 'showsla', 'goodsla'),
-	'selectTimes' => API_OUTPUT_EXTEND,
-	'serviceids' => $_REQUEST['serviceid']
-));
-$service = reset($service);
-if (!$service) {
-	access_deny();
-}
-
-$form = new CForm();
-$form->setMethod('get');
-$form->addVar('serviceid', $_REQUEST['serviceid']);
-
-$cmbPeriod = new CComboBox('period', $period, 'submit();');
-$cmbPeriod->addItem('daily', _('Daily'));
-$cmbPeriod->addItem('weekly', _('Weekly'));
-$cmbPeriod->addItem('monthly', _('Monthly'));
-$cmbPeriod->addItem('yearly', _('Yearly'));
-$form->addItem(array(SPACE._('Period').SPACE, $cmbPeriod));
-
-if ($period != 'yearly') {
-	$cmbYear = new CComboBox('year', $year, 'submit();');
-
-	for ($y = (date('Y') - YEAR_LEFT_SHIFT); $y <= date('Y'); $y++) {
-		$cmbYear->addItem($y, $y);
+	define("YEAR_LEFT_SHIFT", 5);
+?>
+<?php
+	$sql = 'SELECT s.* FROM services s  WHERE s.serviceid='.$_REQUEST['serviceid'];
+	if(!$service = DBfetch(DBselect($sql,1))){
+		fatal_error(S_NO_IT_SERVICE_DEFINED);
 	}
-	$form->addItem(array(SPACE._('Year').SPACE, $cmbYear));
-}
 
-show_table_header(array(
-	_('IT SERVICES AVAILABILITY REPORT'),
-	SPACE.'"',
-	new CLink($service['name'], 'srv_status.php?showgraph=1&serviceid='.$service['serviceid']),
-	'"'
-	), $form
-);
+	if(!is_null($service['triggerid'])){
+		$options = array(
+			'triggerids' => $service['triggerid'],
+			'output' => API_OUTPUT_SHORTEN,
+			'nodeids' => get_current_nodeid(true)
+		);
 
-$table = new CTableInfo();
+		$db_data = CTrigger::get($options);
+		if(empty($db_data)) access_deny();
+	}
 
-$header = array(_('Ok'), _('Problems'), _('Downtime'), _('SLA'), _('Acceptable SLA'));
+	if(!DBfetch(DBselect('SELECT serviceid FROM services WHERE serviceid='.$_REQUEST['serviceid']))){
+		fatal_error(S_NO_IT_SERVICE_DEFINED);
+	}
+?>
+<?php
+	$form = new CForm();
+	$form->setMethod('get');
+	$form->addVar('serviceid', $_REQUEST['serviceid']);
 
-switch ($period) {
-	case 'yearly':
-		$from = date('Y') - YEAR_LEFT_SHIFT;
-		$to = date('Y');
-		array_unshift($header, new CCol(_('Year'), 'center'));
+	$cmbPeriod = new CComboBox('period', $period, 'submit();');
+	$cmbPeriod->addItem('dayly',S_DAILY);
+	$cmbPeriod->addItem('weekly',S_WEEKLY);
+	$cmbPeriod->addItem('monthly',S_MONTHLY);
+	$cmbPeriod->addItem('yearly',S_YEARLY);
+	$form->addItem(array(SPACE.S_PERIOD.SPACE, $cmbPeriod));
 
-		function get_time($y) {
-			return mktime(0, 0, 0, 1, 1, $y);
+	if ($period != 'yearly') {
+		$cmbYear = new CComboBox('year', $year, 'submit();');
+
+		for ($y = (date('Y') - YEAR_LEFT_SHIFT); $y <= date('Y'); $y++) {
+			$cmbYear->addItem($y, $y);
 		}
 
-		function format_time($t) {
-			return zbx_date2str(_('Y'), $t);
-		}
+		$form->addItem(array(SPACE.S_YEAR.SPACE, $cmbYear));
+	}
 
-		function format_time2($t) {
-			return null;
-		}
-		break;
-	case 'monthly':
-		$from = 1;
-		$to = 12;
-		array_unshift($header, new CCol(_('Month'), 'center'));
+	show_table_header(array(
+			S_IT_SERVICES_AVAILABILITY_REPORT_BIG,
+			SPACE.'"',
+			new CLink($service['name'],'srv_status.php?showgraph=1&serviceid='.$service['serviceid']),
+			'"'
+		),
+		$form);
+?>
+<?php
+	$table = new CTableInfo();
 
-		function get_time($m) {
-			global $year;
-			return mktime(0, 0, 0, $m, 1, $year);
-		}
+	$header = array(S_OK,S_PROBLEMS,S_DOWNTIME,S_PERCENTAGE,S_SLA);
 
-		function format_time($t) {
-			return zbx_date2str(_('M Y'), $t);
-		}
+	switch ($period) {
+		case 'yearly':
+			$from = (date('Y') - YEAR_LEFT_SHIFT);
+			$to = date('Y');
+			array_unshift($header, new CCol(S_YEAR, 'center'));
 
-		function format_time2($t) {
-			return null;
-		}
-		break;
-	case 'daily':
-		$from = 1;
-		$to = DAY_IN_YEAR;
-		array_unshift($header, new CCol(_('Day'), 'center'));
-
-		function get_time($d) {
-			global $year;
-			return mktime(0, 0, 0, 1, $d, $year);
-		}
-
-		function format_time($t) {
-			return zbx_date2str(_('d M Y'), $t);
-		}
-
-		function format_time2($t) {
-			return null;
-		}
-		break;
-	case 'weekly':
-	default:
-		$from = 0;
-		$to = 52;
-		array_unshift($header, new CCol(_('From'), 'center'), new CCol(_('Till'), 'center'));
-
-		function get_time($w) {
-			static $beg;
-			if (!isset($beg)) {
-				global $year;
-				$time = mktime(0,0,0,1, 1, $year);
-				$wd = date('w', $time);
-				$wd = $wd == 0 ? 6 : $wd - 1;
-				$beg =  $time - $wd * SEC_PER_DAY;
+			function get_time($y) {
+				return mktime(0, 0, 0, 1, 1, $y);
 			}
 
-			return strtotime("+$w week", $beg);
-		}
+			function format_time($t) {
+				return zbx_date2str(S_REPORT3_ANNUALLY_DATE_FORMAT, $t);
+			}
 
-		function format_time($t) {
-			return zbx_date2str(_('d M Y H:i'), $t);
-		}
+			function format_time2($t) {
+				return null;
+			}
+			break;
+		case 'monthly':
+			$from = 1;
+			$to = 12;
+			array_unshift($header, new CCol(S_MONTH, 'center'));
 
-		function format_time2($t) {
-			return format_time($t);
-		}
-		break;
-}
+			function get_time($m) {
+				global $year;
 
-$table->setHeader($header);
+				return mktime(0, 0, 0, $m, 1, $year);
+			}
 
-$intervals = array();
-for ($t = $from; $t <= $to; $t++) {
-	if (($start = get_time($t)) > time()) {
-		break;
+			function format_time($t) {
+				return zbx_date2str(S_REPORT3_MONTHLY_DATE_FORMAT, $t);
+			}
+
+			function format_time2($t) {
+				return null;
+			}
+			break;
+		case 'dayly':
+			$from = 1;
+			$to = 365;
+			array_unshift($header, new CCol(S_DAY,'center'));
+
+			function get_time($d) {
+				global $year;
+
+				return mktime(0, 0, 0, 1, $d, $year);
+			}
+
+			function format_time($t) {
+				return zbx_date2str(S_REPORT3_DAILY_DATE_FORMAT, $t);
+			}
+
+			function format_time2($t) {
+				return null;
+			}
+			break;
+		case 'weekly':
+		default:
+			$from = 0;
+			$to = 52;
+			array_unshift($header, new CCol(S_FROM, 'center'), new CCol(S_TILL, 'center'));
+
+			function get_time($w) {
+				global $year;
+
+				$time = mktime(12, 0, 0, 1, 1, $year);
+				$time += $w * SEC_PER_WEEK;
+
+				$wd	= date('w', $time);
+				$time -= $wd * SEC_PER_DAY;
+
+				$y = date('Y', $time);
+				$m = date('m', $time);
+				$d = date('d', $time);
+				return mktime(0, 0, 0, $m, $d, $y);
+			}
+
+			function format_time($t) {
+				return zbx_date2str(S_REPORT3_WEEKLY_DATE_FORMAT, $t);
+			}
+
+			function format_time2($t) {
+				return format_time($t);
+			}
+			break;
 	}
 
-	if (($end = get_time($t + 1)) > time()) {
-		$end = time();
+	$table->SetHeader($header);
+
+	for ($t = $from; $t <= $to; $t++) {
+		if (($start = get_time($t)) > time()) {
+			break;
+		}
+
+		if (($end = get_time($t+1)) > time()) {
+			$end = time();
+		}
+
+		$stat = calculateServiceAvailability($service['serviceid'], $start, $end);
+
+		$ok = new CSpan(
+			sprintf('%dd %dh %dm',
+				$stat['ok_time'] / SEC_PER_DAY,
+				($stat['ok_time'] % SEC_PER_DAY) / SEC_PER_HOUR,
+				($stat['ok_time'] % SEC_PER_HOUR) / SEC_PER_MIN
+			), 'off'
+		);
+
+		$problems = new CSpan(
+			sprintf('%dd %dh %dm',
+				$stat['problem_time'] / SEC_PER_DAY,
+				($stat['problem_time'] % SEC_PER_DAY) / SEC_PER_HOUR,
+				($stat['problem_time'] % SEC_PER_HOUR) / SEC_PER_MIN
+			), 'on'
+		);
+
+		$downtime = sprintf('%dd %dh %dm',
+			$stat['downtime_time'] / SEC_PER_DAY,
+			($stat['downtime_time'] % SEC_PER_DAY) / SEC_PER_HOUR,
+			($stat['downtime_time'] % SEC_PER_HOUR) / SEC_PER_MIN
+		);
+
+		$percentage = new CSpan(sprintf('%2.2f%%', $stat['ok']), 'off');
+
+		$table->addRow(array(
+			format_time($start),
+			format_time2($end),
+			$ok,
+			$problems,
+			$downtime,
+			$percentage,
+			($service['showsla'] == 1) ? new CSpan($service['goodsla'], ($stat['ok'] >= $service['goodsla']) ? 'off' : 'on') : '-'
+		));
 	}
 
-	$intervals[] = array(
-		'from' => $start,
-		'to' => $end
-	);
-}
+	$table->Show();
+?>
+<?php
 
-$sla = API::Service()->getSla(array(
-	'serviceids' => $service['serviceid'],
-	'intervals' => $intervals
-));
-$sla = reset($sla);
+include_once('include/page_footer.php');
 
-foreach ($sla['sla'] as $intervalSla) {
-	$ok = new CSpan(
-		sprintf('%dd %dh %dm',
-			$intervalSla['okTime'] / SEC_PER_DAY,
-			($intervalSla['okTime'] % SEC_PER_DAY) / SEC_PER_HOUR,
-			($intervalSla['okTime'] % SEC_PER_HOUR) / SEC_PER_MIN
-		), 'off'
-	);
-
-	$problems = new CSpan(
-		sprintf('%dd %dh %dm',
-			$intervalSla['problemTime'] / SEC_PER_DAY,
-			($intervalSla['problemTime'] % SEC_PER_DAY) / SEC_PER_HOUR,
-			($intervalSla['problemTime'] % SEC_PER_HOUR) /SEC_PER_MIN
-		), 'on'
-	);
-
-	$downtime = sprintf('%dd %dh %dm',
-		$intervalSla['downtimeTime'] / SEC_PER_DAY,
-		($intervalSla['downtimeTime'] % SEC_PER_DAY) / SEC_PER_HOUR,
-		($intervalSla['downtimeTime'] % SEC_PER_HOUR) / SEC_PER_MIN
-	);
-
-	$percentage = new CSpan(sprintf('%2.4f', $intervalSla['sla']), ($intervalSla['sla'] >= $service['goodsla'] ? 'off' : 'on'));
-
-	$table->addRow(array(
-		format_time($intervalSla['from']),
-		format_time2($intervalSla['to']),
-		$ok,
-		$problems,
-		$downtime,
-		($service['showsla']) ? $percentage : '-',
-		($service['showsla']) ? new CSpan($service['goodsla']) : '-'
-	));
-}
-$table->show();
-
-require_once dirname(__FILE__).'/include/page_footer.php';
 ?>

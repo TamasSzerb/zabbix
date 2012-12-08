@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -22,7 +22,6 @@
 #include "db.h"
 #include "zbxdb.h"
 #include "log.h"
-#include "mutexs.h"
 
 static int	txn_level = 0;	/* transaction level, nested transactions are not supported */
 static int	txn_error = 0;	/* failed transaction */
@@ -37,11 +36,11 @@ static zbx_oracle_db_handle_t	oracle;
 #elif defined(HAVE_POSTGRESQL)
 static PGconn			*conn = NULL;
 static int			ZBX_PG_BYTEAOID = 0;
-static int			ZBX_PG_SVERSION = 0;
+int				ZBX_PG_SVERSION = 0;
 char				ZBX_PG_ESCAPE_BACKSLASH = 1;
 #elif defined(HAVE_SQLITE3)
 static sqlite3			*conn = NULL;
-static PHP_MUTEX		sqlite_access;
+PHP_MUTEX			sqlite_access;
 #endif
 
 #if defined(HAVE_ORACLE)
@@ -112,14 +111,12 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 
 	txn_init = 1;
 
-	assert(NULL != host);
-
 #if defined(HAVE_IBM_DB2)
-	connect = zbx_strdup(connect, "PROTOCOL=TCPIP;");
-	if ('\0' != *host)
-		connect = zbx_strdcatf(connect, "HOSTNAME=%s;", host);
+	connect = strdup("PROTOCOL=TCPIP;");
 	if (NULL != dbname && '\0' != *dbname)
 		connect = zbx_strdcatf(connect, "DATABASE=%s;", dbname);
+	if (NULL != host && '\0' != *host)
+		connect = zbx_strdcatf(connect, "HOSTNAME=%s;", host);
 	if (0 != port)
 		connect = zbx_strdcatf(connect, "PORT=%d;", port);
 	if (NULL != user && '\0' != *user)
@@ -133,20 +130,17 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 	if (SUCCEED != zbx_ibm_db2_success(SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &ibm_db2.henv)))
 		ret = ZBX_DB_FAIL;
 
-	/* set attribute to enable application to run as ODBC 3.0 application; */
-	/* recommended for pure IBM DB2 CLI, but not required */
-	if (ZBX_DB_OK == ret && SUCCEED != zbx_ibm_db2_success(SQLSetEnvAttr(ibm_db2.henv, SQL_ATTR_ODBC_VERSION,
-			(void *)SQL_OV_ODBC3, 0)))
+	/* set attribute to enable application to run as ODBC 3.0 application; recommended for pure IBM DB2 CLI, but not required */
+	if (ZBX_DB_OK == ret && SUCCEED != zbx_ibm_db2_success(SQLSetEnvAttr(ibm_db2.henv, SQL_ATTR_ODBC_VERSION, (void *)SQL_OV_ODBC3, 0)))
 		ret = ZBX_DB_FAIL;
 
 	/* allocate a database connection handle */
-	if (ZBX_DB_OK == ret && SUCCEED != zbx_ibm_db2_success(SQLAllocHandle(SQL_HANDLE_DBC, ibm_db2.henv,
-			&ibm_db2.hdbc)))
+	if (ZBX_DB_OK == ret && SUCCEED != zbx_ibm_db2_success(SQLAllocHandle(SQL_HANDLE_DBC, ibm_db2.henv, &ibm_db2.hdbc)))
 		ret = ZBX_DB_FAIL;
 
 	/* connect to the database */
-	if (ZBX_DB_OK == ret && SUCCEED != zbx_ibm_db2_success(SQLDriverConnect(ibm_db2.hdbc, NULL, (SQLCHAR *)connect,
-			SQL_NTS, NULL, 0, NULL, SQL_DRIVER_NOPROMPT)))
+	if (ZBX_DB_OK == ret && SUCCEED != zbx_ibm_db2_success(SQLDriverConnect(ibm_db2.hdbc, NULL, (SQLCHAR *)connect, SQL_NTS,
+								NULL, 0, NULL, SQL_DRIVER_NOPROMPT)))
 		ret = ZBX_DB_FAIL;
 
 	/* set autocommit on */
@@ -199,7 +193,7 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 
 	if (ZBX_DB_OK == ret)
 	{
-		DBexecute("set names utf8");
+		DBexecute("SET NAMES utf8");
 	}
 
 	if (ZBX_DB_FAIL == ret)
@@ -210,7 +204,6 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 			case CR_SERVER_GONE_ERROR:
 			case CR_CONNECTION_ERROR:
 			case CR_SERVER_LOST:
-			case CR_UNKNOWN_HOST:
 			case ER_SERVER_SHUTDOWN:
 			case ER_ACCESS_DENIED_ERROR:		/* wrong user or password */
 			case ER_ILLEGAL_GRANT_FOR_TABLE:	/* user without any privileges */
@@ -231,12 +224,14 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 
 	/* connection string format: [//]host[:port][/service name] */
 
-	if ('\0' != *host)
+	if (NULL != host && '\0' != *host)
 	{
 		connect = zbx_strdcatf(connect, "//%s", host);
-		if (0 != port)
+
+		if (port)
 			connect = zbx_strdcatf(connect, ":%d", port);
-		if (NULL != dbname && '\0' != *dbname)
+
+		if (dbname && *dbname)
 			connect = zbx_strdcatf(connect, "/%s", dbname);
 	}
 	else
@@ -270,16 +265,21 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 				(text *)connect, (ub4)strlen(connect),
 				OCI_DEFAULT);
 
-		if (OCI_SUCCESS == err)
-		{
-			err = OCIAttrGet((void *)oracle.svchp, OCI_HTYPE_SVCCTX, (void *)&oracle.srvhp, (ub4 *)0,
-					OCI_ATTR_SERVER, oracle.errhp);
-		}
-
 		if (OCI_SUCCESS != err)
 		{
 			zabbix_errlog(ERR_Z3001, connect, err, zbx_oci_error(err));
 			ret = ZBX_DB_DOWN;
+		}
+		else
+		{
+			err = OCIAttrGet((void *)oracle.svchp, OCI_HTYPE_SVCCTX, (void *)&oracle.srvhp, (ub4 *)0,
+					OCI_ATTR_SERVER, oracle.errhp);
+
+			if (OCI_SUCCESS != err)
+			{
+				zabbix_errlog(ERR_Z3001, connect, err, zbx_oci_error(err));
+				ret = ZBX_DB_DOWN;
+			}
 		}
 	}
 
@@ -354,8 +354,8 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 		else
 			*path = '\0';
 
-		DBexecute("PRAGMA synchronous = 0");	/* OFF */
-		DBexecute("PRAGMA temp_store = 2");	/* MEMORY */
+		DBexecute("PRAGMA synchronous = 0"); /* OFF */
+		DBexecute("PRAGMA temp_store = 2"); /* MEMORY */
 		DBexecute("PRAGMA temp_store_directory = '%s'", path);
 
 		zbx_free(path);
@@ -376,14 +376,9 @@ void	zbx_create_sqlite3_mutex(const char *dbname)
 		exit(FAIL);
 	}
 }
-
-void	zbx_remove_sqlite3_mutex()
-{
-	php_sem_remove(&sqlite_access);
-}
 #endif	/* HAVE_SQLITE3 */
 
-void	zbx_db_init(char *dbname)
+void	zbx_db_init(char *host, char *user, char *password, char *dbname, char *dbschema, char *dbsocket, int port)
 {
 #if defined(HAVE_SQLITE3)
 	struct stat	buf;

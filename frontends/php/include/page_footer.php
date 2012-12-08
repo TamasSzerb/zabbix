@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2012 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -10,108 +10,108 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
-
-require_once dirname(__FILE__).'/config.inc.php';
+?>
+<?php
+	require_once('include/config.inc.php');
 
 // if we include footer in some function
-if (!isset($page)) {
-	global $page;
-}
-if (!isset($ZBX_PAGE_POST_JS)) {
-	global $ZBX_PAGE_POST_JS;
-}
+	if(!isset($USER_DETAILS)) global $USER_DETAILS;
+	if(!isset($page)) global $page;
+	if(!isset($ZBX_PAGE_POST_JS)) global $ZBX_PAGE_POST_JS;
+// ---
 
-if (!defined('PAGE_HEADER_LOADED')) {
-	define('PAGE_HEADER_LOADED', 1);
-}
+	if(!defined('PAGE_HEADER_LOADED')){
+		define ('PAGE_HEADER_LOADED', 1);
+	}
 
-// history
-if (isset($page['hist_arg']) && CWebUser::$data['alias'] != ZBX_GUEST_USER && $page['type'] == PAGE_TYPE_HTML && !defined('ZBX_PAGE_NO_MENU')) {
-	add_user_history($page);
-}
+// HISTORY{
+	if(isset($page['hist_arg']) && ($USER_DETAILS['alias'] != ZBX_GUEST_USER) && ($page['type'] == PAGE_TYPE_HTML) && !defined('ZBX_PAGE_NO_MENU')){
+		add_user_history($page);
+	}
+// HISTORY}
 
 // last page
-if (!defined('ZBX_PAGE_NO_MENU') && $page['file'] != 'profile.php') {
-	CProfile::update('web.paging.lastpage', $page['file'], PROFILE_TYPE_STR);
-}
-
-CProfile::flush();
-
-// end transactions if they have not been closed already
-if (isset($DB) && isset($DB['TRANSACTIONS']) && $DB['TRANSACTIONS'] != 0) {
-	error(_('Transaction has not been closed. Aborting...'));
-	DBend(false);
-}
-
-show_messages();
-
-$post_script = '';
-if (in_array($page['type'], array(PAGE_TYPE_HTML_BLOCK, PAGE_TYPE_HTML))) {
-	if (!is_null(CWebUser::$data) && isset(CWebUser::$data['debug_mode']) && CWebUser::$data['debug_mode'] == GROUP_DEBUG_MODE_ENABLED) {
-		CProfiler::getInstance()->stop();
-		CProfiler::getInstance()->show();
+	if(!defined('ZBX_PAGE_NO_MENU') && ($page['file'] != 'profile.php')){
+		CProfile::update('web.paging.lastpage', $page['file'], PROFILE_TYPE_STR);
 	}
-}
 
-if ($page['type'] == PAGE_TYPE_HTML) {
-	$post_script .= 'var page_refresh = null;'."\n";
+	CProfile::flush();
 
-	$post_script .= "jQuery(function() {\n";
+// END Transactions if havn't been -----------------
+	if(isset($DB) && isset($DB['TRANSACTIONS']) && ($DB['TRANSACTIONS'] != 0)){
+		error(S_TRANSACTION_HAVE_NOT_BEEN_CLOSED_ABORTING);
+		DBend(false);
+	}
+//--------------------------------------------------
 
-	if (isset($ZBX_PAGE_POST_JS)) {
-		foreach ($ZBX_PAGE_POST_JS as $script) {
-			$post_script .= $script."\n";
+	show_messages();
+
+	$post_script = '';
+	if(uint_in_array($page['type'], array(PAGE_TYPE_HTML_BLOCK, PAGE_TYPE_HTML))){
+		if(!is_null($USER_DETAILS) && isset($USER_DETAILS['debug_mode']) && ($USER_DETAILS['debug_mode'] == GROUP_DEBUG_MODE_ENABLED)){
+			COpt::profiling_stop('script');
+			COpt::show();
 		}
 	}
 
-	if (defined('ZBX_PAGE_DO_REFRESH') && CWebUser::$data['refresh']) {
-		$post_script .= 'PageRefresh.init('.(CWebUser::$data['refresh'] * 1000).');'."\n";
-	}
+	if($page['type'] == PAGE_TYPE_HTML){
+		$post_script.= 'var page_refresh = null;'."\n";
 
-	if (in_array('flickerfreescreen.js', $page['scripts'])) {
-		$post_script .= 'window.flickerfreeScreenShadow.timeout = '.SCREEN_REFRESH_TIMEOUT.' * 1000;'."\n";
-		$post_script .= 'window.flickerfreeScreenShadow.responsiveness = '.SCREEN_REFRESH_RESPONSIVENESS.' * 1000;'."\n";
-	}
-
-	// the chkbxRange.init() method must be called after the inserted post scripts
-	$post_script .= "chkbxRange.init();\n";
-	$post_script .= '});'."\n";
-
-	if (!defined('ZBX_PAGE_NO_MENU') && !defined('ZBX_PAGE_NO_FOOTER')) {
-		$table = new CTable(null, 'textwhite bold maxwidth ui-widget-header ui-corner-all page_footer');
-
-		if (CWebUser::$data['userid'] == 0) {
-			$conString = _('Not connected');
-		}
-		elseif (ZBX_DISTRIBUTED) {
-			$conString = _s('Connected as \'%1$s\' from \'%2$s\'', CWebUser::$data['alias'], CWebUser::$data['node']['name']);
-		}
-		else {
-			$conString = _s('Connected as \'%1$s\'', CWebUser::$data['alias']);
+		if(isset($JS_TRANSLATE)){
+			$post_script.='var newLocale = '.zbx_jsvalue($JS_TRANSLATE)."\n";
+			$post_script.='var locale = (typeof(locale) == "undefined" ? {} : locale);'."\n";
+			$post_script.='for(key in newLocale){locale[key] = newLocale[key];}'."\n";
 		}
 
-		$table->addRow(array(
-			new CCol(new CLink(
-				_s('Zabbix %s Copyright %s-%s by Zabbix SIA', ZABBIX_VERSION, ZABBIX_COPYRIGHT_FROM, ZABBIX_COPYRIGHT_TO),
-				'http://www.zabbix.com', 'highlight', null, true), 'center'),
-			new CCol(array(
-				new CSpan(SPACE.SPACE.'|'.SPACE.SPACE, 'divider'),
-				new CSpan($conString, 'footer_sign')
-			), 'right')
-		));
-		$table->show();
-	}
-	insert_js($post_script);
+		$post_script.= 'function zbxCallPostScripts(){'."\n";
 
-	echo '</body>'."\n".
-		'</html>'."\n";
-}
+		if(isset($ZBX_PAGE_POST_JS)){
+			foreach($ZBX_PAGE_POST_JS as $num => $script){
+				$post_script.=$script."\n";
+			}
+		}
+
+		if(defined('ZBX_PAGE_DO_REFRESH') && $USER_DETAILS['refresh']){
+			$post_script.= 'PageRefresh.init('.($USER_DETAILS['refresh']*1000).');'."\n";
+		}
+
+		$post_script.= 'cookie.init();'."\n";
+		$post_script.= 'chkbxRange.init();'."\n";
+		$post_script.= 'if(IE6){ie6pngfix.run(false);}'."\n";
+
+		$post_script.='}'."\n";
+
+		if(!defined('ZBX_PAGE_NO_MENU') && !defined('ZBX_PAGE_NO_FOOTER')){
+			$table = new CTable(NULL,"page_footer");
+			$table->setCellSpacing(0);
+			$table->setCellPadding(1);
+			$table->addRow(array(
+				new CCol(new CLink(
+					S_ZABBIX.SPACE.ZABBIX_VERSION.SPACE.S_COPYRIGHT_BY.SPACE.S_SIA_ZABBIX,
+					'http://www.zabbix.com', 'highlight', null, true),
+					'page_footer_l'),
+				new CCol(array(
+						new CSpan(SPACE.SPACE.'|'.SPACE.SPACE,'divider'),
+						new CSpan(($USER_DETAILS['userid'] == 0)?S_NOT_CONNECTED:S_CONNECTED_AS.SPACE."'".$USER_DETAILS['alias']."'".
+						(ZBX_DISTRIBUTED ? SPACE.S_FROM_SMALL.SPACE."'".$USER_DETAILS['node']['name']."'" : ''),'footer_sign')
+					),
+					'page_footer_r')
+				));
+			$table->show();
+		}
+
+		insert_js($post_script);
+
+		echo "</body>\n";		
+		echo "</html>\n";
+	}
+
 exit;
+?>

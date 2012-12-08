@@ -33,9 +33,7 @@ if (!empty($this->data['proxyid'])) {
 
 // create form list
 $proxyFormList = new CFormList('proxyFormList');
-$nameTextBox = new CTextBox('host', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE, 'no', 64);
-$nameTextBox->attr('autofocus', 'autofocus');
-$proxyFormList->addRow(_('Proxy name'), $nameTextBox);
+$proxyFormList->addRow(_('Proxy name'), new CTextBox('host', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE, 'no', 64));
 
 // append status to form list
 $statusBox = new CComboBox('status', $this->data['status'], 'submit()');

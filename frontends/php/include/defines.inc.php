@@ -19,12 +19,11 @@
 **/
 
 
-define('ZABBIX_VERSION',     '2.1.0');
-define('ZABBIX_API_VERSION', '2.1.0');
-define('ZABBIX_DB_VERSION',	 2010026);
+define('ZABBIX_VERSION',		'2.0.4');
+define('ZABBIX_API_VERSION',	'2.0.4');
 
 define('ZABBIX_COPYRIGHT_FROM', '2001');
-define('ZABBIX_COPYRIGHT_TO',   '2012');
+define('ZABBIX_COPYRIGHT_TO', '2012');
 
 define('ZBX_LOGIN_ATTEMPTS',	5);
 define('ZBX_LOGIN_BLOCK',		30); // sec
@@ -366,12 +365,6 @@ define('ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV',		2);
 define('ITEM_AUTHTYPE_PASSWORD',	0);
 define('ITEM_AUTHTYPE_PUBLICKEY',	1);
 
-define('ITEM_AUTHPROTOCOL_MD5', 0);
-define('ITEM_AUTHPROTOCOL_SHA', 1);
-
-define('ITEM_PRIVPROTOCOL_DES', 0);
-define('ITEM_PRIVPROTOCOL_AES', 1);
-
 define('ITEM_LOGTYPE_INFORMATION',	1);
 define('ITEM_LOGTYPE_WARNING',		2);
 define('ITEM_LOGTYPE_ERROR',		4);
@@ -620,7 +613,7 @@ define('GROUP_DEBUG_MODE_ENABLED',	1);
 
 define('PERM_MAX',			3);
 define('PERM_READ_WRITE',	3);
-define('PERM_READ',			2);
+define('PERM_READ_ONLY',	2);
 define('PERM_READ_LIST',	1);
 define('PERM_DENY',			0);
 
@@ -849,6 +842,7 @@ define('ZBX_API_ERROR_PERMISSIONS',	120);
 define('ZBX_API_ERROR_NO_AUTH',		200);
 define('ZBX_API_ERROR_NO_METHOD',	300);
 
+define('API_OUTPUT_SHORTEN',	'shorten');
 define('API_OUTPUT_REFER',		'refer');
 define('API_OUTPUT_EXTEND',		'extend');
 define('API_OUTPUT_COUNT',		'count');
@@ -931,11 +925,7 @@ define('AVAILABILITY_REPORT_BY_HOST', 0);
 define('AVAILABILITY_REPORT_BY_TEMPLATE', 1);
 
 // if magic quotes on, then get rid of them
-if (get_magic_quotes_gpc()) {
-	function zbx_stripslashes($value) {
-		$value = is_array($value) ? array_map('zbx_stripslashes', $value) : stripslashes($value);
-		return $value;
-	}
+if (version_compare(phpversion(), '6.0', '<') && get_magic_quotes_gpc()) {
 	$_GET = zbx_stripslashes($_GET);
 	$_POST = zbx_stripslashes($_POST);
 	$_COOKIE = zbx_stripslashes($_COOKIE);

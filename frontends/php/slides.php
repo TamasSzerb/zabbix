@@ -71,14 +71,14 @@ if (isset($_REQUEST['favobj'])) {
 	elseif (str_in_array($_REQUEST['favobj'], array('screenid', 'slideshowid'))) {
 		$result = false;
 		if ($_REQUEST['favaction'] == 'add') {
-			$result = CFavorite::add('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = add2favorites('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
 			if ($result) {
 				echo 'jQuery("#addrm_fav").title = "'._('Remove from').' '._('Favourites').'";'."\n".
 					'jQuery("#addrm_fav").click(function() { rm4favorites("'.$_REQUEST['favobj'].'", "'.$_REQUEST['favid'].'", 0); });'."\n";
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
-			$result = CFavorite::remove('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = rm4favorites('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
 			if ($result) {
 				echo 'jQuery("#addrm_fav").title = "'._('Add to').' '._('Favourites').'";'."\n".
 					'jQuery("#addrm_fav").click(function() { add2favorites("'.$_REQUEST['favobj'].'", "'.$_REQUEST['favid'].'"); });'."\n";
@@ -186,7 +186,7 @@ $db_slideshows = DBselect(
 	' WHERE '.DBin_node('s.slideshowid')
 );
 while ($slideshow = DBfetch($db_slideshows)) {
-	if (slideshow_accessible($slideshow['slideshowid'], PERM_READ)) {
+	if (slideshow_accessible($slideshow['slideshowid'], PERM_READ_ONLY)) {
 		$data['slideshows'][$slideshow['slideshowid']] = $slideshow;
 	}
 };
@@ -219,8 +219,8 @@ if (!empty($data['screen'])) {
 			$params[$option] = 1;
 		}
 
-		$data['page_groups'] = get_viewed_groups(PERM_READ, $params);
-		$data['page_hosts'] = get_viewed_hosts(PERM_READ, $data['page_groups']['selected'], $params);
+		$data['page_groups'] = get_viewed_groups(PERM_READ_ONLY, $params);
+		$data['page_hosts'] = get_viewed_hosts(PERM_READ_ONLY, $data['page_groups']['selected'], $params);
 
 		validate_group_with_host($data['page_groups'], $data['page_hosts']);
 	}

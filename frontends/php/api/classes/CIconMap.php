@@ -116,7 +116,9 @@ class CIconMap extends CZBXAPI {
 		if (!is_null($options['sysmapids'])) {
 			zbx_value2array($options['sysmapids']);
 
-			$sqlParts['select']['sysmapids'] = 's.sysmapid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['sysmapids'] = 's.sysmapid';
+			}
 			$sqlParts['from']['sysmaps'] = 'sysmaps s';
 			$sqlParts['where'][] = DBcondition('s.sysmapid', $options['sysmapids']);
 			$sqlParts['where']['ims'] = 'im.iconmapid=s.iconmapid';
@@ -188,20 +190,25 @@ class CIconMap extends CZBXAPI {
 			else {
 				$iconMapids[$iconMap['iconmapid']] = $iconMap['iconmapid'];
 
-				if (!isset($result[$iconMap['iconmapid']])) {
-					$result[$iconMap['iconmapid']] = array();
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$iconMap['iconmapid']] = array('iconmapid' => $iconMap['iconmapid']);
 				}
-				if (isset($iconMap['sysmapid'])) {
-					if (!isset($result[$iconMap['iconmapid']]['sysmaps'])) {
-						$result[$iconMap['iconmapid']]['sysmaps'] = array();
+				else {
+					if (!isset($result[$iconMap['iconmapid']])) {
+						$result[$iconMap['iconmapid']] = array();
 					}
+					if (isset($iconMap['sysmapid'])) {
+						if (!isset($result[$iconMap['iconmapid']]['sysmaps'])) {
+							$result[$iconMap['iconmapid']]['sysmaps'] = array();
+						}
 
-					$result[$iconMap['iconmapid']]['sysmaps'][] = array('sysmapid' => $iconMap['sysmapid']);
+						$result[$iconMap['iconmapid']]['sysmaps'][] = array('sysmapid' => $iconMap['sysmapid']);
+					}
+					if (!is_null($options['selectMappings']) && !isset($result[$iconMap['iconmapid']]['mappings'])) {
+						$result[$iconMap['iconmapid']]['mappings'] = array();
+					}
+					$result[$iconMap['iconmapid']] += $iconMap;
 				}
-				if (!is_null($options['selectMappings']) && !isset($result[$iconMap['iconmapid']]['mappings'])) {
-					$result[$iconMap['iconmapid']]['mappings'] = array();
-				}
-				$result[$iconMap['iconmapid']] += $iconMap;
 			}
 		}
 
@@ -216,7 +223,7 @@ class CIconMap extends CZBXAPI {
 		if (!is_null($options['selectMappings']) && str_in_array($options['selectMappings'], $subselectsAllowedOutputs)) {
 			$res = DBselect('SELECT imp.* FROM icon_mapping imp WHERE '.DBcondition('imp.iconmapid', $iconMapids));
 			while ($mapping = DBfetch($res)) {
-				$result[$mapping['iconmapid']]['mappings'][] = $mapping;
+				$result[$mapping['iconmapid']]['mappings'][$mapping['iconmappingid']] = $mapping;
 			}
 		}
 
@@ -327,8 +334,7 @@ class CIconMap extends CZBXAPI {
 			'selectMappings' => API_OUTPUT_EXTEND
 		));
 
-		$oldIconMappings = array();
-		$newIconMappings = array();
+		$mappingsCreate = $mappingsUpdate = $mappingidsDelete = array();
 		foreach ($iconMaps as $iconMap) {
 			if (!isset($iconMapsUpd[$iconMap['iconmapid']])) {
 				self::exception(ZBX_API_ERROR_PARAMETERS, _s('Icon map with iconmapid "%s" does not exist.', $iconMap['iconmapid']));
@@ -338,7 +344,7 @@ class CIconMap extends CZBXAPI {
 			if (isset($iconMap['name'])) {
 				$iconMapExists = $this->get(array(
 					'filter' => array('name' => $iconMap['name']),
-					'output' => array('iconmapid'),
+					'output' => API_OUTPUT_SHORTEN,
 					'editable' => true,
 					'nopermissions' => true,
 					'preservekeys' => true
@@ -350,13 +356,25 @@ class CIconMap extends CZBXAPI {
 
 			if (isset($iconMap['mappings'])) {
 				$mappingsDb = $iconMapsUpd[$iconMap['iconmapid']]['mappings'];
-				foreach ($mappingsDb as $mapping) {
-					$oldIconMappings[] = $mapping;
-				}
+
 				foreach ($iconMap['mappings'] as $mapping) {
 					$mapping['iconmapid'] = $iconMap['iconmapid'];
-					$newIconMappings[] = $mapping;
+
+					if (isset($mapping['iconmappingid']) && isset($mappingsDb[$mapping['iconmappingid']])) {
+						$iconmappingid = $mapping['iconmappingid'];
+						unset($mapping['iconmappingid']);
+						$mappingsUpdate[] = array(
+							'values' => $mapping,
+							'where' => array('iconmappingid' => $iconmappingid)
+						);
+						unset($mappingsDb[$iconmappingid]);
+					}
+					else {
+						$mappingsCreate[] = $mapping;
+					}
 				}
+
+				$mappingidsDelete = array_merge($mappingidsDelete, array_keys($mappingsDb));
 			}
 
 			$iconMapid = $iconMap['iconmapid'];
@@ -369,8 +387,12 @@ class CIconMap extends CZBXAPI {
 			}
 		}
 
-		DB::save('icon_map', $iconMaps);
-		DB::replace('icon_mapping', $oldIconMappings, $newIconMappings);
+		DB::update('icon_map', $updates);
+		DB::insert('icon_mapping', $mappingsCreate);
+		DB::update('icon_mapping', $mappingsUpdate);
+		if (!empty($mappingidsDelete)) {
+			DB::delete('icon_mapping', array('iconmappingid' => $mappingidsDelete));
+		}
 
 		return array('iconmapids' => $iconMapids);
 	}
@@ -423,6 +445,7 @@ class CIconMap extends CZBXAPI {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'iconmapids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'countOutput' => true
 		));
 
@@ -447,6 +470,7 @@ class CIconMap extends CZBXAPI {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'iconmapids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'editable' => true,
 			'countOutput' => true
 		));
@@ -464,7 +488,7 @@ class CIconMap extends CZBXAPI {
 	protected function validateMappings($iconMaps, $mustExist = true) {
 		$inventoryFields = getHostInventories();
 		$imageids = API::Image()->get(array(
-			'output' => array('imageid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'preservekeys' => true,
 			'filter' => array('imagetype' => IMAGE_TYPE_ICON)
 		));

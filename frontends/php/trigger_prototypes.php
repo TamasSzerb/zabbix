@@ -104,7 +104,7 @@ if (get_request('parent_discoveryid')) {
 	if (isset($_REQUEST['triggerid'])) {
 		$triggerPrototype = API::TriggerPrototype()->get(array(
 			'triggerids' => $_REQUEST['triggerid'],
-			'output' => array('triggerid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'editable' => true,
 			'preservekeys' => true
 		));
@@ -321,7 +321,7 @@ else {
 	$sortfield = getPageSortField('description');
 	$options = array(
 		'editable' => true,
-		'output' => array('triggerid'),
+		'output' => API_OUTPUT_SHORTEN,
 		'discoveryids' => $data['parent_discoveryid'],
 		'sortfield' => $sortfield,
 		'limit' => $config['search_limit'] + 1

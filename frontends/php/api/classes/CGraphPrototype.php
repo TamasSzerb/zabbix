@@ -98,11 +98,23 @@ class CGraphPrototype extends CGraphGeneral {
 		);
 		$options = zbx_array_merge($defOptions, $options);
 
+		if (is_array($options['output'])) {
+			unset($sqlParts['select']['graphs']);
+
+			$dbTable = DB::getSchema('graphs');
+			foreach ($options['output'] as $field) {
+				if (isset($dbTable['fields'][$field])) {
+					$sqlParts['select'][$field] = 'g.'.$field;
+				}
+			}
+			$options['output'] = API_OUTPUT_CUSTOM;
+		}
+
 		// editable + PERMISSION CHECK
 		if (USER_TYPE_SUPER_ADMIN == $userType || $options['nopermissions']) {
 		}
 		else {
-			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ;
+			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ_ONLY;
 
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['from']['items'] = 'items i';
@@ -128,7 +140,7 @@ class CGraphPrototype extends CGraphGeneral {
 							' AND rr.id=hgg.groupid'.
 							' AND rr.groupid=ugg.usrgrpid'.
 							' AND ugg.userid='.$userid.
-							' AND rr.permission='.PERM_DENY.'))';
+							' AND rr.permission<'.$permission.'))';
 		}
 
 
@@ -139,7 +151,10 @@ class CGraphPrototype extends CGraphGeneral {
 		if (!is_null($options['groupids'])) {
 			zbx_value2array($options['groupids']);
 
-			$sqlParts['select']['groupid'] = 'hg.groupid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['groupid'] = 'hg.groupid';
+			}
+
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
@@ -170,8 +185,10 @@ class CGraphPrototype extends CGraphGeneral {
 		// hostids
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['hostid'] = 'i.hostid';
+			}
 
-			$sqlParts['select']['hostid'] = 'i.hostid';
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where'][] = DBcondition('i.hostid', $options['hostids']);
@@ -193,8 +210,9 @@ class CGraphPrototype extends CGraphGeneral {
 		// itemids
 		if (!is_null($options['itemids'])) {
 			zbx_value2array($options['itemids']);
-
-			$sqlParts['select']['itemid'] = 'gi.itemid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['itemid'] = 'gi.itemid';
+			}
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['where']['gig'] = 'gi.graphid=g.graphid';
 			$sqlParts['where'][] = DBcondition('gi.itemid', $options['itemids']);
@@ -207,8 +225,9 @@ class CGraphPrototype extends CGraphGeneral {
 		// discoveryids
 		if (!is_null($options['discoveryids'])) {
 			zbx_value2array($options['discoveryids']);
-
-			$sqlParts['select']['itemid'] = 'id.parent_itemid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['itemid'] = 'id.parent_itemid';
+			}
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['from']['item_discovery'] = 'item_discovery id';
 			$sqlParts['where']['gig'] = 'gi.graphid=g.graphid';
@@ -252,6 +271,24 @@ class CGraphPrototype extends CGraphGeneral {
 			}
 		}
 
+		// output
+		if ($options['output'] == API_OUTPUT_EXTEND) {
+			$sqlParts['select']['graphs'] = 'g.*';
+		}
+
+		// countOutput
+		if (!is_null($options['countOutput'])) {
+			$options['sortfield'] = '';
+			$sqlParts['select'] = array('count(DISTINCT g.graphid) as rowscount');
+
+			// groupCount
+			if (!is_null($options['groupCount'])) {
+				foreach ($sqlParts['group'] as $key => $fields) {
+					$sqlParts['select'][$key] = $fields;
+				}
+			}
+		}
+
 		// search
 		if (is_array($options['search'])) {
 			zbx_db_search('graphs g', $options, $sqlParts);
@@ -291,9 +328,6 @@ class CGraphPrototype extends CGraphGeneral {
 		if (zbx_ctype_digit($options['limit']) && $options['limit']) {
 			$sqlParts['limit'] = $options['limit'];
 		}
-
-		// output
-		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 
 		$graphids = array();
 
@@ -345,44 +379,49 @@ class CGraphPrototype extends CGraphGeneral {
 			else {
 				$graphids[$graph['graphid']] = $graph['graphid'];
 
-				if (!isset($result[$graph['graphid']])) {
-					$result[$graph['graphid']]= array();
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$graph['graphid']] = array('graphid' => $graph['graphid']);
 				}
-				if (!is_null($options['selectHosts']) && !isset($result[$graph['graphid']]['hosts'])) {
-					$result[$graph['graphid']]['hosts'] = array();
-				}
-				if (!is_null($options['selectGraphItems']) && !isset($result[$graph['graphid']]['gitems'])) {
-					$result[$graph['graphid']]['gitems'] = array();
-				}
-				if (!is_null($options['selectTemplates']) && !isset($result[$graph['graphid']]['templates'])) {
-					$result[$graph['graphid']]['templates'] = array();
-				}
-				if (!is_null($options['selectItems']) && !isset($result[$graph['graphid']]['items'])) {
-					$result[$graph['graphid']]['items'] = array();
-				}
-				if (!is_null($options['selectDiscoveryRule']) && !isset($result[$graph['graphid']]['discoveryRule'])) {
-					$result[$graph['graphid']]['discoveryRule'] = array();
-				}
-
-				// hostids
-				if (isset($graph['hostid']) && is_null($options['selectHosts'])) {
-					if (!isset($result[$graph['graphid']]['hosts'])) {
+				else {
+					if (!isset($result[$graph['graphid']])) {
+						$result[$graph['graphid']]= array();
+					}
+					if (!is_null($options['selectHosts']) && !isset($result[$graph['graphid']]['hosts'])) {
 						$result[$graph['graphid']]['hosts'] = array();
 					}
-					$result[$graph['graphid']]['hosts'][] = array('hostid' => $graph['hostid']);
-					unset($graph['hostid']);
-				}
-
-				// itemids
-				if (isset($graph['itemid']) && is_null($options['selectItems'])) {
-					if (!isset($result[$graph['graphid']]['items'])) {
+					if (!is_null($options['selectGraphItems']) && !isset($result[$graph['graphid']]['gitems'])) {
+						$result[$graph['graphid']]['gitems'] = array();
+					}
+					if (!is_null($options['selectTemplates']) && !isset($result[$graph['graphid']]['templates'])) {
+						$result[$graph['graphid']]['templates'] = array();
+					}
+					if (!is_null($options['selectItems']) && !isset($result[$graph['graphid']]['items'])) {
 						$result[$graph['graphid']]['items'] = array();
 					}
-					$result[$graph['graphid']]['items'][] = array('itemid' => $graph['itemid']);
-					unset($graph['itemid']);
-				}
+					if (!is_null($options['selectDiscoveryRule']) && !isset($result[$graph['graphid']]['discoveryRule'])) {
+						$result[$graph['graphid']]['discoveryRule'] = array();
+					}
 
-				$result[$graph['graphid']] += $graph;
+					// hostids
+					if (isset($graph['hostid']) && is_null($options['selectHosts'])) {
+						if (!isset($result[$graph['graphid']]['hosts'])) {
+							$result[$graph['graphid']]['hosts'] = array();
+						}
+						$result[$graph['graphid']]['hosts'][] = array('hostid' => $graph['hostid']);
+						unset($graph['hostid']);
+					}
+
+					// itemids
+					if (isset($graph['itemid']) && is_null($options['selectItems'])) {
+						if (!isset($result[$graph['graphid']]['items'])) {
+							$result[$graph['graphid']]['items'] = array();
+						}
+						$result[$graph['graphid']]['items'][] = array('itemid' => $graph['itemid']);
+						unset($graph['itemid']);
+					}
+
+					$result[$graph['graphid']] += $graph;
+				}
 			}
 		}
 
@@ -533,7 +572,7 @@ class CGraphPrototype extends CGraphGeneral {
 	protected function inherit($graph, $hostids = null) {
 		$graphTemplates = API::Template()->get(array(
 			'itemids' => zbx_objectValues($graph['gitems'], 'itemid'),
-			'output' => array('templateid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => true
 		));
 
@@ -676,7 +715,7 @@ class CGraphPrototype extends CGraphGeneral {
 			'editable' => true,
 			'preservekeys' => true,
 			'templated_hosts' => true,
-			'output' => array('hostid')
+			'output' => API_OUTPUT_SHORTEN
 		));
 		foreach ($data['hostids'] as $hostid) {
 			if (!isset($allowedHosts[$hostid])) {
@@ -687,7 +726,7 @@ class CGraphPrototype extends CGraphGeneral {
 		$allowedTemplates = API::Template()->get(array(
 			'templateids' => $data['templateids'],
 			'preservekeys' => true,
-			'output' => array('templateid')
+			'output' => API_OUTPUT_SHORTEN
 		));
 		foreach ($data['templateids'] as $templateid) {
 			if (!isset($allowedTemplates[$templateid])) {
@@ -742,7 +781,6 @@ class CGraphPrototype extends CGraphGeneral {
 		}
 
 		$graphids = zbx_toArray($graphids);
-		$delGraphPrototypeIds = $graphids;
 
 		$delGraphs = $this->get(array(
 			'graphids' => $graphids,
@@ -791,7 +829,7 @@ class CGraphPrototype extends CGraphGeneral {
 			info(_s('Graph prototype "%s" deleted.', $graph['name']));
 		}
 
-		return array('graphids' => $delGraphPrototypeIds);
+		return array('graphids' => $graphids);
 	}
 
 	/**

@@ -113,7 +113,7 @@ class CAction extends CZBXAPI {
 		}
 		else {
 			// conditions are checked here by sql, operations after, by api queries
-			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ;
+			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ_ONLY;
 
 			// condition hostgroup
 			$sqlParts['where'][] =
@@ -137,7 +137,7 @@ class CAction extends CZBXAPI {
 								' WHERE rr.id='.zbx_dbcast_2bigint('cc.value').
 									' AND rr.groupid=ugg.usrgrpid'.
 									' AND ugg.userid='.$userid.
-									' AND rr.permission='.PERM_DENY.
+									' AND rr.permission<'.$permission.
 							')'.
 						')'.
 				')';
@@ -165,7 +165,7 @@ class CAction extends CZBXAPI {
 										' AND rr.id=hgg.groupid'.
 										' AND rr.groupid=gg.usrgrpid'.
 										' AND gg.userid='.$userid.
-										' AND rr.permission='.PERM_DENY.')'.
+										' AND rr.permission<'.$permission.')'.
 							')'.
 				')';
 
@@ -199,7 +199,7 @@ class CAction extends CZBXAPI {
 											' AND rr.id=hgg.groupid'.
 											' AND rr.groupid=ugg.usrgrpid'.
 											' AND ugg.userid='.$userid.
-											' AND rr.permission='.PERM_DENY.'))'.
+											' AND rr.permission<'.$permission.'))'.
 					')'.
 				')';
 		}
@@ -211,7 +211,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['actionids'])) {
 			zbx_value2array($options['actionids']);
 
-			$sqlParts['select']['actionid'] = 'a.actionid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['actionid'] = 'a.actionid';
+			}
 			$sqlParts['where'][] = DBcondition('a.actionid', $options['actionids']);
 		}
 
@@ -219,7 +221,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['groupids'])) {
 			zbx_value2array($options['groupids']);
 
-			$sqlParts['select']['groupids'] = 'c.value';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['groupids'] = 'c.value';
+			}
 			$sqlParts['from']['conditions'] = 'conditions c';
 			$sqlParts['where'][] = DBcondition('c.value', $options['groupids']);
 			$sqlParts['where']['c'] = 'c.conditiontype='.CONDITION_TYPE_HOST_GROUP;
@@ -230,7 +234,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
-			$sqlParts['select']['hostids'] = 'c.value';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['hostids'] = 'c.value';
+			}
 			$sqlParts['from']['conditions'] = 'conditions c';
 			$sqlParts['where'][] = DBcondition('c.value', $options['hostids']);
 			$sqlParts['where']['c'] = 'c.conditiontype='.CONDITION_TYPE_HOST;
@@ -241,7 +247,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['triggerids'])) {
 			zbx_value2array($options['triggerids']);
 
-			$sqlParts['select']['triggerids'] = 'c.value';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['triggerids'] = 'c.value';
+			}
 			$sqlParts['from']['conditions'] = 'conditions c';
 			$sqlParts['where'][] = DBcondition('c.value', $options['triggerids']);
 			$sqlParts['where']['c'] = 'c.conditiontype='.CONDITION_TYPE_TRIGGER;
@@ -252,7 +260,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['mediatypeids'])) {
 			zbx_value2array($options['mediatypeids']);
 
-			$sqlParts['select']['mediatypeid'] = 'om.mediatypeid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['mediatypeid'] = 'om.mediatypeid';
+			}
 			$sqlParts['from']['opmessage'] = 'opmessage om';
 			$sqlParts['from']['operations'] = 'operations o';
 			$sqlParts['where'][] = DBcondition('om.mediatypeid', $options['mediatypeids']);
@@ -265,7 +275,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['usrgrpids'])) {
 			zbx_value2array($options['usrgrpids']);
 
-			$sqlParts['select']['usrgrpid'] = 'omg.usrgrpid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['usrgrpid'] = 'omg.usrgrpid';
+			}
 			$sqlParts['from']['opmessage_grp'] = 'opmessage_grp omg';
 			$sqlParts['from']['operations'] = 'operations o';
 			$sqlParts['where'][] = DBcondition('omg.usrgrpid', $options['usrgrpids']);
@@ -277,7 +289,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['userids'])) {
 			zbx_value2array($options['userids']);
 
-			$sqlParts['select']['userid'] = 'omu.userid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['userid'] = 'omu.userid';
+			}
 			$sqlParts['from']['opmessage_usr'] = 'opmessage_usr omu';
 			$sqlParts['from']['operations'] = 'operations o';
 			$sqlParts['where'][] = DBcondition('omu.userid', $options['userids']);
@@ -290,7 +304,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['scriptids'])) {
 			zbx_value2array($options['scriptids']);
 
-			$sqlParts['select']['scriptid'] = 'oc.scriptid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['scriptid'] = 'oc.scriptid';
+			}
 			$sqlParts['from']['opmessage_usr'] = 'opcommand oc';
 			$sqlParts['from']['operations'] = 'operations o';
 			$sqlParts['where'][] = '('.DBcondition('oc.scriptid', $options['scriptids']).' AND oc.type='.ZBX_SCRIPT_TYPE_GLOBAL_SCRIPT.')' ;
@@ -365,24 +381,28 @@ class CAction extends CZBXAPI {
 			}
 			else {
 				$actionids[$action['actionid']] = $action['actionid'];
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$action['actionid']] = array('actionid' => $action['actionid']);
+				}
+				else {
+					if (!isset($result[$action['actionid']])) {
+						$result[$action['actionid']] = array();
+					}
+					if (!is_null($options['selectConditions']) && !isset($result[$action['actionid']]['conditions'])) {
+						$result[$action['actionid']]['conditions'] = array();
+					}
+					if (!is_null($options['selectOperations']) && !isset($result[$action['actionid']]['operations'])) {
+						$result[$action['actionid']]['operations'] = array();
+					}
 
-				if (!isset($result[$action['actionid']])) {
-					$result[$action['actionid']] = array();
-				}
-				if (!is_null($options['selectConditions']) && !isset($result[$action['actionid']]['conditions'])) {
-					$result[$action['actionid']]['conditions'] = array();
-				}
-				if (!is_null($options['selectOperations']) && !isset($result[$action['actionid']]['operations'])) {
-					$result[$action['actionid']]['operations'] = array();
-				}
+					$result[$action['actionid']] += $action;
 
-				$result[$action['actionid']] += $action;
-
-				// return mediatype as array
-				if (!empty($action['mediatypeid'])) {
-					$result[$action['actionid']]['mediatypeids'][] = $action['mediatypeid'];
+					// return mediatype as array
+					if (!empty($action['mediatypeid'])) {
+						$result[$action['actionid']]['mediatypeids'][] = $action['mediatypeid'];
+					}
+					unset($result[$action['actionid']]['mediatypeid']);
 				}
-				unset($result[$action['actionid']]['mediatypeid']);
 			}
 		}
 
@@ -421,7 +441,7 @@ class CAction extends CZBXAPI {
 
 			$allowedHosts = API::Host()->get(array(
 				'hostids' => $hostids,
-				'output' => array('hostid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'editable' => $options['editable'],
 				'templated_hosts' => true,
 				'preservekeys' => true
@@ -468,7 +488,7 @@ class CAction extends CZBXAPI {
 
 			$allowedGroups = API::HostGroup()->get(array(
 				'groupids' => $groupids,
-				'output' => array('groupid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'editable' => $options['editable'],
 				'preservekeys' => true
 			));
@@ -501,7 +521,7 @@ class CAction extends CZBXAPI {
 
 			$allowedScripts = API::Script()->get(array(
 				'scriptids' => $scriptids,
-				'output' => array('scriptid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'preservekeys' => true
 			));
 			foreach ($scriptids as $scriptid) {
@@ -532,7 +552,7 @@ class CAction extends CZBXAPI {
 
 			$allowedUsers = API::User()->get(array(
 				'userids' => $userids,
-				'output' => array('userid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'preservekeys' => true
 			));
 			foreach ($userids as $userid) {
@@ -562,7 +582,7 @@ class CAction extends CZBXAPI {
 
 			$allowedUsergrps = API::UserGroup()->get(array(
 				'usrgrpids' => $usrgrpids,
-				'output' => array('usrgrpid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'preservekeys' => true
 			));
 
@@ -749,7 +769,7 @@ class CAction extends CZBXAPI {
 
 		$options = array(
 			'filter' => zbx_array_mintersect($keyFields, $object),
-			'output' => array('actionid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => true,
 			'limit' => 1
 		);
@@ -912,7 +932,7 @@ class CAction extends CZBXAPI {
 			if (isset($action['name'])) {
 				$actionExists = $this->get(array(
 					'filter' => array('name' => $action['name']),
-					'output' => array('actionid'),
+					'output' => API_OUTPUT_SHORTEN,
 					'editable' => true,
 					'nopermissions' => true,
 					'preservekeys' => true
@@ -1454,7 +1474,7 @@ class CAction extends CZBXAPI {
 		$delActions = $this->get(array(
 			'actionids' => $actionids,
 			'editable' => true,
-			'output' => array('actionid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'preservekeys' => true
 		));
 		foreach ($actionids as $actionid) {

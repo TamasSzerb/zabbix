@@ -102,7 +102,7 @@ if (isset($_REQUEST['save']) || isset($_REQUEST['saveandreturn'])) {
 	}
 	elseif (isset($_REQUEST['triggers'])) {
 		$options = array(
-			'output' => array('eventid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'acknowledged' => 0,
 			'triggerids' => $_REQUEST['triggers'],
 			'filter'=> array('value_changed' => TRIGGER_VALUE_CHANGED_YES)
@@ -181,7 +181,7 @@ else {
 	}
 }
 
-$frmMsg = new CFormTable($title.' "'.CWebUser::$data['alias'].'"');
+$frmMsg = new CFormTable($title.' "'.$USER_DETAILS['alias'].'"');
 $frmMsg->addVar('backurl', $_REQUEST['backurl']);
 if ($_REQUEST['backurl'] == 'tr_events.php') {
 	$frmMsg->addVar('eventid', $_REQUEST['eventid']);

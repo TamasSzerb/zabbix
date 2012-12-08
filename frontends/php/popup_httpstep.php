@@ -39,7 +39,6 @@ $fields = array(
 	'timeout' =>		array(T_ZBX_INT, O_OPT, null,	BETWEEN(0,65535),	'isset({save})', _('Timeout')),
 	'required' =>		array(T_ZBX_STR, O_OPT, null,	null,				'isset({save})'),
 	'status_codes' =>	array(T_ZBX_INT_RANGE, O_OPT, null, null,			'isset({save})'),
-	'templated' =>	    array(T_ZBX_STR, O_OPT, null, null, null),
 	// actions
 	'save' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,			null),
 	'form' =>			array(T_ZBX_STR, O_OPT, P_SYS,	null,				null),
@@ -50,7 +49,9 @@ check_fields($fields);
 
 // render view
 $httpPopupView = new CView('configuration.httpconf.popup');
-$httpPopupView->render();
-$httpPopupView->show();
+if (!empty($httpPopupView)) {
+	$httpPopupView->render();
+	$httpPopupView->show();
+}
 
 require_once dirname(__FILE__).'/include/page_footer.php';

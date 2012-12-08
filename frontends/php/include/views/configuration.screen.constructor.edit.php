@@ -424,7 +424,7 @@ elseif ($resourcetype == SCREEN_RESOURCE_SCREEN) {
 		while ($row = DBfetch($db_screens)) {
 			$screen = API::Screen()->get(array(
 				'screenids' => $row['screenid'],
-				'output' => array('screenid')
+				'output' => API_OUTPUT_SHORTEN
 			));
 			if (empty($screen)) {
 				continue;

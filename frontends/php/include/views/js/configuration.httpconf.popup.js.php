@@ -1,4 +1,4 @@
-<script>
+<script language="JavaScript" type="text/javascript">
 	function add_var_to_opener_obj(obj, name, value) {
 		var new_variable = window.opener.document.createElement('input');
 		new_variable.type = 'hidden';

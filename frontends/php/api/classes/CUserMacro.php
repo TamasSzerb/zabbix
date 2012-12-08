@@ -25,20 +25,27 @@ class CUserMacro extends CZBXAPI {
 	protected $tableAlias = 'hm';
 
 	/**
-	 * Get UserMacros data.
+	 * Get UserMacros data
 	 *
 	 * @param array $options
-	 * @param array $options['nodeids'] node ids
-	 * @param array $options['groupids'] usermacrosgroup ids
-	 * @param array $options['hostids'] host ids
-	 * @param array $options['hostmacroids'] host macros ids
-	 * @param array $options['globalmacroids'] global macros ids
-	 * @param array $options['templateids'] tempalate ids
-	 * @param boolean $options['globalmacro'] only global macros
-	 * @param boolean $options['selectGroups'] select groups
-	 * @param boolean $options['selectHosts'] select hosts
-	 * @param boolean $options['selectTemplates'] select templates
-	 *
+	 * @param array $options['nodeids'] Node IDs
+	 * @param array $options['groupids'] UserMacrosGroup IDs
+	 * @param array $options['macroids'] UserMacros IDs
+	 * @param boolean $options['monitored_macros'] only monitored UserMacros
+	 * @param boolean $options['templated_macros'] include templates in result
+	 * @param boolean $options['with_items'] only with items
+	 * @param boolean $options['with_monitored_items'] only with monitored items
+	 * @param boolean $options['with_historical_items'] only with historical items
+	 * @param boolean $options['with_triggers'] only with triggers
+	 * @param boolean $options['with_monitored_triggers'] only with monitored triggers
+	 * @param boolean $options['with_httptests'] only with http tests
+	 * @param boolean $options['with_monitored_httptests'] only with monitored http tests
+	 * @param boolean $options['with_graphs'] only with graphs
+	 * @param boolean $options['editable'] only with read-write permission. Ignored for SuperAdmins
+	 * @param int $options['count'] count UserMacros, returned column name is rowscount
+	 * @param string $options['pattern'] search macros by pattern in macro names
+	 * @param int $options['limit'] limit selection
+	 * @param string $options['order'] deprecated parameter (for now)
 	 * @return array|boolean UserMacros data as array or false if error
 	 */
 	public function get($options = array()) {
@@ -105,7 +112,7 @@ class CUserMacro extends CZBXAPI {
 			return array();
 		}
 		else {
-			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ;
+			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ_ONLY;
 
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
 			$sqlParts['from']['rights'] = 'rights r';
@@ -122,7 +129,7 @@ class CUserMacro extends CZBXAPI {
 					' AND rr.id=hgg.groupid'.
 					' AND rr.groupid=gg.usrgrpid'.
 					' AND gg.userid='.$userid.
-					' AND rr.permission='.PERM_DENY.')';
+					' AND rr.permission<'.$permission.')';
 		}
 
 		// nodeids
@@ -159,8 +166,9 @@ class CUserMacro extends CZBXAPI {
 		// groupids
 		if (!is_null($options['groupids'])) {
 			zbx_value2array($options['groupids']);
-
-			$sqlParts['select']['groupid'] = 'hg.groupid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['groupid'] = 'hg.groupid';
+			}
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
 			$sqlParts['where'][] = DBcondition('hg.groupid', $options['groupids']);
 			$sqlParts['where']['hgh'] = 'hg.hostid=hm.hostid';
@@ -169,16 +177,15 @@ class CUserMacro extends CZBXAPI {
 		// hostids
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
-
-			$sqlParts['select']['hostid'] = 'hm.hostid';
 			$sqlParts['where'][] = DBcondition('hm.hostid', $options['hostids']);
 		}
 
 		// templateids
 		if (!is_null($options['templateids'])) {
 			zbx_value2array($options['templateids']);
-
-			$sqlParts['select']['templateid'] = 'ht.templateid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['templateid'] = 'ht.templateid';
+			}
 			$sqlParts['from']['macros_templates'] = 'hosts_templates ht';
 			$sqlParts['where'][] = DBcondition('ht.templateid', $options['templateids']);
 			$sqlParts['where']['hht'] = 'hm.hostid=ht.hostid';
@@ -200,6 +207,20 @@ class CUserMacro extends CZBXAPI {
 			}
 		}
 
+		// output
+		if ($options['output'] == API_OUTPUT_EXTEND) {
+			$sqlParts['select']['macros'] = 'hm.*';
+			$sqlPartsGlobal['select']['macros'] = 'gm.*';
+		}
+
+		// countOutput
+		if (!is_null($options['countOutput'])) {
+			$options['sortfield'] = '';
+
+			$sqlParts['select'] = array('count(DISTINCT hm.hostmacroid) as rowscount');
+			$sqlPartsGlobal['select'] = array('count(DISTINCT gm.globalmacroid) as rowscount');
+		}
+
 		// sorting
 		zbx_db_sorting($sqlParts, $options, $sortColumns, 'hm');
 		zbx_db_sorting($sqlPartsGlobal, $options, $sortColumns, 'gm');
@@ -212,85 +233,90 @@ class CUserMacro extends CZBXAPI {
 
 		// init GLOBALS
 		if (!is_null($options['globalmacro'])) {
-			$sqlPartsGlobal = $this->applyQueryOutputOptions('globalmacro', 'gm', $options, $sqlPartsGlobal);
 			$res = DBselect($this->createSelectQueryFromParts($sqlPartsGlobal), $sqlPartsGlobal['limit']);
 			while ($macro = DBfetch($res)) {
 				if ($options['countOutput']) {
 					$result = $macro['rowscount'];
 				}
 				else {
-					if (!isset($result[$macro['globalmacroid']])) {
-						$result[$macro['globalmacroid']] = array();
-					}
+					$globalmacroids[$macro['globalmacroid']] = $macro['globalmacroid'];
 
-					$result[$macro['globalmacroid']] += $macro;
+					if ($options['output'] == API_OUTPUT_SHORTEN) {
+						$result[$macro['globalmacroid']] = array('globalmacroid' => $macro['globalmacroid']);
+					}
+					else {
+						if (!isset($result[$macro['globalmacroid']])) {
+							$result[$macro['globalmacroid']] = array();
+						}
+						$result[$macro['globalmacroid']] += $macro;
+					}
 				}
 			}
 		}
 		// init HOSTS
 		else {
-			$hostIds = array();
+			$hostids = array();
 
-			$sqlParts = $this->applyQueryOutputOptions('hostmacro', 'hm', $options, $sqlParts);
 			$res = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
 			while ($macro = DBfetch($res)) {
-
 				if ($options['countOutput']) {
 					$result = $macro['rowscount'];
 				}
 				else {
-					$hostIds[$macro['hostid']] = $macro['hostid'];
+					$hostmacroids[$macro['hostmacroid']] = $macro['hostmacroid'];
 
-					if (!isset($result[$macro['hostmacroid']])) {
-						$result[$macro['hostmacroid']] = array();
+					if ($options['output'] == API_OUTPUT_SHORTEN) {
+						$result[$macro['hostmacroid']] = $macro['hostmacroid'];
 					}
+					else {
+						$hostids[$macro['hostid']] = $macro['hostid'];
 
-					// groups
-					if ($options['selectGroups'] && !isset($result[$macro['hostmacroid']]['groups'])) {
-						$result[$macro['hostmacroid']]['groups'] = array();
-					}
+						if (!isset($result[$macro['hostmacroid']])) {
+							$result[$macro['hostmacroid']]= array();
+						}
 
-					// templates
-					if ($options['selectTemplates'] && !isset($result[$macro['hostmacroid']]['templates'])) {
-						$result[$macro['hostmacroid']]['templates'] = array();
-					}
-
-					// hosts
-					if ($options['selectHosts'] && !isset($result[$macro['hostmacroid']]['hosts'])) {
-						$result[$macro['hostmacroid']]['hosts'] = array();
-					}
-
-					// groupids
-					if (isset($macro['groupid'])) {
-						if (!isset($result[$macro['hostmacroid']]['groups'])) {
+						// groups
+						if ($options['selectGroups'] && !isset($result[$macro['hostmacroid']]['groups'])) {
 							$result[$macro['hostmacroid']]['groups'] = array();
 						}
-						$result[$macro['hostmacroid']]['groups'][] = array('groupid' => $macro['groupid']);
-						unset($macro['groupid']);
-					}
 
-					// templateids
-					if (isset($macro['templateid'])) {
-						if (!isset($result[$macro['hostmacroid']]['templates'])) {
+						// templates
+						if ($options['selectTemplates'] && !isset($result[$macro['hostmacroid']]['templates'])) {
 							$result[$macro['hostmacroid']]['templates'] = array();
 						}
-						$result[$macro['hostmacroid']]['templates'][] = array('templateid' => $macro['templateid']);
-						unset($macro['templateid']);
-					}
 
-					// hostids
-					if (isset($macro['hostid'])) {
-						if (!isset($result[$macro['hostmacroid']]['hosts'])) {
+						// hosts
+						if ($options['selectHosts'] && !isset($result[$macro['hostmacroid']]['hosts'])) {
 							$result[$macro['hostmacroid']]['hosts'] = array();
 						}
-						$result[$macro['hostmacroid']]['hosts'][] = array('hostid' => $macro['hostid']);
 
-						if ($options['output'] == API_OUTPUT_REFER) {
-							unset($macro['hostid']);
+						// groupids
+						if (isset($macro['groupid'])) {
+							if (!isset($result[$macro['hostmacroid']]['groups'])) {
+								$result[$macro['hostmacroid']]['groups'] = array();
+							}
+							$result[$macro['hostmacroid']]['groups'][] = array('groupid' => $macro['groupid']);
+							unset($macro['groupid']);
 						}
-					}
 
-					$result[$macro['hostmacroid']] += $macro;
+						// templateids
+						if (isset($macro['templateid'])) {
+							if (!isset($result[$macro['hostmacroid']]['templates'])) {
+								$result[$macro['hostmacroid']]['templates'] = array();
+							}
+							$result[$macro['hostmacroid']]['templates'][] = array('templateid' => $macro['templateid']);
+							unset($macro['templateid']);
+						}
+
+						// hostids
+						if (isset($macro['hostid'])) {
+							if (!isset($result[$macro['hostmacroid']]['hosts'])) {
+								$result[$macro['hostmacroid']]['hosts'] = array();
+							}
+							$result[$macro['hostmacroid']]['hosts'][] = array('hostid' => $macro['hostid']);
+						}
+						$result[$macro['hostmacroid']] += $macro;
+					}
 				}
 			}
 		}
@@ -304,11 +330,12 @@ class CUserMacro extends CZBXAPI {
 		 */
 		// adding groups
 		if (!is_null($options['selectGroups']) && str_in_array($options['selectGroups'], $subselectsAllowedOutputs)) {
-			$groups = API::HostGroup()->get(array(
+			$objParams = array(
 				'output' => $options['selectGroups'],
-				'hostids' => $hostIds,
+				'hostids' => $hostids,
 				'preservekeys' => true
-			));
+			);
+			$groups = API::HostGroup()->get($objParams);
 			foreach ($groups as $group) {
 				$ghosts = $group['hosts'];
 				unset($group['hosts']);
@@ -324,11 +351,12 @@ class CUserMacro extends CZBXAPI {
 
 		// adding templates
 		if (!is_null($options['selectTemplates']) && str_in_array($options['selectTemplates'], $subselectsAllowedOutputs)) {
-			$templates = API::Template()->get(array(
+			$objParams = array(
 				'output' => $options['selectTemplates'],
-				'hostids' => $hostIds,
+				'hostids' => $hostids,
 				'preservekeys' => true
-			));
+			);
+			$templates = API::Template()->get($objParams);
 			foreach ($templates as $template) {
 				$thosts = $template['hosts'];
 				unset($template['hosts']);
@@ -344,11 +372,12 @@ class CUserMacro extends CZBXAPI {
 
 		// adding hosts
 		if (!is_null($options['selectHosts']) && str_in_array($options['selectHosts'], $subselectsAllowedOutputs)) {
-			$hosts = API::Host()->get(array(
+			$objParams = array(
 				'output' => $options['selectHosts'],
-				'hostids' => $hostIds,
+				'hostids' => $hostids,
 				'preservekeys' => true
-			));
+			);
+			$hosts = API::Host()->get($objParams);
 			foreach ($hosts as $hostid => $host) {
 				foreach ($result as $macroid => $macro) {
 					if (bccomp($macro['hostid'], $hostid) == 0) {
@@ -362,7 +391,6 @@ class CUserMacro extends CZBXAPI {
 		if (is_null($options['preservekeys'])) {
 			$result = zbx_cleanHashes($result);
 		}
-
 		return $result;
 	}
 
@@ -664,30 +692,27 @@ class CUserMacro extends CZBXAPI {
 	 */
 	public function getMacros($data) {
 		$macros = $data['macros'];
-		$hostIds = isset($data['hostid']) ? zbx_toArray($data['hostid']) : null;
+		$itemid = isset($data['itemid']) ? $data['itemid'] : null;
+		$triggerid = isset($data['triggerid']) ? $data['triggerid'] : null;
 
-		$result = array();
 		zbx_value2array($macros);
 		$macros = array_unique($macros);
 
-		if (!$hostIds) {
-			$itemid = isset($data['itemid']) ? $data['itemid'] : null;
-			$triggerid = isset($data['triggerid']) ? $data['triggerid'] : null;
+		$result = array();
 
-			$hosts = API::Host()->get(array(
-				'itemids' => $itemid,
-				'triggerids' => $triggerid,
-				'nopermissions' => true,
-				'preservekeys' => true,
-				'output' => array('hostid'),
-				'templated_hosts' => true
-			));
-			$hostIds = array_keys($hosts);
-		}
+		$hosts = API::Host()->get(array(
+			'itemids' => $itemid,
+			'triggerids' => $triggerid,
+			'nopermissions' => true,
+			'preservekeys' => true,
+			'output' => API_OUTPUT_SHORTEN,
+			'templated_hosts' => true
+		));
+		$hostids = array_keys($hosts);
 
 		do {
 			$hostMacros = $this->get(array(
-				'hostids' => $hostIds,
+				'hostids' => $hostids,
 				'macros' => $macros,
 				'output' => API_OUTPUT_EXTEND,
 				'nopermissions' => true,
@@ -707,14 +732,14 @@ class CUserMacro extends CZBXAPI {
 
 			if (!empty($macros)) {
 				$hosts = API::Template()->get(array(
-					'hostids' => $hostIds,
+					'hostids' => $hostids,
 					'nopermissions' => true,
 					'preservekeys' => true,
-					'output' => array('templateid')
+					'output' => API_OUTPUT_SHORTEN
 				));
-				$hostIds = array_keys($hosts);
+				$hostids = array_keys($hosts);
 			}
-		} while (!empty($macros) && !empty($hostIds));
+		} while (!empty($macros) && !empty($hostids));
 
 
 		if (!empty($macros)) {
@@ -1045,7 +1070,7 @@ class CUserMacro extends CZBXAPI {
 	 */
 	protected function checkIfGlobalMacrosExist(array $globalMacroIds) {
 		$globalMacros = API::getApi()->select('globalmacro', array(
-			'output' => array('globalmacroid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'globalmacroids' => $globalMacroIds
 		));
 		$globalMacros = zbx_toHash($globalMacros, 'globalmacroid');

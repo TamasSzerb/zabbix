@@ -65,8 +65,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	if ($expressionData->parse($expression)) {
 		$macrosData = array();
 
-		$expressions = array_merge($expressionData->expressions, $expressionData->macros, $expressionData->usermacros,
-				$expressionData->lldmacros);
+		$expressions = array_merge($expressionData->expressions, $expressionData->macros, $expressionData->usermacros);
 
 		foreach ($expressions as $exprPart) {
 			if (isset($macrosData[$exprPart['expression']])) {

@@ -167,9 +167,7 @@ class CXmlImport18 {
 				'snmp_port' => '',
 				'snmpv3_securityname' => '',
 				'snmpv3_securitylevel' => '',
-				'snmpv3_authprotocol' => '',
 				'snmpv3_authpassphrase' => '',
-				'snmpv3_privprotocol' => '',
 				'snmpv3_privpassphrase' => ''
 			)
 		),
@@ -581,13 +579,14 @@ class CXmlImport18 {
 	}
 
 	public static function parseMap($rules) {
+		global $USER_DETAILS;
 		$importMaps = self::XMLtoArray(self::$xml);
 
 		if (!isset($importMaps['zabbix_export'])) {
 			$importMaps['zabbix_export'] = $importMaps;
 		}
 
-		if (CWebUser::$data['type'] == USER_TYPE_SUPER_ADMIN && isset($importMaps['zabbix_export']['images'])) {
+		if ($USER_DETAILS['type'] == USER_TYPE_SUPER_ADMIN && isset($importMaps['zabbix_export']['images'])) {
 			$images = $importMaps['zabbix_export']['images'];
 			$images_to_add = array();
 			$images_to_update = array();
@@ -599,7 +598,7 @@ class CXmlImport18 {
 
 						$options = array(
 							'filter' => array('name' => $image['name']),
-							'output' => array('imageid')
+							'output' => API_OUTPUT_SHORTEN
 						);
 						$imgs = API::Image()->get($options);
 						$img = reset($imgs);
@@ -1137,7 +1136,7 @@ class CXmlImport18 {
 					foreach ($templates as $template) {
 						$options = array(
 							'filter' => array('host' => $template->nodeValue),
-							'output' => array('templateid'),
+							'output' => API_OUTPUT_SHORTEN,
 							'editable' => true
 						);
 						$current_template = API::Template()->get($options);

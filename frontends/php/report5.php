@@ -37,7 +37,7 @@ check_fields($fields);
 $rprt_wdgt = new CWidget();
 
 $_REQUEST['period'] = get_request('period', 'day');
-$admin_links = (CWebUser::$data['type'] == USER_TYPE_ZABBIX_ADMIN || CWebUser::$data['type'] == USER_TYPE_SUPER_ADMIN);
+$admin_links = ($USER_DETAILS['type'] == USER_TYPE_ZABBIX_ADMIN || $USER_DETAILS['type'] == USER_TYPE_SUPER_ADMIN);
 
 $form = new CForm('get');
 
@@ -80,11 +80,11 @@ switch ($_REQUEST['period']) {
 }
 
 $available_hosts = API::Host()->get(array(
-	'output' => array('hostid'),
+	'output' => API_OUTPUT_SHORTEN,
 	'preservekeys' => true
 ));
 $available_hosts = array_keys($available_hosts);
-$available_triggers = get_accessible_triggers(PERM_READ, array());
+$available_triggers = get_accessible_triggers(PERM_READ_ONLY, array());
 $scripts_by_hosts = API::Script()->getScriptsByHosts($available_hosts);
 
 $triggersEventCount = array();
@@ -148,7 +148,7 @@ foreach ($triggers as $trigger) {
 	$hostSpan->setAttribute('onclick', $menus);
 
 	$tr_conf_link = 'null';
-	if (CWebUser::$data['type'] > USER_TYPE_ZABBIX_USER && $trigger['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) {
+	if ($USER_DETAILS['type'] > USER_TYPE_ZABBIX_USER && $trigger['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) {
 		$tr_conf_link = "['"._('Configuration of trigger')."',\"javascript: redirect('triggers.php?form=update&triggerid=".$trigger['triggerid']."&hostid=".$trigger['hostid']."')\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}]";
 	}
 

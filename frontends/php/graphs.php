@@ -119,7 +119,7 @@ if (CUser::$userData['type'] !== USER_TYPE_SUPER_ADMIN) {
 		if (isset($_REQUEST['graphid'])) {
 			$graphPrototype = API::GraphPrototype()->get(array(
 				'graphids' => array($_REQUEST['graphid']),
-				'output' => array('graphid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'editable' => true,
 				'preservekeys' => true
 			));
@@ -391,7 +391,7 @@ elseif (isset($_REQUEST['form'])) {
 						$parentTemplate = reset($parentGraphPrototype['templates']);
 
 						$link = new CLink($parentTemplate['name'],
-							'graphs.php?form=update&graphid='.$parentGraphPrototype['graphid'].'&hostid='.$parentTemplate['templateid'].'&parent_discoveryid='.$parentGraphPrototype['discoveryRule']['itemid']
+							'graphs.php?form=update&graphid='.$parentGraphPrototype['graphid'].'&hostid='.$parentTemplate['hostid'].'&parent_discoveryid='.$parentGraphPrototype['discoveryRule']['itemid']
 						);
 					}
 				}

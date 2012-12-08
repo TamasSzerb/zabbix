@@ -160,9 +160,9 @@ abstract class CHostGeneral extends CZBXAPI {
 
 		// check if any templates linked to targets have more than one unique item key/application
 		foreach ($targetids as $targetid) {
-			$linkedTpls = API::Template()->get(array(
+			$linkedTpls = $this->get(array(
 				'nopermissions' => true,
-				'output' => array('templateid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'hostids' => $targetid
 			));
 			$allids = array_merge($templateids, zbx_objectValues($linkedTpls, 'templateid'));
@@ -219,15 +219,12 @@ abstract class CHostGeneral extends CZBXAPI {
 			}
 
 			$sql = 'SELECT DISTINCT h.host'.
-				' FROM trigger_depends td,functions f,items i,hosts h'.
-				' WHERE ('.
-					DBcondition('td.triggerid_down', $triggerids).
-					' AND f.triggerid=td.triggerid_up'.
-				' )'.
-				' AND i.itemid=f.itemid'.
-				' AND h.hostid=i.hostid'.
-				' AND '.DBcondition('h.hostid', $commonTemplateIds, true).
-				' AND h.status='.HOST_STATUS_TEMPLATE;
+					' FROM trigger_depends td,functions f,items i,hosts h'.
+					' WHERE ('.DBcondition('td.triggerid_down', $triggerids).' AND f.triggerid=td.triggerid_up)'.
+						' AND i.itemid=f.itemid'.
+						' AND h.hostid=i.hostid'.
+						' AND '.DBcondition('h.hostid', $commonTemplateIds, true).
+						' AND h.status='.HOST_STATUS_TEMPLATE;
 			if ($dbDepHost = DBfetch(DBselect($sql))) {
 				$tmpTpls = API::Template()->get(array(
 					'templateids' => $templateid,
@@ -255,16 +252,21 @@ abstract class CHostGeneral extends CZBXAPI {
 		}
 
 		// add template linkages, if problems rollback later
-		$hostsLinkageInserts = array();
 		foreach ($targetids as $targetid) {
 			foreach ($templateids as $templateid) {
 				if (isset($linked[$targetid]) && isset($linked[$targetid][$templateid])) {
 					continue;
 				}
-				$hostsLinkageInserts[] = array('hostid' => $targetid, 'templateid' => $templateid);
+
+				$values = array(get_dbid('hosts_templates', 'hosttemplateid'), $targetid, $templateid);
+				$sql = 'INSERT INTO hosts_templates VALUES ('.implode(', ', $values).')';
+				$result = DBexecute($sql);
+
+				if (!$result) {
+					self::exception(ZBX_API_ERROR_PARAMETERS, 'DBError');
+				}
 			}
 		}
-		DB::insert('hosts_templates', $hostsLinkageInserts);
 
 		// check if all trigger templates are linked to host.
 		// we try to find template that is not linked to hosts ($targetids)
@@ -330,15 +332,16 @@ abstract class CHostGeneral extends CZBXAPI {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Circular template linkage is not allowed.'));
 		}
 
-		$appManager = new CApplicationManager();
-		$httpTestManager = new CHttpTestManager();
 		foreach ($targetids as $targetid) {
 			foreach ($templateids as $templateid) {
 				if (isset($linked[$targetid]) && isset($linked[$targetid][$templateid])) {
 					continue;
 				}
 
-				$appManager->link($templateid, $targetid);
+				API::Application()->syncTemplates(array(
+					'hostids' => $targetid,
+					'templateids' => $templateid
+				));
 
 				API::DiscoveryRule()->syncTemplates(array(
 					'hostids' => $targetid,
@@ -354,8 +357,6 @@ abstract class CHostGeneral extends CZBXAPI {
 					'hostids' => $targetid,
 					'templateids' => $templateid
 				));
-
-				$httpTestManager->link($templateid, $targetid);
 			}
 
 			// we do linkage in two separate loops because for triggers you need all items already created on host
@@ -664,43 +665,6 @@ abstract class CHostGeneral extends CZBXAPI {
 		}
 		/* }}} GRAPHS */
 
-		// http tests
-		$sqlWhere = '';
-		if (!is_null($targetids)) {
-			$sqlWhere = ' AND '.DBCondition('ht1.hostid', $targetids);
-		}
-		$sql = 'SELECT DISTINCT ht1.httptestid,ht1.name,h.name as host'.
-				' FROM httptest ht1'.
-				' INNER JOIN httptest ht2 ON ht2.httptestid=ht1.templateid'.
-				' INNER JOIN hosts h ON h.hostid=ht1.hostid'.
-				' WHERE '.DBCondition('ht2.hostid', $templateids).
-				$sqlWhere;
-		$dbHttpTests = DBSelect($sql);
-		$httpTests = array();
-		while ($httpTest = DBfetch($dbHttpTests)) {
-			$httpTests[$httpTest['httptestid']] = array(
-				'name' => $httpTest['name'],
-				'host' => $httpTest['host']
-			);
-		}
-
-		if (!empty($httpTests)) {
-			if ($clear) {
-				$result = API::HttpTest()->delete(array_keys($httpTests), true);
-				if (!$result) {
-					self::exception(ZBX_API_ERROR_INTERNAL, _('Cannot unlink and clear Web scenarios.'));
-				}
-			}
-			else {
-				DB::update('httptest', array(
-					'values' => array('templateid' => 0),
-					'where' => array('httptestid' => array_keys($httpTests))
-				));
-				foreach ($httpTests as $httpTest) {
-					info(_s('Unlinked: Web scenario "%1$s" on "%2$s".', $httpTest['name'], $httpTest['host']));
-				}
-			}
-		}
 
 		/* APPLICATIONS {{{ */
 		$sqlFrom = ' applications a1,applications a2,hosts h';
@@ -743,9 +707,7 @@ abstract class CHostGeneral extends CZBXAPI {
 
 
 		$cond = array('templateid' => $templateids);
-		if (!is_null($targetids)) {
-			$cond['hostid'] =  $targetids;
-		}
+		if (!is_null($targetids)) $cond['hostid'] =  $targetids;
 		DB::delete('hosts_templates', $cond);
 
 		if (!is_null($targetids)) {
@@ -780,14 +742,13 @@ abstract class CHostGeneral extends CZBXAPI {
 	/**
 	 * Searches for cycles and double linkages in graph.
 	 *
-	 * @throw APIException rises exception if cycle or double linkage is found
+	 * @exception rises exception if cycle or double linkage is found
 	 *
 	 * @param array $graph - array with keys as parent ids and values as arrays with child ids
 	 * @param int $current - cursor for recursive DFS traversal, starting point for algorithm
 	 * @param array $path - should be passed empty array for DFS
 	 * @param array $visited - there will be stored visited graph node ids
-	 *
-	 * @return boolean
+	 * @return false
 	 */
 	protected function checkCircularAndDoubleLinkage($graph, $current, &$path, &$visited) {
 		if (isset($path[$current])) {

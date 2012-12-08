@@ -87,10 +87,7 @@ if ($httptestid = get_request('httptestid', false)) {
 	}
 
 	$httptest = get_httptest_by_httptestid($httptestid);
-
-	$resolver = new CMacrosResolver();
-	$httpTestName = $resolver->resolveMacrosInText($httptest['name'], $httptest['hostid']);
-	$name = $httpTestName;
+	$name = $httptest['name'];
 }
 else {
 	$items = get_request('items', array());
@@ -100,7 +97,7 @@ else {
 		'webitems' => true,
 		'itemids' => zbx_objectValues($items, 'itemid'),
 		'nodeids' => get_current_nodeid(true),
-		'output' => array('itemid'),
+		'output' => API_OUTPUT_SHORTEN,
 		'preservekeys' => true,
 		'filter' => array('flags' => null)
 	));

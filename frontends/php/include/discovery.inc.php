@@ -22,9 +22,10 @@
 require_once dirname(__FILE__).'/perm.inc.php';
 
 function check_right_on_discovery($permission) {
+	global $USER_DETAILS;
 
-	if (CWebUser::$data['type'] >= USER_TYPE_ZABBIX_ADMIN) {
-		if (count(get_accessible_nodes_by_user(CWebUser::$data, $permission, PERM_RES_IDS_ARRAY))) {
+	if ($USER_DETAILS['type'] >= USER_TYPE_ZABBIX_ADMIN) {
+		if (count(get_accessible_nodes_by_user($USER_DETAILS, $permission, PERM_RES_IDS_ARRAY))) {
 			return true;
 		}
 	}

@@ -17,7 +17,11 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
+/**
+ * @package API
+ */
 /**
  * Class containing methods for operations with Maps
  */
@@ -27,31 +31,31 @@ class CMap extends CMapElement {
 
 	protected $tableAlias = 's';
 
-	/**
-	 * Get Map data
-	 *
-	 * @param array $options
-	 * @param array $options['nodeids'] Node IDs
-	 * @param array $options['groupids'] HostGroup IDs
-	 * @param array $options['hostids'] Host IDs
-	 * @param boolean $options['monitored_hosts'] only monitored Hosts
-	 * @param boolean $options['templated_hosts'] include templates in result
-	 * @param boolean $options['with_items'] only with items
-	 * @param boolean $options['with_monitored_items'] only with monitored items
-	 * @param boolean $options['with_historical_items'] only with historical items
-	 * @param boolean $options['with_triggers'] only with triggers
-	 * @param boolean $options['with_monitored_triggers'] only with monitored triggers
-	 * @param boolean $options['with_httptests'] only with http tests
-	 * @param boolean $options['with_monitored_httptests'] only with monitored http tests
-	 * @param boolean $options['with_graphs'] only with graphs
-	 * @param boolean $options['editable'] only with read-write permission. Ignored for SuperAdmins
-	 * @param int $options['count'] count Hosts, returned column name is rowscount
-	 * @param string $options['pattern'] search hosts by pattern in host names
-	 * @param int $options['limit'] limit selection
-	 * @param string $options['sortorder']
-	 * @param string $options['sortfield']
-	 * @return array|boolean Host data as array or false if error
-	 */
+/**
+ * Get Map data
+ *
+ * @param array $options
+ * @param array $options['nodeids'] Node IDs
+ * @param array $options['groupids'] HostGroup IDs
+ * @param array $options['hostids'] Host IDs
+ * @param boolean $options['monitored_hosts'] only monitored Hosts
+ * @param boolean $options['templated_hosts'] include templates in result
+ * @param boolean $options['with_items'] only with items
+ * @param boolean $options['with_monitored_items'] only with monitored items
+ * @param boolean $options['with_historical_items'] only with historical items
+ * @param boolean $options['with_triggers'] only with triggers
+ * @param boolean $options['with_monitored_triggers'] only with monitored triggers
+ * @param boolean $options['with_httptests'] only with http tests
+ * @param boolean $options['with_monitored_httptests'] only with monitored http tests
+ * @param boolean $options['with_graphs'] only with graphs
+ * @param boolean $options['editable'] only with read-write permission. Ignored for SuperAdmins
+ * @param int $options['count'] count Hosts, returned column name is rowscount
+ * @param string $options['pattern'] search hosts by pattern in host names
+ * @param int $options['limit'] limit selection
+ * @param string $options['sortorder']
+ * @param string $options['sortfield']
+ * @return array|boolean Host data as array or false if error
+ */
 	public function get($options = array()) {
 		$result = array();
 		$userType = self::$userData['type'];
@@ -155,28 +159,33 @@ class CMap extends CMapElement {
 			else {
 				$sysmapids[$sysmap['sysmapid']] = $sysmap['sysmapid'];
 
-				if (!isset($result[$sysmap['sysmapid']])) {
-					$result[$sysmap['sysmapid']] = array();
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$sysmap['sysmapid']] = array('sysmapid' => $sysmap['sysmapid']);
 				}
+				else {
+					if (!isset($result[$sysmap['sysmapid']])) {
+						$result[$sysmap['sysmapid']] = array();
+					}
 
-				// originally we intended not to pass those parameters if advanced labels are off, but they might be useful
-				// leaving this block commented
-				// if (isset($sysmap['label_format']) && ($sysmap['label_format'] == SYSMAP_LABEL_ADVANCED_OFF)) {
-				// 	unset($sysmap['label_string_hostgroup'], $sysmap['label_string_host'], $sysmap['label_string_trigger'], $sysmap['label_string_map'], $sysmap['label_string_image']);
-				// }
-				if (!is_null($options['selectSelements']) && !isset($result[$sysmap['sysmapid']]['selements'])) {
-					$result[$sysmap['sysmapid']]['selements'] = array();
+					// originally we intended not to pass those parameters if advanced labels are off, but they might be useful
+					// leaving this block commented
+					// if (isset($sysmap['label_format']) && ($sysmap['label_format'] == SYSMAP_LABEL_ADVANCED_OFF)) {
+					// 	unset($sysmap['label_string_hostgroup'], $sysmap['label_string_host'], $sysmap['label_string_trigger'], $sysmap['label_string_map'], $sysmap['label_string_image']);
+					// }
+					if (!is_null($options['selectSelements']) && !isset($result[$sysmap['sysmapid']]['selements'])) {
+						$result[$sysmap['sysmapid']]['selements'] = array();
+					}
+					if (!is_null($options['selectLinks']) && !isset($result[$sysmap['sysmapid']]['links'])) {
+						$result[$sysmap['sysmapid']]['links'] = array();
+					}
+					if (!is_null($options['selectIconMap']) && !isset($result[$sysmap['sysmapid']]['iconmap'])) {
+						$result[$sysmap['sysmapid']]['iconmap'] = array();
+					}
+					if (!isset($result[$sysmap['sysmapid']]['urls'])) {
+						$result[$sysmap['sysmapid']]['urls'] = array();
+					}
+					$result[$sysmap['sysmapid']] += $sysmap;
 				}
-				if (!is_null($options['selectLinks']) && !isset($result[$sysmap['sysmapid']]['links'])) {
-					$result[$sysmap['sysmapid']]['links'] = array();
-				}
-				if (!is_null($options['selectIconMap']) && !isset($result[$sysmap['sysmapid']]['iconmap'])) {
-					$result[$sysmap['sysmapid']]['iconmap'] = array();
-				}
-				if (!isset($result[$sysmap['sysmapid']]['urls'])) {
-					$result[$sysmap['sysmapid']]['urls'] = array();
-				}
-				$result[$sysmap['sysmapid']] += $sysmap;
 			}
 		}
 
@@ -199,7 +208,7 @@ class CMap extends CMapElement {
 					$trigOptions = array(
 						'triggerids' => $linkTriggers,
 						'editable' => $options['editable'],
-						'output' => array('triggerid'),
+						'output' => API_OUTPUT_SHORTEN,
 						'preservekeys' => true
 					);
 					$allTriggers = API::Trigger()->get($trigOptions);
@@ -244,7 +253,7 @@ class CMap extends CMapElement {
 						'nodeids' => $nodeids,
 						'editable' => $options['editable'],
 						'preservekeys' => true,
-						'output' => array('hostid')
+						'output' => API_OUTPUT_SHORTEN
 					);
 					$allowedHosts = API::Host()->get($hostOptions);
 
@@ -265,7 +274,7 @@ class CMap extends CMapElement {
 						'nodeids' => $nodeids,
 						'editable' => $options['editable'],
 						'preservekeys' => true,
-						'output' => array('sysmapid')
+						'output' => API_OUTPUT_SHORTEN
 					);
 					$allowedMaps = $this->get($mapOptions);
 
@@ -286,7 +295,7 @@ class CMap extends CMapElement {
 						'nodeids' => $nodeids,
 						'editable' => $options['editable'],
 						'preservekeys' => true,
-						'output' => array('triggerid')
+						'output' => API_OUTPUT_SHORTEN
 					);
 					$allowedTriggers = API::Trigger()->get($triggeridOptions);
 
@@ -307,7 +316,7 @@ class CMap extends CMapElement {
 						'nodeids' => $nodeids,
 						'editable' => $options['editable'],
 						'preservekeys' => true,
-						'output' => array('groupid')
+						'output' => API_OUTPUT_SHORTEN
 					);
 					$allowedHostGroups = API::HostGroup()->get($hostgroupOptions);
 
@@ -387,7 +396,12 @@ class CMap extends CMapElement {
 				if (!isset($result[$selement['sysmapid']]['selements'])) {
 					$result[$selement['sysmapid']]['selements'] = array();
 				}
-				$result[$selement['sysmapid']]['selements'][] = $selement;
+				if (!is_null($options['preservekeys'])) {
+					$result[$selement['sysmapid']]['selements'][$selement['selementid']] = $selement;
+				}
+				else {
+					$result[$selement['sysmapid']]['selements'][] = $selement;
+				}
 			}
 		}
 
@@ -431,16 +445,24 @@ class CMap extends CMapElement {
 				if (!isset($result[$link['sysmapid']]['links'])) {
 					$result[$link['sysmapid']]['links'] = array();
 				}
-				$result[$link['sysmapid']]['links'][] = $link;
+
+				if (!is_null($options['preservekeys'])) {
+					$result[$link['sysmapid']]['links'][$link['linkid']] = $link;
+				}
+				else {
+					$result[$link['sysmapid']]['links'][] = $link;
+				}
 			}
 		}
 
 		// adding urls
-		$dbUrls = DBselect('SELECT su.* FROM sysmap_url su WHERE '.DBcondition('su.sysmapid', $sysmapids));
-		while ($url = DBfetch($dbUrls)) {
-			$sysmapid = $url['sysmapid'];
-			unset($url['sysmapid']);
-			$result[$sysmapid]['urls'][] = $url;
+		if ($options['output'] != API_OUTPUT_SHORTEN) {
+			$dbUrls = DBselect('SELECT su.* FROM sysmap_url su WHERE '.DBcondition('su.sysmapid', $sysmapids));
+			while ($url = DBfetch($dbUrls)) {
+				$sysmapid = $url['sysmapid'];
+				unset($url['sysmapid']);
+				$result[$sysmapid]['urls'][] = $url;
+			}
 		}
 
 		// removing keys (hash -> array)
@@ -451,14 +473,14 @@ class CMap extends CMapElement {
 		return $result;
 	}
 
-	/**
-	 * Get Sysmap IDs by Sysmap params
-	 *
-	 * @param array $sysmap_data
-	 * @param array $sysmap_data['name']
-	 * @param array $sysmap_data['sysmapid']
-	 * @return string sysmapid
-	 */
+/**
+ * Get Sysmap IDs by Sysmap params
+ *
+ * @param array $sysmap_data
+ * @param array $sysmap_data['name']
+ * @param array $sysmap_data['sysmapid']
+ * @return string sysmapid
+ */
 	public function getObjects($sysmapData) {
 		$options = array(
 			'filter' => $sysmapData,
@@ -480,7 +502,7 @@ class CMap extends CMapElement {
 
 		$options = array(
 			'filter' => zbx_array_mintersect($keyFields, $object),
-			'output' => array('sysmapid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => 1,
 			'limit' => 1
 		);
@@ -649,22 +671,22 @@ class CMap extends CMapElement {
 		return ($update || $delete) ? $dbMaps : true;
 	}
 
-	/**
-	 * Add Map
-	 *
-	 * @param array $maps
-	 * @param string $maps['name']
-	 * @param array $maps['width']
-	 * @param int $maps['height']
-	 * @param string $maps['backgroundid']
-	 * @param string $maps['highlight']
-	 * @param array $maps['label_type']
-	 * @param int $maps['label_location']
-	 * @param int $maps['grid_size'] size of a one grid cell. 100 refers to 100x100 and so on.
-	 * @param int $maps['grid_show'] does grid need to be shown. Constants: SYSMAP_GRID_SHOW_ON / SYSMAP_GRID_SHOW_OFF
-	 * @param int $maps['grid_align'] does elements need to be aligned to the grid. Constants: SYSMAP_GRID_ALIGN_ON / SYSMAP_GRID_ALIGN_OFF
-	 * @return boolean | array
-	 */
+/**
+ * Add Map
+ *
+ * @param _array $maps
+ * @param string $maps['name']
+ * @param array $maps['width']
+ * @param int $maps['height']
+ * @param string $maps['backgroundid']
+ * @param string $maps['highlight']
+ * @param array $maps['label_type']
+ * @param int $maps['label_location']
+ * @param int $maps['grid_size'] size of a one grid cell. 100 refers to 100x100 and so on.
+ * @param int $maps['grid_show'] does grid need to be shown. Constants: SYSMAP_GRID_SHOW_ON / SYSMAP_GRID_SHOW_OFF
+ * @param int $maps['grid_align'] does elements need to be aligned to the grid. Constants: SYSMAP_GRID_ALIGN_ON / SYSMAP_GRID_ALIGN_OFF
+ * @return boolean | array
+ */
 	public function create($maps) {
 		$maps = zbx_toArray($maps);
 
@@ -731,22 +753,22 @@ class CMap extends CMapElement {
 		return array('sysmapids' => $sysmapids);
 	}
 
-	/**
-	 * Update Map
-	 *
-	 * @param array $maps multidimensional array with Hosts data
-	 * @param string $maps['sysmapid']
-	 * @param string $maps['name']
-	 * @param array $maps['width']
-	 * @param int $maps['height']
-	 * @param string $maps['backgroundid']
-	 * @param array $maps['label_type']
-	 * @param int $maps['label_location']
-	 * @param int $maps['grid_size'] size of a one grid cell. 100 refers to 100x100 and so on.
-	 * @param int $maps['grid_show'] does grid need to be shown. Constants: SYSMAP_GRID_SHOW_ON / SYSMAP_GRID_SHOW_OFF
-	 * @param int $maps['grid_align'] does elements need to be aligned to the grid. Constants: SYSMAP_GRID_ALIGN_ON / SYSMAP_GRID_ALIGN_OFF
-	 * @return boolean
-	 */
+/**
+ * Update Map
+ *
+ * @param array $maps multidimensional array with Hosts data
+ * @param string $maps['sysmapid']
+ * @param string $maps['name']
+ * @param array $maps['width']
+ * @param int $maps['height']
+ * @param string $maps['backgroundid']
+ * @param array $maps['label_type']
+ * @param int $maps['label_location']
+ * @param int $maps['grid_size'] size of a one grid cell. 100 refers to 100x100 and so on.
+ * @param int $maps['grid_show'] does grid need to be shown. Constants: SYSMAP_GRID_SHOW_ON / SYSMAP_GRID_SHOW_OFF
+ * @param int $maps['grid_align'] does elements need to be aligned to the grid. Constants: SYSMAP_GRID_ALIGN_ON / SYSMAP_GRID_ALIGN_OFF
+ * @return boolean
+ */
 	public function update($maps) {
 		$maps = zbx_toArray($maps);
 		$sysmapids = zbx_objectValues($maps, 'sysmapid');
@@ -914,13 +936,13 @@ class CMap extends CMapElement {
 	}
 
 
-	/**
-	 * Delete Map
-	 *
-	 * @param array $sysmaps
-	 * @param array $sysmaps['sysmapid']
-	 * @return boolean
-	 */
+/**
+ * Delete Map
+ *
+ * @param array $sysmaps
+ * @param array $sysmaps['sysmapid']
+ * @return boolean
+ */
 	public function delete($sysmapids) {
 
 		$maps = zbx_toObject($sysmapids, 'sysmapid');
@@ -972,6 +994,7 @@ class CMap extends CMapElement {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'sysmapids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'countOutput' => true
 		));
 
@@ -988,6 +1011,7 @@ class CMap extends CMapElement {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'sysmapids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'editable' => true,
 			'countOutput' => true
 		));
@@ -1004,3 +1028,4 @@ class CMap extends CMapElement {
 		return $sqlParts;
 	}
 }
+?>

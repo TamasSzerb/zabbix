@@ -88,10 +88,7 @@ class CTemplateScreen extends CScreen {
 		$options = zbx_array_merge($defOptions, $options);
 
 		if (is_array($options['output'])) {
-			// templateid must be selected for counting to work
-			$sqlParts['select'] = array(
-				'templateid' => 's.templateid'
-			);
+			unset($sqlParts['select']['screens']);
 
 			$dbTable = DB::getSchema('screens');
 			foreach ($options['output'] as $field) {
@@ -131,7 +128,7 @@ class CTemplateScreen extends CScreen {
 			}
 			else {
 				// TODO: get screen
-				$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ;
+				$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ_ONLY;
 
 				$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
 				$sqlParts['from']['rights'] = 'rights r';
@@ -148,7 +145,7 @@ class CTemplateScreen extends CScreen {
 						' AND rr.id=hgg.groupid'.
 						' AND rr.groupid=gg.usrgrpid'.
 						' AND gg.userid='.self::$userData['userid'].
-						' AND rr.permission='.PERM_DENY.')';
+						' AND rr.permission<'.$permission.')';
 			}
 		}
 
@@ -304,22 +301,30 @@ class CTemplateScreen extends CScreen {
 			else {
 				$screenids[$screen['screenid']] = $screen['screenid'];
 
-				if (!isset($result[$screen['screenid']])) {
-					$result[$screen['screenid']] = array();
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$screen['screenid']] = array(
+						'screenid' => $screen['screenid'],
+						'templateid' => $screen['templateid']
+					);
 				}
+				else {
+					if (!isset($result[$screen['screenid']])) {
+						$result[$screen['screenid']] = array();
+					}
 
-				if (!is_null($options['selectScreenItems']) && !isset($result[$screen['screenid']]['screenitems'])) {
-					$result[$screen['screenid']]['screenitems'] = array();
-				}
-
-				if (isset($screen['screenitemid']) && is_null($options['selectScreenItems'])) {
-					if (!isset($result[$screen['screenid']]['screenitems'])) {
+					if (!is_null($options['selectScreenItems']) && !isset($result[$screen['screenid']]['screenitems'])) {
 						$result[$screen['screenid']]['screenitems'] = array();
 					}
-					$result[$screen['screenid']]['screenitems'][] = array('screenitemid' => $screen['screenitemid']);
-					unset($screen['screenitemid']);
+
+					if (isset($screen['screenitemid']) && is_null($options['selectScreenItems'])) {
+						if (!isset($result[$screen['screenid']]['screenitems'])) {
+							$result[$screen['screenid']]['screenitems'] = array();
+						}
+						$result[$screen['screenid']]['screenitems'][] = array('screenitemid' => $screen['screenitemid']);
+						unset($screen['screenitemid']);
+					}
+					$result[$screen['screenid']] += $screen;
 				}
-				$result[$screen['screenid']] += $screen;
 			}
 		}
 
@@ -480,7 +485,7 @@ class CTemplateScreen extends CScreen {
 		$options = array(
 			'filter' => zbx_array_mintersect($keyFields, $data),
 			'preservekeys' => true,
-			'output' => array('screenid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => true,
 			'limit' => 1
 		);
@@ -754,7 +759,7 @@ class CTemplateScreen extends CScreen {
 					),
 					'preservekeys' => true,
 					'nopermissions' => true,
-					'output' => array('screenid')
+					'output' => API_OUTPUT_SHORTEN
 				));
 				$existScreen = reset($existScreens);
 
@@ -835,6 +840,7 @@ class CTemplateScreen extends CScreen {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'screenids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'countOutput' => true
 		));
 
@@ -858,6 +864,7 @@ class CTemplateScreen extends CScreen {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'screenids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'editable' => true,
 			'countOutput' => true
 		));

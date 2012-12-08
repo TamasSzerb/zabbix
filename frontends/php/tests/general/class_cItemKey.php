@@ -17,7 +17,9 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
+require_once 'PHPUnit/Framework.php';
 
 require_once dirname(__FILE__).'/../../include/func.inc.php';
 require_once dirname(__FILE__).'/../../api/classes/CItemKey.php';
@@ -616,3 +618,4 @@ class class_cItemKey extends PHPUnit_Framework_TestCase {
 		}
 	}
 }
+?>

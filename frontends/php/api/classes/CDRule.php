@@ -113,8 +113,10 @@ class CDRule extends CZBXAPI {
 // dhostids
 		if (!is_null($options['dhostids'])) {
 			zbx_value2array($options['dhostids']);
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['dhostid'] = 'dh.dhostid';
+			}
 
-			$sqlParts['select']['dhostid'] = 'dh.dhostid';
 			$sqlParts['from']['dhosts'] = 'dhosts dh';
 			$sqlParts['where']['dhostid'] = DBcondition('dh.dhostid', $options['dhostids']);
 			$sqlParts['where']['dhdr'] = 'dh.druleid=dr.druleid';
@@ -132,8 +134,10 @@ class CDRule extends CZBXAPI {
 // dserviceids
 		if (!is_null($options['dserviceids'])) {
 			zbx_value2array($options['dserviceids']);
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['dserviceid'] = 'ds.dserviceid';
+			}
 
-			$sqlParts['select']['dserviceid'] = 'ds.dserviceid';
 			$sqlParts['from']['dhosts'] = 'dhosts dh';
 			$sqlParts['from']['dservices'] = 'dservices ds';
 
@@ -156,6 +160,24 @@ class CDRule extends CZBXAPI {
 		if (!$nodeCheck) {
 			$nodeCheck = true;
 			$sqlParts['where'][] = DBin_node('dr.druleid', $nodeids);
+		}
+
+// output
+		if ($options['output'] == API_OUTPUT_EXTEND) {
+			$sqlParts['select']['drules'] = 'dr.*';
+		}
+
+// countOutput
+		if (!is_null($options['countOutput'])) {
+			$options['sortfield'] = '';
+			$sqlParts['select'] = array('count(DISTINCT dr.druleid) as rowscount');
+
+//groupCount
+			if (!is_null($options['groupCount'])) {
+				foreach ($sqlParts['group'] as $key => $fields) {
+					$sqlParts['select'][$key] = $fields;
+				}
+			}
 		}
 
 // search
@@ -181,9 +203,6 @@ class CDRule extends CZBXAPI {
 			$sqlParts['limit'] = $options['limit'];
 		}
 //------------
-
-		// output
-		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 
 		$druleids = array();
 
@@ -219,53 +238,57 @@ class CDRule extends CZBXAPI {
 					$result = $drule['rowscount'];
 			}
 			else{
-				$druleids[$drule['druleid']] = $drule['druleid'];
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$drule['druleid']] = array('druleid' => $drule['druleid']);
+				}
+				else{
+					$druleids[$drule['druleid']] = $drule['druleid'];
 
-				if (!is_null($options['selectDHosts']) && !isset($result[$drule['druleid']]['dhosts'])) {
-					$result[$drule['druleid']]['dhosts'] = array();
-				}
-				if (!is_null($options['selectDChecks']) && !isset($result[$drule['druleid']]['dchecks'])) {
-					$result[$drule['druleid']]['dchecks'] = array();
-				}
-				if (!is_null($options['selectDServices']) && !isset($result[$drule['druleid']]['dservices'])) {
-					$result[$drule['druleid']]['dservices'] = array();
-				}
-
-				// dhostids
-				if (isset($drule['dhostid']) && is_null($options['selectDHosts'])) {
-					if (!isset($result[$drule['druleid']]['dhosts']))
+					if (!is_null($options['selectDHosts']) && !isset($result[$drule['druleid']]['dhosts'])) {
 						$result[$drule['druleid']]['dhosts'] = array();
-
-					$result[$drule['druleid']]['dhosts'][] = array('dhostid' => $drule['dhostid']);
-					unset($drule['dhostid']);
-				}
-
-				// dchecks
-				if (isset($drule['dcheckid']) && is_null($options['selectDChecks'])) {
-					if (!isset($result[$drule['druleid']]['dchecks']))
+					}
+					if (!is_null($options['selectDChecks']) && !isset($result[$drule['druleid']]['dchecks'])) {
 						$result[$drule['druleid']]['dchecks'] = array();
-
-					$result[$drule['druleid']]['dchecks'][] = array('dcheckid' => $drule['dcheckid']);
-					unset($drule['dcheckid']);
-				}
-
-				// dservices
-				if (isset($drule['dserviceid']) && is_null($options['selectDServices'])) {
-					if (!isset($result[$drule['druleid']]['dservices']))
+					}
+					if (!is_null($options['selectDServices']) && !isset($result[$drule['druleid']]['dservices'])) {
 						$result[$drule['druleid']]['dservices'] = array();
+					}
 
-					$result[$drule['druleid']]['dservices'][] = array('dserviceid' => $drule['dserviceid']);
-					unset($drule['dserviceid']);
+// dhostids
+					if (isset($drule['dhostid']) && is_null($options['selectDHosts'])) {
+						if (!isset($result[$drule['druleid']]['dhosts']))
+							$result[$drule['druleid']]['dhosts'] = array();
+
+						$result[$drule['druleid']]['dhosts'][] = array('dhostid' => $drule['dhostid']);
+						unset($drule['dhostid']);
+					}
+// dchecks
+					if (isset($drule['dcheckid']) && is_null($options['selectDChecks'])) {
+						if (!isset($result[$drule['druleid']]['dchecks']))
+							$result[$drule['druleid']]['dchecks'] = array();
+
+						$result[$drule['druleid']]['dchecks'][] = array('dcheckid' => $drule['dcheckid']);
+						unset($drule['dcheckid']);
+					}
+
+// dservices
+					if (isset($drule['dserviceid']) && is_null($options['selectDServices'])) {
+						if (!isset($result[$drule['druleid']]['dservices']))
+							$result[$drule['druleid']]['dservices'] = array();
+
+						$result[$drule['druleid']]['dservices'][] = array('dserviceid' => $drule['dserviceid']);
+						unset($drule['dserviceid']);
+					}
+
+					if (!isset($result[$drule['druleid']]))
+						$result[$drule['druleid']]= array();
+
+					$result[$drule['druleid']] += $drule;
 				}
-
-				if (!isset($result[$drule['druleid']]))
-					$result[$drule['druleid']]= array();
-
-				$result[$drule['druleid']] += $drule;
 			}
 		}
 
-		if (!is_null($options['countOutput'])) {
+		if (($options['output'] != API_OUTPUT_EXTEND) || !is_null($options['countOutput'])) {
 			return $result;
 		}
 
@@ -371,7 +394,7 @@ class CDRule extends CZBXAPI {
 	public function exists(array $object) {
 		$options = array(
 			'filter' => array(),
-			'output' => array('druleid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => 1,
 			'limit' => 1
 		);
@@ -432,7 +455,7 @@ class CDRule extends CZBXAPI {
 		if (!empty($proxies)) {
 			$proxiesDB = API::proxy()->get(array(
 				'proxyids' => $proxies,
-				'output' => array('proxyid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'preservekeys' => true,
 			));
 			foreach ($proxies as $proxy) {
@@ -473,42 +496,18 @@ class CDRule extends CZBXAPI {
 					break;
 			}
 
-			// set default values for snmpv3 fields
+
 			if (!isset($dCheck['snmpv3_securitylevel'])) {
 				$dCheck['snmpv3_securitylevel'] = ITEM_SNMPV3_SECURITYLEVEL_NOAUTHNOPRIV;
 			}
 
 			switch ($dCheck['snmpv3_securitylevel']) {
 				case ITEM_SNMPV3_SECURITYLEVEL_NOAUTHNOPRIV:
-					$dChecks[$dcnum]['snmpv3_authprotocol'] = ITEM_AUTHPROTOCOL_MD5;
-					$dChecks[$dcnum]['snmpv3_privprotocol'] = ITEM_PRIVPROTOCOL_DES;
 					$dChecks[$dcnum]['snmpv3_authpassphrase'] = $dChecks[$dcnum]['snmpv3_privpassphrase'] = '';
 					break;
 				case ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV:
-					$dChecks[$dcnum]['snmpv3_privprotocol'] = ITEM_PRIVPROTOCOL_DES;
 					$dChecks[$dcnum]['snmpv3_privpassphrase'] = '';
 					break;
-			}
-
-			// validate snmpv3 fields
-			if (isset($dCheck['snmpv3_securitylevel']) && $dCheck['snmpv3_securitylevel'] != ITEM_SNMPV3_SECURITYLEVEL_NOAUTHNOPRIV) {
-				// snmpv3 authprotocol
-				if (str_in_array($dCheck['snmpv3_securitylevel'], array(ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV, ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV))) {
-					if (zbx_empty($dCheck['snmpv3_authprotocol'])
-							|| (isset($dCheck['snmpv3_authprotocol'])
-									&& !str_in_array($dCheck['snmpv3_authprotocol'], array(ITEM_AUTHPROTOCOL_MD5, ITEM_AUTHPROTOCOL_SHA)))) {
-						self::exception(ZBX_API_ERROR_PARAMETERS, _s('Incorrect authentication protocol for discovery rule "%1$s".', $dCheck['name']));
-					}
-				}
-
-				// snmpv3 privprotocol
-				if ($dCheck['snmpv3_securitylevel'] == ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV) {
-					if (zbx_empty($dCheck['snmpv3_privprotocol'])
-							|| (isset($dCheck['snmpv3_privprotocol'])
-									&& !str_in_array($dCheck['snmpv3_privprotocol'], array(ITEM_PRIVPROTOCOL_DES, ITEM_PRIVPROTOCOL_AES)))) {
-						self::exception(ZBX_API_ERROR_PARAMETERS, _s('Incorrect privacy protocol for discovery rule "%1$s".', $dCheck['name']));
-					}
-				}
 			}
 
 			$this->validateDuplicateChecks($dChecks);
@@ -517,6 +516,8 @@ class CDRule extends CZBXAPI {
 		if ($uniq > 1) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Only one check can be unique.'));
 		}
+
+
 	}
 
 	protected function validateRequiredFields($dRules, $on) {
@@ -795,6 +796,7 @@ class CDRule extends CZBXAPI {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'druleids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'countOutput' => true
 		));
 
@@ -817,6 +819,7 @@ class CDRule extends CZBXAPI {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'druleids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'editable' => true,
 			'countOutput' => true
 		));

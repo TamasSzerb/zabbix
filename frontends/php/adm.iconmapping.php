@@ -64,7 +64,8 @@ if (isset($_REQUEST['save'])) {
 		: array();
 
 	$i = 0;
-	foreach ($_REQUEST['iconmap']['mappings'] as &$mapping) {
+	foreach ($_REQUEST['iconmap']['mappings'] as $iconmappingid => &$mapping) {
+		$mapping['iconmappingid'] = $iconmappingid;
 		$mapping['sortorder'] = $i++;
 	}
 	unset($mapping);

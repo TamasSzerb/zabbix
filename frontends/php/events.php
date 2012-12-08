@@ -53,7 +53,7 @@ else {
 require_once dirname(__FILE__).'/include/page_header.php';
 
 
-$allow_discovery = check_right_on_discovery(PERM_READ);
+$allow_discovery = check_right_on_discovery(PERM_READ_ONLY);
 
 $allowed_sources[] = EVENT_SOURCE_TRIGGERS;
 if ($allow_discovery) {
@@ -432,7 +432,7 @@ else {
 			'source' => EVENT_SOURCE_DISCOVERY,
 			'time_from' => $from,
 			'time_till' => $till,
-			'output' => array('eventid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'sortfield' => 'eventid',
 			'sortorder' => ZBX_SORT_DOWN,
 			'limit' => ($config['search_limit'] + 1)
@@ -591,7 +591,7 @@ else {
 				),
 				'time_from' => $from,
 				'time_till' => $till,
-				'output' => array('eventid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'sortfield' => 'eventid',
 				'sortorder' => ZBX_SORT_DOWN,
 				'limit' => ($config['search_limit'] + 1)
@@ -604,7 +604,7 @@ else {
 			// trigger options
 			$trigOpt = array(
 				'nodeids' => get_current_nodeid(),
-				'output' => array('triggerid')
+				'output' => API_OUTPUT_SHORTEN
 			);
 
 			if (isset($_REQUEST['triggerid']) && ($_REQUEST['triggerid'] > 0)) {

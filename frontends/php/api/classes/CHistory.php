@@ -147,7 +147,9 @@ class CHistory extends CZBXAPI {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
-			$sqlParts['select']['hostid'] = 'i.hostid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['hostid'] = 'i.hostid';
+			}
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where']['i'] = DBcondition('i.hostid', $options['hostids']);
 			$sqlParts['where']['hi'] = 'h.itemid=i.itemid';
@@ -261,36 +263,41 @@ class CHistory extends CZBXAPI {
 			else {
 				$itemids[$data['itemid']] = $data['itemid'];
 
-				$result[$count] = array();
-
-				// hostids
-				if (isset($data['hostid'])) {
-					if (!isset($result[$count]['hosts'])) {
-						$result[$count]['hosts'] = array();
-					}
-					$result[$count]['hosts'][] = array('hostid' => $data['hostid']);
-					unset($data['hostid']);
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$count] = array('itemid' => $data['itemid']);
 				}
+				else {
+					$result[$count] = array();
 
-				// triggerids
-				if (isset($data['triggerid'])) {
-					if (!isset($result[$count]['triggers'])) {
-						$result[$count]['triggers'] = array();
+					// hostids
+					if (isset($data['hostid'])) {
+						if (!isset($result[$count]['hosts'])) {
+							$result[$count]['hosts'] = array();
+						}
+						$result[$count]['hosts'][] = array('hostid' => $data['hostid']);
+						unset($data['hostid']);
 					}
-					$result[$count]['triggers'][] = array('triggerid' => $data['triggerid']);
-					unset($data['triggerid']);
-				}
-				$result[$count] += $data;
 
-				// grouping
-				if ($groupOutput) {
-					$dataid = $data[$options['groupOutput']];
-					if (!isset($group[$dataid])) {
-						$group[$dataid] = array();
+					// triggerids
+					if (isset($data['triggerid'])) {
+						if (!isset($result[$count]['triggers'])) {
+							$result[$count]['triggers'] = array();
+						}
+						$result[$count]['triggers'][] = array('triggerid' => $data['triggerid']);
+						unset($data['triggerid']);
 					}
-					$group[$dataid][] = $result[$count];
+					$result[$count] += $data;
+
+					// grouping
+					if ($groupOutput) {
+						$dataid = $data[$options['groupOutput']];
+						if (!isset($group[$dataid])) {
+							$group[$dataid] = array();
+						}
+						$group[$dataid][] = $result[$count];
+					}
+					$count++;
 				}
-				$count++;
 			}
 		}
 

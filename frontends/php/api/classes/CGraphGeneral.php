@@ -43,7 +43,6 @@ abstract class CGraphGeneral extends CZBXAPI {
 	 * @return true
 	 */
 	protected function checkInput($graphs, $update = false) {
-		$colorValidator = new CColorValidator();
 		if ($update){
 			$graphs = $this->extendObjects($this->tableName(), $graphs, array('name'));
 		}
@@ -68,8 +67,8 @@ abstract class CGraphGeneral extends CZBXAPI {
 			// items fields
 			foreach ($graph['gitems'] as $gitem) {
 				// check color
-				if (!$colorValidator->validate($gitem['color'])) {
-					self::exception(ZBX_API_ERROR_PARAMETERS, $colorValidator->getError());
+				if (!preg_match('/^[A-F0-9]{6}$/i', $gitem['color'])) {
+					self::exception(ZBX_API_ERROR_PARAMETERS, _s('Incorrect colour "%1$s".', $gitem['color']));
 				}
 			}
 
@@ -100,7 +99,7 @@ abstract class CGraphGeneral extends CZBXAPI {
 			// check if the host has any graphs in DB with the same name within host
 			$hostsAndTemplates = API::Host()->get(array(
 				'itemids' => zbx_objectValues($graph['gitems'], 'itemid'),
-				'output' => array('hostid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'nopermissions' => true,
 				'preservekeys' => true,
 				'templated_hosts' => true
@@ -109,7 +108,7 @@ abstract class CGraphGeneral extends CZBXAPI {
 			$hostAndTemplateIds = array_keys($hostsAndTemplates);
 			$graphsExists = API::Graph()->get(array(
 				'hostids' => $hostAndTemplateIds,
-				'output' => array('graphid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'filter' => array('name' => $graph['name'], 'flags' => null), // 'flags' => null overrides default behaviour
 				'nopermissions' => true,
 				'preservekeys' => true, // faster
@@ -325,7 +324,7 @@ abstract class CGraphGeneral extends CZBXAPI {
 	public function exists($object) {
 		$options = array(
 			'filter' => array('flags' => null),
-			'output' => array('graphid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => true,
 			'limit' => 1
 		);
@@ -385,7 +384,7 @@ abstract class CGraphGeneral extends CZBXAPI {
 		if (!empty($axisItems)) {
 			$options = array(
 				'itemids' => $axisItems,
-				'output' => array('itemid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'countOutput' => true,
 				'filter' => array('flags' => null)
 			);

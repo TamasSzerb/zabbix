@@ -37,12 +37,12 @@
 					<td><input type="text" id="key_" name="key_" value="" class="input text" size="20" maxlength="255"></td>
 				</tr>
 				<tr id="newCheckSecNameRow" class="hidden">
-					<td><label for="snmpv3_securityname"><?php echo _('Security name'); ?></label></td>
+					<td><label for="snmpv3_securityname"><?php echo _('SNMPv3 security name'); ?></label></td>
 					<td><input type="text" id="snmpv3_securityname" name="snmpv3_securityname" value=""
 							class="input text" size="20" maxlength="64"></td>
 				</tr>
 				<tr id="newCheckSecLevRow" class="hidden">
-					<td><label for="snmpv3_securitylevel"><?php echo _('Security level'); ?></label></td>
+					<td><label for="snmpv3_securitylevel"><?php echo _('SNMPv3 security level'); ?></label></td>
 					<td>
 						<select id="snmpv3_securitylevel" name="snmpv3_securitylevel" class="input select" size="1">
 							<option value="0"><?php echo 'noAuthNoPriv'; ?> </option>
@@ -51,33 +51,13 @@
 						</select>
 					</td>
 				</tr>
-				<tr id="newCheckAuthProtocolRow" class="hidden">
-					<td><label for="snmpv3_authprotocol"><?php echo _('Authentication protocol'); ?></label></td>
-					<td>
-						<div class="jqueryinputset">
-							<input name="snmpv3_authprotocol" value="<?php echo ITEM_AUTHPROTOCOL_MD5; ?>" id="snmpv3_authprotocol_0" type="radio" checked="checked">
-							<input name="snmpv3_authprotocol" value="<?php echo ITEM_AUTHPROTOCOL_SHA; ?>" id="snmpv3_authprotocol_1" type="radio">
-							<label for="snmpv3_authprotocol_0"><?php echo _('MD5'); ?></label><label for="snmpv3_authprotocol_1"><?php echo _('SHA'); ?></label>
-						</div>
-					</td>
-				</tr>
 				<tr id="newCheckAuthPassRow" class="hidden">
-					<td><label for="snmpv3_authpassphrase"><?php echo _('Authentication passphrase'); ?></label></td>
+					<td><label for="snmpv3_authpassphrase"><?php echo _('SNMPv3 auth passphrase'); ?></label></td>
 					<td><input type="text" id="snmpv3_authpassphrase" name="snmpv3_authpassphrase" value=""
 							class="input text" size="20" maxlength="64"></td>
 				</tr>
-				<tr id="newCheckPrivProtocolRow" class="hidden">
-					<td><label for="snmpv3_authprotocol"><?php echo _('Authentication protocol'); ?></label></td>
-					<td>
-						<div class="jqueryinputset">
-							<input name="snmpv3_privprotocol" value="<?php echo ITEM_PRIVPROTOCOL_DES; ?>" id="snmpv3_privprotocol_0" type="radio" checked="checked">
-							<input name="snmpv3_privprotocol" value="<?php echo ITEM_PRIVPROTOCOL_AES; ?>" id="snmpv3_privprotocol_1" type="radio">
-							<label for="snmpv3_privprotocol_0"><?php echo _('DES'); ?></label><label for="snmpv3_privprotocol_1"><?php echo _('AES'); ?></label>
-						</div>
-					</td>
-				</tr>
 				<tr id="newCheckPrivPassRow" class="hidden">
-					<td><label for="snmpv3_privpassphrase"><?php echo _('Privacy passphrase'); ?></label></td>
+					<td><label for="snmpv3_privpassphrase"><?php echo _('SNMPv3 priv passphrase'); ?></label></td>
 					<td><input type="text" id="snmpv3_privpassphrase" name="snmpv3_privpassphrase" value=""
 							class="input text" size="20" maxlength="64"></td>
 				</tr>
@@ -245,8 +225,8 @@
 		ComRowTypes[ZBX_SVC.snmpv1] = true;
 		ComRowTypes[ZBX_SVC.snmpv2] = true;
 
-		var secNameRowTypes = {};
-		secNameRowTypes[ZBX_SVC.snmpv3] = true;
+		var SecNameRowTypes = {};
+		SecNameRowTypes[ZBX_SVC.snmpv3] = true;
 
 		toggleInputs('newCheckPortsRow', (ZBX_SVC.icmp != dcheckType));
 		toggleInputs('newCheckKeyRow', isset(dcheckType, keyRowTypes));
@@ -256,8 +236,8 @@
 			jQuery('#newCheckKeyRow label').text(caption);
 		}
 		toggleInputs('newCheckCommunityRow', isset(dcheckType, ComRowTypes));
-		toggleInputs('newCheckSecNameRow', isset(dcheckType, secNameRowTypes));
-		toggleInputs('newCheckSecLevRow', isset(dcheckType, secNameRowTypes));
+		toggleInputs('newCheckSecNameRow', isset(dcheckType, SecNameRowTypes));
+		toggleInputs('newCheckSecLevRow', isset(dcheckType, SecNameRowTypes));
 
 		if (ZBX_SVC.icmp != dcheckType) {
 			jQuery('#ports').val(discoveryCheckDefaultPort(dcheckType));
@@ -269,31 +249,17 @@
 		var dcheckType = parseInt(jQuery('#type').val(), 10);
 		var dcheckSecLevType = parseInt(jQuery('#snmpv3_securitylevel').val(), 10);
 
-		var secNameRowTypes = {};
-		secNameRowTypes[ZBX_SVC.snmpv3] = true;
+		var SecNameRowTypes = {};
+		SecNameRowTypes[ZBX_SVC.snmpv3] = true;
 
-		var showAuthProtocol = (isset(dcheckType, secNameRowTypes)
+		var showAuthPass = (isset(dcheckType, SecNameRowTypes)
 			&& (dcheckSecLevType == <?php echo ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV; ?>
 				|| dcheckSecLevType == <?php echo ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV; ?>));
-		var showAuthPass = (isset(dcheckType, secNameRowTypes)
-			&& (dcheckSecLevType == <?php echo ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV; ?>
-				|| dcheckSecLevType == <?php echo ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV; ?>));
-		var showPrivProtocol = (isset(dcheckType, secNameRowTypes)
-			&& dcheckSecLevType == <?php echo ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV; ?>);
-		var showPrivPass = (isset(dcheckType, secNameRowTypes)
+		var showPrivPass = (isset(dcheckType, SecNameRowTypes)
 			&& dcheckSecLevType == <?php echo ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV; ?>);
 
-		toggleInputs('newCheckAuthProtocolRow', showAuthProtocol);
 		toggleInputs('newCheckAuthPassRow', showAuthPass);
-		toggleInputs('newCheckPrivProtocolRow', showPrivProtocol);
 		toggleInputs('newCheckPrivPassRow', showPrivPass);
-
-		if (showAuthProtocol) {
-			jQuery('#newCheckAuthProtocolRow .jqueryinputset').buttonset();
-		}
-		if (showPrivProtocol) {
-			jQuery('#newCheckPrivProtocolRow .jqueryinputset').buttonset();
-		}
 	}
 
 	function saveNewDCheckForm(e) {
@@ -309,12 +275,8 @@
 					&& (typeof dCheck['ports'] == 'undefined' || ZBX_CHECKLIST[dcheckid]['ports'] === dCheck['ports'])
 					&& (typeof dCheck['snmp_community'] == 'undefined'
 						|| ZBX_CHECKLIST[dcheckid]['snmp_community'] === dCheck['snmp_community'])
-					&& (typeof dCheck['snmpv3_authprotocol'] == 'undefined'
-						|| ZBX_CHECKLIST[dcheckid]['snmpv3_authprotocol'] === dCheck['snmpv3_authprotocol'])
 					&& (typeof dCheck['snmpv3_authpassphrase'] == 'undefined'
 						|| ZBX_CHECKLIST[dcheckid]['snmpv3_authpassphrase'] === dCheck['snmpv3_authpassphrase'])
-					&& (typeof dCheck['snmpv3_privprotocol'] == 'undefined'
-						|| ZBX_CHECKLIST[dcheckid]['snmpv3_privprotocol'] === dCheck['snmpv3_privprotocol'])
 					&& (typeof dCheck['snmpv3_privpassphrase'] == 'undefined'
 						|| ZBX_CHECKLIST[dcheckid]['snmpv3_privpassphrase'] === dCheck['snmpv3_privpassphrase'])
 					&& (typeof dCheck['snmpv3_securitylevel'] == 'undefined'
@@ -407,6 +369,8 @@
 	jQuery(document).ready(function() {
 		addPopupValues(<?php echo zbx_jsvalue(array_values($this->data['drule']['dchecks'])); ?>);
 		jQuery("input:radio[name='uniqueness_criteria'][value=<?php echo zbx_jsvalue($this->data['drule']['uniqueness_criteria']); ?>]").attr('checked', 'checked');
+
+		setTimeout(function(){ jQuery('#name').focus() }, 10);
 
 		jQuery('#newCheck').click(showNewCheckForm);
 		jQuery('#clone').click(function() {

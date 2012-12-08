@@ -59,6 +59,7 @@ class CItemPrototype extends CItemGeneral {
 			'discoveryids'				=> null,
 			'graphids'					=> null,
 			'triggerids'				=> null,
+			'webitems'					=> null,
 			'inherited'					=> null,
 			'templated'					=> null,
 			'monitored'					=> null,
@@ -104,7 +105,7 @@ class CItemPrototype extends CItemGeneral {
 		if ((USER_TYPE_SUPER_ADMIN == $userType) || $options['nopermissions']) {
 		}
 		else{
-			$permission = $options['editable']?PERM_READ_WRITE:PERM_READ;
+			$permission = $options['editable']?PERM_READ_WRITE:PERM_READ_ONLY;
 
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
 			$sqlParts['from']['rights'] = 'rights r';
@@ -121,7 +122,7 @@ class CItemPrototype extends CItemGeneral {
 									' AND rr.id=hgg.groupid '.
 									' AND rr.groupid=gg.usrgrpid '.
 									' AND gg.userid='.$userid.
-									' AND rr.permission='.PERM_DENY.')';
+									' AND rr.permission<'.$permission.')';
 		}
 
 // nodeids
@@ -166,7 +167,10 @@ class CItemPrototype extends CItemGeneral {
 		if (!is_null($options['discoveryids'])) {
 			zbx_value2array($options['discoveryids']);
 
-			$sqlParts['select']['discoveryid'] = 'id.parent_itemid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['discoveryid'] = 'id.parent_itemid';
+			}
+
 			$sqlParts['from']['item_discovery'] = 'item_discovery id';
 			$sqlParts['where'][] = DBcondition('id.parent_itemid', $options['discoveryids']);
 			$sqlParts['where']['idi'] = 'i.itemid=id.itemid';
@@ -180,7 +184,9 @@ class CItemPrototype extends CItemGeneral {
 		if (!is_null($options['triggerids'])) {
 			zbx_value2array($options['triggerids']);
 
-			$sqlParts['select']['triggerid'] = 'f.triggerid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['triggerid'] = 'f.triggerid';
+			}
 			$sqlParts['from']['functions'] = 'functions f';
 			$sqlParts['where'][] = DBcondition('f.triggerid', $options['triggerids']);
 			$sqlParts['where']['if'] = 'i.itemid=f.itemid';
@@ -190,7 +196,9 @@ class CItemPrototype extends CItemGeneral {
 		if (!is_null($options['graphids'])) {
 			zbx_value2array($options['graphids']);
 
-			$sqlParts['select']['graphid'] = 'gi.graphid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['graphid'] = 'gi.graphid';
+			}
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['where'][] = DBcondition('gi.graphid', $options['graphids']);
 			$sqlParts['where']['igi'] = 'i.itemid=gi.itemid';
@@ -313,56 +321,65 @@ class CItemPrototype extends CItemGeneral {
 			else{
 				$itemids[$item['itemid']] = $item['itemid'];
 
-				if (!isset($result[$item['itemid']]))
-					$result[$item['itemid']]= array();
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$item['itemid']] = array('itemid' => $item['itemid']);
+				}
+				else{
+					if (!isset($result[$item['itemid']]))
+						$result[$item['itemid']]= array();
 
-				if (!is_null($options['selectHosts']) && !isset($result[$item['itemid']]['hosts'])) {
-					$result[$item['itemid']]['hosts'] = array();
-				}
-				if (!is_null($options['selectApplications']) && !isset($result[$item['itemid']]['applications'])) {
-					$result[$item['itemid']]['applications'] = array();
-				}
-				if (!is_null($options['selectTriggers']) && !isset($result[$item['itemid']]['triggers'])) {
-					$result[$item['itemid']]['triggers'] = array();
-				}
-				if (!is_null($options['selectGraphs']) && !isset($result[$item['itemid']]['graphs'])) {
-					$result[$item['itemid']]['graphs'] = array();
-				}
-
-				// hostids
-				if (isset($item['hostid']) && is_null($options['selectHosts'])) {
-					if (!isset($result[$item['itemid']]['hosts'])) $result[$item['itemid']]['hosts'] = array();
-					$result[$item['itemid']]['hosts'][] = array('hostid' => $item['hostid']);
-				}
-
-				// triggerids
-				if (isset($item['triggerid']) && is_null($options['selectTriggers'])) {
-					if (!isset($result[$item['itemid']]['triggers']))
+					if (!is_null($options['selectHosts']) && !isset($result[$item['itemid']]['hosts'])) {
+						$result[$item['itemid']]['hosts'] = array();
+					}
+					if (!is_null($options['selectApplications']) && !isset($result[$item['itemid']]['applications'])) {
+						$result[$item['itemid']]['applications'] = array();
+					}
+					if (!is_null($options['selectTriggers']) && !isset($result[$item['itemid']]['triggers'])) {
 						$result[$item['itemid']]['triggers'] = array();
-
-					$result[$item['itemid']]['triggers'][] = array('triggerid' => $item['triggerid']);
-					unset($item['triggerid']);
-				}
-
-				// graphids
-				if (isset($item['graphid']) && is_null($options['selectGraphs'])) {
-					if (!isset($result[$item['itemid']]['graphs']))
+					}
+					if (!is_null($options['selectGraphs']) && !isset($result[$item['itemid']]['graphs'])) {
 						$result[$item['itemid']]['graphs'] = array();
+					}
 
-					$result[$item['itemid']]['graphs'][] = array('graphid' => $item['graphid']);
-					unset($item['graphid']);
+// hostids
+					if (isset($item['hostid']) && is_null($options['selectHosts'])) {
+						if (!isset($result[$item['itemid']]['hosts'])) $result[$item['itemid']]['hosts'] = array();
+						$result[$item['itemid']]['hosts'][] = array('hostid' => $item['hostid']);
+					}
+
+// triggerids
+					if (isset($item['triggerid']) && is_null($options['selectTriggers'])) {
+						if (!isset($result[$item['itemid']]['triggers']))
+							$result[$item['itemid']]['triggers'] = array();
+
+						$result[$item['itemid']]['triggers'][] = array('triggerid' => $item['triggerid']);
+						unset($item['triggerid']);
+					}
+// graphids
+					if (isset($item['graphid']) && is_null($options['selectGraphs'])) {
+						if (!isset($result[$item['itemid']]['graphs']))
+							$result[$item['itemid']]['graphs'] = array();
+
+						$result[$item['itemid']]['graphs'][] = array('graphid' => $item['graphid']);
+						unset($item['graphid']);
+					}
+
+					// webitems
+					if (!is_null($options['webitems'])) {
+						unset($sqlParts['where']['webtype']);
+					}
+
+// discoveryids
+					if (isset($item['discoveryids'])) {
+						if (!isset($result[$item['itemid']]['discovery']))
+							$result[$item['itemid']]['discovery'] = array();
+
+						$result[$item['itemid']]['discovery'][] = array('ruleid' => $item['item_parentid']);
+						unset($item['item_parentid']);
+					}
+
+					$result[$item['itemid']] += $item;
 				}
-
-				// discoveryids
-				if (isset($item['discoveryids'])) {
-					if (!isset($result[$item['itemid']]['discovery']))
-						$result[$item['itemid']]['discovery'] = array();
-
-					$result[$item['itemid']]['discovery'][] = array('ruleid' => $item['item_parentid']);
-					unset($item['item_parentid']);
-				}
-
-				$result[$item['itemid']] += $item;
 			}
 		}
 
@@ -531,7 +548,7 @@ class CItemPrototype extends CItemGeneral {
 	public function exists($object) {
 		$options = array(
 			'filter' => array('key_' => $object['key_']),
-			'output' => array('itemid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => 1,
 			'limit' => 1
 		);
@@ -703,7 +720,6 @@ class CItemPrototype extends CItemGeneral {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Empty input parameter.'));
 		}
 
-		$delItemPrototypeIds = zbx_toArray($prototypeids);
 		$prototypeids = zbx_toHash($prototypeids);
 
 		$options = array(
@@ -754,7 +770,7 @@ class CItemPrototype extends CItemGeneral {
 		// delete graphs with this item prototype
 		$delGraphPrototypes = API::GraphPrototype()->get(array(
 			'itemids' => $prototypeids,
-			'output' => array('graphid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => true,
 			'preservekeys' => true
 		));
@@ -786,7 +802,7 @@ class CItemPrototype extends CItemGeneral {
 // TRIGGER PROTOTYPES
 		$delTriggerPrototypes = API::TriggerPrototype()->get(array(
 			'itemids' => $prototypeids,
-			'output' => array('triggerid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => true,
 			'preservekeys' => true,
 		));
@@ -808,7 +824,7 @@ class CItemPrototype extends CItemGeneral {
 			info(_s('Deleted: Item prototype "%1$s" on "%2$s".', $item['name'], $host['name']));
 		}
 
-		return array('prototypeids' => $delItemPrototypeIds);
+		return array('prototypeids' => $prototypeids);
 	}
 
 	public function syncTemplates($data) {

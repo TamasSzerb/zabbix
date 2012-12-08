@@ -49,12 +49,13 @@ $fields = array(
 	'active_till' =>			array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	'isset({save})'),
 	'new_timeperiod' =>			array(T_ZBX_STR, O_OPT, null,	null,		'isset({add_timeperiod})'),
 	'timeperiods' =>			array(T_ZBX_STR, O_OPT, null,	null,		null),
-	'del_timeperiodid' =>		array(null,      O_OPT, P_ACT,	DB_ID,		null),
-	'edit_timeperiodid' =>		array(null,      O_OPT, P_ACT,	DB_ID,		null),
+	'g_timeperiodid' =>			array(null,		 O_OPT, null,	null,		null),
+	'edit_timeperiodid' =>		array(null,		 O_OPT, P_ACT,	DB_ID,		null),
 	'twb_groupid' =>			array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
 	// actions
 	'go' =>						array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'add_timeperiod' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
+	'del_timeperiod' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'cancel_new_timeperiod' =>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'save' =>					array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'clone' =>					array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
@@ -108,7 +109,7 @@ elseif (isset($_REQUEST['cancel_new_timeperiod'])) {
 	unset($_REQUEST['new_timeperiod']);
 }
 elseif (isset($_REQUEST['save'])) {
-	if (!count(get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+	if (!count(get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
 		access_deny();
 	}
 
@@ -147,7 +148,7 @@ elseif (isset($_REQUEST['save'])) {
 	show_messages($result, $msg1, $msg2);
 }
 elseif (isset($_REQUEST['delete']) || $_REQUEST['go'] == 'delete') {
-	if (!count(get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+	if (!count(get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
 		access_deny();
 	}
 
@@ -280,11 +281,11 @@ elseif (isset($_REQUEST['add_timeperiod']) && isset($_REQUEST['new_timeperiod'])
 		unset($_REQUEST['new_timeperiod']);
 	}
 }
-elseif (isset($_REQUEST['del_timeperiodid'])) {
+elseif (isset($_REQUEST['del_timeperiod']) && isset($_REQUEST['g_timeperiodid'])) {
 	$_REQUEST['timeperiods'] = get_request('timeperiods', array());
-	$delTimeperiodId = array_keys($_REQUEST['del_timeperiodid']);
-	$delTimeperiodId = reset($delTimeperiodId);
-	unset($_REQUEST['timeperiods'][$delTimeperiodId]);
+	foreach ($_REQUEST['g_timeperiodid'] as $val) {
+		unset($_REQUEST['timeperiods'][$val]);
+	}
 }
 elseif (isset($_REQUEST['edit_timeperiodid'])) {
 	$_REQUEST['edit_timeperiodid'] = array_keys($_REQUEST['edit_timeperiodid']);
@@ -335,7 +336,7 @@ if (!empty($data['form'])) {
 		$options = array(
 			'maintenanceids' => $data['maintenanceid'],
 			'real_hosts' => true,
-			'output' => array('hostid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'editable' => true
 		);
 		$data['hostids'] = API::Host()->get($options);
@@ -345,7 +346,7 @@ if (!empty($data['form'])) {
 		$options = array(
 			'maintenanceids' => $data['maintenanceid'],
 			'real_hosts' => true,
-			'output' => array('groupid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'editable' => true
 		);
 		$data['groupids'] = API::HostGroup()->get($options);
@@ -449,3 +450,4 @@ else {
 }
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

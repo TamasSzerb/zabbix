@@ -17,7 +17,9 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
+require_once 'PHPUnit/Framework.php';
 
 require_once dirname(__FILE__).'/../../include/gettextwrapper.inc.php';
 require_once dirname(__FILE__).'/../../../include/defines.inc.php';
@@ -114,9 +116,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 							'ports' => '10050',
 							'snmpv3_securityname' => '',
 							'snmpv3_securitylevel' => '0',
-							'snmpv3_authprotocol' => '0',
 							'snmpv3_authpassphrase' => '',
-							'snmpv3_privprotocol' => '0',
 							'snmpv3_privpassphrase' => '',
 							'uniq' => '0',
 						),
@@ -578,3 +578,4 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 	}
 
 }
+?>

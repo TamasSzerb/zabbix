@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,39 +15,32 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+class CCol extends CTag{
+	public function __construct($item=NULL,$class=NULL){
+		parent::__construct('td','yes');
 
-
-class CCol extends CTag {
-
-	public function __construct($item = null, $class = null, $colspan = null, $width = null) {
-		parent::__construct('td', 'yes');
 		$this->addItem($item);
-		$this->attr('class', $class);
-		if (!empty($colspan)) {
-			$this->attr('colspan', $colspan);
-		}
-		if (!empty($width)) {
-			$this->attr('width', $width);
-		}
+		$this->setClass($class);
 	}
 
-	public function setAlign($value) {
-		$this->attr('align', strval($value));
+	public function setAlign($value){
+		return $this->attributes['align'] = $value;
 	}
 
-	public function setRowSpan($value) {
-		$this->attr('rowspan', strval($value));
+	public function setRowSpan($value){
+		return $this->attributes['rowspan'] = strval($value);
 	}
 
-	public function setColSpan($value) {
-		$this->attr('colspan', strval($value));
+	public function setColSpan($value){
+		return $this->attributes['colspan'] =strval($value);
 	}
 
-	public function setWidth($value) {
-		if (is_string($value)) {
-			$this->attr('width', $value);
-		}
+	public function setWidth($value){
+		if(is_string($value))$this->setAttribute('width',$value);
 	}
 }
+?>

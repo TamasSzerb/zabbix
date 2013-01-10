@@ -1,37 +1,16 @@
 <?php
-/*
-** Zabbix
-** Copyright (C) 2001-2012 Zabbix SIA
-**
-** This program is free software; you can redistribute it and/or modify
-** it under the terms of the GNU General Public License as published by
-** the Free Software Foundation; either version 2 of the License, or
-** (at your option) any later version.
-**
-** This program is distributed in the hope that it will be useful,
-** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-** GNU General Public License for more details.
-**
-** You should have received a copy of the GNU General Public License
-** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-**/
 
-
-/**
- * @property string $groupid
- * @property string $hostid
- * @property array $groups
- * @property array $hosts
- */
-class CPageFilter {
+class CPageFilter{
 
 	protected $data = array(); // groups, hosts, ...
 	protected $ids = array(); // groupid, hostid, ...
 	protected $isSelected = array(); // hostsSelected, groupsSelected, ...
+
 	protected $config = array();
-	private $_profileIdx = array(); // profiles idx
+
+// profiles idx
+	private $_profileIdx = array();
+
 	private $_profileIds = array();
 	private $_requestIds = array();
 
@@ -39,169 +18,181 @@ class CPageFilter {
 	const HOST_LATEST_IDX = 'web.latest.hostid';
 	const GRAPH_LATEST_IDX = 'web.latest.graphid';
 	const TRIGGER_LATEST_IDX = 'web.latest.triggerid';
-	const DRULE_LATEST_IDX = 'web.latest.druleid';
 
-	public function __get($name) {
-		if (isset($this->data[$name])) {
+	public function __get($name){
+		if(isset($this->data[$name])){
 			return $this->data[$name];
 		}
-		elseif (isset($this->ids[$name])) {
+		else if(isset($this->ids[$name])){
 			return $this->ids[$name];
 		}
-		elseif (isset($this->isSelected[$name])) {
+		else if(isset($this->isSelected[$name])){
 			return $this->isSelected[$name];
 		}
-		else {
-			trigger_error(_s('Try to read inaccessible property "%s".', get_class($this).'->'.$name), E_USER_WARNING);
-			return false;
+		else{
+			trigger_error('Try to read inaccessible property: '.get_class($this).'->'.$name, E_USER_WARNING);
 		}
 	}
 
-	public function __construct($options = array()) {
+	public function __construct($options=array()){
 		global $ZBX_WITH_ALL_NODES;
 
+/*
+options = array(
+	'config' => {'DDFirst': [ allow_all, deny_all], select_latest: [true,false], 'individual': [true,false]},
+	'groups' => [apiget filters],
+	'hosts' => [apiget filters],
+	'graphs' => [apiget filters],
+	'groupid' => groupid,
+	'hostid' => hostid,
+	'graphid' => graphid,
+	'triggerid' => triggerid
+);
+*/
 		$this->config['all_nodes'] = $ZBX_WITH_ALL_NODES;
 		$this->config['select_latest'] = isset($options['config']['select_latest']);
-		$this->config['DDReset'] = get_request('ddreset', null);
-		$this->config['popupDD'] = isset($options['config']['popupDD']);
 
 		$config = select_config();
 
-		// individual remember selections per page (not for menu)
+// Individual remember selections per page (not for menu)
 		$this->config['individual'] = false;
-		if (isset($options['config']['individual']) && !is_null($options['config']['individual'])) {
+		if(isset($options['config']['individual']) && !is_null($options['config']['individual'])){
 			$this->config['individual'] = true;
 		}
 
-		// dropdown
+// DropDown
 		$this->config['DDRemember'] = $config['dropdown_first_remember'];
-		if (isset($options['config']['allow_all'])) {
+		if(isset($options['config']['allow_all'])){
 			$this->config['DDFirst'] = ZBX_DROPDOWN_FIRST_ALL;
 		}
-		elseif (isset($options['config']['deny_all'])) {
+		else if(isset($options['config']['deny_all'])){
 			$this->config['DDFirst'] = ZBX_DROPDOWN_FIRST_NONE;
 		}
-		else {
+		else{
 			$this->config['DDFirst'] = $config['dropdown_first_entry'];
 		}
 
-		// profiles
+// profiles
 		$this->_getProfiles($options);
-		if (!isset($options['groupid'], $options['hostid'])) {
-			if (isset($options['graphid'])) {
+
+
+		if(!isset($options['groupid'], $options['hostid'])){
+			if(isset($options['graphid'])){
 				$this->_updateByGraph($options);
+			}
+			else if(isset($options['triggerid'])){
+				$this->_updateByTrigger($options);
 			}
 		}
 
-		// groups
-		if (isset($options['groups'])) {
-			$this->_initGroups($options['groupid'], $options['groups'], isset($options['hostid']) ? $options['hostid'] : null);
+		if(!isset($options['groupid'])){
+			if(isset($options['hostid'])){
+				$this->_updateByHost($options);
+			}
 		}
 
-		// hosts
-		if (isset($options['hosts'])) {
+// groups
+		if(isset($options['groups'])){
+			if(!isset($options['groupid']) && isset($options['hostid'])){
+				$options['groupid'] = 0;
+			}
+
+			$this->_initGroups($options['groupid'], $options['groups']);
+		}
+
+// hosts
+		if(isset($options['hosts'])){
 			$this->_initHosts($options['hostid'], $options['hosts']);
 		}
 
-		// graphs
-		if (isset($options['graphs'])) {
+// graphs
+		if(isset($options['graphs'])){
 			$this->_initGraphs($options['graphid'], $options['graphs']);
 		}
 
-		// triggers
-		if (isset($options['triggers'])) {
+// triggers
+		if(isset($options['triggers'])){
 			$this->_initTriggers($options['triggerid'], $options['triggers']);
-		}
-
-		// drules
-		if (isset($options['drules'])) {
-			$this->_initDiscoveries($options['druleid'], $options['drules']);
-		}
-
-		if (isset($options['applications'])) {
-			$this->_initApplications($options['application'], $options['applications']);
 		}
 	}
 
-	private function _getProfiles($options) {
+
+	private function _getProfiles($options){
 		global $page;
 
-		$profileSection = $this->config['individual'] ? $page['file'] : $page['menu'];
+		$profileSection = ($this->config['individual']) ? $page['file'] : $page['menu'];
+
 		$this->_profileIdx['groups'] = 'web.'.$profileSection.'.groupid';
 		$this->_profileIdx['hosts'] = 'web.'.$profileSection.'.hostid';
 		$this->_profileIdx['graphs'] = 'web.'.$profileSection.'.graphid';
 		$this->_profileIdx['triggers'] = 'web.'.$profileSection.'.triggerid';
-		$this->_profileIdx['drules'] = 'web.'.$profileSection.'.druleid';
-		$this->_profileIdx['application'] = 'web.'.$profileSection.'.application';
 
-		if ($this->config['select_latest']) {
-			$this->_profileIds['groupid'] = CProfile::get(self::GROUP_LATEST_IDX);
-			$this->_profileIds['hostid'] = CProfile::get(self::HOST_LATEST_IDX);
-			$this->_profileIds['graphid'] = CProfile::get(self::GRAPH_LATEST_IDX);
-			$this->_profileIds['triggerid'] = null;
-			$this->_profileIds['druleid'] = CProfile::get(self::DRULE_LATEST_IDX);
-			$this->_profileIds['application'] = '';
-		}
-		elseif ($this->config['DDReset'] && !$this->config['DDRemember']) {
-			$this->_profileIds['groupid'] = 0;
-			$this->_profileIds['hostid'] = 0;
-			$this->_profileIds['graphid'] = 0;
-			$this->_profileIds['triggerid'] = 0;
-			$this->_profileIds['druleid'] = 0;
-			$this->_profileIds['application'] = '';
-		}
-		else {
-			$this->_profileIds['groupid'] = CProfile::get($this->_profileIdx['groups']);
-			$this->_profileIds['hostid'] = CProfile::get($this->_profileIdx['hosts']);
-			$this->_profileIds['graphid'] = CProfile::get($this->_profileIdx['graphs']);
-			$this->_profileIds['triggerid'] = null;
-			$this->_profileIds['druleid'] = CProfile::get($this->_profileIdx['drules']);
-			$this->_profileIds['application'] = CProfile::get($this->_profileIdx['application']);
+		$this->_profileIds['groupid'] = 0;
+		$this->_profileIds['hostid'] = 0;
+		$this->_profileIds['graphid'] = 0;
+		$this->_profileIds['triggerid'] = 0;
+
+		if($this->config['DDRemember']){
+			if($this->config['select_latest']){
+				$this->_profileIds['groupid'] = CProfile::get(self::GROUP_LATEST_IDX);
+				$this->_profileIds['hostid'] = CProfile::get(self::HOST_LATEST_IDX);
+				$this->_profileIds['graphid'] = CProfile::get(self::GRAPH_LATEST_IDX);
+//				$this->_profileIds['triggerid'] = CProfile::get(self::TRIGGER_LATEST_IDX);
+				$this->_profileIds['triggerid'] = null;
+			}
+			else{
+				$this->_profileIds['groupid'] = CProfile::get($this->_profileIdx['groups']);
+				$this->_profileIds['hostid'] = CProfile::get($this->_profileIdx['hosts']);
+				$this->_profileIds['graphid'] = CProfile::get($this->_profileIdx['graphs']);
+//				$this->_profileIds['triggerid'] = CProfile::get($this->_profileIdx['triggers']);
+				$this->_profileIds['triggerid'] = null;
+			}
 		}
 
-		$this->_requestIds['groupid'] = isset($options['groupid']) ? $options['groupid'] : null;
-		$this->_requestIds['hostid'] = isset($options['hostid']) ? $options['hostid'] : null;
-		$this->_requestIds['graphid'] = isset($options['graphid']) ? $options['graphid'] : null;
-		$this->_requestIds['triggerid'] = isset($options['triggerid']) ? $options['triggerid'] : null;
-		$this->_requestIds['druleid'] = isset($options['druleid']) ? $options['druleid'] : null;
-		$this->_requestIds['application'] = isset($options['application']) ? $options['application'] : null;
+		$this->_requestIds['groupid'] = isset($options['groupid'])?$options['groupid']:null;
+		$this->_requestIds['hostid'] = isset($options['hostid'])?$options['hostid']:null;
+		$this->_requestIds['graphid'] = isset($options['graphid'])?$options['graphid']:null;
+		$this->_requestIds['triggerid'] = isset($options['triggerid'])?$options['triggerid']:null;
+
+//SDII($this->_profileIds);
+//SDII($this->_requestIds);
 	}
 
-	private function _updateByGraph(&$options) {
-		$graphs = API::Graph()->get(array(
+	private function _updateByGraph(&$options){
+		$graphs = CGraph::get(array(
 			'graphids' => $options['graphid'],
 			'output' => API_OUTPUT_EXTEND,
-			'selectHosts' => API_OUTPUT_REFER,
-			'selectTemplates' => API_OUTPUT_REFER,
-			'selectGroups' => API_OUTPUT_REFER
+			'select_hosts' => API_OUTPUT_REFER,
+			'select_templates' => API_OUTPUT_REFER,
+			'select_groups' => API_OUTPUT_REFER,
 		));
 
-		if ($graph = reset($graphs)) {
+		if($graph = reset($graphs)){
 			$groups = zbx_toHash($graph['groups'], 'groupid');
 			$hosts = zbx_toHash($graph['hosts'], 'hostid');
 			$templates = zbx_toHash($graph['templates'], 'templateid');
 
-			if (isset($groups[$this->_profileIds['groupid']])) {
+			if(isset($groups[$this->_profileIds['groupid']])){
 				$options['groupid'] = $this->_profileIds['groupid'];
 			}
-			else {
+			else{
 				$groupids = array_keys($groups);
 				$options['groupid'] = reset($groupids);
 			}
 
-			if (isset($hosts[$this->_profileIds['hostid']])) {
+			if(isset($hosts[$this->_profileIds['hostid']])){
 				$options['hostid'] = $this->_profileIds['hostid'];
 			}
-			else {
+			else{
 				$hostids = array_keys($hosts);
 				$options['hostid'] = reset($hostids);
 			}
 
-			if (is_null($options['hostid'])) {
-				if (isset($templates[$this->_profileIds['hostid']])) {
+			if(is_null($options['hostid'])){
+				if(isset($templates[$this->_profileIds['hostid']])){
 					$options['hostid'] = $this->_profileIds['hostid'];
 				}
-				else {
+				else{
 					$templateids = array_keys($templates);
 					$options['hostid'] = reset($templateids);
 				}
@@ -209,146 +200,191 @@ class CPageFilter {
 		}
 	}
 
-	private function _initGroups($groupid, $options, $hostid) {
+	private function _updateByHost(&$options){
+		$hosts = CHost::get(array(
+			'hostids' => $options['hostid'],
+			'templated_hosts' => 1,
+			'output' => array('hostid', 'host'),
+			'select_groups' => API_OUTPUT_REFER,
+		));
+
+		if($host = reset($hosts)){
+			$groups = zbx_toHash($host['groups'], 'groupid');
+
+			if(isset($groups[$this->_profileIds['groupid']])){
+				$options['groupid'] = $this->_profileIds['groupid'];
+			}
+			else{
+				$groupids = array_keys($groups);
+				$options['groupid'] = reset($groupids);
+			}
+		}
+	}
+
+	private function _updateByTrigger(&$options){
+		$triggers = CTrigger::get(array(
+			'triggerids' => $options['triggerid'],
+			'output' => API_OUTPUT_EXTEND,
+			'select_hosts' => API_OUTPUT_REFER,
+			'select_templates' => API_OUTPUT_REFER,
+			'select_groups' => API_OUTPUT_REFER,
+		));
+
+		if($trigger = reset($triggers)){
+			$groups = zbx_toHash($trigger['groups'], 'groupid');
+			$hosts = zbx_toHash($trigger['hosts'], 'hostid');
+			$templates = zbx_toHash($trigger['templates'], 'templateid');
+
+			if(isset($groups[$this->_profileIds['groupid']])){
+				$options['groupid'] = $this->_profileIds['groupid'];
+			}
+			else{
+				$groupids = array_keys($groups);
+				$options['groupid'] = reset($groupids);
+			}
+
+			if(isset($hosts[$this->_profileIds['hostid']])){
+				$options['hostid'] = $this->_profileIds['hostid'];
+			}
+			else{
+				$hostids = array_keys($hosts);
+				$options['hostid'] = reset($hostids);
+			}
+
+			if(is_null($options['hostid'])){
+				if(isset($templates[$this->_profileIds['hostid']])){
+					$options['hostid'] = $this->_profileIds['hostid'];
+				}
+				else{
+					$templateids = array_keys($templates);
+					$options['hostid'] = reset($templateids);
+				}
+			}
+		}
+	}
+
+	private function _initGroups($groupid, $options){
 		$def_options = array(
 			'nodeids' => $this->config['all_nodes'] ? get_current_nodeid() : null,
-			'output' => array('groupid', 'name')
+			'output' => API_OUTPUT_EXTEND,
 		);
 		$options = zbx_array_merge($def_options, $options);
-		$groups = API::HostGroup()->get($options);
+		$groups = CHostGroup::get($options);
 		order_result($groups, 'name');
 
 		$this->data['groups'] = array();
-		foreach ($groups as $group) {
+		foreach($groups as $group){
 			$this->data['groups'][$group['groupid']] = $group['name'];
 		}
 
-		// select remebered selection
-		if (is_null($groupid) && $this->_profileIds['groupid']) {
-			// set group only if host is in group or hostid is not set
-			if ($hostid) {
-				$host = API::Host()->get(array(
-					'nodeids' => $this->config['all_nodes'] ? get_current_nodeid() : null,
-					'output' => array('hostid'),
-					'hostids' => $hostid,
-					'groupids' => $this->_profileIds['groupid']
-				));
-			}
-			if (!$hostid || !empty($host)) {
-				$groupid = $this->_profileIds['groupid'];
-			}
-		}
+		if(is_null($groupid)) $groupid = $this->_profileIds['groupid'];
 
-		// nonexisting or unset $groupid
-		if ((!isset($this->data['groups'][$groupid]) && $groupid > 0) || is_null($groupid)) {
-			// for popup select first group in the list
-			if ($this->config['popupDD'] && !empty($this->data['groups'])) {
-				reset($this->data['groups']);
-				$groupid = key($this->data['groups']);
-			}
-			// otherwise groupid = 0 for 'Dropdown first entry' option ALL or NONE
-			else {
+		if((!isset($this->data['groups'][$groupid]) && ($groupid > 0)) || is_null($groupid)){
+			if($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_NONE){
 				$groupid = 0;
 			}
+			else if(is_null($this->_requestIds['groupid']) || ($this->_requestIds['groupid'] > 0)){
+				$groupids = array_keys($this->data['groups']);
+				$groupid = empty($groupids)?0:reset($groupids);
+			}
 		}
 
-		CProfile::update($this->_profileIdx['groups'], $groupid, PROFILE_TYPE_ID);
-		CProfile::update(self::GROUP_LATEST_IDX, $groupid, PROFILE_TYPE_ID);
+		if(!is_null($this->_requestIds['groupid'])){
+			CProfile::update($this->_profileIdx['groups'], $groupid, PROFILE_TYPE_ID);
+			CProfile::update(self::GROUP_LATEST_IDX, $groupid, PROFILE_TYPE_ID);
+		}
 
-		$this->isSelected['groupsSelected'] = ($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL && !empty($this->data['groups'])) || $groupid > 0;
-		$this->isSelected['groupsAll'] = $this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL && !empty($this->data['groups']) && $groupid == 0;
+		$this->isSelected['groupsSelected'] = (($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL) && !empty($this->data['groups'])) || ($groupid > 0);
+		$this->isSelected['groupsAll'] = (($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL) && !empty($this->data['groups']) && ($groupid == 0));
 		$this->ids['groupid'] = $groupid;
 	}
 
-	private function _initHosts($hostid, $options) {
+	private function _initHosts($hostid, $options){
 		$this->data['hosts'] = array();
 
-		if (!$this->groupsSelected) {
+		if(!$this->groupsSelected){
 			$hostid = 0;
 		}
-		else {
+		else{
 			$def_options = array(
 				'nodeids' => $this->config['all_nodes'] ? get_current_nodeid() : null,
-				'output' => array('hostid', 'name'),
-				'groupids' => ($this->groupid > 0) ? $this->groupid : null
+				'output' => array('hostid', 'host'),
+				'groupids' => (($this->groupid > 0) ? $this->groupid : null),
 			);
 			$options = zbx_array_merge($def_options, $options);
-			$hosts = API::Host()->get($options);
-			order_result($hosts, 'name');
+			$hosts = CHost::get($options);
+			order_result($hosts, 'host');
 
-			foreach ($hosts as $host) {
-				$this->data['hosts'][$host['hostid']] = $host['name'];
+			foreach($hosts as $host){
+				$this->data['hosts'][$host['hostid']] = $host['host'];
 			}
 
-			// select remebered selection
-			if (is_null($hostid) && $this->_profileIds['hostid']) {
-				$hostid = $this->_profileIds['hostid'];
-			}
+			if(is_null($hostid)) $hostid = $this->_profileIds['hostid'];
 
-			// nonexisting or unset $hostid
-			if ((!isset($this->data['hosts'][$hostid]) && $hostid > 0) || is_null($hostid)) {
-				// for popup select first host in the list
-				if ($this->config['popupDD'] && !empty($this->data['hosts'])) {
-					reset($this->data['hosts']);
-					$hostid = key($this->data['hosts']);
-				}
-				// otherwise hostid = 0 for 'Dropdown first entry' option ALL or NONE
-				else {
+			if((!isset($this->data['hosts'][$hostid]) && ($hostid > 0)) || is_null($hostid)){
+				if($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_NONE){
 					$hostid = 0;
+				}
+				else if(is_null($this->_requestIds['hostid']) || ($this->_requestIds['hostid'] > 0)){
+					$hostids = array_keys($this->data['hosts']);
+					$hostid = empty($hostids)?0:reset($hostids);
 				}
 			}
 		}
 
-		if (!is_null($this->_requestIds['hostid'])) {
+		if(!is_null($this->_requestIds['hostid'])){
 			CProfile::update($this->_profileIdx['hosts'], $hostid, PROFILE_TYPE_ID);
 			CProfile::update(self::HOST_LATEST_IDX, $hostid, PROFILE_TYPE_ID);
 		}
-		$this->isSelected['hostsSelected'] = ($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL && !empty($this->data['hosts'])) || $hostid > 0;
-		$this->isSelected['hostsAll'] = $this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL && !empty($this->data['hosts']) && $hostid == 0;
+
+		$this->isSelected['hostsSelected'] = (($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL) && !empty($this->data['hosts'])) || ($hostid > 0);
+		$this->isSelected['hostsAll'] = (($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL) && !empty($this->data['hosts']) && ($hostid == 0));
+
 		$this->ids['hostid'] = $hostid;
 	}
 
-	private function _initGraphs($graphid, $options) {
+	private function _initGraphs($graphid, $options){
 		$this->data['graphs'] = array();
 
-		if (!$this->hostsSelected) {
+		if(!$this->hostsSelected){
 			$graphid = 0;
 		}
-		else {
+		else{
 			$def_ptions = array(
 				'nodeids' => $this->config['all_nodes'] ? get_current_nodeid() : null,
-				'output' => array('graphid', 'name'),
-				'groupids' => ($this->groupid > 0 && $this->hostid == 0) ? $this->groupid : null,
-				'hostids' => ($this->hostid > 0) ? $this->hostid : null
+				'output' => API_OUTPUT_EXTEND,
+				'groupids' => $this->groupid > 0 && $this->hostid == 0 ? $this->groupid : null,
+				'hostids' => $this->hostid > 0 ? $this->hostid : null
 			);
 			$options = zbx_array_merge($def_ptions, $options);
-			$graphs = API::Graph()->get($options);
+			$graphs = CGraph::get($options);
 			order_result($graphs, 'name');
 
-			foreach ($graphs as $graph) {
+			foreach($graphs as $graph){
 				$this->data['graphs'][$graph['graphid']] = $graph['name'];
 			}
 
 			// no graphid provided
-			if (is_null($graphid)) {
+			if(is_null($graphid)){
 				// if there is one saved in profile, let's take it from there
-				$graphid = is_null($this->_profileIds['graphid']) ? 0 : $this->_profileIds['graphid'];
+				$graphid = is_null($this->_profileIds['graphid'])
+							? 0
+							: $this->_profileIds['graphid'];
 			}
 
 			// if there is no graph with given id in selected host
-			if ($graphid > 0 && !isset($this->data['graphs'][$graphid])) {
+			if($graphid > 0 && !isset($this->data['graphs'][$graphid])){
 				// then let's take a look how the desired graph is named
 				$options = array(
-					'output' => array('name'),
+					'output' => API_OUTPUT_EXTEND,
 					'graphids' => array($graphid)
 				);
-				$selectedGraphInfo = API::Graph()->get($options);
+				$selectedGraphInfo = CGraph::get($options);
 				$selectedGraphInfo = reset($selectedGraphInfo);
 				$graphid = 0;
-
 				// if there is a graph with the same name on new host, why not show it then?
-				foreach ($this->data['graphs'] as $gid => $graph) {
-					if ($graph === $selectedGraphInfo['name']) {
+				foreach($this->data['graphs'] as $gid => $graph){
+					if($graph === $selectedGraphInfo['name']){
 						$graphid = $gid;
 						break;
 					}
@@ -356,190 +392,99 @@ class CPageFilter {
 			}
 		}
 
-		if (!is_null($this->_requestIds['graphid'])) {
+		if(!is_null($this->_requestIds['graphid'])){
 			CProfile::update($this->_profileIdx['graphs'], $graphid, PROFILE_TYPE_ID);
 			CProfile::update(self::GRAPH_LATEST_IDX, $graphid, PROFILE_TYPE_ID);
 		}
+
 		$this->isSelected['graphsSelected'] = $graphid > 0;
 		$this->ids['graphid'] = $graphid;
 	}
 
-	private function _initTriggers($triggerid, $options) {
+	private function _initTriggers($triggerid, $options){
 		$this->data['triggers'] = array();
 
-		if (!$this->hostsSelected || $this->hostsAll) {
+		if(!$this->hostsSelected || $this->hostsAll){
 			$triggerid = 0;
 		}
-		else {
+		else{
 			$def_ptions = array(
 				'nodeids' => $this->config['all_nodes'] ? get_current_nodeid() : null,
-				'output' => array('triggerid', 'description'),
-				'groupids' => ($this->groupid > 0 && $this->hostid == 0) ? $this->groupid : null,
-				'hostids' => ($this->hostid > 0) ? $this->hostid : null
+				'output' => API_OUTPUT_EXTEND,
+				'groupids' => ((($this->groupid > 0) && ($this->hostid == 0)) ? $this->groupid : null),
+				'hostids' => (($this->hostid > 0) ? $this->hostid : null),
 			);
 			$options = zbx_array_merge($def_ptions, $options);
-			$triggers = API::Trigger()->get($options);
+			$triggers = Ctrigger::get($options);
 			order_result($triggers, 'description');
 
-			foreach ($triggers as $trigger) {
+			foreach($triggers as $trigger){
 				$this->data['triggers'][$trigger['triggerid']] = $trigger['description'];
 			}
 
-			if (is_null($triggerid)) {
-				$triggerid = $this->_profileIds['triggerid'];
-			}
+			if(is_null($triggerid)) $triggerid = $this->_profileIds['triggerid'];
 			$triggerid = isset($this->data['triggers'][$triggerid]) ? $triggerid : 0;
+		}
+
+		if(!is_null($this->_requestIds['triggerid'])){
+//			CProfile::update($this->_profileIdx['triggers'], $triggerid, PROFILE_TYPE_ID);
+//			CProfile::update(self::TRIGGER_LATEST_IDX, $triggerid, PROFILE_TYPE_ID);
 		}
 
 		$this->isSelected['triggersSelected'] = $triggerid > 0;
 		$this->ids['triggerid'] = $triggerid;
 	}
 
-	private function _initDiscoveries($druleid, $options) {
-		$def_options = array(
-			'nodeids' => $this->config['all_nodes'] ? get_current_nodeid() : null,
-			'output' => API_OUTPUT_EXTEND
-		);
-		$options = zbx_array_merge($def_options, $options);
-		$drules = API::DRule()->get($options);
-		order_result($drules, 'name');
-
-		$this->data['drules'] = array();
-		foreach ($drules as $drule) {
-			$this->data['drules'][$drule['druleid']] = $drule['name'];
-		}
-
-		if (is_null($druleid)) {
-			$druleid = $this->_profileIds['druleid'];
-		}
-
-		if ((!isset($this->data['drules'][$druleid]) && $druleid > 0) || is_null($druleid)) {
-			if ($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_NONE) {
-				$druleid = 0;
-			}
-			elseif (is_null($this->_requestIds['druleid']) || $this->_requestIds['druleid'] > 0) {
-				$druleids = array_keys($this->data['drules']);
-				$druleid = empty($druleids) ? 0 : reset($druleids);
-			}
-		}
-
-		CProfile::update($this->_profileIdx['drules'], $druleid, PROFILE_TYPE_ID);
-		CProfile::update(self::DRULE_LATEST_IDX, $druleid, PROFILE_TYPE_ID);
-
-		$this->isSelected['drulesSelected'] = ($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL && !empty($this->data['drules'])) || $druleid > 0;
-		$this->isSelected['drulesAll'] = $this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL && !empty($this->data['drules']) && $druleid == 0;
-		$this->ids['druleid'] = $druleid;
-	}
-
-	/**
-	 * Set applications related variables.
-	 *  - applications: all applications available for dropdown on page
-	 *  - application: application curently selected, can be '' for 'all' or 'not selected'
-	 *  - applicationsSelected: if an application selected, i.e. not 'not selected'
-	 * Applications are dependent on groups.
-	 *
-	 * @param $application
-	 * @param $options
-	 */
-	private function _initApplications($application, $options) {
-		$this->data['applications'] = array();
-
-		if (!$this->groupsSelected) {
-			$application = '';
-		}
-		else {
-			$def_options = array(
-				'nodeids' => $this->config['all_nodes'] ? get_current_nodeid() : null,
-				'output' => array('name'),
-				'groupids' => ($this->groupid > 0) ? $this->groupid : null
-			);
-			$options = zbx_array_merge($def_options, $options);
-			$applications = API::Application()->get($options);
-
-			foreach ($applications as $app) {
-				$this->data['applications'][$app['name']] = $app['name'];
-			}
-
-			// select remebered selection
-			if (is_null($application) && $this->_profileIds['application']) {
-				$application = $this->_profileIds['application'];
-			}
-
-			// nonexisting or unset application
-			if ((!isset($this->data['applications'][$application]) && $application !== '') || is_null($application)) {
-				$application = '';
-			}
-		}
-
-		if (!is_null($this->_requestIds['application'])) {
-			CProfile::update($this->_profileIdx['application'], $application, PROFILE_TYPE_STR);
-		}
-		$this->isSelected['applicationsSelected'] = ($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL && !empty($this->data['applications'])) || $application !== '';
-		$this->isSelected['applicationsAll'] = $this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL && !empty($this->data['applications']) && $application === '';
-		$this->ids['application'] = $application;
-	}
-
-	public function getHostsCB($withNode = false) {
+	public function getHostsCB($withNode=false){
 		return $this->_getCB('hostid', $this->hostid, $this->hosts, $withNode);
 	}
 
-	public function getGroupsCB($withNode = false) {
+	public function getGroupsCB($withNode=false){
 		return $this->_getCB('groupid', $this->groupid, $this->groups, $withNode);
 	}
 
-	public function getGraphsCB($withNode = false) {
+	public function getGraphsCB($withNode=false){
+		$cmb = new CComboBox('graphid', $this->graphid, 'javascript: submit();');
 		$items = $this->graphs;
-		if ($withNode) {
-			foreach ($items as $id => $item) {
-				$items[$id] = get_node_name_by_elid($id, null, ': ').$item;
+
+		if($withNode){
+			foreach($items as $id => $item){
+				$items[$id] = get_node_name_by_elid($id, null, ': ') . $item;
 			}
 		}
 
 		natcasesort($items);
-		$items = array(0 => _('not selected')) + $items;
+		$items = array(0 => S_NOT_SELECTED_SMALL) + $items;
 
-		$graphComboBox = new CComboBox('graphid', $this->graphid, 'javascript: submit();');
-		foreach ($items as $id => $name) {
-			$graphComboBox->addItem($id, $name);
+		foreach($items as $id => $name){
+			$cmb->addItem($id, $name);
 		}
 
-		return $graphComboBox;
+		return $cmb;
 	}
 
-	public function getDiscoveryCB($withNode = false) {
-		return $this->_getCB('druleid', $this->druleid, $this->drules, $withNode);
+	public function getTriggerCB($withNode=false){
+		return $this->_getCB('triggerid', $this->triggerid, $this->triggers, $withNode);
 	}
 
-	/**
-	 * Get dropdown for application selection.
-	 *
-	 * @param bool $withNode
-	 *
-	 * @return CComboBox
-	 */
-	public function getApplicationsCB($withNode = false) {
-		return $this->_getCB('application', $this->application, $this->applications, $withNode, '');
-	}
+	private function _getCB($cbname, $selectedid, $items, $withNode){
+		$cmb = new CComboBox($cbname, $selectedid,'javascript: submit();');
 
-	private function _getCB($cbname, $selectedid, $items, $withNode, $allValue = 0) {
-		$cmb = new CComboBox($cbname, $selectedid, 'javascript: submit();');
-
-		if ($withNode) {
-			foreach ($items as $id => $item) {
-				$items[$id] = get_node_name_by_elid($id, null, ': ').$item;
+		if($withNode){
+			foreach($items as $id => $item){
+				$items[$id] = get_node_name_by_elid($id, null, ': ') . $item;
 			}
 		}
 
 		natcasesort($items);
+		$items = array(0 => ($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_NONE) ? S_NOT_SELECTED_SMALL : S_ALL_SMALL) + $items;
 
-		if (!$this->config['popupDD']) {
-			$items = array($allValue => ($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_NONE) ? _('not selected') : _('all')) + $items;
-		}
-
-		foreach ($items as $id => $name) {
+		foreach($items as $id => $name){
 			$cmb->addItem($id, $name);
 		}
 
 		return $cmb;
 	}
 }
+
+?>

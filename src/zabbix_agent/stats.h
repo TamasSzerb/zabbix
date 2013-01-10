@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,56 +14,41 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_STATS_H
 #define ZABBIX_STATS_H
 
 #include "threads.h"
-#ifndef _WINDOWS
-#	include "diskdevices.h"
-#endif
+#include "diskdevices.h"
+#ifdef _WINDOWS
+#	include "perfmon.h"
+#	include "perfstat.h"
+#endif	/* _WINDOWS */
 #include "cpustat.h"
 #ifdef _AIX
 #	include "vmstats.h"
-#endif
-
-#ifndef _WINDOWS
-#	define NONEXISTENT_SHMID	(-1)
-#endif
+#endif	/* _AIX */
 
 typedef struct
 {
 	ZBX_CPUS_STAT_DATA	cpus;
-#ifndef _WINDOWS
-	int 			diskstat_shmid;
-#endif
+	ZBX_DISKDEVICES_DATA	diskdevices;
+#ifdef _WINDOWS
+	ZBX_PERF_STAT_DATA	perfs;
+#endif	/* _WINDOWS */
 #ifdef _AIX
 	ZBX_VMSTAT_DATA		vmstat;
-#endif
-#ifndef _LP64
-	long			padding;	/* The goal of padding is to make sizeof(ZBX_COLLECTOR_DATA) */
-						/* a multiple of 8. In 32-bit environment the padding will be */
-						/* be 4 bytes. In 64-bit environment the padding is currently not */
-						/* necessary, but harmless if used. The padding size must be */
-						/* adjusted if structure or its components change. */
-#endif
+#endif	/* _AIX */
 }
 ZBX_COLLECTOR_DATA;
 
 extern ZBX_COLLECTOR_DATA	*collector;
-#ifndef _WINDOWS
-extern ZBX_DISKDEVICES_DATA	*diskdevices;
-extern int			my_diskstat_shmid;
-#endif
 
 ZBX_THREAD_ENTRY(collector_thread, pSemColectorStarted);
 
 void	init_collector_data();
 void	free_collector_data();
-void	diskstat_shm_init();
-void	diskstat_shm_reattach();
-void	diskstat_shm_extend();
 
 #endif	/* ZABBIX_STATS_H */

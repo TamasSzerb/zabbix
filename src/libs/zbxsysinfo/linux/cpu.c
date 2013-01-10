@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -23,16 +23,19 @@
 
 int	SYSTEM_CPU_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	tmp[16];
+	char	mode[8];
 	int	name;
 	long	ncpu;
 
 	if (1 < num_param(param))
 		return SYSINFO_RET_FAIL;
 
-	if (0 != get_param(param, 1, tmp, sizeof(tmp)) || '\0' == *tmp || 0 == strcmp(tmp, "online"))
+	if (0 != get_param(param, 1, mode, sizeof(mode)))
+		*mode = '\0';
+
+	if ('\0' == *mode || 0 == strcmp(mode, "online"))	/* default parameter */
 		name = _SC_NPROCESSORS_ONLN;
-	else if (0 == strcmp(tmp, "max"))
+	else if (0 == strcmp(mode, "max"))
 		name = _SC_NPROCESSORS_CONF;
 	else
 		return SYSINFO_RET_FAIL;
@@ -48,17 +51,23 @@ int	SYSTEM_CPU_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RES
 int	SYSTEM_CPU_UTIL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	char	tmp[16];
-	int	cpu_num, state, mode;
+	int	cpu_num, mode, state;
 
-	if (3 < num_param(param))
+	if (num_param(param) > 3)
 		return SYSINFO_RET_FAIL;
 
-	if (0 != get_param(param, 1, tmp, sizeof(tmp)) || '\0' == *tmp || 0 == strcmp(tmp, "all"))
+	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
+		*tmp = '\0';
+
+	if ('\0' == *tmp || 0 == strcmp(tmp, "all"))	/* default parameter */
 		cpu_num = 0;
-	else if (SUCCEED != is_uint(tmp) || 1 > (cpu_num = atoi(tmp) + 1))
+	else if (1 > (cpu_num = atoi(tmp) + 1))
 		return SYSINFO_RET_FAIL;
 
-	if (0 != get_param(param, 2, tmp, sizeof(tmp)) || '\0' == *tmp || 0 == strcmp(tmp, "user"))
+	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
+		*tmp = '\0';
+
+	if ('\0' == *tmp || 0 == strcmp(tmp, "user"))	/* default parameter */
 		state = ZBX_CPU_STATE_USER;
 	else if (0 == strcmp(tmp, "nice"))
 		state = ZBX_CPU_STATE_NICE;
@@ -77,7 +86,10 @@ int	SYSTEM_CPU_UTIL(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	else
 		return SYSINFO_RET_FAIL;
 
-	if (0 != get_param(param, 3, tmp, sizeof(tmp)) || '\0' == *tmp || 0 == strcmp(tmp, "avg1"))
+	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
+		*tmp = '\0';
+
+	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
 		mode = ZBX_AVG1;
 	else if (0 == strcmp(tmp, "avg5"))
 		mode = ZBX_AVG5;
@@ -91,19 +103,23 @@ int	SYSTEM_CPU_UTIL(const char *cmd, const char *param, unsigned flags, AGENT_RE
 
 int	SYSTEM_CPU_LOAD(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	tmp[16];
-	int	mode, per_cpu = 1, cpu_num;
-	double	load[ZBX_AVG_COUNT], value;
+	char	tmp[32];
+	int	mode;
+	double	load[ZBX_AVG_COUNT];
 
-	if (2 < num_param(param))
+	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
 
-	if (0 != get_param(param, 1, tmp, sizeof(tmp)) || '\0' == *tmp || 0 == strcmp(tmp, "all"))
-		per_cpu = 0;
-	else if (0 != strcmp(tmp, "percpu"))
+	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
+		*tmp = '\0';
+
+	if ('\0' != *tmp && 0 != strcmp(tmp, "all"))	/* default parameter */
 		return SYSINFO_RET_FAIL;
 
-	if (0 != get_param(param, 2, tmp, sizeof(tmp)) || '\0' == *tmp || 0 == strcmp(tmp, "avg1"))
+	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
+		*tmp = '\0';
+
+	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
 		mode = ZBX_AVG1;
 	else if (0 == strcmp(tmp, "avg5"))
 		mode = ZBX_AVG5;
@@ -115,16 +131,7 @@ int	SYSTEM_CPU_LOAD(const char *cmd, const char *param, unsigned flags, AGENT_RE
 	if (mode >= getloadavg(load, 3))
 		return SYSINFO_RET_FAIL;
 
-	value = load[mode];
-
-	if (1 == per_cpu)
-	{
-		if (0 >= (cpu_num = sysconf(_SC_NPROCESSORS_ONLN)))
-			return SYSINFO_RET_FAIL;
-		value /= cpu_num;
-	}
-
-	SET_DBL_RESULT(result, value);
+	SET_DBL_RESULT(result, load[mode]);
 
 	return SYSINFO_RET_OK;
 }
@@ -132,7 +139,7 @@ int	SYSTEM_CPU_LOAD(const char *cmd, const char *param, unsigned flags, AGENT_RE
 int     SYSTEM_CPU_SWITCHES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	int		ret = SYSINFO_RET_FAIL;
-	char		line[MAX_STRING_LEN];
+	char		line[MAX_STRING_LEN], name[32];
 	zbx_uint64_t	value = 0;
 	FILE		*f;
 
@@ -141,15 +148,15 @@ int     SYSTEM_CPU_SWITCHES(const char *cmd, const char *param, unsigned flags, 
 
 	while (NULL != fgets(line, sizeof(line), f))
 	{
-		if (0 != strncmp(line, "ctxt", 4))
+		if (2 != sscanf(line, "%s " ZBX_FS_UI64, name, &value))
 			continue;
 
-		if (1 != sscanf(line, "%*s " ZBX_FS_UI64, &value))
-			continue;
-
-		SET_UI64_RESULT(result, value);
-		ret = SYSINFO_RET_OK;
-		break;
+		if (0 == strcmp(name, "ctxt"))
+		{
+			SET_UI64_RESULT(result, value);
+			ret = SYSINFO_RET_OK;
+			break;
+		}
 	}
 	zbx_fclose(f);
 
@@ -159,7 +166,7 @@ int     SYSTEM_CPU_SWITCHES(const char *cmd, const char *param, unsigned flags, 
 int     SYSTEM_CPU_INTR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	int		ret = SYSINFO_RET_FAIL;
-	char		line[MAX_STRING_LEN];
+	char		line[MAX_STRING_LEN], name[32];
 	zbx_uint64_t	value = 0;
 	FILE		*f;
 
@@ -168,15 +175,15 @@ int     SYSTEM_CPU_INTR(const char *cmd, const char *param, unsigned flags, AGEN
 
 	while (NULL != fgets(line, sizeof(line), f))
 	{
-		if (0 != strncmp(line, "intr", 4))
+		if (2 != sscanf(line, "%s " ZBX_FS_UI64, name, &value))
 			continue;
 
-		if (1 != sscanf(line, "%*s " ZBX_FS_UI64, &value))
-			continue;
-
-		SET_UI64_RESULT(result, value);
-		ret = SYSINFO_RET_OK;
-		break;
+		if (0 == strcmp(name, "intr"))
+		{
+			SET_UI64_RESULT(result, value);
+			ret = SYSINFO_RET_OK;
+			break;
+		}
 	}
 	zbx_fclose(f);
 

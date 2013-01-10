@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2012 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -10,19 +10,19 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; ifnot, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+include_once('include/config.inc.php');
+require_once('include/triggers.inc.php');
 
-
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/triggers.inc.php';
-
-$page['title'] = _('Test');
+$page['title'] = S_TEST;
 $page['file'] = 'tr_testexpr.php';
 
 define('ZBX_PAGE_NO_MENU', 1);
@@ -30,160 +30,160 @@ define('COMBO_PATTERN', 'str_in_array({},array(');
 define('COMBO_PATTERN_LENGTH', zbx_strlen(COMBO_PATTERN));
 
 $definedErrorPhrases = array(
-	EXPRESSION_VALUE_TYPE_UNKNOWN => _('Unknown variable type, testing not available'),
-	EXPRESSION_HOST_UNKNOWN => _('Unknown host, no such host present in system'),
-	EXPRESSION_HOST_ITEM_UNKNOWN => _('Unknown host item, no such item in selected host'),
-	EXPRESSION_NOT_A_MACRO_ERROR => _('Given expression is not a macro'),
-	EXPRESSION_FUNCTION_UNKNOWN => _('Incorrect function is used')
+			EXPRESSION_VALUE_TYPE_UNKNOWN => S_EXPRESSION_VALUE_TYPE_UNKNOWN,
+			EXPRESSION_HOST_UNKNOWN => S_EXPRESSION_HOST_UNKNOWN,
+			EXPRESSION_HOST_ITEM_UNKNOWN => S_EXPRESSION_HOST_ITEM_UNKNOWN,
+			EXPRESSION_NOT_A_MACRO_ERROR => S_EXPRESSION_NOT_A_MACRO_ERROR,
+			EXPRESSION_FUNCTION_UNKNOWN => S_INCORRECT_FUNCTION_IS_USED
 );
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
+?>
+<?php
+//----------------------------------------------------------------------
 
 // expression analyze
-$expression = get_request('expression', '');
+	$expression = urldecode(get_request('expression', ''));
 
-define('NO_LINK_IN_TESTING', true);
-list($outline, $eHTMLTree) = analyzeExpression($expression);
+	define('NO_LINK_IN_TESTING', true);
+	list($outline, $eHTMLTree) = analyzeExpression($expression);
 
 // test data (create table, create check fields)
-$dataTable = new CTable(null, 'tableinfo');
-$dataTable->setAttribute('id', 'data_list');
-$dataTable->setHeader(array(_('Expression Variable Elements'), _('Result type'), _('Value')));
 
-$octet = false;
-$datas = array();
-$fields = array();
-$rplcts = array();
-$allowedTesting = true;
+	$data_table = new CTable(null, 'tableinfo');
+	$data_table->setAttribute('id', 'data_list');
 
-$expressionData = new CTriggerExpression();
-if ($expressionData->parse($expression)) {
-	$macrosData = array();
+	$data_table->setHeader(array(S_EXPRESSION_VARIABLE_ELEMENTS, S_RESULT_TYPE, S_VALUE));
 
-	$expressions = array_merge($expressionData->expressions, $expressionData->macros, $expressionData->usermacros, $expressionData->lldmacros);
+	$octet = false;
+	$datas = array();
+	$fields = array();
+	$rplcts = array();
+	$allowedTesting = true;
 
-	foreach ($expressions as $exprPart) {
-		if (isset($macrosData[$exprPart['expression']])) {
-			continue;
-		}
+	$expressionData = new CTriggerExpression();
+	if ($expressionData->parse($expression)) {
+		$macrosData = array();
 
-		$fname = 'test_data_'.md5($exprPart['expression']);
-		$macrosData[$exprPart['expression']] = get_request($fname, '');
+		$expressions = array_merge($expressionData->expressions, $expressionData->macros, $expressionData->usermacros);
 
-		$info = get_item_function_info($exprPart['expression']);
+		foreach ($expressions as $exprPart) {
+			if (isset($macrosData[$exprPart['expression']])) {
+				continue;
+			}
 
-		if (!is_array($info) && isset($definedErrorPhrases[$info])) {
-			$allowedTesting = false;
-			$control = new CTextBox($fname, $macrosData[$exprPart['expression']], 30);
-			$control->setAttribute('disabled', 'disabled');
-		}
-		else {
+			$fname = 'test_data_'.md5($exprPart['expression']);
+			$macrosData[$exprPart['expression']] = get_request($fname, '');
+
+			$info = get_item_function_info($exprPart['expression']);
+
 			$octet = ($info['value_type'] == 'HHMMSS');
+
 			$validation = $info['validation'];
-
-			if (substr($validation, 0, COMBO_PATTERN_LENGTH) == COMBO_PATTERN) {
+			if(substr($validation, 0, COMBO_PATTERN_LENGTH) == COMBO_PATTERN){
 				$vals = explode(',', substr($validation, COMBO_PATTERN_LENGTH, zbx_strlen($validation) - COMBO_PATTERN_LENGTH - 4));
+
 				$control = new CComboBox($fname, $macrosData[$exprPart['expression']]);
-
-				foreach ($vals as $v) {
-					$control->addItem($v, $v);
-				}
+				foreach ($vals as $v) $control->addItem($v, $v);
 			}
-			else {
+			else
 				$control = new CTextBox($fname, $macrosData[$exprPart['expression']], 30);
+
+			if(!is_array($info) && isset($definedErrorPhrases[$info])) {
+				$control->setAttribute('disabled', 'disabled');
+				$allowedTesting = false;
 			}
 
+			$data_table->addRow(new CRow(array($exprPart['expression'], (is_array($info) || !isset($definedErrorPhrases[$info])) ? $info['value_type'] : new CCol($definedErrorPhrases[$info], 'disaster'), $control)));
 			$fields[$fname] = array($info['type'], O_OPT, null, $validation, 'isset({test_expression})', $exprPart['expression']);
 		}
-
-		$resultType = (is_array($info) || !isset($definedErrorPhrases[$info]))
-			? $info['value_type']
-			: new CCol($definedErrorPhrases[$info], 'disaster');
-
-		$dataTable->addRow(new CRow(array($exprPart['expression'], $resultType, $control)));
 	}
-}
+//---------------------------------- CHECKS ------------------------------------
 
-// checks
-$fields['test_expression'] = array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null);
-if (!check_fields($fields)) {
-	$test = false;
-}
+	$fields['test_expression'] = array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null);
+	if(!check_fields($fields)) {
+		$test = false;
+	}
 
-// actions
-if (isset($_REQUEST['test_expression'])) {
-	show_messages();
-	$test = true;
-}
-else {
-	$test = false;
-}
+//------------------------ <ACTIONS> ---------------------------
+	if(isset($_REQUEST['test_expression'])){
+		show_messages();
+		$test = true;
+	}
+	else $test = false;
+//------------------------ </ACTIONS> --------------------------
 
-// form
-$testForm = new CFormTable(_('Test'), 'tr_testexpr.php');
-$testForm->setHelp('web.testexpr.service.php');
-$testForm->setTableClass('formlongtable formtable');
-$testForm->addVar('form_refresh', get_request('form_refresh', 1));
-$testForm->addVar('expression', $expression);
-$testForm->addRow(_('Test data'), $dataTable);
+//------------------------ <FORM> ---------------------------
 
-$resultTable = new CTable(null, 'tableinfo');
-$resultTable->setAttribute('id', 'result_list');
-$resultTable->setOddRowClass('even_row');
-$resultTable->setEvenRowClass('even_row');
-$resultTable->setHeader(array(_('Expression'), _('Result')));
+	$frm_test = new CFormTable(S_TEST, 'tr_testexpr.php');
+	$frm_test->setHelp('web.testexpr.service.php');
+	$frm_test->setTableClass('formlongtable formtable');
+	$frm_test->addVar('form_refresh', get_request('form_refresh', 1));
+	$frm_test->addVar('expression', urlencode($expression));
 
-ksort($rplcts, SORT_NUMERIC);
+/* test data */
+	$frm_test->addRow(S_TEST_DATA, $data_table);
 
-foreach ($eHTMLTree as $e) {
-	$result = array('result' => '-', 'error' => '');
+/* result */
+	$res_table = new CTable();
+	$res_table->setClass('tableinfo');
+	$res_table->setAttribute('id', 'result_list');
+	$res_table->setOddRowClass('even_row');
+	$res_table->setEvenRowClass('even_row');
+	$res_table->setHeader(array(S_EXPRESSION, S_RESULT));
 
-	if ($allowedTesting && $test && isset($e['expression'])) {
-		$result = evalExpressionData($e['expression']['value'], $macrosData, $octet);
+	ksort($rplcts, SORT_NUMERIC);
+
+	//$exprs = make_disp_tree($tree, $map);
+	foreach($eHTMLTree as $e){
+		//if(!isset($e['expression']))
+			//continue;
+		$result = '-';
+		if($allowedTesting && $test && isset($e['expression'])){
+			$result = evalExpressionData($e['expression']['value'], $macrosData, $octet);
+		}
+
+		$style = 'text-align: center;';
+		if($result != '-')
+			$style = ($result == 'TRUE') ? 'background-color: #ccf; color: #00f;': 'background-color: #fcc; color: #f00;';
+
+		$col = new CCol($result);
+		$col->setAttribute('style', $style);
+		$res_table->addRow(new CRow(array($e['list'], $col)));
+	}
+
+	$result = '-';
+	if($allowedTesting && $test){
+		$result = evalExpressionData($expression, $macrosData, $octet);
 	}
 
 	$style = 'text-align: center;';
-	if ($result['result'] != '-') {
-		$style = ($result['result'] == 'TRUE')
-			? 'background-color: #ccf; color: #00f;'
-			: 'background-color: #fcc; color: #f00;';
-	}
+	if($result != '-')
+		$style = ($result == 'TRUE') ? 'background-color: #ccf; color: #00f;': 'background-color: #fcc; color: #f00;';
 
-	$col = new CCol(array($result['result'], SPACE, $result['error']));
+	$col = new CCol($result);
 	$col->setAttribute('style', $style);
+	$res_table->setFooter(array($outline, $col), $res_table->headerClass);
 
-	$resultTable->addRow(new CRow(array($e['list'], $col)));
-}
-
-$result = array('result' => '-', 'error' => '');
-
-if ($allowedTesting && $test) {
-	$result = evalExpressionData($expression, $macrosData, $octet);
-}
-
-$style = 'text-align: center;';
-if ($result['result'] != '-') {
-	$style = ($result['result'] == 'TRUE')
-		? 'background-color: #ccf; color: #00f;'
-		: 'background-color: #fcc; color: #f00;';
-}
-
-$col = new CCol(array($result['result'], SPACE, $result['error']));
-$col->setAttribute('style', $style);
-
-$resultTable->setFooter(array($outline, $col), $resultTable->headerClass);
-
-$testForm->addRow(_('Result'), $resultTable);
+	$frm_test->addRow(S_RESULT, $res_table);
 
 // action buttons
-$testButton = new CSubmit('test_expression', _('Test'));
-if (!$allowedTesting) {
-	$testButton->setAttribute('disabled', 'disabled');
-}
+	$btn_test = new CButton('test_expression', S_TEST);
+	if(!$allowedTesting) $btn_test->setAttribute('disabled', 'disabled');
+	$frm_test->addItemToBottomRow($btn_test);
+	$frm_test->addItemToBottomRow(SPACE);
 
-$testForm->addItemToBottomRow($testButton);
-$testForm->addItemToBottomRow(SPACE);
-$testForm->addItemToBottomRow(new CButton('close', _('Close'), 'javascript: self.close();'));
-$testForm->show();
+	$btn_close = new CButton('close', S_CLOSE);
+	$btn_close->setType('button');
+	$btn_close->setAction('javascript: self.close();');
+	$frm_test->addItemToBottomRow($btn_close);
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+	$frm_test->show();
+
+//------------------------ </FORM> ---------------------------
+?>
+<?php
+
+include_once('include/page_footer.php');
+
+?>

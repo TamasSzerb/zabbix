@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -28,9 +28,7 @@
 #include "alias.h"
 
 #include "stats.h"
-#ifdef _WINDOWS
-#	include "perfstat.h"
-#endif
+#include "perfstat.h"
 #include "active.h"
 #include "listener.h"
 
@@ -48,7 +46,7 @@ const char	*progname = NULL;
 #ifdef _WINDOWS
 	static char	DEFAULT_CONFIG_FILE[]	= "C:\\zabbix_agentd.conf";
 #else
-	static char	DEFAULT_CONFIG_FILE[]	= SYSCONFDIR "/zabbix_agentd.conf";
+	static char	DEFAULT_CONFIG_FILE[]	= "/etc/zabbix/zabbix_agentd.conf";
 #endif
 
 /* application TITLE */
@@ -79,22 +77,22 @@ const char	usage_message[] =
 const char	*help_message[] = {
 	"Options:",
 	"",
-	"  -c --config <config-file>  Absolute path to the configuration file",
-	"  -p --print                 Print known items and exit",
-	"  -t --test <item key>       Test specified item and exit",
-	"  -h --help                  Give this help",
-	"  -V --version               Display version number",
+	"  -c --config <config-file>  absolute path to the configuration file",
+	"  -h --help                  give this help",
+	"  -V --version               display version number",
+	"  -p --print                 print known items and exit",
+	"  -t --test <item key>       test specified item and exit",
 #ifdef _WINDOWS
 	"",
 	"Functions:",
 	"",
-	"  -i --install          Install Zabbix agent as service",
-	"  -d --uninstall        Uninstall Zabbix agent from service",
+	"  -i --install          install Zabbix agent as service",
+	"  -d --uninstall        uninstall Zabbix agent from service",
 
-	"  -s --start            Start Zabbix agent service",
-	"  -x --stop             Stop Zabbix agent service",
+	"  -s --start            start Zabbix agent service",
+	"  -x --stop             stop Zabbix agent service",
 
-	"  -m --multiple-agents  Service name will include hostname",
+	"  -m --multiple-agents  service name will include hostname",
 #endif
 	NULL	/* end of text */
 };
@@ -138,7 +136,9 @@ unsigned char	process_type = 255;	/* ZBX_PROCESS_TYPE_UNKNOWN */
 
 ZBX_THREAD_ACTIVECHK_ARGS	*CONFIG_ACTIVE_ARGS = NULL;
 int				CONFIG_ACTIVE_FORKS = 0;
+int				CONFIG_ACTIVE_DISABLE = 0;
 int				CONFIG_PASSIVE_FORKS = 3;	/* number of listeners for processing passive checks */
+int				CONFIG_PASSIVE_DISABLE = 0;
 
 static void	parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
 {
@@ -276,7 +276,7 @@ static void	zbx_validate_config()
 	}
 
 	/* make sure active or passive check is enabled */
-	if (0 == CONFIG_ACTIVE_FORKS && 0 == CONFIG_PASSIVE_FORKS)
+	if (1 == CONFIG_ACTIVE_DISABLE && 1 == CONFIG_PASSIVE_DISABLE)
 	{
 		zabbix_log(LOG_LEVEL_CRIT, "either active or passive checks must be enabled");
 		exit(FAIL);
@@ -312,10 +312,7 @@ static int	add_activechk_host(const char *host, unsigned short port)
  ******************************************************************************/
 static void	parse_active_hosts(char *active_hosts)
 {
-	char		*l = active_hosts, *r, *r3, *pos;
-#ifdef HAVE_IPV6
-	char		*r2;
-#endif
+	char		*l = active_hosts, *r, *r2, *r3, *pos;
 	unsigned short	port;
 	int		rc = SUCCEED;
 
@@ -324,11 +321,9 @@ static void	parse_active_hosts(char *active_hosts)
 		if (NULL != (r = strchr(l, ',')))
 			*r = '\0';
 
-		port = ZBX_DEFAULT_SERVER_PORT;
+		port = (unsigned short)CONFIG_SERVER_PORT;
 		pos = l;
-		r3 = NULL;
-#ifdef HAVE_IPV6
-		r2 = NULL;
+		r2 = r3 = NULL;
 
 		if ('[' == *l)
 		{
@@ -360,7 +355,6 @@ static void	parse_active_hosts(char *active_hosts)
 		}
 		else
 		{
-#endif
 			if (NULL != (r3 = strchr(l, ':')))
 			{
 				if (SUCCEED != is_ushort(r3 + 1, &port))
@@ -374,9 +368,7 @@ static void	parse_active_hosts(char *active_hosts)
 
 			if (NULL != r3)
 				*r3 = ':';
-#ifdef HAVE_IPV6
 		}
-#endif
 
 		if (NULL != r)
 		{
@@ -388,10 +380,8 @@ static void	parse_active_hosts(char *active_hosts)
 
 	return;
 fail:
-#ifdef HAVE_IPV6
 	if (NULL != r2)
 		*r2 = ']';
-#endif
 	if (NULL != r3)
 		*r3 = ':';
 
@@ -417,14 +407,14 @@ fail:
  ******************************************************************************/
 static void	zbx_load_config(int requirement)
 {
-	char	*active_hosts = NULL;
+	char	*p, *active_hosts = NULL;
 
 	struct cfg_line	cfg[] =
 	{
 		/* PARAMETER,			VAR,					TYPE,
 			MANDATORY,	MIN,			MAX */
 		{"Server",			&CONFIG_HOSTS_ALLOWED,			TYPE_STRING,
-			PARM_OPT,	0,			0},
+			PARM_MAND,	0,			0},
 		{"ServerActive",		&active_hosts,				TYPE_STRING,
 			PARM_OPT,	0,			0},
 		{"Hostname",			&CONFIG_HOSTNAME,			TYPE_STRING,
@@ -443,9 +433,15 @@ static void	zbx_load_config(int requirement)
 			PARM_OPT,	0,			0},
 		{"LogFileSize",			&CONFIG_LOG_FILE_SIZE,			TYPE_INT,
 			PARM_OPT,	0,			1024},
+		{"DisableActive",		&CONFIG_ACTIVE_DISABLE,			TYPE_INT,
+			PARM_OPT,	0,			1},
+		{"DisablePassive",		&CONFIG_PASSIVE_DISABLE,		TYPE_INT,
+			PARM_OPT,	0,			1},
 		{"Timeout",			&CONFIG_TIMEOUT,			TYPE_INT,
 			PARM_OPT,	1,			30},
 		{"ListenPort",			&CONFIG_LISTEN_PORT,			TYPE_INT,
+			PARM_OPT,	1024,			32767},
+		{"ServerPort",			&CONFIG_SERVER_PORT,			TYPE_INT,
 			PARM_OPT,	1024,			32767},
 		{"ListenIP",			&CONFIG_LISTEN_IP,			TYPE_STRING,
 			PARM_OPT,	0,			0},
@@ -454,7 +450,7 @@ static void	zbx_load_config(int requirement)
 		{"DebugLevel",			&CONFIG_LOG_LEVEL,			TYPE_INT,
 			PARM_OPT,	0,			4},
 		{"StartAgents",			&CONFIG_PASSIVE_FORKS,			TYPE_INT,
-			PARM_OPT,	0,			100},
+			PARM_OPT,	1,			100},
 		{"RefreshActiveChecks",		&CONFIG_REFRESH_ACTIVE_CHECKS,		TYPE_INT,
 			PARM_OPT,	SEC_PER_MIN,		SEC_PER_HOUR},
 		{"MaxLinesPerSecond",		&CONFIG_MAX_LINES_PER_SECOND,		TYPE_INT,
@@ -489,19 +485,29 @@ static void	zbx_load_config(int requirement)
 
 	set_defaults();
 
-	if (ZBX_CFG_FILE_REQUIRED == requirement && NULL == CONFIG_HOSTS_ALLOWED && 0 != CONFIG_PASSIVE_FORKS)
-	{
-		zbx_error("StartAgents is not 0, parameter Server must be defined");
-		exit(EXIT_FAILURE);
-	}
-
-	if (NULL != active_hosts && '\0' != *active_hosts)
-		parse_active_hosts(active_hosts);
-
-	zbx_free(active_hosts);
-
 	if (ZBX_CFG_FILE_REQUIRED == requirement)
 		zbx_validate_config();
+
+	if (0 != CONFIG_PASSIVE_DISABLE)
+		CONFIG_PASSIVE_FORKS = 0;	/* listeners are not needed for passive checks */
+
+	if (0 == CONFIG_ACTIVE_DISABLE && ZBX_CFG_FILE_REQUIRED == requirement)
+	{
+		if (NULL == active_hosts || '\0' == *active_hosts)
+		{
+			if (NULL != (p = strchr(CONFIG_HOSTS_ALLOWED, ',')))
+				*p = '\0';
+
+			add_activechk_host(CONFIG_HOSTS_ALLOWED, (unsigned short)CONFIG_SERVER_PORT);
+
+			if (NULL != p)
+				*p = ',';
+		}
+		else
+			parse_active_hosts(active_hosts);
+	}
+
+	zbx_free(active_hosts);
 }
 
 /******************************************************************************
@@ -567,7 +573,7 @@ int	MAIN_ZABBIX_ENTRY()
 	zabbix_log(LOG_LEVEL_INFORMATION, "Starting Zabbix Agent [%s]. Zabbix %s (revision %s).",
 			CONFIG_HOSTNAME, ZABBIX_VERSION, ZABBIX_REVISION);
 
-	if (0 != CONFIG_PASSIVE_FORKS)
+	if (0 == CONFIG_PASSIVE_DISABLE)
 	{
 		if (FAIL == zbx_tcp_listen(&listen_sock, CONFIG_LISTEN_IP, (unsigned short)CONFIG_LISTEN_PORT))
 		{
@@ -576,10 +582,10 @@ int	MAIN_ZABBIX_ENTRY()
 		}
 	}
 
+	/* collector data must be initiated by user 'zabbix' */
 	init_collector_data();
 
 #ifdef _WINDOWS
-	init_perf_collector(1);
 	load_perf_counters(CONFIG_PERF_COUNTERS);
 #endif
 	load_user_parameters(CONFIG_USER_PARAMETERS);
@@ -688,7 +694,11 @@ void	zbx_on_exit()
 		zbx_free(threads);
 	}
 
-#ifndef _WINDOWS
+#ifdef USE_PID_FILE
+	daemon_stop();
+#endif
+
+#if !defined(_WINDOWS)
 	zbx_sleep(2);	/* wait for all processes to exit */
 #endif
 
@@ -700,9 +710,6 @@ void	zbx_on_exit()
 	free_metrics();
 	alias_list_free();
 	free_collector_data();
-#ifdef _WINDOWS
-	free_perf_collector();
-#endif
 
 	exit(SUCCEED);
 }
@@ -770,7 +777,7 @@ int	main(int argc, char **argv)
 		case ZBX_TASK_PRINT_SUPPORTED:
 			zbx_load_config(ZBX_CFG_FILE_OPTIONAL);
 #ifdef _WINDOWS
-			init_perf_collector(0);
+			init_collector_data();	/* required for reading PerfCounter */
 			load_perf_counters(CONFIG_PERF_COUNTERS);
 #endif
 			load_user_parameters(CONFIG_USER_PARAMETERS);
@@ -781,7 +788,7 @@ int	main(int argc, char **argv)
 			else
 				test_parameters();
 #ifdef _WINDOWS
-			free_perf_collector();	/* cpu_collector must be freed before perf_collector is freed */
+			free_collector_data();
 #endif
 			free_metrics();
 			alias_list_free();

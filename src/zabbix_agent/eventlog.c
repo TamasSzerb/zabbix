@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,8 +14,10 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+
+#if defined(_WINDOWS)
 
 #include "common.h"
 
@@ -229,8 +231,8 @@ out:
 	return ret;
 }
 
-int	process_eventlog(const char *source, zbx_uint64_t *lastlogsize, unsigned long *out_timestamp, char **out_source,
-		unsigned short *out_severity, char **out_message, unsigned long	*out_eventid, unsigned char skip_old_data)
+int	process_eventlog(const char *source, long *lastlogsize, unsigned long *out_timestamp, char **out_source,
+		unsigned short *out_severity, char **out_message, unsigned long	*out_eventid)
 {
 	const char	*__function_name = "process_eventlog";
 	int		ret = FAIL;
@@ -239,25 +241,25 @@ int	process_eventlog(const char *source, zbx_uint64_t *lastlogsize, unsigned lon
 	register long	i;
 	LPTSTR		wsource;
 
-	assert(NULL != lastlogsize);
-	assert(NULL != out_timestamp);
-	assert(NULL != out_source);
-	assert(NULL != out_severity);
-	assert(NULL != out_message);
-	assert(NULL != out_eventid);
+	assert(lastlogsize);
+	assert(out_timestamp);
+	assert(out_source);
+	assert(out_severity);
+	assert(out_message);
+	assert(out_eventid);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() source:'%s' lastlogsize:" ZBX_FS_UI64,
+	*out_timestamp	= 0;
+	*out_source	= NULL;
+	*out_severity	= 0;
+	*out_message	= NULL;
+	*out_eventid	= 0;
+
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() source:'%s' lastlogsize:%ld",
 			__function_name, source, *lastlogsize);
-
-	*out_timestamp = 0;
-	*out_source = NULL;
-	*out_severity = 0;
-	*out_message = NULL;
-	*out_eventid = 0;
 
 	if (NULL == source || '\0' == *source)
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "cannot open eventlog with empty name");
+		zabbix_log(LOG_LEVEL_WARNING, "Can't open eventlog with empty name");
 		return ret;
 	}
 
@@ -266,12 +268,6 @@ int	process_eventlog(const char *source, zbx_uint64_t *lastlogsize, unsigned lon
 	if (SUCCEED == zbx_open_eventlog(wsource, &eventlog_handle, &LastID /* number */, &FirstID /* oldest */))
 	{
 		LastID += FirstID;
-
-		if (1 == skip_old_data)
-		{
-			*lastlogsize = LastID - 1;
-			zabbix_log(LOG_LEVEL_DEBUG, "skipping existing data: lastlogsize:" ZBX_FS_UI64, *lastlogsize);
-		}
 
 		if (*lastlogsize > LastID)
 			*lastlogsize = FirstID;
@@ -292,11 +288,14 @@ int	process_eventlog(const char *source, zbx_uint64_t *lastlogsize, unsigned lon
 		ret = SUCCEED;
 	}
 	else
-		zabbix_log(LOG_LEVEL_ERR, "cannot open eventlog '%s': %s", source, strerror_from_system(GetLastError()));
+		zabbix_log(LOG_LEVEL_ERR, "Can't open eventlog '%s' [%s]",
+				source, strerror_from_system(GetLastError()));
 
 	zbx_free(wsource);
-
+	
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 
 	return ret;
 }
+
+#endif	/* if defined(_WINDOWS) */

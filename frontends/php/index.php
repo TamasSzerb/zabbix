@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2012 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -10,105 +10,117 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+require_once('include/config.inc.php');
+require_once('include/forms.inc.php');
 
+define('ZBX_NOT_ALLOW_ALL_NODES', 1);
+define('ZBX_HIDE_NODE_SELECTION', 1);
 
-define('ZBX_PAGE_NO_AUTHORIZATION', true);
-define('ZBX_NOT_ALLOW_ALL_NODES', true);
-define('ZBX_HIDE_NODE_SELECTION', true);
-define('ZBX_PAGE_NO_MENU', true);
+$page['title']	= 'S_ZABBIX_BIG';
+$page['file']	= 'index.php';
 
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/forms.inc.php';
+//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
+	$fields=array(
+		'name'=>			array(T_ZBX_STR, O_NO,	NULL,	NOT_EMPTY,	'isset({enter})', S_LOGIN_NAME),
+		'password'=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		'isset({enter})'),
+		'sessionid'=>		array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
+		'message'=>			array(T_ZBX_STR, O_OPT,	NULL,	NULL,		NULL),
+		'reconnect'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	BETWEEN(0,65535),NULL),
+		'enter'=>			array(T_ZBX_STR, O_OPT, P_SYS,	NULL,		NULL),
+		'form'=>			array(T_ZBX_STR, O_OPT, P_SYS,  NULL,   	NULL),
+		'form_refresh'=>	array(T_ZBX_INT, O_OPT, NULL,   NULL,   	NULL),
+		'request'=>			array(T_ZBX_STR, O_OPT, NULL, 	NULL,   	NULL),
+	);
+	check_fields($fields);
+?>
+<?php
+	$sessionid = get_cookie('zbx_sessionid', null);
 
-$page['title'] = _('ZABBIX');
-$page['file'] = 'index.php';
+	if(isset($_REQUEST['reconnect']) && isset($sessionid)){
+		CUser::logout($sessionid);
 
-// VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
-$fields = array(
-	'name' =>		array(T_ZBX_STR, O_NO,	null,	NOT_EMPTY,		'isset({enter})', _('Username')),
-	'password' =>	array(T_ZBX_STR, O_OPT, null,	null,			'isset({enter})'),
-	'sessionid' =>	array(T_ZBX_STR, O_OPT, null,	null,			null),
-	'reconnect' =>	array(T_ZBX_INT, O_OPT, P_SYS,	BETWEEN(0, 65535), null),
-	'enter' =>		array(T_ZBX_STR, O_OPT, P_SYS,	null,			null),
-	'autologin' =>	array(T_ZBX_INT, O_OPT, null,	null,			null),
-	'request' =>	array(T_ZBX_STR, O_OPT, null,	null,			null)
-);
-check_fields($fields);
-
-// logout
-if (isset($_REQUEST['reconnect'])) {
-	add_audit(AUDIT_ACTION_LOGOUT, AUDIT_RESOURCE_USER, _('Manual Logout'));
-	CWebUser::logout();
-}
-
-$config = select_config();
-
-if ($config['authentication_type'] == ZBX_AUTH_HTTP) {
-	if (!empty($_SERVER['PHP_AUTH_USER'])) {
-		$_REQUEST['enter'] = _('Sign in');
-		$_REQUEST['name'] = $_SERVER['PHP_AUTH_USER'];
-	}
-	else {
-		access_deny();
-	}
-}
-
-// login via form
-if (isset($_REQUEST['enter']) && $_REQUEST['enter'] == _('Sign in')) {
-	// try to login
-	if (CWebUser::login(get_request('name', ''), get_request('password', ''))) {
-		// save remember login preference
-		$user = array('autologin' => get_request('autologin', 0));
-		if (CWebUser::$data['autologin'] != $user['autologin']) {
-			$result = API::User()->updateProfile($user);
-		}
-		add_audit_ext(AUDIT_ACTION_LOGIN, AUDIT_RESOURCE_USER, CWebUser::$data['userid'], '', null, null, null);
-
-		$request = get_request('request');
-		$url = zbx_empty($request) ? CWebUser::$data['url'] : $request;
-		if (zbx_empty($url) || $url == $page['file']) {
-			$url = 'dashboard.php';
-		}
-		redirect($url);
+		redirect('index.php');
 		exit();
 	}
-	// login failed, fall back to a guest account
-	else {
-		CWebUser::checkAuthentication(null);
-	}
-}
-else {
-	// login the user from the session, if the session id is empty - login as a guest
-	CWebUser::checkAuthentication(get_cookie('zbx_sessionid'));
-}
 
-// the user is not logged in, display the login form
-if (!CWebUser::$data['alias'] || CWebUser::$data['alias'] == ZBX_GUEST_USER) {
-	switch ($config['authentication_type']) {
-		case ZBX_AUTH_HTTP:
-			echo _('User name does not match with DB');
-			break;
-		case ZBX_AUTH_LDAP:
-		case ZBX_AUTH_INTERNAL:
-			if (isset($_REQUEST['enter'])) {
-				$_REQUEST['autologin'] = get_request('autologin', 0);
-			}
+	$config = select_config();
 
-			if ($messages = clear_messages()) {
-				$messages = array_pop($messages);
-				$_REQUEST['message'] = $messages['message'];
-			}
-			$loginForm = new CView('general.login');
-			$loginForm->render();
+	$authentication_type = $config['authentication_type'];
+
+	if($authentication_type == ZBX_AUTH_HTTP){
+		if(isset($_SERVER['PHP_AUTH_USER']) && !empty($_SERVER['PHP_AUTH_USER'])){
+			if(!isset($sessionid)) $_REQUEST['enter'] = 'Enter';
+
+			$_REQUEST['name'] = $_SERVER['PHP_AUTH_USER'];
+			$_REQUEST['password'] = 'zabbix';//$_SERVER['PHP_AUTH_PW'];
+		}
+		else{
+			access_deny();
+		}
 	}
-}
-else {
-	redirect(zbx_empty(CWebUser::$data['url']) ? 'dashboard.php' : CWebUser::$data['url']);
-}
+
+	$request = get_request('request');
+	if(isset($_REQUEST['enter'])&&($_REQUEST['enter']=='Enter')){
+		global $USER_DETAILS;
+		$name = get_request('name','');
+		$passwd = get_request('password','');
+
+
+		$login = CUser::authenticate(array('user'=>$name, 'password'=>$passwd, 'auth_type'=>$authentication_type));
+
+		if($login){
+			$url = is_null($request) ? $USER_DETAILS['url'] : $request;
+			redirect($url);
+			exit();
+		}
+	}
+
+include_once('include/page_header.php');
+
+	if(isset($_REQUEST['message'])) show_error_message($_REQUEST['message']);
+
+	if(!isset($sessionid) || ($USER_DETAILS['alias'] == ZBX_GUEST_USER)){
+		switch($authentication_type){
+			case ZBX_AUTH_HTTP:
+				break;
+			case ZBX_AUTH_LDAP:
+			case ZBX_AUTH_INTERNAL:
+			default:
+//	konqueror bug #138024; adding useless param(login=1) to the form's action path to avoid bug!!
+				$frmLogin = new CFormTable(S_LOGIN,'index.php?login=1','post','multipart/form-data');
+				$frmLogin->setHelp('web.index.login');
+				$frmLogin->addVar('request', $request);
+				$lt = new CTextBox('name');
+				$lt->addStyle('width: 150px');
+				$frmLogin->addRow(S_LOGIN_NAME, $lt);
+
+				$pt = new CPassBox('password');
+				$pt->addStyle('width: 150px');
+				$frmLogin->addRow(S_PASSWORD, $pt);
+				$frmLogin->addItemToBottomRow(new CButton('enter','Enter'));
+				$frmLogin->show(false);
+
+				setFocus($frmLogin->getName(),'name');
+
+				$frmLogin->destroy();
+		}
+
+	}
+	else{
+		echo '<div align="center" class="textcolorstyles">'.S_WELCOME.' <b>'.$USER_DETAILS['alias'].'</b>.</div>';
+	}
+?>
+<?php
+
+include_once('include/page_footer.php');
+
+?>

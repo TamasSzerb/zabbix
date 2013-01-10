@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_CPUSTAT_H
@@ -23,7 +23,6 @@
 #include "sysinfo.h"
 
 #ifdef _WINDOWS
-#	include "perfmon.h"
 
 #define MAX_CPU_HISTORY	(15 * SEC_PER_MIN)
 
@@ -43,13 +42,9 @@ typedef struct
 {
 	zbx_uint64_t	h_counter[ZBX_CPU_STATE_COUNT][MAX_COLLECTOR_HISTORY];
 	unsigned char	h_status[MAX_COLLECTOR_HISTORY];
-#if (MAX_COLLECTOR_HISTORY % 8) > 0
-	unsigned char	padding0[8 - (MAX_COLLECTOR_HISTORY % 8)];	/* for 8-byte alignment */
-#endif
 	int		h_first;
 	int		h_count;
 	int		cpu_num;
-	int		padding1;	/* for 8-byte alignment */
 }
 ZBX_SINGLE_CPU_STAT_DATA;
 

@@ -1,6 +1,7 @@
+
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +15,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_PROXY_H
@@ -32,20 +33,19 @@
 
 AGENT_VALUE
 {
-	zbx_timespec_t	ts;
-	char		host_name[HOST_HOST_LEN_MAX];
-	char		key[ITEM_KEY_LEN * 4 + 1];
-	char		*value;
-	char		*source;
-	zbx_uint64_t	lastlogsize;
-	int		mtime;
-	int		timestamp;
-	int		severity;
-	int		logeventid;
-	unsigned char	status;
+	int	clock;
+	char	host_name[HOST_HOST_LEN_MAX];
+	char	key[ITEM_KEY_LEN_MAX];
+	char	*value;
+	int	lastlogsize;
+	int	mtime;
+	int	timestamp;
+	char	*source;
+	int	severity;
+	int	logeventid;
 };
 
-int	get_proxy_id(struct zbx_json_parse *jp, zbx_uint64_t *hostid, char *host, char *error, int max_error_len);
+int	get_proxy_id(struct zbx_json_parse *jp, zbx_uint64_t *hostid, char *host, char *error, int error_max_len);
 
 void	update_proxy_lastaccess(const zbx_uint64_t hostid);
 
@@ -62,15 +62,11 @@ void	proxy_set_hist_lastid(const zbx_uint64_t lastid);
 void	proxy_set_dhis_lastid(const zbx_uint64_t lastid);
 void	proxy_set_areg_lastid(const zbx_uint64_t lastid);
 
-void	calc_timestamp(char *line, int *timestamp, char *format);
-
 void	process_mass_data(zbx_sock_t *sock, zbx_uint64_t proxy_hostid,
-		AGENT_VALUE *values, size_t value_num, int *processed);
+		AGENT_VALUE *values, int value_num, int *processed);
 int	process_hist_data(zbx_sock_t *sock, struct zbx_json_parse *jp,
 		const zbx_uint64_t proxy_hostid, char *info, int max_info_size);
 void	process_dhis_data(struct zbx_json_parse *jp);
 void	process_areg_data(struct zbx_json_parse *jp, zbx_uint64_t proxy_hostid);
-
-void	DBlld_process_discovery_rule(zbx_uint64_t discovery_itemid, char *value, zbx_timespec_t *ts);
 
 #endif

@@ -78,9 +78,12 @@ AC_DEFUN([AX_LIB_MYSQL],
 
     if test "$want_mysql" = "yes"; then
 
-        AC_PATH_PROG([MYSQL_CONFIG], [mysql_config], [])
+        if test -z "$MYSQL_CONFIG" -o test; then
+            AC_PATH_PROG([MYSQL_CONFIG], [mysql_config], [no])
+        fi
 
-        if test -x "$MYSQL_CONFIG"; then
+        if test -f "$MYSQL_CONFIG"; then
+dnl            AC_MSG_CHECKING([for MySQL libraries])
 
             MYSQL_CFLAGS="`$MYSQL_CONFIG --cflags`"
 
@@ -103,7 +106,7 @@ AC_DEFUN([AX_LIB_MYSQL],
            	    ;;
                       -l*)
 				_lib_name="`echo "$i" | cut -b3-`"
-				AC_CHECK_LIB($_lib_name, main, [
+				AC_CHECK_LIB($_lib_name , main,[
 						MYSQL_LIBS="$MYSQL_LIBS $i"
 					],[
 						AC_MSG_ERROR([Not found $_lib_name library])
@@ -120,7 +123,7 @@ AC_DEFUN([AX_LIB_MYSQL],
 		LDFLAGS="${LDFLAGS} ${MYSQL_LDFLAGS}"
 		CFLAGS="${CFLAGS} ${MYSQL_CFLAGS}"
 
-		AC_CHECK_LIB(mysqlclient, main, [
+		AC_CHECK_LIB(mysqlclient , main,[
 			MYSQL_LIBS="-lmysqlclient ${MYSQL_LIBS}"
 			],[
 			AC_MSG_ERROR([Not found mysqlclient library])
@@ -139,8 +142,10 @@ AC_DEFUN([AX_LIB_MYSQL],
 			[Define to 1 if MySQL libraries are available])
 
             found_mysql="yes"
+dnl            AC_MSG_RESULT([yes])
         else
             found_mysql="no"
+dnl            AC_MSG_RESULT([no])
         fi
     fi
 

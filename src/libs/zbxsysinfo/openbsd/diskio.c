@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -131,11 +131,11 @@ static int	VFS_DEV_WRITE_OPERATIONS(const char *devname, AGENT_RESULT *result)
 
 int	VFS_DEV_WRITE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	const MODE_FUNCTION	fl[] =
+	MODE_FUNCTION fl[] =
 	{
 		{"bytes",	VFS_DEV_WRITE_BYTES},
 		{"operations",	VFS_DEV_WRITE_OPERATIONS},
-		{NULL,		0}
+		{0,		0}
 	};
 
 	char	devname[MAX_STRING_LEN];
@@ -168,11 +168,11 @@ int	VFS_DEV_WRITE(const char *cmd, const char *param, unsigned flags, AGENT_RESU
 
 int	VFS_DEV_READ(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	const MODE_FUNCTION	fl[] =
+	MODE_FUNCTION fl[] =
 	{
 		{"bytes",	VFS_DEV_READ_BYTES},
 		{"operations",	VFS_DEV_READ_OPERATIONS},
-		{NULL,		0}
+		{0,		0}
 	};
 
 	char	devname[MAX_STRING_LEN];
@@ -189,7 +189,7 @@ int	VFS_DEV_READ(const char *cmd, const char *param, unsigned flags, AGENT_RESUL
 	if (*devname == '\0')
 		zbx_snprintf(devname, sizeof(devname), "all");
 
-	if (0 != get_param(param, 2, mode, sizeof(mode)))
+	if (0 != get_param(param, 2, mode, sizeof(mode)) != 0)
 		*mode = '\0';
 
 	/* default parameter */

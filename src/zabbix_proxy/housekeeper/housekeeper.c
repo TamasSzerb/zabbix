@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -92,10 +92,9 @@ static int	delete_history(const char *table, const char *fieldname, int now)
 				" and (clock<%d"
 					" or (id<=" ZBX_FS_UI64 " and clock<%d))",
 			table, maxid,
-			now - CONFIG_PROXY_OFFLINE_BUFFER * SEC_PER_HOUR,
+			now - CONFIG_PROXY_OFFLINE_BUFFER * 3600,
 			lastid,
-			MIN(now - CONFIG_PROXY_LOCAL_BUFFER * SEC_PER_HOUR,
-					minclock + 4 * CONFIG_HOUSEKEEPING_FREQUENCY * SEC_PER_HOUR));
+			MIN(now - CONFIG_PROXY_LOCAL_BUFFER * 3600, minclock + 4 * CONFIG_HOUSEKEEPING_FREQUENCY * 3600));
 
 	DBcommit();
 
@@ -147,7 +146,7 @@ void	main_housekeeper_loop()
 	{
 		start = time(NULL);
 
-		zabbix_log(LOG_LEVEL_WARNING, "executing housekeeper");
+		zabbix_log(LOG_LEVEL_WARNING, "Executing housekeeper");
 
 		zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 
@@ -159,12 +158,13 @@ void	main_housekeeper_loop()
 
 		records = housekeeping_history(start);
 
-		zabbix_log(LOG_LEVEL_WARNING, "housekeeper deleted %d records from history (spent " ZBX_FS_DBL " seconds)",
-				records, zbx_time() - sec);
+		zabbix_log(LOG_LEVEL_WARNING, "Deleted %d records from history [" ZBX_FS_DBL " seconds]",
+				records,
+				zbx_time() - sec);
 
 		DBclose();
 
-		sleeptime = CONFIG_HOUSEKEEPING_FREQUENCY * SEC_PER_HOUR - (time(NULL) - start);
+		sleeptime = CONFIG_HOUSEKEEPING_FREQUENCY * 3600 - (time(NULL) - start);
 
 		zbx_sleep_loop(sleeptime);
 	}

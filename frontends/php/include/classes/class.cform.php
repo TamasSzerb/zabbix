@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,51 +15,54 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
-
-class CForm extends CTag {
-
-	public function __construct($method = 'post', $action = null, $enctype = null) {
-		parent::__construct('form', 'yes');
+?>
+<?php
+class CForm extends CTag{
+	public function __construct($action=NULL, $method='post', $enctype=NULL){
+		parent::__construct('form','yes');
 		$this->setMethod($method);
 		$this->setAction($action);
 		$this->setEnctype($enctype);
-		$this->setAttribute('accept-charset', 'utf-8');
 
-		if (isset($_COOKIE['zbx_sessionid'])) {
-			$this->addVar('sid', substr($_COOKIE['zbx_sessionid'], 16, 16));
-		}
-		$this->addVar('form_refresh', get_request('form_refresh', 0) + 1);
+		$this->setAttribute('accept-charset','utf-8');
+
+		if(isset($_COOKIE['zbx_sessionid']))
+			$this->addVar('sid', substr($_COOKIE['zbx_sessionid'],16,16));
+			
+		$this->addVar('form_refresh',get_request('form_refresh',0)+1);
 	}
 
-	public function setMethod($value = 'post') {
+	public function setMethod($value='post'){
 		return $this->attributes['method'] = $value;
 	}
 
-	public function setAction($value) {
+	public function setAction($value){
 		global $page;
 
-		if (is_null($value)) {
-			$value = isset($page['file']) ? $page['file'] : '#';
+		if(is_null($value)){
+			$value = isset($page['file'])?$page['file']:'#';
 		}
-		return $this->attributes['action'] = $value;
+
+	return $this->attributes['action'] = $value;
 	}
 
-	public function setEnctype($value = null) {
-		if (is_null($value)) {
+	public function setEnctype($value=NULL){
+		if(is_null($value)){
 			return $this->removeAttribute('enctype');
 		}
-		elseif (!is_string($value)) {
-			return $this->error('Incorrect value for SetEnctype "'.$value.'".');
+		else if(!is_string($value)){
+			return $this->error('Incorrect value for SetEnctype ['.$value.']');
 		}
-		return $this->setAttribute('enctype', $value);
+
+	return $this->setAttribute('enctype',$value);
 	}
 
-	public function addVar($name, $value, $id = null) {
-		if (!is_null($value)) {
-			return $this->addItem(new CVar($name, $value, $id));
-		}
+	public function addVar($name, $value){
+		if(empty($value) && $value != 0)	return $value;
+
+	return $this->addItem(new CVar($name, $value));
 	}
 }
+?>

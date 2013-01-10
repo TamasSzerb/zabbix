@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -23,7 +23,7 @@
 
 static ALIAS	*aliasList = NULL;
 
-void	add_alias(const char *name, const char *value)
+int	add_alias(const char *name, const char *value)
 {
 	ALIAS	*alias = NULL;
 
@@ -45,7 +45,7 @@ void	add_alias(const char *name, const char *value)
 			aliasList = alias;
 
 			zabbix_log(LOG_LEVEL_DEBUG, "Alias added: \"%s\" -> \"%s\"", name, value);
-			break;
+			return SUCCEED;
 		}
 
 		/* treat duplicate Alias as error */
@@ -55,6 +55,10 @@ void	add_alias(const char *name, const char *value)
 			exit(FAIL);
 		}
 	}
+
+	zabbix_log(LOG_LEVEL_WARNING, "Alias handling FAILED: \"%s\" -> \"%s\"", name, value);
+
+	return FAIL;
 }
 
 void	alias_list_free()
@@ -74,7 +78,7 @@ void	alias_list_free()
 	aliasList = NULL;
 }
 
-void	alias_expand(const char *orig, char *expanded, size_t exp_buf_len)
+void	alias_expand(const char *orig, char *expanded, int exp_buf_len)
 {
 	ALIAS	*alias;
 

@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,11 +14,12 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "log.h"
+#include "zlog.h"
 #include "comms.h"
 #include "base64.h"
 
@@ -51,9 +52,9 @@ void	str_base64_encode_rfc2047(const char *src, char **p_base64)
 {
 	const char	*p0;			/* pointer in src to start encoding from */
 	const char	*p1;			/* pointer in src: 1st byte of UTF-8 character */
-	size_t		c_len;			/* length of UTF-8 character sequence */
-	size_t		p_base64_alloc;		/* allocated memory size for subject */
-	size_t		p_base64_offset = 0;	/* offset for writing into subject */
+	int		c_len;			/* length of UTF-8 character sequence */
+	int	 	p_base64_alloc;		/* allocated memory size for p_base64 */
+	int		p_base64_offset = 0;	/* offset for writing into p_base64 */
 
 	assert(src);
 	assert(NULL == *p_base64);		/* do not accept already allocated memory */
@@ -91,7 +92,8 @@ void	str_base64_encode_rfc2047(const char *src, char **p_base64)
 						ZBX_EMAIL_ENCODED_WORD_SEPARATOR);
 			}
 
-			zbx_snprintf_alloc(p_base64, &p_base64_alloc, &p_base64_offset, "=?UTF-8?B?%s?=", b64_buf);
+			zbx_snprintf_alloc(p_base64, &p_base64_alloc, &p_base64_offset,
+					ZBX_EMAIL_B64_MAXWORD_RFC2047 + 1, "=?UTF-8?B?%s?=", b64_buf);
 		}
 		else
 			break;
@@ -266,6 +268,8 @@ int	send_email(const char *smtp_server, const char *smtp_helo, const char *smtp_
 
 	if (FAIL == is_ascii_string(localsubject))
 	{
+		zbx_replace_invalid_utf8(localsubject);
+
 		/* split subject into multiple RFC 2047 "encoded-words" */
 		str_base64_encode_rfc2047(localsubject, &base64);
 		zbx_free(localsubject);
@@ -357,7 +361,10 @@ out:
 	zbx_tcp_close(&s);
 close:
 	if ('\0' != *error)
+	{
 		zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+		zabbix_syslog("%s", error);
+	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 

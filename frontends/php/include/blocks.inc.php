@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2001-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2001-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,206 +15,240 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+require_once('include/graphs.inc.php');
+require_once('include/screens.inc.php');
+require_once('include/maps.inc.php');
+require_once('include/users.inc.php');
+require_once('include/requirements.inc.php');
 
 
-require_once dirname(__FILE__).'/graphs.inc.php';
-require_once dirname(__FILE__).'/screens.inc.php';
-require_once dirname(__FILE__).'/maps.inc.php';
-require_once dirname(__FILE__).'/users.inc.php';
+// Author: Aly
+function make_favorite_graphs(){
+	$table = new CTableInfo();
 
-function make_favorite_graphs() {
-	$favList = new CList(null, 'favorites');
 	$graphids = array();
 	$itemids = array();
 
-	$fav_graphs = CFavorite::get('web.favorite.graphids');
-
-	if (!$fav_graphs) {
-		return $favList;
-	}
-
-	foreach ($fav_graphs as $favorite) {
-		if ('itemid' == $favorite['source']) {
+	$fav_graphs = get_favorites('web.favorite.graphids');
+	foreach($fav_graphs as $key => $favorite){
+		if('itemid' == $favorite['source']){
 			$itemids[$favorite['value']] = $favorite['value'];
 		}
-		else {
+		else{
 			$graphids[$favorite['value']] = $favorite['value'];
 		}
 	}
 
-	if ($graphids) {
-		$options = array(
+	$options = array(
 			'graphids' => $graphids,
-			'selectHosts' => array('hostid', 'name'),
-			'output' => array('graphid', 'name')
+			'select_hosts' => API_OUTPUT_EXTEND,
+			'output' => API_OUTPUT_EXTEND,
 		);
-		$graphs = API::Graph()->get($options);
-		$graphs = zbx_toHash($graphs, 'graphid');
-	}
+	$graphs = CGraph::get($options);
+	$graphs = zbx_toHash($graphs, 'graphid');
 
-	if ($itemids) {
-		$options = array(
+	$options = array(
 			'itemids' => $itemids,
-			'selectHosts' => array('hostid', 'name'),
-			'output' => array('itemid', 'name', 'key_'),
-			'webitems' => true
+			'select_hosts' => API_OUTPUT_EXTEND,
+			'output' => API_OUTPUT_EXTEND,
+			'webitems' => 1,
 		);
-		$items = API::Item()->get($options);
-		$items = zbx_toHash($items, 'itemid');
-	}
+	$items = CItem::get($options);
+	$items = zbx_toHash($items, 'itemid');
 
-	foreach ($fav_graphs as $favorite) {
+	foreach($fav_graphs as $key => $favorite){
 		$sourceid = $favorite['value'];
 
-		if ('itemid' == $favorite['source']) {
-			if (!isset($items[$sourceid])) {
-				continue;
-			}
+		if('itemid' == $favorite['source']){
+			if(!isset($items[$sourceid])) continue;
+
 			$item = $items[$sourceid];
 			$host = reset($item['hosts']);
-			$item['name'] = itemName($item);
 
-			$link = new CLink(get_node_name_by_elid($sourceid, null, ': ').$host['name'].':'.$item['name'], 'history.php?action=showgraph&itemid='.$sourceid);
+			$item['description'] = item_description($item);
+
+			$link = new CLink(get_node_name_by_elid($sourceid, null, ': ').$host['host'].':'.$item['description'],'history.php?action=showgraph&itemid='.$sourceid);
 			$link->setTarget('blank');
+
+			$capt = new CSpan($link);
+			$capt->setAttribute('style','line-height: 14px; vertical-align: middle;');
+
+			$icon = new CLink(new CImg('images/general/chart.png','chart',18,18,'borderless'),'history.php?action=showgraph&itemid='.$sourceid.'&fullscreen=1');
+			$icon->setTarget('blank');
 		}
-		else {
-			if (!isset($graphs[$sourceid])) {
-				continue;
-			}
+		else{
+			if(!isset($graphs[$sourceid])) continue;
+
 			$graph = $graphs[$sourceid];
 			$ghost = reset($graph['hosts']);
 
-			$link = new CLink(get_node_name_by_elid($sourceid, null, ': ').$ghost['name'].':'.$graph['name'], 'charts.php?graphid='.$sourceid);
+			$link = new CLink(get_node_name_by_elid($sourceid, null, ': ').$ghost['host'].':'.$graph['name'],'charts.php?graphid='.$sourceid);
 			$link->setTarget('blank');
+
+			$capt = new CSpan($link);
+			$capt->setAttribute('style','line-height: 14px; vertical-align: middle;');
+
+			$icon = new CLink(new CImg('images/general/chart.png','chart',18,18,'borderless'),'charts.php?graphid='.$sourceid.'&fullscreen=1');
+			$icon->setTarget('blank');
 		}
-		$favList->addItem($link, 'nowrap');
+
+		$table->addRow(new CCol(array(
+			$icon,
+			SPACE,
+			$capt)
+		));
 	}
-	return $favList;
+	$td = new CCol(array(new CLink(S_GRAPHS.' &raquo;','charts.php','highlight')));
+	$td->setAttribute('style','text-align: right;');
+
+	$table->setFooter($td);
+
+return $table;
 }
 
-function make_favorite_screens() {
-	$favList = new CList(null, 'favorites');
-	$fav_screens = CFavorite::get('web.favorite.screenids');
+// Author: Aly
+function make_favorite_screens(){
+	$table = new CTableInfo();
 
-	if (!$fav_screens) {
-		return $favList;
-	}
+	$fav_screens = get_favorites('web.favorite.screenids');
 
 	$screenids = array();
-	foreach ($fav_screens as $favorite) {
-		if ('screenid' == $favorite['source']) {
+	foreach($fav_screens as $key => $favorite){
+		if('screenid' == $favorite['source']){
 			$screenids[$favorite['value']] = $favorite['value'];
 		}
 	}
 
 	$options = array(
 		'screenids' => $screenids,
-		'output' => array('screenid', 'name')
+		'output' => API_OUTPUT_EXTEND,
 	);
-	$screens = API::Screen()->get($options);
+	$screens = CScreen::get($options);
 	$screens = zbx_toHash($screens, 'screenid');
 
-	foreach ($fav_screens as $favorite) {
+	foreach($fav_screens as $key => $favorite){
 		$source = $favorite['source'];
 		$sourceid = $favorite['value'];
 
-		if ('slideshowid' == $source) {
-			if (!slideshow_accessible($sourceid, PERM_READ)) {
-				continue;
-			}
-			if (!$slide = get_slideshow_by_slideshowid($sourceid)) {
-				continue;
-			}
+		if('slideshowid' == $source){
+			if(!slideshow_accessible($sourceid, PERM_READ_ONLY)) continue;
+			if(!$slide = get_slideshow_by_slideshowid($sourceid)) continue;
 
-			$link = new CLink(get_node_name_by_elid($sourceid, null, ': ').$slide['name'], 'slides.php?elementid='.$sourceid);
+			$link = new CLink(get_node_name_by_elid($sourceid, null, ': ').$slide['name'],'slides.php?elementid='.$sourceid);
 			$link->setTarget('blank');
+
+			$capt = new CSpan($link);
+			$capt->setAttribute('style','line-height: 14px; vertical-align: middle;');
+
+			$icon = new CLink(new CImg('images/general/chart.png','screen',18,18,'borderless'),'slides.php?elementid='.$sourceid.'&fullscreen=1');
+			$icon->setTarget('blank');
 		}
-		else {
-			if (!isset($screens[$sourceid])) {
-				continue;
-			}
+		else{
+			if(!isset($screens[$sourceid])) continue;
 			$screen = $screens[$sourceid];
 
-			$link = new CLink(get_node_name_by_elid($sourceid, null, ': ').$screen['name'], 'screens.php?elementid='.$sourceid);
+			$link = new CLink(get_node_name_by_elid($sourceid, null, ': ').$screen['name'],'screens.php?elementid='.$sourceid);
 			$link->setTarget('blank');
+
+			$capt = new CSpan($link);
+			$capt->setAttribute('style','line-height: 14px; vertical-align: middle;');
+
+			$icon = new CLink(new CImg('images/general/chart.png','screen',18,18,'borderless'),'screens.php?elementid='.$sourceid.'&fullscreen=1');
+			$icon->setTarget('blank');
 		}
-		$favList->addItem($link, 'nowrap');
+
+		$table->addRow(new CCol(array(
+			$icon,
+			SPACE,
+			$capt)
+		));
 	}
-	return $favList;
+
+	$td = new CCol(array(new CLink(S_SCREENS.' &raquo;','screens.php','highlight')));
+	$td->setAttribute('style','text-align: right;');
+
+	$table->setFooter($td);
+
+return $table;
 }
 
-function make_favorite_maps() {
-	$favList = new CList(null, 'favorites');
-	$fav_sysmaps = CFavorite::get('web.favorite.sysmapids');
+// Author: Aly
+function make_favorite_maps(){
+	$table = new CTableInfo();
 
-	if (!$fav_sysmaps) {
-		return $favList;
-	}
+	$fav_sysmaps = get_favorites('web.favorite.sysmapids');
 
 	$sysmapids = array();
-	foreach ($fav_sysmaps as $favorite) {
+	foreach($fav_sysmaps as $key => $favorite){
 		$sysmapids[$favorite['value']] = $favorite['value'];
 	}
 
-	$sysmaps = API::Map()->get(array(
-		'sysmapids' => $sysmapids,
-		'output' => array('sysmapid', 'name')
-	));
-	foreach ($sysmaps as $sysmap) {
+	$options = array(
+			'sysmapids' => $sysmapids,
+			'output' => API_OUTPUT_EXTEND,
+		);
+	$sysmaps = CMap::get($options);
+
+	foreach($sysmaps as $snum => $sysmap){
 		$sysmapid = $sysmap['sysmapid'];
 
-		$link = new CLink(get_node_name_by_elid($sysmapid, null, ': ').$sysmap['name'], 'maps.php?sysmapid='.$sysmapid);
+		$link = new CLink(get_node_name_by_elid($sysmapid, null, ': ').$sysmap['name'],'maps.php?sysmapid='.$sysmapid);
 		$link->setTarget('blank');
 
-		$favList->addItem($link, 'nowrap');
+		$capt = new CSpan($link);
+		$capt->setAttribute('style','line-height: 14px; vertical-align: middle;');
+
+		$icon = new CLink(new CImg('images/general/chart.png','map',18,18,'borderless'),'maps.php?sysmapid='.$sysmapid.'&fullscreen=1');
+		$icon->setTarget('blank');
+
+		$table->addRow(new CCol(array(
+			$icon,
+			SPACE,
+			$capt)
+		));
 	}
-	return $favList;
+
+	$td = new CCol(array(new CLink(S_MAPS.' &raquo;','maps.php','highlight')));
+	$td->setAttribute('style','text-align: right;');
+
+	$table->setFooter($td);
+
+return $table;
 }
 
-function make_system_status($filter) {
-	$ackParams = array();
-	if (!empty($filter['screenid'])) {
-		$ackParams['screenid'] = $filter['screenid'];
-	}
+// Author: Aly
+function make_system_status($filter){
+	$config = select_config();
 
 	$table = new CTableInfo();
 	$table->setHeader(array(
-		is_show_all_nodes() ? _('Node') : null,
-		_('Host group'),
-		is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_DISASTER]) ? getSeverityCaption(TRIGGER_SEVERITY_DISASTER) : null,
-		is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_HIGH]) ? getSeverityCaption(TRIGGER_SEVERITY_HIGH) : null,
-		is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_AVERAGE]) ? getSeverityCaption(TRIGGER_SEVERITY_AVERAGE) : null,
-		is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_WARNING]) ? getSeverityCaption(TRIGGER_SEVERITY_WARNING) : null,
-		is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_INFORMATION]) ? getSeverityCaption(TRIGGER_SEVERITY_INFORMATION) : null,
-		is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_NOT_CLASSIFIED]) ? getSeverityCaption(TRIGGER_SEVERITY_NOT_CLASSIFIED) : null
+		is_show_all_nodes() ? S_NODE : null,
+		S_HOST_GROUP,
+		is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_DISASTER])?S_DISASTER:null,
+		is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_HIGH])?S_HIGH:null,
+		is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_AVERAGE])?S_AVERAGE:null,
+		is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_WARNING])?S_WARNING:null,
+		is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_INFORMATION])?S_INFORMATION:null,
+		is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_NOT_CLASSIFIED])?S_NOT_CLASSIFIED:null
 	));
 
-	// get host groups
+// SELECT HOST GROUPS {{{
 	$options = array(
 		'nodeids' => get_current_nodeid(),
-		'monitored_hosts' => true,
+		'monitored_hosts' => 1,
 		'groupids' => $filter['groupids'],
-		'output' => array('groupid', 'name'),
-		'preservekeys' => true
+		'output' => API_OUTPUT_EXTEND,
 	);
-	$groups = API::HostGroup()->get($options);
-
-	foreach($groups as &$group) {
-		$group['nodename'] = get_node_name_by_elid($group['groupid']);
-	}
-	unset($group);
-
-	// we need natural sort
-	$sortFields = array(
-		array('field' => 'nodename', 'order' => ZBX_SORT_UP),
-		array('field' => 'name', 'order' => ZBX_SORT_UP)
-	);
-	CArrayHelper::sort($groups, $sortFields);
+	$groups = CHostGroup::get($options);
+	$groups = zbx_toHash($groups, 'groupid');
+	order_result($groups, 'name');
 
 	$groupids = array();
-	foreach ($groups as $group) {
+	foreach($groups as $gnum => $group){
 		$groupids[] = $group['groupid'];
 		$group['tab_priority'] = array();
 		$group['tab_priority'][TRIGGER_SEVERITY_DISASTER] = array('count' => 0, 'triggers' => array(), 'count_unack' => 0, 'triggers_unack' => array());
@@ -225,183 +259,232 @@ function make_system_status($filter) {
 		$group['tab_priority'][TRIGGER_SEVERITY_NOT_CLASSIFIED] = array('count' => 0, 'triggers' => array(), 'count_unack' => 0, 'triggers_unack' => array());
 		$groups[$group['groupid']] = $group;
 	}
+// }}} SELECT HOST GROUPS
 
-	// get triggers
+
+// SELECT TRIGGERS {{{
 	$options = array(
 		'nodeids' => get_current_nodeid(),
 		'groupids' => $groupids,
-		'monitored' => true,
+		'monitored' => 1,
 		'maintenance' => $filter['maintenance'],
-		'skipDependent' => true,
-		'expandDescription' => true,
+		'expandData' => 1,
+		'skipDependent' => 1,
+		'expandDescription' => 1,
 		'filter' => array(
 			'priority' => $filter['severity'],
 			'value' => TRIGGER_VALUE_TRUE
 		),
-		'sortfield' => 'lastchange',
-		'sortorder' => ZBX_SORT_DOWN,
-		'output' =>  API_OUTPUT_EXTEND,
-		'selectHosts' => array('name'),
-		'preservekeys' => true
+		'output' => API_OUTPUT_EXTEND,
 	);
-	if ($filter['extAck'] == EXTACK_OPTION_UNACK) {
-		$options['withLastEventUnacknowledged'] = 1;
-	}
-	$triggers = API::Trigger()->get($options);
+	if($filter['extAck'] == EXTACK_OPTION_UNACK) $options['withLastEventUnacknowledged'] = 1;
+	$triggers = CTrigger::get($options);
+	order_result($triggers, 'lastchange', ZBX_SORT_DOWN);
 
-	foreach ($triggers as $trigger) {
+	foreach($triggers as $tnum => $trigger){
 		$options = array(
 			'nodeids' => get_current_nodeid(),
-			'object' => EVENT_SOURCE_TRIGGERS,
 			'triggerids' => $trigger['triggerid'],
-			'filter'=> array(
-				'value' => TRIGGER_VALUE_TRUE,
-				'value_changed' => TRIGGER_VALUE_CHANGED_YES
-			),
+			'object' => EVENT_SOURCE_TRIGGERS,
+			'value' => TRIGGER_VALUE_TRUE,
 			'output' => API_OUTPUT_EXTEND,
-			'nopermissions' => true,
-			'select_acknowledges' => API_OUTPUT_COUNT,
+			'nopermissions' => 1,
+			'limit' => 1,
 			'sortfield' => 'eventid',
-			'sortorder' => ZBX_SORT_DOWN,
-			'preservekeys' => true,
-			'limit' => 1
+			'sortorder' => ZBX_SORT_DOWN
 		);
-		$events = API::Event()->get($options);
-		if (empty($events)) {
+		$event = CEvent::get($options);
+		if(empty($event)){
 			$trigger['event'] = array(
-				'value_changed' => 0,
-				'value' => $trigger['value'],
-				'acknowledged' => true,
-				'clock' => $trigger['lastchange']
+				'acknowledged' => 1,
+				'clock' => $trigger['lastchange'],
 			);
 		}
-		else {
-			$trigger['event'] = reset($events);
+		else{
+			$trigger['event'] = reset($event);
 		}
 
-		foreach ($trigger['groups'] as $group) {
-			if (in_array($filter['extAck'], array(EXTACK_OPTION_ALL, EXTACK_OPTION_BOTH))) {
-				$groups[$group['groupid']]['tab_priority'][$trigger['priority']]['count']++;
-
-				if ($groups[$group['groupid']]['tab_priority'][$trigger['priority']]['count'] < 30) {
-					$groups[$group['groupid']]['tab_priority'][$trigger['priority']]['triggers'][] = $trigger;
-				}
+		foreach($trigger['groups'] as $group){
+			if($groups[$group['groupid']]['tab_priority'][$trigger['priority']]['count'] < 30){
+				$groups[$group['groupid']]['tab_priority'][$trigger['priority']]['triggers'][] = $trigger;
+			}
+			if(($groups[$group['groupid']]['tab_priority'][$trigger['priority']]['count_unack'] < 30) && !$trigger['event']['acknowledged']){
+				$groups[$group['groupid']]['tab_priority'][$trigger['priority']]['triggers_unack'][] = $trigger;
 			}
 
-			if (in_array($filter['extAck'], array(EXTACK_OPTION_UNACK, EXTACK_OPTION_BOTH))
-					&& !$trigger['event']['acknowledged']) {
+			$groups[$group['groupid']]['tab_priority'][$trigger['priority']]['count']++;
+			if(!$trigger['event']['acknowledged']){
 				$groups[$group['groupid']]['tab_priority'][$trigger['priority']]['count_unack']++;
-
-				if ($groups[$group['groupid']]['tab_priority'][$trigger['priority']]['count_unack'] < 30) {
-					$groups[$group['groupid']]['tab_priority'][$trigger['priority']]['triggers_unack'][] = $trigger;
-				}
 			}
 		}
 	}
 	unset($triggers);
+	order_result($groups, 'name');
+// }}} SELECT TRIGGERS
 
-	foreach ($groups as $group) {
+
+	foreach($groups as $gnum => $group){
 		$group_row = new CRow();
-		if (is_show_all_nodes()) {
-			$group_row->addItem($group['nodename']);
-		}
+		if(is_show_all_nodes())
+			$group_row->addItem(get_node_name_by_elid($group['groupid']));
 
-		$name = new CLink($group['name'], 'tr_status.php?groupid='.$group['groupid'].'&hostid=0&show_triggers='.TRIGGERS_OPTION_ONLYTRUE);
+		$name = new CLink($group['name'], 'tr_status.php?groupid='.$group['groupid'].'&show_triggers='.TRIGGERS_OPTION_ONLYTRUE);
 		$group_row->addItem($name);
 
-		foreach ($group['tab_priority'] as $severity => $data) {
-			if (!is_null($filter['severity']) && !isset($filter['severity'][$severity])) {
-				continue;
+		foreach($group['tab_priority'] as $severity => $data){
+			if(!is_null($filter['severity']) && !isset($filter['severity'][$severity])) continue;
+
+			if($data['count'] && in_array($filter['extAck'], array(EXTACK_OPTION_ALL, EXTACK_OPTION_BOTH))){
+				$table_inf = new CTableInfo();
+				$table_inf->setAttribute('style', 'width: 400px;');
+				$table_inf->setHeader(array(
+					is_show_all_nodes() ? S_NODE : null,
+					S_HOST,
+					S_ISSUE,
+					S_AGE,
+					($config['event_ack_enable']) ? S_ACK : NULL,
+					S_ACTIONS
+				));
+
+				foreach($data['triggers'] as $tnum => $trigger){
+					$event = $trigger['event'];
+					if($config['event_ack_enable'] && isset($event['eventid'])){
+						$ack = $event['acknowledged']
+								? new CLink(S_YES, 'acknow.php?eventid='.$event['eventid'], 'off')
+								: new CLink(S_NO, 'acknow.php?eventid='.$event['eventid'], 'on');
+
+						$actions = get_event_actions_status($event['eventid']);
+					}
+					else{
+						$ack = '-';
+						$actions = S_NO_DATA_SMALL;
+					}
+
+					$table_inf->addRow(array(
+						get_node_name_by_elid($trigger['triggerid']),
+						$trigger['host'],
+						new CCol($trigger['description'], get_severity_style($trigger['priority'])),
+						zbx_date2age($event['clock']),
+						($config['event_ack_enable']) ? (new CCol($ack, 'center')) : NULL,
+						$actions
+					));
+				}
 			}
 
-			$allTriggersNum = $data['count'];
-			if ($allTriggersNum) {
-				$allTriggersNum = new CSpan($allTriggersNum, 'pointer');
-				$allTriggersNum->setHint(makeTriggersPopup($data['triggers'], $ackParams));
+			if($data['count_unack'] && in_array($filter['extAck'], array(EXTACK_OPTION_UNACK, EXTACK_OPTION_BOTH))){
+				$table_inf_unack = new CTableInfo();
+				$table_inf_unack->setAttribute('style', 'width: 400px;');
+				$table_inf_unack->setHeader(array(
+					is_show_all_nodes() ? S_NODE : null,
+					S_HOST,
+					S_ISSUE,
+					S_AGE,
+					($config['event_ack_enable']) ? S_ACK : NULL,
+					S_ACTIONS
+				));
+
+				foreach($data['triggers_unack'] as $tnum => $trigger){
+					$event = $trigger['event'];
+
+					if($config['event_ack_enable']){
+						$ack = new CLink(S_NO, 'acknow.php?eventid='.$event['eventid'], 'on');
+						$actions = get_event_actions_status($event['eventid']);
+					}
+					else{
+						$ack = '-';
+						$actions = S_NO_DATA_SMALL;
+					}
+
+					$table_inf_unack->addRow(array(
+						get_node_name_by_elid($trigger['triggerid']),
+						$trigger['host'],
+						new CCol($trigger['description'], get_severity_style($trigger['priority'])),
+						zbx_date2age($event['clock']),
+						($config['event_ack_enable']) ? (new CCol($ack, 'center')) : NULL,
+						$actions
+					));
+				}
 			}
 
-			$unackTriggersNum = $data['count_unack'];
-			if ($unackTriggersNum) {
-				$unackTriggersNum = new CSpan($unackTriggersNum, 'pointer red bold');
-				$unackTriggersNum->setHint(makeTriggersPopup($data['triggers_unack'], $ackParams));
-			}
 
-			switch ($filter['extAck']) {
+			switch($filter['extAck']){
 				case EXTACK_OPTION_ALL:
-					$group_row->addItem(getSeverityCell($severity, $allTriggersNum, !$allTriggersNum));
-					break;
+					$trigger_count = new CSpan($data['count'], 'pointer');
+					if($data['count'])
+						$trigger_count->setHint($table_inf);
 
+					$group_row->addItem(new CCol($trigger_count, get_severity_style($severity, $data['count'])));
+				break;
 				case EXTACK_OPTION_UNACK:
-					$group_row->addItem(getSeverityCell($severity, $unackTriggersNum, !$unackTriggersNum));
-					break;
-
+					$trigger_count = $data['count_unack'];
+					if($trigger_count){
+						$trigger_count = new CSpan($data['count_unack'], 'pointer red bold');
+						$trigger_count->setHint($table_inf_unack);
+					}
+					$group_row->addItem(new CCol($trigger_count, get_severity_style($severity, $data['count_unack'])));
+				break;
 				case EXTACK_OPTION_BOTH:
-					if ($unackTriggersNum) {
-						$span = new Cspan(SPACE._('of').SPACE);
-						$unackTriggersNum = new CSpan($unackTriggersNum);
+					if($data['count_unack']){
+						$unack_count = new CSpan($data['count_unack'], 'bold red pointer');
+						$unack_count->setHint($table_inf_unack);
+						$unack_count = new CSpan(array($unack_count, SPACE.S_OF.SPACE));
 					}
-					else {
-						$span = null;
-						$unackTriggersNum = null;
+					else{
+						$unack_count = null;
 					}
 
-					$group_row->addItem(getSeverityCell($severity, array($unackTriggersNum, $span, $allTriggersNum), !$allTriggersNum));
-					break;
+					$trigger_count = new CSpan($data['count'], 'pointer');
+					if($data['count'])
+						$trigger_count->setHint($table_inf);
+
+					$group_row->addItem(new CCol(array($unack_count, $trigger_count), get_severity_style($severity, $data['count'])));
+				break;
 			}
 		}
+
 		$table->addRow($group_row);
 	}
-	$script = new CJSScript(get_js("jQuery('#hat_syssum_footer').html('"._s('Updated: %s', zbx_date2str(_('H:i:s')))."')"));
 
-	return new CDiv(array($table, $script));
+	$table->setFooter(new CCol(S_UPDATED.': '.zbx_date2str(S_BLOCKS_SYSTEM_SUMMARY_TIME_FORMAT)));
+
+	return $table;
 }
 
-function make_hoststat_summary($filter) {
+function make_hoststat_summary($filter){
 	$table = new CTableInfo();
 	$table->setHeader(array(
-		is_show_all_nodes() ? _('Node') : null,
-		_('Host group'),
-		_('Without problems'),
-		_('With problems'),
-		_('Total')
+		is_show_all_nodes() ? S_NODE : null,
+		S_HOST_GROUP,
+		S_WITHOUT_PROBLEMS,
+		S_WITH_PROBLEMS,
+		S_TOTAL
 	));
 
-	// get host groups
+// SELECT HOST GROUPS {{{
 	$options = array(
 		'nodeids' => get_current_nodeid(),
 		'groupids' => $filter['groupids'],
 		'monitored_hosts' => 1,
-		'output' => array('groupid', 'name')
+		'output' => API_OUTPUT_EXTEND
 	);
-	$groups = API::HostGroup()->get($options);
+	$groups = CHostGroup::get($options);
 	$groups = zbx_toHash($groups, 'groupid');
+	order_result($groups, 'name');
+// }}} SELECT HOST GROUPS
 
-	foreach($groups as &$group) {
-		$group['nodename'] = get_node_name_by_elid($group['groupid']);
-	}
-	unset($group);
-
-	// we need natural sort
-	$sortFields = array(
-		array('field' => 'nodename', 'order' => ZBX_SORT_UP),
-		array('field' => 'name', 'order' => ZBX_SORT_UP)
-	);
-	CArrayHelper::sort($groups, $sortFields);
-
-	// get hosts
+// SELECT HOSTS {{{
 	$options = array(
 		'nodeids' => get_current_nodeid(),
 		'groupids' => zbx_objectValues($groups, 'groupid'),
 		'monitored_hosts' => 1,
 		'filter' => array('maintenance_status' => $filter['maintenance']),
-		'output' => array('hostid', 'name'),
-		'selectGroups' => array('groupid')
+		'output' => array('hostid', 'host')
 	);
-	$hosts = API::Host()->get($options);
+	$hosts = CHost::get($options);
 	$hosts = zbx_toHash($hosts, 'hostid');
-	CArrayHelper::sort($hosts, array('name'));
+// }}} SELECT HOSTS
 
-	// get triggers
+// SELECT TRIGGERS {{{
 	$options = array(
 		'nodeids' => get_current_nodeid(),
 		'monitored' => 1,
@@ -411,31 +494,33 @@ function make_hoststat_summary($filter) {
 			'priority' => $filter['severity'],
 			'value' => TRIGGER_VALUE_TRUE
 		),
-		'output' => array('triggerid', 'priority')
+		'output' => API_OUTPUT_EXTEND,
 	);
-	$triggers = API::Trigger()->get($options);
+	$triggers = CTrigger::get($options);
 
-	if ($filter['extAck']) {
+	if($filter['extAck']){
 		$options = array(
 			'nodeids' => get_current_nodeid(),
 			'monitored' => 1,
 			'maintenance' => $filter['maintenance'],
 			'withLastEventUnacknowledged' => 1,
-			'selectHosts' => API_OUTPUT_REFER,
+			'select_hosts' => API_OUTPUT_REFER,
 			'filter' => array(
 				'priority' => $filter['severity'],
 				'value' => TRIGGER_VALUE_TRUE
 			),
-			'output' => API_OUTPUT_REFER
+			'output' => API_OUTPUT_REFER,
 		);
-		$triggers_unack = API::Trigger()->get($options);
+		$triggers_unack = CTrigger::get($options);
 		$triggers_unack = zbx_toHash($triggers_unack, 'triggerid');
-		foreach ($triggers_unack as $tunack) {
-			foreach ($tunack['hosts'] as $unack_host) {
+
+		foreach($triggers_unack as $tunack){
+			foreach($tunack['hosts'] as $unack_host){
 				$hosts_with_unack_triggers[$unack_host['hostid']] = $unack_host['hostid'];
 			}
 		}
 	}
+// }}} SELECT TRIGGERS
 
 	$hosts_data = array();
 	$problematic_host_list = array();
@@ -443,19 +528,15 @@ function make_hoststat_summary($filter) {
 	$highest_severity = array();
 	$highest_severity2 = array();
 
-	foreach ($triggers as $trigger) {
-		foreach ($trigger['hosts'] as $trigger_host) {
-			if (!isset($hosts[$trigger_host['hostid']])) {
-				continue;
-			}
-			else {
-				$host = $hosts[$trigger_host['hostid']];
-			}
+	foreach($triggers as $tnum => $trigger){
+		foreach($trigger['hosts'] as $thnum => $trigger_host){
+			if(!isset($hosts[$trigger_host['hostid']])) continue;
+			else $host = $hosts[$trigger_host['hostid']];
 
-			if ($filter['extAck'] && isset($hosts_with_unack_triggers[$host['hostid']])) {
-				if (!isset($lastUnack_host_list[$host['hostid']])) {
+			if($filter['extAck'] && isset($hosts_with_unack_triggers[$host['hostid']])){
+				if(!isset($lastUnack_host_list[$host['hostid']])){
 					$lastUnack_host_list[$host['hostid']] = array();
-					$lastUnack_host_list[$host['hostid']]['host'] = $host['name'];
+					$lastUnack_host_list[$host['hostid']]['host'] = $host['host'];
 					$lastUnack_host_list[$host['hostid']]['hostid'] = $host['hostid'];
 					$lastUnack_host_list[$host['hostid']]['severities'] = array();
 					$lastUnack_host_list[$host['hostid']]['severities'][TRIGGER_SEVERITY_DISASTER] = 0;
@@ -465,39 +546,38 @@ function make_hoststat_summary($filter) {
 					$lastUnack_host_list[$host['hostid']]['severities'][TRIGGER_SEVERITY_INFORMATION] = 0;
 					$lastUnack_host_list[$host['hostid']]['severities'][TRIGGER_SEVERITY_NOT_CLASSIFIED] = 0;
 				}
-				if (isset($triggers_unack[$trigger['triggerid']])) {
+				if(isset($triggers_unack[$trigger['triggerid']])){
 					$lastUnack_host_list[$host['hostid']]['severities'][$trigger['priority']]++;
 				}
 
-				foreach ($host['groups'] as $gnum => $group) {
-					if (!isset($highest_severity2[$group['groupid']])) {
+				foreach($host['groups'] as $gnum => $group){
+					if(!isset($highest_severity2[$group['groupid']]))
 						$highest_severity2[$group['groupid']] = 0;
-					}
 
-					if ($trigger['priority'] > $highest_severity2[$group['groupid']]) {
+					if($trigger['priority'] > $highest_severity2[$group['groupid']]){
 						$highest_severity2[$group['groupid']] = $trigger['priority'];
 					}
 
-					if (!isset($hosts_data[$group['groupid']])) {
+					if(!isset($hosts_data[$group['groupid']])){
 						$hosts_data[$group['groupid']] = array(
 							'problematic' => 0,
 							'ok' => 0,
 							'lastUnack' => 0,
 							'hostids_all' => array(),
-							'hostids_unack' => array()
+							'hostids_unack' => array(),
 						);
 					}
 
-					if (!isset($hosts_data[$group['groupid']]['hostids_unack'][$host['hostid']])) {
+					if(!isset($hosts_data[$group['groupid']]['hostids_unack'][$host['hostid']])){
 						$hosts_data[$group['groupid']]['hostids_unack'][$host['hostid']] = $host['hostid'];
 						$hosts_data[$group['groupid']]['lastUnack']++;
 					}
 				}
 			}
 
-			if (!isset($problematic_host_list[$host['hostid']])) {
+			if(!isset($problematic_host_list[$host['hostid']])){
 				$problematic_host_list[$host['hostid']] = array();
-				$problematic_host_list[$host['hostid']]['host'] = $host['name'];
+				$problematic_host_list[$host['hostid']]['host'] = $host['host'];
 				$problematic_host_list[$host['hostid']]['hostid'] = $host['hostid'];
 				$problematic_host_list[$host['hostid']]['severities'] = array();
 				$problematic_host_list[$host['hostid']]['severities'][TRIGGER_SEVERITY_DISASTER] = 0;
@@ -509,26 +589,25 @@ function make_hoststat_summary($filter) {
 			}
 			$problematic_host_list[$host['hostid']]['severities'][$trigger['priority']]++;
 
-			foreach ($host['groups'] as $gnum => $group) {
-				if (!isset($highest_severity[$group['groupid']])) {
+			foreach($host['groups'] as $gnum => $group){
+				if(!isset($highest_severity[$group['groupid']]))
 					$highest_severity[$group['groupid']] = 0;
-				}
 
-				if ($trigger['priority'] > $highest_severity[$group['groupid']]) {
+				if($trigger['priority'] > $highest_severity[$group['groupid']]){
 					$highest_severity[$group['groupid']] = $trigger['priority'];
 				}
 
-				if (!isset($hosts_data[$group['groupid']])) {
+				if(!isset($hosts_data[$group['groupid']])){
 					$hosts_data[$group['groupid']] = array(
 						'problematic' => 0,
 						'ok' => 0,
 						'lastUnack' => 0,
 						'hostids_all' => array(),
-						'hostids_unack' => array()
+						'hostids_unack' => array(),
 					);
 				}
 
-				if (!isset($hosts_data[$group['groupid']]['hostids_all'][$host['hostid']])) {
+				if(!isset($hosts_data[$group['groupid']]['hostids_all'][$host['hostid']])){
 					$hosts_data[$group['groupid']]['hostids_all'][$host['hostid']] = $host['hostid'];
 					$hosts_data[$group['groupid']]['problematic']++;
 				}
@@ -536,65 +615,57 @@ function make_hoststat_summary($filter) {
 		}
 	}
 
-	foreach ($hosts as $host) {
-		foreach ($host['groups'] as $group) {
-			if (!isset($groups[$group['groupid']]['hosts'])) {
+	foreach($hosts as $hnum => $host){
+		foreach($host['groups'] as $gnum => $group){
+			if(!isset($groups[$group['groupid']]['hosts']))
 				$groups[$group['groupid']]['hosts'] = array();
-			}
-			$groups[$group['groupid']]['hosts'][$host['hostid']] = array('hostid' => $host['hostid']);
 
-			if (!isset($highest_severity[$group['groupid']])) {
+			$groups[$group['groupid']]['hosts'][$host['hostid']] = array('hostid'=> $host['hostid']);
+
+			if(!isset($highest_severity[$group['groupid']]))
 				$highest_severity[$group['groupid']] = 0;
-			}
 
-			if (!isset($hosts_data[$group['groupid']])) {
+			if(!isset($hosts_data[$group['groupid']]))
 				$hosts_data[$group['groupid']] = array('problematic' => 0, 'ok' => 0, 'lastUnack' => 0);
-			}
 
-			if (!isset($problematic_host_list[$host['hostid']])) {
+			if(!isset($problematic_host_list[$host['hostid']]))
 				$hosts_data[$group['groupid']]['ok']++;
-			}
 		}
 	}
 
-	foreach ($groups as $group) {
-		if (!isset($hosts_data[$group['groupid']])) {
-			continue;
-		}
+	foreach($groups as $gnum => $group){
+		if(!isset($hosts_data[$group['groupid']])) continue;
 
 		$group_row = new CRow();
-		if (is_show_all_nodes()) {
-			$group_row->addItem($group['nodename']);
-		}
+		if(is_show_all_nodes())
+			$group_row->addItem(get_node_name_by_elid($group['groupid']));
 
 		$name = new CLink($group['name'], 'tr_status.php?groupid='.$group['groupid'].'&hostid=0&show_triggers='.TRIGGERS_OPTION_ONLYTRUE);
 		$group_row->addItem($name);
+
 		$group_row->addItem(new CCol($hosts_data[$group['groupid']]['ok'], 'normal'));
 
-		if ($filter['extAck']) {
-			if ($hosts_data[$group['groupid']]['lastUnack']) {
+		if($filter['extAck']){
+			if($hosts_data[$group['groupid']]['lastUnack']){
 				$table_inf = new CTableInfo();
 				$table_inf->setAttribute('style', 'width: 400px;');
 				$table_inf->setHeader(array(
-					_('Host'),
-					is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_DISASTER]) ? getSeverityCaption(TRIGGER_SEVERITY_DISASTER) : null,
-					is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_HIGH]) ? getSeverityCaption(TRIGGER_SEVERITY_HIGH) : null,
-					is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_AVERAGE]) ? getSeverityCaption(TRIGGER_SEVERITY_AVERAGE) : null,
-					is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_WARNING]) ? getSeverityCaption(TRIGGER_SEVERITY_WARNING) : null,
-					is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_INFORMATION]) ? getSeverityCaption(TRIGGER_SEVERITY_INFORMATION) : null,
-					is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_NOT_CLASSIFIED]) ? getSeverityCaption(TRIGGER_SEVERITY_NOT_CLASSIFIED) : null
+					S_HOST,
+					is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_DISASTER])?S_DISASTER:null,
+					is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_HIGH])?S_HIGH:null,
+					is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_AVERAGE])?S_AVERAGE:null,
+					is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_WARNING])?S_WARNING:null,
+					is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_INFORMATION])?S_INFORMATION:null,
+					is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_NOT_CLASSIFIED])?S_NOT_CLASSIFIED:null
 				));
+
 				$popup_rows = 0;
 
-				foreach ($group['hosts'] as $host) {
+				foreach($group['hosts'] as $hnum => $host){
 					$hostid = $host['hostid'];
-					if (!isset($lastUnack_host_list[$hostid])) {
-						continue;
-					}
+					if(!isset($lastUnack_host_list[$hostid])) continue;
 
-					if ($popup_rows >= ZBX_WIDGET_ROWS) {
-						break;
-					}
+					if($popup_rows >= ZBX_WIDGET_ROWS) break;
 					$popup_rows++;
 
 					$host_data = $lastUnack_host_list[$hostid];
@@ -602,45 +673,43 @@ function make_hoststat_summary($filter) {
 					$r = new CRow();
 					$r->addItem(new CLink($host_data['host'], 'tr_status.php?groupid='.$group['groupid'].'&hostid='.$hostid.'&show_triggers='.TRIGGERS_OPTION_ONLYTRUE));
 
-					foreach ($lastUnack_host_list[$host['hostid']]['severities'] as $severity => $trigger_count) {
-						if (!is_null($filter['severity']) && !isset($filter['severity'][$severity])) {
-							continue;
-						}
-						$r->addItem(new CCol($trigger_count, getSeverityStyle($severity, $trigger_count)));
+					foreach($lastUnack_host_list[$host['hostid']]['severities'] as $severity => $trigger_count){
+						if(!is_null($filter['severity'])&&!isset($filter['severity'][$severity])) continue;
+
+						$r->addItem(new CCol($trigger_count, get_severity_style($severity, $trigger_count)));
 					}
 					$table_inf->addRow($r);
 				}
+
 				$lastUnack_count = new CSpan($hosts_data[$group['groupid']]['lastUnack'], 'pointer red bold');
 				$lastUnack_count->setHint($table_inf);
 			}
-			else {
+			else{
 				$lastUnack_count = 0;
 			}
 		}
 
-		// if hostgroup contains problematic hosts, hint should be built
-		if ($hosts_data[$group['groupid']]['problematic']) {
+// if hostgroup contains problematic hosts, hint should be built
+		if($hosts_data[$group['groupid']]['problematic']){
 			$table_inf = new CTableInfo();
 			$table_inf->setAttribute('style', 'width: 400px;');
 			$table_inf->setHeader(array(
-				_('Host'),
-				is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_DISASTER]) ? getSeverityCaption(TRIGGER_SEVERITY_DISASTER) : null,
-				is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_HIGH]) ? getSeverityCaption(TRIGGER_SEVERITY_HIGH) : null,
-				is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_AVERAGE]) ? getSeverityCaption(TRIGGER_SEVERITY_AVERAGE) : null,
-				is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_WARNING]) ? getSeverityCaption(TRIGGER_SEVERITY_WARNING) : null,
-				is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_INFORMATION]) ? getSeverityCaption(TRIGGER_SEVERITY_INFORMATION) : null,
-				is_null($filter['severity']) || isset($filter['severity'][TRIGGER_SEVERITY_NOT_CLASSIFIED]) ? getSeverityCaption(TRIGGER_SEVERITY_NOT_CLASSIFIED) : null
+				S_HOST,
+				is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_DISASTER])?S_DISASTER:null,
+				is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_HIGH])?S_HIGH:null,
+				is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_AVERAGE])?S_AVERAGE:null,
+				is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_WARNING])?S_WARNING:null,
+				is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_INFORMATION])?S_INFORMATION:null,
+				is_null($filter['severity'])||isset($filter['severity'][TRIGGER_SEVERITY_NOT_CLASSIFIED])?S_NOT_CLASSIFIED:null
 			));
+
 			$popup_rows = 0;
 
-			foreach ($group['hosts'] as $host) {
+			foreach($group['hosts'] as $hnum => $host){
 				$hostid = $host['hostid'];
-				if (!isset($problematic_host_list[$hostid])) {
-					continue;
-				}
-				if ($popup_rows >= ZBX_WIDGET_ROWS) {
-					break;
-				}
+				if(!isset($problematic_host_list[$hostid])) continue;
+
+				if($popup_rows >= ZBX_WIDGET_ROWS) break;
 				$popup_rows++;
 
 				$host_data = $problematic_host_list[$hostid];
@@ -648,108 +717,118 @@ function make_hoststat_summary($filter) {
 				$r = new CRow();
 				$r->addItem(new CLink($host_data['host'], 'tr_status.php?groupid='.$group['groupid'].'&hostid='.$hostid.'&show_triggers='.TRIGGERS_OPTION_ONLYTRUE));
 
-				foreach ($problematic_host_list[$host['hostid']]['severities'] as $severity => $trigger_count) {
-					if (!is_null($filter['severity'])&&!isset($filter['severity'][$severity])) {
-						continue;
-					}
-					$r->addItem(new CCol($trigger_count, getSeverityStyle($severity, $trigger_count)));
+				foreach($problematic_host_list[$host['hostid']]['severities'] as $severity => $trigger_count){
+					if(!is_null($filter['severity'])&&!isset($filter['severity'][$severity])) continue;
+
+					$r->addItem(new CCol($trigger_count, get_severity_style($severity, $trigger_count)));
 				}
 				$table_inf->addRow($r);
 			}
+
 			$problematic_count = new CSpan($hosts_data[$group['groupid']]['problematic'], 'pointer');
 			$problematic_count->setHint($table_inf);
 		}
-		else {
+		else{
 			$problematic_count = 0;
 		}
 
-		switch ($filter['extAck']) {
+		switch($filter['extAck']){
 			case EXTACK_OPTION_ALL:
-				$group_row->addItem(new CCol(
+		        $group_row->addItem(new CCol(
 					$problematic_count,
-					getSeverityStyle($highest_severity[$group['groupid']], $hosts_data[$group['groupid']]['problematic']))
+					get_severity_style($highest_severity[$group['groupid']], $hosts_data[$group['groupid']]['problematic']))
 				);
-				$group_row->addItem($hosts_data[$group['groupid']]['problematic'] + $hosts_data[$group['groupid']]['ok']);
-				break;
+		        $group_row->addItem($hosts_data[$group['groupid']]['problematic'] + $hosts_data[$group['groupid']]['ok']);
+		        break;
 			case EXTACK_OPTION_UNACK:
 				$group_row->addItem(new CCol(
 					$lastUnack_count,
-					getSeverityStyle((isset($highest_severity2[$group['groupid']]) ? $highest_severity2[$group['groupid']] : 0),
+					get_severity_style((isset($highest_severity2[$group['groupid']]) ? $highest_severity2[$group['groupid']] : 0),
 						$hosts_data[$group['groupid']]['lastUnack']))
 				);
 				$group_row->addItem($hosts_data[$group['groupid']]['lastUnack'] + $hosts_data[$group['groupid']]['ok']);
 				break;
 			case EXTACK_OPTION_BOTH:
-				$unackspan = $lastUnack_count ? new CSpan(array($lastUnack_count, SPACE._('of').SPACE)) : null;
+				$unackspan = $lastUnack_count ? new CSpan(array($lastUnack_count, SPACE.S_OF.SPACE)) : null;
 				$group_row->addItem(new CCol(array(
 					$unackspan, $problematic_count),
-					getSeverityStyle($highest_severity[$group['groupid']], $hosts_data[$group['groupid']]['problematic']))
+					get_severity_style($highest_severity[$group['groupid']], $hosts_data[$group['groupid']]['problematic']))
 				);
 				$group_row->addItem($hosts_data[$group['groupid']]['problematic'] + $hosts_data[$group['groupid']]['ok']);
 				break;
 		}
+
 		$table->addRow($group_row);
 	}
-	$script = new CJSScript(get_js("jQuery('#hat_hoststat_footer').html('"._s('Updated: %s', zbx_date2str(_('H:i:s')))."')"));
 
-	return new CDiv(array($table, $script));
+	$table->setFooter(new CCol(S_UPDATED.': '.zbx_date2str(S_BLOCKS_HOSTSTAT_SUMMARY_TIME_FORMAT)));
+
+	return $table;
 }
 
-function make_status_of_zbx() {
-	global $ZBX_SERVER, $ZBX_SERVER_PORT;
+// Author: Aly
+function make_status_of_zbx(){
+	global $USER_DETAILS, $ZBX_SERVER, $ZBX_SERVER_PORT;
 
 	$table = new CTableInfo();
 	$table->setHeader(array(
-		_('Parameter'),
-		_('Value'),
-		_('Details')
+		S_PARAMETER,
+		S_VALUE,
+		S_DETAILS
 	));
 
-	show_messages(); // because in function get_status(); function clear_messages() is called when fsockopen() fails.
+	show_messages(); //because in function get_status(); function clear_messages() is called when fsockopen() fails.
 	$status = get_status();
 
 	$table->addRow(array(
-		_('Zabbix server is running'),
-		new CSpan($status['zabbix_server'], ($status['zabbix_server'] == _('Yes') ? 'off' : 'on')),
-		isset($ZBX_SERVER, $ZBX_SERVER_PORT) ? $ZBX_SERVER.':'.$ZBX_SERVER_PORT : _('Zabbix server IP or port is not set!')
+		S_ZABBIX_SERVER_IS_RUNNING,
+		new CSpan($status['zabbix_server'], ($status['zabbix_server'] == S_YES ? 'off' : 'on')),
+		isset($ZBX_SERVER, $ZBX_SERVER_PORT) ? $ZBX_SERVER.':'.$ZBX_SERVER_PORT : S_ZABBIX_SERVER_IP_OR_PORT_IS_NOT_SET
 	));
-	$title = new CSpan(_('Number of hosts (monitored/not monitored/templates)'));
+	$title = new CSpan(S_NUMBER_OF_HOSTS);
 	$title->setAttribute('title', 'asdad');
-	$table->addRow(array(_('Number of hosts (monitored/not monitored/templates)'), $status['hosts_count'],
+	$table->addRow(array(S_NUMBER_OF_HOSTS ,$status['hosts_count'],
 		array(
-			new CSpan($status['hosts_count_monitored'], 'off'), ' / ',
-			new CSpan($status['hosts_count_not_monitored'], 'on'), ' / ',
-			new CSpan($status['hosts_count_template'], 'unknown')
+			new CSpan($status['hosts_count_monitored'],'off'),' / ',
+			new CSpan($status['hosts_count_not_monitored'],'on'),' / ',
+			new CSpan($status['hosts_count_template'],'unknown')
 		)
 	));
-	$title = new CSpan(_('Number of items (monitored/disabled/not supported)'));
-	$title->setAttribute('title', _('Only items assigned to enabled hosts are counted'));
+	$title = new CSpan(S_NUMBER_OF_ITEMS);
+	$title->setAttribute('title', S_NUMBER_OF_ITEMS_TOOLTIP);
 	$table->addRow(array($title, $status['items_count'],
 		array(
-			new CSpan($status['items_count_monitored'], 'off'), ' / ',
-			new CSpan($status['items_count_disabled'], 'on'), ' / ',
-			new CSpan($status['items_count_not_supported'], 'unknown')
+			new CSpan($status['items_count_monitored'],'off'),' / ',
+			new CSpan($status['items_count_disabled'],'on'),' / ',
+			new CSpan($status['items_count_not_supported'],'unknown')
 		)
 	));
-	$title = new CSpan(_('Number of triggers (enabled/disabled)[problem/unknown/ok]'));
-	$title->setAttribute('title', _('Only triggers assigned to enabled hosts and depending on enabled items are counted'));
-	$table->addRow(array($title, $status['triggers_count'],
+	$title = new CSpan(S_NUMBER_OF_TRIGGERS);
+	$title->setAttribute('title', S_NUMBER_OF_TRIGGERS_TOOLTIP);
+	$table->addRow(array($title,$status['triggers_count'],
 		array(
-			$status['triggers_count_enabled'], ' / ',
+			$status['triggers_count_enabled'],' / ',
 			$status['triggers_count_disabled'].SPACE.SPACE.'[',
-			new CSpan($status['triggers_count_on'], 'on'), ' / ',
-			new CSpan($status['triggers_count_unknown'], 'unknown'), ' / ',
-			new CSpan($status['triggers_count_off'], 'off'), ']'
+			new CSpan($status['triggers_count_on'],'on'),' / ',
+			new CSpan($status['triggers_count_unknown'],'unknown'),' / ',
+			new CSpan($status['triggers_count_off'],'off'),']'
 		)
 	));
-	$table->addRow(array(_('Number of users (online)'), $status['users_count'], new CSpan($status['users_online'], 'green')));
-	$table->addRow(array(_('Required server performance, new values per second'), $status['qps_total'], ' - '));
 
-	// check requirements
-	if (CWebUser::$data['type'] == USER_TYPE_SUPER_ADMIN) {
-		$reqs = FrontendSetup::i()->checkRequirements();
-		foreach ($reqs as $req) {
-			if ($req['result'] == false) {
+/*
+	$table->addRow(array(S_NUMBER_OF_EVENTS,$status['events_count'],' - '));
+	$table->addRow(array(S_NUMBER_OF_ALERTS,$status['alerts_count'],' - '));
+//*/
+
+	$table->addRow(array(S_NUMBER_OF_USERS, $status['users_count'], new CSpan($status['users_online'],'green')));
+	$table->addRow(array(S_REQUIRED_SERVER_PERFORMANCE_NVPS, $status['qps_total'],' - '));
+
+
+// CHECK REQUIREMENTS {{{
+	if($USER_DETAILS['type'] == USER_TYPE_SUPER_ADMIN){
+		$reqs = check_php_requirements();
+		foreach($reqs as $req){
+			if($req['result'] == false){
 				$table->addRow(array(
 					new CSpan($req['name'], 'red'),
 					new CSpan($req['current'], 'red'),
@@ -758,679 +837,615 @@ function make_status_of_zbx() {
 			}
 		}
 	}
-	$script = new CJSScript(get_js("jQuery('#hat_stszbx_footer').html('"._s('Updated: %s', zbx_date2str(_('H:i:s')))."')"));
-	return new CDiv(array($table, $script));
+// }}}CHECK REQUIREMENTS
+
+
+	$table->setFooter(new CCol(S_UPDATED.': '.zbx_date2str(S_BLOCKS_ZBX_STATUS_TIME_FORMAT)));
+
+return $table;
 }
 
-/**
- * Create and return a DIV with latest problem triggers.
- *
- * @param array $filter
- *
- * @return CDiv
- */
-function make_latest_issues(array $filter = array()) {
+
+// author Aly
+function make_latest_issues($filter = array()){
+	global $page;
+
 	$config = select_config();
 
-	$ackParams = array();
-	if (!empty($filter['screenid'])) {
-		$ackParams['screenid'] = $filter['screenid'];
-	}
-
+	$limit = isset($filter['limit']) ? $filter['limit'] : 20;
 	$options = array(
 		'groupids' => $filter['groupids'],
-		'monitored' => true,
+		'monitored' => 1,
 		'maintenance' => $filter['maintenance'],
-		'withLastEventUnacknowledged' => (!empty($filter['extAck']) && $filter['extAck'] == EXTACK_OPTION_UNACK) ? true : null,
-		'skipDependent' => true,
+		'skipDependent' => 1,
 		'filter' => array(
 			'priority' => $filter['severity'],
 			'value' => TRIGGER_VALUE_TRUE
 		),
-		'selectHosts' => array('hostid', 'name'),
-		'output' => array('triggerid', 'value_flags', 'error', 'url', 'expression', 'description', 'priority', 'type')
+		'select_groups' => API_OUTPUT_EXTEND,
+		'select_hosts' => API_OUTPUT_EXTEND,
+		'output' => API_OUTPUT_EXTEND,
+		'sortfield' => 'lastchange',
+		'sortorder' => ZBX_SORT_DOWN,
+		'limit' => $limit
 	);
-	$options['sortfield'] = isset($filter['sortfield']) ? $filter['sortfield'] : 'lastchange';
-	$options['sortorder'] = isset($filter['sortorder']) ? $filter['sortorder'] : ZBX_SORT_DOWN;
-	$options['limit'] = isset($filter['limit']) ? $filter['limit'] : DEFAULT_LATEST_ISSUES_CNT;
 
-	if (isset($filter['hostids'])) {
-		$options['hostids'] = $filter['hostids'];
-	}
-	$triggers = API::Trigger()->get($options);
+	if(isset($filter['hostids'])) $options['hostids'] = $filter['hostids'];
+	$triggers = CTrigger::get($options);
 
-	// how many issues are there at all with given parameters
-	$options['countOutput'] = true;
-	unset($options['limit']);
-	$triggersTotalCount = API::Trigger()->get($options);
-
-	foreach($triggers as $tnum => $trigger) {
-		// if trigger is lost(broken expression) we skip it
-		if (empty($trigger['hosts'])) {
+// GATHER HOSTS FOR SELECTED TRIGGERS {{{
+	$triggers_hosts = array();
+	foreach($triggers as $tnum => $trigger){
+// if trigger is lost(broken expression) we skip it
+		if(empty($trigger['hosts'])){
 			unset($triggers[$tnum]);
 			continue;
 		}
 
-		$host = reset($trigger['hosts']);
-		$trigger['hostid'] = $host['hostid'];
-		$trigger['hostname'] = $host['name'];
-
-		$triggers[$tnum] = $trigger;
+		$triggers_hosts = array_merge($triggers_hosts, $trigger['hosts']);
 	}
-	$hostIds = zbx_objectValues($triggers, 'hostid');
 
-	// fetch trigger hosts
-	$hosts = API::Host()->get(array(
-		'hostids' => $hostIds,
-		'output' => array('hostid', 'name', 'maintenance_status', 'maintenance_type', 'maintenanceid'),
-		'selectInventory' => array('hostid'),
-		'selectScreens' => API_OUTPUT_COUNT,
-		'preservekeys' => true
+	$triggers_hosts = zbx_toHash($triggers_hosts, 'hostid');
+	$triggers_hostids = array_keys($triggers_hosts);
+// }}} GATHER HOSTS FOR SELECTED TRIGGERS
+
+	$scripts_by_hosts = CScript::getScriptsByHosts($triggers_hostids);
+
+	$table  = new CTableInfo();
+	$table->setHeader(array(
+		is_show_all_nodes() ? S_NODE : null,
+		S_HOST,
+		S_ISSUE,
+		S_LAST_CHANGE,
+		S_AGE,
+		($config['event_ack_enable'])? S_ACK : NULL,
+		S_ACTIONS
 	));
 
-	// fetch trigger scripts
-	$scripts_by_hosts = API::Script()->getScriptsByHosts($hostIds);
+	$thosts_cache = array();
+	foreach($triggers as $tnum => $trigger){
+// Check for dependencies
+		$group = reset($trigger['groups']);
+		$host = reset($trigger['hosts']);
 
-	// indicator of sort field
-	$sortDiv = new CDiv(SPACE, $options['sortorder'] === ZBX_SORT_DOWN ? 'icon_sortdown default_cursor' : 'icon_sortup default_cursor');
-	$sortDiv->addStyle('float: left');
-	$hostHeaderDiv = new CDiv(array(_('Host'), SPACE));
-	$hostHeaderDiv->addStyle('float: left');
-	$issueHeaderDiv = new CDiv(array(_('Issue'), SPACE));
-	$issueHeaderDiv->addStyle('float: left');
-	$lastChangeHeaderDiv = new CDiv(array(_('Last change'), SPACE));
-	$lastChangeHeaderDiv->addStyle('float: left');
+		$trigger['hostid'] = $host['hostid'];
+		$trigger['host'] = $host['host'];
 
-	$table = new CTableInfo();
-	$table->setHeader(
-		array(
-			is_show_all_nodes() ? _('Node') : null,
-			$options['sortfield'] === 'hostname' ? array($hostHeaderDiv, $sortDiv) : _('Host'),
-			$options['sortfield'] === 'priority' ? array($issueHeaderDiv, $sortDiv) : _('Issue'),
-			$options['sortfield'] === 'lastchange' ? array($lastChangeHeaderDiv, $sortDiv) : _('Last change'),
-			_('Age'),
-			_('Info'),
-			$config['event_ack_enable'] ? _('Ack') : null,
-			_('Actions')
-		)
-	);
+		$host = null;
+		$menus = '';
 
-	foreach ($triggers as $trigger) {
-		// check for dependencies
-		$host = $hosts[$trigger['hostid']];
+		$host_nodeid = id2nodeid($trigger['hostid']);
+		foreach($scripts_by_hosts[$trigger['hostid']] as $id => $script){
+			$script_nodeid = id2nodeid($script['scriptid']);
+			if( (bccomp($host_nodeid ,$script_nodeid ) == 0))
+				$menus.= "[".zbx_jsvalue($script['name']).",\"javascript: openWinCentered('scripts_exec.php?execute=1&hostid=".$trigger['hostid']."&scriptid=".$script['scriptid']."','".S_TOOLS."',760,540,'titlebar=no, resizable=yes, scrollbars=yes, dialog=no');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
+		}
 
-		$hostSpan = new CDiv(null, 'maintenance-abs-cont');
+		if(!empty($scripts_by_hosts)){
+			$menus = "['".S_TOOLS."',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],".$menus;
+		}
 
-		$hostName = new CSpan($host['name'], 'link_menu menu-host');
-		$hostName->setAttribute('data-menu', hostMenuData($host, $scripts_by_hosts[$host['hostid']]));
-
-		// add maintenance icon with hint if host is in maintenance
-		if ($host['maintenance_status']) {
-
-			$mntIco = new CDiv(null, 'icon-maintenance-abs');
-
-			// get maintenance
-			$maintenances = API::Maintenance()->get(array(
-				'maintenanceids' => $host['maintenanceid'],
-				'output' => API_OUTPUT_EXTEND,
-				'limit' => 1
+		if(isset($thosts_cache[$trigger['hostid']])){
+			$hprofile = $thosts_cache[$trigger['hostid']];
+		}
+		else{
+			$hprofile = CHost::get(array(
+				'hostids' => $trigger['hostid'],
+				'output' => API_OUTPUT_SHORTEN,
+				'select_profile' => API_OUTPUT_EXTEND,
 			));
-			if ($maintenance = reset($maintenances)) {
-				$hint = $maintenance['name'].' ['.($host['maintenance_type']
-					? _('Maintenance without data collection')
-					: _('Maintenance with data collection')).']';
-
-				if (isset($maintenance['description'])) {
-					// double quotes mandatory
-					$hint .= "\n".$maintenance['description'];
-				}
-
-				$mntIco->setHint($hint);
-				$mntIco->addClass('pointer');
-			}
-
-			$hostName->addClass('left-to-icon-maintenance-abs');
-			$hostSpan->addItem($mntIco);
+			$hprofile = reset($hprofile);
+			$thosts_cache[$hprofile['hostid']] = $hprofile;
 		}
 
-		$hostSpan ->addItem($hostName);
+		$menus.= "['".S_LINKS."',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],";
+		$menus.= "['".S_LATEST_DATA."',\"javascript: redirect('latest.php?groupid=".$group['groupid'].'&hostid='.$trigger['hostid']."')\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
+		if(!empty($hprofile['profile']))
+			$menus.= "['".S_PROFILE."',\"javascript: redirect('hostprofiles.php?hostid=".$trigger['hostid']."&prof_type=0')\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
+		if(!empty($hprofile['profile_ext']))
+			$menus.= "['".S_EXTENDED_PROFILE."',\"javascript: redirect('hostprofiles.php?hostid=".$trigger['hostid']."&prof_type=1')\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
 
-		// unknown triggers
-		$unknown = SPACE;
-		if ($trigger['value_flags'] == TRIGGER_VALUE_FLAG_UNKNOWN) {
-			$unknown = new CDiv(SPACE, 'status_icon iconunknown');
-			$unknown->setHint($trigger['error'], '', 'on');
-		}
+		$menus = rtrim($menus,',');
+		$menus = 'show_popup_menu(event,['.$menus.'],180);';
 
-		$events = API::Event()->get(array(
-			'output' => API_OUTPUT_EXTEND,
-			'select_acknowledges' => API_OUTPUT_EXTEND,
-			'triggerids' => $trigger['triggerid'],
-			'acknowledged' => (!empty($filter['extAck']) && $filter['extAck'] == EXTACK_OPTION_UNACK) ? 0 : null,
-			'filter' => array(
-				'object' => EVENT_OBJECT_TRIGGER,
-				'value' => TRIGGER_VALUE_TRUE,
-				'value_changed' => TRIGGER_VALUE_CHANGED_YES
-			),
-			'sortfield' => array('eventid'),
-			'sortorder' => ZBX_SORT_DOWN,
-			'limit' => 1
-		));
-		if ($event = reset($events)) {
-			$ack = getEventAckState(
-				$event,
-				!empty($filter['backUrl']) ? $filter['backUrl'] : true,
-				true,
-				$ackParams
+		$host = new CSpan($trigger['host'], 'link_menu pointer');
+		$host->setAttribute('onclick', 'javascript: '.$menus);
+		//$host = new CSpan($trigger['host'],'link_menu pointer');
+		//$host->setAttribute('onclick','javascript: '.$menus);
+
+// Maintenance {{{
+
+		$trigger_host = $triggers_hosts[$trigger['hostid']];
+
+		$text = null;
+		$style = 'link_menu';
+		if($trigger_host['maintenance_status']){
+			$style.= ' orange';
+
+			$options = array(
+				'maintenanceids' => $trigger_host['maintenanceid'],
+				'output' => API_OUTPUT_EXTEND
 			);
+			$maintenances = CMaintenance::get($options);
+			$maintenance = reset($maintenances);
 
-			$description = CMacrosResolverHelper::resolveEventDescription(zbx_array_merge($trigger, array('clock' => $event['clock'], 'ns' => $event['ns'])));
+			$text = $maintenance['name'];
+			$text.=' ['.($trigger_host['maintenance_type'] ? S_NO_DATA_MAINTENANCE : S_NORMAL_MAINTENANCE).']';
+		}
 
-			// actions
-			$actions = get_event_actions_stat_hints($event['eventid']);
-			$clock = new CLink(zbx_date2str(_('d M Y H:i:s'), $event['clock']), 'events.php?triggerid='.$trigger['triggerid'].'&source=0&show_unknown=1&nav_time='.$event['clock']);
+		$host = new CSpan($trigger['host'], $style.' pointer');
+		$host->setAttribute('onclick','javascript: '.$menus);
+		if(!is_null($text)) $host->setHint($text, '', '', false);
 
-			if ($trigger['url']) {
+// }}} Maintenance
+
+		$event_sql = 'SELECT e.eventid, e.value, e.clock, e.objectid as triggerid, e.acknowledged'.
+					' FROM events e'.
+					' WHERE e.object='.EVENT_OBJECT_TRIGGER.
+						' AND e.objectid='.$trigger['triggerid'].
+						' AND e.value='.TRIGGER_VALUE_TRUE.
+					' ORDER by e.object DESC, e.objectid DESC, e.eventid DESC';
+		$res_events = DBSelect($event_sql,1);
+		while($row_event=DBfetch($res_events)){
+			$ack = NULL;
+			if($config['event_ack_enable']){
+				if($row_event['acknowledged'] == 1){
+					$ack_info = make_acktab_by_eventid($row_event['eventid']);
+					$ack_info->setAttribute('style','width: auto;');
+
+					$ack=new CLink(S_YES,'acknow.php?eventid='.$row_event['eventid'].'&backurl='.$page['file'],'off');
+					$ack->setHint($ack_info, '', '', false);
+				}
+				else{
+					$ack= new CLink(S_NO,'acknow.php?eventid='.$row_event['eventid'].'&backurl='.$page['file'],'on');
+				}
+			}
+
+			$description = expand_trigger_description_by_data(zbx_array_merge($trigger, array('clock'=>$row_event['clock'])),ZBX_FLAG_EVENT);
+
+//actions
+			$actions = get_event_actions_stat_hints($row_event['eventid']);
+
+			$clock = new CLink(
+					zbx_date2str(S_BLOCKS_LATEST_ISSUES_DATE_FORMAT,$row_event['clock']),
+					'events.php?triggerid='.$trigger['triggerid'].'&source=0&show_unknown=1&nav_time='.$row_event['clock']
+					);
+
+			if($trigger['url'])
 				$description = new CLink($description, resolveTriggerUrl($trigger), null, null, true);
-			}
-			else {
-				$description = new CSpan($description, 'pointer');
-			}
+			else
+				$description = new CSpan($description,'pointer');
 
-			$description = new CCol($description, getSeverityStyle($trigger['priority']));
-			$description->setHint(make_popup_eventlist($event['eventid'], $trigger['type'], $trigger['triggerid']), '', '', false);
+			$description = new CCol($description,get_severity_style($trigger['priority']));
+			$description->setHint(make_popup_eventlist($row_event['eventid'], $trigger['type'], $trigger['triggerid']), '', '', false);
 
 			$table->addRow(array(
 				get_node_name_by_elid($trigger['triggerid']),
-				$hostSpan,
+				$host,
 				$description,
 				$clock,
-				zbx_date2age($event['clock']),
-				$unknown,
+				zbx_date2age($row_event['clock']),
 				$ack,
 				$actions
 			));
 		}
-		unset($trigger, $description, $actions);
+		unset($trigger,$description,$actions);
 	}
 
-	// initialize blinking
-	zbx_add_post_js('jqBlink.blink();');
-	$script = new CJSScript(get_js("jQuery('#hat_lastiss_footer').html('"._s('Updated: %s', zbx_date2str(_('H:i:s')))."')"));
+	$table->setFooter(new CCol(S_UPDATED.': '.zbx_date2str(S_BLOCKS_LATEST_ISSUES_TIME_FORMAT)));
 
-	$infoDiv = new CDiv(_n('%2$d of %1$d issue is shown', '%2$d of %1$d issues are shown', $triggersTotalCount, count($triggers)));
-	$infoDiv->addStyle('text-align: right; padding-right: 3px;');
-	$widgetDiv = new CDiv(array($table, $infoDiv, $script));
-
-	return $widgetDiv;
+return $table;
 }
 
-function make_webmon_overview($filter) {
-	$groups = API::HostGroup()->get(array(
+// author Aly
+function make_webmon_overview($filter){
+	$options = array(
 		'groupids' => $filter['groupids'],
-		'monitored_hosts' => true,
-		'with_monitored_httptests' => true,
-		'output' => array('groupid', 'name'),
-		'preservekeys' => true
-	));
-
-	foreach($groups as &$group) {
-		$group['nodename'] = get_node_name_by_elid($group['groupid']);
-	}
-	unset($group);
-
-	// we need natural sort
-	$sortFields = array(
-		array('field' => 'nodename', 'order' => ZBX_SORT_UP),
-		array('field' => 'name', 'order' => ZBX_SORT_UP)
+		'monitored_hosts' => 1,
+		'filter' => array('maintenance_status' => $filter['maintenance'])
 	);
-	CArrayHelper::sort($groups, $sortFields);
 
-	$availableHosts = API::Host()->get(array(
-		'groupids' => array_keys($groups),
-		'monitored_hosts' => true,
-		'filter' => array('maintenance_status' => $filter['maintenance']),
-		'output' => array('hostid'),
-		'preservekeys' => true
-	));
-	$availableHostIds = array_keys($availableHosts);
+	$available_hosts = CHost::get($options);
+	$available_hosts = zbx_objectValues($available_hosts,'hostid');
 
 	$table  = new CTableInfo();
 	$table->setHeader(array(
-		is_show_all_nodes() ? _('Node') : null,
-		_('Host group'),
-		_('Ok'),
-		_('Failed'),
-		_('Unknown')
-	));
+		is_show_all_nodes() ? S_NODE : null,
+		S_HOST_GROUP,
+		S_OK,
+		S_FAILED,
+		S_IN_PROGRESS,
+		S_UNKNOWN
+		));
 
-
-	foreach ($groups as $group) {
-		$showGroup = false;
-		$okCount = 0;
-		$failedCount = 0;
-		$unknownCount = 0;
-
-		$result = DBselect(
-			'SELECT DISTINCT ht.httptestid,i.lastclock,i.lastvalue'.
-			' FROM items i,httptestitem hti,httptest ht,applications a,hosts_groups hg'.
-			' WHERE i.itemid=hti.itemid'.
-				' AND hti.httptestid=ht.httptestid'.
-				' AND ht.applicationid=a.applicationid'.
-				' AND a.hostid=hg.hostid'.
-				' AND hti.type='.HTTPSTEP_ITEM_TYPE_LASTSTEP.
-				' AND ht.status='.HTTPTEST_STATUS_ACTIVE.
-				' AND '.dbConditionInt('hg.hostid', $availableHostIds).
-				' AND hg.groupid='.$group['groupid']
-		);
-		while ($row = DBfetch($result)) {
-			$showGroup = true;
-
-			if (!$row['lastclock']) {
-				$unknownCount++;
-			}
-			elseif ($row['lastvalue'] != 0) {
-				$failedCount++;
-			}
-			else {
-				$okCount++;
-			}
-		}
-
-		if ($showGroup) {
-			$table->addRow(array(
-				is_show_all_nodes() ? $group['nodename'] : null,
-				$group['name'],
-				new CSpan($okCount, 'off'),
-				new CSpan($failedCount, $failedCount ? 'on' : 'off'),
-				new CSpan($unknownCount, 'unknown')
-			));
-		}
-	}
-	$script = new CJSScript(get_js("jQuery('#hat_webovr_footer').html('"._s('Updated: %s', zbx_date2str(_('H:i:s')))."')"));
-
-	return new CDiv(array($table, $script));
-}
-
-function make_discovery_status() {
 	$options = array(
-		'filter' => array('status' => DHOST_STATUS_ACTIVE),
-		'selectDHosts' => array('druleid', 'dhostid', 'status'),
+		'monitored_hosts' => 1,
+		'with_monitored_httptests' => 1,
 		'output' => API_OUTPUT_EXTEND
 	);
-	$drules = API::DRule()->get($options);
+	$groups = CHostGroup::get($options);
+	foreach($groups as $gnum => $group){
+		$showGroup = false;
+		$apps['ok'] = 0;
+		$apps['failed'] = 0;
+		$apps[HTTPTEST_STATE_BUSY] = 0;
+		$apps[HTTPTEST_STATE_UNKNOWN] = 0;
 
-	foreach($drules as &$drule) {
-		$drule['nodename'] = get_node_name_by_elid($drule['druleid']);
+		$sql = 'SELECT DISTINCT ht.name, ht.httptestid, ht.curstate, ht.lastfailedstep '.
+				' FROM httptest ht, applications a, hosts_groups hg, groups g '.
+				' WHERE g.groupid='.$group['groupid'].
+					' AND '.DBcondition('hg.hostid',$available_hosts).
+					' AND hg.groupid=g.groupid '.
+					' AND a.hostid=hg.hostid '.
+					' AND ht.applicationid=a.applicationid '.
+					' AND ht.status='.HTTPTEST_STATUS_ACTIVE;
+		$db_httptests = DBselect($sql);
+		while($httptest_data = DBfetch($db_httptests)){
+			$showGroup = true;
+			if( HTTPTEST_STATE_BUSY == $httptest_data['curstate'] ){
+				$apps[HTTPTEST_STATE_BUSY]++;
+			}
+			else if( HTTPTEST_STATE_IDLE == $httptest_data['curstate'] ){
+				if($httptest_data['lastfailedstep'] > 0){
+					$apps['failed']++;
+				}
+				else{
+					$apps['ok']++;
+				}
+			}
+			else{
+				$apps[HTTPTEST_STATE_UNKNOWN]++;
+			}
+		}
+
+		if(!$showGroup) continue;
+
+		$table->addRow(array(
+			is_show_all_nodes() ? get_node_name_by_elid($group['groupid']) : null,
+			$group['name'],
+			new CSpan($apps['ok'],'off'),
+			new CSpan($apps['failed'],$apps['failed']? 'on':'off'),
+			new CSpan($apps[HTTPTEST_STATE_BUSY],$apps[HTTPTEST_STATE_BUSY]? 'orange':'off'),
+			new CSpan($apps[HTTPTEST_STATE_UNKNOWN],'unknown')
+		));
 	}
-	unset($drule);
+	$table->setFooter(new CCol(S_UPDATED.': '.zbx_date2str(S_BLOCKS_WEBMON_TIME_FORMAT)));
+return $table;
+}
 
-	// we need natural sort
-	$sortFields = array(
-		array('field' => 'nodename', 'order' => ZBX_SORT_UP),
-		array('field' => 'name', 'order' => ZBX_SORT_UP)
+// Author: Aly
+function make_discovery_status(){
+
+	$options = array(
+		'filter' => array('status' => DHOST_STATUS_ACTIVE),
+		'selectDHosts' => API_OUTPUT_EXTEND,
+		'output' => API_OUTPUT_EXTEND
 	);
-	CArrayHelper::sort($drules, $sortFields);
+	$drules = CDRule::get($options);
+	order_result($drules, 'name');
 
-
-	foreach ($drules as $drnum => $drule) {
+	foreach($drules as $drnum => $drule){
 		$drules[$drnum]['up'] = 0;
 		$drules[$drnum]['down'] = 0;
 
-		foreach ($drule['dhosts'] as $dhost){
-			if (DRULE_STATUS_DISABLED == $dhost['status']) {
-				$drules[$drnum]['down']++;
-			}
-			else {
+		foreach($drule['dhosts'] as  $dhnum => $dhost){
+			if(DRULE_STATUS_DISABLED == $dhost['status']){
+				$drules[$drnum]['down']++;		}
+			else{
 				$drules[$drnum]['up']++;
 			}
 		}
 	}
 
 	$header = array(
-		is_show_all_nodes() ? new CCol(_('Node'), 'center') : null,
-		new CCol(_('Discovery rule'), 'center'),
-		new CCol(_x('Up', 'discovery results in dashboard')),
-		new CCol(_x('Down', 'discovery results in dashboard'))
-	);
+		is_show_all_nodes() ? new CCol(S_NODE, 'center') : null,
+		new CCol(S_DISCOVERY_RULE, 'center'),
+		new CCol(S_UP),
+		new CCol(S_DOWN)
+		);
 
 	$table  = new CTableInfo();
 	$table->setHeader($header,'header');
 
-	foreach ($drules as $drule) {
+	foreach($drules as $drnum => $drule){
 		$table->addRow(array(
-			$drule['nodename'],
-			new CLink($drule['nodename'].($drule['nodename'] ? ': ' : '').$drule['name'], 'discovery.php?druleid='.$drule['druleid']),
-			new CSpan($drule['up'], 'green'),
-			new CSpan($drule['down'], ($drule['down'] > 0) ? 'red' : 'green')
+			get_node_name_by_elid($drule['druleid']),
+			new CLink(get_node_name_by_elid($drule['druleid'], null, ': ').$drule['name'],'discovery.php?druleid='.$drule['druleid']),
+			new CSpan($drule['up'],'green'),
+			new CSpan($drule['down'],($drule['down'] > 0)? 'red':'green')
 		));
 	}
-	$script = new CJSScript(get_js("jQuery('#hat_dscvry_footer').html('"._s('Updated: %s', zbx_date2str(_('H:i:s')))."')"));
-	return new CDiv(array($table, $script));
+	$table->setFooter(new CCol(S_UPDATED.': '.zbx_date2str(S_BLOCKS_DISCOVERY_STATUS_TIME_FORMAT)));
+
+return 	$table;
 }
 
-function make_graph_menu(&$menu, &$submenu) {
-	$menu['menu_graphs'][] = array(
-		_('Favourite graphs'),
-		null,
-		null,
-		array('outer' => array('pum_oheader'), 'inner' => array('pum_iheader'))
-	);
+function make_graph_menu(&$menu,&$submenu){
 
 	$menu['menu_graphs'][] = array(
-		_('Add').' '._('Graph'),
-		'javascript: PopUp(\'popup.php?srctbl=graphs&srcfld1=graphid&reference=graphid&monitored_hosts=1&multiselect=1\',800,450); void(0);',
-		null,
-		array('outer' => 'pum_o_submenu', 'inner' => array('pum_i_submenu'))
-	);
+				S_FAVOURITE_GRAPHS,
+				null,
+				null,
+				array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader'))
+		);
+
 	$menu['menu_graphs'][] = array(
-		_('Add').' '._('Simple graph'),
-		'javascript: PopUp(\'popup.php?srctbl=simple_graph&srcfld1=itemid&monitored_hosts=1&reference=itemid&multiselect=1\',800,450); void(0);',
-		null,
-		array('outer' => 'pum_o_submenu', 'inner' => array('pum_i_submenu'))
-	);
+				S_ADD.SPACE.S_GRAPH,
+				'javascript: '.
+				"PopUp('popup.php?srctbl=graphs".
+					'&srcfld1=graphid'.
+					'&reference=graphid'.
+					'&monitored_hosts=1'.
+					"&multiselect=1',800,450);".
+				"void(0);",
+				null,
+				array('outer' => 'pum_o_submenu', 'inner'=>array('pum_i_submenu'))
+		);
 	$menu['menu_graphs'][] = array(
-		_('Remove'),
-		null,
-		null,
-		array('outer' => 'pum_o_submenu', 'inner' => array('pum_i_submenu'))
-	);
+				S_ADD.SPACE.S_SIMPLE_GRAPH,
+				'javascript: '.
+				"PopUp('popup.php?srctbl=simple_graph".
+					'&srcfld1=itemid'.
+					'&reference=itemid'.
+					'&monitored_hosts=1'.
+					"&multiselect=1',800,450);".
+				"void(0);",
+				null,
+				array('outer' => 'pum_o_submenu', 'inner'=>array('pum_i_submenu'))
+		);
+	$menu['menu_graphs'][] = array(
+				S_REMOVE,
+				null,
+				null,
+				array('outer' => 'pum_o_submenu', 'inner'=>array('pum_i_submenu'))
+		);
 	$submenu['menu_graphs'] = make_graph_submenu();
 }
 
-function make_graph_submenu() {
+function make_graph_submenu(){
 	$graphids = array();
 	$itemids = array();
-	$favGraphs = array();
-	$fav_graphs = CFavorite::get('web.favorite.graphids');
 
-	if (!$fav_graphs) {
-		return $favGraphs;
-	}
-
-	foreach ($fav_graphs as $favorite) {
-		if ('itemid' == $favorite['source']) {
+	$fav_graphs = get_favorites('web.favorite.graphids');
+	foreach($fav_graphs as $key => $favorite){
+		if('itemid' == $favorite['source']){
 			$itemids[$favorite['value']] = $favorite['value'];
 		}
-		else {
+		else{
 			$graphids[$favorite['value']] = $favorite['value'];
 		}
 	}
 
-	if ($graphids) {
-		$options = array(
+	$options = array(
 			'graphids' => $graphids,
-			'selectHosts' => array('hostid', 'host'),
-			'output' => array('graphid', 'name')
+			'select_hosts' => array('hostid', 'host'),
+			'output' => API_OUTPUT_EXTEND
 		);
-		$graphs = API::Graph()->get($options);
-		$graphs = zbx_toHash($graphs, 'graphid');
-	}
+	$graphs = CGraph::get($options);
+	$graphs = zbx_toHash($graphs, 'graphid');
 
-	if ($itemids) {
-		$options = array(
+	$options = array(
 			'itemids' => $itemids,
-			'selectHosts' => array('hostid', 'host'),
-			'output' => array('itemid', 'name', 'key_'),
-			'webitems' => 1
+			'select_hosts' => array('hostid', 'host'),
+			'output' => API_OUTPUT_EXTEND,
+			'webitems' => 1,
 		);
-		$items = API::Item()->get($options);
-		$items = zbx_toHash($items, 'itemid');
-	}
+	$items = CItem::get($options);
+	$items = zbx_toHash($items, 'itemid');
 
+	$favGraphs = array();
 
-	foreach ($fav_graphs as $favorite) {
+	foreach($fav_graphs as $key => $favorite){
 		$source = $favorite['source'];
 		$sourceid = $favorite['value'];
 
-		if ('itemid' == $source) {
-			if (!isset($items[$sourceid])) {
-				continue;
-			}
+		if('itemid' == $source){
+			if(!isset($items[$sourceid])) continue;
 			$item_added = true;
+
 			$item = $items[$sourceid];
 			$host = reset($item['hosts']);
-			$item['name'] = itemName($item);
+
+			$item['description'] = item_description($item);
+
 			$favGraphs[] = array(
-				'name' => $host['host'].':'.$item['name'],
-				'favobj' => 'itemid',
-				'favid' => $sourceid,
-				'favaction' => 'remove'
-			);
+							'name'	=>	htmlspecialchars($host['host'].':'.$item['description']),
+							'favobj'=>	'itemid',
+							'favid'	=>	$sourceid,
+							'action'=>	'remove'
+						);
 		}
-		else {
-			if (!isset($graphs[$sourceid])) {
-				continue;
-			}
+		else{
+			if(!isset($graphs[$sourceid])) continue;
 			$graph_added = true;
+
 			$graph = $graphs[$sourceid];
 			$ghost = reset($graph['hosts']);
+
 			$favGraphs[] = array(
-				'name' => $ghost['host'].':'.$graph['name'],
-				'favobj' => 'graphid',
-				'favid' => $sourceid,
-				'favaction' => 'remove'
-			);
+							'name'	=>	htmlspecialchars($ghost['host'].':'.$graph['name']),
+							'favobj'=>	'graphid',
+							'favid'	=>	$sourceid,
+							'action'=>	'remove'
+						);
 		}
 	}
 
-	if (isset($graph_added)) {
-		$favGraphs[] = array(
-			'name' => _('Remove').' '._('All').' '._('Graphs'),
-			'favobj' => 'graphid',
-			'favid' => 0,
-			'favaction' => 'remove'
+	if(isset($graph_added)){
+			$favGraphs[] = array(
+			'name'	=>	S_REMOVE.SPACE.S_ALL_S.SPACE.S_GRAPHS,
+			'favobj'=>	'graphid',
+			'favid'	=>	0,
+			'action'=>	'remove'
 		);
 	}
 
-	if (isset($item_added)) {
+	if(isset($item_added)){
 		$favGraphs[] = array(
-			'name' => _('Remove').' '._('All').' '._('Simple graphs'),
-			'favobj' => 'itemid',
-			'favid' => 0,
-			'favaction' => 'remove'
+			'name'	=>	S_REMOVE.SPACE.S_ALL_S.SPACE.S_SIMPLE_GRAPHS,
+			'favobj'=>	'itemid',
+			'favid'	=>	0,
+			'action'=>	'remove'
 		);
 	}
-	return $favGraphs;
+
+return $favGraphs;
 }
 
-function make_sysmap_menu(&$menu, &$submenu) {
-	$menu['menu_sysmaps'][] = array(_('Favourite maps'), null, null, array('outer' => array('pum_oheader'), 'inner' => array('pum_iheader')));
+function make_sysmap_menu(&$menu,&$submenu){
+
+	$menu['menu_sysmaps'][] = array(S_FAVOURITE_MAPS, null, null, array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader')));
 	$menu['menu_sysmaps'][] = array(
-		_('Add').' '._('Map'),
-		'javascript: PopUp(\'popup.php?srctbl=sysmaps&srcfld1=sysmapid&reference=sysmapid&multiselect=1\',800,450); void(0);',
-		null,
-		array('outer' => 'pum_o_submenu', 'inner' => array('pum_i_submenu')
-	));
-	$menu['menu_sysmaps'][] = array(_('Remove'), null, null, array('outer' => 'pum_o_submenu', 'inner' => array('pum_i_submenu')));
+				S_ADD.SPACE.S_MAP,
+				'javascript: '.
+				"PopUp('popup.php?srctbl=sysmaps".
+					'&srcfld1=sysmapid'.
+					'&reference=sysmapid'.
+					"&multiselect=1',800,450);".
+				"void(0);",
+				null,
+				array('outer' => 'pum_o_submenu', 'inner'=>array('pum_i_submenu')
+		));
+	$menu['menu_sysmaps'][] = array(S_REMOVE, null, null, array('outer' => 'pum_o_submenu', 'inner'=>array('pum_i_submenu')));
 	$submenu['menu_sysmaps'] = make_sysmap_submenu();
 }
 
-function make_sysmap_submenu() {
-	$fav_sysmaps = CFavorite::get('web.favorite.sysmapids');
+function make_sysmap_submenu(){
+	$fav_sysmaps = get_favorites('web.favorite.sysmapids');
+
 	$favMaps = array();
 	$sysmapids = array();
-	foreach ($fav_sysmaps as $favorite) {
+	foreach($fav_sysmaps as $key => $favorite){
 		$sysmapids[$favorite['value']] = $favorite['value'];
 	}
 
 	$options = array(
-		'sysmapids' => $sysmapids,
-		'output' => array('sysmapid', 'name')
-	);
-	$sysmaps = API::Map()->get($options);
-	foreach ($sysmaps as $sysmap) {
-		$favMaps[] = array(
-			'name' => $sysmap['name'],
-			'favobj' => 'sysmapid',
-			'favid' => $sysmap['sysmapid'],
-			'favaction' => 'remove'
+			'sysmapids' => $sysmapids,
+			'output' => API_OUTPUT_EXTEND,
 		);
+	$sysmaps = CMap::get($options);
+
+	foreach($sysmaps as $snum => $sysmap){
+		$favMaps[] = array(
+				'name'	=>	htmlspecialchars($sysmap['name']),
+				'favobj'=>	'sysmapid',
+				'favid'	=>	$sysmap['sysmapid'],
+				'action'=>	'remove'
+			);
 	}
 
-	if (!empty($favMaps)) {
+	if(!empty($favMaps)){
 		$favMaps[] = array(
-			'name' => _('Remove').' '._('All').' '._('Maps'),
-			'favobj' => 'sysmapid',
-			'favid' => 0,
-			'favaction' => 'remove'
-		);
+				'name'	=>	S_REMOVE.SPACE.S_ALL_S.SPACE.S_MAPS,
+				'favobj'=>	'sysmapid',
+				'favid'	=>	0,
+				'action'=>	'remove'
+			);
 	}
-	return $favMaps;
+
+return $favMaps;
 }
 
-function make_screen_menu(&$menu, &$submenu) {
-	$menu['menu_screens'][] = array(_('Favourite screens'), null, null, array('outer' => array('pum_oheader'), 'inner' => array('pum_iheader')));
+function make_screen_menu(&$menu,&$submenu){
+
+	$menu['menu_screens'][] = array(S_FAVOURITE_SCREENS, null, null, array('outer'=> array('pum_oheader'), 'inner'=>array('pum_iheader')));
 	$menu['menu_screens'][] = array(
-		_('Add').' '._('Screen'),
-		'javascript: PopUp(\'popup.php?srctbl=screens&srcfld1=screenid&reference=screenid&multiselect=1\', 800, 450); void(0);',
-		null,
-		array('outer' => 'pum_o_submenu', 'inner' => array('pum_i_submenu')
-	));
+				S_ADD.SPACE.S_SCREEN,
+				'javascript: '.
+				"PopUp('popup.php?srctbl=screens".
+					'&srcfld1=screenid'.
+					'&reference=screenid'.
+					"&multiselect=1',800,450);".
+				"void(0);",
+				null,
+				array('outer' => 'pum_o_submenu', 'inner'=>array('pum_i_submenu')
+		));
 	$menu['menu_screens'][] = array(
-		_('Add').' '._('Slide show'),
-		'javascript: PopUp(\'popup.php?srctbl=slides&srcfld1=slideshowid&reference=slideshowid&multiselect=1\', 800, 450); void(0);',
-		null,
-		array('outer' => 'pum_o_submenu', 'inner' => array('pum_i_submenu')
-	));
-	$menu['menu_screens'][] = array(_('Remove'), null, null, array('outer' => 'pum_o_submenu', 'inner' => array('pum_i_submenu')));
+				S_ADD.SPACE.S_SLIDESHOW,
+				'javascript: '.
+				"PopUp('popup.php?srctbl=slides".
+					'&srcfld1=slideshowid'.
+					'&reference=slideshowid'.
+					"&multiselect=1',800,450);".
+				"void(0);",
+				null,
+				array('outer' => 'pum_o_submenu', 'inner'=>array('pum_i_submenu')
+		));
+	$menu['menu_screens'][] = array(S_REMOVE, null, null, array('outer' => 'pum_o_submenu', 'inner'=>array('pum_i_submenu')));
 	$submenu['menu_screens'] = make_screen_submenu();
 }
 
-function make_screen_submenu() {
-	$favScreens = array();
-	$fav_screens = CFavorite::get('web.favorite.screenids');
-
-	if (!$fav_screens) {
-		return $favScreens;
-	}
+function make_screen_submenu(){
+	$fav_screens = get_favorites('web.favorite.screenids');
 
 	$screenids = array();
-	foreach ($fav_screens as $favorite) {
-		if ('screenid' == $favorite['source']) {
+	foreach($fav_screens as $key => $favorite){
+		if('screenid' == $favorite['source']){
 			$screenids[$favorite['value']] = $favorite['value'];
 		}
 	}
 
 	$options = array(
 		'screenids' => $screenids,
-		'output' => array('screenid', 'name')
+		'output' => API_OUTPUT_EXTEND,
 	);
-	$screens = API::Screen()->get($options);
+	$screens = CScreen::get($options);
 	$screens = zbx_toHash($screens, 'screenid');
 
-	foreach ($fav_screens as $favorite) {
+	$favScreens = array();
+	foreach($fav_screens as $key => $favorite){
 		$source = $favorite['source'];
 		$sourceid = $favorite['value'];
-		if ('slideshowid' == $source) {
-			if (!slideshow_accessible($sourceid, PERM_READ)) {
-				continue;
-			}
-			if (!$slide = get_slideshow_by_slideshowid($sourceid)) {
-				continue;
-			}
+
+		if('slideshowid' == $source){
+			if(!slideshow_accessible($sourceid, PERM_READ_ONLY)) continue;
+			if(!$slide = get_slideshow_by_slideshowid($sourceid)) continue;
+
 			$slide_added = true;
+
 			$favScreens[] = array(
-				'name' => $slide['name'],
-				'favobj' => 'slideshowid',
-				'favid' => $slide['slideshowid'],
-				'favaction' => 'remove'
+				'name'	=>	htmlspecialchars($slide['name']),
+				'favobj'=>	'slideshowid',
+				'favid'	=>	$slide['slideshowid'],
+				'action'=>	'remove'
 			);
+
 		}
-		else {
-			if (!isset($screens[$sourceid])) {
-				continue;
-			}
+		else{
+			if(!isset($screens[$sourceid])) continue;
 			$screen = $screens[$sourceid];
+
 			$screen_added = true;
+
 			$favScreens[] = array(
-				'name' => $screen['name'],
-				'favobj' => 'screenid',
-				'favid' => $screen['screenid'],
-				'favaction' => 'remove'
+				'name'	=>	htmlspecialchars($screen['name']),
+				'favobj'=>	'screenid',
+				'favid'	=>	$screen['screenid'],
+				'action'=>	'remove'
 			);
 		}
 	}
 
-	if (isset($screen_added)) {
+
+	if(isset($screen_added)){
 		$favScreens[] = array(
-			'name' => _('Remove').' '._('All').' '._('Screens'),
-			'favobj' => 'screenid',
-			'favid' => 0,
-			'favaction' => 'remove'
+			'name'	=>	S_REMOVE.SPACE.S_ALL_S.SPACE.S_SCREENS,
+			'favobj'=>	'screenid',
+			'favid'	=>	0,
+			'action'=>	'remove'
 		);
 	}
 
-	if (isset($slide_added)) {
+	if(isset($slide_added)){
 		$favScreens[] = array(
-			'name' => _('Remove').' '._('All').' '._('Slides'),
-			'favobj' => 'slideshowid',
-			'favid' => 0,
-			'favaction' => 'remove'
+			'name'	=>	S_REMOVE.SPACE.S_ALL_S.SPACE.S_SLIDES,
+			'favobj'=>	'slideshowid',
+			'favid'	=>	0,
+			'action'=>	'remove'
 		);
 	}
-	return $favScreens;
+
+return $favScreens;
 }
 
-/**
- * Generate table for dashboard triggers popup.
- *
- * @see make_system_status
- *
- * @param array $triggers
- * @param array $ackParams
- *
- * @return CTableInfo
- */
-function makeTriggersPopup(array $triggers, array $ackParams) {
-	$config = select_config();
-
-	$popupTable = new CTableInfo();
-	$popupTable->setAttribute('style', 'width: 400px;');
-	$popupTable->setHeader(array(
-		is_show_all_nodes() ? _('Node') : null,
-		_('Host'),
-		_('Issue'),
-		_('Age'),
-		_('Info'),
-		$config['event_ack_enable'] ? _('Ack') : null,
-		_('Actions')
-	));
-
-	foreach ($triggers as $tnum => $trigger) {
-		$triggers[$tnum]['clock'] = $trigger['event']['clock'];
-	}
-	CArrayHelper::sort($triggers, array(array('field' => 'clock', 'order' => ZBX_SORT_DOWN)));
-
-	foreach ($triggers as $trigger) {
-		$event = $trigger['event'];
-		$ack = getEventAckState($event, true, true, $ackParams);
-
-		if (isset($event['eventid'])) {
-			$actions = get_event_actions_status($event['eventid']);
-		}
-		else {
-			$actions = _('no data');
-		}
-
-		// unknown triggers
-		$unknown = SPACE;
-		if ($trigger['value_flags'] == TRIGGER_VALUE_FLAG_UNKNOWN) {
-			$unknown = new CDiv(SPACE, 'status_icon iconunknown');
-			$unknown->setHint($trigger['error'], '', 'on');
-		}
-
-		$trigger['hostname'] = $trigger['hosts'][0]['name'];
-		$popupTable->addRow(array(
-			get_node_name_by_elid($trigger['triggerid']),
-			$trigger['hostname'],
-			getSeverityCell($trigger['priority'], $trigger['description']),
-			zbx_date2age($trigger['clock']),
-			$unknown,
-			$config['event_ack_enable'] ? $ack : null,
-			$actions
-		));
-	}
-
-	return $popupTable;
-}
+?>

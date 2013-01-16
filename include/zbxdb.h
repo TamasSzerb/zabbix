@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_ZBXDB_H
@@ -80,7 +80,6 @@
 		OCIError	*errhp;
 		OCISvcCtx	*svchp;
 		OCIServer	*srvhp;
-		OCIStmt		*stmthp;	/* the statement handle for execute operations */
 	}
 	zbx_oracle_db_handle_t;
 
@@ -90,11 +89,9 @@
 
 	typedef struct
 	{
-		OCIStmt		*stmthp;	/* the statement handle for select operations */
+		OCIStmt		*stmthp;
 		int 		ncolumn;
 		DB_ROW		values;
-		ub4		*values_alloc;
-		OCILobLocator	**clobs;
 	}
 	ZBX_OCI_DB_RESULT;
 
@@ -141,6 +138,10 @@
 
 	void	SQ_DBfree_result(DB_RESULT result);
 
+#	include "mutexs.h"
+
+	extern PHP_MUTEX	sqlite_access;
+
 #endif	/* HAVE_SQLITE3 */
 
 #ifdef HAVE_SQLITE3
@@ -150,18 +151,11 @@
 #	define ZBX_SQL_MOD(x, y) "mod(" #x "," #y ")"
 #endif
 
-#ifdef HAVE_MULTIROW_INSERT
-#	define ZBX_ROW_DL	","
-#else
-#	define ZBX_ROW_DL	";\n"
-#endif
-
 int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *dbschema, char *dbsocket, int port);
 #ifdef HAVE_SQLITE3
 void	zbx_create_sqlite3_mutex(const char *dbname);
-void	zbx_remove_sqlite3_mutex();
-#endif
-void	zbx_db_init(char *dbname);
+#endif	/* HAVE_SQLITE3 */
+void	zbx_db_init(char *host, char *user, char *password, char *dbname, char *dbschema, char *dbsocket, int port);
 void    zbx_db_close();
 
 int	zbx_db_begin();
@@ -170,11 +164,6 @@ int	zbx_db_rollback();
 int	zbx_db_txn_level();
 int	zbx_db_txn_error();
 
-#ifdef HAVE_ORACLE
-int		zbx_db_statement_prepare(const char *sql);
-int		zbx_db_bind_parameter(int position, void *buffer, unsigned char type);
-int		zbx_db_statement_execute();
-#endif
 int		zbx_db_vexecute(const char *fmt, va_list args);
 DB_RESULT	zbx_db_vselect(const char *fmt, va_list args);
 DB_RESULT	zbx_db_select_n(const char *query, int n);

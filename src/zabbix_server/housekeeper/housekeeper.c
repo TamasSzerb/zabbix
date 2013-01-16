@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,12 +14,11 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "db.h"
-#include "dbcache.h"
 #include "log.h"
 #include "daemon.h"
 #include "zbxself.h"
@@ -97,15 +96,36 @@ static int	housekeeping_cleanup()
 					housekeeper.value,
 					CONFIG_MAX_HOUSEKEEPER_DELETE);
 #elif defined(HAVE_POSTGRESQL)
-			d = DBexecute(
-					"delete from %s"
-					" where ctid = any(array(select ctid from %s"
-						" where %s=" ZBX_FS_UI64 " limit %d))",
-					housekeeper.tablename,
-					housekeeper.tablename,
-					housekeeper.field,
-					housekeeper.value,
-					CONFIG_MAX_HOUSEKEEPER_DELETE);
+			extern int	ZBX_PG_SVERSION;
+
+			/* PostgreSQL array constructors are available since version 7.4 */
+			if (70400 > ZBX_PG_SVERSION)
+			{
+				d = DBexecute(
+						"delete from %s"
+						" where %s=" ZBX_FS_UI64
+							" and clock in (select clock from %s"
+								" where %s=" ZBX_FS_UI64 " limit %d)",
+						housekeeper.tablename,
+						housekeeper.field,
+						housekeeper.value,
+						housekeeper.tablename,
+						housekeeper.field,
+						housekeeper.value,
+						CONFIG_MAX_HOUSEKEEPER_DELETE);
+			}
+			else
+			{
+				d = DBexecute(
+						"delete from %s"
+						" where ctid = any(array(select ctid from %s"
+							" where %s=" ZBX_FS_UI64 " limit %d))",
+						housekeeper.tablename,
+						housekeeper.tablename,
+						housekeeper.field,
+						housekeeper.value,
+						CONFIG_MAX_HOUSEKEEPER_DELETE);
+			}
 #elif defined(HAVE_SQLITE3)
 			d = 0;
 #endif
@@ -121,13 +141,13 @@ static int	housekeeping_cleanup()
 	if (0 != housekeeperids.values_num)
 	{
 		char	*sql = NULL;
-		size_t	sql_alloc = 512, sql_offset = 0;
+		int	sql_alloc = 512, sql_offset = 0;
 
 		sql = zbx_malloc(sql, sql_alloc);
 
 		zbx_vector_uint64_sort(&housekeeperids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
 
-		zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset, "delete from housekeeper where");
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 32, "delete from housekeeper where");
 		DBadd_condition_alloc(&sql, &sql_alloc, &sql_offset, "housekeeperid",
 				housekeeperids.values, housekeeperids.values_num);
 
@@ -160,12 +180,26 @@ static int	housekeeping_sessions(int now)
 static int	housekeeping_alerts(int now)
 {
 	const char	*__function_name = "housekeeping_alerts";
-	int		deleted, alert_history;
+	int		alert_history;
+	DB_RESULT	result;
+	DB_ROW		row;
+	int		deleted = 0;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() now:%d", __function_name, now);
 
-	deleted = DBexecute("delete from alerts where clock<%d",
-			now - *(int *)DCconfig_get_config_data(&alert_history, CONFIG_ALERT_HISTORY) * SEC_PER_DAY);
+	result = DBselect("select alert_history from config");
+
+	if (NULL == (row = DBfetch(result)) || SUCCEED == DBis_null(row[0]))
+	{
+		zabbix_log(LOG_LEVEL_ERR, "no records in table 'config'");
+	}
+	else
+	{
+		alert_history = atoi(row[0]);
+
+		deleted = DBexecute("delete from alerts where clock<%d", now - alert_history * SEC_PER_DAY);
+	}
+	DBfree_result(result);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%d", __function_name, deleted);
 
@@ -177,20 +211,33 @@ static int	housekeeping_events(int now)
 	const char	*__function_name = "housekeeping_events";
 	int		event_history, deleted = 0;
 	DB_RESULT	result;
-	DB_ROW		row;
+	DB_RESULT	result2;
+	DB_ROW		row1;
+	DB_ROW		row2;
 	zbx_uint64_t	eventid;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() now:%d", __function_name, now);
 
-	result = DBselect("select eventid from events where clock<%d",
-			now - *(int *)DCconfig_get_config_data(&event_history, CONFIG_EVENT_HISTORY) * SEC_PER_DAY);
+	result = DBselect("select event_history from config");
 
-	while (NULL != (row = DBfetch(result)))
+	if (NULL == (row1 = DBfetch(result)) || SUCCEED == DBis_null(row1[0]))
 	{
-		ZBX_STR2UINT64(eventid, row[0]);
+		zabbix_log(LOG_LEVEL_ERR, "no records in table 'config'");
+	}
+	else
+	{
+		event_history = atoi(row1[0]);
 
-		DBexecute("delete from acknowledges where eventid=" ZBX_FS_UI64, eventid);
-		deleted += DBexecute("delete from events where eventid=" ZBX_FS_UI64, eventid);
+		result2 = DBselect("select eventid from events where clock<%d", now - event_history * SEC_PER_DAY);
+
+		while (NULL != (row2 = DBfetch(result2)))
+		{
+			ZBX_STR2UINT64(eventid, row2[0]);
+
+			DBexecute("delete from acknowledges where eventid=" ZBX_FS_UI64, eventid);
+			deleted += DBexecute("delete from events where eventid=" ZBX_FS_UI64, eventid);
+		}
+		DBfree_result(result2);
 	}
 	DBfree_result(result);
 
@@ -219,7 +266,7 @@ static int	delete_history(const char *table, zbx_uint64_t itemid, int keep_histo
 	const char	*__function_name = "delete_history";
 	DB_RESULT       result;
 	DB_ROW          row;
-	int             min_clock, keep_from, deleted = 0;
+	int             min_clock, deleted;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() table:'%s' itemid:" ZBX_FS_UI64 " keep_history:%d now:%d",
 		__function_name, table, itemid, keep_history, now);
@@ -227,17 +274,16 @@ static int	delete_history(const char *table, zbx_uint64_t itemid, int keep_histo
 	result = DBselect("select min(clock) from %s where itemid=" ZBX_FS_UI64, table, itemid);
 
 	if (NULL == (row = DBfetch(result)) || SUCCEED == DBis_null(row[0]))
-		goto clean;
+	{
+		DBfree_result(result);
+		return 0;
+	}
 
-	keep_from = now - keep_history * SEC_PER_DAY;
-	if (keep_from <= (min_clock = atoi(row[0])))
-		goto clean;
-
-	min_clock = MIN(keep_from, min_clock + 4 * CONFIG_HOUSEKEEPING_FREQUENCY * SEC_PER_HOUR);
+	min_clock = atoi(row[0]);
+	min_clock = MIN(now - keep_history * SEC_PER_DAY, min_clock + 4 * CONFIG_HOUSEKEEPING_FREQUENCY * SEC_PER_HOUR);
+	DBfree_result(result);
 
 	deleted = DBexecute("delete from %s where itemid=" ZBX_FS_UI64 " and clock<%d", table, itemid, min_clock);
-clean:
-	DBfree_result(result);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%d", __function_name, deleted);
 
@@ -313,7 +359,7 @@ void	main_housekeeper_loop()
 		d_history_and_trends = housekeeping_history_and_trends(now);
 
 		zbx_setproctitle("%s [removing deleted items data]", get_process_type_string(process_type));
-		d_cleanup = housekeeping_cleanup();
+		d_cleanup = housekeeping_cleanup(now);
 
 		zbx_setproctitle("%s [removing old events]", get_process_type_string(process_type));
 		d_events = housekeeping_events(now);

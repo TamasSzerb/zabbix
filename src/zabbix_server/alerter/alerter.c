@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -22,6 +22,7 @@
 #include "cfg.h"
 #include "db.h"
 #include "log.h"
+#include "zlog.h"
 #include "daemon.h"
 #include "zbxmedia.h"
 #include "zbxserver.h"
@@ -87,36 +88,31 @@ int	execute_action(DB_ALERT *alert, DB_MEDIATYPE *mediatype, char *error, int ma
 	else if (MEDIA_TYPE_EXEC == mediatype->type)
 	{
 		char	*cmd = NULL, *send_to, *subject, *message, *output = NULL;
-		size_t	cmd_alloc = ZBX_KIBIBYTE, cmd_offset = 0;
+		int	cmd_alloc, cmd_offset = 0;
+
+		send_to = zbx_dyn_escape_string(alert->sendto, "\"\\");
+		subject = zbx_dyn_escape_string(alert->subject, "\"\\");
+		message = zbx_dyn_escape_string(alert->message, "\"\\");
+
+		cmd_alloc = strlen(CONFIG_ALERT_SCRIPTS_PATH) + strlen(mediatype->exec_path) + strlen(send_to) +
+				strlen(subject) + strlen(message) + 11;
 
 		cmd = zbx_malloc(cmd, cmd_alloc);
 
-		zbx_snprintf_alloc(&cmd, &cmd_alloc, &cmd_offset, "%s/%s",
-				CONFIG_ALERT_SCRIPTS_PATH, mediatype->exec_path);
+		zbx_snprintf_alloc(&cmd, &cmd_alloc, &cmd_offset, cmd_alloc, "%s/%s \"%s\" \"%s\" \"%s\"",
+				CONFIG_ALERT_SCRIPTS_PATH, mediatype->exec_path, send_to, subject, message);
 
-		if (0 == access(cmd, X_OK))
+		zbx_free(send_to);
+		zbx_free(subject);
+		zbx_free(message);
+
+		if (SUCCEED == (res = zbx_execute(cmd, &output, error, max_error_len, ALARM_ACTION_TIMEOUT)))
 		{
-			send_to = zbx_dyn_escape_string(alert->sendto, "\"\\");
-			subject = zbx_dyn_escape_string(alert->subject, "\"\\");
-			message = zbx_dyn_escape_string(alert->message, "\"\\");
-
-			zbx_snprintf_alloc(&cmd, &cmd_alloc, &cmd_offset, " \"%s\" \"%s\" \"%s\"",
-					send_to, subject, message);
-
-			zbx_free(send_to);
-			zbx_free(subject);
-			zbx_free(message);
-
-			if (SUCCEED == (res = zbx_execute(cmd, &output, error, max_error_len, ALARM_ACTION_TIMEOUT)))
-			{
-				zabbix_log(LOG_LEVEL_DEBUG, "%s output:\n%s", mediatype->exec_path, output);
-				zbx_free(output);
-			}
-			else
-				res = FAIL;
+			zabbix_log(LOG_LEVEL_DEBUG, "%s output:\n%s", mediatype->exec_path, output);
+			zbx_free(output);
 		}
 		else
-			zbx_snprintf(error, max_error_len, "%s: %s", cmd, zbx_strerror(errno));
+			res = FAIL;
 
 		zbx_free(cmd);
 	}
@@ -124,6 +120,7 @@ int	execute_action(DB_ALERT *alert, DB_MEDIATYPE *mediatype, char *error, int ma
 	{
 		zbx_snprintf(error, max_error_len, "unsupported media type [%d]", mediatype->type);
 		zabbix_log(LOG_LEVEL_ERR, "alert ID [" ZBX_FS_UI64 "]: %s", alert->alertid, error);
+		zabbix_syslog("alert ID [" ZBX_FS_UI64 "]: %s", alert->alertid, error);
 	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(res));
@@ -157,24 +154,19 @@ void	main_alerter_loop()
 	{
 		zbx_setproctitle("%s [sending alerts]", get_process_type_string(process_type));
 
-		result = DBselect(
-				"select a.alertid,a.mediatypeid,a.sendto,a.subject,a.message,a.status,mt.mediatypeid,"
-				"mt.type,mt.description,mt.smtp_server,mt.smtp_helo,mt.smtp_email,mt.exec_path,"
-				"mt.gsm_modem,mt.username,mt.passwd,a.retries"
-				" from alerts a,media_type mt"
-				" where a.mediatypeid=mt.mediatypeid"
-					" and a.status=%d"
-					" and a.alerttype=%d"
-					ZBX_SQL_NODE
-				" order by a.alertid",
+		result = DBselect("select a.alertid,a.mediatypeid,a.sendto,a.subject,a.message,a.status,mt.mediatypeid"
+				",mt.type,mt.description,mt.smtp_server,mt.smtp_helo,mt.smtp_email,mt.exec_path"
+				",mt.gsm_modem,mt.username,mt.passwd,a.retries from alerts a,media_type mt"
+				" where a.status=%d and a.mediatypeid=mt.mediatypeid and a.alerttype=%d" DB_NODE
+				" order by a.clock",
 				ALERT_STATUS_NOT_SENT,
 				ALERT_TYPE_MESSAGE,
-				DBand_node_local("mt.mediatypeid"));
+				DBnode_local("mt.mediatypeid"));
 
 		while (NULL != (row = DBfetch(result)))
 		{
 			ZBX_STR2UINT64(alert.alertid, row[0]);
-			ZBX_STR2UINT64(alert.mediatypeid, row[1]);
+			alert.mediatypeid = atoi(row[1]);
 			alert.sendto = row[2];
 			alert.subject = row[3];
 			alert.message = row[4];
@@ -198,14 +190,17 @@ void	main_alerter_loop()
 
 			if (SUCCEED == res)
 			{
-				zabbix_log(LOG_LEVEL_DEBUG, "alert ID [" ZBX_FS_UI64 "] was sent successfully",
+				zabbix_log(LOG_LEVEL_DEBUG, "Alert ID [" ZBX_FS_UI64 "] was sent successfully",
 						alert.alertid);
 				DBexecute("update alerts set status=%d,error='' where alertid=" ZBX_FS_UI64,
 						ALERT_STATUS_SENT, alert.alertid);
 			}
 			else
 			{
-				zabbix_log(LOG_LEVEL_DEBUG, "error sending alert ID [" ZBX_FS_UI64 "]", alert.alertid);
+				zabbix_log(LOG_LEVEL_DEBUG, "Error sending alert ID [" ZBX_FS_UI64 "]",
+						alert.alertid);
+				zabbix_syslog("Error sending alert ID [" ZBX_FS_UI64 "]",
+						alert.alertid);
 
 				error_esc = DBdyn_escape_string_len(error, ALERT_ERROR_LEN);
 

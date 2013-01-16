@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,19 +14,15 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_DISKDEVICES_H
 #define ZABBIX_DISKDEVICES_H
 
-#ifdef _WINDOWS
-#	error "This module allowed only for Unix OS"
-#endif
-
 #include "sysinfo.h"
 
-#define	MAX_DISKDEVICES	1024
+#define	MAX_DISKDEVICES	8
 
 typedef struct c_single_diskdevice_data
 {
@@ -49,15 +45,14 @@ typedef struct c_single_diskdevice_data
 
 typedef struct c_diskdevices_data
 {
-	int				count;		/* number of disks to collect statistics for */
-	int				max_diskdev;	/* number of "slots" for disk statistics */
-	ZBX_SINGLE_DISKDEVICE_DATA	device[1];	/* more "slots" for disk statistics added dynamically */
+	int				count;
+	ZBX_SINGLE_DISKDEVICE_DATA	device[MAX_DISKDEVICES];
 } ZBX_DISKDEVICES_DATA;
 
-#define DISKDEVICE_COLLECTOR_STARTED(collector)	((collector) && (collector)->diskstat_shmid != NONEXISTENT_SHMID)
+#define DISKDEVICE_COLLECTOR_STARTED(collector) collector
 
 ZBX_SINGLE_DISKDEVICE_DATA	*collector_diskdevice_get(const char *devname);
 ZBX_SINGLE_DISKDEVICE_DATA	*collector_diskdevice_add(const char *devname);
-void				collect_stats_diskdevices();
+void				collect_stats_diskdevices(ZBX_DISKDEVICES_DATA *pdiskdevices);
 
 #endif

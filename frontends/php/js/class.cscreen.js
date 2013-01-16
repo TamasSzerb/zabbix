@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,117 +14,150 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+// JavaScript Document
+// Screen class beta
+// Author: Aly
 
-var ZBX_SCREENS = []; // screens obj reference
+// [!CDATA[
+var ZBX_SCREENS = new Array();			// screens obj reference
 Position.includeScrollOffsets = true;
 
-// screenid always must be a string (js doesn't support uint64) !
-function init_screen(screenid, obj_id, id) {
-	if (typeof(id) == 'undefined') {
-		id = ZBX_SCREENS.length;
+// screenid ALWAYS must be a STRING (js doesn't support uint64) !!!!
+function init_screen(screenid, obj_id, id){
+	if(typeof(id) == 'undefined'){
+		var id = ZBX_SCREENS.length;
 	}
 
-	if (is_number(screenid) && screenid > 100000000000000) {
+	if(is_number(screenid) && (screenid > 100000000000000)){
 		throw('Error: Wrong type of arguments passed to function [init_screen]');
 	}
-
+	
 	ZBX_SCREENS[id] = new Object;
 	ZBX_SCREENS[id].screen = new Cscreen(screenid, obj_id, id);
 }
 
 var Cscreen = Class.create();
+
 Cscreen.prototype = {
-	id: 0,
-	screenid: 0,
-	screen_obj: null, // DOM ref to screen obj
+id:	0,								// inner js class id
+screenid: 0,
 
-	initialize: function(screenid, obj_id, id) {
-		this.screenid = screenid;
-		this.id = id;
-		this.screen_obj = $(obj_id);
+dragged: 0,							// element dragged or just clicked
+screen_obj: null,					// DOM ref to screen obj
 
-		function wedge() {
-			return false;
+debug_status: 0,					// debug status: 0 - off, 1 - on, 2 - SDI;
+debug_info: '',						// debug string
+
+
+initialize: function(screenid, obj_id, id){
+	this.debug('initialize');
+	
+	this.screenid = screenid;
+	this.id = id;
+	
+	this.screen_obj = $(obj_id);
+//	this.add_divs(this.screen_obj, 'td', 'draggable');
+	
+	var trs = this.screen_obj.getElementsByTagName("tr");
+
+	function wedge(event){ return false }
+	
+	for (var i = 0; i < trs.length; i++){
+		var divs = document.getElementsByClassName("draggable", trs[i]);
+		for (var j = 0; j < divs.length; ++j){
+			addListener(divs[j], 'mousedown', this.deactivate_drag.bindAsEventListener(this), false);
+			new Draggable(divs[j], {//revert: 'failure',
+//									handle:'handle'+c,
+				revert: true,
+//				function(){
+//					if(IE){
+//						Event.stopObserving(document.body, "drag", wedge, false);
+//						Event.stopObserving(document.body, "selectstart", wedge, false);
+//					}
+//				},
+				onStart: function(){
+					if(IE){
+						Event.observe(document.body, "drag", wedge, false);
+						Event.observe(document.body, "selectstart", wedge, false);
+					}
+				},
+				onEnd: this.activate_drag.bind(this)
+			});
 		}
-
-		jQuery('.draggable').draggable({
-			revert: 'invalid',
-			opacity: 0.8,
-			zIndex: 999,
-			start: function() {
-				if (IE) {
-					Event.observe(document.body, 'drag', wedge, false);
-					Event.observe(document.body, 'selectstart', wedge, false);
-				}
-			}
-		});
-
-		jQuery('.screenitem').droppable({
-			accept: '.draggable',
-			hoverClass: 'ui-sortable-placeholder',
-			drop: this.on_drop,
-			tolerance: 'pointer'
-		});
-	},
-
-	on_drop: function(event, ui) {
-		var element = ui.draggable;
-		var dropDiv = jQuery(this).children('.draggable');
-
-		var x1 = element.data('xcoord');
-		var y1 = element.data('ycoord');
-		var x2 = dropDiv.data('xcoord');
-		var y2 = dropDiv.data('ycoord');
-
-		var url = new Curl(location.href);
-		var params = {
-			ajaxAction: 'sw_pos',
-			output: 'ajax',
-			'sw_pos[0]': y1,
-			'sw_pos[1]': x1,
-			'sw_pos[2]': y2,
-			'sw_pos[3]': x2,
-			screenid: url.getArgument('screenid'),
-			sid: url.getArgument('sid')
-		};
-
-		jQuery.post('screenedit.php', params, function(data) {
-			if (!isset('result', data) || !data.result) {
-				jQuery('<p>Ajax request error</p>').dialog({
-					modal: true,
-					resizable: false,
-					draggable: false
-				});
-			}
-			else {
-				var parent = dropDiv.parent().get(0);
-				element.parent().get(0).appendChild(dropDiv.get(0));
-				parent.appendChild(element.get(0));
-
-				// replace "change" link href for emtpy cells
-				var link = jQuery(element).find('.empty_change_link')[0];
-				if (link) {
-					var href = jQuery(link).attr('href');
-					href = href.replace(/\&x\=[0-9]+/, '&x=' + x2);
-					href = href.replace(/\&y\=[0-9]+/, '&y=' + y2);
-					jQuery(link).attr('href', href);
-				}
-
-				var link = jQuery(dropDiv).find('.empty_change_link')[0];
-				if (link) {
-					var href = jQuery(link).attr('href');
-					href = href.replace(/\&x\=[0-9]+/, '&x=' + x1);
-					href = href.replace(/\&y\=[0-9]+/, '&y=' + y1);
-					jQuery(link).attr('href', href);
-				}
-
-				element.data({ycoord: y2, xcoord: x2});
-				dropDiv.data({ycoord: y1, xcoord: x1});
-			}
-		}, 'json');
-
-		element.css({top: '0px', left: '0px'});
 	}
-};
+
+	var divs = document.getElementsByClassName("draggable", this.screen_obj);
+	for (var j = 0; j < divs.length; ++j){
+		Droppables.add(divs[j], {accept:'draggable',
+									hoverclass:'hoverclass123',
+									onDrop: this.on_drop.bind(this)
+								});
+	}
+},
+
+on_drop: function(element, dropon, event){
+	var dropon_parent = dropon.parentNode;
+	element.parentNode.appendChild(dropon);
+	dropon_parent.appendChild(element);
+
+	element.style.top = '0px';
+	element.style.left = '0px';
+	
+	var pos = element.id.split('_');
+	var r1 = pos[1];
+	var c1 = pos[2];
+	
+	pos = dropon.id.split('_');
+	var r2 = pos[1];
+	var c2 = pos[2];
+	
+	var url = new Curl(location.href);
+	
+	var args = url.getArguments();
+	for(a in args){
+		if(a == 'screenid') continue;
+		url.unsetArgument(a);
+	}
+	
+	url.setArgument('sw_pos[0]',r1);
+	url.setArgument('sw_pos[1]',c1);
+	url.setArgument('sw_pos[2]',r2);
+	url.setArgument('sw_pos[3]',c2);
+	
+	
+	// url.unsetArgument('add_row');
+	// url.unsetArgument('add_col');
+	// url.unsetArgument('rmv_row');
+	// url.unsetArgument('rmv_col');
+		
+	location.href = url.getUrl();
+},
+
+element_onclick: function(href){
+	if(this.dragged == 0){
+		location.href = href;
+	}
+},
+
+activate_drag: function(){
+	this.debug('activate_drag');
+	this.dragged = 1;
+},
+
+deactivate_drag: function(){
+	this.debug('deactivate_drag');
+	this.dragged = 0;
+},
+
+debug: function(str){
+	if(this.debug_status){
+		this.debug_info += str + '\n';
+		
+		if(this.debug_status == 2){
+			SDI(str);
+		}
+	}	
+}
+}

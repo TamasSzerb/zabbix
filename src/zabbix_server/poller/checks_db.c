@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,14 +14,14 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 
 #ifdef HAVE_ODBC
 #	include "zbxodbc.h"
-#endif
+#endif /* HAVE_ODBC */
 
 #include "checks_db.h"
 #include "log.h"
@@ -46,52 +46,48 @@
  *           parameters separated by '\n'                                     *
  *                                                                            *
  ******************************************************************************/
-static char	*get_param_value(char *params, const char *param_name)
+static char* get_param_value(char* params, const char* param_name)
 {
-	char	*p, *l, *n, *r, *buf = NULL;
+	char
+		*p = NULL,
+		*l = NULL,
+		*n = NULL,
+		*r = NULL,
+		*buf = NULL;
 
-	assert(NULL != params);
-
-	for (p = params; '\0' != *p; p++)
+	for(p = params; p && *p; p++)
 	{
 		r = NULL;
 
 		/* trim left spaces */
-		for (; 0 != isspace(*p); p++)
-			;
+		for(; *p == ' '; p++);
 
 		/* find '=' */
-		for (n = p; '\0' != *n && '\n' != *n; n++)
+		for(n = p; *n && *n != '\n'; n++)
 		{
-			if ('=' == *n)
+			if(*n == '=')
 			{
 				/* trim right spaces */
-				for (l = n - 1; 0 != isspace(*l); l--)
-					;
-
+				for(l = n - 1; *l == ' '; l--);
 				l++;
 
 				/* compare parameter name */
-				if (l - p != strlen(param_name) || 0 != strncmp(p, param_name, l - p))
-					break;
+				if(l - p != strlen(param_name))		break;
+				if(strncmp(p, param_name, l - p))	break;
 
-				r = n + 1;
-
+				r = n+1;
 				break;
 			}
 		}
 
 		/* find EOL */
-		for (p = n; '\0' != *p && '\n' != *p; p++)
-			;
+		for(p = n; *p && *p != '\n'; p++);
 
 		/* allocate result */
-		if (NULL != r)
+		if(r)
 		{
 			/* trim right EOL characters */
-			while ('\r' == *p || '\n' == *p || '\0' == *p)
-				p--;
-
+			while(*p == '\r' || *p == '\n' || *p == '\0') p--;
 			p++;
 
 			/* allocate result */
@@ -103,12 +99,15 @@ static char	*get_param_value(char *params, const char *param_name)
 		}
 	}
 
-	if (NULL == buf)
-		buf = zbx_strdup(buf, "");
-
+	if(buf == NULL)
+	{
+		/* allocate result */
+		buf = zbx_malloc(buf, 1);
+		*buf = '\0';
+	}
 	return buf;
 }
-#endif	/* HAVE_ODBC */
+#endif /* HAVE_ODBC */
 
 /******************************************************************************
  *                                                                            *
@@ -128,61 +127,65 @@ static char	*get_param_value(char *params, const char *param_name)
  ******************************************************************************/
 int	get_value_db(DC_ITEM *item, AGENT_RESULT *result)
 {
-	const char	*__function_name = "get_value_db";
 #ifdef HAVE_ODBC
 	ZBX_ODBC_DBH	dbh;
 	ZBX_ODBC_ROW	row;
-	char		*db_dsn = NULL, *db_user = NULL, *db_pass = NULL, *db_sql = NULL;
-#endif
-	int		ret = NOTSUPPORTED;
+
+	char
+		*db_dsn = NULL,
+		*db_user = NULL,
+		*db_pass = NULL,
+		*db_sql = NULL;
+#endif /* HAVE_ODBC */
+
+	int	ret = NOTSUPPORTED;
 
 	init_result(result);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() key_orig:'%s'", __function_name, item->key_orig);
+	zabbix_log(LOG_LEVEL_DEBUG, "In database monitor: %s", item->key_orig);
 
 #ifdef HAVE_ODBC
 
-#define DB_ODBC_SELECT_KEY	"db.odbc.select["
+	#define DB_ODBC_SELECT_KEY "db.odbc.select["
 
 	if (0 == strncmp(item->key, DB_ODBC_SELECT_KEY, strlen(DB_ODBC_SELECT_KEY)))
 	{
 		db_dsn = get_param_value(item->params, "DSN");
 		db_user = get_param_value(item->params, "user");
 		db_pass = get_param_value(item->params, "password");
-		db_sql = get_param_value(item->params, "sql");
+		db_sql  = get_param_value(item->params, "sql");
 
 		if (SUCCEED == odbc_DBconnect(&dbh, db_dsn, db_user, db_pass))
 		{
 			if (NULL != (row = odbc_DBfetch(odbc_DBselect(&dbh, db_sql))))
 			{
-				if (NULL == row[0])
-					SET_MSG_RESULT(result, zbx_strdup(NULL, "SQL query returned NULL value."));
-				else if (SUCCEED == set_result_type(result, item->value_type, item->data_type, row[0]))
+				if (SUCCEED == set_result_type(result, item->value_type, item->data_type, row[0]))
 					ret = SUCCEED;
 			}
 			else
-			{
-				const char	*last_error = get_last_odbc_strerror();
-
-				if ('\0' != *last_error)
-					SET_MSG_RESULT(result, zbx_strdup(NULL, last_error));
-				else
-					SET_MSG_RESULT(result, zbx_strdup(NULL, "SQL query returned empty result."));
-			}
+				SET_MSG_RESULT(result, strdup(get_last_odbc_strerror()));
 
 			odbc_DBclose(&dbh);
 		}
 		else
-			SET_MSG_RESULT(result, zbx_strdup(NULL, get_last_odbc_strerror()));
+			SET_MSG_RESULT(result, strdup(get_last_odbc_strerror()));
 
 		zbx_free(db_dsn);
 		zbx_free(db_user);
 		zbx_free(db_pass);
 		zbx_free(db_sql);
 	}
-#undef DB_ODBC_SELECT_KEY
 
-#endif	/* HAVE_ODBC */
+#endif /* HAVE_ODBC */
+
+	/*
+	 * TODO:
+	 *
+	 * db.*.select[]
+	 * db.*.ping
+	 *   ...
+	 *
+	 */
 
 	return ret;
 }

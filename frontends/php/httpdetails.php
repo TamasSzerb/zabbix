@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2012 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -10,324 +10,316 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+	require_once('include/config.inc.php');
+	require_once('include/hosts.inc.php');
+	require_once('include/httptest.inc.php');
+	require_once('include/forms.inc.php');
 
+	$page['title'] = 'S_DETAILS_OF_SCENARIO';
+	$page['file'] = 'httpdetails.php';
+	$page['hist_arg'] = array('httptestid');
+	$page['scripts'] = array('class.calendar.js','gtlc.js');
 
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/hosts.inc.php';
-require_once dirname(__FILE__).'/include/httptest.inc.php';
-require_once dirname(__FILE__).'/include/forms.inc.php';
+	$page['type'] = detect_page_type(PAGE_TYPE_HTML);
 
-$page['title'] = _('Details of scenario');
-$page['file'] = 'httpdetails.php';
-$page['hist_arg'] = array('httptestid');
-$page['scripts'] = array('class.calendar.js', 'gtlc.js', 'flickerfreescreen.js');
-$page['type'] = detect_page_type(PAGE_TYPE_HTML);
+	define('ZBX_PAGE_DO_REFRESH', 1);
 
-require_once dirname(__FILE__).'/include/page_header.php';
+	include_once('include/page_header.php');
+?>
+<?php
 
-// VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
-$fields = array(
-	'period' =>		array(T_ZBX_INT, O_OPT, null,	null,		null),
-	'stime' =>		array(T_ZBX_STR, O_OPT, null,	null,		null),
-	'reset' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
-	'httptestid' =>	array(T_ZBX_INT, O_MAND, P_SYS,	DB_ID,		'isset({favobj})'),
-	'fullscreen' =>	array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'),	null),
-	// ajax
-	'favobj' =>		array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
-	'favref' =>		array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,	null),
-	'favid' =>		array(T_ZBX_INT, O_OPT, P_ACT,	null,		null),
-	'favstate' =>	array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	null)
-);
-check_fields($fields);
+//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
+	$fields=array(
+		'period'=>	array(T_ZBX_INT, O_OPT,	 null,	null, null),
+		'stime'=>	array(T_ZBX_STR, O_OPT,	 null,	null, null),
+		'reset'=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
+		'httptestid'=>	array(T_ZBX_INT, O_MAND,	null,	DB_ID,		'isset({favobj})'),
 
-/*
- * Ajax
- */
-if (isset($_REQUEST['favobj'])) {
-	if ($_REQUEST['favobj'] == 'filter') {
-		CProfile::update('web.httpdetails.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
-	}
+		'fullscreen'=>	array(T_ZBX_INT, O_OPT,	P_SYS,	IN('0,1'),		NULL),
+//ajax
+		'favobj'=>		array(T_ZBX_STR, O_OPT, P_ACT,	NULL,			NULL),
+		'favref'=>		array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,		null),
+		'favid'=>		array(T_ZBX_INT, O_OPT, P_ACT,  null,			null),
+		'state'=>		array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,		NULL),
+	);
 
-	// saving fixed/dynamic setting to profile
-	if ($_REQUEST['favobj'] == 'timelinefixedperiod') {
-		if (isset($_REQUEST['favid'])) {
-			CProfile::update('web.httptest.timelinefixed', $_REQUEST['favid'], PROFILE_TYPE_INT);
+	if(!check_fields($fields)) exit();
+?>
+<?php
+	if(isset($_REQUEST['favobj'])){
+		if('filter' == $_REQUEST['favobj']){
+			CProfile::update('web.httpdetails.filter.state',$_REQUEST['state'], PROFILE_TYPE_INT);
+		}
+		if('timeline' == $_REQUEST['favobj']){
+			if(isset($_REQUEST['favid']) && isset($_REQUEST['period'])){
+				navigation_bar_calc('web.httptest', $_REQUEST['favid'], true);
+			}
+		}
+		// saving fixed/dynamic setting to profile
+		if('timelinefixedperiod' == $_REQUEST['favobj']){
+			if(isset($_REQUEST['favid'])){
+				CProfile::update('web.httptest.timelinefixed', $_REQUEST['favid'], PROFILE_TYPE_INT);
+			}
 		}
 	}
-}
 
-if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
-	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit();
-}
-
-/*
- * Collect data
- */
-$httpTest = API::HttpTest()->get(array(
-	'httptestids' => get_request('httptestid'),
-	'output' => API_OUTPUT_EXTEND,
-	'preservekeys' => true
-));
-$httpTest = reset($httpTest);
-if (!$httpTest) {
-	access_deny();
-}
-
-$httpTest['lastfailedstep'] = 0;
-$httpTest['error'] = '';
-
-$result = DBselect(
-	'SELECT hti.httptestid,hti.type,i.lastvalue,i.lastclock'.
-	' FROM httptestitem hti,items i'.
-	' WHERE hti.itemid=i.itemid'.
-		' AND hti.type IN ('.HTTPSTEP_ITEM_TYPE_LASTSTEP.','.HTTPSTEP_ITEM_TYPE_LASTERROR.')'.
-		' AND i.lastclock IS NOT NULL'.
-		' AND hti.httptestid='.$httpTest['httptestid']
-);
-while ($row = DBfetch($result)) {
-	if ($row['type'] == HTTPSTEP_ITEM_TYPE_LASTSTEP) {
-		$httpTest['lastcheck'] = $row['lastclock'];
-		$httpTest['lastfailedstep'] = $row['lastvalue'];
+	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
+		include_once('include/page_footer.php');
+		exit();
 	}
-	else {
-		$httpTest['error'] = $row['lastvalue'];
+?>
+<?php
+
+	$available_hosts = get_accessible_hosts_by_user($USER_DETAILS, PERM_READ_ONLY, PERM_RES_IDS_ARRAY);
+	$sql = 'SELECT ht.* '.
+		' FROM httptest ht, applications a '.
+		' WHERE '.DBcondition('a.hostid', $available_hosts).
+			' AND a.applicationid=ht.applicationid '.
+			' AND ht.httptestid='.$_REQUEST['httptestid'];
+	if(!$httptest_data = DBfetch(DBselect($sql))){
+		access_deny();
 	}
-}
 
-/*
- * Display
- */
-$httpdetailsWidget = new CWidget();
+	navigation_bar_calc('web.httptest', $_REQUEST['httptestid'], true);
+?>
+<?php
+	$details_wdgt = new CWidget();
 
-$lastcheck = null;
-if (isset($httpTest['lastcheck'])) {
-	$lastcheck = ' ['.zbx_date2str(_('d M Y H:i:s'), $httpTest['lastcheck']).']';
-}
+// Header
+	$fs_icon = get_icon('fullscreen', array('fullscreen' => $_REQUEST['fullscreen']));
+	$rst_icon = get_icon('reset', array('id' => $_REQUEST['httptestid']));
 
-$httpdetailsWidget->addPageHeader(
-	array(_('DETAILS OF SCENARIO').SPACE, bold(CMacrosResolverHelper::resolveHttpTestName($httpTest['hostid'], $httpTest['name'])), $lastcheck),
-	array(
-		get_icon('reset', array('id' => get_request('httptestid'))),
-		get_icon('fullscreen', array('fullscreen' => get_request('fullscreen')))
-	)
-);
+	$details_wdgt->addPageHeader(
+		array(S_DETAILS_OF_SCENARIO_BIG.SPACE, bold($httptest_data['name']),' ['.date(S_DATE_FORMAT_YMDHMS, $httptest_data['lastcheck']).']'),
+		array($rst_icon, $fs_icon)
+	);
+//-------------
 
-// append table to widget
-$httpdetailsTable = new CTableInfo(_('No steps defined.'));
-$httpdetailsTable->setHeader(array(
-	_('Step'),
-	_('Speed'),
-	_('Response time'),
-	_('Response code'),
-	_('Status')
-));
+// TABLE
+	$table = new CTableInfo();
+	$table->setHeader(array(S_STEP, S_SPEED, S_RESPONSE_TIME, S_RESPONSE_CODE, S_STATUS));
 
-$db_httpsteps = DBselect('SELECT * FROM httpstep WHERE httptestid='.$httpTest['httptestid'].' ORDER BY no');
+	$sql = 'SELECT * FROM httpstep WHERE httptestid='.$httptest_data['httptestid'].' ORDER BY no';
+	$db_httpsteps = DBselect($sql);
 
-$totalTime = array(
-	'lastvalue' => 0,
-	'value_type' => null,
-	'valuemapid' => null,
-	'units' => null
-);
+	$totalTime = array(
+		'lastvalue' => 0,
+		'value_type' => null,
+		'valuemapid' => null,
+		'units' => null
+	);
 
+	while($httpstep_data = DBfetch($db_httpsteps)){
+		$status['msg'] = S_OK_BIG;
+		$status['style'] = 'enabled';
 
-while ($httpstep_data = DBfetch($db_httpsteps)) {
-	$status['msg'] = _('OK');
-	$status['style'] = 'enabled';
-
-	if (!isset($httpTest['lastcheck'])) {
-		$status['msg'] = _('Never executed');
-		$status['style'] = 'unknown';
-	}
-	elseif ($httpTest['lastfailedstep'] != 0) {
-		if ($httpTest['lastfailedstep'] == $httpstep_data['no']) {
-			$status['msg'] = _s('Error: %1$s', $httpTest['error']);
-			$status['style'] = 'disabled';
+		if(HTTPTEST_STATE_BUSY == $httptest_data['curstate'] ){
+			if($httptest_data['curstep'] == ($httpstep_data['no'])){
+				$status['msg'] = S_IN_PROGRESS;
+				$status['style'] = 'unknown';
+				$status['skip'] = true;
+			}
+			else if($httptest_data['curstep'] < ($httpstep_data['no'])){
+				$status['msg'] = S_UNKNOWN;
+				$status['style'] = 'unknown';
+				$status['skip'] = true;
+			}
 		}
-		elseif ($httpTest['lastfailedstep'] < $httpstep_data['no']) {
-			$status['msg'] = _('Unknown');
+		else if( HTTPTEST_STATE_IDLE == $httptest_data['curstate'] ){
+			if($httptest_data['lastfailedstep'] != 0){
+				if($httptest_data['lastfailedstep'] == ($httpstep_data['no'])){
+					$status['msg'] = S_FAIL.' - '.S_ERROR.': '.$httptest_data['error'];
+					$status['style'] = 'disabled';
+					//$status['skip'] = true;
+				}
+				else if($httptest_data['lastfailedstep'] < ($httpstep_data['no'])){
+					$status['msg'] = S_UNKNOWN;
+					$status['style'] = 'unknown';
+					$status['skip'] = true;
+				}
+			}
+		}
+		else{
+			$status['msg'] = S_UNKNOWN;
 			$status['style'] = 'unknown';
 			$status['skip'] = true;
 		}
-	}
 
-	$itemIds = array();
-	$db_items = DBselect(
-		'SELECT i.lastvalue,i.lastclock,i.value_type,i.valuemapid,i.units,i.itemid,hi.type AS httpitem_type'.
-			' FROM items i,httpstepitem hi'.
-			' WHERE hi.itemid=i.itemid'.
-				' AND hi.httpstepid='.$httpstep_data['httpstepid']
-	);
-	while ($item_data = DBfetch($db_items)) {
-		if (isset($status['skip'])) {
-			$item_data['lastvalue'] = null;
+		$itemids = array();
+		$sql = 'SELECT i.lastvalue, i.value_type, i.valuemapid, i.units, i.itemid, hi.type as httpitem_type '.
+				' FROM items i, httpstepitem hi '.
+				' WHERE hi.itemid=i.itemid '.
+					' AND hi.httpstepid='.$httpstep_data['httpstepid'];
+		$db_items = DBselect($sql);
+		while($item_data = DBfetch($db_items)){
+			if(isset($status['skip'])) $item_data['lastvalue'] = null;
+
+			$httpstep_data['item_data'][$item_data['httpitem_type']] = $item_data;
+
+			if($item_data['httpitem_type'] == HTTPSTEP_ITEM_TYPE_TIME){
+				$totalTime['lastvalue'] += $item_data['lastvalue'];
+				$totalTime['value_type'] = $item_data['value_type'];
+				$totalTime['valuemapid'] = $item_data['valuemapid'];
+				$totalTime['units'] = $item_data['units'];
+			}
+
+			$itemids[] = $item_data['itemid'];
 		}
 
-		$httpstep_data['item_data'][$item_data['httpitem_type']] = $item_data;
-
-		if ($item_data['httpitem_type'] == HTTPSTEP_ITEM_TYPE_TIME) {
-			$totalTime['lastvalue'] += $item_data['lastvalue'];
-			$totalTime['lastclock'] = $item_data['lastclock'];
-			$totalTime['value_type'] = $item_data['value_type'];
-			$totalTime['valuemapid'] = $item_data['valuemapid'];
-			$totalTime['units'] = $item_data['units'];
-		}
-
-		$itemIds[] = $item_data['itemid'];
+		$speed = format_lastvalue($httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_IN]);
+		$respTime = $httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_TIME]['lastvalue'];
+		$resp = format_lastvalue($httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_RSPCODE]);
+		$table->addRow(array(
+			$httpstep_data['name'],
+			($speed == 0 ? '-' : $speed),
+			($respTime == 0 ? '-' : format_lastvalue($httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_TIME])),
+			($resp == 0 ? '-' : $resp),
+			new CSpan($status['msg'], $status['style'])
+		));
 	}
 
-	$speed = formatItemValue($httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_IN]);
-	$resp = formatItemValue($httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_RSPCODE]);
-	$respTime = $httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_TIME]['lastvalue'];
-	$respItemTime = formatItemValue($httpstep_data['item_data'][HTTPSTEP_ITEM_TYPE_TIME]);
-
-	$httpdetailsTable->addRow(array(
-		CMacrosResolverHelper::resolveHttpTestName($httpTest['hostid'], $httpstep_data['name']),
-		$speed,
-		($respTime == 0 ? '-' : $respItemTime),
-		$resp,
-		new CSpan($status['msg'], $status['style'])
-	));
-}
-
-if (!isset($httpTest['lastcheck'])) {
-	$status['msg'] = _('Never executed');
-	$status['style'] = 'unknown';
-}
-elseif ($httpTest['lastfailedstep'] != 0) {
-	$status['msg'] = _s('Error: %1$s', $httpTest['error']);
-	$status['style'] = 'disabled';
-}
-else {
-	$status['msg'] = _('OK');
+	$status['msg'] = S_OK_BIG;
 	$status['style'] = 'enabled';
-}
 
-$httpdetailsTable->addRow(array(
-	bold(_('TOTAL')),
-	SPACE,
-	bold(formatItemValue($totalTime)),
-	SPACE,
-	new CSpan($status['msg'], $status['style'].' bold')
-));
+	if( HTTPTEST_STATE_BUSY == $httptest_data['curstate'] ){
+		$status['msg'] = S_IN_PROGRESS;
+		$status['style'] = 'unknown';
+	}
+	else if ( HTTPTEST_STATE_UNKNOWN == $httptest_data['curstate'] ){
+		$status['msg'] = S_UNKNOWN;
+		$status['style'] = 'unknown';
+	}
+	else if($httptest_data['lastfailedstep'] > 0){
+		$status['msg'] = S_FAIL.' - '.S_ERROR.': '.$httptest_data['error'];
+		$status['style'] = 'disabled';
+	}
 
-$httpdetailsWidget->addItem($httpdetailsTable);
-$httpdetailsWidget->show();
+	$table->addRow(array(
+		new CSpan(S_TOTAL_BIG, 'bold'),
+		SPACE,
+		new CSpan(format_lastvalue($totalTime), 'bold'),
+		SPACE,
+		new CSpan($status['msg'], $status['style'].' bold')
+	));
 
-echo SBR;
+	$details_wdgt->addItem($table);
+	$details_wdgt->show();
 
-// create graphs widget
-$graphsWidget = new CWidget();
-$graphsWidget->addFlicker(new CDiv(null, null, 'scrollbar_cntr'), CProfile::get('web.httpdetails.filter.state', 0));
-$graphsWidget->addItem(SPACE);
+	echo SBR;
 
-$graphTable = new CTableInfo();
-$graphTable->setAttribute('id', 'graph');
+	$graphsWidget = new CWidget();
 
-// dims
-$graphDims = getGraphDims();
-$graphDims['shiftYtop'] += 1;
-$graphDims['width'] = -120;
-$graphDims['graphHeight'] = 150;
+	$scroll_div = new CDiv();
+	$scroll_div->setAttribute('id','scrollbar_cntr');
+	$graphsWidget->addFlicker($scroll_div, CProfile::get('web.httpdetails.filter.state',0));
+	$graphsWidget->addItem(SPACE);
 
-/*
- * Graph in
- */
-$graphInScreen = new CScreenBase(array(
-	'resourcetype' => SCREEN_RESOURCE_GRAPH,
-	'mode' => SCREEN_MODE_PREVIEW,
-	'dataId' => 'graph_in',
-	'profileIdx' => 'web.httptest',
-	'profileIdx2' => get_request('httptestid'),
-	'period' => get_request('period'),
-	'stime' => get_request('stime')
-));
-$graphInScreen->timeline['starttime'] = date(TIMESTAMP_FORMAT, get_min_itemclock_by_itemid($itemIds));
+	$graphTable = new CTableInfo();
+	$graphTable->setAttribute('id','graph');
 
-$src = 'chart3.php?height=150'.
-	'&name='.$httpTest['name'].
-	'&http_item_type='.HTTPSTEP_ITEM_TYPE_IN.
-	'&httptestid='.$httpTest['httptestid'].
-	'&graphtype='.GRAPH_TYPE_STACKED.
-	'&period='.$graphInScreen->timeline['period'].
-	'&stime='.$graphInScreen->timeline['stime'].
-	'&profileIdx='.$graphInScreen->profileIdx.
-	'&profileIdx2='.$graphInScreen->profileIdx2;
+	$graph_cont = new CCol();
+	$graph_cont->setAttribute('id', 'graph_1');
+	$graphTable->addRow(array(bold(S_SPEED), $graph_cont));
 
-$graphInContainer = new CDiv(new CLink(null, $src), 'flickerfreescreen', 'flickerfreescreen_graph_in');
-$graphInContainer->setAttribute('style', 'position: relative');
-$graphInContainer->setAttribute('data-timestamp', time());
-$graphTable->addRow(array(bold(_('Speed')), $graphInContainer));
+	$graph_cont = new CCol();
+	$graph_cont->setAttribute('id', 'graph_2');
+	$graphTable->addRow(array(bold(S_RESPONSE_TIME), $graph_cont));
 
-$timeControlData = array(
-	'id' => 'graph_in',
-	'containerid' => 'flickerfreescreen_graph_in',
-	'src' => $src,
-	'objDims' => $graphDims,
-	'loadSBox' => 1,
-	'loadImage' => 1,
-	'periodFixed' => CProfile::get('web.httptest.timelinefixed', 1),
-	'sliderMaximumTimePeriod' => ZBX_MAX_PERIOD
-);
-zbx_add_post_js('timeControl.addObject("graph_in", '.zbx_jsvalue($graphInScreen->timeline).', '.zbx_jsvalue($timeControlData).');');
-$graphInScreen->insertFlickerfreeJs();
+	$graphsWidget->addItem($graphTable);
 
-/*
- * Graph time
- */
-$graphTimeScreen = new CScreenBase(array(
-	'resourcetype' => SCREEN_RESOURCE_GRAPH,
-	'mode' => SCREEN_MODE_PREVIEW,
-	'dataId' => 'graph_time',
-	'profileIdx' => 'web.httptest',
-	'profileIdx2' => get_request('httptestid'),
-	'period' => get_request('period'),
-	'stime' => get_request('stime')
-));
+// NAV BAR
+	$timeline = array(
+		'period' => get_request('period',ZBX_PERIOD_DEFAULT),
+		'starttime' => date('YmdHis', get_min_itemclock_by_itemid($itemids))
+	);
 
-$src = 'chart3.php?height=150'.
-	'&name='.$httpTest['name'].
-	'&http_item_type='.HTTPSTEP_ITEM_TYPE_TIME.
-	'&httptestid='.$httpTest['httptestid'].
-	'&graphtype='.GRAPH_TYPE_STACKED.
-	'&period='.$graphTimeScreen->timeline['period'].
-	'&stime='.$graphTimeScreen->timeline['stime'].
-	'&profileIdx='.$graphTimeScreen->profileIdx.
-	'&profileIdx2='.$graphTimeScreen->profileIdx2;
+	if(isset($_REQUEST['stime'])){
+		$timeline['usertime'] = date('YmdHis', zbxDateToTime($_REQUEST['stime']) + $timeline['period']);
+	}
 
-$graphTimeContainer = new CDiv(new CLink(null, $src), 'flickerfreescreen', 'flickerfreescreen_graph_time');
-$graphTimeContainer->setAttribute('style', 'position: relative');
-$graphTimeContainer->setAttribute('data-timestamp', time());
-$graphTable->addRow(array(bold(_('Response time')), $graphTimeContainer));
+	$graphDims = getGraphDims();
+	$graphDims['shiftYtop'] += 1;
+	$graphDims['width'] = -120;
+	$graphDims['graphHeight'] = 150;
 
-$timeControlData = array(
-	'id' => 'graph_time',
-	'containerid' => 'flickerfreescreen_graph_time',
-	'src' => $src,
-	'objDims' => $graphDims,
-	'loadSBox' => 1,
-	'loadImage' => 1,
-	'periodFixed' => CProfile::get('web.httptest.timelinefixed', 1),
-	'sliderMaximumTimePeriod' => ZBX_MAX_PERIOD
-);
-zbx_add_post_js('timeControl.addObject("graph_time", '.zbx_jsvalue($graphInScreen->timeline).', '.zbx_jsvalue($timeControlData).');');
-$graphTimeScreen->insertFlickerfreeJs();
+	$src = 'chart3.php?'.url_param('period').
+		url_param($httptest_data['name'], false,'name').
+		url_param(150, false, 'height').
+		url_param(get_request('stime',0), false,'stime').
+		url_param(HTTPSTEP_ITEM_TYPE_IN, false, 'http_item_type').
+		url_param($httptest_data['httptestid'], false, 'httptestid').
+		url_param(GRAPH_TYPE_STACKED, false, 'graphtype');
 
-// scroll
-CScreenBuilder::insertScreenScrollJs(array('timeline' => $graphInScreen->timeline));
-CScreenBuilder::insertScreenRefreshTimeJs();
-CScreenBuilder::insertProcessObjectsJs();
+	$dom_graph_id = 'graph_in';
+	$objData = array(
+		'id' => $_REQUEST['httptestid'],
+		'domid' => $dom_graph_id,
+		'containerid' => 'graph_1',
+		'src' => $src,
+		'objDims' => $graphDims,
+		'loadSBox' => 1,
+		'loadImage' => 1,
+		'loadScroll' => 0,
+		'dynamic' => 1,
+		'mainObject' => 1,
+		'periodFixed' => CProfile::get('web.httptest.timelinefixed', 1)
+	);
+	zbx_add_post_js('timeControl.addObject("'.$dom_graph_id.'",'.zbx_jsvalue($timeline).','.zbx_jsvalue($objData).');');
 
-$graphsWidget->addItem($graphTable);
-$graphsWidget->show();
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+	$src ='chart3.php?'.url_param('period').url_param('from').
+		url_param($httptest_data['name'], false,'name').
+		url_param(150, false, 'height').
+		url_param(get_request('stime',0), false,'stime').
+		url_param(HTTPSTEP_ITEM_TYPE_TIME, false, 'http_item_type').
+		url_param($httptest_data['httptestid'], false, 'httptestid').
+		url_param(GRAPH_TYPE_STACKED, false, 'graphtype');
+
+	$dom_graph_id = 'graph_time';
+	$objData = array(
+		'id' => $_REQUEST['httptestid'],
+		'domid' => $dom_graph_id,
+		'containerid' => 'graph_2',
+		'src' => $src,
+		'objDims' => $graphDims,
+		'loadSBox' => 1,
+		'loadImage' => 1,
+		'loadScroll' => 0,
+		'dynamic' => 1,
+		'mainObject' => 1,
+		'periodFixed' => CProfile::get('web.httptest.timelinefixed', 1)
+	);
+	zbx_add_post_js('timeControl.addObject("'.$dom_graph_id.'",'.zbx_jsvalue($timeline).','.zbx_jsvalue($objData).');');
+//-------------
+
+	$dom_graph_id = 'none';
+	$objData = array(
+		'id' => $_REQUEST['httptestid'],
+		'domid' => $dom_graph_id,
+		'loadSBox' => 0,
+		'loadImage' => 0,
+		'loadScroll' => 1,
+		'scrollWidthByImage' => 0,
+		'dynamic' => 1,
+		'mainObject' => 1,
+		'periodFixed' => CProfile::get('web.httptest.timelinefixed', 1)
+	);
+
+	zbx_add_post_js('timeControl.addObject("'.$dom_graph_id.'",'.zbx_jsvalue($timeline).','.zbx_jsvalue($objData).');');
+	zbx_add_post_js('timeControl.processObjects();');
+
+	$graphsWidget->show();
+
+?>
+<?php
+include_once('include/page_footer.php');
+?>

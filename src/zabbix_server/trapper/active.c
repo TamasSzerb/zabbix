@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,14 +14,13 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "db.h"
 #include "dbcache.h"
 #include "log.h"
-#include "zbxserver.h"
 
 #include "active.h"
 
@@ -43,21 +42,19 @@ extern unsigned char	daemon_type;
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	get_hostid_by_host(const char *host, const char *ip, unsigned short port, zbx_uint64_t *hostid, char *error)
+static int	get_hostid_by_host(const char *host, zbx_uint64_t *hostid, char *error)
 {
-	const char	*__function_name = "get_hostid_by_host";
-
-	char		*host_esc, dns[INTERFACE_DNS_LEN_MAX];
+	char		*host_esc;
 	DB_RESULT	result;
 	DB_ROW		row;
-	int		ret = FAIL;
+	int		res = FAIL;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() host:'%s'", __function_name, host);
+	zabbix_log(LOG_LEVEL_DEBUG, "In get_hostid_by_host() host:'%s'", host);
 
 	if (FAIL == zbx_check_hostname(host))
 	{
 		zbx_snprintf(error, MAX_STRING_LEN, "invalid host name [%s]", host);
-		goto out;
+		return res;
 	}
 
 	host_esc = DBdyn_escape_string(host);
@@ -67,19 +64,19 @@ static int	get_hostid_by_host(const char *host, const char *ip, unsigned short p
 			" from hosts"
 			" where host='%s'"
 				" and status in (%d,%d)"
-		       		" and proxy_hostid is null"
-				ZBX_SQL_NODE,
+		       		" and proxy_hostid=0"
+				DB_NODE,
 			host_esc,
 			HOST_STATUS_MONITORED,
 			HOST_STATUS_NOT_MONITORED,
-			DBand_node_local("hostid"));
+			DBnode_local("hostid"));
 
 	if (NULL != (row = DBfetch(result)))
 	{
 		if (HOST_STATUS_MONITORED == atoi(row[1]))
 		{
 			ZBX_STR2UINT64(*hostid, row[0]);
-			ret = SUCCEED;
+			res = SUCCEED;
 		}
 		else
 			zbx_snprintf(error, MAX_STRING_LEN, "host [%s] not monitored", host);
@@ -88,23 +85,15 @@ static int	get_hostid_by_host(const char *host, const char *ip, unsigned short p
 	{
 		zbx_snprintf(error, MAX_STRING_LEN, "host [%s] not found", host);
 
-		/* remove ::ffff: prefix from IPv4-mapped IPv6 addresses */
-		if (0 == strncmp("::ffff:", ip, 7) && SUCCEED == is_ip4(ip + 7))
-			ip += 7;
-
-		alarm(CONFIG_TIMEOUT);
-		zbx_gethost_by_ip(ip, dns, sizeof(dns));
-		alarm(0);
-
 		DBbegin();
 
 		if (0 != (daemon_type & ZBX_DAEMON_TYPE_SERVER))
 		{
-			DBregister_host(0, host, ip, dns, port, (int)time(NULL));
+			DBregister_host(0, host, (int)time(NULL));
 		}
 		else if (0 != (daemon_type & ZBX_DAEMON_TYPE_PROXY))
 		{
-			DBproxy_register_host(host, ip, dns, port);
+			DBproxy_register_host(host);
 		}
 
 		DBcommit();
@@ -113,55 +102,8 @@ static int	get_hostid_by_host(const char *host, const char *ip, unsigned short p
 	DBfree_result(result);
 
 	zbx_free(host_esc);
-out:
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 
-	return ret;
-}
-
-typedef struct
-{
-	zbx_uint64_t	lastlogsize;
-	int		mtime;
-}
-zbx_active_t;
-
-static void	get_list_of_active_checks(zbx_uint64_t hostid, zbx_uint64_t **itemids, zbx_active_t **items, size_t *items_num)
-{
-	DB_RESULT	result;
-	DB_ROW		row;
-	size_t		items_alloc = 0;
-
-	assert(NULL == *itemids);
-	assert(NULL == *items);
-	assert(0 == *items_num);
-
-	result = DBselect(
-			"select i.itemid,i.lastlogsize,i.mtime"
-			" from items i,hosts h"
-			" where i.hostid=h.hostid"
-				" and h.status=%d"
-				" and i.type=%d"
-				" and i.flags<>%d"
-				" and h.hostid=" ZBX_FS_UI64
-				" and h.proxy_hostid is null",
-			HOST_STATUS_MONITORED, ITEM_TYPE_ZABBIX_ACTIVE, ZBX_FLAG_DISCOVERY_CHILD, hostid);
-
-	while (NULL != (row = DBfetch(result)))
-	{
-		if (items_alloc == *items_num)
-		{
-			items_alloc += 256;
-			*itemids = zbx_realloc(*itemids, sizeof(zbx_uint64_t) * items_alloc);
-			*items = zbx_realloc(*items, sizeof(zbx_active_t) * items_alloc);
-		}
-
-		ZBX_STR2UINT64((*itemids)[*items_num], row[0]);
-		ZBX_STR2UINT64((*items)[*items_num].lastlogsize, row[1]);
-		(*items)[*items_num].mtime = atoi(row[2]);
-		(*items_num)++;
-	}
-	DBfree_result(result);
+	return res;
 }
 
 /******************************************************************************
@@ -176,25 +118,31 @@ static void	get_list_of_active_checks(zbx_uint64_t hostid, zbx_uint64_t **itemid
  * Return value:  SUCCEED - list of active checks sent successfully           *
  *                FAIL - an error occurred                                    *
  *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
  * Comments: format of the request: ZBX_GET_ACTIVE_CHECKS\n<host name>\n      *
  *           format of the list: key:delay:last_log_size                      *
  *                                                                            *
  ******************************************************************************/
 int	send_list_of_active_checks(zbx_sock_t *sock, char *request)
 {
-	const char	*__function_name = "send_list_of_active_checks";
+	char		*host = NULL, *p;
+	DB_RESULT	result;
+	DB_ROW		row;
+	char		*buffer = NULL;
+	int		buffer_alloc = 2048;
+	int		buffer_offset = 0;
+	int		res = FAIL;
+	zbx_uint64_t	hostid;
+	char		error[MAX_STRING_LEN];
+	DC_ITEM		dc_item;
 
-	char		*host = NULL, *p, *buffer = NULL, error[MAX_STRING_LEN], ip[INTERFACE_IP_LEN_MAX];
-	size_t		buffer_alloc = 8 * ZBX_KIBIBYTE, buffer_offset = 0, items_num = 0;
-	int		ret = FAIL;
-	zbx_uint64_t	hostid, *itemids = NULL;
-	zbx_active_t	*items = NULL;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In send_list_of_active_checks()");
 
 	if (NULL != (host = strchr(request, '\n')))
 	{
 		host++;
+
 		if (NULL != (p = strchr(host, '\n')))
 			*p = '\0';
 	}
@@ -204,78 +152,74 @@ int	send_list_of_active_checks(zbx_sock_t *sock, char *request)
 		goto out;
 	}
 
-	strscpy(ip, get_ip_by_socket(sock));
-
-	if (FAIL == get_hostid_by_host(host, ip, ZBX_DEFAULT_AGENT_PORT, &hostid, error))
+	if (FAIL == get_hostid_by_host(host, &hostid, error))
 		goto out;
-
-	get_list_of_active_checks(hostid, &itemids, &items, &items_num);
 
 	buffer = zbx_malloc(buffer, buffer_alloc);
 
-	if (0 != items_num)
+	buffer_offset = 0;
+	zbx_snprintf_alloc(&buffer, &buffer_alloc, &buffer_offset, 1024,
+			"select i.key_,i.delay,i.lastlogsize from items i,hosts h"
+			" where i.hostid=h.hostid and h.status=%d and i.type=%d and h.hostid=" ZBX_FS_UI64
+			" and h.proxy_hostid=0",
+			HOST_STATUS_MONITORED,
+			ITEM_TYPE_ZABBIX_ACTIVE,
+			hostid);
+
+	if (0 != CONFIG_REFRESH_UNSUPPORTED)
 	{
-		DC_ITEM	*dc_items;
-		int	*errcodes, i, refresh_unsupported, now;
-
-		dc_items = zbx_malloc(NULL, sizeof(DC_ITEM) * items_num);
-		errcodes = zbx_malloc(NULL, sizeof(int) * items_num);
-
-		DCconfig_get_items_by_itemids(dc_items, itemids, errcodes, items_num);
-		DCconfig_get_config_data(&refresh_unsupported, CONFIG_REFRESH_UNSUPPORTED);
-
-		now = time(NULL);
-
-		for (i = 0; i < items_num; i++)
-		{
-			if (SUCCEED != errcodes[i])
-			{
-				zabbix_log(LOG_LEVEL_DEBUG, "%s() Item [" ZBX_FS_UI64 "] was not found in the"
-						" server cache. Not sending now.", __function_name, itemids[i]);
-				continue;
-			}
-
-			if (ITEM_STATUS_NOTSUPPORTED == dc_items[i].status)
-			{
-				if (0 == refresh_unsupported || dc_items[i].lastclock + refresh_unsupported > now)
-					continue;
-			}
-
-			zbx_snprintf_alloc(&buffer, &buffer_alloc, &buffer_offset, "%s:%d:" ZBX_FS_UI64 "\n",
-					dc_items[i].key_orig, dc_items[i].delay, items[i].lastlogsize);
-		}
-
-		DCconfig_clean_items(dc_items, errcodes, items_num);
-
-		zbx_free(errcodes);
-		zbx_free(dc_items);
+		zbx_snprintf_alloc(&buffer, &buffer_alloc, &buffer_offset, 256,
+				" and (i.status=%d or (i.status=%d and i.lastclock+%d<=%d))",
+				ITEM_STATUS_ACTIVE, ITEM_STATUS_NOTSUPPORTED,
+				CONFIG_REFRESH_UNSUPPORTED, time(NULL));
+	}
+	else
+	{
+		zbx_snprintf_alloc(&buffer, &buffer_alloc, &buffer_offset, 256,
+				" and i.status=%d",
+				ITEM_STATUS_ACTIVE);
 	}
 
-	zbx_free(items);
-	zbx_free(itemids);
+	result = DBselect("%s", buffer);
 
-	zbx_strcpy_alloc(&buffer, &buffer_alloc, &buffer_offset, "ZBX_EOF\n");
+	buffer_offset = 0;
+	while (NULL != (row = DBfetch(result)))
+	{
+		if (FAIL == DCconfig_get_item_by_key(&dc_item, (zbx_uint64_t)0, host, row[0]))
+		{
+			zabbix_log(LOG_LEVEL_DEBUG, "Item '%s' was not found in the server cache. Not sending now.", row[0]);
+			continue;
+		}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "%s() sending [%s]", __function_name, buffer);
+		zabbix_log(LOG_LEVEL_DEBUG, "Item '%s' was successfully found in the server cache. Sending.", row[0]);
+
+		zbx_snprintf_alloc(&buffer, &buffer_alloc, &buffer_offset, 512, "%s:%s:%s\n",
+				row[0],		/* item key */
+				row[1],		/* item delay */
+				row[2]);	/* item lastlogsize */
+	}
+	DBfree_result(result);
+
+	zbx_snprintf_alloc(&buffer, &buffer_alloc, &buffer_offset, 512, "ZBX_EOF\n");
+
+	zabbix_log(LOG_LEVEL_DEBUG, "Sending [%s]",
+			buffer);
 
 	alarm(CONFIG_TIMEOUT);
 	if (SUCCEED != zbx_tcp_send_raw(sock, buffer))
-		zbx_strlcpy(error, zbx_tcp_strerror(), MAX_STRING_LEN);
+		zbx_snprintf(error, MAX_STRING_LEN, "%s", zbx_tcp_strerror());
 	else
-		ret = SUCCEED;
+		res = SUCCEED;
 	alarm(0);
 
 	zbx_free(buffer);
+
 out:
-	if (FAIL == ret)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "cannot send list of active checks to [%s]: %s",
+	if (FAIL == res)
+		zabbix_log(LOG_LEVEL_WARNING, "Send list of active checks to [%s] failed: %s",
 				get_ip_by_socket(sock), error);
-	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
-
-	return ret;
+	return res;
 }
 
 static void	add_regexp_name(char ***regexp, int *regexp_alloc, int *regexp_num, const char *regexp_name)
@@ -314,26 +258,27 @@ static void	add_regexp_name(char ***regexp, int *regexp_alloc, int *regexp_num, 
  ******************************************************************************/
 int	send_list_of_active_checks_json(zbx_sock_t *sock, struct zbx_json_parse *jp)
 {
-	const char	*__function_name = "send_list_of_active_checks_json";
-
-#define ZBX_KEY_OTHER		0
-#define ZBX_KEY_LOG		1
-#define ZBX_KEY_EVENTLOG	2
-
-	char		host[HOST_HOST_LEN_MAX], params[MAX_STRING_LEN], tmp[MAX_STRING_LEN],
-			ip[INTERFACE_IP_LEN_MAX], error[MAX_STRING_LEN];
+	char		host[HOST_HOST_LEN_MAX], *name_esc, params[MAX_STRING_LEN],
+			pattern[MAX_STRING_LEN], tmp[32],
+			key_severity[MAX_STRING_LEN], key_logeventid[MAX_STRING_LEN];
+	DB_RESULT	result;
+	DB_ROW		row;
+	DB_ITEM		item;
 	struct zbx_json	json;
-	int		ret = FAIL;
-	zbx_uint64_t	hostid, *itemids = NULL;
-	zbx_active_t	*items = NULL;
-	size_t		items_num = 0;
-	unsigned short	port;
+	int		res = FAIL;
+	zbx_uint64_t	hostid;
+	char		error[MAX_STRING_LEN];
+	DC_ITEM		dc_item;
 
-	unsigned char	item_key;
 	char		**regexp = NULL;
-	int		regexp_alloc = 0, regexp_num = 0, n;
+	int		regexp_alloc = 0;
+	int		regexp_num = 0, n;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	char		*sql = NULL;
+	int		sql_alloc = 2048;
+	int		sql_offset;
+
+	zabbix_log(LOG_LEVEL_DEBUG, "In send_list_of_active_checks_json()");
 
 	if (FAIL == zbx_json_value_by_name(jp, ZBX_PROTO_TAG_HOST, host, sizeof(host)))
 	{
@@ -341,135 +286,131 @@ int	send_list_of_active_checks_json(zbx_sock_t *sock, struct zbx_json_parse *jp)
 		goto error;
 	}
 
-	if (FAIL == zbx_json_value_by_name(jp, ZBX_PROTO_TAG_IP, ip, sizeof(ip)))
-		strscpy(ip, get_ip_by_socket(sock));
-
-	if (FAIL == zbx_json_value_by_name(jp, ZBX_PROTO_TAG_PORT, tmp, sizeof(tmp)))
-		*tmp = '\0';
-
-	if (FAIL == is_ushort(tmp, &port))
-		port = ZBX_DEFAULT_AGENT_PORT;
-
-	if (FAIL == get_hostid_by_host(host, ip, port, &hostid, error))
+	if (FAIL == get_hostid_by_host(host, &hostid, error))
 		goto error;
 
-	get_list_of_active_checks(hostid, &itemids, &items, &items_num);
+	sql = zbx_malloc(sql, sql_alloc);
+
+	name_esc = DBdyn_escape_string(host);
+
+	sql_offset = 0;
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 1024,
+			"select %s where i.hostid=h.hostid and h.status=%d and i.type=%d and h.hostid=" ZBX_FS_UI64
+			" and h.proxy_hostid=0",
+			ZBX_SQL_ITEM_SELECT,
+			HOST_STATUS_MONITORED,
+			ITEM_TYPE_ZABBIX_ACTIVE,
+			hostid);
+
+	if (0 != CONFIG_REFRESH_UNSUPPORTED)
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 256, " and (i.status=%d or (i.status=%d and i.lastclock+%d<=%d))",
+				ITEM_STATUS_ACTIVE, ITEM_STATUS_NOTSUPPORTED,
+				CONFIG_REFRESH_UNSUPPORTED, time(NULL));
+	else
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 256, " and i.status=%d",
+				ITEM_STATUS_ACTIVE);
+
+	zbx_free(name_esc);
 
 	zbx_json_init(&json, ZBX_JSON_STAT_BUF_LEN);
 	zbx_json_addstring(&json, ZBX_PROTO_TAG_RESPONSE, ZBX_PROTO_VALUE_SUCCESS, ZBX_JSON_TYPE_STRING);
 	zbx_json_addarray(&json, ZBX_PROTO_TAG_DATA);
 
-	if (0 != items_num)
+	result = DBselect("%s", sql);
+
+	while (NULL != (row = DBfetch(result)))
 	{
-		DC_ITEM	*dc_items;
-		int	*errcodes, i, refresh_unsupported, now;
-
-		dc_items = zbx_malloc(NULL, sizeof(DC_ITEM) * items_num);
-		errcodes = zbx_malloc(NULL, sizeof(int) * items_num);
-
-		DCconfig_get_items_by_itemids(dc_items, itemids, errcodes, items_num);
-		DCconfig_get_config_data(&refresh_unsupported, CONFIG_REFRESH_UNSUPPORTED);
-
-		now = time(NULL);
-
-		for (i = 0; i < items_num; i++)
+		if (FAIL == DCconfig_get_item_by_key(&dc_item, (zbx_uint64_t)0, host, row[1]))
 		{
-			if (SUCCEED != errcodes[i])
-			{
-				zabbix_log(LOG_LEVEL_DEBUG, "%s() Item [" ZBX_FS_UI64 "] was not found in the"
-						" server cache. Not sending now.", __function_name, itemids[i]);
-				continue;
-			}
-
-			if (ITEM_STATUS_NOTSUPPORTED == dc_items[i].status)
-			{
-				if (0 == refresh_unsupported || dc_items[i].lastclock + refresh_unsupported > now)
-					continue;
-			}
-
-			dc_items[i].key = zbx_strdup(dc_items[i].key, dc_items[i].key_orig);
-			substitute_key_macros(&dc_items[i].key, NULL, &dc_items[i], NULL, MACRO_TYPE_ITEM_KEY, NULL, 0);
-
-			zbx_json_addobject(&json, NULL);
-			zbx_json_addstring(&json, ZBX_PROTO_TAG_KEY, dc_items[i].key, ZBX_JSON_TYPE_STRING);
-			if (0 != strcmp(dc_items[i].key, dc_items[i].key_orig))
-			{
-				zbx_json_addstring(&json, ZBX_PROTO_TAG_KEY_ORIG,
-						dc_items[i].key_orig, ZBX_JSON_TYPE_STRING);
-			}
-			zbx_json_adduint64(&json, ZBX_PROTO_TAG_DELAY, dc_items[i].delay);
-			/* The agent expects ALWAYS to have lastlogsize and mtime tags. */
-			/* Removing those would cause older agents to fail. */
-			zbx_json_adduint64(&json, ZBX_PROTO_TAG_LOGLASTSIZE, items[i].lastlogsize);
-			zbx_json_adduint64(&json, ZBX_PROTO_TAG_MTIME, items[i].mtime);
-			zbx_json_close(&json);
-
-			if (0 == strncmp(dc_items[i].key, "log[", 4) || 0 == strncmp(dc_items[i].key, "logrt[", 6))
-				item_key = ZBX_KEY_LOG;
-			else if (0 == strncmp(dc_items[i].key, "eventlog[", 9))
-				item_key = ZBX_KEY_EVENTLOG;
-			else
-				item_key = ZBX_KEY_OTHER;
-
-			if (ZBX_KEY_OTHER != item_key && ZBX_COMMAND_WITH_PARAMS == parse_command(dc_items[i].key, NULL, 0, params, sizeof(params)))
-			{
-				/* "params" paramater */
-				if (0 == get_param(params, 2, tmp, sizeof(tmp)) && '@' == *tmp)
-					add_regexp_name(&regexp, &regexp_alloc, &regexp_num, tmp + 1);
-
-				if (ZBX_KEY_EVENTLOG == item_key)
-				{
-					/* "severity" parameter */
-					if (0 == get_param(params, 3, tmp, sizeof(tmp)) && '@' == *tmp)
-						add_regexp_name(&regexp, &regexp_alloc, &regexp_num, tmp + 1);
-
-					/* "logeventid" parameter */
-					if (0 == get_param(params, 5, tmp, sizeof(tmp)) && '@' == *tmp)
-						add_regexp_name(&regexp, &regexp_alloc, &regexp_num, tmp + 1);
-				}
-			}
-
-			zbx_free(dc_items[i].key);
+			zabbix_log(LOG_LEVEL_DEBUG, "Item '%s' was not found in the server cache. Not sending now.", row[1]);
+			continue;
 		}
 
-		DCconfig_clean_items(dc_items, errcodes, items_num);
+		zabbix_log(LOG_LEVEL_DEBUG, "Item '%s' was successfully found in the server cache. Sending.", row[1]);
 
-		zbx_free(errcodes);
-		zbx_free(dc_items);
+		DBget_item_from_db(&item, row);
+
+		zbx_json_addobject(&json, NULL);
+		zbx_json_addstring(&json, ZBX_PROTO_TAG_KEY, item.key, ZBX_JSON_TYPE_STRING);
+		if (0 != strcmp(item.key, item.key_orig))
+			zbx_json_addstring(&json, ZBX_PROTO_TAG_KEY_ORIG, item.key_orig, ZBX_JSON_TYPE_STRING);
+		zbx_snprintf(tmp, sizeof(tmp), "%d", item.delay);
+		zbx_json_addstring(&json, ZBX_PROTO_TAG_DELAY, tmp, ZBX_JSON_TYPE_STRING);
+		/* The agent expects ALWAYS to have lastlogsize and mtime tags. Removing those would cause older agents to fail. */
+		zbx_snprintf(tmp, sizeof(tmp), "%d", item.lastlogsize);
+		zbx_json_addstring(&json, ZBX_PROTO_TAG_LOGLASTSIZE, tmp, ZBX_JSON_TYPE_STRING);
+		zbx_snprintf(tmp, sizeof(tmp), "%d", item.mtime);
+		zbx_json_addstring(&json, ZBX_PROTO_TAG_MTIME, tmp, ZBX_JSON_TYPE_STRING);
+		zbx_json_close(&json);
+
+		/* Special processing for log[] and logrt[] items */
+		do {	/* simple try realization */
+
+			/* log[filename,pattern,encoding,maxlinespersec] */
+			/* logrt[filename_format,pattern,encoding,maxlinespersec] */
+
+			if (0 != strncmp(item.key, "log[", 4) && 0 != strncmp(item.key, "logrt[", 6))
+				break;
+
+			if (2 != parse_command(item.key, NULL, 0, params, MAX_STRING_LEN))
+				break;
+
+			/*dealing with `pattern' parameter*/
+			if (0 == get_param(params, 2, pattern, sizeof(pattern)) &&
+				*pattern == '@')
+					add_regexp_name(&regexp, &regexp_alloc, &regexp_num, pattern + 1);
+		} while (0);	/* simple try realization */
+
+		/* Special processing for eventlog[] items */
+		do {	/* simple try realization */
+
+			/* eventlog[filename,pattern,severity,source,logeventid,maxlinespersec] */
+
+			if (0 != strncmp(item.key, "eventlog[", 9))
+				break;
+
+			if (2 != parse_command(item.key, NULL, 0, params, MAX_STRING_LEN))
+				break;
+
+			/*dealing with `pattern' parameter*/
+			if (0 == get_param(params, 2, pattern, sizeof(pattern)) &&
+				*pattern == '@')
+					add_regexp_name(&regexp, &regexp_alloc, &regexp_num, pattern + 1);
+
+			/*dealing with `severity' parameter*/
+			if (0 == get_param(params, 3, key_severity, sizeof(key_severity)) &&
+				*key_severity == '@')
+					add_regexp_name(&regexp, &regexp_alloc, &regexp_num, key_severity + 1);
+
+			/*dealing with `logeventid' parameter*/
+			if (0 == get_param(params, 5, key_logeventid, sizeof(key_logeventid)) &&
+				*key_logeventid == '@')
+					add_regexp_name(&regexp, &regexp_alloc, &regexp_num, key_logeventid + 1);
+		} while (0);	/* simple try realization */
 	}
-
-	zbx_free(items);
-	zbx_free(itemids);
-
 	zbx_json_close(&json);
+
+	DBfree_result(result);
 
 	if (0 != regexp_num)
 	{
-		DB_RESULT	result;
-		DB_ROW		row;
-		char		*sql = NULL, *name_esc;
-		size_t		sql_alloc = 2 * ZBX_KIBIBYTE, sql_offset = 0;
-
 		zbx_json_addarray(&json, ZBX_PROTO_TAG_REGEXP);
 
-		sql = zbx_malloc(sql, sql_alloc);
-
-		zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset,
+		sql_offset = 0;
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 512,
 				"select r.name,e.expression,e.expression_type,e.exp_delimiter,e.case_sensitive"
-				" from regexps r,expressions e"
-				" where r.regexpid=e.regexpid"
-					" and r.name in (");
+				" from regexps r,expressions e where r.regexpid=e.regexpid and r.name in (");
 
 		for (n = 0; n < regexp_num; n++)
 		{
 			name_esc = DBdyn_escape_string(regexp[n]);
-			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "%s'%s'",
+			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 512, "%s'%s'",
 					n == 0 ? "" : ",",
 					name_esc);
 			zbx_free(name_esc);
 			zbx_free(regexp[n]);
 		}
-		zbx_chrcpy_alloc(&sql, &sql_alloc, &sql_offset, ')');
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 8, ")");
 
 		result = DBselect("%s", sql);
 		while (NULL != (row = DBfetch(result)))
@@ -483,39 +424,37 @@ int	send_list_of_active_checks_json(zbx_sock_t *sock, struct zbx_json_parse *jp)
 			zbx_json_close(&json);
 		}
 		DBfree_result(result);
-
-		zbx_free(sql);
-
-		zbx_json_close(&json);
 	}
 	zbx_free(regexp);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "%s() sending [%s]", __function_name, json.buffer);
+	zabbix_log(LOG_LEVEL_DEBUG, "Sending [%s]",
+			json.buffer);
 
 	alarm(CONFIG_TIMEOUT);
 	if (SUCCEED != zbx_tcp_send(sock, json.buffer))
-		strscpy(error, zbx_tcp_strerror());
+		zbx_snprintf(error, MAX_STRING_LEN, "%s", zbx_tcp_strerror());
 	else
-		ret = SUCCEED;
+		res = SUCCEED;
 	alarm(0);
 
 	zbx_json_free(&json);
+	zbx_free(sql);
 
-	goto out;
+	return res;
 error:
-	zabbix_log(LOG_LEVEL_WARNING, "cannot send list of active checks to [%s]: %s", get_ip_by_socket(sock), error);
+	zabbix_log(LOG_LEVEL_WARNING, "Sending list of active checks to [%s] failed: %s",
+			get_ip_by_socket(sock), error);
 
 	zbx_json_init(&json, ZBX_JSON_STAT_BUF_LEN);
 	zbx_json_addstring(&json, ZBX_PROTO_TAG_RESPONSE, ZBX_PROTO_VALUE_FAILED, ZBX_JSON_TYPE_STRING);
 	zbx_json_addstring(&json, ZBX_PROTO_TAG_INFO, error, ZBX_JSON_TYPE_STRING);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "%s() sending [%s]", __function_name, json.buffer);
+	zabbix_log(LOG_LEVEL_DEBUG, "Sending [%s]",
+			json.buffer);
 
-	ret = zbx_tcp_send(sock, json.buffer);
+	res = zbx_tcp_send(sock, json.buffer);
 
 	zbx_json_free(&json);
-out:
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 
-	return ret;
+	return res;
 }

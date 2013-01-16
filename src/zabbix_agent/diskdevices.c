@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,20 +14,13 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
-#ifndef _WINDOWS
 
 #include "common.h"
 #include "diskdevices.h"
 #include "stats.h"
 #include "log.h"
-#include "mutexs.h"
-
-extern ZBX_MUTEX		diskstats_lock;
-#define LOCK_DISKSTATS		zbx_mutex_lock(&diskstats_lock)
-#define UNLOCK_DISKSTATS	zbx_mutex_unlock(&diskstats_lock)
 
 static void	apply_diskstat(ZBX_SINGLE_DISKDEVICE_DATA *device, time_t now, zbx_uint64_t *dstat)
 {
@@ -39,7 +32,7 @@ static void	apply_diskstat(ZBX_SINGLE_DISKDEVICE_DATA *device, time_t now, zbx_u
 
 	device->index++;
 
-	if (MAX_COLLECTOR_HISTORY == device->index)
+	if (device->index == MAX_COLLECTOR_HISTORY)
 		device->index = 0;
 
 	device->clock[device->index] = now;
@@ -108,87 +101,64 @@ static void	process_diskstat(ZBX_SINGLE_DISKDEVICE_DATA *device)
 	apply_diskstat(device, now, dstat);
 }
 
-void	collect_stats_diskdevices()
+void	collect_stats_diskdevices(ZBX_DISKDEVICES_DATA *diskdevices)
 {
 	int	i;
 
-	LOCK_DISKSTATS;
-	diskstat_shm_reattach();
-
 	for (i = 0; i < diskdevices->count; i++)
 		process_diskstat(&diskdevices->device[i]);
-
-	UNLOCK_DISKSTATS;
 }
 
 ZBX_SINGLE_DISKDEVICE_DATA	*collector_diskdevice_get(const char *devname)
 {
-	const char			*__function_name = "collector_diskdevice_get";
-	int				i;
-	ZBX_SINGLE_DISKDEVICE_DATA	*device = NULL;
+	const char	*__function_name = "collector_diskdevice_get";
+
+	int	i;
 
 	assert(devname);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() devname:'%s'", __function_name, devname);
 
-	LOCK_DISKSTATS;
-	if (0 == DISKDEVICE_COLLECTOR_STARTED(collector))
-		diskstat_shm_init();
-	else
-		diskstat_shm_reattach();
-
-	for (i = 0; i < diskdevices->count; i ++)
+	for (i = 0; i < collector->diskdevices.count; i ++)
 	{
-		if (0 == strcmp(devname, diskdevices->device[i].name))
+		if (0 == strcmp(devname, collector->diskdevices.device[i].name))
 		{
-			device = &diskdevices->device[i];
-			zabbix_log(LOG_LEVEL_DEBUG, "%s() device '%s' found", __function_name, devname);
-			break;
+			zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%p", __function_name,
+					&collector->diskdevices.device[i]);
+			return &collector->diskdevices.device[i];
 		}
 	}
-	UNLOCK_DISKSTATS;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%p", __function_name, device);
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():NULL", __function_name);
 
-	return device;
+	return NULL;
 }
 
 ZBX_SINGLE_DISKDEVICE_DATA	*collector_diskdevice_add(const char *devname)
 {
-	const char			*__function_name = "collector_diskdevice_add";
-	ZBX_SINGLE_DISKDEVICE_DATA	*device = NULL;
+	const char	*__function_name = "collector_diskdevice_add";
+
+	ZBX_SINGLE_DISKDEVICE_DATA	*device;
 
 	assert(devname);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() devname:'%s'", __function_name, devname);
 
-	LOCK_DISKSTATS;
-	if (0 == DISKDEVICE_COLLECTOR_STARTED(collector))
-		diskstat_shm_init();
-	else
-		diskstat_shm_reattach();
-
-	if (diskdevices->count == MAX_DISKDEVICES)
+	/* collector is full */
+	if (collector->diskdevices.count == MAX_DISKDEVICES)
 	{
-		zabbix_log(LOG_LEVEL_DEBUG, "%s() collector is full", __function_name);
-		goto end;
+		zabbix_log(LOG_LEVEL_DEBUG, "End of %s():NULL collector is full", __function_name);
+		return NULL;
 	}
 
-	if (diskdevices->count == diskdevices->max_diskdev)
-		diskstat_shm_extend();
-
-	device = &(diskdevices->device[diskdevices->count]);
+	device = &collector->diskdevices.device[collector->diskdevices.count];
 	zbx_strlcpy(device->name, devname, sizeof(device->name));
 	device->index = -1;
-	(diskdevices->count)++;
+	collector->diskdevices.count++;
 
 	process_diskstat(device);
-end:
-	UNLOCK_DISKSTATS;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%p", __function_name, device);
 
 	return device;
 }
-
-#endif	/* _WINDOWS */

@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2008 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,187 +15,153 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+function get_regexp_by_regexpid($regexpid){
+	$sql = 'SELECT re.* '.
+					' FROM regexps re '.
+					' WHERE '.DBin_node('re.regexpid').
+						' AND regexpid='.$regexpid;
 
-
-function getRegexp($regexpId) {
-	return DBfetch(DBselect(
-			'SELECT re.*'.
-			' FROM regexps re'.
-			' WHERE regexpid='.$regexpId.
-				andDbNode('re.regexpid')
-	));
+	$db_regexp = DBfetch(DBselect($sql));
+return $db_regexp;
 }
 
-function getRegexpExpressions($regexpId) {
-	$expressions = array();
+// Author: Aly
+// function add_regexp($regexp=array()){
+function add_regexp($regexp=array()){
+	$db_fields = array('name' => null,
+						'test_string' => '',
+					);
 
-	$dbExpressions = DBselect(
-		'SELECT e.expressionid,e.expression,e.expression_type,e.exp_delimiter,e.case_sensitive'.
-		' FROM expressions e'.
-		' WHERE regexpid='.$regexpId.
-			andDbNode('e.expressionid')
-	);
-	while ($expression = DBfetch($dbExpressions)) {
-		$expressions[$expression['expressionid']] = $expression;
-	}
-
-	return $expressions;
-}
-
-function addRegexp(array $regexp, array $expressions) {
-	try {
-		// check required fields
-		$db_fields = array('name' => null, 'test_string' => '');
-		if (!check_db_fields($db_fields, $regexp)) {
-			throw new Exception(_('Incorrect arguments passed to function').' [addRegexp]');
-		}
-
-		// check duplicate name
-		$sql = 'SELECT re.regexpid FROM regexps re WHERE re.name='.zbx_dbstr($regexp['name']);
-		if (DBfetch(DBselect($sql))) {
-			throw new Exception(_s('Regular expression "%s" already exists.', $regexp['name']));
-		}
-
-		$regexpIds = DB::insert('regexps', array($regexp));
-		$regexpId = reset($regexpIds);
-		addRegexpExpressions($regexpId, $expressions);
-	}
-	catch (Exception $e) {
-		error($e->getMessage());
+	if(!check_db_fields($db_fields, $regexp)){
+		error(S_INCORRECT_ARGUMENTS_PASSED_TO_FUNCTION.' [add_regexp]');
 		return false;
 	}
-	return true;
-}
 
-function updateRegexp(array $regexp, array $expressions) {
-	try {
-		$regexpId = $regexp['regexpid'];
-		unset($regexp['regexpid']);
-
-		// check existence
-		if (!getRegexp($regexpId)) {
-			throw new Exception(_('Regular expression does not exist.'));
-		}
-
-		// check required fields
-		$db_fields = array('name' => null);
-		if (!check_db_fields($db_fields, $regexp)) {
-			throw new Exception(_('Incorrect arguments passed to function').' [updateRegexp]');
-		}
-
-		// check duplicate name
-		$sql = 'SELECT re.regexpid FROM regexps re WHERE re.name='.zbx_dbstr($regexp['name']);
-		$db_regexp = DBfetch(DBselect($sql));
-		if ($db_regexp && bccomp($regexpId, $db_regexp['regexpid']) != 0) {
-			throw new Exception(_s('Regular expression "%s" already exists.', $regexp['name']));
-		}
-
-		rewriteRegexpExpressions($regexpId, $expressions);
-
-		DB::update('regexps', array(
-			'values' => $regexp,
-			'where' => array('regexpid' => $regexpId)
-		));
-	}
-	catch (Exception $e) {
-		error($e->getMessage());
+	$sql = 'SELECT regexpid FROM regexps WHERE name='.zbx_dbstr($regexp['name']);
+	if(DBfetch(DBselect($sql))){
+		info(S_REGULAR_EXPRESSION.' ['.$regexp['name'].'] '.S_ALREADY_EXISTS_SMALL);
 		return false;
 	}
-	return true;
+
+	$regexpid = get_dbid('regexps','regexpid');
+
+	$result = DBexecute('INSERT INTO regexps (regexpid,name,test_string) '.
+				' VALUES ('.$regexpid.','.
+						zbx_dbstr($regexp['name']).','.
+						zbx_dbstr($regexp['test_string']).')');
+
+return $result?$regexpid:false;
 }
 
-/**
- * Rewrite Zabbix regexp expressions.
- * If all fields are equal to existing expression, that expression is not touched.
- * Other expressions are removed and new ones created.
- *
- * @param $regexpId
- * @param array $expressions
- */
-function rewriteRegexpExpressions($regexpId, array $expressions) {
-	$dbExpressions = getRegexpExpressions($regexpId);
+// Author: Aly
+// function update_regexp($regexpid, $regexp=array())
+function update_regexp($regexpid, $regexp=array()){
+	$db_fields = array('name' => null,
+						'test_string' => '',
+					);
 
-	$expressionsToAdd = array();
-	$expressionsToUpdate = array();
-	foreach ($expressions as $expression) {
-		if (!isset($expression['expressionid'])) {
-			$expressionsToAdd[] = $expression;
+	if(!check_db_fields($db_fields, $regexp)){
+		error(S_INCORRECT_ARGUMENTS_PASSED_TO_FUNCTION.' [update_regexp]');
+		return false;
+	}
+
+	$sql = 'SELECT regexpid FROM regexps WHERE name='.zbx_dbstr($regexp['name']);
+	if($db_regexp = DBfetch(DBselect($sql))){
+		if(bccomp($regexpid,$db_regexp['regexpid']) != 0){
+			info(S_REGULAR_EXPRESSION.' ['.$regexp['name'].'] '.S_ALREADY_EXISTS_SMALL);
+			return false;
 		}
-		elseif (isset($dbExpressions[$expression['expressionid']])) {
-			$expressionsToUpdate[] = $expression;
-			unset($dbExpressions[$expression['expressionid']]);
-		}
 	}
 
-	if (!empty($dbExpressions)) {
-		$dbExpressionIds = zbx_objectValues($dbExpressions, 'expressionid');
-		deleteRegexpExpressions($dbExpressionIds);
-	}
-
-	if (!empty($expressionsToAdd)) {
-		addRegexpExpressions($regexpId, $expressionsToAdd);
-	}
-
-	if (!empty($expressionsToUpdate)) {
-		updateRegexpExpressions($expressionsToUpdate);
-	}
+	$sql = 'UPDATE regexps SET '.
+				' name='.zbx_dbstr($regexp['name']).','.
+				' test_string='.zbx_dbstr($regexp['test_string']).
+			' WHERE regexpid='.$regexpid;
+	$result = DBexecute($sql);
+return $result;
 }
 
-function addRegexpExpressions($regexpId, array $expressions) {
-	$db_fields = array('expression' => null, 'expression_type' => null);
-	foreach ($expressions as &$expression) {
-		if (!check_db_fields($db_fields, $expression)) {
-			throw new Exception(_('Incorrect arguments passed to function').' [add_expression]');
-		}
-		$expression['regexpid'] = $regexpId;
-	}
-	unset($expression);
+// Author: Aly
+// function delete_regexp($regexpids)
+function delete_regexp($regexpids){
+	zbx_value2array($regexpids);
 
-	DB::insert('expressions', $expressions);
+// delete expressions first
+	delete_expressions_by_regexpid($regexpids);
+	$result = DBexecute('DELETE FROM regexps WHERE '.DBcondition('regexpid',$regexpids));
+
+return $result;
 }
 
-function updateRegexpExpressions(array $expressions) {
-	foreach ($expressions as &$expression) {
-		$expressionId = $expression['expressionid'];
-		unset($expression['expressionid']);
-		DB::update('expressions', array(
-			'values' => $expression,
-			'where' => array('expressionid' => $expressionId)
-		));
+// Author: Aly
+// function add_expression($expression = array())
+function add_expression($regexpid, $expression = array()){
+	$db_fields = array('expression' => null,
+						'expression_type' => null,
+						'case_sensitive' => 0,
+						'exp_delimiter' => ',',
+					);
+
+	if(!check_db_fields($db_fields, $expression)){
+		error(S_INCORRECT_ARGUMENTS_PASSED_TO_FUNCTION.' [add_expression]');
+		return false;
 	}
-	unset($expression);
+
+	$expressionid = get_dbid('expressions','expressionid');
+
+	$result = DBexecute('INSERT INTO expressions (expressionid,regexpid,expression,expression_type,case_sensitive,exp_delimiter) '.
+				' VALUES ('.$expressionid.','.
+						$regexpid.','.
+						zbx_dbstr($expression['expression']).','.
+						$expression['expression_type'].','.
+						$expression['case_sensitive'].','.
+						zbx_dbstr($expression['exp_delimiter']).')');
+
+return $result?$expressionid:false;
 }
 
-function deleteRegexpExpressions(array $expressionIds) {
-	DB::delete('expressions', array('expressionid' => $expressionIds));
+// Author: Aly
+// function delete_expression_by_regexpid($regexpids)
+function delete_expressions_by_regexpid($regexpids){
+	zbx_value2array($regexpids);
+	$sql = 'DELETE FROM expressions WHERE '.DBcondition('regexpid',$regexpids);
+return DBexecute($sql);
 }
 
-function expression_type2str($type = null) {
-	$types = array(
-		EXPRESSION_TYPE_INCLUDED => _('Character string included'),
-		EXPRESSION_TYPE_ANY_INCLUDED => _('Any character string included'),
-		EXPRESSION_TYPE_NOT_INCLUDED => _('Character string not included'),
-		EXPRESSION_TYPE_TRUE => _('Result is TRUE'),
-		EXPRESSION_TYPE_FALSE => _('Result is FALSE')
-	);
-
-	if ($type === null) {
-		return $types;
-	}
-	elseif (isset($types[$type])) {
-		return $types[$type];
-	}
-	else {
-		return _('Unknown');
-	}
+// Author: Aly
+// function delete_expression($expressionids)
+function delete_expression($expressionids){
+	zbx_value2array($expressionids);
+	$sql = 'DELETE FROM expressions WHERE '.DBcondition('expressionid',$expressionids);
+return DBexecute($sql);
 }
 
-function expressionDelimiters() {
-	return array(
-		',' => ',',
-		'.' => '.',
-		'/' => '/'
-	);
+// Author: Aly
+// function expression_type2str($expression_type)
+function expression_type2str($expression_type){
+	switch($expression_type){
+		case EXPRESSION_TYPE_INCLUDED:
+			$str = S_CHARACTER_STRING_INCLUDED;
+			break;
+		case EXPRESSION_TYPE_ANY_INCLUDED:
+			$str = S_ANY_CHARACTER_STRING_INCLUDED;
+			break;
+		case EXPRESSION_TYPE_NOT_INCLUDED:
+			$str = S_CHARACTER_STRING_NOT_INCLUDED;
+			break;
+		case EXPRESSION_TYPE_TRUE:
+			$str = S_RESULT_IS_TRUE;
+			break;
+		case EXPRESSION_TYPE_FALSE:
+			$str = S_RESULT_IS_FALSE;
+			break;
+		default:
+			$str = S_UNKNOWN;
+	}
+return $str;
 }
+?>

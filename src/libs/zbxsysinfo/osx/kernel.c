@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -22,26 +22,42 @@
 
 int	KERNEL_MAXFILES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	int	mib[] = {CTL_KERN, KERN_MAXFILES}, maxfiles;
-	size_t	len = sizeof(maxfiles);
+#ifdef HAVE_FUNCTION_SYSCTL_KERN_MAXFILES
+	int	mib[2],len;
+	int	maxfiles;
 
-	if (0 != sysctl(mib, 2, &maxfiles, &len, NULL, 0))
+	mib[0]=CTL_KERN;
+	mib[1]=KERN_MAXFILES;
+
+	len=sizeof(maxfiles);
+
+	if(sysctl(mib,2,&maxfiles,(size_t *)&len,NULL,0) != 0)
 		return SYSINFO_RET_FAIL;
 
-	SET_UI64_RESULT(result, maxfiles);
-
+     	SET_UI64_RESULT(result, maxfiles);
 	return SYSINFO_RET_OK;
+#else
+	return SYSINFO_RET_FAIL;
+#endif
 }
 
 int	KERNEL_MAXPROC(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	int	mib[] = {CTL_KERN, KERN_MAXPROC}, maxproc;
-	size_t	len = sizeof(maxproc);
+#ifdef HAVE_FUNCTION_SYSCTL_KERN_MAXPROC
+	int	mib[2],len;
+	int	maxproc;
 
-	if (0 != sysctl(mib, 2, &maxproc, &len, NULL, 0))
+	mib[0]=CTL_KERN;
+	mib[1]=KERN_MAXPROC;
+
+	len=sizeof(maxproc);
+
+	if(sysctl(mib,2,&maxproc,(size_t *)&len,NULL,0) != 0)
 		return SYSINFO_RET_FAIL;
 
-	SET_UI64_RESULT(result, maxproc);
-
+     	SET_UI64_RESULT(result, maxproc);
 	return SYSINFO_RET_OK;
+#else
+	return SYSINFO_RET_FAIL;
+#endif
 }

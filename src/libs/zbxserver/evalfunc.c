@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,12 +14,13 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "db.h"
 #include "log.h"
+#include "zlog.h"
 #include "zbxserver.h"
 
 #include "evalfunc.h"
@@ -29,7 +30,7 @@ int	cmp_double(double a, double b)
 	return fabs(a - b) < TRIGGER_EPSILON ? SUCCEED : FAIL;
 }
 
-static int	get_function_parameter_uint(zbx_uint64_t hostid, const char *parameters, int Nparam, int *value, int *flag)
+static int	get_function_parameter_uint(DB_ITEM *item, const char *parameters, int Nparam, int *value, int *flag)
 {
 	const char	*__function_name = "get_function_parameter_uint";
 	char		*parameter = NULL;
@@ -42,8 +43,7 @@ static int	get_function_parameter_uint(zbx_uint64_t hostid, const char *paramete
 	if (0 != get_param(parameters, Nparam, parameter, FUNCTION_PARAMETER_LEN_MAX))
 		goto clean;
 
-	if (SUCCEED == substitute_simple_macros(NULL, &hostid, NULL, NULL, NULL,
-			&parameter, MACRO_TYPE_COMMON, NULL, 0))
+	if (SUCCEED == substitute_simple_macros(NULL, item, NULL, NULL, NULL, &parameter, MACRO_TYPE_FUNCTION_PARAMETER, NULL, 0))
 	{
 		if ('#' == *parameter)
 		{
@@ -54,9 +54,10 @@ static int	get_function_parameter_uint(zbx_uint64_t hostid, const char *paramete
 				res = SUCCEED;
 			}
 		}
-		else if (SUCCEED == is_uint_suffix(parameter, (unsigned int *)value))
+		else if (SUCCEED == is_uint_prefix(parameter))
 		{
 			*flag = ZBX_FLAG_SEC;
+			*value = str2uint(parameter);
 			res = SUCCEED;
 		}
 	}
@@ -71,7 +72,7 @@ clean:
 	return res;
 }
 
-static int	get_function_parameter_str(zbx_uint64_t hostid, const char *parameters, int Nparam, char **value)
+static int	get_function_parameter_str(DB_ITEM *item, const char *parameters, int Nparam, char **value)
 {
 	const char	*__function_name = "get_function_parameter_str";
 	int		res = FAIL;
@@ -83,7 +84,7 @@ static int	get_function_parameter_str(zbx_uint64_t hostid, const char *parameter
 	if (0 != get_param(parameters, Nparam, *value, FUNCTION_PARAMETER_LEN_MAX))
 		goto clean;
 
-	res = substitute_simple_macros(NULL, &hostid, NULL, NULL, NULL, value, MACRO_TYPE_COMMON, NULL, 0);
+	res = substitute_simple_macros(NULL, item, NULL, NULL, NULL, value, MACRO_TYPE_FUNCTION_PARAMETER, NULL, 0);
 clean:
 	if (SUCCEED == res)
 		zabbix_log(LOG_LEVEL_DEBUG, "%s() value:'%s'", __function_name, *value);
@@ -127,7 +128,7 @@ static int	evaluate_LOGEVENTID(char *value, DB_ITEM *item, const char *function,
 	if (1 < num_param(parameters))
 		goto clean;
 
-	if (FAIL == get_function_parameter_str(item->hostid, parameters, 1, &arg1))
+	if (FAIL == get_function_parameter_str(item, parameters, 1, &arg1))
 		goto clean;
 
 	if ('@' == *arg1)
@@ -153,8 +154,7 @@ static int	evaluate_LOGEVENTID(char *value, DB_ITEM *item, const char *function,
 
 	if (NULL == item->h_lasteventid)
 	{
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE,
-				0, 0, NULL, "logeventid", 1);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, 0, 0, "logeventid", 1);
 
 		if (NULL != h_value[0])
 		{
@@ -218,13 +218,12 @@ static int	evaluate_LOGSOURCE(char *value, DB_ITEM *item, const char *function, 
 	if (1 < num_param(parameters))
 		goto clean;
 
-	if (FAIL == get_function_parameter_str(item->hostid, parameters, 1, &arg1))
+	if (FAIL == get_function_parameter_str(item, parameters, 1, &arg1))
 		goto clean;
 
 	if (NULL == item->h_lastsource)
 	{
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE,
-				0, 0, NULL, "source", 1);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, 0, 0, "source", 1);
 
 		if (NULL != h_value[0])
 		{
@@ -281,7 +280,7 @@ static int	evaluate_LOGSEVERITY(char *value, DB_ITEM *item, const char *function
 
 	if (NULL == item->h_lastseverity)
 	{
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, 0, 0, NULL, "severity", 1);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, 0, 0, "severity", 1);
 
 		if (NULL != h_value[0])
 		{
@@ -354,7 +353,7 @@ static int	evaluate_COUNT_one(unsigned char value_type, int op, const char *valu
 
 			break;
 		case ITEM_VALUE_TYPE_FLOAT:
-			if (SUCCEED != is_double_suffix(arg2))
+			if (SUCCEED != is_double_prefix(arg2))
 				return FAIL;
 			arg2_double = str2double(arg2);
 			value_double = atof(value);
@@ -488,17 +487,17 @@ static int	evaluate_COUNT(char *value, DB_ITEM *item, const char *function, cons
 	if (4 < (nparams = num_param(parameters)))
 		goto exit;
 
-	if (FAIL == get_function_parameter_uint(item->hostid, parameters, 1, &arg1, &flag))
+	if (FAIL == get_function_parameter_uint(item, parameters, 1, &arg1, &flag))
 		goto exit;
 
-	if (2 <= nparams && FAIL == get_function_parameter_str(item->hostid, parameters, 2, &arg2))
+	if (2 <= nparams && FAIL == get_function_parameter_str(item, parameters, 2, &arg2))
 		goto exit;
 
 	if (3 <= nparams)
 	{
 		int	fail = 2;
 
-		if (FAIL == get_function_parameter_str(item->hostid, parameters, 3, &arg3))
+		if (FAIL == get_function_parameter_str(item, parameters, 3, &arg3))
 			goto clean;
 
 		if ('\0' == *arg3)
@@ -537,7 +536,7 @@ static int	evaluate_COUNT(char *value, DB_ITEM *item, const char *function, cons
 
 	if (4 <= nparams)
 	{
-		if (FAIL == get_function_parameter_uint(item->hostid, parameters, 4, &time_shift, &time_shift_flag) ||
+		if (FAIL == get_function_parameter_uint(item, parameters, 4, &time_shift, &time_shift_flag) ||
 				ZBX_FLAG_SEC != time_shift_flag)
 		{
 			goto clean;
@@ -552,7 +551,7 @@ static int	evaluate_COUNT(char *value, DB_ITEM *item, const char *function, cons
 	if (ZBX_FLAG_SEC == flag && NULL == arg2)
 	{
 		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_COUNT,
-				now - arg1, now, NULL, NULL, 0);
+				now - arg1, now, NULL, 0);
 
 		if (NULL == h_value[0])
 			zbx_strlcpy(value, "0", MAX_BUFFER_LEN);
@@ -568,12 +567,12 @@ static int	evaluate_COUNT(char *value, DB_ITEM *item, const char *function, cons
 				goto skip_get_history;
 
 			h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE,
-					0, now, NULL, NULL, arg1);
+					0, now, NULL, arg1);
 		}
 		else
 		{
 			h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE,
-					now - arg1, now, NULL, NULL, 0);
+					now - arg1, now, NULL, 0);
 		}
 
 		if (ZBX_FLAG_VALUES == flag && 0 == time_shift &&
@@ -652,14 +651,14 @@ static int	evaluate_SUM(char *value, DB_ITEM *item, const char *function, const 
 	if (2 < (nparams = num_param(parameters)))
 		goto clean;
 
-	if (FAIL == get_function_parameter_uint(item->hostid, parameters, 1, &arg1, &flag))
+	if (FAIL == get_function_parameter_uint(item, parameters, 1, &arg1, &flag))
 		goto clean;
 
 	if (2 == nparams)
 	{
 		int	time_shift, time_shift_flag;
 
-		if (FAIL == get_function_parameter_uint(item->hostid, parameters, 2, &time_shift, &time_shift_flag))
+		if (FAIL == get_function_parameter_uint(item, parameters, 2, &time_shift, &time_shift_flag))
 			goto clean;
 		if (ZBX_FLAG_SEC != time_shift_flag)
 			goto clean;
@@ -669,8 +668,7 @@ static int	evaluate_SUM(char *value, DB_ITEM *item, const char *function, const 
 
 	if (ZBX_FLAG_SEC == flag)
 	{
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_SUM,
-			now - arg1, now, NULL, NULL, 0);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_SUM, now - arg1, now, NULL, 0);
 
 		if (NULL != h_value[0])
 		{
@@ -683,7 +681,7 @@ static int	evaluate_SUM(char *value, DB_ITEM *item, const char *function, const 
 	}
 	else if (ZBX_FLAG_VALUES == flag)
 	{
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, 0, now, NULL, NULL, arg1);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, 0, now, NULL, arg1);
 
 		if (ITEM_VALUE_TYPE_UINT64 == item->value_type)
 		{
@@ -747,14 +745,14 @@ static int	evaluate_AVG(char *value, DB_ITEM *item, const char *function, const 
 	if (2 < (nparams = num_param(parameters)))
 		goto clean;
 
-	if (FAIL == get_function_parameter_uint(item->hostid, parameters, 1, &arg1, &flag))
+	if (FAIL == get_function_parameter_uint(item, parameters, 1, &arg1, &flag))
 		goto clean;
 
 	if (2 == nparams)
 	{
 		int	time_shift, time_shift_flag;
 
-		if (FAIL == get_function_parameter_uint(item->hostid, parameters, 2, &time_shift, &time_shift_flag))
+		if (FAIL == get_function_parameter_uint(item, parameters, 2, &time_shift, &time_shift_flag))
 			goto clean;
 		if (ZBX_FLAG_SEC != time_shift_flag)
 			goto clean;
@@ -764,8 +762,7 @@ static int	evaluate_AVG(char *value, DB_ITEM *item, const char *function, const 
 
 	if (ZBX_FLAG_SEC == flag)
 	{
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_AVG,
-				now - arg1, now, NULL, NULL, 0);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_AVG, now - arg1, now, NULL, 0);
 
 		if (NULL != h_value[0])
 		{
@@ -778,8 +775,7 @@ static int	evaluate_AVG(char *value, DB_ITEM *item, const char *function, const 
 	}
 	else if (ZBX_FLAG_VALUES == flag)
 	{
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE,
-				0, now, NULL, NULL, arg1);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, 0, now, NULL, arg1);
 
 		for (h_num = 0; NULL != h_value[h_num]; h_num++)
 			sum += atof(h_value[h_num]);
@@ -825,16 +821,16 @@ static int	evaluate_LAST(char *value, DB_ITEM *item, const char *function, const
 
 	if (0 == strcmp(function, "last"))
 	{
-		if (FAIL == get_function_parameter_uint(item->hostid, parameters, 1, &arg1, &flag) || ZBX_FLAG_VALUES != flag)
+		if (FAIL == get_function_parameter_uint(item, parameters, 1, &arg1, &flag) || ZBX_FLAG_VALUES != flag)
 		{
 			arg1 = 1;
 			flag = ZBX_FLAG_VALUES;
 		}
 
-		if (2 == num_param(parameters))
+		if (num_param(parameters) == 2)
 		{
-			if (SUCCEED == get_function_parameter_uint(item->hostid, parameters, 2, &time_shift, &time_shift_flag) &&
-					ZBX_FLAG_SEC == time_shift_flag)
+			if (SUCCEED == get_function_parameter_uint(item, parameters, 2, &time_shift, &time_shift_flag) &&
+				ZBX_FLAG_SEC == time_shift_flag)
 			{
 				now -= time_shift;
 				time_shift = 1;
@@ -906,8 +902,7 @@ static int	evaluate_LAST(char *value, DB_ITEM *item, const char *function, const
 	else
 	{
 history:
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE,
-				0, now, NULL, NULL, arg1);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, 0, now, NULL, arg1);
 
 		if (0 == time_shift && (ITEM_VALUE_TYPE_TEXT == item->value_type || ITEM_VALUE_TYPE_LOG == item->value_type))
 		{
@@ -971,14 +966,14 @@ static int	evaluate_MIN(char *value, DB_ITEM *item, const char *function, const 
 	if (2 < (nparams = num_param(parameters)))
 		goto clean;
 
-	if (FAIL == get_function_parameter_uint(item->hostid, parameters, 1, &arg1, &flag))
+	if (FAIL == get_function_parameter_uint(item, parameters, 1, &arg1, &flag))
 		goto clean;
 
 	if (2 == nparams)
 	{
 		int	time_shift, time_shift_flag;
 
-		if (FAIL == get_function_parameter_uint(item->hostid, parameters, 2, &time_shift, &time_shift_flag))
+		if (FAIL == get_function_parameter_uint(item, parameters, 2, &time_shift, &time_shift_flag))
 			goto clean;
 		if (ZBX_FLAG_SEC != time_shift_flag)
 			goto clean;
@@ -988,8 +983,7 @@ static int	evaluate_MIN(char *value, DB_ITEM *item, const char *function, const 
 
 	if (ZBX_FLAG_SEC == flag)
 	{
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_MIN,
-				now - arg1, now, NULL, NULL, 0);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_MIN, now - arg1, now, NULL, 0);
 
 		if (NULL != h_value[0])
 		{
@@ -1002,8 +996,7 @@ static int	evaluate_MIN(char *value, DB_ITEM *item, const char *function, const 
 	}
 	else if (ZBX_FLAG_VALUES == flag)
 	{
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE,
-				0, now, NULL, NULL, arg1);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, 0, now, NULL, arg1);
 
 		if (ITEM_VALUE_TYPE_UINT64 == item->value_type)
 		{
@@ -1073,14 +1066,14 @@ static int	evaluate_MAX(char *value, DB_ITEM *item, const char *function, const 
 	if (2 < (nparams = num_param(parameters)))
 		goto clean;
 
-	if (FAIL == get_function_parameter_uint(item->hostid, parameters, 1, &arg1, &flag))
+	if (FAIL == get_function_parameter_uint(item, parameters, 1, &arg1, &flag))
 		goto clean;
 
 	if (2 == nparams)
 	{
 		int	time_shift, time_shift_flag;
 
-		if (FAIL == get_function_parameter_uint(item->hostid, parameters, 2, &time_shift, &time_shift_flag))
+		if (FAIL == get_function_parameter_uint(item, parameters, 2, &time_shift, &time_shift_flag))
 			goto clean;
 		if (ZBX_FLAG_SEC != time_shift_flag)
 			goto clean;
@@ -1090,8 +1083,7 @@ static int	evaluate_MAX(char *value, DB_ITEM *item, const char *function, const 
 
 	if (ZBX_FLAG_SEC == flag)
 	{
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_MAX,
-				now - arg1, now, NULL, NULL, 0);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_MAX, now - arg1, now, NULL, 0);
 
 		if (NULL != h_value[0])
 		{
@@ -1104,8 +1096,7 @@ static int	evaluate_MAX(char *value, DB_ITEM *item, const char *function, const 
 	}
 	else if (ZBX_FLAG_VALUES == flag)
 	{
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE,
-				0, now, NULL, NULL, arg1);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, 0, now, NULL, arg1);
 
 		if (ITEM_VALUE_TYPE_UINT64 == item->value_type)
 		{
@@ -1175,14 +1166,14 @@ static int	evaluate_DELTA(char *value, DB_ITEM *item, const char *function, cons
 	if (2 < (nparams = num_param(parameters)))
 		goto clean;
 
-	if (FAIL == get_function_parameter_uint(item->hostid, parameters, 1, &arg1, &flag))
+	if (FAIL == get_function_parameter_uint(item, parameters, 1, &arg1, &flag))
 		goto clean;
 
 	if (2 == nparams)
 	{
 		int	time_shift, time_shift_flag;
 
-		if (FAIL == get_function_parameter_uint(item->hostid, parameters, 2, &time_shift, &time_shift_flag))
+		if (FAIL == get_function_parameter_uint(item, parameters, 2, &time_shift, &time_shift_flag))
 			goto clean;
 		if (ZBX_FLAG_SEC != time_shift_flag)
 			goto clean;
@@ -1192,8 +1183,7 @@ static int	evaluate_DELTA(char *value, DB_ITEM *item, const char *function, cons
 
 	if (ZBX_FLAG_SEC == flag)
 	{
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_DELTA,
-				now - arg1, now, NULL, NULL, 0);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_DELTA, now - arg1, now, NULL, 0);
 
 		if (NULL != h_value[0])
 		{
@@ -1206,8 +1196,7 @@ static int	evaluate_DELTA(char *value, DB_ITEM *item, const char *function, cons
 	}
 	else if (ZBX_FLAG_VALUES == flag)
 	{
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE,
-				0, now, NULL, NULL, arg1);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, 0, now, NULL, arg1);
 
 		if (ITEM_VALUE_TYPE_UINT64 == item->value_type)
 		{
@@ -1275,7 +1264,7 @@ static int	evaluate_NODATA(char *value, DB_ITEM *item, const char *function, con
 	if (1 < num_param(parameters))
 		goto clean;
 
-	if (FAIL == get_function_parameter_uint(item->hostid, parameters, 1, &arg1, &flag))
+	if (FAIL == get_function_parameter_uint(item, parameters, 1, &arg1, &flag))
 		goto clean;
 
 	if (ZBX_FLAG_SEC != flag)
@@ -1335,8 +1324,7 @@ static int	compare_last_and_prev(DB_ITEM *item, time_t now)
 
 	res = 0;	/* if values are no longer in history, consider them equal */
 
-	h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE,
-			0, now, NULL, NULL, 2);
+	h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, 0, now, NULL, 2);
 
 	for (i = 0; NULL != h_value[i]; i++)
 	{
@@ -1543,7 +1531,6 @@ clean:
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-
 #define ZBX_FUNC_STR		1
 #define ZBX_FUNC_REGEXP		2
 #define ZBX_FUNC_IREGEXP	3
@@ -1630,10 +1617,10 @@ static int	evaluate_STR(char *value, DB_ITEM *item, const char *function, const 
 	if (2 < num_param(parameters))
 		goto exit;
 
-	if (FAIL == get_function_parameter_str(item->hostid, parameters, 1, &arg1))
+	if (FAIL == get_function_parameter_str(item, parameters, 1, &arg1))
 		goto exit;
 
-	if (FAIL == get_function_parameter_uint(item->hostid, parameters, 2, &arg2, &flag))
+	if (FAIL == get_function_parameter_uint(item, parameters, 2, &arg2, &flag))
 	{
 		arg2 = 1;
 		flag = ZBX_FLAG_VALUES;
@@ -1668,12 +1655,10 @@ static int	evaluate_STR(char *value, DB_ITEM *item, const char *function, const 
 		if (SUCCEED == evaluate_STR_local(item, func, regexps, regexps_num, arg1, arg2, &found))
 			goto skip_get_history;
 
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE,
-				0, now, NULL, NULL, arg2);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, 0, now, NULL, arg2);
 	}
 	else
-		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE,
-				now - arg2, now, NULL, NULL, 0);
+		h_value = DBget_history(item->itemid, item->value_type, ZBX_DB_GET_HIST_VALUE, now - arg2, now, NULL, 0);
 
 	if (ZBX_FLAG_VALUES == flag && ITEM_VALUE_TYPE_STR != item->value_type)
 	{
@@ -1797,7 +1782,7 @@ static int	evaluate_FUZZYTIME(char *value, DB_ITEM *item, const char *function, 
 	if (1 < num_param(parameters))
 		goto clean;
 
-	if (FAIL == get_function_parameter_uint(item->hostid, parameters, 1, &arg1, &flag))
+	if (FAIL == get_function_parameter_uint(item, parameters, 1, &arg1, &flag))
 		goto clean;
 
 	if (ZBX_FLAG_SEC != flag)
@@ -1852,7 +1837,6 @@ clean:
 int	evaluate_function(char *value, DB_ITEM *item, const char *function, const char *parameter, time_t now)
 {
 	const char	*__function_name = "evaluate_function";
-
 	int		ret;
 	struct tm	*tm = NULL;
 
@@ -1960,7 +1944,8 @@ int	evaluate_function(char *value, DB_ITEM *item, const char *function, const ch
 	}
 	else
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "unsupported function:%s", function);
+		zabbix_log(LOG_LEVEL_WARNING, "unsupported function: %s", function);
+		zabbix_syslog("unsupported function: %s", function);
 		ret = FAIL;
 	}
 
@@ -1989,10 +1974,9 @@ static void	add_value_suffix_uptime(char *value, size_t max_len)
 	const char	*__function_name = "add_value_suffix_uptime";
 
 	double	secs, days;
-	size_t	offset = 0;
-	int	hours, mins;
+	int	hours, mins, offset = 0;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() value:'%s'", __function_name, value);
 
 	if (0 > (secs = round(atof(value))))
 	{
@@ -2010,16 +1994,11 @@ static void	add_value_suffix_uptime(char *value, size_t max_len)
 	secs -= (double)mins * SEC_PER_MIN;
 
 	if (0 != days)
-	{
-		if (1 == days)
-			offset += zbx_snprintf(value + offset, max_len - offset, ZBX_FS_DBL_EXT(0) " day, ", days);
-		else
-			offset += zbx_snprintf(value + offset, max_len - offset, ZBX_FS_DBL_EXT(0) " days, ", days);
-	}
+		offset += zbx_snprintf(value + offset, max_len - offset, ZBX_FS_DBL_EXT(0) " days, ", days);
 
 	zbx_snprintf(value + offset, max_len - offset, "%02d:%02d:%02d", hours, mins, (int)secs);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s() value:'%s'", __function_name, value);
 }
 
 /******************************************************************************
@@ -2039,10 +2018,9 @@ static void	add_value_suffix_s(char *value, size_t max_len)
 	const char	*__function_name = "add_value_suffix_s";
 
 	double	secs, n;
-	size_t	offset = 0;
-	int	n_unit = 0;
+	int	n_unit = 0, offset = 0;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() value:'%s'", __function_name, value);
 
 	secs = atof(value);
 
@@ -2110,7 +2088,7 @@ static void	add_value_suffix_s(char *value, size_t max_len)
 	if (0 != offset && ' ' == value[--offset])
 		value[offset] = '\0';
 clean:
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s() value:'%s'", __function_name, value);
 }
 
 /******************************************************************************
@@ -2126,7 +2104,7 @@ clean:
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-static void	add_value_suffix_normal(char *value, size_t max_len, const char *units)
+static void	add_value_suffix_normal(char *value, int max_len, const char *units)
 {
 	const char	*__function_name = "add_value_suffix_normal";
 
@@ -2136,7 +2114,8 @@ static void	add_value_suffix_normal(char *value, size_t max_len, const char *uni
 	double		base;
 	double		value_double;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() value:'%s' units:'%s'",
+			__function_name, value, units);
 
 	if (0 > (value_double = atof(value)))
 	{
@@ -2179,9 +2158,11 @@ static void	add_value_suffix_normal(char *value, size_t max_len, const char *uni
 	else
 		zbx_snprintf(tmp, sizeof(tmp), ZBX_FS_DBL_EXT(0), value_double);
 
-	zbx_snprintf(value, max_len, "%s%s %s%s", minus, tmp, kmgt, units);
+	zbx_snprintf(value, max_len, "%s%s %s%s",
+			minus, tmp, kmgt, units);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s() value:'%s'",
+			__function_name, value);
 }
 
 /******************************************************************************
@@ -2200,15 +2181,17 @@ static void	add_value_suffix_normal(char *value, size_t max_len, const char *uni
  * Comments: !!! Don't forget sync code with PHP (function convert_units) !!! *
  *                                                                            *
  ******************************************************************************/
-static void	add_value_suffix(char *value, size_t max_len, const char *units, unsigned char value_type)
+int	add_value_suffix(char *value, int max_len, const char *units, int value_type)
 {
 	const char	*__function_name = "add_value_suffix";
 
-	struct tm	*local_time;
+	int		ret = FAIL;
+	struct tm	*local_time = NULL;
 	time_t		time;
+	char		tmp[256];
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() value:'%s' units:'%s' value_type:%d",
-			__function_name, value, units, (int)value_type);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() value:'%s' units:'%s'",
+			__function_name, value, units);
 
 	switch (value_type)
 	{
@@ -2217,22 +2200,37 @@ static void	add_value_suffix(char *value, size_t max_len, const char *units, uns
 			{
 				time = (time_t)atoi(value);
 				local_time = localtime(&time);
-				strftime(value, max_len, "%Y.%m.%d %H:%M:%S", local_time);
+				strftime(tmp, sizeof(tmp), "%Y.%m.%d %H:%M:%S", local_time);
+				zbx_strlcpy(value, tmp, max_len);
+				ret = SUCCEED;
 				break;
 			}
 		case ITEM_VALUE_TYPE_FLOAT:
 			if (0 == strcmp(units, "s"))
+			{
 				add_value_suffix_s(value, max_len);
+				ret = SUCCEED;
+			}
 			else if (0 == strcmp(units, "uptime"))
+			{
 				add_value_suffix_uptime(value, max_len);
+				ret = SUCCEED;
+			}
 			else if (0 != strlen(units))
+			{
 				add_value_suffix_normal(value, max_len, units);
+				ret = SUCCEED;
+			}
 			break;
 		default:
-			;
+			ret = FAIL;
+			break;
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s() value:'%s'", __function_name, value);
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s value:'%s'",
+			__function_name, zbx_result_string(ret), value);
+
+	return ret;
 }
 
 /******************************************************************************
@@ -2250,36 +2248,34 @@ static void	add_value_suffix(char *value, size_t max_len, const char *units, uns
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  ******************************************************************************/
-static int	replace_value_by_map(char *value, size_t max_len, zbx_uint64_t valuemapid)
+int	replace_value_by_map(char *value, int max_len, zbx_uint64_t valuemapid)
 {
 	const char	*__function_name = "replace_value_by_map";
 
 	DB_RESULT	result;
 	DB_ROW		row;
-	char		orig_value[MAX_BUFFER_LEN], *value_esc;
+	char		new_value[MAX_STRING_LEN], orig_value[MAX_BUFFER_LEN], *value_esc;
 	int		ret = FAIL;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() value:'%s' valuemapid:" ZBX_FS_UI64, __function_name, value, valuemapid);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
 	if (0 == valuemapid)
 		goto clean;
 
 	value_esc = DBdyn_escape_string(value);
-	result = DBselect(
-			"select newvalue"
-			" from mappings"
-			" where valuemapid=" ZBX_FS_UI64
-				" and value='%s'",
-			valuemapid, value_esc);
+	result = DBselect("select newvalue from mappings where valuemapid=" ZBX_FS_UI64 " and value='%s'",
+			valuemapid,
+			value_esc);
 	zbx_free(value_esc);
 
 	if (NULL != (row = DBfetch(result)) && FAIL == DBis_null(row[0]))
 	{
-		del_zeroes(row[0]);
+		strscpy(new_value, row[0]);
+		del_zeroes(new_value);
 
 		strscpy(orig_value, value);
 
-		zbx_snprintf(value, max_len, "%s (%s)", row[0], orig_value);
+		zbx_snprintf(value, max_len, "%s (%s)", new_value, orig_value);
 
 		ret = SUCCEED;
 	}
@@ -2288,49 +2284,6 @@ clean:
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s() value:'%s'", __function_name, value);
 
 	return ret;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: zbx_format_value                                                 *
- *                                                                            *
- * Purpose: replace value by value mapping or by units                        *
- *                                                                            *
- * Parameters: value      - [IN/OUT] value for replacing                      *
- *             valuemapid - [IN] identificator of value map                   *
- *             units      - [IN] units                                        *
- *             value_type - [IN] value type; ITEM_VALUE_TYPE_*                *
- *                                                                            *
- * Return value:                                                              *
- *                                                                            *
- * Author: Alexander Vladishev                                                *
- *                                                                            *
- * Comments:                                                                  *
- *                                                                            *
- ******************************************************************************/
-void	zbx_format_value(char *value, size_t max_len, zbx_uint64_t valuemapid,
-		const char *units, unsigned char value_type)
-{
-	const char	*__function_name = "zbx_format_value";
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
-
-	switch (value_type)
-	{
-		case ITEM_VALUE_TYPE_STR:
-			replace_value_by_map(value, max_len, valuemapid);
-			break;
-		case ITEM_VALUE_TYPE_FLOAT:
-			del_zeroes(value);
-		case ITEM_VALUE_TYPE_UINT64:
-			if (SUCCEED != replace_value_by_map(value, max_len, valuemapid))
-				add_value_suffix(value, max_len, units, value_type);
-			break;
-		default:
-			;
-	}
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
 
 /******************************************************************************
@@ -2374,8 +2327,8 @@ int	evaluate_macro_function(char *value, const char *host, const char *key, cons
 			" where h.host='%s'"
 				" and h.hostid=i.hostid"
 				" and i.key_='%s'"
-				ZBX_SQL_NODE,
-			ZBX_SQL_ITEM_SELECT, host_esc, key_esc, DBand_node_local("h.hostid"));
+				DB_NODE,
+			ZBX_SQL_ITEM_SELECT, host_esc, key_esc, DBnode_local("h.hostid"));
 
 	zbx_free(host_esc);
 	zbx_free(key_esc);
@@ -2384,6 +2337,8 @@ int	evaluate_macro_function(char *value, const char *host, const char *key, cons
 	{
 		DBfree_result(result);
 		zabbix_log(LOG_LEVEL_WARNING, "Function [%s:%s.%s(%s)] not found. Query returned empty result",
+				host, key, function, parameter);
+		zabbix_syslog("Function [%s:%s.%s(%s)] not found. Query returned empty result",
 				host, key, function, parameter);
 		return FAIL;
 	}
@@ -2394,7 +2349,19 @@ int	evaluate_macro_function(char *value, const char *host, const char *key, cons
 	{
 		if (SUCCEED == str_in_list("last,prev", function, ','))
 		{
-			zbx_format_value(value, MAX_BUFFER_LEN, item.valuemapid, item.units, item.value_type);
+			switch (item.value_type)
+			{
+				case ITEM_VALUE_TYPE_FLOAT:
+				case ITEM_VALUE_TYPE_UINT64:
+					if (SUCCEED != replace_value_by_map(value, MAX_BUFFER_LEN, item.valuemapid))
+						add_value_suffix(value, MAX_BUFFER_LEN, item.units, item.value_type);
+					break;
+				case ITEM_VALUE_TYPE_STR:
+					replace_value_by_map(value, MAX_BUFFER_LEN, item.valuemapid);
+					break;
+				default:
+					;
+			}
 		}
 		else if (SUCCEED == str_in_list("abschange,avg,change,delta,max,min,sum", function, ','))
 		{

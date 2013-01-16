@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -95,23 +95,6 @@ static int	check_trigger_condition(DB_EVENT *event, DB_CONDITION *condition)
 			case CONDITION_OPERATOR_EQUAL:
 			case CONDITION_OPERATOR_NOT_EQUAL:
 				triggerid = event->objectid;
-
-				/* use parent trigger ID for generated triggers */
-				result = DBselect(
-						"select parent_triggerid"
-						" from trigger_discovery"
-						" where triggerid=" ZBX_FS_UI64,
-						triggerid);
-
-				if (NULL != (row = DBfetch(result)))
-				{
-					ZBX_STR2UINT64(triggerid, row[0]);
-
-					zabbix_log(LOG_LEVEL_DEBUG, "%s() check host template condition,"
-							" selecting parent triggerid:" ZBX_FS_UI64,
-							__function_name, triggerid);
-				}
-				DBfree_result(result);
 
 				do
 				{
@@ -205,10 +188,12 @@ static int	check_trigger_condition(DB_EVENT *event, DB_CONDITION *condition)
 								triggerid);
 
 						if (NULL == (row = DBfetch(result)))
+						{
 							triggerid = 0;
+						}
 						else
 						{
-							ZBX_DBROW2UINT64(triggerid, row[0]);
+							ZBX_STR2UINT64(triggerid, row[0]);
 							if (triggerid == condition_value)
 								ret = SUCCEED;
 						}
@@ -228,8 +213,7 @@ static int	check_trigger_condition(DB_EVENT *event, DB_CONDITION *condition)
 	{
 		tmp_str = zbx_strdup(tmp_str, event->trigger.description);
 
-		substitute_simple_macros(event, NULL, NULL, NULL, NULL,
-				&tmp_str, MACRO_TYPE_TRIGGER_DESCRIPTION, NULL, 0);
+		substitute_simple_macros(event, NULL, NULL, NULL, NULL, &tmp_str, MACRO_TYPE_TRIGGER_DESCRIPTION, NULL, 0);
 
 		switch (condition->operator)
 		{
@@ -309,7 +293,7 @@ static int	check_trigger_condition(DB_EVENT *event, DB_CONDITION *condition)
 	else if (CONDITION_TYPE_MAINTENANCE == condition->conditiontype)
 	{
 		switch (condition->operator)
-		{
+{
 			case CONDITION_OPERATOR_IN:
 				result = DBselect(
 						"select count(*)"
@@ -864,7 +848,7 @@ static int	check_auto_registration_condition(DB_EVENT *event, DB_CONDITION *cond
 	const char	*__function_name = "check_auto_registration_condition";
 	DB_RESULT	result;
 	DB_ROW		row;
-	zbx_uint64_t	condition_value, id;
+	zbx_uint64_t	condition_value;
 	int		ret = FAIL;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
@@ -901,29 +885,26 @@ static int	check_auto_registration_condition(DB_EVENT *event, DB_CONDITION *cond
 		ZBX_STR2UINT64(condition_value, condition->value);
 
 		result = DBselect(
-				"select proxy_hostid"
+				"select host"
 				" from autoreg_host"
-				" where autoreg_hostid=" ZBX_FS_UI64,
+				" where proxy_hostid=" ZBX_FS_UI64
+					" and autoreg_hostid=" ZBX_FS_UI64,
+				condition_value,
 				event->objectid);
 
-		if (NULL != (row = DBfetch(result)))
+		switch (condition->operator)
 		{
-			ZBX_DBROW2UINT64(id, row[0]);
-
-			switch (condition->operator)
-			{
-				case CONDITION_OPERATOR_EQUAL:
-					if (id == condition_value)
-						ret = SUCCEED;
-					break;
-				case CONDITION_OPERATOR_NOT_EQUAL:
-					if (id != condition_value)
-						ret = SUCCEED;
-					break;
-				default:
-					ret = NOTSUPPORTED;
-					break;
-			}
+			case CONDITION_OPERATOR_EQUAL:
+				if (NULL != DBfetch(result))
+					ret = SUCCEED;
+				break;
+			case CONDITION_OPERATOR_NOT_EQUAL:
+				if (NULL == DBfetch(result))
+					ret = SUCCEED;
+				break;
+			default:
+				ret = NOTSUPPORTED;
+				break;
 		}
 		DBfree_result(result);
 	}
@@ -1107,30 +1088,24 @@ static void	execute_operations(DB_EVENT *event, zbx_uint64_t actionid)
 	DB_RESULT		result;
 	DB_ROW			row;
 	unsigned char		operationtype;
-	zbx_uint64_t		groupid, templateid;
-	zbx_vector_uint64_t	lnk_templateids, del_templateids,
-				new_groupids, del_groupids;
+	zbx_uint64_t		objectid;
+	zbx_vector_uint64_t	new_groupids, del_groupids;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() actionid:" ZBX_FS_UI64, __function_name, actionid);
 
-	zbx_vector_uint64_create(&lnk_templateids);
-	zbx_vector_uint64_create(&del_templateids);
 	zbx_vector_uint64_create(&new_groupids);
 	zbx_vector_uint64_create(&del_groupids);
 
 	result = DBselect(
-			"select o.operationtype,g.groupid,t.templateid"
-			" from operations o"
-				" left join opgroup g on g.operationid=o.operationid"
-				" left join optemplate t on t.operationid=o.operationid"
-			" where o.actionid=" ZBX_FS_UI64,
+			"select operationtype,objectid"
+			" from operations"
+			" where actionid=" ZBX_FS_UI64,
 			actionid);
 
 	while (NULL != (row = DBfetch(result)))
 	{
 		operationtype = (unsigned char)atoi(row[0]);
-		ZBX_DBROW2UINT64(groupid, row[1]);
-		ZBX_DBROW2UINT64(templateid, row[2]);
+		ZBX_STR2UINT64(objectid, row[1]);
 
 		switch (operationtype)
 		{
@@ -1147,59 +1122,37 @@ static void	execute_operations(DB_EVENT *event, zbx_uint64_t actionid)
 				op_host_disable(event);
 				break;
 			case OPERATION_TYPE_GROUP_ADD:
-				if (0 != groupid)
-					zbx_vector_uint64_append(&new_groupids, groupid);
+				zbx_vector_uint64_append(&new_groupids, objectid);
 				break;
 			case OPERATION_TYPE_GROUP_REMOVE:
-				if (0 != groupid)
-					zbx_vector_uint64_append(&del_groupids, groupid);
+				zbx_vector_uint64_append(&del_groupids, objectid);
 				break;
 			case OPERATION_TYPE_TEMPLATE_ADD:
-				if (0 != templateid)
-					zbx_vector_uint64_append(&lnk_templateids, templateid);
+				op_template_add(event, objectid);
 				break;
 			case OPERATION_TYPE_TEMPLATE_REMOVE:
-				if (0 != templateid)
-					zbx_vector_uint64_append(&del_templateids, templateid);
+				op_template_del(event, objectid);
 				break;
 			default:
-				;
+				break;
 		}
 	}
 	DBfree_result(result);
 
-	if (0 != lnk_templateids.values_num)
-	{
-		zbx_vector_uint64_sort(&lnk_templateids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
-		zbx_vector_uint64_uniq(&lnk_templateids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
-		op_template_add(event, &lnk_templateids);
-	}
-
-	if (0 != del_templateids.values_num)
-	{
-		zbx_vector_uint64_sort(&del_templateids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
-		zbx_vector_uint64_uniq(&del_templateids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
-		op_template_del(event, &del_templateids);
-	}
-
 	if (0 != new_groupids.values_num)
 	{
 		zbx_vector_uint64_sort(&new_groupids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
-		zbx_vector_uint64_uniq(&new_groupids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
 		op_groups_add(event, &new_groupids);
 	}
 
 	if (0 != del_groupids.values_num)
 	{
 		zbx_vector_uint64_sort(&del_groupids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
-		zbx_vector_uint64_uniq(&del_groupids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
 		op_groups_del(event, &del_groupids);
 	}
 
 	zbx_vector_uint64_destroy(&del_groupids);
 	zbx_vector_uint64_destroy(&new_groupids);
-	zbx_vector_uint64_destroy(&del_templateids);
-	zbx_vector_uint64_destroy(&lnk_templateids);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
@@ -1230,10 +1183,8 @@ void	process_actions(DB_EVENT *event)
 
 	result = DBselect("select actionid,evaltype"
 			" from actions"
-			" where status=%d"
-				" and eventsource=%d"
-				ZBX_SQL_NODE,
-			ACTION_STATUS_ACTIVE, event->source, DBand_node_local("actionid"));
+			" where status=%d and eventsource=%d" DB_NODE,
+			ACTION_STATUS_ACTIVE, event->source, DBnode_local("actionid"));
 
 	while (NULL != (row = DBfetch(result)))
 	{
@@ -1242,13 +1193,19 @@ void	process_actions(DB_EVENT *event)
 
 		if (SUCCEED == check_action_conditions(event, actionid, evaltype))
 		{
+			zabbix_log(LOG_LEVEL_DEBUG, "conditions match our event, execute operations");
+
 			DBstart_escalation(actionid, event->source == EVENT_SOURCE_TRIGGERS ? event->objectid : 0, event->eventid);
 
 			if (event->source == EVENT_SOURCE_DISCOVERY || event->source == EVENT_SOURCE_AUTO_REGISTRATION)
 				execute_operations(event, actionid);
 		}
 		else if (EVENT_SOURCE_TRIGGERS == event->source)
+		{
+			zabbix_log(LOG_LEVEL_DEBUG, "conditions do not match our event, do not execute operations");
+
 			DBstop_escalation(actionid, event->objectid, event->eventid);
+		}
 	}
 	DBfree_result(result);
 

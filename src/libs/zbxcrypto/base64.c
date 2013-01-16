@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -218,18 +218,18 @@ void str_base64_encode(const char *p_str, char *p_b64str, int in_size)
 	int		full_block_num = 0;
 	int		bytes_left = 0;		/* less then 'c_per_block' bytes left */
 	int		bytes_for_left = 0;	/* bytes in the buffer to store 'bytes_left' encoded bytes */
-
+	
 	assert(p_str);
 	assert(p_b64str);
 	assert(!*p_b64str);	/* expect a pointer will NULL value, do not know whether allowed to free that memory */
-
+	
 	*p_b64str = zbx_malloc(*p_b64str, in_size / 3 * 4 + (in_size % 3 ? 4 + 1 : 1));
 	c_per_block = (ZBX_MAX_B64_LEN - 1) / 4 * 3;
 	b_per_block = c_per_block / 3 * 4;
 	full_block_num = in_size / c_per_block;
 	bytes_left = in_size % c_per_block;
 	bytes_for_left = bytes_left / 3 * 4 + (bytes_left % 3 ? 4 : 0);
-
+	
 	for (pc = p_str, pc_r = *p_b64str; full_block_num; pc += c_per_block, pc_r += b_per_block, --full_block_num)
 		str_base64_encode(pc, pc_r, c_per_block);
 	if (bytes_left)
@@ -237,7 +237,7 @@ void str_base64_encode(const char *p_str, char *p_b64str, int in_size)
 		str_base64_encode(pc, pc_r, bytes_left);
 		pc_r += bytes_for_left;
 	}
-
+	
 	*pc_r = '\0';
  }
 /*------------------------------------------------------------------------

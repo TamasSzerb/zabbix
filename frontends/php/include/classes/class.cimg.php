@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2000-2012 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -15,100 +15,75 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+class CImg extends CTag{
 
+	public function __construct($src,$name=NULL,$width=NULL,$height=NULL,$class=NULL){
+		parent::__construct('img','no');
 
-class CImg extends CTag {
-
-	public $preloader;
-
-	public function __construct($src, $name = null, $width = null, $height = null, $class = null) {
-		if (is_null($name)) {
-			$name = 'image';
-		}
-
-		parent::__construct('img', 'no');
-		$this->tag_start = '';
+		$this->tag_start= '';
 		$this->tag_end = '';
 		$this->tag_body_start = '';
 		$this->tag_body_end = '';
-		$this->setAttribute('border', 0);
+
+		if(is_null($name))
+			$name='image';
+
+		$this->setAttribute('border',0);
+		$this->setAttribute('alt',$name);
 		$this->setName($name);
 		$this->setAltText($name);
 		$this->setSrc($src);
 		$this->setWidth($width);
 		$this->setHeight($height);
-		$this->attr('class', $class);
+		$this->setClass($class);
 	}
 
-	public function setSrc($value) {
-		if (!is_string($value)) {
-			return $this->error('Incorrect value for SetSrc "'.$value.'".');
+	public function setSrc($value){
+		if(!is_string($value)){
+			return $this->error('Incorrect value for SetSrc ['.$value.']');
 		}
-		return $this->setAttribute('src', $value);
+	return $this->setAttribute('src',$value);
 	}
 
-	public function setAltText($value = null) {
-		if (!is_string($value)) {
-			return $this->error('Incorrect value for SetText "'.$value.'".');
+	public function setAltText($value=NULL){
+		if(!is_string($value)){
+			return $this->error('Incorrect value for SetText ['.$value.']');
 		}
-		return $this->setAttribute('alt', $value);
+	return $this->setAttribute('alt',$value);
 	}
 
-	public function setMap($value = null) {
-		if (is_null($value)) {
+	public function setMap($value=NULL){
+		if(is_null($value))
 			$this->deleteOption('usemap');
+
+		if(!is_string($value)){
+			return $this->error('Incorrect value for SetMap ['.$value.']');
 		}
-		if (!is_string($value)) {
-			return $this->error('Incorrect value for SetMap "'.$value.'".');
-		}
-		$value = '#'.ltrim($value, '#');
-		return $this->setAttribute('usemap', $value);
+
+		$value = '#'.ltrim($value,'#');
+	return $this->setAttribute('usemap',$value);
 	}
 
-	public function setWidth($value = null) {
-		if (is_null($value)) {
+	public function SetWidth($value=NULL){
+		if(is_null($value))
 			return $this->removeAttribute('width');
-		}
-		elseif (is_numeric($value) || is_int($value)) {
-			return $this->setAttribute('width', $value);
-		}
-		else {
-			return $this->error('Incorrect value for SetWidth "'.$value.'".');
-		}
+		else if(is_numeric($value)||is_int($value))
+			return $this->setAttribute('width',$value);
+		else
+			return $this->error('Incorrect value for SetWidth ['.$value.']');
 	}
 
-	public function setHeight($value = null) {
-		if (is_null($value)) {
+	public function setHeight($value=NULL){
+		if(is_null($value))
 			return $this->removeAttribute('height');
-		}
-		elseif (is_numeric($value) || is_int($value)) {
-			return $this->setAttribute('height', $value);
-		}
-		else {
-			return $this->error('Incorrect value for SetHeight "'.$value.'".');
-		}
-	}
-
-	public function preload() {
-		$id = $this->getAttribute('id');
-		if (empty($id)) {
-			$id = 'img'.uniqid();
-			$this->setAttribute('id', $id);
-		}
-
-		insert_js(
-			'jQuery('.CJs::encodeJson($this->toString()).').load(function() {
-				var parent = jQuery("#'.$id.'preloader").parent();
-				jQuery("#'.$id.'preloader").remove();
-				jQuery(parent).append(jQuery(this));
-			});',
-			true
-		);
-
-		$this->addClass('preloader');
-		$this->setAttribute('id', $id.'preloader');
-		$this->setAttribute('src', 'styles/themes/'.getUserTheme(CWebUser::$data).'/images/preloader.gif');
+		else if(is_numeric($value)||is_int($value))
+			return $this->setAttribute('height',$value);
+		else
+			return $this->error('Incorrect value for SetHeight ['.$value.']');
 	}
 }
+?>

@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -128,7 +128,7 @@ int zabbix_open_log(int type, int level, const char *filename)
 	return SUCCEED;
 }
 
-void zabbix_close_log()
+void zabbix_close_log(void)
 {
 	if (LOG_TYPE_SYSLOG == log_type)
 	{
@@ -175,9 +175,6 @@ void zabbix_errlog(zbx_err_codes_t err, ...)
 			break;
 		case ERR_Z3006:
 			msg = "fetch failed: [%d] %s";
-			break;
-		case ERR_Z3007:
-			msg = "query failed: [%d] %s";
 			break;
 		default:
 			msg = "unknown error";
@@ -355,10 +352,10 @@ void __zbx_zabbix_log(int level, const char *fmt, ...)
 			NULL);
 
 		zbx_free(strings[1]);
-
+		
 #else	/* not _WINDOWS */
-
-		/* for nice printing into syslog */
+		
+		/* for nice printing into syslog */		
 		switch (level)
 		{
 			case LOG_LEVEL_CRIT:
@@ -378,7 +375,7 @@ void __zbx_zabbix_log(int level, const char *fmt, ...)
 				break;
 			default:
 				/* LOG_LEVEL_EMPTY - print nothing */
-				break;
+				break;			
 		}
 
 #endif	/* _WINDOWS */
@@ -427,7 +424,7 @@ char *zbx_strerror(int errnum)
 char *strerror_from_system(unsigned long error)
 {
 #ifdef _WINDOWS
-	size_t		offset = 0;
+	int		offset = 0;
 	TCHAR		wide_string[ZBX_MESSAGE_BUF_SIZE];
 	static char	utf8_string[ZBX_MESSAGE_BUF_SIZE];	/* !!! Attention: static !!! Not thread-safe for Win32 */
 
@@ -442,7 +439,8 @@ char *strerror_from_system(unsigned long error)
 		return utf8_string;
 	}
 
-	zbx_unicode_to_utf8_static(wide_string, utf8_string + offset, (int)(sizeof(utf8_string) - offset));
+	if (FAIL == zbx_unicode_to_utf8_static(wide_string, utf8_string + offset, sizeof(utf8_string) - offset))
+		utf8_string[offset] = '\0';
 
 	zbx_rtrim(utf8_string, "\r\n ");
 
@@ -453,9 +451,9 @@ char *strerror_from_system(unsigned long error)
 }
 
 #ifdef _WINDOWS
-char	*strerror_from_module(unsigned long error, LPCTSTR module)
+char *strerror_from_module(unsigned long error, LPCTSTR module)
 {
-	size_t		offset = 0;
+	int		offset = 0;
 	TCHAR		wide_string[ZBX_MESSAGE_BUF_SIZE];
 	static char	utf8_string[ZBX_MESSAGE_BUF_SIZE];	/* !!! Attention: static !!! not thread-safe for Win32 */
 	char		*strings[2];
@@ -476,7 +474,8 @@ char	*strerror_from_module(unsigned long error, LPCTSTR module)
 		return utf8_string;
 	}
 
-	zbx_unicode_to_utf8_static(wide_string, utf8_string + offset, (int)(sizeof(utf8_string) - offset));
+	if (FAIL == zbx_unicode_to_utf8_static(wide_string, utf8_string + offset, sizeof(utf8_string) - offset))
+		utf8_string[offset] = '\0';
 
 	zbx_rtrim(utf8_string, "\r\n ");
 

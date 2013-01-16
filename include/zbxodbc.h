@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 
@@ -25,7 +25,7 @@
 #include <sqlext.h>
 #include <sqltypes.h>
 
-typedef char	**ZBX_ODBC_ROW;
+typedef char**		ZBX_ODBC_ROW;
 
 typedef struct zbx_odbc_dbh_s
 {
@@ -43,6 +43,7 @@ typedef ZBX_ODBC_DBH*		ZBX_ODBC_RESULT;
 int		odbc_DBconnect(ZBX_ODBC_DBH *pdbh, const char *db_name, const char *user, const char *pass);
 void		odbc_DBclose(ZBX_ODBC_DBH *pdbh);
 
+int	odbc_DBexecute(ZBX_ODBC_DBH *pdbh, const char *query);
 ZBX_ODBC_RESULT odbc_DBselect(ZBX_ODBC_DBH *pdbh, const char *query);
 ZBX_ODBC_ROW    odbc_DBfetch(ZBX_ODBC_RESULT pdbh);
 

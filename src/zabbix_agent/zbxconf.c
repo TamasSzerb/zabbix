@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,7 +14,7 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -24,10 +24,7 @@
 #include "log.h"
 #include "alias.h"
 #include "sysinfo.h"
-#ifdef _WINDOWS
-#	include "perfstat.h"
-#endif
-#include "comms.h"
+#include "stats.h"
 
 #if defined(ZABBIX_DAEMON)
 #	include "daemon.h"
@@ -40,7 +37,8 @@ char	*CONFIG_HOSTNAME_ITEM		= NULL;
 int	CONFIG_ENABLE_REMOTE_COMMANDS	= 0;
 int	CONFIG_LOG_REMOTE_COMMANDS	= 0;
 int	CONFIG_UNSAFE_USER_PARAMETERS	= 0;
-int	CONFIG_LISTEN_PORT		= ZBX_DEFAULT_AGENT_PORT;
+int	CONFIG_LISTEN_PORT		= 10050;
+int	CONFIG_SERVER_PORT		= 10051;
 int	CONFIG_REFRESH_ACTIVE_CHECKS	= 120;
 char	*CONFIG_LISTEN_IP		= NULL;
 char	*CONFIG_SOURCE_IP		= NULL;
@@ -121,7 +119,7 @@ void	load_user_parameters(char **lines)
 	}
 }
 
-#ifdef _WINDOWS
+#if defined(_WINDOWS)
 /******************************************************************************
  *                                                                            *
  * Function: load_perf_counters                                               *

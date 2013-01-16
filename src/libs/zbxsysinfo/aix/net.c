@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -14,12 +14,11 @@
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
-#include "zbxjson.h"
 
 typedef struct
 {
@@ -43,7 +42,7 @@ static int	get_net_stat(const char *if_name, net_stat_t *ns)
 	assert(ns);
 
 #if defined(HAVE_LIBPERFSTAT)
-	strscpy(ps_id.name, if_name);
+	zbx_snprintf(ps_id.name, sizeof(ps_id.name), "%s", if_name);
 
 	if (-1 == perfstat_netinterface(&ps_id, &ps_netif, sizeof(ps_netif), 1))
 		return SYSINFO_RET_FAIL;
@@ -210,58 +209,4 @@ int	NET_IF_COLLISIONS(const char *cmd, const char *param, unsigned flags, AGENT_
 		ret = SYSINFO_RET_FAIL;
 
 	return ret;
-}
-
-int	NET_IF_DISCOVERY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
-{
-#if defined(HAVE_LIBPERFSTAT)
-	int			rc, i, ret = SYSINFO_RET_FAIL;
-	perfstat_id_t		ps_id;
-	perfstat_netinterface_t	*ps_netif = NULL;
-	struct zbx_json		j;
-
-	/* check how many perfstat_netinterface_t structures are available */
-	if (-1 == (rc = perfstat_netinterface(NULL, NULL, sizeof(perfstat_netinterface_t), 0)))
-		return ret;
-
-	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
-
-	zbx_json_addarray(&j, ZBX_PROTO_TAG_DATA);
-
-	if (0 == rc)	/* no network interfaces found */
-	{
-		ret = SYSINFO_RET_OK;
-		goto end;
-	}
-
-	ps_netif = zbx_malloc(ps_netif, rc * sizeof(perfstat_netinterface_t));
-
-	/* set name to first interface */
-	strscpy(ps_id.name, FIRST_NETINTERFACE);	/* pseudo-name for the first network interface */
-
-	/* ask to get all the structures available in one call */
-	/* return code is number of structures returned */
-	if (-1 != (rc = perfstat_netinterface(&ps_id, ps_netif, sizeof(perfstat_netinterface_t), rc)))
-		ret = SYSINFO_RET_OK;
-
-	/* collecting of the information for each of the interfaces */
-	for (i = 0; i < rc; i++)
-	{
-		zbx_json_addobject(&j, NULL);
-		zbx_json_addstring(&j, "{#IFNAME}", ps_netif[i].name, ZBX_JSON_TYPE_STRING);
-		zbx_json_close(&j);
-	}
-
-	zbx_free(ps_netif);
-end:
-	zbx_json_close(&j);
-
-	SET_STR_RESULT(result, strdup(j.buffer));
-
-	zbx_json_free(&j);
-
-	return ret;
-#else
-	return SYSINFO_RET_FAIL;
-#endif
 }

@@ -113,7 +113,6 @@ $templateList = new CFormList('hostlist');
 // FORM ITEM : Template name text box [  ]
 $template_nameTB = new CTextBox('template_name', $host, 54);
 $template_nameTB->setAttribute('maxlength', 64);
-$template_nameTB->attr('autofocus', 'autofocus');
 $templateList->addRow(_('Template name'), $template_nameTB);
 
 $visiblenameTB = new CTextBox('visiblename', $visiblename, 54);
@@ -136,10 +135,11 @@ foreach ($all_groups as $gnum => $group) {
 $templateList->addRow(_('Groups'), $group_tb->get(_('In groups'), _('Other groups')));
 
 // FORM ITEM : new group text box [  ]
+global $USER_DETAILS;
 $newgroupTB = new CTextBox('newgroup', $newgroup);
 $newgroupTB->setAttribute('maxlength', 64);
 $tmp_label = _('New group');
-if (CWebUser::$data['type'] != USER_TYPE_SUPER_ADMIN) {
+if ($USER_DETAILS['type'] != USER_TYPE_SUPER_ADMIN) {
 	$tmp_label .= SPACE._('(Only superadmins can create group)');
 	$newgroupTB->setReadonly(true);
 }

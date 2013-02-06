@@ -20,21 +20,39 @@
 
 
 /**
- * Database backend class for SQLite.
+ * Helper class that simplifies working with CEventDescription class.
  */
-class SqliteDbBackend extends DbBackend {
+class CEventHelper {
 
 	/**
-	 * Check if 'dbversion' table exists.
-	 *
-	 * @return boolean
+	 * @var CEventDescription
 	 */
-	protected function checkDbVersionTable() {
-		if (!DBfetch(DBselect("SELECT name FROM sqlite_master WHERE type='table' AND name='dbversion';"))) {
-			$this->setError(_('The frontend does not match Zabbix database.'));
-			return false;
-		}
+	private static $eDescription;
 
-		return true;
+	/**
+	 * Helper for CEventDescription->expand.
+	 *
+	 * @static
+	 * @see CEventDescription
+	 *
+	 * @param array $event
+	 *
+	 * @return string
+	 */
+	public static function expandDescription(array $event) {
+		self::init();
+		return self::$eDescription->expand($event);
+	}
+
+	/**
+	 * Create CEventDescription object and store in static variable.
+	 *
+	 * @static
+	 */
+	private static function init() {
+		if (self::$eDescription === null) {
+			self::$eDescription = new CEventDescription();
+		}
 	}
 }
+

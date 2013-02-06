@@ -19,6 +19,8 @@
 **/
 
 
+global $USER_DETAILS;
+
 $discoveryWidget = new CWidget('hat_discovery');
 
 // create header form

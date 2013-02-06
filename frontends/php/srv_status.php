@@ -37,9 +37,26 @@ $fields = array(
 	'serviceid' =>	array(T_ZBX_INT, O_OPT, P_SYS|P_NZERO, DB_ID,	null),
 	'showgraph' =>	array(T_ZBX_INT, O_OPT, P_SYS,	IN('1'),		'isset({serviceid})'),
 	'period' =>		array(T_ZBX_STR, O_OPT, P_SYS,	null,			null),
-	'fullscreen' => array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'),		null)
+	'fullscreen' => array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'),		null),
+	// ajax
+	'favobj' =>		array(T_ZBX_STR, O_OPT, P_ACT,	IN('"hat"'),	null),
+	'favref' =>		array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,		'isset({favobj})'),
+	'favstate' =>	array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,		'isset({favobj})')
 );
 check_fields($fields);
+
+/*
+ * Ajax
+ */
+if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'hat') {
+		CProfile::update('web.srv_status.hats.'.$_REQUEST['favref'].'.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
+}
+if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
+	include_once('include/page_footer.php');
+	exit();
+}
 
 if (isset($_REQUEST['serviceid']) && isset($_REQUEST['showgraph'])) {
 	$service = API::Service()->get(array(
@@ -104,7 +121,8 @@ else {
 
 	// expand trigger descriptions
 	$triggers = zbx_objectValues($services, 'trigger');
-	$triggers = CMacrosResolverHelper::resolveTriggerNames($triggers);
+
+	$triggers = CTriggerHelper::batchExpandDescription($triggers);
 
 	foreach ($services as &$service) {
 		if ($service['trigger']) {
@@ -120,6 +138,7 @@ else {
 			'to' => $period_end
 		))
 	));
+
 	// expand problem trigger descriptions
 	foreach ($slaData as &$serviceSla) {
 		foreach ($serviceSla['problems'] as &$problemTrigger) {

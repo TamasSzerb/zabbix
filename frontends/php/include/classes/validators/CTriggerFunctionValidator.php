@@ -61,8 +61,8 @@ class CTriggerFunctionValidator extends CValidator {
 		}
 
 		if (!isset($this->allowed[$value['functionName']]['value_types'][$value['valueType']])) {
-			$this->setError(_s('Incorrect item value type "%1$s" provided for trigger function "%2$s".',
-					itemValueTypeString($value['valueType']), $value['functionName']));
+			$this->setError(_s('Incorrect item value type "%1$s:%2$s" provided for trigger function "%3$s".',
+					'', itemValueTypeString($value['valueType']), $value['functionName']));
 			return false;
 		}
 

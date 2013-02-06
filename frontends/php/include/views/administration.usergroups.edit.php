@@ -36,9 +36,7 @@ if (isset($_REQUEST['usrgrpid'])) {
  * User group tab
 */
 $userGroupFormList = new CFormList('userGroupFormList');
-$nameTextBox = new CTextBox('gname', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE);
-$nameTextBox->attr('autofocus', 'autofocus');
-$userGroupFormList->addRow(_('Group name'), $nameTextBox);
+$userGroupFormList->addRow(_('Group name'), new CTextBox('gname', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE));
 
 // append groups to form list
 $groupsComboBox = new CComboBox('selusrgrp', $this->data['selected_usrgrp'], 'submit()');
@@ -89,7 +87,7 @@ foreach ($this->data['group_rights'] as $id => $rights) {
 	if ($rights['permission'] == PERM_DENY) {
 		$lstDeny->addItem($id, $rights['name']);
 	}
-	elseif ($rights['permission'] == PERM_READ) {
+	elseif ($rights['permission'] == PERM_READ_ONLY) {
 		$lstRead->addItem($id, $rights['name']);
 	}
 	elseif ($rights['permission'] == PERM_READ_WRITE) {
@@ -104,7 +102,7 @@ $permissionsTable->addRow(array(
 		new CSubmit('del_read_write', _('Delete selected'), null, 'formlist')
 	),
 	array(
-		new CButton('add_read_only', _('Add'), "return PopUp('popup_right.php?dstfrm=".$userGroupForm->getName().'&permission='.PERM_READ."', 450, 450);", 'formlist'),
+		new CButton('add_read_only', _('Add'), "return PopUp('popup_right.php?dstfrm=".$userGroupForm->getName().'&permission='.PERM_READ_ONLY."', 450, 450);", 'formlist'),
 		new CSubmit('del_read_only', _('Delete selected'), null, 'formlist')
 	),
 	array(

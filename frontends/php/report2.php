@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2000-2013 Zabbix SIA
+** Copyright (C) 2000-2012 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -10,7 +10,7 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
@@ -31,29 +31,29 @@ $page['type'] = detect_page_type(PAGE_TYPE_HTML);
 
 require_once dirname(__FILE__).'/include/page_header.php';
 
-// VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
+
+//		VAR				TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 $fields = array(
-	'mode' =>			array(T_ZBX_INT, O_OPT, P_SYS, IN('0,1'), null),
-	'filter_groupid'=>	array(T_ZBX_INT, O_OPT, P_SYS, DB_ID, null),
-	'hostgroupid' =>	array(T_ZBX_INT, O_OPT, P_SYS, DB_ID, null),
-	'filter_hostid' =>	array(T_ZBX_INT, O_OPT, P_SYS, DB_ID, null),
-	'tpl_triggerid' =>	array(T_ZBX_INT, O_OPT, P_SYS, DB_ID, null),
-	'triggerid' =>		array(T_ZBX_INT, O_OPT, P_SYS|P_NZERO, DB_ID, null),
-	// filter
-	'filter_rst' =>		array(T_ZBX_INT, O_OPT, P_SYS, IN(array(0, 1)), null),
-	'filter_set' =>		array(T_ZBX_STR, O_OPT, P_SYS, null, null),
-	'filter_timesince' => array(T_ZBX_STR, O_OPT, P_UNSET_EMPTY, null, null),
-	'filter_timetill' => array(T_ZBX_STR, O_OPT, P_UNSET_EMPTY, null, null),
-	// ajax
-	'favobj' =>			array(T_ZBX_STR, O_OPT, P_ACT, null, null),
-	'favref' =>			array(T_ZBX_STR, O_OPT, P_ACT, NOT_EMPTY, 'isset({favobj})'),
-	'favstate' =>		array(T_ZBX_INT, O_OPT, P_ACT, NOT_EMPTY, 'isset({favobj})&&("filter"=={favobj})')
+	'mode' => array(T_ZBX_INT, O_OPT, P_SYS, IN('0,1'), NULL),
+	'filter_groupid' => array(T_ZBX_INT, O_OPT, P_SYS, DB_ID, NULL),
+	'hostgroupid' => array(T_ZBX_INT, O_OPT, P_SYS, DB_ID, NULL),
+	'filter_hostid' => array(T_ZBX_INT, O_OPT, P_SYS, DB_ID, NULL),
+	'tpl_triggerid' => array(T_ZBX_INT, O_OPT, P_SYS, DB_ID, NULL),
+	'triggerid' => array(T_ZBX_INT, O_OPT, P_SYS | P_NZERO, DB_ID, NULL),
+// filter
+	'filter_rst' => array(T_ZBX_INT, O_OPT, P_SYS, IN(array(0, 1)), NULL),
+	'filter_set' => array(T_ZBX_STR, O_OPT, P_SYS, null, NULL),
+	'filter_timesince' => array(T_ZBX_STR, O_OPT, P_UNSET_EMPTY, null, NULL),
+	'filter_timetill' => array(T_ZBX_STR, O_OPT, P_UNSET_EMPTY, null, NULL),
+//ajax
+	'favobj' => array(T_ZBX_STR, O_OPT, P_ACT, NULL, NULL),
+	'favref' => array(T_ZBX_STR, O_OPT, P_ACT, NOT_EMPTY, 'isset({favobj})'),
+	'favstate' => array(T_ZBX_INT, O_OPT, P_ACT, NOT_EMPTY, 'isset({favobj})&&("filter"=={favobj})'),
 );
+
 check_fields($fields);
 
-/*
- * Ajax
- */
+// AJAX
 if (isset($_REQUEST['favobj'])) {
 	if ('filter' == $_REQUEST['favobj']) {
 		CProfile::update('web.avail_report.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
@@ -64,9 +64,8 @@ if ((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])) 
 	exit();
 }
 
-/*
- * Filter
- */
+//--------
+// FILTER
 if (isset($_REQUEST['filter_rst'])) {
 	$_REQUEST['filter_groupid'] = 0;
 	$_REQUEST['filter_hostid'] = 0;
@@ -85,7 +84,7 @@ if ($config['dropdown_first_remember']) {
 		$_REQUEST['filter_timesince'] = get_request('filter_timesince', CProfile::get('web.avail_report.'.$availabilityReportMode.'.timesince', 0));
 		$_REQUEST['filter_timetill'] = get_request('filter_timetill', CProfile::get('web.avail_report.'.$availabilityReportMode.'.timetill', 0));
 	}
-	CProfile::update('web.avail_report.'.$availabilityReportMode.'.groupid', $_REQUEST['filter_groupid'], PROFILE_TYPE_ID);
+	CProfile::update('web.avail_report.'.$availabilityReportMode.'.groupid', $_REQUEST['filter_groupid'], PROFILE_TYPE_INT);
 	CProfile::update('web.avail_report.'.$availabilityReportMode.'.timesince', $_REQUEST['filter_timesince'], PROFILE_TYPE_STR);
 	CProfile::update('web.avail_report.'.$availabilityReportMode.'.timetill', $_REQUEST['filter_timetill'], PROFILE_TYPE_STR);
 }
@@ -96,7 +95,7 @@ elseif (!isset($_REQUEST['filter_rst'])) {
 	$_REQUEST['filter_timetill'] = get_request('filter_timetill', 0);
 }
 
-CProfile::update('web.avail_report.'.$availabilityReportMode.'.hostid', $_REQUEST['filter_hostid'], PROFILE_TYPE_ID);
+CProfile::update('web.avail_report.'.$availabilityReportMode.'.hostid', $_REQUEST['filter_hostid'], PROFILE_TYPE_INT);
 
 if (($_REQUEST['filter_timetill'] > 0) && ($_REQUEST['filter_timesince'] > $_REQUEST['filter_timetill'])) {
 	$tmp = $_REQUEST['filter_timesince'];
@@ -109,7 +108,7 @@ $_REQUEST['filter_timetill'] = zbxDateToTime($_REQUEST['filter_timetill']);
 
 $_REQUEST['groupid'] = $_REQUEST['filter_groupid'];
 $_REQUEST['hostid'] = $_REQUEST['filter_hostid'];
-
+// --------------
 
 $params = array();
 $options = array('allow_all_hosts', 'with_items');
@@ -129,14 +128,11 @@ foreach ($options as $option) {
 	$params[$option] = 1;
 }
 
-$PAGE_GROUPS = get_viewed_groups(PERM_READ, $params);
-$PAGE_HOSTS = get_viewed_hosts(PERM_READ, $PAGE_GROUPS['selected'], $params);
+$PAGE_GROUPS = get_viewed_groups(PERM_READ_ONLY, $params);
+$PAGE_HOSTS = get_viewed_hosts(PERM_READ_ONLY, $PAGE_GROUPS['selected'], $params);
 
 validate_group_with_host($PAGE_GROUPS, $PAGE_HOSTS);
 
-/*
- * Display
- */
 $rep2_wdgt = new CWidget();
 $rep2_wdgt->addPageHeader(_('AVAILABILITY REPORT'));
 
@@ -175,7 +171,8 @@ if (isset($_REQUEST['triggerid'])) {
 	$rep2_wdgt->addItem($table);
 	$rep2_wdgt->show();
 }
-elseif (isset($_REQUEST['hostid'])) {
+else if (isset($_REQUEST['hostid'])) {
+
 	$r_form = new CForm();
 	$r_form->setMethod('get');
 
@@ -194,7 +191,8 @@ elseif (isset($_REQUEST['hostid'])) {
 		'expandDescription' => true,
 		'expandData' => true,
 		'monitored' => true,
-		'selectHosts' => API_OUTPUT_EXTEND, // rquired for getting visible host name
+// Rquired for getting visible host name
+		'selectHosts' => API_OUTPUT_EXTEND,
 		'filter' => array(),
 		'hostids' => null
 	);
@@ -226,7 +224,10 @@ elseif (isset($_REQUEST['hostid'])) {
 	$rep2_wdgt->addFlicker($filter['form'], CProfile::get('web.avail_report.filter.state', 0));
 
 	$triggers = API::Trigger()->get($filter['options']);
-	CArrayHelper::sort($triggers, array('host', 'description'));
+	CArrayHelper::sort($triggers, array(
+		'host',
+		'description'
+	));
 
 	$table = new CTableInfo(_('No triggers defined.'));
 	$table->setHeader(array(
@@ -235,6 +236,7 @@ elseif (isset($_REQUEST['hostid'])) {
 		_('Name'),
 		_('Problems'),
 		_('Ok'),
+		_('Unknown'),
 		_('Graph')
 	));
 
@@ -243,6 +245,7 @@ elseif (isset($_REQUEST['hostid'])) {
 
 		$true = new CSpan(sprintf('%.4f%%', $availability['true']), 'on');
 		$false = new CSpan(sprintf('%.4f%%', $availability['false']), 'off');
+		$unknown = new CSpan(sprintf('%.4f%%', $availability['unknown']), 'unknown');
 		$actions = new CLink(_('Show'), 'report2.php?filter_groupid='.$_REQUEST['groupid'].'&filter_hostid='.$_REQUEST['hostid'].'&triggerid='.$trigger['triggerid']);
 
 		$table->addRow(array(
@@ -251,6 +254,7 @@ elseif (isset($_REQUEST['hostid'])) {
 			new CLink($trigger['description'], 'events.php?triggerid='.$trigger['triggerid']),
 			$true,
 			$false,
+			$unknown,
 			$actions
 		));
 	}

@@ -147,7 +147,8 @@ define('ZBX_PAGE_NO_MENU', 1);
 
 require_once dirname(__FILE__).'/include/page_header.php';
 
-if ($min_user_type > CWebUser::$data['type']) {
+global $USER_DETAILS;
+if ($min_user_type > $USER_DETAILS['type']) {
 	access_deny();
 }
 if (isset($error)) {
@@ -482,7 +483,7 @@ else {
 		if (ZBX_DISTRIBUTED) {
 			$cmbNode = new CComboBox('nodeid', $nodeid, 'submit()');
 
-			$db_nodes = DBselect('SELECT n.* FROM nodes n WHERE '.dbConditionInt('n.nodeid', get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_LIST)));
+			$db_nodes = DBselect('SELECT n.* FROM nodes n WHERE '.dbConditionInt('n.nodeid', get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_LIST)));
 			while ($node_data = DBfetch($db_nodes)) {
 				$cmbNode->addItem($node_data['nodeid'], $node_data['name']);
 				if (bccomp($nodeid , $node_data['nodeid']) == 0) {
@@ -502,7 +503,7 @@ else {
 		$frmTitle->addItem(array(_('Group'), SPACE, $pageFilter->getGroupsCB(true)));
 	}
 	if (str_in_array($srctbl, array('help_items'))) {
-		$itemtype = get_request('itemtype', 0);
+		$itemtype = get_request('itemtype', CProfile::get('web.popup.itemtype', 0));
 		$cmbTypes = new CComboBox('itemtype', $itemtype, 'javascript: submit();');
 
 		foreach ($allowed_item_types as $type) {
@@ -513,20 +514,19 @@ else {
 	if (str_in_array($srctbl, array('triggers', 'items', 'applications', 'graphs', 'simple_graph', 'plain_text'))) {
 		$frmTitle->addItem(array(SPACE, _('Host'), SPACE, $pageFilter->getHostsCB(true)));
 	}
-}
+	if (str_in_array($srctbl, array('triggers', 'hosts', 'host_group', 'hosts_and_templates'))) {
+		if (zbx_empty($noempty)) {
+			$value1 = isset($_REQUEST['dstfld1']) && zbx_strpos($_REQUEST['dstfld1'], 'id') !== false ? 0 : '';
+			$value2 = isset($_REQUEST['dstfld2']) && zbx_strpos($_REQUEST['dstfld2'], 'id') !== false ? 0 : '';
+			$value3 = isset($_REQUEST['dstfld3']) && zbx_strpos($_REQUEST['dstfld3'], 'id') !== false ? 0 : '';
 
-if (str_in_array($srctbl, array('applications', 'triggers', 'hosts', 'host_group', 'hosts_and_templates'))) {
-	if (zbx_empty($noempty)) {
-		$value1 = isset($_REQUEST['dstfld1']) && zbx_strpos($_REQUEST['dstfld1'], 'id') !== false ? 0 : '';
-		$value2 = isset($_REQUEST['dstfld2']) && zbx_strpos($_REQUEST['dstfld2'], 'id') !== false ? 0 : '';
-		$value3 = isset($_REQUEST['dstfld3']) && zbx_strpos($_REQUEST['dstfld3'], 'id') !== false ? 0 : '';
+			$epmtyScript = get_window_opener($dstfrm, $dstfld1, $value1);
+			$epmtyScript .= get_window_opener($dstfrm, $dstfld2, $value2);
+			$epmtyScript .= get_window_opener($dstfrm, $dstfld3, $value3);
+			$epmtyScript .= ' close_window(); return false;';
 
-		$epmtyScript = get_window_opener($dstfrm, $dstfld1, $value1);
-		$epmtyScript .= get_window_opener($dstfrm, $dstfld2, $value2);
-		$epmtyScript .= get_window_opener($dstfrm, $dstfld3, $value3);
-		$epmtyScript .= ' close_window(); return false;';
-
-		$frmTitle->addItem(array(SPACE, new CButton('empty', _('Empty'), $epmtyScript)));
+			$frmTitle->addItem(array(SPACE, new CButton('empty', _('Empty'), $epmtyScript)));
+		}
 	}
 }
 
@@ -644,8 +644,8 @@ elseif ($srctbl == 'templates') {
 
 	$dbTemplates = API::Template()->get($options);
 	foreach ($dbTemplates as $host) {
-		$chk = new CCheckBox('templates['.$host['templateid'].']', isset($templates[$host['templateid']]), null, $host['name']);
-		$chk->setEnabled(!isset($existed_templates[$host['templateid']]) && !isset($excludeids[$host['templateid']]));
+		$chk = new CCheckBox('templates['.$host['hostid'].']', isset($templates[$host['hostid']]), null, $host['name']);
+		$chk->setEnabled(!isset($existed_templates[$host['hostid']]) && !isset($excludeids[$host['hostid']]));
 		$table->addRow(array(array($chk, $host['name'])));
 	}
 
@@ -1035,7 +1035,7 @@ elseif ($srctbl == 'triggers') {
 			);
 
 			foreach ($trigger['dependencies'] as $val) {
-				$description[] = array(CMacrosResolverHelper::resolveTriggerName($val), BR());
+				$description[] = array(CTriggerHelper::expandDescription($val), BR());
 			}
 		}
 
@@ -1321,7 +1321,7 @@ elseif ($srctbl == 'nodes') {
 	$table = new CTableInfo(_('No nodes defined.'));
 	$table->setHeader(_('Name'));
 
-	$result = DBselect('SELECT DISTINCT n.* FROM nodes n WHERE '.dbConditionInt('n.nodeid', get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_LIST)));
+	$result = DBselect('SELECT DISTINCT n.* FROM nodes n WHERE '.dbConditionInt('n.nodeid', get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_LIST)));
 	while ($row = DBfetch($result)) {
 		$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
 		$name = new CSpan($row['name'], 'link');
@@ -1687,14 +1687,9 @@ elseif ($srctbl == 'slides') {
 	$table->setHeader($header);
 
 	$slideshows = array();
-	$result = DBselect(
-			'SELECT s.slideshowid,s.name'.
-			' FROM slideshows s'.
-			whereDbNode('s.slideshowid', $nodeid).
-			' ORDER BY s.name'
-	);
+	$result = DBselect('SELECT s.slideshowid,s.name FROM slideshows s WHERE '.DBin_node('s.slideshowid', $nodeid).' ORDER BY s.name');
 	while ($row = DBfetch($result)) {
-		if (!slideshow_accessible($row['slideshowid'], PERM_READ)) {
+		if (!slideshow_accessible($row['slideshowid'], PERM_READ_ONLY)) {
 			continue;
 		}
 		$slideshows[$row['slideshowid']] = $row;
@@ -1902,11 +1897,7 @@ elseif ($srctbl == 'drules') {
 	$table = new CTableInfo(_('No discovery rules defined.'));
 	$table->setHeader(_('Name'));
 
-	$result = DBselect(
-			'SELECT d.*'.
-			' FROM drules d'.
-			whereDbNode('d.druleid', $nodeid)
-	);
+	$result = DBselect('SELECT DISTINCT d.* FROM drules d WHERE '.DBin_node('d.druleid', $nodeid));
 	while ($row = DBfetch($result)) {
 		$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
 		$name = new CSpan($row['name'], 'link');
@@ -1946,11 +1937,11 @@ elseif ($srctbl == 'proxies') {
 	$table->setHeader(_('Name'));
 
 	$result = DBselect(
-			'SELECT h.hostid,h.host'.
-			' FROM hosts h'.
-			' WHERE h.status IN ('.HOST_STATUS_PROXY_ACTIVE.','.HOST_STATUS_PROXY_PASSIVE.')'.
-				andDbNode('h.hostid', $nodeid).
-			' ORDER BY h.host,h.hostid'
+		'SELECT DISTINCT h.hostid,h.host'.
+		' FROM hosts h'.
+		' WHERE '.DBin_node('h.hostid', $nodeid).
+			' AND h.status IN ('.HOST_STATUS_PROXY_ACTIVE.','.HOST_STATUS_PROXY_PASSIVE.')'.
+		' ORDER BY h.host,h.hostid'
 	);
 	while ($row = DBfetch($result)) {
 		$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');

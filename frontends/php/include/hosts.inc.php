@@ -573,7 +573,7 @@ function updateHostStatus($hostids, $status) {
 
 // retrieve groups for dropdown
 function get_viewed_groups($perm, $options = array(), $nodeid = null, $sql = array()) {
-	global $page;
+	global $USER_DETAILS, $page;
 
 	$def_sql = array(
 		'select' =>	array('g.groupid', 'g.name'),
@@ -631,7 +631,7 @@ function get_viewed_groups($perm, $options = array(), $nodeid = null, $sql = arr
 			: get_current_nodeid(false);
 	}
 
-	$available_groups = get_accessible_groups_by_user(CWebUser::$data, $perm, PERM_RES_IDS_ARRAY, $nodeid, AVAILABLE_NOCACHE);
+	$available_groups = get_accessible_groups_by_user($USER_DETAILS, $perm, PERM_RES_IDS_ARRAY, $nodeid, AVAILABLE_NOCACHE);
 
 	// nodes
 	if (ZBX_DISTRIBUTED) {
@@ -835,13 +835,13 @@ function get_viewed_groups($perm, $options = array(), $nodeid = null, $sql = arr
  *     Retrieve groups for dropdown
  */
 function get_viewed_hosts($perm, $groupid = 0, $options = array(), $nodeid = null, $sql = array()) {
-	global $page;
+	global $USER_DETAILS, $page;
 
-	$userid = CWebUser::$data['userid'];
+	$userid = $USER_DETAILS['userid'];
 
 	$def_sql = array(
 		// hostname to avoid confusion with node name
-		'select' => array('h.hostid', 'h.name as hostname'),
+		'select' => array('h.hostid','h.name as hostname'),
 		'from' => array('hosts h'),
 		'where' => array(),
 		'order' => array()
@@ -913,7 +913,7 @@ function get_viewed_hosts($perm, $groupid = 0, $options = array(), $nodeid = nul
 		}
 	}
 
-	if (USER_TYPE_SUPER_ADMIN != CWebUser::$data['type']) {
+	if (USER_TYPE_SUPER_ADMIN != $USER_DETAILS['type']) {
 		$userGroups = getUserGroupsByUserId($userid);
 
 		$def_sql['where'][] = 'EXISTS ('.
@@ -924,8 +924,7 @@ function get_viewed_hosts($perm, $groupid = 0, $options = array(), $nodeid = nul
 							' AND '.dbConditionInt('r.groupid', $userGroups).
 				' WHERE h.hostid=hgg.hostid'.
 				' GROUP BY hgg.hostid'.
-				' HAVING MIN(r.permission)>'.PERM_DENY.
-					' AND MAX(r.permission)>='.$perm.
+				' HAVING MIN(r.permission)>='.$perm.
 				')';
 	}
 
@@ -1003,8 +1002,6 @@ function get_viewed_hosts($perm, $groupid = 0, $options = array(), $nodeid = nul
 											' AND i.itemid=gi.itemid)';
 	}
 
-	$def_sql['where'] = sqlPartDbNode($def_sql['where'], 'h.hostid', $nodeid);
-
 	$def_sql['order'][] = 'h.name';
 
 	foreach ($sql as $key => $value) {
@@ -1018,16 +1015,34 @@ function get_viewed_hosts($perm, $groupid = 0, $options = array(), $nodeid = nul
 		}
 	}
 
-	$sqlSelect = implode(',', array_unique($def_sql['select']));
-	$sqlFrom = implode(',', array_unique($def_sql['from']));
-	$sqlWhere = !empty($def_sql['where']) ? ' WHERE '.implode(' AND ', array_unique($def_sql['where'])) : '';
-	$sqlOrder = !empty($def_sql['order']) ? ' ORDER BY '.implode(',', array_unique($def_sql['order'])) : '';
+	$def_sql['select'] = array_unique($def_sql['select']);
+	$def_sql['from'] = array_unique($def_sql['from']);
+	$def_sql['where'] = array_unique($def_sql['where']);
+	$def_sql['order'] = array_unique($def_sql['order']);
+
+	$sql_select = '';
+	$sql_from = '';
+	$sql_where = '';
+	$sql_order = '';
+	if (!empty($def_sql['select'])) {
+		$sql_select .= implode(',', $def_sql['select']);
+	}
+	if (!empty($def_sql['from'])) {
+		$sql_from .= implode(',', $def_sql['from']);
+	}
+	if (!empty($def_sql['where'])) {
+		$sql_where .= ' AND '.implode(' AND ', $def_sql['where']);
+	}
+	if (!empty($def_sql['order'])) {
+		$sql_order .= implode(',', $def_sql['order']);
+	}
 
 	$res = DBselect(
-			'SELECT DISTINCT '.$sqlSelect.
-			' FROM '.$sqlFrom.
-			$sqlWhere.
-			$sqlOrder
+		'SELECT DISTINCT '.$sql_select.
+		' FROM '.$sql_from.
+		' WHERE '.DBin_node('h.hostid', $nodeid).
+			$sql_where.
+		' ORDER BY '.$sql_order
 	);
 	while ($host = DBfetch($res)) {
 		$hosts[$host['hostid']] = $host['hostname'];

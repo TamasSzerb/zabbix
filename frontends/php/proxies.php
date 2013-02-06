@@ -83,7 +83,7 @@ $_REQUEST['go'] = get_request('go', 'none');
  * Actions
  */
 if (isset($_REQUEST['save'])) {
-	if (!count(get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+	if (!count(get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
 		access_deny();
 	}
 
@@ -121,7 +121,7 @@ if (isset($_REQUEST['save'])) {
 	unset($_REQUEST['save']);
 }
 elseif (isset($_REQUEST['delete'])) {
-	$result = API::Proxy()->delete(array($_REQUEST['proxyid']));
+	$result = API::Proxy()->delete(array('proxyid' => $_REQUEST['proxyid']));
 	if ($result) {
 		unset($_REQUEST['form'], $_REQUEST['proxyid']);
 		$proxy = reset($dbProxy);
@@ -146,7 +146,7 @@ elseif (str_in_array($_REQUEST['go'], array('activate', 'disable')) && isset($_R
 			'SELECT h.hostid,h.status'.
 			' FROM hosts h'.
 			' WHERE h.proxy_hostid='.$hostid.
-				andDbNode('h.hostid')
+				' AND '.DBin_node('h.hostid')
 		);
 
 		while ($dbHost = DBfetch($dbHosts)) {
@@ -169,7 +169,7 @@ elseif ($_REQUEST['go'] == 'delete' && isset($_REQUEST['hosts'])) {
 	$hosts = get_request('hosts', array());
 
 	DBstart();
-	$go_result = API::Proxy()->delete($hosts);
+	$go_result = API::Proxy()->delete(zbx_toObject($hosts, 'proxyid'));
 	$go_result = DBend($go_result);
 
 	show_messages($go_result, _('Proxy deleted'), _('Cannot delete proxy'));
@@ -228,7 +228,7 @@ if (isset($_REQUEST['form'])) {
 		'SELECT h.hostid,h.proxy_hostid,h.name'.
 		' FROM hosts h'.
 		' WHERE h.status IN ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.')'.
-			andDbNode('h.hostid')
+			' AND '.DBin_node('h.hostid')
 	));
 	order_result($data['dbHosts'], 'name');
 

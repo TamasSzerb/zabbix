@@ -27,12 +27,123 @@
  */
 class CPageFilter {
 
-	protected $data = array(); // groups, hosts, ...
-	protected $ids = array(); // groupid, hostid, ...
-	protected $isSelected = array(); // hostsSelected, groupsSelected, ...
-	protected $config = array();
-	private $_profileIdx = array(); // profiles idx
-	private $_profileIds = array();
+	/**
+	 * Configuration options.
+	 *
+	 * @var array
+	 */
+	protected $config = array(
+		// whether to allow all nodes
+		'all_nodes' => null,
+
+		// select the latest object viewed by the user on any page
+		'select_latest' => null,
+
+		// reset the remembered values if the remember first dropdown entry function is disabled
+		'DDReset' => null,
+
+		// if set to true selections will be remembered for each file separately,
+		// if set to false - for each main menu section (monitoring, inventory, configuration etc.)
+		'individual' => null,
+
+		// if set to true and the remembered object is missing from the selection, sets the filter to the first
+		// available object. If set to false, the selection will remain empty.
+		'popupDD' => null,
+
+		// Force the filter to select the given objects.
+		// works only if the host given in 'hostid' belongs to that group or 'hostid' is not set
+		'groupid' => null,
+		// works only if a host group is selected or the host group filter value is set to 'all'
+		'hostid' => null,
+		// works only if a host is selected or the host filter value is set to 'all'
+		'graphid' => null,
+		// works only if a specific host has been selected, will NOT work if the host filter is set to 'all'
+		'triggerid' => null,
+		'druleid' => null,
+
+		// API parameters to be used to retrieve filter objects
+		'groups' => null,
+		'hosts' => null,
+		'graphs' => null,
+		'triggers' => null,
+		'drules' => null
+	);
+
+	/**
+	 * Objects preset in the filter.
+	 *
+	 * @var array
+	 */
+	protected $data = array(
+		'groups' => null,
+		'hosts' => null,
+		'graphs' => null,
+		'triggers' => null,
+		'drules' => null
+	);
+
+	/**
+	 * Selected objects IDs.
+	 *
+	 * @var array
+	 */
+	protected $ids = array(
+		'groupid' => null,
+		'hostid' => null,
+		'triggerid' => null,
+		'graphid' => null,
+		'druleid' => null
+	);
+
+	/**
+	 * Contains information about the selected values.
+	 *
+	 * The '*Selected' value is set to true if a specific object is chosen or the corresponding filter is set to 'All'
+	 * and contains objects.
+	 *
+	 * The '*All' value is set to true if the corresponding filter is set to 'All' and contains objects.
+	 *
+	 * @var array
+	 */
+	protected $isSelected = array(
+		'groupsSelected' => null,
+		'groupsAll' => null,
+		'hostsSelected' => null,
+		'hostsAll' => null,
+		'graphsSelected' => null,
+		'triggersSelected' => null,
+		'drulesSelected' => null,
+		'drulesAll' => null
+	);
+
+	/**
+	 * User profile keys to be used when remembering the selected values.
+	 *
+	 * @see the 'individual' option for more info.
+	 *
+	 * @var array
+	 */
+	private $_profileIdx = array(
+		'groupid' => null,
+		'hostid' => null,
+		'triggerid' => null,
+		'graphid' => null,
+		'druleid' => null
+	);
+
+	/**
+	 * IDs of specific objects to be selected.
+	 *
+	 * @var array
+	 */
+	private $_profileIds = array(
+		'groupid' => null,
+		'hostid' => null,
+		'triggerid' => null,
+		'graphid' => null,
+		'druleid' => null
+	);
+
 	private $_requestIds = array();
 
 	const GROUP_LATEST_IDX = 'web.latest.groupid';
@@ -117,12 +228,20 @@ class CPageFilter {
 		if (isset($options['drules'])) {
 			$this->_initDiscoveries($options['druleid'], $options['drules']);
 		}
-
-		if (isset($options['applications'])) {
-			$this->_initApplications($options['application'], $options['applications']);
-		}
 	}
 
+	/**
+	 * Retrieve objects stored in the user profile.
+	 *
+	 * If the 'select_latest' option is used, the IDs will be loaded from the web.latest.objectid profile values,
+	 * otherwise - from the web.*.objectid field, depending on the use of the 'individial' option.
+	 *
+	 * If the 'DDReset' option is used, IDs will be reset to zeroes.
+	 *
+	 * The method also sets the scope for remembering the selected values, see the 'individual' option for more info.
+	 *
+	 * @param $options
+	 */
 	private function _getProfiles($options) {
 		global $page;
 
@@ -132,7 +251,6 @@ class CPageFilter {
 		$this->_profileIdx['graphs'] = 'web.'.$profileSection.'.graphid';
 		$this->_profileIdx['triggers'] = 'web.'.$profileSection.'.triggerid';
 		$this->_profileIdx['drules'] = 'web.'.$profileSection.'.druleid';
-		$this->_profileIdx['application'] = 'web.'.$profileSection.'.application';
 
 		if ($this->config['select_latest']) {
 			$this->_profileIds['groupid'] = CProfile::get(self::GROUP_LATEST_IDX);
@@ -140,7 +258,6 @@ class CPageFilter {
 			$this->_profileIds['graphid'] = CProfile::get(self::GRAPH_LATEST_IDX);
 			$this->_profileIds['triggerid'] = null;
 			$this->_profileIds['druleid'] = CProfile::get(self::DRULE_LATEST_IDX);
-			$this->_profileIds['application'] = '';
 		}
 		elseif ($this->config['DDReset'] && !$this->config['DDRemember']) {
 			$this->_profileIds['groupid'] = 0;
@@ -148,7 +265,6 @@ class CPageFilter {
 			$this->_profileIds['graphid'] = 0;
 			$this->_profileIds['triggerid'] = 0;
 			$this->_profileIds['druleid'] = 0;
-			$this->_profileIds['application'] = '';
 		}
 		else {
 			$this->_profileIds['groupid'] = CProfile::get($this->_profileIdx['groups']);
@@ -156,7 +272,6 @@ class CPageFilter {
 			$this->_profileIds['graphid'] = CProfile::get($this->_profileIdx['graphs']);
 			$this->_profileIds['triggerid'] = null;
 			$this->_profileIds['druleid'] = CProfile::get($this->_profileIdx['drules']);
-			$this->_profileIds['application'] = CProfile::get($this->_profileIdx['application']);
 		}
 
 		$this->_requestIds['groupid'] = isset($options['groupid']) ? $options['groupid'] : null;
@@ -164,7 +279,6 @@ class CPageFilter {
 		$this->_requestIds['graphid'] = isset($options['graphid']) ? $options['graphid'] : null;
 		$this->_requestIds['triggerid'] = isset($options['triggerid']) ? $options['triggerid'] : null;
 		$this->_requestIds['druleid'] = isset($options['druleid']) ? $options['druleid'] : null;
-		$this->_requestIds['application'] = isset($options['application']) ? $options['application'] : null;
 	}
 
 	private function _updateByGraph(&$options) {
@@ -209,6 +323,16 @@ class CPageFilter {
 		}
 	}
 
+	/**
+	 * Load available host groups, choose the selected host group and remember the selection.
+	 *
+	 * If the host given in the 'hostid' option does not belong to the selected host group, the selected host group
+	 * will be reset to 0.
+	 *
+	 * @param $groupid
+	 * @param $options
+	 * @param $hostid
+	 */
 	private function _initGroups($groupid, $options, $hostid) {
 		$def_options = array(
 			'nodeids' => $this->config['all_nodes'] ? get_current_nodeid() : null,
@@ -260,6 +384,14 @@ class CPageFilter {
 		$this->ids['groupid'] = $groupid;
 	}
 
+	/**
+	 * Load available hosts, choose the selected host and remember the selection.
+	 *
+	 * If no host group is selected, reset the selected host to 0.
+	 *
+	 * @param $hostid
+	 * @param $options
+	 */
 	private function _initHosts($hostid, $options) {
 		$this->data['hosts'] = array();
 
@@ -308,6 +440,14 @@ class CPageFilter {
 		$this->ids['hostid'] = $hostid;
 	}
 
+	/**
+	 * Load available graphs, choose the selected graph and remember the selection.
+	 *
+	 * If no host is selected, reset the selected graph to 0.
+	 *
+	 * @param $graphid
+	 * @param $options
+	 */
 	private function _initGraphs($graphid, $options) {
 		$this->data['graphs'] = array();
 
@@ -364,6 +504,14 @@ class CPageFilter {
 		$this->ids['graphid'] = $graphid;
 	}
 
+	/**
+	 * Load available triggers, choose the selected trigger and remember the selection.
+	 *
+	 * If no host is elected, or the host selection is set to 'All', reset the selected trigger to 0.
+	 *
+	 * @param $triggerid
+	 * @param $options
+	 */
 	private function _initTriggers($triggerid, $options) {
 		$this->data['triggers'] = array();
 
@@ -395,6 +543,12 @@ class CPageFilter {
 		$this->ids['triggerid'] = $triggerid;
 	}
 
+	/**
+	 * Load the available network discovery rules, choose the selected rule and remember the selection.
+	 *
+	 * @param $druleid
+	 * @param $options
+	 */
 	private function _initDiscoveries($druleid, $options) {
 		$def_options = array(
 			'nodeids' => $this->config['all_nodes'] ? get_current_nodeid() : null,
@@ -431,54 +585,6 @@ class CPageFilter {
 		$this->ids['druleid'] = $druleid;
 	}
 
-	/**
-	 * Set applications related variables.
-	 *  - applications: all applications available for dropdown on page
-	 *  - application: application curently selected, can be '' for 'all' or 'not selected'
-	 *  - applicationsSelected: if an application selected, i.e. not 'not selected'
-	 * Applications are dependent on groups.
-	 *
-	 * @param $application
-	 * @param $options
-	 */
-	private function _initApplications($application, $options) {
-		$this->data['applications'] = array();
-
-		if (!$this->groupsSelected) {
-			$application = '';
-		}
-		else {
-			$def_options = array(
-				'nodeids' => $this->config['all_nodes'] ? get_current_nodeid() : null,
-				'output' => array('name'),
-				'groupids' => ($this->groupid > 0) ? $this->groupid : null
-			);
-			$options = zbx_array_merge($def_options, $options);
-			$applications = API::Application()->get($options);
-
-			foreach ($applications as $app) {
-				$this->data['applications'][$app['name']] = $app['name'];
-			}
-
-			// select remebered selection
-			if (is_null($application) && $this->_profileIds['application']) {
-				$application = $this->_profileIds['application'];
-			}
-
-			// nonexisting or unset application
-			if ((!isset($this->data['applications'][$application]) && $application !== '') || is_null($application)) {
-				$application = '';
-			}
-		}
-
-		if (!is_null($this->_requestIds['application'])) {
-			CProfile::update($this->_profileIdx['application'], $application, PROFILE_TYPE_STR);
-		}
-		$this->isSelected['applicationsSelected'] = ($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL && !empty($this->data['applications'])) || $application !== '';
-		$this->isSelected['applicationsAll'] = $this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL && !empty($this->data['applications']) && $application === '';
-		$this->ids['application'] = $application;
-	}
-
 	public function getHostsCB($withNode = false) {
 		return $this->_getCB('hostid', $this->hostid, $this->hosts, $withNode);
 	}
@@ -510,18 +616,7 @@ class CPageFilter {
 		return $this->_getCB('druleid', $this->druleid, $this->drules, $withNode);
 	}
 
-	/**
-	 * Get dropdown for application selection.
-	 *
-	 * @param bool $withNode
-	 *
-	 * @return CComboBox
-	 */
-	public function getApplicationsCB($withNode = false) {
-		return $this->_getCB('application', $this->application, $this->applications, $withNode, '');
-	}
-
-	private function _getCB($cbname, $selectedid, $items, $withNode, $allValue = 0) {
+	private function _getCB($cbname, $selectedid, $items, $withNode) {
 		$cmb = new CComboBox($cbname, $selectedid, 'javascript: submit();');
 
 		if ($withNode) {
@@ -533,7 +628,7 @@ class CPageFilter {
 		natcasesort($items);
 
 		if (!$this->config['popupDD']) {
-			$items = array($allValue => ($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_NONE) ? _('not selected') : _('all')) + $items;
+			$items = array(0 => ($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_NONE) ? _('not selected') : _('all')) + $items;
 		}
 
 		foreach ($items as $id => $name) {

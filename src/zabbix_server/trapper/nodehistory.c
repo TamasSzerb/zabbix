@@ -111,8 +111,13 @@ int	send_history_last_id(zbx_sock_t *sock, const char *data)
 		goto error;
 
 	buffer_offset= 0;
-	zbx_snprintf_alloc(&buffer, &buffer_alloc, &buffer_offset, "select max(%s) from %s" ZBX_SQL_NODE,
-			table->recid, table->table, DBwhere_node(table->recid, nodeid));
+	zbx_snprintf_alloc(&buffer, &buffer_alloc, &buffer_offset,
+			"select max(%s)"
+			" from %s"
+			" where 1=1" DB_NODE,
+			table->recid,
+			table->table,
+			DBnode(table->recid, nodeid));
 
 	buffer_offset= 0;
 	result = DBselect("%s", buffer);
@@ -162,6 +167,7 @@ static int	process_record_event(int sender_nodeid, int nodeid, const ZBX_TABLE *
 {
 	const char	*r;
 	int		f, source = 0, object = 0, value = 0, acknowledged = 0;
+	unsigned char	value_changed = 0;
 	zbx_uint64_t	eventid = 0, objectid = 0;
 	zbx_timespec_t	ts;
 
@@ -192,11 +198,13 @@ static int	process_record_event(int sender_nodeid, int nodeid, const ZBX_TABLE *
 			ts.ns = atoi(buffer);
 		else if (0 == strcmp(table->fields[f].name, "value"))
 			value = atoi(buffer);
+		else if (0 == strcmp(table->fields[f].name, "value_changed"))
+			value_changed = (unsigned char)atoi(buffer);
 		else if (0 == strcmp(table->fields[f].name, "acknowledged"))
 			acknowledged = atoi(buffer);
 	}
 
-	return process_event(eventid, source, object, objectid, &ts, value, acknowledged);
+	return process_event(eventid, source, object, objectid, &ts, value, value_changed, acknowledged, 0);
 error:
 	zabbix_log(LOG_LEVEL_ERR, "NODE %d: received invalid record from node %d for node %d [%s]",
 			CONFIG_NODEID, sender_nodeid, nodeid, record);

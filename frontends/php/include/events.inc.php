@@ -50,7 +50,7 @@ function get_events_unacknowledged($db_element, $value_trigger = null, $value_ev
 	$config = select_config();
 	$options = array(
 		'nodeids' => get_current_nodeid(),
-		'output' => array('triggerid'),
+		'output' => API_OUTPUT_SHORTEN,
 		'monitored' => 1,
 		'skipDependent' => 1,
 		'limit' => $config['search_limit'] + 1
@@ -73,6 +73,7 @@ function get_events_unacknowledged($db_element, $value_trigger = null, $value_ev
 		'countOutput' => 1,
 		'triggerids' => zbx_objectValues($triggerids, 'triggerid'),
 		'filter' => array(
+			'value_changed' => TRIGGER_VALUE_CHANGED_YES,
 			'value' => is_null($value_event) ? array(TRIGGER_VALUE_TRUE, TRIGGER_VALUE_FALSE) : $value_event,
 			'acknowledged' => $ack ? 1 : 0
 		),
@@ -81,7 +82,7 @@ function get_events_unacknowledged($db_element, $value_trigger = null, $value_ev
 	));
 }
 
-function get_next_event($currentEvent, array $eventList = array()) {
+function get_next_event($currentEvent, array $eventList = array(), $showUnknown = false) {
 	$nextEvent = false;
 
 	foreach ($eventList as $event) {
@@ -102,6 +103,7 @@ function get_next_event($currentEvent, array $eventList = array()) {
 			' WHERE e.objectid='.$currentEvent['objectid'].
 				' AND e.eventid>'.$currentEvent['eventid'].
 				' AND e.object='.$currentEvent['object'].
+				($showUnknown ? '' : ' AND e.value_changed='.TRIGGER_VALUE_CHANGED_YES).
 			' ORDER BY e.object,e.objectid,e.eventid';
 	return DBfetch(DBselect($sql, 1));
 }
@@ -110,7 +112,7 @@ function make_event_details($event, $trigger) {
 	$config = select_config();
 	$table = new CTableInfo();
 
-	$table->addRow(array(_('Event'), CMacrosResolverHelper::resolveEventDescription(array_merge($trigger, $event))));
+	$table->addRow(array(_('Event'), CEventHelper::expandDescription(array_merge($trigger, $event))));
 	$table->addRow(array(_('Time'), zbx_date2str(_('d M Y H:i:s'), $event['clock'])));
 
 	if ($config['event_ack_enable']) {
@@ -159,7 +161,7 @@ function make_small_eventlist($startEvent) {
 		$duration = zbx_date2age($lclock, $event['clock']);
 		$clock = $event['clock'];
 
-		if (bccomp($startEvent['eventid'],$event['eventid']) == 0 && $nextevent = get_next_event($event, $events)) {
+		if (bccomp($startEvent['eventid'],$event['eventid']) == 0 && $nextevent = get_next_event($event, $events, true)) {
 			$duration = zbx_date2age($nextevent['clock'], $clock);
 		}
 		elseif (bccomp($startEvent['eventid'], $event['eventid']) == 0) {
@@ -216,7 +218,8 @@ function make_popup_eventlist($eventid, $trigger_type, $triggerid) {
 		'triggerids' => $triggerid,
 		'eventid_till' => $eventid,
 		'filter' => array(
-			'object' => EVENT_OBJECT_TRIGGER
+			'object' => EVENT_OBJECT_TRIGGER,
+			'value_changed' => TRIGGER_VALUE_CHANGED_YES
 		),
 		'nopermissions' => 1,
 		'select_acknowledges' => API_OUTPUT_COUNT,
@@ -255,6 +258,7 @@ function make_popup_eventlist($eventid, $trigger_type, $triggerid) {
  * If $event has subarray 'acknowledges', returned link will have hint with acknowledges.
  *
  * @param array			$event   event data
+ * @param int			$event['value_changed']
  * @param int			$event['acknowledged']
  * @param int			$event['eventid']
  * @param int			$event['objectid']
@@ -270,6 +274,10 @@ function getEventAckState($event, $backUrl = false, $isLink = true, $params = ar
 
 	if (!$config['event_ack_enable']) {
 		return null;
+	}
+
+	if ($event['value_changed'] == TRIGGER_VALUE_CHANGED_NO) {
+		return SPACE;
 	}
 
 	if ($isLink) {
@@ -338,7 +346,8 @@ function getLastEvents($options) {
 	$eventOptions = array(
 		'output' => API_OUTPUT_EXTEND,
 		'filter' => array(
-			'object' => EVENT_OBJECT_TRIGGER
+			'object' => EVENT_OBJECT_TRIGGER,
+			'value_changed' => TRIGGER_VALUE_CHANGED_YES
 		),
 		'sortfield' => 'eventid',
 		'sortorder' => ZBX_SORT_DOWN
@@ -388,7 +397,7 @@ function getLastEvents($options) {
 
 		//expanding description for the state where event was
 		$merged_event = array_merge($event, $triggers[$event['objectid']]);
-		$events[$enum]['trigger']['description'] = CMacrosResolverHelper::resolveEventDescription($merged_event);
+		$events[$enum]['trigger']['description'] = CEventHelper::expandDescription($merged_event);
 	}
 	array_multisort($sortClock, SORT_DESC, $sortEvent, SORT_DESC, $events);
 

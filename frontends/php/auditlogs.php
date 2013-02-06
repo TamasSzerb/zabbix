@@ -123,9 +123,9 @@ $sqlWhere['till'] = ' AND a.clock<'.$till;
 
 $sql = 'SELECT a.auditid,a.clock,u.alias,a.ip,a.resourcetype,a.action,a.resourceid,a.resourcename,a.details'.
 		' FROM auditlog a,users u'.
-		' WHERE a.userid=u.userid'.
+		' WHERE u.userid=a.userid'.
 			implode('', $sqlWhere).
-			andDbNode('u.userid', get_current_nodeid(null, PERM_READ)).
+			' AND '.DBin_node('u.userid', get_current_nodeid(null, PERM_READ_ONLY)).
 		' ORDER BY a.clock DESC';
 $dbAudit = DBselect($sql, $config['search_limit'] + 1);
 while ($audit = DBfetch($dbAudit)) {
@@ -178,16 +178,16 @@ unset($sqlWhere['from'], $sqlWhere['till']);
 
 $sql = 'SELECT a.auditid,a.clock'.
 		' FROM auditlog a,users u'.
-		' WHERE a.userid=u.userid'.
+		' WHERE u.userid=a.userid'.
 		implode('', $sqlWhere).
-		andDbNode('u.userid', get_current_nodeid(null, PERM_READ)).
+		' AND '.DBin_node('u.userid', get_current_nodeid(null, PERM_READ_ONLY)).
 		' ORDER BY a.clock';
 $firstAudit = DBfetch(DBselect($sql, $config['search_limit'] + 1));
 
 $data['timeline'] = array(
 	'period' => $effectivePeriod,
-	'starttime' => date(TIMESTAMP_FORMAT, !empty($firstAudit) ? $firstAudit['clock'] : null),
-	'usertime' => isset($_REQUEST['stime']) ? date(TIMESTAMP_FORMAT, zbxDateToTime($data['stime']) + $effectivePeriod) : null
+	'starttime' => date('YmdHis', !empty($firstAudit) ? $firstAudit['clock'] : null),
+	'usertime' => isset($_REQUEST['stime']) ? date('YmdHis', zbxDateToTime($data['stime']) + $effectivePeriod) : null
 );
 
 // render view

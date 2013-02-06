@@ -33,6 +33,8 @@
  *                                                                            *
  * Parameters: event - [IN] event data                                        *
  *                                                                            *
+ * Author: Alexei Vladishev, Aleksandrs Saveljevs                             *
+ *                                                                            *
  ******************************************************************************/
 static int	add_trigger_info(DB_EVENT *event)
 {
@@ -41,43 +43,40 @@ static int	add_trigger_info(DB_EVENT *event)
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	if (SUCCEED == DBis_node_local_id(event->objectid))
+	if (EVENT_OBJECT_TRIGGER == event->object && 0 != event->objectid)
 	{
-		ret = DCconfig_get_trigger_for_event(&event->trigger, event->objectid);
-	}
-	else
-	{
-		DB_RESULT	result;
-		DB_ROW		row;
-
-		result = DBselect(
-				"select description,expression,priority,type"
-				" from triggers"
-				" where triggerid=" ZBX_FS_UI64,
-				event->objectid);
-
-		if (NULL != (row = DBfetch(result)))
+		if (SUCCEED == DBis_node_local_id(event->objectid))
 		{
-			event->trigger.triggerid = event->objectid;
-			event->trigger.description = zbx_strdup(event->trigger.description, row[0]);
-			event->trigger.expression = zbx_strdup(event->trigger.expression, row[1]);
-			event->trigger.priority = (unsigned char)atoi(row[2]);
-			event->trigger.type = (unsigned char)atoi(row[3]);
+			ret = DCconfig_get_trigger_for_event(&event->trigger, event->objectid);
 		}
 		else
-			ret = FAIL;
-		DBfree_result(result);
+		{
+			DB_RESULT	result;
+			DB_ROW		row;
+
+			result = DBselect(
+					"select description,expression,priority,type"
+					" from triggers"
+					" where triggerid=" ZBX_FS_UI64,
+					event->objectid);
+
+			if (NULL != (row = DBfetch(result)))
+			{
+				event->trigger.triggerid = event->objectid;
+				strscpy(event->trigger.description, row[0]);
+				strscpy(event->trigger.expression, row[1]);
+				event->trigger.priority = (unsigned char)atoi(row[2]);
+				event->trigger.type = (unsigned char)atoi(row[3]);
+			}
+			else
+				ret = FAIL;
+			DBfree_result(result);
+		}
 	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 
 	return ret;
-}
-
-static void	free_trigger_info(DB_EVENT *event)
-{
-	zbx_free(event->trigger.description);
-	zbx_free(event->trigger.expression);
 }
 
 /******************************************************************************
@@ -94,15 +93,15 @@ static void	free_trigger_info(DB_EVENT *event)
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-int	process_event(zbx_uint64_t eventid, int source, int object, zbx_uint64_t objectid,
-		const zbx_timespec_t *timespec, int value, int acknowledged)
+int	process_event(zbx_uint64_t eventid, int source, int object, zbx_uint64_t objectid, const zbx_timespec_t *timespec,
+		int value, unsigned char value_changed, int acknowledged, int force_actions)
 {
 	const char	*__function_name = "process_event";
 	DB_EVENT	event;
 	int		ret = FAIL;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() eventid:" ZBX_FS_UI64 " object:%d objectid:" ZBX_FS_UI64 " value:%d",
-			__function_name, eventid, object, objectid, value);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() eventid:" ZBX_FS_UI64 " object:%d objectid:" ZBX_FS_UI64 " value:%d"
+			" value_changed:%d", __function_name, eventid, object, objectid, value, (int)value_changed);
 
 	/* preparing event for processing */
 	memset(&event, 0, sizeof(DB_EVENT));
@@ -113,27 +112,26 @@ int	process_event(zbx_uint64_t eventid, int source, int object, zbx_uint64_t obj
 	event.clock = timespec->sec;
 	event.ns = timespec->ns;
 	event.value = value;
+	event.value_changed = value_changed;
 	event.acknowledged = acknowledged;
 
-	if (EVENT_SOURCE_TRIGGERS == event.source && SUCCEED != add_trigger_info(&event))
-		goto fail;
+	if (TRIGGER_VALUE_CHANGED_YES == event.value_changed || 1 == force_actions)
+		if (SUCCEED != add_trigger_info(&event))
+			goto fail;
 
 	if (0 == event.eventid)
 		event.eventid = DBget_maxid("events");
 
-	DBexecute("insert into events (eventid,source,object,objectid,clock,ns,value)"
-			" values (" ZBX_FS_UI64 ",%d,%d," ZBX_FS_UI64 ",%d,%d,%d)",
-			event.eventid, event.source, event.object, event.objectid, event.clock, event.ns, event.value);
+	DBexecute("insert into events (eventid,source,object,objectid,clock,ns,value,value_changed)"
+			" values (" ZBX_FS_UI64 ",%d,%d," ZBX_FS_UI64 ",%d,%d,%d,%d)",
+			event.eventid, event.source, event.object, event.objectid, event.clock, event.ns,
+			event.value, (int)event.value_changed);
 
-	process_actions(&event);
+	if (TRIGGER_VALUE_CHANGED_YES == event.value_changed || 1 == force_actions)
+		process_actions(&event);
 
-	if (EVENT_SOURCE_TRIGGERS == event.source)
-	{
-		DBupdate_services(event.objectid, TRIGGER_VALUE_PROBLEM == event.value ? event.trigger.priority : 0,
-				event.clock);
-
-		free_trigger_info(&event);
-	}
+	if (TRIGGER_VALUE_CHANGED_YES == event.value_changed && EVENT_OBJECT_TRIGGER == event.object)
+		DBupdate_services(event.objectid, TRIGGER_VALUE_TRUE == event.value ? event.trigger.priority : 0, event.clock);
 
 	ret = SUCCEED;
 fail:

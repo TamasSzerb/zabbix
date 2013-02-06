@@ -17,7 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 function init_mbstrings() {
 	$res = true;
@@ -36,8 +37,10 @@ function mbstrings_available() {
 	return function_exists('mb_strlen') && function_exists('mb_strtoupper') && function_exists('mb_strpos') && function_exists('mb_substr');
 }
 
-function getLocales() {
-	$locales = array(
+function set_zbx_locales() {
+	global $ZBX_LOCALES;
+
+	$ZBX_LOCALES = array(
 		'en_GB' => _('English (en_GB)'),
 		'en_US' => _('English (en_US)'),
 		'bg_BG' => _('Bulgarian (bg_BG)'),
@@ -67,8 +70,6 @@ function getLocales() {
 		'tr_TR' => _('Turkish (tr_TR)'),
 		'uk_UA' => _('Ukrainian (uk_UA)')
 	);
-
-	return $locales;
 }
 
 /**
@@ -167,3 +168,4 @@ function zbx_locale_variants_win($language) {
 	);
 	return $winLanguageName[strtolower($language)];
 }
+?>

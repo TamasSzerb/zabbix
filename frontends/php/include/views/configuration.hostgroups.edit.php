@@ -32,9 +32,7 @@ if (isset($this->data['groupid'])) {
 
 // create hostgroup form list
 $hostgroupFormList = new CFormList('hostgroupFormList');
-$nameTextBox = new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE, false, 64);
-$nameTextBox->attr('autofocus', 'autofocus');
-$hostgroupFormList->addRow(_('Group name'), $nameTextBox);
+$hostgroupFormList->addRow(_('Group name'), new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE, false, 64));
 
 // append groups and hosts to form list
 $groupsComboBox = new CComboBox('twb_groupid', $this->data['twb_groupid'], 'submit()');

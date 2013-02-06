@@ -264,7 +264,7 @@ elseif (str_in_array($_REQUEST['go'], array('activate', 'disable')) && isset($_R
 			'where' => array('triggerid' => $triggerIdsToUpdate)
 		));
 
-		// if we're disabling a monitored trigger, set it's value flag to UNKNOWN
+		// if disable trigger, unknown event must be created
 		if ($status == TRIGGER_STATUS_DISABLED) {
 			$valueTriggerIds = array();
 			$db_triggers = DBselect(
@@ -289,6 +289,8 @@ elseif (str_in_array($_REQUEST['go'], array('activate', 'disable')) && isset($_R
 					),
 					'where' => array('triggerid' => $valueTriggerIds)
 				));
+
+				addUnknownEvent($valueTriggerIds);
 			}
 		}
 
@@ -402,7 +404,7 @@ else {
 	if ($data['pageFilter']->hostsSelected) {
 		$options = array(
 			'editable' => true,
-			'output' => array('triggerid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'sortfield' => $sortfield,
 			'limit' => $config['search_limit'] + 1
 		);

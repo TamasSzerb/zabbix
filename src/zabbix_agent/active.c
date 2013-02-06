@@ -272,7 +272,9 @@ static int	parse_list_of_checks(char *str)
 			mtime = 0;
 		}
 		else
+		{
 			mtime = atoi(tmp);
+		}
 
 		add_check(name, key_orig, delay, lastlogsize, mtime);
 	}
@@ -589,20 +591,17 @@ ret:
  *                                                                            *
  * Purpose: Buffer new value or send the whole buffer to the server           *
  *                                                                            *
- * Parameters: server      - IP or Hostname of Zabbix server                  *
- *             port        - port of Zabbix server                            *
- *             host        - name of host in Zabbix database                  *
- *             key         - name of metric                                   *
- *             value       - string version os key value                      *
+ * Parameters: host - IP or Hostname of Zabbix server                         *
+ *             port - port of Zabbix server                                   *
+ *             hostname - name of host in Zabbix database                     *
+ *             key - name of metric                                           *
+ *             value - string version os key value                            *
  *             lastlogsize - size of read logfile                             *
- *             mtime       - time of last file modification                   *
- *             timestamp   - timestamp of read value                          *
- *             source      - name of logged data source                       *
- *             severity    - severity of logged data sources                  *
- *             logeventid  - the application-specific identifier for          *
- *                           the event; used for monitoring of Windows        *
- *                           event logs                                       *
- *             persistent  - do not overwrite old values                      *
+ *             mtime - time of last file modification                         *
+ *             timestamp - timestamp of read value                            *
+ *             source - name of logged data source                            *
+ *             severity - severity of logged data sources                     *
+ *             persistent - do not overwrite old values                       *
  *                                                                            *
  * Return value: returns SUCCEED on successful parsing,                       *
  *               FAIL on other cases                                          *
@@ -762,10 +761,8 @@ static void	process_active_checks(char *server, unsigned short port)
 		{
 			ret = FAIL;
 
-			do
-			{
-				/* simple try realization */
-				if (ZBX_COMMAND_WITH_PARAMS != parse_command(active_metrics[i].key, NULL, 0, params, sizeof(params)))
+			do { /* simple try realization */
+				if (2 != parse_command(active_metrics[i].key, NULL, 0, params, sizeof(params)))
 					break;
 
 				if (5 < num_param(params))
@@ -862,10 +859,8 @@ static void	process_active_checks(char *server, unsigned short port)
 		{
 			ret = FAIL;
 
-			do
-			{
-				/* simple try realization */
-				if (ZBX_COMMAND_WITH_PARAMS != parse_command(active_metrics[i].key, NULL, 0, params, sizeof(params)))
+			do { /* simple try realization */
+				if (2 != parse_command(active_metrics[i].key, NULL, 0, params, sizeof(params)))
 					break;
 
 				if (5 < num_param(params))
@@ -949,6 +944,7 @@ static void	process_active_checks(char *server, unsigned short port)
 					if (p_count >= (4 * maxlines_persec * active_metrics[i].refresh))
 						break;
 				} /* while processing a log */
+
 			}
 			while (0); /* simple try realization */
 
@@ -969,10 +965,8 @@ static void	process_active_checks(char *server, unsigned short port)
 		{
 			ret = FAIL;
 #ifdef _WINDOWS
-			do
-			{
-				/* simple try realization */
-				if (ZBX_COMMAND_WITH_PARAMS != parse_command(active_metrics[i].key, NULL, 0, params, sizeof(params)))
+			do{ /* simple try realization */
+				if (2 != parse_command(active_metrics[i].key, NULL, 0, params, sizeof(params)))
 					break;
 
 				if (7 < num_param(params))
@@ -1089,6 +1083,7 @@ static void	process_active_checks(char *server, unsigned short port)
 				} /* while processing an eventlog */
 
 				break;
+
 			}
 			while (0); /* simple try realization */
 #endif	/* _WINDOWS */

@@ -26,7 +26,6 @@
 #include "sysinfo.h"
 
 extern char	*CONFIG_SOURCE_IP;
-extern int	CONFIG_TIMEOUT;
 
 int	get_value_snmp(DC_ITEM *item, AGENT_RESULT *value);
 

@@ -68,7 +68,27 @@ abstract class CTriggerGeneral extends CZBXAPI {
 			'nopermissions' => true
 		));
 
+		// fetch the existing child triggers
+		$templatedTriggers = $this->get(array(
+			'output' => array('triggerid', 'description'),
+			'filter' => array(
+				'templateid' => $trigger['triggerid']
+			),
+			'selectHosts' => array('name'),
+			'preservekeys' => true
+		));
+
+		// no templates found, which means, that the trigger is no longer a templated trigger
 		if (empty($triggerTemplates)) {
+			// delete all of the former child triggers that may exist
+			if ($templatedTriggers) {
+				foreach ($templatedTriggers as $trigger) {
+					info(_s('Deleted: Trigger "%1$s" on "%2$s".', $trigger['description'],
+						implode(', ', zbx_objectValues($trigger['hosts'], 'name'))));
+				}
+				$this->deleteByPks(zbx_objectValues($templatedTriggers, 'triggerid'));
+			}
+
 			// nothing to inherit, just exit
 			return true;
 		}
@@ -111,6 +131,17 @@ abstract class CTriggerGeneral extends CZBXAPI {
 			// propagate the trigger inheritance to all child hosts
 			$this->inherit($newTrigger);
 
+			unset($templatedTriggers[$newTrigger['triggerid']]);
+		}
+
+		// if we've updated the children of the trigger on all of the host, and there are still some children left,
+		// we must delete them
+		if ($templatedTriggers && !$hostids) {
+			foreach ($templatedTriggers as $trigger) {
+				info(_s('Deleted: Trigger "%1$s" on "%2$s".', $trigger['description'],
+					implode(', ', zbx_objectValues($trigger['hosts'], 'name'))));
+			}
+			$this->deleteByPks(zbx_objectValues($templatedTriggers, 'triggerid'));
 		}
 
 		return true;
@@ -285,77 +316,4 @@ abstract class CTriggerGeneral extends CZBXAPI {
 			}
 		}
 	}
-
-	protected function addRelatedObjects(array $options, array $result) {
-		$result = parent::addRelatedObjects($options, $result);
-
-		$triggerids = array_keys($result);
-
-		// adding groups
-		if ($options['selectGroups'] !== null && $options['selectGroups'] != API_OUTPUT_COUNT) {
-			$res = DBselect(
-				'SELECT f.triggerid,hg.groupid'.
-					' FROM functions f,items i,hosts_groups hg'.
-					' WHERE '.dbConditionInt('f.triggerid', $triggerids).
-					' AND f.itemid=i.itemid'.
-					' AND i.hostid=hg.hostid'
-			);
-			$relationMap = new CRelationMap();
-			while ($relation = DBfetch($res)) {
-				$relationMap->addRelation($relation['triggerid'], $relation['groupid']);
-			}
-
-			$groups = API::HostGroup()->get(array(
-				'nodeids' => $options['nodeids'],
-				'output' => $options['selectGroups'],
-				'groupids' => $relationMap->getRelatedIds(),
-				'preservekeys' => true
-			));
-			$result = $relationMap->mapMany($result, $groups, 'groups');
-		}
-
-		// adding hosts
-		if ($options['selectHosts'] !== null && $options['selectHosts'] != API_OUTPUT_COUNT) {
-			$res = DBselect(
-				'SELECT f.triggerid,i.hostid'.
-					' FROM functions f,items i'.
-					' WHERE '.dbConditionInt('f.triggerid', $triggerids).
-					' AND f.itemid=i.itemid'
-			);
-			$relationMap = new CRelationMap();
-			while ($relation = DBfetch($res)) {
-				$relationMap->addRelation($relation['triggerid'], $relation['hostid']);
-			}
-
-			$hosts = API::Host()->get(array(
-				'output' => $options['selectHosts'],
-				'nodeids' => $options['nodeids'],
-				'hostids' => $relationMap->getRelatedIds(),
-				'templated_hosts' => true,
-				'nopermissions' => true,
-				'preservekeys' => true
-			));
-			if (!is_null($options['limitSelects'])) {
-				order_result($hosts, 'host');
-			}
-			$result = $relationMap->mapMany($result, $hosts, 'hosts', $options['limitSelects']);
-		}
-
-		// adding functions
-		if ($options['selectFunctions'] !== null && $options['selectFunctions'] != API_OUTPUT_COUNT) {
-			$functions = API::getApi()->select('functions', array(
-				'output' => $this->outputExtend('functions', array('triggerid', 'functionid'), $options['selectFunctions']),
-				'filter' => array('triggerid' => $triggerids),
-				'preservekeys' => true
-			));
-			$relationMap = $this->createRelationMap($functions, 'triggerid', 'functionid');
-
-			$functions = $this->unsetExtraFields($functions, array('triggerid', 'functionid'), $options['selectFunctions']);
-			$result = $relationMap->mapMany($result, $functions, 'functions');
-		}
-
-		return $result;
-	}
-
-
 }

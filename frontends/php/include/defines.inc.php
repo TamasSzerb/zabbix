@@ -19,12 +19,11 @@
 **/
 
 
-define('ZABBIX_VERSION',     '2.1.0');
-define('ZABBIX_API_VERSION', '2.1.0');
-define('ZABBIX_DB_VERSION',	 2010034);
+define('ZABBIX_VERSION',		'2.0.5');
+define('ZABBIX_API_VERSION',	'2.0.5');
 
 define('ZABBIX_COPYRIGHT_FROM', '2001');
-define('ZABBIX_COPYRIGHT_TO',   '2012');
+define('ZABBIX_COPYRIGHT_TO', '2012');
 
 define('ZBX_LOGIN_ATTEMPTS',	5);
 define('ZBX_LOGIN_BLOCK',		30); // sec
@@ -366,12 +365,6 @@ define('ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV',		2);
 define('ITEM_AUTHTYPE_PASSWORD',	0);
 define('ITEM_AUTHTYPE_PUBLICKEY',	1);
 
-define('ITEM_AUTHPROTOCOL_MD5', 0);
-define('ITEM_AUTHPROTOCOL_SHA', 1);
-
-define('ITEM_PRIVPROTOCOL_DES', 0);
-define('ITEM_PRIVPROTOCOL_AES', 1);
-
 define('ITEM_LOGTYPE_INFORMATION',	1);
 define('ITEM_LOGTYPE_WARNING',		2);
 define('ITEM_LOGTYPE_ERROR',		4);
@@ -615,18 +608,12 @@ define('GROUP_GUI_ACCESS_DISABLED', 2);
 define('GROUP_API_ACCESS_DISABLED', 0);
 define('GROUP_API_ACCESS_ENABLED',	1);
 
-/**
- * @see access_deny()
- */
-define('ACCESS_DENY_OBJECT', 0);
-define('ACCESS_DENY_PAGE', 1);
-
 define('GROUP_DEBUG_MODE_DISABLED', 0);
 define('GROUP_DEBUG_MODE_ENABLED',	1);
 
 define('PERM_MAX',			3);
 define('PERM_READ_WRITE',	3);
-define('PERM_READ',			2);
+define('PERM_READ_ONLY',	2);
 define('PERM_READ_LIST',	1);
 define('PERM_DENY',			0);
 
@@ -757,6 +744,7 @@ define('HOST_INVENTORY_DISABLED',	-1);
 define('HOST_INVENTORY_MANUAL',		0);
 define('HOST_INVENTORY_AUTOMATIC',	1);
 
+define('EXPRESSION_VALUE_TYPE_UNKNOWN',	'#ERROR_VALUE_TYPE#');
 define('EXPRESSION_HOST_UNKNOWN',		'#ERROR_HOST#');
 define('EXPRESSION_HOST_ITEM_UNKNOWN',	'#ERROR_ITEM#');
 define('EXPRESSION_NOT_A_MACRO_ERROR',	'#ERROR_MACRO#');
@@ -854,9 +842,11 @@ define('ZBX_API_ERROR_PERMISSIONS',	120);
 define('ZBX_API_ERROR_NO_AUTH',		200);
 define('ZBX_API_ERROR_NO_METHOD',	300);
 
+define('API_OUTPUT_SHORTEN',	'shorten');
 define('API_OUTPUT_REFER',		'refer');
 define('API_OUTPUT_EXTEND',		'extend');
 define('API_OUTPUT_COUNT',		'count');
+define('API_OUTPUT_CUSTOM',		'custom');
 
 define('SEC_PER_MIN',	60);
 define('SEC_PER_HOUR',	3600);
@@ -896,9 +886,6 @@ define('ZBX_DEFAULT_THEME', 'originalblue');
 
 define('ZABBIX_HOMEPAGE', 'http://www.zabbix.com');
 
-// non translatable date formats
-define('TIMESTAMP_FORMAT', 'YmdHis');
-
 // actions
 define('LONG_DESCRIPTION',	0);
 define('SHORT_DESCRIPTION',	1);
@@ -908,11 +895,7 @@ define('AVAILABILITY_REPORT_BY_HOST', 0);
 define('AVAILABILITY_REPORT_BY_TEMPLATE', 1);
 
 // if magic quotes on, then get rid of them
-if (get_magic_quotes_gpc()) {
-	function zbx_stripslashes($value) {
-		$value = is_array($value) ? array_map('zbx_stripslashes', $value) : stripslashes($value);
-		return $value;
-	}
+if (version_compare(phpversion(), '6.0', '<') && get_magic_quotes_gpc()) {
 	$_GET = zbx_stripslashes($_GET);
 	$_POST = zbx_stripslashes($_POST);
 	$_COOKIE = zbx_stripslashes($_COOKIE);

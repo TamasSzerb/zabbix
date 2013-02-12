@@ -17,7 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 function getUserTheme($userData) {
 	$config = select_config();
@@ -78,7 +79,7 @@ function get_userid_by_usrgrpid($usrgrpids) {
 		' FROM users u,users_groups ug'.
 		' WHERE u.userid=ug.userid'.
 			' AND '.dbConditionInt('ug.usrgrpid', $usrgrpids).
-			andDbNode('ug.usrgrpid', false)
+			' AND '.DBin_node('ug.usrgrpid', false)
 	);
 	while($user = DBFetch($db_users)){
 		$userids[$user['userid']] = $user['userid'];
@@ -165,3 +166,4 @@ function change_group_debug_mode($usrgrpids, $debug_mode){
 	zbx_value2array($usrgrpids);
 	return DBexecute('UPDATE usrgrp SET debug_mode='.$debug_mode.' WHERE '.dbConditionInt('usrgrpid', $usrgrpids));
 }
+?>

@@ -56,7 +56,6 @@ if (isset($_REQUEST['screenitemid']) && !isset($_REQUEST['form_refresh'])) {
 	$url			= $screenItem['url'];
 	$dynamic		= $screenItem['dynamic'];
 	$sort_triggers	= $screenItem['sort_triggers'];
-	$application	= $screenItem['application'];
 }
 else {
 	$resourcetype	= get_request('resourcetype', 0);
@@ -72,7 +71,6 @@ else {
 	$url			= get_request('url', '');
 	$dynamic		= get_request('dynamic', SCREEN_SIMPLE_ITEM);
 	$sort_triggers	= get_request('sort_triggers', SCREEN_SORT_TRIGGERS_DATE_DESC);
-	$application	= get_request('application', '');
 }
 
 // append resource types to form list
@@ -407,7 +405,6 @@ elseif (in_array($resourcetype, array(SCREEN_RESOURCE_TRIGGERS_OVERVIEW, SCREEN_
 			'formlist'
 		)
 	));
-	$screenFormList->addRow(_('Application'), new CTextBox('application', $application, ZBX_TEXTBOX_STANDARD_SIZE, false, 255));
 }
 
 /*
@@ -427,7 +424,7 @@ elseif ($resourcetype == SCREEN_RESOURCE_SCREEN) {
 		while ($row = DBfetch($db_screens)) {
 			$screen = API::Screen()->get(array(
 				'screenids' => $row['screenid'],
-				'output' => array('screenid')
+				'output' => API_OUTPUT_SHORTEN
 			));
 			if (empty($screen)) {
 				continue;

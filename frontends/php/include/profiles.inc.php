@@ -38,7 +38,7 @@ class CProfile {
 			'SELECT p.*'.
 			' FROM profiles p'.
 			' WHERE p.userid='.self::$userDetails['userid'].
-				andDbNode('p.profileid', false).
+				' AND '.DBin_node('p.profileid', false).
 			' ORDER BY p.userid,p.profileid'
 		);
 		while ($profile = DBfetch($db_profiles)) {
@@ -159,11 +159,11 @@ class CProfile {
 		$sql_cond = '';
 
 		if ($idx != 'web.nodes.switch_node') {
-			$sql_cond .= andDbNode('profileid', false);
+			$sql_cond .= ' AND '.DBin_node('profileid', false);
 		}
 
 		if ($idx2 > 0) {
-			$sql_cond .= ' AND idx2='.$idx2.andDbNode('idx2', false);
+			$sql_cond .= ' AND idx2='.$idx2.' AND '.DBin_node('idx2', false);
 		}
 
 		$value_type = self::getFieldByType($type);
@@ -220,11 +220,7 @@ function select_config($cache = true, $nodeid = null) {
 		$nodeid = $ZBX_LOCALNODEID;
 	}
 
-	$db_config = DBfetch(DBselect(
-			'SELECT c.*'.
-			' FROM config c'.
-			whereDbNode('c.configid', $nodeid)
-	));
+	$db_config = DBfetch(DBselect('SELECT c.* FROM config c WHERE '.DBin_node('c.configid', $nodeid)));
 	if (!empty($db_config)) {
 		$config = $db_config;
 		return $db_config;
@@ -255,7 +251,7 @@ function update_config($configs) {
 	if (isset($configs['discovery_groupid'])) {
 		$groupid = API::HostGroup()->get(array(
 			'groupids' => $configs['discovery_groupid'],
-			'output' => array('groupid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'preservekeys' => true
 		));
 		if (empty($groupid)) {
@@ -277,11 +273,10 @@ function update_config($configs) {
 		'ok_unack_color',
 		'ok_ack_color'
 	);
-	$colorvalidator = new CColorValidator();
 	foreach ($colors as $color) {
 		if (isset($configs[$color]) && !is_null($configs[$color])) {
-			if (!$colorvalidator->validate($configs[$color])) {
-				error($colorvalidator->getError());
+			if (!preg_match('/[0-9a-f]{6}/i', $configs[$color])) {
+				error(_('Colour is not correct: expecting hexadecimal colour code (6 symbols).'));
 				return false;
 			}
 		}
@@ -337,11 +332,7 @@ function update_config($configs) {
 		return null;
 	}
 
-	return DBexecute(
-			'UPDATE config'.
-			' SET '.implode(',', $update).
-			whereDbNode('configid', false)
-	);
+	return DBexecute('UPDATE config SET '.implode(',', $update).' WHERE '.DBin_node('configid', false));
 }
 
 /************ HISTORY **************/
@@ -440,4 +431,66 @@ function add_user_history($page) {
 		}
 	}
 	return DBexecute($sql);
+}
+
+/********** USER FAVORITES ***********/
+function get_favorites($idx) {
+	$result = array();
+
+	$db_profiles = DBselect(
+		'SELECT p.value_id,p.source'.
+		' FROM profiles p'.
+		' WHERE p.userid='.CWebUser::$data['userid'].
+			' AND p.idx='.zbx_dbstr($idx).
+		' ORDER BY p.profileid'
+	);
+	while ($profile = DBfetch($db_profiles)) {
+		$result[] = array('value' => $profile['value_id'], 'source' => $profile['source']);
+	}
+	return $result;
+}
+
+function add2favorites($favobj, $favid, $source = null) {
+	$favorites = get_favorites($favobj);
+
+	foreach ($favorites as $favorite) {
+		if ($favorite['source'] == $source && $favorite['value'] == $favid) {
+			return true;
+		}
+	}
+
+	DBstart();
+	$values = array(
+		'profileid' => get_dbid('profiles', 'profileid'),
+		'userid' => CWebUser::$data['userid'],
+		'idx' => zbx_dbstr($favobj),
+		'value_id' => $favid,
+		'type' => PROFILE_TYPE_ID
+	);
+	if (!is_null($source)) {
+		$values['source'] = zbx_dbstr($source);
+	}
+	return DBend(DBexecute('INSERT INTO profiles ('.implode(', ', array_keys($values)).') VALUES ('.implode(', ', $values).')'));
+}
+
+function rm4favorites($favobj, $favid = 0, $source = null) {
+	return DBexecute(
+		'DELETE FROM profiles'.
+		' WHERE userid='.CWebUser::$data['userid'].
+			' AND idx='.zbx_dbstr($favobj).
+			($favid > 0 ? ' AND value_id='.$favid : '').
+			(is_null($source) ? '' : ' AND source='.zbx_dbstr($source))
+	);
+}
+
+function infavorites($favobj, $favid, $source = null) {
+	$favorites = get_favorites($favobj);
+	foreach ($favorites as $favorite) {
+		if (bccomp($favid, $favorite['value']) == 0) {
+			if (is_null($source) || ($favorite['source'] == $source)) {
+				return true;
+			}
+		}
+	}
+	return false;
 }

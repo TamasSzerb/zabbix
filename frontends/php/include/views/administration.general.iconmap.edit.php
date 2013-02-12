@@ -25,7 +25,6 @@ $iconMapTab = new CFormList('scriptsTab');
 
 $TBname = new CTextBox('iconmap[name]', $this->data['iconmap']['name']);
 $TBname->setAttribute('maxlength', 64);
-$TBname->attr('autofocus', 'autofocus');
 $iconMapTab->addRow(_('Name'), $TBname);
 
 $iconMapTable = new CTable();
@@ -43,8 +42,7 @@ $iconMapTable->addRow(array(SPACE, SPACE, _('Inventory field'), _('Expression'),
 
 order_result($this->data['iconmap']['mappings'], 'sortorder');
 $i = 1;
-foreach ($this->data['iconmap']['mappings'] as $mapping) {
-	$iconmappingid = $mapping['iconmappingid'];
+foreach ($this->data['iconmap']['mappings'] as $iconmappingid => $mapping) {
 	$numSpan = new CSpan($i++.':');
 	$numSpan->addClass('rowNum');
 
@@ -53,8 +51,6 @@ foreach ($this->data['iconmap']['mappings'] as $mapping) {
 
 	$expressionTextBox = new CTextBox('iconmap[mappings]['.$iconmappingid.'][expression]', $mapping['expression']);
 	$expressionTextBox->setAttribute('maxlength', 64);
-
-	$iconMappingIdVar = new CVar('iconmap[mappings]['.$iconmappingid.'][iconmappingid]', $mapping['iconmappingid']);
 
 	$iconsComboBox = new CComboBox('iconmap[mappings]['.$iconmappingid.'][iconid]', $mapping['iconid']);
 	$iconsComboBox->addClass('mappingIcon');
@@ -67,7 +63,7 @@ foreach ($this->data['iconmap']['mappings'] as $mapping) {
 		new CSpan(null, 'ui-icon ui-icon-arrowthick-2-n-s move'),
 		$numSpan,
 		$profileLinksComboBox,
-		array($expressionTextBox, $iconMappingIdVar),
+		$expressionTextBox,
 		$iconsComboBox,
 		$iconPreviewImage,
 		new CButton('remove', _('Remove'), '', 'link_menu removeMapping'),

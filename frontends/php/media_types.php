@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/include/config.inc.php';
 require_once dirname(__FILE__).'/include/media.inc.php';
 require_once dirname(__FILE__).'/include/forms.inc.php';
@@ -220,35 +220,31 @@ else {
 	// get media types
 	$options = array(
 		'output' => API_OUTPUT_EXTEND,
-		'preservekeys' => true,
+		'preservekeys' => 1,
 		'editable' => true,
 		'limit' => ($config['search_limit'] + 1)
 	);
 	$data['mediatypes'] = API::Mediatype()->get($options);
 
 	// get media types used in actions
-	$actions = API::Action()->get(array(
+	$options = array(
 		'mediatypeids' => zbx_objectValues($data['mediatypes'], 'mediatypeid'),
 		'output' => array('actionid', 'name'),
-		'selectOperations' => array('operationtype', 'opmessage'),
-		'preservekeys' => true
-	));
-
+		'preservekeys' => 1
+	);
+	$actions = API::Action()->get($options);
 	foreach ($data['mediatypes'] as $number => $mediatype) {
-		// list actions where the media type is used
 		$data['mediatypes'][$number]['listOfActions'] = array();
-		foreach ($actions as $actionId => $action) {
-			foreach ($action['operations'] as $operation) {
-				if ($operation['operationtype'] == OPERATION_TYPE_MESSAGE
-						&& $operation['opmessage']['mediatypeid'] == $mediatype['mediatypeid']) {
-
-					$data['mediatypes'][$number]['listOfActions'][] = array(
-						'actionid' => $actionId,
-						'name' => $action['name']
-					);
+		foreach ($actions as $actionid => $action) {
+			if (!empty($action['mediatypeids'])) {
+				foreach ($action['mediatypeids'] as $actionMediaTypeId) {
+					if ($mediatype['mediatypeid'] == $actionMediaTypeId) {
+						$data['mediatypes'][$number]['listOfActions'][] = array('actionid' => $actionid, 'name' => $action['name']);
+					}
 				}
 			}
 		}
+		$data['mediatypes'][$number]['usedInActions'] = !isset($mediatype['listOfActions']);
 
 		// allow sort by mediatype name
 		$data['mediatypes'][$number]['typeid'] = $data['mediatypes'][$number]['type'];
@@ -266,3 +262,4 @@ else {
 }
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

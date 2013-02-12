@@ -19,6 +19,9 @@
 **/
 
 
+require_once dirname(__FILE__).'/config.inc.php';
+require_once dirname(__FILE__).'/perm.inc.php';
+
 if (!isset($page['type'])) {
 	$page['type'] = PAGE_TYPE_HTML;
 }
@@ -38,6 +41,8 @@ if (!defined('ZBX_PAGE_NO_THEME')) {
 	define('ZBX_PAGE_NO_THEME', false);
 }
 
+// init CURRENT NODE ID
+init_nodes();
 switch ($page['type']) {
 	case PAGE_TYPE_IMAGE:
 		set_image_header();
@@ -133,30 +138,32 @@ $sub_menus = array();
 $denied_page_requested = zbx_construct_menu($main_menu, $sub_menus, $page);
 zbx_flush_post_cookies($denied_page_requested);
 
-// render the "Deny access" page
-if ($denied_page_requested) {
-	access_deny(ACCESS_DENY_PAGE);
-}
-
 if ($page['type'] == PAGE_TYPE_HTML) {
-	$pageHeader = new CPageHeader($page_title);
-	$pageHeader->addCssFile('css.css');
-
+?>
+<!doctype html>
+<html>
+	<head>
+		<meta http-equiv="X-UA-Compatible" content="IE=Edge"/>
+		<title><?php echo $page_title; ?></title>
+		<meta name="Author" content="Zabbix SIA" />
+		<meta charset="utf-8" />
+		<link rel="shortcut icon" href="images/general/zabbix.ico" />
+		<link rel="stylesheet" type="text/css" href="css.css" />
+<?php
 	$css = ZBX_DEFAULT_THEME;
 	if (!ZBX_PAGE_NO_THEME) {
 		if (!empty($DB['DB'])) {
 			$config = select_config();
 			$css = getUserTheme(CWebUser::$data);
 
-			$severityCss = <<<CSS
-.disaster { background: #{$config['severity_color_5']} !important; }
-.high { background: #{$config['severity_color_4']} !important; }
-.average { background: #{$config['severity_color_3']} !important; }
-.warning { background: #{$config['severity_color_2']} !important; }
-.information { background: #{$config['severity_color_1']} !important; }
-.not_classified { background: #{$config['severity_color_0']} !important; }
-CSS;
-			$pageHeader->addStyle($severityCss);
+			echo '<style type="text/css">'."\n".
+					'.disaster { background: #'.$config['severity_color_5'].' !important; }'."\n".
+					'.high { background: #'.$config['severity_color_4'].' !important; }'."\n".
+					'.average { background: #'.$config['severity_color_3'].' !important; }'."\n".
+					'.warning { background: #'.$config['severity_color_2'].' !important; }'."\n".
+					'.information { background: #'.$config['severity_color_1'].' !important; }'."\n".
+					'.not_classified { background: #'.$config['severity_color_0'].' !important; }'."\n".
+				'</style>';
 
 			// perform Zabbix server check only for standard pages
 			if ((!defined('ZBX_PAGE_NO_MENU') || defined('ZBX_PAGE_FULLSCREEN')) && $config['server_check_interval']
@@ -165,35 +172,36 @@ CSS;
 			}
 		}
 	}
-	$pageHeader->addCssFile('styles/themes/'.$css.'/main.css');
+	echo '<link rel="stylesheet" type="text/css" href="styles/themes/'.$css.'/main.css" />'."\n";
 
 	if ($page['file'] == 'sysmap.php') {
-		$pageHeader->addCssFile('imgstore.php?css=1&output=css');
+		echo '<link rel="stylesheet" type="text/css" href="imgstore.php?css=1&amp;output=css" />';
 	}
-	$pageHeader->addJsFile('js/browsers.js');
-	$pageHeader->addJsBeforeScripts('var PHP_TZ_OFFSET = '.date('Z').';');
-
+?>
+<!--[if lte IE 7]>
+	<link rel="stylesheet" type="text/css" href="styles/ie.css" />
+<![endif]-->
+<script type="text/javascript" src="js/browsers.js"></script>
+<script type="text/javascript">var PHP_TZ_OFFSET = <?php echo date('Z'); ?>;</script>
+<?php
 	// show GUI messages in pages with menus and in fullscreen mode
 	$showGuiMessaging = (!defined('ZBX_PAGE_NO_MENU') || (isset($_REQUEST['fullscreen']) && $_REQUEST['fullscreen'])) ? 1 : 0;
 	$path = 'jsLoader.php?ver='.ZABBIX_VERSION.'&amp;lang='.CWebUser::$data['lang'].'&showGuiMessaging='.$showGuiMessaging;
-	$pageHeader->addJsFile($path);
+	echo '<script type="text/javascript" src="'.$path.'"></script>'."\n";
 
 	if (!empty($page['scripts']) && is_array($page['scripts'])) {
 		foreach ($page['scripts'] as $script) {
 			$path .= '&amp;files[]='.$script;
 		}
-		$pageHeader->addJsFile($path);
+		echo '<script type="text/javascript" src="'.$path.'"></script>'."\n";
 	}
-
-	$js = <<<JS
-if (jQuery(window).width() < 1024) {
-	document.write('<link rel="stylesheet" type="text/css" href="styles/handheld.css" />');
-}
-JS;
-
-	$pageHeader->addJs($js);
-	$pageHeader->display();
 ?>
+<script type="text/javascript">
+	if (jQuery(window).width() < 1024) {
+		document.write('<link rel="stylesheet" type="text/css" href="styles/handheld.css" />');
+	}
+</script>
+</head>
 <body class="<?php echo $css; ?>">
 <div id="message-global-wrap"><div id="message-global"></div></div>
 <?php
@@ -455,6 +463,10 @@ elseif ($page['type'] == PAGE_TYPE_HTML && !defined('ZBX_PAGE_NO_MENU')) {
 
 // unset multiple variables
 unset($ZBX_MENU, $table, $top_page_row, $menu_table, $node_form, $main_menu_row, $db_nodes, $node_data, $sub_menu_table, $sub_menu_rows);
+
+if ($denied_page_requested) {
+	access_deny();
+}
 
 if ($page['type'] == PAGE_TYPE_HTML && $showGuiMessaging) {
 	zbx_add_post_js('var msglistid = initMessages({});');

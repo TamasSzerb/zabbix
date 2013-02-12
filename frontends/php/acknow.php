@@ -102,9 +102,10 @@ if (isset($_REQUEST['save']) || isset($_REQUEST['saveandreturn'])) {
 	}
 	elseif (isset($_REQUEST['triggers'])) {
 		$options = array(
-			'output' => array('eventid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'acknowledged' => 0,
-			'triggerids' => $_REQUEST['triggers']
+			'triggerids' => $_REQUEST['triggers'],
+			'filter'=> array('value_changed' => TRIGGER_VALUE_CHANGED_YES)
 		);
 		$_REQUEST['events'] = API::Event()->get($options);
 	}
@@ -141,7 +142,7 @@ if (isset($_REQUEST['save']) || isset($_REQUEST['saveandreturn'])) {
 }
 ob_end_flush();
 
-$msg = $bulk ? ' BULK ACKNOWLEDGE ' : CMacrosResolverHelper::resolveTriggerName($event_trigger);
+$msg = $bulk ? ' BULK ACKNOWLEDGE ' : CTriggerHelper::expandDescription($event_trigger);
 show_table_header(array(_('ALARM ACKNOWLEDGES').': ', $msg));
 echo SBR;
 
@@ -180,7 +181,7 @@ else {
 	}
 }
 
-$frmMsg = new CFormTable($title.' "'.CWebUser::$data['alias'].'"');
+$frmMsg = new CFormTable($title.' "'.$USER_DETAILS['alias'].'"');
 $frmMsg->addVar('backurl', $_REQUEST['backurl']);
 if ($_REQUEST['backurl'] == 'tr_events.php') {
 	$frmMsg->addVar('eventid', $_REQUEST['eventid']);

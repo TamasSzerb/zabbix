@@ -291,14 +291,6 @@ const char	*zbx_dservice_type_string(zbx_dservice_type_t service);
 #define ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV	1
 #define ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV	2
 
-/* item snmpv3 authentication protocol */
-#define ITEM_SNMPV3_AUTHPROTOCOL_MD5		0
-#define ITEM_SNMPV3_AUTHPROTOCOL_SHA		1
-
-/* item snmpv3 privacy protocol */
-#define ITEM_SNMPV3_PRIVPROTOCOL_DES		0
-#define ITEM_SNMPV3_PRIVPROTOCOL_AES		1
-
 /* item multiplier types */
 #define ITEM_MULTIPLIER_DO_NOT_USE		0
 #define ITEM_MULTIPLIER_USE			1
@@ -565,13 +557,17 @@ typedef enum
 #define TRIGGER_STATUS_DISABLED	1
 
 /* trigger values */
-#define TRIGGER_VALUE_OK	0
-#define TRIGGER_VALUE_PROBLEM	1
-#define TRIGGER_VALUE_UNKNOWN	2	/* only in server code, never in DB */
+#define TRIGGER_VALUE_FALSE	0
+#define TRIGGER_VALUE_TRUE	1
+#define TRIGGER_VALUE_UNKNOWN	2 /* only in "events" table */
 
 /* trigger value flags */
 #define TRIGGER_VALUE_FLAG_NORMAL	0
 #define TRIGGER_VALUE_FLAG_UNKNOWN	1
+
+/* trigger value change flags */
+#define TRIGGER_VALUE_CHANGED_NO	0
+#define TRIGGER_VALUE_CHANGED_YES	1
 
 /* trigger severity */
 #define TRIGGER_SEVERITY_NOT_CLASSIFIED	0
@@ -863,7 +859,7 @@ void	__zbx_zbx_setproctitle(const char *fmt, ...);
 #define SEC_PER_YEAR		(365 * SEC_PER_DAY)
 #define ZBX_JAN_1970_IN_SEC	2208988800.0	/* 1970 - 1900 in seconds */
 
-#define ZBX_MAX_RECV_DATA_SIZE	(64 * ZBX_MEBIBYTE)
+#define ZBX_MAX_RECV_DATA_SIZE	(128 * ZBX_MEBIBYTE)
 
 double	zbx_time();
 void	zbx_timespec(zbx_timespec_t *ts);
@@ -916,9 +912,6 @@ int	comms_parse_response(char *xml, char *host, size_t host_len, char *key, size
 		char *timestamp, size_t timestamp_len, char *source, size_t source_len,
 		char *severity, size_t severity_len);
 
-#define ZBX_COMMAND_ERROR		0
-#define ZBX_COMMAND_WITHOUT_PARAMS	1
-#define ZBX_COMMAND_WITH_PARAMS		2
 int 	parse_command(const char *command, char *cmd, size_t cmd_max_len, char *param, size_t param_max_len);
 
 typedef struct
@@ -1037,8 +1030,6 @@ unsigned char	get_interface_type_by_item_type(unsigned char type);
 int	calculate_sleeptime(int nextcheck, int max_sleeptime);
 
 void	zbx_replace_string(char **data, size_t l, size_t *r, const char *value);
-
-void	zbx_trim_str_list(char *list, char delimiter);
 
 int	parse_serveractive_element(char *str, char **host, unsigned short *port, unsigned short port_default);
 

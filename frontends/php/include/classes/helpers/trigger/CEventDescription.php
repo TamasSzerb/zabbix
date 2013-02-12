@@ -1,6 +1,7 @@
+<?php
 /*
 ** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** Copyright (C) 2000-2012 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,9 +18,17 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-#ifndef ZABBIX_UPGRADE_H
-#define ZABBIX_UPGRADE_H
 
-int	DBcheck_version();
+class CEventDescription extends CTriggerDescription {
 
-#endif
+	protected function resolveItemValueMacro(array $item, array $trigger) {
+		$item['lastvalue'] = item_get_history(
+			$item,
+			0,
+			$trigger['clock'],
+			$trigger['ns']
+		);
+
+		return formatItemValue($item, UNRESOLVED_MACRO_STRING);
+	}
+}

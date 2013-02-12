@@ -31,7 +31,7 @@ define('ZBX_PAGE_NO_MENU', 1);
 
 require_once dirname(__FILE__).'/include/page_header.php';
 
-if (CWebUser::$data['alias'] == ZBX_GUEST_USER) {
+if ($USER_DETAILS['alias'] == ZBX_GUEST_USER) {
 	access_deny();
 }
 
@@ -107,12 +107,11 @@ $frmMedia->addVar('media', $media);
 $frmMedia->addVar('dstfrm', $_REQUEST['dstfrm']);
 
 $cmbType = new CComboBox('mediatypeid', $mediatypeid);
-$types = DBselect(
-		'SELECT mt.mediatypeid,mt.description'.
-		' FROM media_type mt'.
-		whereDbNode('mt.mediatypeid').
-		' ORDER BY mt.type'
-);
+$sql = 'SELECT mediatypeid,description '.
+		' FROM media_type'.
+		' WHERE '.DBin_node('mediatypeid').
+		' ORDER BY type';
+$types = DBselect($sql);
 while ($type = DBfetch($types)) {
 	$cmbType->addItem(
 		$type['mediatypeid'],

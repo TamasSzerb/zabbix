@@ -113,7 +113,8 @@ function slideshow_accessible($slideshowid, $perm) {
 	$sql = 'SELECT s.slideshowid'.
 			' FROM slideshows s'.
 			' WHERE s.slideshowid='.$slideshowid.
-				andDbNode('s.slideshowid', get_current_nodeid(null, $perm));
+				' AND '.DBin_node('s.slideshowid', get_current_nodeid(null, $perm)
+	);
 	if (DBselect($sql)) {
 		$result = true;
 
@@ -160,7 +161,7 @@ function add_slideshow($name, $delay, $slides) {
 	$screenids = zbx_objectValues($slides, 'screenid');
 	$screens = API::Screen()->get(array(
 		'screenids' => $screenids,
-		'output' => array('screenid')
+		'output' => API_OUTPUT_SHORTEN
 	));
 	$screens = ZBX_toHash($screens, 'screenid');
 	foreach ($screenids as $screenid) {
@@ -216,7 +217,7 @@ function update_slideshow($slideshowid, $name, $delay, $slides) {
 	$screenids = zbx_objectValues($slides, 'screenid');
 	$screens = API::Screen()->get(array(
 		'screenids' => $screenids,
-		'output' => array('screenid')
+		'output' => API_OUTPUT_SHORTEN
 	));
 	$screens = ZBX_toHash($screens, 'screenid');
 	foreach ($screenids as $screenid) {

@@ -86,11 +86,11 @@ class CScreenActions extends CScreenBase {
 
 		$sql = 'SELECT a.alertid,a.clock,mt.description,a.sendto,a.subject,a.message,a.status,a.retries,a.error'.
 				' FROM events e,alerts a'.
-					' LEFT JOIN media_type mt ON mt.mediatypeid=a.mediatypeid'.
+					' LEFT JOIN media_type mt ON mt.mediatypeid=a.mediatypeid '.
 				' WHERE e.eventid=a.eventid'.
-					' AND alerttype='.ALERT_TYPE_MESSAGE.
-					andDbNode('a.alertid');
+					' AND alerttype IN ('.ALERT_TYPE_MESSAGE.')';
 
+		// editable + PERMISSION CHECK
 		if (CWebUser::getType() != USER_TYPE_SUPER_ADMIN) {
 			$userid = CWebUser::$data['userid'];
 			$userGroups = getUserGroupsByUserId($userid);
@@ -104,11 +104,12 @@ class CScreenActions extends CScreenBase {
 						' AND f.itemid=i.itemid'.
 						' AND i.hostid=hgg.hostid'.
 					' GROUP BY f.triggerid'.
-					' HAVING MIN(r.permission)>'.PERM_DENY.
+					' HAVING MIN(r.permission)>='.PERM_READ_ONLY.
 					')';
 		}
 
-		$sql .= ' ORDER BY '.$sortfield.' '.$sortorder;
+		$sql .= ' AND '.DBin_node('a.alertid').' '.
+				' ORDER BY '.$sortfield.' '.$sortorder;
 		$alerts = DBfetchArray(DBselect($sql, $this->screenitem['elements']));
 
 		order_result($alerts, $sortfield, $sortorder);
@@ -145,12 +146,12 @@ class CScreenActions extends CScreenBase {
 			}
 
 			$message = array(
-				bold(_('Subject').NAME_DELIMITER),
+				bold(_('Subject').': '),
 				br(),
 				$alert['subject'],
 				br(),
 				br(),
-				bold(_('Message').NAME_DELIMITER),
+				bold(_('Message').': '),
 				br(),
 				$alert['message']
 			);

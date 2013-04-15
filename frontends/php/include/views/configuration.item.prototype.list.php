@@ -65,12 +65,12 @@ foreach ($this->data['items'] as $item) {
 		$templateDiscoveryRuleId = get_realrule_by_itemid_and_hostid($this->data['parent_discoveryid'], $template_host['hostid']);
 
 		$description[] = new CLink($template_host['name'], '?parent_discoveryid='.$templateDiscoveryRuleId, 'unknown');
-		$description[] = NAME_DELIMITER;
+		$description[] = ': ';
 	}
 	$description[] = new CLink(itemName($item), '?form=update&itemid='.$item['itemid'].'&parent_discoveryid='.$this->data['parent_discoveryid']);
 
-	$status = new CLink(itemIndicator($item['status']), '?group_itemid='.$item['itemid'].'&parent_discoveryid='.$this->data['parent_discoveryid'].
-		'&go='.($item['status'] ? 'activate' : 'disable'), itemIndicatorStyle($item['status'])
+	$status = new CLink(item_status2str($item['status']), '?group_itemid='.$item['itemid'].'&parent_discoveryid='.$this->data['parent_discoveryid'].
+		'&go='.($item['status'] ? 'activate' : 'disable'), item_status2style($item['status'])
 	);
 
 	if (!empty($item['applications'])) {

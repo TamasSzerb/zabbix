@@ -228,10 +228,6 @@ class CPageFilter {
 		if (isset($options['drules'])) {
 			$this->_initDiscoveries($options['druleid'], $options['drules']);
 		}
-
-		if (isset($options['applications'])) {
-			$this->_initApplications($options['application'], $options['applications']);
-		}
 	}
 
 	/**
@@ -255,7 +251,6 @@ class CPageFilter {
 		$this->_profileIdx['graphs'] = 'web.'.$profileSection.'.graphid';
 		$this->_profileIdx['triggers'] = 'web.'.$profileSection.'.triggerid';
 		$this->_profileIdx['drules'] = 'web.'.$profileSection.'.druleid';
-		$this->_profileIdx['application'] = 'web.'.$profileSection.'.application';
 
 		if ($this->config['select_latest']) {
 			$this->_profileIds['groupid'] = CProfile::get(self::GROUP_LATEST_IDX);
@@ -263,7 +258,6 @@ class CPageFilter {
 			$this->_profileIds['graphid'] = CProfile::get(self::GRAPH_LATEST_IDX);
 			$this->_profileIds['triggerid'] = null;
 			$this->_profileIds['druleid'] = CProfile::get(self::DRULE_LATEST_IDX);
-			$this->_profileIds['application'] = '';
 		}
 		elseif ($this->config['DDReset'] && !$this->config['DDRemember']) {
 			$this->_profileIds['groupid'] = 0;
@@ -271,7 +265,6 @@ class CPageFilter {
 			$this->_profileIds['graphid'] = 0;
 			$this->_profileIds['triggerid'] = 0;
 			$this->_profileIds['druleid'] = 0;
-			$this->_profileIds['application'] = '';
 		}
 		else {
 			$this->_profileIds['groupid'] = CProfile::get($this->_profileIdx['groups']);
@@ -279,7 +272,6 @@ class CPageFilter {
 			$this->_profileIds['graphid'] = CProfile::get($this->_profileIdx['graphs']);
 			$this->_profileIds['triggerid'] = null;
 			$this->_profileIds['druleid'] = CProfile::get($this->_profileIdx['drules']);
-			$this->_profileIds['application'] = CProfile::get($this->_profileIdx['application']);
 		}
 
 		$this->_requestIds['groupid'] = isset($options['groupid']) ? $options['groupid'] : null;
@@ -287,7 +279,6 @@ class CPageFilter {
 		$this->_requestIds['graphid'] = isset($options['graphid']) ? $options['graphid'] : null;
 		$this->_requestIds['triggerid'] = isset($options['triggerid']) ? $options['triggerid'] : null;
 		$this->_requestIds['druleid'] = isset($options['druleid']) ? $options['druleid'] : null;
-		$this->_requestIds['application'] = isset($options['application']) ? $options['application'] : null;
 	}
 
 	private function _updateByGraph(&$options) {
@@ -594,54 +585,6 @@ class CPageFilter {
 		$this->ids['druleid'] = $druleid;
 	}
 
-	/**
-	 * Set applications related variables.
-	 *  - applications: all applications available for dropdown on page
-	 *  - application: application curently selected, can be '' for 'all' or 'not selected'
-	 *  - applicationsSelected: if an application selected, i.e. not 'not selected'
-	 * Applications are dependent on groups.
-	 *
-	 * @param $application
-	 * @param $options
-	 */
-	private function _initApplications($application, $options) {
-		$this->data['applications'] = array();
-
-		if (!$this->groupsSelected) {
-			$application = '';
-		}
-		else {
-			$def_options = array(
-				'nodeids' => $this->config['all_nodes'] ? get_current_nodeid() : null,
-				'output' => array('name'),
-				'groupids' => ($this->groupid > 0) ? $this->groupid : null
-			);
-			$options = zbx_array_merge($def_options, $options);
-			$applications = API::Application()->get($options);
-
-			foreach ($applications as $app) {
-				$this->data['applications'][$app['name']] = $app['name'];
-			}
-
-			// select remebered selection
-			if (is_null($application) && $this->_profileIds['application']) {
-				$application = $this->_profileIds['application'];
-			}
-
-			// nonexisting or unset application
-			if ((!isset($this->data['applications'][$application]) && $application !== '') || is_null($application)) {
-				$application = '';
-			}
-		}
-
-		if (!is_null($this->_requestIds['application'])) {
-			CProfile::update($this->_profileIdx['application'], $application, PROFILE_TYPE_STR);
-		}
-		$this->isSelected['applicationsSelected'] = ($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL && !empty($this->data['applications'])) || $application !== '';
-		$this->isSelected['applicationsAll'] = $this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_ALL && !empty($this->data['applications']) && $application === '';
-		$this->ids['application'] = $application;
-	}
-
 	public function getHostsCB($withNode = false) {
 		return $this->_getCB('hostid', $this->hostid, $this->hosts, $withNode);
 	}
@@ -654,7 +597,7 @@ class CPageFilter {
 		$items = $this->graphs;
 		if ($withNode) {
 			foreach ($items as $id => $item) {
-				$items[$id] = get_node_name_by_elid($id, null, NAME_DELIMITER).$item;
+				$items[$id] = get_node_name_by_elid($id, null, ': ').$item;
 			}
 		}
 
@@ -673,30 +616,19 @@ class CPageFilter {
 		return $this->_getCB('druleid', $this->druleid, $this->drules, $withNode);
 	}
 
-	/**
-	 * Get dropdown for application selection.
-	 *
-	 * @param bool $withNode
-	 *
-	 * @return CComboBox
-	 */
-	public function getApplicationsCB($withNode = false) {
-		return $this->_getCB('application', $this->application, $this->applications, $withNode, '');
-	}
-
-	private function _getCB($cbname, $selectedid, $items, $withNode, $allValue = 0) {
+	private function _getCB($cbname, $selectedid, $items, $withNode) {
 		$cmb = new CComboBox($cbname, $selectedid, 'javascript: submit();');
 
 		if ($withNode) {
 			foreach ($items as $id => $item) {
-				$items[$id] = get_node_name_by_elid($id, null, NAME_DELIMITER).$item;
+				$items[$id] = get_node_name_by_elid($id, null, ': ').$item;
 			}
 		}
 
 		natcasesort($items);
 
 		if (!$this->config['popupDD']) {
-			$items = array($allValue => ($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_NONE) ? _('not selected') : _('all')) + $items;
+			$items = array(0 => ($this->config['DDFirst'] == ZBX_DROPDOWN_FIRST_NONE) ? _('not selected') : _('all')) + $items;
 		}
 
 		foreach ($items as $id => $name) {

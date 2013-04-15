@@ -23,9 +23,9 @@ require_once dirname(__FILE__).'/include/hosts.inc.php';
 require_once dirname(__FILE__).'/include/graphs.inc.php';
 require_once dirname(__FILE__).'/include/forms.inc.php';
 
-$page['title'] = isset($_REQUEST['parent_discoveryid']) ? _('Configuration of graph prototypes') : _('Configuration of graphs');
+$page['title'] = _('Configuration of graphs');
 $page['file'] = 'graphs.php';
-$page['hist_arg'] = array('hostid', 'parent_discoveryid');
+$page['hist_arg'] = array();
 $page['scripts'] = array();
 
 require_once dirname(__FILE__).'/include/page_header.php';
@@ -118,7 +118,7 @@ if (CUser::$userData['type'] !== USER_TYPE_SUPER_ADMIN) {
 		if (isset($_REQUEST['graphid'])) {
 			$graphPrototype = API::GraphPrototype()->get(array(
 				'graphids' => array($_REQUEST['graphid']),
-				'output' => array('graphid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'editable' => true,
 				'preservekeys' => true
 			));
@@ -415,7 +415,7 @@ elseif (isset($_REQUEST['form'])) {
 						$parentTemplate = reset($parentGraphPrototype['templates']);
 
 						$link = new CLink($parentTemplate['name'],
-							'graphs.php?form=update&graphid='.$parentGraphPrototype['graphid'].'&hostid='.$parentTemplate['templateid'].'&parent_discoveryid='.$parentGraphPrototype['discoveryRule']['itemid']
+							'graphs.php?form=update&graphid='.$parentGraphPrototype['graphid'].'&hostid='.$parentTemplate['hostid'].'&parent_discoveryid='.$parentGraphPrototype['discoveryRule']['itemid']
 						);
 					}
 				}

@@ -4,7 +4,6 @@ DIST_SUBDIRS = \
 	zbxdbcache \
 	zbxdbhigh \
 	zbxdb \
-	zbxdbupgrade \
 	zbxmemory \
 	zbxalgo \
 	zbxmedia \
@@ -21,14 +20,12 @@ DIST_SUBDIRS = \
 	zbxserver \
 	zbxicmpping \
 	zbxexec \
-	zbxself \
-	zbxmodules
+	zbxself
 
 if PROXY
 PROXY_SUBDIRS = \
 	zbxcommshigh \
 	zbxdb \
-	zbxdbupgrade \
 	zbxdbcache \
 	zbxdbhigh \
 	zbxmemory \
@@ -41,7 +38,6 @@ if SERVER
 SERVER_SUBDIRS = \
 	zbxcommshigh \
 	zbxdb \
-	zbxdbupgrade \
 	zbxdbcache \
 	zbxdbhigh \
 	zbxmemory \
@@ -63,7 +59,6 @@ SUBDIRS = \
 	zbxcomms \
 	zbxjson \
 	zbxexec \
-	zbxmodules \
 	$(PROXY_SUBDIRS) \
 	$(SERVER_SUBDIRS)
 

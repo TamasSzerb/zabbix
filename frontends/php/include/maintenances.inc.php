@@ -20,12 +20,11 @@
 ?>
 <?php
 function get_maintenance_by_maintenanceid($maintenanceid) {
-	return DBfetch(DBselect(
-			'SELECT m.*'.
+	$sql = 'SELECT m.*'.
 			' FROM maintenances m'.
-			' WHERE m.maintenanceid='.$maintenanceid.
-				andDbNode('m.maintenanceid')
-	));
+			' WHERE '.DBin_node('m.maintenanceid').
+				' AND maintenanceid='.$maintenanceid;
+	return DBfetch(DBselect($sql));
 }
 
 function timeperiod_type2str($timeperiod_type) {

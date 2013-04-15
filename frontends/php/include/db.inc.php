@@ -19,6 +19,28 @@
 **/
 
 
+if (!isset($DB)) {
+	$DB = array();
+	if (isset($DB_TYPE)) {
+		$DB['TYPE'] = $DB_TYPE;
+	}
+	if (isset($DB_SERVER)) {
+		$DB['SERVER'] = $DB_SERVER;
+	}
+	if (isset($DB_PORT)) {
+		$DB['PORT'] = $DB_PORT;
+	}
+	if (isset($DB_DATABASE)) {
+		$DB['DATABASE'] = $DB_DATABASE;
+	}
+	if (isset($DB_USER)) {
+		$DB['USER'] = $DB_USER;
+	}
+	if (isset($DB_PASSWORD)) {
+		$DB['PASSWORD'] = $DB_PASSWORD;
+	}
+}
+
 /**
  * Creates global database connection
  *
@@ -65,10 +87,6 @@ function DBconnect(&$error) {
 						DBexecute('SET NAMES utf8');
 					}
 				}
-
-				if ($result) {
-					$dbBackend = new MysqlDbBackend();
-				}
 				break;
 			case ZBX_DB_POSTGRESQL:
 				$pg_connection_string =
@@ -89,9 +107,6 @@ function DBconnect(&$error) {
 						DBexecute('set bytea_output = escape');
 					}
 				}
-				if ($result) {
-					$dbBackend = new PostgresqlDbBackend();
-				}
 				break;
 			case ZBX_DB_ORACLE:
 				$connect = '';
@@ -106,16 +121,13 @@ function DBconnect(&$error) {
 					}
 				}
 
-				$DB['DB'] = oci_connect($DB['USER'], $DB['PASSWORD'], $connect);
+				$DB['DB'] = ociplogon($DB['USER'], $DB['PASSWORD'], $connect);
 				if ($DB['DB']) {
 					DBexecute('ALTER SESSION SET NLS_NUMERIC_CHARACTERS='.zbx_dbstr('. '));
 				}
 				else {
 					$error = 'Error connecting to database';
 					$result = false;
-				}
-				if ($result) {
-					$dbBackend = new OracleDbBackend();
 				}
 				break;
 			case ZBX_DB_DB2:
@@ -141,9 +153,6 @@ function DBconnect(&$error) {
 						DBexecute("SET CURRENT SCHEMA='".$DB['SCHEMA']."'");
 					}
 				}
-				if ($result) {
-					$dbBackend = new Db2DbBackend();
-				}
 				break;
 			case ZBX_DB_SQLITE3:
 				if (file_exists($DB['DATABASE'])) {
@@ -162,25 +171,15 @@ function DBconnect(&$error) {
 					$error = 'Missing database';
 					$result = false;
 				}
-				if ($result) {
-					$dbBackend = new SqliteDbBackend();
-				}
 				break;
 			default:
 				$error = 'Unsupported database';
 				$result = false;
 		}
 	}
-
-	if ($result && !$dbBackend->checkDbVersion()) {
-		$error = $dbBackend->getError();
-		$result = false;
-	}
-
 	if (false == $result) {
 		$DB['DB'] = null;
 	}
-
 	return $result;
 }
 
@@ -198,7 +197,7 @@ function DBclose() {
 				$result = pg_close($DB['DB']);
 				break;
 			case ZBX_DB_ORACLE:
-				$result = oci_close($DB['DB']);
+				$result = ocilogoff($DB['DB']);
 				break;
 			case ZBX_DB_DB2:
 				$result = db2_close($DB['DB']);
@@ -328,7 +327,7 @@ function DBcommit() {
 			$result = DBexecute('commit');
 			break;
 		case ZBX_DB_ORACLE:
-			$result = oci_commit($DB['DB']);
+			$result = ocicommit($DB['DB']);
 			break;
 		case ZBX_DB_DB2:
 			$result = db2_commit($DB['DB']);
@@ -357,7 +356,7 @@ function DBrollback() {
 			$result = DBexecute('rollback');
 			break;
 		case ZBX_DB_ORACLE:
-			$result = oci_rollback($DB['DB']);
+			$result = ocirollback($DB['DB']);
 			break;
 		case ZBX_DB_DB2:
 			$result = db2_rollback($DB['DB']);
@@ -397,7 +396,7 @@ function DBrollback() {
  * @param integer $offset return starting from $offset record
  * @return resource or object, False if failed
  */
-function DBselect($query, $limit = null, $offset = 0) {
+function &DBselect($query, $limit = null, $offset = 0) {
 	global $DB;
 
 	$result = false;
@@ -443,12 +442,12 @@ function DBselect($query, $limit = null, $offset = 0) {
 			}
 			break;
 		case ZBX_DB_ORACLE:
-			if (!$result = oci_parse($DB['DB'], $query)) {
-				$e = @oci_error();
+			if (!$result = OCIParse($DB['DB'], $query)) {
+				$e = @ocierror();
 				error('SQL error ['.$e['message'].'] in ['.$e['sqltext'].']');
 			}
-			elseif (!@oci_execute($result, ($DB['TRANSACTIONS'] ? OCI_DEFAULT : OCI_COMMIT_ON_SUCCESS))) {
-				$e = oci_error($result);
+			elseif (!@OCIExecute($result, ($DB['TRANSACTIONS'] ? OCI_DEFAULT : OCI_COMMIT_ON_SUCCESS))) {
+				$e = ocierror($result);
 				error('SQL error ['.$e['message'].'] in ['.$e['sqltext'].']');
 			}
 			break;
@@ -514,12 +513,12 @@ function DBexecute($query, $skip_error_messages = 0) {
 			}
 			break;
 		case ZBX_DB_ORACLE:
-			if (!$result = oci_parse($DB['DB'], $query)) {
-				$e = @oci_error();
+			if (!$result = OCIParse($DB['DB'], $query)) {
+				$e = @ocierror();
 				error('SQL error ['.$e['message'].'] in ['.$e['sqltext'].']');
 			}
-			elseif (!@oci_execute($result, ($DB['TRANSACTIONS'] ? OCI_DEFAULT : OCI_COMMIT_ON_SUCCESS))) {
-				$e = oci_error($result);
+			elseif (!@OCIExecute($result, ($DB['TRANSACTIONS'] ? OCI_DEFAULT : OCI_COMMIT_ON_SUCCESS))) {
+				$e = ocierror($result);
 				error('SQL error ['.$e['message'].'] in ['.$e['sqltext'].']');
 			}
 			else {
@@ -559,7 +558,7 @@ function DBexecute($query, $skip_error_messages = 0) {
 	return (bool) $result;
 }
 
-function DBfetch($cursor, $convertNulls = true) {
+function DBfetch(&$cursor, $convertNulls = true) {
 	global $DB;
 
 	$result = false;
@@ -580,12 +579,10 @@ function DBfetch($cursor, $convertNulls = true) {
 			}
 			break;
 		case ZBX_DB_ORACLE:
-			if ($row = oci_fetch_assoc($cursor)) {
+			if (ocifetchinto($cursor, $row, (OCI_ASSOC+OCI_RETURN_NULLS))) {
 				$result = array();
 				foreach ($row as $key => $value) {
 					$field_type = zbx_strtolower(oci_field_type($cursor, $key));
-					// Oracle does not support NULL values for string fields, so if the string is empty, it will return NULL
-					// convert it to an empty string to be consistent with other databases
 					$value = (str_in_array($field_type, array('varchar', 'varchar2', 'blob', 'clob')) && is_null($value)) ? '' : $value;
 
 					if (is_object($value) && (zbx_stristr($field_type, 'lob') !== false)) {
@@ -641,6 +638,115 @@ function DBfetch($cursor, $convertNulls = true) {
 	return $result;
 }
 
+// string value prepearing
+if (isset($DB['TYPE']) && $DB['TYPE'] == ZBX_DB_MYSQL) {
+	function zbx_dbstr($var) {
+		if (is_array($var)) {
+			foreach ($var as $vnum => $value) {
+				$var[$vnum] = "'".mysql_real_escape_string($value)."'";
+			}
+			return $var;
+		}
+		return "'".mysql_real_escape_string($var)."'";
+	}
+
+	function zbx_dbcast_2bigint($field) {
+		return ' CAST('.$field.' AS UNSIGNED) ';
+	}
+
+	function zbx_limit($min = 1, $max = null, $afterWhere = true) {
+		return !empty($max) ? 'LIMIT '.$min.','.$max : 'LIMIT '.$min;
+	}
+}
+elseif (isset($DB['TYPE']) && $DB['TYPE'] == ZBX_DB_POSTGRESQL) {
+	function zbx_dbstr($var) {
+		if (is_array($var)) {
+			foreach ($var as $vnum => $value) {
+				$var[$vnum] = "'".pg_escape_string($value)."'";
+			}
+			return $var;
+		}
+		return "'".pg_escape_string($var)."'";
+	}
+
+	function zbx_dbcast_2bigint($field) {
+		return ' CAST('.$field.' AS BIGINT) ';
+	}
+
+	function zbx_limit($min = 1, $max = null, $afterWhere = true) {
+		return !empty($max) ? 'LIMIT '.$min.','.$max : 'LIMIT '.$min;
+	}
+}
+elseif (isset($DB['TYPE']) && $DB['TYPE'] == ZBX_DB_ORACLE) {
+	function zbx_dbstr($var) {
+		if (is_array($var)) {
+			foreach ($var as $vnum => $value) {
+				$var[$vnum] = "'".preg_replace('/\'/', '\'\'', $value)."'";
+			}
+			return $var;
+		}
+		return "'".preg_replace('/\'/','\'\'',$var)."'";
+	}
+
+	function zbx_dbcast_2bigint($field) {
+		return ' CAST('.$field.' AS NUMBER(20)) ';
+	}
+
+	function zbx_limit($min = 1, $max = null, $afterWhere = true) {
+		if ($afterWhere) {
+			return !empty($max) ? ' AND ROWNUM BETWEEN '.$min.' AND '.$max : ' AND ROWNUM <='.$min;
+		}
+		else {
+			return !empty($max) ? ' WHERE ROWNUM BETWEEN '.$min.' AND '.$max : ' WHERE ROWNUM <='.$min;
+		}
+	}
+}
+elseif (isset($DB['TYPE']) && $DB['TYPE'] == ZBX_DB_DB2) {
+	function zbx_dbstr($var) {
+		if (is_array($var)) {
+			foreach ($var as $vnum => $value) {
+				$var[$vnum] = "'".db2_escape_string($value)."'";
+			}
+			return $var;
+		}
+		return "'".db2_escape_string($var)."'";
+	}
+
+	function zbx_dbcast_2bigint($field) {
+		return ' CAST('.$field.' AS BIGINT) ';
+	}
+
+	function zbx_limit($min = 1, $max = null, $afterWhere = true) {
+		if ($afterWhere) {
+			return !empty($max) ? ' AND ROWNUM BETWEEN '.$min.' AND '.$max : ' AND ROWNUM <='.$min;
+		}
+		else {
+			return !empty($max) ? ' WHERE ROWNUM BETWEEN '.$min.' AND '.$max : ' WHERE ROWNUM <='.$min;
+		}
+	}
+}
+elseif (isset($DB['TYPE']) && $DB['TYPE'] == ZBX_DB_SQLITE3) {
+	function zbx_dbstr($var) {
+		global $DB;
+
+		if (is_array($var)) {
+			foreach ($var as $vnum => $value) {
+				$var[$vnum] = "'".$DB['DB']->escapeString($value)."'";
+			}
+			return $var;
+		}
+		return "'".$DB['DB']->escapeString($var)."'";
+	}
+
+	function zbx_dbcast_2bigint($field) {
+		return ' CAST('.$field.' AS BIGINT) ';
+	}
+
+	function zbx_limit($min = 1, $max = null, $afterWhere = true) {
+		return !empty($max) ? 'LIMIT '.$min.','.$max : 'LIMIT '.$min;
+	}
+}
+
 function zbx_dbconcat($params) {
 	global $DB;
 
@@ -683,22 +789,7 @@ function id2nodeid($id_var) {
 	return (int)bcdiv("$id_var", '100000000000000');
 }
 
-/**
- * Generates the filter by a node for the SQL statement
- * For a standalone setup the function will return an empty string
- *
- * For example, function will return " AND h.hostid BETWEEN 500000000000000 AND 599999999999999"
- *   for $fieldName = 'h.hostid', $nodes = 5, $operator = 'AND'
- *
- * Don't call this function directly. Use wrapper functions whereDbNode(), andDbNode() and sqlPartDbNode()
- *
- * @param string $fieldName
- * @param mixed nodes
- * @param string $operator  SQL operator ('AND', 'WHERE')
- *
- * @return string
- */
-function dbNode($fieldName, $nodes = null, $operator = '') {
+function DBin_node($id_name, $nodes = null) {
 	if (is_null($nodes)) {
 		$nodes = get_current_nodeid();
 	}
@@ -712,83 +803,27 @@ function dbNode($fieldName, $nodes = null, $operator = '') {
 	elseif (!is_array($nodes)) {
 		if (is_string($nodes)) {
 			if (!preg_match('/^([0-9,]+)$/', $nodes)) {
-				fatal_error('Incorrect "nodes" for "dbNode". Passed ['.$nodes.']');
+				fatal_error('Incorrect "nodes" for "DBin_node". Passed ['.$nodes.']');
 			}
 		}
 		elseif (!zbx_ctype_digit($nodes)) {
-			fatal_error('Incorrect type of "nodes" for "dbNode". Passed ['.gettype($nodes).']');
+			fatal_error('Incorrect type of "nodes" for "DBin_node". Passed ['.gettype($nodes).']');
 		}
 		$nodes = zbx_toArray($nodes);
 	}
 
-	$sql = '';
 	if (count($nodes) == 1) {
 		$nodeid = reset($nodes);
-		if ($nodeid != 0) {
-			$sql = $fieldName.' BETWEEN '.$nodeid.'00000000000000 AND '.$nodeid.'99999999999999';
-		}
+		$sql = $id_name.' BETWEEN '.$nodeid.'00000000000000 AND '.$nodeid.'99999999999999';
 	}
 	else {
+		$sql = '';
 		foreach ($nodes as $nodeid) {
-			$sql .= '('.$fieldName.' BETWEEN '.$nodeid.'00000000000000 AND '.$nodeid.'99999999999999) OR ';
+			$sql .= '('.$id_name.' BETWEEN '.$nodeid.'00000000000000 AND '.$nodeid.'99999999999999) OR ';
 		}
 		$sql = '('.rtrim($sql, ' OR ').')';
 	}
-
-	if ($sql != '' && $operator != '') {
-		$sql = ' '.$operator.' '.$sql;
-	}
-
 	return $sql;
-}
-
-/**
- * Wrapper function to generate condition like " WHERE h.hostid BETWEEN 500000000000000 AND 599999999999999"
- * For a standalone setup the function will return an empty string
- *
- * @param string $fieldName
- * @param mixed nodes
- *
- * @return string
- */
-function whereDbNode($fieldName, $nodes = null)
-{
-	return dbNode($fieldName, $nodes, 'WHERE');
-}
-
-/**
- * Wrapper function to generate condition like " AND h.hostid BETWEEN 500000000000000 AND 599999999999999"
- * For a standalone setup the function will return an empty string
- *
- * @param string $fieldName
- * @param mixed nodes
- *
- * @return string
- */
-function andDbNode($fieldName, $nodes = null)
-{
-	return dbNode($fieldName, $nodes, 'AND');
-}
-
-/**
- * Wrapper function to add condition like "h.hostid BETWEEN 500000000000000 AND 599999999999999"
- *   to an array $sqlPartWhere
- * For a standalone setup the function will make nothing and will return $sqlPartWhere array without any changes
- *
- * @param array $sqlPartWhere
- * @param string $fieldName
- * @param mixed nodes
- *
- * @return array
- */
-function sqlPartDbNode($sqlPartWhere, $fieldName, $nodes = null)
-{
-	$sql = dbNode($fieldName, $nodes);
-
-	if ($sql != '') {
-		$sqlPartWhere[] = $sql;
-	}
-	return $sqlPartWhere;
 }
 
 function in_node($id_var, $nodes = null) {
@@ -951,6 +986,43 @@ function zbx_db_search($table, $options, &$sql_parts) {
 	}
 
 	return false;
+}
+
+function zbx_db_sorting(&$sql_parts, $options, $sort_columns, $alias) {
+	if (!zbx_empty($options['sortfield'])) {
+		if (!is_array($options['sortfield'])) {
+			$options['sortfield'] = array($options['sortfield']);
+		}
+		else {
+			$options['sortfield'] = array_unique($options['sortfield']);
+		}
+
+		foreach ($options['sortfield'] as $i => $sortfield) {
+			// validate sortfield
+			if (!str_in_array($sortfield, $sort_columns)) {
+				throw new APIException(ZBX_API_ERROR_INTERNAL, _s('Sorting by field "%1$s" not allowed.', $sortfield));
+			}
+
+			// add sort field to order
+			$sortorder = '';
+			if (is_array($options['sortorder'])) {
+				if (!empty($options['sortorder'][$i])) {
+					$sortorder = ($options['sortorder'][$i] == ZBX_SORT_DOWN) ? ' '.ZBX_SORT_DOWN : '';
+				}
+			}
+			else {
+				$sortorder = ($options['sortorder'] == ZBX_SORT_DOWN) ? ' '.ZBX_SORT_DOWN : '';
+			}
+			$sql_parts['order'][] = $alias.'.'.$sortfield.$sortorder;
+
+			// add sort field to select if distinct is used
+			if (count($sql_parts['from']) > 1) {
+				if (!str_in_array($alias.'.'.$sortfield, $sql_parts['select']) && !str_in_array($alias.'.*', $sql_parts['select'])) {
+					$sql_parts['select'][$sortfield] = $alias.'.'.$sortfield;
+				}
+			}
+		}
+	}
 }
 
 function remove_nodes_from_id($id) {
@@ -1155,30 +1227,6 @@ function DBfetchArrayAssoc($cursor, $field) {
 }
 
 /**
- * Fetch only values from one column to array.
- *
- * @param        $cursor
- * @param string $column
- * @param bool   $asHash
- *
- * @return array
- */
-function DBfetchColumn($cursor, $column, $asHash = false) {
-	$result = array();
-
-	while ($dbResult = DBfetch($cursor)) {
-		if ($asHash) {
-			$result[$dbResult[$column]] = $dbResult[$column];
-		}
-		else {
-			$result[] = $dbResult[$column];
-		}
-	}
-
-	return $result;
-}
-
-/**
  * Initialize access to SQLite3 database
  *
  * The function creates a semaphore for exclusive SQLite3 access. It is
@@ -1235,132 +1283,4 @@ function idcmp($id1, $id2) {
  */
 function pg_connect_escape($string) {
 	return addcslashes($string, "'\\");
-}
-
-/**
- * Escape string for safe usage in SQL queries.
- * Works for ibmdb2, mysql, oracle, postgresql, sqlite.
- *
- * @param array|string $var
- *
- * @return array|bool|string
- */
-function zbx_dbstr($var) {
-	global $DB;
-
-	if (!isset($DB['TYPE'])) {
-		return false;
-	}
-
-	switch ($DB['TYPE']) {
-		case ZBX_DB_DB2:
-			if (is_array($var)) {
-				foreach ($var as $vnum => $value) {
-					$var[$vnum] = "'".db2_escape_string($value)."'";
-				}
-				return $var;
-			}
-			return "'".db2_escape_string($var)."'";
-
-		case ZBX_DB_MYSQL:
-			if (is_array($var)) {
-				foreach ($var as $vnum => $value) {
-					$var[$vnum] = "'".mysql_real_escape_string($value)."'";
-				}
-				return $var;
-			}
-			return "'".mysql_real_escape_string($var)."'";
-
-		case ZBX_DB_ORACLE:
-			if (is_array($var)) {
-				foreach ($var as $vnum => $value) {
-					$var[$vnum] = "'".preg_replace('/\'/', '\'\'', $value)."'";
-				}
-				return $var;
-			}
-			return "'".preg_replace('/\'/','\'\'',$var)."'";
-
-		case ZBX_DB_POSTGRESQL:
-			if (is_array($var)) {
-				foreach ($var as $vnum => $value) {
-					$var[$vnum] = "'".pg_escape_string($value)."'";
-				}
-				return $var;
-			}
-			return "'".pg_escape_string($var)."'";
-
-		case ZBX_DB_SQLITE3:
-			if (is_array($var)) {
-				foreach ($var as $vnum => $value) {
-					$var[$vnum] = "'".$DB['DB']->escapeString($value)."'";
-				}
-				return $var;
-			}
-			return "'".$DB['DB']->escapeString($var)."'";
-
-		default:
-			return false;
-	}
-}
-
-/**
- * Creates db dependent string with sql expression that casts passed value to bigint.
- * Works for ibmdb2, mysql, oracle, postgresql, sqlite.
- *
- * @param int $field
- *
- * @return bool|string
- */
-function zbx_dbcast_2bigint($field) {
-	global $DB;
-
-	if (!isset($DB['TYPE'])) {
-		return false;
-	}
-
-	switch ($DB['TYPE']) {
-		case ZBX_DB_DB2:
-		case ZBX_DB_POSTGRESQL:
-		case ZBX_DB_SQLITE3:
-			return 'CAST('.$field.' AS BIGINT)';
-
-		case ZBX_DB_MYSQL:
-			return 'CAST('.$field.' AS UNSIGNED)';
-
-		case ZBX_DB_ORACLE:
-			return 'CAST('.$field.' AS NUMBER(20))';
-
-		default:
-			return false;
-	}
-}
-
-/**
- * Creates db dependent string with sql limit.
- * Works for ibmdb2, mysql, oracle, postgresql, sqlite.
- *
- * @param int $limit
- *
- * @return bool|string
- */
-function zbx_limit($limit) {
-	global $DB;
-
-	if (!isset($DB['TYPE'])) {
-		return false;
-	}
-
-	switch ($DB['TYPE']) {
-		case ZBX_DB_DB2:
-		case ZBX_DB_ORACLE:
-			return 'AND rownum<='.$limit;
-
-		case ZBX_DB_MYSQL:
-		case ZBX_DB_POSTGRESQL:
-		case ZBX_DB_SQLITE3:
-			return 'LIMIT '.$limit;
-
-		default:
-			return false;
-	}
 }

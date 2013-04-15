@@ -18,7 +18,6 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
 require_once 'include/config.inc.php';
 require_once 'include/hosts.inc.php';
 require_once 'include/forms.inc.php';

@@ -63,7 +63,7 @@ $sid = get_request('scriptid');
 if ($sid) {
 	$scripts = API::Script()->get(array(
 		'scriptids' => $sid,
-		'output' => array('scriptid')
+		'output' => API_OUTPUT_SHORTEN
 	));
 	if (empty($scripts)) {
 		access_deny();

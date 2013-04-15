@@ -58,6 +58,7 @@ $fields = array(
 	'favaction' =>		array(T_ZBX_STR, O_OPT, P_ACT,	IN("'add','remove','flop'"), null),
 	'favstate' =>		array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY, null),
 	// actions
+	'remove_log' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null),
 	'reset' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null),
 	'cancel' =>			array(T_ZBX_STR, O_OPT, P_SYS,	null,	null),
 	'form' =>			array(T_ZBX_STR, O_OPT, P_SYS,	null,	null),
@@ -80,14 +81,14 @@ if (isset($_REQUEST['favobj'])) {
 	if (str_in_array($_REQUEST['favobj'], array('itemid', 'graphid'))) {
 		$result = false;
 		if ($_REQUEST['favaction'] == 'add') {
-			$result = CFavorite::add('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = add2favorites('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
 			if ($result) {
 				echo '$("addrm_fav").title = "'._('Remove from favourites').'";'."\n";
 				echo '$("addrm_fav").onclick = function() { rm4favorites("itemid", "'.$_REQUEST['favid'].'", 0); }'."\n";
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
-			$result = CFavorite::remove('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = rm4favorites('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
 
 			if ($result) {
 				echo '$("addrm_fav").title = "'._('Add to favourites').'";'."\n";
@@ -118,6 +119,21 @@ if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
  */
 $_REQUEST['action'] = get_request('action', 'showgraph');
 $_REQUEST['itemid'] = array_unique(zbx_toArray($_REQUEST['itemid']));
+
+if (isset($_REQUEST['remove_log']) && isset($_REQUEST['cmbitemlist'])) {
+	$itemList = array_flip($_REQUEST['cmbitemlist']);
+
+	foreach ($_REQUEST['itemid'] as $id => $itemid) {
+		if (count($_REQUEST['itemid']) == 1) {
+			break;
+		}
+		if (isset($itemList[$itemid])) {
+			unset($_REQUEST['itemid'][$id]);
+		}
+	}
+
+	unset($_REQUEST['remove_log']);
+}
 
 /*
  * Display

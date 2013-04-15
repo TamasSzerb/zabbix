@@ -35,5 +35,7 @@
 			jQuery('#cancel').addClass('ui-corner-left');
 			jQuery('#name').focus();
 		});
+
+		jQuery('#name').focus();
 	});
 </script>

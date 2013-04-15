@@ -17,23 +17,21 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $imageForm = new CForm('post', null, 'multipart/form-data');
 $imageForm->setName('imageForm');
 $imageForm->addVar('form', $this->data['form']);
 $imageForm->addVar('imageid', $this->data['imageid']);
 
-$imageComboBox = new CComboBox('imagetype', $this->data['imagetype']);
-$imageComboBox->addItem(IMAGE_TYPE_ICON, _('Icon'));
-$imageComboBox->addItem(IMAGE_TYPE_BACKGROUND, _('Background'));
+$imageCb = new CComboBox('imagetype', $this->data['imagetype']);
+$imageCb->addItem(IMAGE_TYPE_ICON, _('Icon'));
+$imageCb->addItem(IMAGE_TYPE_BACKGROUND, _('Background'));
 
 // append form list
 $imageFormList = new CFormList('imageFormList');
-$nameTextBox = new CTextBox('name', $this->data['imagename'], 64, 'no', 64);
-$nameTextBox->attr('autofocus', 'autofocus');
-$imageFormList->addRow(_('Name'), $nameTextBox);
-$imageFormList->addRow(_('Type'), $imageComboBox);
+$imageFormList->addRow(_('Name'), new CTextBox('name', $this->data['imagename'], 64, 'no', 64));
+$imageFormList->addRow(_('Type'), $imageCb);
 $imageFormList->addRow(_('Upload'), new CFile('image'));
 if (!empty($this->data['imageid'])) {
 	if ($data['imagetype'] == IMAGE_TYPE_BACKGROUND) {
@@ -58,3 +56,5 @@ else {
 }
 
 return $imageForm;
+?>
+

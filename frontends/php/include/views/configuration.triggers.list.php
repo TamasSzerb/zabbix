@@ -109,7 +109,7 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 	if ($trigger['templateid'] > 0) {
 		if (!isset($this->data['realHosts'][$triggerid])) {
 			$description[] = new CSpan(empty($this->data['parent_discoveryid']) ? _('Host') : _('Template'), 'unknown');
-			$description[] = NAME_DELIMITER;
+			$description[] = ':'.SPACE;
 		}
 		else {
 			$real_hosts = $this->data['realHosts'][$triggerid];
@@ -122,14 +122,14 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 			else {
 				$description[] = new CLink($real_host['name'], 'triggers.php?hostid='.$real_host['hostid'], 'unknown');
 			}
-			$description[] = NAME_DELIMITER;
+			$description[] = ':'.SPACE;
 		}
 	}
 
 	if (empty($this->data['parent_discoveryid'])) {
 		if (!empty($trigger['discoveryRule'])) {
 			$description[] = new CLink($trigger['discoveryRule']['name'], 'trigger_prototypes.php?hostid='.$this->data['hostid'].'&parent_discoveryid='.$trigger['discoveryRule']['itemid'], 'gold');
-			$description[] = NAME_DELIMITER.$trigger['description'];
+			$description[] = ':'.SPACE.$trigger['description'];
 		}
 		else {
 			$description[] = new CLink($trigger['description'], 'triggers.php?form=update&hostid='.$this->data['hostid'].'&triggerid='.$triggerid);
@@ -137,7 +137,7 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 
 		$dependencies = $trigger['dependencies'];
 		if (count($dependencies) > 0) {
-			$description[] = array(BR(), bold(_('Depends on').NAME_DELIMITER));
+			$description[] = array(BR(), bold(_('Depends on').' : '));
 			foreach ($dependencies as $dep_trigger) {
 				$description[] = BR();
 
@@ -147,7 +147,7 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 					$description[] = ', ';
 				}
 				array_pop($description);
-				$description[] = NAME_DELIMITER;
+				$description[] = ' : ';
 				$description[] = $dep_trigger['description'];
 			}
 		}
@@ -156,21 +156,22 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 		$description[] = new CLink($trigger['description'], 'trigger_prototypes.php?form=update&hostid='.$this->data['hostid'].'&parent_discoveryid='.$this->data['parent_discoveryid'].'&triggerid='.$triggerid);
 	}
 
+	if ($trigger['value_flags'] == TRIGGER_VALUE_FLAG_NORMAL) {
+		$trigger['error'] = '';
+	}
+
 	$templated = false;
 	foreach ($trigger['hosts'] as $hostid => $host) {
 		$templated |= (HOST_STATUS_TEMPLATE == $host['status']);
 	}
 
 	if (empty($this->data['parent_discoveryid'])) {
-		$error = '';
-		if ($trigger['status'] == TRIGGER_STATUS_ENABLED) {
-			if (!zbx_empty($trigger['error']) && !$templated) {
-				$error = new CDiv(SPACE, 'status_icon iconerror');
-				$error->setHint($trigger['error'], '', 'on');
-			}
-			else {
-				$error = new CDiv(SPACE, 'status_icon iconok');
-			}
+		if (!zbx_empty($trigger['error']) && !$templated) {
+			$error = new CDiv(SPACE, 'status_icon iconerror');
+			$error->setHint($trigger['error'], '', 'on');
+		}
+		else {
+			$error = new CDiv(SPACE, 'status_icon iconok');
 		}
 	}
 	else {
@@ -179,20 +180,16 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 
 	$status = '';
 	if (!empty($this->data['parent_discoveryid'])) {
-		$status = new CLink(
-			triggerIndicator($trigger['status']),
-			'trigger_prototypes.php?go='.($trigger['status'] == TRIGGER_STATUS_DISABLED ? 'activate' : 'disable').
-				'&hostid='.$this->data['hostid'].'&g_triggerid='.$triggerid.'&parent_discoveryid='.$this->data['parent_discoveryid'],
-			triggerIndicatorStyle($trigger['status'])
-		);
+		$status_link = 'trigger_prototypes.php?go='.($trigger['status'] == TRIGGER_STATUS_DISABLED ? 'activate' : 'disable').'&hostid='.$this->data['hostid'].'&g_triggerid='.$triggerid.'&parent_discoveryid='.$this->data['parent_discoveryid'];
 	}
 	else {
-		$status = new CLink(
-			triggerIndicator($trigger['status'], $trigger['state']),
-			'triggers.php?go='.($trigger['status'] == TRIGGER_STATUS_DISABLED ? 'activate' : 'disable').
-				'&hostid='.$this->data['hostid'].'&g_triggerid='.$triggerid,
-			triggerIndicatorStyle($trigger['status'], $trigger['state'])
-		);
+		$status_link = 'triggers.php?go='.($trigger['status'] == TRIGGER_STATUS_DISABLED ? 'activate' : 'disable').'&hostid='.$this->data['hostid'].'&g_triggerid='.$triggerid;
+	}
+	if ($trigger['status'] == TRIGGER_STATUS_DISABLED) {
+		$status = new CLink(_('Disabled'), $status_link, 'disabled');
+	}
+	elseif ($trigger['status'] == TRIGGER_STATUS_ENABLED) {
+		$status = new CLink(_('Enabled'), $status_link, 'enabled');
 	}
 
 	$hosts = null;

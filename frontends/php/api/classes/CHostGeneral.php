@@ -163,9 +163,9 @@ abstract class CHostGeneral extends CZBXAPI {
 
 		// check if any templates linked to targets have more than one unique item key/application
 		foreach ($targetids as $targetid) {
-			$linkedTpls = API::Template()->get(array(
+			$linkedTpls = $this->get(array(
 				'nopermissions' => true,
-				'output' => array('templateid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'hostids' => $targetid
 			));
 			$allids = array_merge($templateids, zbx_objectValues($linkedTpls, 'templateid'));
@@ -222,15 +222,12 @@ abstract class CHostGeneral extends CZBXAPI {
 			}
 
 			$sql = 'SELECT DISTINCT h.host'.
-				' FROM trigger_depends td,functions f,items i,hosts h'.
-				' WHERE ('.
-					dbConditionInt('td.triggerid_down', $triggerids).
-					' AND f.triggerid=td.triggerid_up'.
-				' )'.
-				' AND i.itemid=f.itemid'.
-				' AND h.hostid=i.hostid'.
-				' AND '.dbConditionInt('h.hostid', $commonTemplateIds, true).
-				' AND h.status='.HOST_STATUS_TEMPLATE;
+					' FROM trigger_depends td,functions f,items i,hosts h'.
+					' WHERE ('.dbConditionInt('td.triggerid_down', $triggerids).' AND f.triggerid=td.triggerid_up)'.
+						' AND i.itemid=f.itemid'.
+						' AND h.hostid=i.hostid'.
+						' AND '.dbConditionInt('h.hostid', $commonTemplateIds, true).
+						' AND h.status='.HOST_STATUS_TEMPLATE;
 			if ($dbDepHost = DBfetch(DBselect($sql))) {
 				$tmpTpls = API::Template()->get(array(
 					'templateids' => $templateid,
@@ -258,16 +255,21 @@ abstract class CHostGeneral extends CZBXAPI {
 		}
 
 		// add template linkages, if problems rollback later
-		$hostsLinkageInserts = array();
 		foreach ($targetids as $targetid) {
 			foreach ($templateids as $templateid) {
 				if (isset($linked[$targetid]) && isset($linked[$targetid][$templateid])) {
 					continue;
 				}
-				$hostsLinkageInserts[] = array('hostid' => $targetid, 'templateid' => $templateid);
+
+				$values = array(get_dbid('hosts_templates', 'hosttemplateid'), $targetid, $templateid);
+				$sql = 'INSERT INTO hosts_templates VALUES ('.implode(', ', $values).')';
+				$result = DBexecute($sql);
+
+				if (!$result) {
+					self::exception(ZBX_API_ERROR_PARAMETERS, 'DBError');
+				}
 			}
 		}
-		DB::insert('hosts_templates', $hostsLinkageInserts);
 
 		// check if all trigger templates are linked to host.
 		// we try to find template that is not linked to hosts ($targetids)
@@ -341,16 +343,17 @@ abstract class CHostGeneral extends CZBXAPI {
 			self::exception(ZBX_API_ERROR_PERMISSIONS, _('No permissions to referred object or it does not exist!'));
 		}
 
-		$appManager = new CApplicationManager();
-		$httpTestManager = new CHttpTestManager();
-
+		// sync templates
 		foreach ($targetids as $targetid) {
 			foreach ($templateids as $templateid) {
 				if (isset($linked[$targetid]) && isset($linked[$targetid][$templateid])) {
 					continue;
 				}
 
-				$appManager->link($templateid, $targetid);
+				API::Application()->syncTemplates(array(
+					'hostids' => $targetid,
+					'templateids' => $templateid
+				));
 
 				API::DiscoveryRule()->syncTemplates(array(
 					'hostids' => $targetid,
@@ -366,8 +369,6 @@ abstract class CHostGeneral extends CZBXAPI {
 					'hostids' => $targetid,
 					'templateids' => $templateid
 				));
-
-				$httpTestManager->link($templateid, $targetid);
 			}
 
 			// we do linkage in two separate loops because for triggers you need all items already created on host
@@ -675,43 +676,6 @@ abstract class CHostGeneral extends CZBXAPI {
 		}
 		/* }}} GRAPHS */
 
-		// http tests
-		$sqlWhere = '';
-		if (!is_null($targetids)) {
-			$sqlWhere = ' AND '.dbConditionInt('ht1.hostid', $targetids);
-		}
-		$sql = 'SELECT DISTINCT ht1.httptestid,ht1.name,h.name as host'.
-				' FROM httptest ht1'.
-				' INNER JOIN httptest ht2 ON ht2.httptestid=ht1.templateid'.
-				' INNER JOIN hosts h ON h.hostid=ht1.hostid'.
-				' WHERE '.dbConditionInt('ht2.hostid', $templateids).
-				$sqlWhere;
-		$dbHttpTests = DBSelect($sql);
-		$httpTests = array();
-		while ($httpTest = DBfetch($dbHttpTests)) {
-			$httpTests[$httpTest['httptestid']] = array(
-				'name' => $httpTest['name'],
-				'host' => $httpTest['host']
-			);
-		}
-
-		if (!empty($httpTests)) {
-			if ($clear) {
-				$result = API::HttpTest()->delete(array_keys($httpTests), true);
-				if (!$result) {
-					self::exception(ZBX_API_ERROR_INTERNAL, _('Cannot unlink and clear Web scenarios.'));
-				}
-			}
-			else {
-				DB::update('httptest', array(
-					'values' => array('templateid' => 0),
-					'where' => array('httptestid' => array_keys($httpTests))
-				));
-				foreach ($httpTests as $httpTest) {
-					info(_s('Unlinked: Web scenario "%1$s" on "%2$s".', $httpTest['name'], $httpTest['host']));
-				}
-			}
-		}
 
 		/* APPLICATIONS {{{ */
 		$sqlFrom = ' applications a1,applications a2,hosts h';
@@ -754,9 +718,7 @@ abstract class CHostGeneral extends CZBXAPI {
 
 
 		$cond = array('templateid' => $templateids);
-		if (!is_null($targetids)) {
-			$cond['hostid'] =  $targetids;
-		}
+		if (!is_null($targetids)) $cond['hostid'] =  $targetids;
 		DB::delete('hosts_templates', $cond);
 
 		if (!is_null($targetids)) {
@@ -791,14 +753,13 @@ abstract class CHostGeneral extends CZBXAPI {
 	/**
 	 * Searches for cycles and double linkages in graph.
 	 *
-	 * @throw APIException rises exception if cycle or double linkage is found
+	 * @exception rises exception if cycle or double linkage is found
 	 *
 	 * @param array $graph - array with keys as parent ids and values as arrays with child ids
 	 * @param int $current - cursor for recursive DFS traversal, starting point for algorithm
 	 * @param array $path - should be passed empty array for DFS
 	 * @param array $visited - there will be stored visited graph node ids
-	 *
-	 * @return boolean
+	 * @return false
 	 */
 	protected function checkCircularAndDoubleLinkage($graph, $current, &$path, &$visited) {
 		if (isset($path[$current])) {
@@ -821,294 +782,5 @@ abstract class CHostGeneral extends CZBXAPI {
 		$path[$current] = 2;
 
 		return false;
-	}
-
-	protected function addRelatedObjects(array $options, array $result) {
-		$result = parent::addRelatedObjects($options, $result);
-
-		$hostids = array_keys($result);
-
-		// adding groups
-		if ($options['selectGroups'] !== null) {
-			$relationMap = $this->createRelationMap($result, 'hostid', 'groupid', 'hosts_groups');
-			$groups = API::HostGroup()->get(array(
-				'nodeids' => $options['nodeids'],
-				'output' => $options['selectGroups'],
-				'groupids' => $relationMap->getRelatedIds(),
-				'preservekeys' => true
-			));
-			$result = $relationMap->mapMany($result, $groups, 'groups');
-		}
-
-		// adding templates
-		if ($options['selectParentTemplates'] !== null) {
-			if ($options['selectParentTemplates'] != API_OUTPUT_COUNT) {
-				$relationMap = $this->createRelationMap($result, 'hostid', 'templateid', 'hosts_templates');
-				$templates = API::Template()->get(array(
-					'output' => $options['selectParentTemplates'],
-					'nodeids' => $options['nodeids'],
-					'templateids' => $relationMap->getRelatedIds(),
-					'preservekeys' => true
-				));
-				if (!is_null($options['limitSelects'])) {
-					order_result($templates, 'host');
-				}
-				$result = $relationMap->mapMany($result, $templates, 'parentTemplates', $options['limitSelects']);
-			}
-			else {
-				$templates = API::Template()->get(array(
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$templates = zbx_toHash($templates, 'hostid');
-				foreach ($result as $hostid => $host) {
-					$result[$hostid]['parentTemplates'] = isset($templates[$hostid]) ? $templates[$hostid]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding items
-		if ($options['selectItems'] !== null) {
-			if ($options['selectItems'] != API_OUTPUT_COUNT) {
-				$items = API::Item()->get(array(
-					'output' => $this->outputExtend('items', array('hostid', 'itemid'), $options['selectItems']),
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'preservekeys' => true
-				));
-
-				if (!is_null($options['limitSelects'])) {
-					order_result($items, 'name');
-				}
-
-				$relationMap = $this->createRelationMap($items, 'hostid', 'itemid');
-
-				$items = $this->unsetExtraFields($items, array('hostid', 'itemid'), $options['selectItems']);
-				$result = $relationMap->mapMany($result, $items, 'items', $options['limitSelects']);
-			}
-			else {
-				$items = API::Item()->get(array(
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$items = zbx_toHash($items, 'hostid');
-				foreach ($result as $hostid => $host) {
-					$result[$hostid]['items'] = isset($items[$hostid]) ? $items[$hostid]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding discoveries
-		if ($options['selectDiscoveries'] !== null) {
-			if ($options['selectDiscoveries'] != API_OUTPUT_COUNT) {
-				$items = API::DiscoveryRule()->get(array(
-					'output' => $this->outputExtend('items', array('hostid', 'itemid'), $options['selectDiscoveries']),
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'preservekeys' => true
-				));
-
-				if (!is_null($options['limitSelects'])) {
-					order_result($items, 'name');
-				}
-
-				$relationMap = $this->createRelationMap($items, 'hostid', 'itemid');
-
-				$items = $this->unsetExtraFields($items, array('hostid', 'itemid'), $options['selectDiscoveries']);
-				$result = $relationMap->mapMany($result, $items, 'discoveries', $options['limitSelects']);
-			}
-			else {
-				$items = API::DiscoveryRule()->get(array(
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$items = zbx_toHash($items, 'hostid');
-				foreach ($result as $hostid => $host) {
-					$result[$hostid]['discoveries'] = isset($items[$hostid]) ? $items[$hostid]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding triggers
-		if ($options['selectTriggers'] !== null) {
-			if ($options['selectTriggers'] != API_OUTPUT_COUNT) {
-				// discovered items
-				$res = DBselect(
-					'SELECT i.hostid,f.triggerid'.
-						' FROM items i,functions f'.
-						' WHERE '.dbConditionInt('i.hostid', $hostids).
-						' AND i.itemid=f.itemid'
-				);
-				$relationMap = new CRelationMap();
-				while ($relation = DBfetch($res)) {
-					$relationMap->addRelation($relation['hostid'], $relation['triggerid']);
-				}
-
-				$triggers = API::Trigger()->get(array(
-					'output' => $options['selectTriggers'],
-					'nodeids' => $options['nodeids'],
-					'triggerids' => $relationMap->getRelatedIds(),
-					'preservekeys' => true
-				));
-				if (!is_null($options['limitSelects'])) {
-					order_result($triggers, 'description');
-				}
-				$result = $relationMap->mapMany($result, $triggers, 'triggers', $options['limitSelects']);
-			}
-			else {
-				$triggers = API::Trigger()->get(array(
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$triggers = zbx_toHash($triggers, 'hostid');
-
-				foreach ($result as $hostid => $host) {
-					$result[$hostid]['triggers'] = isset($triggers[$hostid]) ? $triggers[$hostid]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding graphs
-		if ($options['selectGraphs'] !== null) {
-			if ($options['selectGraphs'] != API_OUTPUT_COUNT) {
-				// discovered items
-				$res = DBselect(
-					'SELECT i.hostid,gi.graphid'.
-						' FROM items i,graphs_items gi'.
-						' WHERE '.dbConditionInt('i.hostid', $hostids).
-						' AND i.itemid=gi.itemid'
-				);
-				$relationMap = new CRelationMap();
-				while ($relation = DBfetch($res)) {
-					$relationMap->addRelation($relation['hostid'], $relation['graphid']);
-				}
-
-				$graphs = API::Graph()->get(array(
-					'output' => $options['selectGraphs'],
-					'nodeids' => $options['nodeids'],
-					'graphids' => $relationMap->getRelatedIds(),
-					'preservekeys' => true
-				));
-				if (!is_null($options['limitSelects'])) {
-					order_result($graphs, 'name');
-				}
-				$result = $relationMap->mapMany($result, $graphs, 'graphs', $options['limitSelects']);
-			}
-			else {
-				$graphs = API::Graph()->get(array(
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$graphs = zbx_toHash($graphs, 'hostid');
-				foreach ($result as $hostid => $host) {
-					$result[$hostid]['graphs'] = isset($graphs[$hostid]) ? $graphs[$hostid]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding http tests
-		if ($options['selectHttpTests'] !== null) {
-			if ($options['selectHttpTests'] != API_OUTPUT_COUNT) {
-				$httpTests = API::HttpTest()->get(array(
-					'output' => $this->outputExtend('httptest', array('hostid', 'httptestid'), $options['selectHttpTests']),
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'preservekeys' => true
-				));
-
-				if (!is_null($options['limitSelects'])) {
-					order_result($httpTests, 'name');
-				}
-
-				$relationMap = $this->createRelationMap($httpTests, 'hostid', 'httptestid');
-
-				$httpTests = $this->unsetExtraFields($httpTests, array('hostid', 'httptestid'), $options['selectHttpTests']);
-				$result = $relationMap->mapMany($result, $httpTests, 'httpTests', $options['limitSelects']);
-			}
-			else {
-				$httpTests = API::HttpTest()->get(array(
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$httpTests = zbx_toHash($httpTests, 'hostid');
-				foreach ($result as $hostId => $host) {
-					$result[$hostId]['httpTests'] = isset($httpTests[$hostId]) ? $httpTests[$hostId]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding applications
-		if ($options['selectApplications'] !== null) {
-			if ($options['selectApplications'] != API_OUTPUT_COUNT) {
-				$applications = API::Application()->get(array(
-					'output' => $this->outputExtend('applications', array('hostid', 'applicationid'), $options['selectApplications']),
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'preservekeys' => true
-				));
-
-				if (!is_null($options['limitSelects'])) {
-					order_result($applications, 'name');
-				}
-
-				$relationMap = $this->createRelationMap($applications, 'hostid', 'applicationid');
-
-				$applications = $this->unsetExtraFields($applications, array('hostid', 'applicationid'),
-					$options['selectApplications']
-				);
-				$result = $relationMap->mapMany($result, $applications, 'applications', $options['limitSelects']);
-			}
-			else {
-				$applications = API::Application()->get(array(
-					'output' => $options['selectApplications'],
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-
-				$applications = zbx_toHash($applications, 'hostid');
-				foreach ($result as $hostid => $host) {
-					$result[$hostid]['applications'] = isset($applications[$hostid]) ? $applications[$hostid]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding macros
-		if ($options['selectMacros'] !== null && $options['selectMacros'] != API_OUTPUT_COUNT) {
-			$macros = API::UserMacro()->get(array(
-				'nodeids' => $options['nodeids'],
-				'output' => $this->outputExtend('hostmacro', array('hostid', 'hostmacroid'), $options['selectMacros']),
-				'hostids' => $hostids,
-				'preservekeys' => true
-			));
-
-			$relationMap = $this->createRelationMap($macros, 'hostid', 'hostmacroid');
-
-			$macros = $this->unsetExtraFields($macros, array('hostid', 'hostmacroid'), $options['selectMacros']);
-			$result = $relationMap->mapMany($result, $macros, 'macros', $options['limitSelects']);
-		}
-
-		return $result;
 	}
 }

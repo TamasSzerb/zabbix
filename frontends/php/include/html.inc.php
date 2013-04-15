@@ -76,63 +76,47 @@ function nbsp($str) {
 	return str_replace(' ', SPACE, $str);
 }
 
-function prepareUrlParam($value, $name = null) {
-	if (is_array($value)) {
-		$result = '';
-
-		foreach ($value as $key => $param) {
-			$result .= prepareUrlParam($param, isset($name) ? $name.'['.$key.']' : $key);
-		}
-	}
+function prepare_url(&$var, $varname = null) {
+	$result = '';
+	if (is_array($var)) {
+		foreach ($var as $id => $par)
+					$result .= prepare_url($par, isset($varname) ? $varname.'['.$id.']' : $id);
+				}
 	else {
-		$result = '&'.$name.'='.urlencode($value);
+		$result = '&'.$varname.'='.urlencode($var);
 	}
-
 	return $result;
 }
 
-/**
- * Get ready for url params.
- *
- * @param mixed  $param				param name or array with data depend from $getFromRequest
- * @param bool   $getFromRequest	detect data source - input array or $_REQUEST variable
- * @param string $name				if $_REQUEST variable is used this variable not used
- *
- * @return string
- */
-function url_param($param, $getFromRequest = true, $name = null) {
-	if (is_array($param)) {
-		if ($getFromRequest) {
-			fatal_error(_('URL parameter cannot be array.'));
-		}
-	}
-	else {
+function url_param($param, $isRequest = true, $name = null) {
+	$result = '';
+	if (!is_array($param)) {
 		if (is_null($name)) {
-			if (!$getFromRequest) {
-				fatal_error(_('URL parameter name is empty.'));
+			if (!$isRequest) {
+				fatal_error(_('Not request variable require.'));
 			}
-
 			$name = $param;
 		}
 	}
 
-	if ($getFromRequest) {
-		$value =& $_REQUEST[$param];
+	if ($isRequest) {
+		$var =& $_REQUEST[$param];
 	}
 	else {
-		$value =& $param;
+		$var =& $param;
 	}
 
-	return isset($value) ? prepareUrlParam($value, $name) : '';
+	if (isset($var)) {
+		$result = prepare_url($var, $name);
+	}
+	return $result;
 }
 
-function url_params(array $params) {
+function url_params($params) {
 	$result = '';
-
 	foreach ($params as $param) {
 		$result .= url_param($param);
 	}
-
 	return $result;
 }
 
@@ -253,7 +237,7 @@ function show_table_header($columnLeft, $columnRights = SPACE){
 function get_icon($name, $params = array()) {
 	switch ($name) {
 		case 'favourite':
-			if (CFavorite::exists($params['fav'], $params['elid'], $params['elname'])) {
+			if (infavorites($params['fav'], $params['elid'], $params['elname'])) {
 				$icon = new CIcon(
 					_('Remove from favourites'),
 					'iconminus',
@@ -304,11 +288,10 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 		'graphs' => 'graphs',
 		'applications' => 'applications',
 		'screens' => 'screens',
-		'discoveries' => 'discoveries',
-		'web' => 'web'
+		'discoveries' => 'discoveries'
 	);
 	if (!empty($discoveryid)) {
-		unset($elements['applications'], $elements['screens'], $elements['discoveries'], $elements['web']);
+		unset($elements['applications'], $elements['screens'], $elements['discoveries']);
 	}
 
 	$options = array(
@@ -328,11 +311,11 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 	if (isset($elements['applications'])) {
 		$options['selectApplications'] = API_OUTPUT_COUNT;
 	}
+	if (isset($elements['screens'])) {
+		$options['selectScreens'] = API_OUTPUT_COUNT;
+	}
 	if (isset($elements['discoveries'])) {
 		$options['selectDiscoveries'] = API_OUTPUT_COUNT;
-	}
-	if (isset($elements['web'])) {
-		$options['selectHttpTests'] = API_OUTPUT_COUNT;
 	}
 
 	// get hosts
@@ -355,14 +338,6 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 	$list = new CList(null, 'objectlist');
 	if ($dbHost['status'] == HOST_STATUS_TEMPLATE) {
 		$list->addItem(array('&laquo; ', new CLink(_('Template list'), 'templates.php?templateid='.$dbHost['hostid'].url_param('groupid'))));
-
-		$dbHost['screens'] = API::TemplateScreen()->get(array(
-			'editable' => true,
-			'countOutput' => true,
-			'groupCount' => true,
-			'templateids' => $dbHost['hostid']
-		));
-		$dbHost['screens'] = isset($dbHost['screens'][0]['rowscount']) ? $dbHost['screens'][0]['rowscount'] : 0;
 	}
 	else {
 		$list->addItem(array('&laquo; ', new CLink(_('Host list'), 'hosts.php?hostid='.$dbHost['hostid'].url_param('groupid'))));
@@ -374,12 +349,12 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 	$description = '';
 	if ($dbHost['proxy_hostid']) {
 		$proxy = get_host_by_hostid($dbHost['proxy_hostid']);
-		$description .= $proxy['host'].NAME_DELIMITER;
+		$description .= $proxy['host'].': ';
 	}
 	$description .= $dbHost['name'];
 
 	if ($dbHost['status'] == HOST_STATUS_TEMPLATE) {
-		$list->addItem(array(bold(_('Template').NAME_DELIMITER), new CLink($description, 'templates.php?form=update&templateid='.$dbHost['hostid'])));
+		$list->addItem(array(bold(_('Template').': '), new CLink($description, 'templates.php?form=update&templateid='.$dbHost['hostid'])));
 	}
 	else {
 		switch ($dbHost['status']) {
@@ -394,7 +369,7 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 				break;
 		}
 
-		$list->addItem(array(bold(_('Host').NAME_DELIMITER), new CLink($description, 'hosts.php?form=update&hostid='.$dbHost['hostid'])));
+		$list->addItem(array(bold(_('Host').': '), new CLink($description, 'hosts.php?form=update&hostid='.$dbHost['hostid'])));
 		$list->addItem($status);
 		$list->addItem(getAvailabilityTable($dbHost));
 	}
@@ -402,7 +377,7 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 	if (!empty($dbDiscovery)) {
 		$list->addItem(array('&laquo; ', new CLink(_('Discovery list'), 'host_discovery.php?hostid='.$dbHost['hostid'].url_param('groupid'))));
 		$list->addItem(array(
-			bold(_('Discovery').NAME_DELIMITER),
+			bold(_('Discovery').': '),
 			new CLink($dbDiscovery['name'], 'host_discovery.php?form=update&itemid='.$dbDiscovery['itemid'])
 		));
 	}
@@ -521,18 +496,6 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 		}
 	}
 
-	if (isset($elements['web'])) {
-		if ($currentElement == 'web') {
-			$list->addItem(_('Web scenarios').' ('.$dbHost['httpTests'].')');
-		}
-		else {
-			$list->addItem(array(
-				new CLink(_('Web scenarios'), 'httpconf.php?hostid='.$dbHost['hostid']),
-				' ('.$dbHost['httpTests'].')'
-			));
-		}
-	}
-
 	return new CDiv($list, 'objectgroup top ui-widget-content ui-corner-all');
 }
 
@@ -621,60 +584,4 @@ function getAvailabilityTable($host) {
 	}
 
 	return $ad;
-}
-
-/**
- * Create array with all inputs required for date selection and calendar.
- *
- * @param string      $name
- * @param int|array   $date unix timestamp/date array(Y,m,d,H,i)
- * @param string|null $relatedCalendar name of the calendar which must be closed when this calendar opens
- *
- * @return array
- */
-function createDateSelector($name, $date, $relatedCalendar = null) {
-	$calendarIcon = new CImg('images/general/bar/cal.gif', 'calendar', 16, 12, 'pointer');
-	$onClick = 'var pos = getPosition(this); pos.top += 10; pos.left += 16; CLNDR["'.$name.
-		'_calendar"].clndr.clndrshow(pos.top, pos.left);';
-	if ($relatedCalendar) {
-		$onClick .= ' CLNDR["'.$relatedCalendar.'_calendar"].clndr.clndrhide();';
-	}
-
-	$calendarIcon->onClick($onClick);
-
-	if (is_array($date)) {
-		$y = $date['y'];
-		$m = $date['m'];
-		$d = $date['d'];
-		$h = $date['h'];
-		$i = $date['i'];
-	}
-	else {
-		$y = date('Y', $date);
-		$m = date('m', $date);
-		$d = date('d', $date);
-		$h = date('H', $date);
-		$i = date('i', $date);
-	}
-
-	$day = new CNumericBox($name.'_day', $d, 2);
-	$day->attr('placeholder', _('dd'));
-	$month = new CNumericBox($name.'_month', $m, 2);
-	$month->attr('placeholder', _('mm'));
-	$year = new CNumericBox($name.'_year', $y, 4);
-	$year->attr('placeholder', _('yyyy'));
-	$hour = new CNumericBox($name.'_hour', $h, 2);
-	$hour->attr('placeholder', _('hh'));
-	$minute = new CNumericBox($name.'_minute', $i, 2);
-	$minute->attr('placeholder', _('mm'));
-
-	$fields = array($day, '/', $month, '/', $year, SPACE, $hour, ':', $minute, $calendarIcon);
-
-	zbx_add_post_js('create_calendar(null,'.
-		'["'.$name.'_day","'.$name.'_month","'.$name.'_year","'.$name.'_hour","'.$name.'_minute"],'.
-		'"'.$name.'_calendar",'.
-		'"'.$name.'");'
-	);
-
-	return $fields;
 }

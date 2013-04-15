@@ -250,7 +250,7 @@ elseif (isset($_REQUEST['go']) && $_REQUEST['go'] == 'massupdate' && isset($_REQ
 			$hosts['groups'] = API::HostGroup()->get(array(
 				'groupids' => get_request('groups', array()),
 				'editable' => true,
-				'output' => array('groupid')
+				'output' => API_OUTPUT_SHORTEN
 			));
 			if (!empty($newgroup)) {
 				$hosts['groups'][] = $newgroup;
@@ -304,7 +304,7 @@ elseif (isset($_REQUEST['go']) && $_REQUEST['go'] == 'massupdate' && isset($_REQ
 	unset($_REQUEST['save']);
 }
 elseif (isset($_REQUEST['save'])) {
-	if (!count(get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+	if (!count(get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
 		access_deny();
 	}
 
@@ -438,7 +438,7 @@ elseif (isset($_REQUEST['save'])) {
 
 			// clone triggers
 			$triggers = API::Trigger()->get(array(
-				'output' => array('triggerid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'hostids' => $srcHostId,
 				'inherited' => false
 			));
@@ -450,7 +450,7 @@ elseif (isset($_REQUEST['save'])) {
 
 			// clone discovery rules
 			$discoveryRules = API::DiscoveryRule()->get(array(
-				'output' => array('itemid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'hostids' => $srcHostId,
 				'inherited' => false
 			));
@@ -502,7 +502,7 @@ elseif (isset($_REQUEST['save'])) {
 }
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['hostid'])) {
 	DBstart();
-	$result = API::Host()->delete(array($_REQUEST['hostid']));
+	$result = API::Host()->delete(array('hostid' => $_REQUEST['hostid']));
 	$result = DBend($result);
 
 	show_messages($result, _('Host deleted'), _('Cannot delete host'));
@@ -526,7 +526,7 @@ elseif ($_REQUEST['go'] == 'delete') {
 	$hostids = get_request('hosts', array());
 
 	DBstart();
-	$go_result = API::Host()->delete($hostids);
+	$go_result = API::Host()->delete(zbx_toObject($hostids,'hostid'));
 	$go_result = DBend($go_result);
 
 	show_messages($go_result, _('Host deleted'), _('Cannot delete host'));
@@ -599,11 +599,11 @@ if ($_REQUEST['go'] == 'massupdate' && isset($_REQUEST['hosts'])) {
 
 	// get proxies
 	$data['proxies'] = DBfetchArray(DBselect(
-			'SELECT h.hostid,h.host'.
-			' FROM hosts h'.
-			' WHERE h.status IN ('.HOST_STATUS_PROXY_ACTIVE.','.HOST_STATUS_PROXY_PASSIVE.')'.
-				andDbNode('h.hostid').
-			' ORDER BY h.host'
+		'SELECT h.hostid,h.host'.
+		' FROM hosts h'.
+		' WHERE h.status IN ('.HOST_STATUS_PROXY_ACTIVE.','.HOST_STATUS_PROXY_PASSIVE.')'.
+			' AND '.DBin_node('h.hostid').
+		' ORDER BY h.host'
 	));
 
 	// get inventories
@@ -648,10 +648,10 @@ else {
 	// filter
 	$filter_table = new CTable('', 'filter');
 	$filter_table->addRow(array(
-		array(array(bold(_('Name')), SPACE._('like').NAME_DELIMITER), new CTextBox('filter_host', $_REQUEST['filter_host'], 20)),
-		array(array(bold(_('DNS')), SPACE._('like').NAME_DELIMITER), new CTextBox('filter_dns', $_REQUEST['filter_dns'], 20)),
-		array(array(bold(_('IP')), SPACE._('like').NAME_DELIMITER), new CTextBox('filter_ip', $_REQUEST['filter_ip'], 20)),
-		array(bold(_('Port').NAME_DELIMITER), new CTextBox('filter_port', $_REQUEST['filter_port'], 20))
+		array(array(bold(_('Name')), SPACE._('like').': '), new CTextBox('filter_host', $_REQUEST['filter_host'], 20)),
+		array(array(bold(_('DNS')), SPACE._('like').': '), new CTextBox('filter_dns', $_REQUEST['filter_dns'], 20)),
+		array(array(bold(_('IP')), SPACE._('like').': '), new CTextBox('filter_ip', $_REQUEST['filter_ip'], 20)),
+		array(bold(_('Port').': '), new CTextBox('filter_port', $_REQUEST['filter_port'], 20))
 	));
 
 	$filter = new CButton('filter', _('Filter'), "javascript: create_var('zbx_filter', 'filter_set', '1', true);");
@@ -685,7 +685,6 @@ else {
 		_('Triggers'),
 		_('Graphs'),
 		_('Discovery'),
-		_('Web'),
 		_('Interface'),
 		_('Templates'),
 		make_sorting_header(_('Status'), 'status'),
@@ -737,8 +736,7 @@ else {
 		'selectDiscoveries' => API_OUTPUT_COUNT,
 		'selectTriggers' => API_OUTPUT_COUNT,
 		'selectGraphs' => API_OUTPUT_COUNT,
-		'selectApplications' => API_OUTPUT_COUNT,
-		'selectHttpTests' => API_OUTPUT_COUNT
+		'selectApplications' => API_OUTPUT_COUNT
 	));
 	order_result($hosts, $sortfield, $sortorder);
 
@@ -768,8 +766,6 @@ else {
 			' ('.$host['graphs'].')');
 		$discoveries = array(new CLink(_('Discovery'), 'host_discovery.php?&hostid='.$host['hostid']),
 			' ('.$host['discoveries'].')');
-		$httpTests = array(new CLink(_('Web'), 'httpconf.php?&hostid='.$host['hostid']),
-			' ('.$host['httpTests'].')');
 
 		$description = array();
 		if ($host['proxy_hostid']) {
@@ -778,13 +774,13 @@ else {
 				'output' => API_OUTPUT_EXTEND
 			));
 			$proxy = reset($proxy);
-			$description[] = $proxy['host'].NAME_DELIMITER;
+			$description[] = $proxy['host'].':';
 		}
 
 		$description[] = new CLink($host['name'], 'hosts.php?form=update&hostid='.$host['hostid'].url_param('groupid'));
 
 		$hostIF = ($interface['useip'] == INTERFACE_USE_IP) ? $interface['ip'] : $interface['dns'];
-		$hostIF .= empty($interface['port']) ? '' : NAME_DELIMITER.$interface['port'];
+		$hostIF .= empty($interface['port']) ? '' : ': '.$interface['port'];
 
 		$status_script = null;
 		switch ($host['status']) {
@@ -857,7 +853,6 @@ else {
 			$triggers,
 			$graphs,
 			$discoveries,
-			$httpTests,
 			$hostIF,
 			new CCol($hostTemplates, 'wraptext'),
 			$status,

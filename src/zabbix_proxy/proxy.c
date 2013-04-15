@@ -23,14 +23,12 @@
 #include "pid.h"
 #include "db.h"
 #include "dbcache.h"
-#include "zbxdbupgrade.h"
 #include "log.h"
 #include "zbxgetopt.h"
 #include "mutexs.h"
 #include "proxy.h"
 
 #include "sysinfo.h"
-#include "zbxmodules.h"
 #include "zbxserver.h"
 
 #include "daemon.h"
@@ -168,7 +166,7 @@ char	*CONFIG_SERVER			= NULL;
 int	CONFIG_SERVER_PORT		= ZBX_DEFAULT_SERVER_PORT;
 char	*CONFIG_HOSTNAME		= NULL;
 char	*CONFIG_HOSTNAME_ITEM		= NULL;
-int	CONFIG_NODEID			= 0;
+int	CONFIG_NODEID			= -1;
 int	CONFIG_MASTER_NODEID		= 0;
 int	CONFIG_NODE_NOEVENTS		= 0;
 int	CONFIG_NODE_NOHISTORY		= 0;
@@ -184,9 +182,6 @@ int	CONFIG_LOG_SLOW_QUERIES		= 0;	/* ms; 0 - disable */
 
 /* zabbix server startup time */
 int	CONFIG_SERVER_STARTUP_TIME	= 0;
-
-char	*CONFIG_LOAD_MODULE_PATH	= NULL;
-char	**CONFIG_LOAD_MODULE		= NULL;
 
 /* mutex for node syncs; not used in proxy */
 ZBX_MUTEX	node_sync_access;
@@ -257,9 +252,6 @@ static void	zbx_set_defaults()
 
 	if (NULL == CONFIG_EXTERNALSCRIPTS)
 		CONFIG_EXTERNALSCRIPTS = zbx_strdup(CONFIG_EXTERNALSCRIPTS, DATADIR "/zabbix/externalscripts");
-
-	if (NULL == CONFIG_LOAD_MODULE_PATH)
-		CONFIG_LOAD_MODULE_PATH = zbx_strdup(CONFIG_LOAD_MODULE_PATH, LIBDIR "/modules");
 
 	if (ZBX_PROXYMODE_ACTIVE != CONFIG_PROXYMODE || 0 == CONFIG_HEARTBEAT_FREQUENCY)
 		CONFIG_HEARTBEAT_FORKS = 0;
@@ -430,17 +422,8 @@ static void	zbx_load_config()
 			PARM_OPT,	0,			0},
 		{"LogSlowQueries",		&CONFIG_LOG_SLOW_QUERIES,		TYPE_INT,
 			PARM_OPT,	0,			3600000},
-		{"AllowRoot",			&CONFIG_ALLOW_ROOT,			TYPE_INT,
-			PARM_OPT,	0,			1},
-		{"LoadModulePath",		&CONFIG_LOAD_MODULE_PATH,		TYPE_STRING,
-			PARM_OPT,	0,			0},
-		{"LoadModule",			&CONFIG_LOAD_MODULE,			TYPE_MULTISTRING,
-			PARM_OPT,	0,			0},
 		{NULL}
 	};
-
-	/* initialize multistrings */
-	zbx_strarr_init(&CONFIG_LOAD_MODULE);
 
 	parse_cfg_file(CONFIG_FILE, cfg, ZBX_CFG_FILE_REQUIRED, ZBX_CFG_STRICT);
 
@@ -466,18 +449,6 @@ void	zbx_sigusr_handler(zbx_task_t task)
 	}
 }
 #endif
-
-/******************************************************************************
- *                                                                            *
- * Function: zbx_free_config                                                  *
- *                                                                            *
- * Purpose: free configuration memory                                         *
- *                                                                            *
- ******************************************************************************/
-static void	zbx_free_config()
-{
-	zbx_strarr_free(CONFIG_LOAD_MODULE);
-}
 
 /******************************************************************************
  *                                                                            *
@@ -599,19 +570,8 @@ int	MAIN_ZABBIX_ENTRY()
 	zabbix_log(LOG_LEVEL_INFORMATION, "SSH2 support:          " SSH2_FEATURE_STATUS);
 	zabbix_log(LOG_LEVEL_INFORMATION, "IPv6 support:          " IPV6_FEATURE_STATUS);
 	zabbix_log(LOG_LEVEL_INFORMATION, "**************************");
-	zabbix_log(LOG_LEVEL_INFORMATION, "using configuration file: %s", CONFIG_FILE);
-
-	if (FAIL == load_modules(CONFIG_LOAD_MODULE_PATH, CONFIG_LOAD_MODULE, CONFIG_TIMEOUT, 1))
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "loading modules failed, exiting...");
-		exit(EXIT_FAILURE);
-	}
-
-	zbx_free_config();
 
 	DBinit();
-	if (SUCCEED != DBcheck_version())
-		exit(EXIT_FAILURE);
 
 	init_database_cache();
 	init_configuration_cache();
@@ -818,8 +778,6 @@ void	zbx_on_exit()
 #endif
 
 	free_selfmon_collector();
-
-	unload_modules();
 
 	zabbix_log(LOG_LEVEL_INFORMATION, "Zabbix Proxy stopped. Zabbix %s (revision %s).",
 			ZABBIX_VERSION, ZABBIX_REVISION);

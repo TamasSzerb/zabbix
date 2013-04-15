@@ -155,7 +155,7 @@ static int	get_value(const char *source_ip, const char *host, unsigned short por
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	unsigned short	port = ZBX_DEFAULT_AGENT_PORT;
 	int		ret = SUCCEED;
@@ -214,7 +214,7 @@ int	main(int argc, char **argv)
 		ret = get_value(source_ip, host, port, key, &value);
 
 		if (SUCCEED == ret)
-			printf("%s\n", value);
+			printf("%s\n",value);
 
 		zbx_free(value);
 	}

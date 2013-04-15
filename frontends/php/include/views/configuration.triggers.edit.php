@@ -58,9 +58,7 @@ $triggersFormList = new CFormList('triggersFormList');
 if (!empty($this->data['templates'])) {
 	$triggersFormList->addRow(_('Parent triggers'), $this->data['templates']);
 }
-$nameTextBox = new CTextBox('description', $this->data['description'], ZBX_TEXTBOX_STANDARD_SIZE, $this->data['limited']);
-$nameTextBox->attr('autofocus', 'autofocus');
-$triggersFormList->addRow(_('Name'), $nameTextBox);
+$triggersFormList->addRow(_('Name'), new CTextBox('description', $this->data['description'], ZBX_TEXTBOX_STANDARD_SIZE, $this->data['limited']));
 
 // append expression to form list
 $expressionTextBox = new CTextArea(
@@ -260,10 +258,7 @@ $triggersTab = new CTabView(array('remember' => true));
 if (!$this->data['form_refresh']) {
 	$triggersTab->setSelected(0);
 }
-$triggersTab->addTab(
-	'triggersTab',
-	empty($this->data['parent_discoveryid']) ? _('Trigger') : _('Trigger prototype'), $triggersFormList
-);
+$triggersTab->addTab('triggersTab', _('Trigger'), $triggersFormList);
 
 /*
  * Dependencies tab
@@ -279,7 +274,7 @@ if (empty($this->data['parent_discoveryid'])) {
 		$triggersForm->addVar('dependencies[]', $dependency['triggerid'], 'dependencies_'.$dependency['triggerid']);
 
 		$row = new CRow(array(
-			$dependency['host'].NAME_DELIMITER.$dependency['description'],
+			$dependency['host'].': '.$dependency['description'],
 			new CButton('remove', _('Remove'), 'javascript: removeDependency("'.$dependency['triggerid'].'");', 'link_menu')
 		));
 		$row->setAttribute('id', 'dependency_'.$dependency['triggerid']);

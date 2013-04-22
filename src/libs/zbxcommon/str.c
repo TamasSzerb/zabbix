@@ -32,7 +32,7 @@
  *                            in each zabbix application                      *
  *                                                                            *
  ******************************************************************************/
-static void	app_title(void)
+static void	app_title()
 {
 	printf("%s v%s (revision %s) (%s)\n", title_message, ZABBIX_VERSION, ZABBIX_REVISION, ZABBIX_REVDATE);
 }
@@ -47,7 +47,7 @@ static void	app_title(void)
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  ******************************************************************************/
-void	version(void)
+void	version()
 {
 	app_title();
 	printf("Compilation time: %s %s\n", __DATE__, __TIME__);
@@ -65,7 +65,7 @@ void	version(void)
  *                            in each zabbix application                      *
  *                                                                            *
  ******************************************************************************/
-void	usage(void)
+void	usage()
 {
 	printf("usage: %s %s\n", progname, usage_message);
 }
@@ -83,7 +83,7 @@ void	usage(void)
  *                            in each zabbix application                      *
  *                                                                            *
  ******************************************************************************/
-void	help(void)
+void	help()
 {
 	const char	**p = help_message;
 
@@ -175,31 +175,24 @@ void	__zbx_zbx_snprintf_alloc(char **str, size_t *alloc_len, size_t *offset, con
 	va_list	args;
 	size_t	avail_len, written_len;
 retry:
-	if (NULL == *str)
-	{
-		/* zbx_vsnprintf() returns bytes actually written instead of bytes to write, */
-		/* so we have to use the standard function                                   */
-		va_start(args, fmt);
-		*alloc_len = vsnprintf(NULL, 0, fmt, args) + 1;
-		va_end(args);
-		*offset = 0;
-		*str = zbx_malloc(*str, *alloc_len);
-	}
+	va_start(args, fmt);
 
 	avail_len = *alloc_len - *offset;
-	va_start(args, fmt);
 	written_len = zbx_vsnprintf(*str + *offset, avail_len, fmt, args);
-	va_end(args);
 
 	if (written_len == avail_len - 1)
 	{
 		*alloc_len *= 2;
 		*str = zbx_realloc(*str, *alloc_len);
 
+		va_end(args);
+
 		goto retry;
 	}
 
 	*offset += written_len;
+
+	va_end(args);
 }
 
 /******************************************************************************
@@ -258,15 +251,8 @@ size_t	zbx_vsnprintf(char *str, size_t count, const char *fmt, va_list args)
  ******************************************************************************/
 void	zbx_strncpy_alloc(char **str, size_t *alloc_len, size_t *offset, const char *src, size_t n)
 {
-	if (NULL == *str)
+	if (*offset + n >= *alloc_len)
 	{
-		*alloc_len = n + 1;
-		*offset = 0;
-		*str = zbx_malloc(*str, *alloc_len);
-	}
-	else if (*offset + n >= *alloc_len)
-	{
-
 		while (*offset + n >= *alloc_len)
 			*alloc_len *= 2;
 		*str = zbx_realloc(*str, *alloc_len);
@@ -1634,38 +1620,48 @@ char	*get_param_dyn(const char *p, int num)
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Comments: delimiter for parameters is ','                                  *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
+ * Comments: delimeter for parameters is ','                                  *
  *                                                                            *
  ******************************************************************************/
 void	remove_param(char *p, int num)
 {
-	int	state = 0;	/* 0 - unquoted parameter, 1 - quoted parameter */
-	int	idx = 1;
+/* 0 - init, 1 - inside quoted param, 2 - inside unquoted param */
+	int	state, idx = 1;
 	char	*buf;
 
-	for (buf = p; '\0' != *p; p++)
+	for (buf = p, state = 0; '\0' != *p; p++)
 	{
-		switch (state)
-		{
-			case 0:			/* in unquoted parameter */
-				if (',' == *p)
-				{
-					if (1 == idx && 1 == num)
-						p++;
-					idx++;
-				}
-				else if ('"' == *p)
-					state = 1;
-				break;
-			case 1:			/* in quoted param */
-				if ('"' == *p)
-					state = 0;
-				else if ('\\' == *p && '"' == p[1])
-					p++;
-				break;
-		}
 		if (idx != num)
 			*buf++ = *p;
+
+		switch (state) {
+		/* Init state */
+		case 0:
+			if (',' == *p)
+				idx++;
+			else if ('"' == *p)
+				state = 1;
+			else if (' ' != *p)
+				state = 2;
+			break;
+		/* Quoted */
+		case 1:
+			if ('"' == *p)
+				state = 0;
+			else if ('\\' == *p && '"' == p[1])
+				p++;
+			break;
+		/* Unquoted */
+		case 2:
+			if (',' == *p)
+			{
+				idx++;
+				state = 0;
+			}
+			break;
+		}
 	}
 
 	*buf = '\0';
@@ -2093,9 +2089,9 @@ size_t	zbx_get_next_field(const char **line, char **output, size_t *olen, char s
  *                                                                            *
  * Purpose: check if string is contained in a list of delimited strings       *
  *                                                                            *
- * Parameters: list      - strings a,b,ccc,ddd                                *
- *             value     - value                                              *
- *             delimiter - delimiter                                          *
+ * Parameters: list     - strings a,b,ccc,ddd                                 *
+ *             value    - value                                               *
+ *             delimiter- delimiter                                           *
  *                                                                            *
  * Return value: SUCCEED - string is in the list, FAIL - otherwise            *
  *                                                                            *
@@ -2278,9 +2274,9 @@ char	*zbx_age2str(int age)
 	hours = (int)((double)(age - days * SEC_PER_DAY) / SEC_PER_HOUR);
 	minutes	= (int)((double)(age - days * SEC_PER_DAY - hours * SEC_PER_HOUR) / SEC_PER_MIN);
 
-	if (0 != days)
+	if (days)
 		offset += zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dd ", days);
-	if (0 != days || 0 != hours)
+	if (days || hours)
 		offset += zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dh ", hours);
 	offset += zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dm", minutes);
 
@@ -2398,8 +2394,10 @@ const char	*zbx_permission_string(int perm)
 	{
 		case PERM_DENY:
 			return "dn";
-		case PERM_READ:
-			return "r";
+		case PERM_READ_LIST:
+			return "rl";
+		case PERM_READ_ONLY:
+			return "ro";
 		case PERM_READ_WRITE:
 			return "rw";
 		default:
@@ -2513,7 +2511,7 @@ const char	*zbx_result_string(int result)
 	}
 }
 
-const char	*zbx_item_logtype_string(unsigned char logtype)
+const char	*zbx_item_logtype_string(zbx_item_logtype_t logtype)
 {
 	switch (logtype)
 	{
@@ -2621,65 +2619,6 @@ const char	*zbx_escalation_status_string(unsigned char status)
 		default:
 			return "unknown";
 	}
-}
-
-const char	*zbx_trigger_value_string(unsigned char value)
-{
-	switch (value)
-	{
-		case TRIGGER_VALUE_PROBLEM:
-			return "PROBLEM";
-		case TRIGGER_VALUE_OK:
-			return "OK";
-		default:
-			return "unknown";
-	}
-}
-
-const char	*zbx_trigger_state_string(unsigned char state)
-{
-	switch (state)
-	{
-		case TRIGGER_STATE_NORMAL:
-			return "Normal";
-		case TRIGGER_STATE_UNKNOWN:
-			return "Unknown";
-		default:
-			return "unknown";
-	}
-}
-
-const char	*zbx_item_state_string(unsigned char state)
-{
-	switch (state)
-	{
-		case ITEM_STATE_NORMAL:
-			return "Normal";
-		case ITEM_STATE_NOTSUPPORTED:
-			return "Not supported";
-		default:
-			return "unknown";
-	}
-}
-
-const char	*zbx_event_value_string(unsigned char source, unsigned char object, unsigned char value)
-{
-	if (EVENT_SOURCE_TRIGGERS == source)
-		return zbx_trigger_value_string(value);
-
-	if (EVENT_SOURCE_INTERNAL == source)
-	{
-		switch (object)
-		{
-			case EVENT_OBJECT_TRIGGER:
-				return zbx_trigger_state_string(value);
-			case EVENT_OBJECT_ITEM:
-			case EVENT_OBJECT_LLDRULE:
-				return zbx_item_state_string(value);
-		}
-	}
-
-	return "unknown";
 }
 
 #ifdef _WINDOWS
@@ -3483,52 +3422,3 @@ void	zbx_replace_string(char **data, size_t l, size_t *r, const char *value)
 
 	memcpy(&(*data)[l], value, sz_value);
 }
-
-/******************************************************************************
- *                                                                            *
- * Function: zbx_trim_str_list                                                *
- *                                                                            *
- * Purpose: remove whitespace surrounding a string list item delimiters       *
- *                                                                            *
- * Parameters: list      - the list (a string containing items separated by   *
- *                         delimiter)                                         *
- *             delimiter - the list delimiter                                 *
- *                                                                            *
- * Author: Andris Zeila                                                       *
- *                                                                            *
- ******************************************************************************/
-void	zbx_trim_str_list(char *list, char delimiter)
-{
-	char	*whitespace = " \t";	/* NB! strchr(3): "terminating null byte is considered part of the string" */
-	char	*out, *in;
-
-	if (NULL == list || '\0' == *list)
-		return;
-
-	out = in = list;
-
-	while ('\0' != *in)
-	{
-		/* trim leading spaces from list item */
-		while ('\0' != *in && NULL != strchr(whitespace, *in))
-			in++;
-
-		/* copy list item */
-		while (delimiter != *in && '\0' != *in)
-			*out++ = *in++;
-
-		/* trim trailing spaces from list item */
-		if (out > list)
-		{
-			while (NULL != strchr(whitespace, *(--out)))
-				;
-			out++;
-		}
-		if (delimiter == *in)
-			*out++ = *in++;
-	}
-	*out = '\0';
-}
-
-
-

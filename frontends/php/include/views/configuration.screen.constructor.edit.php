@@ -56,7 +56,6 @@ if (isset($_REQUEST['screenitemid']) && !isset($_REQUEST['form_refresh'])) {
 	$url			= $screenItem['url'];
 	$dynamic		= $screenItem['dynamic'];
 	$sort_triggers	= $screenItem['sort_triggers'];
-	$application	= $screenItem['application'];
 }
 else {
 	$resourcetype	= get_request('resourcetype', 0);
@@ -72,7 +71,6 @@ else {
 	$url			= get_request('url', '');
 	$dynamic		= get_request('dynamic', SCREEN_SIMPLE_ITEM);
 	$sort_triggers	= get_request('sort_triggers', SCREEN_SORT_TRIGGERS_DATE_DESC);
-	$application	= get_request('application', '');
 }
 
 // append resource types to form list
@@ -111,7 +109,7 @@ if ($resourcetype == SCREEN_RESOURCE_GRAPH) {
 		$graph['host'] = reset($graph['hosts']);
 
 		$caption = ($graph['host']['status'] != HOST_STATUS_TEMPLATE)
-			? $graph['host']['name'].NAME_DELIMITER.$graph['name']
+			? $graph['host']['name'].':'.$graph['name']
 			: $graph['name'];
 
 		$nodeName = get_node_name_by_elid($graph['host']['hostid']);
@@ -163,7 +161,7 @@ elseif ($resourcetype == SCREEN_RESOURCE_SIMPLE_GRAPH) {
 		$item['host'] = reset($item['hosts']);
 
 		$caption = $item['host']['status'] != HOST_STATUS_TEMPLATE
-			? $item['host']['name'].NAME_DELIMITER.itemName($item)
+			? $item['host']['name'].':'.itemName($item)
 			: itemName($item);
 
 		$nodeName = get_node_name_by_elid($item['itemid']);
@@ -245,7 +243,7 @@ elseif ($resourcetype == SCREEN_RESOURCE_PLAIN_TEXT) {
 		$id = $resourceid;
 		$item = reset($items);
 		$item['host'] = reset($item['hosts']);
-		$caption = $item['host']['name'].NAME_DELIMITER.itemName($item);
+		$caption = $item['host']['name'].':'.itemName($item);
 
 		$nodeName = get_node_name_by_elid($item['itemid']);
 		if (!zbx_empty($nodeName)) {
@@ -295,7 +293,7 @@ else if(in_array($resourcetype, array(SCREEN_RESOURCE_HOSTGROUP_TRIGGERS, SCREEN
 				'editable' => true
 			));
 			foreach ($groups as $group) {
-				$caption = get_node_name_by_elid($group['groupid'], true, NAME_DELIMITER).$group['name'];
+				$caption = get_node_name_by_elid($group['groupid'], true, ':').$group['name'];
 				$id = $resourceid;
 			}
 		}
@@ -319,7 +317,7 @@ else if(in_array($resourcetype, array(SCREEN_RESOURCE_HOSTGROUP_TRIGGERS, SCREEN
 				'editable' => true
 			));
 			foreach ($hosts as $host) {
-				$caption = get_node_name_by_elid($host['hostid'], true, NAME_DELIMITER).$host['name'];
+				$caption = get_node_name_by_elid($host['hostid'], true, ':').$host['name'];
 				$id = $resourceid;
 			}
 		}
@@ -392,7 +390,7 @@ elseif (in_array($resourcetype, array(SCREEN_RESOURCE_TRIGGERS_OVERVIEW, SCREEN_
 			'editable' => true
 		));
 		foreach ($groups as $group) {
-			$caption = get_node_name_by_elid($group['groupid'], true, NAME_DELIMITER).$group['name'];
+			$caption = get_node_name_by_elid($group['groupid'], true, ':').$group['name'];
 			$id = $resourceid;
 		}
 	}
@@ -407,7 +405,6 @@ elseif (in_array($resourcetype, array(SCREEN_RESOURCE_TRIGGERS_OVERVIEW, SCREEN_
 			'formlist'
 		)
 	));
-	$screenFormList->addRow(_('Application'), new CTextBox('application', $application, ZBX_TEXTBOX_STANDARD_SIZE, false, 255));
 }
 
 /*
@@ -427,7 +424,7 @@ elseif ($resourcetype == SCREEN_RESOURCE_SCREEN) {
 		while ($row = DBfetch($db_screens)) {
 			$screen = API::Screen()->get(array(
 				'screenids' => $row['screenid'],
-				'output' => array('screenid')
+				'output' => API_OUTPUT_SHORTEN
 			));
 			if (empty($screen)) {
 				continue;
@@ -469,12 +466,12 @@ elseif ($resourcetype == SCREEN_RESOURCE_HOSTS_INFO || $resourcetype == SCREEN_R
 			'preservekeys' => true
 		));
 		if ($group = reset($groups)) {
-			$caption = get_node_name_by_elid($resourceid, true, NAME_DELIMITER).$group['name'];
+			$caption = get_node_name_by_elid($resourceid, true, ': ').$group['name'];
 			$id = $resourceid;
 		}
 	}
 	elseif (remove_nodes_from_id($resourceid) == 0) {
-		if ($nodeName = get_node_name_by_elid($resourceid, true, NAME_DELIMITER)) {
+		if ($nodeName = get_node_name_by_elid($resourceid, true, ': ')) {
 			$caption = $nodeName._('- all groups -');
 			$id = $resourceid;
 		}
@@ -505,7 +502,7 @@ elseif ($resourcetype == SCREEN_RESOURCE_CLOCK) {
 		));
 		$item = reset($items);
 		$host = reset($item['hosts']);
-		$caption = $host['name'].NAME_DELIMITER.$item['name'];
+		$caption = $host['name'].':'.$item['name'];
 	}
 
 	$screenFormList->addVar('resourceid', $resourceid);

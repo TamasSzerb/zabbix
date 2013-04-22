@@ -72,11 +72,11 @@ elseif (isset($_REQUEST['save'])) {
 	$objects = get_request('hosts', array());
 	$hosts = API::Host()->get(array(
 		'hostids' => $objects,
-		'output' => array('hostid')
+		'output' => API_OUTPUT_SHORTEN
 	));
 	$templates = API::Template()->get(array(
 		'templateids' => $objects,
-		'output' => array('templateid')
+		'output' => API_OUTPUT_SHORTEN
 	));
 
 	if (!empty($_REQUEST['groupid'])) {
@@ -115,7 +115,7 @@ elseif (isset($_REQUEST['save'])) {
 		$msg_fail = _('Cannot update group');
 	}
 	else {
-		if (!count(get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+		if (!count(get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
 			access_deny();
 		}
 
@@ -221,7 +221,7 @@ if (isset($_REQUEST['form'])) {
 			$options = array(
 				'groupids' => $data['groupid'],
 				'templated_hosts' => 1,
-				'output' => array('hostid')
+				'output' => API_OUTPUT_SHORTEN
 			);
 			$data['hosts'] = API::Host()->get($options);
 			$data['hosts'] = zbx_objectValues($data['hosts'], 'hostid');
@@ -278,7 +278,7 @@ if (isset($_REQUEST['form'])) {
 		'hostids' => $data['hosts'],
 		'templated_hosts' =>1,
 		'editable' => 1,
-		'output' => array('hostid')
+		'output' => API_OUTPUT_SHORTEN
 	);
 	$data['rw_hosts'] = API::Host()->get($options);
 	$data['rw_hosts'] = zbx_toHash($data['rw_hosts'], 'hostid');
@@ -299,7 +299,7 @@ else {
 	$sortorder =  getPageSortOrder();
 	$options = array(
 		'editable' => 1,
-		'output' => array('groupid'),
+		'output' => API_OUTPUT_SHORTEN,
 		'sortfield' => $sortfield,
 		'limit' => $config['search_limit'] + 1
 	);

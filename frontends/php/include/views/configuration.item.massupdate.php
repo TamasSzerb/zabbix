@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $itemWidget = new CWidget();
 
 if (!empty($this->data['hostid'])) {
@@ -102,7 +102,7 @@ $itemFormList->addRow(
 // append snmpv3 securityname to form list
 $itemFormList->addRow(
 	array(
-		_('Security name'),
+		_('SNMPv3 security name'),
 		SPACE,
 		new CVisibilityBox('securityname_visible', get_request('securityname_visible'), 'snmpv3_securityname', _('Original'))
 	),
@@ -116,67 +116,27 @@ $securityLevelComboBox->addItem(ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV, 'authNoPri
 $securityLevelComboBox->addItem(ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV, 'authPriv');
 $itemFormList->addRow(
 	array(
-		_('Security level'),
+		_('SNMPv3 security level'),
 		SPACE,
 		new CVisibilityBox('securitylevel_visible', get_request('securitylevel_visible'), 'snmpv3_securitylevel', _('Original'))
 	),
 	$securityLevelComboBox
 );
 
-// append snmpv3 authprotocol to form list
-$authProtocol = new CDiv(
-	array(
-		new CRadioButton('snmpv3_authprotocol', ITEM_AUTHPROTOCOL_MD5, null, 'snmpv3_authprotocol_'.ITEM_AUTHPROTOCOL_MD5, $this->data['snmpv3_authprotocol'] == ITEM_AUTHPROTOCOL_MD5),
-		new CLabel(_('MD5'), 'snmpv3_authprotocol_'.ITEM_AUTHPROTOCOL_MD5),
-		new CRadioButton('snmpv3_authprotocol', ITEM_AUTHPROTOCOL_SHA, null, 'snmpv3_authprotocol_'.ITEM_AUTHPROTOCOL_SHA, $this->data['snmpv3_authprotocol'] == ITEM_AUTHPROTOCOL_SHA),
-		new CLabel(_('SHA'), 'snmpv3_authprotocol_'.ITEM_AUTHPROTOCOL_SHA)
-	),
-	'jqueryinputset',
-	'authprotocol_div'
-);
-$itemFormList->addRow(
-	array(
-		_('Authentication protocol'),
-		SPACE,
-		new CVisibilityBox('authprotocol_visible', get_request('authprotocol_visible'), 'authprotocol_div', _('Original'))
-	),
-	$authProtocol
-);
-
 // append snmpv3 authpassphrase to form list
 $itemFormList->addRow(
 	array(
-		_('Authentication passphrase'),
+		_('SNMPv3 auth passphrase'),
 		SPACE,
 		new CVisibilityBox('authpassphrase_visible', get_request('authpassphrase_visible'), 'snmpv3_authpassphrase', _('Original'))
 	),
 	new CTextBox('snmpv3_authpassphrase', $this->data['snmpv3_authpassphrase'], ZBX_TEXTBOX_STANDARD_SIZE)
 );
 
-// append snmpv3 privprotocol to form list
-$privProtocol = new CDiv(
-	array(
-		new CRadioButton('snmpv3_privprotocol', ITEM_PRIVPROTOCOL_DES, null, 'snmpv3_privprotocol_'.ITEM_PRIVPROTOCOL_DES, $this->data['snmpv3_privprotocol'] == ITEM_PRIVPROTOCOL_DES),
-		new CLabel(_('DES'), 'snmpv3_privprotocol_'.ITEM_PRIVPROTOCOL_DES),
-		new CRadioButton('snmpv3_privprotocol', ITEM_PRIVPROTOCOL_AES, null, 'snmpv3_privprotocol_'.ITEM_PRIVPROTOCOL_AES, $this->data['snmpv3_privprotocol'] == ITEM_PRIVPROTOCOL_AES),
-		new CLabel(_('AES'), 'snmpv3_privprotocol_'.ITEM_PRIVPROTOCOL_AES)
-	),
-	'jqueryinputset',
-	'privprotocol_div'
-);
-$itemFormList->addRow(
-	array(
-		_('Privacy protocol'),
-		SPACE,
-		new CVisibilityBox('privprotocol_visible', get_request('privprotocol_visible'), 'privprotocol_div', _('Original'))
-	),
-	$privProtocol
-);
-
 // append snmpv3 privpassphrase to form list
 $itemFormList->addRow(
 	array(
-		_('Privacy passphrase'),
+		_('SNMPv3 priv passphrase'),
 		SPACE,
 		new CVisibilityBox('privpassphras_visible', get_request('privpassphras_visible'), 'snmpv3_privpassphrase', _('Original'))
 	),
@@ -337,33 +297,33 @@ $itemFormList->addRow(
 	array(
 		_('Flexible intervals'),
 		SPACE,
-		new CVisibilityBox('delay_flex_visible', get_request('delay_flex_visible'), array('delayFlexDiv', 'row-new-delay-flex-fields'), _('Original'))
+		new CVisibilityBox('delay_flex_visible', get_request('delay_flex_visible'), array('delayFlexDiv', 'newDelayFlexDiv'), _('Original'))
 	),
 	new CDiv($delayFlexTable, 'objectgroup inlineblock border_dotted ui-corner-all', 'delayFlexDiv')
 );
 
 // append new delay to form list
-$newFlexInt = new CDiv(
-	array(
-		_('Interval (in sec)'),
-		SPACE,
-		new CNumericBox('new_delay_flex[delay]', 50, 5),
-		SPACE,
-		_('Period'),
-		SPACE,
-		new CTextBox('new_delay_flex[period]', ZBX_DEFAULT_INTERVAL, 20),
-		SPACE,
-		new CSubmit('add_delay_flex', _('Add'), null, 'formlist')
+$itemFormList->addRow(
+	_('New flexible interval'),
+	new CDiv(
+		array(
+			_('Interval (in sec)'),
+			SPACE,
+			new CNumericBox('new_delay_flex[delay]', 50, 5),
+			SPACE,
+			_('Period'),
+			SPACE,
+			new CTextBox('new_delay_flex[period]', ZBX_DEFAULT_INTERVAL, 20),
+			SPACE,
+			new CSubmit('add_delay_flex', _('Add'), null, 'formlist')
+		),
+		null,
+		'newDelayFlexDiv'
 	),
-	null,
-	'row-new-delay-flex-fields'
+	$this->data['maxReached'],
+	'row_new_delay_flex',
+	'new'
 );
-
-$maxFlexMsg = new CSpan(_('Maximum number of flexible intervals added'), 'red');
-$maxFlexMsg->setAttribute('id', 'row-new-delay-flex-max-reached');
-$maxFlexMsg->setAttribute('style', 'display: none;');
-
-$itemFormList->addRow(_('New flexible interval'), array($newFlexInt, $maxFlexMsg), false, 'row_new_delay_flex', 'new');
 
 // append history to form list
 $itemFormList->addRow(
@@ -387,7 +347,7 @@ $itemFormList->addRow(
 
 // append status to form list
 $statusComboBox = new CComboBox('status', $this->data['status']);
-foreach (array(ITEM_STATUS_ACTIVE, ITEM_STATUS_DISABLED) as $status) {
+foreach (array(ITEM_STATUS_ACTIVE, ITEM_STATUS_DISABLED, ITEM_STATUS_NOTSUPPORTED) as $status) {
 	$statusComboBox->addItem($status, item_status2str($status));
 }
 $itemFormList->addRow(
@@ -427,7 +387,7 @@ $itemFormList->addRow(
 $valueMapsComboBox = new CComboBox('valuemapid', $this->data['valuemapid']);
 $valueMapsComboBox->addItem(0, _('As is'));
 foreach ($this->data['valuemaps'] as $valuemap) {
-	$valueMapsComboBox->addItem($valuemap['valuemapid'], get_node_name_by_elid($valuemap['valuemapid'], null, NAME_DELIMITER).$valuemap['name']);
+	$valueMapsComboBox->addItem($valuemap['valuemapid'], get_node_name_by_elid($valuemap['valuemapid'], null, ': ').$valuemap['name']);
 }
 $valueMapLink = new CLink(_('show value mappings'), 'adm.valuemapping.php');
 $valueMapLink->setAttribute('target', '_blank');
@@ -492,5 +452,5 @@ $itemForm->addItem(makeFormFooter(new CSubmit('update', _('Update')), new CButto
 $itemWidget->addItem($itemForm);
 
 require_once dirname(__FILE__).'/js/configuration.item.edit.js.php';
-
 return $itemWidget;
+?>

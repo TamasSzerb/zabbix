@@ -21,8 +21,6 @@
 
 require_once dirname(__FILE__).'/include/config.inc.php';
 require_once dirname(__FILE__).'/include/forms.inc.php';
-require_once dirname(__FILE__).'/include/actions.inc.php';
-require_once dirname(__FILE__).'/include/triggers.inc.php';
 
 $page['title'] = _('Configuration of actions');
 $page['file'] = 'actionconf.php';
@@ -34,7 +32,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 $fields = array(
 	'actionid' =>			array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
 	'name' =>				array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY,	'isset({save})', _('Name')),
-	'eventsource' =>		array(T_ZBX_INT, O_MAND, null,	IN(array(EVENT_SOURCE_TRIGGERS, EVENT_SOURCE_DISCOVERY, EVENT_SOURCE_AUTO_REGISTRATION, EVENT_SOURCE_INTERNAL)), null),
+	'eventsource' =>		array(T_ZBX_INT, O_MAND, null,	IN(array(EVENT_SOURCE_TRIGGERS, EVENT_SOURCE_DISCOVERY, EVENT_SOURCE_AUTO_REGISTRATION)), null),
 	'evaltype' =>			array(T_ZBX_INT, O_OPT, null,	IN(array(ACTION_EVAL_TYPE_AND_OR, ACTION_EVAL_TYPE_AND, ACTION_EVAL_TYPE_OR)), 'isset({save})'),
 	'esc_period' =>			array(T_ZBX_INT, O_OPT, null,	BETWEEN(60, 999999), null, _('Default operation step duration')),
 	'status' =>				array(T_ZBX_INT, O_OPT, null,	IN(array(ACTION_STATUS_ENABLED, ACTION_STATUS_DISABLED)), null),
@@ -58,7 +56,7 @@ $fields = array(
 	'add_operation' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'cancel_new_operation' => array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null),
 	'add_opcondition' =>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
-	'cancel_new_opcondition' => array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null),
+	'cancel_new_opcondition' =>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null),
 	'save' =>				array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'clone' =>				array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'delete' =>				array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
@@ -115,15 +113,15 @@ elseif (isset($_REQUEST['cancel_new_opcondition'])) {
 	unset($_REQUEST['new_opcondition']);
 }
 elseif (isset($_REQUEST['save'])) {
-	if (!count(get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+	if (!count(get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
 		access_deny();
 	}
 
 	$action = array(
-		'name'			=> get_request('name'),
+		'name'		=> get_request('name'),
 		'eventsource'	=> get_request('eventsource', 0),
-		'evaltype'		=> get_request('evaltype', 0),
-		'status'		=> get_request('status', ACTION_STATUS_DISABLED),
+		'evaltype'	=> get_request('evaltype', 0),
+		'status'	=> get_request('status', ACTION_STATUS_DISABLED),
 		'esc_period'	=> get_request('esc_period', 0),
 		'def_shortdata'	=> get_request('def_shortdata', ''),
 		'def_longdata'	=> get_request('def_longdata', ''),
@@ -156,14 +154,14 @@ elseif (isset($_REQUEST['save'])) {
 		add_audit(
 			!isset($_REQUEST['actionid']) ? AUDIT_ACTION_ADD : AUDIT_ACTION_UPDATE,
 			AUDIT_RESOURCE_ACTION,
-			_('Name').NAME_DELIMITER.$_REQUEST['name']
+			_('Name').': '.$_REQUEST['name']
 		);
 
 		unset($_REQUEST['form']);
 	}
 }
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['actionid'])) {
-	if (!count(get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+	if (!count(get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
 		access_deny();
 	}
 
@@ -272,7 +270,7 @@ elseif (isset($_REQUEST['edit_operationid'])) {
 	}
 }
 elseif (str_in_array($_REQUEST['go'], array('activate', 'disable')) && isset($_REQUEST['g_actionid'])) {
-	if (!count($nodes = get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+	if (!count($nodes = get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
 		access_deny();
 	}
 
@@ -283,10 +281,10 @@ elseif (str_in_array($_REQUEST['go'], array('activate', 'disable')) && isset($_R
 	$actionids = array();
 
 	$go_result = DBselect(
-			'SELECT a.actionid'.
-			' FROM actions a'.
-			' WHERE '.dbConditionInt('a.actionid', $_REQUEST['g_actionid']).
-				andDbNode('a.actionid', $nodes)
+		'SELECT DISTINCT a.actionid'.
+		' FROM actions a'.
+		' WHERE '.DBin_node('a.actionid', $nodes).
+			' AND '.dbConditionInt('a.actionid', $_REQUEST['g_actionid'])
 	);
 	while ($row = DBfetch($go_result)) {
 		$res = DBexecute('UPDATE actions SET status='.$status.' WHERE actionid='.$row['actionid']);
@@ -302,7 +300,7 @@ elseif (str_in_array($_REQUEST['go'], array('activate', 'disable')) && isset($_R
 	}
 }
 elseif ($_REQUEST['go'] == 'delete' && isset($_REQUEST['g_actionid'])) {
-	if (!count($nodes = get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+	if (!count($nodes = get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
 		access_deny();
 	}
 
@@ -358,6 +356,8 @@ if (isset($_REQUEST['form'])) {
 		$data['action']['esc_period'] = get_request('esc_period', SEC_PER_HOUR);
 		$data['action']['status'] = get_request('status', isset($_REQUEST['form_refresh']) ? 1 : 0);
 		$data['action']['recovery_msg'] = get_request('recovery_msg', 0);
+		$data['action']['r_shortdata'] = get_request('r_shortdata', ACTION_DEFAULT_SUBJ_TRIGGER);
+		$data['action']['r_longdata'] = get_request('r_longdata', ACTION_DEFAULT_MSG_TRIGGER);
 		$data['action']['conditions'] = get_request('conditions', array());
 		$data['action']['operations'] = get_request('operations', array());
 
@@ -369,8 +369,6 @@ if (isset($_REQUEST['form'])) {
 			if ($data['eventsource'] == EVENT_SOURCE_TRIGGERS) {
 				$data['action']['def_shortdata'] = get_request('def_shortdata', ACTION_DEFAULT_SUBJ_TRIGGER);
 				$data['action']['def_longdata'] = get_request('def_longdata', ACTION_DEFAULT_MSG_TRIGGER);
-				$data['action']['r_shortdata'] = get_request('r_shortdata', ACTION_DEFAULT_SUBJ_TRIGGER);
-				$data['action']['r_longdata'] = get_request('r_longdata', ACTION_DEFAULT_MSG_TRIGGER);
 			}
 			elseif ($data['eventsource'] == EVENT_SOURCE_DISCOVERY) {
 				$data['action']['def_shortdata'] = get_request('def_shortdata', ACTION_DEFAULT_SUBJ_DISCOVERY);
@@ -379,12 +377,6 @@ if (isset($_REQUEST['form'])) {
 			elseif ($data['eventsource'] == EVENT_SOURCE_AUTO_REGISTRATION) {
 				$data['action']['def_shortdata'] = get_request('def_shortdata', ACTION_DEFAULT_SUBJ_AUTOREG);
 				$data['action']['def_longdata'] = get_request('def_longdata', ACTION_DEFAULT_MSG_AUTOREG);
-			}
-			else {
-				$data['action']['def_shortdata'] = get_request('def_shortdata');
-				$data['action']['def_longdata'] = get_request('def_longdata');
-				$data['action']['r_shortdata'] = get_request('r_shortdata');
-				$data['action']['r_longdata'] = get_request('r_longdata');
 			}
 		}
 	}

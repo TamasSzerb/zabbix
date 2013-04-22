@@ -17,13 +17,15 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $applicationWidget = new CWidget();
 $applicationWidget->addPageHeader(_('CONFIGURATION OF APPLICATIONS'));
 
 // append host summary to widget header
-$applicationWidget->addItem(get_header_host_table('applications', $this->data['hostid']));
+if (!empty($this->data['hostid'])) {
+	$applicationWidget->addItem(get_header_host_table('applications', $this->data['hostid']));
+}
 
 // create form
 $applicationForm = new CForm();
@@ -38,9 +40,24 @@ if (!empty($this->data['applicationid'])) {
 
 // create form list
 $applicationFormList = new CFormList('applicationFormList');
-$nameTextBox = new CTextBox('appname', $this->data['appname'], ZBX_TEXTBOX_STANDARD_SIZE);
-$nameTextBox->attr('autofocus', 'autofocus');
-$applicationFormList->addRow(_('Name'), $nameTextBox);
+if (empty($this->data['applicationid'])) {
+	$applicationFormList->addRow(_('Host'), array(
+		new CTextBox('hostname', $this->data['hostname'], ZBX_TEXTBOX_STANDARD_SIZE, 'yes'),
+		new CButton('btn1', _('Select'),
+			'return PopUp("popup.php?srctbl=hosts_and_templates&srcfld1=hostid&srcfld2=name'.
+				'&dstfrm='.$applicationForm->getName().'&dstfld1=apphostid&dstfld2=hostname'.
+				'&noempty=1", 450, 450);',
+			'formlist'
+		)
+	));
+}
+else {
+	// cannot change host for existing application
+	$applicationFormList->addRow(_('Host'), array(
+		new CTextBox('hostname', $this->data['hostname'], ZBX_TEXTBOX_STANDARD_SIZE, 'yes'),
+	));
+}
+$applicationFormList->addRow(_('Name'), new CTextBox('appname', $this->data['appname'], ZBX_TEXTBOX_STANDARD_SIZE));
 
 // append tabs to form
 $applicationTab = new CTabView();
@@ -67,5 +84,5 @@ else {
 
 // append form to widget
 $applicationWidget->addItem($applicationForm);
-
 return $applicationWidget;
+?>

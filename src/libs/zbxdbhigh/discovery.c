@@ -22,6 +22,25 @@
 #include "log.h"
 #include "events.h"
 
+/******************************************************************************
+ *                                                                            *
+ * Functions: discovery_add_event                                             *
+ *                                                                            *
+ * Purpose: generate UP/DOWN event if required                                *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ ******************************************************************************/
+static void	discovery_add_event(int object, zbx_uint64_t objectid, int now, int value)
+{
+	zbx_timespec_t	ts;
+
+	ts.sec = now;
+	ts.ns = 0;
+
+	process_event(0, EVENT_SOURCE_DISCOVERY, object, objectid, &ts, value, TRIGGER_VALUE_CHANGED_NO, 0, 1);
+}
+
 static DB_RESULT	discovery_get_dhost_by_value(zbx_uint64_t dcheckid, const char *value)
 {
 	DB_RESULT	result;
@@ -353,11 +372,6 @@ static void	discovery_update_dservice_value(DB_DSERVICE *service)
  ******************************************************************************/
 static void	discovery_update_service_status(DB_DSERVICE *dservice, int status, const char *value, int now)
 {
-	zbx_timespec_t	ts;
-
-	ts.sec = now;
-	ts.ns = 0;
-
 	if (DOBJECT_STATUS_UP == status)
 	{
 		if (DOBJECT_STATUS_DOWN == dservice->status || 0 == dservice->lastup)
@@ -368,8 +382,7 @@ static void	discovery_update_service_status(DB_DSERVICE *dservice, int status, c
 
 			zbx_strlcpy(dservice->value, value, sizeof(dservice->value));
 			discovery_update_dservice(dservice);
-			add_event(0, EVENT_SOURCE_DISCOVERY, EVENT_OBJECT_DSERVICE, dservice->dserviceid, &ts,
-					DOBJECT_STATUS_DISCOVER, NULL, NULL, 0, 0);
+			discovery_add_event(EVENT_OBJECT_DSERVICE, dservice->dserviceid, now, DOBJECT_STATUS_DISCOVER);
 		}
 		else if (0 != strcmp(dservice->value, value))
 		{
@@ -386,14 +399,11 @@ static void	discovery_update_service_status(DB_DSERVICE *dservice, int status, c
 			dservice->lastup = 0;
 
 			discovery_update_dservice(dservice);
-			add_event(0, EVENT_SOURCE_DISCOVERY, EVENT_OBJECT_DSERVICE, dservice->dserviceid, &ts,
-					DOBJECT_STATUS_LOST, NULL, NULL, 0, 0);
+			discovery_add_event(EVENT_OBJECT_DSERVICE, dservice->dserviceid, now, DOBJECT_STATUS_LOST);
 		}
 	}
-	add_event(0, EVENT_SOURCE_DISCOVERY, EVENT_OBJECT_DSERVICE, dservice->dserviceid, &ts, status,
-			NULL, NULL, 0, 0);
 
-	process_events();
+	discovery_add_event(EVENT_OBJECT_DSERVICE, dservice->dserviceid, now, status);
 }
 
 /******************************************************************************
@@ -422,11 +432,6 @@ static void	discovery_update_dhost(DB_DHOST *dhost)
  ******************************************************************************/
 static void	discovery_update_host_status(DB_DHOST *dhost, int status, int now)
 {
-	zbx_timespec_t	ts;
-
-	ts.sec = now;
-	ts.ns = 0;
-
 	/* update host status */
 	if (DOBJECT_STATUS_UP == status)
 	{
@@ -437,8 +442,7 @@ static void	discovery_update_host_status(DB_DHOST *dhost, int status, int now)
 			dhost->lastup = now;
 
 			discovery_update_dhost(dhost);
-			add_event(0, EVENT_SOURCE_DISCOVERY, EVENT_OBJECT_DHOST, dhost->dhostid, &ts,
-					DOBJECT_STATUS_DISCOVER, NULL, NULL, 0, 0);
+			discovery_add_event(EVENT_OBJECT_DHOST, dhost->dhostid, now, DOBJECT_STATUS_DISCOVER);
 		}
 	}
 	else	/* DOBJECT_STATUS_DOWN */
@@ -450,13 +454,10 @@ static void	discovery_update_host_status(DB_DHOST *dhost, int status, int now)
 			dhost->lastup = 0;
 
 			discovery_update_dhost(dhost);
-			add_event(0, EVENT_SOURCE_DISCOVERY, EVENT_OBJECT_DHOST, dhost->dhostid, &ts,
-					DOBJECT_STATUS_LOST, NULL, NULL, 0, 0);
+			discovery_add_event(EVENT_OBJECT_DHOST, dhost->dhostid, now, DOBJECT_STATUS_LOST);
 		}
 	}
-	add_event(0, EVENT_SOURCE_DISCOVERY, EVENT_OBJECT_DHOST, dhost->dhostid, &ts, status, NULL, NULL, 0, 0);
-
-	process_events();
+	discovery_add_event(EVENT_OBJECT_DHOST, dhost->dhostid, now, status);
 }
 
 /******************************************************************************

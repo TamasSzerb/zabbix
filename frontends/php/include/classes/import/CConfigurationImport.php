@@ -813,7 +813,7 @@ class CConfigurationImport {
 					if ($graphExists) {
 						$dbGraph = API::GraphPrototype()->get(array(
 							'graphids' => $graphExists['graphid'],
-							'output' => array('graphid'),
+							'output' => API_OUTPUT_SHORTEN,
 							'editable' => true
 						));
 						if (empty($dbGraph)) {
@@ -890,7 +890,7 @@ class CConfigurationImport {
 			if ($graphExists) {
 				$dbGraph = API::Graph()->get(array(
 					'graphids' => $graphExists['graphid'],
-					'output' => array('graphid'),
+					'output' => API_OUTPUT_SHORTEN,
 					'editable' => true
 				));
 				if (empty($dbGraph)) {

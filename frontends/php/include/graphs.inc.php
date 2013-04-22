@@ -408,11 +408,11 @@ function navigation_bar_calc($idx = null, $idx2 = 0, $update = false) {
 	if (!empty($_REQUEST['stime'])) {
 		$time = zbxDateToTime($_REQUEST['stime']);
 		if (($time + $_REQUEST['period']) > time()) {
-			$_REQUEST['stime'] = date(TIMESTAMP_FORMAT, time() - $_REQUEST['period']);
+			$_REQUEST['stime'] = date('YmdHis', time() - $_REQUEST['period']);
 		}
 	}
 	else {
-		$_REQUEST['stime'] = date(TIMESTAMP_FORMAT, time() - $_REQUEST['period']);
+		$_REQUEST['stime'] = date('YmdHis', time() - $_REQUEST['period']);
 	}
 
 	return $_REQUEST['period'];
@@ -686,8 +686,59 @@ function imageText($image, $fontsize, $angle, $x, $y, $color, $string) {
 		}
 	}
 	else {
-		show_error_message(_('PHP gd FreeType support missing'));
+		$dims = imageTextSize($fontsize, $angle, $string);
+
+		switch($fontsize) {
+			case 5:
+				$fontsize = 1;
+				break;
+			case 6:
+				$fontsize = 1;
+				break;
+			case 7:
+				$fontsize = 2;
+				break;
+			case 8:
+				$fontsize = 2;
+				break;
+			case 9:
+				$fontsize = 3;
+				break;
+			case 10:
+				$fontsize = 3;
+				break;
+			case 11:
+				$fontsize = 4;
+				break;
+			case 12:
+				$fontsize = 4;
+				break;
+			case 13:
+				$fontsize = 5;
+				break;
+			case 14:
+				$fontsize = 5;
+				break;
+			default:
+				$fontsize = 2;
+				break;
+		}
+
+		if ($angle) {
+			$x -= $dims['width'];
+			$y -= 2;
+		}
+		else {
+			$y -= $dims['height'] - 2;
+		}
+
+		if ($angle > 0) {
+			return imagestringup($image, $fontsize, $x, $y, $string, $color);
+		}
+		return imagestring($image, $fontsize, $x, $y, $string, $color);
 	}
+
+	return true;
 }
 
 function imageTextSize($fontsize, $angle, $string) {
@@ -710,8 +761,51 @@ function imageTextSize($fontsize, $angle, $string) {
 		$result['baseline'] = $ar[1];
 	}
 	else {
-		show_error_message(_('PHP gd FreeType support missing'));
-		return false;
+		switch($fontsize) {
+			case 5:
+				$fontsize = 1;
+				break;
+			case 6:
+				$fontsize = 1;
+				break;
+			case 7:
+				$fontsize = 2;
+				break;
+			case 8:
+				$fontsize = 2;
+				break;
+			case 9:
+				$fontsize = 3;
+				break;
+			case 10:
+				$fontsize = 3;
+				break;
+			case 11:
+				$fontsize = 4;
+				break;
+			case 12:
+				$fontsize = 4;
+				break;
+			case 13:
+				$fontsize = 5;
+				break;
+			case 14:
+				$fontsize = 5;
+				break;
+			default:
+				$fontsize = 2;
+				break;
+		}
+
+		if ($angle) {
+			$result['width'] = imagefontheight($fontsize);
+			$result['height'] = imagefontwidth($fontsize) * zbx_strlen($string);
+		}
+		else {
+			$result['height'] = imagefontheight($fontsize);
+			$result['width'] = imagefontwidth($fontsize) * zbx_strlen($string);
+		}
+		$result['baseline'] = 0;
 	}
 
 	return $result;
@@ -727,7 +821,7 @@ function dashedLine($image, $x1, $y1, $x2, $y2, $color) {
 	}
 
 	imagesetstyle($image, $style);
-	zbx_imageline($image, $x1, $y1, $x2, $y2, IMG_COLOR_STYLED);
+	imageline($image, $x1, $y1, $x2, $y2, IMG_COLOR_STYLED);
 }
 
 function dashedRectangle($image, $x1, $y1, $x2, $y2, $color) {
@@ -836,116 +930,4 @@ function find_period_end($periods, $time, $max_time) {
 	}
 
 	return -1;
-}
-
-/**
- * Converts Base1000 values to Base1024 and calculate pow
- * Example:
- * 	204800 (200 KBytes) with '1024' step convert to 209715,2 (0.2MB (204.8 KBytes))
- *
- * @param string $value
- * @param string $step
- *
- * @return array
- */
-function convertToBase1024 ($value, $step = false) {
-	if (empty($step)) {
-		$step = 1000;
-	}
-
-	if ($value < 0) {
-		$abs = bcmul($value, '-1');
-	}
-	else {
-		$abs = $value;
-	}
-
-	// set default values
-	$valData['pow'] = 0;
-	$valData['value'] = 0;
-
-	// supported pows ('-2' - '8')
-	for ($i = -2; $i < 9; $i++) {
-		$val = bcpow($step, $i);
-		if (bccomp($abs, $val) > -1) {
-			$valData['pow'] = $i;
-			$valData['value'] = $val;
-		}
-		else {
-			break;
-		}
-	}
-
-	if (round($valData['value'], ZBX_UNITS_ROUNDOFF_LOWER_LIMIT) > 0) {
-		if ($valData['pow'] >= 0) {
-			$valData['value'] = bcdiv(sprintf('%.6f',$value), sprintf('%.6f', $valData['value']),
-				ZBX_UNITS_ROUNDOFF_LOWER_LIMIT);
-
-			$valData['value'] = sprintf('%.6f', round(bcmul($valData['value'], bcpow(1024, $valData['pow'])),
-				ZBX_UNITS_ROUNDOFF_UPPER_LIMIT));
-		}
-		else {
-			$valData['value'] = bcmul(sprintf('%.10f',$value), sprintf('%.10f', $valData['value']), ZBX_PRECISION_10);
-
-			for ($i = 0; $i > $valData['pow']; $i--) {
-				$valData['value'] = bcdiv(bcmul($valData['value'], 1000, ZBX_PRECISION_10), 1.024, ZBX_PRECISION_10);
-			}
-
-			$valData['value'] = sprintf('%.10f', $valData['value']);
-		}
-	}
-	else {
-		$valData['value'] = 0;
-	}
-
-	return $valData;
-}
-
-/**
- * Calculate interval for base 1024 values.
- * Example:
- * 	Convert 1000 to 1024
- *
- * @param $interval
- * @param $minY
- * @param $maxY
- *
- * @return float|int
- */
-function getBase1024Interval($interval, $minY, $maxY) {
-	$intervalData = convertToBase1024($interval);
-	$interval = $intervalData['value'];
-
-	if ($maxY > 0) {
-		$absMaxY = $maxY;
-	}
-	else {
-		$absMaxY = bcmul($maxY, '-1');
-	}
-
-	if ($minY > 0) {
-		$absMinY = $minY;
-	}
-	else {
-		$absMinY = bcmul($minY, '-1');
-	}
-
-	if ($absMaxY > $absMinY) {
-		$sideMaxData = convertToBase1024($maxY);
-	}
-	else {
-		$sideMaxData = convertToBase1024($minY);
-	}
-
-	if ($sideMaxData['pow'] != $intervalData['pow']) {
-		// interval correction, if Max Y have other unit, then interval unit = Max Y unit
-		if ($intervalData['pow'] < 0) {
-			$interval = sprintf('%.10f', bcmul($interval, 1.024, 10));
-		}
-		else {
-			$interval = sprintf('%.6f', round(bcmul($interval, 1.024), ZBX_UNITS_ROUNDOFF_UPPER_LIMIT));
-		}
-	}
-
-	return $interval;
 }

@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 include('include/views/js/configuration.sysmap.edit.js.php');
 
 $config = select_config();
@@ -42,9 +42,7 @@ if (isset($this->data['sysmapid'])) {
 
 // create sysmap
 $sysmapList = new CFormList('sysmaplist');
-$nameTextBox = new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE);
-$nameTextBox->attr('autofocus', 'autofocus');
-$sysmapList->addRow(_('Name'), $nameTextBox);
+$sysmapList->addRow(_('Name'), new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE));
 $sysmapList->addRow(_('Width'), new CNumericBox('width', $this->data['width'], 5));
 $sysmapList->addRow(_('Height'), new CNumericBox('height', $this->data['height'], 5));
 
@@ -59,7 +57,7 @@ order_result($images, 'name');
 foreach ($images as $image) {
 	$cmbImg->addItem(
 		$image['imageid'],
-		get_node_name_by_elid($image['imageid'], null, NAME_DELIMITER).$image['name']
+		get_node_name_by_elid($image['imageid'], null, ': ').$image['name']
 	);
 }
 $sysmapList->addRow(_('Background image'), $cmbImg);
@@ -214,3 +212,4 @@ $others[] = new CButtonCancel();
 $frmSysmap->addItem(makeFormFooter($main, $others));
 
 return $frmSysmap;
+?>

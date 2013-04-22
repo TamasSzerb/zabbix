@@ -94,7 +94,7 @@ static void	recv_proxyhistory(zbx_sock_t *sock, struct zbx_json_parse *jp)
 {
 	const char	*__function_name = "recv_proxyhistory";
 	zbx_uint64_t	proxy_hostid;
-	char		host[HOST_HOST_LEN_MAX], info[128] = "", error[256];
+	char		host[HOST_HOST_LEN_MAX], info[128], error[256];
 	int		ret;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
@@ -183,24 +183,24 @@ static void	recv_proxy_heartbeat(zbx_sock_t *sock, struct zbx_json_parse *jp)
 
 	zbx_uint64_t	proxy_hostid;
 	char		host[HOST_HOST_LEN_MAX], error[256];
-	int		ret;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	if (FAIL == (ret = get_proxy_id(jp, &proxy_hostid, host, error, sizeof(error))))
+	if (FAIL == get_proxy_id(jp, &proxy_hostid, host, error, sizeof(error)))
 	{
 		zabbix_log(LOG_LEVEL_WARNING, "Heartbeat from active proxy on [%s] failed: %s",
 				get_ip_by_socket(sock), error);
+		return;
 	}
-	else
-		update_proxy_lastaccess(proxy_hostid);
 
-	zbx_send_response(sock, ret, NULL, CONFIG_TIMEOUT);
+	update_proxy_lastaccess(proxy_hostid);
+
+	zbx_send_response(sock, SUCCEED, NULL, CONFIG_TIMEOUT);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
 
-static int	process_trap(zbx_sock_t	*sock, char *s)
+static int	process_trap(zbx_sock_t	*sock, char *s, int max_len)
 {
 	char	*pl, *pr, *data, value_dec[MAX_BUFFER_LEN];
 	char	lastlogsize[ZBX_MAX_UINT64_LEN], timestamp[11], source[HISTORY_LOG_SOURCE_LEN_MAX], severity[11];
@@ -248,7 +248,7 @@ static int	process_trap(zbx_sock_t	*sock, char *s)
 				res = calculate_checksums(nodeid, NULL, 0);
 				if (SUCCEED == res && NULL != (data = DMget_config_data(nodeid, ZBX_NODE_SLAVE)))
 				{
-					zabbix_log(LOG_LEVEL_WARNING, "NODE %d: sending configuration changes"
+					zabbix_log( LOG_LEVEL_WARNING, "NODE %d: Sending configuration changes"
 							" to slave node %d for node %d datalen " ZBX_FS_SIZE_T,
 							CONFIG_NODEID,
 							sender_nodeid,
@@ -277,7 +277,7 @@ static int	process_trap(zbx_sock_t	*sock, char *s)
 
 			alarm(CONFIG_TIMEOUT);
 			if (SUCCEED != zbx_tcp_send_raw(sock, reply))
-				zabbix_log(LOG_LEVEL_WARNING, "cannot send %s to node", reply);
+				zabbix_log(LOG_LEVEL_WARNING, "Error sending %s to node", reply);
 			alarm(0);
 
 			return ret;
@@ -386,7 +386,7 @@ static int	process_trap(zbx_sock_t	*sock, char *s)
 		zbx_timespec(&av.ts);
 
 		if (0 == strcmp(av.value, ZBX_NOTSUPPORTED))
-			av.state = ITEM_STATE_NOTSUPPORTED;
+			av.status = ITEM_STATUS_NOTSUPPORTED;
 
 		process_mass_data(sock, 0, &av, 1, NULL);
 
@@ -405,7 +405,7 @@ static void	process_trapper_child(zbx_sock_t *sock)
 	if (SUCCEED != zbx_tcp_recv_to(sock, &data, CONFIG_TRAPPER_TIMEOUT))
 		return;
 
-	process_trap(sock, data);
+	process_trap(sock, data, sizeof(data));
 }
 
 void	main_trapper_loop(zbx_sock_t *s)

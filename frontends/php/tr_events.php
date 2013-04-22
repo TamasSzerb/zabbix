@@ -85,7 +85,7 @@ $trigger = reset($triggers);
 // get events
 $options = array(
 	'eventids' => $_REQUEST['eventid'],
-	'objectids' => $_REQUEST['triggerid'],
+	'triggerids' => $_REQUEST['triggerid'],
 	'select_alerts' => API_OUTPUT_EXTEND,
 	'select_acknowledges' => API_OUTPUT_EXTEND,
 	'output' => API_OUTPUT_EXTEND,
@@ -98,7 +98,7 @@ $tr_event_wdgt = new CWidget();
 $tr_event_wdgt->setClass('header');
 
 // Main widget header
-$text = array(_('EVENTS').': "'.CMacrosResolverHelper::resolveTriggerName($trigger).'"');
+$text = array(_('EVENTS').': "'.CTriggerHelper::expandDescription($trigger).'"');
 
 $fs_icon = get_icon('fullscreen', array('fullscreen' => $_REQUEST['fullscreen']));
 $tr_event_wdgt->addHeader($text, $fs_icon);

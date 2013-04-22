@@ -75,8 +75,6 @@
 #	define PATH_SEPARATOR	'\\'
 #endif
 
-#	define strcasecmp	lstrcmpiA
-
 #else	/* _WINDOWS */
 
 #	define zbx_stat(path, buf)		stat(path, buf)
@@ -128,10 +126,5 @@
 #define ZBX_HEX2UINT64(uint, string) sscanf(string, ZBX_FS_UX64, &uint)
 
 #define ZBX_CONST_STRING(str) ""str
-
-typedef struct {
-	zbx_uint64_t	lo;
-	zbx_uint64_t	hi;
-} zbx_uint128_t;
 
 #endif

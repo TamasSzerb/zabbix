@@ -168,8 +168,8 @@ elseif ($_REQUEST['go'] == 'delete') {
 	$dbApplications = DBselect(
 		'SELECT a.applicationid,a.name,a.hostid'.
 		' FROM applications a'.
-		' WHERE '.dbConditionInt('a.applicationid', $applications).
-			andDbNode('a.applicationid')
+		' WHERE '.DBin_node('a.applicationid').
+			' AND '.dbConditionInt('a.applicationid', $applications)
 	);
 	while ($db_app = DBfetch($dbApplications)) {
 		if (!isset($applications[$db_app['applicationid']])) {
@@ -197,8 +197,8 @@ elseif (str_in_array($_REQUEST['go'], array('activate', 'disable'))) {
 				' LEFT JOIN items i ON ia.itemid=i.itemid'.
 			' WHERE ia.applicationid='.$appid.
 				' AND i.hostid='.$_REQUEST['hostid'].
-				' AND i.type<>'.ITEM_TYPE_HTTPTEST.
-				andDbNode('ia.applicationid')
+				' AND i.type<>9'.
+				' AND '.DBin_node('ia.applicationid')
 		);
 		while ($item = DBfetch($db_items)) {
 			if ($_REQUEST['go'] == 'activate') {
@@ -227,7 +227,6 @@ if ($_REQUEST['go'] != 'none' && !empty($go_result)) {
  * Dsiplay
  */
 $data = array();
-
 if (isset($_REQUEST['form'])) {
 	$data['applicationid'] = get_request('applicationid');
 	$data['form'] = get_request('form');
@@ -236,7 +235,6 @@ if (isset($_REQUEST['form'])) {
 
 	if (isset($data['applicationid']) && !isset($_REQUEST['form_refresh'])) {
 		$dbApplication = reset($dbApplication);
-
 		$data['appname'] = $dbApplication['name'];
 		$data['apphostid'] = $dbApplication['hostid'];
 
@@ -249,6 +247,15 @@ if (isset($_REQUEST['form'])) {
 	// select the host for the navigation panel
 	$data['hostid'] = get_request('hostid') ? get_request('hostid') : $data['apphostid'];
 
+	// get application hostid
+	$db_host = get_host_by_hostid($data['apphostid'], 1);
+	if ($db_host) {
+		$data['hostname'] = $db_host['name'];
+	}
+	else {
+		$data['hostname'] = '';
+	}
+
 	// render view
 	$applicationView = new CView('configuration.application.edit', $data);
 	$applicationView->render();
@@ -256,23 +263,22 @@ if (isset($_REQUEST['form'])) {
 }
 else {
 	$options = array(
-		'groups' => array('editable' => true, 'with_hosts_and_templates' => true),
-		'hosts' => array('editable' => true, 'templated_hosts' => true),
-		'hostid' => get_request('hostid'),
-		'groupid' => get_request('groupid')
+		'groups' => array('editable' => 1, 'with_hosts_and_templates' => true),
+		'hosts' => array('editable' => 1, 'templated_hosts' => 1),
+		'hostid' => get_request('hostid', null),
+		'groupid' => get_request('groupid', null)
 	);
 	$data['pageFilter'] = new CPageFilter($options);
 	$data['groupid'] = $data['pageFilter']->groupid;
 	$data['hostid'] = $data['pageFilter']->hostid;
 
 	if ($data['pageFilter']->hostsSelected) {
-		// get application ids
+		// get application
 		$sortfield = getPageSortField('name');
 		$sortorder = getPageSortOrder();
-
 		$options = array(
-			'output' => array('applicationid'),
-			'editable' => true,
+			'output' => API_OUTPUT_SHORTEN,
+			'editable' => 1,
 			'sortfield' => $sortfield,
 			'limit' => $config['search_limit'] + 1
 		);
@@ -289,7 +295,7 @@ else {
 			'applicationids' => zbx_objectValues($data['applications'], 'applicationid'),
 			'output' => API_OUTPUT_EXTEND,
 			'selectItems' => API_OUTPUT_REFER,
-			'expandData' => true
+			'expandData' => 1
 		);
 		$data['applications'] = API::Application()->get($options);
 		order_result($data['applications'], $sortfield, $sortorder);
@@ -315,3 +321,4 @@ else {
 }
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

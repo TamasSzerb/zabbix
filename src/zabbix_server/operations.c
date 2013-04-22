@@ -59,9 +59,9 @@ static zbx_uint64_t	select_discovered_host(DB_EVENT *event)
 					" and i.useip=1"
 					" and i.ip=ds.ip"
 					" and ds.dhostid=" ZBX_FS_UI64
-					ZBX_SQL_NODE
+					DB_NODE
 				" order by i.hostid",
-				event->objectid, DBand_node_local("i.interfaceid"));
+				event->objectid, DBnode_local("i.interfaceid"));
 			break;
 		case EVENT_OBJECT_DSERVICE:
 			zbx_snprintf(sql, sizeof(sql),
@@ -71,9 +71,9 @@ static zbx_uint64_t	select_discovered_host(DB_EVENT *event)
 					" and i.useip=1"
 					" and i.ip=ds.ip"
 					" and ds.dserviceid =" ZBX_FS_UI64
-					ZBX_SQL_NODE
+					DB_NODE
 				" order by i.hostid",
-				event->objectid, DBand_node_local("i.interfaceid"));
+				event->objectid, DBnode_local("i.interfaceid"));
 			break;
 		default:
 			goto exit;
@@ -271,10 +271,10 @@ static zbx_uint64_t	add_discovered_host(DB_EVENT *event)
 						" where h.hostid=i.hostid"
 							" and i.ip=ds.ip"
 							" and ds.dhostid=" ZBX_FS_UI64
-							ZBX_SQL_NODE
+						       	DB_NODE
 						" order by h.hostid",
 						dhostid,
-						DBand_node_local("h.hostid"));
+						DBnode_local("h.hostid"));
 
 				if (NULL != (row2 = DBfetch(result2)))
 				{
@@ -345,10 +345,10 @@ static zbx_uint64_t	add_discovered_host(DB_EVENT *event)
 					"select hostid,proxy_hostid"
 					" from hosts"
 					" where host='%s'"
-						ZBX_SQL_NODE
+						DB_NODE
 					" order by hostid",
 					host_esc,
-					DBand_node_local("hostid"));
+					DBnode_local("hostid"));
 
 			result2 = DBselectN(sql, 1);
 

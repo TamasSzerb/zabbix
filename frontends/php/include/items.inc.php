@@ -147,7 +147,8 @@ function item_data_type2str($type = null) {
 function item_status2str($type = null) {
 	$types = array(
 		ITEM_STATUS_ACTIVE => _('Enabled'),
-		ITEM_STATUS_DISABLED => _('Disabled')
+		ITEM_STATUS_DISABLED => _('Disabled'),
+		ITEM_STATUS_NOTSUPPORTED => _('Not supported')
 	);
 	if (is_null($type)) {
 		return $types;
@@ -160,75 +161,20 @@ function item_status2str($type = null) {
 	}
 }
 
-/**
- * Returns the names of supported item states.
- *
- * If the $state parameter is passed, returns the name of the specific state, otherwise - returns an array of all
- * supported states.
- *
- * @param string $state
- *
- * @return array|string
- */
-function itemState($state = null) {
-	$states = array(
-		ITEM_STATE_NORMAL => _('Normal'),
-		ITEM_STATE_NOTSUPPORTED => _('Not supported')
-	);
-
-	if ($state === null) {
-		return $states;
-	}
-	elseif (isset($states[$state])) {
-		return $states[$state];
-	}
-	else {
-		return _('Unknown');
+function item_status2style($status) {
+	switch ($status) {
+		case ITEM_STATUS_ACTIVE:
+			return 'off';
+		case ITEM_STATUS_DISABLED:
+			return 'on';
+		case ITEM_STATUS_NOTSUPPORTED:
+		default:
+			return 'unknown';
 	}
 }
 
 /**
- * Returns the text indicating the items status and state. If the $state parameter is not given, only the status of
- * the item will be taken into account.
- *
- * @param int $status
- * @param int $state
- *
- * @return string
- */
-function itemIndicator($status, $state = null) {
-	if ($status == ITEM_STATUS_ACTIVE) {
-		return ($state == ITEM_STATE_NOTSUPPORTED) ? _('Not supported') : _('Enabled');
-	}
-	elseif ($status == ITEM_STATUS_DISABLED) {
-		return _('Disabled');
-	}
-
-	return _('Unknown');
-}
-
-/**
- * Returns the CSS class for the items status and state indicator. If the $state parameter is not given, only the status of
- * the item will be taken into account.
- *
- * @param int $status
- * @param int $state
- *
- * @return string
- */
-function itemIndicatorStyle($status, $state = null) {
-	if ($status == ITEM_STATUS_ACTIVE) {
-		return ($state == ITEM_STATE_NOTSUPPORTED) ? 'unknown' : 'enabled';
-	}
-	elseif ($status == ITEM_STATUS_DISABLED) {
-		return 'disabled';
-	}
-
-	return 'unknown';
-}
-
-/**
- * Returns the name of the given interface type. Items "status" and "state" properties must be defined.
+ * Returns the name of the given interface type.
  *
  * @param int $type
  *
@@ -279,11 +225,12 @@ function update_item_status($itemids, $status) {
 		$old_status = $item['status'];
 		if ($status != $old_status) {
 			$result &= DBexecute('UPDATE items SET status='.$status.
+				($status != ITEM_STATUS_NOTSUPPORTED ? ",error=''" : '').
 				' WHERE itemid='.$item['itemid']);
 			if ($result) {
 				$host = get_host_by_hostid($item['hostid']);
 				$item_new = get_item_by_itemid($item['itemid']);
-				add_audit_ext(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ITEM, $item['itemid'], $host['host'].NAME_DELIMITER.$item['name'], 'items', $item, $item_new);
+				add_audit_ext(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ITEM, $item['itemid'], $host['host'].':'.$item['name'], 'items', $item, $item_new);
 			}
 		}
 	}
@@ -295,14 +242,18 @@ function copyItemsToHosts($srcItemIds, $dstHostIds) {
 		'itemids' => $srcItemIds,
 		'output' => array(
 			'type', 'snmp_community', 'snmp_oid', 'name', 'key_', 'delay', 'history', 'trends', 'status', 'value_type',
-			'trapper_hosts', 'units', 'multiplier', 'delta', 'snmpv3_securityname', 'snmpv3_securitylevel', 'snmpv3_authprotocol',
-			'snmpv3_authpassphrase', 'snmpv3_privprotocol', 'snmpv3_privpassphrase', 'formula', 'logtimefmt', 'valuemapid',
-			'delay_flex', 'params', 'ipmi_sensor', 'data_type', 'authtype', 'username', 'password', 'publickey',
-			'privatekey', 'flags', 'filter', 'port', 'description', 'inventory_link'
+			'trapper_hosts', 'units', 'multiplier', 'delta', 'snmpv3_securityname', 'snmpv3_securitylevel', 'snmpv3_authpassphrase',
+			'snmpv3_privpassphrase', 'formula', 'logtimefmt', 'valuemapid', 'delay_flex', 'params', 'ipmi_sensor', 'data_type',
+			'authtype', 'username', 'password', 'publickey', 'privatekey', 'flags', 'filter', 'port', 'description', 'inventory_link'
 		),
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
 		'selectApplications' => API_OUTPUT_REFER
 	));
+	foreach ($srcItems as &$srcItem) {
+		if ($srcItem['status'] == ITEM_STATUS_NOTSUPPORTED) {
+			$srcItem['status'] = ITEM_STATUS_ACTIVE;
+		}
+	}
 
 	$dstHosts = API::Host()->get(array(
 		'output' => array('hostid', 'host', 'status'),
@@ -356,15 +307,21 @@ function copyItems($srcHostId, $dstHostId) {
 		'hostids' => $srcHostId,
 		'output' => array(
 			'type', 'snmp_community', 'snmp_oid', 'name', 'key_', 'delay', 'history', 'trends', 'status', 'value_type',
-			'trapper_hosts', 'units', 'multiplier', 'delta', 'snmpv3_securityname', 'snmpv3_securitylevel', 'snmpv3_authprotocol',
-			'snmpv3_authpassphrase', 'snmpv3_privprotocol', 'snmpv3_privpassphrase', 'formula', 'logtimefmt', 'valuemapid',
-			'delay_flex', 'params', 'ipmi_sensor', 'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey',
-			'flags', 'filter', 'port', 'description', 'inventory_link'
+			'trapper_hosts', 'units', 'multiplier', 'delta', 'snmpv3_securityname', 'snmpv3_securitylevel', 'snmpv3_authpassphrase',
+			'snmpv3_privpassphrase', 'formula', 'logtimefmt', 'valuemapid', 'delay_flex', 'params', 'ipmi_sensor', 'data_type',
+			'authtype', 'username', 'password', 'publickey', 'privatekey', 'flags', 'filter', 'port', 'description', 'inventory_link'
 		),
 		'inherited' => false,
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
 		'selectApplications' => API_OUTPUT_REFER
 	));
+
+	foreach ($srcItems as &$srcItem) {
+		if ($srcItem['status'] == ITEM_STATUS_NOTSUPPORTED) {
+			$srcItem['status'] = ITEM_STATUS_ACTIVE;
+		}
+	}
+
 	$dstHosts = API::Host()->get(array(
 		'output' => array('hostid', 'host', 'status'),
 		'selectInterfaces' => array('interfaceid', 'type', 'main'),
@@ -402,10 +359,6 @@ function copyApplications($srcHostId, $dstHostId) {
 		'output' => API_OUTPUT_EXTEND,
 		'inherited' => false
 	));
-	if (empty($apps_to_clone)) {
-		return true;
-	}
-
 	foreach ($apps_to_clone as &$app) {
 		$app['hostid'] = $dstHostId;
 		unset($app['applicationid'], $app['templateid']);
@@ -479,8 +432,8 @@ function get_item_by_itemid_limited($itemid) {
 	$row = DBfetch(DBselect(
 		'SELECT i.itemid,i.interfaceid,i.name,i.key_,i.hostid,i.delay,i.history,i.status,i.type,i.lifetime,'.
 			'i.snmp_community,i.snmp_oid,i.value_type,i.data_type,i.trapper_hosts,i.port,i.units,i.multiplier,i.delta,'.
-			'i.snmpv3_securityname,i.snmpv3_securitylevel,i.snmpv3_authprotocol,i.snmpv3_authpassphrase,i.snmpv3_privprotocol,'.
-			'i.snmpv3_privpassphrase,i.formula,i.trends,i.logtimefmt,i.valuemapid,i.delay_flex,i.params,i.ipmi_sensor,i.templateid,'.
+			'i.snmpv3_securityname,i.snmpv3_securitylevel,i.snmpv3_authpassphrase,i.snmpv3_privpassphrase,'.
+			'i.formula,i.trends,i.logtimefmt,i.valuemapid,i.delay_flex,i.params,i.ipmi_sensor,i.templateid,'.
 			'i.authtype,i.username,i.password,i.publickey,i.privatekey,i.flags,i.filter,i.description,i.inventory_link'.
 		' FROM items i'.
 		' WHERE i.itemid='.$itemid));
@@ -491,7 +444,7 @@ function get_item_by_itemid_limited($itemid) {
 	return false;
 }
 
-/**
+/*
  * Description:
  * Replace items for specified host
  *
@@ -567,7 +520,6 @@ function resolveItemKeyMacros(array $item) {
 			'itemids' => $item['itemid'],
 			'selectInterfaces' => array('ip', 'dns', 'useip'),
 			'selectHosts' => array('host', 'name'),
-			'webitems' => true,
 			'output' => API_OUTPUT_REFER,
 			'filter' => array('flags' => null)
 		));
@@ -705,24 +657,18 @@ function get_realrule_by_itemid_and_hostid($itemid, $hostid) {
 /**
  * Retrieve overview table object for items.
  *
- * @param        $hostids
- * @param string $application name of application to filter
- * @param null   $view_style
+ * @param $hostids
+ * @param null $view_style
  *
  * @return CTableInfo
  */
-function get_items_data_overview($hostids, $application, $view_style) {
-	$sqlFrom = '';
-	$sqlWhere = '';
-	if ($application !== '') {
-		$sqlFrom = 'applications a,items_applications ia,';
-		$sqlWhere = ' AND i.itemid=ia.itemid AND a.applicationid=ia.applicationid AND a.name='.zbx_dbstr($application);
-	}
+function get_items_data_overview($hostids, $view_style) {
+	global $USER_DETAILS;
 
 	$db_items = DBselect(
 		'SELECT DISTINCT h.hostid,h.name AS hostname,i.itemid,i.key_,i.value_type,i.lastvalue,i.units,i.lastclock,'.
 			'i.name,t.priority,i.valuemapid,t.value AS tr_value,t.triggerid'.
-		' FROM hosts h,'.$sqlFrom.'items i'.
+		' FROM hosts h,items i'.
 			' LEFT JOIN functions f ON f.itemid=i.itemid'.
 			' LEFT JOIN triggers t ON t.triggerid=f.triggerid AND t.status='.TRIGGER_STATUS_ENABLED.
 		' WHERE '.dbConditionInt('h.hostid', $hostids).
@@ -730,7 +676,6 @@ function get_items_data_overview($hostids, $application, $view_style) {
 			' AND h.hostid=i.hostid'.
 			' AND i.status='.ITEM_STATUS_ACTIVE.
 			' AND '.dbConditionInt('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)).
-				$sqlWhere.
 		' ORDER BY i.name,i.itemid'
 	);
 
@@ -753,7 +698,7 @@ function get_items_data_overview($hostids, $application, $view_style) {
 	$items = array();
 	while ($row = DBfetch($db_items)) {
 		$descr = itemName($row);
-		$row['hostname'] = get_node_name_by_elid($row['hostid'], null, NAME_DELIMITER).$row['hostname'];
+		$row['hostname'] = get_node_name_by_elid($row['hostid'], null, ': ').$row['hostname'];
 		$hostnames[$row['hostid']] = $row['hostname'];
 
 		// a little tricky check for attempt to overwrite active trigger (value=1) with
@@ -967,35 +912,18 @@ function delete_trends_by_itemid($itemIds) {
  * First format the value according to the configuration of the item. Then apply the value mapping to the formatted (!)
  * value.
  *
- * @param array		$item
- * @param string	$unknownString	the text to be used if the item has no data
- * @param bool		$ellipsis		text will be cutted and ellipsis "..." added if set to true
+ * @param array $item
+ * @param string $unknownString the text to be used if the item has no data
  *
  * @return string
  */
-function formatItemValue(array $item, $unknownString = '-', $ellipsis = true) {
+function formatItemValue(array $item, $unknownString = '-') {
 	if (!isset($item['lastvalue']) || $item['lastclock'] == 0) {
 		return $unknownString;
 	}
 
 	$value = formatItemValueType($item);
-
-	if ($item['value_type'] == ITEM_VALUE_TYPE_STR
-			|| $item['value_type'] == ITEM_VALUE_TYPE_TEXT
-			|| $item['value_type'] == ITEM_VALUE_TYPE_LOG) {
-
-		$mapping = getMappedValue($value, $item['valuemapid']);
-
-		if ($ellipsis && zbx_strlen($value) > 20) {
-			$value = zbx_substr($value, 0, 20).'...';
-		}
-		$value = nbsp(htmlspecialchars($value));
-
-		if ($mapping !== false) {
-			$value = $mapping.' ('.$value.')';
-		}
-	}
-	else {
+	if ($item['valuemapid'] > 0) {
 		$value = applyValueMap($value, $item['valuemapid']);
 	}
 
@@ -1017,6 +945,10 @@ function formatItemValueType(array $item) {
 			|| $item['value_type'] == ITEM_VALUE_TYPE_TEXT
 			|| $item['value_type'] == ITEM_VALUE_TYPE_LOG) {
 		$value = $item['lastvalue'];
+		if (zbx_strlen($value) > 20) {
+			$value = zbx_substr($value, 0, 20).' ...';
+		}
+		$value = nbsp(htmlspecialchars($value));
 	}
 	else {
 		$value = _('Unknown value type');
@@ -1408,19 +1340,4 @@ function getParamFieldLabelByType($itemType) {
 		default:
 			return 'params';
 	}
-}
-
-/**
- * Quoting $param if it contain special characters.
- *
- * @param string $param
- *
- * @return string
- */
-function quoteItemKeyParam($param) {
-	if (!isset($param[0]) || ($param[0] != '"' && false === strpos($param, ',') && false === strpos($param, ']'))) {
-		return $param;
-	}
-
-	return '"'.str_replace('"', '\\"', $param).'"';
 }

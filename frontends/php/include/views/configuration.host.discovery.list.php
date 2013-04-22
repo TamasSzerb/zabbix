@@ -63,26 +63,23 @@ foreach ($data['discoveries'] as $discovery) {
 	if ($discovery['templateid']) {
 		$template_host = get_realhost_by_itemid($discovery['templateid']);
 		$description[] = new CLink($template_host['name'], '?hostid='.$template_host['hostid'], 'unknown');
-		$description[] = NAME_DELIMITER;
+		$description[] = ': ';
 	}
 	$discovery['name_expanded'] = itemName($discovery);
 	$description[] = new CLink($discovery['name_expanded'], '?form=update&itemid='.$discovery['itemid']);
 
 	$status = new CLink(
-		itemIndicator($discovery['status'], $discovery['state']),
+		item_status2str($discovery['status']),
 		'?hostid='.$_REQUEST['hostid'].'&g_hostdruleid='.$discovery['itemid'].'&go='.($discovery['status'] ? 'activate':'disable'),
-		itemIndicatorStyle($discovery['status'], $discovery['state'])
+		item_status2style($discovery['status'])
 	);
 
-	$error = '';
-	if ($discovery['status'] == ITEM_STATUS_ACTIVE) {
-		if (zbx_empty($discovery['error'])) {
-			$error = new CDiv(SPACE, 'status_icon iconok');
-		}
-		else {
-			$error = new CDiv(SPACE, 'status_icon iconerror');
-			$error->setHint($discovery['error'], '', 'on');
-		}
+	if (zbx_empty($discovery['error'])) {
+		$error = new CDiv(SPACE, 'status_icon iconok');
+	}
+	else {
+		$error = new CDiv(SPACE, 'status_icon iconerror');
+		$error->setHint($discovery['error'], '', 'on');
 	}
 
 	$discoveryTable->addRow(array(

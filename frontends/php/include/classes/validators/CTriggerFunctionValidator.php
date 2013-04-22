@@ -20,7 +20,7 @@
 
 class CTriggerFunctionValidator extends CValidator {
 	/**
-	 * The array containing valid functions and parameters to them
+	 * The array containing valid functions and parameres to them
 	 *
 	 * Structure: array(
 	 *   '<function>' => array(
@@ -61,8 +61,8 @@ class CTriggerFunctionValidator extends CValidator {
 		}
 
 		if (!isset($this->allowed[$value['functionName']]['value_types'][$value['valueType']])) {
-			$this->setError(_s('Incorrect item value type "%1$s" provided for trigger function "%2$s".',
-					itemValueTypeString($value['valueType']), $value['functionName']));
+			$this->setError(_s('Incorrect item value type "%1$s:%2$s" provided for trigger function "%3$s".',
+					'', itemValueTypeString($value['valueType']), $value['functionName']));
 			return false;
 		}
 
@@ -173,21 +173,10 @@ class CTriggerFunctionValidator extends CValidator {
 		$valueTypesLog = array(
 			ITEM_VALUE_TYPE_LOG => true
 		);
-		$valueTypesInt = array(
-			ITEM_VALUE_TYPE_UINT64 => true
-		);
 
 		$argsIgnored = array(array('type' => 'str'));
 
 		$this->allowed = array(
-			'band' => array(
-				'args' => array(
-					array('type' => 'sec_num', 'mandat' => true),
-					array('type' => 'num', 'mandat' => true),
-					array('type' => 'sec')
-				),
-				'value_types' => $valueTypesInt
-			),
 			'abschange' => array(
 				'args' => $argsIgnored,
 				'value_types' => $valueTypesAll

@@ -22,7 +22,8 @@ AC_DEFUN([LIBNETSNMP_CHECK_CONFIG],
   _libnetsnmp_config="no"
 
   AC_ARG_WITH(net-snmp,
-[What SNMP package do you want to use (please select only one):
+[
+What SNMP package do you want to use (please select only one):
 AC_HELP_STRING([--with-net-snmp@<:@=ARG@:>@],
 		[use NET-SNMP package @<:@default=no@:>@, optionally specify path to net-snmp-config])
 	],[ if test "$withval" = "no"; then
@@ -41,9 +42,11 @@ AC_HELP_STRING([--with-net-snmp@<:@=ARG@:>@],
 
   if test "x$want_netsnmp" != "xno"; then
 
-        AC_PATH_PROG([_libnetsnmp_config], [net-snmp-config], [])
+        if test -z "$_libnetsnmp_config" -o test; then
+            AC_PATH_PROG([_libnetsnmp_config], [net-snmp-config], [no])
+        fi
 
-	if test -x "$_libnetsnmp_config"; then
+	if test -f $_libnetsnmp_config; then
 
 		_full_libnetsnmp_cflags="`$_libnetsnmp_config --cflags`"
 		for i in $_full_libnetsnmp_cflags; do
@@ -127,4 +130,5 @@ session.localname = "";
   AC_SUBST(SNMP_CFLAGS)
   AC_SUBST(SNMP_LDFLAGS)
   AC_SUBST(SNMP_LIBS)
+
 ])dnl

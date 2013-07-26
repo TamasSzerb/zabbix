@@ -20,20 +20,17 @@
 
 
 /**
- * Class containing methods for operations with actions.
- *
  * @package API
  */
 class CAction extends CZBXAPI {
 
 	protected $tableName = 'actions';
 	protected $tableAlias = 'a';
-	protected $sortColumns = array('actionid', 'name', 'status');
 
 	/**
-	 * Get actions data
+	 * Get Actions data
 	 *
-	 * @param array $options
+	 * @param _array $options
 	 * @param array $options['itemids']
 	 * @param array $options['hostids']
 	 * @param array $options['groupids']
@@ -46,13 +43,18 @@ class CAction extends CZBXAPI {
 	 * @param array $options['pattern']
 	 * @param array $options['limit']
 	 * @param array $options['order']
-	 *
 	 * @return array|int item data as array or false if error
 	 */
 	public function get($options = array()) {
 		$result = array();
 		$userType = self::$userData['type'];
 		$userid = self::$userData['userid'];
+
+		// allowed columns for sorting
+		$sortColumns = array('actionid', 'name', 'status');
+
+		// allowed output options for [ select_* ] params
+		$subselectsAllowedOutputs = array(API_OUTPUT_REFER, API_OUTPUT_EXTEND);
 
 		$sqlParts = array(
 			'select'	=> array('actions' => 'a.actionid'),
@@ -93,10 +95,23 @@ class CAction extends CZBXAPI {
 		);
 		$options = zbx_array_merge($defOptions, $options);
 
+		if (is_array($options['output'])) {
+			unset($sqlParts['select']['actions']);
+
+			$dbTable = DB::getSchema('actions');
+			$sqlParts['select']['actionid'] = 'a.actionid';
+			foreach ($options['output'] as $field) {
+				if (isset($dbTable['fields'][$field])) {
+					$sqlParts['select'][$field] = 'a.'.$field;
+				}
+			}
+			$options['output'] = API_OUTPUT_CUSTOM;
+		}
+
 		// editable + PERMISSION CHECK
 		if ($userType != USER_TYPE_SUPER_ADMIN && !$options['nopermissions']) {
 			// conditions are checked here by sql, operations after, by api queries
-			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ;
+			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ_ONLY;
 
 			$userGroups = getUserGroupsByUserId($userid);
 
@@ -111,8 +126,7 @@ class CAction extends CZBXAPI {
 						' AND cc.conditiontype='.CONDITION_TYPE_HOST_GROUP.
 					' GROUP BY cc.value'.
 					' HAVING MIN(r.permission) IS NULL'.
-						' OR MIN(r.permission)='.PERM_DENY.
-						' OR MAX(r.permission)<'.$permission.
+						' OR MIN(r.permission)<'.$permission.
 					')';
 
 			// condition host or template
@@ -124,11 +138,10 @@ class CAction extends CZBXAPI {
 								' AND '.dbConditionInt('r.groupid', $userGroups).
 					' WHERE a.actionid=cc.actionid'.
 						' AND '.zbx_dbcast_2bigint('cc.value').'=hgg.hostid'.
-						' AND cc.conditiontype IN ('.CONDITION_TYPE_HOST.','.CONDITION_TYPE_TEMPLATE.')'.
+						' AND cc.conditiontype IN ('.CONDITION_TYPE_HOST.','.CONDITION_TYPE_HOST_TEMPLATE.')'.
 					' GROUP BY cc.value'.
 					' HAVING MIN(r.permission) IS NULL'.
-						' OR MIN(r.permission)='.PERM_DENY.
-						' OR MAX(r.permission)<'.$permission.
+						' OR MIN(r.permission)<'.$permission.
 					')';
 
 			// condition trigger
@@ -145,16 +158,20 @@ class CAction extends CZBXAPI {
 						' AND cc.conditiontype='.CONDITION_TYPE_TRIGGER.
 					' GROUP BY cc.value'.
 					' HAVING MIN(r.permission) IS NULL'.
-						' OR MIN(r.permission)='.PERM_DENY.
-						' OR MAX(r.permission)<'.$permission.
+						' OR MIN(r.permission)<'.$permission.
 					')';
 		}
+
+		// nodeids
+		$nodeids = !is_null($options['nodeids']) ? $options['nodeids'] : get_current_nodeid();
 
 		// actionids
 		if (!is_null($options['actionids'])) {
 			zbx_value2array($options['actionids']);
 
-			$sqlParts['select']['actionid'] = 'a.actionid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['actionid'] = 'a.actionid';
+			}
 			$sqlParts['where'][] = dbConditionInt('a.actionid', $options['actionids']);
 		}
 
@@ -162,7 +179,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['groupids'])) {
 			zbx_value2array($options['groupids']);
 
-			$sqlParts['select']['groupids'] = 'c.value';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['groupids'] = 'c.value';
+			}
 			$sqlParts['from']['conditions'] = 'conditions c';
 			$sqlParts['where'][] = dbConditionString('c.value', $options['groupids']);
 			$sqlParts['where']['c'] = 'c.conditiontype='.CONDITION_TYPE_HOST_GROUP;
@@ -173,7 +192,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
-			$sqlParts['select']['hostids'] = 'c.value';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['hostids'] = 'c.value';
+			}
 			$sqlParts['from']['conditions'] = 'conditions c';
 			$sqlParts['where'][] = dbConditionString('c.value', $options['hostids']);
 			$sqlParts['where']['c'] = 'c.conditiontype='.CONDITION_TYPE_HOST;
@@ -184,7 +205,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['triggerids'])) {
 			zbx_value2array($options['triggerids']);
 
-			$sqlParts['select']['triggerids'] = 'c.value';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['triggerids'] = 'c.value';
+			}
 			$sqlParts['from']['conditions'] = 'conditions c';
 			$sqlParts['where'][] = dbConditionString('c.value', $options['triggerids']);
 			$sqlParts['where']['c'] = 'c.conditiontype='.CONDITION_TYPE_TRIGGER;
@@ -195,7 +218,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['mediatypeids'])) {
 			zbx_value2array($options['mediatypeids']);
 
-			$sqlParts['select']['mediatypeid'] = 'om.mediatypeid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['mediatypeid'] = 'om.mediatypeid';
+			}
 			$sqlParts['from']['opmessage'] = 'opmessage om';
 			$sqlParts['from']['operations'] = 'operations o';
 			$sqlParts['where'][] = dbConditionInt('om.mediatypeid', $options['mediatypeids']);
@@ -208,7 +233,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['usrgrpids'])) {
 			zbx_value2array($options['usrgrpids']);
 
-			$sqlParts['select']['usrgrpid'] = 'omg.usrgrpid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['usrgrpid'] = 'omg.usrgrpid';
+			}
 			$sqlParts['from']['opmessage_grp'] = 'opmessage_grp omg';
 			$sqlParts['from']['operations'] = 'operations o';
 			$sqlParts['where'][] = dbConditionInt('omg.usrgrpid', $options['usrgrpids']);
@@ -220,7 +247,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['userids'])) {
 			zbx_value2array($options['userids']);
 
-			$sqlParts['select']['userid'] = 'omu.userid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['userid'] = 'omu.userid';
+			}
 			$sqlParts['from']['opmessage_usr'] = 'opmessage_usr omu';
 			$sqlParts['from']['operations'] = 'operations o';
 			$sqlParts['where'][] = dbConditionInt('omu.userid', $options['userids']);
@@ -233,7 +262,9 @@ class CAction extends CZBXAPI {
 		if (!is_null($options['scriptids'])) {
 			zbx_value2array($options['scriptids']);
 
-			$sqlParts['select']['scriptid'] = 'oc.scriptid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['scriptid'] = 'oc.scriptid';
+			}
 			$sqlParts['from']['opmessage_usr'] = 'opcommand oc';
 			$sqlParts['from']['operations'] = 'operations o';
 			$sqlParts['where'][] = '('.dbConditionInt('oc.scriptid', $options['scriptids']).' AND oc.type='.ZBX_SCRIPT_TYPE_GLOBAL_SCRIPT.')' ;
@@ -251,6 +282,21 @@ class CAction extends CZBXAPI {
 			zbx_db_search('actions a', $options, $sqlParts);
 		}
 
+		// output
+		if ($options['output'] == API_OUTPUT_EXTEND) {
+			$sqlParts['select']['actions'] = 'a.*';
+		}
+
+		// countOutput
+		if (!is_null($options['countOutput'])) {
+			$options['sortfield'] = '';
+
+			$sqlParts['select'] = array('COUNT(DISTINCT a.actionid) AS rowscount');
+		}
+
+		// sorting
+		zbx_db_sorting($sqlParts, $options, $sortColumns, 'a');
+
 		// limit
 		if (zbx_ctype_digit($options['limit']) && $options['limit']) {
 			$sqlParts['limit'] = $options['limit'];
@@ -258,32 +304,69 @@ class CAction extends CZBXAPI {
 
 		$actionids = array();
 
-		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
-		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
-		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
-		$dbRes = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
+		$sqlParts['select'] = array_unique($sqlParts['select']);
+		$sqlParts['from'] = array_unique($sqlParts['from']);
+		$sqlParts['where'] = array_unique($sqlParts['where']);
+		$sqlParts['order'] = array_unique($sqlParts['order']);
+
+		$sqlSelect = '';
+		$sqlFrom = '';
+		$sqlWhere = '';
+		$sqlOrder = '';
+		if (!empty($sqlParts['select'])) {
+			$sqlSelect .= implode(',', $sqlParts['select']);
+		}
+		if (!empty($sqlParts['from'])) {
+			$sqlFrom .= implode(',', $sqlParts['from']);
+		}
+		if (!empty($sqlParts['where'])) {
+			$sqlWhere .= ' AND '.implode(' AND ', $sqlParts['where']);
+		}
+		if (!empty($sqlParts['order'])) {
+			$sqlOrder .= ' ORDER BY '.implode(',', $sqlParts['order']);
+		}
+		$sqlLimit = $sqlParts['limit'];
+
+		$sql = 'SELECT '.$sqlSelect.
+				' FROM '.$sqlFrom.
+				' WHERE '.DBin_node('a.actionid', $nodeids).
+					$sqlWhere.
+					$sqlOrder;
+		$dbRes = DBselect($sql, $sqlLimit);
 		while ($action = DBfetch($dbRes)) {
 			if ($options['countOutput']) {
 				$result = $action['rowscount'];
 			}
 			else {
 				$actionids[$action['actionid']] = $action['actionid'];
-
-				if (!isset($result[$action['actionid']])) {
-					$result[$action['actionid']] = array();
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$action['actionid']] = array('actionid' => $action['actionid']);
 				}
+				else {
+					if (!isset($result[$action['actionid']])) {
+						$result[$action['actionid']] = array();
+					}
+					if (!is_null($options['selectConditions']) && !isset($result[$action['actionid']]['conditions'])) {
+						$result[$action['actionid']]['conditions'] = array();
+					}
+					if (!is_null($options['selectOperations']) && !isset($result[$action['actionid']]['operations'])) {
+						$result[$action['actionid']]['operations'] = array();
+					}
 
-				$result[$action['actionid']] += $action;
+					$result[$action['actionid']] += $action;
 
-				// return mediatype as array
-				if (!empty($action['mediatypeid'])) {
-					$result[$action['actionid']]['mediatypeids'][] = $action['mediatypeid'];
+					// return mediatype as array
+					if (!empty($action['mediatypeid'])) {
+						$result[$action['actionid']]['mediatypeids'][] = $action['mediatypeid'];
+					}
+					unset($result[$action['actionid']]['mediatypeid']);
 				}
-				unset($result[$action['actionid']]['mediatypeid']);
 			}
 		}
 
-		if ($userType != USER_TYPE_SUPER_ADMIN && !$options['nopermissions']) {
+		if (USER_TYPE_SUPER_ADMIN == $userType || !is_null($options['nopermissions'])) {
+		}
+		else {
 			// check hosts, templates
 			$hosts = $hostids = array();
 			$sql = 'SELECT o.actionid,och.hostid'.
@@ -316,7 +399,7 @@ class CAction extends CZBXAPI {
 
 			$allowedHosts = API::Host()->get(array(
 				'hostids' => $hostids,
-				'output' => array('hostid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'editable' => $options['editable'],
 				'templated_hosts' => true,
 				'preservekeys' => true
@@ -363,7 +446,7 @@ class CAction extends CZBXAPI {
 
 			$allowedGroups = API::HostGroup()->get(array(
 				'groupids' => $groupids,
-				'output' => array('groupid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'editable' => $options['editable'],
 				'preservekeys' => true
 			));
@@ -396,7 +479,7 @@ class CAction extends CZBXAPI {
 
 			$allowedScripts = API::Script()->get(array(
 				'scriptids' => $scriptids,
-				'output' => array('scriptid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'preservekeys' => true
 			));
 			foreach ($scriptids as $scriptid) {
@@ -427,7 +510,7 @@ class CAction extends CZBXAPI {
 
 			$allowedUsers = API::User()->get(array(
 				'userids' => $userids,
-				'output' => array('userid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'preservekeys' => true
 			));
 			foreach ($userids as $userid) {
@@ -457,7 +540,7 @@ class CAction extends CZBXAPI {
 
 			$allowedUsergrps = API::UserGroup()->get(array(
 				'usrgrpids' => $usrgrpids,
-				'output' => array('usrgrpid'),
+				'output' => API_OUTPUT_SHORTEN,
 				'preservekeys' => true
 			));
 
@@ -475,8 +558,160 @@ class CAction extends CZBXAPI {
 			return $result;
 		}
 
-		if ($result) {
-			$result = $this->addRelatedObjects($options, $result);
+		/*
+		 * Adding objects
+		 */
+		// adding conditions
+		if (!is_null($options['selectConditions']) && str_in_array($options['selectConditions'], $subselectsAllowedOutputs)) {
+			$res = DBselect('SELECT c.* FROM conditions c WHERE '.dbConditionInt('c.actionid', $actionids));
+			while ($condition = DBfetch($res)) {
+				$result[$condition['actionid']]['conditions'][$condition['conditionid']] = $condition;
+			}
+		}
+
+		// adding operations
+		if (!is_null($options['selectOperations']) && str_in_array($options['selectOperations'], $subselectsAllowedOutputs)) {
+			$operations = array();
+			$operationids = array();
+			$res = DBselect(
+				'SELECT o.*'.
+				' FROM operations o'.
+				' WHERE '.dbConditionInt('o.actionid', $actionids)
+			);
+			while ($operation = DBfetch($res)) {
+				$operation['opconditions'] = array();
+				$operations[$operation['operationid']] = $operation;
+				$operationids[$operation['operationid']] = $operation['operationid'];
+			}
+
+			$res = DBselect('SELECT op.* FROM opconditions op WHERE '.dbConditionInt('op.operationid', $operationids));
+			while ($opcondition = DBfetch($res)) {
+				if (!isset($operations[$opcondition['operationid']]['opconditions'])) {
+					$operations[$opcondition['operationid']]['opconditions'] = array();
+				}
+				$operations[$opcondition['operationid']]['opconditions'][] = $opcondition;
+			}
+
+			$opmessage = $opcommand = $opgroup = $optemplate = array();
+			foreach ($operations as $operationid => $operation) {
+				switch ($operation['operationtype']) {
+					case OPERATION_TYPE_MESSAGE:
+						$opmessage[] = $operationid;
+						break;
+					case OPERATION_TYPE_COMMAND:
+						$opcommand[] = $operationid;
+						break;
+					case OPERATION_TYPE_GROUP_ADD:
+					case OPERATION_TYPE_GROUP_REMOVE:
+						$opgroup[] = $operationid;
+						break;
+					case OPERATION_TYPE_TEMPLATE_ADD:
+					case OPERATION_TYPE_TEMPLATE_REMOVE:
+						$optemplate[] = $operationid;
+						break;
+					case OPERATION_TYPE_HOST_ADD:
+					case OPERATION_TYPE_HOST_REMOVE:
+					case OPERATION_TYPE_HOST_ENABLE:
+					case OPERATION_TYPE_HOST_DISABLE:
+				}
+			}
+
+			// get OPERATION_TYPE_MESSAGE data
+			if (!empty($opmessage)) {
+				$dbOpmessages = DBselect(
+					'SELECT o.operationid,o.default_msg,o.subject,o.message,o.mediatypeid'.
+					' FROM opmessage o'.
+					' WHERE '.dbConditionInt('o.operationid', $opmessage)
+				);
+				while ($dbOpmessage = DBfetch($dbOpmessages)) {
+					$operations[$dbOpmessage['operationid']]['opmessage_grp'] = array();
+					$operations[$dbOpmessage['operationid']]['opmessage_usr'] = array();
+					$operations[$dbOpmessage['operationid']]['opmessage'] = $dbOpmessage;
+				}
+
+				$dbOpmessageGrp = DBselect(
+					'SELECT og.operationid,og.usrgrpid'.
+					' FROM opmessage_grp og'.
+					' WHERE '.dbConditionInt('og.operationid', $opmessage)
+				);
+				while ($opmessageGrp = DBfetch($dbOpmessageGrp)) {
+					$operations[$opmessageGrp['operationid']]['opmessage_grp'][] = $opmessageGrp;
+				}
+
+				$dbOpmessageUsr = DBselect(
+					'SELECT ou.operationid,ou.userid'.
+					' FROM opmessage_usr ou'.
+					' WHERE '.dbConditionInt('ou.operationid', $opmessage)
+				);
+				while ($opmessageUsr = DBfetch($dbOpmessageUsr)) {
+					$operations[$opmessageUsr['operationid']]['opmessage_usr'][] = $opmessageUsr;
+				}
+			}
+
+			// get OPERATION_TYPE_COMMAND data
+			if (!empty($opcommand)) {
+				$dbOpcommands = DBselect(
+					'SELECT o.*'.
+					' FROM opcommand o'.
+					' WHERE '.dbConditionInt('o.operationid', $opcommand)
+				);
+				while ($dbOpcommand = DBfetch($dbOpcommands)) {
+					$operations[$dbOpcommand['operationid']]['opcommand_grp'] = array();
+					$operations[$dbOpcommand['operationid']]['opcommand_hst'] = array();
+					$operations[$dbOpcommand['operationid']]['opcommand'] = $dbOpcommand;
+				}
+
+				$dbOpcommandHst = DBselect(
+					'SELECT oh.opcommand_hstid,oh.operationid,oh.hostid'.
+					' FROM opcommand_hst oh'.
+					' WHERE '.dbConditionInt('oh.operationid', $opcommand)
+				);
+				while ($opcommandHst = DBfetch($dbOpcommandHst)) {
+					$operations[$opcommandHst['operationid']]['opcommand_hst'][] = $opcommandHst;
+				}
+
+				$dbOpcommandGrp = DBselect(
+					'SELECT og.opcommand_grpid,og.operationid,og.groupid'.
+					' FROM opcommand_grp og'.
+					' WHERE '.dbConditionInt('og.operationid', $opcommand)
+				);
+				while ($opcommandGrp = DBfetch($dbOpcommandGrp)) {
+					$operations[$opcommandGrp['operationid']]['opcommand_grp'][] = $opcommandGrp;
+				}
+			}
+
+			// get OPERATION_TYPE_GROUP_ADD, OPERATION_TYPE_GROUP_REMOVE data
+			if (!empty($opgroup)) {
+				$dbOpgroup = DBselect(
+					'SELECT o.operationid,o.groupid'.
+					' FROM opgroup o'.
+					' WHERE '.dbConditionInt('o.operationid', $opgroup)
+				);
+				while ($opgroup = DBfetch($dbOpgroup)) {
+					if (!isset($operations[$opgroup['operationid']]['opgroup'])) {
+						$operations[$opgroup['operationid']]['opgroup'] = array();
+					}
+					$operations[$opgroup['operationid']]['opgroup'][] = $opgroup;
+				}
+			}
+
+			// get OPERATION_TYPE_TEMPLATE_ADD, OPERATION_TYPE_TEMPLATE_REMOVE data
+			if (!empty($optemplate)) {
+				$dbOptemplate = DBselect(
+					'SELECT o.operationid,o.templateid'.
+					' FROM optemplate o'.
+					' WHERE '.dbConditionInt('o.operationid', $optemplate)
+				);
+				while ($optemplate = DBfetch($dbOptemplate)) {
+					if (!isset($operations[$optemplate['operationid']]['optemplate'])) {
+						$operations[$optemplate['operationid']]['optemplate'] = array();
+					}
+					$operations[$optemplate['operationid']]['optemplate'][] = $optemplate;
+				}
+			}
+			foreach ($operations as $operation) {
+				$result[$operation['actionid']]['operations'][$operation['operationid']] = $operation;
+			}
 		}
 
 		// removing keys (hash -> array)
@@ -492,7 +727,7 @@ class CAction extends CZBXAPI {
 
 		$options = array(
 			'filter' => zbx_array_mintersect($keyFields, $object),
-			'output' => array('actionid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => true,
 			'limit' => 1
 		);
@@ -655,7 +890,7 @@ class CAction extends CZBXAPI {
 			if (isset($action['name'])) {
 				$actionExists = $this->get(array(
 					'filter' => array('name' => $action['name']),
-					'output' => array('actionid'),
+					'output' => API_OUTPUT_SHORTEN,
 					'editable' => true,
 					'nopermissions' => true,
 					'preservekeys' => true
@@ -667,7 +902,6 @@ class CAction extends CZBXAPI {
 
 			if (isset($action['conditions'])) {
 				$conditionsDb = isset($updActions[$action['actionid']]['conditions']) ? $updActions[$action['actionid']]['conditions'] : array();
-				$conditionsDb = zbx_toHash($conditionsDb, 'conditionid');
 				self::validateConditions($action['conditions']);
 
 				foreach ($action['conditions'] as $condition) {
@@ -695,7 +929,6 @@ class CAction extends CZBXAPI {
 				$this->validateOperations($action['operations']);
 
 				$operationsDb = $updActions[$action['actionid']]['operations'];
-				$operationsDb = zbx_toHash($operationsDb, 'operationid');
 				foreach ($action['operations'] as $operation) {
 					$operation['actionid'] = $action['actionid'];
 
@@ -714,7 +947,7 @@ class CAction extends CZBXAPI {
 			}
 
 			$actionid = $action['actionid'];
-			unset($action['actionid'], $action['conditions'], $action['operations']);
+			unset($action['actionid']);
 			if (!empty($action)) {
 				$update[] = array(
 					'values' => $action,
@@ -911,8 +1144,7 @@ class CAction extends CZBXAPI {
 		$opconditionsCreate = array();
 
 		foreach ($operations as $operation) {
-			$operationsDb = zbx_toHash($actionsDb[$operation['actionid']]['operations'], 'operationid');
-			$operationDb = $operationsDb[$operation['operationid']];
+			$operationDb = $actionsDb[$operation['actionid']]['operations'][$operation['operationid']];
 
 			$typeChanged = false;
 			if (isset($operation['operationtype']) && ($operation['operationtype'] != $operationDb['operationtype'])) {
@@ -1200,7 +1432,7 @@ class CAction extends CZBXAPI {
 		$delActions = $this->get(array(
 			'actionids' => $actionids,
 			'editable' => true,
-			'output' => array('actionid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'preservekeys' => true
 		));
 		foreach ($actionids as $actionid) {
@@ -1240,7 +1472,7 @@ class CAction extends CZBXAPI {
 				}
 			}
 
-			$hostIdsAll = $hostGroupIdsAll = $useridsAll = $userGroupidsAll = array();
+			$hostidsAll = $hostGroupidsAll = $useridsAll = $userGroupidsAll = array();
 			switch ($operation['operationtype']) {
 				case OPERATION_TYPE_MESSAGE:
 					$userids = isset($operation['opmessage_usr']) ? zbx_objectValues($operation['opmessage_usr'], 'userid') : array();
@@ -1349,8 +1581,8 @@ class CAction extends CZBXAPI {
 						}
 					}
 
-					$hostIdsAll = array_merge($hostIdsAll, $hostids);
-					$hostGroupIdsAll = array_merge($hostGroupIdsAll, $groupids);
+					$hostidsAll = array_merge($hostidsAll, $hostids);
+					$hostGroupidsAll = array_merge($hostGroupidsAll, $groupids);
 					break;
 				case OPERATION_TYPE_GROUP_ADD:
 				case OPERATION_TYPE_GROUP_REMOVE:
@@ -1358,7 +1590,7 @@ class CAction extends CZBXAPI {
 					if (empty($groupids)) {
 						self::exception(ZBX_API_ERROR_PARAMETERS, _('Operation has no group to operate.'));
 					}
-					$hostGroupIdsAll = array_merge($hostGroupIdsAll, $groupids);
+					$hostGroupidsAll = array_merge($hostGroupidsAll, $groupids);
 					break;
 				case OPERATION_TYPE_TEMPLATE_ADD:
 				case OPERATION_TYPE_TEMPLATE_REMOVE:
@@ -1366,7 +1598,7 @@ class CAction extends CZBXAPI {
 					if (empty($templateids)) {
 						self::exception(ZBX_API_ERROR_PARAMETERS, _('Operation has no template to operate.'));
 					}
-					$hostIdsAll = array_merge($hostIdsAll, $templateids);
+					$hostidsAll = array_merge($hostidsAll, $templateids);
 					break;
 				case OPERATION_TYPE_HOST_ADD:
 				case OPERATION_TYPE_HOST_REMOVE:
@@ -1378,10 +1610,10 @@ class CAction extends CZBXAPI {
 			}
 		}
 
-		if (!API::HostGroup()->isWritable($hostGroupIdsAll)) {
+		if (!API::HostGroup()->isWritable($hostGroupidsAll)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Incorrect action operation host group. Host group does not exist or you have no access to this host group.'));
 		}
-		if (!API::Host()->isWritable($hostIdsAll)) {
+		if (!API::Host()->isWritable($hostidsAll)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Incorrect action operation host. Host does not exist or you have no access to this host.'));
 		}
 		if (!API::User()->isReadable($useridsAll)) {
@@ -1398,22 +1630,18 @@ class CAction extends CZBXAPI {
 	 * Validate conditions.
 	 *
 	 * @static
-	 *
-	 * @param array $conditions
-	 * @param int   $conditions['conditiontype']
-	 * @param array $conditions['value']
-	 *
+	 * @param $conditions
 	 * @return bool
 	 */
 	public static function validateConditions($conditions) {
 		$conditions = zbx_toArray($conditions);
 
-		$hostGroupIdsAll = array();
-		$templateIdsAll = array();
-		$triggerIdsAll = array();
-		$hostIdsAll = array();
-		$discoveryRuleIdsAll = array();
-		$proxyIdsAll = array();
+		$hostGroupidsAll = array();
+		$templateidsAll = array();
+		$triggeridsAll = array();
+		$hostidsAll = array();
+		$discoveryRuleidsAll = array();
+		$discoveryCheckidsAll = array();
 		$proxyidsAll = array();
 
 		$discoveryCheckTypes = discovery_check_type2str();
@@ -1423,27 +1651,27 @@ class CAction extends CZBXAPI {
 		foreach ($conditions as $condition) {
 			switch ($condition['conditiontype']) {
 				case CONDITION_TYPE_HOST_GROUP:
-					$hostGroupIdsAll[$condition['value']] = $condition['value'];
+					$hostGroupidsAll[$condition['value']] = $condition['value'];
 					break;
 
-				case CONDITION_TYPE_TEMPLATE:
-					$templateIdsAll[$condition['value']] = $condition['value'];
+				case CONDITION_TYPE_HOST_TEMPLATE:
+					$templateidsAll[$condition['value']] = $condition['value'];
 					break;
 
 				case CONDITION_TYPE_TRIGGER:
-					$triggerIdsAll[$condition['value']] = $condition['value'];
+					$triggeridsAll[$condition['value']] = $condition['value'];
 					break;
 
 				case CONDITION_TYPE_HOST:
-					$hostIdsAll[$condition['value']] = $condition['value'];
+					$hostidsAll[$condition['value']] = $condition['value'];
 					break;
 
 				case CONDITION_TYPE_DRULE:
-					$discoveryRuleIdsAll[$condition['value']] = $condition['value'];
+					$discoveryRuleidsAll[$condition['value']] = $condition['value'];
 					break;
 
 				case CONDITION_TYPE_DCHECK:
-					$proxyIdsAll[$condition['value']] = $condition['value'];
+					$discoveryCheckidsAll[$condition['value']] = $condition['value'];
 					break;
 
 				case CONDITION_TYPE_PROXY:
@@ -1483,7 +1711,6 @@ class CAction extends CZBXAPI {
 				case CONDITION_TYPE_MAINTENANCE:
 					// maintenance condition has no value...
 					break;
-
 				case CONDITION_TYPE_TRIGGER_NAME:
 				case CONDITION_TYPE_TRIGGER_VALUE:
 				case CONDITION_TYPE_TRIGGER_SEVERITY:
@@ -1493,8 +1720,6 @@ class CAction extends CZBXAPI {
 				case CONDITION_TYPE_DVALUE:
 				case CONDITION_TYPE_APPLICATION:
 				case CONDITION_TYPE_HOST_NAME:
-				case CONDITION_TYPE_HOST_METADATA:
-				case CONDITION_TYPE_EVENT_TYPE:
 					if (zbx_empty($condition['value'])) {
 						self::exception(ZBX_API_ERROR_PARAMETERS, _('Empty action condition.'));
 					}
@@ -1506,22 +1731,22 @@ class CAction extends CZBXAPI {
 			}
 		}
 
-		if (!API::HostGroup()->isWritable($hostGroupIdsAll)) {
+		if (!API::HostGroup()->isWritable($hostGroupidsAll)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Incorrect action condition host group. Host group does not exist or you have no access to it.'));
 		}
-		if (!API::Host()->isWritable($hostIdsAll)) {
+		if (!API::Host()->isWritable($hostidsAll)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Incorrect action condition host. Host does not exist or you have no access to it.'));
 		}
-		if (!API::Template()->isWritable($templateIdsAll)) {
+		if (!API::Template()->isWritable($templateidsAll)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Incorrect action condition template. Template does not exist or you have no access to it.'));
 		}
-		if (!API::Trigger()->isWritable($triggerIdsAll)) {
+		if (!API::Trigger()->isWritable($triggeridsAll)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Incorrect action condition trigger. Trigger does not exist or you have no access to it.'));
 		}
-		if (!API::DRule()->isWritable($discoveryRuleIdsAll)) {
+		if (!API::DRule()->isWritable($discoveryRuleidsAll)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Incorrect action condition discovery rule. Discovery rule does not exist or you have no access to it.'));
 		}
-		if (!API::DCheck()->isWritable($proxyIdsAll)) {
+		if (!API::DCheck()->isWritable($discoveryCheckidsAll)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Incorrect action condition discovery check. Discovery check does not exist or you have no access to it.'));
 		}
 		if (!API::Proxy()->isWritable($proxyidsAll)) {
@@ -1560,212 +1785,5 @@ class CAction extends CZBXAPI {
 		}
 
 		return true;
-	}
-
-	protected function addRelatedObjects(array $options, array $result) {
-		$result = parent::addRelatedObjects($options, $result);
-
-		$actionIds = array_keys($result);
-
-		// adding conditions
-		if (!is_null($options['selectConditions']) && $options['selectConditions'] != API_OUTPUT_COUNT) {
-			$conditions = API::getApi()->select('conditions', array(
-				'output' => $this->outputExtend('conditions', array('actionid', 'conditionid'), $options['selectConditions']),
-				'filter' => array('actionid' => $actionIds),
-				'preservekeys' => true
-			));
-			$relationMap = $this->createRelationMap($conditions, 'actionid', 'conditionid');
-
-			$conditions = $this->unsetExtraFields($conditions, array('actionid', 'conditionid'), $options['selectConditions']);
-			$result = $relationMap->mapMany($result, $conditions, 'conditions');
-		}
-
-		// adding operations
-		if ($options['selectOperations'] !== null && $options['selectOperations'] != API_OUTPUT_COUNT) {
-			$operations = API::getApi()->select('operations', array(
-				'output' => $this->outputExtend('operations',
-					array('operationid', 'actionid', 'operationtype'), $options['selectOperations']
-				),
-				'filter' => array('actionid' => $actionIds),
-				'preservekeys' => true
-			));
-			$relationMap = $this->createRelationMap($operations, 'actionid', 'operationid');
-			$operationIds = $relationMap->getRelatedIds();
-
-			if ($this->outputIsRequested('opconditions', $options['selectOperations'])) {
-				foreach ($operations as &$operation) {
-					$operation['opconditions'] = array();
-				}
-				unset($operation);
-
-				$res = DBselect('SELECT op.* FROM opconditions op WHERE '.dbConditionInt('op.operationid', $operationIds));
-				while ($opcondition = DBfetch($res)) {
-					$operations[$opcondition['operationid']]['opconditions'][] = $opcondition;
-				}
-			}
-
-			$opmessage = $opcommand = $opgroup = $optemplate = array();
-			foreach ($operations as $operationid => $operation) {
-				switch ($operation['operationtype']) {
-					case OPERATION_TYPE_MESSAGE:
-						$opmessage[] = $operationid;
-						break;
-					case OPERATION_TYPE_COMMAND:
-						$opcommand[] = $operationid;
-						break;
-					case OPERATION_TYPE_GROUP_ADD:
-					case OPERATION_TYPE_GROUP_REMOVE:
-						$opgroup[] = $operationid;
-						break;
-					case OPERATION_TYPE_TEMPLATE_ADD:
-					case OPERATION_TYPE_TEMPLATE_REMOVE:
-						$optemplate[] = $operationid;
-						break;
-					case OPERATION_TYPE_HOST_ADD:
-					case OPERATION_TYPE_HOST_REMOVE:
-					case OPERATION_TYPE_HOST_ENABLE:
-					case OPERATION_TYPE_HOST_DISABLE:
-				}
-			}
-
-			// get OPERATION_TYPE_MESSAGE data
-			if (!empty($opmessage)) {
-				if ($this->outputIsRequested('opmessage', $options['selectOperations'])) {
-					foreach ($opmessage as $operationId) {
-						$operations[$operationId]['opmessage'] = array();
-					}
-
-					$dbOpmessages = DBselect(
-						'SELECT o.operationid,o.default_msg,o.subject,o.message,o.mediatypeid'.
-							' FROM opmessage o'.
-							' WHERE '.dbConditionInt('operationid', $opmessage)
-					);
-					while ($dbOpmessage = DBfetch($dbOpmessages)) {
-						$operations[$dbOpmessage['operationid']]['opmessage'] = $dbOpmessage;
-					}
-				}
-
-				if ($this->outputIsRequested('opmessage_grp', $options['selectOperations'])) {
-					foreach ($opmessage as $operationId) {
-						$operations[$operationId]['opmessage_grp'] = array();
-					}
-
-					$dbOpmessageGrp = DBselect(
-						'SELECT og.operationid,og.usrgrpid'.
-							' FROM opmessage_grp og'.
-							' WHERE '.dbConditionInt('operationid', $opmessage)
-					);
-					while ($opmessageGrp = DBfetch($dbOpmessageGrp)) {
-						$operations[$opmessageGrp['operationid']]['opmessage_grp'][] = $opmessageGrp;
-					}
-				}
-
-				if ($this->outputIsRequested('opmessage_usr', $options['selectOperations'])) {
-					foreach ($opmessage as $operationId) {
-						$operations[$operationId]['opmessage_usr'] = array();
-					}
-
-					$dbOpmessageUsr = DBselect(
-						'SELECT ou.operationid,ou.userid'.
-							' FROM opmessage_usr ou'.
-							' WHERE '.dbConditionInt('operationid', $opmessage)
-					);
-					while ($opmessageUsr = DBfetch($dbOpmessageUsr)) {
-						$operations[$opmessageUsr['operationid']]['opmessage_usr'][] = $opmessageUsr;
-					}
-				}
-			}
-
-			// get OPERATION_TYPE_COMMAND data
-			if (!empty($opcommand)) {
-				if ($this->outputIsRequested('opcommand', $options['selectOperations'])) {
-					foreach ($opcommand as $operationId) {
-						$operations[$operationId]['opcommand'] = array();
-					}
-
-					$dbOpcommands = DBselect(
-						'SELECT o.*'.
-							' FROM opcommand o'.
-							' WHERE '.dbConditionInt('operationid', $opcommand)
-					);
-					while ($dbOpcommand = DBfetch($dbOpcommands)) {
-						$operations[$dbOpcommand['operationid']]['opcommand'] = $dbOpcommand;
-					}
-				}
-
-				if ($this->outputIsRequested('opcommand_hst', $options['selectOperations'])) {
-					foreach ($opcommand as $operationId) {
-						$operations[$operationId]['opcommand_hst'] = array();
-					}
-
-					$dbOpcommandHst = DBselect(
-						'SELECT oh.opcommand_hstid,oh.operationid,oh.hostid'.
-							' FROM opcommand_hst oh'.
-							' WHERE '.dbConditionInt('operationid', $opcommand)
-					);
-					while ($opcommandHst = DBfetch($dbOpcommandHst)) {
-						$operations[$opcommandHst['operationid']]['opcommand_hst'][] = $opcommandHst;
-					}
-				}
-
-				if ($this->outputIsRequested('opcommand_grp', $options['selectOperations'])) {
-					foreach ($opcommand as $operationId) {
-						$operations[$operationId]['opcommand_grp'] = array();
-					}
-
-					$dbOpcommandGrp = DBselect(
-						'SELECT og.opcommand_grpid,og.operationid,og.groupid'.
-							' FROM opcommand_grp og'.
-							' WHERE '.dbConditionInt('operationid', $opcommand)
-					);
-					while ($opcommandGrp = DBfetch($dbOpcommandGrp)) {
-						$operations[$opcommandGrp['operationid']]['opcommand_grp'][] = $opcommandGrp;
-					}
-				}
-			}
-
-			// get OPERATION_TYPE_GROUP_ADD, OPERATION_TYPE_GROUP_REMOVE data
-			if (!empty($opgroup)) {
-				if ($this->outputIsRequested('opgroup', $options['selectOperations'])) {
-					foreach ($opgroup as $operationId) {
-						$operations[$operationId]['opgroup'] = array();
-					}
-
-					$dbOpgroup = DBselect(
-						'SELECT o.operationid,o.groupid'.
-							' FROM opgroup o'.
-							' WHERE '.dbConditionInt('operationid', $opgroup)
-					);
-					while ($opgroup = DBfetch($dbOpgroup)) {
-						$operations[$opgroup['operationid']]['opgroup'][] = $opgroup;
-					}
-				}
-			}
-
-			// get OPERATION_TYPE_TEMPLATE_ADD, OPERATION_TYPE_TEMPLATE_REMOVE data
-			if (!empty($optemplate)) {
-				if ($this->outputIsRequested('optemplate', $options['selectOperations'])) {
-					foreach ($optemplate as $operationId) {
-						$operations[$operationId]['optemplate'] = array();
-					}
-
-					$dbOptemplate = DBselect(
-						'SELECT o.operationid,o.templateid'.
-							' FROM optemplate o'.
-							' WHERE '.dbConditionInt('operationid', $optemplate)
-					);
-					while ($optemplate = DBfetch($dbOptemplate)) {
-						$operations[$optemplate['operationid']]['optemplate'][] = $optemplate;
-					}
-				}
-			}
-
-			$operations = $this->unsetExtraFields($operations, array('operationid', 'actionid' ,'operationtype'),
-				$options['selectOperations']
-			);
-			$result = $relationMap->mapMany($result, $operations, 'operations');
-		}
-
-		return $result;
 	}
 }

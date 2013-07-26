@@ -165,11 +165,11 @@ void	main_alerter_loop()
 				" where a.mediatypeid=mt.mediatypeid"
 					" and a.status=%d"
 					" and a.alerttype=%d"
-					ZBX_SQL_NODE
+					DB_NODE
 				" order by a.alertid",
 				ALERT_STATUS_NOT_SENT,
 				ALERT_TYPE_MESSAGE,
-				DBand_node_local("mt.mediatypeid"));
+				DBnode_local("mt.mediatypeid"));
 
 		while (NULL != (row = DBfetch(result)))
 		{

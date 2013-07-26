@@ -31,20 +31,20 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 //	VAR		TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 $fields = array(
-	'groupid' =>	array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
-	'view_style' =>	array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'),	null),
-	'type' =>		array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'),	null),
-	'output' =>		array(T_ZBX_STR, O_OPT, P_SYS,	null,		null),
-	'jsscriptid' =>	array(T_ZBX_STR, O_OPT, P_SYS,	null,		null),
-	'fullscreen' =>	array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'),	null),
+	'groupid' =>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,			null),
+	'view_style' =>	array(T_ZBX_INT, O_OPT,	P_SYS,	IN('0,1'),		null),
+	'type' =>		array(T_ZBX_INT, O_OPT,	P_SYS,	IN('0,1'),		null),
+	'output' =>		array(T_ZBX_STR, O_OPT, P_SYS,	null,			null),
+	'jsscriptid' =>	array(T_ZBX_STR, O_OPT, P_SYS,	null,			null),
+	'fullscreen' =>	array(T_ZBX_INT, O_OPT,	P_SYS,	IN('0,1'),		null),
 	// ajax
-	'favobj' =>		array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
-	'favref' =>		array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
-	'favid' =>		array(T_ZBX_INT, O_OPT, P_ACT,	null,		null),
-	'favcnt' =>		array(T_ZBX_INT, O_OPT, null,	null,		null),
-	'pmasterid' =>	array(T_ZBX_STR, O_OPT, P_SYS,	null,		null),
-	'favaction' =>	array(T_ZBX_STR, O_OPT, P_ACT,	IN("'add','remove','refresh','flop'"), null),
-	'favstate' =>	array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favaction})&&("flop"=={favaction})')
+	'favobj' =>		array(T_ZBX_STR, O_OPT, P_ACT,	null,			null),
+	'favref' =>		array(T_ZBX_STR, O_OPT, P_ACT,	null,			null),
+	'favid' =>		array(T_ZBX_INT, O_OPT, P_ACT,  null,			null),
+	'favcnt' =>		array(T_ZBX_INT, O_OPT,	null,	null,			null),
+	'pmasterid' =>	array(T_ZBX_STR, O_OPT,	P_SYS,	null,			null),
+	'favaction' =>	array(T_ZBX_STR, O_OPT, P_ACT, 	IN("'add','remove','refresh','flop'"), null),
+	'favstate' =>	array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,		'isset({favaction})&&("flop"=={favaction})'),
 );
 check_fields($fields);
 
@@ -61,44 +61,11 @@ if ($dashconf['filterEnable'] == 1) {
 	// groups
 	$dashconf['grpswitch'] = CProfile::get('web.dashconf.groups.grpswitch', 0);
 	if ($dashconf['grpswitch'] == 0) {
-		$dashconf['groupids'] = null; // null mean all groups
+		$dashconf['groupids'] = null;
 	}
 	else {
-		$dashconf['groupids'] = zbx_objectValues(CFavorite::get('web.dashconf.groups.groupids'), 'value');
-		$hideGroupIds = zbx_objectValues(CFavorite::get('web.dashconf.groups.hide.groupids'), 'value');
-
-		if ($hideGroupIds) {
-			// get all groups if no selected groups defined
-			if (empty($dashconf['groupids'])) {
-				$groups = API::HostGroup()->get(array(
-					'nodeids' => get_current_nodeid(),
-					'output' => array('groupid')
-				));
-				$dashconf['groupids'] = zbx_objectValues($groups, 'groupid');
-			}
-
-			$dashconf['groupids'] = array_diff($dashconf['groupids'], $hideGroupIds);
-
-			// get available hosts
-			$availableHosts = API::Host()->get(array(
-				'groupids' => $dashconf['groupids'],
-				'output' => array('hostid')
-			));
-			$availableHostIds = zbx_objectValues($availableHosts, 'hostid');
-
-			$disabledHosts = API::Host()->get(array(
-				'groupids' => $hideGroupIds,
-				'output' => array('hostid')
-			));
-			$disabledHostIds = zbx_objectValues($disabledHosts, 'hostid');
-
-			$dashconf['hostids'] = array_diff($availableHostIds, $disabledHostIds);
-		}
-		else {
-			if (empty($dashconf['groupids'])) {
-				$dashconf['groupids'] = null; // null mean all groups
-			}
-		}
+		$groupids = get_favorites('web.dashconf.groups.groupids');
+		$dashconf['groupids'] = zbx_objectValues($groupids, 'value');
 	}
 
 	// hosts
@@ -177,11 +144,11 @@ if (isset($_REQUEST['favobj'])) {
 			zbx_value2array($_REQUEST['favid']);
 
 			foreach ($_REQUEST['favid'] as $sourceid) {
-				$result = CFavorite::add('web.favorite.graphids', $sourceid, $_REQUEST['favobj']);
+				$result = add2favorites('web.favorite.graphids', $sourceid, $_REQUEST['favobj']);
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
-			$result = CFavorite::remove('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = rm4favorites('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
 		}
 
 		if ($page['type'] == PAGE_TYPE_JS && $result) {
@@ -200,14 +167,14 @@ if (isset($_REQUEST['favobj'])) {
 		if ($_REQUEST['favaction'] == 'add') {
 			zbx_value2array($_REQUEST['favid']);
 			foreach ($_REQUEST['favid'] as $sourceid) {
-				$result = CFavorite::add('web.favorite.sysmapids', $sourceid, $_REQUEST['favobj']);
+				$result = add2favorites('web.favorite.sysmapids', $sourceid, $_REQUEST['favobj']);
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
-			$result = CFavorite::remove('web.favorite.sysmapids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = rm4favorites('web.favorite.sysmapids', $_REQUEST['favid'], $_REQUEST['favobj']);
 		}
 
-		if ($page['type'] == PAGE_TYPE_JS && $result) {
+		if ($page['type'] == PAGE_TYPE_JS&& $result) {
 			$innerHTML = make_favorite_maps();
 			$innerHTML = $innerHTML->toString();
 			echo '$("hat_favmap").update('.zbx_jsvalue($innerHTML).');';
@@ -223,11 +190,11 @@ if (isset($_REQUEST['favobj'])) {
 		if ($_REQUEST['favaction'] == 'add') {
 			zbx_value2array($_REQUEST['favid']);
 			foreach ($_REQUEST['favid'] as $sourceid) {
-				$result = CFavorite::add('web.favorite.screenids', $sourceid, $_REQUEST['favobj']);
+				$result = add2favorites('web.favorite.screenids', $sourceid, $_REQUEST['favobj']);
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
-			$result = CFavorite::remove('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = rm4favorites('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
 		}
 
 		if ($page['type'] == PAGE_TYPE_JS && $result) {
@@ -322,7 +289,7 @@ $refresh_tab = array(
 $rightColumn = array();
 
 // status of zbx
-if (CWebUser::$data['type'] == USER_TYPE_SUPER_ADMIN) {
+if ($USER_DETAILS['type'] == USER_TYPE_SUPER_ADMIN) {
 	$refresh_menu = get_icon('menu', array('menu' => 'hat_stszbx'));
 	$zbxStatus = new CUIWidget('hat_stszbx', new CSpan(_('Loading...'), 'textcolorstyles'), CProfile::get('web.dashboard.hats.hat_stszbx.state', 1));
 	$zbxStatus->setHeader(_('Status of Zabbix'), array($refresh_menu));
@@ -359,13 +326,8 @@ $web_mon->setFooter(new CDiv(SPACE, 'textwhite', 'hat_webovr_footer'));
 $rightColumn[] = $web_mon;
 
 // discovery info
-$drules = DBfetch(DBselect(
-		'SELECT COUNT(d.druleid) AS cnt'.
-		' FROM drules d'.
-		' WHERE d.status='.DRULE_STATUS_ACTIVE.
-			andDbNode('d.druleid')
-));
-if ($drules['cnt'] > 0 && check_right_on_discovery(PERM_READ)) {
+$drules = DBfetch(DBselect('SELECT COUNT(d.druleid) AS cnt FROM drules d WHERE '.DBin_node('d.druleid').' AND d.status='.DRULE_STATUS_ACTIVE));
+if ($drules['cnt'] > 0 && check_right_on_discovery(PERM_READ_ONLY)) {
 	$refresh_tab[] = array('id' => 'hat_dscvry', 'frequency' => CProfile::get('web.dashboard.rf_rate.hat_dscvry', 60));
 	$refresh_menu = get_icon('menu', array('menu' => 'hat_dscvry'));
 	$dcvr_mon = new CUIWidget('hat_dscvry', new CSpan(_('Loading...'), 'textcolorstyles'), CProfile::get('web.dashboard.hats.hat_dscvry.state', 1));
@@ -396,20 +358,17 @@ zbx_add_post_js('jqBlink.blink();');
 			throw('Prototype.js lib is required!');
 			return false;
 		}
-
-		var favorites = {graphid: 1, itemid: 1, screenid: 1, slideshowid: 1, sysmapid: 1};
-
+		var favorites = {'graphid': 1, 'itemid': 1, 'screenid': 1, 'slideshowid': 1, 'sysmapid': 1};
 		if (isset(list.object, favorites)) {
 			var favid = [];
 			for (var i = 0; i < list.values.length; i++) {
 				favid.push(list.values[i][list.object]);
 			}
-
 			var params = {
 				'favobj': list.object,
 				'favid[]': favid,
 				'favaction': 'add'
-			};
+			}
 			send_params(params);
 		}
 	}
@@ -417,3 +376,4 @@ zbx_add_post_js('jqBlink.blink();');
 </script>
 <?php
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

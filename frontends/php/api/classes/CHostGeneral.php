@@ -20,8 +20,6 @@
 
 
 /**
- * Class containing methods for operations with hosts.
- *
  * @package API
  */
 abstract class CHostGeneral extends CZBXAPI {
@@ -140,16 +138,18 @@ abstract class CHostGeneral extends CZBXAPI {
 	/**
 	 * Links the templates to the given hosts.
 	 *
-	 * @param array $templateIds
-	 * @param array $targetIds		an array of host IDs to link the templates to
+	 * @param array $templateids
+	 * @param array $targetids    an array of host IDs to link the templates to
+	 *
+	 * @return bool
 	 */
-	protected function link(array $templateIds, array $targetIds) {
-		if (empty($templateIds)) {
+	protected function link(array $templateids, array $targetids) {
+		if (empty($templateids)) {
 			return;
 		}
 
 		// check if someone passed duplicate templates in the same query
-		$templateIdDuplicates = zbx_arrayFindDuplicates($templateIds);
+		$templateIdDuplicates = zbx_arrayFindDuplicates($templateids);
 		if (!zbx_empty($templateIdDuplicates)) {
 			$duplicatesFound = array();
 			foreach ($templateIdDuplicates as $value => $count) {
@@ -162,75 +162,41 @@ abstract class CHostGeneral extends CZBXAPI {
 		}
 
 		// check if any templates linked to targets have more than one unique item key/application
-		foreach ($targetIds as $targetId) {
-			$linkedTpls = API::Template()->get(array(
+		foreach ($targetids as $targetid) {
+			$linkedTpls = $this->get(array(
 				'nopermissions' => true,
-				'output' => array('templateid'),
-				'hostids' => $targetId
+				'output' => API_OUTPUT_SHORTEN,
+				'hostids' => $targetid
 			));
+			$allids = array_merge($templateids, zbx_objectValues($linkedTpls, 'templateid'));
 
-			$templateIdsAll = array_merge($templateIds, zbx_objectValues($linkedTpls, 'templateid'));
-
-			$dbItems = DBselect(
-				'SELECT i.key_,i.flags'.
-				' FROM items i'.
-				' WHERE '.dbConditionInt('i.hostid', $templateIdsAll).
-				' GROUP BY i.key_,i.flags'.
-				' HAVING COUNT(i.itemid)>1'
+			$res = DBselect(
+				'SELECT key_,COUNT(itemid) AS cnt'.
+				' FROM items'.
+				' WHERE '.dbConditionInt('hostid', $allids).
+				' GROUP BY key_'.
+				' HAVING COUNT(itemid)>1'
 			);
+			if ($dbCnt = DBfetch($res)) {
+				self::exception(ZBX_API_ERROR_PARAMETERS,
+					_s('Template with item key "%1$s" already linked to host.', htmlspecialchars($dbCnt['key_'])));
+			}
 
-			if ($dbItem = DBfetch($dbItems)) {
-				if ($dbItem['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) {
-					$dbItemHost = API::Item()->get(array(
-						'output' => array('hostid'),
-						'filter' => array('key_' => $dbItem['key_']),
-						'templateids' => $templateIdsAll
-					));
-				}
-				elseif ($dbItem['flags'] == ZBX_FLAG_DISCOVERY) {
-					$dbItemHost = API::DiscoveryRule()->get(array(
-						'output' => array('hostid'),
-						'filter' => array('key_' => $dbItem['key_']),
-						'templateids' => $templateIdsAll
-					));
-				}
-				else {
-					$dbItemHost = API::ItemPrototype()->get(array(
-						'output' => array('hostid'),
-						'filter' => array('key_' => $dbItem['key_']),
-						'templateids' => $templateIdsAll
-					));
-				}
-
-				$dbItemHost = reset($dbItemHost);
-
-				$template = API::Template()->get(array(
-					'output' => array('name'),
-					'templateids' => $dbItemHost['hostid']
-				));
-
-				$template = reset($template);
-
-				if ($dbItem['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) {
-					self::exception(ZBX_API_ERROR_PARAMETERS,
-						_s('Template "%1$s" with item key "%2$s" already linked to host.',
-							$template['name'], $dbItem['key_']));
-				}
-				elseif ($dbItem['flags'] == ZBX_FLAG_DISCOVERY) {
-					self::exception(ZBX_API_ERROR_PARAMETERS,
-						_s('Template "%1$s" with low level discovery rule key "%2$s" already linked to host.',
-							$template['name'], $dbItem['key_']));
-				}
-				else {
-					self::exception(ZBX_API_ERROR_PARAMETERS,
-						_s('Template "%1$s" with item prototype key "%2$s" already linked to host.',
-							$template['name'], $dbItem['key_']));
-				}
+			$res = DBselect(
+				'SELECT name,COUNT(applicationid) AS cnt'.
+				' FROM applications'.
+				' WHERE '.dbConditionInt('hostid', $allids).
+				' GROUP BY name'.
+				' HAVING COUNT(applicationid)>1'
+			);
+			if ($dbCnt = DBfetch($res)) {
+				self::exception(ZBX_API_ERROR_PARAMETERS,
+					_s('Template with application "%1$s" already linked to host.', htmlspecialchars($dbCnt['name'])));
 			}
 		}
 
-		// retrieve templates which exist in all targets
-		$res = DBselect('SELECT * FROM hosts_templates WHERE '.dbConditionInt('hostid', $targetIds));
+		// get DB templates which exists in all targets
+		$res = DBselect('SELECT * FROM hosts_templates WHERE '.dbConditionInt('hostid', $targetids));
 		$mas = array();
 		while ($row = DBfetch($res)) {
 			if (!isset($mas[$row['templateid']])) {
@@ -238,7 +204,7 @@ abstract class CHostGeneral extends CZBXAPI {
 			}
 			$mas[$row['templateid']][$row['hostid']] = 1;
 		}
-		$targetIdCount = count($targetIds);
+		$targetIdCount = count($targetids);
 		$commonDBTemplateIds = array();
 		foreach ($mas as $templateId => $targetList) {
 			if (count($targetList) == $targetIdCount) {
@@ -246,28 +212,25 @@ abstract class CHostGeneral extends CZBXAPI {
 			}
 		}
 
-		// check if there are any templates with triggers which depend on triggers in templates which will not be not linked
-		$commonTemplateIds = array_unique(array_merge($commonDBTemplateIds, $templateIds));
-		foreach ($templateIds as $templateId) {
-			$triggerIds = array();
-			$dbTriggers = get_triggers_by_hostid($templateId);
+		// check if there are any template with triggers which depends on triggers in templates which will be not linked
+		$commonTemplateIds = array_unique(array_merge($commonDBTemplateIds, $templateids));
+		foreach ($templateids as $templateid) {
+			$triggerids = array();
+			$dbTriggers = get_triggers_by_hostid($templateid);
 			while ($trigger = DBfetch($dbTriggers)) {
-				$triggerIds[$trigger['triggerid']] = $trigger['triggerid'];
+				$triggerids[$trigger['triggerid']] = $trigger['triggerid'];
 			}
 
 			$sql = 'SELECT DISTINCT h.host'.
 					' FROM trigger_depends td,functions f,items i,hosts h'.
-					' WHERE ('.
-						dbConditionInt('td.triggerid_down', $triggerIds).
-						' AND f.triggerid=td.triggerid_up'.
-					' )'.
-					' AND i.itemid=f.itemid'.
-					' AND h.hostid=i.hostid'.
-					' AND '.dbConditionInt('h.hostid', $commonTemplateIds, true).
-					' AND h.status='.HOST_STATUS_TEMPLATE;
+					' WHERE ('.dbConditionInt('td.triggerid_down', $triggerids).' AND f.triggerid=td.triggerid_up)'.
+						' AND i.itemid=f.itemid'.
+						' AND h.hostid=i.hostid'.
+						' AND '.dbConditionInt('h.hostid', $commonTemplateIds, true).
+						' AND h.status='.HOST_STATUS_TEMPLATE;
 			if ($dbDepHost = DBfetch(DBselect($sql))) {
 				$tmpTpls = API::Template()->get(array(
-					'templateids' => $templateId,
+					'templateids' => $templateid,
 					'output'=> API_OUTPUT_EXTEND
 				));
 				$tmpTpl = reset($tmpTpls);
@@ -278,10 +241,10 @@ abstract class CHostGeneral extends CZBXAPI {
 		}
 
 		$res = DBselect(
-			'SELECT ht.hostid,ht.templateid'.
-			' FROM hosts_templates ht'.
-			' WHERE '.dbConditionInt('ht.hostid', $targetIds).
-				' AND '.dbConditionInt('ht.templateid', $templateIds)
+			'SELECT hostid,templateid'.
+			' FROM hosts_templates'.
+			' WHERE '.dbConditionInt('hostid', $targetids).
+				' AND '.dbConditionInt('templateid', $templateids)
 		);
 		$linked = array();
 		while ($row = DBfetch($res)) {
@@ -292,29 +255,33 @@ abstract class CHostGeneral extends CZBXAPI {
 		}
 
 		// add template linkages, if problems rollback later
-		$hostsLinkageInserts = array();
-		foreach ($targetIds as $targetId) {
-			foreach ($templateIds as $templateId) {
-				if (isset($linked[$targetId]) && isset($linked[$targetId][$templateId])) {
+		foreach ($targetids as $targetid) {
+			foreach ($templateids as $templateid) {
+				if (isset($linked[$targetid]) && isset($linked[$targetid][$templateid])) {
 					continue;
 				}
-				$hostsLinkageInserts[] = array('hostid' => $targetId, 'templateid' => $templateId);
+
+				$values = array(get_dbid('hosts_templates', 'hosttemplateid'), $targetid, $templateid);
+				$sql = 'INSERT INTO hosts_templates VALUES ('.implode(', ', $values).')';
+				$result = DBexecute($sql);
+
+				if (!$result) {
+					self::exception(ZBX_API_ERROR_PARAMETERS, 'DBError');
+				}
 			}
 		}
-		DB::insert('hosts_templates', $hostsLinkageInserts);
 
 		// check if all trigger templates are linked to host.
-		// we try to find template that is not linked to hosts
-		// ($targetIds) and there is a trigger which references that
-		// template and template from ($templateIds)
+		// we try to find template that is not linked to hosts ($targetids)
+		// and exists trigger which reference that template and template from ($templateids)
 		$sql = 'SELECT DISTINCT h.host'.
 				' FROM functions f,items i,triggers t,hosts h'.
 				' WHERE f.itemid=i.itemid'.
 					' AND f.triggerid=t.triggerid'.
 					' AND i.hostid=h.hostid'.
 					' AND h.status='.HOST_STATUS_TEMPLATE.
-					' AND NOT EXISTS (SELECT 1 FROM hosts_templates ht WHERE ht.templateid=i.hostid AND '.dbConditionInt('ht.hostid', $targetIds).')'.
-					' AND EXISTS (SELECT 1 FROM functions ff,items ii WHERE ff.itemid=ii.itemid AND ff.triggerid=t.triggerid AND '.dbConditionInt('ii.hostid', $templateIds). ')';
+					' AND NOT EXISTS (SELECT 1 FROM hosts_templates ht WHERE ht.templateid=i.hostid AND '.dbConditionInt('ht.hostid', $targetids).')'.
+					' AND EXISTS (SELECT 1 FROM functions ff,items ii WHERE ff.itemid=ii.itemid AND ff.triggerid=t.triggerid AND '.dbConditionInt('ii.hostid', $templateids). ')';
 		if ($dbNotLinkedTpl = DBfetch(DBSelect($sql, 1))) {
 			self::exception(
 				ZBX_API_ERROR_PARAMETERS,
@@ -325,9 +292,9 @@ abstract class CHostGeneral extends CZBXAPI {
 		// check template linkage circularity
 		$res = DBselect(
 			'SELECT ht.hostid,ht.templateid'.
-			' FROM hosts_templates ht,hosts h'.
+			' FROM hosts_templates ht,hosts h '.
 			' WHERE ht.hostid=h.hostid '.
-				' AND h.status IN ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.','.HOST_STATUS_TEMPLATE.')'
+				' AND h.status IN('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.','.HOST_STATUS_TEMPLATE.')'
 		);
 
 		// build linkage graph and prepare list for $rootList generation
@@ -339,7 +306,6 @@ abstract class CHostGeneral extends CZBXAPI {
 			if (!isset($graph[$row['hostid']])) {
 				$graph[$row['hostid']] = array();
 			}
-
 			$graph[$row['hostid']][] = $row['templateid'];
 			$hasParentList[$row['templateid']] = $row['templateid'];
 			$hasChildList[$row['hostid']] = $row['hostid'];
@@ -364,82 +330,84 @@ abstract class CHostGeneral extends CZBXAPI {
 			$this->checkCircularAndDoubleLinkage($graph, $root, $path, $visited);
 		}
 
-		// there are still possible cycles without root
+		// there is still possible cycles without root
 		if (count($visited) < count($all)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Circular template linkage is not allowed.'));
 		}
 
 		// permission check
-		if (!API::Host()->isWritable($targetIds)) {
+		if (!API::Host()->isWritable($targetids)) {
 			self::exception(ZBX_API_ERROR_PERMISSIONS, _('No permissions to referred object or it does not exist!'));
 		}
-		if (!API::Template()->isReadable($templateIds)) {
+		if (!API::Template()->isReadable($templateids)) {
 			self::exception(ZBX_API_ERROR_PERMISSIONS, _('No permissions to referred object or it does not exist!'));
 		}
 
-		foreach ($targetIds as $targetId) {
-			foreach ($templateIds as $templateId) {
-				if (isset($linked[$targetId]) && isset($linked[$targetId][$templateId])) {
+		// sync templates
+		foreach ($targetids as $targetid) {
+			foreach ($templateids as $templateid) {
+				if (isset($linked[$targetid]) && isset($linked[$targetid][$templateid])) {
 					continue;
 				}
 
-				Manager::Application()->link($templateId, $targetId);
+				API::Application()->syncTemplates(array(
+					'hostids' => $targetid,
+					'templateids' => $templateid
+				));
 
 				API::DiscoveryRule()->syncTemplates(array(
-					'hostids' => $targetId,
-					'templateids' => $templateId
+					'hostids' => $targetid,
+					'templateids' => $templateid
 				));
 
 				API::Itemprototype()->syncTemplates(array(
-					'hostids' => $targetId,
-					'templateids' => $templateId
+					'hostids' => $targetid,
+					'templateids' => $templateid
 				));
 
 				API::Item()->syncTemplates(array(
-					'hostids' => $targetId,
-					'templateids' => $templateId
+					'hostids' => $targetid,
+					'templateids' => $templateid
 				));
-
-				Manager::HttpTest()->link($templateId, $targetId);
 			}
 
 			// we do linkage in two separate loops because for triggers you need all items already created on host
-			foreach ($templateIds as $templateId) {
-				if (isset($linked[$targetId]) && isset($linked[$targetId][$templateId])) {
+			foreach ($templateids as $templateid) {
+				if (isset($linked[$targetid]) && isset($linked[$targetid][$templateid])) {
 					continue;
 				}
 
 				API::Trigger()->syncTemplates(array(
-					'hostids' => $targetId,
-					'templateids' => $templateId
+					'hostids' => $targetid,
+					'templateids' => $templateid
 				));
 
 				API::TriggerPrototype()->syncTemplates(array(
-					'hostids' => $targetId,
-					'templateids' => $templateId
+					'hostids' => $targetid,
+					'templateids' => $templateid
 				));
 
 				API::GraphPrototype()->syncTemplates(array(
-					'hostids' => $targetId,
-					'templateids' => $templateId
+					'hostids' => $targetid,
+					'templateids' => $templateid
 				));
 
 				API::Graph()->syncTemplates(array(
-					'hostids' => $targetId,
-					'templateids' => $templateId
+					'hostids' => $targetid,
+					'templateids' => $templateid
 				));
 			}
 		}
 
-		foreach ($targetIds as $targetId) {
-			foreach ($templateIds as $templateId) {
-				if (isset($linked[$targetId]) && isset($linked[$targetId][$templateId])) {
+		foreach ($targetids as $targetid) {
+			foreach ($templateids as $templateid) {
+				if (isset($linked[$targetid]) && isset($linked[$targetid][$templateid])) {
 					continue;
 				}
 
 				API::Trigger()->syncTemplateDependencies(array(
-					'templateids' => $templateId,
-					'hostids' => $targetId
+					'templateids' => $templateid,
+					'hostids' => $targetid,
 				));
 			}
 		}
@@ -449,15 +417,18 @@ abstract class CHostGeneral extends CZBXAPI {
 	 * Unlinks the templates from the given hosts. If $tragetids is set to null, the templates will be unlinked from
 	 * all hosts.
 	 *
-	 * @param array      $templateids
-	 * @param null|array $targetids		the IDs of the hosts to unlink the templates from
-	 * @param bool       $clear			delete all of the inherited objects from the hosts
+	 * @param $templateids
+	 * @param null|array $targetids the IDs of the hosts to unlink the templates from
+	 * @param bool $clear           delete all of the inherited objects from the hosts
+	 *
+	 * @return void
 	 */
 	protected function unlink($templateids, $targetids = null, $clear = false) {
 		$flags = ($clear)
 			? array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY)
 			: array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY, ZBX_FLAG_DISCOVERY_CHILD);
 
+		/* TRIGGERS {{{ */
 		// check that all triggers on templates that we unlink, don't have items from another templates
 		$sql = 'SELECT DISTINCT t.description'.
 			' FROM triggers t,functions f,items i'.
@@ -478,6 +449,7 @@ abstract class CHostGeneral extends CZBXAPI {
 				_s('Cannot unlink trigger "%s", it has items from template that is left linked to host.', $dbTrigger['description'])
 			);
 		}
+
 
 		$sqlFrom = ' triggers t,hosts h';
 		$sqlWhere = ' EXISTS ('.
@@ -550,6 +522,8 @@ abstract class CHostGeneral extends CZBXAPI {
 				}
 			}
 		}
+		/* }}} TRIGGERS */
+
 
 		/* ITEMS, DISCOVERY RULES {{{ */
 		$sqlFrom = ' items i1,items i2,hosts h';
@@ -594,6 +568,7 @@ abstract class CHostGeneral extends CZBXAPI {
 			}
 		}
 
+
 		if (!empty($items[ZBX_FLAG_DISCOVERY_NORMAL])) {
 			if ($clear) {
 				$result = API::Item()->delete(array_keys($items[ZBX_FLAG_DISCOVERY_NORMAL]), true);
@@ -610,6 +585,7 @@ abstract class CHostGeneral extends CZBXAPI {
 				}
 			}
 		}
+
 
 		if (!empty($items[ZBX_FLAG_DISCOVERY_CHILD])) {
 			if ($clear) {
@@ -628,6 +604,7 @@ abstract class CHostGeneral extends CZBXAPI {
 			}
 		}
 		/* }}} ITEMS, DISCOVERY RULES */
+
 
 		/* GRAPHS {{{ */
 		$sqlFrom = ' graphs g,hosts h';
@@ -680,6 +657,7 @@ abstract class CHostGeneral extends CZBXAPI {
 			}
 		}
 
+
 		if (!empty($graphs[ZBX_FLAG_DISCOVERY_NORMAL])) {
 			if ($clear) {
 				$result = API::Graph()->delete(array_keys($graphs[ZBX_FLAG_DISCOVERY_NORMAL]), true);
@@ -698,88 +676,40 @@ abstract class CHostGeneral extends CZBXAPI {
 		}
 		/* }}} GRAPHS */
 
-		// http tests
-		$sqlWhere = '';
-		if (!is_null($targetids)) {
-			$sqlWhere = ' AND '.dbConditionInt('ht1.hostid', $targetids);
-		}
-		$sql = 'SELECT DISTINCT ht1.httptestid,ht1.name,h.name as host'.
-				' FROM httptest ht1'.
-				' INNER JOIN httptest ht2 ON ht2.httptestid=ht1.templateid'.
-				' INNER JOIN hosts h ON h.hostid=ht1.hostid'.
-				' WHERE '.dbConditionInt('ht2.hostid', $templateids).
-				$sqlWhere;
-		$dbHttpTests = DBSelect($sql);
-		$httpTests = array();
-		while ($httpTest = DBfetch($dbHttpTests)) {
-			$httpTests[$httpTest['httptestid']] = array(
-				'name' => $httpTest['name'],
-				'host' => $httpTest['host']
-			);
-		}
-
-		if (!empty($httpTests)) {
-			if ($clear) {
-				$result = API::HttpTest()->delete(array_keys($httpTests), true);
-				if (!$result) {
-					self::exception(ZBX_API_ERROR_INTERNAL, _('Cannot unlink and clear Web scenarios.'));
-				}
-			}
-			else {
-				DB::update('httptest', array(
-					'values' => array('templateid' => 0),
-					'where' => array('httptestid' => array_keys($httpTests))
-				));
-				foreach ($httpTests as $httpTest) {
-					info(_s('Unlinked: Web scenario "%1$s" on "%2$s".', $httpTest['name'], $httpTest['host']));
-				}
-			}
-		}
 
 		/* APPLICATIONS {{{ */
-		$sql = 'SELECT at.application_templateid,at.applicationid,h.name,h.host,h.hostid'.
-			' FROM applications a1,application_template at,applications a2,hosts h'.
-			' WHERE a1.applicationid=at.applicationid'.
-				' AND at.templateid=a2.applicationid'.
-				' AND '.dbConditionInt('a2.hostid', $templateids).
-				' AND a1.hostid=h.hostid';
-		if ($targetids) {
-			$sql .= ' AND '.dbConditionInt('a1.hostid', $targetids);
+		$sqlFrom = ' applications a1,applications a2,hosts h';
+		$sqlWhere = ' a2.applicationid=a1.templateid'.
+			' AND '.dbConditionInt('a2.hostid', $templateids).
+			' AND h.hostid=a1.hostid';
+		if (!is_null($targetids)) {
+			$sqlWhere .= ' AND '.dbConditionInt('a1.hostid', $targetids);
 		}
-		$query = DBselect($sql);
-		$applicationTemplates = array();
-		while ($applicationTemplate = DBfetch($query)) {
-			$applicationTemplates[] = array(
-				'applicationid' => $applicationTemplate['applicationid'],
-				'application_templateid' => $applicationTemplate['application_templateid'],
-				'name' => $applicationTemplate['name'],
-				'hostid' => $applicationTemplate['hostid'],
-				'host' => $applicationTemplate['host']
+		$sql = 'SELECT DISTINCT a1.applicationid,a1.name,a1.hostid,h.name as host'.
+			' FROM '.$sqlFrom.
+			' WHERE '.$sqlWhere;
+		$dbApplications = DBSelect($sql);
+		$applications = array();
+		while ($application = DBfetch($dbApplications)) {
+			$applications[$application['applicationid']] = array(
+				'name' => $application['name'],
+				'hostid' => $application['hostid'],
+				'host' => $application['host']
 			);
 		}
 
-		if ($applicationTemplates) {
-			// unlink applications from templates
-			DB::delete('application_template', array(
-				'application_templateid' => zbx_objectValues($applicationTemplates, 'application_templateid')
-			));
-
+		if (!empty($applications)) {
 			if ($clear) {
-				// delete inherited applications that are no longer linked to any templates
-				$applications = DBfetchArray(DBselect(
-					'SELECT a.applicationid'.
-					' FROM applications a'.
-						' LEFT JOIN application_template at ON a.applicationid=at.applicationid '.
-					' WHERE '.dbConditionInt('a.applicationid', zbx_objectValues($applicationTemplates, 'applicationid')).
-						' AND at.applicationid IS NULL'
-				));
-				$result = API::Application()->delete(zbx_objectValues($applications, 'applicationid'), true);
-				if (!$result) {
-					self::exception(ZBX_API_ERROR_INTERNAL, _('Cannot unlink and clear applications.'));
-				}
+				$result = API::Application()->delete(array_keys($applications), true);
+				if (!$result) self::exception(ZBX_API_ERROR_INTERNAL, _('Cannot unlink and clear applications'));
 			}
 			else{
-				foreach ($applicationTemplates as $application) {
+				DB::update('applications', array(
+					'values' => array('templateid' => 0),
+					'where' => array('applicationid' => array_keys($applications))
+				));
+
+				foreach ($applications as $application) {
 					info(_s('Unlinked: Application "%1$s" on "%2$s".', $application['name'], $application['host']));
 				}
 			}
@@ -788,9 +718,7 @@ abstract class CHostGeneral extends CZBXAPI {
 
 
 		$cond = array('templateid' => $templateids);
-		if (!is_null($targetids)) {
-			$cond['hostid'] =  $targetids;
-		}
+		if (!is_null($targetids)) $cond['hostid'] =  $targetids;
 		DB::delete('hosts_templates', $cond);
 
 		if (!is_null($targetids)) {
@@ -825,14 +753,13 @@ abstract class CHostGeneral extends CZBXAPI {
 	/**
 	 * Searches for cycles and double linkages in graph.
 	 *
-	 * @throw APIException rises exception if cycle or double linkage is found
+	 * @exception rises exception if cycle or double linkage is found
 	 *
 	 * @param array $graph - array with keys as parent ids and values as arrays with child ids
 	 * @param int $current - cursor for recursive DFS traversal, starting point for algorithm
 	 * @param array $path - should be passed empty array for DFS
 	 * @param array $visited - there will be stored visited graph node ids
-	 *
-	 * @return boolean
+	 * @return false
 	 */
 	protected function checkCircularAndDoubleLinkage($graph, $current, &$path, &$visited) {
 		if (isset($path[$current])) {
@@ -855,294 +782,5 @@ abstract class CHostGeneral extends CZBXAPI {
 		$path[$current] = 2;
 
 		return false;
-	}
-
-	protected function addRelatedObjects(array $options, array $result) {
-		$result = parent::addRelatedObjects($options, $result);
-
-		$hostids = array_keys($result);
-
-		// adding groups
-		if ($options['selectGroups'] !== null) {
-			$relationMap = $this->createRelationMap($result, 'hostid', 'groupid', 'hosts_groups');
-			$groups = API::HostGroup()->get(array(
-				'nodeids' => $options['nodeids'],
-				'output' => $options['selectGroups'],
-				'groupids' => $relationMap->getRelatedIds(),
-				'preservekeys' => true
-			));
-			$result = $relationMap->mapMany($result, $groups, 'groups');
-		}
-
-		// adding templates
-		if ($options['selectParentTemplates'] !== null) {
-			if ($options['selectParentTemplates'] != API_OUTPUT_COUNT) {
-				$relationMap = $this->createRelationMap($result, 'hostid', 'templateid', 'hosts_templates');
-				$templates = API::Template()->get(array(
-					'output' => $options['selectParentTemplates'],
-					'nodeids' => $options['nodeids'],
-					'templateids' => $relationMap->getRelatedIds(),
-					'preservekeys' => true
-				));
-				if (!is_null($options['limitSelects'])) {
-					order_result($templates, 'host');
-				}
-				$result = $relationMap->mapMany($result, $templates, 'parentTemplates', $options['limitSelects']);
-			}
-			else {
-				$templates = API::Template()->get(array(
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$templates = zbx_toHash($templates, 'hostid');
-				foreach ($result as $hostid => $host) {
-					$result[$hostid]['parentTemplates'] = isset($templates[$hostid]) ? $templates[$hostid]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding items
-		if ($options['selectItems'] !== null) {
-			if ($options['selectItems'] != API_OUTPUT_COUNT) {
-				$items = API::Item()->get(array(
-					'output' => $this->outputExtend('items', array('hostid', 'itemid'), $options['selectItems']),
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'preservekeys' => true
-				));
-
-				if (!is_null($options['limitSelects'])) {
-					order_result($items, 'name');
-				}
-
-				$relationMap = $this->createRelationMap($items, 'hostid', 'itemid');
-
-				$items = $this->unsetExtraFields($items, array('hostid', 'itemid'), $options['selectItems']);
-				$result = $relationMap->mapMany($result, $items, 'items', $options['limitSelects']);
-			}
-			else {
-				$items = API::Item()->get(array(
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$items = zbx_toHash($items, 'hostid');
-				foreach ($result as $hostid => $host) {
-					$result[$hostid]['items'] = isset($items[$hostid]) ? $items[$hostid]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding discoveries
-		if ($options['selectDiscoveries'] !== null) {
-			if ($options['selectDiscoveries'] != API_OUTPUT_COUNT) {
-				$items = API::DiscoveryRule()->get(array(
-					'output' => $this->outputExtend('items', array('hostid', 'itemid'), $options['selectDiscoveries']),
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'preservekeys' => true
-				));
-
-				if (!is_null($options['limitSelects'])) {
-					order_result($items, 'name');
-				}
-
-				$relationMap = $this->createRelationMap($items, 'hostid', 'itemid');
-
-				$items = $this->unsetExtraFields($items, array('hostid', 'itemid'), $options['selectDiscoveries']);
-				$result = $relationMap->mapMany($result, $items, 'discoveries', $options['limitSelects']);
-			}
-			else {
-				$items = API::DiscoveryRule()->get(array(
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$items = zbx_toHash($items, 'hostid');
-				foreach ($result as $hostid => $host) {
-					$result[$hostid]['discoveries'] = isset($items[$hostid]) ? $items[$hostid]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding triggers
-		if ($options['selectTriggers'] !== null) {
-			if ($options['selectTriggers'] != API_OUTPUT_COUNT) {
-				// discovered items
-				$res = DBselect(
-					'SELECT i.hostid,f.triggerid'.
-						' FROM items i,functions f'.
-						' WHERE '.dbConditionInt('i.hostid', $hostids).
-						' AND i.itemid=f.itemid'
-				);
-				$relationMap = new CRelationMap();
-				while ($relation = DBfetch($res)) {
-					$relationMap->addRelation($relation['hostid'], $relation['triggerid']);
-				}
-
-				$triggers = API::Trigger()->get(array(
-					'output' => $options['selectTriggers'],
-					'nodeids' => $options['nodeids'],
-					'triggerids' => $relationMap->getRelatedIds(),
-					'preservekeys' => true
-				));
-				if (!is_null($options['limitSelects'])) {
-					order_result($triggers, 'description');
-				}
-				$result = $relationMap->mapMany($result, $triggers, 'triggers', $options['limitSelects']);
-			}
-			else {
-				$triggers = API::Trigger()->get(array(
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$triggers = zbx_toHash($triggers, 'hostid');
-
-				foreach ($result as $hostid => $host) {
-					$result[$hostid]['triggers'] = isset($triggers[$hostid]) ? $triggers[$hostid]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding graphs
-		if ($options['selectGraphs'] !== null) {
-			if ($options['selectGraphs'] != API_OUTPUT_COUNT) {
-				// discovered items
-				$res = DBselect(
-					'SELECT i.hostid,gi.graphid'.
-						' FROM items i,graphs_items gi'.
-						' WHERE '.dbConditionInt('i.hostid', $hostids).
-						' AND i.itemid=gi.itemid'
-				);
-				$relationMap = new CRelationMap();
-				while ($relation = DBfetch($res)) {
-					$relationMap->addRelation($relation['hostid'], $relation['graphid']);
-				}
-
-				$graphs = API::Graph()->get(array(
-					'output' => $options['selectGraphs'],
-					'nodeids' => $options['nodeids'],
-					'graphids' => $relationMap->getRelatedIds(),
-					'preservekeys' => true
-				));
-				if (!is_null($options['limitSelects'])) {
-					order_result($graphs, 'name');
-				}
-				$result = $relationMap->mapMany($result, $graphs, 'graphs', $options['limitSelects']);
-			}
-			else {
-				$graphs = API::Graph()->get(array(
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$graphs = zbx_toHash($graphs, 'hostid');
-				foreach ($result as $hostid => $host) {
-					$result[$hostid]['graphs'] = isset($graphs[$hostid]) ? $graphs[$hostid]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding http tests
-		if ($options['selectHttpTests'] !== null) {
-			if ($options['selectHttpTests'] != API_OUTPUT_COUNT) {
-				$httpTests = API::HttpTest()->get(array(
-					'output' => $this->outputExtend('httptest', array('hostid', 'httptestid'), $options['selectHttpTests']),
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'preservekeys' => true
-				));
-
-				if (!is_null($options['limitSelects'])) {
-					order_result($httpTests, 'name');
-				}
-
-				$relationMap = $this->createRelationMap($httpTests, 'hostid', 'httptestid');
-
-				$httpTests = $this->unsetExtraFields($httpTests, array('hostid', 'httptestid'), $options['selectHttpTests']);
-				$result = $relationMap->mapMany($result, $httpTests, 'httpTests', $options['limitSelects']);
-			}
-			else {
-				$httpTests = API::HttpTest()->get(array(
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$httpTests = zbx_toHash($httpTests, 'hostid');
-				foreach ($result as $hostId => $host) {
-					$result[$hostId]['httpTests'] = isset($httpTests[$hostId]) ? $httpTests[$hostId]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding applications
-		if ($options['selectApplications'] !== null) {
-			if ($options['selectApplications'] != API_OUTPUT_COUNT) {
-				$applications = API::Application()->get(array(
-					'output' => $this->outputExtend('applications', array('hostid', 'applicationid'), $options['selectApplications']),
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'preservekeys' => true
-				));
-
-				if (!is_null($options['limitSelects'])) {
-					order_result($applications, 'name');
-				}
-
-				$relationMap = $this->createRelationMap($applications, 'hostid', 'applicationid');
-
-				$applications = $this->unsetExtraFields($applications, array('hostid', 'applicationid'),
-					$options['selectApplications']
-				);
-				$result = $relationMap->mapMany($result, $applications, 'applications', $options['limitSelects']);
-			}
-			else {
-				$applications = API::Application()->get(array(
-					'output' => $options['selectApplications'],
-					'nodeids' => $options['nodeids'],
-					'hostids' => $hostids,
-					'nopermissions' => true,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-
-				$applications = zbx_toHash($applications, 'hostid');
-				foreach ($result as $hostid => $host) {
-					$result[$hostid]['applications'] = isset($applications[$hostid]) ? $applications[$hostid]['rowscount'] : 0;
-				}
-			}
-		}
-
-		// adding macros
-		if ($options['selectMacros'] !== null && $options['selectMacros'] != API_OUTPUT_COUNT) {
-			$macros = API::UserMacro()->get(array(
-				'nodeids' => $options['nodeids'],
-				'output' => $this->outputExtend('hostmacro', array('hostid', 'hostmacroid'), $options['selectMacros']),
-				'hostids' => $hostids,
-				'preservekeys' => true
-			));
-
-			$relationMap = $this->createRelationMap($macros, 'hostid', 'hostmacroid');
-
-			$macros = $this->unsetExtraFields($macros, array('hostid', 'hostmacroid'), $options['selectMacros']);
-			$result = $relationMap->mapMany($result, $macros, 'macros', $options['limitSelects']);
-		}
-
-		return $result;
 	}
 }

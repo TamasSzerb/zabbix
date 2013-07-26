@@ -19,7 +19,6 @@
 
 #include "common.h"
 #include "zbxjson.h"
-#include "json_parser.h"
 
 /******************************************************************************
  *                                                                            *
@@ -27,9 +26,13 @@
  *                                                                            *
  * Purpose: return string describing json error                               *
  *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
  * Return value: pointer to the null terminated string                        *
  *                                                                            *
  * Author: Eugene Grigorjev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
 #define ZBX_JSON_MAX_STRERROR	255
@@ -62,7 +65,15 @@ static void	__zbx_zbx_set_json_strerror(const char *fmt, ...)
  *                                                                            *
  * Function: __zbx_json_realloc                                               *
  *                                                                            *
+ * Purpose:                                                                   *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
+ * Return value: -                                                            *
+ *                                                                            *
  * Author: Alexander Vladishev                                                *
+ *                                                                            *
+ * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
 static void	__zbx_json_realloc(struct zbx_json *j, size_t need)
@@ -380,9 +391,13 @@ int	zbx_json_close(struct zbx_json *j)
  *                                                                            *
  * Purpose: return type of pointed value                                      *
  *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
  * Return value: type of pointed value                                        *
  *                                                                            *
  * Author: Alexander Vladishev                                                *
+ *                                                                            *
+ * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
 static zbx_json_type_t	__zbx_json_type(const char *p)
@@ -409,10 +424,14 @@ static zbx_json_type_t	__zbx_json_type(const char *p)
  *                                                                            *
  * Purpose: return position of right bracket                                  *
  *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
  * Return value: position of right bracket                                    *
  *               NULL - an error occurred                                     *
  *                                                                            *
  * Author: Alexander Vladishev                                                *
+ *                                                                            *
+ * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
 static const char	*__zbx_json_rbracket(const char *p)
@@ -469,39 +488,62 @@ static const char	*__zbx_json_rbracket(const char *p)
  *                                                                            *
  * Purpose: open json buffer and check for brackets                           *
  *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
  * Return value: SUCCESS - processed successfully                             *
  *               FAIL - an error occurred                                     *
  *                                                                            *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
  ******************************************************************************/
-int	zbx_json_open(const char *buffer, struct zbx_json_parse *jp)
+int	zbx_json_open(char *buffer, struct zbx_json_parse *jp)
 {
-	char	*error = NULL;
-	int	len;
+	char	*o, *i;
+	int	state = 0; /* 0 - outside string; 1 - inside string */
 
-	SKIP_WHITESPACE(buffer);
-
-	/* return immediate failure without logging when opening empty string */
-	if ('\0' == *buffer)
-		return FAIL;
-
-	jp->start = buffer;
+	jp->start = NULL;
 	jp->end = NULL;
 
-	if (0 == (len = zbx_json_validate(jp->start, &error)))
-	{
-		if (NULL != error)
-		{
-			zbx_set_json_strerror("cannot open JSON object: %s", error);
-			zbx_free(error);
-		}
-		else
-			zbx_set_json_strerror("cannot open JSON object \"%.64s\"", buffer);
+	while ('\0' != *buffer && NULL != strchr(ZBX_WHITESPACE, *buffer))
+		buffer++;
 
-		return FAIL;
+	if ('{' == *buffer)
+		jp->start = buffer;
+	else
+		goto error;
+
+	o = buffer;
+	i = buffer;
+	do
+	{
+		switch (*i)
+		{
+			case '"':
+				state = (0 == state ? 1 : 0);
+				break;
+			case '\\':
+				*o++ = *i++;
+				break;
+		}
+
+		if (1 == state || NULL == strchr(ZBX_WHITESPACE, *i) || '\0' == *i)
+			*o++ = *i;
 	}
-	jp->end = jp->start + len - 1;
+	while ('\0' != *i++);
+
+	if (NULL == (jp->end = __zbx_json_rbracket(buffer)))
+		goto error;
+
+	if ('\0' != jp->end[1])
+		goto error;
 
 	return SUCCEED;
+error:
+	zbx_set_json_strerror("Can't open JSON object \"%.64s\"", buffer);
+
+	return FAIL;
 }
 
 /******************************************************************************
@@ -510,6 +552,8 @@ int	zbx_json_open(const char *buffer, struct zbx_json_parse *jp)
  *                                                                            *
  * Purpose: locate next pair or element                                       *
  *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
  * Return value: NULL - no more values                                        *
  *               NOT NULL - pointer to pair or element                        *
  *      {"name",...    or  "array":["name", ... ,1,null]                      *
@@ -517,21 +561,19 @@ int	zbx_json_open(const char *buffer, struct zbx_json_parse *jp)
  *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
  ******************************************************************************/
-const char	*zbx_json_next(const struct zbx_json_parse *jp, const char *p)
+const char	*zbx_json_next(struct zbx_json_parse *jp, const char *p)
 {
 	int	level = 0;
-	int	state = 0;	/* 0 - outside string; 1 - inside string */
+	int	state = 0; /* 0 - outside string; 1 - inside string */
 
-	if (1 == jp->end - jp->start)	/* empty object or array */
+	if (1 == jp->end - jp->start) /* empty object or array */
 		return NULL;
 
 	if (NULL == p)
-	{
-		p = jp->start + 1;
-		SKIP_WHITESPACE(p);
-		return p;
-	}
+		return jp->start + 1;
 
 	while (p <= jp->end)
 	{
@@ -560,11 +602,7 @@ const char	*zbx_json_next(const struct zbx_json_parse *jp, const char *p)
 				break;
 			case ',':
 				if (0 == state && 0 == level)
-				{
-					p++;
-					SKIP_WHITESPACE(p);
-					return p;
-				}
+					return ++p;
 				break;
 		}
 		p++;
@@ -575,7 +613,7 @@ const char	*zbx_json_next(const struct zbx_json_parse *jp, const char *p)
 
 static size_t	zbx_json_string_size(const char *p)
 {
-	int	state = 0;	/* 0 - init; 1 - inside string */
+	int	state = 0; /* 0 - init; 1 - inside string */
 	size_t	sz = 0;
 
 	if ('"' != *p)
@@ -794,25 +832,23 @@ static const char	*zbx_json_decodevalue_dyn(const char *p, char **string, size_t
 	}
 }
 
-const char	*zbx_json_pair_next(const struct zbx_json_parse *jp, const char *p, char *name, size_t len)
+const char	*zbx_json_pair_next(struct zbx_json_parse *jp, const char *p, char *name, size_t len)
 {
 	if (NULL == (p = zbx_json_next(jp, p)))
 		return NULL;
 
 	if (ZBX_JSON_TYPE_STRING != __zbx_json_type(p))
-		return NULL;
+		goto error;
 
 	if (NULL == (p = zbx_json_decodestring(p, name, len)))
-		return NULL;
+		goto error;
 
-	SKIP_WHITESPACE(p);
+	if (':' != *p)
+		goto error;
 
-	if (':' != *p++)
-		return NULL;
-
-	SKIP_WHITESPACE(p);
-
-	return p;
+	return ++p;
+error:
+	return NULL;
 }
 
 /******************************************************************************
@@ -821,14 +857,18 @@ const char	*zbx_json_pair_next(const struct zbx_json_parse *jp, const char *p, c
  *                                                                            *
  * Purpose: find pair by name and return pointer to value                     *
  *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
  * Return value: pointer to value                                             *
  *        {"name":["a","b",...]}                                              *
  *                ^ - returned pointer                                        *
  *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
  ******************************************************************************/
-const char	*zbx_json_pair_by_name(const struct zbx_json_parse *jp, const char *name)
+const char	*zbx_json_pair_by_name(struct zbx_json_parse *jp, const char *name)
 {
 	char		buffer[MAX_STRING_LEN];
 	const char	*p = NULL;
@@ -846,10 +886,18 @@ const char	*zbx_json_pair_by_name(const struct zbx_json_parse *jp, const char *n
  *                                                                            *
  * Function: zbx_json_next_value                                              *
  *                                                                            *
+ * Purpose:                                                                   *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
  ******************************************************************************/
-const char	*zbx_json_next_value(const struct zbx_json_parse *jp, const char *p, char *string, size_t len, int *is_null)
+const char	*zbx_json_next_value(struct zbx_json_parse *jp, const char *p, char *string, size_t len, int *is_null)
 {
 	if (NULL == (p = zbx_json_next(jp, p)))
 		return NULL;
@@ -863,12 +911,16 @@ const char	*zbx_json_next_value(const struct zbx_json_parse *jp, const char *p, 
  *                                                                            *
  * Purpose: return value by pair name                                         *
  *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
  * Return value: SUCCEED - if value successfully parsed, FAIL - otherwise     *
  *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
  ******************************************************************************/
-int	zbx_json_value_by_name(const struct zbx_json_parse *jp, const char *name, char *string, size_t len)
+int	zbx_json_value_by_name(struct zbx_json_parse *jp, const char *name, char *string, size_t len)
 {
 	const char	*p;
 
@@ -887,12 +939,16 @@ int	zbx_json_value_by_name(const struct zbx_json_parse *jp, const char *name, ch
  *                                                                            *
  * Purpose: return value by pair name                                         *
  *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
  * Return value: SUCCEED - if value successfully parsed, FAIL - otherwise     *
  *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
  ******************************************************************************/
-int	zbx_json_value_by_name_dyn(const struct zbx_json_parse *jp, const char *name, char **string, size_t *string_alloc)
+int	zbx_json_value_by_name_dyn(struct zbx_json_parse *jp, const char *name, char **string, size_t *string_alloc)
 {
 	const char	*p;
 
@@ -909,10 +965,16 @@ int	zbx_json_value_by_name_dyn(const struct zbx_json_parse *jp, const char *name
  *                                                                            *
  * Function: zbx_json_brackets_open                                           *
  *                                                                            *
+ * Purpose:                                                                   *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
  * Return value: SUCCESS - processed successfully                             *
  *               FAIL - an error occurred                                     *
  *                                                                            *
  * Author: Alexander Vladishev                                                *
+ *                                                                            *
+ * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
 int	zbx_json_brackets_open(const char *p, struct zbx_json_parse *jp)
@@ -923,8 +985,6 @@ int	zbx_json_brackets_open(const char *p, struct zbx_json_parse *jp)
 		return FAIL;
 	}
 
-	SKIP_WHITESPACE(p);
-
 	jp->start = p;
 
 	return SUCCEED;
@@ -934,13 +994,19 @@ int	zbx_json_brackets_open(const char *p, struct zbx_json_parse *jp)
  *                                                                            *
  * Function: zbx_json_brackets_by_name                                        *
  *                                                                            *
+ * Purpose:                                                                   *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
  * Return value: SUCCESS - processed successfully                             *
  *               FAIL - an error occurred                                     *
  *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
  ******************************************************************************/
-int	zbx_json_brackets_by_name(const struct zbx_json_parse *jp, const char *name, struct zbx_json_parse *out)
+int	zbx_json_brackets_by_name(struct zbx_json_parse *jp, const char *name, struct zbx_json_parse *out)
 {
 	const char	*p;
 
@@ -957,13 +1023,19 @@ int	zbx_json_brackets_by_name(const struct zbx_json_parse *jp, const char *name,
  *                                                                            *
  * Function: zbx_json_object_is_empty                                         *
  *                                                                            *
+ * Purpose:                                                                   *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
  * Return value: SUCCESS - if object is empty                                 *
  *               FAIL - if object contains data                               *
  *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
  ******************************************************************************/
-int	zbx_json_object_is_empty(const struct zbx_json_parse *jp)
+int	zbx_json_object_is_empty(struct zbx_json_parse *jp)
 {
 	return jp->end - jp->start > 1 ? FAIL : SUCCEED;
 }
@@ -972,12 +1044,18 @@ int	zbx_json_object_is_empty(const struct zbx_json_parse *jp)
  *                                                                            *
  * Function: zbx_json_count                                                   *
  *                                                                            *
+ * Purpose:                                                                   *
+ *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
  * Return value: number of elements in zbx_json_parse object                  *
  *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
  ******************************************************************************/
-int	zbx_json_count(const struct zbx_json_parse *jp)
+int	zbx_json_count(struct zbx_json_parse *jp)
 {
 	int		num = 0;
 	const char	*p = NULL;
@@ -987,4 +1065,3 @@ int	zbx_json_count(const struct zbx_json_parse *jp)
 
 	return num;
 }
-

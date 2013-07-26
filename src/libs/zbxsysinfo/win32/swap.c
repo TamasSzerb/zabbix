@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2013 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,61 +9,90 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
 #include "symbols.h"
 
-int	SYSTEM_SWAP_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_SWAP_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	MEMORYSTATUSEX	ms_ex;
 	MEMORYSTATUS	ms;
-	char		*swapdev, *mode;
 
-	if (2 < request->nparam)
+	char swapdev[10];
+	char mode[10];
+
+	if(num_param(param) > 2)
+	{
 		return SYSINFO_RET_FAIL;
+	}
 
-	swapdev = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
-
-	/* only 'all' parameter supported */
-	if (NULL != swapdev && '\0' != *swapdev && 0 != strcmp(swapdev, "all"))
+	if(get_param(param, 1, swapdev, sizeof(swapdev)) != 0)
+	{
+		swapdev[0] = '\0';
+	}
+	if(swapdev[0] == '\0')
+	{
+		/* default parameter */
+		zbx_snprintf(swapdev, sizeof(swapdev), "all");
+	}
+	if(strncmp(swapdev, "all", sizeof(swapdev)))
+	{  /* only 'all' parameter supported */
 		return SYSINFO_RET_FAIL;
+	}
 
-	if (NULL != zbx_GlobalMemoryStatusEx)
+	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+	{
+		mode[0] = '\0';
+	}
+	if(mode[0] == '\0')
+	{
+		/* default parameter */
+		zbx_snprintf(mode, sizeof(mode), "total");
+	}
+
+	if(NULL != zbx_GlobalMemoryStatusEx)
 	{
 		ms_ex.dwLength = sizeof(MEMORYSTATUSEX);
 
 		zbx_GlobalMemoryStatusEx(&ms_ex);
 
-		if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "total"))
+		if (strcmp(mode, "total") == 0)
+		{
 			SET_UI64_RESULT(result, ms_ex.ullTotalPageFile);
-		else if (0 == strcmp(mode, "free"))
+			return SYSINFO_RET_OK;
+		}
+		else if (strcmp(mode, "free") == 0)
+		{
 			SET_UI64_RESULT(result, ms_ex.ullAvailPageFile);
-		else if (0 == strcmp(mode, "used"))
-			SET_UI64_RESULT(result, ms_ex.ullTotalPageFile - ms_ex.ullAvailPageFile);
+			return SYSINFO_RET_OK;
+		}
 		else
+		{
 			return SYSINFO_RET_FAIL;
+		}
 	}
 	else
 	{
 		GlobalMemoryStatus(&ms);
 
-		if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "total"))
+		if (strcmp(mode,"total") == 0)
+		{
 			SET_UI64_RESULT(result, ms.dwTotalPageFile);
-		else if (0 == strcmp(mode, "free"))
+			return SYSINFO_RET_OK;
+		}
+		else if (strcmp(mode,"free") == 0)
+		{
 			SET_UI64_RESULT(result, ms.dwAvailPageFile);
-		else if (0 == strcmp(mode, "used"))
-			SET_UI64_RESULT(result, ms.dwTotalPageFile - ms.dwAvailPageFile);
-		else
-			return SYSINFO_RET_FAIL;
+			return SYSINFO_RET_OK;
+		}
 	}
 
 	return SYSINFO_RET_OK;

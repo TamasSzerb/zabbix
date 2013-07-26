@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2013 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -124,32 +124,37 @@ static int	VFS_FS_PUSED(const char *fs, AGENT_RESULT *result)
 	return SYSINFO_RET_OK;
 }
 
-int	VFS_FS_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_FS_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*fsname, *mode;
-	int	ret = SYSINFO_RET_FAIL;
+	MODE_FUNCTION fl[] =
+	{
+		{"free",	VFS_FS_FREE},
+		{"total",	VFS_FS_TOTAL},
+		{"used",	VFS_FS_USED},
+		{"pfree",	VFS_FS_PFREE},
+		{"pused",	VFS_FS_PUSED},
+		{0,		0}
+	};
 
-	if (2 < request->nparam)
+	char	fsname[MAX_STRING_LEN], mode[8];
+	int	i;
+
+	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
 
-	fsname = get_nparam(request, 0);
-	mode = get_nparam(request, 1);
-
-	if (NULL == fsname || '\0' == *fsname)
+	if (0 != get_param(param, 1, fsname, sizeof(fsname)))
 		return SYSINFO_RET_FAIL;
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "total"))
-		ret = VFS_FS_TOTAL(fsname, result);
-	else if (0 == strcmp(mode, "free"))
-		ret = VFS_FS_FREE(fsname, result);
-	else if (0 == strcmp(mode, "used"))
-		ret = VFS_FS_USED(fsname, result);
-	else if (0 == strcmp(mode, "pfree"))
-		ret = VFS_FS_PFREE(fsname, result);
-	else if (0 == strcmp(mode, "pused"))
-		ret = VFS_FS_PUSED(fsname, result);
-	else
-		ret = SYSINFO_RET_FAIL;
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
 
-	return ret;
+	/* default parameter */
+	if ('\0' == *mode)
+		zbx_snprintf(mode, sizeof(mode), "total");
+
+	for (i = 0; fl[i].mode != 0; i++)
+		if (0 == strcmp(mode, fl[i].mode))
+			return (fl[i].function)(fsname, result);
+
+	return SYSINFO_RET_FAIL;
 }

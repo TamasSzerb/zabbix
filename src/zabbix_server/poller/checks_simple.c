@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2013 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,57 +9,103 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "checks_simple.h"
-#include "simple.h"
 #include "log.h"
 
 int	get_value_simple(DC_ITEM *item, AGENT_RESULT *result)
 {
 	const char	*__function_name = "get_value_simple";
 
-	AGENT_REQUEST	request;
-	int		ret = NOTSUPPORTED;
+	char		*p, *error = NULL;
+	char		check[MAX_STRING_LEN];
+	char		service[MAX_STRING_LEN];
+	char		port[8];
+	char		net_tcp_service[MAX_STRING_LEN];
+	const char	*conn;
+	int		ret = SUCCEED;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() key_orig:'%s' addr:'%s'",
-			__function_name, item->key_orig, item->interface.addr);
+	/* assumption: host name does not contain '_perf' */
 
-	init_request(&request);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s(): key_orig [%s]", __function_name, item->key_orig);
 
-	if (SUCCEED != parse_item_key(item->key, &request))
+	init_result(result);
+
+	conn = item->host.useip == 1 ? item->host.ip : item->host.dns;
+
+	*service = '\0';
+	*port = '\0';
+
+	if (1 == num_param(item->key))
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Key is badly formatted"));
-		goto notsupported;
+		if (0 != get_param(item->key, 1, service, MAX_STRING_LEN))
+		{
+			THIS_SHOULD_NEVER_HAPPEN;
+			ret = NOTSUPPORTED;
+		}
+		else if (0 == strcmp(service, "tcp") || 0 == strcmp(service, "tcp_perf"))
+		{
+			error = zbx_dsprintf(error, "Simple check [%s] requires a mandatory 'port' parameter", service);
+			ret = NOTSUPPORTED;
+		}
 	}
-
-	if (0 == strcmp(request.key, "net.tcp.service"))
+	else if (2 == num_param(item->key))
 	{
-		if (SYSINFO_RET_OK == check_service(&request, item->interface.addr, result, 0))
-			ret = SUCCEED;
-	}
-	else if (0 == strcmp(request.key, "net.tcp.service.perf"))
-	{
-		if (SYSINFO_RET_OK == check_service(&request, item->interface.addr, result, 1))
-			ret = SUCCEED;
+		if (0 != get_param(item->key, 1, service, MAX_STRING_LEN))
+		{
+			THIS_SHOULD_NEVER_HAPPEN;
+			ret = NOTSUPPORTED;
+		}
+		else if (0 != get_param(item->key, 2, port, sizeof(port)))
+		{
+			THIS_SHOULD_NEVER_HAPPEN;
+			ret = NOTSUPPORTED;
+		}
+		else if (SUCCEED != is_ushort(port, NULL))
+		{
+			error = zbx_strdup(error, "Incorrect port number");
+			ret = NOTSUPPORTED;
+		}
 	}
 	else
 	{
-		/* it will execute item from a loadable module if any */
-		if (SUCCEED == process(item->key, PROCESS_MODULE_COMMAND, result))
-			ret = SUCCEED;
+		error = zbx_strdup(error, "Too many parameters");
+		ret = NOTSUPPORTED;
 	}
 
-	if (NOTSUPPORTED == ret && !ISSET_MSG(result))
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Simple check is not supported"));
-notsupported:
-	free_request(&request);
+	if (SUCCEED == ret)
+	{
+		if (NULL != (p = strstr(service, "_perf")))
+		{
+			*p = '\0';
+			strscpy(net_tcp_service, "net.tcp.service.perf");
+		}
+		else
+			strscpy(net_tcp_service, "net.tcp.service");
+
+		if ('\0' == *port)
+			zbx_snprintf(check, sizeof(check), "%s[%s,%s]", net_tcp_service, service, conn);
+		else
+			zbx_snprintf(check, sizeof(check), "%s[%s,%s,%s]", net_tcp_service, service, conn, port);
+
+		zabbix_log(LOG_LEVEL_DEBUG, "Transformed [%s] into [%s]", item->key, check);
+	}
+
+	if (SUCCEED == ret && SUCCEED != process(check, 0, result))
+		ret = NOTSUPPORTED;
+
+	if (NOTSUPPORTED == ret && NULL == error)
+		error = zbx_strdup(error, "Simple check is not supported");
+
+	if (NOTSUPPORTED == ret)
+		SET_MSG_RESULT(result, error);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 

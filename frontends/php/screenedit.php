@@ -27,7 +27,7 @@ require_once dirname(__FILE__).'/include/blocks.inc.php';
 $page['title'] = _('Configuration of screens');
 $page['file'] = 'screenedit.php';
 $page['hist_arg'] = array('screenid');
-$page['scripts'] = array('class.cscreen.js', 'class.calendar.js', 'gtlc.js', 'flickerfreescreen.js', 'multiselect.js');
+$page['scripts'] = array('class.cscreen.js', 'class.calendar.js', 'gtlc.js', 'flickerfreescreen.js');
 $page['type'] = detect_page_type(PAGE_TYPE_HTML);
 
 require_once dirname(__FILE__).'/include/page_header.php';
@@ -38,8 +38,7 @@ $fields = array(
 	'screenitemid' =>	array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,			null),
 	'resourcetype' =>	array(T_ZBX_INT, O_OPT, null,	BETWEEN(0, 16),	'isset({save})'),
 	'caption' =>		array(T_ZBX_STR, O_OPT, null,	null,			null),
-	'resourceid' =>		array(T_ZBX_INT, O_OPT, null,	DB_ID,			'isset({save})',
-		isset($_REQUEST['save']) ? getResourceNameByType($_REQUEST['resourcetype']) : null),
+	'resourceid' =>		array(T_ZBX_INT, O_OPT, null,	DB_ID,			'isset({save})'),
 	'templateid' =>		array(T_ZBX_INT, O_OPT, null,	DB_ID,			null),
 	'width' =>			array(T_ZBX_INT, O_OPT, null,	BETWEEN(0, 65535), null, _('Width')),
 	'height' =>			array(T_ZBX_INT, O_OPT, null,	BETWEEN(0, 65535), null, _('Height')),
@@ -57,7 +56,6 @@ $fields = array(
 	'screen_type' =>	array(T_ZBX_INT, O_OPT, null,	null,			null),
 	'tr_groupid' =>		array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,			null),
 	'tr_hostid' =>		array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,			null),
-	'application' =>	array(T_ZBX_STR, O_OPT, null,	null,			null),
 	// actions
 	'save' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,		null),
 	'delete' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,		null),
@@ -164,8 +162,7 @@ if (isset($_REQUEST['save'])) {
 		'rowspan' => get_request('rowspan'),
 		'dynamic' => get_request('dynamic'),
 		'elements' => get_request('elements', 0),
-		'sort_triggers' => get_request('sort_triggers', SCREEN_SORT_TRIGGERS_DATE_DESC),
-		'application' => get_request('application', '')
+		'sort_triggers' => get_request('sort_triggers', SCREEN_SORT_TRIGGERS_DATE_DESC)
 	);
 
 	DBstart();

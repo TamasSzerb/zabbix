@@ -58,8 +58,7 @@ function screen_resources($resource = null) {
 
 function get_screen_by_screenid($screenid) {
 	$dbScreen = DBfetch(DBselect('SELECT s.* FROM screens s WHERE s.screenid='.$screenid));
-
-	return empty($dbScreen) ? false : $dbScreen;
+	return !empty($dbScreen) ? $dbScreen : false;
 }
 
 function check_screen_recursion($mother_screenid, $child_screenid) {
@@ -78,7 +77,6 @@ function check_screen_recursion($mother_screenid, $child_screenid) {
 			return true;
 		}
 	}
-
 	return false;
 }
 
@@ -115,7 +113,8 @@ function slideshow_accessible($slideshowid, $perm) {
 	$sql = 'SELECT s.slideshowid'.
 			' FROM slideshows s'.
 			' WHERE s.slideshowid='.$slideshowid.
-				andDbNode('s.slideshowid', get_current_nodeid(null, $perm));
+				' AND '.DBin_node('s.slideshowid', get_current_nodeid(null, $perm)
+	);
 	if (DBselect($sql)) {
 		$result = true;
 
@@ -144,7 +143,6 @@ function slideshow_accessible($slideshowid, $perm) {
 			}
 		}
 	}
-
 	return $result;
 }
 
@@ -163,7 +161,7 @@ function add_slideshow($name, $delay, $slides) {
 	$screenids = zbx_objectValues($slides, 'screenid');
 	$screens = API::Screen()->get(array(
 		'screenids' => $screenids,
-		'output' => array('screenid')
+		'output' => API_OUTPUT_SHORTEN
 	));
 	$screens = ZBX_toHash($screens, 'screenid');
 	foreach ($screenids as $screenid) {
@@ -174,9 +172,8 @@ function add_slideshow($name, $delay, $slides) {
 	}
 
 	// validate slide name
-	$db_slideshow = DBfetch(DBselect(
-		'SELECT s.slideshowid FROM slideshows s WHERE s.name='.zbx_dbstr($name).' '.andDbNode('s.slideshowid')
-	));
+	$sql = 'SELECT s.slideshowid FROM slideshows s WHERE s.name='.zbx_dbstr($name);
+	$db_slideshow = DBfetch(DBselect($sql, 1));
 	if (!empty($db_slideshow)) {
 		error(_s('Slide show "%s" already exists.', $name));
 		return false;
@@ -206,7 +203,6 @@ function add_slideshow($name, $delay, $slides) {
 			return false;
 		}
 	}
-
 	return $slideshowid;
 }
 
@@ -221,7 +217,7 @@ function update_slideshow($slideshowid, $name, $delay, $slides) {
 	$screenids = zbx_objectValues($slides, 'screenid');
 	$screens = API::Screen()->get(array(
 		'screenids' => $screenids,
-		'output' => array('screenid')
+		'output' => API_OUTPUT_SHORTEN
 	));
 	$screens = ZBX_toHash($screens, 'screenid');
 	foreach ($screenids as $screenid) {
@@ -232,13 +228,8 @@ function update_slideshow($slideshowid, $name, $delay, $slides) {
 	}
 
 	// validate slide name
-	$db_slideshow = DBfetch(DBselect(
-		'SELECT s.slideshowid'.
-		' FROM slideshows s'.
-		' WHERE s.name='.zbx_dbstr($name).
-			' AND s.slideshowid<>'.$slideshowid.
-			' '.andDbNode('s.slideshowid')
-	));
+	$sql = 'SELECT s.slideshowid FROM slideshows s WHERE s.name='.zbx_dbstr($name).' AND s.slideshowid<>'.$slideshowid;
+	$db_slideshow = DBfetch(DBselect($sql, 1));
 	if (!empty($db_slideshow)) {
 		error(_s('Slide show "%s" already exists.', $name));
 		return false;
@@ -305,7 +296,6 @@ function delete_slideshow($slideshowid) {
 	$result = DBexecute('DELETE FROM slideshows where slideshowid='.$slideshowid);
 	$result &= DBexecute('DELETE FROM slides where slideshowid='.$slideshowid);
 	$result &= DBexecute('DELETE FROM profiles WHERE idx=\'web.favorite.screenids\' AND source=\'slideshowid\' AND value_id='.$slideshowid);
-
 	return $result;
 }
 
@@ -315,30 +305,17 @@ function check_dynamic_items($elid, $config = 0) {
 		$sql = 'SELECT si.screenitemid'.
 				' FROM screens_items si'.
 				' WHERE si.screenid='.$elid.
-					' AND si.dynamic='.SCREEN_DYNAMIC_ITEM.
-					' '.andDbNode('si.screenitemid');
+					' AND si.dynamic='.SCREEN_DYNAMIC_ITEM;
 	}
 	else {
 		$sql = 'SELECT si.screenitemid'.
 				' FROM slides s,screens_items si'.
 				' WHERE s.slideshowid='.$elid.
 					' AND si.screenid=s.screenid'.
-					' AND si.dynamic='.SCREEN_DYNAMIC_ITEM.
-					' '.andDbNode('si.screenitemid');
+					' AND si.dynamic='.SCREEN_DYNAMIC_ITEM;
 	}
 	if (DBfetch(DBselect($sql, 1))) {
 		return true;
 	}
-
 	return false;
-}
-
-function getResourceNameByType($resourceType) {
-	switch ($resourceType) {
-		case SCREEN_RESOURCE_DATA_OVERVIEW:
-		case SCREEN_RESOURCE_TRIGGERS_OVERVIEW:
-			return _('Group');
-	}
-
-	return null;
 }

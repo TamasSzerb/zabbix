@@ -37,7 +37,7 @@ class testPageEvents extends CWebTest {
 		$this->zbxTestTextPresent('Filter');
 		$this->zbxTestTextPresent('Displaying');
 		// table header
-		if (0 == DBcount('select * from events where source='.EVENT_SOURCE_TRIGGERS)) {
+		if (0 == DBcount('select * from events where value_changed=1 and source='.EVENT_SOURCE_TRIGGERS)) {
 			$this->zbxTestTextPresent('No events defined.');
 		}
 		else {

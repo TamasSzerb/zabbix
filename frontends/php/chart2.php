@@ -84,9 +84,9 @@ CProfile::update('web.screens.graphid', $_REQUEST['graphid'], PROFILE_TYPE_ID);
 
 $chartHeader = '';
 if (id2nodeid($dbGraph['graphid']) != get_current_nodeid()) {
-	$chartHeader = get_node_name_by_elid($dbGraph['graphid'], true, NAME_DELIMITER);
+	$chartHeader = get_node_name_by_elid($dbGraph['graphid'], true, ': ');
 }
-$chartHeader .= $host['name'].NAME_DELIMITER.$dbGraph['name'];
+$chartHeader .= $host['name'].': '.$dbGraph['name'];
 
 $graph = new CChart($dbGraph['graphtype']);
 $graph->setHeader($chartHeader);
@@ -125,7 +125,7 @@ $dbGraphItems = DBselect(
 	'SELECT gi.*'.
 	' FROM graphs_items gi'.
 	' WHERE gi.graphid='.$dbGraph['graphid'].
-	' ORDER BY gi.sortorder,gi.itemid DESC'
+	' ORDER BY gi.sortorder, gi.itemid DESC'
 );
 while ($dbGraphItem = DBfetch($dbGraphItems)) {
 	$graph->addItem(

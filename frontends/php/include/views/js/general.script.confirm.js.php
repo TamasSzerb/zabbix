@@ -1,16 +1,15 @@
-<div id="scriptDialog" style="display: none; white-space: normal;"></div>
+<div id="scriptDialog" style="display:none; white-space: normal;"></div>
 
 <script type="text/javascript">
 	function showScriptDialog(confirmation, buttons) {
 		jQuery('#scriptDialog').text(confirmation);
-
-		var width = jQuery('#scriptDialog').outerWidth() + 20;
+		var w = jQuery('#scriptDialog').outerWidth() + 20;
 
 		jQuery('#scriptDialog').dialog({
 			buttons: buttons,
 			draggable: false,
 			modal: true,
-			width: (width > 600 ? 600 : 'inherit'),
+			width: (w > 600 ? 600 : 'inherit'),
 			resizable: false,
 			minWidth: 200,
 			minHeight: 100,
@@ -43,9 +42,9 @@
 					jQuery(this).dialog('destroy');
 				}}
 			];
+			var d = showScriptDialog(confirmation, buttons);
 
-			var dialog = showScriptDialog(confirmation, buttons);
-			jQuery(dialog).find('button:first').addClass('main');
+			jQuery(d).find('button:first').addClass('main');
 		}
 	}
 </script>

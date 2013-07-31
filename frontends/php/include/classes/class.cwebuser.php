@@ -59,6 +59,7 @@ class CWebUser {
 
 			zbx_setcookie('zbx_sessionid', self::$data['sessionid'], self::$data['autologin'] ? time() + SEC_PER_DAY * 31 : 0);
 
+			self::makeGlobal();
 			return true;
 		}
 		catch (Exception $e) {
@@ -101,6 +102,7 @@ class CWebUser {
 
 			zbx_setcookie('zbx_sessionid', $sessionid, self::$data['autologin'] ? time() + SEC_PER_DAY * 31 : 0);
 
+			self::makeGlobal();
 			return true;
 		}
 		catch (Exception $e) {
@@ -117,6 +119,13 @@ class CWebUser {
 			'type' => '0',
 			'node' => array('name' => '- unknown -', 'nodeid' => 0)
 		);
+		self::makeGlobal();
+	}
+
+	private static function makeGlobal() {
+		global $USER_DETAILS;
+
+		$USER_DETAILS = self::$data;
 	}
 
 	/**
@@ -128,23 +137,5 @@ class CWebUser {
 	 */
 	public static function getType() {
 		return self::$data['type'];
-	}
-
-	/**
-	 * Returns true if the current user is logged in.
-	 *
-	 * @return bool
-	 */
-	public static function isLoggedIn() {
-		return (self::$data['userid']);
-	}
-
-	/**
-	 * Returns true if the user is not logged in or logged in as Guest.
-	 *
-	 * @return bool
-	 */
-	public static function isGuest() {
-		return (self::$data['alias'] == ZBX_GUEST_USER);
 	}
 }

@@ -374,8 +374,6 @@ class CBar extends CGraphDraw {
 	//									DRAW									*
 	//***************************************************************************
 	public function drawSmallRectangle() {
-		$gbColor = $this->getColor($this->graphtheme['gridbordercolor'], 0);
-
 		imagefilledrectangle($this->im,
 			$this->shiftXleft + $this->shiftXCaptionLeft - 1,
 			$this->shiftY - 1 + $this->shiftYCaptionTop,
@@ -392,12 +390,12 @@ class CBar extends CGraphDraw {
 			$this->getColor($this->graphtheme['gridcolor'], 0)
 		);
 
-		zbx_imageline($this->im,
+		imageline($this->im,
 			$this->shiftXleft + $this->shiftXCaptionLeft - 1,
 			$this->shiftY - 5,
 			$this->shiftXleft + $this->shiftXCaptionLeft - 1,
 			$this->sizeY + $this->shiftY + 4,
-			$gbColor
+			$this->getColor($this->graphtheme['gridbordercolor'], 0)
 		);
 
 		$sides = array();
@@ -417,7 +415,7 @@ class CBar extends CGraphDraw {
 				$sideCorrection = $this->sizeX;
 				$triangle = $this->sizeX + 1;
 			}
-			zbx_imageline($this->im,
+			imageline($this->im,
 				$this->shiftXCaptionLeft + $this->shiftXleft + $sideCorrection,
 				$this->shiftY - 5,
 				$this->shiftXCaptionLeft + $this->shiftXleft + $sideCorrection,
@@ -425,17 +423,17 @@ class CBar extends CGraphDraw {
 				$this->getColor($this->graphtheme['gridbordercolor'], 0)
 				);
 
-			imagefilledpolygon($this->im,
-					array(
-						$this->shiftXleft + $this->shiftXCaptionLeft + $triangle - 4, $this->shiftY - 5,
-						$this->shiftXleft + $this->shiftXCaptionLeft + $triangle + 2, $this->shiftY - 5,
-						$this->shiftXleft + $this->shiftXCaptionLeft + $triangle - 1, $this->shiftY - 10,
-					),
-					3,
-					$this->getColor('White')
-				);
+		imagefilledpolygon($this->im,
+				array(
+					$this->shiftXleft + $this->shiftXCaptionLeft + $triangle - 4, $this->shiftY - 5,
+					$this->shiftXleft + $this->shiftXCaptionLeft + $triangle + 2, $this->shiftY - 5,
+					$this->shiftXleft + $this->shiftXCaptionLeft + $triangle - 1, $this->shiftY - 10,
+				),
+				3,
+				$this->getColor('White')
+			);
 
-			imagepolygon($this->im,
+		imagepolygon($this->im,
 				array(
 					$this->shiftXleft + $this->shiftXCaptionLeft + $triangle - 4, $this->shiftY - 5,
 					$this->shiftXleft + $this->shiftXCaptionLeft + $triangle + 2, $this->shiftY - 5,
@@ -446,12 +444,12 @@ class CBar extends CGraphDraw {
 			);
 		}
 
-		zbx_imageline($this->im,
+		imageline($this->im,
 			$this->shiftXleft + $this->shiftXCaptionLeft - 4,
 			$this->sizeY + $this->shiftY + 1,
 			$this->sizeX + $this->shiftXleft + $this->shiftXCaptionLeft + 5,
 			$this->sizeY + $this->shiftY + 1,
-			$gbColor
+			$this->getColor($this->graphtheme['gridbordercolor'], 0)
 		);
 
 		imagefilledpolygon($this->im,
@@ -464,16 +462,15 @@ class CBar extends CGraphDraw {
 			$this->getColor('White')
 		);
 
-		// draw X axis triangle
-		zbx_imageline($this->im, $this->sizeX + $this->shiftXleft + $this->shiftXCaptionLeft + 5, $this->sizeY + $this->shiftY - 2,
-			$this->sizeX + $this->shiftXleft + $this->shiftXCaptionLeft + 5, $this->sizeY + $this->shiftY + 4,
-			$gbColor);
-		zbx_imagealine($this->im, $this->sizeX + $this->shiftXleft + $this->shiftXCaptionLeft + 5, $this->sizeY + $this->shiftY + 4,
-			$this->sizeX + $this->shiftXleft + $this->shiftXCaptionLeft + 10, $this->sizeY + $this->shiftY + 1,
-			$gbColor);
-		zbx_imagealine($this->im, $this->sizeX + $this->shiftXleft + $this->shiftXCaptionLeft + 10, $this->sizeY + $this->shiftY + 1,
-			$this->sizeX + $this->shiftXleft + $this->shiftXCaptionLeft + 5, $this->sizeY + $this->shiftY - 2,
-			$gbColor);
+		imagepolygon($this->im,
+			array(
+				$this->sizeX + $this->shiftXleft + $this->shiftXCaptionLeft + 5, $this->sizeY + $this->shiftY - 2,
+				$this->sizeX + $this->shiftXleft + $this->shiftXCaptionLeft + 5, $this->sizeY + $this->shiftY + 4,
+				$this->sizeX + $this->shiftXleft + $this->shiftXCaptionLeft + 10, $this->sizeY + $this->shiftY + 1,
+			),
+			3,
+			$this->getColor($this->graphtheme['gridbordercolor'], 0)
+		);
 	}
 
 	protected function drawGrid() {
@@ -556,10 +553,7 @@ class CBar extends CGraphDraw {
 
 			if ($this->column) {
 				for ($i = 0;$i <= $hstr_count; $i++) {
-					$str = convert_units(array(
-						'value' => $this->sizeY * $i / $hstr_count * ($max - $min) / $this->sizeY + $min,
-						'units' => $this->units[$axis]
-					));
+					$str = convert_units(($this->sizeY * $i / $hstr_count * ($max - $min) / $this->sizeY + $min), $this->units[$axis]);
 
 					$sideShift = 0;
 					if (GRAPH_YAXIS_SIDE_LEFT == $axis) {
@@ -571,7 +565,7 @@ class CBar extends CGraphDraw {
 					}
 
 					imagetext($this->im, 8, 0,
-						$this->shiftXleft + $this->shiftXCaptionLeft + $sideShift,
+						$this->shiftXleft+$this->shiftXCaptionLeft + $sideShift,
 						$this->sizeY - $this->sizeY * $i / $hstr_count + $this->shiftY + $this->shiftYCaptionTop + 6,
 						$this->getColor($this->graphtheme['textcolor'], 0),
 						$str
@@ -587,10 +581,7 @@ class CBar extends CGraphDraw {
 				}
 
 				for ($i = 0; $i <= $hstr_count; $i++) {
-					$str = convert_units(array(
-						'value' => $this->sizeX * $i / $hstr_count * ($max - $min) / $this->sizeX + $min,
-						'units' => $this->units[$axis]
-					));
+					$str = convert_units(($this->sizeX * $i / $hstr_count * ($max - $min) / $this->sizeX + $min), $this->units[$axis]);
 
 					$sideShift = 0;
 					if (GRAPH_YAXIS_SIDE_LEFT == $axis) {

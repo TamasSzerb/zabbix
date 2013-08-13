@@ -38,7 +38,7 @@
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-static zbx_uint64_t	select_discovered_host(const DB_EVENT *event)
+static zbx_uint64_t	select_discovered_host(DB_EVENT *event)
 {
 	const char	*__function_name = "select_discovered_host";
 	DB_RESULT	result;
@@ -59,9 +59,9 @@ static zbx_uint64_t	select_discovered_host(const DB_EVENT *event)
 					" and i.useip=1"
 					" and i.ip=ds.ip"
 					" and ds.dhostid=" ZBX_FS_UI64
-					ZBX_SQL_NODE
+					DB_NODE
 				" order by i.hostid",
-				event->objectid, DBand_node_local("i.interfaceid"));
+				event->objectid, DBnode_local("i.interfaceid"));
 			break;
 		case EVENT_OBJECT_DSERVICE:
 			zbx_snprintf(sql, sizeof(sql),
@@ -71,9 +71,9 @@ static zbx_uint64_t	select_discovered_host(const DB_EVENT *event)
 					" and i.useip=1"
 					" and i.ip=ds.ip"
 					" and ds.dserviceid =" ZBX_FS_UI64
-					ZBX_SQL_NODE
+					DB_NODE
 				" order by i.hostid",
-				event->objectid, DBand_node_local("i.interfaceid"));
+				event->objectid, DBnode_local("i.interfaceid"));
 			break;
 		default:
 			goto exit;
@@ -187,7 +187,7 @@ static void	add_discovered_host_groups(zbx_uint64_t hostid, zbx_vector_uint64_t 
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-static zbx_uint64_t	add_discovered_host(const DB_EVENT *event)
+static zbx_uint64_t	add_discovered_host(DB_EVENT *event)
 {
 	const char		*__function_name = "add_discovered_host";
 
@@ -271,10 +271,10 @@ static zbx_uint64_t	add_discovered_host(const DB_EVENT *event)
 						" where h.hostid=i.hostid"
 							" and i.ip=ds.ip"
 							" and ds.dhostid=" ZBX_FS_UI64
-							ZBX_SQL_NODE
+						       	DB_NODE
 						" order by h.hostid",
 						dhostid,
-						DBand_node_local("h.hostid"));
+						DBnode_local("h.hostid"));
 
 				if (NULL != (row2 = DBfetch(result2)))
 				{
@@ -362,11 +362,11 @@ static zbx_uint64_t	add_discovered_host(const DB_EVENT *event)
 					" from hosts"
 					" where host='%s'"
 						" and status in (%d,%d)"
-						ZBX_SQL_NODE
+						DB_NODE
 					" order by hostid",
 					host_esc,
 					HOST_STATUS_MONITORED, HOST_STATUS_NOT_MONITORED,
-					DBand_node_local("hostid"));
+					DBnode_local("hostid"));
 
 			result2 = DBselectN(sql, 1);
 
@@ -425,7 +425,7 @@ clean:
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-void	op_host_add(const DB_EVENT *event)
+void	op_host_add(DB_EVENT *event)
 {
 	const char	*__function_name = "op_host_add";
 
@@ -451,7 +451,7 @@ void	op_host_add(const DB_EVENT *event)
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  ******************************************************************************/
-void	op_host_del(const DB_EVENT *event)
+void	op_host_del(DB_EVENT *event)
 {
 	const char	*__function_name = "op_host_del";
 	zbx_uint64_t	hostid;
@@ -481,7 +481,7 @@ void	op_host_del(const DB_EVENT *event)
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-void	op_host_enable(const DB_EVENT *event)
+void	op_host_enable(DB_EVENT *event)
 {
 	const char	*__function_name = "op_host_enable";
 	zbx_uint64_t	hostid;
@@ -516,7 +516,7 @@ void	op_host_enable(const DB_EVENT *event)
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-void	op_host_disable(const DB_EVENT *event)
+void	op_host_disable(DB_EVENT *event)
 {
 	const char	*__function_name = "op_host_disable";
 	zbx_uint64_t	hostid;
@@ -554,7 +554,7 @@ void	op_host_disable(const DB_EVENT *event)
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-void	op_groups_add(const DB_EVENT *event, zbx_vector_uint64_t *groupids)
+void	op_groups_add(DB_EVENT *event, zbx_vector_uint64_t *groupids)
 {
 	const char	*__function_name = "op_groups_add";
 	zbx_uint64_t	hostid;
@@ -587,7 +587,7 @@ void	op_groups_add(const DB_EVENT *event, zbx_vector_uint64_t *groupids)
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-void	op_groups_del(const DB_EVENT *event, zbx_vector_uint64_t *groupids)
+void	op_groups_del(DB_EVENT *event, zbx_vector_uint64_t *groupids)
 {
 	const char	*__function_name = "op_groups_del";
 
@@ -656,7 +656,7 @@ void	op_groups_del(const DB_EVENT *event, zbx_vector_uint64_t *groupids)
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  ******************************************************************************/
-void	op_template_add(const DB_EVENT *event, zbx_vector_uint64_t *lnk_templateids)
+void	op_template_add(DB_EVENT *event, zbx_vector_uint64_t *lnk_templateids)
 {
 	const char	*__function_name = "op_template_add";
 	zbx_uint64_t	hostid;
@@ -689,7 +689,7 @@ void	op_template_add(const DB_EVENT *event, zbx_vector_uint64_t *lnk_templateids
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  ******************************************************************************/
-void	op_template_del(const DB_EVENT *event, zbx_vector_uint64_t *del_templateids)
+void	op_template_del(DB_EVENT *event, zbx_vector_uint64_t *del_templateids)
 {
 	const char	*__function_name = "op_template_del";
 	zbx_uint64_t	hostid;

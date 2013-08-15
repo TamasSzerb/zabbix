@@ -22,10 +22,6 @@ require_once dirname(__FILE__) . '/../include/class.cwebtest.php';
 
 class testFormAction extends CWebTest {
 
-	public function testFormAction_Setup() {
-		DBsave_tables('actions');
-	}
-
 	public static function providerNewActions() {
 		$data = array(
 			array(array(
@@ -65,12 +61,14 @@ class testFormAction extends CWebTest {
 	/**
 	 * @dataProvider providerNewActions
 	 */
-	public function testFormAction_CreateSimple($action) {
+	public function testActionCreateSimple($action) {
+		DBsave_tables('actions');
 
 		$this->zbxTestLogin('actionconf.php?form=1&eventsource=0');
 		$this->checkTitle('Configuration of actions');
 
 		$this->type('name', $action['name']);
+		$this->type('esc_period', $action['esc_period']);
 		$this->type("def_shortdata", $action['def_shortdata']);
 		$this->type("def_longdata", $action['def_longdata']);
 
@@ -82,20 +80,21 @@ class testFormAction extends CWebTest {
 				case 'Trigger name':
 					$this->type("new_condition_value", $condition['value']);
 					$this->zbxTestClickWait('add_condition');
-					$this->zbxTestTextPresent('Trigger name like '.$condition['value']);
+					$this->zbxTestTextPresent('Trigger name like "'.$condition['value'].'"');
 					break;
 				case 'Trigger severity':
 					$this->zbxTestDropdownSelect('new_condition_value', $condition['value']);
 					$this->zbxTestClickWait('add_condition');
-					$this->zbxTestTextPresent('Trigger severity = '.$condition['value']);
+					$this->zbxTestTextPresent('Trigger severity = "'.$condition['value'].'"');
 					break;
 				case 'Application':
-					$this->type('new_condition_value', $condition['value']);
+					$this->type("new_condition_value", $condition['value']);
 					$this->zbxTestClickWait('add_condition');
-					$this->zbxTestTextPresent('Application = '.$condition['value']);
+					$this->zbxTestTextPresent('Application = "'.$condition['value'].'"');
 					break;
 			}
 		}
+
 		$this->zbxTestClick('link=Operations');
 
 		foreach ($action['operations'] as $operation) {
@@ -106,17 +105,21 @@ class testFormAction extends CWebTest {
 				case 'Send message':
 					sleep(1);
 
-					$this->zbxTestLaunchPopup('addusrgrpbtn');
+					$this->zbxTestClick('addusrgrpbtn');
+					$this->waitForPopUp("zbx_popup", "30000");
+					$this->selectWindow("name=zbx_popup");
 					$this->zbxTestClick('all_usrgrps');
 					$this->zbxTestClick('select');
-					$this->selectWindow('null');
+					$this->selectWindow("null");
 
 					sleep(1);
 
-					$this->zbxTestLaunchPopup('adduserbtn');
+					$this->zbxTestClick('adduserbtn');
+					$this->waitForPopUp("zbx_popup", "30000");
+					$this->selectWindow("name=zbx_popup");
 					$this->zbxTestClick('all_users');
 					$this->zbxTestClick('select');
-					$this->selectWindow('null');
+					$this->selectWindow("null");
 
 					$this->select('new_operation_opmessage_mediatypeid', $operation['media']);
 					break;
@@ -128,23 +131,21 @@ class testFormAction extends CWebTest {
 			}
 			$this->zbxTestClickWait('add_operation');
 		}
-		$this->type('esc_period', $action['esc_period']);
 		$this->zbxTestClickWait('save');
 
-		sleep(1);
-		$this->type('new_condition_value', '');
-		sleep(1);
-
-		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Action added');
+
+		DBrestore_tables('actions');
 	}
 
-	public function testFormAction_Create() {
+	public function testActionCreate() {
+		DBsave_tables('actions');
 
 		$this->zbxTestLogin('actionconf.php?form=1&eventsource=0');
 		$this->checkTitle('Configuration of actions');
 
 		$this->type("name", "action test");
+		$this->type("esc_period", "123");
 		$this->type("def_shortdata", "subject");
 		$this->type("def_longdata", "message");
 
@@ -152,38 +153,42 @@ class testFormAction extends CWebTest {
 		$this->zbxTestClick('link=Conditions');
 		$this->type("new_condition_value", "trigger");
 		$this->zbxTestClickWait('add_condition');
-		$this->zbxTestTextPresent("Trigger name like trigger");
+		$this->zbxTestTextPresent("Trigger name like \"trigger\"");
 
 		$this->select("new_condition_conditiontype", "label=Trigger severity");
 		$this->wait();
 		$this->select("new_condition_value", "label=Average");
 		$this->zbxTestClickWait('add_condition');
-		$this->zbxTestTextPresent("Trigger severity = Average");
+		$this->zbxTestTextPresent("Trigger severity = \"Average\"");
 
 		$this->select("new_condition_conditiontype", "label=Application");
 		$this->wait();
 		$this->type("new_condition_value", "app");
 		$this->zbxTestClickWait('add_condition');
-		$this->zbxTestTextPresent("Application = app");
+		$this->zbxTestTextPresent("Application = \"app\"");
 
 // adding operations
 		$this->zbxTestClick('link=Operations');
 		$this->zbxTestClickWait('new_operation');
+		$this->zbxTestClick('addusrgrpbtn');
 		sleep(1);
-		$this->zbxTestLaunchPopup('addusrgrpbtn');
+		$this->waitForPopUp("zbx_popup", "30000");
+		$this->selectWindow("name=zbx_popup");
 		$this->zbxTestClick('usrgrps_7');
 		$this->zbxTestClick('usrgrps_11');
 		$this->zbxTestClick('select');
-		$this->selectWindow('null');
+		$this->selectWindow("null");
 		sleep(1);
-		$this->zbxTestLaunchPopup('adduserbtn');
+		$this->zbxTestClick('adduserbtn');
+		$this->waitForPopUp("zbx_popup", "30000");
+		$this->selectWindow("name=zbx_popup");
 		$this->zbxTestClick("users_'1'");
 		$this->zbxTestClick('select');
-		$this->selectWindow('null');
+		$this->selectWindow("null");
 		$this->select("new_operation_opmessage_mediatypeid", "label=Jabber");
 		$this->zbxTestClickWait('add_operation');
-		$this->zbxTestTextPresent("Send message to users: Admin via Jabber");
-		$this->zbxTestTextPresent("Send message to user groups: Enabled debug mode, Zabbix administrators via Jabber");
+		$this->zbxTestTextPresent("Send message to users: Admin");
+		$this->zbxTestTextPresent("Send message to user groups: Enabled debug mode, Zabbix administrators");
 		$this->zbxTestClickWait('new_operation');
 		$this->select("new_operation_operationtype", "label=Remote command");
 		$this->wait();
@@ -193,39 +198,34 @@ class testFormAction extends CWebTest {
 
 // add target host Zabbix server
 		$this->zbxTestClick('add');
-		sleep(1);
 		$this->select("opCmdTarget", "label=Host");
-		$this->zbxTestTextPresent(array('Target list', 'Target', 'Action'));
-		sleep(1);
-		$this->assertElementPresent("//div[@id='opCmdTargetObject']/input");
-		$this->input_type("//div[@id='opCmdTargetObject']/input", 'Simple form test host');
-		sleep(1);
-		$this->zbxTestClick("//span[@class='matched']");
+		$this->zbxTestClick('select');
+		$this->waitForPopUp("zbx_popup", "30000");
+		$this->selectWindow("name=zbx_popup");
+		$this->zbxTestDropdownSelectWait('groupid', 'Zabbix servers');
+		$this->zbxTestClick('spanid10053');
+		$this->selectWindow("null");
 		$this->zbxTestClick("//input[@name='save']");
 
 		sleep(1);
+
 // add target group Zabbix servers
 		$this->zbxTestClick('add');
-		sleep(1);
 		$this->select("opCmdTarget", "label=Host group");
-		$this->zbxTestTextPresent(array('Target list', 'Target', 'Action'));
+		$this->zbxTestClick('select');
+		$this->waitForPopUp("zbx_popup", "30000");
+		$this->selectWindow("name=zbx_popup");
+		$this->zbxTestClick('spanid4');
+		$this->selectWindow("null");
+
 		sleep(1);
-		$this->assertElementPresent("//div[@id='opCmdTargetObject']/input");
-		$this->input_type("//div[@id='opCmdTargetObject']/input", 'Zabbix servers');
-		sleep(1);
-		$this->zbxTestClick("//span[@class='matched']");
+
 		$this->zbxTestClick("//input[@name='save']");
-
-		sleep(1);
-
 		$this->type("new_operation_opcommand_command", "command");
 		$this->zbxTestClickWait('add_operation');
-		$this->zbxTestTextPresent('Send message to users: Admin via Jabber');
-		$this->zbxTestTextPresent("Send message to user groups: Enabled debug mode, Zabbix administrators via Jabber");
 		$this->zbxTestTextPresent("Run remote commands on current host");
-		$this->zbxTestTextPresent('Run remote commands on hosts: Simple form test host');
-		$this->zbxTestTextPresent('Run remote commands on host groups: Zabbix servers');
-
+		// $this->zbxTestTextPresent("Run remote commands on hosts: ЗАББИКС Сервер");
+		$this->zbxTestTextPresent("Run remote commands on host groups: Zabbix servers");
 		$this->zbxTestClickWait('new_operation');
 		$this->type("new_operation_esc_step_to", "2");
 		$this->select("new_operation_operationtype", "label=Remote command");
@@ -238,23 +238,10 @@ class testFormAction extends CWebTest {
 		$this->type("new_operation_opcommand_port", "123");
 		$this->type("new_operation_opcommand_command", "command ssh");
 		$this->zbxTestClickWait('add_operation');
-
-		$this->zbxTestTextPresent('Send message to users: Admin via Jabber');
-		$this->zbxTestTextPresent("Send message to user groups: Enabled debug mode, Zabbix administrators via Jabber");
 		$this->zbxTestTextPresent("Run remote commands on current host");
-		$this->zbxTestTextPresent('Run remote commands on hosts: Simple form test host');
-		$this->zbxTestTextPresent('Run remote commands on host groups: Zabbix servers');
-
-		$this->type("esc_period", "123");
-		sleep(1);
-		$this->type('new_condition_value', '');
-		sleep(1);
-
 		$this->zbxTestClickWait('save');
-		$this->zbxTestTextPresent('Action added');
-	}
+		$this->zbxTestTextPresent("Action added");
 
-	public function testFormAction_Teardown() {
 		DBrestore_tables('actions');
 	}
 }

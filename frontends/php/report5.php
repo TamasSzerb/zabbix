@@ -37,7 +37,7 @@ check_fields($fields);
 $rprt_wdgt = new CWidget();
 
 $_REQUEST['period'] = get_request('period', 'day');
-$admin_links = (CWebUser::$data['type'] == USER_TYPE_ZABBIX_ADMIN || CWebUser::$data['type'] == USER_TYPE_SUPER_ADMIN);
+$admin_links = ($USER_DETAILS['type'] == USER_TYPE_ZABBIX_ADMIN || $USER_DETAILS['type'] == USER_TYPE_SUPER_ADMIN);
 
 $form = new CForm('get');
 
@@ -84,9 +84,9 @@ $triggersEventCount = array();
 $sql = 'SELECT e.objectid,count(distinct e.eventid) AS cnt_event'.
 		' FROM triggers t,events e'.
 		' WHERE t.triggerid=e.objectid'.
-			' AND e.source='.EVENT_SOURCE_TRIGGERS.
 			' AND e.object='.EVENT_OBJECT_TRIGGER.
-			' AND e.clock>'.(time() - $time_dif);
+			' AND e.clock>'.(time() - $time_dif).
+			' AND e.value_changed='.TRIGGER_VALUE_CHANGED_YES;
 
 // add permission filter
 if (CWebUser::getType() != USER_TYPE_SUPER_ADMIN) {
@@ -102,7 +102,7 @@ if (CWebUser::getType() != USER_TYPE_SUPER_ADMIN) {
 				' AND f.itemid=i.itemid'.
 				' AND i.hostid=hgg.hostid'.
 			' GROUP BY f.triggerid'.
-			' HAVING MIN(r.permission)>'.PERM_DENY.')';
+			' HAVING MIN(r.permission)>='.PERM_READ_ONLY.')';
 }
 $sql .= ' AND '.dbConditionInt('t.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)).
 		' GROUP BY e.objectid'.
@@ -163,7 +163,7 @@ foreach ($triggers as $trigger) {
 	$hostSpan->setAttribute('onclick', $menus);
 
 	$tr_conf_link = 'null';
-	if (CWebUser::$data['type'] > USER_TYPE_ZABBIX_USER && $trigger['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) {
+	if ($USER_DETAILS['type'] > USER_TYPE_ZABBIX_USER && $trigger['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) {
 		$tr_conf_link = "['"._('Configuration of trigger')."',\"javascript: redirect('triggers.php?form=update&triggerid=".$trigger['triggerid']."&hostid=".$trigger['hostid']."')\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}]";
 	}
 

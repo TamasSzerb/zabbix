@@ -34,7 +34,7 @@ class testPageAdministrationMediaTypes extends CWebTest {
 		$this->checkTitle('Configuration of media types');
 
 		$this->zbxTestTextPresent(array('Media types', 'CONFIGURATION OF MEDIA TYPES', 'Displaying'));
-		$this->zbxTestTextPresent(array('Name', 'Type', 'Status', 'Used in actions', 'Details'));
+		$this->zbxTestTextPresent(array('Description', 'Type', 'Status', 'Used in actions', 'Details'));
 		$this->zbxTestTextPresent($mediatype['description']);
 		switch ($mediatype['type']) {
 			case MEDIA_TYPE_EMAIL:

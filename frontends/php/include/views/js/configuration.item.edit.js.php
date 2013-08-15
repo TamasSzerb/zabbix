@@ -8,21 +8,13 @@
 	}
 
 	function displayNewDeleyFlexInterval() {
-		// visible_delay_flex is in massupdate, no visible_delay_flex in items
-		if (jQuery('#visible_delay_flex').length == 0 || jQuery('#visible_delay_flex').is(':checked')) {
-			jQuery('#row_new_delay_flex').show();
+		// delay_flex_visible is in massupdate, no delay_flex_visible in items
+		if ((jQuery('#delay_flex_visible').length == 0 || jQuery('#delay_flex_visible').is(':checked'))
+				&& jQuery('#delayFlexTable tr').length <= 7) {
+			jQuery('#row_new_delay_flex').css('display', 'block');
 		}
 		else {
-			jQuery('#row_new_delay_flex').hide();
-		}
-
-		if (jQuery('#delayFlexTable tr').length <= 7) {
-			jQuery('#row-new-delay-flex-fields').show();
-			jQuery('#row-new-delay-flex-max-reached').hide();
-		}
-		else {
-			jQuery('#row-new-delay-flex-fields').hide();
-			jQuery('#row-new-delay-flex-max-reached').show();
+			jQuery('#row_new_delay_flex').css('display', 'none');
 		}
 	}
 
@@ -47,7 +39,7 @@
 			selectedInterfaceOption = jQuery('#interfaceid option[value="' + selectedInterfaceId + '"]');
 		}
 
-		if (jQuery('#visible_interface').data('multipleInterfaceTypes') && !jQuery('#visible_type').is(':checked')) {
+		if (jQuery('#interface_visible').data('multipleInterfaceTypes') && !jQuery('#type_visible').is(':checked')) {
 			jQuery('#interface_not_defined').html(<?php echo CJs::encodeJson(_('To set a host interface select a single item type for all items')); ?>).show();
 			jQuery('#interfaceid').hide();
 		}
@@ -168,6 +160,11 @@
 			multpStat.onclick();
 		}
 
+		var maxReached = <?php echo $this->data['maxReached'] ? 'true' : 'false'; ?>;
+		if (maxReached) {
+			jQuery('#row_new_delay_flex').css('display', 'none');
+		}
+
 		jQuery('#type')
 			.change(function() {
 				// update the interface select with each item type change
@@ -176,9 +173,9 @@
 				setAuthTypeLabel();
 			})
 			.trigger('change');
-		jQuery('#visible_type, #visible_interface').click(function() {
+		jQuery('#type_visible, #interface_visible').click(function() {
 			// if no item type is selected, reset the interfaces to default
-			if (!jQuery('#visible_type').is(':checked')) {
+			if (!jQuery('#type_visible').is(':checked')) {
 				organizeInterfaces(itemTypeInterface(<?php echo CJs::encodeJson($data['initial_item_type']) ?>));
 			}
 			else {
@@ -192,28 +189,12 @@
 		});
 
 		// mass update page
-		if (jQuery('#visible_delay_flex').length != 0) {
+		if (jQuery('#delay_flex_visible').length != 0) {
 			displayNewDeleyFlexInterval();
 
-			jQuery('#visible_delay_flex').click(function() {
+			jQuery('#delay_flex_visible').click(function() {
 				displayNewDeleyFlexInterval();
 			});
-		}
-
-		// mass update page, create jquery buttonset object when authprotocol visible box is switched on
-		jQuery('#visible_authprotocol').one('click', function() {
-			jQuery('#authprotocol_div').buttonset();
-		});
-
-		// mass update page, create jquery buttonset object when privprotocol visible box is switched on
-		jQuery('#visible_privprotocol').one('click', function() {
-			jQuery('#privprotocol_div').buttonset();
-		});
-
-		var maxReached = <?php echo $this->data['maxReached'] ? 'true' : 'false'; ?>;
-		if (maxReached) {
-			jQuery('#row-new-delay-flex-fields').hide();
-			jQuery('#row-new-delay-flex-max-reached').show();
 		}
 	});
 </script>

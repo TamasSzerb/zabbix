@@ -31,15 +31,17 @@ my %c = (
 	"after"		=>	"\t{0}\n};\n",
 	"t_bigint"	=>	"ZBX_TYPE_UINT",
 	"t_char"	=>	"ZBX_TYPE_CHAR",
-	"t_text"	=>	"ZBX_TYPE_TEXT",
+	"t_cksum_text"	=>	"ZBX_TYPE_TEXT",
 	"t_double"	=>	"ZBX_TYPE_FLOAT",
+	"t_history_log"	=>	"ZBX_TYPE_TEXT",
+	"t_history_text"=>	"ZBX_TYPE_TEXT",
 	"t_id"		=>	"ZBX_TYPE_ID",
 	"t_image"	=>	"ZBX_TYPE_BLOB",
 	"t_integer"	=>	"ZBX_TYPE_INT",
-	"t_longtext"	=>	"ZBX_TYPE_LONGTEXT",
+	"t_longtext"	=>	"ZBX_TYPE_TEXT",
 	"t_nanosec"	=>	"ZBX_TYPE_INT",
 	"t_serial"	=>	"ZBX_TYPE_UINT",
-	"t_shorttext"	=>	"ZBX_TYPE_SHORTTEXT",
+	"t_text"	=>	"ZBX_TYPE_TEXT",
 	"t_time"	=>	"ZBX_TYPE_INT",
 	"t_varchar"	=>	"ZBX_TYPE_CHAR"
 );
@@ -77,15 +79,17 @@ my %ibm_db2 = (
 	"table_options"	=>	"",
 	"t_bigint"	=>	"bigint",
 	"t_char"	=>	"varchar",
-	"t_text"	=>	"varchar(2048)",
+	"t_cksum_text"	=>	"varchar(2048)",
 	"t_double"	=>	"decfloat(16)",
+	"t_history_log"	=>	"varchar(2048)",
+	"t_history_text"=>	"varchar(2048)",
 	"t_id"		=>	"bigint",
 	"t_image"	=>	"blob",
 	"t_integer"	=>	"integer",
 	"t_longtext"	=>	"varchar(2048)",
 	"t_nanosec"	=>	"integer",
 	"t_serial"	=>	"bigint",
-	"t_shorttext"	=>	"varchar(2048)",
+	"t_text"	=>	"varchar(2048)",
 	"t_time"	=>	"integer",
 	"t_varchar"	=>	"varchar"
 );
@@ -98,15 +102,17 @@ my %mysql = (
 	"table_options"	=>	" ENGINE=InnoDB",
 	"t_bigint"	=>	"bigint unsigned",
 	"t_char"	=>	"char",
-	"t_text"	=>	"text",
+	"t_cksum_text"	=>	"text",
 	"t_double"	=>	"double(16,4)",
+	"t_history_log"	=>	"text",
+	"t_history_text"=>	"text",
 	"t_id"		=>	"bigint unsigned",
 	"t_image"	=>	"longblob",
 	"t_integer"	=>	"integer",
 	"t_longtext"	=>	"longtext",
 	"t_nanosec"	=>	"integer",
 	"t_serial"	=>	"bigint unsigned",
-	"t_shorttext"	=>	"text",
+	"t_text"	=>	"text",
 	"t_time"	=>	"integer",
 	"t_varchar"	=>	"varchar"
 );
@@ -119,15 +125,17 @@ my %oracle = (
 	"table_options"	=>	"",
 	"t_bigint"	=>	"number(20)",
 	"t_char"	=>	"nvarchar2",
-	"t_text"	=>	"nclob",
+	"t_cksum_text"	=>	"nclob",
 	"t_double"	=>	"number(20,4)",
+	"t_history_log"	=>	"nclob",
+	"t_history_text"=>	"nclob",
 	"t_id"		=>	"number(20)",
 	"t_image"	=>	"blob",
 	"t_integer"	=>	"number(10)",
 	"t_longtext"	=>	"nclob",
 	"t_nanosec"	=>	"number(10)",
 	"t_serial"	=>	"number(20)",
-	"t_shorttext"	=>	"nvarchar2(2048)",
+	"t_text"	=>	"nvarchar2(2048)",
 	"t_time"	=>	"number(10)",
 	"t_varchar"	=>	"nvarchar2"
 );
@@ -140,15 +148,17 @@ my %postgresql = (
 	"table_options"	=>	"",
 	"t_bigint"	=>	"numeric(20)",
 	"t_char"	=>	"char",
-	"t_text"	=>	"text",
+	"t_cksum_text"	=>	"text",
 	"t_double"	=>	"numeric(16,4)",
+	"t_history_log"	=>	"text",
+	"t_history_text"=>	"text",
 	"t_id"		=>	"bigint",
 	"t_image"	=>	"bytea",
 	"t_integer"	=>	"integer",
 	"t_longtext"	=>	"text",
 	"t_nanosec"	=>	"integer",
-	"t_serial"	=>	"bigserial",
-	"t_shorttext"	=>	"text",
+	"t_serial"	=>	"serial",
+	"t_text"	=>	"text",
 	"t_time"	=>	"integer",
 	"t_varchar"	=>	"varchar"
 );
@@ -161,15 +171,17 @@ my %sqlite3 = (
 	"table_options"	=>	"",
 	"t_bigint"	=>	"bigint",
 	"t_char"	=>	"char",
-	"t_text"	=>	"text",
+	"t_cksum_text"	=>	"text",
 	"t_double"	=>	"double(16,4)",
+	"t_history_log"	=>	"text",
+	"t_history_text"=>	"text",
 	"t_id"		=>	"bigint",
 	"t_image"	=>	"longblob",
 	"t_integer"	=>	"integer",
 	"t_longtext"	=>	"text",
 	"t_nanosec"	=>	"integer",
 	"t_serial"	=>	"integer",
-	"t_shorttext"	=>	"text",
+	"t_text"	=>	"text",
 	"t_time"	=>	"integer",
 	"t_varchar"	=>	"varchar"
 );
@@ -187,10 +199,8 @@ sub newstate
 
 	if ($state eq "field")
 	{
-		if ($output{"type"} eq "sql" && ($new eq "index" || $new eq "table" || $new eq "row"))
-		{
-			print "${pkey}${eol}\n)$output{'table_options'};${eol}\n";
-		}
+		if ($output{"type"} eq "sql" && $new eq "index") { print "${pkey}${eol}\n)$output{'table_options'};${eol}\n"; }
+		if ($output{"type"} eq "sql" && $new eq "table") { print "${pkey}${eol}\n)$output{'table_options'};${eol}\n"; }
 		if ($new eq "field") { print ",${eol}\n"; }
 	}
 
@@ -341,17 +351,7 @@ sub process_field
 			$fk_flags = "0";
 		}
 
-		if ($default eq "")
-		{
-			$default = "NULL";
-		}
-		else
-		{
-			s/'//g for ($default);
-			$default = "\"$default\""
-		}
-
-		print "\t\t{\"${name}\",\t${default},\t${fk_table},\t${fk_field},\t${length},\t$type,\t${flags},\t${fk_flags}}";
+		print "\t\t{\"${name}\",\t${fk_table},\t${fk_field},\t${length},\t$type,\t${flags},\t${fk_flags}}";
 	}
 	else
 	{
@@ -377,7 +377,7 @@ sub process_field
 			}
 			elsif ($output{"database"} eq "mysql")
 			{
-				$row = sprintf("%-*s auto_increment", $szcol4, $row);
+				$row = sprintf("%-*s auto_increment unique", $szcol4, $row);
 			}
 			elsif ($output{"database"} eq "oracle")
 			{
@@ -409,7 +409,7 @@ sub process_field
 				$fk_field = $name;
 			}
 
-			# RESTRICT may contain new line chars, we need to clean them out
+# RESTRICT may contains new line chars we need to clean them out
 			$fk_flags = rtrim($fk_flags);
 
 			if (not $fk_flags or $fk_flags eq "")
@@ -449,20 +449,6 @@ sub process_field
 			}
 		}
 
-		if ($output{"database"} eq "mysql")
-		{
-			@text_fields = ('blob', 'longblob', 'text', 'longtext');
-			$default = "" if (grep /$output{$type_short}/, @text_fields);
-
-			$name = "`${name}`";
-		}
-
-		if ($output{"database"} eq "ibm_db2")
-		{
-			@text_fields = ('blob');
-			$default = "" if (grep /$output{$type_short}/, @text_fields);
-		}
-
 		if ($default ne "")
 		{
 			if ($output{"database"} eq "ibm_db2")
@@ -472,6 +458,28 @@ sub process_field
 			else
 			{
 				$default = "DEFAULT $default";
+			}
+		}
+
+		if ($output{"database"} eq "mysql")
+		{
+			@text_fields = ('blob', 'longblob', 'text', 'longtext');
+
+			if (grep /$output{$type_short}/, @text_fields)
+			{
+				$default = "";
+			}
+
+			$name = "`${name}`";
+		}
+
+		if ($output{"database"} eq "ibm_db2")
+		{
+			@text_fields = ('blob');
+
+			if (grep /$output{$type_short}/, @text_fields)
+			{
+				$default = "";
 			}
 		}
 
@@ -521,81 +529,6 @@ sub process_index
 	}
 }
 
-sub process_row
-{
-	my $line = $_[0];
-
-	newstate("row");
-
-	my @array = split(/\|/, $line);
-
-	my $first = 1;
-	my $values = "(";
-
-	foreach (@array)
-	{
-		$values = "$values," if ($first == 0);
-		$first = 0;
-
-		# remove leading and trailing spaces
-		$_ =~ s/^\s+//;
-		$_ =~ s/\s+$//;
-
-		if ($_ eq 'NULL')
-		{
-			$values = "$values$_";
-		}
-		else
-		{
-			my $modifier = '';
-
-			# escape backslashes
-			if (/\\/)
-			{
-				if ($output{'database'} eq 'postgresql')
-				{
-					$_ =~ s/\\/\\\\/g;
-					$modifier = 'E';
-				}
-				elsif ($output{'database'} eq 'mysql')
-				{
-					$_ =~ s/\\/\\\\/g;
-				}
-			}
-
-			# escape single quotes
-			if (/'/)
-			{
-				if ($output{'database'} eq 'mysql')
-				{
-					$_ =~ s/'/\\'/g;
-				}
-				else
-				{
-					$_ =~ s/'/''/g;
-				}
-			}
-
-			$_ =~ s/&pipe;/|/g;
-
-			if ($output{'database'} eq 'mysql' || $output{'database'} eq 'oracle')
-			{
-				$_ =~ s/&eol;/\\r\\n/g;
-			}
-			else
-			{
-				$_ =~ s/&eol;/\x0D\x0A/g;
-			}
-
-			$values = "$values$modifier'$_'";
-		}
-	}
-
-	$values = "$values)";
-
-	print "INSERT INTO $table_name VALUES $values;${eol}\n";
-}
-
 sub usage
 {
 	print "Usage: $0 [c|ibm_db2|mysql|oracle|postgresql|sqlite3]\n";
@@ -631,7 +564,6 @@ sub process
 			elsif ($type eq 'INDEX')	{ process_index($line, 0); }
 			elsif ($type eq 'TABLE')	{ process_table($line); }
 			elsif ($type eq 'UNIQUE')	{ process_index($line, 1); }
-			elsif ($type eq 'ROW' && $output{"type"} ne "code")		{ process_row($line); }
 		}
 	}
 

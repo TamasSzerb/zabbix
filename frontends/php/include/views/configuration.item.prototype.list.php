@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $itemsWidget = new CWidget();
 
 // create new item button
@@ -54,8 +54,8 @@ $itemTable->setHeader(array(
 	make_sorting_header(_('History'), 'history', $sortLink),
 	make_sorting_header(_('Trends'), 'trends', $sortLink),
 	make_sorting_header(_('Type'), 'type', $sortLink),
-	_('Applications'),
-	make_sorting_header(_('Status'), 'status', $sortLink)
+	make_sorting_header(_('Status'), 'status', $sortLink),
+	_('Applications')
 ));
 
 foreach ($this->data['items'] as $item) {
@@ -65,19 +65,12 @@ foreach ($this->data['items'] as $item) {
 		$templateDiscoveryRuleId = get_realrule_by_itemid_and_hostid($this->data['parent_discoveryid'], $template_host['hostid']);
 
 		$description[] = new CLink($template_host['name'], '?parent_discoveryid='.$templateDiscoveryRuleId, 'unknown');
-		$description[] = NAME_DELIMITER;
+		$description[] = ': ';
 	}
-	$description[] = new CLink(
-		itemName($item),
-		'?form=update&itemid='.$item['itemid'].'&parent_discoveryid='.$this->data['parent_discoveryid']
-	);
+	$description[] = new CLink(itemName($item), '?form=update&itemid='.$item['itemid'].'&parent_discoveryid='.$this->data['parent_discoveryid']);
 
-	$status = new CLink(
-		itemIndicator($item['status']),
-		'?group_itemid='.$item['itemid'].
-			'&parent_discoveryid='.$this->data['parent_discoveryid'].
-			'&go='.($item['status'] ? 'activate' : 'disable'),
-		itemIndicatorStyle($item['status'])
+	$status = new CLink(item_status2str($item['status']), '?group_itemid='.$item['itemid'].'&parent_discoveryid='.$this->data['parent_discoveryid'].
+		'&go='.($item['status'] ? 'activate' : 'disable'), item_status2style($item['status'])
 	);
 
 	if (!empty($item['applications'])) {
@@ -101,8 +94,8 @@ foreach ($this->data['items'] as $item) {
 		$item['history'],
 		in_array($item['value_type'], array(ITEM_VALUE_TYPE_STR, ITEM_VALUE_TYPE_LOG, ITEM_VALUE_TYPE_TEXT)) ? '' : $item['trends'],
 		item_type2str($item['type']),
+		$status,
 		new CCol($applications, 'wraptext'),
-		$status
 	));
 }
 
@@ -122,15 +115,12 @@ $goComboBox->addItem($goOption);
 
 $goButton = new CSubmit('goButton', _('Go').' (0)');
 $goButton->setAttribute('id', 'goButton');
-
 zbx_add_post_js('chkbxRange.pageGoName = "group_itemid";');
-zbx_add_post_js('chkbxRange.prefix = "'.$this->data['parent_discoveryid'].'";');
-zbx_add_post_js('cookie.prefix = "'.$this->data['parent_discoveryid'].'";');
 
 // append table to form
 $itemForm->addItem(array($this->data['paging'], $itemTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));
 
 // append form to widget
 $itemsWidget->addItem($itemForm);
-
 return $itemsWidget;
+?>

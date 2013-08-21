@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $userGroupWidget = new CWidget();
 $userGroupWidget->addPageHeader(_('CONFIGURATION OF USER GROUP'));
 
@@ -36,9 +36,7 @@ if (isset($_REQUEST['usrgrpid'])) {
  * User group tab
 */
 $userGroupFormList = new CFormList('userGroupFormList');
-$nameTextBox = new CTextBox('gname', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE);
-$nameTextBox->attr('autofocus', 'autofocus');
-$userGroupFormList->addRow(_('Group name'), $nameTextBox);
+$userGroupFormList->addRow(_('Group name'), new CTextBox('gname', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE));
 
 // append groups to form list
 $groupsComboBox = new CComboBox('selusrgrp', $this->data['selected_usrgrp'], 'submit()');
@@ -50,7 +48,7 @@ foreach ($this->data['usergroups'] as $group) {
 // append user tweenbox to form list
 $usersTweenBox = new CTweenBox($userGroupForm, 'group_users', $this->data['group_users'], 10);
 foreach ($this->data['users'] as $user) {
-	$usersTweenBox->addItem($user['userid'], getUserFullname($user));
+	$usersTweenBox->addItem($user['userid'], $user['alias']);
 }
 $userGroupFormList->addRow(_('Users'), $usersTweenBox->get(_('In group'), array(_('Other groups'), SPACE, $groupsComboBox)));
 
@@ -89,7 +87,7 @@ foreach ($this->data['group_rights'] as $id => $rights) {
 	if ($rights['permission'] == PERM_DENY) {
 		$lstDeny->addItem($id, $rights['name']);
 	}
-	elseif ($rights['permission'] == PERM_READ) {
+	elseif ($rights['permission'] == PERM_READ_ONLY) {
 		$lstRead->addItem($id, $rights['name']);
 	}
 	elseif ($rights['permission'] == PERM_READ_WRITE) {
@@ -97,18 +95,14 @@ foreach ($this->data['group_rights'] as $id => $rights) {
 	}
 }
 
-$permissionsTable->addRow(array(
-	new CCol($lstWrite, 'read_write'),
-	new CCol($lstRead, 'read_only'),
-	new CCol($lstDeny, 'deny')
-));
+$permissionsTable->addRow(array(new CCol($lstWrite, 'read_write'), new CCol($lstRead, 'read_only'), new CCol($lstDeny, 'deny')));
 $permissionsTable->addRow(array(
 	array(
 		new CButton('add_read_write', _('Add'), "return PopUp('popup_right.php?dstfrm=".$userGroupForm->getName().'&permission='.PERM_READ_WRITE."', 450, 450);", 'formlist'),
 		new CSubmit('del_read_write', _('Delete selected'), null, 'formlist')
 	),
 	array(
-		new CButton('add_read_only', _('Add'), "return PopUp('popup_right.php?dstfrm=".$userGroupForm->getName().'&permission='.PERM_READ."', 450, 450);", 'formlist'),
+		new CButton('add_read_only', _('Add'), "return PopUp('popup_right.php?dstfrm=".$userGroupForm->getName().'&permission='.PERM_READ_ONLY."', 450, 450);", 'formlist'),
 		new CSubmit('del_read_only', _('Delete selected'), null, 'formlist')
 	),
 	array(
@@ -133,14 +127,11 @@ $userGroupForm->addItem($userGroupTab);
 
 // append buttons to form
 if (empty($this->data['usrgrpid'])) {
-	$userGroupForm->addItem(makeFormFooter(
-		new CSubmit('save', _('Save')),
-		new CButtonCancel(url_param('config'))
-	));
+	$userGroupForm->addItem(makeFormFooter(array(new CSubmit('save', _('Save'))), array(new CButtonCancel(url_param('config')))));
 }
 else {
 	$userGroupForm->addItem(makeFormFooter(
-		new CSubmit('save', _('Save')),
+		array(new CSubmit('save', _('Save'))),
 		array(
 			new CButtonDelete(_('Delete selected group?'), url_param('form').url_param('usrgrpid').url_param('config')),
 			new CButtonCancel(url_param('config'))
@@ -150,5 +141,5 @@ else {
 
 // append form to widget
 $userGroupWidget->addItem($userGroupForm);
-
 return $userGroupWidget;
+?>

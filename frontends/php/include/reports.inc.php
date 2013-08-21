@@ -18,6 +18,171 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
+/**
+ * Creates the availability report page filter and modifies trigger retrieval options.
+ *
+ * Possible $config values are AVAILABILITY_REPORT_BY_HOST or AVAILABILITY_REPORT_BY_TEMPLATE.
+ *
+ * @param int $config			report mode
+ * @param array $PAGE_GROUPS	the data for the host/template group filter select
+ * @param array $PAGE_HOSTS		the data for the host/template filter select
+ * @param array $options		trigger retrieval options, to be modified
+ *
+ * @return array returns form table and modified options: array('form' => CFormTable, 'options' => array)
+ */
+function get_report2_filter($config, array $PAGE_GROUPS, array $PAGE_HOSTS, $options){
+	$filterForm = new CFormTable();
+	$filterForm->setAttribute('name','zbx_filter');
+	$filterForm->setAttribute('id','zbx_filter');
+
+	$filterForm->addVar('config',$config);
+	$filterForm->addVar('filter_timesince',date('YmdHis', $_REQUEST['filter_timesince']));
+	$filterForm->addVar('filter_timetill', date('YmdHis', $_REQUEST['filter_timetill']));
+
+	$cmbGroups = new CComboBox('filter_groupid',$PAGE_GROUPS['selected'],'javascript: submit();');
+	$cmbHosts = new CComboBox('filter_hostid',$PAGE_HOSTS['selected'],'javascript: submit();');
+
+	foreach($PAGE_GROUPS['groups'] as $groupid => $name){
+		$cmbGroups->addItem($groupid, get_node_name_by_elid($groupid, null, ': ').$name);
+	}
+	foreach($PAGE_HOSTS['hosts'] as $hostid => $name){
+		$cmbHosts->addItem($hostid, get_node_name_by_elid($hostid, null, ': ').$name);
+	}
+
+	if ($config == AVAILABILITY_REPORT_BY_TEMPLATE) {
+		$filterForm->addRow(_('Template group'),$cmbGroups);
+		$filterForm->addRow(_('Template'),$cmbHosts);
+
+		$cmbTrigs = new CComboBox('tpl_triggerid',get_request('tpl_triggerid',0),'submit()');
+		$cmbHGrps = new CComboBox('hostgroupid',get_request('hostgroupid',0),'submit()');
+
+		$cmbTrigs->addItem(0, _('all'));
+		$cmbHGrps->addItem(0, _('all'));
+
+		// fetch the groups, that the used hosts belong to
+		$hostGroups = API::HostGroup()->get(array(
+			'output' => array('name', 'groupid'),
+			'hostids' => $options['hostids'],
+			'monitored_hosts' => true,
+			'preservekeys' => true
+		));
+		foreach ($hostGroups as $hostGroup) {
+			$cmbHGrps->addItem(
+				$hostGroup['groupid'],
+				get_node_name_by_elid($hostGroup['groupid'], null, ': ').$hostGroup['name']
+			);
+		}
+		if (isset($_REQUEST['hostgroupid']) && !isset($hostGroups[$_REQUEST['hostgroupid']])) {
+			unset($options['groupids']);
+		}
+
+		if ($PAGE_HOSTS['selected']) {
+			$sql_cond = ' AND h.hostid='.$PAGE_HOSTS['selected'];
+		}
+		else {
+			$sql_cond = ' AND '.dbConditionInt('h.hostid', $PAGE_HOSTS['hostids']);
+		}
+		$sql = 'SELECT DISTINCT t.triggerid,t.description '.
+			' FROM triggers t,hosts h,items i,functions f '.
+			' WHERE f.itemid=i.itemid '.
+				' AND h.hostid=i.hostid '.
+				' AND t.status='.TRIGGER_STATUS_ENABLED.
+				' AND t.triggerid=f.triggerid '.
+				' AND h.status='.HOST_STATUS_TEMPLATE.
+				' AND '.DBin_node('t.triggerid').
+				' AND i.status='.ITEM_STATUS_ACTIVE.
+				$sql_cond.
+			' ORDER BY t.description';
+		$triggers = DBfetchArrayAssoc(DBselect($sql), 'triggerid');
+		foreach ($triggers as $trigger) {
+			$cmbTrigs->addItem(
+				$trigger['triggerid'],
+				get_node_name_by_elid($trigger['triggerid'], null, ': ').$trigger['description']
+			);
+		}
+		if (isset($_REQUEST['tpl_triggerid']) && !isset($triggers[$_REQUEST['tpl_triggerid']])) {
+			unset($options['filter']['templateid']);
+		}
+
+		$filterForm->addRow(_('Template trigger'),$cmbTrigs);
+		$filterForm->addRow(_('Filter by host group'),$cmbHGrps);
+	}
+	elseif ($config == AVAILABILITY_REPORT_BY_HOST) {
+		$filterForm->addRow(_('Host group'), $cmbGroups);
+		$filterForm->addRow(_('Host'), $cmbHosts);
+	}
+
+//*
+	$clndr_icon = new CImg('images/general/bar/cal.gif','calendar', 16, 12, 'pointer');
+	$clndr_icon->addAction('onclick','javascript: '.
+										'var pos = getPosition(this); '.
+										'pos.top+=10; '.
+										'pos.left+=16; '.
+										"CLNDR['avail_report_since'].clndr.clndrshow(pos.top,pos.left);");
+
+	$filtertimetab = new CTable(null,'calendar');
+	$filtertimetab->setAttribute('width','10%');
+
+	$filtertimetab->setCellPadding(0);
+	$filtertimetab->setCellSpacing(0);
+
+	$filtertimetab->addRow(array(
+		_('From'),
+		new CNumericBox('filter_since_day',(($_REQUEST['filter_timesince']>0)?date('d',$_REQUEST['filter_timesince']):''),2),
+		'/',
+		new CNumericBox('filter_since_month',(($_REQUEST['filter_timesince']>0)?date('m',$_REQUEST['filter_timesince']):''),2),
+		'/',
+		new CNumericBox('filter_since_year',(($_REQUEST['filter_timesince']>0)?date('Y',$_REQUEST['filter_timesince']):''),4),
+		SPACE,
+		new CNumericBox('filter_since_hour',(($_REQUEST['filter_timesince']>0)?date('H',$_REQUEST['filter_timesince']):''),2),
+		':',
+		new CNumericBox('filter_since_minute',(($_REQUEST['filter_timesince']>0)?date('i',$_REQUEST['filter_timesince']):''),2),
+		$clndr_icon
+	));
+	zbx_add_post_js('create_calendar(null,'.
+					'["filter_since_day","filter_since_month","filter_since_year","filter_since_hour","filter_since_minute"],'.
+					'"avail_report_since",'.
+					'"filter_timesince");');
+
+	$clndr_icon->AddAction('onclick','javascript: '.
+										'var pos = getPosition(this); '.
+										'pos.top+=10; '.
+										'pos.left+=16; '.
+										"CLNDR['avail_report_till'].clndr.clndrshow(pos.top,pos.left);");
+
+	$filtertimetab->AddRow(array(
+		_('Till'),
+		new CNumericBox('filter_till_day',(($_REQUEST['filter_timetill']>0)?date('d',$_REQUEST['filter_timetill']):''),2),
+		'/',
+		new CNumericBox('filter_till_month',(($_REQUEST['filter_timetill']>0)?date('m',$_REQUEST['filter_timetill']):''),2),
+		'/',
+		new CNumericBox('filter_till_year',(($_REQUEST['filter_timetill']>0)?date('Y',$_REQUEST['filter_timetill']):''),4),
+		SPACE,
+		new CNumericBox('filter_till_hour',(($_REQUEST['filter_timetill']>0)?date('H',$_REQUEST['filter_timetill']):''),2),
+		':',
+		new CNumericBox('filter_till_minute',(($_REQUEST['filter_timetill']>0)?date('i',$_REQUEST['filter_timetill']):''),2),
+		$clndr_icon
+	));
+	zbx_add_post_js('create_calendar(null,'.
+			'["filter_till_day","filter_till_month","filter_till_year","filter_till_hour","filter_till_minute"],'.
+			'"avail_report_till",'.
+			'"filter_timetill");');
+
+	zbx_add_post_js('addListener($("filter_icon"),"click",CLNDR[\'avail_report_since\'].clndr.clndrhide.bindAsEventListener(CLNDR[\'avail_report_since\'].clndr));'.
+					'addListener($("filter_icon"),"click",CLNDR[\'avail_report_till\'].clndr.clndrhide.bindAsEventListener(CLNDR[\'avail_report_till\'].clndr));'
+					);
+
+	$filterForm->addRow(_('Period'), $filtertimetab);
+
+//*/
+	$filterForm->addItemToBottomRow(new CSubmit('filter_set',_('Filter')));
+
+	$reset = new CButton("filter_rst", _('Reset'), 'javascript: var url = new Curl(location.href); url.setArgument("filter_rst",1); location.href = url.getUrl();');
+
+	$filterForm->addItemToBottomRow($reset);
+
+	return array('form' => $filterForm, 'options' => $options);
+}
 
 function bar_report_form(){
 	$config = get_request('config',1);
@@ -41,8 +206,8 @@ function bar_report_form(){
 
 	$reportForm->addVar('config',$config);
 	$reportForm->addVar('items',$items);
-	$reportForm->addVar('report_timesince', date(TIMESTAMP_FORMAT, $report_timesince));
-	$reportForm->addVar('report_timetill',  date(TIMESTAMP_FORMAT, $report_timetill));
+	$reportForm->addVar('report_timesince', date('YmdHis', $report_timesince));
+	$reportForm->addVar('report_timetill',  date('YmdHis', $report_timetill));
 
 	$reportForm->addRow(_('Title'), new CTextBox('title',$title,40));
 	$reportForm->addRow(_('X label'), new CTextBox('xlabel',$xlabel,40));
@@ -59,15 +224,70 @@ function bar_report_form(){
 
 //*
 
+	$clndr_icon = new CImg('images/general/bar/cal.gif','calendar', 16, 12, 'pointer');
+	$clndr_icon->addAction('onclick','javascript: '.
+										'var pos = getPosition(this); '.
+										'pos.top+=10; '.
+										'pos.left+=16; '.
+										"CLNDR['avail_report_since'].clndr.clndrshow(pos.top,pos.left);");
+
 	$reporttimetab = new CTable(null,'calendar');
+	$reporttimetab->setAttribute('width','10%');
 
-	$timeSinceRow = createDateSelector('report_timesince', $report_timesince, 'report_timetill');
-	array_unshift($timeSinceRow, _('From'));
-	$reporttimetab->addRow($timeSinceRow);
+	$reporttimetab->setCellPadding(0);
+	$reporttimetab->setCellSpacing(0);
 
-	$timeTillRow = createDateSelector('report_timetill', $report_timetill, 'report_timesince');
-	array_unshift($timeTillRow, _('Till'));
-	$reporttimetab->addRow($timeTillRow);
+	$reporttimetab->addRow(array(
+		_('From'),
+		new CNumericBox('report_since_day',(($report_timesince>0)?date('d',$report_timesince):''),2),
+		'/',
+		new CNumericBox('report_since_month',(($report_timesince>0)?date('m',$report_timesince):''),2),
+		'/',
+		new CNumericBox('report_since_year',(($report_timesince>0)?date('Y',$report_timesince):''),4),
+		SPACE,
+		new CNumericBox('report_since_hour',(($report_timesince>0)?date('H',$report_timesince):''),2),
+		':',
+		new CNumericBox('report_since_minute',(($report_timesince>0)?date('i',$report_timesince):''),2),
+		$clndr_icon
+	));
+	zbx_add_post_js('create_calendar(null,'.
+					'["report_since_day","report_since_month","report_since_year","report_since_hour","report_since_minute"],'.
+					'"avail_report_since",'.
+					'"report_timesince");');
+
+	$clndr_icon->addAction('onclick','javascript: '.
+										'var pos = getPosition(this); '.
+										'pos.top+=10; '.
+										'pos.left+=16; '.
+										"CLNDR['avail_report_till'].clndr.clndrshow(pos.top,pos.left);");
+
+	$reporttimetab->addRow(array(
+		_('Till'),
+		new CNumericBox('report_till_day',(($report_timetill>0)?date('d',$report_timetill):''),2),
+		'/',
+		new CNumericBox('report_till_month',(($report_timetill>0)?date('m',$report_timetill):''),2),
+		'/',
+		new CNumericBox('report_till_year',(($report_timetill>0)?date('Y',$report_timetill):''),4),
+		SPACE,
+		new CNumericBox('report_till_hour',(($report_timetill>0)?date('H',$report_timetill):''),2),
+		':',
+		new CNumericBox('report_till_minute',(($report_timetill>0)?date('i',$report_timetill):''),2),
+		$clndr_icon
+	));
+
+	zbx_add_post_js('create_calendar(null,'.
+					'["report_till_day","report_till_month","report_till_year","report_till_hour","report_till_minute"],'.
+					'"avail_report_till",'.
+					'"report_timetill");'
+					);
+
+	zbx_add_post_js('addListener($("filter_icon"),'.
+						'"click",'.
+						'CLNDR[\'avail_report_since\'].clndr.clndrhide.bindAsEventListener(CLNDR[\'avail_report_since\'].clndr));'.
+					'addListener($("filter_icon"),'.
+						'"click",'.
+						'CLNDR[\'avail_report_till\'].clndr.clndrhide.bindAsEventListener(CLNDR[\'avail_report_till\'].clndr));'
+					);
 
 	$reportForm->addRow(_('Period'), $reporttimetab);
 //*/
@@ -89,7 +309,7 @@ function bar_report_form(){
 					url_param($gid,false,'gid').
 					'",550,400,"graph_item_form");');
 
-			$description = $host['name'].NAME_DELIMITER.itemName($item);
+			$description = $host['name'].': '.itemName($item);
 
 			$items_table->addRow(array(
 					new CCheckBox('group_gid['.$gid.']',isset($group_gid[$gid])),
@@ -227,7 +447,7 @@ function bar_report_form2(){
 					url_param($gid,false,'gid').
 					'",550,400,"graph_item_form");');
 
-			$description = $host['name'].NAME_DELIMITER.itemName($item);
+			$description = $host['name'].': '.itemName($item);
 
 			$items_table->addRow(array(
 					new CCheckBox('group_gid['.$gid.']',isset($group_gid[$gid])),
@@ -273,10 +493,10 @@ function bar_report_form3(){
 	$scaletype = get_request('scaletype', TIMEPERIOD_TYPE_WEEKLY);
 	$avgperiod = get_request('avgperiod', TIMEPERIOD_TYPE_DAILY);
 
-	$report_timesince = get_request('report_timesince', date(TIMESTAMP_FORMAT, time() - SEC_PER_DAY));
-	$report_timetill = get_request('report_timetill', date(TIMESTAMP_FORMAT));
+	$report_timesince = get_request('report_timesince', date('YmdHis', time() - SEC_PER_DAY));
+	$report_timetill = get_request('report_timetill', date('YmdHis'));
 
-	$itemId = get_request('itemid', 0);
+	$items = get_request('items',array());
 
 	$hostids = get_request('hostids', array());
 	$hostids = zbx_toHash($hostids);
@@ -289,13 +509,16 @@ function bar_report_form3(){
 	$reportForm->setAttribute('name','zbx_report');
 	$reportForm->setAttribute('id','zbx_report');
 
-	if (isset($_REQUEST['report_show']) && $itemId) {
+//	$reportForm->setMethod('post');
+	if(isset($_REQUEST['report_show']) && !empty($items))
 		$reportForm->addVar('report_show','show');
-	}
 
 	$reportForm->addVar('config',$config);
-	$reportForm->addVar('report_timesince',date(TIMESTAMP_FORMAT, $report_timesince));
-	$reportForm->addVar('report_timetill',date(TIMESTAMP_FORMAT, $report_timetill));
+	$reportForm->addVar('report_timesince',date('YmdHis', $report_timesince));
+	$reportForm->addVar('report_timetill',date('YmdHis', $report_timetill));
+
+//	$reportForm->addVar('items',$items); 				//params are set later!!
+//	$reportForm->addVar('periods',$periods);
 
 	$reportForm->addRow(_('Title'), new CTextBox('title', $title, 40));
 	$reportForm->addRow(_('X label'), new CTextBox('xlabel', $xlabel, 40));
@@ -324,6 +547,8 @@ function bar_report_form3(){
 // ----------
 
 // HOSTS
+//	validate_group(PERM_READ_ONLY,array('real_hosts'),'web.last.conf.groupid');
+
 	$groupid = get_request('groupid',0);
 	$cmbGroups = new CComboBox('groupid',$groupid,'submit()');
 	$cmbGroups->addItem(0, _('All'));
@@ -367,15 +592,71 @@ function bar_report_form3(){
 // ----------
 //*/
 // PERIOD
+
+	$clndr_icon = new CImg('images/general/bar/cal.gif','calendar', 16, 12, 'pointer');
+	$clndr_icon->addAction('onclick','javascript: '.
+										'var pos = getPosition(this); '.
+										'pos.top+=10; '.
+										'pos.left+=16; '.
+										"CLNDR['avail_report_since'].clndr.clndrshow(pos.top,pos.left);");
+
 	$reporttimetab = new CTable(null,'calendar');
+	$reporttimetab->setAttribute('width','10%');
 
-	$timeSinceRow = createDateSelector('report_timesince', $report_timesince, 'report_timetill');
-	array_unshift($timeSinceRow, _('From'));
-	$reporttimetab->addRow($timeSinceRow);
+	$reporttimetab->setCellPadding(0);
+	$reporttimetab->setCellSpacing(0);
 
-	$timeTillRow = createDateSelector('report_timetill', $report_timetill, 'report_timesince');
-	array_unshift($timeTillRow, _('Till'));
-	$reporttimetab->addRow($timeTillRow);
+	$reporttimetab->addRow(array(
+		_('From'),
+		new CNumericBox('report_since_day',(($report_timesince>0)?date('d',$report_timesince):''),2),
+		'/',
+		new CNumericBox('report_since_month',(($report_timesince>0)?date('m',$report_timesince):''),2),
+		'/',
+		new CNumericBox('report_since_year',(($report_timesince>0)?date('Y',$report_timesince):''),4),
+		SPACE,
+		new CNumericBox('report_since_hour',(($report_timesince>0)?date('H',$report_timesince):''),2),
+		':',
+		new CNumericBox('report_since_minute',(($report_timesince>0)?date('i',$report_timesince):''),2),
+		$clndr_icon
+	));
+	zbx_add_post_js('create_calendar(null,'.
+					'["report_since_day","report_since_month","report_since_year","report_since_hour","report_since_minute"],'.
+					'"avail_report_since",'.
+					'"report_timesince");');
+
+	$clndr_icon->addAction('onclick','javascript: '.
+										'var pos = getPosition(this); '.
+										'pos.top+=10; '.
+										'pos.left+=16; '.
+										"CLNDR['avail_report_till'].clndr.clndrshow(pos.top,pos.left);");
+
+	$reporttimetab->addRow(array(
+		_('Till'),
+		new CNumericBox('report_till_day',(($report_timetill>0)?date('d',$report_timetill):''),2),
+		'/',
+		new CNumericBox('report_till_month',(($report_timetill>0)?date('m',$report_timetill):''),2),
+		'/',
+		new CNumericBox('report_till_year',(($report_timetill>0)?date('Y',$report_timetill):''),4),
+		SPACE,
+		new CNumericBox('report_till_hour',(($report_timetill>0)?date('H',$report_timetill):''),2),
+		':',
+		new CNumericBox('report_till_minute',(($report_timetill>0)?date('i',$report_timetill):''),2),
+		$clndr_icon
+	));
+
+	zbx_add_post_js('create_calendar(null,'.
+					'["report_till_day","report_till_month","report_till_year","report_till_hour","report_till_minute"],'.
+					'"avail_report_till",'.
+					'"report_timetill");'
+					);
+
+	zbx_add_post_js('addListener($("filter_icon"),'.
+						'"click",'.
+						'CLNDR[\'avail_report_since\'].clndr.clndrhide.bindAsEventListener(CLNDR[\'avail_report_since\'].clndr));'.
+					'addListener($("filter_icon"),'.
+						'"click",'.
+						'CLNDR[\'avail_report_till\'].clndr.clndrhide.bindAsEventListener(CLNDR[\'avail_report_till\'].clndr));'
+					);
 
 	$reportForm->addRow(_('Period'), $reporttimetab);
 
@@ -396,30 +677,28 @@ function bar_report_form3(){
 	$reportForm->addRow(_('Average by'), $avgcmb);
 
 	// items
-	$itemName = '';
-	if ($itemId) {
-		$itemName = get_item_by_itemid($itemId);
-		$itemName = itemName($itemName);
+	$itemid = 0;
+	$description = '';
+	if(count($items) && ($items[0]['itemid'] > 0)){
+		$itemid = $items[0]['itemid'];
+		$description = get_item_by_itemid($itemid);
+		$description = itemName($description);
 	}
 
-	$itemidVar = new CVar('itemid', $itemId, 'itemid');
+	$itemidVar = new CVar('items[0][itemid]', $itemid, 'items_0_itemid');
 	$reportForm->addItem($itemidVar);
 
-	$txtCondVal = new CTextBox('item_name', $itemName, 50, 'yes');
-	$txtCondVal->setAttribute('id', 'item_name');
+	$txtCondVal = new CTextBox('items[0][description]',$description,50,'yes');
+	$txtCondVal->setAttribute('id', 'items_0_description');
 
 	$btnSelect = new CButton('btn1', _('Select'),
-		'return PopUp("popup.php?dstfrm='.$reportForm->GetName().
-			'&dstfld1=itemid'.
-			'&dstfld2=item_name'.
-			'&srctbl=items'.
-			'&srcfld1=itemid'.
-			'&srcfld2=name'.
-			'&monitored_hosts=1");',
-		'T'
-	);
+			"return PopUp('popup.php?dstfrm=".$reportForm->GetName().
+			"&dstfld1=items_0_itemid&dstfld2=items_0_description&".
+			"srctbl=items&srcfld1=itemid&srcfld2=name&monitored_hosts=1');",
+			'T');
 
 	$reportForm->addRow(_('Item'), array($txtCondVal, $btnSelect));
+
 
 	$paletteCmb = new CComboBox('palette', $palette);
 		$paletteCmb->addItem(0, _s('Palette #%1$s', 1));

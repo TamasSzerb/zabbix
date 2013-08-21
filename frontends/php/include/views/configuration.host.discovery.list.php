@@ -56,35 +56,30 @@ $discoveryTable->setHeader(array(
 	make_sorting_header(_('Interval'), 'delay', $sortLink),
 	make_sorting_header(_('Type'), 'type', $sortLink),
 	make_sorting_header(_('Status'), 'status', $sortLink),
-	$data['showErrorColumn'] ? _('Error') : null
+	_('Error')
 ));
 foreach ($data['discoveries'] as $discovery) {
 	$description = array();
 	if ($discovery['templateid']) {
 		$template_host = get_realhost_by_itemid($discovery['templateid']);
 		$description[] = new CLink($template_host['name'], '?hostid='.$template_host['hostid'], 'unknown');
-		$description[] = NAME_DELIMITER;
+		$description[] = ': ';
 	}
 	$discovery['name_expanded'] = itemName($discovery);
 	$description[] = new CLink($discovery['name_expanded'], '?form=update&itemid='.$discovery['itemid']);
 
 	$status = new CLink(
-		itemIndicator($discovery['status'], $discovery['state']),
+		item_status2str($discovery['status']),
 		'?hostid='.$_REQUEST['hostid'].'&g_hostdruleid='.$discovery['itemid'].'&go='.($discovery['status'] ? 'activate':'disable'),
-		itemIndicatorStyle($discovery['status'], $discovery['state'])
+		item_status2style($discovery['status'])
 	);
 
-	if ($data['showErrorColumn']) {
-		$error = '';
-		if ($discovery['status'] == ITEM_STATUS_ACTIVE) {
-			if (zbx_empty($discovery['error'])) {
-				$error = new CDiv(SPACE, 'status_icon iconok');
-			}
-			else {
-				$error = new CDiv(SPACE, 'status_icon iconerror');
-				$error->setHint($discovery['error'], '', 'on');
-			}
-		}
+	if (zbx_empty($discovery['error'])) {
+		$error = new CDiv(SPACE, 'status_icon iconok');
+	}
+	else {
+		$error = new CDiv(SPACE, 'status_icon iconerror');
+		$error->setHint($discovery['error'], '', 'on');
 	}
 
 	$discoveryTable->addRow(array(
@@ -97,7 +92,7 @@ foreach ($data['discoveries'] as $discovery) {
 		$discovery['delay'],
 		item_type2str($discovery['type']),
 		$status,
-		$data['showErrorColumn'] ? $error : null
+		$error
 	));
 }
 
@@ -117,10 +112,7 @@ $goComboBox->addItem($goOption);
 
 $goButton = new CSubmit('goButton', _('Go').' (0)');
 $goButton->setAttribute('id', 'goButton');
-
 zbx_add_post_js('chkbxRange.pageGoName = "g_hostdruleid";');
-zbx_add_post_js('chkbxRange.prefix = "'.$this->data['hostid'].'";');
-zbx_add_post_js('cookie.prefix = "'.$this->data['hostid'].'";');
 
 // append table to form
 $discoveryForm->addItem(array($this->data['paging'], $discoveryTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));
@@ -128,3 +120,4 @@ $discoveryForm->addItem(array($this->data['paging'], $discoveryTable, $this->dat
 // append form to widget
 $discoveryWidget->addItem($discoveryForm);
 return $discoveryWidget;
+?>

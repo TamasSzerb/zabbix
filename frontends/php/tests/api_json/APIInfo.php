@@ -18,7 +18,6 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
 require_once dirname(__FILE__).'/../include/class.czabbixtest.php';
 
 class API_JSON_APIInfo extends CZabbixTest {
@@ -31,7 +30,7 @@ class API_JSON_APIInfo extends CZabbixTest {
 		);
 
 		$this->assertTrue(isset($result['result']), "$debug");
-		$this->assertSame($result['result'], '2.1.3');
+		$this->assertSame($result['result'], '2.0.8');
 	}
 
 	public function testAPIInfo_VersionWithoutAuth() {
@@ -42,7 +41,7 @@ class API_JSON_APIInfo extends CZabbixTest {
 		);
 
 		$this->assertTrue(isset($result['result']), "$debug");
-		$this->assertSame($result['result'], '2.1.3');
+		$this->assertSame($result['result'], '2.0.8');
 	}
 
 	public function testAPIInfo_RawJson() {

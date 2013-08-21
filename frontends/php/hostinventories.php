@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/include/config.inc.php';
 require_once dirname(__FILE__).'/include/hosts.inc.php';
 require_once dirname(__FILE__).'/include/forms.inc.php';
@@ -28,9 +28,10 @@ $page['file'] = 'hostinventories.php';
 $page['hist_arg'] = array('groupid', 'hostid');
 
 require_once dirname(__FILE__).'/include/page_header.php';
-
+?>
+<?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-$fields = array(
+$fields=array(
 	'groupid' =>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,	NULL),
 	'hostid' =>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,	NULL),
 	// filter
@@ -43,30 +44,22 @@ $fields = array(
 	'favref'=>			array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,		'isset({favobj})'),
 	'favstate'=>		array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,		'isset({favobj})&&("filter"=={favobj})')
 );
+
 check_fields($fields);
-
-/*
- * Permissions
- */
-if (get_request('groupid') && !API::HostGroup()->isReadable(array($_REQUEST['groupid']))) {
-	access_deny();
-}
-if (get_request('hostid') && !API::Host()->isReadable(array($_REQUEST['hostid']))) {
-	access_deny();
-}
-
 validate_sort_and_sortorder('name', ZBX_SORT_UP);
 
-if (isset($_REQUEST['favobj'])) {
+if(isset($_REQUEST['favobj'])){
 	if('filter' == $_REQUEST['favobj']){
 		CProfile::update('web.hostinventories.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
 	}
 }
 
-if ((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])) {
+if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
 	require_once dirname(__FILE__).'/include/page_footer.php';
 	exit();
 }
+?>
+<?php
 
 $options = array(
 	'groups' => array(
@@ -78,6 +71,14 @@ $pageFilter = new CPageFilter($options);
 $_REQUEST['groupid'] = $pageFilter->groupid;
 
 $_REQUEST['hostid'] = get_request('hostid', 0);
+// permission check, imo should be removed in future.
+if($_REQUEST['hostid'] > 0){
+	$res = API::Host()->get(array(
+		'real_hosts' => 1,
+		'hostids' => $_REQUEST['hostid']
+	));
+	if(empty($res)) access_deny();
+}
 
 $hostinvent_wdgt = new CWidget();
 $hostinvent_wdgt->addPageHeader(_('HOST INVENTORIES'));
@@ -122,17 +123,15 @@ else{
 	$exactComboBox->addItem('1', _('exactly'));
 	$filter_table->addRow(array(
 		array(
-			array(bold(_('Field')), SPACE, $inventoryFieldsComboBox),
+			array(bold(_('Field:')), $inventoryFieldsComboBox),
 			array(
 				$exactComboBox,
 				new CTextBox('filter_field_value', $_REQUEST['filter_field_value'], 20)
 			),
 		),
-	), 'host-inventories');
+	));
 
-	$filter = new CButton('filter', _('Filter'),
-		"javascript: create_var('zbx_filter', 'filter_set', '1', true); chkbxRange.clearSelectedOnFilterChange();"
-	);
+	$filter = new CButton('filter', _('Filter'), "javascript: create_var('zbx_filter', 'filter_set', '1', true);");
 	$filter->useJQueryStyle('main');
 
 	$reset = new CButton('reset', _('Reset'), "javascript: clearAllForm('zbx_filter');");
@@ -264,3 +263,4 @@ else{
 $hostinvent_wdgt->show();
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

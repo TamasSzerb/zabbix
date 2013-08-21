@@ -254,28 +254,24 @@ function clearAllForm(form) {
 			case 'submit':
 				break;
 			case 'checkbox':
-				jQuery(inputs[i]).prop('checked', false).trigger('change');
+				inputs[i].checked = false;
 				break;
 			case 'text':
 			case 'password':
 			default:
-				jQuery(inputs[i]).val('').trigger('change');
+				inputs[i].value = '';
 		}
 	}
 
 	var selects = form.getElementsByTagName('select');
 	for (var i = 0; i < selects.length; i++) {
-		jQuery(selects[i]).val(null).trigger('change');
+		selects[i].selectedIndex = 0;
 	}
 
 	var areas = form.getElementsByTagName('textarea');
 	for (var i = 0; i < areas.length; i++) {
-		jQuery(areas[i]).val('').trigger('change');
+		areas[i].innerHTML = '';
 	}
-
-	jQuery('.multiselect').each(function() {
-		jQuery(this).multiSelect.clean(jQuery(this).attr('id'));
-	});
 
 	return true;
 }
@@ -644,22 +640,4 @@ function switchElementsClass(obj, class1, class2) {
 
 function zbx_throw(msg) {
 	throw(msg);
-}
-
-/**
- * Returns the file name of the given path
- *
- * @param string path
- * @param string suffix
- *
- * @return string
- */
-function basename(path, suffix) {
-	var name = path.replace(/^.*[\/\\]/g, '');
-
-	if (typeof(suffix) == 'string' && name.substr(name.length - suffix.length) == suffix) {
-		name = name.substr(0, name.length - suffix.length);
-	}
-
-	return name;
 }

@@ -17,10 +17,10 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/reports.inc.php';
+?>
+<?php
+require_once ('include/config.inc.php');
+require_once ('include/reports.inc.php');
 
 $page['title']	= _('Bar reports');
 $page['file']	= 'report6.php';
@@ -28,17 +28,17 @@ $page['hist_arg'] = array('period');
 $page['scripts'] = array('class.calendar.js');
 
 require_once dirname(__FILE__).'/include/page_header.php';
-
+?>
+<?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 	$fields=array(
 		'config'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	IN('0,1,2,3'),	NULL),
 
 		'groupid'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID, 		NULL),
-		'hostids'=>		array(T_ZBX_INT, O_OPT,	null,	DB_ID, 		'isset({config})&&({config}==3)&&isset({report_show})&&!isset({groupids})'),
-		'groupids'=>	array(T_ZBX_INT, O_OPT,	null,	DB_ID, 		'isset({config})&&({config}==3)&&isset({report_show})&&!isset({hostids})'),
-		'itemid'=>		array(T_ZBX_INT, O_OPT, null,	DB_ID.NOT_ZERO,		'isset({config})&&({config}==3)&&isset({report_show})'),
+		'hostids'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID, 		'isset({config})&&({config}==3)&&isset({report_show})&&!isset({groupids})'),
+		'groupids'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID, 		'isset({config})&&({config}==3)&&isset({report_show})&&!isset({hostids})'),
 
-		'items'=>		array(T_ZBX_STR, O_OPT,	null,	DB_ID,		'isset({report_show})&&({config}!=3)'),
+		'items'=>		array(T_ZBX_STR, O_OPT,	NULL,	null,		'isset({report_show})'),
 		'new_graph_item'=>	array(T_ZBX_STR, O_OPT,	NULL,	null,		null),
 		'group_gid'=>		array(T_ZBX_STR, O_OPT,	null,	null,		null),
 
@@ -61,6 +61,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 // actions
 		'delete_item'=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
 		'delete_period'=>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
+		'report_show'=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
 // filter
 		'report_show'=>		array(T_ZBX_STR, O_OPT,	P_SYS,	null,		NULL),
 
@@ -71,45 +72,8 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		'favref'=>		array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,		'isset({favobj})'),
 		'favstate'=>	array(T_ZBX_INT, O_OPT, P_ACT,  NOT_EMPTY,		'isset({favobj})&&("filter"=={favobj})'),
 	);
-	$isValid = check_fields($fields);
 
-	// validate permissions
-	if (get_request('config') == 3) {
-		if (get_request('groupid') && !API::HostGroup()->isReadable(array($_REQUEST['groupid']))) {
-			access_deny();
-		}
-		if (get_request('groupids') && !API::HostGroup()->isReadable($_REQUEST['groupids'])) {
-			access_deny();
-		}
-		if (get_request('hostids') && !API::Host()->isReadable($_REQUEST['hostids'])) {
-			access_deny();
-		}
-		if (get_request('itemid')) {
-			$items = API::Item()->get(array(
-				'itemids' => $_REQUEST['itemid'],
-				'webitems' => true,
-				'output' => array('itemid')
-			));
-			if (!$items) {
-				access_deny();
-			}
-		}
-	}
-	else {
-		if (get_request('items') && count($_REQUEST['items']) > 0 && $_REQUEST['items'][0]['itemid'] > 0) {
-			$itemIds = zbx_objectValues($_REQUEST['items'], 'itemid');
-			$itemsCount = API::Item()->get(array(
-				'itemids' => $itemIds,
-				'webitems' => true,
-				'countOutput' => true
-			));
-
-			if (count($itemIds) != $itemsCount) {
-				access_deny();
-			}
-		}
-	}
-
+	check_fields($fields);
 
 /* AJAX */
 	if(isset($_REQUEST['favobj'])){
@@ -123,6 +87,8 @@ require_once dirname(__FILE__).'/include/page_header.php';
 		exit();
 	}
 //--------
+?>
+<?php
 
 	if(isset($_REQUEST['new_graph_item'])){
 		$_REQUEST['items'] = get_request('items', array());
@@ -180,10 +146,26 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	}
 
 	// item validation
+	if (isset($_REQUEST['items']) && $_REQUEST['items']) {
+		$itemIds = zbx_objectValues($_REQUEST['items'], 'itemid');
+
+		$itemCount = API::Item()->get(array(
+			'itemids' => $itemIds,
+			'webitems' => true,
+			'countOutput' => true
+		));
+
+		if ($itemCount != count($itemIds)) {
+			show_error_message(_('No permissions to referred object or it does not exist!'));
+			require_once dirname(__FILE__).'/include/page_footer.php';
+			exit;
+		}
+	}
+
 	$config = $_REQUEST['config'] = get_request('config',1);
 
-	$_REQUEST['report_timesince'] = zbxDateToTime(get_request('report_timesince', date(TIMESTAMP_FORMAT, time() - SEC_PER_DAY)));
-	$_REQUEST['report_timetill'] = zbxDateToTime(get_request('report_timetill', date(TIMESTAMP_FORMAT)));
+	$_REQUEST['report_timesince'] = zbxDateToTime(get_request('report_timesince', date('YmdHis', time() - SEC_PER_DAY)));
+	$_REQUEST['report_timetill'] = zbxDateToTime(get_request('report_timetill', date('YmdHis')));
 
 	$rep6_wdgt = new CWidget();
 // Header
@@ -217,30 +199,24 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	$rep6_wdgt->addFlicker($rep_form, CProfile::get('web.report6.filter.state', 1));
 
 	if(isset($_REQUEST['report_show'])){
-		$items = (get_request('config') == 3)
-			? array(array('itemid' => get_request('itemid')))
-			: get_request('items');
+		$src = 'chart_bar.php?config='.$_REQUEST['config'].
+					url_param('title').
+					url_param('xlabel').
+					url_param('ylabel').
+					url_param('scaletype').
+					url_param('avgperiod').
+					url_param('showlegend').
+					url_param('sorttype').
+					url_param('report_timesince').
+					url_param('report_timetill').
+					url_param('periods').
+					url_param('items').
+					url_param('hostids').
+					url_param('groupids').
+					url_param('palette').
+					url_param('palettetype');
 
-		if ($isValid) {
-			$src = 'chart_bar.php?config='.$_REQUEST['config'].
-						url_param('title').
-						url_param('xlabel').
-						url_param('ylabel').
-						url_param('scaletype').
-						url_param('avgperiod').
-						url_param('showlegend').
-						url_param('sorttype').
-						url_param('report_timesince').
-						url_param('report_timetill').
-						url_param('periods').
-						url_param($items, false, 'items').
-						url_param('hostids').
-						url_param('groupids').
-						url_param('palette').
-						url_param('palettetype');
-
-			$rep_tab->addRow(new CImg($src, 'report'));
-		}
+		$rep_tab->addRow(new CImg($src, 'report'));
 	}
 
 	$outer_table = new CTable();
@@ -255,5 +231,9 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 	$rep6_wdgt->addItem($outer_table);
 	$rep6_wdgt->show();
+?>
+<?php
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+
+?>

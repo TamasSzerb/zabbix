@@ -53,6 +53,22 @@ const char	*get_program_name(const char *path)
 
 /******************************************************************************
  *                                                                            *
+ * Function: get_nodeid_by_id                                                 *
+ *                                                                            *
+ * Purpose: Get Node ID by resource ID                                        *
+ *                                                                            *
+ * Return value: Node ID                                                      *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ ******************************************************************************/
+int	get_nodeid_by_id(zbx_uint64_t id)
+{
+	return (int)(id / __UINT64_C(100000000000000)) % 1000;
+}
+
+/******************************************************************************
+ *                                                                            *
  * Function: zbx_timespec                                                     *
  *                                                                            *
  * Purpose: Gets the current time.                                            *
@@ -161,7 +177,7 @@ void	zbx_timespec(zbx_timespec_t *ts)
  *           January 1, 1970, coordinated universal time (UTC).               *
  *                                                                            *
  ******************************************************************************/
-double	zbx_time(void)
+double	zbx_time()
 {
 	zbx_timespec_t	ts;
 
@@ -181,7 +197,7 @@ double	zbx_time(void)
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  ******************************************************************************/
-double	zbx_current_time(void)
+double	zbx_current_time()
 {
 	return zbx_time() + ZBX_JAN_1970_IN_SEC;
 }
@@ -208,6 +224,8 @@ void    *zbx_calloc2(const char *filename, int line, void *old, size_t nmemb, si
 		zabbix_log(LOG_LEVEL_CRIT, "[file:%s,line:%d] zbx_calloc: allocating already allocated memory. "
 				"Please report this to Zabbix developers.",
 				filename, line);
+		/* exit if defined DEBUG, ignore otherwise */
+		zbx_dbg_assert(0);
 	}
 
 	for (
@@ -247,6 +265,8 @@ void    *zbx_malloc2(const char *filename, int line, void *old, size_t size)
 		zabbix_log(LOG_LEVEL_CRIT, "[file:%s,line:%d] zbx_malloc: allocating already allocated memory. "
 				"Please report this to Zabbix developers.",
 				filename, line);
+		/* exit if defined DEBUG, ignore otherwise */
+		zbx_dbg_assert(0);
 	}
 
 	for (
@@ -1413,6 +1433,48 @@ int	is_uint_suffix(const char *str, unsigned int *value)
 	return SUCCEED;
 }
 
+/******************************************************************************
+ *                                                                            *
+ * Function: is_uint                                                          *
+ *                                                                            *
+ * Purpose: check if the string is unsigned integer                           *
+ *                                                                            *
+ * Parameters: str - string to check                                          *
+ *                                                                            *
+ * Return value:  SUCCEED - the string is unsigned integer                    *
+ *                FAIL - otherwise                                            *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ ******************************************************************************/
+int	is_uint(const char *str)
+{
+	size_t	i, len;
+
+	for (i = 0; ' ' == str[i] && '\0' != str[i]; i++)	/* trim left spaces */
+		;
+
+	for (len = 0; '\0' != str[i]; i++, len++)
+	{
+		if (0 != isdigit(str[i]))
+			continue;
+
+		if (' ' == str[i])	/* check right spaces */
+		{
+			for (; ' ' == str[i] && '\0' != str[i]; i++)	/* trim right spaces */
+				;
+
+			if ('\0' == str[i])	/* SUCCEED */
+				break;
+		}
+		return FAIL;
+	}
+
+	if (0 == len)
+		return FAIL;
+
+	return SUCCEED;
+}
 
 #if defined(_WINDOWS)
 int	_wis_uint(const wchar_t *wide_string)
@@ -1468,31 +1530,26 @@ int	is_int_prefix(const char *str)
 
 /******************************************************************************
  *                                                                            *
- * Function: is_uint_n_range                                                  *
+ * Function: is_uint64_n                                                      *
  *                                                                            *
- * Purpose: check if the string is unsigned integer within the specified      *
- *          range and optionally store it into value parameter                *
+ * Purpose: check if the string is 64bit unsigned integer                     *
  *                                                                            *
  * Parameters: str   - [IN] string to check                                   *
  *             n     - [IN] string length or ZBX_MAX_UINT64_LEN               *
- *             value - [OUT] a pointer to output buffer where the converted   *
- *                     value is to be written (optional, can be NULL)         *
- *             size  - [IN] size of the output buffer (optional)              *
- *             min   - [IN] the minimum acceptable value                      *
- *             max   - [IN] the maximum acceptable value                      *
+ *             value - [OUT] a pointer to converted value (optional)          *
  *                                                                            *
  * Return value:  SUCCEED - the string is unsigned integer                    *
- *                FAIL - the string is not a number or its value is outside   *
- *                       the specified range                                  *
+ *                FAIL - the string is not a number or overflow               *
  *                                                                            *
- * Author: Alexander Vladishev, Andris Zeila                                  *
+ * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-int	is_uint_n_range(const char *str, size_t n, void *value, size_t size, zbx_uint64_t min, zbx_uint64_t max)
+int	is_uint64_n(const char *str, size_t n, zbx_uint64_t *value)
 {
-	zbx_uint64_t	value_uint64 = 0, c;
+	const zbx_uint64_t	max_uint64 = ~(zbx_uint64_t)__UINT64_C(0);
+	zbx_uint64_t		value_uint64 = 0, c;
 
-	if ('\0' == *str || 0 == n || sizeof(zbx_uint64_t) < size || (0 == size && NULL != value))
+	if ('\0' == *str || 0 == n)
 		return FAIL;
 
 	while ('\0' != *str && 0 < n--)
@@ -1502,26 +1559,60 @@ int	is_uint_n_range(const char *str, size_t n, void *value, size_t size, zbx_uin
 
 		c = (zbx_uint64_t)(unsigned char)(*str - '0');
 
-		if ((max - c) / 10 < value_uint64)
-			return FAIL;	/* maximum value exceeded */
+		if ((max_uint64 - c) / 10 < value_uint64)
+			return FAIL;	/* overflow */
 
 		value_uint64 = value_uint64 * 10 + c;
 
 		str++;
 	}
-	if (min > value_uint64)
-		return FAIL;
 
 	if (NULL != value)
-	{
-		/* On little endian architecture the output value will be stored starting from the first bytes */
-		/* of 'value' buffer while on big endian architecture it will be stored starting from the last */
-		/* bytes. We handle it by storing the offset in the most significant byte of short value and   */
-		/* then use the first byte as source offset.                                                   */
-		unsigned short value_offset = (unsigned short)((sizeof(zbx_uint64_t) - size) << 8);
+		*value = value_uint64;
 
-		memcpy(value, (unsigned char*)&value_uint64 + *((unsigned char*)&value_offset), size);
+	return SUCCEED;
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: is_ushort                                                        *
+ *                                                                            *
+ * Purpose: check if the string is 16bit unsigned integer                     *
+ *                                                                            *
+ * Parameters: str   - string to check                                        *
+ *             value - a pointer to converted value (optional)                *
+ *                                                                            *
+ * Return value:  SUCCEED - the string is unsigned integer                    *
+ *                FAIL - the string is not number or overflow                 *
+ *                                                                            *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
+ ******************************************************************************/
+int	is_ushort(const char *str, unsigned short *value)
+{
+	const unsigned short	max_ushort = 0xffff;
+	unsigned short		value_ushort = 0, c;
+
+	if ('\0' == *str)
+		return FAIL;
+
+	while ('\0' != *str)
+	{
+		if (0 == isdigit(*str))
+			return FAIL;	/* not a digit */
+
+		c = (unsigned short)(unsigned char)(*str - '0');
+
+		if ((max_ushort - c) / 10 < value_ushort)
+			return FAIL;	/* overflow */
+
+		value_ushort = value_ushort * 10 + c;
+
+		str++;
 	}
+
+	if (NULL != value)
+		*value = value_ushort;
 
 	return SUCCEED;
 }

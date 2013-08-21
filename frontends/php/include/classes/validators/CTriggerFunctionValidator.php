@@ -18,11 +18,9 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
 class CTriggerFunctionValidator extends CValidator {
-
 	/**
-	 * The array containing valid functions and parameters to them.
+	 * The array containing valid functions and parameres to them
 	 *
 	 * Structure: array(
 	 *   '<function>' => array(
@@ -44,17 +42,12 @@ class CTriggerFunctionValidator extends CValidator {
 	/**
 	 * Validate trigger function like last(0), time(), etc.
 	 * Examples:
-	 *	array(
-	 *		'function' => last("#15"),
-	 *		'functionName' => 'last',
-	 *		'functionParamList' => array(0 => '#15'),
-	 *		'valueType' => 3
-	 *	)
+	 *   array('functionName' => 'last', 'functionParamList' => array(0 => '#15'), 'valueType' => 3)
 	 *
-	 * @param string $value['function']
+	 * @param array $value
 	 * @param string $value['functionName']
-	 * @param array  $value['functionParamList']
-	 * @param int    $value['valueType']
+	 * @param array $value['functionParamList']
+	 * @param int $value['valueType']
 	 *
 	 * @return bool
 	 */
@@ -62,34 +55,27 @@ class CTriggerFunctionValidator extends CValidator {
 		$this->setError('');
 
 		if (!isset($this->allowed[$value['functionName']])) {
-			$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['function']).' '.
+			$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['functionName']).' '.
 					_('Unknown function.'));
 			return false;
 		}
 
 		if (!isset($this->allowed[$value['functionName']]['value_types'][$value['valueType']])) {
-			$this->setError(_s('Incorrect item value type "%1$s" provided for trigger function "%2$s".',
-					itemValueTypeString($value['valueType']), $value['function']));
+			$this->setError(_s('Incorrect item value type "%1$s:%2$s" provided for trigger function "%3$s".',
+					'', itemValueTypeString($value['valueType']), $value['functionName']));
 			return false;
 		}
 
 		if (count($this->allowed[$value['functionName']]['args']) < count($value['functionParamList'])) {
-			$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['function']).' '.
-					_('Invalid number of parameters.'));
+			$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['functionName']).' '.
+					_s('Function supports "%1$s" parameters.', count($this->allowed[$value['functionName']]['args'])));
 			return false;
 		}
-
-		$paramLabels = array(
-			_('Invalid first parameter.'),
-			_('Invalid second parameter.'),
-			_('Invalid third parameter.'),
-			_('Invalid fourth parameter.')
-		);
 
 		foreach ($this->allowed[$value['functionName']]['args'] as $aNum => $arg) {
 			// mandatory check
 			if (isset($arg['mandat']) && $arg['mandat'] && !isset($value['functionParamList'][$aNum])) {
-				$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['function']).' '.
+				$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['functionName']).' '.
 						_('Mandatory parameter is missing.'));
 				return false;
 			}
@@ -100,42 +86,31 @@ class CTriggerFunctionValidator extends CValidator {
 
 				if (!$userMacro) {
 					switch ($arg['type']) {
-						case 'sec_zero':
-							if (!$this->validateSecZero($value['functionParamList'][$aNum])) {
-								$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['function']).
-									' '.$paramLabels[$aNum]);
+						case 'str':
+							if (!is_string($value['functionParamList'][$aNum])) {
+								$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['functionName']).' '.
+										_s('Parameter of type string or user macro expected, "%1$s" given.', $value['functionParamList'][$aNum]));
 								return false;
 							}
 							break;
-
+						case 'sec':
+							if (!$this->validateSec($value['functionParamList'][$aNum])) {
+								$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['functionName']).' '.
+										_s('Parameter sec or user macro expected, "%1$s" given.', $value['functionParamList'][$aNum]));
+								return false;
+							}
+							break;
 						case 'sec_num':
 							if (!$this->validateSecNum($value['functionParamList'][$aNum])) {
-								$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['function']).
-									' '.$paramLabels[$aNum]);
+								$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['functionName']).' '.
+										_s('Parameter sec or #num or user macro expected, "%1$s" given.', $value['functionParamList'][$aNum]));
 								return false;
 							}
 							break;
-
-						case 'sec_num_zero':
-							if (!$this->validateSecNumZero($value['functionParamList'][$aNum])) {
-								$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['function']).
-									' '.$paramLabels[$aNum]);
-								return false;
-							}
-							break;
-
 						case 'num':
 							if (!is_numeric($value['functionParamList'][$aNum])) {
-								$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['function']).
-									' '.$paramLabels[$aNum]);
-								return false;
-							}
-							break;
-
-						case 'operation':
-							if (!$this->validateOperation($value['functionParamList'][$aNum])) {
-								$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['function']).
-									' '.$paramLabels[$aNum]);
+								$this->setError(_s('Incorrect trigger function "%1$s" provided in expression.', $value['functionName']).' '.
+										_s('Parameter num or user macro expected, "%1$s" given.', $value['functionParamList'][$aNum]));
 								return false;
 							}
 							break;
@@ -143,36 +118,29 @@ class CTriggerFunctionValidator extends CValidator {
 				}
 			}
 		}
-
 		return true;
 	}
 
 	/**
-	 * Validate trigger function parameter seconds value.
+	 * Validate trigger function parameter which can contain only seconds
+	 * Examples:
+	 *   5
+	 *   1w
 	 *
 	 * @param string $param
 	 *
 	 * @return bool
 	 */
-	private function validateSecValue($param) {
-		return preg_match('/^\d+['.ZBX_TIME_SUFFIXES.']{0,1}$/', $param);
+	private function validateSec($param) {
+		return preg_match('/^\d+['.ZBX_TIME_SUFFIXES.']{0,1}$/', $param) == 1;
 	}
 
 	/**
-	 * Validate trigger function parameter which can contain only seconds or zero.
-	 * Examples: 0, 1, 5w
-	 *
-	 * @param string $param
-	 *
-	 * @return bool
-	 */
-	private function validateSecZero($param) {
-		return $this->validateSecValue($param);
-	}
-
-	/**
-	 * Validate trigger function parameter which can contain seconds greater zero or count.
-	 * Examples: 1, 5w, #1
+	 * Validate trigger function parameter which can contain seconds or count
+	 * Examples:
+	 *   5
+	 *   1w
+	 *   #5
 	 *
 	 * @param string $param
 	 *
@@ -180,43 +148,11 @@ class CTriggerFunctionValidator extends CValidator {
 	 */
 	private function validateSecNum($param) {
 		if (preg_match('/^#\d+$/', $param)) {
-			return (substr($param, 1) > 0);
+			return true;
 		}
-
-		return ($this->validateSecValue($param) && $param > 0);
+		return $this->validateSec($param);
 	}
 
-	/**
-	 * Validate trigger function parameter which can contain seconds or count.
-	 * Examples: 0, 1, 5w, #1
-	 *
-	 * @param string $param
-	 *
-	 * @return bool
-	 */
-	private function validateSecNumZero($param) {
-		if (preg_match('/^#\d+$/', $param)) {
-			return (substr($param, 1) > 0);
-		}
-
-		return $this->validateSecValue($param);
-	}
-
-	/**
-	 * Validate trigger function parameter which can contain operation (band, eq, ge, gt, le, like, lt, ne) or
-	 * an empty value.
-	 *
-	 * @param string $param
-	 *
-	 * @return bool
-	 */
-	private function validateOperation($param) {
-		return preg_match('/^(eq|ne|gt|ge|lt|le|like|band|)$/', $param);
-	}
-
-	/**
-	 * Initialize validation rules.
-	 */
 	protected function initOptions() {
 		$valueTypesAll = array(
 			ITEM_VALUE_TYPE_FLOAT => true,
@@ -237,9 +173,6 @@ class CTriggerFunctionValidator extends CValidator {
 		$valueTypesLog = array(
 			ITEM_VALUE_TYPE_LOG => true
 		);
-		$valueTypesInt = array(
-			ITEM_VALUE_TYPE_UINT64 => true
-		);
 
 		$argsIgnored = array(array('type' => 'str'));
 
@@ -251,17 +184,9 @@ class CTriggerFunctionValidator extends CValidator {
 			'avg' => array(
 				'args' => array(
 					array('type' => 'sec_num', 'mandat' => true),
-					array('type' => 'sec_zero')
+					array('type' => 'sec')
 				),
 				'value_types' => $valueTypesNum
-			),
-			'band' => array(
-				'args' => array(
-					array('type' => 'sec_num_zero', 'mandat' => true),
-					array('type' => 'num', 'mandat' => true),
-					array('type' => 'sec_zero')
-				),
-				'value_types' => $valueTypesInt
 			),
 			'change' => array(
 				'args' => $argsIgnored,
@@ -271,8 +196,8 @@ class CTriggerFunctionValidator extends CValidator {
 				'args' => array(
 					array('type' => 'sec_num', 'mandat' => true),
 					array('type' => 'str'),
-					array('type' => 'operation'),
-					array('type' => 'sec_zero')
+					array('type' => 'str'),
+					array('type' => 'sec')
 				),
 				'value_types' => $valueTypesAll
 			),
@@ -291,7 +216,7 @@ class CTriggerFunctionValidator extends CValidator {
 			'delta' => array(
 				'args' => array(
 					array('type' => 'sec_num', 'mandat' => true),
-					array('type' => 'sec_zero')
+					array('type' => 'sec')
 				),
 				'value_types' => $valueTypesNum
 			),
@@ -301,7 +226,7 @@ class CTriggerFunctionValidator extends CValidator {
 			),
 			'fuzzytime' => array(
 				'args' => array(
-					array('type' => 'sec_zero', 'mandat' => true)
+					array('type' => 'sec', 'mandat' => true)
 				),
 				'value_types' => $valueTypesNum
 			),
@@ -314,8 +239,8 @@ class CTriggerFunctionValidator extends CValidator {
 			),
 			'last' => array(
 				'args' => array(
-					array('type' => 'sec_num_zero', 'mandat' => true),
-					array('type' => 'sec_zero')
+					array('type' => 'sec_num', 'mandat' => true),
+					array('type' => 'sec')
 				),
 				'value_types' => $valueTypesAll
 			),
@@ -338,20 +263,20 @@ class CTriggerFunctionValidator extends CValidator {
 			'max' => array(
 				'args' => array(
 					array('type' => 'sec_num', 'mandat' => true),
-					array('type' => 'sec_zero')
+					array('type' => 'sec')
 				),
 				'value_types' => $valueTypesNum
 			),
 			'min' => array(
 				'args' => array(
 					array('type' => 'sec_num', 'mandat' => true),
-					array('type' => 'sec_zero')
+					array('type' => 'sec')
 				),
 				'value_types' => $valueTypesNum
 			),
 			'nodata'=> array(
 				'args' => array(
-					array('type' => 'sec_zero', 'mandat' => true)
+					array('type' => 'sec', 'mandat' => true)
 				),
 				'value_types' => $valueTypesAll
 			),
@@ -379,15 +304,15 @@ class CTriggerFunctionValidator extends CValidator {
 			),
 			'strlen' => array(
 				'args' => array(
-					array('type' => 'sec_num_zero', 'mandat' => true),
-					array('type' => 'sec_zero')
+					array('type' => 'sec_num', 'mandat' => true),
+					array('type' => 'sec')
 				),
 				'value_types' => $valueTypesChar
 			),
 			'sum' => array(
 				'args' => array(
 					array('type' => 'sec_num', 'mandat' => true),
-					array('type' => 'sec_zero')
+					array('type' => 'sec')
 				),
 				'value_types' => $valueTypesNum
 			),

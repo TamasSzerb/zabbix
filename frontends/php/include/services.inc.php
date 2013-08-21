@@ -17,8 +17,7 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-?>
-<?php
+
 
 /*
  * Function: get_service_status
@@ -243,7 +242,7 @@ function createServiceMonitoringTree(array $services, array $slaData, $period, &
 		);
 
 		$caption = array(new CLink(
-			array(get_node_name_by_elid($service['serviceid'], null, NAME_DELIMITER), $service['name']),
+			array(get_node_name_by_elid($service['serviceid'], null, ': '), $service['name']),
 			'report3.php?serviceid='.$service['serviceid'].'&year='.date('Y').'&period='.$periods[$period]
 		));
 		$trigger = $service['trigger'];
@@ -504,4 +503,17 @@ function checkServiceTime(array $serviceTime) {
 	if ($serviceTime['ts_from'] >= $serviceTime['ts_to']) {
 		throw new APIException(ZBX_API_ERROR_PARAMETERS, _('Service start time must be less than end time.'));
 	}
+}
+
+/**
+ * Convert 1.8 service time format (unixtime) to 2.0 format (seconds starting from Sunday).
+ *
+ * @param int $time
+ *
+ * @return int
+ */
+function prepareServiceTime($time) {
+	return ($time > SEC_PER_WEEK * 2)
+		? date('w', $time) * SEC_PER_DAY + ($time - mktime(null, null, null, date('n', $time), date('j', $time), date('Y', $time)))
+		: $time;
 }

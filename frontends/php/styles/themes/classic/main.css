@@ -22,7 +22,7 @@ body { background: #E5E5E5; }
 
 .ui-widget-header.sub_menu, .ui-widget-header.page_footer { background: url("images/bg_h-hard_55.gif") repeat-x scroll left top #365081; border: 0; }
 table.menu tr td.active { background: url("images/bg_h-hard_55.gif") repeat-x scroll left top #5C9CCC; border-color: #365081; }
-.thin_header { background: url("images/menu_not_active2.gif") repeat-x scroll left top #4E6EA7; }
+div.thin_header { background: url("images/menu_not_active2.gif") repeat-x scroll left top #4E6EA7; }
 
 table.flicker,
 table.formtable tr td.form_row_first, table.formtable tr td.form_row_last,
@@ -37,8 +37,8 @@ table.tableinfo tr td { border-radius: 0; }
 table.tableinfo tr.header td { background: #CCC; }
 table.tableinfo tr.header td.hover_grey { background: #BBB; }
 table.tableinfo tr.header td.hover_grey:hover { background: #999; color: #EEE; }
-table.tableinfo tr.odd_row > td { background: #DDD; }
 table.tableinfo tr.even_row > td{ background: #EEE; }
+table.tableinfo tr.odd_row > td { background: #DDD; }
 
 ul.favorites { margin: 0; padding: 4px 4px 4px 1em; border: 1px solid #AAAAAA; }
 
@@ -124,11 +124,3 @@ table.ack_msgs tr.msg { background-color: #F8F8F8; }
 
 .ui-widget-content a.on { color: #EE0000; }
 .ui-widget-content a.on:hover { color: #CC4444; }
-
-div.preloader {
-	background: url("images/preloader.gif") no-repeat;
-}
-
-/* multiselect */
-.multiselect .selected ul.active { border: 1px solid #6681B2; }
-.multiselect .available ul li.hover { background: #4F70A8; }

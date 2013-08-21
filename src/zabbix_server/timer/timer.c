@@ -34,7 +34,6 @@
 #define TIMER_DELAY	30
 
 extern unsigned char	process_type;
-extern int		process_num;
 
 /******************************************************************************
  *                                                                            *
@@ -48,6 +47,10 @@ extern int		process_num;
 static void	process_time_functions(void)
 {
 	const char		*__function_name = "process_time_functions";
+	char			*sql = NULL;
+	size_t			sql_alloc = 16 * ZBX_KIBIBYTE, sql_offset = 0;
+	int			i, events_num = 0;
+	DC_TRIGGER		*trigger;
 	DC_TRIGGER		*trigger_info = NULL;
 	zbx_vector_ptr_t	trigger_order;
 
@@ -55,7 +58,7 @@ static void	process_time_functions(void)
 
 	zbx_vector_ptr_create(&trigger_order);
 
-	DCconfig_get_time_based_triggers(&trigger_info, &trigger_order, process_num);
+	DCconfig_get_time_based_triggers(&trigger_info, &trigger_order);
 
 	if (0 == trigger_order.values_num)
 		goto clean;
@@ -64,11 +67,55 @@ static void	process_time_functions(void)
 
 	DBbegin();
 
-	process_triggers(&trigger_order);
+	sql = zbx_malloc(sql, sql_alloc);
 
-	DCfree_triggers(&trigger_order);
+	DBbegin_multiple_update(&sql, &sql_alloc, &sql_offset);
 
-	process_events();
+	for (i = 0; i < trigger_order.values_num; i++)
+	{
+		trigger = (DC_TRIGGER *)trigger_order.values[i];
+
+		if (SUCCEED == DBget_trigger_update_sql(&sql, &sql_alloc, &sql_offset, trigger->triggerid,
+				trigger->type, trigger->value, trigger->value_flags, trigger->error,
+				trigger->new_value, trigger->new_error, &trigger->timespec, &trigger->add_event,
+				&trigger->value_changed))
+		{
+			zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset, ";\n");
+
+			DBexecute_overflowed_sql(&sql, &sql_alloc, &sql_offset);
+		}
+
+		zbx_free(trigger->expression);
+		zbx_free(trigger->new_error);
+
+		if (1 == trigger->add_event)
+			events_num++;
+	}
+
+	DBend_multiple_update(&sql, &sql_alloc, &sql_offset);
+
+	if (sql_offset > 16)	/* In ORACLE always present begin..end; */
+		DBexecute("%s", sql);
+
+	zbx_free(sql);
+
+	if (0 != events_num)
+	{
+		zbx_uint64_t	eventid;
+
+		eventid = DBget_maxid_num("events", events_num);
+
+		for (i = 0; i < trigger_order.values_num; i++)
+		{
+			trigger = (DC_TRIGGER *)trigger_order.values[i];
+
+			if (1 != trigger->add_event)
+				continue;
+
+			process_event(eventid++, EVENT_SOURCE_TRIGGERS, EVENT_OBJECT_TRIGGER, trigger->triggerid,
+					&trigger->timespec, trigger->new_value, trigger->value_changed, 0, 0);
+		}
+	}
 
 	DBcommit();
 clean:
@@ -290,7 +337,7 @@ static void	get_trigger_values(zbx_uint64_t triggerid, int maintenance_from, int
 			EVENT_OBJECT_TRIGGER,
 			triggerid,
 			maintenance_to,
-			TRIGGER_VALUE_OK, TRIGGER_VALUE_PROBLEM);
+			TRIGGER_VALUE_FALSE, TRIGGER_VALUE_TRUE);
 
 	result = DBselectN(sql, 1);
 
@@ -328,7 +375,7 @@ static void	get_trigger_values(zbx_uint64_t triggerid, int maintenance_from, int
 			EVENT_OBJECT_TRIGGER,
 			triggerid,
 			maintenance_from,
-			TRIGGER_VALUE_OK, TRIGGER_VALUE_PROBLEM);
+			TRIGGER_VALUE_FALSE, TRIGGER_VALUE_TRUE);
 
 	result = DBselectN(sql, 1);
 
@@ -358,7 +405,7 @@ static void	get_trigger_values(zbx_uint64_t triggerid, int maintenance_from, int
 			EVENT_OBJECT_TRIGGER,
 			triggerid,
 			maintenance_from, maintenance_to - 1,
-			*value_after == TRIGGER_VALUE_OK ? TRIGGER_VALUE_PROBLEM : TRIGGER_VALUE_OK);
+			*value_after == TRIGGER_VALUE_FALSE ? TRIGGER_VALUE_TRUE : TRIGGER_VALUE_FALSE);
 
 	if (NULL != (row = DBfetch(result)))
 		*value_inside = atoi(row[0]);
@@ -391,10 +438,11 @@ out:
 static void	generate_events(zbx_uint64_t hostid, int maintenance_from, int maintenance_to)
 {
 	const char	*__function_name = "generate_events";
-
 	DB_RESULT	result;
 	DB_ROW		row;
-	zbx_uint64_t	triggerid;
+	zbx_uint64_t	triggerid, eventid;
+	DC_TRIGGER	*tr = NULL;
+	int		tr_alloc = 0, tr_num = 0, i;
 	zbx_timespec_t	ts;
 	unsigned char	value_before, value_inside, value_after;
 
@@ -404,17 +452,15 @@ static void	generate_events(zbx_uint64_t hostid, int maintenance_from, int maint
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
 	result = DBselect(
-			"select distinct t.triggerid,t.description,t.expression,t.priority,t.type"
+			"select distinct t.triggerid"
 			" from triggers t,functions f,items i"
 			" where t.triggerid=f.triggerid"
 				" and f.itemid=i.itemid"
 				" and t.status=%d"
 				" and i.status=%d"
-				" and i.state=%d"
 				" and i.hostid=" ZBX_FS_UI64,
 			TRIGGER_STATUS_ENABLED,
 			ITEM_STATUS_ACTIVE,
-			ITEM_STATE_NORMAL,
 			hostid);
 
 	while (NULL != (row = DBfetch(result)))
@@ -427,12 +473,28 @@ static void	generate_events(zbx_uint64_t hostid, int maintenance_from, int maint
 		if (value_before == value_inside && value_inside == value_after)
 			continue;
 
-		add_event(0, EVENT_SOURCE_TRIGGERS, EVENT_OBJECT_TRIGGER, triggerid, &ts, value_after,
-				row[1], row[2], (unsigned char)atoi(row[3]), (unsigned char)atoi(row[4]));
+		if (tr_num == tr_alloc)
+		{
+			tr_alloc += 64;
+			tr = zbx_realloc(tr, tr_alloc * sizeof(DC_TRIGGER));
+		}
+
+		tr[tr_num].triggerid = triggerid;
+		tr[tr_num].new_value = value_after;
+		tr_num++;
 	}
 	DBfree_result(result);
 
-	process_events();
+	if (0 != tr_num)
+	{
+		eventid = DBget_maxid_num("events", tr_num);
+
+		for (i = 0; i < tr_num; i++)
+		{
+			process_event(eventid++, EVENT_SOURCE_TRIGGERS, EVENT_OBJECT_TRIGGER, tr[i].triggerid,
+					&ts, tr[i].new_value, TRIGGER_VALUE_CHANGED_NO, 0, 1);
+		}
+	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
@@ -798,10 +860,6 @@ void	main_timer_loop(void)
 		zbx_setproctitle("%s [processing time functions]", get_process_type_string(process_type));
 
 		process_time_functions();
-
-		/* only the "timer #1" process evaluates the maintenance periods */
-		if (1 != process_num)
-			continue;
 
 		/* we process maintenance at every 00 sec */
 		/* process time functions can take long time */

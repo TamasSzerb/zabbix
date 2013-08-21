@@ -31,8 +31,6 @@ require_once dirname(__FILE__).'/include/page_header.php';
 $fields = array(
 	'period' =>			array(T_ZBX_INT, O_OPT, P_NZERO,	BETWEEN(ZBX_MIN_PERIOD, ZBX_MAX_PERIOD), null),
 	'stime' =>			array(T_ZBX_INT, O_OPT, P_NZERO,	null,				null),
-	'profileIdx' =>		array(T_ZBX_STR, O_OPT, null,		null,				null),
-	'profileIdx2' =>	array(T_ZBX_STR, O_OPT, null,		null,				null),
 	'httptestid' =>		array(T_ZBX_INT, O_OPT, P_NZERO,	null,				null),
 	'http_item_type' =>	array(T_ZBX_INT, O_OPT, null,		null,				null),
 	'name' =>			array(T_ZBX_STR, O_OPT, null,		null,				null),
@@ -55,10 +53,6 @@ $fields = array(
 $isDataValid = check_fields($fields);
 
 if ($httptestid = get_request('httptestid', false)) {
-	if (!API::HttpTest()->isReadable(array($_REQUEST['httptestid']))) {
-		access_deny();
-	}
-
 	$color = array(
 		'current' => 0,
 		0 => array('next' => '1'),
@@ -92,19 +86,20 @@ if ($httptestid = get_request('httptestid', false)) {
 		$items[] = array('itemid' => $item['itemid'], 'color' => $itemColor);
 	}
 
-	$httpTest = get_httptest_by_httptestid($httptestid);
-
-	$name = CMacrosResolverHelper::resolveHttpTestName($httpTest['hostid'], $httpTest['name']);
+	$httptest = get_httptest_by_httptestid($httptestid);
+	$name = $httptest['name'];
 }
-elseif ($items = get_request('items', array())) {
+else {
+	$items = get_request('items', array());
 	asort_by_key($items, 'sortorder');
 
 	$dbItems = API::Item()->get(array(
 		'webitems' => true,
 		'itemids' => zbx_objectValues($items, 'itemid'),
 		'nodeids' => get_current_nodeid(true),
-		'output' => array('itemid'),
-		'preservekeys' => true
+		'output' => API_OUTPUT_SHORTEN,
+		'preservekeys' => true,
+		'filter' => array('flags' => null)
 	));
 
 	$dbItems = zbx_toHash($dbItems, 'itemid');
@@ -115,31 +110,18 @@ elseif ($items = get_request('items', array())) {
 	}
 	$name = get_request('name', '');
 }
-else {
-	show_error_message(_('No items defined.'));
-	exit;
-}
 
 /*
  * Display
  */
 if ($isDataValid) {
-	$profileIdx = get_request('profileIdx', 'web.httptest');
-	$profileIdx2 = get_request('httptestid', get_request('profileIdx2'));
-
-	$timeline = CScreenBase::calculateTime(array(
-		'profileIdx' => $profileIdx,
-		'profileIdx2' => $profileIdx2,
-		'period' => get_request('period'),
-		'stime' => get_request('stime')
-	));
-
-	CProfile::update($profileIdx.'.httptestid', $profileIdx2, PROFILE_TYPE_ID);
-
 	$graph = new CChart(get_request('graphtype', GRAPH_TYPE_NORMAL));
 	$graph->setHeader($name);
-	$graph->setPeriod($timeline['period']);
-	$graph->setSTime($timeline['stime']);
+
+	navigation_bar_calc();
+
+	$graph->setPeriod($_REQUEST['period']);
+	$graph->setSTime($_REQUEST['stime']);
 	$graph->setWidth(get_request('width', 900));
 	$graph->setHeight(get_request('height', 200));
 	$graph->showLegend(get_request('legend', 1));
@@ -154,7 +136,7 @@ if ($isDataValid) {
 	$graph->setLeftPercentage(get_request('percent_left', 0));
 	$graph->setRightPercentage(get_request('percent_right', 0));
 
-	foreach ($items as $item) {
+	foreach ($items as $inum => $item) {
 		$graph->addItem(
 			$item['itemid'],
 			isset($item['yaxisside']) ? $item['yaxisside'] : null,
@@ -163,8 +145,8 @@ if ($isDataValid) {
 			isset($item['drawtype']) ? $item['drawtype'] : null,
 			isset($item['type']) ? $item['type'] : null
 		);
+		unset($items[$inum]);
 	}
-
 	$graph->draw();
 }
 

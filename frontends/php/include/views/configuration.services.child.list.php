@@ -47,7 +47,8 @@ foreach ($this->data['db_cservices'] as $service) {
 		'id' => 'service-name-'.$service['serviceid'],
 		'data-name' => $service['name'],
 		'data-serviceid' => $service['serviceid'],
-		'data-trigger' => $service['trigger']
+		'data-trigger' => $service['trigger'],
+		'data-triggerid' => $service['triggerid']
 	));
 
 	$cb = new CCheckBox('services['.$service['serviceid'].']', null, null, $service['serviceid']);

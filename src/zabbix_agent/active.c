@@ -30,7 +30,6 @@
 #include "comms.h"
 #include "threads.h"
 #include "zbxjson.h"
-#include "zbxregexp.h"
 
 #if defined(ZABBIX_SERVICE)
 #	include "service.h"
@@ -41,14 +40,18 @@
 #ifdef _WINDOWS
 __declspec(thread) static ZBX_ACTIVE_METRIC	*active_metrics = NULL;
 __declspec(thread) static ZBX_ACTIVE_BUFFER	buffer;
-__declspec(thread) static zbx_vector_ptr_t	regexps;
+__declspec(thread) static ZBX_REGEXP		*regexps = NULL;
+__declspec(thread) static int			regexps_alloc = 0;
+__declspec(thread) static int			regexps_num = 0;
 #else
 static ZBX_ACTIVE_METRIC	*active_metrics = NULL;
 static ZBX_ACTIVE_BUFFER	buffer;
-static zbx_vector_ptr_t		regexps;
+static ZBX_REGEXP		*regexps = NULL;
+static int			regexps_alloc = 0;
+static int			regexps_num = 0;
 #endif
 
-static void	init_active_metrics(void)
+static void	init_active_metrics()
 {
 	size_t	sz;
 
@@ -59,7 +62,8 @@ static void	init_active_metrics(void)
 
 	if (NULL == buffer.data)
 	{
-		zabbix_log(LOG_LEVEL_DEBUG, "buffer: first allocation for %d elements", CONFIG_BUFFER_SIZE);
+		zabbix_log(LOG_LEVEL_DEBUG, "Buffer: first allocation for %d elements",
+				CONFIG_BUFFER_SIZE);
 		sz = CONFIG_BUFFER_SIZE * sizeof(ZBX_ACTIVE_BUFFER_ELEMENT);
 		buffer.data = zbx_malloc(buffer.data, sz);
 		memset(buffer.data, 0, sz);
@@ -68,22 +72,20 @@ static void	init_active_metrics(void)
 		buffer.lastsent = (int)time(NULL);
 		buffer.first_error = 0;
 	}
-
-	zbx_vector_ptr_create(&regexps);
 }
 
-static void	disable_all_metrics(void)
+static void	disable_all_metrics()
 {
 	int	i;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In disable_all_metrics()");
 
 	for (i = 0; NULL != active_metrics[i].key; i++)
-		active_metrics[i].state = ITEM_STATE_NOTSUPPORTED;
+		active_metrics[i].status = ITEM_STATUS_NOTSUPPORTED;
 }
 
 #ifdef _WINDOWS
-static void	free_active_metrics(void)
+static void	free_active_metrics()
 {
 	int	i;
 
@@ -94,12 +96,13 @@ static void	free_active_metrics(void)
 
 	zbx_free(active_metrics);
 
-	zbx_regexp_clean_expressions(&regexps);
-	zbx_vector_ptr_destroy(&regexps);
+	clean_regexps_ex(regexps, &regexps_num);
+
+	zbx_free(regexps);
 }
 #endif
 
-static int	get_min_nextcheck(void)
+static int	get_min_nextcheck()
 {
 	int	i, min = -1;
 
@@ -107,7 +110,7 @@ static int	get_min_nextcheck(void)
 
 	for (i = 0; NULL != active_metrics[i].key; i++)
 	{
-		if (ITEM_STATE_NORMAL != active_metrics[i].state)
+		if (ITEM_STATUS_ACTIVE != active_metrics[i].status)
 			continue;
 
 		if (active_metrics[i].nextcheck < min || (-1) == min)
@@ -147,7 +150,7 @@ static void	add_check(const char *key, const char *key_orig, int refresh, zbx_ui
 			active_metrics[i].nextcheck = 0;
 			active_metrics[i].refresh = refresh;
 		}
-		active_metrics[i].state = ITEM_STATE_NORMAL;
+		active_metrics[i].status = ITEM_STATUS_ACTIVE;
 
 		goto out;
 	}
@@ -157,7 +160,7 @@ static void	add_check(const char *key, const char *key_orig, int refresh, zbx_ui
 	active_metrics[i].key_orig = zbx_strdup(NULL, key_orig);
 	active_metrics[i].refresh = refresh;
 	active_metrics[i].nextcheck = 0;
-	active_metrics[i].state = ITEM_STATE_NORMAL;
+	active_metrics[i].status = ITEM_STATUS_ACTIVE;
 	active_metrics[i].lastlogsize = lastlogsize;
 	active_metrics[i].mtime = mtime;
 	/* can skip existing log[] and eventlog[] data */
@@ -218,9 +221,10 @@ static int	parse_list_of_checks(char *str)
 	if (0 != strcmp(tmp, ZBX_PROTO_VALUE_SUCCESS))
 	{
 		if (SUCCEED == zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_INFO, tmp, sizeof(tmp)))
-			zabbix_log(LOG_LEVEL_WARNING, "no active checks on server: %s", tmp);
+			zabbix_log(LOG_LEVEL_WARNING, "No active checks on server: %s",
+					tmp);
 		else
-			zabbix_log(LOG_LEVEL_WARNING, "no active checks on server");
+			zabbix_log(LOG_LEVEL_WARNING, "No active checks on server");
 		return FAIL;
 	}
 
@@ -237,18 +241,18 @@ static int	parse_list_of_checks(char *str)
 
 		if (SUCCEED != zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_KEY, name, sizeof(name)) || '\0' == *name)
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "cannot retrieve value of tag \"%s\"", ZBX_PROTO_TAG_KEY);
+			zabbix_log(LOG_LEVEL_WARNING, "Unable to retrieve value of tag \"%s\"",
+					ZBX_PROTO_TAG_KEY);
 			continue;
 		}
 
-		if (SUCCEED != zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_KEY_ORIG, key_orig, sizeof(key_orig))
-				|| '\0' == *key_orig) {
+		if (SUCCEED != zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_KEY_ORIG, key_orig, sizeof(key_orig)) || '\0' == *key_orig)
 			zbx_strlcpy(key_orig, name, sizeof(key_orig));
-		}
 
 		if (SUCCEED != zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_DELAY, tmp, sizeof(tmp)) || '\0' == *tmp)
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "cannot retrieve value of tag \"%s\"", ZBX_PROTO_TAG_DELAY);
+			zabbix_log(LOG_LEVEL_WARNING, "Unable to retrieve value of tag \"%s\"",
+					ZBX_PROTO_TAG_DELAY);
 			continue;
 		}
 
@@ -257,22 +261,26 @@ static int	parse_list_of_checks(char *str)
 		if (SUCCEED != zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_LOGLASTSIZE, tmp, sizeof(tmp)) ||
 				SUCCEED != is_uint64(tmp, &lastlogsize))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "cannot retrieve value of tag \"%s\"", ZBX_PROTO_TAG_LOGLASTSIZE);
+			zabbix_log(LOG_LEVEL_WARNING, "Unable to retrieve value of tag \"%s\"",
+					ZBX_PROTO_TAG_LOGLASTSIZE);
 			continue;
 		}
 
 		if (SUCCEED != zbx_json_value_by_name(&jp_row, ZBX_PROTO_TAG_MTIME, tmp, sizeof(tmp)) || '\0' == *tmp)
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "cannot retrieve value of tag \"%s\"", ZBX_PROTO_TAG_MTIME);
+			zabbix_log(LOG_LEVEL_WARNING, "Unable to retrieve value of tag \"%s\"",
+					ZBX_PROTO_TAG_MTIME);
 			mtime = 0;
 		}
 		else
+		{
 			mtime = atoi(tmp);
+		}
 
 		add_check(name, key_orig, delay, lastlogsize, mtime);
 	}
 
-	zbx_regexp_clean_expressions(&regexps);
+	clean_regexps_ex(regexps, &regexps_num);
 
 	if (SUCCEED == zbx_json_brackets_by_name(&jp, ZBX_PROTO_TAG_REGEXP, &jp_data))
 	{
@@ -286,21 +294,19 @@ static int	parse_list_of_checks(char *str)
 
 			if (SUCCEED != zbx_json_value_by_name(&jp_row, "name", name, sizeof(name)))
 			{
-				zabbix_log(LOG_LEVEL_WARNING, "cannot retrieve value of tag \"%s\"", "name");
+				zabbix_log(LOG_LEVEL_WARNING, "Unable to retrieve value of tag \"%s\"", "name");
 				continue;
 			}
 
-			if (SUCCEED != zbx_json_value_by_name(&jp_row, "expression", expression, sizeof(expression)) ||
-					'\0' == *expression)
+			if (SUCCEED != zbx_json_value_by_name(&jp_row, "expression", expression, sizeof(expression)) || '\0' == *expression)
 			{
-				zabbix_log(LOG_LEVEL_WARNING, "cannot retrieve value of tag \"%s\"", "expression");
+				zabbix_log(LOG_LEVEL_WARNING, "Unable to retrieve value of tag \"%s\"",	"expression");
 				continue;
 			}
 
-			if (SUCCEED != zbx_json_value_by_name(&jp_row, "expression_type", tmp, sizeof(tmp)) ||
-					'\0' == *tmp)
+			if (SUCCEED != zbx_json_value_by_name(&jp_row, "expression_type", tmp, sizeof(tmp)) || *tmp == '\0')
 			{
-				zabbix_log(LOG_LEVEL_WARNING, "cannot retrieve value of tag \"%s\"", "expression_type");
+				zabbix_log(LOG_LEVEL_WARNING, "Unable to retrieve value of tag \"%s\"",	"expression_type");
 				continue;
 			}
 
@@ -308,7 +314,7 @@ static int	parse_list_of_checks(char *str)
 
 			if (SUCCEED != zbx_json_value_by_name(&jp_row, "exp_delimiter", tmp, sizeof(tmp)))
 			{
-				zabbix_log(LOG_LEVEL_WARNING, "cannot retrieve value of tag \"%s\"", "exp_delimiter");
+				zabbix_log(LOG_LEVEL_WARNING, "Unable to retrieve value of tag \"%s\"",	"exp_delimiter");
 				continue;
 			}
 
@@ -316,20 +322,22 @@ static int	parse_list_of_checks(char *str)
 
 			if (SUCCEED != zbx_json_value_by_name(&jp_row, "case_sensitive", tmp, sizeof(tmp)) || '\0' == *tmp)
 			{
-				zabbix_log(LOG_LEVEL_WARNING, "cannot retrieve value of tag \"%s\"", "case_sensitive");
+				zabbix_log(LOG_LEVEL_WARNING, "Unable to retrieve value of tag \"%s\"",
+						"case_sensitive");
 				continue;
 			}
 
 			case_sensitive = atoi(tmp);
 
-			add_regexp_ex(&regexps, name, expression, expression_type, exp_delimiter, case_sensitive);
+			add_regexp_ex(&regexps, &regexps_alloc, &regexps_num,
+					name, expression, expression_type, exp_delimiter, case_sensitive);
 		}
 	}
 
 	return SUCCEED;
 json_error:
-	zabbix_log(LOG_LEVEL_ERR, "cannot parse list of active checks: %s", zbx_json_strerror());
-
+	zabbix_log(LOG_LEVEL_ERR, "Can't parse list of active checks. %s",
+			zbx_json_strerror());
 	return FAIL;
 }
 
@@ -352,63 +360,18 @@ json_error:
  ******************************************************************************/
 static int	refresh_active_checks(const char *host, unsigned short port)
 {
-	const char	*__function_name = "refresh_active_checks";
 	zbx_sock_t	s;
 	char		*buf;
 	int		ret;
 	struct zbx_json	json;
 	static int	last_ret = SUCCEED;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() host:'%s' port:%hu", __function_name, host, port);
+	zabbix_log(LOG_LEVEL_DEBUG, "refresh_active_checks('%s',%u)", host, port);
 
 	zbx_json_init(&json, ZBX_JSON_STAT_BUF_LEN);
 
 	zbx_json_addstring(&json, ZBX_PROTO_TAG_REQUEST, ZBX_PROTO_VALUE_GET_ACTIVE_CHECKS, ZBX_JSON_TYPE_STRING);
 	zbx_json_addstring(&json, ZBX_PROTO_TAG_HOST, CONFIG_HOSTNAME, ZBX_JSON_TYPE_STRING);
-
-	if (NULL != CONFIG_HOST_METADATA)
-	{
-		zbx_json_addstring(&json, ZBX_PROTO_TAG_HOST_METADATA, CONFIG_HOST_METADATA, ZBX_JSON_TYPE_STRING);
-	}
-	else if (NULL != CONFIG_HOST_METADATA_ITEM)
-	{
-		char		**value;
-		AGENT_RESULT	result;
-
-		init_result(&result);
-
-		if (SUCCEED == process(CONFIG_HOST_METADATA_ITEM, PROCESS_LOCAL_COMMAND, &result) &&
-				NULL != (value = GET_STR_RESULT(&result)) && NULL != *value)
-		{
-			if (SUCCEED != zbx_is_utf8(*value))
-			{
-				zabbix_log(LOG_LEVEL_WARNING, "cannot get host metadata using \"%s\" item specified by"
-						" \"HostMetadataItem\" configuration parameter: returned value is not"
-						" an UTF-8 string", CONFIG_HOST_METADATA_ITEM);
-			}
-			else
-			{
-				if (HOST_METADATA_LEN < zbx_strlen_utf8(*value))
-				{
-					size_t	bytes;
-
-					zabbix_log(LOG_LEVEL_WARNING, "the returned value of \"%s\" item specified by"
-							" \"HostMetadataItem\" configuration parameter is too long,"
-							" using first %d characters", CONFIG_HOST_METADATA_ITEM,
-							HOST_METADATA_LEN);
-
-					bytes = zbx_strlen_utf8_n(*value, HOST_METADATA_LEN);
-					(*value)[bytes] = '\0';
-				}
-				zbx_json_addstring(&json, ZBX_PROTO_TAG_HOST_METADATA, *value, ZBX_JSON_TYPE_STRING);
-			}
-		}
-		else
-			zabbix_log(LOG_LEVEL_WARNING, "cannot get host metadata using \"%s\" item specified by"
-					" \"HostMetadataItem\" configuration parameter", CONFIG_HOST_METADATA_ITEM);
-
-		free_result(&result);
-	}
 
 	if (NULL != CONFIG_LISTEN_IP)
 	{
@@ -437,12 +400,6 @@ static int	refresh_active_checks(const char *host, unsigned short port)
 			if (SUCCEED == (ret = SUCCEED_OR_FAIL(zbx_tcp_recv_ext(&s, &buf, ZBX_TCP_READ_UNTIL_CLOSE, 0))))
 			{
 				zabbix_log(LOG_LEVEL_DEBUG, "got [%s]", buf);
-
-				if (SUCCEED != last_ret)
-				{
-					zabbix_log(LOG_LEVEL_WARNING, "active check configuration update from [%s:%hu]"
-							" is working again", host, port);
-				}
 				parse_list_of_checks(buf);
 			}
 		}
@@ -450,18 +407,24 @@ static int	refresh_active_checks(const char *host, unsigned short port)
 		zbx_tcp_close(&s);
 	}
 
-	if (SUCCEED != ret && SUCCEED == last_ret)
+	if (last_ret != ret)
 	{
-		zabbix_log(LOG_LEVEL_WARNING,
-				"active check configuration update from [%s:%hu] started to fail (%s)",
-				host, port, zbx_tcp_strerror());
+		if (SUCCEED != ret)
+		{
+			zabbix_log(LOG_LEVEL_WARNING,
+					"active check configuration update from [%s:%u] started to fail (%s)",
+					host, port, zbx_tcp_strerror());
+		}
+		else
+		{
+			zabbix_log(LOG_LEVEL_WARNING, "active check configuration update from [%s:%u] is working again",
+					host, port);
+		}
 	}
 
 	last_ret = ret;
 
 	zbx_json_free(&json);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 
 	return ret;
 }
@@ -634,8 +597,7 @@ static int	send_buffer(const char *host, unsigned short port)
 		buffer.lastsent = now;
 		if (0 != buffer.first_error)
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "active check data upload to [%s:%hu] is working again",
-					host, port);
+			zabbix_log(LOG_LEVEL_WARNING, "active check data upload to [%s:%u] is working again", host, port);
 			buffer.first_error = 0;
 		}
 	}
@@ -643,7 +605,7 @@ static int	send_buffer(const char *host, unsigned short port)
 	{
 		if (0 == buffer.first_error)
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "active check data upload to [%s:%hu] started to fail (%s%s)",
+			zabbix_log(LOG_LEVEL_WARNING, "active check data upload to [%s:%u] started to fail (%s%s)",
 					host, port, err_send_step, zbx_tcp_strerror());
 			buffer.first_error = now;
 		}
@@ -661,23 +623,17 @@ ret:
  *                                                                            *
  * Purpose: Buffer new value or send the whole buffer to the server           *
  *                                                                            *
- * Parameters: server      - IP or Hostname of Zabbix server                  *
- *             port        - port of Zabbix server                            *
- *             host        - name of host in Zabbix database                  *
- *             key         - name of metric                                   *
- *             value       - a reference to the string version of key value.  *
- *                           The value must be preallocated by caller.        *
- *                           If process_value() function stores value         *
- *                           then it sets value reference to NULL.            *
+ * Parameters: host - IP or Hostname of Zabbix server                         *
+ *             port - port of Zabbix server                                   *
+ *             hostname - name of host in Zabbix database                     *
+ *             key - name of metric                                           *
+ *             value - string version os key value                            *
  *             lastlogsize - size of read logfile                             *
- *             mtime       - time of last file modification                   *
- *             timestamp   - timestamp of read value                          *
- *             source      - name of logged data source                       *
- *             severity    - severity of logged data sources                  *
- *             logeventid  - the application-specific identifier for          *
- *                           the event; used for monitoring of Windows        *
- *                           event logs                                       *
- *             persistent  - do not overwrite old values                      *
+ *             mtime - time of last file modification                         *
+ *             timestamp - timestamp of read value                            *
+ *             source - name of logged data source                            *
+ *             severity - severity of logged data sources                     *
+ *             persistent - do not overwrite old values                       *
  *                                                                            *
  * Return value: returns SUCCEED on successful parsing,                       *
  *               FAIL on other cases                                          *
@@ -692,7 +648,7 @@ static int	process_value(
 		unsigned short	port,
 		const char	*host,
 		const char	*key,
-		char		**value,
+		const char	*value,
 		zbx_uint64_t	*lastlogsize,
 		int		*mtime,
 		unsigned long	*timestamp,
@@ -707,14 +663,15 @@ static int	process_value(
 	int				i, ret = FAIL;
 	size_t				sz;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() key:'%s:%s' value:'%s'", __function_name, host, key, *value);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() key:'%s:%s' value:'%s'",
+			__function_name, host, key, value);
 
 	send_buffer(server, port);
 
 	if (0 != persistent && CONFIG_BUFFER_SIZE / 2 <= buffer.pcount)
 	{
 		zabbix_log(LOG_LEVEL_WARNING, "buffer is full, cannot store persistent value");
-		goto out;
+		goto ret;
 	}
 
 	if (CONFIG_BUFFER_SIZE > buffer.count)
@@ -761,13 +718,9 @@ static int	process_value(
 	}
 
 	memset(el, 0, sizeof(ZBX_ACTIVE_BUFFER_ELEMENT));
-	el->host = zbx_strdup(NULL, host);
-	el->key = zbx_strdup(NULL, key);
-
-	/* value is already allocated by caller, so we don't have to dup it */
-	el->value = *value;
-	*value = NULL;
-
+	el->host = strdup(host);
+	el->key = strdup(key);
+	el->value = strdup(value);
 	if (NULL != source)
 		el->source = strdup(source);
 	if (NULL != severity)
@@ -788,7 +741,7 @@ static int	process_value(
 		buffer.pcount++;
 
 	ret = SUCCEED;
-out:
+ret:
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 
 	return ret;
@@ -800,11 +753,12 @@ static void	process_active_checks(char *server, unsigned short port)
 	register int	i, s_count, p_count;
 	char		**pvalue;
 	int		now, send_err = SUCCEED, ret;
-	char		*value = NULL, *item_value = NULL;
+	char		*value = NULL;
 	zbx_uint64_t	lastlogsize;
 	int		mtime;
-	char		params[MAX_STRING_LEN], filename[MAX_STRING_LEN];
-	char		pattern[MAX_STRING_LEN], output_template[MAX_STRING_LEN];
+	char		params[MAX_STRING_LEN];
+	char		filename[MAX_STRING_LEN];
+	char		pattern[MAX_STRING_LEN];
 	/* checks `log', `eventlog', `logrt' may contain parameter, which overrides CONFIG_MAX_LINES_PER_SECOND */
 	char		maxlines_persec_str[16];
 	int		maxlines_persec;
@@ -831,7 +785,7 @@ static void	process_active_checks(char *server, unsigned short port)
 		if (active_metrics[i].nextcheck > now)
 			continue;
 
-		if (ITEM_STATE_NORMAL != active_metrics[i].state)
+		if (ITEM_STATUS_ACTIVE != active_metrics[i].status)
 			continue;
 
 		/* special processing for log files without rotation */
@@ -839,13 +793,11 @@ static void	process_active_checks(char *server, unsigned short port)
 		{
 			ret = FAIL;
 
-			do
-			{
-				/* simple try realization */
-				if (ZBX_COMMAND_WITH_PARAMS != parse_command(active_metrics[i].key, NULL, 0, params, sizeof(params)))
+			do { /* simple try realization */
+				if (2 != parse_command(active_metrics[i].key, NULL, 0, params, sizeof(params)))
 					break;
 
-				if (6 < num_param(params))
+				if (5 < num_param(params))
 					break;
 
 				if (0 != get_param(params, 1, filename, sizeof(filename)))
@@ -874,9 +826,6 @@ static void	process_active_checks(char *server, unsigned short port)
 				else if (0 != strcmp(tmp, "skip"))
 					break;
 
-				if (0 != get_param(params, 6, output_template, sizeof(output_template)))
-					*output_template = '\0';
-
 				s_count = 0;
 				p_count = 0;
 				lastlogsize = active_metrics[i].lastlogsize;
@@ -893,15 +842,13 @@ static void	process_active_checks(char *server, unsigned short port)
 						break;
 					}
 
-					if (SUCCEED == regexp_sub_ex(&regexps, value, pattern, ZBX_CASE_SENSITIVE,
-							output_template, &item_value))
+					if (SUCCEED == regexp_match_ex(regexps, regexps_num, value, pattern, ZBX_CASE_SENSITIVE))
 					{
 						send_err = process_value(server, port, CONFIG_HOSTNAME,
-								active_metrics[i].key_orig, &item_value, &lastlogsize,
+								active_metrics[i].key_orig, value, &lastlogsize,
 								NULL, NULL, NULL, NULL,	NULL, 1);
 						s_count++;
 					}
-					zbx_free(item_value);
 					p_count++;
 
 					zbx_free(value);
@@ -930,14 +877,13 @@ static void	process_active_checks(char *server, unsigned short port)
 
 			if (FAIL == ret)
 			{
-				active_metrics[i].state = ITEM_STATE_NOTSUPPORTED;
-				zabbix_log(LOG_LEVEL_WARNING, "active check \"%s\" is not supported",
+				active_metrics[i].status = ITEM_STATUS_NOTSUPPORTED;
+				zabbix_log(LOG_LEVEL_WARNING, "Active check [%s] is not supported. Disabled.",
 						active_metrics[i].key);
 
 				process_value(server, port, CONFIG_HOSTNAME,
-						active_metrics[i].key_orig, &item_value,
+						active_metrics[i].key_orig, ZBX_NOTSUPPORTED,
 						&active_metrics[i].lastlogsize, NULL, NULL, NULL, NULL, NULL, 0);
-				zbx_free(item_value);
 			}
 		}
 		/* special processing for log files with rotation */
@@ -945,13 +891,11 @@ static void	process_active_checks(char *server, unsigned short port)
 		{
 			ret = FAIL;
 
-			do
-			{
-				/* simple try realization */
-				if (ZBX_COMMAND_WITH_PARAMS != parse_command(active_metrics[i].key, NULL, 0, params, sizeof(params)))
+			do { /* simple try realization */
+				if (2 != parse_command(active_metrics[i].key, NULL, 0, params, sizeof(params)))
 					break;
 
-				if (6 < num_param(params))
+				if (5 < num_param(params))
 					break;
 
 				if (0 != get_param(params, 1, filename, sizeof(filename)))
@@ -980,9 +924,6 @@ static void	process_active_checks(char *server, unsigned short port)
 				else if (0 != strcmp(tmp, "skip"))
 					break;
 
-				if (0 != get_param(params, 6, output_template, sizeof(output_template)))
-					*output_template = '\0';
-
 				s_count = 0;
 				p_count = 0;
 				lastlogsize = active_metrics[i].lastlogsize;
@@ -1002,15 +943,13 @@ static void	process_active_checks(char *server, unsigned short port)
 						break;
 					}
 
-					if (SUCCEED == regexp_sub_ex(&regexps, value, pattern, ZBX_CASE_SENSITIVE,
-							output_template, &item_value))
+					if (SUCCEED == regexp_match_ex(regexps, regexps_num, value, pattern, ZBX_CASE_SENSITIVE))
 					{
 						send_err = process_value(server, port, CONFIG_HOSTNAME,
-								active_metrics[i].key_orig, &item_value, &lastlogsize,
+								active_metrics[i].key_orig, value, &lastlogsize,
 								&mtime, NULL, NULL, NULL, NULL, 1);
 						s_count++;
 					}
-					zbx_free(item_value);
 					p_count++;
 
 					zbx_free(value);
@@ -1037,20 +976,20 @@ static void	process_active_checks(char *server, unsigned short port)
 					if (p_count >= (4 * maxlines_persec * active_metrics[i].refresh))
 						break;
 				} /* while processing a log */
+
 			}
 			while (0); /* simple try realization */
 
 			if (FAIL == ret)
 			{
-				active_metrics[i].state = ITEM_STATE_NOTSUPPORTED;
-				zabbix_log(LOG_LEVEL_WARNING, "active check \"%s\" is not supported",
+				active_metrics[i].status = ITEM_STATUS_NOTSUPPORTED;
+				zabbix_log(LOG_LEVEL_WARNING, "Active check [%s] is not supported. Disabled.",
 						active_metrics[i].key);
 
 				process_value(server, port, CONFIG_HOSTNAME,
-						active_metrics[i].key_orig, &item_value,
+						active_metrics[i].key_orig, ZBX_NOTSUPPORTED,
 						&active_metrics[i].lastlogsize, &active_metrics[i].mtime,
 						NULL, NULL, NULL, NULL, 0);
-				zbx_free(item_value);
 			}
 		}
 		/* special processing for eventlog */
@@ -1058,10 +997,8 @@ static void	process_active_checks(char *server, unsigned short port)
 		{
 			ret = FAIL;
 #ifdef _WINDOWS
-			do
-			{
-				/* simple try realization */
-				if (ZBX_COMMAND_WITH_PARAMS != parse_command(active_metrics[i].key, NULL, 0, params, sizeof(params)))
+			do{ /* simple try realization */
+				if (2 != parse_command(active_metrics[i].key, NULL, 0, params, sizeof(params)))
 					break;
 
 				if (7 < num_param(params))
@@ -1141,20 +1078,18 @@ static void	process_active_checks(char *server, unsigned short port)
 
 					zbx_snprintf(str_logeventid, sizeof(str_logeventid), "%lu", logeventid);
 
-					if (SUCCEED == regexp_sub_ex(&regexps, value, pattern, ZBX_CASE_SENSITIVE,
-									output_template, &item_value) &&
-							SUCCEED == regexp_match_ex(&regexps, str_severity, key_severity,
-									ZBX_IGNORE_CASE) &&
+					if (SUCCEED == regexp_match_ex(regexps, regexps_num, value, pattern, ZBX_CASE_SENSITIVE) &&
+							SUCCEED == regexp_match_ex(regexps, regexps_num, str_severity,
+									key_severity, ZBX_IGNORE_CASE) &&
 							(('\0' == *key_source) ? 1 : (0 == strcmp(key_source, source))) &&
-							SUCCEED == regexp_match_ex(&regexps, str_logeventid,
+							SUCCEED == regexp_match_ex(regexps, regexps_num, str_logeventid,
 									key_logeventid, ZBX_CASE_SENSITIVE))
 					{
 						send_err = process_value(server, port, CONFIG_HOSTNAME,
-								active_metrics[i].key_orig, &item_value, &lastlogsize,
+								active_metrics[i].key_orig, value, &lastlogsize,
 								NULL, &timestamp, source, &severity, &logeventid, 1);
 						s_count++;
 					}
-					zbx_free(item_value);
 					p_count++;
 
 					zbx_free(source);
@@ -1180,20 +1115,20 @@ static void	process_active_checks(char *server, unsigned short port)
 				} /* while processing an eventlog */
 
 				break;
+
 			}
 			while (0); /* simple try realization */
 #endif	/* _WINDOWS */
 
 			if (FAIL == ret)
 			{
-				active_metrics[i].state = ITEM_STATE_NOTSUPPORTED;
-				zabbix_log(LOG_LEVEL_WARNING, "active check \"%s\" is not supported",
+				active_metrics[i].status = ITEM_STATUS_NOTSUPPORTED;
+				zabbix_log(LOG_LEVEL_WARNING, "Active check [%s] is not supported. Disabled.",
 						active_metrics[i].key);
 
 				process_value(server, port, CONFIG_HOSTNAME,
-						active_metrics[i].key_orig, &item_value,
+						active_metrics[i].key_orig, ZBX_NOTSUPPORTED,
 						&active_metrics[i].lastlogsize, NULL, NULL, NULL, NULL, NULL, 0);
-				zbx_free(item_value);
 			}
 		}
 		else
@@ -1205,17 +1140,16 @@ static void	process_active_checks(char *server, unsigned short port)
 
 			if (NULL != pvalue)
 			{
-				zabbix_log(LOG_LEVEL_DEBUG, "for key [%s] received value [%s]", active_metrics[i].key, *pvalue);
-				item_value = zbx_strdup(NULL, *pvalue);
+				zabbix_log(LOG_LEVEL_DEBUG, "For key [%s] received value [%s]", active_metrics[i].key, *pvalue);
+
 				process_value(server, port, CONFIG_HOSTNAME,
-						active_metrics[i].key_orig, &item_value, NULL,
+						active_metrics[i].key_orig, *pvalue, NULL,
 						NULL, NULL, NULL, NULL, NULL, 0);
-				zbx_free(item_value);
 
 				if (0 == strcmp(*pvalue, ZBX_NOTSUPPORTED))
 				{
-					active_metrics[i].state = ITEM_STATE_NOTSUPPORTED;
-					zabbix_log(LOG_LEVEL_WARNING, "active check \"%s\" is not supported",
+					active_metrics[i].status = ITEM_STATUS_NOTSUPPORTED;
+					zabbix_log(LOG_LEVEL_WARNING, "Active check [%s] is not supported. Disabled.",
 							active_metrics[i].key);
 				}
 			}
@@ -1282,7 +1216,7 @@ ZBX_THREAD_ENTRY(active_checks_thread, args)
 		}
 		else
 		{
-			zabbix_log(LOG_LEVEL_DEBUG, "sleeping for %d second(s)", 1);
+			zabbix_log(LOG_LEVEL_DEBUG, "Sleeping for %d second(s)", 1);
 			zbx_setproctitle("poller [sleeping for %d second(s)]", 1);
 			zbx_sleep(1);
 		}

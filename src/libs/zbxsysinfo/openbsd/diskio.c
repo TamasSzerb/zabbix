@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2013 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -61,8 +61,7 @@ static int	get_disk_stats(const char *devname, zbx_uint64_t *rbytes, zbx_uint64_
 	{
 		for (i = 0; i < drive_count; i++)
 		{
-			if (NULL == devname || '\0' == *devname || 0 == strcmp(devname, "all") ||
-				0 == strcmp(devname, stats[i].ds_name))
+			if (0 == strcmp(devname, "all") || 0 == strcmp(devname, stats[i].ds_name))
 			{
 				if (rbytes)
 					*rbytes += stats[i].ds_rbytes;
@@ -130,44 +129,76 @@ static int	VFS_DEV_WRITE_OPERATIONS(const char *devname, AGENT_RESULT *result)
 	return SYSINFO_RET_OK;
 }
 
-int	VFS_DEV_WRITE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_DEV_WRITE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*devname, *mode;
-	int	ret = SYSINFO_RET_FAIL;
+	MODE_FUNCTION fl[] =
+	{
+		{"bytes",	VFS_DEV_WRITE_BYTES},
+		{"operations",	VFS_DEV_WRITE_OPERATIONS},
+		{0,		0}
+	};
 
-	if (2 < request->nparam)
+	char	devname[MAX_STRING_LEN];
+	char	mode[MAX_STRING_LEN];
+	int	i;
+
+	if (num_param(param) > 3)
 		return SYSINFO_RET_FAIL;
 
-	devname = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
+	if (0 != get_param(param, 1, devname, sizeof(devname)))
+		*devname = '\0';
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "operations"))
-		ret = VFS_DEV_WRITE_OPERATIONS(devname, result);
-	else if (0 == strcmp(mode, "bytes"))
-		ret = VFS_DEV_WRITE_BYTES(devname, result);
-	else
-		ret = SYSINFO_RET_FAIL;
+	/* default parameter */
+	if (*devname == '\0')
+		zbx_snprintf(devname, sizeof(devname), "all");
 
-	return ret;
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
+
+	/* default parameter */
+	if (*mode == '\0')
+		zbx_snprintf(mode, sizeof(mode), "operations");
+
+	for (i = 0; fl[i].mode != 0; i++)
+		if (0 == strncmp(mode, fl[i].mode, MAX_STRING_LEN))
+			return (fl[i].function)(devname, result);
+
+	return SYSINFO_RET_FAIL;
 }
 
-int	VFS_DEV_READ(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_DEV_READ(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*devname, *mode;
-	int	ret = SYSINFO_RET_FAIL;
+	MODE_FUNCTION fl[] =
+	{
+		{"bytes",	VFS_DEV_READ_BYTES},
+		{"operations",	VFS_DEV_READ_OPERATIONS},
+		{0,		0}
+	};
 
-	if (2 < request->nparam)
+	char	devname[MAX_STRING_LEN];
+	char	mode[MAX_STRING_LEN];
+	int	i;
+
+	if (num_param(param) > 3)
 		return SYSINFO_RET_FAIL;
 
-	devname = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
+	if (0 != get_param(param, 1, devname, sizeof(devname)))
+		*devname = '\0';
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "operations"))
-		ret = VFS_DEV_READ_OPERATIONS(devname, result);
-	else if (0 == strcmp(mode, "bytes"))
-		ret = VFS_DEV_READ_BYTES(devname, result);
-	else
-		ret = SYSINFO_RET_FAIL;
+	/* default parameter */
+	if (*devname == '\0')
+		zbx_snprintf(devname, sizeof(devname), "all");
 
-	return ret;
+	if (0 != get_param(param, 2, mode, sizeof(mode)) != 0)
+		*mode = '\0';
+
+	/* default parameter */
+	if (*mode == '\0')
+		zbx_snprintf(mode, sizeof(mode), "operations");
+
+	for (i = 0; fl[i].mode != 0; i++)
+		if (0 == strncmp(mode, fl[i].mode, MAX_STRING_LEN))
+			return (fl[i].function)(devname, result);
+
+	return SYSINFO_RET_FAIL;
 }

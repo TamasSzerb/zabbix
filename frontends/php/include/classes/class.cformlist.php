@@ -25,51 +25,44 @@ class CFormList extends CDiv {
 	protected $editable = true;
 	protected $formInputs = array('ctextbox', 'cnumericbox', 'ctextarea', 'ccombobox', 'ccheckbox', 'cpassbox', 'cipbox');
 
-	public function __construct($id = null, $class = null, $editable = true) {
+	public function __construct($id, $class = null, $editable = true) {
 		$this->editable = $editable;
 		$this->formList = new CList(null, 'formlist');
 
 		parent::__construct();
-
-		if ($id) {
-			$this->attr('id', zbx_formatDomId($id));
-		}
-
+		$this->attr('id', zbx_formatDomId($id));
 		$this->attr('class', $class);
 	}
 
 	public function addRow($term, $description = null, $hidden = false, $id = null, $class = null) {
 		$label = $term;
-
 		if (is_object($description)) {
 			$inputClass = zbx_strtolower(get_class($description));
-
 			if (in_array($inputClass, $this->formInputs)) {
 				$label = new CLabel($term, $description->getAttribute('id'));
 			}
 		}
 
 		$defaultClass = $hidden ? 'formrow hidden' : 'formrow';
-
-		if ($class === null) {
-			$class = $defaultClass;
-		}
-		else {
+		if ($class !== null) {
 			$class .= ' '.$defaultClass;
 		}
+		else {
+			$class = $defaultClass;
+		}
 
-		if ($description === null) {
-			$this->formList->addItem(array(new CDiv(SPACE, 'dt right'), new CDiv($label, 'dd')), $class, $id);
+		if (!is_null($description)) {
+			$this->formList->addItem(array(new CDiv($label, 'dt floatleft right'), new CDiv($description, 'dd')), $class, $id);
 		}
 		else {
-			$this->formList->addItem(array(new CDiv($label, 'dt right'), new CDiv($description, 'dd')), $class, $id);
+			$this->formList->addItem(array(new CDiv(SPACE, 'dt floatleft right'), new CDiv($label, 'dd')), $class, $id);
 		}
 	}
 
 	public function addInfo($text, $label = null) {
 		$this->formList->addItem(
 			array(
-				new CDiv($label ? $label : _('Info'), 'dt right listInfoLabel'),
+				new CDiv(!empty($label) ? $label : _('Info'), 'dt right listInfoLabel'),
 				new CDiv($text, 'objectgroup inlineblock border_dotted ui-corner-all listInfoText')
 			),
 			'formrow listInfo'
@@ -78,12 +71,11 @@ class CFormList extends CDiv {
 
 	public function toString($destroy = true) {
 		$this->addItem($this->formList);
-
 		return parent::toString($destroy);
 	}
 
 	public function addVar($name, $value, $id = null) {
-		if ($value !== null) {
+		if (!is_null($value)) {
 			return $this->addItem(new CVar($name, $value, $id));
 		}
 	}

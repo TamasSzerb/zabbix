@@ -25,42 +25,29 @@ class CTabView extends CDiv {
 	protected $tabs = array();
 	protected $headers = array();
 	protected $selectedTab = null;
-
-	/**
-	 * Disabled tabs IDs, tab option
-	 *
-	 * @var array
-	 */
-	protected $disabledTabs = array();
+	protected $rememberTab = false;
 
 	public function __construct($data = array()) {
 		if (isset($data['id'])) {
 			$this->id = $data['id'];
 		}
+		if (isset($data['remember'])) {
+			$this->setRemember($data['remember']);
+		}
 		if (isset($data['selected'])) {
 			$this->setSelected($data['selected']);
 		}
-		if (isset($data['disabled'])) {
-			$this->setDisabled($data['disabled']);
-		}
 		parent::__construct();
 		$this->attr('id', zbx_formatDomId($this->id));
-		$this->attr('class', 'tabs');
+		$this->attr('class', 'min-width hidden');
+	}
+
+	public function setRemember($remember) {
+		$this->rememberTab = $remember;
 	}
 
 	public function setSelected($selected) {
 		$this->selectedTab = $selected;
-	}
-
-	/**
-	 * Disable tabs
-	 *
-	 * @param array		$disabled	disabled tabs IDs (first tab - 0, second - 1...)
-	 *
-	 * @return void
-	 */
-	public function setDisabled($disabled) {
-		$this->disabledTabs = $disabled;
 	}
 
 	public function addTab($id, $header, $body) {
@@ -85,40 +72,23 @@ class CTabView extends CDiv {
 		}
 		else {
 			$headersList = new CList();
-
 			foreach ($this->headers as $id => $header) {
 				$tabLink = new CLink($header, '#'.$id, null, null, false);
 				$tabLink->setAttribute('id', 'tab_'.$id);
 				$headersList->addItem($tabLink);
 			}
-
 			$this->addItem($headersList);
 			$this->addItem($this->tabs);
 
-			if ($this->selectedTab === null) {
-				$activeTab = get_cookie('tab', 0);
-				$createEvent = '';
+			$options = array();
+			if (!is_null($this->selectedTab)) {
+				$options['selected'] = $this->selectedTab;
 			}
-			else {
-				$activeTab = $this->selectedTab;
-				$createEvent = 'create: function() { jQuery.cookie("tab", '.$this->selectedTab.'); },';
+			if ($this->rememberTab) {
+				$options['cookie'] = array();
 			}
-
-			$disabledTabs = ($this->disabledTabs === null) ? '' : 'disabled: '.CJs::encodeJson($this->disabledTabs).',';
-
-			zbx_add_post_js('
-				jQuery("#'.$this->id.'").tabs({
-					'.$createEvent.'
-					'.$disabledTabs.'
-					active: '.$activeTab.',
-					activate: function(event, ui) {
-						jQuery.cookie("tab", ui.newTab.index().toString());
-					}
-				})
-				.css("visibility", "visible");'
-			);
+			zbx_add_post_js('jQuery("#'.$this->id.'").tabs('.zbx_jsvalue($options, true).').show();');
 		}
-
 		return parent::toString($destroy);
 	}
 }

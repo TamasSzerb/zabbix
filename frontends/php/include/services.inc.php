@@ -17,8 +17,7 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-?>
-<?php
+
 
 /*
  * Function: get_service_status
@@ -243,7 +242,7 @@ function createServiceMonitoringTree(array $services, array $slaData, $period, &
 		);
 
 		$caption = array(new CLink(
-			array(get_node_name_by_elid($service['serviceid'], null, NAME_DELIMITER), $service['name']),
+			array(get_node_name_by_elid($service['serviceid'], null, ': '), $service['name']),
 			'report3.php?serviceid='.$service['serviceid'].'&year='.date('Y').'&period='.$periods[$period]
 		));
 		$trigger = $service['trigger'];
@@ -364,7 +363,7 @@ function update_services_rec($serviceid) {
 		if ($algorithm == SERVICE_ALGORITHM_MAX || $algorithm == SERVICE_ALGORITHM_MIN) {
 			$status = get_service_status($serviceupid, $algorithm);
 			add_service_alarm($serviceupid, $status, time());
-			DBexecute('UPDATE services SET status='.$status.' WHERE serviceid='.zbx_dbstr($serviceupid));
+			DBexecute('UPDATE services SET status='.zbx_dbstr($status).' WHERE serviceid='.zbx_dbstr($serviceupid));
 		}
 		elseif ($algorithm != SERVICE_ALGORITHM_NONE) {
 			error(_('Unknown calculation algorithm of service status').SPACE.'['.$algorithm.']');
@@ -387,7 +386,7 @@ function update_services_rec($serviceid) {
  * @param $status
  */
 function update_services($triggerid, $status) {
-	DBexecute('UPDATE services SET status='.$status.' WHERE triggerid='.zbx_dbstr($triggerid));
+	DBexecute('UPDATE services SET status='.zbx_dbstr($status).' WHERE triggerid='.zbx_dbstr($triggerid));
 
 	$result = DBselect('SELECT s.serviceid FROM services s WHERE s.triggerid='.zbx_dbstr($triggerid));
 	while ($row = DBfetch($result)) {
@@ -416,7 +415,7 @@ function update_services_status_all() {
 	);
 	while ($row = DBfetch($result)) {
 		$status = get_service_status($row['serviceid'], $row['algorithm'], $row['triggerid']);
-		DBexecute('UPDATE services SET status='.$status.' WHERE serviceid='.$row['serviceid']);
+		DBexecute('UPDATE services SET status='.zbx_dbstr($status).' WHERE serviceid='.$row['serviceid']);
 		add_service_alarm($row['serviceid'], $status, time());
 	}
 
@@ -504,4 +503,17 @@ function checkServiceTime(array $serviceTime) {
 	if ($serviceTime['ts_from'] >= $serviceTime['ts_to']) {
 		throw new APIException(ZBX_API_ERROR_PARAMETERS, _('Service start time must be less than end time.'));
 	}
+}
+
+/**
+ * Convert 1.8 service time format (unixtime) to 2.0 format (seconds starting from Sunday).
+ *
+ * @param int $time
+ *
+ * @return int
+ */
+function prepareServiceTime($time) {
+	return ($time > SEC_PER_WEEK * 2)
+		? date('w', $time) * SEC_PER_DAY + ($time - mktime(null, null, null, date('n', $time), date('j', $time), date('Y', $time)))
+		: $time;
 }

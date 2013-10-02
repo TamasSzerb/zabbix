@@ -70,11 +70,12 @@ static int	get_history_lastid(int master_nodeid, int nodeid, const ZBX_TABLE *ta
 		if (0 == strncmp(answer, "FAIL", 4))
 		{
 			zabbix_log(LOG_LEVEL_ERR, "NODE %d: %s() FAIL from node %d for node %d",
-					CONFIG_NODEID, __function_name, master_nodeid, nodeid);
+				CONFIG_NODEID, __function_name, master_nodeid, nodeid);
 			goto disconnect;
 		}
 
-		res = is_uint64(answer, lastid);
+		ZBX_STR2UINT64(*lastid, answer);
+		res = SUCCEED;
 disconnect:
 		disconnect_node(&sock);
 	}
@@ -146,12 +147,8 @@ static void	process_history_table_data(const ZBX_TABLE *table, int master_nodeid
 	}
 	else	/* ZBX_HISTORY */
 	{
-		zbx_snprintf_alloc(&tmp, &tmp_alloc, &tmp_offset,
-				" from %s"
-				" where %s>" ZBX_FS_UI64
-					ZBX_SQL_NODE
-				" order by %s",
-				table->table, table->recid, lastid, DBand_node(table->recid, nodeid), table->recid);
+		zbx_snprintf_alloc(&tmp, &tmp_alloc, &tmp_offset, " from %s where %s>" ZBX_FS_UI64 DB_NODE " order by %s",
+			table->table, table->recid, lastid, DBnode(table->recid, nodeid), table->recid);
 	}
 
 	result = DBselectN(tmp, 10000);
@@ -189,7 +186,7 @@ static void	process_history_table_data(const ZBX_TABLE *table, int master_nodeid
 							row[fld], ZBX_DM_DELIMITER);
 				}
 			}
-			else	/* ZBX_TYPE_CHAR ZBX_TYPE_BLOB ZBX_TYPE_TEXT ZBX_TYPE_SHORTTEXT ZBX_TYPE_LONGTEXT */
+			else	/* ZBX_TYPE_CHAR ZBX_TYPE_BLOB ZBX_TYPE_TEXT */
 			{
 				zbx_binary2hex((u_char *)row[fld], strlen(row[fld]), &tmp, &tmp_alloc);
 				zbx_snprintf_alloc(&data, &data_alloc, &data_offset, "%s%c", tmp, ZBX_DM_DELIMITER);
@@ -280,7 +277,7 @@ static void	process_history_tables(int master_nodeid, int nodeid)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-void	main_historysender(void)
+void	main_historysender()
 {
 	const char	*__function_name = "main_historysender";
 	DB_RESULT	result;

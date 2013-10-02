@@ -23,7 +23,7 @@
 		}).change();
 	});
 
-	function add_child_service(name, serviceid, trigger) {
+	function add_child_service(name, serviceid, trigger, triggerid) {
 		if (jQuery('#children_' + serviceid + '_serviceid').attr('id') == null) {
 			var tr = document.createElement('tr');
 			tr.setAttribute('id', 'children_' + serviceid);
@@ -42,12 +42,18 @@
 			inputName.setAttribute('name', 'children[' + serviceid + '][name]');
 			inputName.setAttribute('id', 'children_' + serviceid + '_name');
 
+			var inputTrigger = document.createElement('input');
+			inputTrigger.setAttribute('type', 'hidden');
+			inputTrigger.setAttribute('value', triggerid);
+			inputTrigger.setAttribute('name', 'children[' + serviceid + '][triggerid]');
+
 			var url = document.createElement('a');
 			url.setAttribute('href', 'services.php?form=1&serviceid=' + serviceid);
 			url.appendChild(document.createTextNode(name));
 
 			td.appendChild(inputServiceId);
 			td.appendChild(inputName);
+			td.appendChild(inputTrigger);
 			td.appendChild(url);
 			tr.appendChild(td);
 
@@ -86,6 +92,7 @@
 		removeObjectById('children_' + serviceid);
 		removeObjectById('children_' + serviceid + '_name');
 		removeObjectById('children_' + serviceid + '_serviceid');
+		removeObjectById('children_' + serviceid + '_triggerid');
 	}
 
 	function removeTime(id) {
@@ -95,6 +102,4 @@
 		removeObjectById('times_' + id + '_to');
 		removeObjectById('times_' + id + '_note');
 	}
-
-	createPlaceholders();
 </script>

@@ -65,7 +65,7 @@ class testFormAdministrationMediaTypes extends CWebTest {
 		$this->zbxTestTextPresent('CONFIGURATION OF MEDIA TYPES');
 		$this->zbxTestTextPresent('Media');
 		$this->zbxTestTextNotPresent('Displaying');
-		$this->zbxTestTextPresent(array('Name', 'Type', 'SMTP server', 'SMTP helo', 'SMTP email'));
+		$this->zbxTestTextPresent(array('Description', 'Type', 'SMTP server', 'SMTP helo', 'SMTP email'));
 
 		$this->assertElementPresent('description');
 		$this->assertAttribute("//input[@id='description']/@maxlength", '100');

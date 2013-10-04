@@ -53,28 +53,9 @@ $fields = array(
 );
 check_fields($fields);
 
-/*
- * Permissions
- */
-if (get_request('groupid') && !API::HostGroup()->isReadable(array($_REQUEST['groupid']))) {
-	access_deny();
-}
-if (get_request('hostid') && !API::Host()->isReadable(array($_REQUEST['hostid']))) {
-	access_deny();
-}
-if (get_request('graphid')) {
-	$graphs = API::Graph()->get(array(
-		'graphids' => array($_REQUEST['graphid']),
-		'output' => array('graphid')
-	));
-	if (!$graphs) {
-		access_deny();
-	}
-}
-
 $pageFilter = new CPageFilter(array(
-	'groups' => array('real_hosts' => true, 'with_graphs' => true),
-	'hosts' => array('with_graphs' => true),
+	'groups' => array('monitored_hosts' => true, 'with_graphs' => true),
+	'hosts' => array('monitored_hosts' => true, 'with_graphs' => true),
 	'groupid' => get_request('groupid', null),
 	'hostid' => get_request('hostid', null),
 	'graphs' => array('templated' => 0),
@@ -88,6 +69,9 @@ if (isset($_REQUEST['favobj'])) {
 	if ($_REQUEST['favobj'] == 'filter') {
 		CProfile::update('web.charts.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
 	}
+	if ($_REQUEST['favobj'] == 'hat') {
+		CProfile::update('web.charts.hats.'.$_REQUEST['favref'].'.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
 	if ($_REQUEST['favobj'] == 'timelinefixedperiod') {
 		if (isset($_REQUEST['favid'])) {
 			CProfile::update('web.screens.timelinefixed', $_REQUEST['favid'], PROFILE_TYPE_INT);
@@ -96,14 +80,14 @@ if (isset($_REQUEST['favobj'])) {
 	if (str_in_array($_REQUEST['favobj'], array('itemid', 'graphid'))) {
 		$result = false;
 		if ($_REQUEST['favaction'] == 'add') {
-			$result = CFavorite::add('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = add2favorites('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
 			if ($result) {
 				echo '$("addrm_fav").title = "'._('Remove from favourites').'";'."\n";
 				echo '$("addrm_fav").onclick = function() { rm4favorites("graphid", "'.$_REQUEST['favid'].'", 0); }'."\n";
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
-			$result = CFavorite::remove('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = rm4favorites('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
 
 			if ($result) {
 				echo '$("addrm_fav").title = "'._('Add to favourites').'";'."\n";
@@ -125,7 +109,7 @@ if (!empty($_REQUEST['period']) || !empty($_REQUEST['stime'])) {
 		'stime' => get_request('stime')
 	));
 
-	$curl = new Curl();
+	$curl = new Curl($_SERVER['REQUEST_URI']);
 	$curl->removeArgument('period');
 	$curl->removeArgument('stime');
 
@@ -146,7 +130,7 @@ if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
 $data = array(
 	'pageFilter' => $pageFilter,
 	'graphid' => $pageFilter->graphid,
-	'fullscreen' => $_REQUEST['fullscreen']
+	'fullscreen' => get_request('fullscreen')
 );
 
 // render view

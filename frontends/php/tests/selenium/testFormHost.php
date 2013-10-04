@@ -82,19 +82,19 @@ class testFormHost extends CWebTest {
 	public function testFormHost_AddMacros() {
 		$this->zbxTestLogin('hosts.php');
 		$this->zbxTestClickWait('link='.$this->host);
-		$this->zbxTestClick('tab_macroTab');
-		$this->input_type('macros_0_macro', '{$TEST_MACRO}');
-		$this->input_type('macros_0_value', '1');
-		$this->zbxTestClick('macro_add');
-		$this->verifyElementPresent('macros_1_macro');
-		$this->input_type('macros_1_macro', '{$TEST_MACRO2}');
-		$this->input_type('macros_1_value', '2');
+		$this->tab_switch('Macros');
+		$this->type("name=macros[0][macro]", '{$TEST_MACRO}');
+		$this->type("name=macros[0][value]", "1");
+		$this->zbxTestClick("//table[@id='tbl_macros']//input[@id='macro_add']");
+		$this->verifyElementPresent("name=macros[1][macro]");
+		$this->type("name=macros[1][macro]", '{$TEST_MACRO2}');
+		$this->type("name=macros[1][value]", "2");
 		$this->zbxTestClickWait('save');
-		$this->zbxTestTextPresent('Host updated');
+		$this->zbxTestTextPresent("Host updated");
 	}
 
 	public function testFormHost_CreateHostNoGroups() {
-		$host = 'Test host without groups';
+		$host = 'Test host w/o groups';
 
 		$sqlHosts = 'select * from hosts where host='.zbx_dbstr($host);
 		$oldHashHosts = DBhash($sqlHosts);
@@ -103,7 +103,6 @@ class testFormHost extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 		$this->zbxTestClickWait('form');
 		$this->input_type('host', $host);
-
 		$this->zbxTestClickWait('save');
 
 		$this->checkTitle('Configuration of hosts');
@@ -242,21 +241,7 @@ class testFormHost extends CWebTest {
 	}
 
 	public function testFormHost_TemplateLink() {
-		$this->zbxTestLogin('hosts.php');
-		$this->zbxTestDropdownSelectWait('groupid', 'all');
-		$this->zbxTestClickWait('link=Visible host for template linkage');
-
-		$this->zbxTestClick('tab_templateTab');
-		$this->assertElementPresent("//div[@id='templates_']/input");
-		$this->input_type("//div[@id='templates_']/input", 'Template OS Linux');
-		sleep(1);
-		$this->zbxTestClick("//span[@class='matched']");
-		$this->zbxTestClickWait('add_template');
-
-		$this->zbxTestTextPresent('Template OS Linux');
-		$this->zbxTestClickWait('save');
-		$this->checkTitle('Configuration of hosts');
-		$this->zbxTestTextPresent('Host updated');
+		$this->templateLink("Visible host for template linkage", "Template OS Linux");
 	}
 
 	public function testFormHost_TemplateUnlink() {
@@ -271,19 +256,13 @@ class testFormHost extends CWebTest {
 		$row = DBfetch(DBselect($sql));
 		$hostid = $row['hostid'];
 
-		$sql2 = "select hostid from hosts where host='".$template."';";
-		$this->assertEquals(1, DBcount($sql2));
-		$row2 = DBfetch(DBselect($sql2));
-		$hostid2 = $row2['hostid'];
-
 		$this->zbxTestLogin('hosts.php');
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 		$this->zbxTestClickWait('link='.$name);
 		$this->tab_switch('Templates');
 		$this->zbxTestTextPresent($template);
-
 		// clicks button named "Unlink" next to a template by name
-		$this->zbxTestClickWait('unlink_'.$hostid2);
+		$this->zbxTestClickWait("xpath=//div[text()='$template']/../div[@class='dd']/input[@value='Unlink']");
 
 		$this->zbxTestTextNotPresent($template);
 		$this->zbxTestClickWait('save');
@@ -308,21 +287,7 @@ class testFormHost extends CWebTest {
 	}
 
 	public function testFormHost_TemplateLinkUpdate() {
-		$this->zbxTestLogin('hosts.php');
-		$this->zbxTestDropdownSelectWait('groupid', 'all');
-		$this->zbxTestClickWait('link=Visible host for template linkage');
-
-		$this->zbxTestClick('tab_templateTab');
-		$this->assertElementPresent("//div[@id='templates_']/input");
-		$this->input_type("//div[@id='templates_']/input", 'Template OS Linux');
-		sleep(1);
-		$this->zbxTestClick("//span[@class='matched']");
-		$this->zbxTestClickWait('add_template');
-
-		$this->zbxTestTextPresent('Template OS Linux');
-		$this->zbxTestClickWait('save');
-		$this->checkTitle('Configuration of hosts');
-		$this->zbxTestTextPresent('Host updated');
+		$this->templateLink("Visible host for template linkage", "Template OS Linux");
 	}
 
 	public function testFormHost_TemplateUnlinkAndClear() {
@@ -337,33 +302,13 @@ class testFormHost extends CWebTest {
 		$this->tab_switch('Templates');
 		$this->zbxTestTextPresent($template);
 
-		$template = 'Template OS Linux';
-		$host = 'Template linkage test host';
-		$name = 'Visible host for template linkage';
-
-		$sql = 'select hostid from hosts where host='.zbx_dbstr($host).' and status in ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.')';
-		$this->assertEquals(1, DBcount($sql));
-		$row = DBfetch(DBselect($sql));
-		$hostid = $row['hostid'];
-
-		$sql2 = "select hostid from hosts where host='".$template."';";
-		$this->assertEquals(1, DBcount($sql2));
-		$row2 = DBfetch(DBselect($sql2));
-		$hostid2 = $row2['hostid'];
-
-		$this->zbxTestLogin('hosts.php');
-		$this->zbxTestDropdownSelectWait('groupid', 'all');
-		$this->zbxTestClickWait('link='.$name);
-		$this->tab_switch('Templates');
-		$this->zbxTestTextPresent($template);
-
-		// clicks button named "Unlink" next to a template by name
-		$this->zbxTestClickWait('unlink_and_clear_'.$hostid2);
+		// clicks button named "Unlink and clear" next to template named $template
+		$this->zbxTestClickWait("xpath=//div[text()='$template']/../div[@class='dd']/input[@value='Unlink']/../input[@value='Unlink and clear']");
 
 		$this->zbxTestTextNotPresent($template);
 		$this->zbxTestClickWait('save');
 		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host updated');
-
 	}
+
 }

@@ -75,7 +75,7 @@ if ($_REQUEST['config'] == ZBX_AUTH_INTERNAL) {
 
 		// reset all sessions
 		if ($isAuthenticationTypeChanged) {
-			DBexecute('UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.' WHERE sessionid<>'.zbx_dbstr(CWebUser::$data['sessionid']));
+			DBexecute('UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.' WHERE sessionid<>'.zbx_dbstr($USER_DETAILS['sessionid']));
 		}
 
 		// update config
@@ -100,19 +100,18 @@ elseif ($_REQUEST['config'] == ZBX_AUTH_LDAP) {
 		try {
 			$config['authentication_type'] = $_REQUEST['config'];
 
-			$ldapValidator = new CLdapAuthValidator(array('conf' => $ldap_cnf));
-			$result = $ldapValidator->validate(array(
-				'user' => get_request('user', CWebUser::$data['alias']),
-				'password' => get_request('user_password', '')
-			));
-			if (!$result) {
-				error(_('Login name or password is incorrect.'));
+			// check login/password
+			$ldap = new CLdap($ldap_cnf);
+			$ldap->connect();
+			$login = $ldap->checkPass(get_request('user', $USER_DETAILS['alias']), get_request('user_password', ''));
+			if (!$login) {
+				error(_('Login name or password is incorrect'));
 				throw new Exception();
 			}
 
 			// reset all sessions
 			if ($isAuthenticationTypeChanged) {
-				DBexecute('UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.' WHERE sessionid<>'.zbx_dbstr(CWebUser::$data['sessionid']));
+				DBexecute('UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.' WHERE sessionid<>'.zbx_dbstr($USER_DETAILS['sessionid']));
 			}
 
 			// update config
@@ -128,15 +127,14 @@ elseif ($_REQUEST['config'] == ZBX_AUTH_LDAP) {
 		}
 	}
 	elseif (isset($_REQUEST['test'])) {
-		$ldapValidator = new CLdapAuthValidator(array('conf' => $ldap_cnf));
-		$result = $ldapValidator->validate(array(
-			'user' => get_request('user', CWebUser::$data['alias']),
-			'password' => get_request('user_password', '')
-		));
-		if (!$result) {
-			error(_('Login name or password is incorrect.'));
-		}
+		// check login/password
+		$ldap = new CLdap($ldap_cnf);
+		$ldap->connect();
+		$result = $ldap->checkPass(get_request('user', $USER_DETAILS['alias']), get_request('user_password', ''));
 
+		if (!$result)
+			error(_('Login name or password is incorrect'));{
+		}
 		show_messages($result, _('LDAP login successful'), _('LDAP login was not successful'));
 	}
 }
@@ -152,7 +150,7 @@ elseif ($_REQUEST['config'] == ZBX_AUTH_HTTP) {
 
 		// reset all sessions
 		if ($isAuthenticationTypeChanged) {
-			DBexecute('UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.' WHERE sessionid<>'.zbx_dbstr(CWebUser::$data['sessionid']));
+			DBexecute('UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.' WHERE sessionid<>'.zbx_dbstr($USER_DETAILS['sessionid']));
 		}
 
 		// update config
@@ -174,7 +172,7 @@ show_messages();
 $data['config'] = $_REQUEST['config'];
 $data['config_data'] = $config;
 $data['is_authentication_type_changed'] = $isAuthenticationTypeChanged;
-$data['user'] = get_request('user', CWebUser::$data['alias']);
+$data['user'] = get_request('user', $USER_DETAILS['alias']);
 $data['user_password'] = get_request('user_password', '');
 $data['user_list'] = null;
 
@@ -194,12 +192,12 @@ switch ($data['config']) {
 }
 
 // get user list
-if (get_user_auth(CWebUser::$data['userid']) == GROUP_GUI_ACCESS_INTERNAL) {
+if (get_user_auth($USER_DETAILS['userid']) == GROUP_GUI_ACCESS_INTERNAL) {
 	$data['user_list'] = DBfetchArray(DBselect(
 		'SELECT u.alias,u.userid'.
 		' FROM users u'.
-		whereDbNode('u.userid').
-		' ORDER BY u.alias'
+		' WHERE '.DBin_node('u.userid').
+		' ORDER BY alias'
 	));
 }
 
@@ -208,4 +206,5 @@ $authenticationView = new CView('administration.authentication.edit', $data);
 $authenticationView->render();
 $authenticationView->show();
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+require_once 'include/page_footer.php';
+?>

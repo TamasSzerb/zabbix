@@ -81,7 +81,7 @@ if (isset($_REQUEST['save'])) {
 				$val = _('None');
 			}
 			else {
-				$val = DBfetch(DBselect('SELECT u.name FROM usrgrp u WHERE u.usrgrpid='.zbx_dbstr($val)));
+				$val = DBfetch(DBselect('SELECT u.name FROM usrgrp u WHERE u.usrgrpid='.$val));
 				$val = $val['name'];
 			}
 
@@ -134,15 +134,9 @@ else {
 $data['discovery_groups'] = API::HostGroup()->get(array(
 	'sortfield' => 'name',
 	'editable' => true,
-	'output' => API_OUTPUT_EXTEND,
-	'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL)
+	'output' => API_OUTPUT_EXTEND
 ));
-$data['alert_usrgrps'] = DBfetchArray(DBselect(
-		'SELECT u.usrgrpid,u.name'.
-		' FROM usrgrp u'.
-		whereDbNode('u.usrgrpid').
-		' ORDER BY u.name'
-));
+$data['alert_usrgrps'] = DBfetchArray(DBselect('SELECT u.usrgrpid,u.name FROM usrgrp u WHERE '.DBin_node('u.usrgrpid').' ORDER BY u.name'));
 
 $otherForm = new CView('administration.general.other.edit', $data);
 $cnf_wdgt->addItem($otherForm->render());

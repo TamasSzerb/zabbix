@@ -19,6 +19,8 @@
 **/
 
 
+global $USER_DETAILS;
+
 $discoveryWidget = new CWidget('hat_discovery');
 
 // create header form
@@ -115,7 +117,7 @@ foreach ($this->data['drules'] as $drule) {
 				if (isset($this->data['macros'][$key_])) {
 					$key_ = $this->data['macros'][$key_]['value'];
 				}
-				$key_ = NAME_DELIMITER.$key_;
+				$key_ = ': '.$key_;
 			}
 
 			$serviceName = discovery_check_type2str($dservice['type']).discovery_port2str($dservice['type'], $dservice['port']).$key_;
@@ -143,7 +145,7 @@ foreach ($this->data['drules'] as $drule) {
 			new CSpan(empty($h_data['host']) ? '-' : $h_data['host']),
 			new CSpan((($h_data['time'] == 0 || $h_data['type'] === 'slave')
 				? ''
-				: convert_units(array('value' => time() - $h_data['time'], 'units' => 'uptime'))), $h_data['class'])
+				: convert_units(time() - $h_data['time'], 'uptime')), $h_data['class'])
 		);
 
 		foreach ($this->data['services'] as $name => $foo) {

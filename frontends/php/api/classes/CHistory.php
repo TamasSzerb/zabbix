@@ -20,15 +20,14 @@
 
 
 /**
- * Class containing methods for operations with histories.
- *
+ * File containing CHistory class for API.
  * @package API
  */
+/**
+ * Class containing methods for operations with History of Items
+ *
+ */
 class CHistory extends CZBXAPI {
-
-	protected $tableName = 'history';
-	protected $tableAlias = 'h';
-	protected $sortColumns = array('itemid', 'clock');
 
 	public function __construct() {
 		// considering the quirky nature of the history API,
@@ -36,7 +35,7 @@ class CHistory extends CZBXAPI {
 	}
 
 	/**
-	 * Get history data.
+	 * Get history data
 	 *
 	 * @param array $options
 	 * @param array $options['itemids']
@@ -44,12 +43,17 @@ class CHistory extends CZBXAPI {
 	 * @param string $options['pattern']
 	 * @param int $options['limit']
 	 * @param string $options['order']
-	 *
 	 * @return array|int item data as array or false if error
 	 */
 	public function get($options = array()) {
 		$result = array();
 		$nodeCheck = false;
+
+		// allowed columns for sorting
+		$sortColumns = array('itemid', 'clock');
+
+		// allowed output options for [ select_* ] params
+		$subselectsAllowedOutputs = array(API_OUTPUT_REFER, API_OUTPUT_EXTEND);
 
 		$sqlParts = array(
 			'select'	=> array('history' => 'h.itemid'),
@@ -89,10 +93,25 @@ class CHistory extends CZBXAPI {
 		);
 		$options = zbx_array_merge($defOptions, $options);
 
-		if (!$tableName = CHistoryManager::getTableName($options['history'])) {
-			$tableName = 'history';
+		switch ($options['history']) {
+			case ITEM_VALUE_TYPE_LOG:
+				$sqlParts['from']['history'] = 'history_log h';
+				$sortColumns[] = 'id';
+				break;
+			case ITEM_VALUE_TYPE_TEXT:
+				$sqlParts['from']['history'] = 'history_text h';
+				$sortColumns[] = 'id';
+				break;
+			case ITEM_VALUE_TYPE_STR:
+				$sqlParts['from']['history'] = 'history_str h';
+				break;
+			case ITEM_VALUE_TYPE_UINT64:
+				$sqlParts['from']['history'] = 'history_uint h';
+				break;
+			case ITEM_VALUE_TYPE_FLOAT:
+			default:
+				$sqlParts['from']['history'] = 'history h';
 		}
-		$sqlParts['from']['history'] = $tableName.' h';
 
 		// editable + PERMISSION CHECK
 		if (USER_TYPE_SUPER_ADMIN == self::$userData['type'] || $options['nopermissions']) {
@@ -120,7 +139,7 @@ class CHistory extends CZBXAPI {
 
 			if (!$nodeCheck) {
 				$nodeCheck = true;
-				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'h.itemid', $nodeids);
+				$sqlParts['where'][] = DBin_node('h.itemid', $nodeids);
 			}
 		}
 
@@ -128,20 +147,23 @@ class CHistory extends CZBXAPI {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
-			$sqlParts['select']['hostid'] = 'i.hostid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['hostid'] = 'i.hostid';
+			}
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where']['i'] = dbConditionInt('i.hostid', $options['hostids']);
 			$sqlParts['where']['hi'] = 'h.itemid=i.itemid';
 
 			if (!$nodeCheck) {
 				$nodeCheck = true;
-				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'i.hostid', $nodeids);
+				$sqlParts['where'][] = DBin_node('i.hostid', $nodeids);
 			}
 		}
 
 		// should be last, after all ****IDS checks
 		if (!$nodeCheck) {
-			$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'h.itemid', $nodeids);
+			$nodeCheck = true;
+			$sqlParts['where'][] = DBin_node('h.itemid', $nodeids);
 		}
 
 		// time_from
@@ -194,7 +216,7 @@ class CHistory extends CZBXAPI {
 		}
 
 		// sorting
-		$sqlParts = $this->applyQuerySortOptions($tableName, $this->tableAlias(), $options, $sqlParts);
+		zbx_db_sorting($sqlParts, $options, $sortColumns, 'h');
 
 		// limit
 		if (zbx_ctype_digit($options['limit']) && $options['limit']) {
@@ -210,6 +232,7 @@ class CHistory extends CZBXAPI {
 
 		$sqlSelect = '';
 		$sqlFrom = '';
+		$sqlWhere = '';
 		$sqlOrder = '';
 		if (!empty($sqlParts['select'])) {
 			$sqlSelect .= implode(',', $sqlParts['select']);
@@ -217,7 +240,9 @@ class CHistory extends CZBXAPI {
 		if (!empty($sqlParts['from'])) {
 			$sqlFrom .= implode(',', $sqlParts['from']);
 		}
-		$sqlWhere = !empty($sqlParts['where']) ? ' WHERE '.implode(' AND ', $sqlParts['where']) : '';
+		if (!empty($sqlParts['where'])) {
+			$sqlWhere .= implode(' AND ', $sqlParts['where']);
+		}
 		if (!empty($sqlParts['order'])) {
 			$sqlOrder .= ' ORDER BY '.implode(',', $sqlParts['order']);
 		}
@@ -225,8 +250,9 @@ class CHistory extends CZBXAPI {
 
 		$sql = 'SELECT '.$sqlSelect.
 				' FROM '.$sqlFrom.
-				$sqlWhere.
-				$sqlOrder;
+				' WHERE '.
+					$sqlWhere.
+					$sqlOrder;
 		$dbRes = DBselect($sql, $sqlLimit);
 		$count = 0;
 		$group = array();
@@ -237,36 +263,41 @@ class CHistory extends CZBXAPI {
 			else {
 				$itemids[$data['itemid']] = $data['itemid'];
 
-				$result[$count] = array();
-
-				// hostids
-				if (isset($data['hostid'])) {
-					if (!isset($result[$count]['hosts'])) {
-						$result[$count]['hosts'] = array();
-					}
-					$result[$count]['hosts'][] = array('hostid' => $data['hostid']);
-					unset($data['hostid']);
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$count] = array('itemid' => $data['itemid']);
 				}
+				else {
+					$result[$count] = array();
 
-				// triggerids
-				if (isset($data['triggerid'])) {
-					if (!isset($result[$count]['triggers'])) {
-						$result[$count]['triggers'] = array();
+					// hostids
+					if (isset($data['hostid'])) {
+						if (!isset($result[$count]['hosts'])) {
+							$result[$count]['hosts'] = array();
+						}
+						$result[$count]['hosts'][] = array('hostid' => $data['hostid']);
+						unset($data['hostid']);
 					}
-					$result[$count]['triggers'][] = array('triggerid' => $data['triggerid']);
-					unset($data['triggerid']);
-				}
-				$result[$count] += $data;
 
-				// grouping
-				if ($groupOutput) {
-					$dataid = $data[$options['groupOutput']];
-					if (!isset($group[$dataid])) {
-						$group[$dataid] = array();
+					// triggerids
+					if (isset($data['triggerid'])) {
+						if (!isset($result[$count]['triggers'])) {
+							$result[$count]['triggers'] = array();
+						}
+						$result[$count]['triggers'][] = array('triggerid' => $data['triggerid']);
+						unset($data['triggerid']);
 					}
-					$group[$dataid][] = $result[$count];
+					$result[$count] += $data;
+
+					// grouping
+					if ($groupOutput) {
+						$dataid = $data[$options['groupOutput']];
+						if (!isset($group[$dataid])) {
+							$group[$dataid] = array();
+						}
+						$group[$dataid][] = $result[$count];
+					}
+					$count++;
 				}
-				$count++;
 			}
 		}
 
@@ -276,20 +307,9 @@ class CHistory extends CZBXAPI {
 		return $result;
 	}
 
-	protected function applyQuerySortOptions($tableName, $tableAlias, array $options, array $sqlParts) {
-		$isIdFieldUsed = false;
+	public function create($items = array()) {
+	}
 
-		if ($options['history'] == ITEM_VALUE_TYPE_LOG || $options['history'] == ITEM_VALUE_TYPE_TEXT) {
-			$this->sortColumns['id'] = 'id';
-			$isIdFieldUsed = true;
-		}
-
-		$sqlParts = parent::applyQuerySortOptions($tableName, $tableAlias, $options, $sqlParts);
-
-		if ($isIdFieldUsed) {
-			unset($this->sortColumns['id']);
-		}
-
-		return $sqlParts;
+	public function delete($itemids = array()) {
 	}
 }

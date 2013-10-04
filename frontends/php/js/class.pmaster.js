@@ -406,12 +406,7 @@ var CDoll = Class.create(CDebug,{
 				forcePlaceholderSize: true,
 				placeholder: 'widget ui-corner-all ui-sortable-placeholder',
 				opacity: '0.8',
-				update: function(e, ui) {
-					// prevent duplicate save requests when moving a widget from one column to another
-					if (!ui.sender) {
-						jQuery('.column').portletState('save', {'name': 'dashboard'});
-					}
-				}
+				update: function() { jQuery('.column').portletState('save', {'name': 'dashboard'}); }
 			})
 			.portletState('load', {'name': 'dashboard'})
 			.children('div')
@@ -440,23 +435,61 @@ var CDoll = Class.create(CDebug,{
 			});
 
 			var strPos = Object.toJSON(positions);
-
-			var params = {
-				'favaction': 'sort',
-				'favobj' : 'hat',
-				'favdata': strPos
-			}
-			send_params(params);
+			$.cookie(settings.name, strPos, {expires: 365});
 
 			return this;
 		},
 		load: function(method, options) {
+			/**
+			 * Returns true if the widgets position is set in the positions object.
+			 *
+			 * @param {string} name
+			 * @param {object} positions
+			 *
+			 * @returns {boolean}
+			 */
+			function widgedIsPositioned(name, positions) {
+				for (var colNum in positions) {
+					for (var rowNum in positions[colNum]) {
+						if (positions[colNum][rowNum] == name) {
+							return true;
+						}
+					}
+				}
+
+				return false;
+			}
+
 			var settings = {
 				'name': 'sortableOrder',
 				'sortable': '.widget'
 			};
 
 			$.extend(settings, options);
+
+			var strPos = $.cookie(settings.name);
+			var positions = $.parseJSON(strPos);
+			if (!positions) {
+				return this;
+			}
+
+			// if the discovery widget is not positioned, add it to the end of the second column
+			if (!widgedIsPositioned('hat_dscvry_widget', positions)) {
+				positions[1][positions[1].length] = 'hat_dscvry_widget';
+			}
+
+			this.each(function(colNum, column) {
+				if (!isset(colNum, positions)) {
+					return;
+				}
+
+				for (var rowNum in positions[colNum]) {
+					if (empty(positions[colNum][rowNum])) {
+						continue;
+					}
+					$('#' + positions[colNum][rowNum]).appendTo(column);
+				}
+			});
 
 			return this;
 		}

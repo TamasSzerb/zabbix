@@ -23,8 +23,8 @@ function getRegexp($regexpId) {
 	return DBfetch(DBselect(
 		'SELECT re.*'.
 		' FROM regexps re'.
-		' WHERE regexpid='.zbx_dbstr($regexpId).
-			andDbNode('re.regexpid')
+		' WHERE '.DBin_node('re.regexpid').
+			' AND regexpid='.zbx_dbstr($regexpId)
 	));
 }
 
@@ -34,8 +34,8 @@ function getRegexpExpressions($regexpId) {
 	$dbExpressions = DBselect(
 		'SELECT e.expressionid,e.expression,e.expression_type,e.exp_delimiter,e.case_sensitive'.
 		' FROM expressions e'.
-		' WHERE regexpid='.zbx_dbstr($regexpId).
-			andDbNode('e.expressionid')
+		' WHERE '.DBin_node('e.expressionid').
+			' AND regexpid='.zbx_dbstr($regexpId)
 	);
 	while ($expression = DBfetch($dbExpressions)) {
 		$expressions[$expression['expressionid']] = $expression;
@@ -54,10 +54,10 @@ function addRegexp(array $regexp, array $expressions) {
 		}
 
 		// check duplicate name
-		$sql = 'SELECT re.regexpid'.
-				' FROM regexps re'.
-				' WHERE re.name='.zbx_dbstr($regexp['name']).
-					andDbNode('re.regexpid');
+		$sql = 'SELECT re.regexpid '.
+				'FROM regexps re '.
+				'WHERE re.name='.zbx_dbstr($regexp['name']).
+				' AND '.DBin_node('re.regexpid');
 		if (DBfetch(DBselect($sql))) {
 			throw new Exception(_s('Regular expression "%s" already exists.', $regexp['name']));
 		}
@@ -93,10 +93,10 @@ function updateRegexp(array $regexp, array $expressions) {
 
 		// check duplicate name
 		$dbRegexp = DBfetch(DBselect(
-			'SELECT re.regexpid'.
-			' FROM regexps re'.
-			' WHERE re.name='.zbx_dbstr($regexp['name']).
-				andDbNode('re.regexpid')
+			'SELECT re.regexpid '.
+			'FROM regexps re '.
+			'WHERE re.name='.zbx_dbstr($regexp['name']).
+				' AND '.DBin_node('re.regexpid')
 		));
 		if ($dbRegexp && bccomp($regexpId, $dbRegexp['regexpid']) != 0) {
 			throw new Exception(_s('Regular expression "%s" already exists.', $regexp['name']));
@@ -122,15 +122,14 @@ function updateRegexp(array $regexp, array $expressions) {
  * If all fields are equal to existing expression, that expression is not touched.
  * Other expressions are removed and new ones created.
  *
- * @param string $regexpId
- * @param array  $expressions
+ * @param $regexpId
+ * @param array $expressions
  */
 function rewriteRegexpExpressions($regexpId, array $expressions) {
 	$dbExpressions = getRegexpExpressions($regexpId);
 
 	$expressionsToAdd = array();
 	$expressionsToUpdate = array();
-
 	foreach ($expressions as $expression) {
 		if (!isset($expression['expressionid'])) {
 			$expressionsToAdd[] = $expression;
@@ -141,16 +140,16 @@ function rewriteRegexpExpressions($regexpId, array $expressions) {
 		}
 	}
 
-	if ($dbExpressions) {
+	if (!empty($dbExpressions)) {
 		$dbExpressionIds = zbx_objectValues($dbExpressions, 'expressionid');
 		deleteRegexpExpressions($dbExpressionIds);
 	}
 
-	if ($expressionsToAdd) {
+	if (!empty($expressionsToAdd)) {
 		addRegexpExpressions($regexpId, $expressionsToAdd);
 	}
 
-	if ($expressionsToUpdate) {
+	if (!empty($expressionsToUpdate)) {
 		updateRegexpExpressions($expressionsToUpdate);
 	}
 }
@@ -187,30 +186,19 @@ function deleteRegexpExpressions(array $expressionIds) {
 	DB::delete('expressions', array('expressionid' => $expressionIds));
 }
 
-function expression_type2str($type = null) {
-	$types = array(
-		EXPRESSION_TYPE_INCLUDED => _('Character string included'),
-		EXPRESSION_TYPE_ANY_INCLUDED => _('Any character string included'),
-		EXPRESSION_TYPE_NOT_INCLUDED => _('Character string not included'),
-		EXPRESSION_TYPE_TRUE => _('Result is TRUE'),
-		EXPRESSION_TYPE_FALSE => _('Result is FALSE')
-	);
-
-	if ($type === null) {
-		return $types;
+function expression_type2str($expressionType) {
+	switch ($expressionType) {
+		case EXPRESSION_TYPE_INCLUDED:
+			return _('Character string included');
+		case EXPRESSION_TYPE_ANY_INCLUDED:
+			return _('Any character string included');
+		case EXPRESSION_TYPE_NOT_INCLUDED:
+			return _('Character string not included');
+		case EXPRESSION_TYPE_TRUE:
+			return _('Result is TRUE');
+		case EXPRESSION_TYPE_FALSE:
+			return _('Result is FALSE');
+		default:
+			return _('Unknown');
 	}
-	elseif (isset($types[$type])) {
-		return $types[$type];
-	}
-	else {
-		return _('Unknown');
-	}
-}
-
-function expressionDelimiters() {
-	return array(
-		',' => ',',
-		'.' => '.',
-		'/' => '/'
-	);
 }

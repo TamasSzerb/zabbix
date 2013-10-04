@@ -209,7 +209,7 @@ static void    zbx_load_config(const char *config_file)
 			MANDATORY,	MIN,			MAX */
 		{"SourceIP",			&cfg_source_ip,				TYPE_STRING,
 			PARM_OPT,	0,			0},
-		{"ServerActive",		&cfg_active_hosts,			TYPE_STRING_LIST,
+		{"ServerActive",		&cfg_active_hosts,			TYPE_STRING,
 			PARM_OPT,	0,			0},
 		{"Hostname",			&cfg_hostname,				TYPE_STRING,
 			PARM_OPT,	0,			0},
@@ -557,10 +557,7 @@ int	main(int argc, char **argv)
 	if (SUCCEED == ret)
 		printf("sent: %d; skipped: %d; total: %d\n", succeed_count, (total_count - succeed_count), total_count);
 	else
-	{
-		printf("Sending failed.%s\n", CONFIG_LOG_LEVEL != LOG_LEVEL_DEBUG ?
-				" Use option -vv for more detailed output." : "");
-	}
+		printf("Sending failed. Use option -vv for more detailed output.\n");
 exit:
 	zabbix_close_log();
 

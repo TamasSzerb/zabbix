@@ -20,6 +20,9 @@
 
 require_once dirname(__FILE__).'/../include/class.cwebtest.php';
 
+define('ITEM_GOOD', 0);
+define('ITEM_BAD', 1);
+
 /**
  * Test the creation of inheritance of new objects on a previously linked template.
  */
@@ -52,13 +55,15 @@ class testTemplateInheritance extends CWebTest {
 		$this->zbxTestClickWait('link='.$this->hostName);
 
 		$this->zbxTestClick('tab_templateTab');
+		$this->zbxTestClick('//*[@id="add"][@value="Add"]');
 
-		$this->assertElementPresent("//div[@id='templates_']/input");
-		$this->input_type("//div[@id='templates_']/input", 'Template App Zabbix Agent');
-		$this->zbxTestClick("//span[@class='matched']");
-		$this->zbxTestClickWait('add_template');
+		$this->waitForPopUp("zbx_popup", "30000");
+		$this->selectWindow("name=zbx_popup");
+		$this->zbxTestCheckboxSelect('//*[@value="Template App Zabbix Agent"]');
+		$this->zbxTestClick('select');
 
-		$this->zbxTestTextPresent('Template App Zabbix Agent');
+		$this->selectWindow(null);
+		$this->wait();
 		$this->zbxTestClickWait('save');
 
 		$this->zbxTestTextPresent('Host updated');
@@ -69,7 +74,7 @@ class testTemplateInheritance extends CWebTest {
 	// result, template, itemName, keyName, errorMsg
 		return array(
 			array(
-				TEST_GOOD,
+				ITEM_GOOD,
 				'Inheritance test template',
 				'Test LLD item1',
 				'test-general-item',
@@ -77,7 +82,7 @@ class testTemplateInheritance extends CWebTest {
 					),
 			// Dublicated item on Template inheritance test host
 			array(
-				TEST_BAD,
+				ITEM_BAD,
 				'Template App Zabbix Agent',
 				'Test LLD item1',
 				'test-general-item',
@@ -89,7 +94,7 @@ class testTemplateInheritance extends CWebTest {
 				),
 			// Item added to Template inheritance test host
 			array(
-				TEST_GOOD,
+				ITEM_GOOD,
 				'Template App Zabbix Agent',
 				'Test LLD item2',
 				'test-additional-item',
@@ -121,19 +126,19 @@ class testTemplateInheritance extends CWebTest {
 		$this->input_type('history', '54');
 		$this->input_type('trends', '55');
 		$this->input_type('description', 'description');
-		$this->assertAttribute('//*[@id="status"]/@checked', 'checked');
 		$this->zbxTestDropdownSelect('delta', 'Delta (simple change)');
+		$this->zbxTestDropdownSelect('status','Enabled');
 
 		$this->zbxTestClickWait('save');
 
 		switch ($result) {
-			case TEST_GOOD:
+			case ITEM_GOOD:
 				$this->zbxTestTextPresent('Item added');
 				$this->checkTitle('Configuration of items');
 				$this->zbxTestTextPresent('CONFIGURATION OF ITEMS');
 				break;
 
-			case TEST_BAD:
+			case ITEM_BAD:
 				$this->checkTitle('Configuration of items');
 				$this->zbxTestTextPresent('CONFIGURATION OF ITEMS');
 				foreach ($errorMsgs as $msg) {
@@ -146,7 +151,7 @@ class testTemplateInheritance extends CWebTest {
 		}
 
 		switch ($result) {
-			case TEST_GOOD:
+			case ITEM_GOOD:
 				// check that the inherited item matches the original
 				$this->zbxTestOpenWait('hosts.php');
 				$this->zbxTestClickWait('link='.$this->hostName);
@@ -166,24 +171,18 @@ class testTemplateInheritance extends CWebTest {
 				$this->assertElementText('description', 'description');
 				$this->assertElementValue('delta_name', 'Delta (simple change)');
 				break;
-			case TEST_BAD:
+			case ITEM_BAD:
 				break;
 		}
 	}
 
 	public function testFormItem_unlinkHost(){
-
-		$sql = "select hostid from hosts where host='Template App Zabbix Agent';";
-		$this->assertEquals(1, DBcount($sql));
-		$row = DBfetch(DBselect($sql));
-		$hostid = $row['hostid'];
-
 		$this->zbxTestLogin('hosts.php');
 		$this->zbxTestClickWait('link='.$this->hostName);
 
 		$this->zbxTestClick('tab_templateTab');
 		sleep(1);
-		$this->zbxTestClickWait('unlink_and_clear_'.$hostid);
+		$this->zbxTestClickWait('unlink_and_clear_10050');
 		$this->zbxTestClickWait('save');
 
 		$this->zbxTestTextPresent('Host updated');
@@ -206,7 +205,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->zbxTestCheckboxSelect('type');
 		$this->input_type('comments', 'comments');
 		$this->input_type('url', 'url');
-		$this->zbxTestClick('priority_label_2');
+		$this->zbxTestClick('severity_label_2');
 		$this->zbxTestCheckboxUnselect('status');
 
 		$this->zbxTestClickWait('save');
@@ -224,7 +223,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->assertTrue($this->isChecked('type'));
 		$this->assertElementText('comments', 'comments');
 		$this->assertElementValue('url', 'url');
-		$this->assertTrue($this->isChecked('priority_2'));
+		$this->assertTrue($this->isChecked('severity_2'));
 		$this->assertFalse($this->isChecked('status'));
 	}
 
@@ -308,7 +307,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->input_type('filter_macro', 'macro');
 		$this->input_type('filter_value', 'regexp');
 		$this->input_type('description', 'description');
-		$this->assertAttribute('//*[@id="status"]/@checked', 'checked');
+		$this->zbxTestDropdownSelect('status', 'Disabled');
 
 		$this->zbxTestClickWait('save');
 
@@ -327,7 +326,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->assertElementValue('filter_macro', 'macro');
 		$this->assertElementValue('filter_value', 'regexp');
 		$this->assertElementText('description', 'description');
-		$this->zbxTestCheckboxUnselect('status');
+		$this->assertDrowpdownValueText('status', 'Disabled');
 	}
 
 	/**
@@ -408,7 +407,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->zbxTestCheckboxSelect('type');
 		$this->input_type('comments', 'comments');
 		$this->input_type('url', 'url');
-		$this->zbxTestClick('priority_label_2');
+		$this->zbxTestClick('severity_label_2');
 		$this->zbxTestCheckboxUnselect('status');
 
 		$this->zbxTestClickWait('save');
@@ -427,7 +426,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->assertTrue($this->isChecked('type'));
 		$this->assertElementText('comments', 'comments');
 		$this->assertElementValue('url', 'url');
-		$this->assertTrue($this->isChecked('priority_2'));
+		$this->assertTrue($this->isChecked('severity_2'));
 		$this->assertFalse($this->isChecked('status'));
 	}
 

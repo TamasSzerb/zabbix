@@ -17,17 +17,18 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/perm.inc.php';
 
 function check_right_on_discovery($permission) {
-	if (CWebUser::$data['type'] >= USER_TYPE_ZABBIX_ADMIN) {
-		if (count(get_accessible_nodes_by_user(CWebUser::$data, $permission, PERM_RES_IDS_ARRAY))) {
+	global $USER_DETAILS;
+
+	if ($USER_DETAILS['type'] >= USER_TYPE_ZABBIX_ADMIN) {
+		if (count(get_accessible_nodes_by_user($USER_DETAILS, $permission, PERM_RES_IDS_ARRAY))) {
 			return true;
 		}
 	}
-
 	return false;
 }
 
@@ -48,7 +49,6 @@ function svc_default_port($type_int) {
 		SVC_HTTPS =>	'443',
 		SVC_TELNET =>	'23'
 	);
-
 	return isset($typePort[$type_int]) ? $typePort[$type_int] : 0;
 }
 
@@ -85,35 +85,31 @@ function discovery_check_type2str($type = null) {
 }
 
 function discovery_check2str($type, $key, $port) {
-	$externalParam = '';
+	$external_param = '';
 
-	if ($key !== '') {
+	if (!empty($key)) {
 		switch ($type) {
 			case SVC_SNMPv1:
 			case SVC_SNMPv2c:
 			case SVC_SNMPv3:
 			case SVC_AGENT:
-				$externalParam = ' "'.$key.'"';
+				$external_param = ' "'.$key.'"';
 				break;
 		}
 	}
-
 	$result = discovery_check_type2str($type);
-
-	if ($port && (svc_default_port($type) !== $port || $type === SVC_TCP)) {
+	if (svc_default_port($type) != $port || $type == SVC_TCP) {
 		$result .= ' ('.$port.')';
 	}
-
-	return $result.$externalParam;
+	$result .= $external_param;
+	return $result;
 }
 
 function discovery_port2str($type_int, $port) {
 	$port_def = svc_default_port($type_int);
-
 	if ($port != $port_def) {
 		return ' ('.$port.')';
 	}
-
 	return '';
 }
 
@@ -122,7 +118,6 @@ function discovery_status2str($status = null) {
 		DRULE_STATUS_ACTIVE => _('Enabled'),
 		DRULE_STATUS_DISABLED => _('Disabled')
 	);
-
 	if (is_null($status)) {
 		return $discoveryStatus;
 	}
@@ -146,7 +141,6 @@ function discovery_status2style($status) {
 			$status = 'unknown';
 			break;
 	}
-
 	return $status;
 }
 
@@ -157,10 +151,8 @@ function discovery_object_status2str($status = null) {
 		DOBJECT_STATUS_DISCOVER => _('Discovered'),
 		DOBJECT_STATUS_LOST => _('Lost')
 	);
-
 	if (is_null($status)) {
 		order_result($discoveryStatus);
-
 		return $discoveryStatus;
 	}
 	elseif (isset($discoveryStatus[$status])) {
@@ -193,6 +185,6 @@ function delete_discovery_rule($druleid) {
 		DBexecute('UPDATE actions SET status='.ACTION_STATUS_DISABLED.' WHERE '.dbConditionInt('actionid', $actionids));
 		DBexecute('DELETE FROM conditions WHERE conditiontype='.CONDITION_TYPE_DRULE.' AND value='.zbx_dbstr($druleid));
 	}
-
 	return DBexecute('DELETE FROM drules WHERE druleid='.zbx_dbstr($druleid));
 }
+?>

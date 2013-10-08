@@ -38,7 +38,7 @@ class testPageInventory extends CWebTest {
 
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 
-		$this->zbxTestCheckTitle('Host inventories');
+		$this->checkTitle('Host inventories');
 		$this->zbxTestTextPresent('HOST INVENTORIES');
 		$this->zbxTestTextPresent('Displaying');
 		$this->zbxTestTextNotPresent('Displaying 0');
@@ -64,15 +64,19 @@ class testPageInventory extends CWebTest {
 	*/
 	public function testPageHostInventory_ViewInventory($inventory) {
 		$this->zbxTestLogin('hostinventories.php?hostid='.$inventory['hostid']);
-		$this->zbxTestCheckTitle('Host inventories');
+		$this->checkTitle('Host inventories');
 
 		unset($inventory['hostid']);
 		$this->zbxTestTextPresent($inventory);
 
 		$this->zbxTestClickWait('cancel');
 
-		$this->zbxTestCheckTitle('Host inventories');
+		$this->checkTitle('Host inventories');
 		$this->zbxTestTextPresent('HOST INVENTORIES');
 	}
 
+	public function testPageHostInventory_Sorting() {
+// TODO
+		$this->markTestIncomplete();
+	}
 }

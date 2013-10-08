@@ -17,21 +17,17 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 /**
- * Class is used to validate and parse item keys.
- *
+ * Class is used to validate and parse item keys
  * Example of usage:
  *		$itemKey = new CItemKey('test.key[a, b, c]');
  *		echo $itemKey->isValid(); // true
  *		echo $itemKey->getKeyId(); // test.key
  *		print_r($itemKey->parameters()); // array('a', 'b', 'c')
- *
- * @package API
  */
 class CItemKey {
-
 	private $key;
 	private $keyByteCnt;
 	private $currentByte;
@@ -180,7 +176,7 @@ class CItemKey {
 					}
 					elseif ($this->key[$this->currentByte] != ' ') {
 						$state = 2;
-						// this is the first symbol of unquoted param
+						// this is a first symbol of unquoted param
 						$this->parameters[$currParamNo] .= $this->key[$this->currentByte];
 					}
 					elseif ($nestLevel > 0) {
@@ -229,7 +225,7 @@ class CItemKey {
 						}
 						$state = 0;
 					}
-					// escaped quote (\")
+					//escaped quote (\")
 					elseif ($this->key[$this->currentByte] == '\\' && isset($this->key[$this->currentByte + 1]) && $this->key[$this->currentByte + 1] == '"') {
 						if ($nestLevel > 0) {
 							$this->parameters[$currParamNo] .= $this->key[$this->currentByte];
@@ -302,3 +298,4 @@ class CItemKey {
 		return $this->keyId;
 	}
 }
+?>

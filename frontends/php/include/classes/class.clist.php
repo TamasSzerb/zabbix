@@ -49,11 +49,6 @@ class CList extends CTag {
 			$this->items = array();
 		}
 
-		if ($value instanceof CListItem) {
-			parent::addItem($value);
-		}
-		else {
-			parent::addItem($this->prepareItem($value, $class, $id));
-		}
+		parent::addItem($this->prepareItem($value, $class, $id));
 	}
 }

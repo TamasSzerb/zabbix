@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/../items.inc.php';
 require_once dirname(__FILE__).'/../hosts.inc.php';
 
@@ -108,7 +108,7 @@ class CGraphDraw {
 		// i should rename no alpha to alpha at some point to get rid of some confusion
 		foreach ($this->colorsrgb as $name => $RGBA) {
 			if (isset($RGBA[3]) && function_exists('imagecolorexactalpha')
-					&& function_exists('imagecreatetruecolor') && @imagecreatetruecolor(1, 1)) {
+					&& function_exists('imagecreatetruecolor') && @imagecreatetruecolor(1,1)) {
 				$this->colors[$name] = imagecolorexactalpha($this->im, $RGBA[0], $RGBA[1], $RGBA[2], $RGBA[3]);
 			}
 			else {
@@ -132,10 +132,11 @@ class CGraphDraw {
 
 	public function showLegend($type = true) {
 		$this->drawLegend = $type;
+		return $this->drawLegend;
 	}
 
 	public function setPeriod($period) {
-		$this->period = $period;
+		$this->period=$period;
 	}
 
 	public function setSTime($stime) {
@@ -178,7 +179,6 @@ class CGraphDraw {
 
 	public function getLastValue($num) {
 		$data = &$this->data[$this->items[$num]['itemid']][$this->items[$num]['calc_type']];
-
 		if (isset($data)) {
 			for ($i = $this->sizeX - 1; $i >= 0; $i--) {
 				if (!empty($data['count'][$i])) {
@@ -195,7 +195,6 @@ class CGraphDraw {
 				}
 			}
 		}
-
 		return 0;
 	}
 
@@ -231,15 +230,10 @@ class CGraphDraw {
 
 	public function drawHeader() {
 		if (!isset($this->header)) {
-			$str = $this->items[0]['hostname'].NAME_DELIMITER.$this->items[0]['name'];
+			$str = $this->items[0]['hostname'].': '.$this->items[0]['name'];
 		}
 		else {
-			foreach ($this->items as &$item) {
-				$item['host'] = $item['hostname'];
-			}
-			unset($item);
-
-			$str = CMacrosResolverHelper::resolveGraphName($this->header, $this->items);
+			$str = $this->header;
 		}
 
 		$str .= $this->period2str($this->period);
@@ -258,7 +252,6 @@ class CGraphDraw {
 				break;
 			}
 		}
-
 		imageText($this->im, $fontsize, 0, $x, 24, $this->getColor($this->graphtheme['textcolor'], 0), $str);
 	}
 
@@ -290,7 +283,6 @@ class CGraphDraw {
 				&& @imagecreatetruecolor(1, 1)) {
 			return imagecolorexactalpha($this->im, $RGB[0], $RGB[1], $RGB[2], $alfa);
 		}
-
 		return imagecolorallocate($this->im, $RGB[0], $RGB[1], $RGB[2]);
 	}
 
@@ -320,3 +312,4 @@ class CGraphDraw {
 		return imagecolorallocate($this->im, $RGB[0], $RGB[1], $RGB[2]);
 	}
 }
+?>

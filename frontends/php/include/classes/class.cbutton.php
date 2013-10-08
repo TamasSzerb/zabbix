@@ -26,11 +26,20 @@ class CButton extends CInput {
 	 *
 	 * @var int
 	 */
-	protected $attrEncStrategy = self::ENC_NOAMP;
+	protected $valueEncStrategy = self::ENC_NOAMP;
 
 	public function __construct($name = 'button', $caption = '', $action = null, $class = null) {
 		parent::__construct('button', $name, $caption, $class);
 		$this->addAction('onclick', $action);
 		return $this;
+	}
+
+	public function setAccessKey($value = 'B') {
+		if (isset($value)) {
+			if (!isset($this->attributes['title'])) {
+				$this->setTitle($this->attributes['value'].' [Alt+'.$value.']');
+			}
+		}
+		return $this->setAttribute('accessKey', $value);
 	}
 }

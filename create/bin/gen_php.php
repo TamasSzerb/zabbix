@@ -58,8 +58,11 @@ function parse_schema($path) {
 						break;
 					case 't_blob':
 					case 't_text':
+					case 't_history_log':
+					case 't_history_text':
+					case 't_item_param':
 					case 't_longtext':
-					case 't_shorttext':
+					case 't_cksum_text':
 						$type = 'DB::FIELD_TYPE_TEXT';
 						$length = false;
 						break;
@@ -84,7 +87,7 @@ function parse_schema($path) {
 
 				if ($ref_table) {
 					$data['ref_table'] = "'".$ref_table."'";
-					$data['ref_field'] = "'".(!empty($ref_field) ? $ref_field : $field)."'";
+					$data['ref_field'] = "'".(isset($ref_field) ? $ref_field : $field)."'";
 				}
 
 				$schema[$table]['fields'][$field] = $data;

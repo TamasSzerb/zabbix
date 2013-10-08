@@ -47,18 +47,18 @@ class CHostsInfo extends CTable {
 		// fetch accessible host ids
 		$hosts = API::Host()->get(array(
 			'nodeids' => get_current_nodeid(true),
-			'output' => array('hostid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'preservekeys' => true
 		));
 		$hostIds = array_keys($hosts);
 
+		$cond_from = '';
 		if (remove_nodes_from_id($this->groupid) > 0) {
-			$cond_from = ',hosts_groups hg';
-			$cond_where = ' AND hg.hostid=h.hostid AND hg.groupid='.zbx_dbstr($this->groupid);
+			$cond_from = ', hosts_groups hg ';
+			$cond_where = 'AND hg.hostid=h.hostid AND hg.groupid='.zbx_dbstr($this->groupid);
 		}
 		else {
-			$cond_from = '';
-			$cond_where = andDbNode('h.hostid', $this->nodeid);
+			$cond_where = ' AND '.DBin_node('h.hostid', $this->nodeid);
 		}
 
 		$db_host_cnt = DBselect(

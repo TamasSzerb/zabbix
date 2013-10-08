@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2013 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -32,10 +32,10 @@ const char	usage_message[] = "[-Vhv] {[-zpsI] -ko | [-zpI] -T -i <file> -r} [-c 
 
 const char	*help_message[] = {
 	"Options:",
-	"  -c --config <file>                   Absolute path to the configuration file",
+	"  -c --config <file>                   Specify absolute path to the configuration file",
 	"",
-	"  -z --zabbix-server <server>          Hostname or IP address of Zabbix server",
-	"  -p --port <server port>              Specify port number of server trapper running on the server. Default is " ZBX_DEFAULT_SERVER_PORT_STR,
+	"  -z --zabbix-server <server>          Hostname or IP address of Zabbix Server",
+	"  -p --port <server port>              Specify port number of server trapper running on the server. Default is 10051",
 	"  -s --host <hostname>                 Specify host name. Host IP address and DNS name will not work",
 	"  -I --source-address <IP address>     Specify source IP address",
 	"",
@@ -99,15 +99,16 @@ static char	*ZABBIX_KEY = NULL;
 static char	*ZABBIX_KEY_VALUE = NULL;
 
 #if !defined(_WINDOWS)
+
 static void	send_signal_handler(int sig)
 {
 	if (SIGALRM == sig)
-		zabbix_log(LOG_LEVEL_WARNING, "timeout while executing operation");
+		zabbix_log(LOG_LEVEL_WARNING, "Timeout while executing operation");
 
-	/* Calling _exit() to terminate the process immediately is important. See ZBX-5732 for details. */
-	_exit(FAIL);
+	exit(FAIL);
 }
-#endif
+
+#endif /* NOT _WINDOWS */
 
 typedef struct
 {
@@ -148,11 +149,8 @@ static int	check_response(char *response)
 	if (SUCCEED == ret && 0 != strcmp(value, ZBX_PROTO_VALUE_SUCCESS))
 		ret = FAIL;
 
-	if (SUCCEED == ret && SUCCEED == zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_INFO, info, sizeof(info)))
-	{
-		printf("info from server: \"%s\"\n", info);
-		fflush(stdout);
-	}
+	if (SUCCEED == zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_INFO, info, sizeof(info)))
+		printf("Info from server: \"%s\"\n", info);
 
 	return ret;
 }
@@ -174,7 +172,7 @@ static	ZBX_THREAD_ENTRY(send_value, args)
 	signal(SIGTERM, send_signal_handler);
 	signal(SIGQUIT, send_signal_handler);
 	signal(SIGALRM, send_signal_handler);
-#endif
+#endif /* NOT _WINDOWS */
 
 	if (SUCCEED == (tcp_ret = zbx_tcp_connect(&sock, CONFIG_SOURCE_IP, sentdval_args->server, sentdval_args->port, GET_SENDER_TIMEOUT)))
 	{
@@ -184,7 +182,9 @@ static	ZBX_THREAD_ENTRY(send_value, args)
 			{
 				zabbix_log(LOG_LEVEL_DEBUG, "answer [%s]", answer);
 				if (NULL == answer || SUCCEED != check_response(answer))
+				{
 					zabbix_log(LOG_LEVEL_WARNING, "incorrect answer from server [%s]", answer);
+				}
 				else
 					ret = SUCCEED;
 			}
@@ -201,7 +201,8 @@ static	ZBX_THREAD_ENTRY(send_value, args)
 
 static void    zbx_load_config(const char *config_file)
 {
-	char	*cfg_source_ip = NULL, *cfg_active_hosts = NULL, *cfg_hostname = NULL, *r = NULL;
+	char	*cfg_source_ip = NULL, *cfg_server = NULL, *cfg_active_hosts = NULL, *cfg_hostname = NULL, *r = NULL;
+	int	cfg_server_port = 0;
 
 	struct cfg_line	cfg[] =
 	{
@@ -209,8 +210,12 @@ static void    zbx_load_config(const char *config_file)
 			MANDATORY,	MIN,			MAX */
 		{"SourceIP",			&cfg_source_ip,				TYPE_STRING,
 			PARM_OPT,	0,			0},
-		{"ServerActive",		&cfg_active_hosts,			TYPE_STRING_LIST,
+		{"Server",			&cfg_server,				TYPE_STRING,
 			PARM_OPT,	0,			0},
+		{"ServerActive",		&cfg_active_hosts,			TYPE_STRING,
+			PARM_OPT,	0,			0},
+		{"ServerPort",			&cfg_server_port,			TYPE_INT,
+			PARM_OPT,	MIN_ZABBIX_PORT,	MAX_ZABBIX_PORT},
 		{"Hostname",			&cfg_hostname,				TYPE_STRING,
 			PARM_OPT,	0,			0},
 		{NULL}
@@ -230,28 +235,40 @@ static void    zbx_load_config(const char *config_file)
 			zbx_free(cfg_source_ip);
 		}
 
+		if (0 == ZABBIX_SERVER_PORT && 0 != cfg_server_port)
+			ZABBIX_SERVER_PORT = cfg_server_port;
+
 		if (NULL == ZABBIX_SERVER)
 		{
 			if (NULL != cfg_active_hosts && '\0' != *cfg_active_hosts)
 			{
-				unsigned short	cfg_server_port = 0;
+				unsigned short	port;
 
 				if (NULL != (r = strchr(cfg_active_hosts, ',')))
 					*r = '\0';
 
 				if (SUCCEED != parse_serveractive_element(cfg_active_hosts, &ZABBIX_SERVER,
-						&cfg_server_port, 0))
+						&port, 0))
 				{
 					zbx_error("error parsing a \"ServerActive\" option: address \"%s\" is invalid",
 							cfg_active_hosts);
 					exit(EXIT_FAILURE);
 				}
 
-				if (0 == ZABBIX_SERVER_PORT && 0 != cfg_server_port)
-					ZABBIX_SERVER_PORT = cfg_server_port;
+				if (0 == ZABBIX_SERVER_PORT && 0 != port)
+					ZABBIX_SERVER_PORT = port;
+			}
+			else if (NULL != cfg_server)
+			{
+				/* get only first server */
+				if (NULL != (r = strchr(cfg_server, ',')))
+					*r = '\0';
+
+				ZABBIX_SERVER = zbx_strdup(ZABBIX_SERVER, cfg_server);
 			}
 		}
 		zbx_free(cfg_active_hosts);
+		zbx_free(cfg_server);
 
 		if (NULL != cfg_hostname)
 		{
@@ -268,8 +285,8 @@ static void	parse_commandline(int argc, char **argv)
 {
 	char	ch = '\0';
 
-	/* parse the command-line */
-	while ((char)EOF != (ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts, NULL)))
+	/* Parse the command-line. */
+	while ((ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts, NULL)) != (char)EOF)
 	{
 		switch (ch)
 		{
@@ -312,7 +329,7 @@ static void	parse_commandline(int argc, char **argv)
 				REAL_TIME = 1;
 				break;
 			case 'v':
-				if (LOG_LEVEL_WARNING == CONFIG_LOG_LEVEL)
+				if(CONFIG_LOG_LEVEL == LOG_LEVEL_WARNING)
 					CONFIG_LOG_LEVEL = LOG_LEVEL_DEBUG;
 				else
 					CONFIG_LOG_LEVEL = LOG_LEVEL_WARNING;
@@ -360,7 +377,7 @@ int	main(int argc, char **argv)
 		goto exit;
 	}
 	if (0 == ZABBIX_SERVER_PORT)
-		ZABBIX_SERVER_PORT = ZBX_DEFAULT_SERVER_PORT;
+		ZABBIX_SERVER_PORT = 10051;
 
 	if (MIN_ZABBIX_PORT > ZABBIX_SERVER_PORT)
 	{
@@ -387,7 +404,7 @@ int	main(int argc, char **argv)
 			if (1 == REAL_TIME)
 			{
 				/* set line buffering on stdin */
-				setvbuf(stdin, (char *)NULL, _IOLBF, 1024);
+				setvbuf(stdin, (char *)NULL, _IOLBF, 0);
 			}
 		}
 		else if (NULL == (in = fopen(INPUT_FILE, "r")) )
@@ -557,10 +574,7 @@ int	main(int argc, char **argv)
 	if (SUCCEED == ret)
 		printf("sent: %d; skipped: %d; total: %d\n", succeed_count, (total_count - succeed_count), total_count);
 	else
-	{
-		printf("Sending failed.%s\n", CONFIG_LOG_LEVEL != LOG_LEVEL_DEBUG ?
-				" Use option -vv for more detailed output." : "");
-	}
+		printf("Sending failed. Use option -vv for more detailed output.\n");
 exit:
 	zabbix_close_log();
 

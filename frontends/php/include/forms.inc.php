@@ -23,6 +23,7 @@
 		$config = select_config();
 		$data = array('is_profile' => $isProfile);
 
+		// get title
 		if (isset($userid)) {
 			$options = array(
 				'userids' => $userid,
@@ -31,15 +32,16 @@
 			if ($data['is_profile']) {
 				$options['nodeids'] = id2nodeid($userid);
 			}
-
 			$users = API::User()->get($options);
-			$user = reset($users);
 
-			$data['auth_type'] = get_user_system_auth($userid);
+			$user = reset($users);
+			$data['title'] = _('User').' "'.$user['alias'].'"';
 		}
 		else {
-			$data['auth_type'] = $config['authentication_type'];
+			$data['title'] = _('User');
 		}
+
+		$data['auth_type'] = isset($userid) ? get_user_system_auth($userid) : $config['authentication_type'];
 
 		if (isset($userid) && (!isset($_REQUEST['form_refresh']) || isset($_REQUEST['register']))) {
 			$data['alias']			= $user['alias'];
@@ -57,7 +59,7 @@
 			$data['user_type']		= $user['type'];
 			$data['messages'] 		= getMessageSettings();
 
-			$userGroups = API::UserGroup()->get(array('userids' => $userid, 'output' => 'usrgrpid'));
+			$userGroups = API::UserGroup()->get(array('userids' => $userid, 'output' => API_OUTPUT_SHORTEN));
 			$userGroup = zbx_objectValues($userGroups, 'usrgrpid');
 			$data['user_groups']	= zbx_toHash($userGroup);
 
@@ -87,18 +89,18 @@
 			$data['theme']			= get_request('theme', THEME_DEFAULT);
 			$data['refresh']		= get_request('refresh', 30);
 			$data['rows_per_page']	= get_request('rows_per_page', 50);
-			$data['user_type']		= get_request('user_type', USER_TYPE_ZABBIX_USER);
+			$data['user_type']		= get_request('user_type', USER_TYPE_ZABBIX_USER);;
 			$data['user_groups']	= get_request('user_groups', array());
 			$data['change_password']= get_request('change_password', null);
 			$data['user_medias']	= get_request('user_medias', array());
 
 			// set messages
-			$data['messages'] = get_request('messages', array());
+			$data['messages'] 		= get_request('messages', array());
 			if (!isset($data['messages']['enabled'])) {
 				$data['messages']['enabled'] = 0;
 			}
 			if (!isset($data['messages']['sounds.recovery'])) {
-				$data['messages']['sounds.recovery'] = 'alarm_ok.wav';
+				$data['messages']['sounds.recovery'] = 0;
 			}
 			if (!isset($data['messages']['triggers.recovery'])) {
 				$data['messages']['triggers.recovery'] = 0;
@@ -135,10 +137,7 @@
 
 		// set user rights
 		if (!$data['is_profile']) {
-			$data['groups'] = API::UserGroup()->get(array(
-				'usrgrpids' => $data['user_groups'],
-				'output' => array('usrgrpid', 'name')
-			));
+			$data['groups'] = API::UserGroup()->get(array('usrgrpids' => $data['user_groups'], 'output' => API_OUTPUT_EXTEND));
 			order_result($data['groups'], 'name');
 
 			$group_ids = array_values($data['user_groups']);
@@ -147,13 +146,10 @@
 			}
 			$db_rights = DBselect('SELECT r.* FROM rights r WHERE '.dbConditionInt('r.groupid', $group_ids));
 
-			// deny beat all, read-write beat read
 			$tmp_permitions = array();
 			while ($db_right = DBfetch($db_rights)) {
-				if (isset($tmp_permitions[$db_right['id']]) && $tmp_permitions[$db_right['id']] != PERM_DENY) {
-					$tmp_permitions[$db_right['id']] = ($db_right['permission'] == PERM_DENY)
-						? PERM_DENY
-						: max($tmp_permitions[$db_right['id']], $db_right['permission']);
+				if (isset($tmp_permitions[$db_right['id']])) {
+					$tmp_permitions[$db_right['id']] = min($tmp_permitions[$db_right['id']], $db_right['permission']);
 				}
 				else {
 					$tmp_permitions[$db_right['id']] = $db_right['permission'];
@@ -176,10 +172,14 @@
 			$lists['node']['read_only']	= new CListBox('nodes_read', null, 10);
 			$lists['node']['deny']		= new CListBox('nodes_deny', null, 10);
 
+			$lists['node']['read_write']->setAttribute('style', 'background: #EBEFF2;');
+			$lists['node']['read_only']->setAttribute('style', 'background: #EBEFF2;');
+			$lists['node']['deny']->setAttribute('style', 'background: #EBEFF2;');
+
 			$nodes = get_accessible_nodes_by_rights($rights, $user_type, PERM_DENY, PERM_RES_DATA_ARRAY);
 			foreach ($nodes as $node) {
 				switch($node['permission']) {
-					case PERM_READ:
+					case PERM_READ_ONLY:
 						$list_name = 'read_only';
 						break;
 					case PERM_READ_WRITE:
@@ -199,11 +199,15 @@
 		$lists['group']['read_only']	= new CListBox('groups_read', null, 15);
 		$lists['group']['deny']			= new CListBox('groups_deny', null, 15);
 
+		$lists['group']['read_write']->setAttribute('style', 'background: #EBEFF2;');
+		$lists['group']['read_only']->setAttribute('style', 'background: #EBEFF2;');
+		$lists['group']['deny']->setAttribute('style', 'background: #EBEFF2;');
+
 		$groups = get_accessible_groups_by_rights($rights, $user_type, PERM_DENY, PERM_RES_DATA_ARRAY, get_current_nodeid(true));
 
 		foreach ($groups as $group) {
 			switch($group['permission']) {
-				case PERM_READ:
+				case PERM_READ_ONLY:
 					$list_name = 'read_only';
 					break;
 				case PERM_READ_WRITE:
@@ -212,7 +216,7 @@
 				default:
 					$list_name = 'deny';
 			}
-			$lists['group'][$list_name]->addItem($group['groupid'], (empty($group['node_name']) ? '' : $group['node_name'].NAME_DELIMITER).$group['name']);
+			$lists['group'][$list_name]->addItem($group['groupid'], (empty($group['node_name']) ? '' : $group['node_name'].':' ).$group['name']);
 		}
 		unset($groups);
 
@@ -222,11 +226,15 @@
 		$lists['host']['read_only']	= new CListBox('hosts_read', null, 15);
 		$lists['host']['deny']		= new CListBox('hosts_deny', null, 15);
 
+		$lists['host']['read_write']->setAttribute('style', 'background: #EBEFF2;');
+		$lists['host']['read_only']->setAttribute('style', 'background: #EBEFF2;');
+		$lists['host']['deny']->setAttribute('style', 'background: #EBEFF2;');
+
 		$hosts = get_accessible_hosts_by_rights($rights, $user_type, PERM_DENY, PERM_RES_DATA_ARRAY, get_current_nodeid(true));
 
 		foreach ($hosts as $host) {
 			switch($host['permission']) {
-				case PERM_READ:
+				case PERM_READ_ONLY:
 					$list_name = 'read_only';
 					break;
 				case PERM_READ_WRITE:
@@ -238,7 +246,7 @@
 			if (HOST_STATUS_PROXY_ACTIVE == $host['status'] || HOST_STATUS_PROXY_PASSIVE == $host['status']) {
 				$host['host_name'] = $host['host'];
 			}
-			$lists['host'][$list_name]->addItem($host['hostid'], (empty($host['node_name']) ? '' : $host['node_name'].NAME_DELIMITER).$host['host_name']);
+			$lists['host'][$list_name]->addItem($host['hostid'], (empty($host['node_name']) ? '' : $host['node_name'].':' ).$host['host_name']);
 		}
 		unset($hosts);
 
@@ -259,7 +267,7 @@
 				}
 			}
 
-			$table = new CTable(_('No accessible resources'), 'right_table calculated');
+			$table = new CTable(_('No accessible resources'), 'right_table');
 			if (!$isHeaderDisplayed) {
 				$table->setHeader(array(_('Read-write'), _('Read only'), _('Deny')), 'header');
 				$isHeaderDisplayed = true;
@@ -270,65 +278,51 @@
 		return $rightsFormList;
 	}
 
-	function prepareSubfilterOutput($data, $subfilter, $subfilterName) {
-		order_result($data, 'name');
-
+	function prepare_subfilter_output($data, $subfilter, $subfilter_name) {
 		$output = array();
-
+		order_result($data, 'name');
 		foreach ($data as $id => $element) {
-			$element['name'] = nbsp(CHtml::encode($element['name']));
-
-			// is activated
+			// subfilter is activated
 			if (str_in_array($id, $subfilter)) {
-				$span = new CSpan($element['name'].SPACE.'('.$element['count'].')', 'subfilter_enabled');
-				$span->onClick(CHtml::encode(
-					'javascript: create_var("zbx_filter", "subfilter_set", "1", false);'.
-					'create_var("zbx_filter", '.CJs::encodeJson($subfilterName.'['.$id.']').', null, true);'
-				));
+				$span = new CSpan($element['name'].' ('.$element['count'].')', 'subfilter_enabled');
+				$script = CHtml::encode('javascript: create_var("zbx_filter", '.CJs::encodeJson($subfilter_name.'['.$id.']').', null, true);');
+				$span->onClick($script);
 				$output[] = $span;
 			}
-
-			// isn't activated
+			// subfilter isn't activated
 			else {
+				$script = CHtml::encode('javascript: create_var("zbx_filter", '.CJs::encodeJson($subfilter_name.'['.$id.']').', '.CJs::encodeJson($id).', true);');
+
 				// subfilter has 0 items
 				if ($element['count'] == 0) {
-					$span = new CSpan($element['name'].SPACE.'('.$element['count'].')', 'subfilter_inactive');
+					$span = new CSpan($element['name'].' ('.$element['count'].')', 'subfilter_inactive');
+					$span->onClick($script);
 					$output[] = $span;
 				}
 				else {
 					// this level has no active subfilters
-					$nspan = $subfilter
-						? new CSpan(SPACE.'(+'.$element['count'].')', 'subfilter_active')
-						: new CSpan(SPACE.'('.$element['count'].')', 'subfilter_active');
-
+					if (empty($subfilter)) {
+						$nspan = new CSpan(' ('.$element['count'].')', 'subfilter_active');
+					}
+					else {
+						$nspan = new CSpan(' (+'.$element['count'].')', 'subfilter_active');
+					}
 					$span = new CSpan($element['name'], 'subfilter_disabled');
-					$span->onClick(CHtml::encode(
-						'javascript: create_var("zbx_filter", "subfilter_set", "1", false);'.
-						'create_var("zbx_filter", '.
-							CJs::encodeJson($subfilterName.'['.$id.']').', '.
-							CJs::encodeJson($id).', '.
-							'true'.
-						');'
-					));
+					$span->onClick($script);
 
 					$output[] = $span;
 					$output[] = $nspan;
 				}
 			}
-
-			$output[] = ', ';
+			$output[] = ' , ';
 		}
-
 		array_pop($output);
-
 		return $output;
 	}
 
 	function getItemFilterForm(&$items) {
-		$displayNodes = is_array(get_current_nodeid());
-
-		$filter_groupId				= $_REQUEST['filter_groupid'];
-		$filter_hostId				= $_REQUEST['filter_hostid'];
+		$filter_group				= $_REQUEST['filter_group'];
+		$filter_hostname			= $_REQUEST['filter_hostname'];
 		$filter_application			= $_REQUEST['filter_application'];
 		$filter_name				= $_REQUEST['filter_name'];
 		$filter_type				= $_REQUEST['filter_type'];
@@ -343,7 +337,6 @@
 		$filter_history				= $_REQUEST['filter_history'];
 		$filter_trends				= $_REQUEST['filter_trends'];
 		$filter_status				= $_REQUEST['filter_status'];
-		$filter_state				= $_REQUEST['filter_state'];
 		$filter_templated_items		= $_REQUEST['filter_templated_items'];
 		$filter_with_triggers		= $_REQUEST['filter_with_triggers'];
 		$subfilter_hosts			= $_REQUEST['subfilter_hosts'];
@@ -351,7 +344,6 @@
 		$subfilter_types			= $_REQUEST['subfilter_types'];
 		$subfilter_value_types		= $_REQUEST['subfilter_value_types'];
 		$subfilter_status			= $_REQUEST['subfilter_status'];
-		$subfilter_state			= $_REQUEST['subfilter_state'];
 		$subfilter_templated_items	= $_REQUEST['subfilter_templated_items'];
 		$subfilter_with_triggers	= $_REQUEST['subfilter_with_triggers'];
 		$subfilter_history			= $_REQUEST['subfilter_history'];
@@ -361,12 +353,12 @@
 		$form = new CForm('get');
 		$form->setAttribute('name', 'zbx_filter');
 		$form->setAttribute('id', 'zbx_filter');
+		$form->addVar('filter_hostid', get_request('filter_hostid', get_request('hostid', 0)));
 		$form->addVar('subfilter_hosts', $subfilter_hosts);
 		$form->addVar('subfilter_apps', $subfilter_apps);
 		$form->addVar('subfilter_types', $subfilter_types);
 		$form->addVar('subfilter_value_types', $subfilter_value_types);
 		$form->addVar('subfilter_status', $subfilter_status);
-		$form->addVar('subfilter_state', $subfilter_state);
 		$form->addVar('subfilter_templated_items', $subfilter_templated_items);
 		$form->addVar('subfilter_with_triggers', $subfilter_with_triggers);
 		$form->addVar('subfilter_history', $subfilter_history);
@@ -436,29 +428,22 @@
 		// status select
 		$cmbStatus = new CComboBox('filter_status', $filter_status);
 		$cmbStatus->addItem(-1, _('all'));
-		foreach (array(ITEM_STATUS_ACTIVE, ITEM_STATUS_DISABLED) as $status) {
+		foreach (array(ITEM_STATUS_ACTIVE, ITEM_STATUS_DISABLED, ITEM_STATUS_NOTSUPPORTED) as $status) {
 			$cmbStatus->addItem($status, item_status2str($status));
 		}
 
-		// state select
-		$cmbState = new CComboBox('filter_state', $filter_state);
-		$cmbState->addItem(-1, _('all'));
-		foreach (array(ITEM_STATE_NORMAL, ITEM_STATE_NOTSUPPORTED) as $state) {
-			$cmbState->addItem($state, itemState($state));
-		}
-
 		// update interval
-		$updateIntervalLabel = new CSpan(array(bold(_('Update interval')), SPACE._('(in sec)').NAME_DELIMITER));
+		$updateIntervalLabel = new CSpan(array(bold(_('Update interval')), SPACE._('(in sec)').': '));
 		$updateIntervalLabel->setAttribute('id', 'filter_delay_label');
 
 		$updateIntervalInput = new CNumericBox('filter_delay', $filter_delay, 5, null, true);
 		$updateIntervalInput->setEnabled('no');
 
 		// data type
-		$dataTypeLabel = new CSpan(bold(_('Data type').NAME_DELIMITER));
+		$dataTypeLabel = new CSpan(bold(_('Data type').': '));
 		$dataTypeLabel->setAttribute('id', 'filter_data_type_label');
 
-		$dataTypeInput = new CComboBox('filter_data_type', $filter_data_type);
+		$dataTypeInput = new CComboBox('filter_data_type', $filter_data_type);;
 		$dataTypeInput->addItem(-1, _('all'));
 		$dataTypeInput->addItems(item_data_type2str());
 		$dataTypeInput->setEnabled('no');
@@ -469,168 +454,125 @@
 		$table->setCellSpacing(0);
 
 		// SNMP community
-		$snmpCommunityLabel = new CSpan(array(bold(_('SNMP community')), SPACE._('like').NAME_DELIMITER));
+		$snmpCommunityLabel = new CSpan(array(bold(_('SNMP community')), SPACE._('like').': '));
 		$snmpCommunityLabel->setAttribute('id', 'filter_snmp_community_label');
 
 		$snmpCommunityField = new CTextBox('filter_snmp_community', $filter_snmp_community, ZBX_TEXTBOX_FILTER_SIZE);
 		$snmpCommunityField->setEnabled('no');
 
 		// SNMPv3 security name
-		$snmpSecurityLabel = new CSpan(array(bold(_('Security name')), SPACE._('like').NAME_DELIMITER));
+		$snmpSecurityLabel = new CSpan(array(bold(_('SNMPv3 security name')), SPACE._('like').': '));
 		$snmpSecurityLabel->setAttribute('id', 'filter_snmpv3_securityname_label');
 
 		$snmpSecurityField = new CTextBox('filter_snmpv3_securityname', $filter_snmpv3_securityname, ZBX_TEXTBOX_FILTER_SIZE);
 		$snmpSecurityField->setEnabled('no');
 
 		// SNMP OID
-		$snmpOidLabel = new CSpan(array(bold(_('SNMP OID')), SPACE._('like').NAME_DELIMITER));
+		$snmpOidLabel = new CSpan(array(bold(_('SNMP OID')), SPACE._('like').': '));
 		$snmpOidLabel->setAttribute('id', 'filter_snmp_oid_label');
 
 		$snmpOidField = new CTextBox('filter_snmp_oid', $filter_snmp_oid, ZBX_TEXTBOX_FILTER_SIZE);
 		$snmpOidField->setEnabled('no');
 
 		// port
-		$portLabel = new CSpan(array(bold(_('Port')), SPACE._('like').NAME_DELIMITER));
+		$portLabel = new CSpan(array(bold(_('Port')), SPACE._('like').': '));
 		$portLabel->setAttribute('id', 'filter_port_label');
 
 		$portField = new CNumericBox('filter_port', $filter_port, 5, null, true);
 		$portField->setEnabled('no');
 
 		// row 1
-		$groupFilter = null;
-		if (!empty($filter_groupId)) {
-			$getHostInfo = API::HostGroup()->get(array(
-				'groupids' => $filter_groupId,
-				'output' => array('name')
-			));
-			$getHostInfo = reset($getHostInfo);
-			if (!empty($getHostInfo)) {
-				$groupFilter[] = array(
-					'id' => $getHostInfo['groupid'],
-					'name' => $getHostInfo['name'],
-					'prefix' => $displayNodes ? get_node_name_by_elid($getHostInfo['groupid'], true, NAME_DELIMITER) : ''
-				);
-			}
-		}
-
 		$table->addRow(array(
-			new CCol(bold(_('Host group').NAME_DELIMITER), 'label col1'),
+			new CCol(bold(_('Host group').': '), 'label col1'),
 			new CCol(array(
-				new CMultiSelect(array(
-					'name' => 'filter_groupid',
-					'selectedLimit' => 1,
-					'objectName' => 'hostGroup',
-					'objectOptions' => array(
-						'editable' => true
-					),
-					'data' => $groupFilter
-				))
+				new CTextBox('filter_group', $filter_group, ZBX_TEXTBOX_FILTER_SIZE),
+				new CButton('btn_group', _('Select'),
+					'return PopUp("popup.php?srctbl=host_group&srcfld1=name'.
+						'&dstfrm='.$form->getName().'&dstfld1=filter_group", 450, 450);',
+					'G'
+				)
 			), 'col1'),
-			new CCol(bold(_('Type').NAME_DELIMITER), 'label col2'),
+			new CCol(bold(_('Type').': '), 'label col2'),
 			new CCol($cmbType, 'col2'),
-			new CCol(bold(_('Type of information').NAME_DELIMITER), 'label col3'),
+			new CCol(bold(_('Type of information').': '), 'label col3'),
 			new CCol($cmbValType, 'col3'),
-			new CCol(bold(_('State').NAME_DELIMITER), 'label'),
-			new CCol($cmbState, 'col4')
-		), 'item-list-row');
+			new CCol(bold(_('Status').': '), 'label col4'),
+			new CCol($cmbStatus, 'col4'),
+		));
 		// row 2
-		$hostFilterData = null;
-		if (!empty($filter_hostId)) {
-			$getHostInfo = API::Host()->get(array(
-				'hostids' => $filter_hostId,
-				'templated_hosts' => true,
-				'output' => array('name')
-			));
-			$getHostInfo = reset($getHostInfo);
-			if (!empty($getHostInfo)) {
-				$hostFilterData[] = array(
-					'id' => $getHostInfo['hostid'],
-					'name' => $getHostInfo['name'],
-					'prefix' => $displayNodes ? get_node_name_by_elid($filter_hostId, true, NAME_DELIMITER) : ''
-				);
-			}
-		}
-
 		$table->addRow(array(
-			new CCol(bold(_('Host').NAME_DELIMITER), 'label'),
+			new CCol(bold(_('Host').': '), 'label'),
 			new CCol(array(
-				new CMultiSelect(array(
-					'name' => 'filter_hostid',
-					'selectedLimit' => 1,
-					'objectName' => 'hosts',
-					'objectOptions' => array(
-						'editable' => true,
-						'templated_hosts' => true
-					),
-					'data' => $hostFilterData
-				))
-			), 'col1'),
+				new CTextBox('filter_hostname', $filter_hostname, ZBX_TEXTBOX_FILTER_SIZE),
+				new CButton('btn_host', _('Select'),
+					'return PopUp("popup.php?srctbl=hosts_and_templates&srcfld1=hostid&srcfld2=name'.
+					'&dstfrm='.$form->getName().'&dstfld1=filter_hostid&dstfld2=filter_hostname'.
+					'&group=" + jQuery("#filter_group").val(), 450, 450);', 'H'
+				)
+			)),
 			new CCol($updateIntervalLabel, 'label'),
 			new CCol($updateIntervalInput),
 			new CCol($dataTypeLabel, 'label'),
 			new CCol($dataTypeInput),
-			new CCol(bold(_('Status').NAME_DELIMITER), 'label col4'),
-			new CCol($cmbStatus, 'col4')
-		), 'item-list-row');
+			new CCol(bold(_('Triggers').': '), 'label'),
+			new CCol(new CComboBox('filter_with_triggers', $filter_with_triggers, null, array(
+				-1 => _('all'),
+				1 => _('With triggers'),
+				0 => _('Without triggers')
+			))),
+		));
 		// row 3
 		$table->addRow(array(
-			new CCol(bold(_('Application').NAME_DELIMITER), 'label'),
+			new CCol(bold(_('Application').': '), 'label'),
 			new CCol(array(
 				new CTextBox('filter_application', $filter_application, ZBX_TEXTBOX_FILTER_SIZE),
 				new CButton('btn_app', _('Select'),
 					'return PopUp("popup.php?srctbl=applications&srcfld1=name'.
 						'&dstfrm='.$form->getName().'&dstfld1=filter_application'.
-						'&with_applications=1'.
-						'" + (jQuery("input[name=\'filter_hostid\']").length > 0 ? "&hostid="+jQuery("input[name=\'filter_hostid\']").val() : "")'
+						'&with_applications=1&host=" + jQuery("#filter_hostname").val()'
 						.', 550, 450, "application");',
-					'filter-select-button'
+					'A'
 				)
-			), 'col1'),
+			)),
 			new CCol(array($snmpCommunityLabel, $snmpSecurityLabel), 'label'),
 			new CCol(array($snmpCommunityField, $snmpSecurityField)),
-			new CCol(array(bold(_('History')), SPACE._('(in days)').NAME_DELIMITER), 'label'),
+			new CCol(array(bold(_('Keep history')), SPACE._('(in days)').': '), 'label'),
 			new CCol(new CNumericBox('filter_history', $filter_history, 8, null, true)),
-			new CCol(bold(_('Triggers').NAME_DELIMITER), 'label'),
-			new CCol(new CComboBox('filter_with_triggers', $filter_with_triggers, null, array(
-				-1 => _('all'),
-				1 => _('With triggers'),
-				0 => _('Without triggers')
-			)))
-		), 'item-list-row');
-		// row 4
-		$table->addRow(array(
-			new CCol(array(bold(_('Name')), SPACE._('like').NAME_DELIMITER), 'label'),
-			new CCol(new CTextBox('filter_name', $filter_name, ZBX_TEXTBOX_FILTER_SIZE), 'col1'),
-			new CCol($snmpOidLabel, 'label'),
-			new CCol($snmpOidField),
-			new CCol(array(bold(_('Trends')), SPACE._('(in days)').NAME_DELIMITER), 'label'),
-			new CCol(new CNumericBox('filter_trends', $filter_trends, 8, null, true)),
-			new CCol(bold(_('Template').NAME_DELIMITER), 'label'),
+			new CCol(bold(_('Template').': '), 'label'),
 			new CCol(new CComboBox('filter_templated_items', $filter_templated_items, null, array(
 				-1 => _('all'),
 				1 => _('Templated items'),
 				0 => _('Not Templated items'),
-			)))
-		), 'item-list-row');
+			))),
+		));
+		// row 4
+		$table->addRow(array(
+			new CCol(array(bold(_('Name')), SPACE._('like').': '), 'label'),
+			new CCol(new CTextBox('filter_name', $filter_name, ZBX_TEXTBOX_FILTER_SIZE)),
+			new CCol($snmpOidLabel, 'label'),
+			new CCol($snmpOidField),
+			new CCol(array(bold(_('Keep trends')), SPACE._('(in days)').': '), 'label'),
+			new CCol(new CNumericBox('filter_trends', $filter_trends, 8, null, true)),
+			new CCol(null, 'label'),
+			new CCol(),
+		));
 		// row 5
 		$table->addRow(array(
-			new CCol(array(bold(_('Key')), SPACE._('like').NAME_DELIMITER), 'label'),
-			new CCol(new CTextBox('filter_key', $filter_key, ZBX_TEXTBOX_FILTER_SIZE), 'col1'),
+			new CCol(array(bold(_('Key')), SPACE._('like').': '), 'label'),
+			new CCol(new CTextBox('filter_key', $filter_key, ZBX_TEXTBOX_FILTER_SIZE)),
 			new CCol($portLabel, 'label'),
 			new CCol($portField),
 			new CCol(null, 'label'),
 			new CCol(),
 			new CCol(null, 'label'),
-			new CCol()
-		), 'item-list-row');
-
-		$filter = new CButton('filter', _('Filter'),
-			"javascript: create_var('zbx_filter', 'filter_set', '1', true); chkbxRange.clearSelectedOnFilterChange();"
-		);
-		$filter->useJQueryStyle('main');
+			new CCol(),
+		));
 
 		$reset = new CButton('reset', _('Reset'), "javascript: clearAllForm('zbx_filter');");
 		$reset->useJQueryStyle();
+
+		$filter = new CButton('filter', _('Filter'), "javascript: create_var('zbx_filter', 'filter_set', '1', true);");
+		$filter->useJQueryStyle('main');
 
 		$div_buttons = new CDiv(array($filter, SPACE, $reset));
 		$div_buttons->setAttribute('style', 'padding: 4px 0px;');
@@ -650,7 +592,6 @@
 			'types' => array(),
 			'value_types' => array(),
 			'status' => array(),
-			'state' => array(),
 			'templated_items' => array(),
 			'with_triggers' => array(),
 			'history' => array(),
@@ -661,7 +602,7 @@
 		// generate array with values for subfilters of selected items
 		foreach ($items as $item) {
 			// hosts
-			if (zbx_empty($filter_hostId)) {
+			if (zbx_empty($filter_hostname)) {
 				$host = reset($item['hosts']);
 
 				if (!isset($item_params['hosts'][$host['hostid']])) {
@@ -769,26 +710,6 @@
 				}
 			}
 
-			// state
-			if ($filter_state == -1) {
-				if (!isset($item_params['state'][$item['state']])) {
-					$item_params['state'][$item['state']] = array(
-						'name' => itemState($item['state']),
-						'count' => 0
-					);
-				}
-				$show_item = true;
-				foreach ($item['subfilters'] as $name => $value) {
-					if ($name == 'subfilter_state') {
-						continue;
-					}
-					$show_item &= $value;
-				}
-				if ($show_item) {
-					$item_params['state'][$item['state']]['count']++;
-				}
-			}
-
 			// template
 			if ($filter_templated_items == -1) {
 				if ($item['templateid'] == 0 && !isset($item_params['templated_items'][0])) {
@@ -892,74 +813,61 @@
 		}
 
 		// output
-		if (zbx_empty($filter_hostId) && count($item_params['hosts']) > 1) {
-			$hosts_output = prepareSubfilterOutput($item_params['hosts'], $subfilter_hosts, 'subfilter_hosts');
+		if (zbx_empty($filter_hostname) && count($item_params['hosts']) > 1) {
+			$hosts_output = prepare_subfilter_output($item_params['hosts'], $subfilter_hosts, 'subfilter_hosts');
 			$table_subfilter->addRow(array(_('Hosts'), $hosts_output));
 		}
 
 		if (!empty($item_params['applications']) && count($item_params['applications']) > 1) {
-			$application_output = prepareSubfilterOutput($item_params['applications'], $subfilter_apps, 'subfilter_apps');
+			$application_output = prepare_subfilter_output($item_params['applications'], $subfilter_apps, 'subfilter_apps');
 			$table_subfilter->addRow(array(_('Applications'), $application_output));
 		}
 
 		if ($filter_type == -1 && count($item_params['types']) > 1) {
-			$type_output = prepareSubfilterOutput($item_params['types'], $subfilter_types, 'subfilter_types');
+			$type_output = prepare_subfilter_output($item_params['types'], $subfilter_types, 'subfilter_types');
 			$table_subfilter->addRow(array(_('Types'), $type_output));
 		}
 
 		if ($filter_value_type == -1 && count($item_params['value_types']) > 1) {
-			$value_types_output = prepareSubfilterOutput($item_params['value_types'], $subfilter_value_types, 'subfilter_value_types');
+			$value_types_output = prepare_subfilter_output($item_params['value_types'], $subfilter_value_types, 'subfilter_value_types');
 			$table_subfilter->addRow(array(_('Type of information'), $value_types_output));
 		}
 
 		if ($filter_status == -1 && count($item_params['status']) > 1) {
-			$status_output = prepareSubfilterOutput($item_params['status'], $subfilter_status, 'subfilter_status');
+			$status_output = prepare_subfilter_output($item_params['status'], $subfilter_status, 'subfilter_status');
 			$table_subfilter->addRow(array(_('Status'), $status_output));
 		}
 
-		if ($filter_state == -1 && count($item_params['state']) > 1) {
-			$state_output = prepareSubfilterOutput($item_params['state'], $subfilter_state, 'subfilter_state');
-			$table_subfilter->addRow(array(_('State'), $state_output));
-		}
-
 		if ($filter_templated_items == -1 && count($item_params['templated_items']) > 1) {
-			$templated_items_output = prepareSubfilterOutput($item_params['templated_items'], $subfilter_templated_items, 'subfilter_templated_items');
+			$templated_items_output = prepare_subfilter_output($item_params['templated_items'], $subfilter_templated_items, 'subfilter_templated_items');
 			$table_subfilter->addRow(array(_('Template'), $templated_items_output));
 		}
 
 		if ($filter_with_triggers == -1 && count($item_params['with_triggers']) > 1) {
-			$with_triggers_output = prepareSubfilterOutput($item_params['with_triggers'], $subfilter_with_triggers, 'subfilter_with_triggers');
+			$with_triggers_output = prepare_subfilter_output($item_params['with_triggers'], $subfilter_with_triggers, 'subfilter_with_triggers');
 			$table_subfilter->addRow(array(_('With triggers'), $with_triggers_output));
 		}
 
 		if (zbx_empty($filter_history) && count($item_params['history']) > 1) {
-			$history_output = prepareSubfilterOutput($item_params['history'], $subfilter_history, 'subfilter_history');
+			$history_output = prepare_subfilter_output($item_params['history'], $subfilter_history, 'subfilter_history');
 			$table_subfilter->addRow(array(_('History'), $history_output));
 		}
 
 		if (zbx_empty($filter_trends) && (count($item_params['trends']) > 1)) {
-			$trends_output = prepareSubfilterOutput($item_params['trends'], $subfilter_trends, 'subfilter_trends');
+			$trends_output = prepare_subfilter_output($item_params['trends'], $subfilter_trends, 'subfilter_trends');
 			$table_subfilter->addRow(array(_('Trends'), $trends_output));
 		}
 
 		if (zbx_empty($filter_delay) && $filter_type != ITEM_TYPE_TRAPPER && count($item_params['interval']) > 1) {
-			$interval_output = prepareSubfilterOutput($item_params['interval'], $subfilter_interval, 'subfilter_interval');
+			$interval_output = prepare_subfilter_output($item_params['interval'], $subfilter_interval, 'subfilter_interval');
 			$table_subfilter->addRow(array(_('Interval'), $interval_output));
 		}
 
 		$form->addItem(new CDiv(_('Subfilter [affects only filtered data!]'), 'thin_header'));
 		$form->addItem($table_subfilter);
-
 		return $form;
 	}
 
-	/**
-	 * Get data for item edit page.
-	 *
-	 * @param bool $options['is_discovery_rule']
-	 *
-	 * @return array
-	 */
 	function getItemFormData($options = array()) {
 		$ifm = get_request('filter_macro');
 		$ifv = get_request('filter_value');
@@ -978,7 +886,7 @@
 			'hostname' => get_request('hostname', null),
 			'delay' => get_request('delay', ZBX_ITEM_DELAY_DEFAULT),
 			'history' => get_request('history', 90),
-			'status' => get_request('status', isset($_REQUEST['form_refresh']) ? 1 : 0),
+			'status' => get_request('status', 0),
 			'type' => get_request('type', 0),
 			'snmp_community' => get_request('snmp_community', 'public'),
 			'snmp_oid' => get_request('snmp_oid', 'interfaces.ifTable.ifEntry.ifInOctets.1'),
@@ -996,12 +904,9 @@
 			'applications' => get_request('applications', array()),
 			'delay_flex' => get_request('delay_flex', array()),
 			'new_delay_flex' => get_request('new_delay_flex', array('delay' => 50, 'period' => ZBX_DEFAULT_INTERVAL)),
-			'snmpv3_contextname' => get_request('snmpv3_contextname', ''),
 			'snmpv3_securityname' => get_request('snmpv3_securityname', ''),
 			'snmpv3_securitylevel' => get_request('snmpv3_securitylevel', 0),
-			'snmpv3_authprotocol' => get_request('snmpv3_authprotocol', ITEM_AUTHPROTOCOL_MD5),
 			'snmpv3_authpassphrase' => get_request('snmpv3_authpassphrase', ''),
-			'snmpv3_privprotocol' => get_request('snmpv3_privprotocol', ITEM_PRIVPROTOCOL_DES),
 			'snmpv3_privpassphrase' => get_request('snmpv3_privpassphrase', ''),
 			'ipmi_sensor' => get_request('ipmi_sensor', ''),
 			'authtype' => get_request('authtype', 0),
@@ -1033,33 +938,27 @@
 			$data['hostid'] = $discoveryRule['hostid'];
 		}
 		else {
-			$data['hostid'] = get_request('hostid', 0);
+			$data['hostid'] = get_request('form_hostid', get_request('hostid', 0));
 		}
 
 		// types, http items only for internal processes
 		$data['types'] = item_type2str();
 		unset($data['types'][ITEM_TYPE_HTTPTEST]);
-		if (!empty($options['is_discovery_rule'])) {
-			unset($data['types'][ITEM_TYPE_AGGREGATE],
-				$data['types'][ITEM_TYPE_CALCULATED],
-				$data['types'][ITEM_TYPE_SNMPTRAP]
-			);
-		}
 
 		// item
 		if (!empty($data['itemid'])) {
-			$params = array(
+			$options = array(
 				'itemids' => $data['itemid'],
 				'output' => API_OUTPUT_EXTEND
 			);
 			if ($data['is_discovery_rule']) {
-				$params['hostids'] = $data['hostid'];
-				$params['editable'] = true;
-				$data['item'] = API::DiscoveryRule()->get($params);
+				$options['hostids'] = $data['hostid'];
+				$options['editable'] = true;
+				$data['item'] = API::DiscoveryRule()->get($options);
 			}
 			else {
-				$params['filter'] = array('flags' => null);
-				$data['item'] = API::Item()->get($params);
+				$options['filter'] = array('flags' => null);
+				$data['item'] = API::Item()->get($options);
 			}
 			$data['item'] = reset($data['item']);
 			$data['hostid'] = !empty($data['hostid']) ? $data['hostid'] : $data['item']['hostid'];
@@ -1068,25 +967,24 @@
 			// get templates
 			$itemid = $data['itemid'];
 			do {
-				$params = array(
+				$options = array(
 					'itemids' => $itemid,
 					'output' => array('itemid', 'templateid'),
 					'selectHosts' => array('name')
 				);
 				if ($data['is_discovery_rule']) {
-					$item = API::DiscoveryRule()->get($params);
+					$item = API::DiscoveryRule()->get($options);
 				}
 				else {
-					$params['selectDiscoveryRule'] = array('itemid');
-					$params['filter'] = array('flags' => null);
-					$item = API::Item()->get($params);
+					$options['selectDiscoveryRule'] = array('itemid');
+					$options['filter'] = array('flags' => null);
+					$item = API::Item()->get($options);
 				}
 				$item = reset($item);
 
 				if (!empty($item)) {
 					$host = reset($item['hosts']);
 					if (!empty($item['hosts'])) {
-						$host['name'] = CHtml::encode($host['name']);
 						if (bccomp($data['itemid'], $itemid) == 0) {
 						}
 						// discovery rule
@@ -1111,7 +1009,6 @@
 					break;
 				}
 			} while ($itemid != 0);
-
 			$data['templates'] = array_reverse($data['templates']);
 			array_shift($data['templates']);
 		}
@@ -1125,7 +1022,7 @@
 		}
 
 		// hostname
-		if (empty($data['is_discovery_rule']) && empty($data['hostname'])) {
+		if (empty($data['hostname'])) {
 			if (!empty($data['hostid'])) {
 				$hostInfo = API::Host()->get(array(
 					'hostids' => $data['hostid'],
@@ -1158,12 +1055,9 @@
 			$data['multiplier'] = $data['item']['multiplier'];
 			$data['hostid'] = $data['item']['hostid'];
 			$data['params'] = $data['item']['params'];
-			$data['snmpv3_contextname'] = $data['item']['snmpv3_contextname'];
 			$data['snmpv3_securityname'] = $data['item']['snmpv3_securityname'];
 			$data['snmpv3_securitylevel'] = $data['item']['snmpv3_securitylevel'];
-			$data['snmpv3_authprotocol'] = $data['item']['snmpv3_authprotocol'];
 			$data['snmpv3_authpassphrase'] = $data['item']['snmpv3_authpassphrase'];
-			$data['snmpv3_privprotocol'] = $data['item']['snmpv3_privprotocol'];
 			$data['snmpv3_privpassphrase'] = $data['item']['snmpv3_privpassphrase'];
 			$data['ipmi_sensor'] = $data['item']['ipmi_sensor'];
 			$data['authtype'] = $data['item']['authtype'];
@@ -1229,11 +1123,7 @@
 			}
 		}
 		else {
-			$data['valuemaps'] = DBfetchArray(DBselect(
-					'SELECT v.*'.
-					' FROM valuemaps v'.
-					whereDbNode('v.valuemapid')
-			));
+			$data['valuemaps'] = DBfetchArray(DBselect('SELECT v.* FROM valuemaps v WHERE '.DBin_node('v.valuemapid')));
 			order_result($data['valuemaps'], 'name');
 		}
 
@@ -1250,39 +1140,28 @@
 			$data['alreadyPopulated'] = zbx_toHash($data['alreadyPopulated'], 'inventory_link');
 		}
 
+		// host groups
+		$data['hostGroups'] = API::HostGroup()->get(array(
+			'editable' => true,
+			'output' => API_OUTPUT_EXTEND
+		));
+		order_result($data['hostGroups'], 'name');
+
 		// template
 		$data['is_template'] = isTemplate($data['hostid']);
-
-		// unset snmpv3 fields
-		if ($data['type'] != ITEM_TYPE_SNMPV3) {
-			$data['snmpv3_contextname'] = '';
-			$data['snmpv3_securityname'] = '';
-			$data['snmpv3_securitylevel'] = ITEM_SNMPV3_SECURITYLEVEL_NOAUTHNOPRIV;
-			$data['snmpv3_authprotocol'] = ITEM_AUTHPROTOCOL_MD5;
-			$data['snmpv3_authpassphrase'] = '';
-			$data['snmpv3_privprotocol'] = ITEM_PRIVPROTOCOL_DES;
-			$data['snmpv3_privpassphrase'] = '';
-		}
-
-		// unset ssh auth fields
-		if ($data['type'] != ITEM_TYPE_SSH) {
-			$data['authtype'] = ITEM_AUTHTYPE_PASSWORD;
-			$data['publickey'] = '';
-			$data['privatekey'] = '';
-		}
 
 		return $data;
 	}
 
-	function getCopyElementsFormData($elementsField, $title = null) {
+	function getCopyElementsFormData($elements_field, $title = null) {
 		$data = array(
 			'title' => $title,
-			'elements_field' => $elementsField,
-			'elements' => getRequest($elementsField, array()),
-			'copy_type' => getRequest('copy_type', 0),
-			'filter_groupid' => getRequest('filter_groupid', 0),
-			'copy_targetid' => getRequest('copy_targetid', array()),
-			'hostid' => getRequest('hostid', 0),
+			'elements_field' => $elements_field,
+			'elements' => get_request($elements_field, array()),
+			'copy_type' => get_request('copy_type', 0),
+			'filter_groupid' => get_request('filter_groupid', 0),
+			'copy_targetid' => get_request('copy_targetid', array()),
+			'hostid' => get_request('hostid', 0),
 			'groups' => array(),
 			'hosts' => array()
 		);
@@ -1290,14 +1169,11 @@
 		// validate elements
 		if (empty($data['elements']) || !is_array($data['elements'])) {
 			error(_('Incorrect list of items.'));
-
 			return null;
 		}
 
 		// get groups
-		$data['groups'] = API::HostGroup()->get(array(
-			'output' => array('groupid', 'name')
-		));
+		$data['groups'] = API::HostGroup()->get(array('output' => API_OUTPUT_EXTEND));
 		order_result($data['groups'], 'name');
 
 		// get hosts
@@ -1307,15 +1183,13 @@
 					$data['filter_groupid'] = $group['groupid'];
 				}
 			}
-
 			$data['hosts'] = API::Host()->get(array(
-				'output' => array('groupid', 'name'),
+				'output' => API_OUTPUT_EXTEND,
 				'groupids' => $data['filter_groupid'],
 				'templated_hosts' => true
 			));
 			order_result($data['hosts'], 'name');
 		}
-
 		return $data;
 	}
 
@@ -1408,11 +1282,7 @@
 						$link = 'triggers.php?form=update&triggerid='.$db_triggers['triggerid'].'&hostid='.$db_triggers['hostid'];
 					}
 
-					$data['templates'][] = new CLink(
-						CHtml::encode($db_triggers['name']),
-						$link,
-						'highlight underline weight_normal'
-					);
+					$data['templates'][] = new CLink($db_triggers['name'], $link, 'highlight underline weight_normal');
 					$data['templates'][] = SPACE.RARR.SPACE;
 				}
 				$tmp_triggerid = $db_triggers['templateid'];
@@ -1422,11 +1292,10 @@
 
 			$data['limited'] = $data['trigger']['templateid'] ? 'yes' : null;
 
-			// select first host from triggers if gived not match
-			$hosts = $data['trigger']['hosts'];
-			if (count($hosts) > 0 && !in_array(array('hostid' => $data['hostid']), $hosts)) {
-				$host = reset($hosts);
-				$data['hostid'] = $host['hostid'];
+			// if no host has been selected for the navigation panel, use the first trigger host
+			if (!$data['hostid']) {
+				$hosts = reset($data['trigger']['hosts']);
+				$data['hostid'] = $hosts['hostid'];
 			}
 		}
 
@@ -1517,7 +1386,7 @@
 	}
 
 	function get_timeperiod_form() {
-		$tblPeriod = new CTable(null, 'formElementTable');
+		$tblPeriod = new CTableInfo();
 
 		// init new_timeperiod variable
 		$new_timeperiod = get_request('new_timeperiod', array());
@@ -1700,13 +1569,26 @@
 			));
 			$tblPeriod->addRow(array(_('Month'), $tabMonths));
 
-			$tblPeriod->addRow(array(_('Date'), array(
-				new CRadioButton('new_timeperiod[month_date_type]', '0', null, null, !$new_timeperiod['month_date_type'], 'submit()'),
-				_('Day'),
-				SPACE,
-				new CRadioButton('new_timeperiod[month_date_type]', '1', null, null, $new_timeperiod['month_date_type'], 'submit()'),
-				_('Day of week')))
-			);
+			$radioDaily = new CTag('input');
+			$radioDaily->setAttribute('type', 'radio');
+			$radioDaily->setAttribute('name', 'new_timeperiod[month_date_type]');
+			$radioDaily->setAttribute('value', '0');
+			$radioDaily->setAttribute('onclick', 'submit()');
+
+			$radioDaily2 = new CTag('input');
+			$radioDaily2->setAttribute('type', 'radio');
+			$radioDaily2->setAttribute('name', 'new_timeperiod[month_date_type]');
+			$radioDaily2->setAttribute('value', '1');
+			$radioDaily2->setAttribute('onclick', 'submit()');
+
+			if ($new_timeperiod['month_date_type']) {
+				$radioDaily2->setAttribute('checked', 'checked');
+			}
+			else {
+				$radioDaily->setAttribute('checked', 'checked');
+			}
+
+			$tblPeriod->addRow(array(_('Date'), array($radioDaily, _('Day'), SPACE, SPACE, $radioDaily2, _('Day of week'))));
 
 			if ($new_timeperiod['month_date_type'] > 0) {
 				$tblPeriod->addItem(new CVar('new_timeperiod[day]', $new_timeperiod['day']));
@@ -1747,43 +1629,391 @@
 			$tblPeriod->addItem(new CVar('new_timeperiod[month_date_type]', $new_timeperiod['month_date_type']));
 			$tblPeriod->addItem(new CVar('new_timeperiod[dayofweek]', bindec($bit_dayofweek)));
 
+			$clndr_icon = new CImg('images/general/bar/cal.gif', 'calendar', 16, 12, 'pointer');
+			$clndr_icon->addAction('onclick', 'javascript: var pos = getPosition(this); pos.top += 10; pos.left += 16; CLNDR["new_timeperiod_date"].clndr.clndrshow(pos.top, pos.left);');
+
+			$filtertimetab = new CTable(null, 'calendar');
+			$filtertimetab->setAttribute('width', '10%');
+			$filtertimetab->setCellPadding(0);
+			$filtertimetab->setCellSpacing(0);
+
+			$startDate = zbxDateToTime($new_timeperiod['start_date']);
 			if (isset($_REQUEST['add_timeperiod'])) {
-				$date = array(
-					'y' => get_request('new_timeperiod_start_date_year'),
-					'm' => get_request('new_timeperiod_start_date_month'),
-					'd' => get_request('new_timeperiod_start_date_day'),
-					'h' => get_request('new_timeperiod_start_date_hour'),
-					'i' => get_request('new_timeperiod_start_date_minute')
-				);
+				$newTimePeriodYear = get_request('new_timeperiod_year');
+				$newTimePeriodMonth = get_request('new_timeperiod_month');
+				$newTimePeriodDay = get_request('new_timeperiod_day');
+				$newTimePeriodHours = get_request('new_timeperiod_hour');
+				$newTimePeriodMinutes = get_request('new_timeperiod_minute');
+			}
+			elseif ($startDate > 0) {
+				$newTimePeriodYear = date('Y', $startDate );
+				$newTimePeriodMonth = date('m', $startDate );
+				$newTimePeriodDay = date('d', $startDate );
+				$newTimePeriodHours = date('H', $startDate );
+				$newTimePeriodMinutes = date('i', $startDate );
 			}
 			else {
-				$date = zbxDateToTime($new_timeperiod['start_date']
-					? $new_timeperiod['start_date'] : date(TIMESTAMP_FORMAT_ZERO_TIME, time()));
+				$newTimePeriodYear = '';
+				$newTimePeriodMonth = '';
+				$newTimePeriodDay = '';
+				$newTimePeriodHours = '';
+				$newTimePeriodMinutes = '';
 			}
+			$filtertimetab->addRow(array(
+				new CNumericBox('new_timeperiod_day', $newTimePeriodDay, 2),
+				'/',
+				new CNumericBox('new_timeperiod_month', $newTimePeriodMonth, 2),
+				'/',
+				new CNumericBox('new_timeperiod_year', $newTimePeriodYear, 4),
+				SPACE,
+				new CNumericBox('new_timeperiod_hour', $newTimePeriodHours, 2),
+				':',
+				new CNumericBox('new_timeperiod_minute', $newTimePeriodMinutes, 2),
+				$clndr_icon
+			));
+			zbx_add_post_js('create_calendar(null, ["new_timeperiod_day", "new_timeperiod_month", "new_timeperiod_year", "new_timeperiod_hour", "new_timeperiod_minute"], "new_timeperiod_date", "new_timeperiod_start_date");');
 
-			$tblPeriod->addRow(array(_('Date'), createDateSelector('new_timeperiod_start_date', $date)));
+			$tblPeriod->addRow(array(_('Date'), $filtertimetab));
 		}
 
 		if ($new_timeperiod['timeperiod_type'] != TIMEPERIOD_TYPE_ONETIME) {
-			$tblPeriod->addRow(array(_('At (hour:minute)'), array(
-				new CNumericBox('new_timeperiod[hour]', $new_timeperiod['hour'], 2),
-				':',
-				new CNumericBox('new_timeperiod[minute]', $new_timeperiod['minute'], 2)))
-			);
+			$tabTime = new CTable(null, 'calendar');
+			$tabTime->addRow(array(new CNumericBox('new_timeperiod[hour]', $new_timeperiod['hour'], 2), ':', new CNumericBox('new_timeperiod[minute]', $new_timeperiod['minute'], 2)));
+			$tblPeriod->addRow(array(_('At (hour:minute)'), $tabTime));
 		}
 
-		$perHours = new CComboBox('new_timeperiod[period_hours]', $new_timeperiod['period_hours'], null, range(0, 23));
-		$perMinutes = new CComboBox('new_timeperiod[period_minutes]', $new_timeperiod['period_minutes'], null, range(0, 59));
+		$perHours = new CComboBox('new_timeperiod[period_hours]', $new_timeperiod['period_hours']);
+		for ($i = 0; $i < 24; $i++) {
+			$perHours->addItem($i, $i);
+		}
+		$perMinutes = new CComboBox('new_timeperiod[period_minutes]', $new_timeperiod['period_minutes']);
+		for ($i = 0; $i < 60; $i++) {
+			$perMinutes->addItem($i, $i);
+		}
 		$tblPeriod->addRow(array(
 			_('Maintenance period length'),
 			array(
 				new CNumericBox('new_timeperiod[period_days]', $new_timeperiod['period_days'], 3),
 				_('Days').SPACE.SPACE,
 				$perHours,
-				_('Hours').SPACE.SPACE,
+				SPACE._('Hours'),
 				$perMinutes,
-				_('Minutes')
+				SPACE._('Minutes')
 		)));
 
+		$td = new CCol(array(
+			new CSubmit('add_timeperiod', $new ? _('Save') : _('Add')),
+			SPACE,
+			new CSubmit('cancel_new_timeperiod', _('Cancel'))
+		));
+		$td->setAttribute('colspan', '3');
+		$td->setAttribute('style', 'text-align: right;');
+		$tblPeriod->setFooter($td);
+
 		return $tblPeriod;
+	}
+
+	function insert_host_inventory_form(){
+		$frmHostP = new CFormTable(_('Host Inventory'));
+
+		$table_titles = getHostInventories();
+		$table_titles = zbx_toHash($table_titles, 'db_field');
+		$sql_fields = implode(', ', array_keys($table_titles));
+
+		$sql = 'SELECT '.$sql_fields.' FROM host_inventory WHERE hostid='.zbx_dbstr($_REQUEST['hostid']);
+		$result = DBselect($sql);
+
+		$row = DBfetch($result);
+		foreach($row as $key => $value){
+			if(!zbx_empty($value)){
+				$frmHostP->addRow($table_titles[$key]['title'], new CSpan(zbx_str2links($value), 'pre'));
+			}
+		}
+
+		$frmHostP->addItemToBottomRow(new CButtonCancel(url_param('groupid')));
+
+		return $frmHostP;
+	}
+
+	function get_regexp_form(){
+		if(isset($_REQUEST['regexpid']) && !isset($_REQUEST['form_refresh'])){
+			$sql = 'SELECT re.* '.
+				' FROM regexps re '.
+				' WHERE '.DBin_node('re.regexpid').
+					' AND re.regexpid='.zbx_dbstr($_REQUEST['regexpid']);
+			$regexp = DBfetch(DBSelect($sql));
+
+			$rename			= $regexp['name'];
+			$test_string	= $regexp['test_string'];
+
+			$expressions = array();
+			$sql = 'SELECT e.* '.
+					' FROM expressions e '.
+					' WHERE '.DBin_node('e.expressionid').
+						' AND e.regexpid='.zbx_dbstr($regexp['regexpid']).
+					' ORDER BY e.expression_type';
+
+			$db_exps = DBselect($sql);
+			while($exp = DBfetch($db_exps)){
+				$expressions[] = $exp;
+			}
+		}
+		else{
+			$rename			= get_request('rename','');
+			$test_string	= get_request('test_string','');
+
+			$expressions 	= get_request('expressions',array());
+		}
+
+		$tblRE = new CTable('','formtable nowrap');
+
+		$tblRE->addRow(array(_('Name'), new CTextBox('rename', $rename, 60, 'no', 128)));
+		$tblRE->addRow(array(_('Test string'), new CTextArea('test_string', $test_string)));
+
+		$tabExp = new CTableInfo();
+
+		$td1 = new CCol(_('Expression'));
+		$td2 = new CCol(_('Expected result'));
+		$td3 = new CCol(_('Result'));
+
+		$tabExp->setHeader(array($td1,$td2,$td3));
+
+		$final_result = !empty($test_string);
+
+		foreach($expressions as $id => $expression){
+
+			$results = array();
+			$paterns = array($expression['expression']);
+
+			if(!empty($test_string)){
+				if($expression['expression_type'] == EXPRESSION_TYPE_ANY_INCLUDED){
+					$paterns = explode($expression['exp_delimiter'],$expression['expression']);
+				}
+
+				if(uint_in_array($expression['expression_type'], array(EXPRESSION_TYPE_TRUE,EXPRESSION_TYPE_FALSE))){
+					if($expression['case_sensitive'])
+						$results[$id] = preg_match('/'.$paterns[0].'/',$test_string);
+					else
+						$results[$id] = preg_match('/'.$paterns[0].'/i',$test_string);
+
+					if($expression['expression_type'] == EXPRESSION_TYPE_TRUE)
+						$final_result &= $results[$id];
+					else
+						$final_result &= !$results[$id];
+				}
+				else{
+					$results[$id] = true;
+
+					$tmp_result = false;
+					if($expression['case_sensitive']){
+						foreach($paterns as $pid => $patern){
+							$tmp_result |= (zbx_strstr($test_string,$patern) !== false);
+						}
+					}
+					else{
+						foreach($paterns as $pid => $patern){
+							$tmp_result |= (zbx_stristr($test_string,$patern) !== false);
+						}
+					}
+
+					if(uint_in_array($expression['expression_type'], array(EXPRESSION_TYPE_INCLUDED, EXPRESSION_TYPE_ANY_INCLUDED)))
+						$results[$id] &= $tmp_result;
+					else if($expression['expression_type'] == EXPRESSION_TYPE_NOT_INCLUDED){
+						$results[$id] &= !$tmp_result;
+					}
+					$final_result &= $results[$id];
+				}
+			}
+
+			if(isset($results[$id]) && $results[$id])
+				$exp_res = new CSpan(_('TRUE'), 'green bold');
+			else
+				$exp_res = new CSpan(_('FALSE'), 'red bold');
+
+			$expec_result = expression_type2str($expression['expression_type']);
+			if(EXPRESSION_TYPE_ANY_INCLUDED == $expression['expression_type'])
+				$expec_result.=' ('._('Delimiter')."='".$expression['exp_delimiter']."')";
+
+			$tabExp->addRow(array(
+				$expression['expression'],
+				$expec_result,
+				$exp_res
+			));
+		}
+
+		$td = new CCol(_('Combined result'), 'bold');
+		$td->setColSpan(2);
+
+		if ($final_result) {
+			$final_result = new CSpan(_('TRUE'), 'green bold');
+		}
+		else {
+			$final_result = new CSpan(_('FALSE'), 'red bold');
+		}
+
+		$tabExp->addRow(array(
+			$td,
+			$final_result
+		));
+
+		$tblRE->addRow(array(_('Result'), $tabExp));
+
+		$tblFoot = new CTableInfo(null);
+
+		$td = new CCol(array(new CSubmit('save', _('Save'))));
+		$td->setColSpan(2);
+		$td->addStyle('text-align: right;');
+
+		$td->addItem(SPACE);
+		$td->addItem(new CSubmit('test', _('Test')));
+
+		if (isset($_REQUEST['regexpid'])) {
+			$td->addItem(SPACE);
+			$td->addItem(new CSubmit('clone', _('Clone')));
+			$td->addItem(SPACE);
+			$td->addItem(new CButtonDelete(_('Delete regular expression?'), url_param('form').url_param('config').url_param('regexpid').url_param('delete', false, 'go')));
+		}
+
+		$td->addItem(SPACE);
+		$td->addItem(new CButtonCancel(url_param("regexpid")));
+
+		$tblFoot->setFooter($td);
+
+		return array($tblRE, $tblFoot);
+	}
+
+	function get_expressions_tab() {
+		if (isset($_REQUEST['regexpid']) && !isset($_REQUEST['form_refresh'])) {
+			$expressions = array();
+			$sql = 'SELECT e.* '.
+					' FROM expressions e '.
+					' WHERE '.DBin_node('e.expressionid').
+						' AND e.regexpid='.zbx_dbstr($_REQUEST['regexpid']).
+					' ORDER BY e.expression_type';
+
+			$db_exps = DBselect($sql);
+			while ($exp = DBfetch($db_exps)) {
+				$expressions[] = $exp;
+			}
+		}
+		else {
+			$expressions = get_request('expressions',array());
+		}
+
+		$tblExp = new CTableInfo();
+		$tblExp->setHeader(array(
+			new CCheckBox('all_expressions', null, 'checkAll("regularExpressionsForm", "all_expressions", "g_expressionid");'),
+			_('Expression'),
+			_('Expected result'),
+			_('Case sensitive'),
+			_('Edit')
+		));
+
+		foreach($expressions as $id => $expression){
+
+			$exp_result = expression_type2str($expression['expression_type']);
+			if(EXPRESSION_TYPE_ANY_INCLUDED == $expression['expression_type'])
+				$exp_result.=' ('._('Delimiter')."='".$expression['exp_delimiter']."')";
+
+			$tblExp->addRow(array(
+				new CCheckBox('g_expressionid[]', 'no', null, $id),
+				$expression['expression'],
+				$exp_result,
+				$expression['case_sensitive'] ? _('Yes') : _('No'),
+				new CSubmit('edit_expressionid['.$id.']', _('Edit'))
+			));
+
+			if (isset($expression['expressionid'])) {
+				$tblExp->addItem(new CVar('expressions['.$id.'][expressionid]', $expression['expressionid']));
+			}
+			$tblExp->addItem(new CVar('expressions['.$id.'][expression]', $expression['expression']));
+			$tblExp->addItem(new CVar('expressions['.$id.'][expression_type]', $expression['expression_type']));
+			$tblExp->addItem(new CVar('expressions['.$id.'][case_sensitive]', $expression['case_sensitive']));
+			$tblExp->addItem(new CVar('expressions['.$id.'][exp_delimiter]', $expression['exp_delimiter']));
+		}
+
+		$buttons = array();
+		if(!isset($_REQUEST['new_expression'])){
+			$buttons[] = new CSubmit('new_expression', _('New'));
+			$buttons[] = new CSubmit('delete_expression', _('Delete'));
+		}
+
+		$td = new CCol($buttons);
+		$td->setAttribute('colspan', '5');
+		$td->setAttribute('style', 'text-align: right;');
+		$tblExp->setFooter($td);
+
+		return $tblExp;
+	}
+
+	function get_expression_form(){
+		$tblExp = new CTable();
+
+		/* init new_timeperiod variable */
+		$new_expression = get_request('new_expression', array());
+
+		if(is_array($new_expression) && isset($new_expression['id'])){
+			$tblExp->addItem(new Cvar('new_expression[id]', $new_expression['id']));
+		}
+
+		if(!is_array($new_expression)){
+			$new_expression = array();
+		}
+
+		if (isset($new_expression['expressionid'])) {
+			$tblExp->addItem(new CVar('new_expression[expressionid]', $new_expression['expressionid']));
+		}
+		if (!isset($new_expression['expression'])) {
+			$new_expression['expression'] = '';
+		}
+		if (!isset($new_expression['expression_type'])) {
+			$new_expression['expression_type'] = EXPRESSION_TYPE_INCLUDED;
+		}
+		if (!isset($new_expression['case_sensitive'])) {
+			$new_expression['case_sensitive'] = 0;
+		}
+		if (!isset($new_expression['exp_delimiter'])) {
+			$new_expression['exp_delimiter'] = ',';
+		}
+
+		$tblExp->addRow(array(_('Expression'), new CTextBox('new_expression[expression]', $new_expression['expression'], 60)));
+
+		$cmbType = new CComboBox('new_expression[expression_type]', $new_expression['expression_type'], 'javascript: submit();');
+		$cmbType->addItem(EXPRESSION_TYPE_INCLUDED, expression_type2str(EXPRESSION_TYPE_INCLUDED));
+		$cmbType->addItem(EXPRESSION_TYPE_ANY_INCLUDED, expression_type2str(EXPRESSION_TYPE_ANY_INCLUDED));
+		$cmbType->addItem(EXPRESSION_TYPE_NOT_INCLUDED, expression_type2str(EXPRESSION_TYPE_NOT_INCLUDED));
+		$cmbType->addItem(EXPRESSION_TYPE_TRUE, expression_type2str(EXPRESSION_TYPE_TRUE));
+		$cmbType->addItem(EXPRESSION_TYPE_FALSE, expression_type2str(EXPRESSION_TYPE_FALSE));
+
+		$tblExp->addRow(array(_('Expression type'), $cmbType));
+
+		if(EXPRESSION_TYPE_ANY_INCLUDED == $new_expression['expression_type']){
+			$cmbDelimiter = new CComboBox('new_expression[exp_delimiter]', $new_expression['exp_delimiter']);
+			$cmbDelimiter->addItem(',', ',');
+			$cmbDelimiter->addItem('.', '.');
+			$cmbDelimiter->addItem('/', '/');
+
+			$tblExp->addRow(array(_('Delimiter'), $cmbDelimiter));
+		}
+		else{
+			$tblExp->addItem(new Cvar('new_expression[exp_delimiter]', $new_expression['exp_delimiter']));
+		}
+
+		$chkbCase = new CCheckBox('new_expression[case_sensitive]', $new_expression['case_sensitive'], null, 1);
+
+		$tblExp->addRow(array(_('Case sensitive'), $chkbCase));
+
+		$tblExpFooter = new CTableInfo($tblExp);
+
+		$oper_buttons = array();
+		$oper_buttons[] = new CSubmit('add_expression', isset($new_expression['id']) ? _('Save') : _('Add'));
+		$oper_buttons[] = new CSubmit('cancel_new_expression', _('Cancel'));
+
+		$td = new CCol($oper_buttons);
+		$td->setAttribute('colspan', 2);
+		$td->setAttribute('style', 'text-align: right;');
+
+		$tblExpFooter->setFooter($td);
+
+	return $tblExpFooter;
 	}

@@ -249,8 +249,12 @@ ZBX_ODBC_ROW	odbc_DBfetch(ZBX_ODBC_RESULT pdbh)
 		goto end;
 	}
 
-	if (SQL_SUCCESS != retcode && 0 == odbc_Diag(SQL_HANDLE_STMT, pdbh->hstmt, retcode, "cannot fetch row"))
-		goto end;
+	if (SQL_SUCCESS != retcode)
+	{
+		odbc_Diag(SQL_HANDLE_STMT, pdbh->hstmt, retcode, "cannot fetch row");
+		if (0 == SQL_SUCCEEDED(retcode))
+			goto end;
+	}
 
 	for (i = 0; i < pdbh->col_num; i++)
 	{

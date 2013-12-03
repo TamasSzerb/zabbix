@@ -24,6 +24,6 @@ extern int	CONFIG_HOUSEKEEPING_FREQUENCY;
 extern int	CONFIG_PROXY_LOCAL_BUFFER;
 extern int	CONFIG_PROXY_OFFLINE_BUFFER;
 
-void	main_housekeeper_loop(void);
+void	main_housekeeper_loop();
 
 #endif

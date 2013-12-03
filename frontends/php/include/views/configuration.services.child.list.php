@@ -32,7 +32,7 @@ if (!empty($this->data['service'])) {
 }
 
 // create table
-$servicesChildTable = new CTableInfo(_('No IT services found.'));
+$servicesChildTable = new CTableInfo();
 $servicesChildTable->setHeader(array(
 	new CCheckBox('all_services', null, "javascript: checkAll('".$servicesChildForm->getName()."', 'all_services', 'services');"),
 	_('Service'),
@@ -47,7 +47,8 @@ foreach ($this->data['db_cservices'] as $service) {
 		'id' => 'service-name-'.$service['serviceid'],
 		'data-name' => $service['name'],
 		'data-serviceid' => $service['serviceid'],
-		'data-trigger' => $service['trigger']
+		'data-trigger' => $service['trigger'],
+		'data-triggerid' => $service['triggerid']
 	));
 
 	$cb = new CCheckBox('services['.$service['serviceid'].']', null, null, $service['serviceid']);

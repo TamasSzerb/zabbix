@@ -33,7 +33,6 @@ $sourceComboBox = new CComboBox('eventsource', $this->data['eventsource'], 'subm
 $sourceComboBox->addItem(EVENT_SOURCE_TRIGGERS, _('Triggers'));
 $sourceComboBox->addItem(EVENT_SOURCE_DISCOVERY, _('Discovery'));
 $sourceComboBox->addItem(EVENT_SOURCE_AUTO_REGISTRATION, _('Auto registration'));
-$sourceComboBox->addItem(EVENT_SOURCE_INTERNAL, _x('Internal', 'event source'));
 $filterForm = new CForm('get');
 $filterForm->addItem(array(_('Event source'), SPACE, $sourceComboBox));
 
@@ -41,14 +40,13 @@ $actionWidget->addHeader(_('Actions'), $filterForm);
 $actionWidget->addHeaderRowNumber();
 
 // create form
-$actionForm = new CForm();
+$actionForm = new CForm('get');
 $actionForm->setName('actionForm');
 
 // create table
-$actionTable = new CTableInfo(_('No actions found.'));
+$actionTable = new CTableInfo(_('No actions defined.'));
 $actionTable->setHeader(array(
 	new CCheckBox('all_items', null, "checkAll('".$actionForm->getName()."', 'all_items', 'g_actionid');"),
-	$this->data['displayNodes'] ? _('Node') : null,
 	make_sorting_header(_('Name'), 'name'),
 	_('Conditions'),
 	_('Operations'),
@@ -59,14 +57,13 @@ foreach ($this->data['actions'] as $action) {
 	$conditions = array();
 	order_result($action['conditions'], 'conditiontype', ZBX_SORT_DOWN);
 	foreach ($action['conditions'] as $condition) {
-		$conditions[] = get_condition_desc($condition['conditiontype'], $condition['operator'], $condition['value']);
-		$conditions[] = BR();
+		$conditions[] = array(get_condition_desc($condition['conditiontype'], $condition['operator'], $condition['value']), BR());
 	}
 
 	sortOperations($action['eventsource'], $action['operations']);
 	$operations = array();
 	foreach ($action['operations'] as $operation) {
-		$operations[] = get_operation_descr(SHORT_DESCRIPTION, $operation);
+		$operations[] = get_operation_desc(SHORT_DESCRIPTION, $operation);
 	}
 
 	if ($action['status'] == ACTION_STATUS_DISABLED) {
@@ -84,7 +81,6 @@ foreach ($this->data['actions'] as $action) {
 
 	$actionTable->addRow(array(
 		new CCheckBox('g_actionid['.$action['actionid'].']', null, null, $action['actionid']),
-		$this->data['displayNodes'] ? $action['nodename'] : null,
 		new CLink($action['name'], 'actionconf.php?form=update&actionid='.$action['actionid']),
 		$conditions,
 		new CCol($operations, 'wraptext'),
@@ -115,5 +111,4 @@ $actionForm->addItem(array($this->data['paging'], $actionTable, $this->data['pag
 
 // append form to widget
 $actionWidget->addItem($actionForm);
-
 return $actionWidget;

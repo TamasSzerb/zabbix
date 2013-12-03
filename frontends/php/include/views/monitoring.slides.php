@@ -19,6 +19,8 @@
 **/
 
 
+require_once dirname(__FILE__).'/js/general.script.confirm.js.php';
+
 $slideWidget = new CWidget('hat_slides');
 
 // create header form
@@ -31,16 +33,9 @@ $configComboBox->addItem('slides.php', _('Slide shows'));
 $slideHeaderForm->addItem($configComboBox);
 
 if (empty($this->data['slideshows'])) {
-	$slideWidget->addPageHeader(
-		_('SLIDE SHOWS'),
-		array(
-			$slideHeaderForm,
-			SPACE,
-			get_icon('fullscreen', array('fullscreen' => $this->data['fullscreen']))
-		)
-	);
+	$slideWidget->addPageHeader(_('SLIDE SHOWS'), $slideHeaderForm);
 	$slideWidget->addItem(BR());
-	$slideWidget->addItem(new CTableInfo(_('No slide shows found.')));
+	$slideWidget->addItem(new CTableInfo(_('No slide shows defined.')));
 }
 else {
 	$favouriteIcon = $this->data['screen']
@@ -58,9 +53,7 @@ else {
 			$slideHeaderForm,
 			SPACE,
 			$favouriteIcon,
-			SPACE,
 			$refreshIcon,
-			SPACE,
 			get_icon('fullscreen', array('fullscreen' => $this->data['fullscreen']))
 		)
 	);
@@ -71,16 +64,30 @@ else {
 
 	$elementsComboBox = new CComboBox('elementid', $this->data['elementid'], 'submit()');
 	foreach ($this->data['slideshows'] as $slideshow) {
-		$elementsComboBox->addItem($slideshow['slideshowid'], get_node_name_by_elid($slideshow['slideshowid'], null, NAME_DELIMITER).$slideshow['name']);
+		$elementsComboBox->addItem($slideshow['slideshowid'], get_node_name_by_elid($slideshow['slideshowid'], null, ': ').$slideshow['name']);
 	}
 	$slideForm->addItem(array(_('Slide show').SPACE, $elementsComboBox));
 
 	$slideWidget->addHeader($this->data['slideshows'][$this->data['elementid']]['name'], $slideForm);
 
 	if (!empty($this->data['screen'])) {
-		if (isset($this->data['isDynamicItems'])) {
-			$slideForm->addItem(array(SPACE, _('Group'), SPACE, $this->data['pageFilter']->getGroupsCB()));
-			$slideForm->addItem(array(SPACE, _('Host'), SPACE, $this->data['pageFilter']->getHostsCB()));
+		// append groups to form
+		if (!empty($this->data['page_groups'])) {
+			$groupsComboBox = new CComboBox('groupid', $this->data['page_groups']['selected'], 'javascript: submit();');
+			foreach ($this->data['page_groups']['groups'] as $groupid => $name) {
+				$groupsComboBox->addItem($groupid, get_node_name_by_elid($groupid, null, ': ').$name);
+			}
+			$slideForm->addItem(array(SPACE._('Group').SPACE, $groupsComboBox));
+		}
+
+		// append hosts to form
+		if (!empty($this->data['page_hosts'])) {
+			$this->data['page_hosts']['hosts']['0'] = _('Default');
+			$hostsComboBox = new CComboBox('hostid', $this->data['page_hosts']['selected'], 'javascript: submit();');
+			foreach ($this->data['page_hosts']['hosts'] as $hostid => $name) {
+				$hostsComboBox->addItem($hostid, get_node_name_by_elid($hostid, null, ': ').$name);
+			}
+			$slideForm->addItem(array(SPACE._('Host').SPACE, $hostsComboBox));
 		}
 
 		$scrollDiv = new CDiv();
@@ -101,7 +108,7 @@ else {
 		$slideWidget->addItem(new CSpan(_('Loading...'), 'textcolorstyles'));
 	}
 	else {
-		$slideWidget->addItem(new CTableInfo(_('No slides found.')));
+		$slideWidget->addItem(new CTableInfo(_('No slides defined.')));
 	}
 }
 

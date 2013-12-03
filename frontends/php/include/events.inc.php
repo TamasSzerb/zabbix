@@ -19,81 +19,15 @@
 **/
 
 
-/**
- * Returns the names of supported event sources.
- *
- * If the $source parameter is passed, returns the name of the specific source, otherwise - returns an array of all
- * supported sources.
- *
- * @param int $source
- *
- * @return array|string
- */
-function eventSource($source = null) {
-	$sources = array(
-		EVENT_SOURCE_TRIGGERS => _('trigger'),
-		EVENT_SOURCE_DISCOVERY => _('discovery'),
-		EVENT_SOURCE_AUTO_REGISTRATION => _('auto registration'),
-		EVENT_SOURCE_INTERNAL => _x('internal', 'event source')
-	);
-
-	if ($source === null) {
-		return $sources;
+function event_source2str($sourceid) {
+	switch ($sourceid) {
+		case EVENT_SOURCE_TRIGGERS:
+			return _('Triggers');
+		case EVENT_SOURCE_DISCOVERY:
+			return _('Discovery');
+		default:
+			return _('Unknown');
 	}
-	elseif (isset($sources[$source])) {
-		return $sources[$source];
-	}
-	else {
-		return _('Unknown');
-	}
-}
-
-/**
- * Returns the names of supported event objects.
- *
- * If the $source parameter is passed, returns the name of the specific object, otherwise - returns an array of all
- * supported objects.
- *
- * @param int $object
- *
- * @return array|string
- */
-function eventObject($object = null) {
-	$objects = array(
-		EVENT_OBJECT_TRIGGER => _('trigger'),
-		EVENT_OBJECT_DHOST => _('discovered host'),
-		EVENT_OBJECT_DSERVICE => _('discovered service'),
-		EVENT_OBJECT_AUTOREGHOST => _('auto-registered host'),
-		EVENT_OBJECT_ITEM => _('item'),
-		EVENT_OBJECT_LLDRULE => _('low-level discovery rule')
-	);
-
-	if ($object === null) {
-		return $objects;
-	}
-	elseif (isset($objects[$object])) {
-		return $objects[$object];
-	}
-	else {
-		return _('Unknown');
-	}
-}
-
-/**
- * Returns all supported event source-object pairs.
- *
- * @return array
- */
-function eventSourceObjects() {
-	return array(
-		array('source' => EVENT_SOURCE_TRIGGERS, 'object' => EVENT_OBJECT_TRIGGER),
-		array('source' => EVENT_SOURCE_DISCOVERY, 'object' => EVENT_OBJECT_DHOST),
-		array('source' => EVENT_SOURCE_DISCOVERY, 'object' => EVENT_OBJECT_DSERVICE),
-		array('source' => EVENT_SOURCE_AUTO_REGISTRATION, 'object' => EVENT_OBJECT_AUTOREGHOST),
-		array('source' => EVENT_SOURCE_INTERNAL, 'object' => EVENT_OBJECT_TRIGGER),
-		array('source' => EVENT_SOURCE_INTERNAL, 'object' => EVENT_OBJECT_ITEM),
-		array('source' => EVENT_SOURCE_INTERNAL, 'object' => EVENT_OBJECT_LLDRULE)
-	);
 }
 
 function get_tr_event_by_eventid($eventid) {
@@ -116,7 +50,7 @@ function get_events_unacknowledged($db_element, $value_trigger = null, $value_ev
 	$config = select_config();
 	$options = array(
 		'nodeids' => get_current_nodeid(),
-		'output' => array('triggerid'),
+		'output' => API_OUTPUT_SHORTEN,
 		'monitored' => 1,
 		'skipDependent' => 1,
 		'limit' => $config['search_limit'] + 1
@@ -136,18 +70,19 @@ function get_events_unacknowledged($db_element, $value_trigger = null, $value_ev
 	$triggerids = API::Trigger()->get($options);
 
 	return API::Event()->get(array(
-		'source' => EVENT_SOURCE_TRIGGERS,
-		'object' => EVENT_OBJECT_TRIGGER,
-		'countOutput' => true,
-		'objectids' => zbx_objectValues($triggerids, 'triggerid'),
+		'countOutput' => 1,
+		'triggerids' => zbx_objectValues($triggerids, 'triggerid'),
 		'filter' => array(
-			'value' => $value_event,
+			'value_changed' => TRIGGER_VALUE_CHANGED_YES,
+			'value' => is_null($value_event) ? array(TRIGGER_VALUE_TRUE, TRIGGER_VALUE_FALSE) : $value_event,
 			'acknowledged' => $ack ? 1 : 0
-		)
+		),
+		'object' => EVENT_OBJECT_TRIGGER,
+		'nopermissions' => true
 	));
 }
 
-function get_next_event($currentEvent, array $eventList = array()) {
+function get_next_event($currentEvent, array $eventList = array(), $showUnknown = false) {
 	$nextEvent = false;
 
 	foreach ($eventList as $event) {
@@ -165,13 +100,11 @@ function get_next_event($currentEvent, array $eventList = array()) {
 
 	$sql = 'SELECT e.*'.
 			' FROM events e'.
-			' WHERE e.source='.zbx_dbstr($currentEvent['source']).
+			' WHERE e.objectid='.zbx_dbstr($currentEvent['objectid']).
+				' AND e.eventid>'.zbx_dbstr($currentEvent['eventid']).
 				' AND e.object='.zbx_dbstr($currentEvent['object']).
-				' AND e.objectid='.zbx_dbstr($currentEvent['objectid']).
-				' AND e.clock>='.zbx_dbstr($currentEvent['clock']).
-				' AND ((e.clock='.zbx_dbstr($currentEvent['clock']).' AND e.ns>'.$currentEvent['ns'].')'.
-					' OR e.clock>'.zbx_dbstr($currentEvent['clock']).')'.
-			' ORDER BY e.clock,e.eventid';
+				($showUnknown ? '' : ' AND e.value_changed='.TRIGGER_VALUE_CHANGED_YES).
+			' ORDER BY e.object,e.objectid,e.eventid';
 	return DBfetch(DBselect($sql, 1));
 }
 
@@ -179,7 +112,7 @@ function make_event_details($event, $trigger) {
 	$config = select_config();
 	$table = new CTableInfo();
 
-	$table->addRow(array(_('Event'), CMacrosResolverHelper::resolveEventDescription(array_merge($trigger, $event))));
+	$table->addRow(array(_('Event'), CEventHelper::expandDescription(array_merge($trigger, $event))));
 	$table->addRow(array(_('Time'), zbx_date2str(_('d M Y H:i:s'), $event['clock'])));
 
 	if ($config['event_ack_enable']) {
@@ -195,7 +128,7 @@ function make_event_details($event, $trigger) {
 function make_small_eventlist($startEvent) {
 	$config = select_config();
 
-	$table = new CTableInfo(_('No events found.'));
+	$table = new CTableInfo();
 	$table->setHeader(array(
 		_('Time'),
 		_('Status'),
@@ -207,18 +140,17 @@ function make_small_eventlist($startEvent) {
 
 	$clock = $startEvent['clock'];
 
-	$events = API::Event()->get(array(
-		'source' => EVENT_SOURCE_TRIGGERS,
+	$options = array(
 		'object' => EVENT_OBJECT_TRIGGER,
-		'objectids' => $startEvent['objectid'],
+		'triggerids' => $startEvent['objectid'],
 		'eventid_till' => $startEvent['eventid'],
 		'output' => API_OUTPUT_EXTEND,
 		'select_acknowledges' => API_OUTPUT_COUNT,
-		'sortfield' => array('clock', 'eventid'),
+		'sortfield' => 'eventid',
 		'sortorder' => ZBX_SORT_DOWN,
 		'limit' => 20
-	));
-
+	);
+	$events = API::Event()->get($options);
 	$sortFields = array(
 		array('field' => 'clock', 'order' => ZBX_SORT_DOWN),
 		array('field' => 'eventid', 'order' => ZBX_SORT_DOWN)
@@ -232,7 +164,7 @@ function make_small_eventlist($startEvent) {
 		$duration = zbx_date2age($lclock, $event['clock']);
 		$clock = $event['clock'];
 
-		if (bccomp($startEvent['eventid'],$event['eventid']) == 0 && $nextevent = get_next_event($event, $events)) {
+		if (bccomp($startEvent['eventid'],$event['eventid']) == 0 && $nextevent = get_next_event($event, $events, true)) {
 			$duration = zbx_date2age($nextevent['clock'], $clock);
 		}
 		elseif (bccomp($startEvent['eventid'], $event['eventid']) == 0) {
@@ -283,13 +215,16 @@ function make_popup_eventlist($triggerId, $eventId) {
 	}
 
 	$events = API::Event()->get(array(
-		'source' => EVENT_SOURCE_TRIGGERS,
-		'object' => EVENT_OBJECT_TRIGGER,
 		'output' => API_OUTPUT_EXTEND,
-		'objectids' => $triggerId,
+		'triggerids' => $triggerId,
 		'eventid_till' => $eventId,
+		'filter' => array(
+			'object' => EVENT_OBJECT_TRIGGER,
+			'value_changed' => TRIGGER_VALUE_CHANGED_YES
+		),
+		'nopermissions' => true,
 		'select_acknowledges' => API_OUTPUT_COUNT,
-		'sortfield' => array('clock', 'eventid'),
+		'sortfield' => 'eventid',
 		'sortorder' => ZBX_SORT_DOWN,
 		'limit' => ZBX_WIDGET_ROWS
 	));
@@ -322,6 +257,7 @@ function make_popup_eventlist($triggerId, $eventId) {
  * If $event has subarray 'acknowledges', returned link will have hint with acknowledges.
  *
  * @param array			$event   event data
+ * @param int			$event['value_changed']
  * @param int			$event['acknowledged']
  * @param int			$event['eventid']
  * @param int			$event['objectid']
@@ -337,6 +273,10 @@ function getEventAckState($event, $backUrl = false, $isLink = true, $params = ar
 
 	if (!$config['event_ack_enable']) {
 		return null;
+	}
+
+	if ($event['value_changed'] == TRIGGER_VALUE_CHANGED_NO) {
+		return SPACE;
 	}
 
 	if ($isLink) {
@@ -403,10 +343,12 @@ function getLastEvents($options) {
 	);
 
 	$eventOptions = array(
-		'source' => EVENT_SOURCE_TRIGGERS,
-		'object' => EVENT_OBJECT_TRIGGER,
 		'output' => API_OUTPUT_EXTEND,
-		'sortfield' => array('clock', 'eventid'),
+		'filter' => array(
+			'object' => EVENT_OBJECT_TRIGGER,
+			'value_changed' => TRIGGER_VALUE_CHANGED_YES
+		),
+		'sortfield' => 'eventid',
 		'sortorder' => ZBX_SORT_DOWN
 	);
 
@@ -437,7 +379,7 @@ function getLastEvents($options) {
 	$triggers = zbx_toHash($triggers, 'triggerid');
 
 	// events
-	$eventOptions['objectids'] = zbx_objectValues($triggers, 'triggerid');
+	$eventOptions['triggerids'] = zbx_objectValues($triggers, 'triggerid');
 	$events = API::Event()->get($eventOptions);
 
 	$sortClock = array();
@@ -454,7 +396,7 @@ function getLastEvents($options) {
 
 		//expanding description for the state where event was
 		$merged_event = array_merge($event, $triggers[$event['objectid']]);
-		$events[$enum]['trigger']['description'] = CMacrosResolverHelper::resolveEventDescription($merged_event);
+		$events[$enum]['trigger']['description'] = CEventHelper::expandDescription($merged_event);
 	}
 	array_multisort($sortClock, SORT_DESC, $sortEvent, SORT_DESC, $events);
 

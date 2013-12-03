@@ -22,6 +22,6 @@
 
 extern int	CONFIG_PROXYCONFIG_FREQUENCY;
 
-void	main_proxyconfig_loop(void);
+void	main_proxyconfig_loop();
 
 #endif

@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $auditWidget = new CWidget();
 
 // header
@@ -42,8 +42,8 @@ $filterTable->addRow(array(
 		bold(_('Recipient')),
 		SPACE,
 		new CTextBox('alias', $this->data['alias'], 20),
-		new CButton('btn1', _('Select'), 'return PopUp("popup.php?dstfrm='.$filterForm->getName().
-			'&dstfld1=alias&srctbl=users&srcfld1=alias&real_hosts=1");', 'filter-select-button')
+		new CButton('btn1', _('Select'), 'return PopUp(\'popup.php?dstfrm='.$filterForm->getName().
+			'&dstfld1=alias&srctbl=users&srcfld1=alias&real_hosts=1\');', 'T')
 	)
 ));
 $filterButton = new CButton('filter', _('Filter'), "javascript: create_var('zbx_filter', 'filter_set', '1', true);");
@@ -64,7 +64,7 @@ $auditForm = new CForm('get');
 $auditForm->setName('auditForm');
 
 // create table
-$auditTable = new CTableInfo(_('No audit entries found.'));
+$auditTable = new CTableInfo(_('No actions defined.'));
 $auditTable->setHeader(array(
 	is_show_all_nodes() ? _('Nodes') : null,
 	_('Time'),
@@ -99,22 +99,12 @@ foreach ($this->data['alerts'] as $alert) {
 		$retries = new CSpan(0, 'red');
 	}
 
-	$message = ($alert['alerttype'] == ALERT_TYPE_MESSAGE)
-		? array(
-			bold(_('Subject').NAME_DELIMITER),
-			BR(),
-			$alert['subject'],
-			BR(),
-			BR(),
-			bold(_('Message').NAME_DELIMITER),
-			BR(),
-			zbx_nl2br($alert['message'])
-		)
-		: array(
-			bold(_('Command').NAME_DELIMITER),
-			BR(),
-			zbx_nl2br($alert['message'])
-		);
+	if ($alert['alerttype'] == ALERT_TYPE_MESSAGE) {
+		$message = array(bold(_('Subject').': '), br(), $alert['subject'], br(), br(), bold(_('Message').': '), br(), zbx_nl2br($alert['message']));
+	}
+	else {
+		$message = array(bold(_('Command').': '), br(), zbx_nl2br($alert['message']));
+	}
 
 	$error = empty($alert['error']) ? new CSpan(SPACE, 'off') : new CSpan($alert['error'], 'on');
 
@@ -150,5 +140,5 @@ zbx_add_post_js('timeControl.processObjects();');
 
 // append form to widget
 $auditWidget->addItem($auditForm);
-
 return $auditWidget;
+?>

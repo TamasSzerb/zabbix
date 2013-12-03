@@ -84,16 +84,15 @@ class CProfiler {
 	 */
 	private static $instance;
 
+
 	/**
 	 * @static
-	 *
 	 * @return CProfiler
 	 */
-	public static function getInstance() {
+	public static function  getInstance() {
 		if (self::$instance === null) {
 			self::$instance = new self;
 		}
-
 		return self::$instance;
 	}
 
@@ -168,11 +167,14 @@ class CProfiler {
 			$debug_str .= '</div>';
 		}
 
+
 		$debug_str .= '<br>';
+
 
 		foreach ($this->sqlQueryLog as $query) {
 			$time = $query[0];
 			$sql = htmlspecialchars($query[1], ENT_QUOTES, 'UTF-8');
+			$callStack = array_reverse($query[2]);
 
 			if (strpos($sql, 'SELECT ') !== false) {
 				$sqlString = '<span style="color: green; font-size: 1.2em;">'.$sql.'</span>';
@@ -186,14 +188,25 @@ class CProfiler {
 			}
 			$debug_str .= $sqlString;
 
-			$callStackString = '<span style="font-style: italic;">'.$this->formatCallStack($query[2]).'</span>'.'<br>'.'<br>';
+			$callStackString = '<span style="font-style: italic;">';
+			foreach ($callStack as $call) {
+				if (isset($call['class'])) {
+					$callStackString .= $call['class'].$call['type'];
+				}
+				$callStackString .= $call['function'].'() -> ';
+			}
 			$debug_str .= rtrim($callStackString, '-> ').'</span>'.'<br>'.'<br>';
 		}
+
 
 		$debug = new CDiv(null, 'textcolorstyles');
 		$debug->attr('name', 'zbx_gebug_info');
 		$debug->attr('style', 'display: none; overflow: auto; width: 95%; border: 1px #777777 solid; margin: 4px; padding: 4px;');
-		$debug->addItem(array(BR(), new CJSscript($debug_str), BR()));
+		$debug->addItem(array(
+			BR(),
+			new CJSscript($debug_str),
+			BR()
+		));
 		$debug->show();
 	}
 
@@ -204,7 +217,8 @@ class CProfiler {
 	 * @param string $sql
 	 */
 	public function profileSql($time, $sql) {
-		if (!is_null(CWebUser::$data) && isset(CWebUser::$data['debug_mode'])
+		if (CWebUser::$data !== null
+				&& isset(CWebUser::$data['debug_mode'])
 				&& CWebUser::$data['debug_mode'] == GROUP_DEBUG_MODE_DISABLED) {
 			return;
 		}
@@ -228,7 +242,8 @@ class CProfiler {
 	 * @param array  $result
 	 */
 	public function profileApiCall($class, $method, $params, $result) {
-		if (!is_null(CWebUser::$data) && isset(CWebUser::$data['debug_mode'])
+		if (CWebUser::$data !== null
+				&& isset(CWebUser::$data['debug_mode'])
 				&& CWebUser::$data['debug_mode'] == GROUP_DEBUG_MODE_DISABLED) {
 			return;
 		}
@@ -252,62 +267,11 @@ class CProfiler {
 	 * @return int
 	 */
 	private function getMemoryPeak() {
-		return function_exists('memory_get_peak_usage') ? memory_get_peak_usage(true) : memory_get_usage(true);
-	}
-
-	/**
-	 * Formats the function call stack and returns it as a string.
-	 *
-	 * The call stack can be obtained from Exception::getTrace() or from an API result debug stack trace. If no call
-	 * stack is given, it will be taken from debug_backtrace().
-	 *
-	 * @param array $callStack
-	 *
-	 * @return string
-	 */
-	public function formatCallStack(array $callStack = null) {
-		if (!$callStack) {
-			$callStack = debug_backtrace(false);
-
-			// never show the call to this method
-			array_shift($callStack);
+		if (function_exists("memory_get_peak_usage")) {
+			return memory_get_peak_usage(true);
 		}
-
-		$callStackString = '';
-		$callWithFile = array();
-
-		$callStack = array_reverse($callStack);
-		$firstCall = reset($callStack);
-
-		foreach ($callStack as $call) {
-			// do not show the call to the error handler function
-			if ($call['function'] != 'zbx_err_handler') {
-				if (isset($call['class'])) {
-					$callStackString .= $call['class'].$call['type'];
-				}
-
-				$callStackString .= $call['function'].'() &rarr; ';
-			}
-
-			// if the error is caused by an incorrect function call - the location of that call is contained in
-			// the call of that function
-			// if it's caused by something else (like an undefined index) - the location of the call is contained in the
-			// call to the error handler function
-			// to display the location we use the last call where this information is present
-			if (isset($call['file'])) {
-				$callWithFile = $call;
-			}
+		else {
+			return memory_get_usage(true);
 		}
-
-		if ($callStackString) {
-			$path = pathinfo($firstCall['file']);
-			$callStackString = $path['basename'].':'.$firstCall['line'] . ' &rarr; '.rtrim($callStackString, '&rarr; ');
-		}
-
-		if ($callWithFile) {
-			$callStackString .= ' in '.$callWithFile['file'].':'.$callWithFile['line'];
-		}
-
-		return $callStackString;
 	}
 }

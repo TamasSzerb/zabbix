@@ -17,6 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
+?>
+<?php
 
 $discoveryWidget = new CWidget();
 
@@ -33,12 +35,12 @@ $discoveryWidget->addHeaderRowNumber();
 $discoveryWidget->addItem(get_header_host_table('discoveries', $this->data['hostid']));
 
 // create form
-$discoveryForm = new CForm();
+$discoveryForm = new CForm('get');
 $discoveryForm->setName('discovery');
 $discoveryForm->addVar('hostid', $this->data['hostid']);
 
 // create table
-$discoveryTable = new CTableInfo(_('No discovery rules found.'));
+$discoveryTable = new CTableInfo(_('No discovery rules defined.'));
 
 $sortLink = new CUrl();
 $sortLink->setArgument('hostid', $this->data['hostid']);
@@ -50,49 +52,34 @@ $discoveryTable->setHeader(array(
 	_('Items'),
 	_('Triggers'),
 	_('Graphs'),
-	($data['host']['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) ? _('Hosts') : null,
 	make_sorting_header(_('Key'), 'key_', $sortLink),
 	make_sorting_header(_('Interval'), 'delay', $sortLink),
 	make_sorting_header(_('Type'), 'type', $sortLink),
 	make_sorting_header(_('Status'), 'status', $sortLink),
-	$data['showErrorColumn'] ? _('Error') : null
+	_('Error')
 ));
 foreach ($data['discoveries'] as $discovery) {
 	$description = array();
 	if ($discovery['templateid']) {
 		$template_host = get_realhost_by_itemid($discovery['templateid']);
 		$description[] = new CLink($template_host['name'], '?hostid='.$template_host['hostid'], 'unknown');
-		$description[] = NAME_DELIMITER;
+		$description[] = ': ';
 	}
 	$discovery['name_expanded'] = itemName($discovery);
 	$description[] = new CLink($discovery['name_expanded'], '?form=update&itemid='.$discovery['itemid']);
 
 	$status = new CLink(
-		itemIndicator($discovery['status'], $discovery['state']),
+		item_status2str($discovery['status']),
 		'?hostid='.$_REQUEST['hostid'].'&g_hostdruleid='.$discovery['itemid'].'&go='.($discovery['status'] ? 'activate':'disable'),
-		itemIndicatorStyle($discovery['status'], $discovery['state'])
+		item_status2style($discovery['status'])
 	);
 
-	if ($data['showErrorColumn']) {
-		$error = '';
-		if ($discovery['status'] == ITEM_STATUS_ACTIVE) {
-			if (zbx_empty($discovery['error'])) {
-				$error = new CDiv(SPACE, 'status_icon iconok');
-			}
-			else {
-				$error = new CDiv(SPACE, 'status_icon iconerror');
-				$error->setHint($discovery['error'], '', 'on');
-			}
-		}
+	if (zbx_empty($discovery['error'])) {
+		$error = new CDiv(SPACE, 'status_icon iconok');
 	}
-
-	// host prototype link
-	$hostPrototypeLink = null;
-	if ($data['host']['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) {
-		$hostPrototypeLink = array(
-			new CLink(_('Host prototypes'), 'host_prototypes.php?parent_discoveryid='.$discovery['itemid']),
-			' ('.$discovery['hostPrototypes'].')'
-		);
+	else {
+		$error = new CDiv(SPACE, 'status_icon iconerror');
+		$error->setHint($discovery['error'], '', 'on');
 	}
 
 	$discoveryTable->addRow(array(
@@ -101,12 +88,11 @@ foreach ($data['discoveries'] as $discovery) {
 		array(new CLink(_('Item prototypes'), 'disc_prototypes.php?hostid='.get_request('hostid').'&parent_discoveryid='.$discovery['itemid']), ' ('.$discovery['items'].')'),
 		array(new CLink(_('Trigger prototypes'), 'trigger_prototypes.php?hostid='.get_request('hostid').'&parent_discoveryid='.$discovery['itemid']), ' ('.$discovery['triggers'].')'),
 		array(new CLink(_('Graph prototypes'), 'graphs.php?hostid='.get_request('hostid').'&parent_discoveryid='.$discovery['itemid']), ' ('.$discovery['graphs'].')'),
-		$hostPrototypeLink,
 		$discovery['key_'],
 		$discovery['delay'],
 		item_type2str($discovery['type']),
 		$status,
-		$data['showErrorColumn'] ? $error : null
+		$error
 	));
 }
 
@@ -126,10 +112,7 @@ $goComboBox->addItem($goOption);
 
 $goButton = new CSubmit('goButton', _('Go').' (0)');
 $goButton->setAttribute('id', 'goButton');
-
 zbx_add_post_js('chkbxRange.pageGoName = "g_hostdruleid";');
-zbx_add_post_js('chkbxRange.prefix = "'.$this->data['hostid'].'";');
-zbx_add_post_js('cookie.prefix = "'.$this->data['hostid'].'";');
 
 // append table to form
 $discoveryForm->addItem(array($this->data['paging'], $discoveryTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));
@@ -137,3 +120,4 @@ $discoveryForm->addItem(array($this->data['paging'], $discoveryTable, $this->dat
 // append form to widget
 $discoveryWidget->addItem($discoveryForm);
 return $discoveryWidget;
+?>

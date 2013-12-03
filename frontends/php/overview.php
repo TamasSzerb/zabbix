@@ -37,26 +37,18 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
-	'groupid'     => array(T_ZBX_INT, O_OPT, P_SYS, DB_ID,     null),
-	'view_style'  => array(T_ZBX_INT, O_OPT, P_SYS, IN('0,1'), null),
-	'type'        => array(T_ZBX_INT, O_OPT, P_SYS, IN('0,1'), null),
-	'application' => array(T_ZBX_STR, O_OPT, P_SYS, null,	   null),
-	'fullscreen'  => array(T_ZBX_INT, O_OPT, P_SYS, IN('0,1'), null)
+	'groupid' =>	array(T_ZBX_INT, O_OPT, P_SYS, DB_ID,		null),
+	'view_style' =>	array(T_ZBX_INT, O_OPT, P_SYS, IN('0,1'),	null),
+	'type' =>		array(T_ZBX_INT, O_OPT, P_SYS, IN('0,1'),	null),
+	'fullscreen' =>	array(T_ZBX_INT, O_OPT, P_SYS, IN('0,1'),	null)
 );
 check_fields($fields);
-
-/*
- * Permissions
- */
-if (get_request('groupid') && !API::HostGroup()->isReadable(array($_REQUEST['groupid']))) {
-	access_deny();
-}
 
 /*
  * Display
  */
 $data = array(
-	'fullscreen' => $_REQUEST['fullscreen']
+	'fullscreen' => get_request('fullscreen')
 );
 
 $data['view_style'] = get_request('view_style', CProfile::get('web.overview.view.style', STYLE_TOP));
@@ -73,10 +65,8 @@ $data['pageFilter'] = new CPageFilter(array(
 		'monitored_hosts' => true,
 		($data['type'] == SHOW_TRIGGERS ? 'with_monitored_triggers' : 'with_monitored_items') => true
 	),
-	'applications' => array('templated' => false),
 	'hostid' => get_request('hostid', null),
-	'groupid' => get_request('groupid', null),
-	'application' => get_request('application', null)
+	'groupid' => get_request('groupid', null)
 ));
 
 $data['groupid'] = $data['pageFilter']->groupid;

@@ -67,16 +67,13 @@ static void	process_listener(zbx_sock_t *s)
 
 ZBX_THREAD_ENTRY(listener_thread, args)
 {
-	int		ret, local_request_failed = 0, thread_num, thread_num2;
+	int		ret, local_request_failed = 0;
 	zbx_sock_t	s;
 
 	assert(args);
 	assert(((zbx_thread_args_t *)args)->args);
 
-	thread_num = ((zbx_thread_args_t *)args)->thread_num;
-	thread_num2 = ((zbx_thread_args_t *)args)->thread_num2;
-
-	zabbix_log(LOG_LEVEL_WARNING, "agent #%d started [listener #%d]", thread_num, thread_num2);
+	zabbix_log(LOG_LEVEL_WARNING, "agent #%d started [listener]", ((zbx_thread_args_t *)args)->thread_num);
 
 	memcpy(&s, (zbx_sock_t *)((zbx_thread_args_t *)args)->args, sizeof(zbx_sock_t));
 
@@ -84,13 +81,14 @@ ZBX_THREAD_ENTRY(listener_thread, args)
 
 	while (ZBX_IS_RUNNING())
 	{
-		zbx_setproctitle("listener #%d [waiting for connection]", thread_num2);
+		zbx_setproctitle("listener [waiting for connection]");
 
 		if (SUCCEED == (ret = zbx_tcp_accept(&s)))
 		{
 			local_request_failed = 0;     /* reset consecutive errors counter */
 
-			zbx_setproctitle("listener #%d [processing request]", thread_num2);
+			zbx_setproctitle("listener [processing request]");
+			zabbix_log(LOG_LEVEL_DEBUG, "Processing request.");
 
 			if (SUCCEED == (ret = zbx_tcp_check_security(&s, CONFIG_HOSTS_ALLOWED, 0)))
 				process_listener(&s);

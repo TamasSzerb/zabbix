@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/js/configuration.slideconf.edit.js.php';
 
 $slideWidget = new CWidget();
@@ -35,19 +35,17 @@ if (!empty($this->data['slideshowid'])) {
 
 // create slide form list
 $slideFormList = new CFormList('slideFormList');
-$nameTextBox = new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE);
-$nameTextBox->attr('autofocus', 'autofocus');
-$slideFormList->addRow(_('Name'), $nameTextBox);
+$slideFormList->addRow(_('Name'), new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE));
 $slideFormList->addRow(_('Default delay (in seconds)'), new CNumericBox('delay', $this->data['delay'], 5, 'no', false, false));
 
 // append slide table
-$slideTable = new CTableInfo(null, 'formElementTable');
-$slideTable->setAttribute('style', 'min-width: 312px;');
+$slideTable = new CTableInfo(_('No slides defined.'), 'formElementTable');
+$slideTable->setAttribute('style', 'min-width: 500px;');
 $slideTable->setAttribute('id', 'slideTable');
 $slideTable->setHeader(array(
 	new CCol(SPACE, null, null, '15'),
 	new CCol(SPACE, null, null, '15'),
-	_('Screen'),
+	new CCol(_('Screen'), null, null, '140'),
 	new CCol(_('Delay'), null, null, '70'),
 	new CCol(_('Action'), null, null, '50')
 ));
@@ -95,7 +93,7 @@ $addButtonColumn = new CCol(
 $addButtonColumn->setAttribute('style', 'vertical-align: middle;');
 $slideTable->addRow(new CRow($addButtonColumn, null, 'screenListFooter'));
 
-$slideFormList->addRow(_('Slides'), new CDiv($slideTable, 'objectgroup inlineblock border_dotted'));
+$slideFormList->addRow(_('Slides'), new CDiv($slideTable, 'objectgroup inlineblock border_dotted ui-corner-all'));
 
 // append tabs to form
 $slideTab = new CTabView();
@@ -114,12 +112,12 @@ else {
 		new CSubmit('save', _('Save')),
 		array(
 			new CSubmit('clone', _('Clone')),
-			new CButtonDelete(_('Delete slide show?'), url_params(array('form', 'slideshowid'))),
+			new CButtonDelete(_('Delete slide show?'), url_param('form').url_param('slideshowid').url_param('config')),
 			new CButtonCancel()
 		)
 	));
 }
 
 $slideWidget->addItem($slideForm);
-
 return $slideWidget;
+?>

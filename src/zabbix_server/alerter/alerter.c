@@ -140,15 +140,14 @@ int	execute_action(DB_ALERT *alert, DB_MEDIATYPE *mediatype, char *error, int ma
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-void	main_alerter_loop(void)
+void	main_alerter_loop()
 {
-	char		error[MAX_STRING_LEN], *error_esc;
-	int		res, alerts_success, alerts_fail;
-	double		sec;
-	DB_RESULT	result;
-	DB_ROW		row;
-	DB_ALERT	alert;
-	DB_MEDIATYPE	mediatype;
+	char			error[MAX_STRING_LEN], *error_esc;
+	int			res;
+	DB_RESULT		result;
+	DB_ROW			row;
+	DB_ALERT		alert;
+	DB_MEDIATYPE		mediatype;
 
 	zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 
@@ -158,10 +157,6 @@ void	main_alerter_loop(void)
 	{
 		zbx_setproctitle("%s [sending alerts]", get_process_type_string(process_type));
 
-		sec = zbx_time();
-
-		alerts_success = alerts_fail = 0;
-
 		result = DBselect(
 				"select a.alertid,a.mediatypeid,a.sendto,a.subject,a.message,a.status,mt.mediatypeid,"
 				"mt.type,mt.description,mt.smtp_server,mt.smtp_helo,mt.smtp_email,mt.exec_path,"
@@ -170,11 +165,11 @@ void	main_alerter_loop(void)
 				" where a.mediatypeid=mt.mediatypeid"
 					" and a.status=%d"
 					" and a.alerttype=%d"
-					ZBX_SQL_NODE
+					DB_NODE
 				" order by a.alertid",
 				ALERT_STATUS_NOT_SENT,
 				ALERT_TYPE_MESSAGE,
-				DBand_node_local("mt.mediatypeid"));
+				DBnode_local("mt.mediatypeid"));
 
 		while (NULL != (row = DBfetch(result)))
 		{
@@ -207,7 +202,6 @@ void	main_alerter_loop(void)
 						alert.alertid);
 				DBexecute("update alerts set status=%d,error='' where alertid=" ZBX_FS_UI64,
 						ALERT_STATUS_SENT, alert.alertid);
-				alerts_success++;
 			}
 			else
 			{
@@ -229,18 +223,10 @@ void	main_alerter_loop(void)
 				}
 
 				zbx_free(error_esc);
-
-				alerts_fail++;
 			}
 
 		}
 		DBfree_result(result);
-
-		sec = zbx_time() - sec;
-
-		zbx_setproctitle("%s [sent alerts: %d success, %d fail in " ZBX_FS_DBL " sec, idle %d sec]",
-				get_process_type_string(process_type), alerts_success, alerts_fail, sec,
-				CONFIG_SENDER_FREQUENCY);
 
 		zbx_sleep_loop(CONFIG_SENDER_FREQUENCY);
 	}

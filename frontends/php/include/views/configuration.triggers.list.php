@@ -35,53 +35,39 @@ if (!empty($this->data['hostid'])) {
 $createForm = new CForm('get');
 $createForm->cleanItems();
 $createForm->addVar('hostid', $this->data['hostid']);
-
 if (!empty($this->data['parent_discoveryid'])) {
 	$createForm->addItem(new CSubmit('form', _('Create trigger prototype')));
 	$createForm->addVar('parent_discoveryid', $this->data['parent_discoveryid']);
 	$triggersWidget->addPageHeader(_('CONFIGURATION OF TRIGGER PROTOTYPES'), $createForm);
 }
 else {
-	if (empty($this->data['hostid'])) {
-		$createButton = new CSubmit('form', _('Create trigger (select host first)'));
-		$createButton->setEnabled(false);
-		$createForm->addItem($createButton);
-	}
-	else {
-		$createForm->addItem(new CSubmit('form', _('Create trigger')));
-	}
-
+	$createForm->addItem(new CSubmit('form', _('Create trigger')));
 	$triggersWidget->addPageHeader(_('CONFIGURATION OF TRIGGERS'), $createForm);
 }
 
 // create widget header
 if (!empty($this->data['parent_discoveryid'])) {
-	$triggersWidget->addHeader(array(_('Trigger prototypes of').SPACE, new CSpan($this->data['discovery_rule']['name'], 'parent-discovery')));
+	$triggersWidget->addHeader(array(_('Trigger prototypes of').SPACE, new CSpan($this->data['discovery_rule']['name'], 'gold')));
 	$triggersWidget->addHeaderRowNumber(array(
 		'[ ',
 		new CLink(
-			$this->data['showdisabled'] ? _('Hide disabled trigger prototypes') : _('Show disabled trigger prototypes'),
-			'trigger_prototypes.php?'.
-				'showdisabled='.($this->data['showdisabled'] ? 0 : 1).
-				'&hostid='.$this->data['hostid'].
-				'&parent_discoveryid='.$this->data['parent_discoveryid']
+			$this->data['showdisabled'] ? _('Hide disabled triggers') : _('Show disabled triggers'),
+			'trigger_prototypes.php?showdisabled='.($this->data['showdisabled'] ? 0 : 1).'&hostid='.$this->data['hostid'].'&parent_discoveryid='.$this->data['parent_discoveryid']
 		),
 		' ]'
 	));
 }
 else {
 	$filterForm = new CForm('get');
-	$filterForm->addItem(array(_('Group').SPACE, $this->data['pageFilter']->getGroupsCB(true)));
-	$filterForm->addItem(array(SPACE._('Host').SPACE, $this->data['pageFilter']->getHostsCB(true)));
+	$filterForm->addItem(array(_('Group').SPACE, $this->data['pageFilter']->getGroupsCB()));
+	$filterForm->addItem(array(SPACE._('Host').SPACE, $this->data['pageFilter']->getHostsCB()));
 
 	$triggersWidget->addHeader(_('Triggers'), $filterForm);
 	$triggersWidget->addHeaderRowNumber(array(
 		'[ ',
 		new CLink(
 			$this->data['showdisabled'] ? _('Hide disabled triggers') : _('Show disabled triggers'),
-			'triggers.php?'.
-				'hostid='.$this->data['hostid'].
-				'&showdisabled='.($this->data['showdisabled'] ? 0 : 1)
+			'triggers.php?hostid='.$this->data['hostid'].'&showdisabled='.($this->data['showdisabled'] ? 0 : 1)
 		),
 		' ]'
 	));
@@ -101,16 +87,15 @@ if (!empty($this->data['parent_discoveryid'])) {
 $link->setArgument('hostid', $this->data['hostid']);
 $link = $link->getUrl();
 
-$triggersTable = new CTableInfo(_('No triggers found.'));
+$triggersTable = new CTableInfo(_('No triggers defined.'));
 $triggersTable->setHeader(array(
 	new CCheckBox('all_triggers', null, "checkAll('".$triggersForm->getName()."', 'all_triggers', 'g_triggerid');"),
-	$this->data['displayNodes'] ? _('Node') : null,
 	make_sorting_header(_('Severity'), 'priority', $link),
 	empty($this->data['hostid']) ? _('Host') : null,
 	make_sorting_header(_('Name'), 'description', $link),
 	_('Expression'),
 	make_sorting_header(_('Status'), 'status', $link),
-	$data['showErrorColumn'] ? _('Error') : null
+	empty($this->data['parent_discoveryid']) ? _('Error') : null
 ));
 foreach ($this->data['triggers'] as $tnum => $trigger) {
 	$triggerid = $trigger['triggerid'];
@@ -124,7 +109,7 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 	if ($trigger['templateid'] > 0) {
 		if (!isset($this->data['realHosts'][$triggerid])) {
 			$description[] = new CSpan(empty($this->data['parent_discoveryid']) ? _('Host') : _('Template'), 'unknown');
-			$description[] = NAME_DELIMITER;
+			$description[] = ':'.SPACE;
 		}
 		else {
 			$real_hosts = $this->data['realHosts'][$triggerid];
@@ -132,102 +117,79 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 
 			if (!empty($this->data['parent_discoveryid'])) {
 				$tpl_disc_ruleid = get_realrule_by_itemid_and_hostid($this->data['parent_discoveryid'], $real_host['hostid']);
-				$description[] = new CLink(
-					CHtml::encode($real_host['name']),
-					'trigger_prototypes.php?hostid='.$real_host['hostid'].'&parent_discoveryid='.$tpl_disc_ruleid,
-					'unknown'
-				);
+				$description[] = new CLink($real_host['name'], 'trigger_prototypes.php?hostid='.$real_host['hostid'].'&parent_discoveryid='.$tpl_disc_ruleid, 'unknown');
 			}
 			else {
-				$description[] = new CLink(
-					CHtml::encode($real_host['name']),
-					'triggers.php?hostid='.$real_host['hostid'],
-					'unknown'
-				);
+				$description[] = new CLink($real_host['name'], 'triggers.php?hostid='.$real_host['hostid'], 'unknown');
 			}
-			$description[] = NAME_DELIMITER;
+			$description[] = ':'.SPACE;
 		}
 	}
 
 	if (empty($this->data['parent_discoveryid'])) {
 		if (!empty($trigger['discoveryRule'])) {
-			$description[] = new CLink(
-				CHtml::encode($trigger['discoveryRule']['name']),
-				'trigger_prototypes.php?'.
-					'hostid='.$this->data['hostid'].'&parent_discoveryid='.$trigger['discoveryRule']['itemid'],
-				'parent-discovery'
-			);
-			$description[] = NAME_DELIMITER.$trigger['description'];
+			$description[] = new CLink($trigger['discoveryRule']['name'], 'trigger_prototypes.php?hostid='.$this->data['hostid'].'&parent_discoveryid='.$trigger['discoveryRule']['itemid'], 'gold');
+			$description[] = ':'.SPACE.$trigger['description'];
 		}
 		else {
-			$description[] = new CLink(
-				CHtml::encode($trigger['description']),
-				'triggers.php?form=update&hostid='.$this->data['hostid'].'&triggerid='.$triggerid
-			);
+			$description[] = new CLink($trigger['description'], 'triggers.php?form=update&hostid='.$this->data['hostid'].'&triggerid='.$triggerid);
 		}
 
 		$dependencies = $trigger['dependencies'];
 		if (count($dependencies) > 0) {
-			$description[] = array(BR(), bold(_('Depends on').NAME_DELIMITER));
+			$description[] = array(BR(), bold(_('Depends on').' : '));
 			foreach ($dependencies as $dep_trigger) {
 				$description[] = BR();
 
 				$db_hosts = get_hosts_by_triggerid($dep_trigger['triggerid']);
 				while ($host = DBfetch($db_hosts)) {
-					$description[] = CHtml::encode($host['name']);
+					$description[] = $host['name'];
 					$description[] = ', ';
 				}
 				array_pop($description);
-				$description[] = NAME_DELIMITER;
-				$description[] = CHtml::encode($dep_trigger['description']);
+				$description[] = ' : ';
+				$description[] = $dep_trigger['description'];
 			}
 		}
 	}
 	else {
-		$description[] = new CLink(
-			CHtml::encode($trigger['description']),
-			'trigger_prototypes.php?'.
-				'form=update'.
-				'&hostid='.$this->data['hostid'].
-				'&parent_discoveryid='.$this->data['parent_discoveryid'].
-				'&triggerid='.$triggerid
-		);
+		$description[] = new CLink($trigger['description'], 'trigger_prototypes.php?form=update&hostid='.$this->data['hostid'].'&parent_discoveryid='.$this->data['parent_discoveryid'].'&triggerid='.$triggerid);
 	}
 
-	if ($data['showErrorColumn']) {
-		$error = '';
-		if ($trigger['status'] == TRIGGER_STATUS_ENABLED) {
-			if (!zbx_empty($trigger['error'])) {
-				$error = new CDiv(SPACE, 'status_icon iconerror');
-				$error->setHint($trigger['error'], '', 'on');
-			}
-			else {
-				$error = new CDiv(SPACE, 'status_icon iconok');
-			}
+	if ($trigger['value_flags'] == TRIGGER_VALUE_FLAG_NORMAL) {
+		$trigger['error'] = '';
+	}
+
+	$templated = false;
+	foreach ($trigger['hosts'] as $hostid => $host) {
+		$templated |= (HOST_STATUS_TEMPLATE == $host['status']);
+	}
+
+	if (empty($this->data['parent_discoveryid'])) {
+		if (!zbx_empty($trigger['error']) && !$templated) {
+			$error = new CDiv(SPACE, 'status_icon iconerror');
+			$error->setHint($trigger['error'], '', 'on');
 		}
+		else {
+			$error = new CDiv(SPACE, 'status_icon iconok');
+		}
+	}
+	else {
+		$error = null;
 	}
 
 	$status = '';
 	if (!empty($this->data['parent_discoveryid'])) {
-		$status = new CLink(
-			triggerIndicator($trigger['status']),
-			'trigger_prototypes.php?'.
-				'go='.($trigger['status'] == TRIGGER_STATUS_DISABLED ? 'activate' : 'disable').
-				'&hostid='.$this->data['hostid'].
-				'&g_triggerid='.$triggerid.
-				'&parent_discoveryid='.$this->data['parent_discoveryid'],
-			triggerIndicatorStyle($trigger['status'])
-		);
+		$status_link = 'trigger_prototypes.php?go='.($trigger['status'] == TRIGGER_STATUS_DISABLED ? 'activate' : 'disable').'&hostid='.$this->data['hostid'].'&g_triggerid='.$triggerid.'&parent_discoveryid='.$this->data['parent_discoveryid'];
 	}
 	else {
-		$status = new CLink(
-			triggerIndicator($trigger['status'], $trigger['state']),
-			'triggers.php?'.
-				'go='.($trigger['status'] == TRIGGER_STATUS_DISABLED ? 'activate' : 'disable').
-				'&hostid='.$this->data['hostid'].
-				'&g_triggerid='.$triggerid,
-			triggerIndicatorStyle($trigger['status'], $trigger['state'])
-		);
+		$status_link = 'triggers.php?go='.($trigger['status'] == TRIGGER_STATUS_DISABLED ? 'activate' : 'disable').'&hostid='.$this->data['hostid'].'&g_triggerid='.$triggerid;
+	}
+	if ($trigger['status'] == TRIGGER_STATUS_DISABLED) {
+		$status = new CLink(_('Disabled'), $status_link, 'disabled');
+	}
+	elseif ($trigger['status'] == TRIGGER_STATUS_ENABLED) {
+		$status = new CLink(_('Enabled'), $status_link, 'enabled');
 	}
 
 	$hosts = null;
@@ -248,13 +210,12 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 
 	$triggersTable->addRow(array(
 		$checkBox,
-		$this->data['displayNodes'] ? $trigger['nodename'] : null,
 		getSeverityCell($trigger['priority']),
 		$hosts,
 		$description,
 		$expressionColumn,
 		$status,
-		$data['showErrorColumn'] ? $error : null
+		$error
 	));
 	$triggers[$tnum] = $trigger;
 }
@@ -262,45 +223,23 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 // create go button
 $goComboBox = new CComboBox('go');
 $goOption = new CComboItem('activate', _('Enable selected'));
-$goOption->setAttribute(
-	'confirm',
-	$this->data['parent_discoveryid'] ? _('Enable selected trigger prototypes?') : _('Enable selected triggers?')
-);
+$goOption->setAttribute('confirm', _('Enable selected triggers?'));
 $goComboBox->addItem($goOption);
-
 $goOption = new CComboItem('disable', _('Disable selected'));
-$goOption->setAttribute(
-	'confirm',
-	$this->data['parent_discoveryid'] ? _('Disable selected trigger prototypes?') : _('Disable selected triggers?')
-);
+$goOption->setAttribute('confirm', _('Disable selected triggers?'));
 $goComboBox->addItem($goOption);
-
 $goOption = new CComboItem('massupdate', _('Mass update'));
 $goComboBox->addItem($goOption);
 if (empty($this->data['parent_discoveryid'])) {
 	$goOption = new CComboItem('copy_to', _('Copy selected to ...'));
 	$goComboBox->addItem($goOption);
 }
-
 $goOption = new CComboItem('delete', _('Delete selected'));
-$goOption->setAttribute(
-	'confirm',
-	$this->data['parent_discoveryid'] ? _('Delete selected trigger prototypes?') : _('Delete selected triggers?')
-);
+$goOption->setAttribute('confirm', _('Delete selected triggers?'));
 $goComboBox->addItem($goOption);
-
 $goButton = new CSubmit('goButton', _('Go').' (0)');
 $goButton->setAttribute('id', 'goButton');
-
 zbx_add_post_js('chkbxRange.pageGoName = "g_triggerid";');
-if (empty($this->data['parent_discoveryid'])) {
-	zbx_add_post_js('chkbxRange.prefix = "'.$this->data['hostid'].'";');
-	zbx_add_post_js('cookie.prefix = "'.$this->data['hostid'].'";');
-}
-else {
-	zbx_add_post_js('chkbxRange.prefix = "'.$this->data['parent_discoveryid'].'";');
-	zbx_add_post_js('cookie.prefix = "'.$this->data['parent_discoveryid'].'";');
-}
 
 // append table to form
 $triggersForm->addItem(array($this->data['paging'], $triggersTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));

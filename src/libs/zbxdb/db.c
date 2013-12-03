@@ -770,8 +770,6 @@ int	zbx_db_bind_parameter(int position, void *buffer, unsigned char type)
 			err = zbx_oracle_bind_parameter((ub4)position, buffer, (sb4)sizeof(int), SQLT_INT);
 			break;
 		case ZBX_TYPE_TEXT:
-		case ZBX_TYPE_SHORTTEXT:
-		case ZBX_TYPE_LONGTEXT:
 			err = zbx_oracle_bind_parameter((ub4)position, buffer, (sb4)strlen((char *)buffer), SQLT_LNG);
 			break;
 		default:
@@ -791,6 +789,7 @@ int	zbx_db_bind_parameter(int position, void *buffer, unsigned char type)
 	}
 
 	return ret;
+
 }
 
 int	zbx_db_statement_execute()

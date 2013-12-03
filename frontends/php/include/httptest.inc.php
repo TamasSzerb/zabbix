@@ -71,6 +71,54 @@ function httptest_status2style($status) {
 	}
 }
 
+function activate_httptest($httptestid) {
+	$result = DBexecute('UPDATE httptest SET status='.HTTPTEST_STATUS_ACTIVE.' WHERE httptestid='.zbx_dbstr($httptestid));
+
+	$itemids = array();
+	$items_db = DBselect('SELECT hti.itemid FROM httptestitem hti WHERE hti.httptestid='.zbx_dbstr($httptestid));
+	while ($itemid = Dbfetch($items_db)) {
+		$itemids[] = $itemid['itemid'];
+	}
+
+	$items_db = DBselect(
+		'SELECT hsi.itemid'.
+		' FROM httpstep hs,httpstepitem hsi'.
+		' WHERE hs.httpstepid=hsi.httpstepid'.
+			' AND hs.httptestid='.zbx_dbstr($httptestid)
+	);
+	while ($itemid = Dbfetch($items_db)) {
+		$itemids[] = $itemid['itemid'];
+	}
+
+	$result &= DBexecute('UPDATE items SET status='.ITEM_STATUS_ACTIVE.' WHERE '.dbConditionInt('itemid', $itemids));
+
+	return $result;
+}
+
+function disable_httptest($httptestid) {
+	$result = DBexecute('UPDATE httptest SET status='.HTTPTEST_STATUS_DISABLED.' WHERE httptestid='.zbx_dbstr($httptestid));
+
+	$itemids = array();
+	$items_db = DBselect('SELECT hti.itemid FROM httptestitem hti WHERE hti.httptestid='.zbx_dbstr($httptestid));
+	while ($itemid = Dbfetch($items_db)) {
+		$itemids[] = $itemid['itemid'];
+	}
+
+	$items_db = DBselect(
+		'SELECT hsi.itemid'.
+		' FROM httpstep hs,httpstepitem hsi'.
+		' WHERE hs.httpstepid=hsi.httpstepid'.
+			' AND hs.httptestid='.zbx_dbstr($httptestid)
+	);
+	while ($itemid = Dbfetch($items_db)) {
+		$itemids[] = $itemid['itemid'];
+	}
+
+	$result &= DBexecute('UPDATE items SET status='.ITEM_STATUS_DISABLED.' WHERE '.dbConditionInt('itemid', $itemids));
+
+	return $result;
+}
+
 function delete_history_by_httptestid($httptestid) {
 	$db_items = DBselect(
 		'SELECT DISTINCT i.itemid'.
@@ -99,97 +147,32 @@ function get_httpstep_by_no($httptestid, $no) {
 function get_httptests_by_hostid($hostids) {
 	zbx_value2array($hostids);
 
-	return DBselect('SELECT DISTINCT ht.* FROM httptest ht WHERE '.dbConditionInt('ht.hostid', $hostids));
+	return DBselect(
+		'SELECT DISTINCT ht.*'.
+		' FROM httptest ht,applications ap'.
+		' WHERE ht.applicationid=ap.applicationid'.
+			' AND '.dbConditionInt('ap.hostid', $hostids)
+	);
 }
 
 /**
- * Return parent templates for http tests.
- * Result structure:
- * array(
- *   'httptestid' => array(
- *     'name' => <template name>,
- *     'id' => <template id>
- *   ), ...
- * )
+ * Cheks for duplicates in HTTP steps.
  *
- * @param array $httpTests must have httptestid and templateid fields
+ * @param type $steps
  *
- * @return array
+ * @return boolean return true if duplicate found
  */
-function getHttpTestsParentTemplates(array $httpTests) {
-	$result = array();
-	$template2testMap = array();
+function validateHttpDuplicateSteps($steps) {
+	$isDuplicateStepFound = false;
 
-	foreach ($httpTests as $httpTest) {
-		if (!empty($httpTest['templateid'])){
-			$result[$httpTest['httptestid']] = array();
-			$template2testMap[$httpTest['templateid']][$httpTest['httptestid']] = $httpTest['httptestid'];
+	$set = array();
+	foreach ($steps as $step) {
+		if (isset($set[$step['name']])) {
+			error(_s('Step with name "%s" already exists.', $step['name']));
+			$isDuplicateStepFound = true;
 		}
+		$set[$step['name']] = 1;
 	}
 
-	do {
-		$dbHttpTests = DBselect('SELECT ht.httptestid,ht.templateid,ht.hostid,h.name'.
-				' FROM httptest ht'.
-				' INNER JOIN hosts h ON h.hostid=ht.hostid'.
-				' WHERE '.dbConditionInt('ht.httptestid', array_keys($template2testMap)));
-		while ($dbHttpTest = DBfetch($dbHttpTests)) {
-			foreach ($template2testMap[$dbHttpTest['httptestid']] as $testId => $data) {
-				$result[$testId] = array('name' => $dbHttpTest['name'], 'id' => $dbHttpTest['hostid']);
-
-				if (!empty($dbHttpTest['templateid'])) {
-					$template2testMap[$dbHttpTest['templateid']][$testId] = $testId;
-				}
-			}
-			unset($template2testMap[$dbHttpTest['httptestid']]);
-		}
-	} while (!empty($template2testMap));
-
-	return $result;
-}
-
-/**
- * Resolve http tests macros.
- *
- * @param array $httpTests
- * @param bool  $resolveName
- * @param bool  $resolveStepName
- *
- * @return array
- */
-function resolveHttpTestMacros(array $httpTests, $resolveName = true, $resolveStepName = true) {
-	$names = array();
-
-	$i = 0;
-	foreach ($httpTests as $test) {
-		if ($resolveName) {
-			$names[$test['hostid']][$i++] = $test['name'];
-		}
-
-		if ($resolveStepName) {
-			foreach ($test['steps'] as $step) {
-				$names[$test['hostid']][$i++] = $step['name'];
-			}
-		}
-	}
-
-	$macrosResolver = new CMacrosResolver();
-	$names = $macrosResolver->resolve(array(
-		'config' => 'httpTestName',
-		'data' => $names
-	));
-
-	$i = 0;
-	foreach ($httpTests as $tnum => $test) {
-		if ($resolveName) {
-			$httpTests[$tnum]['name'] = $names[$test['hostid']][$i++];
-		}
-
-		if ($resolveStepName) {
-			foreach ($httpTests[$tnum]['steps'] as $snum => $step) {
-				$httpTests[$tnum]['steps'][$snum]['name'] = $names[$test['hostid']][$i++];
-			}
-		}
-	}
-
-	return $httpTests;
+	return $isDuplicateStepFound;
 }

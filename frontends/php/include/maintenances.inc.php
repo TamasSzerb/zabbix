@@ -20,12 +20,11 @@
 ?>
 <?php
 function get_maintenance_by_maintenanceid($maintenanceid) {
-	return DBfetch(DBselect(
-			'SELECT m.*'.
+	$sql = 'SELECT m.*'.
 			' FROM maintenances m'.
-			' WHERE m.maintenanceid='.zbx_dbstr($maintenanceid).
-				andDbNode('m.maintenanceid')
-	));
+			' WHERE '.DBin_node('m.maintenanceid').
+				' AND maintenanceid='.zbx_dbstr($maintenanceid);
+	return DBfetch(DBselect($sql));
 }
 
 function timeperiod_type2str($timeperiod_type) {
@@ -52,20 +51,13 @@ function shedule2str($timeperiod) {
 		$timeperiod['minute'] = '0'.$timeperiod['minute'];
 	}
 
+	$str = _('At').SPACE.$timeperiod['hour'].':'.$timeperiod['minute'].SPACE._('on').SPACE;
+
 	if ($timeperiod['timeperiod_type'] == TIMEPERIOD_TYPE_ONETIME) {
-		$str = _s('At %1$s:%2$s on %3$s',
-			date('H', $timeperiod['start_date']),
-			date('i', $timeperiod['start_date']),
-			zbx_date2str(_('d M Y'), $timeperiod['start_date'])
-		);
+		$str = _('At').SPACE.date('H', $timeperiod['start_date']).':'.date('i',$timeperiod['start_date']).SPACE._('on').SPACE.zbx_date2str(_('d M Y'), $timeperiod['start_date']);
 	}
 	elseif ($timeperiod['timeperiod_type'] == TIMEPERIOD_TYPE_DAILY) {
-		$str = _n('At %1$s:%2$s on every day',
-			'At %1$s:%2$s on every %3$s days',
-			$timeperiod['hour'],
-			$timeperiod['minute'],
-			$timeperiod['every']
-		);
+		$str .= _('every').SPACE.(($timeperiod['every'] > 1) ? $timeperiod['every'].SPACE._('days') : _('day'));
 	}
 	elseif ($timeperiod['timeperiod_type'] == TIMEPERIOD_TYPE_WEEKLY) {
 		$days = '';
@@ -79,14 +71,7 @@ function shedule2str($timeperiod) {
 				$days .= getDayOfWeekCaption($i + 1);
 			}
 		}
-
-		$str = _n('At %1$s:%2$s on every %3$s of every week',
-			'At %1$s:%2$s on every %3$s of every %4$s weeks',
-			$timeperiod['hour'],
-			$timeperiod['minute'],
-			$days,
-			$timeperiod['every']
-		);
+		$str.= _('every').SPACE.$days.SPACE._('of every').SPACE.(($timeperiod['every'] > 1) ? $timeperiod['every'].SPACE._('weeks') : _('week'));
 	}
 	elseif ($timeperiod['timeperiod_type'] == TIMEPERIOD_TYPE_MONTHLY) {
 		$months = '';
@@ -121,22 +106,10 @@ function shedule2str($timeperiod) {
 				case 4: $every = _('Fourth'); break;
 				case 5: $every = _('Last'); break;
 			}
-
-			$str = _s('At %1$s:%2$s on %3$s %4$s of every %5$s',
-				$timeperiod['hour'],
-				$timeperiod['minute'],
-				$every,
-				$days,
-				$months
-			);
+			$str .= $every.SPACE.$days.SPACE._('of every').SPACE.$months;
 		}
 		else {
-			$str = _s('At %1$s:%2$s on day %3$s of every %4$s',
-				$timeperiod['hour'],
-				$timeperiod['minute'],
-				$timeperiod['day'],
-				$months
-			);
+			$str .= _('day').SPACE.$timeperiod['day'].SPACE._('of every').SPACE.$months;
 		}
 	}
 	return $str;

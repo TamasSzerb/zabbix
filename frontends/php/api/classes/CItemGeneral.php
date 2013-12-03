@@ -20,15 +20,9 @@
 
 
 /**
- * Class containing methods for operations with item general.
- *
  * @package API
  */
 abstract class CItemGeneral extends CZBXAPI {
-
-	const ERROR_EXISTS_TEMPLATE = 'existsTemplate';
-	const ERROR_EXISTS = 'exists';
-	const ERROR_NO_INTERFACE = 'noInterface';
 
 	protected $fieldRules;
 
@@ -58,18 +52,19 @@ abstract class CItemGeneral extends CZBXAPI {
 			'delay'					=> array(),
 			'history'				=> array(),
 			'trends'				=> array(),
+			'lastvalue'				=> array('system' => 1),
+			'lastclock'				=> array('system' => 1),
+			'prevvalue'				=> array('system' => 1),
 			'status'				=> array(),
 			'value_type'			=> array('template' => 1),
 			'trapper_hosts'			=> array(),
 			'units'					=> array('template' => 1),
 			'multiplier'			=> array('template' => 1),
 			'delta'					=> array(),
-			'snmpv3_contextname'	=> array(),
+			'prevorgvalue'			=> array('system' => 1),
 			'snmpv3_securityname'	=> array(),
 			'snmpv3_securitylevel'	=> array(),
-			'snmpv3_authprotocol'	=> array(),
 			'snmpv3_authpassphrase'	=> array(),
-			'snmpv3_privprotocol'	=> array(),
 			'snmpv3_privpassphrase'	=> array(),
 			'formula'				=> array('template' => 1),
 			'error'					=> array('system' => 1),
@@ -87,6 +82,7 @@ abstract class CItemGeneral extends CZBXAPI {
 			'publickey'				=> array(),
 			'privatekey'			=> array(),
 			'mtime'					=> array('system' => 1),
+			'lastns'				=> array('system' => 1),
 			'flags'					=> array(),
 			'filter'				=> array(),
 			'interfaceid'			=> array('host' => 1),
@@ -94,12 +90,6 @@ abstract class CItemGeneral extends CZBXAPI {
 			'inventory_link'		=> array(),
 			'lifetime'				=> array()
 		);
-
-		$this->errorMessages = array_merge($this->errorMessages, array(
-			self::ERROR_EXISTS_TEMPLATE => _('Item "%1$s" already exists on "%2$s", inherited from another template.'),
-			self::ERROR_EXISTS => _('Item "%1$s" already exists on "%2$s"'),
-			self::ERROR_NO_INTERFACE => _('Cannot find host interface on "%1$s" for item key "%2$s".')
-		));
 	}
 
 	/**
@@ -115,6 +105,7 @@ abstract class CItemGeneral extends CZBXAPI {
 	 * @return void
 	 */
 	protected function checkInput(array &$items, $update = false) {
+		// permissions
 		if ($update) {
 			$itemDbFields = array('itemid' => null);
 
@@ -170,22 +161,7 @@ abstract class CItemGeneral extends CZBXAPI {
 			'preservekeys' => true
 		));
 
-		if ($update) {
-			$updateDiscoveredValidator = new CUpdateDiscoveredValidator(array(
-				'allowed' => array('itemid', 'status'),
-				'messageAllowedField' => _('Cannot update "%1$s" for a discovered item.')
-			));
-			foreach ($items as $item) {
-				// check permissions
-				if (!isset($dbItems[$item['itemid']])) {
-					self::exception(ZBX_API_ERROR_PARAMETERS,
-						_('No permissions to referred object or it does not exist!'));
-				}
-
-				// discovered fields, except status, cannot be updated
-				$this->checkPartialValidator($item, $updateDiscoveredValidator, $dbItems[$item['itemid']]);
-			}
-
+		if ($update){
 			$items = $this->extendObjects($this->tableName(), $items, array('name'));
 		}
 
@@ -199,14 +175,16 @@ abstract class CItemGeneral extends CZBXAPI {
 			}
 
 			if ($update) {
-				check_db_fields($dbItems[$item['itemid']], $fullItem);
+				if (!isset($dbItems[$item['itemid']])) {
+					self::exception(ZBX_API_ERROR_PARAMETERS, _('No permissions to referred object or it does not exist!'));
+				}
 
-				$this->checkNoParameters(
-					$item,
-					array('templateid', 'state'),
-					_('Cannot update "%1$s" for item "%2$s".'),
-					$item['name']
-				);
+				// check for "templateid", because it is not allowed
+				if (array_key_exists('templateid', $item)) {
+					self::exception(ZBX_API_ERROR_PARAMETERS, _s('Cannot update "templateid" for item "%1$s".', $item['name']));
+				}
+
+				check_db_fields($dbItems[$item['itemid']], $fullItem);
 
 				// apply rules
 				foreach ($this->fieldRules as $field => $rules) {
@@ -220,6 +198,9 @@ abstract class CItemGeneral extends CZBXAPI {
 				}
 				if (!isset($item['hostid'])) {
 					$item['hostid'] = $fullItem['hostid'];
+				}
+				if (isset($item['status']) && $item['status'] != ITEM_STATUS_NOTSUPPORTED) {
+					$item['error'] = '';
 				}
 
 				// if a templated item is being assigned to an interface with a different type, ignore it
@@ -237,12 +218,10 @@ abstract class CItemGeneral extends CZBXAPI {
 
 				check_db_fields($itemDbFields, $fullItem);
 
-				$this->checkNoParameters(
-					$item,
-					array('templateid', 'state'),
-					_('Cannot set "%1$s" for item "%2$s".'),
-					$item['name']
-				);
+				// check for "templateid", because it is not allowed
+				if (array_key_exists('templateid', $item)) {
+					self::exception(ZBX_API_ERROR_PARAMETERS, _s('Cannot set "templateid" for item "%1$s".', $item['name']));;
+				}
 			}
 
 			$host = $dbHosts[$fullItem['hostid']];
@@ -283,13 +262,11 @@ abstract class CItemGeneral extends CZBXAPI {
 				self::exception(ZBX_API_ERROR_PARAMETERS, _('Check the key, please. Default example was passed.'));
 			}
 
-			// key
 			$itemKey = new CItemKey($fullItem['key_']);
 			if (!$itemKey->isValid()) {
-				self::exception(ZBX_API_ERROR_PARAMETERS, _s('Incorrect key: "%1$s".', $itemKey->getError()));
+				self::exception(ZBX_API_ERROR_PARAMETERS, _s('Error in item key: "%s".', $itemKey->getError()));
 			}
 
-			// parameters
 			if ($fullItem['type'] == ITEM_TYPE_AGGREGATE) {
 				$params = $itemKey->getParameters();
 
@@ -302,13 +279,18 @@ abstract class CItemGeneral extends CZBXAPI {
 				}
 			}
 
+			if ($fullItem['type'] == ITEM_TYPE_SNMPTRAP
+					&& strcmp($fullItem['key_'], 'snmptrap.fallback') != 0
+					&& strcmp($itemKey->getKeyId(), 'snmptrap') != 0) {
+				self::exception(ZBX_API_ERROR_PARAMETERS, _('SNMP trap key is invalid.'));
+			}
+
 			// type of information
 			if ($fullItem['type'] == ITEM_TYPE_AGGREGATE && $fullItem['value_type'] != ITEM_VALUE_TYPE_FLOAT
 					&& $fullItem['value_type'] != ITEM_VALUE_TYPE_UINT64) {
 				self::exception(ZBX_API_ERROR_PARAMETERS, _('Type of information must be "Numeric (float)" for aggregate items.'));
 			}
 
-			// log
 			if ($fullItem['value_type'] != ITEM_VALUE_TYPE_LOG && str_in_array($itemKey->getKeyId(), array('log', 'logrt', 'eventlog'))) {
 				self::exception(ZBX_API_ERROR_PARAMETERS, _('Type of information must be "Log" for log key.'));
 			}
@@ -322,7 +304,6 @@ abstract class CItemGeneral extends CZBXAPI {
 				}
 			}
 
-			// ssh, telnet
 			if ($fullItem['type'] == ITEM_TYPE_SSH || $fullItem['type'] == ITEM_TYPE_TELNET) {
 				if (zbx_empty($fullItem['username'])) {
 					self::exception(ZBX_API_ERROR_PARAMETERS, _('No authentication user name specified.'));
@@ -338,49 +319,10 @@ abstract class CItemGeneral extends CZBXAPI {
 				}
 			}
 
-			// snmp trap
-			if ($fullItem['type'] == ITEM_TYPE_SNMPTRAP
-					&& strcmp($fullItem['key_'], 'snmptrap.fallback') != 0
-					&& strcmp($itemKey->getKeyId(), 'snmptrap') != 0) {
-				self::exception(ZBX_API_ERROR_PARAMETERS, _('SNMP trap key is invalid.'));
-			}
-
-			// snmp oid
-			if ((in_array($fullItem['type'], array(ITEM_TYPE_SNMPV1, ITEM_TYPE_SNMPV2C, ITEM_TYPE_SNMPV3)))
-					&& zbx_empty($fullItem['snmp_oid'])) {
-				self::exception(ZBX_API_ERROR_PARAMETERS, _('No SNMP OID specified.'));
-			}
-
-			// snmp community
-			if (in_array($fullItem['type'], array(ITEM_TYPE_SNMPV1, ITEM_TYPE_SNMPV2C))
-					&& zbx_empty($fullItem['snmp_community'])) {
-				self::exception(ZBX_API_ERROR_PARAMETERS, _('No SNMP community specified.'));
-			}
-
-			// snmp port
+			// SNMP port
 			if (isset($fullItem['port']) && !zbx_empty($fullItem['port']) && !validatePortNumberOrMacro($fullItem['port'])) {
 				self::exception(ZBX_API_ERROR_PARAMETERS,
 					_s('Item "%1$s:%2$s" has invalid port: "%3$s".', $fullItem['name'], $fullItem['key_'], $fullItem['port']));
-			}
-
-			if (isset($fullItem['snmpv3_securitylevel']) && $fullItem['snmpv3_securitylevel'] != ITEM_SNMPV3_SECURITYLEVEL_NOAUTHNOPRIV) {
-				// snmpv3 authprotocol
-				if (str_in_array($fullItem['snmpv3_securitylevel'], array(ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV, ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV))) {
-					if (isset($fullItem['snmpv3_authprotocol']) && (zbx_empty($fullItem['snmpv3_authprotocol'])
-							|| !str_in_array($fullItem['snmpv3_authprotocol'],
-								array(ITEM_AUTHPROTOCOL_MD5, ITEM_AUTHPROTOCOL_SHA)))) {
-						self::exception(ZBX_API_ERROR_PARAMETERS, _s('Incorrect authentication protocol for item "%1$s".', $fullItem['name']));
-					}
-				}
-
-				// snmpv3 privprotocol
-				if ($fullItem['snmpv3_securitylevel'] == ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV) {
-					if (isset($fullItem['snmpv3_privprotocol']) && (zbx_empty($fullItem['snmpv3_privprotocol'])
-							|| !str_in_array($fullItem['snmpv3_privprotocol'],
-								array(ITEM_PRIVPROTOCOL_DES, ITEM_PRIVPROTOCOL_AES)))) {
-						self::exception(ZBX_API_ERROR_PARAMETERS, _s('Incorrect privacy protocol for item "%1$s".', $fullItem['name']));
-					}
-				}
 			}
 
 			// check that the given applications belong to the item's host
@@ -430,10 +372,10 @@ abstract class CItemGeneral extends CZBXAPI {
 			case ZBX_FLAG_DISCOVERY_NORMAL:
 				self::exception(ZBX_API_ERROR_PARAMETERS, _s('Item with key "%1$s" already exists on "%2$s" as an item.', $key, $host));
 				break;
-			case ZBX_FLAG_DISCOVERY_RULE:
+			case ZBX_FLAG_DISCOVERY:
 				self::exception(ZBX_API_ERROR_PARAMETERS, _s('Item with key "%1$s" already exists on "%2$s" as a discovery rule.', $key, $host));
 				break;
-			case ZBX_FLAG_DISCOVERY_PROTOTYPE:
+			case ZBX_FLAG_DISCOVERY_CHILD:
 				self::exception(ZBX_API_ERROR_PARAMETERS, _s('Item with key "%1$s" already exists on "%2$s" as an item prototype.', $key, $host));
 				break;
 			case ZBX_FLAG_DISCOVERY_CREATED:
@@ -507,6 +449,7 @@ abstract class CItemGeneral extends CZBXAPI {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'itemids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'countOutput' => true
 		));
 
@@ -526,6 +469,7 @@ abstract class CItemGeneral extends CZBXAPI {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'itemids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'editable' => true,
 			'countOutput' => true
 		));
@@ -575,7 +519,7 @@ abstract class CItemGeneral extends CZBXAPI {
 
 		// make it work for both graphs and graph prototypes
 		$filter['flags'] = array(
-			ZBX_FLAG_DISCOVERY_PROTOTYPE,
+			ZBX_FLAG_DISCOVERY_CHILD,
 			ZBX_FLAG_DISCOVERY_NORMAL,
 			ZBX_FLAG_DISCOVERY_CREATED
 		);
@@ -629,14 +573,22 @@ abstract class CItemGeneral extends CZBXAPI {
 	 *
 	 * @param array      $itemsToInherit
 	 * @param array|null $hostIds
+	 * @param array      $errors         an array of messages to use for errors
 	 *
 	 * @return array an array of unsaved child items
 	 */
-	protected function prepareInheritedItems(array $itemsToInherit, array $hostIds = null) {
+	protected function prepareInheritedItems(array $itemsToInherit, array $hostIds = null, array $errors = array()) {
+		$errors = array_merge(
+			array(
+				'exists' => _('Item "%1$s" already exists on "%2$s", inherited from another template.'),
+				'noInterface' => _('Cannot find host interface on "%1$s" for item key "%2$s".')
+			),
+			$errors
+		);
+
 		// fetch all child hosts
 		$chdHosts = API::Host()->get(array(
 			'output' => array('hostid', 'host', 'status'),
-			'selectParentTemplates' => array('templateid'),
 			'selectInterfaces' => API_OUTPUT_EXTEND,
 			'templateids' => zbx_objectValues($itemsToInherit, 'hostid'),
 			'hostids' => $hostIds,
@@ -650,7 +602,7 @@ abstract class CItemGeneral extends CZBXAPI {
 
 		$newItems = array();
 		foreach ($chdHosts as $hostId => $host) {
-			$templateids = zbx_toHash($host['parentTemplates'], 'templateid');
+			$templateids = zbx_toHash($host['templates'], 'templateid');
 
 			// skip items not from parent templates of current host
 			$parentItems = array();
@@ -675,37 +627,19 @@ abstract class CItemGeneral extends CZBXAPI {
 			foreach ($parentItems as $parentItem) {
 				$exItem = null;
 
-				// check if an item of a different type with the same key exists
-				if (isset($exItemsKeys[$parentItem['key_']])) {
-					$exItem = $exItemsKeys[$parentItem['key_']];
-					if ($exItem['flags'] != $parentItem['flags']) {
-						$this->errorInheritFlags($exItem['flags'], $exItem['key_'], $host['host']);
-					}
-				}
-
 				// update by templateid
 				if (isset($exItemsTpl[$parentItem['itemid']])) {
 					$exItem = $exItemsTpl[$parentItem['itemid']];
-
-					if (isset($exItemsKeys[$parentItem['key_']])
-						&& !idcmp($exItemsKeys[$parentItem['key_']]['templateid'], $parentItem['itemid'])) {
-						self::exception(
-							ZBX_API_ERROR_PARAMETERS,
-							_s($this->getErrorMsg(self::ERROR_EXISTS), $parentItem['key_'], $host['host'])
-						);
-					}
 				}
 
 				// update by key
 				if (isset($exItemsKeys[$parentItem['key_']])) {
 					$exItem = $exItemsKeys[$parentItem['key_']];
-
-					if ($exItem['templateid'] > 0 && !idcmp($exItem['templateid'], $parentItem['itemid'])) {
-
-						self::exception(
-							ZBX_API_ERROR_PARAMETERS,
-							_s($this->getErrorMsg(self::ERROR_EXISTS_TEMPLATE), $parentItem['key_'], $host['host'])
-						);
+					if ($exItem['flags'] != $parentItem['flags']) {
+						$this->errorInheritFlags($exItem['flags'], $exItem['key_'], $host['host']);
+					}
+					elseif ($exItem['templateid'] > 0 && bccomp($exItem['templateid'], $parentItem['itemid']) != 0) {
+						self::exception(ZBX_API_ERROR_PARAMETERS, _s($errors['exists'], $parentItem['key_'], $host['host']));
 					}
 				}
 
@@ -719,10 +653,7 @@ abstract class CItemGeneral extends CZBXAPI {
 						$parentItem['interfaceid'] = $interface['interfaceid'];
 					}
 					elseif ($interface !== false) {
-						self::exception(
-							ZBX_API_ERROR_PARAMETERS,
-							_s($this->getErrorMsg(self::ERROR_NO_INTERFACE), $host['host'], $parentItem['key_'])
-						);
+						self::exception(ZBX_API_ERROR_PARAMETERS, _s($errors['noInterface'], $host['host'], $parentItem['key_']));
 					}
 				}
 				else {
@@ -776,7 +707,7 @@ abstract class CItemGeneral extends CZBXAPI {
 
 		$sqlWhere = array();
 		foreach ($itemKeysByHostId as $hostId => $keys) {
-			$sqlWhere[] = '(i.hostid='.$hostId.' AND '.dbConditionString('i.key_', $keys).')';
+			$sqlWhere[] = '(i.hostid='.zbx_dbstr($hostId).' AND '.dbConditionString('i.key_', $keys).')';
 		}
 
 		if ($sqlWhere) {
@@ -833,25 +764,5 @@ abstract class CItemGeneral extends CZBXAPI {
 				}
 			}
 		}
-	}
-
-	protected function addRelatedObjects(array $options, array $result) {
-		$result = parent::addRelatedObjects($options, $result);
-
-		// adding hosts
-		if ($options['selectHosts'] !== null && $options['selectHosts'] != API_OUTPUT_COUNT) {
-			$relationMap = $this->createRelationMap($result, 'itemid', 'hostid');
-			$hosts = API::Host()->get(array(
-				'nodeids' => $options['nodeids'],
-				'hostids' => $relationMap->getRelatedIds(),
-				'templated_hosts' => true,
-				'output' => $options['selectHosts'],
-				'nopermissions' => true,
-				'preservekeys' => true
-			));
-			$result = $relationMap->mapMany($result, $hosts, 'hosts');
-		}
-
-		return $result;
 	}
 }

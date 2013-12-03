@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2000-2011 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,7 +9,7 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
@@ -57,9 +57,10 @@ static void	DBlld_clean_graphs(zbx_vector_ptr_t *graphs)
  *                                                                            *
  * Purpose: check if graph exists                                             *
  *                                                                            *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
  ******************************************************************************/
-static int	DBlld_graph_exists(zbx_uint64_t hostid, zbx_uint64_t graphid, const char *name,
-		zbx_vector_ptr_t *graphs)
+static int	DBlld_graph_exists(zbx_uint64_t hostid, zbx_uint64_t graphid, const char *name, zbx_vector_ptr_t *graphs)
 {
 	char		*name_esc, *sql = NULL;
 	size_t		sql_alloc = 256, sql_offset = 0;
@@ -118,7 +119,7 @@ static int	DBlld_make_graph(zbx_uint64_t hostid, zbx_uint64_t parent_graphid, zb
 
 	graph = zbx_calloc(NULL, 1, sizeof(zbx_lld_graph_t));
 	graph->name = zbx_strdup(NULL, name_proto);
-	substitute_discovery_macros(&graph->name, jp_row, ZBX_MACRO_SIMPLE, NULL, 0);
+	substitute_discovery_macros(&graph->name, jp_row);
 
 	name_esc = DBdyn_escape_string_len(graph->name, GRAPH_NAME_LEN);
 
@@ -148,7 +149,7 @@ static int	DBlld_make_graph(zbx_uint64_t hostid, zbx_uint64_t parent_graphid, zb
 			char	*old_name = NULL;
 
 			old_name = zbx_strdup(old_name, row[1]);
-			substitute_discovery_macros(&old_name, jp_row, ZBX_MACRO_SIMPLE, NULL, 0);
+			substitute_discovery_macros(&old_name, jp_row);
 
 			if (0 == strcmp(old_name, row[2]))
 				ZBX_STR2UINT64(graph->graphid, row[0]);
@@ -163,7 +164,7 @@ static int	DBlld_make_graph(zbx_uint64_t hostid, zbx_uint64_t parent_graphid, zb
 
 	if (SUCCEED == DBlld_graph_exists(hostid, graph->graphid, graph->name, graphs))
 	{
-		*error = zbx_strdcatf(*error, "Cannot %s graph \"%s\": graph already exists\n",
+		*error = zbx_strdcatf(*error, "Cannot %s graph [%s]: graph already exists\n",
 				0 != graph->graphid ? "update" : "create", graph->name);
 		res = FAIL;
 		goto out;
@@ -182,7 +183,7 @@ static int	DBlld_make_graph(zbx_uint64_t hostid, zbx_uint64_t parent_graphid, zb
 		{
 			gitem = &graph->gitems[i];
 
-			if (0 != (ZBX_FLAG_DISCOVERY_PROTOTYPE & gitem->flags))
+			if (0 != (ZBX_FLAG_DISCOVERY_CHILD & gitem->flags))
 			{
 				if (FAIL == (res = DBlld_get_item(hostid, gitem->key, jp_row, &gitem->itemid)))
 					break;
@@ -200,7 +201,7 @@ static int	DBlld_make_graph(zbx_uint64_t hostid, zbx_uint64_t parent_graphid, zb
 	{
 		graph->ymin_itemid = ymin_itemid;
 
-		if (0 != (ZBX_FLAG_DISCOVERY_PROTOTYPE & ymin_flags) &&
+		if (0 != (ZBX_FLAG_DISCOVERY_CHILD & ymin_flags) &&
 				FAIL == (res = DBlld_get_item(hostid, ymin_key_proto, jp_row, &graph->ymin_itemid)))
 		{
 			goto out;
@@ -211,7 +212,7 @@ static int	DBlld_make_graph(zbx_uint64_t hostid, zbx_uint64_t parent_graphid, zb
 	{
 		graph->ymax_itemid = ymax_itemid;
 
-		if (0 != (ZBX_FLAG_DISCOVERY_PROTOTYPE & ymax_flags) &&
+		if (0 != (ZBX_FLAG_DISCOVERY_CHILD & ymax_flags) &&
 				FAIL == (res = DBlld_get_item(hostid, ymax_key_proto, jp_row, &graph->ymax_itemid)))
 		{
 			goto out;
@@ -303,6 +304,9 @@ static void	DBlld_save_graphs(zbx_vector_ptr_t *graphs, int width, int height, d
 			" (gitemid,graphid,itemid,drawtype,sortorder,color,yaxisside,calc_fnc,type)"
 			" values ";
 
+	if (0 == graphs->values_num)
+		return;
+
 	for (i = 0; i < graphs->values_num; i++)
 	{
 		graph = (zbx_lld_graph_t *)graphs->values[i];
@@ -316,6 +320,8 @@ static void	DBlld_save_graphs(zbx_vector_ptr_t *graphs, int width, int height, d
 				new_graphs_items++;
 		}
 	}
+
+	DBbegin();
 
 	if (0 != new_graphs)
 	{
@@ -506,6 +512,8 @@ static void	DBlld_save_graphs(zbx_vector_ptr_t *graphs, int width, int height, d
 		DBexecute("%s", sql4);
 		zbx_free(sql4);
 	}
+
+	DBcommit();
 }
 
 /******************************************************************************
@@ -518,9 +526,11 @@ static void	DBlld_save_graphs(zbx_vector_ptr_t *graphs, int width, int height, d
  *             agent   - [IN] discovery item identificator from database      *
  *             jp_data - [IN] received data                                   *
  *                                                                            *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
  ******************************************************************************/
-void	DBlld_update_graphs(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, struct zbx_json_parse *jp_data,
-		char **error, const char *f_macro, const char *f_regexp, zbx_vector_ptr_t *regexps)
+void	DBlld_update_graphs(zbx_uint64_t hostid, zbx_uint64_t discovery_itemid, struct zbx_json_parse *jp_data,
+		char **error, const char *f_macro, const char *f_regexp, ZBX_REGEXP *regexps, int regexps_num)
 {
 	const char		*__function_name = "DBlld_update_graphs";
 
@@ -549,7 +559,7 @@ void	DBlld_update_graphs(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, struct zb
 				" and i.itemid=gi.itemid"
 				" and gi.graphid=g.graphid"
 				" and id.parent_itemid=" ZBX_FS_UI64,
-			lld_ruleid);
+			discovery_itemid);
 
 	while (NULL != (row = DBfetch(result)))
 	{
@@ -572,7 +582,7 @@ void	DBlld_update_graphs(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, struct zb
 				" and i.itemid=gi.itemid"
 				" and gi.graphid=g.graphid"
 				" and id.parent_itemid=" ZBX_FS_UI64,
-			lld_ruleid);
+			discovery_itemid);
 
 	while (NULL != (row = DBfetch(result)))
 	{
@@ -640,7 +650,7 @@ void	DBlld_update_graphs(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, struct zb
 			if (FAIL == zbx_json_brackets_open(p, &jp_row))
 				continue;
 
-			if (SUCCEED != lld_check_record(&jp_row, f_macro, f_regexp, regexps))
+			if (SUCCEED != lld_check_record(&jp_row, f_macro, f_regexp, regexps, regexps_num))
 				continue;
 
 			DBlld_make_graph(hostid, parent_graphid, &graphs, name_proto, gitems_proto, gitems_proto_num,

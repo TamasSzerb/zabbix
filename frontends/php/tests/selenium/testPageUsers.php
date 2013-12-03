@@ -31,15 +31,25 @@ class testPageUsers extends CWebTest {
 	*/
 	public function testPageUsers_CheckLayout($user) {
 		$this->zbxTestLogin('users.php');
-		$this->zbxTestCheckTitle('Configuration of users');
+		$this->checkTitle('Configuration of users');
 
 		$this->zbxTestDropdownSelectWait('filter_usrgrpid', 'All');
 
-		$this->zbxTestTextPresent('CONFIGURATION OF USERS');
+		$this->zbxTestTextPresent('CONFIGURATION OF USERS AND USER GROUPS');
 		$this->zbxTestTextPresent('Displaying');
 		$this->zbxTestTextPresent(array('Alias', 'Name', 'Surname', 'User type', 'Groups', 'Is online?', 'Login', 'Frontend access', 'Debug mode', 'Status'));
 		$this->zbxTestTextPresent(array($user['alias'], $user['name'], $user['surname']));
 		$this->zbxTestDropdownHasOptions('go', array('Unblock selected', 'Delete selected'));
+	}
+
+	public function testPageUsers_FilterByHostGroup() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageUsers_Sorting() {
+// TODO
+		$this->markTestIncomplete();
 	}
 
 	/**
@@ -57,19 +67,24 @@ class testPageUsers extends CWebTest {
 		$oldHashMedia = DBhash($sqlHashMedia);
 
 		$this->zbxTestLogin('users.php');
-		$this->zbxTestCheckTitle('Configuration of users');
+		$this->checkTitle('Configuration of users');
 		$this->zbxTestDropdownSelectWait('filter_usrgrpid', 'All');
 
 		$this->zbxTestClickWait('link='.$alias);
 		$this->zbxTestClickWait('save');
-		$this->zbxTestCheckTitle('Configuration of users');
+		$this->checkTitle('Configuration of users');
 		$this->zbxTestTextPresent('User updated');
 		$this->zbxTestTextPresent($alias);
-		$this->zbxTestTextPresent('CONFIGURATION OF USERS');
+		$this->zbxTestTextPresent('CONFIGURATION OF USERS AND USER GROUPS');
 
 		$this->assertEquals($oldHashUser, DBhash($sqlHashUser));
 		$this->assertEquals($oldHashGroup, DBhash($sqlHashGroup), 'Chuck Norris: User update changed data in table users_groups');
 		$this->assertEquals($oldHashMedia, DBhash($sqlHashMedia), 'Chuck Norris: User update changed data in table medias');
+	}
+
+	public function testPageUsers_MassDeleteAll() {
+// TODO
+		$this->markTestIncomplete();
 	}
 
 	public function testPageUsers_MassDelete() {
@@ -83,7 +98,7 @@ class testPageUsers extends CWebTest {
 			$id = $user['userid'];
 
 			$this->zbxTestLogin('users.php');
-			$this->zbxTestCheckTitle('Configuration of users');
+			$this->checkTitle('Configuration of users');
 			$this->zbxTestDropdownSelectWait('filter_usrgrpid', 'All');
 
 			$this->zbxTestCheckboxSelect('group_userid['.$id.']');
@@ -91,7 +106,7 @@ class testPageUsers extends CWebTest {
 			$this->zbxTestClickWait('goButton');
 
 			$this->getConfirmation();
-			$this->zbxTestCheckTitle('Configuration of users');
+			$this->checkTitle('Configuration of users');
 			$this->zbxTestTextPresent('User deleted');
 
 			$sql = "select * from users where userid=$id";
@@ -116,7 +131,7 @@ class testPageUsers extends CWebTest {
 			$id = $user['userid'];
 
 			$this->zbxTestLogin('users.php');
-			$this->zbxTestCheckTitle('Configuration of users');
+			$this->checkTitle('Configuration of users');
 			$this->zbxTestDropdownSelectWait('filter_usrgrpid', 'All');
 
 			$this->zbxTestCheckboxSelect('group_userid['.$id.']');
@@ -124,7 +139,7 @@ class testPageUsers extends CWebTest {
 			$this->zbxTestClickWait('goButton');
 
 			$this->getConfirmation();
-			$this->zbxTestCheckTitle('Configuration of users');
+			$this->checkTitle('Configuration of users');
 			$this->zbxTestTextPresent('Cannot delete user');
 
 			$sql = "select * from users where userid=$id";
@@ -139,4 +154,13 @@ class testPageUsers extends CWebTest {
 		DBrestore_tables('users');
 	}
 
+	public function testPageUsers_MassUnblockAll() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageUsers_MassUnblock() {
+// TODO
+		$this->markTestIncomplete();
+	}
 }

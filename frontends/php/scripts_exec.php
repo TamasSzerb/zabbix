@@ -18,17 +18,16 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/hosts.inc.php';
-require_once dirname(__FILE__).'/include/forms.inc.php';
+require_once 'include/config.inc.php';
+require_once 'include/hosts.inc.php';
+require_once 'include/forms.inc.php';
 
 $page['title'] = _('Scripts');
 $page['file'] = 'scripts_exec.php';
 
 define('ZBX_PAGE_NO_MENU', 1);
 
-require_once dirname(__FILE__).'/include/page_header.php';
+require_once ('include/page_header.php');
 
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
@@ -44,7 +43,7 @@ if (isset($_REQUEST['execute'])) {
 
 	$data = array(
 		'message' => '',
-		'info' => DBfetch(DBselect('SELECT s.name FROM scripts s WHERE s.scriptid='.zbx_dbstr($scriptid)))
+		'info' => DBfetch(DBselect('SELECT s.name FROM scripts s WHERE s.scriptid='.$scriptid))
 	);
 
 	$result = API::Script()->execute(array('hostid' => $hostid, 'scriptid' => $scriptid));
@@ -71,4 +70,4 @@ if (isset($_REQUEST['execute'])) {
 	$scriptView->show();
 }
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+require_once 'include/page_footer.php';

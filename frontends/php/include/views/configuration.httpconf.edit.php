@@ -24,57 +24,36 @@ require_once dirname(__FILE__).'/js/configuration.httpconf.edit.js.php';
 $httpWidget = new CWidget();
 $httpWidget->addPageHeader(_('CONFIGURATION OF WEB MONITORING'));
 
-// append host summary to widget header
-if (!empty($this->data['hostid'])) {
-	$httpWidget->addItem(get_header_host_table('web', $this->data['hostid']));
-}
-
 // create form
 $httpForm = new CForm();
 $httpForm->setName('httpForm');
 $httpForm->addVar('form', $this->data['form']);
 $httpForm->addVar('hostid', $this->data['hostid']);
-$httpForm->addVar('steps', $this->data['steps']);
-$httpForm->addVar('templated', $this->data['templated']);
-
+if ($this->data['groupid'] > 0) {
+	$httpForm->addVar('groupid', $this->data['groupid']);
+}
 if (!empty($this->data['httptestid'])) {
 	$httpForm->addVar('httptestid', $this->data['httptestid']);
 }
+$httpForm->addVar('steps', $this->data['steps']);
 
 /*
  * Scenario tab
  */
 $httpFormList = new CFormList('httpFormList');
+$httpFormList->addRow(_('Application'), array(
+	new CTextBox('application', $this->data['application'], ZBX_TEXTBOX_STANDARD_SIZE),
+	SPACE,
+	new CButton('select_app', _('Select'),
+		'return PopUp("popup.php?srctbl=applications&srcfld1=name'.
+			'&dstfrm='.$httpForm->getName().'&dstfld1=application'.
+			'&only_hostid='.$this->data['hostid'].'", 500, 600, "application");',
+		'formlist'
+	)
+));
+$httpFormList->addRow(_('Name'), new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE, 'no', 64));
 
-// Parent http tests
-if (!empty($this->data['templates'])) {
-	$httpFormList->addRow(_('Parent web scenarios'), $this->data['templates']);
-}
-
-// Name
-$nameTextBox = new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE, $this->data['templated'], 64);
-if (!$this->data['templated']) {
-	$nameTextBox->attr('autofocus', 'autofocus');
-}
-$httpFormList->addRow(_('Name'), $nameTextBox);
-
-// Application
-if ($this->data['application_list']) {
-	$applications = zbx_array_merge(array(''), $this->data['application_list']);
-	$httpFormList->addRow(_('Application'),
-		new CComboBox('applicationid', $this->data['applicationid'], null, $applications)
-	);
-}
-else {
-	$httpFormList->addRow(_('Application'), new CSpan(_('No applications found.')));
-}
-
-// New application
-$httpFormList->addRow(_('New application'),
-	new CTextBox('new_application', $this->data['new_application'], ZBX_TEXTBOX_STANDARD_SIZE), false, null, 'new'
-);
-
-// Authentication
+// append authentication to form list
 $authenticationComboBox = new CComboBox('authentication', $this->data['authentication'], 'submit();');
 $authenticationComboBox->addItems(httptest_authentications());
 $httpFormList->addRow(_('Authentication'), $authenticationComboBox);
@@ -83,11 +62,7 @@ if (in_array($this->data['authentication'], array(HTTPTEST_AUTH_BASIC, HTTPTEST_
 	$httpFormList->addRow(_('Password'), new CTextBox('http_password', $this->data['http_password'], ZBX_TEXTBOX_STANDARD_SIZE, 'no', 64));
 }
 
-// update interval
 $httpFormList->addRow(_('Update interval (in sec)'), new CNumericBox('delay', $this->data['delay'], 5));
-
-// number of retries
-$httpFormList->addRow(_('Retries'), new CNumericBox('retries', $this->data['retries'], 2));
 
 // append http agents to form list - http://www.useragentstring.com
 $agentComboBox = new CEditableComboBox('agent', $this->data['agent'], ZBX_TEXTBOX_STANDARD_SIZE);
@@ -138,24 +113,17 @@ $agentComboBox->addItemsInGroup(_('Others'), array(
 ));
 $httpFormList->addRow(_('Agent'), $agentComboBox);
 
-// append HTTP proxy to form list
-$httpProxyTextBox = new CTextBox('http_proxy', $this->data['http_proxy'], ZBX_TEXTBOX_STANDARD_SIZE, 'no', 255);
-$httpProxyTextBox->setAttribute('placeholder', 'http://[username[:password]@]proxy.example.com[:port]');
-$httpFormList->addRow(_('HTTP proxy'), $httpProxyTextBox);
-
 // append status to form list
-$httpFormList->addRow(_('Variables'), new CTextArea('variables', $this->data['variables']));
-$httpFormList->addRow(_('Enabled'), new CCheckBox('status', !$this->data['status']));
+$httpFormList->addRow(_('Variables'), new CTextArea('macros', $this->data['macros']));
+$httpFormList->addRow(_('Active'), new CCheckBox('status', $this->data['status'] ? (!isset($_REQUEST['httptestid']) ? 1 : 0) : 1, null, 1)); // invert status 0 - enable, 1 - disable
 
 /*
  * Step tab
  */
 $httpStepFormList = new CFormList('httpFormList');
-$stepsTable = new CTable(null, 'formElementTable');
-$stepsTable->setAttributes(array(
-	'style' => 'min-width: 500px;',
-	'id' => 'httpStepTable'
-));
+$stepsTable = new CTable(_('No steps defined.'), 'formElementTable');
+$stepsTable->setAttribute('style', 'min-width: 500px;');
+$stepsTable->setAttribute('id', 'httpStepTable');
 $stepsTable->setHeader(array(
 	new CCol(SPACE, null, null, '15'),
 	new CCol(SPACE, null, null, '15'),
@@ -163,8 +131,8 @@ $stepsTable->setHeader(array(
 	new CCol(_('Timeout'), null, null, '50'),
 	new CCol(_('URL'), null, null, '200'),
 	new CCol(_('Required'), null, null, '50'),
-	new CCol(_('Status codes'), 'nowrap', null, '90'),
-	new CCol('', null, null, '50')
+	new CCol(_('Status codes'), null, null, '90'),
+	new CCol(_('Action'), null, null, '50')
 ));
 
 $i = 1;
@@ -190,10 +158,17 @@ foreach ($this->data['steps'] as $stepid => $step) {
 	$numSpan->setAttribute('id', 'current_step_'.$stepid);
 
 	$name = new CSpan($step['name'], 'link');
-	$name->setAttributes(array(
-		'id' => 'name_'.$stepid,
-		'name_step' => $stepid
-	));
+	$name->setAttribute('id', 'name_'.$stepid);
+	$name->setAttribute('name_step', $stepid);
+	$name->onClick('return PopUp("popup_httpstep.php?dstfrm='.$httpForm->getName().'&list_name=steps&stepid="+jQuery(this).attr("name_step")+"'.
+		url_param($step['name'], false, 'name').
+		url_param($step['timeout'], false, 'timeout').
+		url_param($step['url'], false, 'url').
+		url_param($step['posts'], false, 'posts').
+		url_param($step['required'], false, 'required').
+		url_param($step['status_codes'], false, 'status_codes').
+		'", 600, 410);'
+	);
 
 	if (zbx_strlen($step['url']) > 70) {
 		$url = new CSpan(substr($step['url'], 0, 35).SPACE.'...'.SPACE.substr($step['url'], zbx_strlen($step['url']) - 25, 25));
@@ -203,18 +178,11 @@ foreach ($this->data['steps'] as $stepid => $step) {
 		$url = $step['url'];
 	}
 
-	if ($this->data['templated']) {
-		$removeButton = SPACE;
-		$dragHandler = SPACE;
-	}
-	else {
-		$removeButton = new CButton('remove_'.$stepid, _('Remove'), 'javascript: removeStep(this);', 'link_menu');
-		$removeButton->setAttribute('remove_step', $stepid);
-		$dragHandler = new CSpan(null, 'ui-icon ui-icon-arrowthick-2-n-s move');
-	}
+	$removeButton = new CButton('remove_'.$stepid, _('Remove'), 'javascript: removeStep(this);', 'link_menu');
+	$removeButton->setAttribute('remove_step', $stepid);
 
 	$row = new CRow(array(
-		$dragHandler,
+		new CSpan(null, 'ui-icon ui-icon-arrowthick-2-n-s move'),
 		$numSpan,
 		$name,
 		$step['timeout'].SPACE._('sec'),
@@ -222,19 +190,19 @@ foreach ($this->data['steps'] as $stepid => $step) {
 		htmlspecialchars($step['required']),
 		$step['status_codes'],
 		$removeButton
-	), 'sortable', 'steps_'.$stepid);
-
+	), 'sortable');
+	$row->setAttribute('id', 'steps_'.$stepid);
 	$stepsTable->addRow($row);
 }
 
-if (!$this->data['templated']) {
-	$stepsTable->addRow(new CCol(new CButton('add_step', _('Add'), null, 'link_menu'), null, 8));
-}
+$tmpColumn = new CCol(new CButton('add_step', _('Add'), 'return PopUp("popup_httpstep.php?dstfrm='.$httpForm->getName().'", 600, 410);', 'link_menu'), null, 8);
+$tmpColumn->setAttribute('style', 'vertical-align: middle;');
+$stepsTable->addRow(new CRow($tmpColumn));
 
 $httpStepFormList->addRow(_('Steps'), new CDiv($stepsTable, 'objectgroup inlineblock border_dotted ui-corner-all'));
 
 // append tabs to form
-$httpTab = new CTabView();
+$httpTab = new CTabView(array('remember' => true));
 if (!$this->data['form_refresh']) {
 	$httpTab->setSelected(0);
 }
@@ -245,18 +213,18 @@ $httpForm->addItem($httpTab);
 // append buttons to form
 if (!empty($this->data['httptestid'])) {
 	$httpForm->addItem(makeFormFooter(
-		new CSubmit('save', _('Save')),
+		array(new CSubmit('save', _('Save'))),
 		array(
 			new CSubmit('clone', _('Clone')),
-			$this->data['templated'] ? null : new CButtonDelete(_('Delete scenario?'), url_param('form').url_param('httptestid').url_param('hostid')),
-			new CButtonCancel(url_param('hostid'))
+			new CButtonDelete(_('Delete scenario?'), url_param('form').url_param('httptestid').url_param('hostid')),
+			new CButtonCancel()
 		)
 	));
 }
 else {
 	$httpForm->addItem(makeFormFooter(
-		new CSubmit('save', _('Save')),
-		new CButtonCancel()
+		array(new CSubmit('save', _('Save'))),
+		array(new CButtonCancel())
 	));
 }
 $httpWidget->addItem($httpForm);

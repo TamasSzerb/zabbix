@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2013 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2006 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -138,11 +138,13 @@ static void	history_sender(struct zbx_json *j, int *records, const char *tag,
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-void	main_datasender_loop(void)
+void	main_datasender_loop()
 {
-	int		records = 0, r;
-	double		sec = 0.0;
+	int		records, r;
+	double		sec;
 	struct zbx_json	j;
+
+	zabbix_log(LOG_LEVEL_DEBUG, "In main_datasender_loop()");
 
 	zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 
@@ -152,10 +154,10 @@ void	main_datasender_loop(void)
 
 	for (;;)
 	{
-		zbx_setproctitle("%s [sent %d values in " ZBX_FS_DBL " sec, sending data]",
-				get_process_type_string(process_type), records, sec);
-
 		sec = zbx_time();
+
+		zbx_setproctitle("%s [sending data]", get_process_type_string(process_type));
+
 		host_availability_sender(&j);
 
 		records = 0;
@@ -181,10 +183,8 @@ retry_autoreg_host:
 		if (ZBX_MAX_HRECORDS == r)
 			goto retry_autoreg_host;
 
-		sec = zbx_time() - sec;
-
-		zbx_setproctitle("%s [sent %d values in " ZBX_FS_DBL " sec, idle %d sec]",
-				get_process_type_string(process_type), records, sec, CONFIG_PROXYDATA_FREQUENCY);
+		zabbix_log(LOG_LEVEL_DEBUG, "Datasender spent " ZBX_FS_DBL " seconds while processing %3d values.",
+				zbx_time() - sec, records);
 
 		zbx_sleep_loop(CONFIG_PROXYDATA_FREQUENCY);
 	}

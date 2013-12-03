@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2013 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2006 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -41,7 +41,7 @@
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	zbx_send_response_ext(zbx_sock_t *sock, int result, const char *info, int protocol, int timeout)
+int	zbx_send_response(zbx_sock_t *sock, int result, const char *info, int timeout)
 {
 	const char	*__function_name = "zbx_send_response";
 
@@ -58,11 +58,14 @@ int	zbx_send_response_ext(zbx_sock_t *sock, int result, const char *info, int pr
 	zbx_json_addstring(&json, ZBX_PROTO_TAG_RESPONSE, resp, ZBX_JSON_TYPE_STRING);
 
 	if (NULL != info && '\0' != *info)
+	{
 		zbx_json_addstring(&json, ZBX_PROTO_TAG_INFO, info, ZBX_JSON_TYPE_STRING);
+	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "%s() '%s'", __function_name, json.buffer);
+	zabbix_log(LOG_LEVEL_DEBUG, "%s() '%s'",
+			__function_name, json.buffer);
 
-	if (FAIL == (ret = zbx_tcp_send_ext(sock, json.buffer, protocol, timeout)))
+	if (FAIL == (ret = zbx_tcp_send_to(sock, json.buffer, timeout)))
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "Error sending result back: %s", zbx_tcp_strerror());
 		ret = NETWORK_ERROR;
@@ -70,7 +73,8 @@ int	zbx_send_response_ext(zbx_sock_t *sock, int result, const char *info, int pr
 
 	zbx_json_free(&json);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s",
+			__function_name, zbx_result_string(ret));
 
 	return ret;
 }
@@ -112,24 +116,26 @@ int	zbx_recv_response(zbx_sock_t *sock, char *info, int max_info_size, int timeo
 		/* side is just too busy processing our data if there is no response */
 		zabbix_log(LOG_LEVEL_DEBUG, "Did not receive response from host");
 		ret = NETWORK_ERROR;
-		goto out;
+		goto exit;
 	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "%s() '%s'", __function_name, answer);
+	zabbix_log(LOG_LEVEL_DEBUG, "%s() '%s'",
+			__function_name, answer);
 
 	if (FAIL == (ret = zbx_json_open(answer, &jp)))
-		goto out;
+		goto exit;
 
 	if (NULL != info)
 		zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_INFO, info, max_info_size);
 
 	if (FAIL == (ret = zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_RESPONSE, value, sizeof(value))))
-		goto out;
+		goto exit;
 
 	if (0 != strcmp(value, ZBX_PROTO_VALUE_SUCCESS))
 		ret = FAIL;
-out:
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
+exit:
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s",
+			__function_name, zbx_result_string(ret));
 
 	return ret;
 }

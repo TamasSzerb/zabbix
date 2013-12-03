@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2013 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -32,10 +32,10 @@ const char	usage_message[] = "[-Vhv] {[-zpsI] -ko | [-zpI] -T -i <file> -r} [-c 
 
 const char	*help_message[] = {
 	"Options:",
-	"  -c --config <file>                   Absolute path to the configuration file",
+	"  -c --config <file>                   Specify absolute path to the configuration file",
 	"",
-	"  -z --zabbix-server <server>          Hostname or IP address of Zabbix server",
-	"  -p --port <server port>              Specify port number of server trapper running on the server. Default is " ZBX_DEFAULT_SERVER_PORT_STR,
+	"  -z --zabbix-server <server>          Hostname or IP address of Zabbix Server",
+	"  -p --port <server port>              Specify port number of server trapper running on the server. Default is 10051",
 	"  -s --host <hostname>                 Specify host name. Host IP address and DNS name will not work",
 	"  -I --source-address <IP address>     Specify source IP address",
 	"",
@@ -99,51 +99,24 @@ static char	*ZABBIX_KEY = NULL;
 static char	*ZABBIX_KEY_VALUE = NULL;
 
 #if !defined(_WINDOWS)
+
 static void	send_signal_handler(int sig)
 {
 	if (SIGALRM == sig)
-		zabbix_log(LOG_LEVEL_WARNING, "timeout while executing operation");
+		zabbix_log(LOG_LEVEL_WARNING, "Timeout while executing operation");
 
-	/* Calling _exit() to terminate the process immediately is important. See ZBX-5732 for details. */
-	_exit(EXIT_FAILURE);
+	exit(FAIL);
 }
-#endif
+
+#endif /* NOT _WINDOWS */
 
 typedef struct
 {
-	char		*source_ip;
-	char		*server;
+	char		*source_ip, *server;
 	unsigned short	port;
 	struct zbx_json	json;
 }
 ZBX_THREAD_SENDVAL_ARGS;
-
-#define SUCCEED_PARTIAL	2
-
-/******************************************************************************
- *                                                                            *
- * Function: update_exit_status                                               *
- *                                                                            *
- * Purpose: manage exit status updates after batch sends                      *
- *                                                                            *
- * Comments: SUCCEED_PARTIAL status should be sticky in the sense that        *
- *           SUCCEED statuses that come after should not overwrite it         *
- *                                                                            *
- ******************************************************************************/
-static int	update_exit_status(int old_status, int new_status)
-{
-	if (FAIL == old_status || FAIL == new_status || (unsigned char)FAIL == new_status)
-		return FAIL;
-
-	if (SUCCEED == old_status)
-		return new_status;
-
-	if (SUCCEED_PARTIAL == old_status)
-		return old_status;
-
-	THIS_SHOULD_NEVER_HAPPEN;
-	return FAIL;
-}
 
 /******************************************************************************
  *                                                                            *
@@ -151,12 +124,10 @@ static int	update_exit_status(int old_status, int new_status)
  *                                                                            *
  * Purpose: Check whether JSON response is SUCCEED                            *
  *                                                                            *
- * Parameters: JSON response from Zabbix trapper                              *
+ * Parameters: result SUCCEED or FAIL                                         *
  *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
  *                FAIL - an error occurred                                    *
- *                SUCCEED_PARTIAL - the sending operation was completed       *
- *                successfully, but processing of at least one value failed   *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
@@ -178,16 +149,8 @@ static int	check_response(char *response)
 	if (SUCCEED == ret && 0 != strcmp(value, ZBX_PROTO_VALUE_SUCCESS))
 		ret = FAIL;
 
-	if (SUCCEED == ret && SUCCEED == zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_INFO, info, sizeof(info)))
-	{
-		int	failed;
-
-		printf("info from server: \"%s\"\n", info);
-		fflush(stdout);
-
-		if (1 == sscanf(info, "processed: %*d; failed: %d", &failed) && 0 < failed)
-			ret = SUCCEED_PARTIAL;
-	}
+	if (SUCCEED == zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_INFO, info, sizeof(info)))
+		printf("Info from server: \"%s\"\n", info);
 
 	return ret;
 }
@@ -209,7 +172,7 @@ static	ZBX_THREAD_ENTRY(send_value, args)
 	signal(SIGTERM, send_signal_handler);
 	signal(SIGQUIT, send_signal_handler);
 	signal(SIGALRM, send_signal_handler);
-#endif
+#endif /* NOT _WINDOWS */
 
 	if (SUCCEED == (tcp_ret = zbx_tcp_connect(&sock, CONFIG_SOURCE_IP, sentdval_args->server, sentdval_args->port, GET_SENDER_TIMEOUT)))
 	{
@@ -218,8 +181,12 @@ static	ZBX_THREAD_ENTRY(send_value, args)
 			if (SUCCEED == (tcp_ret = zbx_tcp_recv(&sock, &answer)))
 			{
 				zabbix_log(LOG_LEVEL_DEBUG, "answer [%s]", answer);
-				if (NULL == answer || FAIL == (ret = check_response(answer)))
+				if (NULL == answer || SUCCEED != check_response(answer))
+				{
 					zabbix_log(LOG_LEVEL_WARNING, "incorrect answer from server [%s]", answer);
+				}
+				else
+					ret = SUCCEED;
 			}
 		}
 
@@ -234,7 +201,8 @@ static	ZBX_THREAD_ENTRY(send_value, args)
 
 static void    zbx_load_config(const char *config_file)
 {
-	char	*cfg_source_ip = NULL, *cfg_active_hosts = NULL, *cfg_hostname = NULL, *r = NULL;
+	char	*cfg_source_ip = NULL, *cfg_server = NULL, *cfg_active_hosts = NULL, *cfg_hostname = NULL, *r = NULL;
+	int	cfg_server_port = 0;
 
 	struct cfg_line	cfg[] =
 	{
@@ -242,8 +210,12 @@ static void    zbx_load_config(const char *config_file)
 			MANDATORY,	MIN,			MAX */
 		{"SourceIP",			&cfg_source_ip,				TYPE_STRING,
 			PARM_OPT,	0,			0},
-		{"ServerActive",		&cfg_active_hosts,			TYPE_STRING_LIST,
+		{"Server",			&cfg_server,				TYPE_STRING,
 			PARM_OPT,	0,			0},
+		{"ServerActive",		&cfg_active_hosts,			TYPE_STRING,
+			PARM_OPT,	0,			0},
+		{"ServerPort",			&cfg_server_port,			TYPE_INT,
+			PARM_OPT,	MIN_ZABBIX_PORT,	MAX_ZABBIX_PORT},
 		{"Hostname",			&cfg_hostname,				TYPE_STRING,
 			PARM_OPT,	0,			0},
 		{NULL}
@@ -263,28 +235,40 @@ static void    zbx_load_config(const char *config_file)
 			zbx_free(cfg_source_ip);
 		}
 
+		if (0 == ZABBIX_SERVER_PORT && 0 != cfg_server_port)
+			ZABBIX_SERVER_PORT = cfg_server_port;
+
 		if (NULL == ZABBIX_SERVER)
 		{
 			if (NULL != cfg_active_hosts && '\0' != *cfg_active_hosts)
 			{
-				unsigned short	cfg_server_port = 0;
+				unsigned short	port;
 
 				if (NULL != (r = strchr(cfg_active_hosts, ',')))
 					*r = '\0';
 
 				if (SUCCEED != parse_serveractive_element(cfg_active_hosts, &ZABBIX_SERVER,
-						&cfg_server_port, 0))
+						&port, 0))
 				{
 					zbx_error("error parsing a \"ServerActive\" option: address \"%s\" is invalid",
 							cfg_active_hosts);
 					exit(EXIT_FAILURE);
 				}
 
-				if (0 == ZABBIX_SERVER_PORT && 0 != cfg_server_port)
-					ZABBIX_SERVER_PORT = cfg_server_port;
+				if (0 == ZABBIX_SERVER_PORT && 0 != port)
+					ZABBIX_SERVER_PORT = port;
+			}
+			else if (NULL != cfg_server)
+			{
+				/* get only first server */
+				if (NULL != (r = strchr(cfg_server, ',')))
+					*r = '\0';
+
+				ZABBIX_SERVER = zbx_strdup(ZABBIX_SERVER, cfg_server);
 			}
 		}
 		zbx_free(cfg_active_hosts);
+		zbx_free(cfg_server);
 
 		if (NULL != cfg_hostname)
 		{
@@ -301,8 +285,8 @@ static void	parse_commandline(int argc, char **argv)
 {
 	char	ch = '\0';
 
-	/* parse the command-line */
-	while ((char)EOF != (ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts, NULL)))
+	/* Parse the command-line. */
+	while ((ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts, NULL)) != (char)EOF)
 	{
 		switch (ch)
 		{
@@ -311,11 +295,11 @@ static void	parse_commandline(int argc, char **argv)
 				break;
 			case 'h':
 				help();
-				exit(EXIT_SUCCESS);
+				exit(-1);
 				break;
 			case 'V':
 				version();
-				exit(EXIT_SUCCESS);
+				exit(-1);
 				break;
 			case 'I':
 				CONFIG_SOURCE_IP = zbx_strdup(CONFIG_SOURCE_IP, zbx_optarg);
@@ -345,14 +329,14 @@ static void	parse_commandline(int argc, char **argv)
 				REAL_TIME = 1;
 				break;
 			case 'v':
-				if (LOG_LEVEL_WARNING > CONFIG_LOG_LEVEL)
-					CONFIG_LOG_LEVEL = LOG_LEVEL_WARNING;
-				else if (LOG_LEVEL_DEBUG > CONFIG_LOG_LEVEL)
+				if(CONFIG_LOG_LEVEL == LOG_LEVEL_WARNING)
 					CONFIG_LOG_LEVEL = LOG_LEVEL_DEBUG;
+				else
+					CONFIG_LOG_LEVEL = LOG_LEVEL_WARNING;
 				break;
 			default:
 				usage();
-				exit(EXIT_FAILURE);
+				exit(FAIL);
 				break;
 		}
 	}
@@ -360,7 +344,7 @@ static void	parse_commandline(int argc, char **argv)
 	if (NULL == ZABBIX_SERVER && NULL == CONFIG_FILE)
 	{
 		usage();
-		exit(EXIT_FAILURE);
+		exit(FAIL);
 	}
 }
 
@@ -373,7 +357,7 @@ int	main(int argc, char **argv)
 	FILE			*in;
 	char			in_line[MAX_BUFFER_LEN], hostname[MAX_STRING_LEN], key[MAX_STRING_LEN],
 				key_value[MAX_BUFFER_LEN], clock[32];
-	int			total_count = 0, succeed_count = 0, buffer_count = 0, read_more = 0, ret = FAIL;
+	int			total_count = 0, succeed_count = 0, buffer_count = 0, read_more = 0, ret = SUCCEED;
 	double			last_send = 0;
 	const char		*p;
 	zbx_thread_args_t	thread_args;
@@ -393,7 +377,7 @@ int	main(int argc, char **argv)
 		goto exit;
 	}
 	if (0 == ZABBIX_SERVER_PORT)
-		ZABBIX_SERVER_PORT = ZBX_DEFAULT_SERVER_PORT;
+		ZABBIX_SERVER_PORT = 10051;
 
 	if (MIN_ZABBIX_PORT > ZABBIX_SERVER_PORT)
 	{
@@ -420,21 +404,18 @@ int	main(int argc, char **argv)
 			if (1 == REAL_TIME)
 			{
 				/* set line buffering on stdin */
-				setvbuf(stdin, (char *)NULL, _IOLBF, 1024);
+				setvbuf(stdin, (char *)NULL, _IOLBF, 0);
 			}
 		}
 		else if (NULL == (in = fopen(INPUT_FILE, "r")) )
 		{
 			zabbix_log(LOG_LEVEL_WARNING, "cannot open [%s]: %s", INPUT_FILE, zbx_strerror(errno));
-			goto free;
+			ret = FAIL;
+			goto exit;
 		}
 
-		ret = SUCCEED;
-
-		while ((SUCCEED == ret || SUCCEED_PARTIAL == ret) && NULL != fgets(in_line, sizeof(in_line), in))
+		while (NULL != fgets(in_line, sizeof(in_line), in) && SUCCEED == ret)	/* <hostname> <key> [<timestamp>] <value> */
 		{
-			/* line format: <hostname> <key> [<timestamp>] <value> */
-
 			total_count++; /* also used as inputline */
 
 			zbx_rtrim(in_line, "\r\n");
@@ -444,28 +425,25 @@ int	main(int argc, char **argv)
 			if ('\0' == *p || NULL == (p = get_string(p, hostname, sizeof(hostname))) || '\0' == *hostname)
 			{
 				zabbix_log(LOG_LEVEL_WARNING, "[line %d] 'Hostname' required", total_count);
-				ret = FAIL;
-				break;
+				continue;
 			}
 
 			if (0 == strcmp(hostname, "-"))
 			{
-				if (NULL == ZABBIX_HOSTNAME)
-				{
-					zabbix_log(LOG_LEVEL_WARNING, "[line %d] '-' encountered as 'Hostname', "
+			       if (NULL == ZABBIX_HOSTNAME)
+			       {
+				       zabbix_log(LOG_LEVEL_WARNING, "[line %d] '-' encountered as 'Hostname', "
 							"but no default hostname was specified", total_count);
-					ret = FAIL;
-					break;
-				}
-				else
-					zbx_strlcpy(hostname, ZABBIX_HOSTNAME, sizeof(hostname));
+				       continue;
+			       }
+			       else
+				       zbx_strlcpy(hostname, ZABBIX_HOSTNAME, sizeof(hostname));
 			}
 
 			if ('\0' == *p || NULL == (p = get_string(p, key, sizeof(key))) || '\0' == *key)
 			{
 				zabbix_log(LOG_LEVEL_WARNING, "[line %d] 'Key' required", total_count);
-				ret = FAIL;
-				break;
+				continue;
 			}
 
 			if (1 == WITH_TIMESTAMPS)
@@ -473,20 +451,16 @@ int	main(int argc, char **argv)
 				if ('\0' == *p || NULL == (p = get_string(p, clock, sizeof(clock))) || '\0' == *clock)
 				{
 					zabbix_log(LOG_LEVEL_WARNING, "[line %d] 'Timestamp' required", total_count);
-					ret = FAIL;
-					break;
+					continue;
 				}
 			}
 
 			if ('\0' != *p && '"' != *p)
-			{
 				zbx_strlcpy(key_value, p, sizeof(key_value));
-			}
 			else if ('\0' == *p || NULL == (p = get_string(p, key_value, sizeof(key_value))) || '\0' == *key_value)
 			{
 				zabbix_log(LOG_LEVEL_WARNING, "[line %d] 'Key value' required", total_count);
-				ret = FAIL;
-				break;
+				continue;
 			}
 
 			zbx_rtrim(key_value, "\r\n");
@@ -538,7 +512,7 @@ int	main(int argc, char **argv)
 
 				last_send = zbx_time();
 
-				ret = update_exit_status(ret, zbx_thread_wait(zbx_thread_start(send_value, &thread_args)));
+				ret = zbx_thread_wait(zbx_thread_start(send_value, &thread_args));
 
 				buffer_count = 0;
 				zbx_json_clean(&sentdval_args.json);
@@ -547,15 +521,14 @@ int	main(int argc, char **argv)
 				zbx_json_addarray(&sentdval_args.json, ZBX_PROTO_TAG_DATA);
 			}
 		}
+		zbx_json_close(&sentdval_args.json);
 
-		if (FAIL != ret && 0 != buffer_count)
+		if (0 != buffer_count)
 		{
-			zbx_json_close(&sentdval_args.json);
-
 			if (1 == WITH_TIMESTAMPS)
 				zbx_json_adduint64(&sentdval_args.json, ZBX_PROTO_TAG_CLOCK, (int)time(NULL));
 
-			ret = update_exit_status(ret, zbx_thread_wait(zbx_thread_start(send_value, &thread_args)));
+			ret = zbx_thread_wait(zbx_thread_start(send_value, &thread_args));
 		}
 
 		if (in != stdin)
@@ -583,8 +556,6 @@ int	main(int argc, char **argv)
 				break;
 			}
 
-			ret = SUCCEED;
-
 			zbx_json_addobject(&sentdval_args.json, NULL);
 			zbx_json_addstring(&sentdval_args.json, ZBX_PROTO_TAG_HOST, ZABBIX_HOSTNAME, ZBX_JSON_TYPE_STRING);
 			zbx_json_addstring(&sentdval_args.json, ZBX_PROTO_TAG_KEY, ZABBIX_KEY, ZBX_JSON_TYPE_STRING);
@@ -593,27 +564,19 @@ int	main(int argc, char **argv)
 
 			succeed_count++;
 
-			ret = update_exit_status(ret, zbx_thread_wait(zbx_thread_start(send_value, &thread_args)));
+			ret = zbx_thread_wait(zbx_thread_start(send_value, &thread_args));
 		}
-		while (0); /* try block simulation */
+		while(0); /* try block simulation */
 	}
-free:
+
 	zbx_json_free(&sentdval_args.json);
-exit:
-	if (FAIL != ret)
-	{
-		printf("sent: %d; skipped: %d; total: %d\n", succeed_count, total_count - succeed_count, total_count);
-	}
+
+	if (SUCCEED == ret)
+		printf("sent: %d; skipped: %d; total: %d\n", succeed_count, (total_count - succeed_count), total_count);
 	else
-	{
-		printf("Sending failed.%s\n", CONFIG_LOG_LEVEL != LOG_LEVEL_DEBUG ?
-				" Use option -vv for more detailed output." : "");
-	}
-
+		printf("Sending failed. Use option -vv for more detailed output.\n");
+exit:
 	zabbix_close_log();
-
-	if (FAIL == ret)
-		ret = EXIT_FAILURE;
 
 	return ret;
 }

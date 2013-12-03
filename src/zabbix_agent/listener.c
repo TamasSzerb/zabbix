@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2013 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -67,16 +67,13 @@ static void	process_listener(zbx_sock_t *s)
 
 ZBX_THREAD_ENTRY(listener_thread, args)
 {
-	int		ret, local_request_failed = 0, thread_num, thread_num2;
+	int		ret, local_request_failed = 0;
 	zbx_sock_t	s;
 
 	assert(args);
 	assert(((zbx_thread_args_t *)args)->args);
 
-	thread_num = ((zbx_thread_args_t *)args)->thread_num;
-	thread_num2 = ((zbx_thread_args_t *)args)->thread_num2;
-
-	zabbix_log(LOG_LEVEL_WARNING, "agent #%d started [listener #%d]", thread_num, thread_num2);
+	zabbix_log(LOG_LEVEL_WARNING, "agent #%d started [listener]", ((zbx_thread_args_t *)args)->thread_num);
 
 	memcpy(&s, (zbx_sock_t *)((zbx_thread_args_t *)args)->args, sizeof(zbx_sock_t));
 
@@ -84,13 +81,14 @@ ZBX_THREAD_ENTRY(listener_thread, args)
 
 	while (ZBX_IS_RUNNING())
 	{
-		zbx_setproctitle("listener #%d [waiting for connection]", thread_num2);
+		zbx_setproctitle("listener [waiting for connection]");
 
 		if (SUCCEED == (ret = zbx_tcp_accept(&s)))
 		{
 			local_request_failed = 0;     /* reset consecutive errors counter */
 
-			zbx_setproctitle("listener #%d [processing request]", thread_num2);
+			zbx_setproctitle("listener [processing request]");
+			zabbix_log(LOG_LEVEL_DEBUG, "Processing request.");
 
 			if (SUCCEED == (ret = zbx_tcp_check_security(&s, CONFIG_HOSTS_ALLOWED, 0)))
 				process_listener(&s);
@@ -113,11 +111,9 @@ ZBX_THREAD_ENTRY(listener_thread, args)
 			zbx_sleep(1);
 	}
 
-#ifdef _WINDOWS
 	zabbix_log(LOG_LEVEL_INFORMATION, "zabbix_agentd listener stopped");
 
 	ZBX_DO_EXIT();
 
 	zbx_thread_exit(0);
-#endif
 }

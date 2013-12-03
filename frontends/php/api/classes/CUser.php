@@ -560,13 +560,27 @@ class CUser extends CZBXAPI {
 	}
 
 	/**
-	 * Delete Users.
+	 * Delete Users
 	 *
-	 * @param array	$userIds
+	 * @param $userIds
 	 *
-	 * @return array
+	 * @return boolean
 	 */
-	public function delete(array $userIds) {
+	public function delete($userIds) {
+		$userIds = zbx_toArray($userIds);
+
+		// deprecated input support
+		if ($userIds && is_array($userIds[0])) {
+			$this->deprecated('Passing objects is deprecated, use an array of IDs instead.');
+
+			foreach ($userIds as $user) {
+				if (!check_db_fields(array('userid' => null), $user)) {
+					self::exception(ZBX_API_ERROR_PARAMETERS, _('No user ID given.'));
+				}
+			}
+			$userIds = zbx_objectValues($userIds, 'userid');
+		}
+
 		$this->validateDelete($userIds);
 
 		// delete action operation msg

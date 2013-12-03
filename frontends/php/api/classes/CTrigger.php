@@ -119,6 +119,8 @@ class CTrigger extends CTriggerGeneral {
 		);
 		$options = zbx_array_merge($defOptions, $options);
 
+		$this->checkDeprecatedParam($options, 'output', 'value_flag');
+
 		// editable + PERMISSION CHECK
 		if ($userType != USER_TYPE_SUPER_ADMIN && !$options['nopermissions']) {
 			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ;
@@ -501,6 +503,9 @@ class CTrigger extends CTriggerGeneral {
 			$result = zbx_cleanHashes($result);
 		}
 
+		// deprecated fields
+		$result = $this->handleDeprecatedOutput($result, 'value_flag', 'state', $options['output']);
+
 		// unset extra fields
 		$extraFields = array('state', 'expression');
 		if ($options['expandData'] === null) {
@@ -610,6 +615,7 @@ class CTrigger extends CTriggerGeneral {
 	 * @param string $method
 	 */
 	public function checkInput(array &$triggers, $method) {
+		$create = ($method == 'create');
 		$update = ($method == 'update');
 
 		// permissions
@@ -653,7 +659,7 @@ class CTrigger extends CTriggerGeneral {
 
 			$this->checkNoParameters(
 				$trigger,
-				array('templateid', 'state', 'value'),
+				array('templateid', 'state', 'value', 'value_flag'),
 				($update ? _('Cannot update "%1$s" for trigger "%2$s".') : _('Cannot set "%1$s" for trigger "%2$s".')),
 				$trigger['description']
 			);
@@ -956,7 +962,7 @@ class CTrigger extends CTriggerGeneral {
 
 		if (!$this->isReadable($depTtriggerIds)) {
 			self::exception(ZBX_API_ERROR_PERMISSIONS, _('No permissions to referred object or it does not exist!'));
-		}
+		};
 
 		$this->checkDependencies($triggers);
 		$this->checkDependencyParents($triggers);
@@ -977,7 +983,7 @@ class CTrigger extends CTriggerGeneral {
 		$triggerIds = array_unique(zbx_objectValues($triggersData, 'triggerid'));
 		if (!$this->isWritable($triggerIds)) {
 			self::exception(ZBX_API_ERROR_PERMISSIONS, _('No permissions to referred object or it does not exist!'));
-		}
+		};
 
 		$this->validateAddDependencies($triggersData);
 
@@ -1353,7 +1359,7 @@ class CTrigger extends CTriggerGeneral {
 						}
 						$host = reset($childTrigger['hosts']);
 						$dependencies = replace_template_dependencies($dependencies, $host['hostid']);
-						foreach ($dependencies as $depTriggerId) {
+						foreach ($dependencies as $triggerId => $depTriggerId) {
 							$newDependencies[] = array(
 								'triggerid' => $childTrigger['triggerid'],
 								'dependsOnTriggerid' => $depTriggerId
@@ -1715,6 +1721,11 @@ class CTrigger extends CTriggerGeneral {
 
 			if ($options['expandDescription'] !== null) {
 				$sqlParts = $this->addQuerySelect($this->fieldId('expression'), $sqlParts);
+			}
+
+			// select the state field to be able to return the deprecated value_flag property
+			if ($this->outputIsRequested('value_flag', $options['output'])) {
+				$sqlParts = $this->addQuerySelect($this->fieldId('state'), $sqlParts);
 			}
 		}
 

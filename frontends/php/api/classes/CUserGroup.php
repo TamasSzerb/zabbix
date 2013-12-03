@@ -588,8 +588,7 @@ class CUserGroup extends CZBXAPI {
 	 * Delete UserGroups.
 	 *
 	 * @param array $usrgrpids
-	 *
-	 * @return array
+	 * @return boolean
 	 */
 	public function delete($usrgrpids) {
 

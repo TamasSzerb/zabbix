@@ -1424,7 +1424,7 @@ class CHost extends CHostGeneral {
 	 * @return void
 	 */
 	protected function validateDelete(array $hostIds, $nopermissions = false) {
-		if (!$hostIds) {
+		if (empty($hostIds)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Empty input parameter.'));
 		}
 
@@ -1434,14 +1434,27 @@ class CHost extends CHostGeneral {
 	}
 
 	/**
-	 * Delete Host.
+	 * Delete Host
 	 *
-	 * @param array	$hostIds
-	 * @param bool	$nopermissions
+	 * @param string|array 	$hostIds
+	 * @param bool			$nopermissions
 	 *
-	 * @return array
+	 * @return array|boolean
 	 */
-	public function delete(array $hostIds, $nopermissions = false) {
+	public function delete($hostIds, $nopermissions = false) {
+		$hostIds = zbx_toArray($hostIds);
+
+		// deprecated input support
+		if ($hostIds && is_array($hostIds[0])) {
+			$this->deprecated('Passing objects is deprecated, use an array of IDs instead.');
+			foreach ($hostIds as $host) {
+				if (!check_db_fields(array('hostid' => null), $host)) {
+					self::exception(ZBX_API_ERROR_PARAMETERS, _('No host ID given.'));
+				}
+			}
+			$hostIds = zbx_objectValues($hostIds, 'hostid');
+		}
+
 		$this->validateDelete($hostIds, $nopermissions);
 
 		// delete the discovery rules first

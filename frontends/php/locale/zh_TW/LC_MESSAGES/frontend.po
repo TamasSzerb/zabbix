@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Zabbix 2.1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2013-12-02 22:17+0200\n"
+"POT-Creation-Date: 2013-12-02 21:57+0200\n"
 "PO-Revision-Date: 2012-11-06 15:57+0800\n"
 "Last-Translator: Yaochiu Huang <brian.huang@primillet.com>\n"
 "Language-Team: Zabbix <info@zabbix.com>\n"
@@ -229,7 +229,7 @@ msgstr "存取被拒!"
 msgid "Access denied."
 msgstr ""
 
-#: api/classes/CUser.php:867
+#: api/classes/CUser.php:881
 #, c-format
 msgid "Account is blocked for %s seconds"
 msgstr "帳號被封鎖%s秒"
@@ -1219,19 +1219,19 @@ msgstr "已計許可權"
 msgid "Callback"
 msgstr "回呼"
 
-#: api/classes/CTemplate.php:933
+#: api/classes/CTemplate.php:932
 msgid "Can't add group"
 msgstr "無法增加群組"
 
-#: api/classes/CTemplate.php:1010 api/classes/CTemplate.php:1020
+#: api/classes/CTemplate.php:1009 api/classes/CTemplate.php:1019
 msgid "Can't link template"
 msgstr "無法連結模板"
 
-#: api/classes/CTemplate.php:944
+#: api/classes/CTemplate.php:943
 msgid "Can't remove group"
 msgstr "無法移除群組"
 
-#: api/classes/CTemplate.php:981 api/classes/CTemplate.php:999
+#: api/classes/CTemplate.php:980 api/classes/CTemplate.php:998
 msgid "Can't unlink template"
 msgstr "無法斷連模板"
 
@@ -1290,7 +1290,7 @@ msgstr ""
 msgid "Cannot add application"
 msgstr "無法新增應用集"
 
-#: api/classes/CTrigger.php:1404
+#: api/classes/CTrigger.php:1410
 msgid "Cannot add dependency from a host to a template."
 msgstr "無法新增自主機到模板的相依關係"
 
@@ -1497,11 +1497,11 @@ msgstr ""
 msgid "Cannot create another database connection."
 msgstr "無法創建另外資料庫連線."
 
-#: api/classes/CTrigger.php:1438
+#: api/classes/CTrigger.php:1444
 msgid "Cannot create circular dependencies."
 msgstr "無法創建迴圈式相依關係"
 
-#: api/classes/CTrigger.php:1410
+#: api/classes/CTrigger.php:1416
 msgid "Cannot create dependency on trigger itself."
 msgstr "無法創建在觸發器自身上的相依關係."
 
@@ -1539,7 +1539,7 @@ msgstr "無法創建新組件"
 msgid "Cannot create screen."
 msgstr "無法創建篩選."
 
-#: api/classes/CUser.php:1184
+#: api/classes/CUser.php:1198
 #, c-format
 msgid "Cannot delete Zabbix internal user \"%1$s\", try disabling that user."
 msgstr "無法刪除Zabbix內部用戶 \"%1$s\", 試試停用那用戶."
@@ -1552,7 +1552,7 @@ msgstr "無法删除動作"
 msgid "Cannot delete application"
 msgstr "無法删除應用集"
 
-#: api/classes/CTrigger.php:1064
+#: api/classes/CTrigger.php:1070
 msgid "Cannot delete dependency"
 msgstr "無法刪除相依關係"
 
@@ -1728,12 +1728,12 @@ msgstr "無法刪除模板化的項目"
 msgid "Cannot delete templated items."
 msgstr "無法刪除模板項目."
 
-#: api/classes/CTrigger.php:1872 api/classes/CTriggerPrototype.php:674
+#: api/classes/CTrigger.php:1883 api/classes/CTriggerPrototype.php:674
 #, c-format
 msgid "Cannot delete templated trigger \"%1$s:%2$s\"."
 msgstr "無法刪除模板化觸發器 \"%1$s:%2$s\"."
 
-#: api/classes/CHttpTest.php:373
+#: api/classes/CHttpTest.php:390
 #, c-format
 msgid "Cannot delete templated web scenario \"%1$s\"."
 msgstr ""
@@ -1766,7 +1766,7 @@ msgstr "無法刪除由低階層發現所創建的觸發器."
 msgid "Cannot delete user"
 msgstr "無法删除用户"
 
-#: api/classes/CUser.php:727
+#: api/classes/CUser.php:741
 msgid "Cannot delete user media."
 msgstr "無法刪除用戶示警媒介."
 
@@ -1948,11 +1948,11 @@ msgstr "無法形成樹狀格式. 檢查服務連結的邏輯結構."
 msgid "Cannot format tree."
 msgstr "無法形成樹狀格式"
 
-#: api/classes/CTemplate.php:903
+#: api/classes/CTemplate.php:902
 msgid "Cannot have empty visible template name"
 msgstr "不能有空白的可見模板名稱"
 
-#: api/classes/CTrigger.php:1097 api/classes/CTrigger.php:1236
+#: api/classes/CTrigger.php:1103 api/classes/CTrigger.php:1242
 #: api/classes/CTriggerPrototype.php:755 api/classes/CTriggerPrototype.php:813
 #, c-format
 msgid "Cannot implode expression \"%s\"."
@@ -1975,7 +1975,7 @@ msgstr[0] ""
 msgid "Cannot include view file \"%s\"."
 msgstr "不能包含檢視檔案\"%s\"."
 
-#: api/classes/CUser.php:756
+#: api/classes/CUser.php:770
 msgid "Cannot insert user media."
 msgstr "不能插入用戶示警媒介"
 
@@ -1983,7 +1983,7 @@ msgstr "不能插入用戶示警媒介"
 msgid "Cannot link template"
 msgstr "無法連結模板"
 
-#: api/classes/CUser.php:831
+#: api/classes/CUser.php:845
 msgid "Cannot logout."
 msgstr "不能登出"
 
@@ -1991,7 +1991,7 @@ msgstr "不能登出"
 msgid "Cannot mass update host name."
 msgstr "不能大量更新主機名稱."
 
-#: api/classes/CTemplate.php:862
+#: api/classes/CTemplate.php:861
 msgid "Cannot mass update template name"
 msgstr "不能大量更新模板名稱"
 
@@ -1999,7 +1999,7 @@ msgstr "不能大量更新模板名稱"
 msgid "Cannot mass update visible host name."
 msgstr "不能大量更新可見主機名稱"
 
-#: api/classes/CTemplate.php:835
+#: api/classes/CTemplate.php:834
 msgid "Cannot mass update visible template name"
 msgstr "不能大量更新可見模板名稱"
 
@@ -2058,7 +2058,7 @@ msgstr ""
 msgid "Cannot set \"%1$s\" for item \"%2$s\"."
 msgstr ""
 
-#: api/classes/CTrigger.php:657
+#: api/classes/CTrigger.php:663
 #, c-format
 msgid "Cannot set \"%1$s\" for trigger \"%2$s\"."
 msgstr ""
@@ -2141,7 +2141,7 @@ msgstr ""
 msgid "Cannot update \"%1$s\" for a discovered item."
 msgstr ""
 
-#: api/classes/CTrigger.php:629
+#: api/classes/CTrigger.php:635
 #, c-format
 msgid "Cannot update \"%1$s\" for a discovered trigger."
 msgstr ""
@@ -2151,7 +2151,7 @@ msgstr ""
 msgid "Cannot update \"%1$s\" for item \"%2$s\"."
 msgstr ""
 
-#: api/classes/CTrigger.php:657
+#: api/classes/CTrigger.php:663
 #, c-format
 msgid "Cannot update \"%1$s\" for trigger \"%2$s\"."
 msgstr ""
@@ -2171,7 +2171,7 @@ msgstr "無法更新\"templateid\"給圖形\"%1$s\"."
 msgid "Cannot update \"templateid\" for graph prototype \"%1$s\"."
 msgstr ""
 
-#: api/classes/CScreen.php:447 api/classes/CTemplateScreen.php:669
+#: api/classes/CScreen.php:447 api/classes/CTemplateScreen.php:668
 #, c-format
 msgid "Cannot update \"templateid\" for screen \"%1$s\"."
 msgstr "無法更新\"templateid\"給篩選\"%1$s\"."
@@ -2319,7 +2319,7 @@ msgstr "無法更新節點 "
 msgid "Cannot update proxy"
 msgstr "無法更新系統代理程式"
 
-#: api/classes/CProxy.php:295
+#: api/classes/CProxy.php:299
 #, c-format
 msgid "Cannot update proxy for discovered host \"%1$s\"."
 msgstr ""
@@ -2360,7 +2360,7 @@ msgstr "無法更新模板"
 msgid "Cannot update templated applications."
 msgstr ""
 
-#: api/classes/CTemplate.php:791 api/classes/CTemplate.php:1062
+#: api/classes/CTemplate.php:790 api/classes/CTemplate.php:1061
 #, c-format
 msgid "Cannot update templates on discovered host \"%1$s\"."
 msgstr ""
@@ -2381,7 +2381,7 @@ msgstr ""
 msgid "Cannot update user"
 msgstr "無法更新用户"
 
-#: api/classes/CUser.php:748
+#: api/classes/CUser.php:762
 msgid "Cannot update user media."
 msgstr "無法更新用戶媒介."
 
@@ -3006,7 +3006,7 @@ msgstr "複製"
 msgid "Copy selected to ..."
 msgstr "複製所選的到 ..."
 
-#: api/classes/CUser.php:936
+#: api/classes/CUser.php:950
 #, c-format
 msgid "Correct login \"%s\"."
 msgstr "正確登入\"%s\"."
@@ -3178,7 +3178,7 @@ msgstr "已創建: 項目 \"%1$s\" 於 \"%2$s\"."
 msgid "Created: Item prototype \"%1$s\" on \"%2$s\"."
 msgstr "已創建: 項目原型 \"%1$s\" 於 \"%2$s\"."
 
-#: api/classes/CTrigger.php:1131
+#: api/classes/CTrigger.php:1137
 #, c-format
 msgid "Created: Trigger \"%1$s\" on \"%2$s\"."
 msgstr "已創建: 觸發器 \"%1$s\" 於 \"%2$s\"."
@@ -3929,7 +3929,7 @@ msgstr "已刪除: 探索規則 \"%1$s\" 於 \"%2$s\"."
 msgid "Deleted: Graph \"%1$s\" on \"%2$s\"."
 msgstr "已刪除: 圖形 \"%1$s\" 於 \"%2$s\"."
 
-#: api/classes/CHost.php:1579
+#: api/classes/CHost.php:1592
 #, c-format
 msgid "Deleted: Host \"%1$s\"."
 msgstr "已刪除: 主機 \"%1$s\"."
@@ -3949,17 +3949,17 @@ msgstr "已刪除: 項目 \"%1$s\" 於 \"%2$s\"."
 msgid "Deleted: Item prototype \"%1$s\" on \"%2$s\"."
 msgstr "已刪除: 項目原型 \"%1$s\" 於 \"%2$s\"."
 
-#: api/classes/CProxy.php:451
+#: api/classes/CProxy.php:470
 #, c-format
 msgid "Deleted: Proxy \"%1$s\"."
 msgstr "已刪除: 系統代理程式\"%1$s\"."
 
-#: api/classes/CTemplate.php:757
+#: api/classes/CTemplate.php:756
 #, c-format
 msgid "Deleted: Template \"%1$s\"."
 msgstr "已刪除: 模板 \"%1$s\"."
 
-#: api/classes/CTrigger.php:851
+#: api/classes/CTrigger.php:857
 #, c-format
 msgid "Deleted: Trigger \"%1$s\" on \"%2$s\"."
 msgstr "已刪除: 觸發器 \"%1$s\" 於 \"%2$s\"."
@@ -3969,7 +3969,7 @@ msgstr "已刪除: 觸發器 \"%1$s\" 於 \"%2$s\"."
 msgid "Deleted: Trigger prototype \"%1$s\" on \"%2$s\"."
 msgstr "已刪除: 觸發器原型 \"%1$s\" 於 \"%2$s\"."
 
-#: api/classes/CHttpTest.php:433
+#: api/classes/CHttpTest.php:450
 #, c-format
 msgid "Deleted: Web scenario \"%1$s\" on \"%2$s\"."
 msgstr ""
@@ -4444,7 +4444,7 @@ msgstr "下拉的第一個輸入項 \"%1$s\"."
 msgid "Dropdown remember selected \"%1$s\"."
 msgstr "下拉記住所選的 \"%1$s\"."
 
-#: api/classes/CTrigger.php:1580
+#: api/classes/CTrigger.php:1586
 #, c-format
 msgid "Duplicate dependencies in trigger \"%1$s\"."
 msgstr "觸發器 \"%1$s\" 中的重複相依關係."
@@ -4598,12 +4598,12 @@ msgstr ""
 #: api/classes/CHostInterface.php:465 api/classes/CHost.php:1428
 #: api/classes/CHostPrototype.php:906 api/classes/CIconMap.php:316
 #: api/classes/CItem.php:671 api/classes/CItemPrototype.php:489
-#: api/classes/CProxy.php:468 api/classes/CService.php:341
+#: api/classes/CProxy.php:487 api/classes/CService.php:341
 #: api/classes/CService.php:377 api/classes/CService.php:443
-#: api/classes/CService.php:515 api/classes/CTemplate.php:618
-#: api/classes/CTrigger.php:875 api/classes/CTrigger.php:939
-#: api/classes/CTrigger.php:1029 api/classes/CTriggerPrototype.php:652
-#: api/classes/CUserGroup.php:603 api/classes/CUserMacro.php:394
+#: api/classes/CService.php:515 api/classes/CTemplate.php:617
+#: api/classes/CTrigger.php:881 api/classes/CTrigger.php:945
+#: api/classes/CTrigger.php:1035 api/classes/CTriggerPrototype.php:652
+#: api/classes/CUserGroup.php:602 api/classes/CUserMacro.php:394
 #: api/classes/CUserMacro.php:546 api/classes/CUser.php:554
 msgid "Empty input parameter."
 msgstr "空的輸入參數."
@@ -5441,7 +5441,7 @@ msgstr "圖形\"%1$s\"不能繼承. \"%2$s\"中並無所要的項目 (Ymin值項
 msgid "Graph \"%1$s\" cannot inherit. No required items on \"%2$s\"."
 msgstr "圖形\"%1$s\"不能繼承. \"%2$s\"中並無所要的項目."
 
-#: api/classes/CTemplateScreen.php:588
+#: api/classes/CTemplateScreen.php:587
 #, c-format
 msgid "Graph \"%1$s\" does not exist on template \"%2$s\"."
 msgstr "圖形 \"%1$s\"不存在於模板\"%2$s\"中."
@@ -5908,7 +5908,7 @@ msgstr "主機"
 msgid "Host \"%1$s\" already exists."
 msgstr "主機 \"%1$s\" 已存在."
 
-#: api/classes/CProxy.php:572
+#: api/classes/CProxy.php:591
 #, c-format
 msgid "Host \"%1$s\" is monitored with proxy \"%2$s\"."
 msgstr "主機\"%1$s\"是以系統代理程式\"%2$s\"來監控的."
@@ -6167,13 +6167,13 @@ msgstr "主機更新失敗."
 msgid "Host updated"
 msgstr "主機已更新"
 
-#: api/classes/CHost.php:809 api/classes/CTemplate.php:883
+#: api/classes/CHost.php:809 api/classes/CTemplate.php:882
 #, c-format
 msgid "Host with the same name \"%s\" already exists."
 msgstr "名稱同樣為 \"%s\" 的主機已存在."
 
 #: api/classes/CHost.php:815 api/classes/CTemplate.php:520
-#: api/classes/CTemplate.php:856
+#: api/classes/CTemplate.php:855
 #, c-format
 msgid "Host with the same visible name \"%s\" already exists."
 msgstr "可視名稱同樣為 \"%s\" 的主機已存在."
@@ -6806,7 +6806,7 @@ msgid "Incorrect arguments passed to function"
 msgstr "不正確的自變數傳入方程式"
 
 #: api/classes/CApplication.php:322 api/classes/CHostInterface.php:314
-#: api/classes/CHostInterface.php:513 api/classes/CHttpTest.php:518
+#: api/classes/CHostInterface.php:513 api/classes/CHttpTest.php:535
 #: api/classes/CItemGeneral.php:198
 msgid "Incorrect arguments passed to function."
 msgstr "不正確的自變數傳給方程式"
@@ -6849,12 +6849,12 @@ msgstr ""
 msgid "Incorrect characters used for host name \"%s\"."
 msgstr "不正確的字元用於主機名稱\"%s\"."
 
-#: api/classes/CProxy.php:237
+#: api/classes/CProxy.php:241
 #, c-format
 msgid "Incorrect characters used for proxy name \"%1$s\"."
 msgstr ""
 
-#: api/classes/CTemplate.php:888
+#: api/classes/CTemplate.php:887
 #, c-format
 msgid "Incorrect characters used for template name \"%s\"."
 msgstr "不正確的字元用於模板名稱\"%s\"."
@@ -6878,11 +6878,11 @@ msgstr ""
 msgid "Incorrect event object \"%1$s\" (%2$s) for event source \"%3$s\" (%4$s), only the following objects are supported: %5$s."
 msgstr ""
 
-#: api/classes/CAlert.php:346
+#: api/classes/CAlert.php:348
 msgid "Incorrect eventobject value."
 msgstr ""
 
-#: api/classes/CAlert.php:339
+#: api/classes/CAlert.php:341
 msgid "Incorrect eventsource value."
 msgstr ""
 
@@ -6895,7 +6895,7 @@ msgstr "不正確的欄位名稱\"%1$s\"或用於資料表\"%2$s\"的where陳述
 msgid "Incorrect fields for sysmap."
 msgstr ""
 
-#: api/classes/CTrigger.php:662
+#: api/classes/CTrigger.php:668
 msgid "Incorrect fields for trigger."
 msgstr "不正確的觸發器欄位."
 
@@ -6992,7 +6992,7 @@ msgstr "提供了不正確的項目ID\"%s\"給篩選組件."
 msgid "Incorrect item for axis value."
 msgstr "不正確的項目予軸值."
 
-#: api/classes/CTrigger.php:730 include/triggers.inc.php:1002
+#: api/classes/CTrigger.php:736 include/triggers.inc.php:1002
 #, c-format
 msgid "Incorrect item key \"%1$s\" provided for trigger expression on \"%2$s\"."
 msgstr "提供不正確的項目鍵值\"%1$s\"給\"%2$s\"上的觸發器表示式."
@@ -7072,7 +7072,7 @@ msgstr ""
 msgid "Incorrect node type."
 msgstr "不正確的節點類型."
 
-#: api/classes/CEvent.php:405
+#: api/classes/CEvent.php:412
 msgid "Incorrect object value."
 msgstr ""
 
@@ -7179,7 +7179,7 @@ msgstr "不正確的服務時間類型."
 msgid "Incorrect sorder order for service \"%1$s\"."
 msgstr "予服務\"%1$s\"不正確的排序次序."
 
-#: api/classes/CEvent.php:398
+#: api/classes/CEvent.php:405
 msgid "Incorrect source value."
 msgstr ""
 
@@ -7247,12 +7247,12 @@ msgstr "不正確的觸發器表示式."
 msgid "Incorrect trigger expression. Host \"%1$s\" does not exist or you have no access to this host."
 msgstr "不正確的觸發器表示式. 主機 \"%1$s\"不存在或您不能存取此主機."
 
-#: api/classes/CTrigger.php:710
+#: api/classes/CTrigger.php:716
 #, c-format
 msgid "Incorrect trigger expression. Host \"%s\" does not exist or you have no access to this host."
 msgstr "不正確的觸發器表示式. 主機 \"%s\"不存在或您不能存取此主機."
 
-#: api/classes/CTrigger.php:716
+#: api/classes/CTrigger.php:722
 msgid "Incorrect trigger expression. Trigger expression elements should not belong to a template and a host simultaneously."
 msgstr "不正確的觸發器表示式. 觸發器表示式組件不該同時屬於一個模板和一個主機."
 
@@ -7326,7 +7326,7 @@ msgstr ""
 msgid "Incorrect value for setMessage(): \"%s\"."
 msgstr "不正確的值於setMessage(): \"%s\"."
 
-#: api/classes/CProxy.php:216 api/classes/CProxy.php:227
+#: api/classes/CProxy.php:220 api/classes/CProxy.php:231
 #, c-format
 msgid "Incorrect value used for proxy status \"%1$s\"."
 msgstr ""
@@ -7515,12 +7515,12 @@ msgstr "無效的參數."
 msgid "Invalid period for field \"%1$s\"."
 msgstr ""
 
-#: api/classes/CHttpTest.php:620
+#: api/classes/CHttpTest.php:637
 #, c-format
 msgid "Invalid response code \"%1$s\"."
 msgstr "無效的回應編碼 \"%1$s\"."
 
-#: api/classes/CHttpTest.php:615
+#: api/classes/CHttpTest.php:632
 #, c-format
 msgid "Invalid response code range \"%1$s\"."
 msgstr "無效的回應編碼範圍 \"%1$s\"."
@@ -7614,7 +7614,7 @@ msgstr ""
 msgid "Item \"%1$s\" cannot populate a missing host inventory field number \"%2$d\". Choices are: from 0 (do not populate) to %3$d."
 msgstr "項目\"%1$s\"不能填入一個不存在的主機資產紀錄欄位號碼\"%2$d\". 選擇為: 從0(不填入)到%3$d."
 
-#: api/classes/CTemplateScreen.php:598
+#: api/classes/CTemplateScreen.php:597
 #, c-format
 msgid "Item \"%1$s\" does not exist on template \"%2$s\"."
 msgstr "項目\"%1$s\"不存在於模板\"%2$s\"中."
@@ -8281,13 +8281,13 @@ msgstr "登入"
 msgid "Login as Guest"
 msgstr "登入為訪客"
 
-#: api/classes/CUser.php:928
+#: api/classes/CUser.php:942
 #, c-format
 msgid "Login failed \"%s\"."
 msgstr "登入失敗\"%s\"."
 
-#: api/classes/CUser.php:796 api/classes/CUser.php:814
-#: api/classes/CUser.php:861 authentication.php:109 authentication.php:137
+#: api/classes/CUser.php:810 api/classes/CUser.php:828
+#: api/classes/CUser.php:875 authentication.php:109 authentication.php:137
 msgid "Login name or password is incorrect."
 msgstr "登入名稱或密碼是不正確的."
 
@@ -9483,7 +9483,7 @@ msgstr "沒有主機[%s]的群組"
 msgid "No groups for hosts."
 msgstr "沒有主機群組"
 
-#: api/classes/CTemplate.php:827
+#: api/classes/CTemplate.php:826
 msgid "No groups for template"
 msgstr "沒有模板群組"
 
@@ -9491,6 +9491,10 @@ msgstr "沒有模板群組"
 #, c-format
 msgid "No groups for template [ %s ]"
 msgstr "沒有模板[%s]的群組"
+
+#: api/classes/CHost.php:1452
+msgid "No host ID given."
+msgstr ""
 
 #: api/classes/CDiscoveryRule.php:446
 msgid "No host IDs given."
@@ -9561,7 +9565,7 @@ msgstr "沒有找到介面"
 msgid "No interface found."
 msgstr "沒有找到介面."
 
-#: api/classes/CProxy.php:254 api/classes/CProxy.php:260
+#: api/classes/CProxy.php:258 api/classes/CProxy.php:264
 #, c-format
 msgid "No interface provided for proxy \"%s\"."
 msgstr ""
@@ -9693,7 +9697,7 @@ msgstr "不具拓墣圖\"%1$s\"的許可權."
 msgid "No permissions for screen \"%1$s\"."
 msgstr "不具篩選 \"%1$s\"的許可權."
 
-#: api/classes/CUser.php:875 api/classes/CUser.php:985
+#: api/classes/CUser.php:889 api/classes/CUser.php:999
 msgid "No permissions for system access."
 msgstr "沒有系統存取的許可權"
 
@@ -9703,7 +9707,7 @@ msgstr "沒有系統存取的許可權"
 #: api/classes/CApplication.php:527 api/classes/CDiscoveryRule.php:357
 #: api/classes/CDiscoveryRule.php:451 api/classes/CDiscoveryRule.php:456
 #: api/classes/CDRule.php:248 api/classes/CDRule.php:786
-#: api/classes/CEvent.php:679 api/classes/CGraphGeneral.php:65
+#: api/classes/CEvent.php:734 api/classes/CGraphGeneral.php:65
 #: api/classes/CGraphGeneral.php:86 api/classes/CGraph.php:711
 #: api/classes/CGraphPrototype.php:692 api/classes/CGraphPrototype.php:752
 #: api/classes/CHostBase.php:45 api/classes/CHostGeneral.php:139
@@ -9713,10 +9717,10 @@ msgstr "沒有系統存取的許可權"
 #: api/classes/CHostGroup.php:925 api/classes/CHostInterface.php:319
 #: api/classes/CHostInterface.php:335 api/classes/CHostInterface.php:476
 #: api/classes/CHostInterface.php:687 api/classes/CHost.php:688
-#: api/classes/CHost.php:716 api/classes/CHost.php:1802
+#: api/classes/CHost.php:716 api/classes/CHost.php:1815
 #: api/classes/CHostPrototype.php:1020 api/classes/CHostPrototype.php:1035
 #: api/classes/CHostPrototype.php:1048 api/classes/CHostPrototype.php:1061
-#: api/classes/CHttpTest.php:376 api/classes/CIconMap.php:319
+#: api/classes/CHttpTest.php:393 api/classes/CIconMap.php:319
 #: api/classes/CImage.php:243 api/classes/CImage.php:357
 #: api/classes/CImage.php:474 api/classes/CItemGeneral.php:182
 #: api/classes/CItemGeneral.php:235 api/classes/CItem.php:689
@@ -9725,18 +9729,18 @@ msgstr "沒有系統存取的許可權"
 #: api/classes/CMaintenance.php:466 api/classes/CMaintenance.php:483
 #: api/classes/CMaintenance.php:550 api/classes/CMapElement.php:60
 #: api/classes/CMapElement.php:119 api/classes/CMapElement.php:190
-#: api/classes/CMap.php:389 api/classes/CProxy.php:168
-#: api/classes/CProxy.php:209 api/classes/CProxy.php:281
-#: api/classes/CProxy.php:532 api/classes/CScreenItem.php:328
+#: api/classes/CMap.php:389 api/classes/CProxy.php:172
+#: api/classes/CProxy.php:213 api/classes/CProxy.php:285
+#: api/classes/CProxy.php:551 api/classes/CScreenItem.php:328
 #: api/classes/CScreenItem.php:412 api/classes/CScreen.php:438
 #: api/classes/CScreen.php:518 api/classes/CService.php:1255
-#: api/classes/CService.php:1270 api/classes/CTemplateScreen.php:705
-#: api/classes/CTemplateScreen.php:726 api/classes/CTemplateScreen.php:732
-#: api/classes/CTrigger.php:634 api/classes/CTrigger.php:958
-#: api/classes/CTrigger.php:979 api/classes/CTrigger.php:1851
+#: api/classes/CService.php:1270 api/classes/CTemplateScreen.php:704
+#: api/classes/CTemplateScreen.php:725 api/classes/CTemplateScreen.php:731
+#: api/classes/CTrigger.php:640 api/classes/CTrigger.php:964
+#: api/classes/CTrigger.php:985 api/classes/CTrigger.php:1862
 #: api/classes/CTriggerPrototype.php:566 api/classes/CTriggerPrototype.php:669
 #: api/classes/CUserMacro.php:726 api/classes/CUserMacro.php:835
-#: api/classes/CUser.php:1151 include/func.inc.php:2070
+#: api/classes/CUser.php:1165 include/func.inc.php:2070
 msgid "No permissions to referred object or it does not exist!"
 msgstr "沒有所說的物件的許可權或其不存在!"
 
@@ -9756,6 +9760,10 @@ msgstr ""
 #: include/views/configuration.discovery.edit.php:44
 msgid "No proxy"
 msgstr "沒有系統代理程式"
+
+#: api/classes/CProxy.php:420
+msgid "No proxy ID given."
+msgstr ""
 
 #: api/classes/CAction.php:1348
 #, c-format
@@ -9814,7 +9822,7 @@ msgstr ""
 msgid "No slides found."
 msgstr ""
 
-#: api/classes/CProxy.php:223
+#: api/classes/CProxy.php:227
 msgid "No status for proxy."
 msgstr ""
 
@@ -9859,6 +9867,10 @@ msgstr "沒有已定義的觸發器."
 #: report2.php:395 report5.php:56 tr_status.php:365
 msgid "No triggers found."
 msgstr "每有找到觸發器."
+
+#: api/classes/CUser.php:578
+msgid "No user ID given."
+msgstr ""
 
 #: include/views/administration.usergroups.list.php:42 popup.php:554
 #: popup_usrgrp.php:89
@@ -9974,7 +9986,7 @@ msgstr "非知悉"
 msgid "Not Templated items"
 msgstr "非模板項目"
 
-#: api/classes/CTrigger.php:1483
+#: api/classes/CTrigger.php:1489
 #, c-format
 msgid "Not all templates are linked to \"%s\"."
 msgstr "並非所有的模板都連結到\"%s\"."
@@ -9983,7 +9995,7 @@ msgstr "並非所有的模板都連結到\"%s\"."
 msgid "Not allowed to set password for user \"guest\"."
 msgstr "不允許設定用戶\"guest\"的密碼."
 
-#: api/rpc/class.czbxrpc.php:55 api/rpc/class.czbxrpc.php:62
+#: api/rpc/class.czbxrpc.php:60 api/rpc/class.czbxrpc.php:67
 msgid "Not authorized"
 msgstr "未認證的"
 
@@ -10349,7 +10361,7 @@ msgid "Only Super Admins can delete media types."
 msgstr "只有超級管理員可以刪除示警媒介類型."
 
 #. GETTEXT: API exception
-#: api/classes/CUserGroup.php:607
+#: api/classes/CUserGroup.php:606
 msgid "Only Super Admins can delete user groups."
 msgstr "只有超級管理員可以刪除用戶群組."
 
@@ -10369,19 +10381,19 @@ msgstr "只有超級管理員可以更新圖示對應."
 msgid "Only Super Admins can update user groups."
 msgstr "只有超級管理員可以更新用戶群組."
 
-#: api/classes/CUser.php:625
+#: api/classes/CUser.php:639
 msgid "Only Zabbix Admins can add user media."
 msgstr "只有超級管理員可以新增用戶示警媒介."
 
-#: api/classes/CUser.php:693
+#: api/classes/CUser.php:707
 msgid "Only Zabbix Admins can change user media."
 msgstr "只有超級管理員可以用改變戶示警媒介."
 
-#: api/classes/CUser.php:663
+#: api/classes/CUser.php:677
 msgid "Only Zabbix Admins can remove user media."
 msgstr "只有超級管理員可以移除用戶示警媒介."
 
-#: api/classes/CHttpTest.php:639
+#: api/classes/CHttpTest.php:656
 msgid "Only characters are allowed."
 msgstr "僅能使用字元."
 
@@ -10402,7 +10414,7 @@ msgstr "每次僅有一個用戶群組可以被改變."
 msgid "Only the last 20%% of the indicator is displayed."
 msgstr "只可顯示最近的20%%的指示燈號."
 
-#: api/classes/CEvent.php:675
+#: api/classes/CEvent.php:730
 msgid "Only trigger events can be acknowledged."
 msgstr ""
 
@@ -11076,7 +11088,7 @@ msgstr "私有金鑰檔"
 msgid "Privilege level"
 msgstr "優先權層級"
 
-#: api/classes/CUser.php:788
+#: api/classes/CUser.php:802
 msgid "Probably php-ldap module is missing."
 msgstr "可能的php-ldap模組不存在."
 
@@ -11135,12 +11147,12 @@ msgstr "系統代理程式"
 msgid "Proxy \"%1$s\" for host \"%2$s\" does not exist."
 msgstr "主機\"%2$s\"的系統代理程式\"%1$s\"不存在."
 
-#: api/classes/CProxy.php:552
+#: api/classes/CProxy.php:571
 #, c-format
 msgid "Proxy \"%1$s\" is used by discovery rule \"%2$s\"."
 msgstr "系統代理程式\"%1$s\"是用在探索規則\"%2$s\"上."
 
-#: api/classes/CProxy.php:245
+#: api/classes/CProxy.php:249
 #, c-format
 msgid "Proxy \"%s\" already exists."
 msgstr "系統代理程式\"%s\"已存在."
@@ -11157,11 +11169,11 @@ msgstr "系統代理程式已刪除"
 msgid "Proxy hosts"
 msgstr "系統代理程式的主機"
 
-#: api/classes/CProxy.php:322
+#: api/classes/CProxy.php:326
 msgid "Proxy interface creation failed."
 msgstr "系統代理程式介面創建失敗"
 
-#: api/classes/CProxy.php:389
+#: api/classes/CProxy.php:393
 msgid "Proxy interface update failed."
 msgstr "系統代理程式介面更新失敗"
 
@@ -11980,12 +11992,12 @@ msgstr "篩選"
 msgid "Screen \"%1$s\" added."
 msgstr "篩選 \"%1$s\" 已新增."
 
-#: api/classes/CTemplateScreen.php:746
+#: api/classes/CTemplateScreen.php:745
 msgid "Screen \"%1$s\" already exists on template \"%2$2\"."
 msgstr "篩選\"%1$s\"已存在於模板\"%2$2\"中."
 
 #: api/classes/CScreen.php:386 api/classes/CScreen.php:460
-#: api/classes/CTemplateScreen.php:641 api/classes/CTemplateScreen.php:692
+#: api/classes/CTemplateScreen.php:640 api/classes/CTemplateScreen.php:691
 #, c-format
 msgid "Screen \"%1$s\" already exists."
 msgstr "篩選\"%1$s\"已存在."
@@ -12367,7 +12379,7 @@ msgstr "服務"
 msgid "Services form a circular dependency."
 msgstr "服務形成了一個循環式迴圈."
 
-#: api/classes/CUser.php:979
+#: api/classes/CUser.php:993
 msgid "Session terminated, re-login, please."
 msgstr "連線期已中斷, 請重連."
 
@@ -13092,13 +13104,13 @@ msgstr "模板已更新"
 msgid "Template with item key \"%1$s\" already linked to host."
 msgstr "含有項目鍵值\"%1$s\"的模板已連結到主機."
 
-#: api/classes/CHost.php:825 api/classes/CTemplate.php:878
+#: api/classes/CHost.php:825 api/classes/CTemplate.php:877
 #, c-format
 msgid "Template with the same name \"%s\" already exists."
 msgstr "含有相同名稱\"%1$s\"的模板已連結到主機."
 
 #: api/classes/CHost.php:831 api/classes/CTemplate.php:516
-#: api/classes/CTemplate.php:851
+#: api/classes/CTemplate.php:850
 #, c-format
 msgid "Template with the same visible name \"%s\" already exists."
 msgstr "含有相同可視名稱\"%1$s\"的模板已連結到主機."
@@ -13214,7 +13226,7 @@ msgstr "接收到的JSON不是一個有效的JSON-RPC請求."
 msgid "The requested remote-procedure does not exist / is not available"
 msgstr "請求的遠程程序不存在/不可用"
 
-#: api/classes/CHttpTest.php:555
+#: api/classes/CHttpTest.php:572
 msgid "The web scenario application belongs to a different host than the web scenario host."
 msgstr ""
 
@@ -13461,7 +13473,7 @@ msgstr "觸發器\"%1$s\"相依於一個不存在的觸發器\"%2$s\"."
 msgid "Trigger \"%1$s\" skipped - user rule."
 msgstr "略過觸發器\"%1$s\"-用戶規則."
 
-#: api/classes/CTrigger.php:1622
+#: api/classes/CTrigger.php:1628
 #, c-format
 msgid "Trigger \"%s\" belongs to templates with different linkages."
 msgstr "觸發器\"%s\"屬於有不同連結的模板."
@@ -13470,7 +13482,7 @@ msgstr "觸發器\"%s\"屬於有不同連結的模板."
 msgid "Trigger added"
 msgstr "觸發器已新增"
 
-#: api/classes/CTrigger.php:1526
+#: api/classes/CTrigger.php:1532
 msgid "Trigger cannot be dependent on a trigger that is inherited from it."
 msgstr ""
 
@@ -13507,7 +13519,7 @@ msgstr ""
 msgid "Trigger expression condition"
 msgstr "觸發器表示式條件"
 
-#: api/classes/CTrigger.php:690 api/classes/CTriggerPrototype.php:801
+#: api/classes/CTrigger.php:696 api/classes/CTriggerPrototype.php:801
 msgid "Trigger expression must contain at least one host:key reference."
 msgstr "觸發器表示式必需包含至少一個 主機:鍵值 參照."
 
@@ -14103,7 +14115,7 @@ msgstr "已更新: 項目\"%1$s\"於\"%2$s\"."
 msgid "Updated: Item prototype \"%1$s\" on \"%2$s\"."
 msgstr "已更新: 項目原型\"%1$s\"於\"%2$s\"."
 
-#: api/classes/CTrigger.php:1275
+#: api/classes/CTrigger.php:1281
 #, c-format
 msgid "Updated: Trigger \"%1$s\" on \"%2$s\"."
 msgstr "已更新: 觸發器\"%1$s\"於\"%2$s\"."
@@ -14210,7 +14222,7 @@ msgstr "用户已删除"
 msgid "User group"
 msgstr "用户群組"
 
-#: api/classes/CUserGroup.php:620
+#: api/classes/CUserGroup.php:619
 #, c-format
 msgid "User group \"%1$s\" is used in script \"%2$s\"."
 msgstr "用戶群組\"%1$s\"被用於腳本\"%2$s\"."
@@ -14220,7 +14232,7 @@ msgstr "用戶群組\"%1$s\"被用於腳本\"%2$s\"."
 msgid "User group \"%s\" already exists."
 msgstr "用戶群組\"%s\"已存在."
 
-#: api/classes/CUserGroup.php:627
+#: api/classes/CUserGroup.php:626
 #, c-format
 msgid "User group [%s] is used in configuration for database down messages."
 msgstr "用戶群組[%s]被用為資料庫離線訊息的組態."
@@ -14242,7 +14254,7 @@ msgstr ""
 msgid "User groups"
 msgstr "用户群組"
 
-#: api/classes/CUser.php:1164
+#: api/classes/CUser.php:1178
 msgid "User is not allowed to delete himself."
 msgstr "用戶是不允許刪除自己"
 
@@ -14703,7 +14715,7 @@ msgstr "Web監測"
 msgid "Web scenario \"%1$s\" already exists on host \"%2$s\"."
 msgstr ""
 
-#: api/classes/CHttpTest.php:461 api/classes/CHttpTest.php:513
+#: api/classes/CHttpTest.php:478 api/classes/CHttpTest.php:530
 #, c-format
 msgid "Web scenario \"%1$s\" already exists."
 msgstr ""
@@ -14720,25 +14732,25 @@ msgstr ""
 msgid "Web scenario disabled"
 msgstr ""
 
-#: api/classes/CHttpTest.php:454 api/classes/CHttpTest.php:494
+#: api/classes/CHttpTest.php:471 api/classes/CHttpTest.php:511
 #, c-format
 msgid "Web scenario missing parameters: %1$s"
 msgstr ""
 
-#: api/classes/CHttpTest.php:465
+#: api/classes/CHttpTest.php:482
 msgid "Web scenario must have at least one step."
 msgstr ""
 
-#: api/classes/CHttpTest.php:592
+#: api/classes/CHttpTest.php:609
 #, c-format
 msgid "Web scenario step \"%1$s\" already exists."
 msgstr ""
 
-#: api/classes/CHttpTest.php:572
+#: api/classes/CHttpTest.php:589
 msgid "Web scenario step name should contain only printable characters."
 msgstr ""
 
-#: api/classes/CHttpTest.php:577
+#: api/classes/CHttpTest.php:594
 msgid "Web scenario step number cannot be less than 1."
 msgstr ""
 
@@ -14881,13 +14893,13 @@ msgstr ""
 msgid "Wrong fields for media type."
 msgstr "錯誤的媒介類型欄位"
 
-#: api/classes/CProxy.php:203
+#: api/classes/CProxy.php:207
 #, c-format
 msgid "Wrong fields for proxy \"%1$s\"."
 msgstr ""
 
-#: api/classes/CScreen.php:371 api/classes/CTemplateScreen.php:636
-#: api/classes/CTemplateScreen.php:674
+#: api/classes/CScreen.php:371 api/classes/CTemplateScreen.php:635
+#: api/classes/CTemplateScreen.php:673
 #, c-format
 msgid "Wrong fields for screen \"%1$s\"."
 msgstr "錯誤的篩選欄位\"%1$s\"."
@@ -15068,14 +15080,14 @@ msgstr "您沒有指定目標為動作操作的全域腳本\"%s\"."
 
 #: api/classes/CGraph.php:556 api/classes/CGraphPrototype.php:574
 #: api/classes/CHost.php:1013 api/classes/CHost.php:1070
-#: api/classes/CHost.php:1394 api/classes/CHttpTest.php:486
+#: api/classes/CHost.php:1394 api/classes/CHttpTest.php:503
 #: api/classes/CMaintenance.php:537 api/classes/CMaintenance.php:644
 #: api/classes/CMaintenance.php:656 api/classes/CScript.php:300
 #: api/classes/CScript.php:397 api/classes/CScript.php:437
 #: api/classes/CScript.php:500 api/classes/CTemplate.php:480
-#: api/classes/CTemplate.php:572 api/classes/CTemplate.php:632
-#: api/classes/CTemplate.php:782 api/classes/CTemplate.php:821
-#: api/classes/CTemplate.php:1056 api/classes/CTemplateScreen.php:664
+#: api/classes/CTemplate.php:572 api/classes/CTemplate.php:631
+#: api/classes/CTemplate.php:781 api/classes/CTemplate.php:820
+#: api/classes/CTemplate.php:1055 api/classes/CTemplateScreen.php:663
 msgid "You do not have permission to perform this operation."
 msgstr "您沒有許可權來完成此操作."
 

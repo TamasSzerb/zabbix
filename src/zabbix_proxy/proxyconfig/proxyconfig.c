@@ -46,7 +46,7 @@ extern unsigned char	process_type;
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static void	process_configuration_sync(size_t *data_size)
+static void	process_configuration_sync()
 {
 	const char	*__function_name = "process_configuration_sync";
 
@@ -62,17 +62,11 @@ static void	process_configuration_sync(size_t *data_size)
 		goto exit;
 
 	if ('\0' != *data)
-	{
-		*data_size = strlen(data);	/* performance metric */
 		zabbix_log(LOG_LEVEL_WARNING, "Received configuration data from server. Datalen " ZBX_FS_SIZE_T,
-				(zbx_fs_size_t)*data_size);
-	}
+				(zbx_fs_size_t)strlen(data));
 	else
-	{
-		*data_size = 0;
 		zabbix_log(LOG_LEVEL_WARNING, "Cannot obtain configuration data from server. "
 				"Proxy host name might not be matching that on the server.");
-	}
 
 	if (FAIL == zbx_json_open(data, &jp))
 		goto exit;
@@ -99,10 +93,9 @@ exit:
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-void	main_proxyconfig_loop(void)
+void	main_proxyconfig_loop()
 {
-	size_t	data_size;
-	double	sec;
+	zabbix_log(LOG_LEVEL_DEBUG, "In main_proxyconfig_loop()");
 
 	zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 
@@ -112,13 +105,7 @@ void	main_proxyconfig_loop(void)
 	{
 		zbx_setproctitle("%s [loading configuration]", get_process_type_string(process_type));
 
-		sec = zbx_time();
-		process_configuration_sync(&data_size);
-		sec = zbx_time() - sec;
-
-		zbx_setproctitle("%s [synced config " ZBX_FS_SIZE_T " bytes in " ZBX_FS_DBL " sec, idle %d sec]",
-				get_process_type_string(process_type), (zbx_fs_size_t)data_size, sec,
-				CONFIG_PROXYCONFIG_FREQUENCY);
+		process_configuration_sync();
 
 		zbx_sleep_loop(CONFIG_PROXYCONFIG_FREQUENCY);
 	}

@@ -17,12 +17,10 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 /**
  * Class containing common methods for operations with triggers.
- *
- * @package API
  */
 abstract class CTriggerGeneral extends CZBXAPI {
 
@@ -63,25 +61,47 @@ abstract class CTriggerGeneral extends CZBXAPI {
 	 *
 	 * @return bool
 	 */
-	protected function inherit(array $trigger, array $hostIds = null) {
+	protected function inherit(array $trigger, array $hostids = null) {
 		$triggerTemplates = API::Template()->get(array(
 			'triggerids' => $trigger['triggerid'],
 			'output' => API_OUTPUT_EXTEND,
 			'nopermissions' => true
 		));
 
+		// fetch the existing child triggers
+		$templatedTriggers = $this->get(array(
+			'output' => array('triggerid', 'description'),
+			'filter' => array(
+				'templateid' => $trigger['triggerid']
+			),
+			'selectHosts' => array('name'),
+			'preservekeys' => true
+		));
+
+		// no templates found, which means, that the trigger is no longer a templated trigger
 		if (empty($triggerTemplates)) {
+			// delete all of the former child triggers that may exist
+			if ($templatedTriggers) {
+				foreach ($templatedTriggers as $trigger) {
+					info(_s('Deleted: Trigger "%1$s" on "%2$s".', $trigger['description'],
+						implode(', ', zbx_objectValues($trigger['hosts'], 'name'))));
+				}
+				$this->deleteByPks(zbx_objectValues($templatedTriggers, 'triggerid'));
+			}
+
 			// nothing to inherit, just exit
 			return true;
 		}
 
 		if (!isset($trigger['expression']) || !isset($trigger['description'])) {
-			$dbTriggers = $this->get(array(
+			$options = array(
 				'triggerids' => $trigger['triggerid'],
-				'output' => array('expression', 'description'),
+				'output' => API_OUTPUT_EXTEND,
+				'preservekeys' => true,
 				'nopermissions' => true
-			));
-			$dbTrigger = reset($dbTriggers);
+			);
+			$dbTrigger = $this->get($options);
+			$dbTrigger = reset($dbTrigger);
 
 			if (!isset($trigger['description'])) {
 				$trigger['description'] = $dbTrigger['description'];
@@ -92,21 +112,36 @@ abstract class CTriggerGeneral extends CZBXAPI {
 		}
 
 		// fetch all of the child hosts
-		$childHosts = API::Host()->get(array(
+		$chdHosts = API::Host()->get(array(
 			'templateids' => zbx_objectValues($triggerTemplates, 'templateid'),
-			'output' => array('hostid', 'host'),
+			'output' => array(
+				'hostid',
+				'host'
+			),
 			'preservekeys' => true,
-			'hostids' => $hostIds,
+			'hostids' => $hostids,
 			'nopermissions' => true,
 			'templated_hosts' => true
 		));
 
-		foreach ($childHosts as $childHost) {
+		foreach ($chdHosts as $childHost) {
 			// update the child trigger on the child host
 			$newTrigger = $this->inheritOnHost($trigger, $childHost, $triggerTemplates);
 
 			// propagate the trigger inheritance to all child hosts
 			$this->inherit($newTrigger);
+
+			unset($templatedTriggers[$newTrigger['triggerid']]);
+		}
+
+		// if we've updated the children of the trigger on all of the host, and there are still some children left,
+		// we must delete them
+		if ($templatedTriggers && !$hostids) {
+			foreach ($templatedTriggers as $trigger) {
+				info(_s('Deleted: Trigger "%1$s" on "%2$s".', $trigger['description'],
+					implode(', ', zbx_objectValues($trigger['hosts'], 'name'))));
+			}
+			$this->deleteByPks(zbx_objectValues($templatedTriggers, 'triggerid'));
 		}
 
 		return true;
@@ -155,7 +190,8 @@ abstract class CTriggerGeneral extends CZBXAPI {
 		// check if a child trigger already exists on the host
 		$childTriggers = $this->get(array(
 			'filter' => array('templateid' => $newTrigger['templateid']),
-			'output' => array('triggerid'),
+			'output' => API_OUTPUT_EXTEND,
+			'preservekeys' => 1,
 			'hostids' => $chdHost['hostid']
 		));
 
@@ -171,8 +207,9 @@ abstract class CTriggerGeneral extends CZBXAPI {
 					'description' => $newTrigger['description'],
 					'flags' => null
 				),
-				'output' => array('triggerid', 'expression'),
-				'nopermissions' => true,
+				'output' => API_OUTPUT_EXTEND,
+				'preservekeys' => 1,
+				'nopermissions' => 1,
 				'hostids' => $chdHost['hostid']
 			));
 
@@ -223,7 +260,7 @@ abstract class CTriggerGeneral extends CZBXAPI {
 	 *
 	 * @return void
 	 */
-	protected function checkIfExistsOnHost(array $trigger, $hostId = null) {
+	protected function checkIfExistsOnHost(array $trigger, $hostid = null) {
 		// skip the check if the description and expression haven't been changed
 		if (!isset($trigger['description']) && !isset($trigger['expression'])) {
 			return;
@@ -233,16 +270,14 @@ abstract class CTriggerGeneral extends CZBXAPI {
 		if (!isset($trigger['description']) || !isset($trigger['expression'])) {
 			$explodeExpression = !isset($trigger['expression']);
 			$trigger = $this->extendObject($this->tableName(), $trigger, array('description', 'expression'));
-
 			if ($explodeExpression) {
 				$trigger['expression'] = explode_exp($trigger['expression']);
 			}
 		}
 
 		$filter = array('description' => $trigger['description']);
-
-		if ($hostId) {
-			$filter['hostid'] = $hostId;
+		if ($hostid) {
+			$filter['hostid'] = $hostid;
 		}
 		else {
 			$expressionData = new CTriggerExpression($trigger['expression']);
@@ -256,13 +291,11 @@ abstract class CTriggerGeneral extends CZBXAPI {
 			'output' => array('expression', 'triggerid'),
 			'nopermissions' => true
 		));
-
 		foreach ($triggers as $dbTrigger) {
 			$tmpExp = explode_exp($dbTrigger['expression']);
 
 			// check if the expressions are also equal and that this is a different trigger
 			$differentTrigger = (!isset($trigger['triggerid']) || !idcmp($trigger['triggerid'], $dbTrigger['triggerid']));
-
 			if (strcmp($tmpExp, $trigger['expression']) == 0 && $differentTrigger) {
 				$options = array(
 					'output' => array('name'),
@@ -274,86 +307,13 @@ abstract class CTriggerGeneral extends CZBXAPI {
 					$options['filter'] = array('host' => $filter['host']);
 				}
 				else {
-					$options['hostids'] = $hostId;
+					$options['hostids'] = $hostid;
 				}
 				$host = API::Host()->get($options);
 				$host = reset($host);
 
-				self::exception(ZBX_API_ERROR_PARAMETERS,
-					_s('Trigger "%1$s" already exists on "%2$s".', $trigger['description'], $host['name']));
+				self::exception(ZBX_API_ERROR_PARAMETERS, _s('Trigger "%1$s" already exists on "%2$s".', $trigger['description'], $host['name']));
 			}
 		}
-	}
-
-	protected function addRelatedObjects(array $options, array $result) {
-		$result = parent::addRelatedObjects($options, $result);
-
-		$triggerids = array_keys($result);
-
-		// adding groups
-		if ($options['selectGroups'] !== null && $options['selectGroups'] != API_OUTPUT_COUNT) {
-			$res = DBselect(
-				'SELECT f.triggerid,hg.groupid'.
-					' FROM functions f,items i,hosts_groups hg'.
-					' WHERE '.dbConditionInt('f.triggerid', $triggerids).
-					' AND f.itemid=i.itemid'.
-					' AND i.hostid=hg.hostid'
-			);
-			$relationMap = new CRelationMap();
-			while ($relation = DBfetch($res)) {
-				$relationMap->addRelation($relation['triggerid'], $relation['groupid']);
-			}
-
-			$groups = API::HostGroup()->get(array(
-				'nodeids' => $options['nodeids'],
-				'output' => $options['selectGroups'],
-				'groupids' => $relationMap->getRelatedIds(),
-				'preservekeys' => true
-			));
-			$result = $relationMap->mapMany($result, $groups, 'groups');
-		}
-
-		// adding hosts
-		if ($options['selectHosts'] !== null && $options['selectHosts'] != API_OUTPUT_COUNT) {
-			$res = DBselect(
-				'SELECT f.triggerid,i.hostid'.
-					' FROM functions f,items i'.
-					' WHERE '.dbConditionInt('f.triggerid', $triggerids).
-					' AND f.itemid=i.itemid'
-			);
-			$relationMap = new CRelationMap();
-			while ($relation = DBfetch($res)) {
-				$relationMap->addRelation($relation['triggerid'], $relation['hostid']);
-			}
-
-			$hosts = API::Host()->get(array(
-				'output' => $options['selectHosts'],
-				'nodeids' => $options['nodeids'],
-				'hostids' => $relationMap->getRelatedIds(),
-				'templated_hosts' => true,
-				'nopermissions' => true,
-				'preservekeys' => true
-			));
-			if (!is_null($options['limitSelects'])) {
-				order_result($hosts, 'host');
-			}
-			$result = $relationMap->mapMany($result, $hosts, 'hosts', $options['limitSelects']);
-		}
-
-		// adding functions
-		if ($options['selectFunctions'] !== null && $options['selectFunctions'] != API_OUTPUT_COUNT) {
-			$functions = API::getApi()->select('functions', array(
-				'output' => $this->outputExtend('functions', array('triggerid', 'functionid'), $options['selectFunctions']),
-				'filter' => array('triggerid' => $triggerids),
-				'preservekeys' => true,
-				'nodeids' => get_current_nodeid(true)
-			));
-			$relationMap = $this->createRelationMap($functions, 'triggerid', 'functionid');
-
-			$functions = $this->unsetExtraFields($functions, array('triggerid', 'functionid'), $options['selectFunctions']);
-			$result = $relationMap->mapMany($result, $functions, 'functions');
-		}
-
-		return $result;
 	}
 }

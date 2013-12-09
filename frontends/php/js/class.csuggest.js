@@ -79,7 +79,6 @@ initialize: function($super, id, objid){
 //	addListener(window, 'keypress', this.searchFocus.bindAsEventListener(this));
 
 	this.timeoutNeedle = null;
-	this.userNeedle = this.dom.input.value;
 },
 
 needleChange: function(e){
@@ -145,7 +144,7 @@ serverRespond: function(needle, respond){
 
 	for(var i=0; i < respond.length; i++){
 		if(!isset(i, respond) || empty(respond[i])) continue;
-		params.list[i] = respond[i].name;
+		params.list[i] = respond[i].name.toLowerCase();
 	}
 	this.needles[params.needle].list = params.list;
 
@@ -457,7 +456,7 @@ positionSuggests: function(){
 
 	if(is_null(this.dom.suggest)) return true;
 
-	var pos = jQuery(this.dom.input).offset();
+	var pos = getPosition(this.dom.input);
 	var dims = getDimensions(this.dom.input);
 
 	this.dom.suggest.style.top = (pos.top+dims.height)+'px';
@@ -489,14 +488,16 @@ newSugTab: function(needle){
 		var td = document.createElement('td');
 		tr.appendChild(td);
 
-		var bold = document.createElement('b');
-		bold.appendChild(document.createTextNode(list[key].substr(0, needle.length)));
-		td.appendChild(bold);
-		td.appendChild(document.createTextNode(list[key].substr(needle.length)));
-
+		td.appendChild(document.createTextNode(needle));
 		addListener(td, 'mouseover', this.mouseOver.bindAsEventListener(this), true);
 		addListener(td, 'mouseup', this.selectSuggest.bindAsEventListener(this), true);
 		addListener(td, 'mouseout', this.mouseOut.bindAsEventListener(this), true);
+
+// text
+		var bold = document.createElement('b');
+		td.appendChild(bold);
+
+		bold.appendChild(document.createTextNode(list[key].substr(needle.length)));
 
 		if(count >= this.suggestLimit) break;
 	}

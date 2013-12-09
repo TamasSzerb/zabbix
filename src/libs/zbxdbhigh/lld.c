@@ -20,10 +20,8 @@
 #include "lld.h"
 #include "db.h"
 #include "log.h"
-#include "events.h"
 #include "zbxalgo.h"
 #include "zbxserver.h"
-#include "zbxregexp.h"
 
 /******************************************************************************
  *                                                                            *
@@ -31,36 +29,40 @@
  *                                                                            *
  * Purpose: add or update items, triggers and graphs for discovery item       *
  *                                                                            *
- * Parameters: lld_ruleid - [IN] discovery item identificator from database   *
- *             value      - [IN] received value from agent                    *
+ * Parameters: discovery_itemid - [IN] discovery item identificator           *
+ *                                     from database                          *
+ *             value            - [IN] received value from agent              *
+ *                                                                            *
+ * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-void	DBlld_process_discovery_rule(zbx_uint64_t lld_ruleid, char *value, zbx_timespec_t *ts)
+void	DBlld_process_discovery_rule(zbx_uint64_t discovery_itemid, char *value, zbx_timespec_t *ts)
 {
 	const char		*__function_name = "DBlld_process_discovery_rule";
-
 	DB_RESULT		result;
 	DB_ROW			row;
 	zbx_uint64_t		hostid = 0;
 	struct zbx_json_parse	jp, jp_data;
 	char			*discovery_key = NULL, *filter = NULL, *error = NULL, *db_error = NULL, *error_esc;
-	unsigned char		state = 0;
+	unsigned char		status = 0;
 	unsigned short		lifetime;
 	char			*f_macro = NULL, *f_regexp = NULL;
-	zbx_vector_ptr_t	regexps;
+	ZBX_REGEXP		*regexps = NULL;
+	int			regexps_alloc = 0, regexps_num = 0;
 	char			*sql = NULL;
 	size_t			sql_alloc = 128, sql_offset = 0;
-	const char		*sql_start = "update items set ", *sql_continue = ",";
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() itemid:" ZBX_FS_UI64, __function_name, lld_ruleid);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() itemid:" ZBX_FS_UI64, __function_name, discovery_itemid);
 
-	zbx_vector_ptr_create(&regexps);
+	sql = zbx_malloc(sql, sql_alloc);
+
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "update items set lastclock=%d,lastns=%d", ts->sec, ts->ns);
 
 	result = DBselect(
-			"select hostid,key_,state,filter,error,lifetime"
+			"select hostid,key_,status,filter,error,lifetime"
 			" from items"
 			" where itemid=" ZBX_FS_UI64,
-			lld_ruleid);
+			discovery_itemid);
 
 	if (NULL != (row = DBfetch(result)))
 	{
@@ -68,24 +70,24 @@ void	DBlld_process_discovery_rule(zbx_uint64_t lld_ruleid, char *value, zbx_time
 
 		ZBX_STR2UINT64(hostid, row[0]);
 		discovery_key = zbx_strdup(discovery_key, row[1]);
-		state = (unsigned char)atoi(row[2]);
+		status = (unsigned char)atoi(row[2]);
 		filter = zbx_strdup(filter, row[3]);
 		db_error = zbx_strdup(db_error, row[4]);
 
 		lifetime_str = zbx_strdup(NULL, row[5]);
-		substitute_simple_macros(NULL, NULL, NULL, NULL, &hostid, NULL, NULL,
-				&lifetime_str, MACRO_TYPE_COMMON, NULL, 0);
+		substitute_simple_macros(NULL, NULL, &hostid, NULL, NULL, NULL,
+				&lifetime_str, MACRO_TYPE_LLD_LIFETIME, NULL, 0);
 		if (SUCCEED != is_ushort(lifetime_str, &lifetime))
 		{
 			zabbix_log(LOG_LEVEL_WARNING, "cannot process lost resources for the discovery rule \"%s:%s\":"
 					" \"%s\" is not a valid value",
 					zbx_host_string(hostid), discovery_key, lifetime_str);
-			lifetime = 3650;	/* max value for the field */
+			lifetime = 0xffff;
 		}
 		zbx_free(lifetime_str);
 	}
 	else
-		zabbix_log(LOG_LEVEL_WARNING, "invalid discovery rule ID [" ZBX_FS_UI64 "]", lld_ruleid);
+		zabbix_log(LOG_LEVEL_WARNING, "invalid discovery rule ID [" ZBX_FS_UI64 "]", discovery_itemid);
 	DBfree_result(result);
 
 	if (0 == hostid)
@@ -114,54 +116,66 @@ void	DBlld_process_discovery_rule(zbx_uint64_t lld_ruleid, char *value, zbx_time
 		*f_regexp++ = '\0';
 
 		if ('@' == *f_regexp)
-			DCget_expressions_by_name(&regexps, f_regexp + 1);
+		{
+			DB_RESULT	result;
+			DB_ROW		row;
+			char		*f_regexp_esc;
+
+			f_regexp_esc = DBdyn_escape_string(f_regexp + 1);
+
+			result = DBselect("select e.expression,e.expression_type,e.exp_delimiter,e.case_sensitive"
+					" from regexps r,expressions e"
+					" where r.regexpid=e.regexpid"
+						" and r.name='%s'" DB_NODE,
+					f_regexp_esc, DBnode_local("r.regexpid"));
+
+			zbx_free(f_regexp_esc);
+
+			while (NULL != (row = DBfetch(result)))
+			{
+				add_regexp_ex(&regexps, &regexps_alloc, &regexps_num,
+						f_regexp + 1, row[0], atoi(row[1]), row[2][0], atoi(row[3]));
+			}
+			DBfree_result(result);
+		}
 
 		zabbix_log(LOG_LEVEL_DEBUG, "%s() f_macro:'%s' f_regexp:'%s'",
 				__function_name, f_macro, f_regexp);
 	}
 
-	DBlld_update_items(hostid, lld_ruleid, &jp_data, &error, f_macro, f_regexp, &regexps, lifetime, ts->sec);
-	DBlld_update_triggers(hostid, lld_ruleid, &jp_data, &error, f_macro, f_regexp, &regexps);
-	DBlld_update_graphs(hostid, lld_ruleid, &jp_data, &error, f_macro, f_regexp, &regexps);
-	DBlld_update_hosts(lld_ruleid, &jp_data, &error, f_macro, f_regexp, &regexps, lifetime, ts->sec);
+	DBlld_update_items(hostid, discovery_itemid, &jp_data, &error, f_macro, f_regexp, regexps, regexps_num,
+			lifetime, ts->sec);
+	DBlld_update_triggers(hostid, discovery_itemid, &jp_data, &error, f_macro, f_regexp, regexps, regexps_num);
+	DBlld_update_graphs(hostid, discovery_itemid, &jp_data, &error, f_macro, f_regexp, regexps, regexps_num);
 
-	if (ITEM_STATE_NOTSUPPORTED == state)
+	clean_regexps_ex(regexps, &regexps_num);
+	zbx_free(regexps);
+
+	if (ITEM_STATUS_NOTSUPPORTED == status)
 	{
 		zabbix_log(LOG_LEVEL_WARNING,  "discovery rule [" ZBX_FS_UI64 "][%s] became supported",
-				lld_ruleid, zbx_host_key_string(lld_ruleid));
+				discovery_itemid, zbx_host_key_string(discovery_itemid));
 
-		add_event(0, EVENT_SOURCE_INTERNAL, EVENT_OBJECT_LLDRULE, lld_ruleid, ts, ITEM_STATE_NORMAL,
-				NULL, NULL, 0, 0);
-		process_events();
-
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "%sstate=%d", sql_start, ITEM_STATE_NORMAL);
-		sql_start = sql_continue;
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, ",status=%d", ITEM_STATUS_ACTIVE);
 	}
 error:
 	if (NULL != error && 0 != strcmp(error, db_error))
 	{
 		error_esc = DBdyn_escape_string_len(error, ITEM_ERROR_LEN);
 
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "%serror='%s'", sql_start, error_esc);
-		sql_start = sql_continue;
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, ",error='%s'", error_esc);
 
 		zbx_free(error_esc);
 	}
 
-	if (sql_start == sql_continue)
-	{
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, " where itemid=" ZBX_FS_UI64, lld_ruleid);
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, " where itemid=" ZBX_FS_UI64, discovery_itemid);
 
-		DBbegin();
+	DBbegin();
 
-		DBexecute("%s", sql);
+	DBexecute("%s", sql);
 
-		DBcommit();
-	}
+	DBcommit();
 clean:
-	zbx_regexp_clean_expressions(&regexps);
-	zbx_vector_ptr_destroy(&regexps);
-
 	zbx_free(error);
 	zbx_free(db_error);
 	zbx_free(filter);

@@ -38,6 +38,8 @@ require_once dirname(__FILE__).'/include/page_header.php';
 $fields = array(
 	'groupid' =>		array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,	null),
 	'hostid' =>			array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,	null),
+	'tr_groupid' =>		array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,	null),
+	'tr_hostid' =>		array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,	null),
 	'elementid' =>		array(T_ZBX_INT, O_OPT, P_SYS|P_NZERO, DB_ID, null),
 	'step' =>			array(T_ZBX_INT, O_OPT, P_SYS,	BETWEEN(0, 65535), null),
 	'period' =>			array(T_ZBX_INT, O_OPT, P_SYS,	null,	null),
@@ -52,24 +54,10 @@ $fields = array(
 	'pmasterid' =>		array(T_ZBX_STR, O_OPT, P_SYS,	null,	null),
 	// actions
 	'favaction' =>		array(T_ZBX_STR, O_OPT, P_ACT,	IN("'add','remove','refresh','flop'"), null),
-	'favstate' =>		array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY, 'isset({favaction})&&"flop"=={favaction}'),
+	'favstate' =>		array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY, 'isset({favaction})&&("flop"=={favaction})'),
 	'upd_counter' =>	array(T_ZBX_INT, O_OPT, P_ACT,	null,	null)
 );
 check_fields($fields);
-
-/*
- * Permissions
- */
-if (get_request('groupid') && !API::HostGroup()->isReadable(array($_REQUEST['groupid']))
-		|| get_request('hostid') && !API::Host()->isReadable(array($_REQUEST['hostid']))) {
-	access_deny();
-}
-if (get_request('elementid')) {
-	$slideshow = get_slideshow_by_slideshowid($_REQUEST['elementid']);
-	if (!$slideshow) {
-		access_deny();
-	}
-}
 
 /*
  * Actions
@@ -83,17 +71,17 @@ if (isset($_REQUEST['favobj'])) {
 	elseif (str_in_array($_REQUEST['favobj'], array('screenid', 'slideshowid'))) {
 		$result = false;
 		if ($_REQUEST['favaction'] == 'add') {
-			$result = CFavorite::add('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = add2favorites('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
 			if ($result) {
-				echo '$("addrm_fav").title = "'._('Remove from').' '._('Favourites').'";'."\n".
-					'$("addrm_fav").onclick = function() { rm4favorites("'.$_REQUEST['favobj'].'", "'.$_REQUEST['favid'].'", 0); };'."\n";
+				echo 'jQuery("#addrm_fav").title = "'._('Remove from').' '._('Favourites').'";'."\n".
+					'jQuery("#addrm_fav").click(function() { rm4favorites("'.$_REQUEST['favobj'].'", "'.$_REQUEST['favid'].'", 0); });'."\n";
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
-			$result = CFavorite::remove('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = rm4favorites('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
 			if ($result) {
-				echo '$("addrm_fav").title = "'._('Add to').' '._('Favourites').'";'."\n".
-					'$("addrm_fav").onclick = function() { add2favorites("'.$_REQUEST['favobj'].'", "'.$_REQUEST['favid'].'"); };'."\n";
+				echo 'jQuery("#addrm_fav").title = "'._('Add to').' '._('Favourites').'";'."\n".
+					'jQuery("#addrm_fav").click(function() { add2favorites("'.$_REQUEST['favobj'].'", "'.$_REQUEST['favid'].'"); });'."\n";
 			}
 		}
 		if ($page['type'] == PAGE_TYPE_JS && $result) {
@@ -189,7 +177,6 @@ if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
  * Display
  */
 $data = array(
-	'fullscreen' => $_REQUEST['fullscreen'],
 	'slideshows' => array()
 );
 
@@ -197,10 +184,10 @@ $data = array(
 $db_slideshows = DBselect(
 	'SELECT s.slideshowid,s.name'.
 	' FROM slideshows s'.
-	whereDbNode('s.slideshowid')
+	' WHERE '.DBin_node('s.slideshowid')
 );
 while ($slideshow = DBfetch($db_slideshows)) {
-	if (slideshow_accessible($slideshow['slideshowid'], PERM_READ)) {
+	if (slideshow_accessible($slideshow['slideshowid'], PERM_READ_ONLY)) {
 		$data['slideshows'][$slideshow['slideshowid']] = $slideshow;
 	}
 };
@@ -208,6 +195,7 @@ order_result($data['slideshows'], 'name');
 
 // get element id
 $data['elementid'] = get_request('elementid', CProfile::get('web.slides.elementid', null));
+$data['fullscreen'] = get_request('fullscreen', null);
 
 CProfile::update('web.slides.elementid', $data['elementid'], PROFILE_TYPE_ID);
 
@@ -217,25 +205,25 @@ if (!isset($data['slideshows'][$data['elementid']])) {
 }
 
 // get screen
-$data['screen'] = empty($data['elementid']) ? array() : get_slideshow($data['elementid'], 0);
+$data['screen'] = !empty($data['elementid']) ? get_slideshow($data['elementid'], 0) : array();
 if (!empty($data['screen'])) {
 	// get groups and hosts
 	if (check_dynamic_items($data['elementid'], 1)) {
-		$data['isDynamicItems'] = true;
+		$data['hostid'] = get_request('hostid', 0);
 
-		$data['pageFilter'] = new CPageFilter(array(
-			'groups' => array(
-				'monitored_hosts' => true,
-				'with_items' => true
-			),
-			'hosts' => array(
-				'monitored_hosts' => true,
-				'with_items' => true,
-				'DDFirstLabel' => _('Default')
-			),
-			'hostid' => get_request('hostid', null),
-			'groupid' => get_request('groupid', null)
-		));
+		$options = array('allow_all_hosts', 'monitored_hosts', 'with_items');
+		if (!$ZBX_WITH_ALL_NODES) {
+			array_push($options, 'only_current_node');
+		}
+		$params = array();
+		foreach ($options as $option) {
+			$params[$option] = 1;
+		}
+
+		$data['page_groups'] = get_viewed_groups(PERM_READ_ONLY, $params);
+		$data['page_hosts'] = get_viewed_hosts(PERM_READ_ONLY, $data['page_groups']['selected'], $params);
+
+		validate_group_with_host($data['page_groups'], $data['page_hosts']);
 	}
 
 	// get element

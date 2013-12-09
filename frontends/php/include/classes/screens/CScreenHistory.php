@@ -22,11 +22,11 @@
 class CScreenHistory extends CScreenBase {
 
 	/**
-	 * Item ids
+	 * Item id
 	 *
-	 * @var array
+	 * @var int
 	 */
-	public $itemids;
+	public $itemid;
 
 	/**
 	 * Search string
@@ -74,7 +74,7 @@ class CScreenHistory extends CScreenBase {
 	 * Init screen data.
 	 *
 	 * @param array		$options
-	 * @param array		$options['itemids']
+	 * @param int		$options['itemid']
 	 * @param string	$options['filter']
 	 * @param int		$options['filterTask']
 	 * @param int		$options['markColor']
@@ -88,7 +88,7 @@ class CScreenHistory extends CScreenBase {
 		$this->resourcetype = SCREEN_RESOURCE_HISTORY;
 
 		// mandatory
-		$this->itemids = isset($options['itemids']) ? $options['itemids'] : null;
+		$this->itemid = isset($options['itemid']) ? $options['itemid'] : null;
 		$this->filter = isset($options['filter']) ? $options['filter'] : null;
 		$this->filterTask = isset($options['filter_task']) ? $options['filter_task'] : null;
 		$this->markColor = isset($options['mark_color']) ? $options['mark_color'] : MARK_COLOR_RED;
@@ -101,10 +101,10 @@ class CScreenHistory extends CScreenBase {
 		if (empty($this->items)) {
 			$this->items = API::Item()->get(array(
 				'nodeids' => get_current_nodeid(),
-				'itemids' => $this->itemids,
+				'itemids' => $this->itemid,
 				'webitems' => true,
-				'selectHosts' => array('name'),
-				'output' => array('itemid', 'key_', 'name', 'value_type', 'valuemapid'),
+				'selectHosts' => array('hostid', 'name'),
+				'output' => API_OUTPUT_EXTEND,
 				'preservekeys' => true
 			));
 
@@ -156,7 +156,7 @@ class CScreenHistory extends CScreenBase {
 				$useEventLogItem = (strpos($this->item['key_'], 'eventlog[') === 0);
 
 				if (empty($this->plaintext)) {
-					$historyTable = new CTableInfo(_('No values found.'));
+					$historyTable = new CTableInfo(_('No history defined.'));
 					$historyTable->setHeader(
 						array(
 							_('Timestamp'),
@@ -215,7 +215,7 @@ class CScreenHistory extends CScreenBase {
 						$row = array(nbsp(zbx_date2str(_('Y.M.d H:i:s'), $data['clock'])));
 
 						if ($isManyItems) {
-							$row[] = $host['name'].NAME_DELIMITER.itemName($item);
+							$row[] = $host['name'].': '.itemName($item);
 						}
 
 						if ($useLogItem) {
@@ -237,8 +237,8 @@ class CScreenHistory extends CScreenBase {
 						if (is_null($color)) {
 							$min_color = 0x98;
 							$max_color = 0xF8;
-							$int_color = ($max_color - $min_color) / count($this->itemids);
-							$int_color *= array_search($data['itemid'], $this->itemids);
+							$int_color = ($max_color - $min_color) / count($this->itemid);
+							$int_color *= array_search($data['itemid'], array($this->itemid));
 							$int_color += $min_color;
 							$newRow->setAttribute('style', 'background-color: '.sprintf("#%X%X%X", $int_color, $int_color, $int_color));
 						}
@@ -262,7 +262,7 @@ class CScreenHistory extends CScreenBase {
 			// numeric, float
 			else {
 				if (empty($this->plaintext)) {
-					$historyTable = new CTableInfo(_('No values found.'));
+					$historyTable = new CTableInfo(_('No history defined.'));
 					$historyTable->setHeader(array(_('Timestamp'), _('Value')));
 				}
 
@@ -314,7 +314,7 @@ class CScreenHistory extends CScreenBase {
 		if (!$this->plaintext && str_in_array($this->action, array('showvalues', 'showgraph'))) {
 			$graphDims = getGraphDims();
 
-			$this->timeline['starttime'] = date(TIMESTAMP_FORMAT, get_min_itemclock_by_itemid($this->item['itemid']));
+			$this->timeline['starttime'] = date('YmdHis', get_min_itemclock_by_itemid($this->item['itemid']));
 
 			$timeControlData = array(
 				'periodFixed' => CProfile::get('web.history.timelinefixed', 1),
@@ -352,7 +352,7 @@ class CScreenHistory extends CScreenBase {
 		else {
 			if ($this->mode != SCREEN_MODE_JS) {
 				$flickerfreeData = array(
-					'itemids' => $this->itemids,
+					'itemid' => $this->itemid,
 					'action' => $this->action,
 					'filter' => $this->filter,
 					'filterTask' => $this->filterTask,

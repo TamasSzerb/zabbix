@@ -51,19 +51,16 @@ require_once dirname(__FILE__).'/include/translateDefines.inc.php';
 $availableJScripts = array(
 	'common.js' => '',
 	'menu.js' => '',
-	'menupopup.js' => '',
+	'prototype.js' => '',
+	'jquery.js' => 'jquery/',
+	'jquery-ui.js' => 'jquery/',
+	'activity-indicator.js' => 'vendors/',
 	'gtlc.js' => '',
 	'functions.js' => '',
 	'main.js' => '',
 	'dom.js' => '',
 	'servercheck.js' => '',
 	'flickerfreescreen.js' => '',
-	'multiselect.js' => '',
-	// vendors
-	'prototype.js' => '',
-	'jquery.js' => 'jquery/',
-	'jquery-ui.js' => 'jquery/',
-	'activity-indicator.js' => 'vendors/',
 	// classes
 	'class.bbcode.js' => '',
 	'class.calendar.js' => '',
@@ -94,25 +91,24 @@ $tranStrings = array(
 		'S_NOW_SMALL' => _('now'),
 		'S_YEAR_SHORT' => _x('y', 'year short'),
 		'S_MONTH_SHORT' => _x('m', 'month short'),
+		'S_WEEK_SHORT' => _x('w', 'week short'),
 		'S_DAY_SHORT' => _x('d', 'day short'),
 		'S_HOUR_SHORT' => _x('h', 'hour short'),
+		'S_MINUTE_SHORT' => _x('m', 'minute short'),
 		'S_DATE_FORMAT' => FILTER_TIMEBAR_DATE_FORMAT
 	),
 	'functions.js' => array(
-		'Cancel' => _('Cancel'),
 		'DO_YOU_REPLACE_CONDITIONAL_EXPRESSION_Q' => _('Do you wish to replace the conditional expression?'),
-		'Events' => _('Events'),
-		'Execute' => _('Execute'),
-		'Execution confirmation' => _('Execution confirmation'),
-		'History' => _('History'),
-		'History and simple graphs' => _('History and simple graphs'),
 		'S_INSERT_MACRO' => _('Insert macro'),
 		'S_CREATE_LOG_TRIGGER' => _('Create trigger'),
 		'S_DELETE' => _('Delete'),
 		'S_DELETE_KEYWORD_Q' => _('Delete keyword?'),
 		'S_DELETE_EXPRESSION_Q' => _('Delete expression?'),
 		'Simple graphs' => _('Simple graphs'),
-		'Triggers' => _('Triggers')
+		'History' => _('History'),
+		'History and simple graphs' => _('History and simple graphs'),
+		'Triggers' => _('Triggers'),
+		'Events' => _('Events'),
 	),
 	'class.calendar.js' => array(
 		'S_JANUARY' => _('January'),
@@ -159,8 +155,7 @@ $tranStrings = array(
 		'S_EACH_URL_SHOULD_HAVE_UNIQUE' => _('Each URL should have a unique name. Please make sure there is only one URL named'),
 		'S_DELETE_LINKS_BETWEEN_SELECTED_ELEMENTS_Q' => _('Delete links between selected elements?'),
 		'S_NO_IMAGES' => 'You need to have at least one image uploaded to create map element. Images can be uploaded in Administration->General->Images section.',
-		'S_ICONMAP_IS_NOT_ENABLED' => _('Iconmap is not enabled'),
-		'Colour "%1$s" is not correct: expecting hexadecimal colour code (6 symbols).' => _('Colour "%1$s" is not correct: expecting hexadecimal colour code (6 symbols).')
+		'S_ICONMAP_IS_NOT_ENABLED' => _('Iconmap is not enabled')
 	),
 	'class.cmessages.js' => array(
 		'S_MUTE' => _('Mute'),
@@ -187,33 +182,6 @@ $tranStrings = array(
 		'Edit service' => _('Edit service'),
 		'Delete service' => _('Delete service'),
 		'Delete the selected service?' => _('Delete the selected service?')
-	),
-	'multiselect.js' => array(
-		'No matches found' => _('No matches found'),
-		'More matches found...' => _('More matches found...'),
-		'type here to search' => _('type here to search'),
-		'new' => _('new')
-	),
-	'menupopup.js' => array(
-		'Acknowledge' => _('Acknowledge'),
-		'Configuration' => _('Configuration'),
-		'Events' => _('Events'),
-		'Go to' => _('Go to'),
-		'History' => _('History'),
-		'Host inventory' => _('Host inventory'),
-		'Host screens' => _('Host screens'),
-		'Latest data' => _('Latest data'),
-		'Latest events' => _('Latest events'),
-		'Latest values' => _('Latest values'),
-		'Last hour graph' => _('Last hour graph'),
-		'Last month graph' => _('Last month graph'),
-		'Last week graph' => _('Last week graph'),
-		'Scripts' => _('Scripts'),
-		'Status of triggers' => _('Status of triggers'),
-		'Submap' => _('Submap'),
-		'Trigger' => _('Trigger'),
-		'URL' => _('URL'),
-		'URLs' => _('URLs')
 	)
 );
 
@@ -234,7 +202,6 @@ if (empty($_GET['files'])) {
 		'main.js',
 		'functions.js',
 		'menu.js',
-		'menupopup.js',
 		'init.js'
 	);
 	// load frontend messaging only for some pages

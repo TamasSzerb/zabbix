@@ -19,20 +19,15 @@
 **/
 
 
-function update_node_profile($nodeIds) {
+function update_node_profile($nodeids) {
 	DBstart();
+	DBexecute('DELETE FROM profiles WHERE userid='.CWebUser::$data['userid'].' AND idx='.zbx_dbstr('web.nodes.selected'));
 
-	DBexecute(
-		'DELETE FROM profiles WHERE userid='.CWebUser::$data['userid'].' AND idx='.zbx_dbstr('web.nodes.selected')
-	);
-
-	foreach ($nodeIds as $nodeId) {
-		DBexecute(
-			'INSERT INTO profiles (profileid,userid,idx,value_id,type)'.
-			' VALUES ('.get_dbid('profiles', 'profileid').','.CWebUser::$data['userid'].','.
-				zbx_dbstr('web.nodes.selected').','.zbx_dbstr($nodeId).',4)');
+	foreach ($nodeids as $nodeid) {
+		DBexecute('INSERT INTO profiles (profileid,userid,idx,value_id,type)'.
+					' VALUES ('.get_dbid('profiles', 'profileid').','.CWebUser::$data['userid'].','
+						.zbx_dbstr('web.nodes.selected').','.$nodeid.',4)');
 	}
-
 	DBend();
 }
 
@@ -48,11 +43,11 @@ function get_node_profile($default = null) {
 	while ($profile = DBfetch($db_profiles)) {
 		$result[] = $profile['value_id'];
 	}
-
-	return $result ? $result : $default;
+	return (empty($result) ? $default : $result);
 }
 
 function init_nodes() {
+	// init current node id
 	if (defined('ZBX_NODES_INITIALIZED')) {
 		return null;
 	}
@@ -78,18 +73,18 @@ function init_nodes() {
 						' AND g.userid='.CWebUser::$data['userid'].
 						' AND n.nodeid='.DBid2nodeid('hg.groupid');
 		}
-		$dbNodes = DBselect($sql);
-		while ($dbNode = DBfetch($dbNodes)) {
-			$ZBX_NODES[$dbNode['nodeid']] = $dbNode;
-			$ZBX_NODES_IDS[$dbNode['nodeid']] = $dbNode['nodeid'];
+		$db_nodes = DBselect($sql);
+		while ($node = DBfetch($db_nodes)) {
+			$ZBX_NODES[$node['nodeid']] = $node;
+			$ZBX_NODES_IDS[$node['nodeid']] = $node['nodeid'];
 		}
 
-		$ZBX_AVAILABLE_NODES = get_accessible_nodes_by_user(CWebUser::$data, PERM_READ, PERM_RES_IDS_ARRAY, $ZBX_NODES_IDS);
+		$ZBX_AVAILABLE_NODES = get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_LIST, PERM_RES_IDS_ARRAY, $ZBX_NODES_IDS);
 		$ZBX_VIEWED_NODES = get_viewed_nodes();
 		$ZBX_CURRENT_NODEID = $ZBX_VIEWED_NODES['selected'];
 
-		if ($node = DBfetch(DBselect('SELECT n.masterid FROM nodes n WHERE n.nodeid='.$ZBX_CURRENT_NODEID))) {
-			$ZBX_CURMASTERID = $node['masterid'];
+		if ($node_data = DBfetch(DBselect('SELECT n.masterid FROM nodes n WHERE n.nodeid='.$ZBX_CURRENT_NODEID))) {
+			$ZBX_CURMASTERID = $node_data['masterid'];
 		}
 
 		if (!isset($ZBX_NODES[$ZBX_CURRENT_NODEID])) {
@@ -118,35 +113,23 @@ function init_nodes() {
 	}
 }
 
-/**
- * Returns the ID of the currently selected node(s).
- *
- * Supported $forceAllNodes values:
- * - null 	- return the currently visible nodes;
- * - true 	- return all nodes that the user has read permissions to, including the master node;
- * - false	- return the currently selected node or the local node if all nodes are selected.
- *
- * @param bool 	$forceAllNodes	which nodes to return
- * @param int 	$permission		required node permissions
- *
- * @return array|int
- */
-function get_current_nodeid($forceAllNodes = null, $permission = null) {
+function get_current_nodeid($force_all_nodes = null, $perm = null) {
 	global $ZBX_CURRENT_NODEID, $ZBX_AVAILABLE_NODES, $ZBX_VIEWED_NODES;
-
-	if (!ZBX_DISTRIBUTED) {
-		return 0;
-	}
 
 	if (!isset($ZBX_CURRENT_NODEID)) {
 		init_nodes();
 	}
 
-	if (!is_null($permission)) {
-		return get_accessible_nodes_by_user(CWebUser::$data, $permission, PERM_RES_IDS_ARRAY, $ZBX_AVAILABLE_NODES);
+	if (!is_null($perm)) {
+		return get_accessible_nodes_by_user(CWebUser::$data, $perm, PERM_RES_IDS_ARRAY, $ZBX_AVAILABLE_NODES);
 	}
-	elseif (is_null($forceAllNodes)) {
-		$result = ($ZBX_VIEWED_NODES['selected'] == 0) ? $ZBX_VIEWED_NODES['nodeids'] : $ZBX_VIEWED_NODES['selected'];
+	elseif (is_null($force_all_nodes)) {
+		if ($ZBX_VIEWED_NODES['selected'] == 0) {
+			$result = $ZBX_VIEWED_NODES['nodeids'];
+		}
+		else {
+			$result = $ZBX_VIEWED_NODES['selected'];
+		}
 
 		if (empty($result)) {
 			$result = CWebUser::$data['node']['nodeid'];
@@ -155,13 +138,12 @@ function get_current_nodeid($forceAllNodes = null, $permission = null) {
 			$result = $ZBX_CURRENT_NODEID;
 		}
 	}
-	elseif ($forceAllNodes) {
+	elseif ($force_all_nodes) {
 		$result = $ZBX_AVAILABLE_NODES;
 	}
 	else {
 		$result = $ZBX_CURRENT_NODEID;
 	}
-
 	return $result;
 }
 
@@ -173,113 +155,112 @@ function get_viewed_nodes() {
 	if (!defined('ZBX_NOT_ALLOW_ALL_NODES')) {
 		$result['nodes'][0] = array('nodeid' => 0, 'name' => _('All'));
 	}
+	$available_nodes = get_accessible_nodes_by_user(CWebUser::$data, PERM_READ_LIST, PERM_RES_DATA_ARRAY);
+	$available_nodes = get_tree_by_parentid($ZBX_LOCALNODEID, $available_nodes, 'masterid'); // remove parent nodes
+	$selected_nodeids = get_request('selected_nodes', get_node_profile(array(CWebUser::$data['node']['nodeid'])));
 
-	$availableNodes = get_accessible_nodes_by_user(CWebUser::$data, PERM_READ, PERM_RES_DATA_ARRAY);
-	$availableNodes = get_tree_by_parentid($ZBX_LOCALNODEID, $availableNodes, 'masterid');
-	$selectedNodeIds = get_request('selected_nodes', get_node_profile(array(CWebUser::$data['node']['nodeid'])));
-
-	$nodeIds = array();
-
-	foreach ($selectedNodeIds as $nodeId) {
-		if (isset($availableNodes[$nodeId])) {
-			$nodeIds[$nodeId] = $nodeId;
-
-			$result['nodes'][$nodeId] = array(
-				'nodeid' => $availableNodes[$nodeId]['nodeid'],
-				'name' => $availableNodes[$nodeId]['name'],
-				'masterid' => $availableNodes[$nodeId]['masterid']
+	// +++ Fill $result['NODEIDS'], $result['NODES'] +++
+	$nodeids = array();
+	foreach ($selected_nodeids as $num => $nodeid) {
+		if (isset($available_nodes[$nodeid])) {
+			$result['nodes'][$nodeid] = array(
+				'nodeid' => $available_nodes[$nodeid]['nodeid'],
+				'name' => $available_nodes[$nodeid]['name'],
+				'masterid' => $available_nodes[$nodeid]['masterid']
 			);
+			$nodeids[$nodeid] = $nodeid;
 		}
 	}
 
-	$switchNode = get_request('switch_node', CProfile::get('web.nodes.switch_node', -1));
+	$switch_node = get_request('switch_node', CProfile::get('web.nodes.switch_node', -1));
 
-	if (!isset($availableNodes[$switchNode]) || !uint_in_array($switchNode, $selectedNodeIds)) {
-		$switchNode = 0;
+	if (!isset($available_nodes[$switch_node]) || !uint_in_array($switch_node, $selected_nodeids)) { // check switch_node
+		$switch_node = 0;
 	}
 
-	$result['nodeids'] = $nodeIds;
-
+	$result['nodeids'] = $nodeids;
 	if (!defined('ZBX_NOT_ALLOW_ALL_NODES')) {
-		$result['selected'] = $switchNode;
+		$result['selected'] = $switch_node;
 	}
-	elseif ($nodeIds) {
-		$result['selected'] = ($switchNode > 0) ? $switchNode : array_shift($nodeIds);
+	elseif (!empty($nodeids)) {
+		$result['selected'] = ($switch_node > 0) ? $switch_node : array_shift($nodeids);
 	}
-
 	return $result;
 }
 
-function get_node_name_by_elid($objectId, $forceWithAllNodes = null, $delimiter = '') {
+function get_node_name_by_elid($id_val, $force_with_all_nodes = null, $delimiter = '') {
 	global $ZBX_NODES, $ZBX_VIEWED_NODES;
 
-	if ($forceWithAllNodes === false || (is_null($forceWithAllNodes) && $ZBX_VIEWED_NODES['selected'] != 0)) {
+	if ($force_with_all_nodes === false || (is_null($force_with_all_nodes) && $ZBX_VIEWED_NODES['selected'] != 0)) {
 		return null;
 	}
 
-	$nodeId = id2nodeid($objectId);
+	$nodeid = id2nodeid($id_val);
 
-	if (!isset($ZBX_NODES[$nodeId])) {
+	if (!isset($ZBX_NODES[$nodeid])) {
 		return null;
 	}
-
-	return $ZBX_NODES[$nodeId]['name'].$delimiter;
+	return $ZBX_NODES[$nodeid]['name'].$delimiter;
 }
 
 function getNodeIdByNodeName($nodeName) {
 	global $ZBX_NODES;
 
-	foreach ($ZBX_NODES as $nodeId => $node) {
+	foreach ($ZBX_NODES as $nodeid => $node) {
 		if ($node['name'] == $nodeName) {
-			return $nodeId;
+			return $nodeid;
 		}
 	}
-
 	return 0;
 }
 
 function is_show_all_nodes() {
 	global $ZBX_VIEWED_NODES;
 
-	return (ZBX_DISTRIBUTED && $ZBX_VIEWED_NODES['selected'] == 0);
+	return ZBX_DISTRIBUTED && $ZBX_VIEWED_NODES['selected'] == 0;
 }
 
-function detect_node_type($nodeId, $masterId) {
+function detect_node_type($nodeid, $masterid) {
 	global $ZBX_CURMASTERID, $ZBX_LOCALNODEID;
 
-	if (bccomp($nodeId, $ZBX_LOCALNODEID) == 0) {
-		$nodeType = ZBX_NODE_LOCAL;
+	if (bccomp($nodeid, $ZBX_LOCALNODEID) == 0) {
+		$nodetype = ZBX_NODE_LOCAL;
 	}
-	elseif (bccomp($nodeId, get_current_nodeid(false)) == 0) {
-		$nodeType = ZBX_NODE_LOCAL;
+	elseif (bccomp($nodeid, get_current_nodeid(false)) == 0) {
+		$nodetype = ZBX_NODE_LOCAL;
 	}
-	elseif (bccomp($nodeId, $ZBX_CURMASTERID) == 0) {
-		$nodeType = ZBX_NODE_MASTER;
+	elseif (bccomp($nodeid, $ZBX_CURMASTERID) == 0) {
+		$nodetype = ZBX_NODE_MASTER;
 	}
-	elseif (bccomp($masterId, get_current_nodeid(false)) == 0) {
-		$nodeType = ZBX_NODE_CHILD;
+	elseif (bccomp($masterid, get_current_nodeid(false)) == 0) {
+		$nodetype = ZBX_NODE_CHILD;
 	}
 	else {
-		$nodeType = -1;
+		$nodetype = -1;
 	}
 
-	return $nodeType;
+	return $nodetype;
 }
 
-function node_type2str($nodeType) {
-	switch ($nodeType) {
+function node_type2str($nodetype) {
+	switch ($nodetype) {
 		case ZBX_NODE_CHILD:
-			return _('Child');
+			$result = _('Child');
+			break;
 		case ZBX_NODE_MASTER:
-			return _('Master');
+			$result = _('Master');
+			break;
 		case ZBX_NODE_LOCAL:
-			return _('Local');
+			$result = _('Local');
+			break;
 		default:
-			return _('Unknown');
+			$result = _('Unknown');
+			break;
 	}
+	return $result;
 }
 
-function add_node($nodeId, $name, $ip, $port, $nodeType, $masterId) {
+function add_node($nodeid, $name, $ip, $port, $nodetype, $masterid) {
 	global $ZBX_LOCMASTERID, $ZBX_LOCALNODEID;
 
 	if (!preg_match('/^'.ZBX_PREG_NODE_FORMAT.'$/i', $name)) {
@@ -287,93 +268,82 @@ function add_node($nodeId, $name, $ip, $port, $nodeType, $masterId) {
 		return false;
 	}
 
-	switch ($nodeType) {
+	switch ($nodetype) {
 		case ZBX_NODE_CHILD:
 			break;
-
 		case ZBX_NODE_MASTER:
-			if ($masterId) {
+			if (!empty($masterid)) {
 				error(_('Master node "ID" must be empty.'));
 				return false;
 			}
+
 			if ($ZBX_LOCMASTERID) {
 				error(_('Master node already exists.'));
 				return false;
 			}
 			break;
-
 		default:
 			error(_('Incorrect node type.'));
 			return false;
 	}
 
-	if (DBfetch(DBselect('SELECT n.nodeid FROM nodes n WHERE n.nodeid='.zbx_dbstr($nodeId)))) {
+	if (DBfetch(DBselect('SELECT n.nodeid FROM nodes n WHERE n.nodeid='.zbx_dbstr($nodeid)))) {
 		error(_('Node with same ID already exists.'));
 		return false;
 	}
 
 	$result = DBexecute('INSERT INTO nodes (nodeid,name,ip,port,nodetype,masterid)'.
-		' VALUES ('.zbx_dbstr($nodeId).','.zbx_dbstr($name).','.zbx_dbstr($ip).','.zbx_dbstr($port).','.zbx_dbstr($nodeType).','.($masterId ? zbx_dbstr($masterId) : 'NULL').')');
+		' VALUES ('.$nodeid.','.zbx_dbstr($name).','.zbx_dbstr($ip).','.zbx_dbstr($port).','.zbx_dbstr($nodetype).','.($masterid ? zbx_dbstr($masterid) : 'NULL').')');
 
-	if ($result && $nodeType == ZBX_NODE_MASTER) {
-		DBexecute('UPDATE nodes SET masterid='.$nodeId.' WHERE nodeid='.$ZBX_LOCALNODEID);
-
-		// apply master node for this script
-		$ZBX_CURMASTERID = $nodeId;
+	if ($result && $nodetype == ZBX_NODE_MASTER) {
+		DBexecute('UPDATE nodes SET masterid='.zbx_dbstr($nodeid).' WHERE nodeid='.$ZBX_LOCALNODEID);
+		$ZBX_CURMASTERID = $nodeid; // apply master node for this script
 	}
 
-	return $result ? $nodeId : $result;
+	return $result ? $nodeid : $result;
 }
 
-function update_node($nodeId, $name, $ip, $port) {
+function update_node($nodeid, $name, $ip, $port) {
 	if (!preg_match('/^'.ZBX_PREG_NODE_FORMAT.'$/i', $name)) {
 		error(_('Incorrect characters used for Node name.'));
 		return false;
 	}
-
-	return DBexecute(
-		'UPDATE nodes SET name='.zbx_dbstr($name).',ip='.zbx_dbstr($ip).',port='.zbx_dbstr($port).' WHERE nodeid='.zbx_dbstr($nodeId)
-	);
+	return DBexecute('UPDATE nodes SET name='.zbx_dbstr($name).',ip='.zbx_dbstr($ip).',port='.zbx_dbstr($port).' WHERE nodeid='.zbx_dbstr($nodeid));
 }
 
-function delete_node($nodeId) {
+function delete_node($nodeid) {
 	$result = false;
+	$node = DBfetch(DBselect('SELECT n.nodeid,n.masterid FROM nodes n WHERE n.nodeid='.zbx_dbstr($nodeid)));
+	$nodetype = detect_node_type($node['nodeid'], $node['masterid']);
 
-	$node = DBfetch(DBselect('SELECT n.nodeid,n.masterid FROM nodes n WHERE n.nodeid='.zbx_dbstr($nodeId)));
-	$nodeType = detect_node_type($node['nodeid'], $node['masterid']);
-
-	if ($nodeType == ZBX_NODE_LOCAL) {
+	if ($nodetype == ZBX_NODE_LOCAL) {
 		error(_('Unable to remove local node.'));
 	}
 	else {
 		$result = (
-			DBexecute('UPDATE nodes SET masterid=NULL WHERE masterid='.zbx_dbstr($nodeId)) &&
-			DBexecute('DELETE FROM nodes WHERE nodeid='.zbx_dbstr($nodeId))
+			DBexecute('UPDATE nodes SET masterid=NULL WHERE masterid='.zbx_dbstr($nodeid)) &&
+			DBexecute('DELETE FROM nodes WHERE nodeid='.zbx_dbstr($nodeid))
 		);
-
-		if ($nodeType != ZBX_NODE_MASTER) {
+		if ($nodetype != ZBX_NODE_MASTER) {
 			error(_('Please be aware that database still contains data related to the deleted node.'));
 		}
 	}
-
 	return $result;
 }
 
-function get_node_by_nodeid($nodeId) {
-	return DBfetch(DBselect('SELECT n.* FROM nodes n WHERE n.nodeid='.zbx_dbstr($nodeId)));
+function get_node_by_nodeid($nodeid) {
+	return DBfetch(DBselect('SELECT n.* FROM nodes n WHERE n.nodeid='.zbx_dbstr($nodeid)));
 }
 
-function get_node_path($nodeId, $result = '') {
+function get_node_path($nodeid, $result = '') {
 	global $ZBX_NODES;
 
-	$node = isset($ZBX_NODES[$nodeId]) ? $ZBX_NODES[$nodeId] : false;
-
-	if ($node) {
-		if ($node['masterid']) {
-			$result = get_node_path($node['masterid'], $result);
+	$node_data = isset($ZBX_NODES[$nodeid]) ? $ZBX_NODES[$nodeid] : false;
+	if ($node_data) {
+		if ($node_data['masterid']) {
+			$result = get_node_path($node_data['masterid'], $result);
 		}
-
-		$result .= $node['name'].' &rArr; ';
+		$result .= $node_data['name'].' &rArr; ';
 	}
 
 	return $result;

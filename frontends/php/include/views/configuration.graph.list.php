@@ -29,7 +29,7 @@ if (!empty($this->data['parent_discoveryid'])) {
 	$createForm->addItem(new CSubmit('form', _('Create graph prototype')));
 
 	$graphWidget->addPageHeader(_('CONFIGURATION OF GRAPH PROTOTYPES'), $createForm);
-	$graphWidget->addHeader(array(_('Graph prototypes of').SPACE, new CSpan($this->data['discovery_rule']['name'], 'parent-discovery')));
+	$graphWidget->addHeader(array(_('Graph prototypes of').SPACE, new CSpan($this->data['discovery_rule']['name'], 'gold')));
 
 	if (!empty($this->data['hostid'])) {
 		$graphWidget->addItem(get_header_host_table('graphs', $this->data['hostid'], $this->data['parent_discoveryid']));
@@ -50,8 +50,8 @@ else {
 	$graphWidget->addPageHeader(_('CONFIGURATION OF GRAPHS'), $createForm);
 
 	$filterForm = new CForm('get');
-	$filterForm->addItem(array(_('Group').SPACE, $this->data['pageFilter']->getGroupsCB(true)));
-	$filterForm->addItem(array(SPACE._('Host').SPACE, $this->data['pageFilter']->getHostsCB(true)));
+	$filterForm->addItem(array(_('Group').SPACE, $this->data['pageFilter']->getGroupsCB()));
+	$filterForm->addItem(array(SPACE._('Host').SPACE, $this->data['pageFilter']->getHostsCB()));
 
 	$graphWidget->addHeader(_('Graphs'), $filterForm);
 
@@ -70,10 +70,9 @@ if (!empty($this->data['parent_discoveryid'])) {
 }
 
 // create table
-$graphTable = new CTableInfo(!empty($this->data['parent_discoveryid']) ? _('No graph prototypes found.') : _('No graphs found.'));
+$graphTable = new CTableInfo(!empty($this->data['parent_discoveryid']) ? _('No graph prototypes defined.') : _('No graphs defined.'));
 $graphTable->setHeader(array(
 	new CCheckBox('all_graphs', null, "checkAll('".$graphForm->getName()."', 'all_graphs', 'group_graphid');"),
-	$this->data['displayNodes'] ? _('Node') : null,
 	!empty($this->data['hostid']) ? null : _('Hosts'),
 	make_sorting_header(_('Name'), 'name'),
 	_('Width'),
@@ -103,36 +102,21 @@ foreach ($this->data['graphs'] as $graph) {
 		$realHosts = get_realhosts_by_graphid($graph['templateid']);
 		$realHosts = DBfetch($realHosts);
 		$name[] = new CLink($realHosts['name'], 'graphs.php?hostid='.$realHosts['hostid'], 'unknown');
-		$name[] = NAME_DELIMITER;
-		$name[] = new CLink(
-			$graph['name'],
-			'graphs.php?'.
-				'form=update'.
-				'&graphid='.$graphid.url_param('parent_discoveryid').
-				'&hostid='.$this->data['hostid']
-		);
+		$name[] = ':'.SPACE;
+		$name[] = new CLink($graph['name'],
+			'graphs.php?form=update&graphid='.$graphid.url_param('parent_discoveryid').'&hostid='.$this->data['hostid']);
 
 		$isCheckboxEnabled = false;
 	}
 	elseif (!empty($graph['discoveryRule']) && empty($this->data['parent_discoveryid'])) {
-		$name[] = new CLink(
-			$graph['discoveryRule']['name'],
-			'host_discovery.php?form=update&itemid='.$graph['discoveryRule']['itemid'],
-			'parent-discovery'
-		);
-		$name[] = NAME_DELIMITER;
+		$name[] = new CLink($graph['discoveryRule']['name'], 'host_discovery.php?form=update&itemid='.$graph['discoveryRule']['itemid'], 'gold');
+		$name[] = ':'.SPACE;
 		$name[] = new CSpan($graph['name']);
 
 		$isCheckboxEnabled = false;
 	}
 	else {
-		$name[] = new CLink(
-			$graph['name'],
-			'graphs.php?'.
-				'form=update'.
-				'&graphid='.$graphid.url_param('parent_discoveryid').
-				'&hostid='.$this->data['hostid']
-		);
+		$name[] = new CLink($graph['name'], 'graphs.php?form=update&graphid='.$graphid.url_param('parent_discoveryid').'&hostid='.$this->data['hostid']);
 	}
 
 	$checkBox = new CCheckBox('group_graphid['.$graphid.']', null, null, $graphid);
@@ -140,7 +124,6 @@ foreach ($this->data['graphs'] as $graph) {
 
 	$graphTable->addRow(array(
 		$checkBox,
-		$this->data['displayNodes'] ? $graph['nodename'] : null,
 		$hostList,
 		$name,
 		$graph['width'],
@@ -151,29 +134,17 @@ foreach ($this->data['graphs'] as $graph) {
 
 // create go buttons
 $goComboBox = new CComboBox('go');
-if (!$this->data['parent_discoveryid']) {
+if (empty($this->data['parent_discoveryid'])) {
 	$goComboBox->addItem('copy_to', _('Copy selected to ...'));
 }
 
 $goOption = new CComboItem('delete', _('Delete selected'));
-$goOption->setAttribute(
-	'confirm',
-	$this->data['parent_discoveryid'] ? _('Delete selected graph prototypes?') : _('Delete selected graphs?')
-);
+$goOption->setAttribute('confirm', _('Delete selected graphs?'));
 $goComboBox->addItem($goOption);
 
 $goButton = new CSubmit('goButton', _('Go').' (0)');
 $goButton->attr('id', 'goButton');
-
 zbx_add_post_js('chkbxRange.pageGoName = "group_graphid";');
-if ($this->data['parent_discoveryid']) {
-	zbx_add_post_js('chkbxRange.prefix = "'.$this->data['parent_discoveryid'].'";');
-	zbx_add_post_js('cookie.prefix = "'.$this->data['parent_discoveryid'].'";');
-}
-else {
-	zbx_add_post_js('chkbxRange.prefix = "'.$this->data['hostid'].'";');
-	zbx_add_post_js('cookie.prefix = "'.$this->data['hostid'].'";');
-}
 
 // append table to form
 $graphForm->addItem(array($this->data['paging'], $graphTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));

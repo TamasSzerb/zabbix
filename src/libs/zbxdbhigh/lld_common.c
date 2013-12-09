@@ -21,10 +21,9 @@
 #include "db.h"
 #include "log.h"
 #include "zbxserver.h"
-#include "zbxregexp.h"
 
-int	lld_check_record(struct zbx_json_parse *jp_row, const char *f_macro, const char *f_regexp,
-		zbx_vector_ptr_t *regexps)
+int	lld_check_record(struct zbx_json_parse *jp_row, const char *f_macro, const char *f_regexp, ZBX_REGEXP *regexps,
+	int regexps_num)
 {
 	const char	*__function_name = "lld_check_record";
 
@@ -39,7 +38,7 @@ int	lld_check_record(struct zbx_json_parse *jp_row, const char *f_macro, const c
 		goto out;
 
 	if (SUCCEED == zbx_json_value_by_name_dyn(jp_row, f_macro, &value, &value_alloc))
-		res = regexp_match_ex(regexps, value, f_regexp, ZBX_CASE_SENSITIVE);
+		res = regexp_match_ex(regexps, regexps_num, value, f_regexp, ZBX_CASE_SENSITIVE);
 
 	zbx_free(value);
 out:
@@ -52,8 +51,7 @@ out:
  *                                                                            *
  * Function: DBlld_get_item                                                   *
  *                                                                            *
- * Purpose: finds item in the selected host by an item prototype key and      *
- *          discovered data                                                   *
+ * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
 int	DBlld_get_item(zbx_uint64_t hostid, const char *tmpl_key, struct zbx_json_parse *jp_row, zbx_uint64_t *itemid)

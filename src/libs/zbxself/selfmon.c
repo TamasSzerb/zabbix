@@ -72,9 +72,6 @@ extern int	CONFIG_DATASENDER_FORKS;
 extern int	CONFIG_CONFSYNCER_FORKS;
 extern int	CONFIG_HEARTBEAT_FORKS;
 extern int	CONFIG_SELFMON_FORKS;
-extern int	CONFIG_VMWARE_FORKS;
-extern unsigned char	process_type;
-extern int	process_num;
 
 /******************************************************************************
  *                                                                            *
@@ -89,9 +86,9 @@ extern int	process_num;
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-int	get_process_type_forks(unsigned char proc_type)
+int	get_process_type_forks(unsigned char process_type)
 {
-	switch (proc_type)
+	switch (process_type)
 	{
 		case ZBX_PROCESS_TYPE_POLLER:
 			return CONFIG_POLLER_FORKS;
@@ -135,8 +132,6 @@ int	get_process_type_forks(unsigned char proc_type)
 			return CONFIG_HEARTBEAT_FORKS;
 		case ZBX_PROCESS_TYPE_SELFMON:
 			return CONFIG_SELFMON_FORKS;
-		case ZBX_PROCESS_TYPE_VMWARE:
-			return CONFIG_VMWARE_FORKS;
 	}
 
 	assert(0);
@@ -156,9 +151,9 @@ int	get_process_type_forks(unsigned char proc_type)
  *           and log files                                                    *
  *                                                                            *
  ******************************************************************************/
-const char	*get_process_type_string(unsigned char proc_type)
+const char	*get_process_type_string(unsigned char process_type)
 {
-	switch (proc_type)
+	switch (process_type)
 	{
 		case ZBX_PROCESS_TYPE_POLLER:
 			return "poller";
@@ -202,8 +197,6 @@ const char	*get_process_type_string(unsigned char proc_type)
 			return "heartbeat sender";
 		case ZBX_PROCESS_TYPE_SELFMON:
 			return "self-monitoring";
-		case ZBX_PROCESS_TYPE_VMWARE:
-			return "vmware collector";
 	}
 
 	assert(0);
@@ -219,7 +212,7 @@ const char	*get_process_type_string(unsigned char proc_type)
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-void	init_selfmon_collector(void)
+void	init_selfmon_collector()
 {
 	const char	*__function_name = "init_selfmon_collector";
 	size_t		sz, sz_array, sz_process[ZBX_PROCESS_TYPE_COUNT], sz_total;
@@ -227,16 +220,16 @@ void	init_selfmon_collector(void)
 	char		*p;
 	clock_t		ticks;
 	struct tms	buf;
-	unsigned char	proc_type;
-	int		proc_num, process_forks;
+	unsigned char	process_type;
+	int		process_num, process_forks;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
 	sz_total = sz = sizeof(zbx_selfmon_collector_t);
 	sz_total += sz_array = sizeof(zbx_stat_process_t *) * ZBX_PROCESS_TYPE_COUNT;
 
-	for (proc_type = 0; ZBX_PROCESS_TYPE_COUNT > proc_type; proc_type++)
-		sz_total += sz_process[proc_type] = sizeof(zbx_stat_process_t) * get_process_type_forks(proc_type);
+	for (process_type = 0; ZBX_PROCESS_TYPE_COUNT > process_type; process_type++)
+		sz_total += sz_process[process_type] = sizeof(zbx_stat_process_t) * get_process_type_forks(process_type);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "%s() size:" ZBX_FS_SIZE_T, __function_name, (zbx_fs_size_t)sz_total);
 
@@ -270,16 +263,16 @@ void	init_selfmon_collector(void)
 
 	ticks = times(&buf);
 
-	for (proc_type = 0; ZBX_PROCESS_TYPE_COUNT > proc_type; proc_type++)
+	for (process_type = 0; ZBX_PROCESS_TYPE_COUNT > process_type; process_type++)
 	{
-		collector->process[proc_type] = (zbx_stat_process_t *)p; p += sz_process[proc_type];
-		memset(collector->process[proc_type], 0, sz_process[proc_type]);
+		collector->process[process_type] = (zbx_stat_process_t *)p; p += sz_process[process_type];
+		memset(collector->process[process_type], 0, sz_process[process_type]);
 
-		process_forks = get_process_type_forks(proc_type);
-		for (proc_num = 0; proc_num < process_forks; proc_num++)
+		process_forks = get_process_type_forks(process_type);
+		for (process_num = 0; process_num < process_forks; process_num++)
 		{
-			collector->process[proc_type][proc_num].last_ticks = ticks;
-			collector->process[proc_type][proc_num].last_state = ZBX_PROCESS_STATE_BUSY;
+			collector->process[process_type][process_num].last_ticks = ticks;
+			collector->process[process_type][process_num].last_state = ZBX_PROCESS_STATE_BUSY;
 		}
 	}
 
@@ -295,7 +288,7 @@ void	init_selfmon_collector(void)
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-void	free_selfmon_collector(void)
+void	free_selfmon_collector()
 {
 	const char	*__function_name = "free_selfmon_collector";
 
@@ -332,6 +325,9 @@ void	free_selfmon_collector(void)
  ******************************************************************************/
 void	update_selfmon_counter(unsigned char state)
 {
+	extern int		process_num;
+	extern unsigned char	process_type;
+
 	zbx_stat_process_t	*process;
 	clock_t			ticks;
 	struct tms		buf;
@@ -359,14 +355,14 @@ void	update_selfmon_counter(unsigned char state)
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-void	collect_selfmon_stats(void)
+void	collect_selfmon_stats()
 {
 	const char		*__function_name = "collect_selfmon_stats";
 	zbx_stat_process_t	*process;
 	clock_t			ticks;
 	struct tms		buf;
-	unsigned char		proc_type, state;
-	int			proc_num, process_forks, index;
+	unsigned char		process_type, state;
+	int			process_num, process_forks, index;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
@@ -382,12 +378,12 @@ void	collect_selfmon_stats(void)
 	else if (++collector->first == MAX_HISTORY)
 		collector->first = 0;
 
-	for (proc_type = 0; proc_type < ZBX_PROCESS_TYPE_COUNT; proc_type++)
+	for (process_type = 0; process_type < ZBX_PROCESS_TYPE_COUNT; process_type++)
 	{
-		process_forks = get_process_type_forks(proc_type);
-		for (proc_num = 0; proc_num < process_forks; proc_num++)
+		process_forks = get_process_type_forks(process_type);
+		for (process_num = 0; process_num < process_forks; process_num++)
 		{
-			process = &collector->process[proc_type][proc_num];
+			process = &collector->process[process_type][process_num];
 			for (state = 0; state < ZBX_PROCESS_STATE_COUNT; state++)
 				process->h_counter[state][index] = process->counter[state];
 			if (ticks > process->last_ticks)
@@ -406,9 +402,9 @@ void	collect_selfmon_stats(void)
  *                                                                            *
  * Purpose: calculate statistics for selected process                         *
  *                                                                            *
- * Parameters: proc_type    - [IN] type of process; ZBX_PROCESS_TYPE_*        *
+ * Parameters: process_type - [IN] type of process; ZBX_PROCESS_TYPE_*        *
  *             aggr_func    - [IN] one of ZBX_AGGR_FUNC_*                     *
- *             proc_num     - [IN] process number; 1 - first process;         *
+ *             process_num  - [IN] process number; 1 - first process;         *
  *                                 0 - all processes                          *
  *             state        - [IN] process state; ZBX_PROCESS_STATE_*         *
  *             value        - [OUT] a pointer to a variable that receives     *
@@ -417,7 +413,7 @@ void	collect_selfmon_stats(void)
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-void	get_selfmon_stats(unsigned char proc_type, unsigned char aggr_func, int proc_num,
+void	get_selfmon_stats(unsigned char process_type, unsigned char aggr_func, int process_num,
 		unsigned char state, double *value)
 {
 	const char	*__function_name = "get_selfmon_stats";
@@ -427,18 +423,18 @@ void	get_selfmon_stats(unsigned char proc_type, unsigned char aggr_func, int pro
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	process_forks = get_process_type_forks(proc_type);
+	process_forks = get_process_type_forks(process_type);
 
 	switch (aggr_func)
 	{
 		case ZBX_AGGR_FUNC_ONE:
-			assert(0 < proc_num && proc_num <= process_forks);
-			process_forks = proc_num--;
+			assert(0 < process_num && process_num <= process_forks);
+			process_forks = process_num--;
 			break;
 		case ZBX_AGGR_FUNC_AVG:
 		case ZBX_AGGR_FUNC_MAX:
 		case ZBX_AGGR_FUNC_MIN:
-			assert(0 == proc_num && 0 < process_forks);
+			assert(0 == process_num && 0 < process_forks);
 			break;
 		default:
 			assert(0);
@@ -452,12 +448,12 @@ void	get_selfmon_stats(unsigned char proc_type, unsigned char aggr_func, int pro
 	if (MAX_HISTORY <= (current = (collector->first + collector->count - 1)))
 		current -= MAX_HISTORY;
 
-	for (; proc_num < process_forks; proc_num++)
+	for (; process_num < process_forks; process_num++)
 	{
 		zbx_stat_process_t	*process;
 		unsigned short		one_total = 0, one_counter;
 
-		process = &collector->process[proc_type][proc_num];
+		process = &collector->process[process_type][process_num];
 
 		for (s = 0; s < ZBX_PROCESS_STATE_COUNT; s++)
 			one_total += process->h_counter[s][current] - process->h_counter[s][collector->first];
@@ -472,14 +468,14 @@ void	get_selfmon_stats(unsigned char proc_type, unsigned char aggr_func, int pro
 				counter += one_counter;
 				break;
 			case ZBX_AGGR_FUNC_MAX:
-				if (0 == proc_num || one_counter > counter)
+				if (0 == process_num || one_counter > counter)
 				{
 					counter = one_counter;
 					total = one_total;
 				}
 				break;
 			case ZBX_AGGR_FUNC_MIN:
-				if (0 == proc_num || one_counter < counter)
+				if (0 == process_num || one_counter < counter)
 				{
 					counter = one_counter;
 					total = one_total;
@@ -511,28 +507,37 @@ static int	sleep_remains;
  ******************************************************************************/
 void	zbx_sleep_loop(int sleeptime)
 {
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+	extern unsigned char	process_type;
+	const char		*process_type_string;
+#endif
+
 	if (0 >= sleeptime)
 		return;
 
 	sleep_remains = sleeptime;
 
+	zabbix_log(LOG_LEVEL_DEBUG, "sleeping for %d seconds", sleep_remains);
+
 	update_selfmon_counter(ZBX_PROCESS_STATE_IDLE);
 
-	if (ZBX_PROCESS_TYPE_CONFSYNCER == process_type)
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+	process_type_string = get_process_type_string(process_type);
+#endif
+
+	do
 	{
-		do
-		{
-			sleep(1);
-		}
-		while (0 < --sleep_remains);
+#ifdef HAVE_FUNCTION_SETPROCTITLE
+		zbx_setproctitle("%s [sleeping for %d seconds]", process_type_string, sleep_remains);
+#endif
+		sleep(1);
 	}
-	else
-		sleep(sleeptime);
+	while (0 < --sleep_remains);
 
 	update_selfmon_counter(ZBX_PROCESS_STATE_BUSY);
 }
 
-void	zbx_wakeup(void)
+void	zbx_wakeup()
 {
 	sleep_remains = 0;
 }

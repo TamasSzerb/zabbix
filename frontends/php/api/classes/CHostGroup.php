@@ -18,17 +18,13 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
 /**
- * Class containing methods for operations with host groups.
- *
  * @package API
  */
 class CHostGroup extends CZBXAPI {
 
 	protected $tableName = 'groups';
 	protected $tableAlias = 'g';
-	protected $sortColumns = array('groupid', 'name');
 
 	/**
 	 * Get host groups.
@@ -41,6 +37,12 @@ class CHostGroup extends CZBXAPI {
 		$result = array();
 		$userType = self::$userData['type'];
 		$userid = self::$userData['userid'];
+
+		// allowed columns for sorting
+		$sortColumns = array('groupid', 'name');
+
+		// allowed output options for [ select_* ] params
+		$subselectsAllowedOutputs = array(API_OUTPUT_REFER, API_OUTPUT_EXTEND);
 
 		$sqlParts = array(
 			'select'	=> array('groups' => 'g.groupid'),
@@ -66,6 +68,7 @@ class CHostGroup extends CZBXAPI {
 			'with_items'				=> null,
 			'with_simple_graph_items'	=> null,
 			'with_monitored_items'		=> null,
+			'with_historical_items'		=> null,
 			'with_triggers'				=> null,
 			'with_monitored_triggers'	=> null,
 			'with_httptests'			=> null,
@@ -85,8 +88,6 @@ class CHostGroup extends CZBXAPI {
 			'output'					=> API_OUTPUT_REFER,
 			'selectHosts'				=> null,
 			'selectTemplates'			=> null,
-			'selectGroupDiscovery'		=> null,
-			'selectDiscoveryRule'		=> null,
 			'countOutput'				=> null,
 			'groupCount'				=> null,
 			'preservekeys'				=> null,
@@ -97,9 +98,22 @@ class CHostGroup extends CZBXAPI {
 		);
 		$options = zbx_array_merge($defOptions, $params);
 
+		if (is_array($options['output'])) {
+			unset($sqlParts['select']['groups']);
+
+			$dbTable = DB::getSchema('groups');
+			$sqlParts['select']['groupid'] = 'g.groupid';
+			foreach ($options['output'] as $field) {
+				if (isset($dbTable['fields'][$field])) {
+					$sqlParts['select'][$field] = 'g.'.$field;
+				}
+			}
+			$options['output'] = API_OUTPUT_CUSTOM;
+		}
+
 		// editable + PERMISSION CHECK
 		if ($userType != USER_TYPE_SUPER_ADMIN && !$options['nopermissions']) {
-			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ;
+			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ_ONLY;
 
 			$userGroups = getUserGroupsByUserId($userid);
 
@@ -109,8 +123,7 @@ class CHostGroup extends CZBXAPI {
 				' WHERE g.groupid=r.id'.
 					' AND '.dbConditionInt('r.groupid', $userGroups).
 				' GROUP BY r.id'.
-				' HAVING MIN(r.permission)>'.PERM_DENY.
-					' AND MAX(r.permission)>='.$permission.
+				' HAVING MIN(r.permission)>='.$permission.
 				')';
 		}
 
@@ -137,7 +150,9 @@ class CHostGroup extends CZBXAPI {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
-			$sqlParts['select']['hostid'] = 'hg.hostid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['hostid'] = 'hg.hostid';
+			}
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
 			$sqlParts['where'][] = dbConditionInt('hg.hostid', $options['hostids']);
 			$sqlParts['where']['hgg'] = 'hg.groupid=g.groupid';
@@ -147,7 +162,9 @@ class CHostGroup extends CZBXAPI {
 		if (!is_null($options['triggerids'])) {
 			zbx_value2array($options['triggerids']);
 
-			$sqlParts['select']['triggerid'] = 'f.triggerid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['triggerid'] = 'f.triggerid';
+			}
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
 			$sqlParts['from']['functions'] = 'functions f';
 			$sqlParts['from']['items'] = 'items i';
@@ -161,7 +178,9 @@ class CHostGroup extends CZBXAPI {
 		if (!is_null($options['graphids'])) {
 			zbx_value2array($options['graphids']);
 
-			$sqlParts['select']['graphid'] = 'gi.graphid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['graphid'] = 'gi.graphid';
+			}
 			$sqlParts['from']['gi'] = 'graphs_items gi';
 			$sqlParts['from']['i'] = 'items i';
 			$sqlParts['from']['hg'] = 'hosts_groups hg';
@@ -174,8 +193,9 @@ class CHostGroup extends CZBXAPI {
 		// maintenanceids
 		if (!is_null($options['maintenanceids'])) {
 			zbx_value2array($options['maintenanceids']);
-
-			$sqlParts['select']['maintenanceid'] = 'mg.maintenanceid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['maintenanceid'] = 'mg.maintenanceid';
+			}
 			$sqlParts['from']['maintenances_groups'] = 'maintenances_groups mg';
 			$sqlParts['where'][] = dbConditionInt('mg.maintenanceid', $options['maintenanceids']);
 			$sqlParts['where']['hmh'] = 'g.groupid=mg.groupid';
@@ -197,7 +217,7 @@ class CHostGroup extends CZBXAPI {
 			$sqlParts['from']['hosts'] = 'hosts h';
 			$sqlParts['where']['hgg'] = 'hg.groupid=g.groupid';
 			$sqlParts['where'][] = 'h.hostid=hg.hostid';
-			$sqlParts['where'][] = 'h.status IN ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.')';
+			$sqlParts['where'][] = 'h.status IN('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.')';
 		}
 		elseif (!is_null($options['templated_hosts'])) {
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
@@ -221,7 +241,7 @@ class CHostGroup extends CZBXAPI {
 			$sqlParts['where'][] = 'h.status IN ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.','.HOST_STATUS_TEMPLATE.')';
 		}
 
-		// with_items, with_monitored_items, with_simple_graph_items
+		// with_items, with_monitored_items, with_historical_items, with_simple_graph_items
 		if (!is_null($options['with_items'])) {
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
 			$sqlParts['where']['hgg'] = 'g.groupid=hg.groupid';
@@ -229,7 +249,6 @@ class CHostGroup extends CZBXAPI {
 					'SELECT NULL'.
 					' FROM items i'.
 					' WHERE hg.hostid=i.hostid'.
-						' AND i.flags IN ('.ZBX_FLAG_DISCOVERY_NORMAL.','.ZBX_FLAG_DISCOVERY_CREATED.')'.
 					')';
 		}
 		elseif (!is_null($options['with_monitored_items'])) {
@@ -242,7 +261,17 @@ class CHostGroup extends CZBXAPI {
 						' AND i.hostid=h.hostid'.
 						' AND h.status='.HOST_STATUS_MONITORED.
 						' AND i.status='.ITEM_STATUS_ACTIVE.
-						' AND i.flags IN ('.ZBX_FLAG_DISCOVERY_NORMAL.','.ZBX_FLAG_DISCOVERY_CREATED.')'.
+					')';
+		}
+		elseif (!is_null($options['with_historical_items'])) {
+			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
+			$sqlParts['where']['hgg'] = 'g.groupid=hg.groupid';
+			$sqlParts['where'][] = 'EXISTS ('.
+					'SELECT NULL'.
+					' FROM items i'.
+					' WHERE hg.hostid=i.hostid'.
+						' AND i.status IN ('.ITEM_STATUS_ACTIVE.','.ITEM_STATUS_NOTSUPPORTED.')'.
+						' AND i.lastvalue IS NOT NULL'.
 					')';
 		}
 		elseif (!is_null($options['with_simple_graph_items'])) {
@@ -264,11 +293,9 @@ class CHostGroup extends CZBXAPI {
 			$sqlParts['where']['hgg'] = 'g.groupid=hg.groupid';
 			$sqlParts['where'][] = 'EXISTS ('.
 					'SELECT NULL'.
-					' FROM items i,functions f,triggers t'.
+					' FROM items i,functions f'.
 					' WHERE hg.hostid=i.hostid'.
 						' AND i.itemid=f.itemid'.
-						' AND f.triggerid=t.triggerid'.
-						' AND t.flags IN ('.ZBX_FLAG_DISCOVERY_NORMAL.','.ZBX_FLAG_DISCOVERY_CREATED.')'.
 					')';
 		}
 		elseif (!is_null($options['with_monitored_triggers'])) {
@@ -284,7 +311,6 @@ class CHostGroup extends CZBXAPI {
 						' AND h.status='.HOST_STATUS_MONITORED.
 						' AND i.status='.ITEM_STATUS_ACTIVE.
 						' AND t.status='.TRIGGER_STATUS_ENABLED.
-						' AND t.flags IN ('.ZBX_FLAG_DISCOVERY_NORMAL.','.ZBX_FLAG_DISCOVERY_CREATED.')'.
 					')';
 		}
 
@@ -294,8 +320,9 @@ class CHostGroup extends CZBXAPI {
 			$sqlParts['where']['hgg'] = 'g.groupid=hg.groupid';
 			$sqlParts['where'][] = 'EXISTS ('.
 					'SELECT NULL'.
-					' FROM httptest ht'.
-					' WHERE hg.hostid=ht.hostid'.
+					' FROM applications a,httptest ht'.
+					' WHERE hg.hostid=a.hostid'.
+						' AND a.applicationid=ht.applicationid'.
 					')';
 		}
 		elseif (!is_null($options['with_monitored_httptests'])) {
@@ -303,8 +330,11 @@ class CHostGroup extends CZBXAPI {
 			$sqlParts['where']['hgg'] = 'g.groupid=hg.groupid';
 			$sqlParts['where'][] = 'EXISTS ('.
 					'SELECT NULL'.
-					' FROM httptest ht'.
-					' WHERE hg.hostid=ht.hostid'.
+					' FROM hosts h,applications a,httptest ht'.
+					' WHERE hg.hostid=h.hostid'.
+						' AND hg.hostid=a.hostid'.
+						' AND a.applicationid=ht.applicationid'.
+						' AND h.status='.HOST_STATUS_MONITORED.
 						' AND ht.status='.HTTPTEST_STATUS_ACTIVE.
 					')';
 		}
@@ -315,11 +345,9 @@ class CHostGroup extends CZBXAPI {
 			$sqlParts['where']['hgg'] = 'g.groupid=hg.groupid';
 			$sqlParts['where'][] = 'EXISTS ('.
 					'SELECT NULL'.
-					' FROM items i,graphs_items gi,graphs g'.
+					' FROM items i,graphs_items gi'.
 					' WHERE hg.hostid=i.hostid'.
 						' AND i.itemid=gi.itemid'.
-						' AND gi.graphid=g.graphid'.
-						' AND g.flags IN ('.ZBX_FLAG_DISCOVERY_NORMAL.','.ZBX_FLAG_DISCOVERY_CREATED.')'.
 					')';
 		}
 
@@ -328,6 +356,24 @@ class CHostGroup extends CZBXAPI {
 			$sqlParts['from']['applications'] = 'applications a';
 			$sqlParts['where']['hgg'] = 'g.groupid=hg.groupid';
 			$sqlParts['where'][] = 'hg.hostid=a.hostid';
+		}
+
+		// output
+		if ($options['output'] == API_OUTPUT_EXTEND) {
+			$sqlParts['select']['groups'] = 'g.*';
+		}
+
+		// countOutput
+		if (!is_null($options['countOutput'])) {
+			$options['sortfield'] = '';
+			$sqlParts['select'] = array('COUNT(DISTINCT g.groupid) AS rowscount');
+
+			// groupCount
+			if (!is_null($options['groupCount'])) {
+				foreach ($sqlParts['group'] as $key => $fields) {
+					$sqlParts['select'][$key] = $fields;
+				}
+			}
 		}
 
 		// filter
@@ -340,13 +386,16 @@ class CHostGroup extends CZBXAPI {
 			zbx_db_search('groups g', $options, $sqlParts);
 		}
 
+		// sorting
+		zbx_db_sorting($sqlParts, $options, $sortColumns, 'g');
+
 		// limit
 		if (zbx_ctype_digit($options['limit']) && $options['limit']) {
 			$sqlParts['limit'] = $options['limit'];
 		}
 
-		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
-		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
+		$groupids = array();
+
 		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$res = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
 		while ($group = DBfetch($res)) {
@@ -359,46 +408,59 @@ class CHostGroup extends CZBXAPI {
 				}
 			}
 			else {
-				if (!isset($result[$group['groupid']])) {
-					$result[$group['groupid']] = array();
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$group['groupid']] = array('groupid' => $group['groupid']);
 				}
+				else {
+					$groupids[$group['groupid']] = $group['groupid'];
 
-				// hostids
-				if (isset($group['hostid']) && is_null($options['selectHosts'])) {
-					if (!isset($result[$group['groupid']]['hosts'])) {
+					if (!isset($result[$group['groupid']])) {
+						$result[$group['groupid']] = array();
+					}
+					if (!is_null($options['selectTemplates']) && !isset($result[$group['groupid']]['templates'])) {
+						$result[$group['groupid']]['templates'] = array();
+					}
+					if (!is_null($options['selectHosts']) && !isset($result[$group['groupid']]['hosts'])) {
 						$result[$group['groupid']]['hosts'] = array();
 					}
-					$result[$group['groupid']]['hosts'][] = array('hostid' => $group['hostid']);
-					unset($group['hostid']);
-				}
 
-				// graphids
-				if (isset($group['graphid'])) {
-					if (!isset($result[$group['groupid']]['graphs'])) {
-						$result[$group['groupid']]['graphs'] = array();
+					// hostids
+					if (isset($group['hostid']) && is_null($options['selectHosts'])) {
+						if (!isset($result[$group['groupid']]['hosts'])) {
+							$result[$group['groupid']]['hosts'] = array();
+						}
+						$result[$group['groupid']]['hosts'][] = array('hostid' => $group['hostid']);
+						unset($group['hostid']);
 					}
-					$result[$group['groupid']]['graphs'][] = array('graphid' => $group['graphid']);
-					unset($group['graphid']);
-				}
 
-				// maintenanceids
-				if (isset($group['maintenanceid'])) {
-					if (!isset($result[$group['groupid']]['maintenanceid'])) {
-						$result[$group['groupid']]['maintenances'] = array();
+					// graphids
+					if (isset($group['graphid'])) {
+						if (!isset($result[$group['groupid']]['graphs'])) {
+							$result[$group['groupid']]['graphs'] = array();
+						}
+						$result[$group['groupid']]['graphs'][] = array('graphid' => $group['graphid']);
+						unset($group['graphid']);
 					}
-					$result[$group['groupid']]['maintenances'][] = array('maintenanceid' => $group['maintenanceid']);
-					unset($group['maintenanceid']);
-				}
 
-				// triggerids
-				if (isset($group['triggerid'])) {
-					if (!isset($result[$group['groupid']]['triggers'])) {
-						$result[$group['groupid']]['triggers'] = array();
+					// maintenanceids
+					if (isset($group['maintenanceid'])) {
+						if (!isset($result[$group['groupid']]['maintenanceid'])) {
+							$result[$group['groupid']]['maintenances'] = array();
+						}
+						$result[$group['groupid']]['maintenances'][] = array('maintenanceid' => $group['maintenanceid']);
+						unset($group['maintenanceid']);
 					}
-					$result[$group['groupid']]['triggers'][] = array('triggerid' => $group['triggerid']);
-					unset($group['triggerid']);
+
+					// triggerids
+					if (isset($group['triggerid'])) {
+						if (!isset($result[$group['groupid']]['triggers'])) {
+							$result[$group['groupid']]['triggers'] = array();
+						}
+						$result[$group['groupid']]['triggers'][] = array('triggerid' => $group['triggerid']);
+						unset($group['triggerid']);
+					}
+					$result[$group['groupid']] += $group;
 				}
-				$result[$group['groupid']] += $group;
 			}
 		}
 
@@ -406,8 +468,109 @@ class CHostGroup extends CZBXAPI {
 			return $result;
 		}
 
-		if ($result) {
-			$result = $this->addRelatedObjects($options, $result);
+		// adding hosts
+		if (!is_null($options['selectHosts'])) {
+			$objParams = array(
+				'nodeids' => $options['nodeids'],
+				'groupids' => $groupids,
+				'preservekeys' => true
+			);
+
+			if (is_array($options['selectHosts']) || str_in_array($options['selectHosts'], $subselectsAllowedOutputs)) {
+				$objParams['output'] = $options['selectHosts'];
+				$hosts = API::Host()->get($objParams);
+
+				if (!is_null($options['limitSelects'])) {
+					order_result($hosts, 'host');
+				}
+
+				$count = array();
+				foreach ($hosts as $hostid => $host) {
+					$hgroups = $host['groups'];
+					unset($host['groups']);
+					foreach ($hgroups as $group) {
+						if (!is_null($options['limitSelects'])) {
+							if (!isset($count[$group['groupid']])) {
+								$count[$group['groupid']] = 0;
+							}
+							$count[$group['groupid']]++;
+
+							if ($count[$group['groupid']] > $options['limitSelects']) {
+								continue;
+							}
+						}
+						$result[$group['groupid']]['hosts'][] = $hosts[$hostid];
+					}
+				}
+			}
+			elseif (API_OUTPUT_COUNT == $options['selectHosts']) {
+				$objParams['countOutput'] = 1;
+				$objParams['groupCount'] = 1;
+
+				$hosts = API::Host()->get($objParams);
+				$hosts = zbx_toHash($hosts, 'groupid');
+				foreach ($result as $groupid => $group) {
+					if (isset($hosts[$groupid])) {
+						$result[$groupid]['hosts'] = $hosts[$groupid]['rowscount'];
+					}
+					else {
+						$result[$groupid]['hosts'] = 0;
+					}
+				}
+			}
+		}
+
+		// adding templates
+		if (!is_null($options['selectTemplates'])) {
+			$objParams = array(
+				'nodeids' => $options['nodeids'],
+				'groupids' => $groupids,
+				'preservekeys' => true
+			);
+
+			if (is_array($options['selectTemplates']) || str_in_array($options['selectTemplates'], $subselectsAllowedOutputs)) {
+				$objParams['output'] = $options['selectTemplates'];
+				$templates = API::Template()->get($objParams);
+				if (!is_null($options['limitSelects'])) {
+					order_result($templates, 'host');
+				}
+
+				$count = array();
+				foreach ($templates as $templateid => $template) {
+					$hgroups = $template['groups'];
+					unset($template['groups']);
+
+					foreach ($hgroups as $group) {
+						if (!is_null($options['limitSelects'])) {
+							if (!isset($count[$group['groupid']])) {
+								$count[$group['groupid']] = 0;
+							}
+							$count[$group['groupid']]++;
+
+							if ($count[$group['groupid']] > $options['limitSelects']) {
+								continue;
+							}
+						}
+						$result[$group['groupid']]['templates'][] = $templates[$templateid];
+					}
+				}
+			}
+			elseif (API_OUTPUT_COUNT == $options['selectTemplates']) {
+				$objParams['countOutput'] = 1;
+				$objParams['groupCount'] = 1;
+
+				$templates = API::Template()->get($objParams);
+				$templates = zbx_toHash($templates, 'groupid');
+
+				foreach ($result as $groupid => $group) {
+					if (isset($templates[$groupid])) {
+						$result[$groupid]['templates'] = $templates[$groupid]['rowscount'];
+					}
+					else {
+						$result[$groupid]['templates'] = 0;
+					}
+				}
+			}
 		}
 
 		// removing keys (hash -> array)
@@ -449,7 +612,7 @@ class CHostGroup extends CZBXAPI {
 
 		$options = array(
 			'filter' => zbx_array_mintersect($keyFields, $object),
-			'output' => array('groupid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'nopermissions' => true,
 			'limit' => 1
 		);
@@ -481,7 +644,7 @@ class CHostGroup extends CZBXAPI {
 
 		foreach ($groups as $group) {
 			if (empty($group['name'])) {
-				self::exception(ZBX_API_ERROR_PARAMETERS, _('Host group name cannot be empty.'));
+				self::exception(ZBX_API_ERROR_PARAMETERS, _('Cannot create group without name.'));
 			}
 			if ($this->exists(array('name' => $group['name']))) {
 				self::exception(ZBX_API_ERROR_PARAMETERS, _s('Host group "%1$s" already exists.', $group['name']));
@@ -513,14 +676,12 @@ class CHostGroup extends CZBXAPI {
 		$updGroups = $this->get(array(
 			'groupids' => $groupids,
 			'editable' => true,
-			'output' => array('groupid', 'flags'),
+			'output' => API_OUTPUT_SHORTEN,
 			'preservekeys' => true
 		));
 		foreach ($groups as $group) {
 			if (!isset($updGroups[$group['groupid']])) {
-				self::exception(ZBX_API_ERROR_PERMISSIONS,
-					_('No permissions to referred object or it does not exist!')
-				);
+				self::exception(ZBX_API_ERROR_PERMISSIONS, _('You do not have permission to perform this operation.'));
 			}
 		}
 
@@ -533,33 +694,22 @@ class CHostGroup extends CZBXAPI {
 		));
 		$groupsNames = zbx_toHash($groupsNames, 'name');
 
-		$updateDiscoveredValidator = new CUpdateDiscoveredValidator(array(
-			'messageAllowed' => _('Cannot update a discovered host group.')
-		));
-
 		$update = array();
 		foreach ($groups as $group) {
-			if (isset($group['name'])) {
-				if (zbx_empty($group['name'])) {
-					self::exception(ZBX_API_ERROR_PARAMETERS, _('Host group name cannot be empty.'));
-				}
-
-				// cannot update discovered host groups
-				$this->checkPartialValidator($group, $updateDiscoveredValidator, $updGroups[$group['groupid']]);
-
-				if (isset($groupsNames[$group['name']])
-						&& !idcmp($groupsNames[$group['name']]['groupid'], $group['groupid'])) {
-					self::exception(ZBX_API_ERROR_PARAMETERS, _s('Host group "%1$s" already exists.', $group['name']));
-				}
-
-				$update[] = array(
-					'values' => array('name' => $group['name']),
-					'where' => array('groupid' => $group['groupid'])
-				);
+			if (isset($group['name'])
+				&& isset($groupsNames[$group['name']])
+				&& !idcmp($groupsNames[$group['name']]['groupid'], $group['groupid'])
+			) {
+				self::exception(ZBX_API_ERROR_PARAMETERS, _s('Host group "%1$s" already exists.', $group['name']));
 			}
 
 			// prevents updating several groups with same name
 			$groupsNames[$group['name']] = array('groupid' => $group['groupid']);
+
+			$update[] = array(
+				'values' => array('name' => $group['name']),
+				'where' => array('groupid' => $group['groupid'])
+			);
 		}
 
 		DB::update('groups', $update);
@@ -571,62 +721,37 @@ class CHostGroup extends CZBXAPI {
 	 * Delete host groups.
 	 *
 	 * @param array $groupids
-	 * @param bool 	$nopermissions
 	 *
-	 * @return array
+	 * @return boolean
 	 */
-	public function delete($groupids, $nopermissions = false) {
+	public function delete($groupids) {
 		if (empty($groupids)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Empty input parameter.'));
 		}
 		$groupids = zbx_toArray($groupids);
-		sort($groupids);
 
-		$delGroups = $this->get(array(
+		$options = array(
 			'groupids' => $groupids,
 			'editable' => true,
-			'output' => array('groupid', 'name', 'internal'),
-			'preservekeys' => true,
-			'nopermissions' => $nopermissions
-		));
+			'output' => API_OUTPUT_EXTEND,
+			'preservekeys' => true
+		);
+		$delGroups = $this->get($options);
 		foreach ($groupids as $groupid) {
 			if (!isset($delGroups[$groupid])) {
-				self::exception(ZBX_API_ERROR_PERMISSIONS,
-					_('No permissions to referred object or it does not exist!')
-				);
+				self::exception(ZBX_API_ERROR_PERMISSIONS, _('You do not have permission to perform this operation.'));
 			}
 			if ($delGroups[$groupid]['internal'] == ZBX_INTERNAL_GROUP) {
 				self::exception(ZBX_API_ERROR_PARAMETERS,
-					_s('Host group "%1$s" is internal and can not be deleted.', $delGroups[$groupid]['name']));
+					_s('Group "%1$s" is internal and can not be deleted.', $delGroups[$groupid]['name']));
 			}
-		}
-
-		// check if a group is used in a group prototype
-		$groupPrototype = DBFetch(DBselect(
-			'SELECT groupid'.
-			' FROM group_prototype gp'.
-			' WHERE '.dbConditionInt('groupid', $groupids),
-			1
-		));
-		if ($groupPrototype) {
-			self::exception(ZBX_API_ERROR_PARAMETERS,
-				_s('Group "%1$s" cannot be deleted, because it is used by a host prototype.',
-					$delGroups[$groupPrototype['groupid']]['name']
-				)
-			);
 		}
 
 		$dltGroupids = getDeletableHostGroups($groupids);
 		if (count($groupids) != count($dltGroupids)) {
 			foreach ($groupids as $groupid) {
-				if (isset($dltGroupids[$groupid])) {
-					continue;
-				}
 				self::exception(ZBX_API_ERROR_PARAMETERS,
-					_s('Host group "%1$s" cannot be deleted, because some hosts depend on it.',
-						$delGroups[$groupid]['name']
-					)
-				);
+					_s('Group "%s" cannot be deleted, because some hosts depend on it.', $delGroups[$groupid]['name']));
 			}
 		}
 
@@ -642,25 +767,22 @@ class CHostGroup extends CZBXAPI {
 					continue;
 				}
 				self::exception(ZBX_API_ERROR_PARAMETERS,
-					_s('Host group "%1$s" cannot be deleted, because it is used in a global script.',
-						$delGroups[$script['groupid']]['name']
-					)
-				);
+					_s('Group "%s" cannot be deleted, because it is used in a global script.', $delGroups[$script['groupid']]['name']));
+				}
 			}
-		}
 
-		// delete screens items
-		$resources = array(
-			SCREEN_RESOURCE_HOSTGROUP_TRIGGERS,
-			SCREEN_RESOURCE_HOSTS_INFO,
-			SCREEN_RESOURCE_TRIGGERS_INFO,
-			SCREEN_RESOURCE_TRIGGERS_OVERVIEW,
-			SCREEN_RESOURCE_DATA_OVERVIEW
-		);
-		DB::delete('screens_items', array(
-			'resourceid' => $groupids,
-			'resourcetype' => $resources
-		));
+			// delete screens items
+			$resources = array(
+				SCREEN_RESOURCE_HOSTGROUP_TRIGGERS,
+				SCREEN_RESOURCE_HOSTS_INFO,
+				SCREEN_RESOURCE_TRIGGERS_INFO,
+				SCREEN_RESOURCE_TRIGGERS_OVERVIEW,
+				SCREEN_RESOURCE_DATA_OVERVIEW
+			);
+			DB::delete('screens_items', array(
+				'resourceid' => $groupids,
+				'resourcetype' => $resources
+			));
 
 		// delete sysmap element
 		if (!empty($groupids)) {
@@ -732,18 +854,13 @@ class CHostGroup extends CZBXAPI {
 			$delOperationids[$dbOperation['operationid']] = $dbOperation['operationid'];
 		}
 
-		DB::delete('operations', array('operationid' => $delOperationids));
-
-		DB::delete('groups', array('groupid' => $groupids));
-
-		DB::delete('profiles', array(
-			'idx' => 'web.dashconf.groups.groupids',
-			'value_id' => $groupids
+		DB::delete('operations', array(
+			'operationid' => $delOperationids,
 		));
 
-		DB::delete('profiles', array(
-			'idx' => 'web.dashconf.groups.hide.groupids',
-			'value_id' => $groupids
+		// host groups
+		DB::delete('groups', array(
+			'groupid' => $groupids
 		));
 
 		// TODO: remove audit
@@ -775,9 +892,7 @@ class CHostGroup extends CZBXAPI {
 		));
 		foreach ($groups as $group) {
 			if (!isset($updGroups[$group['groupid']])) {
-				self::exception(ZBX_API_ERROR_PERMISSIONS,
-					_('No permissions to referred object or it does not exist!')
-				);
+				self::exception(ZBX_API_ERROR_PERMISSIONS, _('You do not have permission to perform this operation.'));
 			}
 		}
 
@@ -786,11 +901,6 @@ class CHostGroup extends CZBXAPI {
 		$templates = isset($data['templates']) ? zbx_toArray($data['templates']) : null;
 		$templateids = is_null($templates) ? array() : zbx_objectValues($templates, 'templateid');
 		$objectids = array_merge($hostids, $templateids);
-
-		// check if any of the hosts are discovered
-		$this->checkValidator($hostids, new CHostNormalValidator(array(
-			'message' => _('Cannot update groups for discovered host "%1$s".')
-		)));
 
 		$linked = array();
 		$linkedDb = DBselect(
@@ -833,28 +943,20 @@ class CHostGroup extends CZBXAPI {
 			'groupids' => $groupids,
 			'editable' => true,
 			'preservekeys' => true,
-			'output' => array('groupid')
+			'output' => API_OUTPUT_SHORTEN
 		));
 		foreach ($groupids as $groupid) {
 			if (!isset($updGroups[$groupid])) {
-				self::exception(ZBX_API_ERROR_PERMISSIONS,
-					_('No permissions to referred object or it does not exist!')
-				);
+				self::exception(ZBX_API_ERROR_PERMISSIONS, _('You do not have permission to perform this operation.'));
 			}
 		}
 		$hostids = isset($data['hostids']) ? zbx_toArray($data['hostids']) : array();
 		$templateids = isset($data['templateids']) ? zbx_toArray($data['templateids']) : array();
-
-		// check if any of the hosts are discovered
-		$this->checkValidator($hostids, new CHostNormalValidator(array(
-			'message' => _('Cannot update groups for discovered host "%1$s".')
-		)));
-
 		$objectidsToUnlink = array_merge($hostids, $templateids);
 		if (!empty($objectidsToUnlink)) {
 			$unlinkable = getUnlinkableHosts($groupids, $objectidsToUnlink);
 			if (count($objectidsToUnlink) != count($unlinkable)) {
-				self::exception(ZBX_API_ERROR_PARAMETERS, _('One of the objects is left without a host group.'));
+				self::exception(ZBX_API_ERROR_PARAMETERS, 'One of the objects is left without host group.');
 			}
 
 			DB::delete('hosts_groups', array(
@@ -890,26 +992,24 @@ class CHostGroup extends CZBXAPI {
 		));
 		foreach ($groupIds as $groupId) {
 			if (!isset($allowedGroups[$groupId])) {
-				self::exception(ZBX_API_ERROR_PERMISSIONS,
-					_('No permissions to referred object or it does not exist!')
-				);
+				self::exception(ZBX_API_ERROR_PERMISSIONS, _('You do not have permission to perform this operation.'));
 			}
 		}
 
 		// validate allowed hosts
 		if (!empty($hostIds)) {
-			if (!API::Host()->isWritable($hostIds)) {
-				self::exception(ZBX_API_ERROR_PERMISSIONS,
-					_('No permissions to referred object or it does not exist!')
-				);
+			$allowedHosts = API::Host()->get(array(
+				'hostids' => $hostIds,
+				'editable' => true,
+				'preservekeys' => true
+			));
+			foreach ($hostIds as $hostId) {
+				if (!isset($allowedHosts[$hostId])) {
+					self::exception(ZBX_API_ERROR_PERMISSIONS, _('You do not have permission to perform this operation.'));
+				}
+
+				$workHostIds[$hostId] = $hostId;
 			}
-
-			// check if any of the hosts are discovered
-			$this->checkValidator($hostIds, new CHostNormalValidator(array(
-				'message' => _('Cannot update groups for discovered host "%1$s".')
-			)));
-
-			$workHostIds = zbx_toHash($hostIds);
 		}
 
 		// validate allowed templates
@@ -921,9 +1021,7 @@ class CHostGroup extends CZBXAPI {
 			));
 			foreach ($templateIds as $templateId) {
 				if (!isset($allowedTemplates[$templateId])) {
-					self::exception(ZBX_API_ERROR_PERMISSIONS,
-						_('No permissions to referred object or it does not exist!')
-					);
+					self::exception(ZBX_API_ERROR_PERMISSIONS, _('You do not have permission to perform this operation.'));
 				}
 
 				$workHostIds[$templateId] = $templateId;
@@ -931,13 +1029,10 @@ class CHostGroup extends CZBXAPI {
 		}
 
 		// get old records
-		// skip discovered hosts
 		$oldRecords = DBfetchArray(DBselect(
 			'SELECT *'.
-			' FROM hosts_groups hg,hosts h'.
-			' WHERE '.dbConditionInt('hg.groupid', $groupIds).
-				' AND hg.hostid=h.hostid'.
-				' AND h.flags='.ZBX_FLAG_DISCOVERY_NORMAL
+			' FROM hosts_groups hg'.
+			' WHERE '.dbConditionInt('hg.groupid', $groupIds)
 		));
 
 		// calculate new records
@@ -986,7 +1081,7 @@ class CHostGroup extends CZBXAPI {
 			$unlinkable = getUnlinkableHosts($groupIds, $hostIdsToValidate);
 
 			if (count($unlinkable) != count($hostIdsToValidate)) {
-				self::exception(ZBX_API_ERROR_PARAMETERS, _('One of the objects is left without a host group.'));
+				self::exception(ZBX_API_ERROR_PARAMETERS, 'One of the objects is left without host group.');
 			}
 		}
 
@@ -996,14 +1091,7 @@ class CHostGroup extends CZBXAPI {
 		return array('groupids' => $groupIds);
 	}
 
-	/**
-	 * Check if user has read permissions for host groups.
-	 *
-	 * @param array $ids
-	 *
-	 * @return bool
-	 */
-	public function isReadable(array $ids) {
+	public function isReadable($ids) {
 		if (!is_array($ids)) {
 			return false;
 		}
@@ -1016,19 +1104,13 @@ class CHostGroup extends CZBXAPI {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'groupids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'countOutput' => true
 		));
 		return count($ids) == $count;
 	}
 
-	/**
-	 * Check if user has write permissions for host groups.
-	 *
-	 * @param array $ids
-	 *
-	 * @return bool
-	 */
-	public function isWritable(array $ids) {
+	public function isWritable($ids) {
 		if (!is_array($ids)) {
 			return false;
 		}
@@ -1041,6 +1123,7 @@ class CHostGroup extends CZBXAPI {
 		$count = $this->get(array(
 			'nodeids' => get_current_nodeid(true),
 			'groupids' => $ids,
+			'output' => API_OUTPUT_SHORTEN,
 			'editable' => true,
 			'countOutput' => true
 		));
@@ -1060,119 +1143,5 @@ class CHostGroup extends CZBXAPI {
 		}
 
 		return $sqlParts;
-	}
-
-	protected function addRelatedObjects(array $options, array $result) {
-		$result = parent::addRelatedObjects($options, $result);
-
-		$groupIds = array_keys($result);
-		sort($groupIds);
-
-		// adding hosts
-		if ($options['selectHosts'] !== null) {
-			if ($options['selectHosts'] !== API_OUTPUT_COUNT) {
-				$relationMap = $this->createRelationMap($result, 'groupid', 'hostid', 'hosts_groups');
-				$hosts = API::Host()->get(array(
-					'output' => $options['selectHosts'],
-					'nodeids' => $options['nodeids'],
-					'hostids' => $relationMap->getRelatedIds(),
-					'preservekeys' => true
-				));
-				if (!is_null($options['limitSelects'])) {
-					order_result($hosts, 'host');
-				}
-				$result = $relationMap->mapMany($result, $hosts, 'hosts', $options['limitSelects']);
-			}
-			else {
-				$hosts = API::Host()->get(array(
-					'nodeids' => $options['nodeids'],
-					'groupids' => $groupIds,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$hosts = zbx_toHash($hosts, 'groupid');
-				foreach ($result as $groupid => $group) {
-					if (isset($hosts[$groupid])) {
-						$result[$groupid]['hosts'] = $hosts[$groupid]['rowscount'];
-					}
-					else {
-						$result[$groupid]['hosts'] = 0;
-					}
-				}
-			}
-		}
-
-		// adding templates
-		if ($options['selectTemplates'] !== null) {
-			if ($options['selectTemplates'] !== API_OUTPUT_COUNT) {
-				$relationMap = $this->createRelationMap($result, 'groupid', 'hostid', 'hosts_groups');
-				$hosts = API::Template()->get(array(
-					'output' => $options['selectTemplates'],
-					'nodeids' => $options['nodeids'],
-					'templateids' => $relationMap->getRelatedIds(),
-					'preservekeys' => true
-				));
-				if (!is_null($options['limitSelects'])) {
-					order_result($hosts, 'host');
-				}
-				$result = $relationMap->mapMany($result, $hosts, 'templates', $options['limitSelects']);
-			}
-			else {
-				$hosts = API::Template()->get(array(
-					'nodeids' => $options['nodeids'],
-					'groupids' => $groupIds,
-					'countOutput' => true,
-					'groupCount' => true
-				));
-				$hosts = zbx_toHash($hosts, 'groupid');
-				foreach ($result as $groupid => $group) {
-					if (isset($hosts[$groupid])) {
-						$result[$groupid]['templates'] = $hosts[$groupid]['rowscount'];
-					}
-					else {
-						$result[$groupid]['templates'] = 0;
-					}
-				}
-			}
-		}
-
-		// adding discovery rule
-		if ($options['selectDiscoveryRule'] !== null && $options['selectDiscoveryRule'] != API_OUTPUT_COUNT) {
-			// discovered items
-			$discoveryRules = DBFetchArray(DBselect(
-				'SELECT gd.groupid,hd.parent_itemid'.
-					' FROM group_discovery gd,group_prototype gp,host_discovery hd'.
-					' WHERE '.dbConditionInt('gd.groupid', $groupIds).
-					' AND gd.parent_group_prototypeid=gp.group_prototypeid'.
-					' AND gp.hostid=hd.hostid'
-			));
-			$relationMap = $this->createRelationMap($discoveryRules, 'groupid', 'parent_itemid');
-
-			$discoveryRules = API::DiscoveryRule()->get(array(
-				'output' => $options['selectDiscoveryRule'],
-				'nodeids' => $options['nodeids'],
-				'itemids' => $relationMap->getRelatedIds(),
-				'preservekeys' => true
-			));
-			$result = $relationMap->mapOne($result, $discoveryRules, 'discoveryRule');
-		}
-
-		// adding group discovery
-		if ($options['selectGroupDiscovery'] !== null) {
-			$groupDiscoveries = API::getApi()->select('group_discovery', array(
-				'output' => $this->outputExtend('group_discovery', array('groupid'), $options['selectGroupDiscovery']),
-				'filter' => array('groupid' => $groupIds),
-				'preservekeys' => true,
-				'nodeids' => get_current_nodeid(true)
-			));
-			$relationMap = $this->createRelationMap($groupDiscoveries, 'groupid', 'groupid');
-
-			$groupDiscoveries = $this->unsetExtraFields($groupDiscoveries, array('groupid'),
-				$options['selectGroupDiscovery']
-			);
-			$result = $relationMap->mapOne($result, $groupDiscoveries, 'groupDiscovery');
-		}
-
-		return $result;
 	}
 }

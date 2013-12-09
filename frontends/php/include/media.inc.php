@@ -17,26 +17,26 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 function media_type2str($type = null) {
-	$mediaTypes = array(
+	$media_types = array(
 		MEDIA_TYPE_EMAIL => _('Email'),
 		MEDIA_TYPE_EXEC => _('Script'),
 		MEDIA_TYPE_SMS => _('SMS'),
 		MEDIA_TYPE_JABBER => _('Jabber'),
-		MEDIA_TYPE_EZ_TEXTING => _('Ez Texting')
+		MEDIA_TYPE_EZ_TEXTING => _('Ez Texting'),
 	);
 
-	if ($type === null) {
-		natsort($mediaTypes);
-
-		return $mediaTypes;
+	if (is_null($type)) {
+		natsort($media_types);
+		return $media_types;
 	}
-	elseif (isset($mediaTypes[$type])) {
-		return $mediaTypes[$type];
+	elseif (isset($media_types[$type])) {
+		return $media_types[$type];
 	}
 	else {
 		return _('Unknown');
 	}
 }
+?>

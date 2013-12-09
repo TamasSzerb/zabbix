@@ -29,7 +29,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
-	'iconmapid' =>		array(T_ZBX_INT, O_OPT, P_SYS,			DB_ID,	'(isset({form})&&{form}=="update")||isset({delete})'),
+	'iconmapid' =>		array(T_ZBX_INT, O_OPT, P_SYS,			DB_ID,	'(isset({form})&&({form}=="update"))||isset({delete})'),
 	'iconmap' =>		array(T_ZBX_STR, O_OPT, null,			null,	'isset({save})'),
 	'save' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
 	'delete' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
@@ -44,8 +44,8 @@ check_fields($fields);
  */
 if (isset($_REQUEST['iconmapid'])) {
 	$iconMap = API::IconMap()->get(array(
-		'iconmapids' => get_request('iconmapid'),
 		'output' => API_OUTPUT_EXTEND,
+		'iconmapids' => get_request('iconmapid'),
 		'editable' => true,
 		'preservekeys' => true,
 		'selectMappings' => API_OUTPUT_EXTEND,
@@ -64,7 +64,8 @@ if (isset($_REQUEST['save'])) {
 		: array();
 
 	$i = 0;
-	foreach ($_REQUEST['iconmap']['mappings'] as &$mapping) {
+	foreach ($_REQUEST['iconmap']['mappings'] as $iconmappingid => &$mapping) {
+		$mapping['iconmappingid'] = $iconmappingid;
 		$mapping['sortorder'] = $i++;
 	}
 	unset($mapping);
@@ -82,18 +83,15 @@ if (isset($_REQUEST['save'])) {
 	}
 
 	show_messages($result, $msgOk, $msgErr);
-
 	if ($result) {
 		unset($_REQUEST['form']);
 	}
 }
 elseif (isset($_REQUEST['delete'])) {
 	$result = API::IconMap()->delete($_REQUEST['iconmapid']);
-
 	if ($result) {
 		unset($_REQUEST['form']);
 	}
-
 	show_messages($result, _('Icon map deleted'), _('Cannot delete icon map'));
 }
 elseif (isset($_REQUEST['clone'])) {
@@ -104,10 +102,12 @@ elseif (isset($_REQUEST['clone'])) {
 /*
  * Display
  */
-$generalComboBox = new CComboBox('configDropDown', 'adm.iconmapping.php', 'redirect(this.options[this.selectedIndex].value);');
-$generalComboBox->addItems(array(
+$form = new CForm();
+$form->cleanItems();
+$cmbConf = new CComboBox('configDropDown', 'adm.iconmapping.php', 'redirect(this.options[this.selectedIndex].value);');
+$cmbConf->addItems(array(
 	'adm.gui.php' => _('GUI'),
-	'adm.housekeeper.php' => _('Housekeeping'),
+	'adm.housekeeper.php' => _('Housekeeper'),
 	'adm.images.php' => _('Images'),
 	'adm.iconmapping.php' => _('Icon mapping'),
 	'adm.regexps.php' => _('Regular expressions'),
@@ -118,36 +118,29 @@ $generalComboBox->addItems(array(
 	'adm.triggerdisplayoptions.php' => _('Trigger displaying options'),
 	'adm.other.php' => _('Other')
 ));
-$iconMapForm = new CForm();
-$iconMapForm->cleanItems();
-$iconMapForm->addItem($generalComboBox);
-
+$form->addItem($cmbConf);
 if (!isset($_REQUEST['form'])) {
-	$iconMapForm->addItem(new CSubmit('form', _('Create icon map')));
+	$form->addItem(new CSubmit('form', _('Create icon map')));
 }
 
-$iconMapWidget = new CWidget();
-$iconMapWidget->addPageHeader(_('CONFIGURATION OF ICON MAPPING'), $iconMapForm);
+$cnf_wdgt = new CWidget();
+$cnf_wdgt->addPageHeader(_('CONFIGURATION OF ICON MAPPING'), $form);
 
-$data = array(
-	'form_refresh' => get_request('form_refresh', 0),
-	'iconmapid' => get_request('iconmapid'),
-	'iconList' => array(),
-	'inventoryList' => array(),
-	'displayNodes' => is_array(get_current_nodeid())
-);
+$data = array();
+$data['form_refresh'] = get_request('form_refresh', 0);
+$data['iconmapid'] = get_request('iconmapid');
 
+$data['iconList'] = array();
 $iconList = API::Image()->get(array(
 	'filter' => array('imagetype' => IMAGE_TYPE_ICON),
 	'output' => API_OUTPUT_EXTEND,
 	'preservekeys' => true
 ));
-order_result($iconList, 'name');
-
 foreach ($iconList as $icon) {
 	$data['iconList'][$icon['imageid']] = $icon['name'];
 }
 
+$data['inventoryList'] = array();
 $inventoryFields = getHostInventories();
 foreach ($inventoryFields as $field) {
 	$data['inventoryList'][$field['nr']] = $field['title'];
@@ -162,39 +155,28 @@ if (isset($_REQUEST['form'])) {
 	}
 	else {
 		$firstIcon = reset($iconList);
-
 		$data['iconmap'] = array(
 			'name' => '',
 			'default_iconid' => $firstIcon['imageid'],
-			'mappings' => array()
+			'mappings' => array(),
 		);
 	}
 
 	$iconMapView = new CView('administration.general.iconmap.edit', $data);
 }
 else {
-	$iconMapWidget->addHeader(_('Icon mapping'));
-
+	$cnf_wdgt->addHeader(_('Icon mapping'));
 	$data['iconmaps'] = API::IconMap()->get(array(
 		'output' => API_OUTPUT_EXTEND,
 		'editable' => true,
 		'preservekeys' => true,
-		'selectMappings' => API_OUTPUT_EXTEND
+		'selectMappings' => API_OUTPUT_EXTEND,
 	));
 	order_result($data['iconmaps'], 'name');
-
-	// nodes
-	foreach ($data['iconmaps'] as &$iconMap) {
-		order_result($iconMap['mappings'], 'sortorder');
-
-		$iconMap['nodename'] = $data['displayNodes'] ? get_node_name_by_elid($iconMap['iconmapid'], true) : '';
-	}
-	unset($iconMap);
-
 	$iconMapView = new CView('administration.general.iconmap.list', $data);
 }
 
-$iconMapWidget->addItem($iconMapView->render());
-$iconMapWidget->show();
+$cnf_wdgt->addItem($iconMapView->render());
+$cnf_wdgt->show();
 
 require_once dirname(__FILE__).'/include/page_footer.php';

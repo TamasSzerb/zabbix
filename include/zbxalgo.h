@@ -83,13 +83,6 @@ typedef struct
 }
 zbx_ptr_pair_t;
 
-typedef struct
-{
-	zbx_uint64_t	first;
-	zbx_uint64_t	second;
-}
-zbx_uint64_pair_t;
-
 /* hashset */
 
 #define ZBX_HASHSET_ENTRY_T	struct zbx_hashset_entry_s
@@ -97,8 +90,8 @@ zbx_uint64_pair_t;
 ZBX_HASHSET_ENTRY_T
 {
 	ZBX_HASHSET_ENTRY_T	*next;
+	void			*data;
 	zbx_hash_t		hash;
-	char			data[1];
 };
 
 typedef struct
@@ -261,7 +254,6 @@ void	zbx_vector_ ## __id ## _create_ext(zbx_vector_ ## __id ## _t *vector,					\
 void	zbx_vector_ ## __id ## _destroy(zbx_vector_ ## __id ## _t *vector);					\
 														\
 void	zbx_vector_ ## __id ## _append(zbx_vector_ ## __id ## _t *vector, __type value);			\
-void	zbx_vector_ ## __id ## _append_ptr(zbx_vector_ ## __id ## _t *vector, __type *value);			\
 void	zbx_vector_ ## __id ## _remove_noorder(zbx_vector_ ## __id ## _t *vector, int index);			\
 void	zbx_vector_ ## __id ## _remove(zbx_vector_ ## __id ## _t *vector, int index);				\
 														\
@@ -282,9 +274,5 @@ ZBX_VECTOR_DECL(uint64, zbx_uint64_t);
 ZBX_VECTOR_DECL(str, char *);
 ZBX_VECTOR_DECL(ptr, void *);
 ZBX_VECTOR_DECL(ptr_pair, zbx_ptr_pair_t);
-ZBX_VECTOR_DECL(uint64_pair, zbx_uint64_pair_t);
-
-void	zbx_vector_str_clean(zbx_vector_str_t *vector);
-void	zbx_vector_ptr_clean(zbx_vector_ptr_t *vector, zbx_mem_free_func_t free_func);
 
 #endif

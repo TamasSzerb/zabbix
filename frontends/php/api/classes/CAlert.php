@@ -18,20 +18,16 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 **/
 
-
 /**
- * Class containing methods for operations with alerts.
- *
- * @package API
+ * Class containing methods for operations with Alerts.
  */
 class CAlert extends CZBXAPI {
 
 	protected $tableName = 'alerts';
 	protected $tableAlias = 'a';
-	protected $sortColumns = array('alertid', 'clock', 'eventid', 'status');
 
 	/**
-	 * Get alerts data.
+	 * Get Alerts data.
 	 *
 	 * @param array $options
 	 * @param array $options['itemids']
@@ -54,6 +50,12 @@ class CAlert extends CZBXAPI {
 		$userType = self::$userData['type'];
 		$userid = self::$userData['userid'];
 
+		// allowed columns for sorting
+		$sortColumns = array('alertid', 'clock', 'eventid', 'status');
+
+		// allowed output options for [ select_* ] params
+		$subselectsAllowedOutputs = array(API_OUTPUT_REFER, API_OUTPUT_EXTEND, API_OUTPUT_CUSTOM);
+
 		$sqlParts = array(
 			'select'	=> array('alerts' => 'a.alertid'),
 			'from'		=> array('alerts' => 'alerts a'),
@@ -64,12 +66,10 @@ class CAlert extends CZBXAPI {
 
 		$defOptions = array(
 			'nodeids'					=> null,
-			'eventsource'				=> EVENT_SOURCE_TRIGGERS,
-			'eventobject'				=> EVENT_OBJECT_TRIGGER,
 			'groupids'					=> null,
 			'hostids'					=> null,
 			'alertids'					=> null,
-			'objectids'					=> null,
+			'triggerids'				=> null,
 			'eventids'					=> null,
 			'actionids'					=> null,
 			'mediatypeids'				=> null,
@@ -98,118 +98,74 @@ class CAlert extends CZBXAPI {
 		);
 		$options = zbx_array_merge($defOptions, $options);
 
-		$this->validateGet($options);
+		if (is_array($options['output'])) {
+			unset($sqlParts['select']['alerts']);
+
+			$dbTable = DB::getSchema('alerts');
+			$sqlParts['select']['alertid'] = 'a.alertid';
+			foreach ($options['output'] as $field) {
+				if (isset($dbTable['fields'][$field])) {
+					$sqlParts['select'][$field] = 'a.'.$field;
+				}
+			}
+			$options['output'] = API_OUTPUT_CUSTOM;
+		}
 
 		// editable + PERMISSION CHECK
 		if ($userType != USER_TYPE_SUPER_ADMIN && !$options['nopermissions']) {
-			// triggers
-			if ($options['eventobject'] == EVENT_OBJECT_TRIGGER) {
-				$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ;
+			$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ_ONLY;
 
-				// Oracle does not support using disctinct with nclob fields, so we must use exists instead of joins
-				$sqlParts['where'][] = 'EXISTS ('.
+			$userGroups = getUserGroupsByUserId($userid);
+
+			$sqlParts['where'][] = 'EXISTS ('.
 					'SELECT NULL'.
 					' FROM events e,functions f,items i,hosts_groups hgg'.
-					' JOIN rights r'.
-						' ON r.id=hgg.groupid'.
-						' AND '.dbConditionInt('r.groupid', getUserGroupsByUserId($userid)).
+						' JOIN rights r'.
+							' ON r.id=hgg.groupid'.
+								' AND '.dbConditionInt('r.groupid', $userGroups).
 					' WHERE a.eventid=e.eventid'.
 						' AND e.objectid=f.triggerid'.
 						' AND f.itemid=i.itemid'.
 						' AND i.hostid=hgg.hostid'.
-					' GROUP BY f.triggerid'.
-					' HAVING MIN(r.permission)>'.PERM_DENY.
-					' AND MAX(r.permission)>='.$permission.
-				')';
-			}
-			// items and LLD rules
-			elseif ($options['eventobject'] == EVENT_OBJECT_ITEM || $options['eventobject'] == EVENT_OBJECT_LLDRULE) {
-				$permission = $options['editable'] ? PERM_READ_WRITE : PERM_READ;
-
-				// Oracle does not support using disctinct with nclob fields, so we must use exists instead of joins
-				$sqlParts['where'][] = 'EXISTS ('.
-					'SELECT NULL'.
-					' FROM events e,items i,hosts_groups hgg'.
-					' JOIN rights r'.
-						' ON r.id=hgg.groupid'.
-						' AND '.dbConditionInt('r.groupid', getUserGroupsByUserId($userid)).
-					' WHERE a.eventid=e.eventid'.
-						' AND e.objectid=i.itemid'.
-						' AND i.hostid=hgg.hostid'.
-					' GROUP BY hgg.hostid'.
-					' HAVING MIN(r.permission)>'.PERM_DENY.
-					' AND MAX(r.permission)>='.$permission.
-				')';
-			}
+						' AND e.object='.EVENT_OBJECT_TRIGGER.
+					' GROUP BY e.eventid'.
+					' HAVING MIN(r.permission)>='.$permission.
+					')';
 		}
 
-		// Oracle does not support using disctinct with nclob fields, so we must use exists instead of joins
-		$sqlParts['where'][] = 'EXISTS ('.
-			'SELECT NULL'.
-			' FROM events e'.
-			' WHERE a.eventid=e.eventid'.
-				' AND e.source='.zbx_dbstr($options['eventsource']).
-				' AND e.object='.zbx_dbstr($options['eventobject']).
-		')';
+		// nodeids
+		$nodeids = !is_null($options['nodeids']) ? $options['nodeids'] : get_current_nodeid();
 
 		// groupids
 		if (!is_null($options['groupids'])) {
 			zbx_value2array($options['groupids']);
 
-			// triggers
-			if ($options['eventobject'] == EVENT_OBJECT_TRIGGER) {
-				// Oracle does not support using disctinct with nclob fields, so we must use exists instead of joins
-				$sqlParts['where'][] = 'EXISTS ('.
-					'SELECT NULL'.
-					' FROM events e,functions f,items i,hosts_groups hg'.
-					' WHERE a.eventid=e.eventid'.
-						' AND e.objectid=f.triggerid'.
-						' AND f.itemid=i.itemid'.
-						' AND i.hostid=hg.hostid'.
-						' AND '.dbConditionInt('hg.groupid', $options['groupids']).
-				')';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['groupid'] = 'hg.groupid';
 			}
-			// lld rules and items
-			elseif ($options['eventobject'] == EVENT_OBJECT_LLDRULE || $options['eventobject'] == EVENT_OBJECT_ITEM) {
-				// Oracle does not support using disctinct with nclob fields, so we must use exists instead of joins
-				$sqlParts['where'][] = 'EXISTS ('.
-					'SELECT NULL'.
-					' FROM events e,items i,hosts_groups hg'.
-					' WHERE a.eventid=e.eventid'.
-						' AND e.objectid=i.itemid'.
-						' AND i.hostid=hg.hostid'.
-						' AND '.dbConditionInt('hg.groupid', $options['groupids']).
-				')';
-			}
+			$sqlParts['from']['functions'] = 'functions f';
+			$sqlParts['from']['items'] = 'items i';
+			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
+			$sqlParts['where']['hgi'] = 'hg.hostid=i.hostid';
+			$sqlParts['where']['e'] = 'e.object='.EVENT_OBJECT_TRIGGER;
+			$sqlParts['where']['ef'] = 'e.objectid=f.triggerid';
+			$sqlParts['where']['fi'] = 'f.itemid=i.itemid';
+			$sqlParts['where']['hg'] = dbConditionInt('hg.groupid', $options['groupids']);
 		}
 
 		// hostids
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
-			// triggers
-			if ($options['eventobject'] == EVENT_OBJECT_TRIGGER) {
-				// Oracle does not support using disctinct with nclob fields, so we must use exists instead of joins
-				$sqlParts['where'][] = 'EXISTS ('.
-				'SELECT NULL'.
-				' FROM events e,functions f,items i'.
-				' WHERE a.eventid=e.eventid'.
-					' AND e.objectid=f.triggerid'.
-					' AND f.itemid=i.itemid'.
-					' AND '.dbConditionInt('i.hostid', $options['hostids']).
-				')';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['hostid'] = 'i.hostid';
 			}
-			// lld rules and items
-			elseif ($options['eventobject'] == EVENT_OBJECT_LLDRULE || $options['eventobject'] == EVENT_OBJECT_ITEM) {
-				// Oracle does not support using disctinct with nclob fields, so we must use exists instead of joins
-				$sqlParts['where'][] = 'EXISTS ('.
-				'SELECT NULL'.
-				' FROM events e,items i'.
-				' WHERE a.eventid=e.eventid'.
-					' AND e.objectid=i.itemid'.
-					' AND '.dbConditionInt('i.hostid', $options['hostids']).
-				')';
-			}
+			$sqlParts['from']['functions'] = 'functions f';
+			$sqlParts['from']['items'] = 'items i';
+			$sqlParts['where']['i'] = dbConditionInt('i.hostid', $options['hostids']);
+			$sqlParts['where']['e'] = 'e.object='.EVENT_OBJECT_TRIGGER;
+			$sqlParts['where']['ef'] = 'e.objectid=f.triggerid';
+			$sqlParts['where']['fi'] = 'f.itemid=i.itemid';
 		}
 
 		// alertids
@@ -219,18 +175,16 @@ class CAlert extends CZBXAPI {
 			$sqlParts['where'][] = dbConditionInt('a.alertid', $options['alertids']);
 		}
 
-		// objectids
-		if ($options['objectids'] !== null
-				&& in_array($options['eventobject'], array(EVENT_OBJECT_TRIGGER, EVENT_OBJECT_ITEM, EVENT_OBJECT_LLDRULE))) {
-			zbx_value2array($options['objectids']);
+		// triggerids
+		if (!is_null($options['triggerids'])) {
+			zbx_value2array($options['triggerids']);
 
-			// Oracle does not support using disctinct with nclob fields, so we must use exists instead of joins
-			$sqlParts['where'][] = 'EXISTS ('.
-				'SELECT NULL'.
-				' FROM events e'.
-				' WHERE a.eventid=e.eventid'.
-					' AND '.dbConditionInt('e.objectid', $options['objectids']).
-			')';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['actionid'] = 'a.actionid';
+			}
+			$sqlParts['where']['ae'] = 'a.eventid=e.eventid';
+			$sqlParts['where']['e'] = 'e.object='.EVENT_OBJECT_TRIGGER;
+			$sqlParts['where'][] = dbConditionInt('e.objectid', $options['triggerids']);
 		}
 
 		// eventids
@@ -244,7 +198,9 @@ class CAlert extends CZBXAPI {
 		if (!is_null($options['actionids'])) {
 			zbx_value2array($options['actionids']);
 
-			$sqlParts['select']['actionid'] = 'a.actionid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['actionid'] = 'a.actionid';
+			}
 			$sqlParts['where'][] = dbConditionInt('a.actionid', $options['actionids']);
 		}
 
@@ -263,7 +219,9 @@ class CAlert extends CZBXAPI {
 		if (!is_null($options['mediatypeids'])) {
 			zbx_value2array($options['mediatypeids']);
 
-			$sqlParts['select']['mediatypeid'] = 'a.mediatypeid';
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['mediatypeid'] = 'a.mediatypeid';
+			}
 			$sqlParts['where'][] = dbConditionInt('a.mediatypeid', $options['mediatypeids']);
 		}
 
@@ -287,21 +245,115 @@ class CAlert extends CZBXAPI {
 			$sqlParts['where'][] = 'a.clock<'.zbx_dbstr($options['time_till']);
 		}
 
+		// output
+		if ($options['output'] == API_OUTPUT_EXTEND) {
+			$sqlParts['select']['alerts'] = 'a.*';
+		}
+
+		// countOutput
+		if (!is_null($options['countOutput'])) {
+			$options['sortfield'] = '';
+			$sqlParts['select'] = array('COUNT(DISTINCT a.alertid) AS rowscount');
+		}
+
+		// sorting
+		zbx_db_sorting($sqlParts, $options, $sortColumns, 'a');
+
 		// limit
 		if (zbx_ctype_digit($options['limit']) && $options['limit']) {
 			$sqlParts['limit'] = $options['limit'];
 		}
 
-		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
-		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
-		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
-		$dbRes = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
+		$alertids = array();
+		$userids = array();
+		$hostids = array();
+		$mediatypeids = array();
+
+		$sqlParts['select'] = array_unique($sqlParts['select']);
+		$sqlParts['from'] = array_unique($sqlParts['from']);
+		$sqlParts['where'] = array_unique($sqlParts['where']);
+		$sqlParts['order'] = array_unique($sqlParts['order']);
+
+		$sqlSelect = '';
+		$sqlFrom = '';
+		$sqlWhere = '';
+		$sqlOrder = '';
+		if (!empty($sqlParts['select'])) {
+			$sqlSelect .= implode(',', $sqlParts['select']);
+		}
+		if (!empty($sqlParts['from'])) {
+			$sqlFrom .= implode(',', $sqlParts['from']);
+		}
+		if (!empty($sqlParts['where'])) {
+			$sqlWhere .= ' AND '.implode(' AND ', $sqlParts['where']);
+		}
+		if (!empty($sqlParts['order'])) {
+			$sqlOrder .= ' ORDER BY '.implode(',', $sqlParts['order']);
+		}
+		$sqlLimit = $sqlParts['limit'];
+
+		$sql = 'SELECT '.zbx_db_distinct($sqlParts).' '.$sqlSelect.
+				' FROM '.$sqlFrom.
+				' WHERE '.DBin_node('a.alertid', $nodeids).
+					$sqlWhere.
+					$sqlOrder;
+		$dbRes = DBselect($sql, $sqlLimit);
 		while ($alert = DBfetch($dbRes)) {
 			if ($options['countOutput']) {
 				$result = $alert['rowscount'];
 			}
 			else {
-				$result[$alert['alertid']] = $alert;
+				$alertids[$alert['alertid']] = $alert['alertid'];
+
+				if (isset($alert['userid'])) {
+					$userids[$alert['userid']] = $alert['userid'];
+				}
+				if (isset($alert['hostid'])) {
+					$hostids[$alert['hostid']] = $alert['hostid'];
+				}
+				if (isset($alert['mediatypeid'])) {
+					$mediatypeids[$alert['mediatypeid']] = $alert['mediatypeid'];
+				}
+
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$alert['alertid']] = array('alertid' => $alert['alertid']);
+				}
+				else {
+					if (!isset($result[$alert['alertid']])) {
+						$result[$alert['alertid']] = array();
+					}
+					if (!is_null($options['selectMediatypes']) && !isset($result[$alert['alertid']]['mediatypes'])) {
+						$result[$alert['alertid']]['mediatypes'] = array();
+					}
+					if (!is_null($options['selectUsers']) && !isset($result[$alert['alertid']]['users'])) {
+						$result[$alert['alertid']]['users'] = array();
+					}
+
+					// hostids
+					if (isset($alert['hostid']) && is_null($options['selectHosts'])) {
+						if (!isset($result[$alert['alertid']]['hosts'])) {
+							$result[$alert['alertid']]['hosts'] = array();
+						}
+						$result[$alert['alertid']]['hosts'][] = array('hostid' => $alert['hostid']);
+					}
+
+					// userids
+					if (isset($alert['userid']) && is_null($options['selectUsers'])) {
+						if (!isset($result[$alert['alertid']]['users'])) {
+							$result[$alert['alertid']]['users'] = array();
+						}
+						$result[$alert['alertid']]['users'][] = array('userid' => $alert['userid']);
+					}
+
+					// mediatypeids
+					if (isset($alert['mediatypeid']) && is_null($options['selectMediatypes'])) {
+						if (!isset($result[$alert['alertid']]['mediatypes'])) {
+							$result[$alert['alertid']]['mediatypes'] = array();
+						}
+						$result[$alert['alertid']]['mediatypes'][] = array('mediatypeid' => $alert['mediatypeid']);
+					}
+					$result[$alert['alertid']] += $alert;
+				}
 			}
 		}
 
@@ -309,131 +361,54 @@ class CAlert extends CZBXAPI {
 			return $result;
 		}
 
-		if ($result) {
-			$result = $this->addRelatedObjects($options, $result);
-			$result = $this->unsetExtraFields($result, array('userid', 'mediatypeid'), $options['output']);
+		/*
+		 * Adding objects
+		 */
+		$hosts = array();
+		$users = array();
+		$mediatypes = array();
+
+		// adding hosts
+		if (!is_null($options['selectHosts']) && str_in_array($options['selectHosts'], $subselectsAllowedOutputs)) {
+			$hosts = API::Host()->get(array(
+				'output' => $options['selectHosts'],
+				'hostids' => $hostids,
+				'preservekeys' => true
+			));
+		}
+
+		// adding users
+		if (!is_null($options['selectUsers']) && str_in_array($options['selectUsers'], $subselectsAllowedOutputs)) {
+			$users = API::User()->get(array(
+				'output' => $options['selectUsers'],
+				'userids' => $userids,
+				'preservekeys' => true
+			));
+		}
+
+		// adding mediatypes
+		if (!is_null($options['selectMediatypes']) && str_in_array($options['selectMediatypes'], $subselectsAllowedOutputs)) {
+			$res = DBselect('SELECT mt.* FROM media_type mt WHERE '.dbConditionInt('mt.mediatypeid', $mediatypeids));
+			while ($media = DBfetch($res)) {
+				$mediatypes[$media['mediatypeid']] = $media;
+			}
+		}
+
+		foreach ($result as $alertid => $alert) {
+			if (isset($alert['hostid']) && isset($hosts[$alert['hostid']])) {
+				$result[$alertid]['hosts'][] = $hosts[$alert['hostid']];
+			}
+			if (isset($mediatypes[$alert['mediatypeid']])) {
+				$result[$alertid]['mediatypes'][] = $mediatypes[$alert['mediatypeid']];
+			}
+			if (isset($users[$alert['userid']])) {
+				$result[$alertid]['users'][] = $users[$alert['userid']];
+			}
 		}
 
 		// removing keys (hash -> array)
 		if (is_null($options['preservekeys'])) {
 			$result = zbx_cleanHashes($result);
-		}
-
-		return $result;
-	}
-
-	/**
-	 * Validates the input parameters for the get() method.
-	 *
-	 * @throws APIException     if the input is invalid
-	 *
-	 * @param array     $options
-	 *
-	 * @return void
-	 */
-	protected function validateGet(array $options) {
-		$sourceValidator = new CSetValidator(array(
-			'values' => array_keys(eventSource())
-		));
-		if (!$sourceValidator->validate($options['eventsource'])) {
-			self::exception(ZBX_API_ERROR_PARAMETERS, _('Incorrect eventsource value.'));
-		}
-
-		$objectValidator = new CSetValidator(array(
-			'values' => array_keys(eventObject())
-		));
-		if (!$objectValidator->validate($options['eventobject'])) {
-			self::exception(ZBX_API_ERROR_PARAMETERS, _('Incorrect eventobject value.'));
-		}
-
-		$sourceObjectValidator = new CEventSourceObjectValidator();
-		if (!$sourceObjectValidator->validate(array('source' => $options['eventsource'], 'object' => $options['eventobject']))) {
-			self::exception(ZBX_API_ERROR_PARAMETERS, $sourceObjectValidator->getError());
-		}
-	}
-
-	protected function applyQueryOutputOptions($tableName, $tableAlias, array $options, array $sqlParts) {
-		$sqlParts = parent::applyQueryOutputOptions($tableName, $tableAlias, $options, $sqlParts);
-
-		if ($options['countOutput'] === null) {
-			if ($options['selectUsers'] !== null) {
-				$sqlParts = $this->addQuerySelect($this->fieldId('userid'), $sqlParts);
-			}
-
-			if ($options['selectMediatypes'] !== null) {
-				$sqlParts = $this->addQuerySelect($this->fieldId('mediatypeid'), $sqlParts);
-			}
-		}
-
-		return $sqlParts;
-	}
-
-	protected function addRelatedObjects(array $options, array $result) {
-		$result = parent::addRelatedObjects($options, $result);
-
-		$alertIds = array_keys($result);
-
-		// adding hosts
-		if ($options['selectHosts'] !== null && $options['selectHosts'] !== API_OUTPUT_COUNT) {
-			// trigger events
-			if ($options['eventobject'] == EVENT_OBJECT_TRIGGER) {
-				$query = DBselect(
-					'SELECT a.alertid,i.hostid'.
-						' FROM alerts a,events e,functions f,items i'.
-						' WHERE '.dbConditionInt('a.alertid', $alertIds).
-						' AND a.eventid=e.eventid'.
-						' AND e.objectid=f.triggerid'.
-						' AND f.itemid=i.itemid'.
-						' AND e.object='.zbx_dbstr($options['eventobject']).
-						' AND e.source='.zbx_dbstr($options['eventsource'])
-				);
-			}
-			// item and LLD rule events
-			elseif ($options['eventobject'] == EVENT_OBJECT_ITEM || $options['eventobject'] == EVENT_OBJECT_LLDRULE) {
-				$query = DBselect(
-					'SELECT a.alertid,i.hostid'.
-						' FROM alerts a,events e,items i'.
-						' WHERE '.dbConditionInt('a.alertid', $alertIds).
-						' AND a.eventid=e.eventid'.
-						' AND e.objectid=i.itemid'.
-						' AND e.object='.zbx_dbstr($options['eventobject']).
-						' AND e.source='.zbx_dbstr($options['eventsource'])
-				);
-			}
-
-			$relationMap = new CRelationMap();
-			while ($relation = DBfetch($query)) {
-				$relationMap->addRelation($relation['alertid'], $relation['hostid']);
-			}
-			$hosts = API::Host()->get(array(
-				'output' => $options['selectHosts'],
-				'hostids' => $relationMap->getRelatedIds(),
-				'preservekeys' => true
-			));
-			$result = $relationMap->mapMany($result, $hosts, 'hosts');
-		}
-
-		// adding users
-		if ($options['selectUsers'] !== null && $options['selectUsers'] !== API_OUTPUT_COUNT) {
-			$relationMap = $this->createRelationMap($result, 'alertid', 'userid');
-			$users = API::User()->get(array(
-				'output' => $options['selectUsers'],
-				'userids' => $relationMap->getRelatedIds(),
-				'preservekeys' => true
-			));
-			$result = $relationMap->mapMany($result, $users, 'users');
-		}
-
-		// adding media types
-		if ($options['selectMediatypes'] !== null && $options['selectMediatypes'] !== API_OUTPUT_COUNT) {
-			$relationMap = $this->createRelationMap($result, 'alertid', 'mediatypeid');
-			$mediatypes = API::getApi()->select('media_type', array(
-				'output' => $options['selectMediatypes'],
-				'filter' => array('mediatypeid' => $relationMap->getRelatedIds()),
-				'preservekeys' => true,
-				'nodeids' => get_current_nodeid(true)
-			));
-			$result = $relationMap->mapMany($result, $mediatypes, 'mediatypes');
 		}
 
 		return $result;

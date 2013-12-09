@@ -32,102 +32,28 @@ foreach ($this->data['hosts'] as $hostid) {
 // create form list
 $hostFormList = new CFormList('hostFormList');
 
-// replace host groups
-$hostGroupsToReplace = null;
-if (isset($_REQUEST['groups'])) {
-	$getHostGroups = API::HostGroup()->get(array(
-		'groupids' => $_REQUEST['groups'],
-		'output' => array('groupid', 'name'),
-		'editable' => true
-	));
-	foreach ($getHostGroups as $getHostGroup) {
-		$hostGroupsToReplace[] = array(
-			'id' => $getHostGroup['groupid'],
-			'name' => $getHostGroup['name']
-		);
-	}
+// append groups to form list
+$groupTweenBox = new CTweenBox($hostForm, 'groups', $this->data['groups'], 6);
+foreach ($this->data['all_groups'] as $group) {
+	$groupTweenBox->addItem($group['groupid'], $group['name']);
 }
-
-$replaceGroups = new CMultiSelect(array(
-	'name' => 'groups[]',
-	'objectName' => 'hostGroup',
-	'objectOptions' => array('editable' => true),
-	'data' => $hostGroupsToReplace
-));
-
 $hostFormList->addRow(
 	array(
 		_('Replace host groups'),
 		SPACE,
-		new CVisibilityBox('visible[groups]', isset($this->data['visible']['groups']), 'groups_', _('Original'))
+		new CVisibilityBox('visible[groups]', isset($this->data['visible']['groups']), $groupTweenBox->getName(), _('Original'))
 	),
-	$replaceGroups
+	$groupTweenBox->get(_('In groups'), _('Other groups'))
 );
-
-// add new or existing host groups
-$hostGroupsToAdd = null;
-if (isset($_REQUEST['new_groups'])) {
-	foreach ($_REQUEST['new_groups'] as $newHostGroup) {
-		if (is_array($newHostGroup) && isset($newHostGroup['new'])) {
-			$hostGroupsToAdd[] = array(
-				'id' => $newHostGroup['new'],
-				'name' => $newHostGroup['new'] . ' (new)',
-				'isNew' => true
-			);
-		}
-		else {
-			$hostGroupIds[] = $newHostGroup;
-		}
-	}
-
-	if (isset($hostGroupIds)) {
-		$getHostGroups = API::HostGroup()->get(array(
-			'groupids' => $hostGroupIds,
-			'output' => array('groupid', 'name')
-		));
-		foreach ($getHostGroups as $getHostGroup) {
-			$hostGroupsToAdd[] = array(
-				'id' => $getHostGroup['groupid'],
-				'name' => $getHostGroup['name']
-			);
-		}
-	}
-}
-if (CWebUser::getType() == USER_TYPE_SUPER_ADMIN) {
-	$newGroups = new CMultiSelect(array(
-		'name' => 'new_groups[]',
-		'objectName' => 'hostGroup',
-		'objectOptions' => array('editable' => true),
-		'data' => $hostGroupsToAdd,
-		'addNew' => true
-	));
-
-	$hostFormList->addRow(
-		array(
-			_('Add new or existing host groups'),
-			SPACE,
-			new CVisibilityBox('visible[new_groups]', isset($this->data['visible']['new_groups']), 'new_groups_', _('Original'))
-		),
-		$newGroups
-	);
-}
-else {
-	$newGroups = new CMultiSelect(array(
-		'name' => 'new_groups[]',
-		'objectName' => 'hostGroup',
-		'objectOptions' => array('editable' => true),
-		'data' => $hostGroupsToAdd
-	));
-
-	$hostFormList->addRow(
-		array(
-			_('New host group'),
-			SPACE,
-			new CVisibilityBox('visible[new_groups]', isset($this->data['visible']['new_groups']), 'new_groups_', _('Original'))
-		),
-		$newGroups
-	);
-}
+$hostFormList->addRow(
+	array(
+		_('New host group'),
+		SPACE,
+		new CVisibilityBox('visible[newgroup]', isset($this->data['visible']['newgroup']), 'newgroup', _('Original'))
+	),
+	new CTextBox('newgroup', $this->data['newgroup'], ZBX_TEXTBOX_STANDARD_SIZE, 'no', 64),
+	null, null, 'new'
+);
 
 // append proxy to form list
 $proxyComboBox = new CComboBox('proxy_hostid', $this->data['proxy_hostid']);
@@ -157,20 +83,33 @@ $hostFormList->addRow(
 	$statusComboBox
 );
 
-$templatesFormList = new CFormList('templatesFormList');
 // append templates table to from list
-$templatesTable = new CTable(null, 'formElementTable');
+$templatesTable = new CTable(_('No templates defined.'), 'formElementTable');
 $templatesTable->setAttribute('style', 'min-width: 500px;');
 $templatesTable->setAttribute('id', 'template_table');
+$templatesTable->setHeader(array(_('Name'), _('Action')));
 
+foreach ($this->data['templates'] as $templateid => $templateName) {
+	$hostForm->addVar('templates['.$templateid.']', $templateName);
+
+	$row = new CRow(array(
+		$templateName,
+		new CButton('remove', _('Remove'), 'javascript: removeTemplate("'.$templateid.'");', 'link_menu')
+	));
+	$row->setAttribute('id', 'template_row_'.$templateid);
+	$templatesTable->addRow($row);
+}
 $templatesDiv = new CDiv(
 	array(
 		$templatesTable,
-		new CMultiSelect(array(
-			'name' => 'templates[]',
-			'objectName' => 'templates',
-			'data' => $this->data['linkedTemplates']
-		)),
+		new CButton('btn1', _('Add'),
+			'return PopUp("popup.php?srctbl=templates&srcfld1=hostid&srcfld2=host'.
+				'&dstfrm='.$hostForm->getName().'&dstfld1=new_template&templated_hosts=1'.
+				url_param($this->data['templates'], false, 'existed_templates').'", 450, 450)',
+			'link_menu'
+		),
+		BR(),
+		BR(),
 		new CCheckBox('mass_replace_tpls', $this->data['mass_replace_tpls']),
 		SPACE,
 		_('Replace'),
@@ -183,7 +122,7 @@ $templatesDiv = new CDiv(
 );
 $templatesDiv->setAttribute('id', 'templates_div');
 
-$templatesFormList->addRow(
+$hostFormList->addRow(
 	array(
 		_('Link templates'),
 		SPACE,
@@ -192,11 +131,10 @@ $templatesFormList->addRow(
 	$templatesDiv
 );
 
-$ipmiFormList = new CFormList('ipmiFormList');
 // append ipmi to form list
 $ipmiAuthtypeComboBox = new CComboBox('ipmi_authtype', $this->data['ipmi_authtype']);
 $ipmiAuthtypeComboBox->addItems(ipmiAuthTypes());
-$ipmiFormList->addRow(
+$hostFormList->addRow(
 	array(
 		_('IPMI authentication algorithm'),
 		SPACE,
@@ -207,7 +145,7 @@ $ipmiFormList->addRow(
 
 $ipmiPrivilegeComboBox = new CComboBox('ipmi_privilege', $this->data['ipmi_privilege']);
 $ipmiPrivilegeComboBox->addItems(ipmiPrivileges());
-$ipmiFormList->addRow(
+$hostFormList->addRow(
 	array(
 		_('IPMI privilege level'),
 		SPACE,
@@ -216,7 +154,7 @@ $ipmiFormList->addRow(
 	$ipmiPrivilegeComboBox
 );
 
-$ipmiFormList->addRow(
+$hostFormList->addRow(
 	array(
 		_('IPMI username'),
 		SPACE,
@@ -225,7 +163,7 @@ $ipmiFormList->addRow(
 	new CTextBox('ipmi_username', $this->data['ipmi_username'], ZBX_TEXTBOX_SMALL_SIZE)
 );
 
-$ipmiFormList->addRow(
+$hostFormList->addRow(
 	array(
 		_('IPMI password'),
 		SPACE,
@@ -234,13 +172,12 @@ $ipmiFormList->addRow(
 	new CTextBox('ipmi_password', $this->data['ipmi_password'], ZBX_TEXTBOX_SMALL_SIZE)
 );
 
-$inventoryFormList = new CFormList('inventoryFormList');
 // append inventories to form list
 $inventoryModesComboBox = new CComboBox('inventory_mode', $this->data['inventory_mode'], 'submit()');
 $inventoryModesComboBox->addItem(HOST_INVENTORY_DISABLED, _('Disabled'));
 $inventoryModesComboBox->addItem(HOST_INVENTORY_MANUAL, _('Manual'));
 $inventoryModesComboBox->addItem(HOST_INVENTORY_AUTOMATIC, _('Automatic'));
-$inventoryFormList->addRow(
+$hostFormList->addRow(
 	array(
 		_('Inventory mode'),
 		SPACE,
@@ -267,7 +204,7 @@ if ($this->data['inventory_mode'] != HOST_INVENTORY_DISABLED) {
 			$fieldInput->addStyle('width: '.($fieldLength > 64 ? 64 : $fieldLength).'em;');
 		}
 
-		$inventoryFormList->addRow(
+		$hostFormList->addRow(
 			array(
 				$fieldInfo['title'],
 				SPACE,
@@ -285,14 +222,7 @@ if ($this->data['inventory_mode'] != HOST_INVENTORY_DISABLED) {
 
 // append tabs to form
 $hostTab = new CTabView();
-// reset the tab when opening the form for the first time
-if (!hasRequest('masssave')) {
-	$hostTab->setSelected(0);
-}
-$hostTab->addTab('hostTab', _('Host'), $hostFormList);
-$hostTab->addTab('templatesTab', _('Templates'), $templatesFormList);
-$hostTab->addTab('ipmiTab', _('IPMI'), $ipmiFormList);
-$hostTab->addTab('inventoryTab', _('Inventory'), $inventoryFormList);
+$hostTab->addTab('hostTab', _('Mass update'), $hostFormList);
 $hostForm->addItem($hostTab);
 
 // append buttons to form

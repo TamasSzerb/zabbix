@@ -161,12 +161,12 @@ function insert_javascript_for_editable_combobox() {
 }
 
 function insert_show_color_picker_javascript() {
-	global $SHOW_COLOR_PICKER_SCRIPT_INSERTED;
+	global $SHOW_COLOR_PICKER_SCRIPT_ISERTTED;
 
-	if ($SHOW_COLOR_PICKER_SCRIPT_INSERTED) {
+	if ($SHOW_COLOR_PICKER_SCRIPT_ISERTTED) {
 		return;
 	}
-	$SHOW_COLOR_PICKER_SCRIPT_INSERTED = true;
+	$SHOW_COLOR_PICKER_SCRIPT_ISERTTED = true;
 	$table = new CTable();
 
 	// gray colors
@@ -498,6 +498,27 @@ function insert_js_function($fnct_name) {
 						e.checked = value;
 					});
 				}');
+			break;
+		case 'removeSelectedItems':
+			insert_js('
+				function removeSelectedItems(formobject, name) {
+					formobject = $(formobject);
+					if (is_null(formobject)) {
+						return false;
+					}
+					for (var i = 0; i < formobject.options.length; i++) {
+						if (!isset(i, formobject.options)) {
+							continue;
+						}
+						if (formobject.options[i].selected) {
+							var obj = $(name + "_" + formobject.options[i].value);
+							if (!is_null(obj)) {
+								obj.remove();
+							}
+						}
+					}
+				}
+			');
 			break;
 		default:
 			insert_js('throw("JS function not found ['.$fnct_name.']");');

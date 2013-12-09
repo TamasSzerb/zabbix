@@ -492,8 +492,7 @@ class CTemplateScreen extends CScreen {
 	 * Delete Screen
 	 *
 	 * @param array $screenids
-	 *
-	 * @return array
+	 * @return boolean
 	 */
 	public function delete($screenIds) {
 		$screenIds = zbx_toArray($screenIds);

@@ -610,8 +610,7 @@ class CTemplate extends CHostGeneral {
 	 *
 	 * @param array $templateids
 	 * @param array $templateids['templateids']
-	 *
-	 * @return array
+	 * @return boolean
 	 */
 	public function delete($templateids) {
 		if (empty($templateids)) {

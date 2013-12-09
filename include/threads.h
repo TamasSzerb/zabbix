@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2013 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_THREADS_H
@@ -23,8 +23,6 @@
 #include "common.h"
 
 #if defined(_WINDOWS)
-	/* the ZBXEndThread function is implemented in service.c file */
-	void	CALLBACK ZBXEndThread(ULONG_PTR dwParam);
 
 	#define ZBX_THREAD_ERROR	0
 
@@ -41,9 +39,9 @@
 		_endthreadex((unsigned int)(status)); \
 		return ((unsigned)(status))
 
-	#define zbx_sleep(sec) SleepEx(((DWORD)(sec)) * ((DWORD)1000), TRUE)
+	#define zbx_sleep(sec) Sleep(((DWORD)(sec)) * ((DWORD)1000))
 
-	#define zbx_thread_kill(h) QueueUserAPC(ZBXEndThread, h, 0);
+	#define zbx_thread_kill(h) TerminateThread(h, SUCCEED);
 
 #else	/* not _WINDOWS */
 
@@ -61,9 +59,8 @@
 	#define ZBX_THREAD_ENTRY(entry_name, arg_name)	\
 		unsigned entry_name(void *arg_name)
 
-	/* Calling _exit() to terminate child process immediately is important. See ZBX-5732 for details. */
 	#define zbx_thread_exit(status) \
-		_exit((int)(status)); \
+		exit((int)(status)); \
 		return ((unsigned)(status))
 
 	#define zbx_sleep(sec) sleep((sec))
@@ -74,8 +71,7 @@
 
 typedef struct
 {
-	int	thread_num;	/* number of thread in a group of all agent threads */
-	int	thread_num2;	/* number of thread in a specific group of threads (e.g. listeners) */
+	int	thread_num;
 	void	*args;
 }
 zbx_thread_args_t;

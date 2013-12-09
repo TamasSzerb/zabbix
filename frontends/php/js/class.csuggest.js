@@ -1,6 +1,5 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2013 Zabbix SIA
+** Copyright (C) 2010 Artem "Aly" Suharev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,15 +8,15 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
-var LCL_SUGGESTS = [];
+// JavaScript Document
+var LCL_SUGGESTS = new Array();
 
 function createSuggest(oid){
 	var sid = LCL_SUGGESTS.length;
@@ -59,7 +58,7 @@ var CSuggest = Class.create(CDebug,{
 	'sugtab':		null	// DOM node suggests table
 },
 
-'hlIndex':			0,		// indicates what row should be highlighted
+'hlIndex':			0,		// indicates what row should be highlilghted
 'suggestCount':		0,		// suggests shown
 
 'mouseOverSuggest':	false,	// indicates if mouse is over suggests
@@ -79,7 +78,6 @@ initialize: function($super, id, objid){
 //	addListener(window, 'keypress', this.searchFocus.bindAsEventListener(this));
 
 	this.timeoutNeedle = null;
-	this.userNeedle = this.dom.input.value;
 },
 
 needleChange: function(e){
@@ -87,7 +85,7 @@ needleChange: function(e){
 //--
 	this.hlIndex = 0;
 	this.suggestCount = 0;
-
+	
 	clearTimeout(this.timeoutNeedle);
 
 	var target = Event.element(e);
@@ -120,14 +118,14 @@ searchServer: function(needle){
 		'method': 'host.get',
 		'params': {
 			'startSearch': 1,
-			'search': {'name': needle},
-			'output': ['hostid', 'name', 'host'],
-			'sortfield': 'name',
+			'search': {'host': needle},
+			'output': ['hostid', 'host'],
+			'sortfield': 'host',
 			'limit': this.suggestLimit
 		},
 		'onSuccess': this.serverRespond.bind(this, needle),
-		'onFailure': function(){zbx_throw('Suggest Widget: search request failed.');}
-	};
+		'onFailure': function(resp){zbx_throw('Suggest Widget: search request failed.');}
+	}
 
 	new RPC.Call(rpcRequest);
 
@@ -145,7 +143,7 @@ serverRespond: function(needle, respond){
 
 	for(var i=0; i < respond.length; i++){
 		if(!isset(i, respond) || empty(respond[i])) continue;
-		params.list[i] = respond[i].name;
+		params.list[i] = respond[i].host.toLowerCase();
 	}
 	this.needles[params.needle].list = params.list;
 
@@ -153,7 +151,7 @@ serverRespond: function(needle, respond){
 		this.showSuggests();
 		this.newSugTab(params.needle);
 	}
-
+	
 	if(this.saveToCache) this.saveCache(params.needle, params.list);
 },
 
@@ -269,7 +267,7 @@ onSelect: function(selection){
 searchFocus: function(e){
 	this.debug('keyPressed');
 //---
-	if(!e) e = window.event;
+	if(!e) var e = window.event;
 
 	var elem = e.element();
 	if(elem.match('input[type=text]') || elem.match('textarea') || elem.match('select')) return true;
@@ -286,13 +284,13 @@ keyPressed: function(e){
 	this.debug('keyPressed');
 //---
 
-	if(!e) e = window.event;
+	if(!e) var e = window.event;
 	var key = e.keyCode;
 
 	switch(true){
 		case(key == 27):
 			this.hlIndex = 0;
-			this.suggestCount = 0;
+			this.suggestCount = 0
 			this.removeHighLight(e);
 			this.setNeedleByHighLight(e);
 			this.hideSuggests(e);
@@ -380,7 +378,7 @@ suggestBlur: function(e){
 // HighLight
 // -----------------------------------------------------------------------
 
-removeHighLight: function(){
+removeHighLight: function(e){
 	this.debug('rmvHighLight');
 //---
 
@@ -388,7 +386,7 @@ removeHighLight: function(){
 },
 
 
-highLightSuggest: function(){
+highLightSuggest: function(e){
 	this.debug('highLightSuggest');
 //---
 
@@ -396,7 +394,7 @@ highLightSuggest: function(){
 	if(!is_null(row)) row.className = 'highlight';
 },
 
-setNeedleByHighLight: function(){
+setNeedleByHighLight: function(e){
 	this.debug('setNeedleByHighLight');
 //---
 	if(this.hlIndex == 0)
@@ -409,7 +407,7 @@ selectSuggest: function(e){
 	this.debug('selectSuggest');
 //---
 
-	this.setNeedleByHighLight(e);
+	this.setNeedleByHighLight(e)
 	this.hideSuggests();
 
 //SDJ(this.dom.input);
@@ -422,7 +420,7 @@ selectSuggest: function(e){
 // DOM creation
 // -----------------------------------------------------------------------
 
-showSuggests: function(){
+showSuggests: function(e){
 	this.debug('showSuggests');
 //---
 
@@ -442,26 +440,30 @@ showSuggests: function(){
 	this.dom.suggest.style.display = 'block';
 },
 
-hideSuggests: function(){
+hideSuggests: function(e){
 	this.debug('hideSuggest');
 //--
 
 	if(!is_null(this.dom.suggest)){
 		this.dom.suggest.style.display = 'none';
+
+		if(IE6) showPopupDiv(this.dom.suggest, 'suggestFrame');
 	}
 },
 
-positionSuggests: function(){
+positionSuggests: function(e){
 	this.debug('positionSuggests');
 //---
 
 	if(is_null(this.dom.suggest)) return true;
 
-	var pos = jQuery(this.dom.input).offset();
+	var pos = getPosition(this.dom.input);
 	var dims = getDimensions(this.dom.input);
 
 	this.dom.suggest.style.top = (pos.top+dims.height)+'px';
 	this.dom.suggest.style.left = pos.left+'px';
+
+	if(IE6) showPopupDiv(this.dom.suggest, 'suggestFrame');
 },
 
 newSugTab: function(needle){
@@ -489,14 +491,16 @@ newSugTab: function(needle){
 		var td = document.createElement('td');
 		tr.appendChild(td);
 
-		var bold = document.createElement('b');
-		bold.appendChild(document.createTextNode(list[key].substr(0, needle.length)));
-		td.appendChild(bold);
-		td.appendChild(document.createTextNode(list[key].substr(needle.length)));
-
+		td.appendChild(document.createTextNode(needle));
 		addListener(td, 'mouseover', this.mouseOver.bindAsEventListener(this), true);
 		addListener(td, 'mouseup', this.selectSuggest.bindAsEventListener(this), true);
 		addListener(td, 'mouseout', this.mouseOut.bindAsEventListener(this), true);
+
+// text
+		var bold = document.createElement('b');
+		td.appendChild(bold);
+
+		bold.appendChild(document.createTextNode(list[key].substr(needle.length)));
 
 		if(count >= this.suggestLimit) break;
 	}
@@ -507,6 +511,9 @@ newSugTab: function(needle){
 	this.dom.suggest.appendChild(this.dom.sugtab);
 
 	if(count == 0) this.hideSuggests();
+
+// IE6 Fix
+	if(count > 0 && IE6) showPopupDiv(this.dom.suggest, 'suggestFrame');
 
 	this.suggestCount = count;
 }

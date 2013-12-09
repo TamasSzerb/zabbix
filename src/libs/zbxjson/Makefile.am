@@ -2,7 +2,4 @@
 
 noinst_LIBRARIES = libzbxjson.a
 
-libzbxjson_a_SOURCES = \
-	json.c \
-	json_parser.c \
-	json_parser.h
+libzbxjson_a_SOURCES = json.c

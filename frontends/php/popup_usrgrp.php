@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2001-2013 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -10,24 +10,24 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 ?>
 <?php
-	require_once dirname(__FILE__).'/include/config.inc.php';
-	require_once dirname(__FILE__).'/include/users.inc.php';
+	require_once('include/config.inc.php');
+	require_once('include/users.inc.php');
 
-	$page['title'] = _('User groups');
+	$page['title'] = "S_GROUPS";
 	$page['file'] = 'popup_usrgrp.php';
 
 	define('ZBX_PAGE_NO_MENU', 1);
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 
 ?>
 <?php
@@ -46,7 +46,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 	$new_groups = get_request('new_groups', array());
 ?>
 <?php
-	show_table_header(_('User groups'));
+	show_table_header(S_GROUPS);
 ?>
 <script language="JavaScript" type="text/javascript">
 <!--
@@ -86,30 +86,26 @@ if(form){
 
 	$form->setName('groups');
 
-	$table = new CTableInfo(_('No user groups found.'));
+	$table = new CTableInfo(S_NO_GROUPS_DEFINED);
 	$table->setHeader(array(
 		new CCheckBox("all_groups",NULL,"checkAll('".$form->getName()."','all_groups','new_groups');"),
-		_('Name')
+		S_NAME
 		));
 
-	$userGroups = DBfetchArray(DBselect('SELECT ug.usrgrpid,ug.name FROM usrgrp ug '.whereDbNode('ug.usrgrpid')));
-	order_result($userGroups, 'name');
-
-	foreach ($userGroups as $userGroup) {
+	$result = DBselect('select * from usrgrp where '.DBin_node('usrgrpid').' order by name');
+	while($row = DBfetch($result)){
 		$table->addRow(array(
-			new CCheckBox('new_groups['.$userGroup['usrgrpid'].']',
-				isset($new_groups[$userGroup['usrgrpid']]), null, $userGroup['usrgrpid']),
-			$userGroup['name']
+			new CCheckBox('new_groups['.$row['usrgrpid'].']',isset($new_groups[$row['usrgrpid']]),NULL,$row['usrgrpid']),
+			$row['name']
 		));
 	}
-
-	$table->setFooter(new CCol(new CSubmit('select', _('Select'))));
+	$table->setFooter(new CCol(new CButton('select', S_SELECT)));
 
 	$form->addItem($table);
 	$form->show();
 ?>
 <?php
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');
 
 ?>

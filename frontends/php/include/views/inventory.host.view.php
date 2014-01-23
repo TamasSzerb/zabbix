@@ -32,7 +32,7 @@ $overviewFormList = new CFormList();
 
 $hostSpan = new CSpan($this->data['host']['host'], 'link_menu menu-host');
 
-$hostSpan->setMenuPopup(CMenuPopupHelper::getHost(
+$hostSpan->setMenuPopup(getMenuPopupHost(
 	$this->data['host'],
 	$this->data['hostScripts'][$this->data['host']['hostid']],
 	false

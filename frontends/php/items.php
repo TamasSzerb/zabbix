@@ -174,7 +174,9 @@ $fields = array(
 	'subfilter_history' =>		array(T_ZBX_INT, O_OPT, null,	null,		null),
 	'subfilter_trends' =>		array(T_ZBX_INT, O_OPT, null,	null,		null),
 	// ajax
-	'filterState' =>			array(T_ZBX_INT, O_OPT, P_ACT,	null,		null)
+	'favobj' =>					array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
+	'favref' =>					array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})'),
+	'favstate' =>				array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})&&"filter"=={favobj}')
 );
 check_fields($fields);
 validate_sort_and_sortorder('name', ZBX_SORT_UP);
@@ -220,9 +222,12 @@ elseif (get_request('hostid', 0) > 0) {
 /*
  * Ajax
  */
-if (hasRequest('filterState')) {
-	CProfile::update('web.items.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
+if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.items.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
 }
+
 if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
 	exit();
@@ -818,9 +823,7 @@ elseif ($_REQUEST['go'] == 'massupdate' || isset($_REQUEST['massupdate']) && iss
 
 	// hosts
 	$data['hosts'] = API::Host()->get(array(
-		'output' => array('hostid'),
 		'itemids' => $data['itemids'],
-		'selectItems' => array('itemid'),
 		'selectInterfaces' => API_OUTPUT_EXTEND
 	));
 	$data['is_multiple_hosts'] = count($data['hosts']) > 1;
@@ -934,7 +937,7 @@ else {
 		),
 		'editable' => true,
 		'selectHosts' => API_OUTPUT_EXTEND,
-		'selectTriggers' => array('triggerid', 'description'),
+		'selectTriggers' => API_OUTPUT_REFER,
 		'selectApplications' => API_OUTPUT_EXTEND,
 		'selectDiscoveryRule' => API_OUTPUT_EXTEND,
 		'selectItemDiscovery' => array('ts_delete'),

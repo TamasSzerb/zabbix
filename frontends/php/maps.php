@@ -40,7 +40,9 @@ $fields = array(
 	'severity_min' =>	array(T_ZBX_INT, O_OPT, P_SYS,			IN('0,1,2,3,4,5'),		null),
 	'fullscreen' =>		array(T_ZBX_INT, O_OPT, P_SYS,			IN('0,1'),				null),
 	'favobj' =>			array(T_ZBX_STR, O_OPT, P_ACT,			null,					null),
+	'favref' =>			array(T_ZBX_STR, O_OPT, P_ACT,			NOT_EMPTY,				null),
 	'favid' =>			array(T_ZBX_INT, O_OPT, P_ACT,			null,					null),
+	'favstate' =>		array(T_ZBX_INT, O_OPT, P_ACT,			NOT_EMPTY,				null),
 	'favaction' =>		array(T_ZBX_STR, O_OPT, P_ACT,			IN("'add','remove'"),	null)
 );
 check_fields($fields);
@@ -56,7 +58,7 @@ if (isset($_REQUEST['favobj'])) {
 			$result = CFavorite::add('web.favorite.sysmapids', $_REQUEST['favid'], $_REQUEST['favobj']);
 			if ($result) {
 				echo '$("addrm_fav").title = "'._('Remove from favourites').'";'."\n".
-					'$("addrm_fav").onclick = function() { rm4favorites("sysmapid", "'.$_REQUEST['favid'].'"); }'."\n";
+					'$("addrm_fav").onclick = function() { rm4favorites("sysmapid", "'.$_REQUEST['favid'].'", 0); }'."\n";
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
@@ -68,7 +70,7 @@ if (isset($_REQUEST['favobj'])) {
 		}
 
 		if ($page['type'] == PAGE_TYPE_JS && $result) {
-			echo 'switchElementClass("addrm_fav", "iconminus", "iconplus");';
+			echo 'switchElementsClass("addrm_fav", "iconminus", "iconplus");';
 		}
 	}
 }

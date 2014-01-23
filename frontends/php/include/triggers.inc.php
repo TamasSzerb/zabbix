@@ -366,7 +366,7 @@ function copyTriggersToHosts($srcTriggerIds, $dstHostIds, $srcHostId = null) {
 		'triggerids' => $srcTriggerIds,
 		'output' => array('triggerid', 'expression', 'description', 'url', 'status', 'priority', 'comments', 'type'),
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-		'selectDependencies' => array('triggerid')
+		'selectDependencies' => API_OUTPUT_REFER
 	);
 	if ($srcHostId) {
 		$srcHost = API::Host()->get(array(
@@ -1297,7 +1297,7 @@ function getTriggersOverview($hostIds, $application, $pageFile, $viewMode = null
 
 		foreach ($hostNames as $hostId => $hostName) {
 			$name = new CSpan($hostName, 'link_menu');
-			$name->setMenuPopup(CMenuPopupHelper::getHost($hosts[$hostId], $scripts[$hostId]));
+			$name->setMenuPopup(getMenuPopupHost($hosts[$hostId], $scripts[$hostId]));
 
 			$columns = array($name);
 			foreach ($triggers as $triggerHosts) {
@@ -1328,7 +1328,7 @@ function getTriggersOverview($hostIds, $application, $pageFile, $viewMode = null
  */
 function getTriggerOverviewCells($trigger, $pageFile, $screenId = null) {
 	$ack = $css = $style = null;
-	$desc = $triggerItems = $acknowledge = array();
+	$desc = $menuPopup = $triggerItems = $acknowledge = array();
 
 	// for how long triggers should blink on status change (set by user in administration->general)
 	$config = select_config();
@@ -1445,7 +1445,7 @@ function getTriggerOverviewCells($trigger, $pageFile, $screenId = null) {
 	}
 
 	if ($trigger) {
-		$column->setMenuPopup(CMenuPopupHelper::getTrigger($trigger, $triggerItems, $acknowledge));
+		$column->setMenuPopup(getMenuPopupTrigger($trigger, $triggerItems, $acknowledge));
 	}
 
 	return $column;
@@ -1628,7 +1628,7 @@ function make_trigger_details($trigger) {
 	$scripts = API::Script()->getScriptsByHosts($hostId);
 
 	$hostName = new CSpan($host['name'], 'link_menu');
-	$hostName->setMenuPopup(CMenuPopupHelper::getHost($host, $scripts ? reset($scripts) : null));
+	$hostName->setMenuPopup(getMenuPopupHost($host, $scripts ? reset($scripts) : null));
 
 	$table = new CTableInfo();
 
@@ -2302,7 +2302,6 @@ function get_item_function_info($expr) {
 			}
 
 			$hostFound = API::Host()->get(array(
-				'output' => array('hostid'),
 				'filter' => array('host' => array($exprPart['host'])),
 				'templated_hosts' => true
 			));

@@ -176,7 +176,7 @@ function getActionMapBySysmap($sysmap, array $options = array()) {
 
 		order_result($elem['urls'], 'name');
 
-		$area->setMenuPopup(CMenuPopupHelper::getMap($hostId, $scripts, $gotos, $elem['urls']));
+		$area->setMenuPopup(getMenuPopupMap($hostId, $scripts, $gotos, $elem['urls']));
 
 		$actionMap->addItem($area);
 	}
@@ -1005,7 +1005,7 @@ function getSelementsInfo($sysmap, array $options = array()) {
 				while (!empty($mapids)) {
 					$maps = API::Map()->get(array(
 						'sysmapids' => $mapids,
-						'output' => array('sysmapid'),
+						'output' => API_OUTPUT_REFER,
 						'selectSelements' => API_OUTPUT_EXTEND,
 						'nopermissions' => true,
 						'nodeids' => get_current_nodeid(true)

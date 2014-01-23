@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Zabbix 2.1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2013-12-18 00:49+0200\n"
+"POT-Creation-Date: 2013-12-17 23:54+0200\n"
 "PO-Revision-Date: 2013-10-10 08:26+0300\n"
 "Last-Translator: richlv <richlv@nakts.net>\n"
 "Language-Team: none\n"
@@ -226,7 +226,7 @@ msgstr "Akses ditolak!"
 msgid "Access denied."
 msgstr ""
 
-#: api/classes/CUser.php:868
+#: api/classes/CUser.php:882
 #, c-format
 msgid "Account is blocked for %s seconds"
 msgstr "Akun diblokir selama %s detik"
@@ -1216,19 +1216,19 @@ msgstr "Hitung izin"
 msgid "Callback"
 msgstr "Callback"
 
-#: api/classes/CTemplate.php:954
+#: api/classes/CTemplate.php:953
 msgid "Can't add group"
 msgstr "Tidak dapat menambah grup"
 
-#: api/classes/CTemplate.php:1031 api/classes/CTemplate.php:1041
+#: api/classes/CTemplate.php:1030 api/classes/CTemplate.php:1040
 msgid "Can't link template"
 msgstr "Tidak dapat menghubungkan template"
 
-#: api/classes/CTemplate.php:965
+#: api/classes/CTemplate.php:964
 msgid "Can't remove group"
 msgstr "Tidak dapat menghapus grup"
 
-#: api/classes/CTemplate.php:1002 api/classes/CTemplate.php:1020
+#: api/classes/CTemplate.php:1001 api/classes/CTemplate.php:1019
 msgid "Can't unlink template"
 msgstr "Tidak dapat memutuskan hubungan template"
 
@@ -1283,7 +1283,7 @@ msgstr ""
 msgid "Cannot add application"
 msgstr "Tidak dapat menambah aplikasi"
 
-#: api/classes/CTrigger.php:1403
+#: api/classes/CTrigger.php:1409
 msgid "Cannot add dependency from a host to a template."
 msgstr "Tidak dapat menambah dependency dari host ke template."
 
@@ -1490,11 +1490,11 @@ msgstr ""
 msgid "Cannot create another database connection."
 msgstr "Tidak dapat membuat koneksi database lainnya."
 
-#: api/classes/CTrigger.php:1437
+#: api/classes/CTrigger.php:1443
 msgid "Cannot create circular dependencies."
 msgstr "Tidak dapat membuat dependensi melingkar."
 
-#: api/classes/CTrigger.php:1409
+#: api/classes/CTrigger.php:1415
 msgid "Cannot create dependency on trigger itself."
 msgstr "Tidak dapat membuat dependensi pada trigger itu sendiri."
 
@@ -1532,7 +1532,7 @@ msgstr "Tidak dapat membuat elemen baru"
 msgid "Cannot create screen."
 msgstr "Tidak dapat membuat layar."
 
-#: api/classes/CUser.php:1187
+#: api/classes/CUser.php:1201
 #, c-format
 msgid "Cannot delete Zabbix internal user \"%1$s\", try disabling that user."
 msgstr "Tidak dapat menghapus user Zabbix internal \"%1$s\", coba non-aktifkan user tersebut.Tidak dapat menghapus user Zabbix internal \"%1$s\", coba non-aktifkan user tersebut.Tidak dapat menghapus user Zabbix internal \"%1$s\", coba non-aktifkan user tersebut.Tidak dapat menghapus user Zabbix internal \"%1$s\", coba non-aktifkan user tersebut.Tidak dapat menghapus user Zabbix internal \"%1$s\", coba non-aktifkan user tersebut."
@@ -1545,7 +1545,7 @@ msgstr "Tidak dapat menghapus aksi"
 msgid "Cannot delete application"
 msgstr "Tidak dapat menghapus aplikasi"
 
-#: api/classes/CTrigger.php:1063
+#: api/classes/CTrigger.php:1069
 msgid "Cannot delete dependency"
 msgstr "Tidak dapat menghapus dependency"
 
@@ -1721,12 +1721,12 @@ msgstr "Tdak dapat menghapus item templated"
 msgid "Cannot delete templated items."
 msgstr "Tidak dapat menghapus item template."
 
-#: api/classes/CTrigger.php:1871 api/classes/CTriggerPrototype.php:674
+#: api/classes/CTrigger.php:1882 api/classes/CTriggerPrototype.php:674
 #, c-format
 msgid "Cannot delete templated trigger \"%1$s:%2$s\"."
 msgstr "Tidak dapat menghapus trigger template \"%1$s:%2$s\"."
 
-#: api/classes/CHttpTest.php:374
+#: api/classes/CHttpTest.php:391
 #, c-format
 msgid "Cannot delete templated web scenario \"%1$s\"."
 msgstr ""
@@ -1759,7 +1759,7 @@ msgstr "Tidak dapat menghapus trigger yang dibuat oleh discovery tingkat bawah."
 msgid "Cannot delete user"
 msgstr "Tidak dapat menghapus user"
 
-#: api/classes/CUser.php:728
+#: api/classes/CUser.php:742
 msgid "Cannot delete user media."
 msgstr "Tidak dapat menghapus media user."
 
@@ -2051,11 +2051,11 @@ msgstr "Tidak dapat memformat Tree. Periksa struktur logika dalam service link."
 msgid "Cannot format tree."
 msgstr "Tidak dapat memformat tree."
 
-#: api/classes/CTemplate.php:925
+#: api/classes/CTemplate.php:924
 msgid "Cannot have empty visible template name"
 msgstr "Tidak dapat memiliki nama visible template kosong"
 
-#: api/classes/CTrigger.php:1096 api/classes/CTrigger.php:1235
+#: api/classes/CTrigger.php:1102 api/classes/CTrigger.php:1241
 #: api/classes/CTriggerPrototype.php:755 api/classes/CTriggerPrototype.php:813
 #, c-format
 msgid "Cannot implode expression \"%s\"."
@@ -2068,17 +2068,17 @@ msgid_plural "Cannot import screen \"%1$s\": subscreens \"%2$s\" do not exist."
 msgstr[0] ""
 
 #: include/classes/import/importers/CTemplateImporter.php:114
-#, fuzzy, c-format
+#, c-format
 msgid "Cannot import template \"%1$s\", linked template \"%2$s\" does not exist."
 msgid_plural "Cannot import template \"%1$s\", linked templates \"%2$s\" do not exist."
-msgstr[0] "Tidak bisa mengimpor template \"%2$s\", template \"%3$s\" yang terhubung tidak ada.Tidak bisa mengimpor template \"%2$s\", template \"%3$s\" yang terhubung tidak ada.Tidak bisa mengimpor template \"%2$s\", template \"%3$s\" yang terhubung tidak ada."
+msgstr[0] ""
 
 #: include/classes/class.cview.php:113
 #, c-format
 msgid "Cannot include view file \"%s\"."
 msgstr "Tidak dapat menyertakan tampilan file \"%s\"."
 
-#: api/classes/CUser.php:757
+#: api/classes/CUser.php:771
 msgid "Cannot insert user media."
 msgstr "Tidak bisa memasukkan media pengguna."
 
@@ -2086,7 +2086,7 @@ msgstr "Tidak bisa memasukkan media pengguna."
 msgid "Cannot link template"
 msgstr "Tidak dapat menghubungkan template"
 
-#: api/classes/CUser.php:832
+#: api/classes/CUser.php:846
 msgid "Cannot logout."
 msgstr "Tidak bisa logout."
 
@@ -2094,7 +2094,7 @@ msgstr "Tidak bisa logout."
 msgid "Cannot mass update host name."
 msgstr "Tidak dapat perbarui nama host secara masal."
 
-#: api/classes/CTemplate.php:875
+#: api/classes/CTemplate.php:874
 msgid "Cannot mass update template name"
 msgstr "Tidak dapat perbarui nama template secara masal."
 
@@ -2102,7 +2102,7 @@ msgstr "Tidak dapat perbarui nama template secara masal."
 msgid "Cannot mass update visible host name."
 msgstr "Tidak dapat perbarui nama host yang tampil secara masal."
 
-#: api/classes/CTemplate.php:842
+#: api/classes/CTemplate.php:841
 msgid "Cannot mass update visible template name"
 msgstr "Tidak dapat perbarui nama template yang tampil secara masal"
 
@@ -2161,7 +2161,7 @@ msgstr ""
 msgid "Cannot set \"%1$s\" for item \"%2$s\"."
 msgstr ""
 
-#: api/classes/CTrigger.php:656
+#: api/classes/CTrigger.php:662
 #, c-format
 msgid "Cannot set \"%1$s\" for trigger \"%2$s\"."
 msgstr ""
@@ -2232,7 +2232,7 @@ msgstr "Tidak dapat membatalkan hubungan template"
 #: api/classes/CHostGeneral.php:233
 #, fuzzy, c-format
 msgid "Cannot unlink trigger \"%s\", it has items from template that is left linked to host."
-msgstr "Tidak dapat membatalkan hubungan trigger \"%s\", memiliki item dari template yang tersisa ke host yang terhubung.Tidak dapat membatalkan hubungan trigger \"%s\", memiliki item dari template yang tersisa ke host yang terhubung.Tidak dapat membatalkan hubungan trigger \"%s\", memiliki item dari template yang tersisa ke host yang terhubung.Tidak dapat membatalkan hubungan trigger \"%s\", memiliki item dari template yang tersisa ke host yang terhubung.Tidak dapat membatalkan hubungan trigger \"%s\", memiliki item dari template yang tersisa ke host yang terhubung."
+msgstr "Tidak dapat membatalkan hubungan trigger \"%s\", memiliki item dari template yang tersisa ke host yang terhubung."
 
 #: api/classes/CHost.php:684
 #, c-format
@@ -2244,7 +2244,7 @@ msgstr ""
 msgid "Cannot update \"%1$s\" for a discovered item."
 msgstr ""
 
-#: api/classes/CTrigger.php:628
+#: api/classes/CTrigger.php:634
 #, c-format
 msgid "Cannot update \"%1$s\" for a discovered trigger."
 msgstr ""
@@ -2259,7 +2259,7 @@ msgstr ""
 msgid "Cannot update \"%1$s\" for item \"%2$s\"."
 msgstr ""
 
-#: api/classes/CTrigger.php:656
+#: api/classes/CTrigger.php:662
 #, c-format
 msgid "Cannot update \"%1$s\" for trigger \"%2$s\"."
 msgstr ""
@@ -2428,7 +2428,7 @@ msgstr "Tidak dapat perbarui node"
 msgid "Cannot update proxy"
 msgstr "Tidak dapat perbarui proxy"
 
-#: api/classes/CProxy.php:295
+#: api/classes/CProxy.php:299
 #, c-format
 msgid "Cannot update proxy for discovered host \"%1$s\"."
 msgstr ""
@@ -2465,7 +2465,7 @@ msgstr "Tidak dapat perbarui template"
 msgid "Cannot update templated applications."
 msgstr ""
 
-#: api/classes/CTemplate.php:798 api/classes/CTemplate.php:1083
+#: api/classes/CTemplate.php:797 api/classes/CTemplate.php:1082
 #, c-format
 msgid "Cannot update templates on discovered host \"%1$s\"."
 msgstr ""
@@ -2486,7 +2486,7 @@ msgstr ""
 msgid "Cannot update user"
 msgstr "Tidak dapat perbarui user"
 
-#: api/classes/CUser.php:749
+#: api/classes/CUser.php:763
 msgid "Cannot update user media."
 msgstr "Tidak dapat perbarui media user."
 
@@ -3101,7 +3101,7 @@ msgstr "Salin"
 msgid "Copy selected to ..."
 msgstr "Salin yang dipilih ke ..."
 
-#: api/classes/CUser.php:937
+#: api/classes/CUser.php:951
 #, c-format
 msgid "Correct login \"%s\"."
 msgstr "Login yang bernar \"%s\"."
@@ -3273,7 +3273,7 @@ msgstr "Dibuat: Item \"%1$s\" pada \"%2$s\"."
 msgid "Created: Item prototype \"%1$s\" on \"%2$s\"."
 msgstr "Dibuat: Prototipe item \"%1$s\" pada \"%2$s\"."
 
-#: api/classes/CTrigger.php:1130
+#: api/classes/CTrigger.php:1136
 #, c-format
 msgid "Created: Trigger \"%1$s\" on \"%2$s\"."
 msgstr "Dibuat: Trigger \"%1$s\" pada \"%2$s\"."
@@ -4024,7 +4024,7 @@ msgstr "Dihapus: Aturan discovery \"%1$s\" pada \"%2$s\"."
 msgid "Deleted: Graph \"%1$s\" on \"%2$s\"."
 msgstr "Dihapus: Grafik \"%1$s\" on \"%2$s\"."
 
-#: api/classes/CHost.php:1570
+#: api/classes/CHost.php:1583
 #, c-format
 msgid "Deleted: Host \"%1$s\"."
 msgstr "Dihapus: Host \"%1$s\"."
@@ -4044,17 +4044,17 @@ msgstr "Dihapus: Item \"%1$s\" pada \"%2$s\"."
 msgid "Deleted: Item prototype \"%1$s\" on \"%2$s\"."
 msgstr "Dihapus: Prototipe item \"%1$s\" pada \"%2$s\"."
 
-#: api/classes/CProxy.php:451
+#: api/classes/CProxy.php:470
 #, c-format
 msgid "Deleted: Proxy \"%1$s\"."
 msgstr "Dihapus: Proxy \"%1$s\"."
 
-#: api/classes/CTemplate.php:764
+#: api/classes/CTemplate.php:763
 #, c-format
 msgid "Deleted: Template \"%1$s\"."
 msgstr "Dihapus : Template \"%1$s\"."
 
-#: api/classes/CTrigger.php:850
+#: api/classes/CTrigger.php:856
 #, c-format
 msgid "Deleted: Trigger \"%1$s\" on \"%2$s\"."
 msgstr "Dihapus: Trigger \"%1$s\" pada \"%2$s\"."
@@ -4064,7 +4064,7 @@ msgstr "Dihapus: Trigger \"%1$s\" pada \"%2$s\"."
 msgid "Deleted: Trigger prototype \"%1$s\" on \"%2$s\"."
 msgstr "Dihapus: Prototipe trigger \"%1$s\" pada \"%2$s\"."
 
-#: api/classes/CHttpTest.php:434
+#: api/classes/CHttpTest.php:451
 #, c-format
 msgid "Deleted: Web scenario \"%1$s\" on \"%2$s\"."
 msgstr ""
@@ -4537,7 +4537,7 @@ msgstr "Drowdown catatan pertama \"%1$s\"."
 msgid "Dropdown remember selected \"%1$s\"."
 msgstr "Dropdown ingat yang dipilih \"%1$s\"."
 
-#: api/classes/CTrigger.php:1579
+#: api/classes/CTrigger.php:1585
 #, c-format
 msgid "Duplicate dependencies in trigger \"%1$s\"."
 msgstr "Duplikasi dependensi pada trigger \"%1$s\"."
@@ -4691,11 +4691,11 @@ msgstr ""
 #: api/classes/CHostInterface.php:465 api/classes/CHost.php:1419
 #: api/classes/CHostPrototype.php:906 api/classes/CIconMap.php:316
 #: api/classes/CItem.php:671 api/classes/CItemPrototype.php:489
-#: api/classes/CProxy.php:468 api/classes/CService.php:341
+#: api/classes/CProxy.php:487 api/classes/CService.php:341
 #: api/classes/CService.php:377 api/classes/CService.php:443
-#: api/classes/CService.php:515 api/classes/CTemplate.php:625
-#: api/classes/CTrigger.php:874 api/classes/CTrigger.php:938
-#: api/classes/CTrigger.php:1028 api/classes/CTriggerPrototype.php:652
+#: api/classes/CService.php:515 api/classes/CTemplate.php:624
+#: api/classes/CTrigger.php:880 api/classes/CTrigger.php:944
+#: api/classes/CTrigger.php:1034 api/classes/CTriggerPrototype.php:652
 #: api/classes/CUserGroup.php:635 api/classes/CUserMacro.php:394
 #: api/classes/CUserMacro.php:546 api/classes/CUser.php:555
 msgid "Empty input parameter."
@@ -6003,7 +6003,7 @@ msgstr "Host"
 msgid "Host \"%1$s\" already exists."
 msgstr "Host \"%1$s\" sudah ada."
 
-#: api/classes/CProxy.php:572
+#: api/classes/CProxy.php:591
 #, c-format
 msgid "Host \"%1$s\" is monitored with proxy \"%2$s\"."
 msgstr "Host \"%1$s\" dipantau dengan proxy \"%2$s\"."
@@ -6011,7 +6011,7 @@ msgstr "Host \"%1$s\" dipantau dengan proxy \"%2$s\"."
 #: include/classes/import/CXmlImport18.php:928
 #, fuzzy, c-format
 msgid "Host \"%s\" has \"useipmi\" parameter checked, but has no \"ipmi_ip\" parameter! Using host IP address as an address for IPMI interface."
-msgstr "Host \"%s\" setelah diperiksa memiliki parameter \"useipmi\", tetapi tidka memiliki parameter \"ipmi_ip\"! Gunakan alamat IP host sebagai alamat untuk antarmuka IPMI.Host \"%s\" setelah diperiksa memiliki parameter \"useipmi\", tetapi tidka memiliki parameter \"ipmi_ip\"! Gunakan alamat IP host sebagai alamat untuk antarmuka IPMI.Host \"%s\" setelah diperiksa memiliki parameter \"useipmi\", tetapi tidka memiliki parameter \"ipmi_ip\"! Gunakan alamat IP host sebagai alamat untuk antarmuka IPMI.Host \"%s\" setelah diperiksa memiliki parameter \"useipmi\", tetapi tidka memiliki parameter \"ipmi_ip\"! Gunakan alamat IP host sebagai alamat untuk antarmuka IPMI.Host \"%s\" setelah diperiksa memiliki parameter \"useipmi\", tetapi tidka memiliki parameter \"ipmi_ip\"! Gunakan alamat IP host sebagai alamat untuk antarmuka IPMI."
+msgstr "Host \"%s\" setelah diperiksa memiliki parameter \"useipmi\", tetapi tidka memiliki parameter \"ipmi_ip\"! Gunakan alamat IP host sebagai alamat untuk antarmuka IPMI."
 
 #: include/views/configuration.screen.constructor.edit.php:346
 msgid "Host (ascending)"
@@ -6265,7 +6265,7 @@ msgstr "Perbarui host gagal."
 msgid "Host updated"
 msgstr "Host diperbarui"
 
-#: api/classes/CTemplate.php:900
+#: api/classes/CTemplate.php:899
 #, c-format
 msgid "Host with the same name \"%1$s\" already exists."
 msgstr ""
@@ -6275,7 +6275,7 @@ msgstr ""
 msgid "Host with the same name \"%s\" already exists."
 msgstr "Host dengan nama yang sama \"%s\" sudah ada."
 
-#: api/classes/CTemplate.php:526 api/classes/CTemplate.php:867
+#: api/classes/CTemplate.php:526 api/classes/CTemplate.php:866
 #, c-format
 msgid "Host with the same visible name \"%1$s\" already exists."
 msgstr ""
@@ -6564,7 +6564,7 @@ msgstr "Peta ikon \"%s\" tidak boleh memiliki pemetaan dengan ekspresi kosong."
 #: api/classes/CIconMap.php:447
 #, fuzzy, c-format
 msgid "Icon map \"%s\" cannot have mapping with global expression that does not exist."
-msgstr "Peta ikon \"%s\" tidak boleh memiliki pemetaan dengan ekspresi global yang tidak ada.Peta ikon \"%s\" tidak boleh memiliki pemetaan dengan ekspresi global yang tidak ada.Peta ikon \"%s\" tidak boleh memiliki pemetaan dengan ekspresi global yang tidak ada.Peta ikon \"%s\" tidak boleh memiliki pemetaan dengan ekspresi global yang tidak ada.Peta ikon \"%s\" tidak boleh memiliki pemetaan dengan ekspresi global yang tidak ada."
+msgstr "Peta ikon \"%s\" tidak boleh memiliki pemetaan dengan ekspresi global yang tidak ada."
 
 #: api/classes/CIconMap.php:451
 #, c-format
@@ -6705,7 +6705,7 @@ msgstr "Impor berhasil"
 #: hostinventories.php:173
 #, fuzzy, c-format
 msgid "Impossible to filter by inventory field \"%s\", which does not exist."
-msgstr "Tidak memungkinkan untuk filter berdasarkan field inventori \"%s\", yang tidak ada.Tidak memungkinkan untuk filter berdasarkan field inventori \"%s\", yang tidak ada.Tidak memungkinkan untuk filter berdasarkan field inventori \"%s\", yang tidak ada.Tidak memungkinkan untuk filter berdasarkan field inventori \"%s\", yang tidak ada.Tidak memungkinkan untuk filter berdasarkan field inventori \"%s\", yang tidak ada."
+msgstr "Tidak memungkinkan untuk filter berdasarkan field inventori \"%s\", yang tidak ada."
 
 #: screenedit.php:240 screenedit.php:255
 msgid "Impossible to remove last row and column."
@@ -6913,7 +6913,7 @@ msgid "Incorrect arguments passed to function"
 msgstr "Kesalahan pelolosan argumen ke fungsi"
 
 #: api/classes/CApplication.php:322 api/classes/CHostInterface.php:314
-#: api/classes/CHostInterface.php:513 api/classes/CHttpTest.php:519
+#: api/classes/CHostInterface.php:513 api/classes/CHttpTest.php:536
 #: api/classes/CItemGeneral.php:198
 msgid "Incorrect arguments passed to function."
 msgstr "Kesalahan pelolosan argumen ke fungsi."
@@ -6956,12 +6956,12 @@ msgstr ""
 msgid "Incorrect characters used for host name \"%s\"."
 msgstr "Kesalahan karakter yang digunakan untuk nama host \"%s\"."
 
-#: api/classes/CProxy.php:237
+#: api/classes/CProxy.php:241
 #, c-format
 msgid "Incorrect characters used for proxy name \"%1$s\"."
 msgstr ""
 
-#: api/classes/CTemplate.php:908
+#: api/classes/CTemplate.php:907
 #, c-format
 msgid "Incorrect characters used for template name \"%1$s\"."
 msgstr ""
@@ -6980,11 +6980,11 @@ msgstr ""
 msgid "Incorrect event object \"%1$s\" (%2$s) for event source \"%3$s\" (%4$s), only the following objects are supported: %5$s."
 msgstr ""
 
-#: api/classes/CAlert.php:346
+#: api/classes/CAlert.php:348
 msgid "Incorrect eventobject value."
 msgstr ""
 
-#: api/classes/CAlert.php:339
+#: api/classes/CAlert.php:341
 msgid "Incorrect eventsource value."
 msgstr ""
 
@@ -6997,7 +6997,7 @@ msgstr "Kesalahan nama field \"%1$s\" atau nilai pada statemen where untuk tabel
 msgid "Incorrect fields for sysmap."
 msgstr ""
 
-#: api/classes/CTrigger.php:661
+#: api/classes/CTrigger.php:667
 msgid "Incorrect fields for trigger."
 msgstr "Kesalahan field untuk trigger."
 
@@ -7098,7 +7098,7 @@ msgstr ""
 msgid "Incorrect item for axis value."
 msgstr "Kesalahan item untuk nilai axis."
 
-#: api/classes/CTrigger.php:729 include/triggers.inc.php:1040
+#: api/classes/CTrigger.php:735 include/triggers.inc.php:1040
 #, c-format
 msgid "Incorrect item key \"%1$s\" provided for trigger expression on \"%2$s\"."
 msgstr "Kesalahan item key \"%1$s\" disediakan untuk ekspresi trigger pada \"%2$s\".Kesalahan item key \"%1$s\" disediakan untuk ekspresi trigger pada \"%2$s\".Kesalahan item key \"%1$s\" disediakan untuk ekspresi trigger pada \"%2$s\".Kesalahan item key \"%1$s\" disediakan untuk ekspresi trigger pada \"%2$s\".Kesalahan item key \"%1$s\" disediakan untuk ekspresi trigger pada \"%2$s\"."
@@ -7178,7 +7178,7 @@ msgstr ""
 msgid "Incorrect node type."
 msgstr "Kesalahan tipe node."
 
-#: api/classes/CEvent.php:406
+#: api/classes/CEvent.php:413
 msgid "Incorrect object value."
 msgstr ""
 
@@ -7280,7 +7280,7 @@ msgstr "Kesalahan tipe waktu service."
 msgid "Incorrect sorder order for service \"%1$s\"."
 msgstr "Kesalahan sorder pengurutan untuk service \"%1$s\"."
 
-#: api/classes/CEvent.php:399
+#: api/classes/CEvent.php:406
 msgid "Incorrect source value."
 msgstr ""
 
@@ -7348,12 +7348,12 @@ msgstr "Kesalahan ekspresi trigger."
 msgid "Incorrect trigger expression. Host \"%1$s\" does not exist or you have no access to this host."
 msgstr "Kesalahan ekspresi trigger. Host \"%1$s\" tidak ada atau Anda tidak memiliki akses ke host tersebut.Kesalahan ekspresi trigger. Host \"%1$s\" tidak ada atau Anda tidak memiliki akses ke host tersebut.Kesalahan ekspresi trigger. Host \"%1$s\" tidak ada atau Anda tidak memiliki akses ke host tersebut.Kesalahan ekspresi trigger. Host \"%1$s\" tidak ada atau Anda tidak memiliki akses ke host tersebut.Kesalahan ekspresi trigger. Host \"%1$s\" tidak ada atau Anda tidak memiliki akses ke host tersebut."
 
-#: api/classes/CTrigger.php:709
+#: api/classes/CTrigger.php:715
 #, fuzzy, c-format
 msgid "Incorrect trigger expression. Host \"%s\" does not exist or you have no access to this host."
-msgstr "Kesalahan ekspresi trigger. Host \"%s\" tidak ada atau Anda tidak memiliki akses ke host tersebut.Kesalahan ekspresi trigger. Host \"%s\" tidak ada atau Anda tidak memiliki akses ke host tersebut.Kesalahan ekspresi trigger. Host \"%s\" tidak ada atau Anda tidak memiliki akses ke host tersebut.Kesalahan ekspresi trigger. Host \"%s\" tidak ada atau Anda tidak memiliki akses ke host tersebut.Kesalahan ekspresi trigger. Host \"%s\" tidak ada atau Anda tidak memiliki akses ke host tersebut."
+msgstr "Kesalahan ekspresi trigger. Host \"%s\" tidak ada atau Anda tidak memiliki akses ke host tersebut."
 
-#: api/classes/CTrigger.php:715
+#: api/classes/CTrigger.php:721
 msgid "Incorrect trigger expression. Trigger expression elements should not belong to a template and a host simultaneously."
 msgstr "Kesalahan ekspresi trigger. Elemen ekspresi trigger tidak seharusnya menjadi miliki template dan host secara bersamaan.Kesalahan ekspresi trigger. Elemen ekspresi trigger tidak seharusnya menjadi miliki template dan host secara bersamaan.Kesalahan ekspresi trigger. Elemen ekspresi trigger tidak seharusnya menjadi miliki template dan host secara bersamaan.Kesalahan ekspresi trigger. Elemen ekspresi trigger tidak seharusnya menjadi miliki template dan host secara bersamaan.Kesalahan ekspresi trigger. Elemen ekspresi trigger tidak seharusnya menjadi miliki template dan host secara bersamaan."
 
@@ -7427,7 +7427,7 @@ msgstr ""
 msgid "Incorrect value for setMessage(): \"%s\"."
 msgstr "Kesalahan nilai untuk setMessage(): \"%s\"."
 
-#: api/classes/CProxy.php:216 api/classes/CProxy.php:227
+#: api/classes/CProxy.php:220 api/classes/CProxy.php:231
 #, c-format
 msgid "Incorrect value used for proxy status \"%1$s\"."
 msgstr ""
@@ -7617,12 +7617,12 @@ msgstr "Params tidak sah."
 msgid "Invalid period for field \"%1$s\"."
 msgstr ""
 
-#: api/classes/CHttpTest.php:621
+#: api/classes/CHttpTest.php:638
 #, c-format
 msgid "Invalid response code \"%1$s\"."
 msgstr "Kode respon \"%1$s\" tidak sah."
 
-#: api/classes/CHttpTest.php:616
+#: api/classes/CHttpTest.php:633
 #, c-format
 msgid "Invalid response code range \"%1$s\"."
 msgstr "Range kode respon \"%1$s\" tidak sah."
@@ -7642,7 +7642,7 @@ msgstr "Periode waktu tidak sah"
 #: include/classes/class.cview.php:62
 #, fuzzy, c-format
 msgid "Invalid view name given \"%s\". Allowed chars: \"a-z\" and \".\"."
-msgstr "Pemberian nama view \"%s\" tidak sah. Karakter yang dibolehkan: \"a-z\" dan \".\".Pemberian nama view \"%s\" tidak sah. Karakter yang dibolehkan: \"a-z\" dan \".\".Pemberian nama view \"%s\" tidak sah. Karakter yang dibolehkan: \"a-z\" dan \".\".Pemberian nama view \"%s\" tidak sah. Karakter yang dibolehkan: \"a-z\" dan \".\".Pemberian nama view \"%s\" tidak sah. Karakter yang dibolehkan: \"a-z\" dan \".\"."
+msgstr "Pemberian nama view \"%s\" tidak sah. Karakter yang dibolehkan: \"a-z\" dan \".\"."
 
 #: include/menu.inc.php:101
 #: include/views/configuration.host.massupdate.php:295
@@ -8387,13 +8387,13 @@ msgstr "Login"
 msgid "Login as Guest"
 msgstr "Login sebagai Guest"
 
-#: api/classes/CUser.php:929
+#: api/classes/CUser.php:943
 #, c-format
 msgid "Login failed \"%s\"."
 msgstr "Login gagal \"%s\"."
 
-#: api/classes/CUser.php:797 api/classes/CUser.php:815
-#: api/classes/CUser.php:862 authentication.php:109 authentication.php:137
+#: api/classes/CUser.php:811 api/classes/CUser.php:829
+#: api/classes/CUser.php:876 authentication.php:109 authentication.php:137
 msgid "Login name or password is incorrect."
 msgstr "Login nama atau passwordk salah."
 
@@ -8737,16 +8737,16 @@ msgid_plural "Maximum DNS name length is %1$d characters, \"%2$s\" is %3$d chara
 msgstr[0] ""
 
 #: api/classes/CUser.php:316
-#, fuzzy, c-format
+#, c-format
 msgid "Maximum alias length is %1$d characters, \"%2$s\" is %3$d character."
 msgid_plural "Maximum alias length is %1$d characters, \"%2$s\" is %3$d characters."
-msgstr[0] "Panjang maksimal alias adalah %2$d karakter, \"%3$s\" adalah %1$d karakter.Panjang maksimal alias adalah %2$d karakter, \"%3$s\" adalah %1$d karakter.Panjang maksimal alias adalah %2$d karakter, \"%3$s\" adalah %1$d karakter."
+msgstr[0] ""
 
 #: api/classes/CHost.php:733
-#, fuzzy, c-format
+#, c-format
 msgid "Maximum host name length is %1$d characters, \"%2$s\" is %3$d character."
 msgid_plural "Maximum host name length is %1$d characters, \"%2$s\" is %3$d characters."
-msgstr[0] "Panjang maksimal nama host adalah %2$d karakter, \"%3$s\" adalah %1$d karakter.Panjang maksimal nama host adalah %2$d karakter, \"%3$s\" adalah %1$d karakter.Panjang maksimal nama host adalah %2$d karakter, \"%3$s\" adalah %1$d karakter."
+msgstr[0] ""
 
 #: include/views/configuration.item.edit.php:319
 #: include/views/configuration.item.massupdate.php:372
@@ -8786,10 +8786,10 @@ msgid "Maximum value for period T is NOT N"
 msgstr ""
 
 #: api/classes/CHost.php:769
-#, fuzzy, c-format
+#, c-format
 msgid "Maximum visible host name length is %1$d characters, \"%2$s\" is %3$d character."
 msgid_plural "Maximum visible host name length is %1$d characters, \"%2$s\" is %3$d characters."
-msgstr[0] "Maksimal panjang nama host terlihat adalah %2$d karakter, \"%3$s\" adalah %1$d karakter.Maksimal panjang nama host terlihat adalah %2$d karakter, \"%3$s\" adalah %1$d karakter.Maksimal panjang nama host terlihat adalah %2$d karakter, \"%3$s\" adalah %1$d karakter."
+msgstr[0] ""
 
 #: include/forms.inc.php:1700 include/func.inc.php:133
 #: include/func.inc.php:264 jsLoader.php:122
@@ -9455,12 +9455,12 @@ msgstr ""
 #: api/classes/CAction.php:1354
 #, fuzzy, c-format
 msgid "No authentication type specified for action operation command \"%s\"."
-msgstr "Tidak ada tipe otentikasi yang spesifik untuk aksi operasi perintah \"%s\".Tidak ada tipe otentikasi yang spesifik untuk aksi operasi perintah \"%s\".Tidak ada tipe otentikasi yang spesifik untuk aksi operasi perintah \"%s\".Tidak ada tipe otentikasi yang spesifik untuk aksi operasi perintah \"%s\".Tidak ada tipe otentikasi yang spesifik untuk aksi operasi perintah \"%s\"."
+msgstr "Tidak ada tipe otentikasi yang spesifik untuk aksi operasi perintah \"%s\"."
 
 #: api/classes/CAction.php:1358 api/classes/CAction.php:1372
 #, fuzzy, c-format
 msgid "No authentication user name specified for action operation command \"%s\"."
-msgstr "Tidak ada otentikasi nama user yang spesifik untuk aksi operasi perintah \"%s\".Tidak ada otentikasi nama user yang spesifik untuk aksi operasi perintah \"%s\".Tidak ada otentikasi nama user yang spesifik untuk aksi operasi perintah \"%s\".Tidak ada otentikasi nama user yang spesifik untuk aksi operasi perintah \"%s\".Tidak ada otentikasi nama user yang spesifik untuk aksi operasi perintah \"%s\"."
+msgstr "Tidak ada otentikasi nama user yang spesifik untuk aksi operasi perintah \"%s\"."
 
 #: api/classes/CItemGeneral.php:328
 msgid "No authentication user name specified."
@@ -9551,7 +9551,7 @@ msgstr "Tidak ada event untuk pemberitahuan"
 #: api/classes/CAction.php:1349
 #, fuzzy, c-format
 msgid "No execution target specified for action operation command \"%s\"."
-msgstr "Tidak ada sasaran eksekusi yang spesifik untuk aksi operasi perintah \"%s\".Tidak ada sasaran eksekusi yang spesifik untuk aksi operasi perintah \"%s\".Tidak ada sasaran eksekusi yang spesifik untuk aksi operasi perintah \"%s\".Tidak ada sasaran eksekusi yang spesifik untuk aksi operasi perintah \"%s\".Tidak ada sasaran eksekusi yang spesifik untuk aksi operasi perintah \"%s\"."
+msgstr "Tidak ada sasaran eksekusi yang spesifik untuk aksi operasi perintah \"%s\"."
 
 #: include/classes/helpers/CUploadFile.php:156
 msgid "No file was uploaded."
@@ -9593,13 +9593,17 @@ msgstr "Tidak ada grup untuk host \"%s\"."
 msgid "No groups for hosts."
 msgstr "Tidak ada grup untuk host."
 
-#: api/classes/CTemplate.php:834
+#: api/classes/CTemplate.php:833
 msgid "No groups for template"
 msgstr "Tidak ada grup untuk template"
 
 #: api/classes/CTemplate.php:460
 #, c-format
 msgid "No groups for template \"%1$s\"."
+msgstr ""
+
+#: api/classes/CHost.php:1443
+msgid "No host ID given."
 msgstr ""
 
 #: api/classes/CDiscoveryRule.php:446
@@ -9671,7 +9675,7 @@ msgstr "Tidak ada interface yang ditemukan"
 msgid "No interface found."
 msgstr "Tidak ada interface yang ditemukan."
 
-#: api/classes/CProxy.php:254 api/classes/CProxy.php:260
+#: api/classes/CProxy.php:258 api/classes/CProxy.php:264
 #, c-format
 msgid "No interface provided for proxy \"%s\"."
 msgstr ""
@@ -9803,7 +9807,7 @@ msgstr "Tidak ada izin untuk peta \"%1$s\"."
 msgid "No permissions for screen \"%1$s\"."
 msgstr "Tidak ada izin untuk layar \"%1$s\"."
 
-#: api/classes/CUser.php:876 api/classes/CUser.php:986
+#: api/classes/CUser.php:890 api/classes/CUser.php:1000
 msgid "No permissions for system access."
 msgstr "Tidak ada izin untuk akses sistem."
 
@@ -9813,7 +9817,7 @@ msgstr "Tidak ada izin untuk akses sistem."
 #: api/classes/CApplication.php:527 api/classes/CDiscoveryRule.php:357
 #: api/classes/CDiscoveryRule.php:451 api/classes/CDiscoveryRule.php:456
 #: api/classes/CDRule.php:248 api/classes/CDRule.php:786
-#: api/classes/CEvent.php:680 api/classes/CGraphGeneral.php:65
+#: api/classes/CEvent.php:735 api/classes/CGraphGeneral.php:65
 #: api/classes/CGraphGeneral.php:86 api/classes/CGraph.php:711
 #: api/classes/CGraphPrototype.php:692 api/classes/CGraphPrototype.php:752
 #: api/classes/CHostBase.php:45 api/classes/CHostGeneral.php:139
@@ -9823,10 +9827,10 @@ msgstr "Tidak ada izin untuk akses sistem."
 #: api/classes/CHostGroup.php:925 api/classes/CHostInterface.php:319
 #: api/classes/CHostInterface.php:335 api/classes/CHostInterface.php:476
 #: api/classes/CHostInterface.php:687 api/classes/CHost.php:688
-#: api/classes/CHost.php:716 api/classes/CHost.php:1793
+#: api/classes/CHost.php:716 api/classes/CHost.php:1806
 #: api/classes/CHostPrototype.php:1020 api/classes/CHostPrototype.php:1035
 #: api/classes/CHostPrototype.php:1048 api/classes/CHostPrototype.php:1061
-#: api/classes/CHttpTest.php:377 api/classes/CIconMap.php:319
+#: api/classes/CHttpTest.php:394 api/classes/CIconMap.php:319
 #: api/classes/CImage.php:243 api/classes/CImage.php:357
 #: api/classes/CImage.php:474 api/classes/CItemGeneral.php:182
 #: api/classes/CItemGeneral.php:235 api/classes/CItem.php:689
@@ -9835,18 +9839,18 @@ msgstr "Tidak ada izin untuk akses sistem."
 #: api/classes/CMaintenance.php:466 api/classes/CMaintenance.php:483
 #: api/classes/CMaintenance.php:550 api/classes/CMapElement.php:60
 #: api/classes/CMapElement.php:119 api/classes/CMapElement.php:190
-#: api/classes/CMap.php:389 api/classes/CProxy.php:168
-#: api/classes/CProxy.php:209 api/classes/CProxy.php:281
-#: api/classes/CProxy.php:532 api/classes/CScreenItem.php:362
+#: api/classes/CMap.php:389 api/classes/CProxy.php:172
+#: api/classes/CProxy.php:213 api/classes/CProxy.php:285
+#: api/classes/CProxy.php:551 api/classes/CScreenItem.php:362
 #: api/classes/CScreenItem.php:445 api/classes/CScreen.php:460
 #: api/classes/CScreen.php:573 api/classes/CService.php:1255
 #: api/classes/CService.php:1270 api/classes/CTemplateScreen.php:573
 #: api/classes/CTemplateScreen.php:606 api/classes/CTemplateScreen.php:658
-#: api/classes/CTemplateScreen.php:664 api/classes/CTrigger.php:633
-#: api/classes/CTrigger.php:957 api/classes/CTrigger.php:978
-#: api/classes/CTrigger.php:1850 api/classes/CTriggerPrototype.php:566
+#: api/classes/CTemplateScreen.php:664 api/classes/CTrigger.php:639
+#: api/classes/CTrigger.php:963 api/classes/CTrigger.php:984
+#: api/classes/CTrigger.php:1861 api/classes/CTriggerPrototype.php:566
 #: api/classes/CTriggerPrototype.php:669 api/classes/CUserMacro.php:589
-#: api/classes/CUserMacro.php:698 api/classes/CUser.php:1154
+#: api/classes/CUserMacro.php:698 api/classes/CUser.php:1168
 #: include/func.inc.php:2070
 msgid "No permissions to referred object or it does not exist!"
 msgstr "Tidak ada izin untuk objek yang dirujuk atau objek tidak ada!"
@@ -9854,7 +9858,7 @@ msgstr "Tidak ada izin untuk objek yang dirujuk atau objek tidak ada!"
 #: api/classes/CAction.php:1366
 #, fuzzy, c-format
 msgid "No private key file specified for action operation command \"%s\"."
-msgstr "Tidak ada file kunci pribadi yang dispesifikasikan untuk aksi operasi perintah \"%s\".Tidak ada file kunci pribadi yang dispesifikasikan untuk aksi operasi perintah \"%s\".Tidak ada file kunci pribadi yang dispesifikasikan untuk aksi operasi perintah \"%s\".Tidak ada file kunci pribadi yang dispesifikasikan untuk aksi operasi perintah \"%s\".Tidak ada file kunci pribadi yang dispesifikasikan untuk aksi operasi perintah \"%s\"."
+msgstr "Tidak ada file kunci pribadi yang dispesifikasikan untuk aksi operasi perintah \"%s\"."
 
 #: api/classes/CItemGeneral.php:336
 msgid "No private key file specified."
@@ -9868,10 +9872,14 @@ msgstr ""
 msgid "No proxy"
 msgstr "Tidak ada proxy"
 
+#: api/classes/CProxy.php:420
+msgid "No proxy ID given."
+msgstr ""
+
 #: api/classes/CAction.php:1363
 #, fuzzy, c-format
 msgid "No public key file specified for action operation command \"%s\"."
-msgstr "Tidak ada file kunci pribadi yang dispesifikasikan untuk aksi operasi perintah \"%s\".Tidak ada file kunci pribadi yang dispesifikasikan untuk aksi operasi perintah \"%s\".Tidak ada file kunci pribadi yang dispesifikasikan untuk aksi operasi perintah \"%s\".Tidak ada file kunci pribadi yang dispesifikasikan untuk aksi operasi perintah \"%s\".Tidak ada file kunci pribadi yang dispesifikasikan untuk aksi operasi perintah \"%s\"."
+msgstr "Tidak ada file kunci pribadi yang dispesifikasikan untuk aksi operasi perintah \"%s\"."
 
 #: api/classes/CItemGeneral.php:333
 msgid "No public key file specified."
@@ -9925,7 +9933,7 @@ msgstr ""
 msgid "No slides found."
 msgstr ""
 
-#: api/classes/CProxy.php:223
+#: api/classes/CProxy.php:227
 msgid "No status for proxy."
 msgstr ""
 
@@ -9970,6 +9978,10 @@ msgstr "Tidak ada trigger yang didefinisikan."
 #: report2.php:395 report5.php:56 tr_status.php:365
 msgid "No triggers found."
 msgstr "Tidak ada trigger yang ditemukan."
+
+#: api/classes/CUser.php:579
+msgid "No user ID given."
+msgstr ""
 
 #: include/views/administration.usergroups.list.php:42 popup.php:554
 #: popup_usrgrp.php:89
@@ -10085,7 +10097,7 @@ msgstr "Bukan pemberitahuan"
 msgid "Not Templated items"
 msgstr "Bukan item yang dibuat template"
 
-#: api/classes/CTrigger.php:1482
+#: api/classes/CTrigger.php:1488
 #, c-format
 msgid "Not all templates are linked to \"%s\"."
 msgstr "Tidak semua template terhubung ke \"%s\"."
@@ -10094,7 +10106,7 @@ msgstr "Tidak semua template terhubung ke \"%s\"."
 msgid "Not allowed to set password for user \"guest\"."
 msgstr "Tidak diizinkan menggunakan password untuk user \"guest\"."
 
-#: api/rpc/class.czbxrpc.php:55 api/rpc/class.czbxrpc.php:62
+#: api/rpc/class.czbxrpc.php:60 api/rpc/class.czbxrpc.php:67
 msgid "Not authorized"
 msgstr "Tidak diizinkan"
 
@@ -10473,19 +10485,19 @@ msgstr "Hanya Super admin yang bisa mengubah makro global."
 msgid "Only Super Admins can update icon maps."
 msgstr "Hanya Super admin yang bisa perbarui peta ikon."
 
-#: api/classes/CUser.php:626
+#: api/classes/CUser.php:640
 msgid "Only Zabbix Admins can add user media."
 msgstr "Hanya Zabbix Admin yang bisa menambah media user."
 
-#: api/classes/CUser.php:694
+#: api/classes/CUser.php:708
 msgid "Only Zabbix Admins can change user media."
 msgstr "Hanya Zabbix Admin yang dapat merubah media user."
 
-#: api/classes/CUser.php:664
+#: api/classes/CUser.php:678
 msgid "Only Zabbix Admins can remove user media."
 msgstr "Hanya Zabbix Admin yang dapat menghapus media user."
 
-#: api/classes/CHttpTest.php:640
+#: api/classes/CHttpTest.php:657
 msgid "Only characters are allowed."
 msgstr "Hanya karakter yang diperbolehkan."
 
@@ -10506,7 +10518,7 @@ msgstr "Hanya satu nama grup user yang bisa diubah secara bersamaan. "
 msgid "Only the last 20%% of the indicator is displayed."
 msgstr "Hanya sekitar 20%% indikator yang ditampilkan."
 
-#: api/classes/CEvent.php:676
+#: api/classes/CEvent.php:731
 msgid "Only trigger events can be acknowledged."
 msgstr ""
 
@@ -11180,7 +11192,7 @@ msgstr "File kunci pribadi"
 msgid "Privilege level"
 msgstr "Tingkatan hak"
 
-#: api/classes/CUser.php:789
+#: api/classes/CUser.php:803
 msgid "Probably php-ldap module is missing."
 msgstr "Kemungkinan modul php-ldap hilang."
 
@@ -11239,12 +11251,12 @@ msgstr "Proxy"
 msgid "Proxy \"%1$s\" for host \"%2$s\" does not exist."
 msgstr "Proxy \"%1$s\"  untuk host \"%2$s\" tidak ada."
 
-#: api/classes/CProxy.php:552
+#: api/classes/CProxy.php:571
 #, c-format
 msgid "Proxy \"%1$s\" is used by discovery rule \"%2$s\"."
 msgstr "Proxy \"%1$s\"  sedang digunakan oleh aturan discovery \"%2$s\"."
 
-#: api/classes/CProxy.php:245
+#: api/classes/CProxy.php:249
 #, c-format
 msgid "Proxy \"%s\" already exists."
 msgstr "Proxy \"%s\" sudah ada."
@@ -11261,11 +11273,11 @@ msgstr "Proxy dihapus"
 msgid "Proxy hosts"
 msgstr "Host proxy"
 
-#: api/classes/CProxy.php:322
+#: api/classes/CProxy.php:326
 msgid "Proxy interface creation failed."
 msgstr "Pembuatan interface proxy gagal."
 
-#: api/classes/CProxy.php:389
+#: api/classes/CProxy.php:393
 msgid "Proxy interface update failed."
 msgstr "Perbaruan interface proxy gagal."
 
@@ -12485,7 +12497,7 @@ msgstr "Service"
 msgid "Services form a circular dependency."
 msgstr "Form service dependensi melingkar."
 
-#: api/classes/CUser.php:980
+#: api/classes/CUser.php:994
 msgid "Session terminated, re-login, please."
 msgstr "Sesi dimatikan, mohon login kembali."
 
@@ -13211,7 +13223,7 @@ msgstr "Template diperbarui"
 msgid "Template with item key \"%1$s\" already linked to host."
 msgstr "Template dengan item key \"%1$s\" sudah terhubung ke host."
 
-#: api/classes/CTemplate.php:892
+#: api/classes/CTemplate.php:891
 #, c-format
 msgid "Template with the same name \"%1$s\" already exists."
 msgstr ""
@@ -13221,7 +13233,7 @@ msgstr ""
 msgid "Template with the same name \"%s\" already exists."
 msgstr "Template dengan nama yang sama \"%s\" sudah ada."
 
-#: api/classes/CTemplate.php:519 api/classes/CTemplate.php:859
+#: api/classes/CTemplate.php:519 api/classes/CTemplate.php:858
 #, c-format
 msgid "Template with the same visible name \"%1$s\" already exists."
 msgstr ""
@@ -13352,7 +13364,7 @@ msgstr "JSON yang diterima bukanlah permintaan JSON-RPC."
 msgid "The requested remote-procedure does not exist / is not available"
 msgstr "Remote-procedure yang diminta tidak ada / tidak tersedia"
 
-#: api/classes/CHttpTest.php:556
+#: api/classes/CHttpTest.php:573
 msgid "The web scenario application belongs to a different host than the web scenario host."
 msgstr ""
 
@@ -13599,7 +13611,7 @@ msgstr "Trigger \"%1$s\" tergantung pada trigger \"%2$s\", yang tidak ada."
 msgid "Trigger \"%1$s\" skipped - user rule."
 msgstr "Trigger \"%1$s\" diabaikan - aturan user."
 
-#: api/classes/CTrigger.php:1621
+#: api/classes/CTrigger.php:1627
 #, c-format
 msgid "Trigger \"%s\" belongs to templates with different linkages."
 msgstr "Trigger \"%s\" milik template dengan linkage berbeda."
@@ -13608,7 +13620,7 @@ msgstr "Trigger \"%s\" milik template dengan linkage berbeda."
 msgid "Trigger added"
 msgstr "Trigger ditambah"
 
-#: api/classes/CTrigger.php:1525
+#: api/classes/CTrigger.php:1531
 msgid "Trigger cannot be dependent on a trigger that is inherited from it."
 msgstr ""
 
@@ -13655,7 +13667,7 @@ msgstr ""
 msgid "Trigger expression condition"
 msgstr "Trigger kondisi ekspresi"
 
-#: api/classes/CTrigger.php:689 api/classes/CTriggerPrototype.php:801
+#: api/classes/CTrigger.php:695 api/classes/CTriggerPrototype.php:801
 msgid "Trigger expression must contain at least one host:key reference."
 msgstr "Ekspresi trigger harus mengandung setidaknya satu host:key referensi."
 
@@ -14261,7 +14273,7 @@ msgstr "Diperbarui: Item \"%1$s\" pada \"%2$s\"."
 msgid "Updated: Item prototype \"%1$s\" on \"%2$s\"."
 msgstr "Diperbarui: Prototipe item \"%1$s\" pada \"%2$s\"."
 
-#: api/classes/CTrigger.php:1274
+#: api/classes/CTrigger.php:1280
 #, c-format
 msgid "Updated: Trigger \"%1$s\" on \"%2$s\"."
 msgstr "Diperbarui: Trigger \"%1$s\" pada \"%2$s\"."
@@ -14415,19 +14427,19 @@ msgstr ""
 msgid "User groups"
 msgstr "Grup user"
 
-#: api/classes/CUser.php:1167
+#: api/classes/CUser.php:1181
 msgid "User is not allowed to delete himself."
 msgstr "User tidak diizinkan menghapus dirinya sendiri."
 
 #: api/classes/CUser.php:341
 #, fuzzy, c-format
 msgid "User may not modify GUI access for himself by becoming a member of user group \"%s\"."
-msgstr "User tidak dapat memodifikasi akses GUI untuk dirinya sendiri dengan menjadi anggota dari grup user \"%s\".User tidak dapat memodifikasi akses GUI untuk dirinya sendiri dengan menjadi anggota dari grup user \"%s\".User tidak dapat memodifikasi akses GUI untuk dirinya sendiri dengan menjadi anggota dari grup user \"%s\".User tidak dapat memodifikasi akses GUI untuk dirinya sendiri dengan menjadi anggota dari grup user \"%s\".User tidak dapat memodifikasi akses GUI untuk dirinya sendiri dengan menjadi anggota dari grup user \"%s\"."
+msgstr "User tidak dapat memodifikasi akses GUI untuk dirinya sendiri dengan menjadi anggota dari grup user \"%s\"."
 
 #: api/classes/CUser.php:345
 #, fuzzy, c-format
 msgid "User may not modify system status for himself by becoming a member of user group \"%s\"."
-msgstr "User tidak dapat memodifikasi status sistem untuk dirinya sendiri dengan menjadi anggota dari grup user \"%s\".User tidak dapat memodifikasi status sistem untuk dirinya sendiri dengan menjadi anggota dari grup user \"%s\".User tidak dapat memodifikasi status sistem untuk dirinya sendiri dengan menjadi anggota dari grup user \"%s\".User tidak dapat memodifikasi status sistem untuk dirinya sendiri dengan menjadi anggota dari grup user \"%s\".User tidak dapat memodifikasi status sistem untuk dirinya sendiri dengan menjadi anggota dari grup user \"%s\"."
+msgstr "User tidak dapat memodifikasi status sistem untuk dirinya sendiri dengan menjadi anggota dari grup user \"%s\"."
 
 #: disc_prototypes.php:66 host_discovery.php:61
 #: include/views/configuration.action.edit.php:733
@@ -14872,7 +14884,7 @@ msgstr "Pemantauan Web"
 msgid "Web scenario \"%1$s\" already exists on host \"%2$s\"."
 msgstr ""
 
-#: api/classes/CHttpTest.php:462 api/classes/CHttpTest.php:514
+#: api/classes/CHttpTest.php:479 api/classes/CHttpTest.php:531
 #, c-format
 msgid "Web scenario \"%1$s\" already exists."
 msgstr ""
@@ -14891,25 +14903,25 @@ msgid "Web scenario enabled"
 msgid_plural "Web scenarios enabled"
 msgstr[0] ""
 
-#: api/classes/CHttpTest.php:455 api/classes/CHttpTest.php:495
+#: api/classes/CHttpTest.php:472 api/classes/CHttpTest.php:512
 #, c-format
 msgid "Web scenario missing parameters: %1$s"
 msgstr ""
 
-#: api/classes/CHttpTest.php:466
+#: api/classes/CHttpTest.php:483
 msgid "Web scenario must have at least one step."
 msgstr ""
 
-#: api/classes/CHttpTest.php:593
+#: api/classes/CHttpTest.php:610
 #, c-format
 msgid "Web scenario step \"%1$s\" already exists."
 msgstr ""
 
-#: api/classes/CHttpTest.php:573
+#: api/classes/CHttpTest.php:590
 msgid "Web scenario step name should contain only printable characters."
 msgstr ""
 
-#: api/classes/CHttpTest.php:578
+#: api/classes/CHttpTest.php:595
 msgid "Web scenario step number cannot be less than 1."
 msgstr ""
 
@@ -15052,7 +15064,7 @@ msgstr ""
 msgid "Wrong fields for media type."
 msgstr "Field yang salah untuk tipe media."
 
-#: api/classes/CProxy.php:203
+#: api/classes/CProxy.php:207
 #, c-format
 msgid "Wrong fields for proxy \"%1$s\"."
 msgstr ""
@@ -15229,18 +15241,18 @@ msgstr "Anda tidak dapat menentukan target untuk perintah aksi operasi \"%s\"."
 #: api/classes/CAction.php:1423
 #, fuzzy, c-format
 msgid "You did not specify targets for action operation global script \"%s\"."
-msgstr "Anda tidak dapat menentukan target untuk skrip global aksi operasi \"%s\".Anda tidak dapat menentukan target untuk skrip global aksi operasi \"%s\".Anda tidak dapat menentukan target untuk skrip global aksi operasi \"%s\".Anda tidak dapat menentukan target untuk skrip global aksi operasi \"%s\".Anda tidak dapat menentukan target untuk skrip global aksi operasi \"%s\"."
+msgstr "Anda tidak dapat menentukan target untuk skrip global aksi operasi \"%s\"."
 
 #: api/classes/CGraph.php:556 api/classes/CGraphPrototype.php:574
 #: api/classes/CHost.php:1013 api/classes/CHost.php:1070
-#: api/classes/CHost.php:1385 api/classes/CHttpTest.php:487
+#: api/classes/CHost.php:1385 api/classes/CHttpTest.php:504
 #: api/classes/CMaintenance.php:537 api/classes/CMaintenance.php:644
 #: api/classes/CMaintenance.php:656 api/classes/CScript.php:300
 #: api/classes/CScript.php:397 api/classes/CScript.php:437
 #: api/classes/CScript.php:500 api/classes/CTemplate.php:480
-#: api/classes/CTemplate.php:580 api/classes/CTemplate.php:639
-#: api/classes/CTemplate.php:789 api/classes/CTemplate.php:828
-#: api/classes/CTemplate.php:1077
+#: api/classes/CTemplate.php:580 api/classes/CTemplate.php:638
+#: api/classes/CTemplate.php:788 api/classes/CTemplate.php:827
+#: api/classes/CTemplate.php:1076
 msgid "You do not have permission to perform this operation."
 msgstr "Anda tidak memiliki hak untuk melakukan operasi ini."
 

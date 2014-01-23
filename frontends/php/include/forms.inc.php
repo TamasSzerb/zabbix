@@ -57,10 +57,7 @@
 			$data['user_type']		= $user['type'];
 			$data['messages'] 		= getMessageSettings();
 
-			$userGroups = API::UserGroup()->get(array(
-				'userids' => $userid,
-				'output' => array('usrgrpid')
-			));
+			$userGroups = API::UserGroup()->get(array('userids' => $userid, 'output' => 'usrgrpid'));
 			$userGroup = zbx_objectValues($userGroups, 'usrgrpid');
 			$data['user_groups']	= zbx_toHash($userGroup);
 
@@ -1490,14 +1487,11 @@
 						show_messages(false, '', _('Expression Syntax Error.'));
 					}
 				}
-
 				$data['expression_field_name'] = 'expr_temp';
 				$data['expression_field_value'] = $data['expr_temp'];
 				$data['expression_field_readonly'] = 'yes';
 				$data['expression_field_params'] = 'this.form.elements["'.$data['expression_field_name'].'"].value';
-				$data['expression_macro_button'] = new CButton('insert_macro', _('Insert macro'), null, 'formlist');
-				$data['expression_macro_button']->setMenuPopup(CMenuPopupHelper::getTriggerMacro());
-
+				$data['expression_macro_button'] = new CButton('insert_macro', _('Insert macro'), 'return call_ins_macro_menu(event);', 'formlist');
 				if ($data['limited'] == 'yes') {
 					$data['expression_macro_button']->setAttribute('disabled', 'disabled');
 				}

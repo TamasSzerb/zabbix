@@ -4,8 +4,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Zabbix 2.1\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2013-12-18 00:49+0200\n"
-"PO-Revision-Date: 2013-11-21 15:44+0300\n"
+"POT-Creation-Date: 2013-12-17 23:54+0200\n"
+"PO-Revision-Date: 2013-11-08 15:57+0300\n"
 "Last-Translator: open-future <patrik@open-future.be>\n"
 "Language-Team: NL\n"
 "Language: nl\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 "X-Generator: Pootle 2.5.0\n"
 "X-Poedit-Basepath: ../../\n"
-"X-POOTLE-MTIME: 1385041464.0\n"
+"X-POOTLE-MTIME: 1383919048.0\n"
 
 #: api/classes/CMaintenance.php:387 api/classes/CMaintenance.php:392
 #: api/classes/CMaintenance.php:500 api/classes/CMaintenance.php:505
@@ -235,7 +235,7 @@ msgstr "Toegang geweigerd!"
 msgid "Access denied."
 msgstr "Toegang geweigerd"
 
-#: api/classes/CUser.php:868
+#: api/classes/CUser.php:882
 #, c-format
 msgid "Account is blocked for %s seconds"
 msgstr "Account is geblokkeerd voor %s seconden"
@@ -1229,19 +1229,19 @@ msgstr "Berekende permissies"
 msgid "Callback"
 msgstr "Terugbellen"
 
-#: api/classes/CTemplate.php:954
+#: api/classes/CTemplate.php:953
 msgid "Can't add group"
 msgstr "Kan groep niet toevoegen"
 
-#: api/classes/CTemplate.php:1031 api/classes/CTemplate.php:1041
+#: api/classes/CTemplate.php:1030 api/classes/CTemplate.php:1040
 msgid "Can't link template"
 msgstr "Kan template niet koppelen"
 
-#: api/classes/CTemplate.php:965
+#: api/classes/CTemplate.php:964
 msgid "Can't remove group"
 msgstr "Kan groep niet verwijderen"
 
-#: api/classes/CTemplate.php:1002 api/classes/CTemplate.php:1020
+#: api/classes/CTemplate.php:1001 api/classes/CTemplate.php:1019
 msgid "Can't unlink template"
 msgstr "Kan template niet ontkoppelen"
 
@@ -1296,7 +1296,7 @@ msgstr "Kan actie voorwaarde niet toevoegen"
 msgid "Cannot add application"
 msgstr "Kan applicatie niet toevoegen"
 
-#: api/classes/CTrigger.php:1403
+#: api/classes/CTrigger.php:1409
 msgid "Cannot add dependency from a host to a template."
 msgstr "Kan geen host afhankelijkheid toevoegen aan een template."
 
@@ -1503,11 +1503,11 @@ msgstr "Kan een gastheer prototype op een ontdekte gastheer niet maken \"%1$s\".
 msgid "Cannot create another database connection."
 msgstr "Kan geen andere database verbinding opzetten."
 
-#: api/classes/CTrigger.php:1437
+#: api/classes/CTrigger.php:1443
 msgid "Cannot create circular dependencies."
 msgstr "Kan geen circulaire afhankelijkheden maken."
 
-#: api/classes/CTrigger.php:1409
+#: api/classes/CTrigger.php:1415
 msgid "Cannot create dependency on trigger itself."
 msgstr "Kan geen afhankelijkheid maken op de trigger zelf."
 
@@ -1545,7 +1545,7 @@ msgstr "Kan nieuw element niet aanmaken"
 msgid "Cannot create screen."
 msgstr "Kan screen niet aanmaken."
 
-#: api/classes/CUser.php:1187
+#: api/classes/CUser.php:1201
 #, c-format
 msgid "Cannot delete Zabbix internal user \"%1$s\", try disabling that user."
 msgstr "Kan de Zabbix gebruiker \"%1$s\" niet verwijderen, probeer de gebruiker uit te schakelen."
@@ -1558,7 +1558,7 @@ msgstr "Kan actie niet verwijderen"
 msgid "Cannot delete application"
 msgstr "Kan applicatie niet verwijderen"
 
-#: api/classes/CTrigger.php:1063
+#: api/classes/CTrigger.php:1069
 msgid "Cannot delete dependency"
 msgstr "Kan de afhankelijkheid niet verwijderen"
 
@@ -1735,12 +1735,12 @@ msgstr "Kan items in template niet verwijderen"
 msgid "Cannot delete templated items."
 msgstr "Kan template items niet verwijderen."
 
-#: api/classes/CTrigger.php:1871 api/classes/CTriggerPrototype.php:674
+#: api/classes/CTrigger.php:1882 api/classes/CTriggerPrototype.php:674
 #, c-format
 msgid "Cannot delete templated trigger \"%1$s:%2$s\"."
 msgstr "Kan de template trigger \"%1$s:%2$s\" niet verwijderen."
 
-#: api/classes/CHttpTest.php:374
+#: api/classes/CHttpTest.php:391
 #, c-format
 msgid "Cannot delete templated web scenario \"%1$s\"."
 msgstr "Kan web scenario \"%1$s in template niet verwijderen."
@@ -1773,7 +1773,7 @@ msgstr "Kan aangemaakte triggers door low level discovery niet verwijderen."
 msgid "Cannot delete user"
 msgstr "Kan gebruiker niet verwijderen"
 
-#: api/classes/CUser.php:728
+#: api/classes/CUser.php:742
 msgid "Cannot delete user media."
 msgstr "Kan gebruikersmedia niet verwijderen."
 
@@ -2090,11 +2090,11 @@ msgstr "Kan boom niet opmaken. Controleer de structuur van de service links."
 msgid "Cannot format tree."
 msgstr "Kan structuur niet formatteren."
 
-#: api/classes/CTemplate.php:925
+#: api/classes/CTemplate.php:924
 msgid "Cannot have empty visible template name"
 msgstr "Zichtbare template naam mag niet leeg zijn"
 
-#: api/classes/CTrigger.php:1096 api/classes/CTrigger.php:1235
+#: api/classes/CTrigger.php:1102 api/classes/CTrigger.php:1241
 #: api/classes/CTriggerPrototype.php:755 api/classes/CTriggerPrototype.php:813
 #, c-format
 msgid "Cannot implode expression \"%s\"."
@@ -2108,7 +2108,7 @@ msgstr[0] "Kan scherm niet importeren \"%1$s\": subscherm \"%2$s\" bestaat niet.
 msgstr[1] "Kan scherm niet importeren \"%1$s\": subschermen \"%2$s\" bestaan niet."
 
 #: include/classes/import/importers/CTemplateImporter.php:114
-#, c-format
+#, fuzzy, c-format
 msgid "Cannot import template \"%1$s\", linked template \"%2$s\" does not exist."
 msgid_plural "Cannot import template \"%1$s\", linked templates \"%2$s\" do not exist."
 msgstr[0] "Kan sjabloon niet importeren \"%1$s\", gekoppeld sjabloon \"%2$s\" bestaat niet."
@@ -2119,7 +2119,7 @@ msgstr[1] "Kan sjabloon niet importeren \"%1$s\", gekoppelde sjablonen \"%2$s\" 
 msgid "Cannot include view file \"%s\"."
 msgstr "Kan view bestand \"%s\" niet invoegen."
 
-#: api/classes/CUser.php:757
+#: api/classes/CUser.php:771
 msgid "Cannot insert user media."
 msgstr "Kan gebruikersmedia niet invoegen."
 
@@ -2127,7 +2127,7 @@ msgstr "Kan gebruikersmedia niet invoegen."
 msgid "Cannot link template"
 msgstr "Kan template niet ontkoppelen"
 
-#: api/classes/CUser.php:832
+#: api/classes/CUser.php:846
 msgid "Cannot logout."
 msgstr "Kan niet uitloggen."
 
@@ -2135,7 +2135,7 @@ msgstr "Kan niet uitloggen."
 msgid "Cannot mass update host name."
 msgstr "Kan hostnaam niet in bulk bijwerken."
 
-#: api/classes/CTemplate.php:875
+#: api/classes/CTemplate.php:874
 msgid "Cannot mass update template name"
 msgstr "Kan de template naam niet in bulk bijwerken"
 
@@ -2143,7 +2143,7 @@ msgstr "Kan de template naam niet in bulk bijwerken"
 msgid "Cannot mass update visible host name."
 msgstr "Kan de zichtbare hostnaam niet in bulk bijwerken."
 
-#: api/classes/CTemplate.php:842
+#: api/classes/CTemplate.php:841
 msgid "Cannot mass update visible template name"
 msgstr "Kan de zichtbare templatenaam niet in bulk bijwerken"
 
@@ -2202,7 +2202,7 @@ msgstr "Kan commando niet lezen, controleer verbinding met de Zabbix server \"%1
 msgid "Cannot set \"%1$s\" for item \"%2$s\"."
 msgstr "\"%1$s\" kan niet ingesteld worden voor item \"%2$s\"."
 
-#: api/classes/CTrigger.php:656
+#: api/classes/CTrigger.php:662
 #, c-format
 msgid "Cannot set \"%1$s\" for trigger \"%2$s\"."
 msgstr "\"%1$s\" kan niet ingesteld worden voor trigger \"%2$s\"."
@@ -2285,7 +2285,7 @@ msgstr "Kan  \"%1$s\" niet updaten voor een ontdekt gastheer."
 msgid "Cannot update \"%1$s\" for a discovered item."
 msgstr "Kan \"%1$s\" niet updaten voor een ontdekt item."
 
-#: api/classes/CTrigger.php:628
+#: api/classes/CTrigger.php:634
 #, c-format
 msgid "Cannot update \"%1$s\" for a discovered trigger."
 msgstr "Kan \"%1$s\" niet updaten voor een ontdekte trigger."
@@ -2300,7 +2300,7 @@ msgstr ""
 msgid "Cannot update \"%1$s\" for item \"%2$s\"."
 msgstr "\"%1$s\" kan niet bijgewerkt worden voor item \"%2$s\"."
 
-#: api/classes/CTrigger.php:656
+#: api/classes/CTrigger.php:662
 #, c-format
 msgid "Cannot update \"%1$s\" for trigger \"%2$s\"."
 msgstr "\"%1$s\" kan niet bijgewerkt worden voor trigger \"%2$s\"."
@@ -2469,7 +2469,7 @@ msgstr "Kan node niet bijwerken"
 msgid "Cannot update proxy"
 msgstr "Kan proxy niet bijwerken"
 
-#: api/classes/CProxy.php:295
+#: api/classes/CProxy.php:299
 #, c-format
 msgid "Cannot update proxy for discovered host \"%1$s\"."
 msgstr "Kan proxy niet bijwerken voor ontdekte host \"%1$s\"."
@@ -2506,7 +2506,7 @@ msgstr "Kan template niet bijwerken"
 msgid "Cannot update templated applications."
 msgstr "Kan applicatie in template niet bijwerken."
 
-#: api/classes/CTemplate.php:798 api/classes/CTemplate.php:1083
+#: api/classes/CTemplate.php:797 api/classes/CTemplate.php:1082
 #, c-format
 msgid "Cannot update templates on discovered host \"%1$s\"."
 msgstr "Kan geen sjablonen op ontdekte host \"%1$s\" bijwerken."
@@ -2527,7 +2527,7 @@ msgstr ""
 msgid "Cannot update user"
 msgstr "Kan gebruiker niet bijwerken"
 
-#: api/classes/CUser.php:749
+#: api/classes/CUser.php:763
 msgid "Cannot update user media."
 msgstr "Kan gebruikersmedia niet bijwerken."
 
@@ -3143,7 +3143,7 @@ msgstr "Kopie"
 msgid "Copy selected to ..."
 msgstr "Kopieer selectie naar ..."
 
-#: api/classes/CUser.php:937
+#: api/classes/CUser.php:951
 #, c-format
 msgid "Correct login \"%s\"."
 msgstr "Juist login \"%s\"."
@@ -3315,7 +3315,7 @@ msgstr "Aangemaakt: Item \"%1$s\" op \"%2$s\"."
 msgid "Created: Item prototype \"%1$s\" on \"%2$s\"."
 msgstr "Aangemaakt: Item prototype \"%1$s\" op \"%2$s\"."
 
-#: api/classes/CTrigger.php:1130
+#: api/classes/CTrigger.php:1136
 #, c-format
 msgid "Created: Trigger \"%1$s\" on \"%2$s\"."
 msgstr "Aangemaakt: Trigger \"%1$s\" op \"%2$s\"."
@@ -4067,7 +4067,7 @@ msgstr "Verwijderd: Discovery regel \"%1$s\" op \"%2$s\"."
 msgid "Deleted: Graph \"%1$s\" on \"%2$s\"."
 msgstr "Verwijderd: Grafiek \"%1$s\" op \"%2$s\"."
 
-#: api/classes/CHost.php:1570
+#: api/classes/CHost.php:1583
 #, c-format
 msgid "Deleted: Host \"%1$s\"."
 msgstr "Verwijderd: Host %1$s\"."
@@ -4087,17 +4087,17 @@ msgstr "Verwijderd: Item \"%1$s\" op \"%2$s\"."
 msgid "Deleted: Item prototype \"%1$s\" on \"%2$s\"."
 msgstr "Verwijderd: Item prototype \"%1$s\" op \"%2$s\"."
 
-#: api/classes/CProxy.php:451
+#: api/classes/CProxy.php:470
 #, c-format
 msgid "Deleted: Proxy \"%1$s\"."
 msgstr "Verwijderd: Proxy \"%1$s\"."
 
-#: api/classes/CTemplate.php:764
+#: api/classes/CTemplate.php:763
 #, c-format
 msgid "Deleted: Template \"%1$s\"."
 msgstr "Verwijderd: Sjabloon \"%1$s\"."
 
-#: api/classes/CTrigger.php:850
+#: api/classes/CTrigger.php:856
 #, c-format
 msgid "Deleted: Trigger \"%1$s\" on \"%2$s\"."
 msgstr "Verwijderd: Trigger \"%1$s\" op \"%2$s\"."
@@ -4107,7 +4107,7 @@ msgstr "Verwijderd: Trigger \"%1$s\" op \"%2$s\"."
 msgid "Deleted: Trigger prototype \"%1$s\" on \"%2$s\"."
 msgstr "Verwijderd: Trigger prototype \"%1$s\" op \"%2$s\"."
 
-#: api/classes/CHttpTest.php:434
+#: api/classes/CHttpTest.php:451
 #, c-format
 msgid "Deleted: Web scenario \"%1$s\" on \"%2$s\"."
 msgstr "Verwijderd: Web scenario \"%1$s\" op \"%2$s\"."
@@ -4582,7 +4582,7 @@ msgstr "Vervolgkeuzelijst eerste item \"%1$s\"."
 msgid "Dropdown remember selected \"%1$s\"."
 msgstr "Vervolgkeuzelijst herinner geselecteerd \"%1$s\"."
 
-#: api/classes/CTrigger.php:1579
+#: api/classes/CTrigger.php:1585
 #, c-format
 msgid "Duplicate dependencies in trigger \"%1$s\"."
 msgstr "Dupliceer afhankelijkheden in trigger \"%1$s\"."
@@ -4736,11 +4736,11 @@ msgstr "Lege host."
 #: api/classes/CHostInterface.php:465 api/classes/CHost.php:1419
 #: api/classes/CHostPrototype.php:906 api/classes/CIconMap.php:316
 #: api/classes/CItem.php:671 api/classes/CItemPrototype.php:489
-#: api/classes/CProxy.php:468 api/classes/CService.php:341
+#: api/classes/CProxy.php:487 api/classes/CService.php:341
 #: api/classes/CService.php:377 api/classes/CService.php:443
-#: api/classes/CService.php:515 api/classes/CTemplate.php:625
-#: api/classes/CTrigger.php:874 api/classes/CTrigger.php:938
-#: api/classes/CTrigger.php:1028 api/classes/CTriggerPrototype.php:652
+#: api/classes/CService.php:515 api/classes/CTemplate.php:624
+#: api/classes/CTrigger.php:880 api/classes/CTrigger.php:944
+#: api/classes/CTrigger.php:1034 api/classes/CTriggerPrototype.php:652
 #: api/classes/CUserGroup.php:635 api/classes/CUserMacro.php:394
 #: api/classes/CUserMacro.php:546 api/classes/CUser.php:555
 msgid "Empty input parameter."
@@ -6048,7 +6048,7 @@ msgstr "Host"
 msgid "Host \"%1$s\" already exists."
 msgstr "Host \"%1$s\" bestaat reeds."
 
-#: api/classes/CProxy.php:572
+#: api/classes/CProxy.php:591
 #, c-format
 msgid "Host \"%1$s\" is monitored with proxy \"%2$s\"."
 msgstr "Host \"%1$s\" wordt gemonitord via proxy \"%2$s\"."
@@ -6314,7 +6314,7 @@ msgstr "Host update is mislukt."
 msgid "Host updated"
 msgstr "Host bijgewerkt"
 
-#: api/classes/CTemplate.php:900
+#: api/classes/CTemplate.php:899
 #, c-format
 msgid "Host with the same name \"%1$s\" already exists."
 msgstr ""
@@ -6324,7 +6324,7 @@ msgstr ""
 msgid "Host with the same name \"%s\" already exists."
 msgstr "Host met dezelfde naam '%s' bestaat reeds."
 
-#: api/classes/CTemplate.php:526 api/classes/CTemplate.php:867
+#: api/classes/CTemplate.php:526 api/classes/CTemplate.php:866
 #, c-format
 msgid "Host with the same visible name \"%1$s\" already exists."
 msgstr ""
@@ -6963,7 +6963,7 @@ msgid "Incorrect arguments passed to function"
 msgstr "Onjuiste argumenten doorgegeven aan de functie"
 
 #: api/classes/CApplication.php:322 api/classes/CHostInterface.php:314
-#: api/classes/CHostInterface.php:513 api/classes/CHttpTest.php:519
+#: api/classes/CHostInterface.php:513 api/classes/CHttpTest.php:536
 #: api/classes/CItemGeneral.php:198
 msgid "Incorrect arguments passed to function."
 msgstr "Onjuiste argumenten doorgegeven aan de functie."
@@ -7006,12 +7006,12 @@ msgstr "Verkeerde tekens gebruikt voor host \"%1$s\"."
 msgid "Incorrect characters used for host name \"%s\"."
 msgstr "Verkeerde tekens gebruikt voor hostnaam \"%s\"."
 
-#: api/classes/CProxy.php:237
+#: api/classes/CProxy.php:241
 #, c-format
 msgid "Incorrect characters used for proxy name \"%1$s\"."
 msgstr "Verkeerde tekens gebruikt voor proxy naam \"%1$s\"."
 
-#: api/classes/CTemplate.php:908
+#: api/classes/CTemplate.php:907
 #, c-format
 msgid "Incorrect characters used for template name \"%1$s\"."
 msgstr ""
@@ -7028,13 +7028,13 @@ msgstr "Onjuiste ontdekking regel ID voor host prototype \"%1$s\"."
 #: include/classes/validators/event/CEventSourceObjectValidator.php:66
 #, c-format
 msgid "Incorrect event object \"%1$s\" (%2$s) for event source \"%3$s\" (%4$s), only the following objects are supported: %5$s."
-msgstr "Onjuist gebeurtenisobject \"%1$s\" (%2$s) voor event source \"%3$s\" (%4$s), worden alleen de volgende objecten ondersteund: % 5$s."
+msgstr "Onjuist gebeurtenisobject \"%1$s\" (%2$s) voor event source \"%3$s\" (%4$s), worden alleen de volgende objecten ondersteund: %5$s."
 
-#: api/classes/CAlert.php:346
+#: api/classes/CAlert.php:348
 msgid "Incorrect eventobject value."
 msgstr "Onjuist eventobject waarde."
 
-#: api/classes/CAlert.php:339
+#: api/classes/CAlert.php:341
 msgid "Incorrect eventsource value."
 msgstr "Onjuiste gebeurtenis bron waarde."
 
@@ -7047,7 +7047,7 @@ msgstr "Onjuist veld \"%1$s\" naam of waarde in waar statement voor tabel \"%2$s
 msgid "Incorrect fields for sysmap."
 msgstr "Onjuiste velden voor sysmap."
 
-#: api/classes/CTrigger.php:661
+#: api/classes/CTrigger.php:667
 msgid "Incorrect fields for trigger."
 msgstr "Onjuiste velden voor trigger."
 
@@ -7148,7 +7148,7 @@ msgstr ""
 msgid "Incorrect item for axis value."
 msgstr "Onjuiste punt voor aswaarde."
 
-#: api/classes/CTrigger.php:729 include/triggers.inc.php:1040
+#: api/classes/CTrigger.php:735 include/triggers.inc.php:1040
 #, c-format
 msgid "Incorrect item key \"%1$s\" provided for trigger expression on \"%2$s\"."
 msgstr "Onjuist artikel sleutel \"%1$s\" ingevoerd voor trigger uitdrukking op \"%2$s\"."
@@ -7228,7 +7228,7 @@ msgstr "Onjuist menupad voor script \"%1$s\"."
 msgid "Incorrect node type."
 msgstr "Onjuist type node."
 
-#: api/classes/CEvent.php:406
+#: api/classes/CEvent.php:413
 msgid "Incorrect object value."
 msgstr "Onjuist object waarde."
 
@@ -7330,7 +7330,7 @@ msgstr "Verkeerd type servicetijd."
 msgid "Incorrect sorder order for service \"%1$s\"."
 msgstr "Verkeerde sorder order voor service \"%1$s\"."
 
-#: api/classes/CEvent.php:399
+#: api/classes/CEvent.php:406
 msgid "Incorrect source value."
 msgstr "Verkeerde bronwaarde."
 
@@ -7398,12 +7398,12 @@ msgstr "Verkeerde trigger expressie."
 msgid "Incorrect trigger expression. Host \"%1$s\" does not exist or you have no access to this host."
 msgstr "Verkeerde trigger expressie. Host \"%1$s\" bestaat niet of u heeft geen toegang tot deze host."
 
-#: api/classes/CTrigger.php:709
+#: api/classes/CTrigger.php:715
 #, c-format
 msgid "Incorrect trigger expression. Host \"%s\" does not exist or you have no access to this host."
 msgstr "Verkeerde trigger expressie. Host \"%s\" bestaat niet of u heeft geen toegang tot deze host."
 
-#: api/classes/CTrigger.php:715
+#: api/classes/CTrigger.php:721
 msgid "Incorrect trigger expression. Trigger expression elements should not belong to a template and a host simultaneously."
 msgstr "Verkeerde trigger expressie. Trigger expressie-elementen mogen niet behoren tot een template en een gastheer tegelijk."
 
@@ -7477,7 +7477,7 @@ msgstr "Onjuiste waarde voor veld \"%1$s\": kan niet leeg zijn."
 msgid "Incorrect value for setMessage(): \"%s\"."
 msgstr "Onjuiste waarde voor setMessage (): \"%s\"."
 
-#: api/classes/CProxy.php:216 api/classes/CProxy.php:227
+#: api/classes/CProxy.php:220 api/classes/CProxy.php:231
 #, c-format
 msgid "Incorrect value used for proxy status \"%1$s\"."
 msgstr "Onjuiste waarde gebruikt voor proxy-status \"%1$s\"."
@@ -7553,7 +7553,7 @@ msgstr "Interface met IP \"%1$s\" kan geen lege DNS naam hebben zolang er gebrui
 #: api/classes/CHostInterface.php:370
 #, c-format
 msgid "Interface with IP \"%1$s\" cannot have empty DNS name."
-msgstr "Interface met IP \"% 1 $ s\" kan geen lege DNS-naam hebben."
+msgstr "Interface met IP \"%1$s\" kan geen lege DNS-naam hebben."
 
 #: include/views/administration.authentication.edit.php:35
 msgctxt "authentication"
@@ -7667,12 +7667,12 @@ msgstr "Ongeldige parameters."
 msgid "Invalid period for field \"%1$s\"."
 msgstr "Ongeldige periode voor het veld \"%1$s\"."
 
-#: api/classes/CHttpTest.php:621
+#: api/classes/CHttpTest.php:638
 #, c-format
 msgid "Invalid response code \"%1$s\"."
 msgstr "Ongeldige respons code \"%1$s\"."
 
-#: api/classes/CHttpTest.php:616
+#: api/classes/CHttpTest.php:633
 #, c-format
 msgid "Invalid response code range \"%1$s\"."
 msgstr "Ongeldige respons code, range \"%1$s\"."
@@ -7887,7 +7887,7 @@ msgstr "Item maakt gebruik van de host interface van niet-ouder host."
 
 #: api/classes/CItemGeneral.php:270
 msgid "Item uses incorrect interface type."
-msgstr "Item maakt gebruik van verkeerd interface type."
+msgstr ""
 
 #: api/classes/CItemGeneral.php:321
 msgid "Item will not be refreshed. Please enter a correct update interval."
@@ -7960,43 +7960,43 @@ msgstr "Items verwijderd"
 
 #: include/views/monitoring.history.php:108
 msgid "Items list"
-msgstr "Items lijst"
+msgstr ""
 
 #: items.php:660
 msgid "Items updated"
-msgstr "Bijgewerkte artikelen"
+msgstr ""
 
 #: include/hosts.inc.php:474 include/items.inc.php:246
 msgid "JMX"
-msgstr "JMX"
+msgstr ""
 
 #: include/items.inc.php:96
 msgid "JMX agent"
-msgstr "JMX agent"
+msgstr ""
 
 #: include/views/configuration.host.edit.php:285
 #: include/views/configuration.host.edit.php:363
 #: include/views/configuration.host.prototype.edit.php:133
 #: include/views/inventory.host.view.php:155
 msgid "JMX interfaces"
-msgstr "JMX interfaces"
+msgstr ""
 
 #: api/rpc/class.cjsonrpc.php:149
 #, c-format
 msgid "JSON-rpc error generation failed. No such error \"%s\"."
-msgstr "JSON-rpc fout generatie mislukt. Geen dergelijke fout \"%s\"."
+msgstr ""
 
 #: api/rpc/class.cjsonrpc.php:95
 msgid "JSON-rpc method is not defined."
-msgstr "JSON-rpc-methode is niet gedefinieerd."
+msgstr ""
 
 #: api/rpc/class.cjsonrpc.php:100
 msgid "JSON-rpc params is not an Array."
-msgstr "JSON-rpc params is geen een Array."
+msgstr ""
 
 #: api/rpc/class.cjsonrpc.php:85
 msgid "JSON-rpc version is not specified."
-msgstr "JSON-rpc-versie is niet gespecificeerd."
+msgstr ""
 
 #: include/media.inc.php:27
 #: include/views/administration.mediatypes.edit.php:44
@@ -8061,7 +8061,7 @@ msgstr "Key"
 #: api/classes/CItemGeneral.php:300
 #, c-format
 msgid "Key \"%1$s\" does not match <grpmax|grpmin|grpsum|grpavg>[\"Host group(s)\", \"Item key\", \"<last|min|max|avg|sum|count>\", \"parameter\"]."
-msgstr "Sleutel \"%1$s\" komt niet overeen met <grpmax|grpmin|grpsum|grpavg>[\"Host group(s)\", \"Item key\", \"<last|min|max|avg|sum|count>\", \"parameter\"]."
+msgstr ""
 
 #: api/classes/CItemKey.php:54
 msgid "Key cannot be empty."
@@ -8116,6 +8116,7 @@ msgid "LOCAL"
 msgstr "LOCAL"
 
 #: include/triggers.inc.php:186
+#, fuzzy
 msgid "LOST"
 msgstr "VERLOREN"
 
@@ -8154,19 +8155,19 @@ msgstr[1] "Laatste %1$d problemen"
 
 #: popup_trexpr.php:239
 msgid "Last (most recent) T value is < N"
-msgstr "Laatst (meest recente) T waarde is < N"
+msgstr ""
 
 #: popup_trexpr.php:249
 msgid "Last (most recent) T value is = N"
-msgstr "Laatst (meest recente) T waarde = N"
+msgstr ""
 
 #: popup_trexpr.php:244
 msgid "Last (most recent) T value is > N"
-msgstr "Laatst (meest recente) T waarde > N"
+msgstr ""
 
 #: popup_trexpr.php:254
 msgid "Last (most recent) T value is NOT N"
-msgstr "Laatst (meest recente) T waarde is NOT N"
+msgstr ""
 
 #: srv_status.php:39
 msgid "Last 24 hours"
@@ -8206,10 +8207,12 @@ msgstr "Grafiek voor de laatste maand"
 
 #: popup_trexpr.php:48 popup_trexpr.php:59 popup_trexpr.php:75
 #: popup_trexpr.php:82 popup_trexpr.php:101
+#, fuzzy
 msgid "Last of"
 msgstr "Laatste van"
 
 #: include/views/administration.proxy.list.php:48
+#, fuzzy
 msgid "Last seen (age)"
 msgstr "Voor het laatst gezien (doorlooptijd)"
 
@@ -8233,7 +8236,7 @@ msgstr "Laatste gebeurtenissen"
 
 #: jsLoader.php:207
 msgid "Latest values"
-msgstr "Laatste waarden"
+msgstr ""
 
 #: include/locales.inc.php:66
 msgid "Latvian (lv_LV)"
@@ -8257,19 +8260,19 @@ msgstr "Legenda"
 
 #: popup_trexpr.php:325
 msgid "Length of last (most recent) T value in characters is < N"
-msgstr "Lengte van de laatste (meest recente) T waarde in letters is < N"
+msgstr ""
 
 #: popup_trexpr.php:335
 msgid "Length of last (most recent) T value in characters is = N"
-msgstr "Lengte van de laatste (meest recente) T waarde in letters is = N"
+msgstr ""
 
 #: popup_trexpr.php:330
 msgid "Length of last (most recent) T value in characters is > N"
-msgstr "Lengte van de laatste (meest recente) T waarde in letters is > N"
+msgstr ""
 
 #: popup_trexpr.php:340
 msgid "Length of last (most recent) T value in characters is NOT N"
-msgstr "Lengte van de laatste (meest recente) T waarde in letters is NIET N"
+msgstr ""
 
 #: include/graphs.inc.php:65 include/views/js/configuration.sysmaps.js.php:369
 #: include/views/js/configuration.sysmaps.js.php:447
@@ -8283,6 +8286,7 @@ msgstr "Koppeling"
 #: include/views/js/configuration.sysmaps.js.php:324
 #: include/views/js/configuration.sysmaps.js.php:336
 #: include/views/js/configuration.sysmaps.js.php:388
+#, fuzzy
 msgid "Link indicators"
 msgstr "Koppelings indicatoren"
 
@@ -8295,12 +8299,12 @@ msgstr "Naam van de koppeling moet uniek zijn voor de kaart \"%s\"."
 #: include/views/configuration.host.prototype.edit.php:250
 #: include/views/configuration.template.edit.php:431
 msgid "Link new templates"
-msgstr "Koppelen nieuwe sjablonen"
+msgstr ""
 
 #: api/classes/CMap.php:502
 #, c-format
 msgid "Link selementid1 field is pointing to a nonexistent map selement ID \"%1$s\" for map \"%2$s\"."
-msgstr "Link selementid1 veld wijst naar een niet-bestaande map selement ID \"%1$s\" voor map \"%2$s\"."
+msgstr ""
 
 #: api/classes/CMap.php:509
 #, c-format
@@ -8442,13 +8446,13 @@ msgstr "Login"
 msgid "Login as Guest"
 msgstr "Login in als Guest"
 
-#: api/classes/CUser.php:929
+#: api/classes/CUser.php:943
 #, c-format
 msgid "Login failed \"%s\"."
 msgstr ""
 
-#: api/classes/CUser.php:797 api/classes/CUser.php:815
-#: api/classes/CUser.php:862 authentication.php:109 authentication.php:137
+#: api/classes/CUser.php:811 api/classes/CUser.php:829
+#: api/classes/CUser.php:876 authentication.php:109 authentication.php:137
 msgid "Login name or password is incorrect."
 msgstr ""
 
@@ -9654,13 +9658,17 @@ msgstr ""
 msgid "No groups for hosts."
 msgstr ""
 
-#: api/classes/CTemplate.php:834
+#: api/classes/CTemplate.php:833
 msgid "No groups for template"
 msgstr ""
 
 #: api/classes/CTemplate.php:460
 #, c-format
 msgid "No groups for template \"%1$s\"."
+msgstr ""
+
+#: api/classes/CHost.php:1443
+msgid "No host ID given."
 msgstr ""
 
 #: api/classes/CDiscoveryRule.php:446
@@ -9732,7 +9740,7 @@ msgstr ""
 msgid "No interface found."
 msgstr ""
 
-#: api/classes/CProxy.php:254 api/classes/CProxy.php:260
+#: api/classes/CProxy.php:258 api/classes/CProxy.php:264
 #, c-format
 msgid "No interface provided for proxy \"%s\"."
 msgstr ""
@@ -9864,7 +9872,7 @@ msgstr ""
 msgid "No permissions for screen \"%1$s\"."
 msgstr ""
 
-#: api/classes/CUser.php:876 api/classes/CUser.php:986
+#: api/classes/CUser.php:890 api/classes/CUser.php:1000
 msgid "No permissions for system access."
 msgstr ""
 
@@ -9874,7 +9882,7 @@ msgstr ""
 #: api/classes/CApplication.php:527 api/classes/CDiscoveryRule.php:357
 #: api/classes/CDiscoveryRule.php:451 api/classes/CDiscoveryRule.php:456
 #: api/classes/CDRule.php:248 api/classes/CDRule.php:786
-#: api/classes/CEvent.php:680 api/classes/CGraphGeneral.php:65
+#: api/classes/CEvent.php:735 api/classes/CGraphGeneral.php:65
 #: api/classes/CGraphGeneral.php:86 api/classes/CGraph.php:711
 #: api/classes/CGraphPrototype.php:692 api/classes/CGraphPrototype.php:752
 #: api/classes/CHostBase.php:45 api/classes/CHostGeneral.php:139
@@ -9884,10 +9892,10 @@ msgstr ""
 #: api/classes/CHostGroup.php:925 api/classes/CHostInterface.php:319
 #: api/classes/CHostInterface.php:335 api/classes/CHostInterface.php:476
 #: api/classes/CHostInterface.php:687 api/classes/CHost.php:688
-#: api/classes/CHost.php:716 api/classes/CHost.php:1793
+#: api/classes/CHost.php:716 api/classes/CHost.php:1806
 #: api/classes/CHostPrototype.php:1020 api/classes/CHostPrototype.php:1035
 #: api/classes/CHostPrototype.php:1048 api/classes/CHostPrototype.php:1061
-#: api/classes/CHttpTest.php:377 api/classes/CIconMap.php:319
+#: api/classes/CHttpTest.php:394 api/classes/CIconMap.php:319
 #: api/classes/CImage.php:243 api/classes/CImage.php:357
 #: api/classes/CImage.php:474 api/classes/CItemGeneral.php:182
 #: api/classes/CItemGeneral.php:235 api/classes/CItem.php:689
@@ -9896,18 +9904,18 @@ msgstr ""
 #: api/classes/CMaintenance.php:466 api/classes/CMaintenance.php:483
 #: api/classes/CMaintenance.php:550 api/classes/CMapElement.php:60
 #: api/classes/CMapElement.php:119 api/classes/CMapElement.php:190
-#: api/classes/CMap.php:389 api/classes/CProxy.php:168
-#: api/classes/CProxy.php:209 api/classes/CProxy.php:281
-#: api/classes/CProxy.php:532 api/classes/CScreenItem.php:362
+#: api/classes/CMap.php:389 api/classes/CProxy.php:172
+#: api/classes/CProxy.php:213 api/classes/CProxy.php:285
+#: api/classes/CProxy.php:551 api/classes/CScreenItem.php:362
 #: api/classes/CScreenItem.php:445 api/classes/CScreen.php:460
 #: api/classes/CScreen.php:573 api/classes/CService.php:1255
 #: api/classes/CService.php:1270 api/classes/CTemplateScreen.php:573
 #: api/classes/CTemplateScreen.php:606 api/classes/CTemplateScreen.php:658
-#: api/classes/CTemplateScreen.php:664 api/classes/CTrigger.php:633
-#: api/classes/CTrigger.php:957 api/classes/CTrigger.php:978
-#: api/classes/CTrigger.php:1850 api/classes/CTriggerPrototype.php:566
+#: api/classes/CTemplateScreen.php:664 api/classes/CTrigger.php:639
+#: api/classes/CTrigger.php:963 api/classes/CTrigger.php:984
+#: api/classes/CTrigger.php:1861 api/classes/CTriggerPrototype.php:566
 #: api/classes/CTriggerPrototype.php:669 api/classes/CUserMacro.php:589
-#: api/classes/CUserMacro.php:698 api/classes/CUser.php:1154
+#: api/classes/CUserMacro.php:698 api/classes/CUser.php:1168
 #: include/func.inc.php:2070
 msgid "No permissions to referred object or it does not exist!"
 msgstr ""
@@ -9927,6 +9935,10 @@ msgstr ""
 
 #: include/views/configuration.discovery.edit.php:44
 msgid "No proxy"
+msgstr ""
+
+#: api/classes/CProxy.php:420
+msgid "No proxy ID given."
 msgstr ""
 
 #: api/classes/CAction.php:1363
@@ -9986,7 +9998,7 @@ msgstr ""
 msgid "No slides found."
 msgstr ""
 
-#: api/classes/CProxy.php:223
+#: api/classes/CProxy.php:227
 msgid "No status for proxy."
 msgstr ""
 
@@ -10030,6 +10042,10 @@ msgstr ""
 #: include/views/configuration.triggers.list.php:104 popup.php:697
 #: report2.php:395 report5.php:56 tr_status.php:365
 msgid "No triggers found."
+msgstr ""
+
+#: api/classes/CUser.php:579
+msgid "No user ID given."
 msgstr ""
 
 #: include/views/administration.usergroups.list.php:42 popup.php:554
@@ -10146,7 +10162,7 @@ msgstr ""
 msgid "Not Templated items"
 msgstr ""
 
-#: api/classes/CTrigger.php:1482
+#: api/classes/CTrigger.php:1488
 #, c-format
 msgid "Not all templates are linked to \"%s\"."
 msgstr ""
@@ -10155,7 +10171,7 @@ msgstr ""
 msgid "Not allowed to set password for user \"guest\"."
 msgstr ""
 
-#: api/rpc/class.czbxrpc.php:55 api/rpc/class.czbxrpc.php:62
+#: api/rpc/class.czbxrpc.php:60 api/rpc/class.czbxrpc.php:67
 msgid "Not authorized"
 msgstr ""
 
@@ -10534,19 +10550,19 @@ msgstr ""
 msgid "Only Super Admins can update icon maps."
 msgstr ""
 
-#: api/classes/CUser.php:626
+#: api/classes/CUser.php:640
 msgid "Only Zabbix Admins can add user media."
 msgstr ""
 
-#: api/classes/CUser.php:694
+#: api/classes/CUser.php:708
 msgid "Only Zabbix Admins can change user media."
 msgstr ""
 
-#: api/classes/CUser.php:664
+#: api/classes/CUser.php:678
 msgid "Only Zabbix Admins can remove user media."
 msgstr ""
 
-#: api/classes/CHttpTest.php:640
+#: api/classes/CHttpTest.php:657
 msgid "Only characters are allowed."
 msgstr ""
 
@@ -10567,7 +10583,7 @@ msgstr ""
 msgid "Only the last 20%% of the indicator is displayed."
 msgstr ""
 
-#: api/classes/CEvent.php:676
+#: api/classes/CEvent.php:731
 msgid "Only trigger events can be acknowledged."
 msgstr ""
 
@@ -11241,7 +11257,7 @@ msgstr ""
 msgid "Privilege level"
 msgstr ""
 
-#: api/classes/CUser.php:789
+#: api/classes/CUser.php:803
 msgid "Probably php-ldap module is missing."
 msgstr ""
 
@@ -11300,12 +11316,12 @@ msgstr ""
 msgid "Proxy \"%1$s\" for host \"%2$s\" does not exist."
 msgstr ""
 
-#: api/classes/CProxy.php:552
+#: api/classes/CProxy.php:571
 #, c-format
 msgid "Proxy \"%1$s\" is used by discovery rule \"%2$s\"."
 msgstr ""
 
-#: api/classes/CProxy.php:245
+#: api/classes/CProxy.php:249
 #, c-format
 msgid "Proxy \"%s\" already exists."
 msgstr ""
@@ -11322,11 +11338,11 @@ msgstr ""
 msgid "Proxy hosts"
 msgstr ""
 
-#: api/classes/CProxy.php:322
+#: api/classes/CProxy.php:326
 msgid "Proxy interface creation failed."
 msgstr ""
 
-#: api/classes/CProxy.php:389
+#: api/classes/CProxy.php:393
 msgid "Proxy interface update failed."
 msgstr ""
 
@@ -12547,7 +12563,7 @@ msgstr ""
 msgid "Services form a circular dependency."
 msgstr ""
 
-#: api/classes/CUser.php:980
+#: api/classes/CUser.php:994
 msgid "Session terminated, re-login, please."
 msgstr ""
 
@@ -13273,7 +13289,7 @@ msgstr ""
 msgid "Template with item key \"%1$s\" already linked to host."
 msgstr ""
 
-#: api/classes/CTemplate.php:892
+#: api/classes/CTemplate.php:891
 #, c-format
 msgid "Template with the same name \"%1$s\" already exists."
 msgstr ""
@@ -13283,7 +13299,7 @@ msgstr ""
 msgid "Template with the same name \"%s\" already exists."
 msgstr ""
 
-#: api/classes/CTemplate.php:519 api/classes/CTemplate.php:859
+#: api/classes/CTemplate.php:519 api/classes/CTemplate.php:858
 #, c-format
 msgid "Template with the same visible name \"%1$s\" already exists."
 msgstr ""
@@ -13416,7 +13432,7 @@ msgstr ""
 msgid "The requested remote-procedure does not exist / is not available"
 msgstr ""
 
-#: api/classes/CHttpTest.php:556
+#: api/classes/CHttpTest.php:573
 msgid "The web scenario application belongs to a different host than the web scenario host."
 msgstr ""
 
@@ -13664,7 +13680,7 @@ msgstr ""
 msgid "Trigger \"%1$s\" skipped - user rule."
 msgstr ""
 
-#: api/classes/CTrigger.php:1621
+#: api/classes/CTrigger.php:1627
 #, c-format
 msgid "Trigger \"%s\" belongs to templates with different linkages."
 msgstr ""
@@ -13673,7 +13689,7 @@ msgstr ""
 msgid "Trigger added"
 msgstr "Trigger toegevoegd"
 
-#: api/classes/CTrigger.php:1525
+#: api/classes/CTrigger.php:1531
 msgid "Trigger cannot be dependent on a trigger that is inherited from it."
 msgstr ""
 
@@ -13722,7 +13738,7 @@ msgstr ""
 msgid "Trigger expression condition"
 msgstr ""
 
-#: api/classes/CTrigger.php:689 api/classes/CTriggerPrototype.php:801
+#: api/classes/CTrigger.php:695 api/classes/CTriggerPrototype.php:801
 msgid "Trigger expression must contain at least one host:key reference."
 msgstr ""
 
@@ -14330,7 +14346,7 @@ msgstr "Bijgewerkt: Item \"%1$s\" van \"%2$s\"."
 msgid "Updated: Item prototype \"%1$s\" on \"%2$s\"."
 msgstr "Bijgewerkt: Item prototype \"%1$s\" van \"%2$s\"."
 
-#: api/classes/CTrigger.php:1274
+#: api/classes/CTrigger.php:1280
 #, c-format
 msgid "Updated: Trigger \"%1$s\" on \"%2$s\"."
 msgstr "Bijgewerkt: Trigger \"%1$s\" van \"%2$s\"."
@@ -14486,7 +14502,7 @@ msgstr ""
 msgid "User groups"
 msgstr "Gebruikers groepen"
 
-#: api/classes/CUser.php:1167
+#: api/classes/CUser.php:1181
 msgid "User is not allowed to delete himself."
 msgstr "Gebruiker mag zichzelf niet verwijderen"
 
@@ -14943,7 +14959,7 @@ msgstr ""
 msgid "Web scenario \"%1$s\" already exists on host \"%2$s\"."
 msgstr ""
 
-#: api/classes/CHttpTest.php:462 api/classes/CHttpTest.php:514
+#: api/classes/CHttpTest.php:479 api/classes/CHttpTest.php:531
 #, c-format
 msgid "Web scenario \"%1$s\" already exists."
 msgstr ""
@@ -14964,25 +14980,25 @@ msgid_plural "Web scenarios enabled"
 msgstr[0] ""
 msgstr[1] ""
 
-#: api/classes/CHttpTest.php:455 api/classes/CHttpTest.php:495
+#: api/classes/CHttpTest.php:472 api/classes/CHttpTest.php:512
 #, c-format
 msgid "Web scenario missing parameters: %1$s"
 msgstr ""
 
-#: api/classes/CHttpTest.php:466
+#: api/classes/CHttpTest.php:483
 msgid "Web scenario must have at least one step."
 msgstr ""
 
-#: api/classes/CHttpTest.php:593
+#: api/classes/CHttpTest.php:610
 #, c-format
 msgid "Web scenario step \"%1$s\" already exists."
 msgstr ""
 
-#: api/classes/CHttpTest.php:573
+#: api/classes/CHttpTest.php:590
 msgid "Web scenario step name should contain only printable characters."
 msgstr ""
 
-#: api/classes/CHttpTest.php:578
+#: api/classes/CHttpTest.php:595
 msgid "Web scenario step number cannot be less than 1."
 msgstr ""
 
@@ -15125,7 +15141,7 @@ msgstr ""
 msgid "Wrong fields for media type."
 msgstr ""
 
-#: api/classes/CProxy.php:203
+#: api/classes/CProxy.php:207
 #, c-format
 msgid "Wrong fields for proxy \"%1$s\"."
 msgstr ""
@@ -15306,14 +15322,14 @@ msgstr "Je hebt geen doel opgegeven voor het globale script \"%s\"."
 
 #: api/classes/CGraph.php:556 api/classes/CGraphPrototype.php:574
 #: api/classes/CHost.php:1013 api/classes/CHost.php:1070
-#: api/classes/CHost.php:1385 api/classes/CHttpTest.php:487
+#: api/classes/CHost.php:1385 api/classes/CHttpTest.php:504
 #: api/classes/CMaintenance.php:537 api/classes/CMaintenance.php:644
 #: api/classes/CMaintenance.php:656 api/classes/CScript.php:300
 #: api/classes/CScript.php:397 api/classes/CScript.php:437
 #: api/classes/CScript.php:500 api/classes/CTemplate.php:480
-#: api/classes/CTemplate.php:580 api/classes/CTemplate.php:639
-#: api/classes/CTemplate.php:789 api/classes/CTemplate.php:828
-#: api/classes/CTemplate.php:1077
+#: api/classes/CTemplate.php:580 api/classes/CTemplate.php:638
+#: api/classes/CTemplate.php:788 api/classes/CTemplate.php:827
+#: api/classes/CTemplate.php:1076
 msgid "You do not have permission to perform this operation."
 msgstr ""
 

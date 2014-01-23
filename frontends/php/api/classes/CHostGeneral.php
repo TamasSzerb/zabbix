@@ -122,7 +122,6 @@ abstract class CHostGeneral extends CHostBase {
 
 		if (isset($data['macros'])) {
 			$hostMacros = API::UserMacro()->get(array(
-				'output' => array('hostmacroid'),
 				'hostids' => $allHostIds,
 				'filter' => array(
 					'macro' => $data['macros']
@@ -626,7 +625,7 @@ abstract class CHostGeneral extends CHostBase {
 		if ($options['selectItems'] !== null) {
 			if ($options['selectItems'] != API_OUTPUT_COUNT) {
 				$items = API::Item()->get(array(
-					'output' => $this->outputExtend($options['selectItems'], array('hostid', 'itemid')),
+					'output' => $this->outputExtend('items', array('hostid', 'itemid'), $options['selectItems']),
 					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'nopermissions' => true,
@@ -661,7 +660,7 @@ abstract class CHostGeneral extends CHostBase {
 		if ($options['selectDiscoveries'] !== null) {
 			if ($options['selectDiscoveries'] != API_OUTPUT_COUNT) {
 				$items = API::DiscoveryRule()->get(array(
-					'output' => $this->outputExtend($options['selectDiscoveries'], array('hostid', 'itemid')),
+					'output' => $this->outputExtend('items', array('hostid', 'itemid'), $options['selectDiscoveries']),
 					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'nopermissions' => true,
@@ -777,7 +776,7 @@ abstract class CHostGeneral extends CHostBase {
 		if ($options['selectHttpTests'] !== null) {
 			if ($options['selectHttpTests'] != API_OUTPUT_COUNT) {
 				$httpTests = API::HttpTest()->get(array(
-					'output' => $this->outputExtend($options['selectHttpTests'], array('hostid', 'httptestid')),
+					'output' => $this->outputExtend('httptest', array('hostid', 'httptestid'), $options['selectHttpTests']),
 					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'nopermissions' => true,
@@ -812,7 +811,7 @@ abstract class CHostGeneral extends CHostBase {
 		if ($options['selectApplications'] !== null) {
 			if ($options['selectApplications'] != API_OUTPUT_COUNT) {
 				$applications = API::Application()->get(array(
-					'output' => $this->outputExtend($options['selectApplications'], array('hostid', 'applicationid')),
+					'output' => $this->outputExtend('applications', array('hostid', 'applicationid'), $options['selectApplications']),
 					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'nopermissions' => true,
@@ -851,7 +850,7 @@ abstract class CHostGeneral extends CHostBase {
 		if ($options['selectMacros'] !== null && $options['selectMacros'] != API_OUTPUT_COUNT) {
 			$macros = API::UserMacro()->get(array(
 				'nodeids' => $options['nodeids'],
-				'output' => $this->outputExtend($options['selectMacros'], array('hostid', 'hostmacroid')),
+				'output' => $this->outputExtend('hostmacro', array('hostid', 'hostmacroid'), $options['selectMacros']),
 				'hostids' => $hostids,
 				'preservekeys' => true
 			));

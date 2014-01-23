@@ -48,10 +48,11 @@ $fields = array(
 	'reset' =>		array(T_ZBX_STR, O_OPT, P_SYS,	IN("'reset'"), null),
 	'fullscreen' =>	array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'), null),
 	// ajax
-	'filterState' => array(T_ZBX_INT, O_OPT, P_ACT,	null,		null),
 	'favobj' =>		array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
+	'favref' =>		array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,	null),
 	'favid' =>		array(T_ZBX_INT, O_OPT, P_ACT,	null,		null),
-	'favaction' =>	array(T_ZBX_STR, O_OPT, P_ACT,	IN("'add','remove'"), null)
+	'favaction' =>	array(T_ZBX_STR, O_OPT, P_ACT,	IN("'add','remove','flop'"), null),
+	'favstate' =>	array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	null)
 );
 check_fields($fields);
 
@@ -90,11 +91,11 @@ if (get_request('elementid')) {
 /*
  * Filter
  */
-if (hasRequest('filterState')) {
-	CProfile::update('web.screens.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
-}
-
 if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.screens.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
+
 	if ($_REQUEST['favobj'] == 'timeline') {
 		if (isset($_REQUEST['elementid']) && isset($_REQUEST['period'])) {
 			navigation_bar_calc('web.screens', $_REQUEST['elementid'], true);
@@ -107,7 +108,7 @@ if (isset($_REQUEST['favobj'])) {
 			$result = CFavorite::add('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
 			if ($result) {
 				echo '$("addrm_fav").title = "'._('Remove from favourites').'";'."\n".
-					'$("addrm_fav").onclick = function() { rm4favorites("'.$_REQUEST['favobj'].'", "'.$_REQUEST['favid'].'"); }'."\n";
+					'$("addrm_fav").onclick = function() { rm4favorites("'.$_REQUEST['favobj'].'", "'.$_REQUEST['favid'].'", 0); }'."\n";
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
@@ -119,7 +120,7 @@ if (isset($_REQUEST['favobj'])) {
 		}
 
 		if ($page['type'] == PAGE_TYPE_JS && $result) {
-			echo 'switchElementClass("addrm_fav", "iconminus", "iconplus");';
+			echo 'switchElementsClass("addrm_fav", "iconminus", "iconplus");';
 		}
 	}
 

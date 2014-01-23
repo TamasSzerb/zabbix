@@ -103,7 +103,6 @@ if (isset($_REQUEST['go'])) {
 	}
 	else {
 		$usersChk = API::User()->get(array(
-			'output' => array('userid'),
 			'userids' => $_REQUEST['group_userid'],
 			'countOutput' => true,
 			'editable' => true

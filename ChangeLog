@@ -1,34 +1,3 @@
---------------------------------------------------------------------------------
-Changes for 2.3.0
-
-New features:
-..F....... [ZBX-7609] fixed frontend messages mute/unmute (Eduard)
-..F....... [ZBXNEXT-1291] added clickable links for template names in the hosts, templates, hosts prototypes and discovered hosts (Oleg)
-..F....... [ZBXNEXT-2073] improved dashboard refresh time menu (Eduard)
-..F....... [ZBXNEXT-2073] improved dashboard favourite menu (Eduard)
-..F....... [ZBXNEXT-2073] improved service configuration menu (Eduard)
-..F....... [ZBXNEXT-2073] improved slide show refresh multiplier menu (Eduard)
-..F....... [ZBXNEXT-2073] improved trigger log menu (Eduard)
-..F....... [ZBXNEXT-2073] improved trigger macros menu (Eduard)
-..F....... [ZBXNEXT-2073] update jQuery to latest 1.10.2 (Eduard)
-...G...PS. [ZBXNEXT-453] added a new User parameter to daemon configurations that allows dropping privileges to the specified user (Juris)
-....I...S. [ZBXNEXT-581] split database upgrade patches over multiple files for easier maintenance (wiper)
-A......... [ZBX-7345] removed deprecated API features (Pavels)
-
-Bug fixes:
-....I..... [ZBX-7622] changed the default value of timeperiods.every field to '1' (wiper)
-A......... [ZBX-7647] fixed trigger.get trying to sort by "lastchange" DESC even if a different sort field or sort order is given (Pavels)
-....I..... [ZBX-7515] added missing delayed loading option of wevtapi.dll for x64 systems (igors)
-...G...... [ZBX-7481] added checking for OpenBSD version to avoid compilation error on OpenBSD v5.4 and newer due to removed swapins/swapouts uvmexp fields (igors)
-...G...PS. [ZBX-7618] removed partial matching for long format command line options (Juris)
-..F....... [ZBX-6940] fixed frontend history links not remembering search queries (Pavels)
-...GI..PS. [ZBX-5526] removed checking for PosgreSQL server version and disabled nonstandard use of escape strings in order to support versions newer than 8.1 (igors)
-...G...... [ZBX-7414] added description to HostnameItem that UserParameters and aliases are not supported (igors)
-...G...... [ZBX-7413] fixed concistentcy of config file handling for loading and checking userparameters and aliases before starting the daemon (igors)
-...G...... [ZBX-7412] fixed alias parsing; colon symbols are now supported in alias parameters (Juris)
-........S. [ZBX-7204] fixed the timestamp order of events generated during network discovery (igors)
-
---------------------------------------------------------------------------------
 Changes for 2.2.2rc1
 
 New features:

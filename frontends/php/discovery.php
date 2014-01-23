@@ -126,8 +126,8 @@ if ($data['pageFilter']->drulesSelected) {
 	// discovery hosts
 	$data['dhosts'] = API::DHost()->get(array(
 		'druleids' => zbx_objectValues($data['drules'], 'druleid'),
-		'selectDServices' => array('dserviceid', 'ip', 'dns', 'type', 'status', 'key_'),
-		'output' => array('dhostid', 'lastdown', 'lastup', 'druleid')
+		'selectDServices' => API_OUTPUT_REFER,
+		'output' => API_OUTPUT_REFER
 	));
 	$data['dhosts'] = zbx_toHash($data['dhosts'], 'dhostid');
 }

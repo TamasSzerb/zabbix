@@ -78,7 +78,7 @@ class CItemPrototype extends CItemGeneral {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectHosts'				=> null,
 			'selectApplications'		=> null,
 			'selectTriggers'			=> null,
@@ -130,6 +130,10 @@ class CItemPrototype extends CItemGeneral {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
+			if ($options['output'] != API_OUTPUT_EXTEND) {
+				$sqlParts['select']['hostid'] = 'i.hostid';
+			}
+
 			$sqlParts['where']['hostid'] = dbConditionInt('i.hostid', $options['hostids']);
 
 			if (!is_null($options['groupCount'])) {
@@ -148,6 +152,7 @@ class CItemPrototype extends CItemGeneral {
 		if (!is_null($options['discoveryids'])) {
 			zbx_value2array($options['discoveryids']);
 
+			$sqlParts['select']['discoveryid'] = 'id.parent_itemid';
 			$sqlParts['from']['item_discovery'] = 'item_discovery id';
 			$sqlParts['where'][] = dbConditionInt('id.parent_itemid', $options['discoveryids']);
 			$sqlParts['where']['idi'] = 'i.itemid=id.itemid';
@@ -161,6 +166,7 @@ class CItemPrototype extends CItemGeneral {
 		if (!is_null($options['triggerids'])) {
 			zbx_value2array($options['triggerids']);
 
+			$sqlParts['select']['triggerid'] = 'f.triggerid';
 			$sqlParts['from']['functions'] = 'functions f';
 			$sqlParts['where'][] = dbConditionInt('f.triggerid', $options['triggerids']);
 			$sqlParts['where']['if'] = 'i.itemid=f.itemid';
@@ -170,6 +176,7 @@ class CItemPrototype extends CItemGeneral {
 		if (!is_null($options['graphids'])) {
 			zbx_value2array($options['graphids']);
 
+			$sqlParts['select']['graphid'] = 'gi.graphid';
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['where'][] = dbConditionInt('gi.graphid', $options['graphids']);
 			$sqlParts['where']['igi'] = 'i.itemid=gi.itemid';
@@ -232,6 +239,7 @@ class CItemPrototype extends CItemGeneral {
 		}
 //----------
 
+		$itemids = array();
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
@@ -243,8 +251,47 @@ class CItemPrototype extends CItemGeneral {
 				else
 					$result = $item['rowscount'];
 			}
-			else {
-				$result[$item['itemid']] = $item;
+			else{
+				$itemids[$item['itemid']] = $item['itemid'];
+
+				if (!isset($result[$item['itemid']])) {
+					$result[$item['itemid']]= array();
+				}
+
+				// hostids
+				if (isset($item['hostid']) && is_null($options['selectHosts'])) {
+					if (!isset($result[$item['itemid']]['hosts'])) $result[$item['itemid']]['hosts'] = array();
+					$result[$item['itemid']]['hosts'][] = array('hostid' => $item['hostid']);
+				}
+
+				// triggerids
+				if (isset($item['triggerid']) && is_null($options['selectTriggers'])) {
+					if (!isset($result[$item['itemid']]['triggers']))
+						$result[$item['itemid']]['triggers'] = array();
+
+					$result[$item['itemid']]['triggers'][] = array('triggerid' => $item['triggerid']);
+					unset($item['triggerid']);
+				}
+
+				// graphids
+				if (isset($item['graphid']) && is_null($options['selectGraphs'])) {
+					if (!isset($result[$item['itemid']]['graphs']))
+						$result[$item['itemid']]['graphs'] = array();
+
+					$result[$item['itemid']]['graphs'][] = array('graphid' => $item['graphid']);
+					unset($item['graphid']);
+				}
+
+				// discoveryids
+				if (isset($item['discoveryids'])) {
+					if (!isset($result[$item['itemid']]['discovery']))
+						$result[$item['itemid']]['discovery'] = array();
+
+					$result[$item['itemid']]['discovery'][] = array('ruleid' => $item['item_parentid']);
+					unset($item['item_parentid']);
+				}
+
+				$result[$item['itemid']] += $item;
 			}
 		}
 
@@ -564,7 +611,7 @@ class CItemPrototype extends CItemGeneral {
 		$items = $this->get(array(
 			'hostids' => $data['templateids'],
 			'preservekeys' => true,
-			'selectApplications' => array('applicationid'),
+			'selectApplications' => API_OUTPUT_REFER,
 			'output' => $selectFields
 		));
 

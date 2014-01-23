@@ -1480,7 +1480,6 @@ class CService extends CZBXAPI {
 			// if services with specific trigger IDs were requested, return only the ones accessible to the current user.
 			if ($options['filter']['triggerid']) {
 				$accessibleTriggers = API::Trigger()->get(array(
-					'output' => array('triggerid'),
 					'triggerids' => $options['filter']['triggerid']
 				));
 				$options['filter']['triggerid'] = zbx_objectValues($accessibleTriggers, 'triggerid');
@@ -1517,7 +1516,7 @@ class CService extends CZBXAPI {
 		// selectDependencies
 		if ($options['selectDependencies'] !== null && $options['selectDependencies'] != API_OUTPUT_COUNT) {
 			$dependencies = $this->fetchChildDependencies($serviceIds,
-				$this->outputExtend($options['selectDependencies'], array('serviceupid', 'linkid'))
+				$this->outputExtend('services_links', array('serviceupid', 'linkid'), $options['selectDependencies'])
 			);
 			$dependencies = zbx_toHash($dependencies, 'linkid');
 			$relationMap = $this->createRelationMap($dependencies, 'serviceupid', 'linkid');
@@ -1529,7 +1528,7 @@ class CService extends CZBXAPI {
 		// selectParentDependencies
 		if ($options['selectParentDependencies'] !== null && $options['selectParentDependencies'] != API_OUTPUT_COUNT) {
 			$dependencies = $this->fetchParentDependencies($serviceIds,
-				$this->outputExtend($options['selectParentDependencies'], array('servicedownid', 'linkid'))
+				$this->outputExtend('services_links', array('servicedownid', 'linkid'), $options['selectParentDependencies'])
 			);
 			$dependencies = zbx_toHash($dependencies, 'linkid');
 			$relationMap = $this->createRelationMap($dependencies, 'servicedownid', 'linkid');
@@ -1555,7 +1554,7 @@ class CService extends CZBXAPI {
 		// selectTimes
 		if ($options['selectTimes'] !== null && $options['selectTimes'] != API_OUTPUT_COUNT) {
 			$serviceTimes = API::getApi()->select('services_times', array(
-				'output' => $this->outputExtend($options['selectTimes'], array('serviceid', 'timeid')),
+				'output' => $this->outputExtend('services_times', array('serviceid', 'timeid'), $options['selectTimes']),
 				'filter' => array('serviceid' => $serviceIds),
 				'preservekeys' => true,
 				'nodeids' => get_current_nodeid(true)
@@ -1569,7 +1568,7 @@ class CService extends CZBXAPI {
 		// selectAlarms
 		if ($options['selectAlarms'] !== null && $options['selectAlarms'] != API_OUTPUT_COUNT) {
 			$serviceAlarms = API::getApi()->select('service_alarms', array(
-				'output' => $this->outputExtend($options['selectAlarms'], array('serviceid', 'servicealarmid')),
+				'output' => $this->outputExtend('service_alarms', array('serviceid', 'servicealarmid'), $options['selectAlarms']),
 				'filter' => array('serviceid' => $serviceIds),
 				'preservekeys' => true,
 				'nodeids' => get_current_nodeid(true)

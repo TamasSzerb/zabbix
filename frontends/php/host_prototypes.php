@@ -380,7 +380,6 @@ else {
 	$templateIds = array_unique($templateIds);
 
 	$linkedTemplates = API::Template()->get(array(
-		'output' => array('templateid', 'name'),
 		'templateids' => $templateIds,
 		'selectParentTemplates' => array('hostid', 'name')
 	));

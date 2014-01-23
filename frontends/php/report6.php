@@ -66,7 +66,10 @@ $fields = array(
 	'report_timesince' =>	array(T_ZBX_INT, O_OPT,	P_UNSET_EMPTY,	null,			null),
 	'report_timetill' =>	array(T_ZBX_INT, O_OPT,	P_UNSET_EMPTY,	null,			null),
 	// ajax
-	'filterState' =>		array(T_ZBX_INT, O_OPT, P_ACT,			null,			null)
+	'favobj' =>				array(T_ZBX_STR, O_OPT, P_ACT,			null,			null),
+	'favref' =>				array(T_ZBX_STR, O_OPT, P_ACT,			NOT_EMPTY,		'isset({favobj})'),
+	'favstate' =>			array(T_ZBX_INT, O_OPT, P_ACT,			NOT_EMPTY,
+		'isset({favobj})&&("filter"=={favobj})'),
 );
 $isValid = check_fields($fields);
 
@@ -125,8 +128,10 @@ else {
 	}
 }
 
-if (hasRequest('filterState')) {
-	CProfile::update('web.report6.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
+if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.report6.filter.state',$_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
 }
 
 if ((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])) {

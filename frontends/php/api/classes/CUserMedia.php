@@ -74,7 +74,7 @@ class CUserMedia extends CZBXAPI {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'editable'					=> null,
 			'countOutput'				=> null,
 			'groupCount'				=> null,
@@ -119,6 +119,7 @@ class CUserMedia extends CZBXAPI {
 		if (!is_null($options['userids'])) {
 			zbx_value2array($options['userids']);
 
+			$sqlParts['select']['userid'] = 'u.userid';
 			$sqlParts['from']['users'] = 'users u';
 			$sqlParts['where'][] = dbConditionInt('u.userid', $options['userids']);
 			$sqlParts['where']['mu'] = 'm.userid=u.userid';
@@ -137,6 +138,7 @@ class CUserMedia extends CZBXAPI {
 		if (!is_null($options['usrgrpids'])) {
 			zbx_value2array($options['usrgrpids']);
 
+			$sqlParts['select']['usrgrpid'] = 'ug.usrgrpid';
 			$sqlParts['from']['users_groups'] = 'users_groups ug';
 			$sqlParts['where'][] = dbConditionInt('ug.usrgrpid', $options['usrgrpids']);
 			$sqlParts['where']['mug'] = 'm.userid=ug.userid';
@@ -155,6 +157,7 @@ class CUserMedia extends CZBXAPI {
 		if (!is_null($options['mediatypeids'])) {
 			zbx_value2array($options['mediatypeids']);
 
+			$sqlParts['select']['mediatypeid'] = 'm.mediatypeid';
 			$sqlParts['where'][] = dbConditionInt('m.mediatypeid', $options['mediatypeids']);
 
 			if (!is_null($options['groupCount'])) {
@@ -190,6 +193,7 @@ class CUserMedia extends CZBXAPI {
 			$sqlParts['limit'] = $options['limit'];
 		}
 
+		$mediaids = array();
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
@@ -204,7 +208,12 @@ class CUserMedia extends CZBXAPI {
 				}
 			}
 			else {
-				$result[$media['mediaid']] = $media;
+				$mediaids[$media['mediaid']] = $media['mediaid'];
+
+				if (!isset($result[$media['mediaid']])) {
+					$result[$media['mediaid']]= array();
+				}
+				$result[$media['mediaid']] += $media;
 			}
 		}
 

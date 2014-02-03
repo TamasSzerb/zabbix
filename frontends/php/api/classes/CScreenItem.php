@@ -353,7 +353,6 @@ class CScreenItem extends CZBXAPI {
 
 		// check permissions
 		$dbScreenItems = $this->get(array(
-			'output' => array('screenitemid'),
 			'screenitemids' => $screenItemIds,
 			'preservekeys' => true
 		));
@@ -903,6 +902,7 @@ class CScreenItem extends CZBXAPI {
 		// screens
 		if ($options['screenids'] !== null) {
 			zbx_value2array($options['screenids']);
+			$sqlParts = $this->addQuerySelect($this->fieldId('screenid'), $sqlParts);
 			$sqlParts['where'][] = dbConditionInt($this->fieldId('screenid'), $options['screenids']);
 		}
 

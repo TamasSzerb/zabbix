@@ -308,7 +308,7 @@ function copyItemsToHosts($srcItemIds, $dstHostIds) {
 			'description', 'inventory_link'
 		),
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-		'selectApplications' => array('applicationid')
+		'selectApplications' => API_OUTPUT_REFER
 	));
 
 	$dstHosts = API::Host()->get(array(
@@ -371,7 +371,7 @@ function copyItems($srcHostId, $dstHostId) {
 		),
 		'inherited' => false,
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-		'selectApplications' => array('applicationid')
+		'selectApplications' => API_OUTPUT_REFER
 	));
 	$dstHosts = API::Host()->get(array(
 		'output' => array('hostid', 'host', 'status'),
@@ -449,6 +449,11 @@ function disable_item($itemids) {
 		disable_item($chd_items); // Recursion !!!
 	}
 	return update_item_status($itemids, ITEM_STATUS_DISABLED);
+}
+
+function get_items_by_hostid($hostids) {
+	zbx_value2array($hostids);
+	return DBselect('SELECT i.* FROM items i WHERE '.dbConditionInt('i.hostid', $hostids));
 }
 
 function get_item_by_key($key, $host = '') {
@@ -694,7 +699,7 @@ function getItemsDataOverview($hostIds, $application, $viewMode) {
 			$host = $hosts[$hostId];
 
 			$name = new CSpan($host['name'], 'link_menu');
-			$name->setMenuPopup(CMenuPopupHelper::getHost($host, $scripts[$hostId]));
+			$name->setMenuPopup(getMenuPopupHost($host, $scripts[$hostId]));
 
 			$tableRow = array(new CCol($name));
 			foreach ($items as $ithosts) {
@@ -733,7 +738,7 @@ function getItemDataOverviewCells($tableRow, $ithosts, $hostName) {
 	$column = new CCol(array($value, $ack), $css);
 
 	if (isset($ithosts[$hostName])) {
-		$column->setMenuPopup(CMenuPopupHelper::getHistory($item));
+		$column->setMenuPopup(getMenuPopupHistory($item));
 	}
 
 	$tableRow[] = $column;

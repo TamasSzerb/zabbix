@@ -220,7 +220,7 @@
 			}
 
 			// IE8 hack to fix inline-block container resizing
-			if (IE8) {
+			if (jQuery.browser.msie && parseInt(jQuery.browser.version) == 8) {
 				inlineContainers = container.parents('.inlineblock').filter(function() {
 					return jQuery(this).css('display') == 'inline-block';
 				});

@@ -24,17 +24,12 @@
 #include "log.h"
 #include "zbxconf.h"
 #include "zbxgetopt.h"
-#ifndef _WINDOWS
-#	include "zbxmodules.h"
-#endif
 #include "comms.h"
 #include "alias.h"
 
 #include "stats.h"
 #ifdef _WINDOWS
 #	include "perfstat.h"
-#else
-#	include "sighandler.h"
 #endif
 #include "active.h"
 #include "listener.h"
@@ -47,11 +42,9 @@
 #	include "daemon.h"
 #endif
 
-#include "setproctitle.h"
-
 const char	*progname = NULL;
 
-/* default config file location */
+/* Default config file location */
 #ifdef _WINDOWS
 	static char	DEFAULT_CONFIG_FILE[]	= "C:\\zabbix_agentd.conf";
 #else
@@ -149,10 +142,6 @@ ZBX_THREAD_ACTIVECHK_ARGS	*CONFIG_ACTIVE_ARGS = NULL;
 int				CONFIG_ACTIVE_FORKS = 0;
 int				CONFIG_PASSIVE_FORKS = 3;	/* number of listeners for processing passive checks */
 
-#ifdef _WINDOWS
-void zbx_co_uninitialize();
-#endif
-
 static void	parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
 {
 	char	ch = '\0';
@@ -169,14 +158,14 @@ static void	parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
 				break;
 			case 'h':
 				help();
-				exit(EXIT_FAILURE);
+				exit(FAIL);
 				break;
 			case 'V':
 				version();
 #ifdef _AIX
 				tl_version();
 #endif
-				exit(EXIT_FAILURE);
+				exit(FAIL);
 				break;
 			case 'p':
 				if (ZBX_TASK_START == t->task)
@@ -225,7 +214,7 @@ static void	parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
  * Author: Vladimir Levijev, Rudolfs Kreicbergs                               *
  *                                                                            *
  ******************************************************************************/
-static void	set_defaults(void)
+static void	set_defaults()
 {
 	AGENT_RESULT	result;
 	char		**value = NULL;
@@ -258,21 +247,11 @@ static void	set_defaults(void)
 	else if (NULL != CONFIG_HOSTNAME_ITEM)
 		zabbix_log(LOG_LEVEL_WARNING, "both Hostname and HostnameItem defined, using [%s]", CONFIG_HOSTNAME);
 
-	if (NULL != CONFIG_HOST_METADATA && NULL != CONFIG_HOST_METADATA_ITEM)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "both HostMetadata and HostMetadataItem defined, using [%s]",
-				CONFIG_HOST_METADATA);
-	}
-
-#ifndef _WINDOWS
-	if (NULL == CONFIG_LOAD_MODULE_PATH)
-		CONFIG_LOAD_MODULE_PATH = zbx_strdup(CONFIG_LOAD_MODULE_PATH, LIBDIR "/modules");
-#endif
-
 #ifdef USE_PID_FILE
 	if (NULL == CONFIG_PID_FILE)
 		CONFIG_PID_FILE = "/tmp/zabbix_agentd.pid";
 #endif
+
 }
 
 /******************************************************************************
@@ -284,38 +263,25 @@ static void	set_defaults(void)
  * Author: Vladimir Levijev                                                   *
  *                                                                            *
  ******************************************************************************/
-static void	zbx_validate_config(void)
+static void	zbx_validate_config()
 {
 	if (NULL == CONFIG_HOSTNAME)
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "\"Hostname\" configuration parameter is not defined");
-		exit(EXIT_FAILURE);
+		zabbix_log(LOG_LEVEL_CRIT, "hostname is not defined");
+		exit(FAIL);
 	}
 
 	if (FAIL == zbx_check_hostname(CONFIG_HOSTNAME))
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "invalid \"Hostname\" configuration parameter: '%s'", CONFIG_HOSTNAME);
-		exit(EXIT_FAILURE);
-	}
-
-	if (NULL != CONFIG_HOST_METADATA && HOST_METADATA_LEN < zbx_strlen_utf8(CONFIG_HOST_METADATA))
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "the value of \"HostMetadata\" configuration parameter cannot be longer than"
-				" %d characters", HOST_METADATA_LEN);
-		exit(EXIT_FAILURE);
+		zabbix_log(LOG_LEVEL_CRIT, "invalid host name: [%s]", CONFIG_HOSTNAME);
+		exit(FAIL);
 	}
 
 	/* make sure active or passive check is enabled */
 	if (0 == CONFIG_ACTIVE_FORKS && 0 == CONFIG_PASSIVE_FORKS)
 	{
 		zabbix_log(LOG_LEVEL_CRIT, "either active or passive checks must be enabled");
-		exit(EXIT_FAILURE);
-	}
-
-	if (NULL != CONFIG_SOURCE_IP && ('\0' == *CONFIG_SOURCE_IP || SUCCEED != is_ip(CONFIG_SOURCE_IP)))
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "invalid \"SourceIP\" configuration parameter: '%s'", CONFIG_SOURCE_IP);
-		exit(EXIT_FAILURE);
+		exit(FAIL);
 	}
 }
 
@@ -405,17 +371,13 @@ static void	zbx_load_config(int requirement)
 	{
 		/* PARAMETER,			VAR,					TYPE,
 			MANDATORY,	MIN,			MAX */
-		{"Server",			&CONFIG_HOSTS_ALLOWED,			TYPE_STRING_LIST,
+		{"Server",			&CONFIG_HOSTS_ALLOWED,			TYPE_STRING,
 			PARM_OPT,	0,			0},
-		{"ServerActive",		&active_hosts,				TYPE_STRING_LIST,
+		{"ServerActive",		&active_hosts,				TYPE_STRING,
 			PARM_OPT,	0,			0},
 		{"Hostname",			&CONFIG_HOSTNAME,			TYPE_STRING,
 			PARM_OPT,	0,			0},
 		{"HostnameItem",		&CONFIG_HOSTNAME_ITEM,			TYPE_STRING,
-			PARM_OPT,	0,			0},
-		{"HostMetadata",		&CONFIG_HOST_METADATA,			TYPE_STRING,
-			PARM_OPT,	0,			0},
-		{"HostMetadataItem",		&CONFIG_HOST_METADATA_ITEM,		TYPE_STRING,
 			PARM_OPT,	0,			0},
 		{"BufferSize",			&CONFIG_BUFFER_SIZE,			TYPE_INT,
 			PARM_OPT,	2,			65535},
@@ -433,7 +395,7 @@ static void	zbx_load_config(int requirement)
 			PARM_OPT,	1,			30},
 		{"ListenPort",			&CONFIG_LISTEN_PORT,			TYPE_INT,
 			PARM_OPT,	1024,			32767},
-		{"ListenIP",			&CONFIG_LISTEN_IP,			TYPE_STRING_LIST,
+		{"ListenIP",			&CONFIG_LISTEN_IP,			TYPE_STRING,
 			PARM_OPT,	0,			0},
 		{"SourceIP",			&CONFIG_SOURCE_IP,			TYPE_STRING,
 			PARM_OPT,	0,			0},
@@ -457,14 +419,6 @@ static void	zbx_load_config(int requirement)
 			PARM_OPT,	0,			0},
 		{"UserParameter",		&CONFIG_USER_PARAMETERS,		TYPE_MULTISTRING,
 			PARM_OPT,	0,			0},
-#ifndef _WINDOWS
-		{"LoadModulePath",		&CONFIG_LOAD_MODULE_PATH,		TYPE_STRING,
-			PARM_OPT,	0,			0},
-		{"LoadModule",			&CONFIG_LOAD_MODULE,			TYPE_MULTISTRING,
-			PARM_OPT,	0,			0},
-		{"User",			&CONFIG_USER,				TYPE_STRING,
-			PARM_OPT,	0,			0},
-#endif
 #ifdef _WINDOWS
 		{"PerfCounter",			&CONFIG_PERF_COUNTERS,			TYPE_MULTISTRING,
 			PARM_OPT,	0,			0},
@@ -475,9 +429,6 @@ static void	zbx_load_config(int requirement)
 	/* initialize multistrings */
 	zbx_strarr_init(&CONFIG_ALIASES);
 	zbx_strarr_init(&CONFIG_USER_PARAMETERS);
-#ifndef _WINDOWS
-	zbx_strarr_init(&CONFIG_LOAD_MODULE);
-#endif
 #ifdef _WINDOWS
 	zbx_strarr_init(&CONFIG_PERF_COUNTERS);
 #endif
@@ -510,13 +461,10 @@ static void	zbx_load_config(int requirement)
  * Author: Vladimir Levijev                                                   *
  *                                                                            *
  ******************************************************************************/
-static void	zbx_free_config(void)
+static void	zbx_free_config()
 {
 	zbx_strarr_free(CONFIG_ALIASES);
 	zbx_strarr_free(CONFIG_USER_PARAMETERS);
-#ifndef _WINDOWS
-	zbx_strarr_free(CONFIG_LOAD_MODULE);
-#endif
 #ifdef _WINDOWS
 	zbx_strarr_free(CONFIG_PERF_COUNTERS);
 #endif
@@ -567,15 +515,6 @@ int	MAIN_ZABBIX_ENTRY()
 	zabbix_log(LOG_LEVEL_INFORMATION, "Starting Zabbix Agent [%s]. Zabbix %s (revision %s).",
 			CONFIG_HOSTNAME, ZABBIX_VERSION, ZABBIX_REVISION);
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "using configuration file: %s", CONFIG_FILE);
-
-#ifndef _WINDOWS
-	if (FAIL == load_modules(CONFIG_LOAD_MODULE_PATH, CONFIG_LOAD_MODULE, CONFIG_TIMEOUT, 1))
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "loading modules failed, exiting...");
-		exit(EXIT_FAILURE);
-	}
-#endif
 	if (0 != CONFIG_PASSIVE_FORKS)
 	{
 		if (FAIL == zbx_tcp_listen(&listen_sock, CONFIG_LISTEN_IP, (unsigned short)CONFIG_LISTEN_PORT))
@@ -591,6 +530,9 @@ int	MAIN_ZABBIX_ENTRY()
 	init_perf_collector(1);
 	load_perf_counters(CONFIG_PERF_COUNTERS);
 #endif
+	load_user_parameters(CONFIG_USER_PARAMETERS);
+	load_aliases(CONFIG_ALIASES);
+
 	zbx_free_config();
 
 	/* --- START THREADS ---*/
@@ -602,7 +544,6 @@ int	MAIN_ZABBIX_ENTRY()
 	/* start the collector thread */
 	thread_args = (zbx_thread_args_t *)zbx_malloc(NULL, sizeof(zbx_thread_args_t));
 	thread_args->thread_num = thread_num;
-	thread_args->thread_num2 = 1;
 	thread_args->args = NULL;
 	threads[thread_num++] = zbx_thread_start(collector_thread, thread_args);
 
@@ -611,7 +552,6 @@ int	MAIN_ZABBIX_ENTRY()
 	{
 		thread_args = (zbx_thread_args_t *)zbx_malloc(NULL, sizeof(zbx_thread_args_t));
 		thread_args->thread_num = thread_num;
-		thread_args->thread_num2 = i + 1;
 		thread_args->args = &listen_sock;
 		threads[thread_num++] = zbx_thread_start(listener_thread, thread_args);
 	}
@@ -621,7 +561,6 @@ int	MAIN_ZABBIX_ENTRY()
 	{
 		thread_args = (zbx_thread_args_t *)zbx_malloc(NULL, sizeof(zbx_thread_args_t));
 		thread_args->thread_num = thread_num;
-		thread_args->thread_num2 = i + 1;
 		thread_args->args = &CONFIG_ACTIVE_ARGS[i];
 		threads[thread_num++] = zbx_thread_start(active_checks_thread, thread_args);
 	}
@@ -647,8 +586,7 @@ int	MAIN_ZABBIX_ENTRY()
 	else
 	{
 		/* wait for the service worker thread to terminate us */
-		zbx_sleep(3);
-
+		zbx_sleep(2);
 		THIS_SHOULD_NEVER_HAPPEN;
 	}
 #else
@@ -664,20 +602,16 @@ int	MAIN_ZABBIX_ENTRY()
 	/* all exiting child processes should be caught by signal handlers */
 	THIS_SHOULD_NEVER_HAPPEN;
 #endif
+
 	zbx_on_exit();
 
 	return SUCCEED;
 }
 
-/******************************************************************************
- *                                                                            *
- * Function: zbx_free_service_resources                                       *
- *                                                                            *
- * Purpose: free service resources allocated by main thread                   *
- *                                                                            *
- ******************************************************************************/
-void	zbx_free_service_resources(void)
+void	zbx_on_exit()
 {
+	zabbix_log(LOG_LEVEL_DEBUG, "zbx_on_exit() called");
+
 	if (NULL != threads)
 	{
 		int		i;
@@ -688,33 +622,27 @@ void	zbx_free_service_resources(void)
 		sigemptyset(&set);
 		sigaddset(&set, SIGCHLD);
 		sigprocmask(SIG_BLOCK, &set, NULL);
-#else
-		/* wait for threads to finish first. although listener threads will never end */
-		WaitForMultipleObjectsEx(threads_num, threads, TRUE, 1000, FALSE);
 #endif
+
 		for (i = 0; i < threads_num; i++)
 		{
 			if (threads[i])
+			{
 				zbx_thread_kill(threads[i]);
-		}
-
-		for (i = 0; i < threads_num; i++)
-		{
-			if (threads[i])
-				zbx_thread_wait(threads[i]);
-
-			threads[i] = ZBX_THREAD_HANDLE_NULL;
+				threads[i] = ZBX_THREAD_HANDLE_NULL;
+			}
 		}
 
 		zbx_free(threads);
 	}
 
+#ifndef _WINDOWS
+	zbx_sleep(2);	/* wait for all processes to exit */
+#endif
+
 	zabbix_log(LOG_LEVEL_INFORMATION, "Zabbix Agent stopped. Zabbix %s (revision %s).",
 			ZABBIX_VERSION, ZABBIX_REVISION);
 
-#ifndef _WINDOWS
-	unload_modules();
-#endif
 	zabbix_close_log();
 
 	free_metrics();
@@ -722,18 +650,6 @@ void	zbx_free_service_resources(void)
 	free_collector_data();
 #ifdef _WINDOWS
 	free_perf_collector();
-	zbx_co_uninitialize();
-#endif
-}
-
-void	zbx_on_exit(void)
-{
-	zabbix_log(LOG_LEVEL_DEBUG, "zbx_on_exit() called");
-
-	zbx_free_service_resources();
-
-#if defined(PS_OVERWRITE_ARGV)
-	setproctitle_free_env();
 #endif
 
 	exit(SUCCEED);
@@ -758,9 +674,7 @@ int	main(int argc, char **argv)
 	/* Instead, the system sends the error to the calling process.*/
 	SetErrorMode(SEM_FAILCRITICALERRORS);
 #endif
-#if defined(PS_OVERWRITE_ARGV) || defined(PS_PSTAT_ARGV)
-	argv = setproctitle_save_env(argc, argv);
-#endif
+
 	memset(&t, 0, sizeof(t));
 	t.task = ZBX_TASK_START;
 
@@ -777,7 +691,7 @@ int	main(int argc, char **argv)
 	{
 		case ZBX_TASK_SHOW_USAGE:
 			usage();
-			exit(EXIT_FAILURE);
+			exit(FAIL);
 			break;
 #ifdef _WINDOWS
 		case ZBX_TASK_INSTALL_SERVICE:
@@ -806,28 +720,16 @@ int	main(int argc, char **argv)
 #ifdef _WINDOWS
 			init_perf_collector(0);
 			load_perf_counters(CONFIG_PERF_COUNTERS);
-#else
-			zbx_set_common_signal_handlers();
-#endif
-#ifndef _WINDOWS
-			if (FAIL == load_modules(CONFIG_LOAD_MODULE_PATH, CONFIG_LOAD_MODULE, CONFIG_TIMEOUT, 0))
-			{
-				zabbix_log(LOG_LEVEL_CRIT, "loading modules failed, exiting...");
-				exit(EXIT_FAILURE);
-			}
 #endif
 			load_user_parameters(CONFIG_USER_PARAMETERS);
 			load_aliases(CONFIG_ALIASES);
 			zbx_free_config();
 			if (ZBX_TASK_TEST_METRIC == t.task)
-				test_parameter(TEST_METRIC);
+				test_parameter(TEST_METRIC, PROCESS_TEST);
 			else
 				test_parameters();
 #ifdef _WINDOWS
 			free_perf_collector();	/* cpu_collector must be freed before perf_collector is freed */
-#endif
-#ifndef _WINDOWS
-			unload_modules();
 #endif
 			free_metrics();
 			alias_list_free();
@@ -835,12 +737,10 @@ int	main(int argc, char **argv)
 			break;
 		default:
 			zbx_load_config(ZBX_CFG_FILE_REQUIRED);
-			load_user_parameters(CONFIG_USER_PARAMETERS);
-			load_aliases(CONFIG_ALIASES);
 			break;
 	}
 
-	START_MAIN_ZABBIX_ENTRY(CONFIG_ALLOW_ROOT, CONFIG_USER);
+	START_MAIN_ZABBIX_ENTRY(CONFIG_ALLOW_ROOT);
 
 	exit(SUCCEED);
 }

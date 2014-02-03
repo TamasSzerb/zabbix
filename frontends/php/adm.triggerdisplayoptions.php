@@ -23,7 +23,6 @@ require_once dirname(__FILE__).'/include/config.inc.php';
 
 $page['title'] = _('Configuration of trigger displaying options');
 $page['file'] = 'adm.triggerdisplayoptions.php';
-$page['hist_arg'] = array();
 
 require_once dirname(__FILE__).'/include/page_header.php';
 
@@ -72,7 +71,7 @@ $form->cleanItems();
 $cmbConf = new CComboBox('configDropDown', 'adm.triggerdisplayoptions.php', 'redirect(this.options[this.selectedIndex].value);');
 $cmbConf->addItems(array(
 	'adm.gui.php' => _('GUI'),
-	'adm.housekeeper.php' => _('Housekeeping'),
+	'adm.housekeeper.php' => _('Housekeeper'),
 	'adm.images.php' => _('Images'),
 	'adm.iconmapping.php' => _('Icon mapping'),
 	'adm.regexps.php' => _('Regular expressions'),

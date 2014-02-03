@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $auditWidget = new CWidget();
 
 // header
@@ -56,8 +56,8 @@ $filterTable->addRow(array(
 		bold(_('User')),
 		SPACE,
 		new CTextBox('alias', $this->data['alias'], 20),
-		new CButton('btn1', _('Select'), 'return PopUp("popup.php?dstfrm='.$filterForm->getName().
-			'&dstfld1=alias&srctbl=users&srcfld1=alias&real_hosts=1");', 'filter-select-button')
+		new CButton('btn1', _('Select'), 'return PopUp(\'popup.php?dstfrm='.$filterForm->getName().
+			'&dstfld1=alias&srctbl=users&srcfld1=alias&real_hosts=1\');', 'T')
 	),
 	array(bold(_('Action')), SPACE, $actionComboBox),
 	array(bold(_('Resource')), SPACE, $resourceComboBox)
@@ -67,7 +67,7 @@ $filterButton->useJQueryStyle('main');
 $resetButton = new CButton('filter_rst', _('Reset'), 'javascript: var uri = new Curl(location.href); uri.setArgument("filter_rst", 1); location.href = uri.getUrl();');
 $resetButton->useJQueryStyle();
 $buttonsDiv = new CDiv(array($filterButton, SPACE, $resetButton));
-$buttonsDiv->setAttribute('style', 'padding: 4px 0;');
+$buttonsDiv->setAttribute('style', 'padding: 4px 0px;');
 
 $filterTable->addRow(new CCol($buttonsDiv, 'controls', 3));
 $filterForm->addItem($filterTable);
@@ -80,7 +80,7 @@ $auditForm = new CForm('get');
 $auditForm->setName('auditForm');
 
 // create table
-$auditTable = new CTableInfo(_('No audit entries found.'));
+$auditTable = new CTableInfo(_('No audit defined.'));
 $auditTable->setHeader(array(
 	_('Time'),
 	_('User'),
@@ -95,7 +95,7 @@ foreach ($this->data['actions'] as $action) {
 	$details = array();
 	if (is_array($action['details'])) {
 		foreach ($action['details'] as $detail) {
-			$details[] = array($detail['table_name'].'.'.$detail['field_name'].NAME_DELIMITER.$detail['oldvalue'].' => '.$detail['newvalue'], BR());
+			$details[] = array($detail['table_name'].'.'.$detail['field_name'].': '.$detail['oldvalue'].' => '.$detail['newvalue'], BR());
 		}
 	}
 	else {
@@ -129,10 +129,10 @@ $objData = array(
 	'periodFixed' => CProfile::get('web.auditlogs.timelinefixed', 1),
 	'sliderMaximumTimePeriod' => ZBX_MAX_PERIOD
 );
-zbx_add_post_js('timeControl.addObject("events", '.zbx_jsvalue($this->data['timeline']).', '.zbx_jsvalue($objData).');');
+zbx_add_post_js('timeControl.addObject(\'events\', '.zbx_jsvalue($this->data['timeline']).', '.zbx_jsvalue($objData).');');
 zbx_add_post_js('timeControl.processObjects();');
 
 // append form to widget
 $auditWidget->addItem($auditForm);
-
 return $auditWidget;
+?>

@@ -803,8 +803,6 @@ int	zbx_db_bind_parameter(int position, void *buffer, unsigned char type)
 			err = zbx_oracle_bind_parameter((ub4)position, buffer, (sb4)sizeof(int), SQLT_INT);
 			break;
 		case ZBX_TYPE_TEXT:
-		case ZBX_TYPE_SHORTTEXT:
-		case ZBX_TYPE_LONGTEXT:
 			err = zbx_oracle_bind_parameter((ub4)position, buffer, (sb4)strlen((char *)buffer), SQLT_LNG);
 			break;
 		default:
@@ -1266,7 +1264,7 @@ error:
 		OCIParam	*parmdp = NULL;
 		OCIDefine	*defnp = NULL;
 		ub4		char_semantics;
-		ub2		col_width = 0, data_type = 0;
+		ub2		col_width = 0, data_type;
 
 		/* request a parameter descriptor in the select-list */
 		err = OCIParamGet((void *)result->stmthp, OCI_HTYPE_STMT, oracle.errhp, (void **)&parmdp, (ub4)counter);

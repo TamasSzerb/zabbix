@@ -30,6 +30,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
 	'graphid' =>		array(T_ZBX_INT, O_MAND, P_SYS,		DB_ID,		null),
+	'screenid' =>		array(T_ZBX_STR, O_OPT, P_SYS,		null,		null),
 	'period' =>			array(T_ZBX_INT, O_OPT, P_NZERO,	BETWEEN(ZBX_MIN_PERIOD, ZBX_MAX_PERIOD), null),
 	'stime' =>			array(T_ZBX_STR, O_OPT, P_SYS,		null,		null),
 	'profileIdx' =>		array(T_ZBX_STR, O_OPT, null,		null,		null),
@@ -44,11 +45,16 @@ check_fields($fields);
 /*
  * Permissions
  */
+if (!DBfetch(DBselect('SELECT g.graphid FROM graphs g WHERE g.graphid='.$_REQUEST['graphid']))) {
+	show_error_message(_('No graphs defined.'));
+}
+
 $dbGraph = API::Graph()->get(array(
+	'nodeids' => get_current_nodeid(true),
 	'graphids' => $_REQUEST['graphid'],
 	'output' => API_OUTPUT_EXTEND
 ));
-if (!$dbGraph) {
+if (empty($dbGraph)) {
 	access_deny();
 }
 else {
@@ -78,11 +84,11 @@ CProfile::update('web.screens.graphid', $_REQUEST['graphid'], PROFILE_TYPE_ID);
 
 $chartHeader = '';
 if (id2nodeid($dbGraph['graphid']) != get_current_nodeid()) {
-	$chartHeader = get_node_name_by_elid($dbGraph['graphid'], true, NAME_DELIMITER);
+	$chartHeader = get_node_name_by_elid($dbGraph['graphid'], true, ': ');
 }
-$chartHeader .= $host['name'].NAME_DELIMITER.$dbGraph['name'];
+$chartHeader .= $host['name'].': '.$dbGraph['name'];
 
-$graph = new CLineGraphDraw($dbGraph['graphtype']);
+$graph = new CChart($dbGraph['graphtype']);
 $graph->setHeader($chartHeader);
 $graph->setPeriod($timeline['period']);
 $graph->setSTime($timeline['stime']);
@@ -118,8 +124,8 @@ $graph->setRightPercentage($dbGraph['percent_right']);
 $dbGraphItems = DBselect(
 	'SELECT gi.*'.
 	' FROM graphs_items gi'.
-	' WHERE gi.graphid='.zbx_dbstr($dbGraph['graphid']).
-	' ORDER BY gi.sortorder,gi.itemid DESC'
+	' WHERE gi.graphid='.$dbGraph['graphid'].
+	' ORDER BY gi.sortorder, gi.itemid DESC'
 );
 while ($dbGraphItem = DBfetch($dbGraphItems)) {
 	$graph->addItem(

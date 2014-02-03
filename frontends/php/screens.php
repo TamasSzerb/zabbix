@@ -48,53 +48,26 @@ $fields = array(
 	'reset' =>		array(T_ZBX_STR, O_OPT, P_SYS,	IN("'reset'"), null),
 	'fullscreen' =>	array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'), null),
 	// ajax
-	'filterState' => array(T_ZBX_INT, O_OPT, P_ACT,	null,		null),
 	'favobj' =>		array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
+	'favref' =>		array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,	null),
 	'favid' =>		array(T_ZBX_INT, O_OPT, P_ACT,	null,		null),
-	'favaction' =>	array(T_ZBX_STR, O_OPT, P_ACT,	IN("'add','remove'"), null)
+	'favaction' =>	array(T_ZBX_STR, O_OPT, P_ACT,	IN("'add','remove','flop'"), null),
+	'favstate' =>	array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	null)
 );
 check_fields($fields);
 
 /*
- * Permissions
- */
-// validate group IDs
-$validateGroupIds = array_filter(array(
-	get_request('groupid'),
-	get_request('tr_groupid')
-));
-if ($validateGroupIds && !API::HostGroup()->isReadable($validateGroupIds)) {
-	access_deny();
-}
-
-// validate host IDs
-$validateHostIds = array_filter(array(
-	get_request('hostid'),
-	get_request('tr_hostid')
-));
-if ($validateHostIds && !API::Host()->isReadable($validateHostIds)) {
-	access_deny();
-}
-
-if (get_request('elementid')) {
-	$screens = API::Screen()->get(array(
-		'screenids' => array($_REQUEST['elementid']),
-		'output' => array('screenid')
-	));
-	if (!$screens) {
-		access_deny();
-	}
-}
-
-
-/*
  * Filter
  */
-if (hasRequest('filterState')) {
-	CProfile::update('web.screens.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
-}
-
 if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'hat') {
+		CProfile::update('web.screens.hats.'.$_REQUEST['favref'].'.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
+
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.screens.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
+
 	if ($_REQUEST['favobj'] == 'timeline') {
 		if (isset($_REQUEST['elementid']) && isset($_REQUEST['period'])) {
 			navigation_bar_calc('web.screens', $_REQUEST['elementid'], true);
@@ -104,14 +77,14 @@ if (isset($_REQUEST['favobj'])) {
 	if (str_in_array($_REQUEST['favobj'], array('screenid', 'slideshowid'))) {
 		$result = false;
 		if ($_REQUEST['favaction'] == 'add') {
-			$result = CFavorite::add('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = add2favorites('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
 			if ($result) {
 				echo '$("addrm_fav").title = "'._('Remove from favourites').'";'."\n".
-					'$("addrm_fav").onclick = function() { rm4favorites("'.$_REQUEST['favobj'].'", "'.$_REQUEST['favid'].'"); }'."\n";
+					'$("addrm_fav").onclick = function() { rm4favorites("'.$_REQUEST['favobj'].'", "'.$_REQUEST['favid'].'", 0); }'."\n";
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
-			$result = CFavorite::remove('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = rm4favorites('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
 			if ($result) {
 				echo '$("addrm_fav").title = "'._('Add to favourites').'";'."\n".
 					'$("addrm_fav").onclick = function() { add2favorites("'.$_REQUEST['favobj'].'", "'.$_REQUEST['favid'].'"); }'."\n";
@@ -119,7 +92,7 @@ if (isset($_REQUEST['favobj'])) {
 		}
 
 		if ($page['type'] == PAGE_TYPE_JS && $result) {
-			echo 'switchElementClass("addrm_fav", "iconminus", "iconplus");';
+			echo 'switchElementsClass("addrm_fav", "iconminus", "iconplus");';
 		}
 	}
 
@@ -133,14 +106,14 @@ if (isset($_REQUEST['favobj'])) {
 
 if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 /*
  * Display
  */
 $data = array(
-	'fullscreen' => $_REQUEST['fullscreen'],
+	'fullscreen' => get_request('fullscreen'),
 	'period' => get_request('period'),
 	'stime' => get_request('stime'),
 	'elementid' => get_request('elementid', false),
@@ -153,6 +126,12 @@ $data = array(
 if (empty($data['elementid']) && !$data['use_screen_name']) {
 	// get element id saved in profile from the last visit
 	$data['elementid'] = CProfile::get('web.screens.elementid', null);
+
+	// this flag will be used in case this element does not exist
+	$data['id_has_been_fetched_from_profile'] = true;
+}
+else {
+	$data['id_has_been_fetched_from_profile'] = false;
 }
 
 $data['screens'] = API::Screen()->get(array(

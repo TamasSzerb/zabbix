@@ -18,97 +18,45 @@
  **/
 
 
-jQuery(function($) {
+jQuery(function() {
 
-	if ($('#search').length) {
+	cookie.init();
+
+	// search
+	if (jQuery('#search').length) {
 		createSuggest('search');
 	}
 
-	if (IE || KQ) {
-		setTimeout(function () { $('[autofocus]').focus(); }, 10);
-	}
-
 	/**
-	 * Change combobox color according selected option.
+	 * Handles host pop up menus.
 	 */
-	$('.input.select').each(function() {
-		var comboBox = $(this),
-			changeClass = function(obj) {
-				if (obj.find('option.not-monitored:selected').length > 0) {
-					obj.addClass('not-monitored');
-				}
-				else {
-					obj.removeClass('not-monitored');
-				}
-			};
+	jQuery(document).on('click', '.menu-host', function(event) {
+		var menuData = jQuery(this).data('menu');
+		var menu = [];
 
-		comboBox.change(function() {
-			changeClass($(this));
-		});
-
-		changeClass(comboBox);
-	});
-
-	/**
-	 * Build menu popup for given elements.
-	 */
-	$(document).on('click', '[data-menu-popup]', function(event) {
-		var obj = $(this),
-			data = obj.data('menu-popup');
-
-		switch (data.type) {
-			case 'favouriteGraphs':
-				data = getMenuPopupFavouriteGraphs(data);
-				break;
-
-			case 'favouriteMaps':
-				data = getMenuPopupFavouriteMaps(data);
-				break;
-
-			case 'favouriteScreens':
-				data = getMenuPopupFavouriteScreens(data);
-				break;
-
-			case 'history':
-				data = getMenuPopupHistory(data);
-				break;
-
-			case 'host':
-				data = getMenuPopupHost(data);
-				break;
-
-			case 'map':
-				data = getMenuPopupMap(data);
-				break;
-
-			case 'refresh':
-				data = getMenuPopupRefresh(data);
-				break;
-
-			case 'serviceConfiguration':
-				data = getMenuPopupServiceConfiguration(data);
-				break;
-
-			case 'trigger':
-				data = getMenuPopupTrigger(data);
-				break;
-
-			case 'triggerLog':
-				data = getMenuPopupTriggerLog(data);
-				break;
-
-			case 'triggerMacro':
-				data = getMenuPopupTriggerMacro(data);
-				break;
+		// add scripts
+		if (menuData.scripts.length) {
+			menu.push(createMenuHeader(t('Scripts')));
+			jQuery.each(menuData.scripts, function(i, script) {
+				menu.push(createMenuItem(script.name, function () {
+					executeScript(menuData.hostid, script.scriptid, script.confirmation);
+					return false;
+				}));
+			});
 		}
 
-		obj.menuPopup(data, event);
+		// add go to links
+		menu.push(createMenuHeader(t('Go to')));
+		menu.push(createMenuItem(t('Latest data'), 'latest.php?hostid=' + menuData.hostid));
+		if (menuData.hasInventory) {
+			menu.push(createMenuItem(t('Host inventories'), 'hostinventories.php?hostid=' + menuData.hostid));
+		}
+		if (menuData.hasScreens) {
+			menu.push(createMenuItem(t('Host screens'), 'host_screen.php?hostid=' + menuData.hostid));
+		}
 
-		return false;
-	});
-
-	$('.print-link').click(function() {
-		printLess(true);
+		// render the menu
+		show_popup_menu(event, menu, 180);
 
 		return false;
 	});

@@ -100,10 +100,9 @@ function encodeValues(&$value, $encodeTwice = true) {
 function zbx_add_post_js($script) {
 	global $ZBX_PAGE_POST_JS;
 
-	if ($ZBX_PAGE_POST_JS === null) {
+	if (!isset($ZBX_PAGE_POST_JS)) {
 		$ZBX_PAGE_POST_JS = array();
 	}
-
 	if (!in_array($script, $ZBX_PAGE_POST_JS)) {
 		$ZBX_PAGE_POST_JS[] = $script;
 	}
@@ -162,12 +161,12 @@ function insert_javascript_for_editable_combobox() {
 }
 
 function insert_show_color_picker_javascript() {
-	global $SHOW_COLOR_PICKER_SCRIPT_INSERTED;
+	global $SHOW_COLOR_PICKER_SCRIPT_ISERTTED;
 
-	if ($SHOW_COLOR_PICKER_SCRIPT_INSERTED) {
+	if ($SHOW_COLOR_PICKER_SCRIPT_ISERTTED) {
 		return;
 	}
-	$SHOW_COLOR_PICKER_SCRIPT_INSERTED = true;
+	$SHOW_COLOR_PICKER_SCRIPT_ISERTTED = true;
 	$table = new CTable();
 
 	// gray colors
@@ -500,6 +499,27 @@ function insert_js_function($fnct_name) {
 					});
 				}');
 			break;
+		case 'removeSelectedItems':
+			insert_js('
+				function removeSelectedItems(formobject, name) {
+					formobject = $(formobject);
+					if (is_null(formobject)) {
+						return false;
+					}
+					for (var i = 0; i < formobject.options.length; i++) {
+						if (!isset(i, formobject.options)) {
+							continue;
+						}
+						if (formobject.options[i].selected) {
+							var obj = $(name + "_" + formobject.options[i].value);
+							if (!is_null(obj)) {
+								obj.remove();
+							}
+						}
+					}
+				}
+			');
+			break;
 		default:
 			insert_js('throw("JS function not found ['.$fnct_name.']");');
 			break;
@@ -519,14 +539,13 @@ function get_js($script, $jQueryDocumentReady = false) {
 function insertPagePostJs() {
 	global $ZBX_PAGE_POST_JS;
 
-	if ($ZBX_PAGE_POST_JS) {
+	if (!empty($ZBX_PAGE_POST_JS)) {
 		$js = '';
-
 		foreach ($ZBX_PAGE_POST_JS as $script) {
 			$js .= $script."\n";
 		}
 
-		if ($js) {
+		if (!empty($js)) {
 			echo get_js($js, true);
 		}
 	}

@@ -238,32 +238,24 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
 					item.snmp_community = strdup(dcheck->snmp_community);
 					item.snmp_oid = strdup(dcheck->key_);
 
-					substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-							&item.snmp_community, MACRO_TYPE_COMMON, NULL, 0);
+					substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL,
+							&item.snmp_community, MACRO_TYPE_ITEM_FIELD, NULL, 0);
 					substitute_key_macros(&item.snmp_oid, NULL, NULL, NULL,
 							MACRO_TYPE_SNMP_OID, NULL, 0);
 
 					if (ITEM_TYPE_SNMPv3 == item.type)
 					{
-						item.snmpv3_securityname =
-								zbx_strdup(NULL, dcheck->snmpv3_securityname);
+						item.snmpv3_securityname = strdup(dcheck->snmpv3_securityname);
 						item.snmpv3_securitylevel = dcheck->snmpv3_securitylevel;
-						item.snmpv3_authpassphrase =
-								zbx_strdup(NULL, dcheck->snmpv3_authpassphrase);
-						item.snmpv3_privpassphrase =
-								zbx_strdup(NULL, dcheck->snmpv3_privpassphrase);
-						item.snmpv3_authprotocol = dcheck->snmpv3_authprotocol;
-						item.snmpv3_privprotocol = dcheck->snmpv3_privprotocol;
-						item.snmpv3_contextname = zbx_strdup(NULL, dcheck->snmpv3_contextname);
+						item.snmpv3_authpassphrase = strdup(dcheck->snmpv3_authpassphrase);
+						item.snmpv3_privpassphrase = strdup(dcheck->snmpv3_privpassphrase);
 
-						substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-								&item.snmpv3_securityname, MACRO_TYPE_COMMON, NULL, 0);
-						substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-								&item.snmpv3_authpassphrase, MACRO_TYPE_COMMON, NULL, 0);
-						substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-								&item.snmpv3_privpassphrase, MACRO_TYPE_COMMON, NULL, 0);
-						substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-								&item.snmpv3_contextname, MACRO_TYPE_COMMON, NULL, 0);
+						substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL,
+								&item.snmpv3_securityname, MACRO_TYPE_ITEM_FIELD, NULL, 0);
+						substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL,
+								&item.snmpv3_authpassphrase, MACRO_TYPE_ITEM_FIELD, NULL, 0);
+						substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL,
+								&item.snmpv3_privpassphrase, MACRO_TYPE_ITEM_FIELD, NULL, 0);
 					}
 
 					if (SUCCEED == get_value_snmp(&item, &result) && NULL != GET_STR_RESULT(&result))
@@ -279,7 +271,6 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
 						zbx_free(item.snmpv3_securityname);
 						zbx_free(item.snmpv3_authpassphrase);
 						zbx_free(item.snmpv3_privpassphrase);
-						zbx_free(item.snmpv3_contextname);
 					}
 				}
 #else
@@ -326,10 +317,10 @@ static int	discover_service(DB_DCHECK *dcheck, char *ip, int port, char *value)
  *                                                                            *
  ******************************************************************************/
 static void	process_check(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhost,
-		int *host_status, char *ip, const char *dns, int now)
+		int *host_status, char *ip, const char *dns)
 {
 	const char	*__function_name = "process_check";
-	int		port, first, last;
+	int		port, first, last, now;
 	char		*curr_range, *next_range, *last_port;
 	int		status;
 	char		value[DSERVICE_VALUE_LEN_MAX];
@@ -367,6 +358,8 @@ static void	process_check(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhost,
 			if (-1 == *host_status || DOBJECT_STATUS_UP == status)
 				*host_status = status;
 
+			now = time(NULL);
+
 			DBbegin();
 
 			if (0 != (daemon_type & ZBX_DAEMON_TYPE_SERVER))
@@ -389,7 +382,7 @@ static void	process_check(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhost,
  *                                                                            *
  ******************************************************************************/
 static void	process_checks(DB_DRULE *drule, DB_DHOST *dhost, int *host_status,
-		char *ip, const char *dns, int unique, int now)
+		char *ip, const char *dns, int unique)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
@@ -399,8 +392,7 @@ static void	process_checks(DB_DRULE *drule, DB_DHOST *dhost, int *host_status,
 
 	offset += zbx_snprintf(sql + offset, sizeof(sql) - offset,
 			"select dcheckid,type,key_,snmp_community,snmpv3_securityname,snmpv3_securitylevel,"
-				"snmpv3_authpassphrase,snmpv3_privpassphrase,snmpv3_authprotocol,snmpv3_privprotocol,"
-				"ports,snmpv3_contextname"
+				"snmpv3_authpassphrase,snmpv3_privpassphrase,ports"
 			" from dchecks"
 			" where druleid=" ZBX_FS_UI64,
 			drule->druleid);
@@ -424,15 +416,12 @@ static void	process_checks(DB_DRULE *drule, DB_DHOST *dhost, int *host_status,
 		dcheck.key_ = row[2];
 		dcheck.snmp_community = row[3];
 		dcheck.snmpv3_securityname = row[4];
-		dcheck.snmpv3_securitylevel = (unsigned char)atoi(row[5]);
+		dcheck.snmpv3_securitylevel = atoi(row[5]);
 		dcheck.snmpv3_authpassphrase = row[6];
 		dcheck.snmpv3_privpassphrase = row[7];
-		dcheck.snmpv3_authprotocol = (unsigned char)atoi(row[8]);
-		dcheck.snmpv3_privprotocol = (unsigned char)atoi(row[9]);
-		dcheck.ports = row[10];
-		dcheck.snmpv3_contextname = row[11];
+		dcheck.ports = row[8];
 
-		process_check(drule, &dcheck, dhost, host_status, ip, dns, now);
+		process_check(drule, &dcheck, dhost, host_status, ip, dns);
 	}
 	DBfree_result(result);
 }
@@ -650,8 +639,8 @@ static void	process_rule(DB_DRULE *drule)
 			alarm(0);
 
 			if (drule->unique_dcheckid)
-				process_checks(drule, &dhost, &host_status, ip, dns, 1, now);
-			process_checks(drule, &dhost, &host_status, ip, dns, 0, now);
+				process_checks(drule, &dhost, &host_status, ip, dns, 1);
+			process_checks(drule, &dhost, &host_status, ip, dns, 0);
 
 			DBbegin();
 
@@ -667,12 +656,11 @@ static void	process_rule(DB_DRULE *drule)
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
 
-static int	process_discovery(int now)
+static void	process_discovery(int now)
 {
 	DB_RESULT	result;
 	DB_ROW		row;
 	DB_DRULE	drule;
-	int		rule_count = 0;
 
 	result = DBselect(
 			"select distinct r.druleid,r.iprange,r.name,c.dcheckid"
@@ -684,13 +672,13 @@ static int	process_discovery(int now)
 				" and r.status=%d"
 				" and (r.nextcheck<=%d or r.nextcheck>%d+r.delay)"
 				" and " ZBX_SQL_MOD(r.druleid,%d) "=%d"
-				ZBX_SQL_NODE,
+				DB_NODE,
 			DRULE_STATUS_MONITORED,
 			now,
 			now,
 			CONFIG_DISCOVERER_FORKS,
 			process_num - 1,
-			DBand_node_local("r.druleid"));
+			DBnode_local("r.druleid"));
 
 	while (NULL != (row = DBfetch(result)))
 	{
@@ -705,11 +693,8 @@ static int	process_discovery(int now)
 
 		DBexecute("update drules set nextcheck=%d+delay where druleid=" ZBX_FS_UI64,
 				now, drule.druleid);
-		rule_count++;
 	}
 	DBfree_result(result);
-
-	return rule_count;	/* performance metric */
 }
 
 static int	get_minnextcheck(int now)
@@ -724,9 +709,9 @@ static int	get_minnextcheck(int now)
 			" where proxy_hostid is null"
 				" and status=%d"
 				" and " ZBX_SQL_MOD(druleid,%d) "=%d"
-				ZBX_SQL_NODE,
+				DB_NODE,
 			DRULE_STATUS_MONITORED, CONFIG_DISCOVERER_FORKS, process_num - 1,
-			DBand_node_local("druleid"));
+			DBnode_local("druleid"));
 
 	row = DBfetch(result);
 
@@ -751,60 +736,32 @@ static int	get_minnextcheck(int now)
  * Comments: executes once per 30 seconds (hardcoded)                         *
  *                                                                            *
  ******************************************************************************/
-void	main_discoverer_loop(void)
+void	main_discoverer_loop()
 {
-	int	now, nextcheck, sleeptime = -1, rule_count = 0, old_rule_count = 0;
-	double	sec, total_sec = 0.0, old_total_sec = 0.0;
-	time_t	last_stat_time;
+	int	now, nextcheck, sleeptime;
+	double	sec;
 
-#define STAT_INTERVAL	5	/* if a process is busy and does not sleep then update status not faster than */
-				/* once in STAT_INTERVAL seconds */
+	zabbix_log(LOG_LEVEL_DEBUG, "In main_discoverer_loop() process_num:%d", process_num);
 
-	zbx_setproctitle("%s #%d [connecting to the database]", get_process_type_string(process_type), process_num);
-	last_stat_time = time(NULL);
+	zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 
 	DBconnect(ZBX_DB_CONNECT_NORMAL);
 
 	for (;;)
 	{
-		if (0 != sleeptime)
-		{
-			zbx_setproctitle("%s #%d [processed %d rules in " ZBX_FS_DBL " sec, performing discovery]",
-					get_process_type_string(process_type), process_num, old_rule_count,
-					old_total_sec);
-		}
+		zbx_setproctitle("%s [performing discovery]", get_process_type_string(process_type));
 
 		now = time(NULL);
 		sec = zbx_time();
-		rule_count += process_discovery(now);
-		total_sec += zbx_time() - sec;
+		process_discovery(now);
+		sec = zbx_time() - sec;
+
+		zabbix_log(LOG_LEVEL_DEBUG, "%s #%d spent " ZBX_FS_DBL " seconds while processing rules",
+				get_process_type_string(process_type), process_num, sec);
 
 		nextcheck = get_minnextcheck(now);
 		sleeptime = calculate_sleeptime(nextcheck, DISCOVERER_DELAY);
 
-		if (0 != sleeptime || STAT_INTERVAL <= time(NULL) - last_stat_time)
-		{
-			if (0 == sleeptime)
-			{
-				zbx_setproctitle("%s #%d [processed %d rules in " ZBX_FS_DBL " sec, performing "
-						"discovery]", get_process_type_string(process_type), process_num,
-						rule_count, total_sec);
-			}
-			else
-			{
-				zbx_setproctitle("%s #%d [processed %d rules in " ZBX_FS_DBL " sec, idle %d sec]",
-						get_process_type_string(process_type), process_num, rule_count,
-						total_sec, sleeptime);
-				old_rule_count = rule_count;
-				old_total_sec = total_sec;
-			}
-			rule_count = 0;
-			total_sec = 0.0;
-			last_stat_time = time(NULL);
-		}
-
 		zbx_sleep_loop(sleeptime);
 	}
-
-#undef STAT_INTERVAL
 }

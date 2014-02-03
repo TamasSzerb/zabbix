@@ -36,8 +36,6 @@
 char	*CONFIG_HOSTS_ALLOWED		= NULL;
 char	*CONFIG_HOSTNAME		= NULL;
 char	*CONFIG_HOSTNAME_ITEM		= NULL;
-char	*CONFIG_HOST_METADATA		= NULL;
-char	*CONFIG_HOST_METADATA_ITEM	= NULL;
 
 int	CONFIG_ENABLE_REMOTE_COMMANDS	= 0;
 int	CONFIG_LOG_REMOTE_COMMANDS	= 0;
@@ -53,16 +51,11 @@ int	CONFIG_BUFFER_SEND		= 5;
 
 int	CONFIG_MAX_LINES_PER_SECOND	= 100;
 
-char	*CONFIG_LOAD_MODULE_PATH	= NULL;
-
-char	**CONFIG_ALIASES		= NULL;
-char	**CONFIG_LOAD_MODULE		= NULL;
-char	**CONFIG_USER_PARAMETERS	= NULL;
+char	**CONFIG_ALIASES                = NULL;
+char	**CONFIG_USER_PARAMETERS        = NULL;
 #if defined(_WINDOWS)
-char	**CONFIG_PERF_COUNTERS		= NULL;
+char	**CONFIG_PERF_COUNTERS          = NULL;
 #endif
-
-char	*CONFIG_USER			= NULL;
 
 /******************************************************************************
  *                                                                            *
@@ -72,38 +65,27 @@ char	*CONFIG_USER			= NULL;
  *                                                                            *
  * Parameters: lines - aliase entries from configuration file                 *
  *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Vladimir Levijev                                                   *
+ *                                                                            *
  * Comments: calls add_alias() for each entry                                 *
  *                                                                            *
  ******************************************************************************/
 void	load_aliases(char **lines)
 {
-	char	**pline, *r, *c;
+	char	*value, **pline;
 
 	for (pline = lines; NULL != *pline; pline++)
 	{
-		r = *pline;
-
-		if (SUCCEED != parse_key(&r) || ':' != *r)
+		if (NULL == (value = strchr(*pline, ':')))
 		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add alias \"%s\": invalid character at position %ld",
-					*pline, (r - *pline) + 1);
-			exit(EXIT_FAILURE);
+			zabbix_log(LOG_LEVEL_CRIT, "Alias \"%s\" FAILED: not colon-separated", *pline);
+			exit(FAIL);
 		}
+		*value++ = '\0';
 
-		c = r++;
-
-		if (SUCCEED != parse_key(&r) || '\0' != *r)
-		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add alias \"%s\": invalid character at position %ld",
-					*pline, (r - *pline) + 1);
-			exit(EXIT_FAILURE);
-		}
-
-		*c++ = '\0';
-
-		add_alias(*pline, c);
-
-		*--c = ':';
+		add_alias(*pline, value);
 	}
 }
 
@@ -115,6 +97,8 @@ void	load_aliases(char **lines)
  *                                                                            *
  * Parameters: lines - user parameter entries from configuration file         *
  *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
  * Author: Vladimir Levijev                                                   *
  *                                                                            *
  * Comments: calls add_user_parameter() for each entry                        *
@@ -122,24 +106,18 @@ void	load_aliases(char **lines)
  ******************************************************************************/
 void	load_user_parameters(char **lines)
 {
-	char	*p, **pline, error[MAX_STRING_LEN];
+	char	*command, **pline;
 
 	for (pline = lines; NULL != *pline; pline++)
 	{
-		if (NULL == (p = strchr(*pline, ',')))
+		if (NULL == (command = strchr(*pline, ',')))
 		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add user parameter \"%s\": not comma-separated", *pline);
-			exit(EXIT_FAILURE);
+			zabbix_log(LOG_LEVEL_CRIT, "UserParameter \"%s\" FAILED: not comma-separated", *pline);
+			exit(FAIL);
 		}
-		*p = '\0';
+		*command++ = '\0';
 
-		if (FAIL == add_user_parameter(*pline, p + 1, error, sizeof(error)))
-		{
-			*p = ',';
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add user parameter \"%s\": %s", *pline, error);
-			exit(EXIT_FAILURE);
-		}
-		*p = ',';
+		add_user_parameter(*pline, command);
 	}
 }
 

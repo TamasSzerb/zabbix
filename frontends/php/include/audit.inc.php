@@ -64,7 +64,7 @@ function audit_resource2str($resource_type = null) {
 }
 
 function add_audit($action, $resourcetype, $details) {
-	if (empty(CWebUser::$data['userid'])) {
+	if (CWebUser::$data['userid'] == 0) {
 		return true;
 	}
 

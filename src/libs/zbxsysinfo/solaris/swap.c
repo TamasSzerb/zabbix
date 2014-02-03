@@ -95,7 +95,7 @@ finish:
 	return ret;
 }
 
-static int	SYSTEM_SWAP_TOTAL(AGENT_REQUEST *request, AGENT_RESULT *result)
+static int	SYSTEM_SWAP_TOTAL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	zbx_uint64_t	total, free1;
 
@@ -107,19 +107,7 @@ static int	SYSTEM_SWAP_TOTAL(AGENT_REQUEST *request, AGENT_RESULT *result)
 	return SYSINFO_RET_OK;
 }
 
-static int	SYSTEM_SWAP_USED(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	zbx_uint64_t	total, free1;
-
-	if (SUCCEED != get_swapinfo(&total, &free1))
-		return SYSINFO_RET_FAIL;
-
-	SET_UI64_RESULT(result, total - free1);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	SYSTEM_SWAP_FREE(AGENT_REQUEST *request, AGENT_RESULT *result)
+static int	SYSTEM_SWAP_FREE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	zbx_uint64_t	total, free1;
 
@@ -131,7 +119,7 @@ static int	SYSTEM_SWAP_FREE(AGENT_REQUEST *request, AGENT_RESULT *result)
 	return SYSINFO_RET_OK;
 }
 
-static int	SYSTEM_SWAP_PUSED(AGENT_REQUEST *request, AGENT_RESULT *result)
+static int	SYSTEM_SWAP_PUSED(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	zbx_uint64_t	total, free1;
 
@@ -146,7 +134,7 @@ static int	SYSTEM_SWAP_PUSED(AGENT_REQUEST *request, AGENT_RESULT *result)
 	return SYSINFO_RET_OK;
 }
 
-static int	SYSTEM_SWAP_PFREE(AGENT_REQUEST *request, AGENT_RESULT *result)
+static int	SYSTEM_SWAP_PFREE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	zbx_uint64_t	total, free1;
 
@@ -161,149 +149,209 @@ static int	SYSTEM_SWAP_PFREE(AGENT_REQUEST *request, AGENT_RESULT *result)
 	return SYSINFO_RET_OK;
 }
 
-int	SYSTEM_SWAP_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_SWAP_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*tmp;
-	int	ret;
-
-	if (2 < request->nparam)
-		return SYSINFO_RET_FAIL;
-
-	tmp = get_rparam(request, 0);
-
-	if (NULL != tmp && '\0' != *tmp && 0 != strcmp(tmp, "all"))	/* default parameter */
-		return SYSINFO_RET_FAIL;
-
-	tmp = get_rparam(request, 1);
-
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "free"))	/* default parameter */
-		ret = SYSTEM_SWAP_FREE(request, result);
-	else if (0 == strcmp(tmp, "total"))
-		ret = SYSTEM_SWAP_TOTAL(request, result);
-	else if (0 == strcmp(tmp, "used"))
-		ret = SYSTEM_SWAP_USED(request, result);
-	else if (0 == strcmp(tmp, "pfree"))
-		ret = SYSTEM_SWAP_PFREE(request, result);
-	else if (0 == strcmp(tmp, "pused"))
-		ret = SYSTEM_SWAP_PUSED(request, result);
-	else
-		return SYSINFO_RET_FAIL;
-
-	return ret;
-}
-
-static int	get_swap_io(zbx_uint64_t *swapin, zbx_uint64_t *pgswapin, zbx_uint64_t *swapout, zbx_uint64_t *pgswapout)
-{
-	kstat_ctl_t	*kc;
-	kstat_t		*k;
-	cpu_stat_t	*cpu;
-	int		cpu_count = 0;
-
-	if (NULL != (kc = kstat_open()))
+	const MODE_FUNCTION	fl[] =
 	{
-		k = kc->kc_chain;
+		{"total",	SYSTEM_SWAP_TOTAL},
+		{"free",	SYSTEM_SWAP_FREE},
+		{"pused",	SYSTEM_SWAP_PUSED},
+		{"pfree",	SYSTEM_SWAP_PFREE},
+		{NULL,		0}
+	};
 
-		while (NULL != k)
-		{
-			if (0 == strncmp(k->ks_name, "cpu_stat", 8) && -1 != kstat_read(kc, k, NULL))
-			{
-				cpu = (cpu_stat_t *)k->ks_data;
+	char	swapdev[MAX_STRING_LEN], mode[MAX_STRING_LEN];
+	int	i;
 
-				if (NULL != swapin)
-				{
-					/* uint_t   swapin;	*/ /* swapins */
-					*swapin += cpu->cpu_vminfo.swapin;
-				}
+	if (2 < num_param(param))
+		return SYSINFO_RET_FAIL;
 
-				if (NULL != pgswapin)
-				{
-					/* uint_t   pgswapin;	*/ /* pages swapped in */
-					*pgswapin += cpu->cpu_vminfo.pgswapin;
-				}
+	if (0 == get_param(param, 1, swapdev, sizeof(swapdev)) && '\0' != *swapdev && 0 != strcmp("all", swapdev))
+		return SYSINFO_RET_FAIL;	/* first parameter must be one of missing, empty or "all" */
 
-				if (NULL != swapout)
-				{
-					/* uint_t   swapout;	*/ /* swapout */
-					*swapout += cpu->cpu_vminfo.swapout;
-				}
+	if (0 != get_param(param, 2, mode, sizeof(mode)) || '\0' == *mode)
+		strscpy(mode, "free");	/* default parameter */
 
-				if (NULL != pgswapout)
-				{
-					/* uint_t   pgswapout;	*/ /* pages swapped out */
-					*pgswapout += cpu->cpu_vminfo.pgswapout;
-				}
-
-				cpu_count++;
-			}
-
-			k = k->ks_next;
-		}
-
-		kstat_close(kc);
+	for (i = 0; NULL != fl[i].mode; i++)
+	{
+		if (0 == strcmp(mode, fl[i].mode))
+			return (fl[i].function)(cmd, param, flags, result);
 	}
 
-	if (0 == cpu_count)
-		return SYSINFO_RET_FAIL;
-
-	return SYSINFO_RET_OK;
+	return SYSINFO_RET_FAIL;
 }
 
-int	SYSTEM_SWAP_IN(AGENT_REQUEST *request, AGENT_RESULT *result)
+#define	DO_SWP_IN	1
+#define DO_PG_IN	2
+#define	DO_SWP_OUT	3
+#define DO_PG_OUT	4
+
+static int	get_swap_io(double *swapin, double *pgswapin, double *swapout, double *pgswapout)
 {
-	int		ret = SYSINFO_RET_FAIL;
-	char		*tmp;
-	zbx_uint64_t	value = 0;
+    kstat_ctl_t	    *kc;
+    kstat_t	    *k;
+    cpu_stat_t	    *cpu;
 
-	if (2 < request->nparam)
-		return SYSINFO_RET_FAIL;
+    int	    cpu_count = 0;
 
-	tmp = get_rparam(request, 0);
+    kc = kstat_open();
 
-	if (NULL != tmp && '\0' != *tmp && 0 != strcmp(tmp, "all"))
-		return SYSINFO_RET_FAIL;
+    if(kc != NULL)
+    {
+	k = kc->kc_chain;
+  	while (k != NULL)
+	{
+	    if( (strncmp(k->ks_name, "cpu_stat", 8) == 0) &&
+		(kstat_read(kc, k, NULL) != -1) )
+	    {
+		cpu = (cpu_stat_t*) k->ks_data;
+		if(swapin)
+		{
+		   /* uint_t   swapin;	    	*/ /* swapins */
+		   (*swapin) += (double) cpu->cpu_vminfo.swapin;
+		}
+		if(pgswapin)
+		{
+		   /* uint_t   pgswapin;	*/ /* pages swapped in */
+		  (*pgswapin) += (double) cpu->cpu_vminfo.pgswapin;
+		}
+		if(swapout)
+		{
+		   /* uint_t   swapout;	    	*/ /* swapout */
+		   (*swapout) += (double) cpu->cpu_vminfo.swapout;
+		}
+		if(pgswapout)
+		{
+		   /* uint_t   pgswapout;	*/ /* pages swapped out */
+		  (*pgswapout) += (double) cpu->cpu_vminfo.pgswapout;
+		}
+		cpu_count += 1;
+  	    }
+	    k = k->ks_next;
+        }
+	kstat_close(kc);
+    }
 
-	tmp = get_rparam(request, 1);
+    if(cpu_count == 0)
+    {
+	return SYSINFO_RET_FAIL;
+    }
 
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "count"))
-		ret = get_swap_io(&value, NULL, NULL, NULL);
-	else if (0 == strcmp(tmp, "pages"))
-		ret = get_swap_io(NULL, &value, NULL, NULL);
-	else
-		ret =  SYSINFO_RET_FAIL;
-
-	if (ret != SYSINFO_RET_OK)
-		return ret;
-
-	SET_UI64_RESULT(result, value);
-	return ret;
+    return SYSINFO_RET_OK;
 }
 
-int	SYSTEM_SWAP_OUT(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_SWAP_IN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	int		ret = SYSINFO_RET_FAIL;
-	char		*tmp;
-	zbx_uint64_t	value = 0;
+    int	    ret = SYSINFO_RET_FAIL;
+    char    swapdev[MAX_STRING_LEN];
+    char    mode[MAX_STRING_LEN];
+    double  value = 0;
 
-	if (2 < request->nparam)
-		return SYSINFO_RET_FAIL;
+    if(num_param(param) > 2)
+    {
+        return SYSINFO_RET_FAIL;
+    }
 
-	tmp = get_rparam(request, 0);
+    if(get_param(param, 1, swapdev, sizeof(swapdev)) != 0)
+    {
+	return SYSINFO_RET_FAIL;
+    }
 
-	if (NULL != tmp && '\0' != *tmp && 0 != strcmp(tmp, "all"))
-		return SYSINFO_RET_FAIL;
+    if(swapdev[0] == '\0')
+    {
+	/* default parameter */
+	zbx_snprintf(swapdev, sizeof(swapdev), "all");
+    }
 
-	tmp = get_rparam(request, 1);
+    if(strncmp(swapdev, "all", sizeof(swapdev)))
+    {
+	return SYSINFO_RET_FAIL;
+    }
 
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "count"))
-		ret = get_swap_io(NULL, NULL, &value, NULL);
-	else if (0 == strcmp(tmp, "pages"))
-		ret = get_swap_io(NULL, NULL, NULL, &value);
-	else
-		ret = SYSINFO_RET_FAIL;
+    if(get_param(param, 2, mode, sizeof(mode)) != 0)
+    {
+	mode[0] = '\0';
+    }
 
-	if (ret != SYSINFO_RET_OK)
-		return ret;
+    if(mode[0] == '\0')
+    {
+        zbx_snprintf(mode, sizeof(mode), "count");
+    }
 
-	SET_UI64_RESULT(result, value);
+    if(strcmp(mode,"count") == 0)
+    {
+	ret = get_swap_io(&value, NULL, NULL, NULL);
+    }
+    else if(strcmp(mode,"pages") == 0)
+    {
+	ret = get_swap_io(NULL, &value, NULL, NULL);
+    }
+    else
+    {
+	return SYSINFO_RET_FAIL;
+    }
+
+    if(ret != SYSINFO_RET_OK)
 	return ret;
+
+    SET_UI64_RESULT(result, value);
+    return ret;
+}
+
+int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+    int	    ret = SYSINFO_RET_FAIL;
+    char    swapdev[MAX_STRING_LEN];
+    char    mode[MAX_STRING_LEN];
+    double  value = 0;
+
+    if(num_param(param) > 2)
+    {
+        return SYSINFO_RET_FAIL;
+    }
+
+    if(get_param(param, 1, swapdev, sizeof(swapdev)) != 0)
+    {
+	return SYSINFO_RET_FAIL;
+    }
+
+    if(swapdev[0] == '\0')
+    {
+	/* default parameter */
+	zbx_snprintf(swapdev, sizeof(swapdev), "all");
+    }
+
+    if(strncmp(swapdev, "all", sizeof(swapdev)))
+    {
+	return SYSINFO_RET_FAIL;
+    }
+
+    if(get_param(param, 2, mode, sizeof(mode)) != 0)
+    {
+	mode[0] = '\0';
+    }
+
+    if(mode[0] == '\0')
+    {
+        zbx_snprintf(mode, sizeof(mode), "count");
+    }
+
+    if(strcmp(mode,"count") == 0)
+    {
+	ret = get_swap_io(NULL, NULL, &value, NULL);
+    }
+    else if(strcmp(mode,"pages") == 0)
+    {
+	ret = get_swap_io(NULL, NULL, NULL, &value);
+    }
+    else
+    {
+	return SYSINFO_RET_FAIL;
+    }
+
+    if(ret != SYSINFO_RET_OK)
+	return ret;
+
+    SET_UI64_RESULT(result, value);
+    return ret;
 }

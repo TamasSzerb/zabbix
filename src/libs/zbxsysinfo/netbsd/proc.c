@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,17 +9,16 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
-#include "zbxregexp.h"
 
 #include <sys/sysctl.h>
 
@@ -71,9 +70,12 @@ static char	*proc_argv(pid_t pid)
 	return argv;
 }
 
-int     PROC_MEM(AGENT_REQUEST *request, AGENT_RESULT *result)
+int     PROC_MEM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*procname, *proccomm, *param, *args;
+	char	procname[MAX_STRING_LEN],
+		buffer[MAX_STRING_LEN],
+		proccomm[MAX_STRING_LEN],
+		*args;
 	int	do_task, pagesize, count, i,
 		proc_ok, comm_ok,
 		op, arg;
@@ -87,34 +89,47 @@ int     PROC_MEM(AGENT_REQUEST *request, AGENT_RESULT *result)
 	struct kinfo_proc2	*proc, *pproc;
 	struct passwd		*usrinfo;
 
-	if (4 < request->nparam)
+	if (num_param(param) > 4)
 		return SYSINFO_RET_FAIL;
 
-	procname = get_rparam(request, 0);
-	param = get_rparam(request, 1);
+	if (0 != get_param(param, 1, procname, sizeof(procname)))
+		*procname = '\0';
+	else if (strlen(procname) > MAXCOMLEN)
+		procname[MAXCOMLEN] = '\0';
 
-	if (NULL != param && '\0' != *param)
+	if (0 != get_param(param, 2, buffer, sizeof(buffer)))
+		*buffer = '\0';
+
+	if (*buffer != '\0')
 	{
-		if (NULL == (usrinfo = getpwnam(param)))	/* incorrect user name */
+		usrinfo = getpwnam(buffer);
+		if (usrinfo == NULL)	/* incorrect user name */
 			return SYSINFO_RET_FAIL;
 	}
 	else
 		usrinfo = NULL;
 
-	param = get_rparam(request, 2);
+	if (0 != get_param(param, 3, buffer, sizeof(buffer)))
+		*buffer = '\0';
 
-	if (NULL == param || '\0' == *param || 0 == strcmp(param, "sum"))
-		do_task = DO_SUM;
-	else if (0 == strcmp(param, "avg"))
-		do_task = DO_AVG;
-	else if (0 == strcmp(param, "max"))
-		do_task = DO_MAX;
-	else if (0 == strcmp(param, "min"))
-		do_task = DO_MIN;
+	if (*buffer != '\0')
+	{
+		if (0 == strcmp(buffer, "avg"))
+			do_task = DO_AVG;
+		else if (0 == strcmp(buffer, "max"))
+			do_task = DO_MAX;
+		else if (0 == strcmp(buffer, "min"))
+			do_task = DO_MIN;
+		else if (0 == strcmp(buffer, "sum"))
+			do_task = DO_SUM;
+		else
+			return SYSINFO_RET_FAIL;
+	}
 	else
-		return SYSINFO_RET_FAIL;
+		do_task = DO_SUM;
 
-	proccomm = get_rparam(request, 3);
+	if (0 != get_param(param, 4, proccomm, sizeof(proccomm)))
+		*proccomm = '\0';
 
 	pagesize = getpagesize();
 
@@ -140,10 +155,10 @@ int     PROC_MEM(AGENT_REQUEST *request, AGENT_RESULT *result)
 		proc_ok = 0;
 		comm_ok = 0;
 
-		if (NULL == procname || '\0' == *procname || 0 == strcmp(procname, pproc->p_comm))
+		if (*procname == '\0' || 0 == strcmp(procname, pproc->p_comm))
 			proc_ok = 1;
 
-		if (NULL != proccomm && '\0' != *proccomm)
+		if (*proccomm != '\0')
 		{
 			if (NULL != (args = proc_argv(pproc->p_pid)))
 			{
@@ -183,9 +198,12 @@ int     PROC_MEM(AGENT_REQUEST *request, AGENT_RESULT *result)
 	return SYSINFO_RET_OK;
 }
 
-int	PROC_NUM(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*procname, *proccomm, *param, *args;
+	char	procname[MAX_STRING_LEN],
+		buffer[MAX_STRING_LEN],
+		proccomm[MAX_STRING_LEN],
+		*args;
 	int	zbx_proc_stat, count, i,
 		proc_ok, stat_ok, comm_ok,
 		op, arg;
@@ -197,34 +215,47 @@ int	PROC_NUM(AGENT_REQUEST *request, AGENT_RESULT *result)
 	struct kinfo_proc2	*proc, *pproc;
 	struct passwd		*usrinfo;
 
-	if (4 < request->nparam)
+	if (num_param(param) > 4)
 		return SYSINFO_RET_FAIL;
 
-	procname = get_rparam(request, 0);
-	param = get_rparam(request, 1);
+	if (0 != get_param(param, 1, procname, sizeof(procname)))
+		*procname = '\0';
+	else if (strlen(procname) > MAXCOMLEN)
+		procname[MAXCOMLEN] = '\0';
 
-	if (NULL != param && '\0' != *param)
+	if (0 != get_param(param, 2, buffer, sizeof(buffer)))
+		*buffer = '\0';
+
+	if (*buffer != '\0')
 	{
-		if (NULL == (usrinfo = getpwnam(param)))	/* incorrect user name */
+		usrinfo = getpwnam(buffer);
+		if (usrinfo == NULL)	/* incorrect user name */
 			return SYSINFO_RET_FAIL;
 	}
 	else
 		usrinfo = NULL;
 
-	param = get_rparam(request, 2);
+	if (0 != get_param(param, 3, buffer, sizeof(buffer)))
+		*buffer = '\0';
 
-	if (NULL == param || '\0' == *param || 0 == strcmp(param, "all"))
-		zbx_proc_stat = ZBX_PROC_STAT_ALL;
-	else if (0 == strcmp(param, "run"))
-		zbx_proc_stat = ZBX_PROC_STAT_RUN;
-	else if (0 == strcmp(param, "sleep"))
-		zbx_proc_stat = ZBX_PROC_STAT_SLEEP;
-	else if (0 == strcmp(param, "zomb"))
-		zbx_proc_stat = ZBX_PROC_STAT_ZOMB;
+	if (*buffer != '\0')
+	{
+		if (0 == strcmp(buffer, "run"))
+			zbx_proc_stat = ZBX_PROC_STAT_RUN;
+		else if (0 == strcmp(buffer, "sleep"))
+			zbx_proc_stat = ZBX_PROC_STAT_SLEEP;
+		else if (0 == strcmp(buffer, "zomb"))
+			zbx_proc_stat = ZBX_PROC_STAT_ZOMB;
+		else if (0 == strcmp(buffer, "all"))
+			zbx_proc_stat = ZBX_PROC_STAT_ALL;
+		else
+			return SYSINFO_RET_FAIL;
+	}
 	else
-		return SYSINFO_RET_FAIL;
+		zbx_proc_stat = ZBX_PROC_STAT_ALL;
 
-	proccomm = get_rparam(request, 3);
+	if (0 != get_param(param, 4, proccomm, sizeof(proccomm)))
+		*proccomm = '\0';
 
 	if (NULL == kd && NULL == (kd = kvm_open(NULL, NULL, NULL, KVM_NO_FILES, NULL)))
 		return SYSINFO_RET_FAIL;
@@ -249,7 +280,7 @@ int	PROC_NUM(AGENT_REQUEST *request, AGENT_RESULT *result)
 		stat_ok = 0;
 		comm_ok = 0;
 
-		if (NULL == procname || '\0' == *procname || 0 == strcmp(procname, pproc->p_comm))
+		if (*procname == '\0' || 0 == strcmp(procname, pproc->p_comm))
 			proc_ok = 1;
 
 		if (zbx_proc_stat != ZBX_PROC_STAT_ALL)
@@ -272,11 +303,11 @@ int	PROC_NUM(AGENT_REQUEST *request, AGENT_RESULT *result)
 		else
 			stat_ok = 1;
 
-		if (NULL != proccomm && '\0' != *proccomm)
+		if (*proccomm != '\0')
 		{
 			if (NULL != (args = proc_argv(pproc->p_pid)))
 			{
-				if (NULL != zbx_regexp_match(args, proccomm, NULL))
+				if (zbx_regexp_match(args, proccomm, NULL) != NULL)
 					comm_ok = 1;
 			}
 		}

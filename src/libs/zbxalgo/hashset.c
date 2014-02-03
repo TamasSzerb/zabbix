@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -31,6 +31,7 @@ static void	__hashset_free_entry(zbx_hashset_t *hs, ZBX_HASHSET_ENTRY_T *entry);
 
 static void	__hashset_free_entry(zbx_hashset_t *hs, ZBX_HASHSET_ENTRY_T *entry)
 {
+	hs->mem_free_func(entry->data);
 	hs->mem_free_func(entry);
 }
 
@@ -53,14 +54,10 @@ void	zbx_hashset_create_ext(zbx_hashset_t *hs, size_t init_size,
 				zbx_mem_realloc_func_t mem_realloc_func,
 				zbx_mem_free_func_t mem_free_func)
 {
-	int	nslots = next_prime(init_size);
-
-	if (NULL == (hs->slots = mem_malloc_func(NULL, nslots * sizeof(ZBX_HASHSET_ENTRY_T *))))
-		return;
-
 	hs->num_data = 0;
-	hs->num_slots = nslots;
+	hs->num_slots = next_prime(init_size);
 
+	hs->slots = mem_malloc_func(NULL, hs->num_slots * sizeof(ZBX_HASHSET_ENTRY_T *));
 	memset(hs->slots, 0, hs->num_slots * sizeof(ZBX_HASHSET_ENTRY_T *));
 
 	hs->hash_func = hash_func;
@@ -125,19 +122,22 @@ void	*zbx_hashset_insert_ext(zbx_hashset_t *hs, const void *data, size_t size, s
 
 	if (NULL == entry)
 	{
-		if (hs->num_data + 1 >= hs->num_slots * CRIT_LOAD_FACTOR)
+		entry = hs->mem_malloc_func(NULL, sizeof(ZBX_HASHSET_ENTRY_T));
+		entry->data = hs->mem_malloc_func(NULL, size);
+		memcpy((char *)entry->data + offset, (const char *)data + offset, size - offset);
+		entry->hash = hash;
+		entry->next = hs->slots[slot];
+		hs->slots[slot] = entry;
+		hs->num_data++;
+
+		if (hs->num_data >= hs->num_slots * CRIT_LOAD_FACTOR)
 		{
 			int			inc_slots, new_slot;
-			void			*slots;
 			ZBX_HASHSET_ENTRY_T	**prev_next, *curr_entry, *tmp;
 
 			inc_slots = next_prime(MAX(hs->num_slots + 1, hs->num_slots * SLOT_GROWTH_FACTOR));
 
-			if (NULL == (slots = hs->mem_realloc_func(hs->slots, inc_slots * sizeof(ZBX_HASHSET_ENTRY_T *))))
-				return NULL;
-
-			hs->slots = slots;
-
+			hs->slots = hs->mem_realloc_func(hs->slots, inc_slots * sizeof(ZBX_HASHSET_ENTRY_T *));
 			memset(hs->slots + hs->num_slots, 0, (inc_slots - hs->num_slots) * sizeof(ZBX_HASHSET_ENTRY_T *));
 
 			for (slot = 0; slot < hs->num_slots; slot++)
@@ -163,19 +163,9 @@ void	*zbx_hashset_insert_ext(zbx_hashset_t *hs, const void *data, size_t size, s
 					}
 				}
 			}
+
 			hs->num_slots = inc_slots;
-
-			/* recalculate new slot */
-			slot = hash % hs->num_slots;
 		}
-		if (NULL == (entry = hs->mem_malloc_func(NULL, sizeof(ZBX_HASHSET_ENTRY_T) + size - 1)))
-			return NULL;
-
-		memcpy((char *)entry->data + offset, (const char *)data + offset, size - offset);
-		entry->hash = hash;
-		entry->next = hs->slots[slot];
-		hs->slots[slot] = entry;
-		hs->num_data++;
 	}
 
 	return entry->data;

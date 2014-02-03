@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,144 +9,54 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
-#include "../common/common.h"
 
-static int	VM_MEMORY_TOTAL(AGENT_RESULT *result)
+static int	VM_MEMORY_TOTAL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	return EXECUTE_INT("vmstat -s | awk 'BEGIN{pages=0}{gsub(\"[()]\",\"\");if($4==\"pagesize\")pgsize=($6);if(($2==\"inactive\"||$2==\"active\"||$2==\"wired\")&&$3==\"pages\")pages+=$1}END{printf (pages*pgsize)}'", result);
+	return EXECUTE_INT(cmd, "vmstat -s | awk 'BEGIN{pages=0}{gsub(\"[()]\",\"\");if($4==\"pagesize\")pgsize=($6);if(($2==\"inactive\"||$2==\"active\"||$2==\"wired\")&&$3==\"pages\")pages+=$1}END{printf (pages*pgsize)}'", flags, result);
 }
 
-static int	VM_MEMORY_FREE(AGENT_RESULT *result)
+static int	VM_MEMORY_FREE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	return EXECUTE_INT("vmstat -s | awk '{gsub(\"[()]\",\"\");if($4==\"pagesize\")pgsize=($6);if($2==\"free\"&&$3==\"pages\")pages=($1)}END{printf (pages*pgsize)}'", result);
+	return EXECUTE_INT(cmd, "vmstat -s | awk '{gsub(\"[()]\",\"\");if($4==\"pagesize\")pgsize=($6);if($2==\"free\"&&$3==\"pages\")pages=($1)}END{printf (pages*pgsize)}'", flags, result);
 }
 
-static int	VM_MEMORY_USED(AGENT_RESULT *result)
+int     VM_MEMORY_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	int		ret = SYSINFO_RET_FAIL;
-	AGENT_RESULT	result_tmp;
-	zbx_uint64_t	free, total;
+	MODE_FUNCTION fl[] =
+	{
+		{"free",	VM_MEMORY_FREE},
+		{"total",	VM_MEMORY_TOTAL},
+		{0,		0}
+	};
 
-	init_result(&result_tmp);
+	char	mode[MAX_STRING_LEN];
+	int	i;
 
-	if (SYSINFO_RET_OK != VM_MEMORY_FREE(&result_tmp))
-		goto clean;
+        if(num_param(param) > 1)
+                return SYSINFO_RET_FAIL;
 
-	free = result_tmp.ui64;
+        if(get_param(param, 1, mode, sizeof(mode)) != 0)
+                mode[0] = '\0';
 
-	if (SYSINFO_RET_OK != VM_MEMORY_TOTAL(&result_tmp))
-		goto clean;
+        if(mode[0] == '\0')
+	{
+		/* default parameter */
+		zbx_snprintf(mode, sizeof(mode), "total");
+	}
 
-	total = result_tmp.ui64;
+	for(i=0; fl[i].mode!=0; i++)
+		if(strncmp(mode, fl[i].mode, MAX_STRING_LEN)==0)
+			return (fl[i].function)(cmd, param, flags, result);
 
-	SET_UI64_RESULT(result, total - free);
-
-	ret = SYSINFO_RET_OK;
-clean:
-	free_result(&result_tmp);
-
-	return ret;
-}
-
-static int	VM_MEMORY_PUSED(AGENT_RESULT *result)
-{
-	int		ret = SYSINFO_RET_FAIL;
-	AGENT_RESULT	result_tmp;
-	zbx_uint64_t	free, total;
-
-	init_result(&result_tmp);
-
-	if (SYSINFO_RET_OK != VM_MEMORY_FREE(&result_tmp))
-		goto clean;
-
-	free = result_tmp.ui64;
-
-	if (SYSINFO_RET_OK != VM_MEMORY_TOTAL(&result_tmp))
-		goto clean;
-
-	total = result_tmp.ui64;
-
-	if (0 == total)
-		goto clean;
-
-	SET_UI64_RESULT(result, (total - free) / (double)total * 100);
-
-	ret = SYSINFO_RET_OK;
-clean:
-	free_result(&result_tmp);
-
-	return ret;
-}
-
-static int	VM_MEMORY_AVAILABLE(AGENT_RESULT *result)
-{
-	return VM_MEMORY_FREE(result);
-}
-
-static int	VM_MEMORY_PAVAILABLE(AGENT_RESULT *result)
-{
-	int		ret = SYSINFO_RET_FAIL;
-	AGENT_RESULT	result_tmp;
-	zbx_uint64_t	free, total;
-
-	init_result(&result_tmp);
-
-	if (SYSINFO_RET_OK != VM_MEMORY_FREE(&result_tmp))
-		goto clean;
-
-	free = result_tmp.ui64;
-
-	if (SYSINFO_RET_OK != VM_MEMORY_TOTAL(&result_tmp))
-		goto clean;
-
-	total = result_tmp.ui64;
-
-	if (0 == total)
-		goto clean;
-
-	SET_UI64_RESULT(result, free / (double)total * 100);
-
-	ret = SYSINFO_RET_OK;
-clean:
-	free_result(&result_tmp);
-
-	return ret;
-}
-
-int     VM_MEMORY_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	char	*mode;
-	int	ret = SYSINFO_RET_FAIL;
-
-	if (1 < request->nparam)
-		return SYSINFO_RET_FAIL;
-
-	mode = get_rparam(request, 0);
-
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "total"))
-		ret = VM_MEMORY_TOTAL(result);
-	else if (0 == strcmp(mode, "free"))
-		ret = VM_MEMORY_FREE(result);
-	else if (0 == strcmp(mode, "used"))
-		ret = VM_MEMORY_USED(result);
-	else if (0 == strcmp(mode, "pused"))
-		ret = VM_MEMORY_PUSED(result);
-	else if (0 == strcmp(mode, "available"))
-		ret = VM_MEMORY_AVAILABLE(result);
-	else if (0 == strcmp(mode, "pavailable"))
-		ret = VM_MEMORY_PAVAILABLE(result);
-	else
-		ret = SYSINFO_RET_FAIL;
-
-	return ret;
+	return SYSINFO_RET_FAIL;
 }

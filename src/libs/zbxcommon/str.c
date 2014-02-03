@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -32,9 +32,10 @@
  *                            in each zabbix application                      *
  *                                                                            *
  ******************************************************************************/
-static void	app_title(void)
+static void	app_title()
 {
-	printf("%s v%s (revision %s) (%s)\n", title_message, ZABBIX_VERSION, ZABBIX_REVISION, ZABBIX_REVDATE);
+	printf("%s v%s (revision %s) (%s)\n", title_message,
+			ZABBIX_VERSION, ZABBIX_REVISION, ZABBIX_REVDATE);
 }
 
 /******************************************************************************
@@ -47,7 +48,7 @@ static void	app_title(void)
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  ******************************************************************************/
-void	version(void)
+void	version()
 {
 	app_title();
 	printf("Compilation time: %s %s\n", __DATE__, __TIME__);
@@ -65,7 +66,7 @@ void	version(void)
  *                            in each zabbix application                      *
  *                                                                            *
  ******************************************************************************/
-void	usage(void)
+void	usage()
 {
 	printf("usage: %s %s\n", progname, usage_message);
 }
@@ -83,18 +84,15 @@ void	usage(void)
  *                            in each zabbix application                      *
  *                                                                            *
  ******************************************************************************/
-void	help(void)
+void	help()
 {
-	const char	**p = help_message;
+	const char **p = help_message;
 
 	app_title();
 	printf("\n");
-
 	usage();
 	printf("\n");
-
-	while (NULL != *p)
-		printf("%s\n", *p++);
+	while (*p) printf("%s\n", *p++);
 }
 
 /******************************************************************************
@@ -110,18 +108,30 @@ void	help(void)
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  ******************************************************************************/
+/* #define ZBX_STDERR_FILE "zbx_errors.log" */
 void	__zbx_zbx_error(const char *fmt, ...)
 {
 	va_list	args;
+	FILE	*f;
+
+#if defined(ZBX_STDERR_FILE)
+	f = fopen(ZBX_STDERR_FILE, "a+");
+#else
+	f = stderr;
+#endif
 
 	va_start(args, fmt);
 
-	fprintf(stderr, "%s [%li]: ", progname, zbx_get_thread_id());
-	vfprintf(stderr, fmt, args);
-	fprintf(stderr, "\n");
-	fflush(stderr);
+	fprintf(f, "%s [%li]: ", progname, zbx_get_thread_id());
+	vfprintf(f, fmt, args);
+	fprintf(f, "\n");
+	fflush(f);
 
 	va_end(args);
+
+#if defined(ZBX_STDERR_FILE)
+	zbx_fclose(f);
+#endif
 }
 
 /******************************************************************************
@@ -140,10 +150,12 @@ void	__zbx_zbx_error(const char *fmt, ...)
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  ******************************************************************************/
-size_t	__zbx_zbx_snprintf(char *str, size_t count, const char *fmt, ...)
+int	__zbx_zbx_snprintf(char *str, size_t count, const char *fmt, ...)
 {
-	size_t	written_len;
+	int	written_len;
 	va_list	args;
+
+	assert(str);
 
 	va_start(args, fmt);
 	written_len = zbx_vsnprintf(str, count, fmt, args);
@@ -160,46 +172,41 @@ size_t	__zbx_zbx_snprintf(char *str, size_t count, const char *fmt, ...)
  *          Add zero character at the end of string.                          *
  *          Reallocs memory if not enough.                                    *
  *                                                                            *
- * Parameters: str       - [IN/OUT] destination buffer pointer                *
- *             alloc_len - [IN/OUT] already allocated memory                  *
- *             offset    - [IN/OUT] offset for writing                        *
- *             fmt       - [IN] format                                        *
+ * Parameters: str - destination buffer pointer                               *
+ *             alloc_len - already allocated memory                           *
+ *             offset - offset for writing                                    *
+ *             max_len - fmt + data won't write more than max_len bytes       *
+ *             fmt - format                                                   *
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Author: Alexei Vladishev, Alexander Vladishev                              *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-void	__zbx_zbx_snprintf_alloc(char **str, size_t *alloc_len, size_t *offset, const char *fmt, ...)
+void	__zbx_zbx_snprintf_alloc(char **str, int *alloc_len, int *offset, int max_len, const char *fmt, ...)
 {
 	va_list	args;
-	size_t	avail_len, written_len;
-retry:
-	if (NULL == *str)
-	{
-		/* zbx_vsnprintf() returns bytes actually written instead of bytes to write, */
-		/* so we have to use the standard function                                   */
-		va_start(args, fmt);
-		*alloc_len = vsnprintf(NULL, 0, fmt, args) + 2;	/* '\0' + one byte to prevent the operation retry */
-		va_end(args);
-		*offset = 0;
-		*str = zbx_malloc(*str, *alloc_len);
-	}
 
-	avail_len = *alloc_len - *offset;
+	assert(str);
+	assert(*str);
+
+	assert(alloc_len);
+	assert(offset);
+
+	assert(fmt);
+
 	va_start(args, fmt);
-	written_len = zbx_vsnprintf(*str + *offset, avail_len, fmt, args);
-	va_end(args);
 
-	if (written_len == avail_len - 1)
+	if (*offset + max_len >= *alloc_len)
 	{
-		*alloc_len *= 2;
+		while (*offset + max_len >= *alloc_len)
+			*alloc_len *= 2;
 		*str = zbx_realloc(*str, *alloc_len);
-
-		goto retry;
 	}
 
-	*offset += written_len;
+	*offset += zbx_vsnprintf(*str + *offset, max_len, fmt, args);
+
+	va_end(args);
 }
 
 /******************************************************************************
@@ -209,9 +216,9 @@ retry:
  * Purpose: Secure version of vsnprintf function.                             *
  *          Add zero character at the end of string.                          *
  *                                                                            *
- * Parameters: str   - [IN/OUT] destination buffer pointer                    *
- *             count - [IN] size of destination buffer                        *
- *             fmt   - [IN] format                                            *
+ * Parameters: str - destination buffer pointer                               *
+ *             count - size of destination buffer                             *
+ *             fmt - format                                                   *
  *                                                                            *
  * Return value: the number of characters in the output buffer                *
  *               (not including the trailing '\0')                            *
@@ -219,73 +226,95 @@ retry:
  * Author: Alexei Vladishev (see also zbx_snprintf)                           *
  *                                                                            *
  ******************************************************************************/
-size_t	zbx_vsnprintf(char *str, size_t count, const char *fmt, va_list args)
+int	zbx_vsnprintf(char *str, size_t count, const char *fmt, va_list args)
 {
-	int	written_len = 0;
+	int	written_len;
 
-	if (0 < count)
-	{
-		if (0 > (written_len = vsnprintf(str, count, fmt, args)))
-			written_len = (int)count - 1;		/* count an output error as a full buffer */
-		else
-			written_len = MIN(written_len, (int)count - 1);		/* result could be truncated */
-	}
-	str[written_len] = '\0';	/* always write '\0', even if buffer size is 0 or vsnprintf() error */
+	assert(str);
 
-	return (size_t)written_len;
+	if (-1 == (written_len = vsnprintf(str, count, fmt, args)))
+		written_len = (int)count - 1;	/* result was truncated */
+	else
+		written_len = MIN(written_len, (int)count - 1);
+
+	written_len = MAX(written_len, 0);
+
+	str[written_len] = '\0';
+
+	return written_len;
 }
 
 /******************************************************************************
  *                                                                            *
- * Function: zbx_strncpy_alloc, zbx_strcpy_alloc, zbx_chrcpy_alloc            *
+ * Function: zbx_strcpy_alloc                                                 *
  *                                                                            *
- * Purpose: If there is no '\0' byte among the first n bytes of src,          *
- *          then all n bytes will be placed into the dest buffer.             *
- *          In other case only strlen() bytes will be placed there.           *
- *          Add zero character at the end of string.                          *
+ * Purpose: Add zero character at the end of string.                          *
  *          Reallocs memory if not enough.                                    *
  *                                                                            *
- * Parameters: str       - [IN/OUT] destination buffer pointer                *
- *             alloc_len - [IN/OUT] already allocated memory                  *
- *             offset    - [IN/OUT] offset for writing                        *
- *             src       - [IN] copied string                                 *
- *             n         - [IN] maximum number of bytes to copy               *
+ * Parameters: str - destination buffer pointer                               *
+ *             alloc_len - already allocated memory                           *
+ *             offset - offset for writing                                    *
+ *             src - copied null terminated string                            *
+ *                                                                            *
+ * Return value:                                                              *
  *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-void	zbx_strncpy_alloc(char **str, size_t *alloc_len, size_t *offset, const char *src, size_t n)
+void	zbx_strcpy_alloc(char **str, int *alloc_len, int *offset, const char *src)
 {
-	if (NULL == *str)
+	int	sz;
+
+	assert(str && *str);
+	assert(alloc_len);
+	assert(offset);
+	assert(src);
+
+	sz = (int)strlen(src);
+
+	if (*offset + sz >= *alloc_len)
 	{
-		*alloc_len = n + 1;
-		*offset = 0;
-		*str = zbx_malloc(*str, *alloc_len);
-	}
-	else if (*offset + n >= *alloc_len)
-	{
-		while (*offset + n >= *alloc_len)
-			*alloc_len *= 2;
+		*alloc_len += sz < 32 ? 64 : 2 * sz;
 		*str = zbx_realloc(*str, *alloc_len);
 	}
 
-	while (0 != n && '\0' != *src)
-	{
-		(*str)[(*offset)++] = *src++;
-		n--;
-	}
-
+	memcpy(*str + *offset, src, sz);
+	*offset += sz;
 	(*str)[*offset] = '\0';
 }
 
-void	zbx_strcpy_alloc(char **str, size_t *alloc_len, size_t *offset, const char *src)
+/******************************************************************************
+ *                                                                            *
+ * Function: zbx_chrcpy_alloc                                                 *
+ *                                                                            *
+ * Purpose: Add zero character at the end of string.                          *
+ *          Reallocs memory if not enough.                                    *
+ *                                                                            *
+ * Parameters: str - destination buffer pointer                               *
+ *             alloc_len - already allocated memory                           *
+ *             offset - offset for writing                                    *
+ *             src - copied char                                              *
+ *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
+ ******************************************************************************/
+void	zbx_chrcpy_alloc(char **str, int *alloc_len, int *offset, const char src)
 {
-	zbx_strncpy_alloc(str, alloc_len, offset, src, strlen(src));
-}
+	assert(str);
+	assert(offset && 0 <= *offset);
+	assert(alloc_len && 0 <= *alloc_len);
 
-void	zbx_chrcpy_alloc(char **str, size_t *alloc_len, size_t *offset, char c)
-{
-	zbx_strncpy_alloc(str, alloc_len, offset, &c, 1);
+	if (*offset + 1 >= *alloc_len)
+	{
+		*alloc_len += 64;
+		*str = zbx_realloc(*str, *alloc_len);
+	}
+
+	(*str)[*offset] = src;
+	(*offset)++;
+	(*str)[*offset] = '\0';
 }
 
 /* Has to be rewritten to avoid malloc */
@@ -382,26 +411,22 @@ void	del_zeroes(char *s)
  * Parameters: str - string for processing                                    *
  *             charlist - null terminated list of characters                  *
  *                                                                            *
- * Return value: number of trimmed characters                                 *
+ * Return value: length of stripped string                                    *
  *                                                                            *
- * Author: Eugene Grigorjev, Aleksandrs Saveljevs                             *
+ * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  ******************************************************************************/
 int	zbx_rtrim(char *str, const char *charlist)
 {
 	char	*p;
-	int	count = 0;
 
 	if (NULL == str || '\0' == *str)
-		return count;
+		return 0;
 
 	for (p = str + strlen(str) - 1; p >= str && NULL != strchr(charlist, *p); p--)
-	{
 		*p = '\0';
-		count++;
-	}
 
-	return count;
+	return (int)(p - str);
 }
 
 /******************************************************************************
@@ -435,23 +460,6 @@ void	zbx_ltrim(char *str, const char *charlist)
 		*str++ = *p++;
 
 	*str = '\0';
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: zbx_lrtrim                                                       *
- *                                                                            *
- * Purpose: Removes leading and trailing characters from the specified        *
- *          character string                                                  *
- *                                                                            *
- * Parameters: str      - [IN/OUT] string for processing                      *
- *             charlist - [IN] null terminated list of characters             *
- *                                                                            *
- ******************************************************************************/
-void	zbx_lrtrim(char *str, const char *charlist)
-{
-	zbx_rtrim(str, charlist);
-	zbx_ltrim(str, charlist);
 }
 
 /******************************************************************************
@@ -501,91 +509,164 @@ void	zbx_remove_chars(register char *str, const char *charlist)
  ******************************************************************************/
 void	compress_signs(char *str)
 {
-	int	i, j, len, loop = 1;
+	int	i,j,len;
 	char	cur, next, prev;
+	int	loop = 1;
 
-	/* compress '--' '+-' '++' '-+' */
-	while (1 == loop)
+	/* Compress '--' '+-' '++' '-+' */
+	while(loop == 1)
 	{
-		loop = 0;
-
-		for (i = 0; '\0' != str[i]; i++)
+		loop=0;
+		for(i=0;str[i]!='\0';i++)
 		{
-			cur = str[i];
-			next = str[i + 1];
-
-			if (('-' == cur && '-' == next) || ('+' == cur && '+' == next))
+			cur=str[i];
+			next=str[i+1];
+			if(	(cur=='-' && next=='-') ||
+				(cur=='+' && next=='+'))
 			{
-				str[i] = '+';
-				for (j = i + 1; '\0' != str[j]; j++)
-					str[j] = str[j + 1];
-				loop = 1;
+				str[i]='+';
+				for(j=i+1;str[j]!='\0';j++)	str[j]=str[j+1];
+				loop=1;
 			}
-
-			if (('-' == cur && '+' == next) || ('+' == cur && '-' == next))
+			if(	(cur=='-' && next=='+') ||
+				(cur=='+' && next=='-'))
 			{
-				str[i] = '-';
-				for (j = i + 1; '\0' != str[j]; j++)
-					str[j] = str[j + 1];
-				loop = 1;
+				str[i]='-';
+				for(j=i+1;str[j]!='\0';j++)	str[j]=str[j+1];
+				loop=1;
 			}
 		}
 	}
 
-	/* remove '-', '+' where needed, convert -123 to +N123 */
-	for (i = 0; '\0' != str[i]; i++)
+	/* Remove '-', '+' where needed, Convert -123 to +D123 */
+	for(i=0;str[i]!='\0';i++)
 	{
-		cur = str[i];
-
-		if ('+' == cur)
+		cur=str[i];
+		next=str[i+1];
+		if(cur == '+')
 		{
-			/* plus is the first sign in the expression */
-			if (0 == i)
+			/* Plus is the first sign in the expression */
+			if(i==0)
 			{
-				for (j = i; '\0' != str[j]; j++)
-					str[j] = str[j + 1];
+				for(j=i;str[j]!='\0';j++)	str[j]=str[j+1];
 			}
 			else
 			{
-				prev = str[i - 1];
-
-				if (0 == isdigit(prev) && '.' != prev)
+				prev=str[i-1];
+				if(!isdigit(prev) && prev!='.')
 				{
-					for (j = i; '\0' != str[j]; j++)
-						str[j] = str[j + 1];
+					for(j=i;str[j]!='\0';j++)	str[j]=str[j+1];
 				}
 			}
 		}
-		else if ('-' == cur)
+		else if(cur == '-')
 		{
-			/* minus is the first sign in the expression */
-			if (0 == i)
+			/* Minus is the first sign in the expression */
+			if(i==0)
 			{
-				str[i] = 'N';
+				str[i]='N';
 			}
 			else
 			{
-				prev = str[i - 1];
-
-				if (0 == isdigit(prev) && '.' != prev)
+				prev=str[i-1];
+				if(!isdigit(prev) && prev!='.')
 				{
-					str[i] = 'N';
+					str[i]='N';
 				}
 				else
 				{
 					len = (int)strlen(str);
-
-					for (j = len; j > i; j--)
-						str[j] = str[j - 1];
-
-					str[i] = '+';
-					str[i + 1] = 'N';
-					str[len + 1] = '\0';
+					for(j=len;j>i;j--)	str[j]=str[j-1];
+					str[i]='+';
+					str[i+1]='N';
+					str[len+1]='\0';
 					i++;
 				}
 			}
 		}
 	}
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: rtrim_spaces                                                     *
+ *                                                                            *
+ * Purpose: delete all right spaces for the string                            *
+ *                                                                            *
+ * Parameters: c - string to trim spaces                                      *
+ *                                                                            *
+ * Return value: string without right spaces                                  *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ ******************************************************************************/
+void	rtrim_spaces(char *c)
+{
+	int i,len;
+
+	len = (int)strlen(c);
+	for(i=len-1;i>=0;i--)
+	{
+		if( c[i] == ' ')
+		{
+			c[i]=0;
+		}
+		else	break;
+	}
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: ltrim_spaces                                                     *
+ *                                                                            *
+ * Purpose: delete all left spaces for the string                             *
+ *                                                                            *
+ * Parameters: c - string to trim spaces                                      *
+ *                                                                            *
+ * Return value: string without left spaces                                   *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ ******************************************************************************/
+void	ltrim_spaces(char *c)
+{
+	int i;
+/* Number of left spaces */
+	int spaces=0;
+
+	for(i=0;c[i]!=0;i++)
+	{
+		if( c[i] == ' ')
+		{
+			spaces++;
+		}
+		else	break;
+	}
+	for(i=0;c[i+spaces]!=0;i++)
+	{
+		c[i]=c[i+spaces];
+	}
+
+	c[strlen(c)-spaces]=0;
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: lrtrim_spaces                                                    *
+ *                                                                            *
+ * Purpose: delete all left and right spaces for the string                   *
+ *                                                                            *
+ * Parameters: c - string to trim spaces                                      *
+ *                                                                            *
+ * Return value: string without left and right spaces                         *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ ******************************************************************************/
+void	lrtrim_spaces(char *c)
+{
+	ltrim_spaces(c);
+	rtrim_spaces(c);
 }
 
 /*
@@ -620,9 +701,9 @@ void	compress_signs(char *str)
  ******************************************************************************/
 size_t	zbx_strlcpy(char *dst, const char *src, size_t siz)
 {
-	char		*d = dst;
-	const char	*s = src;
-	size_t		n = siz;
+	char *d = dst;
+	const char *s = src;
+	size_t n = siz;
 
 	/* copy as many bytes as will fit */
 	if (0 != n)
@@ -663,33 +744,29 @@ size_t	zbx_strlcpy(char *dst, const char *src, size_t siz)
  ******************************************************************************/
 size_t	zbx_strlcat(char *dst, const char *src, size_t siz)
 {
-	char		*d = dst;
-	const char	*s = src;
-	size_t		n = siz;
-	size_t		dlen;
+	char *d = dst;
+	const char *s = src;
+	size_t n = siz;
+	size_t dlen;
 
-	/* find the end of dst and adjust bytes left but don't go past end */
-	while (0 != n-- && '\0' != *d)
+	/* Find the end of dst and adjust bytes left but don't go past end */
+	while (n-- != 0 && *d != '\0')
 		d++;
 	dlen = d - dst;
 	n = siz - dlen;
 
-	if (0 == n)
-		return dlen + strlen(s);
-
-	while ('\0' != *s)
-	{
-		if (1 != n)
-		{
+	if (n == 0)
+		return(dlen + strlen(s));
+	while (*s != '\0') {
+		if (n != 1) {
 			*d++ = *s;
 			n--;
 		}
 		s++;
 	}
-
 	*d = '\0';
 
-	return dlen + (s - src);	/* count does not include NUL */
+	return(dlen + (s - src));	/* count does not include NUL */
 }
 
 /******************************************************************************
@@ -752,7 +829,7 @@ char	*zbx_dvsprintf(char *dest, const char *f, va_list args)
  ******************************************************************************/
 char	*__zbx_zbx_dsprintf(char *dest, const char *f, ...)
 {
-	char	*string;
+	char	*string = NULL;
 	va_list args;
 
 	va_start(args, f);
@@ -781,6 +858,7 @@ char	*__zbx_zbx_dsprintf(char *dest, const char *f, ...)
 char	*zbx_strdcat(char *dest, const char *src)
 {
 	size_t	len_dest, len_src;
+	char	*new_dest = NULL;
 
 	if (NULL == src)
 		return dest;
@@ -791,11 +869,14 @@ char	*zbx_strdcat(char *dest, const char *src)
 	len_dest = strlen(dest);
 	len_src = strlen(src);
 
-	dest = zbx_realloc(dest, len_dest + len_src + 1);
+	new_dest = zbx_malloc(new_dest, len_dest + len_src + 1);
 
-	zbx_strlcpy(dest + len_dest, src, len_src + 1);
+	zbx_strlcpy(new_dest, dest, len_dest + 1);
+	zbx_strlcpy(new_dest + len_dest, src, len_src + 1);
 
-	return dest;
+	zbx_free(dest);
+
+	return new_dest;
 }
 
 /******************************************************************************
@@ -860,74 +941,26 @@ int	zbx_check_hostname(const char *hostname)
 
 /******************************************************************************
  *                                                                            *
- * Function: get_item_key                                                     *
- *                                                                            *
- * Purpose: return key with parameters (if present)                           *
- *                                                                            *
- *  e.g., system.run[cat /etc/passwd | awk -F: '{ print $1 }']                *
- *                                                                            *
- * Parameters: exp - [IN] pointer to the first char of key                    *
- *             key - [OUT] pointer to the resulted key                        *
- *                                                                            *
- *  e.g., {host:system.run[cat /etc/passwd | awk -F: '{ print $1 }'].last(0)} *
- *              ^                                                             *
- *                                                                            *
- * Return value: return SUCCEED and move exp to the next character after key  *
- *               or FAIL and move exp to incorrect character                  *
- *                                                                            *
- * Notes: implements the functionality of old parse_key() in a safe manner.   *
- *        input pointer is NOT advanced.                                      *
- *                                                                            *
- ******************************************************************************/
-int	get_item_key(char **exp, char **key)
-{
-	char	*p = *exp, c;
-
-	if (SUCCEED != parse_key(&p))
-		return FAIL;
-
-	if ('(' == *p)
-	{
-		for (p--; *exp < p && '.' != *p; p--)
-			;
-
-		if (*exp == p)	/* the key is empty */
-			return FAIL;
-	}
-
-	c = *p;
-	*p = '\0';
-	*key = zbx_strdup(NULL, *exp);
-	*p = c;
-
-	*exp = p;
-
-	return SUCCEED;
-}
-
-/******************************************************************************
- *                                                                            *
  * Function: parse_host                                                       *
  *                                                                            *
- * Purpose: parse hostname                                                    *
+ * Purpose: return hostname                                                   *
  *                                                                            *
  *  e.g., Zabbix server                                                       *
  *                                                                            *
  * Parameters: exp - pointer to the first char of hostname                    *
- *             host - optional pointer to resulted hostname                   *
  *                                                                            *
  *  e.g., {Zabbix server:agent.ping.last(0)}                                  *
  *         ^                                                                  *
  *                                                                            *
- * Return value: return SUCCEED and move exp to the next char after hostname  *
- *               or FAIL and move exp at the failed character                 *
+ * Return value: return SUCCEED and pointer to just after the end of hostname *
+ *               or FAIL and pointer to incorrect char                        *
  *                                                                            *
  * Author: Aleksandrs Saveljevs                                               *
  *                                                                            *
  ******************************************************************************/
 int	parse_host(char **exp, char **host)
 {
-	char	*p, *s;
+	char	c, *p, *s;
 
 	p = *exp;
 
@@ -936,52 +969,72 @@ int	parse_host(char **exp, char **host)
 
 	*exp = s;
 
-	if (p == s)
-		return FAIL;
-
-	if (NULL != host)
+	if (p != s)
 	{
-		char	c;
-
 		c = *s;
 		*s = '\0';
 		*host = strdup(p);
 		*s = c;
+		return SUCCEED;
 	}
-
-	return SUCCEED;
+	else
+		return FAIL;
 }
 
 /******************************************************************************
  *                                                                            *
  * Function: parse_key                                                        *
  *                                                                            *
- * Purpose: advances pointer to first invalid character in string             *
- *          ensuring that everything before it is a valid key                 *
+ * Purpose: return key with parameters (if present)                           *
  *                                                                            *
  *  e.g., system.run[cat /etc/passwd | awk -F: '{ print $1 }']                *
  *                                                                            *
- * Parameters: exp - [IN/OUT] pointer to the first char of key                *
+ * Parameters: exp - pointer to the first char of key                         *
  *                                                                            *
  *  e.g., {host:system.run[cat /etc/passwd | awk -F: '{ print $1 }'].last(0)} *
  *              ^                                                             *
- * Return value: returns FAIL only if no key is present (length 0),           *
- *               or the whole string is invalid. SUCCEED otherwise.           *
+ *                                                                            *
+ * Return value: return SUCCEED and pointer to just after the end of key      *
+ *               or FAIL and pointer to incorrect char                        *
  *                                                                            *
  * Author: Aleksandrs Saveljevs                                               *
  *                                                                            *
  ******************************************************************************/
-int	parse_key(char **exp)
+int	parse_key(char **exp, char **key)
 {
-	char	*s;
+	char	c;
+	char	*p, *r, *s;
+
+	p = *exp;
 
 	for (s = *exp; SUCCEED == is_key_char(*s); s++)
 		;
 
-	if (*exp == s)	/* the key is empty */
-		return FAIL;
+	if ('\0' == *s)		/* no function specified? */
+	{
+		*key = strdup(p);
+		*exp = s;
+		return SUCCEED;
+	}
+	else if ('(' == *s)	/* for instance, ssh,22.last(0) */
+	{
+		for (r = s - 1; p <= r && '.' != *r; r--)
+			;
 
-	if ('[' == *s)	/* for instance, net.tcp.port[,80] */
+		if (r <= p)
+		{
+			*exp = s;
+			return FAIL;
+		}
+
+		*r = '\0';
+		*key = strdup(p);
+		*r = '.';
+
+		*exp = r;
+		return SUCCEED;
+	}
+	else if ('[' == *s)	/* for instance, net.tcp.port[,80] */
 	{
 		int	state = 0;	/* 0 - init, 1 - inside quoted param, 2 - inside unquoted param */
 		int	array = 0;	/* array nest level */
@@ -990,7 +1043,7 @@ int	parse_key(char **exp)
 		{
 			switch (state)
 			{
-				/* init state */
+				/* Init state */
 				case 0:
 					if (',' == *s)
 						;
@@ -1025,7 +1078,7 @@ int	parse_key(char **exp)
 					else if (' ' != *s)
 						state = 2;
 					break;
-				/* quoted */
+				/* Quoted */
 				case 1:
 					if ('"' == *s)
 					{
@@ -1056,7 +1109,7 @@ int	parse_key(char **exp)
 					else if ('\\' == *s && '"' == s[1])
 						s++;
 					break;
-				/* unquoted */
+				/* Unquoted */
 				case 2:
 					if (0 == array && ']' == *s && '[' == s[1])	/* Zapcat */
 					{
@@ -1077,11 +1130,19 @@ fail:
 		*exp = s;
 		return FAIL;
 succeed:
-		s++;
-	}
+		c = *(++s);
+		*s = '\0';
+		*key = strdup(p);
+		*s = c;
 
-	*exp = s;
-	return SUCCEED;
+		*exp = s;
+		return SUCCEED;
+	}
+	else
+	{
+		*exp = s;
+		return FAIL;
+	}
 }
 
 /******************************************************************************
@@ -1095,24 +1156,19 @@ succeed:
  *         exp - pointer to the first char of function                        *
  *                last("host:key[key params]",#1)                             *
  *                ^                                                           *
- *         func - optional pointer to resulted function                       *
- *         params - optional pointer to resulted function parameters          *
  *                                                                            *
- * Return value: return SUCCEED and move exp to the next char after right ')' *
- *               or FAIL and move exp to incorrect character                  *
+ * Return value: return SUCCEED and pointer to just after the right ')'       *
+ *               or FAIL and pointer to incorrect char                        *
  *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
 int	parse_function(char **exp, char **func, char **params)
 {
-	char		*p, *s;
-	int		state;		/* 0 - init
-					 * 1 - function name/params
-					 */
-	unsigned char	flags = 0x00;	/* 0x01 - function OK
-					 * 0x02 - params OK
-					 */
+	char	*p, *s;
+	int	state;	/* 0 - init
+			 * 1 - function name/params
+			 */
 
 	for (p = *exp, s = *exp, state = 0; '\0' != *p; p++)	/* check for function */
 	{
@@ -1136,18 +1192,14 @@ int	parse_function(char **exp, char **func, char **params)
 					 * 3 - end of params
 					 */
 
-			if (NULL != func)
-			{
-				*p = '\0';
-				*func = zbx_strdup(NULL, s);
-				*p++ = '(';
-			}
-			flags |= 0x01;
+			*p = '\0';
+			*func = strdup(s);
+			*p++ = '(';
 
 			for (s = p, state = 0; '\0' != *p; p++)
 			{
 				switch (state) {
-				/* init state */
+				/* Init state */
 				case 0:
 					if (',' == *p)
 						;
@@ -1158,7 +1210,7 @@ int	parse_function(char **exp, char **func, char **params)
 					else if (' ' != *p)
 						state = 2;
 					break;
-				/* quoted */
+				/* Quoted */
 				case 1:
 					if ('"' == *p)
 					{
@@ -1170,7 +1222,7 @@ int	parse_function(char **exp, char **func, char **params)
 					else if ('\\' == *p && '"' == p[1])
 						p++;
 					break;
-				/* unquoted */
+				/* Unquoted */
 				case 2:
 					if (',' == *p)
 						state = 0;
@@ -1185,13 +1237,9 @@ int	parse_function(char **exp, char **func, char **params)
 
 			if (3 == state)
 			{
-				if (NULL != params)
-				{
-					*p = '\0';
-					*params = zbx_strdup(NULL, s);
-					*p = ')';
-				}
-				flags |= 0x02;
+				*p = '\0';
+				*params = strdup(s);
+				*p = ')';
 			}
 			else
 				goto error;
@@ -1202,17 +1250,15 @@ int	parse_function(char **exp, char **func, char **params)
 		break;
 	}
 
-	if (0x03 != flags)
+	if (NULL == *func || NULL == *params)
 		goto error;
 
 	*exp = p + 1;
 
 	return SUCCEED;
 error:
-	if (NULL != func)
-		zbx_free(*func);
-	if (NULL != params)
-		zbx_free(*params);
+	zbx_free(*func);
+	zbx_free(*params);
 
 	*exp = p;
 
@@ -1363,7 +1409,7 @@ int	num_param(const char *p)
  * Purpose: return parameter by index (num) from parameter list (param)       *
  *                                                                            *
  * Parameters:                                                                *
- *      p       - parameter list                                              *
+ *      param   - parameter list                                              *
  *      num     - requested parameter index                                   *
  *      buf     - pointer of output buffer                                    *
  *      max_len - size of output buffer                                       *
@@ -1665,181 +1711,6 @@ char	*get_param_dyn(const char *p, int num)
 
 /******************************************************************************
  *                                                                            *
- * Function: replace_key_param                                                *
- *                                                                            *
- * Purpose: replaces an item key, SNMP OID or their parameters when callback  *
- *          function returns a new string                                     *
- *                                                                            *
- * Comments: auxiliary function for replace_key_params_dyn()                  *
- *                                                                            *
- ******************************************************************************/
-static void	replace_key_param(char **data, int key_type, size_t l, size_t *r, int level, int num, int quoted,
-		replace_key_param_f cb, void *cb_data)
-{
-	char	c = (*data)[*r], *param;
-
-	(*data)[*r] = '\0';
-	param = cb(*data + l, key_type, level, num, quoted, cb_data);
-	(*data)[*r] = c;
-
-	if (NULL != param)
-	{
-		(*r)--;
-		zbx_replace_string(data, l, r, param);
-		(*r)++;
-
-		zbx_free(param);
-	}
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: replace_key_params_dyn                                           *
- *                                                                            *
- * Purpose: replaces an item key, SNMP OID or their parameters by using       *
- *          callback function                                                 *
- *                                                                            *
- * Parameters:                                                                *
- *      data      - [IN/OUT] item key or SNMP OID                             *
- *      key_type  - [IN] ZBX_KEY_TYPE_*                                       *
- *      cb        - [IN] callback function                                    *
- *      cb_data   - [IN] callback function custom data                        *
- *      error     - [OUT] error messsage                                      *
- *      maxerrlen - [IN] error size                                           *
- *                                                                            *
- * Return value: SUCCEED - function executed successfully                     *
- *               FAIL - otherwise, error will contain error message           *
- *                                                                            *
- ******************************************************************************/
-int	replace_key_params_dyn(char **data, int key_type, replace_key_param_f cb, void *cb_data, char *error,
-		size_t maxerrlen)
-{
-	typedef enum
-	{
-		ZBX_STATE_NEW,
-		ZBX_STATE_END,
-		ZBX_STATE_UNQUOTED,
-		ZBX_STATE_QUOTED
-	}
-	zbx_parser_state_t;
-
-	size_t			i, l = 0;
-	int			level = 0, num = 0, ret = SUCCEED;
-	zbx_parser_state_t	state = ZBX_STATE_END;
-
-	if (ZBX_KEY_TYPE_ITEM == key_type)
-	{
-		for (i = 0; SUCCEED == is_key_char((*data)[i]) && '\0' != (*data)[i]; i++)
-			;
-
-		if (0 == i)
-			goto clean;
-
-		if ('[' != (*data)[i] && '\0' != (*data)[i])
-			goto clean;
-	}
-	else
-	{
-		for (i = 0; '[' != (*data)[i] && '\0' != (*data)[i]; i++)
-			;
-	}
-
-	replace_key_param(data, key_type, 0, &i, level, num, 0, cb, cb_data);
-
-	for (; '\0' != (*data)[i]; i++)
-	{
-		if (0 == level)
-		{
-			/* first square bracket + Zapcat compatibility */
-			if (ZBX_STATE_END == state && '[' == (*data)[i])
-				state = ZBX_STATE_NEW;
-			else
-				break;
-		}
-
-		switch (state)
-		{
-			case ZBX_STATE_NEW:	/* a new parameter started */
-				switch ((*data)[i])
-				{
-					case ' ':
-						break;
-					case ',':
-						replace_key_param(data, key_type, i, &i, level, num, 0, cb, cb_data);
-						if (1 == level)
-							num++;
-						break;
-					case '[':
-						level++;
-						if (1 == level)
-							num++;
-						break;
-					case ']':
-						replace_key_param(data, key_type, i, &i, level, num, 0, cb, cb_data);
-						level--;
-						state = ZBX_STATE_END;
-						break;
-					case '"':
-						state = ZBX_STATE_QUOTED;
-						l = i;
-						break;
-					default:
-						state = ZBX_STATE_UNQUOTED;
-						l = i;
-				}
-				break;
-			case ZBX_STATE_END:	/* end of parameter */
-				switch ((*data)[i])
-				{
-					case ' ':
-						break;
-					case ',':
-						state = ZBX_STATE_NEW;
-						if (1 == level)
-							num++;
-						break;
-					case ']':
-						level--;
-						break;
-					default:
-						goto clean;
-				}
-				break;
-			case ZBX_STATE_UNQUOTED:	/* an unquoted parameter */
-				if (']' == (*data)[i] || ',' == (*data)[i])
-				{
-					replace_key_param(data, key_type, l, &i, level, num, 0, cb, cb_data);
-
-					i--;
-					state = ZBX_STATE_END;
-				}
-				break;
-			case ZBX_STATE_QUOTED:	/* a quoted parameter */
-				if ('"' == (*data)[i] && '\\' != (*data)[i - 1])
-				{
-					i++; replace_key_param(data, key_type, l, &i, level, num, 1, cb, cb_data); i--;
-
-					state = ZBX_STATE_END;
-				}
-				break;
-		}
-	}
-clean:
-	if (0 == i || '\0' != (*data)[i] || 0 != level)
-	{
-		if (NULL != error)
-		{
-			zbx_snprintf(error, maxerrlen, "Invalid %s at position " ZBX_FS_SIZE_T,
-					(ZBX_KEY_TYPE_ITEM == key_type ? "item key" : "SNMP OID"), (zbx_fs_size_t)i);
-		}
-		ret = FAIL;
-	}
-
-	return ret;
-}
-
-/******************************************************************************
- *                                                                            *
  * Function: remove_param                                                     *
  *                                                                            *
  * Purpose: remove parameter by index (num) from parameter list (param)       *
@@ -1850,38 +1721,48 @@ clean:
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
- * Comments: delimiter for parameters is ','                                  *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
+ * Comments: delimeter for parameters is ','                                  *
  *                                                                            *
  ******************************************************************************/
 void	remove_param(char *p, int num)
 {
-	int	state = 0;	/* 0 - unquoted parameter, 1 - quoted parameter */
-	int	idx = 1;
+/* 0 - init, 1 - inside quoted param, 2 - inside unquoted param */
+	int	state, idx = 1;
 	char	*buf;
 
-	for (buf = p; '\0' != *p; p++)
+	for (buf = p, state = 0; '\0' != *p; p++)
 	{
-		switch (state)
-		{
-			case 0:			/* in unquoted parameter */
-				if (',' == *p)
-				{
-					if (1 == idx && 1 == num)
-						p++;
-					idx++;
-				}
-				else if ('"' == *p)
-					state = 1;
-				break;
-			case 1:			/* in quoted param */
-				if ('"' == *p)
-					state = 0;
-				else if ('\\' == *p && '"' == p[1])
-					p++;
-				break;
-		}
 		if (idx != num)
 			*buf++ = *p;
+
+		switch (state) {
+		/* Init state */
+		case 0:
+			if (',' == *p)
+				idx++;
+			else if ('"' == *p)
+				state = 1;
+			else if (' ' != *p)
+				state = 2;
+			break;
+		/* Quoted */
+		case 1:
+			if ('"' == *p)
+				state = 0;
+			else if ('\\' == *p && '"' == p[1])
+				p++;
+			break;
+		/* Unquoted */
+		case 2:
+			if (',' == *p)
+			{
+				idx++;
+				state = 0;
+			}
+			break;
+		}
 	}
 
 	*buf = '\0';
@@ -2045,30 +1926,26 @@ u_char	zbx_hex2num(char c)
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-size_t	zbx_binary2hex(const u_char *input, size_t ilen, char **output, size_t *olen)
+int	zbx_binary2hex(const u_char *input, int ilen, char **output, int *olen)
 {
 	const u_char	*i = input;
 	char		*o;
-	size_t		len;
+	int		len = (ilen * 2) + 1;
 
 	assert(input);
 	assert(output);
 	assert(*output);
 	assert(olen);
 
-	len = 2 * ilen + 1;
-
-	if (*olen < len)
-	{
+	if (*olen < len) {
 		*olen = len;
 		*output = zbx_realloc(*output, *olen);
 	}
 	o = *output;
 
-	while ((size_t)(i - input) < ilen)
-	{
-		*o++ = zbx_num2hex((*i >> 4) & 0xf);
-		*o++ = zbx_num2hex(*i & 0xf);
+	while (i - input < ilen) {
+		*o++ = zbx_num2hex( (*i >> 4) & 0xf );
+		*o++ = zbx_num2hex( *i & 0xf );
 		i++;
 	}
 	*o = '\0';
@@ -2091,7 +1968,7 @@ size_t	zbx_binary2hex(const u_char *input, size_t ilen, char **output, size_t *o
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-size_t	zbx_hex2binary(char *io)
+int	zbx_hex2binary(char *io)
 {
 	const char	*i = io;
 	char		*o = io;
@@ -2108,6 +1985,149 @@ size_t	zbx_hex2binary(char *io)
 
 	return (int)(o - io);
 }
+
+#ifdef HAVE_POSTGRESQL
+/******************************************************************************
+ *                                                                            *
+ * Function: zbx_pg_escape_bytea                                              *
+ *                                                                            *
+ * Purpose: converts from binary string to the null terminated escaped string *
+ *                                                                            *
+ * Transformations:                                                           *
+ *      '\0' [0x00] -> \\ooo (ooo is an octal number)                         *
+ *      '\'' [0x37] -> \'                                                     *
+ *      '\\' [0x5c] -> \\\\                                                   *
+ *      <= 0x1f || >= 0x7f -> \\ooo                                           *
+ *                                                                            *
+ * Parameters:                                                                *
+ *      input - null terminated hexadecimal string                            *
+ *      output - pointer to buffer                                            *
+ *      olen - size of returned buffer                                        *
+ *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
+ ******************************************************************************/
+int	zbx_pg_escape_bytea(const u_char *input, int ilen, char **output, int *olen)
+{
+	const u_char	*i;
+	char		*o;
+	int		len;
+
+	assert(input);
+	assert(output);
+	assert(*output);
+	assert(olen);
+
+	len = 1; /* '\0' */
+	i = input;
+	while(i - input < ilen)
+	{
+		if(*i == '\0' || *i <= 0x1f || *i >= 0x7f)
+			len += 5;
+		else if(*i == '\'')
+			len += 2;
+		else if(*i == '\\')
+			len += 4;
+		else
+			len++;
+		i++;
+	}
+
+	if(*olen < len)
+	{
+		*olen = len;
+		*output = zbx_realloc(*output, *olen);
+	}
+	o = *output;
+	i = input;
+
+	while(i - input < ilen)
+	{
+		if(*i == '\0' || *i <= 0x1f || *i >= 0x7f)
+		{
+			*o++ = '\\';
+			*o++ = '\\';
+			*o++ = ((*i >> 6) & 0x7) + 0x30;
+			*o++ = ((*i >> 3) & 0x7) + 0x30;
+			*o++ = (*i & 0x7) + 0x30;
+		}
+		else if (*i == '\'')
+		{
+			*o++ = '\\';
+			*o++ = '\'';
+		}
+		else if (*i == '\\')
+		{
+			*o++ = '\\';
+			*o++ = '\\';
+			*o++ = '\\';
+			*o++ = '\\';
+		}
+		else
+			*o++ = *i;
+		i++;
+	}
+	*o = '\0';
+
+	return len - 1;
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: zbx_pg_unescape_bytea                                            *
+ *                                                                            *
+ * Purpose: converts the null terminated string into binary buffer            *
+ *                                                                            *
+ * Transformations:                                                           *
+ *      \ooo == a byte whose value = ooo (ooo is an octal number)             *
+ *      \x   == x (x is any character)                                        *
+ *                                                                            *
+ * Parameters:                                                                *
+ *      io - null terminated string                                           *
+ *                                                                            *
+ * Return value: length of the binary buffer                                  *
+ *                                                                            *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
+ ******************************************************************************/
+int	zbx_pg_unescape_bytea(u_char *io)
+{
+	const u_char	*i = io;
+	u_char		*o = io;
+
+	assert(io);
+
+	while(*i != '\0')
+	{
+		switch(*i)
+		{
+			case '\\':
+				i++;
+				if(*i == '\\')
+				{
+					*o++ = *i++;
+				}
+				else
+				{
+					if(*i >= 0x30 && *i <= 0x39 && *(i + 1) >= 0x30 && *(i + 1) <= 0x39 && *(i + 2) >= 0x30 && *(i + 2) <= 0x39)
+					{
+						*o = (*i++ - 0x30) << 6;
+						*o += (*i++ - 0x30) << 3;
+						*o++ += *i++ - 0x30;
+					}
+				}
+				break;
+
+			default:
+				*o++ = *i++;
+		}
+	}
+
+	return o - io;
+}
+#endif
 
 /******************************************************************************
  *                                                                            *
@@ -2126,10 +2146,10 @@ size_t	zbx_hex2binary(char *io)
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-size_t	zbx_get_next_field(const char **line, char **output, size_t *olen, char separator)
+int	zbx_get_next_field(const char **line, char **output, int *olen, char separator)
 {
 	char	*ret;
-	size_t	flen;
+	int	flen;
 
 	assert(line);
 
@@ -2139,13 +2159,14 @@ size_t	zbx_get_next_field(const char **line, char **output, size_t *olen, char s
 		return 0;
 	}
 
-	if (NULL != (ret = strchr(*line, separator)))
+	ret = strchr(*line, separator);
+	if (ret)
 	{
-		flen = ret - *line;
+		flen = (int)(ret - *line);
 		ret++;
 	}
 	else
-		flen = strlen(*line);
+		flen = (int)strlen(*line);
 
 	if (*olen < flen + 1)
 	{
@@ -2166,9 +2187,9 @@ size_t	zbx_get_next_field(const char **line, char **output, size_t *olen, char s
  *                                                                            *
  * Purpose: check if string is contained in a list of delimited strings       *
  *                                                                            *
- * Parameters: list      - strings a,b,ccc,ddd                                *
- *             value     - value                                              *
- *             delimiter - delimiter                                          *
+ * Parameters: list     - strings a,b,ccc,ddd                                 *
+ *             value    - value                                               *
+ *             delimiter- delimiter                                           *
  *                                                                            *
  * Return value: SUCCEED - string is in the list, FAIL - otherwise            *
  *                                                                            *
@@ -2178,8 +2199,7 @@ size_t	zbx_get_next_field(const char **line, char **output, size_t *olen, char s
 int	str_in_list(const char *list, const char *value, char delimiter)
 {
 	const char	*end;
-	int		ret = FAIL;
-	size_t		len;
+	int		len, ret = FAIL;
 
 	len = strlen(value);
 
@@ -2292,9 +2312,9 @@ int	num_key_param(char *param)
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-size_t	zbx_get_escape_string_len(const char *src, const char *charlist)
+static size_t	zbx_get_escape_string_len(const char *src, const char *charlist)
 {
-	size_t	sz = 0;
+	size_t	sz = 1;	/* '\0' */
 
 	for (; '\0' != *src; src++, sz++)
 	{
@@ -2324,7 +2344,7 @@ char	*zbx_dyn_escape_string(const char *src, const char *charlist)
 	size_t	sz;
 	char	*d, *dst = NULL;
 
-	sz = zbx_get_escape_string_len(src, charlist) + 1;
+	sz = zbx_get_escape_string_len(src, charlist);
 
 	dst = zbx_malloc(dst, sz);
 
@@ -2343,17 +2363,17 @@ char	*zbx_dyn_escape_string(const char *src, const char *charlist)
 
 char	*zbx_age2str(int age)
 {
-	size_t		offset = 0;
-	int		days, hours, minutes;
+	int		days, hours, minutes, offset;
 	static char	buffer[32];
 
-	days = (int)((double)age / SEC_PER_DAY);
-	hours = (int)((double)(age - days * SEC_PER_DAY) / SEC_PER_HOUR);
+	days	= (int)((double)age / SEC_PER_DAY);
+	hours	= (int)((double)(age - days * SEC_PER_DAY) / SEC_PER_HOUR);
 	minutes	= (int)((double)(age - days * SEC_PER_DAY - hours * SEC_PER_HOUR) / SEC_PER_MIN);
+	offset	= 0;
 
-	if (0 != days)
+	if (days)
 		offset += zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dd ", days);
-	if (0 != days || 0 != hours)
+	if (days || hours)
 		offset += zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dh ", hours);
 	offset += zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "%dm", minutes);
 
@@ -2365,7 +2385,7 @@ char	*zbx_date2str(time_t date)
 	static char	buffer[11];
 	struct tm	*tm;
 
-	tm = localtime(&date);
+	tm	= localtime(&date);
 	zbx_snprintf(buffer, sizeof(buffer), "%.4d.%.2d.%.2d",
 			tm->tm_year + 1900,
 			tm->tm_mon + 1,
@@ -2379,7 +2399,7 @@ char	*zbx_time2str(time_t time)
 	static char	buffer[9];
 	struct tm	*tm;
 
-	tm = localtime(&time);
+	tm	= localtime(&time);
 	zbx_snprintf(buffer, sizeof(buffer), "%.2d:%.2d:%.2d",
 			tm->tm_hour,
 			tm->tm_min,
@@ -2398,7 +2418,7 @@ static int	zbx_strncasecmp(const char *s1, const char *s2, size_t n)
 	if (NULL == s2)
 		return -1;
 
-	while (0 != n && '\0' != *s1 && '\0' != *s2 &&
+	while (n && '\0' != *s1 && '\0' != *s2 &&
 			tolower((unsigned char)*s1) == tolower((unsigned char)*s2))
 	{
 		s1++;
@@ -2406,7 +2426,7 @@ static int	zbx_strncasecmp(const char *s1, const char *s2, size_t n)
 		n--;
 	}
 
-	return 0 == n ? 0 : tolower((unsigned char)*s1) - tolower((unsigned char)*s2);
+	return n == 0 ? 0 : tolower((unsigned char)*s1) - tolower((unsigned char)*s2);
 }
 
 char	*zbx_strcasestr(const char *haystack, const char *needle)
@@ -2471,31 +2491,14 @@ const char	*zbx_permission_string(int perm)
 	{
 		case PERM_DENY:
 			return "dn";
-		case PERM_READ:
-			return "r";
+		case PERM_READ_LIST:
+			return "rl";
+		case PERM_READ_ONLY:
+			return "ro";
 		case PERM_READ_WRITE:
 			return "rw";
 		default:
 			return "unknown";
-	}
-}
-
-const char	*zbx_agent_type_string(zbx_item_type_t item_type)
-{
-	switch (item_type)
-	{
-		case ITEM_TYPE_ZABBIX:
-			return "Zabbix agent";
-		case ITEM_TYPE_SNMPv1:
-		case ITEM_TYPE_SNMPv2c:
-		case ITEM_TYPE_SNMPv3:
-			return "SNMP agent";
-		case ITEM_TYPE_IPMI:
-			return "IPMI agent";
-		case ITEM_TYPE_JMX:
-			return "JMX agent";
-		default:
-			return "generic";
 	}
 }
 
@@ -2518,51 +2521,6 @@ const char	*zbx_item_value_type_string(zbx_item_value_type_t value_type)
 	}
 }
 
-const char	*zbx_item_data_type_string(zbx_item_data_type_t data_type)
-{
-	switch (data_type)
-	{
-		case ITEM_DATA_TYPE_DECIMAL:
-			return "Decimal";
-		case ITEM_DATA_TYPE_OCTAL:
-			return "Octal";
-		case ITEM_DATA_TYPE_HEXADECIMAL:
-			return "Hexadecimal";
-		case ITEM_DATA_TYPE_BOOLEAN:
-			return "Boolean";
-		default:
-			return "unknown";
-	}
-}
-
-const char	*zbx_interface_type_string(zbx_interface_type_t type)
-{
-	switch (type)
-	{
-		case INTERFACE_TYPE_AGENT:
-			return "Zabbix agent";
-		case INTERFACE_TYPE_SNMP:
-			return "SNMP";
-		case INTERFACE_TYPE_IPMI:
-			return "IPMI";
-		case INTERFACE_TYPE_JMX:
-			return "JMX";
-		case INTERFACE_TYPE_ANY:
-			return "any";
-		case INTERFACE_TYPE_UNKNOWN:
-		default:
-			return "unknown";
-	}
-}
-
-const int	INTERFACE_TYPE_PRIORITY[INTERFACE_TYPE_COUNT] =
-{
-	INTERFACE_TYPE_AGENT,
-	INTERFACE_TYPE_SNMP,
-	INTERFACE_TYPE_JMX,
-	INTERFACE_TYPE_IPMI
-};
-
 const char	*zbx_result_string(int result)
 {
 	switch (result)
@@ -2579,14 +2537,33 @@ const char	*zbx_result_string(int result)
 			return "TIMEOUT_ERROR";
 		case AGENT_ERROR:
 			return "AGENT_ERROR";
-		case GATEWAY_ERROR:
-			return "GATEWAY_ERROR";
 		default:
 			return "unknown";
 	}
 }
 
-const char	*zbx_item_logtype_string(unsigned char logtype)
+const char	*zbx_trigger_severity_string(zbx_trigger_severity_t severity)
+{
+	switch (severity)
+	{
+		case TRIGGER_SEVERITY_NOT_CLASSIFIED:
+			return "Not classified";
+		case TRIGGER_SEVERITY_INFORMATION:
+			return "Information";
+		case TRIGGER_SEVERITY_WARNING:
+			return "Warning";
+		case TRIGGER_SEVERITY_AVERAGE:
+			return "Average";
+		case TRIGGER_SEVERITY_HIGH:
+			return "High";
+		case TRIGGER_SEVERITY_DISASTER:
+			return "Disaster";
+		default:
+			return "unknown";
+	}
+}
+
+const char	*zbx_item_logtype_string(zbx_item_logtype_t logtype)
 {
 	switch (logtype)
 	{
@@ -2636,123 +2613,10 @@ const char	*zbx_dservice_type_string(zbx_dservice_type_t service)
 		case SVC_SNMPv3:
 			return "SNMPv3 agent";
 		case SVC_ICMPPING:
-			return "ICMP ping";
+			return "ICMP Ping";
 		default:
 			return "unknown";
 	}
-}
-
-const char	*zbx_nodetype_string(unsigned char nodetype)
-{
-	switch (nodetype)
-	{
-		case ZBX_NODE_MASTER:
-			return "master";
-		case ZBX_NODE_SLAVE:
-			return "slave";
-		default:
-			return "unknown";
-	}
-}
-
-const char	*zbx_alert_type_string(unsigned char type)
-{
-	switch (type)
-	{
-		case ALERT_TYPE_MESSAGE:
-			return "message";
-		default:
-			return "script";
-	}
-}
-
-const char	*zbx_alert_status_string(unsigned char type, unsigned char status)
-{
-	switch (status)
-	{
-		case ALERT_STATUS_SENT:
-			return (ALERT_TYPE_MESSAGE == type ? "sent" : "executed");
-		case ALERT_STATUS_NOT_SENT:
-			return "in progress";
-		default:
-			return "failed";
-	}
-}
-
-const char	*zbx_escalation_status_string(unsigned char status)
-{
-	switch (status)
-	{
-		case ESCALATION_STATUS_ACTIVE:
-			return "active";
-		case ESCALATION_STATUS_RECOVERY:
-			return "recovery";
-		case ESCALATION_STATUS_SLEEP:
-			return "sleep";
-		case ESCALATION_STATUS_COMPLETED:
-			return "completed";
-		default:
-			return "unknown";
-	}
-}
-
-const char	*zbx_trigger_value_string(unsigned char value)
-{
-	switch (value)
-	{
-		case TRIGGER_VALUE_PROBLEM:
-			return "PROBLEM";
-		case TRIGGER_VALUE_OK:
-			return "OK";
-		default:
-			return "unknown";
-	}
-}
-
-const char	*zbx_trigger_state_string(unsigned char state)
-{
-	switch (state)
-	{
-		case TRIGGER_STATE_NORMAL:
-			return "Normal";
-		case TRIGGER_STATE_UNKNOWN:
-			return "Unknown";
-		default:
-			return "unknown";
-	}
-}
-
-const char	*zbx_item_state_string(unsigned char state)
-{
-	switch (state)
-	{
-		case ITEM_STATE_NORMAL:
-			return "Normal";
-		case ITEM_STATE_NOTSUPPORTED:
-			return "Not supported";
-		default:
-			return "unknown";
-	}
-}
-
-const char	*zbx_event_value_string(unsigned char source, unsigned char object, unsigned char value)
-{
-	if (EVENT_SOURCE_TRIGGERS == source)
-		return zbx_trigger_value_string(value);
-
-	if (EVENT_SOURCE_INTERNAL == source)
-	{
-		switch (object)
-		{
-			case EVENT_OBJECT_TRIGGER:
-				return zbx_trigger_state_string(value);
-			case EVENT_OBJECT_ITEM:
-			case EVENT_OBJECT_LLDRULE:
-				return zbx_item_state_string(value);
-		}
-	}
-
-	return "unknown";
 }
 
 #ifdef _WINDOWS
@@ -2869,12 +2733,6 @@ LPTSTR	zbx_acp_to_unicode(LPCSTR acp_string)
 	return zbx_to_unicode(CP_ACP, acp_string);
 }
 
-/* convert from Windows OEM code page to unicode */
-LPTSTR	zbx_oemcp_to_unicode(LPCSTR oemcp_string)
-{
-	return zbx_to_unicode(CP_OEMCP, oemcp_string);
-}
-
 int	zbx_acp_to_unicode_static(LPCSTR acp_string, LPTSTR wide_string, int wide_size)
 {
 	/* convert from acp_string to wide_string */
@@ -2906,29 +2764,23 @@ LPSTR	zbx_unicode_to_utf8(LPCTSTR wide_string)
 }
 
 /* convert from unicode to utf8 */
-LPSTR	zbx_unicode_to_utf8_static(LPCTSTR wide_string, LPSTR utf8_string, int utf8_size)
+int	zbx_unicode_to_utf8_static(LPCTSTR wide_string, LPSTR utf8_string, int utf8_size)
 {
 	/* convert from wide_string to utf8_string */
 	if (0 == WideCharToMultiByte(CP_UTF8, 0, wide_string, -1, utf8_string, utf8_size, NULL, NULL))
-		*utf8_string = '\0';
+		return FAIL;
 
-	return utf8_string;
+	return SUCCEED;
 }
 #endif
-
-void	zbx_strlower(char *str)
-{
-	for (; '\0' != *str; str++)
-		*str = tolower(*str);
-}
 
 void	zbx_strupper(char *str)
 {
 	for (; '\0' != *str; str++)
-		*str = toupper(*str);
+		*str = toupper((int)*str);
 }
 
-#ifdef _WINDOWS
+#if defined(_WINDOWS)
 #include "log.h"
 char	*convert_to_utf8(char *in, size_t in_size, const char *encoding)
 {
@@ -2939,9 +2791,9 @@ char	*convert_to_utf8(char *in, size_t in_size, const char *encoding)
 	int		utf8_size;
 	unsigned int	codepage;
 
-	if ('\0' == *encoding || FAIL == get_codepage(encoding, &codepage))
+	if (FAIL == get_codepage(encoding, &codepage))
 	{
-		utf8_size = (int)in_size + 1;
+		utf8_size = in_size + 1;
 		utf8_string = zbx_malloc(utf8_string, utf8_size);
 		memcpy(utf8_string, in, in_size);
 		utf8_string[in_size] = '\0';
@@ -2952,19 +2804,19 @@ char	*convert_to_utf8(char *in, size_t in_size, const char *encoding)
 
 	if (1200 != codepage)	/* UTF-16 */
 	{
-		wide_size = MultiByteToWideChar(codepage, 0, in, (int)in_size, NULL, 0);
+		wide_size = MultiByteToWideChar(codepage, 0, in, in_size, NULL, 0);
 		if (wide_size > STATIC_SIZE)
 			wide_string = (LPTSTR)zbx_malloc(wide_string, (size_t)wide_size * sizeof(TCHAR));
 		else
 			wide_string = wide_string_static;
 
 		/* convert from in to wide_string */
-		MultiByteToWideChar(codepage, 0, in, (int)in_size, wide_string, wide_size);
+		MultiByteToWideChar(codepage, 0, in, in_size, wide_string, wide_size);
 	}
 	else
 	{
 		wide_string = (wchar_t *)in;
-		wide_size = (int)in_size / 2;
+		wide_size = in_size / 2;
 	}
 
 	utf8_size = WideCharToMultiByte(CP_UTF8, 0, wide_string, wide_size, NULL, 0, NULL, NULL);
@@ -2991,7 +2843,7 @@ char	*convert_to_utf8(char *in, size_t in_size, const char *encoding)
 	out_alloc = in_size + 1;
 	p = out = zbx_malloc(out, out_alloc);
 
-	if ('\0' == *encoding || (iconv_t)-1 == (cd = iconv_open(to_code, encoding)))
+	if (*encoding == '\0' || (iconv_t)-1 == (cd = iconv_open(to_code, encoding)))
 	{
 		memcpy(out, in, in_size);
 		out[in_size] = '\0';
@@ -3044,7 +2896,7 @@ size_t	zbx_strlen_utf8(const char *text)
  * Parameters: text - [IN] pointer to the 1st byte of UTF-8 character         *
  *                                                                            *
  ******************************************************************************/
-size_t	zbx_utf8_char_len(const char *text)
+int	zbx_utf8_char_len(const char *text)
 {
 	if (0 == (*text & 0x80))		/* ASCII */
 		return 1;
@@ -3064,22 +2916,20 @@ size_t	zbx_utf8_char_len(const char *text)
  * Purpose: calculates number of bytes in utf8 text limited by utf8_maxlen    *
  * characters                                                                 *
  *                                                                            *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
  ******************************************************************************/
 size_t	zbx_strlen_utf8_n(const char *text, size_t utf8_maxlen)
 {
-	size_t		sz = 0, csz = 0;
-	const char	*next;
+	size_t	sz = 0;
 
-	while ('\0' != *text && 0 < utf8_maxlen && 0 != (csz = zbx_utf8_char_len(text)))
+	utf8_maxlen++;
+
+	for (; '\0' != *text; text++)
 	{
-		next = text + csz;
-		while (next > text)
-		{
-			if ('\0' == *text++)
-				return sz;
-		}
-		sz += csz;
-		utf8_maxlen--;
+		if (0x80 != (0xc0 & *text) && 0 == --utf8_maxlen)
+			break;
+		sz++;
 	}
 
 	return sz;
@@ -3141,106 +2991,15 @@ bad:
 
 /******************************************************************************
  *                                                                            *
- * Function: zbx_is_utf8                                                      *
- *                                                                            *
- * Purpose: check UTF-8 sequences                                             *
- *                                                                            *
- * Parameters: text - [IN] pointer to the string                              *
- *                                                                            *
- * Return value: SUCCEED if string is valid or FAIL otherwise                 *
- *                                                                            *
- ******************************************************************************/
-int	zbx_is_utf8(const char *text)
-{
-	unsigned int	utf32;
-	unsigned char	*utf8;
-	size_t		i, mb_len, expecting_bytes = 0;
-
-	while ('\0' != *text)
-	{
-		/* single ASCII character */
-		if (0 == (*text & 0x80))
-		{
-			text++;
-			continue;
-		}
-
-		/* unexpected continuation byte or invalid UTF-8 bytes '\xfe' & '\xff' */
-		if (0x80 == (*text & 0xc0) || 0xfe == (*text & 0xfe))
-			return FAIL;
-
-		/* multibyte sequence */
-
-		utf8 = (unsigned char *)text;
-
-		if (0xc0 == (*text & 0xe0))		/* 2-bytes multibyte sequence */
-			expecting_bytes = 1;
-		else if (0xe0 == (*text & 0xf0))	/* 3-bytes multibyte sequence */
-			expecting_bytes = 2;
-		else if (0xf0 == (*text & 0xf8))	/* 4-bytes multibyte sequence */
-			expecting_bytes = 3;
-		else if (0xf8 == (*text & 0xfc))	/* 5-bytes multibyte sequence */
-			expecting_bytes = 4;
-		else if (0xfc == (*text & 0xfe))	/* 6-bytes multibyte sequence */
-			expecting_bytes = 5;
-
-		mb_len = expecting_bytes + 1;
-		text++;
-
-		for (; 0 != expecting_bytes; expecting_bytes--)
-		{
-			/* not a continuation byte */
-			if (0x80 != (*text++ & 0xc0))
-				return FAIL;
-		}
-
-		/* overlong sequence */
-		if (0xc0 == (utf8[0] & 0xfe) ||
-				(0xe0 == utf8[0] && 0x00 == (utf8[1] & 0x20)) ||
-				(0xf0 == utf8[0] && 0x00 == (utf8[1] & 0x30)) ||
-				(0xf8 == utf8[0] && 0x00 == (utf8[1] & 0x38)) ||
-				(0xfc == utf8[0] && 0x00 == (utf8[1] & 0x3c)))
-		{
-			return FAIL;
-		}
-
-		utf32 = 0;
-
-		if (0xc0 == (utf8[0] & 0xe0))
-			utf32 = utf8[0] & 0x1f;
-		else if (0xe0 == (utf8[0] & 0xf0))
-			utf32 = utf8[0] & 0x0f;
-		else if (0xf0 == (utf8[0] & 0xf8))
-			utf32 = utf8[0] & 0x07;
-		else if (0xf8 == (utf8[0] & 0xfc))
-			utf32 = utf8[0] & 0x03;
-		else if (0xfc == (utf8[0] & 0xfe))
-			utf32 = utf8[0] & 0x01;
-
-		for (i = 1; i < mb_len; i++)
-		{
-			utf32 <<= 6;
-			utf32 += utf8[i] & 0x3f;
-		}
-
-		/* according to the Unicode standard the high and low
-		 * surrogate halves used by UTF-16 (U+D800 through U+DFFF)
-		 * and values above U+10FFFF are not legal
-		 */
-		if (utf32 > 0x10ffff || 0xd800 == (utf32 & 0xf800))
-			return FAIL;
-	}
-
-	return SUCCEED;
-}
-
-/******************************************************************************
- *                                                                            *
  * Function: zbx_replace_invalid_utf8                                         *
  *                                                                            *
  * Purpose: replace invalid UTF-8 sequences of bytes with '?' character       *
  *                                                                            *
  * Parameters: text - [IN/OUT] pointer to the first char                      *
+ *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
 void	zbx_replace_invalid_utf8(char *text)
@@ -3342,24 +3101,28 @@ void	zbx_replace_invalid_utf8(char *text)
 	*out = '\0';
 }
 
-void	dos2unix(char *str)
+void	win2unix_eol(char *text)
 {
-	char	*o = str;
+	size_t	i, sz;
 
-	while ('\0' != *str)
+	sz = strlen(text);
+
+	for (i = 0; i < sz; i++)
 	{
-		if ('\r' == str[0] && '\n' == str[1])	/* CR+LF (Windows) */
-			str++;
-		*o++ = *str++;
+		if (text[i] == '\r' && text[i + 1] == '\n')	/* CR+LF (Windows) */
+		{
+			text[i] = '\n';	/* LF (Unix) */
+			sz--;
+			memmove(&text[i + 1], &text[i + 2], (sz - i) * sizeof(char));
+		}
 	}
-	*o = '\0';
 }
 
 int	is_ascii_string(const char *str)
 {
 	while ('\0' != *str)
 	{
-		if (0 != ((1 << 7) & *str))	/* check for range 0..127 */
+		if (0 != ((1<<7) & *str)) /* check for range 0..127 */
 			return FAIL;
 
 		str++;
@@ -3387,12 +3150,17 @@ int	is_ascii_string(const char *str)
  ******************************************************************************/
 char	*str_linefeed(const char *src, size_t maxline, const char *delim)
 {
-	size_t		src_size, dst_size, delim_size, left;
-	int		feeds;		/* number of feeds */
-	char		*dst = NULL;	/* output with linefeeds */
-	const char	*p_src;
-	char		*p_dst;
+	size_t	src_size;	/* input length */
+	size_t	dst_size;	/* output length */
+	size_t	delim_size;	/* delimiter length */
+	int	feeds;		/* number of feeds */
+	size_t	left;		/* what's left after last feed */
+	char	*dst = NULL;	/* output with linefeeds */
 
+	const char	*p_src;	/* working pointer to input */
+	char		*p_dst;	/* working pointer to output */
+
+	/* check input */
 	assert(NULL != src);
 	assert(0 < maxline);
 
@@ -3404,7 +3172,7 @@ char	*str_linefeed(const char *src, size_t maxline, const char *delim)
 	delim_size = strlen(delim);
 
 	/* make sure we don't feed the last line */
-	feeds = (int)(src_size / maxline - (0 != src_size % maxline || 0 == src_size ? 0 : 1));
+	feeds = src_size / maxline - (0 != src_size % maxline || 0 == src_size ? 0 : 1);
 
 	left = src_size - feeds * maxline;
 	dst_size = src_size + feeds * delim_size + 1;
@@ -3510,91 +3278,4 @@ void	zbx_strarr_free(char **arr)
 	for (p = arr; NULL != *p; p++)
 		zbx_free(*p);
 	zbx_free(arr);
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: zbx_replace_string                                               *
- *                                                                            *
- * Purpose: replace data block with 'value'                                   *
- *                                                                            *
- * Parameters: data  - [IN/OUT] pointer to the string                         *
- *             l     - [IN] left position of the block                        *
- *             r     - [IN/OUT] right position of the block                   *
- *             value - [IN] the string to replace the block with              *
- *                                                                            *
- * Author: Alexander Vladishev                                                *
- *                                                                            *
- ******************************************************************************/
-void	zbx_replace_string(char **data, size_t l, size_t *r, const char *value)
-{
-	size_t	sz_data, sz_block, sz_value;
-	char	*src, *dst;
-
-	sz_value = strlen(value);
-	sz_block = *r - l + 1;
-
-	if (sz_value != sz_block)
-	{
-		sz_data = *r + strlen(*data + *r);
-		sz_data += sz_value - sz_block;
-
-		if (sz_value > sz_block)
-			*data = zbx_realloc(*data, sz_data + 1);
-
-		src = *data + l + sz_block;
-		dst = *data + l + sz_value;
-
-		memmove(dst, src, sz_data - l - sz_value + 1);
-
-		*r = l + sz_value - 1;
-	}
-
-	memcpy(&(*data)[l], value, sz_value);
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: zbx_trim_str_list                                                *
- *                                                                            *
- * Purpose: remove whitespace surrounding a string list item delimiters       *
- *                                                                            *
- * Parameters: list      - the list (a string containing items separated by   *
- *                         delimiter)                                         *
- *             delimiter - the list delimiter                                 *
- *                                                                            *
- * Author: Andris Zeila                                                       *
- *                                                                            *
- ******************************************************************************/
-void	zbx_trim_str_list(char *list, char delimiter)
-{
-	char	*whitespace = " \t";	/* NB! strchr(3): "terminating null byte is considered part of the string" */
-	char	*out, *in;
-
-	if (NULL == list || '\0' == *list)
-		return;
-
-	out = in = list;
-
-	while ('\0' != *in)
-	{
-		/* trim leading spaces from list item */
-		while ('\0' != *in && NULL != strchr(whitespace, *in))
-			in++;
-
-		/* copy list item */
-		while (delimiter != *in && '\0' != *in)
-			*out++ = *in++;
-
-		/* trim trailing spaces from list item */
-		if (out > list)
-		{
-			while (NULL != strchr(whitespace, *(--out)))
-				;
-			out++;
-		}
-		if (delimiter == *in)
-			*out++ = *in++;
-	}
-	*out = '\0';
 }

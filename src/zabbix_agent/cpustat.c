@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,20 +9,17 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "stats.h"
 #include "cpustat.h"
-#ifdef _WINDOWS
-#	include "perfstat.h"
-#endif
 #include "mutexs.h"
 #include "log.h"
 
@@ -30,83 +27,6 @@
 #	define LOCK_CPUSTATS	zbx_mutex_lock(&cpustats_lock)
 #	define UNLOCK_CPUSTATS	zbx_mutex_unlock(&cpustats_lock)
 static ZBX_MUTEX	cpustats_lock;
-#endif
-
-#ifdef HAVE_KSTAT_H
-static kstat_ctl_t	*kc = NULL;
-static kid_t		kc_id = 0;
-static kstat_t		*(*ksp)[] = NULL;	/* array of pointers to "cpu_stat" elements in kstat chain */
-
-static int	refresh_kstat(ZBX_CPUS_STAT_DATA *pcpus)
-{
-	const char	*__function_name = "refresh_kstat";
-	static int	cpu_over_count_prev = 0;
-	int		cpu_over_count = 0, i, inserted;
-	kid_t		id;
-	kstat_t		*k;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
-
-	for (i = 0; i < pcpus->count; i++)
-		(*ksp)[i] = NULL;
-
-	/* kstat_chain_update() can return:							*/
-	/*   - -1 (error),									*/
-	/*   -  a new kstat chain ID (chain successfully updated),				*/
-	/*   -  0 (kstat chain was up-to-date). We ignore this case to make refresh_kstat()	*/
-	/*        usable for first-time initialization as the kstat chain is up-to-date after	*/
-	/*        kstat_open().									*/
-	if (-1 == (id = kstat_chain_update(kc)))
-	{
-		zabbix_log(LOG_LEVEL_ERR, "%s: kstat_chain_update() failed", __function_name);
-		return FAIL;
-	}
-
-	if (0 != id)
-		kc_id = id;
-
-	for (k = kc->kc_chain; NULL != k; k = k->ks_next)	/* traverse all kstat chain */
-	{
-		if (0 == strcmp("cpu_stat", k->ks_module))
-		{
-			inserted = 0;
-			for (i = 1; i <= pcpus->count; i++)	/* search in our array of ZBX_SINGLE_CPU_STAT_DATAs */
-			{
-				if (pcpus->cpu[i].cpu_num == k->ks_instance + 1)	/* CPU instance found */
-				{
-					(*ksp)[i - 1] = k;
-					inserted = 1;
-					break;
-				}
-
-				if (-1 == pcpus->cpu[i].cpu_num)	/* Free slot found. Most likely first-time */
-									/* initialization. */
-				{
-					pcpus->cpu[i].cpu_num = k->ks_instance + 1;
-					(*ksp)[i - 1] = k;
-					inserted = 1;
-					break;
-				}
-			}
-			if (0 == inserted)	/* new CPU added, no place to keep its data */
-				cpu_over_count++;
-		}
-	}
-
-	if (0 < cpu_over_count)
-	{
-		if (cpu_over_count_prev < cpu_over_count)
-		{
-			zabbix_log(LOG_LEVEL_WARNING, "%d new processor(s) added. Restart Zabbix agentd to enable"
-					" collecting new data.", cpu_over_count - cpu_over_count_prev);
-			cpu_over_count_prev = cpu_over_count;
-		}
-	}
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
-
-	return SUCCEED;
-}
 #endif
 
 int	init_cpu_collector(ZBX_CPUS_STAT_DATA *pcpus)
@@ -117,7 +37,13 @@ int	init_cpu_collector(ZBX_CPUS_STAT_DATA *pcpus)
 	TCHAR				cpu[8];
 	char				counterPath[PDH_MAX_COUNTER_PATH];
 	PDH_COUNTER_PATH_ELEMENTS	cpe;
+#else
+#ifdef HAVE_KSTAT_H
+	kstat_ctl_t			*kc;
+	kstat_t				*k, *kd;
 #endif
+#endif
+
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
 #ifdef _WINDOWS
@@ -158,35 +84,30 @@ clean:
 	if (ZBX_MUTEX_ERROR == zbx_mutex_create_force(&cpustats_lock, ZBX_MUTEX_CPUSTATS))
 	{
 		zbx_error("unable to create mutex for cpu collector");
-		exit(EXIT_FAILURE);
+		exit(FAIL);
 	}
 
-#ifndef HAVE_KSTAT_H
 	for (cpu_num = 0; cpu_num <= pcpus->count; cpu_num++)
 		pcpus->cpu[cpu_num].cpu_num = cpu_num;
-#else
+
+#ifdef HAVE_KSTAT_H
 	/* Solaris */
 
-	/* CPU instance numbers on Solaris can be non-contiguous, we don't know them yet */
-	pcpus->cpu[0].cpu_num = 0;
-	for (cpu_num = 1; cpu_num <= pcpus->count; cpu_num++)
-		pcpus->cpu[cpu_num].cpu_num = -1;
-
-	if (NULL == (kc = kstat_open()))
+	if (NULL != (kc = kstat_open()))
 	{
-		zbx_error("kstat_open() failed");
-		exit(EXIT_FAILURE);
-	}
+		if (NULL != (k = kstat_lookup(kc, "unix", 0, "kstat_headers")) && -1 != kstat_read(kc, k, NULL))
+		{
+			int     i;
 
-	kc_id = kc->kc_chain_id;
+			for (i = 0, cpu_num = 1; i < k->ks_ndata; i++)
+			{
+				kd = (kstat_t *)k->ks_data;
+				if (0 == strcmp(kd[i].ks_module, "cpu_info"))
+					pcpus->cpu[cpu_num++].cpu_num = kd[i].ks_instance + 1;
+			}
+		}
 
-	if (NULL == ksp)
-		ksp = zbx_malloc(ksp, sizeof(kstat_t *) * pcpus->count);
-
-	if (SUCCEED != refresh_kstat(pcpus))
-	{
-		zbx_error("kstat_chain_update() failed");
-		exit(EXIT_FAILURE);
+		kstat_close(kc);
 	}
 #endif	/* HAVE_KSTAT_H */
 
@@ -219,10 +140,6 @@ void	free_cpu_collector(ZBX_CPUS_STAT_DATA *pcpus)
 	zbx_mutex_destroy(&cpustats_lock);
 #endif
 
-#ifdef HAVE_KSTAT_H
-	kstat_close(kc);
-	zbx_free(ksp);
-#endif
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
 
@@ -280,9 +197,10 @@ static void	update_cpustats(ZBX_CPUS_STAT_DATA *pcpus)
 
 #elif defined(HAVE_KSTAT_H)
 
+	kstat_ctl_t	*kc;
+	kstat_t		*k;
 	cpu_stat_t	*cpu;
 	zbx_uint64_t	total[ZBX_CPU_STATE_COUNT];
-	kid_t		id;
 
 #elif defined(HAVE_FUNCTION_SYSCTL_KERN_CPTIME)
 
@@ -447,7 +365,7 @@ static void	update_cpustats(ZBX_CPUS_STAT_DATA *pcpus)
 #elif defined(HAVE_KSTAT_H)
 	/* Solaris */
 
-	if (NULL == kc)
+	if (NULL == (kc = kstat_open()))
 	{
 		ZBX_SET_CPUS_NOTSUPPORTED();
 		goto exit;
@@ -457,35 +375,25 @@ static void	update_cpustats(ZBX_CPUS_STAT_DATA *pcpus)
 
 	for (cpu_num = 1; cpu_num <= pcpus->count; cpu_num++)
 	{
-read_again:
-		if (NULL != (*ksp)[cpu_num - 1])
+		if (NULL == (k = kstat_lookup(kc, "cpu_stat", pcpus->cpu[cpu_num].cpu_num - 1, NULL)) ||
+				-1 == kstat_read(kc, k, NULL))
 		{
-			id = kstat_read(kc, (*ksp)[cpu_num - 1], NULL);
-			if (-1 == id || kc_id != id)	/* error or our kstat chain copy is out-of-date */
-			{
-				if (SUCCEED != refresh_kstat(pcpus))
-				{
-					update_cpu_counters(&pcpus->cpu[cpu_num], NULL);
-					continue;
-				}
-				else
-					goto read_again;
-			}
-
-			cpu = (cpu_stat_t *)(*ksp)[cpu_num - 1]->ks_data;
-
-			memset(counter, 0, sizeof(counter));
-
-			total[ZBX_CPU_STATE_IDLE] += counter[ZBX_CPU_STATE_IDLE] = cpu->cpu_sysinfo.cpu[CPU_IDLE];
-			total[ZBX_CPU_STATE_USER] += counter[ZBX_CPU_STATE_USER] = cpu->cpu_sysinfo.cpu[CPU_USER];
-			total[ZBX_CPU_STATE_SYSTEM] += counter[ZBX_CPU_STATE_SYSTEM] = cpu->cpu_sysinfo.cpu[CPU_KERNEL];
-			total[ZBX_CPU_STATE_IOWAIT] += counter[ZBX_CPU_STATE_IOWAIT] = cpu->cpu_sysinfo.cpu[CPU_WAIT];
-
-			update_cpu_counters(&pcpus->cpu[cpu_num], counter);
-		}
-		else
 			update_cpu_counters(&pcpus->cpu[cpu_num], NULL);
+			continue;
+		}
+
+		cpu = (cpu_stat_t *)k->ks_data;
+
+		memset(counter, 0, sizeof(counter));
+
+		total[ZBX_CPU_STATE_IDLE] += counter[ZBX_CPU_STATE_IDLE] = cpu->cpu_sysinfo.cpu[CPU_IDLE];
+		total[ZBX_CPU_STATE_USER] += counter[ZBX_CPU_STATE_USER] = cpu->cpu_sysinfo.cpu[CPU_USER];
+		total[ZBX_CPU_STATE_SYSTEM] += counter[ZBX_CPU_STATE_SYSTEM] = cpu->cpu_sysinfo.cpu[CPU_KERNEL];
+		total[ZBX_CPU_STATE_IOWAIT] += counter[ZBX_CPU_STATE_IOWAIT] = cpu->cpu_sysinfo.cpu[CPU_WAIT];
+
+		update_cpu_counters(&pcpus->cpu[cpu_num], counter);
 	}
+	kstat_close(kc);
 
 	update_cpu_counters(&pcpus->cpu[0], total);
 
@@ -581,9 +489,8 @@ read_again:
 #endif	/* HAVE_LIBPERFSTAT */
 
 #undef ZBX_SET_CPUS_NOTSUPPORTED
-#if defined(HAVE_PROC_STAT) || (defined(HAVE_FUNCTION_SYSCTLBYNAME) && defined(CPUSTATES)) || defined(HAVE_KSTAT_H)
+
 exit:
-#endif
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
 

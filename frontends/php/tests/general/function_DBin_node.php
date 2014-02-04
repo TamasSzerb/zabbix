@@ -1,3 +1,4 @@
+<?php
 /*
 ** Zabbix
 ** Copyright (C) 2001-2014 Zabbix SIA
@@ -17,31 +18,12 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-#include "common.h"
-#include "db.h"
-#include "log.h"
-#include "sysinfo.h"
-#include "zbxdbupgrade.h"
-#include "dbupgrade.h"
 
-/*
- * 2.2 maintenance database patches
- */
+require_once dirname(__FILE__).'/../include/class.czabbixtest.php';
 
-#ifndef HAVE_SQLITE3
-
-static int	DBpatch_2020000(void)
-{
-	return SUCCEED;
+class function_DBIn_node extends CZabbixTest {
+	public function test_DBin_node() {
+		// TODO
+		$this->markTestIncomplete();
+	}
 }
-
-#endif
-
-DBPATCH_START(2020)
-
-/* version, duplicates flag, mandatory flag */
-
-DBPATCH_ADD(2020000, 0, 1)
-/* Patch 2020001 is duplicated by 2030011 */
-
-DBPATCH_END()

@@ -100,10 +100,9 @@ function encodeValues(&$value, $encodeTwice = true) {
 function zbx_add_post_js($script) {
 	global $ZBX_PAGE_POST_JS;
 
-	if ($ZBX_PAGE_POST_JS === null) {
+	if (!isset($ZBX_PAGE_POST_JS)) {
 		$ZBX_PAGE_POST_JS = array();
 	}
-
 	if (!in_array($script, $ZBX_PAGE_POST_JS)) {
 		$ZBX_PAGE_POST_JS[] = $script;
 	}
@@ -519,14 +518,13 @@ function get_js($script, $jQueryDocumentReady = false) {
 function insertPagePostJs() {
 	global $ZBX_PAGE_POST_JS;
 
-	if ($ZBX_PAGE_POST_JS) {
+	if (!empty($ZBX_PAGE_POST_JS)) {
 		$js = '';
-
 		foreach ($ZBX_PAGE_POST_JS as $script) {
 			$js .= $script."\n";
 		}
 
-		if ($js) {
+		if (!empty($js)) {
 			echo get_js($js, true);
 		}
 	}

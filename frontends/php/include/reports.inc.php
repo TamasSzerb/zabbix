@@ -327,12 +327,14 @@ function valueComparisonFormForMultiplePeriods() {
 	$groupids = get_request('groupids', array());
 	$group_tb = new CTweenBox($reportForm, 'groupids', $groupids, 10);
 
-	$db_groups = API::HostGroup()->get(array(
+	$options = array(
 		'real_hosts' => true,
-		'output' => array('groupid', 'name')
-	));
+		'output' => 'extend'
+	);
+
+	$db_groups = API::HostGroup()->get($options);
 	order_result($db_groups, 'name');
-	foreach ($db_groups as $group) {
+	foreach ($db_groups as $gnum => $group) {
 		$groupids[$group['groupid']] = $group['groupid'];
 		$group_tb->addItem($group['groupid'],$group['name']);
 	}
@@ -342,7 +344,7 @@ function valueComparisonFormForMultiplePeriods() {
 	$groupid = get_request('groupid', 0);
 	$cmbGroups = new CComboBox('groupid', $groupid, 'submit()');
 	$cmbGroups->addItem(0, _('All'));
-	foreach ($db_groups as $group) {
+	foreach ($db_groups as $gnum => $group) {
 		$cmbGroups->addItem($group['groupid'], $group['name']);
 	}
 

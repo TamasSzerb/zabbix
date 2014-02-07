@@ -167,9 +167,7 @@ class CXmlImport18 {
 				'snmp_port' => '',
 				'snmpv3_securityname' => '',
 				'snmpv3_securitylevel' => '',
-				'snmpv3_authprotocol' => '',
 				'snmpv3_authpassphrase' => '',
-				'snmpv3_privprotocol' => '',
 				'snmpv3_privpassphrase' => ''
 			)
 		),
@@ -447,10 +445,7 @@ class CXmlImport18 {
 			$exists = API::Screen()->exists(array('name' => $screen['name']));
 
 			if ($exists && !empty($rules['screens']['updateExisting'])) {
-				$db_screens = API::Screen()->get(array(
-					'output' => array('screenid'),
-					'filter' => array('name' => $screen['name'])
-				));
+				$db_screens = API::Screen()->get(array('filter' => array('name' => $screen['name'])));
 				if (empty($db_screens)) {
 					throw new Exception(_s('No permissions for screen "%1$s".', $screen['name']));
 				}
@@ -470,14 +465,7 @@ class CXmlImport18 {
 			}
 
 			foreach ($screen['screenitems'] as &$screenitem) {
-				if (isset($screenitem['resourceid']['node'])) {
-					$nodeId = getNodeIdByNodeName($screenitem['resourceid']['node']);
-					$nodeCaption = $screenitem['resourceid']['node'].':';
-				}
-				else {
-					$nodeId = null;
-					$nodeCaption = '';
-				}
+				$nodeCaption = isset($screenitem['resourceid']['node']) ? $screenitem['resourceid']['node'].':' : '';
 
 				if (!isset($screenitem['resourceid'])) {
 					$screenitem['resourceid'] = 0;
@@ -490,13 +478,7 @@ class CXmlImport18 {
 						case SCREEN_RESOURCE_DATA_OVERVIEW:
 						case SCREEN_RESOURCE_HOSTGROUP_TRIGGERS:
 							if (is_array($screenitem['resourceid'])) {
-								$db_hostgroups = API::HostGroup()->get(array(
-									'output' => array('groupid'),
-									'nodeids' => $nodeId,
-									'filter' => array(
-										'name' => $screenitem['resourceid']['name']
-									)
-								));
+								$db_hostgroups = API::HostGroup()->getObjects($screenitem['resourceid']);
 								if (empty($db_hostgroups)) {
 									$error = _s('Cannot find group "%1$s" used in screen "%2$s".',
 											$nodeCaption.$screenitem['resourceid']['name'], $screen['name']);
@@ -508,13 +490,7 @@ class CXmlImport18 {
 							}
 							break;
 						case SCREEN_RESOURCE_HOST_TRIGGERS:
-							$db_hosts = API::Host()->get(array(
-								'output' => array('hostids'),
-								'nodeids' => $nodeId,
-								'filter' => array(
-									'host' => $screenitem['resourceid']['host']
-								)
-							));
+							$db_hosts = API::Host()->getObjects($screenitem['resourceid']);
 							if (empty($db_hosts)) {
 								$error = _s('Cannot find host "%1$s" used in screen "%2$s".',
 										$nodeCaption.$screenitem['resourceid']['host'], $screen['name']);
@@ -525,17 +501,10 @@ class CXmlImport18 {
 							$screenitem['resourceid'] = $tmp['hostid'];
 							break;
 						case SCREEN_RESOURCE_GRAPH:
-							$db_graphs = API::Graph()->get(array(
-								'output' => array('graphid'),
-								'nodeids' => $nodeId,
-								'filter' => array(
-									'host' => $screenitem['resourceid']['host'],
-									'name' => $screenitem['resourceid']['name']
-								)
-							));
+							$db_graphs = API::Graph()->getObjects($screenitem['resourceid']);
 							if (empty($db_graphs)) {
 								$error = _s('Cannot find graph "%1$s" used in screen "%2$s".',
-										$nodeCaption.$screenitem['resourceid']['host'].NAME_DELIMITER.$screenitem['resourceid']['name'], $screen['name']);
+										$nodeCaption.$screenitem['resourceid']['host'].':'.$screenitem['resourceid']['name'], $screen['name']);
 								throw new Exception($error);
 							}
 
@@ -544,15 +513,7 @@ class CXmlImport18 {
 							break;
 						case SCREEN_RESOURCE_SIMPLE_GRAPH:
 						case SCREEN_RESOURCE_PLAIN_TEXT:
-							$db_items = API::Item()->get(array(
-								'output' => array('itemid'),
-								'nodeids' => $nodeId,
-								'webitems' => true,
-								'filter' => array(
-									'host' => $screenitem['resourceid']['host'],
-									'key_' => $screenitem['resourceid']['key_']
-								)
-							));
+							$db_items = API::Item()->getObjects($screenitem['resourceid']);
 
 							if (empty($db_items)) {
 								$error = _s('Cannot find item "%1$s" used in screen "%2$s".',
@@ -564,13 +525,7 @@ class CXmlImport18 {
 							$screenitem['resourceid'] = $tmp['itemid'];
 							break;
 						case SCREEN_RESOURCE_MAP:
-							$db_sysmaps = API::Map()->get(array(
-								'output' => array('sysmapid'),
-								'nodeids' => $nodeId,
-								'filter' => array(
-									'name' => $screenitem['resourceid']['name']
-								)
-							));
+							$db_sysmaps = API::Map()->getObjects($screenitem['resourceid']);
 							if (empty($db_sysmaps)) {
 								$error = _s('Cannot find map "%1$s" used in screen "%2$s".',
 										$nodeCaption.$screenitem['resourceid']['name'], $screen['name']);
@@ -581,13 +536,7 @@ class CXmlImport18 {
 							$screenitem['resourceid'] = $tmp['sysmapid'];
 							break;
 						case SCREEN_RESOURCE_SCREEN:
-							$db_screens = API::Screen()->get(array(
-								'output' => array('screenid'),
-								'nodeids' => $nodeId,
-								'filter' => array(
-									'name' => $screenitem['resourceid']['name']
-								)
-							));
+							$db_screens = API::Screen()->get(array('screenids' => $screenitem['resourceid']));
 							if (empty($db_screens)) {
 								$error = _s('Cannot find screen "%1$s" used in screen "%2$s".',
 										$nodeCaption.$screenitem['resourceid']['name'], $screen['name']);
@@ -630,13 +579,14 @@ class CXmlImport18 {
 	}
 
 	public static function parseMap($rules) {
+		global $USER_DETAILS;
 		$importMaps = self::XMLtoArray(self::$xml);
 
 		if (!isset($importMaps['zabbix_export'])) {
 			$importMaps['zabbix_export'] = $importMaps;
 		}
 
-		if (CWebUser::$data['type'] == USER_TYPE_SUPER_ADMIN && isset($importMaps['zabbix_export']['images'])) {
+		if ($USER_DETAILS['type'] == USER_TYPE_SUPER_ADMIN && isset($importMaps['zabbix_export']['images'])) {
 			$images = $importMaps['zabbix_export']['images'];
 			$images_to_add = array();
 			$images_to_update = array();
@@ -648,7 +598,7 @@ class CXmlImport18 {
 
 						$options = array(
 							'filter' => array('name' => $image['name']),
-							'output' => array('imageid')
+							'output' => API_OUTPUT_SHORTEN
 						);
 						$imgs = API::Image()->get($options);
 						$img = reset($imgs);
@@ -1105,12 +1055,11 @@ class CXmlImport18 {
 
 				// host inventory
 				if ($old_version_input) {
-					if (!isset($host_db['inventory'])) {
-						$host_db['inventory'] = array();
-					}
-
 					$inventoryNode = $xpath->query('host_profile/*', $host);
 					if ($inventoryNode->length > 0) {
+						if (!isset($host_db['inventory'])) {
+							$host_db['inventory'] = array();
+						}
 						foreach ($inventoryNode as $field) {
 							$newInventoryName = self::mapInventoryName($field->nodeName);
 							$host_db['inventory'][$newInventoryName] = $field->nodeValue;
@@ -1119,6 +1068,9 @@ class CXmlImport18 {
 
 					$inventoryNodeExt = $xpath->query('host_profiles_ext/*', $host);
 					if ($inventoryNodeExt->length > 0) {
+						if (!isset($host_db['inventory'])) {
+							$host_db['inventory'] = array();
+						}
 						foreach ($inventoryNodeExt as $field) {
 							$newInventoryName = self::mapInventoryName($field->nodeName);
 							if (isset($host_db['inventory'][$newInventoryName]) && $field->nodeValue !== '') {
@@ -1136,10 +1088,7 @@ class CXmlImport18 {
 
 // HOSTS
 				if (isset($host_db['proxy_hostid'])) {
-					$proxy_exists = API::Proxy()->get(array(
-						'output' => array('proxyid'),
-						'proxyids' => $host_db['proxy_hostid']
-					));
+					$proxy_exists = API::Proxy()->get(array('proxyids' => $host_db['proxy_hostid']));
 					if (empty($proxy_exists)) {
 						$host_db['proxy_hostid'] = 0;
 					}
@@ -1187,7 +1136,7 @@ class CXmlImport18 {
 					foreach ($templates as $template) {
 						$options = array(
 							'filter' => array('host' => $template->nodeValue),
-							'output' => array('templateid'),
+							'output' => API_OUTPUT_SHORTEN,
 							'editable' => true
 						);
 						$current_template = API::Template()->get($options);
@@ -1200,14 +1149,12 @@ class CXmlImport18 {
 						$templateLinkage[] = $current_template;
 					}
 
-					if ($templateLinkage) {
-						$result = API::Template()->massAdd(array(
-							'hosts' => array('hostid' => $current_hostid),
-							'templates' => $templateLinkage
-						));
-						if (!$result) {
-							throw new Exception();
-						}
+					$result = API::Template()->massAdd(array(
+						'hosts' => array('hostid' => $current_hostid),
+						'templates' => $templateLinkage
+					));
+					if (!$result) {
+						throw new Exception();
 					}
 				}
 // }}} TEMPLATES
@@ -1310,15 +1257,16 @@ class CXmlImport18 {
 							$item_db['key_'] = self::convertOldSimpleKey($item_db['key_']);
 						}
 
-						$current_item = API::Item()->get(array(
+						$options = array(
 							'filter' => array(
 								'hostid' => $item_db['hostid'],
 								'key_' => $item_db['key_']
 							),
-							'webitems' => true,
-							'editable' => true,
-							'output' => array('itemid')
-						));
+							'webitems' => 1,
+							'output' => API_OUTPUT_EXTEND,
+							'editable' => 1
+						);
+						$current_item = API::Item()->get($options);
 						$current_item = reset($current_item);
 
 						if (!$current_item && empty($rules['items']['createMissing'])) {
@@ -1391,12 +1339,14 @@ class CXmlImport18 {
 								throw new Exception();
 							}
 
-							$current_item = API::Item()->get(array(
+							$options = array(
 								'itemids' => $result['itemids'],
-								'webitems' => true,
-								'output' => array('itemid')
-							));
+								'webitems' => 1,
+								'output' => API_OUTPUT_EXTEND
+							);
+							$current_item = API::Item()->get($options);
 						}
+
 
 						if (!$current_item && !empty($rules['items']['createMissing'])) {
 							$result = API::Item()->create($item_db);
@@ -1404,11 +1354,12 @@ class CXmlImport18 {
 								throw new Exception();
 							}
 
-							$current_item = API::Item()->get(array(
+							$options = array(
 								'itemids' => $result['itemids'],
-								'webitems' => true,
-								'output' => array('itemid')
-							));
+								'webitems' => 1,
+								'output' => API_OUTPUT_EXTEND
+							);
+							$current_item = API::Item()->get($options);
 						}
 
 						if (!empty($item_applications)) {
@@ -1556,10 +1507,10 @@ class CXmlImport18 {
 							if ($current_item = API::Item()->exists($gitem_db)) {
 								$current_item = API::Item()->get(array(
 									'filter' => array('key_' => $gitem_db['key_']),
-									'webitems' => true,
-									'editable' => true,
+									'webitems' => 1,
 									'host' => $gitem_db['host'],
-									'output' => array('itemid', 'hostid')
+									'output' => API_OUTPUT_EXTEND,
+									'editable' => 1
 								));
 								if (empty($current_item)) {
 									throw new Exception(_s('No permission for item "%1$s".', $gitem_db['key_']));
@@ -1772,7 +1723,7 @@ class CXmlImport18 {
 			if ($dependencies->length > 0) {
 				$triggersForDependencies = zbx_objectValues($triggersForDependencies, 'triggerid');
 				$triggersForDependencies = array_flip($triggersForDependencies);
-				$triggerDependencies = array();
+				$newDependencies = array();
 				foreach ($dependencies as $dependency) {
 
 					$triggerDescription = $dependency->getAttribute('description');
@@ -1783,24 +1734,18 @@ class CXmlImport18 {
 
 						foreach ($dependsOnList as $dependsOn) {
 							$depTrigger = get_trigger_by_description($dependsOn->nodeValue);
-							if ($depTrigger) {
-								if (!isset($triggerDependencies[$currentTrigger['triggerid']])) {
-									$triggerDependencies[$currentTrigger['triggerid']] = array(
-										'triggerid' => $currentTrigger['triggerid'],
-										'dependencies' => array()
-									);
-								}
-
-								$triggerDependencies[$currentTrigger['triggerid']]['dependencies'][] = array(
-									'triggerid' => $depTrigger['triggerid']
+							if ($depTrigger['triggerid']) {
+								$newDependencies[] = array(
+									'triggerid' => $currentTrigger['triggerid'],
+									'dependsOnTriggerid' => $depTrigger['triggerid']
 								);
 							}
 						}
 					}
 				}
 
-				if ($triggerDependencies) {
-					API::Trigger()->update($triggerDependencies);
+				if ($newDependencies) {
+					API::Trigger()->addDependencies($newDependencies);
 				}
 			}
 		}

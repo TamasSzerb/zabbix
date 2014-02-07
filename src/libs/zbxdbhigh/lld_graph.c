@@ -9,7 +9,7 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
@@ -56,6 +56,8 @@ static void	lld_clean_graphs(zbx_vector_ptr_t *graphs)
  * Function: lld_graph_exists                                                 *
  *                                                                            *
  * Purpose: check if graph exists                                             *
+ *                                                                            *
+ * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
 static int	lld_graph_exists(zbx_uint64_t hostid, zbx_uint64_t graphid, const char *name, zbx_vector_ptr_t *graphs)
@@ -170,7 +172,7 @@ static int	lld_make_graph(zbx_uint64_t hostid, zbx_uint64_t parent_graphid, zbx_
 
 	graph = zbx_calloc(NULL, 1, sizeof(zbx_lld_graph_t));
 	graph->name = zbx_strdup(NULL, name_proto);
-	substitute_discovery_macros(&graph->name, jp_row, ZBX_MACRO_SIMPLE, NULL, 0);
+	substitute_discovery_macros(&graph->name, jp_row);
 
 	name_esc = DBdyn_escape_string_len(graph->name, GRAPH_NAME_LEN);
 
@@ -200,7 +202,7 @@ static int	lld_make_graph(zbx_uint64_t hostid, zbx_uint64_t parent_graphid, zbx_
 			char	*old_name = NULL;
 
 			old_name = zbx_strdup(old_name, row[1]);
-			substitute_discovery_macros(&old_name, jp_row, ZBX_MACRO_SIMPLE, NULL, 0);
+			substitute_discovery_macros(&old_name, jp_row);
 
 			if (0 == strcmp(old_name, row[2]))
 				ZBX_STR2UINT64(graph->graphid, row[0]);
@@ -215,7 +217,7 @@ static int	lld_make_graph(zbx_uint64_t hostid, zbx_uint64_t parent_graphid, zbx_
 
 	if (SUCCEED == lld_graph_exists(hostid, graph->graphid, graph->name, graphs))
 	{
-		*error = zbx_strdcatf(*error, "Cannot %s graph \"%s\": graph already exists\n",
+		*error = zbx_strdcatf(*error, "Cannot %s graph [%s]: graph already exists\n",
 				0 != graph->graphid ? "update" : "create", graph->name);
 		res = FAIL;
 		goto out;
@@ -234,7 +236,7 @@ static int	lld_make_graph(zbx_uint64_t hostid, zbx_uint64_t parent_graphid, zbx_
 		{
 			gitem = &graph->gitems[i];
 
-			if (0 != (ZBX_FLAG_DISCOVERY_PROTOTYPE & gitem->flags))
+			if (0 != (ZBX_FLAG_DISCOVERY_CHILD & gitem->flags))
 			{
 				if (FAIL == (res = lld_get_item(hostid, gitem->key, jp_row, &gitem->itemid)))
 					break;
@@ -252,7 +254,7 @@ static int	lld_make_graph(zbx_uint64_t hostid, zbx_uint64_t parent_graphid, zbx_
 	{
 		graph->ymin_itemid = ymin_itemid;
 
-		if (0 != (ZBX_FLAG_DISCOVERY_PROTOTYPE & ymin_flags) &&
+		if (0 != (ZBX_FLAG_DISCOVERY_CHILD & ymin_flags) &&
 				FAIL == (res = lld_get_item(hostid, ymin_key_proto, jp_row, &graph->ymin_itemid)))
 		{
 			goto out;
@@ -263,7 +265,7 @@ static int	lld_make_graph(zbx_uint64_t hostid, zbx_uint64_t parent_graphid, zbx_
 	{
 		graph->ymax_itemid = ymax_itemid;
 
-		if (0 != (ZBX_FLAG_DISCOVERY_PROTOTYPE & ymax_flags) &&
+		if (0 != (ZBX_FLAG_DISCOVERY_CHILD & ymax_flags) &&
 				FAIL == (res = lld_get_item(hostid, ymax_key_proto, jp_row, &graph->ymax_itemid)))
 		{
 			goto out;
@@ -355,6 +357,9 @@ static void	lld_save_graphs(zbx_vector_ptr_t *graphs, int width, int height, dou
 			" (gitemid,graphid,itemid,drawtype,sortorder,color,yaxisside,calc_fnc,type)"
 			" values ";
 
+	if (0 == graphs->values_num)
+		return;
+
 	for (i = 0; i < graphs->values_num; i++)
 	{
 		graph = (zbx_lld_graph_t *)graphs->values[i];
@@ -368,6 +373,8 @@ static void	lld_save_graphs(zbx_vector_ptr_t *graphs, int width, int height, dou
 				new_graphs_items++;
 		}
 	}
+
+	DBbegin();
 
 	if (0 != new_graphs)
 	{
@@ -558,6 +565,8 @@ static void	lld_save_graphs(zbx_vector_ptr_t *graphs, int width, int height, dou
 		DBexecute("%s", sql4);
 		zbx_free(sql4);
 	}
+
+	DBcommit();
 }
 
 /******************************************************************************
@@ -569,6 +578,8 @@ static void	lld_save_graphs(zbx_vector_ptr_t *graphs, int width, int height, dou
  * Parameters: hostid  - [IN] host identificator from database                *
  *             agent   - [IN] discovery item identificator from database      *
  *             jp_data - [IN] received data                                   *
+ *                                                                            *
+ * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
 void	lld_update_graphs(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, zbx_vector_ptr_t *lld_rows, char **error)
@@ -633,7 +644,8 @@ void	lld_update_graphs(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, zbx_vector_
 		int		width, height;
 		double		yaxismin, yaxismax, percent_left, percent_right;
 		unsigned char	show_work_period, show_triggers, graphtype, show_legend, show_3d,
-				ymin_type, ymax_type, ymin_flags = 0, ymax_flags = 0;
+				ymin_type = GRAPH_YAXIS_TYPE_CALCULATED, ymax_type = GRAPH_YAXIS_TYPE_CALCULATED,
+				ymin_flags = 0, ymax_flags = 0;
 		int		i;
 		zbx_lld_row_t	*lld_row;
 

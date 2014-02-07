@@ -31,7 +31,7 @@
 
 #define STR_REPLACE(str1, str2)	if (NULL == str1 || 0 != strcmp(str1, str2)) str1 = zbx_strdup(str1, str2)
 
-#define ALERT_FREQUENCY		(15 * SEC_PER_MIN)
+#define ALERT_FREQUENCY		15 * SEC_PER_MIN
 #define DB_PING_FREQUENCY	SEC_PER_MIN
 
 typedef struct
@@ -58,7 +58,7 @@ extern int		CONFIG_CONFSYNCER_FREQUENCY;
  * Comments: messages are sent only every ALERT_FREQUENCY seconds             *
  *                                                                            *
  ******************************************************************************/
-static void	send_alerts(void)
+static void	send_alerts()
 {
 	int	i, now;
 	char	error[MAX_STRING_LEN];
@@ -86,7 +86,7 @@ static void	send_alerts(void)
  * Author: Alexei Vladishev, Rudolfs Kreicbergs                               *
  *                                                                            *
  ******************************************************************************/
-static void	sync_config(void)
+static void	sync_config()
 {
 	const char	*__function_name = "sync_config";
 
@@ -200,10 +200,9 @@ exit:
  * Author: Alexei Vladishev, Rudolfs Kreicbergs                               *
  *                                                                            *
  ******************************************************************************/
-void	main_watchdog_loop(void)
+void	main_watchdog_loop()
 {
-	int	now, nextsync = 0, action;
-	double	sec;
+	int	now, nextsync = 0;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In main_watchdog_loop()");
 
@@ -213,14 +212,10 @@ void	main_watchdog_loop(void)
 	{
 		zbx_setproctitle("%s [pinging database]", get_process_type_string(process_type));
 
-		sec = zbx_time();
-		action = 0;
-
 		if (ZBX_DB_OK != DBconnect(ZBX_DB_CONNECT_ONCE))
 		{
 			zabbix_log(LOG_LEVEL_WARNING, "watchdog: database is down");
 			send_alerts();
-			action = 1;
 		}
 		else if (nextsync <= (now = (int)time(NULL)))
 		{
@@ -229,24 +224,9 @@ void	main_watchdog_loop(void)
 			sync_config();
 
 			nextsync = now + CONFIG_CONFSYNCER_FREQUENCY;
-
-			action = 2;
 		}
 
 		DBclose();
-
-		sec = zbx_time() - sec;
-
-		if (1 == action)
-		{
-			zbx_setproctitle("%s [database is down, checking took " ZBX_FS_DBL " sec, idle %d sec]",
-					get_process_type_string(process_type), sec, (int)DB_PING_FREQUENCY);
-		}
-		else if (2 == action)
-		{
-			zbx_setproctitle("%s [synced alerts config in " ZBX_FS_DBL " sec, idle %d sec]",
-					get_process_type_string(process_type), sec, (int)DB_PING_FREQUENCY);
-		}
 
 		zbx_sleep_loop(DB_PING_FREQUENCY);
 	}

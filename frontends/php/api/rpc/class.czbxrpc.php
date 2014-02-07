@@ -47,6 +47,11 @@ class czbxrpc {
 		);
 		// Authentication
 		if (!isset($withoutAuth[$method]) || !zbx_empty($sessionid)) {
+			// compatibility mode
+			if ($method == 'user.authenticate') {
+				$method = 'user.login';
+			}
+
 			if (!zbx_empty($sessionid)) {
 				$usr = self::callAPI('user.checkAuthentication', $sessionid);
 				if (!isset($usr['result'])) {

@@ -97,7 +97,7 @@ function getSeverityColor($severity, $value = TRIGGER_VALUE_TRUE) {
 
 function getSeverityCell($severity, $text = null, $force_normal = false) {
 	if ($text === null) {
-		$text = CHtml::encode(getSeverityCaption($severity));
+		$text = getSeverityCaption($severity);
 	}
 
 	return new CCol($text, getSeverityStyle($severity, !$force_normal));
@@ -119,8 +119,8 @@ function get_service_status_of_trigger($triggerid) {
  * Add color style and blinking to an object like CSpan or CDiv depending on trigger status
  * Settings and colors are kept in 'config' database table
  *
- * @param mixed $object             object like CSpan, CDiv, etc.
- * @param int $triggerValue         TRIGGER_VALUE_FALSE or TRIGGER_VALUE_TRUE
+ * @param mixed $object object like CSpan, CDiv, etc.
+ * @param int $triggerValue TRIGGER_VALUE_FALSE, TRIGGER_VALUE_TRUE or TRIGGER_VALUE_UNKNOWN
  * @param int $triggerLastChange
  * @param bool $isAcknowledged
  * @return void
@@ -161,21 +161,16 @@ function addTriggerValueStyle($object, $triggerValue, $triggerLastChange, $isAck
 	}
 }
 
-function trigger_value2str($value = null) {
-	$triggerValues = array(
-		TRIGGER_VALUE_FALSE => _('OK'),
-		TRIGGER_VALUE_TRUE => _('PROBLEM')
-	);
+function trigger_value2str($value) {
+	$str_val[TRIGGER_VALUE_FALSE] = _('OK');
+	$str_val[TRIGGER_VALUE_TRUE] = _('PROBLEM');
+	$str_val[TRIGGER_VALUE_UNKNOWN] = _('UNKNOWN');
 
-	if ($value === null) {
-		return $triggerValues;
+	if (isset($str_val[$value])) {
+		return $str_val[$value];
 	}
-	elseif (isset($triggerValues[$value])) {
-		return $triggerValues[$value];
-	}
-	else {
-		return _('Unknown');
-	}
+
+	return _('Unknown');
 }
 
 function discovery_value($val = null) {
@@ -366,7 +361,8 @@ function copyTriggersToHosts($srcTriggerIds, $dstHostIds, $srcHostId = null) {
 		'triggerids' => $srcTriggerIds,
 		'output' => array('triggerid', 'expression', 'description', 'url', 'status', 'priority', 'comments', 'type'),
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-		'selectDependencies' => array('triggerid')
+		'selectItems' => API_OUTPUT_EXTEND,
+		'selectDependencies' => API_OUTPUT_REFER
 	);
 	if ($srcHostId) {
 		$srcHost = API::Host()->get(array(
@@ -681,277 +677,95 @@ function construct_expression($itemid, $expressions) {
  * Comments: !!! Don't forget sync code with C !!!								*
  *																				*
  *******************************************************************************/
-function explode_exp($expressionCompressed, $html = false, $resolveMacro = false, $sourceHost = null, $destinationHost = null) {
-	$expressionExpanded = $html ? array() : '';
+function explode_exp($expression, $html = false, $resolve_macro = false, $src_host = null, $dst_host = null) {
+	$functionid = '';
+	$macros = '';
+	$exp = !$html ? '' : array();
 	$trigger = array();
+	$state = '';
 
-	for ($i = 0, $state = '', $max = zbx_strlen($expressionCompressed); $i < $max; $i++) {
-		if ($expressionCompressed[$i] == '{') {
-			if ($expressionCompressed[$i + 1] == '$') {
-				$state = 'USERMACRO';
-				$userMacro = '';
-			}
-			elseif ($expressionCompressed[$i + 1] == '#') {
-				$state = 'LLDMACRO';
-				$lldMacro = '';
-			}
-			else {
-				$state = 'FUNCTIONID';
-				$functionId = '';
-
-				continue;
-			}
+	for ($i = 0, $max = zbx_strlen($expression); $i < $max; $i++) {
+		if ($expression[$i] == '{' && ($expression[$i+1] == '$')) {
+			$functionid = '';
+			$macros = '';
+			$state = 'MACROS';
 		}
-		elseif ($expressionCompressed[$i] == '}') {
-			if ($state == 'USERMACRO') {
-				$state = '';
-				$userMacro .= '}';
+		elseif ($expression[$i] == '{') {
+			$functionid = '';
+			$state = 'FUNCTIONID';
+			continue;
+		}
 
-				if ($resolveMacro) {
-					$functionData['expression'] = $userMacro;
-					$userMacro = CMacrosResolverHelper::resolveTriggerExpressionUserMacro($functionData);
+		if ($expression[$i] == '}') {
+			if ($state == 'MACROS') {
+				$macros .= '}';
+				if ($resolve_macro) {
+					$function_data['expression'] = $macros;
+					$function_data = API::UserMacro()->resolveTrigger($function_data);
+					$macros = $function_data['expression'];
 				}
 
 				if ($html) {
-					$expressionExpanded[] = $userMacro;
+					array_push($exp, $macros);
 				}
 				else {
-					$expressionExpanded .= $userMacro;
+					$exp .= $macros;
 				}
-
-				continue;
-			}
-			elseif ($state == 'LLDMACRO') {
+				$macros = '';
 				$state = '';
-				$lldMacro .= '}';
-
-				if ($html) {
-					$expressionExpanded[] = $lldMacro;
-				}
-				else {
-					$expressionExpanded .= $lldMacro;
-				}
-
-				continue;
-			}
-			elseif ($functionId == 'TRIGGER.VALUE') {
-				$state = '';
-
-				if ($html) {
-					$expressionExpanded[] = '{'.$functionId.'}';
-				}
-				else {
-					$expressionExpanded .= '{'.$functionId.'}';
-				}
-
 				continue;
 			}
 
 			$state = '';
-			$error = true;
-
-			if (is_numeric($functionId)) {
-				$functionData = DBfetch(DBselect(
-					'SELECT h.host,h.hostid,i.itemid,i.key_,f.function,f.triggerid,f.parameter,i.itemid,i.status,i.type,i.flags'.
+			$sql = 'SELECT h.host,i.itemid,i.key_,f.function,f.triggerid,f.parameter,i.itemid,i.status,i.type,i.flags'.
 					' FROM items i,functions f,hosts h'.
-					' WHERE f.functionid='.zbx_dbstr($functionId).
+					' WHERE f.functionid='.zbx_dbstr($functionid).
 						' AND i.itemid=f.itemid'.
-						' AND h.hostid=i.hostid'
-				));
+						' AND h.hostid=i.hostid';
 
-				if ($functionData) {
-					$error = false;
-
-					if ($resolveMacro) {
-						$trigger = $functionData;
-
-						// expand macros in item key
-						$items = CMacrosResolverHelper::resolveItemKeys(array($functionData));
-						$item = reset($items);
-
-						$functionData['key_'] = $item['key_expanded'];
-
-						// expand macros in function parameter
-						$functionParameters = CMacrosResolverHelper::resolveFunctionParameters(array($functionData));
-						$functionParameter = reset($functionParameters);
-						$functionData['parameter'] = $functionParameter['parameter_expanded'];
-					}
-
-					if ($sourceHost !== null && $destinationHost !== null && $sourceHost === $functionData['host']) {
-						$functionData['host'] = $destinationHost;
-					}
-
-					if ($html) {
-						if ($functionData['status'] == ITEM_STATUS_DISABLED) {
-							$style = 'disabled';
-						}
-						elseif ($functionData['status'] == ITEM_STATUS_ACTIVE) {
-							$style = 'enabled';
-						}
-						else {
-							$style = 'unknown';
-						}
-
-						if ($functionData['flags'] == ZBX_FLAG_DISCOVERY_CREATED || $functionData['type'] == ITEM_TYPE_HTTPTEST) {
-							$link = new CSpan($functionData['host'].':'.$functionData['key_'], $style);
-						}
-						elseif ($functionData['flags'] == ZBX_FLAG_DISCOVERY_PROTOTYPE) {
-							$link = new CLink(
-								$functionData['host'].':'.$functionData['key_'],
-								'disc_prototypes.php?form=update&itemid='.$functionData['itemid'].'&parent_discoveryid='.
-									$trigger['discoveryRuleid'].'&switch_node='.id2nodeid($functionData['itemid']),
-								$style
-							);
-						}
-						else {
-							$link = new CLink(
-								$functionData['host'].':'.$functionData['key_'],
-								'items.php?form=update&itemid='.$functionData['itemid'].'&switch_node='.
-									id2nodeid($functionData['itemid']),
-								$style
-							);
-						}
-
-						$expressionExpanded[] = array('{', $link,'.', bold($functionData['function'].'('), $functionData['parameter'], bold(')'), '}');
-					}
-					else {
-						$expressionExpanded .= '{'.$functionData['host'].':'.$functionData['key_'].'.'.$functionData['function'].'('.$functionData['parameter'].')}';
-					}
-				}
-			}
-
-			if ($error) {
-				if ($html) {
-					$expressionExpanded[] = new CSpan('*ERROR*', 'on');
-				}
-				else {
-					$expressionExpanded .= '*ERROR*';
-				}
-			}
-
-			continue;
-		}
-
-		switch ($state) {
-			case 'FUNCTIONID':
-				$functionId .= $expressionCompressed[$i];
-				break;
-
-			case 'USERMACRO':
-				$userMacro .= $expressionCompressed[$i];
-				break;
-
-			case 'LLDMACRO':
-				$lldMacro .= $expressionCompressed[$i];
-				break;
-
-			default:
-				if ($html) {
-					$expressionExpanded[] = $expressionCompressed[$i];
-				}
-				else {
-					$expressionExpanded .= $expressionCompressed[$i];
-				}
-		}
-	}
-
-	return $expressionExpanded;
-}
-
-/**
- * Translate {10}>10 to something like {localhost:system.cpu.load.last(0)}>10.
- *
- * @param array $trigger
- * @param bool  $html
- *
- * @return array|string
- */
-function triggerExpression($trigger, $html = false) {
-	$expression = $trigger['expression'];
-	$exp = $html ? array() : '';
-
-	for ($i = 0, $state = '', $len = strlen($expression); $i < $len; $i++) {
-		if ($expression[$i] == '{') {
-			if ($expression[$i + 1] == '$') {
-				$usermacro = '';
-				$state = 'USERMACRO';
-			}
-			elseif ($expression[$i + 1] == '#') {
-				$lldmacro = '';
-				$state = 'LLDMACRO';
-			}
-			else {
-				$functionid = '';
-				$state = 'FUNCTIONID';
-				continue;
-			}
-		}
-		elseif ($expression[$i] == '}') {
-			if ($state == 'USERMACRO') {
-				$usermacro .= '}';
-
-				if ($html) {
-					array_push($exp, $usermacro);
-				}
-				else {
-					$exp .= $usermacro;
-				}
-			}
-			elseif ($state == 'LLDMACRO') {
-				$lldmacro .= '}';
-				if ($html) {
-					array_push($exp, $lldmacro);
-				}
-				else {
-					$exp .= $lldmacro;
-				}
-			}
-			elseif ($functionid == 'TRIGGER.VALUE') {
-				if ($html) {
-					array_push($exp, '{'.$functionid.'}');
-				}
-				else {
+			if ($functionid == 'TRIGGER.VALUE') {
+				if (!$html) {
 					$exp .= '{'.$functionid.'}';
 				}
+				else {
+					array_push($exp, '{'.$functionid.'}');
+				}
 			}
-			elseif (is_numeric($functionid) && isset($trigger['functions'][$functionid])) {
-				$function_data = $trigger['functions'][$functionid];
-				$function_data += $trigger['items'][$function_data['itemid']];
-				$function_data += $trigger['hosts'][$function_data['hostid']];
+			elseif (is_numeric($functionid) && $function_data = DBfetch(DBselect($sql))) {
+				if ($resolve_macro) {
+					$trigger = $function_data;
+					$function_data = API::UserMacro()->resolveItem($function_data);
+					$function_data['expression'] = $function_data['parameter'];
+					$function_data = API::UserMacro()->resolveTrigger($function_data);
+					$function_data['parameter'] = $function_data['expression'];
+				}
 
-				if ($html) {
-					$style = ($function_data['status'] == ITEM_STATUS_DISABLED) ? 'disabled' : 'unknown';
+				if (!is_null($src_host) && !is_null($dst_host) && strcmp($src_host, $function_data['host']) == 0) {
+					$function_data['host'] = $dst_host;
+				}
+
+				if (!$html) {
+					$exp .= '{'.$function_data['host'].':'.$function_data['key_'].'.'.$function_data['function'].'('.$function_data['parameter'].')}';
+				}
+				else {
+					$style = $function_data['status'] == ITEM_STATUS_DISABLED ? 'disabled' : 'unknown';
 					if ($function_data['status'] == ITEM_STATUS_ACTIVE) {
 						$style = 'enabled';
 					}
 
 					if ($function_data['flags'] == ZBX_FLAG_DISCOVERY_CREATED || $function_data['type'] == ITEM_TYPE_HTTPTEST) {
-						$link = new CSpan($function_data['host'].':'.CHtml::encode($function_data['key_']), $style);
+						$link = new CSpan($function_data['host'].':'.$function_data['key_'], $style);
 					}
-					elseif ($function_data['flags'] == ZBX_FLAG_DISCOVERY_PROTOTYPE) {
-						$link = new CLink($function_data['host'].':'.CHtml::encode($function_data['key_']),
+					elseif ($function_data['flags'] == ZBX_FLAG_DISCOVERY_CHILD) {
+						$link = new CLink($function_data['host'].':'.$function_data['key_'],
 							'disc_prototypes.php?form=update&itemid='.$function_data['itemid'].'&parent_discoveryid='.
-							$trigger['discoveryRuleid'], $style);
+							$trigger['discoveryRuleid'].'&switch_node='.id2nodeid($function_data['itemid']), $style);
 					}
 					else {
-						$link = new CLink($function_data['host'].':'.CHtml::encode($function_data['key_']),
-							'items.php?form=update&itemid='.$function_data['itemid'], $style);
+						$link = new CLink($function_data['host'].':'.$function_data['key_'],
+							'items.php?form=update&itemid='.$function_data['itemid'].'&switch_node='.id2nodeid($function_data['itemid']), $style);
 					}
-					array_push(
-						$exp,
-						array(
-							'{',
-							$link,
-							'.',
-							bold($function_data['function'].'('),
-							CHtml::encode($function_data['parameter']),
-							bold(')'),
-							'}'
-						)
-					);
-				}
-				else {
-					$exp .= '{'.$function_data['host'].':'.$function_data['key_'].'.'.$function_data['function'].'('.$function_data['parameter'].')}';
+					array_push($exp, array('{', $link,'.', bold($function_data['function'].'('), $function_data['parameter'], bold(')'), '}'));
 				}
 			}
 			else {
@@ -962,28 +776,23 @@ function triggerExpression($trigger, $html = false) {
 					$exp .= '*ERROR*';
 				}
 			}
-
-			$state = '';
 			continue;
 		}
 
-		switch ($state) {
-			case 'FUNCTIONID':
-				$functionid .= $expression[$i];
-				break;
-			case 'USERMACRO':
-				$usermacro .= $expression[$i];
-				break;
-			case 'LLDMACRO':
-				$lldmacro .= $expression[$i];
-				break;
-			default:
-				if ($html) {
-					array_push($exp, $expression[$i]);
-				}
-				else {
-					$exp .= $expression[$i];
-				}
+		if ($state == 'FUNCTIONID') {
+			$functionid = $functionid.$expression[$i];
+			continue;
+		}
+		elseif ($state == 'MACROS') {
+			$macros = $macros.$expression[$i];
+			continue;
+		}
+
+		if ($html) {
+			array_push($exp, $expression[$i]);
+		}
+		else {
+			$exp .= $expression[$i];
 		}
 	}
 
@@ -991,7 +800,119 @@ function triggerExpression($trigger, $html = false) {
 }
 
 /**
- * Implodes expression, replaces names and keys with IDs.
+ * Translate {10}>10 to something like {localhost:system.cpu.load.last(0)}>10.
+ *
+ * @param $trigger
+ * @param bool $html
+ * @return array|string
+ */
+function triggerExpression($trigger, $html = false) {
+	$expression = $trigger['expression'];
+	$functionid = '';
+	$macros = '';
+	$exp = $html ? array() : '';
+	$state = '';
+
+	for ($i = 0, $len = strlen($expression); $i < $len; $i++) {
+		if ($expression[$i] == '{' && $expression[$i+1] == '$') {
+			$functionid = '';
+			$macros = '';
+			$state = 'MACROS';
+		}
+		elseif ($expression[$i] == '{') {
+			$functionid = '';
+			$state = 'FUNCTIONID';
+			continue;
+		}
+
+		if ($expression[$i] == '}') {
+			if ($state == 'MACROS') {
+				$macros .= '}';
+
+				if ($html) {
+					array_push($exp, $macros);
+				}
+				else {
+					$exp .= $macros;
+				}
+
+				$macros = '';
+				$state = '';
+				continue;
+			}
+
+			$state = '';
+
+			if ($functionid == 'TRIGGER.VALUE') {
+				if (!$html) {
+					$exp .= '{'.$functionid.'}';
+				}
+				else {
+					array_push($exp, '{'.$functionid.'}');
+				}
+			}
+			elseif (is_numeric($functionid) && isset($trigger['functions'][$functionid])) {
+				$function_data = $trigger['functions'][$functionid];
+				$function_data += $trigger['items'][$function_data['itemid']];
+				$function_data += $trigger['hosts'][$function_data['hostid']];
+
+				if (!$html) {
+					$exp .= '{'.$function_data['host'].':'.$function_data['key_'].'.'.$function_data['function'].'('.$function_data['parameter'].')}';
+				}
+				else {
+					$style = ($function_data['status'] == ITEM_STATUS_DISABLED) ? 'disabled' : 'unknown';
+					if ($function_data['status'] == ITEM_STATUS_ACTIVE) {
+						$style = 'enabled';
+					}
+
+					if ($function_data['flags'] == ZBX_FLAG_DISCOVERY_CREATED || $function_data['type'] == ITEM_TYPE_HTTPTEST) {
+						$link = new CSpan($function_data['host'].':'.$function_data['key_'], $style);
+					}
+					elseif ($function_data['flags'] == ZBX_FLAG_DISCOVERY_CHILD) {
+						$link = new CLink($function_data['host'].':'.$function_data['key_'],
+							'disc_prototypes.php?form=update&itemid='.$function_data['itemid'].'&parent_discoveryid='.
+							$trigger['discoveryRuleid'], $style);
+					}
+					else {
+						$link = new CLink($function_data['host'].':'.$function_data['key_'],
+							'items.php?form=update&itemid='.$function_data['itemid'], $style);
+					}
+					array_push($exp, array('{', $link, '.', bold($function_data['function'].'('), $function_data['parameter'], bold(')'), '}'));
+				}
+			}
+			else {
+				if ($html) {
+					array_push($exp, new CSpan('*ERROR*', 'on'));
+				}
+				else {
+					$exp .= '*ERROR*';
+				}
+			}
+			continue;
+		}
+
+		if ($state == 'FUNCTIONID') {
+			$functionid = $functionid.$expression[$i];
+			continue;
+		}
+		elseif ($state == 'MACROS') {
+			$macros = $macros.$expression[$i];
+			continue;
+		}
+
+		if ($html) {
+			array_push($exp, $expression[$i]);
+		}
+		else {
+			$exp .= $expression[$i];
+		}
+	}
+
+	return $exp;
+}
+
+/**
+ * Implodes expression, replaces names and keys with IDs
  *
  * Fro example: localhost:procload.last(0)>10 will translated to {12}>10 and created database representation.
  *
@@ -1003,7 +924,7 @@ function triggerExpression($trigger, $html = false) {
  *
  * @return string Imploded expression (names and keys replaced by IDs)
  */
-function implode_exp($expression, $triggerId, &$hostnames = array()) {
+function implode_exp($expression, $triggerid, &$hostnames = array()) {
 	$expressionData = new CTriggerExpression();
 	if (!$expressionData->parse($expression)) {
 		throw new Exception($expressionData->error);
@@ -1013,28 +934,24 @@ function implode_exp($expression, $triggerId, &$hostnames = array()) {
 	$functions = array();
 	$items = array();
 	$triggerFunctionValidator = new CTriggerFunctionValidator();
-
 	foreach ($expressionData->expressions as $exprPart) {
-		if (isset($newFunctions[$exprPart['expression']])) {
+		if (isset($newFunctions[$exprPart['expression']]))
 			continue;
-		}
 
 		if (!isset($items[$exprPart['host']][$exprPart['item']])) {
 			$result = DBselect(
-				'SELECT i.itemid,i.value_type,h.name'.
-				' FROM items i,hosts h'.
-				' WHERE i.key_='.zbx_dbstr($exprPart['item']).
-					' AND '.dbConditionInt('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED, ZBX_FLAG_DISCOVERY_PROTOTYPE)).
-					' AND h.host='.zbx_dbstr($exprPart['host']).
-					' AND h.hostid=i.hostid'.
-					andDbNode('i.itemid')
+					'SELECT i.itemid,i.value_type,h.name'.
+					' FROM items i,hosts h'.
+					' WHERE i.key_='.zbx_dbstr($exprPart['item']).
+						' AND '.dbConditionInt('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED, ZBX_FLAG_DISCOVERY_CHILD)).
+						' AND h.host='.zbx_dbstr($exprPart['host']).
+						' AND h.hostid=i.hostid'.
+						' AND '.DBin_node('i.itemid')
 			);
 			if ($row = DBfetch($result)) {
 				$hostnames[] = $row['name'];
-				$items[$exprPart['host']][$exprPart['item']] = array(
-					'itemid' => $row['itemid'],
-					'valueType' => $row['value_type']
-				);
+				$items[$exprPart['host']][$exprPart['item']] =
+						array('itemid' => $row['itemid'], 'valueType' => $row['value_type']);
 			}
 			else {
 				throw new Exception(_s('Incorrect item key "%1$s" provided for trigger expression on "%2$s".',
@@ -1042,9 +959,7 @@ function implode_exp($expression, $triggerId, &$hostnames = array()) {
 			}
 		}
 
-		if (!$triggerFunctionValidator->validate(array(
-				'function' => $exprPart['function'],
-				'functionName' => $exprPart['functionName'],
+		if (!$triggerFunctionValidator->validate(array('functionName' => $exprPart['functionName'],
 				'functionParamList' => $exprPart['functionParamList'],
 				'valueType' => $items[$exprPart['host']][$exprPart['item']]['valueType']))) {
 			throw new Exception($triggerFunctionValidator->getError());
@@ -1054,17 +969,17 @@ function implode_exp($expression, $triggerId, &$hostnames = array()) {
 
 		$functions[] = array(
 			'itemid' => $items[$exprPart['host']][$exprPart['item']]['itemid'],
-			'triggerid' => $triggerId,
+			'triggerid' => $triggerid,
 			'function' => $exprPart['functionName'],
 			'parameter' => $exprPart['functionParam']
 		);
 	}
 
-	$functionIds = DB::insert('functions', $functions);
+	$functionids = DB::insert('functions', $functions);
 
 	$num = 0;
 	foreach ($newFunctions as &$newFunction) {
-		$newFunction = $functionIds[$num++];
+		$newFunction = $functionids[$num++];
 	}
 	unset($newFunction);
 
@@ -1080,45 +995,84 @@ function implode_exp($expression, $triggerId, &$hostnames = array()) {
 	return $expression;
 }
 
-/**
- * Get items from expression.
- *
- * @param CTriggerExpression $triggerExpression
- *
- * @return array
- */
-function getExpressionItems(CTriggerExpression $triggerExpression) {
-	$items = array();
-	$processedFunctions = array();
-	$processedItems = array();
+function updateTriggerValueToUnknownByHostId($hostids) {
+	zbx_value2array($hostids);
+	$triggerids = array();
 
-	foreach ($triggerExpression->expressions as $expression) {
-		if (isset($processedFunctions[$expression['expression']])) {
-			continue;
-		}
-
-		if (!isset($processedItems[$expression['host']][$expression['item']])) {
-			$dbItems = DBselect(
-				'SELECT i.itemid,i.flags'.
-				' FROM items i,hosts h'.
-				' WHERE i.key_='.zbx_dbstr($expression['item']).
-					' AND '.dbConditionInt('i.flags', array(
-						ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED, ZBX_FLAG_DISCOVERY_PROTOTYPE
-					)).
-					' AND h.host='.zbx_dbstr($expression['host']).
-					' AND h.hostid=i.hostid'.
-					andDbNode('i.itemid')
-			);
-			if ($dbItem = DBfetch($dbItems)) {
-				$items[] = $dbItem;
-				$processedItems[$expression['host']][$expression['item']] = true;
-			}
-		}
-
-		$processedFunctions[$expression['expression']] = true;
+	$result = DBselect(
+		'SELECT DISTINCT t.triggerid'.
+		' FROM hosts h,items i,functions f,triggers t'.
+		' WHERE h.hostid=i.hostid'.
+			' AND i.itemid=f.itemid'.
+			' AND f.triggerid=t.triggerid'.
+			' AND '.dbConditionInt('h.hostid', $hostids).
+			' AND h.status='.HOST_STATUS_MONITORED.
+			' AND t.value_flags='.TRIGGER_VALUE_FLAG_NORMAL
+	);
+	while ($row = DBfetch($result)) {
+		$triggerids[] = $row['triggerid'];
 	}
 
-	return $items;
+	if (!empty($triggerids)) {
+		DB::update('triggers', array(
+			'values' => array(
+				'value_flags' => TRIGGER_VALUE_FLAG_UNKNOWN,
+				'error' => _s('Host status became "%s"', _('Not monitored'))
+			),
+			'where' => array('triggerid' => $triggerids)
+		));
+
+		addUnknownEvent($triggerids);
+	}
+
+	return true;
+}
+
+/**
+ * Create unknown type event for given triggers.
+ *
+ * @param int|array $triggerids triggers to whom add unknown type event
+ *
+ * @return array returns created event ids
+ */
+function addUnknownEvent($triggerids) {
+	zbx_value2array($triggerids);
+
+	$triggers = API::Trigger()->get(array(
+		'triggerids' => $triggerids,
+		'output' => array('value'),
+		'preservekeys' => true
+	));
+
+	$eventids = array();
+	foreach ($triggerids as $triggerid) {
+		$event = array(
+			'source' => EVENT_SOURCE_TRIGGERS,
+			'object' => EVENT_OBJECT_TRIGGER,
+			'objectid' => $triggerid,
+			'clock' => time(),
+			'value' => TRIGGER_VALUE_UNKNOWN,
+			'acknowledged' => 0
+		);
+
+		// check if trigger exist in DB
+		if (isset($triggers[$event['objectid']])) {
+			if ($event['value'] != $triggers[$event['objectid']]['value']) {
+				$eventid = get_dbid('events', 'eventid');
+
+				$sql = 'INSERT INTO events (eventid,source,object,objectid,clock,value,acknowledged) '.
+						'VALUES ('.$eventid.','.$event['source'].','.$event['object'].','.$event['objectid'].','.
+									$event['clock'].','.$event['value'].','.$event['acknowledged'].')';
+				if (!DBexecute($sql)) {
+					throw new Exception();
+				}
+
+				$eventids[$eventid] = $eventid;
+			}
+		}
+	}
+
+	return $eventids;
 }
 
 function check_right_on_trigger_by_expression($permission, $expression) {
@@ -1167,35 +1121,24 @@ function replace_template_dependencies($deps, $hostid) {
 /**
  * Creates and returns the trigger overview table for the given hosts.
  *
- * @param array  $hostIds
- * @param string $application	name of application to filter
- * @param string $pageFile		the page where the element is displayed
- * @param int    $viewMode		table display style: either hosts on top, or host on the left side
+ * Possible $view_style values:
+ * - STYLE_TOP
+ * - STYLE_LEFT
+ *
+ * @param string|array $hostids
+ * @param int $view_style	    table display style: either hosts on top, or host on the left side
  * @param string $screenId		the ID of the screen, that contains the trigger overview table
  *
  * @return CTableInfo
  */
-function getTriggersOverview($hostIds, $application, $pageFile, $viewMode = null, $screenId = null) {
-	if (is_null($viewMode)) {
-		$viewMode = CProfile::get('web.overview.view.style', STYLE_TOP);
-	}
-
-	// get application ids
-	$applicationIds = null;
-	if ($application !== '') {
-		$dbApplications = API::Application()->get(array(
-			'hostids' => $hostIds,
-			'filter' => array('name' => $application),
-			'output' => array('applicationid')
-		));
-		$applicationIds = zbx_objectValues($dbApplications, 'applicationid');
-		$hostIds = null;
+function get_triggers_overview($hostids, $view_style = null, $screenId = null) {
+	if (is_null($view_style)) {
+		$view_style = CProfile::get('web.overview.view.style', STYLE_TOP);
 	}
 
 	// get triggers
 	$dbTriggers = API::Trigger()->get(array(
-		'hostids' => $hostIds,
-		'applicationids' => $applicationIds,
+		'hostids' => $hostids,
 		'monitored' => true,
 		'skipDependent' => true,
 		'output' => API_OUTPUT_EXTEND,
@@ -1204,111 +1147,98 @@ function getTriggersOverview($hostIds, $application, $pageFile, $viewMode = null
 	));
 
 	// get hosts
-	$hostIds = array();
+	$hostids = array();
 	foreach ($dbTriggers as $trigger) {
-		$host = reset($trigger['hosts']);
-
-		$hostIds[$host['hostid']] = $host['hostid'];
+		$hostids[] = $trigger['hosts'][0]['hostid'];
 	}
 
-	$hosts = API::Host()->get(array(
-		'output' => array('name', 'hostid', 'status'),
-		'hostids' => $hostIds,
-		'preservekeys' => true,
-		'selectScreens' => ($viewMode == STYLE_LEFT) ? API_OUTPUT_COUNT : null
-	));
+	$options = array(
+		'output' => array('name', 'hostid'),
+		'hostids' => $hostids,
+		'preservekeys' => true
+	);
+
+	if ($view_style == STYLE_LEFT) {
+		$options['selectScreens'] = API_OUTPUT_COUNT;
+		$options['selectInventory'] = array('hostid');
+	}
+	$hosts = API::Host()->get($options);
 
 	$triggers = array();
 	$hostNames = array();
-
 	foreach ($dbTriggers as $trigger) {
-		$host = reset($trigger['hosts']);
+		$trigger['host'] = $trigger['hosts'][0]['name'];
+		$trigger['hostid'] = $trigger['hosts'][0]['hostid'];
+		$trigger['host'] = get_node_name_by_elid($trigger['hostid'], null, ': ').$trigger['host'];
+		$trigger['description'] = CTriggerHelper::expandReferenceMacros($trigger);
 
-		$host['name'] = get_node_name_by_elid($host['hostid'], null, NAME_DELIMITER).$host['name'];
-		$trigger['description'] = CMacrosResolverHelper::resolveTriggerReference($trigger['expression'], $trigger['description']);
-		$hostNames[$host['hostid']] = $host['name'];
+		$hostNames[$trigger['hostid']] = $trigger['host'];
 
 		// a little tricky check for attempt to overwrite active trigger (value=1) with
 		// inactive or active trigger with lower priority.
-		if (!isset($triggers[$trigger['description']][$host['name']])
-				|| (($triggers[$trigger['description']][$host['name']]['value'] == TRIGGER_VALUE_FALSE && $trigger['value'] == TRIGGER_VALUE_TRUE)
-					|| (($triggers[$trigger['description']][$host['name']]['value'] == TRIGGER_VALUE_FALSE || $trigger['value'] == TRIGGER_VALUE_TRUE)
-						&& $trigger['priority'] > $triggers[$trigger['description']][$host['name']]['priority']))) {
-			$triggers[$trigger['description']][$host['name']] = array(
-				'hostid' => $host['hostid'],
-				'triggerid' => $trigger['triggerid'],
-				'value' => $trigger['value'],
-				'lastchange' => $trigger['lastchange'],
-				'priority' => $trigger['priority'],
-				'flags' => $trigger['flags'],
-				'url' => $trigger['url'],
-				'hosts' => array($host)
+		if (!isset($triggers[$trigger['description']][$trigger['host']])
+				|| (($triggers[$trigger['description']][$trigger['host']]['value'] == TRIGGER_VALUE_FALSE && $trigger['value'] == TRIGGER_VALUE_TRUE)
+					|| (($triggers[$trigger['description']][$trigger['host']]['value'] == TRIGGER_VALUE_FALSE || $trigger['value'] == TRIGGER_VALUE_TRUE)
+						&& $trigger['priority'] > $triggers[$trigger['description']][$trigger['host']]['priority']))) {
+			$triggers[$trigger['description']][$trigger['host']] = array(
+				'hostid'	=> $trigger['hostid'],
+				'triggerid'	=> $trigger['triggerid'],
+				'value'		=> $trigger['value'],
+				'lastchange'=> $trigger['lastchange'],
+				'priority'	=> $trigger['priority']
 			);
 		}
 	}
 
-	$triggerTable = new CTableInfo(_('No triggers found.'));
-
+	$triggerTable = new CTableInfo(_('No triggers defined.'));
 	if (empty($hostNames)) {
 		return $triggerTable;
 	}
-
 	$triggerTable->makeVerticalRotation();
-
 	order_result($hostNames);
 
-	if ($viewMode == STYLE_TOP) {
+	if ($view_style == STYLE_TOP) {
 		// header
 		$header = array(new CCol(_('Triggers'), 'center'));
-
 		foreach ($hostNames as $hostName) {
 			$header[] = new CCol($hostName, 'vertical_rotation');
 		}
-
 		$triggerTable->setHeader($header, 'vertical_header');
 
 		// data
 		foreach ($triggers as $description => $triggerHosts) {
-			$columns = array(nbsp($description));
-
-			foreach ($hostNames as $hostName) {
-				$columns[] = getTriggerOverviewCells(
-					isset($triggerHosts[$hostName]) ? $triggerHosts[$hostName] : null,
-					$pageFile,
-					$screenId
-				);
+			$tableColumns = array(nbsp($description));
+			foreach ($hostNames as $hostid => $hostName) {
+				array_push($tableColumns, get_trigger_overview_cells($triggerHosts, $hostName, $screenId));
 			}
-
-			$triggerTable->addRow($columns);
+			$triggerTable->addRow($tableColumns);
 		}
 	}
 	else {
+		$hostScripts = API::Script()->getScriptsByHosts(zbx_objectValues($hosts, 'hostid'));
+		foreach ($hostScripts as $hostid => $scripts) {
+			$hosts[$hostid]['scripts'] = $scripts;
+		}
 		// header
 		$header = array(new CCol(_('Host'), 'center'));
-
 		foreach ($triggers as $description => $triggerHosts) {
 			$header[] = new CCol($description, 'vertical_rotation');
 		}
-
 		$triggerTable->setHeader($header, 'vertical_header');
 
 		// data
-		$scripts = API::Script()->getScriptsByHosts(zbx_objectValues($hosts, 'hostid'));
+		foreach ($hostNames as $hostid => $hostName) {
+			$host = $hosts[$hostid];
 
-		foreach ($hostNames as $hostId => $hostName) {
-			$name = new CSpan($hostName, 'link_menu');
-			$name->setMenuPopup(CMenuPopupHelper::getHost($hosts[$hostId], $scripts[$hostId]));
+			// host js link
+			$hostSpan = new CSpan(nbsp($hostName), 'link_menu menu-host');
+			$hostSpan->setAttribute('data-menu', hostMenuData($host, $hostScripts[$host['hostid']]));
 
-			$columns = array($name);
+			$tableColumns = array($hostSpan);
 			foreach ($triggers as $triggerHosts) {
-				$columns[] = getTriggerOverviewCells(
-					isset($triggerHosts[$hostName]) ? $triggerHosts[$hostName] : null,
-					$pageFile,
-					$screenId
-				);
+				array_push($tableColumns, get_trigger_overview_cells($triggerHosts, $hostName, $screenId));
 			}
-
-			$triggerTable->addRow($columns);
+			$triggerTable->addRow($tableColumns);
 		}
 	}
 
@@ -1318,146 +1248,194 @@ function getTriggersOverview($hostIds, $application, $pageFile, $viewMode = null
 /**
  * Creates and returns a trigger status cell for the trigger overview table.
  *
- * @see getTriggersOverview()
+ * @see get_triggers_overview()
  *
- * @param array  $trigger
- * @param string $pageFile		the page where the element is displayed
+ * @param array $triggerHosts	an array with the data about the trigger for each host
+ * @param string $hostName		the name of the cells corresponding host
  * @param string $screenId
  *
  * @return CCol
  */
-function getTriggerOverviewCells($trigger, $pageFile, $screenId = null) {
-	$ack = $css = $style = null;
-	$desc = $triggerItems = $acknowledge = array();
+function get_trigger_overview_cells($triggerHosts, $hostName, $screenId = null) {
+	$ack = null;
+	$css_class = null;
+	$desc = array();
+	$config = select_config(); // for how long triggers should blink on status change (set by user in administration->general)
 
-	// for how long triggers should blink on status change (set by user in administration->general)
-	$config = select_config();
-
-	if ($trigger) {
-		$style = 'cursor: pointer; ';
-
+	if (isset($triggerHosts[$hostName])) {
 		// problem trigger
-		if ($trigger['value'] == TRIGGER_VALUE_TRUE) {
-			$css = getSeverityStyle($trigger['priority']);
-			$ack = null;
+		if ($triggerHosts[$hostName]['value'] == TRIGGER_VALUE_TRUE) {
+				$css_class = getSeverityStyle($triggerHosts[$hostName]['priority']);
+				$ack = null;
 
-			if ($config['event_ack_enable'] == 1) {
-				if ($event = get_last_event_by_triggerid($trigger['triggerid'])) {
-					if ($screenId) {
-						$acknowledge = array(
-							'eventid' => $event['eventid'],
-							'screenid' => $screenId,
-							'backurl' => $pageFile
-						);
-					}
-					else {
-						$acknowledge = array(
-							'eventid' => $event['eventid'],
-							'backurl' => 'overview.php'
-						);
-					}
+				if ($config['event_ack_enable'] == 1) {
+					$event = get_last_event_by_triggerid($triggerHosts[$hostName]['triggerid']);
+					if ($event) {
+						if ($screenId) {
+							global $page;
+							$ack_menu = array(_('Acknowledge'), 'acknow.php?eventid='.$event['eventid'].'&screenid='.$screenId.'&backurl='.$page['file']);
+						}
+						else {
+							$ack_menu = array(_('Acknowledge'), 'acknow.php?eventid='.$event['eventid'].'&backurl=overview.php', array('tw' => '_blank'));
+						}
 
-					if ($event['acknowledged'] == 1) {
-						$ack = new CImg('images/general/tick.png', 'ack');
+						if ($event['acknowledged'] == 1) {
+							$ack = new CImg('images/general/tick.png', 'ack');
+						}
 					}
 				}
-			}
 		}
 		// ok trigger
 		else {
-			$css = 'normal';
+			$css_class = 'normal';
+		}
+		$style = 'cursor: pointer; ';
+
+		// set blinking gif as background if trigger age is less then $config['blink_period']
+		if ($config['blink_period'] > 0 && time() - $triggerHosts[$hostName]['lastchange'] < $config['blink_period']) {
+			$style .= 'background-image: url(images/gradients/blink.gif); background-position: top left; background-repeat: repeat;';
 		}
 
-		$dbItems = DBfetchArray(DBselect(
-			'SELECT DISTINCT i.itemid,i.hostid,i.name,i.key_,i.value_type'.
+		unset($item_menu);
+		$tr_ov_menu = array(
+			// name, url, (target [tw], statusbar [sb]), css, submenu
+			array(
+				_('Trigger'),
+				null,
+				null,
+				array('outer' => array('pum_oheader'), 'inner' => array('pum_iheader'))),
+				array(_('Events'), 'events.php?triggerid='.$triggerHosts[$hostName]['triggerid'], array('tw' => '_blank')
+			)
+		);
+
+		if (isset($ack_menu)) {
+			$tr_ov_menu[] = $ack_menu;
+		}
+
+		$dbItems = DBselect(
+			'SELECT DISTINCT i.itemid,i.name,i.key_,i.value_type'.
 			' FROM items i,functions f'.
 			' WHERE f.itemid=i.itemid'.
-				' AND f.triggerid='.zbx_dbstr($trigger['triggerid'])
-		));
+				' AND f.triggerid='.$triggerHosts[$hostName]['triggerid']
+		);
+		while ($item = DBfetch($dbItems)) {
+			$description = itemName($item);
+			switch ($item['value_type']) {
+				case ITEM_VALUE_TYPE_UINT64:
+				case ITEM_VALUE_TYPE_FLOAT:
+					$action = 'showgraph';
+					$status_bar = _('Show graph of item').' \''.$description.'\'';
+					break;
+				case ITEM_VALUE_TYPE_LOG:
+				case ITEM_VALUE_TYPE_STR:
+				case ITEM_VALUE_TYPE_TEXT:
+				default:
+					$action = 'showlatest';
+					$status_bar = _('Show values of item').' \''.$description.'\'';
+					break;
+			}
 
-		$dbItems = CMacrosResolverHelper::resolveItemNames($dbItems);
+			if (zbx_strlen($description) > 25) {
+				$description = zbx_substr($description, 0, 22).'...';
+			}
 
-		foreach ($dbItems as $dbItem) {
-			$triggerItems[] = array(
-				'name' => $dbItem['name_expanded'],
-				'params' => array(
-					'action' => in_array($dbItem['value_type'], array(ITEM_VALUE_TYPE_FLOAT, ITEM_VALUE_TYPE_UINT64))
-						? 'showgraph' : 'showlatest',
-					'itemid' => $dbItem['itemid'],
-					'period' => 3600
-				)
+			$item_menu[$action][] = array(
+				$description,
+				'history.php?action='.$action.'&itemid='.$item['itemid'].'&period=3600',
+				array('tw' => '', 'sb' => $status_bar)
 			);
 		}
 
+		if (isset($item_menu['showgraph'])) {
+			$tr_ov_menu[] = array(
+				_('Graphs'),
+				null,
+				null,
+				array('outer' => array('pum_oheader'), 'inner' => array('pum_iheader'))
+			);
+			$tr_ov_menu = array_merge($tr_ov_menu, $item_menu['showgraph']);
+		}
+
+		if (isset($item_menu['showlatest'])) {
+			$tr_ov_menu[] = array(
+				_('Values'),
+				null,
+				null,
+				array('outer' => array('pum_oheader'), 'inner' => array('pum_iheader'))
+			);
+			$tr_ov_menu = array_merge($tr_ov_menu, $item_menu['showlatest']);
+		}
+		unset($item_menu);
+
 		// dependency: triggers on which depends this
-		$triggerId = empty($trigger['triggerid']) ? 0 : $trigger['triggerid'];
+		$triggerid = !empty($triggerHosts[$hostName]['triggerid']) ? $triggerHosts[$hostName]['triggerid'] : 0;
 
-		// trigger dependency DOWN
-		$dependencyTable = new CTableInfo();
-		$dependencyTable->setAttribute('style', 'width: 200px;');
-		$dependencyTable->addRow(bold(_('Depends on').NAME_DELIMITER));
+		$dep_table = new CTableInfo();
+		$dep_table->setAttribute('style', 'width: 200px;');
+		$dep_table->addRow(bold(_('Depends on').':'));
 
-		$isDependencyFound = false;
-		$dbDependencies = DBselect('SELECT td.* FROM trigger_depends td WHERE td.triggerid_down='.zbx_dbstr($triggerId));
-		while ($dbDependency = DBfetch($dbDependencies)) {
-			$dependencyTable->addRow(SPACE.'-'.SPACE.CMacrosResolverHelper::resolveTriggerNameById($dbDependency['triggerid_up']));
-			$isDependencyFound = true;
+		$dependency = false;
+		$dep_res = DBselect('SELECT td.* FROM trigger_depends td WHERE td.triggerid_down='.$triggerid);
+		while ($dep_row = DBfetch($dep_res)) {
+			$dep_table->addRow(SPACE.'-'.SPACE.CTriggerHelper::expandDescriptionById($dep_row['triggerid_up']));
+			$dependency = true;
 		}
 
-		if ($isDependencyFound) {
-			$icon = new Cimg('images/general/arrow_down2.png', 'DEP_DOWN');
-			$icon->setAttribute('style', 'vertical-align: middle; border: 0px;');
-			$icon->setHint($dependencyTable, '', '', false);
+		if ($dependency) {
+			$img = new Cimg('images/general/arrow_down2.png', 'DEP_DOWN');
+			$img->setAttribute('style', 'vertical-align: middle; border: 0px;');
+			$img->setHint($dep_table, '', '', false);
+			array_push($desc, $img);
+		}
+		unset($img, $dep_table, $dependency);
 
-			$desc[] = $icon;
+		// triggers that depend on this
+		$dep_table = new CTableInfo();
+		$dep_table->setAttribute('style', 'width: 200px;');
+		$dep_table->addRow(bold(_('Dependent').':'));
+
+		$dependency = false;
+		$dep_res = DBselect('SELECT td.* FROM trigger_depends td WHERE td.triggerid_up='.$triggerid);
+		while ($dep_row = DBfetch($dep_res)) {
+			$dep_table->addRow(SPACE.'-'.SPACE.CTriggerHelper::expandDescriptionById($dep_row['triggerid_down']));
+			$dependency = true;
 		}
 
-		// trigger dependency UP
-		$dependencyTable = new CTableInfo();
-		$dependencyTable->setAttribute('style', 'width: 200px;');
-		$dependencyTable->addRow(bold(_('Dependent').NAME_DELIMITER));
-
-		$isDependencyFound = false;
-		$dbDependencies = DBselect('SELECT td.* FROM trigger_depends td WHERE td.triggerid_up='.zbx_dbstr($triggerId));
-		while ($dbDependency = DBfetch($dbDependencies)) {
-			$dependencyTable->addRow(SPACE.'-'.SPACE.CMacrosResolverHelper::resolveTriggerNameById($dbDependency['triggerid_down']));
-			$isDependencyFound = true;
+		if ($dependency) {
+			$img = new Cimg('images/general/arrow_up2.png', 'DEP_UP');
+			$img->setAttribute('style', 'vertical-align: middle; border: 0px;');
+			$img->setHint($dep_table, '', '', false);
+			array_push($desc, $img);
 		}
-
-		if ($isDependencyFound) {
-			$icon = new Cimg('images/general/arrow_up2.png', 'DEP_UP');
-			$icon->setAttribute('style', 'vertical-align: middle; border: none;');
-			$icon->setHint($dependencyTable, '', '', false);
-
-			$desc[] = $icon;
-		}
+		unset($img, $dep_table, $dependency);
 	}
 
-	$column = ((is_array($desc) && count($desc) > 0) || $ack)
-		? new CCol(array($desc, $ack), $css.' hosts')
-		: new CCol(SPACE, $css.' hosts');
-
-	$column->setAttribute('style', $style);
-
-	if ($trigger && $config['blink_period'] > 0 && time() - $trigger['lastchange'] < $config['blink_period']) {
-		$column->addClass('blink');
-		$column->setAttribute('data-toggle-class', $css);
+	if ((is_array($desc) && count($desc) > 0) || $ack) {
+		$tableColumn = new CCol(array($desc, $ack), $css_class.' hosts');
+	}
+	else {
+		$tableColumn = new CCol(SPACE, $css_class.' hosts');
+	}
+	if (isset($style)) {
+		$tableColumn->setAttribute('style', $style);
 	}
 
-	if ($trigger) {
-		$column->setMenuPopup(CMenuPopupHelper::getTrigger($trigger, $triggerItems, $acknowledge));
+	if (isset($tr_ov_menu)) {
+		$tr_ov_menu = new CPUMenu($tr_ov_menu, 170);
+		$tableColumn->onClick($tr_ov_menu->getOnActionJS());
+		$tableColumn->addAction('onmouseover', 'jQuery(this).css({border: "1px dotted #0C0CF0", padding: "0 2px"})');
+		$tableColumn->addAction('onmouseout', 'jQuery(this).css({border: "", padding: "1px 3px"})');
 	}
 
-	return $column;
+	return $tableColumn;
 }
 
 function calculate_availability($triggerid, $period_start, $period_end) {
-	$start_value = TRIGGER_VALUE_FALSE;
+	$start_value = -1;
 	if ($period_start > 0 && $period_start <= time()) {
 		$sql = 'SELECT e.eventid,e.value'.
 				' FROM events e'.
 				' WHERE e.objectid='.zbx_dbstr($triggerid).
-					' AND e.source='.EVENT_SOURCE_TRIGGERS.
 					' AND e.object='.EVENT_OBJECT_TRIGGER.
 					' AND e.clock<'.zbx_dbstr($period_start).
 				' ORDER BY e.eventid DESC';
@@ -1470,7 +1448,6 @@ function calculate_availability($triggerid, $period_start, $period_end) {
 	$sql = 'SELECT COUNT(e.eventid) AS cnt,MIN(e.clock) AS min_clock,MAX(e.clock) AS max_clock'.
 			' FROM events e'.
 			' WHERE e.objectid='.zbx_dbstr($triggerid).
-				' AND e.source='.EVENT_SOURCE_TRIGGERS.
 				' AND e.object='.EVENT_OBJECT_TRIGGER;
 	if ($period_start != 0) {
 		$sql .= ' AND clock>='.zbx_dbstr($period_start);
@@ -1494,8 +1471,10 @@ function calculate_availability($triggerid, $period_start, $period_end) {
 		else {
 			$ret['true_time'] = 0;
 			$ret['false_time'] = 0;
+			$ret['unknown_time'] = 0;
 			$ret['true'] = (TRIGGER_VALUE_TRUE == $start_value) ? 100 : 0;
 			$ret['false'] = (TRIGGER_VALUE_FALSE == $start_value) ? 100 : 0;
+			$ret['unknown'] = (TRIGGER_VALUE_UNKNOWN == $start_value || -1 == $start_value) ? 100 : 0;
 			return $ret;
 		}
 	}
@@ -1503,6 +1482,7 @@ function calculate_availability($triggerid, $period_start, $period_end) {
 	$state = $start_value;
 	$true_time = 0;
 	$false_time = 0;
+	$unknown_time = 0;
 	$time = $min;
 	if ($period_start == 0 && $period_end == 0) {
 		$max = time();
@@ -1516,7 +1496,6 @@ function calculate_availability($triggerid, $period_start, $period_end) {
 		'SELECT e.eventid,e.clock,e.value'.
 		' FROM events e'.
 		' WHERE e.objectid='.zbx_dbstr($triggerid).
-			' AND e.source='.EVENT_SOURCE_TRIGGERS.
 			' AND e.object='.EVENT_OBJECT_TRIGGER.
 			' AND e.clock BETWEEN '.$min.' AND '.$max.
 		' ORDER BY e.eventid'
@@ -1528,12 +1507,28 @@ function calculate_availability($triggerid, $period_start, $period_end) {
 		$diff = $clock - $time;
 		$time = $clock;
 
-		if ($state == 0) {
+		if ($state == -1) {
+			$state = $value;
+			if ($state == 0) {
+				$false_time += $diff;
+			}
+			if ($state == 1) {
+				$true_time += $diff;
+			}
+			if ($state == 2) {
+				$unknown_time += $diff;
+			}
+		}
+		elseif ($state == 0) {
 			$false_time += $diff;
 			$state = $value;
 		}
 		elseif ($state == 1) {
 			$true_time += $diff;
+			$state = $value;
+		}
+		elseif ($state == 2) {
+			$unknown_time += $diff;
 			$state = $value;
 		}
 		$rows++;
@@ -1550,19 +1545,26 @@ function calculate_availability($triggerid, $period_start, $period_end) {
 	elseif ($state == TRIGGER_VALUE_TRUE) {
 		$true_time = $true_time + $period_end - $time;
 	}
-	$total_time = $true_time + $false_time;
+	elseif ($state == TRIGGER_VALUE_UNKNOWN) {
+		$unknown_time = $unknown_time + $period_end - $time;
+	}
+	$total_time = $true_time + $false_time + $unknown_time;
 
 	if ($total_time == 0) {
 		$ret['true_time'] = 0;
 		$ret['false_time'] = 0;
+		$ret['unknown_time'] = 0;
 		$ret['true'] = 0;
 		$ret['false'] = 0;
+		$ret['unknown'] = 100;
 	}
 	else {
 		$ret['true_time'] = $true_time;
 		$ret['false_time'] = $false_time;
+		$ret['unknown_time'] = $unknown_time;
 		$ret['true'] = (100 * $true_time) / $total_time;
 		$ret['false'] = (100 * $false_time) / $total_time;
+		$ret['unknown'] = (100 * $unknown_time) / $total_time;
 	}
 
 	return $ret;
@@ -1614,38 +1616,36 @@ function get_triggers_unacknowledged($db_element, $count_problems = null, $ack =
 }
 
 function make_trigger_details($trigger) {
-	$hostNames = array();
-
-	$hostIds = zbx_objectValues($trigger['hosts'], 'hostid');
-
-	$hosts = API::Host()->get(array(
-		'output' => array('name', 'hostid', 'status'),
-		'hostids' => $hostIds,
-		'selectScreens' => API_OUTPUT_COUNT
-	));
-
-	$scripts = API::Script()->getScriptsByHosts($hostIds);
-
-	foreach ($hosts as $host) {
-		$hostName = new CSpan($host['name'], 'link_menu');
-		$hostName->setMenuPopup(CMenuPopupHelper::getHost($host, $scripts[$host['hostid']]));
-		$hostNames[] = $hostName;
-		$hostNames[] = ', ';
-	}
-	array_pop($hostNames);
-
 	$table = new CTableInfo();
+
 	if (is_show_all_nodes()) {
 		$table->addRow(array(_('Node'), get_node_name_by_elid($trigger['triggerid'])));
 	}
-	$table->addRow(array(_n('Host', 'Hosts', count($hosts)), $hostNames));
-	$table->addRow(array(_('Trigger'), CMacrosResolverHelper::resolveTriggerName($trigger)));
+	$expression = explode_exp($trigger['expression'], true, true);
+
+	$host = API::Host()->get(array(
+		'output' => array('name', 'hostid'),
+		'hostids' => $trigger['hosts'][0]['hostid'],
+		'selectScreens' => API_OUTPUT_COUNT,
+		'selectInventory' => array('hostid'),
+		'preservekeys' => true
+	));
+	$host = reset($host);
+
+	$hostScripts = API::Script()->getScriptsByHosts($host['hostid']);
+
+	// host js link
+	$hostSpan = new CSpan($host['name'], 'link_menu menu-host');
+	$scripts = $hostScripts[$host['hostid']];
+	$hostSpan->attr('data-menu', hostMenuData($host, $scripts));
+
+	// get visible name of the first host
+	$table->addRow(array(_('Host'), $hostSpan));
+	$table->addRow(array(_('Trigger'), CTriggerHelper::expandDescription($trigger)));
 	$table->addRow(array(_('Severity'), getSeverityCell($trigger['priority'])));
-	$table->addRow(array(_('Expression'), explode_exp($trigger['expression'], true, true)));
-	$table->addRow(array(_('Event generation'), _('Normal').((TRIGGER_MULT_EVENT_ENABLED == $trigger['type'])
-		? SPACE.'+'.SPACE._('Multiple PROBLEM events') : '')));
-	$table->addRow(array(_('Disabled'), ((TRIGGER_STATUS_ENABLED == $trigger['status'])
-		? new CCol(_('No'), 'off') : new CCol(_('Yes'), 'on'))));
+	$table->addRow(array(_('Expression'), $expression));
+	$table->addRow(array(_('Event generation'), _('Normal').(TRIGGER_MULT_EVENT_ENABLED == $trigger['type'] ? SPACE.'+'.SPACE._('Multiple PROBLEM events') : '')));
+	$table->addRow(array(_('Disabled'), (TRIGGER_STATUS_ENABLED == $trigger['status'] ? new CCol(_('No'), 'off') : new CCol(_('Yes'), 'on'))));
 
 	return $table;
 }
@@ -1772,6 +1772,7 @@ function expressionHighLevelErrors($expression) {
 
 	if (!isset($errors)) {
 		$definedErrorPhrases = array(
+			EXPRESSION_VALUE_TYPE_UNKNOWN => _('Unknown variable type, testing not available'),
 			EXPRESSION_HOST_UNKNOWN => _('Unknown host, no such host present in system'),
 			EXPRESSION_HOST_ITEM_UNKNOWN => _('Unknown host item, no such item in selected host'),
 			EXPRESSION_NOT_A_MACRO_ERROR => _('Given expression is not a macro'),
@@ -1848,7 +1849,8 @@ function expressionLevelDraw(array $next, $level) {
  *
  * @return integer
  */
-function getExpressionElementsNum(CTriggerExpression $expressionData, $start, $end) {
+function getExpressionElementsNum(CTriggerExpression $expressionData, $start, $end)
+{
 	for ($i = $start, $level = 0, $expressionElementsNum = 1; $i <= $end; $i++) {
 		switch ($expressionData->expression[$i]) {
 			case '(':
@@ -1873,7 +1875,6 @@ function getExpressionElementsNum(CTriggerExpression $expressionData, $start, $e
 				break;
 		}
 	}
-
 	return $expressionElementsNum;
 }
 
@@ -2097,7 +2098,8 @@ function remakeExpression($expression, $expressionId, $action, $newExpression) {
  *
  * @return bool                 returns true if element is found, false - otherwise
  */
-function rebuildExpressionTree(array &$expressionTree, $expressionId, $action, $newExpression, $operand = null) {
+function rebuildExpressionTree(array &$expressionTree, $expressionId, $action, $newExpression, $operand = null)
+{
 	foreach ($expressionTree as $key => $expression) {
 		if ($expressionId == $expressionTree[$key]['id']) {
 			switch ($action) {
@@ -2174,7 +2176,6 @@ function rebuildExpressionTree(array &$expressionTree, $expressionId, $action, $
 			}
 		}
 	}
-
 	return false;
 }
 
@@ -2202,13 +2203,14 @@ function rebuildExpressionTree(array &$expressionTree, $expressionId, $action, $
  * Result:
  *   "{host1:system.cpu.util[,iowait].last(0)} > 50 & {host2:system.cpu.util[,iowait].last(0)} > 50"
  *
- * @param array  $expressionTree
- * @param int    $level				parameter only for recursive call
- * @param string $operand			parameter only for recursive call
+ * @param array $expressionTree
+ * @param int $level        parameter only for recursive call
+ * @param string $operand       parameter only for recursive call
  *
  * @return string
  */
-function makeExpression(array $expressionTree, $level = 0, $operand = null) {
+function makeExpression(array $expressionTree, $level = 0, $operand = null)
+{
 	$expression = '';
 
 	end($expressionTree);
@@ -2229,7 +2231,6 @@ function makeExpression(array $expressionTree, $level = 0, $operand = null) {
 			$expression .= ' '.$operand.' ';
 		}
 	}
-
 	return $expression;
 }
 
@@ -2251,7 +2252,6 @@ function get_item_function_info($expr) {
 	);
 
 	$function_info = array(
-		'band' =>	    array('value_type' => _('Numeric (integer 64bit)'),	'type' => T_ZBX_INT, 'validation' => NOT_EMPTY),
 		'abschange' =>	array('value_type' => $value_type,	'type' => $type_of_value_type,	'validation' => NOT_EMPTY),
 		'avg' =>		array('value_type' => $value_type,	'type' => $type_of_value_type,	'validation' => NOT_EMPTY),
 		'change' =>		array('value_type' => $value_type,	'type' => $type_of_value_type,	'validation' => NOT_EMPTY),
@@ -2289,11 +2289,11 @@ function get_item_function_info($expr) {
 				'validation' => IN('0,1')
 			);
 		}
-		elseif (isset($expressionData->usermacros[0]) || isset($expressionData->lldmacros[0])) {
+		elseif (isset($expressionData->usermacros[0])) {
 			$result = array(
-				'value_type' => $value_type[ITEM_VALUE_TYPE_FLOAT],
-				'type' => T_ZBX_STR,
-				'validation' => 'preg_match("/^'.ZBX_PREG_NUMBER.'$/u", {})'
+				'value_type' => _('0 or 1'),
+				'type' => T_ZBX_INT,
+				'validation' => NOT_EMPTY
 			);
 		}
 		elseif (isset($expressionData->expressions[0])) {
@@ -2304,7 +2304,6 @@ function get_item_function_info($expr) {
 			}
 
 			$hostFound = API::Host()->get(array(
-				'output' => array('hostid'),
 				'filter' => array('host' => array($exprPart['host'])),
 				'templated_hosts' => true
 			));
@@ -2357,21 +2356,11 @@ function get_item_function_info($expr) {
 	return $result;
 }
 
-/**
- * Execute expression and return array with keys 'result' as 'TRUE' or 'FALSE' and 'error' as error text
- * if there is one.
- *
- * @param string $expression
- * @param array  $rplcts
- *
- * @return array
- */
-function evalExpressionData($expression, $rplcts) {
+function evalExpressionData($expression, $rplcts, $oct = false) {
 	$result = false;
 
 	$evStr = str_replace(array_keys($rplcts), array_values($rplcts), $expression);
 	preg_match_all('/[0-9\.]+['.ZBX_BYTE_SUFFIXES.ZBX_TIME_SUFFIXES.']?/', $evStr, $arr, PREG_OFFSET_CAPTURE);
-
 	for ($i = count($arr[0]) - 1; $i >= 0; $i--) {
 		$evStr = substr_replace($evStr, convert($arr[0][$i][0]), $arr[0][$i][1], strlen($arr[0][$i][0]));
 	}
@@ -2380,46 +2369,23 @@ function evalExpressionData($expression, $rplcts) {
 		return 'FALSE';
 	}
 
-	$evStr = preg_replace('/(-?[0-9]*\.?[0-9]+) *(\=|\#|\!=|\<|\>) *(-?[0-9]*\.?[0-9]+)/', '((float) "$1" $2 (float) "$3")', $evStr);
+	if ($oct) {
+		$evStr = preg_replace('/([0-9]+) *(\=|\#|\!=|\<|\>) *([0-9]+)/', '((float)ltrim("$1","0") $2 (float)ltrim("$3","0"))', $evStr);
+	}
 
 	$switch = array('=' => '==', '#' => '!=', '&' => '&&', '|' => '||');
 	$evStr = str_replace(array_keys($switch), array_values($switch), $evStr);
 
-	// execute expression
 	eval('$result = ('.trim($evStr).');');
 
-	$result = ($result === true || $result && $result != '-') ? 'TRUE' : 'FALSE';
-	$error = '';
-
-	// remove eval() generated error message
-	global $ZBX_MESSAGES;
-	if (!empty($ZBX_MESSAGES)) {
-		$messageList = array();
-
-		foreach ($ZBX_MESSAGES as $zbxMessage) {
-			if (strpos($zbxMessage['message'], 'eval()') !== false) {
-				$error = substr($zbxMessage['message'], 0, strpos($zbxMessage['message'], '['));
-				$result = 'NULL';
-			}
-			else {
-				$messageList[] = $zbxMessage;
-			}
-		}
-
-		$ZBX_MESSAGES = $messageList;
-	}
-
-	return array(
-		'result' => $result,
-		'error' => $error
-	);
+	return ($result === true || $result && $result != '-') ? 'TRUE' : 'FALSE';
 }
 
 /**
  * Resolve {TRIGGER.ID} macro in trigger url.
  *
- * @param array  $trigger				trigger data with url and triggerid
- * @param int    $trigger['triggerid']
+ * @param array $trigger trigger data with url and triggerid
+ * @param int $trigger['triggerid']
  * @param string $trigger['url']
  *
  * @return string
@@ -2466,56 +2432,17 @@ function convert($value) {
 }
 
 /**
- * Quoting $param if it contain special characters.
+ * Quoting $param if it contain special characters
  *
  * @param string $param
  *
  * @return string
  */
-function quoteFunctionParam($param) {
+function quoteFunctionParam($param)
+{
 	if (!isset($param[0]) || ($param[0] != '"' && false === strpos($param, ',') && false === strpos($param, ')'))) {
 		return $param;
 	}
 
 	return '"'.str_replace('"', '\\"', $param).'"';
-}
-
-/**
- * Returns the text indicating the triggers status and state. If the $state parameter is not given, only the status of
- * the trigger will be taken into account.
- *
- * @param int $status
- * @param int $state
- *
- * @return string
- */
-function triggerIndicator($status, $state = null) {
-	if ($status == TRIGGER_STATUS_ENABLED) {
-		return ($state == TRIGGER_STATE_UNKNOWN) ? _('Unknown') : _('Enabled');
-	}
-	elseif ($status == TRIGGER_STATUS_DISABLED) {
-		return _('Disabled');
-	}
-
-	return _('Unknown');
-}
-
-/**
- * Returns the CSS class for the triggers status and state indicator. If the $state parameter is not given, only the
- * status of the trigger will be taken into account.
- *
- * @param int $status
- * @param int $state
- *
- * @return string
- */
-function triggerIndicatorStyle($status, $state = null) {
-	if ($status == TRIGGER_STATUS_ENABLED) {
-		return ($state == TRIGGER_STATE_UNKNOWN) ? 'unknown' : 'enabled';
-	}
-	elseif ($status == TRIGGER_STATUS_DISABLED) {
-		return 'disabled';
-	}
-
-	return 'unknown';
 }

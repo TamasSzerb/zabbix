@@ -21,7 +21,7 @@
 
 class DB {
 
-	const SCHEMA_FILE = 'schema.inc.php';
+	const SCHEMA_FILE = 'include/schema.inc.php';
 
 	const DBEXECUTE_ERROR = 1;
 	const RESERVEIDS_ERROR = 2;
@@ -43,42 +43,6 @@ class DB {
 	private static $nodeId = null;
 	private static $maxNodeId = null;
 	private static $minNodeId = null;
-
-	/**
-	 * @var DbBackend
-	 */
-	private static $dbBackend;
-
-	/**
-	 * Get necessary DB class.
-	 *
-	 * @return DbBackend
-	 */
-	public static function getDbBackend() {
-		global $DB;
-
-		if (!self::$dbBackend) {
-			switch ($DB['TYPE']) {
-				case ZBX_DB_MYSQL:
-					self::$dbBackend = new MysqlDbBackend();
-					break;
-				case ZBX_DB_POSTGRESQL:
-					self::$dbBackend = new PostgresqlDbBackend();
-					break;
-				case ZBX_DB_ORACLE:
-					self::$dbBackend = new OracleDbBackend();
-					break;
-				case ZBX_DB_DB2:
-					self::$dbBackend = new Db2DbBackend();
-					break;
-				case ZBX_DB_SQLITE3:
-					self::$dbBackend = new SqliteDbBackend();
-					break;
-			}
-		}
-
-		return self::$dbBackend;
-	}
 
 	private static function exception($code, $error) {
 		throw new DBException($error, $code);
@@ -105,7 +69,6 @@ class DB {
 	 * using maximum id from table or minimum allowed value.
 	 *
 	 * @throw APIException
-	 *
 	 * @static
 	 *
 	 * @param string $table table name
@@ -153,7 +116,6 @@ class DB {
 		else {
 			$nextid = self::refreshIds($table, $count);
 		}
-
 		return $nextid;
 	}
 
@@ -203,7 +165,6 @@ class DB {
 		}
 
 		$nextid = bcadd($nextid, 1, 0);
-
 		return $nextid;
 	}
 
@@ -223,7 +184,8 @@ class DB {
 	 */
 	public static function getSchema($table = null) {
 		if (is_null(self::$schema)) {
-			self::$schema = include(dirname(__FILE__).'/../../'.self::SCHEMA_FILE);
+
+			self::$schema = include(Z::getRootDir().'/'.self::SCHEMA_FILE);
 		}
 
 		if (is_null($table)) {
@@ -309,23 +271,27 @@ class DB {
 				continue;
 			}
 
-			if (isset($tableSchema['fields'][$field]['ref_table'])) {
-				if ($tableSchema['fields'][$field]['null']) {
-					$values[$field] = ($values[$field] == '0') ? NULL : $values[$field];
-				}
-			}
-
 			if (is_null($values[$field])) {
 				if ($tableSchema['fields'][$field]['null']) {
 					$values[$field] = 'NULL';
 				}
 				elseif (isset($tableSchema['fields'][$field]['default'])) {
-					$values[$field] = zbx_dbstr($tableSchema['fields'][$field]['default']);
+					$values[$field] = $tableSchema['fields'][$field]['default'];
 				}
 				else {
-					self::exception(self::DBEXECUTE_ERROR,
-						_s('Field "%1$s" cannot be set to NULL.', $field)
-					);
+					self::exception(self::DBEXECUTE_ERROR, _s('Mandatory field "%1$s" is missing in table "%2$s".', $field, $table));
+				}
+			}
+
+			if (isset($tableSchema['fields'][$field]['ref_table'])) {
+				if ($tableSchema['fields'][$field]['null']) {
+					$values[$field] = zero2null($values[$field]);
+				}
+			}
+
+			if ($values[$field] === 'NULL') {
+				if (!$tableSchema['fields'][$field]['null']) {
+					self::exception(self::DBEXECUTE_ERROR, _s('Incorrect value "NULL" for NOT NULL field "%1$s".', $field));
 				}
 			}
 			else {
@@ -407,7 +373,7 @@ class DB {
 	}
 
 	/**
-	 * Insert data into DB.
+	 * Insert data into DB
 	 *
 	 * @param string $table
 	 * @param array  $values pair of fieldname => fieldvalue
@@ -419,7 +385,6 @@ class DB {
 		if (empty($values)) {
 			return true;
 		}
-
 		$resultIds = array();
 
 		if ($getids) {
@@ -446,71 +411,22 @@ class DB {
 				self::exception(self::DBEXECUTE_ERROR, _s('SQL statement execution has failed "%1$s".', $sql));
 			}
 		}
-
 		return $resultIds;
 	}
 
 	/**
-	 * Insert batch data into DB.
-	 *
-	 * @param string $table
-	 * @param array  $values pair of fieldname => fieldvalue
-	 * @param bool   $getids
-	 *
-	 * @return array    an array of ids with the keys preserved
-	 */
-	public static function insertBatch($table, $values, $getids = true) {
-		if (empty($values)) {
-			return true;
-		}
-
-		$resultIds = array();
-
-		$tableSchema = self::getSchema($table);
-		$values = self::addMissingFields($tableSchema, $values);
-		$fields = array_keys(reset($values));
-
-		if ($getids) {
-			$id = self::reserveIds($table, count($values));
-			$fields[] = $tableSchema['key'];
-		}
-
-		$newValues = array();
-		foreach ($values as $key => $row) {
-			if ($getids) {
-				$resultIds[$key] = $id;
-				$row[$tableSchema['key']] = $id;
-				$values[$key][$tableSchema['key']] = $id;
-				$id = bcadd($id, 1, 0);
-			}
-			self::checkValueTypes($table, $row);
-			$newValues[] = $row;
-		}
-
-		$sql = self::getDbBackend()->createInsertQuery($table, $fields, $newValues);
-
-		if (!DBexecute($sql)) {
-			self::exception(self::DBEXECUTE_ERROR, _s('SQL statement execution has failed "%1$s".', $sql));
-		}
-
-		return $resultIds;
-	}
-
-	/**
-	 * Update data in DB.
+	 * Update data in DB
 	 *
 	 * @param string $table
 	 * @param array $data
 	 * @param array $data[...]['values'] pair of fieldname => fieldvalue for SET clause
 	 * @param array $data[...]['where'] pair of fieldname => fieldvalue for WHERE clause
-	 *
 	 * @return array of ids
 	 */
 	public static function update($table, $data) {
 		if (empty($data)) {
 			return true;
 		}
-
 		$tableSchema = self::getSchema($table);
 
 		$data = zbx_toArray($data);
@@ -550,7 +466,6 @@ class DB {
 				self::exception(self::DBEXECUTE_ERROR, _s('SQL statement execution has failed "%1$s".', $sql));
 			}
 		}
-
 		return true;
 	}
 
@@ -670,9 +585,7 @@ class DB {
 	 */
 	public static function recordModified($tableName, array $oldRecord, array $newRecord) {
 		foreach ($oldRecord as $field => $value) {
-			if (self::hasField($tableName, $field)
-					&& isset($newRecord[$field])
-					&& (string) $value !== (string) $newRecord[$field]) {
+			if (self::hasField($tableName, $field) && isset($newRecord[$field]) && $value != $newRecord[$field]) {
 				return true;
 			}
 		}
@@ -681,7 +594,7 @@ class DB {
 	}
 
 	/**
-	 * Delete data from DB.
+	 * Delete data from DB
 	 *
 	 * Example:
 	 * DB::delete('applications', array('applicationid'=>array(1, 8, 6)));
@@ -717,7 +630,6 @@ class DB {
 		if (!DBexecute($sql)) {
 			self::exception(self::DBEXECUTE_ERROR, _s('SQL statement execution has failed "%1$s"', $sql));
 		}
-
 		return true;
 	}
 
@@ -735,7 +647,6 @@ class DB {
 			case self::FIELD_TYPE_UINT:
 				return true;
 		}
-
 		return false;
 	}
 }

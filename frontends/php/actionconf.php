@@ -21,26 +21,19 @@
 
 require_once dirname(__FILE__).'/include/config.inc.php';
 require_once dirname(__FILE__).'/include/forms.inc.php';
-require_once dirname(__FILE__).'/include/actions.inc.php';
-require_once dirname(__FILE__).'/include/triggers.inc.php';
 
 $page['title'] = _('Configuration of actions');
 $page['file'] = 'actionconf.php';
-$page['scripts'] = array('multiselect.js');
 $page['hist_arg'] = array();
 
 require_once dirname(__FILE__).'/include/page_header.php';
 
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
-	'actionid' =>			array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		'isset({form})&&{form}=="update"'),
+	'actionid' =>			array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
 	'name' =>				array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY,	'isset({save})', _('Name')),
-	'eventsource' =>		array(T_ZBX_INT, O_OPT, null,
-		IN(array(EVENT_SOURCE_TRIGGERS, EVENT_SOURCE_DISCOVERY, EVENT_SOURCE_AUTO_REGISTRATION, EVENT_SOURCE_INTERNAL)),
-		null
-	),
-	'evaltype' =>			array(T_ZBX_INT, O_OPT, null,
-		IN(array(ACTION_EVAL_TYPE_AND_OR, ACTION_EVAL_TYPE_AND, ACTION_EVAL_TYPE_OR)), 'isset({save})'),
+	'eventsource' =>		array(T_ZBX_INT, O_MAND, null,	IN(array(EVENT_SOURCE_TRIGGERS, EVENT_SOURCE_DISCOVERY, EVENT_SOURCE_AUTO_REGISTRATION)), null),
+	'evaltype' =>			array(T_ZBX_INT, O_OPT, null,	IN(array(ACTION_EVAL_TYPE_AND_OR, ACTION_EVAL_TYPE_AND, ACTION_EVAL_TYPE_OR)), 'isset({save})'),
 	'esc_period' =>			array(T_ZBX_INT, O_OPT, null,	BETWEEN(60, 999999), null, _('Default operation step duration')),
 	'status' =>				array(T_ZBX_INT, O_OPT, null,	IN(array(ACTION_STATUS_ENABLED, ACTION_STATUS_DISABLED)), null),
 	'def_shortdata' =>		array(T_ZBX_STR, O_OPT, null,	null,		'isset({save})'),
@@ -63,7 +56,7 @@ $fields = array(
 	'add_operation' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'cancel_new_operation' => array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null),
 	'add_opcondition' =>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
-	'cancel_new_opcondition' => array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null),
+	'cancel_new_opcondition' =>	array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null),
 	'save' =>				array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'clone' =>				array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'delete' =>				array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
@@ -71,32 +64,31 @@ $fields = array(
 	'form' =>				array(T_ZBX_STR, O_OPT, P_SYS,	null,		null),
 	'form_refresh' =>		array(T_ZBX_INT, O_OPT, null,	null,		null),
 	// ajax
-	'filterState' =>		array(T_ZBX_INT, O_OPT, P_ACT,	null,		null)
+	'favobj' =>				array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
+	'favref' =>				array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})'),
+	'favstate' =>			array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})&&("filter"=={favobj})')
 );
+$_REQUEST['eventsource'] = get_request('eventsource', CProfile::get('web.actionconf.eventsource', EVENT_SOURCE_TRIGGERS));
 
-$dataValid = check_fields($fields);
-
-if ($dataValid && hasRequest('eventsource') && !hasRequest('form')) {
-	CProfile::update('web.actionconf.eventsource', getRequest('eventsource'), PROFILE_TYPE_INT);
-}
-
+check_fields($fields);
 validate_sort_and_sortorder('name', ZBX_SORT_UP);
 
-$_REQUEST['go'] = getRequest('go', 'none');
+$_REQUEST['go'] = get_request('go', 'none');
 
 /*
  * Ajax
  */
-if (hasRequest('filterState')) {
-	CProfile::update('web.audit.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
+if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.audit.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
 }
 if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 if (isset($_REQUEST['actionid'])) {
 	$actionPermissions = API::Action()->get(array(
-		'output' => array('actionid'),
 		'actionids' => $_REQUEST['actionid'],
 		'editable' => true
 	));
@@ -104,6 +96,8 @@ if (isset($_REQUEST['actionid'])) {
 		access_deny();
 	}
 }
+
+CProfile::update('web.actionconf.eventsource', $_REQUEST['eventsource'], PROFILE_TYPE_INT);
 
 /*
  * Actions
@@ -118,11 +112,16 @@ elseif (isset($_REQUEST['cancel_new_operation'])) {
 elseif (isset($_REQUEST['cancel_new_opcondition'])) {
 	unset($_REQUEST['new_opcondition']);
 }
-elseif (hasRequest('save')) {
+elseif (isset($_REQUEST['save'])) {
+	if (!count(get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+		access_deny();
+	}
+
 	$action = array(
-		'name'			=> get_request('name'),
-		'evaltype'		=> get_request('evaltype', 0),
-		'status'		=> get_request('status', ACTION_STATUS_DISABLED),
+		'name'		=> get_request('name'),
+		'eventsource'	=> get_request('eventsource', 0),
+		'evaltype'	=> get_request('evaltype', 0),
+		'status'	=> get_request('status', ACTION_STATUS_DISABLED),
 		'esc_period'	=> get_request('esc_period', 0),
 		'def_shortdata'	=> get_request('def_shortdata', ''),
 		'def_longdata'	=> get_request('def_longdata', ''),
@@ -138,19 +137,14 @@ elseif (hasRequest('save')) {
 			$action['operations'][$num]['opmessage']['default_msg'] = 0;
 		}
 	}
-
 	DBstart();
-	if (hasRequest('actionid')) {
-		$action['actionid'] = getRequest('actionid');
+	if (isset($_REQUEST['actionid'])) {
+		$action['actionid']= $_REQUEST['actionid'];
 
 		$result = API::Action()->update($action);
 		show_messages($result, _('Action updated'), _('Cannot update action'));
 	}
 	else {
-		$action['eventsource'] = getRequest('eventsource',
-			CProfile::get('web.actionconf.eventsource', EVENT_SOURCE_TRIGGERS)
-		);
-
 		$result = API::Action()->create($action);
 		show_messages($result, _('Action added'), _('Cannot add action'));
 	}
@@ -158,76 +152,48 @@ elseif (hasRequest('save')) {
 	$result = DBend($result);
 	if ($result) {
 		add_audit(
-			hasRequest('actionid') ? AUDIT_ACTION_UPDATE : AUDIT_ACTION_ADD,
+			!isset($_REQUEST['actionid']) ? AUDIT_ACTION_ADD : AUDIT_ACTION_UPDATE,
 			AUDIT_RESOURCE_ACTION,
-			_('Name').NAME_DELIMITER.$action['name']
+			_('Name').': '.$_REQUEST['name']
 		);
 
 		unset($_REQUEST['form']);
 	}
-
-	clearCookies($result);
 }
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['actionid'])) {
+	if (!count(get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+		access_deny();
+	}
+
 	$result = API::Action()->delete($_REQUEST['actionid']);
 
 	show_messages($result, _('Action deleted'), _('Cannot delete action'));
-
 	if ($result) {
 		unset($_REQUEST['form'], $_REQUEST['actionid']);
-		clearCookies($result);
 	}
 }
 elseif (isset($_REQUEST['add_condition']) && isset($_REQUEST['new_condition'])) {
+	$new_condition = $_REQUEST['new_condition'];
+
 	try {
-		$newCondition = get_request('new_condition');
+		CAction::validateConditions($new_condition);
+		$_REQUEST['conditions'] = get_request('conditions', array());
 
-		if ($newCondition) {
-			$conditions = get_request('conditions', array());
-
-			// when adding new maintenance, in order to check for an existing maintenance, it must have a not null value
-			if ($newCondition['conditiontype'] == CONDITION_TYPE_MAINTENANCE) {
-				$newCondition['value'] = '';
+		$exists = false;
+		foreach ($_REQUEST['conditions'] as $condition) {
+			if (($new_condition['conditiontype'] === $condition['conditiontype'])
+					&& ($new_condition['operator'] === $condition['operator'])
+					&& (!isset($new_condition['value']) || $new_condition['value'] === $condition['value'])) {
+				$exists = true;
+				break;
 			}
+		}
 
-			// check existing conditions and remove duplicate condition values
-			foreach ($conditions as $condition) {
-				if ($newCondition['conditiontype'] == $condition['conditiontype']) {
-					if (is_array($newCondition['value'])) {
-						foreach ($newCondition['value'] as $key => $newValue) {
-							if ($condition['value'] == $newValue) {
-								unset($newCondition['value'][$key]);
-							}
-						}
-					}
-					else {
-						if ($newCondition['value'] == $condition['value']) {
-							$newCondition['value'] = null;
-						}
-					}
-				}
-			}
-
-			$validateConditions = $conditions;
-
-			if (isset($newCondition['value'])) {
-				$newConditionValues = zbx_toArray($newCondition['value']);
-				foreach ($newConditionValues as $newValue) {
-					$condition = $newCondition;
-					$condition['value'] = $newValue;
-					$validateConditions[] = $condition;
-				}
-			}
-
-			if ($validateConditions) {
-				CAction::validateConditions($validateConditions);
-			}
-
-			$_REQUEST['conditions'] = $validateConditions;
+		if (!$exists) {
+			array_push($_REQUEST['conditions'], $new_condition);
 		}
 	}
 	catch (APIException $e) {
-		show_error_message(_('Cannot add action condition'));
 		error($e->getMessage());
 	}
 }
@@ -285,10 +251,7 @@ elseif (isset($_REQUEST['add_operation']) && isset($_REQUEST['new_operation'])) 
 			}
 			else {
 				$_REQUEST['operations'][] = $new_operation;
-				$eventsource = getRequest('eventsource',
-					CProfile::get('web.actionconf.eventsource', EVENT_SOURCE_TRIGGERS)
-				);
-				sortOperations($eventsource, $_REQUEST['operations']);
+				sortOperations($_REQUEST['eventsource'], $_REQUEST['operations']);
 			}
 		}
 
@@ -306,52 +269,49 @@ elseif (isset($_REQUEST['edit_operationid'])) {
 		$_REQUEST['new_operation']['action'] = 'update';
 	}
 }
-elseif (str_in_array(getRequest('go'), array('activate', 'disable')) && hasRequest('g_actionid')) {
-	$result = true;
-	$enable = (getRequest('go') == 'activate');
-	$status = $enable ? ACTION_STATUS_ENABLED : ACTION_STATUS_DISABLED;
-	$statusName = $enable ? 'enabled' : 'disabled';
-	$actionIds = array();
-	$updated = 0;
+elseif (str_in_array($_REQUEST['go'], array('activate', 'disable')) && isset($_REQUEST['g_actionid'])) {
+	if (!count($nodes = get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+		access_deny();
+	}
+
+	$status = ($_REQUEST['go'] == 'activate') ? 0 : 1;
+	$status_name = $status ? 'disabled' : 'enabled';
 
 	DBstart();
-	$dbActions = DBselect(
-		'SELECT a.actionid'.
+	$actionids = array();
+
+	$go_result = DBselect(
+		'SELECT DISTINCT a.actionid'.
 		' FROM actions a'.
-		' WHERE '.dbConditionInt('a.actionid', $_REQUEST['g_actionid'])
+		' WHERE '.DBin_node('a.actionid', $nodes).
+			' AND '.dbConditionInt('a.actionid', $_REQUEST['g_actionid'])
 	);
-	while ($row = DBfetch($dbActions)) {
-		$result &= DBexecute(
-			'UPDATE actions'.
-			' SET status='.zbx_dbstr($status).
-			' WHERE actionid='.zbx_dbstr($row['actionid'])
-		);
-		if ($result) {
-			$actionIds[] = $row['actionid'];
+	while ($row = DBfetch($go_result)) {
+		$res = DBexecute('UPDATE actions SET status='.$status.' WHERE actionid='.$row['actionid']);
+		if ($res) {
+			$actionids[] = $row['actionid'];
 		}
-		$updated++;
 	}
-	$result = DBend($result);
+	$go_result = DBend($res);
 
-	if ($result) {
-		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ACTION, ' Actions ['.implode(',', $actionIds).'] '.$statusName);
+	if ($go_result && isset($res)) {
+		show_messages($go_result, _('Status updated'), _('Cannot update status'));
+		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ACTION, ' Actions ['.implode(',', $actionids).'] '.$status_name);
 	}
-
-	$messageSuccess = $enable
-		? _n('Action enabled', 'Actions enabled', $updated)
-		: _n('Action disabled', 'Actions disabled', $updated);
-	$messageFailed = $enable
-		? _n('Cannot enable action', 'Cannot enable actions', $updated)
-		: _n('Cannot disable action', 'Cannot disable actions', $updated);
-
-	show_messages($result, $messageSuccess, $messageFailed);
-	clearCookies($result);
 }
 elseif ($_REQUEST['go'] == 'delete' && isset($_REQUEST['g_actionid'])) {
-	$goResult = API::Action()->delete($_REQUEST['g_actionid']);
+	if (!count($nodes = get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+		access_deny();
+	}
 
-	show_messages($goResult, _('Selected actions deleted'), _('Cannot delete selected actions'));
-	clearCookies($goResult);
+	$go_result = API::Action()->delete($_REQUEST['g_actionid']);
+	show_messages($go_result, _('Selected actions deleted'), _('Cannot delete selected actions'));
+}
+
+if ($_REQUEST['go'] != 'none' && isset($go_result) && $go_result) {
+	$url = new CUrl();
+	$path = $url->getPath();
+	insert_js('cookie.eraseArray("'.$path.'")');
 }
 
 /*
@@ -359,16 +319,18 @@ elseif ($_REQUEST['go'] == 'delete' && isset($_REQUEST['g_actionid'])) {
  */
 show_messages();
 
-if (hasRequest('form')) {
+if (isset($_REQUEST['form'])) {
 	$data = array(
 		'form' => get_request('form'),
+		'form_refresh' => get_request('form_refresh', 0),
 		'actionid' => get_request('actionid'),
+		'eventsource' => get_request('eventsource'),
 		'new_condition' => get_request('new_condition', array()),
 		'new_operation' => get_request('new_operation', null)
 	);
 
 	$action = null;
-	if ($data['actionid']) {
+	if (!empty($data['actionid'])) {
 		$data['action'] = API::Action()->get(array(
 			'actionids' => $data['actionid'],
 			'selectOperations' => API_OUTPUT_EXTEND,
@@ -377,31 +339,29 @@ if (hasRequest('form')) {
 			'editable' => true
 		));
 		$data['action'] = reset($data['action']);
-		$data['eventsource'] = $data['action']['eventsource'];
 	}
 	else {
-		$data['eventsource'] = getRequest('eventsource',
-			CProfile::get('web.actionconf.eventsource', EVENT_SOURCE_TRIGGERS)
-		);
-		$data['evaltype'] = getRequest('evaltype');
-		$data['esc_period'] = getRequest('esc_period');
+		$data['eventsource'] = get_request('eventsource');
+		$data['evaltype'] = get_request('evaltype');
+		$data['esc_period'] = get_request('esc_period');
 	}
 
-	if (isset($data['action']['actionid']) && !hasRequest('form_refresh')) {
-		sortOperations($data['eventsource'], $data['action']['operations']);
+	if (isset($data['action']['actionid']) && !isset($_REQUEST['form_refresh'])) {
+		sortOperations($data['action']['eventsource'], $data['action']['operations']);
 	}
 	else {
 		$data['action']['name'] = get_request('name');
+		$data['action']['eventsource'] = get_request('eventsource');
 		$data['action']['evaltype'] = get_request('evaltype', 0);
 		$data['action']['esc_period'] = get_request('esc_period', SEC_PER_HOUR);
-		$data['action']['status'] = get_request('status', hasRequest('form_refresh') ? 1 : 0);
+		$data['action']['status'] = get_request('status', isset($_REQUEST['form_refresh']) ? 1 : 0);
 		$data['action']['recovery_msg'] = get_request('recovery_msg', 0);
+		$data['action']['r_shortdata'] = get_request('r_shortdata', ACTION_DEFAULT_SUBJ_TRIGGER);
+		$data['action']['r_longdata'] = get_request('r_longdata', ACTION_DEFAULT_MSG_TRIGGER);
 		$data['action']['conditions'] = get_request('conditions', array());
 		$data['action']['operations'] = get_request('operations', array());
 
-		sortOperations($data['eventsource'], $data['action']['operations']);
-
-		if ($data['actionid'] && hasRequest('form_refresh')) {
+		if (!empty($data['actionid']) && isset($_REQUEST['form_refresh'])) {
 			$data['action']['def_shortdata'] = get_request('def_shortdata');
 			$data['action']['def_longdata'] = get_request('def_longdata');
 		}
@@ -409,8 +369,6 @@ if (hasRequest('form')) {
 			if ($data['eventsource'] == EVENT_SOURCE_TRIGGERS) {
 				$data['action']['def_shortdata'] = get_request('def_shortdata', ACTION_DEFAULT_SUBJ_TRIGGER);
 				$data['action']['def_longdata'] = get_request('def_longdata', ACTION_DEFAULT_MSG_TRIGGER);
-				$data['action']['r_shortdata'] = get_request('r_shortdata', ACTION_DEFAULT_SUBJ_TRIGGER);
-				$data['action']['r_longdata'] = get_request('r_longdata', ACTION_DEFAULT_MSG_TRIGGER);
 			}
 			elseif ($data['eventsource'] == EVENT_SOURCE_DISCOVERY) {
 				$data['action']['def_shortdata'] = get_request('def_shortdata', ACTION_DEFAULT_SUBJ_DISCOVERY);
@@ -420,16 +378,10 @@ if (hasRequest('form')) {
 				$data['action']['def_shortdata'] = get_request('def_shortdata', ACTION_DEFAULT_SUBJ_AUTOREG);
 				$data['action']['def_longdata'] = get_request('def_longdata', ACTION_DEFAULT_MSG_AUTOREG);
 			}
-			else {
-				$data['action']['def_shortdata'] = get_request('def_shortdata');
-				$data['action']['def_longdata'] = get_request('def_longdata');
-				$data['action']['r_shortdata'] = get_request('r_shortdata');
-				$data['action']['r_longdata'] = get_request('r_longdata');
-			}
 		}
 	}
 
-	if (!$data['actionid'] && !hasRequest('form_refresh') && $data['eventsource'] == EVENT_SOURCE_TRIGGERS) {
+	if (empty($data['action']['actionid']) && !isset($_REQUEST['form_refresh'])) {
 		$data['action']['conditions'] = array(
 			array(
 				'conditiontype' => CONDITION_TYPE_TRIGGER_VALUE,
@@ -487,8 +439,7 @@ if (hasRequest('form')) {
 }
 else {
 	$data = array(
-		'eventsource' => getRequest('eventsource', CProfile::get('web.actionconf.eventsource', EVENT_SOURCE_TRIGGERS)),
-		'displayNodes' => is_array(get_current_nodeid())
+		'eventsource' => get_request('eventsource')
 	);
 
 	$sortfield = getPageSortField('name');
@@ -505,15 +456,7 @@ else {
 
 	// sorting && paging
 	order_result($data['actions'], $sortfield, getPageSortOrder());
-	$data['paging'] = getPagingLine($data['actions'], array('actionid'));
-
-	// nodes
-	if ($data['displayNodes']) {
-		foreach ($data['actions'] as &$action) {
-			$action['nodename'] = get_node_name_by_elid($action['actionid'], true);
-		}
-		unset($action);
-	}
+	$data['paging'] = getPagingLine($data['actions']);
 
 	// render view
 	$actionView = new CView('configuration.action.list', $data);

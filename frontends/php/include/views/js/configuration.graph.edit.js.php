@@ -131,7 +131,7 @@
 			var item = [];
 			item['number'] = jQuery('#itemsTable tr.sortable').length;
 			item['number_nr'] = item['number'] + 1;
-			item['gitemid'] = null;
+			item['gitemid'] = 0;
 			item['graphid'] = <?php echo $this->data['graphid']; ?>;
 			item['itemid'] = list.values[i].itemid;
 			item['type'] = null;
@@ -156,11 +156,15 @@
 	}
 
 	function getOnlyHostParam() {
-		<?php if ($this->data['is_template']): ?>
-			return '&only_hostid=<?php echo $this->data['hostid']; ?>';
-		<?php else: ?>
-			return '&real_hosts=1';
-		<?php endif ?>
+		var param = '';
+
+		jQuery(document).ready(function() {
+			param = (<?php echo $this->data['is_template'] ? 'true' : 'false'; ?>)
+				? '&only_hostid=<?php echo $this->data['hostid']; ?>'
+				: '&real_hosts=1';
+		});
+
+		return param;
 	}
 
 	function rewriteNameLinks() {
@@ -168,7 +172,7 @@
 		for (var i = 0; i < size; i++) {
 			var nameLink = 'PopUp("popup.php?writeonly=1&dstfrm=graphForm'
 				+ '&dstfld1=items_' + i + '_itemid&dstfld2=items_' + i + '_name'
-				+ (jQuery('#items_' + i + '_flags').val() == <?php echo ZBX_FLAG_DISCOVERY_PROTOTYPE; ?>
+				+ (jQuery('#items_' + i + '_flags').val() == <?php echo ZBX_FLAG_DISCOVERY_CHILD; ?>
 					? '&srctbl=prototypes&parent_discoveryid=<?php echo $this->data['parent_discoveryid']; ?>'
 						+ '&srcfld3=flags&dstfld3=items_' + i + '_flags'
 					: '&srctbl=items')
@@ -263,12 +267,6 @@
 				tolerance: 'pointer',
 				opacity: 0.6,
 				update: recalculateSortOrder,
-				helper: function(e, ui) {
-					ui.children().each(function() {
-						jQuery(this).width(jQuery(this).width());
-					});
-					return ui;
-				},
 				start: function(e, ui) {
 					jQuery(ui.placeholder).height(jQuery(ui.helper).height());
 				}
@@ -313,10 +311,7 @@
 				}
 			});
 
-			jQuery('#previewTab img')
-				.attr('src', 'styles/themes/<?php echo getUserTheme(CWebUser::$data); ?>/images/preloader.gif')
-				.width(80)
-				.height(12);
+			jQuery('#previewTab img').attr('src', 'styles/themes/<?php echo getUserTheme(CWebUser::$data); ?>/images/preloader.gif');
 			jQuery('<img />').attr('src', name + '?period=3600' + src).load(function() {
 				jQuery('#previewChar img').remove();
 				jQuery('#previewChar').append(jQuery(this));

@@ -21,24 +21,20 @@
 #include "daemon.h"
 #include "zbxself.h"
 #include "log.h"
-#include "selfmon.h"
 
 extern unsigned char	process_type;
 
-void	main_selfmon_loop(void)
+void	main_selfmon_loop()
 {
-	double		sec;
+	const char	*__function_name = "main_selfmon_loop";
+
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
 	for (;;)
 	{
 		zbx_setproctitle("%s [processing data]", get_process_type_string(process_type));
 
-		sec = zbx_time();
 		collect_selfmon_stats();
-		sec = zbx_time() - sec;
-
-		zbx_setproctitle("%s [processed data in " ZBX_FS_DBL " sec, idle 1 sec]",
-				get_process_type_string(process_type), sec);
 
 		zbx_sleep_loop(1);
 	}

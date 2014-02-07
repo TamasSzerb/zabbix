@@ -30,9 +30,10 @@ require_once dirname(__FILE__).'/include/html.inc.php';
 $page['title'] = _('Event details');
 $page['file'] = 'tr_events.php';
 $page['hist_arg'] = array('triggerid', 'eventid');
+$page['scripts'] = array();
 $page['type'] = detect_page_type(PAGE_TYPE_HTML);
 
-require_once dirname(__FILE__).'/include/page_header.php';
+require_once 'include/page_header.php';
 
 define('PAGE_SIZE', 100);
 
@@ -62,8 +63,11 @@ if (isset($_REQUEST['favobj'])) {
 
 if (PAGE_TYPE_JS == $page['type'] || PAGE_TYPE_HTML_BLOCK == $page['type']) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
+
+// js templates
+require_once dirname(__FILE__).'/include/views/js/general.script.confirm.js.php';
 
 // get triggers
 $options = array(
@@ -80,10 +84,8 @@ $trigger = reset($triggers);
 
 // get events
 $options = array(
-	'source' => EVENT_SOURCE_TRIGGERS,
-	'object' => EVENT_OBJECT_TRIGGER,
 	'eventids' => $_REQUEST['eventid'],
-	'objectids' => $_REQUEST['triggerid'],
+	'triggerids' => $_REQUEST['triggerid'],
 	'select_alerts' => API_OUTPUT_EXTEND,
 	'select_acknowledges' => API_OUTPUT_EXTEND,
 	'output' => API_OUTPUT_EXTEND,
@@ -96,7 +98,7 @@ $tr_event_wdgt = new CWidget();
 $tr_event_wdgt->setClass('header');
 
 // Main widget header
-$text = array(_('EVENTS').': "'.CMacrosResolverHelper::resolveTriggerName($trigger).'"');
+$text = array(_('EVENTS').': "'.CTriggerHelper::expandDescription($trigger).'"');
 
 $fs_icon = get_icon('fullscreen', array('fullscreen' => $_REQUEST['fullscreen']));
 $tr_event_wdgt->addHeader($text, $fs_icon);
@@ -117,30 +119,25 @@ $right_col = array();
 
 // if acknowledges are not disabled in configuration, let's show them
 if ($config['event_ack_enable']) {
-	$eventAcknowledgesWidget = new CUIWidget('hat_eventack', makeAckTab($event));
-	$eventAcknowledgesWidget->open = (bool) CProfile::get('web.tr_events.hats.hat_eventack.state', true);
-	$eventAcknowledgesWidget->setHeader(_('Acknowledges'));
-
-	$right_col[] = $eventAcknowledgesWidget;
+	$event_ack = new CUIWidget('hat_eventack', makeAckTab($event), CProfile::get('web.tr_events.hats.hat_eventack.state', 1));
+	$event_ack->setHeader(_('Acknowledges'));
+	$right_col[] = $event_ack;
 }
 
 // event sms actions
-$actionsSmsWidget = new CUIWidget('hat_eventactionmsgs', get_action_msgs_for_event($event));
-$actionsSmsWidget->open = (bool) CProfile::get('web.tr_events.hats.hat_eventactionmsgs.state', true);
-$actionsSmsWidget->setHeader(_('Message actions'));
-$right_col[] = $actionsSmsWidget;
+$actions_sms = new CUIWidget('hat_eventactionmsgs', get_action_msgs_for_event($event), CProfile::get('web.tr_events.hats.hat_eventactionmsgs.state', 1));
+$actions_sms->setHeader(_('Message actions'));
+$right_col[] = $actions_sms;
 
 // event cmd actions
-$actionsCommandWidget = new CUIWidget('hat_eventactionmcmds', get_action_cmds_for_event($event));
-$actionsCommandWidget->open = (bool) CProfile::get('web.tr_events.hats.hat_eventactioncmds.state', true);
-$actionsCommandWidget->setHeader(_('Command actions'));
-$right_col[] = $actionsCommandWidget;
+$actions_cmd = new CUIWidget('hat_eventactionmcmds', get_action_cmds_for_event($event), CProfile::get('web.tr_events.hats.hat_eventactioncmds.state', 1));
+$actions_cmd->setHeader(_('Command actions'));
+$right_col[] = $actions_cmd;
 
 // event history
-$eventsHistoryWidget = new CUIWidget('hat_eventlist', make_small_eventlist($event));
-$eventsHistoryWidget->open = (bool) CProfile::get('web.tr_events.hats.hat_eventlist.state', true);
-$eventsHistoryWidget->setHeader(_('Event list [previous 20]'));
-$right_col[] = $eventsHistoryWidget;
+$events_histry = new CUIWidget('hat_eventlist', make_small_eventlist($event), CProfile::get('web.tr_events.hats.hat_eventlist.state', 1));
+$events_histry->setHeader(_('Event list [previous 20]'));
+$right_col[] = $events_histry;
 
 $leftDiv = new CDiv($left_col, 'column');
 $middleDiv = new CDiv($right_col, 'column');

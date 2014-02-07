@@ -39,19 +39,16 @@
 #define	ZBX_TYPE_TEXT		4
 #define	ZBX_TYPE_UINT		5
 #define	ZBX_TYPE_ID		6
-#define	ZBX_TYPE_SHORTTEXT	7
-#define	ZBX_TYPE_LONGTEXT	8
 
 #define ZBX_MAX_FIELDS		73 /* maximum number of fields in a table plus one for null terminator in dbschema.c */
-#define ZBX_TABLENAME_LEN	21
-#define ZBX_TABLENAME_LEN_MAX	(ZBX_TABLENAME_LEN + 1)
-#define ZBX_FIELDNAME_LEN	24
-#define ZBX_FIELDNAME_LEN_MAX	(ZBX_FIELDNAME_LEN + 1)
+#define ZBX_TABLENAME_LEN	64
+#define ZBX_TABLENAME_LEN_MAX	ZBX_TABLENAME_LEN + 1
+#define ZBX_FIELDNAME_LEN	64
+#define ZBX_FIELDNAME_LEN_MAX	ZBX_FIELDNAME_LEN + 1
 
 typedef struct
 {
-	const char	*name;
-	const char	*default_value;
+	const char    	*name;
 	const char	*fk_table;
 	const char	*fk_field;
 	unsigned short	length;

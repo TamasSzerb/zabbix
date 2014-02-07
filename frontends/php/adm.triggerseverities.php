@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/include/config.inc.php';
 
 $page['title'] = _('Configuration of trigger severities');
@@ -77,7 +77,7 @@ $form->cleanItems();
 $cmbConf = new CComboBox('configDropDown', 'adm.triggerseverities.php', 'redirect(this.options[this.selectedIndex].value);');
 $cmbConf->addItems(array(
 	'adm.gui.php' => _('GUI'),
-	'adm.housekeeper.php' => _('Housekeeping'),
+	'adm.housekeeper.php' => _('Housekeeper'),
 	'adm.images.php' => _('Images'),
 	'adm.iconmapping.php' => _('Icon mapping'),
 	'adm.regexps.php' => _('Regular expressions'),
@@ -120,3 +120,4 @@ $cnf_wdgt->addItem($triggerSeverityForm->render());
 $cnf_wdgt->show();
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

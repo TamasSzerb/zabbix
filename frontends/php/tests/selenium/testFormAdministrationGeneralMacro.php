@@ -43,10 +43,12 @@ class testFormAdministrationGeneralMacro extends CWebTest {
 	private $oldHashGlobalMacros = '';
 
 	private function openGlobalMacros() {
-		$this->zbxTestLogin('adm.macros.php');
+		$this->zbxTestLogin('adm.gui.php');
+		$this->assertElementPresent('configDropDown');
+		$this->zbxTestDropdownSelectWait('configDropDown', 'Macros');
 		$this->assertElementPresent('configDropDown');
 
-		$this->zbxTestCheckTitle('Configuration of macros');
+		$this->checkTitle('Configuration of macros');
 		$this->zbxTestTextPresent('CONFIGURATION OF MACROS');
 		$this->zbxTestTextPresent('Macros');
 		$this->zbxTestTextPresent(array('Macro', 'Value'));

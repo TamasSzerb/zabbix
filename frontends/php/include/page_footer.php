@@ -63,6 +63,7 @@ if (in_array($page['type'], array(PAGE_TYPE_HTML_BLOCK, PAGE_TYPE_HTML))) {
 
 if ($page['type'] == PAGE_TYPE_HTML) {
 	$post_script .= 'var page_refresh = null;'."\n";
+
 	$post_script .= "jQuery(function() {\n";
 
 	if (isset($ZBX_PAGE_POST_JS)) {
@@ -75,13 +76,12 @@ if ($page['type'] == PAGE_TYPE_HTML) {
 		$post_script .= 'PageRefresh.init('.(CWebUser::$data['refresh'] * 1000).');'."\n";
 	}
 
-	if (isset($page['scripts']) && in_array('flickerfreescreen.js', $page['scripts'])) {
+	if (in_array('flickerfreescreen.js', $page['scripts'])) {
 		$post_script .= 'window.flickerfreeScreenShadow.timeout = '.SCREEN_REFRESH_TIMEOUT.' * 1000;'."\n";
 		$post_script .= 'window.flickerfreeScreenShadow.responsiveness = '.SCREEN_REFRESH_RESPONSIVENESS.' * 1000;'."\n";
 	}
 
 	// the chkbxRange.init() method must be called after the inserted post scripts
-	$post_script .= "cookie.init();\n";
 	$post_script .= "chkbxRange.init();\n";
 	$post_script .= '});'."\n";
 
@@ -110,7 +110,6 @@ if ($page['type'] == PAGE_TYPE_HTML) {
 		));
 		$table->show();
 	}
-
 	insert_js($post_script);
 
 	echo '</body>'."\n".

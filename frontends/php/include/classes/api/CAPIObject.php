@@ -17,10 +17,10 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 class CAPIObject {
-
 	private $_name;
 
 	public function __construct($name) {
@@ -44,7 +44,20 @@ class CAPIObject {
 			$trace = $result['data'];
 
 			if (isset($result['debug'])) {
-				$trace .= ' ['.CProfiler::getInstance()->formatCallStack($result['debug']).']';
+				$trace .= ' [';
+
+				$chain = array();
+				foreach ($result['debug'] as $bt) {
+					if ($bt['function'] == 'exception') continue;
+					if ($bt['function'] == 'call_user_func') break;
+
+					$chain[] = (isset($bt['class']) ? $bt['class'].'.'.$bt['function'] : $bt['function']);
+					$chain[] = ' -> ';
+				}
+				array_pop($chain);
+				$trace .= implode('', array_reverse($chain));
+
+				$trace .= ']';
 			}
 
 			error($trace);

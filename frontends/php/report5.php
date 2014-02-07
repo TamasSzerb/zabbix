@@ -24,6 +24,7 @@ require_once dirname(__FILE__).'/include/triggers.inc.php';
 $page['title'] = _('Most busy triggers top 100');
 $page['file'] = 'report5.php';
 $page['hist_arg'] = array('period');
+$page['scripts'] = array();
 
 require_once dirname(__FILE__).'/include/page_header.php';
 
@@ -36,7 +37,7 @@ check_fields($fields);
 $rprt_wdgt = new CWidget();
 
 $_REQUEST['period'] = get_request('period', 'day');
-$admin_links = (CWebUser::$data['type'] == USER_TYPE_ZABBIX_ADMIN || CWebUser::$data['type'] == USER_TYPE_SUPER_ADMIN);
+$admin_links = ($USER_DETAILS['type'] == USER_TYPE_ZABBIX_ADMIN || $USER_DETAILS['type'] == USER_TYPE_SUPER_ADMIN);
 
 $form = new CForm('get');
 
@@ -83,9 +84,9 @@ $triggersEventCount = array();
 $sql = 'SELECT e.objectid,count(distinct e.eventid) AS cnt_event'.
 		' FROM triggers t,events e'.
 		' WHERE t.triggerid=e.objectid'.
-			' AND e.source='.EVENT_SOURCE_TRIGGERS.
 			' AND e.object='.EVENT_OBJECT_TRIGGER.
-			' AND e.clock>'.(time() - $time_dif);
+			' AND e.clock>'.(time() - $time_dif).
+			' AND e.value_changed='.TRIGGER_VALUE_CHANGED_YES;
 
 // add permission filter
 if (CWebUser::getType() != USER_TYPE_SUPER_ADMIN) {
@@ -101,7 +102,7 @@ if (CWebUser::getType() != USER_TYPE_SUPER_ADMIN) {
 				' AND f.itemid=i.itemid'.
 				' AND i.hostid=hgg.hostid'.
 			' GROUP BY f.triggerid'.
-			' HAVING MIN(r.permission)>'.PERM_DENY.')';
+			' HAVING MIN(r.permission)>='.PERM_READ_ONLY.')';
 }
 $sql .= ' AND '.dbConditionInt('t.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED)).
 		' GROUP BY e.objectid'.
@@ -113,68 +114,71 @@ while ($row = DBfetch($result)) {
 
 $triggers = API::Trigger()->get(array(
 	'triggerids' => array_keys($triggersEventCount),
-	'output' => array('triggerid', 'description', 'expression', 'priority', 'flags', 'url', 'lastchange'),
+	'output' => array('triggerid', 'description', 'expression', 'priority', 'flags', 'lastchange'),
 	'selectItems' => array('hostid', 'name', 'value_type', 'key_'),
-	'selectHosts' => array('hostid'),
 	'expandDescription' => true,
 	'expandData' => true,
 	'preservekeys' => true,
-	'nopermissions' => true
+	'nopermissions' => true,
 ));
 
-$hostIds = array();
+$hosts = array();
 
-foreach ($triggers as $triggerId => $trigger) {
-	$hostIds[$trigger['hostid']] = $trigger['hostid'];
+foreach ($triggers as $tid => $trigger) {
+	$hosts[$trigger['hostid']] = $trigger['hostid'];
+	$trigger['cnt_event'] = $triggersEventCount[$tid];
 
-	$triggerItems = array();
-
-	$trigger['items'] = CMacrosResolverHelper::resolveItemNames($trigger['items']);
-
-	foreach ($trigger['items'] as $item) {
-		$triggerItems[] = array(
-			'name' => $item['name_expanded'],
-			'params' => array(
-				'itemid' => $item['itemid'],
-				'action' => in_array($item['value_type'], array(ITEM_VALUE_TYPE_FLOAT, ITEM_VALUE_TYPE_UINT64))
-					? 'showgraph' : 'showvalues'
-			)
+	$items = $trigger['items'];
+	$trigger['items'] = array();
+	foreach ($items as $item) {
+		$trigger['items'][$item['itemid']] = array(
+			'itemid' => $item['itemid'],
+			'action' => str_in_array($item['value_type'], array(ITEM_VALUE_TYPE_FLOAT, ITEM_VALUE_TYPE_UINT64)) ? 'showgraph' : 'showvalues',
+			'name' => itemName($item),
+			'value_type' => $item['value_type']
 		);
 	}
-
-	$triggers[$triggerId]['items'] = $triggerItems;
-	$triggers[$triggerId]['cnt_event'] = $triggersEventCount[$triggerId];
+	$triggers[$tid] = $trigger;
 }
 
-CArrayHelper::sort($triggers, array(
-	array('field' => 'cnt_event', 'order' => ZBX_SORT_DOWN),
-	'host', 'description', 'priority'
-));
+CArrayHelper::sort($triggers, array(array('field' => 'cnt_event', 'order' => ZBX_SORT_DOWN), 'host', 'description', 'priority'));
 
-$hosts = API::Host()->get(array(
-	'output' => array('hostid'),
-	'hostids' => $hostIds,
-	'selectScreens' => API_OUTPUT_COUNT,
-	'preservekeys' => true
-));
-
-$scripts = API::Script()->getScriptsByHosts($hostIds);
+$scripts_by_hosts = API::Script()->getScriptsByHosts($hosts);
 
 foreach ($triggers as $trigger) {
-	$hostId = $trigger['hostid'];
+	$menus = '';
+	$host_nodeid = id2nodeid($trigger['hostid']);
+	foreach ($scripts_by_hosts[$trigger['hostid']] as $script) {
+		$script_nodeid = id2nodeid($script['scriptid']);
+		if (bccomp($host_nodeid, $script_nodeid) == 0) {
+			$menus .= "['".$script['name']."',\"javascript: openWinCentered('scripts_exec.php?execute=1&hostid=".$trigger['hostid']."&scriptid=".$script['scriptid']."','Global script',760,540,'titlebar=no, resizable=yes, scrollbars=yes, dialog=no');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
+		}
+	}
 
-	$hostName = new CSpan($trigger['hostname'], 'link_menu');
-	$hostName->setMenuPopup(CMenuPopupHelper::getHost($hosts[$hostId], $scripts[$hostId]));
+	$menus .= "['"._('URLs')."',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],";
+	$menus .= "['"._('Latest data')."',\"javascript: redirect('latest.php?hostid=".$trigger['hostid']."')\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}]";
+	$menus = "show_popup_menu(event,[['"._('Scripts')."',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],".$menus."],180);";
 
-	$triggerDescription = new CSpan($trigger['description'], 'link_menu');
-	$triggerDescription->setMenuPopup(CMenuPopupHelper::getTrigger($trigger, $trigger['items']));
+	$hostSpan = new CSpan($trigger['hostname'], 'link_menu');
+	$hostSpan->setAttribute('onclick', $menus);
+
+	$tr_conf_link = 'null';
+	if ($USER_DETAILS['type'] > USER_TYPE_ZABBIX_USER && $trigger['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) {
+		$tr_conf_link = "['"._('Configuration of trigger')."',\"javascript: redirect('triggers.php?form=update&triggerid=".$trigger['triggerid']."&hostid=".$trigger['hostid']."')\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}]";
+	}
+
+
+	$tr_desc = new CSpan($trigger['description'], 'link_menu');
+	$tr_desc->addAction('onclick', "create_mon_trigger_menu(event, ".
+			" [{'triggerid': '".$trigger['triggerid']."', 'lastchange': '".$trigger['lastchange']."'},".$tr_conf_link."],".
+			zbx_jsvalue($trigger['items'], true).");");
 
 	$table->addRow(array(
 		get_node_name_by_elid($trigger['triggerid']),
-		$hostName,
-		$triggerDescription,
+		$hostSpan,
+		$tr_desc,
 		getSeverityCell($trigger['priority']),
-		$trigger['cnt_event']
+		$trigger['cnt_event'],
 	));
 }
 

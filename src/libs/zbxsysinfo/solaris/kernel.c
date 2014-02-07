@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,31 +9,34 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
 
-int	KERNEL_MAXPROC(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	KERNEL_MAXPROC(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	int		ret = SYSINFO_RET_FAIL;
 	kstat_ctl_t	*kc;
 	kstat_t		*kt;
 	struct var	*v;
 
-	if (NULL != (kc = kstat_open()))
+	kc = kstat_open();
+	if(kc)
 	{
-		if (NULL != (kt = kstat_lookup(kc, "unix", 0, "var")))
+		kt = kstat_lookup(kc, "unix", 0, "var");
+		if(kt)
 		{
-			if (KSTAT_TYPE_RAW == kt->ks_type && -1 != kstat_read(kc, kt, NULL))
+			if((kt->ks_type == KSTAT_TYPE_RAW) &&
+				(kstat_read(kc, kt, NULL) != -1))
 			{
-				v = (struct var *)kt->ks_data;
+				v = (struct var *) kt->ks_data;
 
 				/* int	v_proc;	    Max processes system wide */
 				SET_UI64_RESULT(result, v->v_proc);

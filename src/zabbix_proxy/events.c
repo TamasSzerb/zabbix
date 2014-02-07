@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,23 +9,36 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
+#include "log.h"
 
-void	add_event(zbx_uint64_t eventid, unsigned char source, unsigned char object, zbx_uint64_t objectid,
-		const zbx_timespec_t *timespec, int value, const char *trigger_description,
-		const char *trigger_expression, unsigned char trigger_priority, unsigned char trigger_type)
-{
-}
+#include "events.h"
 
-int	process_events(void)
+/******************************************************************************
+ *                                                                            *
+ * Function: process_event                                                    *
+ *                                                                            *
+ * Purpose: process new event                                                 *
+ *                                                                            *
+ * Parameters: event data                                                     *
+ *                                                                            *
+ * Return value: SUCCESS - event added                                        *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments: Cannot use action->userid as it may also be groupid              *
+ *                                                                            *
+ ******************************************************************************/
+int	process_event(zbx_uint64_t eventid, int source, int object, zbx_uint64_t objectid, int clock,
+		int value, int acknowledged, int force_actions)
 {
-	return 0;
+	return SUCCEED;
 }

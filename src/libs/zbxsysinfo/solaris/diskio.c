@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -88,98 +88,95 @@ clean:
 	return result;
 }
 
-static int	VFS_DEV_READ_BYTES(const char *devname, AGENT_RESULT *result)
+static int	VFS_DEV_READ_BYTES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	int	ret;
 
-	if (SYSINFO_RET_OK == (ret = get_kstat_io(devname, &zbx_kstat)))
+	if (SYSINFO_RET_OK == (ret = get_kstat_io(param, &zbx_kstat)))
 		SET_UI64_RESULT(result, zbx_kstat.nread);
 
 	return ret;
 }
 
-static int	VFS_DEV_READ_OPERATIONS(const char *devname, AGENT_RESULT *result)
+static int	VFS_DEV_READ_OPERATIONS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	int	ret;
 
-	if (SYSINFO_RET_OK == (ret = get_kstat_io(devname, &zbx_kstat)))
+	if (SYSINFO_RET_OK == (ret = get_kstat_io(param, &zbx_kstat)))
 		SET_UI64_RESULT(result, zbx_kstat.reads);
 
 	return ret;
 }
 
-static int	VFS_DEV_WRITE_BYTES(const char *devname, AGENT_RESULT *result)
+static int	VFS_DEV_WRITE_BYTES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	int	ret;
 
-	if (SYSINFO_RET_OK == (ret = get_kstat_io(devname, &zbx_kstat)))
+	if (SYSINFO_RET_OK == (ret = get_kstat_io(param, &zbx_kstat)))
 		SET_UI64_RESULT(result, zbx_kstat.nwritten);
 
 	return ret;
 }
 
-static int	VFS_DEV_WRITE_OPERATIONS(const char *devname, AGENT_RESULT *result)
+static int	VFS_DEV_WRITE_OPERATIONS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	int	ret;
 
-	if (SYSINFO_RET_OK == (ret = get_kstat_io(devname, &zbx_kstat)))
+	if (SYSINFO_RET_OK == (ret = get_kstat_io(param, &zbx_kstat)))
 		SET_UI64_RESULT(result, zbx_kstat.writes);
 
 	return ret;
 }
 
-static int	process_mode_function(AGENT_REQUEST *request, AGENT_RESULT *result, const MODE_FUNCTION *fl)
+static int	process_mode_function(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result, MODE_FUNCTION *fl)
 {
 	char	devname[MAX_STRING_LEN], mode[16];
-	char	*devname_str, *mode_str;
 	int	i;
 
-	if (2 < request->nparam)
+	if (2 < num_param(param))
 		return SYSINFO_RET_FAIL;
 
-	devname_str = get_rparam(request, 0);
-
-	if (NULL == devname_str || 0 == strcmp("all", devname_str))
+	if (0 != get_param(param, 1, devname, sizeof(mode)) || 0 == strcmp("all", devname))
 		*devname = '\0';
-	else
-		strscpy(devname, devname_str);
 
-	mode_str = get_rparam(request, 1);
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
 
-	if (NULL == mode_str || '\0' == *mode_str)
+	if ('\0' == *mode)
+	{
+		/* default parameter */
 		strscpy(mode, "bytes");
-	else
-		strscpy(mode, mode_str);
+	}
 
 	for (i = 0; NULL != fl[i].mode; i++)
 	{
 		if (0 == strcmp(mode, fl[i].mode))
-			return (fl[i].function)(devname, result);
+			return (fl[i].function)(cmd, devname, flags, result);
 	}
 
 	return SYSINFO_RET_FAIL;
 }
 
-int	VFS_DEV_WRITE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_DEV_WRITE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	const MODE_FUNCTION	fl[] =
+	MODE_FUNCTION fl[] =
 	{
 		{"bytes", 	VFS_DEV_WRITE_BYTES},
 		{"operations", 	VFS_DEV_WRITE_OPERATIONS},
 		{NULL,		NULL}
 	};
 
-	return process_mode_function(request, result, fl);
+	return process_mode_function(cmd, param, flags, result, fl);
 }
 
-int	VFS_DEV_READ(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_DEV_READ(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	const MODE_FUNCTION	fl[] =
+	MODE_FUNCTION fl[] =
 	{
 		{"bytes",	VFS_DEV_READ_BYTES},
 		{"operations",	VFS_DEV_READ_OPERATIONS},
 		{NULL,		NULL}
 	};
 
-	return process_mode_function(request, result, fl);
+	return process_mode_function(cmd, param, flags, result, fl);
 }

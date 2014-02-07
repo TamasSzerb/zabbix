@@ -1,6 +1,7 @@
+//Javascript document
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2009 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,972 +10,1043 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-// Array indexOf method for javascript<1.6 compatibility
-if (!Array.prototype.indexOf) {
-	Array.prototype.indexOf = function (searchElement) {
-		if (this === void 0 || this === null) {
-			throw new TypeError();
-		}
-		var t = Object(this);
-		var len = t.length >>> 0;
-		if (len === 0) {
-			return -1;
-		}
-		var n = 0;
-		if (arguments.length > 0) {
-			n = Number(arguments[1]);
-			if (n !== n) { // shortcut for verifying if it's NaN
-				n = 0;
-			}
-			else if (n !== 0 && n !== (1 / 0) && n !== -(1 / 0)) {
-				n = (n > 0 || -1) * Math.floor(Math.abs(n));
-			}
-		}
-		if (n >= len) {
-			return -1;
-		}
-		var k = n >= 0 ? n : Math.max(len - Math.abs(n), 0);
-		for (; k < len; k++) {
-			if (k in t && t[k] === searchElement) {
-				return k;
-			}
-		}
-		return -1;
-	}
+/************************************************************************************/
+/*								PAGE REFRESH										*/
+/************************************************************************************/
+// Author: Aly
+var PageRefresh = {
+delay:			null,	// refresh timeout
+delayLeft:		null,	// left till refresh
+timeout:		null,	// link to timeout
+
+init: function(time){
+	this.delay = time;
+	this.delayLeft = this.delay;
+	this.start();
+},
+
+check: function(){
+	if(is_null(this.delay)) return false;
+
+	this.delayLeft -= 1000;
+	if(this.delayLeft < 0)
+		location.reload();
+	else
+		this.timeout = setTimeout('PageRefresh.check()', 1000);
+},
+
+start: function(){
+	if(is_null(this.delay)) return false;
+
+	this.timeout = setTimeout('PageRefresh.check()', 1000);
+},
+
+restart: function(){
+	this.stop();
+	this.delayLeft = this.delay;
+	this.start();
+},
+
+stop: function(){
+	clearTimeout(this.timeout);
+},
+
+restart: function(){
+	this.stop();
+	this.delayLeft = this.delay;
+	this.start();
+}
 }
 
-/*
- * Page refresh
- */
-var PageRefresh = {
-	delay:		null, // refresh timeout
-	delayLeft:	null, // left till refresh
-	timeout:	null, // link to timeout
+/************************************************************************************/
+/*								MAIN MENU stuff										*/
+/************************************************************************************/
+// Author: Aly
 
-	init: function(time) {
-		this.delay = time;
-		this.delayLeft = this.delay;
-		this.start();
-	},
-
-	check: function() {
-		if (is_null(this.delay)) {
-			return false;
-		}
-
-		this.delayLeft -= 1000;
-		if (this.delayLeft < 0) {
-			location.replace(location.href);
-		}
-		else {
-			this.timeout = setTimeout('PageRefresh.check()', 1000);
-		}
-	},
-
-	start: function() {
-		if (is_null(this.delay)) {
-			return false;
-		}
-		this.timeout = setTimeout('PageRefresh.check()', 1000);
-	},
-
-	stop: function() {
-		clearTimeout(this.timeout);
-	},
-
-	restart: function() {
-		this.stop();
-		this.delayLeft = this.delay;
-		this.start();
-	}
-};
-
-/*
- * Main menu
- */
 var MMenu = {
-	menus:			{'empty': 0, 'view': 0, 'cm': 0, 'reports': 0, 'config': 0, 'admin': 0},
-	def_label:		null,
-	sub_active: 	false,
-	timeout_reset:	null,
-	timeout_change:	null,
+menus:			{'empty': 0, 'view': 0, 'cm': 0, 'reports': 0, 'config': 0, 'admin': 0},
+def_label:		null,
+sub_active: 	false,
+timeout_reset:	null,
+timeout_change:	null,
 
-	mouseOver: function(show_label) {
-		clearTimeout(this.timeout_reset);
-		this.timeout_change = setTimeout('MMenu.showSubMenu("' + show_label + '")', 200);
-		PageRefresh.restart();
-	},
+mouseOver: function(show_label){
+	clearTimeout(this.timeout_reset);
+	this.timeout_change = setTimeout('MMenu.showSubMenu("'+show_label+'")', 200);
+	PageRefresh.restart();
+},
 
-	submenu_mouseOver: function() {
-		clearTimeout(this.timeout_reset);
-		clearTimeout(this.timeout_change);
-		PageRefresh.restart();
-	},
+submenu_mouseOver: function(){
+	clearTimeout(this.timeout_reset);
+	clearTimeout(this.timeout_change);
+	PageRefresh.restart();
+},
 
-	mouseOut: function() {
-		clearTimeout(this.timeout_change);
-		this.timeout_reset = setTimeout('MMenu.showSubMenu("' + this.def_label + '")', 2500);
-	},
+mouseOut: function(){
+	clearTimeout(this.timeout_change);
+	this.timeout_reset = setTimeout('MMenu.showSubMenu("'+this.def_label+'")', 2500);
+},
 
-	showSubMenu: function(show_label) {
-		var menu_div = $('sub_' + show_label);
-		if (!is_null(menu_div)) {
-			$(show_label).className = 'active';
-			menu_div.show();
-			for (var key in this.menus) {
-				if (key == show_label) {
-					continue;
+showSubMenu: function(show_label){
+	var menu_div = $('sub_' + show_label);
+	if (!is_null(menu_div)) {
+		$(show_label).className = 'active';
+		menu_div.show();
+		for (var key in this.menus) {
+			if (key == show_label) {
+				continue;
+			}
+			var menu_cell = $(key);
+			if (!is_null(menu_cell)) {
+				if (menu_cell.tagName.toLowerCase() != 'select') {
+					menu_cell.className = '';
 				}
-
-				var menu_cell = $(key);
-				if (!is_null(menu_cell)) {
-					if (menu_cell.tagName.toLowerCase() != 'select') {
-						menu_cell.className = '';
-					}
-				}
-				var sub_menu_cell = $('sub_' + key);
-				if (!is_null(sub_menu_cell)) {
-					sub_menu_cell.hide();
-				}
+			}
+			var sub_menu_cell = $('sub_' + key);
+			if (!is_null(sub_menu_cell)) {
+				sub_menu_cell.hide();
 			}
 		}
 	}
+}
 };
 
-/*
- * Automatic checkbox range selection
- */
+
+/************************************************************************************/
+/*						Automatic checkbox range selection 							*/
+/************************************************************************************/
+// Author: Aly
+
 var chkbxRange = {
-	startbox:		null,	// start checkbox obj
-	startboxName:	null,	// start checkbox name
-	chkboxes:		{},		// ckbx list
-	prefix:			null,	// prefix for cookie name
-	pageGoName:		null,	// which checkboxes should be counted by Go button
-	pageGoCount:	0,		// selected checkboxes
-	selectedIds:	{},		// ids of selected checkboxes
-	goButton:		null,
-	cookieName:		null,
+startbox:			null,			// start checkbox obj
+startbox_name: 		null,			// start checkbox name
+chkboxes:			{},				// ckbx list
+pageGoName:			null,			// wich checkboxes should be counted by Go button
+pageGoCount:		0,				// selected checkboxes
+selected_ids:		{},	// ids of selected checkboxes
+goButton:			null,
+page:				null,			// loaded page name
 
-	init: function() {
-		var path = new Curl();
-		var filename = basename(path.getPath(), '.php');
-		this.cookieName = 'cb_' + filename + (this.prefix ? '_' + this.prefix : '');
-		this.selectedIds = cookie.readJSON(this.cookieName);
+init: function(){
 
-		var chkboxes = jQuery('.tableinfo .checkbox:not(:disabled)');
-		if (chkboxes.length > 0) {
-			for (var i = 0; i < chkboxes.length; i++) {
-				this.implement(chkboxes[i]);
-			}
+	this.goButton = $('goButton');
+	var path = new Curl();
+	this.page = path.getPath();
+
+	this.selected_ids = cookie.readJSON('cb_'+this.page);
+
+	var chk_bx = document.getElementsByTagName('input');
+
+	for(var i=0; i < chk_bx.length; i++){
+		if((typeof(chk_bx[i]) != 'undefined') && (chk_bx[i].type.toLowerCase() == 'checkbox')){
+			this.implement(chk_bx[i]);
 		}
+	}
 
-		this.selectMainCheckbox();
+	if(!is_null(this.goButton))
+		addListener(this.goButton, 'click', this.submitGo.bindAsEventListener(this), false);
 
-		this.goButton = $('goButton');
-		if (!is_null(this.goButton)) {
-			addListener(this.goButton, 'click', this.submitGo.bindAsEventListener(this), false);
+	this.setGo();
+},
+
+implement: function(obj){
+	var obj_name = obj.name.split('[')[0];
+
+	if(typeof(this.chkboxes[obj_name]) == 'undefined') this.chkboxes[obj_name] = new Array();
+	this.chkboxes[obj_name].push(obj);
+
+	addListener(obj, 'click', this.check.bindAsEventListener(this), false);
+
+	if(obj_name == this.pageGoName){
+		var obj_id  = obj.name.split('[')[1];
+		obj_id = obj_id.substring(0, obj_id.lastIndexOf(']'));
+
+		if(isset(obj_id, this.selected_ids)){
+//SDI(obj_id);
+			obj.checked = true;
 		}
+	}
+},
 
-		this.setGo();
-	},
+check: function(e){
+	var e = e || window.event;
+	var obj = Event.element(e);
 
-	implement: function(obj) {
-		var objName = obj.name.split('[')[0];
+	PageRefresh.restart();
 
-		if (typeof(this.chkboxes[objName]) === 'undefined') {
-			this.chkboxes[objName] = [];
-		}
-		this.chkboxes[objName].push(obj);
+	if((typeof(obj) == 'undefined') || (obj.type.toLowerCase() != 'checkbox')){
+		return true;
+	}
 
-		addListener(obj, 'click', this.check.bindAsEventListener(this), false);
+	this.setGo();
 
-		if (objName == this.pageGoName) {
-			var objId = jQuery(obj).val();
-			if (isset(objId, this.selectedIds)) {
-				obj.checked = true;
-			}
-		}
-	},
+	if(!(e.ctrlKey || e.shiftKey)) return true;
+	if(obj.name.indexOf('all_') > -1) return true;
+	if(obj.name.indexOf('_single') > -1) return true;
 
-	// check if all checkboxes are selected and select main checkbox, else disable checkbox, select options and button
-	selectMainCheckbox: function() {
-		var mainCheckbox = jQuery('.tableinfo .header .checkbox:not(:disabled)');
-		if (!mainCheckbox.length) {
-			return;
-		}
 
-		var countAvailable = jQuery('.tableinfo tr:not(.header) .checkbox:not(:disabled)').length;
+	var obj_name = obj.name.split('[')[0];
 
-		if (countAvailable > 0) {
-			var countChecked = jQuery('.tableinfo tr:not(.header) .checkbox:not(:disabled):checked').length;
+	if(!is_null(this.startbox) && (this.startbox_name == obj_name) && (obj.name != this.startbox.name)){
+		var chkbx_list = this.chkboxes[obj_name];
+		var flag = false;
 
-			mainCheckbox = mainCheckbox[0];
-			mainCheckbox.checked = (countChecked == countAvailable);
-
-			if (mainCheckbox.checked) {
-				jQuery('.tableinfo .header').addClass('selectedMain');
-			}
-			else {
-				jQuery('.tableinfo .header').removeClass('selectedMain');
-			}
-		}
-		else {
-			mainCheckbox.disabled = true;
-		}
-	},
-
-	check: function(e) {
-		e = e || window.event;
-		var obj = Event.element(e);
-
-		PageRefresh.restart();
-
-		if (typeof(obj) === 'undefined' || obj.type.toLowerCase() != 'checkbox' || obj.disabled === true) {
-			return true;
-		}
-
-		this.setGo();
-
-		if (obj.name.indexOf('all_') > -1 || obj.name.indexOf('_single') > -1) {
-			return true;
-		}
-		var objName = obj.name.split('[')[0];
-
-		// check range selection
-		if (e.ctrlKey || e.shiftKey) {
-			if (!is_null(this.startbox) && this.startboxName == objName && obj.name != this.startbox.name) {
-				var chkboxes = this.chkboxes[objName];
-				var flag = false;
-
-				for (var i = 0; i < chkboxes.length; i++) {
-					if (typeof(chkboxes[i]) !== 'undefined') {
-						if (flag) {
-							chkboxes[i].checked = this.startbox.checked;
-						}
-						if (obj.name == chkboxes[i].name) {
-							break;
-						}
-						if (this.startbox.name == chkboxes[i].name) {
-							flag = true;
-						}
-					}
+		for(var i=0; i < chkbx_list.length; i++){
+			if(typeof(chkbx_list[i]) !='undefined'){
+//alert(obj.name+' == '+chkbx_list[i].name);
+				if(flag){
+					chkbx_list[i].checked = this.startbox.checked;
 				}
 
-				if (flag) {
-					this.setGo();
-					this.selectMainCheckbox();
-					return true;
-				}
-				else {
-					for (var i = chkboxes.length - 1; i >= 0; i--) {
-						if (typeof(chkboxes[i]) !== 'undefined') {
-							if (flag) {
-								chkboxes[i].checked = this.startbox.checked;
-							}
-
-							if (obj.name == chkboxes[i].name) {
-								this.setGo();
-								this.selectMainCheckbox();
-								return true;
-							}
-
-							if (this.startbox.name == chkboxes[i].name) {
-								flag = true;
-							}
-						}
-					}
-				}
+				if(obj.name == chkbx_list[i].name) break;
+				if(this.startbox.name == chkbx_list[i].name) flag = true;
 			}
+		}
+
+		if(flag){
+			this.startbox = null;
+			this.startbox_name = null;
 
 			this.setGo();
+			return true;
 		}
-		else {
-			this.selectMainCheckbox();
-		}
+		else{
+			for(var i=chkbx_list.length-1; i >= 0; i--){
+				if(typeof(chkbx_list[i]) !='undefined'){
+//alert(obj.name+' == '+chkbx_list[i].name);
+					if(flag){
+						chkbx_list[i].checked = this.startbox.checked;
+					}
 
-		this.startbox = obj;
-		this.startboxName = objName;
-	},
+					if(obj.name == chkbx_list[i].name){
+						this.startbox = null;
+						this.startbox_name = null;
 
-	checkAll: function(name, value) {
-		if (typeof(this.chkboxes[name]) === 'undefined') {
-			return false;
-		}
+						this.setGo();
+						return true;
+					}
 
-		var chkboxes = this.chkboxes[name];
-		for (var i = 0; i < chkboxes.length; i++) {
-			if (typeof(chkboxes[i]) !== 'undefined' && chkboxes[i].disabled !== true) {
-				var objName = chkboxes[i].name.split('[')[0];
-				if (objName == name) {
-					chkboxes[i].checked = value;
+					if(this.startbox.name == chkbx_list[i].name) flag = true;
 				}
 			}
 		}
 
-		var mainCheckbox = jQuery('.tableinfo .header .checkbox:not(:disabled)')[0];
-		if (mainCheckbox.checked) {
-			jQuery('.tableinfo .header').addClass('selectedMain');
+	}
+	else{
+		if(!is_null(this.startbox)) this.startbox.checked = this.startbox.checked?false:true;
+
+		this.startbox = obj;
+		this.startbox_name = obj_name;
+	}
+
+	this.setGo();
+},
+
+checkAll: function(name, value){
+	if(typeof(this.chkboxes[name]) == 'undefined') return false;
+
+	var chk_bx = this.chkboxes[name];
+	for(var i=0; i < chk_bx.length; i++){
+		if((typeof(chk_bx[i]) !='undefined') && (chk_bx[i].disabled != true)){
+			var obj_name = chk_bx[i].name.split('[')[0];
+
+			if(obj_name == name){
+				chk_bx[i].checked = value;
+			}
+
 		}
-		else {
-			jQuery('.tableinfo .header').removeClass('selectedMain');
+	}
+},
+
+setGo: function(){
+	if(!is_null(this.pageGoName)){
+
+		if(typeof(this.chkboxes[this.pageGoName]) == 'undefined'){
+//			alert('CheckBoxes with name '+this.pageGoName+' doesn\'t exist');
+			return false;
 		}
-	},
 
-	clearSelectedOnFilterChange: function() {
-		cookie.eraseArray(this.cookieName);
-	},
+		var chk_bx = this.chkboxes[this.pageGoName];
+		for(var i=0; i < chk_bx.length; i++){
+			if(typeof(chk_bx[i]) !='undefined'){
+				var box = chk_bx[i];
 
-	setGo: function() {
-		if (!is_null(this.pageGoName)) {
-			if (typeof(this.chkboxes[this.pageGoName]) !== 'undefined') {
-				var chkboxes = this.chkboxes[this.pageGoName];
-				for (var i = 0; i < chkboxes.length; i++) {
-					if (typeof(chkboxes[i]) !== 'undefined') {
-						var box = chkboxes[i];
-						var objName = box.name.split('[')[0];
-						var objId = box.name.split('[')[1];
-						objId = objId.substring(0, objId.lastIndexOf(']'));
-						var crow = getParent(box, 'tr');
+				var obj_name = box.name.split('[')[0];
+				var obj_id  = box.name.split('[')[1];
+				obj_id = obj_id.substring(0, obj_id.lastIndexOf(']'));
 
-						if (box.checked) {
-							if (!is_null(crow)) {
-								var origClass = crow.getAttribute('origClass');
-								if (is_null(origClass)) {
-									crow.setAttribute('origClass', crow.className);
-								}
-								crow.className = 'selected';
-							}
-							if (objName == this.pageGoName) {
-								this.selectedIds[objId] = objId;
-							}
+				var crow = getParent(box,'tr');
+
+				if(box.checked){
+					if(!is_null(crow)){
+						var origClass = crow.getAttribute('origClass');
+						if(is_null(origClass))
+							crow.setAttribute('origClass',crow.className);
+
+						crow.className = 'selected';
+					}
+
+					if(obj_name == this.pageGoName){
+						this.selected_ids[obj_id] = obj_id;
+					}
+				}
+				else{
+					if(!is_null(crow)){
+						var origClass = crow.getAttribute('origClass');
+
+						if(!is_null(origClass)){
+							crow.className = origClass;
+							crow.removeAttribute('origClass');
 						}
-						else {
-							if (!is_null(crow)) {
-								var origClass = crow.getAttribute('origClass');
+					}
 
-								if (!is_null(origClass)) {
-									crow.className = origClass;
-									crow.removeAttribute('origClass');
-								}
-							}
-							if (objName == this.pageGoName) {
-								delete(this.selectedIds[objId]);
-							}
-						}
+					if(obj_name == this.pageGoName){
+						delete(this.selected_ids[obj_id]);
 					}
 				}
 
 			}
-
-			var countChecked = 0;
-			for (var key in this.selectedIds) {
-				if (!empty(this.selectedIds[key])) {
-					countChecked++;
-				}
-			}
-
-			if (!is_null(this.goButton)) {
-				var tmp_val = this.goButton.value.split(' ');
-				this.goButton.value = tmp_val[0] + ' (' + countChecked + ')';
-			}
-
-			cookie.createJSON(this.cookieName, this.selectedIds);
-
-			if (jQuery('#go').length) {
-				jQuery('#go')[0].disabled = (countChecked == 0);
-			}
-			if (jQuery('#goButton').length) {
-				jQuery('#goButton')[0].disabled = (countChecked == 0);
-			}
-
-			this.pageGoCount = countChecked;
 		}
-	},
 
-	submitGo: function(e) {
-		e = e || window.event;
+		var countChecked = 0;
+		for(var key in this.selected_ids){
+			if(!empty(this.selected_ids[key]))
+				countChecked++;
+		}
 
+		if(!is_null(this.goButton)){
+			var tmp_val = this.goButton.value.split(' ');
+			this.goButton.value = tmp_val[0]+' ('+countChecked+')';
+		}
+
+		cookie.createJSON('cb_'+this.page, this.selected_ids);
+
+		this.pageGoCount = countChecked;
+	}
+	else{
+//		alert('Not isset pageGoName')
+	}
+},
+
+submitGo: function(e){
+	var e = e || window.event;
+
+	if(this.pageGoCount > 0){
 		var goSelect = $('go');
 		var confirmText = goSelect.options[goSelect.selectedIndex].getAttribute('confirm');
 
-		if (!is_null(confirmText) && !confirm(confirmText)) {
+		if(is_null(confirmText) || !confirmText){
+//			confirmText = 'Continue with "'+goSelect.options[goSelect.selectedIndex].text+'"?';
+		}
+		else if(!Confirm(confirmText)){
 			Event.stop(e);
 			return false;
 		}
 
 		var form = getParent(this.goButton, 'form');
-		for (var key in this.selectedIds) {
-			if (!empty(this.selectedIds[key])) {
-				create_var(form.name, this.pageGoName + '[' + key + ']', key, false);
-			}
+		for(var key in this.selected_ids){
+			if(!empty(this.selected_ids[key]))
+				create_var(form.name, this.pageGoName+'['+key+']', key, false);
 		}
+
 		return true;
 	}
+	else{
+		alert(locale['S_NO_ELEMENTS_SELECTED']);
+		Event.stop(e);
+		return false;
+	}
+}
 };
 
-/*
- * Audio control system
- */
-var AudioControl = {
-
-	timeoutHandler: null,
-
-	loop: function(timeout) {
-		AudioControl.timeoutHandler = setTimeout(
-			function() {
-				if (new Date().getTime() >= timeout) {
-					AudioControl.stop();
-				}
-				else {
-					AudioControl.loop(timeout);
-				}
-			},
-			1000
-		);
+/************************************************************************************/
+/*								Audio Control System 								*/
+/************************************************************************************/
+var AudioList = {
+list:		{},		// audio files options
+dom:		{},		// dom objects links
+standart:	{
+	'embed':{
+		'enablejavascript':	'true',
+		'autostart':		'false',
+		'loop':				0
 	},
+	'audio':{
+		'autobuffer':	'autobuffer',
+		'autoplay':		null,
+		'controls':		null
+	}
+},
 
-	playOnce: function(name) {
-		this.stop();
+play: function(audiofile){
+	if(!this.create(audiofile)) return false;
 
-		if (IE) {
-			this.create(name, false);
+	if(IE){
+		try{
+			this.dom[audiofile].Play();
 		}
-		else {
-			var obj = jQuery('#audio');
-
-			if (obj.length > 0 && obj.data('name') === name) {
-				obj.trigger('play');
-			}
-			else {
-				this.create(name, false);
-			}
+		catch(e){
+			setTimeout(this.play.bind(this, audiofile), 500);
 		}
-	},
+	}
+	else this.dom[audiofile].play();
+},
 
-	playLoop: function(name, delay) {
-		this.stop();
+pause: function(audiofile){
+	if(!this.create(audiofile)) return false;
 
-		if (IE) {
-			this.create(name, true);
+	if(IE){
+		try{
+			this.dom[audiofile].Stop();
 		}
-		else {
-			var obj = jQuery('#audio');
-
-			if (obj.length > 0 && obj.data('name') === name) {
-				obj.trigger('play');
-			}
-			else {
-				this.create(name, true);
-			}
+		catch(e){
+			setTimeout(this.pause.bind(this, audiofile), 1000);
 		}
+	}
+	else this.dom[audiofile].pause();
+},
 
-		AudioControl.loop(new Date().getTime() + delay * 1000);
-	},
+stop: function(audiofile){
+	if(!this.create(audiofile)) return false;
 
-	stop: function() {
-		var obj = document.getElementById('audio');
+	if(IE) this.dom[audiofile].setAttribute('loop', '0');
+	else this.dom[audiofile].removeAttribute('loop');
 
-		if (obj !== null) {
-			clearTimeout(AudioControl.timeoutHandler);
-
-			if (IE) {
-				obj.setAttribute('loop', 0);
-				obj.setAttribute('playcount', 0);
-
-				try {
-					obj.stop();
-				}
-				catch (e) {
-					setTimeout(
-						function() {
-							try {
-								document.getElementById('audio').stop();
-							}
-							catch (e) {
-							}
-						},
-						100
-					);
-				}
+	if(!IE){
+		try{
+			if(!this.dom[audiofile].paused){
+				this.dom[audiofile].currentTime = 0;
 			}
-			else {
-				jQuery(obj).trigger('pause');
+			else if(this.dom[audiofile].currentTime > 0){
+				this.dom[audiofile].play();
+				this.dom[audiofile].currentTime = 0;
+				this.dom[audiofile].pause();
 			}
 		}
-	},
-
-	create: function(name, loop) {
-		if (IE) {
-			jQuery('#audio').remove();
-
-			jQuery('body').append(jQuery('<embed>', {
-				id: 'audio',
-				'data-name': name,
-				src: 'audio/' + name,
-				enablejavascript: true,
-				autostart: true,
-				loop: true,
-				playcount: loop ? 9999999 : 1,
-				css: {
-					display: 'none'
-				}
-			}));
+		catch(e){
+//			this.remove(audiofile);
 		}
-		else {
-			var obj = jQuery('#audio');
+	}
 
-			if (obj.length == 0 || obj.data('name') !== name) {
-				obj.remove();
+	if(!is_null(this.list[audiofile].timeout)){
+		clearTimeout(this.list[audiofile].timeout);
+		this.list[audiofile].timeout = null;
+	}
 
-				jQuery('body').append(jQuery('<audio>', {
-					id: 'audio',
-					'data-name': name,
-					src: 'audio/' + name,
-					preload: 'auto',
-					autoplay: true,
-					loop: loop ? 9999999 : 1
-				}));
+	this.pause(audiofile);
+	this.endLoop(audiofile);
+},
+
+stopAll: function(e){
+
+	for(var name in this.list){
+		if(empty(this.dom[name])) continue;
+
+		this.stop(name);
+	}
+},
+
+
+volume: function(audiofile, vol){
+	if(!this.create(audiofile)) return false;
+},
+
+loop: function(audiofile, params){
+	if(!this.create(audiofile)) return false;
+
+	if(isset('repeat', params)){
+		if(IE) this.play(audiofile);
+		else{
+			if(this.list[audiofile].loop == 0){
+				if(params.repeat != 0) this.startLoop(audiofile, params.repeat);
+				else this.endLoop(audiofile);
+			}
+
+			if(this.list[audiofile].loop != 0){
+				this.list[audiofile].loop--;
+				this.play(audiofile);
 			}
 		}
 	}
-};
+	else if(isset('seconds', params)){
+		if(IE){
+			this.dom[audiofile].setAttribute('loop', '1');
+		}
+		else{
+			this.startLoop(audiofile, 9999999);
+			this.list[audiofile].loop--;
+		}
 
-/*
- * Replace standard blink functionality
- */
-/**
- * Sets HTML elements to blink.
- * Example of usage:
- *      <span class="blink" data-time-to-blink="60">test 1</span>
- *      <span class="blink" data-time-to-blink="30">test 2</span>
- *      <span class="blink" data-toggle-class="normal">test 3</span>
- *      <span class="blink">test 3</span>
- *      <script type="text/javascript">
- *          jQuery(document).ready(function(
- *              jqBlink.blink();
- *          ));
- *      </script>
- * Elements with class 'blink' will blink for 'data-seconds-to-blink' seconds
- * If 'data-seconds-to-blink' is omitted, element will blink forever.
- * For elements with class 'blink' and attribute 'data-toggle-class' class will be toggled.
- * @author Konstantin Buravcov
- */
-var jqBlink = {
-	shown: false, // are objects currently shown or hidden?
-	blinkInterval: 1000, // how fast will they blink (ms)
-	secondsSinceInit: 0,
-
-	/**
-	 * Shows/hides the elements and repeats it self after 'this.blinkInterval' ms
-	 */
-	blink: function() {
-		var objects = jQuery('.blink');
-
-		// maybe some of the objects should not blink any more?
-		objects = this.filterOutNonBlinking(objects);
-
-		// changing visibility state
-		fun = this.shown ? 'removeClass' : 'addClass';
-		jQuery.each(objects, function() {
-			if (typeof jQuery(this).data('toggleClass') !== 'undefined') {
-				jQuery(this)[fun](jQuery(this).data('toggleClass'));
-			}
-			else {
-				jQuery(this).css('visibility', jqBlink.shown ? 'hidden' : 'visible');
-			}
-		})
-
-		// reversing the value of indicator attribute
-		this.shown = !this.shown;
-
-		// I close my eyes only for a moment, and a moment's gone
-		this.secondsSinceInit += this.blinkInterval / 1000;
-
-		// repeating this function with delay
-		setTimeout(jQuery.proxy(this.blink, this), this.blinkInterval);
-	},
-
-	/**
-	 * Check all currently found objects and exclude ones that should stop blinking by now
-	 */
-	filterOutNonBlinking: function(objects) {
-		var that = this;
-
-		return objects.filter(function() {
-			var obj = jQuery(this);
-			if (typeof obj.data('timeToBlink') !== 'undefined') {
-				var shouldBlink = parseInt(obj.data('timeToBlink'), 10) > that.secondsSinceInit;
-
-				// if object stops blinking, it should be left visible
-				if (!shouldBlink && !that.shown) {
-					obj.css('visibility', 'visible');
-				}
-				return shouldBlink;
-			}
-			else {
-				// no time-to-blink attribute, should blink forever
-				return true;
-			}
-		});
+		this.play(audiofile);
+		this.list[audiofile].timeout = setTimeout(AudioList.stop.bind(AudioList,audiofile), 1000 * parseInt(params.seconds, 10));
 	}
-};
+},
 
-/*
- * HintBox class.
- */
+startLoop: function(audiofile, loop){
+	if(!isset(audiofile, this.list)) return false;
+
+	if(isset('onEnded', this.list[audiofile])) this.endLoop(audiofile);
+
+	this.list[audiofile].loop = parseInt(loop, 10);
+	this.list[audiofile].onEnded = this.loop.bind(this, audiofile, {'repeat': 0});
+	addListener(this.dom[audiofile], 'ended', this.list[audiofile].onEnded);
+},
+
+endLoop: function(audiofile){
+	if(!isset(audiofile, this.list)) return true;
+
+	this.list[audiofile].loop = 0;
+
+	if(isset('onEnded', this.list[audiofile])){
+		removeListener(this.dom[audiofile], 'ended', this.list[audiofile].onEnded);
+		this.list[audiofile].onEnded = null;
+		delete(this.list[audiofile].onEnded);
+	}
+},
+
+create: function(audiofile, params){
+	if(typeof(audiofile) == 'undefined') return false;
+	if(isset(audiofile, this.list)) return true;
+
+	if(typeof(params) == 'undefined') params = {};
+
+	if(!isset('audioList', this.dom)){
+		this.dom.audioList = document.createElement('div');
+		document.getElementsByTagName('body')[0].appendChild(this.dom.audioList);
+
+		this.dom.audioList.setAttribute('id','audiolist');
+	}
+
+	if(IE){
+		this.dom[audiofile] = document.createElement('embed');
+		this.dom.audioList.appendChild(this.dom[audiofile]);
+
+		this.dom[audiofile].setAttribute('name', audiofile);
+		this.dom[audiofile].setAttribute('src', 'audio/'+audiofile);
+		this.dom[audiofile].style.display = 'none';
+
+		for(var key in this.standart.embed){
+			if(isset(key, params))
+				this.dom[audiofile].setAttribute(key, params[key]);
+			else if(!is_null(this.standart.embed[key]))
+				this.dom[audiofile].setAttribute(key, this.standart.embed[key]);
+		}
+	}
+	else{
+		this.dom[audiofile] = document.createElement('audio');
+		this.dom.audioList.appendChild(this.dom[audiofile]);
+
+		this.dom[audiofile].setAttribute('id', audiofile);
+		this.dom[audiofile].setAttribute('src', 'audio/'+audiofile);
+
+		for(var key in this.standart.audio){
+			if(isset(key, params))
+				this.dom[audiofile].setAttribute(key, params[key]);
+			else if(!is_null(this.standart.audio[key]))
+				this.dom[audiofile].setAttribute(key, this.standart.audio[key]);
+		}
+
+		this.dom[audiofile].load();
+	}
+
+	this.list[audiofile] = params;
+	this.list[audiofile].loop = 0;
+	this.list[audiofile].timeout = null;
+
+return true;
+},
+
+remove: function(audiofile){
+	if(!isset(audiofile, this.dom)) return true;
+
+	$(this.dom[audiofile]).remove();
+
+	delete(this.dom[audiofile]);
+	delete(this.list[audiofile]);
+}
+}
+
+/************************************************************************************/
+/*						Replace Standart Blink functionality						*/
+/************************************************************************************/
+// Author: Aly
+var blink = {
+	blinkobjs: new Array(),
+
+	init: function(){
+
+		if(IE)
+			this.blinkobjs = $$('*[name=blink]');
+		else
+			this.blinkobjs = document.getElementsByName("blink");
+
+		if(this.blinkobjs.length > 0) this.view();
+	},
+	hide: function(){
+		for(var id=0; id<this.blinkobjs.length; id++){
+			this.blinkobjs[id].style.visibility = 'hidden';
+		}
+		setTimeout('blink.view()',500);
+	},
+	view: function(){
+		for(var id=0; id<this.blinkobjs.length; id++){
+			this.blinkobjs[id].style.visibility = 'visible'
+		}
+		setTimeout('blink.hide()',1000);
+	}
+}
+
+
+/************************************************************************************/
+/*								ZABBIX HintBoxes 									*/
+/************************************************************************************/
 var hintBox = {
+boxes:				{},				// array of dom Hint Boxes
+boxesCount: 		0,				// unique box id
 
-	createBox: function(e, target, hintText, width, className, isStatic) {
-		var box = jQuery('<div></div>').addClass('hintbox');
 
-		if (typeof hintText === 'string') {
-			hintText = hintText.replace(/\n/g, '<br />');
-		}
+debug_status: 		0,				// debug status: 0 - off, 1 - on, 2 - SDI;
+debug_info: 		'',				// debug string
+debug_prev:			'',				// don't log repeated fnc
 
-		if (!empty(className)) {
-			box.append(jQuery('<span></span>').addClass(className).html(hintText));
-		}
-		else {
-			box.html(hintText);
-		}
+createBox: function(obj, hint_text, width, className, byClick){
+	this.debug('createBox');
 
-		if (!empty(width)) {
-			box.css('width', width + 'px');
-		}
+	var boxid = 'hintbox_'+this.boxesCount;
 
-		if (isStatic) {
-			var close_link = jQuery('<div>' + locale['S_CLOSE'] + '</div>')
-				.addClass('link')
-				.css({
-					'text-align': 'right',
-					'border-bottom': '1px #333 solid'
-				}).click(function() {
-					hintBox.hideHint(e, target, true);
-				});
-			box.prepend(close_link);
-		}
+	var box = document.createElement('div');
 
-		jQuery('body').append(box);
+	var obj_tag = obj.nodeName.toLowerCase();
 
-		return box;
-	},
+	if((obj_tag == 'td') || (obj_tag == 'div') || (obj_tag == 'body')) obj.appendChild(box);
+	else obj.parentNode.appendChild(box);
 
-	HintWraper: function(e, target, hintText, width, className) {
-		target.isStatic = false;
+	box.setAttribute('id', boxid);
+	box.style.display = 'none';
+	box.className = 'hintbox';
 
-		jQuery(target).on('mouseenter', function(e, d) {
-			if (d) {
-				e = d;
-			}
-			hintBox.showHint(e, target, hintText, width, className, false);
-
-		}).on('mouseleave', function(e) {
-			hintBox.hideHint(e, target);
-
-		}).on('remove', function(e) {
-			hintBox.deleteHint(target);
-		});
-
-		jQuery(target).removeAttr('onmouseover');
-		jQuery(target).trigger('mouseenter', e);
-	},
-
-	showStaticHint: function(e, target, hint, width, className, resizeAfterLoad) {
-		var isStatic = target.isStatic;
-		hintBox.hideHint(e, target, true);
-
-		if (!isStatic) {
-			target.isStatic = true;
-			hintBox.showHint(e, target, hint, width, className, true);
-
-			if (resizeAfterLoad) {
-				hint.one('load', function(e) {
-					hintBox.positionHint(e, target);
-				});
-			}
-		}
-	},
-
-	showHint: function(e, target, hintText, width, className, isStatic) {
-		if (target.hintBoxItem) {
-			return;
-		}
-
-		target.hintBoxItem = hintBox.createBox(e, target, hintText, width, className, isStatic);
-		hintBox.positionHint(e, target);
-		target.hintBoxItem.show();
-	},
-
-	positionHint: function(e, target) {
-		var wWidth = jQuery(window).width(),
-			wHeight = jQuery(window).height(),
-			scrollTop = jQuery(window).scrollTop(),
-			scrollLeft = jQuery(window).scrollLeft(),
-			top, left;
-
-		// uses stored clientX on afterload positioning when there is no event
-		if (e.clientX) {
-			target.clientX = e.clientX;
-			target.clientY = e.clientY;
-		}
-
-		// doesn't fit in the screen horizontaly
-		if (target.hintBoxItem.width() + 10 > wWidth) {
-			left = scrollLeft + 2;
-		}
-		// 10px to right if fit
-		else if (wWidth - target.clientX - 10 > target.hintBoxItem.width()) {
-			left = scrollLeft + target.clientX + 10;
-		}
-		// 10px from screen right side
-		else {
-			left = scrollLeft + wWidth - 10 - target.hintBoxItem.width();
-		}
-
-		// 10px below if fit
-		if (wHeight - target.clientY - target.hintBoxItem.height() - 10 > 0) {
-			top = scrollTop + target.clientY + 10;
-		}
-		// 10px above if fit
-		else if (target.clientY - target.hintBoxItem.height() - 10 > 0) {
-			top = scrollTop + target.clientY - target.hintBoxItem.height() - 10;
-		}
-		// 10px below as fallback
-		else {
-			top = scrollTop + target.clientY + 10;
-		}
-
-		// fallback if doesnt't fit verticaly but could fit if aligned to right or left
-		if ((top - scrollTop + target.hintBoxItem.height() > wHeight)
-				&& (target.clientX - 10 > target.hintBoxItem.width() || wWidth - target.clientX - 10 > target.hintBoxItem.width())) {
-
-			// align to left if fit
-			if (wWidth - target.clientX - 10 > target.hintBoxItem.width()) {
-				left = scrollLeft + target.clientX + 10;
-			}
-			// align to right
-			else {
-				left = scrollLeft + target.clientX - target.hintBoxItem.width() - 10;
-			}
-
-			// 10px from bottom if fit
-			if (wHeight - 10 > target.hintBoxItem.height()) {
-				top = scrollTop + wHeight - target.hintBoxItem.height() - 10;
-			}
-			// 10px from top
-			else {
-				top = scrollTop + 10;
-			}
-		}
-
-		target.hintBoxItem.css({
-			top: top + 'px',
-			left: left + 'px',
-			zIndex: 100
-		});
-	},
-
-	hideHint: function(e, target, hideStatic) {
-		if (target.isStatic && !hideStatic) {
-			return;
-		}
-
-		hintBox.deleteHint(target);
-	},
-
-	deleteHint: function(target) {
-		if (target.hintBoxItem) {
-			target.hintBoxItem.remove();
-			delete target.hintBoxItem;
-
-			if (target.isStatic) {
-				delete target.isStatic;
-			}
-		}
+	if(!empty(className)){
+		hint_text = "<span class=" + className + ">" + hint_text + "</"+"span>";
 	}
-};
+
+	if(!empty(width)){
+		box.style.width = width+'px';
+	}
+
+	var close_link = '';
+	if(byClick){
+		close_link = '<div class="link" '+
+						'style="text-align: right; border-bottom: 1px #333 solid;" '+
+						'onclick="javascript: hintBox.hide(event, \''+boxid+'\');">'+locale['S_CLOSE']+'</div>';
+	}
+
+	box.innerHTML = close_link + hint_text;
 
 /*
- * Color picker
- */
-function hide_color_picker() {
-	if (!color_picker) {
-		return;
+	var box_close = document.createElement('div');
+	box.appendChild(box_close);
+	box_close.appendChild(document.createTextNode('X'));
+	box_close.className = 'link';
+	box_close.setAttribute('style','text-align: right; background-color: #AAA;');
+	box_close.onclick = eval("function(){ hintBox.hide('"+boxid+"'); }");
+*/
+	this.boxes[boxid] = box;
+	this.boxesCount++;
+
+return box;
+},
+
+showOver: function(e, obj, hint_text, width, className){
+	this.debug('showOver');
+
+	if (!e) var e = window.event;
+
+	var hintid = obj.getAttribute('hintid');
+	var hintbox = $(hintid);
+
+	if(!empty(hintbox))
+		var byClick = hintbox.getAttribute('byclick');
+	else
+		var byClick = null;
+
+	if(!empty(byClick)) return;
+
+	var hintbox = this.createBox(obj,hint_text, width, className, false);
+
+	obj.setAttribute('hintid', hintbox.id);
+	this.show(e, obj, hintbox);
+},
+
+hideOut: function(e, obj){
+	this.debug('hideOut');
+
+	if (!e) var e = window.event;
+
+	var hintid = obj.getAttribute('hintid');
+	var hintbox = $(hintid);
+
+	if(!empty(hintbox))
+		var byClick = hintbox.getAttribute('byclick');
+	else
+		var byClick = null;
+
+	if(!empty(byClick)) return;
+
+	if(!empty(hintid)){
+		obj.removeAttribute('hintid');
+		obj.removeAttribute('byclick');
+
+		this.hide(e, hintid);
 	}
+},
+
+onClick: function(e, obj, hint_text, width, className){
+	this.debug('onClick');
+
+	if (!e) var e = window.event;
+	cancelEvent(e);
+
+	var hintid = obj.getAttribute('hintid');
+	var hintbox = $(hintid);
+
+	if(!empty(hintbox))
+		var byClick = hintbox.getAttribute('byclick');
+	else
+		var byClick = null;
+
+	if(!empty(hintid) && empty(byClick)){
+		obj.removeAttribute('hintid');
+		this.hide(e, hintid);
+
+		var hintbox = this.createBox(obj, hint_text, width, className, true);
+
+		hintbox.setAttribute('byclick', 'true');
+		obj.setAttribute('hintid', hintbox.id);
+
+		this.show(e, obj, hintbox);
+	}
+	else if(!empty(hintid)){
+		obj.removeAttribute('hintid');
+		hintbox.removeAttribute('byclick');
+
+		this.hide(e, hintid);
+	}
+	else{
+		var hintbox = this.createBox(obj,hint_text, width, className, true);
+
+		hintbox.setAttribute('byclick', 'true');
+		obj.setAttribute('hintid', hintbox.id);
+
+		this.show(e, obj, hintbox);
+	}
+},
+
+show: function(e, obj, hintbox){
+	this.debug('show');
+
+	var hintid = hintbox.id;
+	// var body_width = get_bodywidth();
+	var body_width = document.viewport.getDimensions().width;
+
+//	pos = getPosition(obj);
+// this.debug('body width: ' + body_width);
+// this.debug('position.top: ' + pos.top);
+
+// by Object
+/*
+	if(parseInt(pos.left+obj.offsetWidth+4+hintbox.offsetWidth) > body_width){
+		pos.left-=parseInt(hintbox.offsetWidth);
+		pos.left-=4;
+		pos.left=(pos.left < 0)?0:pos.left;
+	}
+	else{
+		pos.left+= obj.offsetWidth+4;
+	}
+	hintbox.x	= pos.left;
+//*/
+
+	hintbox.style.visibility = 'hidden';
+	hintbox.style.display = 'block';
+
+	posit = $(obj).positionedOffset();
+	cumoff = $(obj).cumulativeOffset();
+	if(parseInt(cumoff.left+10+hintbox.offsetWidth) > body_width){
+		posit.left = posit.left - parseInt((cumoff.left+10+hintbox.offsetWidth) - body_width) + document.viewport.getScrollOffsets().left;
+		// posit.left-=parseInt(hintbox.offsetWidth);
+		posit.left-=10;
+		posit.left = (posit.left < 0) ? 0 : posit.left;
+	}
+	else{
+		posit.left+=10;
+	}
+	hintbox.x	= posit.left;
+	hintbox.y	= posit.top;
+	hintbox.style.left = hintbox.x + 'px';
+	hintbox.style.top	= hintbox.y + 10 + parseInt(obj.offsetHeight/2) + 'px';
+	hintbox.style.visibility = 'visible';
+	hintbox.style.zIndex = '999';
+
+// IE6 z-index bug
+	//if(IE6) showPopupDiv(hintid, 'frame_'+hintid);
+
+},
+
+hide: function(e, boxid){
+	this.debug('hide');
+
+	if (!e) var e = window.event;
+	cancelEvent(e);
+
+	var hint = $(boxid);
+	if(!is_null(hint)){
+		delete(this.boxes[boxid]);
+
+		//hidePopupDiv('frame_'+hint.id);
+// Opera refresh bug!
+		hint.style.display = 'none';
+		//hintbox.setAttribute('byclick', 'true');
+		if(OP) setTimeout(function(){hint.remove();}, 200);
+		else hint.remove();
+
+	}
+},
+
+hideAll: function(){
+	this.debug('hideAll');
+
+	for(var id in this.boxes){
+		if((typeof(this.boxes[id]) != 'undefined') && !empty(this.boxes[id])){
+			this.hide(id);
+		}
+	}
+},
+
+debug: function(fnc_name, id){
+	if(this.debug_status){
+		var str = 'PMaster.'+fnc_name;
+		if(typeof(id) != 'undefined') str+= ' :'+id;
+
+		if(this.debug_prev == str) return true;
+
+		this.debug_info += str + '\n';
+		if(this.debug_status == 2){
+			SDI(str);
+		}
+
+		this.debug_prev = str;
+	}
+}
+}
+
+/************************************************************************************/
+/*								COLOR PICKER FUNCTIONS 								*/
+/************************************************************************************/
+function hide_color_picker(){
+	if(!color_picker) return;
 
 	color_picker.style.zIndex = 1000;
-	color_picker.style.visibility = 'hidden';
-	color_picker.style.left = '-' + ((color_picker.style.width) ? color_picker.style.width : 100) + 'px';
+	color_picker.style.visibility="hidden"
+	color_picker.style.left	= "-" + ((color_picker.style.width) ? color_picker.style.width : 100) + "px";
+
 	curr_lbl = null;
 	curr_txt = null;
 }
 
-function show_color_picker(id) {
-	if (!color_picker) {
-		return;
-	}
+function show_color_picker(name){
+	if(!color_picker) return;
 
-	curr_lbl = document.getElementById('lbl_' + id);
-	curr_txt = document.getElementById(id);
+	curr_lbl = document.getElementById("lbl_" + name);
+	curr_txt = document.getElementById(name);
+
 	var pos = getPosition(curr_lbl);
-	color_picker.x = pos.left;
-	color_picker.y = pos.top;
-	color_picker.style.left = (color_picker.x + 20) + 'px';
-	color_picker.style.top = color_picker.y + 'px';
-	color_picker.style.visibility = 'visible';
+
+	color_picker.x	= pos.left;
+	color_picker.y	= pos.top;
+
+	color_picker.style.left	= color_picker.x + "px";
+	color_picker.style.top	= color_picker.y + "px";
+
+	color_picker.style.visibility = "visible";
 }
 
-function create_color_picker() {
-	if (color_picker) {
-		return;
-	}
+function create_color_picker(){
+	if(color_picker) return;
 
-	color_picker = document.createElement('div');
-	color_picker.setAttribute('id', 'color_picker');
+	color_picker = document.createElement("div");
+	color_picker.setAttribute("id", "color_picker");
 	color_picker.innerHTML = color_table;
 	document.body.appendChild(color_picker);
+
 	hide_color_picker();
 }
 
-function set_color(color) {
-	if (curr_lbl) {
-		curr_lbl.style.background = curr_lbl.style.color = '#' + color;
-		curr_lbl.title = '#' + color;
+function set_color(color){
+	if(curr_lbl){
+		curr_lbl.style.background = curr_lbl.style.color = "#" + color;
+		curr_lbl.title = "#" + color;
 	}
-	if (curr_txt) {
-		curr_txt.value = color.toString().toUpperCase();
-	}
+	if(curr_txt)	curr_txt.value = color;
+
 	hide_color_picker();
 }
 
-function set_color_by_name(id, color) {
-	curr_lbl = document.getElementById('lbl_' + id);
-	curr_txt = document.getElementById(id);
+function set_color_by_name(name, color){
+	curr_lbl = document.getElementById("lbl_" + name);
+	curr_txt = document.getElementById(name);
+
 	set_color(color);
 }
 
-function add2favorites(favobj, favid) {
-	sendAjaxData({
-		data: {
-			favobj: favobj,
-			favid: favid,
-			favaction: 'add'
-		}
-	});
-}
+/************************************************************************************/
+/*								ZABBIX AJAX REQUESTS 								*/
+/************************************************************************************/
 
-function rm4favorites(favobj, favid) {
-	sendAjaxData({
-		data: {
-			favobj: favobj,
-			favid: favid,
-			favaction: 'remove'
-		}
-	});
-}
-
-function changeFlickerState(id) {
-	var state = showHide(id);
-
-	switchElementClass('flicker_icon_l', 'dbl_arrow_up', 'dbl_arrow_down');
-	switchElementClass('flicker_icon_r', 'dbl_arrow_up', 'dbl_arrow_down');
-
-	sendAjaxData({
-		data: {
-			filterState: state
-		}
-	});
-
-	// resize multiselect
-	if (typeof flickerResizeMultiselect === 'undefined' && state == 1) {
-		flickerResizeMultiselect = true;
-
-		if (jQuery('.multiselect').length > 0) {
-			jQuery('#' + id).multiSelect.resize();
-		}
-	}
-}
-
-function changeWidgetState(obj, widgetId) {
-	var widgetObj = jQuery('#' + widgetId + '_widget'),
-		css = switchElementClass(obj, 'arrowup', 'arrowdown'),
-		state = 0;
-
-	if (css === 'arrowdown') {
-		jQuery('.body', widgetObj).slideUp(50);
-		jQuery('.footer', widgetObj).slideUp(50);
-	}
-	else {
-		jQuery('.body', widgetObj).slideDown(50);
-		jQuery('.footer', widgetObj).slideDown(50);
-
-		state = 1;
+function add2favorites(favobj,favid){
+	if('undefined' == typeof(Ajax)){
+		throw("Prototype.js lib is required!");
+		return false;
 	}
 
-	sendAjaxData({
-		data: {
-			widgetName: widgetId,
-			widgetState: state
-		}
-	});
+	if((typeof(favid) == 'undefined') || empty(favid)) return;
+
+	var params = {
+		'favobj': 	favobj,
+		'favid': 	favid,
+		'action':	'add'
+	}
+
+	send_params(params);
+//	json.onetime('dashboard.php?output=json&'+Object.toQueryString(params));
 }
 
-/**
- * Send ajax data.
- *
- * @param object options
- */
-function sendAjaxData(options) {
+
+function rm4favorites(favobj,favid,menu_rowid){
+//	alert(favobj+','+favid+','+menu_rowid);
+	if('undefined' == typeof(Ajax)){
+		throw("Prototype.js lib is required!");
+		return false;
+	}
+
+	if((typeof(favobj) == 'undefined') || (typeof(favid) == 'undefined'))
+		throw "No agruments sent to function [rm4favorites()].";
+
+	var params = {
+		'favobj': 	favobj,
+		'favid': 	favid,
+		'favcnt':	menu_rowid,
+		'action':	'remove'
+	}
+
+	send_params(params);
+//	json.onetime('dashboard.php?output=json&'+Object.toQueryString(params));
+}
+
+function change_flicker_state(divid){
+	deselectAll();
+	var eff_time = 500;
+
+	var switchArrows = function(){
+		switchElementsClass($("flicker_icon_l"),"dbl_arrow_up","dbl_arrow_down");
+		switchElementsClass($("flicker_icon_r"),"dbl_arrow_up","dbl_arrow_down");
+	}
+
+	var filter_state = ShowHide(divid);
+	switchArrows();
+//	var filter_state = showHideEffect(divid,'slide', eff_time, switchArrows);
+
+	if(false === filter_state) return false;
+
+	var params = {
+		'action':	'flop',
+		'favobj': 	'filter',
+		'favref': 	divid,
+		'state':	filter_state
+	}
+
+	send_params(params);
+
+// selection box position
+	if(typeof(moveSBoxes) != 'undefined') moveSBoxes();
+}
+
+function change_hat_state(icon, divid){
+	deselectAll();
+
+	var eff_time = 500;
+
+	var switchIcon = function(){
+		switchElementsClass(icon,"arrowup","arrowdown");
+	}
+
+	var hat_state = ShowHide(divid);
+	switchIcon();
+//	var hat_state = showHideEffect(divid, 'slide', eff_time, switchIcon);
+
+	if(false === hat_state) return false;
+
+	var params = {
+		'action':	'flop',
+		'favobj': 	'hat',
+		'favref': 	divid,
+		'state':	hat_state
+	}
+
+	send_params(params);
+}
+
+function send_params(params){
+	if(typeof(params) == 'undefined') var params = new Array();
+
 	var url = new Curl(location.href);
 	url.setQuery('?output=ajax');
 
-	var defaults = {
-		type: 'post',
-		url: url.getUrl()
-	};
-
-	jQuery.ajax(jQuery.extend({}, defaults, options));
+	new Ajax.Request(url.getUrl(),
+					{
+						'method': 'post',
+						'parameters':params,
+						'onSuccess': function(resp){ },
+//						'onSuccess': function(resp){ SDI(resp.responseText); },
+						'onFailure': function(){document.location = url.getPath()+'?'+Object.toQueryString(params);}
+					}
+	);
 }
 
-function createPlaceholders() {
-	if (IE) {
-		jQuery(document).ready(function() {
-			jQuery('[placeholder]')
-				.focus(function() {
-					var obj = jQuery(this);
 
-					if (obj.val() == obj.attr('placeholder')) {
-						obj.val('');
-						obj.removeClass('placeholder');
-					}
-				})
-				.blur(function() {
-					var obj = jQuery(this);
-
-					if (obj.val() == '' || obj.val() == obj.attr('placeholder')) {
-						obj.val(obj.attr('placeholder'));
-						obj.addClass('placeholder');
-					}
-				})
-				.blur();
-
-			jQuery('form').submit(function() {
-				jQuery('.placeholder').each(function() {
-					var obj = jQuery(this);
-
-					if (obj.val() == obj.attr('placeholder')) {
-						obj.val('');
-					}
-				});
-			});
-		});
+function setRefreshRate(pmasterid,dollid,interval,params){
+	if(typeof(Ajax) == 'undefined'){
+		throw("Prototype.js lib is required!");
+		return false;
 	}
+
+	if((typeof(params) == 'undefined') || is_null(params))  var params = new Array();
+	params['pmasterid'] = 	pmasterid;
+	params['favobj'] = 		'set_rf_rate';
+	params['favref'] = 		dollid;
+	params['favcnt'] = 		interval;
+//SDJ($params);
+	send_params(params);
+}
+
+function switch_mute(icon){
+	deselectAll();
+	var sound_state = switchElementsClass(icon,"iconmute","iconsound");
+
+	if(false === sound_state) return false;
+	sound_state = (sound_state == "iconmute")?1:0;
+
+	var params = {
+		'favobj': 	'sound',
+		'favref':	'sound',
+		'state':	sound_state
+	}
+
+	send_params(params);
 }

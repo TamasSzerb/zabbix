@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,16 +9,17 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "log.h"
+#include "zlog.h"
 #include "comms.h"
 #include "base64.h"
 
@@ -47,13 +48,13 @@
  *           Jairo Eduardo Lopez Fuentes Nacarino                             *
  *                                                                            *
  ******************************************************************************/
-static void	str_base64_encode_rfc2047(const char *src, char **p_base64)
+void	str_base64_encode_rfc2047(const char *src, char **p_base64)
 {
 	const char	*p0;			/* pointer in src to start encoding from */
 	const char	*p1;			/* pointer in src: 1st byte of UTF-8 character */
-	size_t		c_len;			/* length of UTF-8 character sequence */
-	size_t		p_base64_alloc;		/* allocated memory size for subject */
-	size_t		p_base64_offset = 0;	/* offset for writing into subject */
+	int		c_len;			/* length of UTF-8 character sequence */
+	int	 	p_base64_alloc;		/* allocated memory size for p_base64 */
+	int		p_base64_offset = 0;	/* offset for writing into p_base64 */
 
 	assert(src);
 	assert(NULL == *p_base64);		/* do not accept already allocated memory */
@@ -91,7 +92,8 @@ static void	str_base64_encode_rfc2047(const char *src, char **p_base64)
 						ZBX_EMAIL_ENCODED_WORD_SEPARATOR);
 			}
 
-			zbx_snprintf_alloc(p_base64, &p_base64_alloc, &p_base64_offset, "=?UTF-8?B?%s?=", b64_buf);
+			zbx_snprintf_alloc(p_base64, &p_base64_alloc, &p_base64_offset,
+					ZBX_EMAIL_B64_MAXWORD_RFC2047 + 1, "=?UTF-8?B?%s?=", b64_buf);
 		}
 		else
 			break;
@@ -103,7 +105,7 @@ static void	str_base64_encode_rfc2047(const char *src, char **p_base64)
  * Comments: reads until '\n'                                                 *
  *                                                                            *
  ******************************************************************************/
-static ssize_t	smtp_readln(int fd, char *buf, int buf_len)
+ssize_t smtp_readln(int fd, char *buf, int buf_len)
 {
 	ssize_t	nbytes, read_bytes;
 
@@ -131,138 +133,8 @@ static ssize_t	smtp_readln(int fd, char *buf, int buf_len)
 	return read_bytes;
 }
 
-/********************************************************************************
- *                                                                              *
- * Function: smtp_parse_mailbox                                                 *
- *                                                                              *
- * Purpose: 1. Extract a display name and an angle address from mailbox string  *
- *             for using in "MAIL FROM:", "RCPT TO:", "From:" and "To:" fields. *
- *          2. If the display name contains multibyte UTF-8 characters encode   *
- *             it into a base64 string as required by rfc2047. The encoding is  *
- *             also applied if the display name looks like a base64-encoded     *
- *             word.                                                            *
- *                                                                              *
- * Parameters: mailbox       - [IN] a null-terminated UTF-8 string              *
- *             error         - [IN] pointer to string for reporting errors      *
- *             max_error_len - [IN] size of 'error' string                      *
- *             display_name  - [OUT] address of pointer to dynamically          *
- *                             allocated 'display_name' string (ASCII or        *
- *                             base64-encoded)                                  *
- *             angle_addr    - [OUT] address of pointer to dynamically          *
- *                             allocated 'angle_addr' string                    *
- *                                                                              *
- * Comments:   The function is very much simplified in comparison with full     *
- *             RFC 5322-compliant parser. It does not recognize:                *
- *                - comments,                                                   *
- *                - quoted strings and quoted pairs,                            *
- *                - folding whitespace.                                         *
- *             For example, '<' and '@' are not supported in the display name   *
- *             and the local part of email address.                             *
- *                                                                              *
- ********************************************************************************/
-static int	smtp_parse_mailbox(const char *mailbox, char *error, size_t max_error_len, char **display_name,
-				char **angle_addr)
-{
-	const char	*p, *pstart, *angle_addr_start = NULL, *domain_start = NULL, *utf8_end = NULL;
-	const char	*base64_like_start = NULL, *base64_like_end = NULL;
-	char		*base64_buf = NULL;
-	size_t		size_angle_addr = 0, offset_angle_addr = 0, len, i;
-	int		ret = FAIL;
-
-	/* Skip leading whitespace */
-	p = mailbox;
-	while (' ' == *p || '\t' == *p)
-		p++;
-
-	pstart = p;
-	while ('\0' != *p)
-	{
-		len = zbx_utf8_char_len(p);
-
-		if (1 == len)	/* ASCII character */
-		{
-			switch (*p)
-			{
-				case '<':
-					angle_addr_start = p;
-					break;
-				case '@':
-					domain_start = p;
-					break;
-				/* if mailbox contains a sequence '=?'.*'?=' which looks like a Base64-encoded word */
-				case '=':
-					if ('?' == *(p + 1))
-						base64_like_start = p++;
-					break;
-				case '?':
-					if (NULL != base64_like_start && '=' == *(p + 1))
-						base64_like_end = p++;
-			}
-			p++;
-		}
-		else if (1 < len)	/* multibyte UTF-8 character */
-		{
-			for (i = 1; i < len; i++)
-			{
-				if ('\0' == *(p + i))
-				{
-					zbx_snprintf(error, max_error_len, "invalid UTF-8 character in email"
-							" address: %s", mailbox);
-					goto out;
-				}
-			}
-			utf8_end = p + len - 1;
-			p += len;
-		}
-		else if (0 == len)	/* invalid UTF-8 character */
-		{
-			zbx_snprintf(error, max_error_len, "invalid UTF-8 character in email address: %s", mailbox);
-			goto out;
-		}
-	}
-
-	if (NULL == domain_start)
-	{
-		zbx_snprintf(error, max_error_len, "no '@' in email address: %s", mailbox);
-		goto out;
-	}
-
-	if (utf8_end > angle_addr_start)
-	{
-		zbx_snprintf(error, max_error_len, "email address local or domain part contains UTF-8 character: %s",
-				mailbox);
-		goto out;
-	}
-
-	if (NULL != angle_addr_start)
-	{
-		zbx_snprintf_alloc(angle_addr, &size_angle_addr, &offset_angle_addr, "%s", angle_addr_start);
-
-		if (pstart < angle_addr_start)	/* display name */
-		{
-			*display_name = zbx_malloc(*display_name, (size_t)(angle_addr_start - pstart + 1));
-			memcpy(*display_name, pstart, (size_t)(angle_addr_start - pstart));
-			*((*display_name) + (angle_addr_start - pstart)) = '\0';
-
-			/* UTF-8 or Base64-looking display name */
-			if (NULL != utf8_end || (NULL != base64_like_end && angle_addr_start - 1 > base64_like_end))
-			{
-				str_base64_encode_rfc2047(*display_name, &base64_buf);
-				zbx_free(*display_name);
-				*display_name = base64_buf;
-			}
-		}
-	}
-	else
-		zbx_snprintf_alloc(angle_addr, &size_angle_addr, &offset_angle_addr, "<%s>", mailbox);
-
-	ret = SUCCEED;
-out:
-	return ret;
-}
-
 int	send_email(const char *smtp_server, const char *smtp_helo, const char *smtp_email, const char *mailto,
-		const char *mailsubject, const char *mailbody, char *error, size_t max_error_len)
+		const char *mailsubject, const char *mailbody, char *error, int max_error_len)
 {
 	const char	*__function_name = "send_email";
 
@@ -271,8 +143,6 @@ int	send_email(const char *smtp_server, const char *smtp_helo, const char *smtp_
 	char		cmd[MAX_STRING_LEN], *cmdp = NULL;
 	char		*tmp = NULL, *base64 = NULL, *base64_lf;
 	char		*localsubject = NULL, *localbody = NULL;
-	char		*from_display_name = NULL, *from_angle_addr = NULL;
-	char		*to_display_name = NULL, *to_angle_addr = NULL;
 
 	char		str_time[MAX_STRING_LEN];
 	struct tm	*local_time = NULL;
@@ -285,6 +155,7 @@ int	send_email(const char *smtp_server, const char *smtp_helo, const char *smtp_
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() smtp_server:'%s'", __function_name, smtp_server);
 
+	assert(error);
 	*error = '\0';
 
 	/* connect to and receive an initial greeting from SMTP server */
@@ -333,11 +204,7 @@ int	send_email(const char *smtp_server, const char *smtp_helo, const char *smtp_
 
 	/* send MAIL FROM */
 
-	if (SUCCEED != smtp_parse_mailbox(smtp_email, error, max_error_len, &from_display_name, &from_angle_addr))
-		goto out;
-
-	zbx_snprintf(cmd, sizeof(cmd), "MAIL FROM:%s\r\n", from_angle_addr);
-
+	zbx_snprintf(cmd, sizeof(cmd), "MAIL FROM: <%s>\r\n", smtp_email);
 	if (-1 == write(s.socket, cmd, strlen(cmd)))
 	{
 		zbx_snprintf(error, max_error_len, "error sending MAIL FROM to mailserver: %s", zbx_strerror(errno));
@@ -356,11 +223,7 @@ int	send_email(const char *smtp_server, const char *smtp_helo, const char *smtp_
 
 	/* send RCPT TO */
 
-	if (SUCCEED != smtp_parse_mailbox(mailto, error, max_error_len, &to_display_name, &to_angle_addr))
-		goto out;
-
-	zbx_snprintf(cmd, sizeof(cmd), "RCPT TO:%s\r\n", to_angle_addr);
-
+	zbx_snprintf(cmd, sizeof(cmd), "RCPT TO: <%s>\r\n", mailto);
 	if (-1 == write(s.socket, cmd, strlen(cmd)))
 	{
 		zbx_snprintf(error, max_error_len, "error sending RCPT TO to mailserver: %s", zbx_strerror(errno));
@@ -405,6 +268,8 @@ int	send_email(const char *smtp_server, const char *smtp_helo, const char *smtp_
 
 	if (FAIL == is_ascii_string(localsubject))
 	{
+		zbx_replace_invalid_utf8(localsubject);
+
 		/* split subject into multiple RFC 2047 "encoded-words" */
 		str_base64_encode_rfc2047(localsubject, &base64);
 		zbx_free(localsubject);
@@ -440,8 +305,8 @@ int	send_email(const char *smtp_server, const char *smtp_helo, const char *smtp_
 	/* =?charset?encoding?encoded text?= format must be used for subject field */
 
 	cmdp = zbx_dsprintf(cmdp,
-			"From: %s%s\r\n"
-			"To: %s%s\r\n"
+			"From: <%s>\r\n"
+			"To: <%s>\r\n"
 			"Date: %s\r\n"
 			"Subject: %s\r\n"
 			"MIME-Version: 1.0\r\n"
@@ -449,9 +314,7 @@ int	send_email(const char *smtp_server, const char *smtp_helo, const char *smtp_
 			"Content-Transfer-Encoding: base64\r\n"
 			"\r\n"
 			"%s",
-			NULL != from_display_name ? from_display_name : "", from_angle_addr,
-			NULL != to_display_name ? to_display_name: "", to_angle_addr,
-			str_time, localsubject, localbody);
+			smtp_email, mailto, str_time, localsubject, localbody);
 
 	err = write(s.socket, cmdp, strlen(cmdp));
 
@@ -495,14 +358,13 @@ int	send_email(const char *smtp_server, const char *smtp_helo, const char *smtp_
 
 	ret = SUCCEED;
 out:
-	zbx_free(from_display_name);
-	zbx_free(to_display_name);
-	zbx_free(from_angle_addr);
-	zbx_free(to_angle_addr);
 	zbx_tcp_close(&s);
 close:
 	if ('\0' != *error)
-		zabbix_log(LOG_LEVEL_WARNING, "%s", error);
+	{
+		zabbix_log(LOG_LEVEL_DEBUG, "%s", error);
+		zabbix_syslog("%s", error);
+	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 

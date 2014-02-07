@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,17 +9,16 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
-#include "zbxregexp.h"
 
 #include <sys/sensors.h>
 
@@ -88,10 +87,11 @@ static int	get_device_sensors(int do_task, int *mib, const struct sensordev *sen
 		if (i == SENSOR_MAX_TYPES)
 			return FAIL;
 
-		if (SUCCEED != is_uint31(name + len, (uint32_t*)&mib[4]))
+		if (SUCCEED != is_uint(name + len))
 			return FAIL;
 
 		mib[3] = i;
+		mib[4] = atoi(name + len);
 
 		if (-1 == sysctl(mib, 5, &sensor, &slen, NULL, 0))
 			return FAIL;
@@ -129,23 +129,22 @@ static int	get_device_sensors(int do_task, int *mib, const struct sensordev *sen
 	return SUCCEED;
 }
 
-int	GET_SENSOR(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	GET_SENSOR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*device, *name, *function;
+	char	device[MAX_STRING_LEN], name[MAX_STRING_LEN], function[8];
 	int	do_task, mib[5], dev, cnt = 0;
 	double	aggr = 0;
 
-	if (3 < request->nparam)
+	if (num_param(param) > 3)
 		return SYSINFO_RET_FAIL;
 
-	device = get_rparam(request, 0);
-	name = get_rparam(request, 1);
-	function = get_rparam(request, 2);
-
-	if (NULL == device || NULL == name)
+	if (0 != get_param(param, 1, device, sizeof(device)))
 		return SYSINFO_RET_FAIL;
 
-	if (NULL == function || '\0' == *function)
+	if (0 != get_param(param, 2, name, sizeof(name)))
+		return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 3, function, sizeof(function)))
 		do_task = DO_ONE;
 	else if (0 == strcmp(function, "avg"))
 		do_task = DO_AVG;
@@ -197,7 +196,7 @@ int	GET_SENSOR(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 #else
 
-int	GET_SENSOR(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	GET_SENSOR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	return SYSINFO_RET_FAIL;
 }

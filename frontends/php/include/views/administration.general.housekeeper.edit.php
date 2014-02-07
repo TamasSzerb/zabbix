@@ -18,7 +18,6 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
 require_once dirname(__FILE__).'/js/administration.general.housekeeper.edit.js.php';
 
 $houseKeeperTab = new CFormList('scriptsTab');
@@ -170,3 +169,4 @@ $houseKeeperForm->addItem($houseKeeperView);
 $houseKeeperForm->addItem(makeFormFooter(new CSubmit('save', _('Save')), new CButton('resetDefaults', _('Reset defaults'))));
 
 return $houseKeeperForm;
+?>

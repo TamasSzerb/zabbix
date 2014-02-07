@@ -71,16 +71,20 @@ class CProxy extends CZBXAPI {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'countOutput'				=> null,
 			'preservekeys'				=> null,
 			'selectHosts'				=> null,
 			'selectInterface'			=> null,
+			'selectInterfaces'			=> null, // deprecated
 			'sortfield'					=> '',
 			'sortorder'					=> '',
 			'limit'						=> null
 		);
 		$options = zbx_array_merge($defOptions, $options);
+
+		// deprecated
+		$this->checkDeprecatedParam($options, 'selectInterfaces');
 
 		// editable + PERMISSION CHECK
 		if ($userType != USER_TYPE_SUPER_ADMIN && !$options['nopermissions']) {
@@ -137,7 +141,11 @@ class CProxy extends CZBXAPI {
 				$proxy['proxyid'] = $proxy['hostid'];
 				unset($proxy['hostid']);
 
-				$result[$proxy['proxyid']] = $proxy;
+				if (!isset($result[$proxy['proxyid']])) {
+					$result[$proxy['proxyid']]= array();
+				}
+
+				$result[$proxy['proxyid']] += $proxy;
 			}
 		}
 
@@ -234,7 +242,6 @@ class CProxy extends CZBXAPI {
 				}
 
 				$proxiesExists = $this->get(array(
-					'output' => array('proxyid'),
 					'filter' => array('host' => $proxy['host'])
 				));
 				foreach ($proxiesExists as $proxyExists) {
@@ -397,11 +404,26 @@ class CProxy extends CZBXAPI {
 	/**
 	 * Delete proxy.
 	 *
-	 * @param array	$proxyIds
+	 * @param string|array $proxyIds
 	 *
 	 * @return array
 	 */
-	public function delete(array $proxyIds) {
+	public function delete($proxyIds) {
+		$proxyIds = zbx_toArray($proxyIds);
+
+		// deprecated input support
+		if ($proxyIds && is_array($proxyIds[0])) {
+			$this->deprecated('Passing objects is deprecated, use an array of IDs instead.');
+
+			foreach ($proxyIds as $proxyId) {
+				if (!check_db_fields(array('proxyid' => null), $proxyId)) {
+					self::exception(ZBX_API_ERROR_PARAMETERS, _('No proxy ID given.'));
+				}
+			}
+
+			$proxyIds = zbx_objectValues($proxyIds, 'proxyid');
+		}
+
 		$this->validateDelete($proxyIds);
 
 		$dbProxies = DBselect(
@@ -588,7 +610,7 @@ class CProxy extends CZBXAPI {
 		// selectHosts
 		if ($options['selectHosts'] !== null && $options['selectHosts'] != API_OUTPUT_COUNT) {
 			$hosts = API::Host()->get(array(
-				'output' => $this->outputExtend($options['selectHosts'], array('hostid', 'proxy_hostid')),
+				'output' => $this->outputExtend('hosts', array('hostid', 'proxy_hostid'), $options['selectHosts']),
 				'nodeids' => $options['nodeids'],
 				'proxyids' => $proxyIds,
 				'preservekeys' => true
@@ -602,7 +624,7 @@ class CProxy extends CZBXAPI {
 		// adding host interface
 		if ($options['selectInterface'] !== null && $options['selectInterface'] != API_OUTPUT_COUNT) {
 			$interfaces = API::HostInterface()->get(array(
-				'output' => $this->outputExtend($options['selectInterface'], array('interfaceid', 'hostid')),
+				'output' => $this->outputExtend('interface', array('interfaceid', 'hostid'), $options['selectInterface']),
 				'nodeids' => $options['nodeids'],
 				'hostids' => $proxyIds,
 				'nopermissions' => true,
@@ -616,6 +638,27 @@ class CProxy extends CZBXAPI {
 			foreach ($result as $key => $proxy) {
 				if (!empty($proxy['interface'])) {
 					$result[$key]['interface'] = $proxy['interface'];
+				}
+			}
+		}
+
+		// adding host interfaces (deprecated)
+		if ($options['selectInterfaces'] !== null && $options['selectInterfaces'] != API_OUTPUT_COUNT) {
+			$interfaces = API::HostInterface()->get(array(
+				'output' => $this->outputExtend('interface', array('interfaceid', 'hostid'), $options['selectInterfaces']),
+				'nodeids' => $options['nodeids'],
+				'hostids' => $proxyIds,
+				'nopermissions' => true,
+				'preservekeys' => true
+			));
+
+			$relationMap = $this->createRelationMap($interfaces, 'hostid', 'interfaceid');
+			$interfaces = $this->unsetExtraFields($interfaces, array('hostid', 'interfaceid'), $options['selectInterfaces']);
+			$result = $relationMap->mapOne($result, $interfaces, 'interfaces');
+
+			foreach ($result as $key => $proxy) {
+				if (!empty($proxy['interfaces'])) {
+					$result[$key]['interfaces'] = array($proxy['interfaces']);
 				}
 			}
 		}

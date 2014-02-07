@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2000-2011 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $itemsWidget = new CWidget();
 
 $discoveryRule = $this->data['discovery_rule'];
@@ -139,5 +139,5 @@ $itemForm->addItem(array($this->data['paging'], $hostTable, $this->data['paging'
 
 // append form to widget
 $itemsWidget->addItem($itemForm);
-
 return $itemsWidget;
+?>

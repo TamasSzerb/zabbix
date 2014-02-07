@@ -80,7 +80,7 @@ class CDiscoveryRule extends CItemGeneral {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectHosts'				=> null,
 			'selectItems'				=> null,
 			'selectTriggers'			=> null,
@@ -132,6 +132,10 @@ class CDiscoveryRule extends CItemGeneral {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
+			if ($options['output'] != API_OUTPUT_EXTEND) {
+				$sqlParts['select']['hostid'] = 'i.hostid';
+			}
+
 			$sqlParts['where']['hostid'] = dbConditionInt('i.hostid', $options['hostids']);
 
 			if (!is_null($options['groupCount'])) {
@@ -149,6 +153,10 @@ class CDiscoveryRule extends CItemGeneral {
 		// interfaceids
 		if (!is_null($options['interfaceids'])) {
 			zbx_value2array($options['interfaceids']);
+
+			if ($options['output'] != API_OUTPUT_EXTEND) {
+				$sqlParts['select']['interfaceid'] = 'i.interfaceid';
+			}
 
 			$sqlParts['where']['interfaceid'] = dbConditionInt('i.interfaceid', $options['interfaceids']);
 
@@ -231,7 +239,19 @@ class CDiscoveryRule extends CItemGeneral {
 				}
 			}
 			else {
-				$result[$item['itemid']] = $item;
+				if (!isset($result[$item['itemid']])) {
+					$result[$item['itemid']]= array();
+				}
+
+				// hostids
+				if (isset($item['hostid']) && is_null($options['selectHosts'])) {
+					if (!isset($result[$item['itemid']]['hosts'])) {
+						$result[$item['itemid']]['hosts'] = array();
+					}
+					$result[$item['itemid']]['hosts'][] = array('hostid' => $item['hostid']);
+				}
+
+				$result[$item['itemid']] += $item;
 			}
 		}
 
@@ -837,7 +857,7 @@ class CDiscoveryRule extends CItemGeneral {
 			'discoveryids' => $srcDiscovery['itemid'],
 			'output' => API_OUTPUT_EXTEND,
 			'selectGraphItems' => API_OUTPUT_EXTEND,
-			'selectHosts' => array('hostid'),
+			'selectHosts' => API_OUTPUT_REFER,
 			'preservekeys' => true
 		));
 

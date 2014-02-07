@@ -39,6 +39,48 @@ function previousObject(p) {
 	return p;
 }
 
+function call_ins_macro_menu(ev) {
+	show_popup_menu(ev,
+		[
+			[locale['S_INSERT_MACRO'], null, null, {'outer' : ['pum_oheader'], 'inner' : ['pum_iheader']}],
+			['TRIGGER.VALUE=0', function() { set_macro(0); },
+			null, {'outer' : ['pum_o_item'], 'inner' : ['pum_i_item']}],
+			['TRIGGER.VALUE=1', function() { set_macro(1); },
+			null, {'outer' : ['pum_o_item'], 'inner' : ['pum_i_item']}],
+			['TRIGGER.VALUE=2', function() { set_macro(2); },
+			null, {'outer' : ['pum_o_item'], 'inner' : ['pum_i_item']}],
+			['TRIGGER.VALUE#0', function() { set_macro(10); },
+			null, {'outer' : ['pum_o_item'], 'inner' : ['pum_i_item']}],
+			['TRIGGER.VALUE#1', function() { set_macro(11); },
+			null, {'outer' : ['pum_o_item'], 'inner' : ['pum_i_item']}],
+			['TRIGGER.VALUE#2', function() { set_macro(12); },
+			null, {'outer' : ['pum_o_item'], 'inner' : ['pum_i_item']}]
+		], 150);
+
+	return false;
+}
+
+function call_triggerlog_menu(evnt, id, name, menu_options) {
+	var tname = locale['S_CREATE_LOG_TRIGGER'];
+
+	if (typeof(menu_options) != 'undefined') {
+		show_popup_menu(evnt,
+			[
+				[name, null, null, {'outer' : ['pum_oheader'], 'inner' : ['pum_iheader']}],
+				[tname, "javascript: openWinCentered('tr_logform.php?sform=1&itemid=" + id + "', 'TriggerLog', 760, 540, 'titlebar=no, resizable=yes, scrollbars=yes, dialog=no');", {'outer' : ['pum_o_item'], 'inner' : ['pum_i_item']}],
+				menu_options
+			], 240);
+	}
+	else {
+		show_popup_menu(evnt,
+			[
+				[name, null, null, {'outer' : ['pum_oheader'], 'inner' : ['pum_iheader']}],
+				[tname, "javascript: openWinCentered('tr_logform.php?sform=1&itemid=" + id + "', 'ServiceForm', 760, 540, 'titlebar=no, resizable=yes, scrollbars=yes, dialog=no');", {'outer' : ['pum_o_item'], 'inner' : ['pum_i_item']}]
+			], 140);
+	}
+	return false;
+}
+
 function add_logexpr() {
 	var REGEXP_EXCLUDE = 1;
 	try {
@@ -291,13 +333,13 @@ function closeForm(page) {
 		var msg = IE ? document.getElementById('page_msg').innerText : document.getElementById('page_msg').textContent;
 		window.opener.location.replace(page + '?msg=' + encodeURI(msg));
 	}
-	catch (e) {
-		throw(e);
+	catch(e) {
+		zbx_throw(e);
 	}
 
 	if (IE) {
 		// close current popup after 1s, wait when opener window is refreshed (IE7 issue)
-		window.setTimeout(function() { window.self.close(); }, 1000);
+		window.setTimeout(function() { window.self.close() }, 1000);
 	}
 	else {
 		window.self.close();
@@ -439,7 +481,7 @@ function delete_expression(expr_id) {
 
 function copy_expression(id) {
 	var expr_temp = document.getElementsByName('expr_temp')[0];
-	if (expr_temp.value.length > 0 && !confirm(t('Do you wish to replace the conditional expression?'))) {
+	if (expr_temp.value.length > 0 && !confirm(locale['DO_YOU_REPLACE_CONDITIONAL_EXPRESSION_Q'])) {
 		return null;
 	}
 
@@ -450,6 +492,22 @@ function copy_expression(id) {
 	else {
 		expr_temp.value = src.innerText;
 	}
+}
+
+function set_macro(v) {
+	var expr_temp = jQuery('#expr_temp');
+	if (expr_temp.val().length > 0 && !confirm(locale['DO_YOU_REPLACE_CONDITIONAL_EXPRESSION_Q'])) {
+		return false;
+	}
+
+	var sign = '=';
+	if (v >= 10) {
+		v %= 10;
+		sign = '#';
+	}
+	expr_temp.val('{TRIGGER.VALUE}' + sign + v);
+
+	return true;
 }
 
 /*
@@ -488,18 +546,103 @@ function cloneRow(elementid, count) {
 	newEntry.style.display = '';
 }
 
+// dashboard js menu
+function create_page_menu(e, id) {
+	if (!e) {
+		e = window.event;
+	}
+	id = 'menu_' + id;
+
+	var dbrd_menu = [];
+
+	// to create a copy of array, but not references!!!!
+	for (var i=0; i < page_menu[id].length; i++) {
+		if (typeof(page_menu[id][i]) != 'undefined' && !empty(page_menu[id][i])) {
+			dbrd_menu[i] = page_menu[id][i].clone();
+		}
+	}
+
+	for (var i = 0; i < page_submenu[id].length; i++) {
+		if (typeof(page_submenu[id][i]) != 'undefined' && !empty(page_submenu[id][i])) {
+			var row = page_submenu[id][i];
+			var menu_row = [row.name, "javascript: rm4favorites('" + row.favobj + "', '" + row.favid + "', '" + i + "');"];
+			dbrd_menu[dbrd_menu.length-1].push(menu_row);
+		}
+	}
+	show_popup_menu(e, dbrd_menu);
+}
+
+// triggers js menu
+function create_mon_trigger_menu(e, args, items) {
+	var tr_menu = [[t('Triggers'), null, null, {'outer' : ['pum_oheader'], 'inner' : ['pum_iheader']}], [t('Events'), 'events.php?triggerid=' + args[0].triggerid + '&nav_time=' + args[0].lastchange, null]];
+	if (args.length > 1 && !is_null(args[1])) {
+		tr_menu.push(args[1]);
+	}
+	if (args.length > 1 && !is_null(args[2])) {
+		tr_menu.push(args[2]);
+	}
+
+	// getting info about types of items that we have
+	var has_char_items = false;
+	var has_int_items = false;
+
+	// checking every item
+	for (var itemid in items) {
+		// if no info about type is given
+		if (!isset(itemid, items)) {
+			continue;
+		}
+		if (!isset('value_type', items[itemid])) {
+			continue;
+		}
+
+		// 1, 2, 4 - character types
+		if (items[itemid].value_type == '1' || items[itemid].value_type == '2' || items[itemid].value_type == '4') {
+			has_char_items = true;
+		}
+		// 0, 3 - numeric types
+		if (items[itemid].value_type == '0' || items[itemid].value_type == '3') {
+			has_int_items = true;
+		}
+	}
+
+	var history_section_caption = '';
+	// we have chars and numbers, or we have none (probably 'value_type' key was not set)
+	if (has_char_items == has_int_items) {
+		history_section_caption = t('History and simple graphs');
+	}
+	// we have only character items, so 'history' should be shown
+	else if (has_char_items) {
+		history_section_caption = t('History');
+	}
+	// we have only numeric items, so 'simple graphs' should be shown
+	else {
+		history_section_caption = t('Simple graphs');
+	}
+
+	tr_menu.push([history_section_caption, null, null, {'outer' : ['pum_oheader'], 'inner' : ['pum_iheader']}]);
+
+	for (var itemid in items) {
+		if (!isset(itemid, items)) {
+			continue;
+		}
+		tr_menu.push([items[itemid].name, 'history.php?action=' + items[itemid].action + '&itemid=' + items[itemid].itemid, null]);
+	}
+	show_popup_menu(e, tr_menu, 280);
+}
+
 function testUserSound(idx) {
 	var sound = $(idx).options[$(idx).selectedIndex].value;
 	var repeat = $('messages_sounds.repeat').options[$('messages_sounds.repeat').selectedIndex].value;
 
 	if (repeat == 1) {
-		AudioControl.playOnce(sound);
+		AudioList.play(sound);
 	}
 	else if (repeat > 1) {
-		AudioControl.playLoop(sound, repeat);
+		AudioList.loop(sound, {'seconds': repeat});
 	}
 	else {
-		AudioControl.playLoop(sound, $('messages_timeout').value);
+		AudioList.loop(sound, {'seconds': $('messages_timeout').value});
 	}
 }
 
@@ -574,7 +717,6 @@ function getUniqueId() {
 	if (typeof getUniqueId.id === 'undefined') {
 		getUniqueId.id = 0;
 	}
-
 	return 'new' + (getUniqueId.id++).toString();
 }
 
@@ -1012,16 +1154,16 @@ function showModalWindow(title, text, buttons) {
 }
 
 /**
- * Disable setup step button.
+ * Disable setup step button
  *
- * @param string buttonId
+ * @param buttonId
  */
 function disableSetupStepButton(buttonId) {
-	jQuery(buttonId)
-		.addClass('ui-state-disabled')
-		.addClass('ui-button-disabled')
-		.attr('disabled', 'disabled')
-		.attr('aria-disabled', 'true');
+	jQuery(buttonId).
+		addClass('ui-state-disabled').
+		addClass('ui-button-disabled').
+		attr('disabled', 'disabled').
+		attr('aria-disabled', 'true');
 
 	jQuery('.info_bar .ok').remove();
 }

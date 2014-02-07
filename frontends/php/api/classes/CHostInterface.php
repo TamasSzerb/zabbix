@@ -79,7 +79,7 @@ class CHostInterface extends CZBXAPI {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectHosts'				=> null,
 			'selectItems'				=> null,
 			'countOutput'				=> null,
@@ -128,6 +128,7 @@ class CHostInterface extends CZBXAPI {
 		// hostids
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
+			$sqlParts['select']['hostid'] = 'hi.hostid';
 			$sqlParts['where']['hostid'] = dbConditionInt('hi.hostid', $options['hostids']);
 
 			if (!$nodeCheck) {
@@ -140,6 +141,7 @@ class CHostInterface extends CZBXAPI {
 		if (!is_null($options['itemids'])) {
 			zbx_value2array($options['itemids']);
 
+			$sqlParts['select']['itemid'] = 'i.itemid';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where'][] = dbConditionInt('i.itemid', $options['itemids']);
 			$sqlParts['where']['hi'] = 'hi.interfaceid=i.interfaceid';
@@ -154,6 +156,7 @@ class CHostInterface extends CZBXAPI {
 		if (!is_null($options['triggerids'])) {
 			zbx_value2array($options['triggerids']);
 
+			$sqlParts['select']['triggerid'] = 'f.triggerid';
 			$sqlParts['from']['functions'] = 'functions f';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where'][] = dbConditionInt('f.triggerid', $options['triggerids']);
@@ -200,7 +203,19 @@ class CHostInterface extends CZBXAPI {
 				}
 			}
 			else {
-				$result[$interface['interfaceid']] = $interface;
+				if (!isset($result[$interface['interfaceid']])) {
+					$result[$interface['interfaceid']] = array();
+				}
+
+				// itemids
+				if (isset($interface['itemid']) && is_null($options['selectItems'])) {
+					if (!isset($result[$interface['interfaceid']]['items'])) {
+						$result[$interface['interfaceid']]['items'] = array();
+					}
+					$result[$interface['interfaceid']]['items'][] = array('itemid' => $interface['itemid']);
+					unset($interface['itemid']);
+				}
+				$result[$interface['interfaceid']] += $interface;
 			}
 		}
 
@@ -881,7 +896,7 @@ class CHostInterface extends CZBXAPI {
 		if ($options['selectItems'] !== null) {
 			if ($options['selectItems'] != API_OUTPUT_COUNT) {
 				$items = API::Item()->get(array(
-					'output' => $this->outputExtend($options['selectItems'], array('itemid', 'interfaceid')),
+					'output' => $this->outputExtend('items', array('itemid', 'interfaceid'), $options['selectItems']),
 					'nodeids' => $options['nodeids'],
 					'interfaceids' => $interfaceIds,
 					'nopermissions' => true,

@@ -41,8 +41,6 @@ extern char	ZBX_PG_ESCAPE_BACKSLASH;
 extern int	txn_level;
 extern int	txn_error;
 
-static int	connection_failure;
-
 /******************************************************************************
  *                                                                            *
  * Function: __DBnode                                                         *
@@ -142,15 +140,8 @@ int	DBconnect(int flag)
 			exit(FAIL);
 		}
 
-		zabbix_log(LOG_LEVEL_WARNING, "database is down: reconnecting in %d seconds", ZBX_DB_WAIT_DOWN);
-		connection_failure = 1;
+		zabbix_log(LOG_LEVEL_WARNING, "Database is down. Reconnecting in %d seconds.", ZBX_DB_WAIT_DOWN);
 		zbx_sleep(ZBX_DB_WAIT_DOWN);
-	}
-
-	if (0 != connection_failure)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "database connection re-established");
-		connection_failure = 0;
 	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%d", __function_name, err);
@@ -192,8 +183,7 @@ static void	DBtxn_operation(int (*txn_operation)())
 
 		if (ZBX_DB_DOWN == (rc = txn_operation()))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -287,8 +277,7 @@ void	DBstatement_prepare(const char *sql)
 
 		if (ZBX_DB_DOWN == (rc = zbx_db_statement_prepare(sql)))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -317,8 +306,7 @@ void	DBbind_parameter(int position, void *buffer, unsigned char type)
 
 		if (ZBX_DB_DOWN == (rc = zbx_db_bind_parameter(position, buffer, type)))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -346,8 +334,7 @@ int	DBstatement_execute()
 
 		if (ZBX_DB_DOWN == (rc = zbx_db_statement_execute()))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -381,8 +368,7 @@ int	__zbx_DBexecute(const char *fmt, ...)
 
 		if (ZBX_DB_DOWN == (rc = zbx_db_vexecute(fmt, args)))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -448,8 +434,7 @@ DB_RESULT	__zbx_DBselect(const char *fmt, ...)
 
 		if ((DB_RESULT)ZBX_DB_DOWN == (rc = zbx_db_vselect(fmt, args)))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -481,8 +466,7 @@ DB_RESULT	DBselectN(const char *query, int n)
 
 		if ((DB_RESULT)ZBX_DB_DOWN == (rc = zbx_db_select_n(query, n)))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -1032,7 +1016,8 @@ zbx_uint64_t	DBget_maxid_num(const char *tablename, int num)
 			0 == strcmp(tablename, "alerts") ||
 			0 == strcmp(tablename, "escalations") ||
 			0 == strcmp(tablename, "autoreg_host") ||
-			0 == strcmp(tablename, "graph_discovery"))
+			0 == strcmp(tablename, "graph_discovery") ||
+			0 == strcmp(tablename, "trigger_discovery"))
 		return DCget_nextid(tablename, num);
 
 	return DBget_nextid(tablename, num);

@@ -101,7 +101,7 @@ class CTrigger extends CTriggerGeneral {
 			'expandDescription'				=> null,
 			'expandComment'					=> null,
 			'expandExpression'				=> null,
-			'output'						=> API_OUTPUT_EXTEND,
+			'output'						=> API_OUTPUT_REFER,
 			'selectGroups'					=> null,
 			'selectHosts'					=> null,
 			'selectItems'					=> null,
@@ -118,6 +118,8 @@ class CTrigger extends CTriggerGeneral {
 			'limitSelects'					=> null
 		);
 		$options = zbx_array_merge($defOptions, $options);
+
+		$this->checkDeprecatedParam($options, 'output', 'value_flags');
 
 		// editable + PERMISSION CHECK
 		if ($userType != USER_TYPE_SUPER_ADMIN && !$options['nopermissions']) {
@@ -147,6 +149,7 @@ class CTrigger extends CTriggerGeneral {
 
 			sort($options['groupids']);
 
+			$sqlParts['select']['groupid'] = 'hg.groupid';
 			$sqlParts['from']['functions'] = 'functions f';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
@@ -177,6 +180,7 @@ class CTrigger extends CTriggerGeneral {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
+			$sqlParts['select']['hostid'] = 'i.hostid';
 			$sqlParts['from']['functions'] = 'functions f';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where']['hostid'] = dbConditionInt('i.hostid', $options['hostids']);
@@ -199,6 +203,7 @@ class CTrigger extends CTriggerGeneral {
 		if (!is_null($options['itemids'])) {
 			zbx_value2array($options['itemids']);
 
+			$sqlParts['select']['itemid'] = 'f.itemid';
 			$sqlParts['from']['functions'] = 'functions f';
 			$sqlParts['where']['itemid'] = dbConditionInt('f.itemid', $options['itemids']);
 			$sqlParts['where']['ft'] = 'f.triggerid=t.triggerid';
@@ -212,6 +217,7 @@ class CTrigger extends CTriggerGeneral {
 		if (!is_null($options['applicationids'])) {
 			zbx_value2array($options['applicationids']);
 
+			$sqlParts['select']['applicationid'] = 'ia.applicationid';
 			$sqlParts['from']['functions'] = 'functions f';
 			$sqlParts['from']['items_applications'] = 'items_applications ia';
 			$sqlParts['where']['a'] = dbConditionInt('ia.applicationid', $options['applicationids']);
@@ -379,6 +385,7 @@ class CTrigger extends CTriggerGeneral {
 
 		// group
 		if (!is_null($options['group'])) {
+			$sqlParts['select']['name'] = 'g.name';
 			$sqlParts['from']['functions'] = 'functions f';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
@@ -392,6 +399,7 @@ class CTrigger extends CTriggerGeneral {
 
 		// host
 		if (!is_null($options['host'])) {
+			$sqlParts['select']['host'] = 'h.host';
 			$sqlParts['from']['functions'] = 'functions f';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['from']['hosts'] = 'hosts h';
@@ -446,7 +454,21 @@ class CTrigger extends CTriggerGeneral {
 		}
 
 		foreach ($triggers as $trigger) {
-			$result[$trigger['triggerid']] = $trigger;
+			if (!isset($result[$trigger['triggerid']])) {
+				$result[$trigger['triggerid']] = array();
+			}
+
+			$result[$trigger['triggerid']] += $trigger;
+		}
+
+		if ($options['groupids'] !== null && $options['selectGroups'] === null) {
+			$options['selectGroups'] = API_OUTPUT_REFER;
+		}
+		if ($options['hostids'] !== null && $options['selectHosts'] === null) {
+			$options['selectHosts'] = API_OUTPUT_REFER;
+		}
+		if ($options['itemids'] !== null && $options['selectItems'] === null) {
+			$options['selectItems'] = array('itemid');
 		}
 
 		if ($result) {
@@ -476,6 +498,9 @@ class CTrigger extends CTriggerGeneral {
 		if (is_null($options['preservekeys'])) {
 			$result = zbx_cleanHashes($result);
 		}
+
+		// deprecated fields
+		$result = $this->handleDeprecatedOutput($result, 'value_flags', 'state', $options['output']);
 
 		// unset extra fields
 		$extraFields = array('state', 'expression');
@@ -586,6 +611,7 @@ class CTrigger extends CTriggerGeneral {
 	 * @param string $method
 	 */
 	public function checkInput(array &$triggers, $method) {
+		$create = ($method == 'create');
 		$update = ($method == 'update');
 
 		// permissions
@@ -596,7 +622,8 @@ class CTrigger extends CTriggerGeneral {
 				'triggerids' => zbx_objectValues($triggers, 'triggerid'),
 				'output' => API_OUTPUT_EXTEND,
 				'editable' => true,
-				'preservekeys' => true
+				'preservekeys' => true,
+				'selectDependencies' => API_OUTPUT_REFER
 			));
 
 			$updateDiscoveredValidator = new CUpdateDiscoveredValidator(array(
@@ -628,7 +655,7 @@ class CTrigger extends CTriggerGeneral {
 
 			$this->checkNoParameters(
 				$trigger,
-				array('templateid', 'state', 'value'),
+				array('templateid', 'state', 'value', 'value_flags'),
 				($update ? _('Cannot update "%1$s" for trigger "%2$s".') : _('Cannot set "%1$s" for trigger "%2$s".')),
 				$trigger['description']
 			);
@@ -931,7 +958,7 @@ class CTrigger extends CTriggerGeneral {
 
 		if (!$this->isReadable($depTtriggerIds)) {
 			self::exception(ZBX_API_ERROR_PERMISSIONS, _('No permissions to referred object or it does not exist!'));
-		}
+		};
 
 		$this->checkDependencies($triggers);
 		$this->checkDependencyParents($triggers);
@@ -952,7 +979,7 @@ class CTrigger extends CTriggerGeneral {
 		$triggerIds = array_unique(zbx_objectValues($triggersData, 'triggerid'));
 		if (!$this->isWritable($triggerIds)) {
 			self::exception(ZBX_API_ERROR_PERMISSIONS, _('No permissions to referred object or it does not exist!'));
-		}
+		};
 
 		$this->validateAddDependencies($triggersData);
 
@@ -1120,7 +1147,7 @@ class CTrigger extends CTriggerGeneral {
 			'triggerids' => zbx_objectValues($triggers, 'triggerid'),
 			'output' => API_OUTPUT_EXTEND,
 			'selectHosts' => array('name'),
-			'selectDependencies' => array('triggerid'),
+			'selectDependencies' => API_OUTPUT_REFER,
 			'preservekeys' => true,
 			'nopermissions' => true
 		));
@@ -1303,7 +1330,7 @@ class CTrigger extends CTriggerGeneral {
 			'hostids' => $templateIds,
 			'preservekeys' => true,
 			'output' => array('triggerid'),
-			'selectDependencies' => array('triggerid')
+			'selectDependencies' => API_OUTPUT_REFER
 		));
 
 		if ($parentTriggers) {
@@ -1313,6 +1340,7 @@ class CTrigger extends CTriggerGeneral {
 				'nopermissions' => true,
 				'preservekeys' => true,
 				'output' => array('triggerid', 'templateid'),
+				'selectDependencies' => API_OUTPUT_REFER,
 				'selectHosts' => array('hostid')
 			));
 
@@ -1327,7 +1355,7 @@ class CTrigger extends CTriggerGeneral {
 						}
 						$host = reset($childTrigger['hosts']);
 						$dependencies = replace_template_dependencies($dependencies, $host['hostid']);
-						foreach ($dependencies as $depTriggerId) {
+						foreach ($dependencies as $triggerId => $depTriggerId) {
 							$newDependencies[] = array(
 								'triggerid' => $childTrigger['triggerid'],
 								'dependsOnTriggerid' => $depTriggerId
@@ -1570,9 +1598,9 @@ class CTrigger extends CTriggerGeneral {
 		$expressionData->parse($trigger['expression']);
 
 		$templatesData = API::Template()->get(array(
-			'output' => array('templateid'),
-			'selectHosts' => array('hostid'),
-			'selectTemplates' => array('templateid'),
+			'output' => API_OUTPUT_REFER,
+			'selectHosts' => API_OUTPUT_REFER,
+			'selectTemplates' => API_OUTPUT_REFER,
 			'filter' => array('host' => $expressionData->getHosts()),
 			'nopermissions' => true,
 			'preservekeys' => true
@@ -1689,6 +1717,11 @@ class CTrigger extends CTriggerGeneral {
 
 			if ($options['expandDescription'] !== null) {
 				$sqlParts = $this->addQuerySelect($this->fieldId('expression'), $sqlParts);
+			}
+
+			// select the state field to be able to return the deprecated value_flags property
+			if ($this->outputIsRequested('value_flags', $options['output'])) {
+				$sqlParts = $this->addQuerySelect($this->fieldId('state'), $sqlParts);
 			}
 		}
 

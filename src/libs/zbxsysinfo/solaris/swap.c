@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,52 +9,44 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
 
-/******************************************************************************
- *                                                                            *
- * Function: get_swapinfo                                                     *
- *                                                                            *
- * Purpose: get swap usage statistics                                         *
- *                                                                            *
- * Return value: SUCCEED if swap usage statistics retrieved successfully      *
- *               FAIL otherwise                                               *
- *                                                                            *
- * Comments: we try to imitate "swap -l".                                     *
- *                                                                            *
- ******************************************************************************/
-static int	get_swapinfo(zbx_uint64_t *total, zbx_uint64_t *free1)
+static void	get_swapinfo(double *total, double *fr)
 {
-	int			i, cnt, cnt2, page_size, ret = SUCCEED;
-	struct swaptable	*swt = NULL;
-	struct swapent		*ste;
-	static char		path[256];
+	register int cnt, i, page_size;
+/* Support for >2Gb */
+/*	register int t, f;*/
+	double	t, f;
+	struct swaptable *swt;
+	struct swapent *ste;
+	static char path[256];
 
 	/* get total number of swap entries */
-	if (-1 == (cnt = swapctl(SC_GETNSWP, 0)))
-		return FAIL;
+	cnt = swapctl(SC_GETNSWP, 0);
 
-	if (0 == cnt)
+	/* allocate enough space to hold count + n swapents */
+	swt = (struct swaptable *)malloc(sizeof(int) +
+		cnt * sizeof(struct swapent));
+
+	if (swt == NULL)
 	{
-		*total = *free1 = 0;
-		return SUCCEED;
+		*total = 0;
+		*fr = 0;
+		return;
 	}
-
-	/* allocate space to hold count + n swapents */
-	swt = (struct swaptable *)zbx_malloc(swt, sizeof(struct swaptable) + (cnt - 1) * sizeof(struct swapent));
-
 	swt->swt_n = cnt;
 
-	/* fill in ste_path pointers: we don't care about the paths, so we point them all to the same buffer */
+/* fill in ste_path pointers: we don't care about the paths, so we
+point them all to the same buffer */
 	ste = &(swt->swt_ent[0]);
 	i = cnt;
 	while (--i >= 0)
@@ -63,247 +55,337 @@ static int	get_swapinfo(zbx_uint64_t *total, zbx_uint64_t *free1)
 	}
 
 	/* grab all swap info */
-	if (-1 == (cnt2 = swapctl(SC_LIST, swt)) || cnt != cnt2)
-	{
-		ret = FAIL;
-		goto finish;
-	}
+	swapctl(SC_LIST, swt);
 
 	/* walk through the structs and sum up the fields */
-	*total = *free1 = 0;
+	t = f = 0;
 	ste = &(swt->swt_ent[0]);
 	i = cnt;
 	while (--i >= 0)
 	{
 		/* don't count slots being deleted */
-		if (0 == (ste->ste_flags & (ST_INDEL | ST_DOINGDEL)))
+		if (!(ste->ste_flags & ST_INDEL) &&
+		!(ste->ste_flags & ST_DOINGDEL))
 		{
-			*total += ste->ste_pages;
-			*free1 += ste->ste_free;
+			t += ste->ste_pages;
+			f += ste->ste_free;
 		}
 		ste++;
 	}
 
-	page_size = getpagesize();
+	page_size=getpagesize();
 
 	/* fill in the results */
-	*total *= page_size;
-	*free1 *= page_size;
-finish:
-	zbx_free(swt);
-
-	return ret;
+	*total = page_size*t;
+	*fr = page_size*f;
+	free(swt);
 }
 
-static int	SYSTEM_SWAP_TOTAL(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_SWAP_FREE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	zbx_uint64_t	total, free1;
+	double	swaptotal, swapfree;
 
-	if (SUCCEED != get_swapinfo(&total, &free1))
-		return SYSINFO_RET_FAIL;
+	get_swapinfo(&swaptotal, &swapfree);
 
-	SET_UI64_RESULT(result, total);
-
+	SET_UI64_RESULT(result, swapfree);
 	return SYSINFO_RET_OK;
 }
 
-static int	SYSTEM_SWAP_USED(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_SWAP_TOTAL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	zbx_uint64_t	total, free1;
+	double	swaptotal, swapfree;
 
-	if (SUCCEED != get_swapinfo(&total, &free1))
-		return SYSINFO_RET_FAIL;
+	get_swapinfo(&swaptotal, &swapfree);
 
-	SET_UI64_RESULT(result, total - free1);
-
+	SET_UI64_RESULT(result, swaptotal);
 	return SYSINFO_RET_OK;
 }
 
-static int	SYSTEM_SWAP_FREE(AGENT_REQUEST *request, AGENT_RESULT *result)
+static int	SYSTEM_SWAP_PFREE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	zbx_uint64_t	total, free1;
+	AGENT_RESULT	result_tmp;
+	zbx_uint64_t	tot_val = 0;
+	zbx_uint64_t	free_val = 0;
 
-	if (SUCCEED != get_swapinfo(&total, &free1))
+        init_result(&result_tmp);
+
+	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK || !(result_tmp.type & AR_UINT64))
 		return SYSINFO_RET_FAIL;
+	tot_val = result_tmp.ui64;
 
-	SET_UI64_RESULT(result, free1);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	SYSTEM_SWAP_PUSED(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	zbx_uint64_t	total, free1;
-
-	if (SUCCEED != get_swapinfo(&total, &free1))
-		return SYSINFO_RET_FAIL;
-
-	if (0 == total)
-		return SYSINFO_RET_FAIL;
-
-	SET_DBL_RESULT(result, 100.0 * (double)(total - free1) / (double)total);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	SYSTEM_SWAP_PFREE(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	zbx_uint64_t	total, free1;
-
-	if (SUCCEED != get_swapinfo(&total, &free1))
-		return SYSINFO_RET_FAIL;
-
-	if (0 == total)
-		return SYSINFO_RET_FAIL;
-
-	SET_DBL_RESULT(result, 100.0 * (double)free1 / (double)total);
-
-	return SYSINFO_RET_OK;
-}
-
-int	SYSTEM_SWAP_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	char	*tmp;
-	int	ret;
-
-	if (2 < request->nparam)
-		return SYSINFO_RET_FAIL;
-
-	tmp = get_rparam(request, 0);
-
-	if (NULL != tmp && '\0' != *tmp && 0 != strcmp(tmp, "all"))	/* default parameter */
-		return SYSINFO_RET_FAIL;
-
-	tmp = get_rparam(request, 1);
-
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "free"))	/* default parameter */
-		ret = SYSTEM_SWAP_FREE(request, result);
-	else if (0 == strcmp(tmp, "total"))
-		ret = SYSTEM_SWAP_TOTAL(request, result);
-	else if (0 == strcmp(tmp, "used"))
-		ret = SYSTEM_SWAP_USED(request, result);
-	else if (0 == strcmp(tmp, "pfree"))
-		ret = SYSTEM_SWAP_PFREE(request, result);
-	else if (0 == strcmp(tmp, "pused"))
-		ret = SYSTEM_SWAP_PUSED(request, result);
-	else
-		return SYSINFO_RET_FAIL;
-
-	return ret;
-}
-
-static int	get_swap_io(zbx_uint64_t *swapin, zbx_uint64_t *pgswapin, zbx_uint64_t *swapout, zbx_uint64_t *pgswapout)
-{
-	kstat_ctl_t	*kc;
-	kstat_t		*k;
-	cpu_stat_t	*cpu;
-	int		cpu_count = 0;
-
-	if (NULL != (kc = kstat_open()))
+	/* Check for division by zero */
+	if(tot_val == 0)
 	{
-		k = kc->kc_chain;
-
-		while (NULL != k)
-		{
-			if (0 == strncmp(k->ks_name, "cpu_stat", 8) && -1 != kstat_read(kc, k, NULL))
-			{
-				cpu = (cpu_stat_t *)k->ks_data;
-
-				if (NULL != swapin)
-				{
-					/* uint_t   swapin;	*/ /* swapins */
-					*swapin += cpu->cpu_vminfo.swapin;
-				}
-
-				if (NULL != pgswapin)
-				{
-					/* uint_t   pgswapin;	*/ /* pages swapped in */
-					*pgswapin += cpu->cpu_vminfo.pgswapin;
-				}
-
-				if (NULL != swapout)
-				{
-					/* uint_t   swapout;	*/ /* swapout */
-					*swapout += cpu->cpu_vminfo.swapout;
-				}
-
-				if (NULL != pgswapout)
-				{
-					/* uint_t   pgswapout;	*/ /* pages swapped out */
-					*pgswapout += cpu->cpu_vminfo.pgswapout;
-				}
-
-				cpu_count++;
-			}
-
-			k = k->ks_next;
-		}
-
-		kstat_close(kc);
+		free_result(&result_tmp);
+		return SYSINFO_RET_FAIL;
 	}
 
-	if (0 == cpu_count)
+	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK || !(result_tmp.type & AR_UINT64))
 		return SYSINFO_RET_FAIL;
+	free_val = result_tmp.ui64;
+
+	free_result(&result_tmp);
+
+	SET_DBL_RESULT(result, (100.0 * (double)free_val) / (double)tot_val);
 
 	return SYSINFO_RET_OK;
 }
 
-int	SYSTEM_SWAP_IN(AGENT_REQUEST *request, AGENT_RESULT *result)
+static int	SYSTEM_SWAP_PUSED(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	int		ret = SYSINFO_RET_FAIL;
-	char		*tmp;
-	zbx_uint64_t	value = 0;
+	AGENT_RESULT	result_tmp;
+	zbx_uint64_t	tot_val = 0;
+	zbx_uint64_t	free_val = 0;
 
-	if (2 < request->nparam)
+        init_result(&result_tmp);
+
+	if(SYSTEM_SWAP_TOTAL(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK || !(result_tmp.type & AR_UINT64))
 		return SYSINFO_RET_FAIL;
+	tot_val = result_tmp.ui64;
 
-	tmp = get_rparam(request, 0);
-
-	if (NULL != tmp && '\0' != *tmp && 0 != strcmp(tmp, "all"))
+	/* Check for division by zero */
+	if(tot_val == 0)
+	{
+		free_result(&result_tmp);
 		return SYSINFO_RET_FAIL;
+	}
 
-	tmp = get_rparam(request, 1);
+	if(SYSTEM_SWAP_FREE(cmd, param, flags, &result_tmp) != SYSINFO_RET_OK || !(result_tmp.type & AR_UINT64))
+		return SYSINFO_RET_FAIL;
+	free_val = result_tmp.ui64;
 
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "count"))
-		ret = get_swap_io(&value, NULL, NULL, NULL);
-	else if (0 == strcmp(tmp, "pages"))
-		ret = get_swap_io(NULL, &value, NULL, NULL);
-	else
-		ret =  SYSINFO_RET_FAIL;
+	free_result(&result_tmp);
 
-	if (ret != SYSINFO_RET_OK)
-		return ret;
+	SET_DBL_RESULT(result, 100.0 - (100.0 * (double)free_val) / (double)tot_val);
 
-	SET_UI64_RESULT(result, value);
-	return ret;
+        return SYSINFO_RET_OK;
 }
 
-int	SYSTEM_SWAP_OUT(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_SWAP_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	int		ret = SYSINFO_RET_FAIL;
-	char		*tmp;
-	zbx_uint64_t	value = 0;
+	MODE_FUNCTION fl[] =
+	{
+		{"total",	SYSTEM_SWAP_TOTAL},
+		{"free",	SYSTEM_SWAP_FREE},
+		{"pfree",       SYSTEM_SWAP_PFREE},
+		{"pused",       SYSTEM_SWAP_PUSED},
+		{0,		0}
+	};
 
-	if (2 < request->nparam)
+	char swapdev[MAX_STRING_LEN];
+	char mode[MAX_STRING_LEN];
+	int i;
+
+        if(num_param(param) > 2)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+        if(get_param(param, 1, swapdev, sizeof(swapdev)) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+        if(swapdev[0] == '\0')
+	{
+		/* default parameter */
+		zbx_snprintf(swapdev, sizeof(swapdev), "all");
+	}
+
+	if(strncmp(swapdev, "all", sizeof(swapdev)))
+	{
 		return SYSINFO_RET_FAIL;
+	}
 
-	tmp = get_rparam(request, 0);
+	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+        {
+                mode[0] = '\0';
+        }
 
-	if (NULL != tmp && '\0' != *tmp && 0 != strcmp(tmp, "all"))
-		return SYSINFO_RET_FAIL;
+        if(mode[0] == '\0')
+	{
+		/* default parameter */
+		zbx_snprintf(mode, sizeof(mode), "free");
+	}
 
-	tmp = get_rparam(request, 1);
+	for(i=0; fl[i].mode!=0; i++)
+		if(strncmp(mode, fl[i].mode, MAX_STRING_LEN)==0)
+			return (fl[i].function)(cmd, param, flags, result);
 
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "count"))
-		ret = get_swap_io(NULL, NULL, &value, NULL);
-	else if (0 == strcmp(tmp, "pages"))
-		ret = get_swap_io(NULL, NULL, NULL, &value);
-	else
-		ret = SYSINFO_RET_FAIL;
+	return SYSINFO_RET_FAIL;
+}
 
-	if (ret != SYSINFO_RET_OK)
-		return ret;
+#define	DO_SWP_IN	1
+#define DO_PG_IN	2
+#define	DO_SWP_OUT	3
+#define DO_PG_OUT	4
 
-	SET_UI64_RESULT(result, value);
+int	get_swap_io(double *swapin, double *pgswapin, double *swapout, double *pgswapout)
+{
+    kstat_ctl_t	    *kc;
+    kstat_t	    *k;
+    cpu_stat_t	    *cpu;
+
+    int	    cpu_count = 0;
+
+    kc = kstat_open();
+
+    if(kc != NULL)
+    {
+	k = kc->kc_chain;
+  	while (k != NULL)
+	{
+	    if( (strncmp(k->ks_name, "cpu_stat", 8) == 0) &&
+		(kstat_read(kc, k, NULL) != -1) )
+	    {
+		cpu = (cpu_stat_t*) k->ks_data;
+		if(swapin)
+		{
+		   /* uint_t   swapin;	    	*/ /* swapins */
+		   (*swapin) += (double) cpu->cpu_vminfo.swapin;
+		}
+		if(pgswapin)
+		{
+		   /* uint_t   pgswapin;	*/ /* pages swapped in */
+		  (*pgswapin) += (double) cpu->cpu_vminfo.pgswapin;
+		}
+		if(swapout)
+		{
+		   /* uint_t   swapout;	    	*/ /* swapout */
+		   (*swapout) += (double) cpu->cpu_vminfo.swapout;
+		}
+		if(pgswapout)
+		{
+		   /* uint_t   pgswapout;	*/ /* pages swapped out */
+		  (*pgswapout) += (double) cpu->cpu_vminfo.pgswapout;
+		}
+		cpu_count += 1;
+  	    }
+	    k = k->ks_next;
+        }
+	kstat_close(kc);
+    }
+
+    if(cpu_count == 0)
+    {
+	return SYSINFO_RET_FAIL;
+    }
+
+    return SYSINFO_RET_OK;
+}
+
+int	SYSTEM_SWAP_IN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+    int	    ret = SYSINFO_RET_FAIL;
+    char    swapdev[MAX_STRING_LEN];
+    char    mode[MAX_STRING_LEN];
+    double  value = 0;
+
+    if(num_param(param) > 2)
+    {
+        return SYSINFO_RET_FAIL;
+    }
+
+    if(get_param(param, 1, swapdev, sizeof(swapdev)) != 0)
+    {
+	return SYSINFO_RET_FAIL;
+    }
+
+    if(swapdev[0] == '\0')
+    {
+	/* default parameter */
+	zbx_snprintf(swapdev, sizeof(swapdev), "all");
+    }
+
+    if(strncmp(swapdev, "all", sizeof(swapdev)))
+    {
+	return SYSINFO_RET_FAIL;
+    }
+
+    if(get_param(param, 2, mode, sizeof(mode)) != 0)
+    {
+	mode[0] = '\0';
+    }
+
+    if(mode[0] == '\0')
+    {
+        zbx_snprintf(mode, sizeof(mode), "count");
+    }
+
+    if(strcmp(mode,"count") == 0)
+    {
+	ret = get_swap_io(&value, NULL, NULL, NULL);
+    }
+    else if(strcmp(mode,"pages") == 0)
+    {
+	ret = get_swap_io(NULL, &value, NULL, NULL);
+    }
+    else
+    {
+	return SYSINFO_RET_FAIL;
+    }
+
+    if(ret != SYSINFO_RET_OK)
 	return ret;
+
+    SET_UI64_RESULT(result, value);
+    return ret;
+}
+
+int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+    int	    ret = SYSINFO_RET_FAIL;
+    char    swapdev[MAX_STRING_LEN];
+    char    mode[MAX_STRING_LEN];
+    double  value = 0;
+
+    if(num_param(param) > 2)
+    {
+        return SYSINFO_RET_FAIL;
+    }
+
+    if(get_param(param, 1, swapdev, sizeof(swapdev)) != 0)
+    {
+	return SYSINFO_RET_FAIL;
+    }
+
+    if(swapdev[0] == '\0')
+    {
+	/* default parameter */
+	zbx_snprintf(swapdev, sizeof(swapdev), "all");
+    }
+
+    if(strncmp(swapdev, "all", sizeof(swapdev)))
+    {
+	return SYSINFO_RET_FAIL;
+    }
+
+    if(get_param(param, 2, mode, sizeof(mode)) != 0)
+    {
+	mode[0] = '\0';
+    }
+
+    if(mode[0] == '\0')
+    {
+        zbx_snprintf(mode, sizeof(mode), "count");
+    }
+
+    if(strcmp(mode,"count") == 0)
+    {
+	ret = get_swap_io(NULL, NULL, &value, NULL);
+    }
+    else if(strcmp(mode,"pages") == 0)
+    {
+	ret = get_swap_io(NULL, NULL, NULL, &value);
+    }
+    else
+    {
+	return SYSINFO_RET_FAIL;
+    }
+
+    if(ret != SYSINFO_RET_OK)
+	return ret;
+
+    SET_UI64_RESULT(result, value);
+    return ret;
 }

@@ -18,7 +18,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.  */
+   Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 
 #include "common.h"
@@ -397,7 +397,6 @@ static int zbx_getopt_internal (int argc, char **argv, const char *optstring,
                 exact = 1;
                 break;
               }
-#if OFF	/* ZBX: disable long option partial matching */
             else if (pfound == NULL)
               {
                 /* First nonexact match found.  */
@@ -407,7 +406,6 @@ static int zbx_getopt_internal (int argc, char **argv, const char *optstring,
             else
               /* Second nonexact match found.  */
               ambig = 1;
-#endif
           }
 
       /* don't allow nonexact longoptions */

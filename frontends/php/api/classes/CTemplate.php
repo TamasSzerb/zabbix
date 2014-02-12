@@ -84,7 +84,7 @@ class CTemplate extends CHostGeneral {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectGroups'				=> null,
 			'selectHosts'				=> null,
 			'selectTemplates'			=> null,
@@ -133,6 +133,7 @@ class CTemplate extends CHostGeneral {
 		if (!is_null($options['groupids'])) {
 			zbx_value2array($options['groupids']);
 
+			$sqlParts['select']['groupid'] = 'hg.groupid';
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
 			$sqlParts['where'][] = dbConditionInt('hg.groupid', $options['groupids']);
 			$sqlParts['where']['hgh'] = 'hg.hostid=h.hostid';
@@ -163,6 +164,7 @@ class CTemplate extends CHostGeneral {
 		if (!is_null($options['parentTemplateids'])) {
 			zbx_value2array($options['parentTemplateids']);
 
+			$sqlParts['select']['parent_templateid'] = 'ht.templateid as parent_templateid';
 			$sqlParts['from']['hosts_templates'] = 'hosts_templates ht';
 			$sqlParts['where'][] = dbConditionInt('ht.templateid', $options['parentTemplateids']);
 			$sqlParts['where']['hht'] = 'h.hostid=ht.hostid';
@@ -181,6 +183,7 @@ class CTemplate extends CHostGeneral {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
+			$sqlParts['select']['linked_hostid'] = 'ht.hostid as linked_hostid';
 			$sqlParts['from']['hosts_templates'] = 'hosts_templates ht';
 			$sqlParts['where'][] = dbConditionInt('ht.hostid', $options['hostids']);
 			$sqlParts['where']['hht'] = 'h.hostid=ht.templateid';
@@ -199,6 +202,7 @@ class CTemplate extends CHostGeneral {
 		if (!is_null($options['itemids'])) {
 			zbx_value2array($options['itemids']);
 
+			$sqlParts['select']['itemid'] = 'i.itemid';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where'][] = dbConditionInt('i.itemid', $options['itemids']);
 			$sqlParts['where']['hi'] = 'h.hostid=i.hostid';
@@ -213,6 +217,7 @@ class CTemplate extends CHostGeneral {
 		if (!is_null($options['triggerids'])) {
 			zbx_value2array($options['triggerids']);
 
+			$sqlParts['select']['triggerid'] = 'f.triggerid';
 			$sqlParts['from']['functions'] = 'functions f';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where'][] = dbConditionInt('f.triggerid', $options['triggerids']);
@@ -229,6 +234,7 @@ class CTemplate extends CHostGeneral {
 		if (!is_null($options['graphids'])) {
 			zbx_value2array($options['graphids']);
 
+			$sqlParts['select']['graphid'] = 'gi.graphid';
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where'][] = dbConditionInt('gi.graphid', $options['graphids']);
@@ -316,7 +322,64 @@ class CTemplate extends CHostGeneral {
 				$template['templateid'] = $template['hostid'];
 				unset($template['hostid']);
 
-				$result[$template['templateid']] = $template;
+				if (!isset($result[$template['templateid']])) {
+					$result[$template['templateid']]= array();
+				}
+
+				// groupids
+				if (isset($template['groupid']) && is_null($options['selectGroups'])) {
+					if (!isset($result[$template['templateid']]['groups'])) {
+						$result[$template['templateid']]['groups'] = array();
+					}
+
+					$result[$template['templateid']]['groups'][] = array('groupid' => $template['groupid']);
+					unset($template['groupid']);
+				}
+
+				// hostids
+				if (isset($template['linked_hostid']) && is_null($options['selectHosts'])) {
+					if (!isset($result[$template['templateid']]['hosts']))
+						$result[$template['templateid']]['hosts'] = array();
+
+					$result[$template['templateid']]['hosts'][] = array('hostid' => $template['linked_hostid']);
+					unset($template['linked_hostid']);
+				}
+				// parentTemplateids
+				if (isset($template['parent_templateid']) && is_null($options['selectParentTemplates'])) {
+					if (!isset($result[$template['templateid']]['parentTemplates']))
+						$result[$template['templateid']]['parentTemplates'] = array();
+
+					$result[$template['templateid']]['parentTemplates'][] = array('templateid' => $template['parent_templateid']);
+					unset($template['parent_templateid']);
+				}
+
+				// itemids
+				if (isset($template['itemid']) && is_null($options['selectItems'])) {
+					if (!isset($result[$template['templateid']]['items']))
+						$result[$template['templateid']]['items'] = array();
+
+					$result[$template['templateid']]['items'][] = array('itemid' => $template['itemid']);
+					unset($template['itemid']);
+				}
+
+				// triggerids
+				if (isset($template['triggerid']) && is_null($options['selectTriggers'])) {
+					if (!isset($result[$template['templateid']]['triggers']))
+						$result[$template['templateid']]['triggers'] = array();
+
+					$result[$template['templateid']]['triggers'][] = array('triggerid' => $template['triggerid']);
+					unset($template['triggerid']);
+				}
+
+				// graphids
+				if (isset($template['graphid']) && is_null($options['selectGraphs'])) {
+					if (!isset($result[$template['templateid']]['graphs'])) $result[$template['templateid']]['graphs'] = array();
+
+					$result[$template['templateid']]['graphs'][] = array('graphid' => $template['graphid']);
+					unset($template['graphid']);
+				}
+
+				$result[$template['templateid']] += $template;
 			}
 
 		}
@@ -406,12 +469,12 @@ class CTemplate extends CHostGeneral {
 
 
 		// PERMISSIONS {{{
-		$updGroups = API::HostGroup()->get(array(
-			'output' => array('groupid'),
+		$options = array(
 			'groupids' => $groupids,
 			'editable' => 1,
 			'preservekeys' => 1
-		));
+		);
+		$updGroups = API::HostGroup()->get($options);
 		foreach ($groupids as $gnum => $groupid) {
 			if (!isset($updGroups[$groupid])) {
 				self::exception(ZBX_API_ERROR_PERMISSIONS, _('You do not have permission to perform this operation.'));
@@ -554,8 +617,7 @@ class CTemplate extends CHostGeneral {
 	 *
 	 * @param array $templateids
 	 * @param array $templateids['templateids']
-	 *
-	 * @return array
+	 * @return boolean
 	 */
 	public function delete($templateids) {
 		if (empty($templateids)) {
@@ -581,7 +643,6 @@ class CTemplate extends CHostGeneral {
 
 		// delete the discovery rules first
 		$delRules = API::DiscoveryRule()->get(array(
-			'output' => array('itemid'),
 			'hostids' => $templateids,
 			'nopermissions' => true,
 			'preservekeys' => true
@@ -877,10 +938,7 @@ class CTemplate extends CHostGeneral {
 		// UPDATE HOSTGROUPS LINKAGE {{{
 		if (isset($data['groups']) && !is_null($data['groups'])) {
 			$data['groups'] = zbx_toArray($data['groups']);
-			$templateGroups = API::HostGroup()->get(array(
-				'output' => array('groupid'),
-				'hostids' => $templateids
-			));
+			$templateGroups = API::HostGroup()->get(array('hostids' => $templateids));
 			$templateGroupids = zbx_objectValues($templateGroups, 'groupid');
 			$newGroupids = zbx_objectValues($data['groups'], 'groupid');
 
@@ -946,10 +1004,7 @@ class CTemplate extends CHostGeneral {
 		}
 
 		if (isset($data['templates_link']) && !is_null($data['templates_link'])) {
-			$templateTemplates = API::Template()->get(array(
-				'output' => array('templateid'),
-				'hostids' => $templateids
-			));
+			$templateTemplates = API::Template()->get(array('hostids' => $templateids));
 			$templateTemplateids = zbx_objectValues($templateTemplates, 'templateid');
 			$newTemplateids = zbx_objectValues($data['templates_link'], 'templateid');
 
@@ -1160,7 +1215,7 @@ class CTemplate extends CHostGeneral {
 		if ($options['selectScreens'] !== null) {
 			if ($options['selectScreens'] != API_OUTPUT_COUNT) {
 				$screens = API::TemplateScreen()->get(array(
-					'output' => $this->outputExtend($options['selectScreens'], array('templateid')),
+					'output' => $this->outputExtend('screens', array('templateid'), $options['selectScreens']),
 					'nodeids' => $options['nodeids'],
 					'templateids' => $templateids,
 					'nopermissions' => true

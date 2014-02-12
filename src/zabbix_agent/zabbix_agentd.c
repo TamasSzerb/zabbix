@@ -462,8 +462,6 @@ static void	zbx_load_config(int requirement)
 			PARM_OPT,	0,			0},
 		{"LoadModule",			&CONFIG_LOAD_MODULE,			TYPE_MULTISTRING,
 			PARM_OPT,	0,			0},
-		{"User",			&CONFIG_USER,				TYPE_STRING,
-			PARM_OPT,	0,			0},
 #endif
 #ifdef _WINDOWS
 		{"PerfCounter",			&CONFIG_PERF_COUNTERS,			TYPE_MULTISTRING,
@@ -591,6 +589,9 @@ int	MAIN_ZABBIX_ENTRY()
 	init_perf_collector(1);
 	load_perf_counters(CONFIG_PERF_COUNTERS);
 #endif
+	load_user_parameters(CONFIG_USER_PARAMETERS);
+	load_aliases(CONFIG_ALIASES);
+
 	zbx_free_config();
 
 	/* --- START THREADS ---*/
@@ -835,12 +836,10 @@ int	main(int argc, char **argv)
 			break;
 		default:
 			zbx_load_config(ZBX_CFG_FILE_REQUIRED);
-			load_user_parameters(CONFIG_USER_PARAMETERS);
-			load_aliases(CONFIG_ALIASES);
 			break;
 	}
 
-	START_MAIN_ZABBIX_ENTRY(CONFIG_ALLOW_ROOT, CONFIG_USER);
+	START_MAIN_ZABBIX_ENTRY(CONFIG_ALLOW_ROOT);
 
 	exit(SUCCEED);
 }

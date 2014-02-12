@@ -198,8 +198,6 @@ int	CONFIG_SERVER_STARTUP_TIME	= 0;
 char	*CONFIG_LOAD_MODULE_PATH	= NULL;
 char	**CONFIG_LOAD_MODULE		= NULL;
 
-char	*CONFIG_USER			= NULL;
-
 /* mutex for node syncs; not used in proxy */
 ZBX_MUTEX	node_sync_access;
 
@@ -470,8 +468,6 @@ static void	zbx_load_config()
 			PARM_OPT,	10,			SEC_PER_DAY},
 		{"VMwareCacheSize",		&CONFIG_VMWARE_CACHE_SIZE,		TYPE_UINT64,
 			PARM_OPT,	256 * ZBX_KIBIBYTE,	__UINT64_C(2) * ZBX_GIBIBYTE},
-		{"User",			&CONFIG_USER,				TYPE_STRING,
-			PARM_OPT,	0,			0},
 		{NULL}
 	};
 
@@ -581,7 +577,7 @@ int	main(int argc, char **argv)
 	init_ipmi_handler();
 #endif
 
-	return daemon_start(CONFIG_ALLOW_ROOT, CONFIG_USER);
+	return daemon_start(CONFIG_ALLOW_ROOT);
 }
 
 int	MAIN_ZABBIX_ENTRY()

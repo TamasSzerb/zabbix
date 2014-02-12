@@ -860,53 +860,6 @@ int	zbx_check_hostname(const char *hostname)
 
 /******************************************************************************
  *                                                                            *
- * Function: get_item_key                                                     *
- *                                                                            *
- * Purpose: return key with parameters (if present)                           *
- *                                                                            *
- *  e.g., system.run[cat /etc/passwd | awk -F: '{ print $1 }']                *
- *                                                                            *
- * Parameters: exp - [IN] pointer to the first char of key                    *
- *             key - [OUT] pointer to the resulted key                        *
- *                                                                            *
- *  e.g., {host:system.run[cat /etc/passwd | awk -F: '{ print $1 }'].last(0)} *
- *              ^                                                             *
- *                                                                            *
- * Return value: return SUCCEED and move exp to the next character after key  *
- *               or FAIL and move exp to incorrect character                  *
- *                                                                            *
- * Notes: implements the functionality of old parse_key() in a safe manner.   *
- *        input pointer is NOT advanced.                                      *
- *                                                                            *
- ******************************************************************************/
-int	get_item_key(char **exp, char **key)
-{
-	char	*p = *exp, c;
-
-	if (SUCCEED != parse_key(&p))
-		return FAIL;
-
-	if ('(' == *p)
-	{
-		for (p--; *exp < p && '.' != *p; p--)
-			;
-
-		if (*exp == p)	/* the key is empty */
-			return FAIL;
-	}
-
-	c = *p;
-	*p = '\0';
-	*key = zbx_strdup(NULL, *exp);
-	*p = c;
-
-	*exp = p;
-
-	return SUCCEED;
-}
-
-/******************************************************************************
- *                                                                            *
  * Function: parse_host                                                       *
  *                                                                            *
  * Purpose: parse hostname                                                    *
@@ -956,32 +909,57 @@ int	parse_host(char **exp, char **host)
  *                                                                            *
  * Function: parse_key                                                        *
  *                                                                            *
- * Purpose: advances pointer to first invalid character in string             *
- *          ensuring that everything before it is a valid key                 *
+ * Purpose: return key with parameters (if present)                           *
  *                                                                            *
  *  e.g., system.run[cat /etc/passwd | awk -F: '{ print $1 }']                *
  *                                                                            *
- * Parameters: exp - [IN/OUT] pointer to the first char of key                *
+ * Parameters: exp - pointer to the first char of key                         *
+ *             key - pointer to the resulted key                              *
  *                                                                            *
  *  e.g., {host:system.run[cat /etc/passwd | awk -F: '{ print $1 }'].last(0)} *
  *              ^                                                             *
- * Return value: returns FAIL only if no key is present (length 0),           *
- *               or the whole string is invalid. SUCCEED otherwise.           *
+ *                                                                            *
+ * Return value: return SUCCEED and move exp to the next character after key  *
+ *               or FAIL and move exp to incorrect character                  *
  *                                                                            *
  * Author: Aleksandrs Saveljevs                                               *
  *                                                                            *
  ******************************************************************************/
-int	parse_key(char **exp)
+int	parse_key(char **exp, char **key)
 {
-	char	*s;
+	char	c;
+	char	*p, *r, *s;
+
+	p = *exp;
 
 	for (s = *exp; SUCCEED == is_key_char(*s); s++)
 		;
 
-	if (*exp == s)	/* the key is empty */
-		return FAIL;
+	if ('\0' == *s)		/* no function specified? */
+	{
+		*key = strdup(p);
+		*exp = s;
+		return SUCCEED;
+	}
+	else if ('(' == *s)	/* for instance, ssh,22.last(0) */
+	{
+		for (r = s - 1; p <= r && '.' != *r; r--)
+			;
 
-	if ('[' == *s)	/* for instance, net.tcp.port[,80] */
+		if (r <= p)
+		{
+			*exp = s;
+			return FAIL;
+		}
+
+		*r = '\0';
+		*key = strdup(p);
+		*r = '.';
+
+		*exp = r;
+		return SUCCEED;
+	}
+	else if ('[' == *s)	/* for instance, net.tcp.port[,80] */
 	{
 		int	state = 0;	/* 0 - init, 1 - inside quoted param, 2 - inside unquoted param */
 		int	array = 0;	/* array nest level */
@@ -1077,11 +1055,19 @@ fail:
 		*exp = s;
 		return FAIL;
 succeed:
-		s++;
-	}
+		c = *(++s);
+		*s = '\0';
+		*key = strdup(p);
+		*s = c;
 
-	*exp = s;
-	return SUCCEED;
+		*exp = s;
+		return SUCCEED;
+	}
+	else
+	{
+		*exp = s;
+		return FAIL;
+	}
 }
 
 /******************************************************************************

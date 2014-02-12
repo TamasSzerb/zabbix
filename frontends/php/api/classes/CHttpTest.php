@@ -70,7 +70,7 @@ class CHttpTest extends CZBXAPI {
 			'startSearch'    => null,
 			'excludeSearch'  => null,
 			// output
-			'output'         => API_OUTPUT_EXTEND,
+			'output'         => API_OUTPUT_REFER,
 			'expandName'     => null,
 			'expandStepName' => null,
 			'selectHosts'    => null,
@@ -83,6 +83,9 @@ class CHttpTest extends CZBXAPI {
 			'limit'          => null
 		);
 		$options = zbx_array_merge($defOptions, $options);
+
+		$this->checkDeprecatedParam($options, 'output', 'macros');
+		$this->checkDeprecatedParam($options, 'selectSteps', 'webstepid');
 
 		// editable + PERMISSION CHECK
 		if ($userType != USER_TYPE_SUPER_ADMIN && !$options['nopermissions']) {
@@ -107,6 +110,7 @@ class CHttpTest extends CZBXAPI {
 		if (!is_null($options['httptestids'])) {
 			zbx_value2array($options['httptestids']);
 
+			$sqlParts['select']['httptestid'] = 'ht.httptestid';
 			$sqlParts['where']['httptestid'] = dbConditionInt('ht.httptestid', $options['httptestids']);
 		}
 
@@ -137,6 +141,7 @@ class CHttpTest extends CZBXAPI {
 		if (!is_null($options['groupids'])) {
 			zbx_value2array($options['groupids']);
 
+			$sqlParts['select']['groupid'] = 'hg.groupid';
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
 			$sqlParts['where'][] = dbConditionInt('hg.groupid', $options['groupids']);
 			$sqlParts['where'][] = 'hg.hostid=ht.hostid';
@@ -150,6 +155,9 @@ class CHttpTest extends CZBXAPI {
 		if (!is_null($options['applicationids'])) {
 			zbx_value2array($options['applicationids']);
 
+			if ($options['output'] != API_OUTPUT_EXTEND) {
+				$sqlParts['select']['applicationid'] = 'a.applicationid';
+			}
 			$sqlParts['where'][] = dbConditionInt('ht.applicationid', $options['applicationids']);
 		}
 
@@ -213,7 +221,11 @@ class CHttpTest extends CZBXAPI {
 				}
 			}
 			else {
-				$result[$httpTest['httptestid']] = $httpTest;
+				if (!isset($result[$httpTest['httptestid']])) {
+					$result[$httpTest['httptestid']] = array();
+				}
+
+				$result[$httpTest['httptestid']] += $httpTest;
 			}
 		}
 
@@ -246,6 +258,9 @@ class CHttpTest extends CZBXAPI {
 			$result = zbx_cleanHashes($result);
 		}
 
+		// deprecated fields
+		$result = $this->handleDeprecatedOutput($result, 'macros', 'variables', $options['output']);
+
 		return $result;
 	}
 
@@ -262,6 +277,9 @@ class CHttpTest extends CZBXAPI {
 		// find hostid by applicationid
 		foreach ($httpTests as $hnum => $httpTest) {
 			unset($httpTests[$hnum]['templateid']);
+
+			// convert deprecated params
+			$httpTests[$hnum] = $this->convertDeprecatedParam($httpTest, 'macros', 'variables');
 
 			if (empty($httpTest['hostid']) && !empty($httpTest['applicationid'])) {
 				$dbHostId = DBfetch(DBselect('SELECT a.hostid'.
@@ -291,6 +309,14 @@ class CHttpTest extends CZBXAPI {
 		$httpTests = zbx_toHash($httpTests, 'httptestid');
 		foreach ($httpTests as $hnum => $httpTest) {
 			unset($httpTests[$hnum]['templateid']);
+
+			// convert deprecated parameters
+			$httpTests[$hnum] = $this->convertDeprecatedParam($httpTest, 'macros', 'variables');
+			if (isset($httpTest['steps'])) {
+				foreach ($httpTest['steps'] as $i => $step) {
+					$httpTests[$hnum]['steps'][$i] = $this->convertDeprecatedParam($step, 'webstepid', 'httpstepid');
+				}
+			}
 		}
 
 		$dbHttpTests = array();
@@ -344,7 +370,7 @@ class CHttpTest extends CZBXAPI {
 	 *
 	 * @param $httpTestIds
 	 *
-	 * @return array
+	 * @return array|bool
 	 */
 	public function delete($httpTestIds, $nopermissions = false) {
 		if (empty($httpTestIds)) {
@@ -689,6 +715,11 @@ class CHttpTest extends CZBXAPI {
 			if ($options['expandName'] !== null || $options['expandStepName'] !== null || $options['selectHosts'] !== null) {
 				$sqlParts = $this->addQuerySelect($this->fieldId('hostid'), $sqlParts);
 			}
+
+			// select the state field to be able to return the deprecated value_flag property
+			if ($this->outputIsRequested('macros', $options['output'])) {
+				$sqlParts = $this->addQuerySelect($this->fieldId('variables'), $sqlParts);
+			}
 		}
 
 		return $sqlParts;
@@ -716,12 +747,15 @@ class CHttpTest extends CZBXAPI {
 		if ($options['selectSteps'] !== null) {
 			if ($options['selectSteps'] != API_OUTPUT_COUNT) {
 				$httpSteps = API::getApi()->select('httpstep', array(
-					'output' => $this->outputExtend($options['selectSteps'], array('httptestid', 'httpstepid')),
+					'output' => $this->outputExtend('httpstep', array('httptestid', 'httpstepid'), $options['selectSteps']),
 					'filters' => array('httptestid' => $httpTestIds),
 					'preservekeys' => true,
 					'nodeids' => get_current_nodeid(true)
 				));
 				$relationMap = $this->createRelationMap($httpSteps, 'httptestid', 'httpstepid');
+
+				// add the deprecated webstepid parameter if it's requested
+				$httpSteps = $this->handleDeprecatedOutput($httpSteps, 'webstepid', 'httpstepid', $options['selectSteps']);
 
 				$httpSteps = $this->unsetExtraFields($httpSteps, array('httptestid', 'httpstepid'), $options['selectSteps']);
 

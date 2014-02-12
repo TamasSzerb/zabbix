@@ -17,25 +17,17 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
-require_once dirname(__FILE__).'/js/configuration.item.list.js.php';
-
+?>
+<?php
 $itemsWidget = new CWidget(null, 'item-list');
 
 // create new item button
 $createForm = new CForm('get');
 $createForm->cleanItems();
-
-if (empty($this->data['hostid'])) {
-	$createButton = new CSubmit('form', _('Create item (select host first)'));
-	$createButton->setEnabled(false);
-	$createForm->addItem($createButton);
+if (!empty($this->data['form_hostid'])) {
+	$createForm->addVar('form_hostid', $this->data['form_hostid']);
 }
-else {
-	$createForm->addVar('hostid', $this->data['hostid']);
-	$createForm->addItem(new CSubmit('form', _('Create item')));
-}
+$createForm->addItem(new CSubmit('form', _('Create item')));
 $itemsWidget->addPageHeader(_('CONFIGURATION OF ITEMS'), $createForm);
 
 // header
@@ -55,12 +47,11 @@ if (!empty($this->data['hostid'])) {
 }
 
 // create table
-$itemTable = new CTableInfo(_('No items found.'));
+$itemTable = new CTableInfo(_('No items defined.'));
 $itemTable->setHeader(array(
 	new CCheckBox('all_items', null, "checkAll('".$itemForm->getName()."', 'all_items', 'group_itemid');"),
-	$this->data['displayNodes'] ? _('Node') : null,
 	_('Wizard'),
-	empty($this->data['filter_hostid']) ? _('Host') : null,
+	empty($this->data['filter_hostname']) ? _('Host') : null,
 	make_sorting_header(_('Name'), 'name'),
 	_('Triggers'),
 	make_sorting_header(_('Key'), 'key_'),
@@ -70,66 +61,47 @@ $itemTable->setHeader(array(
 	make_sorting_header(_('Type'), 'type'),
 	_('Applications'),
 	make_sorting_header(_('Status'), 'status'),
-	$data['showErrorColumn'] ? _('Error') : null
+	_('Error')
 ));
 
 foreach ($this->data['items'] as $item) {
 	// description
 	$description = array();
 	if (!empty($item['template_host'])) {
-		$description[] = new CLink(
-			CHtml::encode($item['template_host']['name']),
-			'?hostid='.$item['template_host']['hostid'].'&filter_set=1',
-			'unknown'
-		);
-		$description[] = NAME_DELIMITER;
+		$description[] = new CLink($item['template_host']['name'], '?hostid='.$item['template_host']['hostid'].'&filter_set=1', 'unknown');
+		$description[] = ':'.SPACE;
 	}
-
 	if (!empty($item['discoveryRule'])) {
-		$description[] = new CLink(
-			CHtml::encode($item['discoveryRule']['name']),
-			'disc_prototypes.php?parent_discoveryid='.$item['discoveryRule']['itemid'],
-			'parent-discovery'
-		);
-		$description[] = NAME_DELIMITER.$item['name_expanded'];
+		$description[] = new CLink($item['discoveryRule']['name'], 'disc_prototypes.php?parent_discoveryid='.$item['discoveryRule']['itemid'], 'gold');
+		$description[] = ':'.SPACE.$item['name_expanded'];
 	}
 	else {
-		$description[] = new CLink(
-			CHtml::encode($item['name_expanded']),
-			'?form=update&hostid='.$item['hostid'].'&itemid='.$item['itemid']
-		);
+		$description[] = new CLink($item['name_expanded'], '?form=update&hostid='.$item['hostid'].'&itemid='.$item['itemid']);
 	}
 
 	// status
-	$status = new CCol(new CLink(
-		itemIndicator($item['status'], $item['state']),
-		'?group_itemid='.$item['itemid'].'&hostid='.$item['hostid'].'&go='.($item['status'] ? 'activate' : 'disable'),
-		itemIndicatorStyle($item['status'], $item['state'])
-	));
+	$status = new CCol(new CLink(item_status2str($item['status']), '?group_itemid='.$item['itemid'].'&hostid='.$item['hostid'].'&go='.
+		($item['status'] ? 'activate' : 'disable'), item_status2style($item['status']))
+	);
 
-	if ($data['showErrorColumn']) {
-		$statusIcons = array();
-		if ($item['status'] == ITEM_STATUS_ACTIVE) {
-			if (zbx_empty($item['error'])) {
-				$error = new CDiv(SPACE, 'status_icon iconok');
-			}
-			else {
-				$error = new CDiv(SPACE, 'status_icon iconerror');
-				$error->setHint($item['error'], '', 'on');
-			}
-			$statusIcons[] = $error;
-		}
+	if (zbx_empty($item['error'])) {
+		$error = new CDiv(SPACE, 'status_icon iconok');
+	}
+	else {
+		$error = new CDiv(SPACE, 'status_icon iconerror');
+		$error->setHint($item['error'], '', 'on');
+	}
+	$statusIcons = array($error);
 
-		// discovered item lifetime indicator
-		if ($item['flags'] == ZBX_FLAG_DISCOVERY_CREATED && $item['itemDiscovery']['ts_delete']) {
-			$deleteError = new CDiv(SPACE, 'status_icon iconwarning');
-			$deleteError->setHint(
-				_s('The item is not discovered anymore and will be deleted in %1$s (on %2$s at %3$s).',
-					zbx_date2age($item['itemDiscovery']['ts_delete']), zbx_date2str(_('d M Y'), $item['itemDiscovery']['ts_delete']),
-					zbx_date2str(_('H:i:s'), $item['itemDiscovery']['ts_delete'])
-			));
-			$statusIcons[] = $deleteError;
-		}
+	// discovered item lifetime indicator
+	if ($item['flags'] == ZBX_FLAG_DISCOVERY_CREATED && $item['itemDiscovery']['ts_delete']) {
+		$deleteError = new CDiv(SPACE, 'status_icon iconwarning');
+		$deleteError->setHint(
+			_s('The item is not discovered anymore and will be deleted in %1$s (on %2$s at %3$s).',
+				zbx_date2age($item['itemDiscovery']['ts_delete']), zbx_date2str(_('d M Y'), $item['itemDiscovery']['ts_delete']),
+				zbx_date2str(_('H:i:s'), $item['itemDiscovery']['ts_delete'])
+		));
+		$statusIcons[] = $deleteError;
 	}
 
 	$triggerHintTable = new CTableInfo();
@@ -151,11 +123,7 @@ foreach ($this->data['items'] as $item) {
 			}
 			else {
 				$realHost = reset($this->data['triggerRealHosts'][$trigger['triggerid']]);
-				$triggerDescription[] = new CLink(
-					CHtml::encode($realHost['name']),
-					'triggers.php?hostid='.$realHost['hostid'],
-					'unknown'
-				);
+				$triggerDescription[] = new CLink($realHost['name'], 'triggers.php?&hostid='.$realHost['hostid'], 'unknown');
 				$triggerDescription[] = ':';
 			}
 		}
@@ -163,17 +131,22 @@ foreach ($this->data['items'] as $item) {
 		$trigger['hosts'] = zbx_toHash($trigger['hosts'], 'hostid');
 
 		if ($trigger['flags'] == ZBX_FLAG_DISCOVERY_CREATED) {
-			$triggerDescription[] = new CSpan(CHtml::encode($trigger['description']));
+			$triggerDescription[] = new CSpan($trigger['description']);
 		}
 		else {
-			$triggerDescription[] = new CLink(
-				CHtml::encode($trigger['description']),
-				'triggers.php?form=update&hostid='.key($trigger['hosts']).'&triggerid='.$trigger['triggerid']
-			);
+			$triggerDescription[] = new CLink($trigger['description'], 'triggers.php?form=update&hostid='.
+				key($trigger['hosts']).'&triggerid='.$trigger['triggerid']);
 		}
 
-		if ($trigger['state'] == TRIGGER_STATE_UNKNOWN) {
+		if ($trigger['value_flags'] == TRIGGER_VALUE_FLAG_UNKNOWN) {
 			$trigger['error'] = '';
+		}
+
+		if ($trigger['status'] == TRIGGER_STATUS_DISABLED) {
+			$triggerStatus = new CSpan(_('Disabled'), 'disabled');
+		}
+		elseif ($trigger['status'] == TRIGGER_STATUS_ENABLED){
+			$triggerStatus = new CSpan(_('Enabled'), 'enabled');
 		}
 
 		$trigger['items'] = zbx_toHash($trigger['items'], 'itemid');
@@ -183,10 +156,7 @@ foreach ($this->data['items'] as $item) {
 			getSeverityCell($trigger['priority']),
 			$triggerDescription,
 			triggerExpression($trigger, true),
-			new CSpan(
-				triggerIndicator($trigger['status'], $trigger['state']),
-				triggerIndicatorStyle($trigger['status'], $trigger['state'])
-			),
+			$triggerStatus,
 		));
 
 		$item['triggers'][$num] = $trigger;
@@ -207,7 +177,8 @@ foreach ($this->data['items'] as $item) {
 
 	// if item type is 'Log' we must show log menu
 	if (in_array($item['value_type'], array(ITEM_VALUE_TYPE_LOG, ITEM_VALUE_TYPE_STR, ITEM_VALUE_TYPE_TEXT))) {
-		$triggers = array();
+		$triggersFlag = false;
+		$triggers = 'Array("'._('Edit trigger').'", null, null, {"outer" : "pum_o_submenu", "inner" : ["pum_i_submenu"]}'."\n";
 
 		foreach ($item['triggers'] as $trigger) {
 			foreach ($trigger['functions'] as $function) {
@@ -216,14 +187,26 @@ foreach ($this->data['items'] as $item) {
 				}
 			}
 
-			$triggers[] = array(
-				'id' => $trigger['triggerid'],
-				'name' => $trigger['description']
-			);
+			$triggers .= ', ["'.$trigger['description'].'",'.
+				zbx_jsvalue("javascript: openWinCentered('tr_logform.php?sform=1&itemid=".$item['itemid'].
+					"&triggerid=".$trigger['triggerid'].
+					"','TriggerLog', 760, 540,".
+					"'titlebar=no, resizable=yes, scrollbars=yes');").']';
+			$triggersFlag = true;
 		}
 
-		$menuIcon = new CIcon(_('Menu'), 'iconmenu_b');
-		$menuIcon->setMenuPopup(CMenuPopupHelper::getTriggerLog($item['itemid'], $item['name'], $triggers));
+		if ($triggersFlag) {
+			$triggers = rtrim($triggers, ',').')';
+		}
+		else {
+			$triggers = 'Array()';
+		}
+
+		$menuIcon = new CIcon(
+			_('Menu'),
+			'iconmenu_b',
+			'call_triggerlog_menu(event, '.zbx_jsvalue($item['itemid']).', '.zbx_jsvalue($item['name_expanded']).', '.$triggers.');'
+		);
 	}
 	else {
 		$menuIcon = SPACE;
@@ -234,19 +217,18 @@ foreach ($this->data['items'] as $item) {
 
 	$itemTable->addRow(array(
 		$checkBox,
-		$this->data['displayNodes'] ? $item['nodename'] : null,
 		$menuIcon,
-		empty($this->data['filter_hostid']) ? $item['host'] : null,
+		empty($this->data['filter_hostname']) ? $item['host'] : null,
 		$description,
 		$triggerInfo,
-		CHtml::encode($item['key_']),
+		$item['key_'],
 		$item['type'] == ITEM_TYPE_TRAPPER || $item['type'] == ITEM_TYPE_SNMPTRAP ? '' : $item['delay'],
 		$item['history'],
 		in_array($item['value_type'], array(ITEM_VALUE_TYPE_STR, ITEM_VALUE_TYPE_LOG, ITEM_VALUE_TYPE_TEXT)) ? '' : $item['trends'],
 		item_type2str($item['type']),
-		new CCol(CHtml::encode($item['applications_list']), 'wraptext'),
+		new CCol($item['applications_list'], 'wraptext'),
 		$status,
-		$data['showErrorColumn'] ? $statusIcons : null
+		$statusIcons
 	));
 }
 
@@ -276,15 +258,12 @@ $goComboBox->addItem($goOption);
 
 $goButton = new CSubmit('goButton', _('Go').' (0)');
 $goButton->setAttribute('id', 'goButton');
-
 zbx_add_post_js('chkbxRange.pageGoName = "group_itemid";');
-zbx_add_post_js('chkbxRange.prefix = "'.$this->data['hostid'].'";');
-zbx_add_post_js('cookie.prefix = "'.$this->data['hostid'].'";');
 
 // append table to form
 $itemForm->addItem(array($this->data['paging'], $itemTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));
 
 // append form to widget
 $itemsWidget->addItem($itemForm);
-
 return $itemsWidget;
+?>

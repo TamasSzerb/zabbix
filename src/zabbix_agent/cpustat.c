@@ -581,9 +581,8 @@ read_again:
 #endif	/* HAVE_LIBPERFSTAT */
 
 #undef ZBX_SET_CPUS_NOTSUPPORTED
-#if defined(HAVE_PROC_STAT) || (defined(HAVE_FUNCTION_SYSCTLBYNAME) && defined(CPUSTATES)) || defined(HAVE_KSTAT_H)
+
 exit:
-#endif
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
 

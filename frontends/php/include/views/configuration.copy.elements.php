@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $triggersWidget = new CWidget();
 
 // append host summary to widget header
@@ -99,10 +99,10 @@ $triggersForm->addItem($triggersTab);
 
 // append buttons to form
 $triggersForm->addItem(makeFormFooter(
-	new CSubmit('copy', _('Copy')),
-	new CButtonCancel(url_param('groupid').url_param('hostid').url_param('config'))
+	array(new CSubmit('copy', _('Copy'))),
+	array(new CButtonCancel(url_param('groupid').url_param('hostid').url_param('config')))
 ));
 
 $triggersWidget->addItem($triggersForm);
-
 return $triggersWidget;
+?>

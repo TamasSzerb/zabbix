@@ -45,9 +45,9 @@ require_once dirname(__FILE__).'/include/page_header.php';
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
 	'screens' =>		array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,			null),
-	'screenid' =>		array(T_ZBX_INT, O_NO,	P_SYS,	DB_ID,			'isset({form})&&{form}=="update"'),
+	'screenid' =>		array(T_ZBX_INT, O_NO,	P_SYS,	DB_ID,			'(isset({form})&&({form}=="update"))'),
 	'templateid' =>		array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,			null),
-	'name' =>			array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY,		'isset({save})', _('Name')),
+	'name' =>			array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY, 'isset({save})', _('Name')),
 	'hsize' =>			array(T_ZBX_INT, O_OPT, null,	BETWEEN(1, 100), 'isset({save})', _('Columns')),
 	'vsize' =>			array(T_ZBX_INT, O_OPT, null,	BETWEEN(1, 100), 'isset({save})', _('Rows')),
 	// actions
@@ -86,7 +86,9 @@ if (isset($_REQUEST['screenid'])) {
 	}
 
 	if (empty($screens)) {
-		access_deny();
+		if (empty($screens)) {
+			access_deny();
+		}
 	}
 }
 
@@ -105,8 +107,7 @@ if ($isExportData) {
 	else {
 		print($exportData);
 	}
-
-	exit;
+	exit();
 }
 
 
@@ -152,6 +153,10 @@ elseif (isset($_REQUEST['save'])) {
 		show_messages(!empty($screenids), _('Screen updated'), _('Cannot update screen'));
 	}
 	else {
+		if (!count(get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_WRITE, PERM_RES_IDS_ARRAY))) {
+			access_deny();
+		}
+
 		$screen = array(
 			'name' => $_REQUEST['name'],
 			'hsize' => $_REQUEST['hsize'],
@@ -175,7 +180,6 @@ elseif (isset($_REQUEST['save'])) {
 
 	if (!empty($screenids)) {
 		unset($_REQUEST['form'], $_REQUEST['screenid']);
-		clearCookies(!empty($screenids));
 	}
 }
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['screenid']) || $_REQUEST['go'] == 'delete') {
@@ -191,18 +195,18 @@ elseif (isset($_REQUEST['delete']) && isset($_REQUEST['screenid']) || $_REQUEST[
 	));
 
 	if (!empty($screens)) {
-		$goResult = API::Screen()->delete($screenids);
+		$go_result = API::Screen()->delete($screenids);
 
-		if ($goResult) {
+		if ($go_result) {
 			foreach ($screens as $screen) {
 				add_audit_details(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_SCREEN, $screen['screenid'], $screen['name']);
 			}
 		}
 	}
 	else {
-		$goResult = API::TemplateScreen()->delete($screenids);
+		$go_result = API::TemplateScreen()->delete($screenids);
 
-		if ($goResult) {
+		if ($go_result) {
 			$templatedScreens = API::TemplateScreen()->get(array(
 				'screenids' => $screenids,
 				'output' => API_OUTPUT_EXTEND,
@@ -215,12 +219,16 @@ elseif (isset($_REQUEST['delete']) && isset($_REQUEST['screenid']) || $_REQUEST[
 		}
 	}
 
-	if ($goResult) {
+	if ($go_result) {
 		unset($_REQUEST['screenid'], $_REQUEST['form']);
 	}
 
-	show_messages($goResult, _('Screen deleted'), _('Cannot delete screen'));
-	clearCookies($goResult);
+	show_messages($go_result, _('Screen deleted'), _('Cannot delete screen'));
+}
+if ($_REQUEST['go'] != 'none' && isset($go_result) && $go_result) {
+	$url = new CUrl();
+	$path = $url->getPath();
+	insert_js('cookie.eraseArray("'.$path.'")');
 }
 
 /*
@@ -290,19 +298,8 @@ else {
 	order_result($data['screens'], $sortfield, getPageSortOrder());
 
 	// paging
-	$data['paging'] = getPagingLine(
-		$data['screens'],
-		array('screenid'),
-		array('templateid' => get_request('templateid'))
-	);
+	$data['paging'] = getPagingLine($data['screens']);
 
-	// nodes
-	if ($data['displayNodes'] = is_array(get_current_nodeid())) {
-		foreach ($data['screens'] as &$screen) {
-			$screen['nodename'] = get_node_name_by_elid($screen['screenid'], true);
-		}
-		unset($screen);
-	}
 
 	// render view
 	$screenView = new CView('configuration.screen.list', $data);

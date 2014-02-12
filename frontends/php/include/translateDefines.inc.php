@@ -18,9 +18,8 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
 /**
- * String that is used to substitute macro when it cannot be resolved.
+ * String that is used to substitude macro when it cannot be resolved.
  */
 define('UNRESOLVED_MACRO_STRING', '*'._('UNKNOWN').'*');
 

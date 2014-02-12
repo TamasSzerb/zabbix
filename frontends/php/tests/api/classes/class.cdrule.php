@@ -18,7 +18,6 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
 require_once dirname(__FILE__).'/../../include/gettextwrapper.inc.php';
 require_once dirname(__FILE__).'/../../../include/defines.inc.php';
 require_once dirname(__FILE__).'/../../../include/validate.inc.php';
@@ -90,7 +89,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #0 minimal required fields
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(
 						array(
 							'type' => SVC_ICMPPING,
@@ -102,7 +101,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 			array(
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'proxy_hostid' => '0',
 					'delay' => '3600',
 					'status' => DRULE_STATUS_DISABLED,
@@ -114,9 +113,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 							'ports' => '10050',
 							'snmpv3_securityname' => '',
 							'snmpv3_securitylevel' => '0',
-							'snmpv3_authprotocol' => '0',
 							'snmpv3_authpassphrase' => '',
-							'snmpv3_privprotocol' => '0',
 							'snmpv3_privpassphrase' => '',
 							'uniq' => '0',
 						),
@@ -127,7 +124,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 			array(
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'proxy_hostid' => '0',
 					'delay' => '3600',
 					'status' => DRULE_STATUS_DISABLED,
@@ -151,7 +148,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #1 without name
 			array(
 				array(
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(array(
 						'type' => SVC_ICMPPING,
 					))
@@ -170,7 +167,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #3 with negative delay
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'delay' => '-10',
 					'dchecks' => array(array(
 						'type' => SVC_ICMPPING,
@@ -181,7 +178,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #4 with nonexistent proxyid
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'proxy_hostid' => '9999999',
 					'dchecks' => array(array(
 						'type' => SVC_ICMPPING,
@@ -192,7 +189,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #5 with status out of range
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'delay' => '3600',
 					'status' => '5',
 					'dchecks' => array(array(
@@ -204,7 +201,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #6 with two unique checks
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(
 						array(
 							'type' => SVC_ICMPPING,
@@ -234,14 +231,14 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #8 without checks
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 				)
 			),
 			array(
 				// #9 with agent check incorrect item
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(
 						array(
 							'type' => SVC_AGENT,
@@ -254,7 +251,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #10 with snmp check incorrect OID
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(
 						array(
 							'type' => SVC_SNMPv1,
@@ -268,7 +265,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #11 with snmp check incorrect community
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(
 						array(
 							'type' => SVC_SNMPv1,
@@ -282,7 +279,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #12 with two identical checks
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(
 						array(
 							'type' => SVC_ICMPPING,
@@ -297,7 +294,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #13 with two identical checks with different "uniq"
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(
 						array(
 							'type' => SVC_AGENT,
@@ -321,7 +318,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #0 minimal required fields
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(
 						array(
 							'type' => SVC_ICMPPING,
@@ -333,7 +330,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 			array(
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'proxy_hostid' => '0',
 					'delay' => '3600',
 					'status' => DRULE_STATUS_DISABLED,
@@ -365,7 +362,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 			array(
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(
 						array(
 							'type' => SVC_SNMPv1,
@@ -388,7 +385,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #3 with negative delay
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'delay' => '-10',
 					'dchecks' => array(array(
 						'type' => SVC_ICMPPING,
@@ -399,7 +396,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #4 with nonexistent proxyid
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'proxy_hostid' => '9999999',
 					'dchecks' => array(array(
 						'type' => SVC_ICMPPING,
@@ -410,7 +407,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #5 with status out of range
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'delay' => '3600',
 					'status' => '5',
 					'dchecks' => array(array(
@@ -422,7 +419,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #6 with two unique checks
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(
 						array(
 							'type' => SVC_ICMPPING,
@@ -452,14 +449,14 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #8 without checks
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 				)
 			),
 			array(
 				// #9 with agent check incorrect item
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(
 						array(
 							'type' => SVC_AGENT,
@@ -472,7 +469,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #10 with snmp check incorrect OID
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(
 						array(
 							'type' => SVC_SNMPv1,
@@ -486,7 +483,7 @@ class CDRuleTest extends PHPUnit_Framework_TestCase {
 				// #11 with two identical checks
 				array(
 					'name' => 'api create',
-					'iprange' => '192.168.0.1-254',
+					'iprange' => '192.168.1.1-255',
 					'dchecks' => array(
 						array(
 							'type' => SVC_ICMPPING,

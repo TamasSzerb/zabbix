@@ -26,6 +26,7 @@ require_once dirname(__FILE__).'/include/items.inc.php';
 
 $page['title'] = _('Trigger form');
 $page['file'] = 'tr_logform.php';
+$page['scripts'] = array();
 $page['type'] = detect_page_type(PAGE_TYPE_HTML);
 
 define('ZBX_PAGE_NO_MENU', 1);
@@ -33,37 +34,35 @@ define('ZBX_PAGE_NO_MENU', 1);
 require_once dirname(__FILE__).'/include/page_header.php';
 
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-$fields = array(
-	'description' =>	array(T_ZBX_STR, O_OPT,  NULL,			NOT_EMPTY,			'isset({save_trigger})'),
-	'itemid' =>			array(T_ZBX_INT, O_OPT,	 P_SYS,			DB_ID,				'isset({save_trigger})'),
-	'sform' =>			array(T_ZBX_INT, O_OPT,  NULL,			IN('0,1'),			null),
-	'sitems' =>			array(T_ZBX_INT, O_OPT,  NULL,			IN('0,1'),			null),
-	'triggerid' =>		array(T_ZBX_INT, O_OPT,  P_SYS,			DB_ID,				null),
-	'type' =>			array(T_ZBX_INT, O_OPT,  NULL,			IN('0,1'),			null),
-	'priority' =>		array(T_ZBX_INT, O_OPT,  NULL,			IN('0,1,2,3,4,5'),	'isset({save_trigger})'),
-	'expressions' =>	array(T_ZBX_STR, O_OPT,	 NULL,			NOT_EMPTY,			'isset({save_trigger})'),
-	'expr_type' =>		array(T_ZBX_INT, O_OPT,  NULL,			IN('0,1'),			null),
-	'comments' =>		array(T_ZBX_STR, O_OPT,  null,			null,				null),
-	'url' =>			array(T_ZBX_STR, O_OPT,  null,			null,				null),
-	'status' =>			array(T_ZBX_INT, O_OPT,  NULL,			IN('0,1'),			null),
-	'form_refresh' =>	array(T_ZBX_INT, O_OPT,	 NULL,			NULL,				NULL),
-	'save_trigger' =>	array(T_ZBX_STR, O_OPT,	 P_SYS|P_ACT,	NULL,				null),
-	'keys '=> 			array(T_ZBX_STR, O_OPT,  NULL,			NULL,				NULL),
-);
-check_fields($fields);
 
-/*
- * Permissions
- */
-if (get_request('itemid') && !API::Item()->isWritable(array($_REQUEST['itemid']))
-		|| get_request('triggerid') && !API::Trigger()->isWritable(array($_REQUEST['triggerid']))) {
-	access_deny();
-}
+	$fields=array(
+		'description'=>		array(T_ZBX_STR, O_OPT,  NULL,		NOT_EMPTY,	'isset({save_trigger})'),
+		'itemid'=>			array(T_ZBX_INT, O_OPT,	 P_SYS,		DB_ID,	'isset({save_trigger})'),
+		'sform'=>			array(T_ZBX_INT, O_OPT,  NULL,	  	IN('0,1'),	null),
+		'sitems'=>			array(T_ZBX_INT, O_OPT,  NULL, 		IN('0,1'),	null),
 
-$itemid = get_request('itemid', 0);
+		'groupid'=>			array(T_ZBX_INT, O_OPT,	 P_SYS,		DB_ID,	null),
+		'hostid'=>			array(T_ZBX_INT, O_OPT,  P_SYS,		DB_ID,	null),
+		'triggerid'=>		array(T_ZBX_INT, O_OPT,  P_SYS,		DB_ID,	null),
+
+		'type'=>			array(T_ZBX_INT, O_OPT,  NULL, 		IN('0,1'),	null),
+		'priority'=>		array(T_ZBX_INT, O_OPT,  NULL, 		IN('0,1,2,3,4,5'),	'isset({save_trigger})'),
+		'expressions'=>		array(T_ZBX_STR, O_OPT,	 NULL,		NOT_EMPTY,	'isset({save_trigger})'),
+		'expr_type'=>		array(T_ZBX_INT, O_OPT,  NULL, 		IN('0,1'),	null),
+		'comments'=>		array(T_ZBX_STR, O_OPT,  null,  	null, null),
+		'url'=>				array(T_ZBX_STR, O_OPT,  null,  	null, null),
+		'status'=>			array(T_ZBX_INT, O_OPT,  NULL, 		IN('0,1'),	null),
+		'form_refresh'=>	array(T_ZBX_INT, O_OPT,	 NULL,		NULL,	NULL),
+		'save_trigger'=>	array(T_ZBX_STR, O_OPT,	 P_SYS|P_ACT,	NULL,	null),
+		'keys'=> 			array(T_ZBX_STR, O_OPT,  NULL,		NULL,	NULL),
+	);
+
+	check_fields($fields);
+
+	$itemid = get_request('itemid',0);
 
 //------------------------ <ACTIONS> ---------------------------
-if (isset($_REQUEST['save_trigger'])) {
+if(isset($_REQUEST['save_trigger'])){
 	show_messages();
 
 	$exprs = get_request('expressions', false);
@@ -79,10 +78,12 @@ if (isset($_REQUEST['save_trigger'])) {
 		$type = TRIGGER_MULT_EVENT_ENABLED;
 
 		if(isset($_REQUEST['triggerid'])){
-			$triggersData = API::Trigger()->get(array(
+			$options = array(
 				'triggerids' => $_REQUEST['triggerid'],
-				'output' => API_OUTPUT_EXTEND
-			));
+				'output' => API_OUTPUT_EXTEND,
+				'selectDependencies' => API_OUTPUT_REFER
+			);
+			$triggersData = API::Trigger()->get($options);
 			$triggerData = reset($triggersData);
 
 			if($triggerData['templateid']){
@@ -173,7 +174,7 @@ if(isset($_REQUEST['sform'])){
 		$sql = 'SELECT DISTINCT f.functionid, f.function, f.parameter, t.expression, '.
 								' t.description, t.priority, t.comments, t.url, t.status, t.type'.
 					' FROM functions f, triggers t, items i '.
-					' WHERE t.triggerid='.zbx_dbstr($_REQUEST['triggerid']).
+					' WHERE t.triggerid='.$_REQUEST['triggerid'].
 						' AND i.itemid=f.itemid '.
 						' AND f.triggerid = t.triggerid '.
 						' AND i.value_type IN ('.ITEM_VALUE_TYPE_LOG.' , '.ITEM_VALUE_TYPE_TEXT.', '.ITEM_VALUE_TYPE_STR.')';
@@ -250,25 +251,18 @@ if(isset($_REQUEST['sform'])){
 
 	$frmTRLog->addRow(_('Description'), new CTextBox('description', $description, 80));
 
-	$itemName = '';
+	$item = '';
+	$db_items = DBselect('SELECT DISTINCT * FROM items WHERE itemid='.$itemid);
+	while($db_item = DBfetch($db_items)){
+		if($db_item['templateid']){
+			$template_host = get_realhost_by_itemid($db_item['templateid']);
+			$item = $template_host['host'].':';
+		}
 
-	$dbItems = DBfetchArray(DBselect(
-		'SELECT itemid,hostid,name,key_,templateid'.
-		' FROM items'.
-		' WHERE itemid='.zbx_dbstr($itemid)
-	));
-	$dbItems = CMacrosResolverHelper::resolveItemNames($dbItems);
-	$dbItem = reset($dbItems);
-
-	if ($dbItem['templateid']) {
-		$template = get_realhost_by_itemid($dbItem['templateid']);
-		$itemName = $template['host'].NAME_DELIMITER.$dbItem['name_expanded'];
-	}
-	else {
-		$itemName = $dbItem['name_expanded'];
+		$item .= itemName($db_item,$db_item['key_']);
 	}
 
-	$ctb = new CTextBox('item', $itemName, 80);
+	$ctb = new CTextBox('item',$item,80);
 	$ctb->setAttribute('id','item');
 	$ctb->setAttribute('disabled','disabled');
 

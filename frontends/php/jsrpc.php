@@ -47,7 +47,7 @@ $result = array();
 switch ($data['method']) {
 	case 'host.get':
 		$result = API::Host()->get(array(
-			'startSearch' => true,
+			'startSearch' => 1,
 			'search' => $data['params']['search'],
 			'output' => array('hostid', 'host', 'name'),
 			'sortfield' => 'name',
@@ -131,7 +131,7 @@ switch ($data['method']) {
 						'priority' => $priority,
 						'sound' => $sound,
 						'color' => getSeverityColor($trigger['priority'], $event['value']),
-						'title' => $title.' '.get_node_name_by_elid($host['hostid'], null, NAME_DELIMITER).'[url='.$url_tr_status.']'.$host['host'].'[/url]',
+						'title' => $title.' '.get_node_name_by_elid($host['hostid'], null, ':').'[url='.$url_tr_status.']'.$host['host'].'[/url]',
 						'body' => array(
 							_('Details').': [url='.$url_events.']'.$trigger['description'].'[/url]',
 							_('Date').': [b][url='.$url_tr_events.']'.zbx_date2str(_('d M Y H:i:s'), $event['clock']).'[/url][/b]',
@@ -164,8 +164,7 @@ switch ($data['method']) {
 	case 'zabbix.status':
 		$session = Z::getInstance()->getSession();
 		if (!isset($session['serverCheckResult']) || ($session['serverCheckTime'] + SERVER_CHECK_INTERVAL) <= time()) {
-			$zabbixServer = new CZabbixServer($ZBX_SERVER, $ZBX_SERVER_PORT, ZBX_SOCKET_TIMEOUT, 0);
-			$session['serverCheckResult'] = $zabbixServer->isRunning();
+			$session['serverCheckResult'] = zabbixIsRunning();
 			$session['serverCheckTime'] = time();
 		}
 
@@ -191,7 +190,7 @@ switch ($data['method']) {
 			'updateProfile' => isset($data['updateProfile']) ? $data['updateProfile'] : null
 		);
 		if ($options['resourcetype'] == SCREEN_RESOURCE_HISTORY) {
-			$options['itemids'] = !empty($data['itemids']) ? $data['itemids'] : null;
+			$options['itemid'] = !empty($data['itemid']) ? $data['itemid'] : null;
 			$options['action'] = !empty($data['action']) ? $data['action'] : null;
 			$options['filter'] = !empty($data['filter']) ? $data['filter'] : null;
 			$options['filter_task'] = !empty($data['filter_task']) ? $data['filter_task'] : null;
@@ -222,220 +221,19 @@ switch ($data['method']) {
 		}
 		break;
 
-	/**
-	 * Create multi select data.
-	 * Supported objects: "applications", "hosts", "hostGroup", "templates", "triggers"
-	 *
-	 * @param string $data['objectName']
-	 * @param string $data['search']
-	 * @param int    $data['limit']
-	 *
-	 * @return array(int => array('value' => int, 'text' => string))
-	 */
-	case 'multiselect.get':
-		$config = select_config();
-		$displayNodes = is_array(get_current_nodeid());
-		$sortFields = $displayNodes ? array(array('field' => 'nodename', 'order' => ZBX_SORT_UP)) : array();
-
-		switch ($data['objectName']) {
-			case 'hostGroup':
-				$hostGroups = API::HostGroup()->get(array(
-					'editable' => isset($data['editable']) ? $data['editable'] : null,
-					'output' => array('groupid', 'name'),
-					'search' => isset($data['search']) ? array('name' => $data['search']) : null,
-					'filter' => isset($data['filter']) ? $data['filter'] : null,
-					'limit' => isset($data['limit']) ? $data['limit'] : null
-				));
-
-				if ($hostGroups) {
-					if ($displayNodes) {
-						foreach ($hostGroups as &$hostGroup) {
-							$hostGroup['nodename'] = get_node_name_by_elid($hostGroup['groupid'], true, NAME_DELIMITER);
-						}
-						unset($hostGroup);
-					}
-
-					$sortFields[] = array('field' => 'name', 'order' => ZBX_SORT_UP);
-					CArrayHelper::sort($hostGroups, $sortFields);
-
-					if (isset($data['limit'])) {
-						$hostGroups = array_slice($hostGroups, 0, $data['limit']);
-					}
-
-					foreach ($hostGroups as $hostGroup) {
-						$result[] = array(
-							'id' => $hostGroup['groupid'],
-							'prefix' => $displayNodes ? $hostGroup['nodename'] : '',
-							'name' => $hostGroup['name']
-						);
-					}
-				}
-				break;
-
-			case 'hosts':
-				$hosts = API::Host()->get(array(
-					'editable' => isset($data['editable']) ? $data['editable'] : null,
-					'output' => array('hostid', 'name'),
-					'templated_hosts' => isset($data['templated_hosts']) ? $data['templated_hosts'] : null,
-					'search' => isset($data['search']) ? array('name' => $data['search']) : null,
-					'limit' => $config['search_limit']
-				));
-
-				if ($hosts) {
-					if ($displayNodes) {
-						foreach ($hosts as &$host) {
-							$host['nodename'] = get_node_name_by_elid($host['hostid'], true, NAME_DELIMITER);
-						}
-						unset($host);
-					}
-
-					$sortFields[] = array('field' => 'name', 'order' => ZBX_SORT_UP);
-					CArrayHelper::sort($hosts, $sortFields);
-
-					if (isset($data['limit'])) {
-						$hosts = array_slice($hosts, 0, $data['limit']);
-					}
-
-					foreach ($hosts as $host) {
-						$result[] = array(
-							'id' => $host['hostid'],
-							'prefix' => $displayNodes ? $host['nodename'] : '',
-							'name' => $host['name']
-						);
-					}
-				}
-				break;
-
-			case 'templates':
-				$templates = API::Template()->get(array(
-					'editable' => isset($data['editable']) ? $data['editable'] : null,
-					'output' => array('templateid', 'name'),
-					'search' => isset($data['search']) ? array('name' => $data['search']) : null,
-					'limit' => $config['search_limit']
-				));
-
-				if ($templates) {
-					if ($displayNodes) {
-						foreach ($templates as &$template) {
-							$template['nodename'] = get_node_name_by_elid($template['templateid'], true, NAME_DELIMITER);
-						}
-						unset($template);
-					}
-
-					$sortFields[] = array('field' => 'name', 'order' => ZBX_SORT_UP);
-					CArrayHelper::sort($templates, $sortFields);
-
-					if (isset($data['limit'])) {
-						$templates = array_slice($templates, 0, $data['limit']);
-					}
-
-					foreach ($templates as $template) {
-						$result[] = array(
-							'id' => $template['templateid'],
-							'prefix' => $displayNodes ? $template['nodename'] : '',
-							'name' => $template['name']
-						);
-					}
-				}
-				break;
-
-			case 'applications':
-				$applications = API::Application()->get(array(
-					'hostids' => zbx_toArray($data['hostid']),
-					'output' => array('applicationid', 'name'),
-					'search' => isset($data['search']) ? array('name' => $data['search']) : null,
-					'limit' => $config['search_limit']
-				));
-
-				if ($applications) {
-					if ($displayNodes) {
-						foreach ($applications as &$application) {
-							$application['nodename'] = get_node_name_by_elid($application['applicationid'], true, NAME_DELIMITER);
-						}
-						unset($application);
-					}
-
-					$sortFields[] = array('field' => 'name', 'order' => ZBX_SORT_UP);
-					CArrayHelper::sort($applications, $sortFields);
-
-					if (isset($data['limit'])) {
-						$applications = array_slice($applications, 0, $data['limit']);
-					}
-
-					foreach ($applications as $application) {
-						$result[] = array(
-							'id' => $application['applicationid'],
-							'prefix' => $displayNodes ? $application['nodename'] : '',
-							'name' => $application['name']
-						);
-					}
-				}
-				break;
-
-			case 'triggers':
-				$triggers = API::Trigger()->get(array(
-					'editable' => isset($data['editable']) ? $data['editable'] : null,
-					'output' => array('triggerid', 'description'),
-					'selectHosts' => array('name'),
-					'search' => isset($data['search']) ? array('description' => $data['search']) : null,
-					'limit' => $config['search_limit']
-				));
-
-				if ($triggers) {
-					if ($displayNodes) {
-						foreach ($triggers as &$trigger) {
-							$trigger['nodename'] = get_node_name_by_elid($trigger['triggerid'], true, NAME_DELIMITER);
-						}
-						unset($trigger);
-					}
-
-					$sortFields[] = array('field' => 'description', 'order' => ZBX_SORT_UP);
-					CArrayHelper::sort($triggers, $sortFields);
-
-					if (isset($data['limit'])) {
-						$triggers = array_slice($triggers, 0, $data['limit']);
-					}
-
-					foreach ($triggers as $trigger) {
-						$hostName = '';
-
-						if ($trigger['hosts']) {
-							$trigger['hosts'] = reset($trigger['hosts']);
-
-							$hostName = $trigger['hosts']['name'].NAME_DELIMITER;
-						}
-
-						$result[] = array(
-							'id' => $trigger['triggerid'],
-							'prefix' => ($displayNodes ? $trigger['nodename'] : '').$hostName,
-							'name' => $trigger['description']
-						);
-					}
-				}
-				break;
-		}
-		break;
-
 	default:
 		fatal_error('Wrong RPC call to JS RPC!');
 }
 
 if ($requestType == PAGE_TYPE_JSON) {
 	if (isset($data['id'])) {
-		echo $json->encode(array(
+		$rpcResp = array(
 			'jsonrpc' => '2.0',
 			'result' => $result,
 			'id' => $data['id']
-		));
+		);
+		echo $json->encode($rpcResp);
 	}
-}
-elseif ($requestType == PAGE_TYPE_TEXT_RETURN_JSON) {
-	$json = new CJSON();
-
-	echo $json->encode(array(
-		'jsonrpc' => '2.0',
-		'result' => $result
-	));
 }
 elseif ($requestType == PAGE_TYPE_TEXT || $requestType == PAGE_TYPE_JS) {
 	echo $result;

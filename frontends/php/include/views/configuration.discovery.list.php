@@ -17,27 +17,26 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $discoveryWidget = new CWidget();
 
 // create new discovery rule button
 $createForm = new CForm('get');
 $createForm->cleanItems();
 $createForm->addItem(new CSubmit('form', _('Create discovery rule')));
-$discoveryWidget->addPageHeader(_('CONFIGURATION OF DISCOVERY RULES'), $createForm);
+$discoveryWidget->addPageHeader(_('CONFIGURATION OF DISCOVERY RULE'), $createForm);
 $discoveryWidget->addHeader(_('Discovery rule'));
 $discoveryWidget->addHeaderRowNumber();
 
 // create form
-$discoveryForm = new CForm();
+$discoveryForm = new CForm('get');
 $discoveryForm->setName('druleForm');
 
 // create table
-$discoveryTable = new CTableInfo(_('No discovery rules found.'));
+$discoveryTable = new CTableInfo(_('No discovery rules defined.'));
 $discoveryTable->setHeader(array(
 	new CCheckBox('all_drules', null, "checkAll('".$discoveryForm->getName()."', 'all_drules', 'g_druleid');"),
-	$this->data['displayNodes'] ? _('Node') : null,
 	make_sorting_header(_('Name'), 'name'),
 	_('IP range'),
 	_('Delay'),
@@ -55,7 +54,6 @@ foreach ($data['drules'] as $drule) {
 
 	$discoveryTable->addRow(array(
 		new CCheckBox('g_druleid['.$drule['druleid'].']', null, null, $drule['druleid']),
-		$this->data['displayNodes'] ? $drule['nodename'] : null,
 		$drule['description'],
 		$drule['iprange'],
 		$drule['delay'],
@@ -87,5 +85,5 @@ $discoveryForm->addItem(array($this->data['paging'], $discoveryTable, $this->dat
 
 // append form to widget
 $discoveryWidget->addItem($discoveryForm);
-
 return $discoveryWidget;
+?>

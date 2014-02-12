@@ -174,7 +174,7 @@ static int	get_data_from_proxy(DC_PROXY *proxy, const char *request, char **data
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	process_proxy(void)
+static int	process_proxy()
 {
 	const char		*__function_name = "process_proxy";
 	DC_PROXY		proxy;
@@ -208,7 +208,7 @@ static int	process_proxy(void)
 
 		zbx_free(port);
 		port = strdup(proxy.port_orig);
-		substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL, NULL, &port, MACRO_TYPE_COMMON, NULL, 0);
+		substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL, &port, MACRO_TYPE_INTERFACE_PORT, NULL, 0);
 		if (FAIL == is_ushort(port, &proxy.port))
 		{
 			zabbix_log(LOG_LEVEL_ERR, "Unable to connect to the proxy [%s] [%s]:%s",
@@ -232,18 +232,7 @@ static int	process_proxy(void)
 			if (SUCCEED == (ret = connect_to_proxy(&proxy, &s, CONFIG_TRAPPER_TIMEOUT)))
 			{
 				if (SUCCEED == (ret = send_data_to_proxy(&proxy, &s, j.buffer)))
-				{
-					char	*info = NULL, *error = NULL;
-
-					if (SUCCEED != (ret = zbx_recv_response(&s, &info, 0, &error)))
-					{
-						zabbix_log(LOG_LEVEL_WARNING, "sending configuration data to proxy: "
-								"error:\"%s\", info:\"%s\"", ZBX_NULL2EMPTY_STR(error),
-								ZBX_NULL2EMPTY_STR(info));
-					}
-					zbx_free(info);
-					zbx_free(error);
-				}
+					ret = zbx_recv_response(&s, NULL, 0, 0);
 
 				disconnect_proxy(&s);
 			}
@@ -345,58 +334,32 @@ exit:
 	return num;
 }
 
-void	main_proxypoller_loop(void)
+void	main_proxypoller_loop()
 {
-	int	nextcheck, sleeptime = -1, processed = 0, old_processed = 0;
-	double	sec, total_sec = 0.0, old_total_sec = 0.0;
-	time_t	last_stat_time;
+	const char	*__function_name = "main_proxypoller_loop";
+	int		nextcheck, sleeptime, processed;
+	double		sec;
 
-#define STAT_INTERVAL	5	/* if a process is busy and does not sleep then update status not faster than */
-				/* once in STAT_INTERVAL seconds */
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() process_num:%d", __function_name, process_num);
 
-	zbx_setproctitle("%s #%d [connecting to the database]", get_process_type_string(process_type), process_num);
-	last_stat_time = time(NULL);
+	zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 
 	DBconnect(ZBX_DB_CONNECT_NORMAL);
 
 	for (;;)
 	{
-		if (0 != sleeptime)
-		{
-			zbx_setproctitle("%s #%d [exchanged data with %d proxies in " ZBX_FS_DBL " sec,"
-					" exchanging data]", get_process_type_string(process_type), process_num,
-					old_processed, old_total_sec);
-		}
+		zbx_setproctitle("%s [exchanging data]", get_process_type_string(process_type));
 
 		sec = zbx_time();
-		processed += process_proxy();
-		total_sec += zbx_time() - sec;
+		processed = process_proxy();
+		sec = zbx_time() - sec;
+
+		zabbix_log(LOG_LEVEL_DEBUG, "%s #%d spent " ZBX_FS_DBL " seconds while processing %3d proxies",
+				get_process_type_string(process_type), process_num, sec, processed);
 
 		nextcheck = DCconfig_get_proxypoller_nextcheck();
 		sleeptime = calculate_sleeptime(nextcheck, POLLER_DELAY);
 
-		if (0 != sleeptime || STAT_INTERVAL <= time(NULL) - last_stat_time)
-		{
-			if (0 == sleeptime)
-			{
-				zbx_setproctitle("%s #%d [exchanged data with %d proxies in " ZBX_FS_DBL " sec,"
-						" exchanging data]", get_process_type_string(process_type), process_num,
-						processed, total_sec);
-			}
-			else
-			{
-				zbx_setproctitle("%s #%d [exchanged data with %d proxies in " ZBX_FS_DBL " sec,"
-						" idle %d sec]", get_process_type_string(process_type), process_num,
-						processed, total_sec, sleeptime);
-				old_processed = processed;
-				old_total_sec = total_sec;
-			}
-			processed = 0;
-			total_sec = 0.0;
-			last_stat_time = time(NULL);
-		}
-
 		zbx_sleep_loop(sleeptime);
 	}
-#undef STAT_INTERVAL
 }

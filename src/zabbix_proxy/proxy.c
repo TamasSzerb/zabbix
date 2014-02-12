@@ -23,14 +23,12 @@
 #include "pid.h"
 #include "db.h"
 #include "dbcache.h"
-#include "zbxdbupgrade.h"
 #include "log.h"
 #include "zbxgetopt.h"
 #include "mutexs.h"
 #include "proxy.h"
 
 #include "sysinfo.h"
-#include "zbxmodules.h"
 #include "zbxserver.h"
 
 #include "daemon.h"
@@ -49,8 +47,6 @@
 #include "datasender/datasender.h"
 #include "heart/heart.h"
 #include "../zabbix_server/selfmon/selfmon.h"
-#include "../zabbix_server/vmware/vmware.h"
-#include "setproctitle.h"
 
 #define INIT_PROXY(type, count)									\
 	process_type = type;									\
@@ -114,7 +110,7 @@ int	CONFIG_IPMIPOLLER_FORKS		= 0;
 int	CONFIG_TRAPPER_FORKS		= 5;
 int	CONFIG_SNMPTRAPPER_FORKS	= 0;
 int	CONFIG_JAVAPOLLER_FORKS		= 0;
-int	CONFIG_SELFMON_FORKS		= 1;
+int	CONFIG_SELFMON_FORKS		= 0;
 int	CONFIG_PROXYPOLLER_FORKS	= 0;
 int	CONFIG_ESCALATOR_FORKS		= 0;
 int	CONFIG_ALERTER_FORKS		= 0;
@@ -141,17 +137,10 @@ int	CONFIG_SENDER_FREQUENCY		= 30;
 int	CONFIG_HISTSYNCER_FORKS		= 4;
 int	CONFIG_HISTSYNCER_FREQUENCY	= 5;
 int	CONFIG_CONFSYNCER_FORKS		= 1;
-
-int	CONFIG_VMWARE_FORKS		= 0;
-int	CONFIG_VMWARE_FREQUENCY		= 60;
-
-zbx_uint64_t	CONFIG_CONF_CACHE_SIZE		= 8 * ZBX_MEBIBYTE;
-zbx_uint64_t	CONFIG_HISTORY_CACHE_SIZE	= 8 * ZBX_MEBIBYTE;
-zbx_uint64_t	CONFIG_TRENDS_CACHE_SIZE	= 0;
-zbx_uint64_t	CONFIG_TEXT_CACHE_SIZE		= 16 * ZBX_MEBIBYTE;
-zbx_uint64_t	CONFIG_VALUE_CACHE_SIZE		= 0;
-zbx_uint64_t	CONFIG_VMWARE_CACHE_SIZE	= 8 * ZBX_MEBIBYTE;
-
+int	CONFIG_CONF_CACHE_SIZE		= 8 * ZBX_MEBIBYTE;
+int	CONFIG_HISTORY_CACHE_SIZE	= 8 * ZBX_MEBIBYTE;
+int	CONFIG_TRENDS_CACHE_SIZE	= 0;
+int	CONFIG_TEXT_CACHE_SIZE		= 16 * ZBX_MEBIBYTE;
 int	CONFIG_UNREACHABLE_PERIOD	= 45;
 int	CONFIG_UNREACHABLE_DELAY	= 15;
 int	CONFIG_UNAVAILABLE_DELAY	= 60;
@@ -178,7 +167,7 @@ char	*CONFIG_SERVER			= NULL;
 int	CONFIG_SERVER_PORT		= ZBX_DEFAULT_SERVER_PORT;
 char	*CONFIG_HOSTNAME		= NULL;
 char	*CONFIG_HOSTNAME_ITEM		= NULL;
-int	CONFIG_NODEID			= 0;
+int	CONFIG_NODEID			= -1;
 int	CONFIG_MASTER_NODEID		= 0;
 int	CONFIG_NODE_NOEVENTS		= 0;
 int	CONFIG_NODE_NOHISTORY		= 0;
@@ -194,11 +183,6 @@ int	CONFIG_LOG_SLOW_QUERIES		= 0;	/* ms; 0 - disable */
 
 /* zabbix server startup time */
 int	CONFIG_SERVER_STARTUP_TIME	= 0;
-
-char	*CONFIG_LOAD_MODULE_PATH	= NULL;
-char	**CONFIG_LOAD_MODULE		= NULL;
-
-char	*CONFIG_USER			= NULL;
 
 /* mutex for node syncs; not used in proxy */
 ZBX_MUTEX	node_sync_access;
@@ -270,9 +254,6 @@ static void	zbx_set_defaults()
 	if (NULL == CONFIG_EXTERNALSCRIPTS)
 		CONFIG_EXTERNALSCRIPTS = zbx_strdup(CONFIG_EXTERNALSCRIPTS, DATADIR "/zabbix/externalscripts");
 
-	if (NULL == CONFIG_LOAD_MODULE_PATH)
-		CONFIG_LOAD_MODULE_PATH = zbx_strdup(CONFIG_LOAD_MODULE_PATH, LIBDIR "/modules");
-
 	if (ZBX_PROXYMODE_ACTIVE != CONFIG_PROXYMODE || 0 == CONFIG_HEARTBEAT_FREQUENCY)
 		CONFIG_HEARTBEAT_FORKS = 0;
 
@@ -292,47 +273,31 @@ static void	zbx_set_defaults()
  * Author: Alexei Vladishev, Rudolfs Kreicbergs                               *
  *                                                                            *
  ******************************************************************************/
-static void	zbx_validate_config(void)
+static void	zbx_validate_config()
 {
-	if (NULL == CONFIG_HOSTNAME)
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "\"Hostname\" configuration parameter is not defined");
-		exit(EXIT_FAILURE);
-	}
-
-	if (FAIL == zbx_check_hostname(CONFIG_HOSTNAME))
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "invalid \"Hostname\" configuration parameter: '%s'", CONFIG_HOSTNAME);
-		exit(EXIT_FAILURE);
-	}
-
 	if ((NULL == CONFIG_JAVA_GATEWAY || '\0' == *CONFIG_JAVA_GATEWAY) && 0 < CONFIG_JAVAPOLLER_FORKS)
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "\"JavaGateway\" configuration parameter is not specified or empty");
-		exit(EXIT_FAILURE);
+		zabbix_log(LOG_LEVEL_CRIT, "JavaGateway not in config file or empty");
+		exit(1);
 	}
 
 	if (ZBX_PROXYMODE_ACTIVE == CONFIG_PROXYMODE &&	NULL == CONFIG_SERVER)
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "\"Server\" configuration parameter is not defined."
-				" This parameter is mandatory for active proxies.");
-		exit(EXIT_FAILURE);
+		zabbix_log(LOG_LEVEL_CRIT, "missing active proxy mandatory parameter [Server] in config file [%s]", CONFIG_FILE);
+		exit(FAIL);
 	}
 
-	if (NULL != CONFIG_SOURCE_IP && ('\0' == *CONFIG_SOURCE_IP || SUCCEED != is_ip(CONFIG_SOURCE_IP)))
+	if (NULL == CONFIG_HOSTNAME)
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "invalid \"SourceIP\" configuration parameter: '%s'", CONFIG_SOURCE_IP);
-		exit(EXIT_FAILURE);
+		zabbix_log(LOG_LEVEL_CRIT, "hostname is not defined");
+		exit(FAIL);
 	}
 
-#if !defined(HAVE_LIBXML2) || !defined(HAVE_LIBCURL)
-	if (0 != CONFIG_VMWARE_FORKS)
+	if (FAIL == zbx_check_hostname(CONFIG_HOSTNAME))
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "cannot start vmware collector because Zabbix proxy is built without VMware"
-				" support");
-		exit(EXIT_FAILURE);
+		zabbix_log(LOG_LEVEL_CRIT, "invalid host name: [%s]", CONFIG_HOSTNAME);
+		exit(FAIL);
 	}
-#endif
 }
 
 /******************************************************************************
@@ -388,12 +353,12 @@ static void	zbx_load_config()
 			PARM_OPT,	0,			0},
 		{"StartSNMPTrapper",		&CONFIG_SNMPTRAPPER_FORKS,		TYPE_INT,
 			PARM_OPT,	0,			1},
-		{"CacheSize",			&CONFIG_CONF_CACHE_SIZE,		TYPE_UINT64,
-			PARM_OPT,	128 * ZBX_KIBIBYTE,	__UINT64_C(2) * ZBX_GIBIBYTE},
-		{"HistoryCacheSize",		&CONFIG_HISTORY_CACHE_SIZE,		TYPE_UINT64,
-			PARM_OPT,	128 * ZBX_KIBIBYTE,	__UINT64_C(2) * ZBX_GIBIBYTE},
-		{"HistoryTextCacheSize",	&CONFIG_TEXT_CACHE_SIZE,		TYPE_UINT64,
-			PARM_OPT,	128 * ZBX_KIBIBYTE,	__UINT64_C(2) * ZBX_GIBIBYTE},
+		{"CacheSize",			&CONFIG_CONF_CACHE_SIZE,		TYPE_INT,
+			PARM_OPT,	128 * ZBX_KIBIBYTE,	0x7fffffff},	/* just below 2GB */
+		{"HistoryCacheSize",		&CONFIG_HISTORY_CACHE_SIZE,		TYPE_INT,
+			PARM_OPT,	128 * ZBX_KIBIBYTE,	0x7fffffff},	/* just below 2GB */
+		{"HistoryTextCacheSize",	&CONFIG_TEXT_CACHE_SIZE,		TYPE_INT,
+			PARM_OPT,	128 * ZBX_KIBIBYTE,	0x7fffffff},	/* just below 2GB */
 		{"HousekeepingFrequency",	&CONFIG_HOUSEKEEPING_FREQUENCY,		TYPE_INT,
 			PARM_OPT,	1,			24},
 		{"ProxyLocalBuffer",		&CONFIG_PROXY_LOCAL_BUFFER,		TYPE_INT,
@@ -424,7 +389,7 @@ static void	zbx_load_config()
 			PARM_OPT,	1,			SEC_PER_HOUR},
 		{"UnavailableDelay",		&CONFIG_UNAVAILABLE_DELAY,		TYPE_INT,
 			PARM_OPT,	1,			SEC_PER_HOUR},
-		{"ListenIP",			&CONFIG_LISTEN_IP,			TYPE_STRING_LIST,
+		{"ListenIP",			&CONFIG_LISTEN_IP,			TYPE_STRING,
 			PARM_OPT,	0,			0},
 		{"ListenPort",			&CONFIG_LISTEN_PORT,			TYPE_INT,
 			PARM_OPT,	1024,			32767},
@@ -458,25 +423,8 @@ static void	zbx_load_config()
 			PARM_OPT,	0,			0},
 		{"LogSlowQueries",		&CONFIG_LOG_SLOW_QUERIES,		TYPE_INT,
 			PARM_OPT,	0,			3600000},
-		{"AllowRoot",			&CONFIG_ALLOW_ROOT,			TYPE_INT,
-			PARM_OPT,	0,			1},
-		{"LoadModulePath",		&CONFIG_LOAD_MODULE_PATH,		TYPE_STRING,
-			PARM_OPT,	0,			0},
-		{"LoadModule",			&CONFIG_LOAD_MODULE,			TYPE_MULTISTRING,
-			PARM_OPT,	0,			0},
-		{"StartVMwareCollectors",	&CONFIG_VMWARE_FORKS,			TYPE_INT,
-			PARM_OPT,	0,			250},
-		{"VMwareFrequency",		&CONFIG_VMWARE_FREQUENCY,		TYPE_INT,
-			PARM_OPT,	10,			SEC_PER_DAY},
-		{"VMwareCacheSize",		&CONFIG_VMWARE_CACHE_SIZE,		TYPE_UINT64,
-			PARM_OPT,	256 * ZBX_KIBIBYTE,	__UINT64_C(2) * ZBX_GIBIBYTE},
-		{"User",			&CONFIG_USER,				TYPE_STRING,
-			PARM_OPT,	0,			0},
 		{NULL}
 	};
-
-	/* initialize multistrings */
-	zbx_strarr_init(&CONFIG_LOAD_MODULE);
 
 	parse_cfg_file(CONFIG_FILE, cfg, ZBX_CFG_FILE_REQUIRED, ZBX_CFG_STRICT);
 
@@ -505,18 +453,6 @@ void	zbx_sigusr_handler(zbx_task_t task)
 
 /******************************************************************************
  *                                                                            *
- * Function: zbx_free_config                                                  *
- *                                                                            *
- * Purpose: free configuration memory                                         *
- *                                                                            *
- ******************************************************************************/
-static void	zbx_free_config()
-{
-	zbx_strarr_free(CONFIG_LOAD_MODULE);
-}
-
-/******************************************************************************
- *                                                                            *
  * Function: main                                                             *
  *                                                                            *
  * Purpose: executes proxy processes                                          *
@@ -529,9 +465,6 @@ int	main(int argc, char **argv)
 	zbx_task_t	task = ZBX_TASK_START;
 	char		ch;
 
-#if defined(PS_OVERWRITE_ARGV) || defined(PS_PSTAT_ARGV)
-	argv = setproctitle_save_env(argc, argv);
-#endif
 	progname = get_program_name(argv[0]);
 
 	/* parse the command-line */
@@ -581,7 +514,7 @@ int	main(int argc, char **argv)
 	init_ipmi_handler();
 #endif
 
-	return daemon_start(CONFIG_ALLOW_ROOT, CONFIG_USER);
+	return daemon_start(CONFIG_ALLOW_ROOT);
 }
 
 int	MAIN_ZABBIX_ENTRY()
@@ -595,37 +528,32 @@ int	MAIN_ZABBIX_ENTRY()
 	else
 		zabbix_open_log(LOG_TYPE_FILE, CONFIG_LOG_LEVEL, CONFIG_LOG_FILE);
 
-#ifdef HAVE_SNMP
+#ifdef	HAVE_SNMP
 #	define SNMP_FEATURE_STATUS 	"YES"
 #else
 #	define SNMP_FEATURE_STATUS 	" NO"
 #endif
-#ifdef HAVE_OPENIPMI
+#ifdef	HAVE_OPENIPMI
 #	define IPMI_FEATURE_STATUS 	"YES"
 #else
 #	define IPMI_FEATURE_STATUS 	" NO"
 #endif
-#ifdef HAVE_LIBCURL
+#ifdef	HAVE_LIBCURL
 #	define LIBCURL_FEATURE_STATUS	"YES"
 #else
 #	define LIBCURL_FEATURE_STATUS	" NO"
 #endif
-#if defined(HAVE_LIBXML2) && defined(HAVE_LIBCURL)
-#	define VMWARE_FEATURE_STATUS	"YES"
-#else
-#	define VMWARE_FEATURE_STATUS	" NO"
-#endif
-#ifdef HAVE_UNIXODBC
+#ifdef	HAVE_ODBC
 #	define ODBC_FEATURE_STATUS 	"YES"
 #else
 #	define ODBC_FEATURE_STATUS 	" NO"
 #endif
-#ifdef HAVE_SSH2
+#ifdef	HAVE_SSH2
 #	define SSH2_FEATURE_STATUS 	"YES"
 #else
 #	define SSH2_FEATURE_STATUS 	" NO"
 #endif
-#ifdef HAVE_IPV6
+#ifdef	HAVE_IPV6
 #	define IPV6_FEATURE_STATUS 	"YES"
 #else
 #	define IPV6_FEATURE_STATUS 	" NO"
@@ -639,32 +567,16 @@ int	MAIN_ZABBIX_ENTRY()
 	zabbix_log(LOG_LEVEL_INFORMATION, "SNMP monitoring:       " SNMP_FEATURE_STATUS);
 	zabbix_log(LOG_LEVEL_INFORMATION, "IPMI monitoring:       " IPMI_FEATURE_STATUS);
 	zabbix_log(LOG_LEVEL_INFORMATION, "WEB monitoring:        " LIBCURL_FEATURE_STATUS);
-	zabbix_log(LOG_LEVEL_INFORMATION, "VMware monitoring:     " VMWARE_FEATURE_STATUS);
 	zabbix_log(LOG_LEVEL_INFORMATION, "ODBC:                  " ODBC_FEATURE_STATUS);
 	zabbix_log(LOG_LEVEL_INFORMATION, "SSH2 support:          " SSH2_FEATURE_STATUS);
 	zabbix_log(LOG_LEVEL_INFORMATION, "IPv6 support:          " IPV6_FEATURE_STATUS);
 	zabbix_log(LOG_LEVEL_INFORMATION, "**************************");
-	zabbix_log(LOG_LEVEL_INFORMATION, "using configuration file: %s", CONFIG_FILE);
 
-	if (FAIL == load_modules(CONFIG_LOAD_MODULE_PATH, CONFIG_LOAD_MODULE, CONFIG_TIMEOUT, 1))
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "loading modules failed, exiting...");
-		exit(EXIT_FAILURE);
-	}
-
-	zbx_free_config();
+	DBinit();
 
 	init_database_cache();
 	init_configuration_cache();
 	init_selfmon_collector();
-
-	/* initialize vmware support */
-	if (0 != CONFIG_VMWARE_FORKS)
-		zbx_vmware_init();
-
-	DBinit();
-	if (SUCCEED != DBcheck_version())
-		exit(EXIT_FAILURE);
 
 	DBconnect(ZBX_DB_CONNECT_NORMAL);
 	DCsync_configuration();
@@ -674,8 +586,7 @@ int	MAIN_ZABBIX_ENTRY()
 			+ CONFIG_POLLER_FORKS + CONFIG_UNREACHABLE_POLLER_FORKS + CONFIG_TRAPPER_FORKS
 			+ CONFIG_PINGER_FORKS + CONFIG_HOUSEKEEPER_FORKS + CONFIG_HTTPPOLLER_FORKS
 			+ CONFIG_DISCOVERER_FORKS + CONFIG_HISTSYNCER_FORKS + CONFIG_IPMIPOLLER_FORKS
-			+ CONFIG_JAVAPOLLER_FORKS + CONFIG_SNMPTRAPPER_FORKS + CONFIG_SELFMON_FORKS
-			+ CONFIG_VMWARE_FORKS;
+			+ CONFIG_JAVAPOLLER_FORKS + CONFIG_SNMPTRAPPER_FORKS + CONFIG_SELFMON_FORKS;
 	threads = zbx_calloc(threads, threads_num, sizeof(pid_t));
 
 	if (0 < CONFIG_TRAPPER_FORKS)
@@ -820,12 +731,6 @@ int	MAIN_ZABBIX_ENTRY()
 
 		main_selfmon_loop();
 	}
-	else if (proxy_num <= (proxy_count += CONFIG_VMWARE_FORKS))
-	{
-		INIT_PROXY(ZBX_PROCESS_TYPE_VMWARE, CONFIG_VMWARE_FORKS);
-
-		main_vmware_loop();
-	}
 
 	return SUCCEED;
 }
@@ -873,22 +778,12 @@ void	zbx_on_exit()
 	zbx_remove_sqlite3_mutex();
 #endif
 
-	/* free vmware support */
-	if (0 != CONFIG_VMWARE_FORKS)
-		zbx_vmware_destroy();
-
 	free_selfmon_collector();
-
-	unload_modules();
 
 	zabbix_log(LOG_LEVEL_INFORMATION, "Zabbix Proxy stopped. Zabbix %s (revision %s).",
 			ZABBIX_VERSION, ZABBIX_REVISION);
 
 	zabbix_close_log();
-
-#if defined(PS_OVERWRITE_ARGV)
-	setproctitle_free_env();
-#endif
 
 	exit(SUCCEED);
 }

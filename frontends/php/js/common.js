@@ -18,7 +18,10 @@
 **/
 
 
-jQuery.noConflict();
+// jQuery no conflict
+if (typeof(jQuery) != 'undefined') {
+	jQuery.noConflict();
+}
 
 function isset(key, obj) {
 	return (is_null(key) || is_null(obj)) ? false : (typeof(obj[key]) != 'undefined');
@@ -70,6 +73,58 @@ function is_string(obj) {
 
 function is_array(obj) {
 	return (obj != null) && (typeof obj == 'object') && ('splice' in obj) && ('join' in obj);
+}
+
+function SDI(msg) {
+	if (GK || WK) {
+		console.log(msg);
+		return true;
+	}
+
+	var div_help = document.getElementById('div_help');
+
+	if (typeof(div_help) == 'undefined' || empty(div_help)) {
+		var div_help = document.createElement('div');
+		var doc_body = document.getElementsByTagName('body')[0];
+
+		if (empty(doc_body)) {
+			return false;
+		}
+
+		doc_body.appendChild(div_help);
+		div_help.setAttribute('id', 'div_help');
+		div_help.setAttribute('style', 'position: absolute; left: 10px; top: 100px; border: 1px red solid; width: 400px; height: 400px; background-color: white; font-size: 12px; overflow: auto; z-index: 20;');
+	}
+
+	var pre = document.createElement('pre');
+	pre.appendChild(document.createTextNode(msg));
+	div_help.appendChild(document.createTextNode('DEBUG INFO: '));
+	div_help.appendChild(document.createElement('br'));
+	div_help.appendChild(pre);
+	div_help.appendChild(document.createElement('br'));
+	div_help.appendChild(document.createElement('br'));
+	div_help.scrollTop = div_help.scrollHeight;
+
+	return true;
+}
+
+function SDJ(obj, name) {
+	if (GK || WK) {
+		console.dir(obj);
+		return true;
+	}
+
+	var debug = '';
+	name = name || 'none';
+
+	for (var key in obj) {
+		if (typeof(obj[key]) == name) {
+			continue;
+		}
+		debug += key + ': ' + obj[key] + ' (' + typeof(obj[key]) + ')' + '\n';
+	}
+
+	SDI(debug);
 }
 
 function addListener(element, eventname, expression, bubbling) {
@@ -199,28 +254,24 @@ function clearAllForm(form) {
 			case 'submit':
 				break;
 			case 'checkbox':
-				jQuery(inputs[i]).prop('checked', false).trigger('change');
+				inputs[i].checked = false;
 				break;
 			case 'text':
 			case 'password':
 			default:
-				jQuery(inputs[i]).val('').trigger('change');
+				inputs[i].value = '';
 		}
 	}
 
 	var selects = form.getElementsByTagName('select');
 	for (var i = 0; i < selects.length; i++) {
-		jQuery(selects[i]).val(null).trigger('change');
+		selects[i].selectedIndex = 0;
 	}
 
 	var areas = form.getElementsByTagName('textarea');
 	for (var i = 0; i < areas.length; i++) {
-		jQuery(areas[i]).val('').trigger('change');
+		areas[i].innerHTML = '';
 	}
-
-	jQuery('.multiselect').each(function() {
-		jQuery(this).multiSelect.clean(jQuery(this).attr('id'));
-	});
 
 	return true;
 }
@@ -434,18 +485,18 @@ function insertInElement(element_name, text, tagName) {
 	}
 }
 
-function openWinCentered(url, name, width, height, params) {
-	var top = Math.ceil((screen.height - height) / 2),
-		left = Math.ceil((screen.width - width) / 2);
+function openWinCentered(loc, winname, iwidth, iheight, params) {
+	var tp = Math.ceil((screen.height - iheight) / 2);
+	var lf = Math.ceil((screen.width - iwidth) / 2);
 
 	if (params.length > 0) {
 		params = ', ' + params;
 	}
 
-	var windowObj = window.open(new Curl(url).getUrl(), name,
-		'width=' + width + ', height=' + height + ', top=' + top + ', left=' + left + params
-	);
-	windowObj.focus();
+	loc = new Curl(loc).getUrl();
+
+	var WinObjReferer = window.open(loc, winname, 'width=' + iwidth + ', height=' + iheight + ', top=' + tp + ', left=' + lf + params);
+	WinObjReferer.focus();
 }
 
 function PopUp(url, width, height, form_name) {
@@ -561,50 +612,32 @@ function showHideByName(name, style) {
 	}
 }
 
-/**
- * Switch element classes and return final class.
- *
- * @param object|string obj			object or object id
- * @param string        class1
- * @param string        class2
- *
- * @return string
- */
-function switchElementClass(obj, class1, class2) {
-	obj = (typeof obj === 'string') ? jQuery('#' + obj) : jQuery(obj);
-
-	if (obj.length > 0) {
-		if (obj.hasClass(class1)) {
-			obj.removeClass(class1);
-			obj.addClass(class2);
-
-			return class2;
-		}
-		else if (obj.hasClass(class2)) {
-			obj.removeClass(class2);
-			obj.addClass(class1);
-
-			return class1;
-		}
+function switchElementsClass(obj, class1, class2) {
+	obj = $(obj);
+	if (!obj) {
+		return false;
 	}
 
-	return null;
+	var result = false;
+
+	if (obj.hasClassName(class1)) {
+		obj.removeClassName(class1);
+		obj.className = class2 + ' ' + obj.className;
+		result = class2;
+	}
+	else if (obj.hasClassName(class2)) {
+		obj.removeClassName(class2);
+		obj.className =  class1 + ' ' + obj.className;
+		result = class1;
+	}
+	else {
+		obj.className = class1 + ' ' + obj.className;
+		result = class1;
+	}
+
+	return result;
 }
 
-/**
- * Returns the file name of the given path
- *
- * @param string path
- * @param string suffix
- *
- * @return string
- */
-function basename(path, suffix) {
-	var name = path.replace(/^.*[\/\\]/g, '');
-
-	if (typeof suffix === 'string' && name.substr(name.length - suffix.length) == suffix) {
-		name = name.substr(0, name.length - suffix.length);
-	}
-
-	return name;
+function zbx_throw(msg) {
+	throw(msg);
 }

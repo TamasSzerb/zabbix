@@ -48,17 +48,79 @@ $graphForm->addVar('ymax_itemid', $this->data['ymax_itemid']);
 // create form list
 $graphFormList = new CFormList('graphFormList');
 if (!empty($this->data['templates'])) {
-	$graphFormList->addRow(_('Parent graphs'), $this->data['templates']);
+	$graphFormList->addRow(_('Parent graph'), $this->data['templates']);
 }
-$nameTextBox = new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE);
-$nameTextBox->attr('autofocus', 'autofocus');
-$graphFormList->addRow(_('Name'), $nameTextBox);
+$graphFormList->addRow(_('Name'), new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE));
 $graphFormList->addRow(_('Width'), new CNumericBox('width', $this->data['width'], 5));
 $graphFormList->addRow(_('Height'), new CNumericBox('height', $this->data['height'], 5));
 
 $graphTypeComboBox = new CComboBox('graphtype', $this->data['graphtype'], 'submit()');
 $graphTypeComboBox->addItems(graphType());
 $graphFormList->addRow(_('Graph type'), $graphTypeComboBox);
+
+// append items to form list
+$itemsTable = new CTable(_('No items defined.'), 'formElementTable');
+$itemsTable->attr('style', 'min-width: 700px;');
+$itemsTable->attr('id', 'itemsTable');
+$itemsTable->setHeader(array(
+	new CCol(SPACE, null, null, 15),
+	new CCol(SPACE, null, null, 15),
+	new CCol(_('Name'), null, null, ($this->data['graphtype'] != GRAPH_TYPE_NORMAL) ? 360 : 280),
+	($this->data['graphtype'] == GRAPH_TYPE_PIE || $this->data['graphtype'] == GRAPH_TYPE_EXPLODED)
+		? new CCol(_('Type'), null, null, 80) : null,
+	new CCol(_('Function'), null, null, 80),
+	($this->data['graphtype'] == GRAPH_TYPE_NORMAL) ? new CCol(_('Draw style'), 'nowrap', null, 80) : null,
+	($this->data['graphtype'] == GRAPH_TYPE_NORMAL || $this->data['graphtype'] == GRAPH_TYPE_STACKED)
+		? new CCol(_('Y axis side'), 'nowrap', null, 80) : null,
+	new CCol(_('Colour'), null, null, 100),
+	new CCol(_('Action'), null, null, 50)
+));
+
+if (!empty($this->data['items'])) {
+	foreach ($this->data['items'] as $number => $item) {
+		if (!empty($item['itemid'])) {
+			$host = get_host_by_itemid($item['itemid']);
+			$name = $host['name'].': '.itemName(get_item_by_itemid($item['itemid']));
+		}
+		else {
+			$name = _('Select');
+		}
+
+		if (empty($item['drawtype'])) {
+			$item['drawtype'] = 0;
+		}
+
+		if (empty($item['yaxisside'])) {
+			$item['yaxisside'] = 0;
+		}
+
+		insert_js('loadItem('.$number.', '.$item['gitemid'].', '.$this->data['graphid'].', '.$item['itemid'].', '.
+			CJs::encodeJson($name).', '.$item['type'].', '.$item['calc_fnc'].', '.$item['drawtype'].', '.
+			$item['yaxisside'].', \''.$item['color'].'\', '.$item['flags'].');',
+			true
+		);
+	}
+}
+
+$addButton = new CButton('add_item', _('Add'),
+	'return PopUp("popup.php?writeonly=1&multiselect=1&dstfrm='.$graphForm->getName().
+		(!empty($this->data['normal_only']) ? '&normal_only=1' : '').
+		'&srctbl=items&srcfld1=itemid&srcfld2=name" + getOnlyHostParam(), 800, 600);',
+	'link_menu'
+);
+
+$addPrototypeButton = null;
+if (!empty($this->data['parent_discoveryid'])) {
+	$addPrototypeButton = new CButton('add_protoitem', _('Add prototype'),
+		'return PopUp("popup.php?writeonly=1&multiselect=1&dstfrm='.$graphForm->getName().
+			url_param($this->data['graphtype'], false, 'graphtype').
+			url_param('parent_discoveryid').
+			(!empty($this->data['normal_only']) ? '&normal_only=1' : '').
+			'&srctbl=prototypes&srcfld1=itemid&srcfld2=name", 800, 600);',
+		'link_menu'
+	);
+}
+$itemsTable->addRow(new CRow(new CCol(array($addButton, SPACE, SPACE, SPACE, $addPrototypeButton), null, 8), null, 'itemButtonsRow'));
 
 // append legend to form list
 $graphFormList->addRow(_('Show legend'), new CCheckBox('show_legend', $this->data['show_legend'], null, 1));
@@ -109,42 +171,42 @@ if ($this->data['graphtype'] == GRAPH_TYPE_NORMAL || $this->data['graphtype'] ==
 	elseif ($this->data['ymin_type'] == GRAPH_YAXIS_TYPE_ITEM_VALUE) {
 		$graphForm->addVar('yaxismin', $this->data['yaxismin']);
 
-		$ymin_name = '';
-		if (!empty($this->data['ymin_itemid'])) {
-			$min_host = get_host_by_itemid($this->data['ymin_itemid']);
+		if (!empty($this->data['items'])) {
+			$ymin_name = '';
+			if (!empty($this->data['ymin_itemid'])) {
+				$min_host = get_host_by_itemid($this->data['ymin_itemid']);
+				$min_item = get_item_by_itemid($this->data['ymin_itemid']);
+				$ymin_name = $min_host['name'].': '.itemName($min_item);
+			}
 
-			$minItems = CMacrosResolverHelper::resolveItemNames(array(get_item_by_itemid($this->data['ymin_itemid'])));
-			$minItem = reset($minItems);
-
-			$ymin_name = $min_host['name'].NAME_DELIMITER.$minItem['name_expanded'];
-		}
-
-		$yaxisMinData[] = new CTextBox('ymin_name', $ymin_name, 36, 'yes');
-		$yaxisMinData[] = new CButton('yaxis_min', _('Select'), 'javascript: '.
-			'return PopUp("popup.php?dstfrm='.$graphForm->getName().
-				'&dstfld1=ymin_itemid'.
-				'&dstfld2=ymin_name'.
-				'&srctbl=items'.
-				'&srcfld1=itemid'.
-				'&srcfld2=name'.
-				'&numeric=1'.
-				'&writeonly=1" + getOnlyHostParam(), 0, 0, "zbx_popup_item");',
-			'formlist'
-		);
-
-		// select prototype button
-		if (!empty($this->data['parent_discoveryid'])) {
-			$yaxisMinData[] = new CButton('yaxis_min_prototype', _('Select prototype'), 'javascript: '.
+			$yaxisMinData[] = new CTextBox('ymin_name', $ymin_name, 36, 'yes');
+			$yaxisMinData[] = new CButton('yaxis_min', _('Select'), 'javascript: '.
 				'return PopUp("popup.php?dstfrm='.$graphForm->getName().
-					'&parent_discoveryid='.$this->data['parent_discoveryid'].
 					'&dstfld1=ymin_itemid'.
 					'&dstfld2=ymin_name'.
-					'&srctbl=prototypes'.
+					'&srctbl=items'.
 					'&srcfld1=itemid'.
-					'&srcfld2=name'.
-					'&numeric=1", 0, 0, "zbx_popup_item");',
+					'&srcfld2=name" + getOnlyHostParam(), 0, 0, "zbx_popup_item");',
 				'formlist'
 			);
+
+			// select prototype button
+			if (!empty($this->data['parent_discoveryid'])) {
+				$yaxisMinData[] = new CButton('yaxis_min', _('Select prototype'), 'javascript: '.
+					'return PopUp("popup.php?dstfrm='.$graphForm->getName().
+						'&parent_discoveryid='.$this->data['parent_discoveryid'].
+						'&dstfld1=ymin_itemid'.
+						'&dstfld2=ymin_name'.
+						'&srctbl=prototypes'.
+						'&srcfld1=itemid'.
+						'&srcfld2=name", 0, 0, "zbx_popup_item");',
+					'formlist'
+				);
+			}
+		}
+		else {
+			$yaxisMinData[] = SPACE;
+			$yaxisMinData[] = new CSpan(_('Add graph items first'), 'red');
 		}
 	}
 	else {
@@ -170,39 +232,39 @@ if ($this->data['graphtype'] == GRAPH_TYPE_NORMAL || $this->data['graphtype'] ==
 		$ymax_name = '';
 		if (!empty($this->data['ymax_itemid'])) {
 			$max_host = get_host_by_itemid($this->data['ymax_itemid']);
-
-			$maxItems = CMacrosResolverHelper::resolveItemNames(array(get_item_by_itemid($this->data['ymax_itemid'])));
-			$maxItem = reset($maxItems);
-
-			$ymax_name = $max_host['name'].NAME_DELIMITER.$maxItem['name_expanded'];
+			$max_item = get_item_by_itemid($this->data['ymax_itemid']);
+			$ymax_name = $max_host['name'].': '.itemName($max_item);
 		}
 
-		$yaxisMaxData[] = new CTextBox('ymax_name', $ymax_name, 36, 'yes');
-		$yaxisMaxData[] = new CButton('yaxis_max', _('Select'), 'javascript: '.
-			'return PopUp("popup.php?dstfrm='.$graphForm->getName().
-				'&dstfld1=ymax_itemid'.
-				'&dstfld2=ymax_name'.
-				'&srctbl=items'.
-				'&srcfld1=itemid'.
-				'&srcfld2=name'.
-				'&numeric=1'.
-				'&writeonly=1" + getOnlyHostParam(), 0, 0, "zbx_popup_item");',
-			'formlist'
-		);
-
-		// select prototype button
-		if (!empty($this->data['parent_discoveryid'])) {
-			$yaxisMaxData[] = new CButton('yaxis_max_prototype', _('Select prototype'), 'javascript: '.
+		if (!empty($this->data['items'])) {
+			$yaxisMaxData[] = new CTextBox('ymax_name', $ymax_name, 36, 'yes');
+			$yaxisMaxData[] = new CButton('yaxis_max', _('Select'), 'javascript: '.
 				'return PopUp("popup.php?dstfrm='.$graphForm->getName().
-					'&parent_discoveryid='.$this->data['parent_discoveryid'].
 					'&dstfld1=ymax_itemid'.
 					'&dstfld2=ymax_name'.
-					'&srctbl=prototypes'.
+					'&srctbl=items'.
 					'&srcfld1=itemid'.
-					'&srcfld2=name'.
-					'&numeric=1", 0, 0, "zbx_popup_item");',
+					'&srcfld2=name" + getOnlyHostParam(), 0, 0, "zbx_popup_item");',
 				'formlist'
 			);
+
+			// select prototype button
+			if (!empty($this->data['parent_discoveryid'])) {
+				$yaxisMaxData[] = new CButton('yaxis_min', _('Select prototype'), 'javascript: '.
+					'return PopUp("popup.php?dstfrm='.$graphForm->getName().
+						'&parent_discoveryid='.$this->data['parent_discoveryid'].
+						'&dstfld1=ymax_itemid'.
+						'&dstfld2=ymax_name'.
+						'&srctbl=prototypes'.
+						'&srcfld1=itemid'.
+						'&srcfld2=name", 0, 0, "zbx_popup_item");',
+					'formlist'
+				);
+			}
+		}
+		else {
+			$yaxisMaxData[] = SPACE;
+			$yaxisMaxData[] = new CSpan(_('Add graph items first'), 'red');
 		}
 	}
 	else {
@@ -215,77 +277,14 @@ else {
 	$graphFormList->addRow(_('3D view'), new CCheckBox('show_3d', $this->data['show_3d'], null, 1));
 }
 
-// append items to form list
-$itemsTable = new CTable(null, 'formElementTable');
-$itemsTable->attr('style', 'min-width: 700px;');
-$itemsTable->attr('id', 'itemsTable');
-$itemsTable->setHeader(array(
-	new CCol(SPACE, null, null, 15),
-	new CCol(SPACE, null, null, 15),
-	new CCol(_('Name'), null, null, ($this->data['graphtype'] == GRAPH_TYPE_NORMAL) ? 280 : 360),
-	($this->data['graphtype'] == GRAPH_TYPE_PIE || $this->data['graphtype'] == GRAPH_TYPE_EXPLODED)
-		? new CCol(_('Type'), null, null, 80) : null,
-	new CCol(_('Function'), null, null, 80),
-	($this->data['graphtype'] == GRAPH_TYPE_NORMAL) ? new CCol(_('Draw style'), 'nowrap', null, 80) : null,
-	($this->data['graphtype'] == GRAPH_TYPE_NORMAL || $this->data['graphtype'] == GRAPH_TYPE_STACKED)
-		? new CCol(_('Y axis side'), 'nowrap', null, 80) : null,
-	new CCol(_('Colour'), null, null, 100),
-	new CCol(_('Action'), null, null, 50)
-));
-
-$addButton = new CButton('add_item', _('Add'),
-	'return PopUp("popup.php?writeonly=1&multiselect=1&dstfrm='.$graphForm->getName().
-		($this->data['normal_only'] ? '&normal_only=1' : '').
-		'&srctbl=items&srcfld1=itemid&srcfld2=name&numeric=1" + getOnlyHostParam(), 800, 600);',
-	'link_menu'
-);
-
-$addPrototypeButton = null;
-if ($this->data['parent_discoveryid']) {
-	$addPrototypeButton = new CButton('add_protoitem', _('Add prototype'),
-		'return PopUp("popup.php?writeonly=1&multiselect=1&dstfrm='.$graphForm->getName().
-			url_param($this->data['graphtype'], false, 'graphtype').
-			url_param('parent_discoveryid').
-			($this->data['normal_only'] ? '&normal_only=1' : '').
-			'&srctbl=prototypes&srcfld1=itemid&srcfld2=name&numeric=1", 800, 600);',
-		'link_menu'
-	);
-}
-$itemsTable->addRow(new CRow(
-	new CCol(array($addButton, SPACE, SPACE, SPACE, $addPrototypeButton), null, 8),
-	null,
-	'itemButtonsRow'
-));
-
-foreach ($this->data['items'] as $n => $item) {
-	$name = $item['host'].NAME_DELIMITER.$item['name_expanded'];
-
-	if (zbx_empty($item['drawtype'])) {
-		$item['drawtype'] = 0;
-	}
-
-	if (zbx_empty($item['yaxisside'])) {
-		$item['yaxisside'] = 0;
-	}
-
-	insert_js('loadItem('.$n.', '.CJs::encodeJson($item['gitemid']).', '.$this->data['graphid'].', '.$item['itemid'].', '.
-		CJs::encodeJson($name).', '.$item['type'].', '.$item['calc_fnc'].', '.$item['drawtype'].', '.
-		$item['yaxisside'].', \''.$item['color'].'\', '.$item['flags'].');',
-		true
-	);
-}
-
 $graphFormList->addRow(_('Items'), new CDiv($itemsTable, 'objectgroup inlineblock border_dotted ui-corner-all'));
 
 // append tabs to form
-$graphTab = new CTabView();
+$graphTab = new CTabView(array('remember' => true));
 if (!$this->data['form_refresh']) {
 	$graphTab->setSelected(0);
 }
-$graphTab->addTab(
-	'graphTab',
-	empty($this->data['parent_discoveryid']) ? _('Graph') : _('Graph prototype'), $graphFormList
-);
+$graphTab->addTab('graphTab', _('Graph'), $graphFormList);
 
 /*
  * Preview tab
@@ -302,10 +301,7 @@ $graphForm->addItem($graphTab);
 $saveButton = new CSubmit('save', _('Save'));
 $cancelButton = new CButtonCancel(url_param('parent_discoveryid'));
 if (!empty($this->data['graphid'])) {
-	$deleteButton = new CButtonDelete(
-		$this->data['parent_discoveryid'] ? _('Delete graph prototype?') : _('Delete graph?'),
-		url_params(array('graphid', 'parent_discoveryid', 'hostid'))
-	);
+	$deleteButton = new CButtonDelete(_('Delete graph?'), url_param('graphid').url_param('parent_discoveryid'));
 	$cloneButton = new CSubmit('clone', _('Clone'));
 
 	if (!empty($this->data['templateid'])) {

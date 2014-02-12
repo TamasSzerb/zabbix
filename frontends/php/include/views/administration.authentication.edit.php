@@ -35,7 +35,7 @@ $configTypeRadioButton = array(
 		($this->data['config']['authentication_type'] == ZBX_AUTH_INTERNAL),
 		'submit()'
 	),
-	new CLabel(_x('Internal', 'authentication'), 'config_'.ZBX_AUTH_INTERNAL),
+	new CLabel(_('Internal'), 'config_'.ZBX_AUTH_INTERNAL),
 	new CRadioButton('config', ZBX_AUTH_LDAP, null, 'config_'.ZBX_AUTH_LDAP,
 		($this->data['config']['authentication_type'] == ZBX_AUTH_LDAP),
 		'submit()'

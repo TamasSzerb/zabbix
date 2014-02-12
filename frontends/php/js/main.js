@@ -20,6 +20,8 @@
 // Array indexOf method for javascript<1.6 compatibility
 if (!Array.prototype.indexOf) {
 	Array.prototype.indexOf = function (searchElement) {
+		'use strict';
+
 		if (this === void 0 || this === null) {
 			throw new TypeError();
 		}
@@ -154,80 +156,49 @@ var MMenu = {
  */
 var chkbxRange = {
 	startbox:		null,	// start checkbox obj
-	startboxName:	null,	// start checkbox name
+	startbox_name:	null,	// start checkbox name
 	chkboxes:		{},		// ckbx list
-	prefix:			null,	// prefix for cookie name
 	pageGoName:		null,	// which checkboxes should be counted by Go button
 	pageGoCount:	0,		// selected checkboxes
-	selectedIds:	{},		// ids of selected checkboxes
+	selected_ids:	{},		// ids of selected checkboxes
 	goButton:		null,
-	cookieName:		null,
+	page:			null,	// loaded page name
 
 	init: function() {
 		var path = new Curl();
-		var filename = basename(path.getPath(), '.php');
-		this.cookieName = 'cb_' + filename + (this.prefix ? '_' + this.prefix : '');
-		this.selectedIds = cookie.readJSON(this.cookieName);
-
-		var chkboxes = jQuery('.tableinfo .checkbox:not(:disabled)');
-		if (chkboxes.length > 0) {
-			for (var i = 0; i < chkboxes.length; i++) {
-				this.implement(chkboxes[i]);
+		this.page = path.getPath();
+		this.selected_ids = cookie.readJSON('cb_' + this.page);
+		var chk_bx = document.getElementsByTagName('input');
+		for (var i = 0; i < chk_bx.length; i++) {
+			if (typeof(chk_bx[i]) != 'undefined' && chk_bx[i].type.toLowerCase() == 'checkbox') {
+				this.implement(chk_bx[i]);
 			}
 		}
-
-		this.selectMainCheckbox();
 
 		this.goButton = $('goButton');
 		if (!is_null(this.goButton)) {
 			addListener(this.goButton, 'click', this.submitGo.bindAsEventListener(this), false);
 		}
-
 		this.setGo();
 	},
 
 	implement: function(obj) {
-		var objName = obj.name.split('[')[0];
+		var obj_name = obj.name.split('[')[0];
 
-		if (typeof(this.chkboxes[objName]) === 'undefined') {
-			this.chkboxes[objName] = [];
+		if (typeof(this.chkboxes[obj_name]) == 'undefined') {
+			this.chkboxes[obj_name] = [];
 		}
-		this.chkboxes[objName].push(obj);
+		this.chkboxes[obj_name].push(obj);
 
 		addListener(obj, 'click', this.check.bindAsEventListener(this), false);
 
-		if (objName == this.pageGoName) {
-			var objId = jQuery(obj).val();
-			if (isset(objId, this.selectedIds)) {
+		if (obj_name == this.pageGoName) {
+			var obj_id  = obj.name.split('[')[1];
+			obj_id = obj_id.substring(0, obj_id.lastIndexOf(']'));
+
+			if (isset(obj_id, this.selected_ids)) {
 				obj.checked = true;
 			}
-		}
-	},
-
-	// check if all checkboxes are selected and select main checkbox, else disable checkbox, select options and button
-	selectMainCheckbox: function() {
-		var mainCheckbox = jQuery('.tableinfo .header .checkbox:not(:disabled)');
-		if (!mainCheckbox.length) {
-			return;
-		}
-
-		var countAvailable = jQuery('.tableinfo tr:not(.header) .checkbox:not(:disabled)').length;
-
-		if (countAvailable > 0) {
-			var countChecked = jQuery('.tableinfo tr:not(.header) .checkbox:not(:disabled):checked').length;
-
-			mainCheckbox = mainCheckbox[0];
-			mainCheckbox.checked = (countChecked == countAvailable);
-
-			if (mainCheckbox.checked) {
-				jQuery('.tableinfo .header').addClass('selectedMain');
-			}
-			else {
-				jQuery('.tableinfo .header').removeClass('selectedMain');
-			}
-		}
-		else {
-			mainCheckbox.disabled = true;
 		}
 	},
 
@@ -237,7 +208,7 @@ var chkbxRange = {
 
 		PageRefresh.restart();
 
-		if (typeof(obj) === 'undefined' || obj.type.toLowerCase() != 'checkbox' || obj.disabled === true) {
+		if (typeof(obj) == 'undefined' || obj.type.toLowerCase() != 'checkbox') {
 			return true;
 		}
 
@@ -246,23 +217,23 @@ var chkbxRange = {
 		if (obj.name.indexOf('all_') > -1 || obj.name.indexOf('_single') > -1) {
 			return true;
 		}
-		var objName = obj.name.split('[')[0];
+		var obj_name = obj.name.split('[')[0];
 
 		// check range selection
 		if (e.ctrlKey || e.shiftKey) {
-			if (!is_null(this.startbox) && this.startboxName == objName && obj.name != this.startbox.name) {
-				var chkboxes = this.chkboxes[objName];
+			if (!is_null(this.startbox) && this.startbox_name == obj_name && obj.name != this.startbox.name) {
+				var chkbx_list = this.chkboxes[obj_name];
 				var flag = false;
 
-				for (var i = 0; i < chkboxes.length; i++) {
-					if (typeof(chkboxes[i]) !== 'undefined') {
+				for (var i = 0; i < chkbx_list.length; i++) {
+					if (typeof(chkbx_list[i]) != 'undefined') {
 						if (flag) {
-							chkboxes[i].checked = this.startbox.checked;
+							chkbx_list[i].checked = this.startbox.checked;
 						}
-						if (obj.name == chkboxes[i].name) {
+						if (obj.name == chkbx_list[i].name) {
 							break;
 						}
-						if (this.startbox.name == chkboxes[i].name) {
+						if (this.startbox.name == chkbx_list[i].name) {
 							flag = true;
 						}
 					}
@@ -270,113 +241,95 @@ var chkbxRange = {
 
 				if (flag) {
 					this.setGo();
-					this.selectMainCheckbox();
 					return true;
 				}
 				else {
-					for (var i = chkboxes.length - 1; i >= 0; i--) {
-						if (typeof(chkboxes[i]) !== 'undefined') {
+					for (var i = chkbx_list.length - 1; i >= 0; i--) {
+						if (typeof(chkbx_list[i]) != 'undefined') {
 							if (flag) {
-								chkboxes[i].checked = this.startbox.checked;
+								chkbx_list[i].checked = this.startbox.checked;
 							}
 
-							if (obj.name == chkboxes[i].name) {
+							if (obj.name == chkbx_list[i].name) {
 								this.setGo();
-								this.selectMainCheckbox();
 								return true;
 							}
 
-							if (this.startbox.name == chkboxes[i].name) {
+							if (this.startbox.name == chkbx_list[i].name) {
 								flag = true;
 							}
 						}
 					}
 				}
 			}
-
 			this.setGo();
 		}
-		else {
-			this.selectMainCheckbox();
-		}
-
 		this.startbox = obj;
-		this.startboxName = objName;
+		this.startbox_name = obj_name;
 	},
 
 	checkAll: function(name, value) {
-		if (typeof(this.chkboxes[name]) === 'undefined') {
+		if (typeof(this.chkboxes[name]) == 'undefined') {
 			return false;
 		}
 
-		var chkboxes = this.chkboxes[name];
-		for (var i = 0; i < chkboxes.length; i++) {
-			if (typeof(chkboxes[i]) !== 'undefined' && chkboxes[i].disabled !== true) {
-				var objName = chkboxes[i].name.split('[')[0];
-				if (objName == name) {
-					chkboxes[i].checked = value;
+		var chk_bx = this.chkboxes[name];
+		for (var i = 0; i < chk_bx.length; i++) {
+			if (typeof(chk_bx[i]) != 'undefined' && chk_bx[i].disabled != true) {
+				var obj_name = chk_bx[i].name.split('[')[0];
+				if (obj_name == name) {
+					chk_bx[i].checked = value;
 				}
 			}
 		}
-
-		var mainCheckbox = jQuery('.tableinfo .header .checkbox:not(:disabled)')[0];
-		if (mainCheckbox.checked) {
-			jQuery('.tableinfo .header').addClass('selectedMain');
-		}
-		else {
-			jQuery('.tableinfo .header').removeClass('selectedMain');
-		}
-	},
-
-	clearSelectedOnFilterChange: function() {
-		cookie.eraseArray(this.cookieName);
 	},
 
 	setGo: function() {
 		if (!is_null(this.pageGoName)) {
-			if (typeof(this.chkboxes[this.pageGoName]) !== 'undefined') {
-				var chkboxes = this.chkboxes[this.pageGoName];
-				for (var i = 0; i < chkboxes.length; i++) {
-					if (typeof(chkboxes[i]) !== 'undefined') {
-						var box = chkboxes[i];
-						var objName = box.name.split('[')[0];
-						var objId = box.name.split('[')[1];
-						objId = objId.substring(0, objId.lastIndexOf(']'));
-						var crow = getParent(box, 'tr');
+			if (typeof(this.chkboxes[this.pageGoName]) == 'undefined') {
+				return false;
+			}
 
-						if (box.checked) {
-							if (!is_null(crow)) {
-								var origClass = crow.getAttribute('origClass');
-								if (is_null(origClass)) {
-									crow.setAttribute('origClass', crow.className);
-								}
-								crow.className = 'selected';
+			var chk_bx = this.chkboxes[this.pageGoName];
+			for (var i = 0; i < chk_bx.length; i++) {
+				if (typeof(chk_bx[i]) != 'undefined') {
+					var box = chk_bx[i];
+					var obj_name = box.name.split('[')[0];
+					var obj_id  = box.name.split('[')[1];
+					obj_id = obj_id.substring(0, obj_id.lastIndexOf(']'));
+					var crow = getParent(box, 'tr');
+
+					if (box.checked) {
+						if (!is_null(crow)) {
+							var origClass = crow.getAttribute('origClass');
+							if (is_null(origClass)) {
+								crow.setAttribute('origClass', crow.className);
 							}
-							if (objName == this.pageGoName) {
-								this.selectedIds[objId] = objId;
+							crow.className = 'selected';
+						}
+						if (obj_name == this.pageGoName) {
+							this.selected_ids[obj_id] = obj_id;
+						}
+					}
+					else {
+						if (!is_null(crow)) {
+							var origClass = crow.getAttribute('origClass');
+
+							if (!is_null(origClass)) {
+								crow.className = origClass;
+								crow.removeAttribute('origClass');
 							}
 						}
-						else {
-							if (!is_null(crow)) {
-								var origClass = crow.getAttribute('origClass');
-
-								if (!is_null(origClass)) {
-									crow.className = origClass;
-									crow.removeAttribute('origClass');
-								}
-							}
-							if (objName == this.pageGoName) {
-								delete(this.selectedIds[objId]);
-							}
+						if (obj_name == this.pageGoName) {
+							delete(this.selected_ids[obj_id]);
 						}
 					}
 				}
-
 			}
 
 			var countChecked = 0;
-			for (var key in this.selectedIds) {
-				if (!empty(this.selectedIds[key])) {
+			for (var key in this.selected_ids) {
+				if (!empty(this.selected_ids[key])) {
 					countChecked++;
 				}
 			}
@@ -386,14 +339,7 @@ var chkbxRange = {
 				this.goButton.value = tmp_val[0] + ' (' + countChecked + ')';
 			}
 
-			cookie.createJSON(this.cookieName, this.selectedIds);
-
-			if (jQuery('#go').length) {
-				jQuery('#go')[0].disabled = (countChecked == 0);
-			}
-			if (jQuery('#goButton').length) {
-				jQuery('#goButton')[0].disabled = (countChecked == 0);
-			}
+			cookie.createJSON('cb_' + this.page, this.selected_ids);
 
 			this.pageGoCount = countChecked;
 		}
@@ -402,148 +348,259 @@ var chkbxRange = {
 	submitGo: function(e) {
 		e = e || window.event;
 
-		var goSelect = $('go');
-		var confirmText = goSelect.options[goSelect.selectedIndex].getAttribute('confirm');
+		if (this.pageGoCount > 0) {
+			var goSelect = $('go');
+			var confirmText = goSelect.options[goSelect.selectedIndex].getAttribute('confirm');
 
-		if (!is_null(confirmText) && !confirm(confirmText)) {
+			if (!is_null(confirmText) && !confirm(confirmText)) {
+				Event.stop(e);
+				return false;
+			}
+
+			var form = getParent(this.goButton, 'form');
+			for (var key in this.selected_ids) {
+				if (!empty(this.selected_ids[key])) {
+					create_var(form.name, this.pageGoName + '[' + key + ']', key, false);
+				}
+			}
+			return true;
+		}
+		else {
+			alert(locale['S_NO_ELEMENTS_SELECTED']);
 			Event.stop(e);
 			return false;
 		}
-
-		var form = getParent(this.goButton, 'form');
-		for (var key in this.selectedIds) {
-			if (!empty(this.selectedIds[key])) {
-				create_var(form.name, this.pageGoName + '[' + key + ']', key, false);
-			}
-		}
-		return true;
 	}
 };
 
 /*
- * Audio control system
+ * Audio Control System
  */
-var AudioControl = {
-
-	timeoutHandler: null,
-
-	loop: function(timeout) {
-		AudioControl.timeoutHandler = setTimeout(
-			function() {
-				if (new Date().getTime() >= timeout) {
-					AudioControl.stop();
-				}
-				else {
-					AudioControl.loop(timeout);
-				}
-			},
-			1000
-		);
+var AudioList = {
+	list:		{}, // audio files options
+	dom:		{}, // dom objects links
+	standart:	{
+		'embed': {
+			'enablejavascript': 'true',
+			'autostart': 'false',
+			'loop': 0
+		},
+		'audio': {
+			'autobuffer': 'autobuffer',
+			'autoplay': null,
+			'controls': null
+		}
 	},
 
-	playOnce: function(name) {
-		this.stop();
-
+	play: function(audiofile) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
 		if (IE) {
-			this.create(name, false);
+			try {
+				this.dom[audiofile].Play();
+			}
+			catch(e) {
+				setTimeout(this.play.bind(this, audiofile), 500);
+			}
 		}
 		else {
-			var obj = jQuery('#audio');
-
-			if (obj.length > 0 && obj.data('name') === name) {
-				obj.trigger('play');
-			}
-			else {
-				this.create(name, false);
-			}
+			this.dom[audiofile].play();
 		}
 	},
 
-	playLoop: function(name, delay) {
-		this.stop();
-
+	pause: function(audiofile) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
 		if (IE) {
-			this.create(name, true);
+			try {
+				this.dom[audiofile].Stop();
+			}
+			catch(e) {
+				setTimeout(this.pause.bind(this, audiofile), 1000);
+			}
 		}
 		else {
-			var obj = jQuery('#audio');
+			this.dom[audiofile].pause();
+		}
+	},
 
-			if (obj.length > 0 && obj.data('name') === name) {
-				obj.trigger('play');
+	stop: function(audiofile) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
+
+		if (IE) {
+			this.dom[audiofile].setAttribute('loop', '0');
+		}
+		else {
+			this.dom[audiofile].removeAttribute('loop');
+		}
+
+		if (!IE) {
+			try {
+				if (!this.dom[audiofile].paused) {
+					this.dom[audiofile].currentTime = 0;
+				}
+				else if (this.dom[audiofile].currentTime > 0) {
+					this.dom[audiofile].play();
+					this.dom[audiofile].currentTime = 0;
+					this.dom[audiofile].pause();
+				}
 			}
-			else {
-				this.create(name, true);
+			catch(e) {
 			}
 		}
 
-		AudioControl.loop(new Date().getTime() + delay * 1000);
+		if (!is_null(this.list[audiofile].timeout)) {
+			clearTimeout(this.list[audiofile].timeout);
+			this.list[audiofile].timeout = null;
+		}
+
+		this.pause(audiofile);
+		this.endLoop(audiofile);
 	},
 
-	stop: function() {
-		var obj = document.getElementById('audio');
+	stopAll: function(e) {
+		for (var name in this.list) {
+			if (empty(this.dom[name])) {
+				continue;
+			}
+			this.stop(name);
+		}
+	},
 
-		if (obj !== null) {
-			clearTimeout(AudioControl.timeoutHandler);
+	volume: function(audiofile, vol) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
+	},
 
+	loop: function(audiofile, params) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
+
+		if (isset('repeat', params)) {
 			if (IE) {
-				obj.setAttribute('loop', 0);
-				obj.setAttribute('playcount', 0);
-
-				try {
-					obj.stop();
-				}
-				catch (e) {
-					setTimeout(
-						function() {
-							try {
-								document.getElementById('audio').stop();
-							}
-							catch (e) {
-							}
-						},
-						100
-					);
-				}
+				this.play(audiofile);
 			}
 			else {
-				jQuery(obj).trigger('pause');
+				if (this.list[audiofile].loop == 0) {
+					if (params.repeat != 0) {
+						this.startLoop(audiofile, params.repeat);
+					}
+					else {
+						this.endLoop(audiofile);
+					}
+				}
+				if (this.list[audiofile].loop != 0) {
+					this.list[audiofile].loop--;
+					this.play(audiofile);
+				}
 			}
+		}
+		else if (isset('seconds', params)) {
+			if (IE) {
+				this.dom[audiofile].setAttribute('loop', '1');
+			}
+			else {
+				this.startLoop(audiofile, 9999999);
+				this.list[audiofile].loop--;
+			}
+			this.play(audiofile);
+			this.list[audiofile].timeout = setTimeout(AudioList.stop.bind(AudioList, audiofile), 1000 * parseInt(params.seconds, 10));
 		}
 	},
 
-	create: function(name, loop) {
-		if (IE) {
-			jQuery('#audio').remove();
-
-			jQuery('body').append(jQuery('<embed>', {
-				id: 'audio',
-				'data-name': name,
-				src: 'audio/' + name,
-				enablejavascript: true,
-				autostart: true,
-				loop: true,
-				playcount: loop ? 9999999 : 1,
-				css: {
-					display: 'none'
-				}
-			}));
+	startLoop: function(audiofile, loop) {
+		if (!isset(audiofile, this.list)) {
+			return false;
 		}
-		else {
-			var obj = jQuery('#audio');
+		if (isset('onEnded', this.list[audiofile])) {
+			this.endLoop(audiofile);
+		}
+		this.list[audiofile].loop = parseInt(loop, 10);
+		this.list[audiofile].onEnded = this.loop.bind(this, audiofile, {'repeat' : 0});
+		addListener(this.dom[audiofile], 'ended', this.list[audiofile].onEnded);
+	},
 
-			if (obj.length == 0 || obj.data('name') !== name) {
-				obj.remove();
+	endLoop: function(audiofile) {
+		if (!isset(audiofile, this.list)) {
+			return true;
+		}
+		this.list[audiofile].loop = 0;
 
-				jQuery('body').append(jQuery('<audio>', {
-					id: 'audio',
-					'data-name': name,
-					src: 'audio/' + name,
-					preload: 'auto',
-					autoplay: true,
-					loop: loop ? 9999999 : 1
-				}));
+		if (isset('onEnded', this.list[audiofile])) {
+			removeListener(this.dom[audiofile], 'ended', this.list[audiofile].onEnded);
+			this.list[audiofile].onEnded = null;
+			delete(this.list[audiofile].onEnded);
+		}
+	},
+
+	create: function(audiofile, params) {
+		if (typeof(audiofile) == 'undefined') {
+			return false;
+		}
+		if (isset(audiofile, this.list)) {
+			return true;
+		}
+		if (typeof(params) == 'undefined') {
+			params = {};
+		}
+		if (!isset('audioList', this.dom)) {
+			this.dom.audioList = document.createElement('div');
+			document.getElementsByTagName('body')[0].appendChild(this.dom.audioList);
+			this.dom.audioList.setAttribute('id', 'audiolist');
+		}
+
+		if (IE) {
+			this.dom[audiofile] = document.createElement('embed');
+			this.dom.audioList.appendChild(this.dom[audiofile]);
+			this.dom[audiofile].setAttribute('name', audiofile);
+			this.dom[audiofile].setAttribute('src', 'audio/' + audiofile);
+			this.dom[audiofile].style.display = 'none';
+
+			for (var key in this.standart.embed) {
+				if (isset(key, params)) {
+					this.dom[audiofile].setAttribute(key, params[key]);
+				}
+				else if (!is_null(this.standart.embed[key])) {
+					this.dom[audiofile].setAttribute(key, this.standart.embed[key]);
+				}
 			}
 		}
+		else {
+			this.dom[audiofile] = document.createElement('audio');
+			this.dom.audioList.appendChild(this.dom[audiofile]);
+			this.dom[audiofile].setAttribute('id', audiofile);
+			this.dom[audiofile].setAttribute('src', 'audio/' + audiofile);
+
+			for (var key in this.standart.audio) {
+				if (isset(key, params)) {
+					this.dom[audiofile].setAttribute(key, params[key]);
+				}
+				else if (!is_null(this.standart.audio[key])) {
+					this.dom[audiofile].setAttribute(key, this.standart.audio[key]);
+				}
+			}
+			this.dom[audiofile].load();
+		}
+		this.list[audiofile] = params;
+		this.list[audiofile].loop = 0;
+		this.list[audiofile].timeout = null;
+		return true;
+	},
+
+	remove: function(audiofile) {
+		if (!isset(audiofile, this.dom)) {
+			return true;
+		}
+		$(this.dom[audiofile]).remove();
+
+		delete(this.dom[audiofile]);
+		delete(this.list[audiofile]);
 	}
 };
 
@@ -555,7 +612,6 @@ var AudioControl = {
  * Example of usage:
  *      <span class="blink" data-time-to-blink="60">test 1</span>
  *      <span class="blink" data-time-to-blink="30">test 2</span>
- *      <span class="blink" data-toggle-class="normal">test 3</span>
  *      <span class="blink">test 3</span>
  *      <script type="text/javascript">
  *          jQuery(document).ready(function(
@@ -564,7 +620,6 @@ var AudioControl = {
  *      </script>
  * Elements with class 'blink' will blink for 'data-seconds-to-blink' seconds
  * If 'data-seconds-to-blink' is omitted, element will blink forever.
- * For elements with class 'blink' and attribute 'data-toggle-class' class will be toggled.
  * @author Konstantin Buravcov
  */
 var jqBlink = {
@@ -582,15 +637,7 @@ var jqBlink = {
 		objects = this.filterOutNonBlinking(objects);
 
 		// changing visibility state
-		fun = this.shown ? 'removeClass' : 'addClass';
-		jQuery.each(objects, function() {
-			if (typeof jQuery(this).data('toggleClass') !== 'undefined') {
-				jQuery(this)[fun](jQuery(this).data('toggleClass'));
-			}
-			else {
-				jQuery(this).css('visibility', jqBlink.shown ? 'hidden' : 'visible');
-			}
-		})
+		objects.css('visibility', this.shown ? 'hidden' : 'visible');
 
 		// reversing the value of indicator attribute
 		this.shown = !this.shown;
@@ -861,120 +908,196 @@ function set_color_by_name(id, color) {
 	set_color(color);
 }
 
-function add2favorites(favobj, favid) {
-	sendAjaxData({
-		data: {
-			favobj: favobj,
-			favid: favid,
-			favaction: 'add'
-		}
-	});
-}
-
-function rm4favorites(favobj, favid) {
-	sendAjaxData({
-		data: {
-			favobj: favobj,
-			favid: favid,
-			favaction: 'remove'
-		}
-	});
-}
-
-function changeFlickerState(id) {
-	var state = showHide(id);
-
-	switchElementClass('flicker_icon_l', 'dbl_arrow_up', 'dbl_arrow_down');
-	switchElementClass('flicker_icon_r', 'dbl_arrow_up', 'dbl_arrow_down');
-
-	sendAjaxData({
-		data: {
-			filterState: state
-		}
-	});
-
-	// resize multiselect
-	if (typeof flickerResizeMultiselect === 'undefined' && state == 1) {
-		flickerResizeMultiselect = true;
-
-		if (jQuery('.multiselect').length > 0) {
-			jQuery('#' + id).multiSelect.resize();
-		}
-	}
-}
-
-function changeWidgetState(obj, widgetId) {
-	var widgetObj = jQuery('#' + widgetId + '_widget'),
-		css = switchElementClass(obj, 'arrowup', 'arrowdown'),
-		state = 0;
-
-	if (css === 'arrowdown') {
-		jQuery('.body', widgetObj).slideUp(50);
-		jQuery('.footer', widgetObj).slideUp(50);
-	}
-	else {
-		jQuery('.body', widgetObj).slideDown(50);
-		jQuery('.footer', widgetObj).slideDown(50);
-
-		state = 1;
-	}
-
-	sendAjaxData({
-		data: {
-			widgetName: widgetId,
-			widgetState: state
-		}
-	});
-}
-
-/**
- * Send ajax data.
- *
- * @param object options
+/*
+ * Zabbix ajax requests
  */
-function sendAjaxData(options) {
+function add2favorites(favobj, favid) {
+	if ('undefined' == typeof(Ajax)) {
+		throw('Prototype.js lib is required!');
+	}
+
+	if (typeof(favid) == 'undefined' || empty(favid)) {
+		return;
+	}
+
+	var params = {
+		'favobj': favobj,
+		'favid': favid,
+		'favaction': 'add'
+	};
+
+	send_params(params);
+}
+
+function rm4favorites(favobj, favid, menu_rowid) {
+	if ('undefined' == typeof(Ajax)) {
+		throw('Prototype.js lib is required!');
+	}
+
+	if (typeof(favobj) == 'undefined' || typeof(favid) == 'undefined') {
+		throw 'No agruments sent to function [rm4favorites()].';
+	}
+
+	var params = {
+		'favobj': favobj,
+		'favid': favid,
+		'favcnt': menu_rowid,
+		'favaction': 'remove'
+	};
+
+	send_params(params);
+}
+
+function change_flicker_state(divid) {
+	deselectAll();
+
+	var switchArrows = function() {
+		switchElementsClass($('flicker_icon_l'), 'dbl_arrow_up', 'dbl_arrow_down');
+		switchElementsClass($('flicker_icon_r'), 'dbl_arrow_up', 'dbl_arrow_down');
+	};
+
+	var filter_state = showHide(divid);
+	switchArrows();
+
+	if (false === filter_state) {
+		return false;
+	}
+
+	var params = {
+		'favaction': 'flop',
+		'favobj': 'filter',
+		'favref': divid,
+		'favstate': filter_state
+	};
+	send_params(params);
+
+	// selection box position
+	if (typeof(moveSBoxes) != 'undefined') {
+		moveSBoxes();
+	}
+}
+
+function changeHatStateUI(icon, divid) {
+	deselectAll();
+
+	var switchIcon = function() {
+		switchElementsClass(icon, 'arrowup', 'arrowdown');
+	};
+
+	jQuery($(divid).parentNode).
+		find('.body').toggle().end().
+		find('.footer').toggle().end();
+
+	switchIcon();
+
+	var hat_state = jQuery(icon).hasClass('arrowup') ? 1 : 0;
+	if (false === hat_state) {
+		return false;
+	}
+
+	var params = {
+		'favaction': 'flop',
+		'favobj': 'hat',
+		'favref': divid,
+		'favstate': hat_state
+	};
+
+	send_params(params);
+}
+
+function change_hat_state(icon, divid) {
+	deselectAll();
+
+	var switchIcon = function() {
+		switchElementsClass(icon, 'arrowup', 'arrowdown');
+	};
+
+	var hat_state = showHide(divid);
+	switchIcon();
+
+	if (false === hat_state) {
+		return false;
+	}
+
+	var params = {
+		'favaction': 'flop',
+		'favobj': 'hat',
+		'favref': divid,
+		'favstate': hat_state
+	};
+
+	send_params(params);
+}
+
+function send_params(params) {
+	if (typeof(params) === 'undefined') {
+		params = [];
+	}
+
 	var url = new Curl(location.href);
 	url.setQuery('?output=ajax');
 
-	var defaults = {
-		type: 'post',
-		url: url.getUrl()
+	new Ajax.Request(url.getUrl(), {
+			'method': 'post',
+			'parameters': params,
+			'onSuccess': function() { },
+			'onFailure': function() {
+				document.location = url.getPath() + '?' + Object.toQueryString(params);
+			}
+		}
+	);
+}
+
+function setRefreshRate(pmasterid, dollid, interval, params) {
+	if (typeof(Ajax) == 'undefined') {
+		throw('Prototype.js lib is required!');
+	}
+
+	if (typeof(params) == 'undefined' || is_null(params)) {
+		params = {};
+	}
+	params['pmasterid'] = pmasterid;
+	params['favobj'] = 'set_rf_rate';
+	params['favref'] = dollid;
+	params['favcnt'] = interval;
+
+	send_params(params);
+}
+
+function switch_mute(icon) {
+	deselectAll();
+	var sound_state = switchElementsClass(icon, 'iconmute', 'iconsound');
+
+	if (false === sound_state) {
+		return false;
+	}
+	sound_state = (sound_state == 'iconmute') ? 1 : 0;
+
+	var params = {
+		'favobj': 'sound',
+		'favref': 'sound',
+		'favstate': sound_state
 	};
 
-	jQuery.ajax(jQuery.extend({}, defaults, options));
+	send_params(params);
 }
 
 function createPlaceholders() {
 	if (IE) {
 		jQuery(document).ready(function() {
-			jQuery('[placeholder]')
-				.focus(function() {
-					var obj = jQuery(this);
+			'use strict';
 
-					if (obj.val() == obj.attr('placeholder')) {
-						obj.val('');
-						obj.removeClass('placeholder');
-					}
-				})
-				.blur(function() {
-					var obj = jQuery(this);
-
-					if (obj.val() == '' || obj.val() == obj.attr('placeholder')) {
-						obj.val(obj.attr('placeholder'));
-						obj.addClass('placeholder');
-					}
-				})
-				.blur();
-
-			jQuery('form').submit(function() {
-				jQuery('.placeholder').each(function() {
-					var obj = jQuery(this);
-
-					if (obj.val() == obj.attr('placeholder')) {
-						obj.val('');
-					}
-				});
-			});
+			jQuery('[placeholder]').focus(function() {
+				if (jQuery(this).val() == jQuery(this).attr('placeholder')) {
+					jQuery(this).val('');
+					jQuery(this).removeClass('placeholder');
+				}
+			}).blur(function() {
+				if (jQuery(this).val() == '' || jQuery(this).val() == jQuery(this).attr('placeholder')) {
+					jQuery(this).addClass('placeholder');
+					jQuery(this).val(jQuery(this).attr('placeholder'));
+				}
+			}).blur();
 		});
 	}
 }

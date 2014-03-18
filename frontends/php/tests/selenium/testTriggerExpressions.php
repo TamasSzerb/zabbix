@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -36,7 +36,7 @@ class testTriggerExpression extends CWebTest {
 	public function testTriggerExpression_SimpleTest($where, $what, $expected) {
 		$this->zbxTestLogin();
 		$this->zbxTestOpen('tr_testexpr.php?expression={Zabbix%20server%3Avm.memory.size[total].last%280%29}%3C'.$where);
-		$this->zbxTestCheckTitle('Test');
+		$this->checkTitle('Test');
 		$this->input_type("//input[@type='text']", $what);
 
 		$this->zbxTestClick("//input[@value='Test']");

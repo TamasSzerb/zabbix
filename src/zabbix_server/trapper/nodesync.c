@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -323,7 +323,7 @@ static void	process_updated_records(int nodeid, char *data)
 							size_t	len;
 
 							len = zbx_hex2binary(buf);
-							DBbytea_escape((u_char *)buf, len, &tmp, &tmp_alloc);
+							zbx_pg_escape_bytea((u_char *)buf, len, &tmp, &tmp_alloc);
 
 							if (NODE_CONFIGLOG_OP_UPDATE == op)
 								zbx_snprintf_alloc(&ufld, &ufld_alloc, &ufld_offset,
@@ -341,7 +341,7 @@ static void	process_updated_records(int nodeid, char *data)
 #endif
 						}
 						break;
-					default:	/* ZBX_TYPE_TEXT, ZBX_TYPE_CHAR, ZBX_TYPE_SHORTTEXT, ZBX_TYPE_LONGTEXT */
+					default:	/* ZBX_TYPE_TEXT, ZBX_TYPE_CHAR */
 						zbx_hex2binary(buf);
 						value_esc = DBdyn_escape_string(buf);
 

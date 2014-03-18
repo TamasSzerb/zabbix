@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
-	'nodeid' =>			array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,			'(isset({form})&&({form}=="update"))'),
+	'nodeid' =>			array(T_ZBX_INT, O_OPT,	null,	DB_ID,			'(isset({form})&&({form}=="update"))'),
 	'new_nodeid' =>		array(T_ZBX_STR, O_OPT, null,	DB_ID.NOT_ZERO,	'isset({save})', _('ID')),
 	'name' =>			array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY,		'isset({save})'),
 	'ip' =>				array(T_ZBX_IP,	 O_OPT, null,	null,			'isset({save})'),
@@ -50,61 +50,52 @@ check_fields($fields);
 /*
  * Permissions
  */
-$available_nodes = get_accessible_nodes_by_user(CWebUser::$data, PERM_READ);
+$available_nodes = get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_LIST);
 if (count($available_nodes) == 0) {
 	access_deny();
-}
-$node = null;
-if (get_request('nodeid')) {
-	$node = get_node_by_nodeid($_REQUEST['nodeid']);
-	if (!$node) {
-		access_deny();
-	}
 }
 
 /*
  * Actions
  */
 if (isset($_REQUEST['save'])) {
-	DBstart();
+	if (isset($_REQUEST['nodeid'])) {
+		$nodeid = get_request('nodeid');
 
-	if (hasRequest('nodeid')) {
-		$nodeid = getRequest('nodeid');
-
+		DBstart();
 		$result = update_node($nodeid, get_request('name'), get_request('ip'), get_request('port'));
+		$result = DBend($result);
 
-		$messageSuccess = _('Node updated');
-		$messageFailed = _('Cannot update node');
-		$auditAction = AUDIT_ACTION_UPDATE;
+		show_messages($result, _('Node updated'), _('Cannot update node'));
+		$audit_action = AUDIT_ACTION_UPDATE;
 	}
 	else {
+		DBstart();
 		$nodeid = add_node(get_request('new_nodeid'), get_request('name'), get_request('ip'), get_request('port'), get_request('nodetype'), get_request('masterid'));
+		$result = DBend($nodeid);
 
-		$messageSuccess = _('Node added');
-		$messageFailed = _('Cannot add node');
-		$auditAction = AUDIT_ACTION_ADD;
+		show_messages($result, _('Node added'), _('Cannot add node'));
+		$audit_action = AUDIT_ACTION_ADD;
 	}
 
 	if ($result) {
-		add_audit($auditAction, AUDIT_RESOURCE_NODE, 'Node ['.$_REQUEST['name'].'] id ['.$nodeid.']');
+		add_audit($audit_action, AUDIT_RESOURCE_NODE, 'Node ['.$_REQUEST['name'].'] id ['.$nodeid.']');
 		unset($_REQUEST['form']);
 	}
-
-	$result = DBend($result);
-	show_messages($result, $messageSuccess, $messageFailed);
 }
 elseif (isset($_REQUEST['delete'])) {
-	DBstart();
+	$node = get_node_by_nodeid($_REQUEST['nodeid']);
 
+	DBstart();
 	$result = delete_node($_REQUEST['nodeid']);
+	$result = DBend($result);
+
+	show_messages($result, _('Node deleted'), _('Cannot delete node'));
 
 	if ($result) {
 		add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_NODE, 'Node ['.$node['name'].'] id ['.$node['nodeid'].']');
 		unset($_REQUEST['form'], $node);
 	}
-
-	$result = DBend($result);
-	show_messages($result, _('Node deleted'), _('Cannot delete node'));
 }
 
 /*
@@ -115,7 +106,10 @@ if (isset($_REQUEST['form'])) {
 		'nodeid' => get_request('nodeid'),
 		'masterNode' => DBfetch(DBselect('SELECT n.name FROM nodes n WHERE n.masterid IS NULL AND n.nodetype='.ZBX_NODE_MASTER))
 	);
-	if (get_request('nodeid') && !isset($_REQUEST['form_refresh'])) {
+
+	if (isset($_REQUEST['nodeid']) && !isset($_REQUEST['form_refresh'])) {
+		$node = get_node_by_nodeid($data['nodeid']);
+
 		$data['new_nodeid'] = $node['nodeid'];
 		$data['name'] = $node['name'];
 		$data['ip'] = $node['ip'];

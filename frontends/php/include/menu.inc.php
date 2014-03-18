@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ $ZBX_MENU = array(
 	'view' => array(
 		'label'				=> _('Monitoring'),
 		'user_type'			=> USER_TYPE_ZABBIX_USER,
-		'node_perm'			=> PERM_READ,
+		'node_perm'			=> PERM_READ_LIST,
 		'default_page_id'	=> 0,
 		'pages' => array(
 			array(
@@ -97,10 +97,36 @@ $ZBX_MENU = array(
 			)
 		)
 	),
+	'rsm' => array(
+		'label'				=> _('SLA monitoring'),
+		'user_type'			=> USER_TYPE_ZABBIX_USER,
+		'node_perm'			=> PERM_READ_LIST,
+		'default_page_id'	=> 0,
+		'pages' => array(
+			array(
+				'url' => 'rsm.rollingweekstatus.php',
+				'label' => _('Rolling week status')
+			),
+			array(
+				'url' => 'rsm.incidents.php',
+				'label' => _('Incidents'),
+				'sub_pages' => array(
+					'rsm.incidentdetails.php',
+					'rsm.tests.php',
+					'rsm.particulartests.php',
+					'rsm.particularproxys.php'
+				)
+			),
+			array(
+				'url' => 'rsm.monthlyreports.php',
+				'label' => _('Monthly reports')
+			)
+		)
+	),
 	'cm' => array(
 		'label'				=> _('Inventory'),
 		'user_type'			=> USER_TYPE_ZABBIX_USER,
-		'node_perm'			=> PERM_READ,
+		'node_perm'			=> PERM_READ_LIST,
 		'default_page_id'	=> 0,
 		'pages' => array(
 			array(
@@ -116,7 +142,7 @@ $ZBX_MENU = array(
 	'reports' => array(
 		'label'				=> _('Reports'),
 		'user_type'			=> USER_TYPE_ZABBIX_USER,
-		'node_perm'			=> PERM_READ,
+		'node_perm'			=> PERM_READ_LIST,
 		'default_page_id'	=> 0,
 		'pages' => array(
 			array(
@@ -148,7 +174,7 @@ $ZBX_MENU = array(
 	'config' => array(
 		'label'				=> _('Configuration'),
 		'user_type'			=> USER_TYPE_ZABBIX_ADMIN,
-		'node_perm'			=> PERM_READ,
+		'node_perm'			=> PERM_READ_LIST,
 		'default_page_id'	=> 0,
 		'force_disable_all_nodes' => true,
 		'pages' => array(
@@ -176,15 +202,17 @@ $ZBX_MENU = array(
 					'popup_trexpr.php',
 					'host_discovery.php',
 					'disc_prototypes.php',
-					'trigger_prototypes.php',
-					'host_prototypes.php',
-					'httpconf.php',
-					'popup_httpstep.php'
+					'trigger_prototypes.php'
 				)
 			),
 			array(
 				'url' => 'maintenance.php',
 				'label' => _('Maintenance')
+			),
+			array(
+				'url' => 'httpconf.php',
+				'label' => _('Web'),
+				'sub_pages' => array('popup_httpstep.php')
 			),
 			array(
 				'url' => 'actionconf.php',
@@ -274,7 +302,8 @@ $ZBX_MENU = array(
 			),
 			array(
 				'url' => 'setup.php',
-				'label' => _('Installation')
+				'label' => _('Installation'),
+				'sub_pages' => array('warning.php')
 			)
 		)
 	),
@@ -307,7 +336,7 @@ $ZBX_MENU = array(
  *	'sub_pages' = collection of pages for displaying but not remembered as last visited.
  */
 function zbx_construct_menu(&$main_menu, &$sub_menus, &$page) {
-	global $ZBX_MENU;
+	global $ZBX_MENU, $USER_DETAILS;
 
 	$denied_page_requested = false;
 	$page_exists = false;
@@ -317,7 +346,7 @@ function zbx_construct_menu(&$main_menu, &$sub_menus, &$page) {
 		$show_menu = true;
 
 		if (isset($menu['user_type'])) {
-			$show_menu &= ($menu['user_type'] <= CWebUser::$data['type']);
+			$show_menu &= ($menu['user_type'] <= $USER_DETAILS['type']);
 		}
 		if ($label == 'login') {
 			$show_menu = false;
@@ -325,6 +354,7 @@ function zbx_construct_menu(&$main_menu, &$sub_menus, &$page) {
 
 		$menu_class = 'horizontal_menu_n';
 		$sub_menus[$label] = array();
+
 		foreach ($menu['pages'] as $sub_page) {
 			$show_sub_menu = true;
 
@@ -335,7 +365,7 @@ function zbx_construct_menu(&$main_menu, &$sub_menus, &$page) {
 			if (!isset($sub_page['user_type'])) {
 				$sub_page['user_type'] = $menu['user_type'];
 			}
-			if (CWebUser::$data['type'] < $sub_page['user_type']) {
+			if ($USER_DETAILS['type'] < $sub_page['user_type']) {
 				$show_sub_menu = false;
 			}
 
@@ -350,7 +380,7 @@ function zbx_construct_menu(&$main_menu, &$sub_menus, &$page) {
 
 			if ($sub_menu_active) {
 				// permition check
-				$deny &= (CWebUser::$data['type'] < $menu['user_type'] || CWebUser::$data['type'] < $sub_page['user_type']);
+				$deny &= ($USER_DETAILS['type'] < $menu['user_type'] || $USER_DETAILS['type'] < $sub_page['user_type']);
 
 				$menu_class = 'active';
 				$page_exists = true;
@@ -398,7 +428,7 @@ function zbx_construct_menu(&$main_menu, &$sub_menus, &$page) {
 
 function zbx_define_menu_restrictions($page, $ZBX_MENU) {
 	foreach ($ZBX_MENU as $section) {
-		foreach ($section['pages'] as $menu_page) {
+		foreach ($section['pages'] as $pid => $menu_page) {
 			if ($menu_page['url'] == $page['file'] || (isset($menu_page['sub_pages']) && str_in_array($page['file'], $menu_page['sub_pages']))) {
 				if (isset($section['force_disable_all_nodes']) && !defined('ZBX_NOT_ALLOW_ALL_NODES')) {
 					define('ZBX_NOT_ALLOW_ALL_NODES', 1);

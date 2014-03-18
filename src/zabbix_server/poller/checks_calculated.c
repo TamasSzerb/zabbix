@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -85,7 +85,8 @@ static int	calcitem_add_function(expression_t *exp, char *func, char *params)
 	return f->functionid;
 }
 
-static int	calcitem_parse_expression(DC_ITEM *dc_item, expression_t *exp, char *error, int max_error_len)
+static int	calcitem_parse_expression(DC_ITEM *dc_item, expression_t *exp,
+		char *error, int max_error_len)
 {
 	const char	*__function_name = "calcitem_parse_expression";
 	char		*e, *f, *func = NULL, *params = NULL;
@@ -128,7 +129,7 @@ static int	calcitem_parse_expression(DC_ITEM *dc_item, expression_t *exp, char *
 
 	zabbix_log(LOG_LEVEL_DEBUG, "%s() expression:'%s'", __function_name, exp->exp);
 
-	if (FAIL == (ret = substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, &dc_item->host, NULL,
+	if (FAIL == (ret = substitute_simple_macros(NULL, NULL, NULL, &dc_item->host, NULL, NULL,
 				&exp->exp, MACRO_TYPE_ITEM_EXPRESSION, error, max_error_len)))
 		ret = NOTSUPPORTED;
 
@@ -137,7 +138,8 @@ static int	calcitem_parse_expression(DC_ITEM *dc_item, expression_t *exp, char *
 	return ret;
 }
 
-static int	calcitem_evaluate_expression(DC_ITEM *dc_item, expression_t *exp, char *error, int max_error_len)
+static int	calcitem_evaluate_expression(DC_ITEM *dc_item, expression_t *exp,
+		char *error, int max_error_len)
 {
 	const char	*__function_name = "calcitem_evaluate_expression";
 	function_t	*f = NULL;
@@ -194,12 +196,10 @@ static int	calcitem_evaluate_expression(DC_ITEM *dc_item, expression_t *exp, cha
 			" where h.hostid=i.hostid"
 				" and h.status=%d"
 				" and i.status=%d"
-				" and i.state=%d"
 				" and (",
 			ZBX_SQL_ITEM_SELECT,
 			HOST_STATUS_MONITORED,
-			ITEM_STATUS_ACTIVE,
-			ITEM_STATE_NORMAL);
+			ITEM_STATUS_ACTIVE);
 
 	for (i = 0; i < exp->functions_num; i++)
 	{
@@ -217,7 +217,7 @@ static int	calcitem_evaluate_expression(DC_ITEM *dc_item, expression_t *exp, cha
 		zbx_free(host_esc);
 	}
 
-	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, ")" ZBX_SQL_NODE, DBand_node_local("h.hostid"));
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, ")" DB_NODE, DBnode_local("h.hostid"));
 
 	db_result = DBselect("%s", sql);
 
@@ -316,17 +316,6 @@ int	get_value_calculated(DC_ITEM *dc_item, AGENT_RESULT *result)
 	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "%s() value:" ZBX_FS_DBL, __function_name, value);
-
-	if (ITEM_VALUE_TYPE_UINT64 == dc_item->value_type && 0 > value)
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL,
-				"Received value [" ZBX_FS_DBL "] is not suitable"
-				" for value type [%s] and data type [%s]",
-				value, zbx_item_value_type_string(dc_item->value_type),
-				zbx_item_data_type_string(dc_item->data_type)));
-		ret = NOTSUPPORTED;
-		goto clean;
-	}
 
 	SET_DBL_RESULT(result, value);
 clean:

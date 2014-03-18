@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -48,7 +48,8 @@ function audit_resource2str($resource_type = null) {
 		AUDIT_RESOURCE_MAINTENANCE => _('Maintenance'),
 		AUDIT_RESOURCE_SCRIPT => _('Script'),
 		AUDIT_RESOURCE_MACRO => _('Macro'),
-		AUDIT_RESOURCE_TEMPLATE => _('Template')
+		AUDIT_RESOURCE_TEMPLATE => _('Template'),
+		AUDIT_RESOURCE_INCIDENT => _('Incident')
 	);
 
 	if (is_null($resource_type)) {
@@ -64,7 +65,7 @@ function audit_resource2str($resource_type = null) {
 }
 
 function add_audit($action, $resourcetype, $details) {
-	if (empty(CWebUser::$data['userid'])) {
+	if (CWebUser::$data['userid'] == 0) {
 		return true;
 	}
 

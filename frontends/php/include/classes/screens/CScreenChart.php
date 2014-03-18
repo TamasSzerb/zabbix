@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ class CScreenChart extends CScreenBase {
 	 */
 	public function get() {
 		$this->dataId = 'graph_full';
-		$containerId = 'graph_container';
+		$containerId = 'graph_conteiner';
 
 		// time control
 		$graphDims = getGraphDims($this->graphid);
@@ -61,7 +61,7 @@ class CScreenChart extends CScreenBase {
 		}
 		$src .= '?graphid='.$this->graphid.'&period='.$this->timeline['period'].'&stime='.$this->timeline['stimeNow'].$this->getProfileUrlParams();
 
-		$this->timeline['starttime'] = date(TIMESTAMP_FORMAT, get_min_itemclock_by_graphid($this->graphid));
+		$this->timeline['starttime'] = date('YmdHis', get_min_itemclock_by_graphid($this->graphid));
 
 		$timeControlData = array(
 			'id' => $this->getDataId(),

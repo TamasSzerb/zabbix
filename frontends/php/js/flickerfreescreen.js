@@ -1,6 +1,6 @@
 /*
  ** Zabbix
- ** Copyright (C) 2001-2014 Zabbix SIA
+ ** Copyright (C) 2001-2013 Zabbix SIA
  **
  ** This program is free software; you can redistribute it and/or modify
  ** it under the terms of the GNU General Public License as published by
@@ -117,14 +117,7 @@ jQuery(function($) {
 					}
 					else {
 						ajaxUrl.setArgument('resourcetype', empty(screen.resourcetype) ? null : screen.resourcetype);
-
-						for (var i = 0; i < screen.data.itemids.length; i++) {
-							ajaxUrl.setArgument(
-								'itemids[' + screen.data.itemids[i] + ']',
-								empty(screen.data.itemids[i]) ? null : screen.data.itemids[i]
-							);
-						}
-
+						ajaxUrl.setArgument('itemid', empty(screen.data.itemid) ? null : screen.data.itemid);
 						ajaxUrl.setArgument('action', empty(screen.data.action) ? null : screen.data.action);
 						ajaxUrl.setArgument('filter', empty(screen.data.filter) ? null : screen.data.filter);
 						ajaxUrl.setArgument('filter_task', empty(screen.data.filterTask)

@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ require_once dirname(__FILE__).'/../include/class.cwebtest.php';
 class testPageOverview extends CWebTest {
 	public function testPageOverview_CheckLayout() {
 		$this->zbxTestLogin('overview.php');
-		$this->zbxTestCheckTitle('Overview \[refreshed every 30 sec\]');
+		$this->checkTitle('Overview \[refreshed every 30 sec\]');
 		$this->zbxTestTextPresent('OVERVIEW');
 		$this->zbxTestTextPresent('Hosts location');
 		$this->zbxTestTextPresent('Group');
@@ -33,7 +33,7 @@ class testPageOverview extends CWebTest {
 // Check that no real host or template names displayed
 	public function testPageOverview_NoHostNames() {
 		$this->zbxTestLogin('overview.php');
-		$this->zbxTestCheckTitle('Overview \[refreshed every 30 sec\]');
+		$this->checkTitle('Overview \[refreshed every 30 sec\]');
 		$this->checkNoRealHostnames();
 	}
 }

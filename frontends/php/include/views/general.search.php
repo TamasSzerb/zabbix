@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,16 +17,17 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
+?>
+<?php
+	$searchForm = new CForm('get','search.php');
 
+	$searchBox = new CTextBox('search', get_request('search'));
+	$searchBox->setAttribute('autocomplete', 'off');
+	$searchBox->addClass('search');
+	$searchForm->addItem($searchBox);
 
-$searchForm = new CForm('get','search.php');
+	$searchBtn = new CSubmit('searchbttn', _('Search'), null, 'input button ui-button ui-widget ui-state-default ui-corner-all');
+	$searchForm->addItem($searchBtn);
 
-$searchBox = new CTextBox('search', get_request('search'));
-$searchBox->setAttribute('autocomplete', 'off');
-$searchBox->addClass('search');
-$searchForm->addItem($searchBox);
-
-$searchBtn = new CSubmit('searchbttn', _('Search'), null, 'input button ui-button ui-widget ui-state-default ui-corner-all');
-$searchForm->addItem($searchBtn);
-
-return new CDiv($searchForm, 'zbx_search', 'zbx_search');
+	return new CDiv($searchForm, 'zbx_search', 'zbx_search');
+?>

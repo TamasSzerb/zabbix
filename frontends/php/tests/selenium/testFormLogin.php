@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ class testFormLogin extends CWebTest {
 
 	public function testFormLogin_LoginOK() {
 		$this->zbxTestLogin('dashboard.php');
-		$this->zbxTestCheckTitle('Dashboard');
+		$this->checkTitle('Dashboard');
 		$this->zbxTestClickWait('link=Logout');
 		$this->zbxTestTextPresent('Username');
 		$this->zbxTestTextPresent('Password');
@@ -44,7 +44,7 @@ class testFormLogin extends CWebTest {
 		DBsave_tables('users');
 
 		$this->zbxTestLogin('dashboard.php');
-		$this->zbxTestCheckTitle('Dashboard');
+		$this->checkTitle('Dashboard');
 		$this->zbxTestClickWait('link=Logout');
 		$this->zbxTestTextPresent('Username');
 		$this->zbxTestTextPresent('Password');
@@ -68,7 +68,7 @@ class testFormLogin extends CWebTest {
 		DBsave_tables('users');
 
 		$this->zbxTestLogin('dashboard.php');
-		$this->zbxTestCheckTitle('Dashboard');
+		$this->checkTitle('Dashboard');
 		$this->zbxTestClickWait('link=Logout');
 		$this->zbxTestTextPresent('Username');
 		$this->zbxTestTextPresent('Password');
@@ -99,7 +99,7 @@ class testFormLogin extends CWebTest {
 		DBsave_tables('users');
 
 		$this->zbxTestLogin('dashboard.php');
-		$this->zbxTestCheckTitle('Dashboard');
+		$this->checkTitle('Dashboard');
 		$this->zbxTestClickWait('link=Logout');
 		$this->zbxTestTextPresent('Username');
 		$this->zbxTestTextPresent('Password');
@@ -129,7 +129,7 @@ class testFormLogin extends CWebTest {
 		sleep(35);
 
 		$this->zbxTestLogin('dashboard.php');
-		$this->zbxTestCheckTitle('Dashboard');
+		$this->checkTitle('Dashboard');
 		$this->zbxTestClickWait('link=Logout');
 		$this->zbxTestTextPresent(array('Username', 'Password'));
 

@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ int	get_value_external(DC_ITEM *item, AGENT_RESULT *result)
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() key:'%s'", __function_name, item->key_orig);
 
-	if (ZBX_COMMAND_ERROR == (rc = parse_command(item->key, key, sizeof(key), params, sizeof(params))))
+	if (0 == (rc = parse_command(item->key, key, sizeof(key), params, sizeof(params))))
 	{
 		SET_MSG_RESULT(result, zbx_strdup(NULL, "Key is badly formatted"));
 		goto notsupported;
@@ -65,7 +65,7 @@ int	get_value_external(DC_ITEM *item, AGENT_RESULT *result)
 		goto notsupported;
 	}
 
-	if (ZBX_COMMAND_WITH_PARAMS == rc)
+	if (2 == rc)	/* key with parameters */
 	{
 		int	i, n;
 		char	param[MAX_STRING_LEN], *param_esc;

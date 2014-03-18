@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -23,5 +23,6 @@
 void	str_base64_encode(const char *p_str, char *p_b64str, int in_size);
 void	str_base64_encode_dyn(const char *p_str, char **p_b64str, int in_size);
 void	str_base64_decode(const char *p_b64str, char *p_str, int maxsize, int *p_out_size);
+void	str_base64_decode_dyn(const char *in, int in_size, char **out, int *out_size);
 
 #endif /* ZABBIX_BASE64_H */

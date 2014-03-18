@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,6 +20,6 @@
 #ifndef ZABBIX_NODEWATCHER_HISTORY_H
 #define ZABBIX_NODEWATCHER_HISTORY_H
 
-void main_historysender(void);
+void main_historysender();
 
 #endif

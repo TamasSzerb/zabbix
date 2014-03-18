@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -53,10 +53,8 @@
 #	define ZBX_MUTEX_SELFMON	6
 #	define ZBX_MUTEX_CPUSTATS	7
 #	define ZBX_MUTEX_DISKSTATS	8
-#	define ZBX_MUTEX_ITSERVICES	9
-#	define ZBX_MUTEX_VALUECACHE	10
-#	define ZBX_MUTEX_VMWARE		11
-#	define ZBX_MUTEX_COUNT		12
+#	define ZBX_MUTEX_SERVICES	9
+#	define ZBX_MUTEX_COUNT		10
 
 #	define ZBX_MUTEX_MAX_TRIES	20	/* seconds */
 

@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ class testFormAdministrationGeneralValuemap extends CWebTest {
 		$this->zbxTestLogin('adm.gui.php');
 		$this->assertElementPresent('configDropDown');
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Value mapping');
-		$this->zbxTestCheckTitle('Configuration of value mapping');
+		$this->checkTitle('Configuration of value mapping');
 		$this->zbxTestTextPresent('CONFIGURATION OF VALUE MAPPING');
 		$this->zbxTestTextPresent('Value mapping');
 		$this->assertElementPresent('form');

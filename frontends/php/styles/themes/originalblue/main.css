@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -33,7 +33,3 @@ table.ack_msgs tr.msg { background-color: #F8F8F8; }
 
 .ui-widget-content a.on { color: #EE0000; }
 .ui-widget-content a.on:hover { color: #CC4444; }
-
-div.preloader {
-	background: url("images/preloader.gif") no-repeat;
-}

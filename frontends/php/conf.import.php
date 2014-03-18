@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@
 **/
 
 
-require_once dirname(__FILE__).'/include/config.inc.php';
+require_once 'include/config.inc.php';
 
 $page['file'] = 'conf.import.php';
 $page['title'] = _('Configuration import');
@@ -28,7 +28,7 @@ $page['hist_arg'] = array();
 
 ob_start();
 
-require_once dirname(__FILE__).'/include/page_header.php';
+require_once 'include/page_header.php';
 
 $fields = array(
 	'rules' => array(T_ZBX_STR, O_OPT, null, null, null),
@@ -121,22 +121,16 @@ if (isset($_REQUEST['rules'])) {
 if (isset($_FILES['import_file'])) {
 	try {
 		$file = new CUploadFile($_FILES['import_file']);
-
-		DBstart();
-
 		$importFormat = CImportReaderFactory::fileExt2ImportFormat($file->getExtension());
 		$importReader = CImportReaderFactory::getReader($importFormat);
 
 		$configurationImport = new CConfigurationImport($file->getContent(), $data['rules']);
 		$configurationImport->setReader($importReader);
+
 		$configurationImport->import();
-
-		DBend();
-
 		show_messages(true, _('Imported successfully'));
 	}
 	catch (Exception $e) {
-		DBend(false);
 		error($e->getMessage());
 		show_messages(false, null, _('Import failed'));
 	}
@@ -146,4 +140,4 @@ $view = new CView('conf.import', $data);
 $view->render();
 $view->show();
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+require_once('include/page_footer.php');

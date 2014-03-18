@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -19,19 +19,17 @@
 **/
 
 
-define('ZABBIX_VERSION',     '2.3.0');
-define('ZABBIX_API_VERSION', '2.3.0');
-define('ZABBIX_DB_VERSION',	 2030032);
+define('ZABBIX_VERSION',		'2.0.10rc1');
+define('ZABBIX_API_VERSION',	'2.0.10');
 
 define('ZABBIX_COPYRIGHT_FROM', '2001');
-define('ZABBIX_COPYRIGHT_TO',   '2014');
+define('ZABBIX_COPYRIGHT_TO', '2013');
 
 define('ZBX_LOGIN_ATTEMPTS',	5);
 define('ZBX_LOGIN_BLOCK',		30); // sec
 
 define('ZBX_MIN_PERIOD',		3600); // 1 hour
 define('ZBX_MAX_PERIOD',		63072000); // the maximum period for the time bar control, ~2 years (2 * 365 * 86400)
-define('ZBX_MAX_DATE',			2147483647); // 19 Jan 2038 05:14:07
 define('ZBX_PERIOD_DEFAULT',	3600); // 1 hour
 
 define('ZBX_WIDGET_ROWS', 20);
@@ -41,6 +39,7 @@ define('ZBX_GRAPH_FONT_NAME',		'DejaVuSans'); // font file name
 define('ZBX_GRAPH_LEGEND_HEIGHT',	120); // when graph height is less then this value, some legend will not show up
 
 define('ZBX_SCRIPT_TIMEOUT',		60); // in seconds
+define('ZBX_SCRIPT_BYTES_LIMIT',	1048576); // 1048576 is 1MB in bytes
 
 define('GRAPH_YAXIS_SIDE_DEFAULT', 0); // 0 - LEFT SIDE, 1 - RIGHT SIDE
 
@@ -48,12 +47,12 @@ define('ZBX_MAX_IMAGE_SIZE', 1048576); // 1024 * 1024
 
 define('ZBX_UNITS_ROUNDOFF_THRESHOLD',		0.01);
 define('ZBX_UNITS_ROUNDOFF_UPPER_LIMIT',	2);
-define('ZBX_UNITS_ROUNDOFF_MIDDLE_LIMIT',	4);
 define('ZBX_UNITS_ROUNDOFF_LOWER_LIMIT',	6);
 
-define('ZBX_PRECISION_10',	10);
-
 define('ZBX_DEFAULT_INTERVAL', '1-7,00:00-24:00');
+
+// for partitioned DB installs!!
+define('ZBX_HISTORY_DATA_UPKEEP', -1); // in days; -1: disabled, 0: always use trends
 
 define('ZBX_SCRIPT_TYPE_CUSTOM_SCRIPT',	0);
 define('ZBX_SCRIPT_TYPE_IPMI',			1);
@@ -64,10 +63,10 @@ define('ZBX_SCRIPT_TYPE_GLOBAL_SCRIPT',	4);
 define('ZBX_SCRIPT_EXECUTE_ON_AGENT',	0);
 define('ZBX_SCRIPT_EXECUTE_ON_SERVER',	1);
 
-define('ZBX_FLAG_DISCOVERY_NORMAL',		0x0);
-define('ZBX_FLAG_DISCOVERY_RULE',		0x1);
-define('ZBX_FLAG_DISCOVERY_PROTOTYPE',	0x2);
-define('ZBX_FLAG_DISCOVERY_CREATED',	0x4);
+define('ZBX_FLAG_DISCOVERY_NORMAL',		0x0); // a normal item
+define('ZBX_FLAG_DISCOVERY',			0x1); // a low level discovery rule
+define('ZBX_FLAG_DISCOVERY_CHILD',		0x2); // an item prototype
+define('ZBX_FLAG_DISCOVERY_CREATED',	0x4); // an item created via a discovery rule
 
 define('EXTACK_OPTION_ALL',		0);
 define('EXTACK_OPTION_UNACK',	1);
@@ -96,22 +95,17 @@ define('ZBX_DB_ORACLE',		'ORACLE');
 define('ZBX_DB_POSTGRESQL',	'POSTGRESQL');
 define('ZBX_DB_SQLITE3',	'SQLITE3');
 
-define('ZBX_STANDALONE_MAX_IDS', '9223372036854775807');
-define('ZBX_DM_MAX_HISTORY_IDS', '100000000000000');
-define('ZBX_DM_MAX_CONFIG_IDS', '100000000000');
-
-define('PAGE_TYPE_HTML',				0);
-define('PAGE_TYPE_IMAGE',				1);
-define('PAGE_TYPE_XML',					2);
-define('PAGE_TYPE_JS',					3); // javascript
-define('PAGE_TYPE_CSS',					4);
-define('PAGE_TYPE_HTML_BLOCK',			5); // simple block of html (as text)
-define('PAGE_TYPE_JSON',				6); // simple JSON
-define('PAGE_TYPE_JSON_RPC',			7); // api call
-define('PAGE_TYPE_TEXT_FILE',			8); // api call
-define('PAGE_TYPE_TEXT',				9); // simple text
-define('PAGE_TYPE_CSV',					10); // CSV format
-define('PAGE_TYPE_TEXT_RETURN_JSON',	11); // input plaintext output json
+define('PAGE_TYPE_HTML',		0);
+define('PAGE_TYPE_IMAGE',		1);
+define('PAGE_TYPE_XML',			2);
+define('PAGE_TYPE_JS',			3); // javascript
+define('PAGE_TYPE_CSS',			4);
+define('PAGE_TYPE_HTML_BLOCK',	5); // simple block of html (as text)
+define('PAGE_TYPE_JSON',		6); // simple JSON
+define('PAGE_TYPE_JSON_RPC',	7); // api call
+define('PAGE_TYPE_TEXT_FILE',	8); // api call
+define('PAGE_TYPE_TEXT',		9); // simple text
+define('PAGE_TYPE_CSV',			10); // CSV format
 
 define('ZBX_SESSION_ACTIVE',	0);
 define('ZBX_SESSION_PASSIVE',	1);
@@ -142,11 +136,14 @@ define('IMAGE_FORMAT_PNG',	'PNG');
 define('IMAGE_FORMAT_JPEG',	'JPEG');
 define('IMAGE_FORMAT_TEXT',	'JPEG');
 
+define('IMAGE_TYPE_UNKNOWN',		0);
 define('IMAGE_TYPE_ICON',			1);
 define('IMAGE_TYPE_BACKGROUND',		2);
 
 define('ITEM_CONVERT_WITH_UNITS',	0); // - do not convert empty units
 define('ITEM_CONVERT_NO_UNITS',		1); // - no units
+define('ITEM_CONVERT_SHORT_UNITS',	2); // - to short units
+define('ITEM_CONVERT_LONG_UNITS',	3); // - to long units
 
 define('ZBX_SORT_UP',	'ASC');
 define('ZBX_SORT_DOWN',	'DESC');
@@ -159,34 +156,35 @@ define('AUDIT_ACTION_LOGOUT',	4);
 define('AUDIT_ACTION_ENABLE',	5);
 define('AUDIT_ACTION_DISABLE',	6);
 
-define('AUDIT_RESOURCE_USER',			0);
-define('AUDIT_RESOURCE_ZABBIX_CONFIG',	2);
-define('AUDIT_RESOURCE_MEDIA_TYPE',		3);
-define('AUDIT_RESOURCE_HOST',			4);
-define('AUDIT_RESOURCE_ACTION',			5);
-define('AUDIT_RESOURCE_GRAPH',			6);
-define('AUDIT_RESOURCE_GRAPH_ELEMENT',	7);
-define('AUDIT_RESOURCE_USER_GROUP',		11);
-define('AUDIT_RESOURCE_APPLICATION',	12);
-define('AUDIT_RESOURCE_TRIGGER',		13);
-define('AUDIT_RESOURCE_HOST_GROUP',		14);
-define('AUDIT_RESOURCE_ITEM',			15);
-define('AUDIT_RESOURCE_IMAGE',			16);
-define('AUDIT_RESOURCE_VALUE_MAP',		17);
-define('AUDIT_RESOURCE_IT_SERVICE',		18);
-define('AUDIT_RESOURCE_MAP',			19);
-define('AUDIT_RESOURCE_SCREEN',			20);
-define('AUDIT_RESOURCE_NODE',			21);
-define('AUDIT_RESOURCE_SCENARIO',		22);
-define('AUDIT_RESOURCE_DISCOVERY_RULE',	23);
-define('AUDIT_RESOURCE_SLIDESHOW',		24);
-define('AUDIT_RESOURCE_SCRIPT',			25);
-define('AUDIT_RESOURCE_PROXY',			26);
-define('AUDIT_RESOURCE_MAINTENANCE',	27);
-define('AUDIT_RESOURCE_REGEXP',			28);
-define('AUDIT_RESOURCE_MACRO',			29);
-define('AUDIT_RESOURCE_TEMPLATE',		30);
-define('AUDIT_RESOURCE_TRIGGER_PROTOTYPE', 31);
+define('AUDIT_RESOURCE_USER',				0);
+define('AUDIT_RESOURCE_ZABBIX_CONFIG',		2);
+define('AUDIT_RESOURCE_MEDIA_TYPE',			3);
+define('AUDIT_RESOURCE_HOST',				4);
+define('AUDIT_RESOURCE_ACTION',				5);
+define('AUDIT_RESOURCE_GRAPH',				6);
+define('AUDIT_RESOURCE_GRAPH_ELEMENT',		7);
+define('AUDIT_RESOURCE_USER_GROUP',			11);
+define('AUDIT_RESOURCE_APPLICATION',		12);
+define('AUDIT_RESOURCE_TRIGGER',			13);
+define('AUDIT_RESOURCE_HOST_GROUP',			14);
+define('AUDIT_RESOURCE_ITEM',				15);
+define('AUDIT_RESOURCE_IMAGE',				16);
+define('AUDIT_RESOURCE_VALUE_MAP',			17);
+define('AUDIT_RESOURCE_IT_SERVICE',			18);
+define('AUDIT_RESOURCE_MAP',				19);
+define('AUDIT_RESOURCE_SCREEN',				20);
+define('AUDIT_RESOURCE_NODE',				21);
+define('AUDIT_RESOURCE_SCENARIO',			22);
+define('AUDIT_RESOURCE_DISCOVERY_RULE',		23);
+define('AUDIT_RESOURCE_SLIDESHOW',			24);
+define('AUDIT_RESOURCE_SCRIPT',				25);
+define('AUDIT_RESOURCE_PROXY',				26);
+define('AUDIT_RESOURCE_MAINTENANCE',		27);
+define('AUDIT_RESOURCE_REGEXP',				28);
+define('AUDIT_RESOURCE_MACRO',				29);
+define('AUDIT_RESOURCE_TEMPLATE',			30);
+define('AUDIT_RESOURCE_TRIGGER_PROTOTYPE',	31);
+define('AUDIT_RESOURCE_INCIDENT',			32);
 
 define('CONDITION_TYPE_HOST_GROUP',			0);
 define('CONDITION_TYPE_HOST',				1);
@@ -201,7 +199,7 @@ define('CONDITION_TYPE_DSERVICE_PORT',		9);
 define('CONDITION_TYPE_DSTATUS',			10);
 define('CONDITION_TYPE_DUPTIME',			11);
 define('CONDITION_TYPE_DVALUE',				12);
-define('CONDITION_TYPE_TEMPLATE',			13);
+define('CONDITION_TYPE_HOST_TEMPLATE',		13);
 define('CONDITION_TYPE_EVENT_ACKNOWLEDGED',	14);
 define('CONDITION_TYPE_APPLICATION',		15);
 define('CONDITION_TYPE_MAINTENANCE',		16);
@@ -211,8 +209,6 @@ define('CONDITION_TYPE_DCHECK',				19);
 define('CONDITION_TYPE_PROXY',				20);
 define('CONDITION_TYPE_DOBJECT',			21);
 define('CONDITION_TYPE_HOST_NAME',			22);
-define('CONDITION_TYPE_EVENT_TYPE',			23);
-define('CONDITION_TYPE_HOST_METADATA',		24);
 
 define('CONDITION_OPERATOR_EQUAL',		0);
 define('CONDITION_OPERATOR_NOT_EQUAL',	1);
@@ -222,15 +218,6 @@ define('CONDITION_OPERATOR_IN',			4);
 define('CONDITION_OPERATOR_MORE_EQUAL',	5);
 define('CONDITION_OPERATOR_LESS_EQUAL',	6);
 define('CONDITION_OPERATOR_NOT_IN',		7);
-define('CONDITION_OPERATOR_REGEXP',		8);
-
-// event type action condition values
-define('EVENT_TYPE_ITEM_NOTSUPPORTED',		0);
-define('EVENT_TYPE_ITEM_NORMAL',			1);
-define('EVENT_TYPE_LLDRULE_NOTSUPPORTED',	2);
-define('EVENT_TYPE_LLDRULE_NORMAL',			3);
-define('EVENT_TYPE_TRIGGER_UNKNOWN',		4);
-define('EVENT_TYPE_TRIGGER_NORMAL',			5);
 
 define('HOST_STATUS_MONITORED',		0);
 define('HOST_STATUS_NOT_MONITORED',	1);
@@ -282,7 +269,6 @@ define('MAP_LABEL_TYPE_STATUS',		3);
 define('MAP_LABEL_TYPE_NOTHING',	4);
 define('MAP_LABEL_TYPE_CUSTOM',		5);
 
-define('MAP_LABEL_LOC_DEFAULT', -1);
 define('MAP_LABEL_LOC_BOTTOM',	0);
 define('MAP_LABEL_LOC_LEFT',	1);
 define('MAP_LABEL_LOC_RIGHT',	2);
@@ -309,6 +295,12 @@ define('SYSMAP_ELEMENT_ICON_DISABLED',		4);
 
 define('SYSMAP_HIGHLIGHT_OFF',	0);
 define('SYSMAP_HIGHLIGHT_ON',	1);
+
+define('SYSMAP_EXPANDPROBLEM_OFF',	0);
+define('SYSMAP_EXPANDPROBLEM_ON',	1);
+
+define('SYSMAP_MARKELEMENTS_OFF',	0);
+define('SYSMAP_MARKELEMENTS_ON',	1);
 
 define('SYSMAP_GRID_SHOW_ON',	1);
 define('SYSMAP_GRID_SHOW_OFF',	0);
@@ -340,7 +332,7 @@ define('ITEM_TYPE_CALCULATED',		15);
 define('ITEM_TYPE_JMX',				16);
 
 define('ITEM_VALUE_TYPE_FLOAT',		0);
-define('ITEM_VALUE_TYPE_STR',		1); // aka Character
+define('ITEM_VALUE_TYPE_STR',		1);
 define('ITEM_VALUE_TYPE_LOG',		2);
 define('ITEM_VALUE_TYPE_UINT64',	3);
 define('ITEM_VALUE_TYPE_TEXT',		4);
@@ -350,7 +342,7 @@ define('ITEM_DATA_TYPE_OCTAL',			1);
 define('ITEM_DATA_TYPE_HEXADECIMAL',	2);
 define('ITEM_DATA_TYPE_BOOLEAN',		3);
 
-define('ZBX_DEFAULT_KEY_DB_MONITOR',	'db.odbc.select[<unique short description>,<dsn>]');
+define('ZBX_DEFAULT_KEY_DB_MONITOR',	'db.odbc.select[<unique short description>]');
 define('ZBX_DEFAULT_KEY_SSH',			'ssh.run[<unique short description>,<ip>,<port>,<encoding>]');
 define('ZBX_DEFAULT_KEY_TELNET',		'telnet.run[<unique short description>,<ip>,<port>,<encoding>]');
 define('ZBX_DEFAULT_KEY_JMX',			'jmx[<object name>,<attribute name>]');
@@ -365,9 +357,6 @@ define('ITEM_STATUS_ACTIVE',		0);
 define('ITEM_STATUS_DISABLED',		1);
 define('ITEM_STATUS_NOTSUPPORTED',	3);
 
-define('ITEM_STATE_NORMAL',			0);
-define('ITEM_STATE_NOTSUPPORTED',	1);
-
 define('ITEM_TYPE_SNMPTRAP', 17);
 
 define('ITEM_SNMPV3_SECURITYLEVEL_NOAUTHNOPRIV',	0);
@@ -377,19 +366,11 @@ define('ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV',		2);
 define('ITEM_AUTHTYPE_PASSWORD',	0);
 define('ITEM_AUTHTYPE_PUBLICKEY',	1);
 
-define('ITEM_AUTHPROTOCOL_MD5', 0);
-define('ITEM_AUTHPROTOCOL_SHA', 1);
-
-define('ITEM_PRIVPROTOCOL_DES', 0);
-define('ITEM_PRIVPROTOCOL_AES', 1);
-
-define('ITEM_LOGTYPE_INFORMATION',		1);
-define('ITEM_LOGTYPE_WARNING',			2);
-define('ITEM_LOGTYPE_ERROR',			4);
+define('ITEM_LOGTYPE_INFORMATION',	1);
+define('ITEM_LOGTYPE_WARNING',		2);
+define('ITEM_LOGTYPE_ERROR',		4);
 define('ITEM_LOGTYPE_FAILURE_AUDIT',	7);
 define('ITEM_LOGTYPE_SUCCESS_AUDIT',	8);
-define('ITEM_LOGTYPE_CRITICAL',			9);
-define('ITEM_LOGTYPE_VERBOSE',			10);
 
 define('GRAPH_ITEM_DRAWTYPE_LINE',			0);
 define('GRAPH_ITEM_DRAWTYPE_FILLED_REGION',	1);
@@ -423,9 +404,13 @@ define('TRIGGER_STATUS_DISABLED',	1);
 
 define('TRIGGER_VALUE_FALSE',	0);
 define('TRIGGER_VALUE_TRUE',	1);
+define('TRIGGER_VALUE_UNKNOWN', 2); // only in "events" table
 
-define('TRIGGER_STATE_NORMAL',	0);
-define('TRIGGER_STATE_UNKNOWN',	1);
+define('TRIGGER_VALUE_FLAG_NORMAL',		0);
+define('TRIGGER_VALUE_FLAG_UNKNOWN',	1);
+
+define('TRIGGER_VALUE_CHANGED_NO',	0);
+define('TRIGGER_VALUE_CHANGED_YES', 1);
 
 define('TRIGGER_SEVERITY_NOT_CLASSIFIED',	0);
 define('TRIGGER_SEVERITY_INFORMATION',		1);
@@ -464,8 +449,7 @@ define('ACTION_DEFAULT_MSG_TRIGGER', "Trigger: {TRIGGER.NAME}\nTrigger status: {
 		"Trigger severity: {TRIGGER.SEVERITY}\nTrigger URL: {TRIGGER.URL}\n\nItem values:\n\n".
 		"1. {ITEM.NAME1} ({HOST.NAME1}:{ITEM.KEY1}): {ITEM.VALUE1}\n".
 		"2. {ITEM.NAME2} ({HOST.NAME2}:{ITEM.KEY2}): {ITEM.VALUE2}\n".
-		"3. {ITEM.NAME3} ({HOST.NAME3}:{ITEM.KEY3}): {ITEM.VALUE3}\n\n".
-		"Original event ID: {EVENT.ID}"
+		"3. {ITEM.NAME3} ({HOST.NAME3}:{ITEM.KEY3}): {ITEM.VALUE3}"
 );
 define('ACTION_DEFAULT_MSG_AUTOREG', "Host name: {HOST.HOST}\nHost IP: {HOST.IP}\nAgent port: {HOST.PORT}");
 define('ACTION_DEFAULT_MSG_DISCOVERY', "Discovery rule: {DISCOVERY.RULE.NAME}\n\nDevice IP:{DISCOVERY.DEVICE.IPADDRESS}\n".
@@ -489,10 +473,21 @@ define('OPERATION_TYPE_TEMPLATE_REMOVE',7);
 define('OPERATION_TYPE_HOST_ENABLE',	8);
 define('OPERATION_TYPE_HOST_DISABLE',	9);
 
-define('CONDITION_EVAL_TYPE_AND_OR',		0);
-define('CONDITION_EVAL_TYPE_AND',			1);
-define('CONDITION_EVAL_TYPE_OR',			2);
-define('CONDITION_EVAL_TYPE_EXPRESSION', 	3);
+define('ACTION_EVAL_TYPE_AND_OR',	0);
+define('ACTION_EVAL_TYPE_AND',		1);
+define('ACTION_EVAL_TYPE_OR',		2);
+
+define('OPERATION_OBJECT_USER',		0);
+define('OPERATION_OBJECT_GROUP',	1);
+
+define('LOGFILE_SEVERITY_NOT_CLASSIFIED',	0);
+define('LOGFILE_SEVERITY_INFORMATION',		1);
+define('LOGFILE_SEVERITY_WARNING',			2);
+define('LOGFILE_SEVERITY_AVERAGE',			3);
+define('LOGFILE_SEVERITY_HIGH',				4);
+define('LOGFILE_SEVERITY_DISASTER',			5);
+define('LOGFILE_SEVERITY_AUDIT_SUCCESS',	6);
+define('LOGFILE_SEVERITY_AUDIT_FAILURE',	7);
 
 // screen
 define('SCREEN_RESOURCE_GRAPH',				0);
@@ -512,7 +507,6 @@ define('SCREEN_RESOURCE_EVENTS',			13);
 define('SCREEN_RESOURCE_HOSTGROUP_TRIGGERS',14);
 define('SCREEN_RESOURCE_SYSTEM_STATUS',		15);
 define('SCREEN_RESOURCE_HOST_TRIGGERS',		16);
-// used in Monitoring > Latest data > Graph (history.php)
 define('SCREEN_RESOURCE_HISTORY',			17);
 define('SCREEN_RESOURCE_CHART',				18);
 
@@ -525,6 +519,8 @@ define('SCREEN_SORT_TRIGGERS_TYPE_ASC',				5);
 define('SCREEN_SORT_TRIGGERS_TYPE_DESC',			6);
 define('SCREEN_SORT_TRIGGERS_STATUS_ASC',			7);
 define('SCREEN_SORT_TRIGGERS_STATUS_DESC',			8);
+define('SCREEN_SORT_TRIGGERS_RETRIES_LEFT_ASC',		9);
+define('SCREEN_SORT_TRIGGERS_RETRIES_LEFT_DESC',	10);
 define('SCREEN_SORT_TRIGGERS_RECIPIENT_ASC',		11);
 define('SCREEN_SORT_TRIGGERS_RECIPIENT_DESC',		12);
 
@@ -532,6 +528,9 @@ define('SCREEN_MODE_PREVIEW',	0);
 define('SCREEN_MODE_EDIT',		1);
 define('SCREEN_MODE_SLIDESHOW',		2);
 define('SCREEN_MODE_JS',		3);
+
+define('SCREEN_TYPE_NORMAL',	0);
+define('SCREEN_TYPE_TEMPLATED',	1);
 
 define('SCREEN_SIMPLE_ITEM',	0);
 define('SCREEN_DYNAMIC_ITEM',	1);
@@ -574,9 +573,13 @@ define('MARK_COLOR_RED',	1);
 define('MARK_COLOR_GREEN',	2);
 define('MARK_COLOR_BLUE',	3);
 
+define('PROFILE_TYPE_UNKNOWN',		0);
 define('PROFILE_TYPE_ID',			1);
 define('PROFILE_TYPE_INT',			2);
 define('PROFILE_TYPE_STR',			3);
+define('PROFILE_TYPE_ARRAY_ID',		4);
+define('PROFILE_TYPE_ARRAY_INT',	5);
+define('PROFILE_TYPE_ARRAY_STR',	6);
 
 define('CALC_FNC_MIN', 1);
 define('CALC_FNC_AVG', 2);
@@ -598,36 +601,38 @@ define('ZBX_INTERNAL_GROUP',		1);
 define('GROUP_STATUS_DISABLED', 1);
 define('GROUP_STATUS_ENABLED',	0);
 
-define('LINE_TYPE_NORMAL',	0);
-define('LINE_TYPE_BOLD',	1);
-
 // IMPORTANT!!! by priority DESC
 define('GROUP_GUI_ACCESS_SYSTEM',	0);
 define('GROUP_GUI_ACCESS_INTERNAL', 1);
 define('GROUP_GUI_ACCESS_DISABLED', 2);
 
-/**
- * @see access_deny()
- */
-define('ACCESS_DENY_OBJECT', 0);
-define('ACCESS_DENY_PAGE', 1);
+define('GROUP_API_ACCESS_DISABLED', 0);
+define('GROUP_API_ACCESS_ENABLED',	1);
 
 define('GROUP_DEBUG_MODE_DISABLED', 0);
 define('GROUP_DEBUG_MODE_ENABLED',	1);
 
+define('PERM_MAX',			3);
 define('PERM_READ_WRITE',	3);
-define('PERM_READ',			2);
+define('PERM_READ_ONLY',	2);
+define('PERM_READ_LIST',	1);
 define('PERM_DENY',			0);
 
 define('PERM_RES_IDS_ARRAY',	1); // return array of nodes id - array(1,2,3,4)
 define('PERM_RES_DATA_ARRAY',	2);
 
-define('PARAM_TYPE_TIME',		0);
+define('RESOURCE_TYPE_NODE',	0);
+define('RESOURCE_TYPE_GROUP',	1);
+
+define('PARAM_TYPE_SECONDS',	0);
 define('PARAM_TYPE_COUNTS',		1);
 
 define('ZBX_NODE_CHILD',	0);
 define('ZBX_NODE_LOCAL',	1);
 define('ZBX_NODE_MASTER',	2);
+
+define('ZBX_FLAG_TRIGGER',	0);
+define('ZBX_FLAG_EVENT',	1);
 
 define('HTTPTEST_AUTH_NONE',	0);
 define('HTTPTEST_AUTH_BASIC',	1);
@@ -648,17 +653,17 @@ define('EVENT_ACK_ENABLED',		'1');
 define('EVENT_NOT_ACKNOWLEDGED',	'0');
 define('EVENT_ACKNOWLEDGED',		'1');
 
-define('EVENT_SOURCE_TRIGGERS',				0);
-define('EVENT_SOURCE_DISCOVERY',			1);
-define('EVENT_SOURCE_AUTO_REGISTRATION',	2);
-define('EVENT_SOURCE_INTERNAL', 			3);
+define('EVENTS_NOFALSEFORB_STATUS_ALL',		0); // used with TRIGGERS_OPTION_NOFALSEFORB
+define('EVENTS_NOFALSEFORB_STATUS_FALSE',	1); // used with TRIGGERS_OPTION_NOFALSEFORB
+define('EVENTS_NOFALSEFORB_STATUS_TRUE',	2); // used with TRIGGERS_OPTION_NOFALSEFORB
 
-define('EVENT_OBJECT_TRIGGER',			0);
-define('EVENT_OBJECT_DHOST',			1);
-define('EVENT_OBJECT_DSERVICE',			2);
-define('EVENT_OBJECT_AUTOREGHOST',		3);
-define('EVENT_OBJECT_ITEM',				4);
-define('EVENT_OBJECT_LLDRULE',			5);
+define('EVENT_SOURCE_TRIGGERS',			0);
+define('EVENT_SOURCE_DISCOVERY',		1);
+define('EVENT_SOURCE_AUTO_REGISTRATION',2);
+
+define('EVENT_OBJECT_TRIGGER',		0);
+define('EVENT_OBJECT_DHOST',		1);
+define('EVENT_OBJECT_DSERVICE',		2);
 
 define('GRAPH_YAXIS_TYPE_CALCULATED',	0);
 define('GRAPH_YAXIS_TYPE_FIXED',		1);
@@ -740,17 +745,23 @@ define('HOST_INVENTORY_DISABLED',	-1);
 define('HOST_INVENTORY_MANUAL',		0);
 define('HOST_INVENTORY_AUTOMATIC',	1);
 
+define('EXPRESSION_VALUE_TYPE_UNKNOWN',	'#ERROR_VALUE_TYPE#');
 define('EXPRESSION_HOST_UNKNOWN',		'#ERROR_HOST#');
 define('EXPRESSION_HOST_ITEM_UNKNOWN',	'#ERROR_ITEM#');
 define('EXPRESSION_NOT_A_MACRO_ERROR',	'#ERROR_MACRO#');
 define('EXPRESSION_FUNCTION_UNKNOWN',	'#ERROR_FUNCTION#');
 
+define('AVAILABLE_NOCACHE', 0);	// take available objects not from cache
+
 define('SBR',	"<br/>\n");
 define('SPACE',	'&nbsp;');
 define('RARR',	'&rArr;');
 define('SQUAREBRACKETS', '%5B%5D');
-define('NAME_DELIMITER', ': ');
-define('UNKNOWN_VALUE', '-');
+
+// affects multibyte strings [in mb_ereg char "-" must be backslashed]!!!
+if (in_array(ini_get('mbstring.func_overload'), array(2,3,6,7))) {
+	define('ZBX_MBSTRINGS_OVERLOADED', 1);
+}
 
 define('REGEXP_INCLUDE', 0);
 define('REGEXP_EXCLUDE', 1);
@@ -762,51 +773,33 @@ define('ZBX_TIME_SUFFIXES', 'smhdw');
 // preg
 define('ZBX_PREG_PRINT', '^\x{00}-\x{1F}');
 define('ZBX_PREG_MACRO_NAME', '([A-Z0-9\._]+)');
-define('ZBX_PREG_MACRO_NAME_LLD', '([A-Z0-9\._]+)');
 define('ZBX_PREG_INTERNAL_NAMES', '([0-9a-zA-Z_\. \-]+)'); // !!! Don't forget sync code with C !!!
 define('ZBX_PREG_PARAMS', '(['.ZBX_PREG_PRINT.']+?)?');
+define('ZBX_PREG_SIGN', '([&|><=+*\/#\-])');
 define('ZBX_PREG_NUMBER', '([\-+]?[0-9]+[.]?[0-9]*['.ZBX_BYTE_SUFFIXES.ZBX_TIME_SUFFIXES.']?)');
 define('ZBX_PREG_DEF_FONT_STRING', '/^[0-9\.:% ]+$/');
 define('ZBX_PREG_DNS_FORMAT', '([0-9a-zA-Z_\.\-$]|\{\$?'.ZBX_PREG_MACRO_NAME.'\})*');
 define('ZBX_PREG_HOST_FORMAT', ZBX_PREG_INTERNAL_NAMES);
 define('ZBX_PREG_NODE_FORMAT', ZBX_PREG_INTERNAL_NAMES);
+define('ZBX_PREG_FUNCTION_FORMAT', '([a-z]+(\('.ZBX_PREG_PARAMS.'\)))');
 define('ZBX_PREG_MACRO_NAME_FORMAT', '(\{[A-Z\.]+\})');
+define('ZBX_PREG_EXPRESSION_SIMPLE_MACROS', '(\{TRIGGER\.VALUE\})');
 define('ZBX_PREG_EXPRESSION_USER_MACROS', '(\{\$'.ZBX_PREG_MACRO_NAME.'\})');
-define('ZBX_PREG_EXPRESSION_LLD_MACROS', '(\{\#'.ZBX_PREG_MACRO_NAME_LLD.'\})');
 
-// !!! should be used with "x" modifier
-define('ZBX_PREG_ITEM_KEY_PARAMETER_FORMAT', '(
-	(?P>param) # match recursive parameter group
-	|
-	(\" # match quoted string
-		(
-			((\\\\)+?[^\\\\]) # match any amount of backslash with non-backslash ending
-			|
-			[^\"\\\\] # match any character except \ or "
-		)*? # match \" or any character except "
-	\")
-	|
-	[^\"\[\],][^,\]]*? #match unquoted string - any character except " [ ] and , at begining and any character except , and ] afterwards
-	|
-	() # match empty and only empty part
-)');
-define('ZBX_PREG_ITEM_KEY_FORMAT', '([0-9a-zA-Z_\. \-]+? # match key
-(?P<param>( # name parameter group used in recursion
-	\[ # match opening bracket
-		(
-			\s*?'.ZBX_PREG_ITEM_KEY_PARAMETER_FORMAT .' # match spaces and parameter
-			(
-				\s*?,\s*? # match spaces, comma and spaces
-				'.ZBX_PREG_ITEM_KEY_PARAMETER_FORMAT .' # match parameter
-			)*? # match spaces, comma, spaces, parameter zero or more times
-			\s*? #matches spaces
-		)
-	\] # match closing bracket
-))*? # matches non comma seperated brackets with parameters zero or more times
-)');
+// regexp ids
+define('ZBX_KEY_ID',		1);
+define('ZBX_KEY_NAME_ID',	2);
+define('ZBX_KEY_PARAM_ID',	6);
+
+define('ZBX_HISTORY_COUNT', 5);
 
 define('ZBX_USER_ONLINE_TIME', 600); // 10min
 define('ZBX_GUEST_USER','guest');
+
+define('ZBX_FAVORITES_ALL', -1);
+
+// allow for testing
+define('ZBX_ALLOW_UNICODE', 1);
 
 // IPMI
 define('IPMI_AUTHTYPE_DEFAULT',		-1);
@@ -825,8 +818,8 @@ define('IPMI_PRIVILEGE_OEM',		5);
 
 define('ZBX_HAVE_IPV6', 1);
 
-define('ZBX_SOCKET_TIMEOUT',        3);         // socket timeout limit
-define('ZBX_SOCKET_BYTES_LIMIT',    1048576);   // socket response size limit, 1048576 is 1MB in bytes
+
+define('ZBX_SOCKET_TIMEOUT', 3);
 
 // value is also used in servercheck.js file
 define('SERVER_CHECK_INTERVAL', 10);
@@ -850,8 +843,11 @@ define('ZBX_API_ERROR_PERMISSIONS',	120);
 define('ZBX_API_ERROR_NO_AUTH',		200);
 define('ZBX_API_ERROR_NO_METHOD',	300);
 
+define('API_OUTPUT_SHORTEN',	'shorten');
+define('API_OUTPUT_REFER',		'refer');
 define('API_OUTPUT_EXTEND',		'extend');
 define('API_OUTPUT_COUNT',		'count');
+define('API_OUTPUT_CUSTOM',		'custom');
 
 define('SEC_PER_MIN',	60);
 define('SEC_PER_HOUR',	3600);
@@ -859,8 +855,6 @@ define('SEC_PER_DAY',	86400);
 define('SEC_PER_WEEK',	604800); // 7 * SEC_PER_DAY
 define('SEC_PER_MONTH',	2592000); // 30 * SEC_PER_DAY
 define('SEC_PER_YEAR',	31536000); // 365 * SEC_PER_DAY
-
-define('ZBX_JAN_2038', 2145916800);
 
 define('DAY_IN_YEAR', 365);
 
@@ -874,18 +868,6 @@ define('ZBX_TEXTBOX_FILTER_SIZE',		20);
 define('ZBX_TEXTAREA_STANDARD_WIDTH',	312);
 define('ZBX_TEXTAREA_BIG_WIDTH',		524);
 define('ZBX_TEXTAREA_STANDARD_ROWS',	7);
-
-// widgets
-define('WIDGET_DISCOVERY_STATUS',	'dscvry');
-define('WIDGET_FAVOURITE_GRAPHS',	'favgrph');
-define('WIDGET_FAVOURITE_MAPS',		'favmap');
-define('WIDGET_FAVOURITE_SCREENS',	'favscr');
-define('WIDGET_HOST_STATUS',		'hoststat');
-define('WIDGET_LAST_ISSUES',		'lastiss');
-define('WIDGET_SLIDESHOW',			'hat_slides');
-define('WIDGET_SYSTEM_STATUS',		'syssum');
-define('WIDGET_WEB_OVERVIEW',		'webovr');
-define('WIDGET_ZABBIX_STATUS',		'stszbx');
 
 // validation
 define('DB_ID',		"({}>=0&&bccomp('{}',\"10000000000000000000\")<0)&&");
@@ -905,10 +887,6 @@ define('ZBX_DEFAULT_THEME', 'originalblue');
 
 define('ZABBIX_HOMEPAGE', 'http://www.zabbix.com');
 
-// non translatable date formats
-define('TIMESTAMP_FORMAT', 'YmdHis');
-define('TIMESTAMP_FORMAT_ZERO_TIME', 'Ymd0000');
-
 // actions
 define('LONG_DESCRIPTION',	0);
 define('SHORT_DESCRIPTION',	1);
@@ -917,26 +895,118 @@ define('SHORT_DESCRIPTION',	1);
 define('AVAILABILITY_REPORT_BY_HOST', 0);
 define('AVAILABILITY_REPORT_BY_TEMPLATE', 1);
 
-// queue modes
-define('QUEUE_OVERVIEW', 0);
-define('QUEUE_OVERVIEW_BY_PROXY', 1);
-define('QUEUE_DETAILS', 2);
+// SLA monitoring start year
+define('SLA_MONITORING_START_YEAR',	2014);
 
-// item count to display in the details queue
-define('QUEUE_DETAIL_ITEM_COUNT', 500);
+// SLA monitoring services
+define('RSM_DNS',			0);
+define('RSM_DNSSEC',		1);
+define('RSM_RDDS',			2);
+define('RSM_EPP',			3);
 
-// configuration -> maps default add icon name
-define('MAP_DEFAULT_ICON', 'Server_(96)');
+// SLA monitoring macros
+define('RSM_PAGE_SLV',			'{$RSM.ROLLWEEK.THRESHOLDS}');
+define('RSM_MIN_DNS_COUNT',		'{$RSM.DNS.AVAIL.MINNS}');
+define('RSM_DNS_UDP_DELAY',		'{$RSM.DNS.UDP.DELAY}');
+define('RSM_RDDS_DELAY',		'{$RSM.RDDS.DELAY}');
 
-// server variables
-define('HTTPS', isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] && $_SERVER['HTTPS'] != 'off');
+// SLA monitoring rolling week items keys
+define('RSM_SLV_DNS_ROLLWEEK',		'rsm.slv.dns.rollweek');
+define('RSM_SLV_DNSSEC_ROLLWEEK',	'rsm.slv.dnssec.rollweek');
+define('RSM_SLV_RDDS_ROLLWEEK',		'rsm.slv.rdds.rollweek');
+define('RSM_SLV_EPP_ROLLWEEK',		'rsm.slv.epp.rollweek');
+
+// SLA monitoring availability items keys
+define('RSM_SLV_DNS_AVAIL',		'rsm.slv.dns.avail');
+define('RSM_SLV_DNSSEC_AVAIL',	'rsm.slv.dnssec.avail');
+define('RSM_SLV_RDDS_AVAIL',	'rsm.slv.rdds.avail');
+define('RSM_SLV_EPP_AVAIL',		'rsm.slv.epp.avail');
+
+// SLA monitoring incident status
+define('INCIDENT_ACTIVE',			0);
+define('INCIDENT_RESOLVED',			1);
+define('INCIDENT_FALSE_POSITIVE',	2);
+
+// SLA monitoring incident status
+define('DNS_NO_REPLY_ERROR_CODE',	-200);
+define('DNSSEC_FAIL_ERROR_CODE',		-204);
+
+define('MIN_PROBE_OK_RESULT_PERCENTAGE',	49);
+
+// SLA monitoring calculated items keys
+define('CALCULATED_ITEM_DNS_FAIL',				'rsm.configvalue[RSM.INCIDENT.DNS.FAIL]');
+define('CALCULATED_ITEM_DNS_RECOVERY',			'rsm.configvalue[RSM.INCIDENT.DNS.RECOVER]');
+define('CALCULATED_ITEM_DNSSEC_FAIL',			'rsm.configvalue[RSM.INCIDENT.DNSSEC.FAIL]');
+define('CALCULATED_ITEM_DNSSEC_RECOVERY',		'rsm.configvalue[RSM.INCIDENT.DNSSEC.RECOVER]');
+define('CALCULATED_ITEM_RDDS_FAIL',				'rsm.configvalue[RSM.INCIDENT.RDDS.FAIL]');
+define('CALCULATED_ITEM_RDDS_RECOVERY',			'rsm.configvalue[RSM.INCIDENT.RDDS.RECOVER]');
+define('CALCULATED_ITEM_EPP_FAIL',				'rsm.configvalue[RSM.INCIDENT.EPP.FAIL]');
+define('CALCULATED_ITEM_EPP_RECOVERY',			'rsm.configvalue[RSM.INCIDENT.EPP.RECOVER]');
+define('CALCULATED_ITEM_DNS_DELAY',				'rsm.configvalue[RSM.DNS.UDP.DELAY]');
+define('CALCULATED_ITEM_RDDS_DELAY',			'rsm.configvalue[RSM.RDDS.DELAY]');
+define('CALCULATED_ITEM_EPP_DELAY',				'rsm.configvalue[RSM.EPP.DELAY]');
+define('CALCULATED_ITEM_DNS_AVAIL_MINNS',		'rsm.configvalue[RSM.DNS.AVAIL.MINNS]');
+define('CALCULATED_ITEM_DNS_UDP_RTT_HIGH',		'rsm.configvalue[RSM.DNS.UDP.RTT.HIGH]');
+define('CALCULATED_ITEM_SLV_DNS_NS_RTT_UDP',	'rsm.configvalue[RSM.SLV.DNS.UDP.RTT]');
+define('CALCULATED_ITEM_SLV_DNS_NS_RTT_TCP',	'rsm.configvalue[RSM.SLV.DNS.TCP.RTT]');
+define('CALCULATED_ITEM_SLV_DNS_NS_UPD',		'rsm.configvalue[RSM.SLV.DNS.NS.UPD]');
+define('CALCULATED_ITEM_SLV_DNS_NS',			'rsm.configvalue[RSM.SLV.NS.AVAIL]');
+define('CALCULATED_ITEM_SLV_RDDS43_RTT',		'rsm.configvalue[RSM.SLV.RDDS43.RTT]');
+define('CALCULATED_ITEM_SLV_RDDS80_RTT',		'rsm.configvalue[RSM.SLV.RDDS80.RTT]');
+define('CALCULATED_ITEM_SLV_RDDS_UPD',			'rsm.configvalue[RSM.SLV.RDDS.UPD]');
+define('CALCULATED_ITEM_SLV_EPP_INFO',			'rsm.configvalue[RSM.SLV.EPP.INFO]');
+define('CALCULATED_ITEM_SLV_EPP_LOGIN',			'rsm.configvalue[RSM.SLV.EPP.LOGIN]');
+define('CALCULATED_ITEM_EPP_UPDATE',			'rsm.configvalue[RSM.SLV.EPP.UPDATE]');
+define('CALCULATED_DNS_ROLLWEEK_SLA',			'rsm.configvalue[RSM.DNS.ROLLWEEK.SLA]');
+define('CALCULATED_RDDS_ROLLWEEK_SLA',			'rsm.configvalue[RSM.RDDS.ROLLWEEK.SLA]');
+define('CALCULATED_EPP_ROLLWEEK_SLA',			'rsm.configvalue[RSM.EPP.ROLLWEEK.SLA]');
+
+// SLA monitoring probe status items keys
+define('PROBE_STATUS_AUTOMATIC',	'rsm.probe.status[automatic,"{$RSM.IP4.ROOTSERVERS1}","{$RSM.IP6.ROOTSERVERS1}"]');
+define('PROBE_STATUS_MANUAL',		'rsm.probe.status[manual]');
+define('PROBE_DNS_UDP_ITEM',		'rsm.dns.udp[{$RSM.TLD}]');
+define('PROBE_DNS_UDP_ITEM_RTT',	'rsm.dns.udp.rtt[');
+define('PROBE_RDDS_ITEM',			'rsm.rdds[');
+define('PROBE_EPP_RESULT',			'rsm.epp[');
+define('PROBE_EPP_IP',				'rsm.epp.ip[{$RSM.TLD}]');
+define('PROBE_EPP_UPDATE',			'rsm.epp.rtt[{$RSM.TLD},update]');
+define('PROBE_EPP_INFO',			'rsm.epp.rtt[{$RSM.TLD},info]');
+define('PROBE_EPP_LOGIN',			'rsm.epp.rtt[{$RSM.TLD},login]');
+define('PROBE_RDDS43_IP',			'rsm.rdds.43.ip[{$RSM.TLD}]');
+define('PROBE_RDDS43_RTT',			'rsm.rdds.43.rtt[{$RSM.TLD}]');
+define('PROBE_RDDS43_UPD',			'rsm.rdds.43.upd[{$RSM.TLD}]');
+define('PROBE_RDDS80_IP',			'rsm.rdds.80.ip[{$RSM.TLD}]');
+define('PROBE_RDDS80_RTT',			'rsm.rdds.80.rtt[{$RSM.TLD}]');
+
+// SLA monitoring NS names
+define('NS_NO_RESULT',	0);
+define('NS_DOWN',		1);
+define('NS_UP',			2);
+
+// SLA monitoring probe status
+define('PROBE_DOWN',	0);
+define('PROBE_UP',		1);
+
+// SLA monitoring monthly reports item
+define('MONTHLY_REPORTS_APPLICATION',	'SLV monthly');
+
+// SLA monitoring monthly reports item keys
+define('MONTHLY_REPORTS_DNS_NS_RTT_UDP',	'rsm.slv.dns.ns.rtt.udp.month');
+define('MONTHLY_REPORTS_DNS_NS_RTT_TCP',	'rsm.slv.dns.ns.rtt.tcp.month');
+define('MONTHLY_REPORTS_DNS_NS_UPD',		'rsm.slv.dns.ns.upd.month');
+define('MONTHLY_REPORTS_DNS_NS',			'rsm.slv.dns.ns.month');
+define('MONTHLY_REPORTS_RDDS43_RTT',		'rsm.slv.rdds.43.rtt.month');
+define('MONTHLY_REPORTS_RDDS80_RTT',		'rsm.slv.rdds.80.rtt.month');
+define('MONTHLY_REPORTS_RDDS_UPD',			'rsm.slv.rdds.upd.month');
+define('MONTHLY_REPORTS_EPP_INFO',			'rsm.slv.epp.rtt.info.month');
+define('MONTHLY_REPORTS_EPP_LOGIN',			'rsm.slv.epp.rtt.login.month');
+define('MONTHLY_REPORTS_EPP_UPDATE',		'rsm.slv.epp.rtt.update.month');
+
+// SLA monitoring "rsm" host name
+define('RSM_HOST',	'rsm');
 
 // if magic quotes on, then get rid of them
-if (get_magic_quotes_gpc()) {
-	function zbx_stripslashes($value) {
-		$value = is_array($value) ? array_map('zbx_stripslashes', $value) : stripslashes($value);
-		return $value;
-	}
+if (version_compare(phpversion(), '6.0', '<') && get_magic_quotes_gpc()) {
 	$_GET = zbx_stripslashes($_GET);
 	$_POST = zbx_stripslashes($_POST);
 	$_COOKIE = zbx_stripslashes($_COOKIE);

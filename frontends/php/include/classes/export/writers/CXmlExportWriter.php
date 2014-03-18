@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -92,13 +92,9 @@ class CXmlExportWriter extends CExportWriter {
 			'applications' => 'application',
 			'items' => 'item',
 			'discovery_rules' => 'discovery_rule',
-			'conditions' => 'condition',
 			'item_prototypes' => 'item_prototype',
 			'trigger_prototypes' => 'trigger_prototype',
 			'graph_prototypes' => 'graph_prototype',
-			'host_prototypes' => 'host_prototype',
-			'group_links' => 'group_link',
-			'group_prototypes' => 'group_prototype',
 			'triggers' => 'trigger',
 			'dependencies' => 'dependency',
 			'screen_items' => 'screen_item',

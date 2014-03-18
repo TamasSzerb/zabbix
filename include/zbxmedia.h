@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@
 extern char	*CONFIG_SOURCE_IP;
 
 int	send_email(const char *smtp_server, const char *smtp_helo, const char *smtp_email, const char *mailto,
-		const char *mailsubject, const char *mailbody, char *error, size_t max_error_len);
+		const char *mailsubject, const char *mailbody, char *error, int max_error_len);
 int	send_ez_texting(const char *username, const char *password, const char *sendto,
 		const char *message, const char *limit, char *error, int max_error_len);
 #ifdef HAVE_JABBER

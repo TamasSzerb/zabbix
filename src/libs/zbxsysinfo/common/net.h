@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -90,8 +90,8 @@ extern char	*CONFIG_SOURCE_IP;
 
 int	tcp_expect(const char *host, unsigned short port, int timeout, const char *request,
 		const char *expect, const char *sendtoclose, int *value_int);
-int	NET_DNS(AGENT_REQUEST *request, AGENT_RESULT *result);
-int	NET_DNS_RECORD(AGENT_REQUEST *request, AGENT_RESULT *result);
-int	NET_TCP_PORT(AGENT_REQUEST *request, AGENT_RESULT *result);
+int	NET_DNS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
+int	NET_DNS_RECORD(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
+int	NET_TCP_PORT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result);
 
 #endif /* ZABBIX_SYSINFO_COMMON_NET_H */

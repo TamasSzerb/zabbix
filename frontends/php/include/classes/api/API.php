@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,7 +17,6 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
 
 class API {
 
@@ -50,7 +49,6 @@ class API {
 		'graphprototype' => 'CGraphPrototype',
 		'host' => 'CHost',
 		'hostgroup' => 'CHostGroup',
-		'hostprototype' => 'CHostPrototype',
 		'history' => 'CHistory',
 		'hostinterface' => 'CHostInterface',
 		'image' => 'CImage',
@@ -74,7 +72,7 @@ class API {
 		'usergroup' => 'CUserGroup',
 		'usermacro' => 'CUserMacro',
 		'usermedia' => 'CUserMedia',
-		'httptest' => 'CHttpTest'
+		'webcheck' => 'CWebCheck'
 	);
 
 	/**
@@ -135,7 +133,7 @@ class API {
 	}
 
 	public static function getObject($className) {
-		return (self::$return == self::RETURN_TYPE_API) ? self::getApi($className) : self::getRpc($className);
+		return self::$return == self::RETURN_TYPE_API ? self::getApi($className) : self::getRpc($className);
 	}
 
 	/**
@@ -248,13 +246,6 @@ class API {
 	 */
 	public static function Host() {
 		return self::getObject('host');
-	}
-
-	/**
-	 * @return CHostPrototype
-	 */
-	public static function HostPrototype() {
-		return self::getObject('hostprototype');
 	}
 
 	/**
@@ -419,9 +410,9 @@ class API {
 	}
 
 	/**
-	 * @return CHttpTest
+	 * @return CWebCheck
 	 */
-	public static function HttpTest() {
-		return self::getObject('httptest');
+	public static function WebCheck() {
+		return self::getObject('webcheck');
 	}
 }

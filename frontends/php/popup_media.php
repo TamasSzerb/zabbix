@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ define('ZBX_PAGE_NO_MENU', 1);
 
 require_once dirname(__FILE__).'/include/page_header.php';
 
-if (CWebUser::$data['alias'] == ZBX_GUEST_USER) {
+if ($USER_DETAILS['alias'] == ZBX_GUEST_USER) {
 	access_deny();
 }
 
@@ -107,19 +107,19 @@ $frmMedia->addVar('media', $media);
 $frmMedia->addVar('dstfrm', $_REQUEST['dstfrm']);
 
 $cmbType = new CComboBox('mediatypeid', $mediatypeid);
-$types = DBfetchArrayAssoc(DBselect(
-	'SELECT mt.mediatypeid,mt.description'.
-	' FROM media_type mt'.
-	whereDbNode('mt.mediatypeid')
-), 'mediatypeid');
-CArrayHelper::sort($types, array('description'));
-foreach ($types as $mediaTypeId => $type) {
-	$cmbType->addItem($mediaTypeId,
-		get_node_name_by_elid($type['mediatypeid'], null, NAME_DELIMITER).$type['description']
+$sql = 'SELECT mediatypeid,description '.
+		' FROM media_type'.
+		' WHERE '.DBin_node('mediatypeid').
+		' ORDER BY type';
+$types = DBselect($sql);
+while ($type = DBfetch($types)) {
+	$cmbType->addItem(
+		$type['mediatypeid'],
+		get_node_name_by_elid($type['mediatypeid'], null, ': ').$type['description']
 	);
 }
 $frmMedia->addRow(_('Type'), $cmbType);
-$frmMedia->addRow(_('Send to'), new CTextBox('sendto', $sendto, 48));
+$frmMedia->addRow(_('Send to'), new CTextBox('sendto', $sendto, 20));
 $frmMedia->addRow(_('When active'), new CTextBox('period', $period, 48));
 
 $frm_row = array();

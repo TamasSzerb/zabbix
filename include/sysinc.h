@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -390,17 +390,21 @@
 #	endif
 #endif
 
-/* Net-SNMP is used */
+/* NET-SNMP is used */
 #ifdef HAVE_NETSNMP
 #	include <net-snmp/net-snmp-config.h>
 #	include <net-snmp/net-snmp-includes.h>
 #endif
 
-/* LIBXML2 is used */
-#ifdef HAVE_LIBXML2
-#	include <libxml/parser.h>
-#	include <libxml/tree.h>
-#	include <libxml/xpath.h>
+/* Required for SNMP support*/
+#ifdef HAVE_UCDSNMP
+#	include <ucd-snmp/ucd-snmp-config.h>
+#	include <ucd-snmp/ucd-snmp-includes.h>
+#	include <ucd-snmp/system.h>
+/* For usmHMACMD5AuthProtocol */
+#	include <ucd-snmp/transform_oids.h>
+/* For generate_Ku() */
+#	include <ucd-snmp/keytools.h>
 #endif
 
 /* Required for advanced sigaction */
@@ -426,10 +430,6 @@
 
 #ifdef HAVE_MNTENT_H
 #	include <mntent.h>
-#endif
-
-#ifdef HAVE_DLFCN_H
-#	include <dlfcn.h>
 #endif
 
 #endif

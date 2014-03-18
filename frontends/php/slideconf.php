@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -21,6 +21,8 @@
 
 require_once dirname(__FILE__).'/include/config.inc.php';
 require_once dirname(__FILE__).'/include/screens.inc.php';
+require_once dirname(__FILE__).'/include/forms.inc.php';
+require_once dirname(__FILE__).'/include/maps.inc.php';
 
 $page['title'] = _('Configuration of slide shows');
 $page['file'] = 'slideconf.php';
@@ -59,10 +61,8 @@ if (isset($_REQUEST['slideshowid'])) {
 	if (!slideshow_accessible($_REQUEST['slideshowid'], PERM_READ_WRITE)) {
 		access_deny();
 	}
-
 	$dbSlideshow = get_slideshow_by_slideshowid(get_request('slideshowid'));
-
-	if (!$dbSlideshow) {
+	if (empty($dbSlideshow)) {
 		access_deny();
 	}
 }
@@ -71,11 +71,8 @@ if (isset($_REQUEST['go'])) {
 		access_deny();
 	}
 	else {
-		$dbSlideshowCount = DBfetch(DBselect(
-			'SELECT COUNT(*) AS cnt FROM slideshows s WHERE '.dbConditionInt('s.slideshowid', $_REQUEST['shows'])
-		));
-
-		if ($dbSlideshowCount['cnt'] != count($_REQUEST['shows'])) {
+		$dbSlideshowChk = DBfetch(DBselect('SELECT COUNT(*) AS cnt FROM slideshows s WHERE '.dbConditionInt('s.slideshowid', $_REQUEST['shows'])));
+		if ($dbSlideshowChk['cnt'] != count($_REQUEST['shows'])) {
 			access_deny();
 		}
 	}
@@ -91,67 +88,60 @@ if (isset($_REQUEST['clone']) && isset($_REQUEST['slideshowid'])) {
 	$_REQUEST['form'] = 'clone';
 }
 elseif (isset($_REQUEST['save'])) {
-	DBstart();
-
 	if (isset($_REQUEST['slideshowid'])) {
+		DBstart();
 		$result = update_slideshow($_REQUEST['slideshowid'], $_REQUEST['name'], $_REQUEST['delay'], get_request('slides', array()));
+		$result = DBend($result);
 
-		$messageSuccess = _('Slide show updated');
-		$messageFailed = _('Cannot update slide show');
-		$auditAction = AUDIT_ACTION_UPDATE;
+		$audit_action = AUDIT_ACTION_UPDATE;
+		show_messages($result, _('Slide show updated'), _('Cannot update slide show'));
 	}
 	else {
-		$result = add_slideshow($_REQUEST['name'], $_REQUEST['delay'], get_request('slides', array()));
+		DBstart();
+		$slideshowid = add_slideshow($_REQUEST['name'], $_REQUEST['delay'], get_request('slides', array()));
+		$result = DBend($slideshowid);
 
-		$messageSuccess = _('Slide show added');
-		$messageFailed = _('Cannot add slide show');
-		$auditAction = AUDIT_ACTION_ADD;
+		$audit_action = AUDIT_ACTION_ADD;
+		show_messages($result, _('Slide show added'), _('Cannot add slide show'));
 	}
 
 	if ($result) {
-		add_audit($auditAction, AUDIT_RESOURCE_SLIDESHOW, ' Name "'.$_REQUEST['name'].'" ');
+		add_audit($audit_action, AUDIT_RESOURCE_SLIDESHOW, ' Name "'.$_REQUEST['name'].'" ');
 		unset($_REQUEST['form'], $_REQUEST['slideshowid']);
 	}
-
-	$result = DBend($result);
-	show_messages($result, $messageSuccess, $messageFailed);
-	clearCookies($result);
 }
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['slideshowid'])) {
 	DBstart();
+	delete_slideshow($_REQUEST['slideshowid']);
+	$result = DBend();
 
-	$result = delete_slideshow($_REQUEST['slideshowid']);
-
+	show_messages($result, _('Slide show deleted'), _('Cannot delete slide show'));
 	if ($result) {
 		add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_SLIDESHOW, ' Name "'.$dbSlideshow['name'].'" ');
 	}
-	unset($_REQUEST['slideshowid'], $_REQUEST['form']);
 
-	$result = DBend($result);
-	show_messages($result, _('Slide show deleted'), _('Cannot delete slide show'));
-	clearCookies($result);
+	unset($_REQUEST['slideshowid'], $_REQUEST['form']);
 }
 elseif ($_REQUEST['go'] == 'delete') {
-	$goResult = true;
-
+	$go_result = true;
 	$shows = get_request('shows', array());
 	DBstart();
-
 	foreach ($shows as $showid) {
-		$goResult &= delete_slideshow($showid);
-		if (!$goResult) {
+		$go_result &= delete_slideshow($showid);
+		if (!$go_result) {
 			break;
 		}
 	}
-
-	$goResult = DBend($goResult);
-
-	if ($goResult) {
+	$go_result = DBend($go_result);
+	if ($go_result) {
 		unset($_REQUEST['form']);
 	}
-
-	show_messages($goResult, _('Slide show deleted'), _('Cannot delete slide show'));
-	clearCookies($goResult);
+	show_messages($go_result, _('Slide show deleted'), _('Cannot delete slide show'));
+}
+if ($_REQUEST['go'] != 'none' && !empty($go_result)) {
+	$url = new CUrl();
+	$path = $url->getPath();
+	insert_js('cookie.eraseArray(\''.$path.'\')');
 }
 
 /*
@@ -172,7 +162,7 @@ if (isset($_REQUEST['form'])) {
 		$data['delay'] = $dbSlideshow['delay'];
 
 		// get slides
-		$db_slides = DBselect('SELECT s.* FROM slides s WHERE s.slideshowid='.zbx_dbstr($data['slideshowid']).' ORDER BY s.step');
+		$db_slides = DBselect('SELECT s.* FROM slides s WHERE s.slideshowid='.$data['slideshowid'].' ORDER BY s.step');
 		while ($slide = DBfetch($db_slides)) {
 			$data['slides'][$slide['step']] = array(
 				'slideid' => $slide['slideid'],
@@ -195,30 +185,15 @@ if (isset($_REQUEST['form'])) {
 }
 else {
 	$data['slides'] = DBfetchArray(DBselect(
-			'SELECT s.slideshowid,s.name,s.delay,COUNT(sl.slideshowid) AS cnt'.
-			' FROM slideshows s'.
-				' LEFT JOIN slides sl ON sl.slideshowid=s.slideshowid'.
-			whereDbNode('s.slideshowid').
-			' GROUP BY s.slideshowid,s.name,s.delay'
+		'SELECT s.slideshowid,s.name,s.delay,COUNT(sl.slideshowid) AS cnt'.
+		' FROM slideshows s'.
+			' LEFT JOIN slides sl ON sl.slideshowid=s.slideshowid'.
+		' WHERE '.DBin_node('s.slideshowid').
+		' GROUP BY s.slideshowid,s.name,s.delay'
 	));
-
-	foreach ($data['slides'] as $key => $slide) {
-		if (!slideshow_accessible($slide['slideshowid'], PERM_READ_WRITE)) {
-			unset($data['slides'][$key]);
-		}
-	}
-
 	order_result($data['slides'], getPageSortField('name'), getPageSortOrder());
 
-	$data['paging'] = getPagingLine($data['slides'], array('slideshowid'));
-
-	// nodes
-	if ($data['displayNodes'] = is_array(get_current_nodeid())) {
-		foreach ($data['slides'] as &$slide) {
-			$slide['nodename'] = get_node_name_by_elid($slide['slideshowid'], true);
-		}
-		unset($slide);
-	}
+	$data['paging'] = getPagingLine($data['slides']);
 
 	// render view
 	$slideshowView = new CView('configuration.slideconf.list', $data);
@@ -227,3 +202,4 @@ else {
 }
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

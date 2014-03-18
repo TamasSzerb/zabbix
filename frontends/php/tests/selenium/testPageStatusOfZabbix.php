@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ require_once dirname(__FILE__).'/../include/class.cwebtest.php';
 class testPageStatusOfZabbix extends CWebTest {
 	public function testPageStatusOfZabbix_CheckLayout() {
 		$this->zbxTestLogin('report1.php');
-		$this->zbxTestCheckTitle('Status of Zabbix');
+		$this->checkTitle('Status of Zabbix');
 		$this->zbxTestTextPresent('STATUS OF ZABBIX');
 
 		// header
@@ -33,9 +33,13 @@ class testPageStatusOfZabbix extends CWebTest {
 		$this->zbxTestTextPresent('Zabbix server is running');
 		$this->zbxTestTextPresent('Number of hosts (monitored/not monitored/templates)');
 		$this->zbxTestTextPresent('Number of items (monitored/disabled/not supported)');
-		$this->zbxTestTextPresent('Number of triggers (enabled/disabled) [problem/ok]');
+		$this->zbxTestTextPresent('Number of triggers (enabled/disabled)[problem/unknown/ok]');
 		$this->zbxTestTextPresent('Number of users (online)');
 		$this->zbxTestTextPresent('Required server performance, new values per second');
 	}
 
+	public function testPageStatusOfZabbix_VerifyDisplayedNumbers() {
+// TODO
+		$this->markTestIncomplete();
+	}
 }

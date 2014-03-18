@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -341,7 +341,7 @@ int	get_value_ssh(DC_ITEM *item, AGENT_RESULT *result)
 	char	cmd[MAX_STRING_LEN], params[MAX_STRING_LEN], dns[INTERFACE_DNS_LEN_MAX],
 		port[8], encoding[32];
 
-	if (ZBX_COMMAND_ERROR == parse_command(item->key, cmd, sizeof(cmd), params, sizeof(params)))
+	if (0 == parse_command(item->key, cmd, sizeof(cmd), params, sizeof(params)))
 		return NOTSUPPORTED;
 
 	if (0 != strcmp(SSH_RUN_KEY, cmd))

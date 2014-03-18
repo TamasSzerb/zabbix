@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -30,6 +30,6 @@ int	update_checksums(int nodeid, int synked_nodetype, int synked, const char *ta
 		const zbx_uint64_t id, const char *fields);
 void	node_sync_lock(int nodeid);
 void	node_sync_unlock(int nodeid);
-void	process_nodes(void);
+void	process_nodes();
 
 #endif

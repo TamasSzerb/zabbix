@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -42,12 +42,12 @@ ZBX_MEM_FUNC_DECL(__strpool);
 
 static zbx_hash_t	__strpool_hash_func(const void *data)
 {
-	return ZBX_DEFAULT_STRING_HASH_FUNC((char *)data + REFCOUNT_FIELD_SIZE);
+	return ZBX_DEFAULT_STRING_HASH_FUNC(data + REFCOUNT_FIELD_SIZE);
 }
 
 static int	__strpool_compare_func(const void *d1, const void *d2)
 {
-	return strcmp((char *)d1 + REFCOUNT_FIELD_SIZE, (char *)d2 + REFCOUNT_FIELD_SIZE);
+	return strcmp(d1 + REFCOUNT_FIELD_SIZE, d2 + REFCOUNT_FIELD_SIZE);
 }
 
 ZBX_MEM_FUNC_IMPL(__strpool, strpool.mem_info);
@@ -68,7 +68,7 @@ void	zbx_strpool_create(size_t size)
 		exit(FAIL);
 	}
 
-	zbx_mem_create(&strpool.mem_info, shm_key, ZBX_NO_MUTEX, size, "string pool", "CacheSize", 0);
+	zbx_mem_create(&strpool.mem_info, shm_key, ZBX_NO_MUTEX, size, "string pool", "CacheSize");
 
 	strpool.hashset = __strpool_mem_malloc_func(NULL, sizeof(zbx_hashset_t));
 	zbx_hashset_create_ext(strpool.hashset, INIT_HASHSET_SIZE,
@@ -106,7 +106,7 @@ const char	*zbx_strpool_intern(const char *str)
 	refcount = (uint32_t *)record;
 	(*refcount)++;
 
-	return (char *)record + REFCOUNT_FIELD_SIZE;
+	return record + REFCOUNT_FIELD_SIZE;
 }
 
 const char	*zbx_strpool_acquire(const char *str)

@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -110,7 +110,7 @@ class testFormConfigTriggerSeverity extends CWebTest {
 
 	public function testFormTriggerSeverity_Layout() {
 		$this->zbxTestLogin('adm.triggerseverities.php');
-		$this->zbxTestCheckTitle('Configuration of trigger severities');
+		$this->checkTitle('Configuration of trigger severities');
 
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Trigger severities');
 

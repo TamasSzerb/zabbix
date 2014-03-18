@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -22,34 +22,19 @@
 
 #include "common.h"
 #include "zbxjson.h"
-#include "zbxalgo.h"
 
-typedef struct
-{
-	zbx_uint64_t	parent_itemid;
-	zbx_uint64_t	itemid;		/* the item, created by the item prototype */
-}
-zbx_lld_item_link_t;
+int	lld_check_record(struct zbx_json_parse *jp_row, const char *f_macro, const char *f_regexp, ZBX_REGEXP *regexps,
+		int regexps_num);
+int	DBlld_get_item(zbx_uint64_t hostid, const char *tmpl_key, struct zbx_json_parse *jp_row, zbx_uint64_t *itemid);
 
-typedef struct
-{
-	struct zbx_json_parse	jp_row;
-	zbx_vector_ptr_t	item_links;	/* the list of item prototypes */
-}
-zbx_lld_row_t;
-
-void	lld_field_str_rollback(char **field, char **field_orig, zbx_uint64_t *flags, zbx_uint64_t flag);
-void	lld_field_uint64_rollback(zbx_uint64_t *field, zbx_uint64_t *field_orig, zbx_uint64_t *flags,
-		zbx_uint64_t flag);
-
-void	lld_update_items(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, zbx_vector_ptr_t *lld_rows, char **error,
+void	DBlld_update_items(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, struct zbx_json_parse *jp_data,
+		char **error, const char *f_macro, const char *f_regexp, ZBX_REGEXP *regexps, int regexps_num,
 		unsigned short lifetime, int lastcheck);
 
-void	lld_update_triggers(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, zbx_vector_ptr_t *lld_rows, char **error);
+void	DBlld_update_triggers(zbx_uint64_t hostid, zbx_uint64_t discovery_itemid, struct zbx_json_parse *jp_data,
+		char **error, const char *f_macro, const char *f_regexp, ZBX_REGEXP *regexps, int regexps_num);
 
-void	lld_update_graphs(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, zbx_vector_ptr_t *lld_rows, char **error);
-
-void	lld_update_hosts(zbx_uint64_t lld_ruleid, zbx_vector_ptr_t *lld_rows, char **error, unsigned short lifetime,
-		int lastcheck);
+void	DBlld_update_graphs(zbx_uint64_t hostid, zbx_uint64_t discovery_itemid, struct zbx_json_parse *jp_data,
+		char **error, const char *f_macro, const char *f_regexp, ZBX_REGEXP *regexps, int regexps_num);
 
 #endif

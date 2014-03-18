@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -23,13 +23,13 @@ $screenWidget = new CWidget();
 $screenWidget->addFlicker(new CDiv(null, null, 'scrollbar_cntr'), CProfile::get('web.hostscreen.filter.state', 1));
 
 $form = new CForm('get');
-$form->addVar('fullscreen', $this->data['fullscreen']);
+$form->addVar('fullscreen', $_REQUEST['fullscreen']);
 $screenWidget->addItem($form);
 
 if (empty($this->data['screen']) || empty($this->data['host'])) {
 	$screenWidget->addPageHeader(_('SCREENS'));
 	$screenWidget->addItem(BR());
-	$screenWidget->addItem(new CTableInfo(_('No screens found.')));
+	$screenWidget->addItem(new CTableInfo(_('No screens defined.')));
 
 	$screenBuilder = new CScreenBuilder();
 	CScreenBuilder::insertScreenStandardJs(array(
@@ -51,7 +51,7 @@ else {
 			$screenComboBox->addItem('host_screen.php?hostid='.$this->data['hostid'].'&screenid='.$screen['screenid'], $screen['name']);
 		}
 
-		$screenWidget->addHeader(array($this->data['screen']['name'], SPACE, _('on'), SPACE, new CSpan($this->data['host']['name'], 'parent-discovery')), $screenComboBox);
+		$screenWidget->addHeader(array($this->data['screen']['name'], SPACE, _('on'), SPACE, new CSpan($this->data['host']['name'], 'gold')), $screenComboBox);
 	}
 
 	// append screens to widget

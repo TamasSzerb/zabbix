@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -26,9 +26,7 @@
 #include "sysinfo.h"
 
 extern char	*CONFIG_SOURCE_IP;
-extern int	CONFIG_TIMEOUT;
 
-int	get_value_snmp(const DC_ITEM *item, AGENT_RESULT *result);
-void	get_values_snmp(const DC_ITEM *items, AGENT_RESULT *results, int *errcodes, int num);
+int	get_value_snmp(DC_ITEM *item, AGENT_RESULT *value);
 
 #endif

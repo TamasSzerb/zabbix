@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ class testPageNodes extends CWebTest {
 	public function testPageNodes_StandaloneSetup() {
 
 		$this->zbxTestLogin('nodes.php');
-		$this->zbxTestCheckTitle('Configuration of nodes');
+		$this->checkTitle('Configuration of nodes');
 		$this->zbxTestTextPresent('DM');
 		$this->zbxTestTextPresent('CONFIGURATION OF NODES');
 		if (0 == DBcount("select * from nodes order by nodeid")) {
@@ -45,7 +45,7 @@ class testPageNodes extends CWebTest {
 	public function testPageNodes_CheckLayout($node) {
 
 		$this->zbxTestLogin('nodes.php');
-		$this->zbxTestCheckTitle('Configuration of nodes');
+		$this->checkTitle('Configuration of nodes');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF NODES', 'NODES', 'ID', 'Name', 'IP:Port'));
 		$this->assertElementPresent('config');
 		$this->assertElementPresent('form');

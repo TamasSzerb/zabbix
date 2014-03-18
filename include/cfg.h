@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -23,8 +23,6 @@
 #define	TYPE_INT		0
 #define	TYPE_STRING		1
 #define	TYPE_MULTISTRING	2
-#define	TYPE_UINT64		3
-#define	TYPE_STRING_LIST	4
 
 #define	PARM_OPT	0
 #define	PARM_MAND	1
@@ -43,12 +41,12 @@ extern int	CONFIG_TIMEOUT;
 
 struct cfg_line
 {
-	char		*parameter;
-	void		*variable;
-	int		type;
-	int		mandatory;
-	zbx_uint64_t	min;
-	zbx_uint64_t	max;
+	char	*parameter;
+	void	*variable;
+	int	type;
+	int	mandatory;
+	int	min;
+	int	max;
 };
 
 int	parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int optional, int strict);

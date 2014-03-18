@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -22,7 +22,6 @@ require_once dirname(__FILE__).'/../include/class.cwebtest.php';
 
 class testFormScreen extends CWebTest {
 	public $testscreen = 'Test Screen';
-	public $testscreen_ = 'Test screen (simple graph)';
 
 	public function testFormScreen_Create() {
 		$this->chooseOkOnNextConfirmation();
@@ -33,22 +32,4 @@ class testFormScreen extends CWebTest {
 		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Screen added');
 	}
-
-	public function testFormScreen_ZBX6030() {
-		$this->zbxTestLogin('screenconf.php');
-		$this->zbxTestClickWait('link='.$this->testscreen_);
-		$this->zbxTestClickWait('link=Change');
-		$this->assertElementNotPresent('//input[@id=\'dynamic\']/@checked');
-		$this->zbxTestCheckboxSelect('dynamic');
-		$this->zbxTestClickWait('save');
-		$this->zbxTestTextPresent('Item updated');
-		$this->zbxTestClickWait('link=Change');
-		$this->assertElementPresent('//input[@id=\'dynamic\']/@checked');
-		$this->zbxTestCheckboxSelect('dynamic', false);
-		$this->zbxTestClickWait('save');
-		$this->zbxTestTextPresent('Item updated');
-		$this->zbxTestClickWait('link=Change');
-		$this->assertElementNotPresent('//input[@id=\'dynamic\']/@checked');
-	}
-
 }

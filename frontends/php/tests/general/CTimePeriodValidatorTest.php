@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -119,7 +119,7 @@ class CTimePeriodValidatorTest extends PHPUnit_Framework_TestCase {
 	* @dataProvider provider
 	*/
 	public function test_parseTimePeriod($period, $allowMultiple, $expectedResult) {
-		$validator = new CTimePeriodValidator(array('allowMultiple' => $allowMultiple));
+		$validator = new CTimePeriodValidator(array('allow_multiple' => $allowMultiple));
 
 		$resultPeriod = $validator->validate($period);
 		if ($expectedResult === false) {

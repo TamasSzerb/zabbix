@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -38,7 +38,7 @@ class CProfile {
 			'SELECT p.*'.
 			' FROM profiles p'.
 			' WHERE p.userid='.self::$userDetails['userid'].
-				andDbNode('p.profileid', false).
+				' AND '.DBin_node('p.profileid', false).
 			' ORDER BY p.userid,p.profileid'
 		);
 		while ($profile = DBfetch($db_profiles)) {
@@ -51,24 +51,21 @@ class CProfile {
 		}
 	}
 
-	/**
-	 * Check if data needs to be inserted or updated.
-	 *
-	 * @return bool
-	 */
-	public static function isModified() {
-		return (self::$insert || self::$update);
-	}
-
 	public static function flush() {
-		$result = false;
+		// if not initialised, no changes were made
+		if (is_null(self::$profiles)) {
+			return true;
+		}
 
-		if (self::$profiles !== null && self::$userDetails['userid'] > 0 && self::isModified()) {
-			$result = true;
+		if (self::$userDetails['userid'] <= 0) {
+			return null;
+		}
 
+		if (!empty(self::$insert) || !empty(self::$update)) {
+			DBstart();
 			foreach (self::$insert as $idx => $profile) {
 				foreach ($profile as $idx2 => $data) {
-					$result &= self::insertDB($idx, $data['value'], $data['type'], $idx2);
+					self::insertDB($idx, $data['value'], $data['type'], $idx2);
 				}
 			}
 
@@ -76,12 +73,11 @@ class CProfile {
 			foreach (self::$update as $idx => $profile) {
 				ksort($profile);
 				foreach ($profile as $idx2 => $data) {
-					$result &= self::updateDB($idx, $data['value'], $data['type'], $idx2);
+					self::updateDB($idx, $data['value'], $data['type'], $idx2);
 				}
 			}
+			DBend();
 		}
-
-		return $result;
 	}
 
 	public static function clear() {
@@ -107,82 +103,6 @@ class CProfile {
 		}
 	}
 
-	/**
-	 * Removes profile values from DB and profiles cache.
-	 *
-	 * @param string 		$idx	first identifier
-	 * @param int|array  	$idx2	second identifier, which can be list of identifiers as well
-	 */
-	public static function delete($idx, $idx2 = 0) {
-		if (is_null(self::$profiles)) {
-			self::init();
-		}
-
-		if (!isset(self::$profiles[$idx])) {
-			return;
-		}
-
-		// pick existing Idx2
-		$deleteIdx2 = array();
-		foreach ((array) $idx2 as $checkIdx2) {
-			if (isset(self::$profiles[$idx][$checkIdx2])) {
-				$deleteIdx2[] = $checkIdx2;
-			}
-		}
-
-		if (!$deleteIdx2) {
-			return;
-		}
-
-		// remove from DB
-		self::deleteValues($idx, $deleteIdx2);
-
-		// remove from cache
-		foreach ($deleteIdx2 as $v) {
-			unset(self::$profiles[$idx][$v]);
-		}
-		if (!self::$profiles[$idx]) {
-			unset(self::$profiles[$idx]);
-		}
-	}
-
-	/**
-	 * Removes all values stored under the given idx.
-	 *
-	 * @param string $idx
-	 */
-	public static function deleteIdx($idx) {
-		if (self::$profiles === null) {
-			self::init();
-		}
-
-		if (!isset(self::$profiles[$idx])) {
-			return;
-		}
-
-		self::deleteValues($idx, array_keys(self::$profiles[$idx]));
-		unset(self::$profiles[$idx]);
-	}
-
-	/**
-	 * Deletes the given values from the DB.
-	 *
-	 * @param string 	$idx
-	 * @param array 	$idx2
-	 */
-	protected static function deleteValues($idx, array $idx2) {
-		// remove from DB
-		DB::delete('profiles', array('idx' => $idx, 'idx2' => $idx2));
-	}
-
-	/**
-	 * Update favorite values in DB profiles table.
-	 *
-	 * @param string	$idx		max length is 96
-	 * @param mixed		$value		max length 255 for string
-	 * @param int		$type
-	 * @param int		$idx2
-	 */
 	public static function update($idx, $value, $type, $idx2 = 0) {
 		if (is_null(self::$profiles)) {
 			self::init();
@@ -229,8 +149,8 @@ class CProfile {
 			'userid' => self::$userDetails['userid'],
 			'idx' => zbx_dbstr($idx),
 			$value_type => zbx_dbstr($value),
-			'type' => $type,
-			'idx2' => $idx2
+			'type' => zbx_dbstr($type),
+			'idx2' => zbx_dbstr($idx2)
 		);
 		return DBexecute('INSERT INTO profiles ('.implode(', ', array_keys($values)).') VALUES ('.implode(', ', $values).')');
 	}
@@ -239,11 +159,11 @@ class CProfile {
 		$sql_cond = '';
 
 		if ($idx != 'web.nodes.switch_node') {
-			$sql_cond .= andDbNode('profileid', false);
+			$sql_cond .= ' AND '.DBin_node('profileid', false);
 		}
 
 		if ($idx2 > 0) {
-			$sql_cond .= ' AND idx2='.$idx2.andDbNode('idx2', false);
+			$sql_cond .= ' AND idx2='.zbx_dbstr($idx2).' AND '.DBin_node('idx2', false);
 		}
 
 		$value_type = self::getFieldByType($type);
@@ -251,7 +171,7 @@ class CProfile {
 		return DBexecute(
 			'UPDATE profiles SET '.
 				$value_type.'='.zbx_dbstr($value).','.
-				' type='.$type.
+				' type='.zbx_dbstr($type).
 			' WHERE userid='.self::$userDetails['userid'].
 				' AND idx='.zbx_dbstr($idx).
 				$sql_cond
@@ -299,11 +219,7 @@ function select_config($cache = true, $nodeid = null) {
 		$nodeid = $ZBX_LOCALNODEID;
 	}
 
-	$db_config = DBfetch(DBselect(
-			'SELECT c.*'.
-			' FROM config c'.
-			whereDbNode('c.configid', $nodeid)
-	));
+	$db_config = DBfetch(DBselect('SELECT c.* FROM config c WHERE '.DBin_node('c.configid', $nodeid)));
 	if (!empty($db_config)) {
 		$config = $db_config;
 		return $db_config;
@@ -334,7 +250,7 @@ function update_config($configs) {
 	if (isset($configs['discovery_groupid'])) {
 		$groupid = API::HostGroup()->get(array(
 			'groupids' => $configs['discovery_groupid'],
-			'output' => array('groupid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'preservekeys' => true
 		));
 		if (empty($groupid)) {
@@ -356,11 +272,10 @@ function update_config($configs) {
 		'ok_unack_color',
 		'ok_ack_color'
 	);
-	$colorvalidator = new CColorValidator();
 	foreach ($colors as $color) {
 		if (isset($configs[$color]) && !is_null($configs[$color])) {
-			if (!$colorvalidator->validate($configs[$color])) {
-				error($colorvalidator->getError());
+			if (!preg_match('/[0-9a-f]{6}/i', $configs[$color])) {
+				error(_('Colour is not correct: expecting hexadecimal colour code (6 symbols).'));
 				return false;
 			}
 		}
@@ -403,7 +318,7 @@ function update_config($configs) {
 	foreach ($configs as $key => $value) {
 		if (!is_null($value)) {
 			if ($key == 'alert_usrgrpid') {
-				$update[] = $key.'='.(($value == '0') ? 'NULL' : $value);
+				$update[] = $key.'='.zero2null($value);
 			}
 			else{
 				$update[] = $key.'='.zbx_dbstr($value);
@@ -416,11 +331,7 @@ function update_config($configs) {
 		return null;
 	}
 
-	return DBexecute(
-			'UPDATE config'.
-			' SET '.implode(',', $update).
-			whereDbNode('configid', false)
-	);
+	return DBexecute('UPDATE config SET '.implode(',', $update).' WHERE '.DBin_node('configid', false));
 }
 
 /************ HISTORY **************/
@@ -452,28 +363,20 @@ function get_user_history() {
 	return $result;
 }
 
-/**
- * Check if url length is greater than DB field size. If size is OK, return URL string.
- *
- * @param string $page['hist_arg']
- * @param string $page['file']
- *
- * @return string
- */
-function getHistoryUrl($page) {
+function add_user_history($page) {
+	$userid = CWebUser::$data['userid'];
+	$title = $page['title'];
+
 	if (isset($page['hist_arg']) && is_array($page['hist_arg'])) {
 		$url = '';
-
 		foreach ($page['hist_arg'] as $arg) {
 			if (isset($_REQUEST[$arg])) {
 				$url .= url_param($arg, true);
 			}
 		}
-
-		if ($url) {
+		if (!empty($url)) {
 			$url[0] = '?';
 		}
-
 		$url = $page['file'].$url;
 	}
 	else {
@@ -482,27 +385,34 @@ function getHistoryUrl($page) {
 
 	// if url length is greater than db field size, skip history update
 	$historyTableSchema = DB::getSchema('user_history');
-
-	return (zbx_strlen($url) > $historyTableSchema['fields']['url5']['length']) ? '' : $url;
-}
-
-function addUserHistory($title, $url) {
-	$userId = CWebUser::$data['userid'];
+	if (zbx_strlen($url) > $historyTableSchema['fields']['url5']['length']) {
+		return false;
+	}
 
 	$history5 = DBfetch(DBSelect(
 		'SELECT uh.title5,uh.url5'.
 		' FROM user_history uh'.
-		' WHERE uh.userid='.$userId
+		' WHERE uh.userid='.zbx_dbstr($userid)
 	));
 
-	if ($history5) {
-		if ($history5['title5'] === $title) {
-			if ($history5['url5'] === $url) {
-				return true;
-			}
-			else {
-				$sql = 'UPDATE user_history SET url5='.zbx_dbstr($url).' WHERE userid='.$userId;
-			}
+	if ($history5 && ($history5['title5'] == $title)) {
+		if ($history5['url5'] != $url) {
+			// title same, url isnt, change only url
+			$sql = 'UPDATE user_history'.
+					' SET url5='.zbx_dbstr($url).
+					' WHERE userid='.zbx_dbstr($userid);
+		}
+		else {
+			// no need to change anything;
+			return null;
+		}
+	}
+	else {
+		// new page with new title is added
+		if ($history5 === false) {
+			$userhistoryid = get_dbid('user_history', 'userhistoryid');
+			$sql = 'INSERT INTO user_history (userhistoryid, userid, title5, url5)'.
+					' VALUES('.$userhistoryid.', '.zbx_dbstr($userid).', '.zbx_dbstr($title).', '.zbx_dbstr($url).')';
 		}
 		else {
 			$sql = 'UPDATE user_history'.
@@ -516,15 +426,70 @@ function addUserHistory($title, $url) {
 						' url4=url5,'.
 						' title5='.zbx_dbstr($title).','.
 						' url5='.zbx_dbstr($url).
-					' WHERE userid='.$userId;
+					' WHERE userid='.zbx_dbstr($userid);
 		}
 	}
-	else {
-		$userHistoryId = get_dbid('user_history', 'userhistoryid');
+	return DBexecute($sql);
+}
 
-		$sql = 'INSERT INTO user_history (userhistoryid, userid, title5, url5)'.
-				' VALUES('.$userHistoryId.', '.$userId.', '.zbx_dbstr($title).', '.zbx_dbstr($url).')';
+/********** USER FAVORITES ***********/
+function get_favorites($idx) {
+	$result = array();
+
+	$db_profiles = DBselect(
+		'SELECT p.value_id,p.source'.
+		' FROM profiles p'.
+		' WHERE p.userid='.CWebUser::$data['userid'].
+			' AND p.idx='.zbx_dbstr($idx).
+		' ORDER BY p.profileid'
+	);
+	while ($profile = DBfetch($db_profiles)) {
+		$result[] = array('value' => $profile['value_id'], 'source' => $profile['source']);
+	}
+	return $result;
+}
+
+function add2favorites($favobj, $favid, $source = null) {
+	$favorites = get_favorites($favobj);
+
+	foreach ($favorites as $favorite) {
+		if ($favorite['source'] == $source && $favorite['value'] == $favid) {
+			return true;
+		}
 	}
 
-	return DBexecute($sql);
+	DBstart();
+	$values = array(
+		'profileid' => get_dbid('profiles', 'profileid'),
+		'userid' => CWebUser::$data['userid'],
+		'idx' => zbx_dbstr($favobj),
+		'value_id' => zbx_dbstr($favid),
+		'type' => PROFILE_TYPE_ID
+	);
+	if (!is_null($source)) {
+		$values['source'] = zbx_dbstr($source);
+	}
+	return DBend(DBexecute('INSERT INTO profiles ('.implode(', ', array_keys($values)).') VALUES ('.implode(', ', $values).')'));
+}
+
+function rm4favorites($favobj, $favid = 0, $source = null) {
+	return DBexecute(
+		'DELETE FROM profiles'.
+		' WHERE userid='.CWebUser::$data['userid'].
+			' AND idx='.zbx_dbstr($favobj).
+			($favid > 0 ? ' AND value_id='.zbx_dbstr($favid) : '').
+			(is_null($source) ? '' : ' AND source='.zbx_dbstr($source))
+	);
+}
+
+function infavorites($favobj, $favid, $source = null) {
+	$favorites = get_favorites($favobj);
+	foreach ($favorites as $favorite) {
+		if (bccomp($favid, $favorite['value']) == 0) {
+			if (is_null($source) || ($favorite['source'] == $source)) {
+				return true;
+			}
+		}
+	}
+	return false;
 }

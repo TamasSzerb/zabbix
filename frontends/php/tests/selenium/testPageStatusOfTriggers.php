@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ require_once dirname(__FILE__).'/../include/class.cwebtest.php';
 class testPageStatusOfTriggers extends CWebTest {
 	public function testPageStatusOfTriggers_CheckLayout() {
 		$this->zbxTestLogin('tr_status.php');
-		$this->zbxTestCheckTitle('Status of triggers \[refreshed every 30 sec\]');
+		$this->checkTitle('Status of triggers \[refreshed every 30 sec\]');
 		$this->zbxTestTextPresent('STATUS OF TRIGGERS');
 		$this->zbxTestTextPresent('Triggers');
 		$this->zbxTestTextPresent('Displaying');
@@ -34,7 +34,7 @@ class testPageStatusOfTriggers extends CWebTest {
 // Check that no real host or template names displayed
 	public function testPageStatusOfTriggers_NoHostNames() {
 		$this->zbxTestLogin('tr_status.php');
-		$this->zbxTestCheckTitle('Status of triggers \[refreshed every 30 sec\]');
+		$this->checkTitle('Status of triggers \[refreshed every 30 sec\]');
 		$this->checkNoRealHostnames();
 	}
 }

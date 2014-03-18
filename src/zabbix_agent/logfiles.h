@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,16 +20,9 @@
 #ifndef ZABBIX_LOGFILES_H
 #define ZABBIX_LOGFILES_H
 
-#include "zbxregexp.h"
-
-int	process_log(char *filename, zbx_uint64_t *lastlogsize, int *mtime, unsigned char *skip_old_data, int *big_rec,
-		const char *encoding, zbx_vector_ptr_t *regexps, const char *pattern, const char *output_template,
-		int *p_count, int *s_count, zbx_process_value_func_t process_value, const char *server,
-		unsigned short port, const char *hostname, const char *key);
-
-int	process_logrt(char *filename, zbx_uint64_t *lastlogsize, int *mtime, unsigned char *skip_old_data,
-		int *big_rec, const char *encoding, zbx_vector_ptr_t *regexps, const char *pattern,
-		const char *output_template, int *p_count, int *s_count, zbx_process_value_func_t process_value,
-		const char *server, unsigned short port, const char *hostname, const char *key);
+int	process_log(char *filename, zbx_uint64_t *lastlogsize, char **value, const char *encoding,
+		unsigned char skip_old_data);
+int	process_logrt(char *fileformat, zbx_uint64_t *lastlogsize, int *mtime, char **value, const char *encoding,
+		unsigned char skip_old_data);
 
 #endif

@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -37,14 +37,14 @@ class CRadioButtonList extends CDiv {
 		parent::__construct(null, null, $name);
 	}
 
-	public function addValue($name, $value, $checked = null, $id = null) {
+	public function addValue($name, $value, $checked = null) {
 		$this->count++;
 
-		if (is_null($id)) {
-			$id = zbx_formatDomId($this->name).'_'.$this->count;
-		}
+		$id = str_replace(array('[', ']'), array('_'), $this->name).'_'.$this->count;
 
-		$radio = new CInput('radio', $this->name, $value, null, $id);
+		$radio = new CInput('radio', $this->name, $value);
+		$radio->attr('id', zbx_formatDomId($id));
+
 		if (strcmp($value, $this->value) == 0 || !is_null($checked) || $checked) {
 			$radio->attr('checked', 'checked');
 		}

@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -46,28 +46,21 @@ class CWebUser {
 				self::$data['url'] = CProfile::get('web.menu.view.last', 'index.php');
 			}
 
-			$result = (bool) self::$data;
-
 			if (isset(self::$data['attempt_failed']) && self::$data['attempt_failed']) {
 				CProfile::init();
 				CProfile::update('web.login.attempt.failed', self::$data['attempt_failed'], PROFILE_TYPE_INT);
 				CProfile::update('web.login.attempt.ip', self::$data['attempt_ip'], PROFILE_TYPE_STR);
 				CProfile::update('web.login.attempt.clock', self::$data['attempt_clock'], PROFILE_TYPE_INT);
-				$result &= CProfile::flush();
+				CProfile::flush();
 			}
 
 			// remove guest session after successful login
-			$result &= DBexecute('DELETE FROM sessions WHERE sessionid='.zbx_dbstr(get_cookie('zbx_sessionid')));
+			DBexecute('DELETE FROM sessions WHERE sessionid='.zbx_dbstr(get_cookie('zbx_sessionid')));
 
-			if ($result) {
-				zbx_setcookie('zbx_sessionid', self::$data['sessionid'],
-					self::$data['autologin'] ? time() + SEC_PER_DAY * 31 : 0
-				);
+			zbx_setcookie('zbx_sessionid', self::$data['sessionid'], self::$data['autologin'] ? time() + SEC_PER_DAY * 31 : 0);
 
-				add_audit_ext(AUDIT_ACTION_LOGIN, AUDIT_RESOURCE_USER, self::$data['userid'], '', null, null, null);
-			}
-
-			return $result;
+			self::makeGlobal();
+			return true;
 		}
 		catch (Exception $e) {
 			self::setDefault();
@@ -109,6 +102,7 @@ class CWebUser {
 
 			zbx_setcookie('zbx_sessionid', $sessionid, self::$data['autologin'] ? time() + SEC_PER_DAY * 31 : 0);
 
+			self::makeGlobal();
 			return true;
 		}
 		catch (Exception $e) {
@@ -125,6 +119,13 @@ class CWebUser {
 			'type' => '0',
 			'node' => array('name' => '- unknown -', 'nodeid' => 0)
 		);
+		self::makeGlobal();
+	}
+
+	private static function makeGlobal() {
+		global $USER_DETAILS;
+
+		$USER_DETAILS = self::$data;
 	}
 
 	/**
@@ -136,23 +137,5 @@ class CWebUser {
 	 */
 	public static function getType() {
 		return self::$data['type'];
-	}
-
-	/**
-	 * Returns true if the current user is logged in.
-	 *
-	 * @return bool
-	 */
-	public static function isLoggedIn() {
-		return (self::$data['userid']);
-	}
-
-	/**
-	 * Returns true if the user is not logged in or logged in as Guest.
-	 *
-	 * @return bool
-	 */
-	public static function isGuest() {
-		return (self::$data['alias'] == ZBX_GUEST_USER);
 	}
 }

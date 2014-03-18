@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -39,10 +39,9 @@ $proxyForm = new CForm('get');
 $proxyForm->setName('proxyForm');
 
 // create table
-$proxyTable = new CTableInfo(_('No proxies found.'));
+$proxyTable = new CTableInfo(_('No proxies defined.'));
 $proxyTable->setHeader(array(
 	new CCheckBox('all_hosts', null, "checkAll('".$proxyForm->getName()."', 'all_hosts', 'hosts');"),
-	$this->data['displayNodes'] ? _('Node') : null,
 	make_sorting_header(_('Name'), 'host'),
 	_('Mode'),
 	_('Last seen (age)'),
@@ -56,17 +55,7 @@ foreach ($this->data['proxies'] as $proxy) {
 	$hosts = array();
 
 	if (!empty($proxy['hosts'])) {
-		$i = 1;
-
 		foreach ($proxy['hosts'] as $host) {
-			if ($i > $this->data['config']['max_in_table']) {
-				$hosts[] = ' &hellip;';
-
-				break;
-			}
-
-			$i++;
-
 			if ($host['status'] == HOST_STATUS_MONITORED) {
 				$style = 'off';
 			}
@@ -77,12 +66,11 @@ foreach ($this->data['proxies'] as $proxy) {
 				$style = 'on';
 			}
 
-			if ($hosts) {
-				$hosts[] = ', ';
-			}
-
 			$hosts[] = new CLink($host['name'], 'hosts.php?form=update&hostid='.$host['hostid'], $style);
+			$hosts[] = ', ';
 		}
+
+		array_pop($hosts);
 	}
 
 	$lastAccess = '-';
@@ -92,7 +80,6 @@ foreach ($this->data['proxies'] as $proxy) {
 
 	$proxyTable->addRow(array(
 		new CCheckBox('hosts['.$proxy['proxyid'].']', null, null, $proxy['proxyid']),
-		$this->data['displayNodes'] ? $proxy['nodename'] : null,
 		isset($proxy['host']) ? new CLink($proxy['host'], 'proxies.php?form=update&proxyid='.$proxy['proxyid']) : '',
 		(isset($proxy['status']) && $proxy['status'] == HOST_STATUS_PROXY_ACTIVE) ? _('Active') : _('Passive'),
 		$lastAccess,

@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ Curl.prototype = {
 	protocol:	'',
 	username:	'',
 	password:	'',
-	file:		'',
+	filr:		'',
 	reference:	'',
 	path:		'',
 	query:		'',

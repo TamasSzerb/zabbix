@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -20,6 +20,6 @@
 #ifndef ZABBIX_NODECHANGE_H
 #define ZABBIX_NODECHANGE_H
 
-int	change_nodeid(int nodeid);
+int	change_nodeid(int old_id, int new_id);
 
 #endif

@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -41,8 +41,7 @@ static int	get_net_stat(const char *if_name, net_stat_t *result)
 	char	line[MAX_STRING_LEN], name[MAX_STRING_LEN], *p;
 	FILE	*f;
 
-	if (NULL == if_name || '\0' == *if_name)
-		return SYSINFO_RET_FAIL;
+	assert(result);
 
 	if (NULL != (f = fopen("/proc/net/dev", "r")))
 	{
@@ -63,7 +62,7 @@ static int	get_net_stat(const char *if_name, net_stat_t *result)
 					&(result->ierr),	/* errs */
 					&(result->idrop),	/* drop */
 					&(result->obytes),	/* bytes */
-					&(result->opackets),	/* packets */
+					&(result->opackets),	/* packets*/
 					&(result->oerr),	/* errs */
 					&(result->odrop),	/* drop */
 					&(result->colls)))	/* icolls */
@@ -85,60 +84,24 @@ static int	get_net_stat(const char *if_name, net_stat_t *result)
 	return ret;
 }
 
-/******************************************************************************
- *                                                                            *
- * Function: proc_read_file                                                   *
- *                                                                            *
- * Purpose: reads whole file into a buffer in a single read operation         *
- *                                                                            *
- * Parameters: filename     - [IN] the file to read                           *
- *             buffer       - [IN/OUT] the output buffer                      *
- *             buffer_alloc - [IN/OUT] the output buffer size                 *
- *                                                                            *
- * Return value: -1 error occurred during reading                             *
- *                0 empty file (shouldn't happen)                             *
- *               >0 the number of bytes read                                  *
- *                                                                            *
- * Comments: When reading line by line the file might be changed between      *
- *           reads resulting in a possible information loss. To avoid it      *
- *           try reading/expanding the buffer until it fits the whole file.   *
- *                                                                            *
- ******************************************************************************/
-static int	proc_read_file(const char *filename, char **buffer, int *buffer_alloc)
-{
-	int	n, fd;
-
-	if (-1 == (fd = open(filename, O_RDONLY)))
-		return -1;
-
-	while (*buffer_alloc == (n = read(fd, *buffer, *buffer_alloc)))
-	{
-		*buffer_alloc *= 2;
-		*buffer = zbx_realloc(*buffer, *buffer_alloc);
-
-		lseek(fd, 0, SEEK_SET);
-	}
-
-	close(fd);
-
-	return n;
-}
-
-int	NET_IF_IN(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	NET_IF_IN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	net_stat_t	ns;
-	char		*if_name, *mode;
+	char		if_name[MAX_STRING_LEN], mode[16];
 
-	if (2 < request->nparam)
+	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
 
-	if_name = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
+	if (0 != get_param(param, 1, if_name, sizeof(if_name)))
+		return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
 
 	if (SYSINFO_RET_OK != get_net_stat(if_name, &ns))
 		return SYSINFO_RET_FAIL;
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "bytes"))	/* default parameter */
+	if ('\0' == *mode || 0 == strcmp(mode, "bytes"))	/* default parameter */
 		SET_UI64_RESULT(result, ns.ibytes);
 	else if (0 == strcmp(mode, "packets"))
 		SET_UI64_RESULT(result, ns.ipackets);
@@ -152,21 +115,24 @@ int	NET_IF_IN(AGENT_REQUEST *request, AGENT_RESULT *result)
 	return SYSINFO_RET_OK;
 }
 
-int	NET_IF_OUT(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	NET_IF_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	net_stat_t	ns;
-	char		*if_name, *mode;
+	char		if_name[MAX_STRING_LEN], mode[16];
 
-	if (2 < request->nparam)
+	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
 
-	if_name = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
+	if (0 != get_param(param, 1, if_name, sizeof(if_name)))
+		return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
 
 	if (SYSINFO_RET_OK != get_net_stat(if_name, &ns))
 		return SYSINFO_RET_FAIL;
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "bytes"))	/* default parameter */
+	if ('\0' == *mode || 0 == strcmp(mode, "bytes"))	/* default parameter */
 		SET_UI64_RESULT(result, ns.obytes);
 	else if (0 == strcmp(mode, "packets"))
 		SET_UI64_RESULT(result, ns.opackets);
@@ -180,21 +146,24 @@ int	NET_IF_OUT(AGENT_REQUEST *request, AGENT_RESULT *result)
 	return SYSINFO_RET_OK;
 }
 
-int	NET_IF_TOTAL(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	NET_IF_TOTAL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	net_stat_t	ns;
-	char		*if_name, *mode;
+	char		if_name[MAX_STRING_LEN], mode[16];
 
-	if (2 < request->nparam)
+	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
 
-	if_name = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
+	if (0 != get_param(param, 1, if_name, sizeof(if_name)))
+		return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
 
 	if (SYSINFO_RET_OK != get_net_stat(if_name, &ns))
 		return SYSINFO_RET_FAIL;
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "bytes"))	/* default parameter */
+	if ('\0' == *mode || 0 == strcmp(mode, "bytes"))	/* default parameter */
 		SET_UI64_RESULT(result, ns.ibytes + ns.obytes);
 	else if (0 == strcmp(mode, "packets"))
 		SET_UI64_RESULT(result, ns.ipackets + ns.opackets);
@@ -208,15 +177,16 @@ int	NET_IF_TOTAL(AGENT_REQUEST *request, AGENT_RESULT *result)
 	return SYSINFO_RET_OK;
 }
 
-int	NET_IF_COLLISIONS(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	NET_IF_COLLISIONS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	net_stat_t	ns;
-	char		*if_name;
+	char		if_name[MAX_STRING_LEN];
 
-	if (1 < request->nparam)
+	if (num_param(param) > 1)
 		return SYSINFO_RET_FAIL;
 
-	if_name = get_rparam(request, 0);
+	if (0 != get_param(param, 1, if_name, sizeof(if_name)))
+		return SYSINFO_RET_FAIL;
 
 	if (SYSINFO_RET_OK != get_net_stat(if_name, &ns))
 		return SYSINFO_RET_FAIL;
@@ -226,7 +196,7 @@ int	NET_IF_COLLISIONS(AGENT_REQUEST *request, AGENT_RESULT *result)
 	return SYSINFO_RET_OK;
 }
 
-int	NET_IF_DISCOVERY(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	NET_IF_DISCOVERY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	int		ret = SYSINFO_RET_FAIL;
 	char		line[MAX_STRING_LEN], *p;
@@ -269,104 +239,112 @@ int	NET_IF_DISCOVERY(AGENT_REQUEST *request, AGENT_RESULT *result)
 	return ret;
 }
 
-int	NET_TCP_LISTEN(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	NET_TCP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		pattern[64], *port_str, *buffer = NULL;
+	FILE		*f = NULL;
+	char		tmp[MAX_STRING_LEN], pattern[64];
 	unsigned short	port;
 	zbx_uint64_t	listen = 0;
-	int		ret = SYSINFO_RET_FAIL, n, buffer_alloc = 64 * ZBX_KIBIBYTE;
+	int		ret = SYSINFO_RET_FAIL;
 
-	if (1 < request->nparam)
-		return SYSINFO_RET_FAIL;
+	if (num_param(param) > 1)
+		return ret;
 
-	port_str = get_rparam(request, 0);
+	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
+		return ret;
 
-	if (NULL == port_str || SUCCEED != is_ushort(port_str, &port))
-		return SYSINFO_RET_FAIL;
+	if (SUCCEED != is_ushort(tmp, &port))
+		return ret;
 
-	buffer = zbx_malloc(NULL, buffer_alloc);
-
-	if (0 < (n = proc_read_file("/proc/net/tcp", &buffer, &buffer_alloc)))
+	if (NULL != (f = fopen("/proc/net/tcp", "r")))
 	{
-		ret = SYSINFO_RET_OK;
-
 		zbx_snprintf(pattern, sizeof(pattern), "%04X 00000000:0000 0A", (unsigned int)port);
 
-		buffer[n] = '\0';
-
-		if (NULL != strstr(buffer, pattern))
+		while (NULL != fgets(tmp, sizeof(tmp), f))
 		{
-			listen = 1;
-			goto out;
+			if (NULL != strstr(tmp, pattern))
+			{
+				listen = 1;
+				break;
+			}
 		}
-	}
+		zbx_fclose(f);
 
-	if (0 < (n = proc_read_file("/proc/net/tcp6", &buffer, &buffer_alloc)))
-	{
 		ret = SYSINFO_RET_OK;
-
-		zbx_snprintf(pattern, sizeof(pattern), "%04X 00000000000000000000000000000000:0000 0A",
-				(unsigned int)port);
-
-		buffer[n] = '\0';
-
-		if (NULL != strstr(buffer, pattern))
-			listen = 1;
 	}
-out:
-	zbx_free(buffer);
+
+	if (0 == listen && NULL != (f = fopen("/proc/net/tcp6", "r")))
+	{
+		zbx_snprintf(pattern, sizeof(pattern), "%04X 00000000000000000000000000000000:0000 0A", (unsigned int)port);
+
+		while (NULL != fgets(tmp, sizeof(tmp), f))
+		{
+			if (NULL != strstr(tmp, pattern))
+			{
+				listen = 1;
+				break;
+			}
+		}
+		zbx_fclose(f);
+
+		ret = SYSINFO_RET_OK;
+	}
 
 	SET_UI64_RESULT(result, listen);
 
 	return ret;
 }
 
-int	NET_UDP_LISTEN(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	NET_UDP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		pattern[64], *port_str, *buffer = NULL;
+	FILE		*f = NULL;
+	char		tmp[MAX_STRING_LEN], pattern[64];
 	unsigned short	port;
 	zbx_uint64_t	listen = 0;
-	int		ret = SYSINFO_RET_FAIL, n, buffer_alloc = 64 * ZBX_KIBIBYTE;
+	int		ret = SYSINFO_RET_FAIL;
 
-	if (1 < request->nparam)
-		return SYSINFO_RET_FAIL;
+	if (num_param(param) > 1)
+		return ret;
 
-	port_str = get_rparam(request, 0);
+	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
+		return ret;
 
-	if (NULL == port_str || SUCCEED != is_ushort(port_str, &port))
-		return SYSINFO_RET_FAIL;
+	if (SUCCEED != is_ushort(tmp, &port))
+		return ret;
 
-	buffer = zbx_malloc(NULL, buffer_alloc);
-
-	if (0 < (n = proc_read_file("/proc/net/udp", &buffer, &buffer_alloc)))
+	if (NULL != (f = fopen("/proc/net/udp", "r")))
 	{
-		ret = SYSINFO_RET_OK;
-
 		zbx_snprintf(pattern, sizeof(pattern), "%04X 00000000:0000 07", (unsigned int)port);
 
-		buffer[n] = '\0';
-
-		if (NULL != strstr(buffer, pattern))
+		while (NULL != fgets(tmp, sizeof(tmp), f))
 		{
-			listen = 1;
-			goto out;
+			if (NULL != strstr(tmp, pattern))
+			{
+				listen = 1;
+				break;
+			}
 		}
-	}
+		zbx_fclose(f);
 
-	if (0 < (n = proc_read_file("/proc/net/udp6", &buffer, &buffer_alloc)))
-	{
 		ret = SYSINFO_RET_OK;
-
-		zbx_snprintf(pattern, sizeof(pattern), "%04X 00000000000000000000000000000000:0000 07",
-				(unsigned int)port);
-
-		buffer[n] = '\0';
-
-		if (NULL != strstr(buffer, pattern))
-			listen = 1;
 	}
-out:
-	zbx_free(buffer);
+
+	if (0 == listen && NULL != (f = fopen("/proc/net/udp6", "r")))
+	{
+		zbx_snprintf(pattern, sizeof(pattern), "%04X 00000000000000000000000000000000:0000 07", (unsigned int)port);
+
+		while (NULL != fgets(tmp, sizeof(tmp), f))
+		{
+			if (NULL != strstr(tmp, pattern))
+			{
+				listen = 1;
+				break;
+			}
+		}
+		zbx_fclose(f);
+
+		ret = SYSINFO_RET_OK;
+	}
 
 	SET_UI64_RESULT(result, listen);
 

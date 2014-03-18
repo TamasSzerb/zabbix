@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -82,6 +82,9 @@ int zabbix_open_log(int type, int level, const char *filename)
 
 	log_level = level;
 
+	if (LOG_LEVEL_EMPTY == level)
+		return SUCCEED;
+
 	if (LOG_TYPE_FILE == type && NULL == filename)
 		type = LOG_TYPE_SYSLOG;
 
@@ -94,7 +97,7 @@ int zabbix_open_log(int type, int level, const char *filename)
 		system_log_handle = RegisterEventSource(NULL, wevent_source);
 		zbx_free(wevent_source);
 #else
-		openlog(syslog_app_name, LOG_PID, LOG_DAEMON);
+		openlog(title_message, LOG_PID, LOG_DAEMON);
 #endif
 	}
 	else if (LOG_TYPE_FILE == type)

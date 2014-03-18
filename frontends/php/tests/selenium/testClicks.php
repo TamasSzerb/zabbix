@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -39,39 +39,14 @@ class testClicks extends CWebTest {
 				'Group updated'
 			),
 			array('hostgroups.php',
-				array('link=Hypervisors','save'),
-				'Configuration of host groups',
-				'Group updated'
+				array('link=ЗАББИКС Сервер','save'),
+				'Configuration of hosts',
+				'Host updated'
 			),
 			array('hostgroups.php',
-				array('link=Linux servers','save'),
-				'Configuration of host groups',
-				'Group updated'
-			),
-			array('hostgroups.php',
-				array('link=Virtual machines','save'),
-				'Configuration of host groups',
-				'Group updated'
-			),
-			array('hostgroups.php',
-				array('link=ZBX6648 All Triggers','save'),
-				'Configuration of host groups',
-				'Group updated'
-			),
-			array('hostgroups.php',
-				array('link=ZBX6648 Disabled Triggers','save'),
-				'Configuration of host groups',
-				'Group updated'
-			),
-			array('hostgroups.php',
-				array('link=ZBX6648 Enabled Triggers','save'),
-				'Configuration of host groups',
-				'Group updated'
-			),
-			array('hostgroups.php',
-				array('link=ZBX6648 Group No Hosts','save'),
-				'Configuration of host groups',
-				'Group updated'
+				array('link=Template OS Linux','save'),
+				'Configuration of templates',
+				'Template updated'
 			),
 			array('templates.php',
 				array('link=Template OS Linux','save'),
@@ -146,7 +121,7 @@ class testClicks extends CWebTest {
 		foreach ($this->failIfNotExists as $str) {
 			$this->zbxTestTextPresent($str);
 		}
-		$this->zbxTestCheckTitle($title);
+		$this->checkTitle($title);
 		$this->zbxTestTextPresent($expected);
 		$this->zbxTestLogout();
 	}

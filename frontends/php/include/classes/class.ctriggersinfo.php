@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/../triggers.inc.php';
 
 class CTriggersInfo extends CTable {
@@ -58,7 +58,7 @@ class CTriggersInfo extends CTable {
 		$options = array(
 			'monitored' => true,
 			'skipDependent' => true,
-			'output' => array('triggerid')
+			'output' => API_OUTPUT_SHORTEN
 		);
 
 		if ($this->hostid > 0) {
@@ -116,7 +116,7 @@ class CTriggersInfo extends CTable {
 				}
 			}
 
-			if ($this->groupid != 0) {
+			if (remove_nodes_from_id($this->groupid) > 0) {
 				$group = get_hostgroup_by_groupid($this->groupid);
 				$header_str .= _('Group').SPACE.'&quot;'.$group['name'].'&quot;';
 			}
@@ -155,3 +155,4 @@ class CTriggersInfo extends CTable {
 		return parent::bodyToString();
 	}
 }
+?>

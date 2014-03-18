@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@ class testPageAdministrationGeneralImages extends CWebTest {
 		$this->zbxTestLogin('adm.images.php');
 		$this->assertElementPresent('configDropDown');
 		$this->assertElementPresent('form');
-		$this->zbxTestCheckTitle('Configuration of images');
+		$this->checkTitle('Configuration of images');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF IMAGES', 'Images', 'Type'));
 		$this->assertElementPresent('imagetype');
 		$this->assertElementPresent("//select[@id='imagetype']/option[text()='Icon']");
@@ -60,7 +60,7 @@ class testPageAdministrationGeneralImages extends CWebTest {
 				$this->assertElementPresent('configDropDown');
 				$this->zbxTestDropdownSelectWait('imagetype', 'Background');
 				$this->assertElementPresent('form');
-				$this->zbxTestCheckTitle('Configuration of Zabbix');
+				$this->checkTitle('Configuration of Zabbix');
 				$this->zbxTestTextPresent(array('CONFIGURATION OF IMAGES', 'Images', 'Type'));
 				$this->assertElementPresent('imagetype');
 				$this->assertElementPresent("//select[@id='imagetype']/option[text()='Icon']");

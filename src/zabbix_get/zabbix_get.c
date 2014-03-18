@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -27,7 +27,6 @@
 
 const char	*progname = NULL;
 const char	title_message[] = "Zabbix get";
-const char	syslog_app_name[] = "zabbix_get";
 const char	usage_message[] = "[-hV] -s <host name or IP> [-p <port>] [-I <IP address>] -k <key>";
 
 const char	*help_message[] = {
@@ -156,7 +155,7 @@ static int	get_value(const char *source_ip, const char *host, unsigned short por
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	unsigned short	port = ZBX_DEFAULT_AGENT_PORT;
 	int		ret = SUCCEED;
@@ -215,7 +214,7 @@ int	main(int argc, char **argv)
 		ret = get_value(source_ip, host, port, key, &value);
 
 		if (SUCCEED == ret)
-			printf("%s\n", value);
+			printf("%s\n",value);
 
 		zbx_free(value);
 	}

@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,28 +17,24 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
-$valueMappingTable = new CTableInfo(_('No value maps found.'));
-$valueMappingTable->setHeader(array(
-	$this->data['displayNodes'] ? _('Node') : null,
-	_('Name'),
-	_('Value map')
-));
+?>
+<?php
+$valueMappingTable = new CTableInfo(_('No value map defined.'));
+$valueMappingTable->setHeader(array(_('Name'), _('Value map')));
 
 foreach ($this->data['valuemaps'] as $valuemap) {
 	order_result($valuemap['maps'], 'value');
 
-	$mappings = array();
+	$mappings_row = array();
 	foreach ($valuemap['maps'] as $map) {
-		$mappings[] = $map['value'].SPACE.RARR.SPACE.$map['newvalue'];
-		$mappings[] = BR();
+		$mappings_row[] = $map['value'].SPACE.RARR.SPACE.$map['newvalue'];
+		$mappings_row[] = BR();
 	}
 	$valueMappingTable->addRow(array(
-		$this->data['displayNodes'] ? $valuemap['nodename'] : null,
 		new CLink($valuemap['name'], 'adm.valuemapping.php?form=update&valuemapid='.$valuemap['valuemapid']),
-		$mappings
+		$mappings_row
 	));
 }
 
 return $valueMappingTable;
+?>

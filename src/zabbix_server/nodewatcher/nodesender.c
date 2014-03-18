@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -164,8 +164,8 @@ int	calculate_checksums(int nodeid, const char *tablename, const zbx_uint64_t re
 		}
 		else
 		{
-			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, ZBX_SQL_NODE,
-					DBwhere_node(tables[t].recid, nodeid));
+			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, " where 1=1" DB_NODE,
+					DBnode(tables[t].recid, nodeid));
 		}
 
 		if (ZBX_DB_OK > DBexecute("%s", sql))
@@ -829,7 +829,7 @@ void node_sync_unlock(int nodeid)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-void process_nodes(void)
+void process_nodes()
 {
 	DB_RESULT	result;
 	DB_ROW		row;

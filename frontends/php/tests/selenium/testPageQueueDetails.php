@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ require_once dirname(__FILE__).'/../include/class.cwebtest.php';
 class testPageQueueDetails extends CWebTest {
 	public function testPageQueueDetails_CheckLayout() {
 		$this->zbxTestLogin('queue.php?config=2');
-		$this->zbxTestCheckTitle('Queue \[refreshed every 30 sec\]');
+		$this->checkTitle('Queue \[refreshed every 30 sec\]');
 		$this->zbxTestTextPresent('Queue');
 		$this->zbxTestTextPresent('QUEUE OF ITEMS TO BE UPDATED');
 		// Header
@@ -31,4 +31,8 @@ class testPageQueueDetails extends CWebTest {
 		$this->zbxTestTextPresent('Total:');
 	}
 
+	public function testPageQeueOverviewDetails_VerifyDisplayedNumbers() {
+// TODO
+		$this->markTestIncomplete();
+	}
 }

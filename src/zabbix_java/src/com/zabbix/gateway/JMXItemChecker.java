@@ -1,6 +1,6 @@
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2001-2013 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -190,7 +190,7 @@ class JMXItemChecker extends ItemChecker
 
 			JSONObject mapping = new JSONObject();
 			mapping.put(ItemChecker.JSON_TAG_DATA, counters);
-			return mapping.toString();
+			return mapping.toString(2);
 		}
 		else
 			throw new ZabbixException("key ID '%s' is not supported", item.getKeyId());
@@ -276,9 +276,7 @@ class JMXItemChecker extends ItemChecker
 
 	private boolean isPrimitiveAttributeType(Class<?> clazz)
 	{
-		Class<?>[] clazzez = {Boolean.class, Character.class, Byte.class, Short.class, Integer.class, Long.class,
-			Float.class, Double.class, String.class, java.math.BigDecimal.class, java.math.BigInteger.class,
-			java.util.Date.class, javax.management.ObjectName.class};
+		Class<?>[] clazzez = {Boolean.class, Byte.class, Short.class, Integer.class, Long.class, Float.class, Double.class, String.class};
 
 		return HelperFunctionChest.arrayContains(clazzez, clazz);
 	}

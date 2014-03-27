@@ -66,7 +66,7 @@ class CDRule extends CZBXAPI {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'countOutput'				=> null,
 			'groupCount'				=> null,
 			'preservekeys'				=> null,
@@ -99,6 +99,7 @@ class CDRule extends CZBXAPI {
 		if (!is_null($options['dhostids'])) {
 			zbx_value2array($options['dhostids']);
 
+			$sqlParts['select']['dhostid'] = 'dh.dhostid';
 			$sqlParts['from']['dhosts'] = 'dhosts dh';
 			$sqlParts['where']['dhostid'] = dbConditionInt('dh.dhostid', $options['dhostids']);
 			$sqlParts['where']['dhdr'] = 'dh.druleid=dr.druleid';
@@ -117,6 +118,7 @@ class CDRule extends CZBXAPI {
 		if (!is_null($options['dserviceids'])) {
 			zbx_value2array($options['dserviceids']);
 
+			$sqlParts['select']['dserviceid'] = 'ds.dserviceid';
 			$sqlParts['from']['dhosts'] = 'dhosts dh';
 			$sqlParts['from']['dservices'] = 'dservices ds';
 
@@ -172,8 +174,29 @@ class CDRule extends CZBXAPI {
 				else
 					$result = $drule['rowscount'];
 			}
-			else {
-				$result[$drule['druleid']] = $drule;
+			else{
+				// dhostids
+				if (isset($drule['dhostid']) && is_null($options['selectDHosts'])) {
+					if (!isset($result[$drule['druleid']]['dhosts']))
+						$result[$drule['druleid']]['dhosts'] = array();
+
+					$result[$drule['druleid']]['dhosts'][] = array('dhostid' => $drule['dhostid']);
+					unset($drule['dhostid']);
+				}
+
+				// dchecks
+				if (isset($drule['dcheckid']) && is_null($options['selectDChecks'])) {
+					if (!isset($result[$drule['druleid']]['dchecks']))
+						$result[$drule['druleid']]['dchecks'] = array();
+
+					$result[$drule['druleid']]['dchecks'][] = array('dcheckid' => $drule['dcheckid']);
+					unset($drule['dcheckid']);
+				}
+
+				if (!isset($result[$drule['druleid']]))
+					$result[$drule['druleid']]= array();
+
+				$result[$drule['druleid']] += $drule;
 			}
 		}
 
@@ -540,7 +563,7 @@ class CDRule extends CZBXAPI {
 	 *
 	 * @param array $druleIds
 	 *
-	 * @return array
+	 * @return boolean
 	 */
 	public function delete(array $druleIds) {
 		$this->validateDelete($druleIds);

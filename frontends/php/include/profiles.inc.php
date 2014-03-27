@@ -51,24 +51,21 @@ class CProfile {
 		}
 	}
 
-	/**
-	 * Check if data needs to be inserted or updated.
-	 *
-	 * @return bool
-	 */
-	public static function isModified() {
-		return (self::$insert || self::$update);
-	}
-
 	public static function flush() {
-		$result = false;
+		// if not initialised, no changes were made
+		if (is_null(self::$profiles)) {
+			return true;
+		}
 
-		if (self::$profiles !== null && self::$userDetails['userid'] > 0 && self::isModified()) {
-			$result = true;
+		if (self::$userDetails['userid'] <= 0) {
+			return null;
+		}
 
+		if (!empty(self::$insert) || !empty(self::$update)) {
+			DBstart();
 			foreach (self::$insert as $idx => $profile) {
 				foreach ($profile as $idx2 => $data) {
-					$result &= self::insertDB($idx, $data['value'], $data['type'], $idx2);
+					self::insertDB($idx, $data['value'], $data['type'], $idx2);
 				}
 			}
 
@@ -76,12 +73,11 @@ class CProfile {
 			foreach (self::$update as $idx => $profile) {
 				ksort($profile);
 				foreach ($profile as $idx2 => $data) {
-					$result &= self::updateDB($idx, $data['value'], $data['type'], $idx2);
+					self::updateDB($idx, $data['value'], $data['type'], $idx2);
 				}
 			}
+			DBend();
 		}
-
-		return $result;
 	}
 
 	public static function clear() {
@@ -108,71 +104,25 @@ class CProfile {
 	}
 
 	/**
-	 * Removes profile values from DB and profiles cache.
+	 * Removes profile values from DB and profiles cache
 	 *
-	 * @param string 		$idx	first identifier
-	 * @param int|array  	$idx2	second identifier, which can be list of identifiers as well
+	 * @param string $idx	first identifier
+	 * @param mixed  $idx2	second identifier, which can be list of identifiers as well
 	 */
-	public static function delete($idx, $idx2 = 0) {
-		if (is_null(self::$profiles)) {
-			self::init();
-		}
-
-		if (!isset(self::$profiles[$idx])) {
-			return;
-		}
-
-		// pick existing Idx2
-		$deleteIdx2 = array();
-		foreach ((array) $idx2 as $checkIdx2) {
-			if (isset(self::$profiles[$idx][$checkIdx2])) {
-				$deleteIdx2[] = $checkIdx2;
-			}
-		}
-
-		if (!$deleteIdx2) {
-			return;
+	public static function delete($idx, $idx2) {
+		if (!is_array($idx2)) {
+			$idx2 = array($idx2);
 		}
 
 		// remove from DB
-		self::deleteValues($idx, $deleteIdx2);
+		DBexecute('DELETE FROM profiles WHERE idx='.zbx_dbstr($idx).' AND '.dbConditionString('idx2', $idx2));
 
 		// remove from cache
-		foreach ($deleteIdx2 as $v) {
-			unset(self::$profiles[$idx][$v]);
+		if (!is_null(self::$profiles)) {
+			foreach ($idx2 as $v) {
+				unset(self::$profiles[$idx][$v]);
+			}
 		}
-		if (!self::$profiles[$idx]) {
-			unset(self::$profiles[$idx]);
-		}
-	}
-
-	/**
-	 * Removes all values stored under the given idx.
-	 *
-	 * @param string $idx
-	 */
-	public static function deleteIdx($idx) {
-		if (self::$profiles === null) {
-			self::init();
-		}
-
-		if (!isset(self::$profiles[$idx])) {
-			return;
-		}
-
-		self::deleteValues($idx, array_keys(self::$profiles[$idx]));
-		unset(self::$profiles[$idx]);
-	}
-
-	/**
-	 * Deletes the given values from the DB.
-	 *
-	 * @param string 	$idx
-	 * @param array 	$idx2
-	 */
-	protected static function deleteValues($idx, array $idx2) {
-		// remove from DB
-		DB::delete('profiles', array('idx' => $idx, 'idx2' => $idx2));
 	}
 
 	/**
@@ -452,28 +402,20 @@ function get_user_history() {
 	return $result;
 }
 
-/**
- * Check if url length is greater than DB field size. If size is OK, return URL string.
- *
- * @param string $page['hist_arg']
- * @param string $page['file']
- *
- * @return string
- */
-function getHistoryUrl($page) {
+function add_user_history($page) {
+	$userid = CWebUser::$data['userid'];
+	$title = $page['title'];
+
 	if (isset($page['hist_arg']) && is_array($page['hist_arg'])) {
 		$url = '';
-
 		foreach ($page['hist_arg'] as $arg) {
 			if (isset($_REQUEST[$arg])) {
 				$url .= url_param($arg, true);
 			}
 		}
-
-		if ($url) {
+		if (!empty($url)) {
 			$url[0] = '?';
 		}
-
 		$url = $page['file'].$url;
 	}
 	else {
@@ -482,27 +424,34 @@ function getHistoryUrl($page) {
 
 	// if url length is greater than db field size, skip history update
 	$historyTableSchema = DB::getSchema('user_history');
-
-	return (zbx_strlen($url) > $historyTableSchema['fields']['url5']['length']) ? '' : $url;
-}
-
-function addUserHistory($title, $url) {
-	$userId = CWebUser::$data['userid'];
+	if (zbx_strlen($url) > $historyTableSchema['fields']['url5']['length']) {
+		return false;
+	}
 
 	$history5 = DBfetch(DBSelect(
 		'SELECT uh.title5,uh.url5'.
 		' FROM user_history uh'.
-		' WHERE uh.userid='.$userId
+		' WHERE uh.userid='.$userid
 	));
 
-	if ($history5) {
-		if ($history5['title5'] === $title) {
-			if ($history5['url5'] === $url) {
-				return true;
-			}
-			else {
-				$sql = 'UPDATE user_history SET url5='.zbx_dbstr($url).' WHERE userid='.$userId;
-			}
+	if ($history5 && ($history5['title5'] == $title)) {
+		if ($history5['url5'] != $url) {
+			// title same, url isnt, change only url
+			$sql = 'UPDATE user_history'.
+					' SET url5='.zbx_dbstr($url).
+					' WHERE userid='.$userid;
+		}
+		else {
+			// no need to change anything;
+			return null;
+		}
+	}
+	else {
+		// new page with new title is added
+		if ($history5 === false) {
+			$userhistoryid = get_dbid('user_history', 'userhistoryid');
+			$sql = 'INSERT INTO user_history (userhistoryid, userid, title5, url5)'.
+					' VALUES('.$userhistoryid.', '.$userid.', '.zbx_dbstr($title).', '.zbx_dbstr($url).')';
 		}
 		else {
 			$sql = 'UPDATE user_history'.
@@ -516,15 +465,8 @@ function addUserHistory($title, $url) {
 						' url4=url5,'.
 						' title5='.zbx_dbstr($title).','.
 						' url5='.zbx_dbstr($url).
-					' WHERE userid='.$userId;
+					' WHERE userid='.$userid;
 		}
 	}
-	else {
-		$userHistoryId = get_dbid('user_history', 'userhistoryid');
-
-		$sql = 'INSERT INTO user_history (userhistoryid, userid, title5, url5)'.
-				' VALUES('.$userHistoryId.', '.$userId.', '.zbx_dbstr($title).', '.zbx_dbstr($url).')';
-	}
-
 	return DBexecute($sql);
 }

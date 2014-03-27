@@ -366,7 +366,7 @@ function copyTriggersToHosts($srcTriggerIds, $dstHostIds, $srcHostId = null) {
 		'triggerids' => $srcTriggerIds,
 		'output' => array('triggerid', 'expression', 'description', 'url', 'status', 'priority', 'comments', 'type'),
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-		'selectDependencies' => array('triggerid')
+		'selectDependencies' => API_OUTPUT_REFER
 	);
 	if ($srcHostId) {
 		$srcHost = API::Host()->get(array(
@@ -1215,7 +1215,6 @@ function getTriggersOverview($hostIds, $application, $pageFile, $viewMode = null
 		'output' => array('name', 'hostid', 'status'),
 		'hostids' => $hostIds,
 		'preservekeys' => true,
-		'selectGraphs' => API_OUTPUT_COUNT,
 		'selectScreens' => ($viewMode == STYLE_LEFT) ? API_OUTPUT_COUNT : null
 	));
 
@@ -1298,7 +1297,7 @@ function getTriggersOverview($hostIds, $application, $pageFile, $viewMode = null
 
 		foreach ($hostNames as $hostId => $hostName) {
 			$name = new CSpan($hostName, 'link_menu');
-			$name->setMenuPopup(CMenuPopupHelper::getHost($hosts[$hostId], $scripts[$hostId]));
+			$name->setMenuPopup(getMenuPopupHost($hosts[$hostId], $scripts[$hostId]));
 
 			$columns = array($name);
 			foreach ($triggers as $triggerHosts) {
@@ -1329,7 +1328,7 @@ function getTriggersOverview($hostIds, $application, $pageFile, $viewMode = null
  */
 function getTriggerOverviewCells($trigger, $pageFile, $screenId = null) {
 	$ack = $css = $style = null;
-	$desc = $triggerItems = $acknowledge = array();
+	$desc = $menuPopup = $triggerItems = $acknowledge = array();
 
 	// for how long triggers should blink on status change (set by user in administration->general)
 	$config = select_config();
@@ -1446,93 +1445,83 @@ function getTriggerOverviewCells($trigger, $pageFile, $screenId = null) {
 	}
 
 	if ($trigger) {
-		$column->setMenuPopup(CMenuPopupHelper::getTrigger($trigger, $triggerItems, $acknowledge));
+		$column->setMenuPopup(getMenuPopupTrigger($trigger, $triggerItems, $acknowledge));
 	}
 
 	return $column;
 }
 
-/**
- * Calculate trigger availability.
- *
- * @param int $triggerId		trigger id
- * @param int $startTime		begin period
- * @param int $endTime			end period
- *
- * @return array
- */
-function calculateAvailability($triggerId, $startTime, $endTime) {
-	$startValue = TRIGGER_VALUE_FALSE;
-
-	if ($startTime > 0 && $startTime <= time()) {
+function calculate_availability($triggerid, $period_start, $period_end) {
+	$start_value = TRIGGER_VALUE_FALSE;
+	if ($period_start > 0 && $period_start <= time()) {
 		$sql = 'SELECT e.eventid,e.value'.
 				' FROM events e'.
-				' WHERE e.objectid='.zbx_dbstr($triggerId).
+				' WHERE e.objectid='.zbx_dbstr($triggerid).
 					' AND e.source='.EVENT_SOURCE_TRIGGERS.
 					' AND e.object='.EVENT_OBJECT_TRIGGER.
-					' AND e.clock<'.zbx_dbstr($startTime).
+					' AND e.clock<'.zbx_dbstr($period_start).
 				' ORDER BY e.eventid DESC';
 		if ($row = DBfetch(DBselect($sql, 1))) {
-			$startValue = $row['value'];
-			$min = $startTime;
+			$start_value = $row['value'];
+			$min = $period_start;
 		}
 	}
 
 	$sql = 'SELECT COUNT(e.eventid) AS cnt,MIN(e.clock) AS min_clock,MAX(e.clock) AS max_clock'.
 			' FROM events e'.
-			' WHERE e.objectid='.zbx_dbstr($triggerId).
+			' WHERE e.objectid='.zbx_dbstr($triggerid).
 				' AND e.source='.EVENT_SOURCE_TRIGGERS.
 				' AND e.object='.EVENT_OBJECT_TRIGGER;
-	if ($startTime) {
-		$sql .= ' AND e.clock>='.zbx_dbstr($startTime);
+	if ($period_start != 0) {
+		$sql .= ' AND clock>='.zbx_dbstr($period_start);
 	}
-	if ($endTime) {
-		$sql .= ' AND e.clock<='.zbx_dbstr($endTime);
+	if ($period_end != 0) {
+		$sql .= ' AND clock<='.zbx_dbstr($period_end);
 	}
 
-	$dbEvents = DBfetch(DBselect($sql));
-	if ($dbEvents['cnt'] > 0) {
+	$db_events = DBfetch(DBselect($sql));
+	if ($db_events['cnt'] > 0) {
 		if (!isset($min)) {
-			$min = $dbEvents['min_clock'];
+			$min = $db_events['min_clock'];
 		}
-		$max = $dbEvents['max_clock'];
+		$max = $db_events['max_clock'];
 	}
 	else {
-		if ($startTime == 0 && $endTime == 0) {
+		if ($period_start == 0 && $period_end == 0) {
 			$max = time();
 			$min = $max - SEC_PER_DAY;
 		}
 		else {
 			$ret['true_time'] = 0;
 			$ret['false_time'] = 0;
-			$ret['true'] = (TRIGGER_VALUE_TRUE == $startValue) ? 100 : 0;
-			$ret['false'] = (TRIGGER_VALUE_FALSE == $startValue) ? 100 : 0;
+			$ret['true'] = (TRIGGER_VALUE_TRUE == $start_value) ? 100 : 0;
+			$ret['false'] = (TRIGGER_VALUE_FALSE == $start_value) ? 100 : 0;
 			return $ret;
 		}
 	}
 
-	$state = $startValue;
+	$state = $start_value;
 	$true_time = 0;
 	$false_time = 0;
 	$time = $min;
-	if ($startTime == 0 && $endTime == 0) {
+	if ($period_start == 0 && $period_end == 0) {
 		$max = time();
 	}
-	if ($endTime == 0) {
-		$endTime = $max;
+	if ($period_end == 0) {
+		$period_end = $max;
 	}
 
 	$rows = 0;
-	$dbEvents = DBselect(
+	$db_events = DBselect(
 		'SELECT e.eventid,e.clock,e.value'.
 		' FROM events e'.
-		' WHERE e.objectid='.zbx_dbstr($triggerId).
+		' WHERE e.objectid='.zbx_dbstr($triggerid).
 			' AND e.source='.EVENT_SOURCE_TRIGGERS.
 			' AND e.object='.EVENT_OBJECT_TRIGGER.
 			' AND e.clock BETWEEN '.$min.' AND '.$max.
 		' ORDER BY e.eventid'
 	);
-	while ($row = DBfetch($dbEvents)) {
+	while ($row = DBfetch($db_events)) {
 		$clock = $row['clock'];
 		$value = $row['value'];
 
@@ -1551,15 +1540,15 @@ function calculateAvailability($triggerId, $startTime, $endTime) {
 	}
 
 	if ($rows == 0) {
-		$trigger = get_trigger_by_triggerid($triggerId);
+		$trigger = get_trigger_by_triggerid($triggerid);
 		$state = $trigger['value'];
 	}
 
 	if ($state == TRIGGER_VALUE_FALSE) {
-		$false_time = $false_time + $endTime - $time;
+		$false_time = $false_time + $period_end - $time;
 	}
 	elseif ($state == TRIGGER_VALUE_TRUE) {
-		$true_time = $true_time + $endTime - $time;
+		$true_time = $true_time + $period_end - $time;
 	}
 	$total_time = $true_time + $false_time;
 
@@ -1625,47 +1614,32 @@ function get_triggers_unacknowledged($db_element, $count_problems = null, $ack =
 }
 
 function make_trigger_details($trigger) {
-	$hostNames = array();
-
-	$hostIds = zbx_objectValues($trigger['hosts'], 'hostid');
+	$hosts = reset($trigger['hosts']);
+	$hostId = $hosts['hostid'];
 
 	$hosts = API::Host()->get(array(
 		'output' => array('name', 'hostid', 'status'),
-		'hostids' => $hostIds,
-		'selectScreens' => API_OUTPUT_COUNT
+		'hostids' => $hostId,
+		'selectScreens' => API_OUTPUT_COUNT,
+		'preservekeys' => true
 	));
+	$host = reset($hosts);
 
-	if (count($hosts) > 1) {
-		order_result($hosts, 'name', ZBX_SORT_UP);
-	}
+	$scripts = API::Script()->getScriptsByHosts($hostId);
 
-	$scripts = API::Script()->getScriptsByHosts($hostIds);
-
-	foreach ($hosts as $host) {
-		$hostName = new CSpan($host['name'], 'link_menu');
-		$hostName->setMenuPopup(CMenuPopupHelper::getHost($host, $scripts[$host['hostid']]));
-		$hostNames[] = $hostName;
-		$hostNames[] = ', ';
-	}
-	array_pop($hostNames);
+	$hostName = new CSpan($host['name'], 'link_menu');
+	$hostName->setMenuPopup(getMenuPopupHost($host, $scripts ? reset($scripts) : null));
 
 	$table = new CTableInfo();
+
 	if (is_show_all_nodes()) {
 		$table->addRow(array(_('Node'), get_node_name_by_elid($trigger['triggerid'])));
 	}
-	$table->addRow(array(
-		new CCol(_n('Host', 'Hosts', count($hosts))),
-		new CCol($hostNames, 'wraptext')
-	));
-	$table->addRow(array(
-		new CCol(_('Trigger')),
-		new CCol(CMacrosResolverHelper::resolveTriggerName($trigger), 'wraptext')
-	));
+
+	$table->addRow(array(_('Host'), $hostName));
+	$table->addRow(array(_('Trigger'), CMacrosResolverHelper::resolveTriggerName($trigger)));
 	$table->addRow(array(_('Severity'), getSeverityCell($trigger['priority'])));
-	$table->addRow(array(
-		new CCol(_('Expression')),
-		new CCol(explode_exp($trigger['expression'], true, true), 'wraptext')
-	));
+	$table->addRow(array(_('Expression'), explode_exp($trigger['expression'], true, true)));
 	$table->addRow(array(_('Event generation'), _('Normal').((TRIGGER_MULT_EVENT_ENABLED == $trigger['type'])
 		? SPACE.'+'.SPACE._('Multiple PROBLEM events') : '')));
 	$table->addRow(array(_('Disabled'), ((TRIGGER_STATUS_ENABLED == $trigger['status'])
@@ -2328,7 +2302,6 @@ function get_item_function_info($expr) {
 			}
 
 			$hostFound = API::Host()->get(array(
-				'output' => array('hostid'),
 				'filter' => array('host' => array($exprPart['host'])),
 				'templated_hosts' => true
 			));

@@ -52,10 +52,11 @@ $fields = array(
 	'plaintext' =>		array(T_ZBX_STR, O_OPT, null,	null,	null),
 	'action' =>			array(T_ZBX_STR, O_OPT, P_SYS,	IN('"showgraph","showvalues","showlatest","add","remove"'), null),
 	// ajax
-	'filterState' =>	array(T_ZBX_INT, O_OPT, P_ACT,	null,	null),
 	'favobj' =>			array(T_ZBX_STR, O_OPT, P_ACT,	null,	null),
+	'favref' =>			array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY, null),
 	'favid' =>			array(T_ZBX_INT, O_OPT, P_ACT,	null,	null),
-	'favaction' =>		array(T_ZBX_STR, O_OPT, P_ACT,	IN("'add','remove'"), null),
+	'favaction' =>		array(T_ZBX_STR, O_OPT, P_ACT,	IN("'add','remove','flop'"), null),
+	'favstate' =>		array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY, null),
 	// actions
 	'reset' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null),
 	'cancel' =>			array(T_ZBX_STR, O_OPT, P_SYS,	null,	null),
@@ -69,51 +70,47 @@ check_fields($fields);
 /*
  * Ajax
  */
-if (hasRequest('filterState')) {
-	CProfile::update('web.history.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
-}
-
 if (isset($_REQUEST['favobj'])) {
 	if ($_REQUEST['favobj'] == 'timeline') {
 		navigation_bar_calc('web.item.graph', $_REQUEST['favid'], true);
 	}
-
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.history.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
 	if (str_in_array($_REQUEST['favobj'], array('itemid', 'graphid'))) {
 		$result = false;
-
-		DBstart();
-
 		if ($_REQUEST['favaction'] == 'add') {
 			$result = CFavorite::add('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
 			if ($result) {
 				echo '$("addrm_fav").title = "'._('Remove from favourites').'";'."\n";
-				echo '$("addrm_fav").onclick = function() { rm4favorites("itemid", "'.$_REQUEST['favid'].'"); }'."\n";
+				echo '$("addrm_fav").onclick = function() { rm4favorites("itemid", "'.$_REQUEST['favid'].'", 0); }'."\n";
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
 			$result = CFavorite::remove('web.favorite.graphids', $_REQUEST['favid'], $_REQUEST['favobj']);
+
 			if ($result) {
 				echo '$("addrm_fav").title = "'._('Add to favourites').'";'."\n";
 				echo '$("addrm_fav").onclick = function() { add2favorites("itemid", "'.$_REQUEST['favid'].'"); }'."\n";
 			}
 		}
 
-		$result = DBend($result);
-
 		if ($page['type'] == PAGE_TYPE_JS && $result) {
-			echo 'switchElementClass("addrm_fav", "iconminus", "iconplus");';
+			echo 'switchElementsClass("addrm_fav", "iconminus", "iconplus");';
 		}
 	}
 
 	// saving fixed/dynamic setting to profile
-	if ($_REQUEST['favobj'] == 'timelinefixedperiod' && isset($_REQUEST['favid'])) {
-		CProfile::update('web.history.timelinefixed', $_REQUEST['favid'], PROFILE_TYPE_INT);
+	if ($_REQUEST['favobj'] == 'timelinefixedperiod') {
+		if (isset($_REQUEST['favid'])) {
+			CProfile::update('web.history.timelinefixed', $_REQUEST['favid'], PROFILE_TYPE_INT);
+		}
 	}
 }
 
 if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 /*

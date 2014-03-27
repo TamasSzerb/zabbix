@@ -348,7 +348,11 @@ abstract class CGraphGeneral extends CZBXAPI {
 		if ($options['selectGraphItems'] !== null && $options['selectGraphItems'] !== API_OUTPUT_COUNT) {
 			$gitems = API::GraphItem()->get(array(
 				'nodeids' => $options['nodeids'],
-				'output' => $this->outputExtend($options['selectGraphItems'], array('graphid', 'gitemid')),
+				'output' => $this->outputExtend(
+					'graphs_items',
+					array('graphid', 'gitemid'),
+					$options['selectGraphItems']
+				),
 				'graphids' => $graphids,
 				'nopermissions' => true,
 				'preservekeys' => true

@@ -73,7 +73,7 @@ class CUser extends CZBXAPI {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'editable'					=> null,
 			'selectUsrgrps'				=> null,
 			'selectMedias'				=> null,
@@ -114,6 +114,7 @@ class CUser extends CZBXAPI {
 		if ($options['usrgrpids'] !== null) {
 			zbx_value2array($options['usrgrpids']);
 
+			$sqlParts['select']['usrgrpid'] = 'ug.usrgrpid';
 			$sqlParts['from']['users_groups'] = 'users_groups ug';
 			$sqlParts['where'][] = dbConditionInt('ug.usrgrpid', $options['usrgrpids']);
 			$sqlParts['where']['uug'] = 'u.userid=ug.userid';
@@ -123,6 +124,7 @@ class CUser extends CZBXAPI {
 		if ($options['mediaids'] !== null) {
 			zbx_value2array($options['mediaids']);
 
+			$sqlParts['select']['mediaid'] = 'm.mediaid';
 			$sqlParts['from']['media'] = 'media m';
 			$sqlParts['where'][] = dbConditionInt('m.mediaid', $options['mediaids']);
 			$sqlParts['where']['mu'] = 'm.userid=u.userid';
@@ -132,6 +134,7 @@ class CUser extends CZBXAPI {
 		if ($options['mediatypeids'] !== null) {
 			zbx_value2array($options['mediatypeids']);
 
+			$sqlParts['select']['mediatypeid'] = 'm.mediatypeid';
 			$sqlParts['from']['media'] = 'media m';
 			$sqlParts['where'][] = dbConditionInt('m.mediatypeid', $options['mediatypeids']);
 			$sqlParts['where']['mu'] = 'm.userid=u.userid';
@@ -176,7 +179,41 @@ class CUser extends CZBXAPI {
 			else {
 				$userIds[$user['userid']] = $user['userid'];
 
-				$result[$user['userid']] = $user;
+				if (!isset($result[$user['userid']])) {
+					$result[$user['userid']] = array();
+				}
+
+				// usrgrpids
+				if (isset($user['usrgrpid']) && $options['selectUsrgrps'] === null) {
+					if (!isset($result[$user['userid']]['usrgrps'])) {
+						$result[$user['userid']]['usrgrps'] = array();
+					}
+
+					$result[$user['userid']]['usrgrps'][] = array('usrgrpid' => $user['usrgrpid']);
+					unset($user['usrgrpid']);
+				}
+
+				// mediaids
+				if (isset($user['mediaid']) && $options['selectMedias'] === null) {
+					if (!isset($result[$user['userid']]['medias'])) {
+						$result[$user['userid']]['medias'] = array();
+					}
+
+					$result[$user['userid']]['medias'][] = array('mediaid' => $user['mediaid']);
+					unset($user['mediaid']);
+				}
+
+				// mediatypeids
+				if (isset($user['mediatypeid']) && $options['selectMediatypes'] === null) {
+					if (!isset($result[$user['userid']]['mediatypes'])) {
+						$result[$user['userid']]['mediatypes'] = array();
+					}
+
+					$result[$user['userid']]['mediatypes'][] = array('mediatypeid' => $user['mediatypeid']);
+					unset($user['mediatypeid']);
+				}
+
+				$result[$user['userid']] += $user;
 			}
 		}
 
@@ -354,7 +391,6 @@ class CUser extends CZBXAPI {
 			if (isset($user['alias'])) {
 				$nodeids = $update ? id2nodeid($user['userid']) : get_current_nodeid(false);
 				$userExist = $this->get(array(
-					'output' => array('userid'),
 					'nodeids' => $nodeids,
 					'filter' => array('alias' => $user['alias']),
 					'nopermissions' => true
@@ -542,7 +578,21 @@ class CUser extends CZBXAPI {
 	 *
 	 * @return array
 	 */
-	public function delete(array $userIds) {
+	public function delete($userIds) {
+		$userIds = zbx_toArray($userIds);
+
+		// deprecated input support
+		if ($userIds && is_array($userIds[0])) {
+			$this->deprecated('Passing objects is deprecated, use an array of IDs instead.');
+
+			foreach ($userIds as $user) {
+				if (!check_db_fields(array('userid' => null), $user)) {
+					self::exception(ZBX_API_ERROR_PARAMETERS, _('No user ID given.'));
+				}
+			}
+			$userIds = zbx_objectValues($userIds, 'userid');
+		}
+
 		$this->validateDelete($userIds);
 
 		// delete action operation msg
@@ -1276,7 +1326,7 @@ class CUser extends CZBXAPI {
 		// adding medias
 		if ($options['selectMedias'] !== null && $options['selectMedias'] != API_OUTPUT_COUNT) {
 			$userMedias = API::UserMedia()->get(array(
-				'output' => $this->outputExtend($options['selectMedias'], array('userid', 'mediaid')),
+				'output' => $this->outputExtend('media', array('userid', 'mediaid'), $options['selectMedias']),
 				'userids' => $userIds,
 				'preservekeys' => true
 			));

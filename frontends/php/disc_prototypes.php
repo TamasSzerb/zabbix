@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/include/config.inc.php';
 require_once dirname(__FILE__).'/include/hosts.inc.php';
 require_once dirname(__FILE__).'/include/items.inc.php';
@@ -26,7 +26,7 @@ require_once dirname(__FILE__).'/include/forms.inc.php';
 
 $page['title'] = _('Configuration of item prototypes');
 $page['file'] = 'disc_prototypes.php';
-$page['scripts'] = array('effects.js', 'class.cviewswitcher.js', 'items.js');
+$page['scripts'] = array('effects.js', 'class.cviewswitcher.js');
 $page['hist_arg'] = array('parent_discoveryid');
 
 require_once dirname(__FILE__).'/include/page_header.php';
@@ -130,7 +130,10 @@ $fields = array(
 	// filter
 	'filter_set' =>				array(T_ZBX_STR, O_OPT, P_SYS,	null,		null),
 	// ajax
-	'filterState' =>			array(T_ZBX_INT, O_OPT, P_ACT,	null,		null)
+	'favobj' =>					array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
+	'favref' =>					array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})'),
+	'favstate' =>				array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})&&("filter"=={favobj})'),
+	'item_filter' => 			array(T_ZBX_STR, O_OPT, P_SYS,	null,		null)
 );
 check_fields($fields);
 validate_sort_and_sortorder('name', ZBX_SORT_UP);
@@ -169,12 +172,14 @@ else {
 }
 
 // ajax
-if (hasRequest('filterState')) {
-	CProfile::update('web.host_discovery.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
+if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.host_discovery.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
 }
 if (PAGE_TYPE_JS == $page['type'] || PAGE_TYPE_HTML_BLOCK == $page['type']) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 /*
@@ -340,23 +345,7 @@ elseif (getRequest('go') == 'delete' && hasRequest('group_itemid')) {
  * Display
  */
 if (isset($_REQUEST['form'])) {
-	$itemPrototype = array();
-	if (hasRequest('itemid')) {
-		$itemPrototype = API::ItemPrototype()->get(array(
-			'itemids' => getRequest('itemid'),
-			'output' => array(
-				'itemid', 'type', 'snmp_community', 'snmp_oid', 'hostid', 'name', 'key_', 'delay', 'history',
-				'trends', 'status', 'value_type', 'trapper_hosts', 'units', 'multiplier', 'delta',
-				'snmpv3_securityname', 'snmpv3_securitylevel', 'snmpv3_authpassphrase', 'snmpv3_privpassphrase',
-				'formula', 'logtimefmt', 'templateid', 'valuemapid', 'delay_flex', 'params', 'ipmi_sensor',
-				'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey',
-				'interfaceid', 'port', 'description', 'snmpv3_authprotocol', 'snmpv3_privprotocol', 'snmpv3_contextname'
-			)
-		));
-		$itemPrototype = reset($itemPrototype);
-	}
-
-	$data = getItemFormData($itemPrototype);
+	$data = getItemFormData();
 	$data['page_header'] = _('CONFIGURATION OF ITEM PROTOTYPES');
 	$data['is_item_prototype'] = true;
 

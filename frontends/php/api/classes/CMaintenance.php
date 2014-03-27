@@ -28,25 +28,24 @@ class CMaintenance extends CZBXAPI {
 
 	protected $tableName = 'maintenances';
 	protected $tableAlias = 'm';
-	protected $sortColumns = array('maintenanceid', 'name', 'maintenance_type', 'active_till', 'active_since');
+	protected $sortColumns = array('maintenanceid', 'name', 'maintenance_type');
 
 	/**
-	 * Get maintenances data.
+	 * Get maintenances data
 	 *
-	 * @param array  $options
-	 * @param array  $options['itemids']
-	 * @param array  $options['hostids']
-	 * @param array  $options['groupids']
-	 * @param array  $options['triggerids']
-	 * @param array  $options['maintenanceids']
-	 * @param bool   $options['status']
-	 * @param bool   $options['editable']
-	 * @param bool   $options['count']
+	 * @param array $options
+	 * @param array $options['itemids']
+	 * @param array $options['hostids']
+	 * @param array $options['groupids']
+	 * @param array $options['triggerids']
+	 * @param array $options['maintenanceids']
+	 * @param boolean $options['status']
+	 * @param boolean $options['editable']
+	 * @param boolean $options['count']
 	 * @param string $options['pattern']
-	 * @param int    $options['limit']
+	 * @param int $options['limit']
 	 * @param string $options['order']
-	 *
-	 * @return array
+	 * @return array|int item data as array or false if error
 	 */
 	public function get(array $options = array()) {
 		$result = array();
@@ -78,7 +77,7 @@ class CMaintenance extends CZBXAPI {
 			'filter'					=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectGroups'				=> null,
 			'selectHosts'				=> null,
 			'selectTimeperiods'			=> null,
@@ -201,6 +200,16 @@ class CMaintenance extends CZBXAPI {
 			$sqlParts['where'][] = dbConditionInt('m.maintenanceid', $maintenanceids);
 		}
 
+		// groupids
+		if (!is_null($options['groupids'])) {
+			$options['selectGroups'] = 1;
+		}
+
+		// hostids
+		if (!is_null($options['hostids'])) {
+			$options['selectHosts'] = 1;
+		}
+
 		// maintenanceids
 		if (!is_null($options['maintenanceids'])) {
 			zbx_value2array($options['maintenanceids']);
@@ -223,6 +232,7 @@ class CMaintenance extends CZBXAPI {
 			$sqlParts['limit'] = $options['limit'];
 		}
 
+		$maintenanceids = array();
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
@@ -237,7 +247,30 @@ class CMaintenance extends CZBXAPI {
 				}
 			}
 			else {
-				$result[$maintenance['maintenanceid']] = $maintenance;
+				$maintenanceids[$maintenance['maintenanceid']] = $maintenance['maintenanceid'];
+
+				if (!isset($result[$maintenance['maintenanceid']])) {
+					$result[$maintenance['maintenanceid']] = array();
+				}
+
+				// groupids
+				if (isset($maintenance['groupid']) && is_null($options['selectGroups'])) {
+					if (!isset($result[$maintenance['maintenanceid']]['groups'])) {
+						$result[$maintenance['maintenanceid']]['groups'] = array();
+					}
+					$result[$maintenance['maintenanceid']]['groups'][] = array('groupid' => $maintenance['groupid']);
+					unset($maintenance['groupid']);
+				}
+
+				// hostids
+				if (isset($maintenance['hostid']) && is_null($options['selectHosts'])) {
+					if (!isset($result[$maintenance['maintenanceid']]['hosts'])) {
+						$result[$maintenance['maintenanceid']]['hosts'] = array();
+					}
+					$result[$maintenance['maintenanceid']]['hosts'][] = array('hostid' => $maintenance['hostid']);
+					unset($maintenance['hostid']);
+				}
+				$result[$maintenance['maintenanceid']] += $maintenance;
 			}
 		}
 
@@ -439,8 +472,8 @@ class CMaintenance extends CZBXAPI {
 			'maintenanceids' => zbx_objectValues($maintenances, 'maintenanceid'),
 			'editable' => true,
 			'output' => API_OUTPUT_EXTEND,
-			'selectGroups' => array('groupid'),
-			'selectHosts' => array('hostid'),
+			'selectGroups' => API_OUTPUT_REFER,
+			'selectHosts' => API_OUTPUT_REFER,
 			'selectTimeperiods' => API_OUTPUT_EXTEND,
 			'preservekeys' => true
 		));
@@ -452,7 +485,6 @@ class CMaintenance extends CZBXAPI {
 
 			// Checking whether a maintenance with this name already exists. First, getting all maintenances with the same name as this
 			$receivedMaintenances = API::Maintenance()->get(array(
-				'output' => array('maintenanceid'),
 				'filter' => array('name' => $maintenance['name'])
 			));
 

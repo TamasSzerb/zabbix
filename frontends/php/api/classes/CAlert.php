@@ -69,6 +69,7 @@ class CAlert extends CZBXAPI {
 			'groupids'					=> null,
 			'hostids'					=> null,
 			'alertids'					=> null,
+			'triggerids'				=> null,
 			'objectids'					=> null,
 			'eventids'					=> null,
 			'actionids'					=> null,
@@ -85,7 +86,7 @@ class CAlert extends CZBXAPI {
 			'time_till'					=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectMediatypes'			=> null,
 			'selectUsers'				=> null,
 			'selectHosts'				=> null,
@@ -98,6 +99,7 @@ class CAlert extends CZBXAPI {
 		);
 		$options = zbx_array_merge($defOptions, $options);
 
+		$options = $this->convertDeprecatedParam($options, 'triggerids', 'objectids');
 		$this->validateGet($options);
 
 		// editable + PERMISSION CHECK
@@ -244,6 +246,7 @@ class CAlert extends CZBXAPI {
 		if (!is_null($options['actionids'])) {
 			zbx_value2array($options['actionids']);
 
+			$sqlParts['select']['actionid'] = 'a.actionid';
 			$sqlParts['where'][] = dbConditionInt('a.actionid', $options['actionids']);
 		}
 
@@ -262,6 +265,7 @@ class CAlert extends CZBXAPI {
 		if (!is_null($options['mediatypeids'])) {
 			zbx_value2array($options['mediatypeids']);
 
+			$sqlParts['select']['mediatypeid'] = 'a.mediatypeid';
 			$sqlParts['where'][] = dbConditionInt('a.mediatypeid', $options['mediatypeids']);
 		}
 

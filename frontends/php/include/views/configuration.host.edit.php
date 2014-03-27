@@ -309,7 +309,7 @@ else {
 		$interfaces[$interface['interfaceid']] = $interface;
 	}
 	zbx_add_post_js('hostInterfacesManager.add('.CJs::encodeJson($interfaces).');');
-	zbx_add_post_js('hostInterfacesManager.disable();');
+	zbx_add_post_js('hostInterfacesManager.disable()');
 
 	// table for agent interfaces with footer
 	$ifTab = new CTable(null, 'formElementTable');
@@ -375,12 +375,6 @@ else {
 	$ifTab->addRow($row);
 	$hostList->addRow(_('IPMI interfaces'), new CDiv($ifTab, 'border_dotted objectgroup interface-group'), false, null, 'interface-row interface-row-last');
 }
-
-$hostList->addRow(_('Description'), new CTextArea('description',
-	(getRequest('hostid') > 0 && !hasRequest('form_refresh'))
-		? $this->data['dbHost']['description']
-		: getRequest('description')
-));
 
 // Proxy
 if (!$isDiscovered) {
@@ -660,12 +654,10 @@ if (!$isDiscovered) {
 	$ignoredTemplates = array();
 	foreach ($linkedTemplates as $template) {
 		$tmplList->addVar('templates[]', $template['templateid']);
-		$templateLink = new CLink($template['name'], 'templates.php?form=update&templateid='.$template['templateid']);
-		$templateLink->setTarget('_blank');
 
 		$linkedTemplateTable->addRow(
 			array(
-				$templateLink,
+				$template['name'],
 				array(
 					new CSubmit('unlink['.$template['templateid'].']', _('Unlink'), null, 'link_menu'),
 					SPACE,
@@ -702,10 +694,7 @@ if (!$isDiscovered) {
 else {
 	$linkedTemplateTable->setHeader(array(_('Name')));
 	foreach ($linkedTemplates as $template) {
-		$templateLink = new CLink($template['name'], 'templates.php?form=update&templateid='.$template['templateid']);
-		$templateLink->setTarget('_blank');
-
-		$linkedTemplateTable->addRow($templateLink, null, 'conditions_'.$template['templateid']);
+		$linkedTemplateTable->addRow(array($template['name']),null, 'conditions_'.$template['templateid']);
 	}
 
 	$tmplList->addRow(_('Linked templates'), new CDiv($linkedTemplateTable, 'objectgroup inlineblock border_dotted ui-corner-all'));

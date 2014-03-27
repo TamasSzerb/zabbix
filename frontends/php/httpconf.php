@@ -112,29 +112,19 @@ if (isset($_REQUEST['new_httpstep'])) {
 if (isset($_REQUEST['delete']) && isset($_REQUEST['httptestid'])) {
 	$result = false;
 
-	DBstart();
-
 	$host = DBfetch(DBselect(
-		'SELECT h.host'.
-		' FROM hosts h,httptest ht'.
-		' WHERE ht.hostid=h.hostid'.
-			' AND ht.httptestid='.zbx_dbstr($_REQUEST['httptestid'])
-	));
+		'SELECT h.host FROM hosts h,httptest ht WHERE ht.hostid=h.hostid AND ht.httptestid='.zbx_dbstr($_REQUEST['httptestid'])));
 
-	$httptestData = get_httptest_by_httptestid($_REQUEST['httptestid']);
-	if ($httptestData) {
+	if ($httptest_data = get_httptest_by_httptestid($_REQUEST['httptestid'])) {
 		$result = API::HttpTest()->delete($_REQUEST['httptestid']);
+	}
 
-		if ($result) {
-			add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_SCENARIO,
-				'Web scenario ['.$httptestData['name'].'] ['.$_REQUEST['httptestid'].'] Host ['.$host['host'].']'
-			);
-		}
+	show_messages($result, _('Web scenario deleted'), _('Cannot delete web scenario'));
+	if ($result) {
+		add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_SCENARIO, 'Web scenario ['.$httptest_data['name'].'] ['.
+			$_REQUEST['httptestid'].'] Host ['.$host['host'].']');
 	}
 	unset($_REQUEST['httptestid'], $_REQUEST['form']);
-
-	$result = DBend($result);
-	show_messages($result, _('Web scenario deleted'), _('Cannot delete web scenario'));
 }
 elseif (isset($_REQUEST['clone']) && isset($_REQUEST['httptestid'])) {
 	unset($_REQUEST['httptestid']);
@@ -240,6 +230,7 @@ elseif (isset($_REQUEST['save'])) {
 			else {
 				clearCookies($result, $_REQUEST['hostid']);
 			}
+
 		}
 		else {
 			$result = API::HttpTest()->create($httpTest);
@@ -278,14 +269,11 @@ elseif (str_in_array(getRequest('go'), array('activate', 'disable')) && hasReque
 	$auditAction = $enable ? AUDIT_ACTION_ENABLE : AUDIT_ACTION_DISABLE;
 	$updated = 0;
 
-	DBStart();
-
 	foreach ($groupHttpTestId as $id) {
 		if (!($httpTestData = get_httptest_by_httptestid($id))) {
 			continue;
 		}
-
-		$result &= (bool) API::HttpTest()->update(array(
+		$result &= API::HttpTest()->update(array(
 			'httptestid' => $id,
 			'status' => $status
 		));
@@ -298,7 +286,6 @@ elseif (str_in_array(getRequest('go'), array('activate', 'disable')) && hasReque
 				'Scenario ['.$httpTestData['name'].'] ['.$id.'] Host ['.$host['host'].'] '.$statusName
 			);
 		}
-
 		$updated++;
 	}
 
@@ -309,38 +296,29 @@ elseif (str_in_array(getRequest('go'), array('activate', 'disable')) && hasReque
 		? _n('Cannot enable web scenario', 'Cannot enable web scenarios', $updated)
 		: _n('Cannot disable web scenario', 'Cannot disable web scenarios', $updated);
 
-	$result = DBend($result);
 	show_messages($result, $messageSuccess, $messageFailed);
 	clearCookies($result, getRequest('hostid'));
 }
 elseif ($_REQUEST['go'] == 'clean_history' && isset($_REQUEST['group_httptestid'])) {
-	$result = true;
+	$goResult = false;
 	$group_httptestid = $_REQUEST['group_httptestid'];
-
-	DBStart();
-
 	foreach ($group_httptestid as $id) {
 		if (!($httptest_data = get_httptest_by_httptestid($id))) {
 			continue;
 		}
-
-		$result &= delete_history_by_httptestid($id);
-		if ($result) {
-			$result &= DBexecute('UPDATE httptest SET nextcheck=0 WHERE httptestid='.zbx_dbstr($id));
-
+		if (delete_history_by_httptestid($id)) {
+			$goResult = true;
+			DBexecute('UPDATE httptest SET nextcheck=0 WHERE httptestid='.zbx_dbstr($id));
 			$host = DBfetch(DBselect(
-				'SELECT h.host FROM hosts h,httptest ht WHERE ht.hostid=h.hostid AND ht.httptestid='.zbx_dbstr($id)
-			));
+				'SELECT h.host FROM hosts h,httptest ht WHERE ht.hostid=h.hostid AND ht.httptestid='.zbx_dbstr($id)));
 
-			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_SCENARIO,
-				'Scenario ['.$httptest_data['name'].'] ['.$id.'] Host ['.$host['host'].'] history cleared'
-			);
+			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_SCENARIO, 'Scenario ['.$httptest_data['name'].'] ['.$id.
+				'] Host ['.$host['host'].'] history cleared');
 		}
 	}
 
-	$result = DBend($result);
-	show_messages($result, _('History cleared'), _('Cannot clear history'));
-	clearCookies($result, $_REQUEST['hostid']);
+	show_messages($goResult, _('History cleared'), null);
+	clearCookies($goResult, $_REQUEST['hostid']);
 }
 elseif ($_REQUEST['go'] == 'delete' && isset($_REQUEST['group_httptestid'])) {
 	$goResult = API::HttpTest()->delete($_REQUEST['group_httptestid']);

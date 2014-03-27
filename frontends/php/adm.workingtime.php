@@ -39,17 +39,16 @@ check_fields($fields);
  * Actions
  */
 if (isset($_REQUEST['save'])) {
-	$workPeriod = getRequest('work_period');
-
 	DBstart();
 
-	$result = update_config(array('work_period' => $workPeriod));
+	$result = update_config(array('work_period' => get_request('work_period')));
+
+	show_messages($result, _('Configuration updated'), _('Cannot update configuration'));
 	if ($result) {
-		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, _s('Working time "%1$s".', $workPeriod));
+		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, _s('Working time "%1$s".', get_request('work_period')));
 	}
 
-	$result = DBend($result);
-	show_messages($result, _('Configuration updated'), _('Cannot update configuration'));
+	DBend($result);
 }
 
 /*

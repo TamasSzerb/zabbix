@@ -17,7 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 /*
  * Function: get_service_status
@@ -100,8 +101,12 @@ function get_service_childs($serviceid, $soft = 0) {
  */
 function createServiceConfigurationTree(array $services, &$tree, array $parentService = array(), array $service = array(), array $dependency = array()) {
 	if (!$service) {
-		$caption = new CLink(_('root'), '#');
-		$caption->setMenuPopup(CMenuPopupHelper::getServiceConfiguration(null, _('root'), false));
+		$caption = new CLink(_('root'), '#', 'service-conf-menu');
+		$caption->setAttribute('data-menu', array(
+			'serviceid' => 0,
+			'name' => _('root'),
+			'hasDependencies' => true
+		));
 
 		$serviceNode = array(
 			'id' => 0,
@@ -132,7 +137,7 @@ function createServiceConfigurationTree(array $services, &$tree, array $parentSe
 	}
 	else {
 		// caption
-		$caption = new CLink($service['name'], '#');
+		$caption = new CLink($service['name'], '#', 'service-conf-menu');
 
 		// service is deletable only if it has no hard dependency
 		$deletable = true;
@@ -143,13 +148,17 @@ function createServiceConfigurationTree(array $services, &$tree, array $parentSe
 			}
 		}
 
-		$caption->setMenuPopup(CMenuPopupHelper::getServiceConfiguration($service['serviceid'], $service['name'], $deletable));
+		$caption->setAttribute('data-menu', array(
+			'serviceid' => $service['serviceid'],
+			'name' => $service['name'],
+			'deletable' => $deletable
+		));
 
 		$serviceNode = array(
 			'id' => $service['serviceid'],
 			'caption' => $caption,
-			'description' => $service['trigger'] ? $service['trigger']['description'] : '-',
-			'parentid' => $parentService ? $parentService['serviceid'] : 0,
+			'description' => ($service['trigger']) ? $service['trigger']['description'] : '-',
+			'parentid' => ($parentService) ? $parentService['serviceid'] : 0,
 			'algorithm' => serviceAlgorythm($service['algorithm'])
 		);
 	}

@@ -26,7 +26,7 @@ require_once dirname(__FILE__).'/include/forms.inc.php';
 
 $page['title'] = _('Configuration of items');
 $page['file'] = 'items.php';
-$page['scripts'] = array('class.cviewswitcher.js', 'multiselect.js', 'items.js');
+$page['scripts'] = array('class.cviewswitcher.js', 'multiselect.js');
 $page['hist_arg'] = array();
 
 require_once dirname(__FILE__).'/include/page_header.php';
@@ -174,7 +174,9 @@ $fields = array(
 	'subfilter_history' =>		array(T_ZBX_INT, O_OPT, null,	null,		null),
 	'subfilter_trends' =>		array(T_ZBX_INT, O_OPT, null,	null,		null),
 	// ajax
-	'filterState' =>			array(T_ZBX_INT, O_OPT, P_ACT,	null,		null)
+	'favobj' =>					array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
+	'favref' =>					array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})'),
+	'favstate' =>				array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})&&"filter"=={favobj}')
 );
 check_fields($fields);
 validate_sort_and_sortorder('name', ZBX_SORT_UP);
@@ -220,12 +222,15 @@ elseif (get_request('hostid', 0) > 0) {
 /*
  * Ajax
  */
-if (hasRequest('filterState')) {
-	CProfile::update('web.items.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
+if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.items.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
 }
+
 if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 if (!empty($hosts)) {
@@ -491,13 +496,13 @@ elseif (isset($_REQUEST['del_history']) && isset($_REQUEST['itemid'])) {
 	if ($result) {
 		$host = get_host_by_hostid($_REQUEST['hostid']);
 		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ITEM, _('Item').' ['.$item['key_'].'] ['.$_REQUEST['itemid'].'] '.
-			_('Host').' ['.$host['name'].'] '._('History cleared')
-		);
+			_('Host').' ['.$host['name'].'] '._('History cleared'));
 	}
 
 	$result = DBend($result);
+
 	show_messages($result, _('History cleared'), _('Cannot clear history'));
-	clearCookies($result, getRequest('hostid'));
+	clearCookies($result, get_request('hostid'));
 }
 // mass update
 elseif (isset($_REQUEST['update']) && isset($_REQUEST['massupdate']) && isset($_REQUEST['group_itemid'])) {
@@ -749,50 +754,26 @@ elseif ($_REQUEST['go'] == 'delete' && isset($_REQUEST['group_itemid'])) {
 		'preservekeys' => true
 	));
 
-	$result = API::Item()->delete($group_itemid);
+	$goResult = API::Item()->delete($group_itemid);
 
-	if ($result) {
+	if ($goResult) {
 		foreach ($itemsToDelete as $item) {
 			$host = reset($item['hosts']);
-			add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_ITEM,
-				_('Item').' ['.$item['key_'].'] ['.$item['itemid'].'] '._('Host').' ['.$host['name'].']'
-			);
+			add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_ITEM, _('Item').' ['.$item['key_'].'] ['.$item['itemid'].'] '.
+				_('Host').' ['.$host['name'].']');
 		}
 	}
 
-	$result = DBend($result);
-	show_messages($result, _('Items deleted'), _('Cannot delete items'));
-	clearCookies($result, getRequest('hostid'));
+	show_messages(DBend($goResult), _('Items deleted'), _('Cannot delete items'));
+	clearCookies($goResult, get_request('hostid'));
 }
 
 /*
  * Display
  */
 if (isset($_REQUEST['form']) && str_in_array($_REQUEST['form'], array(_('Create item'), 'update', 'clone'))) {
-	$item = array();
-	if (hasRequest('itemid')) {
-		$item = API::Item()->get(array(
-			'itemids' => getRequest('itemid'),
-			'output' => array(
-				'itemid', 'type', 'snmp_community', 'snmp_oid', 'hostid', 'name', 'key_', 'delay', 'history',
-				'trends', 'status', 'value_type', 'trapper_hosts', 'units', 'multiplier', 'delta',
-				'snmpv3_securityname', 'snmpv3_securitylevel', 'snmpv3_authpassphrase', 'snmpv3_privpassphrase',
-				'formula', 'logtimefmt', 'templateid', 'valuemapid', 'delay_flex', 'params', 'ipmi_sensor',
-				'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey',
-				'interfaceid', 'port', 'description', 'inventory_link', 'lifetime', 'snmpv3_authprotocol',
-				'snmpv3_privprotocol', 'snmpv3_contextname'
-			)
-		));
-		$item = reset($item);
-	}
-
-	$data = getItemFormData($item);
+	$data = getItemFormData();
 	$data['page_header'] = _('CONFIGURATION OF ITEMS');
-	$data['inventory_link'] = getRequest('inventory_link');
-
-	if (hasRequest('itemid') && !getRequest('form_refresh')) {
-		$data['inventory_link'] = $item['inventory_link'];
-	}
 
 	// render view
 	$itemView = new CView('configuration.item.edit', $data);
@@ -842,9 +823,7 @@ elseif ($_REQUEST['go'] == 'massupdate' || isset($_REQUEST['massupdate']) && iss
 
 	// hosts
 	$data['hosts'] = API::Host()->get(array(
-		'output' => array('hostid'),
 		'itemids' => $data['itemids'],
-		'selectItems' => array('itemid'),
 		'selectInterfaces' => API_OUTPUT_EXTEND
 	));
 	$data['is_multiple_hosts'] = count($data['hosts']) > 1;
@@ -958,7 +937,7 @@ else {
 		),
 		'editable' => true,
 		'selectHosts' => API_OUTPUT_EXTEND,
-		'selectTriggers' => array('triggerid', 'description'),
+		'selectTriggers' => API_OUTPUT_REFER,
 		'selectApplications' => API_OUTPUT_EXTEND,
 		'selectDiscoveryRule' => API_OUTPUT_EXTEND,
 		'selectItemDiscovery' => array('ts_delete'),
@@ -1194,11 +1173,10 @@ else {
 	// determine, show or not column of errors
 	if (isset($hosts)) {
 		$host = reset($hosts);
-
-		$data['showInfoColumn'] = ($host['status'] != HOST_STATUS_TEMPLATE);
+		$data['showErrorColumn'] = ($host['status'] != HOST_STATUS_TEMPLATE);
 	}
 	else {
-		$data['showInfoColumn'] = true;
+		$data['showErrorColumn'] = true;
 	}
 
 	// render view

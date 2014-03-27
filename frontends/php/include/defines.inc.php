@@ -18,10 +18,9 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
-define('ZABBIX_VERSION',     '2.3.0');
-define('ZABBIX_API_VERSION', '2.3.0');
-define('ZABBIX_DB_VERSION',	 2030032);
+define('ZABBIX_VERSION',     '2.2.3rc1');
+define('ZABBIX_API_VERSION', '2.2.3');
+define('ZABBIX_DB_VERSION',	 2020000);
 
 define('ZABBIX_COPYRIGHT_FROM', '2001');
 define('ZABBIX_COPYRIGHT_TO',   '2014');
@@ -222,7 +221,6 @@ define('CONDITION_OPERATOR_IN',			4);
 define('CONDITION_OPERATOR_MORE_EQUAL',	5);
 define('CONDITION_OPERATOR_LESS_EQUAL',	6);
 define('CONDITION_OPERATOR_NOT_IN',		7);
-define('CONDITION_OPERATOR_REGEXP',		8);
 
 // event type action condition values
 define('EVENT_TYPE_ITEM_NOTSUPPORTED',		0);
@@ -489,10 +487,9 @@ define('OPERATION_TYPE_TEMPLATE_REMOVE',7);
 define('OPERATION_TYPE_HOST_ENABLE',	8);
 define('OPERATION_TYPE_HOST_DISABLE',	9);
 
-define('CONDITION_EVAL_TYPE_AND_OR',		0);
-define('CONDITION_EVAL_TYPE_AND',			1);
-define('CONDITION_EVAL_TYPE_OR',			2);
-define('CONDITION_EVAL_TYPE_EXPRESSION', 	3);
+define('ACTION_EVAL_TYPE_AND_OR',	0);
+define('ACTION_EVAL_TYPE_AND',		1);
+define('ACTION_EVAL_TYPE_OR',		2);
 
 // screen
 define('SCREEN_RESOURCE_GRAPH',				0);
@@ -525,6 +522,8 @@ define('SCREEN_SORT_TRIGGERS_TYPE_ASC',				5);
 define('SCREEN_SORT_TRIGGERS_TYPE_DESC',			6);
 define('SCREEN_SORT_TRIGGERS_STATUS_ASC',			7);
 define('SCREEN_SORT_TRIGGERS_STATUS_DESC',			8);
+define('SCREEN_SORT_TRIGGERS_RETRIES_LEFT_ASC',		9);
+define('SCREEN_SORT_TRIGGERS_RETRIES_LEFT_DESC',	10);
 define('SCREEN_SORT_TRIGGERS_RECIPIENT_ASC',		11);
 define('SCREEN_SORT_TRIGGERS_RECIPIENT_DESC',		12);
 
@@ -772,7 +771,6 @@ define('ZBX_PREG_HOST_FORMAT', ZBX_PREG_INTERNAL_NAMES);
 define('ZBX_PREG_NODE_FORMAT', ZBX_PREG_INTERNAL_NAMES);
 define('ZBX_PREG_MACRO_NAME_FORMAT', '(\{[A-Z\.]+\})');
 define('ZBX_PREG_EXPRESSION_USER_MACROS', '(\{\$'.ZBX_PREG_MACRO_NAME.'\})');
-define('ZBX_PREG_EXPRESSION_LLD_MACROS', '(\{\#'.ZBX_PREG_MACRO_NAME_LLD.'\})');
 
 // !!! should be used with "x" modifier
 define('ZBX_PREG_ITEM_KEY_PARAMETER_FORMAT', '(
@@ -850,6 +848,7 @@ define('ZBX_API_ERROR_PERMISSIONS',	120);
 define('ZBX_API_ERROR_NO_AUTH',		200);
 define('ZBX_API_ERROR_NO_METHOD',	300);
 
+define('API_OUTPUT_REFER',		'refer');
 define('API_OUTPUT_EXTEND',		'extend');
 define('API_OUTPUT_COUNT',		'count');
 
@@ -874,18 +873,6 @@ define('ZBX_TEXTBOX_FILTER_SIZE',		20);
 define('ZBX_TEXTAREA_STANDARD_WIDTH',	312);
 define('ZBX_TEXTAREA_BIG_WIDTH',		524);
 define('ZBX_TEXTAREA_STANDARD_ROWS',	7);
-
-// widgets
-define('WIDGET_DISCOVERY_STATUS',	'dscvry');
-define('WIDGET_FAVOURITE_GRAPHS',	'favgrph');
-define('WIDGET_FAVOURITE_MAPS',		'favmap');
-define('WIDGET_FAVOURITE_SCREENS',	'favscr');
-define('WIDGET_HOST_STATUS',		'hoststat');
-define('WIDGET_LAST_ISSUES',		'lastiss');
-define('WIDGET_SLIDESHOW',			'hat_slides');
-define('WIDGET_SYSTEM_STATUS',		'syssum');
-define('WIDGET_WEB_OVERVIEW',		'webovr');
-define('WIDGET_ZABBIX_STATUS',		'stszbx');
 
 // validation
 define('DB_ID',		"({}>=0&&bccomp('{}',\"10000000000000000000\")<0)&&");

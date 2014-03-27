@@ -46,28 +46,20 @@ class CWebUser {
 				self::$data['url'] = CProfile::get('web.menu.view.last', 'index.php');
 			}
 
-			$result = (bool) self::$data;
-
 			if (isset(self::$data['attempt_failed']) && self::$data['attempt_failed']) {
 				CProfile::init();
 				CProfile::update('web.login.attempt.failed', self::$data['attempt_failed'], PROFILE_TYPE_INT);
 				CProfile::update('web.login.attempt.ip', self::$data['attempt_ip'], PROFILE_TYPE_STR);
 				CProfile::update('web.login.attempt.clock', self::$data['attempt_clock'], PROFILE_TYPE_INT);
-				$result &= CProfile::flush();
+				CProfile::flush();
 			}
 
 			// remove guest session after successful login
-			$result &= DBexecute('DELETE FROM sessions WHERE sessionid='.zbx_dbstr(get_cookie('zbx_sessionid')));
+			DBexecute('DELETE FROM sessions WHERE sessionid='.zbx_dbstr(get_cookie('zbx_sessionid')));
 
-			if ($result) {
-				zbx_setcookie('zbx_sessionid', self::$data['sessionid'],
-					self::$data['autologin'] ? time() + SEC_PER_DAY * 31 : 0
-				);
+			zbx_setcookie('zbx_sessionid', self::$data['sessionid'], self::$data['autologin'] ? time() + SEC_PER_DAY * 31 : 0);
 
-				add_audit_ext(AUDIT_ACTION_LOGIN, AUDIT_RESOURCE_USER, self::$data['userid'], '', null, null, null);
-			}
-
-			return $result;
+			return true;
 		}
 		catch (Exception $e) {
 			self::setDefault();

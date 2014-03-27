@@ -69,8 +69,6 @@
 .inventory-host .formlist .formrow .overview-link { margin-top: 2px; margin-left: 10px; display: inline-block; }
 .inventory-host .formlist .formrow .link_menu { display: inline-block; }
 .inventory-host .formlist .formrow .interfaces { min-width: 500px; }
-.inventory-host .formlist .formrow .description { padding-top: 2px; width: 550px; white-space: pre-wrap; }
-.inventory-host .formlist .formrow .text-field { width: 550px; white-space: pre-wrap; }
 
 /* icon mapping */
 #iconMapTable .sortable { height: 30px; line-height: 30px; }
@@ -106,10 +104,6 @@
 .latest-mon .tableinfo td a { float: left; max-width: 100%; }
 .latest-mon .tableinfo div.item { padding-left: 8px; }
 
-/* trigger monitoring */
-.trigger-mon #inventory-filter td { padding-left: 0; padding-right: 3px; }
-.trigger-mon .filter-button { height: 16px; }
-
 /* regexp test result table, based on .tableinfo */
 #testResultTable tr td:first-child { width: auto; }
 #testResultTable tr td { padding: 1px 3px; }
@@ -129,7 +123,7 @@
 .item-list table.filter tr td.label.col4 { width: 8%; }
 .item-list .filter .col1 .text,
 .item-list .filter .multiselect { width: 165px; line-height: 12px; }
-.item-list .menuPopup { width: 200px; }
+.item-list .filter .multiselect { height: 10px; top: -10px; }
 
 /* service list */
 .service-list .tableinfo .service-caption-soft a { color: #888; }
@@ -156,7 +150,6 @@
 #sysmap_cnt .ui-selecting { border: 3px #FFCC00 solid; margin: -3px; }
 #map-window { z-index: 100; position: absolute; display: none; top: 50px; left: 500px; box-shadow: 0 0 5px 5px rgba(204, 204, 204, 0.5); }
 #map-window .formtable { width: 100%; }
-#map-window .formtable #application { width: 313px; }
 #map-window #elements-selected { border: 1px dotted black; margin-bottom: 5px; height: 128px; overflow-y: scroll; overflow-x: hidden; }
 #map-window #mapLinksContainer { border: 1px solid rgb(170, 170, 170); max-height: 128px; overflow-y: scroll; overflow-x: hidden; }
 #map-window #linkForm { display: none; }

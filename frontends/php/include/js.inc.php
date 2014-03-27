@@ -100,10 +100,9 @@ function encodeValues(&$value, $encodeTwice = true) {
 function zbx_add_post_js($script) {
 	global $ZBX_PAGE_POST_JS;
 
-	if ($ZBX_PAGE_POST_JS === null) {
+	if (!isset($ZBX_PAGE_POST_JS)) {
 		$ZBX_PAGE_POST_JS = array();
 	}
-
 	if (!in_array($script, $ZBX_PAGE_POST_JS)) {
 		$ZBX_PAGE_POST_JS[] = $script;
 	}
@@ -281,6 +280,17 @@ function insert_javascript_for_visibilitybox() {
 			}
 		}';
 	insert_js($js);
+}
+
+function play_sound($filename) {
+	insert_js('
+		if (IE) {
+			document.writeln(\'<bgsound src="'.$filename.'" loop="0" />\');
+		}
+		else {
+			document.writeln(\'<embed src="'.$filename.'" autostart="true" width="0" height="0" loop="0" />\');
+			document.writeln(\'<noembed><bgsound src="'.$filename.'" loop="0" /></noembed>\');
+		}');
 }
 
 function insert_js_function($fnct_name) {
@@ -501,21 +511,20 @@ function insert_js($script, $jQueryDocumentReady = false) {
 
 function get_js($script, $jQueryDocumentReady = false) {
 	return $jQueryDocumentReady
-		? '<script type="text/javascript">'."\n".'jQuery(document).ready(function() { '.$script.' });'."\n".'</script>'
-		: '<script type="text/javascript">'."\n".$script."\n".'</script>';
+		? '<script type="text/javascript">// <![CDATA['."\n".'jQuery(document).ready(function() { '.$script.' });'."\n".'// ]]></script>'
+		: '<script type="text/javascript">// <![CDATA['."\n".$script."\n".'// ]]></script>';
 }
 
 function insertPagePostJs() {
 	global $ZBX_PAGE_POST_JS;
 
-	if ($ZBX_PAGE_POST_JS) {
+	if (!empty($ZBX_PAGE_POST_JS)) {
 		$js = '';
-
 		foreach ($ZBX_PAGE_POST_JS as $script) {
 			$js .= $script."\n";
 		}
 
-		if ($js) {
+		if (!empty($js)) {
 			echo get_js($js, true);
 		}
 	}

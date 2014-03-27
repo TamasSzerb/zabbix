@@ -22,18 +22,18 @@
 function update_node_profile($nodeIds) {
 	DBstart();
 
-	$result = DBexecute(
+	DBexecute(
 		'DELETE FROM profiles WHERE userid='.CWebUser::$data['userid'].' AND idx='.zbx_dbstr('web.nodes.selected')
 	);
 
 	foreach ($nodeIds as $nodeId) {
-		$result &= DBexecute(
+		DBexecute(
 			'INSERT INTO profiles (profileid,userid,idx,value_id,type)'.
 			' VALUES ('.get_dbid('profiles', 'profileid').','.CWebUser::$data['userid'].','.
 				zbx_dbstr('web.nodes.selected').','.zbx_dbstr($nodeId).',4)');
 	}
 
-	DBend($result);
+	DBend();
 }
 
 function get_node_profile($default = null) {

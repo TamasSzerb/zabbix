@@ -65,7 +65,7 @@ class CConfigurationImport {
 	 * i.e. if string contains json then reader should be able to read json.
 	 *
 	 * @param string $source
-	 * @param array  $options
+	 * @param array $options
 	 */
 	public function __construct($source, array $options = array()) {
 		$this->options = array(
@@ -81,10 +81,10 @@ class CConfigurationImport {
 			'graphs' => array('updateExisting' => false, 'createMissing' => false),
 			'screens' => array('updateExisting' => false, 'createMissing' => false),
 			'maps' => array('updateExisting' => false, 'createMissing' => false),
-			'images' => array('updateExisting' => false, 'createMissing' => false)
+			'images' => array('updateExisting' => false, 'createMissing' => false),
 		);
-
 		$this->options = array_merge($this->options, $options);
+
 		$this->source = $source;
 	}
 
@@ -104,7 +104,6 @@ class CConfigurationImport {
 	 *
 	 * @throws Exception
 	 * @throws UnexpectedValueException
-	 *
 	 * @return bool
 	 */
 	public function import() {
@@ -116,6 +115,7 @@ class CConfigurationImport {
 			// hack to make api throw exceptions
 			// this made to not check all api calls results for false return
 			czbxrpc::$useExceptions = true;
+			DBstart();
 
 			$this->data = $this->reader->read($this->source);
 
@@ -125,15 +125,12 @@ class CConfigurationImport {
 			// old import class process hosts, maps and screens separately.
 			if ($version == '1.8') {
 				CXmlImport18::import($this->source);
-
 				if ($this->options['maps']['updateExisting'] || $this->options['maps']['createMissing']) {
 					CXmlImport18::parseMap($this->options);
 				}
-
 				if ($this->options['screens']['updateExisting'] || $this->options['screens']['createMissing']) {
 					CXmlImport18::parseScreen($this->options);
 				}
-
 				if ($this->options['hosts']['updateExisting']
 						|| $this->options['hosts']['createMissing']
 						|| $this->options['templates']['updateExisting']
@@ -169,12 +166,11 @@ class CConfigurationImport {
 
 			// prevent api from throwing exception
 			czbxrpc::$useExceptions = false;
-
-			return true;
+			return DBend(true);
 		}
 		catch (Exception $e) {
 			czbxrpc::$useExceptions = false;
-
+			DBend(false);
 			throw new Exception($e->getMessage(), $e->getCode());
 		}
 	}
@@ -239,7 +235,6 @@ class CConfigurationImport {
 					$templatesRefs[$linkedTemplate['name']] = $linkedTemplate['name'];
 				}
 			}
-
 			if (!empty($host['proxy'])) {
 				$proxyRefs[$host['proxy']['name']] = $host['proxy']['name'];
 			}
@@ -280,7 +275,6 @@ class CConfigurationImport {
 						$valueMapsRefs[$itemp['valuemap']['name']] = $itemp['valuemap']['name'];
 					}
 				}
-
 				foreach ($discoveryRule['trigger_prototypes'] as $trigerp) {
 					$triggersRefs[$trigerp['description']][$trigerp['expression']] = $trigerp['expression'];
 				}
@@ -290,12 +284,10 @@ class CConfigurationImport {
 						$yMinItem = $graph['ymin_item_1'];
 						$itemsRefs[$yMinItem['host']][$yMinItem['key']] = $yMinItem['key'];
 					}
-
 					if ($graph['ymax_item_1']) {
 						$yMaxItem = $graph['ymax_item_1'];
 						$itemsRefs[$yMaxItem['host']][$yMaxItem['key']] = $yMaxItem['key'];
 					}
-
 					foreach ($graph['gitems'] as $gitem) {
 						$gitemItem = $gitem['item'];
 						$itemsRefs[$gitemItem['host']][$gitemItem['key']] = $gitemItem['key'];
@@ -321,14 +313,12 @@ class CConfigurationImport {
 		foreach ($this->getFormattedGraphs() as $graph) {
 			if ($graph['ymin_item_1']) {
 				$yMinItem = $graph['ymin_item_1'];
-
 				$hostsRefs[$yMinItem['host']] = $yMinItem['host'];
 				$itemsRefs[$yMinItem['host']][$yMinItem['key']] = $yMinItem['key'];
 			}
 
 			if ($graph['ymax_item_1']) {
 				$yMaxItem = $graph['ymax_item_1'];
-
 				$hostsRefs[$yMaxItem['host']] = $yMaxItem['host'];
 				$itemsRefs[$yMaxItem['host']][$yMaxItem['key']] = $yMaxItem['key'];
 			}
@@ -336,7 +326,6 @@ class CConfigurationImport {
 			if (isset($graph['gitems']) && $graph['gitems']) {
 				foreach ($graph['gitems'] as $gitem) {
 					$gitemItem = $gitem['item'];
-
 					$hostsRefs[$gitemItem['host']] = $gitemItem['host'];
 					$itemsRefs[$gitemItem['host']][$gitemItem['key']] = $gitemItem['key'];
 				}
@@ -399,7 +388,6 @@ class CConfigurationImport {
 			if (!empty($screen['screenitems'])) {
 				foreach ($screen['screenitems'] as $screenItem) {
 					$resource = $screenItem['resource'];
-
 					if (empty($resource)) {
 						continue;
 					}
@@ -481,7 +469,6 @@ class CConfigurationImport {
 	 */
 	protected function processGroups() {
 		$groups = $this->getFormattedGroups();
-
 		if (empty($groups)) {
 			return;
 		}
@@ -497,7 +484,6 @@ class CConfigurationImport {
 			// reset indexing because ids from api does not preserve input array keys
 			$groups = array_values($groups);
 			$newGroups = API::HostGroup()->create($groups);
-
 			foreach ($newGroups['groupids'] as $gnum => $groupid) {
 				$this->referencer->addGroupRef($groups[$gnum]['name'], $groupid);
 			}
@@ -533,24 +519,20 @@ class CConfigurationImport {
 	 */
 	protected function processApplications() {
 		$allApplciations = $this->getFormattedApplications();
-
 		if (empty($allApplciations)) {
 			return;
 		}
 
 		$applicationsToCreate = array();
-
 		foreach ($allApplciations as $host => $applications) {
 			if (!$this->referencer->isProcessedHost($host)) {
 				continue;
 			}
 
 			$hostid = $this->referencer->resolveHostOrTemplate($host);
-
 			foreach ($applications as $application) {
 				$application['hostid'] = $hostid;
 				$appId = $this->referencer->resolveApplication($hostid, $application['name']);
-
 				if (!$appId) {
 					$applicationsToCreate[] = $application;
 				}
@@ -558,9 +540,8 @@ class CConfigurationImport {
 		}
 
 		// create the applications and create a hash hostid->name->applicationid
-		if ($applicationsToCreate) {
+		if (!empty($applicationsToCreate)) {
 			$newApplicationsIds = API::Application()->create($applicationsToCreate);
-
 			foreach ($newApplicationsIds['applicationids'] as $anum => $applicationId) {
 				$application = $applicationsToCreate[$anum];
 				$this->referencer->addApplicationRef($application['hostid'], $application['name'], $applicationId);
@@ -576,27 +557,23 @@ class CConfigurationImport {
 	 */
 	protected function processItems() {
 		$allItems = $this->getFormattedItems();
-
 		if (empty($allItems)) {
 			return;
 		}
 
 		$itemsToCreate = array();
 		$itemsToUpdate = array();
-
 		foreach ($allItems as $host => $items) {
 			if (!$this->referencer->isProcessedHost($host)) {
 				continue;
 			}
 
 			$hostid = $this->referencer->resolveHostOrTemplate($host);
-
 			foreach ($items as $item) {
 				$item['hostid'] = $hostid;
 
 				if (isset($item['applications']) && $item['applications']) {
 					$applicationsIds = array();
-
 					foreach ($item['applications'] as $application) {
 						if ($applicationId = $this->referencer->resolveApplication($hostid, $application['name'])) {
 							$applicationsIds[] = $applicationId;
@@ -606,7 +583,6 @@ class CConfigurationImport {
 								$item['name'], $host, $application['name']));
 						}
 					}
-
 					$item['applications'] = $applicationsIds;
 				}
 
@@ -616,7 +592,6 @@ class CConfigurationImport {
 
 				if (isset($item['valuemap']) && $item['valuemap']) {
 					$valueMapId = $this->referencer->resolveValueMap($item['valuemap']['name']);
-
 					if (!$valueMapId) {
 						throw new Exception(_s(
 							'Cannot find value map "%1$s" used for item "%2$s" on "%3$s".',
@@ -625,7 +600,6 @@ class CConfigurationImport {
 							$host
 						));
 					}
-
 					$item['valuemapid'] = $valueMapId;
 				}
 
@@ -644,13 +618,11 @@ class CConfigurationImport {
 		// create/update the items and create a hash hostid->key_->itemid
 		if ($this->options['items']['createMissing'] && $itemsToCreate) {
 			$newItemsIds = API::Item()->create($itemsToCreate);
-
 			foreach ($newItemsIds['itemids'] as $inum => $itemid) {
 				$item = $itemsToCreate[$inum];
 				$this->referencer->addItemRef($item['hostid'], $item['key_'], $itemid);
 			}
 		}
-
 		if ($this->options['items']['updateExisting'] && $itemsToUpdate) {
 			API::Item()->update($itemsToUpdate);
 		}
@@ -666,7 +638,6 @@ class CConfigurationImport {
 	 */
 	protected function processDiscoveryRules() {
 		$allDiscoveryRules = $this->getFormattedDiscoveryRules();
-
 		if (empty($allDiscoveryRules)) {
 			return;
 		}
@@ -680,24 +651,20 @@ class CConfigurationImport {
 
 		$itemsToCreate = array();
 		$itemsToUpdate = array();
-
 		foreach ($allDiscoveryRules as $host => $discoveryRules) {
 			$hostid = $this->referencer->resolveHostOrTemplate($host);
-
 			foreach ($discoveryRules as $item) {
 				$item['hostid'] = $hostid;
 
 				if (isset($item['interface_ref'])) {
 					$item['interfaceid'] = $this->referencer->interfacesCache[$hostid][$item['interface_ref']];
 				}
-
 				unset($item['item_prototypes']);
 				unset($item['trigger_prototypes']);
 				unset($item['graph_prototypes']);
 				unset($item['host_prototypes']);
 
 				$itemId = $this->referencer->resolveItem($hostid, $item['key_']);
-
 				if ($itemId) {
 					$item['itemid'] = $itemId;
 					$itemsToUpdate[] = $item;
@@ -710,24 +677,19 @@ class CConfigurationImport {
 
 		// create/update discovery rules and add processed rules to array $processedRules
 		$processedRules = array();
-
 		if ($this->options['discoveryRules']['createMissing'] && $itemsToCreate) {
 			$newItemsIds = API::DiscoveryRule()->create($itemsToCreate);
-
 			foreach ($newItemsIds['itemids'] as $inum => $itemid) {
 				$item = $itemsToCreate[$inum];
-
 				$this->referencer->addItemRef($item['hostid'], $item['key_'], $itemid);
 			}
-
 			foreach ($itemsToCreate as $item) {
 				$processedRules[$item['hostid']][$item['key_']] = 1;
 			}
-		}
 
+		}
 		if ($this->options['discoveryRules']['updateExisting'] && $itemsToUpdate) {
 			API::DiscoveryRule()->update($itemsToUpdate);
-
 			foreach ($itemsToUpdate as $item) {
 				$processedRules[$item['hostid']][$item['key_']] = 1;
 			}
@@ -741,10 +703,8 @@ class CConfigurationImport {
 		$prototypesToCreate = array();
 		$hostPrototypesToUpdate = array();
 		$hostPrototypesToCreate = array();
-
 		foreach ($allDiscoveryRules as $host => $discoveryRules) {
 			$hostid = $this->referencer->resolveHostOrTemplate($host);
-
 			foreach ($discoveryRules as $item) {
 				// if rule was not processed we should not create/upadate any of it's prototypes
 				if (!isset($processedRules[$hostid][$item['key_']])) {
@@ -759,11 +719,9 @@ class CConfigurationImport {
 					$prototype['hostid'] = $hostid;
 
 					$applicationsIds = array();
-
 					foreach ($prototype['applications'] as $application) {
 						$applicationsIds[] = $this->referencer->resolveApplication($hostid, $application['name']);
 					}
-
 					$prototype['applications'] = $applicationsIds;
 
 					if (isset($prototype['interface_ref'])) {
@@ -772,7 +730,6 @@ class CConfigurationImport {
 
 					if ($prototype['valuemap']) {
 						$valueMapId = $this->referencer->resolveValueMap($prototype['valuemap']['name']);
-
 						if (!$valueMapId) {
 							throw new Exception(_s(
 								'Cannot find value map "%1$s" used for item prototype "%2$s" of discovery rule "%3$s" on "%4$s".',
@@ -782,13 +739,11 @@ class CConfigurationImport {
 								$host
 							));
 						}
-
 						$prototype['valuemapid'] = $valueMapId;
 					}
 
 					$prototypeId = $this->referencer->resolveItem($hostid, $prototype['key_']);
 					$prototype['rule'] = array('hostid' => $hostid, 'key' => $item['key_']);
-
 					if ($prototypeId) {
 						$prototype['itemid'] = $prototypeId;
 						$prototypesToUpdate[] = $prototype;
@@ -802,10 +757,8 @@ class CConfigurationImport {
 				foreach ($item['host_prototypes'] as $hostPrototype) {
 					// resolve group prototypes
 					$groupLinks = array();
-
 					foreach ($hostPrototype['group_links'] as $groupLink) {
 						$groupId = $this->referencer->resolveGroup($groupLink['group']['name']);
-
 						if (!$groupId) {
 							throw new Exception(_s(
 								'Cannot find host group "%1$s" for host prototype "%2$s" of discovery rule "%3$s" on "%4$s".',
@@ -815,20 +768,16 @@ class CConfigurationImport {
 								$host
 							));
 						}
-
 						$groupLinks[] = array('groupid' => $groupId);
 					}
-
 					$hostPrototype['groupLinks'] = $groupLinks;
 					$hostPrototype['groupPrototypes'] = $hostPrototype['group_prototypes'];
 					unset($hostPrototype['group_links'], $hostPrototype['group_prototypes']);
 
 					// resolve templates
 					$templates = array();
-
 					foreach ($hostPrototype['templates'] as $template) {
 						$templateId = $this->referencer->resolveTemplate($template['name']);
-
 						if (!$templateId) {
 							throw new Exception(_s(
 								'Cannot find template "%1$s" for host prototype "%2$s" of discovery rule "%3$s" on "%4$s".',
@@ -838,14 +787,11 @@ class CConfigurationImport {
 								$host
 							));
 						}
-
 						$templates[] = array('templateid' => $templateId);
 					}
-
 					$hostPrototype['templates'] = $templates;
 
 					$hostPrototypeId = $this->referencer->resolveHostPrototype($hostid, $itemId, $hostPrototype['host']);
-
 					if ($hostPrototypeId) {
 						$hostPrototype['hostid'] = $hostPrototypeId;
 						$hostPrototypesToUpdate[] = $hostPrototype;
@@ -865,7 +811,6 @@ class CConfigurationImport {
 				unset($item['host_prototypes']);
 
 				$itemsId = $this->referencer->resolveItem($hostid, $item['key_']);
-
 				if ($itemsId) {
 					$item['itemid'] = $itemsId;
 					$itemsToUpdate[] = $item;
@@ -881,15 +826,12 @@ class CConfigurationImport {
 				$prototype['ruleid'] = $this->referencer->resolveItem($prototype['rule']['hostid'], $prototype['rule']['key']);
 			}
 			unset($prototype);
-
 			$newPrototypeIds = API::ItemPrototype()->create($prototypesToCreate);
-
 			foreach ($newPrototypeIds['itemids'] as $inum => $itemid) {
 				$item = $prototypesToCreate[$inum];
 				$this->referencer->addItemRef($item['hostid'], $item['key_'], $itemid);
 			}
 		}
-
 		if ($prototypesToUpdate) {
 			foreach ($prototypesToCreate as &$prototype) {
 				$prototype['ruleid'] = $this->referencer->resolveItem($prototype['rule']['hostid'], $prototype['rule']['key']);
@@ -914,10 +856,8 @@ class CConfigurationImport {
 		$triggersToUpdate = array();
 		$graphsToCreate = array();
 		$graphsToUpdate = array();
-
 		foreach ($allDiscoveryRules as $host => $discoveryRules) {
 			$hostid = $this->referencer->resolveHostOrTemplate($host);
-
 			foreach ($discoveryRules as $item) {
 				// if rule was not processed we should not create/upadate any of it's prototypes
 				if (!isset($processedRules[$hostid][$item['key_']])) {
@@ -943,7 +883,7 @@ class CConfigurationImport {
 
 					if ($graph['ymin_item_1']) {
 						$hostId = $this->referencer->resolveHostOrTemplate($graph['ymin_item_1']['host']);
-						$itemId = $hostId
+						$itemId = ($hostId)
 							? $this->referencer->resolveItem($hostId, $graph['ymin_item_1']['key'])
 							: false;
 
@@ -963,7 +903,7 @@ class CConfigurationImport {
 
 					if ($graph['ymax_item_1']) {
 						$hostId = $this->referencer->resolveHostOrTemplate($graph['ymax_item_1']['host']);
-						$itemId = $hostId
+						$itemId = ($hostId)
 							? $this->referencer->resolveItem($hostId, $graph['ymax_item_1']['key'])
 							: false;
 
@@ -981,6 +921,7 @@ class CConfigurationImport {
 						$graph['ymax_itemid'] = $itemId;
 					}
 
+
 					foreach ($graph['gitems'] as &$gitem) {
 						if (!$gitemHostId = $this->referencer->resolveHostOrTemplate($gitem['item']['host'])) {
 							throw new Exception(_s('Cannot find host or template "%1$s" used in graph "%2$s".',
@@ -992,6 +933,7 @@ class CConfigurationImport {
 						$graphHostIds[$gitemHostId] = $gitemHostId;
 					}
 					unset($gitem);
+
 
 					// TODO: do this for all graphs at once
 					$sql = 'SELECT g.graphid'.
@@ -1008,11 +950,9 @@ class CConfigurationImport {
 							'output' => array('graphid'),
 							'editable' => true
 						));
-
 						if (empty($dbGraph)) {
 							throw new Exception(_s('No permission for graph "%1$s".', $graph['name']));
 						}
-
 						$graph['graphid'] = $graphExists['graphid'];
 						$graphsToUpdate[] = $graph;
 					}
@@ -1029,6 +969,7 @@ class CConfigurationImport {
 		if ($triggersToUpdate) {
 			API::TriggerPrototype()->update($triggersToUpdate);
 		}
+
 		if ($graphsToCreate) {
 			API::GraphPrototype()->create($graphsToCreate);
 		}
@@ -1044,20 +985,18 @@ class CConfigurationImport {
 	 */
 	protected function processGraphs() {
 		$allGraphs = $this->getFormattedGraphs();
-
 		if (empty($allGraphs)) {
 			return;
 		}
 
 		$graphsToCreate = array();
 		$graphsToUpdate = array();
-
 		foreach ($allGraphs as $graph) {
 			$graphHostIds = array();
 
 			if ($graph['ymin_item_1']) {
 				$hostId = $this->referencer->resolveHostOrTemplate($graph['ymin_item_1']['host']);
-				$itemId = $hostId
+				$itemId = ($hostId)
 					? $this->referencer->resolveItem($hostId, $graph['ymin_item_1']['key'])
 					: false;
 
@@ -1075,7 +1014,7 @@ class CConfigurationImport {
 
 			if ($graph['ymax_item_1']) {
 				$hostId = $this->referencer->resolveHostOrTemplate($graph['ymax_item_1']['host']);
-				$itemId = $hostId
+				$itemId = ($hostId)
 					? $this->referencer->resolveItem($hostId, $graph['ymax_item_1']['key'])
 					: false;
 
@@ -1125,11 +1064,9 @@ class CConfigurationImport {
 					'output' => array('graphid'),
 					'editable' => true
 				));
-
 				if (empty($dbGraph)) {
 					throw new Exception(_s('No permission for graph "%1$s".', $graph['name']));
 				}
-
 				$graph['graphid'] = $graphExists['graphid'];
 				$graphsToUpdate[] = $graph;
 			}
@@ -1151,7 +1088,6 @@ class CConfigurationImport {
 	 */
 	protected function processTriggers() {
 		$allTriggers = $this->getFormattedTriggers();
-
 		if (empty($allTriggers)) {
 			return;
 		}
@@ -1159,20 +1095,16 @@ class CConfigurationImport {
 		$triggersToCreate = array();
 		$triggersToUpdate = array();
 		$triggersToCreateDependencies = array();
-
 		foreach ($allTriggers as $trigger) {
 			$triggerId = $this->referencer->resolveTrigger($trigger['description'], $trigger['expression']);
 
 			if ($triggerId) {
 				$deps = array();
-
 				foreach ($trigger['dependencies'] as $dependency) {
 					$depTriggerId = $this->referencer->resolveTrigger($dependency['name'], $dependency['expression']);
-
 					if (!$depTriggerId) {
 						throw new Exception(_s('Trigger "%1$s" depends on trigger "%2$s", which does not exist.', $trigger['description'], $dependency['name']));
 					}
-
 					$deps[] = array('triggerid' => $depTriggerId);
 				}
 
@@ -1189,10 +1121,8 @@ class CConfigurationImport {
 
 		$triggerDependencies = array();
 		$newTriggers = array();
-
 		if ($this->options['triggers']['createMissing'] && $triggersToCreate) {
 			$newTriggerIds = API::Trigger()->create($triggersToCreate);
-
 			foreach ($newTriggerIds['triggerids'] as $tnum => $triggerId) {
 				$trigger = $triggersToCreate[$tnum];
 				$this->referencer->addTriggerRef($trigger['description'], $trigger['expression'], $triggerId);
@@ -1205,19 +1135,16 @@ class CConfigurationImport {
 		if ($triggersToCreateDependencies && isset($newTriggerIds)) {
 			foreach ($newTriggerIds['triggerids'] as $tnum => $triggerId) {
 				$deps = array();
-
 				foreach ($triggersToCreateDependencies[$tnum] as $dependency) {
 					$depTriggerId = $this->referencer->resolveTrigger($dependency['name'], $dependency['expression']);
-
 					if (!$depTriggerId) {
 						$trigger = $newTriggers[$triggerId];
 						throw new Exception(_s('Trigger "%1$s" depends on trigger "%2$s", which does not exist.', $trigger['description'], $dependency['name']));
 					}
-
 					$deps[] = array('triggerid' => $depTriggerId);
 				}
 
-				if ($deps) {
+				if (!empty($deps)) {
 					$triggerDependencies[] = array(
 						'triggerid' => $triggerId,
 						'dependencies' => $deps
@@ -1245,7 +1172,6 @@ class CConfigurationImport {
 	 */
 	protected function processImages() {
 		$allImages = $this->getFormattedImages();
-
 		if (empty($allImages)) {
 			return;
 		}
@@ -1302,11 +1228,11 @@ class CConfigurationImport {
 	/**
 	 * Method for creating an import formatter for the specified import version.
 	 *
-	 * @throws InvalidArgumentException
-	 *
 	 * @param string $version
 	 *
 	 * @return CImportFormatter
+	 *
+	 * @throws InvalidArgumentException
 	 */
 	protected function getFormatter($version) {
 		switch ($version) {
@@ -1326,7 +1252,6 @@ class CConfigurationImport {
 		if (isset($this->data['zabbix_export']['version'])) {
 			return $this->data['zabbix_export']['version'];
 		}
-
 		return '1.8';
 	}
 
@@ -1338,7 +1263,6 @@ class CConfigurationImport {
 	protected function getFormattedGroups() {
 		if (!isset($this->formattedData['groups'])) {
 			$this->formattedData['groups'] = array();
-
 			if ($this->options['groups']['createMissing']) {
 				$this->formattedData['groups'] = $this->formatter->getGroups();
 			}
@@ -1355,7 +1279,6 @@ class CConfigurationImport {
 	protected function getFormattedTemplates() {
 		if (!isset($this->formattedData['templates'])) {
 			$this->formattedData['templates'] = array();
-
 			if ($this->options['templates']['updateExisting'] || $this->options['templates']['createMissing']) {
 				$this->formattedData['templates'] = $this->formatter->getTemplates();
 			}
@@ -1372,7 +1295,6 @@ class CConfigurationImport {
 	protected function getFormattedHosts() {
 		if (!isset($this->formattedData['hosts'])) {
 			$this->formattedData['hosts'] = array();
-
 			if ($this->options['hosts']['updateExisting'] || $this->options['hosts']['createMissing']) {
 				$this->formattedData['hosts'] = $this->formatter->getHosts();
 			}
@@ -1389,7 +1311,6 @@ class CConfigurationImport {
 	protected function getFormattedApplications() {
 		if (!isset($this->formattedData['applications'])) {
 			$this->formattedData['applications'] = array();
-
 			if ($this->options['templates']['updateExisting']
 					|| $this->options['templates']['createMissing']
 					|| $this->options['hosts']['updateExisting']
@@ -1409,7 +1330,6 @@ class CConfigurationImport {
 	protected function getFormattedItems() {
 		if (!isset($this->formattedData['items'])) {
 			$this->formattedData['items'] = array();
-
 			if ($this->options['items']['updateExisting'] || $this->options['items']['createMissing']) {
 				$this->formattedData['items'] = $this->formatter->getItems();
 			}
@@ -1426,7 +1346,6 @@ class CConfigurationImport {
 	protected function getFormattedDiscoveryRules() {
 		if (!isset($this->formattedData['discoveryRules'])) {
 			$this->formattedData['discoveryRules'] = array();
-
 			if ($this->options['discoveryRules']['updateExisting'] || $this->options['discoveryRules']['createMissing']) {
 				$this->formattedData['discoveryRules'] = $this->formatter->getDiscoveryRules();
 			}
@@ -1443,7 +1362,6 @@ class CConfigurationImport {
 	protected function getFormattedTriggers() {
 		if (!isset($this->formattedData['triggers'])) {
 			$this->formattedData['triggers'] = array();
-
 			if ($this->options['triggers']['updateExisting'] || $this->options['triggers']['createMissing']) {
 				$this->formattedData['triggers'] = $this->formatter->getTriggers();
 			}
@@ -1460,7 +1378,6 @@ class CConfigurationImport {
 	protected function getFormattedGraphs() {
 		if (!isset($this->formattedData['graphs'])) {
 			$this->formattedData['graphs'] = array();
-
 			if ($this->options['graphs']['updateExisting'] || $this->options['graphs']['createMissing']) {
 				$this->formattedData['graphs'] = $this->formatter->getGraphs();
 			}
@@ -1477,7 +1394,6 @@ class CConfigurationImport {
 	protected function getFormattedImages() {
 		if (!isset($this->formattedData['images'])) {
 			$this->formattedData['images'] = array();
-
 			if (CWebUser::$data['type'] == USER_TYPE_SUPER_ADMIN
 					&& $this->options['images']['updateExisting'] || $this->options['images']['createMissing']) {
 				$this->formattedData['images'] = $this->formatter->getImages();
@@ -1495,7 +1411,6 @@ class CConfigurationImport {
 	protected function getFormattedMaps() {
 		if (!isset($this->formattedData['maps'])) {
 			$this->formattedData['maps'] = array();
-
 			if ($this->options['maps']['updateExisting'] || $this->options['maps']['createMissing']) {
 				$this->formattedData['maps'] = $this->formatter->getMaps();
 			}
@@ -1512,7 +1427,6 @@ class CConfigurationImport {
 	protected function getFormattedScreens() {
 		if (!isset($this->formattedData['screens'])) {
 			$this->formattedData['screens'] = array();
-
 			if ($this->options['screens']['updateExisting'] || $this->options['screens']['createMissing']) {
 				$this->formattedData['screens'] = $this->formatter->getScreens();
 			}
@@ -1529,7 +1443,6 @@ class CConfigurationImport {
 	protected function getFormattedTemplateScreens() {
 		if (!isset($this->formattedData['templateScreens'])) {
 			$this->formattedData['templateScreens'] = array();
-
 			if ($this->options['templateScreens']['updateExisting'] || $this->options['templateScreens']['createMissing']) {
 				$this->formattedData['templateScreens'] = $this->formatter->getTemplateScreens();
 			}

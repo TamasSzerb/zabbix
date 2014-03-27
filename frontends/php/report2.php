@@ -45,7 +45,9 @@ $fields = array(
 	'filter_timesince' =>	array(T_ZBX_STR, O_OPT, P_UNSET_EMPTY, null,	null),
 	'filter_timetill' =>	array(T_ZBX_STR, O_OPT, P_UNSET_EMPTY, null,	null),
 	// ajax
-	'filterState' =>		array(T_ZBX_INT, O_OPT, P_ACT, null,			null)
+	'favobj' =>				array(T_ZBX_STR, O_OPT, P_ACT, null,			null),
+	'favref' =>				array(T_ZBX_STR, O_OPT, P_ACT, NOT_EMPTY,		'isset({favobj})'),
+	'favstate' =>			array(T_ZBX_INT, O_OPT, P_ACT, NOT_EMPTY,		'isset({favobj})&&"filter"=={favobj}')
 );
 check_fields($fields);
 
@@ -85,12 +87,12 @@ if (get_request('triggerid') && !API::Trigger()->isReadable(array($_REQUEST['tri
 /*
  * Ajax
  */
-if (hasRequest('filterState')) {
-	CProfile::update('web.avail_report.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
+if (isset($_REQUEST['favobj']) && $_REQUEST['favobj'] == 'filter') {
+	CProfile::update('web.avail_report.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
 }
 if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 /*
@@ -187,8 +189,7 @@ elseif (isset($_REQUEST['filter_hostid'])) {
 		'monitored' => true,
 		'selectHosts' => API_OUTPUT_EXTEND, // rquired for getting visible host name
 		'filter' => array(),
-		'hostids' => null,
-		'limit' => $config['search_limit'] + 1
+		'hostids' => null
 	);
 
 	/*
@@ -205,10 +206,7 @@ elseif (isset($_REQUEST['filter_hostid'])) {
 	if ($availabilityReportMode == AVAILABILITY_REPORT_BY_TEMPLATE) {
 		// trigger options
 		if (!empty($_REQUEST['filter_hostid']) || !$config['dropdown_first_entry']) {
-			$hosts = API::Host()->get(array(
-				'output' => array('hostid'),
-				'templateids' => $_REQUEST['filter_hostid']
-			));
+			$hosts = API::Host()->get(array('templateids' => $_REQUEST['filter_hostid']));
 
 			$triggerOptions['hostids'] = zbx_objectValues($hosts, 'hostid');
 		}
@@ -405,15 +403,10 @@ elseif (isset($_REQUEST['filter_hostid'])) {
 	));
 
 	$triggers = API::Trigger()->get($triggerOptions);
-
 	CArrayHelper::sort($triggers, array('host', 'description'));
 
-	$paging = getPagingLine($triggers);
-
 	foreach ($triggers as $trigger) {
-		$availability = calculateAvailability($trigger['triggerid'], getRequest('filter_timesince'),
-			getRequest('filter_timetill')
-		);
+		$availability = calculate_availability($trigger['triggerid'], $_REQUEST['filter_timesince'], $_REQUEST['filter_timetill']);
 
 		$triggerTable->addRow(array(
 			get_node_name_by_elid($trigger['hostid']),
@@ -428,7 +421,7 @@ elseif (isset($_REQUEST['filter_hostid'])) {
 	}
 
 	$reportWidget->addItem(BR());
-	$reportWidget->addItem(array($paging, $triggerTable, $paging));
+	$reportWidget->addItem($triggerTable);
 	$reportWidget->show();
 }
 

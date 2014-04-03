@@ -129,7 +129,6 @@ if (CUser::$userData['type'] !== USER_TYPE_SUPER_ADMIN) {
 	elseif (!empty($_REQUEST['graphid'])) {
 		// check whether graph is normal and editable by user
 		$graphs = API::Graph()->get(array(
-			'output' => array('graphid'),
 			'nodeids' => get_current_nodeid(true),
 			'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
 			'graphids' => array($_REQUEST['graphid']),
@@ -143,7 +142,6 @@ if (CUser::$userData['type'] !== USER_TYPE_SUPER_ADMIN) {
 	elseif (!empty($_REQUEST['hostid'])) {
 		// check whether host is editable by user
 		$hosts = API::Host()->get(array(
-			'output' => array('hostid'),
 			'nodeids' => get_current_nodeid(true),
 			'hostids' => array($_REQUEST['hostid']),
 			'templated_hosts' => true,
@@ -215,8 +213,6 @@ elseif (hasRequest('save')) {
 		'gitems' => $items
 	);
 
-	DBstart();
-
 	// create and update graph prototypes
 	if (hasRequest('parent_discoveryid')) {
 		$graph['flags'] = ZBX_FLAG_DISCOVERY_PROTOTYPE;
@@ -225,17 +221,16 @@ elseif (hasRequest('save')) {
 			$graph['graphid'] = getRequest('graphid');
 			$result = API::GraphPrototype()->update($graph);
 
-			$messageSuccess = _('Graph prototype updated');
-			$messageFailed = _('Cannot update graph prototype');
+			show_messages($result, _('Graph prototype updated'), _('Cannot update graph prototype'));
+
 		}
 		else {
 			$result = API::GraphPrototype()->create($graph);
 
-			$messageSuccess = _('Graph prototype added');
-			$messageFailed = _('Cannot add graph prototype');
+			show_messages($result, _('Graph prototype added'), _('Cannot add graph prototype'));
 		}
 
-		$cookieId = getRequest('parent_discoveryid');
+		clearCookies($result, getRequest('parent_discoveryid'));
 	}
 	// create and update graphs
 	else {
@@ -243,22 +238,22 @@ elseif (hasRequest('save')) {
 			$graph['graphid'] = getRequest('graphid');
 			$result = API::Graph()->update($graph);
 
-			$messageSuccess = _('Graph updated');
-			$messageFailed = _('Cannot update graph');
+			show_messages($result, _('Graph updated'), _('Cannot update graph'));
 		}
 		else {
 			$result = API::Graph()->create($graph);
 
-			$messageSuccess = _('Graph added');
-			$messageFailed = _('Cannot add graph');
+			show_messages($result, _('Graph added'), _('Cannot add graph'));
 		}
 
-		$cookieId = getRequest('hostid');
+		clearCookies($result, getRequest('hostid'));
 	}
 
 	if ($result) {
 		if (hasRequest('graphid')) {
-			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_GRAPH,
+			add_audit(
+				AUDIT_ACTION_UPDATE,
+				AUDIT_RESOURCE_GRAPH,
 				'Graph ID ['.$graph['graphid'].'] Graph ['.getRequest('name').']'
 			);
 		}
@@ -268,22 +263,18 @@ elseif (hasRequest('save')) {
 
 		unset($_REQUEST['form']);
 	}
-
-	$result = DBend($result);
-	show_messages($result, $messageSuccess, $messageFailed);
-	clearCookies($result, $cookieId);
 }
 elseif (hasRequest('delete') && hasRequest('graphid')) {
 	$graphId = getRequest('graphid');
 
 	if (hasRequest('parent_discoveryid')) {
-		$result = API::GraphPrototype()->delete(array($graphId));
+		$result = API::GraphPrototype()->delete($graphId);
 
 		show_messages($result, _('Graph prototype deleted'), _('Cannot delete graph prototype'));
 		clearCookies($result, getRequest('parent_discoveryid'));
 	}
 	else {
-		$result = API::Graph()->delete(array($graphId));
+		$result = API::Graph()->delete($graphId);
 
 		show_messages($result, _('Graph deleted'), _('Cannot delete graph'));
 		clearCookies($result, getRequest('hostid'));
@@ -314,7 +305,6 @@ elseif ($_REQUEST['go'] == 'copy_to' && isset($_REQUEST['copy']) && isset($_REQU
 		$goResult = true;
 
 		$options = array(
-			'output' => array('hostid'),
 			'editable' => true,
 			'nodes' => get_current_nodeid(true),
 			'templated_hosts' => true
@@ -329,7 +319,6 @@ elseif ($_REQUEST['go'] == 'copy_to' && isset($_REQUEST['copy']) && isset($_REQU
 			zbx_value2array($_REQUEST['copy_targetid']);
 
 			$dbGroups = API::HostGroup()->get(array(
-				'output' => array('groupid'),
 				'groupids' => $_REQUEST['copy_targetid'],
 				'nodes' => get_current_nodeid(true),
 				'editable' => true
@@ -453,7 +442,6 @@ elseif (isset($_REQUEST['form'])) {
 				// parent graph prototype link
 				if (get_request('parent_discoveryid')) {
 					$parentGraphPrototype = API::GraphPrototype()->get(array(
-						'output' => array('graphid'),
 						'graphids' => $parentGraph['graphid'],
 						'selectTemplates' => API_OUTPUT_EXTEND,
 						'selectDiscoveryRule' => array('itemid')

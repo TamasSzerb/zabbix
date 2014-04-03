@@ -55,6 +55,8 @@ if (isset($_REQUEST['save'])) {
 	);
 	$result = update_config($configs);
 
+	show_messages($result, _('Configuration updated'), _('Cannot update configuration'));
+
 	if ($result) {
 		$audit = array(
 			_s('Refresh unsupported items (in sec) "%1$s".', get_request('refresh_unsupported'))
@@ -95,8 +97,7 @@ if (isset($_REQUEST['save'])) {
 		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, implode('; ', $audit));
 	}
 
-	$result = DBend($result);
-	show_messages($result, _('Configuration updated'), _('Cannot update configuration'));
+	DBend($result);
 }
 
 /*

@@ -128,6 +128,50 @@ function get_userid_by_usrgrpid($userGroupIds) {
 }
 
 /**
+ * Append user to group.
+ *
+ * @param string $userId
+ * @param string $userGroupId
+ *
+ * @return bool
+ */
+function add_user_to_group($userId, $userGroupId) {
+	if (granted2move_user($userId, $userGroupId)) {
+		DBexecute('DELETE FROM users_groups WHERE userid='.zbx_dbstr($userId).' AND usrgrpid='.zbx_dbstr($userGroupId));
+
+		$usersGroupsId = get_dbid('users_groups', 'id');
+
+		return DBexecute(
+			'INSERT INTO users_groups (id,usrgrpid,userid) VALUES ('.zbx_dbstr($usersGroupsId).','.zbx_dbstr($userGroupId).','.zbx_dbstr($userId).')'
+		);
+	}
+	else {
+		error(_('User cannot change status of himself.'));
+	}
+
+	return false;
+}
+
+/**
+ * Remove user from group.
+ *
+ * @param string $userId
+ * @param string $userGroupId
+ *
+ * @return bool
+ */
+function remove_user_from_group($userId, $userGroupId) {
+	if (granted2move_user($userId, $userGroupId)) {
+		return DBexecute('DELETE FROM users_groups WHERE userid='.zbx_dbstr($userId).' AND usrgrpid='.zbx_dbstr($userGroupId));
+	}
+	else {
+		error(_('User cannot change status of himself.'));
+	}
+
+	return false;
+}
+
+/**
  * Check if group has permissions for update.
  *
  * @param array $userGroupIds
@@ -233,24 +277,29 @@ function change_group_debug_mode($userGroupIds, $debugMode) {
 /**
  * Gets user full name in format "alias (name surname)". If both name and surname exist, returns translated string.
  *
- * @param array  $userData
- * @param string $userData['alias']
- * @param string $userData['name']
- * @param string $userData['surname']
+ * @param array $userData
  *
  * @return string
  */
 function getUserFullname($userData) {
+	$fullname = '';
+	if (!zbx_empty($userData['name'])) {
+		$fullname = $userData['name'];
+	}
+
+	// return full name and surname
 	if (!zbx_empty($userData['surname'])) {
 		if (!zbx_empty($userData['name'])) {
 			return $userData['alias'].' '._x('(%1$s %2$s)', 'user fullname', $userData['name'], $userData['surname']);
 		}
-
 		$fullname = $userData['surname'];
 	}
-	else {
-		$fullname = zbx_empty($userData['name']) ? '' : $userData['name'];
-	}
 
-	return zbx_empty($fullname) ? $userData['alias'] : $userData['alias'].' ('.$fullname.')';
+	// return alias with full name
+	if (!zbx_empty($fullname)) {
+		return $userData['alias'].' ('.$fullname.')';
+	}
+	else {
+		return $userData['alias'];
+	}
 }

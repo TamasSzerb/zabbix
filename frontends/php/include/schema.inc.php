@@ -238,11 +238,6 @@ return array(
 				'ref_table' => 'hosts',
 				'ref_field' => 'hostid',
 			),
-			'description' => array(
-				'null' => false,
-				'type' => DB::FIELD_TYPE_TEXT,
-				'default' => '',
-			),
 		),
 	),
 	'groups' => array(
@@ -1081,7 +1076,7 @@ return array(
 				'null' => false,
 				'type' => DB::FIELD_TYPE_CHAR,
 				'length' => 255,
-				'default' => '',
+				'default' => '1',
 			),
 			'error' => array(
 				'null' => false,
@@ -1180,6 +1175,12 @@ return array(
 				'length' => 10,
 				'default' => '0',
 			),
+			'filter' => array(
+				'null' => false,
+				'type' => DB::FIELD_TYPE_CHAR,
+				'length' => 255,
+				'default' => '',
+			),
 			'interfaceid' => array(
 				'null' => true,
 				'type' => DB::FIELD_TYPE_ID,
@@ -1233,12 +1234,6 @@ return array(
 				'type' => DB::FIELD_TYPE_CHAR,
 				'length' => 255,
 				'default' => '',
-			),
-			'evaltype' => array(
-				'null' => false,
-				'type' => DB::FIELD_TYPE_INT,
-				'length' => 10,
-				'default' => '0',
 			),
 		),
 	),
@@ -3580,12 +3575,6 @@ return array(
 				'length' => 10,
 				'default' => '1',
 			),
-			'application' => array(
-				'null' => false,
-				'type' => DB::FIELD_TYPE_CHAR,
-				'length' => 255,
-				'default' => '',
-			),
 		),
 	),
 	'sysmaps_links' => array(
@@ -3808,7 +3797,7 @@ return array(
 				'null' => false,
 				'type' => DB::FIELD_TYPE_INT,
 				'length' => 10,
-				'default' => '1',
+				'default' => '0',
 			),
 			'month' => array(
 				'null' => false,
@@ -5195,8 +5184,13 @@ return array(
 	),
 	'graph_discovery' => array(
 		'type' => DB::TABLE_TYPE_CONFIG,
-		'key' => 'graphid',
+		'key' => 'graphdiscoveryid',
 		'fields' => array(
+			'graphdiscoveryid' => array(
+				'null' => false,
+				'type' => DB::FIELD_TYPE_ID,
+				'length' => 20,
+			),
 			'graphid' => array(
 				'null' => false,
 				'type' => DB::FIELD_TYPE_ID,
@@ -5210,6 +5204,12 @@ return array(
 				'length' => 20,
 				'ref_table' => 'graphs',
 				'ref_field' => 'graphid',
+			),
+			'name' => array(
+				'null' => false,
+				'type' => DB::FIELD_TYPE_CHAR,
+				'length' => 128,
+				'default' => '',
 			),
 		),
 	),
@@ -5903,8 +5903,13 @@ return array(
 	),
 	'trigger_discovery' => array(
 		'type' => DB::TABLE_TYPE_CONFIG,
-		'key' => 'triggerid',
+		'key' => 'triggerdiscoveryid',
 		'fields' => array(
+			'triggerdiscoveryid' => array(
+				'null' => false,
+				'type' => DB::FIELD_TYPE_ID,
+				'length' => 20,
+			),
 			'triggerid' => array(
 				'null' => false,
 				'type' => DB::FIELD_TYPE_ID,
@@ -5918,6 +5923,12 @@ return array(
 				'length' => 20,
 				'ref_table' => 'triggers',
 				'ref_field' => 'triggerid',
+			),
+			'name' => array(
+				'null' => false,
+				'type' => DB::FIELD_TYPE_CHAR,
+				'length' => 255,
+				'default' => '',
 			),
 		),
 	),
@@ -6021,42 +6032,6 @@ return array(
 				'length' => 20,
 				'ref_table' => 'applications',
 				'ref_field' => 'applicationid',
-			),
-		),
-	),
-	'item_condition' => array(
-		'type' => DB::TABLE_TYPE_CONFIG,
-		'key' => 'item_conditionid',
-		'fields' => array(
-			'item_conditionid' => array(
-				'null' => false,
-				'type' => DB::FIELD_TYPE_ID,
-				'length' => 20,
-			),
-			'itemid' => array(
-				'null' => false,
-				'type' => DB::FIELD_TYPE_ID,
-				'length' => 20,
-				'ref_table' => 'items',
-				'ref_field' => 'itemid',
-			),
-			'operator' => array(
-				'null' => false,
-				'type' => DB::FIELD_TYPE_INT,
-				'length' => 10,
-				'default' => '8',
-			),
-			'macro' => array(
-				'null' => false,
-				'type' => DB::FIELD_TYPE_CHAR,
-				'length' => 64,
-				'default' => '',
-			),
-			'value' => array(
-				'null' => false,
-				'type' => DB::FIELD_TYPE_CHAR,
-				'length' => 255,
-				'default' => '',
 			),
 		),
 	),

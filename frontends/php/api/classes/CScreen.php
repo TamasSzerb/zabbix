@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CScreen extends CApiService {
+class CScreen extends CZBXAPI {
 
 	protected $tableName = 'screens';
 	protected $tableAlias = 's';
@@ -70,7 +70,7 @@ class CScreen extends CApiService {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectScreenItems'			=> null,
 			'countOutput'				=> null,
 			'groupCount'				=> null,
@@ -90,7 +90,9 @@ class CScreen extends CApiService {
 		// screenitemids
 		if (!is_null($options['screenitemids'])) {
 			zbx_value2array($options['screenitemids']);
-
+			if ($options['output'] != API_OUTPUT_EXTEND) {
+				$sqlParts['select']['screenitemid'] = 'si.screenitemid';
+			}
 			$sqlParts['from']['screens_items'] = 'screens_items si';
 			$sqlParts['where']['ssi'] = 'si.screenid=s.screenid';
 			$sqlParts['where'][] = dbConditionInt('si.screenitemid', $options['screenitemids']);
@@ -128,7 +130,19 @@ class CScreen extends CApiService {
 			else {
 				$screenIds[$screen['screenid']] = $screen['screenid'];
 
-				$result[$screen['screenid']] = $screen;
+				if (!isset($result[$screen['screenid']])) {
+					$result[$screen['screenid']]= array();
+				}
+
+				if (isset($screen['screenitemid']) && $options['selectScreenItems'] === null) {
+					if (!isset($result[$screen['screenid']]['screenitems'])) {
+						$result[$screen['screenid']]['screenitems'] = array();
+					}
+					$result[$screen['screenid']]['screenitems'][] = array('screenitemid' => $screen['screenitemid']);
+					unset($screen['screenitemid']);
+				}
+
+				$result[$screen['screenid']] += $screen;
 			}
 		}
 
@@ -192,7 +206,6 @@ class CScreen extends CApiService {
 
 			// group
 			$allowedGroups = API::HostGroup()->get(array(
-				'output' => array('groupid'),
 				'nodeids' => $options['nodeids'],
 				'groupids' => $groupsToCheck,
 				'editable' => $options['editable']
@@ -201,7 +214,6 @@ class CScreen extends CApiService {
 
 			// host
 			$allowedHosts = API::Host()->get(array(
-				'output' => array('hostid'),
 				'nodeids' => $options['nodeids'],
 				'hostids' => $hostsToCheck,
 				'editable' => $options['editable']
@@ -210,7 +222,6 @@ class CScreen extends CApiService {
 
 			// graph
 			$allowedGraphs = API::Graph()->get(array(
-				'output' => array('graphid'),
 				'nodeids' => $options['nodeids'],
 				'graphids' => $graphsToCheck,
 				'editable' => $options['editable']
@@ -229,7 +240,6 @@ class CScreen extends CApiService {
 
 			// map
 			$allowedMaps = API::Map()->get(array(
-				'output' => array('sysmapid'),
 				'nodeids' => $options['nodeids'],
 				'sysmapids' => $mapsToCheck,
 				'editable' => $options['editable']
@@ -238,7 +248,6 @@ class CScreen extends CApiService {
 
 			// screen
 			$allowedScreens = API::Screen()->get(array(
-				'output' => array('screenid'),
 				'nodeids' => $options['nodeids'],
 				'screenids' => $screensToCheck,
 				'editable' => $options['editable']
@@ -378,7 +387,7 @@ class CScreen extends CApiService {
 		}
 		unset($screen);
 
-		$dbScreens = API::getApiService()->select('screens', array(
+		$dbScreens = API::getApi()->select('screens', array(
 			'filter' => array('name' => zbx_objectValues($screens, 'name')),
 			'output' => array('name')
 		));
@@ -450,7 +459,7 @@ class CScreen extends CApiService {
 			}
 
 			if (isset($screen['name'])) {
-				$dbScreenExist = API::getApiService()->select('screens', array(
+				$dbScreenExist = API::getApi()->select('screens', array(
 					'filter' => array('name' => $screen['name']),
 					'output' => array('screenid')
 				));
@@ -600,7 +609,6 @@ class CScreen extends CApiService {
 	 */
 	protected function validateDelete(array $screenIds) {
 		$dbScreens = $this->get(array(
-			'output' => array('screenid'),
 			'screenids' => $screenIds,
 			'editable' => true,
 			'preservekeys' => true
@@ -620,7 +628,9 @@ class CScreen extends CApiService {
 	 *
 	 * @return array
 	 */
-	public function delete(array $screenIds) {
+	public function delete($screenIds) {
+		$screenIds = zbx_toArray($screenIds);
+
 		$this->validateDelete($screenIds);
 
 		DB::delete('screens_items', array('screenid' => $screenIds));
@@ -652,7 +662,6 @@ class CScreen extends CApiService {
 		$deleteScreenItemsIds = array();
 
 		$dbScreenItems = API::ScreenItem()->get(array(
-			'output' => array('screenitemid'),
 			'screenids' => $screenId,
 			'preservekeys' => true
 		));
@@ -699,8 +708,8 @@ class CScreen extends CApiService {
 
 		// adding ScreenItems
 		if ($options['selectScreenItems'] !== null && $options['selectScreenItems'] != API_OUTPUT_COUNT) {
-			$screenItems = API::getApiService()->select('screens_items', array(
-				'output' => $this->outputExtend($options['selectScreenItems'], array('screenid', 'screenitemid')),
+			$screenItems = API::getApi()->select('screens_items', array(
+				'output' => $this->outputExtend('screens_items', array('screenid', 'screenitemid'), $options['selectScreenItems']),
 				'filter' => array('screenid' => $screenIds),
 				'preservekeys' => true,
 				'nodeids' => get_current_nodeid(true)

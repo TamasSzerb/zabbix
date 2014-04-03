@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2000-2011 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,7 +17,6 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
 
 $discoveryRule = $data['discovery_rule'];
 $hostPrototype = $data['host_prototype'];
@@ -80,7 +79,7 @@ if ($parentHost['status'] != HOST_STATUS_TEMPLATE) {
 		$interfaces[$interface['interfaceid']] = $interface;
 	}
 	zbx_add_post_js('hostInterfacesManager.add('.CJs::encodeJson($interfaces).');');
-	zbx_add_post_js('hostInterfacesManager.disable();');
+	zbx_add_post_js('hostInterfacesManager.disable()');
 
 	// table for agent interfaces with footer
 	$ifTab = new CTable(null, 'formElementTable');
@@ -218,11 +217,9 @@ $ignoreTemplates = array();
 if ($hostPrototype['templates']) {
 	foreach ($hostPrototype['templates'] as $template) {
 		$tmplList->addVar('templates['.$template['templateid'].']', $template['templateid']);
-		$templateLink = new CLink($template['name'], 'templates.php?form=update&templateid='.$template['templateid']);
-		$templateLink->setTarget('_blank');
 
 		$linkedTemplateTable->addRow(array(
-			$templateLink,
+			$template['name'],
 			!$hostPrototype['templateid'] ? new CSubmit('unlink['.$template['templateid'].']', _('Unlink'), null, 'link_menu') : '',
 		));
 

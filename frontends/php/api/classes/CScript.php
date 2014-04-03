@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CScript extends CApiService {
+class CScript extends CZBXAPI {
 
 	protected $tableName = 'scripts';
 	protected $tableAlias = 's';
@@ -77,7 +77,7 @@ class CScript extends CApiService {
 			'excludeSearch'			=> null,
 			'searchWildcardsEnabled'=> null,
 			// output
-			'output'				=> API_OUTPUT_EXTEND,
+			'output'				=> API_OUTPUT_REFER,
 			'selectGroups'			=> null,
 			'selectHosts'			=> null,
 			'countOutput'			=> null,
@@ -265,7 +265,9 @@ class CScript extends CApiService {
 	 *
 	 * @return array
 	 */
-	public function delete(array $scriptIds) {
+	public function delete($scriptIds) {
+		$scriptIds = zbx_toArray($scriptIds);
+
 		$this->validateDelete($scriptIds);
 
 		DB::delete('scripts', array('scriptid' => $scriptIds));

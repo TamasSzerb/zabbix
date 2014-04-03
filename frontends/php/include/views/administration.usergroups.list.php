@@ -46,9 +46,9 @@ $userGroupTable->setHeader(array(
 	make_sorting_header(_('Name'), 'name'),
 	'#',
 	_('Members'),
+	_('Status'),
 	_('Frontend access'),
-	_('Debug mode'),
-	_('Status')
+	_('Debug mode')
 ));
 
 foreach ($this->data['usergroups'] as $usrgrp) {
@@ -93,27 +93,30 @@ foreach ($this->data['usergroups'] as $usrgrp) {
 		order_result($userGroupUsers, 'alias');
 
 		$users = array();
-		$i = 0;
-
 		foreach ($userGroupUsers as $user) {
-			$i++;
-
-			if ($i > $this->data['config']['max_in_table']) {
-				$users[] = ' &hellip;';
-
-				break;
+			$userTypeStyle = 'enabled';
+			if ($user['type'] == USER_TYPE_ZABBIX_ADMIN) {
+				$userTypeStyle = 'orange';
+			}
+			if ($user['type'] == USER_TYPE_SUPER_ADMIN) {
+				$userTypeStyle = 'disabled';
 			}
 
-			if ($users) {
-				$users[] = ', ';
+			$userStatusStyle = 'enabled';
+			if ($user['gui_access'] == GROUP_GUI_ACCESS_DISABLED) {
+				$userStatusStyle = 'disabled';
+			}
+			if ($user['users_status'] == GROUP_STATUS_DISABLED) {
+				$userStatusStyle = 'disabled';
 			}
 
 			$users[] = new CLink(getUserFullname($user),
 				'users.php?form=update&userid='.$user['userid'],
-				($user['gui_access'] == GROUP_GUI_ACCESS_DISABLED || $user['users_status'] == GROUP_STATUS_DISABLED)
-					? 'disabled' : 'enabled'
+				$userStatusStyle
 			);
+			$users[] = ', ';
 		}
+		array_pop($users);
 	}
 
 	$userGroupTable->addRow(array(
@@ -122,9 +125,9 @@ foreach ($this->data['usergroups'] as $usrgrp) {
 		new CLink($usrgrp['name'], 'usergrps.php?form=update&usrgrpid='.$userGroupId),
 		array(new CLink(_('Users'), 'users.php?&filter_usrgrpid='.$userGroupId), ' (', count($usrgrp['users']), ')'),
 		new CCol($users, 'wraptext'),
+		$usersStatus,
 		$guiAccess,
-		$debugMode,
-		$usersStatus
+		$debugMode
 	));
 }
 
@@ -139,11 +142,11 @@ $goOption = new CComboItem('disable_status', _('Disable selected'));
 $goOption->setAttribute('confirm', _('Disable selected groups?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('enable_debug', _('Enable debug mode'));
+$goOption = new CComboItem('enable_debug', _('Enable DEBUG'));
 $goOption->setAttribute('confirm', _('Enable debug mode in selected groups?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('disable_debug', _('Disable debug mode'));
+$goOption = new CComboItem('disable_debug', _('Disable DEBUG'));
 $goOption->setAttribute('confirm', _('Disable debug mode in selected groups?'));
 $goComboBox->addItem($goOption);
 

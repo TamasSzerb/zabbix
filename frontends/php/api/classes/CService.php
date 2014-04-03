@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CService extends CApiService {
+class CService extends CZBXAPI {
 
 	protected $tableName = 'services';
 	protected $tableAlias = 's';
@@ -348,11 +348,12 @@ class CService extends CApiService {
 	/**
 	 * Delete services.
 	 *
-	 * @param array $serviceIds
+	 * @param $serviceIds
 	 *
 	 * @return array
 	 */
-	public function delete(array $serviceIds) {
+	public function delete($serviceIds) {
+		$serviceIds = zbx_toArray($serviceIds);
 		$this->validateDelete($serviceIds);
 
 		DB::delete($this->tableName(), array('serviceid' => $serviceIds));
@@ -1028,7 +1029,7 @@ class CService extends CApiService {
 	 * @return array    an array of service links sorted by "sortorder" in ascending order
 	 */
 	protected function fetchChildDependencies(array $parentServiceIds, $output) {
-		$sqlParts = API::getApiService()->createSelectQueryParts('services_links', 'sl', array(
+		$sqlParts = API::getApi()->createSelectQueryParts('services_links', 'sl', array(
 			'output' => $output,
 			'filter' => array('serviceupid' => $parentServiceIds),
 			'nodeids' => get_current_nodeid(true)
@@ -1061,7 +1062,7 @@ class CService extends CApiService {
 	 * @return array    an array of service links sorted by "sortorder" in ascending order
 	 */
 	protected function fetchParentDependencies(array $childServiceIds, $output, $soft = null) {
-		$sqlParts = API::getApiService()->createSelectQueryParts('services_links', 'sl', array(
+		$sqlParts = API::getApi()->createSelectQueryParts('services_links', 'sl', array(
 			'output' => $output,
 			'filter' => array('servicedownid' => $childServiceIds),
 			'nodeids' => get_current_nodeid(true)
@@ -1280,7 +1281,7 @@ class CService extends CApiService {
 	 * @return void
 	 */
 	protected function checkThatServicesDontHaveChildren(array $serviceIds) {
-		$child = API::getApiService()->select('services_links', array(
+		$child = API::getApi()->select('services_links', array(
 			'output' => array('serviceupid'),
 			'filter' => array(
 				'serviceupid' => $serviceIds,
@@ -1290,7 +1291,7 @@ class CService extends CApiService {
 		));
 		$child = reset($child);
 		if ($child) {
-			$service = API::getApiService()->select($this->tableName(), array(
+			$service = API::getApi()->select($this->tableName(), array(
 				'output' => array('name'),
 				'serviceids' => $child['serviceupid'],
 				'limit' => 1
@@ -1313,7 +1314,7 @@ class CService extends CApiService {
 	 */
 	protected function checkDependency(array $dependency) {
 		if (idcmp($dependency['serviceid'], $dependency['dependsOnServiceid'])) {
-			$service = API::getApiService()->select($this->tableName(), array(
+			$service = API::getApi()->select($this->tableName(), array(
 				'output' => array('name'),
 				'serviceids' => $dependency['serviceid']
 			));
@@ -1323,7 +1324,7 @@ class CService extends CApiService {
 
 		// check 'soft' field value
 		if (!isset($dependency['soft']) || !in_array((int) $dependency['soft'], array(0, 1), true)) {
-			$service = API::getApiService()->select($this->tableName(), array(
+			$service = API::getApi()->select($this->tableName(), array(
 				'output' => array('name'),
 				'serviceids' => $dependency['serviceid']
 			));
@@ -1356,7 +1357,7 @@ class CService extends CApiService {
 		if ($hardDepServiceIds) {
 			// look for at least one hardlinked service among the given
 			$hardDepServiceIds = array_unique($hardDepServiceIds);
-			$dep = API::getApiService()->select('services_links', array(
+			$dep = API::getApi()->select('services_links', array(
 				'output' => array('servicedownid'),
 				'filter' => array(
 					'soft' => 0,
@@ -1366,7 +1367,7 @@ class CService extends CApiService {
 			));
 			if ($dep) {
 				$dep = reset($dep);
-				$service = API::getApiService()->select($this->tableName(), array(
+				$service = API::getApi()->select($this->tableName(), array(
 					'output' => array('name'),
 					'serviceids' => $dep['servicedownid']
 				));
@@ -1412,7 +1413,7 @@ class CService extends CApiService {
 	 * @return void
 	 */
 	protected function checkForCircularityInDependencies($depsToValid) {
-		$dbDeps = API::getApiService()->select('services_links', array(
+		$dbDeps = API::getApi()->select('services_links', array(
 			'output' => array('serviceupid', 'servicedownid')
 		));
 
@@ -1479,7 +1480,6 @@ class CService extends CApiService {
 			// if services with specific trigger IDs were requested, return only the ones accessible to the current user.
 			if ($options['filter']['triggerid']) {
 				$accessibleTriggers = API::Trigger()->get(array(
-					'output' => array('triggerid'),
 					'triggerids' => $options['filter']['triggerid']
 				));
 				$options['filter']['triggerid'] = zbx_objectValues($accessibleTriggers, 'triggerid');
@@ -1516,7 +1516,7 @@ class CService extends CApiService {
 		// selectDependencies
 		if ($options['selectDependencies'] !== null && $options['selectDependencies'] != API_OUTPUT_COUNT) {
 			$dependencies = $this->fetchChildDependencies($serviceIds,
-				$this->outputExtend($options['selectDependencies'], array('serviceupid', 'linkid'))
+				$this->outputExtend('services_links', array('serviceupid', 'linkid'), $options['selectDependencies'])
 			);
 			$dependencies = zbx_toHash($dependencies, 'linkid');
 			$relationMap = $this->createRelationMap($dependencies, 'serviceupid', 'linkid');
@@ -1528,7 +1528,7 @@ class CService extends CApiService {
 		// selectParentDependencies
 		if ($options['selectParentDependencies'] !== null && $options['selectParentDependencies'] != API_OUTPUT_COUNT) {
 			$dependencies = $this->fetchParentDependencies($serviceIds,
-				$this->outputExtend($options['selectParentDependencies'], array('servicedownid', 'linkid'))
+				$this->outputExtend('services_links', array('servicedownid', 'linkid'), $options['selectParentDependencies'])
 			);
 			$dependencies = zbx_toHash($dependencies, 'linkid');
 			$relationMap = $this->createRelationMap($dependencies, 'servicedownid', 'linkid');
@@ -1553,8 +1553,8 @@ class CService extends CApiService {
 
 		// selectTimes
 		if ($options['selectTimes'] !== null && $options['selectTimes'] != API_OUTPUT_COUNT) {
-			$serviceTimes = API::getApiService()->select('services_times', array(
-				'output' => $this->outputExtend($options['selectTimes'], array('serviceid', 'timeid')),
+			$serviceTimes = API::getApi()->select('services_times', array(
+				'output' => $this->outputExtend('services_times', array('serviceid', 'timeid'), $options['selectTimes']),
 				'filter' => array('serviceid' => $serviceIds),
 				'preservekeys' => true,
 				'nodeids' => get_current_nodeid(true)
@@ -1567,8 +1567,8 @@ class CService extends CApiService {
 
 		// selectAlarms
 		if ($options['selectAlarms'] !== null && $options['selectAlarms'] != API_OUTPUT_COUNT) {
-			$serviceAlarms = API::getApiService()->select('service_alarms', array(
-				'output' => $this->outputExtend($options['selectAlarms'], array('serviceid', 'servicealarmid')),
+			$serviceAlarms = API::getApi()->select('service_alarms', array(
+				'output' => $this->outputExtend('service_alarms', array('serviceid', 'servicealarmid'), $options['selectAlarms']),
 				'filter' => array('serviceid' => $serviceIds),
 				'preservekeys' => true,
 				'nodeids' => get_current_nodeid(true)
@@ -1584,7 +1584,7 @@ class CService extends CApiService {
 		// selectTrigger
 		if ($options['selectTrigger'] !== null && $options['selectTrigger'] != API_OUTPUT_COUNT) {
 			$relationMap = $this->createRelationMap($result, 'serviceid', 'triggerid');
-			$triggers = API::getApiService()->select('triggers', array(
+			$triggers = API::getApi()->select('triggers', array(
 				'output' => $options['selectTrigger'],
 				'triggerids' => $relationMap->getRelatedIds(),
 				'preservekeys' => true,

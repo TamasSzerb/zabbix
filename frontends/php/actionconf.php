@@ -40,7 +40,7 @@ $fields = array(
 		null
 	),
 	'evaltype' =>			array(T_ZBX_INT, O_OPT, null,
-		IN(array(CONDITION_EVAL_TYPE_AND_OR, CONDITION_EVAL_TYPE_AND, CONDITION_EVAL_TYPE_OR)), 'isset({save})'),
+		IN(array(ACTION_EVAL_TYPE_AND_OR, ACTION_EVAL_TYPE_AND, ACTION_EVAL_TYPE_OR)), 'isset({save})'),
 	'esc_period' =>			array(T_ZBX_INT, O_OPT, null,	BETWEEN(60, 999999), null, _('Default operation step duration')),
 	'status' =>				array(T_ZBX_INT, O_OPT, null,	IN(array(ACTION_STATUS_ENABLED, ACTION_STATUS_DISABLED)), null),
 	'def_shortdata' =>		array(T_ZBX_STR, O_OPT, null,	null,		'isset({save})'),
@@ -71,7 +71,9 @@ $fields = array(
 	'form' =>				array(T_ZBX_STR, O_OPT, P_SYS,	null,		null),
 	'form_refresh' =>		array(T_ZBX_INT, O_OPT, null,	null,		null),
 	// ajax
-	'filterState' =>		array(T_ZBX_INT, O_OPT, P_ACT,	null,		null)
+	'favobj' =>				array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
+	'favref' =>				array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})'),
+	'favstate' =>			array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})&&"filter"=={favobj}')
 );
 
 $dataValid = check_fields($fields);
@@ -87,16 +89,17 @@ $_REQUEST['go'] = getRequest('go', 'none');
 /*
  * Ajax
  */
-if (hasRequest('filterState')) {
-	CProfile::update('web.audit.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
+if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.audit.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
 }
 if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 if (isset($_REQUEST['actionid'])) {
 	$actionPermissions = API::Action()->get(array(
-		'output' => array('actionid'),
 		'actionids' => $_REQUEST['actionid'],
 		'editable' => true
 	));
@@ -140,15 +143,11 @@ elseif (hasRequest('save')) {
 	}
 
 	DBstart();
-
 	if (hasRequest('actionid')) {
 		$action['actionid'] = getRequest('actionid');
 
 		$result = API::Action()->update($action);
-
-		$messageSuccess = _('Action updated');
-		$messageFailed = _('Cannot update action');
-		$auditAction = AUDIT_ACTION_UPDATE;
+		show_messages($result, _('Action updated'), _('Cannot update action'));
 	}
 	else {
 		$action['eventsource'] = getRequest('eventsource',
@@ -156,23 +155,24 @@ elseif (hasRequest('save')) {
 		);
 
 		$result = API::Action()->create($action);
-
-		$messageSuccess = _('Action added');
-		$messageFailed = _('Cannot add action');
-		$auditAction = AUDIT_ACTION_ADD;
-	}
-
-	if ($result) {
-		add_audit($auditAction, AUDIT_RESOURCE_ACTION, _('Name').NAME_DELIMITER.$action['name']);
-		unset($_REQUEST['form']);
+		show_messages($result, _('Action added'), _('Cannot add action'));
 	}
 
 	$result = DBend($result);
-	show_messages($result, $messageSuccess, $messageFailed);
+	if ($result) {
+		add_audit(
+			hasRequest('actionid') ? AUDIT_ACTION_UPDATE : AUDIT_ACTION_ADD,
+			AUDIT_RESOURCE_ACTION,
+			_('Name').NAME_DELIMITER.$action['name']
+		);
+
+		unset($_REQUEST['form']);
+	}
+
 	clearCookies($result);
 }
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['actionid'])) {
-	$result = API::Action()->delete(array(getRequest('actionid')));
+	$result = API::Action()->delete($_REQUEST['actionid']);
 
 	show_messages($result, _('Action deleted'), _('Cannot delete action'));
 
@@ -318,7 +318,6 @@ elseif (str_in_array(getRequest('go'), array('activate', 'disable')) && hasReque
 	$updated = 0;
 
 	DBstart();
-
 	$dbActions = DBselect(
 		'SELECT a.actionid'.
 		' FROM actions a'.
@@ -335,6 +334,7 @@ elseif (str_in_array(getRequest('go'), array('activate', 'disable')) && hasReque
 		}
 		$updated++;
 	}
+	$result = DBend($result);
 
 	if ($result) {
 		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ACTION, ' Actions ['.implode(',', $actionIds).'] '.$statusName);
@@ -347,7 +347,6 @@ elseif (str_in_array(getRequest('go'), array('activate', 'disable')) && hasReque
 		? _n('Cannot enable action', 'Cannot enable actions', $updated)
 		: _n('Cannot disable action', 'Cannot disable actions', $updated);
 
-	$result = DBend($result);
 	show_messages($result, $messageSuccess, $messageFailed);
 	clearCookies($result);
 }

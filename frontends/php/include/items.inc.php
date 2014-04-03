@@ -340,11 +340,11 @@ function copyItemsToHosts($srcItemIds, $dstHostIds) {
 			'trapper_hosts', 'units', 'multiplier', 'delta', 'snmpv3_contextname', 'snmpv3_securityname',
 			'snmpv3_securitylevel', 'snmpv3_authprotocol', 'snmpv3_authpassphrase', 'snmpv3_privprotocol',
 			'snmpv3_privpassphrase', 'formula', 'logtimefmt', 'valuemapid', 'delay_flex', 'params', 'ipmi_sensor',
-			'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey', 'flags', 'port',
+			'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey', 'flags', 'filter', 'port',
 			'description', 'inventory_link'
 		),
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-		'selectApplications' => array('applicationid')
+		'selectApplications' => API_OUTPUT_REFER
 	));
 
 	$dstHosts = API::Host()->get(array(
@@ -402,12 +402,12 @@ function copyItems($srcHostId, $dstHostId) {
 			'trapper_hosts', 'units', 'multiplier', 'delta', 'snmpv3_contextname', 'snmpv3_securityname',
 			'snmpv3_securitylevel', 'snmpv3_authprotocol', 'snmpv3_authpassphrase', 'snmpv3_privprotocol',
 			'snmpv3_privpassphrase', 'formula', 'logtimefmt', 'valuemapid', 'delay_flex', 'params', 'ipmi_sensor',
-			'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey', 'flags', 'port',
+			'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey', 'flags', 'filter', 'port',
 			'description', 'inventory_link'
 		),
 		'inherited' => false,
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-		'selectApplications' => array('applicationid')
+		'selectApplications' => API_OUTPUT_REFER
 	));
 	$dstHosts = API::Host()->get(array(
 		'output' => array('hostid', 'host', 'status'),
@@ -487,6 +487,11 @@ function disable_item($itemids) {
 	return update_item_status($itemids, ITEM_STATUS_DISABLED);
 }
 
+function get_items_by_hostid($hostids) {
+	zbx_value2array($hostids);
+	return DBselect('SELECT i.* FROM items i WHERE '.dbConditionInt('i.hostid', $hostids));
+}
+
 function get_item_by_key($key, $host = '') {
 	$item = false;
 	$sql_from = '';
@@ -521,7 +526,7 @@ function get_item_by_itemid_limited($itemid) {
 			'i.delta,i.snmpv3_contextname,i.snmpv3_securityname,i.snmpv3_securitylevel,i.snmpv3_authprotocol,'.
 			'i.snmpv3_authpassphrase,i.snmpv3_privprotocol,i.snmpv3_privpassphrase,i.formula,i.trends,i.logtimefmt,'.
 			'i.valuemapid,i.delay_flex,i.params,i.ipmi_sensor,i.templateid,i.authtype,i.username,i.password,'.
-			'i.publickey,i.privatekey,i.flags,i.description,i.inventory_link'.
+			'i.publickey,i.privatekey,i.flags,i.filter,i.description,i.inventory_link'.
 		' FROM items i'.
 		' WHERE i.itemid='.zbx_dbstr($itemid)));
 	if ($row) {
@@ -664,7 +669,6 @@ function getItemsDataOverview($hostIds, $application, $viewMode) {
 		'hostids' => $hostIds,
 		'with_monitored_items' => true,
 		'preservekeys' => true,
-		'selectGraphs' => API_OUTPUT_COUNT,
 		'selectScreens' => ($viewMode == STYLE_LEFT) ? API_OUTPUT_COUNT : null
 	));
 
@@ -731,7 +735,7 @@ function getItemsDataOverview($hostIds, $application, $viewMode) {
 			$host = $hosts[$hostId];
 
 			$name = new CSpan($host['name'], 'link_menu');
-			$name->setMenuPopup(CMenuPopupHelper::getHost($host, $scripts[$hostId]));
+			$name->setMenuPopup(getMenuPopupHost($host, $scripts[$hostId]));
 
 			$tableRow = array(new CCol($name));
 			foreach ($items as $ithosts) {
@@ -770,7 +774,7 @@ function getItemDataOverviewCells($tableRow, $ithosts, $hostName) {
 	$column = new CCol(array($value, $ack), $css);
 
 	if (isset($ithosts[$hostName])) {
-		$column->setMenuPopup(CMenuPopupHelper::getHistory($item));
+		$column->setMenuPopup(getMenuPopupHistory($item));
 	}
 
 	$tableRow[] = $column;
@@ -834,13 +838,13 @@ function delete_history_by_itemid($itemIds) {
 		return $result;
 	}
 
-	$result &= DBexecute('DELETE FROM history_text WHERE '.dbConditionInt('itemid', $itemIds));
-	$result &= DBexecute('DELETE FROM history_log WHERE '.dbConditionInt('itemid', $itemIds));
-	$result &= DBexecute('DELETE FROM history_uint WHERE '.dbConditionInt('itemid', $itemIds));
-	$result &= DBexecute('DELETE FROM history_str WHERE '.dbConditionInt('itemid', $itemIds));
-	$result &= DBexecute('DELETE FROM history WHERE '.dbConditionInt('itemid', $itemIds));
+	DBexecute('DELETE FROM history_text WHERE '.dbConditionInt('itemid', $itemIds));
+	DBexecute('DELETE FROM history_log WHERE '.dbConditionInt('itemid', $itemIds));
+	DBexecute('DELETE FROM history_uint WHERE '.dbConditionInt('itemid', $itemIds));
+	DBexecute('DELETE FROM history_str WHERE '.dbConditionInt('itemid', $itemIds));
+	DBexecute('DELETE FROM history WHERE '.dbConditionInt('itemid', $itemIds));
 
-	return (bool) $result;
+	return true;
 }
 
 /**

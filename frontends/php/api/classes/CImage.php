@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CImage extends CApiService {
+class CImage extends CZBXAPI {
 
 	protected $tableName = 'images';
 	protected $tableAlias = 'i';
@@ -70,7 +70,7 @@ class CImage extends CApiService {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'select_image'				=> null,
 			'editable'					=> null,
 			'countOutput'				=> null,
@@ -96,6 +96,7 @@ class CImage extends CApiService {
 		if (!is_null($options['sysmapids'])) {
 			zbx_value2array($options['sysmapids']);
 
+			$sqlParts['select']['sm'] = 'sm.sysmapid';
 			$sqlParts['from']['sysmaps'] = 'sysmaps sm';
 			$sqlParts['from']['sysmaps_elements'] = 'sysmaps_elements se';
 			$sqlParts['where']['sm'] = dbConditionInt('sm.sysmapid', $options['sysmapids']);
@@ -136,7 +137,18 @@ class CImage extends CApiService {
 				$imageids[$image['imageid']] = $image['imageid'];
 				unset($image['image']);
 
-				$result[$image['imageid']] = $image;
+				if (!isset($result[$image['imageid']])) {
+					$result[$image['imageid']] = array();
+				}
+
+				// sysmapds
+				if (isset($image['sysmapid'])) {
+					if (!isset($result[$image['imageid']]['sysmaps'])) {
+						$result[$image['imageid']]['sysmaps'] = array();
+					}
+					$result[$image['imageid']]['sysmaps'][] = array('sysmapid' => $image['sysmapid']);
+				}
+				$result[$image['imageid']] += $image;
 			}
 		}
 
@@ -451,7 +463,9 @@ class CImage extends CApiService {
 	 *
 	 * @return array
 	 */
-	public function delete(array $imageids) {
+	public function delete($imageids) {
+		$imageids = zbx_toArray($imageids);
+
 		if (empty($imageids)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Empty parameters'));
 		}

@@ -18,20 +18,21 @@
 **/
 
 
-var PMasters = {};
-
+var PMasters = [];
 function initPMaster(pmid, args) {
-	if (typeof PMasters[pmid] === 'undefined') {
+	if (typeof(PMasters[pmid]) == 'undefined') {
 		PMasters[pmid] = new CPMaster(pmid, args);
 	}
+	return pmid;
 }
 
-var CPMaster = Class.create({
+var CPMaster = Class.create(CDebug,{
 	pmasterid:	0,	// pmasters reference id
 	dolls:		[],	// list of updated objects
 
-	initialize: function(pmid, obj4upd) {
+	initialize: function($super, pmid, obj4upd) {
 		this.pmasterid = pmid;
+		$super('CPMaster[' + pmid + ']');
 
 		var doll = [];
 		for (var id in obj4upd) {
@@ -67,6 +68,8 @@ var CPMaster = Class.create({
 	},
 
 	addDoll: function(domid, frequency, url, counter, darken, params) {
+		this.debug('addDoll', domid);
+
 		var obj = document.getElementById(domid);
 		if (typeof(obj) == 'undefined') {
 			return false;
@@ -94,6 +97,8 @@ var CPMaster = Class.create({
 	},
 
 	rmvDoll: function(domid) {
+		this.debug('rmvDoll', domid);
+
 		if (typeof(this.dolls[domid]) != 'undefined' && !is_null(this.dolls[domid])) {
 			this.dolls[domid].pexec.stop();
 			this.dolls[domid].pexec = null;
@@ -109,6 +114,8 @@ var CPMaster = Class.create({
 	},
 
 	startAllDolls: function() {
+		this.debug('startAllDolls');
+
 		for (var domid in this.dolls) {
 			if (typeof(this.dolls[domid]) != 'undefined' && !is_null(this.dolls[domid])) {
 				this.dolls[domid].startDoll();
@@ -117,6 +124,8 @@ var CPMaster = Class.create({
 	},
 
 	stopAllDolls: function() {
+		this.debug('stopAllDolls');
+
 		for (var domid in this.dolls) {
 			if (typeof(this.dolls[domid]) != 'undefined' && !is_null(this.dolls[domid])) {
 				this.dolls[domid].stopDoll();
@@ -125,6 +134,8 @@ var CPMaster = Class.create({
 	},
 
 	clear: function() {
+		this.debug('clear');
+
 		for (var domid in this.dolls) {
 			this.rmvDoll(domid);
 		}
@@ -132,7 +143,7 @@ var CPMaster = Class.create({
 	}
 });
 
-var CDoll = Class.create({
+var CDoll = Class.create(CDebug,{
 	_pmasterid:		0,		// PMasters id to which doll belongs
 	_domobj:		null,	// DOM obj for update
 	_domid:			null,	// DOM obj id
@@ -148,8 +159,10 @@ var CDoll = Class.create({
 	pexec:			null,	// PeriodicalExecuter object
 	min_freq:		5,		// seconds
 
-	initialize: function(obj4update) {
+	initialize: function($super, obj4update) {
 		this._domid = obj4update.domid;
+		$super('CDoll[' + this._domid + ']');
+
 		this._domobj = jQuery('#'+this._domid);
 		this.url(obj4update.url);
 		this.frequency(obj4update.frequency);
@@ -161,6 +174,8 @@ var CDoll = Class.create({
 	},
 
 	startDoll: function() {
+		this.debug('startDoll');
+
 		if (is_null(this.pexec)) {
 			this.lastupdate(0);
 			this.pexec = new PeriodicalExecuter(this.check4Update.bind(this), this._frequency);
@@ -169,6 +184,7 @@ var CDoll = Class.create({
 	},
 
 	restartDoll: function() {
+		this.debug('restartDoll');
 		if (!is_null(this.pexec)) {
 			this.pexec.stop();
 
@@ -185,6 +201,8 @@ var CDoll = Class.create({
 	},
 
 	stopDoll: function() {
+		this.debug('stopDoll');
+
 		if (!is_null(this.pexec)) {
 			this.pexec.stop();
 			try {
@@ -276,6 +294,7 @@ var CDoll = Class.create({
 	},
 
 	check4Update: function() {
+		this.debug('check4Update');
 		var now = parseInt(new Date().getTime() / 1000);
 
 		if (this._ready && ((this._lastupdate + this._frequency) < (now + this.min_freq))) {
@@ -285,6 +304,7 @@ var CDoll = Class.create({
 	},
 
 	update: function() {
+		this.debug('update');
 		this._ready = false;
 
 		if (this._counter == 1) {
@@ -313,6 +333,7 @@ var CDoll = Class.create({
 	},
 
 	onSuccess: function(resp) {
+		this.debug('onSuccess');
 		this.rmwDarken();
 		this.updateSortable();
 
@@ -330,12 +351,15 @@ var CDoll = Class.create({
 	},
 
 	onFailure: function(resp) {
+		this.debug('onFailure');
 		this.rmwDarken();
 		this._ready = true;
 		this.notify(false, this._pmasterid, this._domid, this._lastupdate, this.counter());
 	},
 
 	setDarken: function() {
+		this.debug('setDarken');
+
 		if (is_null(this._domobj)) {
 			return false;
 		}
@@ -360,6 +384,8 @@ var CDoll = Class.create({
 	},
 
 	rmwDarken: function() {
+		this.debug('rmvDarken');
+
 		if (!is_null(this._domdark)) {
 			this._domdark.style.cursor = 'auto';
 
@@ -369,38 +395,40 @@ var CDoll = Class.create({
 	},
 
 	updateSortable: function() {
-		var columnObj = jQuery('.column');
-
-		if (columnObj.length > 0) {
-			columnObj
-				.sortable({
-					connectWith: '.column',
-					handle: 'div.header',
-					forcePlaceholderSize: true,
-					placeholder: 'widget ui-corner-all ui-sortable-placeholder',
-					opacity: '0.8',
-					update: function(e, ui) {
-						// prevent duplicate save requests when moving a widget from one column to another
-						if (!ui.sender) {
-							var widgetPositions = {};
-
-							jQuery('.column').each(function(colNum, column) {
-								widgetPositions[colNum] = {};
-
-								jQuery('.widget', column).each(function(rowNum, widget) {
-									widgetPositions[colNum][rowNum] = widget.id;
-								});
-							});
-
-							sendAjaxData({
-								data: {widgetSort: Object.toJSON(widgetPositions)}
-							});
-						}
-					}
-				})
-				.children('div')
-				.children('div.header')
-				.addClass('move');
+		if (empty(jQuery('.column'))) {
+			return false;
 		}
+
+		jQuery('.column')
+			.sortable({
+				connectWith: '.column',
+				handle: 'div.header',
+				forcePlaceholderSize: true,
+				placeholder: 'widget ui-corner-all ui-sortable-placeholder',
+				opacity: '0.8',
+				update: function(e, ui) {
+					// prevent duplicate save requests when moving a widget from one column to another
+					if (!ui.sender) {
+						var widgetPositions = {};
+
+						jQuery('.column').each(function(colNum, column) {
+							widgetPositions[colNum] = {};
+
+							jQuery('.widget', column).each(function(rowNum, widget) {
+								widgetPositions[colNum][rowNum] = widget.id;
+							});
+						});
+
+						send_params({
+							favaction: 'sort',
+							favobj : 'hat',
+							favdata: Object.toJSON(widgetPositions)
+						});
+					}
+				}
+			})
+			.children('div')
+			.children('div.header')
+			.addClass('move');
 	}
 });

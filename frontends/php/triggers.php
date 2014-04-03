@@ -191,7 +191,7 @@ elseif (isset($_REQUEST['save'])) {
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['triggerid'])) {
 	DBstart();
 
-	$result = API::Trigger()->delete(array(getRequest('triggerid')));
+	$result = API::Trigger()->delete($_REQUEST['triggerid']);
 	$result = DBend($result);
 
 	show_messages($result, _('Trigger deleted'), _('Cannot delete trigger'));
@@ -403,17 +403,11 @@ else {
 		order_result($data['triggers'], $sortfield, getPageSortOrder());
 	}
 
-	foreach ($data['triggers'] as &$trigger) {
-		if (count($trigger['dependencies']) > 1) {
-			order_result($trigger['dependencies'], 'hostname', ZBX_SORT_UP);
-		}
-	}
-	unset($trigger);
-
 	// get real hosts
 	$data['realHosts'] = getParentHostsByTriggers($data['triggers']);
 
 	// determine, show or not column of errors
+	$data['showErrorColumn'] = true;
 	if ($data['hostid'] > 0) {
 		$host = API::Host()->get(array(
 			'hostids' => $_REQUEST['hostid'],
@@ -422,10 +416,7 @@ else {
 			'editable' => true
 		));
 		$host = reset($host);
-		$data['showInfoColumn'] = (!$host || $host['status'] != HOST_STATUS_TEMPLATE);
-	}
-	else {
-		$data['showInfoColumn'] = true;
+		$data['showErrorColumn'] = (!$host || $host['status'] != HOST_STATUS_TEMPLATE);
 	}
 
 	// nodes

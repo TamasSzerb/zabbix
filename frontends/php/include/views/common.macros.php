@@ -18,7 +18,6 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
 $readonly = (isset($data['readonly']) && $data['readonly']);
 $macros = array_values($this->data['macros']);
 
@@ -40,8 +39,8 @@ $macrosTable->addRow(array(_('Macro'), SPACE, _('Value'), SPACE));
 // fields
 foreach ($macros as $i => $macro) {
 	$text1 = new CTextBox('macros['.$i.'][macro]', $macro['macro'], 30, $readonly, 64);
-	$text1->addClass('macro');
 	$text1->setAttribute('placeholder', '{$MACRO}');
+	$text1->setAttribute('style', 'text-transform:uppercase;');
 	$text2 = new CTextBox('macros['.$i.'][value]', $macro['value'], 40, $readonly, 255);
 	$text2->setAttribute('placeholder', _('value'));
 	$span = new CSpan(RARR);
@@ -49,9 +48,7 @@ foreach ($macros as $i => $macro) {
 
 	$deleteButtonCell = null;
 	if (!$readonly) {
-		$deleteButtonCell = array(
-			new CButton('macros_'.$i.'_remove', _('Remove'), null, 'link_menu element-table-remove')
-		);
+		$deleteButtonCell = array(new CButton('macros_'.$i.'_remove', _('Remove'), null, 'link_menu macroRemove'));
 		if (isset($macro['globalmacroid'])) {
 			$deleteButtonCell[] = new CVar('macros['.$i.'][globalmacroid]', $macro['globalmacroid'], 'macros_'.$i.'_id');
 		}
@@ -66,7 +63,7 @@ foreach ($macros as $i => $macro) {
 
 // buttons
 if (!$readonly) {
-	$addButton = new CButton('macro_add', _('Add'), null, 'link_menu element-table-add');
+	$addButton = new CButton('macro_add', _('Add'), null, 'link_menu');
 	$buttonColumn = new CCol($addButton);
 	$buttonColumn->setAttribute('colspan', 5);
 

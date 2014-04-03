@@ -74,17 +74,10 @@ foreach ($config as $name => $value) {
  */
 if ($config['authentication_type'] == ZBX_AUTH_INTERNAL) {
 	if (isset($_REQUEST['save'])) {
-		$messageSuccess = _('Authentication method changed to Zabbix internal');
-		$messageFailed = _('Cannot change authentication method to Zabbix internal');
-
-		DBstart();
-
-		$result = update_config($config);
-
-		if ($result) {
+		if (update_config($config)) {
 			// reset all sessions
 			if ($isAuthenticationTypeChanged) {
-				$result &= DBexecute(
+				DBexecute(
 					'UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.
 					' WHERE sessionid<>'.zbx_dbstr(CWebUser::$data['sessionid'])
 				);
@@ -92,11 +85,15 @@ if ($config['authentication_type'] == ZBX_AUTH_INTERNAL) {
 
 			$isAuthenticationTypeChanged = false;
 
-			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, $messageSuccess);
-		}
+			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG,
+				_('Authentication method changed to Zabbix internal')
+			);
 
-		$result = DBend($result);
-		show_messages($result, $messageSuccess, $messageFailed);
+			show_message(_('Authentication method changed to Zabbix internal'));
+		}
+		else {
+			show_error_message(_('Cannot change authentication method to Zabbix internal'));
+		}
 	}
 }
 elseif ($config['authentication_type'] == ZBX_AUTH_LDAP) {
@@ -127,35 +124,34 @@ elseif ($config['authentication_type'] == ZBX_AUTH_LDAP) {
 				show_error_message(_('Cannot change authentication method to LDAP'));
 			}
 			else {
-				$messageSuccess = $isAuthenticationTypeChanged
-					? _('Authentication method changed to LDAP')
-					: _('LDAP authentication changed');
-				$messageFailed = $isAuthenticationTypeChanged
-						? _('Cannot change authentication method to LDAP')
-						: _('Cannot change authentication');
-
-				DBstart();
-
-				$result = update_config($config);
-
-				if ($result) {
+				if (update_config($config)) {
 					unset($_REQUEST['change_bind_password']);
 
 					// reset all sessions
 					if ($isAuthenticationTypeChanged) {
-						$result &= DBexecute(
+						DBexecute(
 							'UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.
 							' WHERE sessionid<>'.zbx_dbstr(CWebUser::$data['sessionid'])
 						);
 					}
 
+					$msg = $isAuthenticationTypeChanged
+						? _('Authentication method changed to LDAP')
+						: _('LDAP authentication changed');
+
 					$isAuthenticationTypeChanged = false;
 
-					add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, $messageSuccess);
-				}
+					add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, $msg);
 
-				$result = DBend($result);
-				show_messages($result, $messageSuccess, $messageFailed);
+					show_message($msg);
+				}
+				else {
+					show_error_message(
+						$isAuthenticationTypeChanged
+							? _('Cannot change authentication method to LDAP')
+							: _('Cannot change authentication')
+					);
+				}
 			}
 		}
 	}
@@ -178,17 +174,10 @@ elseif ($config['authentication_type'] == ZBX_AUTH_HTTP) {
 			));
 		}
 
-		$messageSuccess = _('Authentication method changed to HTTP');
-		$messageFailed = _('Cannot change authentication method to HTTP');
-
-		DBstart();
-
-		$result = update_config($config);
-
-		if ($result) {
+		if (update_config($config)) {
 			// reset all sessions
 			if ($isAuthenticationTypeChanged) {
-				$result &= DBexecute(
+				DBexecute(
 					'UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.
 					' WHERE sessionid<>'.zbx_dbstr(CWebUser::$data['sessionid'])
 				);
@@ -196,11 +185,13 @@ elseif ($config['authentication_type'] == ZBX_AUTH_HTTP) {
 
 			$isAuthenticationTypeChanged = false;
 
-			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, $messageSuccess);
-		}
+			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, _('Authentication method changed to HTTP'));
 
-		$result = DBend($result);
-		show_messages($result, $messageSuccess, $messageFailed);
+			show_message(_('Authentication method changed to HTTP'));
+		}
+		else {
+			show_error_message(_('Cannot change authentication method to HTTP'));
+		}
 	}
 }
 

@@ -176,7 +176,7 @@ elseif (hasRequest('save')) {
 	unset($_REQUEST['save']);
 }
 elseif (hasRequest('delete') && hasRequest('triggerid')) {
-	$result = API::TriggerPrototype()->delete(array(getRequest('triggerid')));
+	$result = API::TriggerPrototype()->delete(getRequest('triggerid'));
 
 	show_messages($result, _('Trigger prototype deleted'), _('Cannot delete trigger prototype'));
 	clearCookies($result, getRequest('parent_discoveryid'));
@@ -273,7 +273,7 @@ elseif (isset($_REQUEST['form'])) {
 else {
 	$data = array(
 		'parent_discoveryid' => get_request('parent_discoveryid'),
-		'showInfoColumn' => false,
+		'showErrorColumn' => false,
 		'discovery_rule' => $discovery_rule,
 		'hostid' => get_request('hostid'),
 		'showdisabled' => get_request('showdisabled', 1),

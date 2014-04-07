@@ -447,10 +447,7 @@ class CXmlImport18 {
 			$exists = API::Screen()->exists(array('name' => $screen['name']));
 
 			if ($exists && !empty($rules['screens']['updateExisting'])) {
-				$db_screens = API::Screen()->get(array(
-					'output' => array('screenid'),
-					'filter' => array('name' => $screen['name'])
-				));
+				$db_screens = API::Screen()->get(array('filter' => array('name' => $screen['name'])));
 				if (empty($db_screens)) {
 					throw new Exception(_s('No permissions for screen "%1$s".', $screen['name']));
 				}
@@ -470,14 +467,7 @@ class CXmlImport18 {
 			}
 
 			foreach ($screen['screenitems'] as &$screenitem) {
-				if (isset($screenitem['resourceid']['node'])) {
-					$nodeId = getNodeIdByNodeName($screenitem['resourceid']['node']);
-					$nodeCaption = $screenitem['resourceid']['node'].':';
-				}
-				else {
-					$nodeId = null;
-					$nodeCaption = '';
-				}
+				$nodeCaption = isset($screenitem['resourceid']['node']) ? $screenitem['resourceid']['node'].':' : '';
 
 				if (!isset($screenitem['resourceid'])) {
 					$screenitem['resourceid'] = 0;
@@ -490,13 +480,7 @@ class CXmlImport18 {
 						case SCREEN_RESOURCE_DATA_OVERVIEW:
 						case SCREEN_RESOURCE_HOSTGROUP_TRIGGERS:
 							if (is_array($screenitem['resourceid'])) {
-								$db_hostgroups = API::HostGroup()->get(array(
-									'output' => array('groupid'),
-									'nodeids' => $nodeId,
-									'filter' => array(
-										'name' => $screenitem['resourceid']['name']
-									)
-								));
+								$db_hostgroups = API::HostGroup()->getObjects($screenitem['resourceid']);
 								if (empty($db_hostgroups)) {
 									$error = _s('Cannot find group "%1$s" used in screen "%2$s".',
 											$nodeCaption.$screenitem['resourceid']['name'], $screen['name']);
@@ -508,13 +492,7 @@ class CXmlImport18 {
 							}
 							break;
 						case SCREEN_RESOURCE_HOST_TRIGGERS:
-							$db_hosts = API::Host()->get(array(
-								'output' => array('hostids'),
-								'nodeids' => $nodeId,
-								'filter' => array(
-									'host' => $screenitem['resourceid']['host']
-								)
-							));
+							$db_hosts = API::Host()->getObjects($screenitem['resourceid']);
 							if (empty($db_hosts)) {
 								$error = _s('Cannot find host "%1$s" used in screen "%2$s".',
 										$nodeCaption.$screenitem['resourceid']['host'], $screen['name']);
@@ -525,14 +503,7 @@ class CXmlImport18 {
 							$screenitem['resourceid'] = $tmp['hostid'];
 							break;
 						case SCREEN_RESOURCE_GRAPH:
-							$db_graphs = API::Graph()->get(array(
-								'output' => array('graphid'),
-								'nodeids' => $nodeId,
-								'filter' => array(
-									'host' => $screenitem['resourceid']['host'],
-									'name' => $screenitem['resourceid']['name']
-								)
-							));
+							$db_graphs = API::Graph()->getObjects($screenitem['resourceid']);
 							if (empty($db_graphs)) {
 								$error = _s('Cannot find graph "%1$s" used in screen "%2$s".',
 										$nodeCaption.$screenitem['resourceid']['host'].NAME_DELIMITER.$screenitem['resourceid']['name'], $screen['name']);
@@ -544,15 +515,7 @@ class CXmlImport18 {
 							break;
 						case SCREEN_RESOURCE_SIMPLE_GRAPH:
 						case SCREEN_RESOURCE_PLAIN_TEXT:
-							$db_items = API::Item()->get(array(
-								'output' => array('itemid'),
-								'nodeids' => $nodeId,
-								'webitems' => true,
-								'filter' => array(
-									'host' => $screenitem['resourceid']['host'],
-									'key_' => $screenitem['resourceid']['key_']
-								)
-							));
+							$db_items = API::Item()->getObjects($screenitem['resourceid']);
 
 							if (empty($db_items)) {
 								$error = _s('Cannot find item "%1$s" used in screen "%2$s".',
@@ -564,13 +527,7 @@ class CXmlImport18 {
 							$screenitem['resourceid'] = $tmp['itemid'];
 							break;
 						case SCREEN_RESOURCE_MAP:
-							$db_sysmaps = API::Map()->get(array(
-								'output' => array('sysmapid'),
-								'nodeids' => $nodeId,
-								'filter' => array(
-									'name' => $screenitem['resourceid']['name']
-								)
-							));
+							$db_sysmaps = API::Map()->getObjects($screenitem['resourceid']);
 							if (empty($db_sysmaps)) {
 								$error = _s('Cannot find map "%1$s" used in screen "%2$s".',
 										$nodeCaption.$screenitem['resourceid']['name'], $screen['name']);
@@ -581,13 +538,7 @@ class CXmlImport18 {
 							$screenitem['resourceid'] = $tmp['sysmapid'];
 							break;
 						case SCREEN_RESOURCE_SCREEN:
-							$db_screens = API::Screen()->get(array(
-								'output' => array('screenid'),
-								'nodeids' => $nodeId,
-								'filter' => array(
-									'name' => $screenitem['resourceid']['name']
-								)
-							));
+							$db_screens = API::Screen()->get(array('screenids' => $screenitem['resourceid']));
 							if (empty($db_screens)) {
 								$error = _s('Cannot find screen "%1$s" used in screen "%2$s".',
 										$nodeCaption.$screenitem['resourceid']['name'], $screen['name']);
@@ -1136,10 +1087,7 @@ class CXmlImport18 {
 
 // HOSTS
 				if (isset($host_db['proxy_hostid'])) {
-					$proxy_exists = API::Proxy()->get(array(
-						'output' => array('proxyid'),
-						'proxyids' => $host_db['proxy_hostid']
-					));
+					$proxy_exists = API::Proxy()->get(array('proxyids' => $host_db['proxy_hostid']));
 					if (empty($proxy_exists)) {
 						$host_db['proxy_hostid'] = 0;
 					}

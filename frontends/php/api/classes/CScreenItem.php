@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CScreenItem extends CApiService {
+class CScreenItem extends CZBXAPI {
 
 	protected $tableName = 'screens_items';
 	protected $tableAlias = 'si';
@@ -348,10 +348,11 @@ class CScreenItem extends CApiService {
 	 *
 	 * @return array
 	 */
-	public function delete(array $screenItemIds) {
+	public function delete($screenItemIds) {
+		$screenItemIds = zbx_toArray($screenItemIds);
+
 		// check permissions
 		$dbScreenItems = $this->get(array(
-			'output' => array('screenitemid'),
 			'screenitemids' => $screenItemIds,
 			'preservekeys' => true
 		));
@@ -901,6 +902,7 @@ class CScreenItem extends CApiService {
 		// screens
 		if ($options['screenids'] !== null) {
 			zbx_value2array($options['screenids']);
+			$sqlParts = $this->addQuerySelect($this->fieldId('screenid'), $sqlParts);
 			$sqlParts['where'][] = dbConditionInt($this->fieldId('screenid'), $options['screenids']);
 		}
 

@@ -113,36 +113,28 @@ if (isset($_REQUEST['save'])) {
 		unset($mediaType['passwd']);
 	}
 
-	DBstart();
-
 	if ($mediaTypeId) {
 		$mediaType['mediatypeid'] = $mediaTypeId;
 		$result = API::Mediatype()->update($mediaType);
 
-		$messageSuccess = _('Media type updated');
-		$messageFailed = _('Cannot update media type');
-		$auditAction = AUDIT_ACTION_UPDATE;
-
+		$action = AUDIT_ACTION_UPDATE;
+		show_messages($result, _('Media type updated'), _('Cannot update media type'));
 	}
 	else {
 		$result = API::Mediatype()->create($mediaType);
 
-		$messageSuccess = _('Media type added');
-		$messageFailed = _('Cannot add media type');
-		$auditAction = AUDIT_ACTION_ADD;
+		$action = AUDIT_ACTION_ADD;
+		show_messages($result, _('Media type added'), _('Cannot add media type'));
 	}
 
 	if ($result) {
-		add_audit($auditAction, AUDIT_RESOURCE_MEDIA_TYPE, 'Media type ['.$mediaType['description'].']');
+		add_audit($action, AUDIT_RESOURCE_MEDIA_TYPE, 'Media type ['.$mediaType['description'].']');
 		unset($_REQUEST['form']);
+		clearCookies($result);
 	}
-
-	$result = DBend($result);
-	show_messages($result, $messageSuccess, $messageFailed);
-	clearCookies($result);
 }
 elseif (isset($_REQUEST['delete']) && !empty($mediaTypeId)) {
-	$result = API::Mediatype()->delete(array(getRequest('mediatypeid')));
+	$result = API::Mediatype()->delete($_REQUEST['mediatypeid']);
 
 	if ($result) {
 		unset($_REQUEST['form']);

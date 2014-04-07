@@ -79,10 +79,12 @@ if (isset($_REQUEST['save_trigger'])) {
 		$type = TRIGGER_MULT_EVENT_ENABLED;
 
 		if(isset($_REQUEST['triggerid'])){
-			$triggersData = API::Trigger()->get(array(
+			$options = array(
 				'triggerids' => $_REQUEST['triggerid'],
-				'output' => API_OUTPUT_EXTEND
-			));
+				'output' => API_OUTPUT_EXTEND,
+				'selectDependencies' => API_OUTPUT_REFER
+			);
+			$triggersData = API::Trigger()->get($options);
 			$triggerData = reset($triggersData);
 
 			if($triggerData['templateid']){
@@ -146,10 +148,8 @@ if (isset($_REQUEST['save_trigger'])) {
 			show_messages($result, _('Trigger added'), _('Cannot add trigger'));
 		}
 
-		if ($result){
-			DBstart();
+		if($result){
 			add_audit($audit_action, AUDIT_RESOURCE_TRIGGER, _('Trigger').' ['.$triggerid.'] ['.$trigger['description'].']');
-			DBend(true);
 			unset($_REQUEST['sform']);
 
 			zbx_add_post_js('closeForm("items.php");');
@@ -346,7 +346,7 @@ if(isset($_REQUEST['sform'])){
 
 		$maxid = ($maxid<$id)?$id:$maxid;
 	}
-	zbx_add_post_js('logexpr_count='.($maxid+1).';');
+	zbx_add_post_js('logexpr_count='.($maxid+1));
 
 	$maxid=0;
 	foreach($keys as $id => $val){
@@ -360,7 +360,7 @@ if(isset($_REQUEST['sform'])){
 
 		$maxid = ($maxid<$id)?$id:$maxid;
 	}
-	zbx_add_post_js('key_count='.($maxid+1).';');
+	zbx_add_post_js('key_count='.($maxid+1));
 
 	$frmTRLog->addRow(SPACE, $keyTable);
 	$frmTRLog->addRow(SPACE, $table);

@@ -154,4 +154,5 @@
 	jQuery(function() {
 		initSortable();
 	});
+	createPlaceholders();
 </script>

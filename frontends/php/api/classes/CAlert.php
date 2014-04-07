@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CAlert extends CApiService {
+class CAlert extends CZBXAPI {
 
 	protected $tableName = 'alerts';
 	protected $tableAlias = 'a';
@@ -69,6 +69,7 @@ class CAlert extends CApiService {
 			'groupids'					=> null,
 			'hostids'					=> null,
 			'alertids'					=> null,
+			'triggerids'				=> null,
 			'objectids'					=> null,
 			'eventids'					=> null,
 			'actionids'					=> null,
@@ -85,7 +86,7 @@ class CAlert extends CApiService {
 			'time_till'					=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectMediatypes'			=> null,
 			'selectUsers'				=> null,
 			'selectHosts'				=> null,
@@ -98,6 +99,7 @@ class CAlert extends CApiService {
 		);
 		$options = zbx_array_merge($defOptions, $options);
 
+		$options = $this->convertDeprecatedParam($options, 'triggerids', 'objectids');
 		$this->validateGet($options);
 
 		// editable + PERMISSION CHECK
@@ -244,6 +246,7 @@ class CAlert extends CApiService {
 		if (!is_null($options['actionids'])) {
 			zbx_value2array($options['actionids']);
 
+			$sqlParts['select']['actionid'] = 'a.actionid';
 			$sqlParts['where'][] = dbConditionInt('a.actionid', $options['actionids']);
 		}
 
@@ -262,6 +265,7 @@ class CAlert extends CApiService {
 		if (!is_null($options['mediatypeids'])) {
 			zbx_value2array($options['mediatypeids']);
 
+			$sqlParts['select']['mediatypeid'] = 'a.mediatypeid';
 			$sqlParts['where'][] = dbConditionInt('a.mediatypeid', $options['mediatypeids']);
 		}
 
@@ -425,7 +429,7 @@ class CAlert extends CApiService {
 		// adding media types
 		if ($options['selectMediatypes'] !== null && $options['selectMediatypes'] !== API_OUTPUT_COUNT) {
 			$relationMap = $this->createRelationMap($result, 'alertid', 'mediatypeid');
-			$mediatypes = API::getApiService()->select('media_type', array(
+			$mediatypes = API::getApi()->select('media_type', array(
 				'output' => $options['selectMediatypes'],
 				'filter' => array('mediatypeid' => $relationMap->getRelatedIds()),
 				'preservekeys' => true,

@@ -146,24 +146,20 @@ if (isset($_REQUEST['save']) || isset($_REQUEST['saveandreturn'])) {
 		));
 	}
 
-	DBstart();
-
-	$result = API::Event()->acknowledge(array(
+	$acknowledgeEvent = API::Event()->acknowledge(array(
 		'eventids' => zbx_objectValues($_REQUEST['events'], 'eventid'),
 		'message' => $_REQUEST['message']
 	));
 
-	if ($result) {
+	show_messages($acknowledgeEvent, _('Event acknowledged'), _('Cannot acknowledge event'));
+
+	if ($acknowledgeEvent) {
 		$eventAcknowledged = true;
 
 		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_TRIGGER, _('Acknowledge added').
 			' ['.($bulk ? ' BULK ACKNOWLEDGE ' : $eventTriggerName).']'.
-			' ['.$_REQUEST['message'].']'
-		);
+			' ['.$_REQUEST['message'].']');
 	}
-
-	$result = DBend($result);
-	show_messages($result, _('Event acknowledged'), _('Cannot acknowledge event'));
 
 	if (isset($_REQUEST['saveandreturn'])) {
 		ob_end_clean();
@@ -233,7 +229,6 @@ else {
 }
 
 $messageTable = new CFormTable($title.' "'.getUserFullname(CWebUser::$data).'"');
-$messageTable->addClass('acknowledge-edit');
 $messageTable->addVar('backurl', $_REQUEST['backurl']);
 
 if (in_array($_REQUEST['backurl'], array('tr_events.php', 'events.php'))) {
@@ -273,6 +268,6 @@ if (!$bulk) {
 }
 
 $messageTable->addItemToBottomRow(new CButtonCancel(url_params(array('backurl', 'eventid', 'triggerid', 'screenid'))));
-$messageTable->show();
+$messageTable->show(false);
 
 require_once dirname(__FILE__).'/include/page_footer.php';

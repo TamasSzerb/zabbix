@@ -103,18 +103,13 @@ if (!empty($_REQUEST['serviceid'])) {
 
 // delete
 if (isset($_REQUEST['delete']) && isset($_REQUEST['serviceid'])) {
-	DBstart();
-
-	$result = API::Service()->delete(array($service['serviceid']));
-
+	$result = API::Service()->delete($service['serviceid']);
+	show_messages($result, _('Service deleted'), _('Cannot delete service'));
 	if ($result) {
 		add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_IT_SERVICE, 'Name ['.$service['name'].'] id ['.$service['serviceid'].']');
 		unset($_REQUEST['form']);
 	}
 	unset($service);
-
-	$result = DBend($result);
-	show_messages($result, _('Service deleted'), _('Cannot delete service'));
 }
 
 if (isset($_REQUEST['form'])) {
@@ -148,29 +143,25 @@ if (isset($_REQUEST['form'])) {
 
 		if (isset($service['serviceid'])) {
 			$serviceRequest['serviceid'] = $service['serviceid'];
-
 			$result = API::Service()->update($serviceRequest);
 
-			$messageSuccess = _('Service updated');
-			$messageFailed = _('Cannot update service');
-			$auditAction = AUDIT_ACTION_UPDATE;
+			show_messages($result, _('Service updated'), _('Cannot update service'));
+			$audit_action = AUDIT_ACTION_UPDATE;
 		}
 		else {
 			$result = API::Service()->create($serviceRequest);
 
-			$messageSuccess = _('Service created');
-			$messageFailed = _('Cannot add service');
-			$auditAction = AUDIT_ACTION_ADD;
+			show_messages($result, _('Service created'), _('Cannot add service'));
+			$audit_action = AUDIT_ACTION_ADD;
 		}
 
 		if ($result) {
 			$serviceid = (isset($service['serviceid'])) ? $service['serviceid'] : reset($result['serviceids']);
-			add_audit($auditAction, AUDIT_RESOURCE_IT_SERVICE, 'Name ['.$_REQUEST['name'].'] id ['.$serviceid.']');
+			add_audit($audit_action, AUDIT_RESOURCE_IT_SERVICE, 'Name ['.$_REQUEST['name'].'] id ['.$serviceid.']');
 			unset($_REQUEST['form']);
 		}
 
-		$result = DBend($result);
-		show_messages($result, $messageSuccess, $messageFailed);
+		DBend($result);
 	}
 	// validate and get service times
 	elseif (isset($_REQUEST['add_service_time']) && isset($_REQUEST['new_service_time'])) {

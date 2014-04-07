@@ -53,6 +53,8 @@ if (isset($_REQUEST['valuemapid'])) {
  * Actions
  */
 try {
+	$msgOk = $msgFail = '';
+
 	if (isset($_REQUEST['save'])) {
 		DBstart();
 
@@ -60,62 +62,60 @@ try {
 		$mappings = get_request('mappings', array());
 
 		if (isset($_REQUEST['valuemapid'])) {
-			$messageSuccess = _('Value map updated');
-			$messageFailed = _('Cannot update value map');
-			$auditAction = AUDIT_ACTION_UPDATE;
+			$msgOk = _('Value map updated');
+			$msgFail = _('Cannot update value map');
+			$audit_action = AUDIT_ACTION_UPDATE;
 
 			$valueMap['valuemapid'] = get_request('valuemapid');
-			$result = updateValueMap($valueMap, $mappings);
+			updateValueMap($valueMap, $mappings);
 		}
 		else {
-			$messageSuccess = _('Value map added');
-			$messageFailed = _('Cannot add value map');
-			$auditAction = AUDIT_ACTION_ADD;
+			$msgOk = _('Value map added');
+			$msgFail = _('Cannot add value map');
+			$audit_action = AUDIT_ACTION_ADD;
 
-			$result = addValueMap($valueMap, $mappings);
+			addValueMap($valueMap, $mappings);
 		}
 
-		if ($result) {
-			add_audit($auditAction, AUDIT_RESOURCE_VALUE_MAP, _s('Value map "%1$s".', $valueMap['name']));
-		}
+		add_audit($audit_action, AUDIT_RESOURCE_VALUE_MAP, _s('Value map "%1$s".', $valueMap['name']));
+		show_messages(true, $msgOk);
 		unset($_REQUEST['form']);
 
-		$result = DBend($result);
-		show_messages($result, $messageSuccess, $messageFailed);
+		DBend(true);
 	}
 	elseif (isset($_REQUEST['delete']) && isset($_REQUEST['valuemapid'])) {
-		$messageSuccess = _('Value map deleted');
-		$messageFailed = _('Cannot delete value map');
-
 		DBstart();
+
+		$msgOk = _('Value map deleted');
+		$msgFail = _('Cannot delete value map');
 
 		$sql = 'SELECT v.name,v.valuemapid'.
 				' FROM valuemaps v'.
 				' WHERE v.valuemapid='.zbx_dbstr($_REQUEST['valuemapid']).
 					andDbNode('v.valuemapid');
 		if ($valueMapToDelete = DBfetch(DBselect($sql))) {
-			$result = deleteValueMap($_REQUEST['valuemapid']);
-
-			if ($result) {
-				add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_VALUE_MAP,
-					_s('Value map "%1$s" "%2$s".', $valueMapToDelete['name'], $valueMapToDelete['valuemapid'])
-				);
-			}
+			deleteValueMap($_REQUEST['valuemapid']);
 		}
 		else {
 			throw new Exception(_s('Value map with valuemapid "%1$s" does not exist.', $_REQUEST['valuemapid']));
 		}
 
+		add_audit(
+			AUDIT_ACTION_DELETE,
+			AUDIT_RESOURCE_VALUE_MAP,
+			_s('Value map "%1$s" "%2$s".', $valueMapToDelete['name'], $valueMapToDelete['valuemapid'])
+		);
+		show_messages(true, $msgOk);
 		unset($_REQUEST['form']);
 
-		$result = DBend($result);
-		show_messages($result, $messageSuccess, $messageFailed);
+		DBend(true);
 	}
 }
 catch (Exception $e) {
 	DBend(false);
+
 	error($e->getMessage());
-	show_messages(false, null, $messageFailed);
+	show_messages(false, null, $msgFail);
 }
 
 /*

@@ -105,8 +105,7 @@ if ($isExportData) {
 	else {
 		print($exportData);
 	}
-
-	exit;
+	exit();
 }
 
 
@@ -118,8 +117,6 @@ if (isset($_REQUEST['clone']) && isset($_REQUEST['screenid'])) {
 	$_REQUEST['form'] = 'clone';
 }
 elseif (isset($_REQUEST['save'])) {
-	DBstart();
-
 	if (isset($_REQUEST['screenid'])) {
 		$screen = array(
 			'screenid' => $_REQUEST['screenid'],
@@ -127,10 +124,6 @@ elseif (isset($_REQUEST['save'])) {
 			'hsize' => $_REQUEST['hsize'],
 			'vsize' => $_REQUEST['vsize']
 		);
-
-		$messageSuccess = _('Screen updated');
-		$messageFailed = _('Cannot update screen');
-
 		if (isset($_REQUEST['templateid'])) {
 			$screenOld = API::TemplateScreen()->get(array(
 				'screenids' => $_REQUEST['screenid'],
@@ -139,7 +132,7 @@ elseif (isset($_REQUEST['save'])) {
 			));
 			$screenOld = reset($screenOld);
 
-			$result = API::TemplateScreen()->update($screen);
+			$screenids = API::TemplateScreen()->update($screen);
 		}
 		else {
 			$screenOld = API::Screen()->get(array(
@@ -149,12 +142,13 @@ elseif (isset($_REQUEST['save'])) {
 			));
 			$screenOld = reset($screenOld);
 
-			$result = API::Screen()->update($screen);
+			$screenids = API::Screen()->update($screen);
 		}
 
-		if ($result) {
+		if (!empty($screenids)) {
 			add_audit_ext(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_SCREEN, $screen['screenid'], $screen['name'], 'screens', $screenOld, $screen);
 		}
+		show_messages(!empty($screenids), _('Screen updated'), _('Cannot update screen'));
 	}
 	else {
 		$screen = array(
@@ -162,10 +156,6 @@ elseif (isset($_REQUEST['save'])) {
 			'hsize' => $_REQUEST['hsize'],
 			'vsize' => $_REQUEST['vsize']
 		);
-
-		$messageSuccess = _('Screen added');
-		$messageFailed = _('Cannot add screen');
-
 		if (isset($_REQUEST['templateid'])) {
 			$screen['templateid'] = get_request('templateid');
 			$screenids = API::TemplateScreen()->create($screen);
@@ -174,20 +164,18 @@ elseif (isset($_REQUEST['save'])) {
 			$screenids = API::Screen()->create($screen);
 		}
 
-		$result = (bool) $screenids;
-		if ($result) {
+		if (!empty($screenids)) {
 			$screenid = reset($screenids);
 			$screenid = reset($screenid);
 			add_audit_details(AUDIT_ACTION_ADD, AUDIT_RESOURCE_SCREEN, $screenid, $screen['name']);
 		}
+		show_messages(!empty($screenids), _('Screen added'), _('Cannot add screen'));
 	}
 
-	$result = DBend($result);
-	if ($result) {
+	if (!empty($screenids)) {
 		unset($_REQUEST['form'], $_REQUEST['screenid']);
+		clearCookies(!empty($screenids));
 	}
-	show_messages($result, $messageSuccess, $messageFailed);
-	clearCookies($result);
 }
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['screenid']) || $_REQUEST['go'] == 'delete') {
 	$screenids = get_request('screens', array());
@@ -195,27 +183,25 @@ elseif (isset($_REQUEST['delete']) && isset($_REQUEST['screenid']) || $_REQUEST[
 		$screenids[] = $_REQUEST['screenid'];
 	}
 
-	DBstart();
-
 	$screens = API::Screen()->get(array(
 		'screenids' => $screenids,
 		'output' => API_OUTPUT_EXTEND,
 		'editable' => true
 	));
 
-	if ($screens) {
-		$result = API::Screen()->delete($screenids);
+	if (!empty($screens)) {
+		$goResult = API::Screen()->delete($screenids);
 
-		if ($result) {
+		if ($goResult) {
 			foreach ($screens as $screen) {
 				add_audit_details(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_SCREEN, $screen['screenid'], $screen['name']);
 			}
 		}
 	}
 	else {
-		$result = API::TemplateScreen()->delete($screenids);
+		$goResult = API::TemplateScreen()->delete($screenids);
 
-		if ($result) {
+		if ($goResult) {
 			$templatedScreens = API::TemplateScreen()->get(array(
 				'screenids' => $screenids,
 				'output' => API_OUTPUT_EXTEND,
@@ -228,14 +214,12 @@ elseif (isset($_REQUEST['delete']) && isset($_REQUEST['screenid']) || $_REQUEST[
 		}
 	}
 
-	$result = DBend($result);
-
-	if ($result) {
+	if ($goResult) {
 		unset($_REQUEST['screenid'], $_REQUEST['form']);
 	}
 
-	show_messages($result, _('Screen deleted'), _('Cannot delete screen'));
-	clearCookies($result);
+	show_messages($goResult, _('Screen deleted'), _('Cannot delete screen'));
+	clearCookies($goResult);
 }
 
 /*

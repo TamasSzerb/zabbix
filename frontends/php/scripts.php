@@ -112,21 +112,19 @@ elseif (isset($_REQUEST['save'])) {
 			'confirmation' => get_request('confirmation', '')
 		);
 
-		DBstart();
-
 		if (isset($_REQUEST['scriptid'])) {
 			$script['scriptid'] = $_REQUEST['scriptid'];
 			$result = API::Script()->update($script);
 
-			$messageSuccess = _('Script updated');
-			$messageFailed = _('Cannot update script');
+			show_messages($result, _('Script updated'), _('Cannot update script'));
+
 			$auditAction = AUDIT_ACTION_UPDATE;
 		}
 		else {
 			$result = API::Script()->create($script);
 
-			$messageSuccess = _('Script added');
-			$messageFailed = _('Cannot add script');
+			show_messages($result, _('Script added'), _('Cannot add script'));
+
 			$auditAction = AUDIT_ACTION_ADD;
 		}
 
@@ -135,46 +133,43 @@ elseif (isset($_REQUEST['save'])) {
 		if ($result) {
 			add_audit($auditAction, AUDIT_RESOURCE_SCRIPT, ' Name ['.$_REQUEST['name'].'] id ['.$scriptId.']');
 			unset($_REQUEST['action'], $_REQUEST['form'], $_REQUEST['scriptid']);
+			clearCookies($result);
 		}
-
-		$result = DBend($result);
-		show_messages($result, $messageSuccess, $messageFailed);
-		clearCookies($result);
 	}
 }
 elseif (isset($_REQUEST['delete'])) {
 	$scriptId = get_request('scriptid', 0);
 
-	DBstart();
-
-	$result = API::Script()->delete(array($scriptId));
+	$result = API::Script()->delete($scriptId);
 
 	if ($result) {
 		add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_SCRIPT, _('Script').' ['.$scriptId.']');
-		unset($_REQUEST['form'], $_REQUEST['scriptid']);
 	}
 
-	$result = DBend($result);
 	show_messages($result, _('Script deleted'), _('Cannot delete script'));
 	clearCookies($result);
+
+	if ($result) {
+		unset($_REQUEST['form'], $_REQUEST['scriptid']);
+	}
 }
 elseif ($_REQUEST['go'] == 'delete' && isset($_REQUEST['scripts'])) {
 	$scriptIds = $_REQUEST['scripts'];
 
-	DBstart();
+	$goResult = API::Script()->delete($scriptIds);
 
-	$result = API::Script()->delete($scriptIds);
-
-	if ($result) {
+	if ($goResult) {
 		foreach ($scriptIds as $scriptId) {
 			add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_SCRIPT, _('Script').' ['.$scriptId.']');
 		}
-		unset($_REQUEST['form'], $_REQUEST['scriptid']);
 	}
 
-	$result = DBend($result);
-	show_messages($result, _('Script deleted'), _('Cannot delete script'));
-	clearCookies($result);
+	show_messages($goResult, _('Script deleted'), _('Cannot delete script'));
+	clearCookies($goResult);
+
+	if ($goResult) {
+		unset($_REQUEST['form'], $_REQUEST['scriptid']);
+	}
 }
 
 /*

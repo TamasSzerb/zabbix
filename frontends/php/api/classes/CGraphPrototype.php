@@ -84,7 +84,7 @@ class CGraphPrototype extends CGraphGeneral {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectGroups'				=> null,
 			'selectTemplates'			=> null,
 			'selectHosts'				=> null,
@@ -157,6 +157,7 @@ class CGraphPrototype extends CGraphGeneral {
 		if (!is_null($options['groupids'])) {
 			zbx_value2array($options['groupids']);
 
+			$sqlParts['select']['groupid'] = 'hg.groupid';
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
@@ -188,6 +189,7 @@ class CGraphPrototype extends CGraphGeneral {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
+			$sqlParts['select']['hostid'] = 'i.hostid';
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where'][] = dbConditionInt('i.hostid', $options['hostids']);
@@ -210,6 +212,7 @@ class CGraphPrototype extends CGraphGeneral {
 		if (!is_null($options['itemids'])) {
 			zbx_value2array($options['itemids']);
 
+			$sqlParts['select']['itemid'] = 'gi.itemid';
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['where']['gig'] = 'gi.graphid=g.graphid';
 			$sqlParts['where'][] = dbConditionInt('gi.itemid', $options['itemids']);
@@ -223,6 +226,7 @@ class CGraphPrototype extends CGraphGeneral {
 		if (!is_null($options['discoveryids'])) {
 			zbx_value2array($options['discoveryids']);
 
+			$sqlParts['select']['itemid'] = 'id.parent_itemid';
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['from']['item_discovery'] = 'item_discovery id';
 			$sqlParts['where']['gig'] = 'gi.graphid=g.graphid';
@@ -298,6 +302,8 @@ class CGraphPrototype extends CGraphGeneral {
 			$sqlParts['limit'] = $options['limit'];
 		}
 
+		$graphids = array();
+
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
@@ -312,7 +318,31 @@ class CGraphPrototype extends CGraphGeneral {
 				}
 			}
 			else {
-				$result[$graph['graphid']] = $graph;
+				$graphids[$graph['graphid']] = $graph['graphid'];
+
+				if (!isset($result[$graph['graphid']])) {
+					$result[$graph['graphid']]= array();
+				}
+
+				// hostids
+				if (isset($graph['hostid']) && is_null($options['selectHosts'])) {
+					if (!isset($result[$graph['graphid']]['hosts'])) {
+						$result[$graph['graphid']]['hosts'] = array();
+					}
+					$result[$graph['graphid']]['hosts'][] = array('hostid' => $graph['hostid']);
+					unset($graph['hostid']);
+				}
+
+				// itemids
+				if (isset($graph['itemid']) && is_null($options['selectItems'])) {
+					if (!isset($result[$graph['graphid']]['items'])) {
+						$result[$graph['graphid']]['items'] = array();
+					}
+					$result[$graph['graphid']]['items'][] = array('itemid' => $graph['itemid']);
+					unset($graph['itemid']);
+				}
+
+				$result[$graph['graphid']] += $graph;
 			}
 		}
 
@@ -501,7 +531,6 @@ class CGraphPrototype extends CGraphGeneral {
 			'preservekeys' => true,
 			'output' => API_OUTPUT_EXTEND,
 			'selectGraphItems' => API_OUTPUT_EXTEND,
-			'selectHosts' => array('hostid'),
 			'filter' => array('flags' => null)
 		));
 
@@ -519,15 +548,18 @@ class CGraphPrototype extends CGraphGeneral {
 	/**
 	 * Delete GraphPrototype.
 	 *
-	 * @param array $graphids
-	 * @param bool  $nopermissions
+	 * @param int|string|array $graphids
+	 * @param bool             $nopermissions
 	 *
 	 * @return array
 	 */
-	public function delete(array $graphids, $nopermissions = false) {
+	public function delete($graphids, $nopermissions = false) {
 		if (empty($graphids)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Empty input parameter.'));
 		}
+
+		$graphids = zbx_toArray($graphids);
+		$delGraphPrototypeIds = $graphids;
 
 		$delGraphs = $this->get(array(
 			'graphids' => $graphids,
@@ -577,7 +609,7 @@ class CGraphPrototype extends CGraphGeneral {
 			info(_s('Graph prototype "%s" deleted.', $graph['name']));
 		}
 
-		return array('graphids' => $graphids);
+		return array('graphids' => $delGraphPrototypeIds);
 	}
 
 	protected function createReal($graph) {

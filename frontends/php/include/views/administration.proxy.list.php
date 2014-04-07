@@ -60,11 +60,8 @@ foreach ($this->data['proxies'] as $proxy) {
 
 		foreach ($proxy['hosts'] as $host) {
 			if ($i > $this->data['config']['max_in_table']) {
-				$hosts[] = ' &hellip;';
-
 				break;
 			}
-
 			$i++;
 
 			if ($host['status'] == HOST_STATUS_MONITORED) {
@@ -77,12 +74,11 @@ foreach ($this->data['proxies'] as $proxy) {
 				$style = 'on';
 			}
 
-			if ($hosts) {
-				$hosts[] = ', ';
-			}
-
 			$hosts[] = new CLink($host['name'], 'hosts.php?form=update&hostid='.$host['hostid'], $style);
+			$hosts[] = ', ';
 		}
+
+		array_pop($hosts);
 	}
 
 	$lastAccess = '-';

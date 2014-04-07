@@ -117,19 +117,15 @@ elseif (isset($_REQUEST['cancel_new_timeperiod'])) {
 }
 elseif (isset($_REQUEST['save'])) {
 	if (isset($_REQUEST['maintenanceid'])) {
-		$messageSuccess = _('Maintenance updated');
-		$messageFailed = _('Cannot update maintenance');
-		$auditAction = AUDIT_ACTION_UPDATE;
+		$msg1 = _('Maintenance updated');
+		$msg2 = _('Cannot update maintenance');
 	}
 	else {
-		$messageSuccess = _('Maintenance added');
-		$messageFailed = _('Cannot add maintenance');
-		$auditAction = AUDIT_ACTION_ADD;
+		$msg1 = _('Maintenance added');
+		$msg2 = _('Cannot add maintenance');
 	}
 
 	$result = true;
-
-	DBstart();
 
 	if (!validateDateTime($_REQUEST['active_since_year'],
 			$_REQUEST['active_since_month'],
@@ -201,12 +197,11 @@ elseif (isset($_REQUEST['save'])) {
 	}
 
 	if ($result) {
-		add_audit($auditAction, AUDIT_RESOURCE_MAINTENANCE, _('Name').NAME_DELIMITER.$_REQUEST['mname']);
+		add_audit(!isset($_REQUEST['maintenanceid']) ? AUDIT_ACTION_ADD : AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_MAINTENANCE, _('Name').NAME_DELIMITER.$_REQUEST['mname']);
 		unset($_REQUEST['form']);
 	}
 
-	$result = DBend($result);
-	show_messages($result, $messageSuccess, $messageFailed);
+	show_messages($result, $msg1, $msg2);
 	clearCookies($result);
 }
 elseif (isset($_REQUEST['delete']) || $_REQUEST['go'] == 'delete') {
@@ -218,26 +213,20 @@ elseif (isset($_REQUEST['delete']) || $_REQUEST['go'] == 'delete') {
 	zbx_value2array($maintenanceids);
 
 	$maintenances = array();
-
-	DBstart();
-
 	foreach ($maintenanceids as $id => $maintenanceid) {
 		$maintenances[$maintenanceid] = get_maintenance_by_maintenanceid($maintenanceid);
 	}
 
-	$result = API::Maintenance()->delete($maintenanceids);
-	if ($result) {
+	$goResult = API::Maintenance()->delete($maintenanceids);
+	if ($goResult) {
 		foreach ($maintenances as $maintenanceid => $maintenance) {
-			add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_MAINTENANCE,
-				'Id ['.$maintenanceid.'] '._('Name').' ['.$maintenance['name'].']'
-			);
+			add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_MAINTENANCE, 'Id ['.$maintenanceid.'] '._('Name').' ['.$maintenance['name'].']');
 		}
 		unset($_REQUEST['form'], $_REQUEST['maintenanceid']);
 	}
 
-	$result = DBend($result);
-	show_messages($result, _('Maintenance deleted'), _('Cannot delete maintenance'));
-	clearCookies($result);
+	show_messages($goResult, _('Maintenance deleted'), _('Cannot delete maintenance'));
+	clearCookies($goResult);
 }
 elseif (isset($_REQUEST['add_timeperiod']) && isset($_REQUEST['new_timeperiod'])) {
 	$new_timeperiod = $_REQUEST['new_timeperiod'];
@@ -518,44 +507,50 @@ if (!empty($data['form'])) {
 	$maintenanceView->show();
 }
 else {
-	// get maintenances
 	$sortfield = getPageSortField('name');
 	$sortorder = getPageSortOrder();
 
-	$groupIds = array();
-	if ($pageFilter->groupsSelected) {
-		$groupIds = ($pageFilter->groupid > 0) ? $pageFilter->groupid : array_keys($pageFilter->groups);
-	}
-
 	// get only maintenance IDs for paging
-	$data['maintenances'] = API::Maintenance()->get(array(
+	$options = array(
 		'output' => array('maintenanceid'),
-		'groupids' => $groupIds,
+		'editable' => true,
 		'sortfield' => $sortfield,
 		'sortorder' => $sortorder,
-		'editable' => true,
 		'limit' => $config['search_limit'] + 1
-	));
+	);
+
+	if ($pageFilter->groupsSelected) {
+		if ($pageFilter->groupid > 0) {
+			$options['groupids'] = $pageFilter->groupid;
+		}
+		else {
+			$options['groupids'] = array_keys($pageFilter->groups);
+		}
+	}
+	else {
+		$options['groupids'] = array();
+	}
+
+	$data['maintenances'] = API::Maintenance()->get($options);
 	$data['paging'] = getPagingLine($data['maintenances'], array('maintenanceid'));
 
 	// get list of maintenances
 	$data['maintenances'] = API::Maintenance()->get(array(
-		'output' => API_OUTPUT_EXTEND,
-		'maintenanceids' => zbx_objectValues($data['maintenances'], 'maintenanceid')
+		'maintenanceids' => zbx_objectValues($data['maintenances'], 'maintenanceid'),
+		'output' => API_OUTPUT_EXTEND
 	));
 
-	foreach ($data['maintenances'] as $key => $maintenance) {
+	foreach ($data['maintenances'] as $number => $maintenance) {
 		if ($maintenance['active_till'] < time()) {
-			$data['maintenances'][$key]['status'] = MAINTENANCE_STATUS_EXPIRED;
+			$data['maintenances'][$number]['status'] = MAINTENANCE_STATUS_EXPIRED;
 		}
 		elseif ($maintenance['active_since'] > time()) {
-			$data['maintenances'][$key]['status'] = MAINTENANCE_STATUS_APPROACH;
+			$data['maintenances'][$number]['status'] = MAINTENANCE_STATUS_APPROACH;
 		}
 		else {
-			$data['maintenances'][$key]['status'] = MAINTENANCE_STATUS_ACTIVE;
+			$data['maintenances'][$number]['status'] = MAINTENANCE_STATUS_ACTIVE;
 		}
 	}
-
 	order_result($data['maintenances'], $sortfield, $sortorder);
 
 	$data['pageFilter'] = $pageFilter;

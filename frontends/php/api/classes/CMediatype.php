@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CMediatype extends CApiService {
+class CMediatype extends CZBXAPI {
 
 	protected $tableName = 'media_type';
 	protected $tableAlias = 'mt';
@@ -73,7 +73,7 @@ class CMediatype extends CApiService {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectUsers'				=> null,
 			'countOutput'				=> null,
 			'groupCount'				=> null,
@@ -110,7 +110,7 @@ class CMediatype extends CApiService {
 		// mediaids
 		if (!is_null($options['mediaids'])) {
 			zbx_value2array($options['mediaids']);
-
+			$sqlParts['select']['mediaid'] = 'm.mediaid';
 			$sqlParts['from']['media'] = 'media m';
 			$sqlParts['where'][] = dbConditionInt('m.mediaid', $options['mediaids']);
 			$sqlParts['where']['mmt'] = 'm.mediatypeid=mt.mediatypeid';
@@ -124,7 +124,7 @@ class CMediatype extends CApiService {
 		// userids
 		if (!is_null($options['userids'])) {
 			zbx_value2array($options['userids']);
-
+			$sqlParts['select']['userid'] = 'm.userid';
 			$sqlParts['from']['media'] = 'media m';
 			$sqlParts['where'][] = dbConditionInt('m.userid', $options['userids']);
 			$sqlParts['where']['mmt'] = 'm.mediatypeid=mt.mediatypeid';
@@ -169,7 +169,19 @@ class CMediatype extends CApiService {
 				}
 			}
 			else {
-				$result[$mediatype['mediatypeid']] = $mediatype;
+				if (!isset($result[$mediatype['mediatypeid']])) {
+					$result[$mediatype['mediatypeid']] = array();
+				}
+
+				// userids
+				if (isset($mediatype['userid']) && is_null($options['selectUsers'])) {
+					if (!isset($result[$mediatype['mediatypeid']]['users'])) {
+						$result[$mediatype['mediatypeid']]['users'] = array();
+					}
+					$result[$mediatype['mediatypeid']]['users'][] = array('userid' => $mediatype['userid']);
+					unset($mediatype['userid']);
+				}
+				$result[$mediatype['mediatypeid']] += $mediatype;
 			}
 		}
 
@@ -315,12 +327,14 @@ class CMediatype extends CApiService {
 	 *
 	 * @param array $mediatypeids
 	 *
-	 * @return array
+	 * @return boolean
 	 */
-	public function delete(array $mediatypeids) {
+	public function delete($mediatypeids) {
 		if (self::$userData['type'] != USER_TYPE_SUPER_ADMIN) {
 			self::exception(ZBX_API_ERROR_PERMISSIONS, _('Only Super Admins can delete media types.'));
 		}
+
+		$mediatypeids = zbx_toArray($mediatypeids);
 
 		$actions = API::Action()->get(array(
 			'mediatypeids' => $mediatypeids,

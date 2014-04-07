@@ -57,3 +57,4 @@ $guiForm->addItem($guiView);
 $guiForm->addItem(makeFormFooter(new CSubmit('save', _('Save'))));
 
 return $guiForm;
+

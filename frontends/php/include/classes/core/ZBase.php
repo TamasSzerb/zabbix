@@ -74,16 +74,6 @@ class ZBase {
 		$this->rootDir = $this->findRootDir();
 		$this->registerAutoloader();
 
-		// initialize API classes
-		$apiServiceFactory = new CApiServiceFactory();
-
-		$client = new CLocalApiClient();
-		$client->setServiceFactory($apiServiceFactory);
-		$wrapper = new CFrontendApiWrapper($client);
-		$wrapper->setProfiler(CProfiler::getInstance());
-		API::setWrapper($wrapper);
-		API::setApiServiceFactory($apiServiceFactory);
-
 		// system includes
 		require_once $this->getRootDir().'/include/debug.inc.php';
 		require_once $this->getRootDir().'/include/gettextwrapper.inc.php';
@@ -199,8 +189,6 @@ class ZBase {
 			$this->rootDir.'/include/classes',
 			$this->rootDir.'/include/classes/core',
 			$this->rootDir.'/include/classes/api',
-			$this->rootDir.'/include/classes/api/clients',
-			$this->rootDir.'/include/classes/api/wrappers',
 			$this->rootDir.'/include/classes/db',
 			$this->rootDir.'/include/classes/debug',
 			$this->rootDir.'/include/classes/validators',
@@ -391,11 +379,5 @@ class ZBase {
 		if (!CWebUser::checkAuthentication(get_cookie('zbx_sessionid'))) {
 			CWebUser::setDefault();
 		}
-
-		// set the authentication token for the API
-		API::getWrapper()->auth = get_cookie('zbx_sessionid');
-
-		// enable debug mode in the API
-		API::getWrapper()->debug = CWebUser::getDebugMode();
 	}
 }

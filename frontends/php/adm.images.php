@@ -100,7 +100,7 @@ if (isset($_REQUEST['save'])) {
 			unset($_REQUEST['form']);
 		}
 
-		$result = DBend($result);
+		DBend($result);
 		show_messages($result, $msgOk, $msgFail);
 	}
 	catch (Exception $e) {
@@ -110,17 +110,14 @@ if (isset($_REQUEST['save'])) {
 	}
 }
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['imageid'])) {
-	DBstart();
-
 	$image = get_image_by_imageid($_REQUEST['imageid']);
-	$result = API::Image()->delete(array(getRequest('imageid')));
+	$result = API::Image()->delete($_REQUEST['imageid']);
 
 	if ($result) {
 		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_IMAGE, 'Image ['.$image['name'].'] deleted');
 		unset($_REQUEST['form'], $image, $_REQUEST['imageid']);
 	}
 
-	$result = DBend($result);
 	show_messages($result, _('Image deleted'), _('Cannot delete image'));
 }
 

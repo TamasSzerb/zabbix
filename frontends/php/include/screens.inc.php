@@ -28,7 +28,7 @@ function screen_resources($resource = null) {
 		SCREEN_RESOURCE_CLOCK => _('Clock'),
 		SCREEN_RESOURCE_DATA_OVERVIEW => _('Data overview'),
 		SCREEN_RESOURCE_GRAPH => _('Graph'),
-		SCREEN_RESOURCE_ACTIONS => _('Action log'),
+		SCREEN_RESOURCE_ACTIONS => _('History of actions'),
 		SCREEN_RESOURCE_EVENTS => _('History of events'),
 		SCREEN_RESOURCE_HOSTS_INFO => _('Hosts info'),
 		SCREEN_RESOURCE_MAP => _('Map'),
@@ -82,28 +82,30 @@ function check_screen_recursion($mother_screenid, $child_screenid) {
 	return false;
 }
 
-function getSlideshowScreens($slideshowId, $step) {
-	$dbSlides = DBfetch(DBselect(
+function get_slideshow($slideshowid, $step) {
+	$db_slides = DBfetch(DBselect(
 		'SELECT MIN(s.step) AS min_step,MAX(s.step) AS max_step'.
 		' FROM slides s'.
-		' WHERE s.slideshowid='.zbx_dbstr($slideshowId)
+		' WHERE s.slideshowid='.zbx_dbstr($slideshowid)
 	));
-
-	if (!$dbSlides || $dbSlides['min_step'] === null) {
+	if (!$db_slides || is_null($db_slides['min_step'])) {
 		return false;
 	}
 
-	$step = $step % ($dbSlides['max_step'] + 1);
-
-	$currentStep = (!$step || $step < $dbSlides['min_step'] || $step > $dbSlides['max_step'])
-		? $dbSlides['min_step'] : $step;
+	$step = $step % ($db_slides['max_step'] + 1);
+	if (!isset($step) || $step < $db_slides['min_step'] || $step > $db_slides['max_step']) {
+		$curr_step = $db_slides['min_step'];
+	}
+	else {
+		$curr_step = $step;
+	}
 
 	return DBfetch(DBselect(
 		'SELECT sl.*'.
 		' FROM slides sl,slideshows ss'.
-		' WHERE ss.slideshowid='.zbx_dbstr($slideshowId).
+		' WHERE ss.slideshowid='.zbx_dbstr($slideshowid).
 			' AND sl.slideshowid=ss.slideshowid'.
-			' AND sl.step='.zbx_dbstr($currentStep)
+			' AND sl.step='.zbx_dbstr($curr_step)
 	));
 }
 
@@ -128,7 +130,6 @@ function slideshow_accessible($slideshowid, $perm) {
 		}
 
 		$options = array(
-			'output' => array('screenid'),
 			'screenids' => $screenids
 		);
 		if ($perm == PERM_READ_WRITE) {
@@ -313,7 +314,7 @@ function delete_slideshow($slideshowid) {
 	$result &= DBexecute('DELETE FROM slides where slideshowid='.zbx_dbstr($slideshowid));
 	$result &= DBexecute('DELETE FROM profiles WHERE idx=\'web.favorite.screenids\' AND source=\'slideshowid\' AND value_id='.zbx_dbstr($slideshowid));
 
-	return (bool) $result;
+	return $result;
 }
 
 // check whether there are dynamic items in the screen, if so return TRUE, else FALSE

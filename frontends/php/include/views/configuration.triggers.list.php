@@ -110,14 +110,11 @@ $triggersTable->setHeader(array(
 	make_sorting_header(_('Name'), 'description', $link),
 	_('Expression'),
 	make_sorting_header(_('Status'), 'status', $link),
-	$data['showInfoColumn'] ? _('Info') : null
+	$data['showErrorColumn'] ? _('Error') : null
 ));
-
 foreach ($this->data['triggers'] as $tnum => $trigger) {
 	$triggerid = $trigger['triggerid'];
 	$trigger['discoveryRuleid'] = $this->data['parent_discoveryid'];
-
-	// description
 	$description = array();
 
 	$trigger['hosts'] = zbx_toHash($trigger['hosts'], 'hostid');
@@ -197,21 +194,19 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 		);
 	}
 
-	// info
-	if ($data['showInfoColumn']) {
-		if ($trigger['status'] == TRIGGER_STATUS_ENABLED && !zbx_empty($trigger['error'])) {
-			$info = new CDiv(SPACE, 'status_icon iconerror');
-			$info->setHint($trigger['error'], '', 'on');
+	if ($data['showErrorColumn']) {
+		$error = '';
+		if ($trigger['status'] == TRIGGER_STATUS_ENABLED) {
+			if (!zbx_empty($trigger['error'])) {
+				$error = new CDiv(SPACE, 'status_icon iconerror');
+				$error->setHint($trigger['error'], '', 'on');
+			}
+			else {
+				$error = new CDiv(SPACE, 'status_icon iconok');
+			}
 		}
-		else {
-			$info = '';
-		}
-	}
-	else {
-		$info = null;
 	}
 
-	// status
 	$status = '';
 	if (!empty($this->data['parent_discoveryid'])) {
 		$status = new CLink(
@@ -235,7 +230,6 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 		);
 	}
 
-	// hosts
 	$hosts = null;
 	if (empty($this->data['hostid'])) {
 		foreach ($trigger['hosts'] as $hostid => $host) {
@@ -246,11 +240,9 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 		}
 	}
 
-	// checkbox
 	$checkBox = new CCheckBox('g_triggerid['.$triggerid.']', null, null, $triggerid);
 	$checkBox->setEnabled(empty($trigger['discoveryRule']));
 
-	// expression
 	$expressionColumn = new CCol(triggerExpression($trigger, true));
 	$expressionColumn->setAttribute('style', 'white-space: normal;');
 
@@ -262,8 +254,9 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 		$description,
 		$expressionColumn,
 		$status,
-		$info
+		$data['showErrorColumn'] ? $error : null
 	));
+	$triggers[$tnum] = $trigger;
 }
 
 // create go button

@@ -104,7 +104,7 @@ if (isset($_REQUEST['output']) && $_REQUEST['output'] == 'ajax') {
 	$ajaxResponse->send();
 
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 /*
@@ -127,33 +127,31 @@ if (isset($_REQUEST['save'])) {
 		'dchecks' => $dChecks
 	);
 
-	DBStart();
-
 	if (isset($_REQUEST['druleid'])) {
 		$discoveryRule['druleid'] = get_request('druleid');
 		$result = API::DRule()->update($discoveryRule);
 
-		$messageSuccess = _('Discovery rule updated');
-		$messageFailed = _('Cannot update discovery rule');
-		$auditAction = AUDIT_ACTION_UPDATE;
+		$msgOk = _('Discovery rule updated');
+		$msgFail = _('Cannot update discovery rule');
 	}
 	else {
 		$result = API::DRule()->create($discoveryRule);
 
-		$messageSuccess = _('Discovery rule created');
-		$messageFailed = _('Cannot create discovery rule');
-		$auditAction = AUDIT_ACTION_ADD;
+		$msgOk = _('Discovery rule created');
+		$msgFail = _('Cannot create discovery rule');
 	}
+
+	show_messages($result, $msgOk, $msgFail);
 
 	if ($result) {
 		$druleid = reset($result['druleids']);
-		add_audit($auditAction, AUDIT_RESOURCE_DISCOVERY_RULE, '['.$druleid.'] '.$discoveryRule['name']);
+		add_audit(isset($discoveryRule['druleid']) ? AUDIT_ACTION_UPDATE : AUDIT_ACTION_ADD,
+			AUDIT_RESOURCE_DISCOVERY_RULE,
+			'['.$druleid.'] '.$discoveryRule['name']
+		);
 		unset($_REQUEST['form']);
+		clearCookies($result);
 	}
-
-	$result = DBend($result);
-	show_messages($result, $messageSuccess, $messageFailed);
-	clearCookies($result);
 }
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['druleid'])) {
 	$result = API::DRule()->delete(array($_REQUEST['druleid']));
@@ -172,8 +170,6 @@ elseif (str_in_array(getRequest('go'), array('activate', 'disable')) && hasReque
 	$auditAction = $enable ? AUDIT_ACTION_ENABLE : AUDIT_ACTION_DISABLE;
 	$updated = 0;
 
-	DBStart();
-
 	foreach (getRequest('g_druleid') as $druleId) {
 		$result &= DBexecute('UPDATE drules SET status='.$status.' WHERE druleid='.zbx_dbstr($druleId));
 
@@ -181,7 +177,6 @@ elseif (str_in_array(getRequest('go'), array('activate', 'disable')) && hasReque
 			$druleData = get_discovery_rule_by_druleid($druleId);
 			add_audit($auditAction, AUDIT_RESOURCE_DISCOVERY_RULE, '['.$druleId.'] '.$druleData['name']);
 		}
-
 		$updated++;
 	}
 
@@ -192,7 +187,6 @@ elseif (str_in_array(getRequest('go'), array('activate', 'disable')) && hasReque
 		? _n('Cannot enable discovery rule', 'Cannot enable discovery rules', $updated)
 		: _n('Cannot disable discovery rule', 'Cannot disable discovery rules', $updated);
 
-	$result = DBend($result);
 	show_messages($result, $messageSuccess, $messageFailed);
 	clearCookies($result);
 }
@@ -271,31 +265,24 @@ else {
 		'selectDChecks' => API_OUTPUT_EXTEND,
 		'editable' => true
 	));
-
-	if ($data['drules']) {
-		foreach ($data['drules'] as $druleId => $drule) {
+	if (!empty($data['drules'])) {
+		foreach ($data['drules'] as $druleid => $drule) {
 			// checks
 			$checks = array();
-
 			foreach ($drule['dchecks'] as $check) {
 				$checks[$check['type']] = discovery_check_type2str($check['type']);
 			}
-
 			order_result($checks);
-
-			$data['drules'][$druleId]['checks'] = $checks;
+			$data['drules'][$druleid]['checks'] = $checks;
 
 			// description
-			$data['drules'][$druleId]['description'] = array();
-
-			if ($drule['proxy_hostid']) {
+			$data['drules'][$druleid]['description'] = array();
+			if (!empty($drule['proxy_hostid'])) {
 				$proxy = get_host_by_hostid($drule['proxy_hostid']);
-
-				array_push($data['drules'][$druleId]['description'], $proxy['host'].NAME_DELIMITER);
+				array_push($data['drules'][$druleid]['description'], $proxy['host'].NAME_DELIMITER);
 			}
 		}
-
-		order_result($data['drules'], getPageSortField('name'), getPageSortOrder());
+		order_result($data['drules'], getPageSortOrder());
 	}
 
 	// get paging

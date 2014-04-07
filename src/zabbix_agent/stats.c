@@ -446,6 +446,8 @@ ZBX_THREAD_ENTRY(collector_thread, args)
 	if (CPU_COLLECTOR_STARTED(collector))
 		free_cpu_collector(&(collector->cpus));
 
+	zabbix_log(LOG_LEVEL_INFORMATION, "zabbix_agentd collector stopped");
+
 	ZBX_DO_EXIT();
 
 	zbx_thread_exit(0);

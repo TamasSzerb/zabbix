@@ -39,6 +39,7 @@ function audit_resource2str($resource_type = null) {
 		AUDIT_RESOURCE_IT_SERVICE => _('IT service'),
 		AUDIT_RESOURCE_MAP => _('Map'),
 		AUDIT_RESOURCE_SCREEN => _('Screen'),
+		AUDIT_RESOURCE_NODE => _('Node'),
 		AUDIT_RESOURCE_SCENARIO => _('Scenario'),
 		AUDIT_RESOURCE_DISCOVERY_RULE => _('Discovery rule'),
 		AUDIT_RESOURCE_SLIDESHOW => _('Slide show'),
@@ -63,7 +64,7 @@ function audit_resource2str($resource_type = null) {
 }
 
 function add_audit($action, $resourcetype, $details) {
-	if (empty(CWebUser::$data['userid'])) {
+	if (CWebUser::$data['userid'] == 0) {
 		return true;
 	}
 

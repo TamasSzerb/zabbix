@@ -20,20 +20,22 @@
 
 
 /**
- * Class containing methods for operations media types.
- *
+ * File containing CMediatype class for API.
  * @package API
  */
-class CMediatype extends CApiService {
+/**
+ * Class containing methods for operations with Media types
+ */
+class CMediatype extends CZBXAPI {
 
 	protected $tableName = 'media_type';
 	protected $tableAlias = 'mt';
-	protected $sortColumns = array('mediatypeid');
 
 	/**
 	 * Get Media types data
 	 *
 	 * @param array $options
+	 * @param array $options['nodeids'] filter by Node IDs
 	 * @param array $options['mediatypeids'] filter by Mediatype IDs
 	 * @param boolean $options['type'] filter by Mediatype type [ USER_TYPE_ZABBIX_USER: 1, USER_TYPE_ZABBIX_ADMIN: 2, USER_TYPE_SUPER_ADMIN: 3 ]
 	 * @param boolean $options['output'] output only Mediatype IDs if not set.
@@ -46,7 +48,15 @@ class CMediatype extends CApiService {
 	 */
 	public function get($options = array()) {
 		$result = array();
+		$nodeCheck = false;
 		$userType = self::$userData['type'];
+		$userid = self::$userData['userid'];
+
+		// allowed columns for sorting
+		$sortColumns = array('mediatypeid');
+
+		// allowed output options for [ select_* ] params
+		$subselectsAllowedOutputs = array(API_OUTPUT_REFER, API_OUTPUT_EXTEND);
 
 		$sqlParts = array(
 			'select'	=> array('media_type' => 'mt.mediatypeid'),
@@ -58,6 +68,7 @@ class CMediatype extends CApiService {
 		);
 
 		$defOptions = array(
+			'nodeids'					=> null,
 			'mediatypeids'				=> null,
 			'mediaids'					=> null,
 			'userids'					=> null,
@@ -70,8 +81,9 @@ class CMediatype extends CApiService {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectUsers'				=> null,
+			'selectMedias'				=> null,
 			'countOutput'				=> null,
 			'groupCount'				=> null,
 			'preservekeys'				=> null,
@@ -90,28 +102,59 @@ class CMediatype extends CApiService {
 			return array();
 		}
 
+		// output
+		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
+
+		// nodeids
+		$nodeids = !is_null($options['nodeids']) ? $options['nodeids'] : get_current_nodeid();
+
 		// mediatypeids
 		if (!is_null($options['mediatypeids'])) {
 			zbx_value2array($options['mediatypeids']);
 			$sqlParts['where'][] = dbConditionInt('mt.mediatypeid', $options['mediatypeids']);
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+				$sqlParts['where'][] = DBin_node('mt.mediatypeid', $nodeids);
+			}
 		}
 
 		// mediaids
 		if (!is_null($options['mediaids'])) {
 			zbx_value2array($options['mediaids']);
-
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['mediaid'] = 'm.mediaid';
+			}
 			$sqlParts['from']['media'] = 'media m';
 			$sqlParts['where'][] = dbConditionInt('m.mediaid', $options['mediaids']);
 			$sqlParts['where']['mmt'] = 'm.mediatypeid=mt.mediatypeid';
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+				$sqlParts['where'][] = DBin_node('m.mediaid', $nodeids);
+			}
 		}
 
 		// userids
 		if (!is_null($options['userids'])) {
 			zbx_value2array($options['userids']);
-
+			if ($options['output'] != API_OUTPUT_SHORTEN) {
+				$sqlParts['select']['userid'] = 'm.userid';
+			}
 			$sqlParts['from']['media'] = 'media m';
 			$sqlParts['where'][] = dbConditionInt('m.userid', $options['userids']);
 			$sqlParts['where']['mmt'] = 'm.mediatypeid=mt.mediatypeid';
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+				$sqlParts['where'][] = DBin_node('m.userid', $nodeids);
+			}
+		}
+
+		// should last, after all ****IDS checks
+		if (!$nodeCheck) {
+			$nodeCheck = true;
+			$sqlParts['where'][] = DBin_node('mt.mediatypeid', $nodeids);
 		}
 
 		// filter
@@ -124,14 +167,61 @@ class CMediatype extends CApiService {
 			zbx_db_search('media_type mt', $options, $sqlParts);
 		}
 
+		// countOutput
+		if (!is_null($options['countOutput'])) {
+			$options['sortfield'] = '';
+			if (!is_null($options['groupCount'])) {
+				foreach ($sqlParts['group'] as $key => $fields) {
+					$sqlParts['select'][$key] = $fields;
+				}
+			}
+		}
+
+		// sorting
+		zbx_db_sorting($sqlParts, $options, $sortColumns, 'mt');
+
 		// limit
 		if (zbx_ctype_digit($options['limit']) && $options['limit']) {
 			$sqlParts['limit'] = $options['limit'];
 		}
 
-		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
-		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
-		$res = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
+		$mediatypeids = array();
+
+		$sqlParts['select'] = array_unique($sqlParts['select']);
+		$sqlParts['from'] = array_unique($sqlParts['from']);
+		$sqlParts['where'] = array_unique($sqlParts['where']);
+		$sqlParts['group'] = array_unique($sqlParts['group']);
+		$sqlParts['order'] = array_unique($sqlParts['order']);
+
+		$sqlSelect = '';
+		$sqlFrom = '';
+		$sqlWhere = '';
+		$sqlGroup = '';
+		$sqlOrder = '';
+		if (!empty($sqlParts['select'])) {
+			$sqlSelect .= implode(',', $sqlParts['select']);
+		}
+		if (!empty($sqlParts['from'])) {
+			$sqlFrom .= implode(',', $sqlParts['from']);
+		}
+		if (!empty($sqlParts['where'])) {
+			$sqlWhere .= implode(' AND ', $sqlParts['where']);
+		}
+		if (!empty($sqlParts['group'])) {
+			$sqlWhere .= ' GROUP BY '.implode(',', $sqlParts['group']);
+		}
+		if (!empty($sqlParts['order'])) {
+			$sqlOrder .= ' ORDER BY '.implode(',', $sqlParts['order']);
+		}
+		$sqlLimit = $sqlParts['limit'];
+
+		$sql = 'SELECT '.zbx_db_distinct($sqlParts).' '.$sqlSelect.
+				' FROM '.$sqlFrom.
+				' WHERE '.
+					$sqlWhere.
+					$sqlGroup.
+					$sqlOrder;
+		$res = DBselect($sql, $sqlLimit);
 		while ($mediatype = DBfetch($res)) {
 			if (!is_null($options['countOutput'])) {
 				if (!is_null($options['groupCount'])) {
@@ -142,7 +232,35 @@ class CMediatype extends CApiService {
 				}
 			}
 			else {
-				$result[$mediatype['mediatypeid']] = $mediatype;
+				$mediatypeids[$mediatype['mediatypeid']] = $mediatype['mediatypeid'];
+
+				if ($options['output'] == API_OUTPUT_SHORTEN) {
+					$result[$mediatype['mediatypeid']] = array('mediatypeid' => $mediatype['mediatypeid']);
+				}
+				else {
+					if (!isset($result[$mediatype['mediatypeid']])) {
+						$result[$mediatype['mediatypeid']] = array();
+					}
+
+					// mediaids
+					if (isset($mediatype['mediaid']) && is_null($options['selectMedias'])) {
+						if (!isset($result[$mediatype['mediatypeid']]['medias'])) {
+							$result[$mediatype['mediatypeid']]['medias'] = array();
+						}
+						$result[$mediatype['mediatypeid']]['medias'][] = array('mediaid' => $mediatype['mediaid']);
+						unset($mediatype['mediaid']);
+					}
+
+					// userids
+					if (isset($mediatype['userid']) && is_null($options['selectUsers'])) {
+						if (!isset($result[$mediatype['mediatypeid']]['users'])) {
+							$result[$mediatype['mediatypeid']]['users'] = array();
+						}
+						$result[$mediatype['mediatypeid']]['users'][] = array('userid' => $mediatype['userid']);
+						unset($mediatype['userid']);
+					}
+					$result[$mediatype['mediatypeid']] += $mediatype;
+				}
 			}
 		}
 
@@ -150,8 +268,23 @@ class CMediatype extends CApiService {
 			return $result;
 		}
 
-		if ($result) {
-			$result = $this->addRelatedObjects($options, $result);
+		/*
+		 * Adding objects
+		 */
+		// adding users
+		if (!is_null($options['selectUsers']) && str_in_array($options['selectUsers'], $subselectsAllowedOutputs)) {
+			$users = API::User()->get(array(
+				'output' => $options['selectUsers'],
+				'mediatypeids' => $mediatypeids,
+				'preservekeys' => true
+			));
+			foreach ($users as $user) {
+				$umediatypes = $user['mediatypes'];
+				unset($user['mediatypes']);
+				foreach ($umediatypes as $mediatype) {
+					$result[$mediatype['mediatypeid']]['users'][] = $user;
+				}
+			}
 		}
 
 		// removing keys (hash -> array)
@@ -174,7 +307,7 @@ class CMediatype extends CApiService {
 	 * @param string $mediatypes['gsm_modem']
 	 * @param string $mediatypes['username']
 	 * @param string $mediatypes['passwd']
-	 * @param int $mediatypes['status']
+	 * @param integer $mediatypes['status']
 	 * @return array|boolean
 	 */
 	public function create($mediatypes) {
@@ -225,7 +358,7 @@ class CMediatype extends CApiService {
 	 * @param string $mediatypes['gsm_modem']
 	 * @param string $mediatypes['username']
 	 * @param string $mediatypes['passwd']
-	 * @param int $mediatypes['status']
+	 * @param integer $mediatypes['status']
 	 * @return array
 	 */
 	public function update($mediatypes) {
@@ -248,7 +381,7 @@ class CMediatype extends CApiService {
 				$options = array(
 					'filter' => array('description' => $mediatype['description']),
 					'preservekeys' => true,
-					'output' => array('mediatypeid')
+					'output' => API_OUTPUT_SHORTEN
 				);
 				$existMediatypes = $this->get($options);
 				$existMediatype = reset($existMediatypes);
@@ -288,12 +421,14 @@ class CMediatype extends CApiService {
 	 *
 	 * @param array $mediatypeids
 	 *
-	 * @return array
+	 * @return boolean
 	 */
-	public function delete(array $mediatypeids) {
+	public function delete($mediatypeids) {
 		if (self::$userData['type'] != USER_TYPE_SUPER_ADMIN) {
 			self::exception(ZBX_API_ERROR_PERMISSIONS, _('Only Super Admins can delete media types.'));
 		}
+
+		$mediatypeids = zbx_toArray($mediatypeids);
 
 		$actions = API::Action()->get(array(
 			'mediatypeids' => $mediatypeids,
@@ -308,22 +443,5 @@ class CMediatype extends CApiService {
 		DB::delete('media_type', array('mediatypeid' => $mediatypeids));
 
 		return array('mediatypeids' => $mediatypeids);
-	}
-
-	protected function addRelatedObjects(array $options, array $result) {
-		$result = parent::addRelatedObjects($options, $result);
-
-		// adding users
-		if ($options['selectUsers'] !== null && $options['selectUsers'] != API_OUTPUT_COUNT) {
-			$relationMap = $this->createRelationMap($result, 'mediatypeid', 'userid', 'media');
-			$users = API::User()->get(array(
-				'output' => $options['selectUsers'],
-				'userids' => $relationMap->getRelatedIds(),
-				'preservekeys' => true
-			));
-			$result = $relationMap->mapMany($result, $users, 'users');
-		}
-
-		return $result;
 	}
 }

@@ -175,7 +175,7 @@ static int	split_filename(const char *filename, char **directory, char **format)
 	if (separator < filename)
 		goto out;
 
-#else	/* not _WINDOWS */
+#else/* _WINDOWS */
 	if (NULL == (separator = strrchr(filename, (int)PATH_SEPARATOR)))
 	{
 		zabbix_log(LOG_LEVEL_DEBUG, "filename '%s' does not contain any path separator '%c'", filename, PATH_SEPARATOR);
@@ -202,7 +202,7 @@ static int	split_filename(const char *filename, char **directory, char **format)
 		zbx_free(*format);
 		goto out;
 	}
-#endif	/* _WINDOWS */
+#endif/* _WINDOWS */
 
 	ret = SUCCEED;
 out:
@@ -355,37 +355,36 @@ out:
  * Purpose: Find new records in logfiles with rotation                        *
  *                                                                            *
  * Parameters:                                                                *
- *     filename        - [IN] logfile name (regular expression with a path)   *
- *     lastlogsize     - [IN/OUT] offset from the beginning of the file       *
- *     mtime           - [IN/OUT] last modification time of the file          *
- *     skip_old_data   - [IN/OUT] start from the beginning of the file or     *
- *                       jump to the end                                      *
- *     big_rec         - [IN/OUT] state variable to remember whether a long   *
- *                       record is being processed                            *
- *     encoding        - [IN] text string describing encoding.                *
- *                         The following encodings are recognized:            *
- *                           "UNICODE"                                        *
- *                           "UNICODEBIG"                                     *
- *                           "UNICODEFFFE"                                    *
- *                           "UNICODELITTLE"                                  *
- *                           "UTF-16"   "UTF16"                               *
- *                           "UTF-16BE" "UTF16BE"                             *
- *                           "UTF-16LE" "UTF16LE"                             *
- *                           "UTF-32"   "UTF32"                               *
- *                           "UTF-32BE" "UTF32BE"                             *
- *                           "UTF-32LE" "UTF32LE".                            *
- *                           "" (empty string) means a single-byte character  *
- *                           set (e.g. ASCII).                                *
- *     regexps         - [IN] array of regexps                                *
- *     pattern         - [IN] pattern to match                                *
- *     output_template - [IN] output formatting template                      *
- *     p_count         - [IN/OUT] limit of records to be processed            *
- *     s_count         - [IN/OUT] limit of records to be sent to server       *
- *     process_value   - [IN] pointer to function process_value()             *
- *     server          - [IN] server to send data to                          *
- *     port            - [IN] port to send data to                            *
- *     hostname        - [IN] hostname the data comes from                    *
- *     key             - [IN] item key the data belongs to                    *
+ *     filename       - [IN] logfile name (regular expression with a path)    *
+ *     lastlogsize    - [IN/OUT] offset from the beginning of the file        *
+ *     mtime          - [IN/OUT] last modification time of the file           *
+ *     skip_old_data  - [IN/OUT] start from the beginning of the file or      *
+ *                      jump to the end                                       *
+ *     big_rec        - [IN/OUT] state variable to remember whether a long    *
+ *                      record is being processed                             *
+ *     encoding       - [IN] text string describing encoding.                 *
+ *                        The following encodings are recognized:             *
+ *                          "UNICODE"                                         *
+ *                          "UNICODEBIG"                                      *
+ *                          "UNICODEFFFE"                                     *
+ *                          "UNICODELITTLE"                                   *
+ *                          "UTF-16"   "UTF16"                                *
+ *                          "UTF-16BE" "UTF16BE"                              *
+ *                          "UTF-16LE" "UTF16LE"                              *
+ *                          "UTF-32"   "UTF32"                                *
+ *                          "UTF-32BE" "UTF32BE"                              *
+ *                          "UTF-32LE" "UTF32LE".                             *
+ *                        "" (empty string) means a single-byte character set.*
+ *     regexps        - [IN] array of regexps                                 *
+ *     regexps_num    - [IN] number of regexp                                 *
+ *     pattern        - [IN] pattern to match                                 *
+ *     p_count        - [IN/OUT] limit of records to be processed             *
+ *     s_count        - [IN/OUT] limit of records to be sent to server        *
+ *     process_value  - [IN] pointer to function process_value()              *
+ *     server         - [IN] server to send data to                           *
+ *     port           - [IN] port to send data to                             *
+ *     hostname       - [IN] hostname the data comes from                     *
+ *     key            - [IN] item key the data belongs to                     *
  *                                                                            *
  * Return value: returns SUCCEED on successful reading,                       *
  *               FAIL on other cases                                          *
@@ -394,9 +393,9 @@ out:
  *                                                                            *
  ******************************************************************************/
 int	process_logrt(char *filename, zbx_uint64_t *lastlogsize, int *mtime, unsigned char *skip_old_data,
-		int *big_rec, const char *encoding, zbx_vector_ptr_t *regexps, const char *pattern,
-		const char *output_template, int *p_count, int *s_count, zbx_process_value_func_t process_value,
-		const char *server, unsigned short port, const char *hostname, const char *key)
+		int *big_rec, const char *encoding, ZBX_REGEXP *regexps, int regexps_num, const char *pattern,
+		int *p_count, int *s_count, zbx_process_value_func_t process_value, const char *server,
+		unsigned short port, const char *hostname, const char *key)
 {
 	const char		*__function_name = "process_logrt";
 	int			i = 0, ret = FAIL, logfiles_num = 0, logfiles_alloc = 0, j = 0, reg_error;
@@ -404,10 +403,9 @@ int	process_logrt(char *filename, zbx_uint64_t *lastlogsize, int *mtime, unsigne
 	zbx_stat_t		file_buf;
 	struct st_logfile	*logfiles = NULL;
 #ifdef _WINDOWS
-	char			*find_path = NULL, *file_name_utf8;
-	wchar_t			*find_wpath;
+	char			*find_path = NULL;
 	intptr_t		find_handle;
-	struct _wfinddata_t	find_data;
+	struct _finddata_t	find_data;
 #else
 	DIR			*dir = NULL;
 	struct dirent		*d_ent = NULL;
@@ -458,34 +456,31 @@ int	process_logrt(char *filename, zbx_uint64_t *lastlogsize, int *mtime, unsigne
 #ifdef _WINDOWS
 	/* try to "open" Windows directory */
 	find_path = zbx_dsprintf(find_path, "%s*", directory);
-	find_wpath = zbx_utf8_to_unicode(find_path);
-	zbx_free(find_path);
-
-	if (-1 == (find_handle = _wfindfirst(find_wpath, &find_data)))
+	find_handle = _findfirst((const char *)find_path, &find_data);
+	if (-1 == find_handle)
 	{
 		zabbix_log(LOG_LEVEL_WARNING, "cannot open directory \"%s\" for reading: %s", directory,
 				zbx_strerror(errno));
 		regfree(&re);
 		zbx_free(directory);
 		zbx_free(format);
-		zbx_free(find_wpath);
+		zbx_free(find_path);
 		goto out;
 	}
-	zbx_free(find_wpath);
+	zbx_free(find_path);
 
 	do
 	{
-		file_name_utf8 = zbx_unicode_to_utf8(find_data.name);
-		logfile_candidate = zbx_dsprintf(logfile_candidate, "%s%s", directory, file_name_utf8);
+		logfile_candidate = zbx_dsprintf(logfile_candidate, "%s%s", directory, find_data.name);
 
 		if (0 == zbx_stat(logfile_candidate, &file_buf))
 		{
 			if (S_ISREG(file_buf.st_mode) &&
 					*mtime <= file_buf.st_mtime &&
-					0 == regexec(&re, file_name_utf8, (size_t)0, NULL, 0))
+					0 == regexec(&re, find_data.name, (size_t)0, NULL, 0))
 			{
 				zabbix_log(LOG_LEVEL_DEBUG, "adding file '%s' to logfiles", logfile_candidate);
-				add_logfile(&logfiles, &logfiles_alloc, &logfiles_num, file_name_utf8,
+				add_logfile(&logfiles, &logfiles_alloc, &logfiles_num, find_data.name,
 						(int)file_buf.st_mtime);
 			}
 		}
@@ -493,12 +488,11 @@ int	process_logrt(char *filename, zbx_uint64_t *lastlogsize, int *mtime, unsigne
 			zabbix_log(LOG_LEVEL_DEBUG, "cannot process entry '%s'", logfile_candidate);
 
 		zbx_free(logfile_candidate);
-		zbx_free(file_name_utf8);
 
 	}
-	while (0 == _wfindnext(find_handle, &find_data));
+	while (0 == _findnext(find_handle, &find_data));
 
-#else	/* not _WINDOWS */
+#else	/* _WINDOWS */
 	if (NULL == (dir = opendir(directory)))
 	{
 		zabbix_log(LOG_LEVEL_WARNING, "cannot open directory '%s' for reading: %s", directory, zbx_strerror(errno));
@@ -549,8 +543,8 @@ int	process_logrt(char *filename, zbx_uint64_t *lastlogsize, int *mtime, unsigne
 		logfile_candidate = zbx_dsprintf(logfile_candidate, "%s%s", directory, logfiles[i].filename);
 
 		if (SUCCEED != (ret = process_log(logfile_candidate, lastlogsize, mtime, skip_old_data, big_rec,
-				encoding, regexps, pattern, output_template, p_count, s_count, process_value, server,
-				port, hostname, key)) || 0 >= *p_count || 0 >= *s_count)
+				encoding, regexps, regexps_num, pattern, p_count, s_count, process_value, server, port,
+				hostname, key)) || 0 >= *p_count || 0 >= *s_count)
 		{
 			/* Do not make a logrt[] item NOTSUPPORTED if one of selected files is not accessible */
 			/* (can happen during a rotation). Maybe during the next check all will be well. */
@@ -592,275 +586,6 @@ out:
 	return ret;
 }
 
-static char	*buf_find_newline(char *p, char **p_next, const char *p_end, const char *cr, const char *lf,
-		size_t szbyte)
-{
-	if (1 == szbyte)	/* single-byte character set */
-	{
-		for (; p < p_end; p++)
-		{
-			if (0xd < *p || 0xa > *p)
-				continue;
-
-			if (0xa == *p)  /* LF (Unix) */
-			{
-				*p_next = p + 1;
-				return p;
-			}
-
-			if (0xd == *p)	/* CR (Mac) */
-			{
-				if (p < p_end - 1 && 0xa == *(p + 1))   /* CR+LF (Windows) */
-				{
-					*p_next = p + 2;
-					return p;
-				}
-
-				*p_next = p + 1;
-				return p;
-			}
-		}
-		return (char *)NULL;
-	}
-	else
-	{
-		while (p <= p_end - szbyte)
-		{
-			if (0 == memcmp(p, lf, szbyte))		/* LF (Unix) */
-			{
-				*p_next = p + szbyte;
-				return p;
-			}
-
-			if (0 == memcmp(p, cr, szbyte))		/* CR (Mac) */
-			{
-				if (p <= p_end - szbyte - szbyte && 0 == memcmp(p + szbyte, lf, szbyte))
-				{
-					/* CR+LF (Windows) */
-					*p_next = p + szbyte + szbyte;
-					return p;
-				}
-
-				*p_next = p + szbyte;
-				return p;
-			}
-
-			p += szbyte;
-		}
-		return (char *)NULL;
-	}
-}
-
-static int	zbx_read2(int fd, zbx_uint64_t *lastlogsize, int *mtime, int *big_rec, const char *encoding,
-		zbx_vector_ptr_t *regexps, const char *pattern, const char *output_template, int *p_count, int *s_count,
-		zbx_process_value_func_t process_value, const char *server, unsigned short port, const char *hostname,
-		const char *key)
-{
-	int		ret, nbytes;
-	const char	*cr, *lf, *p_end;
-	char		*p_start, *p, *p_nl, *p_next, *item_value = NULL;
-	size_t		szbyte;
-	zbx_offset_t	offset;
-	static char	*buf = NULL;
-	int		send_err;
-	zbx_uint64_t	lastlogsize1;
-
-#define BUF_SIZE	(256 * ZBX_KIBIBYTE)	/* The longest encodings use 4-bytes for every character. To send */
-						/* up to 64 k characters to the Zabbix server a 256 kB buffer might */
-						/* be required. */
-	if (NULL == buf)
-	{
-		buf = zbx_malloc(buf, (size_t)(BUF_SIZE + 1));
-	}
-
-	find_cr_lf_szbyte(encoding, &cr, &lf, &szbyte);
-
-	for (;;)
-	{
-		if (0 >= *p_count || 0 >= *s_count)
-		{
-			/* limit on number of processed or sent-to-server lines reached */
-			ret = SUCCEED;
-			goto out;
-		}
-
-		if ((zbx_offset_t)-1 == (offset = zbx_lseek(fd, 0, SEEK_CUR)))
-		{
-			*big_rec = 0;
-			ret = FAIL;
-			goto out;
-		}
-
-		nbytes = (int)read(fd, buf, (size_t)BUF_SIZE);
-
-		if (-1 == nbytes)
-		{
-			/* error on read */
-			*big_rec = 0;
-			ret = FAIL;
-			goto out;
-		}
-
-		if (0 == nbytes)
-		{
-			/* end of file reached */
-			ret = SUCCEED;
-			goto out;
-		}
-
-		p_start = buf;			/* beginning of current line */
-		p = buf;			/* current byte */
-		p_end = buf + (size_t)nbytes;	/* no data from this position */
-
-		if (NULL == (p_nl = buf_find_newline(p, &p_next, p_end, cr, lf, szbyte)))
-		{
-			if (BUF_SIZE > nbytes)
-			{
-				/* Buffer is not full (no more data available) and there is no "newline" in it. */
-				/* Do not analyze it now, keep the same position in the file and wait the next check, */
-				/* maybe more data will come. */
-
-				*lastlogsize = (zbx_uint64_t)offset;
-				ret = SUCCEED;
-				goto out;
-			}
-			else
-			{
-				/* buffer is full and there is no "newline" in it */
-
-				if (0 == *big_rec)
-				{
-					/* It is the first, beginning part of a long record. Match it against the */
-					/* regexp now (our buffer length corresponds to what we can save in the */
-					/* database). */
-
-					char	*value = NULL;
-
-					buf[BUF_SIZE] = '\0';
-
-					if ('\0' != *encoding)
-						value = convert_to_utf8(buf, (size_t)BUF_SIZE, encoding);
-					else
-						value = buf;
-
-					zabbix_log(LOG_LEVEL_WARNING, "Logfile contains a large record: \"%.64s\""
-							" (showing only the first 64 characters). Only the first 64 kB"
-							" will be analyzed, the rest will be ignored while Zabbix agent"
-							" is running", value);
-
-					lastlogsize1 = (size_t)offset + (size_t)nbytes;
-					send_err = SUCCEED;
-
-					if (SUCCEED == regexp_sub_ex(regexps, value, pattern, ZBX_CASE_SENSITIVE,
-							output_template, &item_value))
-					{
-						send_err = process_value(server, port, hostname, key, item_value,
-								&lastlogsize1, mtime, NULL, NULL, NULL, NULL, 1);
-
-						zbx_free(item_value);
-
-						if (SUCCEED == send_err)
-							(*s_count)--;
-					}
-					(*p_count)--;
-
-					if (SUCCEED == send_err)
-					{
-						*lastlogsize = lastlogsize1;
-						*big_rec = 1;		/* ignore the rest of this record */
-					}
-
-					if ('\0' != *encoding)
-						zbx_free(value);
-				}
-				else
-				{
-					/* It is a middle part of a long record. Ignore it. We have already */
-					/* checked the first part against the regexp. */
-
-					*lastlogsize = (size_t)offset + (size_t)nbytes;
-				}
-			}
-		}
-		else
-		{
-			/* the "newline" was found, so there is at least one complete record */
-			/* (or trailing part of a large record) in the buffer */
-
-			for (;;)
-			{
-				if (0 >= *p_count || 0 >= *s_count)
-				{
-					/* limit on number of processed or sent-to-server lines reached */
-					ret = SUCCEED;
-					goto out;
-				}
-
-				if (0 == *big_rec)
-				{
-					char	*value = NULL;
-
-					*p_nl = '\0';
-
-					if ('\0' != *encoding)
-						value = convert_to_utf8(p_start, (size_t)(p_nl - p_start), encoding);
-					else
-						value = p_start;
-
-					lastlogsize1 = (size_t)offset + (size_t)(p_next - buf);
-					send_err = SUCCEED;
-
-					if (SUCCEED == regexp_sub_ex(regexps, value, pattern, ZBX_CASE_SENSITIVE,
-							output_template, &item_value))
-					{
-						send_err = process_value(server, port, hostname, key, item_value,
-								&lastlogsize1, mtime, NULL, NULL, NULL, NULL, 1);
-
-						zbx_free(item_value);
-
-						if (SUCCEED == send_err)
-							(*s_count)--;
-					}
-					(*p_count)--;
-
-					if (SUCCEED == send_err)
-						*lastlogsize = lastlogsize1;
-
-					if ('\0' != *encoding)
-						zbx_free(value);
-				}
-				else
-				{
-					/* skip the trailing part of a long record */
-					*lastlogsize = (size_t)offset + (size_t)(p_next - buf);
-					*big_rec = 0;
-				}
-
-				/* move to the next record in the buffer */
-				p_start = p_next;
-				p = p_next;
-
-				if (NULL == (p_nl = buf_find_newline(p, &p_next, p_end, cr, lf, szbyte)))
-				{
-					/* There are no complete records in the buffer. */
-					/* Try to read more data from this position if available. */
-					if ((zbx_offset_t)-1 == zbx_lseek(fd, *lastlogsize, SEEK_SET))
-					{
-						ret = FAIL;
-						goto out;
-					}
-					else
-						break;
-				}
-			}
-		}
-	}
-out:
-	return ret;
-
-#undef BUF_SIZE
-}
-
 /******************************************************************************
  *                                                                            *
  * Function: process_log                                                      *
@@ -869,37 +594,36 @@ out:
  *          records to Zabbix server                                          *
  *                                                                            *
  * Parameters:                                                                *
- *     filename        - [IN] logfile name                                    *
- *     lastlogsize     - [IN/OUT] offset from the beginning of the file       *
- *     mtime           - [IN] file modification time for reporting to server  *
- *     skip_old_data   - [IN/OUT] start from the beginning of the file or     *
- *                       jump to the end                                      *
- *     big_rec         - [IN/OUT] state variable to remember whether a long   *
- *                       record is being processed                            *
- *     encoding        - [IN] text string describing encoding.                *
- *                         The following encodings are recognized:            *
- *                           "UNICODE"                                        *
- *                           "UNICODEBIG"                                     *
- *                           "UNICODEFFFE"                                    *
- *                           "UNICODELITTLE"                                  *
- *                           "UTF-16"   "UTF16"                               *
- *                           "UTF-16BE" "UTF16BE"                             *
- *                           "UTF-16LE" "UTF16LE"                             *
- *                           "UTF-32"   "UTF32"                               *
- *                           "UTF-32BE" "UTF32BE"                             *
- *                           "UTF-32LE" "UTF32LE".                            *
- *                           "" (empty string) means a single-byte character  *
- *                           set (e.g. ASCII).                                *
- *     regexps         - [IN] array of regexps                                *
- *     pattern         - [IN] pattern to match                                *
- *     output_template - [IN] output formatting template                      *
- *     p_count         - [IN/OUT] limit of records to be processed            *
- *     s_count         - [IN/OUT] limit of records to be sent to server       *
- *     process_value   - [IN] pointer to function process_value()             *
- *     server          - [IN] server to send data to                          *
- *     port            - [IN] port to send data to                            *
- *     hostname        - [IN] hostname the data comes from                    *
- *     key             - [IN] item key the data belongs to                    *
+ *     filename       - [IN] logfile name                                     *
+ *     lastlogsize    - [IN/OUT] offset from the beginning of the file        *
+ *     mtime          - [IN] file modification time for reporting to server   *
+ *     skip_old_data  - [IN/OUT] start from the beginning of the file or      *
+ *                      jump to the end                                       *
+ *     big_rec        - [IN/OUT] state variable to remember whether a long    *
+ *                      record is being processed                             *
+ *     encoding       - [IN] text string describing encoding.                 *
+ *                        The following encodings are recognized:             *
+ *                          "UNICODE"                                         *
+ *                          "UNICODEBIG"                                      *
+ *                          "UNICODEFFFE"                                     *
+ *                          "UNICODELITTLE"                                   *
+ *                          "UTF-16"   "UTF16"                                *
+ *                          "UTF-16BE" "UTF16BE"                              *
+ *                          "UTF-16LE" "UTF16LE"                              *
+ *                          "UTF-32"   "UTF32"                                *
+ *                          "UTF-32BE" "UTF32BE"                              *
+ *                          "UTF-32LE" "UTF32LE".                             *
+ *                        "" (empty string) means a single-byte character set.*
+ *     regexps        - [IN] array of regexps                                 *
+ *     regexps_num    - [IN] number of regexp                                 *
+ *     pattern        - [IN] pattern to match                                 *
+ *     p_count        - [IN/OUT] limit of records to be processed             *
+ *     s_count        - [IN/OUT] limit of records to be sent to server        *
+ *     process_value  - [IN] pointer to function process_value()              *
+ *     server         - [IN] server to send data to                           *
+ *     port           - [IN] port to send data to                             *
+ *     hostname       - [IN] hostname the data comes from                     *
+ *     key            - [IN] item key the data belongs to                     *
  *                                                                            *
  * Return value: returns SUCCEED on successful reading,                       *
  *               FAIL on other cases                                          *
@@ -911,9 +635,9 @@ out:
  *                                                                            *
  ******************************************************************************/
 int	process_log(char *filename, zbx_uint64_t *lastlogsize, int *mtime, unsigned char *skip_old_data, int *big_rec,
-		const char *encoding, zbx_vector_ptr_t *regexps, const char *pattern, const char *output_template,
-		int *p_count, int *s_count, zbx_process_value_func_t process_value, const char *server,
-		unsigned short port, const char *hostname, const char *key)
+		const char *encoding, ZBX_REGEXP *regexps, int regexps_num, const char *pattern, int *p_count,
+		int *s_count, zbx_process_value_func_t process_value, const char *server, unsigned short port,
+		const char *hostname, const char *key)
 {
 	const char	*__function_name = "process_log";
 
@@ -964,7 +688,7 @@ int	process_log(char *filename, zbx_uint64_t *lastlogsize, int *mtime, unsigned 
 		if (NULL != mtime)
 			*mtime = (int)buf.st_mtime;
 
-		ret = zbx_read2(f, lastlogsize, mtime, big_rec, encoding, regexps, pattern, output_template, p_count,
+		ret = zbx_read2(f, lastlogsize, mtime, big_rec, encoding, regexps, regexps_num, pattern, p_count,
 				s_count, process_value, server, port, hostname, key);
 	}
 	else

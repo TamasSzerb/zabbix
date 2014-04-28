@@ -35,11 +35,11 @@ $fields = array(
 	'groupid' =>			array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
 	'hostid' =>				array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
 	'triggerid' =>			array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		'(isset({form})&&({form}=="update"))'),
-	'copy_type' =>			array(T_ZBX_INT, O_OPT, P_SYS,	IN(array(COPY_TYPE_TO_HOST, COPY_TYPE_TO_TEMPLATE, COPY_TYPE_TO_HOST_GROUP)), 'isset({copy})'),
+	'copy_type' =>			array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'),	'isset({copy})'),
 	'copy_mode' =>			array(T_ZBX_INT, O_OPT, P_SYS,	IN('0'),	null),
 	'type' =>				array(T_ZBX_INT, O_OPT, null,	IN('0,1'),	null),
 	'description' =>		array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY,	'isset({save})', _('Name')),
-	'expression' =>			array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY,	'isset({save})', _('Expression')),
+	'expression' =>			array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY,	'isset({save})'),
 	'priority' =>			array(T_ZBX_INT, O_OPT, null,	IN('0,1,2,3,4,5'), 'isset({save})'),
 	'comments' =>			array(T_ZBX_STR, O_OPT, null,	null,		'isset({save})'),
 	'url' =>				array(T_ZBX_STR, O_OPT, null,	null,		'isset({save})'),
@@ -51,7 +51,7 @@ $fields = array(
 	'new_dependency' =>		array(T_ZBX_INT, O_OPT, null,	DB_ID.'{}>0', 'isset({add_dependency})'),
 	'g_triggerid' =>		array(T_ZBX_INT, O_OPT, null,	DB_ID,		null),
 	'copy_targetid' =>		array(T_ZBX_INT, O_OPT, null,	DB_ID,		null),
-	'copy_groupid' =>		array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		'isset({copy})&&(isset({copy_type})&&({copy_type}==0))'),
+	'filter_groupid' =>		array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		'isset({copy})&&(isset({copy_type})&&({copy_type}==0))'),
 	'showdisabled' =>		array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'),	null),
 	'massupdate' =>			array(T_ZBX_STR, O_OPT, P_SYS,	null,		null),
 	'visible' =>			array(T_ZBX_STR, O_OPT, null,	null,		null),
@@ -87,21 +87,29 @@ $_REQUEST['type'] = isset($_REQUEST['type']) ? TRIGGER_MULT_EVENT_ENABLED : TRIG
 $_REQUEST['go'] = get_request('go', 'none');
 
 // validate permissions
-if (get_request('triggerid')) {
+if (get_request('triggerid', false)) {
 	$triggers = API::Trigger()->get(array(
 		'triggerids' => $_REQUEST['triggerid'],
-		'output' => array('triggerid'),
 		'preservekeys' => true,
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
 		'editable' => true
 	));
-	if (!$triggers) {
+	if (empty($triggers)) {
 		access_deny();
 	}
 }
-if (get_request('hostid') && !API::Host()->isWritable(array($_REQUEST['hostid']))) {
-	access_deny();
+elseif (get_request('hostid', 0) > 0) {
+	$hosts = API::Host()->get(array(
+		'hostids' => $_REQUEST['hostid'],
+		'output' => API_OUTPUT_EXTEND,
+		'templated_hosts' => true,
+		'editable' => true
+	));
+	if (empty($hosts)) {
+		access_deny();
+	}
 }
+
 /*
  * Actions
  */
@@ -138,64 +146,24 @@ elseif (isset($_REQUEST['save'])) {
 		'dependencies' => zbx_toObject(get_request('dependencies', array()), 'triggerid')
 	);
 
-	if (get_request('triggerid')) {
-		// update only changed fields
-		$oldTrigger = API::Trigger()->get(array(
-			'triggerids' => $_REQUEST['triggerid'],
-			'output' => API_OUTPUT_EXTEND,
-			'selectDependencies' => array('triggerid')
-		));
-		if (!$oldTrigger) {
-			access_deny();
-		}
-
-		$oldTrigger = reset($oldTrigger);
-		$oldTrigger['dependencies'] = zbx_toHash(zbx_objectValues($oldTrigger['dependencies'], 'triggerid'));
-
-		$newDependencies = $trigger['dependencies'];
-		$oldDependencies = $oldTrigger['dependencies'];
-		unset($trigger['dependencies']);
-		unset($oldTrigger['dependencies']);
-
-		$triggerToUpdate = array_diff_assoc($trigger, $oldTrigger);
-		$triggerToUpdate['triggerid'] = $_REQUEST['triggerid'];
-
-		// dependencies
-		$updateDepencencies = false;
-		if (count($newDependencies) != count($oldDependencies)) {
-			$updateDepencencies = true;
-		}
-		else {
-			foreach ($newDependencies as $dependency) {
-				if (!isset($oldDependencies[$dependency['triggerid']])) {
-					$updateDepencencies = true;
-				}
-			}
-		}
-		if ($updateDepencencies) {
-			$triggerToUpdate['dependencies'] = $newDependencies;
-		}
-		$result = API::Trigger()->update($triggerToUpdate);
+	if (isset($_REQUEST['triggerid'])) {
+		$trigger['triggerid'] = $_REQUEST['triggerid'];
+		$result = API::Trigger()->update($trigger);
 		show_messages($result, _('Trigger updated'), _('Cannot update trigger'));
 	}
 	else {
 		$result = API::Trigger()->create($trigger);
 		show_messages($result, _('Trigger added'), _('Cannot add trigger'));
 	}
-
 	if ($result) {
 		unset($_REQUEST['form']);
-		clearCookies($result, $_REQUEST['hostid']);
 	}
 }
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['triggerid'])) {
 	DBstart();
-
-	$result = API::Trigger()->delete(array(getRequest('triggerid')));
+	$result = API::Trigger()->delete($_REQUEST['triggerid']);
 	$result = DBend($result);
-
 	show_messages($result, _('Trigger deleted'), _('Cannot delete trigger'));
-	clearCookies($result, $_REQUEST['hostid']);
 
 	if ($result) {
 		unset($_REQUEST['form'], $_REQUEST['triggerid']);
@@ -230,64 +198,135 @@ elseif ($_REQUEST['go'] == 'massupdate' && isset($_REQUEST['mass_save']) && isse
 	}
 
 	DBstart();
-
 	$result = API::Trigger()->update($triggersToUpdate);
 	$result = DBend($result);
-
 	show_messages($result, _('Trigger updated'), _('Cannot update trigger'));
-	clearCookies($result, $_REQUEST['hostid']);
 
 	if ($result) {
-		unset($_REQUEST['massupdate'], $_REQUEST['form'], $_REQUEST['g_triggerid']);
+		unset($_REQUEST['massupdate'], $_REQUEST['form']);
 	}
+	$go_result = $result;
 }
-elseif (str_in_array(getRequest('go'), array('activate', 'disable')) && hasRequest('g_triggerid')) {
-	$enable = (getRequest('go') == 'activate');
-	$status = $enable ? TRIGGER_STATUS_ENABLED : TRIGGER_STATUS_DISABLED;
-	$update = array();
+elseif (str_in_array($_REQUEST['go'], array('activate', 'disable')) && isset($_REQUEST['g_triggerid'])) {
+	$go_result = true;
 
-	// get requested triggers with permission check
-	$dbTriggers = API::Trigger()->get(array(
-		'output' => array('triggerid', 'status'),
-		'triggerids' => getRequest('g_triggerid'),
-		'editable' => true
-	));
-
-	if ($dbTriggers) {
-		foreach ($dbTriggers as $dbTrigger) {
-			$update[] = array(
-				'triggerid' => $dbTrigger['triggerid'],
-				'status' => $status
-			);
-		}
-
-		$result = API::Trigger()->update($update);
+	if ($_REQUEST['go'] == 'activate') {
+		$status = TRIGGER_STATUS_ENABLED;
+		$statusOld = array('status' => TRIGGER_STATUS_DISABLED);
+		$statusNew = array('status' => TRIGGER_STATUS_ENABLED);
 	}
 	else {
-		$result = true;
+		$status = TRIGGER_STATUS_DISABLED;
+		$statusOld = array('status' => TRIGGER_STATUS_ENABLED);
+		$statusNew = array('status' => TRIGGER_STATUS_DISABLED);
 	}
 
-	$updated = count($update);
-	$messageSuccess = $enable
-		? _n('Trigger enabled', 'Triggers enabled', $updated)
-		: _n('Trigger disabled', 'Triggers disabled', $updated);
-	$messageFailed = $enable
-		? _n('Cannot enable trigger', 'Cannot enable triggers', $updated)
-		: _n('Cannot disable trigger', 'Cannot disable triggers', $updated);
+	try {
+		DBstart();
 
-	show_messages($result, $messageSuccess, $messageFailed);
-	clearCookies($result, getRequest('hostid'));
-}
-elseif (getRequest('go') == 'copy_to' && hasRequest('copy') && hasRequest('g_triggerid')) {
-	if (hasRequest('copy_targetid') && getRequest('copy_targetid') > 0 && hasRequest('copy_type')) {
-		// hosts or templates
-		if (getRequest('copy_type') == COPY_TYPE_TO_HOST || getRequest('copy_type') == COPY_TYPE_TO_TEMPLATE) {
-			$hosts_ids = getRequest('copy_targetid');
+		// get requested triggers with permission check
+		$db_triggers = API::Trigger()->get(array(
+			'triggerids' => $_REQUEST['g_triggerid'],
+			'output' => array('triggerid', 'status'),
+			'preservekeys' => true,
+			'editable' => true
+		));
+
+		if ($db_triggers) {
+			// triggerids which status must be changed
+			$triggerIdsToUpdate = array();
+			foreach ($db_triggers as $triggerid => $trigger){
+				if ($trigger['status'] != $status) {
+					$triggerIdsToUpdate[] = $triggerid;
+				}
+			}
+
+			// triggerids to gather child triggers
+			$childTriggerIds = array_keys($db_triggers);
+
+			do {
+				// gather all triggerids which status should be changed including child triggers
+				$db_triggers = API::Trigger()->get(array(
+					'filter' => array('templateid' => $childTriggerIds),
+					'output' => array('triggerid', 'status'),
+					'preservekeys' => true,
+					'nopermissions' => true
+				));
+				foreach ($db_triggers as $triggerid => $trigger) {
+					if ($trigger['status'] != $status) {
+						$triggerIdsToUpdate[] = $triggerid;
+					}
+				}
+				$childTriggerIds = array_keys($db_triggers);
+			} while (!empty($childTriggerIds));
+
+			DB::update('triggers', array(
+				'values' => array('status' => $status),
+				'where' => array('triggerid' => $triggerIdsToUpdate)
+			));
+
+			// if disable trigger, unknown event must be created
+			if ($status == TRIGGER_STATUS_DISABLED) {
+				$valueTriggerIds = array();
+				$db_triggers = DBselect(
+					'SELECT t.triggerid'.
+					' FROM triggers t,functions f,items i,hosts h'.
+					' WHERE t.triggerid=f.triggerid'.
+						' AND f.itemid=i.itemid'.
+						' AND i.hostid=h.hostid'.
+						' AND '.dbConditionInt('t.triggerid', $triggerIdsToUpdate).
+						' AND t.value_flags='.TRIGGER_VALUE_FLAG_NORMAL.
+						' AND h.status IN ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.')'
+				);
+				while ($row = DBfetch($db_triggers)) {
+					$valueTriggerIds[] = $row['triggerid'];
+				}
+
+				if (!empty($valueTriggerIds)) {
+					DB::update('triggers', array(
+						'values' => array(
+							'value_flags' => TRIGGER_VALUE_FLAG_UNKNOWN,
+							'error' => _('Trigger status became "Disabled".')
+						),
+						'where' => array('triggerid' => $valueTriggerIds)
+					));
+
+					addUnknownEvent($valueTriggerIds);
+				}
+			}
+
+			// get updated triggers with additional data
+			$db_triggers = API::Trigger()->get(array(
+				'triggerids' => $triggerIdsToUpdate,
+				'output' => array('triggerid', 'description'),
+				'preservekeys' => true,
+				'selectHosts' => API_OUTPUT_EXTEND,
+				'nopermissions' => true
+			));
+			foreach ($db_triggers as $triggerid => $trigger) {
+				$host = reset($trigger['hosts']);
+				add_audit_ext(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_TRIGGER, $triggerid,
+					$host['host'].': '.$trigger['description'], 'triggers', $statusOld, $statusNew);
+			}
 		}
-		// host groups
-		else {
+
+		DBend(true);
+	}
+	catch(Exception $e) {
+		DBend(false);
+		$go_result = false;
+	}
+
+	show_messages($go_result, _('Status updated'), _('Cannot update status'));
+}
+elseif ($_REQUEST['go'] == 'copy_to' && isset($_REQUEST['copy']) && isset($_REQUEST['g_triggerid'])) {
+	if (isset($_REQUEST['copy_targetid']) && $_REQUEST['copy_targetid'] > 0 && isset($_REQUEST['copy_type'])) {
+		if ($_REQUEST['copy_type'] == 0) { // hosts
+			$hosts_ids = $_REQUEST['copy_targetid'];
+		}
+		else { // groups
 			$hosts_ids = array();
-			$group_ids = getRequest('copy_targetid');
+			$group_ids = $_REQUEST['copy_targetid'];
 
 			$db_hosts = DBselect(
 				'SELECT DISTINCT h.hostid'.
@@ -301,13 +340,10 @@ elseif (getRequest('go') == 'copy_to' && hasRequest('copy') && hasRequest('g_tri
 		}
 
 		DBstart();
+		$go_result = copyTriggersToHosts($_REQUEST['g_triggerid'], $hosts_ids, get_request('hostid'));
+		$go_result = DBend($go_result);
 
-		$goResult = copyTriggersToHosts(getRequest('g_triggerid'), $hosts_ids, getRequest('hostid'));
-		$goResult = DBend($goResult);
-
-		show_messages($goResult, _('Trigger added'), _('Cannot add trigger'));
-		clearCookies($goResult, getRequest('hostid'));
-
+		show_messages($go_result, _('Trigger added'), _('Cannot add trigger'));
 		$_REQUEST['go'] = 'none2';
 	}
 	else {
@@ -315,10 +351,14 @@ elseif (getRequest('go') == 'copy_to' && hasRequest('copy') && hasRequest('g_tri
 	}
 }
 elseif ($_REQUEST['go'] == 'delete' && isset($_REQUEST['g_triggerid'])) {
-	$goResult = API::Trigger()->delete($_REQUEST['g_triggerid']);
-
-	show_messages($goResult, _('Triggers deleted'), _('Cannot delete triggers'));
-	clearCookies($goResult, $_REQUEST['hostid']);
+	$go_result = API::Trigger()->delete($_REQUEST['g_triggerid']);
+	show_messages($go_result, _('Triggers deleted'), _('Cannot delete triggers'));
+}
+if ($_REQUEST['go'] != 'none' && !empty($go_result)) {
+	$url = new CUrl();
+	$path = $url->getPath();
+	insert_js('cookie.eraseArray(\''.$path.'\')');
+	$_REQUEST['go'] = 'none';
 }
 
 /*
@@ -345,7 +385,6 @@ else {
 		'parent_discoveryid' => null,
 		'triggers' => array()
 	);
-
 	CProfile::update('web.triggers.showdisabled', $data['showdisabled'], PROFILE_TYPE_INT);
 
 	$data['pageFilter'] = new CPageFilter(array(
@@ -353,8 +392,12 @@ else {
 		'hosts' => array('templated_hosts' => true, 'editable' => true),
 		'triggers' => array('editable' => true),
 		'groupid' => get_request('groupid', null),
-		'hostid' => get_request('hostid', null)
+		'hostid' => get_request('hostid', null),
+		'triggerid' => get_request('triggerid', null)
 	));
+	if ($data['pageFilter']->triggerid > 0) {
+		$data['triggerid'] = $data['pageFilter']->triggerid;
+	}
 	$data['groupid'] = $data['pageFilter']->groupid;
 	$data['hostid'] = $data['pageFilter']->hostid;
 
@@ -363,7 +406,7 @@ else {
 	if ($data['pageFilter']->hostsSelected) {
 		$options = array(
 			'editable' => true,
-			'output' => array('triggerid'),
+			'output' => API_OUTPUT_SHORTEN,
 			'sortfield' => $sortfield,
 			'limit' => $config['search_limit'] + 1
 		);
@@ -378,81 +421,21 @@ else {
 		}
 		$data['triggers'] = API::Trigger()->get($options);
 	}
-
-	$_REQUEST['hostid'] = get_request('hostid', $data['pageFilter']->hostid);
-
-	// paging
-	$data['paging'] = getPagingLine($data['triggers'], array('triggerid'), array('hostid' => $_REQUEST['hostid']));
+	$data['paging'] = getPagingLine($data['triggers']);
 
 	$data['triggers'] = API::Trigger()->get(array(
 		'triggerids' => zbx_objectValues($data['triggers'], 'triggerid'),
 		'output' => API_OUTPUT_EXTEND,
 		'selectHosts' => API_OUTPUT_EXTEND,
-		'selectItems' => array('itemid', 'hostid', 'key_', 'type', 'flags', 'status'),
+		'selectItems' => API_OUTPUT_EXTEND,
 		'selectFunctions' => API_OUTPUT_EXTEND,
-		'selectDependencies' => array('triggerid', 'description'),
+		'selectDependencies' => API_OUTPUT_EXTEND,
 		'selectDiscoveryRule' => API_OUTPUT_EXTEND
 	));
-
-	if ($sortfield === 'status') {
-		orderTriggersByStatus($data['triggers'], getPageSortOrder());
-	}
-	else {
-		order_result($data['triggers'], $sortfield, getPageSortOrder());
-	}
-
-	$dependencyIds = array();
-	foreach ($data['triggers'] as $trigger) {
-		foreach ($trigger['dependencies'] as $depTrigger) {
-			$dependencyIds[$depTrigger['triggerid']] = $depTrigger['triggerid'];
-		}
-	}
-
-	$dependencyTriggers = array();
-	if ($dependencyIds) {
-		$dependencyTriggers = API::Trigger()->get(array(
-			'triggerids' => $dependencyIds,
-			'output' => array('triggerid', 'flags', 'description', 'status'),
-			'selectHosts' => array('hostid', 'name'),
-			'preservekeys' => true
-		));
-
-		// sort dependencies
-		foreach ($data['triggers'] as &$trigger) {
-			if (count($trigger['dependencies']) > 1) {
-				order_result($trigger['dependencies'], 'description', ZBX_SORT_UP);
-			}
-		}
-		unset($trigger);
-
-		// sort dependency trigger hosts
-		foreach ($dependencyTriggers as &$trigger) {
-			if (count($dependencyTriggers[$trigger['triggerid']]['hosts']) > 1) {
-				order_result($dependencyTriggers[$trigger['triggerid']]['hosts'], 'name', ZBX_SORT_UP);
-			}
-		}
-		unset($trigger);
-	}
-
-	$data['dependencyTriggers'] = $dependencyTriggers;
+	order_result($data['triggers'], $sortfield, getPageSortOrder());
 
 	// get real hosts
 	$data['realHosts'] = getParentHostsByTriggers($data['triggers']);
-
-	// determine, show or not column of errors
-	if ($data['hostid'] > 0) {
-		$host = API::Host()->get(array(
-			'hostids' => $_REQUEST['hostid'],
-			'output' => array('status'),
-			'templated_hosts' => true,
-			'editable' => true
-		));
-		$host = reset($host);
-		$data['showInfoColumn'] = (!$host || $host['status'] != HOST_STATUS_TEMPLATE);
-	}
-	else {
-		$data['showInfoColumn'] = true;
-	}
 
 	// render view
 	$triggersView = new CView('configuration.triggers.list', $data);

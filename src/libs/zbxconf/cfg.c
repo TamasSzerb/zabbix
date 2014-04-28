@@ -30,83 +30,10 @@ int	CONFIG_TIMEOUT		= 3;
 
 static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int level, int optional, int strict);
 
-/******************************************************************************
- *                                                                            *
- * Function: parse_cfg_object                                                 *
- *                                                                            *
- * Purpose: parse "Include=..." line in configuration file                    *
- *                                                                            *
- * Parameters: cfg_file - full name of config file                            *
- *             cfg      - pointer to configuration parameter structure        *
- *             level    - a level of included file                            *
- *             strict   - treat unknown parameters as error                   *
- *                                                                            *
- * Return value: SUCCEED - parsed successfully                                *
- *               FAIL - error processing object                               *
- *                                                                            *
- ******************************************************************************/
 static int	parse_cfg_object(const char *cfg_file, struct cfg_line *cfg, int level, int strict)
 {
 #ifdef _WINDOWS
-	const char		*__function_name = "parse_cfg_object";
-
-	int			ret = FAIL;
-	WIN32_FIND_DATAW	find_file_data;
-	HANDLE			h_find;
-	char 			*path = NULL, *file_name;
-	wchar_t			*wpath;
-	struct _stat		sb;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
-
-	path = zbx_strdup(path, cfg_file);
-	zbx_rtrim(path, "\\");
-
-	wpath = zbx_utf8_to_unicode(path);
-
-	if (0 != _wstat(wpath, &sb))
-	{
-		zbx_error("%s: %s\n", path, zbx_strerror(errno));
-		goto out;
-	}
-	zbx_free(wpath);
-
-	if (0 == S_ISDIR(sb.st_mode))
-	{
-		ret = __parse_cfg_file(path, cfg, level, ZBX_CFG_FILE_REQUIRED, strict);
-		goto out;
-	}
-
-	path = zbx_dsprintf(path, "%s\\*", cfg_file);
-	wpath = zbx_utf8_to_unicode(path);
-
-	if (INVALID_HANDLE_VALUE == (h_find = FindFirstFileW(wpath, &find_file_data)))
-		goto out;
-
-	while (0 != FindNextFileW(h_find, &find_file_data))
-	{
-		if (0 != (find_file_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-			continue;
-
-		file_name = zbx_unicode_to_utf8(find_file_data.cFileName);
-
-		path = zbx_dsprintf(path, "%s\\%s", cfg_file, file_name);
-
-		zbx_free(file_name);
-
-		if (FAIL == __parse_cfg_file(path, cfg, level, ZBX_CFG_FILE_REQUIRED, strict))
-			goto out;
-	}
-
-	ret = SUCCEED;
-out:
-	FindClose(h_find);
-	zbx_free(wpath);
-	zbx_free(path);
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
-
-	return ret;
+	return __parse_cfg_file(cfg_file, cfg, level, ZBX_CFG_FILE_REQUIRED, strict);
 #else
 	DIR		*dir;
 	zbx_stat_t	sb;
@@ -182,12 +109,12 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 #define ZBX_CFG_RTRIM_CHARS	ZBX_CFG_LTRIM_CHARS "\r\n"
 
 	FILE		*file;
-	int		i, lineno, param_valid;
+	int		i, lineno, result = SUCCEED, param_valid;
 	char		line[MAX_STRING_LEN], *parameter, *value;
 	zbx_uint64_t	var;
-#ifdef _WINDOWS
-	wchar_t		*wcfg_file;
-#endif
+
+	assert(cfg);
+
 	if (++level > ZBX_MAX_INCLUDE_LEVEL)
 	{
 		zbx_error("Recursion detected! Skipped processing of '%s'.", cfg_file);
@@ -196,17 +123,9 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 
 	if (NULL != cfg_file)
 	{
-#ifdef _WINDOWS
-		wcfg_file = zbx_utf8_to_unicode(cfg_file);
-		file = _wfopen(wcfg_file, L"r");
-		zbx_free(wcfg_file);
-
-		if (NULL == file)
-			goto cannot_open;
-#else
 		if (NULL == (file = fopen(cfg_file, "r")))
 			goto cannot_open;
-#endif
+
 		for (lineno = 1; NULL != fgets(line, sizeof(line), file); lineno++)
 		{
 			zbx_ltrim(line, ZBX_CFG_LTRIM_CHARS);
@@ -215,34 +134,36 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 			if ('#' == *line || '\0' == *line)
 				continue;
 
-			/* we only support UTF-8 characters in the config file */
-			if (SUCCEED != zbx_is_utf8(line))
-				goto non_utf8;
-
 			parameter = line;
 			if (NULL == (value = strchr(line, '=')))
-				goto non_key_value;
+				goto garbage;
 
 			*value++ = '\0';
 
 			zbx_rtrim(parameter, ZBX_CFG_RTRIM_CHARS);
+
 			zbx_ltrim(value, ZBX_CFG_LTRIM_CHARS);
 
 			zabbix_log(LOG_LEVEL_DEBUG, "cfg: para: [%s] val [%s]", parameter, value);
 
 			if (0 == strcmp(parameter, "Include"))
 			{
-				if (FAIL == parse_cfg_object(value, cfg, level, strict))
-				{
-					fclose(file);
-					goto error;
-				}
+				if (FAIL == (result = parse_cfg_object(value, cfg, level, strict)))
+					break;
 
 				continue;
 			}
 
-			param_valid = 0;
+			for (i = 0; '\0' != value[i]; i++)
+			{
+				if ('\n' == value[i])
+				{
+					value[i] = '\0';
+					break;
+				}
+			}
 
+			param_valid = 0;
 			for (i = 0; NULL != cfg[i].parameter; i++)
 			{
 				if (0 != strcmp(cfg[i].parameter, parameter))
@@ -250,8 +171,7 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 
 				param_valid = 1;
 
-				zabbix_log(LOG_LEVEL_DEBUG, "accepted configuration parameter: '%s' = '%s'",
-						parameter, value);
+				zabbix_log(LOG_LEVEL_DEBUG, "accepted configuration parameter: '%s' = '%s'",parameter, value);
 
 				switch (cfg[i].type)
 				{
@@ -259,29 +179,21 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 						if (FAIL == str2uint64(value, "KMGT", &var))
 							goto incorrect_config;
 
+						/* usability: 2G converts to 0x7fffffff (2GB - 1 byte) */
+						if ((zbx_uint64_t)2 * ZBX_GIBIBYTE == var)
+							var--;
+
 						if (cfg[i].min > var || (0 != cfg[i].max && var > cfg[i].max))
 							goto incorrect_config;
 
 						*((int *)cfg[i].variable) = (int)var;
 						break;
-					case TYPE_STRING_LIST:
-						zbx_trim_str_list(value, ',');
-						/* break; is not missing here */
 					case TYPE_STRING:
 						*((char **)cfg[i].variable) =
 								zbx_strdup(*((char **)cfg[i].variable), value);
 						break;
 					case TYPE_MULTISTRING:
 						zbx_strarr_add(cfg[i].variable, value);
-						break;
-					case TYPE_UINT64:
-						if (FAIL == str2uint64(value, "KMGT", &var))
-							goto incorrect_config;
-
-						if (cfg[i].min > var || (0 != cfg[i].max && var > cfg[i].max))
-							goto incorrect_config;
-
-						*((zbx_uint64_t *)cfg[i].variable) = var;
 						break;
 					default:
 						assert(0);
@@ -295,7 +207,7 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 	}
 
 	if (1 != level)	/* skip mandatory parameters check for included files */
-		return SUCCEED;
+		return result;
 
 	for (i = 0; NULL != cfg[i].parameter; i++) /* check for mandatory parameters */
 	{
@@ -309,7 +221,6 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 					goto missing_mandatory;
 				break;
 			case TYPE_STRING:
-			case TYPE_STRING_LIST:
 				if (NULL == (*(char **)cfg[i].variable))
 					goto missing_mandatory;
 				break;
@@ -318,33 +229,28 @@ static int	__parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int leve
 		}
 	}
 
-	return SUCCEED;
+	return result;
 cannot_open:
-	if (0 != optional)
-		return SUCCEED;
+	if (optional)
+		return result;
 	zbx_error("cannot open config file [%s]: %s", cfg_file, zbx_strerror(errno));
-	goto error;
-non_utf8:
-	fclose(file);
-	zbx_error("non-UTF-8 character at line %d (%s) in config file [%s]", lineno, line, cfg_file);
-	goto error;
-non_key_value:
-	fclose(file);
-	zbx_error("invalid entry [%s] (not following \"parameter=value\" notation) in config file [%s], line %d",
-			line, cfg_file, lineno);
-	goto error;
+	exit(1);
+missing_mandatory:
+	zbx_error("missing mandatory parameter [%s] in config file [%s]", cfg[i].parameter, cfg_file);
+	exit(1);
 incorrect_config:
 	fclose(file);
 	zbx_error("wrong value of [%s] in config file [%s], line %d", cfg[i].parameter, cfg_file, lineno);
-	goto error;
+	exit(1);
 unknown_parameter:
 	fclose(file);
 	zbx_error("unknown parameter [%s] in config file [%s], line %d", parameter, cfg_file, lineno);
-	goto error;
-missing_mandatory:
-	zbx_error("missing mandatory parameter [%s] in config file [%s]", cfg[i].parameter, cfg_file);
-error:
-	exit(EXIT_FAILURE);
+	exit(1);
+garbage:
+	fclose(file);
+	zbx_error("invalid entry [%s] (not following \"parameter=value\" notation) in config file [%s], line %d",
+			line, cfg_file, lineno);
+	exit(1);
 }
 
 int	parse_cfg_file(const char *cfg_file, struct cfg_line *cfg, int optional, int strict)

@@ -23,6 +23,9 @@
 #define	ZBX_FS_DBL		"%lf"
 #define	ZBX_FS_DBL_EXT(p)	"%." #p "lf"
 
+#define ZBX_FS_SIZE_T		"%u"
+#define zbx_fs_size_t		unsigned int	/* use this type only in calls to printf() for formatting size_t */
+
 #define ZBX_PTR_SIZE		sizeof(void *)
 
 #if defined(_WINDOWS)
@@ -57,8 +60,6 @@
 #	ifndef PATH_SEPARATOR
 #		define PATH_SEPARATOR	'\\'
 #	endif
-
-#	define strcasecmp	lstrcmpiA
 
 typedef __int64	zbx_offset_t;
 #	define zbx_lseek(fd, offset, whence)	_lseeki64(fd, (zbx_offset_t)(offset), whence)
@@ -102,9 +103,6 @@ typedef off_t	zbx_offset_t;
 
 #endif	/* _WINDOWS */
 
-#define ZBX_FS_SIZE_T		ZBX_FS_UI64
-#define zbx_fs_size_t		zbx_uint64_t	/* use this type only in calls to printf() for formatting size_t */
-
 #ifndef S_ISREG
 #	define S_ISREG(x) (((x) & S_IFMT) == S_IFREG)
 #endif
@@ -113,19 +111,12 @@ typedef off_t	zbx_offset_t;
 #	define S_ISDIR(x) (((x) & S_IFMT) == S_IFDIR)
 #endif
 
-#define ZBX_STR2UINT64(uint, string) is_uint64(string, &uint)
+#define ZBX_STR2UINT64(uint, string) sscanf(string, ZBX_FS_UI64, &uint)
 #define ZBX_OCT2UINT64(uint, string) sscanf(string, ZBX_FS_UO64, &uint)
 #define ZBX_HEX2UINT64(uint, string) sscanf(string, ZBX_FS_UX64, &uint)
 
 #define ZBX_STR2UCHAR(var, string) var = (unsigned char)atoi(string)
 
 #define ZBX_CONST_STRING(str) ""str
-
-typedef struct
-{
-	zbx_uint64_t	lo;
-	zbx_uint64_t	hi;
-}
-zbx_uint128_t;
 
 #endif

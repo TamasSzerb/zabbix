@@ -438,13 +438,15 @@ ZBX_THREAD_ENTRY(collector_thread, args)
 		if (1 == collector->vmstat.enabled)
 			collect_vmstat_data(&collector->vmstat);
 #endif
-		zbx_setproctitle("collector [idle 1 sec]");
+		zbx_setproctitle("collector [sleeping for 1 seconds]");
 		zbx_sleep(1);
 	}
 
 #ifdef _WINDOWS
 	if (CPU_COLLECTOR_STARTED(collector))
 		free_cpu_collector(&(collector->cpus));
+
+	zabbix_log(LOG_LEVEL_INFORMATION, "zabbix_agentd collector stopped");
 
 	ZBX_DO_EXIT();
 

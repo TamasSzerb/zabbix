@@ -25,7 +25,7 @@ require_once dirname(__FILE__).'/include/services.inc.php';
 $page['file'] = 'chart5.php';
 $page['type'] = PAGE_TYPE_IMAGE;
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
@@ -194,7 +194,7 @@ imageText($im, 8, 0, $shiftX + 9, $sizeY + $shiftYup + 15 * 1 + 41, $black, _('O
 imagefilledrectangle($im, $shiftX, $sizeY + $shiftYup + 34 + 15 * 2, $shiftX + 5, $sizeY + $shiftYup + 30 + 9 + 15 * 2, $darkred);
 imagerectangle($im, $shiftX, $sizeY + $shiftYup + 34 + 15 * 2, $shiftX + 5, $sizeY + $shiftYup + 30 + 9 + 15 * 2, $black);
 imageText($im, 8, 0, $shiftX + 9, $sizeY + $shiftYup + 15 * 2 + 41, $black, _('PROBLEM').' (%)');
-imagestringup($im, 1, imagesx($im) - 10, imagesy($im) - 50, ZABBIX_HOMEPAGE, $gray);
+imagestringup($im, 0, imagesx($im) - 10, imagesy($im) - 50, 'http://www.zabbix.com', $gray);
 
 $str = sprintf('%0.2f', microtime(true) - $start_time);
 $str = _s('Generated in %s sec', $str);
@@ -203,4 +203,4 @@ imageText($im, 6, 0, imagesx($im) - $strSize['width'] - 5, imagesy($im) - 5, $gr
 imageOut($im);
 imagedestroy($im);
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');

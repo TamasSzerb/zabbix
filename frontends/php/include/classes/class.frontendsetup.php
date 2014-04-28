@@ -25,7 +25,7 @@
  */
 class FrontendSetup {
 
-	const MIN_PHP_VERSION = '5.3.0';
+	const MIN_PHP_VERSION = '5.1.6';
 	const MIN_PHP_MEMORY_LIMIT = 134217728; // 128*1024*1024
 	const MIN_PHP_POST_MAX_SIZE = 16777216; // 16*1024*1024
 	const MIN_PHP_UPLOAD_MAX_FILESIZE = 2097152; // 2*1024*1024
@@ -34,20 +34,25 @@ class FrontendSetup {
 	const MIN_PHP_GD_VERSION = '2.0';
 	const MIN_PHP_LIBXML_VERSION = '2.6.15';
 
-	/**
-	 * Check OK, setup can continue.
-	 */
-	const CHECK_OK = 1;
+	private static $_instance = null;
 
 	/**
-	 * Check failed, but setup can still continue. A warning will be displayed.
+	 * Function for getting class object, implements Singleton.
+	 *
+	 * @static
+	 * @return object
 	 */
-	const CHECK_WARNING = 2;
+	public static function i() {
+		if (null === self::$_instance) {
+			self::$_instance = new self;
+		}
 
-	/**
-	 * Check failed, setup cannot continue. An error will be displayed.
-	 */
-	const CHECK_FATAL = 3;
+		return self::$_instance;
+	}
+
+	private function __construct() {}
+
+	private function __clone() {}
 
 	/**
 	 * Perform all requirements checks.
@@ -89,15 +94,15 @@ class FrontendSetup {
 	 * @return array
 	 */
 	public function checkPhpVersion() {
-		$check = version_compare(phpversion(), self::MIN_PHP_VERSION, '>=');
-
-		return array(
+		$result = array(
 			'name' => _('PHP version'),
 			'current' => phpversion(),
 			'required' => self::MIN_PHP_VERSION,
-			'result' => $check ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _s('Minimum required PHP version is %s.', self::MIN_PHP_VERSION)
+			'result' => version_compare(phpversion(), self::MIN_PHP_VERSION, '>='),
+			'error' => _s('Minimum required PHP version is %s', self::MIN_PHP_VERSION)
 		);
+
+		return $result;
 	}
 
 	/**
@@ -107,15 +112,16 @@ class FrontendSetup {
 	 */
 	public function checkPhpMemoryLimit() {
 		$current = ini_get('memory_limit');
-		$check = ($current == '-1' || str2mem($current) >= self::MIN_PHP_MEMORY_LIMIT);
 
-		return array(
+		$result = array(
 			'name' => _('PHP option memory_limit'),
 			'current' => $current,
 			'required' => mem2str(self::MIN_PHP_MEMORY_LIMIT),
-			'result' => $check ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _s('Minimum required PHP memory limit is %s (configuration option "memory_limit").', mem2str(self::MIN_PHP_MEMORY_LIMIT))
+			'result' => str2mem($current) >= self::MIN_PHP_MEMORY_LIMIT,
+			'error' => _s('Minimum required PHP memory limit is %s (configuration option "memory_limit")', mem2str(self::MIN_PHP_MEMORY_LIMIT))
 		);
+
+		return $result;
 	}
 
 	/**
@@ -126,13 +132,15 @@ class FrontendSetup {
 	public function checkPhpPostMaxSize() {
 		$current = ini_get('post_max_size');
 
-		return array(
+		$result = array(
 			'name' => _('PHP option post_max_size'),
 			'current' => $current,
 			'required' => mem2str(self::MIN_PHP_POST_MAX_SIZE),
-			'result' => (str2mem($current) >= self::MIN_PHP_POST_MAX_SIZE) ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _s('Minimum required size of PHP post is %s (configuration option "post_max_size").', mem2str(self::MIN_PHP_POST_MAX_SIZE))
+			'result' => str2mem($current) >= self::MIN_PHP_POST_MAX_SIZE,
+			'error' => _s('Minimum required size of PHP post is %s (configuration option "post_max_size")', mem2str(self::MIN_PHP_POST_MAX_SIZE))
 		);
+
+		return $result;
 	}
 
 	/**
@@ -143,13 +151,15 @@ class FrontendSetup {
 	public function checkPhpUploadMaxFilesize() {
 		$current = ini_get('upload_max_filesize');
 
-		return array(
+		$result = array(
 			'name' => _('PHP option upload_max_filesize'),
 			'current' => $current,
 			'required' => mem2str(self::MIN_PHP_UPLOAD_MAX_FILESIZE),
-			'result' => (str2mem($current) >= self::MIN_PHP_UPLOAD_MAX_FILESIZE) ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _s('Minimum required PHP upload filesize is %s (configuration option "upload_max_filesize").', mem2str(self::MIN_PHP_UPLOAD_MAX_FILESIZE))
+			'result' => str2mem($current) >= self::MIN_PHP_UPLOAD_MAX_FILESIZE,
+			'error' => _s('Minimum required PHP upload filesize is %s (configuration option "upload_max_filesize")', mem2str(self::MIN_PHP_UPLOAD_MAX_FILESIZE))
 		);
+
+		return $result;
 	}
 
 	/**
@@ -160,13 +170,15 @@ class FrontendSetup {
 	public function checkPhpMaxExecutionTime() {
 		$current = ini_get('max_execution_time');
 
-		return array(
+		$result = array(
 			'name' => _('PHP option max_execution_time'),
 			'current' => $current,
 			'required' => self::MIN_PHP_MAX_EXECUTION_TIME,
-			'result' => ($current >= self::MIN_PHP_MAX_EXECUTION_TIME) ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _s('Minimum required limit on execution time of PHP scripts is %s (configuration option "max_execution_time").', self::MIN_PHP_MAX_EXECUTION_TIME)
+			'result' => $current >= self::MIN_PHP_MAX_EXECUTION_TIME,
+			'error' => _s('Minimum required limit on execution time of PHP scripts is %s (configuration option "max_execution_time")', self::MIN_PHP_MAX_EXECUTION_TIME)
 		);
+
+		return $result;
 	}
 
 	/**
@@ -177,13 +189,15 @@ class FrontendSetup {
 	public function checkPhpMaxInputTime() {
 		$current = ini_get('max_input_time');
 
-		return array(
+		$result = array(
 			'name' => _('PHP option max_input_time'),
 			'current' => $current,
 			'required' => self::MIN_PHP_MAX_INPUT_TIME,
-			'result' => ($current >= self::MIN_PHP_MAX_INPUT_TIME) ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _s('Minimum required limit on input parse time for PHP scripts is %s (configuration option "max_input_time").', self::MIN_PHP_MAX_INPUT_TIME)
+			'result' => $current >= self::MIN_PHP_MAX_INPUT_TIME,
+			'error' => _s('Minimum required limit on input parse time for PHP scripts is %s (configuration option "max_input_time")', self::MIN_PHP_MAX_INPUT_TIME)
 		);
+
+		return $result;
 	}
 
 	/**
@@ -194,13 +208,15 @@ class FrontendSetup {
 	public function checkPhpTimeZone() {
 		$current = ini_get('date.timezone');
 
-		return array(
+		$result = array(
 			'name' => _('PHP time zone'),
 			'current' => $current ? $current : _('unknown'),
 			'required' => null,
-			'result' => $current ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('Time zone for PHP is not set (configuration parameter "date.timezone").')
+			'result' => !empty($current),
+			'error' => _('Time zone for PHP is not set (configuration parameter "date.timezone")')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -211,55 +227,72 @@ class FrontendSetup {
 	public function checkPhpDatabases() {
 		$current = array();
 
-		$databases = $this->getSupportedDatabases();
-		foreach ($databases as $database => $name) {
-			$current[] = $name;
+		if (function_exists('mysql_pconnect') &&
+				function_exists('mysql_select_db') &&
+				function_exists('mysql_error') &&
+				function_exists('mysql_query') &&
+				function_exists('mysql_fetch_array') &&
+				function_exists('mysql_fetch_row') &&
+				function_exists('mysql_data_seek') &&
+				function_exists('mysql_insert_id')
+		) {
+			$current[] = 'MySQL';
 			$current[] = BR();
 		}
 
-		return array(
-			'name' => _('PHP databases support'),
-			'current' => empty($current) ? _('off') : new CSpan($current),
-			'required' => null,
-			'result' => $current ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('At least one of MySQL, PostgreSQL, Oracle, SQLite3 or IBM DB2 should be supported.')
-		);
-	}
-
-	/**
-	 * Get list of supported databases.
-	 *
-	 * @return array
-	 */
-	public function getSupportedDatabases() {
-		$allowedDb = array();
-		if (zbx_is_callable(array('mysqli_connect', 'mysqli_connect_error', 'mysqli_error', 'mysqli_query',
-				'mysqli_fetch_assoc', 'mysqli_free_result', 'mysqli_real_escape_string', 'mysqli_close'))) {
-			$allowedDb[ZBX_DB_MYSQL] = 'MySQL';
+		if (function_exists('pg_pconnect') &&
+				function_exists('pg_fetch_array') &&
+				function_exists('pg_fetch_row') &&
+				function_exists('pg_exec') &&
+				function_exists('pg_getlastoid')
+		) {
+			$current[] = 'PostgreSQL';
+			$current[] = BR();
 		}
 
-		if (zbx_is_callable(array('pg_pconnect', 'pg_fetch_array', 'pg_fetch_row', 'pg_exec', 'pg_getlastoid'))) {
-			$allowedDb[ZBX_DB_POSTGRESQL] = 'PostgreSQL';
+		if (function_exists('ocilogon') &&
+				function_exists('ocierror') &&
+				function_exists('ociparse') &&
+				function_exists('ociexecute') &&
+				function_exists('ocifetchinto')
+		) {
+
+			$current[] = 'Oracle';
+			$current[] = BR();
 		}
 
-		if (zbx_is_callable(array('oci_connect', 'oci_error', 'oci_parse', 'oci_execute', 'oci_fetch_assoc',
-				'oci_commit', 'oci_close', 'oci_rollback', 'oci_field_type', 'oci_new_descriptor',
-				'oci_bind_by_name', 'oci_free_statement'))) {
-			$allowedDb[ZBX_DB_ORACLE] = 'Oracle';
-		}
-
-		if (zbx_is_callable(array('db2_connect', 'db2_set_option', 'db2_commit', 'db2_rollback', 'db2_autocommit',
-				'db2_prepare', 'db2_execute', 'db2_stmt_errormsg', 'db2_fetch_assoc', 'db2_free_result',
-				'db2_escape_string', 'db2_close'))) {
-			$allowedDb[ZBX_DB_DB2] = 'IBM DB2';
+		if (function_exists('db2_connect') &&
+				function_exists('db2_set_option') &&
+				function_exists('db2_commit') &&
+				function_exists('db2_rollback') &&
+				function_exists('db2_autocommit') &&
+				function_exists('db2_prepare') &&
+				function_exists('db2_execute') &&
+				function_exists('db2_stmt_errormsg') &&
+				function_exists('db2_fetch_assoc') &&
+				function_exists('db2_free_result') &&
+				function_exists('db2_escape_string') &&
+				function_exists('db2_close')
+		) {
+			$current[] = 'IBM DB2';
+			$current[] = BR();
 		}
 
 		// Semaphore related functions are checked elsewhere. The 'false' is to prevent autoloading of the SQLite3 class.
-		if (class_exists('SQLite3', false) && zbx_is_callable(array('ftok', 'sem_acquire', 'sem_release', 'sem_get'))) {
-			$allowedDb[ZBX_DB_SQLITE3] = 'SQLite3';
+		if (class_exists('SQLite3', false)) {
+			$current[] = 'SQLite3';
+			$current[] = BR();
 		}
 
-		return $allowedDb;
+		$result = array(
+			'name' => _('PHP databases support'),
+			'current' => empty($current) ? _('no') : new CSpan($current),
+			'required' => null,
+			'result' => !empty($current),
+			'error' => _('At least one of MySQL, PostgreSQL, Oracle, SQLite3 or IBM DB2 should be supported')
+		);
+
+		return $result;
 	}
 
 	/**
@@ -279,13 +312,15 @@ class FrontendSetup {
 				function_exists('bcsqrt') &&
 				function_exists('bcsub');
 
-		return array(
+		$result = array(
 			'name' => _('PHP bcmath'),
-			'current' => $current ? _('on') : _('off'),
+			'current' => $current ? _('yes') : _('no'),
 			'required' => null,
-			'result' => $current ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('PHP bcmath extension missing (PHP configuration parameter --enable-bcmath).')
+			'result' => $current,
+			'error' => _('PHP bcmath extension missing (PHP configuration parameter --enable-bcmath)')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -296,13 +331,15 @@ class FrontendSetup {
 	public function checkPhpMbstring() {
 		$current = mbstrings_available();
 
-		return array(
+		$result = array(
 			'name' => _('PHP mbstring'),
-			'current' => $current ? _('on') : _('off'),
+			'current' => $current ? _('yes') : _('no'),
 			'required' => null,
-			'result' => $current ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('PHP mbstring extension missing (PHP configuration parameter --enable-mbstring).')
+			'result' => $current,
+			'error' => _('PHP mbstring extension missing (PHP configuration parameter --enable-mbstring)')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -313,13 +350,15 @@ class FrontendSetup {
 	public function checkPhpSockets() {
 		$current = function_exists('socket_create');
 
-		return array(
+		$result = array(
 			'name' => _('PHP sockets'),
-			'current' => $current ? _('on') : _('off'),
+			'current' => $current ? _('yes') : _('no'),
 			'required' => null,
-			'result' => $current ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('PHP sockets extension missing (PHP configuration parameter --enable-sockets).')
+			'result' => $current,
+			'error' => _('PHP sockets extension missing (PHP configuration parameter --enable-sockets)')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -329,22 +368,23 @@ class FrontendSetup {
 	 */
 	public function checkPhpGd() {
 		if (is_callable('gd_info')) {
-			$gdInfo = gd_info();
-			preg_match('/(\d\.?)+/', $gdInfo['GD Version'], $current);
+			$gd_info = gd_info();
+			preg_match('/(\d\.?)+/', $gd_info['GD Version'], $current);
 			$current = $current[0];
 		}
 		else {
 			$current = _('unknown');
 		}
-		$check = version_compare($current, self::MIN_PHP_GD_VERSION, '>=');
 
-		return array(
+		$result = array(
 			'name' => _('PHP gd'),
 			'current' => $current,
 			'required' => self::MIN_PHP_GD_VERSION,
-			'result' => $check ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('PHP gd extension missing (PHP configuration parameter --with-gd).')
+			'result' => version_compare($current, self::MIN_PHP_GD_VERSION, '>='),
+			'error' => _('PHP gd extension missing (PHP configuration parameter --with-gd)')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -354,20 +394,22 @@ class FrontendSetup {
 	 */
 	public function checkPhpGdPng() {
 		if (is_callable('gd_info')) {
-			$gdInfo = gd_info();
-			$current = $gdInfo['PNG Support'];
+			$gd_info = gd_info();
+			$current = $gd_info['PNG Support'];
 		}
 		else {
 			$current = false;
 		}
 
-		return array(
+		$result = array(
 			'name' => _('PHP gd PNG support'),
-			'current' => $current ? _('on') : _('off'),
+			'current' => $current ? _('yes') : _('no'),
 			'required' => null,
-			'result' => $current ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('PHP gd PNG image support missing.')
+			'result' => $current,
+			'error' => _('PHP gd PNG image support missing')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -377,22 +419,23 @@ class FrontendSetup {
 	 */
 	public function checkPhpGdJpeg() {
 		if (is_callable('gd_info')) {
-			$gdInfo = gd_info();
-
-			// check for PHP prior 5.3.0, it returns 'JPG Support' key.
-			$current = isset($gdInfo['JPG Support']) ? $gdInfo['JPG Support'] : $gdInfo['JPEG Support'];
+			$gd_info = gd_info();
+			// Check for PHP prior 5.3.0, it returns 'JPG Support' key.
+			$current = isset($gd_info['JPG Support']) ? $gd_info['JPG Support'] : $gd_info['JPEG Support'];
 		}
 		else {
 			$current = false;
 		}
 
-		return array(
+		$result = array(
 			'name' => _('PHP gd JPEG support'),
-			'current' => $current ? _('on') : _('off'),
+			'current' => $current ? _('yes') : _('no'),
 			'required' => null,
-			'result' => $current ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('PHP gd JPEG image support missing.')
+			'result' => $current,
+			'error' => _('PHP gd JPEG image support missing')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -402,20 +445,22 @@ class FrontendSetup {
 	 */
 	public function checkPhpGdFreeType() {
 		if (is_callable('gd_info')) {
-			$gdInfo = gd_info();
-			$current = $gdInfo['FreeType Support'];
+			$gd_info = gd_info();
+			$current = $gd_info['FreeType Support'];
 		}
 		else {
 			$current = false;
 		}
 
-		return array(
+		$result = array(
 			'name' => _('PHP gd FreeType support'),
-			'current' => $current ? _('on') : _('off'),
+			'current' => $current ? _('yes') : _('no'),
 			'required' => null,
-			'result' => $current ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('PHP gd FreeType support missing.')
+			'result' => $current,
+			'error' => _('PHP gd FreeType support missing')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -430,15 +475,16 @@ class FrontendSetup {
 		else {
 			$current = _('unknown');
 		}
-		$check = version_compare($current, self::MIN_PHP_LIBXML_VERSION, '>=');
 
-		return array(
+		$result = array(
 			'name' => _('PHP libxml'),
 			'current' => $current,
 			'required' => self::MIN_PHP_LIBXML_VERSION,
-			'result' => $check ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('PHP libxml extension missing.')
+			'result' => version_compare($current, self::MIN_PHP_LIBXML_VERSION, '>='),
+			'error' => _('PHP libxml extension missing')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -449,13 +495,15 @@ class FrontendSetup {
 	public function checkPhpXmlWriter() {
 		$current = extension_loaded('xmlwriter');
 
-		return array(
+		$result = array(
 			'name' => _('PHP xmlwriter'),
-			'current' => $current ? _('on') : _('off'),
+			'current' => $current ? _('yes') : _('no'),
 			'required' => null,
-			'result' => $current ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('PHP xmlwriter extension missing.')
+			'result' => $current,
+			'error' => _('PHP xmlwriter extension missing')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -466,13 +514,15 @@ class FrontendSetup {
 	public function checkPhpXmlReader() {
 		$current = extension_loaded('xmlreader');
 
-		return array(
+		$result = array(
 			'name' => _('PHP xmlreader'),
-			'current' => $current ? _('on') : _('off'),
+			'current' => $current ? _('yes') : _('no'),
 			'required' => null,
-			'result' => $current ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('PHP xmlreader extension missing.')
+			'result' => $current,
+			'error' => _('PHP xmlreader extension missing')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -493,13 +543,15 @@ class FrontendSetup {
 				function_exists('ctype_xdigit') &&
 				function_exists('ctype_upper');
 
-		return array(
+		$result = array(
 			'name' => _('PHP ctype'),
-			'current' => $current ? _('on') : _('off'),
+			'current' => $current ? _('yes') : _('no'),
 			'required' => null,
-			'result' => $current ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('PHP ctype extension missing (PHP configuration parameter --enable-ctype).')
+			'result' => $current,
+			'error' => _('PHP ctype extension missing (PHP configuration parameter --enable-ctype)')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -508,15 +560,17 @@ class FrontendSetup {
 	 * @return array
 	 */
 	public function checkPhpSession() {
-		$current = (function_exists('session_start') && function_exists('session_write_close'));
+		$current = function_exists('session_start') && function_exists('session_write_close');
 
-		return array(
+		$result = array(
 			'name' => _('PHP session'),
-			'current' => $current ? _('on') : _('off'),
+			'current' => $current ? _('yes') : _('no'),
 			'required' => null,
-			'result' => $current ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('PHP session extension missing (PHP configuration parameter --enable-session).')
+			'result' => $current,
+			'error' => _('PHP session extension missing (PHP configuration parameter --enable-session)')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -527,13 +581,15 @@ class FrontendSetup {
 	public function checkPhpSessionAutoStart() {
 		$current = !ini_get('session.auto_start');
 
-		return array(
+		$result = array(
 			'name' => _('PHP session auto start'),
-			'current' => $current ? _('off') : _('on'),
-			'required' => _('off'),
-			'result' => $current ? self::CHECK_OK : self::CHECK_FATAL,
-			'error' => _('PHP session auto start must be disabled (PHP directive "session.auto_start").')
+			'current' => $current ? _('no') : _('yes'),
+			'required' => null,
+			'result' => $current,
+			'error' => _('PHP session auto start must be disabled (PHP directive "session.auto_start")')
 		);
+
+		return $result;
 	}
 
 	/**
@@ -544,12 +600,14 @@ class FrontendSetup {
 	public function checkPhpGettext() {
 		$current = function_exists('bindtextdomain');
 
-		return array(
+		$result = array(
 			'name' => _('PHP gettext'),
-			'current' => $current ? _('on') : _('off'),
+			'current' => $current ? _('yes') : _('no'),
 			'required' => null,
-			'result' => $current ? self::CHECK_OK : self::CHECK_WARNING,
-			'error' => _('PHP gettext extension missing (PHP configuration parameter --with-gettext). Translations will not be available.')
+			'result' => $current,
+			'error' => _('PHP gettext extension missing (PHP configuration parameter --with-gettext)')
 		);
+
+		return $result;
 	}
 }

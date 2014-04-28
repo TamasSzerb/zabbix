@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $maintenanceWidget = new CWidget();
 
 // create new maintenance button
@@ -38,13 +38,11 @@ $maintenanceForm = new CForm();
 $maintenanceForm->setName('maintenanceForm');
 
 // create table
-$maintenanceTable = new CTableInfo(_('No maintenance periods found.'));
+$maintenanceTable = new CTableInfo(_('No maintenance defined.'));
 $maintenanceTable->setHeader(array(
 	new CCheckBox('all_maintenances', null, "checkAll('".$maintenanceForm->getName()."', 'all_maintenances', 'maintenanceids');"),
 	make_sorting_header(_('Name'), 'name'),
 	make_sorting_header(_('Type'), 'maintenance_type'),
-	make_sorting_header(_('Active since'), 'active_since'),
-	make_sorting_header(_('Active till'), 'active_till'),
 	_('State'),
 	_('Description')
 ));
@@ -66,10 +64,8 @@ foreach ($this->data['maintenances'] as $maintenance) {
 
 	$maintenanceTable->addRow(array(
 		new CCheckBox('maintenanceids['.$maintenanceid.']', null, null, $maintenanceid),
-		new CLink($maintenance['name'], 'maintenance.php?form=update&maintenanceid='.$maintenanceid),
+		new CLink($maintenance['name'], 'maintenance.php?form=update&maintenanceid='.$maintenanceid.'#form'),
 		$maintenance['maintenance_type'] ? _('No data collection') : _('With data collection'),
-		zbx_date2str(_('d M Y H:i'), $maintenance['active_since']),
-		zbx_date2str(_('d M Y H:i'), $maintenance['active_till']),
 		$maintenanceStatus,
 		$maintenance['description']
 	));
@@ -89,5 +85,5 @@ $maintenanceForm->addItem(array($this->data['paging'], $maintenanceTable, $this-
 
 // append form to widget
 $maintenanceWidget->addItem($maintenanceForm);
-
 return $maintenanceWidget;
+?>

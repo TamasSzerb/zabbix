@@ -38,14 +38,6 @@ static zbx_ibm_db2_handle_t	ibm_db2;
 static MYSQL			*conn = NULL;
 #elif defined(HAVE_ORACLE)
 static zbx_oracle_db_handle_t	oracle;
-
-/* 64-bit integer binding is supported only starting with Oracle 11.2 */
-/* so for compatibility reasons we must convert 64-bit values to      */
-/* Oracle numbers before binding.                                     */
-static OCINumber	*oci_ids = NULL;
-static int		oci_ids_alloc = 0;
-static int		oci_ids_num = 0;
-
 #elif defined(HAVE_POSTGRESQL)
 static PGconn			*conn = NULL;
 static int			ZBX_PG_BYTEAOID = 0;
@@ -503,7 +495,7 @@ out:
 #if defined(HAVE_SQLITE3)
 void	zbx_create_sqlite3_mutex(const char *dbname)
 {
-	if (PHP_MUTEX_OK != php_sem_get(&sqlite_access, dbname))
+	if (ZBX_MUTEX_ERROR == php_sem_get(&sqlite_access, dbname))
 	{
 		zbx_error("cannot create mutex for SQLite3");
 		exit(EXIT_FAILURE);
@@ -772,8 +764,6 @@ int	zbx_db_txn_error()
 #ifdef HAVE_ORACLE
 static sword	zbx_oracle_statement_prepare(const char *sql)
 {
-	oci_ids_num = 0;
-
 	return OCIStmtPrepare(oracle.stmthp, oracle.errhp, (text *)sql, (ub4)strlen((char *)sql), (ub4)OCI_NTV_SYNTAX,
 			(ub4)OCI_DEFAULT);
 }
@@ -781,10 +771,9 @@ static sword	zbx_oracle_statement_prepare(const char *sql)
 static sword	zbx_oracle_bind_parameter(ub4 position, void *buffer, sb4 buffer_sz, ub2 dty)
 {
 	OCIBind	*bindhp = NULL;
-	sb2	is_null = -1;
 
 	return OCIBindByPos(oracle.stmthp, &bindhp, oracle.errhp, position, buffer, buffer_sz, dty,
-			(dvoid *)(NULL == buffer ? &is_null : 0), 0, 0, 0, 0, (ub4)OCI_DEFAULT);
+			0, 0, 0, 0, 0, (ub4)OCI_DEFAULT);
 }
 
 static sword	zbx_oracle_statement_execute(ub4 *nrows)
@@ -845,36 +834,12 @@ int	zbx_db_bind_parameter(int position, void *buffer, unsigned char type)
 	switch (type)
 	{
 		case ZBX_TYPE_ID:
-			if (0 == *(zbx_uint64_t *)buffer)
-			{
-				err = zbx_oracle_bind_parameter((ub4)position, NULL, 0, SQLT_VNU);
-				break;
-			}
-			/* break; is not missing here */
-		case ZBX_TYPE_UINT:
-			if (oci_ids_num >= oci_ids_alloc)
-			{
-				oci_ids_alloc = (0 == oci_ids_alloc ? 8 : oci_ids_alloc * 1.5);
-				oci_ids = zbx_realloc(oci_ids, oci_ids_alloc * sizeof(OCINumber));
-			}
-
-			if (OCI_SUCCESS == (err = OCINumberFromInt(oracle.errhp, buffer, sizeof(zbx_uint64_t),
-					OCI_NUMBER_UNSIGNED, &oci_ids[oci_ids_num])))
-			{
-				err = zbx_oracle_bind_parameter((ub4)position, &oci_ids[oci_ids_num++],
-						(sb4)sizeof(OCINumber), SQLT_VNU);
-			}
+			err = zbx_oracle_bind_parameter((ub4)position, buffer, (sb4)sizeof(zbx_uint64_t), SQLT_INT);
 			break;
 		case ZBX_TYPE_INT:
 			err = zbx_oracle_bind_parameter((ub4)position, buffer, (sb4)sizeof(int), SQLT_INT);
 			break;
-		case ZBX_TYPE_FLOAT:
-			err = zbx_oracle_bind_parameter((ub4)position, buffer, (sb4)sizeof(double), SQLT_FLT);
-			break;
-		case ZBX_TYPE_CHAR:
 		case ZBX_TYPE_TEXT:
-		case ZBX_TYPE_SHORTTEXT:
-		case ZBX_TYPE_LONGTEXT:
 			err = zbx_oracle_bind_parameter((ub4)position, buffer, (sb4)strlen((char *)buffer), SQLT_LNG);
 			break;
 		default:
@@ -932,7 +897,7 @@ out:
  * Purpose: Execute SQL statement. For non-select statements only.            *
  *                                                                            *
  * Return value: ZBX_DB_FAIL (on error) or ZBX_DB_DOWN (on recoverable error) *
- *               or number of rows affected (on success)                      *
+ *               number of rows affected (on success)                         *
  *                                                                            *
  ******************************************************************************/
 int	zbx_db_vexecute(const char *fmt, va_list args)
@@ -1310,7 +1275,7 @@ error:
 		OCIParam	*parmdp = NULL;
 		OCIDefine	*defnp = NULL;
 		ub4		char_semantics;
-		ub2		col_width = 0, data_type = 0;
+		ub2		col_width = 0, data_type;
 
 		/* request a parameter descriptor in the select-list */
 		err = OCIParamGet((void *)result->stmthp, OCI_HTYPE_STMT, oracle.errhp, (void **)&parmdp, (ub4)counter);
@@ -2165,4 +2130,5 @@ char	*zbx_db_dyn_escape_like_pattern(const char *src)
 
 	return dst;
 }
+
 

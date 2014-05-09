@@ -73,7 +73,7 @@ AC_DEFUN([AX_LIB_MYSQL],
     MYSQL_VERSION=""
 
     dnl
-    dnl Check MySQL libraries
+    dnl Check MySQL libraries (libpq)
     dnl
 
     if test "$want_mysql" = "yes"; then
@@ -147,6 +147,7 @@ AC_DEFUN([AX_LIB_MYSQL],
     dnl
     dnl Check if required version of MySQL is available
     dnl
+
 
     mysql_version_req=ifelse([$1], [], [], [$1])
 

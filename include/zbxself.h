@@ -42,13 +42,13 @@
 #define ZBX_PROCESS_TYPE_DISCOVERER	11
 #define ZBX_PROCESS_TYPE_ALERTER	12
 #define ZBX_PROCESS_TYPE_TIMER		13
-#define ZBX_PROCESS_TYPE_HOUSEKEEPER	14
-#define ZBX_PROCESS_TYPE_WATCHDOG	15
-#define ZBX_PROCESS_TYPE_DATASENDER	16
-#define ZBX_PROCESS_TYPE_CONFSYNCER	17
-#define ZBX_PROCESS_TYPE_HEARTBEAT	18
-#define ZBX_PROCESS_TYPE_SELFMON	19
-#define ZBX_PROCESS_TYPE_VMWARE		20
+#define ZBX_PROCESS_TYPE_NODEWATCHER	14
+#define ZBX_PROCESS_TYPE_HOUSEKEEPER	15
+#define ZBX_PROCESS_TYPE_WATCHDOG	16
+#define ZBX_PROCESS_TYPE_DATASENDER	17
+#define ZBX_PROCESS_TYPE_CONFSYNCER	18
+#define ZBX_PROCESS_TYPE_HEARTBEAT	19
+#define ZBX_PROCESS_TYPE_SELFMON	20
 #define ZBX_PROCESS_TYPE_COUNT		21	/* number of process types */
 #define ZBX_PROCESS_TYPE_UNKNOWN	255
 
@@ -59,13 +59,13 @@
 
 int	get_process_type_forks(unsigned char process_type);
 const char	*get_process_type_string(unsigned char process_type);
-void	init_selfmon_collector(void);
-void	free_selfmon_collector(void);
+void	init_selfmon_collector();
+void	free_selfmon_collector();
 void	update_selfmon_counter(unsigned char state);
-void	collect_selfmon_stats(void);
+void	collect_selfmon_stats();
 void	get_selfmon_stats(unsigned char process_type, unsigned char aggr_func, int process_num,
 		unsigned char state, double *value);
 void	zbx_sleep_loop(int sleeptime);
-void	zbx_wakeup(void);
+void	zbx_wakeup();
 
 #endif	/* ZABBIX_ZBXSELF_H */

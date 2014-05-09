@@ -19,180 +19,359 @@
 
 #include "common.h"
 #include "sysinfo.h"
-#include "zbxregexp.h"
 
-static int	check_procstate(struct procentry64 *procentry, int zbx_proc_stat)
+#if !defined(HAVE_SYS_PROCFS_H)
+#	include "../common/common.h"
+#endif
+
+#define DO_SUM 0
+#define DO_MAX 1
+#define DO_MIN 2
+#define DO_AVG 3
+
+#ifdef HAVE_SYS_PROCFS_H
+static int	check_procstate(psinfo_t *psinfo, int zbx_proc_stat)
 {
-	if (ZBX_PROC_STAT_ALL == zbx_proc_stat)
+	if (zbx_proc_stat == ZBX_PROC_STAT_ALL)
 		return SUCCEED;
 
 	switch (zbx_proc_stat)
 	{
 		case ZBX_PROC_STAT_RUN:
-			return SRUN == procentry->pi_state ? SUCCEED : FAIL;
+			return (psinfo->pr_lwp.pr_sname == PR_SNAME_TSRUN) ? SUCCEED : FAIL;
 		case ZBX_PROC_STAT_SLEEP:
-			return SSLEEP == procentry->pi_state ? SUCCEED : FAIL;
+			return (psinfo->pr_lwp.pr_sname == PR_SNAME_TSSLEEP) ? SUCCEED : FAIL;
 		case ZBX_PROC_STAT_ZOMB:
-			return SZOMB == procentry->pi_state ? SUCCEED : FAIL;
+			return (psinfo->pr_lwp.pr_sname == PR_SNAME_TSZOMB) ? SUCCEED : FAIL;
 	}
 
 	return FAIL;
 }
-
-static int	check_procargs(struct procentry64 *procentry, const char *proccomm)
+#else
+static int	check_procstate(struct procsinfo *procsinfo, int zbx_proc_stat)
 {
-	int	i;
-	char	procargs[MAX_STRING_LEN];
+	if (zbx_proc_stat == ZBX_PROC_STAT_ALL)
+		return SUCCEED;
 
-	if (0 != getargs(procentry, (int)sizeof(*procentry), procargs, (int)sizeof(procargs)))
-		return FAIL;
-
-	for (i = 0; i < sizeof(procargs) - 1; i++)
+	switch (zbx_proc_stat)
 	{
-		if ('\0' == procargs[i])
-		{
-			if ('\0' == procargs[i + 1])
-				break;
-
-			procargs[i] = ' ';
-		}
+		case ZBX_PROC_STAT_RUN:
+			return (procsinfo->pi_state == SRUN) ? SUCCEED : FAIL;
+		case ZBX_PROC_STAT_SLEEP:
+			return (procsinfo->pi_state == SSLEEP) ? SUCCEED : FAIL;
+		case ZBX_PROC_STAT_ZOMB:
+			return (procsinfo->pi_state == SZOMB) ? SUCCEED : FAIL;
 	}
 
-	if (i == sizeof(procargs) - 1)
-		procargs[i] = '\0';
-
-	return NULL != zbx_regexp_match(procargs, proccomm, NULL) ? SUCCEED : FAIL;
+	return FAIL;
 }
+#endif /* HAVE_SYS_PROCFS_H */
 
-int	PROC_MEM(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	PROC_MEM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char			*param, *procname, *proccomm;
-	struct passwd		*usrinfo;
-	struct procentry64	procentry;
+	char			tmp[MAX_STRING_LEN],
+				procname[MAX_STRING_LEN],
+				proccomm[MAX_STRING_LEN];
+#ifdef HAVE_SYS_PROCFS_H
+	DIR			*dir;
+	struct dirent		*entries;
+	zbx_stat_t		buf;
+	struct psinfo		psinfo;
+	int			fd = -1;
+#else
+	struct procsinfo	procsinfo;
 	pid_t			pid = 0;
+	AGENT_RESULT		proc_args;
+#endif /* HAVE_SYS_PROCFS_H */
+	struct passwd		*usrinfo = NULL;
+	zbx_uint64_t		value = 0;
 	int			do_task;
-	zbx_uint64_t		memsize = 0, proccount = 0, value;
+	double			memsize = 0;
+	zbx_uint64_t		proccount = 0;
 
-	if (4 < request->nparam)
+	if (num_param(param) > 4)
 		return SYSINFO_RET_FAIL;
 
-	procname = get_rparam(request, 0);
-	param = get_rparam(request, 1);
+	if (0 != get_param(param, 1, procname, sizeof(procname)))
+		*procname = '\0';
 
-	if (NULL != param && '\0' != *param)
+	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
+		*tmp = '\0';
+
+	if (*tmp != '\0')
 	{
-		if (NULL == (usrinfo = getpwnam(param)))	/* incorrect user name */
+		usrinfo = getpwnam(tmp);
+		if (usrinfo == NULL)	/* incorrect user name */
 			return SYSINFO_RET_FAIL;
 	}
 	else
 		usrinfo = NULL;
 
-	param = get_rparam(request, 2);
+	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
+		*tmp = '\0';
 
-	if (NULL == param || '\0' == *param || 0 == strcmp(param, "sum"))
-		do_task = ZBX_DO_SUM;
-	else if (0 == strcmp(param, "avg"))
-		do_task = ZBX_DO_AVG;
-	else if (0 == strcmp(param, "max"))
-		do_task = ZBX_DO_MAX;
-	else if (0 == strcmp(param, "min"))
-		do_task = ZBX_DO_MIN;
+	if (*tmp != '\0')
+	{
+		if (0 == strcmp(tmp, "avg"))
+			do_task = DO_AVG;
+		else if (0 == strcmp(tmp, "max"))
+			do_task = DO_MAX;
+		else if (0 == strcmp(tmp, "min"))
+			do_task = DO_MIN;
+		else if (0 == strcmp(tmp, "sum"))
+			do_task = DO_SUM;
+		else
+			return SYSINFO_RET_FAIL;
+	}
 	else
+		do_task = DO_SUM;
+
+	if (0 != get_param(param, 4, proccomm, sizeof(proccomm)))
+		*proccomm = '\0';
+
+#ifdef HAVE_SYS_PROCFS_H /* AIX 5.x */
+	if (NULL == (dir = opendir("/proc")))
 		return SYSINFO_RET_FAIL;
 
-	proccomm = get_rparam(request, 3);
-
-	while (0 < getprocs64(&procentry, (int)sizeof(struct procentry64), NULL, 0, &pid, 1))
+	while (NULL != (entries = readdir(dir)))
 	{
-		if (NULL != procname && '\0' != *procname && 0 != strcmp(procname, procentry.pi_comm))
+		if (-1 != fd)
+		{
+			close(fd);
+			fd = -1;
+		}
+
+		zbx_snprintf(tmp, sizeof(tmp), "/proc/%s/psinfo", entries->d_name);
+
+		if (0 != zbx_stat(tmp, &buf))
 			continue;
 
-		if (NULL != usrinfo && usrinfo->pw_uid != procentry.pi_uid)
+		if (-1 == (fd = open(tmp, O_RDONLY)))
 			continue;
 
-		if (NULL != proccomm && '\0' != *proccomm && SUCCEED != check_procargs(&procentry, proccomm))
+		if (-1 == read(fd, &psinfo, sizeof(psinfo)))
 			continue;
 
-		value = procentry.pi_size;
+		if ('\0' != *procname && 0 != strcmp(procname, psinfo.pr_fname))
+			continue;
+
+		if (NULL != usrinfo && usrinfo->pw_uid != psinfo.pr_uid)
+			continue;
+
+		if ('\0' != *proccomm && NULL == zbx_regexp_match(psinfo.pr_psargs, proccomm, NULL))
+			continue;
+
+		value = psinfo.pr_size;
+		value <<= 10;	/* kB to Byte */
+
+		if (0 == proccount++)
+			memsize = value;
+		else
+		{
+			if (do_task == DO_MAX)
+				memsize = MAX(memsize, value);
+			else if (do_task == DO_MIN)
+				memsize = MIN(memsize, value);
+			else
+				memsize += value;
+		}
+	}
+
+	closedir(dir);
+	if (-1 != fd)
+		close(fd);
+#else
+	while (0 < getprocs(&procsinfo, (int)sizeof(struct procsinfo), NULL, 0, &pid, 1))
+	{
+		if ('\0' != *procname && 0 != strcmp(procname, procsinfo.pi_comm))
+			continue;
+
+		if (NULL != usrinfo && usrinfo->pw_uid != procsinfo.pi_uid)
+			continue;
+
+		if ('\0' != *proccomm)
+		{
+			init_result(&proc_args);
+
+			zbx_snprintf(tmp, sizeof(tmp), "ps -p %i -oargs=", procsinfo.pi_pid);
+
+			if (SYSINFO_RET_OK != EXECUTE_STR(cmd, tmp, flags, &proc_args))
+			{
+				free_result(&proc_args);
+				continue;
+			}
+			if (NULL == zbx_regexp_match(proc_args.str, proccomm, NULL))
+			{
+				free_result(&proc_args);
+				continue;
+			}
+
+			free_result(&proc_args);
+		}
+
+		value = procsinfo.pi_size;
 		value <<= 12;	/* number of pages to bytes */
 
 		if (0 == proccount++)
-		{
 			memsize = value;
-		}
 		else
 		{
-			if (ZBX_DO_MAX == do_task)
+			if(do_task == DO_MAX)
 				memsize = MAX(memsize, value);
-			else if (ZBX_DO_MIN == do_task)
+			else if(do_task == DO_MIN)
 				memsize = MIN(memsize, value);
 			else
 				memsize += value;
 		}
         }
+#endif /* HAVE_SYS_PROCFS_H */
 
-	if (ZBX_DO_AVG == do_task)
-		SET_DBL_RESULT(result, 0 == proccount ? 0 : memsize / (double)proccount);
+	if (do_task == DO_AVG)
+	{
+		SET_DBL_RESULT(result, proccount == 0 ? 0 : memsize/proccount);
+	}
 	else
 		SET_UI64_RESULT(result, memsize);
 
 	return SYSINFO_RET_OK;
 }
 
-int	PROC_NUM(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	PROC_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char			*param, *procname, *proccomm;
-	struct passwd		*usrinfo;
-	struct procentry64	procentry;
+	char			tmp[MAX_STRING_LEN],
+				procname[MAX_STRING_LEN],
+				proccomm[MAX_STRING_LEN];
+#ifdef HAVE_SYS_PROCFS_H
+	DIR			*dir;
+	struct dirent		*entries;
+	zbx_stat_t		buf;
+	struct psinfo		psinfo;
+	int			fd = -1;
+#else
+	struct procsinfo	procsinfo;
 	pid_t			pid = 0;
+	AGENT_RESULT		proc_args;
+#endif /* HAVE_SYS_PROCFS_H */
+	struct passwd		*usrinfo = NULL;
 	int			zbx_proc_stat;
 	zbx_uint64_t		proccount = 0;
 
-	if (4 < request->nparam)
+	if (num_param(param) > 4)
 		return SYSINFO_RET_FAIL;
 
-	procname = get_rparam(request, 0);
-	param = get_rparam(request, 1);
+	if (0 != get_param(param, 1, procname, sizeof(procname)))
+		*procname = '\0';
 
-	if (NULL != param && '\0' != *param)
+	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
+		*tmp = '\0';
+
+	if (*tmp != '\0')
 	{
-		if (NULL == (usrinfo = getpwnam(param)))	/* incorrect user name */
+		usrinfo = getpwnam(tmp);
+		if (usrinfo == NULL)	/* incorrect user name */
 			return SYSINFO_RET_FAIL;
 	}
 	else
 		usrinfo = NULL;
 
-	param = get_rparam(request, 2);
+	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
+		*tmp = '\0';
 
-	if (NULL == param || '\0' == *param || 0 == strcmp(param, "all"))
-		zbx_proc_stat = ZBX_PROC_STAT_ALL;
-	else if (0 == strcmp(param, "run"))
-		zbx_proc_stat = ZBX_PROC_STAT_RUN;
-	else if (0 == strcmp(param, "sleep"))
-		zbx_proc_stat = ZBX_PROC_STAT_SLEEP;
-	else if (0 == strcmp(param, "zomb"))
-		zbx_proc_stat = ZBX_PROC_STAT_ZOMB;
+	if (*tmp != '\0')
+	{
+		if (0 == strcmp(tmp, "run"))
+			zbx_proc_stat = ZBX_PROC_STAT_RUN;
+		else if (0 == strcmp(tmp, "sleep"))
+			zbx_proc_stat = ZBX_PROC_STAT_SLEEP;
+		else if (0 == strcmp(tmp, "zomb"))
+			zbx_proc_stat = ZBX_PROC_STAT_ZOMB;
+		else if (0 == strcmp(tmp, "all"))
+			zbx_proc_stat = ZBX_PROC_STAT_ALL;
+		else
+			return SYSINFO_RET_FAIL;
+	}
 	else
+		zbx_proc_stat = ZBX_PROC_STAT_ALL;
+
+	if (0 != get_param(param, 4, proccomm, sizeof(proccomm)))
+		*proccomm = '\0';
+
+#ifdef HAVE_SYS_PROCFS_H /* AIX 5.x */
+	if (NULL == (dir = opendir("/proc")))
 		return SYSINFO_RET_FAIL;
 
-	proccomm = get_rparam(request, 3);
-
-	while (0 < getprocs64(&procentry, (int)sizeof(struct procentry64), NULL, 0, &pid, 1))
+	while (NULL != (entries = readdir(dir)))
 	{
-		if (NULL != procname && '\0' != *procname && 0 != strcmp(procname, procentry.pi_comm))
+		if (-1 != fd)
+		{
+			close(fd);
+			fd = -1;
+		}
+
+		zbx_snprintf(tmp, sizeof(tmp), "/proc/%s/psinfo", entries->d_name);
+
+		if (0 != zbx_stat(tmp, &buf))
 			continue;
 
-		if (NULL != usrinfo && usrinfo->pw_uid != procentry.pi_uid)
+		if (-1 == (fd = open(tmp, O_RDONLY)))
 			continue;
 
-		if (SUCCEED != check_procstate(&procentry, zbx_proc_stat))
+		if (-1 == read(fd, &psinfo, sizeof(psinfo)))
 			continue;
 
-		if (NULL != proccomm && '\0' != *proccomm && SUCCEED != check_procargs(&procentry, proccomm))
+		if ('\0' != *procname && 0 != strcmp(procname, psinfo.pr_fname))
+			continue;
+
+		if (NULL != usrinfo && usrinfo->pw_uid != psinfo.pr_uid)
+			continue;
+
+		if (FAIL == check_procstate(&psinfo, zbx_proc_stat))
+			continue;
+
+		if ('\0' != *proccomm && NULL == zbx_regexp_match(psinfo.pr_psargs, proccomm, NULL))
 			continue;
 
 		proccount++;
+	}
+
+	closedir(dir);
+	if (-1 != fd)
+		close(fd);
+#else
+	while (0 < getprocs(&procsinfo, (int)sizeof(struct procsinfo), NULL, 0, &pid, 1))
+	{
+		if ('\0' != *procname && 0 != strcmp(procname, procsinfo.pi_comm))
+			continue;
+
+		if (NULL != usrinfo && usrinfo->pw_uid != procsinfo.pi_uid)
+			continue;
+
+		if (FAIL == check_procstate(&procsinfo, zbx_proc_stat))
+			continue;
+
+		if ('\0' != *proccomm)
+		{
+			init_result(&proc_args);
+
+			zbx_snprintf(tmp, sizeof(tmp), "ps -p %i -oargs=", procsinfo.pi_pid);
+
+			if (SYSINFO_RET_OK != EXECUTE_STR(cmd, tmp, flags, &proc_args))
+			{
+				free_result(&proc_args);
+				continue;
+			}
+			if (NULL == zbx_regexp_match(proc_args.str, proccomm, NULL))
+			{
+				free_result(&proc_args);
+				continue;
+			}
+
+			free_result(&proc_args);
+		}
+
+		proccount++;
         }
+#endif /* HAVE_SYS_PROCFS_H */
 
 	SET_UI64_RESULT(result, proccount);
 

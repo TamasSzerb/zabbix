@@ -90,7 +90,7 @@ class CJSON {
 	 *
 	 * Constructor.
 	 *
-	 * If the $config param is an array, it is merged with the class
+	 * ifthe $config param is an array, it is merged with the class
 	 * config array and any values from the Solar.config.php file.
 	 *
 	 * The Solar.config.php values are inherited along class parent
@@ -134,7 +134,7 @@ class CJSON {
 	 *
 	 */
 	public function encode($valueToEncode, $deQuote = array(), $forceObject = false) {
-		ini_set('mbstring.internal_encoding', 'ASCII');
+		mb_internal_encoding('ASCII');
 		if (!$this->_config['bypass_ext'] && function_exists('json_encode') && defined('JSON_FORCE_OBJECT')) {
 
 			if ($this->_config['noerror']) {
@@ -158,7 +158,7 @@ class CJSON {
 		if (!empty($deQuote)) {
 			$encoded = $this->_deQuote($encoded, $deQuote);
 		}
-		ini_set('mbstring.internal_encoding', 'UTF-8');
+		mb_internal_encoding('UTF-8');
 
 		return $encoded;
 	}
@@ -245,11 +245,11 @@ class CJSON {
 		$result = null;
 
 		// required for internal parser, it operates with ASCII data
-		ini_set('mbstring.internal_encoding', 'ASCII');
+		mb_internal_encoding('ASCII');
 		if ($this->isValid($encodedValue)) {
 			$result = $this->_json_decode($encodedValue, (bool) $asArray);
 		}
-		ini_set('mbstring.internal_encoding', 'UTF-8');
+		mb_internal_encoding('UTF-8');
 
 		return $result;
 	}
@@ -285,7 +285,7 @@ class CJSON {
 			case 'string':
 				// STRINGS ARE EXPECTED TO BE IN ASCII OR UTF-8 FORMAT
 				$ascii = '';
-				$strlen_var = strlen($var);
+				$strlen_var = zbx_strlen($var);
 
 				/*
 				 * Iterate over every character in the string,
@@ -373,8 +373,8 @@ class CJSON {
 				return '"'.$ascii.'"';
 			case 'array':
 				/*
-				 * As per JSON spec if any array key is not an integer
-				 * we must treat the whole array as an object. We
+				 * As per JSON spec ifany array key is not an integer
+				 * we must treat the the whole array as an object. We
 				 * also try to catch a sparsely populated associative
 				 * array with numeric keys here because some JS engines
 				 * will create an array with empty indexes up to
@@ -437,8 +437,7 @@ class CJSON {
 	 */
 	protected function _json_decode($str, $asArray = false) {
 		$str = $this->_reduce_string($str);
-
-		switch (strtolower($str)) {
+		switch (zbx_strtolower($str)) {
 			case 'true':
 				// JSON_checker test suite claims
 				// "A JSON payload should be an object or array, not a string."
@@ -483,7 +482,7 @@ class CJSON {
 					$delim = substr($str, 0, 1);
 					$chrs = substr($str, 1, -1);
 					$utf8 = '';
-					$strlen_chrs = strlen($chrs);
+					$strlen_chrs = zbx_strlen($chrs);
 					for ($c = 0; $c < $strlen_chrs; ++$c) {
 						$substr_chrs_c_2 = substr($chrs, $c, 2);
 						$ord_chrs_c = ord($chrs{$c});
@@ -598,7 +597,7 @@ class CJSON {
 						}
 					}
 
-					$strlen_chrs = strlen($chrs);
+					$strlen_chrs = zbx_strlen($chrs);
 					for ($c = 0; $c <= $strlen_chrs; ++$c) {
 						$top = end($stk);
 						$substr_chrs_c_2 = substr($chrs, $c, 2);
@@ -666,8 +665,8 @@ class CJSON {
 							// found a quote, and we are not inside a string
 							array_push($stk, array('what' => self::IN_STR, 'where' => $c, 'delim' => $chrs{$c}));
 						}
-						elseif (((strlen(substr($chrs, 0, $c)) - strlen(rtrim(substr($chrs, 0, $c), '\\'))) % 2 != 1)
-								&& $chrs{$c} == $top['delim'] && $top['what'] == self::IN_STR) {
+						elseif ($chrs{$c} == $top['delim'] && $top['what'] == self::IN_STR
+								&& ((zbx_strlen(substr($chrs, 0, $c)) - zbx_strlen(rtrim(substr($chrs, 0, $c), '\\'))) % 2 != 1)) {
 							// found a quote, we're in a string, and it's not escaped
 							// we know that it's not escaped becase there is _not_ an
 							// odd number of backslashes at the end of the string so far
@@ -783,7 +782,7 @@ class CJSON {
 			return mb_convert_encoding($utf8, 'UTF-16', 'UTF-8');
 		}
 
-		switch (strlen($utf8)) {
+		switch (zbx_strlen($utf8)) {
 			case 1:
 				// this case should never be reached, because we are in ASCII range
 				// see: http://www.cl.cam.ac.uk/~mgk25/unicode.html#utf-8
@@ -917,7 +916,7 @@ class CJSON {
 	 * @return bool
 	 */
 	public function isValid($str) {
-		$len = strlen($str);
+		$len = zbx_strlen($str);
 		$_the_state = 0;
 		$this->_the_top = -1;
 		$this->_push(self::MODE_DONE);

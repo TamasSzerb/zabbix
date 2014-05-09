@@ -20,11 +20,13 @@
 
 
 /**
- * Class containing methods for operations with template screen items.
- *
+ * File containing CScreenItem class for API.
  * @package API
  */
-class CTemplateScreenItem extends CApiService {
+/**
+ * Class containing methods for operations with ScreenItems
+ */
+class CTemplateScreenItem extends CZBXAPI {
 
 	protected $tableName = 'screens_items';
 	protected $tableAlias = 'si';
@@ -75,16 +77,17 @@ class CTemplateScreenItem extends CApiService {
 	}
 
 	/**
-	 * Get screem item data.
+	 * Get ScreemItem data
 	 *
 	 * @param array $options
+	 * @param array $options['nodeids']			Node IDs
 	 * @param array $options['hostid']			Use hostid to get real resource id
 	 * @param array $options['screenitemids']	Search by screen item IDs
 	 * @param array $options['screenids']		Search by screen IDs
 	 * @param array $options['filter']			Result filter
 	 * @param array $options['limit']			The size of the result set
 	 *
-	 * @return array
+	 * @return array|boolean Host data as array or false if error
 	 */
 	public function get(array $options = array()) {
 		$options = zbx_array_merge($this->getOptions, $options);
@@ -103,43 +106,49 @@ class CTemplateScreenItem extends CApiService {
 			// normal select query
 			else {
 				if ($options['preservekeys'] !== null) {
-					$result[$row['screenitemid']] = $row;
+					$result[$row['screenitemid']] = $this->unsetExtraFields($this->tableName(), $row, $options['output']);
 				}
 				else {
-					$result[] = $row;
+					$result[] = $this->unsetExtraFields($this->tableName(), $row, $options['output']);
 				}
 			}
 		}
 
 		// fill result with real resourceid
-		if ($options['hostids'] && $result) {
+		if (!is_null($options['hostids']) && !empty($result)) {
 			if (empty($options['screenitemid'])) {
 				$options['screenitemid'] = zbx_objectValues($result, 'screenitemid');
 			}
 
-			$dbTemplateScreens = API::TemplateScreen()->get(array(
-				'output' => array('screenitemid'),
+			$templateScreens = API::TemplateScreen()->get(array(
 				'screenitemids' => $options['screenitemid'],
 				'hostids' => $options['hostids'],
 				'selectScreenItems' => API_OUTPUT_EXTEND
 			));
-
-			if ($dbTemplateScreens) {
-				foreach ($result as &$screenItem) {
-					foreach ($dbTemplateScreens as $dbTemplateScreen) {
-						foreach ($dbTemplateScreen['screenitems'] as $dbScreenItem) {
-							if ($screenItem['screenitemid'] == $dbScreenItem['screenitemid']
-									&& isset($dbScreenItem['real_resourceid']) && $dbScreenItem['real_resourceid']) {
-								$screenItem['real_resourceid'] = $dbScreenItem['real_resourceid'];
+			if (!empty($templateScreens)) {
+				foreach ($result as &$resultScreenitem) {
+					foreach ($templateScreens as $templateScreen) {
+						foreach ($templateScreen['screenitems'] as $screenitem) {
+							if ($resultScreenitem['screenitemid'] == $screenitem['screenitemid'] && !empty($screenitem['real_resourceid'])) {
+								$resultScreenitem['real_resourceid'] = $screenitem['real_resourceid'];
 							}
 						}
 					}
 				}
-				unset($screenItem);
+				unset($resultScreenitem);
 			}
 		}
 
 		return $result;
+	}
+
+	protected function applyQueryNodeOptions($tableName, $tableAlias, array $options, array $sqlParts) {
+		// only apply the node option if no specific screen ids are given
+		if ($options['screenids'] === null) {
+			$sqlParts = parent::applyQueryNodeOptions($tableName, $tableAlias, $options, $sqlParts);
+		}
+
+		return $sqlParts;
 	}
 
 	protected function applyQueryFilterOptions($tableName, $tableAlias, array $options, array $sqlParts) {

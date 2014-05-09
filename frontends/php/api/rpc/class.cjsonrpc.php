@@ -20,55 +20,55 @@
 
 
 class CJSONrpc {
-
 	const VERSION = '2.0';
 
 	public $json;
 
-	/**
-	 * API client to use for making requests.
-	 *
-	 * @var CApiClient
-	 */
-	protected $apiClient;
-
+	private $_multicall;
 	private $_error;
 	private $_response;
 	private $_error_list;
 	private $_zbx2jsonErrors;
 	private $_jsonDecoded;
 
-	public function __construct(CApiClient $apiClient, $jsonData) {
-		$this->apiClient = $apiClient;
-
+	public function __construct($jsonData) {
 		$this->json = new CJSON();
 		$this->initErrors();
 
+		$this->_multicall = false;
 		$this->_error = false;
 		$this->_response = array();
-		$this->_jsonDecoded = $this->json->decode($jsonData, true);
 
+		$this->_jsonDecoded = $this->json->decode($jsonData, true);
 		if (!$this->_jsonDecoded) {
 			$this->jsonError(null, '-32700', null, null, true);
 			return;
 		}
+
+		if (!isset($this->_jsonDecoded['jsonrpc'])) {
+			$this->multicall = true;
+		}
+		else {
+			$this->_jsonDecoded = array($this->_jsonDecoded);
+		}
+
 	}
 
 	public function execute($encoded = true) {
-		$call = $this->_jsonDecoded;
+		foreach ($this->_jsonDecoded as $call) {
+			// Notification
+			if (!isset($call['id'])) {
+				$call['id'] = null;
+			}
 
-		// notification
-		if (!isset($call['id'])) {
-			$call['id'] = null;
-		}
+			if (!$this->validate($call)) {
+				continue;
+			}
 
-		if ($this->validate($call)) {
 			$params = isset($call['params']) ? $call['params'] : null;
 			$auth = isset($call['auth']) ? $call['auth'] : null;
 
-			list($api, $method) = explode('.', $call['method']);
-			$result = $this->apiClient->callMethod($api, $method, $params, $auth);
-
+			$result = czbxrpc::call($call['method'], $params, $auth);
 			$this->processResult($call, $result);
 		}
 
@@ -104,13 +104,8 @@ class CJSONrpc {
 		return true;
 	}
 
-	public function processResult($call, CApiClientResponse $response) {
-		if ($response->errorCode) {
-			$errno = $this->_zbx2jsonErrors[$response->errorCode];
-
-			$this->jsonError($call['id'], $errno, $response->errorMessage, $response->debug);
-		}
-		else {
+	public function processResult($call, $result) {
+		if (isset($result['result'])) {
 			// Notifications MUST NOT be answered
 			if ($call['id'] === null) {
 				return;
@@ -118,11 +113,23 @@ class CJSONrpc {
 
 			$formedResp = array(
 				'jsonrpc' => self::VERSION,
-				'result' => $response->data,
+				'result' => $result['result'],
 				'id' => $call['id']
 			);
 
-			$this->_response = $formedResp;
+			if ($this->multicall) {
+				$this->_response[] = $formedResp;
+			}
+			else {
+				$this->_response = $formedResp;
+			}
+		}
+		else {
+			$result['data'] = isset($result['data']) ? $result['data'] : null;
+			$result['debug'] = isset($result['debug']) ? $result['debug'] : null;
+			$errno = $this->_zbx2jsonErrors[$result['error']];
+
+			$this->jsonError($call['id'], $errno, $result['data'], $result['debug']);
 		}
 	}
 
@@ -159,7 +166,12 @@ class CJSONrpc {
 			'id' => $id
 		);
 
-		$this->_response = $formed_error;
+		if ($this->multicall) {
+			$this->_response[] = $formed_error;
+		}
+		else {
+			$this->_response = $formed_error;
+		}
 	}
 
 	private function initErrors() {
@@ -211,7 +223,7 @@ class CJSONrpc {
 			ZBX_API_ERROR_PARAMETERS => '-32602',
 			ZBX_API_ERROR_NO_AUTH => '-32602',
 			ZBX_API_ERROR_PERMISSIONS => '-32500',
-			ZBX_API_ERROR_INTERNAL => '-32500'
+			ZBX_API_ERROR_INTERNAL => '-32500',
 		);
 	}
 }

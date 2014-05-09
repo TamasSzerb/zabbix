@@ -169,7 +169,7 @@ static int	zbx_popen(pid_t *pid, const char *command)
 	{
 		zabbix_log(LOG_LEVEL_ERR, "%s(): failed to create a process group: %s",
 				__function_name, zbx_strerror(errno));
-		exit(EXIT_SUCCESS);
+		exit(0);
 	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "%s(): executing script", __function_name);
@@ -178,7 +178,7 @@ static int	zbx_popen(pid_t *pid, const char *command)
 
 	/* execl() returns only when an error occurs */
 	zabbix_log(LOG_LEVEL_WARNING, "execl() failed for [%s]: %s", command, zbx_strerror(errno));
-	exit(EXIT_SUCCESS);
+	exit(0);
 }
 
 /******************************************************************************
@@ -269,7 +269,7 @@ int	zbx_execute(const char *command, char **buffer, char *error, size_t max_erro
 	SECURITY_ATTRIBUTES			sa;
 	HANDLE					job = NULL, hWrite = NULL, hRead = NULL;
 	char					*cmd = NULL;
-	wchar_t					*wcmd = NULL;
+	LPTSTR					wcmd = NULL;
 	struct _timeb				start_time, current_time;
 #else
 	pid_t					pid;
@@ -466,7 +466,7 @@ int	zbx_execute_nowait(const char *command)
 	char			*full_command;
 	STARTUPINFO		si;
 	PROCESS_INFORMATION	pi;
-	wchar_t			*wcommand;
+	LPTSTR			wcommand;
 
 	full_command = zbx_dsprintf(NULL, "cmd /C \"%s\"", command);
 	wcommand = zbx_utf8_to_unicode(full_command);
@@ -551,6 +551,6 @@ int	zbx_execute_nowait(const char *command)
 	}
 
 	/* always exit, parent has already returned */
-	exit(EXIT_SUCCESS);
+	exit(0);
 #endif
 }

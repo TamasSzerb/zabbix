@@ -22,6 +22,25 @@
 #include "log.h"
 #include "events.h"
 
+/******************************************************************************
+ *                                                                            *
+ * Functions: discovery_add_event                                             *
+ *                                                                            *
+ * Purpose: generate UP/DOWN event if required                                *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ ******************************************************************************/
+static void	discovery_add_event(int object, zbx_uint64_t objectid, int now, int value)
+{
+	zbx_timespec_t	ts;
+
+	ts.sec = now;
+	ts.ns = 0;
+
+	process_event(0, EVENT_SOURCE_DISCOVERY, object, objectid, &ts, value, TRIGGER_VALUE_CHANGED_NO, 0, 1);
+}
+
 static DB_RESULT	discovery_get_dhost_by_value(zbx_uint64_t dcheckid, const char *value)
 {
 	DB_RESULT	result;
@@ -71,6 +90,8 @@ static DB_RESULT	discovery_get_dhost_by_ip(zbx_uint64_t druleid, const char *ip)
  * Purpose: separate multiple-IP hosts                                        *
  *                                                                            *
  * Parameters: host ip address                                                *
+ *                                                                            *
+ * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
 static void	discovery_separate_host(DB_DRULE *drule, DB_DHOST *dhost, const char *ip)
@@ -128,6 +149,8 @@ static void	discovery_separate_host(DB_DRULE *drule, DB_DHOST *dhost, const char
  * Purpose: register host if one does not exist                               *
  *                                                                            *
  * Parameters: host ip address                                                *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
 static void	discovery_register_host(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhost,
@@ -200,10 +223,12 @@ static void	discovery_register_host(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST
  *                                                                            *
  * Parameters: host ip address                                                *
  *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
  ******************************************************************************/
 static void	discovery_register_service(DB_DRULE *drule, DB_DCHECK *dcheck,
 		DB_DHOST *dhost, DB_DSERVICE *dservice, const char *ip, const char *dns,
-		int port, int status)
+		int port, int status, int now)
 {
 	const char	*__function_name = "discovery_register_service";
 
@@ -241,7 +266,6 @@ static void	discovery_register_service(DB_DRULE *drule, DB_DCHECK *dcheck,
 
 			dservice->dserviceid = DBget_maxid("dservices");
 			dservice->status = DOBJECT_STATUS_DOWN;
-			dservice->value = zbx_strdup(dservice->value, "");
 
 			dns_esc = DBdyn_escape_string_len(dns, INTERFACE_DNS_LEN);
 
@@ -262,7 +286,7 @@ static void	discovery_register_service(DB_DRULE *drule, DB_DCHECK *dcheck,
 		dservice->status = atoi(row[2]);
 		dservice->lastup = atoi(row[3]);
 		dservice->lastdown = atoi(row[4]);
-		dservice->value = zbx_strdup(dservice->value, row[5]);
+		strscpy(dservice->value, row[5]);
 
 		if (dhostid != dhost->dhostid)
 		{
@@ -302,16 +326,17 @@ static void	discovery_register_service(DB_DRULE *drule, DB_DCHECK *dcheck,
  *                                                                            *
  * Purpose: update discovered service details                                 *
  *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
  ******************************************************************************/
-static void	discovery_update_dservice(zbx_uint64_t dserviceid, int status, int lastup, int lastdown,
-		const char *value)
+static void	discovery_update_dservice(DB_DSERVICE *service)
 {
 	char	*value_esc;
 
-	value_esc = DBdyn_escape_string_len(value, DSERVICE_VALUE_LEN);
+	value_esc = DBdyn_escape_string_len(service->value, DSERVICE_VALUE_LEN);
 
 	DBexecute("update dservices set status=%d,lastup=%d,lastdown=%d,value='%s' where dserviceid=" ZBX_FS_UI64,
-			status, lastup, lastdown, value_esc, dserviceid);
+			service->status, service->lastup, service->lastdown, value_esc, service->dserviceid);
 
 	zbx_free(value_esc);
 }
@@ -321,15 +346,17 @@ static void	discovery_update_dservice(zbx_uint64_t dserviceid, int status, int l
  * Function: discovery_update_dservice_value                                  *
  *                                                                            *
  * Purpose: update discovered service details                                 *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-static void	discovery_update_dservice_value(zbx_uint64_t dserviceid, const char *value)
+static void	discovery_update_dservice_value(DB_DSERVICE *service)
 {
 	char	*value_esc;
 
-	value_esc = DBdyn_escape_string_len(value, DSERVICE_VALUE_LEN);
+	value_esc = DBdyn_escape_string_len(service->value, DSERVICE_VALUE_LEN);
 
-	DBexecute("update dservices set value='%s' where dserviceid=" ZBX_FS_UI64, value_esc, dserviceid);
+	DBexecute("update dservices set value='%s' where dserviceid=" ZBX_FS_UI64,
+			value_esc, service->dserviceid);
 
 	zbx_free(value_esc);
 }
@@ -340,46 +367,43 @@ static void	discovery_update_dservice_value(zbx_uint64_t dserviceid, const char 
  *                                                                            *
  * Purpose: process and update the new service status                         *
  *                                                                            *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
  ******************************************************************************/
-static void	discovery_update_service_status(const DB_DSERVICE *dservice, int status, const char *value, int now)
+static void	discovery_update_service_status(DB_DSERVICE *dservice, int status, const char *value, int now)
 {
-	const char	*__function_name = "discovery_update_service_status";
-
-	zbx_timespec_t	ts;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
-
-	ts.sec = now;
-	ts.ns = 0;
-
 	if (DOBJECT_STATUS_UP == status)
 	{
 		if (DOBJECT_STATUS_DOWN == dservice->status || 0 == dservice->lastup)
 		{
-			discovery_update_dservice(dservice->dserviceid, status, now, 0, value);
-			add_event(0, EVENT_SOURCE_DISCOVERY, EVENT_OBJECT_DSERVICE, dservice->dserviceid, &ts,
-					DOBJECT_STATUS_DISCOVER, NULL, NULL, 0, 0);
+			dservice->status = status;
+			dservice->lastdown = 0;
+			dservice->lastup = now;
+
+			zbx_strlcpy(dservice->value, value, sizeof(dservice->value));
+			discovery_update_dservice(dservice);
+			discovery_add_event(EVENT_OBJECT_DSERVICE, dservice->dserviceid, now, DOBJECT_STATUS_DISCOVER);
 		}
 		else if (0 != strcmp(dservice->value, value))
 		{
-			discovery_update_dservice_value(dservice->dserviceid, value);
+			zbx_strlcpy(dservice->value, value, sizeof(dservice->value));
+			discovery_update_dservice_value(dservice);
 		}
 	}
 	else	/* DOBJECT_STATUS_DOWN */
 	{
 		if (DOBJECT_STATUS_UP == dservice->status || 0 == dservice->lastdown)
 		{
-			discovery_update_dservice(dservice->dserviceid, status, 0, now, dservice->value);
-			add_event(0, EVENT_SOURCE_DISCOVERY, EVENT_OBJECT_DSERVICE, dservice->dserviceid, &ts,
-					DOBJECT_STATUS_LOST, NULL, NULL, 0, 0);
+			dservice->status = status;
+			dservice->lastdown = now;
+			dservice->lastup = 0;
+
+			discovery_update_dservice(dservice);
+			discovery_add_event(EVENT_OBJECT_DSERVICE, dservice->dserviceid, now, DOBJECT_STATUS_LOST);
 		}
 	}
-	add_event(0, EVENT_SOURCE_DISCOVERY, EVENT_OBJECT_DSERVICE, dservice->dserviceid, &ts, status,
-			NULL, NULL, 0, 0);
 
-	process_events();
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+	discovery_add_event(EVENT_OBJECT_DSERVICE, dservice->dserviceid, now, status);
 }
 
 /******************************************************************************
@@ -387,6 +411,8 @@ static void	discovery_update_service_status(const DB_DSERVICE *dservice, int sta
  * Function: discovery_update_dhost                                           *
  *                                                                            *
  * Purpose: update discovered host details                                    *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
 static void	discovery_update_dhost(DB_DHOST *dhost)
@@ -401,14 +427,11 @@ static void	discovery_update_dhost(DB_DHOST *dhost)
  *                                                                            *
  * Purpose: update new host status                                            *
  *                                                                            *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
  ******************************************************************************/
 static void	discovery_update_host_status(DB_DHOST *dhost, int status, int now)
 {
-	zbx_timespec_t	ts;
-
-	ts.sec = now;
-	ts.ns = 0;
-
 	/* update host status */
 	if (DOBJECT_STATUS_UP == status)
 	{
@@ -419,8 +442,7 @@ static void	discovery_update_host_status(DB_DHOST *dhost, int status, int now)
 			dhost->lastup = now;
 
 			discovery_update_dhost(dhost);
-			add_event(0, EVENT_SOURCE_DISCOVERY, EVENT_OBJECT_DHOST, dhost->dhostid, &ts,
-					DOBJECT_STATUS_DISCOVER, NULL, NULL, 0, 0);
+			discovery_add_event(EVENT_OBJECT_DHOST, dhost->dhostid, now, DOBJECT_STATUS_DISCOVER);
 		}
 	}
 	else	/* DOBJECT_STATUS_DOWN */
@@ -432,13 +454,10 @@ static void	discovery_update_host_status(DB_DHOST *dhost, int status, int now)
 			dhost->lastup = 0;
 
 			discovery_update_dhost(dhost);
-			add_event(0, EVENT_SOURCE_DISCOVERY, EVENT_OBJECT_DHOST, dhost->dhostid, &ts,
-					DOBJECT_STATUS_LOST, NULL, NULL, 0, 0);
+			discovery_add_event(EVENT_OBJECT_DHOST, dhost->dhostid, now, DOBJECT_STATUS_LOST);
 		}
 	}
-	add_event(0, EVENT_SOURCE_DISCOVERY, EVENT_OBJECT_DHOST, dhost->dhostid, &ts, status, NULL, NULL, 0, 0);
-
-	process_events();
+	discovery_add_event(EVENT_OBJECT_DHOST, dhost->dhostid, now, status);
 }
 
 /******************************************************************************
@@ -448,6 +467,8 @@ static void	discovery_update_host_status(DB_DHOST *dhost, int status, int now)
  * Purpose: process new host status                                           *
  *                                                                            *
  * Parameters: host - host info                                               *
+ *                                                                            *
+ * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
 void	discovery_update_host(DB_DHOST *dhost, const char *ip, int status, int now)
@@ -470,16 +491,18 @@ void	discovery_update_host(DB_DHOST *dhost, const char *ip, int status, int now)
  *                                                                            *
  * Parameters: service - service info                                         *
  *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
  ******************************************************************************/
-void	discovery_update_service(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhost, const char *ip, const char *dns,
-		int port, int status, const char *value, int now)
+void	discovery_update_service(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhost,
+		const char *ip, const char *dns, int port, int status, const char *value, int now)
 {
 	const char	*__function_name = "discovery_update_service";
 
 	DB_DSERVICE	dservice;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() ip:'%s' dns:'%s' port:%d status:%d value:'%s'",
-			__function_name, ip, dns, port, status, value);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() ip:'%s' port:%d status:%d",
+			__function_name, ip, port, status);
 
 	memset(&dservice, 0, sizeof(dservice));
 
@@ -489,13 +512,11 @@ void	discovery_update_service(DB_DRULE *drule, DB_DCHECK *dcheck, DB_DHOST *dhos
 
 	/* register service if is not registered yet */
 	if (0 != dhost->dhostid)
-		discovery_register_service(drule, dcheck, dhost, &dservice, ip, dns, port, status);
+		discovery_register_service(drule, dcheck, dhost, &dservice, ip, dns, port, status, now);
 
 	/* service was not registered because we do not add down service */
 	if (0 != dservice.dserviceid)
 		discovery_update_service_status(&dservice, status, value, now);
-
-	zbx_free(dservice.value);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }

@@ -69,14 +69,14 @@ class CTable extends CTag {
 		if (is_null($item)) {
 			return null;
 		}
-		if (is_object($item) && strtolower(get_class($item)) === 'ccol') {
+		if (is_object($item) && zbx_strtolower(get_class($item)) == 'ccol') {
 			if (isset($this->header) && !isset($item->attributes['colspan'])) {
 				$item->attributes['colspan'] = $this->colnum;
 			}
 			$item = new CRow($item, $class, $id);
 		}
 
-		if (is_object($item) && strtolower(get_class($item)) === 'crow') {
+		if (is_object($item) && zbx_strtolower(get_class($item)) == 'crow') {
 			$item->attr('class', $class);
 		}
 		else {
@@ -92,10 +92,13 @@ class CTable extends CTag {
 	}
 
 	public function setHeader($value = null, $class = 'header') {
+		if (isset($_REQUEST['print'])) {
+			hide_form_items($value);
+		}
 		if (is_null($class)) {
 			$class = $this->headerClass;
 		}
-		if (is_object($value) && strtolower(get_class($value)) === 'crow') {
+		if (is_object($value) && zbx_strtolower(get_class($value)) == 'crow') {
 			if (!is_null($class)) {
 				$value->setAttribute('class', $class);
 			}
@@ -108,6 +111,9 @@ class CTable extends CTag {
 	}
 
 	public function setFooter($value = null, $class = 'footer') {
+		if (isset($_REQUEST['print'])) {
+			hide_form_items($value);
+		}
 		if (is_null($class)) {
 			$class = $this->footerClass;
 		}

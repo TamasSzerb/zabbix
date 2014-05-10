@@ -39,17 +39,16 @@ check_fields($fields);
  * Actions
  */
 if (isset($_REQUEST['save'])) {
-	$workPeriod = getRequest('work_period');
-
 	DBstart();
 
-	$result = update_config(array('work_period' => $workPeriod));
+	$result = update_config(array('work_period' => get_request('work_period')));
+
+	show_messages($result, _('Configuration updated'), _('Cannot update configuration'));
 	if ($result) {
-		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, _s('Working time "%1$s".', $workPeriod));
+		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, _s('Working time "%1$s".', get_request('work_period')));
 	}
 
-	$result = DBend($result);
-	show_messages($result, _('Configuration updated'), _('Cannot update configuration'));
+	DBend($result);
 }
 
 /*
@@ -60,7 +59,7 @@ $form->cleanItems();
 $cmbConf = new CComboBox('configDropDown', 'adm.workingtime.php', 'redirect(this.options[this.selectedIndex].value);');
 $cmbConf->addItems(array(
 	'adm.gui.php' => _('GUI'),
-	'adm.housekeeper.php' => _('Housekeeping'),
+	'adm.housekeeper.php' => _('Housekeeper'),
 	'adm.images.php' => _('Images'),
 	'adm.iconmapping.php' => _('Icon mapping'),
 	'adm.regexps.php' => _('Regular expressions'),

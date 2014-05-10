@@ -22,8 +22,13 @@
 $proxyWidget = new CWidget();
 
 // create new proxy button
+$configComboBox = new CComboBox('config', 'proxies.php', 'javascript: redirect(this.options[this.selectedIndex].value);');
+$configComboBox->addItem('nodes.php', _('Nodes'));
+$configComboBox->addItem('proxies.php', _('Proxies'));
+
 $createForm = new CForm('get');
 $createForm->cleanItems();
+$createForm->addItem($configComboBox);
 $createForm->addItem(new CSubmit('form', _('Create proxy')));
 $proxyWidget->addPageHeader(_('CONFIGURATION OF PROXIES'), $createForm);
 $proxyWidget->addHeader(_('Proxies'));
@@ -34,7 +39,7 @@ $proxyForm = new CForm('get');
 $proxyForm->setName('proxyForm');
 
 // create table
-$proxyTable = new CTableInfo(_('No proxies found.'));
+$proxyTable = new CTableInfo(_('No proxies defined.'));
 $proxyTable->setHeader(array(
 	new CCheckBox('all_hosts', null, "checkAll('".$proxyForm->getName()."', 'all_hosts', 'hosts');"),
 	make_sorting_header(_('Name'), 'host'),
@@ -50,17 +55,7 @@ foreach ($this->data['proxies'] as $proxy) {
 	$hosts = array();
 
 	if (!empty($proxy['hosts'])) {
-		$i = 1;
-
 		foreach ($proxy['hosts'] as $host) {
-			if ($i > $this->data['config']['max_in_table']) {
-				$hosts[] = ' &hellip;';
-
-				break;
-			}
-
-			$i++;
-
 			if ($host['status'] == HOST_STATUS_MONITORED) {
 				$style = 'off';
 			}
@@ -71,12 +66,11 @@ foreach ($this->data['proxies'] as $proxy) {
 				$style = 'on';
 			}
 
-			if ($hosts) {
-				$hosts[] = ', ';
-			}
-
 			$hosts[] = new CLink($host['name'], 'hosts.php?form=update&hostid='.$host['hostid'], $style);
+			$hosts[] = ', ';
 		}
+
+		array_pop($hosts);
 	}
 
 	$lastAccess = '-';

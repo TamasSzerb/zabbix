@@ -17,17 +17,18 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 /**
- * Class containing methods for operations with API.
- *
+ * File containing CAPIInfo class for API.
  * @package API
  */
-class CAPIInfo extends CApiService {
-
+/**
+ * Class containing methods for operations with APIInfo
+ */
+class CAPIInfo extends CZBXAPI {
 	/**
-	 * Get API version.
+	 * Get API version
 	 *
 	 * @return string
 	 */
@@ -35,3 +36,4 @@ class CAPIInfo extends CApiService {
 		return ZABBIX_API_VERSION;
 	}
 }
+?>

@@ -23,7 +23,6 @@
  * Class for regular expressions and Zabbix global expressions.
  * Any string that begins with '@' is treated as Zabbix expression.
  * Data from Zabbix expressions is taken from DB, and cached in static variable.
- *
  * @throws Exception
  */
 class GlobalRegExp {
@@ -33,7 +32,6 @@ class GlobalRegExp {
 
 	/**
 	 * Determine if it's Zabbix expression.
-	 *
 	 * @var bool
 	 */
 	protected $isZabbixRegexp;
@@ -41,26 +39,21 @@ class GlobalRegExp {
 	/**
 	 * If we create simple regular expression this contains itself as a string,
 	 * if we create Zabbix expression this contains array of expressions taken from DB.
-	 *
 	 * @var array|string
 	 */
 	protected $expression;
 
 	/**
 	 * Cache for Zabbix expressions.
-	 *
 	 * @var array
 	 */
 	private static $_cachedExpressions = array();
 
 	/**
 	 * Checks if expression is valid.
-	 *
 	 * @static
-	 *
-	 * @param $regExp
-	 *
 	 * @throws Exception
+	 * @param $regExp
 	 * @return bool
 	 */
 	public static function isValid($regExp) {
@@ -84,10 +77,8 @@ class GlobalRegExp {
 
 	/**
 	 * Initialize expression, gets data from db for Zabbix expressions.
-	 *
-	 * @param string $regExp
-	 *
 	 * @throws Exception
+	 * @param string $regExp
 	 */
 	public function __construct($regExp) {
 		if ($regExp[0] == '@') {
@@ -122,7 +113,6 @@ class GlobalRegExp {
 
 	/**
 	 * @param string $string
-	 *
 	 * @return bool
 	 */
 	public function match($string) {
@@ -130,7 +120,13 @@ class GlobalRegExp {
 			$result = true;
 
 			foreach ($this->expression as $expression) {
-				$result = self::matchExpression($expression, $string);
+				if ($expression['expression_type'] == EXPRESSION_TYPE_TRUE || $expression['expression_type'] == EXPRESSION_TYPE_FALSE) {
+					$result = $this->_matchRegular($expression, $string);
+				}
+				else {
+					$result = $this->_matchString($expression, $string);
+
+				}
 
 				if (!$result) {
 					break;
@@ -144,80 +140,51 @@ class GlobalRegExp {
 		return $result;
 	}
 
-	public static function matchExpression(array $expression, $string) {
-		if ($expression['expression_type'] == EXPRESSION_TYPE_TRUE || $expression['expression_type'] == EXPRESSION_TYPE_FALSE) {
-			$result = self::_matchRegular($expression, $string);
-		}
-		else {
-			$result = self::_matchString($expression, $string);
-		}
-
-		return $result;
-	}
-
 	/**
 	 * Matches expression as regular expression.
-	 *
-	 * @static
-	 *
 	 * @param array $expression
 	 * @param string $string
-	 *
 	 * @return bool
 	 */
-	private static function _matchRegular(array $expression, $string) {
+	private function _matchRegular(array $expression, $string) {
 		$pattern = '/'.$expression['expression'].'/';
-		if (!$expression['case_sensitive']) {
+		if ($expression['case_sensitive']) {
 			$pattern .= 'i';
 		}
 
 		$expectedResult = ($expression['expression_type'] == EXPRESSION_TYPE_TRUE);
 
-		return preg_match($pattern, $string) == $expectedResult;
+		return (preg_match($pattern, $string) == $expectedResult);
 	}
 
 	/**
 	 * Matches expression as string.
-	 *
-	 * @static
-	 *
 	 * @param array $expression
 	 * @param string $string
-	 *
 	 * @return bool
 	 */
-	private static function _matchString(array $expression, $string) {
+	private function _matchString(array $expression, $string) {
 		$result = true;
 
 		if ($expression['expression_type'] == EXPRESSION_TYPE_ANY_INCLUDED) {
-			$patterns = explode($expression['exp_delimiter'], $expression['expression']);
+			$paterns = explode($expression['exp_delimiter'], $expression['expression']);
 		}
 		else {
-			$patterns = array($expression['expression']);
+			$paterns = array($expression['expression']);
 		}
 
 		$expectedResult = ($expression['expression_type'] != EXPRESSION_TYPE_NOT_INCLUDED);
 
 		if ($expression['case_sensitive']) {
-			$string = mb_strtolower($string);
-		}
-
-		foreach ($patterns as $pattern) {
-			if ($expression['case_sensitive']) {
-				$pattern = mb_strtolower($pattern);
-			}
-
-			$pos = mb_strpos($pattern, $string);
-			$tmp = (($pos !== false) == $expectedResult);
-
-			if ($expression['expression_type'] == EXPRESSION_TYPE_ANY_INCLUDED && $tmp) {
-				return true;
-			}
-			else {
-				$result = ($result && $tmp);
+			foreach ($paterns as  $patern) {
+				$result &= ((zbx_strstr($string, $patern) !== false) == $expectedResult);
 			}
 		}
-
+		else {
+			foreach ($paterns as  $patern) {
+				$result &= ((zbx_stristr($string, $patern) !== false) == $expectedResult);
+			}
+		}
 		return $result;
 	}
 }

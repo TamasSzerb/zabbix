@@ -17,12 +17,12 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/js/configuration.discovery.edit.js.php';
 
 $discoveryWidget = new CWidget();
-$discoveryWidget->addPageHeader(_('CONFIGURATION OF DISCOVERY RULES'));
+$discoveryWidget->addPageHeader(_('CONFIGURATION OF DISCOVERY RULE'));
 
 // create form
 $discoveryForm = new CForm();
@@ -35,9 +35,7 @@ if (!empty($this->data['druleid'])) {
 
 // create form list
 $discoveryFormList = new CFormList('discoveryFormList');
-$nameTextBox = new CTextBox('name', $this->data['drule']['name'], ZBX_TEXTBOX_STANDARD_SIZE);
-$nameTextBox->attr('autofocus', 'autofocus');
-$discoveryFormList->addRow(_('Name'), $nameTextBox);
+$discoveryFormList->addRow(_('Name'), new CTextBox('name', $this->data['drule']['name'], ZBX_TEXTBOX_STANDARD_SIZE));
 
 // append proxy to form list
 $proxyComboBox = new CComboBox('proxy_hostid', $this->data['drule']['proxy_hostid']);
@@ -65,16 +63,13 @@ $discoveryFormList->addRow(_('Checks'),
 
 // append uniqueness criteria to form list
 $uniquenessCriteriaRadio = new CRadioButtonList('uniqueness_criteria', $this->data['drule']['uniqueness_criteria']);
-$uniquenessCriteriaRadio->addValue(SPACE._('IP address'), -1, true, zbx_formatDomId('uniqueness_criteria_ip'));
+$uniquenessCriteriaRadio->addValue(' '._('IP address'), -1);
 $discoveryFormList->addRow(_('Device uniqueness criteria'),
 	new CDiv($uniquenessCriteriaRadio, 'objectgroup inlineblock border_dotted ui-corner-all', 'uniqList'));
 
 // append status to form list
-$status = (empty($this->data['druleid']) && empty($this->data['form_refresh']))
-	? true
-	: ($this->data['drule']['status'] == DRULE_STATUS_ACTIVE);
-
-$discoveryFormList->addRow(_('Enabled'), new CCheckBox('status', $status, null, 1));
+$discoveryFormList->addRow(_('Enabled'),
+	new CCheckBox('status', !empty($this->data['druleid']) ? ($this->data['drule']['status'] == 0 ? 'yes' : 'no') : 'yes', null, 1));
 
 // append tabs to form
 $discoveryTabs = new CTabView();
@@ -87,7 +82,7 @@ if (empty($this->data['druleid'])) {
 	$deleteButton->setAttribute('disabled', 'disabled');
 }
 $discoveryForm->addItem(makeFormFooter(
-	new CSubmit('save', _('Save')),
+	array(new CSubmit('save', _('Save'))),
 	array(
 		new CSubmit('clone', _('Clone')),
 		$deleteButton,
@@ -96,5 +91,5 @@ $discoveryForm->addItem(makeFormFooter(
 ));
 
 $discoveryWidget->addItem($discoveryForm);
-
 return $discoveryWidget;
+?>

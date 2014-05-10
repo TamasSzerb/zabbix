@@ -79,8 +79,8 @@ elseif (isset($_REQUEST['iconid'])) {
 
 	if ($iconid > 0) {
 		$image = get_image_by_imageid($iconid);
-
-		$source = $image['image'] ? imageFromString($image['image']) : get_default_image();
+		$image = $image['image'];
+		$source = imageFromString($image);
 	}
 	else {
 		$source = get_default_image();
@@ -89,7 +89,6 @@ elseif (isset($_REQUEST['iconid'])) {
 	if ($resize) {
 		$source = imageThumb($source, $width, $height);
 	}
-
 	imageOut($source);
 }
 elseif (isset($_REQUEST['imageid'])) {

@@ -66,7 +66,7 @@ if (isset($_REQUEST['save'])) {
 		$duplicatedMacros = array();
 		foreach ($newMacros as $number => $newMacro) {
 			// transform macros to uppercase {$aaa} => {$AAA}
-			$newMacros[$number]['macro'] = mb_strtoupper($newMacro['macro']);
+			$newMacros[$number]['macro'] = zbx_strtoupper($newMacro['macro']);
 		}
 
 		// update
@@ -156,7 +156,7 @@ $form->cleanItems();
 $cmbConf = new CComboBox('configDropDown', 'adm.macros.php', 'redirect(this.options[this.selectedIndex].value);');
 $cmbConf->addItems(array(
 	'adm.gui.php' => _('GUI'),
-	'adm.housekeeper.php' => _('Housekeeping'),
+	'adm.housekeeper.php' => _('Housekeeper'),
 	'adm.images.php' => _('Images'),
 	'adm.iconmapping.php' => _('Icon mapping'),
 	'adm.regexps.php' => _('Regular expressions'),

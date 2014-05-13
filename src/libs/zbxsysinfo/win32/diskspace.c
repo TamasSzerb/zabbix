@@ -21,20 +21,20 @@
 #include "sysinfo.h"
 #include "zbxjson.h"
 
-int	VFS_FS_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_FS_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		*path, *mode;
-	wchar_t 	*wpath;
+	char		path[MAX_PATH], mode[20];
+	LPTSTR		wpath;
 	ULARGE_INTEGER	freeBytes, totalBytes;
 
-	if (2 < request->nparam)
+	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
 
-	path = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
-
-	if (NULL == path || '\0' == *path)
+	if (0 != get_param(param, 1, path, MAX_PATH))
 		return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
 
 	wpath = zbx_utf8_to_unicode(path);
 	if (0 == GetDiskFreeSpaceEx(wpath, &freeBytes, &totalBytes, NULL))
@@ -44,7 +44,7 @@ int	VFS_FS_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
 	}
 	zbx_free(wpath);
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "total"))
+	if ('\0' == *mode || 0 == strcmp(mode, "total"))	/* default parameter */
 		SET_UI64_RESULT(result, totalBytes.QuadPart);
 	else if (0 == strcmp(mode, "free"))
 		SET_UI64_RESULT(result, freeBytes.QuadPart);
@@ -61,10 +61,10 @@ int	VFS_FS_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
 	return SYSINFO_RET_OK;
 }
 
-int	VFS_FS_DISCOVERY(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_FS_DISCOVERY(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	wchar_t		fsName[MAX_PATH + 1];
-	wchar_t 	*buffer = NULL, *p;
+	TCHAR		fsName[MAX_PATH + 1];
+	LPTSTR		buffer = NULL, p;
 	char		*utf8;
 	DWORD		dwSize;
 	size_t		sz;
@@ -75,7 +75,7 @@ int	VFS_FS_DISCOVERY(AGENT_REQUEST *request, AGENT_RESULT *result)
 	if (0 == (dwSize = GetLogicalDriveStrings(0, buffer)))
 		return SYSINFO_RET_FAIL;
 
-	buffer = (wchar_t *)zbx_malloc(buffer, (dwSize + 1) * sizeof(wchar_t));
+	buffer = (LPTSTR)zbx_malloc(buffer, (dwSize + 1) * sizeof(TCHAR));
 
 	/* Make a second call to GetLogicalDriveStrings to get
 	   the actual data we require */
@@ -102,7 +102,7 @@ int	VFS_FS_DISCOVERY(AGENT_REQUEST *request, AGENT_RESULT *result)
 		zbx_json_addstring(&j, "{#FSNAME}", utf8, ZBX_JSON_TYPE_STRING);
 		zbx_free(utf8);
 
-		if (TRUE == GetVolumeInformation(p, NULL, 0, NULL, NULL, NULL, fsName, ARRSIZE(fsName)))
+		if (TRUE == GetVolumeInformation(p, NULL, 0, NULL, NULL, NULL, fsName, sizeof(fsName) / sizeof(TCHAR)))
 		{
 			utf8 = zbx_unicode_to_utf8(fsName);
 			zbx_json_addstring(&j, "{#FSTYPE}", utf8, ZBX_JSON_TYPE_STRING);

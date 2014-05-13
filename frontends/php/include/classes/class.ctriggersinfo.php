@@ -17,14 +17,15 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/../triggers.inc.php';
 
 class CTriggersInfo extends CTable {
 
 	public $style;
 	public $show_header;
+	private $nodeid;
 	private $groupid;
 	private $hostid;
 
@@ -57,7 +58,7 @@ class CTriggersInfo extends CTable {
 		$options = array(
 			'monitored' => true,
 			'skipDependent' => true,
-			'output' => array('triggerid')
+			'output' => API_OUTPUT_SHORTEN
 		);
 
 		if ($this->hostid > 0) {
@@ -108,7 +109,14 @@ class CTriggersInfo extends CTable {
 		if ($this->show_header) {
 			$header_str = _('Triggers info').SPACE;
 
-			if ($this->groupid != 0) {
+			if (!is_null($this->nodeid)) {
+				$node = get_node_by_nodeid($this->nodeid);
+				if ($node > 0) {
+					$header_str .= '('.$node['name'].')'.SPACE;
+				}
+			}
+
+			if (remove_nodes_from_id($this->groupid) > 0) {
 				$group = get_hostgroup_by_groupid($this->groupid);
 				$header_str .= _('Group').SPACE.'&quot;'.$group['name'].'&quot;';
 			}
@@ -147,3 +155,4 @@ class CTriggersInfo extends CTable {
 		return parent::bodyToString();
 	}
 }
+?>

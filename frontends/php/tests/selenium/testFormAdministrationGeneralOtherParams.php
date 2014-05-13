@@ -44,7 +44,7 @@ class testFormAdministrationGeneralOtherParams extends CWebTest {
 
 		$this->zbxTestLogin('adm.other.php');
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Other');
-		$this->zbxTestCheckTitle('Other configuration parameters');
+		$this->checkTitle('Other configuration parameters');
 		$this->zbxTestTextPresent(array('OTHER CONFIGURATION PARAMETERS', 'Other parameters'));
 		$this->assertAttribute("//input[@id='refresh_unsupported']/@value", $allValues['refresh_unsupported']);
 
@@ -69,7 +69,7 @@ class testFormAdministrationGeneralOtherParams extends CWebTest {
 
 		$this->zbxTestLogin('adm.other.php');
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Other');
-		$this->zbxTestCheckTitle('Other configuration parameters');
+		$this->checkTitle('Other configuration parameters');
 		$this->zbxTestTextPresent(array('OTHER CONFIGURATION PARAMETERS', 'Other parameters'));
 
 		$sql = 'SELECT groupid FROM groups';
@@ -84,7 +84,7 @@ class testFormAdministrationGeneralOtherParams extends CWebTest {
 
 		$this->zbxTestLogin('adm.other.php');
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Other');
-		$this->zbxTestCheckTitle('Other configuration parameters');
+		$this->checkTitle('Other configuration parameters');
 		$this->zbxTestTextPresent(array('OTHER CONFIGURATION PARAMETERS', 'Other parameters'));
 
 		$sql = 'SELECT usrgrpid FROM usrgrp';
@@ -104,7 +104,7 @@ class testFormAdministrationGeneralOtherParams extends CWebTest {
 
 		$this->zbxTestLogin('adm.other.php');
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Other');
-		$this->zbxTestCheckTitle('Other configuration parameters');
+		$this->checkTitle('Other configuration parameters');
 		$this->zbxTestTextPresent('OTHER CONFIGURATION PARAMETERS');
 		$this->zbxTestTextPresent('Other parameters');
 
@@ -121,7 +121,7 @@ class testFormAdministrationGeneralOtherParams extends CWebTest {
 		$this->assertEquals(1, DBcount($sql), 'Chuck Norris: Incorrect value in the DB field "snmptrap_logging"');
 
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Other');
-		$this->zbxTestCheckTitle('Other configuration parameters');
+		$this->checkTitle('Other configuration parameters');
 		$this->zbxTestTextPresent('OTHER CONFIGURATION PARAMETERS');
 		$this->zbxTestTextPresent('Other parameters');
 
@@ -129,7 +129,7 @@ class testFormAdministrationGeneralOtherParams extends CWebTest {
 		$this->input_type('refresh_unsupported', '65535');
 		$this->zbxTestDropdownSelect('discovery_groupid', 'Linux servers');
 		$this->zbxTestDropdownSelect('alert_usrgrpid', 'Enabled debug mode');
-		$this->zbxTestCheckboxSelect('snmptrap_logging', false);
+		$this->zbxTestCheckboxUnselect('snmptrap_logging');
 		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Configuration updated');
 
@@ -139,12 +139,13 @@ class testFormAdministrationGeneralOtherParams extends CWebTest {
 		$this->assertEquals(1, DBcount($sql), 'Chuck Norris: Incorrect value in the DB field "snmptrap_logging"');
 
 		// trying to enter value > max_value
-		$this->zbxTestCheckTitle('Other configuration parameters');
+		$this->checkTitle('Other configuration parameters');
 		$this->zbxTestTextPresent('OTHER CONFIGURATION PARAMETERS');
 		$this->zbxTestTextPresent('Other parameters');
 		$this->input_type('refresh_unsupported', '65536');
 		$this->zbxTestClickWait('save');
-		$this->zbxTestTextPresent(array('ERROR: Page received incorrect data', 'Incorrect value "65536" for "Refresh unsupported items (in sec)" field: must be between 0 and 65535.'));
+		$this->zbxTestTextPresent(array('ERROR: Page received incorrect data', 'Warning. Incorrect value for field "Refresh unsupported items (in sec)": must be between 0 and 65535.'));
+		// $this->zbxTestTextPresent('Warning. Incorrect value for field "Refresh unsupported items (in sec)": must be between 0 and 65535.');
 	}
 
 }

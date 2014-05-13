@@ -19,7 +19,7 @@
 **/
 
 
-require_once dirname(__FILE__).'/include/config.inc.php';
+require_once 'include/config.inc.php';
 
 $page['file'] = 'conf.import.php';
 $page['title'] = _('Configuration import');
@@ -28,7 +28,7 @@ $page['hist_arg'] = array();
 
 ob_start();
 
-require_once dirname(__FILE__).'/include/page_header.php';
+require_once 'include/page_header.php';
 
 $fields = array(
 	'rules' => array(T_ZBX_STR, O_OPT, null, null, null),
@@ -119,27 +119,25 @@ if (isset($_REQUEST['rules'])) {
 }
 
 if (isset($_FILES['import_file'])) {
-	$result = false;
-
-	// CUploadFile throws exceptions, so we need to catch them
 	try {
 		$file = new CUploadFile($_FILES['import_file']);
+		$importFormat = CImportReaderFactory::fileExt2ImportFormat($file->getExtension());
+		$importReader = CImportReaderFactory::getReader($importFormat);
 
-		$result = API::Configuration()->import(array(
-			'format' => CImportReaderFactory::fileExt2ImportFormat($file->getExtension()),
-			'source' => $file->getContent(),
-			'rules' => $data['rules']
-		));
+		$configurationImport = new CConfigurationImport($file->getContent(), $data['rules']);
+		$configurationImport->setReader($importReader);
+
+		$configurationImport->import();
+		show_messages(true, _('Imported successfully'));
 	}
 	catch (Exception $e) {
 		error($e->getMessage());
+		show_messages(false, null, _('Import failed'));
 	}
-
-	show_messages($result, _('Imported successfully'), _('Import failed'));
 }
 
 $view = new CView('conf.import', $data);
 $view->render();
 $view->show();
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+require_once('include/page_footer.php');

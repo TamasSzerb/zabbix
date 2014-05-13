@@ -10,16 +10,14 @@
 	</td>
 	<td>#{name}</td>
 	<td>
-		<input class="input text" type="text" id="slides_#{rowId}_delay" name="slides[#{rowId}][delay]"
-			placeholder="<?php echo CHtml::encode(_('default')); ?>" value="" size="5" maxlength="5"
-			onchange="validateNumericBox(this, true, false);" style="text-align: right;">
+		<input class="input text" type="text" id="slides_#{rowId}_delay" name="slides[#{rowId}][delay]" placeholder="<?php echo CHtml::encode(_('default')); ?>" value="" size="5" maxlength="5" onchange="validateNumericBox(this, true, false);" style="text-align: right;">
 	</td>
 	<td>
-		<input type="button" class="input link_menu" id="remove_#{rowId}" remove_slide="#{rowId}"
-			value="<?php echo CHtml::encode(_('Remove')); ?>" onclick="removeSlide(this);" />
+		<input type="button" class="input link_menu" id="remove_#{rowId}" remove_slide="#{rowId}" value="<?php echo CHtml::encode(_('Remove')); ?>" onclick="removeSlide(this);" />
 	</td>
 </tr>
 </script>
+
 <script type="text/javascript">
 	function removeSlide(obj) {
 		var step = obj.getAttribute('remove_slide');
@@ -32,13 +30,11 @@
 		if (jQuery('#slideTable tr.sortable').length <= 1) {
 			jQuery('#slideTable').sortable('disable');
 		}
-
 		recalculateSortOrder();
 	}
 
 	function recalculateSortOrder() {
 		var i = 0;
-
 		jQuery('#slideTable tr.sortable .rowNum').each(function() {
 			var step = (i == 0) ? '0' : i;
 
@@ -51,10 +47,9 @@
 			jQuery('#current_slide_' + step).attr('id', 'tmp_current_slide_' + step);
 
 			// set order number
-			jQuery(this)
-				.attr('new_slide', i)
-				.text((i + 1) + ':');
-			i++;
+			jQuery(this).attr('new_slide', i);
+			jQuery(this).text((i + 1) + ':');
+			i++
 		});
 
 		// rewrite ids in new order
@@ -78,16 +73,13 @@
 	}
 
 	function addPopupValues(list) {
-		var initSize = jQuery('#slideTable tr.sortable .rowNum').length,
-			defaultDelay = jQuery('#delay').val();
-
+		var initSize = jQuery('#slideTable tr.sortable .rowNum').length;
+		var defaultDelay = jQuery('#delay').val();
 		for (var i = 0; i < list.values.length; i++) {
 			if (empty(list.values[i])) {
 				continue;
 			}
-
 			var value = list.values[i];
-
 			value['rowId'] = jQuery('#slideTable tr.sortable .rowNum').length;
 			value['rowNum'] = value['rowId'] + 1;
 			value['rowDelay'] = defaultDelay;
@@ -95,63 +87,33 @@
 			var tpl = new Template(jQuery('#screenRowTPL').html());
 			jQuery('#screenListFooter').before(tpl.evaluate(value));
 		}
-
-		if (initSize < 2) {
+		if (initSize <= 1) {
 			initSortable();
 		}
-
 		createPlaceholders();
 	}
 
 	function initSortable() {
-		var slideTable = jQuery('#slideTable'),
-			slideTableWidth = slideTable.width(),
-			slideTableColumns = jQuery('#slideTable .header td'),
-			slideTableColumnWidths = [];
+		jQuery(document).ready(function() {
+			'use strict';
 
-		slideTableColumns.each(function() {
-			slideTableColumnWidths[slideTableColumnWidths.length] = jQuery(this).width();
-		});
-
-		slideTable.sortable({
-			disabled: (slideTable.find('tr.sortable').length < 2),
-			items: 'tbody tr.sortable',
-			axis: 'y',
-			cursor: 'move',
-			handle: 'span.ui-icon-arrowthick-2-n-s',
-			tolerance: 'pointer',
-			opacity: 0.6,
-			update: recalculateSortOrder,
-			create: function () {
-				// force not to change table width
-				slideTable.width(slideTableWidth);
-			},
-			helper: function(e, ui) {
-				ui.children().each(function(i) {
-					var td = jQuery(this);
-
-					td.width(slideTableColumnWidths[i]);
-				});
-
-				// when dragging element on safari, it jumps out of the table on IE it moves about 4 pixes to right
-				if (SF || IE8) {
-					// move back draggable element to proper position
-					ui.css('left', (ui.offset().left - 4) + 'px');
+			jQuery('#slideTable').sortable({
+				disabled: (jQuery('#slideTable tr.sortable').length <= 1),
+				items: 'tbody tr.sortable',
+				axis: 'y',
+				cursor: 'move',
+				containment: 'parent',
+				handle: 'span.ui-icon-arrowthick-2-n-s',
+				tolerance: 'pointer',
+				opacity: 0.6,
+				update: recalculateSortOrder,
+				start: function(e, ui) {
+					jQuery(ui.placeholder).height(jQuery(ui.helper).height());
 				}
-
-				slideTableColumns.each(function(i) {
-					jQuery(this).width(slideTableColumnWidths[i]);
-				});
-
-				return ui;
-			},
-			start: function(e, ui) {
-				jQuery(ui.placeholder).height(jQuery(ui.helper).height());
-			}
+			});
 		});
 	}
 
-	jQuery(function() {
-		initSortable();
-	});
+	initSortable();
+	createPlaceholders();
 </script>

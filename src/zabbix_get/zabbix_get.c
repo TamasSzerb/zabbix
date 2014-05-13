@@ -86,7 +86,7 @@ static void	get_signal_handler(int sig)
 	if (SIGALRM == sig)
 		zbx_error("Timeout while executing operation");
 
-	exit(EXIT_FAILURE);
+	exit(FAIL);
 }
 
 #endif /* not WINDOWS */
@@ -156,7 +156,7 @@ static int	get_value(const char *source_ip, const char *host, unsigned short por
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	main(int argc, char **argv)
+int main(int argc, char **argv)
 {
 	unsigned short	port = ZBX_DEFAULT_AGENT_PORT;
 	int		ret = SUCCEED;
@@ -183,15 +183,15 @@ int	main(int argc, char **argv)
 				break;
 			case 'h':
 				help();
-				exit(EXIT_SUCCESS);
+				exit(-1);
 				break;
 			case 'V':
 				version();
-				exit(EXIT_SUCCESS);
+				exit(-1);
 				break;
 			default:
 				usage();
-				exit(EXIT_FAILURE);
+				exit(-1);
 				break;
 		}
 	}
@@ -215,7 +215,7 @@ int	main(int argc, char **argv)
 		ret = get_value(source_ip, host, port, key, &value);
 
 		if (SUCCEED == ret)
-			printf("%s\n", value);
+			printf("%s\n",value);
 
 		zbx_free(value);
 	}

@@ -39,11 +39,12 @@ class CTag extends CObject {
 	protected $encStrategy = self::ENC_NOAMP;
 
 	/**
-	 * The HTML encoding strategy for the "value", "name" and "id" attributes.
+	 * The HTML encoding strategy for the "value" attribute.
 	 *
 	 * @var int
 	 */
-	protected $attrEncStrategy = self::ENC_ALL;
+	protected $valueEncStrategy = self::ENC_ALL;
+
 
 	public function __construct($tagname = null, $paired = 'no', $body = null, $class = null) {
 		parent::__construct();
@@ -67,17 +68,24 @@ class CTag extends CObject {
 		$this->addClass($class);
 	}
 
+	public function showStart() {
+		echo $this->startToString();
+	}
+
+	public function showBody() {
+		echo $this->bodyToString();
+	}
+
+	public function showEnd() {
+		echo $this->endToString();
+	}
+
 	// do not put new line symbol (\n) before or after html tags, it adds spaces in unwanted places
 	public function startToString() {
 		$res = $this->tag_start.'<'.$this->tagname;
 		foreach ($this->attributes as $key => $value) {
-			if ($value === null) {
-				continue;
-			}
-
-			// a special encoding strategy should be used for the "value", "name" and "id" attributes
-			$strategy = in_array($key, array('value', 'name', 'id'), true) ? $this->attrEncStrategy : $this->encStrategy;
-			$value = $this->encode($value, $strategy);
+			// a special encoding strategy should be used for the "value" attribute
+			$value = $this->encode($value, ($key == 'value') ? $this->valueEncStrategy : self::ENC_NOAMP);
 			$res .= ' '.$key.'="'.$value.'"';
 		}
 		$res .= ($this->paired === 'yes') ? '>' : ' />';
@@ -222,17 +230,8 @@ class CTag extends CObject {
 		return true;
 	}
 
-	/**
-	 * Set data for menu popup.
-	 *
-	 * @param array $data
-	 */
-	public function setMenuPopup(array $data) {
-		$this->attr('data-menu-popup', $data);
-	}
-
-	public function onClick($handleCode) {
-		$this->addAction('onclick', $handleCode);
+	public function onClick($handle_code) {
+		$this->addAction('onclick', $handle_code);
 	}
 
 	public function addStyle($value) {

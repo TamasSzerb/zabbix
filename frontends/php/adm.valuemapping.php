@@ -29,7 +29,7 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
-	'valuemapid' =>		array(T_ZBX_INT, O_NO,	P_SYS,			DB_ID,		'(isset({form})&&{form}=="update")||isset({delete})'),
+	'valuemapid' =>		array(T_ZBX_INT, O_NO,	P_SYS,			DB_ID,		'(isset({form})&&({form}=="update"))||isset({delete})'),
 	'mapname' =>		array(T_ZBX_STR, O_OPT,	null,			NOT_EMPTY,	'isset({save})'),
 	'mappings' =>		array(T_ZBX_STR, O_OPT,	null,			null,		null),
 	'save' =>			array(T_ZBX_STR, O_OPT,	P_SYS|P_ACT,	null,		null),
@@ -43,7 +43,7 @@ check_fields($fields);
  * Permissions
  */
 if (isset($_REQUEST['valuemapid'])) {
-	$dbValueMap = DBfetch(DBselect('SELECT v.name FROM valuemaps v WHERE v.valuemapid='.zbx_dbstr(get_request('valuemapid'))));
+	$dbValueMap = DBfetch(DBselect('SELECT v.name FROM valuemaps v WHERE v.valuemapid='.get_request('valuemapid')));
 	if (empty($dbValueMap)) {
 		access_deny();
 	}
@@ -60,71 +60,70 @@ try {
 		$mappings = get_request('mappings', array());
 
 		if (isset($_REQUEST['valuemapid'])) {
-			$messageSuccess = _('Value map updated');
-			$messageFailed = _('Cannot update value map');
-			$auditAction = AUDIT_ACTION_UPDATE;
+			$msg_ok = _('Value map updated');
+			$msg_fail = _('Cannot update value map');
+			$audit_action = AUDIT_ACTION_UPDATE;
 
 			$valueMap['valuemapid'] = get_request('valuemapid');
-			$result = updateValueMap($valueMap, $mappings);
+			updateValueMap($valueMap, $mappings);
 		}
 		else {
-			$messageSuccess = _('Value map added');
-			$messageFailed = _('Cannot add value map');
-			$auditAction = AUDIT_ACTION_ADD;
+			$msg_ok = _('Value map added');
+			$msg_fail = _('Cannot add value map');
+			$audit_action = AUDIT_ACTION_ADD;
 
-			$result = addValueMap($valueMap, $mappings);
+			addValueMap($valueMap, $mappings);
 		}
 
-		if ($result) {
-			add_audit($auditAction, AUDIT_RESOURCE_VALUE_MAP, _s('Value map "%1$s".', $valueMap['name']));
-		}
+		add_audit($audit_action, AUDIT_RESOURCE_VALUE_MAP, _s('Value map "%1$s".', $valueMap['name']));
+		show_messages(true, $msg_ok);
 		unset($_REQUEST['form']);
 
-		$result = DBend($result);
-		show_messages($result, $messageSuccess, $messageFailed);
+		DBend(true);
 	}
 	elseif (isset($_REQUEST['delete']) && isset($_REQUEST['valuemapid'])) {
-		$messageSuccess = _('Value map deleted');
-		$messageFailed = _('Cannot delete value map');
-
 		DBstart();
 
+		$msg_ok = _('Value map deleted');
+		$msg_fail = _('Cannot delete value map');
+
 		$sql = 'SELECT v.name,v.valuemapid'.
-				' FROM valuemaps v'.
-				' WHERE v.valuemapid='.zbx_dbstr($_REQUEST['valuemapid']);
-
+				' FROM valuemaps v WHERE '.DBin_node('v.valuemapid').
+				' AND v.valuemapid='.$_REQUEST['valuemapid'];
 		if ($valueMapToDelete = DBfetch(DBselect($sql))) {
-			$result = deleteValueMap($_REQUEST['valuemapid']);
-
-			if ($result) {
-				add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_VALUE_MAP,
-					_s('Value map "%1$s" "%2$s".', $valueMapToDelete['name'], $valueMapToDelete['valuemapid'])
-				);
-			}
+			deleteValueMap($_REQUEST['valuemapid']);
 		}
 		else {
 			throw new Exception(_s('Value map with valuemapid "%1$s" does not exist.', $_REQUEST['valuemapid']));
 		}
 
+		add_audit(
+			AUDIT_ACTION_DELETE,
+			AUDIT_RESOURCE_VALUE_MAP,
+			_s('Value map "%1$s" "%2$s".', $valueMapToDelete['name'], $valueMapToDelete['valuemapid'])
+		);
+		show_messages(true, $msg_ok);
 		unset($_REQUEST['form']);
 
-		$result = DBend($result);
-		show_messages($result, $messageSuccess, $messageFailed);
+		DBend(true);
 	}
 }
 catch (Exception $e) {
 	DBend(false);
+
 	error($e->getMessage());
-	show_messages(false, null, $messageFailed);
+	show_messages(false, null, $msg_fail);
 }
 
 /*
  * Display
  */
-$generalComboBox = new CComboBox('configDropDown', 'adm.valuemapping.php', 'redirect(this.options[this.selectedIndex].value);');
-$generalComboBox->addItems(array(
+$form = new CForm();
+$form->cleanItems();
+$cmbConf = new CComboBox('configDropDown', 'adm.valuemapping.php', 'redirect(this.options[this.selectedIndex].value);');
+$cmbConf->addItems(array(
 	'adm.gui.php' => _('GUI'),
-	'adm.housekeeper.php' => _('Housekeeping'),
+	'adm.housekeeper.php' => _('Housekeeper'),
 	'adm.images.php' => _('Images'),
 	'adm.iconmapping.php' => _('Icon mapping'),
 	'adm.regexps.php' => _('Regular expressions'),
@@ -135,50 +134,44 @@ $generalComboBox->addItems(array(
 	'adm.triggerdisplayoptions.php' => _('Trigger displaying options'),
 	'adm.other.php' => _('Other')
 ));
-
-$valueMapForm = new CForm();
-$valueMapForm->cleanItems();
-$valueMapForm->addItem($generalComboBox);
+$form->addItem($cmbConf);
 if (!isset($_REQUEST['form'])) {
-	$valueMapForm->addItem(new CSubmit('form', _('Create value map')));
+	$form->addItem(new CSubmit('form', _('Create value map')));
 }
 
-$valueMapWidget = new CWidget();
-$valueMapWidget->addPageHeader(_('CONFIGURATION OF VALUE MAPPING'), $valueMapForm);
+$cnf_wdgt = new CWidget();
+$cnf_wdgt->addPageHeader(_('CONFIGURATION OF VALUE MAPPING'), $form);
 
+$data = array();
 if (isset($_REQUEST['form'])) {
-	$data = array(
-		'form' => get_request('form', 1),
-		'form_refresh' => get_request('form_refresh', 0),
-		'valuemapid' => get_request('valuemapid'),
-		'mappings' => array(),
-		'mapname' => '',
-		'confirmMessage' => null,
-		'add_value' => get_request('add_value'),
-		'add_newvalue' => get_request('add_newvalue')
-	);
+	$data['form'] = get_request('form', 1);
+	$data['form_refresh'] = get_request('form_refresh', 0);
+	$data['valuemapid'] = get_request('valuemapid');
+	$data['mappings'] = array();
+	$data['mapname'] = '';
+	$data['confirmMessage'] = null;
+	$data['add_value'] = get_request('add_value');
+	$data['add_newvalue'] = get_request('add_newvalue');
 
 	if (isset($data['valuemapid'])) {
+
 		$data['mapname'] = $dbValueMap['name'];
 
 		if (empty($data['form_refresh'])) {
-			$data['mappings'] = DBfetchArray(DBselect(
-				'SELECT m.mappingid,m.value,m.newvalue FROM mappings m WHERE m.valuemapid='.zbx_dbstr($data['valuemapid'])
-			));
+			$data['mappings'] = DBfetchArray(DBselect('SELECT m.mappingid,m.value,m.newvalue FROM mappings m WHERE m.valuemapid='.$data['valuemapid']));
 		}
 		else {
 			$data['mapname'] = get_request('mapname', '');
 			$data['mappings'] = get_request('mappings', array());
 		}
 
-		$valueMapCount = DBfetch(DBselect(
-			'SELECT COUNT(i.itemid) AS cnt FROM items i WHERE i.valuemapid='.zbx_dbstr($data['valuemapid'])
-		));
-
-		$data['confirmMessage'] = $valueMapCount['cnt']
-			? _n('Delete selected value mapping? It is used for %d item!',
-					'Delete selected value mapping? It is used for %d items!', $valueMapCount['cnt'])
-			: _('Delete selected value mapping?');
+		$valuemap_count = DBfetch(DBselect('SELECT COUNT(i.itemid) AS cnt FROM items i WHERE i.valuemapid='.$data['valuemapid']));
+		if ($valuemap_count['cnt']) {
+			$data['confirmMessage'] = _n('Delete selected value mapping? It is used for %d item!', 'Delete selected value mapping? It is used for %d items!', $valuemap_count['cnt']);
+		}
+		else {
+			$data['confirmMessage'] = _('Delete selected value mapping?');
+		}
 	}
 
 	if (empty($data['valuemapid']) && !empty($data['form_refresh'])) {
@@ -188,37 +181,33 @@ if (isset($_REQUEST['form'])) {
 
 	order_result($data['mappings'], 'value');
 
-	$valueMapForm = new CView('administration.general.valuemapping.edit', $data);
+	$valueMappingForm = new CView('administration.general.valuemapping.edit', $data);
 }
 else {
-	$data = array(
-		'valuemaps' => array()
-	);
+	$cnf_wdgt->addHeader(_('Value mapping'));
+	$cnf_wdgt->addItem(BR());
 
-	$valueMapWidget->addHeader(_('Value mapping'));
-	$valueMapWidget->addItem(BR());
-
-	$dbValueMaps = DBselect('SELECT v.valuemapid,v.name FROM valuemaps v');
-
+	$data['valuemaps'] = array();
+	$dbValueMaps = DBselect('SELECT v.valuemapid,v.name FROM valuemaps v WHERE '.DBin_node('valuemapid'));
 	while ($dbValueMap = DBfetch($dbValueMaps)) {
 		$data['valuemaps'][$dbValueMap['valuemapid']] = $dbValueMap;
 		$data['valuemaps'][$dbValueMap['valuemapid']]['maps'] = array();
 	}
 	order_result($data['valuemaps'], 'name');
 
-	$dbMaps = DBselect('SELECT m.valuemapid,m.value,m.newvalue FROM mappings m');
-
-	while ($dbMap = DBfetch($dbMaps)) {
-		$data['valuemaps'][$dbMap['valuemapid']]['maps'][] = array(
-			'value' => $dbMap['value'],
-			'newvalue' => $dbMap['newvalue']
+	$db_maps = DBselect('SELECT m.valuemapid,m.value,m.newvalue FROM mappings m WHERE '.DBin_node('mappingid'));
+	while ($db_map = DBfetch($db_maps)) {
+		$data['valuemaps'][$db_map['valuemapid']]['maps'][] = array(
+			'value' => $db_map['value'],
+			'newvalue' => $db_map['newvalue']
 		);
 	}
 
-	$valueMapForm = new CView('administration.general.valuemapping.list', $data);
+	$valueMappingForm = new CView('administration.general.valuemapping.list', $data);
 }
 
-$valueMapWidget->addItem($valueMapForm->render());
-$valueMapWidget->show();
+$cnf_wdgt->addItem($valueMappingForm->render());
+$cnf_wdgt->show();
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

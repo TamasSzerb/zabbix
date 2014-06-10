@@ -62,8 +62,6 @@ char	**CONFIG_USER_PARAMETERS	= NULL;
 char	**CONFIG_PERF_COUNTERS		= NULL;
 #endif
 
-char	*CONFIG_USER			= NULL;
-
 /******************************************************************************
  *                                                                            *
  * Function: load_aliases                                                     *
@@ -72,38 +70,27 @@ char	*CONFIG_USER			= NULL;
  *                                                                            *
  * Parameters: lines - aliase entries from configuration file                 *
  *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Vladimir Levijev                                                   *
+ *                                                                            *
  * Comments: calls add_alias() for each entry                                 *
  *                                                                            *
  ******************************************************************************/
 void	load_aliases(char **lines)
 {
-	char	**pline, *r, *c;
+	char	*value, **pline;
 
 	for (pline = lines; NULL != *pline; pline++)
 	{
-		r = *pline;
-
-		if (SUCCEED != parse_key(&r) || ':' != *r)
+		if (NULL == (value = strchr(*pline, ':')))
 		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add alias \"%s\": invalid character at position %ld",
-					*pline, (r - *pline) + 1);
-			exit(EXIT_FAILURE);
+			zabbix_log(LOG_LEVEL_CRIT, "Alias \"%s\" FAILED: not colon-separated", *pline);
+			exit(FAIL);
 		}
+		*value++ = '\0';
 
-		c = r++;
-
-		if (SUCCEED != parse_key(&r) || '\0' != *r)
-		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add alias \"%s\": invalid character at position %ld",
-					*pline, (r - *pline) + 1);
-			exit(EXIT_FAILURE);
-		}
-
-		*c++ = '\0';
-
-		add_alias(*pline, c);
-
-		*--c = ':';
+		add_alias(*pline, value);
 	}
 }
 
@@ -163,7 +150,7 @@ void	load_perf_counters(const char **lines)
 {
 	char		name[MAX_STRING_LEN], counterpath[PDH_MAX_COUNTER_PATH], interval[8];
 	const char	**pline, *msg;
-	wchar_t		*wcounterPath;
+	LPTSTR		wcounterPath;
 
 #define ZBX_PC_FAIL(_msg) {msg = _msg; goto pc_fail;}
 
@@ -194,7 +181,7 @@ void	load_perf_counters(const char **lines)
 		continue;
 pc_fail:
 		zabbix_log(LOG_LEVEL_CRIT, "PerfCounter '%s' FAILED: %s", *pline, msg);
-		exit(EXIT_FAILURE);
+		exit(FAIL);
 	}
 #undef ZBX_PC_FAIL
 }

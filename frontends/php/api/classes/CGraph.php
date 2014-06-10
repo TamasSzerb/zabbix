@@ -66,6 +66,7 @@ class CGraph extends CGraphGeneral {
 		);
 
 		$defOptions = array(
+			'nodeids'					=> null,
 			'groupids'					=> null,
 			'templateids'				=> null,
 			'hostids'					=> null,
@@ -83,7 +84,7 @@ class CGraph extends CGraphGeneral {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectGroups'				=> null,
 			'selectTemplates'			=> null,
 			'selectHosts'				=> null,
@@ -156,6 +157,7 @@ class CGraph extends CGraphGeneral {
 		if (!is_null($options['groupids'])) {
 			zbx_value2array($options['groupids']);
 
+			$sqlParts['select']['groupid'] = 'hg.groupid';
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
@@ -187,6 +189,7 @@ class CGraph extends CGraphGeneral {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
+			$sqlParts['select']['hostid'] = 'i.hostid';
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where'][] = dbConditionInt('i.hostid', $options['hostids']);
@@ -209,6 +212,7 @@ class CGraph extends CGraphGeneral {
 		if (!is_null($options['itemids'])) {
 			zbx_value2array($options['itemids']);
 
+			$sqlParts['select']['itemid'] = 'gi.itemid';
 			$sqlParts['from']['graphs_items'] = 'graphs_items gi';
 			$sqlParts['where']['gig'] = 'gi.graphid=g.graphid';
 			$sqlParts['where'][] = dbConditionInt('gi.itemid', $options['itemids']);
@@ -290,8 +294,11 @@ class CGraph extends CGraphGeneral {
 			$sqlParts['limit'] = $options['limit'];
 		}
 
+		$graphids = array();
+
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
+		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$dbRes = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
 		while ($graph = DBfetch($dbRes)) {
 			if (!is_null($options['countOutput'])) {
@@ -303,7 +310,30 @@ class CGraph extends CGraphGeneral {
 				}
 			}
 			else {
-				$result[$graph['graphid']] = $graph;
+				$graphids[$graph['graphid']] = $graph['graphid'];
+
+				if (!isset($result[$graph['graphid']])) {
+					$result[$graph['graphid']] = array();
+				}
+
+				// hostids
+				if (isset($graph['hostid']) && is_null($options['selectHosts'])) {
+					if (!isset($result[$graph['graphid']]['hosts'])) {
+						$result[$graph['graphid']]['hosts'] = array();
+					}
+					$result[$graph['graphid']]['hosts'][] = array('hostid' => $graph['hostid']);
+					unset($graph['hostid']);
+				}
+
+				// itemids
+				if (isset($graph['itemid']) && is_null($options['selectItems'])) {
+					if (!isset($result[$graph['graphid']]['items'])) {
+						$result[$graph['graphid']]['items'] = array();
+					}
+					$result[$graph['graphid']]['items'][] = array('itemid' => $graph['itemid']);
+					unset($graph['itemid']);
+				}
+				$result[$graph['graphid']] += $graph;
 			}
 		}
 
@@ -392,24 +422,9 @@ class CGraph extends CGraphGeneral {
 			));
 
 			if ($chdGraph = reset($chdGraphs)) {
-				if ($tmpGraph['name'] !== $chdGraph['name']) {
-					$graphExists = $this->get(array(
-						'output' => array('graphid'),
-						'hostids' => $chdHost['hostid'],
-						'filter' => array(
-							'name' => $tmpGraph['name'],
-							'flags' => null
-						),
-						'nopermissions' => true,
-						'limit' => 1
-					));
-					if ($graphExists) {
-						self::exception(ZBX_API_ERROR_PARAMETERS, _s(
-							'Graph "%1$s" already exists on "%2$s".',
-							$tmpGraph['name'],
-							$chdHost['host']
-						));
-					}
+				if (zbx_strtolower($tmpGraph['name']) != zbx_strtolower($chdGraph['name'])
+						&& $this->exists(array('name' => $tmpGraph['name'], 'hostids' => $chdHost['hostid']))){
+					self::exception(ZBX_API_ERROR_PARAMETERS, _s('Graph "%1$s" already exists on "%2$s".', $tmpGraph['name'], $chdHost['host']));
 				}
 				elseif ($chdGraph['flags'] != $tmpGraph['flags']) {
 					self::exception(ZBX_API_ERROR_PARAMETERS, _('Graph with same name but other type exist.'));
@@ -499,8 +514,7 @@ class CGraph extends CGraphGeneral {
 			'hostids' => $data['templateids'],
 			'preservekeys' => true,
 			'output' => API_OUTPUT_EXTEND,
-			'selectGraphItems' => API_OUTPUT_EXTEND,
-			'selectHosts' => array('hostid')
+			'selectGraphItems' => API_OUTPUT_EXTEND
 		));
 
 		foreach ($graphs as $graph) {
@@ -522,10 +536,12 @@ class CGraph extends CGraphGeneral {
 	 *
 	 * @return array
 	 */
-	public function delete(array $graphids, $nopermissions = false) {
+	public function delete($graphids, $nopermissions = false) {
 		if (empty($graphids)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Empty input parameter.'));
 		}
+
+		$graphids = zbx_toArray($graphids);
 
 		$delGraphs = $this->get(array(
 			'graphids' => $graphids,
@@ -582,6 +598,20 @@ class CGraph extends CGraphGeneral {
 		return array('graphids' => $graphids);
 	}
 
+	protected function applyQueryNodeOptions($tableName, $tableAlias, array $options, array $sqlParts) {
+		// only apply the node option if no specific ids are given
+		if ($options['graphids'] === null &&
+				$options['templateids'] === null &&
+				$options['hostids'] === null &&
+				$options['groupids'] === null &&
+				$options['itemids'] === null) {
+
+			$sqlParts = parent::applyQueryNodeOptions($tableName, $tableAlias, $options, $sqlParts);
+		}
+
+		return $sqlParts;
+	}
+
 	protected function addRelatedObjects(array $options, array $result) {
 		$result = parent::addRelatedObjects($options, $result);
 
@@ -591,6 +621,7 @@ class CGraph extends CGraphGeneral {
 		if ($options['selectItems'] !== null && $options['selectItems'] !== API_OUTPUT_COUNT) {
 			$relationMap = $this->createRelationMap($result, 'graphid', 'itemid', 'graphs_items');
 			$items = API::Item()->get(array(
+				'nodeids' => $options['nodeids'],
 				'output' => $options['selectItems'],
 				'itemids' => $relationMap->getRelatedIds(),
 				'webitems' => true,
@@ -616,6 +647,7 @@ class CGraph extends CGraphGeneral {
 
 			$discoveryRules = API::DiscoveryRule()->get(array(
 				'output' => $options['selectDiscoveryRule'],
+				'nodeids' => $options['nodeids'],
 				'itemids' => $relationMap->getRelatedIds(),
 				'nopermissions' => true,
 				'preservekeys' => true
@@ -674,6 +706,7 @@ class CGraph extends CGraphGeneral {
 	protected function validateItems(array $itemIds, array $graphs) {
 		$dbItems = API::Item()->get(array(
 			'output' => array('name', 'value_type'),
+			'nodeids' => get_current_nodeid(true),
 			'itemids' => $itemIds,
 			'webitems' => true,
 			'editable' => true,

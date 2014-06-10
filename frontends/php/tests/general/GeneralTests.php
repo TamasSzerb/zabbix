@@ -20,6 +20,7 @@
 
 
 require_once dirname(__FILE__).'/class_cItemKey.php';
+require_once dirname(__FILE__).'/CTriggerExpressionTest.php';
 require_once dirname(__FILE__).'/class_cxmlexportwriter.php';
 require_once dirname(__FILE__).'/class_cxmlimportreader.php';
 require_once dirname(__FILE__).'/function_DBcommit.php';
@@ -28,6 +29,8 @@ require_once dirname(__FILE__).'/function_DBclose.php';
 require_once dirname(__FILE__).'/function_DBend.php';
 require_once dirname(__FILE__).'/function_DBexecute.php';
 require_once dirname(__FILE__).'/function_DBfetch.php';
+require_once dirname(__FILE__).'/function_DBid2nodeid.php';
+require_once dirname(__FILE__).'/function_DBin_node.php';
 require_once dirname(__FILE__).'/function_DBloadfile.php';
 require_once dirname(__FILE__).'/function_DBrollback.php';
 require_once dirname(__FILE__).'/function_DBselect.php';
@@ -45,6 +48,7 @@ class GeneralTests {
 		$suite = new PHPUnit_Framework_TestSuite('general');
 
 		$suite->addTestSuite('class_cItemKey');
+		$suite->addTestSuite('CTriggerExpressionTest');
 		$suite->addTestSuite('class_cxmlexportwriter');
 		$suite->addTestSuite('class_cxmlimportreader');
 		$suite->addTestSuite('function_DBcommit');
@@ -53,6 +57,8 @@ class GeneralTests {
 		$suite->addTestSuite('function_DBend');
 		$suite->addTestSuite('function_DBexecute');
 		$suite->addTestSuite('function_DBfetch');
+		$suite->addTestSuite('function_DBid2nodeid');
+		$suite->addTestSuite('function_DBin_node');
 		$suite->addTestSuite('function_DBloadfile');
 		$suite->addTestSuite('function_DBrollback');
 		$suite->addTestSuite('function_DBselect');

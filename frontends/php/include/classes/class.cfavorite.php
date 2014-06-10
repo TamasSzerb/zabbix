@@ -86,6 +86,7 @@ class CFavorite {
 			);
 		}
 
+		DBstart();
 		$values = array(
 			'profileid' => get_dbid('profiles', 'profileid'),
 			'userid' => CWebUser::$data['userid'],
@@ -97,10 +98,7 @@ class CFavorite {
 			$values['source'] = zbx_dbstr($favobj);
 		}
 
-		return DBexecute(
-			'INSERT INTO profiles ('.implode(', ', array_keys($values)).')'.
-			' VALUES ('.implode(', ', $values).')'
-		);
+		return DBend(DBexecute('INSERT INTO profiles ('.implode(', ', array_keys($values)).') VALUES ('.implode(', ', $values).')'));
 	}
 
 	/**
@@ -113,6 +111,7 @@ class CFavorite {
 	 * @return boolean did SQL DELETE succeeded
 	 */
 	public static function remove($idx, $favid = 0, $favobj = null) {
+
 		// empty cache, we know that all $idx values will be removed in DELETE
 		if ($favid == 0 && $favobj === null) {
 			self::$cache[$idx] = array();

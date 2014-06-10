@@ -366,7 +366,7 @@ function copyTriggersToHosts($srcTriggerIds, $dstHostIds, $srcHostId = null) {
 		'triggerids' => $srcTriggerIds,
 		'output' => array('triggerid', 'expression', 'description', 'url', 'status', 'priority', 'comments', 'type'),
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-		'selectDependencies' => array('triggerid')
+		'selectDependencies' => API_OUTPUT_REFER
 	);
 	if ($srcHostId) {
 		$srcHost = API::Host()->get(array(
@@ -531,6 +531,149 @@ function copyTriggersToHosts($srcTriggerIds, $dstHostIds, $srcHostId = null) {
 	return true;
 }
 
+/**
+ * Function split trigger expresion by '&' and '|', that all elements from first level would be separated.
+ *
+ * @param string $expresion		trigger expresion
+ *
+ * @return array
+ */
+function splitByFirstLevel($expresion) {
+	$pos = 0;
+	$level = 0;
+
+	while (isset($expresion[$pos])) {
+		switch ($expresion[$pos]) {
+			case '(':
+				++$level;
+				break;
+			case ')':
+				--$level;
+				break;
+			case '&':
+			case '|':
+				if (!$level) {
+					$tmpArr[] = trim(substr($expresion, 0, $pos));
+					$expresion = substr($expresion, $pos + 1);
+					$pos = -1;
+				}
+				break;
+			default:
+				break;
+		}
+		++$pos;
+	}
+
+	if ($expresion) {
+		$tmpArr[] = trim($expresion);
+	}
+
+	return $tmpArr;
+}
+
+function construct_expression($itemid, $expressions) {
+	$complite_expr = '';
+	$item = get_item_by_itemid($itemid);
+	$host = get_host_by_itemid($itemid);
+	$prefix = $host['host'].':'.$item['key_'].'.';
+
+	if (empty($expressions)) {
+		error(_('Expression cannot be empty'));
+		return false;
+	}
+
+	$ZBX_PREG_EXPESSION_FUNC_FORMAT = '^(['.ZBX_PREG_PRINT.']*)([&|]{1})[(]*(([a-zA-Z_.\$]{6,7})(\\((['.ZBX_PREG_PRINT.']+?){0,1}\\)))(['.ZBX_PREG_PRINT.']*)$';
+	$functions = array('regexp' => 1, 'iregexp' => 1);
+	$expr_array = array();
+	$cexpor = 0;
+	$startpos = -1;
+
+	foreach ($expressions as $expression) {
+		$expression['value'] = preg_replace('/\s+(AND){1,2}\s+/U', '&', $expression['value']);
+		$expression['value'] = preg_replace('/\s+(OR){1,2}\s+/U', '|', $expression['value']);
+
+		if ($expression['type'] == REGEXP_INCLUDE) {
+			if (!empty($complite_expr)) {
+				$complite_expr.=' | ';
+			}
+			if ($cexpor == 0) {
+				$startpos = zbx_strlen($complite_expr);
+			}
+			$cexpor++;
+			$eq_global = '#0';
+		}
+		else {
+			if (($cexpor > 1) & ($startpos >= 0)) {
+				$head = substr($complite_expr, 0, $startpos);
+				$tail = substr($complite_expr, $startpos);
+				$complite_expr = $head.'('.$tail.')';
+			}
+			$cexpor = 0;
+			$eq_global = '=0';
+			if (!empty($complite_expr)) {
+				$complite_expr.=' & ';
+			}
+		}
+
+		$expr = '&'.$expression['value'];
+		$expr = preg_replace('/\s+(\&|\|){1,2}\s+/U', '$1', $expr);
+
+		$expr_array = array();
+		$sub_expr_count=0;
+		$sub_expr = '';
+		$multi = preg_match('/.+(&|\|).+/', $expr);
+
+		while (preg_match('/'.$ZBX_PREG_EXPESSION_FUNC_FORMAT.'/i', $expr, $arr)) {
+			$arr[4] = zbx_strtolower($arr[4]);
+			if (!isset($functions[$arr[4]])) {
+				error(_('Incorrect function is used').'. ['.$expression['value'].']');
+				return false;
+			}
+			$expr_array[$sub_expr_count]['eq'] = trim($arr[2]);
+			$expr_array[$sub_expr_count]['regexp'] = zbx_strtolower($arr[4]).$arr[5];
+
+			$sub_expr_count++;
+			$expr = $arr[1];
+		}
+
+		if (empty($expr_array)) {
+			error(_('Incorrect trigger expression').'. ['.$expression['value'].']');
+			return false;
+		}
+
+		$expr_array[$sub_expr_count-1]['eq'] = '';
+
+		$sub_eq = '';
+		if ($multi > 0) {
+			$sub_eq = $eq_global;
+		}
+
+		foreach ($expr_array as $id => $expr) {
+			if ($multi > 0) {
+				$sub_expr = $expr['eq'].'({'.$prefix.$expr['regexp'].'})'.$sub_eq.$sub_expr;
+			}
+			else {
+				$sub_expr = $expr['eq'].'{'.$prefix.$expr['regexp'].'}'.$sub_eq.$sub_expr;
+			}
+		}
+
+		if ($multi > 0) {
+			$complite_expr .= '('.$sub_expr.')';
+		}
+		else {
+			$complite_expr .= '(('.$sub_expr.')'.$eq_global.')';
+		}
+	}
+
+	if (($cexpor > 1) & ($startpos >= 0)) {
+		$head = substr($complite_expr, 0, $startpos);
+		$tail = substr($complite_expr, $startpos);
+		$complite_expr = $head.'('.$tail.')';
+	}
+
+	return $complite_expr;
+}
+
 /********************************************************************************
  *																				*
  * Purpose: Translate {10}>10 to something like localhost:procload.last(0)>10	*
@@ -542,7 +685,7 @@ function explode_exp($expressionCompressed, $html = false, $resolveMacro = false
 	$expressionExpanded = $html ? array() : '';
 	$trigger = array();
 
-	for ($i = 0, $state = '', $max = strlen($expressionCompressed); $i < $max; $i++) {
+	for ($i = 0, $state = '', $max = zbx_strlen($expressionCompressed); $i < $max; $i++) {
 		if ($expressionCompressed[$i] == '{') {
 			if ($expressionCompressed[$i + 1] == '$') {
 				$state = 'USERMACRO';
@@ -656,14 +799,15 @@ function explode_exp($expressionCompressed, $html = false, $resolveMacro = false
 							$link = new CLink(
 								$functionData['host'].':'.$functionData['key_'],
 								'disc_prototypes.php?form=update&itemid='.$functionData['itemid'].'&parent_discoveryid='.
-									$trigger['discoveryRuleid'],
+									$trigger['discoveryRuleid'].'&switch_node='.id2nodeid($functionData['itemid']),
 								$style
 							);
 						}
 						else {
 							$link = new CLink(
 								$functionData['host'].':'.$functionData['key_'],
-								'items.php?form=update&itemid='.$functionData['itemid'],
+								'items.php?form=update&itemid='.$functionData['itemid'].'&switch_node='.
+									id2nodeid($functionData['itemid']),
 								$style
 							);
 						}
@@ -882,7 +1026,8 @@ function implode_exp($expression, $triggerId, &$hostnames = array()) {
 				' WHERE i.key_='.zbx_dbstr($exprPart['item']).
 					' AND '.dbConditionInt('i.flags', array(ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED, ZBX_FLAG_DISCOVERY_PROTOTYPE)).
 					' AND h.host='.zbx_dbstr($exprPart['host']).
-					' AND h.hostid=i.hostid'
+					' AND h.hostid=i.hostid'.
+					andDbNode('i.itemid')
 			);
 			if ($row = DBfetch($result)) {
 				$hostnames[] = $row['name'];
@@ -961,7 +1106,8 @@ function getExpressionItems(CTriggerExpression $triggerExpression) {
 						ZBX_FLAG_DISCOVERY_NORMAL, ZBX_FLAG_DISCOVERY_CREATED, ZBX_FLAG_DISCOVERY_PROTOTYPE
 					)).
 					' AND h.host='.zbx_dbstr($expression['host']).
-					' AND h.hostid=i.hostid'
+					' AND h.hostid=i.hostid'.
+					andDbNode('i.itemid')
 			);
 			if ($dbItem = DBfetch($dbItems)) {
 				$items[] = $dbItem;
@@ -1053,7 +1199,7 @@ function getTriggersOverview($hostIds, $application, $pageFile, $viewMode = null
 		'monitored' => true,
 		'skipDependent' => true,
 		'output' => API_OUTPUT_EXTEND,
-		'selectHosts' => array('hostid', 'name', 'status'),
+		'selectHosts' => array('hostid', 'name'),
 		'sortfield' => 'description'
 	));
 
@@ -1069,7 +1215,6 @@ function getTriggersOverview($hostIds, $application, $pageFile, $viewMode = null
 		'output' => array('name', 'hostid', 'status'),
 		'hostids' => $hostIds,
 		'preservekeys' => true,
-		'selectGraphs' => API_OUTPUT_COUNT,
 		'selectScreens' => ($viewMode == STYLE_LEFT) ? API_OUTPUT_COUNT : null
 	));
 
@@ -1079,6 +1224,7 @@ function getTriggersOverview($hostIds, $application, $pageFile, $viewMode = null
 	foreach ($dbTriggers as $trigger) {
 		$host = reset($trigger['hosts']);
 
+		$host['name'] = get_node_name_by_elid($host['hostid'], null, NAME_DELIMITER).$host['name'];
 		$trigger['description'] = CMacrosResolverHelper::resolveTriggerReference($trigger['expression'], $trigger['description']);
 		$hostNames[$host['hostid']] = $host['name'];
 
@@ -1151,7 +1297,7 @@ function getTriggersOverview($hostIds, $application, $pageFile, $viewMode = null
 
 		foreach ($hostNames as $hostId => $hostName) {
 			$name = new CSpan($hostName, 'link_menu');
-			$name->setMenuPopup(CMenuPopupHelper::getHost($hosts[$hostId], $scripts[$hostId]));
+			$name->setMenuPopup(getMenuPopupHost($hosts[$hostId], $scripts[$hostId]));
 
 			$columns = array($name);
 			foreach ($triggers as $triggerHosts) {
@@ -1182,7 +1328,7 @@ function getTriggersOverview($hostIds, $application, $pageFile, $viewMode = null
  */
 function getTriggerOverviewCells($trigger, $pageFile, $screenId = null) {
 	$ack = $css = $style = null;
-	$desc = $triggerItems = $acknowledge = array();
+	$desc = $menuPopup = $triggerItems = $acknowledge = array();
 
 	// for how long triggers should blink on status change (set by user in administration->general)
 	$config = select_config();
@@ -1299,93 +1445,83 @@ function getTriggerOverviewCells($trigger, $pageFile, $screenId = null) {
 	}
 
 	if ($trigger) {
-		$column->setMenuPopup(CMenuPopupHelper::getTrigger($trigger, $triggerItems, $acknowledge));
+		$column->setMenuPopup(getMenuPopupTrigger($trigger, $triggerItems, $acknowledge));
 	}
 
 	return $column;
 }
 
-/**
- * Calculate trigger availability.
- *
- * @param int $triggerId		trigger id
- * @param int $startTime		begin period
- * @param int $endTime			end period
- *
- * @return array
- */
-function calculateAvailability($triggerId, $startTime, $endTime) {
-	$startValue = TRIGGER_VALUE_FALSE;
-
-	if ($startTime > 0 && $startTime <= time()) {
+function calculate_availability($triggerid, $period_start, $period_end) {
+	$start_value = TRIGGER_VALUE_FALSE;
+	if ($period_start > 0 && $period_start <= time()) {
 		$sql = 'SELECT e.eventid,e.value'.
 				' FROM events e'.
-				' WHERE e.objectid='.zbx_dbstr($triggerId).
+				' WHERE e.objectid='.zbx_dbstr($triggerid).
 					' AND e.source='.EVENT_SOURCE_TRIGGERS.
 					' AND e.object='.EVENT_OBJECT_TRIGGER.
-					' AND e.clock<'.zbx_dbstr($startTime).
+					' AND e.clock<'.zbx_dbstr($period_start).
 				' ORDER BY e.eventid DESC';
 		if ($row = DBfetch(DBselect($sql, 1))) {
-			$startValue = $row['value'];
-			$min = $startTime;
+			$start_value = $row['value'];
+			$min = $period_start;
 		}
 	}
 
 	$sql = 'SELECT COUNT(e.eventid) AS cnt,MIN(e.clock) AS min_clock,MAX(e.clock) AS max_clock'.
 			' FROM events e'.
-			' WHERE e.objectid='.zbx_dbstr($triggerId).
+			' WHERE e.objectid='.zbx_dbstr($triggerid).
 				' AND e.source='.EVENT_SOURCE_TRIGGERS.
 				' AND e.object='.EVENT_OBJECT_TRIGGER;
-	if ($startTime) {
-		$sql .= ' AND e.clock>='.zbx_dbstr($startTime);
+	if ($period_start != 0) {
+		$sql .= ' AND clock>='.zbx_dbstr($period_start);
 	}
-	if ($endTime) {
-		$sql .= ' AND e.clock<='.zbx_dbstr($endTime);
+	if ($period_end != 0) {
+		$sql .= ' AND clock<='.zbx_dbstr($period_end);
 	}
 
-	$dbEvents = DBfetch(DBselect($sql));
-	if ($dbEvents['cnt'] > 0) {
+	$db_events = DBfetch(DBselect($sql));
+	if ($db_events['cnt'] > 0) {
 		if (!isset($min)) {
-			$min = $dbEvents['min_clock'];
+			$min = $db_events['min_clock'];
 		}
-		$max = $dbEvents['max_clock'];
+		$max = $db_events['max_clock'];
 	}
 	else {
-		if ($startTime == 0 && $endTime == 0) {
+		if ($period_start == 0 && $period_end == 0) {
 			$max = time();
 			$min = $max - SEC_PER_DAY;
 		}
 		else {
 			$ret['true_time'] = 0;
 			$ret['false_time'] = 0;
-			$ret['true'] = (TRIGGER_VALUE_TRUE == $startValue) ? 100 : 0;
-			$ret['false'] = (TRIGGER_VALUE_FALSE == $startValue) ? 100 : 0;
+			$ret['true'] = (TRIGGER_VALUE_TRUE == $start_value) ? 100 : 0;
+			$ret['false'] = (TRIGGER_VALUE_FALSE == $start_value) ? 100 : 0;
 			return $ret;
 		}
 	}
 
-	$state = $startValue;
+	$state = $start_value;
 	$true_time = 0;
 	$false_time = 0;
 	$time = $min;
-	if ($startTime == 0 && $endTime == 0) {
+	if ($period_start == 0 && $period_end == 0) {
 		$max = time();
 	}
-	if ($endTime == 0) {
-		$endTime = $max;
+	if ($period_end == 0) {
+		$period_end = $max;
 	}
 
 	$rows = 0;
-	$dbEvents = DBselect(
+	$db_events = DBselect(
 		'SELECT e.eventid,e.clock,e.value'.
 		' FROM events e'.
-		' WHERE e.objectid='.zbx_dbstr($triggerId).
+		' WHERE e.objectid='.zbx_dbstr($triggerid).
 			' AND e.source='.EVENT_SOURCE_TRIGGERS.
 			' AND e.object='.EVENT_OBJECT_TRIGGER.
 			' AND e.clock BETWEEN '.$min.' AND '.$max.
 		' ORDER BY e.eventid'
 	);
-	while ($row = DBfetch($dbEvents)) {
+	while ($row = DBfetch($db_events)) {
 		$clock = $row['clock'];
 		$value = $row['value'];
 
@@ -1404,15 +1540,15 @@ function calculateAvailability($triggerId, $startTime, $endTime) {
 	}
 
 	if ($rows == 0) {
-		$trigger = get_trigger_by_triggerid($triggerId);
+		$trigger = get_trigger_by_triggerid($triggerid);
 		$state = $trigger['value'];
 	}
 
 	if ($state == TRIGGER_VALUE_FALSE) {
-		$false_time = $false_time + $endTime - $time;
+		$false_time = $false_time + $period_end - $time;
 	}
 	elseif ($state == TRIGGER_VALUE_TRUE) {
-		$true_time = $true_time + $endTime - $time;
+		$true_time = $true_time + $period_end - $time;
 	}
 	$total_time = $true_time + $false_time;
 
@@ -1447,6 +1583,7 @@ function get_triggers_unacknowledged($db_element, $count_problems = null, $ack =
 	$config = select_config();
 
 	$options = array(
+		'nodeids' => get_current_nodeid(),
 		'monitored' => true,
 		'countOutput' => true,
 		'filter' => array(),
@@ -1477,45 +1614,32 @@ function get_triggers_unacknowledged($db_element, $count_problems = null, $ack =
 }
 
 function make_trigger_details($trigger) {
-	$hostNames = array();
-
-	$hostIds = zbx_objectValues($trigger['hosts'], 'hostid');
+	$hosts = reset($trigger['hosts']);
+	$hostId = $hosts['hostid'];
 
 	$hosts = API::Host()->get(array(
 		'output' => array('name', 'hostid', 'status'),
-		'hostids' => $hostIds,
+		'hostids' => $hostId,
 		'selectScreens' => API_OUTPUT_COUNT,
-		'selectGraphs' => API_OUTPUT_COUNT
+		'preservekeys' => true
 	));
+	$host = reset($hosts);
 
-	if (count($hosts) > 1) {
-		order_result($hosts, 'name', ZBX_SORT_UP);
-	}
+	$scripts = API::Script()->getScriptsByHosts($hostId);
 
-	$scripts = API::Script()->getScriptsByHosts($hostIds);
-
-	foreach ($hosts as $host) {
-		$hostName = new CSpan($host['name'], 'link_menu');
-		$hostName->setMenuPopup(CMenuPopupHelper::getHost($host, $scripts[$host['hostid']]));
-		$hostNames[] = $hostName;
-		$hostNames[] = ', ';
-	}
-	array_pop($hostNames);
+	$hostName = new CSpan($host['name'], 'link_menu');
+	$hostName->setMenuPopup(getMenuPopupHost($host, $scripts ? reset($scripts) : null));
 
 	$table = new CTableInfo();
-	$table->addRow(array(
-		new CCol(_n('Host', 'Hosts', count($hosts))),
-		new CCol($hostNames, 'wraptext')
-	));
-	$table->addRow(array(
-		new CCol(_('Trigger')),
-		new CCol(CMacrosResolverHelper::resolveTriggerName($trigger), 'wraptext')
-	));
+
+	if (is_show_all_nodes()) {
+		$table->addRow(array(_('Node'), get_node_name_by_elid($trigger['triggerid'])));
+	}
+
+	$table->addRow(array(_('Host'), $hostName));
+	$table->addRow(array(_('Trigger'), CMacrosResolverHelper::resolveTriggerName($trigger)));
 	$table->addRow(array(_('Severity'), getSeverityCell($trigger['priority'])));
-	$table->addRow(array(
-		new CCol(_('Expression')),
-		new CCol(explode_exp($trigger['expression'], true, true), 'trigger-expression')
-	));
+	$table->addRow(array(_('Expression'), explode_exp($trigger['expression'], true, true)));
 	$table->addRow(array(_('Event generation'), _('Normal').((TRIGGER_MULT_EVENT_ENABLED == $trigger['type'])
 		? SPACE.'+'.SPACE._('Multiple PROBLEM events') : '')));
 	$table->addRow(array(_('Disabled'), ((TRIGGER_STATUS_ENABLED == $trigger['status'])
@@ -1552,16 +1676,15 @@ function analyzeExpression($expression) {
 /**
  * Builds expression html tree
  *
- * @param array 	$expressionTree 	output of getExpressionTree() function
- * @param array 	$next           	parameter only for recursive call; should be empty array
- * @param int 		$letterNum      	parameter only for recursive call; should be 0
- * @param int 		$level          	parameter only for recursive call
- * @param string 	$operator       	parameter only for recursive call
+ * @param array $expressionTree output of getExpressionTree() function
+ * @param array $next           parameter only for recursive call; should be empty array
+ * @param int $letterNum        parameter only for recursive call; should be 0
+ * @param int $level            parameter only for recursive call
+ * @param string $operand       parameter only for recursive call
  *
- * @return array	array containing the trigger expression formula as the first element and an array describing the
- *					expression tree as the second
+ * @return bool                 returns true if element is found, false - otherwise
  */
-function buildExpressionHtmlTree(array $expressionTree, array &$next, &$letterNum, $level = 0, $operator = null) {
+function buildExpressionHtmlTree(array $expressionTree, array &$next, &$letterNum, $level = 0, $operand = null) {
 	$treeList = array();
 	$outline = '';
 
@@ -1570,11 +1693,11 @@ function buildExpressionHtmlTree(array $expressionTree, array &$next, &$letterNu
 
 	foreach ($expressionTree as $key => $element) {
 		switch ($element['type']) {
-			case 'operator':
+			case 'operand':
 				$next[$level] = ($key != $lastKey);
 				$expr = expressionLevelDraw($next, $level);
 				$expr[] = SPACE;
-				$expr[] = ($element['operator'] === 'and') ? _('And') : _('Or');
+				$expr[] = italic($element['operand'] == '&' ? _('AND') : _('OR'));
 				$levelDetails = array(
 					'list' => $expr,
 					'id' => $element['id'],
@@ -1590,12 +1713,12 @@ function buildExpressionHtmlTree(array $expressionTree, array &$next, &$letterNu
 				$treeList[] = $levelDetails;
 
 				list($subOutline, $subTreeList) = buildExpressionHtmlTree($element['elements'], $next, $letterNum,
-						$level + 1, $element['operator']);
+						$level + 1, $element['operand']);
 				$treeList = array_merge($treeList, $subTreeList);
 
 				$outline .= ($level == 0) ? $subOutline : '('.$subOutline.')';
-				if ($operator !== null && $next[$level]) {
-					$outline .= ' '.$operator.' ';
+				if ($operand !== null && $next[$level]) {
+					$outline .= ' '.$operand.' ';
 				}
 				break;
 			case 'expression':
@@ -1603,8 +1726,8 @@ function buildExpressionHtmlTree(array $expressionTree, array &$next, &$letterNu
 
 				$letter = num2letter($letterNum++);
 				$outline .= $letter;
-				if ($operator !== null && $next[$level]) {
-					$outline .= ' '.$operator.' ';
+				if ($operand !== null && $next[$level]) {
+					$outline .= ' '.$operand.' ';
 				}
 
 				if (defined('NO_LINK_IN_TESTING')) {
@@ -1710,16 +1833,59 @@ function expressionLevelDraw(array $next, $level) {
 }
 
 /**
+ * Returns number of elements in a trigger expression
+ * Element is expression between two operands.
+ *
+ * For example:
+ * expression "{host.key.last(0)}=0 & ({host2:key.last(0)}=0 & {host3.key.last(0)}=0)" has two elements:
+ * "{host.key.last(0)}=0" and "({host2:key.last(0)}=0 & {host3.key.last(0)}=0)"
+ *
+ * @param CTriggerExpression $expressionData
+ * @param int $start
+ * @param int $end
+ *
+ * @return integer
+ */
+function getExpressionElementsNum(CTriggerExpression $expressionData, $start, $end) {
+	for ($i = $start, $level = 0, $expressionElementsNum = 1; $i <= $end; $i++) {
+		switch ($expressionData->expression[$i]) {
+			case '(':
+				$level++;
+				break;
+			case ')':
+				$level--;
+				break;
+			case '|':
+			case '&':
+				if ($level == 0) {
+					$expressionElementsNum++;
+				}
+				break;
+			case '{':
+				foreach ($expressionData->expressions as $exprPart) {
+					if ($exprPart['pos'] == $i) {
+						$i += strlen($exprPart['expression']) - 1;
+						break;
+					}
+				}
+				break;
+		}
+	}
+
+	return $expressionElementsNum;
+}
+
+/**
  * Makes tree of expression elements
  *
  * Expression:
- *   "{host1:system.cpu.util[,iowait].last(0)} > 50 and {host2:system.cpu.util[,iowait].last(0)} > 50"
+ *   "{host1:system.cpu.util[,iowait].last(0)} > 50 & {host2:system.cpu.util[,iowait].last(0)} > 50"
  * Result:
  *   array(
  *     [0] => array(
- *       'id' => '0_94',
- *       'type' => 'operator',
- *       'operator' => 'and',
+ *       'id' => '0_92',
+ *       'type' => 'operand',
+ *       'operand' => '&',
  *       'elements' => array(
  *         [0] => array(
  *           'id' => '0_44',
@@ -1727,7 +1893,7 @@ function expressionLevelDraw(array $next, $level) {
  *           'expression' => '{host1:system.cpu.util[,iowait].last(0)} > 50'
  *         ),
  *         [1] => array(
- *           'id' => '50_94',
+ *           'id' => '48_92',
  *           'type' => 'expression',
  *           'expression' => '{host2:system.cpu.util[,iowait].last(0)} > 50'
  *         )
@@ -1742,24 +1908,18 @@ function expressionLevelDraw(array $next, $level) {
  * @return array
  */
 function getExpressionTree(CTriggerExpression $expressionData, $start, $end) {
-	$blankSymbols = array(' ', "\r", "\n", "\t");
-
 	$expressionTree = array();
-	foreach (array('or', 'and') as $operator) {
-		$operatorFound = false;
+
+	foreach (array('|', '&') as $operand) {
+		$operandFound = false;
 		$lParentheses = -1;
 		$rParentheses = -1;
 		$expressions = array();
 		$openSymbolNum = $start;
-		$operatorPos = 0;
-		$operatorToken = '';
 
 		for ($i = $start, $level = 0; $i <= $end; $i++) {
 			switch ($expressionData->expression[$i]) {
 				case ' ':
-				case "\r":
-				case "\n":
-				case "\t":
 					if ($openSymbolNum == $i) {
 						$openSymbolNum++;
 					}
@@ -1776,6 +1936,24 @@ function getExpressionTree(CTriggerExpression $expressionData, $start, $end) {
 						$rParentheses = $i;
 					}
 					break;
+				case $operand:
+					if ($level == 0) {
+						$closeSymbolNum = $i - 1;
+						while ($expressionData->expression[$closeSymbolNum] == ' ') {
+							$closeSymbolNum--;
+						}
+
+						$expressionElementsNum = getExpressionElementsNum($expressionData, $openSymbolNum, $closeSymbolNum);
+						if ($expressionElementsNum == 1 && $openSymbolNum == $lParentheses && $closeSymbolNum == $rParentheses) {
+							$openSymbolNum++;
+							$closeSymbolNum--;
+						}
+
+						$expressions[] = getExpressionTree($expressionData, $openSymbolNum, $closeSymbolNum);
+						$openSymbolNum = $i + 1;
+						$operandFound = true;
+					}
+					break;
 				case '{':
 					foreach ($expressionData->expressions as $exprPart) {
 						if ($exprPart['pos'] == $i) {
@@ -1784,79 +1962,49 @@ function getExpressionTree(CTriggerExpression $expressionData, $start, $end) {
 						}
 					}
 					break;
-				default:
-					// try to parse an operator
-					if ($operator[$operatorPos] === $expressionData->expression[$i]) {
-						$operatorPos++;
-						$operatorToken .= $expressionData->expression[$i];
-
-						// operator found
-						if ($operatorToken === $operator) {
-							// we've reached the end of a complete expression, parse the expression on the left side of
-							// the operator
-							if ($level == 0) {
-								// find the last symbol of the expression before the operator
-								$closeSymbolNum = $i - strlen($operator);
-
-								// trim blank symbols after the expression
-								while (in_array($expressionData->expression[$closeSymbolNum], $blankSymbols)) {
-									$closeSymbolNum--;
-								}
-
-								$expressions[] = getExpressionTree($expressionData, $openSymbolNum, $closeSymbolNum);
-								$openSymbolNum = $i + 1;
-								$operatorFound = true;
-							}
-							$operatorPos = 0;
-							$operatorToken = '';
-						}
-					}
 			}
 		}
 
-		// trim blank symbols in the end of the trigger expression
 		$closeSymbolNum = $end;
-		while (in_array($expressionData->expression[$closeSymbolNum], $blankSymbols)) {
+		while ($expressionData->expression[$closeSymbolNum] == ' ') {
 			$closeSymbolNum--;
 		}
 
-		// we've found a whole expression and parsed the expression on the left side of the operator,
-		// parse the expression on the right
-		if ($operatorFound) {
+		if ($operandFound) {
+			$expressionElementsNum = getExpressionElementsNum($expressionData, $openSymbolNum, $closeSymbolNum);
+			if ($expressionElementsNum == 1 && $openSymbolNum == $lParentheses && $closeSymbolNum == $rParentheses) {
+				$openSymbolNum++;
+				$closeSymbolNum--;
+			}
+
 			$expressions[] = getExpressionTree($expressionData, $openSymbolNum, $closeSymbolNum);
 
-			// trim blank symbols in the beginning of the trigger expression
 			$openSymbolNum = $start;
-			while (in_array($expressionData->expression[$openSymbolNum], $blankSymbols)) {
+			while ($expressionData->expression[$openSymbolNum] == ' ') {
 				$openSymbolNum++;
 			}
 
-			// trim blank symbols in the end of the trigger expression
 			$closeSymbolNum = $end;
-			while (in_array($expressionData->expression[$closeSymbolNum], $blankSymbols)) {
+			while ($expressionData->expression[$closeSymbolNum] == ' ') {
 				$closeSymbolNum--;
 			}
 
 			$expressionTree = array(
 				'id' => $openSymbolNum.'_'.$closeSymbolNum,
 				'expression' => substr($expressionData->expression, $openSymbolNum, $closeSymbolNum - $openSymbolNum + 1),
-				'type' => 'operator',
-				'operator' => $operator,
+				'type' => 'operand',
+				'operand' => $operand,
 				'elements' => $expressions
 			);
 			break;
 		}
-		// if we've tried both operators and didn't find anything, it means there's only one expression
-		// return the result
-		elseif ($operator === 'and') {
-			// trim extra parentheses
+		elseif ($operand == '&') {
 			if ($openSymbolNum == $lParentheses && $closeSymbolNum == $rParentheses) {
 				$openSymbolNum++;
 				$closeSymbolNum--;
 
 				$expressionTree = getExpressionTree($expressionData, $openSymbolNum, $closeSymbolNum);
 			}
-			// no extra parentheses remain, return the result
 			else {
 				$expressionTree = array(
 					'id' => $openSymbolNum.'_'.$closeSymbolNum,
@@ -1871,17 +2019,11 @@ function getExpressionTree(CTriggerExpression $expressionData, $start, $end) {
 }
 
 /**
- * Recreate an expression depending on action.
- *
- * Supported action values:
- * - and	- add an expression using "and";
- * - or		- add an expression using "or";
- * - r 		- replace;
- * - R		- remove.
+ * Recreate an expression depending on action
  *
  * @param string $expression
  * @param string $expressionId  element identifier like "0_55"
- * @param string $action        action to perform
+ * @param string $action        one of &/|/r/R (AND/OR/replace/Remove)
  * @param string $newExpression expression for AND, OR or replace actions
  *
  * @return bool                 returns new expression or false if expression is incorrect
@@ -1911,20 +2053,14 @@ function remakeExpression($expression, $expressionId, $action, $newExpression) {
 }
 
 /**
- * Rebuild expression depending on action.
- *
- * Supported action values:
- * - and	- add an expression using "and";
- * - or		- add an expression using "or";
- * - r 		- replace;
- * - R		- remove.
+ * Rebuild expression depending on action
  *
  * Example:
  *   $expressionTree = array(
  *     [0] => array(
- *       'id' => '0_94',
- *       'type' => 'operator',
- *       'operator' => 'and',
+ *       'id' => '0_92',
+ *       'type' => 'operand',
+ *       'operand' => '&',
  *       'elements' => array(
  *         [0] => array(
  *           'id' => '0_44',
@@ -1932,7 +2068,7 @@ function remakeExpression($expression, $expressionId, $action, $newExpression) {
  *           'expression' => '{host1:system.cpu.util[,iowait].last(0)} > 50'
  *         ),
  *         [1] => array(
- *           'id' => '50_94',
+ *           'id' => '48_92',
  *           'type' => 'expression',
  *           'expression' => '{host2:system.cpu.util[,iowait].last(0)} > 50'
  *         )
@@ -1940,7 +2076,7 @@ function remakeExpression($expression, $expressionId, $action, $newExpression) {
  *     )
  *   )
  *   $action = 'R'
- *   $expressionId = '50_94'
+ *   $expressionId = '48_92'
  *
  * Result:
  *   $expressionTree = array(
@@ -1951,23 +2087,24 @@ function remakeExpression($expression, $expressionId, $action, $newExpression) {
  *     )
  *   )
  *
- * @param array 	$expressionTree
- * @param string 	$expressionId  		element identifier like "0_55"
- * @param string 	$action        		action to perform
- * @param string 	$newExpression 		expression for AND, OR or replace actions
- * @param string 	$operator       	parameter only for recursive call
+ * @param array $expressionTree
+ * @param string $expressionId  element identifier like "0_55"
+ * @param string $action        one of &/|/r/R (AND/OR/replace/Remove)
+ * @param string $newExpression expression for AND, OR or replace actions
+ * @param string $operand       parameter only for recursive call
  *
  * @return bool                 returns true if element is found, false - otherwise
  */
-function rebuildExpressionTree(array &$expressionTree, $expressionId, $action, $newExpression, $operator = null) {
+function rebuildExpressionTree(array &$expressionTree, $expressionId, $action, $newExpression, $operand = null) {
 	foreach ($expressionTree as $key => $expression) {
 		if ($expressionId == $expressionTree[$key]['id']) {
 			switch ($action) {
-				case 'and':
-				case 'or':
+				// AND and OR
+				case '&':
+				case '|':
 					switch ($expressionTree[$key]['type']) {
-						case 'operator':
-							if ($expressionTree[$key]['operator'] == $action) {
+						case 'operand':
+							if ($expressionTree[$key]['operand'] == $action) {
 								$expressionTree[$key]['elements'][] = array(
 									'expression' => $newExpression,
 									'type' => 'expression'
@@ -1975,8 +2112,8 @@ function rebuildExpressionTree(array &$expressionTree, $expressionId, $action, $
 							}
 							else {
 								$element = array(
-									'type' => 'operator',
-									'operator' => $action,
+									'type' => 'operand',
+									'operand' => $action,
 									'elements' => array(
 										$expressionTree[$key],
 										array(
@@ -1989,10 +2126,10 @@ function rebuildExpressionTree(array &$expressionTree, $expressionId, $action, $
 							}
 							break;
 						case 'expression':
-							if (!$operator || $operator != $action) {
+							if (!$operand || $operand != $action) {
 								$element = array(
-									'type' => 'operator',
-									'operator' => $action,
+									'type' => 'operand',
+									'operand' => $action,
 									'elements' => array(
 										$expressionTree[$key],
 										array(
@@ -2015,9 +2152,9 @@ function rebuildExpressionTree(array &$expressionTree, $expressionId, $action, $
 				// replace
 				case 'r':
 					$expressionTree[$key]['expression'] = $newExpression;
-					if ($expressionTree[$key]['type'] == 'operator') {
+					if ($expressionTree[$key]['type'] == 'operand') {
 						$expressionTree[$key]['type'] = 'expression';
-						unset($expressionTree[$key]['operator'], $expressionTree[$key]['elements']);
+						unset($expressionTree[$key]['operand'], $expressionTree[$key]['elements']);
 					}
 					break;
 				// remove
@@ -2028,9 +2165,9 @@ function rebuildExpressionTree(array &$expressionTree, $expressionId, $action, $
 			return true;
 		}
 
-		if ($expressionTree[$key]['type'] == 'operator') {
+		if ($expressionTree[$key]['type'] == 'operand') {
 			if (rebuildExpressionTree($expressionTree[$key]['elements'], $expressionId, $action, $newExpression,
-					$expressionTree[$key]['operator'])) {
+					$expressionTree[$key]['operand'])) {
 				return true;
 			}
 		}
@@ -2045,8 +2182,8 @@ function rebuildExpressionTree(array &$expressionTree, $expressionId, $action, $
  * Example:
  *   $expressionTree = array(
  *     [0] => array(
- *       'type' => 'operator',
- *       'operator' => 'and',
+ *       'type' => 'operand',
+ *       'operand' => '&',
  *       'elements' => array(
  *         [0] => array(
  *           'type' => 'expression',
@@ -2061,15 +2198,15 @@ function rebuildExpressionTree(array &$expressionTree, $expressionId, $action, $
  *   )
  *
  * Result:
- *   "{host1:system.cpu.util[,iowait].last(0)} > 50 and {host2:system.cpu.util[,iowait].last(0)} > 50"
+ *   "{host1:system.cpu.util[,iowait].last(0)} > 50 & {host2:system.cpu.util[,iowait].last(0)} > 50"
  *
  * @param array  $expressionTree
  * @param int    $level				parameter only for recursive call
- * @param string $operator			parameter only for recursive call
+ * @param string $operand			parameter only for recursive call
  *
  * @return string
  */
-function makeExpression(array $expressionTree, $level = 0, $operator = null) {
+function makeExpression(array $expressionTree, $level = 0, $operand = null) {
 	$expression = '';
 
 	end($expressionTree);
@@ -2077,8 +2214,8 @@ function makeExpression(array $expressionTree, $level = 0, $operator = null) {
 
 	foreach ($expressionTree as $key => $element) {
 		switch ($element['type']) {
-			case 'operator':
-				$subExpression = makeExpression($element['elements'], $level + 1, $element['operator']);
+			case 'operand':
+				$subExpression = makeExpression($element['elements'], $level + 1, $element['operand']);
 
 				$expression .= ($level == 0) ? $subExpression : '('.$subExpression.')';
 				break;
@@ -2086,8 +2223,8 @@ function makeExpression(array $expressionTree, $level = 0, $operator = null) {
 				$expression .= $element['expression'];
 				break;
 		}
-		if ($operator !== null && $key != $lastKey) {
-			$expression .= ' '.$operator.' ';
+		if ($operand !== null && $key != $lastKey) {
+			$expression .= ' '.$operand.' ';
 		}
 	}
 
@@ -2137,30 +2274,27 @@ function get_item_function_info($expr) {
 		'str' =>		array('value_type' => _('0 or 1'),	'type' => T_ZBX_INT,			'validation' => IN('0,1')),
 		'strlen' =>		array('value_type' => _('Numeric (integer 64bit)'), 'type' => T_ZBX_INT, 'validation' => NOT_EMPTY),
 		'sum' =>		array('value_type' => $value_type,	'type' => $type_of_value_type,	'validation' => NOT_EMPTY),
-		'time' =>		array('value_type' => 'HHMMSS',		'type' => T_ZBX_INT,			'validation' => 'strlen({})==6')
+		'time' =>		array('value_type' => 'HHMMSS',		'type' => T_ZBX_INT,			'validation' => 'zbx_strlen({})==6')
 	);
 
 	$expressionData = new CTriggerExpression();
-	$parseResult = $expressionData->parse($expr);
 
-	if ($parseResult) {
-		if ($parseResult->hasTokenOfType(CTriggerExpressionParserResult::TOKEN_TYPE_MACRO)) {
+	if ($expressionData->parse($expr)) {
+		if (isset($expressionData->macros[0])) {
 			$result = array(
 				'value_type' => _('0 or 1'),
 				'type' => T_ZBX_INT,
 				'validation' => IN('0,1')
 			);
 		}
-		elseif ($parseResult->hasTokenOfType(CTriggerExpressionParserResult::TOKEN_TYPE_USER_MACRO)
-				|| $parseResult->hasTokenOfType(CTriggerExpressionParserResult::TOKEN_TYPE_LLD_MACRO)) {
-
+		elseif (isset($expressionData->usermacros[0]) || isset($expressionData->lldmacros[0])) {
 			$result = array(
 				'value_type' => $value_type[ITEM_VALUE_TYPE_FLOAT],
 				'type' => T_ZBX_STR,
 				'validation' => 'preg_match("/^'.ZBX_PREG_NUMBER.'$/u", {})'
 			);
 		}
-		elseif ($parseResult->hasTokenOfType(CTriggerExpressionParserResult::TOKEN_TYPE_FUNCTION_MACRO)) {
+		elseif (isset($expressionData->expressions[0])) {
 			$exprPart = reset($expressionData->expressions);
 
 			if (!isset($function_info[$exprPart['functionName']])) {
@@ -2168,7 +2302,6 @@ function get_item_function_info($expr) {
 			}
 
 			$hostFound = API::Host()->get(array(
-				'output' => array('hostid'),
 				'filter' => array('host' => array($exprPart['host'])),
 				'templated_hosts' => true
 			));
@@ -2222,58 +2355,61 @@ function get_item_function_info($expr) {
 }
 
 /**
- * Substitute macros in the expression with the given values and evaluate it's result.
+ * Execute expression and return array with keys 'result' as 'TRUE' or 'FALSE' and 'error' as error text
+ * if there is one.
  *
- * @param string $expression                a trigger expression
- * @param array  $replaceFunctionMacros     an array of macro - value pairs
+ * @param string $expression
+ * @param array  $rplcts
  *
- * @return bool     the calculated value of the expression
+ * @return array
  */
-function evalExpressionData($expression, $replaceFunctionMacros) {
-	// replace function macros with their values
-	$expression = str_replace(array_keys($replaceFunctionMacros), array_values($replaceFunctionMacros), $expression);
+function evalExpressionData($expression, $rplcts) {
+	$result = false;
 
-	$parser = new CTriggerExpression();
-	$parseResult = $parser->parse($expression);
+	$evStr = str_replace(array_keys($rplcts), array_values($rplcts), $expression);
+	preg_match_all('/[0-9\.]+['.ZBX_BYTE_SUFFIXES.ZBX_TIME_SUFFIXES.']?/', $evStr, $arr, PREG_OFFSET_CAPTURE);
 
-	// The $replaceFunctionMacros array may contain string values which after substitution
-	// will result in an invalid expression. In such cases we should just return false.
-	if (!$parseResult) {
-		return false;
+	for ($i = count($arr[0]) - 1; $i >= 0; $i--) {
+		$evStr = substr_replace($evStr, convert($arr[0][$i][0]), $arr[0][$i][1], strlen($arr[0][$i][0]));
 	}
 
-	// turn the expression into valid PHP code
-	$evStr = '';
-	$replaceOperators = array('not' => '!', '=' => '==');
-	foreach ($parseResult->getTokens() as $token) {
-		$value = $token['value'];
-
-		switch ($token['type']) {
-			case CTriggerExpressionParserResult::TOKEN_TYPE_OPERATOR:
-				// replace specific operators with their PHP analogues
-				if (isset($replaceOperators[$token['value']])) {
-					$value = $replaceOperators[$token['value']];
-				}
-
-				break;
-			case CTriggerExpressionParserResult::TOKEN_TYPE_NUMBER:
-				// convert numeric values with suffixes
-				if ($token['data']['suffix'] !== null) {
-					$value = convert($value);
-				}
-
-				$value = '((float) "'.$value.'")';
-
-				break;
-		}
-
-		$evStr .= ' '.$value;
+	if (!preg_match("/^[0-9.\s=#()><+*\/&E|\-]+$/is", $evStr)) {
+		return 'FALSE';
 	}
+
+	$evStr = preg_replace('/(-?[0-9]*\.?[0-9]+) *(\=|\#|\!=|\<|\>) *(-?[0-9]*\.?[0-9]+)/', '((float) "$1" $2 (float) "$3")', $evStr);
+
+	$switch = array('=' => '==', '#' => '!=', '&' => '&&', '|' => '||');
+	$evStr = str_replace(array_keys($switch), array_values($switch), $evStr);
 
 	// execute expression
 	eval('$result = ('.trim($evStr).');');
 
-	return $result;
+	$result = ($result === true || $result && $result != '-') ? 'TRUE' : 'FALSE';
+	$error = '';
+
+	// remove eval() generated error message
+	global $ZBX_MESSAGES;
+	if (!empty($ZBX_MESSAGES)) {
+		$messageList = array();
+
+		foreach ($ZBX_MESSAGES as $zbxMessage) {
+			if (strpos($zbxMessage['message'], 'eval()') !== false) {
+				$error = substr($zbxMessage['message'], 0, strpos($zbxMessage['message'], '['));
+				$result = 'NULL';
+			}
+			else {
+				$messageList[] = $zbxMessage;
+			}
+		}
+
+		$ZBX_MESSAGES = $messageList;
+	}
+
+	return array(
+		'result' => $result,
+		'error' => $error
+	);
 }
 
 /**

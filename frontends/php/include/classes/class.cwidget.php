@@ -21,6 +21,7 @@
 
 class CWidget {
 
+	public $state;
 	public $flicker_state;
 	private $css_class;
 	private $pageHeaders;
@@ -55,7 +56,7 @@ class CWidget {
 		}
 		$this->bodyId = $bodyId;
 		$this->flicker_state = 1; // 0 - closed, 1 - opened
-		$this->css_class = 'header_wide';
+		$this->css_class = is_null($this->state) ? 'header_wide' : 'header';
 		$this->setRootClass($rootClass);
 	}
 
@@ -83,12 +84,11 @@ class CWidget {
 		$this->addHeader($numRows, $right);
 	}
 
-	public function addFlicker($items = null, $flickerState = false) {
+	public function addFlicker($items = null, $state = 0) {
 		if (!is_null($items)) {
 			$this->flicker[] = $items;
 		}
-
-		$this->flicker_state = $flickerState;
+		$this->flicker_state = $state;
 	}
 
 	public function addItem($items = null) {
@@ -104,6 +104,9 @@ class CWidget {
 		}
 		if (!empty($this->headers)) {
 			$widget[] = $this->createHeader();
+		}
+		if (is_null($this->state)) {
+			$this->state = true;
 		}
 		if (!empty($this->flicker)) {
 			$flicker_domid = 'flicker_'.$this->bodyId;
@@ -124,21 +127,11 @@ class CWidget {
 			$icon_r->setAttribute('title', _('Maximize').'/'._('Minimize'));
 
 			$icons_row = new CTable(null, 'textwhite');
-
-			$flickerTitleWhenVisible = _('Hide filter');
-			$flickerTitleWhenHidden = _('Show filter');
-
-			$flickerTitle = $this->flicker_state ? $flickerTitleWhenVisible : $flickerTitleWhenHidden;
-
-			$icons_row->addRow(array($icon_l, new CSpan(SPACE.$flickerTitle.SPACE, null, 'flicker_title'), $icon_r));
+			$icons_row->addRow(array($icon_l, new CSpan(SPACE._('Filter').SPACE), $icon_r));
 
 			$thin_tab = $this->createFlicker($icons_row);
 			$thin_tab->attr('id', 'filter_icon');
-			$thin_tab->addAction('onclick', "javascript: changeFlickerState(".
-				"'".$flicker_domid."', ".
-				CJs::encodeJson($flickerTitleWhenVisible).", ".
-				CJs::encodeJson($flickerTitleWhenHidden).
-			");");
+			$thin_tab->addAction('onclick', "javascript: changeFlickerState('".$flicker_domid."');");
 
 			$flicker_tab->addRow($thin_tab, 'textcolorstyles pointer');
 			$flicker_tab->addRow($div);
@@ -147,7 +140,9 @@ class CWidget {
 		}
 		$div = new CDiv($this->body, 'w');
 		$div->setAttribute('id', $this->bodyId);
-
+		if (!$this->state) {
+			$div->setAttribute('style', 'display: none;');
+		}
 		$widget[] = $div;
 
 		return new CDiv($widget, $this->getRootClass());
@@ -182,6 +177,12 @@ class CWidget {
 			foreach ($header['right'] as $right) {
 				$columnRights[] = new CDiv($right, 'floatright');
 			}
+		}
+
+		if (!is_null($this->state)) {
+			$icon = new CIcon(_('Show').'/'._('Hide'), ($this->state ? 'arrowup' : 'arrowdown'), "change_hat_state(this, '".$this->bodyId."');");
+			$icon->setAttribute('id', $this->bodyId.'_icon');
+			$columnRights[] = $icon;
 		}
 
 		if ($columnRights) {

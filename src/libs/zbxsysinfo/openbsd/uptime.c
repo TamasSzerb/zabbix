@@ -19,7 +19,6 @@
 
 #include "common.h"
 #include "sysinfo.h"
-#include "log.h"
 
 int	SYSTEM_UPTIME(AGENT_REQUEST *request, AGENT_RESULT *result)
 {
@@ -34,10 +33,7 @@ int	SYSTEM_UPTIME(AGENT_REQUEST *request, AGENT_RESULT *result)
 	len = sizeof(struct timeval);
 
 	if (0 != sysctl(mib, 2, &uptime, &len, NULL, 0))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain system information: %s", zbx_strerror(errno)));
 		return SYSINFO_RET_FAIL;
-	}
 
 	now = time(NULL);
 
@@ -45,7 +41,6 @@ int	SYSTEM_UPTIME(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 	return SYSINFO_RET_OK;
 #else
-	SET_MSG_RESULT(result, zbx_strdup(NULL, "Agent was compiled without support for uptime information."));
 	return SYSINFO_RET_FAIL;
-#endif
+#endif /* HAVE_FUNCTION_SYSCTL_KERN_BOOTTIME */
 }

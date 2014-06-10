@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2000-2012 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 /**
  * @package API
  */
-abstract class CHostBase extends CApiService {
+abstract class CHostBase extends CZBXAPI {
 
 	protected $tableName = 'hosts';
 	protected $tableAlias = 'h';

@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CGraphItem extends CApiService {
+class CGraphItem extends CZBXAPI {
 
 	protected $tableName = 'graphs_items';
 	protected $tableAlias = 'gi';
@@ -50,6 +50,7 @@ class CGraphItem extends CApiService {
 		);
 
 		$defOptions = array(
+			'nodeids'		=> null,
 			'graphids'		=> null,
 			'itemids'		=> null,
 			'type'			=> null,
@@ -57,7 +58,7 @@ class CGraphItem extends CApiService {
 			'nopermissions'	=> null,
 			// output
 			'selectGraphs'	=> null,
-			'output'		=> API_OUTPUT_EXTEND,
+			'output'		=> API_OUTPUT_REFER,
 			'expandData'	=> null,
 			'countOutput'	=> null,
 			'preservekeys'	=> null,
@@ -91,6 +92,7 @@ class CGraphItem extends CApiService {
 		if (!is_null($options['graphids'])) {
 			zbx_value2array($options['graphids']);
 
+			$sqlParts['select']['graphid'] = 'gi.graphid';
 			$sqlParts['from']['graphs'] = 'graphs g';
 			$sqlParts['where']['gig'] = 'gi.graphid=g.graphid';
 			$sqlParts['where'][] = dbConditionInt('g.graphid', $options['graphids']);
@@ -100,6 +102,7 @@ class CGraphItem extends CApiService {
 		if (!is_null($options['itemids'])) {
 			zbx_value2array($options['itemids']);
 
+			$sqlParts['select']['itemid'] = 'gi.itemid';
 			$sqlParts['where'][] = dbConditionInt('gi.itemid', $options['itemids']);
 		}
 
@@ -115,13 +118,25 @@ class CGraphItem extends CApiService {
 
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
+		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$dbRes = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
 		while ($gitem = DBfetch($dbRes)) {
 			if (!is_null($options['countOutput'])) {
 				$result = $gitem['rowscount'];
 			}
 			else {
-				$result[$gitem['gitemid']] = $gitem;
+				if (!isset($result[$gitem['gitemid']])) {
+					$result[$gitem['gitemid']] = array();
+				}
+
+				// graphids
+				if (isset($gitem['graphid']) && is_null($options['selectGraphs'])) {
+					if (!isset($result[$gitem['gitemid']]['graphs'])) {
+						$result[$gitem['gitemid']]['graphs'] = array();
+					}
+					$result[$gitem['gitemid']]['graphs'][] = array('graphid' => $gitem['graphid']);
+				}
+				$result[$gitem['gitemid']] += $gitem;
 			}
 		}
 
@@ -170,6 +185,7 @@ class CGraphItem extends CApiService {
 		if ($options['selectGraphs'] !== null) {
 			$relationMap = $this->createRelationMap($result, 'gitemid', 'graphid');
 			$graphs = API::Graph()->get(array(
+				'nodeids' => $options['nodeids'],
 				'output' => $options['selectGraphs'],
 				'gitemids' => $relationMap->getRelatedIds(),
 				'preservekeys' => true

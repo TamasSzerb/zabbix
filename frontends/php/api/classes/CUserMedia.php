@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CUserMedia extends CApiService {
+class CUserMedia extends CZBXAPI {
 
 	protected $tableName = 'media';
 	protected $tableAlias = 'm';
@@ -34,6 +34,7 @@ class CUserMedia extends CApiService {
 	 * Get users data.
 	 *
 	 * @param array  $options
+	 * @param array  $options['nodeids']	filter by Node IDs
 	 * @param array  $options['usrgrpids']	filter by UserGroup IDs
 	 * @param array  $options['userids']	filter by User IDs
 	 * @param bool   $options['type']		filter by User type [USER_TYPE_ZABBIX_USER: 1, USER_TYPE_ZABBIX_ADMIN: 2, USER_TYPE_SUPER_ADMIN: 3]
@@ -59,6 +60,7 @@ class CUserMedia extends CApiService {
 		);
 
 		$defOptions = array(
+			'nodeids'					=> null,
 			'usrgrpids'					=> null,
 			'userids'					=> null,
 			'mediaids'					=> null,
@@ -71,7 +73,7 @@ class CUserMedia extends CApiService {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'editable'					=> null,
 			'countOutput'				=> null,
 			'groupCount'				=> null,
@@ -100,16 +102,28 @@ class CUserMedia extends CApiService {
 			}
 		}
 
+		// nodeids
+		$nodeids = ($options['nodeids'] === null) ? get_current_nodeid() : $options['nodeids'];
+
+		$nodeCheck = false;
+
 		// mediaids
 		if ($options['mediaids'] !== null) {
 			zbx_value2array($options['mediaids']);
 			$sqlParts['where'][] = dbConditionInt('m.mediaid', $options['mediaids']);
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+
+				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'm.mediaid', $nodeids);
+			}
 		}
 
 		// userids
 		if ($options['userids'] !== null) {
 			zbx_value2array($options['userids']);
 
+			$sqlParts['select']['userid'] = 'u.userid';
 			$sqlParts['from']['users'] = 'users u';
 			$sqlParts['where'][] = dbConditionInt('u.userid', $options['userids']);
 			$sqlParts['where']['mu'] = 'm.userid=u.userid';
@@ -117,12 +131,19 @@ class CUserMedia extends CApiService {
 			if ($options['groupCount'] !== null) {
 				$sqlParts['group']['userid'] = 'm.userid';
 			}
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+
+				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'u.userid', $nodeids);
+			}
 		}
 
 		// usrgrpids
 		if ($options['usrgrpids'] !== null) {
 			zbx_value2array($options['usrgrpids']);
 
+			$sqlParts['select']['usrgrpid'] = 'ug.usrgrpid';
 			$sqlParts['from']['users_groups'] = 'users_groups ug';
 			$sqlParts['where'][] = dbConditionInt('ug.usrgrpid', $options['usrgrpids']);
 			$sqlParts['where']['mug'] = 'm.userid=ug.userid';
@@ -130,17 +151,35 @@ class CUserMedia extends CApiService {
 			if ($options['groupCount'] !== null) {
 				$sqlParts['group']['usrgrpid'] = 'ug.usrgrpid';
 			}
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+
+				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'ug.usrgrpid', $nodeids);
+			}
 		}
 
 		// mediatypeids
 		if ($options['mediatypeids'] !== null) {
 			zbx_value2array($options['mediatypeids']);
 
+			$sqlParts['select']['mediatypeid'] = 'm.mediatypeid';
 			$sqlParts['where'][] = dbConditionInt('m.mediatypeid', $options['mediatypeids']);
 
 			if ($options['groupCount'] !== null) {
 				$sqlParts['group']['mediatypeid'] = 'm.mediatypeid';
 			}
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+
+				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'm.mediatypeid', $nodeids);
+			}
+		}
+
+		// should last, after all ****IDS checks
+		if (!$nodeCheck) {
+			$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'm.mediaid', $nodeids);
 		}
 
 		// filter
@@ -164,6 +203,7 @@ class CUserMedia extends CApiService {
 
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
+		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$res = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
 
 		while ($media = DBfetch($res)) {
@@ -176,7 +216,11 @@ class CUserMedia extends CApiService {
 				}
 			}
 			else {
-				$result[$media['mediaid']] = $media;
+				if (!isset($result[$media['mediaid']])) {
+					$result[$media['mediaid']]= array();
+				}
+
+				$result[$media['mediaid']] += $media;
 			}
 		}
 

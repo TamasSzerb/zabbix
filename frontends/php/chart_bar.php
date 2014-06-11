@@ -274,7 +274,9 @@ if ($config == 1) {
 		}
 
 		if (!isset($graph_data['captions'])) {
-			$date_caption = ($scaletype == TIMEPERIOD_TYPE_HOURLY) ? DATE_TIME_FORMAT : DATE_FORMAT;
+			$date_caption = ($scaletype == TIMEPERIOD_TYPE_HOURLY)
+				? CHARTBAR_HOURLY_DATE_FORMAT
+				: CHARTBAR_DAILY_DATE_FORMAT;
 
 			$graph_data['captions'] = array();
 			foreach ($item_data['clock'] as $id => $clock) {
@@ -614,7 +616,9 @@ elseif ($config == 3) {
 				$graph_data['colors'][$count] = rgb2hex($tmp_color);
 			}
 
-			$date_caption = ($scaletype == TIMEPERIOD_TYPE_HOURLY) ? DATE_TIME_FORMAT : DATE_FORMAT;
+			$date_caption = ($scaletype == TIMEPERIOD_TYPE_HOURLY)
+				? CHARTBAR_HOURLY_DATE_FORMAT
+				: CHARTBAR_DAILY_DATE_FORMAT;
 			$graph_data['legend'][$count] = zbx_date2str($date_caption, $start);
 
 			$count++;

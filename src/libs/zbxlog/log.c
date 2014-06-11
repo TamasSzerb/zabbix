@@ -72,7 +72,7 @@ void	redirect_std(const char *filename)
 	else
 	{
 		zbx_error("cannot open [%s]: %s", filename, zbx_strerror(errno));
-		exit(EXIT_FAILURE);
+		exit(FAIL);
 	}
 }
 #endif	/* not _WINDOWS */
@@ -81,10 +81,13 @@ int zabbix_open_log(int type, int level, const char *filename)
 {
 	FILE	*log_file = NULL;
 #ifdef _WINDOWS
-	wchar_t	*wevent_source;
+	LPTSTR	wevent_source;
 #endif
 
 	log_level = level;
+
+	if (LOG_LEVEL_EMPTY == level)
+		return SUCCEED;
 
 	if (LOG_TYPE_FILE == type && NULL == filename)
 		type = LOG_TYPE_SYSLOG;
@@ -106,19 +109,19 @@ int zabbix_open_log(int type, int level, const char *filename)
 		if (MAX_STRING_LEN <= strlen(filename))
 		{
 			zbx_error("too long path for logfile");
-			exit(EXIT_FAILURE);
+			exit(FAIL);
 		}
 
 		if (ZBX_MUTEX_ERROR == zbx_mutex_create_force(&log_file_access, ZBX_MUTEX_LOG))
 		{
 			zbx_error("unable to create mutex for log file");
-			exit(EXIT_FAILURE);
+			exit(FAIL);
 		}
 
 		if (NULL == (log_file = fopen(filename, "a+")))
 		{
 			zbx_error("unable to open log file [%s]: %s", filename, zbx_strerror(errno));
-			exit(EXIT_FAILURE);
+			exit(FAIL);
 		}
 
 		log_type = LOG_TYPE_FILE;
@@ -355,7 +358,7 @@ void __zbx_zabbix_log(int level, const char *fmt, ...)
 				break;
 		}
 
-		StringCchPrintf(thread_id, ARRSIZE(thread_id), TEXT("[%li]: "), zbx_get_thread_id());
+		zbx_wsnprintf(thread_id, sizeof(thread_id) / sizeof(wchar_t), TEXT("[%li]: "), zbx_get_thread_id());
 		strings[0] = thread_id;
 		strings[1] = zbx_utf8_to_unicode(message);
 
@@ -431,7 +434,7 @@ void __zbx_zabbix_log(int level, const char *fmt, ...)
  * Comments: replace strerror to print also the error number                  *
  *                                                                            *
  ******************************************************************************/
-char	*zbx_strerror(int errnum)
+char *zbx_strerror(int errnum)
 {
 	static char	utf8_string[ZBX_MESSAGE_BUF_SIZE];	/* !!! Attention: static !!! Not thread-safe for Win32 */
 
@@ -440,17 +443,17 @@ char	*zbx_strerror(int errnum)
 	return utf8_string;
 }
 
-char	*strerror_from_system(unsigned long error)
+char *strerror_from_system(unsigned long error)
 {
 #ifdef _WINDOWS
 	size_t		offset = 0;
-	wchar_t		wide_string[ZBX_MESSAGE_BUF_SIZE];
+	TCHAR		wide_string[ZBX_MESSAGE_BUF_SIZE];
 	static char	utf8_string[ZBX_MESSAGE_BUF_SIZE];	/* !!! Attention: static !!! Not thread-safe for Win32 */
 
 	offset += zbx_snprintf(utf8_string, sizeof(utf8_string), "[0x%08lX] ", error);
 
 	if (0 == FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM, NULL, error,
-			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), wide_string, ZBX_MESSAGE_BUF_SIZE, NULL))
+			MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), wide_string, sizeof(wide_string), NULL))
 	{
 		zbx_snprintf(utf8_string + offset, sizeof(utf8_string) - offset,
 				"unable to find message text [0x%08lX]", GetLastError());
@@ -469,10 +472,10 @@ char	*strerror_from_system(unsigned long error)
 }
 
 #ifdef _WINDOWS
-char	*strerror_from_module(unsigned long error, const wchar_t *module)
+char	*strerror_from_module(unsigned long error, LPCTSTR module)
 {
 	size_t		offset = 0;
-	wchar_t		wide_string[ZBX_MESSAGE_BUF_SIZE];
+	TCHAR		wide_string[ZBX_MESSAGE_BUF_SIZE];
 	static char	utf8_string[ZBX_MESSAGE_BUF_SIZE];	/* !!! Attention: static !!! not thread-safe for Win32 */
 	char		*strings[2];
 	HMODULE		hmodule;

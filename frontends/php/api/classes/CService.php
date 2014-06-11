@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CService extends CApiService {
+class CService extends CZBXAPI {
 
 	protected $tableName = 'services';
 	protected $tableAlias = 's';
@@ -348,11 +348,12 @@ class CService extends CApiService {
 	/**
 	 * Delete services.
 	 *
-	 * @param array $serviceIds
+	 * @param $serviceIds
 	 *
 	 * @return array
 	 */
-	public function delete(array $serviceIds) {
+	public function delete($serviceIds) {
+		$serviceIds = zbx_toArray($serviceIds);
 		$this->validateDelete($serviceIds);
 
 		DB::delete($this->tableName(), array('serviceid' => $serviceIds));
@@ -608,8 +609,6 @@ class CService extends CApiService {
 					$rs = $this->escalateProblems($services, $problemTriggers, $rs);
 				}
 
-				$slaCalculator = new CServicesSlaCalculator();
-
 				// calculate SLAs
 				foreach ($intervals as $interval) {
 					$latestValues = $this->fetchLatestValues($usedSeviceIds, $interval['from']);
@@ -620,9 +619,7 @@ class CService extends CApiService {
 						// only calculate the sla for services which require it
 						if (isset($usedSeviceIds[$serviceId])) {
 							$latestValue = (isset($latestValues[$serviceId])) ? $latestValues[$serviceId] : 0;
-							$intervalSla = $slaCalculator->calculateSla($service['alarms'], $service['times'],
-								$interval['from'], $interval['to'], $latestValue
-							);
+							$intervalSla = $this->calculateSla($service, $interval['from'], $interval['to'], $latestValue);
 						}
 						else {
 							$intervalSla = array(
@@ -712,6 +709,211 @@ class CService extends CApiService {
 		));
 	}
 
+	/**
+	 * Calculates the SLA for the given service during the given period.
+	 *
+	 * Returns the following information:
+	 * - ok             - the percentage of time the service was in OK state;
+	 * - problem        - the percentage of time the service was in problem state;
+	 * - okTime         - the time the service was in OK state, in seconds;
+	 * - problemTime    - the time the service was in problem state, in seconds;
+	 * - downtimeTime   - the time the service was down, in seconds;
+	 * - dt;
+	 * - ut.
+	 *
+	 * @param array $service
+	 * @param $periodStart
+	 * @param $periodEnd
+	 * @param $prevAlarm        the value of the last service alarm
+	 *
+	 * @return array
+	 */
+	protected function calculateSla(array $service, $periodStart, $periodEnd, $prevAlarm) {
+		/**
+		 * structure of "$data":
+		 * - key	- time stamp
+		 * - alarm	- on/off status (0,1 - off; >1 - on)
+		 * - dt_s	- count of downtime starts
+		 * - dt_e	- count of downtime ends
+		 * - ut_s	- count of uptime starts
+		 * - ut_e	- count of uptime ends
+		 */
+		foreach ($service['alarms'] as $alarm) {
+			if ($alarm['clock'] >= $periodStart && $alarm['clock'] <= $periodEnd) {
+				$data[$alarm['clock']]['alarm'] = $alarm['value'];
+			}
+		}
+
+		$unmarkedPeriodType = 'ut';
+
+		foreach ($service['times'] as $time) {
+			if ($time['type'] == SERVICE_TIME_TYPE_UPTIME) {
+				$this->expandPeriodicalTimes($data, $periodStart, $periodEnd, $time['ts_from'], $time['ts_to'], 'ut');
+
+				// if an uptime period exists - unmarked time is downtime
+				$unmarkedPeriodType = 'dt';
+			}
+			elseif ($time['type'] == SERVICE_TIME_TYPE_DOWNTIME) {
+				$this->expandPeriodicalTimes($data, $periodStart, $periodEnd, $time['ts_from'], $time['ts_to'], 'dt');
+			}
+			elseif($time['type'] == SERVICE_TIME_TYPE_ONETIME_DOWNTIME && $time['ts_to'] >= $periodStart && $time['ts_from'] <= $periodEnd) {
+				if ($time['ts_from'] < $periodStart) {
+					$time['ts_from'] = $periodStart;
+				}
+				if ($time['ts_to'] > $periodEnd) {
+					$time['ts_to'] = $periodEnd;
+				}
+
+				if (isset($data[$time['ts_from']]['dt_s'])) {
+					$data[$time['ts_from']]['dt_s']++;
+				}
+				else {
+					$data[$time['ts_from']]['dt_s'] = 1;
+				}
+
+				if (isset($data[$time['ts_to']]['dt_e'])) {
+					$data[$time['ts_to']]['dt_e']++;
+				}
+				else {
+					$data[$time['ts_to']]['dt_e'] = 1;
+				}
+			}
+		}
+
+		if (!isset($data[$periodEnd])) {
+			$data[$periodEnd] = array();
+		}
+
+		// sort by time stamp
+		ksort($data);
+
+		// calculate times
+		$dtCnt = 0;
+		$utCnt = 0;
+		$slaTime = array(
+			'dt' => array('problemTime' => 0, 'okTime' => 0),
+			'ut' => array('problemTime' => 0, 'okTime' => 0)
+		);
+		$prevTime = $periodStart;
+
+		if (isset($data[$periodStart]['ut_s'])) {
+			$utCnt += $data[$periodStart]['ut_s'];
+		}
+		if (isset($data[$periodStart]['ut_e'])) {
+			$utCnt -= $data[$periodStart]['ut_e'];
+		}
+		if (isset($data[$periodStart]['dt_s'])) {
+			$dtCnt += $data[$periodStart]['dt_s'];
+		}
+		if (isset($data[$periodStart]['dt_e'])) {
+			$dtCnt -= $data[$periodStart]['dt_e'];
+		}
+		foreach ($data as $ts => $val) {
+			// skip first data [already read]
+			if ($ts == $periodStart) {
+				continue;
+			}
+
+			if ($dtCnt > 0) {
+				$periodType = 'dt';
+			}
+			elseif ($utCnt > 0) {
+				$periodType = 'ut';
+			}
+			else {
+				$periodType = $unmarkedPeriodType;
+			}
+
+			// state=0,1 [OK] (1 - information severity of trigger), >1 [PROBLEMS] (trigger severity)
+			if ($prevAlarm > 1) {
+				$slaTime[$periodType]['problemTime'] += $ts - $prevTime;
+			}
+			else {
+				$slaTime[$periodType]['okTime'] += $ts - $prevTime;
+			}
+
+			if (isset($val['ut_s'])) {
+				$utCnt += $val['ut_s'];
+			}
+			if (isset($val['ut_e'])) {
+				$utCnt -= $val['ut_e'];
+			}
+			if (isset($val['dt_s'])) {
+				$dtCnt += $val['dt_s'];
+			}
+			if (isset($val['dt_e'])) {
+				$dtCnt -= $val['dt_e'];
+			}
+			if (isset($val['alarm'])) {
+				$prevAlarm = $val['alarm'];
+			}
+
+			$prevTime = $ts;
+		}
+
+		$slaTime['problemTime'] = &$slaTime['ut']['problemTime'];
+		$slaTime['okTime'] = &$slaTime['ut']['okTime'];
+		$slaTime['downtimeTime'] = $slaTime['dt']['okTime'] + $slaTime['dt']['problemTime'];
+
+		$fullTime = $slaTime['problemTime'] + $slaTime['okTime'];
+		if ($fullTime > 0) {
+			$slaTime['problem'] = 100 * $slaTime['problemTime'] / $fullTime;
+			$slaTime['ok'] = 100 * $slaTime['okTime'] / $fullTime;
+		}
+		else {
+			$slaTime['problem'] = 100;
+			$slaTime['ok'] = 100;
+		}
+
+		return $slaTime;
+	}
+
+	/**
+	 * @see calculateSla()
+	 *
+	 * @param $data
+	 * @param $period_start
+	 * @param $period_end
+	 * @param $ts_from
+	 * @param $ts_to
+	 * @param $type
+	 *
+	 * @return void
+	 */
+	function expandPeriodicalTimes(&$data, $period_start, $period_end, $ts_from, $ts_to, $type) {
+		$week = getdate($period_start);
+		$week = $period_start - $week['wday'] * SEC_PER_DAY - $week['hours'] * SEC_PER_HOUR - $week['minutes'] * SEC_PER_MIN - $week['seconds'];
+
+		for (; $week < $period_end; $week += SEC_PER_WEEK) {
+			$_s = $week + $ts_from;
+			$_e = $week + $ts_to;
+
+			if ($period_end < $_s || $period_start >= $_e) {
+				continue;
+			}
+
+			if ($_s < $period_start) {
+				$_s = $period_start;
+			}
+			if ($_e > $period_end) {
+				$_e = $period_end;
+			}
+
+			if (isset($data[$_s][$type.'_s'])) {
+				$data[$_s][$type.'_s']++;
+			}
+			else {
+				$data[$_s][$type.'_s'] = 1;
+			}
+
+			if (isset($data[$_e][$type.'_e'])) {
+				$data[$_e][$type.'_e']++;
+			}
+			else {
+				$data[$_e][$type.'_e'] = 1;
+			}
+		}
+	}
 
 	/**
 	 * Returns an array of triggers which are in a problem state and are linked to the given services.
@@ -827,9 +1029,10 @@ class CService extends CApiService {
 	 * @return array    an array of service links sorted by "sortorder" in ascending order
 	 */
 	protected function fetchChildDependencies(array $parentServiceIds, $output) {
-		$sqlParts = API::getApiService()->createSelectQueryParts('services_links', 'sl', array(
+		$sqlParts = API::getApi()->createSelectQueryParts('services_links', 'sl', array(
 			'output' => $output,
-			'filter' => array('serviceupid' => $parentServiceIds)
+			'filter' => array('serviceupid' => $parentServiceIds),
+			'nodeids' => get_current_nodeid(true)
 		));
 
 		// sort by sortorder
@@ -859,9 +1062,10 @@ class CService extends CApiService {
 	 * @return array    an array of service links sorted by "sortorder" in ascending order
 	 */
 	protected function fetchParentDependencies(array $childServiceIds, $output, $soft = null) {
-		$sqlParts = API::getApiService()->createSelectQueryParts('services_links', 'sl', array(
+		$sqlParts = API::getApi()->createSelectQueryParts('services_links', 'sl', array(
 			'output' => $output,
-			'filter' => array('servicedownid' => $childServiceIds)
+			'filter' => array('servicedownid' => $childServiceIds),
+			'nodeids' => get_current_nodeid(true)
 		));
 
 		$sqlParts['from'][] = $this->tableName().' '.$this->tableAlias();
@@ -1077,7 +1281,7 @@ class CService extends CApiService {
 	 * @return void
 	 */
 	protected function checkThatServicesDontHaveChildren(array $serviceIds) {
-		$child = API::getApiService()->select('services_links', array(
+		$child = API::getApi()->select('services_links', array(
 			'output' => array('serviceupid'),
 			'filter' => array(
 				'serviceupid' => $serviceIds,
@@ -1087,7 +1291,7 @@ class CService extends CApiService {
 		));
 		$child = reset($child);
 		if ($child) {
-			$service = API::getApiService()->select($this->tableName(), array(
+			$service = API::getApi()->select($this->tableName(), array(
 				'output' => array('name'),
 				'serviceids' => $child['serviceupid'],
 				'limit' => 1
@@ -1110,7 +1314,7 @@ class CService extends CApiService {
 	 */
 	protected function checkDependency(array $dependency) {
 		if (idcmp($dependency['serviceid'], $dependency['dependsOnServiceid'])) {
-			$service = API::getApiService()->select($this->tableName(), array(
+			$service = API::getApi()->select($this->tableName(), array(
 				'output' => array('name'),
 				'serviceids' => $dependency['serviceid']
 			));
@@ -1120,7 +1324,7 @@ class CService extends CApiService {
 
 		// check 'soft' field value
 		if (!isset($dependency['soft']) || !in_array((int) $dependency['soft'], array(0, 1), true)) {
-			$service = API::getApiService()->select($this->tableName(), array(
+			$service = API::getApi()->select($this->tableName(), array(
 				'output' => array('name'),
 				'serviceids' => $dependency['serviceid']
 			));
@@ -1153,7 +1357,7 @@ class CService extends CApiService {
 		if ($hardDepServiceIds) {
 			// look for at least one hardlinked service among the given
 			$hardDepServiceIds = array_unique($hardDepServiceIds);
-			$dep = API::getApiService()->select('services_links', array(
+			$dep = API::getApi()->select('services_links', array(
 				'output' => array('servicedownid'),
 				'filter' => array(
 					'soft' => 0,
@@ -1163,7 +1367,7 @@ class CService extends CApiService {
 			));
 			if ($dep) {
 				$dep = reset($dep);
-				$service = API::getApiService()->select($this->tableName(), array(
+				$service = API::getApi()->select($this->tableName(), array(
 					'output' => array('name'),
 					'serviceids' => $dep['servicedownid']
 				));
@@ -1209,7 +1413,7 @@ class CService extends CApiService {
 	 * @return void
 	 */
 	protected function checkForCircularityInDependencies($depsToValid) {
-		$dbDeps = API::getApiService()->select('services_links', array(
+		$dbDeps = API::getApi()->select('services_links', array(
 			'output' => array('serviceupid', 'servicedownid')
 		));
 
@@ -1276,7 +1480,6 @@ class CService extends CApiService {
 			// if services with specific trigger IDs were requested, return only the ones accessible to the current user.
 			if ($options['filter']['triggerid']) {
 				$accessibleTriggers = API::Trigger()->get(array(
-					'output' => array('triggerid'),
 					'triggerids' => $options['filter']['triggerid']
 				));
 				$options['filter']['triggerid'] = zbx_objectValues($accessibleTriggers, 'triggerid');
@@ -1313,7 +1516,7 @@ class CService extends CApiService {
 		// selectDependencies
 		if ($options['selectDependencies'] !== null && $options['selectDependencies'] != API_OUTPUT_COUNT) {
 			$dependencies = $this->fetchChildDependencies($serviceIds,
-				$this->outputExtend($options['selectDependencies'], array('serviceupid', 'linkid'))
+				$this->outputExtend('services_links', array('serviceupid', 'linkid'), $options['selectDependencies'])
 			);
 			$dependencies = zbx_toHash($dependencies, 'linkid');
 			$relationMap = $this->createRelationMap($dependencies, 'serviceupid', 'linkid');
@@ -1325,7 +1528,7 @@ class CService extends CApiService {
 		// selectParentDependencies
 		if ($options['selectParentDependencies'] !== null && $options['selectParentDependencies'] != API_OUTPUT_COUNT) {
 			$dependencies = $this->fetchParentDependencies($serviceIds,
-				$this->outputExtend($options['selectParentDependencies'], array('servicedownid', 'linkid'))
+				$this->outputExtend('services_links', array('servicedownid', 'linkid'), $options['selectParentDependencies'])
 			);
 			$dependencies = zbx_toHash($dependencies, 'linkid');
 			$relationMap = $this->createRelationMap($dependencies, 'servicedownid', 'linkid');
@@ -1350,10 +1553,11 @@ class CService extends CApiService {
 
 		// selectTimes
 		if ($options['selectTimes'] !== null && $options['selectTimes'] != API_OUTPUT_COUNT) {
-			$serviceTimes = API::getApiService()->select('services_times', array(
-				'output' => $this->outputExtend($options['selectTimes'], array('serviceid', 'timeid')),
+			$serviceTimes = API::getApi()->select('services_times', array(
+				'output' => $this->outputExtend('services_times', array('serviceid', 'timeid'), $options['selectTimes']),
 				'filter' => array('serviceid' => $serviceIds),
-				'preservekeys' => true
+				'preservekeys' => true,
+				'nodeids' => get_current_nodeid(true)
 			));
 			$relationMap = $this->createRelationMap($serviceTimes, 'serviceid', 'timeid');
 
@@ -1363,10 +1567,11 @@ class CService extends CApiService {
 
 		// selectAlarms
 		if ($options['selectAlarms'] !== null && $options['selectAlarms'] != API_OUTPUT_COUNT) {
-			$serviceAlarms = API::getApiService()->select('service_alarms', array(
-				'output' => $this->outputExtend($options['selectAlarms'], array('serviceid', 'servicealarmid')),
+			$serviceAlarms = API::getApi()->select('service_alarms', array(
+				'output' => $this->outputExtend('service_alarms', array('serviceid', 'servicealarmid'), $options['selectAlarms']),
 				'filter' => array('serviceid' => $serviceIds),
-				'preservekeys' => true
+				'preservekeys' => true,
+				'nodeids' => get_current_nodeid(true)
 			));
 			$relationMap = $this->createRelationMap($serviceAlarms, 'serviceid', 'servicealarmid');
 
@@ -1379,10 +1584,11 @@ class CService extends CApiService {
 		// selectTrigger
 		if ($options['selectTrigger'] !== null && $options['selectTrigger'] != API_OUTPUT_COUNT) {
 			$relationMap = $this->createRelationMap($result, 'serviceid', 'triggerid');
-			$triggers = API::getApiService()->select('triggers', array(
+			$triggers = API::getApi()->select('triggers', array(
 				'output' => $options['selectTrigger'],
 				'triggerids' => $relationMap->getRelatedIds(),
-				'preservekeys' => true
+				'preservekeys' => true,
+				'nodeids' => get_current_nodeid(true)
 			));
 			$result = $relationMap->mapOne($result, $triggers, 'trigger');
 		}

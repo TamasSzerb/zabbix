@@ -36,47 +36,26 @@
 static void	process_listener(zbx_sock_t *s)
 {
 	AGENT_RESULT	result;
+	char		*command;
 	char		**value = NULL;
 	int		ret;
 
-	if (SUCCEED == (ret = zbx_tcp_recv_to(s, CONFIG_TIMEOUT)))
+	if (SUCCEED == (ret = zbx_tcp_recv_to(s, &command, CONFIG_TIMEOUT)))
 	{
-		zbx_rtrim(s->buffer, "\r\n");
+		zbx_rtrim(command, "\r\n");
 
-		zabbix_log(LOG_LEVEL_DEBUG, "Requested [%s]", s->buffer);
+		zabbix_log(LOG_LEVEL_DEBUG, "Requested [%s]", command);
 
 		init_result(&result);
+		process(command, 0, &result);
 
-		if (SUCCEED == process(s->buffer, 0, &result))
-		{
-			if (NULL != (value = GET_TEXT_RESULT(&result)))
-			{
-				zabbix_log(LOG_LEVEL_DEBUG, "Sending back [%s]", *value);
-				ret = zbx_tcp_send_to(s, *value, CONFIG_TIMEOUT);
-			}
-		}
-		else
-		{
+		if (NULL == (value = GET_TEXT_RESULT(&result)))
 			value = GET_MSG_RESULT(&result);
 
-			if (NULL != value)
-			{
-				static char	*buffer = NULL;
-				static size_t	buffer_alloc = 256;
-				size_t		buffer_offset = 0;
-
-				if (NULL == buffer)
-					buffer = zbx_malloc(buffer, buffer_alloc);
-
-				zbx_strncpy_alloc(&buffer, &buffer_alloc, &buffer_offset,
-						ZBX_NOTSUPPORTED, sizeof(ZBX_NOTSUPPORTED) - 1);
-				buffer_offset++;
-				zbx_strcpy_alloc(&buffer, &buffer_alloc, &buffer_offset, *value);
-
-				ret = zbx_tcp_send_bytes_to(s, buffer, buffer_offset, CONFIG_TIMEOUT);
-			}
-			else
-				ret = zbx_tcp_send_to(s, ZBX_NOTSUPPORTED, CONFIG_TIMEOUT);
+		if (NULL != value)
+		{
+			zabbix_log(LOG_LEVEL_DEBUG, "Sending back [%s]", *value);
+			ret = zbx_tcp_send_to(s, *value, CONFIG_TIMEOUT);
 		}
 
 		free_result(&result);
@@ -135,8 +114,10 @@ ZBX_THREAD_ENTRY(listener_thread, args)
 	}
 
 #ifdef _WINDOWS
+	zabbix_log(LOG_LEVEL_INFORMATION, "zabbix_agentd listener stopped");
+
 	ZBX_DO_EXIT();
 
-	zbx_thread_exit(EXIT_SUCCESS);
+	zbx_thread_exit(0);
 #endif
 }

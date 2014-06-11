@@ -1,7 +1,7 @@
 <?php
 /*
 ** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2000-2011 Zabbix SIA
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/include/config.inc.php';
 require_once dirname(__FILE__).'/include/hosts.inc.php';
 require_once dirname(__FILE__).'/include/items.inc.php';
@@ -39,7 +39,7 @@ $fields = array(
 	'parent_discoveryid' =>		array(T_ZBX_INT, O_MAND, P_SYS,	DB_ID, null),
 	'host' =>		        	array(T_ZBX_STR, O_OPT, null,		NOT_EMPTY,	'isset({save})', _('Host name')),
 	'name' =>	            	array(T_ZBX_STR, O_OPT, null,		null,		'isset({save})'),
-	'status' =>		        	array(T_ZBX_INT, O_OPT, null,		IN(array(HOST_STATUS_NOT_MONITORED, HOST_STATUS_MONITORED)), null),
+	'status' =>		        	array(T_ZBX_INT, O_OPT, null,		        IN(array(HOST_STATUS_NOT_MONITORED, HOST_STATUS_MONITORED)), 'isset({save})'),
 	'inventory_mode' =>			array(T_ZBX_INT, O_OPT, null, IN(array(HOST_INVENTORY_DISABLED, HOST_INVENTORY_MANUAL, HOST_INVENTORY_AUTOMATIC)), null),
 	'templates' =>		    	array(T_ZBX_STR, O_OPT, null, NOT_EMPTY,	null),
 	'add_template' =>			array(T_ZBX_STR, O_OPT, null,		null,	null),
@@ -114,7 +114,7 @@ elseif (get_request('unlink')) {
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['hostid'])) {
 
 	DBstart();
-	$result = API::HostPrototype()->delete(array(getRequest('hostid')));
+	$result = API::HostPrototype()->delete(get_request('hostid'));
 
 	show_messages($result, _('Host prototype deleted'), _('Cannot delete host prototypes'));
 
@@ -136,10 +136,11 @@ elseif (isset($_REQUEST['save'])) {
 	$newHostPrototype = array(
 		'host' => get_request('host'),
 		'name' => get_request('name'),
-		'status' => getRequest('status', HOST_STATUS_NOT_MONITORED),
+		'status' => get_request('status'),
 		'groupLinks' => array(),
 		'groupPrototypes' => array(),
 		'templates' => get_request('templates', array()),
+		'status' => get_request('status'),
 		'inventory' => array(
 			'inventory_mode' => get_request('inventory_mode')
 		)
@@ -256,7 +257,7 @@ if (isset($_REQUEST['form'])) {
 			'templateid' => get_request('templateid'),
 			'host' => get_request('host'),
 			'name' => get_request('name'),
-			'status' => getRequest('status', HOST_STATUS_MONITORED),
+			'status' => get_request('status', HOST_STATUS_MONITORED),
 			'templates' => array(),
 			'inventory' => array(
 				'inventory_mode' => get_request('inventory_mode', HOST_INVENTORY_DISABLED)
@@ -365,7 +366,11 @@ else {
 		order_result($data['hostPrototypes'], $sortfield, getPageSortOrder());
 	}
 
-	$data['paging'] = getPagingLine($data['hostPrototypes']);
+	$data['paging'] = getPagingLine(
+		$data['hostPrototypes'],
+		array('hostid'),
+		array('parent_discoveryid' => get_request('parent_discoveryid'))
+	);
 
 	// fetch templates linked to the prototypes
 	$templateIds = array();
@@ -375,7 +380,6 @@ else {
 	$templateIds = array_unique($templateIds);
 
 	$linkedTemplates = API::Template()->get(array(
-		'output' => array('templateid', 'name'),
 		'templateids' => $templateIds,
 		'selectParentTemplates' => array('hostid', 'name')
 	));
@@ -413,3 +417,4 @@ else {
 }
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

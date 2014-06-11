@@ -2693,7 +2693,9 @@ static DB_RESULT	DCsync_config_select()
 				"hk_services,hk_audit_mode,hk_audit,hk_sessions_mode,hk_sessions,"
 				"hk_history_mode,hk_history_global,hk_history,hk_trends_mode,"
 				"hk_trends_global,hk_trends"
-			" from config");
+			" from config"
+			ZBX_SQL_NODE,
+			DBwhere_node_local("configid"));
 }
 
 /******************************************************************************
@@ -2748,9 +2750,11 @@ void	DCsync_configuration(void)
 			" from items i,hosts h"
 			" where i.hostid=h.hostid"
 				" and h.status in (%d,%d)"
-				" and i.flags<>%d",
+				" and i.flags<>%d"
+				ZBX_SQL_NODE,
 			HOST_STATUS_MONITORED, HOST_STATUS_NOT_MONITORED,
-			ZBX_FLAG_DISCOVERY_PROTOTYPE)))
+			ZBX_FLAG_DISCOVERY_PROTOTYPE,
+			DBand_node_local("i.itemid"))))
 	{
 		goto out;
 	}
@@ -2765,9 +2769,11 @@ void	DCsync_configuration(void)
 				" and i.itemid=f.itemid"
 				" and f.triggerid=t.triggerid"
 				" and h.status in (%d,%d)"
-				" and t.flags<>%d",
+				" and t.flags<>%d"
+				ZBX_SQL_NODE,
 			HOST_STATUS_MONITORED, HOST_STATUS_NOT_MONITORED,
-			ZBX_FLAG_DISCOVERY_PROTOTYPE)))
+			ZBX_FLAG_DISCOVERY_PROTOTYPE,
+			DBand_node_local("h.hostid"))))
 	{
 		goto out;
 	}
@@ -2777,7 +2783,9 @@ void	DCsync_configuration(void)
 	if (NULL == (tdep_result = DBselect(
 			"select d.triggerid_down,d.triggerid_up"
 			" from trigger_depends d"
-			" order by d.triggerid_down")))
+			ZBX_SQL_NODE
+			" order by d.triggerid_down",
+			DBwhere_node_local("d.triggerid_down"))))
 	{
 		goto out;
 	}
@@ -2791,9 +2799,11 @@ void	DCsync_configuration(void)
 				" and i.itemid=f.itemid"
 				" and f.triggerid=t.triggerid"
 				" and h.status in (%d,%d)"
-				" and t.flags<>%d",
+				" and t.flags<>%d"
+				ZBX_SQL_NODE,
 			HOST_STATUS_MONITORED, HOST_STATUS_NOT_MONITORED,
-			ZBX_FLAG_DISCOVERY_PROTOTYPE)))
+			ZBX_FLAG_DISCOVERY_PROTOTYPE,
+			DBand_node_local("h.hostid"))))
 	{
 		goto out;
 	}
@@ -2809,10 +2819,12 @@ void	DCsync_configuration(void)
 				"status,name"
 			" from hosts"
 			" where status in (%d,%d,%d,%d)"
-				" and flags<>%d",
+				" and flags<>%d"
+				ZBX_SQL_NODE,
 			HOST_STATUS_MONITORED, HOST_STATUS_NOT_MONITORED,
 			HOST_STATUS_PROXY_ACTIVE, HOST_STATUS_PROXY_PASSIVE,
-			ZBX_FLAG_DISCOVERY_PROTOTYPE)))
+			ZBX_FLAG_DISCOVERY_PROTOTYPE,
+			DBand_node_local("hostid"))))
 	{
 		goto out;
 	}
@@ -2821,7 +2833,9 @@ void	DCsync_configuration(void)
 	sec = zbx_time();
 	if (NULL == (hi_result = DBselect(
 			"select hostid,inventory_mode"
-			" from host_inventory")))
+			" from host_inventory"
+				ZBX_SQL_NODE,
+			DBwhere_node_local("hostid"))))
 	{
 		goto out;
 	}
@@ -2831,7 +2845,9 @@ void	DCsync_configuration(void)
 	if (NULL == (htmpl_result = DBselect(
 			"select hostid,templateid"
 			" from hosts_templates"
-			" order by hostid,templateid")))
+			ZBX_SQL_NODE
+			" order by hostid,templateid",
+			DBwhere_node_local("hosttemplateid"))))
 	{
 		goto out;
 	}
@@ -2840,7 +2856,9 @@ void	DCsync_configuration(void)
 	sec = zbx_time();
 	if (NULL == (gmacro_result = DBselect(
 			"select globalmacroid,macro,value"
-			" from globalmacro")))
+			" from globalmacro"
+			ZBX_SQL_NODE,
+			DBwhere_node_local("globalmacroid"))))
 	{
 		goto out;
 	}
@@ -2849,7 +2867,9 @@ void	DCsync_configuration(void)
 	sec = zbx_time();
 	if (NULL == (hmacro_result = DBselect(
 			"select hostmacroid,hostid,macro,value"
-			" from hostmacro")))
+			" from hostmacro"
+			ZBX_SQL_NODE,
+			DBwhere_node_local("hostmacroid"))))
 	{
 		goto out;
 	}
@@ -2858,7 +2878,9 @@ void	DCsync_configuration(void)
 	sec = zbx_time();
 	if (NULL == (if_result = DBselect(
 			"select interfaceid,hostid,type,main,useip,ip,dns,port"
-			" from interface")))
+			" from interface"
+			ZBX_SQL_NODE,
+			DBwhere_node_local("interfaceid"))))
 	{
 		goto out;
 	}
@@ -2868,7 +2890,8 @@ void	DCsync_configuration(void)
 	if (NULL == (expr_result = DBselect(
 			"select r.name,e.expressionid,e.expression,e.expression_type,e.exp_delimiter,e.case_sensitive"
 			" from regexps r,expressions e"
-			" where r.regexpid=e.regexpid")))
+				" where r.regexpid=e.regexpid" ZBX_SQL_NODE,
+			DBand_node_local("r.regexpid"))))
 	{
 		goto out;
 	}
@@ -3350,13 +3373,13 @@ void	init_configuration_cache()
 	if (-1 == (shm_key = zbx_ftok(CONFIG_FILE, ZBX_IPC_CONFIG_ID)))
 	{
 		zbx_error("Can't create IPC key for configuration cache");
-		exit(EXIT_FAILURE);
+		exit(FAIL);
 	}
 
 	if (ZBX_MUTEX_ERROR == zbx_mutex_create_force(&config_lock, ZBX_MUTEX_CONFIG))
 	{
 		zbx_error("Unable to create mutex for configuration cache");
-		exit(EXIT_FAILURE);
+		exit(FAIL);
 	}
 
 	zbx_mem_create(&config_mem, shm_key, ZBX_NO_MUTEX, config_size, "configuration cache", "CacheSize", 0);

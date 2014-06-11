@@ -220,7 +220,7 @@
 			}
 
 			// IE8 hack to fix inline-block container resizing
-			if (IE8) {
+			if (jQuery.browser.msie && parseInt(jQuery.browser.version) == 8) {
 				inlineContainers = container.parents('.inlineblock').filter(function() {
 					return jQuery(this).css('display') == 'inline-block';
 				});
@@ -244,8 +244,6 @@
 	function removeOperationCondition(index) {
 		jQuery('#opconditions_' + index).find('*').remove();
 		jQuery('#opconditions_' + index).remove();
-
-		processOperationTypeOfCalculation();
 	}
 
 	function removeOpmsgUsrgrpRow(usrgrpid) {
@@ -309,7 +307,7 @@
 
 		// host group
 		if (object.target == 'hostGroup') {
-			var values = jQuery('#opCmdTargetObject').multiSelect('getData');
+			var values = jQuery('#opCmdTargetObject').multiSelect.getData('opCmdTargetObject');
 
 			object.opcommand_grpid = jQuery(objectForm).find('input[name="opCmdId"]').val();
 
@@ -343,7 +341,7 @@
 
 		// host
 		else if (object.target == 'host') {
-			var values = jQuery('#opCmdTargetObject').multiSelect('getData');
+			var values = jQuery('#opCmdTargetObject').multiSelect.getData('opCmdTargetObject');
 
 			object.opcommand_hstid = jQuery(objectForm).find('input[name="opCmdId"]').val();
 
@@ -507,53 +505,58 @@
 	}
 
 	function processTypeOfCalculation() {
-		var labels = jQuery('#conditionTable .label');
+		var count = jQuery('#conditionTable tr').length - 1;
 
-		if (labels.length > 1) {
+		if (count > 1) {
 			jQuery('#conditionRow').css('display', '');
 
-			var conditions = [];
-			labels.each(function(index, label) {
-				label = jQuery(label);
+			var groupOperator = '',
+				globalOperator = '',
+				str = '';
 
-				conditions.push({
-					id: label.data('formulaid'),
-					type: label.data('conditiontype')
-				});
+			if (jQuery('#evaltype').val() == <?php echo ACTION_EVAL_TYPE_AND; ?>) {
+				groupOperator = <?php echo CJs::encodeJson(_('and')); ?>;
+				globalOperator = <?php echo CJs::encodeJson(_('and')); ?>;
+			}
+			else if (jQuery('#evaltype').val() == <?php echo ACTION_EVAL_TYPE_OR; ?>) {
+				groupOperator = <?php echo CJs::encodeJson(_('or')); ?>;
+				globalOperator = <?php echo CJs::encodeJson(_('or')); ?>;
+			}
+			else {
+				groupOperator = <?php echo CJs::encodeJson(_('or')); ?>;
+				globalOperator = <?php echo CJs::encodeJson(_('and')); ?>;
+			}
+
+			var conditionTypeHold = '';
+
+			jQuery('#conditionTable tr').not('.header').each(function() {
+				var conditionType = jQuery(this).find('.label').data('conditiontype');
+
+				if (empty(str)) {
+					str = ' (' + jQuery(this).find('.label').data('label');
+					conditionTypeHold = conditionType;
+				}
+				else {
+					if (conditionType != conditionTypeHold) {
+						str += ') ' + globalOperator + ' (' + jQuery(this).find('.label').data('label');
+						conditionTypeHold = conditionType;
+					}
+					else {
+						str += ' ' + groupOperator + ' ' + jQuery(this).find('.label').data('label');
+					}
+				}
 			});
+			str += ')';
 
-			jQuery('#conditionLabel').html(getConditionFormula(conditions, +jQuery('#evaltype').val()));
+			jQuery('#conditionLabel').html(str);
 		}
 		else {
 			jQuery('#conditionRow').css('display', 'none');
 		}
 	}
 
-	function processOperationTypeOfCalculation() {
-		var labels = jQuery('#operationConditionTable .label');
-
-		if (labels.length > 1) {
-			jQuery('#operationConditionRow').css('display', '');
-
-			var conditions = [];
-			labels.each(function(index, label) {
-				label = jQuery(label);
-
-				conditions.push({
-					id: label.data('formulaid'),
-					type: label.data('conditiontype')
-				});
-			});
-
-			jQuery('#operationConditionLabel').html(getConditionFormula(conditions, +jQuery('#operationEvaltype').val()));
-		}
-		else {
-			jQuery('#operationConditionRow').css('display', 'none');
-		}
-	}
-
 	function addDiscoveryTemplates() {
-		var values = jQuery('#discoveryTemplates').multiSelect('getData');
+		var values = jQuery('#discoveryTemplates').multiSelect.getData('discoveryTemplates');
 
 		for (var key in values) {
 			var data = values[key];
@@ -569,11 +572,11 @@
 			}
 		}
 
-		jQuery('#discoveryTemplates').multiSelect('clean');
+		jQuery('#dsc_templateid').multiSelect.clean();
 	}
 
 	function addDiscoveryHostGroup() {
-		var values = jQuery('#discoveryHostGroup').multiSelect('getData');
+		var values = jQuery('#discoveryHostGroup').multiSelect.getData('discoveryHostGroup');
 
 		for (var key in values) {
 			var data = values[key];
@@ -589,7 +592,7 @@
 			}
 		}
 
-		jQuery('#discoveryHostGroup').multiSelect('clean');
+		jQuery('#dsc_groupid').multiSelect.clean();
 	}
 
 	jQuery(document).ready(function() {
@@ -613,6 +616,5 @@
 		});
 
 		processTypeOfCalculation();
-		processOperationTypeOfCalculation();
 	});
 </script>

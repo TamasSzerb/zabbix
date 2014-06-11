@@ -24,7 +24,7 @@
  *
  * @package API
  */
-abstract class CItemGeneral extends CApiService {
+abstract class CItemGeneral extends CZBXAPI {
 
 	const ERROR_EXISTS_TEMPLATE = 'existsTemplate';
 	const ERROR_EXISTS = 'exists';
@@ -136,7 +136,7 @@ abstract class CItemGeneral extends CApiService {
 				'hostids' => zbx_objectValues($dbItems, 'hostid'),
 				'templated_hosts' => true,
 				'editable' => true,
-				'selectApplications' => array('applicationid'),
+				'selectApplications' => API_OUTPUT_REFER,
 				'preservekeys' => true
 			));
 		}
@@ -156,7 +156,7 @@ abstract class CItemGeneral extends CApiService {
 				'hostids' => zbx_objectValues($items, 'hostid'),
 				'templated_hosts' => true,
 				'editable' => true,
-				'selectApplications' => array('applicationid'),
+				'selectApplications' => API_OUTPUT_REFER,
 				'preservekeys' => true
 			));
 		}
@@ -511,6 +511,7 @@ abstract class CItemGeneral extends CApiService {
 		$ids = array_unique($ids);
 
 		$count = $this->get(array(
+			'nodeids' => get_current_nodeid(true),
 			'itemids' => $ids,
 			'countOutput' => true
 		));
@@ -529,6 +530,7 @@ abstract class CItemGeneral extends CApiService {
 		$ids = array_unique($ids);
 
 		$count = $this->get(array(
+			'nodeids' => get_current_nodeid(true),
 			'itemids' => $ids,
 			'editable' => true,
 			'countOutput' => true
@@ -852,6 +854,7 @@ abstract class CItemGeneral extends CApiService {
 		if ($options['selectHosts'] !== null && $options['selectHosts'] != API_OUTPUT_COUNT) {
 			$relationMap = $this->createRelationMap($result, 'itemid', 'hostid');
 			$hosts = API::Host()->get(array(
+				'nodeids' => $options['nodeids'],
 				'hostids' => $relationMap->getRelatedIds(),
 				'templated_hosts' => true,
 				'output' => $options['selectHosts'],

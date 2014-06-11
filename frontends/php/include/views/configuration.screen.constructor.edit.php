@@ -111,6 +111,11 @@ if ($resourceType == SCREEN_RESOURCE_GRAPH) {
 		$graph['host'] = reset($graph['hosts']);
 
 		$caption = $graph['host']['name'].NAME_DELIMITER.$graph['name'];
+
+		$nodeName = get_node_name_by_elid($graph['host']['hostid']);
+		if (!zbx_empty($nodeName)) {
+			$caption = '('.$nodeName.') '.$caption;
+		}
 	}
 
 	if ($this->data['screen']['templateid']) {
@@ -159,6 +164,11 @@ elseif ($resourceType == SCREEN_RESOURCE_SIMPLE_GRAPH) {
 		$item['host'] = reset($item['hosts']);
 
 		$caption = $item['host']['name'].NAME_DELIMITER.$item['name_expanded'];
+
+		$nodeName = get_node_name_by_elid($item['itemid']);
+		if (!zbx_empty($nodeName)) {
+			$caption = '('.$nodeName.') '.$caption;
+		}
 	}
 
 	if ($this->data['screen']['templateid']) {
@@ -200,6 +210,10 @@ elseif ($resourceType == SCREEN_RESOURCE_MAP) {
 		$id = $resourceId;
 		$map = reset($maps);
 		$caption = $map['name'];
+		$nodeName = get_node_name_by_elid($map['sysmapid']);
+		if (!zbx_empty($nodeName)) {
+			$caption = '('.$nodeName.') '.$caption;
+		}
 	}
 
 	$screenFormList->addVar('resourceid', $id);
@@ -234,6 +248,11 @@ elseif ($resourceType == SCREEN_RESOURCE_PLAIN_TEXT) {
 		$item = reset($items);
 		$item['host'] = reset($item['hosts']);
 		$caption = $item['host']['name'].NAME_DELIMITER.$item['name_expanded'];
+
+		$nodeName = get_node_name_by_elid($item['itemid']);
+		if (!zbx_empty($nodeName)) {
+			$caption = '('.$nodeName.') '.$caption;
+		}
 	}
 
 	if ($this->data['screen']['templateid']) {
@@ -279,6 +298,8 @@ elseif (in_array($resourceType, array(SCREEN_RESOURCE_HOSTGROUP_TRIGGERS, SCREEN
 
 			if ($data) {
 				$data = reset($data);
+
+				$data['prefix'] = get_node_name_by_elid($data['groupid'], true, NAME_DELIMITER);
 			}
 		}
 
@@ -286,7 +307,7 @@ elseif (in_array($resourceType, array(SCREEN_RESOURCE_HOSTGROUP_TRIGGERS, SCREEN
 			'name' => 'resourceid',
 			'objectName' => 'hostGroup',
 			'objectOptions' => array('editable' => true),
-			'data' => $data ? array(array('id' => $data['groupid'], 'name' => $data['name'])) : null,
+			'data' => $data ? array(array('id' => $data['groupid'], 'name' => $data['name'], 'prefix' => $data['prefix'])) : null,
 			'defaultValue' => 0,
 			'selectedLimit' => 1,
 			'popup' => array(
@@ -307,6 +328,8 @@ elseif (in_array($resourceType, array(SCREEN_RESOURCE_HOSTGROUP_TRIGGERS, SCREEN
 
 			if ($data) {
 				$data = reset($data);
+
+				$data['prefix'] = get_node_name_by_elid($data['hostid'], true, NAME_DELIMITER);
 			}
 		}
 
@@ -314,7 +337,7 @@ elseif (in_array($resourceType, array(SCREEN_RESOURCE_HOSTGROUP_TRIGGERS, SCREEN
 			'name' => 'resourceid',
 			'objectName' => 'hosts',
 			'objectOptions' => array('editable' => true),
-			'data' => $data ? array(array('id' => $data['hostid'], 'name' => $data['name'])) : null,
+			'data' => $data ? array(array('id' => $data['hostid'], 'name' => $data['name'], 'prefix' => $data['prefix'])) : null,
 			'defaultValue' => 0,
 			'selectedLimit' => 1,
 			'popup' => array(
@@ -338,12 +361,12 @@ elseif (in_array($resourceType, array(SCREEN_RESOURCE_HOSTGROUP_TRIGGERS, SCREEN
 }
 
 /*
- * Screen item: Action log
+ * Screen item: History of actions
  */
 elseif ($resourceType == SCREEN_RESOURCE_ACTIONS) {
 	$screenFormList->addRow(_('Show lines'), new CNumericBox('elements', $elements, 3));
 	$screenFormList->addRow(
-		_('Sort entries by'),
+		_('Sort triggers by'),
 		new CComboBox('sort_triggers', $sortTriggers, null, array(
 			SCREEN_SORT_TRIGGERS_TIME_DESC => _('Time (descending)'),
 			SCREEN_SORT_TRIGGERS_TIME_ASC => _('Time (ascending)'),
@@ -351,6 +374,8 @@ elseif ($resourceType == SCREEN_RESOURCE_ACTIONS) {
 			SCREEN_SORT_TRIGGERS_TYPE_ASC => _('Type (ascending)'),
 			SCREEN_SORT_TRIGGERS_STATUS_DESC => _('Status (descending)'),
 			SCREEN_SORT_TRIGGERS_STATUS_ASC => _('Status (ascending)'),
+			SCREEN_SORT_TRIGGERS_RETRIES_LEFT_DESC => _('Retries left (descending)'),
+			SCREEN_SORT_TRIGGERS_RETRIES_LEFT_ASC => _('Retries left (ascending)'),
 			SCREEN_SORT_TRIGGERS_RECIPIENT_DESC => _('Recipient (descending)'),
 			SCREEN_SORT_TRIGGERS_RECIPIENT_ASC => _('Recipient (ascending)')
 		))
@@ -381,6 +406,8 @@ elseif (in_array($resourceType, array(SCREEN_RESOURCE_TRIGGERS_OVERVIEW, SCREEN_
 
 		if ($data) {
 			$data = reset($data);
+
+			$data['prefix'] = get_node_name_by_elid($data['groupid'], true, NAME_DELIMITER);
 		}
 	}
 
@@ -388,7 +415,7 @@ elseif (in_array($resourceType, array(SCREEN_RESOURCE_TRIGGERS_OVERVIEW, SCREEN_
 		'name' => 'resourceid',
 		'objectName' => 'hostGroup',
 		'objectOptions' => array('editable' => true),
-		'data' => $data ? array(array('id' => $data['groupid'], 'name' => $data['name'])) : null,
+		'data' => $data ? array(array('id' => $data['groupid'], 'name' => $data['name'], 'prefix' => $data['prefix'])) : null,
 		'selectedLimit' => 1,
 		'popup' => array(
 			'parameters' => 'srctbl=host_groups&dstfrm='.$screenForm->getName().'&dstfld1=resourceid'.
@@ -408,8 +435,12 @@ elseif ($resourceType == SCREEN_RESOURCE_SCREEN) {
 	$id = 0;
 
 	if ($resourceId > 0) {
-		$db_screens = DBselect('SELECT s.screenid,s.name FROM screens s WHERE s.screenid='.zbx_dbstr($resourceId));
-
+		$db_screens = DBselect(
+			'SELECT DISTINCT n.name AS node_name,s.screenid,s.name'.
+			' FROM screens s'.
+				' LEFT JOIN nodes n ON n.nodeid='.DBid2nodeid('s.screenid').
+			' WHERE s.screenid='.zbx_dbstr($resourceId)
+		);
 		while ($row = DBfetch($db_screens)) {
 			$screen = API::Screen()->get(array(
 				'screenids' => $row['screenid'],
@@ -422,7 +453,8 @@ elseif ($resourceType == SCREEN_RESOURCE_SCREEN) {
 				continue;
 			}
 
-			$caption = $row['name'];
+			$row['node_name'] = !empty($row['node_name']) ? '('.$row['node_name'].') ' : '';
+			$caption = $row['node_name'].$row['name'];
 			$id = $resourceId;
 		}
 	}
@@ -448,12 +480,15 @@ elseif ($resourceType == SCREEN_RESOURCE_HOSTS_INFO || $resourceType == SCREEN_R
 	if ($resourceId > 0) {
 		$data = API::HostGroup()->get(array(
 			'groupids' => $resourceId,
+			'nodeids' => get_current_nodeid(true),
 			'output' => array('groupid', 'name'),
 			'editable' => true
 		));
 
 		if ($data) {
 			$data = reset($data);
+
+			$data['prefix'] = get_node_name_by_elid($data['groupid'], true, NAME_DELIMITER);
 		}
 	}
 
@@ -461,7 +496,7 @@ elseif ($resourceType == SCREEN_RESOURCE_HOSTS_INFO || $resourceType == SCREEN_R
 		'name' => 'resourceid',
 		'objectName' => 'hostGroup',
 		'objectOptions' => array('editable' => true),
-		'data' => $data ? array(array('id' => $data['groupid'], 'name' => $data['name'])) : null,
+		'data' => $data ? array(array('id' => $data['groupid'], 'name' => $data['name'], 'prefix' => $data['prefix'])) : null,
 		'defaultValue' => 0,
 		'selectedLimit' => 1,
 		'popup' => array(
@@ -556,7 +591,7 @@ else {
 }
 
 if (in_array($resourceType, array(SCREEN_RESOURCE_URL))) {
-	$screenFormList->addRow(_('URL'), new CTextBox('url', $url, ZBX_TEXTBOX_STANDARD_SIZE));
+	$screenFormList->addRow(_('Url'), new CTextBox('url', $url, ZBX_TEXTBOX_STANDARD_SIZE));
 }
 else {
 	$screenFormList->addVar('url', '');
@@ -598,12 +633,8 @@ $screenFormList->addRow(_('Vertical align'), new CDiv($verticalAlignRadioButton,
 $screenFormList->addRow(_('Column span'), new CNumericBox('colspan', $colspan, 3));
 $screenFormList->addRow(_('Row span'), new CNumericBox('rowspan', $rowspan, 3));
 
-$showDynamic = in_array($resourceType, array(
-	SCREEN_RESOURCE_GRAPH, SCREEN_RESOURCE_SIMPLE_GRAPH, SCREEN_RESOURCE_PLAIN_TEXT, SCREEN_RESOURCE_URL
-));
-
 // dynamic addon
-if ($this->data['screen']['templateid'] == 0 && $showDynamic) {
+if ($this->data['screen']['templateid'] == 0 && in_array($resourceType, array(SCREEN_RESOURCE_GRAPH, SCREEN_RESOURCE_SIMPLE_GRAPH, SCREEN_RESOURCE_PLAIN_TEXT))) {
 	$screenFormList->addRow(_('Dynamic item'), new CCheckBox('dynamic', $dynamic, null, 1));
 }
 

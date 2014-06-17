@@ -152,15 +152,11 @@ $themeComboBox = new CComboBox('theme', $this->data['theme'], null, $themes);
 $userFormList->addRow(_('Theme'), $themeComboBox);
 
 // append auto-login & auto-logout to form list
-$autologoutCheckBox = new CCheckBox('autologout_visible', isset($this->data['autologout']) ? 'yes': 'no');
-if (isset($this->data['autologout'])) {
-	$autologoutTextBox = new CNumericBox('autologout', $this->data['autologout'], 4);
-}
-else {
-	$autologoutTextBox = new CNumericBox('autologout', 900, 4);
+$autologoutCheckBox = new CCheckBox('autologout_visible', ($this->data['autologout'] == 0) ? 'no' : 'yes');
+$autologoutTextBox = new CNumericBox('autologout', ($this->data['autologout'] == 0) ? '900' : $this->data['autologout'], 4);
+if (!$this->data['autologout']) {
 	$autologoutTextBox->setAttribute('disabled', 'disabled');
 }
-
 $userFormList->addRow(_('Auto-login'), new CCheckBox('autologin', $this->data['autologin'], null, 1));
 $userFormList->addRow(_('Auto-logout (min 90 seconds)'), array($autologoutCheckBox, $autologoutTextBox));
 $userFormList->addRow(_('Refresh (in seconds)'), new CNumericBox('refresh', $this->data['refresh'], 4));
@@ -197,7 +193,7 @@ if (uint_in_array(CWebUser::$data['type'], array(USER_TYPE_ZABBIX_ADMIN, USER_TY
 		foreach (getSeverityCaption() as $key => $caption) {
 			$mediaActive = ($media['severity'] & (1 << $key));
 
-			$mediaSeverity[$key] = new CSpan(mb_substr($caption, 0, 1), $mediaActive ? 'enabled' : null);
+			$mediaSeverity[$key] = new CSpan(zbx_substr($caption, 0, 1), $mediaActive ? 'enabled' : null);
 			$mediaSeverity[$key]->setHint($caption.($mediaActive ? ' (on)' : ' (off)'));
 		}
 

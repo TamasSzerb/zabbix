@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CScript extends CApiService {
+class CScript extends CZBXAPI {
 
 	protected $tableName = 'scripts';
 	protected $tableAlias = 's';
@@ -62,6 +62,7 @@ class CScript extends CApiService {
 		);
 
 		$defOptions = array(
+			'nodeids'				=> null,
 			'groupids'				=> null,
 			'hostids'				=> null,
 			'scriptids'				=> null,
@@ -76,7 +77,7 @@ class CScript extends CApiService {
 			'excludeSearch'			=> null,
 			'searchWildcardsEnabled'=> null,
 			// output
-			'output'				=> API_OUTPUT_EXTEND,
+			'output'				=> API_OUTPUT_REFER,
 			'selectGroups'			=> null,
 			'selectHosts'			=> null,
 			'countOutput'			=> null,
@@ -117,14 +118,23 @@ class CScript extends CApiService {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
+			// only fetch scripts from the same nodes as the hosts
+			$hostNodeIds = array();
+			foreach ($options['hostids'] as $hostId) {
+				$hostNodeIds[] = id2nodeid($hostId);
+			}
+			$hostNodeIds = array_unique($hostNodeIds);
+
 			// return scripts that are assigned to the hosts' groups or to no group
 			$hostGroups = API::HostGroup()->get(array(
 				'output' => array('groupid'),
-				'hostids' => $options['hostids']
+				'hostids' => $options['hostids'],
+				'nodeids' => $hostNodeIds
 			));
 			$hostGroupIds = zbx_objectValues($hostGroups, 'groupid');
 
-			$sqlParts['where'][] = '('.dbConditionInt('s.groupid', $hostGroupIds).' OR s.groupid IS NULL)';
+			$sqlParts['where'][] = '('.dbConditionInt('s.groupid', $hostGroupIds).' OR '.
+				'(s.groupid IS NULL'.andDbNode('s.scriptid', $hostNodeIds).'))';
 		}
 
 		// usrgrpids
@@ -158,6 +168,7 @@ class CScript extends CApiService {
 
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
+		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$res = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
 		while ($script = DBfetch($res)) {
 			if ($options['countOutput']) {
@@ -254,7 +265,9 @@ class CScript extends CApiService {
 	 *
 	 * @return array
 	 */
-	public function delete(array $scriptIds) {
+	public function delete($scriptIds) {
+		$scriptIds = zbx_toArray($scriptIds);
+
 		$this->validateDelete($scriptIds);
 
 		DB::delete('scripts', array('scriptid' => $scriptIds));
@@ -652,6 +665,15 @@ class CScript extends CApiService {
 		return $scripts;
 	}
 
+	protected function applyQueryNodeOptions($tableName, $tableAlias, array $options, array $sqlParts) {
+		// only apply the node option if no specific ids are given
+		if ($options['scriptids'] === null && $options['hostids'] === null && $options['groupids'] === null) {
+			$sqlParts = parent::applyQueryNodeOptions($tableName, $tableAlias, $options, $sqlParts);
+		}
+
+		return $sqlParts;
+	}
+
 	protected function applyQueryOutputOptions($tableName, $tableAlias, array $options, array $sqlParts) {
 		$sqlParts = parent::applyQueryOutputOptions($tableName, $tableAlias, $options, $sqlParts);
 
@@ -692,7 +714,8 @@ class CScript extends CApiService {
 						'output' => $options['selectHosts'],
 						'groupids' => $script['groupid'] ? $script['groupid'] : null,
 						'hostids' => $options['hostids'] ? $options['hostids'] : null,
-						'editable' => ($script['host_access'] == PERM_READ_WRITE) ? true : null
+						'editable' => ($script['host_access'] == PERM_READ_WRITE) ? true : null,
+						'nodeids' => id2nodeid($script['scriptid'])
 					));
 
 					$processedGroups[$script['groupid'].'_'.$script['host_access']] = $scriptId;

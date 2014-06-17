@@ -36,19 +36,13 @@ int	SYSTEM_CPU_NUM(AGENT_REQUEST *request, AGENT_RESULT *result)
 	char	*tmp;
 
 	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	tmp = get_rparam(request, 0);
 
 	/* only "online" (default) for parameter "type" is supported */
 	if (NULL != tmp && '\0' != *tmp && 0 != strcmp(tmp, "online"))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	SET_UI64_RESULT(result, get_cpu_num());
 
@@ -63,25 +57,19 @@ int	SYSTEM_CPU_UTIL(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 	if (!CPU_COLLECTOR_STARTED(collector))
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Collector is not started."));
+		SET_MSG_RESULT(result, strdup("Collector is not started!"));
 		return SYSINFO_RET_FAIL;
 	}
 
 	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	tmp = get_rparam(request, 0);
 
 	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "all"))
 		cpu_num = 0;
 	else if (SUCCEED != is_uint_range(tmp, &cpu_num, 0, collector->cpus.count - 1))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 	else
 		cpu_num++;
 
@@ -89,16 +77,10 @@ int	SYSTEM_CPU_UTIL(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 	/* only "system" (default) for parameter "type" is supported */
 	if (NULL != tmp && '\0' != *tmp && 0 != strcmp(tmp, "system"))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	if (PERF_COUNTER_ACTIVE != collector->cpus.cpu_counter[cpu_num]->status)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain performance information from collector."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	tmp = get_rparam(request, 2);
 
@@ -109,10 +91,7 @@ int	SYSTEM_CPU_UTIL(AGENT_REQUEST *request, AGENT_RESULT *result)
 	else if (0 == strcmp(tmp, "avg15"))
 		value = compute_average_value(collector->cpus.cpu_counter[cpu_num], USE_DEFAULT_INTERVAL);
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	SET_DBL_RESULT(result, value);
 
@@ -127,31 +106,22 @@ int	SYSTEM_CPU_LOAD(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 	if (!CPU_COLLECTOR_STARTED(collector))
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Collector is not started."));
+		SET_MSG_RESULT(result, strdup("Collector is not started!"));
 		return SYSINFO_RET_FAIL;
 	}
 
 	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	tmp = get_rparam(request, 0);
 
 	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "all"))
 		per_cpu = 0;
 	else if (0 != strcmp(tmp, "percpu"))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	if (PERF_COUNTER_ACTIVE != collector->cpus.queue_counter->status)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain performance information from collector."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	tmp = get_rparam(request, 1);
 
@@ -162,18 +132,12 @@ int	SYSTEM_CPU_LOAD(AGENT_REQUEST *request, AGENT_RESULT *result)
 	else if (0 == strcmp(tmp, "avg15"))
 		value = compute_average_value(collector->cpus.queue_counter, USE_DEFAULT_INTERVAL);
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	if (1 == per_cpu)
 	{
 		if (0 >= (cpu_num = get_cpu_num()))
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain number of CPUs."));
 			return SYSINFO_RET_FAIL;
-		}
 		value /= cpu_num;
 	}
 

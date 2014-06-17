@@ -24,11 +24,11 @@
  *
  * @package API
  */
-class CEvent extends CApiService {
+class CEvent extends CZBXAPI {
 
 	protected $tableName = 'events';
 	protected $tableAlias = 'e';
-	protected $sortColumns = array('eventid', 'objectid', 'clock');
+	protected $sortColumns = array('eventid', 'object', 'objectid', 'clock');
 
 	/**
 	 * Array of supported objects where keys are object IDs and values are translated object names.
@@ -71,6 +71,7 @@ class CEvent extends CApiService {
 	 */
 	public function get($options = array()) {
 		$result = array();
+		$nodeCheck = false;
 		$userType = self::$userData['type'];
 		$userid = self::$userData['userid'];
 
@@ -84,8 +85,10 @@ class CEvent extends CApiService {
 		);
 
 		$defOptions = array(
+			'nodeids'					=> null,
 			'groupids'					=> null,
 			'hostids'					=> null,
+			'triggerids'				=> null,
 			'objectids'					=> null,
 			'eventids'					=> null,
 			'editable'					=> null,
@@ -107,8 +110,10 @@ class CEvent extends CApiService {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectHosts'				=> null,
+			'selectItems'				=> null,
+			'selectTriggers'			=> null,
 			'selectRelatedObject'		=> null,
 			'select_alerts'				=> null,
 			'select_acknowledges'		=> null,
@@ -121,6 +126,10 @@ class CEvent extends CApiService {
 		);
 		$options = zbx_array_merge($defOptions, $options);
 
+		$this->checkDeprecatedParam($options, 'selectTriggers');
+		$this->checkDeprecatedParam($options, 'selectItems');
+		$this->checkDeprecatedParam($options, 'sortfield', 'object');
+		$options = $this->convertDeprecatedParam($options, 'triggerids', 'objectids');
 		$this->validateGet($options);
 
 		// editable + PERMISSION CHECK
@@ -130,7 +139,6 @@ class CEvent extends CApiService {
 				// specific triggers
 				if ($options['objectids'] !== null) {
 					$triggers = API::Trigger()->get(array(
-						'output' => array('triggerid'),
 						'triggerids' => $options['objectids'],
 						'editable' => $options['editable']
 					));
@@ -168,7 +176,6 @@ class CEvent extends CApiService {
 					}
 					elseif ($options['object'] == EVENT_OBJECT_LLDRULE) {
 						$items = API::DiscoveryRule()->get(array(
-							'output' => array('itemid'),
 							'itemids' => $options['objectids'],
 							'editable' => $options['editable']
 						));
@@ -194,10 +201,18 @@ class CEvent extends CApiService {
 			}
 		}
 
+		// nodeids
+		$nodeids = !is_null($options['nodeids']) ? $options['nodeids'] : get_current_nodeid();
+
 		// eventids
 		if (!is_null($options['eventids'])) {
 			zbx_value2array($options['eventids']);
 			$sqlParts['where'][] = dbConditionInt('e.eventid', $options['eventids']);
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'e.objectid', $nodeids);
+			}
 		}
 
 		// objectids
@@ -210,11 +225,18 @@ class CEvent extends CApiService {
 			if (!is_null($options['groupCount'])) {
 				$sqlParts['group']['objectid'] = 'e.objectid';
 			}
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'e.objectid', $nodeids);
+			}
 		}
 
 		// groupids
 		if (!is_null($options['groupids'])) {
 			zbx_value2array($options['groupids']);
+
+			$sqlParts = $this->addQuerySelect('hg.groupid', $sqlParts);
 
 			// triggers
 			if ($options['object'] == EVENT_OBJECT_TRIGGER) {
@@ -240,6 +262,8 @@ class CEvent extends CApiService {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
+			$sqlParts = $this->addQuerySelect('i.hostid', $sqlParts);
+
 			// triggers
 			if ($options['object'] == EVENT_OBJECT_TRIGGER) {
 				$sqlParts['from']['functions'] = 'functions f';
@@ -254,6 +278,11 @@ class CEvent extends CApiService {
 				$sqlParts['where']['i'] = dbConditionInt('i.hostid', $options['hostids']);
 				$sqlParts['where']['fi'] = 'e.objectid=i.itemid';
 			}
+		}
+
+		// should last, after all ****IDS checks
+		if (!$nodeCheck) {
+			$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'e.eventid', $nodeids);
 		}
 
 		// object
@@ -314,6 +343,7 @@ class CEvent extends CApiService {
 
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
+		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$res = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
 		while ($event = DBfetch($res)) {
 			if (!is_null($options['countOutput'])) {
@@ -325,7 +355,20 @@ class CEvent extends CApiService {
 				}
 			}
 			else {
-				$result[$event['eventid']] = $event;
+				if (!isset($result[$event['eventid']])) {
+					$result[$event['eventid']]= array();
+				}
+
+				// hostids
+				if (isset($event['hostid']) && is_null($options['selectHosts'])) {
+					if (!isset($result[$event['eventid']]['hosts'])) {
+						$result[$event['eventid']]['hosts'] = array();
+					}
+					$result[$event['eventid']]['hosts'][] = array('hostid' => $event['hostid']);
+					unset($event['hostid']);
+				}
+
+				$result[$event['eventid']] += $event;
 			}
 		}
 
@@ -432,7 +475,10 @@ class CEvent extends CApiService {
 		$sqlParts = parent::applyQueryOutputOptions($tableName, $tableAlias, $options, $sqlParts);
 
 		if ($options['countOutput'] === null) {
-			if ($options['selectRelatedObject'] !== null || $options['selectHosts'] !== null) {
+			if ($options['selectTriggers'] !== null
+				|| $options['selectRelatedObject'] !== null
+				|| $options['selectItems'] !== null
+				|| $options['selectHosts'] !== null) {
 
 				$sqlParts = $this->addQuerySelect('e.object', $sqlParts);
 				$sqlParts = $this->addQuerySelect('e.objectid', $sqlParts);
@@ -479,12 +525,58 @@ class CEvent extends CApiService {
 			}
 
 			$hosts = API::Host()->get(array(
+				'nodeids' => $options['nodeids'],
 				'output' => $options['selectHosts'],
 				'hostids' => $relationMap->getRelatedIds(),
 				'nopermissions' => true,
 				'preservekeys' => true
 			));
 			$result = $relationMap->mapMany($result, $hosts, 'hosts');
+		}
+
+		// adding triggers
+		if ($options['selectTriggers'] !== null && $options['selectTriggers'] != API_OUTPUT_COUNT) {
+			$relationMap = new CRelationMap();
+			foreach ($result as $event) {
+				if ($event['object'] == EVENT_OBJECT_TRIGGER) {
+					$relationMap->addRelation($event['eventid'], $event['objectid']);
+				}
+			}
+
+			$triggers = API::Trigger()->get(array(
+				'nodeids' => $options['nodeids'],
+				'output' => $options['selectTriggers'],
+				'triggerids' => $relationMap->getRelatedIds(),
+				'nopermissions' => true,
+				'preservekeys' => true
+			));
+			$result = $relationMap->mapMany($result, $triggers, 'triggers');
+		}
+
+		// adding items
+		if ($options['selectItems'] !== null && $options['selectItems'] != API_OUTPUT_COUNT) {
+			$relationMap = new CRelationMap();
+			// discovered items
+			$dbRules = DBselect(
+				'SELECT e.eventid,f.itemid'.
+					' FROM events e,functions f'.
+					' WHERE '.dbConditionInt('e.eventid', $eventIds).
+					' AND e.objectid=f.triggerid'.
+					' AND e.object='.EVENT_OBJECT_TRIGGER
+			);
+			while ($relation = DBfetch($dbRules)) {
+				$relationMap->addRelation($relation['eventid'], $relation['itemid']);
+			}
+
+			$items = API::Item()->get(array(
+				'nodeids' => $options['nodeids'],
+				'output' => $options['selectItems'],
+				'itemids' => $relationMap->getRelatedIds(),
+				'webitems' => true,
+				'nopermissions' => true,
+				'preservekeys' => true
+			));
+			$result = $relationMap->mapMany($result, $items, 'items');
 		}
 
 		// adding the related object
@@ -515,6 +607,7 @@ class CEvent extends CApiService {
 			}
 
 			$objects = $api->get(array(
+				'nodeids' => $options['nodeids'],
 				'output' => $options['selectRelatedObject'],
 				$api->pkOption() => $relationMap->getRelatedIds(),
 				'nopermissions' => true,
@@ -529,6 +622,7 @@ class CEvent extends CApiService {
 			$alerts = API::Alert()->get(array(
 				'output' => $options['select_alerts'],
 				'selectMediatypes' => API_OUTPUT_EXTEND,
+				'nodeids' => $options['nodeids'],
 				'alertids' => $relationMap->getRelatedIds(),
 				'nopermissions' => true,
 				'preservekeys' => true,
@@ -542,11 +636,12 @@ class CEvent extends CApiService {
 		if ($options['select_acknowledges'] !== null) {
 			if ($options['select_acknowledges'] != API_OUTPUT_COUNT) {
 				// create the base query
-				$sqlParts = API::getApiService()->createSelectQueryParts('acknowledges', 'a', array(
-					'output' => $this->outputExtend($options['select_acknowledges'],
-						array('acknowledgeid', 'eventid', 'clock')
+				$sqlParts = API::getApi()->createSelectQueryParts('acknowledges', 'a', array(
+					'output' => $this->outputExtend('acknowledges',
+						array('acknowledgeid', 'eventid', 'clock'), $options['select_acknowledges']
 					),
-					'filter' => array('eventid' => $eventIds)
+					'filter' => array('eventid' => $eventIds),
+					'nodeids' => get_current_nodeid(true)
 				));
 				$sqlParts['order'][] = 'a.clock DESC';
 
@@ -607,13 +702,13 @@ class CEvent extends CApiService {
 	protected function checkCanBeAcknowledged(array $eventIds) {
 		$allowedEvents = $this->get(array(
 			'eventids' => $eventIds,
-			'output' => array('eventid'),
+			'output' => API_OUTPUT_REFER,
 			'preservekeys' => true
 		));
 		foreach ($eventIds as $eventId) {
 			if (!isset($allowedEvents[$eventId])) {
 				// check if an event actually exists but maybe belongs to a different source or object
-				$event = API::getApiService()->select($this->tableName(), array(
+				$event = API::getApi()->select($this->tableName(), array(
 					'output' => array('eventid', 'source', 'object'),
 					'eventids' => $eventId,
 					'limit' => 1

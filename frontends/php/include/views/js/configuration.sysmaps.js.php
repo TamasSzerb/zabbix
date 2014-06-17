@@ -104,7 +104,7 @@
 				<td>
 					<input readonly="readonly" size="50" id="elementNameTrigger" name="elementName" class="input">
 					<input type="hidden" id="elementExpressionTrigger" name="elementExpressionTrigger">
-					<span class="link" onclick="PopUp('popup.php?writeonly=1&dstfrm=selementForm&dstfld1=elementid&dstfld2=elementNameTrigger&dstfld3=elementExpressionTrigger&srctbl=triggers&srcfld1=triggerid&srcfld2=description&srcfld3=expression&with_triggers=1&real_hosts=1',450,450)"><?php echo _('Select'); ?></span>
+					<span class="link" onclick="PopUp('popup.php?writeonly=1&dstfrm=selementForm&dstfld1=elementid&dstfld2=elementNameTrigger&dstfld3=elementExpressionTrigger&srctbl=triggers&srcfld1=triggerid&srcfld2=description&srcfld3=expression&with_triggers=1',450,450)"><?php echo _('Select'); ?></span>
 				</td>
 			</tr>
 			<tr id="mapSelectRow">
@@ -112,13 +112,6 @@
 				<td>
 					<input readonly="readonly" size="50" id="elementNameMap" name="elementName" class="input">
 					<span class="link" onclick='PopUp("popup.php?srctbl=sysmaps&srcfld1=sysmapid&srcfld2=name&dstfrm=selementForm&dstfld1=elementid&dstfld2=elementNameMap&writeonly=1&excludeids[]=#{sysmapid}", 450, 450)'><?php echo _('Select'); ?></span>
-				</td>
-			</tr>
-			<tr id="application-select-row">
-				<td><?php echo _('Application'); ?></td>
-				<td>
-					<input size="50" id="application" name="application" class="input">
-					<input id="application-select" type="button" class="input link_menu select-popup" value="<?php echo _('Select'); ?>">
 				</td>
 			</tr>
 
@@ -486,10 +479,4 @@ jQuery(document).ready(function() {
 		return false;
 	});
 })
-
-function addPopupValues(data) {
-	if (data.object == 'name') {
-		jQuery('#application').val(data.values[0].name);
-	}
-}
 </script>

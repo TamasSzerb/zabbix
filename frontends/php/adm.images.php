@@ -75,14 +75,15 @@ if (isset($_REQUEST['save'])) {
 			}
 		}
 
-		if (hasRequest('imageid')) {
+		if (isset($_REQUEST['imageid'])) {
 			$result = API::Image()->update(array(
-				'imageid' => getRequest('imageid'),
-				'name' => getRequest('name'),
+				'imageid' => $_REQUEST['imageid'],
+				'name' => $_REQUEST['name'],
+				'imagetype' => $_REQUEST['imagetype'],
 				'image' => $image
 			));
 
-			$audit_action = 'Image ['.getRequest('name').'] updated';
+			$audit_action = 'Image ['.$_REQUEST['name'].'] updated';
 		}
 		else {
 			$result = API::Image()->create(array(
@@ -99,7 +100,7 @@ if (isset($_REQUEST['save'])) {
 			unset($_REQUEST['form']);
 		}
 
-		$result = DBend($result);
+		DBend($result);
 		show_messages($result, $msgOk, $msgFail);
 	}
 	catch (Exception $e) {
@@ -109,17 +110,14 @@ if (isset($_REQUEST['save'])) {
 	}
 }
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['imageid'])) {
-	DBstart();
-
 	$image = get_image_by_imageid($_REQUEST['imageid']);
-	$result = API::Image()->delete(array(getRequest('imageid')));
+	$result = API::Image()->delete($_REQUEST['imageid']);
 
 	if ($result) {
 		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_IMAGE, 'Image ['.$image['name'].'] deleted');
 		unset($_REQUEST['form'], $image, $_REQUEST['imageid']);
 	}
 
-	$result = DBend($result);
 	show_messages($result, _('Image deleted'), _('Cannot delete image'));
 }
 
@@ -145,10 +143,7 @@ $generalComboBox->addItems(array(
 $form->addItem($generalComboBox);
 
 if (!isset($_REQUEST['form'])) {
-	$imageType = getRequest('imagetype', IMAGE_TYPE_ICON);
-
-	$form->addVar('imagetype', $imageType);
-	$form->addItem(new CSubmit('form',  ($imageType == IMAGE_TYPE_ICON) ? _('Create icon') : _('Create background')));
+	$form->addItem(new CSubmit('form', _('Create image')));
 }
 
 $imageWidget = new CWidget();
@@ -156,6 +151,7 @@ $imageWidget->addPageHeader(_('CONFIGURATION OF IMAGES'), $form);
 
 $data = array(
 	'form' => get_request('form'),
+	'displayNodes' => is_array(get_current_nodeid()),
 	'widget' => &$imageWidget
 );
 
@@ -168,7 +164,7 @@ if (!empty($data['form'])) {
 	else {
 		$data['imageid'] = null;
 		$data['imagename'] = get_request('name', '');
-		$data['imagetype'] = getRequest('imagetype', IMAGE_TYPE_ICON);
+		$data['imagetype'] = get_request('imagetype', 1);
 	}
 
 	$imageForm = new CView('administration.general.image.edit', $data);
@@ -181,6 +177,14 @@ else {
 		'output' => array('imageid', 'imagetype', 'name')
 	));
 	order_result($data['images'], 'name');
+
+	// nodes
+	if ($data['displayNodes']) {
+		foreach ($data['images'] as &$image) {
+			$image['nodename'] = get_node_name_by_elid($image['imageid'], true).NAME_DELIMITER;
+		}
+		unset($image);
+	}
 
 	$imageForm = new CView('administration.general.image.list', $data);
 }

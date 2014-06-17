@@ -298,11 +298,10 @@ ZABBIX.apps.map = (function($) {
 
 						this.imageUpdating = false;
 					}, this),
-					error: $.proxy(function() {
+					error: function(jqXHR, textStatus, errorThrown) {
+						window.console && window.console.log && window.console.log(jqXHR, textStatus, errorThrown);
 						alert('Map image update failed');
-
-						this.imageUpdating = false;
-					}, this)
+					}
 				});
 
 				$.when(ajaxRequest).always($.proxy(function() {
@@ -491,12 +490,12 @@ ZABBIX.apps.map = (function($) {
 					switch (obj.val()) {
 						// host
 						case '0':
-							jQuery('#elementNameHost').multiSelect('clean');
+							jQuery('#elementNameHost').multiSelect.clean('elementNameHost');
 							break;
 
 						// host group
 						case '3':
-							jQuery('#elementNameHostGroup').multiSelect('clean');
+							jQuery('#elementNameHostGroup').multiSelect.clean('elementNameHostGroup');
 							break;
 
 						// others types
@@ -541,17 +540,6 @@ ZABBIX.apps.map = (function($) {
 					var value = parseInt(this.value, 10);
 
 					this.value = isNaN(value) || (value < 10) ? 10 : value;
-				});
-
-				// application selection pop up
-				$('#application-select').click(function() {
-					var data = $('#elementNameHost').multiSelect('getData');
-
-					PopUp('popup.php?srctbl=applications&srcfld1=name&real_hosts=1&dstfld1=application'
-						+ '&with_applications=1&dstfrm=selementForm'
-						+ ((data.length > 0 && $('#elementType').val() == '4') ? '&hostid='+ data[0].id : ''),
-						450, 450
-					);
 				});
 
 				// mass update form
@@ -827,8 +815,7 @@ ZABBIX.apps.map = (function($) {
 					y: 0,
 					urls: {},
 					elementName: this.sysmap.defaultIconName, // first image name
-					use_iconmap: '1',
-					application: ''
+					use_iconmap: '1'
 				};
 			}
 			else {
@@ -888,8 +875,7 @@ ZABBIX.apps.map = (function($) {
 					dataFelds = [
 						'elementtype', 'elementid', 'iconid_off', 'iconid_on', 'iconid_maintenance',
 						'iconid_disabled', 'label', 'label_location', 'x', 'y', 'elementsubtype',  'areatype', 'width',
-						'height', 'viewtype', 'urls', 'elementName', 'use_iconmap', 'elementExpressionTrigger',
-						'application'
+						'height', 'viewtype', 'urls', 'elementName', 'use_iconmap', 'elementExpressionTrigger'
 					],
 					fieldsUnsettable = ['iconid_off', 'iconid_on', 'iconid_maintenance', 'iconid_disabled'],
 					i,
@@ -1208,18 +1194,6 @@ ZABBIX.apps.map = (function($) {
 								subtypeHostGroupElements: 'checked'
 							}
 						]
-					},
-					{
-						action: 'show',
-						value: '#application-select-row',
-						cond: [
-							{
-								elementType: '0'
-							},
-							{
-								elementType: '3'
-							}
-						]
 					}
 				];
 
@@ -1382,12 +1356,12 @@ ZABBIX.apps.map = (function($) {
 					switch (selement.elementtype) {
 						// host
 						case '0':
-							$('#elementNameHost').multiSelect('addData', item);
+							$('#elementNameHost').multiSelect.addData(item, 'elementNameHost');
 							break;
 
 						// host group
 						case '3':
-							$('#elementNameHostGroup').multiSelect('addData', item);
+							$('#elementNameHostGroup').multiSelect.addData(item, 'elementNameHostGroup');
 							break;
 					}
 				}
@@ -1428,7 +1402,7 @@ ZABBIX.apps.map = (function($) {
 				switch (data.elementtype) {
 					// host
 					case '0':
-						var elementData = $('#elementNameHost').multiSelect('getData');
+						var elementData = $('#elementNameHost').multiSelect.getData('elementNameHost');
 
 						if (empty(elementData)) {
 							data.elementid = '0';
@@ -1442,7 +1416,7 @@ ZABBIX.apps.map = (function($) {
 
 					// host group
 					case '3':
-						var elementData = $('#elementNameHostGroup').multiSelect('getData');
+						var elementData = $('#elementNameHostGroup').multiSelect.getData('elementNameHostGroup');
 
 						if (empty(elementData)) {
 							data.elementid = '0';

@@ -23,7 +23,6 @@
 #include "cfg.h"
 #include "software.h"
 #include "zbxregexp.h"
-#include "log.h"
 
 #ifdef HAVE_SYS_UTSNAME_H
 #       include <sys/utsname.h>
@@ -34,10 +33,7 @@ int	SYSTEM_SW_ARCH(AGENT_REQUEST *request, AGENT_RESULT *result)
 	struct utsname	name;
 
 	if (-1 == uname(&name))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain system information: %s", zbx_strerror(errno)));
 		return SYSINFO_RET_FAIL;
-	}
 
 	SET_STR_RESULT(result, zbx_strdup(NULL, name.machine));
 
@@ -51,45 +47,19 @@ int     SYSTEM_SW_OS(AGENT_REQUEST *request, AGENT_RESULT *result)
 	FILE	*f = NULL;
 
 	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
 		return ret;
-	}
 
 	type = get_rparam(request, 0);
 
 	if (NULL == type || '\0' == *type || 0 == strcmp(type, "full"))
-	{
-		if (NULL == (f = fopen(SW_OS_FULL, "r")))
-		{
-			SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot open " SW_OS_FULL ": %s",
-					zbx_strerror(errno)));
-			return ret;
-		}
-	}
+		f = fopen(SW_OS_FULL, "r");
 	else if (0 == strcmp(type, "short"))
-	{
-		if (NULL == (f = fopen(SW_OS_SHORT, "r")))
-		{
-			SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot open " SW_OS_SHORT ": %s",
-					zbx_strerror(errno)));
-			return ret;
-		}
-	}
+		f = fopen(SW_OS_SHORT, "r");
 	else if (0 == strcmp(type, "name"))
-	{
-		if (NULL == (f = fopen(SW_OS_NAME, "r")))
-		{
-			SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot open " SW_OS_NAME ": %s",
-					zbx_strerror(errno)));
-			return ret;
-		}
-	}
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+		f = fopen(SW_OS_NAME, "r");
+
+	if (NULL == f)
 		return ret;
-	}
 
 	if (NULL != fgets(line, sizeof(line), f))
 	{
@@ -97,9 +67,6 @@ int     SYSTEM_SW_OS(AGENT_REQUEST *request, AGENT_RESULT *result)
 		zbx_rtrim(line, ZBX_WHITESPACE);
 		SET_STR_RESULT(result, zbx_strdup(NULL, line));
 	}
-	else
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot read from file."));
-
 	zbx_fclose(f);
 
 	return ret;
@@ -164,10 +131,7 @@ int     SYSTEM_SW_PACKAGES(AGENT_REQUEST *request, AGENT_RESULT *result)
 	ZBX_PACKAGE_MANAGER	*mng;
 
 	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
 		return ret;
-	}
 
 	regex = get_rparam(request, 0);
 	manager = get_rparam(request, 1);
@@ -181,10 +145,7 @@ int     SYSTEM_SW_PACKAGES(AGENT_REQUEST *request, AGENT_RESULT *result)
 	else if (0 == strcmp(mode, "short"))
 		show_pm = 0;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
 		return ret;
-	}
 
 	*buffer = '\0';
 	zbx_vector_str_create(&packages);
@@ -255,8 +216,6 @@ next:
 
 	if (SYSINFO_RET_OK == ret)
 		SET_TEXT_RESULT(result, zbx_strdup(NULL, buffer));
-	else
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain package information."));
 
 	return ret;
 }

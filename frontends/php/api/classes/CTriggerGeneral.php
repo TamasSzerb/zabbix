@@ -24,7 +24,7 @@
  *
  * @package API
  */
-abstract class CTriggerGeneral extends CApiService {
+abstract class CTriggerGeneral extends CZBXAPI {
 
 	/**
 	 * @abstract
@@ -305,6 +305,7 @@ abstract class CTriggerGeneral extends CApiService {
 			}
 
 			$groups = API::HostGroup()->get(array(
+				'nodeids' => $options['nodeids'],
 				'output' => $options['selectGroups'],
 				'groupids' => $relationMap->getRelatedIds(),
 				'preservekeys' => true
@@ -327,6 +328,7 @@ abstract class CTriggerGeneral extends CApiService {
 
 			$hosts = API::Host()->get(array(
 				'output' => $options['selectHosts'],
+				'nodeids' => $options['nodeids'],
 				'hostids' => $relationMap->getRelatedIds(),
 				'templated_hosts' => true,
 				'nopermissions' => true,
@@ -340,10 +342,11 @@ abstract class CTriggerGeneral extends CApiService {
 
 		// adding functions
 		if ($options['selectFunctions'] !== null && $options['selectFunctions'] != API_OUTPUT_COUNT) {
-			$functions = API::getApiService()->select('functions', array(
-				'output' => $this->outputExtend($options['selectFunctions'], array('triggerid', 'functionid')),
+			$functions = API::getApi()->select('functions', array(
+				'output' => $this->outputExtend('functions', array('triggerid', 'functionid'), $options['selectFunctions']),
 				'filter' => array('triggerid' => $triggerids),
-				'preservekeys' => true
+				'preservekeys' => true,
+				'nodeids' => get_current_nodeid(true)
 			));
 			$relationMap = $this->createRelationMap($functions, 'triggerid', 'functionid');
 

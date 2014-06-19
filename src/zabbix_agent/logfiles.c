@@ -1805,7 +1805,7 @@ static int	zbx_read2(int fd, zbx_uint64_t *lastlogsize, int *mtime, int *big_rec
 					if (SUCCEED == regexp_sub_ex(regexps, value, pattern, ZBX_CASE_SENSITIVE,
 							output_template, &item_value))
 					{
-						send_err = process_value(server, port, hostname, key, item_value, ITEM_STATE_NORMAL,
+						send_err = process_value(server, port, hostname, key, item_value,
 								&lastlogsize1, mtime, NULL, NULL, NULL, NULL, 1);
 
 						zbx_free(item_value);
@@ -1864,7 +1864,7 @@ static int	zbx_read2(int fd, zbx_uint64_t *lastlogsize, int *mtime, int *big_rec
 					if (SUCCEED == regexp_sub_ex(regexps, value, pattern, ZBX_CASE_SENSITIVE,
 							output_template, &item_value))
 					{
-						send_err = process_value(server, port, hostname, key, item_value, ITEM_STATE_NORMAL,
+						send_err = process_value(server, port, hostname, key, item_value,
 								&lastlogsize1, mtime, NULL, NULL, NULL, NULL, 1);
 
 						zbx_free(item_value);

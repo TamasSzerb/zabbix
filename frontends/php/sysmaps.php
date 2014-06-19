@@ -79,7 +79,7 @@ $fields = array(
 	'form_refresh' =>			array(T_ZBX_INT, O_OPT, null,	null,			null)
 );
 check_fields($fields);
-validate_sort_and_sortorder('name', ZBX_SORT_UP, array('name', 'width', 'height'));
+validate_sort_and_sortorder('name', ZBX_SORT_UP);
 
 /*
  * Permissions
@@ -114,8 +114,7 @@ if ($isExportData) {
 	else {
 		echo $exportData;
 	}
-
-	exit;
+	exit();
 }
 
 $_REQUEST['go'] = get_request('go', 'none');
@@ -157,39 +156,32 @@ if (isset($_REQUEST['save'])) {
 		}
 	}
 
-	DBstart();
-
 	if (isset($_REQUEST['sysmapid'])) {
 		// TODO check permission by new value.
 		$map['sysmapid'] = $_REQUEST['sysmapid'];
 		$result = API::Map()->update($map);
 
-		$messageSuccess = _('Network map updated');
-		$messageFailed = _('Cannot update network map');
 		$auditAction = AUDIT_ACTION_UPDATE;
+		show_messages($result, _('Network map updated'), _('Cannot update network map'));
 	}
 	else {
 		$result = API::Map()->create($map);
 
-		$messageSuccess = _('Network map added');
-		$messageFailed = _('Cannot add network map');
 		$auditAction = AUDIT_ACTION_ADD;
+		show_messages($result, _('Network map added'), _('Cannot add network map'));
 	}
 
 	if ($result) {
 		add_audit($auditAction, AUDIT_RESOURCE_MAP, 'Name ['.$_REQUEST['name'].']');
 		unset($_REQUEST['form']);
+		clearCookies($result);
 	}
-
-	$result = DBend($result);
-	show_messages($result, $messageSuccess, $messageFailed);
-	clearCookies($result);
 }
-elseif ((hasRequest('delete') && hasRequest('sysmapid')) || getRequest('go') == 'delete') {
-	$sysmapIds = getRequest('maps', array());
+elseif ((isset($_REQUEST['delete']) && isset($_REQUEST['sysmapid'])) || $_REQUEST['go'] == 'delete') {
+	$sysmapIds = get_request('maps', array());
 
-	if (hasRequest('sysmapid')) {
-		$sysmapIds[] = getRequest('sysmapid');
+	if (isset($_REQUEST['sysmapid'])) {
+		$sysmapIds[] = $_REQUEST['sysmapid'];
 	}
 
 	DBstart();
@@ -199,6 +191,7 @@ elseif ((hasRequest('delete') && hasRequest('sysmapid')) || getRequest('go') == 
 		'output' => array('sysmapid', 'name'),
 		'editable' => true
 	));
+
 	$result = API::Map()->delete($sysmapIds);
 
 	if ($result) {
@@ -210,6 +203,7 @@ elseif ((hasRequest('delete') && hasRequest('sysmapid')) || getRequest('go') == 
 	}
 
 	$result = DBend($result);
+
 	show_messages($result, _('Network map deleted'), _('Cannot delete network map'));
 	clearCookies($result);
 }
@@ -270,6 +264,10 @@ if (isset($_REQUEST['form'])) {
 	));
 	order_result($data['images'], 'name');
 
+	foreach ($data['images'] as $num => $image) {
+		$data['images'][$num]['name'] = get_node_name_by_elid($image['imageid'], null, NAME_DELIMITER).$image['name'];
+	}
+
 	// icon maps
 	$data['iconMaps'] = API::IconMap()->get(array(
 		'output' => array('iconmapid', 'name'),
@@ -299,7 +297,15 @@ else {
 	order_result($data['maps'], $sortField, $sortOrder);
 
 	// paging
-	$data['paging'] = getPagingLine($data['maps']);
+	$data['paging'] = getPagingLine($data['maps'], array('sysmapid'));
+
+	// nodes
+	if ($data['displayNodes'] = is_array(get_current_nodeid())) {
+		foreach ($data['maps'] as &$map) {
+			$map['nodename'] = get_node_name_by_elid($map['sysmapid'], true);
+		}
+		unset($map);
+	}
 
 	// render view
 	$mapView = new CView('configuration.sysmap.list', $data);

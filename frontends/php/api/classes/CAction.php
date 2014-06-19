@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CAction extends CApiService {
+class CAction extends CZBXAPI {
 
 	protected $tableName = 'actions';
 	protected $tableAlias = 'a';
@@ -63,6 +63,7 @@ class CAction extends CApiService {
 		);
 
 		$defOptions = array(
+			'nodeids'					=> null,
 			'groupids'					=> null,
 			'hostids'					=> null,
 			'actionids'					=> null,
@@ -81,7 +82,7 @@ class CAction extends CApiService {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectConditions'			=> null,
 			'selectOperations'			=> null,
 			'countOutput'				=> null,
@@ -153,6 +154,7 @@ class CAction extends CApiService {
 		if (!is_null($options['actionids'])) {
 			zbx_value2array($options['actionids']);
 
+			$sqlParts['select']['actionid'] = 'a.actionid';
 			$sqlParts['where'][] = dbConditionInt('a.actionid', $options['actionids']);
 		}
 
@@ -160,6 +162,7 @@ class CAction extends CApiService {
 		if (!is_null($options['groupids'])) {
 			zbx_value2array($options['groupids']);
 
+			$sqlParts['select']['groupids'] = 'cg.value';
 			$sqlParts['from']['conditions_groups'] = 'conditions cg';
 			$sqlParts['where'][] = dbConditionString('cg.value', $options['groupids']);
 			$sqlParts['where']['ctg'] = 'cg.conditiontype='.CONDITION_TYPE_HOST_GROUP;
@@ -170,6 +173,7 @@ class CAction extends CApiService {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
+			$sqlParts['select']['hostids'] = 'ch.value';
 			$sqlParts['from']['conditions_hosts'] = 'conditions ch';
 			$sqlParts['where'][] = dbConditionString('ch.value', $options['hostids']);
 			$sqlParts['where']['cth'] = 'ch.conditiontype='.CONDITION_TYPE_HOST;
@@ -180,6 +184,7 @@ class CAction extends CApiService {
 		if (!is_null($options['triggerids'])) {
 			zbx_value2array($options['triggerids']);
 
+			$sqlParts['select']['triggerids'] = 'ct.value';
 			$sqlParts['from']['conditions_triggers'] = 'conditions ct';
 			$sqlParts['where'][] = dbConditionString('ct.value', $options['triggerids']);
 			$sqlParts['where']['ctt'] = 'ct.conditiontype='.CONDITION_TYPE_TRIGGER;
@@ -190,6 +195,7 @@ class CAction extends CApiService {
 		if (!is_null($options['mediatypeids'])) {
 			zbx_value2array($options['mediatypeids']);
 
+			$sqlParts['select']['mediatypeid'] = 'om.mediatypeid';
 			$sqlParts['from']['opmessage'] = 'opmessage om';
 			$sqlParts['from']['operations_media'] = 'operations omed';
 			$sqlParts['where'][] = dbConditionInt('om.mediatypeid', $options['mediatypeids']);
@@ -202,6 +208,7 @@ class CAction extends CApiService {
 		if (!is_null($options['usrgrpids'])) {
 			zbx_value2array($options['usrgrpids']);
 
+			$sqlParts['select']['usrgrpid'] = 'omg.usrgrpid';
 			$sqlParts['from']['opmessage_grp'] = 'opmessage_grp omg';
 			$sqlParts['from']['operations_usergroups'] = 'operations oug';
 			$sqlParts['where'][] = dbConditionInt('omg.usrgrpid', $options['usrgrpids']);
@@ -213,6 +220,7 @@ class CAction extends CApiService {
 		if (!is_null($options['userids'])) {
 			zbx_value2array($options['userids']);
 
+			$sqlParts['select']['userid'] = 'omu.userid';
 			$sqlParts['from']['opmessage_usr'] = 'opmessage_usr omu';
 			$sqlParts['from']['operations_users'] = 'operations ou';
 			$sqlParts['where'][] = dbConditionInt('omu.userid', $options['userids']);
@@ -225,6 +233,7 @@ class CAction extends CApiService {
 		if (!is_null($options['scriptids'])) {
 			zbx_value2array($options['scriptids']);
 
+			$sqlParts['select']['scriptid'] = 'oc.scriptid';
 			$sqlParts['from']['opcommand'] = 'opcommand oc';
 			$sqlParts['from']['operations_scripts'] = 'operations os';
 			$sqlParts['where'][] = '('.dbConditionInt('oc.scriptid', $options['scriptids']).
@@ -252,6 +261,7 @@ class CAction extends CApiService {
 
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
+		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$dbRes = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
 		while ($action = DBfetch($dbRes)) {
 			if ($options['countOutput']) {
@@ -260,7 +270,17 @@ class CAction extends CApiService {
 			else {
 				$actionids[$action['actionid']] = $action['actionid'];
 
-				$result[$action['actionid']] = $action;
+				if (!isset($result[$action['actionid']])) {
+					$result[$action['actionid']] = array();
+				}
+
+				$result[$action['actionid']] += $action;
+
+				// return mediatype as array
+				if (!empty($action['mediatypeid'])) {
+					$result[$action['actionid']]['mediatypeids'][] = $action['mediatypeid'];
+				}
+				unset($result[$action['actionid']]['mediatypeid']);
 			}
 		}
 
@@ -468,24 +488,24 @@ class CAction extends CApiService {
 		return $result;
 	}
 
-	/**
-	 * Check if action exists.
-	 *
-	 * @deprecated	As of version 2.4, use get method instead.
-	 *
-	 * @param array	$object
-	 *
-	 * @return bool
-	 */
 	public function exists($object) {
-		$this->deprecated('action.exists method is deprecated.');
+		$keyFields = array(array('actionid', 'name'));
 
-		$objs = $this->get(array(
-			'filter' => zbx_array_mintersect(array(array('actionid', 'name')), $object),
+		$options = array(
+			'filter' => zbx_array_mintersect($keyFields, $object),
 			'output' => array('actionid'),
+			'nopermissions' => true,
 			'limit' => 1
-		));
+		);
 
+		if (isset($object['node'])) {
+			$options['nodeids'] = getNodeIdByNodeName($object['node']);
+		}
+		elseif (isset($object['nodeids'])) {
+			$options['nodeids'] = $object['nodeids'];
+		}
+
+		$objs = $this->get($options);
 		return !empty($objs);
 	}
 
@@ -1249,14 +1269,8 @@ class CAction extends CApiService {
 		DB::delete('operations', array('operationid' => $operationids));
 	}
 
-	/**
-	 * Delete actions.
-	 *
-	 * @param array $actionids
-	 *
-	 * @return array
-	 */
-	public function delete(array $actionids) {
+	public function delete($actionids) {
+		$actionids = zbx_toArray($actionids);
 		if (empty($actionids)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Empty input parameter.'));
 		}
@@ -1654,6 +1668,7 @@ class CAction extends CApiService {
 					break;
 
 					case CONDITION_TYPE_TRIGGER_NAME:
+					case CONDITION_TYPE_NODE:
 					case CONDITION_TYPE_DUPTIME:
 					case CONDITION_TYPE_DVALUE:
 					case CONDITION_TYPE_APPLICATION:
@@ -1734,10 +1749,11 @@ class CAction extends CApiService {
 
 		// adding conditions
 		if (!is_null($options['selectConditions']) && $options['selectConditions'] != API_OUTPUT_COUNT) {
-			$conditions = API::getApiService()->select('conditions', array(
-				'output' => $this->outputExtend($options['selectConditions'], array('actionid', 'conditionid')),
+			$conditions = API::getApi()->select('conditions', array(
+				'output' => $this->outputExtend('conditions', array('actionid', 'conditionid'), $options['selectConditions']),
 				'filter' => array('actionid' => $actionIds),
-				'preservekeys' => true
+				'preservekeys' => true,
+				'nodeids' => get_current_nodeid(true)
 			));
 			$relationMap = $this->createRelationMap($conditions, 'actionid', 'conditionid');
 
@@ -1747,12 +1763,13 @@ class CAction extends CApiService {
 
 		// adding operations
 		if ($options['selectOperations'] !== null && $options['selectOperations'] != API_OUTPUT_COUNT) {
-			$operations = API::getApiService()->select('operations', array(
-				'output' => $this->outputExtend($options['selectOperations'],
-					array('operationid', 'actionid', 'operationtype')
+			$operations = API::getApi()->select('operations', array(
+				'output' => $this->outputExtend('operations',
+					array('operationid', 'actionid', 'operationtype'), $options['selectOperations']
 				),
 				'filter' => array('actionid' => $actionIds),
-				'preservekeys' => true
+				'preservekeys' => true,
+				'nodeids' => get_current_nodeid(true)
 			));
 			$relationMap = $this->createRelationMap($operations, 'actionid', 'operationid');
 			$operationIds = $relationMap->getRelatedIds();

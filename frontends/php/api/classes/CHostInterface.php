@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CHostInterface extends CApiService {
+class CHostInterface extends CZBXAPI {
 
 	protected $tableName = 'interface';
 	protected $tableAlias = 'hi';
@@ -34,6 +34,7 @@ class CHostInterface extends CApiService {
 	 * Get interface data.
 	 *
 	 * @param array   $options
+	 * @param array   $options['nodeids']		Node IDs
 	 * @param array   $options['hostids']		Interface IDs
 	 * @param boolean $options['editable']		only with read-write permission. Ignored for SuperAdmins
 	 * @param boolean $options['selectHosts']	select Interface hosts
@@ -48,6 +49,7 @@ class CHostInterface extends CApiService {
 	 */
 	public function get(array $options = array()) {
 		$result = array();
+		$nodeCheck = false;
 		$userType = self::$userData['type'];
 		$userId = self::$userData['userid'];
 
@@ -61,6 +63,7 @@ class CHostInterface extends CApiService {
 		);
 
 		$defOptions = array(
+			'nodeids'					=> null,
 			'groupids'					=> null,
 			'hostids'					=> null,
 			'interfaceids'				=> null,
@@ -76,7 +79,7 @@ class CHostInterface extends CApiService {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectHosts'				=> null,
 			'selectItems'				=> null,
 			'countOutput'				=> null,
@@ -108,36 +111,67 @@ class CHostInterface extends CApiService {
 				')';
 		}
 
+		// nodeids
+		$nodeids = is_null($options['nodeids']) ? get_current_nodeid() : $options['nodeids'];
+
 		// interfaceids
 		if (!is_null($options['interfaceids'])) {
 			zbx_value2array($options['interfaceids']);
 			$sqlParts['where']['interfaceid'] = dbConditionInt('hi.interfaceid', $options['interfaceids']);
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'hi.interfaceid', $nodeids);
+			}
 		}
 
 		// hostids
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
+			$sqlParts['select']['hostid'] = 'hi.hostid';
 			$sqlParts['where']['hostid'] = dbConditionInt('hi.hostid', $options['hostids']);
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'hi.hostid', $nodeids);
+			}
 		}
 
 		// itemids
 		if (!is_null($options['itemids'])) {
 			zbx_value2array($options['itemids']);
 
+			$sqlParts['select']['itemid'] = 'i.itemid';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where'][] = dbConditionInt('i.itemid', $options['itemids']);
 			$sqlParts['where']['hi'] = 'hi.interfaceid=i.interfaceid';
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'i.itemid', $nodeids);
+			}
 		}
 
 		// triggerids
 		if (!is_null($options['triggerids'])) {
 			zbx_value2array($options['triggerids']);
 
+			$sqlParts['select']['triggerid'] = 'f.triggerid';
 			$sqlParts['from']['functions'] = 'functions f';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where'][] = dbConditionInt('f.triggerid', $options['triggerids']);
 			$sqlParts['where']['hi'] = 'hi.hostid=i.hostid';
 			$sqlParts['where']['fi'] = 'f.itemid=i.itemid';
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'f.triggerid', $nodeids);
+			}
+		}
+
+		// node check, should last, after all ****IDS checks
+		if (!$nodeCheck) {
+			$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'hi.interfaceid', $nodeids);
 		}
 
 		// search
@@ -157,6 +191,7 @@ class CHostInterface extends CApiService {
 
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
+		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$res = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
 		while ($interface = DBfetch($res)) {
 			if (!is_null($options['countOutput'])) {
@@ -168,7 +203,19 @@ class CHostInterface extends CApiService {
 				}
 			}
 			else {
-				$result[$interface['interfaceid']] = $interface;
+				if (!isset($result[$interface['interfaceid']])) {
+					$result[$interface['interfaceid']] = array();
+				}
+
+				// itemids
+				if (isset($interface['itemid']) && is_null($options['selectItems'])) {
+					if (!isset($result[$interface['interfaceid']]['items'])) {
+						$result[$interface['interfaceid']]['items'] = array();
+					}
+					$result[$interface['interfaceid']]['items'][] = array('itemid' => $interface['itemid']);
+					unset($interface['itemid']);
+				}
+				$result[$interface['interfaceid']] += $interface;
 			}
 		}
 
@@ -190,22 +237,30 @@ class CHostInterface extends CApiService {
 	}
 
 	/**
-	 * Check if host interface exists.
+	 * Is interface exist.
 	 *
-	 * @deprecated	As of version 2.4, use get method instead.
-	 *
-	 * @param array	$object
+	 * @param array $object
 	 *
 	 * @return bool
 	 */
 	public function exists(array $object) {
-		$this->deprecated('hostinterface.exists method is deprecated.');
+		$keyFields = array('interfaceid', 'hostid', 'ip', 'dns');
 
-		$objs = $this->get(array(
-			'filter' => zbx_array_mintersect(array('interfaceid', 'hostid', 'ip', 'dns'), $object),
+		$options = array(
+			'filter' => zbx_array_mintersect($keyFields, $object),
 			'output' => array('interfaceid'),
+			'nopermissions' => true,
 			'limit' => 1
-		));
+		);
+
+		if (isset($object['node'])) {
+			$options['nodeids'] = getNodeIdByNodeName($object['node']);
+		}
+		elseif (isset($object['nodeids'])) {
+			$options['nodeids'] = $object['nodeids'];
+		}
+
+		$objs = $this->get($options);
 
 		return !empty($objs);
 	}
@@ -463,7 +518,7 @@ class CHostInterface extends CApiService {
 			$this->checkPort($interface);
 
 			// check main interfaces
-			$interfacesToRemove = API::getApiService()->select($this->tableName(), array(
+			$interfacesToRemove = API::getApi()->select($this->tableName(), array(
 				'output' => array('interfaceid'),
 				'filter' => array(
 					'hostid' => $data['hostids'],
@@ -571,7 +626,7 @@ class CHostInterface extends CApiService {
 	 * @param array $interface
 	 */
 	protected function checkDns(array $interface) {
-		if (mb_strlen($interface['dns']) > 64) {
+		if (zbx_strlen($interface['dns']) > 64) {
 			self::exception(
 				ZBX_API_ERROR_PARAMETERS,
 				_n(
@@ -579,7 +634,7 @@ class CHostInterface extends CApiService {
 					'Maximum DNS name length is %1$d characters, "%2$s" is %3$d characters.',
 					64,
 					$interface['dns'],
-					mb_strlen($interface['dns'])
+					zbx_strlen($interface['dns'])
 				)
 			);
 		}
@@ -830,6 +885,7 @@ class CHostInterface extends CApiService {
 			$relationMap = $this->createRelationMap($result, 'interfaceid', 'hostid');
 			$hosts = API::Host()->get(array(
 				'output' => $options['selectHosts'],
+				'nodeids' => $options['nodeids'],
 				'hosts' => $relationMap->getRelatedIds(),
 				'preservekeys' => true
 			));
@@ -840,7 +896,8 @@ class CHostInterface extends CApiService {
 		if ($options['selectItems'] !== null) {
 			if ($options['selectItems'] != API_OUTPUT_COUNT) {
 				$items = API::Item()->get(array(
-					'output' => $this->outputExtend($options['selectItems'], array('itemid', 'interfaceid')),
+					'output' => $this->outputExtend('items', array('itemid', 'interfaceid'), $options['selectItems']),
+					'nodeids' => $options['nodeids'],
 					'interfaceids' => $interfaceIds,
 					'nopermissions' => true,
 					'preservekeys' => true,
@@ -853,6 +910,7 @@ class CHostInterface extends CApiService {
 			}
 			else {
 				$items = API::Item()->get(array(
+					'nodeids' => $options['nodeids'],
 					'interfaceids' => $interfaceIds,
 					'nopermissions' => true,
 					'filter' => array('flags' => null),

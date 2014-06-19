@@ -122,7 +122,6 @@ abstract class CHostGeneral extends CHostBase {
 
 		if (isset($data['macros'])) {
 			$hostMacros = API::UserMacro()->get(array(
-				'output' => array('hostmacroid'),
 				'hostids' => $allHostIds,
 				'filter' => array(
 					'macro' => $data['macros']
@@ -585,6 +584,7 @@ abstract class CHostGeneral extends CHostBase {
 		if ($options['selectGroups'] !== null) {
 			$relationMap = $this->createRelationMap($result, 'hostid', 'groupid', 'hosts_groups');
 			$groups = API::HostGroup()->get(array(
+				'nodeids' => $options['nodeids'],
 				'output' => $options['selectGroups'],
 				'groupids' => $relationMap->getRelatedIds(),
 				'preservekeys' => true
@@ -598,6 +598,7 @@ abstract class CHostGeneral extends CHostBase {
 				$relationMap = $this->createRelationMap($result, 'hostid', 'templateid', 'hosts_templates');
 				$templates = API::Template()->get(array(
 					'output' => $options['selectParentTemplates'],
+					'nodeids' => $options['nodeids'],
 					'templateids' => $relationMap->getRelatedIds(),
 					'preservekeys' => true
 				));
@@ -608,6 +609,7 @@ abstract class CHostGeneral extends CHostBase {
 			}
 			else {
 				$templates = API::Template()->get(array(
+					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'countOutput' => true,
 					'groupCount' => true
@@ -623,7 +625,8 @@ abstract class CHostGeneral extends CHostBase {
 		if ($options['selectItems'] !== null) {
 			if ($options['selectItems'] != API_OUTPUT_COUNT) {
 				$items = API::Item()->get(array(
-					'output' => $this->outputExtend($options['selectItems'], array('hostid', 'itemid')),
+					'output' => $this->outputExtend('items', array('hostid', 'itemid'), $options['selectItems']),
+					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'nopermissions' => true,
 					'preservekeys' => true
@@ -640,6 +643,7 @@ abstract class CHostGeneral extends CHostBase {
 			}
 			else {
 				$items = API::Item()->get(array(
+					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'nopermissions' => true,
 					'countOutput' => true,
@@ -656,7 +660,8 @@ abstract class CHostGeneral extends CHostBase {
 		if ($options['selectDiscoveries'] !== null) {
 			if ($options['selectDiscoveries'] != API_OUTPUT_COUNT) {
 				$items = API::DiscoveryRule()->get(array(
-					'output' => $this->outputExtend($options['selectDiscoveries'], array('hostid', 'itemid')),
+					'output' => $this->outputExtend('items', array('hostid', 'itemid'), $options['selectDiscoveries']),
+					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'nopermissions' => true,
 					'preservekeys' => true
@@ -673,6 +678,7 @@ abstract class CHostGeneral extends CHostBase {
 			}
 			else {
 				$items = API::DiscoveryRule()->get(array(
+					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'nopermissions' => true,
 					'countOutput' => true,
@@ -702,6 +708,7 @@ abstract class CHostGeneral extends CHostBase {
 
 				$triggers = API::Trigger()->get(array(
 					'output' => $options['selectTriggers'],
+					'nodeids' => $options['nodeids'],
 					'triggerids' => $relationMap->getRelatedIds(),
 					'preservekeys' => true
 				));
@@ -712,6 +719,7 @@ abstract class CHostGeneral extends CHostBase {
 			}
 			else {
 				$triggers = API::Trigger()->get(array(
+					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'countOutput' => true,
 					'groupCount' => true
@@ -741,6 +749,7 @@ abstract class CHostGeneral extends CHostBase {
 
 				$graphs = API::Graph()->get(array(
 					'output' => $options['selectGraphs'],
+					'nodeids' => $options['nodeids'],
 					'graphids' => $relationMap->getRelatedIds(),
 					'preservekeys' => true
 				));
@@ -751,6 +760,7 @@ abstract class CHostGeneral extends CHostBase {
 			}
 			else {
 				$graphs = API::Graph()->get(array(
+					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'countOutput' => true,
 					'groupCount' => true
@@ -766,7 +776,8 @@ abstract class CHostGeneral extends CHostBase {
 		if ($options['selectHttpTests'] !== null) {
 			if ($options['selectHttpTests'] != API_OUTPUT_COUNT) {
 				$httpTests = API::HttpTest()->get(array(
-					'output' => $this->outputExtend($options['selectHttpTests'], array('hostid', 'httptestid')),
+					'output' => $this->outputExtend('httptest', array('hostid', 'httptestid'), $options['selectHttpTests']),
+					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'nopermissions' => true,
 					'preservekeys' => true
@@ -783,6 +794,7 @@ abstract class CHostGeneral extends CHostBase {
 			}
 			else {
 				$httpTests = API::HttpTest()->get(array(
+					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'nopermissions' => true,
 					'countOutput' => true,
@@ -799,7 +811,8 @@ abstract class CHostGeneral extends CHostBase {
 		if ($options['selectApplications'] !== null) {
 			if ($options['selectApplications'] != API_OUTPUT_COUNT) {
 				$applications = API::Application()->get(array(
-					'output' => $this->outputExtend($options['selectApplications'], array('hostid', 'applicationid')),
+					'output' => $this->outputExtend('applications', array('hostid', 'applicationid'), $options['selectApplications']),
+					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'nopermissions' => true,
 					'preservekeys' => true
@@ -819,6 +832,7 @@ abstract class CHostGeneral extends CHostBase {
 			else {
 				$applications = API::Application()->get(array(
 					'output' => $options['selectApplications'],
+					'nodeids' => $options['nodeids'],
 					'hostids' => $hostids,
 					'nopermissions' => true,
 					'countOutput' => true,
@@ -835,7 +849,8 @@ abstract class CHostGeneral extends CHostBase {
 		// adding macros
 		if ($options['selectMacros'] !== null && $options['selectMacros'] != API_OUTPUT_COUNT) {
 			$macros = API::UserMacro()->get(array(
-				'output' => $this->outputExtend($options['selectMacros'], array('hostid', 'hostmacroid')),
+				'nodeids' => $options['nodeids'],
+				'output' => $this->outputExtend('hostmacro', array('hostid', 'hostmacroid'), $options['selectMacros']),
 				'hostids' => $hostids,
 				'preservekeys' => true
 			));

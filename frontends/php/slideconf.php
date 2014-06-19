@@ -46,7 +46,7 @@ $fields = array(
 	'form_refresh' =>	array(T_ZBX_INT, O_OPT, null,		null,	null)
 );
 check_fields($fields);
-validate_sort_and_sortorder('name', ZBX_SORT_UP, array('cnt', 'name', 'delay'));
+validate_sort_and_sortorder('name', ZBX_SORT_UP);
 
 if (!empty($_REQUEST['slides'])) {
 	natksort($_REQUEST['slides']);
@@ -91,44 +91,40 @@ if (isset($_REQUEST['clone']) && isset($_REQUEST['slideshowid'])) {
 	$_REQUEST['form'] = 'clone';
 }
 elseif (isset($_REQUEST['save'])) {
-	DBstart();
-
 	if (isset($_REQUEST['slideshowid'])) {
+		DBstart();
 		$result = update_slideshow($_REQUEST['slideshowid'], $_REQUEST['name'], $_REQUEST['delay'], get_request('slides', array()));
+		$result = DBend($result);
 
-		$messageSuccess = _('Slide show updated');
-		$messageFailed = _('Cannot update slide show');
-		$auditAction = AUDIT_ACTION_UPDATE;
+		$audit_action = AUDIT_ACTION_UPDATE;
+		show_messages($result, _('Slide show updated'), _('Cannot update slide show'));
 	}
 	else {
-		$result = add_slideshow($_REQUEST['name'], $_REQUEST['delay'], get_request('slides', array()));
+		DBstart();
+		$slideshowid = add_slideshow($_REQUEST['name'], $_REQUEST['delay'], get_request('slides', array()));
+		$result = DBend($slideshowid);
 
-		$messageSuccess = _('Slide show added');
-		$messageFailed = _('Cannot add slide show');
-		$auditAction = AUDIT_ACTION_ADD;
+		$audit_action = AUDIT_ACTION_ADD;
+		show_messages($result, _('Slide show added'), _('Cannot add slide show'));
 	}
 
 	if ($result) {
-		add_audit($auditAction, AUDIT_RESOURCE_SLIDESHOW, ' Name "'.$_REQUEST['name'].'" ');
+		add_audit($audit_action, AUDIT_RESOURCE_SLIDESHOW, ' Name "'.$_REQUEST['name'].'" ');
 		unset($_REQUEST['form'], $_REQUEST['slideshowid']);
+		clearCookies($result);
 	}
-
-	$result = DBend($result);
-	show_messages($result, $messageSuccess, $messageFailed);
-	clearCookies($result);
 }
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['slideshowid'])) {
 	DBstart();
+	delete_slideshow($_REQUEST['slideshowid']);
+	$result = DBend();
 
-	$result = delete_slideshow($_REQUEST['slideshowid']);
-
+	show_messages($result, _('Slide show deleted'), _('Cannot delete slide show'));
 	if ($result) {
 		add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_SLIDESHOW, ' Name "'.$dbSlideshow['name'].'" ');
 	}
-	unset($_REQUEST['slideshowid'], $_REQUEST['form']);
 
-	$result = DBend($result);
-	show_messages($result, _('Slide show deleted'), _('Cannot delete slide show'));
+	unset($_REQUEST['slideshowid'], $_REQUEST['form']);
 	clearCookies($result);
 }
 elseif ($_REQUEST['go'] == 'delete') {
@@ -198,6 +194,7 @@ else {
 			'SELECT s.slideshowid,s.name,s.delay,COUNT(sl.slideshowid) AS cnt'.
 			' FROM slideshows s'.
 				' LEFT JOIN slides sl ON sl.slideshowid=s.slideshowid'.
+			whereDbNode('s.slideshowid').
 			' GROUP BY s.slideshowid,s.name,s.delay'
 	));
 
@@ -209,7 +206,15 @@ else {
 
 	order_result($data['slides'], getPageSortField('name'), getPageSortOrder());
 
-	$data['paging'] = getPagingLine($data['slides']);
+	$data['paging'] = getPagingLine($data['slides'], array('slideshowid'));
+
+	// nodes
+	if ($data['displayNodes'] = is_array(get_current_nodeid())) {
+		foreach ($data['slides'] as &$slide) {
+			$slide['nodename'] = get_node_name_by_elid($slide['slideshowid'], true);
+		}
+		unset($slide);
+	}
 
 	// render view
 	$slideshowView = new CView('configuration.slideconf.list', $data);

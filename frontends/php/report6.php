@@ -63,41 +63,17 @@ $fields = array(
 	'delete_period' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,			null),
 	// filter
 	'report_show' =>		array(T_ZBX_STR, O_OPT,	P_SYS,			null,			null),
-	'report_reset' =>		array(T_ZBX_STR, O_OPT,	P_SYS,			null,			null),
 	'report_timesince' =>	array(T_ZBX_INT, O_OPT,	P_UNSET_EMPTY,	null,			null),
 	'report_timetill' =>	array(T_ZBX_INT, O_OPT,	P_UNSET_EMPTY,	null,			null),
 	// ajax
-	'filterState' =>		array(T_ZBX_INT, O_OPT, P_ACT,			null,			null)
+	'favobj' =>				array(T_ZBX_STR, O_OPT, P_ACT,			null,			null),
+	'favref' =>				array(T_ZBX_STR, O_OPT, P_ACT,			NOT_EMPTY,		'isset({favobj})'),
+	'favstate' =>			array(T_ZBX_INT, O_OPT, P_ACT,			NOT_EMPTY,
+		'isset({favobj})&&("filter"=={favobj})'),
 );
 $isValid = check_fields($fields);
 
-// filter reset
-if (hasRequest('report_reset')) {
-	// get requests keys
-	if (getRequest('config') == BR_DISTRIBUTION_MULTIPLE_PERIODS) {
-		$unsetRequests = array('title', 'xlabel', 'ylabel', 'showlegend', 'scaletype', 'items', 'report_timesince',
-			'report_timetill', 'report_show'
-		);
-	}
-	elseif (getRequest('config') == BR_DISTRIBUTION_MULTIPLE_ITEMS) {
-		$unsetRequests = array('periods', 'items', 'title', 'xlabel', 'ylabel', 'showlegend', 'sorttype',
-			'report_show'
-		);
-	}
-	else {
-		$unsetRequests = array('report_timesince', 'report_timetill', 'sortorder', 'groupids', 'hostids', 'itemid',
-			'title', 'xlabel', 'ylabel', 'showlegend', 'groupid', 'scaletype', 'avgperiod', 'palette', 'palettetype',
-			'report_show'
-		);
-	}
-
-	// requests unseting
-	foreach ($unsetRequests as $unsetRequests) {
-		unset($_REQUEST[$unsetRequests]);
-	}
-}
-
-if (hasRequest('new_graph_item')) {
+if (isset($_REQUEST['new_graph_item'])) {
 	$_REQUEST['items'] = get_request('items', array());
 	$newItem = get_request('new_graph_item', array());
 
@@ -116,7 +92,7 @@ if (hasRequest('new_graph_item')) {
 }
 
 // validate permissions
-if (get_request('config') == BR_COMPARE_VALUE_MULTIPLE_PERIODS) {
+if (get_request('config') == 3) {
 	if (get_request('groupid') && !API::HostGroup()->isReadable(array($_REQUEST['groupid']))) {
 		access_deny();
 	}
@@ -152,13 +128,15 @@ else {
 	}
 }
 
-if (hasRequest('filterState')) {
-	CProfile::update('web.report6.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
+if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.report6.filter.state',$_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
 }
 
 if ((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 
@@ -201,14 +179,14 @@ elseif (isset($_REQUEST['delete_period']) && isset($_REQUEST['group_pid'])) {
 }
 
 // item validation
-$config = $_REQUEST['config'] = get_request('config', BR_DISTRIBUTION_MULTIPLE_PERIODS);
+$config = $_REQUEST['config'] = get_request('config', 1);
 
 // items array validation
-if ($config != BR_COMPARE_VALUE_MULTIPLE_PERIODS) {
+if ($config != 3) {
 	$items = get_request('items');
 	$validItems = validateBarReportItems($items);
 
-	if ($config == BR_DISTRIBUTION_MULTIPLE_ITEMS) {
+	if ($config == 2) {
 		$validPeriods = validateBarReportPeriods(get_request('periods'));
 	}
 }
@@ -222,9 +200,9 @@ $rep6_wdgt = new CWidget();
 
 $r_form = new CForm();
 $cnfCmb = new CComboBox('config', $config, 'submit();');
-$cnfCmb->addItem(BR_DISTRIBUTION_MULTIPLE_PERIODS, _('Distribution of values for multiple periods'));
-$cnfCmb->addItem(BR_DISTRIBUTION_MULTIPLE_ITEMS, _('Distribution of values for multiple items'));
-$cnfCmb->addItem(BR_COMPARE_VALUE_MULTIPLE_PERIODS, _('Compare values for multiple periods'));
+$cnfCmb->addItem(1, _('Distribution of values for multiple periods'));
+$cnfCmb->addItem(2, _('Distribution of values for multiple items'));
+$cnfCmb->addItem(3, _('Compare values for multiple periods'));
 
 $r_form->addItem(array(_('Reports').SPACE, $cnfCmb));
 
@@ -240,26 +218,25 @@ $rep_tab->setAttribute('border', 0);
 
 switch ($config) {
 	default:
-	case BR_DISTRIBUTION_MULTIPLE_PERIODS:
+	case 1:
 		$rep_form = valueDistributionFormForMultiplePeriods($validItems);
 		break;
-	case BR_DISTRIBUTION_MULTIPLE_ITEMS:
+	case 2:
 		$rep_form = valueDistributionFormForMultipleItems($validItems, $validPeriods);
 		break;
-	case BR_COMPARE_VALUE_MULTIPLE_PERIODS:
+	case 3:
 		$rep_form = valueComparisonFormForMultiplePeriods();
 		break;
 }
 
-$rep6_wdgt->addFlicker($rep_form, CProfile::get('web.report6.filter.state', BR_DISTRIBUTION_MULTIPLE_PERIODS));
+$rep6_wdgt->addFlicker($rep_form, CProfile::get('web.report6.filter.state', 1));
 
-if (hasRequest('report_show')) {
-	$items = ($config == BR_COMPARE_VALUE_MULTIPLE_PERIODS)
+if (isset($_REQUEST['report_show'])) {
+	$items = ($config == 3)
 		? array(array('itemid' => get_request('itemid')))
 		: get_request('items');
 
-	if ($isValid && (($config != BR_COMPARE_VALUE_MULTIPLE_PERIODS) ? $validItems : true)
-			&& (($config == BR_DISTRIBUTION_MULTIPLE_ITEMS) ? $validPeriods : true)) {
+	if ($isValid && (($config != 3) ? $validItems : true) && (($config == 2) ? $validPeriods : true)) {
 		$src = 'chart_bar.php?'.
 			'config='.$config.
 			url_param('title').

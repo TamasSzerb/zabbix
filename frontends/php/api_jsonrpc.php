@@ -34,7 +34,7 @@ $content_type = $content_type[0];
 
 if (!isset($allowed_content[$content_type])) {
 	header('HTTP/1.0 412 Precondition Failed');
-	exit;
+	exit();
 }
 
 
@@ -46,12 +46,7 @@ $data = $http_request->body();
 try {
 	Z::getInstance()->run(ZBase::EXEC_MODE_API);
 
-	$apiClient = API::getWrapper()->getClient();
-
-	// unset wrappers so that calls between methods would be made directly to the services
-	API::setWrapper();
-
-	$jsonRpc = new CJSONrpc($apiClient, $data);
+	$jsonRpc = new CJSONrpc($data);
 	echo $jsonRpc->execute();
 }
 catch (Exception $e) {

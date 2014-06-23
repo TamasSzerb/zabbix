@@ -484,6 +484,110 @@ void	zbx_remove_chars(register char *str, const char *charlist)
 	*str = '\0';
 }
 
+/******************************************************************************
+ *                                                                            *
+ * Function: compress_signs                                                   *
+ *                                                                            *
+ * Purpose: convert all repeating pluses and minuses                          *
+ *                                                                            *
+ * Parameters: c - string to convert                                          *
+ *                                                                            *
+ * Return value: string without minuses                                       *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ * Comments: -3*--8+5-7*-4+++5 -> N3*8+5+N7*N4+5                              *
+ *                                                                            *
+ ******************************************************************************/
+void	compress_signs(char *str)
+{
+	int	i, j, len, loop = 1;
+	char	cur, next, prev;
+
+	/* compress '--' '+-' '++' '-+' */
+	while (1 == loop)
+	{
+		loop = 0;
+
+		for (i = 0; '\0' != str[i]; i++)
+		{
+			cur = str[i];
+			next = str[i + 1];
+
+			if (('-' == cur && '-' == next) || ('+' == cur && '+' == next))
+			{
+				str[i] = '+';
+				for (j = i + 1; '\0' != str[j]; j++)
+					str[j] = str[j + 1];
+				loop = 1;
+			}
+
+			if (('-' == cur && '+' == next) || ('+' == cur && '-' == next))
+			{
+				str[i] = '-';
+				for (j = i + 1; '\0' != str[j]; j++)
+					str[j] = str[j + 1];
+				loop = 1;
+			}
+		}
+	}
+
+	/* remove '-', '+' where needed, convert -123 to +N123 */
+	for (i = 0; '\0' != str[i]; i++)
+	{
+		cur = str[i];
+
+		if ('+' == cur)
+		{
+			/* plus is the first sign in the expression */
+			if (0 == i)
+			{
+				for (j = i; '\0' != str[j]; j++)
+					str[j] = str[j + 1];
+			}
+			else
+			{
+				prev = str[i - 1];
+
+				if (0 == isdigit(prev) && '.' != prev)
+				{
+					for (j = i; '\0' != str[j]; j++)
+						str[j] = str[j + 1];
+				}
+			}
+		}
+		else if ('-' == cur)
+		{
+			/* minus is the first sign in the expression */
+			if (0 == i)
+			{
+				str[i] = 'N';
+			}
+			else
+			{
+				prev = str[i - 1];
+
+				if (0 == isdigit(prev) && '.' != prev)
+				{
+					str[i] = 'N';
+				}
+				else
+				{
+					len = (int)strlen(str);
+
+					for (j = len; j > i; j--)
+						str[j] = str[j - 1];
+
+					str[i] = '+';
+					str[i + 1] = 'N';
+					str[len + 1] = '\0';
+					i++;
+				}
+			}
+		}
+	}
+}
+
 /*
  * Function: strlcpy, strlcat
  * Copyright (c) 1998 Todd C. Miller <Todd.Miller@courtesan.com>
@@ -756,53 +860,6 @@ int	zbx_check_hostname(const char *hostname)
 
 /******************************************************************************
  *                                                                            *
- * Function: get_item_key                                                     *
- *                                                                            *
- * Purpose: return key with parameters (if present)                           *
- *                                                                            *
- *  e.g., system.run[cat /etc/passwd | awk -F: '{ print $1 }']                *
- *                                                                            *
- * Parameters: exp - [IN] pointer to the first char of key                    *
- *             key - [OUT] pointer to the resulted key                        *
- *                                                                            *
- *  e.g., {host:system.run[cat /etc/passwd | awk -F: '{ print $1 }'].last(0)} *
- *              ^                                                             *
- *                                                                            *
- * Return value: return SUCCEED and move exp to the next character after key  *
- *               or FAIL and move exp to incorrect character                  *
- *                                                                            *
- * Notes: implements the functionality of old parse_key() in a safe manner.   *
- *        input pointer is NOT advanced.                                      *
- *                                                                            *
- ******************************************************************************/
-int	get_item_key(char **exp, char **key)
-{
-	char	*p = *exp, c;
-
-	if (SUCCEED != parse_key(&p))
-		return FAIL;
-
-	if ('(' == *p)
-	{
-		for (p--; *exp < p && '.' != *p; p--)
-			;
-
-		if (*exp == p)	/* the key is empty */
-			return FAIL;
-	}
-
-	c = *p;
-	*p = '\0';
-	*key = zbx_strdup(NULL, *exp);
-	*p = c;
-
-	*exp = p;
-
-	return SUCCEED;
-}
-
-/******************************************************************************
- *                                                                            *
  * Function: parse_host                                                       *
  *                                                                            *
  * Purpose: parse hostname                                                    *
@@ -852,32 +909,57 @@ int	parse_host(char **exp, char **host)
  *                                                                            *
  * Function: parse_key                                                        *
  *                                                                            *
- * Purpose: advances pointer to first invalid character in string             *
- *          ensuring that everything before it is a valid key                 *
+ * Purpose: return key with parameters (if present)                           *
  *                                                                            *
  *  e.g., system.run[cat /etc/passwd | awk -F: '{ print $1 }']                *
  *                                                                            *
- * Parameters: exp - [IN/OUT] pointer to the first char of key                *
+ * Parameters: exp - pointer to the first char of key                         *
+ *             key - pointer to the resulted key                              *
  *                                                                            *
  *  e.g., {host:system.run[cat /etc/passwd | awk -F: '{ print $1 }'].last(0)} *
  *              ^                                                             *
- * Return value: returns FAIL only if no key is present (length 0),           *
- *               or the whole string is invalid. SUCCEED otherwise.           *
+ *                                                                            *
+ * Return value: return SUCCEED and move exp to the next character after key  *
+ *               or FAIL and move exp to incorrect character                  *
  *                                                                            *
  * Author: Aleksandrs Saveljevs                                               *
  *                                                                            *
  ******************************************************************************/
-int	parse_key(char **exp)
+int	parse_key(char **exp, char **key)
 {
-	char	*s;
+	char	c;
+	char	*p, *r, *s;
+
+	p = *exp;
 
 	for (s = *exp; SUCCEED == is_key_char(*s); s++)
 		;
 
-	if (*exp == s)	/* the key is empty */
-		return FAIL;
+	if ('\0' == *s)		/* no function specified? */
+	{
+		*key = strdup(p);
+		*exp = s;
+		return SUCCEED;
+	}
+	else if ('(' == *s)	/* for instance, ssh,22.last(0) */
+	{
+		for (r = s - 1; p <= r && '.' != *r; r--)
+			;
 
-	if ('[' == *s)	/* for instance, net.tcp.port[,80] */
+		if (r <= p)
+		{
+			*exp = s;
+			return FAIL;
+		}
+
+		*r = '\0';
+		*key = strdup(p);
+		*r = '.';
+
+		*exp = r;
+		return SUCCEED;
+	}
+	else if ('[' == *s)	/* for instance, net.tcp.port[,80] */
 	{
 		int	state = 0;	/* 0 - init, 1 - inside quoted param, 2 - inside unquoted param */
 		int	array = 0;	/* array nest level */
@@ -973,11 +1055,19 @@ fail:
 		*exp = s;
 		return FAIL;
 succeed:
-		s++;
-	}
+		c = *(++s);
+		*s = '\0';
+		*key = strdup(p);
+		*s = c;
 
-	*exp = s;
-	return SUCCEED;
+		*exp = s;
+		return SUCCEED;
+	}
+	else
+	{
+		*exp = s;
+		return FAIL;
+	}
 }
 
 /******************************************************************************
@@ -1283,8 +1373,7 @@ int	get_param(const char *p, int num, char *buf, size_t max_len)
 }
 
 	int	state;	/* 0 - init, 1 - inside quoted param, 2 - inside unquoted param */
-	int	array, idx = 1;
-	size_t	buf_i = 0;
+	int	array, idx = 1, buf_i = 0;
 
 	if (0 == max_len)
 		return 1;	/* buffer overflow */
@@ -2008,6 +2097,57 @@ size_t	zbx_hex2binary(char *io)
 
 /******************************************************************************
  *                                                                            *
+ * Function: zbx_get_next_field                                               *
+ *                                                                            *
+ * Purpose: return current field of character separated string                *
+ *                                                                            *
+ * Parameters:                                                                *
+ *      line - null terminated, character separated string                    *
+ *      output - output buffer (current field)                                *
+ *      olen - allocated output buffer size                                   *
+ *      separator - fields separator                                          *
+ *                                                                            *
+ * Return value: pointer to the next field                                    *
+ *                                                                            *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
+ ******************************************************************************/
+size_t	zbx_get_next_field(const char **line, char **output, size_t *olen, char separator)
+{
+	char	*ret;
+	size_t	flen;
+
+	assert(line);
+
+	if (NULL == *line)
+	{
+		(*output)[0] = '\0';
+		return 0;
+	}
+
+	if (NULL != (ret = strchr(*line, separator)))
+	{
+		flen = ret - *line;
+		ret++;
+	}
+	else
+		flen = strlen(*line);
+
+	if (*olen < flen + 1)
+	{
+		*olen = flen * 2;
+		*output = zbx_realloc(*output, *olen);
+	}
+	memcpy(*output, *line, flen);
+	(*output)[flen] = '\0';
+
+	*line = ret;
+
+	return flen;
+}
+
+/******************************************************************************
+ *                                                                            *
  * Function: str_in_list                                                      *
  *                                                                            *
  * Purpose: check if string is contained in a list of delimited strings       *
@@ -2233,7 +2373,7 @@ char	*zbx_time2str(time_t time)
 	return buffer;
 }
 
-int	zbx_strncasecmp(const char *s1, const char *s2, size_t n)
+static int	zbx_strncasecmp(const char *s1, const char *s2, size_t n)
 {
 	if (NULL == s1 && NULL == s2)
 		return 0;
@@ -2291,6 +2431,15 @@ int	zbx_mismatch(const char *s1, const char *s2)
 	}
 
 	return i;
+}
+
+int	starts_with(const char *str, const char *prefix)
+{
+	const char	*p, *q;
+
+	for (p = str, q = prefix; *p == *q && *q != '\0'; p++, q++);
+
+	return (*q == '\0' ? SUCCEED : FAIL);
 }
 
 int	cmp_key_id(const char *key_1, const char *key_2)
@@ -2477,6 +2626,19 @@ const char	*zbx_dservice_type_string(zbx_dservice_type_t service)
 			return "SNMPv3 agent";
 		case SVC_ICMPPING:
 			return "ICMP ping";
+		default:
+			return "unknown";
+	}
+}
+
+const char	*zbx_nodetype_string(unsigned char nodetype)
+{
+	switch (nodetype)
+	{
+		case ZBX_NODE_MASTER:
+			return "master";
+		case ZBX_NODE_SLAVE:
+			return "slave";
 		default:
 			return "unknown";
 	}
@@ -2676,13 +2838,13 @@ static int	get_codepage(const char *encoding, unsigned int *codepage)
 }
 
 /* convert from selected code page to unicode */
-static wchar_t	*zbx_to_unicode(unsigned int codepage, const char *cp_string)
+static LPTSTR	zbx_to_unicode(unsigned int codepage, LPCSTR cp_string)
 {
-	wchar_t	*wide_string = NULL;
+	LPTSTR	wide_string = NULL;
 	int	wide_size;
 
 	wide_size = MultiByteToWideChar(codepage, 0, cp_string, -1, NULL, 0);
-	wide_string = (wchar_t *)zbx_malloc(wide_string, (size_t)wide_size * sizeof(wchar_t));
+	wide_string = (LPTSTR)zbx_malloc(wide_string, (size_t)wide_size * sizeof(TCHAR));
 
 	/* convert from cp_string to wide_string */
 	MultiByteToWideChar(codepage, 0, cp_string, -1, wide_string, wide_size);
@@ -2691,18 +2853,18 @@ static wchar_t	*zbx_to_unicode(unsigned int codepage, const char *cp_string)
 }
 
 /* convert from Windows ANSI code page to unicode */
-wchar_t	*zbx_acp_to_unicode(const char *acp_string)
+LPTSTR	zbx_acp_to_unicode(LPCSTR acp_string)
 {
 	return zbx_to_unicode(CP_ACP, acp_string);
 }
 
 /* convert from Windows OEM code page to unicode */
-wchar_t	*zbx_oemcp_to_unicode(const char *oemcp_string)
+LPTSTR	zbx_oemcp_to_unicode(LPCSTR oemcp_string)
 {
 	return zbx_to_unicode(CP_OEMCP, oemcp_string);
 }
 
-int	zbx_acp_to_unicode_static(const char *acp_string, wchar_t *wide_string, int wide_size)
+int	zbx_acp_to_unicode_static(LPCSTR acp_string, LPTSTR wide_string, int wide_size)
 {
 	/* convert from acp_string to wide_string */
 	if (0 == MultiByteToWideChar(CP_ACP, 0, acp_string, -1, wide_string, wide_size))
@@ -2712,19 +2874,19 @@ int	zbx_acp_to_unicode_static(const char *acp_string, wchar_t *wide_string, int 
 }
 
 /* convert from UTF-8 to unicode */
-wchar_t	*zbx_utf8_to_unicode(const char *utf8_string)
+LPTSTR	zbx_utf8_to_unicode(LPCSTR utf8_string)
 {
 	return zbx_to_unicode(CP_UTF8, utf8_string);
 }
 
 /* convert from unicode to utf8 */
-char	*zbx_unicode_to_utf8(const wchar_t *wide_string)
+LPSTR	zbx_unicode_to_utf8(LPCTSTR wide_string)
 {
-	char	*utf8_string = NULL;
+	LPSTR	utf8_string = NULL;
 	int	utf8_size;
 
 	utf8_size = WideCharToMultiByte(CP_UTF8, 0, wide_string, -1, NULL, 0, NULL, NULL);
-	utf8_string = (char *)zbx_malloc(utf8_string, (size_t)utf8_size);
+	utf8_string = (LPSTR)zbx_malloc(utf8_string, (size_t)utf8_size);
 
 	/* convert from wide_string to utf8_string */
 	WideCharToMultiByte(CP_UTF8, 0, wide_string, -1, utf8_string, utf8_size, NULL, NULL);
@@ -2733,7 +2895,7 @@ char	*zbx_unicode_to_utf8(const wchar_t *wide_string)
 }
 
 /* convert from unicode to utf8 */
-char	*zbx_unicode_to_utf8_static(const wchar_t *wide_string, char *utf8_string, int utf8_size)
+LPSTR	zbx_unicode_to_utf8_static(LPCTSTR wide_string, LPSTR utf8_string, int utf8_size)
 {
 	/* convert from wide_string to utf8_string */
 	if (0 == WideCharToMultiByte(CP_UTF8, 0, wide_string, -1, utf8_string, utf8_size, NULL, NULL))
@@ -2760,7 +2922,7 @@ void	zbx_strupper(char *str)
 char	*convert_to_utf8(char *in, size_t in_size, const char *encoding)
 {
 #define STATIC_SIZE	1024
-	wchar_t		wide_string_static[STATIC_SIZE], *wide_string = NULL;
+	wchar_t	wide_string_static[STATIC_SIZE], *wide_string = NULL;
 	int		wide_size;
 	char		*utf8_string = NULL;
 	int		utf8_size;
@@ -2781,7 +2943,7 @@ char	*convert_to_utf8(char *in, size_t in_size, const char *encoding)
 	{
 		wide_size = MultiByteToWideChar(codepage, 0, in, (int)in_size, NULL, 0);
 		if (wide_size > STATIC_SIZE)
-			wide_string = (wchar_t *)zbx_malloc(wide_string, (size_t)wide_size * sizeof(wchar_t));
+			wide_string = (LPTSTR)zbx_malloc(wide_string, (size_t)wide_size * sizeof(TCHAR));
 		else
 			wide_string = wide_string_static;
 
@@ -2795,7 +2957,7 @@ char	*convert_to_utf8(char *in, size_t in_size, const char *encoding)
 	}
 
 	utf8_size = WideCharToMultiByte(CP_UTF8, 0, wide_string, wide_size, NULL, 0, NULL, NULL);
-	utf8_string = (char *)zbx_malloc(utf8_string, (size_t)utf8_size + 1/* '\0' */);
+	utf8_string = (LPSTR)zbx_malloc(utf8_string, (size_t)utf8_size + 1/* '\0' */);
 
 	/* convert from wide_string to utf8_string */
 	WideCharToMultiByte(CP_UTF8, 0, wide_string, wide_size, utf8_string, utf8_size, NULL, NULL);

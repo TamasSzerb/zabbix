@@ -35,7 +35,7 @@ $fields = array(
 	'parent_discoveryid' =>	array(T_ZBX_INT, O_OPT, P_SYS,		DB_ID,			null),
 	'groupid' =>			array(T_ZBX_INT, O_OPT, P_SYS,		DB_ID,			null),
 	'hostid' =>				array(T_ZBX_INT, O_OPT, P_SYS,		DB_ID,			null),
-	'copy_type' => array(T_ZBX_INT, O_OPT, P_SYS, IN(array(COPY_TYPE_TO_HOST, COPY_TYPE_TO_HOST_GROUP, COPY_TYPE_TO_TEMPLATE)), 'isset({copy})'),
+	'copy_type' =>			array(T_ZBX_INT, O_OPT, P_SYS,		IN('0,1'),		'isset({copy})'),
 	'copy_mode' =>			array(T_ZBX_INT, O_OPT, P_SYS,		IN('0'),		null),
 	'graphid' =>			array(T_ZBX_INT, O_OPT, P_SYS,		DB_ID,			'isset({form})&&{form}=="update"'),
 	'name' =>				array(T_ZBX_STR, O_OPT, null,		NOT_EMPTY,		'isset({save})', _('Name')),
@@ -58,7 +58,7 @@ $fields = array(
 	'show_triggers' =>		array(T_ZBX_INT, O_OPT, null,		IN('1'),		null),
 	'group_graphid' =>		array(T_ZBX_INT, O_OPT, null,		DB_ID,			null),
 	'copy_targetid' =>		array(T_ZBX_INT, O_OPT, null,		DB_ID,			null),
-	'copy_groupid' =>		array(T_ZBX_INT, O_OPT, P_SYS,		DB_ID,			'isset({copy})&&isset({copy_type})&&{copy_type}==0'),
+	'filter_groupid' =>		array(T_ZBX_INT, O_OPT, P_SYS,		DB_ID,			'isset({copy})&&isset({copy_type})&&{copy_type}==0'),
 	// actions
 	'go' =>					array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,			null),
 	'save' =>				array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,			null),
@@ -83,7 +83,7 @@ if (isset($_REQUEST['yaxismax']) && zbx_empty($_REQUEST['yaxismax'])) {
 	unset($_REQUEST['yaxismax']);
 }
 check_fields($fields);
-validate_sort_and_sortorder('name', ZBX_SORT_UP, array('name', 'graphtype'));
+validate_sort_and_sortorder('name', ZBX_SORT_UP);
 
 $_REQUEST['go'] = get_request('go', 'none');
 $_REQUEST['items'] = get_request('items', array());
@@ -97,6 +97,7 @@ if (CUser::$userData['type'] !== USER_TYPE_SUPER_ADMIN) {
 	if (!empty($_REQUEST['parent_discoveryid'])) {
 		// check whether discovery rule is editable by user
 		$discovery_rule = API::DiscoveryRule()->get(array(
+			'nodeids' => get_current_nodeid(true),
 			'itemids' => array($_REQUEST['parent_discoveryid']),
 			'output' => API_OUTPUT_EXTEND,
 			'editable' => true,
@@ -128,7 +129,7 @@ if (CUser::$userData['type'] !== USER_TYPE_SUPER_ADMIN) {
 	elseif (!empty($_REQUEST['graphid'])) {
 		// check whether graph is normal and editable by user
 		$graphs = API::Graph()->get(array(
-			'output' => array('graphid'),
+			'nodeids' => get_current_nodeid(true),
 			'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
 			'graphids' => array($_REQUEST['graphid']),
 			'editable' => true,
@@ -141,7 +142,7 @@ if (CUser::$userData['type'] !== USER_TYPE_SUPER_ADMIN) {
 	elseif (!empty($_REQUEST['hostid'])) {
 		// check whether host is editable by user
 		$hosts = API::Host()->get(array(
-			'output' => array('hostid'),
+			'nodeids' => get_current_nodeid(true),
 			'hostids' => array($_REQUEST['hostid']),
 			'templated_hosts' => true,
 			'editable' => true,
@@ -167,19 +168,15 @@ if (isset($_REQUEST['clone']) && isset($_REQUEST['graphid'])) {
 		: API::GraphPrototype()->get($options);
 	$graph = reset($graph);
 
-	$graph['items'] = API::GraphItem()->get(array(
+	$_REQUEST = array_merge($_REQUEST, $graph);
+
+	// graph items
+	$_REQUEST['items'] = API::GraphItem()->get(array(
 		'graphids' => $_REQUEST['graphid'],
 		'sortfield' => 'gitemid',
 		'output' => API_OUTPUT_EXTEND,
 		'expandData' => true
 	));
-
-	if($graph['templateid']) {
-		$_REQUEST = array_merge($_REQUEST, $graph);
-	}
-	else {
-		$graph = array_merge($graph, $_REQUEST);
-	}
 
 	unset($_REQUEST['graphid']);
 
@@ -216,8 +213,6 @@ elseif (hasRequest('save')) {
 		'gitems' => $items
 	);
 
-	DBstart();
-
 	// create and update graph prototypes
 	if (hasRequest('parent_discoveryid')) {
 		$graph['flags'] = ZBX_FLAG_DISCOVERY_PROTOTYPE;
@@ -226,17 +221,16 @@ elseif (hasRequest('save')) {
 			$graph['graphid'] = getRequest('graphid');
 			$result = API::GraphPrototype()->update($graph);
 
-			$messageSuccess = _('Graph prototype updated');
-			$messageFailed = _('Cannot update graph prototype');
+			show_messages($result, _('Graph prototype updated'), _('Cannot update graph prototype'));
+
 		}
 		else {
 			$result = API::GraphPrototype()->create($graph);
 
-			$messageSuccess = _('Graph prototype added');
-			$messageFailed = _('Cannot add graph prototype');
+			show_messages($result, _('Graph prototype added'), _('Cannot add graph prototype'));
 		}
 
-		$cookieId = getRequest('parent_discoveryid');
+		clearCookies($result, getRequest('parent_discoveryid'));
 	}
 	// create and update graphs
 	else {
@@ -244,22 +238,22 @@ elseif (hasRequest('save')) {
 			$graph['graphid'] = getRequest('graphid');
 			$result = API::Graph()->update($graph);
 
-			$messageSuccess = _('Graph updated');
-			$messageFailed = _('Cannot update graph');
+			show_messages($result, _('Graph updated'), _('Cannot update graph'));
 		}
 		else {
 			$result = API::Graph()->create($graph);
 
-			$messageSuccess = _('Graph added');
-			$messageFailed = _('Cannot add graph');
+			show_messages($result, _('Graph added'), _('Cannot add graph'));
 		}
 
-		$cookieId = getRequest('hostid');
+		clearCookies($result, getRequest('hostid'));
 	}
 
 	if ($result) {
 		if (hasRequest('graphid')) {
-			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_GRAPH,
+			add_audit(
+				AUDIT_ACTION_UPDATE,
+				AUDIT_RESOURCE_GRAPH,
 				'Graph ID ['.$graph['graphid'].'] Graph ['.getRequest('name').']'
 			);
 		}
@@ -269,22 +263,18 @@ elseif (hasRequest('save')) {
 
 		unset($_REQUEST['form']);
 	}
-
-	$result = DBend($result);
-	show_messages($result, $messageSuccess, $messageFailed);
-	clearCookies($result, $cookieId);
 }
 elseif (hasRequest('delete') && hasRequest('graphid')) {
 	$graphId = getRequest('graphid');
 
 	if (hasRequest('parent_discoveryid')) {
-		$result = API::GraphPrototype()->delete(array($graphId));
+		$result = API::GraphPrototype()->delete($graphId);
 
 		show_messages($result, _('Graph prototype deleted'), _('Cannot delete graph prototype'));
 		clearCookies($result, getRequest('parent_discoveryid'));
 	}
 	else {
-		$result = API::Graph()->delete(array($graphId));
+		$result = API::Graph()->delete($graphId);
 
 		show_messages($result, _('Graph deleted'), _('Cannot delete graph'));
 		clearCookies($result, getRequest('hostid'));
@@ -309,44 +299,45 @@ elseif (getRequest('go') == 'delete' && hasRequest('group_graphid')) {
 		show_messages($result, _('Graphs deleted'), _('Cannot delete graphs'));
 		clearCookies($result, getRequest('hostid'));
 	}
-} elseif (getRequest('go') == 'copy_to' && hasRequest('copy') && hasRequest('group_graphid')) {
-	if (getRequest('copy_targetid') != 0 && hasRequest('copy_type')) {
+}
+elseif ($_REQUEST['go'] == 'copy_to' && isset($_REQUEST['copy']) && isset($_REQUEST['group_graphid'])) {
+	if (!empty($_REQUEST['copy_targetid']) && isset($_REQUEST['copy_type'])) {
 		$goResult = true;
 
 		$options = array(
-			'output' => array('hostid'),
 			'editable' => true,
+			'nodes' => get_current_nodeid(true),
 			'templated_hosts' => true
 		);
 
-		// hosts or templates
-		if (getRequest('copy_type') == COPY_TYPE_TO_HOST || getRequest('copy_type') == COPY_TYPE_TO_TEMPLATE) {
-			$options['hostids'] = getRequest('copy_targetid');
+		// hosts
+		if ($_REQUEST['copy_type'] == 0) {
+			$options['hostids'] = $_REQUEST['copy_targetid'];
 		}
-		// host groups
+		// groups
 		else {
-			zbx_value2array(getRequest('copy_targetid'));
+			zbx_value2array($_REQUEST['copy_targetid']);
 
 			$dbGroups = API::HostGroup()->get(array(
-				'output' => array('groupid'),
-				'groupids' => getRequest('copy_targetid'),
+				'groupids' => $_REQUEST['copy_targetid'],
+				'nodes' => get_current_nodeid(true),
 				'editable' => true
 			));
 			$dbGroups = zbx_toHash($dbGroups, 'groupid');
 
-			foreach (getRequest('copy_targetid') as $groupid) {
+			foreach ($_REQUEST['copy_targetid'] as $groupid) {
 				if (!isset($dbGroups[$groupid])) {
 					access_deny();
 				}
 			}
 
-			$options['groupids'] = getRequest('copy_targetid');
+			$options['groupids'] = $_REQUEST['copy_targetid'];
 		}
 
 		$dbHosts = API::Host()->get($options);
 
 		DBstart();
-		foreach (getRequest('group_graphid') as $graphid) {
+		foreach ($_REQUEST['group_graphid'] as $graphid) {
 			foreach ($dbHosts as $host) {
 				$goResult &= (bool) copyGraphToHost($graphid, $host['hostid']);
 			}
@@ -355,7 +346,7 @@ elseif (getRequest('go') == 'delete' && hasRequest('group_graphid')) {
 
 		show_messages($goResult, _('Graphs copied'), _('Cannot copy graphs'));
 		clearCookies($goResult,
-			getRequest('parent_discoveryid') == 0 ? getRequest('hostid') : getRequest('parent_discoveryid')
+			empty($_REQUEST['parent_discoveryid']) ? $_REQUEST['hostid'] : $_REQUEST['parent_discoveryid']
 		);
 
 		$_REQUEST['go'] = 'none2';
@@ -371,7 +362,7 @@ elseif (getRequest('go') == 'delete' && hasRequest('group_graphid')) {
  */
 $pageFilter = new CPageFilter(array(
 	'groups' => array(
-		'with_hosts_and_templates' => true,
+		'not_proxy_hosts' => true,
 		'editable' => true
 	),
 	'hosts' => array(
@@ -451,7 +442,6 @@ elseif (isset($_REQUEST['form'])) {
 				// parent graph prototype link
 				if (get_request('parent_discoveryid')) {
 					$parentGraphPrototype = API::GraphPrototype()->get(array(
-						'output' => array('graphid'),
 						'graphids' => $parentGraph['graphid'],
 						'selectTemplates' => API_OUTPUT_EXTEND,
 						'selectDiscoveryRule' => array('itemid')
@@ -599,7 +589,8 @@ else {
 		'hostid' => ($pageFilter->hostid > 0) ? $pageFilter->hostid : get_request('hostid'),
 		'parent_discoveryid' => get_request('parent_discoveryid'),
 		'graphs' => array(),
-		'discovery_rule' => empty($_REQUEST['parent_discoveryid']) ? null : $discovery_rule
+		'discovery_rule' => empty($_REQUEST['parent_discoveryid']) ? null : $discovery_rule,
+		'displayNodes' => (is_array(get_current_nodeid()) && $pageFilter->groupid == 0 && $pageFilter->hostid == 0)
 	);
 
 	$sortfield = getPageSortField('name');
@@ -627,7 +618,14 @@ else {
 
 	order_result($data['graphs'], $sortfield, $sortorder);
 
-	$data['paging'] = getPagingLine($data['graphs']);
+	$data['paging'] = getPagingLine(
+		$data['graphs'],
+		array('graphid'),
+		array(
+			'hostid' => get_request('hostid'),
+			'parent_discoveryid' => get_request('parent_discoveryid')
+		)
+	);
 
 	// get graphs after paging
 	$options = array(
@@ -644,6 +642,13 @@ else {
 
 	foreach ($data['graphs'] as $gnum => $graph) {
 		$data['graphs'][$gnum]['graphtype'] = graphType($graph['graphtype']);
+	}
+
+	// nodes
+	if ($data['displayNodes']) {
+		foreach ($data['graphs'] as $key => $graph) {
+			$data['graphs'][$key]['nodename'] = get_node_name_by_elid($graph['graphid'], true);
+		}
 	}
 
 	order_result($data['graphs'], $sortfield, $sortorder);

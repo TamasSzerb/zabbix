@@ -17,7 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 class CBarGraphDraw extends CGraphDraw {
 
@@ -131,7 +132,7 @@ class CBarGraphDraw extends CGraphDraw {
 		foreach ($seriesLegend as $key => $value) {
 			$this->seriesLegend[$key] = $value;
 
-			$tmp = mb_strlen($value) * 7 + 8; // count of chars * font size + color box
+			$tmp = zbx_strlen($value) * 7 + 8; // count of chars * font size + color box
 			if ($tmp > $this->shiftlegendright) {
 				$this->shiftlegendright = $tmp;
 			}
@@ -784,3 +785,4 @@ class CBarGraphDraw extends CGraphDraw {
 		imageOut($this->im);
 	}
 }
+?>

@@ -50,7 +50,7 @@ class CScreenGraph extends CScreenBase {
 			$graph = API::Graph()->get(array(
 				'graphids' => $resourceid,
 				'output' => API_OUTPUT_EXTEND,
-				'selectHosts' => array('hostid'),
+				'selectHosts' => API_OUTPUT_REFER,
 				'selectGraphItems' => API_OUTPUT_EXTEND
 			));
 			$graph = reset($graph);

@@ -24,29 +24,28 @@
  *
  * * @package API
  */
-class CMaintenance extends CApiService {
+class CMaintenance extends CZBXAPI {
 
 	protected $tableName = 'maintenances';
 	protected $tableAlias = 'm';
-	protected $sortColumns = array('maintenanceid', 'name', 'maintenance_type', 'active_till', 'active_since');
+	protected $sortColumns = array('maintenanceid', 'name', 'maintenance_type');
 
 	/**
-	 * Get maintenances data.
+	 * Get maintenances data
 	 *
-	 * @param array  $options
-	 * @param array  $options['itemids']
-	 * @param array  $options['hostids']
-	 * @param array  $options['groupids']
-	 * @param array  $options['triggerids']
-	 * @param array  $options['maintenanceids']
-	 * @param bool   $options['status']
-	 * @param bool   $options['editable']
-	 * @param bool   $options['count']
+	 * @param array $options
+	 * @param array $options['itemids']
+	 * @param array $options['hostids']
+	 * @param array $options['groupids']
+	 * @param array $options['triggerids']
+	 * @param array $options['maintenanceids']
+	 * @param boolean $options['status']
+	 * @param boolean $options['editable']
+	 * @param boolean $options['count']
 	 * @param string $options['pattern']
-	 * @param int    $options['limit']
+	 * @param int $options['limit']
 	 * @param string $options['order']
-	 *
-	 * @return array
+	 * @return array|int item data as array or false if error
 	 */
 	public function get(array $options = array()) {
 		$result = array();
@@ -63,6 +62,7 @@ class CMaintenance extends CApiService {
 		);
 
 		$defOptions = array(
+			'nodeids'					=> null,
 			'groupids'					=> null,
 			'hostids'					=> null,
 			'maintenanceids'			=> null,
@@ -77,7 +77,7 @@ class CMaintenance extends CApiService {
 			'filter'					=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectGroups'				=> null,
 			'selectHosts'				=> null,
 			'selectTimeperiods'			=> null,
@@ -200,6 +200,16 @@ class CMaintenance extends CApiService {
 			$sqlParts['where'][] = dbConditionInt('m.maintenanceid', $maintenanceids);
 		}
 
+		// groupids
+		if (!is_null($options['groupids'])) {
+			$options['selectGroups'] = 1;
+		}
+
+		// hostids
+		if (!is_null($options['hostids'])) {
+			$options['selectHosts'] = 1;
+		}
+
 		// maintenanceids
 		if (!is_null($options['maintenanceids'])) {
 			zbx_value2array($options['maintenanceids']);
@@ -222,8 +232,10 @@ class CMaintenance extends CApiService {
 			$sqlParts['limit'] = $options['limit'];
 		}
 
+		$maintenanceids = array();
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
+		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$res = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
 		while ($maintenance = DBfetch($res)) {
 			if (!is_null($options['countOutput'])) {
@@ -235,7 +247,30 @@ class CMaintenance extends CApiService {
 				}
 			}
 			else {
-				$result[$maintenance['maintenanceid']] = $maintenance;
+				$maintenanceids[$maintenance['maintenanceid']] = $maintenance['maintenanceid'];
+
+				if (!isset($result[$maintenance['maintenanceid']])) {
+					$result[$maintenance['maintenanceid']] = array();
+				}
+
+				// groupids
+				if (isset($maintenance['groupid']) && is_null($options['selectGroups'])) {
+					if (!isset($result[$maintenance['maintenanceid']]['groups'])) {
+						$result[$maintenance['maintenanceid']]['groups'] = array();
+					}
+					$result[$maintenance['maintenanceid']]['groups'][] = array('groupid' => $maintenance['groupid']);
+					unset($maintenance['groupid']);
+				}
+
+				// hostids
+				if (isset($maintenance['hostid']) && is_null($options['selectHosts'])) {
+					if (!isset($result[$maintenance['maintenanceid']]['hosts'])) {
+						$result[$maintenance['maintenanceid']]['hosts'] = array();
+					}
+					$result[$maintenance['maintenanceid']]['hosts'][] = array('hostid' => $maintenance['hostid']);
+					unset($maintenance['hostid']);
+				}
+				$result[$maintenance['maintenanceid']] += $maintenance;
 			}
 		}
 
@@ -255,22 +290,18 @@ class CMaintenance extends CApiService {
 
 
 	/**
-	 * Check if maintenance exists.
+	 * Determine, whether an object already exists
 	 *
-	 * @deprecated	As of version 2.4, use get method instead.
-	 *
-	 * @param array	$object
-	 *
+	 * @param array $object
 	 * @return bool
 	 */
 	public function exists(array $object) {
-		$this->deprecated('maintenance.exists method is deprecated.');
-
 		$keyFields = array(array('maintenanceid', 'name'));
 
 		$options = array(
 			'filter' => zbx_array_mintersect($keyFields, $object),
 			'output' => array('maintenanceid'),
+			'nopermissions' => true,
 			'limit' => 1
 		);
 		$objs = $this->get($options);
@@ -278,10 +309,9 @@ class CMaintenance extends CApiService {
 	}
 
 	/**
-	 * Add maintenances.
+	 * Add maintenances
 	 *
 	 * @param array $maintenances
-	 *
 	 * @return boolean
 	 */
 	public function create(array $maintenances) {
@@ -337,40 +367,21 @@ class CMaintenance extends CApiService {
 		$insertTimeperiods = array();
 		$now = time();
 		$now -= $now % SEC_PER_MIN;
-
-		// check fields
-		foreach ($maintenances as $maintenance) {
+		foreach ($maintenances as $mnum => $maintenance) {
 			$dbFields = array(
 				'name' => null,
 				'active_since' => $now,
 				'active_till' => $now + SEC_PER_DAY
 			);
-
 			if (!check_db_fields($dbFields, $maintenance)) {
 				self::exception(ZBX_API_ERROR_PARAMETERS, _('Incorrect parameters for maintenance.'));
 			}
-		}
 
-		$collectionValidator = new CCollectionValidator(array(
-			'uniqueField' => 'name',
-			'messageDuplicate' => _('Maintenance "%1$s" already exists.')
-		));
-		$this->checkValidator($maintenances, $collectionValidator);
+			// validate if maintenance name already exists
+			if ($this->exists(array('name' => $maintenance['name']))) {
+				self::exception(ZBX_API_ERROR_PARAMETERS, _s('Maintenance "%s" already exists.', $maintenance['name']));
+			}
 
-		// validate if maintenance name already exists
-		$dbMaintenances = $this->get(array(
-			'output' => array('name'),
-			'filter' => array('name' => zbx_objectValues($maintenances, 'name')),
-			'nopermissions' => true,
-			'limit' => 1
-		));
-
-		if ($dbMaintenances) {
-			$dbMaintenance = reset($dbMaintenances);
-			self::exception(ZBX_API_ERROR_PARAMETERS, _s('Maintenance "%1$s" already exists.', $dbMaintenance['name']));
-		}
-
-		foreach ($maintenances as $mnum => $maintenance) {
 			// validate maintenance active since
 			if (!validateUnixTime($maintenance['active_since'])) {
 				self::exception(ZBX_API_ERROR_PARAMETERS, _s('"%s" must be between 1970.01.01 and 2038.01.18.', _('Active since')));
@@ -441,10 +452,9 @@ class CMaintenance extends CApiService {
 	}
 
 	/**
-	 * Update maintenances.
+	 * Update maintenances
 	 *
 	 * @param array $maintenances
-	 *
 	 * @return boolean
 	 */
 	public function update(array $maintenances) {
@@ -456,58 +466,35 @@ class CMaintenance extends CApiService {
 			self::exception(ZBX_API_ERROR_PERMISSIONS, _('No permissions to referred object or it does not exist!'));
 		}
 
+		$hostids = array();
+		$groupids = array();
 		$updMaintenances = $this->get(array(
 			'maintenanceids' => zbx_objectValues($maintenances, 'maintenanceid'),
 			'editable' => true,
 			'output' => API_OUTPUT_EXTEND,
-			'selectGroups' => array('groupid'),
-			'selectHosts' => array('hostid'),
+			'selectGroups' => API_OUTPUT_REFER,
+			'selectHosts' => API_OUTPUT_REFER,
 			'selectTimeperiods' => API_OUTPUT_EXTEND,
 			'preservekeys' => true
 		));
 
-		$maintenanceNamesChanged = array();
 		foreach ($maintenances as $maintenance) {
 			if (!isset($updMaintenances[$maintenance['maintenanceid']])) {
-				self::exception(ZBX_API_ERROR_PERMISSIONS, _(
-					'No permissions to referred object or it does not exist!'
-				));
+				self::exception(ZBX_API_ERROR_PERMISSIONS, _('No permissions to referred object or it does not exist!'));
 			}
 
-			if (isset($maintenance['name']) && !zbx_empty($maintenance['name'])
-					&& $updMaintenances[$maintenance['maintenanceid']]['name'] !== $maintenance['name']) {
-				if (isset($maintenanceNamesChanged[$maintenance['name']])) {
-					self::exception(ZBX_API_ERROR_PARAMETERS, _s('Maintenance "%1$s" already exists.',
-						$maintenance['name']
-					));
-				}
-				else {
-					$maintenanceNamesChanged[$maintenance['name']] = $maintenance['name'];
-				}
-			}
-		}
-
-		// check if maintenance already exists
-		if ($maintenanceNamesChanged) {
-			$dbMaintenances = $this->get(array(
-				'output' => array('name'),
-				'filter' => array('name' => $maintenanceNamesChanged),
-				'nopermissions' => true,
-				'limit' => 1
+			// Checking whether a maintenance with this name already exists. First, getting all maintenances with the same name as this
+			$receivedMaintenances = API::Maintenance()->get(array(
+				'filter' => array('name' => $maintenance['name'])
 			));
 
-			if ($dbMaintenances) {
-				$dbMaintenance = reset($dbMaintenances);
-				self::exception(ZBX_API_ERROR_PARAMETERS, _s('Maintenance "%1$s" already exists.',
-					$dbMaintenance['name']
-				));
+			// validate if maintenance name already exists
+			foreach ($receivedMaintenances as $rMaintenance) {
+				if (bccomp($rMaintenance['maintenanceid'], $maintenance['maintenanceid']) != 0) {
+					self::exception(ZBX_API_ERROR_PARAMETERS, _s('Maintenance "%s" already exists.', $maintenance['name']));
+				}
 			}
-		}
 
-		$hostids = array();
-		$groupids = array();
-
-		foreach ($maintenances as $maintenance) {
 			// validate maintenance active since
 			if (!validateUnixTime($maintenance['active_since'])) {
 				self::exception(ZBX_API_ERROR_PARAMETERS, _s('"%s" must be between 1970.01.01 and 2038.01.18.', _('Active since')));
@@ -645,64 +632,64 @@ class CMaintenance extends CApiService {
 	}
 
 	/**
-	 * Delete Maintenances.
+	 * Delete maintenances by maintenanceids.
 	 *
 	 * @param array $maintenanceids
 	 *
 	 * @return array
 	 */
 	public function delete(array $maintenanceids) {
-		if (self::$userData['type'] == USER_TYPE_ZABBIX_USER) {
-			self::exception(ZBX_API_ERROR_PERMISSIONS, _('You do not have permission to perform this operation.'));
-		}
-
-		$options = array(
-			'maintenanceids' => $maintenanceids,
-			'editable' => true,
-			'output' => array('maintenanceid'),
-			'preservekeys' => true
-		);
-		$maintenances = $this->get($options);
-		foreach ($maintenanceids as $maintenanceid) {
-			if (!isset($maintenances[$maintenanceid])) {
+		$maintenanceids = zbx_toArray($maintenanceids);
+			if (self::$userData['type'] == USER_TYPE_ZABBIX_USER) {
 				self::exception(ZBX_API_ERROR_PERMISSIONS, _('You do not have permission to perform this operation.'));
 			}
-		}
 
-		$timeperiodids = array();
-		$dbTimeperiods = DBselect(
-			'SELECT DISTINCT tp.timeperiodid'.
-			' FROM timeperiods tp,maintenances_windows mw'.
-			' WHERE '.dbConditionInt('mw.maintenanceid', $maintenanceids).
-				' AND tp.timeperiodid=mw.timeperiodid'
-		);
-		while ($timeperiod = DBfetch($dbTimeperiods)) {
-			$timeperiodids[] = $timeperiod['timeperiodid'];
-		}
+			$options = array(
+				'maintenanceids' => $maintenanceids,
+				'editable' => true,
+				'output' => array('maintenanceid'),
+				'preservekeys' => true
+			);
+			$maintenances = $this->get($options);
+			foreach ($maintenanceids as $maintenanceid) {
+				if (!isset($maintenances[$maintenanceid])) {
+					self::exception(ZBX_API_ERROR_PERMISSIONS, _('You do not have permission to perform this operation.'));
+				}
+			}
 
-		$midCond = array('maintenanceid' => $maintenanceids);
+			$timeperiodids = array();
+			$dbTimeperiods = DBselect(
+				'SELECT DISTINCT tp.timeperiodid'.
+				' FROM timeperiods tp,maintenances_windows mw'.
+				' WHERE '.dbConditionInt('mw.maintenanceid', $maintenanceids).
+					' AND tp.timeperiodid=mw.timeperiodid'
+			);
+			while ($timeperiod = DBfetch($dbTimeperiods)) {
+				$timeperiodids[] = $timeperiod['timeperiodid'];
+			}
 
-		// remove maintenanceid from hosts table
-		$options = array(
-			'real_hosts' => true,
-			'output' => array('hostid'),
-			'filter' => array('maintenanceid' => $maintenanceids)
-		);
-		$hosts = API::Host()->get($options);
-		if (!empty($hosts)) {
-			DB::update('hosts', array(
-				'values' => array('maintenanceid' => 0),
-				'where' => array('hostid' => zbx_objectValues($hosts, 'hostid'))
-			));
-		}
+			$midCond = array('maintenanceid' => $maintenanceids);
 
-		DB::delete('timeperiods', array('timeperiodid' => $timeperiodids));
-		DB::delete('maintenances_windows', $midCond);
-		DB::delete('maintenances_hosts', $midCond);
-		DB::delete('maintenances_groups', $midCond);
-		DB::delete('maintenances', $midCond);
+			// remove maintenanceid from hosts table
+			$options = array(
+				'real_hosts' => true,
+				'output' => array('hostid'),
+				'filter' => array('maintenanceid' => $maintenanceids)
+			);
+			$hosts = API::Host()->get($options);
+			if (!empty($hosts)) {
+				DB::update('hosts', array(
+					'values' => array('maintenanceid' => 0),
+					'where' => array('hostid' => zbx_objectValues($hosts, 'hostid'))
+				));
+			}
 
-		return array('maintenanceids' => $maintenanceids);
+			DB::delete('timeperiods', array('timeperiodid' => $timeperiodids));
+			DB::delete('maintenances_windows', $midCond);
+			DB::delete('maintenances_hosts', $midCond);
+			DB::delete('maintenances_groups', $midCond);
+			DB::delete('maintenances', $midCond);
+			return array('maintenanceids' => $maintenanceids);
 	}
 
 	/**
@@ -785,10 +772,11 @@ class CMaintenance extends CApiService {
 		// selectTimeperiods
 		if ($options['selectTimeperiods'] !== null && $options['selectTimeperiods'] != API_OUTPUT_COUNT) {
 			$relationMap = $this->createRelationMap($result, 'maintenanceid', 'timeperiodid', 'maintenances_windows');
-			$timeperiods = API::getApiService()->select('timeperiods', array(
+			$timeperiods = API::getApi()->select('timeperiods', array(
 				'output' => $options['selectTimeperiods'],
 				'filter' => array('timeperiodid' => $relationMap->getRelatedIds()),
-				'preservekeys' => true
+				'preservekeys' => true,
+				'nodeids' => get_current_nodeid(true)
 			));
 			$result = $relationMap->mapMany($result, $timeperiods, 'timeperiods');
 		}

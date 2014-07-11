@@ -144,16 +144,6 @@ class GlobalRegExp {
 		return $result;
 	}
 
-	/**
-	 * Matches expression against test string, respecting expression type.
-	 *
-	 * @static
-	 *
-	 * @param array $expression
-	 * @param $string
-	 *
-	 * @return bool
-	 */
 	public static function matchExpression(array $expression, $string) {
 		if ($expression['expression_type'] == EXPRESSION_TYPE_TRUE || $expression['expression_type'] == EXPRESSION_TYPE_FALSE) {
 			$result = self::_matchRegular($expression, $string);
@@ -176,31 +166,14 @@ class GlobalRegExp {
 	 * @return bool
 	 */
 	private static function _matchRegular(array $expression, $string) {
-		$pattern = self::buildRegularExpression($expression);
-
-		$expectedResult = ($expression['expression_type'] == EXPRESSION_TYPE_TRUE);
-
-		return preg_match($pattern, $string) == $expectedResult;
-	}
-
-	/**
-	 * Combines regular expression provided as definition array into a string.
-	 *
-	 * @static
-	 *
-	 * @param array $expression
-	 *
-	 * @return string
-	 */
-	private static function buildRegularExpression(array $expression) {
-		$expression['expression'] = str_replace('/', '\/', $expression['expression']);
-
 		$pattern = '/'.$expression['expression'].'/';
 		if (!$expression['case_sensitive']) {
 			$pattern .= 'i';
 		}
 
-		return $pattern;
+		$expectedResult = ($expression['expression_type'] == EXPRESSION_TYPE_TRUE);
+
+		return preg_match($pattern, $string) == $expectedResult;
 	}
 
 	/**
@@ -217,25 +190,21 @@ class GlobalRegExp {
 		$result = true;
 
 		if ($expression['expression_type'] == EXPRESSION_TYPE_ANY_INCLUDED) {
-			$patterns = explode($expression['exp_delimiter'], $expression['expression']);
+			$paterns = explode($expression['exp_delimiter'], $expression['expression']);
 		}
 		else {
-			$patterns = array($expression['expression']);
+			$paterns = array($expression['expression']);
 		}
 
 		$expectedResult = ($expression['expression_type'] != EXPRESSION_TYPE_NOT_INCLUDED);
 
-		if (!$expression['case_sensitive']) {
-			$string = mb_strtolower($string);
-		}
-
-		foreach ($patterns as $pattern) {
-			if (!$expression['case_sensitive']) {
-				$pattern = mb_strtolower($pattern);
+		foreach ($paterns as $patern) {
+			if ($expression['case_sensitive']) {
+				$tmp = ((zbx_strstr($string, $patern) !== false) == $expectedResult);
 			}
-
-			$pos = mb_strpos($string, $pattern);
-			$tmp = (($pos !== false) == $expectedResult);
+			else {
+				$tmp = ((zbx_stristr($string, $patern) !== false) == $expectedResult);
+			}
 
 			if ($expression['expression_type'] == EXPRESSION_TYPE_ANY_INCLUDED && $tmp) {
 				return true;

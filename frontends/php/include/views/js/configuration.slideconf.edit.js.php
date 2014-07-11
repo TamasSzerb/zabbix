@@ -77,9 +77,6 @@
 		}
 	}
 
-	/**
-	 * @see init.js add.popup event
-	 */
 	function addPopupValues(list) {
 		var initSize = jQuery('#slideTable tr.sortable .rowNum').length,
 			defaultDelay = jQuery('#delay').val();
@@ -157,4 +154,5 @@
 	jQuery(function() {
 		initSortable();
 	});
+	createPlaceholders();
 </script>

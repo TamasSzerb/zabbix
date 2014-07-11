@@ -381,11 +381,17 @@ static int	get_dynamic_hostid(DB_EVENT *event, DC_HOST *host, char *error, size_
 			{
 				case EVENT_OBJECT_DHOST:
 					zbx_snprintf(sql + offset, sizeof(sql) - offset,
-							" and ds.dhostid=" ZBX_FS_UI64, event->objectid);
+							" and ds.dhostid=" ZBX_FS_UI64
+							ZBX_SQL_NODE,
+							event->objectid,
+							DBand_node_local("h.hostid"));
 					break;
 				case EVENT_OBJECT_DSERVICE:
 					zbx_snprintf(sql + offset, sizeof(sql) - offset,
-							" and ds.dserviceid=" ZBX_FS_UI64, event->objectid);
+							" and ds.dserviceid=" ZBX_FS_UI64
+							ZBX_SQL_NODE,
+							event->objectid,
+							DBand_node_local("h.hostid"));
 					break;
 			}
 			break;
@@ -396,8 +402,10 @@ static int	get_dynamic_hostid(DB_EVENT *event, DC_HOST *host, char *error, size_
 						" and a.host=h.host"
 						" and h.status=%d"
 						" and h.flags<>%d"
-						" and a.autoreg_hostid=" ZBX_FS_UI64,
-					HOST_STATUS_MONITORED, ZBX_FLAG_DISCOVERY_PROTOTYPE, event->objectid);
+						" and a.autoreg_hostid=" ZBX_FS_UI64
+						ZBX_SQL_NODE,
+					HOST_STATUS_MONITORED, ZBX_FLAG_DISCOVERY_PROTOTYPE, event->objectid,
+					DBand_node_local("h.hostid"));
 			break;
 		default:
 			zbx_snprintf(error, max_error_len, "Unsupported event source [%d]", event->source);
@@ -714,7 +722,7 @@ static int	check_operation_conditions(DB_EVENT *event, zbx_uint64_t operationid,
 	DB_ROW		row;
 	DB_CONDITION	condition;
 
-	int		ret = SUCCEED; /* SUCCEED required for CONDITION_EVAL_TYPE_AND_OR */
+	int		ret = SUCCEED; /* SUCCEED required for ACTION_EVAL_TYPE_AND_OR */
 	int		cond, exit = 0;
 	unsigned char	old_type = 0xff;
 
@@ -735,7 +743,7 @@ static int	check_operation_conditions(DB_EVENT *event, zbx_uint64_t operationid,
 
 		switch (evaltype)
 		{
-			case CONDITION_EVAL_TYPE_AND_OR:
+			case ACTION_EVAL_TYPE_AND_OR:
 				if (old_type == condition.conditiontype)	/* OR conditions */
 				{
 					if (SUCCEED == check_action_condition(event, &condition))
@@ -751,7 +759,7 @@ static int	check_operation_conditions(DB_EVENT *event, zbx_uint64_t operationid,
 				}
 				old_type = condition.conditiontype;
 				break;
-			case CONDITION_EVAL_TYPE_AND:
+			case ACTION_EVAL_TYPE_AND:
 				cond = check_action_condition(event, &condition);
 				/* Break if any of AND conditions is FALSE */
 				if (cond == FAIL)
@@ -762,7 +770,7 @@ static int	check_operation_conditions(DB_EVENT *event, zbx_uint64_t operationid,
 				else
 					ret = SUCCEED;
 				break;
-			case CONDITION_EVAL_TYPE_OR:
+			case ACTION_EVAL_TYPE_OR:
 				cond = check_action_condition(event, &condition);
 				/* Break if any of OR conditions is TRUE */
 				if (cond == SUCCEED)
@@ -1367,7 +1375,9 @@ static int	process_escalations(int now, int *nextcheck)
 	result = DBselect(
 			"select escalationid,actionid,triggerid,eventid,r_eventid,nextcheck,esc_step,status,itemid"
 			" from escalations"
-			" order by actionid,triggerid,itemid,escalationid");
+			ZBX_SQL_NODE
+			" order by actionid,triggerid,itemid,escalationid",
+			DBwhere_node_local("escalationid"));
 
 	*nextcheck = now + CONFIG_ESCALATOR_FREQUENCY;
 	memset(&escalation, 0, sizeof(escalation));

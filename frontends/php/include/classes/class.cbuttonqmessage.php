@@ -17,7 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 class CButtonQMessage extends CSubmit {
 
@@ -69,7 +70,7 @@ class CButtonQMessage extends CSubmit {
 
 		if (isset($this->vars)) {
 			$link = $page['file'].'?'.$this->name.'=1'.$this->vars;
-			$url = new CUrl($link);
+			$url = new Curl($link);
 			$action = "redirect('".$url->getUrl()."')";
 		}
 		else {
@@ -78,3 +79,4 @@ class CButtonQMessage extends CSubmit {
 		return parent::setAttribute('onclick', 'if ('.$confirmation.') { return '.$action.'; } else { return false; }');
 	}
 }
+?>

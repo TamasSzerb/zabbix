@@ -27,10 +27,10 @@ static PERF_COUNTER_ID	*PerfCounterList = NULL;
 PDH_STATUS	zbx_PdhMakeCounterPath(const char *function, PDH_COUNTER_PATH_ELEMENTS *cpe, char *counterpath)
 {
 	DWORD		dwSize = PDH_MAX_COUNTER_PATH;
-	wchar_t		*wcounterPath = NULL;
+	LPTSTR		wcounterPath = NULL;
 	PDH_STATUS	pdh_status;
 
-	wcounterPath = zbx_malloc(wcounterPath, sizeof(wchar_t) * PDH_MAX_COUNTER_PATH);
+	wcounterPath = zbx_realloc(wcounterPath, dwSize * sizeof(TCHAR));
 
 	if (ERROR_SUCCESS != (pdh_status = PdhMakeCounterPath(cpe, wcounterPath, &dwSize, 0)))
 	{
@@ -67,7 +67,7 @@ PDH_STATUS	zbx_PdhAddCounter(const char *function, PERF_COUNTER_DATA *counter, P
 		const char *counterpath, PDH_HCOUNTER *handle)
 {
 	PDH_STATUS	pdh_status = ERROR_SUCCESS;
-	wchar_t		*wcounterPath;
+	LPTSTR		wcounterPath;
 
 	wcounterPath = zbx_utf8_to_unicode(counterpath);
 
@@ -196,7 +196,7 @@ close_query:
 	return pdh_status;
 }
 
-wchar_t	*get_counter_name(DWORD pdhIndex)
+LPTSTR	get_counter_name(DWORD pdhIndex)
 {
 	const char	*__function_name = "get_counter_name";
 	PERF_COUNTER_ID	*counterName;
@@ -246,7 +246,7 @@ int	check_counter_path(char *counterPath)
 	PDH_STATUS			status;
 	int				is_numeric, ret = FAIL;
 	DWORD				dwSize = 0;
-	wchar_t				*wcounterPath;
+	LPTSTR				wcounterPath;
 
 	wcounterPath = zbx_utf8_to_unicode(counterPath);
 

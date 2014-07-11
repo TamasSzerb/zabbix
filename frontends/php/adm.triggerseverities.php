@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/include/config.inc.php';
 
 $page['title'] = _('Configuration of trigger severities');
@@ -64,10 +64,8 @@ if (isset($_REQUEST['save'])) {
 		'severity_name_5' => get_request('severity_name_5', _('Disaster')),
 		'severity_color_5' => get_request('severity_color_5', '')
 	);
-
-	DBstart();
 	$result = update_config($configs);
-	$result = DBend($result);
+
 	show_messages($result, _('Configuration updated'), _('Cannot update configuration'));
 }
 
@@ -122,3 +120,4 @@ $cnf_wdgt->addItem($triggerSeverityForm->render());
 $cnf_wdgt->show();
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

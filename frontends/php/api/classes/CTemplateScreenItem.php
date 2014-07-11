@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CTemplateScreenItem extends CApiService {
+class CTemplateScreenItem extends CZBXAPI {
 
 	protected $tableName = 'screens_items';
 	protected $tableAlias = 'si';
@@ -78,6 +78,7 @@ class CTemplateScreenItem extends CApiService {
 	 * Get screem item data.
 	 *
 	 * @param array $options
+	 * @param array $options['nodeids']			Node IDs
 	 * @param array $options['hostid']			Use hostid to get real resource id
 	 * @param array $options['screenitemids']	Search by screen item IDs
 	 * @param array $options['screenids']		Search by screen IDs
@@ -118,7 +119,6 @@ class CTemplateScreenItem extends CApiService {
 			}
 
 			$dbTemplateScreens = API::TemplateScreen()->get(array(
-				'output' => array('screenitemid'),
 				'screenitemids' => $options['screenitemid'],
 				'hostids' => $options['hostids'],
 				'selectScreenItems' => API_OUTPUT_EXTEND
@@ -140,6 +140,15 @@ class CTemplateScreenItem extends CApiService {
 		}
 
 		return $result;
+	}
+
+	protected function applyQueryNodeOptions($tableName, $tableAlias, array $options, array $sqlParts) {
+		// only apply the node option if no specific screen ids are given
+		if ($options['screenids'] === null) {
+			$sqlParts = parent::applyQueryNodeOptions($tableName, $tableAlias, $options, $sqlParts);
+		}
+
+		return $sqlParts;
 	}
 
 	protected function applyQueryFilterOptions($tableName, $tableAlias, array $options, array $sqlParts) {

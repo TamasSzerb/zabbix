@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CHistory extends CApiService {
+class CHistory extends CZBXAPI {
 
 	protected $tableName = 'history';
 	protected $tableAlias = 'h';
@@ -49,6 +49,7 @@ class CHistory extends CApiService {
 	 */
 	public function get($options = array()) {
 		$result = array();
+		$nodeCheck = false;
 
 		$sqlParts = array(
 			'select'	=> array('history' => 'h.itemid'),
@@ -61,8 +62,10 @@ class CHistory extends CApiService {
 
 		$defOptions = array(
 			'history'					=> ITEM_VALUE_TYPE_UINT64,
+			'nodeids'					=> null,
 			'hostids'					=> null,
 			'itemids'					=> null,
+			'triggerids'				=> null,
 			'editable'					=> null,
 			'nopermissions'				=> null,
 			// filter
@@ -75,9 +78,10 @@ class CHistory extends CApiService {
 			'time_from'					=> null,
 			'time_till'					=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'countOutput'				=> null,
 			'groupCount'				=> null,
+			'groupOutput'				=> null,
 			'preservekeys'				=> null,
 			'sortfield'					=> '',
 			'sortorder'					=> '',
@@ -104,28 +108,49 @@ class CHistory extends CApiService {
 			$options['itemids'] = array_keys($items);
 		}
 
+		// nodeids
+		$nodeids = !is_null($options['nodeids']) ? $options['nodeids'] : get_current_nodeid();
+
 		// itemids
 		if (!is_null($options['itemids'])) {
 			zbx_value2array($options['itemids']);
 			$sqlParts['where']['itemid'] = dbConditionInt('h.itemid', $options['itemids']);
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'h.itemid', $nodeids);
+			}
 		}
 
 		// hostids
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
+			$sqlParts['select']['hostid'] = 'i.hostid';
 			$sqlParts['from']['items'] = 'items i';
 			$sqlParts['where']['i'] = dbConditionInt('i.hostid', $options['hostids']);
 			$sqlParts['where']['hi'] = 'h.itemid=i.itemid';
+
+			if (!$nodeCheck) {
+				$nodeCheck = true;
+				$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'i.hostid', $nodeids);
+			}
+		}
+
+		// should be last, after all ****IDS checks
+		if (!$nodeCheck) {
+			$sqlParts['where'] = sqlPartDbNode($sqlParts['where'], 'h.itemid', $nodeids);
 		}
 
 		// time_from
 		if (!is_null($options['time_from'])) {
+			$sqlParts['select']['clock'] = 'h.clock';
 			$sqlParts['where']['clock_from'] = 'h.clock>='.zbx_dbstr($options['time_from']);
 		}
 
 		// time_till
 		if (!is_null($options['time_till'])) {
+			$sqlParts['select']['clock'] = 'h.clock';
 			$sqlParts['where']['clock_till'] = 'h.clock<='.zbx_dbstr($options['time_till']);
 		}
 
@@ -158,6 +183,14 @@ class CHistory extends CApiService {
 			}
 		}
 
+		// groupOutput
+		$groupOutput = false;
+		if (!is_null($options['groupOutput'])) {
+			if (str_in_array('h.'.$options['groupOutput'], $sqlParts['select']) || str_in_array('h.*', $sqlParts['select'])) {
+				$groupOutput = true;
+			}
+		}
+
 		// sorting
 		$sqlParts = $this->applyQuerySortOptions($tableName, $this->tableAlias(), $options, $sqlParts);
 
@@ -165,6 +198,8 @@ class CHistory extends CApiService {
 		if (zbx_ctype_digit($options['limit']) && $options['limit']) {
 			$sqlParts['limit'] = $options['limit'];
 		}
+
+		$itemids = array();
 
 		$sqlParts['select'] = array_unique($sqlParts['select']);
 		$sqlParts['from'] = array_unique($sqlParts['from']);
@@ -191,12 +226,45 @@ class CHistory extends CApiService {
 				$sqlWhere.
 				$sqlOrder;
 		$dbRes = DBselect($sql, $sqlLimit);
+		$count = 0;
+		$group = array();
 		while ($data = DBfetch($dbRes)) {
 			if ($options['countOutput']) {
 				$result = $data;
 			}
 			else {
-				$result[] = $data;
+				$itemids[$data['itemid']] = $data['itemid'];
+
+				$result[$count] = array();
+
+				// hostids
+				if (isset($data['hostid'])) {
+					if (!isset($result[$count]['hosts'])) {
+						$result[$count]['hosts'] = array();
+					}
+					$result[$count]['hosts'][] = array('hostid' => $data['hostid']);
+					unset($data['hostid']);
+				}
+
+				// triggerids
+				if (isset($data['triggerid'])) {
+					if (!isset($result[$count]['triggers'])) {
+						$result[$count]['triggers'] = array();
+					}
+					$result[$count]['triggers'][] = array('triggerid' => $data['triggerid']);
+					unset($data['triggerid']);
+				}
+				$result[$count] += $data;
+
+				// grouping
+				if ($groupOutput) {
+					$dataid = $data[$options['groupOutput']];
+					if (!isset($group[$dataid])) {
+						$group[$dataid] = array();
+					}
+					$group[$dataid][] = $result[$count];
+				}
+				$count++;
 			}
 		}
 

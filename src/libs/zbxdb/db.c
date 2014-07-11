@@ -216,7 +216,6 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 	char		*connect = NULL;
 	sword		err = OCI_SUCCESS;
 #elif defined(HAVE_POSTGRESQL)
-	int		rc;
 	char		*cport = NULL;
 	DB_RESULT	result;
 	DB_ROW		row;
@@ -411,19 +410,6 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 		ret = ZBX_DB_DOWN;
 		goto out;
 	}
-
-	if (NULL != dbschema && '\0' != *dbschema)
-	{
-		char	*dbschema_esc;
-
-		dbschema_esc = zbx_db_dyn_escape_string(dbschema);
-		if (ZBX_DB_DOWN == (rc = zbx_db_execute("set schema '%s'", dbschema_esc)) || ZBX_DB_FAIL == rc)
-			ret = rc;
-		zbx_free(dbschema_esc);
-	}
-
-	if (ZBX_DB_FAIL == ret || ZBX_DB_DOWN == ret)
-		goto out;
 
 	result = zbx_db_select("%s", "select oid from pg_type where typname='bytea'");
 
@@ -1939,6 +1925,8 @@ static size_t	zbx_db_get_escape_string_len(const char *src)
 
 	for (s = src; NULL != s && '\0' != *s; s++)
 	{
+		if ('\r' == *s)
+			continue;
 #if defined(HAVE_MYSQL)
 		if ('\'' == *s || '\\' == *s)
 #elif defined(HAVE_POSTGRESQL)
@@ -1979,6 +1967,9 @@ static void	zbx_db_escape_string(const char *src, char *dst, size_t len)
 
 	for (s = src, d = dst; NULL != s && '\0' != *s && 0 < len; s++)
 	{
+		if ('\r' == *s)
+			continue;
+
 #if defined(HAVE_MYSQL)
 		if ('\'' == *s || '\\' == *s)
 #elif defined(HAVE_POSTGRESQL)
@@ -2040,6 +2031,9 @@ char	*zbx_db_dyn_escape_string_len(const char *src, size_t max_src_len)
 
 	for (s = src; NULL != s && '\0' != *s && 0 < max_src_len; s++)
 	{
+		if ('\r' == *s)
+			continue;
+
 		/* only UTF-8 characters should reduce a variable max_src_len */
 		if (0x80 != (0xc0 & *s) && 0 == --max_src_len)
 			break;

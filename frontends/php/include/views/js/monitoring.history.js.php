@@ -1,7 +1,4 @@
 <script type="text/javascript">
-	/**
-	 * @see init.js add.popup event
-	 */
 	function addPopupValues(list) {
 		if (!isset('object', list)) {
 			throw("Error hash attribute 'list' doesn't contain 'object' index");

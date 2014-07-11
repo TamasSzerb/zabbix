@@ -22,51 +22,30 @@
 /**
  * A class for creating a storing instances of DB objects managers.
  */
-class Manager extends CRegistryFactory {
+class Manager extends CFactoryRegistry {
 
-	/**
-	 * An instance of the manager factory.
-	 *
-	 * @var Manager
-	 */
-	protected static $instance;
-
-	/**
-	 * Returns an instance of the manager factory object.
-	 *
-	 * @return Manager
-	 */
-	public static function getInstance() {
-		if (!self::$instance) {
-			$class = __CLASS__;
-			self::$instance = new $class(array(
-				'application' => 'CApplicationManager',
-				'history' => 'CHistoryManager',
-				'httptest' => 'CHttpTestManager'
-			));
-		}
-
-		return self::$instance;
+	public static function getInstance($class = __CLASS__) {
+		return parent::getInstance($class);
 	}
 
 	/**
 	 * @return CApplicationManager
 	 */
 	public static function Application() {
-		return self::getInstance()->getObject('application');
+		return self::getInstance()->getObject('CApplicationManager');
 	}
 
 	/**
 	 * @return CHistoryManager
 	 */
 	public static function History() {
-		return self::getInstance()->getObject('history');
+		return self::getInstance()->getObject('CHistoryManager');
 	}
 
 	/**
 	 * @return CHttpTestManager
 	 */
 	public static function HttpTest() {
-		return self::getInstance()->getObject('httptest');
+		return self::getInstance()->getObject('CHttpTestManager');
 	}
 }

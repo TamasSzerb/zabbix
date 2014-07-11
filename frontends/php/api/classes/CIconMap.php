@@ -28,7 +28,7 @@
  *
  * @package API
  */
-class CIconMap extends CApiService {
+class CIconMap extends CZBXAPI {
 
 	protected $tableName = 'icon_map';
 	protected $tableAlias = 'im';
@@ -37,6 +37,7 @@ class CIconMap extends CApiService {
 	/**
 	 * Get IconMap data.
 	 * @param array $options
+	 * @param array $options['nodeids']
 	 * @param array $options['iconmapids']
 	 * @param array $options['sysmapids']
 	 * @param array $options['editable']
@@ -57,6 +58,7 @@ class CIconMap extends CApiService {
 		);
 
 		$defOptions = array(
+			'nodeids'					=> null,
 			'iconmapids'				=> null,
 			'sysmapids'					=> null,
 			'nopermissions'				=> null,
@@ -69,7 +71,7 @@ class CIconMap extends CApiService {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'selectMappings'			=> null,
 			'countOutput'				=> null,
 			'preservekeys'				=> null,
@@ -95,6 +97,7 @@ class CIconMap extends CApiService {
 		if (!is_null($options['sysmapids'])) {
 			zbx_value2array($options['sysmapids']);
 
+			$sqlParts['select']['sysmapids'] = 's.sysmapid';
 			$sqlParts['from']['sysmaps'] = 'sysmaps s';
 			$sqlParts['where'][] = dbConditionInt('s.sysmapid', $options['sysmapids']);
 			$sqlParts['where']['ims'] = 'im.iconmapid=s.iconmapid';
@@ -116,13 +119,25 @@ class CIconMap extends CApiService {
 
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
+		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$dbRes = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
 		while ($iconMap = DBfetch($dbRes)) {
 			if ($options['countOutput']) {
 				$result = $iconMap['rowscount'];
 			}
 			else {
-				$result[$iconMap['iconmapid']] = $iconMap;
+				if (!isset($result[$iconMap['iconmapid']])) {
+					$result[$iconMap['iconmapid']] = array();
+				}
+				if (isset($iconMap['sysmapid'])) {
+					if (!isset($result[$iconMap['iconmapid']]['sysmaps'])) {
+						$result[$iconMap['iconmapid']]['sysmaps'] = array();
+					}
+
+					$result[$iconMap['iconmapid']]['sysmaps'][] = array('sysmapid' => $iconMap['sysmapid']);
+				}
+
+				$result[$iconMap['iconmapid']] += $iconMap;
 			}
 		}
 
@@ -291,12 +306,12 @@ class CIconMap extends CApiService {
 
 	/**
 	 * Delete IconMap.
-	 *
 	 * @param array $iconmapids
-	 *
 	 * @return array
 	 */
-	public function delete(array $iconmapids) {
+	public function delete($iconmapids) {
+		$iconmapids = zbx_toArray($iconmapids);
+
 		if (empty($iconmapids)) {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Empty input parameter.'));
 		}
@@ -335,6 +350,7 @@ class CIconMap extends CApiService {
 		$ids = array_unique($ids);
 
 		$count = $this->get(array(
+			'nodeids' => get_current_nodeid(true),
 			'iconmapids' => $ids,
 			'countOutput' => true
 		));
@@ -358,6 +374,7 @@ class CIconMap extends CApiService {
 		$ids = array_unique($ids);
 
 		$count = $this->get(array(
+			'nodeids' => get_current_nodeid(true),
 			'iconmapids' => $ids,
 			'editable' => true,
 			'countOutput' => true
@@ -453,10 +470,11 @@ class CIconMap extends CApiService {
 		$iconMapIds = array_keys($result);
 
 		if ($options['selectMappings'] !== null && $options['selectMappings'] != API_OUTPUT_COUNT) {
-			$mappings = API::getApiService()->select('icon_mapping', array(
-				'output' => $this->outputExtend($options['selectMappings'], array('iconmapid', 'iconmappingid')),
+			$mappings = API::getApi()->select('icon_mapping', array(
+				'output' => $this->outputExtend('icon_mapping', array('iconmapid', 'iconmappingid'), $options['selectMappings']),
 				'filter' => array('iconmapid' => $iconMapIds),
-				'preservekeys' => true
+				'preservekeys' => true,
+				'nodeids' => get_current_nodeid(true)
 			));
 			$relationMap = $this->createRelationMap($mappings, 'iconmapid', 'iconmappingid');
 

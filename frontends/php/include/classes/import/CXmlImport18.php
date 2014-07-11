@@ -296,6 +296,19 @@ class CXmlImport18 {
 		return isset($map[$name]) ? $map[$name] : $name;
 	}
 
+	protected static function createDOMDocument() {
+		$doc = new DOMDocument('1.0', 'UTF-8');
+		$doc->preserveWhiteSpace = false;
+		$doc->formatOutput = true;
+
+		$root = $doc->appendChild(new DOMElement('zabbix_export'));
+		$root->setAttributeNode(new DOMAttr('version', '1.0'));
+		$root->setAttributeNode(new DOMAttr('date', zbx_date2str(XML_DATE_DATE_FORMAT)));
+		$root->setAttributeNode(new DOMAttr('time', zbx_date2str(XML_TIME_DATE_FORMAT)));
+
+		return $root;
+	}
+
 	/**
 	 * Converts Simple key from old format to new.
 	 *
@@ -408,7 +421,14 @@ class CXmlImport18 {
 			throw new Exception($text);
 		}
 
-		self::$xml = $xml;
+		if ($xml->childNodes->item(0)->nodeName != 'zabbix_export') {
+			$xml2 = self::createDOMDocument();
+			$xml2->appendChild($xml2->ownerDocument->importNode($xml->childNodes->item(0), true));
+			self::$xml = $xml2->ownerDocument;
+		}
+		else {
+			self::$xml = $xml;
+		}
 
 		return true;
 	}
@@ -425,18 +445,10 @@ class CXmlImport18 {
 
 		foreach ($importScreens as $mnum => &$screen) {
 			unset($screen['screenid']);
+			$exists = API::Screen()->exists(array('name' => $screen['name']));
 
-			$screenExists = API::Screen()->get(array(
-				'output' => array('screenid'),
-				'filter' => array('name' => $screen['name']),
-				'nopermissions' => true,
-				'limit' => 1
-			));
-			if ($screenExists && $rules['screens']['updateExisting']) {
-				$db_screens = API::Screen()->get(array(
-					'output' => array('screenid'),
-					'filter' => array('name' => $screen['name'])
-				));
+			if ($exists && !empty($rules['screens']['updateExisting'])) {
+				$db_screens = API::Screen()->get(array('filter' => array('name' => $screen['name'])));
 				if (empty($db_screens)) {
 					throw new Exception(_s('No permissions for screen "%1$s".', $screen['name']));
 				}
@@ -445,7 +457,7 @@ class CXmlImport18 {
 
 				$screen['screenid'] = $db_screen['screenid'];
 			}
-			elseif ($screenExists || !$rules['screens']['createMissing']) {
+			else if ($exists || empty($rules['screens']['createMissing'])) {
 				info(_s('Screen "%1$s" skipped - user rule.', $screen['name']));
 				unset($importScreens[$mnum]);
 				continue; // break if not update exist
@@ -456,14 +468,10 @@ class CXmlImport18 {
 			}
 
 			foreach ($screen['screenitems'] as &$screenitem) {
+				$nodeCaption = isset($screenitem['resourceid']['node']) ? $screenitem['resourceid']['node'].':' : '';
+
 				if (!isset($screenitem['resourceid'])) {
 					$screenitem['resourceid'] = 0;
-				}
-				if ($screenitem['rowspan'] == 0) {
-					$screenitem['rowspan'] = 1;
-				}
-				if ($screenitem['colspan'] == 0) {
-					$screenitem['colspan'] = 1;
 				}
 				if (is_array($screenitem['resourceid'])) {
 					switch ($screenitem['resourcetype']) {
@@ -473,15 +481,10 @@ class CXmlImport18 {
 						case SCREEN_RESOURCE_DATA_OVERVIEW:
 						case SCREEN_RESOURCE_HOSTGROUP_TRIGGERS:
 							if (is_array($screenitem['resourceid'])) {
-								$db_hostgroups = API::HostGroup()->get(array(
-									'output' => array('groupid'),
-									'filter' => array(
-										'name' => $screenitem['resourceid']['name']
-									)
-								));
+								$db_hostgroups = API::HostGroup()->getObjects($screenitem['resourceid']);
 								if (empty($db_hostgroups)) {
 									$error = _s('Cannot find group "%1$s" used in screen "%2$s".',
-											$screenitem['resourceid']['name'], $screen['name']);
+											$nodeCaption.$screenitem['resourceid']['name'], $screen['name']);
 									throw new Exception($error);
 								}
 
@@ -490,15 +493,10 @@ class CXmlImport18 {
 							}
 							break;
 						case SCREEN_RESOURCE_HOST_TRIGGERS:
-							$db_hosts = API::Host()->get(array(
-								'output' => array('hostids'),
-								'filter' => array(
-									'host' => $screenitem['resourceid']['host']
-								)
-							));
+							$db_hosts = API::Host()->getObjects($screenitem['resourceid']);
 							if (empty($db_hosts)) {
 								$error = _s('Cannot find host "%1$s" used in screen "%2$s".',
-										$screenitem['resourceid']['host'], $screen['name']);
+										$nodeCaption.$screenitem['resourceid']['host'], $screen['name']);
 								throw new Exception($error);
 							}
 
@@ -506,16 +504,10 @@ class CXmlImport18 {
 							$screenitem['resourceid'] = $tmp['hostid'];
 							break;
 						case SCREEN_RESOURCE_GRAPH:
-							$db_graphs = API::Graph()->get(array(
-								'output' => array('graphid'),
-								'filter' => array(
-									'host' => $screenitem['resourceid']['host'],
-									'name' => $screenitem['resourceid']['name']
-								)
-							));
+							$db_graphs = API::Graph()->getObjects($screenitem['resourceid']);
 							if (empty($db_graphs)) {
 								$error = _s('Cannot find graph "%1$s" used in screen "%2$s".',
-										$screenitem['resourceid']['host'].NAME_DELIMITER.$screenitem['resourceid']['name'], $screen['name']);
+										$nodeCaption.$screenitem['resourceid']['host'].NAME_DELIMITER.$screenitem['resourceid']['name'], $screen['name']);
 								throw new Exception($error);
 							}
 
@@ -524,18 +516,11 @@ class CXmlImport18 {
 							break;
 						case SCREEN_RESOURCE_SIMPLE_GRAPH:
 						case SCREEN_RESOURCE_PLAIN_TEXT:
-							$db_items = API::Item()->get(array(
-								'output' => array('itemid'),
-								'webitems' => true,
-								'filter' => array(
-									'host' => $screenitem['resourceid']['host'],
-									'key_' => $screenitem['resourceid']['key_']
-								)
-							));
+							$db_items = API::Item()->getObjects($screenitem['resourceid']);
 
 							if (empty($db_items)) {
 								$error = _s('Cannot find item "%1$s" used in screen "%2$s".',
-										$screenitem['resourceid']['host'].':'.$screenitem['resourceid']['key_'], $screen['name']);
+										$nodeCaption.$screenitem['resourceid']['host'].':'.$screenitem['resourceid']['key_'], $screen['name']);
 								throw new Exception($error);
 							}
 
@@ -543,15 +528,10 @@ class CXmlImport18 {
 							$screenitem['resourceid'] = $tmp['itemid'];
 							break;
 						case SCREEN_RESOURCE_MAP:
-							$db_sysmaps = API::Map()->get(array(
-								'output' => array('sysmapid'),
-								'filter' => array(
-									'name' => $screenitem['resourceid']['name']
-								)
-							));
+							$db_sysmaps = API::Map()->getObjects($screenitem['resourceid']);
 							if (empty($db_sysmaps)) {
 								$error = _s('Cannot find map "%1$s" used in screen "%2$s".',
-										$screenitem['resourceid']['name'], $screen['name']);
+										$nodeCaption.$screenitem['resourceid']['name'], $screen['name']);
 								throw new Exception($error);
 							}
 
@@ -559,15 +539,10 @@ class CXmlImport18 {
 							$screenitem['resourceid'] = $tmp['sysmapid'];
 							break;
 						case SCREEN_RESOURCE_SCREEN:
-							$db_screens = API::Screen()->get(array(
-								'output' => array('screenid'),
-								'filter' => array(
-									'name' => $screenitem['resourceid']['name']
-								)
-							));
+							$db_screens = API::Screen()->get(array('screenids' => $screenitem['resourceid']));
 							if (empty($db_screens)) {
 								$error = _s('Cannot find screen "%1$s" used in screen "%2$s".',
-										$screenitem['resourceid']['name'], $screen['name']);
+										$nodeCaption.$screenitem['resourceid']['name'], $screen['name']);
 								throw new Exception($error);
 							}
 
@@ -618,28 +593,36 @@ class CXmlImport18 {
 			$images_to_add = array();
 			$images_to_update = array();
 			foreach ($images as $image) {
-				$dbImage = API::Image()->get(array(
-					'output' => array('imageid'),
-					'filter' => array('name' => $image['name']),
-					'limit' => 1
-				));
+				if (API::Image()->exists($image)) {
+					if ((($image['imagetype'] == IMAGE_TYPE_ICON) && !empty($rules['images']['updateExisting']))
+							|| (($image['imagetype'] == IMAGE_TYPE_BACKGROUND) && (!empty($rules['images']['updateExisting'])))
+					) {
+						$imgs = API::Image()->get(array(
+							'output' => array('imageid'),
+							'filter' => array('name' => $image['name'])
+						));
+						$img = reset($imgs);
 
-				if ($dbImage && $rules['images']['updateExisting']) {
-					$dbImage = reset($dbImage);
-					$image['imageid'] = $dbImage['imageid'];
+						$image['imageid'] = $img['imageid'];
 
-					// image will be decoded in class.image.php
-					$image['image'] = $image['encodedImage'];
-					unset($image['encodedImage']);
+						// image will be decoded in class.image.php
+						$image['image'] = $image['encodedImage'];
+						unset($image['encodedImage']);
 
-					$images_to_update[] = $image;
+						$images_to_update[] = $image;
+					}
 				}
-				elseif (!$dbImage && $rules['images']['createMissing']) {
-					// No need to decode_base64
-					$image['image'] = $image['encodedImage'];
+				else {
+					if ((($image['imagetype'] == IMAGE_TYPE_ICON) && !empty($rules['images']['createMissing']))
+							|| (($image['imagetype'] == IMAGE_TYPE_BACKGROUND) && !empty($rules['images']['createMissing']))
+					) {
 
-					unset($image['encodedImage']);
-					$images_to_add[] = $image;
+						// No need to decode_base64
+						$image['image'] = $image['encodedImage'];
+
+						unset($image['encodedImage']);
+						$images_to_add[] = $image;
+					}
 				}
 			}
 
@@ -665,18 +648,13 @@ class CXmlImport18 {
 		$importMaps = $importMaps['zabbix_export']['sysmaps'];
 		foreach ($importMaps as $mnum => &$sysmap) {
 			unset($sysmap['sysmapid']);
+			$exists = API::Map()->exists(array('name' => $sysmap['name']));
 
 			if (!isset($sysmap['label_format'])) {
 				$sysmap['label_format'] = SYSMAP_LABEL_ADVANCED_OFF;
 			}
 
-			$mapExists = API::Map()->get(array(
-				'output' => array('sysmapid'),
-				'filter' => array('name' => $sysmap['name']),
-				'nopermissions' => true,
-				'limit' => 1
-			));
-			if ($mapExists && $rules['maps']['updateExisting']) {
+			if ($exists && !empty($rules['maps']['updateExisting'])) {
 				$db_maps = API::Map()->getObjects(array('name' => $sysmap['name']));
 				if (empty($db_maps)) {
 					throw new Exception(_s('No permissions for map "%1$s".', $sysmap['name']));
@@ -685,10 +663,10 @@ class CXmlImport18 {
 				$db_map = reset($db_maps);
 				$sysmap['sysmapid'] = $db_map['sysmapid'];
 			}
-			elseif ($mapExists || !$rules['maps']['createMissing']) {
+			else if ($exists || empty($rules['maps']['createMissing'])) {
 				info(_s('Map "%1$s" skipped - user rule.', $sysmap['name']));
 				unset($importMaps[$mnum]);
-				continue;
+				continue; // break if not update updateExisting
 			}
 
 			if (isset($sysmap['backgroundid'])) {
@@ -722,6 +700,8 @@ class CXmlImport18 {
 			}
 
 			foreach ($sysmap['selements'] as &$selement) {
+				$nodeCaption = isset($selement['elementid']['node']) ? $selement['elementid']['node'].':' : '';
+
 				if (!isset($selement['elementid'])) {
 					$selement['elementid'] = 0;
 				}
@@ -730,7 +710,7 @@ class CXmlImport18 {
 						$db_sysmaps = API::Map()->getObjects($selement['elementid']);
 						if (empty($db_sysmaps)) {
 							$error = _s('Cannot find map "%1$s" used in exported map "%2$s".',
-									$selement['elementid']['name'], $sysmap['name']);
+									$nodeCaption.$selement['elementid']['name'], $sysmap['name']);
 							throw new Exception($error);
 						}
 
@@ -741,7 +721,7 @@ class CXmlImport18 {
 						$db_hostgroups = API::HostGroup()->getObjects($selement['elementid']);
 						if (empty($db_hostgroups)) {
 							$error = _s('Cannot find group "%1$s" used in map "%2$s".',
-									$selement['elementid']['name'], $sysmap['name']);
+									$nodeCaption.$selement['elementid']['name'], $sysmap['name']);
 							throw new Exception($error);
 						}
 
@@ -752,7 +732,7 @@ class CXmlImport18 {
 						$db_hosts = API::Host()->getObjects($selement['elementid']);
 						if (empty($db_hosts)) {
 							$error = _s('Cannot find host "%1$s" used in map "%2$s".',
-									$selement['elementid']['host'], $sysmap['name']);
+									$nodeCaption.$selement['elementid']['host'], $sysmap['name']);
 							throw new Exception($error);
 						}
 
@@ -763,7 +743,7 @@ class CXmlImport18 {
 						$db_triggers = API::Trigger()->getObjects($selement['elementid']);
 						if (empty($db_triggers)) {
 							$error = _s('Cannot find trigger "%1$s" used in map "%2$s".',
-									$selement['elementid']['host'].':'.$selement['elementid']['description'], $sysmap['name']);
+									$nodeCaption.$selement['elementid']['host'].':'.$selement['elementid']['description'], $sysmap['name']);
 							throw new Exception($error);
 						}
 
@@ -804,8 +784,9 @@ class CXmlImport18 {
 				foreach ($link['linktriggers'] as &$linktrigger) {
 					$db_triggers = API::Trigger()->getObjects($linktrigger['triggerid']);
 					if (empty($db_triggers)) {
+						$nodeCaption = isset($linktrigger['triggerid']['node']) ? $linktrigger['triggerid']['node'].':' : '';
 						$error = _s('Cannot find trigger "%1$s" used in map "%2$s".',
-								$linktrigger['triggerid']['host'].':'.$linktrigger['triggerid']['description'], $sysmap['name']);
+								$nodeCaption.$linktrigger['triggerid']['host'].':'.$linktrigger['triggerid']['description'], $sysmap['name']);
 						throw new Exception($error);
 					}
 
@@ -844,10 +825,6 @@ class CXmlImport18 {
 	}
 
 	public static function parseMain($rules) {
-		$triggerExpressionConverter = new C24TriggerConverter(
-			new CFunctionMacroParser(),
-			new CMacroParser('#')
-		);
 		$triggersForDependencies = array();
 
 		if (!empty($rules['hosts']['updateExisting'])
@@ -865,23 +842,10 @@ class CXmlImport18 {
 				if (!isset($host_db['status'])) {
 					$host_db['status'] = HOST_STATUS_TEMPLATE;
 				}
+				$current_host = ($host_db['status'] == HOST_STATUS_TEMPLATE)
+						? API::Template()->exists($host_db)
+						: API::Host()->exists($host_db);
 
-				if ($host_db['status'] == HOST_STATUS_TEMPLATE) {
-					$current_host = API::Template()->get(array(
-						'output' => array('templateid'),
-						'filter' => array('host' => $host_db['host']),
-						'nopermissions' => true,
-						'limit' => 1
-					));
-				}
-				else {
-					$current_host = API::Host()->get(array(
-						'output' => array('hostid'),
-						'filter' => array('host' => $host_db['host']),
-						'nopermissions' => true,
-						'limit' => 1
-					));
-				}
 
 				if (!$current_host
 						&& (($host_db['status'] == HOST_STATUS_TEMPLATE && empty($rules['templates']['createMissing']))
@@ -910,11 +874,10 @@ class CXmlImport18 {
 				 * @todo when new XML format will be introduced, this check should be changed to XML version check
 				 */
 				$old_version_input = $host_db['status'] != HOST_STATUS_TEMPLATE;
-
-				$interfaces = array();
-
-				// rearranging host structure, so it would look more like 2.0 host
 				if ($old_version_input) {
+					// rearranging host structure, so it would look more like 2.0 host
+					$interfaces = array();
+
 					// the main interface is always "agent" type
 					if (!is_null($host_db['ip'])) {
 						$interfaces[] = array(
@@ -939,7 +902,7 @@ class CXmlImport18 {
 						) {
 
 							$interfaces[] = array(
-								'main' => $snmp_interface_ports_created ? INTERFACE_SECONDARY : INTERFACE_PRIMARY,
+								'main' => INTERFACE_PRIMARY,
 								'type' => INTERFACE_TYPE_SNMP,
 								'useip' => $host_db['useip'],
 								'ip' => $host_db['ip'],
@@ -969,9 +932,9 @@ class CXmlImport18 {
 							$interfaces[] = array(
 								'main' => INTERFACE_PRIMARY,
 								'type' => INTERFACE_TYPE_IPMI,
-								'useip' => INTERFACE_USE_IP,
-								'ip' => $ipmi_ip,
-								'dns' => '',
+								'useip' => INTERFACE_USE_DNS,
+								'ip' => '',
+								'dns' => $ipmi_ip,
 								'port' => $host_db['ipmi_port']
 							);
 
@@ -1002,60 +965,36 @@ class CXmlImport18 {
 						$current_host = reset($current_host);
 					}
 
+
 					// checking if host already exists - then some of the interfaces may not need to be created
 					if ($host_db['status'] != HOST_STATUS_TEMPLATE) {
-						$currentMainInterfaces = array();
-						$currentInterfacesByType = array();
-
-						// group existing main interfaces by interface type into $currentMainInterfaces
-						// and group interfaces by type into $currentInterfacesByType
-						foreach ($current_host['interfaces'] as $currentInterface) {
-							if ($currentInterface['main'] == INTERFACE_PRIMARY) {
-								$currentMainInterfaces[$currentInterface['type']] = $currentInterface;
-							}
-
-							$currentInterfacesByType[$currentInterface['type']][] = $currentInterface;
-						}
-
-						// loop through all interfaces we got from XML
-						foreach ($interfaces as &$interfaceXml) {
-							$interfaceXmlType = $interfaceXml['type'];
-
-							// if this is the primary interface of some type and we have default interface of same type
-							// in current (target) host, re-use "interfaceid" of the matching default interface
-							// in current host
-							if ($interfaceXml['main'] == INTERFACE_PRIMARY
-									&& isset($currentMainInterfaces[$interfaceXmlType])) {
-								$interfaceXml['interfaceid'] = $currentMainInterfaces[$interfaceXmlType]['interfaceid'];
-							}
-							else {
-								// otherwise, loop through all current (target) host interfaces with type of current
-								// imported interface and re-use "interfaceid" in case if all interface parameters match
-								if (isset($currentInterfacesByType[$interfaceXmlType])) {
-									foreach ($currentInterfacesByType[$interfaceXmlType] as $currentInterface) {
-										if ($currentInterface['ip'] == $interfaceXml['ip']
-												&& $currentInterface['dns'] == $interfaceXml['dns']
-												&& $currentInterface['port'] == $interfaceXml['port']
-												&& $currentInterface['useip'] == $interfaceXml['useip']) {
-											$interfaceXml['interfaceid'] = $currentInterface['interfaceid'];
-											break;
-										}
-									}
+						// for every interface we got based on XML
+						foreach ($interfaces as $i => $interface_db) {
+							// checking every interface of current host
+							foreach ($current_host['interfaces'] as $interface) {
+								// if all parameters of interface are identical
+								if (
+									$interface['type'] == $interface_db['type']
+									&& $interface['ip'] == $interface_db['ip']
+									&& $interface['dns'] == $interface_db['dns']
+									&& $interface['port'] == $interface_db['port']
+									&& $interface['useip'] == $interface_db['useip']
+								) {
+									// this interface is the same as existing one!
+									$interfaces[$i]['interfaceid'] = $interface['interfaceid'];
+									break;
 								}
 							}
 						}
-						unset($interfaceXml);
 
-						$host_db['interfaces'] = $interfaces;
 					}
-					$interfaces_created_with_host = true;
-				}
-				elseif ($host_db['status'] != HOST_STATUS_TEMPLATE) {
-					$host_db['interfaces'] = $interfaces;
-					$interfaces_created_with_host = true;
+					$interfaces_created_with_host = false;
 				}
 				else {
-					$interfaces_created_with_host = false;
+					if ($host_db['status'] != HOST_STATUS_TEMPLATE) {
+						$host_db['interfaces'] = $interfaces;
+						$interfaces_created_with_host = true;
+					}
 				}
 
 // HOST GROUPS {{{
@@ -1071,32 +1010,34 @@ class CXmlImport18 {
 				}
 
 				foreach ($groups_to_parse as $group) {
-					$hostGroup = API::HostGroup()->get(array(
-						'output' => API_OUTPUT_EXTEND,
-						'filter' => $group,
-						'editable' => true,
-						'limit' => 1
-					));
+					$current_group = API::HostGroup()->exists($group);
 
-					if ($hostGroup) {
-						$host_db['groups'][] = reset($hostGroup);
+					if ($current_group) {
+						$options = array(
+							'filter' => $group,
+							'output' => API_OUTPUT_EXTEND,
+							'editable' => 1
+						);
+						$current_group = API::HostGroup()->get($options);
+						if (empty($current_group)) {
+							throw new Exception(_s('No permissions for group "%1$s".', $group['name']));
+						}
+
+						$host_db['groups'][] = reset($current_group);
 					}
 					else {
-						if ($rules['groups']['createMissing']) {
-							$result = API::HostGroup()->create($group);
-							if ($result) {
-								$newHostGroup = API::HostGroup()->get(array(
-									'output' => API_OUTPUT_EXTEND,
-									'groupids' => $result['groupids'],
-									'limit' => 1
-								));
+						$result = API::HostGroup()->create($group);
+						if (!$result) {
+							throw new Exception();
+						}
 
-								$host_db['groups'][] = reset($newHostGroup);
-							}
-						}
-						else {
-							throw new Exception(_s('No permissions for host group "%1$s".', $group['name']));
-						}
+						$options = array(
+							'groupids' => $result['groupids'],
+							'output' => API_OUTPUT_EXTEND
+						);
+						$new_group = API::HostGroup()->get($options);
+
+						$host_db['groups'][] = reset($new_group);
 					}
 				}
 // }}} HOST GROUPS
@@ -1145,10 +1086,7 @@ class CXmlImport18 {
 
 // HOSTS
 				if (isset($host_db['proxy_hostid'])) {
-					$proxy_exists = API::Proxy()->get(array(
-						'output' => array('proxyid'),
-						'proxyids' => $host_db['proxy_hostid']
-					));
+					$proxy_exists = API::Proxy()->get(array('proxyids' => $host_db['proxy_hostid']));
 					if (empty($proxy_exists)) {
 						$host_db['proxy_hostid'] = 0;
 					}
@@ -1188,50 +1126,6 @@ class CXmlImport18 {
 				}
 				$current_hostname = $host_db['host'];
 
-				if ($old_version_input) {
-					if (!$interfaces_created_with_host) {
-						// if host had another interfaces, we are not touching them: they remain as is
-						foreach ($interfaces as $i => $interface) {
-							// interface was not already created
-							if (!isset($interface['interfaceid'])) {
-								// creating interface
-								$interface['hostid'] = $current_hostid;
-								$ids = API::HostInterface()->create($interface);
-								if ($ids === false) {
-									throw new Exception();
-								}
-								$interfaces[$i]['interfaceid'] = reset($ids['interfaceids']);
-							}
-						}
-					}
-					else {
-						$options = array(
-							'hostids' => $current_hostid,
-							'output' => API_OUTPUT_EXTEND
-						);
-						$interfaces = API::HostInterface()->get($options);
-					}
-
-					// we must know interface ids to assign them to items
-					$agent_interface_id = null;
-					$ipmi_interface_id = null;
-					$snmp_interfaces = array(); // hash 'port' => 'iterfaceid'
-
-					foreach ($interfaces as $interface) {
-						switch ($interface['type']) {
-							case INTERFACE_TYPE_AGENT:
-								$agent_interface_id = $interface['interfaceid'];
-								break;
-							case INTERFACE_TYPE_IPMI:
-								$ipmi_interface_id = $interface['interfaceid'];
-								break;
-							case INTERFACE_TYPE_SNMP:
-								$snmp_interfaces[$interface['port']] = $interface['interfaceid'];
-								break;
-						}
-					}
-				}
-
 // TEMPLATES {{{
 				if (!empty($rules['templateLinkage']['createMissing'])) {
 					$templates = $xpath->query('templates/template', $host);
@@ -1270,6 +1164,51 @@ class CXmlImport18 {
 					$items = $xpath->query('items/item', $host);
 
 					// if this is an export from 1.8, we need to make some adjustments to items
+					if ($old_version_input) {
+						if (!$interfaces_created_with_host) {
+							// if host had another interfaces, we are not touching them: they remain as is
+							foreach ($interfaces as $i => $interface) {
+								// interface was not already created
+								if (!isset($interface['interfaceid'])) {
+									// creating interface
+									$interface['hostid'] = $current_hostid;
+									$ids = API::HostInterface()->create($interface);
+									if ($ids === false) {
+										throw new Exception();
+									}
+									$interfaces[$i]['interfaceid'] = reset($ids['interfaceids']);
+								}
+							}
+						}
+						else {
+							$options = array(
+								'hostids' => $current_hostid,
+								'output' => API_OUTPUT_EXTEND
+							);
+							$interfaces = API::HostInterface()->get($options);
+						}
+
+
+						// we must know interface ids to assign them to items
+						$agent_interface_id = null;
+						$ipmi_interface_id = null;
+						$snmp_interfaces = array(); // hash 'port' => 'iterfaceid'
+
+						foreach ($interfaces as $interface) {
+							switch ($interface['type']) {
+								case INTERFACE_TYPE_AGENT:
+									$agent_interface_id = $interface['interfaceid'];
+									break;
+								case INTERFACE_TYPE_IPMI:
+									$ipmi_interface_id = $interface['interfaceid'];
+									break;
+								case INTERFACE_TYPE_SNMP:
+									$snmp_interfaces[$interface['port']] = $interface['interfaceid'];
+									break;
+							}
+						}
+					}
+
 					foreach ($items as $item) {
 						$item_db = self::mapXML2arr($item, XML_TAG_ITEM);
 						$item_db['hostid'] = $current_hostid;
@@ -1437,8 +1376,8 @@ class CXmlImport18 {
 				if (!empty($rules['triggers']['updateExisting']) || !empty($rules['triggers']['createMissing'])) {
 					$triggers = $xpath->query('triggers/trigger', $host);
 
-					$triggersToCreate = array();
-					$triggersToUpdate = array();
+					$triggers_to_add = array();
+					$triggers_to_upd = array();
 
 					foreach ($triggers as $trigger) {
 						$trigger_db = self::mapXML2arr($trigger, XML_TAG_TRIGGER);
@@ -1462,78 +1401,75 @@ class CXmlImport18 {
 						$trigger_db['expression'] = str_replace('{{HOST.HOST}:', '{'.$host_db['host'].':', $trigger_db['expression']);
 						$trigger_db['hostid'] = $current_hostid;
 
-						$trigger_db['expression'] = $triggerExpressionConverter->convert($trigger_db['expression']);
-
-						$currentTrigger = API::Trigger()->get(array(
-							'output' => array('triggerid'),
-							'filter' => array('description' => $trigger_db['description']),
-							'hostids' => array($current_hostid),
-							'nopermissions' => true,
-							'limit' => 1,
-						));
-						if ($currentTrigger) {
-							$dbTriggers = API::Trigger()->get(array(
+						if ($current_trigger = API::Trigger()->exists($trigger_db)) {
+							$ctriggers = API::Trigger()->get(array(
+								'filter' => array(
+									'description' => $trigger_db['description']
+								),
+								'hostids' => $current_hostid,
 								'output' => API_OUTPUT_EXTEND,
-								'filter' => array('description' => $trigger_db['description']),
-								'hostids' => array($current_hostid),
-								'editable' => true
+								'editable' => 1
 							));
 
-							foreach ($dbTriggers as $dbTrigger) {
-								$expression = explode_exp($dbTrigger['expression']);
-
-								if (strcmp($trigger_db['expression'], $expression) == 0) {
-									$currentTrigger = $dbTrigger;
+							$current_trigger = false;
+							foreach ($ctriggers as $ct) {
+								$tmp_exp = explode_exp($ct['expression']);
+								if (strcmp($trigger_db['expression'], $tmp_exp) == 0) {
+									$current_trigger = $ct;
 									break;
 								}
-
-								if (!$currentTrigger) {
-									throw new Exception(_s('No permission for trigger "%1$s".',
-										$trigger_db['description']
-									));
-								}
+							}
+							if (!$current_trigger) {
+								throw new Exception(_s('No permission for trigger "%s".', $trigger_db['description']));
 							}
 						}
 						unset($trigger_db['hostid']);
 
-						if (!$currentTrigger && !$rules['triggers']['createMissing']) {
+
+						if (!$current_trigger && empty($rules['triggers']['createMissing'])) {
 							info(_s('Trigger "%1$s" skipped - user rule.', $trigger_db['description']));
-							continue;
+							continue; // break if not update updateExisting
 						}
-						if ($currentTrigger && !$rules['triggers']['updateExisting']) {
+						if ($current_trigger && empty($rules['triggers']['updateExisting'])) {
 							info(_s('Trigger "%1$s" skipped - user rule.', $trigger_db['description']));
-							continue;
+							continue; // break if not update updateExisting
 						}
 
-						if (!$currentTrigger && $rules['triggers']['createMissing']) {
-							$triggersToCreate[] = $trigger_db;
+						if ($current_trigger && !empty($rules['triggers']['updateExisting'])) {
+							$trigger_db['triggerid'] = $current_trigger['triggerid'];
+							$triggers_to_upd[] = $trigger_db;
 						}
-						if ($currentTrigger && $rules['triggers']['updateExisting']) {
-							$trigger_db['triggerid'] = $currentTrigger['triggerid'];
-							$triggersToUpdate[] = $trigger_db;
+						if (!$current_trigger && !empty($rules['triggers']['createMissing'])) {
+							$triggers_to_add[] = $trigger_db;
 						}
 					}
 
-					if ($triggersToUpdate) {
-						$result = API::Trigger()->update($triggersToUpdate);
+					if (!empty($triggers_to_upd)) {
+						$result = API::Trigger()->update($triggers_to_upd);
+						if (!$result) {
+							throw new Exception();
+						}
 
-						$triggersUpdated = API::Trigger()->get(array(
-							'output' => API_OUTPUT_EXTEND,
-							'triggerids' => $result['triggerids']
-						));
+						$options = array(
+							'triggerids' => $result['triggerids'],
+							'output' => API_OUTPUT_EXTEND
+						);
+						$r = API::Trigger()->get($options);
 
-						$triggersForDependencies = array_merge($triggersForDependencies, $triggersUpdated);
+						$triggersForDependencies = array_merge($triggersForDependencies, $r);
 					}
+					if (!empty($triggers_to_add)) {
+						$result = API::Trigger()->create($triggers_to_add);
+						if (!$result) {
+							throw new Exception();
+						}
 
-					if ($triggersToCreate) {
-						$result = API::Trigger()->create($triggersToCreate);
-
-						$triggersCreated = API::Trigger()->get(array(
-							'output' => API_OUTPUT_EXTEND,
-							'triggerids' => $result['triggerids']
-						));
-
-						$triggersForDependencies = array_merge($triggersForDependencies, $triggersCreated);
+						$options = array(
+							'triggerids' => $result['triggerids'],
+							'output' => API_OUTPUT_EXTEND
+						);
+						$r = API::Trigger()->get($options);
+						$triggersForDependencies = array_merge($triggersForDependencies, $r);
 					}
 				}
 // }}} TRIGGERS
@@ -1564,14 +1500,7 @@ class CXmlImport18 {
 							}
 							$gitem_db['key_'] = implode(':', $data);
 
-							$itemExists = API::Item()->get(array(
-								'output' => array('itemid'),
-								'filter' => array('key_' => $gitem_db['key_']),
-								'webitems' => true,
-								'nopermissions' => true,
-								'limit' => 1
-							));
-							if ($itemExists) {
+							if ($current_item = API::Item()->exists($gitem_db)) {
 								$current_item = API::Item()->get(array(
 									'filter' => array('key_' => $gitem_db['key_']),
 									'webitems' => true,
@@ -1605,19 +1534,14 @@ class CXmlImport18 {
 							$graph_db['show_legend'] = 1;
 						}
 
-						$current_graph = API::Graph()->get(array(
-							'output' => array('graphid'),
-							'filter' => array('name' => $graph_db['name']),
-							'nopermissions' => true,
-							'limit' => 1
-						));
+						$current_graph = API::Graph()->exists($graph_db);
 
 						if ($current_graph) {
 							$current_graph = API::Graph()->get(array(
-								'output' => API_OUTPUT_EXTEND,
-								'hostids' => $graph_db['hostids'],
 								'filter' => array('name' => $graph_db['name']),
-								'editable' => true
+								'hostids' => $graph_db['hostids'],
+								'output' => API_OUTPUT_EXTEND,
+								'editable' => 1
 							));
 
 							if (empty($current_graph)) {
@@ -1693,6 +1617,100 @@ class CXmlImport18 {
 						}
 					}
 				}
+
+// SCREENS
+				if (!empty($rules['screens']['updateExisting']) || !empty($rules['screens']['createMissing'])) {
+					$screens_node = $xpath->query('screens', $host);
+
+					if ($screens_node->length > 0) {
+						$importScreens = self::XMLtoArray($screens_node->item(0));
+
+						foreach ($importScreens as $screen) {
+
+							$current_screen = API::TemplateScreen()->get(array(
+								'filter' => array('name' => $screen['name']),
+								'templateids' => $current_hostid,
+								'output' => API_OUTPUT_EXTEND,
+								'editable' => 1,
+							));
+							$current_screen = reset($current_screen);
+
+							if (!$current_screen && empty($rules['screens']['createMissing'])) {
+								info(_s('Screen "%1$s" skipped - user rule.', $screen['name']));
+								continue;
+							}
+							if ($current_screen && empty($rules['screens']['updateExisting'])) {
+								info(_s('Screen "%1$s" skipped - user rule.', $screen['name']));
+								continue;
+							}
+
+							if (isset($screen['screenitems'])) {
+								foreach ($screen['screenitems'] as &$screenitem) {
+									$nodeCaption = isset($screenitem['resourceid']['node'])
+											? $screenitem['resourceid']['node'].':' : '';
+
+									if (!isset($screenitem['resourceid'])) {
+										$screenitem['resourceid'] = 0;
+									}
+
+									if (is_array($screenitem['resourceid'])) {
+										switch ($screenitem['resourcetype']) {
+											case SCREEN_RESOURCE_GRAPH:
+												$db_graphs = API::Graph()->getObjects($screenitem['resourceid']);
+
+												if (empty($db_graphs)) {
+													$error = _s('Cannot find graph "%1$s" used in screen "%2$s".',
+															$nodeCaption.$screenitem['resourceid']['host'].':'.$screenitem['resourceid']['name'], $screen['name']);
+													throw new Exception($error);
+												}
+
+												$tmp = reset($db_graphs);
+												$screenitem['resourceid'] = $tmp['graphid'];
+												break;
+											case SCREEN_RESOURCE_SIMPLE_GRAPH:
+											case SCREEN_RESOURCE_PLAIN_TEXT:
+												$db_items = API::Item()->getObjects($screenitem['resourceid']);
+
+												if (empty($db_items)) {
+													$error = _s('Cannot find item "%1$s" used in screen "%2$s".',
+															$nodeCaption.$screenitem['resourceid']['host'].':'.$screenitem['resourceid']['key_'], $screen['name']);
+													throw new Exception($error);
+												}
+
+												$tmp = reset($db_items);
+												$screenitem['resourceid'] = $tmp['itemid'];
+												break;
+											default:
+												$screenitem['resourceid'] = 0;
+												break;
+										}
+									}
+								}
+							}
+
+							$screen['templateid'] = $current_hostid;
+							if ($current_screen) {
+								$screen['screenid'] = $current_screen['screenid'];
+
+								$result = API::TemplateScreen()->update($screen);
+								if (!$result) {
+									throw new Exception(_('Cannot update screen.'));
+								}
+
+								info('['.$current_hostname.'] '._s('Screen "%1$s" updated.', $screen['name']));
+							}
+							else {
+								$result = API::TemplateScreen()->create($screen);
+								if (!$result) {
+									throw new Exception(_('Cannot create screen.'));
+								}
+
+								info('['.$current_hostname.'] '._s('Screen "%1$s" added.', $screen['name']));
+							}
+						}
+					}
+				}
+
 			}
 
 // DEPENDENCIES

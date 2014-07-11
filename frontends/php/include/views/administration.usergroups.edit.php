@@ -26,6 +26,7 @@ $userGroupWidget->addPageHeader(_('CONFIGURATION OF USER GROUPS'));
 $userGroupForm = new CForm();
 $userGroupForm->setName('userGroupsForm');
 $userGroupForm->addVar('form', $this->data['form']);
+$userGroupForm->addVar('form_refresh', $this->data['form_refresh'] + 1);
 $userGroupForm->addVar('group_rights', $this->data['group_rights']);
 if (isset($_REQUEST['usrgrpid'])) {
 	$userGroupForm->addVar('usrgrpid', $this->data['usrgrpid']);

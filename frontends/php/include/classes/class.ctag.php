@@ -206,17 +206,7 @@ class CTag extends CObject {
 		$this->attributes[$name] = $value;
 	}
 
-	/**
-	 * Adds a hint box to the elemt.
-	 *
-	 * @param string|array|CTag     $text       hint content
-	 * @param string                $spanClass  wrap the content in a span element and assign a this class to the span
-	 * @param bool                  $byClick    if set to true, it will be possible to "freeze" the hint box via a mouse
-	 *                                          click
-	 *
-	 * @return bool
-	 */
-	public function setHint($text, $spanClass = '', $byClick = true) {
+	public function setHint($text, $width = '', $class = '', $byClick = true, $encode = true) {
 		if (empty($text)) {
 			return false;
 		}
@@ -224,9 +214,9 @@ class CTag extends CObject {
 		encodeValues($text);
 		$text = unpack_object($text);
 
-		$this->addAction('onmouseover', 'hintBox.HintWraper(event, this, '.zbx_jsvalue($text).', "'.$spanClass.'");');
+		$this->addAction('onmouseover', 'hintBox.HintWraper(event, this, '.zbx_jsvalue($text).', "'.$width.'", "'.$class.'");');
 		if ($byClick) {
-			$this->addAction('onclick', 'hintBox.showStaticHint(event, this, '.zbx_jsvalue($text).', "'.$spanClass.'");');
+			$this->addAction('onclick', 'hintBox.showStaticHint(event, this, '.zbx_jsvalue($text).', "'.$width.'", "'.$class.'");');
 		}
 
 		return true;

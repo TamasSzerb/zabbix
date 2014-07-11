@@ -22,7 +22,7 @@
 $hostInventoryWidget = new CWidget();
 
 $rForm = new CForm('get');
-$rForm->addItem(array(_('Group'), SPACE, $this->data['pageFilter']->getGroupsCB()));
+$rForm->addItem(array(_('Group'), SPACE, $this->data['pageFilter']->getGroupsCB(true)));
 $hostInventoryWidget->addPageHeader(_('HOST INVENTORY'), SPACE);
 $hostInventoryWidget->addHeader(_('Hosts'), $rForm);
 
@@ -49,10 +49,12 @@ $filterTable->addRow(array(
 	),
 ), 'host-inventories');
 
-$filter = new CSubmit('filter_set', _('Filter'));
+$filter = new CButton('filter', _('Filter'),
+	"javascript: create_var('zbx_filter', 'filter_set', '1', true); chkbxRange.clearSelectedOnFilterChange();"
+);
 $filter->useJQueryStyle('main');
 
-$reset = new CSubmit('filter_rst', _('Reset'));
+$reset = new CButton('reset', _('Reset'), "javascript: clearAllForm('zbx_filter');");
 $reset->useJQueryStyle();
 
 $divButtons = new CDiv(array($filter, SPACE, $reset));
@@ -71,6 +73,7 @@ $hostInventoryWidget->addHeaderRowNumber();
 
 $table = new CTableInfo(_('No hosts found.'));
 $table->setHeader(array(
+	is_show_all_nodes() ? make_sorting_header(_('Node'), 'hostid') : null,
 	make_sorting_header(_('Host'), 'name'),
 	_('Group'),
 	make_sorting_header(_('Name'), 'pr_name'),
@@ -90,6 +93,7 @@ foreach ($this->data['hosts'] as $host) {
 	$hostGroups = implode(', ', $hostGroups);
 
 	$row = array(
+		get_node_name_by_elid($host['hostid']),
 		new CLink(
 			$host['name'],
 			'?hostid='.$host['hostid'].url_param('groupid'),

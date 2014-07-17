@@ -30,9 +30,6 @@
 #	define LOCK_CPUSTATS	zbx_mutex_lock(&cpustats_lock)
 #	define UNLOCK_CPUSTATS	zbx_mutex_unlock(&cpustats_lock)
 static ZBX_MUTEX	cpustats_lock;
-#else
-#	define LOCK_CPUSTATS
-#	define UNLOCK_CPUSTATS
 #endif
 
 #ifdef HAVE_KSTAT_H
@@ -117,7 +114,7 @@ int	init_cpu_collector(ZBX_CPUS_STAT_DATA *pcpus)
 	const char			*__function_name = "init_cpu_collector";
 	int				cpu_num, ret = FAIL;
 #ifdef _WINDOWS
-	wchar_t				cpu[8];
+	TCHAR				cpu[8];
 	char				counterPath[PDH_MAX_COUNTER_PATH];
 	PDH_COUNTER_PATH_ELEMENTS	cpe;
 #endif
@@ -134,9 +131,9 @@ int	init_cpu_collector(ZBX_CPUS_STAT_DATA *pcpus)
 	for (cpu_num = 0; cpu_num <= pcpus->count; cpu_num++)
 	{
 		if (0 == cpu_num)
-			StringCchPrintf(cpu, ARRSIZE(cpu), TEXT("_Total"));
+			zbx_wsnprintf(cpu, sizeof(cpu) / sizeof(TCHAR), TEXT("_Total"));
 		else
-			_itow_s(cpu_num - 1, cpu, ARRSIZE(cpu), 10);
+			_itow_s(cpu_num - 1, cpu, sizeof(cpu) / sizeof(TCHAR), 10);
 
 		if (ERROR_SUCCESS != zbx_PdhMakeCounterPath(__function_name, &cpe, counterPath))
 			goto clean;
@@ -433,8 +430,7 @@ static void	update_cpustats(ZBX_CPUS_STAT_DATA *pcpus)
 			counter[ZBX_CPU_STATE_USER] = (zbx_uint64_t)*(cp_times + (cpu_num - 1) * CPUSTATES + CP_USER);
 			counter[ZBX_CPU_STATE_NICE] = (zbx_uint64_t)*(cp_times + (cpu_num - 1) * CPUSTATES + CP_NICE);
 			counter[ZBX_CPU_STATE_SYSTEM] = (zbx_uint64_t)*(cp_times + (cpu_num - 1) * CPUSTATES + CP_SYS);
-			counter[ZBX_CPU_STATE_INTERRUPT] = (zbx_uint64_t)*(cp_times + (cpu_num - 1) * CPUSTATES +
-					CP_INTR);
+			counter[ZBX_CPU_STATE_INTERRUPT] = (zbx_uint64_t)*(cp_times + (cpu_num - 1) * CPUSTATES + CP_INTR);
 			counter[ZBX_CPU_STATE_IDLE] = (zbx_uint64_t)*(cp_times + (cpu_num - 1) * CPUSTATES + CP_IDLE);
 
 			update_cpu_counters(&pcpus->cpu[cpu_num], counter);
@@ -636,15 +632,12 @@ int	get_cpustat(AGENT_RESULT *result, int cpu_num, int state, int mode)
 
 	if (!CPU_COLLECTOR_STARTED(collector))
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Collector is not started."));
+		SET_MSG_RESULT(result, strdup("Collector is not started!"));
 		return SYSINFO_RET_FAIL;
 	}
 
 	if (NULL == (cpu = get_cpustat_by_num(&collector->cpus, cpu_num)))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain CPU information."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	if (0 == cpu->h_count)
 	{
@@ -660,7 +653,6 @@ int	get_cpustat(AGENT_RESULT *result, int cpu_num, int state, int mode)
 	if (SYSINFO_RET_FAIL == cpu->h_status[idx_curr])
 	{
 		UNLOCK_CPUSTATS;
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain CPU information."));
 		return SYSINFO_RET_FAIL;
 	}
 
@@ -690,37 +682,5 @@ int	get_cpustat(AGENT_RESULT *result, int cpu_num, int state, int mode)
 
 	return SYSINFO_RET_OK;
 }
+
 #endif	/* not _WINDOWS */
-
-int	get_cpu_statuses(zbx_vector_uint64_t *vector)
-{
-	int				i;
-#ifndef _WINDOWS
-	int				index;
-	ZBX_SINGLE_CPU_STAT_DATA	*cpu;
-#endif
-	ZBX_CPUS_STAT_DATA		*pcpus;
-
-	if (!CPU_COLLECTOR_STARTED(collector) || NULL == (pcpus = &collector->cpus))
-		return FAIL;
-
-	LOCK_CPUSTATS;
-
-	for (i = 0; i < pcpus->count; i++)
-	{
-#ifndef _WINDOWS
-		cpu = get_cpustat_by_num(pcpus, i + 1);
-
-		if (MAX_COLLECTOR_HISTORY <= (index = cpu->h_first + cpu->h_count - 1))
-			index -= MAX_COLLECTOR_HISTORY;
-
-		zbx_vector_uint64_append(vector, cpu->h_status[index]);
-#else
-		zbx_vector_uint64_append(vector, pcpus->cpu_counter[i + 1]->status);
-#endif
-	}
-
-	UNLOCK_CPUSTATS;
-
-	return SUCCEED;
-}

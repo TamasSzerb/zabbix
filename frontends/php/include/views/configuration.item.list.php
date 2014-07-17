@@ -58,6 +58,7 @@ if (!empty($this->data['hostid'])) {
 $itemTable = new CTableInfo(_('No items found.'));
 $itemTable->setHeader(array(
 	new CCheckBox('all_items', null, "checkAll('".$itemForm->getName()."', 'all_items', 'group_itemid');"),
+	$this->data['displayNodes'] ? _('Node') : null,
 	_('Wizard'),
 	empty($this->data['filter_hostid']) ? _('Host') : null,
 	make_sorting_header(_('Name'), 'name'),
@@ -69,7 +70,7 @@ $itemTable->setHeader(array(
 	make_sorting_header(_('Type'), 'type'),
 	_('Applications'),
 	make_sorting_header(_('Status'), 'status'),
-	$data['showInfoColumn'] ? _('Info') : null
+	$data['showErrorColumn'] ? _('Error') : null
 ));
 
 foreach ($this->data['items'] as $item) {
@@ -106,39 +107,31 @@ foreach ($this->data['items'] as $item) {
 		itemIndicatorStyle($item['status'], $item['state'])
 	));
 
-	// info
-	if ($data['showInfoColumn']) {
-		$infoIcons = array();
-
-		if ($item['status'] == ITEM_STATUS_ACTIVE && !zbx_empty($item['error'])) {
-			$info = new CDiv(SPACE, 'status_icon iconerror');
-			$info->setHint($item['error'], 'on');
-
-			$infoIcons[] = $info;
+	if ($data['showErrorColumn']) {
+		$statusIcons = array();
+		if ($item['status'] == ITEM_STATUS_ACTIVE) {
+			if (zbx_empty($item['error'])) {
+				$error = new CDiv(SPACE, 'status_icon iconok');
+			}
+			else {
+				$error = new CDiv(SPACE, 'status_icon iconerror');
+				$error->setHint($item['error'], '', 'on');
+			}
+			$statusIcons[] = $error;
 		}
 
 		// discovered item lifetime indicator
 		if ($item['flags'] == ZBX_FLAG_DISCOVERY_CREATED && $item['itemDiscovery']['ts_delete']) {
 			$deleteError = new CDiv(SPACE, 'status_icon iconwarning');
-			$deleteError->setHint(_s(
-				'The item is not discovered anymore and will be deleted in %1$s (on %2$s at %3$s).',
-				zbx_date2age($item['itemDiscovery']['ts_delete']),
-				zbx_date2str(DATE_FORMAT, $item['itemDiscovery']['ts_delete']),
-				zbx_date2str(TIME_FORMAT, $item['itemDiscovery']['ts_delete'])
+			$deleteError->setHint(
+				_s('The item is not discovered anymore and will be deleted in %1$s (on %2$s at %3$s).',
+					zbx_date2age($item['itemDiscovery']['ts_delete']), zbx_date2str(_('d M Y'), $item['itemDiscovery']['ts_delete']),
+					zbx_date2str(_('H:i:s'), $item['itemDiscovery']['ts_delete'])
 			));
-
-			$infoIcons[] = $deleteError;
-		}
-
-		if (!$infoIcons) {
-			$infoIcons[] = '';
+			$statusIcons[] = $deleteError;
 		}
 	}
-	else {
-		$infoIcons = null;
-	}
 
-	// triggers info
 	$triggerHintTable = new CTableInfo();
 	$triggerHintTable->setHeader(array(
 		_('Severity'),
@@ -147,6 +140,7 @@ foreach ($this->data['items'] as $item) {
 		_('Status')
 	));
 
+	// triggers info
 	foreach ($item['triggers'] as $num => &$trigger) {
 		$trigger = $this->data['itemTriggers'][$trigger['triggerid']];
 		$triggerDescription = array();
@@ -213,7 +207,8 @@ foreach ($this->data['items'] as $item) {
 
 	// if item type is 'Log' we must show log menu
 	if (in_array($item['value_type'], array(ITEM_VALUE_TYPE_LOG, ITEM_VALUE_TYPE_STR, ITEM_VALUE_TYPE_TEXT))) {
-		$triggers = array();
+		$triggersFlag = false;
+		$triggers = 'Array("'._('Edit trigger').'", null, null, {"outer" : "pum_o_submenu", "inner" : ["pum_i_submenu"]}'."\n";
 
 		foreach ($item['triggers'] as $trigger) {
 			foreach ($trigger['functions'] as $function) {
@@ -222,14 +217,31 @@ foreach ($this->data['items'] as $item) {
 				}
 			}
 
-			$triggers[] = array(
-				'id' => $trigger['triggerid'],
-				'name' => $trigger['description']
-			);
+			$triggers .= ', ["'.$trigger['description'].'",'.
+				zbx_jsvalue("javascript: openWinCentered('tr_logform.php?sform=1&itemid=".$item['itemid'].
+					"&triggerid=".$trigger['triggerid'].
+					"','TriggerLog', 760, 540,".
+					"'titlebar=no, resizable=yes, scrollbars=yes');").']';
+			$triggersFlag = true;
 		}
 
-		$menuIcon = new CIcon(_('Menu'), 'iconmenu_b');
-		$menuIcon->setMenuPopup(CMenuPopupHelper::getTriggerLog($item['itemid'], $item['name'], $triggers));
+		if ($triggersFlag) {
+			$triggers = rtrim($triggers, ',').')';
+		}
+		else {
+			$triggers = 'Array()';
+		}
+
+		$menuIcon = new CIcon(
+			_('Menu'),
+			'iconmenu_b',
+			'call_triggerlog_menu('.
+				'event, '.
+				CJs::encodeJson($item['itemid']).', '.
+				CJs::encodeJson(CHtml::encode($item['name'])).', '.
+				$triggers.
+			');'
+		);
 	}
 	else {
 		$menuIcon = SPACE;
@@ -240,6 +252,7 @@ foreach ($this->data['items'] as $item) {
 
 	$itemTable->addRow(array(
 		$checkBox,
+		$this->data['displayNodes'] ? $item['nodename'] : null,
 		$menuIcon,
 		empty($this->data['filter_hostid']) ? $item['host'] : null,
 		$description,
@@ -251,7 +264,7 @@ foreach ($this->data['items'] as $item) {
 		item_type2str($item['type']),
 		new CCol(CHtml::encode($item['applications_list']), 'wraptext'),
 		$status,
-		$infoIcons
+		$data['showErrorColumn'] ? $statusIcons : null
 	));
 }
 

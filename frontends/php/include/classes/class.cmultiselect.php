@@ -32,7 +32,7 @@ class CMultiSelect extends CTag {
 		$this->attr('id', zbx_formatDomId($options['name']));
 
 		// url
-		$url = new CUrl('jsrpc.php');
+		$url = new Curl('jsrpc.php');
 		$url->setArgument('type', PAGE_TYPE_TEXT_RETURN_JSON);
 		$url->setArgument('method', 'multiselect.get');
 		$url->setArgument('objectName', $options['objectName']);
@@ -44,6 +44,7 @@ class CMultiSelect extends CTag {
 		}
 
 		$params = array(
+			'id' => $this->getAttribute('id'),
 			'url' => $url->getUrl(),
 			'name' => $options['name'],
 			'labels' => array(
@@ -67,6 +68,6 @@ class CMultiSelect extends CTag {
 			)
 		);
 
-		zbx_add_post_js('jQuery("#'.$this->getAttribute('id').'").multiSelect('.CJs::encodeJson($params).');');
+		zbx_add_post_js('jQuery("#'.$this->getAttribute('id').'").multiSelect('.CJs::encodeJson($params).')');
 	}
 }

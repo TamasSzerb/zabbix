@@ -43,11 +43,11 @@ if (get_request('groupid') && !API::HostGroup()->isReadable(array($_REQUEST['gro
 	access_deny();
 }
 
-validate_sort_and_sortorder('host_count', ZBX_SORT_DOWN, array('inventory_field', 'host_count'));
+validate_sort_and_sortorder('host_count', ZBX_SORT_DOWN);
 
 if ((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 $options = array(
@@ -80,7 +80,7 @@ foreach($inventoryFields as $inventoryField){
 }
 
 $r_form = new CForm('get');
-$r_form->addItem(array(_('Group'), SPACE, $pageFilter->getGroupsCB(), SPACE));
+$r_form->addItem(array(_('Group'), SPACE, $pageFilter->getGroupsCB(true), SPACE));
 $r_form->addItem(array(_('Grouping by'), SPACE, $inventoryFieldsComboBox));
 $hostinvent_wdgt->addHeader(_('Hosts'), $r_form);
 $hostinvent_wdgt->addItem(BR());
@@ -108,18 +108,16 @@ if($pageFilter->groupsSelected && $groupFieldTitle !== ''){
 
 	// aggregating data by chosen field value
 	$report = array();
-	foreach($hosts as $host) {
-		if ($host['inventory'][$_REQUEST['groupby']] !== '') {
-			// same names with different letter casing are considered the same
-			$lowerValue = mb_strtolower($host['inventory'][$_REQUEST['groupby']]);
-
-			if (!isset($report[$lowerValue])) {
+	foreach($hosts as $host){
+		if($host['inventory'][$_REQUEST['groupby']] !== ''){
+			$lowerValue = zbx_strtolower($host['inventory'][$_REQUEST['groupby']]);
+			if(!isset($report[$lowerValue])){
 				$report[$lowerValue] = array(
 					'inventory_field' => $host['inventory'][$_REQUEST['groupby']],
 					'host_count' => 1
 				);
 			}
-			else {
+			else{
 				$report[$lowerValue]['host_count'] += 1;
 			}
 		}
@@ -129,7 +127,7 @@ if($pageFilter->groupsSelected && $groupFieldTitle !== ''){
 
 	foreach($report as $rep){
 		$row = array(
-			new CSpan(zbx_str2links($rep['inventory_field']), 'pre'),
+			new CSpan($rep['inventory_field'], 'pre'),
 			new CLink($rep['host_count'],'hostinventories.php?filter_field='.$_REQUEST['groupby'].'&filter_field_value='.urlencode($rep['inventory_field']).'&filter_set=1&filter_exact=1'.url_param('groupid')),
 		);
 		$table->addRow($row);

@@ -203,9 +203,6 @@
 		}
 	}
 
-	/**
-	 * @see init.js add.popup event
-	 */
 	function addPopupValues(list) {
 		// templates
 		var dcheckRowTpl = new Template(jQuery('#dcheckRowTPL').html()),
@@ -394,9 +391,9 @@
 					var radioObj = jQuery('input[name=' + name + ']');
 
 					if (radioObj.attr('type') == 'radio') {
-						radioObj.prop('checked', false);
+						radioObj.removeAttr('checked');
 
-						jQuery('#' + name + '_' + itemObj.val()).prop('checked', true);
+						jQuery('#' + name + '_' + itemObj.val()).attr('checked', 'checked');
 					}
 				}
 			});
@@ -641,7 +638,7 @@
 	}
 
 	function selectUniquenessCriteriaDefault() {
-		jQuery('#uniqueness_criteria_ip').prop('checked', true);
+		jQuery('#uniqueness_criteria_ip').attr('checked', 'checked');
 	}
 
 	jQuery(document).ready(function() {

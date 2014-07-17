@@ -148,24 +148,20 @@ if (isset($_REQUEST['save']) || isset($_REQUEST['saveandreturn'])) {
 		));
 	}
 
-	DBstart();
-
-	$result = API::Event()->acknowledge(array(
+	$acknowledgeEvent = API::Event()->acknowledge(array(
 		'eventids' => zbx_objectValues($_REQUEST['events'], 'eventid'),
 		'message' => $_REQUEST['message']
 	));
 
-	if ($result) {
+	show_messages($acknowledgeEvent, _('Event acknowledged'), _('Cannot acknowledge event'));
+
+	if ($acknowledgeEvent) {
 		$eventAcknowledged = true;
 
 		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_TRIGGER, _('Acknowledge added').
 			' ['.($bulk ? ' BULK ACKNOWLEDGE ' : $eventTriggerName).']'.
-			' ['.$_REQUEST['message'].']'
-		);
+			' ['.$_REQUEST['message'].']');
 	}
-
-	$result = DBend($result);
-	show_messages($result, _('Event acknowledged'), _('Cannot acknowledge event'));
 
 	if (isset($_REQUEST['saveandreturn'])) {
 		ob_end_clean();
@@ -215,7 +211,7 @@ else {
 		while ($acknowledge = DBfetch($acknowledges)) {
 			$acknowledgesTable->addRow(array(
 				new CCol(getUserFullname($acknowledge), 'user'),
-				new CCol(zbx_date2str(DATE_TIME_FORMAT_SECONDS, $acknowledge['clock']), 'time')),
+				new CCol(zbx_date2str(_('d M Y H:i:s'), $acknowledge['clock']), 'time')),
 				'title'
 			);
 			$acknowledgesTable->addRow(new CCol(zbx_nl2br($acknowledge['message']), null, 2), 'msg');
@@ -237,29 +233,27 @@ else {
 }
 
 $messageTable = new CFormTable($title.' "'.getUserFullname(CWebUser::$data).'"');
-$messageTable->addClass('acknowledge-edit');
+$messageTable->addVar('backurl', $_REQUEST['backurl']);
 
-$backURL = getRequest('backurl');
-$messageTable->addVar('backurl', $backURL);
-
-if ($backURL === 'tr_events.php' || $backURL === 'events.php') {
-	$messageTable->addVar('triggerid', getRequest('triggerid'));
+if (in_array($_REQUEST['backurl'], array('tr_events.php', 'events.php'))) {
+	$messageTable->addVar('eventid', $_REQUEST['eventid']);
+	$messageTable->addVar('triggerid', $_REQUEST['triggerid']);
 	$messageTable->addVar('source', EVENT_SOURCE_TRIGGERS);
 }
-elseif ($backURL === 'screenedit.php' || $backURL === 'screens.php') {
+elseif (in_array($_REQUEST['backurl'], array('screenedit.php', 'screens.php'))) {
 	$messageTable->addVar('screenid', $_REQUEST['screenid']);
 }
 
-if (hasRequest('eventid')) {
-	$messageTable->addVar('eventid', getRequest('eventid'));
+if (isset($_REQUEST['eventid'])) {
+	$messageTable->addVar('eventid', $_REQUEST['eventid']);
 }
-elseif (hasRequest('triggers')) {
-	foreach (getRequest('triggers') as $triggerId) {
+elseif (isset($_REQUEST['triggers'])) {
+	foreach ($_REQUEST['triggers'] as $triggerId) {
 		$messageTable->addVar('triggers['.$triggerId.']', $triggerId);
 	}
 }
-elseif (hasRequest('events')) {
-	foreach (getRequest('events') as $eventId) {
+elseif (isset($_REQUEST['events'])) {
+	foreach ($_REQUEST['events'] as $eventId) {
 		$messageTable->addVar('events['.$eventId.']', $eventId);
 	}
 }
@@ -279,6 +273,6 @@ if (!$bulk) {
 }
 
 $messageTable->addItemToBottomRow(new CButtonCancel(url_params(array('backurl', 'eventid', 'triggerid', 'screenid'))));
-$messageTable->show();
+$messageTable->show(false);
 
 require_once dirname(__FILE__).'/include/page_footer.php';

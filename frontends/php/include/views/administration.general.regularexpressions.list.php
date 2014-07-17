@@ -28,6 +28,7 @@ $regExpForm->addItem(BR());
 $regExpTable = new CTableInfo(_('No regular expressions found.'));
 $regExpTable->setHeader(array(
 	new CCheckBox('all_regexps', null, "checkAll('regularExpressionsForm', 'all_regexps', 'regexpids');"),
+	$this->data['displayNodes'] ? _('Node') : null,
 	_('Name'),
 	_('Expressions')
 ));
@@ -47,15 +48,16 @@ foreach($this->data['db_exps'] as $exp) {
 	}
 
 	$expressions[$exp['regexpid']]->addRow(array(
-		new CCol($values[$exp['regexpid']], 'top'),
-		new CCol(' &raquo; ', 'top'),
-		new CCol($exp['expression'], 'pre-wrap  break-lines'),
-		new CCol(' ['.expression_type2str($exp['expression_type']).']', 'top')
+		$values[$exp['regexpid']],
+		' &raquo; ',
+		$exp['expression'],
+		' ['.expression_type2str($exp['expression_type']).']'
 	));
 }
 foreach($this->data['regexps'] as $regexpid => $regexp) {
 	$regExpTable->addRow(array(
 		new CCheckBox('regexpids['.$regexp['regexpid'].']', null, null, $regexp['regexpid']),
+		$this->data['displayNodes'] ? $regexp['nodename'] : null,
 		new CLink($regexp['name'], 'adm.regexps.php?form=update'.'&regexpid='.$regexp['regexpid']),
 		isset($expressions[$regexpid]) ? $expressions[$regexpid] : '-'
 	));

@@ -35,8 +35,8 @@ $fields = array(
 	'regexpids' =>				array(T_ZBX_INT, O_OPT, P_SYS,		DB_ID,	null),
 	'regexpid' =>				array(T_ZBX_INT, O_OPT, P_SYS,		DB_ID,	'isset({form})&&{form}=="update"'),
 	'name' =>					array(T_ZBX_STR, O_OPT, null,		NOT_EMPTY, 'isset({save})', _('Name')),
-	'test_string' =>			array(T_ZBX_STR, O_OPT, P_NO_TRIM,		null,	'isset({save})', _('Test string')),
-	'expressions' =>			array(T_ZBX_STR, O_OPT, P_NO_TRIM,		null,	'isset({save})'),
+	'test_string' =>			array(T_ZBX_STR, O_OPT, null,		null,	'isset({save})', _('Test string')),
+	'expressions' =>			array(T_ZBX_STR, O_OPT, null,		null,	'isset({save})'),
 	'save' =>					array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'delete' =>					array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'clone' =>					array(T_ZBX_STR, O_OPT, null,		null,	null),
@@ -46,7 +46,7 @@ $fields = array(
 	// ajax
 	'output' =>					array(T_ZBX_STR, O_OPT, P_ACT,		null,	null),
 	'ajaxaction' =>				array(T_ZBX_STR, O_OPT, P_ACT,		null,	null),
-	'ajaxdata' =>				array(T_ZBX_STR, O_OPT, P_ACT|P_NO_TRIM,		null,	null)
+	'ajaxdata' =>				array(T_ZBX_STR, O_OPT, P_ACT,		null,	null)
 );
 check_fields($fields);
 
@@ -60,27 +60,14 @@ if (isset($_REQUEST['output']) && $_REQUEST['output'] == 'ajax') {
 	if (isset($_REQUEST['ajaxaction']) && $_REQUEST['ajaxaction'] == 'test') {
 		$result = array(
 			'expressions' => array(),
-			'errors' => array(),
 			'final' => true
 		);
-
-		$validator = new CRegexValidator(array(
-			'messageType' => _('Regular expression must be a string'),
-			'messageInvalid' => _('Incorrect regular expression "%1$s": "%2$s"')
-		));
+		$testString = $ajaxData['testString'];
 
 		foreach ($ajaxData['expressions'] as $id => $expression) {
-			if (!in_array($expression['expression_type'], array(EXPRESSION_TYPE_FALSE, EXPRESSION_TYPE_TRUE)) ||
-				$validator->validate($expression['expression'])
-			) {
-				$match = GlobalRegExp::matchExpression($expression, $ajaxData['testString']);
+			$match = GlobalRegExp::matchExpression($expression, $testString);
 
-				$result['expressions'][$id] = $match;
-			} else {
-				$match = false;
-				$result['errors'][$id] = $validator->getError();
-			}
-
+			$result['expressions'][$id] = $match;
 			$result['final'] = $result['final'] && $match;
 		}
 
@@ -90,7 +77,7 @@ if (isset($_REQUEST['output']) && $_REQUEST['output'] == 'ajax') {
 	$ajaxResponse->send();
 
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 /*
@@ -136,15 +123,17 @@ elseif (isset($_REQUEST['save'])) {
 		$regExp['regexpid'] = $_REQUEST['regexpid'];
 		$result = updateRegexp($regExp, $expressions);
 
-		$messageSuccess = _('Regular expression updated');
-		$messageFailed = _('Cannot update regular expression');
+		$msg1 = _('Regular expression updated');
+		$msg2 = _('Cannot update regular expression');
 	}
 	else {
 		$result = addRegexp($regExp, $expressions);
 
-		$messageSuccess = _('Regular expression added');
-		$messageFailed = _('Cannot add regular expression');
+		$msg1 = _('Regular expression added');
+		$msg2 = _('Cannot add regular expression');
 	}
+
+	show_messages($result, $msg1, $msg2);
 
 	if ($result) {
 		add_audit(!isset($_REQUEST['regexpid']) ? AUDIT_ACTION_ADD : AUDIT_ACTION_UPDATE,
@@ -153,8 +142,8 @@ elseif (isset($_REQUEST['save'])) {
 		unset($_REQUEST['form']);
 	}
 
-	$result = DBend($result);
-	show_messages($result, $messageSuccess, $messageFailed);
+	Dbend($result);
+
 	clearCookies($result);
 }
 elseif (isset($_REQUEST['go'])) {
@@ -180,19 +169,19 @@ elseif (isset($_REQUEST['go'])) {
 
 		if ($result) {
 			foreach ($regExps as $regExpId => $regExp) {
-				add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_REGEXP,
-					'Id ['.$regExpId.'] '._('Name').' ['.$regExp['name'].']'
-				);
+				add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_REGEXP, 'Id ['.$regExpId.'] '._('Name').' ['.$regExp['name'].']');
 			}
 
 			unset($_REQUEST['form'], $_REQUEST['regexpid']);
 		}
 
 		$result = DBend($result);
+
 		show_messages($result,
 			_n('Regular expression deleted', 'Regular expressions deleted', $regExpCount),
 			_n('Cannot delete regular expression', 'Cannot delete regular expressions', $regExpCount)
 		);
+
 		clearCookies($result);
 	}
 }
@@ -234,7 +223,8 @@ if (isset($_REQUEST['form'])) {
 		$regExp = DBfetch(DBSelect(
 			'SELECT re.name,re.test_string'.
 			' FROM regexps re'.
-			' WHERE re.regexpid='.zbx_dbstr($_REQUEST['regexpid'])
+			' WHERE re.regexpid='.zbx_dbstr($_REQUEST['regexpid']).
+				andDbNode('re.regexpid')
 		));
 
 		$data['name'] = $regExp['name'];
@@ -244,6 +234,7 @@ if (isset($_REQUEST['form'])) {
 			'SELECT e.expressionid,e.expression,e.expression_type,e.exp_delimiter,e.case_sensitive'.
 			' FROM expressions e'.
 			' WHERE e.regexpid='.zbx_dbstr($_REQUEST['regexpid']).
+				andDbNode('e.expressionid').
 			' ORDER BY e.expression_type'
 		);
 		$data['expressions'] = DBfetchArray($dbExpressions);
@@ -258,15 +249,16 @@ if (isset($_REQUEST['form'])) {
 }
 else {
 	$data = array(
+		'displayNodes' => is_array(get_current_nodeid()),
 		'cnf_wdgt' => &$regExpWidget,
 		'regexps' => array(),
 		'regexpids' => array()
 	);
 
-	$dbRegExp = DBselect('SELECT re.* FROM regexps re');
-
+	$dbRegExp = DBselect('SELECT re.* FROM regexps re '.whereDbNode('re.regexpid'));
 	while ($regExp = DBfetch($dbRegExp)) {
 		$regExp['expressions'] = array();
+		$regExp['nodename'] = $data['displayNodes'] ? get_node_name_by_elid($regExp['regexpid'], true) : '';
 
 		$data['regexps'][$regExp['regexpid']] = $regExp;
 		$data['regexpids'][$regExp['regexpid']] = $regExp['regexpid'];
@@ -278,6 +270,7 @@ else {
 		'SELECT e.*'.
 		' FROM expressions e'.
 		' WHERE '.dbConditionInt('e.regexpid', $data['regexpids']).
+			andDbNode('e.expressionid').
 		' ORDER BY e.expression_type'
 	));
 

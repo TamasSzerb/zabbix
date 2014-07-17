@@ -17,23 +17,18 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 class CFormTable extends CForm {
 
 	private $align;
+	private $help;
 	private $title;
 	private $tableclass = 'formtable';
 	protected $top_items = array();
 	protected $center_items = array();
 	protected $bottom_items = array();
-
-	/**
-	 * Help icon.
-	 *
-	 * @var CHelp
-	 */
-	protected $help;
 
 	public function __construct($title = null, $action = null, $method = null, $enctype = null, $form_variable = null) {
 		$method = is_null($method) ? 'post' : $method;
@@ -62,7 +57,7 @@ class CFormTable extends CForm {
 
 	public function setName($value) {
 		if (!is_string($value)) {
-			return $this->error('Incorrect value for setName "'.$value.'".');
+			return $this->error('Incorrect value for setAlign "'.$value.'".');
 		}
 		$this->attr('name', $value);
 		$this->attr('id', zbx_formatDomId($value));
@@ -80,17 +75,30 @@ class CFormTable extends CForm {
 		$this->title = $value;
 	}
 
-	/**
-	 * Adds a help icon.
-	 */
-	public function addHelpIcon() {
-		$this->help = new CHelp();
+	public function setHelp($value = null) {
+		if (is_null($value)) {
+			$this->help = new CHelp();
+		}
+		elseif (is_object($value) && zbx_strtolower(get_class($value)) == 'chelp') {
+			$this->help = $value;
+		}
+		elseif (is_string($value)) {
+			$this->help = new CHelp($value);
+			if ($this->getName() == null) {
+				$this->setName($value);
+			}
+		}
+		else {
+			return $this->error('Incorrect value for setHelp "'.$value.'".');
+		}
+
+		return 0;
 	}
 
 	public function addRow($item1, $item2 = null, $class = null, $id = null) {
-		if (is_object($item1) && strtolower(get_class($item1)) === 'crow') {
+		if (is_object($item1) && zbx_strtolower(get_class($item1)) == 'crow') {
 		}
-		elseif (is_object($item1) && strtolower(get_class($item1)) === 'ctable') {
+		elseif (is_object($item1) && zbx_strtolower(get_class($item1)) == 'ctable') {
 			$td = new CCol($item1, 'form_row_c');
 			$td->setColSpan(2);
 			$item1 = new CRow($td);
@@ -139,13 +147,10 @@ class CFormTable extends CForm {
 		$this->bottom_items->addItem($value);
 	}
 
-	/**
-	 * Sets the class for the table element.
-	 *
-	 * @param string $class
-	 */
 	public function setTableClass($class) {
-		$this->tableclass = $class;
+		if (is_string($class)) {
+			$this->tableclass = $class;
+		}
 	}
 
 	public function bodyToString() {
@@ -179,3 +184,4 @@ class CFormTable extends CForm {
 		return $res.$tbl->toString();
 	}
 }
+?>

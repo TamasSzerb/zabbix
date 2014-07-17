@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CApplication extends CApiService {
+class CApplication extends CZBXAPI {
 
 	protected $tableName = 'applications';
 	protected $tableAlias = 'a';
@@ -63,6 +63,7 @@ class CApplication extends CApiService {
 		);
 
 		$defOptions = array(
+			'nodeids'					=> null,
 			'groupids'					=> null,
 			'templateids'				=> null,
 			'hostids'					=> null,
@@ -80,7 +81,7 @@ class CApplication extends CApiService {
 			'excludeSearch'				=> null,
 			'searchWildcardsEnabled'	=> null,
 			// output
-			'output'					=> API_OUTPUT_EXTEND,
+			'output'					=> API_OUTPUT_REFER,
 			'expandData'				=> null,
 			'selectHosts'				=> null,
 			'selectItems'				=> null,
@@ -116,6 +117,7 @@ class CApplication extends CApiService {
 		if (!is_null($options['groupids'])) {
 			zbx_value2array($options['groupids']);
 
+			$sqlParts['select']['groupid'] = 'hg.groupid';
 			$sqlParts['from']['hosts_groups'] = 'hosts_groups hg';
 			$sqlParts['where']['ahg'] = 'a.hostid=hg.hostid';
 			$sqlParts['where'][] = dbConditionInt('hg.groupid', $options['groupids']);
@@ -142,6 +144,7 @@ class CApplication extends CApiService {
 		if (!is_null($options['hostids'])) {
 			zbx_value2array($options['hostids']);
 
+			$sqlParts['select']['hostid'] = 'a.hostid';
 			$sqlParts['where']['hostid'] = dbConditionInt('a.hostid', $options['hostids']);
 
 			if (!is_null($options['groupCount'])) {
@@ -153,6 +156,7 @@ class CApplication extends CApiService {
 		if (!is_null($options['itemids'])) {
 			zbx_value2array($options['itemids']);
 
+			$sqlParts['select']['itemid'] = 'ia.itemid';
 			$sqlParts['from']['items_applications'] = 'items_applications ia';
 			$sqlParts['where'][] = dbConditionInt('ia.itemid', $options['itemids']);
 			$sqlParts['where']['aia'] = 'a.applicationid=ia.applicationid';
@@ -162,6 +166,7 @@ class CApplication extends CApiService {
 		if (!is_null($options['applicationids'])) {
 			zbx_value2array($options['applicationids']);
 
+			$sqlParts['select']['applicationid'] = 'a.applicationid';
 			$sqlParts['where'][] = dbConditionInt('a.applicationid', $options['applicationids']);
 		}
 
@@ -205,6 +210,7 @@ class CApplication extends CApiService {
 		// output
 		$sqlParts = $this->applyQueryOutputOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$sqlParts = $this->applyQuerySortOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
+		$sqlParts = $this->applyQueryNodeOptions($this->tableName(), $this->tableAlias(), $options, $sqlParts);
 		$res = DBselect($this->createSelectQueryFromParts($sqlParts), $sqlParts['limit']);
 		while ($application = DBfetch($res)) {
 			if (!is_null($options['countOutput'])) {
@@ -216,7 +222,28 @@ class CApplication extends CApiService {
 				}
 			}
 			else {
-				$result[$application['applicationid']] = $application;
+				if (!isset($result[$application['applicationid']])) {
+					$result[$application['applicationid']]= array();
+				}
+
+				// hostids
+				if (isset($application['hostid']) && is_null($options['selectHosts'])) {
+					if (!isset($result[$application['applicationid']]['hosts'])) {
+						$result[$application['applicationid']]['hosts'] = array();
+					}
+					$result[$application['applicationid']]['hosts'][] = array('hostid' => $application['hostid']);
+				}
+
+				// itemids
+				if (isset($application['itemid']) && is_null($options['selectItems'])) {
+					if (!isset($result[$application['applicationid']]['items'])) {
+						$result[$application['applicationid']]['items'] = array();
+					}
+					$result[$application['applicationid']]['items'][] = array('itemid' => $application['itemid']);
+					unset($application['itemid']);
+				}
+
+				$result[$application['applicationid']] += $application;
 			}
 		}
 
@@ -237,24 +264,22 @@ class CApplication extends CApiService {
 		return $result;
 	}
 
-	/**
-	 * Check if application exists.
-	 *
-	 * @deprecated	As of version 2.4, use get method instead.
-	 *
-	 * @param array	$object
-	 *
-	 * @return bool
-	 */
 	public function exists($object) {
-		$this->deprecated('application.exists method is deprecated.');
+		$keyFields = array(array('hostid', 'host'), 'name');
 
-		$objs = $this->get(array(
-			'filter' => zbx_array_mintersect(array(array('hostid', 'host'), 'name'), $object),
+		$options = array(
+			'filter' => zbx_array_mintersect($keyFields, $object),
 			'output' => array('applicationid'),
+			'nopermissions' => 1,
 			'limit' => 1
-		));
-
+		);
+		if (isset($object['node'])) {
+			$options['nodeids'] = getNodeIdByNodeName($object['node']);
+		}
+		elseif (isset($object['nodeids'])) {
+			$options['nodeids'] = $object['nodeids'];
+		}
+		$objs = $this->get($options);
 		return !empty($objs);
 	}
 
@@ -392,14 +417,14 @@ class CApplication extends CApiService {
 	}
 
 	/**
-	 * Delete Applications.
+	 * Delete Applications
 	 *
 	 * @param array $applicationids
-	 * @param bool  $nopermissions
-	 *
 	 * @return array
 	 */
-	public function delete(array $applicationids, $nopermissions = false) {
+	public function delete($applicationids, $nopermissions = false) {
+		$applicationids = zbx_toArray($applicationids);
+		$delApplicationIds = $applicationids;
 		// TODO: remove $nopermissions hack
 		$options = array(
 			'applicationids' => $applicationids,
@@ -454,7 +479,7 @@ class CApplication extends CApiService {
 			info(_s('Deleted: Application "%1$s" on "%2$s".', $delApplication['name'], $host['name']));
 		}
 
-		return array('applicationids' => $applicationids);
+		return array('applicationids' => $delApplicationIds);
 	}
 
 	/**

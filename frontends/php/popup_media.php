@@ -50,7 +50,7 @@ $fields = array(
 	'add'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 /* other */
 	'form'=>		array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
-	'form_refresh'=>array(T_ZBX_INT, O_OPT, null,	null,	null)
+	'form_refresh'=>array(T_ZBX_STR, O_OPT, NULL,	NULL,	NULL)
 );
 
 check_fields($fields);
@@ -107,12 +107,16 @@ $frmMedia->addVar('media', $media);
 $frmMedia->addVar('dstfrm', $_REQUEST['dstfrm']);
 
 $cmbType = new CComboBox('mediatypeid', $mediatypeid);
-
-$types = DBfetchArrayAssoc(DBselect('SELECT mt.mediatypeid,mt.description FROM media_type mt'), 'mediatypeid');
+$types = DBfetchArrayAssoc(DBselect(
+	'SELECT mt.mediatypeid,mt.description'.
+	' FROM media_type mt'.
+	whereDbNode('mt.mediatypeid')
+), 'mediatypeid');
 CArrayHelper::sort($types, array('description'));
-
 foreach ($types as $mediaTypeId => $type) {
-	$cmbType->addItem($mediaTypeId, $type['description']);
+	$cmbType->addItem($mediaTypeId,
+		get_node_name_by_elid($type['mediatypeid'], null, NAME_DELIMITER).$type['description']
+	);
 }
 $frmMedia->addRow(_('Type'), $cmbType);
 $frmMedia->addRow(_('Send to'), new CTextBox('sendto', $sendto, 48));

@@ -48,6 +48,7 @@ $actionForm->setName('actionForm');
 $actionTable = new CTableInfo(_('No actions found.'));
 $actionTable->setHeader(array(
 	new CCheckBox('all_items', null, "checkAll('".$actionForm->getName()."', 'all_items', 'g_actionid');"),
+	$this->data['displayNodes'] ? _('Node') : null,
 	make_sorting_header(_('Name'), 'name'),
 	_('Conditions'),
 	_('Operations'),
@@ -56,8 +57,8 @@ $actionTable->setHeader(array(
 
 foreach ($this->data['actions'] as $action) {
 	$conditions = array();
-	order_result($action['filter']['conditions'], 'conditiontype', ZBX_SORT_DOWN);
-	foreach ($action['filter']['conditions'] as $condition) {
+	order_result($action['conditions'], 'conditiontype', ZBX_SORT_DOWN);
+	foreach ($action['conditions'] as $condition) {
 		$conditions[] = get_condition_desc($condition['conditiontype'], $condition['operator'], $condition['value']);
 		$conditions[] = BR();
 	}
@@ -83,6 +84,7 @@ foreach ($this->data['actions'] as $action) {
 
 	$actionTable->addRow(array(
 		new CCheckBox('g_actionid['.$action['actionid'].']', null, null, $action['actionid']),
+		$this->data['displayNodes'] ? $action['nodename'] : null,
 		new CLink($action['name'], 'actionconf.php?form=update&actionid='.$action['actionid']),
 		$conditions,
 		new CCol($operations, 'wraptext'),

@@ -26,7 +26,8 @@ $proxyWidget->addPageHeader(_('CONFIGURATION OF PROXIES'));
 $proxyForm = new CForm();
 $proxyForm->setName('proxyForm');
 $proxyForm->addVar('form', $this->data['form']);
-if ($this->data['proxyid']) {
+$proxyForm->addVar('form_refresh', $this->data['form_refresh']);
+if (!empty($this->data['proxyid'])) {
 	$proxyForm->addVar('proxyid', $this->data['proxyid']);
 }
 
@@ -80,12 +81,11 @@ foreach ($this->data['dbHosts'] as $host) {
 			$host['hostid'],
 			$host['name'],
 			null,
-			empty($host['proxy_hostid']) || ($this->data['proxyid'] && bccomp($host['proxy_hostid'], $this->data['proxyid']) == 0 && $host['flags'] == ZBX_FLAG_DISCOVERY_NORMAL)
+			empty($host['proxy_hostid']) || (!empty($this->data['proxyid']) && bccomp($host['proxy_hostid'], $this->data['proxyid']) == 0 && $host['flags'] == ZBX_FLAG_DISCOVERY_NORMAL)
 		);
 	}
 }
 $proxyFormList->addRow(_('Hosts'), $hostsTweenBox->get(_('Proxy hosts'), _('Other hosts')));
-$proxyFormList->addRow(_('Description'), new CTextArea('description', $this->data['description']));
 
 // append tabs to form
 $proxyTab = new CTabView();
@@ -93,7 +93,7 @@ $proxyTab->addTab('proxyTab', _('Proxy'), $proxyFormList);
 $proxyForm->addItem($proxyTab);
 
 // append buttons to form
-if ($this->data['proxyid']) {
+if (!empty($this->data['proxyid'])) {
 	$proxyForm->addItem(makeFormFooter(
 		new CSubmit('save', _('Save')),
 		array(

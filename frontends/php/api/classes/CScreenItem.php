@@ -24,7 +24,7 @@
  *
  * @package API
  */
-class CScreenItem extends CApiService {
+class CScreenItem extends CZBXAPI {
 
 	protected $tableName = 'screens_items';
 	protected $tableAlias = 'si';
@@ -77,6 +77,7 @@ class CScreenItem extends CApiService {
 	 * Get screem item data.
 	 *
 	 * @param array $options
+	 * @param array $options['nodeids']			Node IDs
 	 * @param array $options['screenitemids']	Search by screen item IDs
 	 * @param array $options['screenids']		Search by screen IDs
 	 * @param array $options['filter']			Result filter
@@ -347,10 +348,11 @@ class CScreenItem extends CApiService {
 	 *
 	 * @return array
 	 */
-	public function delete(array $screenItemIds) {
+	public function delete($screenItemIds) {
+		$screenItemIds = zbx_toArray($screenItemIds);
+
 		// check permissions
 		$dbScreenItems = $this->get(array(
-			'output' => array('screenitemid'),
 			'screenitemids' => $screenItemIds,
 			'preservekeys' => true
 		));
@@ -701,7 +703,7 @@ class CScreenItem extends CApiService {
 	 */
 	protected function checkSpans(array $screenItem, array $screen) {
 		if (isset($screenItem['rowspan'])) {
-			if (!zbx_is_int($screenItem['rowspan']) || $screenItem['rowspan'] < 1) {
+			if (!zbx_is_int($screenItem['rowspan']) || $screenItem['rowspan'] < 0) {
 				self::exception(
 					ZBX_API_ERROR_PARAMETERS,
 					_s(
@@ -715,7 +717,7 @@ class CScreenItem extends CApiService {
 		}
 
 		if (isset($screenItem['colspan'])) {
-			if (!zbx_is_int($screenItem['colspan']) || $screenItem['colspan'] < 1) {
+			if (!zbx_is_int($screenItem['colspan']) || $screenItem['colspan'] < 0) {
 				self::exception(
 					ZBX_API_ERROR_PARAMETERS,
 					_s(
@@ -808,10 +810,7 @@ class CScreenItem extends CApiService {
 					continue;
 				}
 
-				if ($screenItem['x'] == $screenItem2['x'] &&
-					$screenItem['y'] == $screenItem2['y'] &&
-					$screenItem['screenid'] == $screenItem2['screenid']
-				) {
+				if ($screenItem['x'] == $screenItem2['x'] && $screenItem['y'] == $screenItem2['y']) {
 					$screenId = isset($screenItem['screenitemid'])
 						? $dbScreenItems[$screenItem['screenitemid']]['screenid']
 						: $screenItem['screenid'];
@@ -888,12 +887,22 @@ class CScreenItem extends CApiService {
 		}
 	}
 
+	protected function applyQueryNodeOptions($tableName, $tableAlias, array $options, array $sqlParts) {
+		// only apply the node option if no specific screen ids are given
+		if ($options['screenids'] === null) {
+			$sqlParts = parent::applyQueryNodeOptions($tableName, $tableAlias, $options, $sqlParts);
+		}
+
+		return $sqlParts;
+	}
+
 	protected function applyQueryFilterOptions($tableName, $tableAlias, array $options, array $sqlParts) {
 		$sqlParts = parent::applyQueryFilterOptions($tableName, $tableAlias, $options, $sqlParts);
 
 		// screens
 		if ($options['screenids'] !== null) {
 			zbx_value2array($options['screenids']);
+			$sqlParts = $this->addQuerySelect($this->fieldId('screenid'), $sqlParts);
 			$sqlParts['where'][] = dbConditionInt($this->fieldId('screenid'), $options['screenids']);
 		}
 

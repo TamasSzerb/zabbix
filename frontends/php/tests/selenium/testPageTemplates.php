@@ -41,7 +41,7 @@ class testPageTemplates extends CWebTest {
 
 		// data
 		$this->zbxTestTextPresent(array($template['name']));
-		$this->zbxTestDropdownHasOptions('action',
+		$this->zbxTestDropdownHasOptions('go',
 				array('Export selected', 'Delete selected', 'Delete selected with linked elements'));
 	}
 

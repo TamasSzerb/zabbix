@@ -117,13 +117,58 @@ function get_userid_by_usrgrpid($userGroupIds) {
 		'SELECT DISTINCT u.userid'.
 		' FROM users u,users_groups ug'.
 		' WHERE u.userid=ug.userid'.
-			' AND '.dbConditionInt('ug.usrgrpid', $userGroupIds)
+			' AND '.dbConditionInt('ug.usrgrpid', $userGroupIds).
+			andDbNode('ug.usrgrpid', false)
 	);
 	while ($user = DBFetch($dbUsers)) {
 		$userIds[$user['userid']] = $user['userid'];
 	}
 
 	return $userIds;
+}
+
+/**
+ * Append user to group.
+ *
+ * @param string $userId
+ * @param string $userGroupId
+ *
+ * @return bool
+ */
+function add_user_to_group($userId, $userGroupId) {
+	if (granted2move_user($userId, $userGroupId)) {
+		DBexecute('DELETE FROM users_groups WHERE userid='.zbx_dbstr($userId).' AND usrgrpid='.zbx_dbstr($userGroupId));
+
+		$usersGroupsId = get_dbid('users_groups', 'id');
+
+		return DBexecute(
+			'INSERT INTO users_groups (id,usrgrpid,userid) VALUES ('.zbx_dbstr($usersGroupsId).','.zbx_dbstr($userGroupId).','.zbx_dbstr($userId).')'
+		);
+	}
+	else {
+		error(_('User cannot change status of himself.'));
+	}
+
+	return false;
+}
+
+/**
+ * Remove user from group.
+ *
+ * @param string $userId
+ * @param string $userGroupId
+ *
+ * @return bool
+ */
+function remove_user_from_group($userId, $userGroupId) {
+	if (granted2move_user($userId, $userGroupId)) {
+		return DBexecute('DELETE FROM users_groups WHERE userid='.zbx_dbstr($userId).' AND usrgrpid='.zbx_dbstr($userGroupId));
+	}
+	else {
+		error(_('User cannot change status of himself.'));
+	}
+
+	return false;
 }
 
 /**
@@ -178,9 +223,7 @@ function change_group_status($userGroupIds, $usersStatus) {
 
 	if ($grant) {
 		return DBexecute(
-			'UPDATE usrgrp'.
-			' SET users_status='.zbx_dbstr($usersStatus).
-			' WHERE '.dbConditionInt('usrgrpid', $userGroupIds)
+			'UPDATE usrgrp SET users_status='.$usersStatus.' WHERE '.dbConditionInt('usrgrpid', $userGroupIds)
 		);
 	}
 	else {
@@ -205,7 +248,7 @@ function change_group_gui_access($userGroupIds, $guiAccess) {
 
 	if ($grant) {
 		return DBexecute(
-			'UPDATE usrgrp SET gui_access='.zbx_dbstr($guiAccess).' WHERE '.dbConditionInt('usrgrpid', $userGroupIds)
+			'UPDATE usrgrp SET gui_access='.$guiAccess.' WHERE '.dbConditionInt('usrgrpid', $userGroupIds)
 		);
 	}
 	else {
@@ -227,31 +270,36 @@ function change_group_debug_mode($userGroupIds, $debugMode) {
 	zbx_value2array($userGroupIds);
 
 	return DBexecute(
-		'UPDATE usrgrp SET debug_mode='.zbx_dbstr($debugMode).' WHERE '.dbConditionInt('usrgrpid', $userGroupIds)
+		'UPDATE usrgrp SET debug_mode='.$debugMode.' WHERE '.dbConditionInt('usrgrpid', $userGroupIds)
 	);
 }
 
 /**
  * Gets user full name in format "alias (name surname)". If both name and surname exist, returns translated string.
  *
- * @param array  $userData
- * @param string $userData['alias']
- * @param string $userData['name']
- * @param string $userData['surname']
+ * @param array $userData
  *
  * @return string
  */
 function getUserFullname($userData) {
+	$fullname = '';
+	if (!zbx_empty($userData['name'])) {
+		$fullname = $userData['name'];
+	}
+
+	// return full name and surname
 	if (!zbx_empty($userData['surname'])) {
 		if (!zbx_empty($userData['name'])) {
 			return $userData['alias'].' '._x('(%1$s %2$s)', 'user fullname', $userData['name'], $userData['surname']);
 		}
-
 		$fullname = $userData['surname'];
 	}
-	else {
-		$fullname = zbx_empty($userData['name']) ? '' : $userData['name'];
-	}
 
-	return zbx_empty($fullname) ? $userData['alias'] : $userData['alias'].' ('.$fullname.')';
+	// return alias with full name
+	if (!zbx_empty($fullname)) {
+		return $userData['alias'].' ('.$fullname.')';
+	}
+	else {
+		return $userData['alias'];
+	}
 }

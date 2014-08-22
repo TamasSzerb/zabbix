@@ -24,7 +24,7 @@ require_once dirname(__FILE__).'/js/configuration.host.edit.js.php';
 // create form
 $hostForm = new CForm();
 $hostForm->setName('hostForm');
-$hostForm->addVar('action', 'host.massupdate');
+$hostForm->addVar('go', 'massupdate');
 foreach ($this->data['hosts'] as $hostid) {
 	$hostForm->addVar('hosts['.$hostid.']', $hostid);
 }
@@ -147,16 +147,6 @@ else {
 	);
 }
 
-// append description to form list
-$hostFormList->addRow(
-	array(
-		_('Description'),
-		SPACE,
-		new CVisibilityBox('visible[description]', isset($this->data['visible']['description']), 'description', _('Original'))
-	),
-	new CTextArea('description', $this->data['description'])
-);
-
 // append proxy to form list
 $proxyComboBox = new CComboBox('proxy_hostid', $this->data['proxy_hostid']);
 $proxyComboBox->addItem(0, _('(no proxy)'));
@@ -174,8 +164,8 @@ $hostFormList->addRow(
 
 // append status to form list
 $statusComboBox = new CComboBox('status', $this->data['status']);
-$statusComboBox->addItem(HOST_STATUS_MONITORED, _('Enabled'));
-$statusComboBox->addItem(HOST_STATUS_NOT_MONITORED, _('Disabled'));
+$statusComboBox->addItem(HOST_STATUS_MONITORED, _('Monitored'));
+$statusComboBox->addItem(HOST_STATUS_NOT_MONITORED, _('Not monitored'));
 $hostFormList->addRow(
 	array(
 		_('Status'),
@@ -186,14 +176,6 @@ $hostFormList->addRow(
 );
 
 $templatesFormList = new CFormList('templatesFormList');
-
-// append templates table to from list
-$templatesTable = new CTable(null, 'formElementTable');
-$templatesTable->setAttribute('style', 'min-width: 500px;');
-$templatesTable->setAttribute('id', 'template_table');
-
-$clearDiv = new CDiv();
-$clearDiv->addStyle('clear: both;');
 
 $templatesDiv = new CDiv(
 	array(
@@ -208,7 +190,6 @@ $templatesDiv = new CDiv(
 				'height' => 450
 			)
 		)),
-		$clearDiv,
 		new CDiv(array(
 			new CCheckBox('mass_replace_tpls', $this->data['mass_replace_tpls']),
 			SPACE,
@@ -233,7 +214,6 @@ $templatesFormList->addRow(
 );
 
 $ipmiFormList = new CFormList('ipmiFormList');
-
 // append ipmi to form list
 $ipmiAuthtypeComboBox = new CComboBox('ipmi_authtype', $this->data['ipmi_authtype']);
 $ipmiAuthtypeComboBox->addItems(ipmiAuthTypes());
@@ -276,7 +256,6 @@ $ipmiFormList->addRow(
 );
 
 $inventoryFormList = new CFormList('inventoryFormList');
-
 // append inventories to form list
 $inventoryModesComboBox = new CComboBox('inventory_mode', $this->data['inventory_mode'], 'submit()');
 $inventoryModesComboBox->addItem(HOST_INVENTORY_DISABLED, _('Disabled'));
@@ -327,9 +306,8 @@ if ($this->data['inventory_mode'] != HOST_INVENTORY_DISABLED) {
 
 // append tabs to form
 $hostTab = new CTabView();
-
 // reset the tab when opening the form for the first time
-if (!hasRequest('masssave') && !hasRequest('inventory_mode')) {
+if (!hasRequest('masssave')) {
 	$hostTab->setSelected(0);
 }
 $hostTab->addTab('hostTab', _('Host'), $hostFormList);

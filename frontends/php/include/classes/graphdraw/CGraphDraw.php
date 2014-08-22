@@ -261,10 +261,10 @@ abstract class CGraphDraw {
 	}
 
 	public function drawLogo() {
-		imagestringup($this->im, 1,
+		imagestringup($this->im, 0,
 			$this->fullSizeX - 10,
 			$this->fullSizeY - 50,
-			ZABBIX_HOMEPAGE,
+			'http://www.zabbix.com',
 			$this->getColor('Gray')
 		);
 	}

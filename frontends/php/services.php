@@ -103,29 +103,24 @@ if (!empty($_REQUEST['serviceid'])) {
 
 // delete
 if (isset($_REQUEST['delete']) && isset($_REQUEST['serviceid'])) {
-	DBstart();
-
-	$result = API::Service()->delete(array($service['serviceid']));
-
+	$result = API::Service()->delete($service['serviceid']);
+	show_messages($result, _('Service deleted'), _('Cannot delete service'));
 	if ($result) {
 		add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_IT_SERVICE, 'Name ['.$service['name'].'] id ['.$service['serviceid'].']');
 		unset($_REQUEST['form']);
 	}
 	unset($service);
-
-	$result = DBend($result);
-	show_messages($result, _('Service deleted'), _('Cannot delete service'));
 }
 
 if (isset($_REQUEST['form'])) {
-	$_REQUEST['showsla'] = getRequest('showsla', 0);
+	$_REQUEST['showsla'] = get_request('showsla', 0);
 	$result = false;
 
 	// save
 	if (isset($_REQUEST['save_service'])) {
 		DBstart();
 
-		$children = getRequest('children', array());
+		$children = get_request('children', array());
 		$dependencies = array();
 		foreach ($children as $child) {
 			$dependencies[] = array(
@@ -135,46 +130,42 @@ if (isset($_REQUEST['form'])) {
 		}
 
 		$serviceRequest = array(
-			'name' => getRequest('name'),
-			'triggerid' => getRequest('triggerid'),
-			'algorithm' => getRequest('algorithm'),
-			'showsla' => getRequest('showsla', 0),
-			'goodsla' => getRequest('goodsla'),
-			'sortorder' => getRequest('sortorder'),
-			'times' => getRequest('times', array()),
-			'parentid' => getRequest('parentid'),
+			'name' => get_request('name'),
+			'triggerid' => get_request('triggerid'),
+			'algorithm' => get_request('algorithm'),
+			'showsla' => get_request('showsla', 0),
+			'goodsla' => get_request('goodsla'),
+			'sortorder' => get_request('sortorder'),
+			'times' => get_request('times', array()),
+			'parentid' => get_request('parentid'),
 			'dependencies' => $dependencies
 		);
 
 		if (isset($service['serviceid'])) {
 			$serviceRequest['serviceid'] = $service['serviceid'];
-
 			$result = API::Service()->update($serviceRequest);
 
-			$messageSuccess = _('Service updated');
-			$messageFailed = _('Cannot update service');
-			$auditAction = AUDIT_ACTION_UPDATE;
+			show_messages($result, _('Service updated'), _('Cannot update service'));
+			$audit_action = AUDIT_ACTION_UPDATE;
 		}
 		else {
 			$result = API::Service()->create($serviceRequest);
 
-			$messageSuccess = _('Service created');
-			$messageFailed = _('Cannot add service');
-			$auditAction = AUDIT_ACTION_ADD;
+			show_messages($result, _('Service created'), _('Cannot add service'));
+			$audit_action = AUDIT_ACTION_ADD;
 		}
 
 		if ($result) {
 			$serviceid = (isset($service['serviceid'])) ? $service['serviceid'] : reset($result['serviceids']);
-			add_audit($auditAction, AUDIT_RESOURCE_IT_SERVICE, 'Name ['.$_REQUEST['name'].'] id ['.$serviceid.']');
+			add_audit($audit_action, AUDIT_RESOURCE_IT_SERVICE, 'Name ['.$_REQUEST['name'].'] id ['.$serviceid.']');
 			unset($_REQUEST['form']);
 		}
 
-		$result = DBend($result);
-		show_messages($result, $messageSuccess, $messageFailed);
+		DBend($result);
 	}
 	// validate and get service times
 	elseif (isset($_REQUEST['add_service_time']) && isset($_REQUEST['new_service_time'])) {
-		$_REQUEST['times'] = getRequest('times', array());
+		$_REQUEST['times'] = get_request('times', array());
 		$new_service_time['type'] = $_REQUEST['new_service_time']['type'];
 		$result = true;
 		if ($_REQUEST['new_service_time']['type'] == SERVICE_TIME_TYPE_ONETIME_DOWNTIME) {
@@ -350,12 +341,12 @@ elseif (isset($_REQUEST['cservices'])) {
  */
 elseif (isset($_REQUEST['form'])) {
 	$data = array();
-	$data['form'] = getRequest('form');
-	$data['form_refresh'] = getRequest('form_refresh', 0);
+	$data['form'] = get_request('form');
+	$data['form_refresh'] = get_request('form_refresh', 0);
 	$data['service'] = !empty($service) ? $service : null;
 
-	$data['times'] = getRequest('times', array());
-	$data['new_service_time'] = getRequest('new_service_time', array('type' => SERVICE_TIME_TYPE_UPTIME));
+	$data['times'] = get_request('times', array());
+	$data['new_service_time'] = get_request('new_service_time', array('type' => SERVICE_TIME_TYPE_UPTIME));
 
 	// populate the form from the object from the database
 	if (isset($data['service']['serviceid']) && !isset($_REQUEST['form_refresh'])) {
@@ -406,15 +397,15 @@ elseif (isset($_REQUEST['form'])) {
 	}
 	// populate the form from a submitted request
 	else {
-		$data['name'] = getRequest('name', '');
-		$data['algorithm'] = getRequest('algorithm', SERVICE_ALGORITHM_MAX);
-		$data['showsla'] = getRequest('showsla', 0);
-		$data['goodsla'] = getRequest('goodsla', SERVICE_SLA);
-		$data['sortorder'] = getRequest('sortorder', 0);
-		$data['triggerid'] = getRequest('triggerid', 0);
-		$data['parentid'] = getRequest('parentid', 0);
-		$data['parentname'] = getRequest('parentname', '');
-		$data['children'] = getRequest('children', array());
+		$data['name'] = get_request('name', '');
+		$data['algorithm'] = get_request('algorithm', SERVICE_ALGORITHM_MAX);
+		$data['showsla'] = get_request('showsla', 0);
+		$data['goodsla'] = get_request('goodsla', SERVICE_SLA);
+		$data['sortorder'] = get_request('sortorder', 0);
+		$data['triggerid'] = get_request('triggerid', 0);
+		$data['parentid'] = get_request('parentid', 0);
+		$data['parentname'] = get_request('parentname', '');
+		$data['children'] = get_request('children', array());
 	}
 
 	// get trigger
@@ -460,6 +451,14 @@ else {
 		}
 	}
 	unset($service);
+
+	// nodes
+	if ($data['displayNodes'] = is_array(get_current_nodeid())) {
+		foreach ($services as &$service) {
+			$service['name'] = get_node_name_by_elid($service['serviceid'], true, NAME_DELIMITER).$service['name'];
+		}
+		unset($service);
+	}
 
 	$treeData = array();
 	createServiceConfigurationTree($services, $treeData);

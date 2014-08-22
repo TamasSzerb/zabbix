@@ -100,6 +100,7 @@ class CScreenHistory extends CScreenBase {
 
 		if (empty($this->items)) {
 			$this->items = API::Item()->get(array(
+				'nodeids' => get_current_nodeid(),
 				'itemids' => $this->itemids,
 				'webitems' => true,
 				'selectHosts' => array('name'),
@@ -183,7 +184,7 @@ class CScreenHistory extends CScreenBase {
 				$historyData = API::History()->get($options);
 
 				foreach ($historyData as $data) {
-					$data['value'] = trim($data['value'], "\r\n");
+					$data['value'] = encode_log(trim($data['value'], "\r\n"));
 
 					if (empty($this->plaintext)) {
 						$item = $this->items[$data['itemid']];
@@ -191,14 +192,12 @@ class CScreenHistory extends CScreenBase {
 						$color = null;
 
 						if (isset($this->filter) && !zbx_empty($this->filter)) {
-							$haystack = mb_strtolower($data['value']);
-							$needle = mb_strtolower($this->filter);
-							$pos = mb_strpos($haystack, $needle);
+							$contain = zbx_stristr($data['value'], $this->filter);
 
-							if ($pos !== false && $this->filterTask == FILTER_TASK_MARK) {
+							if ($contain && $this->filterTask == FILTER_TASK_MARK) {
 								$color = $this->markColor;
 							}
-							elseif ($pos === false && $this->filterTask == FILTER_TASK_INVERT_MARK) {
+							if (!$contain && $this->filterTask == FILTER_TASK_INVERT_MARK) {
 								$color = $this->markColor;
 							}
 
@@ -215,16 +214,14 @@ class CScreenHistory extends CScreenBase {
 							}
 						}
 
-						$row = array(nbsp(zbx_date2str(DATE_TIME_FORMAT_SECONDS, $data['clock'])));
+						$row = array(nbsp(zbx_date2str(_('Y.M.d H:i:s'), $data['clock'])));
 
 						if ($isManyItems) {
 							$row[] = $host['name'].NAME_DELIMITER.$item['name_expanded'];
 						}
 
 						if ($useLogItem) {
-							$row[] = ($data['timestamp'] == 0)
-								? '-'
-								: zbx_date2str(DATE_TIME_FORMAT_SECONDS, $data['timestamp']);
+							$row[] = ($data['timestamp'] == 0) ? '-' : zbx_date2str(HISTORY_LOG_LOCALTIME_DATE_FORMAT, $data['timestamp']);
 
 							// if this is a eventLog item, showing additional info
 							if ($useEventLogItem) {
@@ -254,7 +251,7 @@ class CScreenHistory extends CScreenBase {
 						$historyTable->addRow($newRow);
 					}
 					else {
-						$output[] = zbx_date2str(DATE_TIME_FORMAT_SECONDS, $data['clock']);
+						$output[] = zbx_date2str(HISTORY_LOG_ITEM_PLAINTEXT, $data['clock']);
 						$output[] = "\t".$data['clock']."\t".htmlspecialchars($data['value'])."\n";
 					}
 				}
@@ -290,13 +287,13 @@ class CScreenHistory extends CScreenBase {
 						}
 
 						$historyTable->addRow(array(
-							zbx_date2str(DATE_TIME_FORMAT_SECONDS, $data['clock']),
+							zbx_date2str(HISTORY_ITEM_DATE_FORMAT, $data['clock']),
 							zbx_nl2br($value)
 						));
 					}
 					// plain text
 					else {
-						$output[] = zbx_date2str(DATE_TIME_FORMAT_SECONDS, $data['clock']);
+						$output[] = zbx_date2str(HISTORY_PLAINTEXT_DATE_FORMAT, $data['clock']);
 						$output[] = "\t".$data['clock']."\t".htmlspecialchars($value)."\n";
 					}
 				}

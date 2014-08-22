@@ -437,7 +437,7 @@ $itemFormList->addRow(
 $valueMapsComboBox = new CComboBox('valuemapid', $this->data['valuemapid']);
 $valueMapsComboBox->addItem(0, _('As is'));
 foreach ($this->data['valuemaps'] as $valuemap) {
-	$valueMapsComboBox->addItem($valuemap['valuemapid'], $valuemap['name']);
+	$valueMapsComboBox->addItem($valuemap['valuemapid'], get_node_name_by_elid($valuemap['valuemapid'], null, NAME_DELIMITER).$valuemap['name']);
 }
 $valueMapLink = new CLink(_('show value mappings'), 'adm.valuemapping.php');
 $valueMapLink->setAttribute('target', '_blank');
@@ -570,6 +570,6 @@ $itemForm->addItem($itemTab);
 $itemForm->addItem(makeFormFooter(new CSubmit('update', _('Update')), new CButtonCancel(url_param('groupid').url_param('hostid').url_param('config'))));
 $itemWidget->addItem($itemForm);
 
-require_once dirname(__FILE__).'/js/configuration.item.massupdate.js.php';
+require_once dirname(__FILE__).'/js/configuration.item.edit.js.php';
 
 return $itemWidget;

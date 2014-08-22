@@ -287,7 +287,7 @@ void	free_request(AGENT_REQUEST *request)
  * Return value: request - structure filled with data from item key           *
  *                                                                            *
  ******************************************************************************/
-int	parse_item_key(const char *itemkey, AGENT_REQUEST *request)
+int	parse_item_key(char *itemkey, AGENT_REQUEST *request)
 {
 	int	i;
 	char	key[MAX_STRING_LEN], params[MAX_STRING_LEN];
@@ -376,37 +376,29 @@ void	test_parameter(const char *key)
 	AGENT_RESULT	result;
 	int		n;
 
+	init_result(&result);
+
+	process(key, 0, &result);
+
 	n = printf("%s", key);
 
 	if (0 < n && ZBX_COL_WIDTH > n)
 		printf("%-*s", ZBX_COL_WIDTH - n, " ");
 
-	init_result(&result);
+	if (ISSET_UI64(&result))
+		printf(" [u|" ZBX_FS_UI64 "]", result.ui64);
 
-	if (SUCCEED == process(key, 0, &result))
-	{
-		if (ISSET_UI64(&result))
-			printf(" [u|" ZBX_FS_UI64 "]", result.ui64);
+	if (ISSET_DBL(&result))
+		printf(" [d|" ZBX_FS_DBL "]", result.dbl);
 
-		if (ISSET_DBL(&result))
-			printf(" [d|" ZBX_FS_DBL "]", result.dbl);
+	if (ISSET_STR(&result))
+		printf(" [s|%s]", result.str);
 
-		if (ISSET_STR(&result))
-			printf(" [s|%s]", result.str);
+	if (ISSET_TEXT(&result))
+		printf(" [t|%s]", result.text);
 
-		if (ISSET_TEXT(&result))
-			printf(" [t|%s]", result.text);
-
-		if (ISSET_MSG(&result))
-			printf(" [m|%s]", result.msg);
-	}
-	else
-	{
-		if (ISSET_MSG(&result))
-			printf(" [m|" ZBX_NOTSUPPORTED "] [%s]", result.msg);
-		else
-			printf(" [m|" ZBX_NOTSUPPORTED "]");
-	}
+	if (ISSET_MSG(&result))
+		printf(" [m|%s]", result.msg);
 
 	free_result(&result);
 
@@ -537,21 +529,6 @@ static int	replace_param(const char *cmd, const char *param, char *out, int outl
 	return ret;
 }
 
-/******************************************************************************
- *                                                                            *
- * Function: process                                                          *
- *                                                                            *
- * Purpose: execute agent check                                               *
- *                                                                            *
- * Parameters: in_command - item key                                          *
- *             flags - PROCESS_LOCAL_COMMAND, allow execution of system.run   *
- *                     PROCESS_MODULE_COMMAND, execute item from a module     *
- *                                                                            *
- * Return value: SUCCEED - successful execution                               *
- *               NOTSUPPORTED - item key is not supported or other error      *
- *               result - contains item value or error message                *
- *                                                                            *
- ******************************************************************************/
 int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 {
 	int		rc, ret = NOTSUPPORTED;
@@ -570,16 +547,12 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 	alias_expand(in_command, tmp, sizeof(tmp));
 
 	if (ZBX_COMMAND_ERROR == (rc = parse_command(tmp, key, sizeof(key), parameters, sizeof(parameters))))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid item key format."));
 		goto notsupported;
-	}
 
 	/* system.run is not allowed by default except for getting hostname for daemons */
 	if (1 != CONFIG_ENABLE_REMOTE_COMMANDS && 0 == (flags & PROCESS_LOCAL_COMMAND) &&
 			0 == strcmp(key, "system.run"))
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Remote commands are not enabled."));
 		goto notsupported;
 	}
 
@@ -591,10 +564,7 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 
 	/* item key not found */
 	if (NULL == command->key)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Unsupported item key."));
 		goto notsupported;
-	}
 
 	/* expected item from a module */
 	if (0 != (flags & PROCESS_MODULE_COMMAND) && 0 == (command->flags & CF_MODULE))
@@ -602,10 +572,7 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 
 	/* command does not accept parameters but was called with parameters */
 	if (0 == (command->flags & CF_HAVEPARAMS) && ZBX_COMMAND_WITH_PARAMS == rc)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Item does not allow parameters."));
 		goto notsupported;
-	}
 
 	*error = '\0';
 
@@ -623,10 +590,7 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 					request.params[0], MAX_STRING_LEN, error, sizeof(error)))
 			{
 				if ('\0' != *error)
-				{
-					SET_MSG_RESULT(result, zbx_strdup(NULL, error));
 					zabbix_log(LOG_LEVEL_WARNING, "item [%s] error: %s", in_command, error);
-				}
 				goto notsupported;
 			}
 		}
@@ -636,10 +600,7 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 	else
 	{
 		if (SUCCEED != parse_item_key(tmp, &request))
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid item parameter format."));
 			goto notsupported;
-		}
 	}
 
 	if (SYSINFO_RET_OK != command->function(&request, result))
@@ -653,6 +614,12 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 
 notsupported:
 	free_request(&request);
+
+	if (NOTSUPPORTED == ret)
+	{
+		UNSET_MSG_RESULT(result);
+		SET_MSG_RESULT(result, zbx_strdup(NULL, ZBX_NOTSUPPORTED));
+	}
 
 	return ret;
 }

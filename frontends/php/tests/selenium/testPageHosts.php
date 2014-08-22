@@ -61,7 +61,7 @@ class testPageHosts extends CWebTest {
 		);
 		// Data
 		$this->zbxTestTextPresent(array($host['name']));
-		$this->zbxTestDropdownHasOptions('action',
+		$this->zbxTestDropdownHasOptions('go',
 				array('Export selected', 'Mass update', 'Enable selected', 'Disable selected', 'Delete selected'));
 	}
 
@@ -234,7 +234,7 @@ class testPageHosts extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 
 		$this->zbxTestCheckboxSelect('all_hosts');
-		$this->zbxTestDropdownSelect('action', 'Enable selected');
+		$this->zbxTestDropdownSelect('go', 'Enable selected');
 		$this->assertVisible('goButton');
 		$this->zbxTestClickWait('goButton');
 
@@ -262,7 +262,7 @@ class testPageHosts extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 
 		$this->zbxTestCheckboxSelect('hosts_'.$hostid);
-		$this->zbxTestDropdownSelect('action', 'Enable selected');
+		$this->zbxTestDropdownSelect('go', 'Enable selected');
 		$this->assertVisible('goButton');
 		$this->zbxTestClickWait('goButton');
 
@@ -284,7 +284,7 @@ class testPageHosts extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 
 		$this->zbxTestCheckboxSelect('all_hosts');
-		$this->zbxTestDropdownSelect('action', 'Disable selected');
+		$this->zbxTestDropdownSelect('go', 'Disable selected');
 		$this->assertVisible('goButton');
 		$this->zbxTestClickWait('goButton');
 
@@ -312,7 +312,7 @@ class testPageHosts extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 
 		$this->zbxTestCheckboxSelect('hosts_'.$hostid);
-		$this->zbxTestDropdownSelect('action', 'Disable selected');
+		$this->zbxTestDropdownSelect('go', 'Disable selected');
 		$this->assertVisible('goButton');
 		$this->zbxTestClickWait('goButton');
 

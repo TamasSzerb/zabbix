@@ -76,6 +76,8 @@ static char     shortopts[] = "s:p:k:I:hV";
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
@@ -84,7 +86,7 @@ static void	get_signal_handler(int sig)
 	if (SIGALRM == sig)
 		zbx_error("Timeout while executing operation");
 
-	exit(EXIT_FAILURE);
+	exit(FAIL);
 }
 
 #endif /* not WINDOWS */
@@ -93,18 +95,29 @@ static void	get_signal_handler(int sig)
  *                                                                            *
  * Function: get_value                                                        *
  *                                                                            *
- * Purpose: connect to Zabbix agent, receive and print value                  *
+ * Purpose: connect to Zabbix agent and receive value for given key           *
  *                                                                            *
- * Parameters: host - server name or IP address                               *
- *             port - port number                                             *
- *             key  - item's key                                              *
+ * Parameters: host   - server name or IP address                             *
+ *             port   - port number                                           *
+ *             key    - item's key                                            *
+ *                                                                            *
+ * Return value: SUCCEED - ok, FAIL - otherwise                               *
+ *             value  - retrieved value                                       *
+ *                                                                            *
+ * Author: Eugene Grigorjev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static void	get_value(const char *source_ip, const char *host, unsigned short port, const char *key)
+static int	get_value(const char *source_ip, const char *host, unsigned short port, const char *key, char **value)
 {
 	zbx_sock_t	s;
 	int		ret;
-	char		request[1024];
+	char		*buf, request[1024];
+
+	assert(value);
+
+	*value = NULL;
 
 	if (SUCCEED == (ret = zbx_tcp_connect(&s, source_ip, host, port, GET_SENDER_TIMEOUT)))
 	{
@@ -112,18 +125,10 @@ static void	get_value(const char *source_ip, const char *host, unsigned short po
 
 		if (SUCCEED == (ret = zbx_tcp_send(&s, request)))
 		{
-			if (SUCCEED == (ret = SUCCEED_OR_FAIL(zbx_tcp_recv_ext(&s, ZBX_TCP_READ_UNTIL_CLOSE, 0))))
+			if (SUCCEED == (ret = SUCCEED_OR_FAIL(zbx_tcp_recv_ext(&s, &buf, ZBX_TCP_READ_UNTIL_CLOSE, 0))))
 			{
-				if (0 == strcmp(s.buffer, ZBX_NOTSUPPORTED) && sizeof(ZBX_NOTSUPPORTED) < s.read_bytes)
-				{
-					zbx_rtrim(s.buffer + sizeof(ZBX_NOTSUPPORTED), "\r\n");
-					printf("%s: %s\n", s.buffer, s.buffer + sizeof(ZBX_NOTSUPPORTED));
-				}
-				else
-				{
-					zbx_rtrim(s.buffer, "\r\n");
-					printf("%s\n", s.buffer);
-				}
+				zbx_rtrim(buf, "\r\n");
+				*value = strdup(buf);
 			}
 		}
 
@@ -132,6 +137,8 @@ static void	get_value(const char *source_ip, const char *host, unsigned short po
 
 	if (FAIL == ret)
 		zbx_error("Get value error: %s", zbx_tcp_strerror());
+
+	return ret;
 }
 
 /******************************************************************************
@@ -144,6 +151,8 @@ static void	get_value(const char *source_ip, const char *host, unsigned short po
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
+ * Author: Eugene Grigorjev                                                   *
+ *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
@@ -151,7 +160,7 @@ int	main(int argc, char **argv)
 {
 	unsigned short	port = ZBX_DEFAULT_AGENT_PORT;
 	int		ret = SUCCEED;
-	char		*host = NULL, *key = NULL, *source_ip = NULL, ch;
+	char		*value = NULL, *host = NULL, *key = NULL, *source_ip = NULL, ch;
 
 	progname = get_program_name(argv[0]);
 
@@ -174,15 +183,15 @@ int	main(int argc, char **argv)
 				break;
 			case 'h':
 				help();
-				exit(EXIT_SUCCESS);
+				exit(-1);
 				break;
 			case 'V':
 				version();
-				exit(EXIT_SUCCESS);
+				exit(-1);
 				break;
 			default:
 				usage();
-				exit(EXIT_FAILURE);
+				exit(-1);
 				break;
 		}
 	}
@@ -195,13 +204,20 @@ int	main(int argc, char **argv)
 
 	if (SUCCEED == ret)
 	{
+
 #if !defined(_WINDOWS)
 		signal(SIGINT,  get_signal_handler);
 		signal(SIGTERM, get_signal_handler);
 		signal(SIGQUIT, get_signal_handler);
 		signal(SIGALRM, get_signal_handler);
 #endif
-		get_value(source_ip, host, port, key);
+
+		ret = get_value(source_ip, host, port, key, &value);
+
+		if (SUCCEED == ret)
+			printf("%s\n", value);
+
+		zbx_free(value);
 	}
 
 	zbx_free(host);

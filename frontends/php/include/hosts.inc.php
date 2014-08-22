@@ -22,7 +22,7 @@
 function setHostGroupInternal($groupids, $internal = ZBX_NOT_INTERNAL_GROUP) {
 	zbx_value2array($groupids);
 
-	return DBexecute('UPDATE groups SET internal='.zbx_dbstr($internal).' WHERE '.dbConditionInt('groupid', $groupids));
+	return DBexecute('UPDATE groups SET internal='.$internal.' WHERE '.dbConditionInt('groupid', $groupids));
 }
 
 /**
@@ -539,6 +539,17 @@ function get_host_by_hostid($hostid, $no_error_message = 0) {
 	return false;
 }
 
+function get_hosts_by_templateid($templateids) {
+	zbx_value2array($templateids);
+
+	return DBselect(
+		'SELECT h.*'.
+		' FROM hosts h,hosts_templates ht'.
+		' WHERE h.hostid=ht.hostid'.
+			' AND '.dbConditionInt('ht.templateid', $templateids)
+	);
+}
+
 function updateHostStatus($hostids, $status) {
 	zbx_value2array($hostids);
 
@@ -549,7 +560,7 @@ function updateHostStatus($hostids, $status) {
 		'SELECT h.hostid,h.host,h.status'.
 		' FROM hosts h'.
 		' WHERE '.dbConditionInt('h.hostid', $hostids).
-			' AND h.status='.zbx_dbstr($oldStatus)
+			' AND h.status='.$oldStatus
 	);
 	while ($host = DBfetch($db_hosts)) {
 		$hostIds[] = $host['hostid'];
@@ -684,6 +695,40 @@ function getHostPrototypeSourceParentIds(array $hostPrototypeIds, array $templat
 }
 
 /**
+ * Check collisions between templates.
+ * $param int|array $templateid_list
+ */
+function validate_templates($templateid_list) {
+	if (is_numeric($templateid_list)) {
+		return true;
+	}
+	if (!is_array($templateid_list)) {
+		return false;
+	}
+	if (count($templateid_list) < 2) {
+		return true;
+	}
+
+	$result = true;
+
+	$res = DBselect(
+		'SELECT key_,COUNT(*) AS cnt'.
+		' FROM items'.
+		' WHERE '.dbConditionInt('hostid', $templateid_list).
+		' GROUP BY key_'.
+		' ORDER BY cnt DESC'
+	);
+	while ($db_cnt = DBfetch($res)) {
+		if ($db_cnt['cnt'] > 1) {
+			$result &= false;
+			error(_s('Template with item key "%1$s" already linked to host.', htmlspecialchars($db_cnt['key_'])));
+		}
+	}
+
+	return $result;
+}
+
+/**
  * Get host ids of hosts which $groupids can be unlinked from.
  * if $hostids is passed, function will check only these hosts.
  *
@@ -692,66 +737,78 @@ function getHostPrototypeSourceParentIds(array $hostPrototypeIds, array $templat
  *
  * @return array
  */
-function getUnlinkableHostIds(array $groupIds, array $hostIds) {
-	if (!$hostIds) {
-		return array();
-	}
-
-	$dbResult = DBselect(
-		'SELECT hg.hostid'.
-		' FROM hosts_groups hg'.
-		' WHERE '.dbConditionInt('hg.groupid', $groupIds, true).
-			' AND '.dbConditionInt('hg.hostid', $hostIds).
-		' GROUP BY hg.hostid'
-	);
+function getUnlinkableHosts($groupids, $hostids = null) {
+	zbx_value2array($groupids);
+	zbx_value2array($hostids);
 
 	$unlinkableHostIds = array();
-	while ($dbRow = DBfetch($dbResult)) {
-		$unlinkableHostIds[] = $dbRow['hostid'];
+
+	$sql_where = '';
+	if ($hostids !== null) {
+		$sql_where = ' AND '.dbConditionInt('hg.hostid', $hostids);
+	}
+
+	$result = DBselect(
+		'SELECT hg.hostid,COUNT(hg.groupid) AS grp_count'.
+		' FROM hosts_groups hg'.
+		' WHERE '.dbConditionInt('hg.groupid', $groupids, true).
+				$sql_where.
+		' GROUP BY hg.hostid'.
+		' HAVING COUNT(hg.groupid)>0'
+	);
+	while ($row = DBfetch($result)) {
+		$unlinkableHostIds[] = $row['hostid'];
 	}
 
 	return $unlinkableHostIds;
 }
 
-function getDeletableHostGroupIds(array $groupIds) {
-	// selecting the list of hosts linked to the host groups
-	$dbResult = DBselect(
-		'SELECT hg.hostid'.
-		' FROM hosts_groups hg'.
-		' WHERE '.dbConditionInt('hg.groupid', $groupIds)
-	);
+function getDeletableHostGroups($groupids = null) {
+	$deletable_groupids = array();
 
-	$linkedHostIds = array();
-	while ($dbRow = DBfetch($dbResult)) {
-		$linkedHostIds[] = $dbRow['hostid'];
+	zbx_value2array($groupids);
+	$hostids = getUnlinkableHosts($groupids);
+
+	$sql_where = '';
+	if (!is_null($groupids)) {
+		$sql_where .= ' AND '.dbConditionInt('g.groupid', $groupids);
 	}
 
-	// the list of hosts which can be unlinked from the host groups
-	$hostIds = getUnlinkableHostIds($groupIds, $linkedHostIds);
-
-	$dbResult = DBselect(
-		'SELECT g.groupid'.
+	$db_groups = DBselect(
+		'SELECT DISTINCT g.groupid'.
 		' FROM groups g'.
 		' WHERE g.internal='.ZBX_NOT_INTERNAL_GROUP.
-			' AND '.dbConditionInt('g.groupid', $groupIds).
+			$sql_where.
 			' AND NOT EXISTS ('.
 				'SELECT NULL'.
 				' FROM hosts_groups hg'.
 				' WHERE g.groupid=hg.groupid'.
-					($hostIds ? ' AND '.dbConditionInt('hg.hostid', $hostIds, true) : '').
+					(!empty($hostids) ? ' AND '.dbConditionInt('hg.hostid', $hostids, true) : '').
 			')'
 	);
-
-	$deletableGroupIds = array();
-	while ($dbRow = DBfetch($dbResult)) {
-		$deletableGroupIds[$dbRow['groupid']] = $dbRow['groupid'];
+	while ($group = DBfetch($db_groups)) {
+		$deletable_groupids[$group['groupid']] = $group['groupid'];
 	}
 
-	return $deletableGroupIds;
+	return $deletable_groupids;
 }
 
 function isTemplate($hostId) {
 	$dbHost = DBfetch(DBselect('SELECT h.status FROM hosts h WHERE h.hostid='.zbx_dbstr($hostId)));
 
 	return ($dbHost && $dbHost['status'] == HOST_STATUS_TEMPLATE);
+}
+
+function isTemplateInHost($hosts) {
+	if ($hosts) {
+		$hosts = zbx_toArray($hosts);
+
+		foreach ($hosts as $host) {
+			if (!empty($host['templateid'])) {
+				return $host['templateid'];
+			}
+		}
+	}
+
+	return 0;
 }

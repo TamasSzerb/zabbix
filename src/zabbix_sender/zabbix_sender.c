@@ -297,6 +297,7 @@ static	ZBX_THREAD_ENTRY(send_value, args)
 {
 	ZBX_THREAD_SENDVAL_ARGS	*sentdval_args;
 	zbx_sock_t		sock;
+	char			*answer = NULL;
 	int			tcp_ret, ret = FAIL;
 
 	assert(args);
@@ -315,11 +316,11 @@ static	ZBX_THREAD_ENTRY(send_value, args)
 	{
 		if (SUCCEED == (tcp_ret = zbx_tcp_send(&sock, sentdval_args->json.buffer)))
 		{
-			if (SUCCEED == (tcp_ret = zbx_tcp_recv(&sock)))
+			if (SUCCEED == (tcp_ret = zbx_tcp_recv(&sock, &answer)))
 			{
-				zabbix_log(LOG_LEVEL_DEBUG, "answer [%s]", sock.buffer);
-				if (NULL == sock.buffer || FAIL == (ret = check_response(sock.buffer)))
-					zabbix_log(LOG_LEVEL_WARNING, "incorrect answer from server [%s]", sock.buffer);
+				zabbix_log(LOG_LEVEL_DEBUG, "answer [%s]", answer);
+				if (NULL == answer || FAIL == (ret = check_response(answer)))
+					zabbix_log(LOG_LEVEL_WARNING, "incorrect answer from server [%s]", answer);
 			}
 		}
 
@@ -588,12 +589,8 @@ int	main(int argc, char **argv)
 				ret = FAIL;
 				break;
 			}
-			else if ('\0' != *p)
-			{
-				zabbix_log(LOG_LEVEL_WARNING, "[line %d] Too many parameters", total_count);
-				ret = FAIL;
-				break;
-			}
+
+			zbx_rtrim(key_value, "\r\n");
 
 			zbx_json_addobject(&sentdval_args.json, NULL);
 			zbx_json_addstring(&sentdval_args.json, ZBX_PROTO_TAG_HOST, hostname, ZBX_JSON_TYPE_STRING);

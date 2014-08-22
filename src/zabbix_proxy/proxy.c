@@ -119,6 +119,7 @@ int	CONFIG_PROXYPOLLER_FORKS	= 0;
 int	CONFIG_ESCALATOR_FORKS		= 0;
 int	CONFIG_ALERTER_FORKS		= 0;
 int	CONFIG_TIMER_FORKS		= 0;
+int	CONFIG_NODEWATCHER_FORKS	= 0;
 int	CONFIG_WATCHDOG_FORKS		= 0;
 int	CONFIG_HEARTBEAT_FORKS		= 1;
 
@@ -177,6 +178,10 @@ char	*CONFIG_SERVER			= NULL;
 int	CONFIG_SERVER_PORT		= ZBX_DEFAULT_SERVER_PORT;
 char	*CONFIG_HOSTNAME		= NULL;
 char	*CONFIG_HOSTNAME_ITEM		= NULL;
+int	CONFIG_NODEID			= 0;
+int	CONFIG_MASTER_NODEID		= 0;
+int	CONFIG_NODE_NOEVENTS		= 0;
+int	CONFIG_NODE_NOHISTORY		= 0;
 
 char	*CONFIG_SNMPTRAP_FILE		= NULL;
 
@@ -193,14 +198,8 @@ int	CONFIG_SERVER_STARTUP_TIME	= 0;
 char	*CONFIG_LOAD_MODULE_PATH	= NULL;
 char	**CONFIG_LOAD_MODULE		= NULL;
 
-char	*CONFIG_USER			= NULL;
-
-/* web monitoring */
-#ifdef HAVE_LIBCURL
-char	*CONFIG_SSL_CA_LOCATION		= NULL;
-char	*CONFIG_SSL_CERT_LOCATION	= NULL;
-char	*CONFIG_SSL_KEY_LOCATION	= NULL;
-#endif
+/* mutex for node syncs; not used in proxy */
+ZBX_MUTEX	node_sync_access;
 
 /******************************************************************************
  *                                                                            *
@@ -260,22 +259,18 @@ static void	zbx_set_defaults()
 
 	if (NULL == CONFIG_FPING_LOCATION)
 		CONFIG_FPING_LOCATION = zbx_strdup(CONFIG_FPING_LOCATION, "/usr/sbin/fping");
+
 #ifdef HAVE_IPV6
 	if (NULL == CONFIG_FPING6_LOCATION)
 		CONFIG_FPING6_LOCATION = zbx_strdup(CONFIG_FPING6_LOCATION, "/usr/sbin/fping6");
 #endif
+
 	if (NULL == CONFIG_EXTERNALSCRIPTS)
 		CONFIG_EXTERNALSCRIPTS = zbx_strdup(CONFIG_EXTERNALSCRIPTS, DATADIR "/zabbix/externalscripts");
 
 	if (NULL == CONFIG_LOAD_MODULE_PATH)
 		CONFIG_LOAD_MODULE_PATH = zbx_strdup(CONFIG_LOAD_MODULE_PATH, LIBDIR "/modules");
-#ifdef HAVE_LIBCURL
-	if (NULL == CONFIG_SSL_CERT_LOCATION)
-		CONFIG_SSL_CERT_LOCATION = zbx_strdup(CONFIG_SSL_CERT_LOCATION, DATADIR "/zabbix/ssl/certs");
 
-	if (NULL == CONFIG_SSL_KEY_LOCATION)
-		CONFIG_SSL_KEY_LOCATION = zbx_strdup(CONFIG_SSL_KEY_LOCATION, DATADIR "/zabbix/ssl/keys");
-#endif
 	if (ZBX_PROXYMODE_ACTIVE != CONFIG_PROXYMODE || 0 == CONFIG_HEARTBEAT_FREQUENCY)
 		CONFIG_HEARTBEAT_FORKS = 0;
 
@@ -297,27 +292,15 @@ static void	zbx_set_defaults()
  ******************************************************************************/
 static void	zbx_validate_config(void)
 {
-	char	*ch_error;
-
 	if (NULL == CONFIG_HOSTNAME)
 	{
 		zabbix_log(LOG_LEVEL_CRIT, "\"Hostname\" configuration parameter is not defined");
 		exit(EXIT_FAILURE);
 	}
 
-	if (FAIL == zbx_check_hostname(CONFIG_HOSTNAME, &ch_error))
+	if (FAIL == zbx_check_hostname(CONFIG_HOSTNAME))
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "invalid \"Hostname\" configuration parameter '%s': %s", CONFIG_HOSTNAME,
-				ch_error);
-		zbx_free(ch_error);
-		exit(EXIT_FAILURE);
-	}
-
-	if (0 == CONFIG_UNREACHABLE_POLLER_FORKS && 0 != CONFIG_POLLER_FORKS + CONFIG_IPMIPOLLER_FORKS +
-			CONFIG_JAVAPOLLER_FORKS)
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "\"StartPollersUnreachable\" configuration parameter must not be 0"
-				" if regular, IPMI or Java pollers are started");
+		zabbix_log(LOG_LEVEL_CRIT, "invalid \"Hostname\" configuration parameter: '%s'", CONFIG_HOSTNAME);
 		exit(EXIT_FAILURE);
 	}
 
@@ -473,6 +456,8 @@ static void	zbx_load_config()
 			PARM_OPT,	0,			0},
 		{"LogSlowQueries",		&CONFIG_LOG_SLOW_QUERIES,		TYPE_INT,
 			PARM_OPT,	0,			3600000},
+		{"AllowRoot",			&CONFIG_ALLOW_ROOT,			TYPE_INT,
+			PARM_OPT,	0,			1},
 		{"LoadModulePath",		&CONFIG_LOAD_MODULE_PATH,		TYPE_STRING,
 			PARM_OPT,	0,			0},
 		{"LoadModule",			&CONFIG_LOAD_MODULE,			TYPE_MULTISTRING,
@@ -483,18 +468,6 @@ static void	zbx_load_config()
 			PARM_OPT,	10,			SEC_PER_DAY},
 		{"VMwareCacheSize",		&CONFIG_VMWARE_CACHE_SIZE,		TYPE_UINT64,
 			PARM_OPT,	256 * ZBX_KIBIBYTE,	__UINT64_C(2) * ZBX_GIBIBYTE},
-		{"AllowRoot",			&CONFIG_ALLOW_ROOT,			TYPE_INT,
-			PARM_OPT,	0,			1},
-		{"User",			&CONFIG_USER,				TYPE_STRING,
-			PARM_OPT,	0,			0},
-#ifdef HAVE_LIBCURL
-		{"SSLCALocation",		&CONFIG_SSL_CA_LOCATION,		TYPE_STRING,
-			PARM_OPT,	0,			0},
-		{"SSLCertLocation",		&CONFIG_SSL_CERT_LOCATION,		TYPE_STRING,
-			PARM_OPT,	0,			0},
-		{"SSLKeyLocation",		&CONFIG_SSL_KEY_LOCATION,		TYPE_STRING,
-			PARM_OPT,	0,			0},
-#endif
 		{NULL}
 	};
 
@@ -576,15 +549,15 @@ int	main(int argc, char **argv)
 				break;
 			case 'h':
 				help();
-				exit(EXIT_SUCCESS);
+				exit(-1);
 				break;
 			case 'V':
 				version();
-				exit(EXIT_SUCCESS);
+				exit(-1);
 				break;
 			default:
 				usage();
-				exit(EXIT_FAILURE);
+				exit(-1);
 				break;
 		}
 	}
@@ -604,7 +577,7 @@ int	main(int argc, char **argv)
 	init_ipmi_handler();
 #endif
 
-	return daemon_start(CONFIG_ALLOW_ROOT, CONFIG_USER);
+	return daemon_start(CONFIG_ALLOW_ROOT);
 }
 
 int	MAIN_ZABBIX_ENTRY()
@@ -706,7 +679,7 @@ int	MAIN_ZABBIX_ENTRY()
 		if (FAIL == zbx_tcp_listen(&listen_sock, CONFIG_LISTEN_IP, (unsigned short)CONFIG_LISTEN_PORT))
 		{
 			zabbix_log(LOG_LEVEL_CRIT, "listener failed: %s", zbx_tcp_strerror());
-			exit(EXIT_FAILURE);
+			exit(1);
 		}
 	}
 
@@ -913,5 +886,5 @@ void	zbx_on_exit()
 	setproctitle_free_env();
 #endif
 
-	exit(EXIT_SUCCESS);
+	exit(SUCCEED);
 }

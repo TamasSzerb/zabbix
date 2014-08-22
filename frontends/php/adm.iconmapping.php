@@ -44,7 +44,7 @@ check_fields($fields);
  */
 if (isset($_REQUEST['iconmapid'])) {
 	$iconMap = API::IconMap()->get(array(
-		'iconmapids' => getRequest('iconmapid'),
+		'iconmapids' => get_request('iconmapid'),
 		'output' => API_OUTPUT_EXTEND,
 		'editable' => true,
 		'preservekeys' => true,
@@ -88,7 +88,7 @@ if (isset($_REQUEST['save'])) {
 	}
 }
 elseif (isset($_REQUEST['delete'])) {
-	$result = API::IconMap()->delete(array(getRequest('iconmapid')));
+	$result = API::IconMap()->delete($_REQUEST['iconmapid']);
 
 	if ($result) {
 		unset($_REQUEST['form']);
@@ -130,10 +130,11 @@ $iconMapWidget = new CWidget();
 $iconMapWidget->addPageHeader(_('CONFIGURATION OF ICON MAPPING'), $iconMapForm);
 
 $data = array(
-	'form_refresh' => getRequest('form_refresh', 0),
-	'iconmapid' => getRequest('iconmapid'),
+	'form_refresh' => get_request('form_refresh', 0),
+	'iconmapid' => get_request('iconmapid'),
 	'iconList' => array(),
-	'inventoryList' => array()
+	'inventoryList' => array(),
+	'displayNodes' => is_array(get_current_nodeid())
 );
 
 $iconList = API::Image()->get(array(
@@ -154,7 +155,7 @@ foreach ($inventoryFields as $field) {
 
 if (isset($_REQUEST['form'])) {
 	if ($data['form_refresh'] || ($_REQUEST['form'] === 'clone')) {
-		$data['iconmap'] = getRequest('iconmap');
+		$data['iconmap'] = get_request('iconmap');
 	}
 	elseif (isset($_REQUEST['iconmapid'])) {
 		$data['iconmap'] = reset($iconMap);
@@ -181,6 +182,14 @@ else {
 		'selectMappings' => API_OUTPUT_EXTEND
 	));
 	order_result($data['iconmaps'], 'name');
+
+	// nodes
+	foreach ($data['iconmaps'] as &$iconMap) {
+		order_result($iconMap['mappings'], 'sortorder');
+
+		$iconMap['nodename'] = $data['displayNodes'] ? get_node_name_by_elid($iconMap['iconmapid'], true) : '';
+	}
+	unset($iconMap);
 
 	$iconMapView = new CView('administration.general.iconmap.list', $data);
 }

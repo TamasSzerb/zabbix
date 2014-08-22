@@ -48,16 +48,17 @@ $actionForm->setName('actionForm');
 $actionTable = new CTableInfo(_('No actions found.'));
 $actionTable->setHeader(array(
 	new CCheckBox('all_items', null, "checkAll('".$actionForm->getName()."', 'all_items', 'g_actionid');"),
-	make_sorting_header(_('Name'), 'name', $this->data['sort'], $this->data['sortorder']),
+	$this->data['displayNodes'] ? _('Node') : null,
+	make_sorting_header(_('Name'), 'name'),
 	_('Conditions'),
 	_('Operations'),
-	make_sorting_header(_('Status'), 'status', $this->data['sort'], $this->data['sortorder'])
+	make_sorting_header(_('Status'), 'status')
 ));
 
 foreach ($this->data['actions'] as $action) {
 	$conditions = array();
-	order_result($action['filter']['conditions'], 'conditiontype', ZBX_SORT_DOWN);
-	foreach ($action['filter']['conditions'] as $condition) {
+	order_result($action['conditions'], 'conditiontype', ZBX_SORT_DOWN);
+	foreach ($action['conditions'] as $condition) {
 		$conditions[] = get_condition_desc($condition['conditiontype'], $condition['operator'], $condition['value']);
 		$conditions[] = BR();
 	}
@@ -70,19 +71,20 @@ foreach ($this->data['actions'] as $action) {
 
 	if ($action['status'] == ACTION_STATUS_DISABLED) {
 		$status = new CLink(_('Disabled'),
-			'actionconf.php?action=action.massenable&g_actionid[]='.$action['actionid'].url_param('eventsource'),
+			'actionconf.php?go=activate&g_actionid'.SQUAREBRACKETS.'='.$action['actionid'].url_param('eventsource'),
 			'disabled'
 		);
 	}
 	else {
 		$status = new CLink(_('Enabled'),
-			'actionconf.php?action=action.massdisable&g_actionid[]='.$action['actionid'].url_param('eventsource'),
+			'actionconf.php?go=disable&g_actionid'.SQUAREBRACKETS.'='.$action['actionid'].url_param('eventsource'),
 			'enabled'
 		);
 	}
 
 	$actionTable->addRow(array(
 		new CCheckBox('g_actionid['.$action['actionid'].']', null, null, $action['actionid']),
+		$this->data['displayNodes'] ? $action['nodename'] : null,
 		new CLink($action['name'], 'actionconf.php?form=update&actionid='.$action['actionid']),
 		$conditions,
 		new CCol($operations, 'wraptext'),
@@ -91,17 +93,16 @@ foreach ($this->data['actions'] as $action) {
 }
 
 // create go buttons
-$goComboBox = new CComboBox('action');
-
-$goOption = new CComboItem('action.massenable', _('Enable selected'));
+$goComboBox = new CComboBox('go');
+$goOption = new CComboItem('activate', _('Enable selected'));
 $goOption->setAttribute('confirm', _('Enable selected actions?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('action.massdisable', _('Disable selected'));
+$goOption = new CComboItem('disable', _('Disable selected'));
 $goOption->setAttribute('confirm', _('Disable selected actions?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('action.massdelete', _('Delete selected'));
+$goOption = new CComboItem('delete', _('Delete selected'));
 $goOption->setAttribute('confirm', _('Delete selected actions?'));
 $goComboBox->addItem($goOption);
 

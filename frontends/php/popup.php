@@ -24,10 +24,11 @@ require_once dirname(__FILE__).'/include/hosts.inc.php';
 require_once dirname(__FILE__).'/include/triggers.inc.php';
 require_once dirname(__FILE__).'/include/items.inc.php';
 require_once dirname(__FILE__).'/include/users.inc.php';
+require_once dirname(__FILE__).'/include/nodes.inc.php';
 require_once dirname(__FILE__).'/include/js.inc.php';
 require_once dirname(__FILE__).'/include/discovery.inc.php';
 
-$srctbl = getRequest('srctbl', ''); // source table name
+$srctbl = get_request('srctbl', ''); // source table name
 
 // set page title
 switch ($srctbl) {
@@ -71,6 +72,10 @@ switch ($srctbl) {
 		$page['title'] = _('Items');
 		$min_user_type = USER_TYPE_ZABBIX_USER;
 		break;
+	case 'prototypes':
+		$page['title'] = _('Prototypes');
+		$min_user_type = USER_TYPE_ZABBIX_ADMIN;
+		break;
 	case 'help_items':
 		$page['title'] = _('Standard items');
 		$min_user_type = USER_TYPE_ZABBIX_USER;
@@ -87,14 +92,6 @@ switch ($srctbl) {
 		$page['title'] = _('Graphs');
 		$min_user_type = USER_TYPE_ZABBIX_USER;
 		break;
-	case 'graph_prototypes':
-		$page['title'] = _('Graph prototypes');
-		$min_user_type = USER_TYPE_ZABBIX_ADMIN;
-		break;
-	case 'item_prototypes':
-		$page['title'] = _('Item prototypes');
-		$min_user_type = USER_TYPE_ZABBIX_ADMIN;
-		break;
 	case 'sysmaps':
 		$page['title'] = _('Maps');
 		$min_user_type = USER_TYPE_ZABBIX_USER;
@@ -102,6 +99,10 @@ switch ($srctbl) {
 	case 'screens2':
 		$page['title'] = _('Screens');
 		$min_user_type = USER_TYPE_ZABBIX_ADMIN;
+		break;
+	case 'nodes':
+		$page['title'] = _('Nodes');
+		$min_user_type = USER_TYPE_ZABBIX_USER;
 		break;
 	case 'drules':
 		$page['title'] = _('Discovery rules');
@@ -141,14 +142,14 @@ $allowedSrcFields = array(
 	'users'					=> '"usergrpid", "alias", "fullname", "userid"',
 	'triggers'				=> '"description", "triggerid", "expression"',
 	'items'					=> '"itemid", "name"',
+	'prototypes'			=> '"itemid", "name", "flags"',
 	'graphs'				=> '"graphid", "name"',
-	'graph_prototypes'		=> '"graphid", "name"',
-	'item_prototypes'		=> '"itemid", "name", "flags"',
 	'sysmaps'				=> '"sysmapid", "name"',
 	'slides'				=> '"slideshowid"',
 	'help_items'			=> '"key"',
 	'screens'				=> '"screenid"',
 	'screens2'				=> '"screenid", "name"',
+	'nodes'					=> '"nodeid", "name"',
 	'drules'				=> '"druleid", "name"',
 	'dchecks'				=> '"dcheckid", "name"',
 	'proxies'				=> '"hostid", "host"',
@@ -167,6 +168,7 @@ $fields = array(
 	'dstfld1' =>					array(T_ZBX_STR, O_OPT, P_SYS,	NOT_EMPTY,	'!isset({multiselect})'),
 	'srctbl' =>						array(T_ZBX_STR, O_MAND, P_SYS,	NOT_EMPTY,	null),
 	'srcfld1' =>					array(T_ZBX_STR, O_MAND, P_SYS,	IN($allowedSrcFields[$_REQUEST['srctbl']]), null),
+	'nodeid' =>						array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
 	'groupid' =>					array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
 	'group' =>						array(T_ZBX_STR, O_OPT, null,	null,		null),
 	'hostid' =>						array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
@@ -217,66 +219,84 @@ for ($i = 2; $i <= $srcfldCount; $i++) {
 check_fields($fields);
 
 // validate permissions
-if (getRequest('only_hostid')) {
+if (get_request('only_hostid')) {
 	if (!API::Host()->isReadable(array($_REQUEST['only_hostid']))) {
 		access_deny();
 	}
 }
 else {
-	if (getRequest('hostid') && !API::Host()->isReadable(array($_REQUEST['hostid'])) ||
-			getRequest('groupid') && !API::HostGroup()->isReadable(array($_REQUEST['groupid']))) {
+	if (get_request('hostid') && !API::Host()->isReadable(array($_REQUEST['hostid'])) ||
+			get_request('groupid') && !API::HostGroup()->isReadable(array($_REQUEST['groupid']))) {
 		access_deny();
 	}
+	if (get_request('nodeid')) {
+		$node = get_node_by_nodeid($_REQUEST['nodeid']);
+		if (!$node) {
+			access_deny();
+		}
+	}
 }
-if (getRequest('parent_discoveryid') && !API::DiscoveryRule()->isReadable(array($_REQUEST['parent_discoveryid']))) {
+if (get_request('parent_discoveryid') && !API::DiscoveryRule()->isReadable(array($_REQUEST['parent_discoveryid']))) {
 	access_deny();
 }
 
-$dstfrm = getRequest('dstfrm', ''); // destination form
-$dstfld1 = getRequest('dstfld1', ''); // output field on destination form
-$dstfld2 = getRequest('dstfld2', ''); // second output field on destination form
-$dstfld3 = getRequest('dstfld3', ''); // third output field on destination form
-$srcfld1 = getRequest('srcfld1', ''); // source table field [can be different from fields of source table]
-$srcfld2 = getRequest('srcfld2'); // second source table field [can be different from fields of source table]
-$srcfld3 = getRequest('srcfld3'); //  source table field [can be different from fields of source table]
-$multiselect = getRequest('multiselect', 0); // if create popup with checkboxes
-$dstact = getRequest('dstact', '');
-$writeonly = getRequest('writeonly');
-$withApplications = getRequest('with_applications', 0);
-$withGraphs = getRequest('with_graphs', 0);
-$withItems = getRequest('with_items', 0);
-$noempty = getRequest('noempty'); // display/hide "Empty" button
+$dstfrm = get_request('dstfrm', ''); // destination form
+$dstfld1 = get_request('dstfld1', ''); // output field on destination form
+$dstfld2 = get_request('dstfld2', ''); // second output field on destination form
+$dstfld3 = get_request('dstfld3', ''); // third output field on destination form
+$srcfld1 = get_request('srcfld1', ''); // source table field [can be different from fields of source table]
+$srcfld2 = get_request('srcfld2', null); // second source table field [can be different from fields of source table]
+$srcfld3 = get_request('srcfld3', null); //  source table field [can be different from fields of source table]
+$multiselect = get_request('multiselect', 0); // if create popup with checkboxes
+$dstact = get_request('dstact', '');
+$writeonly = get_request('writeonly');
+$withApplications = get_request('with_applications', 0);
+$withGraphs = get_request('with_graphs', 0);
+$withItems = get_request('with_items', 0);
+$noempty = get_request('noempty'); // display/hide "Empty" button
 $excludeids = zbx_toHash(getRequest('excludeids', array()));
-$reference = getRequest('reference', getRequest('srcfld1', 'unknown'));
-$realHosts = getRequest('real_hosts', 0);
-$monitoredHosts = getRequest('monitored_hosts', 0);
-$templatedHosts = getRequest('templated_hosts', 0);
-$withSimpleGraphItems = getRequest('with_simple_graph_items', 0);
-$withTriggers = getRequest('with_triggers', 0);
-$withMonitoredTriggers = getRequest('with_monitored_triggers', 0);
-$submitParent = getRequest('submitParent', 0);
-$normalOnly = getRequest('normal_only');
-$group = getRequest('group', '');
-$host = getRequest('host', '');
-$onlyHostid = getRequest('only_hostid');
-$parentDiscoveryId = getRequest('parent_discoveryid');
-
+$reference = get_request('reference', get_request('srcfld1', 'unknown'));
+$realHosts = get_request('real_hosts', 0);
+$monitoredHosts = get_request('monitored_hosts', 0);
+$templatedHosts = get_request('templated_hosts', 0);
+$withSimpleGraphItems = get_request('with_simple_graph_items', 0);
+$withTriggers = get_request('with_triggers', 0);
+$withMonitoredTriggers = get_request('with_monitored_triggers', 0);
+$submitParent = get_request('submitParent', 0);
+$normalOnly = get_request('normal_only');
+$nodeId = get_request('nodeid', get_current_nodeid(false));
+$group = get_request('group', '');
+$host = get_request('host', '');
+$onlyHostid = get_request('only_hostid', null);
 if (isset($onlyHostid)) {
 	$_REQUEST['hostid'] = $onlyHostid;
-
-	unset($_REQUEST['groupid']);
+	unset($_REQUEST['groupid'], $_REQUEST['nodeid']);
 }
 
 // value types
 $value_types = null;
-if (getRequest('value_types')) {
-	$value_types = getRequest('value_types');
+if (get_request('value_types')) {
+	$value_types = get_request('value_types');
 }
-elseif (getRequest('numeric')) {
+elseif (get_request('numeric')) {
 	$value_types = array(ITEM_VALUE_TYPE_FLOAT, ITEM_VALUE_TYPE_UINT64);
 }
 
-uncheckTableRows();
+// choose nodes
+// if an LLD rule is selected, use its node
+if (hasRequest('parent_discoveryid')) {
+	$nodeId = id2nodeid(getRequest('parent_discoveryid'));
+}
+// if a host is selected, use its node
+elseif (hasRequest('only_hostid')) {
+	$nodeId = id2nodeid(getRequest('only_hostid'));
+}
+// if nothing specific is selected, use the chosen node or fall back to the local node
+else {
+	$nodeId = getRequest('nodeid', get_current_nodeid(false));
+}
+
+clearCookies(true);
 
 function get_window_opener($frame, $field, $value) {
 	if (empty($field)) {
@@ -310,10 +330,10 @@ if (!empty($host)) {
 
 $options = array(
 	'config' => array('select_latest' => true, 'deny_all' => true, 'popupDD' => true),
-	'groups' => array(),
-	'hosts' => array(),
-	'groupid' => getRequest('groupid'),
-	'hostid' => getRequest('hostid')
+	'groups' => array('nodeids' => $nodeId),
+	'hosts' => array('nodeids' => $nodeId),
+	'groupid' => get_request('groupid', null),
+	'hostid' => get_request('hostid', null)
 );
 
 if (!is_null($writeonly)) {
@@ -435,8 +455,8 @@ if (hasRequest('excludeids')) {
 if (isset($onlyHostid)) {
 	$frmTitle->addVar('only_hostid', $onlyHostid);
 }
-if (getRequest('screenid')) {
-	$frmTitle->addVar('screenid', getRequest('screenid'));
+if (get_request('screenid')) {
+	$frmTitle->addVar('screenid', get_request('screenid'));
 }
 
 // adding param to a form, so that it would remain when page is refreshed
@@ -450,10 +470,35 @@ $frmTitle->addVar('submitParent', $submitParent);
 $frmTitle->addVar('noempty', $noempty);
 
 for ($i = 1; $i <= $dstfldCount; $i++) {
-	$frmTitle->addVar('dstfld'.$i, getRequest('dstfld'.$i));
+	$frmTitle->addVar('dstfld'.$i, get_request('dstfld'.$i));
 }
 for ($i = 1; $i <= $srcfldCount; $i++) {
-	$frmTitle->addVar('srcfld'.$i, getRequest('srcfld'.$i));
+	$frmTitle->addVar('srcfld'.$i, get_request('srcfld'.$i));
+}
+
+/*
+ * Nodes
+ */
+// only display the node dropdown for DM setups
+// don't display it for help item pop ups
+if (ZBX_DISTRIBUTED && $srctbl != 'help_items' && $srctbl != 'nodes') {
+	$nodeComboBox = new CComboBox('nodeid', $nodeId, 'submit()');
+
+	$dbNodes = DBselect(
+		'SELECT n.*'.
+		' FROM nodes n'.
+		' WHERE '.dbConditionInt('n.nodeid', get_accessible_nodes_by_user(CWebUser::$data, PERM_READ))
+	);
+	while ($dbNode = DBfetch($dbNodes)) {
+		$nodeComboBox->addItem($dbNode['nodeid'], $dbNode['name']);
+	}
+
+	// disable node selection if we show objects from only one host or LLD rule
+	if (hasRequest('only_hostid') || hasRequest('parent_discoveryid')) {
+		$nodeComboBox->setEnabled('disabled');
+	}
+
+	$frmTitle->addItem(array(SPACE, _('Node'), SPACE, $nodeComboBox, SPACE));
 }
 
 /*
@@ -463,50 +508,41 @@ if (isset($onlyHostid)) {
 	$only_hosts = API::Host()->get(array(
 		'hostids' => $hostid,
 		'templated_hosts' => true,
-		'output' => array('hostid', 'host', 'name'),
+		'output' => array('hostid', 'host'),
 		'limit' => 1
 	));
 	$host = reset($only_hosts);
 
 	$cmbHosts = new CComboBox('hostid', $hostid);
-	$cmbHosts->addItem($hostid, $host['name']);
+	$cmbHosts->addItem($hostid, $host['host']);
 	$cmbHosts->setEnabled('disabled');
 	$cmbHosts->setAttribute('title', _('You can not switch hosts for current selection.'));
 	$frmTitle->addItem(array(SPACE, _('Host'), SPACE, $cmbHosts));
 }
 else {
-	// show Group dropdown in header for these specified sources
-	$showGroupCmbBox = array('triggers', 'items', 'applications', 'graphs', 'graph_prototypes', 'item_prototypes',
-		'templates', 'hosts', 'host_templates'
-	);
-	if (str_in_array($srctbl, $showGroupCmbBox) && ($srctbl !== 'item_prototypes' || !$parentDiscoveryId)) {
+	if (str_in_array($srctbl, array('triggers', 'items', 'applications', 'graphs', 'templates', 'hosts',
+			'host_templates'))) {
 		$frmTitle->addItem(array(_('Group'), SPACE, $pageFilter->getGroupsCB()));
 	}
-
-	// show Type dropdown in header for help items
-	if ($srctbl === 'help_items') {
-		$itemType = getRequest('itemtype', 0);
-		$cmbTypes = new CComboBox('itemtype', $itemType, 'javascript: submit();');
+	if (str_in_array($srctbl, array('help_items'))) {
+		$itemtype = get_request('itemtype', 0);
+		$cmbTypes = new CComboBox('itemtype', $itemtype, 'javascript: submit();');
 
 		foreach ($allowed_item_types as $type) {
 			$cmbTypes->addItem($type, item_type2str($type));
 		}
-
 		$frmTitle->addItem(array(_('Type'), SPACE, $cmbTypes));
 	}
-
-	// show Host dropdown in header for these specified sources
-	$showHostCmbBox = array('triggers', 'items', 'applications', 'graphs', 'graph_prototypes', 'item_prototypes');
-	if (str_in_array($srctbl, $showHostCmbBox) && ($srctbl !== 'item_prototypes' || !$parentDiscoveryId)) {
+	if (str_in_array($srctbl, array('triggers', 'items', 'applications', 'graphs'))) {
 		$frmTitle->addItem(array(SPACE, _('Host'), SPACE, $pageFilter->getHostsCB()));
 	}
 }
 
 if (str_in_array($srctbl, array('applications', 'triggers'))) {
 	if (zbx_empty($noempty)) {
-		$value1 = isset($_REQUEST['dstfld1']) && strpos($_REQUEST['dstfld1'], 'id') !== false ? 0 : '';
-		$value2 = isset($_REQUEST['dstfld2']) && strpos($_REQUEST['dstfld2'], 'id') !== false ? 0 : '';
-		$value3 = isset($_REQUEST['dstfld3']) && strpos($_REQUEST['dstfld3'], 'id') !== false ? 0 : '';
+		$value1 = isset($_REQUEST['dstfld1']) && zbx_strpos($_REQUEST['dstfld1'], 'id') !== false ? 0 : '';
+		$value2 = isset($_REQUEST['dstfld2']) && zbx_strpos($_REQUEST['dstfld2'], 'id') !== false ? 0 : '';
+		$value3 = isset($_REQUEST['dstfld3']) && zbx_strpos($_REQUEST['dstfld3'], 'id') !== false ? 0 : '';
 
 		$epmtyScript = get_window_opener($dstfrm, $dstfld1, $value1);
 		$epmtyScript .= get_window_opener($dstfrm, $dstfld2, $value2);
@@ -538,6 +574,7 @@ if ($srctbl == 'usrgrp') {
 	));
 
 	$options = array(
+		'nodeids' => $nodeId,
 		'output' => API_OUTPUT_EXTEND,
 		'preservekeys' => true
 	);
@@ -592,11 +629,12 @@ elseif ($srctbl == 'users') {
 	$table->setHeader(array(
 		($multiselect ? new CCheckBox('all_users', null, "javascript: checkAll('".$form->getName()."', 'all_users', 'users');") : null),
 		_('Alias'),
-		_x('Name', 'user first name'),
+		_('Name'),
 		_('Surname')
 	));
 
 	$options = array(
+		'nodeids' => $nodeId,
 		'output' => array('alias', 'name', 'surname', 'type', 'theme', 'lang'),
 		'preservekeys' => true
 	);
@@ -664,6 +702,7 @@ elseif ($srctbl == 'templates') {
 
 	$options = array(
 		'output' => array('templateid', 'name'),
+		'nodeids' => $nodeId,
 		'groupids' => $groupid,
 		'preservekeys' => true
 	);
@@ -695,14 +734,15 @@ elseif ($srctbl == 'templates') {
 				$checkBox->setChecked(1);
 				$checkBox->setEnabled('disabled');
 			}
-			$name->removeAttribute('class');
+			$name->removeAttr('class');
 		}
 		else {
 			$name->setAttribute('onclick', $jsAction.' jQuery(this).removeAttr("onclick");');
 
 			$data[$template['templateid']] = array(
 				'id' => $template['templateid'],
-				'name' => $template['name']
+				'name' => $template['name'],
+				'prefix' => get_node_name_by_elid($template['templateid'], null, NAME_DELIMITER)
 			);
 		}
 
@@ -739,6 +779,7 @@ elseif ($srctbl == 'hosts') {
 
 	$options = array(
 		'output' => array('hostid', 'name'),
+		'nodeids' => $nodeId,
 		'groupids' => $groupid,
 		'preservekeys' => true
 	);
@@ -770,14 +811,15 @@ elseif ($srctbl == 'hosts') {
 				$checkBox->setChecked(1);
 				$checkBox->setEnabled('disabled');
 			}
-			$name->removeAttribute('class');
+			$name->removeAttr('class');
 		}
 		else {
 			$name->setAttribute('onclick', $jsAction.' jQuery(this).removeAttr("onclick");');
 
 			$data[$host['hostid']] = array(
 				'id' => $host['hostid'],
-				'name' => $host['name']
+				'name' => $host['name'],
+				'prefix' => get_node_name_by_elid($host['hostid'], null, NAME_DELIMITER)
 			);
 		}
 
@@ -814,6 +856,7 @@ elseif ($srctbl == 'host_templates') {
 
 	$options = array(
 		'output' => array('hostid', 'name'),
+		'nodeids' => $nodeId,
 		'groupids' => $groupid,
 		'templated_hosts' => true,
 		'preservekeys' => true
@@ -846,14 +889,15 @@ elseif ($srctbl == 'host_templates') {
 				$checkBox->setChecked(1);
 				$checkBox->setEnabled('disabled');
 			}
-			$name->removeAttribute('class');
+			$name->removeAttr('class');
 		}
 		else {
 			$name->setAttribute('onclick', $jsAction.' jQuery(this).removeAttr("onclick");');
 
 			$data[$host['hostid']] = array(
 				'id' => $host['hostid'],
-				'name' => $host['name']
+				'name' => $host['name'],
+				'prefix' => get_node_name_by_elid($host['hostid'], null, NAME_DELIMITER)
 			);
 		}
 
@@ -889,6 +933,7 @@ elseif ($srctbl == 'host_groups') {
 	));
 
 	$options = array(
+		'nodeids' => $nodeId,
 		'output' => array('groupid', 'name'),
 		'preservekeys' => true
 	);
@@ -917,14 +962,15 @@ elseif ($srctbl == 'host_groups') {
 				$checkBox->setChecked(1);
 				$checkBox->setEnabled('disabled');
 			}
-			$name->removeAttribute('class');
+			$name->removeAttr('class');
 		}
 		else {
 			$name->setAttribute('onclick', $jsAction.' jQuery(this).removeAttr("onclick");');
 
 			$data[$hostgroup['groupid']] = array(
 				'id' => $hostgroup['groupid'],
-				'name' => $hostgroup['name']
+				'name' => $hostgroup['name'],
+				'prefix' => get_node_name_by_elid($hostgroup['groupid'], null, NAME_DELIMITER)
 			);
 		}
 
@@ -949,12 +995,12 @@ elseif ($srctbl == 'host_groups') {
 /*
  * Help items
  */
-elseif ($srctbl === 'help_items') {
+elseif ($srctbl == 'help_items') {
 	$table = new CTableInfo(_('No item keys found.'));
 	$table->setHeader(array(_('Key'), _('Name')));
 
 	$helpItems = new CHelpItems();
-	foreach ($helpItems->getByType($itemType) as $helpItem) {
+	foreach ($helpItems->getByType($itemtype) as $helpItem) {
 		$action = get_window_opener($dstfrm, $dstfld1, $helpItem[$srcfld1]).(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
 		$name = new CSpan($helpItem['key'], 'link');
 		$name->setAttribute('onclick', $action.' close_window(); return false;');
@@ -980,6 +1026,7 @@ elseif ($srctbl == 'triggers') {
 	));
 
 	$options = array(
+		'nodeids' => $nodeId,
 		'hostids' => $hostid,
 		'output' => array('triggerid', 'description', 'expression', 'priority', 'status', 'state'),
 		'selectHosts' => array('hostid', 'name'),
@@ -1057,6 +1104,7 @@ elseif ($srctbl == 'triggers') {
 			$jsTriggers[$trigger['triggerid']] = array(
 				'id' => $trigger['triggerid'],
 				'name' => $trigger['description'],
+				'prefix' => get_node_name_by_elid($trigger['triggerid'], null, NAME_DELIMITER),
 				'triggerid' => $trigger['triggerid'],
 				'description' => $trigger['description'],
 				'expression' => $trigger['expression'],
@@ -1080,21 +1128,18 @@ elseif ($srctbl == 'triggers') {
 }
 
 /*
- * Items or Item prototypes
+ * Items
  */
-elseif ($srctbl === 'items' || $srctbl === 'item_prototypes') {
+elseif ($srctbl == 'items') {
 	$form = new CForm();
 	$form->setName('itemform');
 	$form->setAttribute('id', 'items');
 
-	$itemPrototypesPopup = ($srctbl === 'item_prototypes');
+	$table = new CTableInfo(_('No items found.'));
 
-	$table = new CTableInfo($itemPrototypesPopup ? _('No item prototypes found.') : _('No items found.'));
 	$header = array(
 		$pageFilter->hostsAll ? _('Host') : null,
-		$multiselect
-			? new CCheckBox('all_items', null, "javascript: checkAll('".$form->getName()."', 'all_items', 'items');")
-			: null,
+		$multiselect ? new CCheckBox('all_items', null, "javascript: checkAll('".$form->getName()."', 'all_items', 'items');") : null,
 		_('Name'),
 		_('Key'),
 		_('Type'),
@@ -1104,43 +1149,29 @@ elseif ($srctbl === 'items' || $srctbl === 'item_prototypes') {
 	$table->setHeader($header);
 
 	$options = array(
-		'output' => array('itemid', 'hostid', 'name', 'key_', 'flags', 'type', 'value_type', 'status', 'state'),
-		'selectHosts' => array('name')
+		'nodeids' => $nodeId,
+		'hostids' => $hostid,
+		'webitems' => true,
+		'output' => array('itemid', 'hostid', 'name', 'key_', 'type', 'value_type', 'status', 'state'),
+		'selectHosts' => array('hostid', 'name')
 	);
-
-	if ($parentDiscoveryId) {
-		$options['discoveryids'] = array($parentDiscoveryId);
+	if (!is_null($normalOnly)) {
+		$options['filter']['flags'] = ZBX_FLAG_DISCOVERY_NORMAL;
 	}
-	else {
-		$options['hostids'] = $hostid;
-	}
-
-	if ($templated == 1) {
-		$options['templated'] = true;
-	}
-
-	if ($writeonly !== null) {
+	if (!is_null($writeonly)) {
 		$options['editable'] = true;
 	}
-
-	if ($value_types !== null) {
+	if (!is_null($templated) && $templated == 1) {
+		$options['templated'] = $templated;
+	}
+	if (!is_null($value_types)) {
 		$options['filter']['value_type'] = $value_types;
 	}
 
-	if ($itemPrototypesPopup) {
-		$items = API::ItemPrototype()->get($options);
-	}
-	else {
-		$options['webitems'] = true;
-
-		if ($normalOnly !== null) {
-			$options['filter']['flags'] = ZBX_FLAG_DISCOVERY_NORMAL;
-		}
-
-		$items = API::Item()->get($options);
-	}
+	$items = API::Item()->get($options);
 
 	$items = CMacrosResolverHelper::resolveItemNames($items);
+
 	order_result($items, 'name_expanded');
 
 	if ($multiselect) {
@@ -1160,8 +1191,8 @@ elseif ($srctbl === 'items' || $srctbl === 'item_prototypes') {
 		else {
 			$values = array();
 			for ($i = 1; $i <= $dstfldCount; $i++) {
-				$dstfld = getRequest('dstfld'.$i);
-				$srcfld = getRequest('srcfld'.$i);
+				$dstfld = get_request('dstfld'.$i);
+				$srcfld = get_request('srcfld'.$i);
 
 				if (!empty($dstfld) && !empty($item[$srcfld])) {
 					$values[$dstfld] = $item[$srcfld];
@@ -1169,10 +1200,8 @@ elseif ($srctbl === 'items' || $srctbl === 'item_prototypes') {
 			}
 
 			// if we need to submit parent window
-			$js_action = 'javascript: addValues('.zbx_jsvalue($dstfrm).', '.zbx_jsvalue($values).', '.
-				($submitParent ? 'true' : 'false').'); return false;';
+			$js_action = 'javascript: addValues('.zbx_jsvalue($dstfrm).', '.zbx_jsvalue($values).', '.($submitParent ? 'true' : 'false').'); return false;';
 		}
-
 		$description->setAttribute('onclick', $js_action.' jQuery(this).removeAttr("onclick");');
 
 		$table->addRow(array(
@@ -1182,10 +1211,7 @@ elseif ($srctbl === 'items' || $srctbl === 'item_prototypes') {
 			$item['key_'],
 			item_type2str($item['type']),
 			itemValueTypeString($item['value_type']),
-			new CSpan(
-				itemIndicator($item['status'], $item['state']),
-				itemIndicatorStyle($item['status'], $item['state'])
-			)
+			new CSpan(itemIndicator($item['status'], $item['state']), itemIndicatorStyle($item['status'], $item['state']))
 		));
 
 		// made to save memory usage
@@ -1194,7 +1220,6 @@ elseif ($srctbl === 'items' || $srctbl === 'item_prototypes') {
 				'itemid' => $item['itemid'],
 				'name' => $item['name'],
 				'key_' => $item['key_'],
-				'flags' => $item['flags'],
 				'type' => $item['type'],
 				'value_type' => $item['value_type'],
 				'host' => $item['hostname']
@@ -1203,13 +1228,109 @@ elseif ($srctbl === 'items' || $srctbl === 'item_prototypes') {
 	}
 
 	if ($multiselect) {
-		$button = new CButton('select', _('Select'),
-			"javascript: addSelectedValues('items', ".zbx_jsvalue($reference).');'
-		);
+		$button = new CButton('select', _('Select'), "javascript: addSelectedValues('items', ".zbx_jsvalue($reference).');');
 		$table->setFooter(new CCol($button, 'right'));
 
 		insert_js('var popupReference = '.zbx_jsvalue($jsItems, true).';');
 	}
+	zbx_add_post_js('chkbxRange.pageGoName = "items";');
+
+	$form->addItem($table);
+	$form->show();
+}
+/*
+ * Prototypes
+ */
+elseif ($srctbl == 'prototypes') {
+	$form = new CForm();
+	$form->setName('itemform');
+	$form->setAttribute('id', 'items');
+
+	$table = new CTableInfo(_('No item prototypes found.'));
+
+	if ($multiselect) {
+		$header = array(
+			array(new CCheckBox('all_items', null, "javascript: checkAll('".$form->getName()."', 'all_items', 'items');"), _('Name')),
+			_('Key'),
+			_('Type'),
+			_('Type of information'),
+			_('Status')
+		);
+	}
+	else {
+		$header = array(
+			_('Name'),
+			_('Key'),
+			_('Type'),
+			_('Type of information'),
+			_('Status')
+		);
+	}
+	$table->setHeader($header);
+
+	$options = array(
+		'nodeids' => $nodeId,
+		'selectHosts' => array('name'),
+		'discoveryids' => get_request('parent_discoveryid'),
+		'output' => API_OUTPUT_EXTEND,
+		'preservekeys' => true
+	);
+	if (!is_null($value_types)) {
+		$options['filter']['value_type'] = $value_types;
+	}
+
+	$items = API::ItemPrototype()->get($options);
+
+	$items = CMacrosResolverHelper::resolveItemNames($items);
+
+	order_result($items, 'name_expanded');
+
+	foreach ($items as &$item) {
+		$host = reset($item['hosts']);
+
+		$description = new CSpan($item['name_expanded'], 'link');
+		$item['name'] = $host['name'].NAME_DELIMITER.$item['name_expanded'];
+
+		if ($multiselect) {
+			$js_action = 'javascript: addValue('.zbx_jsvalue($reference).', '.zbx_jsvalue($item['itemid']).');';
+		}
+		else {
+			$values = array();
+			for ($i = 1; $i <= $dstfldCount; $i++) {
+				$dstfld = get_request('dstfld'.$i);
+				$srcfld = get_request('srcfld'.$i);
+
+				if (!empty($dstfld) && !empty($item[$srcfld])) {
+					$values[$dstfld] = $item[$srcfld];
+				}
+			}
+
+			// if we need to submit parent window
+			$js_action = 'javascript: addValues('.zbx_jsvalue($dstfrm).', '.zbx_jsvalue($values).', '.($submitParent ? 'true' : 'false').'); return false;';
+		}
+		$description->setAttribute('onclick', $js_action.' jQuery(this).removeAttr("onclick");');
+
+		if ($multiselect) {
+			$description = new CCol(array(new CCheckBox('items['.zbx_jsValue($item[$srcfld1]).']', null, null, $item['itemid']), $description));
+		}
+
+		$table->addRow(array(
+			$description,
+			$item['key_'],
+			item_type2str($item['type']),
+			itemValueTypeString($item['value_type']),
+			new CSpan(itemIndicator($item['status']), itemIndicatorStyle($item['status']))
+		));
+	}
+
+	if ($multiselect) {
+		$button = new CButton('select', _('Select'), "javascript: addSelectedValues('items', ".zbx_jsvalue($reference).');');
+		$table->setFooter(new CCol($button, 'right'));
+
+		insert_js('var popupReference = '.zbx_jsvalue($items, true).';');
+	}
+	unset($items);
+
 	zbx_add_post_js('chkbxRange.pageGoName = "items";');
 
 	$form->addItem($table);
@@ -1231,6 +1352,7 @@ elseif ($srctbl == 'applications') {
 
 	$options = array(
 		'output' => array('applicationid', 'name'),
+		'nodeids' => $nodeId,
 		'hostids' => $hostid,
 		'expandData' => true
 	);
@@ -1266,7 +1388,8 @@ elseif ($srctbl == 'applications') {
 
 		$data[$app['applicationid']] = array(
 			'id' => $app['applicationid'],
-			'name' => $app['name']
+			'name' => $app['name'],
+			'prefix' => get_node_name_by_elid($app['applicationid'], null, NAME_DELIMITER)
 		);
 
 		$table->addRow(array($multiselect ? $checkBox : null, $name));
@@ -1288,21 +1411,34 @@ elseif ($srctbl == 'applications') {
 }
 
 /*
- * Graphs or Graph prototypes
+ * Nodes
  */
-elseif ($srctbl === 'graphs' || $srctbl === 'graph_prototypes') {
+elseif ($srctbl == 'nodes') {
+	$table = new CTableInfo();
+	$table->setHeader(_('Name'));
+
+	$result = DBselect('SELECT DISTINCT n.* FROM nodes n WHERE '.dbConditionInt('n.nodeid', get_accessible_nodes_by_user(CWebUser::$data, PERM_READ)));
+	while ($row = DBfetch($result)) {
+		$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
+		$name = new CSpan($row['name'], 'link');
+		$name->setAttribute('onclick', $action.' close_window(); return false;');
+		$table->addRow($name);
+	}
+	$table->show();
+}
+/*
+ * Graphs
+ */
+elseif ($srctbl == 'graphs') {
 	$form = new CForm();
 	$form->setName('graphform');
 	$form->setAttribute('id', 'graphs');
 
-	$graphPrototypesPopup = ($srctbl === 'graph_prototypes');
+	$table = new CTableInfo(_('No graphs found.'));
 
-	$table = new CTableInfo($graphPrototypesPopup ? _('No graph prototypes found.') : _('No graphs found.'));
 	if ($multiselect) {
 		$header = array(
-			array(new CCheckBox('all_graphs', null,
-				"javascript: checkAll('".$form->getName()."', 'all_graphs', 'graphs');"), _('Description')
-			),
+			array(new CCheckBox('all_graphs', null, "javascript: checkAll('".$form->getName()."', 'all_graphs', 'graphs');"), _('Description')),
 			_('Graph type')
 		);
 	}
@@ -1317,9 +1453,10 @@ elseif ($srctbl === 'graphs' || $srctbl === 'graph_prototypes') {
 
 	if ($pageFilter->hostsSelected) {
 		$options = array(
-			'output' => API_OUTPUT_EXTEND,
 			'hostids' => $hostid,
-			'selectHosts' => array('name'),
+			'output' => API_OUTPUT_EXTEND,
+			'nodeids' => $nodeId,
+			'selectHosts' => API_OUTPUT_EXTEND,
 			'preservekeys' => true
 		);
 
@@ -1329,13 +1466,7 @@ elseif ($srctbl === 'graphs' || $srctbl === 'graph_prototypes') {
 		if (!is_null($templated)) {
 			$options['templated'] = $templated;
 		}
-
-		if ($graphPrototypesPopup) {
-			$graphs = API::GraphPrototype()->get($options);
-		}
-		else {
-			$graphs = API::Graph()->get($options);
-		}
+		$graphs = API::Graph()->get($options);
 		order_result($graphs, 'name');
 	}
 	else {
@@ -1356,16 +1487,12 @@ elseif ($srctbl === 'graphs' || $srctbl === 'graph_prototypes') {
 				$dstfld1 => $graph[$srcfld1],
 				$dstfld2 => $graph[$srcfld2]
 			);
-			$js_action = 'javascript: addValues('.zbx_jsvalue($dstfrm).', '.zbx_jsvalue($values).');'.
-				' close_window(); return false;';
+			$js_action = 'javascript: addValues('.zbx_jsvalue($dstfrm).', '.zbx_jsvalue($values).'); close_window(); return false;';
 		}
 		$description->setAttribute('onclick', $js_action.' jQuery(this).removeAttr("onclick");');
 
 		if ($multiselect) {
-			$description = new CCol(array(
-				new CCheckBox('graphs['.zbx_jsValue($graph[$srcfld1]).']', null, null, $graph['graphid']),
-				$description
-			));
+			$description = new CCol(array(new CCheckBox('graphs['.zbx_jsValue($graph[$srcfld1]).']', null, null, $graph['graphid']), $description));
 		}
 
 		switch ($graph['graphtype']) {
@@ -1390,9 +1517,7 @@ elseif ($srctbl === 'graphs' || $srctbl === 'graph_prototypes') {
 	}
 
 	if ($multiselect) {
-		$button = new CButton('select', _('Select'),
-			"javascript: addSelectedValues('graphs', ".zbx_jsvalue($reference).');'
-		);
+		$button = new CButton('select', _('Select'), "javascript: addSelectedValues('graphs', ".zbx_jsvalue($reference).');');
 		$table->setFooter(new CCol($button, 'right'));
 
 		insert_js('var popupReference = '.zbx_jsvalue($graphs, true).';');
@@ -1422,6 +1547,7 @@ elseif ($srctbl == 'sysmaps') {
 	$table->setHeader($header);
 
 	$options = array(
+		'nodeids' => $nodeId,
 		'output' => API_OUTPUT_EXTEND,
 		'preservekeys' => true
 	);
@@ -1432,7 +1558,8 @@ elseif ($srctbl == 'sysmaps') {
 	order_result($sysmaps, 'name');
 
 	foreach ($sysmaps as $sysmap) {
-
+		$sysmap['node_name'] = isset($sysmap['node_name']) ? '('.$sysmap['node_name'].') ' : '';
+		$name = $sysmap['node_name'].$sysmap['name'];
 		$description = new CSpan($sysmap['name'], 'link');
 
 		if ($multiselect) {
@@ -1446,7 +1573,7 @@ elseif ($srctbl == 'sysmaps') {
 			$js_action = 'javascript: addValues('.zbx_jsvalue($dstfrm).', '.zbx_jsvalue($values).'); close_window(); return false;';
 		}
 		if (isset($excludeids[$sysmap['sysmapid']])) {
-			$description->removeAttribute('class');
+			$description->removeAttr('class');
 		}
 		else {
 			$description->setAttribute('onclick', $js_action.' jQuery(this).removeAttr("onclick");');
@@ -1492,9 +1619,11 @@ elseif ($srctbl == 'slides') {
 	$table->setHeader($header);
 
 	$slideshows = array();
-
-	$dbSlideshows = DBfetchArray(DBselect('SELECT s.slideshowid,s.name FROM slideshows s'));
-
+	$dbSlideshows = DBfetchArray(DBselect(
+		'SELECT s.slideshowid,s.name'.
+		' FROM slideshows s'.
+		whereDbNode('s.slideshowid', $nodeId)
+	));
 	order_result($dbSlideshows, 'name');
 
 	foreach ($dbSlideshows as $dbSlideshow) {
@@ -1556,6 +1685,7 @@ elseif ($srctbl == 'screens') {
 	$table->setHeader($header);
 
 	$screens = API::Screen()->get(array(
+		'nodeids' => $nodeId,
 		'output' => array('screenid', 'name'),
 		'preservekeys' => true,
 		'editable' => ($writeonly === null) ? null: true
@@ -1604,6 +1734,7 @@ elseif ($srctbl == 'screens2') {
 	$table->setHeader(_('Name'));
 
 	$screens = API::Screen()->get(array(
+		'nodeids' => $nodeId,
 		'output' => array('screenid', 'name'),
 		'editable' => ($writeonly === null) ? null: true
 	));
@@ -1626,19 +1757,18 @@ elseif ($srctbl == 'screens2') {
 /*
  * Discovery rules
  */
-elseif ($srctbl === 'drules') {
+elseif ($srctbl == 'drules') {
 	$table = new CTableInfo(_('No discovery rules found.'));
 	$table->setHeader(_('Name'));
 
-	$dRules = API::DRule()->get(array(
-		'output' => array('druleid', 'name')
-	));
-
-	order_result($dRules, 'name');
-
-	foreach ($dRules as $dRule) {
-		$action = get_window_opener($dstfrm, $dstfld1, $dRule[$srcfld1]).(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $dRule[$srcfld2]) : '');
-		$name = new CSpan($dRule['name'], 'link');
+	$result = DBselect(
+			'SELECT d.*'.
+			' FROM drules d'.
+			whereDbNode('d.druleid', $nodeId)
+	);
+	while ($row = DBfetch($result)) {
+		$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
+		$name = new CSpan($row['name'], 'link');
 		$name->setAttribute('onclick', $action.' close_window(); return false;');
 		$table->addRow($name);
 	}
@@ -1647,17 +1777,15 @@ elseif ($srctbl === 'drules') {
 /*
  * Discovery checks
  */
-elseif ($srctbl === 'dchecks') {
+elseif ($srctbl == 'dchecks') {
 	$table = new CTableInfo(_('No discovery rules found.'));
 	$table->setHeader(_('Name'));
 
 	$dRules = API::DRule()->get(array(
 		'selectDChecks' => array('dcheckid', 'type', 'key_', 'ports'),
-		'output' => array('druleid', 'name')
+		'output' => array('name'),
+		'nodeids' => $nodeId
 	));
-
-	order_result($dRules, 'name');
-
 	foreach ($dRules as $dRule) {
 		foreach ($dRule['dchecks'] as $dCheck) {
 			$name = $dRule['name'].NAME_DELIMITER.discovery_check2str($dCheck['type'], $dCheck['key_'], $dCheck['ports']);
@@ -1678,12 +1806,12 @@ elseif ($srctbl == 'proxies') {
 	$table->setHeader(_('Name'));
 
 	$result = DBselect(
-		'SELECT h.hostid,h.host'.
-		' FROM hosts h'.
-		' WHERE h.status IN ('.HOST_STATUS_PROXY_ACTIVE.','.HOST_STATUS_PROXY_PASSIVE.')'.
-		' ORDER BY h.host,h.hostid'
+			'SELECT h.hostid,h.host'.
+			' FROM hosts h'.
+			' WHERE h.status IN ('.HOST_STATUS_PROXY_ACTIVE.','.HOST_STATUS_PROXY_PASSIVE.')'.
+				andDbNode('h.hostid', $nodeId).
+			' ORDER BY h.host,h.hostid'
 	);
-
 	while ($row = DBfetch($result)) {
 		$action = get_window_opener($dstfrm, $dstfld1, $row[$srcfld1]).(isset($srcfld2) ? get_window_opener($dstfrm, $dstfld2, $row[$srcfld2]) : '');
 		$name = new CSpan($row['host'], 'link');
@@ -1719,6 +1847,7 @@ elseif ($srctbl == 'scripts') {
 	$table->setHeader($header);
 
 	$options = array(
+		'nodeids' => $nodeId,
 		'output' => API_OUTPUT_EXTEND,
 		'preservekeys' => true
 	);

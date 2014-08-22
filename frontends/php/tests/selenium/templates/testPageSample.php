@@ -42,7 +42,7 @@ class testPageHosts extends CWebTest {
 
 		// data
 		$this->zbxTestTextPresent(array($host['name']));
-		$this->zbxTestDropdownHasOptions('action',
+		$this->zbxTestDropdownHasOptions('go',
 				array('Export selected', 'Mass update', 'Activate selected', 'Disable selected', 'Delete selected'));
 	}
 
@@ -209,7 +209,7 @@ class testPageHosts extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 
 		$this->zbxTestCheckboxSelect('all_hosts');
-		$this->zbxTestDropdownSelect('action', 'Activate selected');
+		$this->zbxTestDropdownSelect('go', 'Activate selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
@@ -235,7 +235,7 @@ class testPageHosts extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 
 		$this->zbxTestCheckboxSelect('hosts_'.$hostid);
-		$this->zbxTestDropdownSelect('action', 'Activate selected');
+		$this->zbxTestDropdownSelect('go', 'Activate selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
@@ -256,7 +256,7 @@ class testPageHosts extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 
 		$this->zbxTestCheckboxSelect('all_hosts');
-		$this->zbxTestDropdownSelect('action', 'Disable selected');
+		$this->zbxTestDropdownSelect('go', 'Disable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
@@ -282,7 +282,7 @@ class testPageHosts extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 
 		$this->zbxTestCheckboxSelect('hosts_'.$hostid);
-		$this->zbxTestDropdownSelect('action', 'Disable selected');
+		$this->zbxTestDropdownSelect('go', 'Disable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();

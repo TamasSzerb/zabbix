@@ -23,17 +23,21 @@ $imageForm = new CForm('post', null, 'multipart/form-data');
 $imageForm->setName('imageForm');
 $imageForm->addVar('form', $this->data['form']);
 $imageForm->addVar('imageid', $this->data['imageid']);
-$imageForm->addVar('imagetype', $this->data['imagetype']);
+
+$imageComboBox = new CComboBox('imagetype', $this->data['imagetype']);
+$imageComboBox->addItem(IMAGE_TYPE_ICON, _('Icon'));
+$imageComboBox->addItem(IMAGE_TYPE_BACKGROUND, _('Background'));
 
 // append form list
 $imageFormList = new CFormList('imageFormList');
-$nameTextBox = new CTextBox('name', $this->data['imagename'], 64, false, 64);
+$nameTextBox = new CTextBox('name', $this->data['imagename'], 64, 'no', 64);
 $nameTextBox->attr('autofocus', 'autofocus');
 $imageFormList->addRow(_('Name'), $nameTextBox);
+$imageFormList->addRow(_('Type'), $imageComboBox);
 $imageFormList->addRow(_('Upload'), new CFile('image'));
 
 if (!empty($this->data['imageid'])) {
-	if ($this->data['imagetype'] == IMAGE_TYPE_BACKGROUND) {
+	if ($data['imagetype'] == IMAGE_TYPE_BACKGROUND) {
 		$imageFormList->addRow(_('Image'), new CLink(new CImg('imgstore.php?width=200&height=200&iconid='.$this->data['imageid'], 'no image'), 'image.php?imageid='.$this->data['imageid']));
 	}
 	else {
@@ -43,7 +47,7 @@ if (!empty($this->data['imageid'])) {
 
 // append tab
 $imageTab = new CTabView();
-$imageTab->addTab('imageTab', ($this->data['imagetype'] == IMAGE_TYPE_ICON) ? _('Icon') : _('Background'), $imageFormList);
+$imageTab->addTab('imageTab', _('Image'), $imageFormList);
 $imageForm->addItem($imageTab);
 
 // append buttons

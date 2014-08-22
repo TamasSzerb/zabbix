@@ -19,7 +19,7 @@
 **/
 
 
-$triggersWidget = new CWidget(null, 'trigger-list');
+$triggersWidget = new CWidget();
 
 // append host summary to widget header
 if (!empty($this->data['hostid'])) {
@@ -71,8 +71,8 @@ if (!empty($this->data['parent_discoveryid'])) {
 }
 else {
 	$filterForm = new CForm('get');
-	$filterForm->addItem(array(_('Group').SPACE, $this->data['pageFilter']->getGroupsCB()));
-	$filterForm->addItem(array(SPACE._('Host').SPACE, $this->data['pageFilter']->getHostsCB()));
+	$filterForm->addItem(array(_('Group').SPACE, $this->data['pageFilter']->getGroupsCB(true)));
+	$filterForm->addItem(array(SPACE._('Host').SPACE, $this->data['pageFilter']->getHostsCB(true)));
 
 	$triggersWidget->addHeader(_('Triggers'), $filterForm);
 	$triggersWidget->addHeaderRowNumber(array(
@@ -94,22 +94,27 @@ $triggersForm->addVar('parent_discoveryid', $this->data['parent_discoveryid']);
 $triggersForm->addVar('hostid', $this->data['hostid']);
 
 // create table
+$link = new Curl();
+if (!empty($this->data['parent_discoveryid'])) {
+	$link->setArgument('parent_discoveryid', $this->data['parent_discoveryid']);
+}
+$link->setArgument('hostid', $this->data['hostid']);
+$link = $link->getUrl();
+
 $triggersTable = new CTableInfo(_('No triggers found.'));
 $triggersTable->setHeader(array(
 	new CCheckBox('all_triggers', null, "checkAll('".$triggersForm->getName()."', 'all_triggers', 'g_triggerid');"),
-	make_sorting_header(_('Severity'), 'priority', $this->data['sort'], $this->data['sortorder']),
+	$this->data['displayNodes'] ? _('Node') : null,
+	make_sorting_header(_('Severity'), 'priority', $link),
 	empty($this->data['hostid']) ? _('Host') : null,
-	make_sorting_header(_('Name'), 'description', $this->data['sort'], $this->data['sortorder']),
+	make_sorting_header(_('Name'), 'description', $link),
 	_('Expression'),
-	make_sorting_header(_('Status'), 'status', $this->data['sort'], $this->data['sortorder']),
-	$data['showInfoColumn'] ? _('Info') : null
+	make_sorting_header(_('Status'), 'status', $link),
+	$data['showErrorColumn'] ? _('Error') : null
 ));
-
 foreach ($this->data['triggers'] as $tnum => $trigger) {
 	$triggerid = $trigger['triggerid'];
 	$trigger['discoveryRuleid'] = $this->data['parent_discoveryid'];
-
-	// description
 	$description = array();
 
 	$trigger['hosts'] = zbx_toHash($trigger['hosts'], 'hostid');
@@ -164,35 +169,18 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 		$dependencies = $trigger['dependencies'];
 		if (count($dependencies) > 0) {
 			$description[] = array(BR(), bold(_('Depends on').NAME_DELIMITER));
-			$triggerDependencies = array();
+			foreach ($dependencies as $dep_trigger) {
+				$description[] = BR();
 
-			foreach ($dependencies as $dependency) {
-				$depTrigger = $this->data['dependencyTriggers'][$dependency['triggerid']];
-				$hostNames = array();
-
-				foreach ($depTrigger['hosts'] as $host) {
-					$hostNames[] = CHtml::encode($host['name']);
-					$hostNames[] = ', ';
+				$db_hosts = get_hosts_by_triggerid($dep_trigger['triggerid']);
+				while ($host = DBfetch($db_hosts)) {
+					$description[] = CHtml::encode($host['name']);
+					$description[] = ', ';
 				}
-				array_pop($hostNames);
-
-				if ($depTrigger['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) {
-					$host = reset($depTrigger['hosts']);
-					$triggerDependencies[] = new CLink(
-						array($hostNames, NAME_DELIMITER, CHtml::encode($depTrigger['description'])),
-						'triggers.php?form=update&hostid='.$host['hostid'].'&triggerid='.$depTrigger['triggerid'],
-						triggerIndicatorStyle($depTrigger['status'])
-					);
-				}
-				else {
-					$triggerDependencies[] = array($hostNames, NAME_DELIMITER, $depTrigger['description']);
-				}
-
-				$triggerDependencies[] = BR();
+				array_pop($description);
+				$description[] = NAME_DELIMITER;
+				$description[] = CHtml::encode($dep_trigger['description']);
 			}
-			array_pop($triggerDependencies);
-
-			$description = array_merge($description, array(new CDiv($triggerDependencies, 'dependencies')));
 		}
 	}
 	else {
@@ -206,30 +194,25 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 		);
 	}
 
-	// info
-	if ($data['showInfoColumn']) {
-		if ($trigger['status'] == TRIGGER_STATUS_ENABLED && !zbx_empty($trigger['error'])) {
-			$info = new CDiv(SPACE, 'status_icon iconerror');
-			$info->setHint($trigger['error'], 'on');
+	if ($data['showErrorColumn']) {
+		$error = '';
+		if ($trigger['status'] == TRIGGER_STATUS_ENABLED) {
+			if (!zbx_empty($trigger['error'])) {
+				$error = new CDiv(SPACE, 'status_icon iconerror');
+				$error->setHint($trigger['error'], '', 'on');
+			}
+			else {
+				$error = new CDiv(SPACE, 'status_icon iconok');
+			}
 		}
-		else {
-			$info = '';
-		}
-	}
-	else {
-		$info = null;
 	}
 
-	// status
 	$status = '';
 	if (!empty($this->data['parent_discoveryid'])) {
 		$status = new CLink(
 			triggerIndicator($trigger['status']),
 			'trigger_prototypes.php?'.
-				'action='.($trigger['status'] == TRIGGER_STATUS_DISABLED
-					? 'triggerprototype.massenable'
-					: 'triggerprototype.massdisable'
-				).
+				'go='.($trigger['status'] == TRIGGER_STATUS_DISABLED ? 'activate' : 'disable').
 				'&hostid='.$this->data['hostid'].
 				'&g_triggerid='.$triggerid.
 				'&parent_discoveryid='.$this->data['parent_discoveryid'],
@@ -240,17 +223,13 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 		$status = new CLink(
 			triggerIndicator($trigger['status'], $trigger['state']),
 			'triggers.php?'.
-				'action='.($trigger['status'] == TRIGGER_STATUS_DISABLED
-					? 'trigger.massenable'
-					: 'trigger.massdisable'
-				).
+				'go='.($trigger['status'] == TRIGGER_STATUS_DISABLED ? 'activate' : 'disable').
 				'&hostid='.$this->data['hostid'].
 				'&g_triggerid='.$triggerid,
 			triggerIndicatorStyle($trigger['status'], $trigger['state'])
 		);
 	}
 
-	// hosts
 	$hosts = null;
 	if (empty($this->data['hostid'])) {
 		foreach ($trigger['hosts'] as $hostid => $host) {
@@ -261,50 +240,49 @@ foreach ($this->data['triggers'] as $tnum => $trigger) {
 		}
 	}
 
-	// checkbox
 	$checkBox = new CCheckBox('g_triggerid['.$triggerid.']', null, null, $triggerid);
 	$checkBox->setEnabled(empty($trigger['discoveryRule']));
 
+	$expressionColumn = new CCol(triggerExpression($trigger, true));
+	$expressionColumn->setAttribute('style', 'white-space: normal;');
+
 	$triggersTable->addRow(array(
 		$checkBox,
+		$this->data['displayNodes'] ? $trigger['nodename'] : null,
 		getSeverityCell($trigger['priority']),
 		$hosts,
 		$description,
-		new CCol(triggerExpression($trigger, true), 'trigger-expression'),
+		$expressionColumn,
 		$status,
-		$info
+		$data['showErrorColumn'] ? $error : null
 	));
+	$triggers[$tnum] = $trigger;
 }
 
 // create go button
-
-$actionObject = $this->data['parent_discoveryid'] ? 'triggerprototype' : 'trigger';
-
-$goComboBox = new CComboBox('action');
-
-$goOption = new CComboItem($actionObject.'.massenable', _('Enable selected'));
+$goComboBox = new CComboBox('go');
+$goOption = new CComboItem('activate', _('Enable selected'));
 $goOption->setAttribute(
 	'confirm',
 	$this->data['parent_discoveryid'] ? _('Enable selected trigger prototypes?') : _('Enable selected triggers?')
 );
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem($actionObject.'.massdisable', _('Disable selected'));
+$goOption = new CComboItem('disable', _('Disable selected'));
 $goOption->setAttribute(
 	'confirm',
 	$this->data['parent_discoveryid'] ? _('Disable selected trigger prototypes?') : _('Disable selected triggers?')
 );
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem($actionObject.'.massupdateform', _('Mass update'));
+$goOption = new CComboItem('massupdate', _('Mass update'));
 $goComboBox->addItem($goOption);
-
 if (empty($this->data['parent_discoveryid'])) {
-	$goOption = new CComboItem($actionObject.'.masscopyto', _('Copy selected to ...'));
+	$goOption = new CComboItem('copy_to', _('Copy selected to ...'));
 	$goComboBox->addItem($goOption);
 }
 
-$goOption = new CComboItem($actionObject.'.massdelete', _('Delete selected'));
+$goOption = new CComboItem('delete', _('Delete selected'));
 $goOption->setAttribute(
 	'confirm',
 	$this->data['parent_discoveryid'] ? _('Delete selected trigger prototypes?') : _('Delete selected triggers?')

@@ -25,8 +25,8 @@ require_once dirname(__FILE__).'/items.inc.php';
 function httptest_authentications($type = null) {
 	$authentication_types = array(
 		HTTPTEST_AUTH_NONE => _('None'),
-		HTTPTEST_AUTH_BASIC => _('Basic'),
-		HTTPTEST_AUTH_NTLM => _('NTLM')
+		HTTPTEST_AUTH_BASIC => _('Basic authentication'),
+		HTTPTEST_AUTH_NTLM => _('NTLM authentication')
 	);
 
 	if (is_null($type)) {
@@ -205,13 +205,10 @@ function resolveHttpTestMacros(array $httpTests, $resolveName = true, $resolveSt
 function copyHttpTests($srcHostId, $dstHostId) {
 	$httpTests = API::HttpTest()->get(array(
 		'output' => array('name', 'applicationid', 'delay', 'status', 'variables', 'agent', 'authentication',
-			'http_user', 'http_password', 'http_proxy', 'retries', 'ssl_cert_file', 'ssl_key_file',
-			'ssl_key_password', 'verify_peer', 'verify_host', 'headers'
+			'http_user', 'http_password', 'http_proxy', 'retries'
 		),
 		'hostids' => $srcHostId,
-		'selectSteps' => array('name', 'no', 'url', 'timeout', 'posts', 'required', 'status_codes', 'variables',
-			'follow_redirects', 'retrieve_mode', 'headers'
-		),
+		'selectSteps' => array('name', 'no', 'url', 'timeout', 'posts', 'required', 'status_codes', 'variables'),
 		'inherited' => false
 	));
 

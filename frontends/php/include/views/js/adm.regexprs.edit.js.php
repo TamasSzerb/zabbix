@@ -1,6 +1,6 @@
 <script type="text/x-jquery-tmpl" id="expressionRow">
 	<tr id="exprRow_#{id}">
-		<td class="pre-wrap break-lines">#{expression}</td>
+		<td>#{expression}</td>
 		<td>#{type}</td>
 		<td>#{case_sensitive}</td>
 		<td class="nowrap">
@@ -12,7 +12,7 @@
 
 <script type="text/x-jquery-tmpl" id="testTableRow">
 	<tr class="even_row">
-		<td class="pre-wrap break-lines">#{expression}</td>
+		<td class="wraptext">#{expression}</td>
 		<td>#{type}</td>
 		<td><span class="bold #{resultClass}">#{result}</span></td>
 	</tr>
@@ -346,47 +346,28 @@
 			 * @param {Object} response ajax response
 			 */
 			showTestResults: function(response) {
-				var tplData, expr, exprResult, hasErrors;
+				var tplData, expr, exprResult;
 
 				$('#testResultTable tr:not(.header)').remove();
 
-				hasErrors = false;
-
 				for (var id in this.expressions) {
-					var result;
 					expr = this.expressions[id];
 					exprResult = response.data.expressions[id];
-
-					if (response.data.errors[id]) {
-						hasErrors = true;
-						result = response.data.errors[id];
-					}
-					else {
-						result = exprResult ? <?php echo CJs::encodeJson(_('TRUE')); ?> : <?php echo CJs::encodeJson(_('FALSE')); ?>;
-					}
 
 					tplData = {
 						expression: expr.data.expression,
 						type: expr.type2str(),
-						result: result,
+						result: exprResult ? <?php echo CJs::encodeJson(_('TRUE')); ?> : <?php echo CJs::encodeJson(_('FALSE')); ?>,
 						resultClass: exprResult ? 'green' : 'red'
 					};
 
 					$('#testResultTable').append(this.testTableRowTpl.evaluate(tplData));
 				}
 
-				if (hasErrors) {
-					tplData = {
-						resultClass: 'red',
-						result: <?php echo CJs::encodeJson(_('UNKNOWN')); ?>
-					};
-				}
-				else {
-					tplData = {
-						resultClass: response.data.final ? 'green' : 'red',
-						result: response.data.final ? <?php echo CJs::encodeJson(_('TRUE')); ?> : <?php echo CJs::encodeJson(_('FALSE')); ?>
-					};
-				}
+				tplData = {
+					resultClass: response.data.final ? 'green' : 'red',
+					result: response.data.final ? <?php echo CJs::encodeJson(_('TRUE')); ?> : <?php echo CJs::encodeJson(_('FALSE')); ?>
+				};
 
 				$('#testResultTable').append(this.testCombinedTableRowTpl.evaluate(tplData));
 				$('#testResultTable').css({opacity: 1});
@@ -443,7 +424,9 @@
 		// on clone we remove regexpid hidden field and also expressionid from expressions
 		// it's needed because after clone all expressions should be added as new for cloned reg. exp
 		$('#clone').click(function() {
-			$('#regexpid, #clone, #delete').remove();
+			$('#regexpid').remove();
+			$('#clone').remove();
+			$('#delete').remove();
 			$('#cancel').addClass('ui-corner-left');
 
 			for (var id in zabbixRegExp.expressions) {

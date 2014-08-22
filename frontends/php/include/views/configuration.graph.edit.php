@@ -34,6 +34,7 @@ else {
 $graphForm = new CForm();
 $graphForm->setName('graphForm');
 $graphForm->addVar('form', $this->data['form']);
+$graphForm->addVar('form_refresh', $this->data['form_refresh']);
 $graphForm->addVar('hostid', $this->data['hostid']);
 if (!empty($this->data['parent_discoveryid'])) {
 	$graphForm->addVar('parent_discoveryid', $this->data['parent_discoveryid']);
@@ -69,34 +70,23 @@ if ($this->data['graphtype'] == GRAPH_TYPE_NORMAL || $this->data['graphtype'] ==
 
 	if ($this->data['graphtype'] == GRAPH_TYPE_NORMAL) {
 		// percent left
-		$percentLeftTextBox = new CTextBox('percent_left', $this->data['percent_left'], 6, false, 7);
+		$percentLeftTextBox = new CTextBox('percent_left', $this->data['percent_left'], 6, 'no', 7);
 		$percentLeftCheckbox = new CCheckBox('visible[percent_left]', 1, 'javascript: showHideVisible("percent_left");', 1);
 
-		if(isset($this->data['visible']) && isset($this->data['visible']['percent_left'])) {
-			$percentLeftTextBox->attr('style', '');
-			$percentLeftCheckbox->setChecked(1);
-		}
-		elseif ($this->data['percent_left'] == 0) {
+		if ($this->data['percent_left'] == 0) {
 			$percentLeftTextBox->attr('style', 'visibility: hidden;');
 			$percentLeftCheckbox->setChecked(0);
 		}
-
 		$graphFormList->addRow(_('Percentile line (left)'), array($percentLeftCheckbox, SPACE, $percentLeftTextBox));
 
 		// percent right
-		$percentRightTextBox = new CTextBox('percent_right', $this->data['percent_right'], 6, false, 7);
+		$percentRightTextBox = new CTextBox('percent_right', $this->data['percent_right'], 6, 'no', 7);
 		$percentRightCheckbox = new CCheckBox('visible[percent_right]', 1, 'javascript: showHideVisible("percent_right");', 1);
 
-		if(isset($this->data['visible']) && isset($this->data['visible']['percent_right'])) {
-			$percentRightTextBox->attr('style', '');
-			$percentRightCheckbox->setChecked(1);
-		}
-		elseif ($this->data['percent_right'] == 0) {
+		if ($this->data['percent_right'] == 0) {
 			$percentRightTextBox->attr('style', 'visibility: hidden;');
 			$percentRightCheckbox->setChecked(0);
 		}
-
-
 		$graphFormList->addRow(_('Percentile line (right)'), array($percentRightCheckbox, SPACE, $percentRightTextBox));
 	}
 
@@ -125,7 +115,7 @@ if ($this->data['graphtype'] == GRAPH_TYPE_NORMAL || $this->data['graphtype'] ==
 			$ymin_name = $min_host['name'].NAME_DELIMITER.$minItem['name_expanded'];
 		}
 
-		$yaxisMinData[] = new CTextBox('ymin_name', $ymin_name, 36, true);
+		$yaxisMinData[] = new CTextBox('ymin_name', $ymin_name, 36, 'yes');
 		$yaxisMinData[] = new CButton('yaxis_min', _('Select'), 'javascript: '.
 			'return PopUp("popup.php?dstfrm='.$graphForm->getName().
 				'&dstfld1=ymin_itemid'.
@@ -145,7 +135,7 @@ if ($this->data['graphtype'] == GRAPH_TYPE_NORMAL || $this->data['graphtype'] ==
 					'&parent_discoveryid='.$this->data['parent_discoveryid'].
 					'&dstfld1=ymin_itemid'.
 					'&dstfld2=ymin_name'.
-					'&srctbl=item_prototypes'.
+					'&srctbl=prototypes'.
 					'&srcfld1=itemid'.
 					'&srcfld2=name'.
 					'&numeric=1", 0, 0, "zbx_popup_item");',
@@ -183,7 +173,7 @@ if ($this->data['graphtype'] == GRAPH_TYPE_NORMAL || $this->data['graphtype'] ==
 			$ymax_name = $max_host['name'].NAME_DELIMITER.$maxItem['name_expanded'];
 		}
 
-		$yaxisMaxData[] = new CTextBox('ymax_name', $ymax_name, 36, true);
+		$yaxisMaxData[] = new CTextBox('ymax_name', $ymax_name, 36, 'yes');
 		$yaxisMaxData[] = new CButton('yaxis_max', _('Select'), 'javascript: '.
 			'return PopUp("popup.php?dstfrm='.$graphForm->getName().
 				'&dstfld1=ymax_itemid'.
@@ -203,7 +193,7 @@ if ($this->data['graphtype'] == GRAPH_TYPE_NORMAL || $this->data['graphtype'] ==
 					'&parent_discoveryid='.$this->data['parent_discoveryid'].
 					'&dstfld1=ymax_itemid'.
 					'&dstfld2=ymax_name'.
-					'&srctbl=item_prototypes'.
+					'&srctbl=prototypes'.
 					'&srcfld1=itemid'.
 					'&srcfld2=name'.
 					'&numeric=1", 0, 0, "zbx_popup_item");',
@@ -253,7 +243,7 @@ if ($this->data['parent_discoveryid']) {
 			url_param($this->data['graphtype'], false, 'graphtype').
 			url_param('parent_discoveryid').
 			($this->data['normal_only'] ? '&normal_only=1' : '').
-			'&srctbl=item_prototypes&srcfld1=itemid&srcfld2=name&numeric=1", 800, 600);',
+			'&srctbl=prototypes&srcfld1=itemid&srcfld2=name&numeric=1", 800, 600);',
 		'link_menu'
 	);
 }

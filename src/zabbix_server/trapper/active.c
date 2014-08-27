@@ -49,17 +49,16 @@ static int	get_hostid_by_host(const char *host, const char *ip, unsigned short p
 {
 	const char	*__function_name = "get_hostid_by_host";
 
-	char		*host_esc, dns[INTERFACE_DNS_LEN_MAX], *ch_error;
+	char		*host_esc, dns[INTERFACE_DNS_LEN_MAX];
 	DB_RESULT	result;
 	DB_ROW		row;
 	int		ret = FAIL;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() host:'%s'", __function_name, host);
 
-	if (FAIL == zbx_check_hostname(host, &ch_error))
+	if (FAIL == zbx_check_hostname(host))
 	{
-		zbx_snprintf(error, MAX_STRING_LEN, "invalid host name [%s]: %s", host, ch_error);
-		zbx_free(ch_error);
+		zbx_snprintf(error, MAX_STRING_LEN, "invalid host name [%s]", host);
 		goto out;
 	}
 
@@ -71,8 +70,12 @@ static int	get_hostid_by_host(const char *host, const char *ip, unsigned short p
 			" where host='%s'"
 				" and status in (%d,%d)"
 				" and flags<>%d"
-				" and proxy_hostid is null",
-			host_esc, HOST_STATUS_MONITORED, HOST_STATUS_NOT_MONITORED, ZBX_FLAG_DISCOVERY_PROTOTYPE);
+		       		" and proxy_hostid is null"
+				ZBX_SQL_NODE,
+			host_esc,
+			HOST_STATUS_MONITORED, HOST_STATUS_NOT_MONITORED,
+			ZBX_FLAG_DISCOVERY_PROTOTYPE,
+			DBand_node_local("hostid"));
 
 	if (NULL != (row = DBfetch(result)))
 	{
@@ -462,7 +465,7 @@ int	send_list_of_active_checks_json(zbx_sock_t *sock, struct zbx_json_parse *jp)
 			zbx_json_addstring(&json, "expression", regexp->expression, ZBX_JSON_TYPE_STRING);
 
 			zbx_snprintf(buffer, sizeof(buffer), "%d", regexp->expression_type);
-			zbx_json_addstring(&json, "expression_type", buffer, ZBX_JSON_TYPE_INT);
+			zbx_json_addstring(&json, "expression_type",buffer, ZBX_JSON_TYPE_INT);
 
 			zbx_snprintf(buffer, sizeof(buffer), "%c", regexp->exp_delimiter);
 			zbx_json_addstring(&json, "exp_delimiter", buffer, ZBX_JSON_TYPE_STRING);

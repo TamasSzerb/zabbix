@@ -203,9 +203,6 @@
 		}
 	}
 
-	/**
-	 * @see init.js add.popup event
-	 */
 	function addPopupValues(list) {
 		// templates
 		var dcheckRowTpl = new Template(jQuery('#dcheckRowTPL').html()),
@@ -320,10 +317,6 @@
 
 			jQuery('#uniqueness_criteria_row_' + dcheckid).remove();
 		}
-
-		if (IE8) {
-			jQuery('#dcheckList').find('table').addClass('ie8fix-inline').removeClass('ie8fix-inline');
-		}
 	}
 
 	function showNewCheckForm(e, dcheckType, dcheckId) {
@@ -398,9 +391,9 @@
 					var radioObj = jQuery('input[name=' + name + ']');
 
 					if (radioObj.attr('type') == 'radio') {
-						radioObj.prop('checked', false);
+						radioObj.removeAttr('checked');
 
-						jQuery('#' + name + '_' + itemObj.val()).prop('checked', true);
+						jQuery('#' + name + '_' + itemObj.val()).attr('checked', 'checked');
 					}
 				}
 			});
@@ -505,10 +498,6 @@
 		}
 		if (showPrivProtocol) {
 			jQuery('#newCheckPrivProtocolRow .jqueryinputset').buttonset();
-		}
-
-		if (IE8) {
-			jQuery('#type').closest('li').addClass('ie8fix-inline').removeClass('ie8fix-inline');
 		}
 	}
 
@@ -649,7 +638,7 @@
 	}
 
 	function selectUniquenessCriteriaDefault() {
-		jQuery('#uniqueness_criteria_ip').prop('checked', true);
+		jQuery('#uniqueness_criteria_ip').attr('checked', 'checked');
 	}
 
 	jQuery(document).ready(function() {
@@ -659,7 +648,6 @@
 
 		jQuery('#newCheck').click(showNewCheckForm);
 		jQuery('#clone').click(function() {
-			jQuery('#update').val(<?php echo CJs::encodeJson(_('Add')); ?>).attr({id: 'add', name: 'add'});
 			jQuery('#druleid, #delete, #clone').remove();
 			jQuery('#cancel').addClass('ui-corner-left');
 			jQuery('#form').val('clone');

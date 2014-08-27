@@ -153,11 +153,13 @@ class CProfiler {
 			list($class, $method, $params, $result, $file, $line) = $apiCall;
 			// api method
 			$debug_str .= '<div style="padding-bottom: 10px;">';
-			$debug_str .= ($i + 1).'. <b>'.$class.'.'.$method.'</b> ['.$file.':'.$line.']';
+			$debug_str .= ($i + 1).'. <b>'.$class.'->'.$method.'</b> ['.$file.':'.$line.']';
 			$debug_str .= '</div>';
 			// parameters
 			$debug_str .= '<table><tr><td style="width: 300px" valign="top">Parameters:';
-			$debug_str .= '<pre>'.print_r(CHtml::encode($params), true).'</pre>';
+			foreach ($params as $p) {
+				$debug_str .= '<pre>'.print_r(CHtml::encode($p), true).'</pre>';
+			}
 			$debug_str .= '</td>';
 			// result
 			$debug_str .= '<td valign="top">Result:<pre>'.print_r(CHtml::encode($result), true).'</pre></td>';
@@ -191,7 +193,7 @@ class CProfiler {
 		$debug = new CDiv(null, 'textcolorstyles');
 		$debug->attr('name', 'zbx_debug_info');
 		$debug->attr('style', 'display: none; overflow: auto; width: 95%; border: 1px #777777 solid; margin: 4px; padding: 4px;');
-		$debug->addItem(array(BR(), new CJsScript($debug_str), BR()));
+		$debug->addItem(array(BR(), new CJSscript($debug_str), BR()));
 		$debug->show();
 	}
 

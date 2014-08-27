@@ -231,7 +231,6 @@ abstract class CGraphDraw {
 			$str = $this->items[0]['hostname'].NAME_DELIMITER.$this->items[0]['name'];
 		}
 		else {
-			// TODO: graphs shouldn't resolve names themselves
 			$str = CMacrosResolverHelper::resolveGraphName($this->header, $this->items);
 		}
 
@@ -262,10 +261,10 @@ abstract class CGraphDraw {
 	}
 
 	public function drawLogo() {
-		imagestringup($this->im, 1,
+		imagestringup($this->im, 0,
 			$this->fullSizeX - 10,
 			$this->fullSizeY - 50,
-			ZABBIX_HOMEPAGE,
+			'http://www.zabbix.com',
 			$this->getColor('Gray')
 		);
 	}

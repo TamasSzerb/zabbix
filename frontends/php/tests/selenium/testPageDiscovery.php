@@ -39,7 +39,7 @@ class testPageDiscovery extends CWebTest {
 		$this->zbxTestTextPresent($rule['name']);
 		$this->zbxTestTextPresent($rule['iprange']);
 		$this->zbxTestTextPresent($rule['delay']);
-		$this->zbxTestDropdownHasOptions('action', array('Enable selected', 'Disable selected', 'Delete selected'));
+		$this->zbxTestDropdownHasOptions('go', array('Enable selected', 'Disable selected', 'Delete selected'));
 	}
 
 	/**
@@ -57,7 +57,7 @@ class testPageDiscovery extends CWebTest {
 		$this->zbxTestLogin('discoveryconf.php');
 		$this->zbxTestCheckTitle('Configuration of discovery');
 		$this->zbxTestClickWait('link='.$name);
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestCheckTitle('Configuration of discovery');
 		$this->zbxTestTextPresent('Discovery rule updated');
 		$this->zbxTestTextPresent("$name");
@@ -80,7 +80,7 @@ class testPageDiscovery extends CWebTest {
 		$this->zbxTestLogin('discoveryconf.php');
 		$this->zbxTestCheckTitle('Configuration of discovery');
 		$this->zbxTestCheckboxSelect('g_druleid['.$druleid.']');
-		$this->zbxTestDropdownSelect('action', 'Delete selected');
+		$this->zbxTestDropdownSelect('go', 'Delete selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
@@ -103,7 +103,7 @@ class testPageDiscovery extends CWebTest {
 		$this->zbxTestLogin('discoveryconf.php');
 		$this->zbxTestCheckTitle('Configuration of discovery');
 		$this->zbxTestCheckboxSelect('all_drules');
-		$this->zbxTestDropdownSelect('action', 'Enable selected');
+		$this->zbxTestDropdownSelect('go', 'Enable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
@@ -127,7 +127,7 @@ class testPageDiscovery extends CWebTest {
 		$this->zbxTestLogin('discoveryconf.php');
 		$this->zbxTestCheckTitle('Configuration of discovery');
 		$this->zbxTestCheckboxSelect('g_druleid['.$druleid.']');
-		$this->zbxTestDropdownSelect('action', 'Enable selected');
+		$this->zbxTestDropdownSelect('go', 'Enable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
@@ -146,7 +146,7 @@ class testPageDiscovery extends CWebTest {
 		$this->zbxTestLogin('discoveryconf.php');
 		$this->zbxTestCheckTitle('Configuration of discovery');
 		$this->zbxTestCheckboxSelect('all_drules');
-		$this->zbxTestDropdownSelect('action', 'Disable selected');
+		$this->zbxTestDropdownSelect('go', 'Disable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
@@ -170,7 +170,7 @@ class testPageDiscovery extends CWebTest {
 		$this->zbxTestLogin('discoveryconf.php');
 		$this->zbxTestCheckTitle('Configuration of discovery');
 		$this->zbxTestCheckboxSelect('g_druleid['.$druleid.']');
-		$this->zbxTestDropdownSelect('action', 'Disable selected');
+		$this->zbxTestDropdownSelect('go', 'Disable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();

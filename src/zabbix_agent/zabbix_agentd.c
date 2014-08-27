@@ -169,14 +169,14 @@ static void	parse_commandline(int argc, char **argv, ZBX_TASK_EX *t)
 				break;
 			case 'h':
 				help();
-				exit(EXIT_SUCCESS);
+				exit(EXIT_FAILURE);
 				break;
 			case 'V':
 				version();
 #ifdef _AIX
 				tl_version();
 #endif
-				exit(EXIT_SUCCESS);
+				exit(EXIT_FAILURE);
 				break;
 			case 'p':
 				if (ZBX_TASK_START == t->task)
@@ -267,7 +267,9 @@ static void	set_defaults(void)
 #ifndef _WINDOWS
 	if (NULL == CONFIG_LOAD_MODULE_PATH)
 		CONFIG_LOAD_MODULE_PATH = zbx_strdup(CONFIG_LOAD_MODULE_PATH, LIBDIR "/modules");
+#endif
 
+#ifdef USE_PID_FILE
 	if (NULL == CONFIG_PID_FILE)
 		CONFIG_PID_FILE = "/tmp/zabbix_agentd.pid";
 #endif
@@ -284,19 +286,15 @@ static void	set_defaults(void)
  ******************************************************************************/
 static void	zbx_validate_config(void)
 {
-	char	*ch_error;
-
 	if (NULL == CONFIG_HOSTNAME)
 	{
 		zabbix_log(LOG_LEVEL_CRIT, "\"Hostname\" configuration parameter is not defined");
 		exit(EXIT_FAILURE);
 	}
 
-	if (FAIL == zbx_check_hostname(CONFIG_HOSTNAME, &ch_error))
+	if (FAIL == zbx_check_hostname(CONFIG_HOSTNAME))
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "invalid \"Hostname\" configuration parameter: '%s': %s", CONFIG_HOSTNAME,
-				ch_error);
-		zbx_free(ch_error);
+		zabbix_log(LOG_LEVEL_CRIT, "invalid \"Hostname\" configuration parameter: '%s'", CONFIG_HOSTNAME);
 		exit(EXIT_FAILURE);
 	}
 
@@ -423,7 +421,7 @@ static void	zbx_load_config(int requirement)
 			PARM_OPT,	2,			65535},
 		{"BufferSend",			&CONFIG_BUFFER_SEND,			TYPE_INT,
 			PARM_OPT,	1,			SEC_PER_HOUR},
-#ifndef _WINDOWS
+#ifdef USE_PID_FILE
 		{"PidFile",			&CONFIG_PID_FILE,			TYPE_STRING,
 			PARM_OPT,	0,			0},
 #endif
@@ -447,6 +445,8 @@ static void	zbx_load_config(int requirement)
 			PARM_OPT,	SEC_PER_MIN,		SEC_PER_HOUR},
 		{"MaxLinesPerSecond",		&CONFIG_MAX_LINES_PER_SECOND,		TYPE_INT,
 			PARM_OPT,	1,			1000},
+		{"AllowRoot",			&CONFIG_ALLOW_ROOT,			TYPE_INT,
+			PARM_OPT,	0,			1},
 		{"EnableRemoteCommands",	&CONFIG_ENABLE_REMOTE_COMMANDS,		TYPE_INT,
 			PARM_OPT,	0,			1},
 		{"LogRemoteCommands",		&CONFIG_LOG_REMOTE_COMMANDS,		TYPE_INT,
@@ -461,10 +461,6 @@ static void	zbx_load_config(int requirement)
 		{"LoadModulePath",		&CONFIG_LOAD_MODULE_PATH,		TYPE_STRING,
 			PARM_OPT,	0,			0},
 		{"LoadModule",			&CONFIG_LOAD_MODULE,			TYPE_MULTISTRING,
-			PARM_OPT,	0,			0},
-		{"AllowRoot",			&CONFIG_ALLOW_ROOT,			TYPE_INT,
-			PARM_OPT,	0,			1},
-		{"User",			&CONFIG_USER,				TYPE_STRING,
 			PARM_OPT,	0,			0},
 #endif
 #ifdef _WINDOWS
@@ -583,7 +579,7 @@ int	MAIN_ZABBIX_ENTRY()
 		if (FAIL == zbx_tcp_listen(&listen_sock, CONFIG_LISTEN_IP, (unsigned short)CONFIG_LISTEN_PORT))
 		{
 			zabbix_log(LOG_LEVEL_CRIT, "listener failed: %s", zbx_tcp_strerror());
-			exit(EXIT_FAILURE);
+			exit(1);
 		}
 	}
 
@@ -593,22 +589,15 @@ int	MAIN_ZABBIX_ENTRY()
 	init_perf_collector(1);
 	load_perf_counters(CONFIG_PERF_COUNTERS);
 #endif
+	load_user_parameters(CONFIG_USER_PARAMETERS);
+	load_aliases(CONFIG_ALIASES);
+
 	zbx_free_config();
 
 	/* --- START THREADS ---*/
 
 	/* allocate memory for a collector, all listeners and an active check */
 	threads_num = 1 + CONFIG_PASSIVE_FORKS + CONFIG_ACTIVE_FORKS;
-
-#ifdef _WINDOWS
-	if (MAXIMUM_WAIT_OBJECTS < threads_num)
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "Too many agent threads. Please reduce the StartAgents configuration"
-				" parameter or the number of active servers in ServerActive configuration parameter.");
-		exit(EXIT_FAILURE);
-	}
-#endif
-
 	threads = zbx_calloc(threads, threads_num, sizeof(ZBX_THREAD_HANDLE));
 
 	/* start the collector thread */
@@ -748,7 +737,7 @@ void	zbx_on_exit(void)
 	setproctitle_free_env();
 #endif
 
-	exit(EXIT_SUCCESS);
+	exit(SUCCEED);
 }
 
 #if defined(HAVE_SIGQUEUE) && defined(ZABBIX_DAEMON)
@@ -796,23 +785,20 @@ int	main(int argc, char **argv)
 		case ZBX_TASK_UNINSTALL_SERVICE:
 		case ZBX_TASK_START_SERVICE:
 		case ZBX_TASK_STOP_SERVICE:
+			zbx_load_config(ZBX_CFG_FILE_REQUIRED);
+			zbx_free_config();
+
 			if (t.flags & ZBX_TASK_FLAG_MULTIPLE_AGENTS)
 			{
-				zbx_load_config(ZBX_CFG_FILE_REQUIRED);
-
 				zbx_snprintf(ZABBIX_SERVICE_NAME, sizeof(ZABBIX_SERVICE_NAME), "%s [%s]",
 						APPLICATION_NAME, CONFIG_HOSTNAME);
 				zbx_snprintf(ZABBIX_EVENT_SOURCE, sizeof(ZABBIX_EVENT_SOURCE), "%s [%s]",
 						APPLICATION_NAME, CONFIG_HOSTNAME);
 			}
-			else
-				zbx_load_config(ZBX_CFG_FILE_OPTIONAL);
-
-			zbx_free_config();
 
 			ret = zbx_exec_service_task(argv[0], &t);
 			free_metrics();
-			exit(SUCCEED == ret ? EXIT_SUCCESS : EXIT_FAILURE);
+			exit(ret);
 			break;
 #endif
 		case ZBX_TASK_TEST_METRIC:
@@ -846,16 +832,14 @@ int	main(int argc, char **argv)
 #endif
 			free_metrics();
 			alias_list_free();
-			exit(EXIT_SUCCESS);
+			exit(SUCCEED);
 			break;
 		default:
 			zbx_load_config(ZBX_CFG_FILE_REQUIRED);
-			load_user_parameters(CONFIG_USER_PARAMETERS);
-			load_aliases(CONFIG_ALIASES);
 			break;
 	}
 
-	START_MAIN_ZABBIX_ENTRY(CONFIG_ALLOW_ROOT, CONFIG_USER);
+	START_MAIN_ZABBIX_ENTRY(CONFIG_ALLOW_ROOT);
 
-	exit(EXIT_SUCCESS);
+	exit(SUCCEED);
 }

@@ -59,7 +59,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->zbxTestClickWait('add_template');
 
 		$this->zbxTestTextPresent('Template App Zabbix Agent');
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 
 		$this->zbxTestTextPresent('Host updated');
 	}
@@ -124,7 +124,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->assertAttribute('//*[@id="status"]/@checked', 'checked');
 		$this->zbxTestDropdownSelect('delta', 'Delta (simple change)');
 
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 
 		switch ($result) {
 			case TEST_GOOD:
@@ -184,7 +184,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->zbxTestClick('tab_templateTab');
 		sleep(1);
 		$this->zbxTestClickWait('unlink_and_clear_'.$hostid);
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 
 		$this->zbxTestTextPresent('Host updated');
 	}
@@ -209,7 +209,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->zbxTestClick('priority_label_2');
 		$this->zbxTestCheckboxSelect('status', false);
 
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 
 		// check that the inherited trigger matches the original
 		$this->zbxTestOpenWait('hosts.php');
@@ -260,7 +260,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->selectWindow("name=zbx_popup");
 		$this->zbxTestClick('link=Test LLD item1');
 		$this->selectWindow(null);
-		$this->zbxTestClick('add');
+		$this->zbxTestClick('save');
 
 		// check that the inherited graph matches the original
 		$this->zbxTestOpenWait('hosts.php');
@@ -310,7 +310,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->input_type('description', 'description');
 		$this->assertAttribute('//*[@id="status"]/@checked', 'checked');
 
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 
 		// check that the inherited rule matches the original
 		$this->zbxTestOpenWait('hosts.php');
@@ -363,7 +363,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->zbxTestDropdownSelect('delta', 'Delta (simple change)');
 		$this->zbxTestCheckboxSelect('status', false);
 
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 
 		// check that the inherited item prototype matches the original
 		$this->zbxTestOpenWait('hosts.php');
@@ -411,7 +411,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->zbxTestClick('priority_label_2');
 		$this->zbxTestCheckboxSelect('status', false);
 
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 
 		// check that the inherited trigger prototype matches the original
 		$this->zbxTestOpenWait('hosts.php');
@@ -473,7 +473,7 @@ class testTemplateInheritance extends CWebTest {
 		$this->selectWindow(null);
 		sleep(1);
 
-		$this->zbxTestClick('add');
+		$this->zbxTestClick('save');
 
 		// check that the inherited graph matches the original
 		$this->zbxTestOpenWait('hosts.php');

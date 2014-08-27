@@ -59,7 +59,7 @@ class testPageAdministrationGeneralValuemap extends CWebTest {
 
 		$this->zbxTestLogin('adm.valuemapping.php');
 		$this->zbxTestClickWait('link='.$valuemap['name']);
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Value map updated');
 
 		$newHashValuemap = DBhash($sqlValuemaps);

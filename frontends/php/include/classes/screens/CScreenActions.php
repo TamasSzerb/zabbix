@@ -37,43 +37,46 @@ class CScreenActions extends CScreenBase {
 				$sortorder = ZBX_SORT_UP;
 				$sorttitle = _('Time');
 				break;
-
 			case SCREEN_SORT_TRIGGERS_TIME_DESC:
 				$sortfield = 'clock';
 				$sortorder = ZBX_SORT_DOWN;
 				$sorttitle = _('Time');
 				break;
-
 			case SCREEN_SORT_TRIGGERS_TYPE_ASC:
 				$sortfield = 'description';
 				$sortorder = ZBX_SORT_UP;
 				$sorttitle = _('Type');
 				break;
-
 			case SCREEN_SORT_TRIGGERS_TYPE_DESC:
 				$sortfield = 'description';
 				$sortorder = ZBX_SORT_DOWN;
 				$sorttitle = _('Type');
 				break;
-
 			case SCREEN_SORT_TRIGGERS_STATUS_ASC:
 				$sortfield = 'status';
 				$sortorder = ZBX_SORT_UP;
 				$sorttitle = _('Status');
 				break;
-
 			case SCREEN_SORT_TRIGGERS_STATUS_DESC:
 				$sortfield = 'status';
 				$sortorder = ZBX_SORT_DOWN;
 				$sorttitle = _('Status');
 				break;
-
+			case SCREEN_SORT_TRIGGERS_RETRIES_LEFT_ASC:
+				$sortfield = 'retries';
+				$sortorder = ZBX_SORT_UP;
+				$sorttitle = _('Retries left');
+				break;
+			case SCREEN_SORT_TRIGGERS_RETRIES_LEFT_DESC:
+				$sortfield = 'retries';
+				$sortorder = ZBX_SORT_DOWN;
+				$sorttitle = _('Retries left');
+				break;
 			case SCREEN_SORT_TRIGGERS_RECIPIENT_ASC:
 				$sortfield = 'sendto';
 				$sortorder = ZBX_SORT_UP;
 				$sorttitle = _('Recipient(s)');
 				break;
-
 			case SCREEN_SORT_TRIGGERS_RECIPIENT_DESC:
 				$sortfield = 'sendto';
 				$sortorder = ZBX_SORT_DOWN;
@@ -81,12 +84,12 @@ class CScreenActions extends CScreenBase {
 				break;
 		}
 
-		$sql = 'SELECT a.alertid,a.clock,a.sendto,a.subject,a.message,a.status,a.retries,a.error,'.
-					'a.userid,a.actionid,a.mediatypeid,mt.description'.
+		$sql = 'SELECT a.alertid,a.clock,mt.description,a.sendto,a.subject,a.message,a.status,a.retries,a.error'.
 				' FROM events e,alerts a'.
 					' LEFT JOIN media_type mt ON mt.mediatypeid=a.mediatypeid'.
 				' WHERE e.eventid=a.eventid'.
-					' AND alerttype='.ALERT_TYPE_MESSAGE;
+					' AND alerttype='.ALERT_TYPE_MESSAGE.
+					andDbNode('a.alertid');
 
 		if (CWebUser::getType() != USER_TYPE_SUPER_ADMIN) {
 			$userid = CWebUser::$data['userid'];
@@ -110,82 +113,59 @@ class CScreenActions extends CScreenBase {
 
 		order_result($alerts, $sortfield, $sortorder);
 
-		if ($alerts) {
-			$dbUsers = API::User()->get(array(
-				'output' => array('userid', 'alias', 'name', 'surname'),
-				'userids' => zbx_objectValues($alerts, 'userid'),
-				'preservekeys' => true
-			));
-		}
-
 		// indicator of sort field
 		$sortfieldSpan = new CSpan(array($sorttitle, SPACE));
-		$sortorderSpan = new CSpan(SPACE, ($sortorder === ZBX_SORT_DOWN) ? 'icon_sortdown default_cursor' : 'icon_sortup default_cursor');
+		$sortorderSpan = new CSpan(SPACE, ($sortorder == ZBX_SORT_DOWN) ? 'icon_sortdown default_cursor' : 'icon_sortup default_cursor');
 
 		// create alert table
-		$actionTable = new CTableInfo(_('No action log entries found.'));
+		$actionTable = new CTableInfo(_('No actions found.'));
 		$actionTable->setHeader(array(
-			($sortfield === 'clock') ? array($sortfieldSpan, $sortorderSpan) : _('Time'),
-			_('Action'),
-			($sortfield === 'description') ? array($sortfieldSpan, $sortorderSpan) : _('Type'),
-			($sortfield === 'sendto') ? array($sortfieldSpan, $sortorderSpan) : _('Recipient(s)'),
+			is_show_all_nodes() ? _('Nodes') : null,
+			($sortfield == 'clock') ? array($sortfieldSpan, $sortorderSpan) : _('Time'),
+			($sortfield == 'description') ? array($sortfieldSpan, $sortorderSpan) : _('Type'),
+			($sortfield == 'status') ? array($sortfieldSpan, $sortorderSpan) : _('Status'),
+			($sortfield == 'retries') ? array($sortfieldSpan, $sortorderSpan) : _('Retries left'),
+			($sortfield == 'sendto') ? array($sortfieldSpan, $sortorderSpan) : _('Recipient(s)'),
 			_('Message'),
-			($sortfield === 'status') ? array($sortfieldSpan, $sortorderSpan) : _('Status'),
-			_('Info')
-		));
-
-		$actions = API::Action()->get(array(
-			'output' => array('actionid', 'name'),
-			'actionids' => array_unique(zbx_objectValues($alerts, 'actionid')),
-			'preservekeys' => true
+			_('Error')
 		));
 
 		foreach ($alerts as $alert) {
 			if ($alert['status'] == ALERT_STATUS_SENT) {
-				$status = new CSpan(_('Sent'), 'green');
+				$status = new CSpan(_('sent'), 'green');
+				$retries = new CSpan(SPACE, 'green');
 			}
 			elseif ($alert['status'] == ALERT_STATUS_NOT_SENT) {
-				$status = new CSpan(array(
-					_('In progress').':',
-					BR(),
-					_n('%1$s retry left', '%1$s retries left', ALERT_MAX_RETRIES - $alert['retries']),
-				), 'orange');
+				$status = new CSpan(_('In progress'), 'orange');
+				$retries = new CSpan(ALERT_MAX_RETRIES - $alert['retries'], 'orange');
 			}
 			else {
-				$status = new CSpan(_('Not sent'), 'red');
+				$status = new CSpan(_('not sent'), 'red');
+				$retries = new CSpan(0, 'red');
 			}
 
-			$recipient = $alert['userid']
-				? array(bold(getUserFullname($dbUsers[$alert['userid']])), BR(), $alert['sendto'])
-				: $alert['sendto'];
-
 			$message = array(
-				bold(_('Subject').':'),
+				bold(_('Subject').NAME_DELIMITER),
 				br(),
 				$alert['subject'],
 				br(),
 				br(),
-				bold(_('Message').':'),
+				bold(_('Message').NAME_DELIMITER),
 				br(),
 				$alert['message']
 			);
 
-			if (zbx_empty($alert['error'])) {
-				$info = '';
-			}
-			else {
-				$info = new CDiv(SPACE, 'status_icon iconerror');
-				$info->setHint($alert['error'], 'on');
-			}
+			$error = empty($alert['error']) ? new CSpan(SPACE, 'off') : new CSpan($alert['error'], 'on');
 
 			$actionTable->addRow(array(
-				new CCol(zbx_date2str(DATE_TIME_FORMAT_SECONDS, $alert['clock']), 'top'),
-				new CCol($actions[$alert['actionid']]['name'], 'top'),
-				new CCol(($alert['mediatypeid'] == 0) ? '-' : $alert['description'], 'top'),
-				new CCol($recipient, 'top'),
-				new CCol($message, 'top pre'),
+				get_node_name_by_elid($alert['alertid']),
+				new CCol(zbx_date2str(HISTORY_OF_ACTIONS_DATE_FORMAT, $alert['clock']), 'top'),
+				new CCol(!empty($alert['description']) ? $alert['description'] : '-', 'top'),
 				new CCol($status, 'top'),
-				new CCol($info, 'wraptext top')
+				new CCol($retries, 'top'),
+				new CCol($alert['sendto'], 'top'),
+				new CCol($message, 'top pre'),
+				new CCol($error, 'wraptext top')
 			));
 		}
 

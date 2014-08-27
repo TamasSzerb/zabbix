@@ -29,10 +29,9 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
-	'iconmapid' =>		array(T_ZBX_INT, O_OPT, P_SYS,			DB_ID,	'(isset({form}) && {form} == "update") || isset({delete})'),
-	'iconmap' =>		array(T_ZBX_STR, O_OPT, null,			null,	'isset({add}) || isset({update})'),
-	'add' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
-	'update' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
+	'iconmapid' =>		array(T_ZBX_INT, O_OPT, P_SYS,			DB_ID,	'(isset({form})&&{form}=="update")||isset({delete})'),
+	'iconmap' =>		array(T_ZBX_STR, O_OPT, null,			null,	'isset({save})'),
+	'save' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
 	'delete' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
 	'clone' =>			array(T_ZBX_STR, O_OPT, null,			null,	null),
 	'form' =>			array(T_ZBX_STR, O_OPT, P_SYS,			null,	null),
@@ -43,9 +42,9 @@ check_fields($fields);
 /*
  * Permissions
  */
-if (hasRequest('iconmapid')) {
+if (isset($_REQUEST['iconmapid'])) {
 	$iconMap = API::IconMap()->get(array(
-		'iconmapids' => getRequest('iconmapid'),
+		'iconmapids' => get_request('iconmapid'),
 		'output' => API_OUTPUT_EXTEND,
 		'editable' => true,
 		'preservekeys' => true,
@@ -59,7 +58,7 @@ if (hasRequest('iconmapid')) {
 /*
  * Actions
  */
-if (hasRequest('add') || hasRequest('update')) {
+if (isset($_REQUEST['save'])) {
 	$_REQUEST['iconmap']['mappings'] = isset($_REQUEST['iconmap']['mappings'])
 		? $_REQUEST['iconmap']['mappings']
 		: array();
@@ -70,7 +69,7 @@ if (hasRequest('add') || hasRequest('update')) {
 	}
 	unset($mapping);
 
-	if (hasRequest('update')) {
+	if (isset($_REQUEST['iconmapid'])) {
 		$_REQUEST['iconmap']['iconmapid'] = $_REQUEST['iconmapid'];
 		$result = API::IconMap()->update($_REQUEST['iconmap']);
 		$msgOk = _('Icon map updated');
@@ -88,8 +87,8 @@ if (hasRequest('add') || hasRequest('update')) {
 		unset($_REQUEST['form']);
 	}
 }
-elseif (hasRequest('delete')) {
-	$result = API::IconMap()->delete(array(getRequest('iconmapid')));
+elseif (isset($_REQUEST['delete'])) {
+	$result = API::IconMap()->delete($_REQUEST['iconmapid']);
 
 	if ($result) {
 		unset($_REQUEST['form']);
@@ -131,10 +130,11 @@ $iconMapWidget = new CWidget();
 $iconMapWidget->addPageHeader(_('CONFIGURATION OF ICON MAPPING'), $iconMapForm);
 
 $data = array(
-	'form_refresh' => getRequest('form_refresh', 0),
-	'iconmapid' => getRequest('iconmapid'),
+	'form_refresh' => get_request('form_refresh', 0),
+	'iconmapid' => get_request('iconmapid'),
 	'iconList' => array(),
-	'inventoryList' => array()
+	'inventoryList' => array(),
+	'displayNodes' => is_array(get_current_nodeid())
 );
 
 $iconList = API::Image()->get(array(
@@ -155,7 +155,7 @@ foreach ($inventoryFields as $field) {
 
 if (isset($_REQUEST['form'])) {
 	if ($data['form_refresh'] || ($_REQUEST['form'] === 'clone')) {
-		$data['iconmap'] = getRequest('iconmap');
+		$data['iconmap'] = get_request('iconmap');
 	}
 	elseif (isset($_REQUEST['iconmapid'])) {
 		$data['iconmap'] = reset($iconMap);
@@ -182,6 +182,14 @@ else {
 		'selectMappings' => API_OUTPUT_EXTEND
 	));
 	order_result($data['iconmaps'], 'name');
+
+	// nodes
+	foreach ($data['iconmaps'] as &$iconMap) {
+		order_result($iconMap['mappings'], 'sortorder');
+
+		$iconMap['nodename'] = $data['displayNodes'] ? get_node_name_by_elid($iconMap['iconmapid'], true) : '';
+	}
+	unset($iconMap);
 
 	$iconMapView = new CView('administration.general.iconmap.list', $data);
 }

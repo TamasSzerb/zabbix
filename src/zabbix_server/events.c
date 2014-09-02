@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,156 +9,309 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "db.h"
 #include "log.h"
+#include "zbxserver.h"
 
 #include "actions.h"
 #include "events.h"
 
-static DB_EVENT	*events = NULL;
-static size_t	events_alloc = 0, events_num = 0;
-
 /******************************************************************************
  *                                                                            *
- * Function: add_event                                                        *
+ * Function: get_latest_event_status                                          *
  *                                                                            *
- * Purpose: add event to an array                                             *
+ * Purpose: get identifiers and values of the last two events                 *
  *                                                                            *
- * Parameters: eventid  - [IN] event identificator from database              *
- *             source   - [IN] event source (EVENT_SOURCE_*)                  *
- *             object   - [IN] event object (EVENT_OBJECT_*)                  *
- *             objectid - [IN] trigger, item ... identificator from database, *
- *                             depends on source and object                   *
- *             timespec - [IN] event time                                     *
- *             value    - [IN] event value (TRIGGER_VALUE_*,                  *
- *                             TRIGGER_STATE_*, ITEM_STATE_* ... depends on   *
- *                             source and object)                             *
- *             trigger_description - [IN] trigger description                 *
- *             trigger_expression  - [IN] trigger short expression            *
- *             trigger_priority    - [IN] trigger priority                    *
- *             trigger_type        - [IN] trigger type (TRIGGER_TYPE_*)       *
+ * Parameters: triggerid    - [IN] trigger identifier from database           *
+ *             last_eventid - [OUT] last trigger identifier                   *
+ *             last_value   - [OUT] last trigger value                        *
+ *                                                                            *
+ * Author: Alexei Vladishev, Alexander Vladishev                              *
+ *                                                                            *
+ * Comments: "UNKNOWN" events will be ignored                                 *
  *                                                                            *
  ******************************************************************************/
-void	add_event(zbx_uint64_t eventid, unsigned char source, unsigned char object, zbx_uint64_t objectid,
-		const zbx_timespec_t *timespec, int value, const char *trigger_description,
-		const char *trigger_expression, unsigned char trigger_priority, unsigned char trigger_type)
+static void	get_latest_event_status(zbx_uint64_t triggerid,
+		zbx_uint64_t *last_eventid, int *last_value)
 {
-	if (events_num == events_alloc)
+	const char	*__function_name = "get_latest_event_status";
+	char		sql[256];
+	DB_RESULT	result;
+	DB_ROW		row;
+
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() triggerid:" ZBX_FS_UI64, __function_name, triggerid);
+
+	/* object and objectid are used for efficient */
+	/* sort by the same index as in where condition */
+	zbx_snprintf(sql, sizeof(sql),
+			"select eventid,value"
+			" from events"
+			" where source=%d"
+				" and object=%d"
+				" and objectid=" ZBX_FS_UI64
+				" and value in (%d,%d)"
+			" order by object desc,objectid desc,eventid desc",
+			EVENT_SOURCE_TRIGGERS,
+			EVENT_OBJECT_TRIGGER,
+			triggerid,
+			TRIGGER_VALUE_FALSE, TRIGGER_VALUE_TRUE);
+
+	result = DBselectN(sql, 1);
+
+	if (NULL != (row = DBfetch(result)))
 	{
-		events_alloc += 64;
-		events = zbx_realloc(events, sizeof(DB_EVENT) * events_alloc);
+		ZBX_STR2UINT64(*last_eventid, row[0]);
+		*last_value = atoi(row[1]);
 	}
-
-	events[events_num].eventid = eventid;
-	events[events_num].source = source;
-	events[events_num].object = object;
-	events[events_num].objectid = objectid;
-	events[events_num].clock = timespec->sec;
-	events[events_num].ns = timespec->ns;
-	events[events_num].value = value;
-	events[events_num].acknowledged = EVENT_NOT_ACKNOWLEDGED;
-
-	if (EVENT_SOURCE_TRIGGERS == source)
+	else
 	{
-		events[events_num].trigger.triggerid = objectid;
-		events[events_num].trigger.description = zbx_strdup(NULL, trigger_description);
-		events[events_num].trigger.expression = zbx_strdup(NULL, trigger_expression);
-		events[events_num].trigger.priority = trigger_priority;
-		events[events_num].trigger.type = trigger_type;
+		*last_eventid = 0;
+		*last_value = TRIGGER_VALUE_UNKNOWN;
 	}
+	DBfree_result(result);
 
-	events_num++;
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s() last_eventid:" ZBX_FS_UI64 " last_value:%d",
+			__function_name, *last_eventid, *last_value);
 }
 
 /******************************************************************************
  *                                                                            *
- * Function: save_events                                                      *
+ * Function: add_trigger_info                                                 *
  *                                                                            *
- * Purpose: flushes the events into a database                                *
+ * Purpose: add trigger info to event if required                             *
+ *                                                                            *
+ * Parameters: event - [IN] event data                                        *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-static void	save_events()
+static int	add_trigger_info(DB_EVENT *event)
 {
-	size_t		i;
-	zbx_db_insert_t	db_insert;
-	int		new_events = 0;
-	zbx_uint64_t	eventid;
+	const char	*__function_name = "add_trigger_info";
+	DB_RESULT	result;
+	DB_ROW		row;
+	zbx_uint64_t	last_eventid;
+	int		last_value, ret = SUCCEED;
 
-	zbx_db_insert_prepare(&db_insert, "events", "eventid", "source", "object", "objectid", "clock", "ns", "value",
-			NULL);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	for (i = 0; i < events_num; i++)
+	if (EVENT_OBJECT_TRIGGER == event->object && 0 != event->objectid)
 	{
-		if (0 == events[i].eventid)
-			new_events++;
+		result = DBselect("select description,expression,priority,type"
+				" from triggers"
+				" where triggerid=" ZBX_FS_UI64,
+				event->objectid);
+
+		if (NULL != (row = DBfetch(result)))
+		{
+			event->trigger.triggerid = event->objectid;
+			strscpy(event->trigger.description, row[0]);
+			strscpy(event->trigger.expression, row[1]);
+			event->trigger.priority = (unsigned char)atoi(row[2]);
+			event->trigger.type = (unsigned char)atoi(row[3]);
+		}
+		else
+			ret = FAIL;
+		DBfree_result(result);
+
+		if (SUCCEED != ret)
+			goto fail;
+
+		/* skip actions in next cases:
+		 * (1)  -any- / UNKNOWN	(-any-/-any-/UNKNOWN)
+		 * (2)  FALSE / FALSE	(FALSE/UNKNOWN/FALSE)
+		 * (3) UNKNOWN/ FALSE	(UNKNOWN/UNKNOWN/FALSE)
+		 * if event->trigger.type is not TRIGGER_TYPE_MULTIPLE_TRUE:
+		 * (4)  TRUE  / TRUE	(TRUE/UNKNOWN/TRUE)
+		 */
+		if (TRIGGER_VALUE_UNKNOWN == event->value)	/* (1) */
+		{
+			event->skip_actions = 1;
+		}
+		else
+		{
+			get_latest_event_status(event->objectid, &last_eventid, &last_value);
+
+			if (event->value == TRIGGER_VALUE_FALSE &&	/* (2) & (3) */
+					(last_value == TRIGGER_VALUE_FALSE || last_value == TRIGGER_VALUE_UNKNOWN))
+			{
+				event->skip_actions = 1;
+			}
+			else if (event->trigger.type != TRIGGER_TYPE_MULTIPLE_TRUE &&	/* (4) */
+					last_value == TRIGGER_VALUE_TRUE && event->value == TRIGGER_VALUE_TRUE)
+			{
+				event->skip_actions = 1;
+			}
+
+			/* copy acknowledges in next cases:
+			 * (1) FALSE/FALSE	(FALSE/UNKNOWN/FALSE)
+			 * if event->trigger.type is not TRIGGER_TYPE_MULTIPLE_TRUE:
+			 * (2) TRUE /TRUE	(TRUE/UNKNOWN/TRUE)
+			 */
+			if (last_value == event->value &&
+					(last_value == TRIGGER_VALUE_FALSE ||			/* (1) */
+					(event->trigger.type != TRIGGER_TYPE_MULTIPLE_TRUE &&	/* (2) */
+					last_value == TRIGGER_VALUE_TRUE)))
+			{
+				event->ack_eventid = last_eventid;
+			}
+		}
+
+		if (1 == event->skip_actions)
+			zabbix_log(LOG_LEVEL_DEBUG, "skip actions");
+		if (0 != event->ack_eventid)
+			zabbix_log(LOG_LEVEL_DEBUG, "copy acknowledges");
 	}
+fail:
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 
-	eventid = DBget_maxid_num("events", new_events);
-
-	for (i = 0; i < events_num; i++)
-	{
-		if (0 == events[i].eventid)
-			events[i].eventid = eventid++;
-
-		zbx_db_insert_add_values(&db_insert, events[i].eventid, events[i].source, events[i].object,
-				events[i].objectid, events[i].clock, events[i].ns, events[i].value);
-	}
-
-	zbx_db_insert_execute(&db_insert);
-	zbx_db_insert_clean(&db_insert);
+	return ret;
 }
 
 /******************************************************************************
  *                                                                            *
- * Function: clean_events                                                     *
+ * Function: copy_acknowledges                                                *
  *                                                                            *
- * Purpose: cleans all array entries and resets events_num                    *
+ * Purpose: copy acknowledges from src_eventid to dst_eventid                 *
+ *                                                                            *
+ * Parameters: src_eventid - [IN] source event identifier from database       *
+ *             dst_eventid - [IN] destination event identifier from database  *
+ *                                                                            *
+ * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-static void	clean_events()
+static void	copy_acknowledges(zbx_uint64_t src_eventid, zbx_uint64_t dst_eventid)
 {
-	size_t	i;
+	const char	*__function_name = "copy_acknowledges";
+	zbx_uint64_t	acknowledgeid, *ids = NULL;
+	int		ids_alloc = 0, ids_num = 0, i;
+	DB_RESULT	result;
+	DB_ROW		row;
+	char		*sql = NULL;
+	int		sql_alloc = 4096, sql_offset = 0;
 
-	for (i = 0; i < events_num; i++)
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() src_eventid:" ZBX_FS_UI64
+			" dst_eventid:" ZBX_FS_UI64,
+			__function_name, src_eventid, dst_eventid);
+
+	result = DBselect("select acknowledgeid"
+			" from acknowledges"
+			" where eventid=" ZBX_FS_UI64,
+			src_eventid);
+
+	while (NULL != (row = DBfetch(result)))
 	{
-		if (EVENT_SOURCE_TRIGGERS != events[i].source)
-			continue;
+		ZBX_STR2UINT64(acknowledgeid, row[0]);
+		uint64_array_add(&ids, &ids_alloc, &ids_num, acknowledgeid, 64);
+	}
+	DBfree_result(result);
 
-		zbx_free(events[i].trigger.description);
-		zbx_free(events[i].trigger.expression);
+	if (NULL == ids)
+		goto out;
+
+	sql = zbx_malloc(sql, sql_alloc * sizeof(char));
+
+#ifdef HAVE_ORACLE
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 8, "begin\n");
+#endif
+
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 96,
+			"update events"
+			" set acknowledged=1"
+			" where eventid=" ZBX_FS_UI64 ";\n",
+			dst_eventid);
+
+	acknowledgeid = DBget_maxid_num("acknowledges", ids_num);
+
+	for (i = 0; i < ids_num; i++, acknowledgeid++)
+	{
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 192,
+				"insert into acknowledges"
+				" (acknowledgeid,userid,eventid,clock,message)"
+					" select " ZBX_FS_UI64 ",userid," ZBX_FS_UI64 ",clock,message"
+					" from acknowledges"
+					" where acknowledgeid=" ZBX_FS_UI64 ";\n",
+				acknowledgeid, dst_eventid, ids[i]);
 	}
 
-	events_num = 0;
-}
+#ifdef HAVE_ORACLE
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 8, "end;\n");
+#endif
 
-int	process_events(void)
-{
-	const char	*__function_name = "process_events";
-	int		ret = (int)events_num;
+	if (sql_offset > 16)	/* In ORACLE always present begin..end; */
+		DBexecute("%s", sql);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() events_num:" ZBX_FS_SIZE_T, __function_name, (zbx_fs_size_t)events_num);
-
-	if (0 != events_num)
-	{
-		save_events();
-
-		process_actions(events, events_num);
-
-		DBupdate_itservices(events, events_num);
-
-		clean_events();
-	}
-
+	zbx_free(sql);
+	zbx_free(ids);
+out:
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
+}
 
-	return ret;		/* performance metric */
+/******************************************************************************
+ *                                                                            *
+ * Function: process_event                                                    *
+ *                                                                            *
+ * Purpose: process new event                                                 *
+ *                                                                            *
+ * Parameters: event - event data (event.eventid - new event)                 *
+ *                                                                            *
+ * Return value: SUCCEED - event added                                        *
+ *               FAIL    - event not added                                    *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ ******************************************************************************/
+int	process_event(zbx_uint64_t eventid, int source, int object, zbx_uint64_t objectid, int clock,
+		int value, int acknowledged, int force_actions)
+{
+	const char	*__function_name = "process_event";
+	DB_EVENT	event;
+	int		ret = FAIL;
+
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() eventid:" ZBX_FS_UI64 " object:%d objectid:" ZBX_FS_UI64 " value:%d",
+			__function_name, eventid, object, objectid, value);
+
+	/* preparing event for processing */
+	memset(&event, 0, sizeof(DB_EVENT));
+	event.eventid = eventid;
+	event.source = source;
+	event.object = object;
+	event.objectid = objectid;
+	event.clock = clock;
+	event.value = value;
+	event.acknowledged = acknowledged;
+
+	if (SUCCEED != add_trigger_info(&event))
+		goto fail;
+
+	if (0 == event.eventid)
+		event.eventid = DBget_maxid("events");
+
+	DBexecute("insert into events (eventid,source,object,objectid,clock,value)"
+			" values (" ZBX_FS_UI64 ",%d,%d," ZBX_FS_UI64 ",%d,%d)",
+			event.eventid, event.source, event.object, event.objectid, event.clock, event.value);
+
+	if (0 != event.ack_eventid)
+		copy_acknowledges(event.ack_eventid, event.eventid);
+
+	if (0 == event.skip_actions || 1 == force_actions)
+		process_actions(&event);
+
+	if (EVENT_OBJECT_TRIGGER == event.object)
+		DBupdate_services(event.objectid, (TRIGGER_VALUE_TRUE == event.value) ? event.trigger.priority : 0, event.clock);
+
+	ret = SUCCEED;
+fail:
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
+
+	return ret;
 }

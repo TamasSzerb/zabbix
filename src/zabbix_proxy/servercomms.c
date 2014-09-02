@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2006 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -75,16 +75,16 @@ static int	send_data_to_server(zbx_sock_t *sock, const char *data)
 	return res;
 }
 
-static int	recv_data_from_server(zbx_sock_t *sock)
+static int	recv_data_from_server(zbx_sock_t *sock, char **data)
 {
 	int	res;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In recv_data_from_server()");
 
-	if (FAIL == (res = zbx_tcp_recv(sock)))
+	if (FAIL == (res = zbx_tcp_recv(sock, data)))
 		zabbix_log(LOG_LEVEL_ERR, "Error while receiving answer from server [%s]", zbx_tcp_strerror());
 	else
-		zabbix_log(LOG_LEVEL_DEBUG, "Received [%s] from server", sock->buffer);
+		zabbix_log(LOG_LEVEL_DEBUG, "Received [%s] from server", *data);
 
 	return res;
 }
@@ -110,7 +110,7 @@ void	disconnect_server(zbx_sock_t *sock)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	get_data_from_server(zbx_sock_t *sock, const char *request)
+int	get_data_from_server(zbx_sock_t *sock, const char *request, char **data)
 {
 	const char	*__function_name = "get_data_from_server";
 
@@ -126,7 +126,7 @@ int	get_data_from_server(zbx_sock_t *sock, const char *request)
 	if (FAIL == send_data_to_server(sock, j.buffer))
 		goto exit;
 
-	if (FAIL == recv_data_from_server(sock))
+	if (FAIL == recv_data_from_server(sock, data))
 		goto exit;
 
 	ret = SUCCEED;
@@ -154,30 +154,22 @@ exit:
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-int	put_data_to_server(zbx_sock_t *sock, struct zbx_json *j, char **error)
+int	put_data_to_server(zbx_sock_t *sock, struct zbx_json *j)
 {
 	const char	*__function_name = "put_data_to_server";
 
-	char		*info = NULL, *err = NULL;
 	int		ret = FAIL;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() datalen:" ZBX_FS_SIZE_T, __function_name, (zbx_fs_size_t)j->buffer_size);
 
-	if (SUCCEED != send_data_to_server(sock, j->buffer))
-		goto out;
+	if (FAIL == send_data_to_server(sock, j->buffer))
+		goto exit;
 
-	if (SUCCEED != zbx_recv_response(sock, &info, 0, &err))
-	{
-		*error = zbx_dsprintf(*error, "error:\"%s\", info:\"%s\"", ZBX_NULL2EMPTY_STR(err),
-				ZBX_NULL2EMPTY_STR(info));
-		goto out;
-	}
+	if (FAIL == zbx_recv_response(sock, NULL, 0, 0))
+		goto exit;
 
 	ret = SUCCEED;
-out:
-	zbx_free(info);
-	zbx_free(err);
-
+exit:
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 
 	return ret;

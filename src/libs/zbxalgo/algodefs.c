@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -241,8 +241,10 @@ int	zbx_default_int_compare_func(const void *d1, const void *d2)
 	const int	*i1 = (const int *)d1;
 	const int	*i2 = (const int *)d2;
 
-	ZBX_RETURN_IF_NOT_EQUAL(*i1, *i2);
-
+	if (*i1 < *i2)
+		return -1;
+	if (*i1 > *i2)
+		return +1;
 	return 0;
 }
 
@@ -251,8 +253,10 @@ int	zbx_default_uint64_compare_func(const void *d1, const void *d2)
 	const zbx_uint64_t	*i1 = (const zbx_uint64_t *)d1;
 	const zbx_uint64_t	*i2 = (const zbx_uint64_t *)d2;
 
-	ZBX_RETURN_IF_NOT_EQUAL(*i1, *i2);
-
+	if (*i1 < *i2)
+		return -1;
+	if (*i1 > *i2)
+		return +1;
 	return 0;
 }
 
@@ -264,17 +268,15 @@ int	zbx_default_uint64_ptr_compare_func(const void *d1, const void *d2)
 	return zbx_default_uint64_compare_func(p1, p2);
 }
 
-int	zbx_default_str_compare_func(const void *d1, const void *d2)
-{
-	return strcmp(*(const char **)d1, *(const char **)d2);
-}
-
 int	zbx_default_ptr_compare_func(const void *d1, const void *d2)
 {
 	const void	*p1 = *(const void **)d1;
 	const void	*p2 = *(const void **)d2;
 
-	ZBX_RETURN_IF_NOT_EQUAL(p1, p2);
+	if (p1 < p2)
+		return -1;
+	if (p1 > p2)
+		return +1;
 
 	return 0;
 }
@@ -322,39 +324,4 @@ int	next_prime(int n)
 		n++;
 
 	return n;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: zbx_isqrt32                                                      *
- *                                                                            *
- * Purpose: calculate integer part of square root of a 32 bit integer value   *
- *                                                                            *
- * Parameters: value     - [IN] the value to calculate square root for        *
- *                                                                            *
- * Return value: the integer part of square root                              *
- *                                                                            *
- * Comments: Uses basic digit by digit square root calculation algorithm with *
- *           binary base.                                                     *
- *                                                                            *
- ******************************************************************************/
-unsigned int	zbx_isqrt32(unsigned int value)
-{
-	unsigned int	i, remainder = 0, result = 0, p;
-
-	for (i = 0; i < 16; i++)
-	{
-		result <<= 1;
-		remainder = (remainder << 2) + (value >> 30);
-		value <<= 2;
-
-		p = (result << 1) | 1;
-		if (p <= remainder)
-		{
-			remainder -= p;
-			result |= 1;
-		}
-	}
-
-	return result;
 }

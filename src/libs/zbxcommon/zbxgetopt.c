@@ -18,7 +18,7 @@
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.  */
+   Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 
 #include "common.h"
@@ -221,7 +221,7 @@ static void exchange (char **argv)
    argument, it follows the zbx_option name in the same ARGV-element, separated
    from the zbx_option name by a `=', or else the in next ARGV-element.
    When `getopt' finds a long-named zbx_option, it returns 0 if that zbx_option's
-   `flag' field is non-zero, the value of the zbx_option's `val' field
+   `flag' field is nonzero, the value of the zbx_option's `val' field
    if the `flag' field is zero.
 
    LONGOPTS is a vector of `struct zbx_option' terminated by an
@@ -231,7 +231,7 @@ static void exchange (char **argv)
    It is only valid when a long-named zbx_option has been found by the most
    recent call.
 
-   If LONG_ONLY is non-zero, '-' as well as '--' can introduce
+   If LONG_ONLY is nonzero, '-' as well as '--' can introduce
    long-named options.  */
 
 static int zbx_getopt_internal (int argc, char **argv, const char *optstring,
@@ -373,7 +373,7 @@ static int zbx_getopt_internal (int argc, char **argv, const char *optstring,
       int needexact = 0;
 
 #if ON
-      /* allow `--zbx_option#value' because you cannot assign a '='
+      /* allow `--zbx_option#value' because you cannout assign a '='
          to an environment variable under DOS command.com */
       while (*s && *s != '=' && * s != '#')
         s++;
@@ -397,7 +397,6 @@ static int zbx_getopt_internal (int argc, char **argv, const char *optstring,
                 exact = 1;
                 break;
               }
-#if OFF	/* ZBX: disable long option partial matching */
             else if (pfound == NULL)
               {
                 /* First nonexact match found.  */
@@ -407,7 +406,6 @@ static int zbx_getopt_internal (int argc, char **argv, const char *optstring,
             else
               /* Second nonexact match found.  */
               ambig = 1;
-#endif
           }
 
       /* don't allow nonexact longoptions */

@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,22 +9,22 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_CPUSTAT_H
 #define ZABBIX_CPUSTAT_H
 
 #include "sysinfo.h"
-#include "zbxalgo.h"
 
 #ifdef _WINDOWS
-#	include "perfmon.h"
+
+#define MAX_CPU_HISTORY	(15 * SEC_PER_MIN)
 
 typedef struct
 {
@@ -42,13 +42,9 @@ typedef struct
 {
 	zbx_uint64_t	h_counter[ZBX_CPU_STATE_COUNT][MAX_COLLECTOR_HISTORY];
 	unsigned char	h_status[MAX_COLLECTOR_HISTORY];
-#if (MAX_COLLECTOR_HISTORY % 8) > 0
-	unsigned char	padding0[8 - (MAX_COLLECTOR_HISTORY % 8)];	/* for 8-byte alignment */
-#endif
 	int		h_first;
 	int		h_count;
 	int		cpu_num;
-	int		padding1;	/* for 8-byte alignment */
 }
 ZBX_SINGLE_CPU_STAT_DATA;
 
@@ -70,7 +66,5 @@ void	free_cpu_collector(ZBX_CPUS_STAT_DATA *pcpus);
 void	collect_cpustat(ZBX_CPUS_STAT_DATA *pcpus);
 int	get_cpustat(AGENT_RESULT *result, int cpu_num, int state, int mode);
 #endif /* not _WINDOWS */
-
-int	get_cpu_statuses(zbx_vector_uint64_t *vector);
 
 #endif

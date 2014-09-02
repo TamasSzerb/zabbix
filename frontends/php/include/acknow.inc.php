@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -10,53 +10,48 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
 
-
-function get_last_event_by_triggerid($triggerId) {
-	$dbEvents = DBfetch(DBselect(
-		'SELECT e.*'.
-		' FROM events e'.
-		' WHERE e.objectid='.zbx_dbstr($triggerId).
-			' AND e.source='.EVENT_SOURCE_TRIGGERS.
-			' AND e.object='.EVENT_OBJECT_TRIGGER.
-		' ORDER BY e.objectid DESC,e.object DESC,e.eventid DESC',
-		1
-	));
-
-	return $dbEvents ? $dbEvents : false;
+function get_last_event_by_triggerid($triggerid){
+	$event_data = DBfetch(DBselect('SELECT * '.
+				' FROM events '.
+				' WHERE objectid='.zbx_dbstr($triggerid).
+					' and object='.EVENT_OBJECT_TRIGGER.
+				' ORDER BY objectid desc, object desc, eventid desc', 1));
+	if(!$event_data)
+		return FALSE;
+return $event_data;
 }
 
-/**
- * Get acknowledgement table.
- *
- * @param array $event
- * @param array $event['acknowledges']
- * @param array $event['acknowledges']['clock']
- * @param array $event['acknowledges']['alias']
- * @param array $event['acknowledges']['message']
- *
- * @return CTableInfo
- */
-function makeAckTab($event) {
-	$acknowledgeTable = new CTableInfo(_('No acknowledges found.'));
-	$acknowledgeTable->setHeader(array(_('Time'), _('User'), _('Comments')));
+function get_acknowledges_by_eventid($eventid){
+	return DBselect('SELECT a.*, u.alias FROM acknowledges a LEFT JOIN users u ON u.userid=a.userid  WHERE a.eventid='.zbx_dbstr($eventid));
+}
 
-	if (!empty($event['acknowledges']) && is_array($event['acknowledges'])) {
-		foreach ($event['acknowledges'] as $acknowledge) {
-			$acknowledgeTable->addRow(array(
-				zbx_date2str(DATE_TIME_FORMAT_SECONDS, $acknowledge['clock']),
-				getUserFullname($acknowledge),
-				new CCol(zbx_nl2br($acknowledge['message']), 'wraptext')
-			));
-		}
+function make_acktab_by_eventid($eventid){
+	$table = new CTableInfo();
+	$table->SetHeader(array(S_TIME,S_USER, S_COMMENTS));
+
+	$acks = get_acknowledges_by_eventid($eventid);
+
+	while($ack = DBfetch($acks)){
+		//$users = CUser::get(array('userids' => $ack['userid'],  'output' => API_OUTPUT_EXTEND));
+		//$user = reset($users);
+
+		$table->addRow(array(
+			zbx_date2str(S_ACKNOWINC_BY_EVENTS_DATE_FORMAT,$ack['clock']),
+			$ack['alias'],
+			new CCol(zbx_nl2br($ack['message']),'wraptext')
+		));
 	}
 
-	return $acknowledgeTable;
+return $table;
 }
+?>

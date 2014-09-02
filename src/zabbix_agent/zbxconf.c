@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -24,21 +24,21 @@
 #include "log.h"
 #include "alias.h"
 #include "sysinfo.h"
-#ifdef _WINDOWS
-#	include "perfstat.h"
+#include "stats.h"
+
+#if defined(ZABBIX_DAEMON)
+#	include "daemon.h"
 #endif
-#include "comms.h"
 
 char	*CONFIG_HOSTS_ALLOWED		= NULL;
 char	*CONFIG_HOSTNAME		= NULL;
 char	*CONFIG_HOSTNAME_ITEM		= NULL;
-char	*CONFIG_HOST_METADATA		= NULL;
-char	*CONFIG_HOST_METADATA_ITEM	= NULL;
 
 int	CONFIG_ENABLE_REMOTE_COMMANDS	= 0;
 int	CONFIG_LOG_REMOTE_COMMANDS	= 0;
 int	CONFIG_UNSAFE_USER_PARAMETERS	= 0;
-int	CONFIG_LISTEN_PORT		= ZBX_DEFAULT_AGENT_PORT;
+int	CONFIG_LISTEN_PORT		= 10050;
+int	CONFIG_SERVER_PORT		= 10051;
 int	CONFIG_REFRESH_ACTIVE_CHECKS	= 120;
 char	*CONFIG_LISTEN_IP		= NULL;
 char	*CONFIG_SOURCE_IP		= NULL;
@@ -49,16 +49,11 @@ int	CONFIG_BUFFER_SEND		= 5;
 
 int	CONFIG_MAX_LINES_PER_SECOND	= 100;
 
-char	*CONFIG_LOAD_MODULE_PATH	= NULL;
-
-char	**CONFIG_ALIASES		= NULL;
-char	**CONFIG_LOAD_MODULE		= NULL;
-char	**CONFIG_USER_PARAMETERS	= NULL;
+char	**CONFIG_ALIASES                = NULL;
+char	**CONFIG_USER_PARAMETERS        = NULL;
 #if defined(_WINDOWS)
-char	**CONFIG_PERF_COUNTERS		= NULL;
+char	**CONFIG_PERF_COUNTERS          = NULL;
 #endif
-
-char	*CONFIG_USER			= NULL;
 
 /******************************************************************************
  *                                                                            *
@@ -68,38 +63,27 @@ char	*CONFIG_USER			= NULL;
  *                                                                            *
  * Parameters: lines - aliase entries from configuration file                 *
  *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Vladimir Levijev                                                   *
+ *                                                                            *
  * Comments: calls add_alias() for each entry                                 *
  *                                                                            *
  ******************************************************************************/
 void	load_aliases(char **lines)
 {
-	char	**pline, *r, *c;
+	char	*value, **pline;
 
 	for (pline = lines; NULL != *pline; pline++)
 	{
-		r = *pline;
-
-		if (SUCCEED != parse_key(&r) || ':' != *r)
+		if (NULL == (value = strchr(*pline, ':')))
 		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add alias \"%s\": invalid character at position %ld",
-					*pline, (r - *pline) + 1);
-			exit(EXIT_FAILURE);
+			zabbix_log(LOG_LEVEL_CRIT, "Alias \"%s\" FAILED: not colon-separated", *pline);
+			exit(FAIL);
 		}
+		*value++ = '\0';
 
-		c = r++;
-
-		if (SUCCEED != parse_key(&r) || '\0' != *r)
-		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add alias \"%s\": invalid character at position %ld",
-					*pline, (r - *pline) + 1);
-			exit(EXIT_FAILURE);
-		}
-
-		*c++ = '\0';
-
-		add_alias(*pline, c);
-
-		*--c = ':';
+		add_alias(*pline, value);
 	}
 }
 
@@ -111,6 +95,8 @@ void	load_aliases(char **lines)
  *                                                                            *
  * Parameters: lines - user parameter entries from configuration file         *
  *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
  * Author: Vladimir Levijev                                                   *
  *                                                                            *
  * Comments: calls add_user_parameter() for each entry                        *
@@ -118,28 +104,22 @@ void	load_aliases(char **lines)
  ******************************************************************************/
 void	load_user_parameters(char **lines)
 {
-	char	*p, **pline, error[MAX_STRING_LEN];
+	char	*command, **pline;
 
 	for (pline = lines; NULL != *pline; pline++)
 	{
-		if (NULL == (p = strchr(*pline, ',')))
+		if (NULL == (command = strchr(*pline, ',')))
 		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add user parameter \"%s\": not comma-separated", *pline);
-			exit(EXIT_FAILURE);
+			zabbix_log(LOG_LEVEL_CRIT, "UserParameter \"%s\" FAILED: not comma-separated", *pline);
+			exit(FAIL);
 		}
-		*p = '\0';
+		*command++ = '\0';
 
-		if (FAIL == add_user_parameter(*pline, p + 1, error, sizeof(error)))
-		{
-			*p = ',';
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add user parameter \"%s\": %s", *pline, error);
-			exit(EXIT_FAILURE);
-		}
-		*p = ',';
+		add_user_parameter(*pline, command);
 	}
 }
 
-#ifdef _WINDOWS
+#if defined(_WINDOWS)
 /******************************************************************************
  *                                                                            *
  * Function: load_perf_counters                                               *
@@ -158,69 +138,41 @@ void	load_user_parameters(char **lines)
 void	load_perf_counters(const char **lines)
 {
 	char		name[MAX_STRING_LEN], counterpath[PDH_MAX_COUNTER_PATH], interval[8];
-	const char	**pline;
-	char		*error = NULL;
+	const char	**pline, *msg;
 	LPTSTR		wcounterPath;
-	int		period;
+
+#define ZBX_PC_FAIL(_msg) {msg = _msg; goto pc_fail;}
 
 	for (pline = lines; NULL != *pline; pline++)
 	{
 		if (3 < num_param(*pline))
-		{
-			error = zbx_strdup(error, "Required parameter missing.");
-			goto pc_fail;
-		}
+			ZBX_PC_FAIL("required parameter missing");
 
 		if (0 != get_param(*pline, 1, name, sizeof(name)))
-		{
-			error = zbx_strdup(error, "Cannot parse key.");
-			goto pc_fail;
-		}
+			ZBX_PC_FAIL("cannot parse key");
 
 		if (0 != get_param(*pline, 2, counterpath, sizeof(counterpath)))
-		{
-			error = zbx_strdup(error, "Cannot parse counter path.");
-			goto pc_fail;
-		}
+			ZBX_PC_FAIL("cannot parse counter path");
 
 		if (0 != get_param(*pline, 3, interval, sizeof(interval)))
-		{
-			error = zbx_strdup(error, "Cannot parse interval.");
-			goto pc_fail;
-		}
+			ZBX_PC_FAIL("cannot parse interval");
 
 		wcounterPath = zbx_acp_to_unicode(counterpath);
 		zbx_unicode_to_utf8_static(wcounterPath, counterpath, PDH_MAX_COUNTER_PATH);
 		zbx_free(wcounterPath);
 
 		if (FAIL == check_counter_path(counterpath))
-		{
-			error = zbx_strdup(error, "Invalid counter path.");
-			goto pc_fail;
-		}
+			ZBX_PC_FAIL("invalid counter path");
 
-		period = atoi(interval);
-
-		if (1 > period || MAX_COLLECTOR_PERIOD < period)
-		{
-			error = zbx_strdup(NULL, "Interval out of range.");
-			goto pc_fail;
-		}
-
-		if (NULL == add_perf_counter(name, counterpath, period, &error))
-		{
-			if (NULL == error)
-				error = zbx_strdup(error, "Failed to add new performance counter.");
-			goto pc_fail;
-		}
+		if (NULL == add_perf_counter(name, counterpath, atoi(interval)))
+			ZBX_PC_FAIL("cannot add counter");
 
 		continue;
 pc_fail:
-		zabbix_log(LOG_LEVEL_CRIT, "cannot add performance counter \"%s\": %s", *pline, error);
-		zbx_free(error);
-
-		exit(EXIT_FAILURE);
+		zabbix_log(LOG_LEVEL_CRIT, "PerfCounter '%s' FAILED: %s", *pline, msg);
+		exit(FAIL);
 	}
+#undef ZBX_PC_FAIL
 }
 #endif	/* _WINDOWS */
 

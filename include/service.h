@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,20 +9,20 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_SERVICE_H
 #define ZABBIX_SERVICE_H
 
-#ifndef _WINDOWS
-#	error "This module is only available for Windows OS"
-#endif
+#if !defined(_WINDOWS)
+#	error "This module allowed only for Windows OS"
+#endif /* _WINDOWS */
 
 #include "threads.h"
 
@@ -45,6 +45,6 @@ int	application_status;	/* required for closing application from service */
 #define ZBX_IS_RUNNING()	(ZBX_APP_RUNNING == application_status)
 #define ZBX_DO_EXIT()		application_status = ZBX_APP_STOPPED
 
-#define START_MAIN_ZABBIX_ENTRY(a, u)	service_start()
+#define START_MAIN_ZABBIX_ENTRY(a)	service_start()
 
 #endif /* ZABBIX_SERVICE_H */

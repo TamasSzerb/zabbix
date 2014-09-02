@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -10,143 +10,183 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+	require_once('include/config.inc.php');
+	require_once('include/acknow.inc.php');
+	require_once('include/actions.inc.php');
+	require_once('include/events.inc.php');
+	require_once('include/triggers.inc.php');
+	require_once('include/users.inc.php');
+	require_once('include/html.inc.php');
+
+	$page['title']		= 'S_EVENT_DETAILS';
+	$page['file']		= 'tr_events.php';
+	$page['hist_arg'] = array('triggerid', 'eventid');
+	$page['scripts'] = array();
+
+	$page['type'] = detect_page_type(PAGE_TYPE_HTML);
+
+	include_once 'include/page_header.php';
+?>
+<?php
+//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
+	$fields=array(
+		'triggerid'=>		array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		PAGE_TYPE_HTML.'=='.$page['type']),
+		'eventid'=>			array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		PAGE_TYPE_HTML.'=='.$page['type']),
+		'fullscreen'=>		array(T_ZBX_INT, O_OPT,	P_SYS,	IN('0,1'),		NULL),
+/* actions */
+		"save"=>		array(T_ZBX_STR,O_OPT,	P_ACT|P_SYS, null,	null),
+		"cancel"=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
+// ajax
+		'favobj'=>		array(T_ZBX_STR, O_OPT, P_ACT,	IN("'filter','hat'"),		NULL),
+		'favref'=>		array(T_ZBX_STR, O_OPT, P_ACT,  NOT_EMPTY,	'isset({favobj})'),
+		'state'=>		array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})')
+	);
+
+	check_fields($fields);
+
+/* AJAX */
+	if(isset($_REQUEST['favobj'])){
+		if('hat' == $_REQUEST['favobj']){
+			CProfile::update('web.tr_events.hats.'.$_REQUEST['favref'].'.state',$_REQUEST['state'], PROFILE_TYPE_INT);
+		}
+	}
+
+	if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
+		include_once('include/page_footer.php');
+		exit();
+	}
+//--------
 
 
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/acknow.inc.php';
-require_once dirname(__FILE__).'/include/actions.inc.php';
-require_once dirname(__FILE__).'/include/events.inc.php';
-require_once dirname(__FILE__).'/include/triggers.inc.php';
-require_once dirname(__FILE__).'/include/users.inc.php';
-require_once dirname(__FILE__).'/include/html.inc.php';
+	$options = array(
+		'triggerids' => $_REQUEST['triggerid'],
+		'output' => API_OUTPUT_EXTEND,
+		'select_hosts' => API_OUTPUT_EXTEND
+	);
+	$trigger = CTrigger::get($options);
+	if(!$trigger){
+		access_deny();
+	}
+	else{
+		$trigger = reset($trigger);
+		$trigger['host'] = reset($trigger['hosts']);
+		$trigger['host'] = $trigger['host']['host'];
+	}
 
-$page['title'] = _('Event details');
-$page['file'] = 'tr_events.php';
-$page['hist_arg'] = array('triggerid', 'eventid');
-$page['type'] = detect_page_type(PAGE_TYPE_HTML);
+	$trigger['exp_expr'] = explode_exp($trigger['expression'], true, true);
+	$trigger['exp_desc'] = expand_trigger_description_by_data($trigger);
 
-require_once dirname(__FILE__).'/include/page_header.php';
+	$tr_event_wdgt = new CWidget();
+	$tr_event_wdgt->setClass('header');
 
-define('PAGE_SIZE', 100);
+// Main widget header
+	$text = array(S_EVENTS_BIG.': "'.$trigger['exp_desc'].'"');
 
-// VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
-$fields = array(
-	'triggerid' =>	array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		PAGE_TYPE_HTML.'=='.$page['type']),
-	'eventid' =>	array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		PAGE_TYPE_HTML.'=='.$page['type']),
-	'fullscreen' =>	array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'),	null),
-	// ajax
-	'favobj' =>		array(T_ZBX_STR, O_OPT, P_ACT,	IN('"filter","hat"'), null),
-	'favref' =>		array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})'),
-	'favstate' =>	array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})')
-);
-check_fields($fields);
+	$fs_icon = get_icon('fullscreen', array('fullscreen' => $_REQUEST['fullscreen']));
+	$tr_event_wdgt->addHeader($text, $fs_icon);
+//-------
 
-/*
- * Ajax
- */
-if (getRequest('favobj') === 'hat') {
-	CProfile::update('web.tr_events.hats.'.getRequest('favobj').'.state', getRequest('favstate'), PROFILE_TYPE_INT);
-}
+	$left_tab = new CTable();
+	$left_tab->setCellPadding(3);
+	$left_tab->setCellSpacing(3);
+	$left_tab->setAttribute('border',0);
 
-if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
-	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
-}
-
-// triggers
-$triggers = API::Trigger()->get(array(
-	'output' => API_OUTPUT_EXTEND,
-	'selectHosts' => API_OUTPUT_EXTEND,
-	'triggerids' => getRequest('triggerid')
-));
-
-if (!$triggers) {
-	access_deny();
-}
-
-$trigger = reset($triggers);
-
-// events
-$events = API::Event()->get(array(
-	'output' => API_OUTPUT_EXTEND,
-	'select_alerts' => API_OUTPUT_EXTEND,
-	'select_acknowledges' => API_OUTPUT_EXTEND,
-	'selectHosts' => API_OUTPUT_EXTEND,
-	'source' => EVENT_SOURCE_TRIGGERS,
-	'object' => EVENT_OBJECT_TRIGGER,
-	'eventids' => getRequest('eventid'),
-	'objectids' => getRequest('triggerid')
-));
-
-$event = reset($events);
-
-/*
- * Display
- */
-$config = select_config();
-
-$eventWidget = new CWidget();
-$eventWidget->setClass('header');
-$eventWidget->addHeader(
-	array(_('EVENTS').': "'.CMacrosResolverHelper::resolveTriggerName($trigger).'"'),
-	get_icon('fullscreen', array('fullscreen' => getRequest('fullscreen')))
-);
-
-// trigger details
-$triggerDetailsWidget = new CUiWidget('hat_triggerdetails', make_trigger_details($trigger));
-$triggerDetailsWidget->setHeader(_('Event source details'));
+// tr details
+	$tr_dtl = new CWidget('hat_triggerdetails', make_trigger_details($_REQUEST['triggerid'], $trigger));
+	$tr_dtl->setClass('header');
+	$tr_dtl->addHeader(S_EVENT.SPACE.S_SOURCE.SPACE.S_DETAILS, SPACE);
+	$left_tab->addRow($tr_dtl);
+//----------------
 
 // event details
-$eventDetailsWidget = new CUiWidget('hat_eventdetails', make_event_details($event, $trigger));
-$eventDetailsWidget->setHeader(_('Event details'));
+	$event_dtl = new CWidget('hat_eventdetails', make_event_details($_REQUEST['eventid']));
+	$event_dtl->addHeader(S_EVENT_DETAILS, SPACE);
+	$event_dtl->setClass('header');
+	$left_tab->addRow($event_dtl);
+//----------------
 
-// if acknowledges are not disabled in configuration, let's show them
-if ($config['event_ack_enable']) {
-	$eventAcknowledgesWidget = new CCollapsibleUiWidget('hat_eventack', makeAckTab($event));
-	$eventAcknowledgesWidget->open = (bool) CProfile::get('web.tr_events.hats.hat_eventack.state', true);
-	$eventAcknowledgesWidget->setHeader(_('Acknowledges'));
-}
-else {
-	$eventAcknowledgesWidget = null;
-}
+	$right_tab = new CTable();
+	$right_tab->setCellPadding(3);
+	$right_tab->setCellSpacing(3);
+	$right_tab->setAttribute('border',0);
 
-// actions messages
-$actionMessagesWidget = new CCollapsibleUiWidget('hat_eventactionmsgs', getActionMessages($event['alerts']));
-$actionMessagesWidget->open = (bool) CProfile::get('web.tr_events.hats.hat_eventactionmsgs.state', true);
-$actionMessagesWidget->setHeader(_('Message actions'));
+	// getting current configuration settings
+	$config = select_config();
 
-// actions commands
-$actionCommandWidget = new CCollapsibleUiWidget('hat_eventactionmcmds', getActionCommands($event['alerts']));
-$actionCommandWidget->open = (bool) CProfile::get('web.tr_events.hats.hat_eventactioncmds.state', true);
-$actionCommandWidget->setHeader(_('Command actions'));
+// event ack
+
+	// if acknowledges are not disabled in configuration, let's show them
+	if ($config['event_ack_enable']) {
+		$event_ack = new CWidget(
+			'hat_eventack',
+			make_acktab_by_eventid($_REQUEST['eventid']),
+			CProfile::get('web.tr_events.hats.hat_eventack.state', 1)
+		);
+		$event_ack->addHeader(S_ACKNOWLEDGES);
+		$right_tab->addRow($event_ack);
+	}
+
+//----------------
+
+// event sms actions
+	$actions_sms = new CWidget(
+		'hat_eventactionmsgs',
+		get_action_msgs_for_event($_REQUEST['eventid']),
+		CProfile::get('web.tr_events.hats.hat_eventactionmsgs.state',1)
+	);
+	$actions_sms->addHeader(S_MESSAGE_ACTIONS);
+	$right_tab->addRow($actions_sms);
+//----------------
+
+// event cmd actions
+	$actions_cmd = new CWidget(
+		'hat_eventactionmcmds',
+		get_action_cmds_for_event($_REQUEST['eventid']),//null,
+		CProfile::get('web.tr_events.hats.hat_eventactioncmds.state',1)
+	);
+	$actions_cmd->addHeader(S_COMMAND_ACTIONS);
+	$right_tab->addRow($actions_cmd);
+//----------------
 
 // event history
-$eventHistoryWidget = new CCollapsibleUiWidget('hat_eventlist', make_small_eventlist($event));
-$eventHistoryWidget->open = (bool) CProfile::get('web.tr_events.hats.hat_eventlist.state', true);
-$eventHistoryWidget->setHeader(_('Event list [previous 20]'));
 
-$eventTab = new CTable();
-$eventTab->addRow(
-	array(
-		new CDiv(array($triggerDetailsWidget, $eventDetailsWidget), 'column'),
-		new CDiv(
-			array(
-				$eventAcknowledgesWidget, $actionMessagesWidget, $actionCommandWidget, $eventHistoryWidget
-			),
-			'column'
-		)
-	),
-	'top'
-);
+	$events_histry = new CWidget(
+		'hat_eventlist',
+		make_small_eventlist($_REQUEST['eventid'], $trigger),
+		CProfile::get('web.tr_events.hats.hat_eventlist.state',1)
+	);
+	$events_histry->addHeader(S_EVENTS.SPACE.S_LIST.SPACE.'['.S_PREVIOUS_EVENTS.' 20]');
+	$right_tab->addRow($events_histry);
 
-$eventWidget->addItem($eventTab);
-$eventWidget->show();
+//----------------
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+	$td_l = new CCol($left_tab);
+	$td_l->setAttribute('valign','top');
+
+	$td_r = new CCol($right_tab);
+	$td_r->setAttribute('valign','top');
+
+	$outer_table = new CTable();
+	$outer_table->setAttribute('border',0);
+	$outer_table->setCellPadding(1);
+	$outer_table->setCellSpacing(1);
+	$outer_table->addRow(array($td_l, $td_r));
+
+	$tr_event_wdgt->addItem($outer_table);
+	$tr_event_wdgt->show();
+
+?>
+<?php
+
+include_once('include/page_footer.php');
+
+?>

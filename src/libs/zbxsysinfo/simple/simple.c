@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -22,20 +22,22 @@
 #include "comms.h"
 #include "log.h"
 #include "cfg.h"
-#include "telnet.h"
+
 #include "../common/net.h"
 #include "ntp.h"
+
 #include "simple.h"
 
 ZBX_METRIC	parameters_simple[] =
-/*      KEY                     FLAG		FUNCTION        	TEST PARAMETERS */
-{
-	{"net.tcp.service",	CF_HAVEPARAMS,	CHECK_SERVICE, 		"ssh,127.0.0.1,22"},
-	{"net.tcp.service.perf",CF_HAVEPARAMS,	CHECK_SERVICE_PERF, 	"ssh,127.0.0.1,22"},
-	{NULL}
-};
+	/* KEY                   FLAG            FUNCTION             ADD_PARAM  TEST_PARAM      */
+	{
+	{"net.tcp.service",	CF_USEUPARAM,	CHECK_SERVICE, 		0,	"ssh,127.0.0.1,22"},
+	{"net.tcp.service.perf",CF_USEUPARAM,	CHECK_SERVICE_PERF, 	0,	"ssh,127.0.0.1,22"},
+	{0}
+	};
 
 #ifdef HAVE_LDAP
+
 static int    check_ldap(const char *host, unsigned short port, int timeout, int *value_int)
 {
 	LDAP		*ldap	= NULL;
@@ -48,9 +50,9 @@ static int    check_ldap(const char *host, unsigned short port, int timeout, int
 	char	**valRes = NULL;
 	int	ldapErr = 0;
 
-	alarm(timeout);
-
 	*value_int = 0;
+
+	alarm(timeout);
 
 	if (NULL == (ldap = ldap_init(host, port)))
 	{
@@ -79,6 +81,7 @@ static int    check_ldap(const char *host, unsigned short port, int timeout, int
 	valRes = ldap_get_values(ldap, msg, attr);
 
 	*value_int = 1;
+
 lbl_ret:
 	alarm(0);
 
@@ -95,61 +98,34 @@ lbl_ret:
 
 	return SYSINFO_RET_OK;
 }
+
 #endif	/* HAVE_LDAP */
-
-/******************************************************************************
- *                                                                            *
- * Function: find_ssh_ident_string                                            *
- *                                                                            *
- * Purpose: parse recv_buf for ssh identification string as per               *
- *          RFC 4253, section 4.2                                             *
- *                                                                            *
- * Parameters: recv_buf     - [IN] buffer to parse                            *
- *             remote_major - [OUT] memory pointer where protocol major is    *
- *                                  to be written to                          *
- *             remote_minor - [OUT] memory pointer where protocol minor is    *
- *                                  to be written to                          *
- *                                                                            *
- * Returns: SUCCEED - if a string matching the specification is found         *
- *          FAIL - otherwise                                                  *
- *                                                                            *
- ******************************************************************************/
-static int	find_ssh_ident_string(const char *recv_buf, int *remote_major, int *remote_minor)
-{
-	const char	*r, *l = recv_buf;
-
-	while (NULL != (r = strchr(l, '\n')))
-	{
-		if (2 == sscanf(l, "SSH-%d.%d-%*s", remote_major, remote_minor))
-			return SUCCEED;
-
-		l = r + 1;
-	}
-
-	return FAIL;
-}
 
 static int	check_ssh(const char *host, unsigned short port, int timeout, int *value_int)
 {
 	int		ret;
 	zbx_sock_t	s;
-	char		send_buf[MAX_STRING_LEN];
-	int		remote_major, remote_minor;
+	char		send_buf[MAX_BUFFER_LEN];
+	char		*recv_buf;
+	char		*ssh_server, *ssh_proto;
 
 	*value_int = 0;
 
 	if (SUCCEED == (ret = zbx_tcp_connect(&s, CONFIG_SOURCE_IP, host, port, timeout)))
 	{
-		if (SUCCEED == (ret = zbx_tcp_recv(&s)))
+		if (SUCCEED == (ret = zbx_tcp_recv(&s, &recv_buf)))
 		{
-			if (SUCCEED == find_ssh_ident_string(s.buffer, &remote_major, &remote_minor))
+			if (0 == strncmp(recv_buf, "SSH", 3))
 			{
-				zbx_snprintf(send_buf, sizeof(send_buf), "SSH-%d.%d-zabbix_agent\r\n",
-						remote_major, remote_minor);
+				ssh_server = ssh_proto = recv_buf + 4;
+				ssh_server += strspn(ssh_proto, "0123456789-. ");
+				ssh_server[-1] = '\0';
+
+				zbx_snprintf(send_buf, sizeof(send_buf), "SSH-%s-%s\n", ssh_proto, "zabbix_agent");
 				*value_int = 1;
 			}
 			else
-				strscpy(send_buf, "0\n");
+				zbx_snprintf(send_buf, sizeof(send_buf), "0\n");
 
 			ret = zbx_tcp_send_raw(&s, send_buf);
 		}
@@ -163,242 +139,98 @@ static int	check_ssh(const char *host, unsigned short port, int timeout, int *va
 	return SYSINFO_RET_OK;
 }
 
-#ifdef HAVE_LIBCURL
-static int	check_https(const char *host, unsigned short port, int timeout, int *value_int)
-{
-	const char	*__function_name = "check_https";
-	int		err, opt;
-	char		https_host[MAX_STRING_LEN];
-	CURL            *easyhandle;
-
-	*value_int = 0;
-
-	if (NULL == (easyhandle = curl_easy_init()))
-	{
-		zabbix_log(LOG_LEVEL_DEBUG, "%s: could not init cURL library", __function_name);
-		goto clean;
-	}
-
-	zbx_snprintf(https_host, sizeof(https_host), "%s%s", (0 == strncmp(host, "https://", 8) ? "" : "https://"), host);
-
-	if (CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_USERAGENT, "Zabbix " ZABBIX_VERSION)) ||
-		CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_URL, https_host)) ||
-		CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_PORT, (long)port)) ||
-		CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_NOBODY, 1L)) ||
-		CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_SSL_VERIFYPEER, 0L)) ||
-		CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_SSL_VERIFYHOST, 0L)) ||
-		CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_TIMEOUT, (long)timeout)))
-	{
-		zabbix_log(LOG_LEVEL_DEBUG, "%s: could not set cURL option [%d]: %s",
-				__function_name, opt, curl_easy_strerror(err));
-		goto clean;
-	}
-
-	if (CURLE_OK == (err = curl_easy_perform(easyhandle)))
-		*value_int = 1;
-	else
-		zabbix_log(LOG_LEVEL_DEBUG, "%s: curl_easy_perform failed for [%s:%hu]: %s",
-				__function_name, host, port, curl_easy_strerror(err));
-clean:
-	curl_easy_cleanup(easyhandle);
-
-	return SYSINFO_RET_OK;
-}
-#endif	/* HAVE_LIBCURL */
-
-static int	check_telnet(const char *host, unsigned short port, int timeout, int *value_int)
-{
-	const char	*__function_name = "check_telnet";
-	zbx_sock_t	s;
-#ifdef _WINDOWS
-	u_long		argp = 1;
-#else
-	int		flags;
-#endif
-
-	*value_int = 0;
-
-	if (SUCCEED == zbx_tcp_connect(&s, CONFIG_SOURCE_IP, host, port, timeout))
-	{
-#ifdef _WINDOWS
-		ioctlsocket(s.socket, FIONBIO, &argp);	/* non-zero value sets the socket to non-blocking */
-#else
-		flags = fcntl(s.socket, F_GETFL);
-		if (0 == (flags & O_NONBLOCK))
-			fcntl(s.socket, F_SETFL, flags | O_NONBLOCK);
-#endif
-
-		if (SUCCEED == telnet_test_login(s.socket))
-			*value_int = 1;
-		else
-			zabbix_log(LOG_LEVEL_DEBUG, "Telnet check error: no login prompt");
-
-		zbx_tcp_close(&s);
-	}
-	else
-		zabbix_log(LOG_LEVEL_DEBUG, "%s error: %s", __function_name, zbx_tcp_strerror());
-
-	return SYSINFO_RET_OK;
-}
-
-/* validation functions for service checks */
-static int	validate_smtp(const char *line)
-{
-	if (0 == strncmp(line, "220", 3))
-	{
-		if ('-' == line[3])
-			return ZBX_TCP_EXPECT_IGNORE;
-
-		if ('\0' == line[3] || ' ' == line[3])
-			return ZBX_TCP_EXPECT_OK;
-	}
-
-	return ZBX_TCP_EXPECT_FAIL;
-}
-
-static int	validate_ftp(const char *line)
-{
-	if (0 == strncmp(line, "220 ", 4))
-		return ZBX_TCP_EXPECT_OK;
-
-	return ZBX_TCP_EXPECT_IGNORE;
-}
-
-static int	validate_pop(const char *line)
-{
-	return 0 == strncmp(line, "+OK", 3) ? ZBX_TCP_EXPECT_OK : ZBX_TCP_EXPECT_FAIL;
-}
-
-static int	validate_nntp(const char *line)
-{
-	if (0 == strncmp(line, "200", 3) || 0 == strncmp(line, "201", 3))
-		return ZBX_TCP_EXPECT_OK;
-
-	return ZBX_TCP_EXPECT_FAIL;
-}
-
-static int	validate_imap(const char *line)
-{
-	return 0 == strncmp(line, "* OK", 4) ? ZBX_TCP_EXPECT_OK : ZBX_TCP_EXPECT_FAIL;
-}
-
-int	check_service(AGENT_REQUEST *request, const char *default_addr, AGENT_RESULT *result, int perf)
+static int	check_service(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result, int perf)
 {
 	unsigned short	port = 0;
-	char		*service, *ip_str, ip[64], *port_str;
-	int		value_int, ret = SYSINFO_RET_FAIL;
+	char		service[16], ip[64], str_port[8];
+	int		value_int = 0, ret = SYSINFO_RET_FAIL;
 	double		check_time;
+
+	assert(result);
+
+	init_result(result);
 
 	check_time = zbx_time();
 
-	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
+	if (num_param(param) > 3)
+		return ret;
 
-	service = get_rparam(request, 0);
-	ip_str = get_rparam(request, 1);
-	port_str = get_rparam(request, 2);
+	if (0 != get_param(param, 1, service, sizeof(service)))
+		return ret;
 
-	if (NULL == service || '\0' == *service)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
-	}
+	if (0 != get_param(param, 2, ip, sizeof(ip)) || '\0' == *ip)
+		strscpy(ip, "127.0.0.1");
 
-	if (NULL == ip_str || '\0' == *ip_str)
-		strscpy(ip, default_addr);
-	else
-		strscpy(ip, ip_str);
+	if (0 != get_param(param, 3, str_port, sizeof(str_port)))
+		*str_port = '\0';
 
-	if (NULL != port_str && SUCCEED != is_ushort(port_str, &port))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
-		return SYSINFO_RET_FAIL;
-	}
+	if ('\0' != *str_port && FAIL == is_ushort(str_port, &port))
+		return ret;
 
 	if (0 == strcmp(service, "ssh"))
 	{
-		if (NULL == port_str || '\0' == *port_str)
+		if ('\0' == *str_port)
 			port = ZBX_DEFAULT_SSH_PORT;
 		ret = check_ssh(ip, port, CONFIG_TIMEOUT, &value_int);
 	}
-	else if (0 == strcmp(service, "ntp") || 0 == strcmp(service, "service.ntp" /* deprecated */))
+	else if (0 == strcmp(service, "ntp") || 0 == strcmp(service, "service.ntp" /* obsolete */))
 	{
-		if (NULL == port_str || '\0' == *port_str)
+		if ('\0' == *str_port)
 			port = ZBX_DEFAULT_NTP_PORT;
 		ret = check_ntp(ip, port, CONFIG_TIMEOUT, &value_int);
 	}
 #ifdef HAVE_LDAP
 	else if (0 == strcmp(service, "ldap"))
 	{
-		if (NULL == port_str || '\0' == *port_str)
+		if ('\0' == *str_port)
 			port = ZBX_DEFAULT_LDAP_PORT;
 		ret = check_ldap(ip, port, CONFIG_TIMEOUT, &value_int);
 	}
-#endif
+#endif	/* HAVE_LDAP */
 	else if (0 == strcmp(service, "smtp"))
 	{
-		if (NULL == port_str || '\0' == *port_str)
+		if ('\0' == *str_port)
 			port = ZBX_DEFAULT_SMTP_PORT;
-		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, validate_smtp, "QUIT\r\n", &value_int);
+		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, "220", "QUIT\n", &value_int);
 	}
 	else if (0 == strcmp(service, "ftp"))
 	{
-		if (NULL == port_str || '\0' == *port_str)
+		if ('\0' == *str_port)
 			port = ZBX_DEFAULT_FTP_PORT;
-		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, validate_ftp, "QUIT\r\n", &value_int);
+		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, "220", "QUIT\n", &value_int);
 	}
 	else if (0 == strcmp(service, "http"))
 	{
-		if (NULL == port_str || '\0' == *port_str)
+		if ('\0' == *str_port)
 			port = ZBX_DEFAULT_HTTP_PORT;
 		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, NULL, NULL, &value_int);
 	}
 	else if (0 == strcmp(service, "pop"))
 	{
-		if (NULL == port_str || '\0' == *port_str)
+		if ('\0' == *str_port)
 			port = ZBX_DEFAULT_POP_PORT;
-		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, validate_pop, "QUIT\r\n", &value_int);
+		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, "+OK", "QUIT\n", &value_int);
 	}
 	else if (0 == strcmp(service, "nntp"))
 	{
-		if (NULL == port_str || '\0' == *port_str)
+		if ('\0' == *str_port)
 			port = ZBX_DEFAULT_NNTP_PORT;
-		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, validate_nntp, "QUIT\r\n", &value_int);
+		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, "200", "QUIT\n", &value_int);
 	}
 	else if (0 == strcmp(service, "imap"))
 	{
-		if (NULL == port_str || '\0' == *port_str)
+		if ('\0' == *str_port)
 			port = ZBX_DEFAULT_IMAP_PORT;
-		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, validate_imap, "a1 LOGOUT\r\n", &value_int);
+		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, "* OK", "a1 LOGOUT\n", &value_int);
 	}
 	else if (0 == strcmp(service, "tcp"))
 	{
-		if (NULL == port_str || '\0' == *port_str)
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
-			return SYSINFO_RET_FAIL;
-		}
+		if ('\0' == *str_port)
+			return ret;
 		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, NULL, NULL, &value_int);
 	}
-#ifdef HAVE_LIBCURL
-	else if (0 == strcmp(service, "https"))
-	{
-		if (NULL == port_str || '\0' == *port_str)
-			port = ZBX_DEFAULT_HTTPS_PORT;
-		ret = check_https(ip, port, CONFIG_TIMEOUT, &value_int);
-	}
-#endif
-	else if (0 == strcmp(service, "telnet"))
-	{
-		if (NULL == port_str || '\0' == *port_str)
-			port = ZBX_DEFAULT_TELNET_PORT;
-		ret = check_telnet(ip, port, CONFIG_TIMEOUT, &value_int);
-	}
 	else
-		return ret;
+		return SYSINFO_RET_FAIL;
 
 	if (SYSINFO_RET_OK == ret)
 	{
@@ -433,12 +265,12 @@ int	check_service(AGENT_REQUEST *request, const char *default_addr, AGENT_RESULT
  * The old name for these checks is check_service[*].
  */
 
-int	CHECK_SERVICE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	CHECK_SERVICE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	return check_service(request, "127.0.0.1", result, 0);
+	return check_service(cmd, param, flags, result, 0);
 }
 
-int	CHECK_SERVICE_PERF(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	CHECK_SERVICE_PERF(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	return check_service(request, "127.0.0.1", result, 1);
+	return check_service(cmd, param, flags, result, 1);
 }

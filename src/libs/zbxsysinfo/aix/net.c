@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,18 +9,16 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
-#include "zbxjson.h"
-#include "log.h"
 
 typedef struct
 {
@@ -34,25 +32,20 @@ typedef struct
 }
 net_stat_t;
 
-static int	get_net_stat(const char *if_name, net_stat_t *ns, char **error)
+static int	get_net_stat(const char *if_name, net_stat_t *ns)
 {
 #if defined(HAVE_LIBPERFSTAT)
 	perfstat_id_t		ps_id;
 	perfstat_netinterface_t	ps_netif;
+#endif
 
-	if (NULL == if_name || '\0' == *if_name)
-	{
-		*error = zbx_strdup(NULL, "Network interface name cannot be empty.");
-		return SYSINFO_RET_FAIL;
-	}
+	assert(ns);
 
-	strscpy(ps_id.name, if_name);
+#if defined(HAVE_LIBPERFSTAT)
+	zbx_snprintf(ps_id.name, sizeof(ps_id.name), "%s", if_name);
 
 	if (-1 == perfstat_netinterface(&ps_id, &ps_netif, sizeof(ps_netif), 1))
-	{
-		*error = zbx_dsprintf(NULL, "Cannot obtain system information: %s", zbx_strerror(errno));
 		return SYSINFO_RET_FAIL;
-	}
 
 	ns->ibytes = (zbx_uint64_t)ps_netif.ibytes;
 	ns->ipackets = (zbx_uint64_t)ps_netif.ipackets;
@@ -66,194 +59,154 @@ static int	get_net_stat(const char *if_name, net_stat_t *ns, char **error)
 
 	return SYSINFO_RET_OK;
 #else
-	SET_MSG_RESULT(result, zbx_strdup(NULL, "Agent was compiled without support for Perfstat API."));
 	return SYSINFO_RET_FAIL;
 #endif
 }
 
-int	NET_IF_IN(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	NET_IF_IN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		*if_name, *mode, *error;
+	char		if_name[MAX_STRING_LEN], mode[MAX_STRING_LEN];
 	net_stat_t	ns;
+	int		ret = SYSINFO_RET_OK;
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
-	}
 
-	if_name = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
-
-	if (SYSINFO_RET_FAIL == get_net_stat(if_name, &ns, &error))
-	{
-		SET_MSG_RESULT(result, error);
+	if (0 != get_param(param, 1, if_name, sizeof(if_name)) || *if_name == '\0')
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "bytes"))
-		SET_UI64_RESULT(result, ns.ibytes);
-	else if (0 == strcmp(mode, "packets"))
-		SET_UI64_RESULT(result, ns.ipackets);
-	else if (0 == strcmp(mode, "errors"))
-		SET_UI64_RESULT(result, ns.ierr);
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
+
+	/* default parameter */
+	if ('\0' == *mode)
+		zbx_snprintf(mode, sizeof(mode), "bytes");
+
+	if (SYSINFO_RET_OK == get_net_stat(if_name, &ns))
+	{
+		if (0 == strcmp(mode, "bytes"))
+		{
+			SET_UI64_RESULT(result, ns.ibytes);
+		}
+		else if (0 == strcmp(mode, "packets"))
+		{
+			SET_UI64_RESULT(result, ns.ipackets);
+		}
+		else if (0 == strcmp(mode, "errors"))
+		{
+			SET_UI64_RESULT(result, ns.ierr);
+		}
+		else
+			ret = SYSINFO_RET_FAIL;
+	}
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	return SYSINFO_RET_OK;
-}
-
-int	NET_IF_OUT(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	char		*if_name, *mode, *error;
-	net_stat_t	ns;
-
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if_name = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
-
-	if (SYSINFO_RET_FAIL == get_net_stat(if_name, &ns, &error))
-	{
-		SET_MSG_RESULT(result, error);
-		return SYSINFO_RET_FAIL;
-	}
-
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "bytes"))
-		SET_UI64_RESULT(result, ns.obytes);
-	else if (0 == strcmp(mode, "packets"))
-		SET_UI64_RESULT(result, ns.opackets);
-	else if (0 == strcmp(mode, "errors"))
-		SET_UI64_RESULT(result, ns.oerr);
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	return SYSINFO_RET_OK;
-}
-
-int	NET_IF_TOTAL(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	char		*if_name, *mode, *error;
-	net_stat_t	ns;
-
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if_name = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
-
-	if (SYSINFO_RET_FAIL == get_net_stat(if_name, &ns, &error))
-	{
-		SET_MSG_RESULT(result, error);
-		return SYSINFO_RET_FAIL;
-	}
-
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "bytes"))
-		SET_UI64_RESULT(result, ns.ibytes + ns.obytes);
-	else if (0 == strcmp(mode, "packets"))
-		SET_UI64_RESULT(result, ns.ipackets + ns.opackets);
-	else if (0 == strcmp(mode, "errors"))
-		SET_UI64_RESULT(result, ns.ierr + ns.oerr);
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	return SYSINFO_RET_OK;
-}
-
-int	NET_IF_COLLISIONS(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	char		*if_name, *error;
-	net_stat_t	ns;
-
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if_name = get_rparam(request, 0);
-
-	if (SYSINFO_RET_FAIL == get_net_stat(if_name, &ns, &error))
-	{
-		SET_MSG_RESULT(result, error);
-		return SYSINFO_RET_FAIL;
-	}
-
-	SET_UI64_RESULT(result, ns.colls);
-
-	return SYSINFO_RET_OK;
-}
-
-int	NET_IF_DISCOVERY(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-#if defined(HAVE_LIBPERFSTAT)
-	int			rc, i, ret = SYSINFO_RET_FAIL;
-	perfstat_id_t		ps_id;
-	perfstat_netinterface_t	*ps_netif = NULL;
-	struct zbx_json		j;
-
-	/* check how many perfstat_netinterface_t structures are available */
-	if (-1 == (rc = perfstat_netinterface(NULL, NULL, sizeof(perfstat_netinterface_t), 0)))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain system information: %s", zbx_strerror(errno)));
-		return SYSINFO_RET_FAIL;
-	}
-
-	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
-
-	zbx_json_addarray(&j, ZBX_PROTO_TAG_DATA);
-
-	if (0 == rc)	/* no network interfaces found */
-	{
-		ret = SYSINFO_RET_OK;
-		goto end;
-	}
-
-	ps_netif = zbx_malloc(ps_netif, rc * sizeof(perfstat_netinterface_t));
-
-	/* set name to first interface */
-	strscpy(ps_id.name, FIRST_NETINTERFACE);	/* pseudo-name for the first network interface */
-
-	/* ask to get all the structures available in one call */
-	/* return code is number of structures returned */
-	if (-1 != (rc = perfstat_netinterface(&ps_id, ps_netif, sizeof(perfstat_netinterface_t), rc)))
-		ret = SYSINFO_RET_OK;
-
-	/* collecting of the information for each of the interfaces */
-	for (i = 0; i < rc; i++)
-	{
-		zbx_json_addobject(&j, NULL);
-		zbx_json_addstring(&j, "{#IFNAME}", ps_netif[i].name, ZBX_JSON_TYPE_STRING);
-		zbx_json_close(&j);
-	}
-
-	zbx_free(ps_netif);
-end:
-	zbx_json_close(&j);
-
-	SET_STR_RESULT(result, strdup(j.buffer));
-
-	zbx_json_free(&j);
+		ret = SYSINFO_RET_FAIL;
 
 	return ret;
-#else
-	SET_MSG_RESULT(result, zbx_strdup(NULL, "Agent was compiled without support for Perfstat API."));
-	return SYSINFO_RET_FAIL;
-#endif
+}
+
+int	NET_IF_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	char		if_name[MAX_STRING_LEN], mode[MAX_STRING_LEN];
+	net_stat_t	ns;
+	int		ret = SYSINFO_RET_OK;
+
+	if (num_param(param) > 2)
+		return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 1, if_name, sizeof(if_name)) || *if_name == '\0')
+		return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
+
+	/* default parameter */
+	if ('\0' == *mode)
+		zbx_snprintf(mode, sizeof(mode), "bytes");
+
+	if (SYSINFO_RET_OK == get_net_stat(if_name, &ns))
+	{
+		if (0 == strcmp(mode, "bytes"))
+		{
+			SET_UI64_RESULT(result, ns.obytes);
+		}
+		else if (0 == strcmp(mode, "packets"))
+		{
+			SET_UI64_RESULT(result, ns.opackets);
+		}
+		else if (0 == strcmp(mode, "errors"))
+		{
+			SET_UI64_RESULT(result, ns.oerr);
+		}
+		else
+			ret = SYSINFO_RET_FAIL;
+	}
+	else
+		ret = SYSINFO_RET_FAIL;
+
+	return ret;
+}
+
+int	NET_IF_TOTAL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	char		if_name[MAX_STRING_LEN], mode[MAX_STRING_LEN];
+	net_stat_t	ns;
+	int		ret = SYSINFO_RET_OK;
+
+	if (num_param(param) > 2)
+		return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 1, if_name, sizeof(if_name)) || *if_name == '\0')
+		return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
+
+	/* default parameter */
+	if ('\0' == *mode)
+		zbx_snprintf(mode, sizeof(mode), "bytes");
+
+	if (SYSINFO_RET_OK == get_net_stat(if_name, &ns))
+	{
+		if (0 == strcmp(mode, "bytes"))
+		{
+			SET_UI64_RESULT(result, ns.ibytes + ns.obytes);
+		}
+		else if (0 == strcmp(mode, "packets"))
+		{
+			SET_UI64_RESULT(result, ns.ipackets + ns.opackets);
+		}
+		else if (0 == strcmp(mode, "errors"))
+		{
+			SET_UI64_RESULT(result, ns.ierr + ns.oerr);
+		}
+		else
+			ret = SYSINFO_RET_FAIL;
+	}
+	else
+		ret = SYSINFO_RET_FAIL;
+
+	return ret;
+}
+
+int	NET_IF_COLLISIONS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	char		if_name[MAX_STRING_LEN];
+	net_stat_t	ns;
+	int		ret = SYSINFO_RET_OK;
+
+	if (num_param(param) > 1)
+		return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 1, if_name, sizeof(if_name)))
+		return SYSINFO_RET_FAIL;
+
+	if (SYSINFO_RET_OK == get_net_stat(if_name, &ns))
+	{
+		SET_UI64_RESULT(result, ns.colls);
+	}
+	else
+		ret = SYSINFO_RET_FAIL;
+
+	return ret;
 }

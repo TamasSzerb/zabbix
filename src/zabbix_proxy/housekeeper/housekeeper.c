@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -25,8 +25,7 @@
 
 #include "housekeeper.h"
 
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	process_type;
 
 /******************************************************************************
  *                                                                            *
@@ -93,10 +92,9 @@ static int	delete_history(const char *table, const char *fieldname, int now)
 				" and (clock<%d"
 					" or (id<=" ZBX_FS_UI64 " and clock<%d))",
 			table, maxid,
-			now - CONFIG_PROXY_OFFLINE_BUFFER * SEC_PER_HOUR,
+			now - CONFIG_PROXY_OFFLINE_BUFFER * 3600,
 			lastid,
-			MIN(now - CONFIG_PROXY_LOCAL_BUFFER * SEC_PER_HOUR,
-					minclock + 4 * CONFIG_HOUSEKEEPING_FREQUENCY * SEC_PER_HOUR));
+			MIN(now - CONFIG_PROXY_LOCAL_BUFFER * 3600, minclock + 4 * CONFIG_HOUSEKEEPING_FREQUENCY * 3600));
 
 	DBcommit();
 
@@ -125,7 +123,7 @@ rollback:
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	housekeeping_history(int now)
+static int housekeeping_history(int now)
 {
         int	records = 0;
 
@@ -138,28 +136,17 @@ static int	housekeeping_history(int now)
         return records;
 }
 
-ZBX_THREAD_ENTRY(housekeeper_thread, args)
+void	main_housekeeper_loop()
 {
-	int	records, start, sleeptime;
+	int	records;
+	int	start, sleeptime;
 	double	sec;
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
-
-	zbx_setproctitle("%s [startup idle for %d minutes]", get_process_type_string(process_type),
-			HOUSEKEEPER_STARTUP_DELAY);
-
-	zbx_sleep_loop(HOUSEKEEPER_STARTUP_DELAY * SEC_PER_MIN);
 
 	for (;;)
 	{
 		start = time(NULL);
 
-		zabbix_log(LOG_LEVEL_WARNING, "executing housekeeper");
+		zabbix_log(LOG_LEVEL_WARNING, "Executing housekeeper");
 
 		zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 
@@ -168,19 +155,16 @@ ZBX_THREAD_ENTRY(housekeeper_thread, args)
 		zbx_setproctitle("%s [removing old history]", get_process_type_string(process_type));
 
 		sec = zbx_time();
+
 		records = housekeeping_history(start);
-		sec = zbx_time() - sec;
+
+		zabbix_log(LOG_LEVEL_WARNING, "Deleted %d records from history [" ZBX_FS_DBL " seconds]",
+				records,
+				zbx_time() - sec);
 
 		DBclose();
 
-		if (0 > (sleeptime = CONFIG_HOUSEKEEPING_FREQUENCY * SEC_PER_HOUR - (time(NULL) - start)))
-			sleeptime = 0;
-
-		zabbix_log(LOG_LEVEL_WARNING, "%s [deleted %d records in " ZBX_FS_DBL " sec, idle %d sec]",
-				get_process_type_string(process_type), records, sec, sleeptime);
-
-		zbx_setproctitle("%s [deleted %d records in " ZBX_FS_DBL " sec, idle %d sec]",
-				get_process_type_string(process_type), records, sec, sleeptime);
+		sleeptime = CONFIG_HOUSEKEEPING_FREQUENCY * 3600 - (time(NULL) - start);
 
 		zbx_sleep_loop(sleeptime);
 	}

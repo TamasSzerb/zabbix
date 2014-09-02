@@ -17,8 +17,6 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
 function sdb($return = false) {
 	$backtrace = debug_backtrace();
 	array_shift($backtrace);
@@ -43,7 +41,7 @@ function sdb($return = false) {
 function sdi($msg = 'SDI') {
 	echo 'DEBUG INFO: ';
 	var_dump($msg);
-	echo BR();
+	echo SBR;
 }
 
 function sdii($msg = 'SDII', $for = '', $showInvisible = true) {
@@ -60,7 +58,7 @@ function sdii($msg = 'SDII', $for = '', $showInvisible = true) {
 	}
 	echo 'DEBUG INFO: '.$for;
 	echo '<pre>'.print_r($msg, true).'</pre>';
-	echo BR();
+	echo SBR;
 }
 
 function vdp($var, $msg = null) {
@@ -69,32 +67,11 @@ function vdp($var, $msg = null) {
 		echo '"'.$msg.'"'.SPACE;
 	}
 	var_dump($var);
-	echo BR();
+	echo SBR;
 }
 
 function todo($msg) {
-	echo 'TODO: '.$msg.BR();
-}
-
-
-/**
- * Writes data in given file. Rewrites file on each PHP execution.
- *
- * @staticvar resource $fileStream resource of opened file
- * @param mixed $data data to write in file
- * @param boolean $persist persist file content on multiple script runs
- * @param string $fileName file where output will be stored
- */
-function sdFile($data, $persist = false, $fileName = 'debug.txt') {
-	static $fileStream;
-	if ($persist || $fileStream) {
-		$fileStream = fopen($fileName, 'a');
-	}
-	else {
-		$fileStream = fopen($fileName, 'w');
-	}
-	fwrite($fileStream, var_export($data, true)."\n\n");
-	fclose($fileStream);
+	echo 'TODO: '.$msg.SBR;
 }
 
 function sdff($msg, $fileName = '/tmp/zabbix.log') {
@@ -129,7 +106,7 @@ function sdf(&$var) {
 	else {
 		echo $value;
 	}
-	echo BR();
+	echo SBR;
 }
 
 /**
@@ -175,3 +152,4 @@ function timer($timer = null) {
 function sdex($ex = 'My exception') {
 	throw new APIException(ZBX_API_ERROR_INTERNAL, $ex);
 }
+?>

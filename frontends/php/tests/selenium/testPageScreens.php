@@ -31,7 +31,7 @@ class testPageScreens extends CWebTest {
 	*/
 	public function testPageScreens_CheckLayout($screen) {
 		$this->zbxTestLogin('screenconf.php');
-		$this->zbxTestCheckTitle('Configuration of screens');
+		$this->checkTitle('Configuration of screens');
 
 		$this->zbxTestTextPresent('CONFIGURATION OF SCREENS');
 		$this->zbxTestTextPresent('Screens');
@@ -41,7 +41,7 @@ class testPageScreens extends CWebTest {
 		$this->zbxTestTextPresent(array('Name', 'Dimension (cols x rows)', 'Screen'));
 		// Data
 		$this->zbxTestTextPresent(array($screen['name']));
-		$this->zbxTestDropdownHasOptions('action', array('Export selected', 'Delete selected'));
+		$this->zbxTestDropdownHasOptions('go', array('Export selected', 'Delete selected'));
 	}
 
 	/**
@@ -52,9 +52,9 @@ class testPageScreens extends CWebTest {
 		$name = $screen['name'];
 
 		$this->zbxTestLogin('screenconf.php');
-		$this->zbxTestCheckTitle('Configuration of screens');
+		$this->checkTitle('Configuration of screens');
 		$this->zbxTestClickWait('link='.$name);
-		$this->zbxTestCheckTitle('Configuration of screens');
+		$this->checkTitle('Configuration of screens');
 		$this->zbxTestTextPresent("$name");
 		$this->zbxTestTextPresent('Change');
 		$this->zbxTestTextPresent('CONFIGURATION OF SCREEN');
@@ -75,7 +75,7 @@ class testPageScreens extends CWebTest {
 		DBsave_tables('screens');
 
 		$this->zbxTestLogin('screenconf.php');
-		$this->zbxTestCheckTitle('Configuration of screens');
+		$this->checkTitle('Configuration of screens');
 		$this->href_click("?form=update&screenid=$screenid&sid=");
 		$this->wait();
 
@@ -86,9 +86,9 @@ class testPageScreens extends CWebTest {
 		$this->zbxTestTextPresent('Columns');
 		$this->zbxTestTextPresent('Rows');
 
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 
-		$this->zbxTestCheckTitle('Configuration of screens');
+		$this->checkTitle('Configuration of screens');
 		$this->zbxTestTextPresent('Screen updated');
 
 		$this->assertEquals($oldHashScreen, DBhash($sqlScreen));
@@ -99,10 +99,10 @@ class testPageScreens extends CWebTest {
 
 	public function testPageScreens_Create() {
 		$this->zbxTestLogin('screenconf.php');
-		$this->zbxTestCheckTitle('Configuration of screens');
+		$this->checkTitle('Configuration of screens');
 		$this->zbxTestClickWait('form');
 
-		$this->zbxTestCheckTitle('Configuration of screens');
+		$this->checkTitle('Configuration of screens');
 		$this->zbxTestTextPresent('Screens');
 		$this->zbxTestTextPresent('Name');
 		$this->zbxTestTextPresent('Columns');
@@ -110,8 +110,31 @@ class testPageScreens extends CWebTest {
 
 		$this->zbxTestClickWait('cancel');
 
-		$this->zbxTestCheckTitle('Configuration of screens');
+		$this->checkTitle('Configuration of screens');
 		$this->zbxTestTextNotPresent('Columns');
+	}
+
+	public function testPageScreens_Import() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageScreens_MassExportAll() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	/**
+	* @dataProvider allScreens
+	*/
+	public function testPageScreens_MassExport($action) {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageScreens_MassDeleteAll() {
+// TODO
+		$this->markTestIncomplete();
 	}
 
 	/**
@@ -126,14 +149,14 @@ class testPageScreens extends CWebTest {
 		DBsave_tables('screens');
 
 		$this->zbxTestLogin('screenconf.php');
-		$this->zbxTestCheckTitle('Configuration of screens');
+		$this->checkTitle('Configuration of screens');
 		$this->zbxTestCheckboxSelect('screens['.$screenid.']');
-		$this->zbxTestDropdownSelect('action', 'Delete selected');
+		$this->zbxTestDropdownSelect('go', 'Delete selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
 
-		$this->zbxTestCheckTitle('Configuration of screens');
+		$this->checkTitle('Configuration of screens');
 		$this->zbxTestTextPresent('Screen deleted');
 		$this->zbxTestTextPresent('CONFIGURATION OF SCREENS');
 
@@ -147,4 +170,8 @@ class testPageScreens extends CWebTest {
 		DBrestore_tables('screens');
 	}
 
+	public function testPageScreens_Sorting() {
+// TODO
+		$this->markTestIncomplete();
+	}
 }

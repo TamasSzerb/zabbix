@@ -29,7 +29,7 @@ class testPageEvents extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 		$this->zbxTestDropdownSelectWait('hostid', 'all');
 
-		$this->zbxTestCheckTitle('Latest events \[refreshed every 30 sec.\]');
+		$this->checkTitle('Latest events');
 		$this->zbxTestTextPresent('HISTORY OF EVENTS');
 		$this->zbxTestTextPresent('Group');
 		$this->zbxTestTextPresent('Host');
@@ -37,7 +37,7 @@ class testPageEvents extends CWebTest {
 		$this->zbxTestTextPresent('Filter');
 		$this->zbxTestTextPresent('Displaying');
 		// table header
-		if (0 == DBcount('select * from events where source='.EVENT_SOURCE_TRIGGERS)) {
+		if (0 == DBcount('select * from events where value_changed=1 and source='.EVENT_SOURCE_TRIGGERS)) {
 			$this->zbxTestTextPresent('No events defined.');
 		}
 		else {
@@ -50,7 +50,7 @@ class testPageEvents extends CWebTest {
 
 		$this->zbxTestDropdownSelectWait('source', 'Discovery');
 
-		$this->zbxTestCheckTitle('Latest events \[refreshed every 30 sec.\]');
+		$this->checkTitle('Latest events');
 		$this->zbxTestTextPresent('HISTORY OF EVENTS');
 		$this->zbxTestTextPresent('Source');
 		$this->zbxTestTextPresent('Filter');
@@ -64,18 +64,25 @@ class testPageEvents extends CWebTest {
 		}
 	}
 
+	public function testPageEvents_Triggers_Sorting() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+// Check that no real host or template names displayed
 	public function testPageEvents_Triggers_NoHostNames() {
 		$this->zbxTestLogin('events.php');
 		$this->zbxTestDropdownSelectWait('source', 'Trigger');
-		$this->zbxTestCheckTitle('Latest events \[refreshed every 30 sec.\]');
+		$this->checkTitle('Latest events');
 
 		$this->checkNoRealHostnames();
 	}
 
+// Check that no real host or template names displayed
 	public function testPageEvents_Discovery_NoHostNames() {
 		$this->zbxTestLogin('events.php');
 		$this->zbxTestDropdownSelectWait('source', 'Discovery');
-		$this->zbxTestCheckTitle('Latest events \[refreshed every 30 sec.\]');
+		$this->checkTitle('Latest events');
 
 		$this->checkNoRealHostnames();
 	}

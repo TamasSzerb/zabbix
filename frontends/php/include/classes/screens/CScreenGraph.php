@@ -33,7 +33,7 @@ class CScreenGraph extends CScreenBase {
 		$graphDims = getGraphDims($resourceid);
 		$graphDims['graphHeight'] = $this->screenitem['height'];
 		$graphDims['width'] = $this->screenitem['width'];
-		$graph = getGraphByGraphId($resourceid);
+		$graph = get_graph_by_graphid($resourceid);
 		$graphid = $graph['graphid'];
 		$legend = $graph['show_legend'];
 		$graph3d = $graph['show_3d'];
@@ -50,7 +50,7 @@ class CScreenGraph extends CScreenBase {
 			$graph = API::Graph()->get(array(
 				'graphids' => $resourceid,
 				'output' => API_OUTPUT_EXTEND,
-				'selectHosts' => array('hostid'),
+				'selectHosts' => API_OUTPUT_REFER,
 				'selectGraphItems' => API_OUTPUT_EXTEND
 			));
 			$graph = reset($graph);
@@ -58,7 +58,7 @@ class CScreenGraph extends CScreenBase {
 			// if items from one host we change them, or set calculated if not exist on that host
 			if (count($graph['hosts']) == 1) {
 				if ($graph['ymax_type'] == GRAPH_YAXIS_TYPE_ITEM_VALUE && $graph['ymax_itemid']) {
-					$newDinamic = getSameGraphItemsForHost(
+					$newDinamic = get_same_graphitems_for_host(
 						array(array('itemid' => $graph['ymax_itemid'])),
 						$this->hostid,
 						false
@@ -74,7 +74,7 @@ class CScreenGraph extends CScreenBase {
 				}
 
 				if ($graph['ymin_type'] == GRAPH_YAXIS_TYPE_ITEM_VALUE && $graph['ymin_itemid']) {
-					$newDinamic = getSameGraphItemsForHost(
+					$newDinamic = get_same_graphitems_for_host(
 						array(array('itemid' => $graph['ymin_itemid'])),
 						$this->hostid,
 						false
@@ -103,7 +103,7 @@ class CScreenGraph extends CScreenBase {
 				$this->screenitem['url']->setArgument($name, $value);
 			}
 
-			$newGraphItems = getSameGraphItemsForHost($graph['gitems'], $this->hostid, false);
+			$newGraphItems = get_same_graphitems_for_host($graph['gitems'], $this->hostid, false);
 			foreach ($newGraphItems as $newGraphItem) {
 				unset($newGraphItem['gitemid'], $newGraphItem['graphid']);
 
@@ -112,7 +112,7 @@ class CScreenGraph extends CScreenBase {
 				}
 			}
 
-			$this->screenitem['url']->setArgument('name', $host['name'].NAME_DELIMITER.$graph['name']);
+			$this->screenitem['url']->setArgument('name', $host['name'].': '.$graph['name']);
 			$this->screenitem['url'] = $this->screenitem['url']->getUrl();
 		}
 
@@ -134,12 +134,12 @@ class CScreenGraph extends CScreenBase {
 				$isDefault = true;
 			}
 
-			$this->timeline['starttime'] = date(TIMESTAMP_FORMAT, get_min_itemclock_by_graphid($resourceid));
+			$this->timeline['starttime'] = date('YmdHis', get_min_itemclock_by_graphid($resourceid));
 
 			$timeControlData['src'] = $this->screenitem['url'].'&width='.$this->screenitem['width'].'&height='.$this->screenitem['height']
 				.'&legend='.$legend.'&graph3d='.$graph3d.$this->getProfileUrlParams();
 			$timeControlData['src'] .= ($this->mode == SCREEN_MODE_EDIT)
-				? '&period=3600&stime='.date(TIMESTAMP_FORMAT, time())
+				? '&period=3600&stime='.date('YmdHis', time())
 				: '&period='.$this->timeline['period'].'&stime='.$this->timeline['stimeNow'];
 		}
 		else {
@@ -157,7 +157,7 @@ class CScreenGraph extends CScreenBase {
 			$timeControlData['src'] = $this->screenitem['url'].'&width='.$this->screenitem['width'].'&height='.$this->screenitem['height']
 				.$this->getProfileUrlParams();
 			$timeControlData['src'] .= ($this->mode == SCREEN_MODE_EDIT)
-				? '&period=3600&stime='.date(TIMESTAMP_FORMAT, time())
+				? '&period=3600&stime='.date('YmdHis', time())
 				: '&period='.$this->timeline['period'].'&stime='.$this->timeline['stimeNow'];
 		}
 

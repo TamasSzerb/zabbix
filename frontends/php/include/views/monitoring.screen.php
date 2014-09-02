@@ -19,6 +19,8 @@
 **/
 
 
+require_once dirname(__FILE__).'/js/general.script.confirm.js.php';
+
 $screenWidget = new CWidget();
 $screenWidget->addFlicker(new CDiv(null, null, 'scrollbar_cntr'), CProfile::get('web.screens.filter.state', 1));
 
@@ -32,12 +34,19 @@ $headerForm->addItem($configComboBox);
 if (empty($this->data['screens'])) {
 	$screenWidget->addPageHeader(_('SCREENS'), $headerForm);
 	$screenWidget->addItem(BR());
-	$screenWidget->addItem(new CTableInfo(_('No screens found.')));
+	$screenWidget->addItem(new CTableInfo(_('No screens defined.')));
 
 	$screenBuilder = new CScreenBuilder();
 	CScreenBuilder::insertScreenStandardJs(array(
 		'timeline' => $screenBuilder->timeline
 	));
+}
+elseif (!isset($this->data['screens'][$this->data['elementIdentifier']]) && !$this->data['id_has_been_fetched_from_profile']) {
+	// if screen we are searching for does not exist and was not fetched from profile
+	$error_msg = $this->data['use_screen_name']
+		? _s('Screen with name "%s" does not exist.', $this->data['elementIdentifier'])
+		: _s('Screen with ID "%s" does not exist.', $this->data['elementIdentifier']);
+	show_error_message($error_msg);
 }
 else {
 	if (!isset($this->data['screens'][$this->data['elementIdentifier']])) {
@@ -72,31 +81,46 @@ else {
 	$elementsComboBox = new CComboBox('elementid', $screen['screenid'], 'submit()');
 	foreach ($this->data['screens'] as $dbScreen) {
 		$elementsComboBox->addItem($dbScreen['screenid'],
-			htmlspecialchars($dbScreen['name']));
+			htmlspecialchars(get_node_name_by_elid($dbScreen['screenid'], null, ': ').$dbScreen['name']));
 	}
 	$headerForm->addItem(array(_('Screens').SPACE, $elementsComboBox));
 
 	if (check_dynamic_items($screen['screenid'], 0)) {
-		$pageFilter = new CPageFilter(array(
-			'groups' => array(
-				'monitored_hosts' => true,
-				'with_items' => true
-			),
-			'hosts' => array(
-				'monitored_hosts' => true,
-				'with_items' => true,
-				'DDFirstLabel' => _('not selected')
-			),
-			'hostid' => getRequest('hostid'),
-			'groupid' => getRequest('groupid')
-		));
-		$_REQUEST['groupid'] = $pageFilter->groupid;
-		$_REQUEST['hostid'] = $pageFilter->hostid;
+		global $ZBX_WITH_ALL_NODES;
 
-		$headerForm->addItem(array(SPACE, _('Group'), SPACE, $pageFilter->getGroupsCB()));
-		$headerForm->addItem(array(SPACE, _('Host'), SPACE, $pageFilter->getHostsCB()));
+		if (!isset($_REQUEST['hostid'])) {
+			$_REQUEST['groupid'] = $_REQUEST['hostid'] = 0;
+		}
+
+		$options = array('allow_all_hosts', 'monitored_hosts', 'with_items');
+		if (!$ZBX_WITH_ALL_NODES) {
+			array_push($options, 'only_current_node');
+		}
+		$params = array();
+		foreach ($options as $option) {
+			$params[$option] = 1;
+		}
+
+		$PAGE_GROUPS = get_viewed_groups(PERM_READ_ONLY, $params);
+		$PAGE_HOSTS = get_viewed_hosts(PERM_READ_ONLY, $PAGE_GROUPS['selected'], $params);
+
+		validate_group_with_host($PAGE_GROUPS, $PAGE_HOSTS);
+
+		// groups
+		$groupsComboBox = new CComboBox('groupid', $PAGE_GROUPS['selected'], 'javascript: window.flickerfreeScreen.submitForm("'.$headerForm->getName().'");');
+		foreach ($PAGE_GROUPS['groups'] as $groupid => $name) {
+			$groupsComboBox->addItem($groupid, get_node_name_by_elid($groupid, null, ': ').$name);
+		}
+		$headerForm->addItem(array(SPACE._('Group').SPACE, $groupsComboBox));
+
+		// hosts
+		$PAGE_HOSTS['hosts']['0'] = _('Default');
+		$hostsComboBox = new CComboBox('hostid', $PAGE_HOSTS['selected'], 'javascript: window.flickerfreeScreen.submitForm("'.$headerForm->getName().'");');
+		foreach ($PAGE_HOSTS['hosts'] as $hostid => $name) {
+			$hostsComboBox->addItem($hostid, get_node_name_by_elid($hostid, null, ': ').$name);
+		}
+		$headerForm->addItem(array(SPACE._('Host').SPACE, $hostsComboBox));
 	}
-
 	$screenWidget->addHeader($screen['name'], $headerForm);
 
 	// append screens to widget
@@ -105,8 +129,8 @@ else {
 		'mode' => SCREEN_MODE_PREVIEW,
 		'profileIdx' => 'web.screens',
 		'profileIdx2' => $screen['screenid'],
-		'groupid' => getRequest('groupid'),
-		'hostid' => getRequest('hostid'),
+		'groupid' => get_request('groupid'),
+		'hostid' => get_request('hostid'),
 		'period' => $this->data['period'],
 		'stime' => $this->data['stime']
 	));

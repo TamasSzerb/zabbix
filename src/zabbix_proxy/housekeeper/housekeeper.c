@@ -25,8 +25,7 @@
 
 #include "housekeeper.h"
 
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	process_type;
 
 /******************************************************************************
  *                                                                            *
@@ -125,7 +124,7 @@ rollback:
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	housekeeping_history(int now)
+static int housekeeping_history(int now)
 {
         int	records = 0;
 
@@ -138,22 +137,11 @@ static int	housekeeping_history(int now)
         return records;
 }
 
-ZBX_THREAD_ENTRY(housekeeper_thread, args)
+void	main_housekeeper_loop()
 {
-	int	records, start, sleeptime;
+	int	records;
+	int	start, sleeptime;
 	double	sec;
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
-
-	zbx_setproctitle("%s [startup idle for %d minutes]", get_process_type_string(process_type),
-			HOUSEKEEPER_STARTUP_DELAY);
-
-	zbx_sleep_loop(HOUSEKEEPER_STARTUP_DELAY * SEC_PER_MIN);
 
 	for (;;)
 	{
@@ -168,19 +156,15 @@ ZBX_THREAD_ENTRY(housekeeper_thread, args)
 		zbx_setproctitle("%s [removing old history]", get_process_type_string(process_type));
 
 		sec = zbx_time();
+
 		records = housekeeping_history(start);
-		sec = zbx_time() - sec;
+
+		zabbix_log(LOG_LEVEL_WARNING, "housekeeper deleted %d records from history (spent " ZBX_FS_DBL " seconds)",
+				records, zbx_time() - sec);
 
 		DBclose();
 
-		if (0 > (sleeptime = CONFIG_HOUSEKEEPING_FREQUENCY * SEC_PER_HOUR - (time(NULL) - start)))
-			sleeptime = 0;
-
-		zabbix_log(LOG_LEVEL_WARNING, "%s [deleted %d records in " ZBX_FS_DBL " sec, idle %d sec]",
-				get_process_type_string(process_type), records, sec, sleeptime);
-
-		zbx_setproctitle("%s [deleted %d records in " ZBX_FS_DBL " sec, idle %d sec]",
-				get_process_type_string(process_type), records, sec, sleeptime);
+		sleeptime = CONFIG_HOUSEKEEPING_FREQUENCY * SEC_PER_HOUR - (time(NULL) - start);
 
 		zbx_sleep_loop(sleeptime);
 	}

@@ -117,14 +117,7 @@ jQuery(function($) {
 					}
 					else {
 						ajaxUrl.setArgument('resourcetype', empty(screen.resourcetype) ? null : screen.resourcetype);
-
-						for (var i = 0; i < screen.data.itemids.length; i++) {
-							ajaxUrl.setArgument(
-								'itemids[' + screen.data.itemids[i] + ']',
-								empty(screen.data.itemids[i]) ? null : screen.data.itemids[i]
-							);
-						}
-
+						ajaxUrl.setArgument('itemid', empty(screen.data.itemid) ? null : screen.data.itemid);
 						ajaxUrl.setArgument('action', empty(screen.data.action) ? null : screen.data.action);
 						ajaxUrl.setArgument('filter', empty(screen.data.filter) ? null : screen.data.filter);
 						ajaxUrl.setArgument('filter_task', empty(screen.data.filterTask)
@@ -143,16 +136,6 @@ jQuery(function($) {
 
 			// SCREEN_RESOURCE_SCREEN
 			else if (screen.resourcetype == 8) {
-				this.refreshProfile(id, ajaxUrl);
-			}
-
-			// SCREEN_RESOURCE_LLD_GRAPH
-			else if (screen.resourcetype == 20) {
-				this.refreshProfile(id, ajaxUrl);
-			}
-
-			// SCREEN_RESOURCE_LLD_SIMPLE_GRAPH
-			else if (screen.resourcetype == 19) {
 				this.refreshProfile(id, ajaxUrl);
 			}
 
@@ -400,7 +383,7 @@ jQuery(function($) {
 		},
 
 		getCalculatedSTime: function(screen) {
-			if (!empty(timeControl.timeline) && screen.timeline.period > timeControl.timeline.maxperiod) {
+			if (!empty(timeControl.timeline) && screen.timeline.period >= timeControl.timeline.maxperiod) {
 				return new CDate(timeControl.timeline.starttime() * 1000).getZBXDate();
 			}
 

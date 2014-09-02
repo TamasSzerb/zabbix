@@ -25,14 +25,10 @@
 #include "proxy.h"
 #include "snmptrapper.h"
 #include "zbxserver.h"
-#include "zbxregexp.h"
 
 static int	trap_fd = -1;
 static int	trap_lastsize;
 static ino_t	trap_ino = 0;
-
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
 
 static void	DBget_lastsize()
 {
@@ -77,22 +73,20 @@ static void	DBupdate_lastsize()
  ******************************************************************************/
 static int	process_trap_for_interface(zbx_uint64_t interfaceid, char *trap, zbx_timespec_t *ts)
 {
-	DC_ITEM			*items = NULL;
-	char			cmd[MAX_STRING_LEN], params[MAX_STRING_LEN], regex[MAX_STRING_LEN],
-				error[ITEM_ERROR_LEN_MAX];
-	size_t			num, i;
-	int			ret = FAIL, fb = -1, *lastclocks = NULL, *errcodes = NULL;
-	zbx_uint64_t		*itemids = NULL;
-	unsigned char		*states = NULL;
-	AGENT_RESULT		*results = NULL;
-	zbx_vector_ptr_t	regexps;
-
-	zbx_vector_ptr_create(&regexps);
+	DC_ITEM		*items = NULL;
+	char		cmd[MAX_STRING_LEN], params[MAX_STRING_LEN], regex[MAX_STRING_LEN], error[ITEM_ERROR_LEN_MAX];
+	size_t		num, i;
+	int		ret = FAIL, fb = -1, *lastclocks = NULL, *errcodes = NULL, timestamp;
+	zbx_uint64_t	*itemids = NULL;
+	unsigned char	*statuses = NULL;
+	AGENT_RESULT	*results = NULL;
+	ZBX_REGEXP	*regexps = NULL;
+	int		regexps_alloc = 0, regexps_num = 0;
 
 	num = DCconfig_get_snmp_items_by_interfaceid(interfaceid, &items);
 
 	itemids = zbx_malloc(itemids, sizeof(zbx_uint64_t) * num);
-	states = zbx_malloc(states, sizeof(unsigned char) * num);
+	statuses = zbx_malloc(statuses, sizeof(unsigned char) * num);
 	lastclocks = zbx_malloc(lastclocks, sizeof(int) * num);
 	errcodes = zbx_malloc(errcodes, sizeof(int) * num);
 	results = zbx_malloc(results, sizeof(AGENT_RESULT) * num);
@@ -117,7 +111,7 @@ static int	process_trap_for_interface(zbx_uint64_t interfaceid, char *trap, zbx_
 			continue;
 		}
 
-		if (ZBX_COMMAND_ERROR == parse_command(items[i].key, cmd, sizeof(cmd), params, sizeof(params)))
+		if (0 == parse_command(items[i].key, cmd, sizeof(cmd), params, sizeof(params)))
 			continue;
 
 		if (0 != strcmp(cmd, "snmptrap"))
@@ -130,9 +124,31 @@ static int	process_trap_for_interface(zbx_uint64_t interfaceid, char *trap, zbx_
 			continue;
 
 		if ('@' == *regex)
-			DCget_expressions_by_name(&regexps, regex + 1);
+		{
+			DB_RESULT	result;
+			DB_ROW		row;
+			char		*regex_esc;
 
-		if (SUCCEED != regexp_match_ex(&regexps, trap, regex, ZBX_CASE_SENSITIVE))
+			regexps_num = 0;
+
+			regex_esc = DBdyn_escape_string(regex + 1);
+			result = DBselect("select e.expression,e.expression_type,e.exp_delimiter,e.case_sensitive"
+					" from regexps r,expressions e"
+					" where r.regexpid=e.regexpid"
+						" and r.name='%s'" DB_NODE,
+					regex_esc, DBnode_local("r.regexpid"));
+			zbx_free(regex_esc);
+
+			while (NULL != (row = DBfetch(result)))
+			{
+				add_regexp_ex(&regexps, &regexps_alloc, &regexps_num,
+						regex + 1, row[0], atoi(row[1]), row[2][0], atoi(row[3]));
+			}
+			DBfree_result(result);
+		}
+
+
+		if (SUCCEED != regexp_match_ex(regexps, regexps_num, trap, regex, ZBX_CASE_SENSITIVE))
 			continue;
 
 		if (SUCCEED == set_result_type(&results[i], items[i].value_type, items[i].data_type, trap))
@@ -141,6 +157,9 @@ static int	process_trap_for_interface(zbx_uint64_t interfaceid, char *trap, zbx_
 			errcodes[i] = NOTSUPPORTED;
 		ret = SUCCEED;
 	}
+
+	clean_regexps_ex(regexps, &regexps_num);
+	zbx_free(regexps);
 
 	if (FAIL == ret && -1 != fb)
 	{
@@ -156,27 +175,26 @@ static int	process_trap_for_interface(zbx_uint64_t interfaceid, char *trap, zbx_
 		switch (errcodes[i])
 		{
 			case SUCCEED:
-				if (ITEM_VALUE_TYPE_LOG == items[i].value_type)
-				{
-					calc_timestamp(results[i].logs[0]->value, &results[i].logs[0]->timestamp,
-							items[i].logtimefmt);
-				}
+				timestamp = 0;
 
-				items[i].state = ITEM_STATE_NORMAL;
+				if (ITEM_VALUE_TYPE_LOG == items[i].value_type)
+					calc_timestamp(trap, &timestamp, items[i].logtimefmt);
+
+				items[i].status = ITEM_STATUS_ACTIVE;
 				dc_add_history(items[i].itemid, items[i].value_type, items[i].flags, &results[i],
-						ts, items[i].state, NULL);
+						ts, items[i].status, NULL, timestamp, NULL, 0, 0, 0, 0);
 
 				itemids[i] = items[i].itemid;
-				states[i] = items[i].state;
+				statuses[i] = items[i].status;
 				lastclocks[i] = ts->sec;
 				break;
 			case NOTSUPPORTED:
-				items[i].state = ITEM_STATE_NOTSUPPORTED;
+				items[i].status = ITEM_STATUS_NOTSUPPORTED;
 				dc_add_history(items[i].itemid, items[i].value_type, items[i].flags, NULL,
-						ts, items[i].state, results[i].msg);
+						ts, items[i].status, results[i].msg, 0, NULL, 0, 0, 0, 0);
 
 				itemids[i] = items[i].itemid;
-				states[i] = items[i].state;
+				statuses[i] = items[i].status;
 				lastclocks[i] = ts->sec;
 				break;
 		}
@@ -187,20 +205,15 @@ static int	process_trap_for_interface(zbx_uint64_t interfaceid, char *trap, zbx_
 
 	zbx_free(results);
 
-	DCrequeue_items(itemids, states, lastclocks, NULL, NULL, errcodes, num);
+	DCrequeue_items(itemids, statuses, lastclocks, errcodes, num);
 
 	zbx_free(errcodes);
 	zbx_free(lastclocks);
-	zbx_free(states);
+	zbx_free(statuses);
 	zbx_free(itemids);
 
 	DCconfig_clean_items(items, NULL, num);
 	zbx_free(items);
-
-	zbx_regexp_clean_expressions(&regexps);
-	zbx_vector_ptr_destroy(&regexps);
-
-	dc_flush_history();
 
 	return ret;
 }
@@ -466,17 +479,9 @@ static int	get_latest_data()
  * Author: Rudolfs Kreicbergs                                                 *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(snmptrapper_thread, args)
+void	main_snmptrapper_loop()
 {
 	const char	*__function_name = "main_snmptrapper_loop";
-	double		sec;
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() trapfile:'%s'", __function_name, CONFIG_SNMPTRAP_FILE);
 
@@ -490,13 +495,8 @@ ZBX_THREAD_ENTRY(snmptrapper_thread, args)
 	{
 		zbx_setproctitle("%s [processing data]", get_process_type_string(process_type));
 
-		sec = zbx_time();
 		while (SUCCEED == get_latest_data())
 			read_traps();
-		sec = zbx_time() - sec;
-
-		zbx_setproctitle("%s [processed data in " ZBX_FS_DBL " sec, idle 1 sec]",
-				get_process_type_string(process_type), sec);
 
 		zbx_sleep_loop(1);
 	}

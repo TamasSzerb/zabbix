@@ -28,8 +28,8 @@
 #include "httppoller.h"
 
 extern int		CONFIG_HTTPPOLLER_FORKS;
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	process_type;
+extern int		process_num;
 
 /******************************************************************************
  *                                                                            *
@@ -54,17 +54,20 @@ static int	get_minnextcheck(int now)
 
 	result = DBselect(
 			"select min(t.nextcheck)"
-			" from httptest t,hosts h"
-			" where t.hostid=h.hostid"
+			" from httptest t,applications a,hosts h"
+			" where t.applicationid=a.applicationid"
+				" and a.hostid=h.hostid"
 				" and " ZBX_SQL_MOD(t.httptestid,%d) "=%d"
 				" and t.status=%d"
 				" and h.proxy_hostid is null"
 				" and h.status=%d"
-				" and (h.maintenance_status=%d or h.maintenance_type=%d)",
+				" and (h.maintenance_status=%d or h.maintenance_type=%d)"
+				DB_NODE,
 			CONFIG_HTTPPOLLER_FORKS, process_num - 1,
 			HTTPTEST_STATUS_MONITORED,
 			HOST_STATUS_MONITORED,
-			HOST_MAINTENANCE_STATUS_OFF, MAINTENANCE_TYPE_NORMAL);
+			HOST_MAINTENANCE_STATUS_OFF, MAINTENANCE_TYPE_NORMAL,
+			DBnode_local("t.httptestid"));
 
 	if (NULL == (row = DBfetch(result)) || SUCCEED == DBis_null(row[0]))
 	{
@@ -94,67 +97,32 @@ static int	get_minnextcheck(int now)
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(httppoller_thread, args)
+void	main_httppoller_loop()
 {
-	int	now, nextcheck, sleeptime = -1, httptests_count = 0, old_httptests_count = 0;
-	double	sec, total_sec = 0.0, old_total_sec = 0.0;
-	time_t	last_stat_time;
+	int	now, nextcheck, sleeptime;
+	double	sec;
 
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
+	zabbix_log(LOG_LEVEL_DEBUG, "In main_httppoller_loop() process_num:%d", process_num);
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
-
-#define STAT_INTERVAL	5	/* if a process is busy and does not sleep then update status not faster than */
-				/* once in STAT_INTERVAL seconds */
-
-	zbx_setproctitle("%s #%d [connecting to the database]", get_process_type_string(process_type), process_num);
-	last_stat_time = time(NULL);
+	zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 
 	DBconnect(ZBX_DB_CONNECT_NORMAL);
 
 	for (;;)
 	{
-		if (0 != sleeptime)
-		{
-			zbx_setproctitle("%s #%d [got %d values in " ZBX_FS_DBL " sec, getting values]",
-					get_process_type_string(process_type), process_num, old_httptests_count,
-					old_total_sec);
-		}
+		zbx_setproctitle("%s [getting values]", get_process_type_string(process_type));
 
 		now = time(NULL);
 		sec = zbx_time();
-		httptests_count += process_httptests(process_num, now);
-		total_sec += zbx_time() - sec;
+		process_httptests(process_num, now);
+		sec = zbx_time() - sec;
+
+		zabbix_log(LOG_LEVEL_DEBUG, "%s #%d spent " ZBX_FS_DBL " seconds while updating HTTP tests",
+				get_process_type_string(process_type), process_num, sec);
 
 		nextcheck = get_minnextcheck(now);
 		sleeptime = calculate_sleeptime(nextcheck, POLLER_DELAY);
 
-		if (0 != sleeptime || STAT_INTERVAL <= time(NULL) - last_stat_time)
-		{
-			if (0 == sleeptime)
-			{
-				zbx_setproctitle("%s #%d [got %d values in " ZBX_FS_DBL " sec, getting values]",
-						get_process_type_string(process_type), process_num, httptests_count,
-						total_sec);
-			}
-			else
-			{
-				zbx_setproctitle("%s #%d [got %d values in " ZBX_FS_DBL " sec, idle %d sec]",
-						get_process_type_string(process_type), process_num, httptests_count,
-						total_sec, sleeptime);
-				old_httptests_count = httptests_count;
-				old_total_sec = total_sec;
-			}
-			httptests_count = 0;
-			total_sec = 0.0;
-			last_stat_time = time(NULL);
-		}
-
 		zbx_sleep_loop(sleeptime);
 	}
-
-#undef STAT_INTERVAL
 }

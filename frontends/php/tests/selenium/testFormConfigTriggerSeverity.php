@@ -110,7 +110,7 @@ class testFormConfigTriggerSeverity extends CWebTest {
 
 	public function testFormTriggerSeverity_Layout() {
 		$this->zbxTestLogin('adm.triggerseverities.php');
-		$this->zbxTestCheckTitle('Configuration of trigger severities');
+		$this->checkTitle('Configuration of trigger severities');
 
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Trigger severities');
 
@@ -136,7 +136,7 @@ class testFormConfigTriggerSeverity extends CWebTest {
 		$this->assertElementPresent('severity_name_5');
 		$this->assertElementPresent('severity_color_5');
 		$this->assertElementPresent('lbl_severity_color_5');
-		$this->assertElementPresent('update');
+		$this->assertElementPresent('save');
 
 		$this->assertElementPresent('color_picker');
 		$this->assertNotVisible('color_picker');
@@ -161,7 +161,7 @@ class testFormConfigTriggerSeverity extends CWebTest {
 			$DBhash = DBhash($sql);
 		}
 
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 
 		if ($resultSave) {
 			$this->zbxTestTextPresent('Configuration updated');

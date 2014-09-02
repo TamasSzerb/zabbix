@@ -241,7 +241,10 @@ int	zbx_default_int_compare_func(const void *d1, const void *d2)
 	const int	*i1 = (const int *)d1;
 	const int	*i2 = (const int *)d2;
 
-	ZBX_RETURN_IF_NOT_EQUAL(*i1, *i2);
+	if (*i1 < *i2)
+		return -1;
+	if (*i1 > *i2)
+		return +1;
 
 	return 0;
 }
@@ -251,7 +254,10 @@ int	zbx_default_uint64_compare_func(const void *d1, const void *d2)
 	const zbx_uint64_t	*i1 = (const zbx_uint64_t *)d1;
 	const zbx_uint64_t	*i2 = (const zbx_uint64_t *)d2;
 
-	ZBX_RETURN_IF_NOT_EQUAL(*i1, *i2);
+	if (*i1 < *i2)
+		return -1;
+	if (*i1 > *i2)
+		return +1;
 
 	return 0;
 }
@@ -274,7 +280,10 @@ int	zbx_default_ptr_compare_func(const void *d1, const void *d2)
 	const void	*p1 = *(const void **)d1;
 	const void	*p2 = *(const void **)d2;
 
-	ZBX_RETURN_IF_NOT_EQUAL(p1, p2);
+	if (p1 < p2)
+		return -1;
+	if (p1 > p2)
+		return +1;
 
 	return 0;
 }
@@ -322,39 +331,4 @@ int	next_prime(int n)
 		n++;
 
 	return n;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: zbx_isqrt32                                                      *
- *                                                                            *
- * Purpose: calculate integer part of square root of a 32 bit integer value   *
- *                                                                            *
- * Parameters: value     - [IN] the value to calculate square root for        *
- *                                                                            *
- * Return value: the integer part of square root                              *
- *                                                                            *
- * Comments: Uses basic digit by digit square root calculation algorithm with *
- *           binary base.                                                     *
- *                                                                            *
- ******************************************************************************/
-unsigned int	zbx_isqrt32(unsigned int value)
-{
-	unsigned int	i, remainder = 0, result = 0, p;
-
-	for (i = 0; i < 16; i++)
-	{
-		result <<= 1;
-		remainder = (remainder << 2) + (value >> 30);
-		value <<= 2;
-
-		p = (result << 1) | 1;
-		if (p <= remainder)
-		{
-			remainder -= p;
-			result |= 1;
-		}
-	}
-
-	return result;
 }

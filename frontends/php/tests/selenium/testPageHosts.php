@@ -23,16 +23,7 @@ require_once dirname(__FILE__).'/../include/class.cwebtest.php';
 class testPageHosts extends CWebTest {
 	// Returns all hosts
 	public static function allHosts() {
-		return DBdata(
-			'SELECT h.name,h.hostid,g.name AS group_name'.
-			' FROM hosts h'.
-				' LEFT JOIN hosts_groups hg'.
-					' ON hg.hostid=h.hostid'.
-				' LEFT JOIN groups g'.
-					' ON g.groupid=hg.groupid'.
-			' WHERE h.status IN ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.')'.
-			" AND h.name NOT LIKE '%{#%'"
-		);
+		return DBdata('select * from hosts where status in ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.')');
 	}
 
 	/**
@@ -40,8 +31,8 @@ class testPageHosts extends CWebTest {
 	*/
 	public function testPageHosts_CheckLayout($host) {
 		$this->zbxTestLogin('hosts.php');
-		$this->zbxTestDropdownSelectWait('groupid', $host['group_name']);
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->zbxTestDropdownSelectWait('groupid', 'Zabbix servers');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('HOSTS');
 		$this->zbxTestTextPresent('Displaying');
 		// Header
@@ -61,7 +52,7 @@ class testPageHosts extends CWebTest {
 		);
 		// Data
 		$this->zbxTestTextPresent(array($host['name']));
-		$this->zbxTestDropdownHasOptions('action',
+		$this->zbxTestDropdownHasOptions('go',
 				array('Export selected', 'Mass update', 'Enable selected', 'Disable selected', 'Delete selected'));
 	}
 
@@ -93,7 +84,7 @@ class testPageHosts extends CWebTest {
 
 		$this->zbxTestLogin('hosts.php');
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('HOSTS');
 		$this->zbxTestTextPresent('Displaying');
 		$this->zbxTestTextNotPresent('Displaying 0');
@@ -114,8 +105,8 @@ class testPageHosts extends CWebTest {
 		);
 
 		$this->zbxTestClickWait('link='.$name);
-		$this->zbxTestClickWait('update');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host updated');
 
 		$this->assertEquals($oldHashHosts, DBhash($sqlHosts), "Chuck Norris: Host update changed data in table 'hosts'");
@@ -195,16 +186,16 @@ class testPageHosts extends CWebTest {
 		$hostid = $host['hostid'];
 
 		$this->zbxTestLogin('hosts.php');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('HOSTS');
 		$this->zbxTestTextPresent('Displaying');
 		// Go to the list of items
 		$this->href_click("items.php?filter_set=1&hostid=$hostid&sid=");
 		$this->wait();
 		// We are in the list of items
-		$this->zbxTestCheckTitle('Configuration of items');
+		$this->checkTitle('Configuration of items');
 		$this->zbxTestTextPresent('Displaying');
 		// Header
 		$this->zbxTestTextPresent(
@@ -224,26 +215,44 @@ class testPageHosts extends CWebTest {
 		);
 	}
 
+	public function testPageHosts_MassExportAll() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageHosts_MassExport() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageHosts_MassUpdateAll() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageHosts_MassUpdate() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
 	public function testPageHosts_MassActivateAll() {
 		DBexecute("update hosts set status=".HOST_STATUS_NOT_MONITORED." where status=".HOST_STATUS_MONITORED);
 
 		$this->chooseOkOnNextConfirmation();
 
 		$this->zbxTestLogin('hosts.php');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 
 		$this->zbxTestCheckboxSelect('all_hosts');
-		$this->zbxTestDropdownSelect('action', 'Enable selected');
-		$this->assertVisible('goButton');
+		$this->zbxTestDropdownSelect('go', 'Enable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
-		$this->zbxTestCheckTitle('Configuration of hosts');
-		$this->zbxTestTextPresent('Hosts enabled');
+		$this->checkTitle('Configuration of hosts');
+		$this->zbxTestTextPresent('Host status updated');
 
-		$sql = "select host from hosts where status=".HOST_STATUS_NOT_MONITORED.
-			" and name NOT LIKE '%{#%'";
+		$sql = "select * from hosts where status=".HOST_STATUS_NOT_MONITORED;
 		$this->assertEquals(0, DBcount($sql), "Chuck Norris: all hosts activated but DB does not match");
 	}
 
@@ -258,17 +267,16 @@ class testPageHosts extends CWebTest {
 		$hostid = $host['hostid'];
 
 		$this->zbxTestLogin('hosts.php');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 
 		$this->zbxTestCheckboxSelect('hosts_'.$hostid);
-		$this->zbxTestDropdownSelect('action', 'Enable selected');
-		$this->assertVisible('goButton');
+		$this->zbxTestDropdownSelect('go', 'Enable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
-		$this->zbxTestCheckTitle('Configuration of hosts');
-		$this->zbxTestTextPresent('Host enabled');
+		$this->checkTitle('Configuration of hosts');
+		$this->zbxTestTextPresent('Host status updated');
 
 		$sql = "select * from hosts where hostid=$hostid and status=".HOST_STATUS_MONITORED;
 		$this->assertEquals(1, DBcount($sql), "Chuck Norris: host $hostid activated but status is wrong in the DB");
@@ -280,20 +288,18 @@ class testPageHosts extends CWebTest {
 		$this->chooseOkOnNextConfirmation();
 
 		$this->zbxTestLogin('hosts.php');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 
 		$this->zbxTestCheckboxSelect('all_hosts');
-		$this->zbxTestDropdownSelect('action', 'Disable selected');
-		$this->assertVisible('goButton');
+		$this->zbxTestDropdownSelect('go', 'Disable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
-		$this->zbxTestCheckTitle('Configuration of hosts');
-		$this->zbxTestTextPresent('Hosts disabled');
+		$this->checkTitle('Configuration of hosts');
+		$this->zbxTestTextPresent('Host status updated');
 
-		$sql = "select * from hosts where status=".HOST_STATUS_MONITORED.
-			" and name NOT LIKE '%{#%'";
+		$sql = "select * from hosts where status=".HOST_STATUS_MONITORED;
 		$this->assertEquals(0, DBcount($sql), "Chuck Norris: all hosts disabled but DB does not match");
 	}
 
@@ -308,20 +314,33 @@ class testPageHosts extends CWebTest {
 		$hostid = $host['hostid'];
 
 		$this->zbxTestLogin('hosts.php');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 
 		$this->zbxTestCheckboxSelect('hosts_'.$hostid);
-		$this->zbxTestDropdownSelect('action', 'Disable selected');
-		$this->assertVisible('goButton');
+		$this->zbxTestDropdownSelect('go', 'Disable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
-		$this->zbxTestCheckTitle('Configuration of hosts');
-		$this->zbxTestTextPresent('Host disabled');
+		$this->checkTitle('Configuration of hosts');
+		$this->zbxTestTextPresent('Host status updated');
 
 		$sql = "select * from hosts where hostid=$hostid and status=".HOST_STATUS_NOT_MONITORED;
 		$this->assertEquals(1, DBcount($sql), "Chuck Norris: host $hostid disabled but status is wrong in the DB");
 	}
 
+	public function testPageHosts_MassDeleteAll() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageHosts_MassDelete() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageHosts_Sorting() {
+// TODO
+		$this->markTestIncomplete();
+	}
 }

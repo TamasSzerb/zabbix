@@ -106,9 +106,9 @@ class testFormMap extends CWebTest {
 			$this->zbxTestClick('gridautoalign');
 		}
 
-		// clicking "Update"
+		// clicking "Save"
 		$this->chooseOkOnNextConfirmation();
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->getConfirmation();
 
 		// checking if DB was updated as expected
@@ -147,13 +147,5 @@ class testFormMap extends CWebTest {
 		}
 
 		// if we got until here, everything works as expected
-	}
-
-	/**
-	 * Testing regression of ZBX-6840
-	 */
-	public function testFormMap_testZBX6840() {
-		$this->zbxTestLogin('maps.php');
-		$this->zbxTestDropdownSelectWait('sysmapid', 'testZBX6840');
 	}
 }

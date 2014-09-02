@@ -22,28 +22,21 @@
 $chartsWidget = new CWidget('hat_charts');
 $chartForm = new CForm('get');
 $chartForm->addVar('fullscreen', $this->data['fullscreen']);
-$chartForm->addItem(array(_('Group').SPACE, $this->data['pageFilter']->getGroupsCB()));
-$chartForm->addItem(array(SPACE._('Host').SPACE, $this->data['pageFilter']->getHostsCB()));
-$chartForm->addItem(array(SPACE._('Graph').SPACE, $this->data['pageFilter']->getGraphsCB()));
+$chartForm->addItem(array(_('Group').SPACE, $this->data['pageFilter']->getGroupsCB(true)));
+$chartForm->addItem(array(SPACE._('Host').SPACE, $this->data['pageFilter']->getHostsCB(true)));
+$chartForm->addItem(array(SPACE._('Graph').SPACE, $this->data['pageFilter']->getGraphsCB(true)));
 
 $chartsWidget->addFlicker(new CDiv(null, null, 'scrollbar_cntr'), CProfile::get('web.charts.filter.state', 1));
-
-if ($this->data['graphid']) {
-	$chartsWidget->addPageHeader(_('GRAPHS'), array(
-		get_icon('favourite', array('fav' => 'web.favorite.graphids', 'elname' => 'graphid', 'elid' => $this->data['graphid'])),
-		SPACE,
-		get_icon('reset', array('id' => $this->data['graphid'])),
-		SPACE,
-		get_icon('fullscreen', array('fullscreen' => $this->data['fullscreen']))
-	));
-}
-else {
-	$chartsWidget->addPageHeader(_('GRAPHS'), array(get_icon('fullscreen', array('fullscreen' => $this->data['fullscreen']))));
-}
-
+$chartsWidget->addPageHeader(_('Graphs'), array(
+	get_icon('favourite', array('fav' => 'web.favorite.graphids', 'elname' => 'graphid', 'elid' => $this->data['graphid'])),
+	SPACE,
+	get_icon('reset', array('id' => $this->data['graphid'])),
+	SPACE,
+	get_icon('fullscreen', array('fullscreen' => $this->data['fullscreen']))
+));
 $chartsWidget->addHeader(
-	isset($this->data['pageFilter']->graphs[$this->data['graphid']]['name'])
-		? $this->data['pageFilter']->graphs[$this->data['graphid']]['name']
+	!empty($this->data['pageFilter']->graphs[$this->data['pageFilter']->graphid])
+		? $this->data['pageFilter']->graphs[$this->data['pageFilter']->graphid]
 		: null,
 	$chartForm
 );
@@ -58,7 +51,7 @@ if (!empty($this->data['graphid'])) {
 		'profileIdx2' => $this->data['graphid']
 	));
 
-	$chartTable = new CTable(null, 'maxwidth');
+	$chartTable = new CTable(_('No graphs defined.'), 'maxwidth');
 	$chartTable->addRow($screen->get());
 
 	$chartsWidget->addItem($chartTable);
@@ -74,7 +67,7 @@ else {
 		'timeline' => $screen->timeline
 	));
 
-	$chartsWidget->addItem(new CTableInfo(_('No graphs found.')));
+	$chartsWidget->addItem(new CTableInfo(_('No graphs defined.')));
 }
 
 return $chartsWidget;

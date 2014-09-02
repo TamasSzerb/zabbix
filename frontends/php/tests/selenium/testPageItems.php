@@ -21,73 +21,57 @@
 require_once dirname(__FILE__) . '/../include/class.cwebtest.php';
 
 class testPageItems extends CWebTest {
-	// returns hosts and templates
-	public static function data() {
-		return DBdata(
-			'SELECT hostid,status'.
-			' FROM hosts'.
-			' WHERE host LIKE '.zbx_dbstr('%-layout-test-%')
-		);
+	// Returns all hosts
+	public static function allHosts() {
+		return DBdata('select * from hosts where status in ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.')');
 	}
 
 	/**
-	* @dataProvider data
+	* @dataProvider allHosts
 	*/
-	public function testPageItems_CheckLayout($data) {
+
+	public function testPageItems_CheckLayout($host) {
+		$hostid = $host['hostid'];
+
+		$this->zbxTestLogin('hosts.php');
+		$this->zbxTestDropdownSelectWait('groupid', 'all');
+
+		$this->checkTitle('Configuration of hosts');
+		$this->zbxTestTextPresent('HOSTS');
 		// Go to the list of items
-		$this->zbxTestLogin('items.php?filter_set=1&groupid=0&hostid='.$data['hostid']);
+		$this->href_click("items.php?filter_set=1&hostid=$hostid&sid=");
+		$this->wait();
 		// We are in the list of items
-		$this->zbxTestCheckTitle('Configuration of items');
+		$this->checkTitle('Configuration of items');
 		$this->zbxTestTextPresent('CONFIGURATION OF ITEMS');
 		$this->zbxTestTextPresent('Items');
 		$this->zbxTestTextPresent('Displaying');
+		$this->zbxTestTextPresent('Host list');
+		// Header
+		$this->zbxTestTextPresent(
+			array(
+				'Wizard',
+				'Name',
+				'Triggers',
+				'Key',
+				'Interval',
+				'History',
+				'Trends',
+				'Type',
+				'Applications',
+				'Status',
+				'Error'
+			)
+		);
+		// someday should check that interval is not shown for trapper items, trends not shown for non-numeric items etc
 
-		if ($data['status'] == HOST_STATUS_MONITORED || $data['status'] == HOST_STATUS_NOT_MONITORED) {
-			$this->zbxTestTextPresent('Host list');
-			// Header
-			$this->zbxTestTextPresent(
-				array(
-					'Wizard',
-					'Name',
-					'Triggers',
-					'Key',
-					'Interval',
-					'History',
-					'Trends',
-					'Type',
-					'Applications',
-					'Status',
-					'Error'
-				)
-			);
-		}
-		elseif ($data['status'] == HOST_STATUS_TEMPLATE) {
-			$this->zbxTestTextPresent('Template list');
-			// Header
-			$this->zbxTestTextPresent(
-				array(
-					'Wizard',
-					'Name',
-					'Triggers',
-					'Key',
-					'Interval',
-					'History',
-					'Trends',
-					'Type',
-					'Applications',
-					'Status'
-				)
-			);
-			$this->zbxTestTextNotPresent('Error');
-		}
-		// TODO someday should check that interval is not shown for trapper items, trends not shown for non-numeric items etc
-		$this->zbxTestDropdownHasOptions('action', array(
+		$this->zbxTestDropdownHasOptions('go', array(
 				'Enable selected',
 				'Disable selected',
 				'Mass update',
 				'Copy selected to ...',
 				'Clear history for selected',
 				'Delete selected'
-			));
+		));
 	}
 }

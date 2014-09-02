@@ -38,15 +38,13 @@ class CScreenPlainText extends CScreenBase {
 		}
 
 		if ($this->screenitem['resourceid'] == 0) {
-			$table = new CTableInfo(_('No values found.'));
+			$table = new CTableInfo(_('No data defined.'));
 			$table->setHeader(array(_('Timestamp'), _('Item')));
 
 			return $this->getOutput($table);
 		}
 
-		$items = CMacrosResolverHelper::resolveItemNames(array(get_item_by_itemid($this->screenitem['resourceid'])));
-		$item = reset($items);
-
+		$item = get_item_by_itemid($this->screenitem['resourceid']);
 		switch ($item['value_type']) {
 			case ITEM_VALUE_TYPE_TEXT:
 			case ITEM_VALUE_TYPE_LOG:
@@ -60,8 +58,8 @@ class CScreenPlainText extends CScreenBase {
 
 		$host = get_host_by_itemid($this->screenitem['resourceid']);
 
-		$table = new CTableInfo(_('No values found.'));
-		$table->setHeader(array(_('Timestamp'), $host['name'].NAME_DELIMITER.$item['name_expanded']));
+		$table = new CTableInfo(_('No data defined.'));
+		$table->setHeader(array(_('Timestamp'), $host['name'].': '.itemName($item)));
 
 		$stime = zbxDateToTime($this->timeline['stime']);
 
@@ -83,7 +81,7 @@ class CScreenPlainText extends CScreenBase {
 				case ITEM_VALUE_TYPE_TEXT:
 				case ITEM_VALUE_TYPE_STR:
 				case ITEM_VALUE_TYPE_LOG:
-					$value = $this->screenitem['style'] ? new CJsScript($history['value']) : $history['value'];
+					$value = $this->screenitem['style'] ? new CJSscript($history['value']) : $history['value'];
 					break;
 				default:
 					$value = $history['value'];
@@ -94,9 +92,7 @@ class CScreenPlainText extends CScreenBase {
 				$value = applyValueMap($value, $item['valuemapid']);
 			}
 
-			$class = $this->screenitem['style'] ? null : 'pre';
-
-			$table->addRow(array(zbx_date2str(DATE_TIME_FORMAT_SECONDS, $history['clock']), new CCol($value, $class)));
+			$table->addRow(array(zbx_date2str(_('d M Y H:i:s'), $history['clock']), new CCol($value, 'pre')));
 		}
 
 		return $this->getOutput($table);

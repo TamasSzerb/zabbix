@@ -21,38 +21,25 @@
 #include "sysinfo.h"
 #include "md5.h"
 #include "file.h"
-#include "zbxregexp.h"
-#include "log.h"
 
 #define ZBX_MAX_DB_FILE_SIZE	64 * ZBX_KIBIBYTE	/* files larger than 64 KB cannot be stored in the database */
 
 extern int	CONFIG_TIMEOUT;
 
-int	VFS_FILE_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_FILE_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	zbx_stat_t	buf;
-	char		*filename;
+	char		filename[MAX_STRING_LEN];
 	int		ret = SYSINFO_RET_FAIL;
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (1 < num_param(param))
 		goto err;
-	}
 
-	filename = get_rparam(request, 0);
-
-	if (NULL == filename || '\0' == *filename)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	if (0 != get_param(param, 1, filename, sizeof(filename)))
 		goto err;
-	}
 
 	if (0 != zbx_stat(filename, &buf))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain file information: %s", zbx_strerror(errno)));
 		goto err;
-	}
 
 	SET_UI64_RESULT(result, buf.st_size);
 
@@ -61,157 +48,106 @@ err:
 	return ret;
 }
 
-int	VFS_FILE_TIME(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_FILE_TIME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	zbx_stat_t	buf;
-	char		*filename, *type;
+	char		filename[MAX_STRING_LEN], type[8];
 	int		ret = SYSINFO_RET_FAIL;
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (2 < num_param(param))
 		goto err;
-	}
 
-	filename = get_rparam(request, 0);
-	type = get_rparam(request, 1);
-
-	if (NULL == filename || '\0' == *filename)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	if (0 != get_param(param, 1, filename, sizeof(filename)))
 		goto err;
-	}
+
+	if (0 != get_param(param, 2, type, sizeof(type)))
+		*type = '\0';
 
 	if (0 != zbx_stat(filename, &buf))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain file information: %s", zbx_strerror(errno)));
 		goto err;
-	}
 
-	if (NULL == type || '\0' == *type || 0 == strcmp(type, "modify"))	/* default parameter */
+	if ('\0' == *type || 0 == strcmp(type, "modify"))	/* default parameter */
 		SET_UI64_RESULT(result, buf.st_mtime);
 	else if (0 == strcmp(type, "access"))
 		SET_UI64_RESULT(result, buf.st_atime);
 	else if (0 == strcmp(type, "change"))
 		SET_UI64_RESULT(result, buf.st_ctime);
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		goto err;
-	}
 
 	ret = SYSINFO_RET_OK;
 err:
 	return ret;
 }
 
-int	VFS_FILE_EXISTS(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_FILE_EXISTS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	zbx_stat_t	buf;
-	char		*filename;
-	int		ret = SYSINFO_RET_FAIL, file_exists = -1;
+	char		filename[MAX_STRING_LEN];
+	int		ret = SYSINFO_RET_FAIL;
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (1 < num_param(param))
 		goto err;
-	}
 
-	filename = get_rparam(request, 0);
-
-	if (NULL == filename || '\0' == *filename)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	if (0 != get_param(param, 1, filename, sizeof(filename)))
 		goto err;
-	}
+
+	SET_UI64_RESULT(result, 0);
 
 	if (0 == zbx_stat(filename, &buf))
-		file_exists = S_ISREG(buf.st_mode) ? 1 : 0;
-	else if (errno == ENOENT)
-		file_exists = 0;
+		if (S_ISREG(buf.st_mode))
+			SET_UI64_RESULT(result, 1);
 
-	if (-1 != file_exists)
-	{
-		SET_UI64_RESULT(result, file_exists);
-		ret = SYSINFO_RET_OK;
-	}
+	ret = SYSINFO_RET_OK;
 err:
 	return ret;
 }
 
-int	VFS_FILE_CONTENTS(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_FILE_CONTENTS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		*filename, *tmp, encoding[32];
+	char		filename[MAX_STRING_LEN], encoding[32];
 	char		read_buf[MAX_BUFFER_LEN], *utf8, *contents = NULL;
-	size_t		contents_alloc = 0, contents_offset = 0;
+	size_t		contents_alloc = 512, contents_offset = 0;
 	int		nbytes, flen, f = -1, ret = SYSINFO_RET_FAIL;
 	zbx_stat_t	stat_buf;
 	double		ts;
 
 	ts = zbx_time();
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (2 < num_param(param))
 		goto err;
-	}
 
-	filename = get_rparam(request, 0);
-	tmp = get_rparam(request, 1);
+	if (0 != get_param(param, 1, filename, sizeof(filename)))
+		goto err;
 
-	if (NULL == tmp)
+	if (0 != get_param(param, 2, encoding, sizeof(encoding)))
 		*encoding = '\0';
-	else
-		strscpy(encoding, tmp);
 
-	if (NULL == filename || '\0' == *filename)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		goto err;
-	}
+	zbx_strupper(encoding);
 
 	if (0 != zbx_stat(filename, &stat_buf))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain file information: %s", zbx_strerror(errno)));
 		goto err;
-	}
 
 	if (CONFIG_TIMEOUT < zbx_time() - ts)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Timeout while processing item."));
 		goto err;
-	}
 
 	if (ZBX_MAX_DB_FILE_SIZE < stat_buf.st_size)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "File is too large for this check."));
 		goto err;
-	}
 
 	if (-1 == (f = zbx_open(filename, O_RDONLY)))
 		goto err;
 
 	if (CONFIG_TIMEOUT < zbx_time() - ts)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Timeout while processing item."));
 		goto err;
-	}
+
+	contents = zbx_malloc(contents, contents_alloc);
 
 	flen = 0;
 
 	while (0 < (nbytes = zbx_read(f, read_buf, sizeof(read_buf), encoding)))
 	{
-		if (CONFIG_TIMEOUT < zbx_time() - ts)
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Timeout while processing item."));
+		if (CONFIG_TIMEOUT < zbx_time() - ts || ZBX_MAX_DB_FILE_SIZE < (flen += nbytes))
 			goto err;
-		}
-
-		if (ZBX_MAX_DB_FILE_SIZE < (flen += nbytes))
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "File is too large for this check."));
-			goto err;
-		}
 
 		utf8 = convert_to_utf8(read_buf, nbytes, encoding);
 		zbx_strcpy_alloc(&contents, &contents_alloc, &contents_offset, utf8);
@@ -220,7 +156,6 @@ int	VFS_FILE_CONTENTS(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 	if (-1 == nbytes)	/* error occurred */
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot read from file."));
 		zbx_free(contents);
 		goto err;
 	}
@@ -231,7 +166,7 @@ int	VFS_FILE_CONTENTS(AGENT_REQUEST *request, AGENT_RESULT *result)
 	if (0 == contents_offset) /* empty file */
 	{
 		zbx_free(contents);
-		contents = zbx_strdup(contents, "");
+		contents = zbx_strdup(contents, "EOF");
 	}
 
 	SET_TEXT_RESULT(result, contents);
@@ -244,118 +179,55 @@ err:
 	return ret;
 }
 
-int	VFS_FILE_REGEXP(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_FILE_REGEXP(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*filename, *regexp, encoding[32], *output, *start_line_str, *end_line_str;
-	char	buf[MAX_BUFFER_LEN], *utf8, *tmp, *ptr;
-	int	nbytes, f = -1, ret = SYSINFO_RET_FAIL;
-	size_t	start_line, end_line, current_line = 0;
+	char	filename[MAX_STRING_LEN], regexp[MAX_STRING_LEN], encoding[32];
+	char	buf[MAX_BUFFER_LEN], *utf8;
+	int	nbytes, len, f = -1, ret = SYSINFO_RET_FAIL;
 	double	ts;
 
 	ts = zbx_time();
 
-	if (6 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (3 < num_param(param))
 		goto err;
-	}
 
-	filename = get_rparam(request, 0);
-	regexp = get_rparam(request, 1);
-	tmp = get_rparam(request, 2);
-	start_line_str = get_rparam(request, 3);
-	end_line_str = get_rparam(request, 4);
-	output = get_rparam(request, 5);
-
-	if (NULL == filename || '\0' == *filename)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	if (0 != get_param(param, 1, filename, sizeof(filename)))
 		goto err;
-	}
 
-	if (NULL == regexp || '\0' == *regexp)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
+	if (0 != get_param(param, 2, regexp, sizeof(regexp)))
 		goto err;
-	}
 
-	if (NULL == tmp)
+	if (0 != get_param(param, 3, encoding, sizeof(encoding)))
 		*encoding = '\0';
-	else
-		strscpy(encoding, tmp);
 
-	if (NULL == start_line_str || '\0' == *start_line_str)
-		start_line = 0;
-	else if (FAIL == is_uint32(start_line_str, &start_line))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid fourth parameter."));
-		goto err;
-	}
-
-	if (NULL == end_line_str || '\0' == *end_line_str)
-		end_line = 0xffffffff;
-	else if (FAIL == is_uint32(end_line_str, &end_line))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid fifth parameter."));
-		goto err;
-	}
-
-	if (start_line > end_line)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Start line parameter must not exceed end line."));
-		goto err;
-	}
+	zbx_strupper(encoding);
 
 	if (-1 == (f = zbx_open(filename, O_RDONLY)))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot open file: %s", zbx_strerror(errno)));
 		goto err;
-	}
 
 	if (CONFIG_TIMEOUT < zbx_time() - ts)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Timeout while processing item."));
 		goto err;
-	}
 
 	while (0 < (nbytes = zbx_read(f, buf, sizeof(buf), encoding)))
 	{
 		if (CONFIG_TIMEOUT < zbx_time() - ts)
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Timeout while processing item."));
 			goto err;
-		}
-
-		if (++current_line < start_line)
-			continue;
 
 		utf8 = convert_to_utf8(buf, nbytes, encoding);
-		zbx_rtrim(utf8, "\r\n");
-		ptr = zbx_regexp_sub(utf8, regexp, output);
+		if (NULL != zbx_regexp_match(utf8, regexp, &len))
+		{
+			zbx_rtrim(utf8, "\r\n ");
+			SET_STR_RESULT(result, utf8);
+			break;
+		}
 		zbx_free(utf8);
-
-		if (NULL != ptr)
-		{
-			SET_STR_RESULT(result, ptr);
-			break;
-		}
-
-		if (current_line >= end_line)
-		{
-			/* force EOF state */
-			nbytes = 0;
-			break;
-		}
 	}
 
 	if (-1 == nbytes)	/* error occurred */
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot read from file."));
 		goto err;
-	}
 
 	if (0 == nbytes)	/* EOF */
-		SET_STR_RESULT(result, zbx_strdup(NULL, ""));
+		SET_STR_RESULT(result, zbx_strdup(NULL, "EOF"));
 
 	ret = SYSINFO_RET_OK;
 err:
@@ -365,107 +237,50 @@ err:
 	return ret;
 }
 
-int	VFS_FILE_REGMATCH(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_FILE_REGMATCH(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*filename, *regexp, *tmp, encoding[32];
-	char	buf[MAX_BUFFER_LEN], *utf8, *start_line_str, *end_line_str;
+	char	filename[MAX_STRING_LEN], regexp[MAX_STRING_LEN], encoding[32];
+	char	buf[MAX_BUFFER_LEN], *utf8;
 	int	nbytes, len, res, f = -1, ret = SYSINFO_RET_FAIL;
-	size_t	start_line, end_line, current_line = 0;
 	double	ts;
 
 	ts = zbx_time();
 
-	if (5 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (3 < num_param(param))
 		goto err;
-	}
 
-	filename = get_rparam(request, 0);
-	regexp = get_rparam(request, 1);
-	tmp = get_rparam(request, 2);
-	start_line_str = get_rparam(request, 3);
-	end_line_str = get_rparam(request, 4);
-
-	if (NULL == filename || '\0' == *filename)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	if (0 != get_param(param, 1, filename, sizeof(filename)))
 		goto err;
-	}
 
-	if (NULL == regexp || '\0' == *regexp)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
+	if (0 != get_param(param, 2, regexp, sizeof(regexp)))
 		goto err;
-	}
 
-	if (NULL == tmp)
+	if (0 != get_param(param, 3, encoding, sizeof(encoding)))
 		*encoding = '\0';
-	else
-		strscpy(encoding, tmp);
 
-	if (NULL == start_line_str || '\0' == *start_line_str)
-		start_line = 0;
-	else if (FAIL == is_uint32(start_line_str, &start_line))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid fourth parameter."));
-		goto err;
-	}
-
-	if (NULL == end_line_str || '\0' == *end_line_str)
-		end_line = 0xffffffff;
-	else if (FAIL == is_uint32(end_line_str, &end_line))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid fifth parameter."));
-		goto err;
-	}
-
-	if (start_line > end_line)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Start line must not exceed end line."));
-		goto err;
-	}
+	zbx_strupper(encoding);
 
 	if (-1 == (f = zbx_open(filename, O_RDONLY)))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot open file: %s", zbx_strerror(errno)));
 		goto err;
-	}
 
 	if (CONFIG_TIMEOUT < zbx_time() - ts)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Timeout while processing item."));
 		goto err;
-	}
 
 	res = 0;
 
 	while (0 == res && 0 < (nbytes = zbx_read(f, buf, sizeof(buf), encoding)))
 	{
 		if (CONFIG_TIMEOUT < zbx_time() - ts)
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Timeout while processing item."));
 			goto err;
-		}
-
-		if (++current_line < start_line)
-			continue;
 
 		utf8 = convert_to_utf8(buf, nbytes, encoding);
-		zbx_rtrim(utf8, "\r\n");
 		if (NULL != zbx_regexp_match(utf8, regexp, &len))
 			res = 1;
 		zbx_free(utf8);
-
-		if (current_line >= end_line)
-			break;
 	}
 
 	if (-1 == nbytes)	/* error occurred */
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot read from file."));
 		goto err;
-	}
 
 	SET_UI64_RESULT(result, res);
 
@@ -477,9 +292,9 @@ err:
 	return ret;
 }
 
-int	VFS_FILE_MD5SUM(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_FILE_MD5SUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		*filename;
+	char		filename[MAX_STRING_LEN];
 	int		i, nbytes, f = -1, ret = SYSINFO_RET_FAIL;
 	md5_state_t	state;
 	u_char		buf[16 * ZBX_KIBIBYTE];
@@ -490,41 +305,24 @@ int	VFS_FILE_MD5SUM(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 	ts = zbx_time();
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (1 < num_param(param))
 		goto err;
-	}
 
-	filename = get_rparam(request, 0);
-
-	if (NULL == filename || '\0' == *filename)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	if (0 != get_param(param, 1, filename, sizeof(filename)))
 		goto err;
-	}
 
 	if (-1 == (f = zbx_open(filename, O_RDONLY)))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot open file: %s", zbx_strerror(errno)));
 		goto err;
-	}
 
 	if (CONFIG_TIMEOUT < zbx_time() - ts)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Timeout while processing item."));
 		goto err;
-	}
 
 	md5_init(&state);
 
 	while (0 < (nbytes = (int)read(f, buf, sizeof(buf))))
 	{
 		if (CONFIG_TIMEOUT < zbx_time() - ts)
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Timeout while processing item."));
 			goto err;
-		}
 
 		md5_append(&state, (const md5_byte_t *)buf, nbytes);
 	}
@@ -532,10 +330,7 @@ int	VFS_FILE_MD5SUM(AGENT_REQUEST *request, AGENT_RESULT *result)
 	md5_finish(&state, hash);
 
 	if (0 > nbytes)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot read from file."));
 		goto err;
-	}
 
 	/* convert MD5 hash to text form */
 
@@ -618,9 +413,9 @@ static u_long	crctab[] =
  * Comments: computes POSIX 1003.2 checksum                                   *
  *                                                                            *
  ******************************************************************************/
-int	VFS_FILE_CKSUM(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_FILE_CKSUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		*filename;
+	char		filename[MAX_STRING_LEN];
 	int		i, nr, f = -1, ret = SYSINFO_RET_FAIL;
 	uint32_t	crc, flen;
 	u_char		buf[16 * ZBX_KIBIBYTE];
@@ -629,41 +424,24 @@ int	VFS_FILE_CKSUM(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 	ts = zbx_time();
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (1 < num_param(param))
 		goto err;
-	}
 
-	filename = get_rparam(request, 0);
-
-	if (NULL == filename || '\0' == *filename)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	if (0 != get_param(param, 1, filename, sizeof(filename)))
 		goto err;
-	}
 
 	if (-1 == (f = zbx_open(filename, O_RDONLY)))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot open file: %s", zbx_strerror(errno)));
 		goto err;
-	}
 
 	if (CONFIG_TIMEOUT < zbx_time() - ts)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Timeout while processing item."));
 		goto err;
-	}
 
 	crc = flen = 0;
 
 	while (0 < (nr = (int)read(f, buf, sizeof(buf))))
 	{
 		if (CONFIG_TIMEOUT < zbx_time() - ts)
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Timeout while processing item."));
 			goto err;
-		}
 
 		flen += nr;
 
@@ -672,10 +450,7 @@ int	VFS_FILE_CKSUM(AGENT_REQUEST *request, AGENT_RESULT *result)
 	}
 
 	if (0 > nr)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot read from file."));
 		goto err;
-	}
 
 	/* include the length of the file */
 	for (; 0 != flen; flen >>= 8)

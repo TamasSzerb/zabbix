@@ -21,8 +21,12 @@
 #define ZABBIX_DBSCHEMA_H
 
 /* flags */
-#define ZBX_NOTNULL		0x01
-#define ZBX_PROXY		0x02
+#define	ZBX_SYNC		0x01
+#define ZBX_NOTNULL		0x02
+#define ZBX_HISTORY		0x04
+#define ZBX_HISTORY_SYNC	0x08
+#define ZBX_HISTORY_TRENDS	0x10
+#define ZBX_PROXY		0x20
 
 /* FK flags */
 #define ZBX_FK_CASCADE_DELETE	0x01
@@ -35,19 +39,16 @@
 #define	ZBX_TYPE_TEXT		4
 #define	ZBX_TYPE_UINT		5
 #define	ZBX_TYPE_ID		6
-#define	ZBX_TYPE_SHORTTEXT	7
-#define	ZBX_TYPE_LONGTEXT	8
 
 #define ZBX_MAX_FIELDS		73 /* maximum number of fields in a table plus one for null terminator in dbschema.c */
-#define ZBX_TABLENAME_LEN	21
-#define ZBX_TABLENAME_LEN_MAX	(ZBX_TABLENAME_LEN + 1)
-#define ZBX_FIELDNAME_LEN	24
-#define ZBX_FIELDNAME_LEN_MAX	(ZBX_FIELDNAME_LEN + 1)
+#define ZBX_TABLENAME_LEN	64
+#define ZBX_TABLENAME_LEN_MAX	ZBX_TABLENAME_LEN + 1
+#define ZBX_FIELDNAME_LEN	64
+#define ZBX_FIELDNAME_LEN_MAX	ZBX_FIELDNAME_LEN + 1
 
 typedef struct
 {
-	const char	*name;
-	const char	*default_value;
+	const char    	*name;
 	const char	*fk_table;
 	const char	*fk_field;
 	unsigned short	length;

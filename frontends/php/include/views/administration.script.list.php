@@ -18,7 +18,6 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
 $scriptsWidget = new CWidget();
 
 $createForm = new CForm('get');
@@ -32,19 +31,21 @@ $scriptsForm = new CForm();
 $scriptsForm->setName('scriptsForm');
 $scriptsForm->setAttribute('id', 'scripts');
 
-$scriptsTable = new CTableInfo(_('No scripts found.'));
+$scriptsTable = new CTableInfo(_('No scripts defined.'));
 $scriptsTable->setHeader(array(
 	new CCheckBox('all_scripts', null, "checkAll('".$scriptsForm->getName()."', 'all_scripts', 'scripts');"),
-	make_sorting_header(_('Name'), 'name', $this->data['sort'], $this->data['sortorder']),
+	make_sorting_header(_('Name'), 'name'),
 	_('Type'),
 	_('Execute on'),
-	make_sorting_header(_('Commands'), 'command', $this->data['sort'], $this->data['sortorder']),
+	make_sorting_header(_('Commands'), 'command'),
 	_('User group'),
 	_('Host group'),
 	_('Host access')
 ));
 
 foreach ($this->data['scripts'] as $script) {
+	$scriptid = $script['scriptid'];
+
 	switch ($script['type']) {
 		case ZBX_SCRIPT_TYPE_CUSTOM_SCRIPT:
 			$scriptType = _('Script');
@@ -77,16 +78,15 @@ foreach ($this->data['scripts'] as $script) {
 		$scriptType,
 		$scriptExecuteOn,
 		zbx_nl2br(htmlspecialchars($script['command'], ENT_COMPAT, 'UTF-8')),
-		$script['userGroupName'] ? $script['userGroupName'] : _('All'),
-		$script['hostGroupName'] ? $script['hostGroupName'] : _('All'),
-		($script['host_access'] == PERM_READ_WRITE) ? _('Write') : _('Read')
+		('' == $script['userGroupName']) ? _('All') : $script['userGroupName'],
+		('' == $script['hostGroupName']) ? _('All') : $script['hostGroupName'],
+		((PERM_READ_WRITE == $script['host_access']) ? _('Write') : _('Read'))
 	));
 }
 
 // create go buttons
-$goComboBox = new CComboBox('action');
-
-$goOption = new CComboItem('script.massdelete', _('Delete selected'));
+$goComboBox = new CComboBox('go');
+$goOption = new CComboItem('delete', _('Delete selected'));
 $goOption->setAttribute('confirm', _('Delete selected scripts?'));
 $goComboBox->addItem($goOption);
 
@@ -99,5 +99,4 @@ $scriptsForm->addItem(array($this->data['paging'], $scriptsTable, $this->data['p
 
 // append form to widget
 $scriptsWidget->addItem($scriptsForm);
-
 return $scriptsWidget;

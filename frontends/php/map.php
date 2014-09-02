@@ -30,17 +30,16 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION		EXCEPTION
 $fields = array(
-	'sysmapid' =>		array(T_ZBX_INT, O_MAND, P_SYS,	DB_ID,				null),
-	'selements' =>		array(T_ZBX_STR, O_OPT, P_SYS,	DB_ID,				null),
-	'links' =>			array(T_ZBX_STR, O_OPT, P_SYS,	DB_ID,				null),
-	'noselements' =>	array(T_ZBX_INT, O_OPT, null,	IN('0,1'),			null),
-	'nolinks' =>		array(T_ZBX_INT, O_OPT, null,	IN('0,1'),			null),
-	'nocalculations' =>	array(T_ZBX_INT, O_OPT, null,	IN('0,1'),			null),
-	'expand_macros' =>	array(T_ZBX_INT, O_OPT, null,	IN('0,1'),			null),
-	'show_triggers' =>	array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1,2,3'),		null),
-	'severity_min' =>	array(T_ZBX_INT, O_OPT, null,	IN('0,1,2,3,4,5'),	null),
-	'grid' =>			array(T_ZBX_INT, O_OPT, null,	BETWEEN(0, 500),	null),
-	'base64image' =>	array(T_ZBX_INT, O_OPT, null,	IN('0,1'),			null)
+	'sysmapid' =>		array(T_ZBX_INT, O_MAND, P_SYS,	DB_ID,			null),
+	'selements' =>		array(T_ZBX_STR, O_OPT, P_SYS,	DB_ID,			null),
+	'links' =>			array(T_ZBX_STR, O_OPT, P_SYS,	DB_ID,			null),
+	'noselements' =>	array(T_ZBX_INT, O_OPT, null,	IN('0,1'),		null),
+	'nolinks' =>		array(T_ZBX_INT, O_OPT, null,	IN('0,1'),		null),
+	'nocalculations' =>	array(T_ZBX_INT, O_OPT, null,	IN('0,1'),		null),
+	'expand_macros' =>	array(T_ZBX_INT, O_OPT, null,	IN('0,1'),		null),
+	'show_triggers' =>	array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1,2,3'),	null),
+	'grid' =>			array(T_ZBX_INT, O_OPT, null,	BETWEEN(0, 500), null),
+	'base64image' =>	array(T_ZBX_INT, O_OPT, null,	IN('0,1'),		null)
 );
 check_fields($fields);
 
@@ -61,7 +60,7 @@ $mapPainter = new CMapPainter($map, array(
 		'drawAreas' => (!isset($_REQUEST['selements']) && !isset($_REQUEST['noselements']))
 	),
 	'grid' => array(
-		'size' => getRequest('grid', 0)
+		'size' => get_request('grid', 0)
 	)
 ));
 
@@ -87,10 +86,10 @@ $y = imagesy($im);
 /*
  * Actions
  */
-$json = new CJson();
+$json = new CJSON();
 
 if (isset($_REQUEST['selements']) || isset($_REQUEST['noselements'])) {
-	$map['selements'] = getRequest('selements', '[]');
+	$map['selements'] = get_request('selements', '[]');
 	$map['selements'] = $json->decode($map['selements'], true);
 }
 else {
@@ -98,18 +97,12 @@ else {
 }
 
 if (isset($_REQUEST['links']) || isset($_REQUEST['nolinks'])) {
-	$map['links'] = getRequest('links', '[]');
+	$map['links'] = get_request('links', '[]');
 	$map['links'] = $json->decode($map['links'], true);
 }
 
-if (getRequest('nocalculations', false)) {
-	foreach ($map['selements'] as $selement) {
-		if ($selement['elementtype'] != SYSMAP_ELEMENT_TYPE_IMAGE) {
-			add_elementNames($map['selements']);
-			break;
-		}
-	}
-
+$nocalculations = get_request('nocalculations', false);
+if ($nocalculations) {
 	// get default iconmap id to use for elements that use icon map
 	if ($map['iconmapid']) {
 		$iconMaps = API::IconMap()->get(array(
@@ -118,11 +111,10 @@ if (getRequest('nocalculations', false)) {
 			'preservekeys' => true
 		));
 		$iconMap = reset($iconMaps);
-
 		$defaultAutoIconId = $iconMap['default_iconid'];
 	}
 
-	$mapInfo = array();
+	$map_info = array();
 	foreach ($map['selements'] as $selement) {
 		// if element use icon map and icon map is set for map, and is host like element, we use default icon map icon
 		if ($map['iconmapid'] && $selement['use_iconmap']
@@ -135,12 +127,12 @@ if (getRequest('nocalculations', false)) {
 			$iconid = $selement['iconid_off'];
 		}
 
-		$mapInfo[$selement['selementid']] = array(
+		$map_info[$selement['selementid']] = array(
 			'iconid' => $iconid,
 			'icon_type' => SYSMAP_ELEMENT_ICON_OFF
 		);
 
-		$mapInfo[$selement['selementid']]['name'] = ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_IMAGE)
+		$map_info[$selement['selementid']]['name'] = ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_IMAGE)
 			? _('Image')
 			: $selement['elementName'];
 	}
@@ -148,43 +140,38 @@ if (getRequest('nocalculations', false)) {
 	$allLinks = true;
 }
 else {
-	// we need selements to be a hash for further processing
-	$map['selements'] = zbx_toHash($map['selements'], 'selementid');
-
-	add_triggerExpressions($map['selements']);
-
 	$areas = populateFromMapAreas($map);
-	$mapInfo = getSelementsInfo($map, array('severity_min' => getRequest('severity_min')));
-	processAreasCoordinates($map, $areas, $mapInfo);
+	$map_info = getSelementsInfo($map);
+	processAreasCoordinates($map, $areas, $map_info);
 	$allLinks = false;
 }
 
 /*
  * Draw map
  */
-drawMapConnectors($im, $map, $mapInfo, $allLinks);
+drawMapConnectors($im, $map, $map_info, $allLinks);
 
 if (!isset($_REQUEST['noselements'])) {
-	drawMapHighligts($im, $map, $mapInfo);
-	drawMapSelements($im, $map, $mapInfo);
+	drawMapHighligts($im, $map, $map_info);
+	drawMapSelements($im, $map, $map_info);
 }
 
-$expandMacros = getRequest('expand_macros', true);
-drawMapLabels($im, $map, $mapInfo, $expandMacros);
-drawMapLinkLabels($im, $map, $mapInfo, $expandMacros);
+$expand_macros = get_request('expand_macros', true);
+drawMapLabels($im, $map, $map_info, $expand_macros);
+drawMapLinkLabels($im, $map, $map_info, $expand_macros);
 
 if (!isset($_REQUEST['noselements']) && $map['markelements'] == 1) {
-	drawMapSelementsMarks($im, $map, $mapInfo);
+	drawMapSelementsMarks($im, $map, $map_info);
 }
 
 show_messages();
 
-if (getRequest('base64image')) {
+if (get_request('base64image')) {
 	ob_start();
 	imagepng($im);
 	$imageSource = ob_get_contents();
 	ob_end_clean();
-	$json = new CJson();
+	$json = new CJSON();
 	echo $json->encode(array('result' => base64_encode($imageSource)));
 	imagedestroy($im);
 }

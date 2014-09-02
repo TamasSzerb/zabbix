@@ -19,12 +19,15 @@
 
 #include "common.h"
 #include "sysinfo.h"
-#include "zbxregexp.h"
-#include "log.h"
 
 #include <sys/sensors.h>
 
 #ifdef HAVE_SENSORDEV
+
+#define DO_ONE	0
+#define DO_AVG	1
+#define DO_MAX	2
+#define DO_MIN	3
 
 static void	count_sensor(int do_task, const struct sensor *sensor, double *aggr, int *cnt)
 {
@@ -52,16 +55,16 @@ static void	count_sensor(int do_task, const struct sensor *sensor, double *aggr,
 
 	switch (do_task)
 	{
-		case ZBX_DO_ONE:
+		case DO_ONE:
 			*aggr = value;
 			break;
-		case ZBX_DO_AVG:
+		case DO_AVG:
 			*aggr += value;
 			break;
-		case ZBX_DO_MAX:
+		case DO_MAX:
 			*aggr = (1 == *cnt ? value : MAX(*aggr, value));
 			break;
-		case ZBX_DO_MIN:
+		case DO_MIN:
 			*aggr = (1 == *cnt ? value : MIN(*aggr, value));
 			break;
 	}
@@ -69,7 +72,7 @@ static void	count_sensor(int do_task, const struct sensor *sensor, double *aggr,
 
 static int	get_device_sensors(int do_task, int *mib, const struct sensordev *sensordev, const char *name, double *aggr, int *cnt)
 {
-	if (ZBX_DO_ONE == do_task)
+	if (DO_ONE == do_task)
 	{
 		int		i, len = 0;
 		struct sensor	sensor;
@@ -84,10 +87,11 @@ static int	get_device_sensors(int do_task, int *mib, const struct sensordev *sen
 		if (i == SENSOR_MAX_TYPES)
 			return FAIL;
 
-		if (SUCCEED != is_uint31(name + len, (uint32_t*)&mib[4]))
+		if (SUCCEED != is_uint(name + len))
 			return FAIL;
 
 		mib[3] = i;
+		mib[4] = atoi(name + len);
 
 		if (-1 == sysctl(mib, 5, &sensor, &slen, NULL, 0))
 			return FAIL;
@@ -125,47 +129,31 @@ static int	get_device_sensors(int do_task, int *mib, const struct sensordev *sen
 	return SUCCEED;
 }
 
-int	GET_SENSOR(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	GET_SENSOR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*device, *name, *function;
+	char	device[MAX_STRING_LEN], name[MAX_STRING_LEN], function[8];
 	int	do_task, mib[5], dev, cnt = 0;
 	double	aggr = 0;
 
-	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (num_param(param) > 3)
 		return SYSINFO_RET_FAIL;
-	}
 
-	device = get_rparam(request, 0);
-	name = get_rparam(request, 1);
-	function = get_rparam(request, 2);
-
-	if (NULL == device || '\0' == *device)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	if (0 != get_param(param, 1, device, sizeof(device)))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (NULL == name || '\0' == *name)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
+	if (0 != get_param(param, 2, name, sizeof(name)))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (NULL == function || '\0' == *function)
-		do_task = ZBX_DO_ONE;
+	if (0 != get_param(param, 3, function, sizeof(function)))
+		do_task = DO_ONE;
 	else if (0 == strcmp(function, "avg"))
-		do_task = ZBX_DO_AVG;
+		do_task = DO_AVG;
 	else if (0 == strcmp(function, "max"))
-		do_task = ZBX_DO_MAX;
+		do_task = DO_MAX;
 	else if (0 == strcmp(function, "min"))
-		do_task = ZBX_DO_MIN;
+		do_task = DO_MIN;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	mib[0] = CTL_HW;
 	mib[1] = HW_SENSORS;
@@ -184,29 +172,21 @@ int	GET_SENSOR(AGENT_REQUEST *request, AGENT_RESULT *result)
 			if (errno == ENOENT)
 				break;
 
-			SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain system information: %s",
-					zbx_strerror(errno)));
 			return SYSINFO_RET_FAIL;
 		}
 
-		if ((ZBX_DO_ONE == do_task && 0 == strcmp(sensordev.xname, device)) ||
-				(ZBX_DO_ONE != do_task && NULL != zbx_regexp_match(sensordev.xname, device, NULL)))
+		if ((DO_ONE == do_task && 0 == strcmp(sensordev.xname, device)) ||
+				(DO_ONE != do_task && NULL != zbx_regexp_match(sensordev.xname, device, NULL)))
 		{
 			if (SUCCEED != get_device_sensors(do_task, mib, &sensordev, name, &aggr, &cnt))
-			{
-				SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain sensor information."));
 				return SYSINFO_RET_FAIL;
-			}
 		}
 	}
 
 	if (0 == cnt)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain sensor information."));
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (ZBX_DO_AVG == do_task)
+	if (DO_AVG == do_task)
 		SET_DBL_RESULT(result, aggr / cnt);
 	else
 		SET_DBL_RESULT(result, aggr);
@@ -216,9 +196,8 @@ int	GET_SENSOR(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 #else
 
-int	GET_SENSOR(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	GET_SENSOR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	SET_MSG_RESULT(result, zbx_strdup(NULL, "Agent was compiled without support for \"sensordev\" structure."));
 	return SYSINFO_RET_FAIL;
 }
 

@@ -35,7 +35,7 @@ class testFormAdministrationGeneralTriggerSeverities extends CWebTest {
 		$this->zbxTestLogin('adm.triggerseverities.php');
 		$this->assertElementPresent('configDropDown');
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Trigger severities');
-		$this->zbxTestCheckTitle('Configuration of Zabbix');
+		$this->checkTitle('Configuration of Zabbix');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF ZABBIX', 'Trigger severities', 'Custom severity', 'Colour'));
 
 		$this->assertElementPresent('severity_name_0');
@@ -92,7 +92,7 @@ class testFormAdministrationGeneralTriggerSeverities extends CWebTest {
 
 		$this->zbxTestLogin('adm.triggerseverities.php');
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Trigger severities');
-		$this->zbxTestCheckTitle('Configuration of Zabbix');
+		$this->checkTitle('Configuration of Zabbix');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF ZABBIX', 'Trigger severities', 'Custom severity', 'Colour'));
 		$this->zbxTestTextPresent('Custom severity names affect all locales and require manual translation!');
 
@@ -121,7 +121,7 @@ class testFormAdministrationGeneralTriggerSeverities extends CWebTest {
 		$this->zbxTestClick('lbl_severity_color_0');
 		$this->zbxTestClick("//div[@id='' and @onclick='set_color(\"999999\");']");
 
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Configuration updated');
 
 		$sql = 'SELECT severity_name_0 FROM config WHERE severity_name_0='.zbx_dbstr('Not classified2');
@@ -167,7 +167,7 @@ class testFormAdministrationGeneralTriggerSeverities extends CWebTest {
 
 		$this->zbxTestLogin('adm.triggerseverities.php');
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Trigger severities');
-		$this->zbxTestCheckTitle('Configuration of Zabbix');
+		$this->checkTitle('Configuration of Zabbix');
 		$this->zbxTestTextPresent(
 			array(
 				'CONFIGURATION OF ZABBIX',
@@ -179,7 +179,7 @@ class testFormAdministrationGeneralTriggerSeverities extends CWebTest {
 		);
 		$this->zbxTestClick('resetDefaults');
 		$this->zbxTestClick("//button[@type='button']");
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Configuration updated');
 		$this->zbxTestTextPresent('CONFIGURATION OF ZABBIX');
 		$this->zbxTestTextPresent('Trigger severities');

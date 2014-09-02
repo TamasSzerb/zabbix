@@ -24,26 +24,19 @@
 #include "sysinfo.h"
 #include "zbxconf.h"
 #include "zbxgetopt.h"
-#include "zbxmodules.h"
 #include "alias.h"
-#include "sighandler.h"
-#include "threads.h"
 
 const char	*progname = NULL;
 const char	title_message[] = "Zabbix agent";
 const char	syslog_app_name[] = "zabbix_agent";
 const char	usage_message[] = "[-Vhp] [-c <file>] [-t <item>]";
 
-unsigned char process_type	= 255;	/* ZBX_PROCESS_TYPE_UNKNOWN */
-int process_num;
-int server_num			= 0;
-
 const char	*help_message[] = {
 	"Options:",
 	"  -c --config <file>  Absolute path to the configuration file",
 	"  -p --print          Print known items and exit",
 	"  -t --test <item>    Test specified item and exit",
-	"  -h --help           Display help information",
+	"  -h --help           Give this help",
 	"  -V --version        Display version number",
 	NULL	/* end of text */
 };
@@ -57,6 +50,14 @@ static struct zbx_option	longopts[] =
 	{"test",	1,	NULL,	't'},
 	{NULL}
 };
+
+void	child_signal_handler(int sig)
+{
+	if (SIGALRM == sig)
+		signal(SIGALRM, child_signal_handler);
+
+	exit(FAIL);
+}
 
 static char	DEFAULT_CONFIG_FILE[] = SYSCONFDIR "/zabbix_agent.conf";
 
@@ -81,7 +82,7 @@ static void	zbx_load_config(int optional)
 	{
 		/* PARAMETER,			VAR,					TYPE,
 			MANDATORY,	MIN,			MAX */
-		{"Server",			&CONFIG_HOSTS_ALLOWED,			TYPE_STRING_LIST,
+		{"Server",			&CONFIG_HOSTS_ALLOWED,			TYPE_STRING,
 			PARM_MAND,	0,			0},
 		{"Timeout",			&CONFIG_TIMEOUT,			TYPE_INT,
 			PARM_OPT,	1,			30},
@@ -91,16 +92,11 @@ static void	zbx_load_config(int optional)
 			PARM_OPT,	0,			0},
 		{"UserParameter",		&CONFIG_USER_PARAMETERS,		TYPE_MULTISTRING,
 			PARM_OPT,	0,			0},
-		{"LoadModulePath",		&CONFIG_LOAD_MODULE_PATH,		TYPE_STRING,
-			PARM_OPT,	0,			0},
-		{"LoadModule",			&CONFIG_LOAD_MODULE,			TYPE_MULTISTRING,
-			PARM_OPT,	0,			0},
 		{NULL}
 	};
 
 	/* initialize multistrings */
 	zbx_strarr_init(&CONFIG_ALIASES);
-	zbx_strarr_init(&CONFIG_LOAD_MODULE);
 	zbx_strarr_init(&CONFIG_USER_PARAMETERS);
 
 	parse_cfg_file(CONFIG_FILE, cfg, optional, ZBX_CFG_STRICT);
@@ -121,10 +117,9 @@ static void	zbx_load_config(int optional)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static void	zbx_free_config(void)
+static void	zbx_free_config()
 {
 	zbx_strarr_free(CONFIG_ALIASES);
-	zbx_strarr_free(CONFIG_LOAD_MODULE);
 	zbx_strarr_free(CONFIG_USER_PARAMETERS);
 }
 
@@ -137,7 +132,7 @@ int	main(int argc, char **argv)
 	zbx_sock_t	s_out;
 
 	int		ret;
-	char		**value;
+	char		**value, *command;
 
 	AGENT_RESULT	result;
 
@@ -153,14 +148,14 @@ int	main(int argc, char **argv)
 				break;
 			case 'h':
 				help();
-				exit(EXIT_SUCCESS);
+				exit(FAIL);
 				break;
 			case 'V':
 				version();
 #ifdef _AIX
 				tl_version();
 #endif
-				exit(EXIT_SUCCESS);
+				exit(FAIL);
 				break;
 			case 'p':
 				if (task == ZBX_TASK_START)
@@ -175,7 +170,7 @@ int	main(int argc, char **argv)
 				break;
 			default:
 				usage();
-				exit(EXIT_FAILURE);
+				exit(FAIL);
 				break;
 		}
 	}
@@ -183,28 +178,14 @@ int	main(int argc, char **argv)
 	if (NULL == CONFIG_FILE)
 		CONFIG_FILE = DEFAULT_CONFIG_FILE;
 
-
 	/* load configuration */
 	if (ZBX_TASK_PRINT_SUPPORTED == task || ZBX_TASK_TEST_METRIC == task)
 		zbx_load_config(ZBX_CFG_FILE_OPTIONAL);
 	else
 		zbx_load_config(ZBX_CFG_FILE_REQUIRED);
 
-	/* set defaults */
-	if (NULL == CONFIG_LOAD_MODULE_PATH)
-		CONFIG_LOAD_MODULE_PATH = zbx_strdup(CONFIG_LOAD_MODULE_PATH, LIBDIR "/modules");
-
-	zbx_set_common_signal_handlers();
-
 	/* metrics should be initialized before loading user parameters */
 	init_metrics();
-
-	/* loadable modules */
-	if (FAIL == load_modules(CONFIG_LOAD_MODULE_PATH, CONFIG_LOAD_MODULE, CONFIG_TIMEOUT, 0))
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "loading modules failed, exiting...");
-		exit(EXIT_FAILURE);
-	}
 
 	/* user parameters */
 	load_user_parameters(CONFIG_USER_PARAMETERS);
@@ -222,15 +203,23 @@ int	main(int argc, char **argv)
 		case ZBX_TASK_TEST_METRIC:
 		case ZBX_TASK_PRINT_SUPPORTED:
 			if (ZBX_TASK_TEST_METRIC == task)
-				test_parameter(TEST_METRIC);
+				test_parameter(TEST_METRIC, PROCESS_TEST);
 			else
 				test_parameters();
-			zbx_on_exit();
+			zabbix_close_log();
+			free_metrics();
+			alias_list_free();
+			exit(SUCCEED);
 			break;
 		default:
 			/* do nothing */
 			break;
 	}
+
+	signal(SIGINT,  child_signal_handler);
+	signal(SIGTERM, child_signal_handler);
+	signal(SIGQUIT, child_signal_handler);
+	signal(SIGALRM, child_signal_handler);
 
 	alarm(CONFIG_TIMEOUT);
 
@@ -239,22 +228,22 @@ int	main(int argc, char **argv)
 
 	if (SUCCEED == (ret = zbx_tcp_check_security(&s_in, CONFIG_HOSTS_ALLOWED, 0)))
 	{
-		if (SUCCEED == (ret = zbx_tcp_recv(&s_in)))
+		if (SUCCEED == (ret = zbx_tcp_recv(&s_in, &command)))
 		{
-			zbx_rtrim(s_in.buffer, "\r\n");
+			zbx_rtrim(command, "\r\n");
 
-			zabbix_log(LOG_LEVEL_DEBUG, "requested [%s]", s_in.buffer);
+			zabbix_log(LOG_LEVEL_DEBUG, "Requested [%s]", command);
 
 			init_result(&result);
 
-			process(s_in.buffer, 0, &result);
+			process(command, 0, &result);
 
 			if (NULL == (value = GET_TEXT_RESULT(&result)))
 				value = GET_MSG_RESULT(&result);
 
 			if (NULL != value)
 			{
-				zabbix_log(LOG_LEVEL_DEBUG, "sending back [%s]", *value);
+				zabbix_log(LOG_LEVEL_DEBUG, "Sending back [%s]", *value);
 
 				ret = zbx_tcp_send(&s_out, *value);
 			}
@@ -263,25 +252,17 @@ int	main(int argc, char **argv)
 		}
 
 		if (FAIL == ret)
-			zabbix_log(LOG_LEVEL_DEBUG, "processing error: %s", zbx_tcp_strerror());
+			zabbix_log(LOG_LEVEL_DEBUG, "Processing error: %s", zbx_tcp_strerror());
 	}
 
 	fflush(stdout);
 
 	alarm(0);
 
-	zbx_on_exit();
-
-	return SUCCEED;
-}
-
-void	zbx_on_exit(void)
-{
-	unload_modules();
 	zabbix_close_log();
 
 	free_metrics();
 	alias_list_free();
 
-	exit(EXIT_SUCCESS);
+	return SUCCEED;
 }

@@ -32,7 +32,7 @@ class testPageMaintenance extends CWebTest {
 	public function testPageMaintenance_CheckLayout($maintenance) {
 		$this->zbxTestLogin('maintenance.php');
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
-		$this->zbxTestCheckTitle('Configuration of maintenance');
+		$this->checkTitle('Configuration of maintenance');
 
 		$this->zbxTestTextPresent('Maintenance');
 		$this->zbxTestTextPresent('CONFIGURATION OF MAINTENANCE PERIODS');
@@ -42,7 +42,7 @@ class testPageMaintenance extends CWebTest {
 		$this->zbxTestTextPresent($maintenance['name']);
 		if ($maintenance['maintenance_type'] == MAINTENANCE_TYPE_NORMAL)	$this->zbxTestTextPresent('With data collection');
 		if ($maintenance['maintenance_type'] == MAINTENANCE_TYPE_NODATA)	$this->zbxTestTextPresent('No data collection');
-		$this->zbxTestDropdownHasOptions('action', array('Delete selected'));
+		$this->zbxTestDropdownHasOptions('go', array('Delete selected'));
 	}
 
 	/**
@@ -65,10 +65,10 @@ class testPageMaintenance extends CWebTest {
 
 		$this->zbxTestLogin('maintenance.php');
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
-		$this->zbxTestCheckTitle('Configuration of maintenance');
+		$this->checkTitle('Configuration of maintenance');
 		$this->zbxTestClickWait('link='.$name);
-		$this->zbxTestClickWait('update');
-		$this->zbxTestCheckTitle('Configuration of maintenance');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of maintenance');
 		$this->zbxTestTextPresent('Maintenance updated');
 		$this->zbxTestTextPresent("$name");
 		$this->zbxTestTextPresent('CONFIGURATION OF MAINTENANCE PERIODS');
@@ -78,6 +78,11 @@ class testPageMaintenance extends CWebTest {
 		$this->assertEquals($oldHashGroups, DBhash($sqlGroups), "Chuck Norris: Maintenance update changed data in table 'maintenances_groups'");
 		$this->assertEquals($oldHashWindows, DBhash($sqlWindows), "Chuck Norris: Maintenance update changed data in table 'maintenances_windows'");
 		$this->assertEquals($oldHashTimeperiods, DBhash($sqlTimeperiods), "Chuck Norris: Maintenance update changed data in table 'timeperiods'");
+	}
+
+	public function testPageMaintenance_MassDeleteAll() {
+// TODO
+		$this->markTestIncomplete();
 	}
 
 	/**
@@ -92,13 +97,13 @@ class testPageMaintenance extends CWebTest {
 
 		$this->zbxTestLogin('maintenance.php');
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
-		$this->zbxTestCheckTitle('Configuration of maintenance');
+		$this->checkTitle('Configuration of maintenance');
 		$this->zbxTestCheckboxSelect('maintenanceids['.$maintenanceid.']');
-		$this->zbxTestDropdownSelect('action', 'Delete selected');
+		$this->zbxTestDropdownSelect('go', 'Delete selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
-		$this->zbxTestCheckTitle('Configuration of maintenance');
+		$this->checkTitle('Configuration of maintenance');
 		$this->zbxTestTextPresent('Maintenance deleted');
 
 		$sql = "select * from maintenances where maintenanceid=$maintenanceid";
@@ -115,4 +120,38 @@ class testPageMaintenance extends CWebTest {
 		DBrestore_tables('maintenances');
 	}
 
+	public function testPageMaintenance_SingleEnable() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageMaintenance_SingleDisable() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageMaintenance_MassEnableAll() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageMaintenance_MassEnable() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageMaintenance_MassDisableAll() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageMaintenance_MassDisable() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageMaintenance_Sorting() {
+// TODO
+		$this->markTestIncomplete();
+	}
 }

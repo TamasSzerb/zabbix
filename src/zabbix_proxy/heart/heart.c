@@ -26,8 +26,7 @@
 #include "heart.h"
 #include "../servercomms.h"
 
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	process_type;
 
 /******************************************************************************
  *                                                                            *
@@ -44,12 +43,10 @@ extern int		server_num, process_num;
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static int	send_heartbeat(void)
+static void	send_heartbeat()
 {
 	zbx_sock_t	sock;
 	struct zbx_json	j;
-	int		ret = SUCCEED;
-	char		*error = NULL;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In send_heartbeat()");
 
@@ -58,18 +55,12 @@ static int	send_heartbeat(void)
 	zbx_json_addstring(&j, "host", CONFIG_HOSTNAME, ZBX_JSON_TYPE_STRING);
 
 	if (FAIL == connect_to_server(&sock, CONFIG_HEARTBEAT_FREQUENCY, 0)) /* do not retry */
-		return FAIL;
+		return;
 
-	if (SUCCEED != put_data_to_server(&sock, &j, &error))
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "sending heartbeat message to server failed: %s", error);
-		ret = FAIL;
-	}
+	if (FAIL == put_data_to_server(&sock, &j))
+		zabbix_log(LOG_LEVEL_WARNING, "Heartbeat message failed");
 
-	zbx_free(error);
 	disconnect_server(&sock);
-
-	return ret;
 }
 
 /******************************************************************************
@@ -87,68 +78,22 @@ static int	send_heartbeat(void)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(heart_thread, args)
+void	main_heart_loop()
 {
-	int	start, sleeptime = 0, res;
-	double	sec, total_sec = 0.0, old_total_sec = 0.0;
-	time_t	last_stat_time;
+	int	start, sleeptime;
 
-#define STAT_INTERVAL	5	/* if a process is busy and does not sleep then update status not faster than */
-				/* once in STAT_INTERVAL seconds */
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
-
-	last_stat_time = time(NULL);
-
-	zbx_setproctitle("%s [sending heartbeat message]", get_process_type_string(process_type));
+	zabbix_log(LOG_LEVEL_DEBUG, "In main_heart_loop()");
 
 	for (;;)
 	{
-		if (0 != sleeptime)
-		{
-			zbx_setproctitle("%s [sending heartbeat message %s in " ZBX_FS_DBL " sec, "
-					"sending heartbeat message]",
-					get_process_type_string(process_type),
-					SUCCEED == res ? "success" : "failed", old_total_sec);
-		}
-
 		start = time(NULL);
-		sec = zbx_time();
-		res = send_heartbeat();
-		total_sec += zbx_time() - sec;
+
+		zbx_setproctitle("%s [sending heartbeat message]", get_process_type_string(process_type));
+
+		send_heartbeat();
 
 		sleeptime = CONFIG_HEARTBEAT_FREQUENCY - (time(NULL) - start);
 
-		if (0 != sleeptime || STAT_INTERVAL <= time(NULL) - last_stat_time)
-		{
-			if (0 == sleeptime)
-			{
-				zbx_setproctitle("%s [sending heartbeat message %s in " ZBX_FS_DBL " sec, "
-						"sending heartbeat message]",
-						get_process_type_string(process_type),
-						SUCCEED == res ? "success" : "failed", total_sec);
-
-			}
-			else
-			{
-				zbx_setproctitle("%s [sending heartbeat message %s in " ZBX_FS_DBL " sec, "
-						"idle %d sec]",
-						get_process_type_string(process_type),
-						SUCCEED == res ? "success" : "failed", total_sec, sleeptime);
-
-				old_total_sec = total_sec;
-			}
-			total_sec = 0.0;
-			last_stat_time = time(NULL);
-		}
-
 		zbx_sleep_loop(sleeptime);
 	}
-
-#undef STAT_INTERVAL
 }

@@ -51,13 +51,6 @@ class CScreenBase {
 	public $resourcetype;
 
 	/**
-	 * Is templated screen
-	 *
-	 * @var bool
-	 */
-	public $isTemplatedScreen;
-
-	/**
 	 * Screen id
 	 *
 	 * @var int
@@ -130,7 +123,6 @@ class CScreenBase {
 	 * @param int		$options['mode']
 	 * @param int		$options['timestamp']
 	 * @param int		$options['resourcetype']
-	 * @param bool		$options['isTemplatedScreen']
 	 * @param int		$options['screenid']
 	 * @param array		$options['screenitem']
 	 * @param string	$options['action']
@@ -149,11 +141,10 @@ class CScreenBase {
 		$this->mode = isset($options['mode']) ? $options['mode'] : SCREEN_MODE_SLIDESHOW;
 		$this->timestamp = !empty($options['timestamp']) ? $options['timestamp'] : time();
 		$this->resourcetype = isset($options['resourcetype']) ? $options['resourcetype'] : null;
-		$this->isTemplatedScreen = isset($options['isTemplatedScreen']) ? $options['isTemplatedScreen'] : false;
 		$this->screenid = !empty($options['screenid']) ? $options['screenid'] : null;
 		$this->action = !empty($options['action']) ? $options['action'] : null;
 		$this->groupid = !empty($options['groupid']) ? $options['groupid'] : null;
-		$this->hostid = isset($options['hostid']) ? $options['hostid'] : 0;
+		$this->hostid = !empty($options['hostid']) ? $options['hostid'] : null;
 		$this->dataId = !empty($options['dataId']) ? $options['dataId'] : null;
 
 		// get page file
@@ -185,7 +176,7 @@ class CScreenBase {
 			$this->screenitem = $options['screenitem'];
 		}
 		elseif (!empty($options['screenitemid'])) {
-			if ($this->hostid != 0) {
+			if (!empty($this->hostid)) {
 				$this->screenitem = API::TemplateScreenItem()->get(array(
 					'screenitemids' => $options['screenitemid'],
 					'hostids' => $this->hostid,
@@ -340,13 +331,13 @@ class CScreenBase {
 		}
 		else {
 			if ($options['period'] < ZBX_MIN_PERIOD) {
-				show_message(_n('Minimum time period to display is %1$s hour.',
-						'Minimum time period to display is %1$s hours.', (int) ZBX_MIN_PERIOD / SEC_PER_HOUR));
+				show_message(_n('Warning. Minimum time period to display is %1$s hour.',
+						'Warning. Minimum time period to display is %1$s hours.', (int) ZBX_MIN_PERIOD / SEC_PER_HOUR));
 				$options['period'] = ZBX_MIN_PERIOD;
 			}
 			elseif ($options['period'] > ZBX_MAX_PERIOD) {
-				show_message(_n('Maximum time period to display is %1$s day.',
-						'Maximum time period to display is %1$s days.', (int) ZBX_MAX_PERIOD / SEC_PER_DAY));
+				show_message(_n('Warning. Maximum time period to display is %1$s day.',
+						'Warning. Maximum time period to display is %1$s days.', (int) ZBX_MAX_PERIOD / SEC_PER_DAY));
 				$options['period'] = ZBX_MAX_PERIOD;
 			}
 		}
@@ -358,34 +349,34 @@ class CScreenBase {
 		$time = time();
 		$usertime = null;
 		$stimeNow = null;
-		$isNow = 0;
+		$isNow = false;
 
 		if (!empty($options['stime'])) {
 			$stimeUnix = zbxDateToTime($options['stime']);
 
 			if ($stimeUnix > $time || zbxAddSecondsToUnixtime($options['period'], $stimeUnix) > $time) {
 				$stimeNow = $options['stime'];
-				$options['stime'] = date(TIMESTAMP_FORMAT, $time - $options['period']);
-				$usertime = date(TIMESTAMP_FORMAT, $time);
-				$isNow = 1;
+				$options['stime'] = date('YmdHis', $time - $options['period']);
+				$usertime = date('YmdHis', $time);
+				$isNow = true;
 			}
 			else {
-				$usertime = date(TIMESTAMP_FORMAT, zbxAddSecondsToUnixtime($options['period'], $stimeUnix));
-				$isNow = 0;
+				$usertime = date('YmdHis', zbxAddSecondsToUnixtime($options['period'], $stimeUnix));
+				$isNow = false;
 			}
 
 			if ($options['updateProfile'] && !empty($options['profileIdx'])) {
 				CProfile::update($options['profileIdx'].'.stime', $options['stime'], PROFILE_TYPE_STR, $options['profileIdx2']);
-				CProfile::update($options['profileIdx'].'.isnow', $isNow, PROFILE_TYPE_INT, $options['profileIdx2']);
+				CProfile::update($options['profileIdx'].'.isnow', $isNow, PROFILE_TYPE_STR, $options['profileIdx2']);
 			}
 		}
 		else {
 			if (!empty($options['profileIdx'])) {
 				$isNow = CProfile::get($options['profileIdx'].'.isnow', null, $options['profileIdx2']);
 				if ($isNow) {
-					$options['stime'] = date(TIMESTAMP_FORMAT, $time - $options['period']);
-					$usertime = date(TIMESTAMP_FORMAT, $time);
-					$stimeNow = date(TIMESTAMP_FORMAT, zbxAddSecondsToUnixtime(SEC_PER_YEAR, $options['stime']));
+					$options['stime'] = date('YmdHis', $time - $options['period']);
+					$usertime = date('YmdHis', $time);
+					$stimeNow = date('YmdHis', zbxAddSecondsToUnixtime(31536000, $options['stime'])); // 31536000 = 86400 * 365 = 1 year
 
 					if ($options['updateProfile']) {
 						CProfile::update($options['profileIdx'].'.stime', $options['stime'], PROFILE_TYPE_STR, $options['profileIdx2']);
@@ -393,19 +384,19 @@ class CScreenBase {
 				}
 				else {
 					$options['stime'] = CProfile::get($options['profileIdx'].'.stime', null, $options['profileIdx2']);
-					$usertime = date(TIMESTAMP_FORMAT, zbxAddSecondsToUnixtime($options['period'], $options['stime']));
+					$usertime = date('YmdHis', zbxAddSecondsToUnixtime($options['period'], $options['stime']));
 				}
 			}
 
 			if (empty($options['stime'])) {
-				$options['stime'] = date(TIMESTAMP_FORMAT, $time - $options['period']);
-				$usertime = date(TIMESTAMP_FORMAT, $time);
-				$stimeNow = date(TIMESTAMP_FORMAT, zbxAddSecondsToUnixtime(SEC_PER_YEAR, $options['stime']));
-				$isNow = 1;
+				$options['stime'] = date('YmdHis', $time - $options['period']);
+				$usertime = date('YmdHis', $time);
+				$stimeNow = date('YmdHis', zbxAddSecondsToUnixtime(31536000, $options['stime'])); // 31536000 = 86400 * 365 = 1 year
+				$isNow = true;
 
 				if ($options['updateProfile'] && !empty($options['profileIdx'])) {
 					CProfile::update($options['profileIdx'].'.stime', $options['stime'], PROFILE_TYPE_STR, $options['profileIdx2']);
-					CProfile::update($options['profileIdx'].'.isnow', $isNow, PROFILE_TYPE_INT, $options['profileIdx2']);
+					CProfile::update($options['profileIdx'].'.isnow', $isNow, PROFILE_TYPE_STR, $options['profileIdx2']);
 				}
 			}
 		}
@@ -414,7 +405,7 @@ class CScreenBase {
 			'period' => $options['period'],
 			'stime' => $options['stime'],
 			'stimeNow' => !empty($stimeNow) ? $stimeNow : $options['stime'],
-			'starttime' => date(TIMESTAMP_FORMAT, $time - ZBX_MAX_PERIOD),
+			'starttime' => date('YmdHis', $time - ZBX_MAX_PERIOD),
 			'usertime' => $usertime,
 			'isNow' => $isNow
 		);
@@ -431,7 +422,7 @@ class CScreenBase {
 	 * @param string	$options['stimeNow']
 	 * @param string	$options['starttime']
 	 * @param string	$options['usertime']
-	 * @param int		$options['isNow']
+	 * @param boolean	$options['isNow']
 	 */
 	public static function debugTime(array $time = array()) {
 		return 'period='.zbx_date2age(0, $time['period']).', ('.$time['period'].')<br/>'.

@@ -35,7 +35,7 @@ $configTypeRadioButton = array(
 		($this->data['config']['authentication_type'] == ZBX_AUTH_INTERNAL),
 		'submit()'
 	),
-	new CLabel(_x('Internal', 'authentication'), 'config_'.ZBX_AUTH_INTERNAL),
+	new CLabel(_('Internal'), 'config_'.ZBX_AUTH_INTERNAL),
 	new CRadioButton('config', ZBX_AUTH_LDAP, null, 'config_'.ZBX_AUTH_LDAP,
 		($this->data['config']['authentication_type'] == ZBX_AUTH_LDAP),
 		'submit()'
@@ -60,7 +60,7 @@ if ($this->data['config']['authentication_type'] == ZBX_AUTH_LDAP) {
 		}
 	}
 	else {
-		$userComboBox = new CTextBox('user', $this->data['user'], ZBX_TEXTBOX_STANDARD_SIZE, true);
+		$userComboBox = new CTextBox('user', $this->data['user'], ZBX_TEXTBOX_STANDARD_SIZE, 'yes');
 	}
 
 	$authenticationFormList->addRow(
@@ -83,7 +83,7 @@ if ($this->data['config']['authentication_type'] == ZBX_AUTH_LDAP) {
 				? 'uid'
 				: $this->data['config']['ldap_search_attribute'],
 			ZBX_TEXTBOX_STANDARD_SIZE,
-			false,
+			'no',
 			128
 		)
 	);
@@ -120,11 +120,11 @@ $authenticationTab->addTab('authenticationTab', $this->data['title'], $authentic
 $authenticationForm->addItem($authenticationTab);
 
 // create save button
-$saveButton = new CSubmit('update', _('Update'));
+$saveButton = new CSubmit('save', _('Save'));
 if ($this->data['is_authentication_type_changed']) {
-	$saveButton->addAction('onclick', 'javascript: if (confirm('.
-		CJs::encodeJson(_('Switching authentication method will reset all except this session! Continue?')).')) {'.
-		'jQuery("#authenticationForm").submit(); return true; } else { return false; }'
+	$saveButton->addAction('onclick', 'javascript: '.
+		'if (Confirm("'._('Switching authentication method will reset all except this session! Continue?').'")) {'.
+			'jQuery("#authenticationForm").submit(); return true; } else { return false; }'
 	);
 }
 elseif ($this->data['config']['authentication_type'] != ZBX_AUTH_LDAP) {

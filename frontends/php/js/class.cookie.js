@@ -19,31 +19,36 @@
 
 var cookie = {
 	cookies: [],
-	prefix:	null,
 
 	init: function() {
+		var path = new Curl();
+		var page = path.getPath();
 		var allCookies = document.cookie.split('; ');
-
 		for (var i = 0; i < allCookies.length; i++) {
 			var cookiePair = allCookies[i].split('=');
-			this.cookies[cookiePair[0]] = cookiePair[1];
+			if (cookiePair[0].indexOf('cb_') > -1 && cookiePair[0].indexOf('cb_' + page) == -1) {
+				this.erase(cookiePair[0]);
+			}
+			else {
+				this.cookies[cookiePair[0]] = cookiePair[1];
+			}
 		}
 	},
 
 	create: function(name, value, days) {
-		var expires = '';
-
 		if (typeof(days) != 'undefined') {
 			var date = new Date();
 			date.setTime(date.getTime() + days * 24 * 60 * 60 * 1000);
-			expires = '; expires=' + date.toGMTString();
+			var expires = '; expires=' + date.toGMTString();
 		}
-
-		document.cookie = name + '=' + value + expires + (location.protocol == 'https:' ? '; secure' : '');
+		else {
+			var expires = '';
+		}
+		document.cookie = name + '=' + value + expires + '; path=/';
 
 		// apache header size limit
 		if (document.cookie.length > 8000) {
-			document.cookie = name + '=;';
+			document.cookie = name + '=; path=/';
 			alert(locale['S_MAX_COOKIE_SIZE_REACHED']);
 			return false;
 		}
@@ -82,7 +87,7 @@ var cookie = {
 				break;
 			}
 		}
-		this.create(name + '_parts', part - 1, days);
+		this.create(name + '_parts', part - 1);
 
 		while (part <= part_count) {
 			this.erase(name + '_' + part);
@@ -101,7 +106,7 @@ var cookie = {
 	},
 
 	read: function(name) {
-		if (typeof(this.cookies[name]) !== 'undefined') {
+		if (typeof(this.cookies[name]) != 'undefined') {
 			return this.cookies[name];
 		}
 		else if (document.cookie.indexOf(name) != -1) {
@@ -137,7 +142,7 @@ var cookie = {
 			list_part = this.read(name + '_' + part);
 			part++;
 		}
-		var range = (list != '') ? list.split(',') : [];
+		var range = list.split(',');
 		return range;
 	},
 
@@ -152,19 +157,37 @@ var cookie = {
 		return value_json;
 	},
 
+	printall: function() {
+		var allCookies = document.cookie.split('; ');
+		for (var i = 0; i < allCookies.length; i++) {
+			var cookiePair = allCookies[i].split('=');
+			SDI('[' + cookiePair[0] + '] is ' + cookiePair[1]); // assumes print is already defined
+		}
+	},
+
 	erase: function(name) {
 		this.create(name, '', -1);
 		this.cookies[name] = undefined;
 	},
 
 	eraseArray: function(name) {
-		var partCount = parseInt(this.read(name + '_parts'), 10);
-
-		if (!is_null(partCount)) {
-			for (var i = 1; i <= partCount; i++) {
-				this.erase(name + '_' + i);
+		var part_count = parseInt(this.read('cb_' + name + '_parts'), 10);
+		if (!is_null(part_count)) {
+			for (var i = 1; i <= part_count; i++) {
+				this.erase('cb_' + name + '_' + i);
 			}
-			this.erase(name + '_parts');
+			this.erase('cb_' + name + '_parts');
+		}
+	},
+
+	eraseArrayByPattern: function(pattern) {
+		for (var name in this.cookies) {
+			if (!isset(name, this.cookies) || empty(this.cookies[name])) {
+				continue;
+			}
+			if (name.indexOf('cb_' + pattern) == -1) {
+				this.erase(name);
+			}
 		}
 	}
 };
@@ -198,7 +221,7 @@ var cookie = {
  * @option Number|Date expires Either an integer specifying the expiration date from now on in days or a Date object.
  *                             If a negative value is specified (e.g. a date in the past), the cookie will be deleted.
  *                             If set to null or omitted, the cookie will be a session cookie and will not be retained
- *                             when the browser exits.
+ *                             when the the browser exits.
  * @option String path The value of the path atribute of the cookie (default: path of page that created the cookie).
  * @option String domain The value of the domain attribute of the cookie (default: domain of page that created the cookie).
  * @option Boolean secure If true, the secure attribute of the cookie will be set and the cookie transmission will
@@ -244,7 +267,7 @@ jQuery.cookie = function (key, value, options) {
 			options.expires ? '; expires=' + options.expires.toUTCString() : '', // use expires attribute, max-age is not supported by IE
 			options.path ? '; path=' + options.path : '',
 			options.domain ? '; domain=' + options.domain : '',
-			(location.protocol == 'https:') ? '; secure' : ''
+			options.secure ? '; secure' : ''
 		].join(''));
 	}
 

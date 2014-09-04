@@ -1,7 +1,7 @@
 # this file contains the list of directories (Perl regular expressions) which at present are available only for reading
 ^tags
-^trunk$
-^trunk\/
+#^trunk$
+#^trunk\/
 ^branches\/1.8$
 ^branches\/1.8\/
 ^branches\/2.0$

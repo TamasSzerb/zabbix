@@ -1,6 +1,5 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** Copyright (C) 2010 Artem "Aly" Suharev
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,15 +8,15 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
-var LCL_SUGGESTS = [];
+// JavaScript Document
+var LCL_SUGGESTS = new Array();
 
 function createSuggest(oid){
 	var sid = LCL_SUGGESTS.length;
@@ -26,7 +25,7 @@ function createSuggest(oid){
 return sid;
 }
 
-var CSuggest = Class.create({
+var CSuggest = Class.create(CDebug,{
 // PUBLIC
 'useLocal':			true,	// use cache to find suggests
 'useServer':		true,	// use server to find suggests
@@ -59,13 +58,14 @@ var CSuggest = Class.create({
 	'sugtab':		null	// DOM node suggests table
 },
 
-'hlIndex':			0,		// indicates what row should be highlighted
+'hlIndex':			0,		// indicates what row should be highlilghted
 'suggestCount':		0,		// suggests shown
 
 'mouseOverSuggest':	false,	// indicates if mouse is over suggests
 
-initialize: function(id, objid){
+initialize: function($super, id, objid){
 	this.id = id;
+	$super('CSuggest['+id+']');
 //--
 
 	this.cleanCache();
@@ -78,13 +78,14 @@ initialize: function(id, objid){
 //	addListener(window, 'keypress', this.searchFocus.bindAsEventListener(this));
 
 	this.timeoutNeedle = null;
-	this.userNeedle = this.dom.input.value;
 },
 
 needleChange: function(e){
+	this.debug('needleChange');
+//--
 	this.hlIndex = 0;
 	this.suggestCount = 0;
-
+	
 	clearTimeout(this.timeoutNeedle);
 
 	var target = Event.element(e);
@@ -109,22 +110,22 @@ needleChange: function(e){
 
 // SEARCH
 searchServer: function(needle){
+	this.debug('searchServer', needle);
+//---
 	if(needle != this.userNeedle) return true;
 
 	var rpcRequest = {
 		'method': 'host.get',
 		'params': {
 			'startSearch': 1,
-			'search': {'name': needle},
-			'output': ['hostid', 'name', 'host'],
-			'sortfield': 'name',
+			'search': {'host': needle},
+			'output': ['hostid', 'host'],
+			'sortfield': 'host',
 			'limit': this.suggestLimit
 		},
 		'onSuccess': this.serverRespond.bind(this, needle),
-		'onFailure': function() {
-			throw('Suggest Widget: search request failed.');
-		}
-	};
+		'onFailure': function(resp){zbx_throw('Suggest Widget: search request failed.');}
+	}
 
 	new RPC.Call(rpcRequest);
 
@@ -132,6 +133,9 @@ return true;
 },
 
 serverRespond: function(needle, respond){
+	this.debug('serverRespond', needle);
+//--
+
 	var params = {
 		'list': {},
 		'needle': needle
@@ -139,7 +143,7 @@ serverRespond: function(needle, respond){
 
 	for(var i=0; i < respond.length; i++){
 		if(!isset(i, respond) || empty(respond[i])) continue;
-		params.list[i] = respond[i].name;
+		params.list[i] = respond[i].host.toLowerCase();
 	}
 	this.needles[params.needle].list = params.list;
 
@@ -147,11 +151,14 @@ serverRespond: function(needle, respond){
 		this.showSuggests();
 		this.newSugTab(params.needle);
 	}
-
+	
 	if(this.saveToCache) this.saveCache(params.needle, params.list);
 },
 
 searchClient: function(needle){
+	this.debug('searchClient', needle);
+//---
+
 	var found = false;
 	if(this.inCache(needle)){
 		this.needles[needle].list = this.cache.needle[needle];
@@ -174,6 +181,8 @@ return found;
 // CACHE
 // -----------------------------------------------------------------------
 searchCache: function(needle){
+	this.debug('searchCache', needle);
+//---
 	var fkey = needle[0];
 	if(!isset(fkey, this.cache.list)) return false;
 
@@ -196,6 +205,8 @@ return found;
 },
 
 inCache: function(needle){
+	this.debug('inCache');
+//---
 	if(this.useServer){
 		var dd = new Date();
 		if((this.cache.time + (this.cacheTimeOut*1000)) < dd.getTime()) this.cleanCache();
@@ -205,6 +216,8 @@ return isset(needle, this.cache.needle);
 },
 
 saveCache: function(needle, list){
+	this.debug('saveCache');
+//---
 	if(this.useServer){
 		var dd = new Date();
 		if((this.cache.time + (this.cacheTimeOut*1000)) < dd.getTime()) this.cleanCache();
@@ -229,6 +242,9 @@ saveCache: function(needle, list){
 },
 
 cleanCache: function(){
+	this.debug('cleanCache');
+//---
+
 	var time = new Date();
 	this.cache = {
 		'time':		time.getTime(),
@@ -249,7 +265,9 @@ onSelect: function(selection){
 // Keyboard
 // -----------------------------------------------------------------------
 searchFocus: function(e){
-	if(!e) e = window.event;
+	this.debug('keyPressed');
+//---
+	if(!e) var e = window.event;
 
 	var elem = e.element();
 	if(elem.match('input[type=text]') || elem.match('textarea') || elem.match('select')) return true;
@@ -263,13 +281,16 @@ searchFocus: function(e){
 },
 
 keyPressed: function(e){
-	if(!e) e = window.event;
+	this.debug('keyPressed');
+//---
+
+	if(!e) var e = window.event;
 	var key = e.keyCode;
 
 	switch(true){
 		case(key == 27):
 			this.hlIndex = 0;
-			this.suggestCount = 0;
+			this.suggestCount = 0
 			this.removeHighLight(e);
 			this.setNeedleByHighLight(e);
 			this.hideSuggests(e);
@@ -294,6 +315,9 @@ keyPressed: function(e){
 },
 
 keyUp: function(e){
+	this.debug('keyUp');
+//---
+
 	if(this.hlIndex == 0) this.hlIndex = this.suggestCount;
 	else this.hlIndex--;
 
@@ -303,6 +327,8 @@ keyUp: function(e){
 },
 
 keyDown: function(e){
+	this.debug('keyDown');
+//---
 	if(is_null(this.dom.suggest) || (this.dom.suggest.style.display == 'none')){
 		this.needleChange(e);
 		return true;
@@ -317,6 +343,8 @@ keyDown: function(e){
 },
 
 mouseOver: function(e){
+	this.debug('mouseOver');
+//---
 	this.mouseOverSuggest = true;
 
 	var row = Event.element(e).parentNode;
@@ -332,10 +360,16 @@ mouseOver: function(e){
 },
 
 mouseOut: function(e){
+	this.debug('mouseOut');
+//---
+
 	this.mouseOverSuggest = false;
 },
 
 suggestBlur: function(e){
+	this.debug('suggestBlur');
+//---
+
 	if(this.mouseOverSuggest) Event.stop(e);
 	else this.hideSuggests(e);
 },
@@ -344,17 +378,25 @@ suggestBlur: function(e){
 // HighLight
 // -----------------------------------------------------------------------
 
-removeHighLight: function(){
+removeHighLight: function(e){
+	this.debug('rmvHighLight');
+//---
+
 	$$('tr.highlight').each( function(hlRow){hlRow.className = '';});
 },
 
 
-highLightSuggest: function(){
+highLightSuggest: function(e){
+	this.debug('highLightSuggest');
+//---
+
 	var row = $('line_'+this.hlIndex);
 	if(!is_null(row)) row.className = 'highlight';
 },
 
-setNeedleByHighLight: function(){
+setNeedleByHighLight: function(e){
+	this.debug('setNeedleByHighLight');
+//---
 	if(this.hlIndex == 0)
 		this.dom.input.value = this.userNeedle;
 	else
@@ -362,8 +404,13 @@ setNeedleByHighLight: function(){
 },
 
 selectSuggest: function(e){
-	this.setNeedleByHighLight(e);
+	this.debug('selectSuggest');
+//---
+
+	this.setNeedleByHighLight(e)
 	this.hideSuggests();
+
+//SDJ(this.dom.input);
 
 	if(this.onSelect(this.dom.input.value) && !GK) this.dom.input.form.submit();
 },
@@ -373,7 +420,10 @@ selectSuggest: function(e){
 // DOM creation
 // -----------------------------------------------------------------------
 
-showSuggests: function(){
+showSuggests: function(e){
+	this.debug('showSuggests');
+//---
+
 	if(is_null(this.dom.suggest)){
 		this.dom.suggest = document.createElement('div');
 		this.dom.suggest = $(this.dom.suggest);
@@ -390,23 +440,35 @@ showSuggests: function(){
 	this.dom.suggest.style.display = 'block';
 },
 
-hideSuggests: function(){
+hideSuggests: function(e){
+	this.debug('hideSuggest');
+//--
+
 	if(!is_null(this.dom.suggest)){
 		this.dom.suggest.style.display = 'none';
+
+		if(IE6) showPopupDiv(this.dom.suggest, 'suggestFrame');
 	}
 },
 
-positionSuggests: function(){
+positionSuggests: function(e){
+	this.debug('positionSuggests');
+//---
+
 	if(is_null(this.dom.suggest)) return true;
 
-	var pos = jQuery(this.dom.input).offset();
+	var pos = getPosition(this.dom.input);
 	var dims = getDimensions(this.dom.input);
 
 	this.dom.suggest.style.top = (pos.top+dims.height)+'px';
 	this.dom.suggest.style.left = pos.left+'px';
+
+	if(IE6) showPopupDiv(this.dom.suggest, 'suggestFrame');
 },
 
 newSugTab: function(needle){
+	this.debug('newSugTab', needle);
+//---
 	var list = this.needles[needle].list;
 
 	var sugTab = document.createElement('table');
@@ -429,14 +491,16 @@ newSugTab: function(needle){
 		var td = document.createElement('td');
 		tr.appendChild(td);
 
-		var bold = document.createElement('b');
-		bold.appendChild(document.createTextNode(list[key].substr(0, needle.length)));
-		td.appendChild(bold);
-		td.appendChild(document.createTextNode(list[key].substr(needle.length)));
-
+		td.appendChild(document.createTextNode(needle));
 		addListener(td, 'mouseover', this.mouseOver.bindAsEventListener(this), true);
 		addListener(td, 'mouseup', this.selectSuggest.bindAsEventListener(this), true);
 		addListener(td, 'mouseout', this.mouseOut.bindAsEventListener(this), true);
+
+// text
+		var bold = document.createElement('b');
+		td.appendChild(bold);
+
+		bold.appendChild(document.createTextNode(list[key].substr(needle.length)));
 
 		if(count >= this.suggestLimit) break;
 	}
@@ -447,6 +511,9 @@ newSugTab: function(needle){
 	this.dom.suggest.appendChild(this.dom.sugtab);
 
 	if(count == 0) this.hideSuggests();
+
+// IE6 Fix
+	if(count > 0 && IE6) showPopupDiv(this.dom.suggest, 'suggestFrame');
 
 	this.suggestCount = count;
 }

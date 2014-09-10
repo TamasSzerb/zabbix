@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -23,44 +23,35 @@
 #include "service.h"
 
 ZBX_METRIC	parameters_specific[] =
-/* 	KEY			FLAG		FUNCTION 		TEST PARAMETERS */
+/* 	KEY			FLAG		FUNCTION 	ADD_PARAM	TEST_PARAM */
 {
-	{"vfs.fs.size",		CF_HAVEPARAMS,	VFS_FS_SIZE,		"c:,free"},
-	{"vfs.fs.discovery",	0,		VFS_FS_DISCOVERY,	NULL},
+	{"vfs.fs.size",		CF_USEUPARAM,	VFS_FS_SIZE,		0,	"c:,free"},
 
-	{"net.tcp.listen",	CF_HAVEPARAMS,	NET_TCP_LISTEN,		"80"},
+	{"net.tcp.listen",      CF_USEUPARAM,   NET_TCP_LISTEN, 	0,      "80"},
 
-	{"net.if.in",		CF_HAVEPARAMS,	NET_IF_IN,		"MS TCP Loopback interface,bytes"},
-	{"net.if.out",		CF_HAVEPARAMS,	NET_IF_OUT,		"MS TCP Loopback interface,bytes"},
-	{"net.if.total",	CF_HAVEPARAMS,	NET_IF_TOTAL,		"MS TCP Loopback interface,bytes"},
-	{"net.if.discovery",	0,		NET_IF_DISCOVERY,	NULL},
-	{"net.if.list",		0,		NET_IF_LIST,		NULL},
+	{"net.if.in",		CF_USEUPARAM,	NET_IF_IN,		0,	"MS TCP Loopback interface,bytes"},
+	{"net.if.out",		CF_USEUPARAM,	NET_IF_OUT,		0,	"MS TCP Loopback interface,bytes"},
+	{"net.if.total",	CF_USEUPARAM,	NET_IF_TOTAL,		0,	"MS TCP Loopback interface,bytes"},
+	{"net.if.list",		0,		NET_IF_LIST,		0,	0},
 
-	{"vm.memory.size",	CF_HAVEPARAMS,	VM_MEMORY_SIZE,		"free"},
+	{"vm.memory.size",	CF_USEUPARAM,	VM_MEMORY_SIZE,		0,	"free"},
 
-	{"proc.num",		CF_HAVEPARAMS,	PROC_NUM,		"svchost.exe"},
+	{"proc.num",		CF_USEUPARAM,	PROC_NUM,		0,	"svchost.exe,"},
 
-	{"system.cpu.util",	CF_HAVEPARAMS,	SYSTEM_CPU_UTIL,	"all,system,avg1"},
-	{"system.cpu.load",	CF_HAVEPARAMS,	SYSTEM_CPU_LOAD,	"all,avg1"},
-	{"system.cpu.num",	CF_HAVEPARAMS,	SYSTEM_CPU_NUM,		"online"},
-	{"system.cpu.discovery",0,		SYSTEM_CPU_DISCOVERY,	NULL},
+	{"system.cpu.util",	CF_USEUPARAM,	SYSTEM_CPU_UTIL,	0,	"all,system,avg1"},
+	{"system.cpu.load",	CF_USEUPARAM,	SYSTEM_CPU_LOAD,	0,	"all,avg1"},
+	{"system.cpu.num",	CF_USEUPARAM,	SYSTEM_CPU_NUM,		0,	"online"},
 
-	{"system.sw.arch",	0,		SYSTEM_SW_ARCH,		NULL},
+	{"system.swap.size",	CF_USEUPARAM,	SYSTEM_SWAP_SIZE,	0,	"all,free"},
 
-	{"system.swap.size",	CF_HAVEPARAMS,	SYSTEM_SWAP_SIZE,	"all,free"},
+	{"system.uptime",	0,		SYSTEM_UPTIME,		0,	0},
 
-	{"system.uptime",	0,		SYSTEM_UPTIME,		NULL},
+	{"service_state",	CF_USEUPARAM,	SERVICE_STATE,		0,	ZABBIX_SERVICE_NAME},
+	{"services",		CF_USEUPARAM,	SERVICES,		0,	0},
+	{"perf_counter",	CF_USEUPARAM,	PERF_COUNTER,		0,	"\\System\\Processes"},
+	{"proc_info",		CF_USEUPARAM,	PROC_INFO,		0,	"svchost.exe"},
 
-	{"system.uname",	0,		SYSTEM_UNAME,		NULL},
+	{"__UserPerfCounter",	CF_USEUPARAM,	USER_PERF_COUNTER,	0,	""},
 
-	{"service_state",	CF_HAVEPARAMS,	SERVICE_STATE,		ZABBIX_SERVICE_NAME},
-	{"services",		CF_HAVEPARAMS,	SERVICES,		NULL},
-	{"perf_counter",	CF_HAVEPARAMS,	PERF_COUNTER,		"\\System\\Processes"},
-	{"proc_info",		CF_HAVEPARAMS,	PROC_INFO,		"svchost.exe"},
-
-	{"__UserPerfCounter",	CF_HAVEPARAMS,	USER_PERF_COUNTER,	""},
-
-	{"wmi.get",		CF_HAVEPARAMS,	WMI_GET,		"root\\cimv2,select Caption from Win32_OperatingSystem"},
-
-	{NULL}
+	{0}
 };

@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,26 +9,26 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 
 #include "db.h"
+#include "log.h"
 #include "daemon.h"
 #include "zbxself.h"
-#include "log.h"
+
 #include "dbconfig.h"
 #include "dbcache.h"
 
 extern int		CONFIG_CONFSYNCER_FREQUENCY;
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	process_type;
 
 /******************************************************************************
  *                                                                            *
@@ -45,22 +45,11 @@ extern int		server_num, process_num;
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(dbconfig_thread, args)
+void	main_dbconfig_loop()
 {
-	double	sec = 0.0;
+	double	sec;
 
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
-
-	zbx_setproctitle("%s [waiting %d sec for processes]", get_process_type_string(process_type),
-			CONFIG_CONFSYNCER_FREQUENCY);
-
-	/* the initial configuration sync is done by server before worker processes are forked */
-	zbx_sleep_loop(CONFIG_CONFSYNCER_FREQUENCY);
+	zabbix_log(LOG_LEVEL_DEBUG, "In main_dbconfig_loop()");
 
 	zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 
@@ -68,15 +57,16 @@ ZBX_THREAD_ENTRY(dbconfig_thread, args)
 
 	for (;;)
 	{
-		zbx_setproctitle("%s [synced configuration in " ZBX_FS_DBL " sec, syncing configuration]",
-				get_process_type_string(process_type), sec);
+		zbx_setproctitle("%s [syncing configuration]", get_process_type_string(process_type));
+
+		zabbix_log(LOG_LEVEL_DEBUG, "Syncing ...");
 
 		sec = zbx_time();
 		DCsync_configuration();
 		sec = zbx_time() - sec;
 
-		zbx_setproctitle("%s [synced configuration in " ZBX_FS_DBL " sec, idle %d sec]",
-				get_process_type_string(process_type), sec, CONFIG_CONFSYNCER_FREQUENCY);
+		zabbix_log(LOG_LEVEL_DEBUG, "%s spent " ZBX_FS_DBL " second while processing configuration data",
+				get_process_type_string(process_type), sec);
 
 		zbx_sleep_loop(CONFIG_CONFSYNCER_FREQUENCY);
 	}

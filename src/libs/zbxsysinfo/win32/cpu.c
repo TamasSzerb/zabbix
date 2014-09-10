@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,218 +9,133 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
 #include "stats.h"
-#include "perfstat.h"
-#include "zbxjson.h"
 
-static int	get_cpu_num()
+int	SYSTEM_CPU_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	SYSTEM_INFO	sysInfo;
+	char		mode[128];
+
+	if (1 < num_param(param))
+		return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 1, mode, sizeof(mode)))
+		*mode = '\0';
+
+	/* only 'online' parameter supported */
+	if ('\0' != *mode && 0 != strcmp(mode, "online"))
+		return SYSINFO_RET_FAIL;
 
 	GetSystemInfo(&sysInfo);
 
-	return (int)sysInfo.dwNumberOfProcessors;
-}
-
-int	SYSTEM_CPU_DISCOVERY(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	int			i;
-	zbx_vector_uint64_t	cpus;
-	struct zbx_json		json;
-
-	zbx_vector_uint64_create(&cpus);
-
-	if (SUCCEED != get_cpu_statuses(&cpus))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Collector in not started."));
-		zbx_vector_uint64_destroy(&cpus);
-		return SYSINFO_RET_FAIL;
-	}
-
-	zbx_json_init(&json, ZBX_JSON_STAT_BUF_LEN);
-	zbx_json_addarray(&json, ZBX_PROTO_TAG_DATA);
-
-	for (i = 0; i < cpus.values_num; i++)
-	{
-		zbx_json_addobject(&json, NULL);
-
-		zbx_json_adduint64(&json, "{#CPU.NUMBER}", i);
-		zbx_json_addstring(&json, "{#CPU.STATUS}", (PERF_COUNTER_ACTIVE == cpus.values[i]) ?
-				"online" :
-				(PERF_COUNTER_INITIALIZED == cpus.values[i]) ? "unknown" : "offline",
-				ZBX_JSON_TYPE_STRING);
-
-		zbx_json_close(&json);
-	}
-
-	zbx_json_close(&json);
-	SET_STR_RESULT(result, zbx_strdup(result->str, json.buffer));
-
-	zbx_json_free(&json);
-	zbx_vector_uint64_destroy(&cpus);
+	SET_UI64_RESULT(result, sysInfo.dwNumberOfProcessors);
 
 	return SYSINFO_RET_OK;
 }
 
-int	SYSTEM_CPU_NUM(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_CPU_UTIL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*tmp;
+	const char	*__function_name = "SYSTEM_CPU_UTIL";
+	char		tmp[32];
+	int		cpu_num;
+	double		value;
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (3 < num_param(param))
 		return SYSINFO_RET_FAIL;
-	}
 
-	/* only "online" (default) for parameter "type" is supported */
-	if (NULL != (tmp = get_rparam(request, 0)) && '\0' != *tmp && 0 != strcmp(tmp, "online"))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
-	}
+	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
+		*tmp = '\0';
 
-	SET_UI64_RESULT(result, get_cpu_num());
-
-	return SYSINFO_RET_OK;
-}
-
-int	SYSTEM_CPU_UTIL(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	char	*tmp, *error = NULL;
-	int	cpu_num, ret = FAIL;
-	double	value;
-
-	if (0 == CPU_COLLECTOR_STARTED(collector))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Collector is not started."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if (NULL == (tmp = get_rparam(request, 0)) || '\0' == *tmp || 0 == strcmp(tmp, "all"))
+	if ('\0' == *tmp || 0 == strcmp(tmp, "all"))
 		cpu_num = 0;
-	else if (SUCCEED != is_uint_range(tmp, &cpu_num, 0, collector->cpus.count - 1))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
-	}
-	else
-		cpu_num++;
-
-	/* only "system" (default) for parameter "type" is supported */
-	if (NULL != (tmp = get_rparam(request, 1)) && '\0' != *tmp && 0 != strcmp(tmp, "system"))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if (NULL == (tmp = get_rparam(request, 2)) || '\0' == *tmp || 0 == strcmp(tmp, "avg1"))
-	{
-		ret = get_perf_counter_value(collector->cpus.cpu_counter[cpu_num], 1 * SEC_PER_MIN, &value, &error);
-	}
-	else if (0 == strcmp(tmp, "avg5"))
-	{
-		ret = get_perf_counter_value(collector->cpus.cpu_counter[cpu_num], 5 * SEC_PER_MIN, &value, &error);
-	}
-	else if (0 == strcmp(tmp, "avg15"))
-	{
-		ret = get_perf_counter_value(collector->cpus.cpu_counter[cpu_num], 15 * SEC_PER_MIN, &value, &error);
-	}
 	else
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
-		return SYSINFO_RET_FAIL;
+		cpu_num = atoi(tmp) + 1;
+		if (1 > cpu_num || cpu_num > collector->cpus.count)
+			return SYSINFO_RET_FAIL;
 	}
 
-	if (SUCCEED == ret)
+	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
+		*tmp = '\0';
+
+	/* only 'system' parameter supported */
+	if ('\0' != *tmp && 0 != strcmp(tmp, "system"))
+		return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
+		*tmp = '\0';
+
+	if (!CPU_COLLECTOR_STARTED(collector))
 	{
-		SET_DBL_RESULT(result, value);
+		SET_MSG_RESULT(result, strdup("Collector is not started!"));
 		return SYSINFO_RET_OK;
 	}
 
-	SET_MSG_RESULT(result, NULL != error ? error :
-			zbx_strdup(NULL, "Cannot obtain performance information from collector."));
+	if (PERF_COUNTER_ACTIVE != collector->cpus.cpu_counter[cpu_num]->status)
+		return SYSINFO_RET_FAIL;
 
-	return SYSINFO_RET_FAIL;
+	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))
+		value = compute_average_value(__function_name, collector->cpus.cpu_counter[cpu_num], 1 * SEC_PER_MIN);
+	else if (0 == strcmp(tmp, "avg5"))
+		value = compute_average_value(__function_name, collector->cpus.cpu_counter[cpu_num], 5 * SEC_PER_MIN);
+	else if (0 == strcmp(tmp, "avg15"))
+		value = compute_average_value(__function_name, collector->cpus.cpu_counter[cpu_num], USE_DEFAULT_INTERVAL);
+	else
+		return SYSINFO_RET_FAIL;
+
+	SET_DBL_RESULT(result, value);
+
+	return SYSINFO_RET_OK;
 }
 
-int	SYSTEM_CPU_LOAD(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_CPU_LOAD(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*tmp, *error = NULL;
-	double	value;
-	int	cpu_num, ret = FAIL;
+	const char	*__function_name = "SYSTEM_CPU_LOAD";
+	char		cpuname[10], mode[10];
+	double		value;
 
-	if (0 == CPU_COLLECTOR_STARTED(collector))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Collector is not started."));
+	if (2 < num_param(param))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (0 != get_param(param, 1, cpuname, sizeof(cpuname)))
+		*cpuname = '\0';
+
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
+
+	/* only 'all' parameter supported */
+	if ('\0' != *cpuname && 0 != strcmp(cpuname, "all"))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (NULL == (tmp = get_rparam(request, 0)) || '\0' == *tmp || 0 == strcmp(tmp, "all"))
+	if (!CPU_COLLECTOR_STARTED(collector))
 	{
-		cpu_num = 1;
-	}
-	else if (0 == strcmp(tmp, "percpu"))
-	{
-		if (0 >= (cpu_num = get_cpu_num()))
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain number of CPUs."));
-			return SYSINFO_RET_FAIL;
-		}
-	}
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if (NULL == (tmp = get_rparam(request, 1)) || '\0' == *tmp || 0 == strcmp(tmp, "avg1"))
-	{
-		ret = get_perf_counter_value(collector->cpus.queue_counter, 1 * SEC_PER_MIN, &value, &error);
-	}
-	else if (0 == strcmp(tmp, "avg5"))
-	{
-		ret = get_perf_counter_value(collector->cpus.queue_counter, 5 * SEC_PER_MIN, &value, &error);
-	}
-	else if (0 == strcmp(tmp, "avg15"))
-	{
-		ret = get_perf_counter_value(collector->cpus.queue_counter, 15 * SEC_PER_MIN, &value, &error);
-	}
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if (SUCCEED == ret)
-	{
-		SET_DBL_RESULT(result, value / cpu_num);
+		SET_MSG_RESULT(result, strdup("Collector is not started!"));
 		return SYSINFO_RET_OK;
 	}
 
-	SET_MSG_RESULT(result, NULL != error ? error :
-			zbx_strdup(NULL, "Cannot obtain performance information from collector."));
+	if (PERF_COUNTER_ACTIVE != collector->cpus.queue_counter->status)
+		return SYSINFO_RET_FAIL;
 
-	return SYSINFO_RET_FAIL;
+	if ('\0' == *mode || 0 == strcmp(mode, "avg1"))
+		value = compute_average_value(__function_name, collector->cpus.queue_counter, 1 * SEC_PER_MIN);
+	else if (0 == strcmp(mode, "avg5"))
+		value = compute_average_value(__function_name, collector->cpus.queue_counter, 5 * SEC_PER_MIN);
+	else if (0 == strcmp(mode, "avg15"))
+		value = compute_average_value(__function_name, collector->cpus.queue_counter, USE_DEFAULT_INTERVAL);
+	else
+		return SYSINFO_RET_FAIL;
+
+	SET_DBL_RESULT(result, value);
+
+	return SYSINFO_RET_OK;
 }

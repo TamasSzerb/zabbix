@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,19 +9,19 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_PERFMON_H
 #define ZABBIX_PERFMON_H
 
-#ifndef _WINDOWS
-#	error "This module is only available for Windows OS"
+#if !defined(_WINDOWS)
+#	error "This module allowed only for Windows OS"
 #endif
 
 #define PCI_SYSTEM			2
@@ -44,7 +44,7 @@ typedef struct perf_counter_id
 {
 	struct perf_counter_id	*next;
 	unsigned long		pdhIndex;
-	wchar_t			name[PDH_MAX_COUNTER_NAME];
+	TCHAR			name[PDH_MAX_COUNTER_NAME];
 }
 PERF_COUNTER_ID;
 
@@ -73,7 +73,7 @@ PDH_STATUS	zbx_PdhCollectQueryData(const char *function, const char *counterpath
 PDH_STATUS	zbx_PdhGetRawCounterValue(const char *function, const char *counterpath, PDH_HCOUNTER handle, PPDH_RAW_COUNTER value);
 
 PDH_STATUS	calculate_counter_value(const char *function, const char *counterpath, double *value);
-wchar_t		*get_counter_name(DWORD pdhIndex);
+LPTSTR		get_counter_name(DWORD pdhIndex);
 int		check_counter_path(char *counterPath);
 
 #endif /* ZABBIX_PERFMON_H */

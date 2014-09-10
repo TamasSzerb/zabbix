@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -23,14 +23,14 @@
 
 #define ZBX_MAX_WAIT_VMSTAT	2	/* maximum seconds to wait for vmstat data on the first call */
 
-int	SYSTEM_STAT(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_STAT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*section, *type;
-	int	wait = ZBX_MAX_WAIT_VMSTAT;
+	char	section[16], type[8];
+	int	nparams, wait = ZBX_MAX_WAIT_VMSTAT;
 
 	if (!VMSTAT_COLLECTOR_STARTED(collector))
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Collector is not started."));
+		SET_MSG_RESULT(result, strdup("Collector is not started!"));
 		return SYSINFO_RET_FAIL;
 	}
 
@@ -47,47 +47,19 @@ int	SYSTEM_STAT(AGENT_REQUEST *request, AGENT_RESULT *result)
 		}
 
 		if (0 == collector->vmstat.data_available)
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "No data available in collector."));
 			return SYSINFO_RET_FAIL;
-		}
 	}
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	nparams = num_param(param);
+
+	if (nparams > 2)
 		return SYSINFO_RET_FAIL;
-	}
 
-	section = get_rparam(request, 0);
-	type = get_rparam(request, 1);
-
-	if (NULL == section)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	if (0 != get_param(param, 1, section, sizeof(section)))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (0 == strcmp(section, "ent"))
-	{
-		if (1 != request->nparam && 0 != collector->vmstat.shared_enabled)
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid number of parameters."));
-			return SYSINFO_RET_FAIL;
-		}
-		else if (0 == collector->vmstat.shared_enabled)
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "No data available in collector."));
-			return SYSINFO_RET_FAIL;
-		}
-		else
-			SET_DBL_RESULT(result, collector->vmstat.ent);
-	}
-	else if (NULL == type)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
-		return SYSINFO_RET_FAIL;
-	}
+	if (0 != get_param(param, 2, type, sizeof(type)))
+		*type = '\0';
 
 	if (0 == strcmp(section, "kthr"))
 	{
@@ -96,10 +68,7 @@ int	SYSTEM_STAT(AGENT_REQUEST *request, AGENT_RESULT *result)
 		else if (0 == strcmp(type, "b"))
 			SET_DBL_RESULT(result, collector->vmstat.kthr_b);
 		else
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 			return SYSINFO_RET_FAIL;
-		}
 	}
 	else if (0 == strcmp(section, "page"))
 	{
@@ -116,10 +85,7 @@ int	SYSTEM_STAT(AGENT_REQUEST *request, AGENT_RESULT *result)
 		else if (0 == strcmp(type, "sr"))
 			SET_DBL_RESULT(result, collector->vmstat.sr);
 		else
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 			return SYSINFO_RET_FAIL;
-		}
 	}
 	else if (0 == strcmp(section, "faults"))
 	{
@@ -130,10 +96,7 @@ int	SYSTEM_STAT(AGENT_REQUEST *request, AGENT_RESULT *result)
 		else if (0 == strcmp(type, "cs"))
 			SET_DBL_RESULT(result, collector->vmstat.cs);
 		else
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 			return SYSINFO_RET_FAIL;
-		}
 	}
 	else if (0 == strcmp(section, "cpu"))
 	{
@@ -154,10 +117,7 @@ int	SYSTEM_STAT(AGENT_REQUEST *request, AGENT_RESULT *result)
 		else if (0 == strcmp(type, "app") && collector->vmstat.shared_enabled && collector->vmstat.pool_util_authority)
 			SET_DBL_RESULT(result, collector->vmstat.cpu_app);
 		else
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 			return SYSINFO_RET_FAIL;
-		}
 	}
 	else if (0 == strcmp(section, "disk"))
 	{
@@ -166,11 +126,10 @@ int	SYSTEM_STAT(AGENT_REQUEST *request, AGENT_RESULT *result)
 		else if (0 == strcmp(type, "tps"))
 			SET_DBL_RESULT(result, collector->vmstat.disk_tps);
 		else
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 			return SYSINFO_RET_FAIL;
-		}
 	}
+	else if (0 == strcmp(section, "ent") && nparams == 1 && collector->vmstat.shared_enabled)
+		SET_DBL_RESULT(result, collector->vmstat.ent);
 	else if (0 == strcmp(section, "memory"))
 	{
 		if (0 == strcmp(type, "avm") && collector->vmstat.aix52stats)
@@ -178,16 +137,10 @@ int	SYSTEM_STAT(AGENT_REQUEST *request, AGENT_RESULT *result)
 		else if (0 == strcmp(type, "fre"))
 			SET_UI64_RESULT(result, collector->vmstat.mem_fre);
 		else
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 			return SYSINFO_RET_FAIL;
-		}
 	}
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	return SYSINFO_RET_OK;
 }

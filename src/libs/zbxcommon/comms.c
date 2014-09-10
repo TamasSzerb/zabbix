@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -28,13 +28,13 @@ int	comms_parse_response(char *xml, char *host, size_t host_len, char *key, size
 	int	i, ret = SUCCEED;
 	char	*data_b64 = NULL;
 
-	assert(NULL != host && 0 != host_len);
-	assert(NULL != key && 0 != key_len);
-	assert(NULL != data && 0 != data_len);
-	assert(NULL != lastlogsize && 0 != lastlogsize_len);
-	assert(NULL != timestamp && 0 != timestamp_len);
-	assert(NULL != source && 0 != source_len);
-	assert(NULL != severity && 0 != severity_len);
+	assert(host && 0 != host_len);
+	assert(key && 0 != key_len);
+	assert(data && 0 != data_len);
+	assert(lastlogsize && 0 != lastlogsize_len);
+	assert(timestamp && 0 != timestamp_len);
+	assert(source && 0 != source_len);
+	assert(severity && 0 != severity_len);
 
 	if (SUCCEED == xml_get_data_dyn(xml, "host", &data_b64))
 	{
@@ -167,7 +167,10 @@ zbx_uint64_t	zbx_letoh_uint64(zbx_uint64_t data)
 {
 	unsigned char	buf[8];
 
+	memset(buf, 0, sizeof(buf));
 	memcpy(buf, &data, sizeof(buf));
+
+	data = 0;
 
 	data  = (zbx_uint64_t)buf[7];	data <<= 8;
 	data |= (zbx_uint64_t)buf[6];	data <<= 8;

@@ -8,12 +8,12 @@
 
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
 
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
-   Foundation, 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.  */
+   Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #ifndef ZBX_GETOPT_H
 #define ZBX_GETOPT_H 1
@@ -69,7 +69,7 @@ extern int zbx_optopt;
 
    To have a long-named option do something other than set an `int' to
    a compiled-in constant, such as set a value from `optarg', set the
-   option's `flag' field to zero and its `val' field to a non-zero
+   option's `flag' field to zero and its `val' field to a nonzero
    value (the equivalent single-letter option character, if there is
    one).  For long options that have a zero `flag' field, `getopt'
    returns the contents of the `val' field.  */

@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,116 +9,80 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
 #include "stats.h"
-#include "log.h"
-#include "zbxalgo.h"
-#include "zbxjson.h"
 
-int	SYSTEM_CPU_DISCOVERY(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_CPU_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	int			i;
-	zbx_vector_uint64_t	cpus;
-	struct zbx_json		json;
+#if defined(HAVE_SYS_PSTAT_H)
+	char	mode[128];
+	int	sysinfo_name = -1;
+	long	ncpu = 0;
+	struct pst_dynamic psd;
 
-	zbx_vector_uint64_create(&cpus);
+        if(num_param(param) > 1)
+        {
+                return SYSINFO_RET_FAIL;
+        }
 
-	if (SUCCEED != get_cpu_statuses(&cpus))
+        if(get_param(param, 1, mode, sizeof(mode)) != 0)
+        {
+                mode[0] = '\0';
+        }
+        if(mode[0] == '\0')
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Collector is not started."));
-		zbx_vector_uint64_destroy(&cpus);
+		/* default parameter */
+		zbx_snprintf(mode, sizeof(mode), "online");
+	}
+
+	if(0 != strncmp(mode, "online", sizeof(mode)))
+	{
 		return SYSINFO_RET_FAIL;
 	}
 
-	zbx_json_init(&json, ZBX_JSON_STAT_BUF_LEN);
-	zbx_json_addarray(&json, ZBX_PROTO_TAG_DATA);
 
-	for (i = 0; i < cpus.values_num; i++)
+	if ( -1 == pstat_getdynamic(&psd, sizeof(struct pst_dynamic), 1, 0) )
 	{
-		zbx_json_addobject(&json, NULL);
-
-		zbx_json_adduint64(&json, "{#CPU.NUMBER}", i);
-		zbx_json_addstring(&json, "{#CPU.STATUS}", (SYSINFO_RET_OK == cpus.values[i] ?
-				"online" : "offline"), ZBX_JSON_TYPE_STRING);
-
-		zbx_json_close(&json);
+		return SYSINFO_RET_FAIL;
 	}
 
-	zbx_json_close(&json);
-	SET_STR_RESULT(result, zbx_strdup(result->str, json.buffer));
-
-	zbx_json_free(&json);
-	zbx_vector_uint64_destroy(&cpus);
+	SET_UI64_RESULT(result, psd.psd_proc_cnt);
 
 	return SYSINFO_RET_OK;
+#else
+	return SYSINFO_RET_FAIL;
+#endif
 }
 
-int	SYSTEM_CPU_NUM(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_CPU_UTIL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char			*type;
-	struct pst_dynamic	dyn;
+	char	tmp[16];
+	int	cpu_num, mode, state;
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (num_param(param) > 3)
 		return SYSINFO_RET_FAIL;
-	}
 
-	type = get_rparam(request, 0);
+        if (0 != get_param(param, 1, tmp, sizeof(tmp)))
+                *tmp = '\0';
 
-	/* only "online" (default) for parameter "type" is supported */
-	if (NULL != type && '\0' != *type && 0 != strcmp(type, "online"))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if (-1 == pstat_getdynamic(&dyn, sizeof(dyn), 1, 0))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain system information: %s", zbx_strerror(errno)));
-		return SYSINFO_RET_FAIL;
-	}
-
-	SET_UI64_RESULT(result, dyn.psd_proc_cnt);
-
-	return SYSINFO_RET_OK;
-}
-
-int	SYSTEM_CPU_UTIL(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	char	*tmp;
-	int	cpu_num, state, mode;
-
-	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	tmp = get_rparam(request, 0);
-
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "all"))
+	if ('\0' == *tmp || 0 == strcmp(tmp, "all"))	/* default parameter */
 		cpu_num = 0;
-	else if (SUCCEED != is_uint31_1(tmp, &cpu_num))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	else if (1 > (cpu_num = atoi(tmp) + 1))
 		return SYSINFO_RET_FAIL;
-	}
-	else
-		cpu_num++;
 
-	tmp = get_rparam(request, 1);
+	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
+		*tmp = '\0';
 
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "user"))
+	if ('\0' == *tmp || 0 == strcmp(tmp, "user"))	/* default parameter */
 		state = ZBX_CPU_STATE_USER;
 	else if (0 == strcmp(tmp, "nice"))
 		state = ZBX_CPU_STATE_NICE;
@@ -127,82 +91,111 @@ int	SYSTEM_CPU_UTIL(AGENT_REQUEST *request, AGENT_RESULT *result)
 	else if (0 == strcmp(tmp, "idle"))
 		state = ZBX_CPU_STATE_IDLE;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
-	tmp = get_rparam(request, 2);
+	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
+		*tmp = '\0';
 
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "avg1"))
+	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
 		mode = ZBX_AVG1;
 	else if (0 == strcmp(tmp, "avg5"))
 		mode = ZBX_AVG5;
 	else if (0 == strcmp(tmp, "avg15"))
 		mode = ZBX_AVG15;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	return get_cpustat(result, cpu_num, state, mode);
 }
 
-int	SYSTEM_CPU_LOAD(AGENT_REQUEST *request, AGENT_RESULT *result)
+static int	SYSTEM_CPU_LOAD1(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char			*tmp;
 	struct pst_dynamic	dyn;
-	double			value;
-	int			per_cpu = 1;
 
-	if (2 < request->nparam)
+	if (-1 != pstat_getdynamic(&dyn, sizeof(dyn), 1, 0))
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+		SET_DBL_RESULT(result, dyn.psd_avg_1_min);
+		return SYSINFO_RET_OK;
+	}
+
+	return SYSINFO_RET_FAIL;
+}
+
+static int	SYSTEM_CPU_LOAD5(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	struct pst_dynamic	dyn;
+
+	if (-1 != pstat_getdynamic(&dyn, sizeof(dyn), 1, 0))
+	{
+		SET_DBL_RESULT(result, dyn.psd_avg_5_min);
+		return SYSINFO_RET_OK;
+	}
+
+	return SYSINFO_RET_FAIL;
+}
+
+static int	SYSTEM_CPU_LOAD15(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	struct pst_dynamic	dyn;
+
+	if (-1 != pstat_getdynamic(&dyn, sizeof(dyn), 1, 0))
+	{
+		SET_DBL_RESULT(result, dyn.psd_avg_15_min);
+		return SYSINFO_RET_OK;
+	}
+
+	return SYSINFO_RET_FAIL;
+}
+
+int	SYSTEM_CPU_LOAD(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
+{
+	MODE_FUNCTION fl[] =
+	{
+		{"avg1" ,	SYSTEM_CPU_LOAD1},
+		{"avg5" ,	SYSTEM_CPU_LOAD5},
+		{"avg15",	SYSTEM_CPU_LOAD15},
+		{0,		0}
+	};
+
+	char cpuname[MAX_STRING_LEN];
+	char mode[MAX_STRING_LEN];
+	int i;
+
+        if(num_param(param) > 2)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+        if(get_param(param, 1, cpuname, sizeof(cpuname)) != 0)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+	if(cpuname[0] == '\0')
+	{
+		/* default parameter */
+		zbx_snprintf(cpuname, sizeof(cpuname), "all");
+	}
+	if(strncmp(cpuname, "all", sizeof(cpuname)))
+	{
 		return SYSINFO_RET_FAIL;
 	}
 
-	tmp = get_rparam(request, 0);
-
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "all"))
-		per_cpu = 0;
-	else if (0 != strcmp(tmp, "percpu"))
+	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+        {
+                mode[0] = '\0';
+        }
+        if(mode[0] == '\0')
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
+		/* default parameter */
+		zbx_snprintf(mode, sizeof(mode), "avg1");
 	}
-
-	if (-1 == pstat_getdynamic(&dyn, sizeof(dyn), 1, 0))
+	for(i=0; fl[i].mode!=0; i++)
 	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain system information: %s", zbx_strerror(errno)));
-		return SYSINFO_RET_FAIL;
-	}
-
-	tmp = get_rparam(request, 1);
-
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "avg1"))
-		value = dyn.psd_avg_1_min;
-	else if (0 == strcmp(tmp, "avg5"))
-		value = dyn.psd_avg_5_min;
-	else if (0 == strcmp(tmp, "avg15"))
-		value = dyn.psd_avg_15_min;
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if (1 == per_cpu)
-	{
-		if (0 >= dyn.psd_proc_cnt)
+		if(strncmp(mode, fl[i].mode, MAX_STRING_LEN)==0)
 		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain number of CPUs."));
-			return SYSINFO_RET_FAIL;
+			return (fl[i].function)(cmd, param, flags, result);
 		}
-		value /= dyn.psd_proc_cnt;
 	}
 
-	SET_DBL_RESULT(result, value);
-
-	return SYSINFO_RET_OK;
+	return SYSINFO_RET_FAIL;
 }

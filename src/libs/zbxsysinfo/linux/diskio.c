@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -74,16 +74,17 @@ int	get_diskstat(const char *devname, zbx_uint64_t *dstat)
 	char		tmp[MAX_STRING_LEN], name[MAX_STRING_LEN], dev_path[MAX_STRING_LEN];
 	int		i, ret = FAIL, dev_exists = FAIL;
 	zbx_uint64_t	ds[ZBX_DSTAT_MAX], rdev_major, rdev_minor;
-	zbx_stat_t 	dev_st;
-	int		found = 0;
+	struct stat 	dev_st;
+
+	assert(devname);
 
 	for (i = 0; i < ZBX_DSTAT_MAX; i++)
 		dstat[i] = (zbx_uint64_t)__UINT64_C(0);
 
-	if (NULL != devname && '\0' != *devname && 0 != strcmp(devname, "all"))
+	if ('\0' != *devname)
 	{
 		*dev_path = '\0';
-		if (0 != strncmp(devname, ZBX_DEV_PFX, ZBX_CONST_STRLEN(ZBX_DEV_PFX)))
+		if (0 != strncmp(devname, ZBX_DEV_PFX, sizeof(ZBX_DEV_PFX) - 1))
 			strscpy(dev_path, ZBX_DEV_PFX);
 		strscat(dev_path, devname);
 
@@ -92,24 +93,14 @@ int	get_diskstat(const char *devname, zbx_uint64_t *dstat)
 	}
 
 	if (NULL == (f = fopen(INFO_FILE_NAME, "r")))
-		return FAIL;
+		return ret;
 
 	while (NULL != fgets(tmp, sizeof(tmp), f))
 	{
 		PARSE(tmp);
-
-		if (NULL != devname && '\0' != *devname && 0 != strcmp(devname, "all"))
-		{
-			if (0 != strcmp(name, devname))
-			{
-				if (SUCCEED != dev_exists
-					|| major(dev_st.st_rdev) != rdev_major
-					|| minor(dev_st.st_rdev) != rdev_minor)
-					continue;
-			}
-			else
-				found = 1;
-		}
+		if ('\0' != *devname && 0 != strcmp(name, devname))
+			if (SUCCEED != dev_exists || major(dev_st.st_rdev) != rdev_major || minor(dev_st.st_rdev) != rdev_minor)
+				continue;
 
 		dstat[ZBX_DSTAT_R_OPER] += ds[ZBX_DSTAT_R_OPER];
 		dstat[ZBX_DSTAT_R_SECT] += ds[ZBX_DSTAT_R_SECT];
@@ -117,9 +108,6 @@ int	get_diskstat(const char *devname, zbx_uint64_t *dstat)
 		dstat[ZBX_DSTAT_W_SECT] += ds[ZBX_DSTAT_W_SECT];
 
 		ret = SUCCEED;
-
-		if (1 == found)
-			break;
 	}
 	zbx_fclose(f);
 
@@ -140,13 +128,15 @@ static int	get_kernel_devname(const char *devname, char *kernel_devname, size_t 
 	char		tmp[MAX_STRING_LEN], name[MAX_STRING_LEN], dev_path[MAX_STRING_LEN];
 	int		ret = FAIL;
 	zbx_uint64_t	ds[ZBX_DSTAT_MAX], rdev_major, rdev_minor;
-	zbx_stat_t	dev_st;
+	struct stat	dev_st;
+
+	assert(devname);
 
 	if ('\0' == *devname)
 		return ret;
 
 	*dev_path = '\0';
-	if (0 != strncmp(devname, ZBX_DEV_PFX, ZBX_CONST_STRLEN(ZBX_DEV_PFX)))
+	if (0 != strncmp(devname, ZBX_DEV_PFX, sizeof(ZBX_DEV_PFX) - 1))
 		strscpy(dev_path, ZBX_DEV_PFX);
 	strscat(dev_path, devname);
 
@@ -168,23 +158,26 @@ static int	get_kernel_devname(const char *devname, char *kernel_devname, size_t 
 	return ret;
 }
 
-static int	vfs_dev_rw(AGENT_REQUEST *request, AGENT_RESULT *result, int rw)
+static int	vfs_dev_rw(const char *param, AGENT_RESULT *result, int rw)
 {
 	ZBX_SINGLE_DISKDEVICE_DATA	*device;
-	char				*devname, *tmp, kernel_devname[MAX_STRING_LEN];
-	int				type, mode;
+	char				devname[MAX_STRING_LEN], tmp[16], kernel_devname[MAX_STRING_LEN];
+	int				type, mode, nparam;
 	zbx_uint64_t			dstats[ZBX_DSTAT_MAX];
 
-	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (3 < (nparam = num_param(param)))
 		return SYSINFO_RET_FAIL;
-	}
 
-	devname = get_rparam(request, 0);
-	tmp = get_rparam(request, 1);
+	if (0 != get_param(param, 1, devname, sizeof(devname)))
+		return SYSINFO_RET_FAIL;
 
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "sps"))	/* default parameter */
+	if (0 == strcmp(devname, "all"))
+		*devname = '\0';
+
+	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
+		*tmp = '\0';
+
+	if ('\0' == *tmp || 0 == strcmp(tmp, "sps"))	/* default parameter */
 		type = ZBX_DSTAT_TYPE_SPS;
 	else if (0 == strcmp(tmp, "ops"))
 		type = ZBX_DSTAT_TYPE_OPS;
@@ -193,25 +186,15 @@ static int	vfs_dev_rw(AGENT_REQUEST *request, AGENT_RESULT *result, int rw)
 	else if (0 == strcmp(tmp, "operations"))
 		type = ZBX_DSTAT_TYPE_OPER;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	if (type == ZBX_DSTAT_TYPE_SECT || type == ZBX_DSTAT_TYPE_OPER)
 	{
-		if (request->nparam > 2)
-		{
-			/* Mode is supported only if type is in: operations, sectors. */
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid number of parameters."));
+		if (nparam > 2)
 			return SYSINFO_RET_FAIL;
-		}
 
 		if (SUCCEED != get_diskstat(devname, dstats))
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain disk information."));
 			return SYSINFO_RET_FAIL;
-		}
 
 		if (ZBX_DSTAT_TYPE_SECT == type)
 			SET_UI64_RESULT(result, dstats[(ZBX_DEV_READ == rw ? ZBX_DSTAT_R_SECT : ZBX_DSTAT_W_SECT)]);
@@ -221,55 +204,36 @@ static int	vfs_dev_rw(AGENT_REQUEST *request, AGENT_RESULT *result, int rw)
 		return SYSINFO_RET_OK;
 	}
 
-	tmp = get_rparam(request, 2);
+	if (!DISKDEVICE_COLLECTOR_STARTED(collector))
+	{
+		SET_MSG_RESULT(result, strdup("Collector is not started!"));
+		return SYSINFO_RET_OK;
+	}
 
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
+	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
+		*tmp = '\0';
+
+	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
 		mode = ZBX_AVG1;
 	else if (0 == strcmp(tmp, "avg5"))
 		mode = ZBX_AVG5;
 	else if (0 == strcmp(tmp, "avg15"))
 		mode = ZBX_AVG15;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (NULL == collector)
-	{
-		/* CPU statistics collector and (optionally) disk statistics collector is started only when Zabbix */
-		/* agentd is running as a daemon. When Zabbix agent or agentd is started with "-p" or "-t" parameter */
-		/* the collectors are not available and keys "vfs.dev.read", "vfs.dev.write" with some parameters */
-		/* (e.g. sps, ops) are not supported. */
-
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "This item is available only in daemon mode when collectors are"
-				" started."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if (NULL == devname || '\0' == *devname || 0 == strcmp(devname, "all"))
-	{
+	if ('\0' == *devname)
 		*kernel_devname = '\0';
-	}
 	else if (SUCCEED != get_kernel_devname(devname, kernel_devname, sizeof(kernel_devname)))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain device name used internally by the kernel."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	if (NULL == (device = collector_diskdevice_get(kernel_devname)))
 	{
 		if (SUCCEED != get_diskstat(kernel_devname, dstats))
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain disk information."));
 			return SYSINFO_RET_FAIL;
-		}
 
 		if (NULL == (device = collector_diskdevice_add(kernel_devname)))
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot add disk device to agent collector."));
 			return SYSINFO_RET_FAIL;
-		}
 	}
 
 	if (ZBX_DSTAT_TYPE_SPS == type)
@@ -280,12 +244,12 @@ static int	vfs_dev_rw(AGENT_REQUEST *request, AGENT_RESULT *result, int rw)
 	return SYSINFO_RET_OK;
 }
 
-int	VFS_DEV_READ(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_DEV_READ(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	return vfs_dev_rw(request, result, ZBX_DEV_READ);
+	return vfs_dev_rw(param, result, ZBX_DEV_READ);
 }
 
-int	VFS_DEV_WRITE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	VFS_DEV_WRITE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	return vfs_dev_rw(request, result, ZBX_DEV_WRITE);
+	return vfs_dev_rw(param, result, ZBX_DEV_WRITE);
 }

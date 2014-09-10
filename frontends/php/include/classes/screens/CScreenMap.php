@@ -19,14 +19,9 @@
 **/
 
 
-class CScreenMap extends CScreenBase {
+require_once dirname(__FILE__).'/../../views/js/monitoring.maps.js.php';
 
-	/**
-	 * Params for monitoring maps js.
-	 *
-	 * @var array
-	 */
-	private $data = array();
+class CScreenMap extends CScreenBase {
 
 	/**
 	 * Process screen.
@@ -50,9 +45,7 @@ class CScreenMap extends CScreenBase {
 			));
 			$sysmap = reset($sysmap);
 
-			$image->setSrc($image->getAttribute('src').'&severity_min='.$sysmap['severity_min']);
-
-			$actionMap = getActionMapBySysmap($sysmap, array('severity_min' => $sysmap['severity_min']));
+			$actionMap = getActionMapBySysmap($sysmap);
 			$image->setMap($actionMap->getName());
 
 			$output = array($actionMap, $image);

@@ -17,174 +17,109 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 /**
  * In case gettext functions do not exist, just replacing them with our own,
- * so user can see at least English translation.
+ * so user can see atleast english translation
  */
 if (!function_exists('_')) {
-	/**
-	 * Stub gettext function in case gettext is not available.
-	 *
-	 * @param string $string
-	 *
-	 * @return string
-	 */
 	function _($string) {
 		return $string;
 	}
 }
 
-if (!function_exists('ngettext')) {
-	/**
-	 * Stub gettext function in case gettext is not available. Do not use directly, use _n() instead.
-	 *
-	 * @see _n
-	 *
-	 * @param string $string1
-	 * @param string $string2
-	 * @param string $n
-	 *
-	 * @return string
-	 */
-	function ngettext($string1, $string2, $n) {
-		return ($n == 1) ? $string1 : $string2;
+if (!function_exists('gettext')) {
+	function gettext($string) {
+		return $string;
 	}
 }
 
-/**
- * Translates the string with respect to the given context.
- *
- * @see _x
- *
- * @param string $context
- * @param string $msgId
- *
- * @return string
- */
-function pgettext($context, $msgId) {
-	$contextString = $context."\004".$msgId;
-	$translation = _($contextString);
-
-	return ($translation == $contextString) ? $msgId : $translation;
+if (!function_exists('ngettext')) {
+	function ngettext($string1, $string2, $n) {
+		return $n == 1 ? $string1 : $string2;
+	}
 }
 
-/**
- * Translates the string with respect to the given context and plural forms.
- *
- * @see _xn
- *
- * @param string $context
- * @param string $msgId
- * @param string $msgIdPlural
- * @param string $num
- *
- * @return string
- */
-function npgettext($context, $msgId, $msgIdPlural, $num) {
-	$contextString = $context."\004".$msgId;
-	$contextStringp = $context."\004".$msgIdPlural;
-	$translation = ngettext($contextString, $contextStringp, $num);
-
-	return ($translation == $contextString || $translation == $contextStringp) ? $msgId : $translation;
+if (!function_exists('pgettext')) {
+	function pgettext($context, $msgid) {
+		$contextString = $context."\004".$msgid;
+		$translation = _($contextString);
+		return ($translation == $contextString) ? $msgid : $translation;
+	}
 }
 
-/**
- * Translates the string and substitutes the placeholders with the given parameters.
- * Placeholders must be defined as %1$s, %2$s etc.
- *
- * @param string $string
- * @param string $param			parameter to be replace the first placeholder
- * @param string $param,...		unlimited number of optional parameters
- *
- * @return string
- */
+if (!function_exists('npgettext')) {
+	function npgettext($context, $msgid, $msgid_plural, $num) {
+		$contextString = $context."\004".$msgid;
+		$contextStringp = $context."\004".$msgid_plural;
+		$translation = ngettext($contextString, $contextStringp, $num);
+		if ($translation == $contextString || $translation == $contextStringp) {
+			return $msgid;
+		}
+		else {
+			return $translation;
+		}
+	}
+}
+
 function _s($string) {
 	$arguments = array_slice(func_get_args(), 1);
-
-	return _params(_($string), $arguments);
+	return vsprintf(_($string), $arguments);
 }
 
-/**
- * Translates the string in the correct form with respect to the given numeric parameter. According to gettext
- * standards the numeric parameter must be passed last.
- * Supports unlimited parameters; placeholders must be defined as %1$s, %2$s etc.
- *
- * Examples:
- * _n('%2$s item on host %1$s', '%2$s items on host %1$s', 'Zabbix server', 1) // 1 item on host Zabbix server
- * _n('%2$s item on host %1$s', '%2$s items on host %1$s', 'Zabbix server', 2) // 2 items on host Zabbix server
- *
- * @param string $string1		singular string
- * @param string $string2		plural string
- * @param string $param			parameter to replace the first placeholder
- * @param string $param,...		unlimited number of optional parameters
- *
- * @return string
- */
-function _n($string1, $string2) {
+function _n($string1, $string2, $value) {
 	$arguments = array_slice(func_get_args(), 2);
-
-	return _params(ngettext($string1, $string2, end($arguments)), $arguments);
+	return vsprintf(ngettext($string1, $string2, $value), $arguments);
 }
 
 /**
  * Translates the string with respect to the given context and replaces placeholders with supplied arguments.
  * If no translation is found, the original string will be used. Unlimited number of parameters supplied.
- * Parameter placeholders must be defined as %1$s, %2$s etc.
  *
  * Example: _x('Message for arg1 "%1$s" and arg2 "%2$s"', 'context', 'arg1Value', 'arg2Value');
  * returns: 'Message for arg1 "arg1Value" and arg2 "arg2Value"'
  *
- * @param string $message		string to translate
- * @param string $context		context of the string
- * @param string $param			parameter to be replace the first placeholder
- * @param string $param,... 	unlimited number of optional parameters
+ * @param string $message   String to translate
+ * @param string $context   Context of the string
  *
  * @return string
  */
 function _x($message, $context) {
 	$arguments = array_slice(func_get_args(), 2);
 
-	return ($context == '')
-		? _params($message, $arguments)
-		: _params(pgettext($context, $message), $arguments);
+	if ($context == '') {
+		return vsprintf($message, $arguments);
+	}
+	else {
+		return vsprintf(pgettext($context, $message), $arguments);
+	}
 }
 
 /**
  * Translates the string with respect to the given context and plural forms, also replaces placeholders with supplied arguments.
  * If no translation is found, the original string will be used. Unlimited number of parameters supplied.
- * Parameter placeholders must be defined as %1$s, %2$s etc.
  *
  * Example: _xn('%1$s message for arg1 "%2$s"', '%1$s messages for arg1 "%2$s"', 3, 'context', 'arg1Value');
- * returns: '3 messages for arg1 "arg1Value"'
+ * returns: '3 messagges for arg1 "arg1Value"'
  *
- * @param string $message			string to translate
- * @param string $messagePlural		string to translate for plural form
- * @param int    $num				number to determine usage of plural form, also is used as first replace argument
- * @param string $context			context of the string
- * @param string $param				parameter to be replace the first placeholder
- * @param string $param,...			unlimited number of optional parameters
+ * @param string $message          string to translate
+ * @param string $message_plural   string to translate for plural form
+ * @param int    $num              number to determine usage of plural form, also is used as first replace argument
+ * @param string $context          context of the string
  *
  * @return string
  */
-function _xn($message, $messagePlural, $num, $context) {
+function _xn($message, $message_plural, $num, $context) {
 	$arguments = array_slice(func_get_args(), 4);
 	array_unshift($arguments, $num);
 
-	return ($context == '')
-		? _params(ngettext($message, $messagePlural, $num), $arguments)
-		: _params(npgettext($context, $message, $messagePlural, $num), $arguments);
+	if ($context == '') {
+		return vsprintf(ngettext($message, $message_plural, $num), $arguments);
+	}
+	else {
+		return vsprintf(npgettext($context, $message, $message_plural, $num), $arguments);
+	}
 }
 
-/**
- * Returns a formatted string.
- *
- * @param string $format		receives already stranlated string with format
- * @param array  $arguments		arguments to replace according to given format
- *
- * @return string
- */
-function _params($format, array $arguments) {
-	return vsprintf($format, $arguments);
-}

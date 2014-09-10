@@ -37,7 +37,7 @@ class testPageAdministrationGeneralImages extends CWebTest {
 		$this->zbxTestLogin('adm.images.php');
 		$this->assertElementPresent('configDropDown');
 		$this->assertElementPresent('form');
-		$this->zbxTestCheckTitle('Configuration of images');
+		$this->checkTitle('Configuration of images');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF IMAGES', 'Images', 'Type'));
 		$this->assertElementPresent('imagetype');
 		$this->assertElementPresent("//select[@id='imagetype']/option[text()='Icon']");
@@ -60,7 +60,7 @@ class testPageAdministrationGeneralImages extends CWebTest {
 				$this->assertElementPresent('configDropDown');
 				$this->zbxTestDropdownSelectWait('imagetype', 'Background');
 				$this->assertElementPresent('form');
-				$this->zbxTestCheckTitle('Configuration of Zabbix');
+				$this->checkTitle('Configuration of Zabbix');
 				$this->zbxTestTextPresent(array('CONFIGURATION OF IMAGES', 'Images', 'Type'));
 				$this->assertElementPresent('imagetype');
 				$this->assertElementPresent("//select[@id='imagetype']/option[text()='Icon']");
@@ -82,10 +82,10 @@ class testPageAdministrationGeneralImages extends CWebTest {
 		$this->zbxTestDropdownSelectWait('imagetype', 'Icon');
 		$this->zbxTestClickWait('link='.$icon_name['name']);
 		$this->zbxTestTextPresent(array('Name', 'Type', 'Upload', 'Image'));
-		$this->assertElementPresent('update');
+		$this->assertElementPresent('save');
 		$this->assertElementPresent('delete');
 		$this->assertElementPresent('cancel');
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Image updated');
 
 		$newHashIconImages = DBhash($sqlIconImages);
@@ -105,10 +105,10 @@ class testPageAdministrationGeneralImages extends CWebTest {
 		$this->zbxTestDropdownSelectWait('imagetype', 'Background');
 		$this->zbxTestClickWait('link='.$bgimage_name['name']);
 		$this->zbxTestTextPresent(array('Name', 'Type', 'Upload', 'Image'));
-		$this->assertElementPresent('update');
+		$this->assertElementPresent('save');
 		$this->assertElementPresent('delete');
 		$this->assertElementPresent('cancel');
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Image updated');
 
 		$newHashBgImages = DBhash($sqlBgImages);

@@ -22,34 +22,18 @@
 #include "perfmon.h"
 #include "sysinfo.h"
 
-int	SYSTEM_UPTIME(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		counter_path[64];
-	AGENT_REQUEST	request_tmp;
-	int		ret;
+	char	counter_path[64];
 
 	zbx_snprintf(counter_path, sizeof(counter_path), "\\%d\\%d", PCI_SYSTEM, PCI_SYSTEM_UP_TIME);
 
-	request_tmp.nparam = 1;
-	request_tmp.params = zbx_malloc(NULL, request_tmp.nparam * sizeof(char *));
-	request_tmp.params[0] = counter_path;
-
-	ret = PERF_COUNTER(&request_tmp, result);
-
-	zbx_free(request_tmp.params);
-
-	if (SYSINFO_RET_FAIL == ret)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain system information."));
+	if (SYSINFO_RET_FAIL == PERF_COUNTER(cmd, counter_path, flags, result))
 		return SYSINFO_RET_FAIL;
-	}
 
 	/* result must be integer to correctly interpret it in frontend (uptime) */
 	if (!GET_UI64_RESULT(result))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid result. Unsigned integer is expected."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	UNSET_RESULT_EXCLUDING(result, AR_UINT64);
 

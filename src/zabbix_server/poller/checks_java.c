@@ -25,8 +25,8 @@
 
 #include "checks_java.h"
 
-static int	parse_response(const DC_ITEM *items, AGENT_RESULT *results, int *errcodes, int num, char *response,
-		char *error, int max_error_len)
+static int	parse_response(DC_ITEM *items, AGENT_RESULT *results, int *errcodes, int num,
+		char *response, char *error, int max_error_len)
 {
 	const char		*p;
 	struct zbx_json_parse	jp, jp_data, jp_row;
@@ -118,7 +118,7 @@ exit:
 	return ret;
 }
 
-int	get_value_java(unsigned char request, const DC_ITEM *item, AGENT_RESULT *result)
+int	get_value_java(unsigned char request, DC_ITEM *item, AGENT_RESULT *result)
 {
 	int	errcode = SUCCEED;
 
@@ -127,19 +127,20 @@ int	get_value_java(unsigned char request, const DC_ITEM *item, AGENT_RESULT *res
 	return errcode;
 }
 
-void	get_values_java(unsigned char request, const DC_ITEM *items, AGENT_RESULT *results, int *errcodes, int num)
+void	get_values_java(unsigned char request, DC_ITEM *items, AGENT_RESULT *results, int *errcodes, int num)
 {
 	const char	*__function_name = "get_values_java";
 
 	zbx_sock_t	s;
 	struct zbx_json	json;
 	char		error[MAX_STRING_LEN];
+	char		*buffer = NULL;
 	int		i, j, err = SUCCEED;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() host:'%s' addr:'%s' num:%d",
 			__function_name, items[0].host.host, items[0].interface.addr, num);
 
-	for (j = 0; j < num; j++)	/* locate first supported item to use as a reference */
+	for (j = 0; j < num; j++)	/* locate first supported item */
 	{
 		if (SUCCEED == errcodes[j])
 			break;
@@ -192,7 +193,7 @@ void	get_values_java(unsigned char request, const DC_ITEM *items, AGENT_RESULT *
 		assert(0);
 
 	zbx_json_addarray(&json, ZBX_PROTO_TAG_KEYS);
-	for (i = j; i < num; i++)
+	for (i = 0; i < num; i++)
 	{
 		if (SUCCEED != errcodes[i])
 			continue;
@@ -208,11 +209,11 @@ void	get_values_java(unsigned char request, const DC_ITEM *items, AGENT_RESULT *
 
 		if (SUCCEED == (err = zbx_tcp_send(&s, json.buffer)))
 		{
-			if (SUCCEED == (err = zbx_tcp_recv(&s)))
+			if (SUCCEED == (err = zbx_tcp_recv(&s, &buffer)))
 			{
-				zabbix_log(LOG_LEVEL_DEBUG, "JSON back [%s]", s.buffer);
+				zabbix_log(LOG_LEVEL_DEBUG, "JSON back [%s]", buffer);
 
-				err = parse_response(items, results, errcodes, num, s.buffer, error, sizeof(error));
+				err = parse_response(items, results, errcodes, num, buffer, error, sizeof(error));
 			}
 		}
 
@@ -229,15 +230,18 @@ void	get_values_java(unsigned char request, const DC_ITEM *items, AGENT_RESULT *
 exit:
 	if (NETWORK_ERROR == err || GATEWAY_ERROR == err)
 	{
-		zabbix_log(LOG_LEVEL_DEBUG, "getting Java values failed: %s", error);
+		zabbix_log(LOG_LEVEL_DEBUG, "Getting Java values failed: %s", error);
 
-		for (i = j; i < num; i++)
+		for (i = 0; i < num; i++)
 		{
 			if (SUCCEED != errcodes[i])
 				continue;
 
-			SET_MSG_RESULT(&results[i], zbx_strdup(NULL, error));
-			errcodes[i] = err;
+			if (!ISSET_MSG(&results[i]))
+			{
+				SET_MSG_RESULT(&results[i], zbx_strdup(NULL, error));
+				errcodes[i] = err;
+			}
 		}
 	}
 out:

@@ -31,7 +31,7 @@ class testPageQueueOverviewByProxy extends CWebTest {
 	*/
 	public function testPageQueueOverviewByProxy_CheckLayout($proxy) {
 		$this->zbxTestLogin('queue.php?config=1');
-		$this->zbxTestCheckTitle('Queue \[refreshed every 30 sec.\]');
+		$this->checkTitle('Queue \[refreshed every 30 sec\]');
 		$this->zbxTestTextPresent('Queue');
 		$this->zbxTestTextPresent('QUEUE OF ITEMS TO BE UPDATED');
 		// Header
@@ -51,4 +51,8 @@ class testPageQueueOverviewByProxy extends CWebTest {
 		$this->zbxTestTextPresent('Server');
 	}
 
+	public function testPageQueueOverviewByProxy_VerifyDisplayedNumbers() {
+// TODO
+		$this->markTestIncomplete();
+	}
 }

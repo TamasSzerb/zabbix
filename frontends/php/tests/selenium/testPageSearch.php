@@ -21,12 +21,12 @@
 require_once dirname(__FILE__).'/../include/class.cwebtest.php';
 
 class testPageSearch extends CWebTest {
-	public function testPageSearch_FindZabbixServer() {
+	public function testPageHosts_FindZabbixServer() {
 		$this->zbxTestLogin('dashboard.php');
 		$this->input_type('search', "ЗАББИКС Сервер");
 		$this->keyPress('search', "\\13");
 		$this->wait();
-		$this->zbxTestCheckTitle('Search');
+		$this->checkTitle('Search');
 		$this->zbxTestTextPresent('Hosts');
 		$this->zbxTestTextPresent('Displaying 1 of 1 found');
 		$this->zbxTestTextPresent('Displaying 0 of 0 found');
@@ -44,28 +44,32 @@ class testPageSearch extends CWebTest {
 		$this->zbxTestTextPresent('Events');
 	}
 
-	public function testPageSearch_FindNone() {
+	public function testPageHosts_FindNone() {
 		$this->zbxTestLogin('dashboard.php');
 		$this->input_type('search', "_");
 		$this->keyPress('search', "\\13");
 		$this->wait();
-		$this->zbxTestCheckTitle('Search');
+		$this->checkTitle('Search');
 		$this->zbxTestTextNotPresent('Displaying 1 of 1 found');
 		$this->zbxTestTextNotPresent('ЗАББИКС Сервер');
 		$this->zbxTestTextPresent('Displaying 0 of 0 found');
-		$this->zbxTestTextPresent(array('No hosts found.', 'No host groups found.', 'No templates found.'));
+		$this->zbxTestTextPresent('...');
 	}
 
-	public function testPageSearch_FindNone2() {
+	public function testPageHosts_FindNone2() {
 		$this->zbxTestLogin('dashboard.php');
 		$this->input_type('search', "%");
 		$this->keyPress('search', "\\13");
 		$this->wait();
-		$this->zbxTestCheckTitle('Search');
+		$this->checkTitle('Search');
 		$this->zbxTestTextNotPresent('Displaying 1 of 1 found');
 		$this->zbxTestTextNotPresent('ЗАББИКС Сервер');
 		$this->zbxTestTextPresent('Displaying 0 of 0 found');
-		$this->zbxTestTextPresent(array('No hosts found.', 'No host groups found.', 'No templates found.'));
+		$this->zbxTestTextPresent('...');
 	}
 
+	public function testPageHosts_Sorting() {
+// TODO
+		$this->markTestIncomplete();
+	}
 }

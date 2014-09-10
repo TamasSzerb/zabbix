@@ -36,7 +36,7 @@ const char	*get_last_odbc_strerror(void)
 #	define set_last_odbc_strerror(fmt, ...) __zbx_set_last_odbc_strerror(ZBX_CONST_STRING(fmt), ##__VA_ARGS__)
 #else
 #	define set_last_odbc_strerror __zbx_set_last_odbc_strerror
-#endif
+#endif /* HAVE___VA_ARGS__ */
 static void	__zbx_set_last_odbc_strerror(const char *fmt, ...)
 {
 	va_list	args;
@@ -48,7 +48,7 @@ static void	__zbx_set_last_odbc_strerror(const char *fmt, ...)
 	va_end(args);
 }
 
-#define clean_odbc_strerror()	zbx_last_odbc_strerror[0] = '\0'
+#define clean_odbc_strerror() zbx_last_odbc_strerror[0]='\0'
 
 static void	odbc_free_row_data(ZBX_ODBC_DBH *pdbh)
 {
@@ -249,8 +249,12 @@ ZBX_ODBC_ROW	odbc_DBfetch(ZBX_ODBC_RESULT pdbh)
 		goto end;
 	}
 
-	if (SQL_SUCCESS != retcode && 0 == odbc_Diag(SQL_HANDLE_STMT, pdbh->hstmt, retcode, "cannot fetch row"))
-		goto end;
+	if (SQL_SUCCESS != retcode)
+	{
+		odbc_Diag(SQL_HANDLE_STMT, pdbh->hstmt, retcode, "cannot fetch row");
+		if (0 == SQL_SUCCEEDED(retcode))
+			goto end;
+	}
 
 	for (i = 0; i < pdbh->col_num; i++)
 	{

@@ -35,30 +35,25 @@ $fields = array(
 );
 check_fields($fields);
 
-if (getRequest('media_type')) {
-	$mediaTypeData = API::MediaType()->get(array(
-		'mediatypeids' => array($_REQUEST['media_type']),
-		'countOutput' => true
-	));
-	if (!$mediaTypeData) {
-		access_deny ();
-	}
-}
-
-$year = getRequest('year', intval(date('Y')));
-$period = getRequest('period', 'weekly');
-$media_type = getRequest('media_type', 0);
+$year = get_request('year', intval(date('Y')));
+$period = get_request('period', 'weekly');
+$media_type = get_request('media_type', 0);
 
 $_REQUEST['year'] = $year;
 $_REQUEST['period'] = $period;
 $_REQUEST['media_type'] = $media_type;
 
-$currentYear = date('Y');
-
-// fetch media types
+/*
+ * Display
+ */
 $media_types = array();
-$db_media_types = DBselect('SELECT mt.* FROM media_type mt ORDER BY mt.description');
 
+$db_media_types = DBselect(
+	'SELECT mt.*'.
+	' FROM media_type mt'.
+	' WHERE '.DBin_node('mt.mediatypeid').
+	' ORDER BY mt.description'
+);
 while ($media_type_data = DBfetch($db_media_types)) {
 	$media_types[$media_type_data['mediatypeid']] = $media_type_data['description'];
 }
@@ -66,20 +61,19 @@ while ($media_type_data = DBfetch($db_media_types)) {
 // if no media types were defined, we have nothing to show
 if (zbx_empty($media_types)) {
 	show_table_header(_('Notifications'));
-	$table = new CTableInfo(_('No notifications found.'));
+	$table = new CTableInfo(_('No media types defined.'));
 	$table->show();
 }
 else {
 	$table = new CTableInfo();
 	$table->makeVerticalRotation();
 
-	// fetch the year of the first alert
-	if (($firstAlert = DBfetch(DBselect('SELECT MIN(a.clock) AS clock FROM alerts a'))) && $firstAlert['clock']) {
-		$minYear = date('Y', $firstAlert['clock']);
+	if (($min_time = DBfetch(DBselect('SELECT MIN(a.clock) AS clock FROM alerts a'))) && $min_time['clock']) {
+		$MIN_YEAR = intval(date('Y', $min_time['clock']));
 	}
-	// if no alerts exist, use the current year
-	else {
-		$minYear = date('Y');
+
+	if (!isset($MIN_YEAR)) {
+		$MIN_YEAR = intval(date('Y'));
 	}
 
 	$form = new CForm();
@@ -110,7 +104,7 @@ else {
 	if ($period != 'yearly') {
 		$form->addItem(SPACE._('Year').SPACE);
 		$cmbYear = new CComboBox('year', $year, 'submit();');
-		for ($y = $minYear; $y <= date('Y'); $y++) {
+		for ($y = $MIN_YEAR; $y <= date('Y'); $y++) {
 			$cmbYear->addItem($y, $y);
 		}
 		$form->addItem($cmbYear);
@@ -119,96 +113,119 @@ else {
 	show_table_header(_('Notifications'), $form);
 
 	$header = array();
-	$db_users = DBselect('SELECT u.* FROM users u ORDER BY u.alias,u.userid');
+	$db_users = DBselect('SELECT u.* FROM users u WHERE '.DBin_node('u.userid').' ORDER BY u.alias,u.userid');
 	while ($user_data = DBfetch($db_users)) {
 		$header[] = new CCol($user_data['alias'], 'vertical_rotation');
 		$users[$user_data['userid']] = $user_data['alias'];
 	}
 
-	$intervals = array();
 	switch ($period) {
 		case 'yearly':
-			$minTime = mktime(0, 0, 0, 1, 1, $minYear);
-
-			$dateFormat = _x('Y', DATE_FORMAT_CONTEXT);
+			$from = $MIN_YEAR;
+			$to = date('Y');
 			array_unshift($header, new CCol(_('Year'), 'center'));
 
-			for ($i = $minYear; $i <= date('Y'); $i++) {
-				$intervals[mktime(0, 0, 0, 1, 1, $i)] = mktime(0, 0, 0, 1, 1, $i + 1);
+			function get_time($y) {
+				return mktime(0, 0, 0, 1, 1, $y);
+			}
+			function format_time($t) {
+				return zbx_date2str(REPORT4_ANNUALLY_DATE_FORMAT, $t);
+			}
+			function format_time2($t) {
+				return null;
 			}
 
 			break;
 
 		case 'monthly':
-			$minTime = mktime(0, 0, 0, 1, 1, $year);
-
-			$dateFormat = _x('F', DATE_FORMAT_CONTEXT);
+			$from = 1;
+			$to = 12;
 			array_unshift($header, new CCol(_('Month'),'center'));
 
-			$max = ($year == $currentYear) ? date('n') : 12;
-			for ($i = 1; $i <= $max; $i++) {
-				$intervals[mktime(0, 0, 0, $i, 1, $year)] = mktime(0, 0, 0, $i + 1, 1, $year);
+			function get_time($m) {
+				global $year;
+				return mktime(0, 0, 0, $m, 1, $year);
+			}
+			function format_time($t) {
+				return zbx_date2str(REPORT4_MONTHLY_DATE_FORMAT, $t);
+			}
+			function format_time2($t) {
+				return null;
 			}
 
 			break;
 
 		case 'daily':
-			$minTime = mktime(0, 0, 0, 1, 1, $year);
-
-			$dateFormat = DATE_FORMAT;
+			$from = 1;
+			$to = DAY_IN_YEAR;
 			array_unshift($header, new CCol(_('Day'),'center'));
 
-			$max = ($year == $currentYear) ? date('z') : DAY_IN_YEAR;
-			for ($i = 1; $i <= $max; $i++) {
-				$intervals[mktime(0, 0, 0, 1, $i, $year)] = mktime(0, 0, 0, 1, $i + 1, $year);
+			function get_time($d) {
+				global $year;
+				return mktime(0, 0, 0, 1, $d, $year);
+			}
+			function format_time($t) {
+				return zbx_date2str(REPORT4_DAILY_DATE_FORMAT,$t);
+			}
+			function format_time2($t) {
+				return null;
 			}
 
 			break;
 
 		case 'weekly':
-			$time = mktime(0, 0, 0, 1, 1, $year);
-			$wd = date('w', $time);
-			$wd = ($wd == 0) ? 6 : $wd - 1;
-			$minTime = $time - $wd * SEC_PER_DAY;
-
-			$dateFormat = DATE_TIME_FORMAT;
+		default:
+			$from = 0;
+			$to = 52;
 			array_unshift($header, new CCol(_('From'), 'center'), new CCol(_('Till'), 'center'));
 
-			$max = ($year == $currentYear) ? date('W') - 1 : 52;
-			for ($i = 0; $i <= $max; $i++) {
-				$intervals[strtotime('+'.$i.' week', $minTime)] = strtotime('+'.($i + 1).' week', $minTime);
+			function get_time($w) {
+				static $beg;
+				if (!isset($beg)) {
+					global $year;
+					$time = mktime(0, 0, 0, 1, 1, $year);
+					$wd = date('w', $time);
+					$wd = ($wd == 0) ? 6 : $wd - 1;
+					$beg = $time - $wd * SEC_PER_DAY;
+				}
+				return strtotime("+$w week", $beg);
+			}
+			function format_time($t) {
+				return zbx_date2str(REPORT4_WEEKLY_DATE_FORMAT,$t);
+			}
+			function format_time2($t) {
+				return format_time($t);
 			}
 
 			break;
 	}
 
-	// time till
-	$maxTime = ($year == $currentYear) ? time() : mktime(0, 0, 0, 1, 1, $year + 1);
-
-	// fetch alerts
-	$alerts = array();
-	foreach (eventSourceObjects() as $sourceObject) {
-		$alerts = array_merge($alerts, API::Alert()->get(array(
-			'output' => array('mediatypeid', 'userid', 'clock'),
-			'eventsource' => $sourceObject['source'],
-			'eventobject' => $sourceObject['object'],
-			'mediatypeids' => (getRequest('media_type')) ? getRequest('media_type') : null,
-			'time_from' => $minTime,
-			'time_till' => $maxTime
-		)));
-	}
-	// sort alerts in chronological order so we could easily iterate through them later
-	CArrayHelper::sort($alerts, array('clock'));
-
 	$table->setHeader($header, 'vertical_header');
-	foreach ($intervals as $from => $till) {
-		// interval start
-		$row = array(zbx_date2str($dateFormat, $from));
-
-		// interval end, displayed only for week intervals
-		if ($period == 'weekly') {
-			$row[] = zbx_date2str($dateFormat, min($till, time()));
+	for ($t = $from; $t <= $to; $t++) {
+		if (($start = get_time($t)) > time()) {
+			break;
 		}
+
+		if (($end = get_time($t + 1)) > time()) {
+			$end = time();
+		}
+
+		$table_row = array(format_time($start), format_time2($end));
+
+		// getting all alerts in this period of time
+		$options = array(
+			'output' => array('mediatypeid', 'userid'),
+			'time_from' => $start,
+			'time_till' => $end
+		);
+
+		// if we must get only specific media type, no need to select the other ones
+		if ($media_type > 0){
+			$options['mediatypeids'] = $media_type;
+		}
+
+		// getting data through API
+		$alert_info = API::Alert()->get($options);
 
 		// counting alert count for each user and media type
 		$summary = array();
@@ -221,35 +238,30 @@ else {
 			}
 		}
 
-		// loop through alerts until we reach an alert from the next interval
-		while ($alert = current($alerts)) {
-			if ($alert['clock'] >= $till) {
-				break;
+		foreach ($alert_info as $ai) {
+			if (!isset($summary[$ai['userid']])) {
+				continue;
 			}
 
-			if (isset($summary[$alert['userid']])) {
-				$summary[$alert['userid']]['total']++;
-				if (isset($summary[$alert['userid']]['medias'][$alert['mediatypeid']])) {
-					$summary[$alert['userid']]['medias'][$alert['mediatypeid']]++;
-				}
-				else {
-					$summary[$alert['userid']]['medias'][$alert['mediatypeid']] = 1;
-				}
+			$summary[$ai['userid']]['total']++;
+			if (isset($summary[$ai['userid']]['medias'][$ai['mediatypeid']])) {
+				$summary[$ai['userid']]['medias'][$ai['mediatypeid']]++;
 			}
-
-			next($alerts);
+			else {
+				$summary[$ai['userid']]['medias'][$ai['mediatypeid']] = 1;
+			}
 		}
 
 		foreach ($summary as $s) {
-			array_push($row, array($s['total'], ($media_type == 0) ? SPACE.'('.implode('/', $s['medias']).')' : ''));
+			array_push($table_row, array($s['total'], ($media_type == 0) ? SPACE.'('.implode('/', $s['medias']).')' : ''));
 		}
 
-		$table->addRow($row);
+		$table->addRow($table_row);
 	}
 	$table->show();
 
 	if ($media_type == 0) {
-		echo BR();
+		echo SBR;
 
 		$links = array();
 		foreach ($media_types as $id => $description) {

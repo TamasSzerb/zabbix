@@ -24,8 +24,6 @@
 
 extern char	*CONFIG_SOURCE_IP;
 extern char	*CONFIG_HOSTNAME;
-extern char	*CONFIG_HOST_METADATA;
-extern char	*CONFIG_HOST_METADATA_ITEM;
 extern int	CONFIG_REFRESH_ACTIVE_CHECKS;
 extern int	CONFIG_BUFFER_SEND;
 extern int	CONFIG_BUFFER_SIZE;
@@ -37,8 +35,6 @@ extern int	CONFIG_LISTEN_PORT;
 /* per second for checks `log' and `eventlog', used to parse key parameters */
 #define	MIN_VALUE_LINES	1
 #define	MAX_VALUE_LINES	1000
-
-#define HOST_METADATA_LEN	255	/* UTF-8 characters, not bytes */
 
 /* Windows event types for `eventlog' check */
 #ifdef _WINDOWS
@@ -57,12 +53,6 @@ extern int	CONFIG_LISTEN_PORT;
 #	ifndef AUDIT_SUCCESS
 #		define AUDIT_SUCCESS	"Success Audit"
 #	endif
-#	ifndef CRITICAL_TYPE
-#		define CRITICAL_TYPE	"Critical"
-#	endif
-#	ifndef VERBOSE_TYPE
-#		define VERBOSE_TYPE	"Verbose"
-#	endif
 #endif	/* _WINDOWS */
 
 typedef struct
@@ -71,10 +61,10 @@ typedef struct
 	zbx_uint64_t		lastlogsize;
 	int			refresh;
 	int			nextcheck;
+	int			status;
 /* must be long for fseek() */
 	int			mtime;
 	unsigned char		skip_old_data;	/* for processing [event]log metrics */
-	unsigned char		state;
 	int			big_rec;	/* for logfile reading: 0 - normal record, 1 - long unfinished record */
 	int			use_ino;	/* 0 - do not use inodes (on FAT, FAT32) */
 						/* 1 - use inodes (up to 64-bit) (various UNIX file systems, NTFS) */
@@ -98,7 +88,6 @@ typedef struct
 	char		*host;
 	char		*key;
 	char		*value;
-	unsigned char	state;
 	zbx_uint64_t	lastlogsize;
 	int		timestamp;
 	char		*source;

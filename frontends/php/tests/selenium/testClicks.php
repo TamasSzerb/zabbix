@@ -29,57 +29,32 @@ class testClicks extends CWebTest {
 		return array(
 			// Configuration
 			array('hostgroups.php',
-				array('link=Discovered hosts','update'),
+				array('link=Discovered hosts','save'),
 				'Configuration of host groups',
 				'Group updated'
 			),
 			array('hostgroups.php',
-				array('link=Zabbix servers','update'),
+				array('link=Zabbix servers','save'),
 				'Configuration of host groups',
 				'Group updated'
 			),
 			array('hostgroups.php',
-				array('link=Hypervisors','update'),
-				'Configuration of host groups',
-				'Group updated'
+				array('link=ЗАББИКС Сервер','save'),
+				'Configuration of hosts',
+				'Host updated'
 			),
 			array('hostgroups.php',
-				array('link=Linux servers','update'),
-				'Configuration of host groups',
-				'Group updated'
-			),
-			array('hostgroups.php',
-				array('link=Virtual machines','update'),
-				'Configuration of host groups',
-				'Group updated'
-			),
-			array('hostgroups.php',
-				array('link=ZBX6648 All Triggers','update'),
-				'Configuration of host groups',
-				'Group updated'
-			),
-			array('hostgroups.php',
-				array('link=ZBX6648 Disabled Triggers','update'),
-				'Configuration of host groups',
-				'Group updated'
-			),
-			array('hostgroups.php',
-				array('link=ZBX6648 Enabled Triggers','update'),
-				'Configuration of host groups',
-				'Group updated'
-			),
-			array('hostgroups.php',
-				array('link=ZBX6648 Group No Hosts','update'),
-				'Configuration of host groups',
-				'Group updated'
-			),
-			array('templates.php',
-				array('link=Template OS Linux','update'),
+				array('link=Template OS Linux','save'),
 				'Configuration of templates',
 				'Template updated'
 			),
 			array('templates.php',
-				array('link=ЗАББИКС Сервер','update'),
+				array('link=Template OS Linux','save'),
+				'Configuration of templates',
+				'Template updated'
+			),
+			array('templates.php',
+				array('link=ЗАББИКС Сервер','save'),
 				'Configuration of hosts',
 				'Host updated'
 			),
@@ -89,43 +64,43 @@ class testClicks extends CWebTest {
 				'Grid'
 			),
 			array('discoveryconf.php',
-				array('link=Local network','update'),
+				array('link=Local network','save'),
 				'Configuration of discovery',
 				'Discovery rule updated'
 			),
 			// Administration
 			array('usergrps.php',
-				array('link=Guests', 'update'),
+				array('link=Guests', 'save'),
 				'Configuration of user groups',
 				'Group updated'
 			),
 			array('usergrps.php',
-				array('link=Zabbix administrators', 'update'),
+				array('link=Zabbix administrators', 'save'),
 				'Configuration of user groups',
 				'Group updated'
 			),
 			array('users.php',
-				array('link=Admin', 'update'),
+				array('link=Admin', 'save'),
 				'Configuration of users',
 				'User updated'
 			),
 			array('media_types.php',
-				array('link=Email', 'update'),
+				array('link=Email', 'save'),
 				'Configuration of media types',
 				'Media type updated'
 			),
 			array('media_types.php',
-				array('link=Jabber', 'update'),
+				array('link=Jabber', 'save'),
 				'Configuration of media types',
 				'Media type updated'
 			),
 			array('media_types.php',
-				array('link=SMS', 'update'),
+				array('link=SMS', 'save'),
 				'Configuration of media types',
 				'Media type updated'
 			),
 			array('scripts.php',
-				array('link=Ping', 'update'),
+				array('link=Ping', 'save'),
 				'Configuration of scripts',
 				'Script updated'
 			)
@@ -146,7 +121,7 @@ class testClicks extends CWebTest {
 		foreach ($this->failIfNotExists as $str) {
 			$this->zbxTestTextPresent($str);
 		}
-		$this->zbxTestCheckTitle($title);
+		$this->checkTitle($title);
 		$this->zbxTestTextPresent($expected);
 		$this->zbxTestLogout();
 	}

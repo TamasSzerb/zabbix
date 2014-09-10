@@ -21,40 +21,34 @@
 require_once dirname(__FILE__) . '/../include/class.cwebtest.php';
 
 class testPageApplications extends CWebTest {
-
+	// Returns all hosts
 	public static function allHosts() {
-		return array(
-			array(
-				array(
-					// "Template OS Linux"
-					'hostid' => 10001,
-					'status' => HOST_STATUS_TEMPLATE
-				)
-			),
-			array(
-				array(
-					// "Test host" ("ЗАББИКС Сервер")
-					'hostid' => 10084,
-					'status' => HOST_STATUS_MONITORED
-				)
-			)
-		);
+		return DBdata('select * from hosts where status in ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.')');
 	}
 
 	/**
 	* @dataProvider allHosts
 	*/
-	public function testPageApplications_CheckLayout($data) {
-		$this->zbxTestLogin('applications.php?groupid=0&hostid='.$data['hostid']);
 
-		$this->zbxTestCheckTitle('Configuration of applications');
+	public function testPageApplications_CheckLayout($host) {
+		$hostid = $host['hostid'];
+
+		$this->zbxTestLogin('hosts.php');
+		$this->zbxTestDropdownSelectWait('groupid', 'all');
+
+		$this->checkTitle('Configuration of hosts');
+		$this->zbxTestTextPresent('HOSTS');
+		// Go to the list of applications
+		$this->href_click("applications.php?groupid=0&hostid=$hostid&sid=");
+		$this->wait();
+		// We are in the list of applications
+		$this->checkTitle('Configuration of applications');
 		$this->zbxTestTextPresent('CONFIGURATION OF APPLICATIONS');
 		$this->zbxTestTextPresent('Displaying');
-		$this->zbxTestTextPresent($data['status'] == HOST_STATUS_TEMPLATE ? 'Template list' : 'Host list');
-
-		// table
+		$this->zbxTestTextPresent('Host list');
+		// Header
 		$this->zbxTestTextPresent(array('Applications', 'Show'));
 
-		$this->zbxTestDropdownHasOptions('action', array('Enable selected', 'Disable selected', 'Delete selected'));
+		$this->zbxTestDropdownHasOptions('go', array('Enable selected', 'Disable selected', 'Delete selected'));
 	}
 }

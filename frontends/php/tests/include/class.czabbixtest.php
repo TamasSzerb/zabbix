@@ -18,7 +18,6 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
 require_once dirname(__FILE__).'/../../include/gettextwrapper.inc.php';
 require_once dirname(__FILE__).'/../../include/defines.inc.php';
 require_once dirname(__FILE__).'/dbfunc.php';
@@ -123,11 +122,11 @@ class CZabbixTest extends PHPUnit_Framework_TestCase {
 	protected function setUp() {
 		global $DB, $URL;
 
-		if (strpos(PHPUNIT_URL, 'http://') !== false) {
-			$URL = PHPUNIT_URL.'api_jsonrpc.php';
+		if (strstr(PHPUNIT_URL, 'http://')) {
+			$URL=PHPUNIT_URL.'api_jsonrpc.php';
 		}
 		else {
-			$URL = 'http://hudson/~hudson/'.PHPUNIT_URL.'/frontends/php/api_jsonrpc.php';
+			$URL='http://hudson/~hudson/'.PHPUNIT_URL.'/frontends/php/api_jsonrpc.php';
 		}
 
 		if (!isset($DB['DB'])) DBConnect($error);

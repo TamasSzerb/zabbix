@@ -19,27 +19,26 @@
 **/
 
 
+require_once dirname(__FILE__).'/js/general.script.confirm.js.php';
+require_once dirname(__FILE__).'/js/monitoring.maps.js.php';
+
 $mapWidget = new CWidget('hat_maps');
-$mapTable = new CTable(_('No maps found.'), 'map map-container');
+$mapTable = new CTable(_('No maps defined.'), 'map map-container');
 $mapTable->setAttribute('style', 'margin-top: 4px;');
 
 $icon = $fsIcon = null;
 
 if (!empty($this->data['maps'])) {
-	$mapComboBox = new CComboBox('sysmapid', getRequest('sysmapid', 0), 'submit()');
+	$mapComboBox = new CComboBox('sysmapid', get_request('sysmapid', 0), 'submit()');
 	foreach ($this->data['maps'] as $sysmapId => $map) {
-		$mapComboBox->addItem($sysmapId, $map['name']);
+		$mapComboBox->addItem($sysmapId, get_node_name_by_elid($sysmapId, null, ': ').$map['name']);
 	}
 
-	$headerMapForm = new CForm('get');
-	$headerMapForm->addVar('fullscreen', $this->data['fullscreen']);
-	$headerMapForm->addItem(array(_('Maps'), SPACE, $mapComboBox));
+	$headerForm = new CForm('get');
+	$headerForm->addVar('fullscreen', $this->data['fullscreen']);
+	$headerForm->addItem($mapComboBox);
 
-	$headerSeverityMinForm = new CForm('get');
-	$headerSeverityMinForm->addVar('fullscreen', $this->data['fullscreen']);
-	$headerSeverityMinForm->addItem(array(SPACE, _('Minimum severity'), SPACE, $this->data['pageFilter']->getSeveritiesMinCB()));
-
-	$mapWidget->addHeader($this->data['map']['name'], array($headerMapForm, $headerSeverityMinForm));
+	$mapWidget->addHeader($this->data['map']['name'], $headerForm);
 
 	// get map parent maps
 	$parentMaps = array();
@@ -47,7 +46,7 @@ if (!empty($this->data['maps'])) {
 		// check for permissions
 		if (isset($this->data['maps'][$parent['sysmapid']])) {
 			$parentMaps[] = SPACE.SPACE;
-			$parentMaps[] = new CLink($parent['name'], 'maps.php?sysmapid='.$parent['sysmapid'].'&fullscreen='.$this->data['fullscreen'].'&severity_min='.$this->data['severity_min']);
+			$parentMaps[] = new Clink($parent['name'], 'maps.php?sysmapid='.$parent['sysmapid'].'&fullscreen='.$this->data['fullscreen']);
 		}
 	}
 	if (!empty($parentMaps)) {
@@ -55,11 +54,11 @@ if (!empty($this->data['maps'])) {
 		$mapWidget->addHeader($parentMaps);
 	}
 
-	$actionMap = getActionMapBySysmap($this->data['map'], array('severity_min' => $this->data['severity_min']));
+	$actionMap = getActionMapBySysmap($this->data['map']);
 
 	$mapTable->addRow($actionMap);
 
-	$imgMap = new CImg('map.php?sysmapid='.$this->data['sysmapid'].'&severity_min='.$this->data['severity_min']);
+	$imgMap = new CImg('map.php?sysmapid='.$this->data['sysmapid']);
 	$imgMap->setMap($actionMap->getName());
 	$mapTable->addRow($imgMap);
 

@@ -80,11 +80,11 @@ class testFormAdministrationGeneralTrigDisplOptions extends CWebTest {
 
 		$this->zbxTestLogin('adm.triggerdisplayoptions.php');
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Trigger displaying options');
-		$this->zbxTestCheckTitle('Configuration of trigger displaying options');
+		$this->checkTitle('Configuration of trigger displaying options');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF ZABBIX', 'Trigger displaying options', 'Colour', 'Blinking', 'Unacknowledged PROBLEM events', 'Acknowledged PROBLEM events', 'Unacknowledged OK events', 'Acknowledged OK events', 'Display OK triggers for', 'On status change triggers blink for'));
 
 		// hash calculation for not-changed DB fields
-		$sqlHash = 'SELECT configid, refresh_unsupported, work_period, alert_usrgrpid, event_ack_enable, event_expire,'.
+		$sqlHash = 'SELECT configid, alert_history, event_history, refresh_unsupported, work_period, alert_usrgrpid, event_ack_enable, event_expire,'.
 		'event_show_max, authentication_type, ldap_host, ldap_port, ldap_base_dn, ldap_bind_dn, ldap_bind_password, ldap_search_attribute,'.
 		'dropdown_first_entry, dropdown_first_remember, discovery_groupid, max_in_table, search_limit, severity_color_0, severity_color_1,'.
 		'severity_color_2, severity_color_3, severity_color_4, severity_color_5, severity_name_0, severity_name_1, severity_name_2,'.
@@ -96,16 +96,16 @@ class testFormAdministrationGeneralTrigDisplOptions extends CWebTest {
 		$this->input_type('problem_ack_color', 'BB0000');
 		$this->input_type('ok_unack_color', '66FF66');
 		$this->input_type('ok_ack_color', '66FF66');
-		$this->zbxTestCheckboxSelect('problem_unack_style', false);
-		$this->zbxTestCheckboxSelect('problem_ack_style', false);
-		$this->zbxTestCheckboxSelect('ok_unack_style', false);
-		$this->zbxTestCheckboxSelect('ok_ack_style', false);
+		$this->zbxTestCheckboxUnselect('problem_unack_style');
+		$this->zbxTestCheckboxUnselect('problem_ack_style');
+		$this->zbxTestCheckboxUnselect('ok_unack_style');
+		$this->zbxTestCheckboxUnselect('ok_ack_style');
 		$this->input_type('ok_period', '120');
 		$this->input_type('blink_period', '120');
 		$this->input_type('ok_period', '120');
 		$this->input_type('blink_period', '120');
 
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent(array('Configuration updated', 'CONFIGURATION OF ZABBIX', 'Trigger displaying options'));
 
 		// checking values in the DB
@@ -144,11 +144,11 @@ class testFormAdministrationGeneralTrigDisplOptions extends CWebTest {
 
 		$this->zbxTestLogin('adm.triggerdisplayoptions.php');
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Trigger displaying options');
-		$this->zbxTestCheckTitle('Configuration of trigger displaying options');
+		$this->checkTitle('Configuration of trigger displaying options');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF ZABBIX', 'Trigger displaying options'));
 
 		// hash calculation for the DB fields that should be changed in this report
-		$sqlHash = 'SELECT configid, refresh_unsupported, work_period, alert_usrgrpid, event_ack_enable,'.
+		$sqlHash = 'SELECT configid, alert_history, event_history, refresh_unsupported, work_period, alert_usrgrpid, event_ack_enable,'.
 		'event_expire, event_show_max, authentication_type, ldap_host, ldap_port, ldap_base_dn, ldap_bind_dn, ldap_bind_password,'.
 		'ldap_search_attribute, dropdown_first_entry, dropdown_first_remember, discovery_groupid, max_in_table, search_limit, severity_color_0,'.
 		'severity_color_1, severity_color_2, severity_color_3, severity_color_4, severity_color_5, severity_name_0, severity_name_1,'.
@@ -157,7 +157,7 @@ class testFormAdministrationGeneralTrigDisplOptions extends CWebTest {
 
 		$this->zbxTestClick('resetDefaults');
 		$this->zbxTestClick("//button[@type='button']");
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent(array('Configuration updated', 'CONFIGURATION OF ZABBIX', 'Trigger displaying options'));
 
 		$sql = 'SELECT problem_unack_color FROM config WHERE problem_unack_color='.zbx_dbstr('DC0000').'';

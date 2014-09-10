@@ -25,9 +25,6 @@ require_once dirname(__FILE__).'/../../include/defines.inc.php';
 require_once dirname(__FILE__).'/../../include/hosts.inc.php';
 require_once dirname(__FILE__).'/dbfunc.php';
 
-define('TEST_GOOD', 0);
-define('TEST_BAD', 1);
-
 class CWebTest extends PHPUnit_Extensions_SeleniumTestCase {
 
 	protected $captureScreenshotOnFailure = TRUE;
@@ -76,7 +73,7 @@ class CWebTest extends PHPUnit_Extensions_SeleniumTestCase {
 
 		$this->setHost(PHPUNIT_FRONTEND_HOST);
 		$this->setBrowser('*firefox');
-		if (strpos(PHPUNIT_URL, 'http://') !== false) {
+		if (strstr(PHPUNIT_URL, 'http://')) {
 			$this->setBrowserUrl(PHPUNIT_URL);
 		}
 		else {
@@ -131,21 +128,15 @@ class CWebTest extends PHPUnit_Extensions_SeleniumTestCase {
 
 	public function zbxTestCheckFatalErrors() {
 		foreach ($this->failIfExists as $str) {
-			$this->assertTextNotPresent($str, 'Chuck Norris: I do not expect string "'.$str.'" here.');
+			$this->assertTextNotPresent($str, "Chuck Norris: I do not expect string '$str' here.");
 		}
 	}
 
-	public function zbxTestCheckMandatoryStrings() {
-		foreach ($this->failIfNotExists as $str) {
-			$this->assertTextPresent($str, 'Chuck Norris: I expect string "'.$str.'" here.');
-		}
-	}
-
-	public function zbxTestCheckTitle($title) {
+	public function checkTitle($title) {
 		global $ZBX_SERVER_NAME;
 
 		if ($ZBX_SERVER_NAME !== '') {
-			$title = $ZBX_SERVER_NAME.NAME_DELIMITER.$title;
+			$title = $ZBX_SERVER_NAME.': '.$title;
 		}
 
 		$this->assertTitle($title);
@@ -178,17 +169,18 @@ class CWebTest extends PHPUnit_Extensions_SeleniumTestCase {
 		$this->wait();
 	}
 
-	public function zbxTestHrefClickWait($href) {
-		$this->click("xpath=//a[contains(@href,'$href')]");
-		$this->wait();
-	}
-
 	public function href_click($a) {
 		$this->click("xpath=//a[contains(@href,'$a')]");
 	}
 
-	public function zbxTestCheckboxSelect($a, $select = true) {
-		if ($select != $this->isChecked($a)) {
+	public function zbxTestCheckboxSelect($a) {
+		if (!$this->isChecked($a)) {
+			$this->click($a);
+		}
+	}
+
+	public function zbxTestCheckboxUnselect($a) {
+		if ($this->isChecked($a)) {
 			$this->click($a);
 		}
 	}
@@ -198,44 +190,23 @@ class CWebTest extends PHPUnit_Extensions_SeleniumTestCase {
 	}
 
 	public function zbxTestDropdownHasOptions($id, array $strings) {
-		$attribute = $this->isElementPresent("//select[@id='".$id."']") ? 'id' : 'name';
-		$this->assertElementPresent("//select[@".$attribute."='".$id."']");
-
 		foreach ($strings as $string) {
-			$this->assertElementPresent("//select[@".$attribute."='".$id."']//option[text()='".$string."']");
+			$this->assertSelectHasOption($id, $string);
 		}
 	}
 
-	public function zbxTestDropdownSelect($id, $string) {
-		$attribute = $this->isElementPresent("//select[@id='".$id."']") ? 'id' : 'name';
-		$this->assertElementPresent("//select[@".$attribute."='".$id."']");
-
-		$this->assertElementPresent("//select[@".$attribute."='".$id."']//option[text()='".$string."']");
-		$this->select("//select[@".$attribute."='".$id."']", $string);
+	public function zbxTestDropdownSelect($id, $str) {
+		$this->zbxTestDropdownHasOptions($id, array($str));
+		$this->select($id, $str);
 	}
 
-	public function zbxTestDropdownSelectWait($id, $string) {
-		$attribute = $this->isElementPresent("//select[@id='".$id."']") ? 'id' : 'name';
-		$this->assertElementPresent("//select[@".$attribute."='".$id."']");
-		$this->assertElementPresent("//select[@".$attribute."='".$id."']//option[text()='".$string."']");
-
-		$selected = $this->getSelectedLabel("//select[@".$attribute."='".$id."']");
-
-		// select and wait if drop down selection should be changed
-		if ($selected != $string) {
-			$this->select("//select[@".$attribute."='".$id."']", $string);
+	public function zbxTestDropdownSelectWait($id, $str) {
+		$selected = $this->getSelectedLabel($id);
+		$this->zbxTestDropdownSelect($id, $str);
+		// Wait only if drop down selection was changed
+		if ($selected != $str) {
 			$this->wait();
 		}
-	}
-
-	/**
-	 * Assert that the element with the given name contains a specific text.
-	 *
-	 * @param $name
-	 * @param $text
-	 */
-	public function zbxTestDrowpdownAssertSelected($name, $text) {
-		$this->assertElementPresent("//select[@name='".$name."']//option[text()='".$text."' and @selected]");
 	}
 
 	public function wait() {
@@ -253,7 +224,7 @@ class CWebTest extends PHPUnit_Extensions_SeleniumTestCase {
 	// zbx_popup is the default opened window id if none is passed
 	public function zbxTestLaunchPopup($buttonId, $windowId = 'zbx_popup') {
 		// the above does not seem to work, thus this ugly method has to be used - at least until buttons get unique names...
-		$this->click("//input[@id='$buttonId']");	// and contains(@onclick, 'return PopUp')
+		$this->click("//input[@id='$buttonId' and contains(@onclick, 'return PopUp')]");
 		$this->waitForPopUp($windowId, 6000);
 		$this->selectWindow($windowId);
 		$this->zbxTestCheckFatalErrors();
@@ -297,6 +268,16 @@ class CWebTest extends PHPUnit_Extensions_SeleniumTestCase {
 		$this->assertElementPresent("//*[@name='".$name."' and text()='".$text."']");
 	}
 
+	/**
+	 * Assert that the element with the given name contains a specific text.
+	 *
+	 * @param $name
+	 * @param $text
+	 */
+	public function assertDrowpdownValueText($name, $text) {
+		$this->assertElementPresent("//select[@name='".$name."']//option[text()='".$text."' and @selected]");
+	}
+
 	public function templateLink($host, $template) {
 		// $template = "Template_Linux";
 		// $host = "Zabbix server";
@@ -326,8 +307,8 @@ class CWebTest extends PHPUnit_Extensions_SeleniumTestCase {
 		$this->zbxTestClick('select');
 		$this->selectWindow();
 		$this->wait();
-		$this->zbxTestClickWait('update');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host updated');
 		// no entities should be deleted, they all should be updated
 		$this->zbxTestTextNotPresent('deleted');

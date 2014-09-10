@@ -21,28 +21,23 @@
 #include "sysinfo.h"
 #include "symbols.h"
 
-int     VM_MEMORY_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int     VM_MEMORY_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	PERFORMANCE_INFORMATION pfi;
 	MEMORYSTATUSEX		ms_ex;
 	MEMORYSTATUS		ms;
-	char			*mode;
+	char			mode[16];
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (1 < num_param(param))
 		return SYSINFO_RET_FAIL;
-	}
 
-	mode = get_rparam(request, 0);
+	if (0 != get_param(param, 1, mode, sizeof(mode)) || '\0' == *mode)
+		strscpy(mode, "total");
 
-	if (NULL != mode && 0 == strcmp(mode, "cached"))
+	if (0 == strcmp(mode, "cached"))
 	{
 		if (NULL == zbx_GetPerformanceInfo)
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain system information."));
 			return SYSINFO_RET_FAIL;
-		}
 
 		zbx_GetPerformanceInfo(&pfi, sizeof(PERFORMANCE_INFORMATION));
 
@@ -57,7 +52,7 @@ int     VM_MEMORY_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 		zbx_GlobalMemoryStatusEx(&ms_ex);
 
-		if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "total"))
+		if (0 == strcmp(mode, "total"))
 			SET_UI64_RESULT(result, ms_ex.ullTotalPhys);
 		else if (0 == strcmp(mode, "free"))
 			SET_UI64_RESULT(result, ms_ex.ullAvailPhys);
@@ -70,16 +65,13 @@ int     VM_MEMORY_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
 		else if (0 == strcmp(mode, "pavailable") && 0 != ms_ex.ullTotalPhys)
 			SET_DBL_RESULT(result, ms_ex.ullAvailPhys / (double)ms_ex.ullTotalPhys * 100);
 		else
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
 			return SYSINFO_RET_FAIL;
-		}
 	}
 	else
 	{
 		GlobalMemoryStatus(&ms);
 
-		if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "total"))
+		if (0 == strcmp(mode, "total"))
 			SET_UI64_RESULT(result, ms.dwTotalPhys);
 		else if (0 == strcmp(mode, "free"))
 			SET_UI64_RESULT(result, ms.dwAvailPhys);
@@ -92,10 +84,7 @@ int     VM_MEMORY_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
 		else if (0 == strcmp(mode, "pavailable") && 0 != ms.dwTotalPhys)
 			SET_DBL_RESULT(result, ms.dwAvailPhys / (double)ms.dwTotalPhys * 100);
 		else
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
 			return SYSINFO_RET_FAIL;
-		}
 	}
 
 	return SYSINFO_RET_OK;

@@ -17,7 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 /**
  * A class for rendering HTML trees.
@@ -113,30 +114,27 @@ class CTree {
 
 	private function makeSImgStr($id) {
 		$tr = new CRow();
-		$count = isset($this->tree[$id]['nodeimg']) ? strlen($this->tree[$id]['nodeimg']) : 0;
 
+		$count = isset($this->tree[$id]['nodeimg']) ? zbx_strlen($this->tree[$id]['nodeimg']) : 0;
 		for ($i = 0; $i < $count; $i++) {
 			$td = new CCol();
-			$img = null;
-
 			switch ($this->tree[$id]['nodeimg'][$i]) {
 				case 'O':
+					$td->setAttribute('style', 'width: 22px');
 					$img = new CImg('images/general/tree/zero.gif', 'o', '22', '14');
 					break;
-
 				case 'I':
-					$td->setAttribute('style', 'background-image: url(images/general/tree/pointc.gif);');
+					$td->setAttribute('style', 'width:22px; background-image:url(images/general/tree/pointc.gif);');
 					$img = new CImg('images/general/tree/zero.gif', 'i', '22', '14');
 					break;
-
 				case 'L':
 					$td->setAttribute('valign', 'top');
 					$div = new CTag('div', 'yes');
-					$div->setAttribute('style', 'height: 10px; background-image: url(images/general/tree/pointc.gif);');
+					$div->setAttribute('style', 'height: 10px; width:22px; margin-left: -3px; background-image:url(images/general/tree/pointc.gif);');
 
 					if ($this->tree[$id]['nodetype'] == 2) {
 						$img = new CImg('images/general/tree/plus.gif', 'y', '22', '14');
-						$img->setAttribute('onclick', $this->treename.'.closeSNodeX("'.$id.'", this);');
+						$img->setAttribute('onclick', $this->treename.'.closeSNodeX("'.$id.'",this);');
 						$img->setAttribute('id', 'idi_'.$id);
 						$img->setAttribute('class', 'pointer');
 					}
@@ -146,28 +144,25 @@ class CTree {
 					$div->addItem($img);
 					$img = $div;
 					break;
-
 				case 'T':
 					$td->setAttribute('valign', 'top');
 					if ($this->tree[$id]['nodetype'] == 2) {
-						$td->setAttribute('style', 'background-image: url(images/general/tree/pointc.gif);');
+						$td->setAttribute('style', 'width:22px; background-image:url(images/general/tree/pointc.gif);');
 						$img = new CImg('images/general/tree/plus.gif', 't', '22', '14');
-						$img->setAttribute('onclick', $this->treename.'.closeSNodeX("'.$id.'", this);');
+						$img->setAttribute('onclick', $this->treename.'.closeSNodeX("'.$id.'",this);');
 						$img->setAttribute('id', 'idi_'.$id);
 						$img->setAttribute('class', 'pointer');
-						$img->setAttribute('style', 'top: 1px; position: relative;');
+						$img->setAttribute('style', 'top:2px;left:-3px;position:relative;');
 					}
 					else {
-						$td->setAttribute('style', 'background-image: url(images/general/tree/pointc.gif);');
+						$td->setAttribute('style', 'width:22px; background-image:url(images/general/tree/pointc.gif);');
 						$img = new CImg('images/general/tree/pointl.gif', 't', '22', '14');
 					}
 					break;
 			}
-
 			$td->addItem($img);
 			$tr->addItem($td);
 		}
-
 		return $tr;
 	}
 
@@ -208,7 +203,7 @@ class CTree {
 
 		zbx_add_post_js($this->treename.' = new CTree("tree_'.CWebUser::$data['alias'].'_'.$this->treename.'", '.$this->treename.'_tree);');
 
-		return new CJsScript($js);
+		return new CJSscript($js);
 	}
 
 	private function getImg($id, $img) {
@@ -244,3 +239,4 @@ class CTree {
 		unset($this->tree);
 	}
 }
+?>

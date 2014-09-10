@@ -20,8 +20,6 @@
 #ifndef ZABBIX_WATCHDOG_H
 #define ZABBIX_WATCHDOG_H
 
-#include "threads.h"
-
-ZBX_THREAD_ENTRY(watchdog_thread, args);
+void	main_watchdog_loop();
 
 #endif

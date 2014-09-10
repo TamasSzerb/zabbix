@@ -33,65 +33,73 @@ if (isset($_REQUEST['pservices']) || isset($_REQUEST['cservices'])) {
 	define('ZBX_PAGE_NO_MENU', 1);
 }
 
-require_once dirname(__FILE__).'/include/page_header.php';
+include_once('include/page_header.php');
 
 //	VAR		TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 $fields = array(
-	'serviceid' =>						array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
-	'name' => 							array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY, 'isset({add}) || isset({update})', _('Name')),
-	'algorithm' =>						array(T_ZBX_INT, O_OPT, null,	IN('0,1,2'),'isset({add}) || isset({update})'),
-	'showsla' =>						array(T_ZBX_INT, O_OPT, null,	IN('0,1'),	null),
-	'goodsla' => 						array(T_ZBX_DBL, O_OPT, null,	BETWEEN(0, 100), null, _('Calculate SLA, acceptable SLA (in %)')),
-	'sortorder' => 						array(T_ZBX_INT, O_OPT, null,	BETWEEN(0, 999), null, _('Sort order (0->999)')),
-	'times' =>							array(T_ZBX_STR, O_OPT, null,	null,		null),
-	'triggerid' =>						array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
-	'trigger' =>						array(T_ZBX_STR, O_OPT, null,	null,		null),
-	'new_service_time' =>				array(T_ZBX_STR, O_OPT, null,	null,		null),
-	'new_service_time_from_day' =>		array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
-	'new_service_time_from_month' =>	array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
-	'new_service_time_from_year' =>		array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
-	'new_service_time_from_hour' =>		array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
-	'new_service_time_from_minute' =>	array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
-	'new_service_time_to_day' =>		array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
-	'new_service_time_to_month' =>		array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
-	'new_service_time_to_year' =>		array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
-	'new_service_time_to_hour' =>		array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
-	'new_service_time_to_minute' =>		array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
-	'children' =>						array(T_ZBX_STR, O_OPT, P_SYS,	DB_ID,		null),
-	'parentid' =>						array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
-	'parentname' =>						array(T_ZBX_STR, O_OPT, null,	null,		null),
+	'serviceid' =>				array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
+	'group_serviceid' =>		array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
+	'name' => 					array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY, 'isset({save_service})', _('Name')),
+	'algorithm' =>				array(T_ZBX_INT, O_OPT, null,	IN('0,1,2'),'isset({save_service})'),
+	'showsla' =>				array(T_ZBX_INT, O_OPT, null,	IN('0,1'),	null),
+	'goodsla' => 				array(T_ZBX_DBL, O_OPT, null,	BETWEEN(0, 100), null, _('Calculate SLA, acceptable SLA (in %)')),
+	'sortorder' => 				array(T_ZBX_INT, O_OPT, null,	BETWEEN(0, 999), null, _('Sort order (0->999)')),
+	'times' =>					array(T_ZBX_STR, O_OPT, null,	null,		null),
+	'triggerid' =>				array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
+	'trigger' =>				array(T_ZBX_STR, O_OPT, null,	null,		null),
+	'new_service_time' =>		array(T_ZBX_STR, O_OPT, null,	null,		null),
+	'downtime_since_day' =>		array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
+	'downtime_since_month' =>	array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
+	'downtime_since_year' =>	array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
+	'downtime_since_hour' =>	array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
+	'downtime_since_minute' =>	array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
+	'downtime_till_day' =>		array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
+	'downtime_till_month' =>	array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
+	'downtime_till_year' =>		array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
+	'downtime_till_hour' =>		array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
+	'downtime_till_minute' =>	array(T_ZBX_STR, O_OPT, null, 	NOT_EMPTY,	null),
+	'children' =>				array(T_ZBX_STR, O_OPT, P_SYS,	DB_ID,		null),
+	'parentid' =>				array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
+	'parentname' =>				array(T_ZBX_STR, O_OPT, null,	null,		null),
 	// actions
-	'add' =>							array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
-	'update' =>							array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
-	'add_service_time' =>				array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
-	'delete' =>							array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,		null),
+	'save_service' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
+	'add_service_time' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
+	'delete' =>					array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,		null),
+	// ajax
+	'favobj' =>					array(T_ZBX_STR, O_OPT, P_ACT,	IN("'hat'"), null),
+	'favref' =>					array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})'),
+	'favstate' =>				array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})'),
 	// others
-	'form' =>							array(T_ZBX_STR, O_OPT, P_SYS,	null,		null),
-	'form_refresh' =>					array(T_ZBX_INT, O_OPT, null,	null,		null),
-	'pservices' =>						array(T_ZBX_INT, O_OPT, null,	null,		null),
-	'cservices' =>						array(T_ZBX_INT, O_OPT, null,	null,		null)
+	'form' =>					array(T_ZBX_STR, O_OPT, P_SYS,	null,		null),
+	'form_refresh' =>			array(T_ZBX_INT, O_OPT, null,	null,		null),
+	'pservices' =>				array(T_ZBX_INT, O_OPT, null,	null,		null),
+	'cservices' =>				array(T_ZBX_INT, O_OPT, null,	null,		null)
 );
 check_fields($fields);
 
 /*
- * Permissions
+ * AJAX
  */
+if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'hat') {
+		CProfile::update('web.services.hats.'.$_REQUEST['favref'].'.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
+}
+if (PAGE_TYPE_JS == $page['type'] || PAGE_TYPE_HTML_BLOCK == $page['type']) {
+	include_once('include/page_footer.php');
+	exit();
+}
+
+// check permissions
 if (!empty($_REQUEST['serviceid'])) {
-	$options = array(
+	$service = API::Service()->get(array(
 		'output' => API_OUTPUT_EXTEND,
-		'serviceids' => $_REQUEST['serviceid']
-	);
-
-	if (isset($_REQUEST['delete']) || isset($_REQUEST['pservices']) || isset($_REQUEST['cservices'])) {
-		$options['output'] = array('serviceid', 'name');
-	}
-	else {
-		$options['selectParent'] = array('serviceid', 'name');
-		$options['selectDependencies'] = API_OUTPUT_EXTEND;
-		$options['selectTimes'] = API_OUTPUT_EXTEND;
-	}
-
-	$service = API::Service()->get($options);
+		'selectParent' => array('serviceid', 'name'),
+		'selectDependencies' => API_OUTPUT_EXTEND,
+		'selectTimes' => API_OUTPUT_EXTEND,
+		'serviceids' => $_REQUEST['serviceid'],
+		'limit' => 1
+	));
 	$service = reset($service);
 	if (!$service) {
 		access_deny();
@@ -104,29 +112,24 @@ if (!empty($_REQUEST['serviceid'])) {
 
 // delete
 if (isset($_REQUEST['delete']) && isset($_REQUEST['serviceid'])) {
-	DBstart();
-
-	$result = API::Service()->delete(array($service['serviceid']));
-
+	$result = API::Service()->delete($service['serviceid']);
+	show_messages($result, _('Service deleted'), _('Cannot delete service'));
 	if ($result) {
 		add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_IT_SERVICE, 'Name ['.$service['name'].'] id ['.$service['serviceid'].']');
 		unset($_REQUEST['form']);
 	}
 	unset($service);
-
-	$result = DBend($result);
-	show_messages($result, _('Service deleted'), _('Cannot delete service'));
 }
 
 if (isset($_REQUEST['form'])) {
-	$_REQUEST['showsla'] = getRequest('showsla', 0);
+	$_REQUEST['showsla'] = get_request('showsla', 0);
 	$result = false;
 
 	// save
-	if (hasRequest('add') || hasRequest('update')) {
+	if (isset($_REQUEST['save_service'])) {
 		DBstart();
 
-		$children = getRequest('children', array());
+		$children = get_request('children', array());
 		$dependencies = array();
 		foreach ($children as $child) {
 			$dependencies[] = array(
@@ -136,91 +139,87 @@ if (isset($_REQUEST['form'])) {
 		}
 
 		$serviceRequest = array(
-			'name' => getRequest('name'),
-			'triggerid' => getRequest('triggerid'),
-			'algorithm' => getRequest('algorithm'),
-			'showsla' => getRequest('showsla', 0),
-			'goodsla' => getRequest('goodsla'),
-			'sortorder' => getRequest('sortorder'),
-			'times' => getRequest('times', array()),
-			'parentid' => getRequest('parentid'),
+			'name' => get_request('name'),
+			'triggerid' => get_request('triggerid'),
+			'algorithm' => get_request('algorithm'),
+			'showsla' => get_request('showsla', 0),
+			'goodsla' => get_request('goodsla'),
+			'sortorder' => get_request('sortorder'),
+			'times' => get_request('times', array()),
+			'parentid' => get_request('parentid'),
 			'dependencies' => $dependencies
 		);
 
 		if (isset($service['serviceid'])) {
 			$serviceRequest['serviceid'] = $service['serviceid'];
-
 			$result = API::Service()->update($serviceRequest);
 
-			$messageSuccess = _('Service updated');
-			$messageFailed = _('Cannot update service');
-			$auditAction = AUDIT_ACTION_UPDATE;
+			show_messages($result, _('Service updated'), _('Cannot update service'));
+			$audit_action = AUDIT_ACTION_UPDATE;
 		}
 		else {
 			$result = API::Service()->create($serviceRequest);
 
-			$messageSuccess = _('Service created');
-			$messageFailed = _('Cannot add service');
-			$auditAction = AUDIT_ACTION_ADD;
+			show_messages($result, _('Service created'), _('Cannot add service'));
+			$audit_action = AUDIT_ACTION_ADD;
 		}
 
 		if ($result) {
 			$serviceid = (isset($service['serviceid'])) ? $service['serviceid'] : reset($result['serviceids']);
-			add_audit($auditAction, AUDIT_RESOURCE_IT_SERVICE, 'Name ['.$_REQUEST['name'].'] id ['.$serviceid.']');
+			add_audit($audit_action, AUDIT_RESOURCE_IT_SERVICE, 'Name ['.$_REQUEST['name'].'] id ['.$serviceid.']');
 			unset($_REQUEST['form']);
 		}
 
-		$result = DBend($result);
-		show_messages($result, $messageSuccess, $messageFailed);
+		DBend($result);
 	}
 	// validate and get service times
 	elseif (isset($_REQUEST['add_service_time']) && isset($_REQUEST['new_service_time'])) {
-		$_REQUEST['times'] = getRequest('times', array());
+		$_REQUEST['times'] = get_request('times', array());
 		$new_service_time['type'] = $_REQUEST['new_service_time']['type'];
 		$result = true;
 		if ($_REQUEST['new_service_time']['type'] == SERVICE_TIME_TYPE_ONETIME_DOWNTIME) {
-			if (!validateDateTime($_REQUEST['new_service_time_from_year'],
-					$_REQUEST['new_service_time_from_month'],
-					$_REQUEST['new_service_time_from_day'],
-					$_REQUEST['new_service_time_from_hour'],
-					$_REQUEST['new_service_time_from_minute'])) {
+			if (!validateDateTime($_REQUEST['downtime_since_year'],
+					$_REQUEST['downtime_since_month'],
+					$_REQUEST['downtime_since_day'],
+					$_REQUEST['downtime_since_hour'],
+					$_REQUEST['downtime_since_minute'])) {
 				$result = false;
 				error(_s('Invalid date "%s".', _('From')));
 			}
-			if (!validateDateInterval($_REQUEST['new_service_time_from_year'],
-					$_REQUEST['new_service_time_from_month'],
-					$_REQUEST['new_service_time_from_day'])) {
+			if (!validateDateInterval($_REQUEST['downtime_since_year'],
+					$_REQUEST['downtime_since_month'],
+					$_REQUEST['downtime_since_day'])) {
 				$result = false;
 				error(_s('"%s" must be between 1970.01.01 and 2038.01.18.', _('From')));
 			}
-			if (!validateDateTime($_REQUEST['new_service_time_to_year'],
-					$_REQUEST['new_service_time_to_month'],
-					$_REQUEST['new_service_time_to_day'],
-					$_REQUEST['new_service_time_to_hour'],
-					$_REQUEST['new_service_time_to_minute'])) {
+			if (!validateDateTime($_REQUEST['downtime_till_year'],
+					$_REQUEST['downtime_till_month'],
+					$_REQUEST['downtime_till_day'],
+					$_REQUEST['downtime_till_hour'],
+					$_REQUEST['downtime_till_minute'])) {
 				$result = false;
 				error(_s('Invalid date "%s".', _('Till')));
 			}
-			if (!validateDateInterval($_REQUEST['new_service_time_to_year'],
-					$_REQUEST['new_service_time_to_month'],
-					$_REQUEST['new_service_time_to_day'])) {
+			if (!validateDateInterval($_REQUEST['downtime_till_year'],
+					$_REQUEST['downtime_till_month'],
+					$_REQUEST['downtime_till_day'])) {
 				$result = false;
 				error(_s('"%s" must be between 1970.01.01 and 2038.01.18.', _('Till')));
 			}
 			if ($result) {
-				$new_service_time['ts_from'] = mktime($_REQUEST['new_service_time_from_hour'],
-						$_REQUEST['new_service_time_from_minute'],
+				$new_service_time['ts_from'] = mktime($_REQUEST['downtime_since_hour'],
+						$_REQUEST['downtime_since_minute'],
 						0,
-						$_REQUEST['new_service_time_from_month'],
-						$_REQUEST['new_service_time_from_day'],
-						$_REQUEST['new_service_time_from_year']);
+						$_REQUEST['downtime_since_month'],
+						$_REQUEST['downtime_since_day'],
+						$_REQUEST['downtime_since_year']);
 
-				$new_service_time['ts_to'] = mktime($_REQUEST['new_service_time_to_hour'],
-						$_REQUEST['new_service_time_to_minute'],
+				$new_service_time['ts_to'] = mktime($_REQUEST['downtime_till_hour'],
+						$_REQUEST['downtime_till_minute'],
 						0,
-						$_REQUEST['new_service_time_to_month'],
-						$_REQUEST['new_service_time_to_day'],
-						$_REQUEST['new_service_time_to_year']);
+						$_REQUEST['downtime_till_month'],
+						$_REQUEST['downtime_till_day'],
+						$_REQUEST['downtime_till_year']);
 
 				$new_service_time['note'] = $_REQUEST['new_service_time']['note'];
 			}
@@ -272,7 +271,7 @@ if (isset($_REQUEST['pservices'])) {
 		'output' => array('serviceid', 'name', 'algorithm'),
 		'selectTrigger' => array('triggerid', 'description', 'expression'),
 		'preservekeys' => true,
-		'sortfield' => array('name')
+		'sortfield' => array('sortorder', 'name')
 	));
 
 	if (isset($service)) {
@@ -291,10 +290,10 @@ if (isset($_REQUEST['pservices'])) {
 
 	// expand trigger descriptions
 	$triggers = zbx_objectValues($parentServices, 'trigger');
-	$triggers = CMacrosResolverHelper::resolveTriggerNames($triggers);
-	foreach ($parentServices as $key => $parentService) {
-		$parentServices[$key]['trigger'] = !empty($parentService['trigger'])
-			? $triggers[$parentService['trigger']['triggerid']]['description']
+	$triggers = CTriggerHelper::batchExpandDescription($triggers);
+	foreach ($parentServices as $key => $childService) {
+		$parentServices[$key]['trigger'] = !empty($childService['triggerid'])
+			? $triggers[$childService['triggerid']]['description']
 			: '-';
 	}
 
@@ -304,16 +303,18 @@ if (isset($_REQUEST['pservices'])) {
 	$servicesView = new CView('configuration.services.parent.list', $data);
 	$servicesView->render();
 	$servicesView->show();
+	include_once('include/page_footer.php');
 }
+
 /*
  * Display child services list
  */
-elseif (isset($_REQUEST['cservices'])) {
+if (isset($_REQUEST['cservices'])) {
 	$childServices = API::Service()->get(array(
 		'output' => array('serviceid', 'name', 'algorithm'),
 		'selectTrigger' => array('triggerid', 'description', 'expression'),
 		'preservekeys' => true,
-		'sortfield' => array('name')
+		'sortfield' => array('sortorder', 'name')
 	));
 
 	if (isset($service)) {
@@ -332,10 +333,10 @@ elseif (isset($_REQUEST['cservices'])) {
 
 	// expand trigger descriptions
 	$triggers = zbx_objectValues($childServices, 'trigger');
-	$triggers = CMacrosResolverHelper::resolveTriggerNames($triggers);
+	$triggers = CTriggerHelper::batchExpandDescription($triggers);
 	foreach ($childServices as $key => $childService) {
-		$childServices[$key]['trigger'] = !empty($childService['trigger'])
-			? $triggers[$childService['trigger']['triggerid']]['description']
+		$childServices[$key]['trigger'] = !empty($childService['triggerid'])
+			? $triggers[$childService['triggerid']]['description']
 			: '-';
 	}
 
@@ -345,18 +346,20 @@ elseif (isset($_REQUEST['cservices'])) {
 	$servicesView = new CView('configuration.services.child.list', $data);
 	$servicesView->render();
 	$servicesView->show();
+	include_once('include/page_footer.php');
 }
+
 /*
  * Display
  */
-elseif (isset($_REQUEST['form'])) {
+if (isset($_REQUEST['form'])) {
 	$data = array();
-	$data['form'] = getRequest('form');
-	$data['form_refresh'] = getRequest('form_refresh', 0);
+	$data['form'] = get_request('form');
+	$data['form_refresh'] = get_request('form_refresh', 0);
 	$data['service'] = !empty($service) ? $service : null;
 
-	$data['times'] = getRequest('times', array());
-	$data['new_service_time'] = getRequest('new_service_time', array('type' => SERVICE_TIME_TYPE_UPTIME));
+	$data['times'] = get_request('times', array());
+	$data['new_service_time'] = get_request('new_service_time', array('type' => SERVICE_TIME_TYPE_UPTIME));
 
 	// populate the form from the object from the database
 	if (isset($data['service']['serviceid']) && !isset($_REQUEST['form_refresh'])) {
@@ -390,34 +393,32 @@ elseif (isset($_REQUEST['form'])) {
 
 			// expand trigger descriptions
 			$triggers = zbx_objectValues($childServices, 'trigger');
-			$triggers = CMacrosResolverHelper::resolveTriggerNames($triggers);
+			$triggers = CTriggerHelper::batchExpandDescription($triggers);
 			foreach ($service['dependencies'] as $dependency) {
 				$childService = $childServices[$dependency['servicedownid']];
 				$data['children'][] = array(
 					'name' => $childService['name'],
 					'triggerid' => $childService['triggerid'],
 					'trigger' => !empty($childService['triggerid'])
-							? $triggers[$childService['trigger']['triggerid']]['description']
+							? $triggers[$childService['triggerid']]['description']
 							: '-',
 					'serviceid' => $dependency['servicedownid'],
 					'soft' => $dependency['soft'],
 				);
 			}
-
-			CArrayHelper::sort($data['children'], array('name', 'serviceid'));
 		}
 	}
 	// populate the form from a submitted request
 	else {
-		$data['name'] = getRequest('name', '');
-		$data['algorithm'] = getRequest('algorithm', SERVICE_ALGORITHM_MAX);
-		$data['showsla'] = getRequest('showsla', 0);
-		$data['goodsla'] = getRequest('goodsla', SERVICE_SLA);
-		$data['sortorder'] = getRequest('sortorder', 0);
-		$data['triggerid'] = getRequest('triggerid', 0);
-		$data['parentid'] = getRequest('parentid', 0);
-		$data['parentname'] = getRequest('parentname', '');
-		$data['children'] = getRequest('children', array());
+		$data['name'] = get_request('name', '');
+		$data['algorithm'] = get_request('algorithm', SERVICE_ALGORITHM_MAX);
+		$data['showsla'] = get_request('showsla', 0);
+		$data['goodsla'] = get_request('goodsla', SERVICE_SLA);
+		$data['sortorder'] = get_request('sortorder', 0);
+		$data['triggerid'] = get_request('triggerid', 0);
+		$data['parentid'] = get_request('parentid', 0);
+		$data['parentname'] = get_request('parentname', '');
+		$data['children'] = get_request('children', array());
 	}
 
 	// get trigger
@@ -430,7 +431,7 @@ elseif (isset($_REQUEST['form'])) {
 		));
 		$trigger = reset($trigger);
 		$host = reset($trigger['hosts']);
-		$data['trigger'] = $host['name'].NAME_DELIMITER.$trigger['description'];
+		$data['trigger'] = $host['name'].':'.$trigger['description'];
 	}
 	else {
 		$data['trigger'] = '';
@@ -441,8 +442,10 @@ elseif (isset($_REQUEST['form'])) {
 	$servicesView->render();
 	$servicesView->show();
 }
+// service list
 else {
-	// services
+
+	// fetch services
 	$services = API::Service()->get(array(
 		'output' => array('name', 'serviceid', 'algorithm'),
 		'selectParent' => array('serviceid'),
@@ -453,10 +456,9 @@ else {
 		'sortorder' => ZBX_SORT_UP
 	));
 
-	// triggers
+	// expand trigger descriptions
 	$triggers = zbx_objectValues($services, 'trigger');
-	$triggers = CMacrosResolverHelper::resolveTriggerNames($triggers);
-
+	$triggers = CTriggerHelper::batchExpandDescription($triggers);
 	foreach ($services as &$service) {
 		if ($service['trigger']) {
 			$service['trigger'] = $triggers[$service['trigger']['triggerid']];
@@ -483,4 +485,4 @@ else {
 	$servicesView->show();
 }
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');

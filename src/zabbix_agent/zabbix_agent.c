@@ -30,31 +30,21 @@
 #include "threads.h"
 
 const char	*progname = NULL;
-const char	title_message[] = "zabbix_agent";
+const char	title_message[] = "Zabbix agent";
 const char	syslog_app_name[] = "zabbix_agent";
-const char	*usage_message[] = {
-	"[-c config-file]",
-	"[-c config-file] -p",
-	"[-c config-file] -t item-key",
-	"-h",
-	"-V",
-	NULL	/* end of text */
-};
+const char	usage_message[] = "[-Vhp] [-c <file>] [-t <item>]";
 
 unsigned char process_type	= 255;	/* ZBX_PROCESS_TYPE_UNKNOWN */
 int process_num;
 int server_num			= 0;
 
 const char	*help_message[] = {
-	"A Zabbix executable for monitoring of various server parameters, to be started upon request by inetd.",
-	"",
 	"Options:",
-	"  -c --config config-file  Absolute path to the configuration file",
-	"  -p --print               Print known items and exit",
-	"  -t --test item-key       Test specified item and exit",
-	"",
-	"  -h --help                Display this help message",
-	"  -V --version             Display version number",
+	"  -c --config <file>  Absolute path to the configuration file",
+	"  -p --print          Print known items and exit",
+	"  -t --test <item>    Test specified item and exit",
+	"  -h --help           Display help information",
+	"  -V --version        Display version number",
 	NULL	/* end of text */
 };
 
@@ -146,7 +136,7 @@ int	main(int argc, char **argv)
 	zbx_sock_t	s_in;
 	zbx_sock_t	s_out;
 
-	int		ret, opt_c = 0, opt_p = 0, opt_t = 0;
+	int		ret;
 	char		**value;
 
 	AGENT_RESULT	result;
@@ -159,9 +149,7 @@ int	main(int argc, char **argv)
 		switch (ch)
 		{
 			case 'c':
-				opt_c++;
-				if (NULL == CONFIG_FILE)
-					CONFIG_FILE = zbx_strdup(NULL, zbx_optarg);
+				CONFIG_FILE = strdup(zbx_optarg);
 				break;
 			case 'h':
 				help();
@@ -170,22 +158,19 @@ int	main(int argc, char **argv)
 			case 'V':
 				version();
 #ifdef _AIX
-				printf("\n");
 				tl_version();
 #endif
 				exit(EXIT_SUCCESS);
 				break;
 			case 'p':
-				opt_p++;
-				if (ZBX_TASK_START == task)
+				if (task == ZBX_TASK_START)
 					task = ZBX_TASK_PRINT_SUPPORTED;
 				break;
 			case 't':
-				opt_t++;
-				if (ZBX_TASK_START == task)
+				if (task == ZBX_TASK_START)
 				{
 					task = ZBX_TASK_TEST_METRIC;
-					TEST_METRIC = zbx_strdup(TEST_METRIC, zbx_optarg);
+					TEST_METRIC = strdup(zbx_optarg);
 				}
 				break;
 			default:
@@ -195,40 +180,9 @@ int	main(int argc, char **argv)
 		}
 	}
 
-	/* every option may be specified only once */
-	if (1 < opt_c || 1 < opt_p || 1 < opt_t)
-	{
-		if (1 < opt_c)
-			zbx_error("option \"-c\" or \"--config\" specified multiple times");
-		if (1 < opt_p)
-			zbx_error("option \"-p\" or \"--print\" specified multiple times");
-		if (1 < opt_t)
-			zbx_error("option \"-t\" or \"--test\" specified multiple times");
-
-		exit(EXIT_FAILURE);
-	}
-
-	/* check for mutually exclusive options */
-	if (1 < opt_p + opt_t)
-	{
-		zbx_error("only one of options \"-p\", \"--print\", \"-t\" or \"--test\" can be used");
-		exit(EXIT_FAILURE);
-	}
-
-	/* Parameters which are not option values are invalid. The check relies on zbx_getopt_internal() which */
-	/* always permutes command line arguments regardless of POSIXLY_CORRECT environment variable. */
-	if (argc > zbx_optind)
-	{
-		int	i;
-
-		for (i = zbx_optind; i < argc; i++)
-			zbx_error("invalid parameter \"%s\"", argv[i]);
-
-		exit(EXIT_FAILURE);
-	}
-
 	if (NULL == CONFIG_FILE)
 		CONFIG_FILE = DEFAULT_CONFIG_FILE;
+
 
 	/* load configuration */
 	if (ZBX_TASK_PRINT_SUPPORTED == task || ZBX_TASK_TEST_METRIC == task)

@@ -335,14 +335,7 @@ if (hasRequest('sform')) {
 	$frmTRLog->addRow(SPACE, $table);
 
 	$sev_select = new CComboBox('priority', $priority);
-
-	$config = select_config();
-
-	$severityNames = array();
-	for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
-		$severityNames[] = getSeverityName($severity, $config);
-	}
-	$sev_select->addItems($severityNames);
+	$sev_select->addItems(getSeverityCaption());
 
 	$frmTRLog->addRow(_('Severity'), $sev_select);
 	$frmTRLog->addRow(_('Comments'), new CTextArea('comments', $comments));

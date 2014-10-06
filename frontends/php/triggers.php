@@ -93,29 +93,21 @@ $_REQUEST['status'] = isset($_REQUEST['status']) ? TRIGGER_STATUS_ENABLED : TRIG
 $_REQUEST['type'] = isset($_REQUEST['type']) ? TRIGGER_MULT_EVENT_ENABLED : TRIGGER_MULT_EVENT_DISABLED;
 
 // validate permissions
-$triggerId = getRequest('triggerid');
-if ($triggerId) {
-	$trigger = (bool) API::Trigger()->get(array(
-		'output' => array(),
-		'triggerids' => $triggerId,
+if (getRequest('triggerid')) {
+	$triggers = API::Trigger()->get(array(
+		'triggerids' => $_REQUEST['triggerid'],
+		'output' => array('triggerid'),
+		'preservekeys' => true,
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
 		'editable' => true
 	));
-	if (!$trigger) {
+	if (!$triggers) {
 		access_deny();
 	}
 }
-
-$groupId = getRequest('groupid');
-if ($groupId && !API::HostGroup()->isWritable(array($groupId))) {
+if (getRequest('hostid') && !API::Host()->isWritable(array($_REQUEST['hostid']))) {
 	access_deny();
 }
-
-$hostId = getRequest('hostid');
-if ($hostId && !API::Host()->isWritable(array($hostId))) {
-	access_deny();
-}
-
 /*
  * Actions
  */
@@ -369,15 +361,12 @@ else {
 	CProfile::update('web.'.$page['file'].'.sort', $sortField, PROFILE_TYPE_STR);
 	CProfile::update('web.'.$page['file'].'.sortorder', $sortOrder, PROFILE_TYPE_STR);
 
-	$config = select_config();
-
 	$data = array(
 		'showdisabled' => getRequest('showdisabled', 1),
 		'parent_discoveryid' => null,
 		'triggers' => array(),
 		'sort' => $sortField,
-		'sortorder' => $sortOrder,
-		'config' => $config
+		'sortorder' => $sortOrder
 	);
 
 	CProfile::update('web.triggers.showdisabled', $data['showdisabled'], PROFILE_TYPE_INT);
@@ -472,11 +461,11 @@ else {
 	// get real hosts
 	$data['realHosts'] = getParentHostsByTriggers($data['triggers']);
 
-	// do not show 'Info' column, if it is a template
-	if ($data['hostid']) {
+	// determine, show or not column of errors
+	if ($data['hostid'] > 0) {
 		$data['showInfoColumn'] = (bool) API::Host()->get(array(
-			'output' => array(),
-			'hostids' => $data['hostid']
+			'hostids' => $data['hostid'],
+			'output' => array('status')
 		));
 	}
 	else {

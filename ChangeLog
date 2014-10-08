@@ -1,27 +1,6 @@
-Changes for 2.5.0
+Changes for 2.4.1
 
-New features:
-...G...... [ZBXNEXT-2325] added CPU guest and guest priority metrics to system.cpu.util[] item, supported on Linux kernels starting from 2.6.24 and 2.6.33 respectively (Juris)
-
-Bug fixes:
-A......... [ZBX-8660] fix API to disallow deleting of discovered entities (items, triggers, graphs, hosts) and add validation so that only allowed fields of discovered entities can be updated (Krists)
-...G...PS. [ZBX-8728] changed item key parameter parsing to use dynamic buffers for parsed parameters (wiper)
-..F....... [ZBX-8816] removed "clear history & trends" button from template web scenarios (arvids)
-..F....... [ZBX-8693] fixed "Add" button in Configuration->Triggers->Create Trigger->Add for IE11 (arvids)
-..F....... [ZBX-8713] improve screen element resource parameter labels (Krists)
-..F....... [ZBX-8643] fixed performance problem in action configuration pages (Ivo)
-...G...... [ZBX-8545] rewrote net.tcp.listen for Linux kernels 2.6.14 and above to employ the kernels NETLINK interface. Old method of information retrieval also improved (Juris)
-...G...PS. [ZBX-8796] added get_process_info_by_thread() function prototype and renamed server_num, process_type and process_num local variables to eliminate conflict with the local ones (igors)
-...G...PS. [ZBX-8763] fixed log message printing to syslog and undefined type log if debug level 5 is set (igors)
-..F....... [ZBX-8671] fixed missing existence and permission checks for hosts and host groups (Krists)
-..F....... [ZBX-7176] removed empty space in icon buttons (Ivo)
-...G...PS. [ZBX-8736] added validation of timestamp values received by the server and sent via zabbix_sender (Juris)
-..F....... [ZBX-8560] fixed web scenario HTTP proxy field placeholder content not fitting into input field (Ivo)
-..F....... [ZBX-8570] fixed colons in frontend filters (Oleg)
-..F....... [ZBX-8659] fixed graphs in screens not respecting "Show legend" setting when in dynamic mode (Krists)
-.D........ [ZBX-5166] replaced '-' with '\-' in man-pages (Andris)
-...G...PS. [ZBX-8391] added stronger command-line parameter validation, revised help and version messages, revised man-pages for Zabbix server, proxy, agent, sender and get utilities (Andris)
-....I..... [ZBX-8658] made various changes to ODBC related m4 scripts to improve readability and library function availability (Juris)
+2.4.1rc2 was released as 2.4.1 without any changes
 
 --------------------------------------------------------------------------------
 Changes for 2.4.1rc2
@@ -447,7 +426,6 @@ New features:
 A.F....... [ZBX-1357] updated Chinese (Taiwan), Italian and Polish translations; thanks to Zabbix translators (Richlv)
 
 Bug fixes:
-........S. [ZBX-8754] fixed crash in escalator when processing an alert without an user, but with a media type set (wiper)
 ..F....... [ZBX-8797] fixed erroneous phantom node ID detection from request parameter when using node-based system converted to nodeless (Krists)
 ...G...... [ZBX-8822] fixed error message being set for vm.memory.size[] items on FreeBSD (asaveljevs)
 ..F....... [ZBX-8693] fixed "Add" button in Configuration->Triggers->Create Trigger->Add for IE11 (arvids)
@@ -1549,7 +1527,6 @@ New features:
 A.F....... [ZBX-1357] updated Spanish translation; thanks to Zabbix translators (Richlv)
 
 Bug fixes:
-........S. [ZBX-8754] fixed crash in escalator when processing an alert without an user, but with a media type set (wiper)
 ..F....... [ZBX-8693] fixed "Add" button in Configuration->Triggers->Create Trigger->Add for IE11 (arvids)
 ........S. [ZBX-8815] fixed adding of host groups to the host by discovery action (Sasha)
 ........S. [ZBX-8798] fixed evaluation of trigger expressions where a suffixed number is followed by a subtraction (asaveljevs)

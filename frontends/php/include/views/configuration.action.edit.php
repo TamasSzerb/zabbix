@@ -72,47 +72,40 @@ $conditionTable->attr('style', 'min-width: 350px;');
 $conditionTable->setHeader(array(_('Label'), _('Name'), _('Action')));
 
 $i = 0;
-
-if ($this->data['action']['filter']['conditions']) {
-	$actionConditionStringValues = actionConditionValueToString(array($this->data['action']), $this->data['config']);
-
-	foreach ($this->data['action']['filter']['conditions'] as $cIdx => $condition) {
-		if (!isset($condition['conditiontype'])) {
-			$condition['conditiontype'] = 0;
-		}
-		if (!isset($condition['operator'])) {
-			$condition['operator'] = 0;
-		}
-		if (!isset($condition['value'])) {
-			$condition['value'] = '';
-		}
-		if (!str_in_array($condition['conditiontype'], $this->data['allowedConditions'])) {
-			continue;
-		}
-
-		$label = isset($condition['formulaid']) ? $condition['formulaid'] : num2letter($i);
-
-		$labelSpan = new CSpan($label, 'label');
-		$labelSpan->setAttribute('data-conditiontype', $condition['conditiontype']);
-		$labelSpan->setAttribute('data-formulaid', $label);
-
-		$conditionTable->addRow(
-			array(
-				$labelSpan,
-				getConditionDescription($condition['conditiontype'], $condition['operator'],
-					$actionConditionStringValues[0][$cIdx]
-				),
-				array(
-					new CButton('remove', _('Remove'), 'javascript: removeCondition('.$i.');', 'link_menu'),
-					new CVar('conditions['.$i.']', $condition)
-				),
-				new CVar('conditions[' . $i . '][formulaid]', $label)
-			),
-			null, 'conditions_'.$i
-		);
-
-		$i++;
+foreach ($this->data['action']['filter']['conditions'] as $condition) {
+	if (!isset($condition['conditiontype'])) {
+		$condition['conditiontype'] = 0;
 	}
+	if (!isset($condition['operator'])) {
+		$condition['operator'] = 0;
+	}
+	if (!isset($condition['value'])) {
+		$condition['value'] = '';
+	}
+	if (!str_in_array($condition['conditiontype'], $this->data['allowedConditions'])) {
+		continue;
+	}
+
+	$label = isset($condition['formulaid']) ? $condition['formulaid'] : num2letter($i);
+
+	$labelSpan = new CSpan($label, 'label');
+	$labelSpan->setAttribute('data-conditiontype', $condition['conditiontype']);
+	$labelSpan->setAttribute('data-formulaid', $label);
+
+	$conditionTable->addRow(
+		array(
+			$labelSpan,
+			get_condition_desc($condition['conditiontype'], $condition['operator'], $condition['value']),
+			array(
+				new CButton('remove', _('Remove'), 'javascript: removeCondition('.$i.');', 'link_menu'),
+				new CVar('conditions['.$i.']', $condition)
+			),
+			new CVar('conditions[' . $i . '][formulaid]', $label)
+		),
+		null, 'conditions_'.$i
+	);
+
+	$i++;
 }
 
 $formula = new CTextBox('formula', $this->data['action']['filter']['formula'], ZBX_TEXTBOX_STANDARD_SIZE);
@@ -245,11 +238,7 @@ switch ($this->data['new_condition']['conditiontype']) {
 
 	case CONDITION_TYPE_TRIGGER_SEVERITY:
 		$condition = new CComboBox('new_condition[value]');
-		$severityNames = array();
-		for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
-			$severityNames[] = getSeverityName($severity, $this->data['config']);
-		}
-		$condition->addItems($severityNames);
+		$condition->addItems(getSeverityCaption());
 		break;
 
 	case CONDITION_TYPE_MAINTENANCE:
@@ -385,99 +374,75 @@ else {
 	$operationsTable->setHeader(array(_('Details'), _('Action')));
 }
 
-if ($this->data['action']['operations']) {
-	$actionOperationDescriptions = getActionOperationDescriptions(array($this->data['action']));
-
-	$defaultMessage = array(
-		'subject' => $this->data['action']['def_shortdata'],
-		'message' => $this->data['action']['def_longdata']
-	);
-
-	$actionOperationHints = getActionOperationHints($this->data['action']['operations'], $defaultMessage);
-
-	foreach ($this->data['action']['operations'] as $operationid => $operation) {
-		if (!str_in_array($operation['operationtype'], $this->data['allowedOperations'])) {
-			continue;
-		}
-		if (!isset($operation['opconditions'])) {
-			$operation['opconditions'] = array();
-		}
-		if (!isset($operation['mediatypeid'])) {
-			$operation['mediatypeid'] = 0;
-		}
-
-		$details = new CSpan($actionOperationDescriptions[0][$operationid]);
-		$details->setHint($actionOperationHints[$operationid]);
-
-		if ($this->data['eventsource'] == EVENT_SOURCE_TRIGGERS
-				|| $this->data['eventsource'] == EVENT_SOURCE_INTERNAL) {
-			$esc_steps_txt = null;
-			$esc_period_txt = null;
-			$esc_delay_txt = null;
-
-			if ($operation['esc_step_from'] < 1) {
-				$operation['esc_step_from'] = 1;
-			}
-
-			$esc_steps_txt = $operation['esc_step_from'].' - '.$operation['esc_step_to'];
-
-			// display N-N as N
-			$esc_steps_txt = ($operation['esc_step_from'] == $operation['esc_step_to'])
-				? $operation['esc_step_from']
-				: $operation['esc_step_from'].' - '.$operation['esc_step_to'];
-
-			$esc_period_txt = $operation['esc_period'] ? $operation['esc_period'] : _('Default');
-			$esc_delay_txt = $delay[$operation['esc_step_from']]
-				? convert_units(array('value' => $delay[$operation['esc_step_from']], 'units' => 'uptime'))
-				: _('Immediately');
-
-			$operationRow = array(
-				$esc_steps_txt,
-				$details,
-				$esc_delay_txt,
-				$esc_period_txt,
-				array(
-					new CSubmit('edit_operationid['.$operationid.']', _('Edit'), null, 'link_menu'),
-					SPACE, SPACE, SPACE,
-					array(
-						new CButton('remove', _('Remove'), 'javascript: removeOperation('.$operationid.');',
-							'link_menu'
-						),
-						new CVar('operations['.$operationid.']', $operation)
-					)
-				)
-			);
-		}
-		else {
-			$operationRow = array(
-				$details,
-				array(
-					new CSubmit('edit_operationid['.$operationid.']', _('Edit'), null, 'link_menu'),
-					SPACE, SPACE, SPACE,
-					array(
-						new CButton('remove', _('Remove'), 'javascript: removeOperation('.$operationid.');',
-							'link_menu'
-						),
-						new CVar('operations['.$operationid.']', $operation)
-					)
-				)
-			);
-		}
-		$operationsTable->addRow($operationRow, null, 'operations_'.$operationid);
-
-		$operation['opmessage_grp'] = isset($operation['opmessage_grp'])
-			? zbx_toHash($operation['opmessage_grp'], 'usrgrpid')
-			: null;
-		$operation['opmessage_usr'] = isset($operation['opmessage_usr'])
-			? zbx_toHash($operation['opmessage_usr'], 'userid')
-			: null;
-		$operation['opcommand_grp'] = isset($operation['opcommand_grp'])
-			? zbx_toHash($operation['opcommand_grp'], 'groupid')
-			: null;
-		$operation['opcommand_hst'] = isset($operation['opcommand_hst'])
-			? zbx_toHash($operation['opcommand_hst'], 'hostid')
-			: null;
+foreach ($this->data['action']['operations'] as $operationid => $operation) {
+	if (!str_in_array($operation['operationtype'], $this->data['allowedOperations'])) {
+		continue;
 	}
+	if (!isset($operation['opconditions'])) {
+		$operation['opconditions'] = array();
+	}
+	if (!isset($operation['mediatypeid'])) {
+		$operation['mediatypeid'] = 0;
+	}
+
+	$details = new CSpan(get_operation_descr(SHORT_DESCRIPTION, $operation));
+	$details->setHint(get_operation_descr(LONG_DESCRIPTION, $operation));
+
+	if ($this->data['eventsource'] == EVENT_SOURCE_TRIGGERS || $this->data['eventsource'] == EVENT_SOURCE_INTERNAL) {
+		$esc_steps_txt = null;
+		$esc_period_txt = null;
+		$esc_delay_txt = null;
+
+		if ($operation['esc_step_from'] < 1) {
+			$operation['esc_step_from'] = 1;
+		}
+
+		$esc_steps_txt = $operation['esc_step_from'].' - '.$operation['esc_step_to'];
+
+		// display N-N as N
+		$esc_steps_txt = ($operation['esc_step_from'] == $operation['esc_step_to'])
+			? $operation['esc_step_from']
+			: $operation['esc_step_from'].' - '.$operation['esc_step_to'];
+
+		$esc_period_txt = $operation['esc_period'] ? $operation['esc_period'] : _('Default');
+		$esc_delay_txt = $delay[$operation['esc_step_from']]
+			? convert_units(array('value' => $delay[$operation['esc_step_from']], 'units' => 'uptime'))
+			: _('Immediately');
+
+		$operationRow = array(
+			$esc_steps_txt,
+			$details,
+			$esc_delay_txt,
+			$esc_period_txt,
+			array(
+				new CSubmit('edit_operationid['.$operationid.']', _('Edit'), null, 'link_menu'),
+				SPACE, SPACE, SPACE,
+				array(
+					new CButton('remove', _('Remove'), 'javascript: removeOperation('.$operationid.');', 'link_menu'),
+					new CVar('operations['.$operationid.']', $operation)
+				)
+			)
+		);
+	}
+	else {
+		$operationRow = array(
+			$details,
+			array(
+				new CSubmit('edit_operationid['.$operationid.']', _('Edit'), null, 'link_menu'),
+				SPACE, SPACE, SPACE,
+				array(
+					new CButton('remove', _('Remove'), 'javascript: removeOperation('.$operationid.');', 'link_menu'),
+					new CVar('operations['.$operationid.']', $operation)
+				)
+			)
+		);
+	}
+	$operationsTable->addRow($operationRow, null, 'operations_'.$operationid);
+
+	$operation['opmessage_grp'] = isset($operation['opmessage_grp']) ? zbx_toHash($operation['opmessage_grp'], 'usrgrpid') : null;
+	$operation['opmessage_usr'] = isset($operation['opmessage_usr']) ? zbx_toHash($operation['opmessage_usr'], 'userid') : null;
+	$operation['opcommand_grp'] = isset($operation['opcommand_grp']) ? zbx_toHash($operation['opcommand_grp'], 'groupid') : null;
+	$operation['opcommand_hst'] = isset($operation['opcommand_hst']) ? zbx_toHash($operation['opcommand_hst'], 'hostid') : null;
 }
 
 $footer = array();
@@ -982,12 +947,7 @@ if (!empty($this->data['new_operation'])) {
 		$operationConditionsTable->setHeader(array(_('Label'), _('Name'), _('Action')));
 
 		$i = 0;
-
-		$operationConditionStringValues = actionOperationConditionValueToString(
-			$this->data['new_operation']['opconditions']
-		);
-
-		foreach ($this->data['new_operation']['opconditions'] as $cIdx => $opcondition) {
+		foreach ($this->data['new_operation']['opconditions'] as $opcondition) {
 			if (!isset($opcondition['conditiontype'])) {
 				$opcondition['conditiontype'] = 0;
 			}
@@ -1008,9 +968,7 @@ if (!empty($this->data['new_operation'])) {
 			$operationConditionsTable->addRow(
 				array(
 					$labelCol,
-					getConditionDescription($opcondition['conditiontype'], $opcondition['operator'],
-						$operationConditionStringValues[$cIdx]
-					),
+					get_condition_desc($opcondition['conditiontype'], $opcondition['operator'], $opcondition['value']),
 					array(
 						new CButton('remove', _('Remove'), 'javascript: removeOperationCondition('.$i.');', 'link_menu'),
 						new CVar('new_operation[opconditions]['.$i.'][conditiontype]', $opcondition['conditiontype']),

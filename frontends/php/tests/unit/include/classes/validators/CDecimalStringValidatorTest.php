@@ -22,12 +22,6 @@ class CDecimalStringValidatorTest extends CValidatorTest {
 
 	public function validValuesProvider() {
 		return array(
-			array(array(), 0),
-			array(array(), '0'),
-			array(array(), '1'),
-			array(array(), '1.0'),
-			array(array(), 1.0),
-			array(array(), 1),
 			array(array(), '1e5'),
 			array(array(), '1E5'),
 			array(array(), '123e5'),
@@ -65,14 +59,14 @@ class CDecimalStringValidatorTest extends CValidatorTest {
 	public function invalidValuesProvider() {
 		return array(
 			array(
-				array('messageInvalid' => 'Invalid decimal "%1$s"'),
+				array('messageInvalid' => 'Invalid decimal'),
 				'',
-				'Invalid decimal ""'
+				'Invalid decimal'
 			),
 			array(
-				array('messageInvalid' => 'Invalid decimal "%1$s"'),
+				array('messageInvalid' => 'Invalid decimal'),
 				'--1.0',
-				'Invalid decimal "--1.0"'
+				'Invalid decimal'
 			),
 			array(
 				array('messageInvalid' => 'Invalid decimal "%1$s"'),
@@ -80,34 +74,34 @@ class CDecimalStringValidatorTest extends CValidatorTest {
 				'Invalid decimal "array"'
 			),
 			array(
-				array('messageInvalid' => 'Invalid decimal "%1$s"'),
+				array('messageInvalid' => 'Invalid decimal'),
 				'.1e2',
-				'Invalid decimal ".1e2"'
+				'Invalid decimal'
 			),
 			array(
-				array('messageInvalid' => 'Invalid decimal "%1$s"'),
+				array('messageInvalid' => 'Invalid decimal'),
 				'1.2e2.5',
-				'Invalid decimal "1.2e2.5"'
+				'Invalid decimal'
 			),
 			array(
-				array('messageInvalid' => 'Invalid decimal "%1$s"'),
+				array('messageInvalid' => 'Invalid decimal'),
 				'1.e2',
-				'Invalid decimal "1.e2"'
+				'Invalid decimal'
 			),
 			array(
-				array('messageInvalid' => 'Invalid decimal "%1$s"'),
+				array('messageInvalid' => 'Invalid decimal'),
 				'..4',
-				'Invalid decimal "..4"'
+				'Invalid decimal'
 			),
 			array(
-				array('messageInvalid' => 'Invalid decimal "%1$s"'),
+				array('messageInvalid' => 'Invalid decimal'),
 				'4..',
-				'Invalid decimal "4.."'
+				'Invalid decimal'
 			),
 			array(
-				array('messageInvalid' => 'Invalid decimal "%1$s"'),
+				array('messageInvalid' => 'Invalid decimal'),
 				'.4.',
-				'Invalid decimal ".4."'
+				'Invalid decimal'
 			),
 		);
 	}
@@ -115,14 +109,14 @@ class CDecimalStringValidatorTest extends CValidatorTest {
 	public function invalidValuesWithObjectsProvider() {
 		return array(
 			array(
-				array('messageInvalid' => 'Invalid decimal value "%2$s" for "%1$s"'),
+				array('messageInvalid' => 'Invalid decimal value for "%1$s"'),
 				'',
-				'Invalid decimal value "" for "object"'
+				'Invalid decimal value for "object"'
 			),
 			array(
-				array('messageInvalid' => 'Invalid decimal value "%2$s" for "%1$s"'),
+				array('messageInvalid' => 'Invalid decimal value for "%1$s"'),
 				array(),
-				'Invalid decimal value "array" for "object"'
+				'Invalid decimal value for "object"'
 			),
 			array(
 				array('messageInvalid' => 'Invalid decimal value "%2$s" for "%1$s"'),

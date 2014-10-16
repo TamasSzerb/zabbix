@@ -27,7 +27,7 @@ class CJs {
 	/**
 	 * The object used to encode values in JSON.
 	 *
-	 * @var CJson
+	 * @var CJSON
 	 */
 	protected static $json;
 
@@ -43,7 +43,7 @@ class CJs {
 	 */
 	public static function encodeJson($data, $forceObject = false) {
 		if (self::$json === null) {
-			self::$json = new CJson();
+			self::$json = new CJSON();
 		}
 
 		return self::$json->encode($data, array(), $forceObject);
@@ -61,7 +61,7 @@ class CJs {
 	 */
 	public static function decodeJson($data, $asArray = true) {
 		if (self::$json === null) {
-			self::$json = new CJson();
+			self::$json = new CJSON();
 		}
 
 		return self::$json->decode($data, $asArray);

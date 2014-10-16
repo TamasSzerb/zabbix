@@ -22,8 +22,13 @@
 $proxyWidget = new CWidget();
 
 // create new proxy button
+$configComboBox = new CComboBox('config', 'proxies.php', 'javascript: redirect(this.options[this.selectedIndex].value);');
+$configComboBox->addItem('nodes.php', _('Nodes'));
+$configComboBox->addItem('proxies.php', _('Proxies'));
+
 $createForm = new CForm('get');
 $createForm->cleanItems();
+$createForm->addItem($configComboBox);
 $createForm->addItem(new CSubmit('form', _('Create proxy')));
 $proxyWidget->addPageHeader(_('CONFIGURATION OF PROXIES'), $createForm);
 $proxyWidget->addHeader(_('Proxies'));
@@ -37,7 +42,8 @@ $proxyForm->setName('proxyForm');
 $proxyTable = new CTableInfo(_('No proxies found.'));
 $proxyTable->setHeader(array(
 	new CCheckBox('all_hosts', null, "checkAll('".$proxyForm->getName()."', 'all_hosts', 'hosts');"),
-	make_sorting_header(_('Name'), 'host', $this->data['sort'], $this->data['sortorder']),
+	$this->data['displayNodes'] ? _('Node') : null,
+	make_sorting_header(_('Name'), 'host'),
 	_('Mode'),
 	_('Last seen (age)'),
 	_('Host count'),
@@ -54,11 +60,8 @@ foreach ($this->data['proxies'] as $proxy) {
 
 		foreach ($proxy['hosts'] as $host) {
 			if ($i > $this->data['config']['max_in_table']) {
-				$hosts[] = ' &hellip;';
-
 				break;
 			}
-
 			$i++;
 
 			if ($host['status'] == HOST_STATUS_MONITORED) {
@@ -71,12 +74,11 @@ foreach ($this->data['proxies'] as $proxy) {
 				$style = 'on';
 			}
 
-			if ($hosts) {
-				$hosts[] = ', ';
-			}
-
 			$hosts[] = new CLink($host['name'], 'hosts.php?form=update&hostid='.$host['hostid'], $style);
+			$hosts[] = ', ';
 		}
+
+		array_pop($hosts);
 	}
 
 	$lastAccess = '-';
@@ -86,6 +88,7 @@ foreach ($this->data['proxies'] as $proxy) {
 
 	$proxyTable->addRow(array(
 		new CCheckBox('hosts['.$proxy['proxyid'].']', null, null, $proxy['proxyid']),
+		$this->data['displayNodes'] ? $proxy['nodename'] : null,
 		isset($proxy['host']) ? new CLink($proxy['host'], 'proxies.php?form=update&proxyid='.$proxy['proxyid']) : '',
 		(isset($proxy['status']) && $proxy['status'] == HOST_STATUS_PROXY_ACTIVE) ? _('Active') : _('Passive'),
 		$lastAccess,
@@ -97,17 +100,16 @@ foreach ($this->data['proxies'] as $proxy) {
 }
 
 // create go buttons
-$goComboBox = new CComboBox('action');
-
-$goOption = new CComboItem('proxy.massenable', _('Enable selected'));
+$goComboBox = new CComboBox('go');
+$goOption = new CComboItem('activate', _('Enable selected'));
 $goOption->setAttribute('confirm', _('Enable hosts monitored by selected proxies?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('proxy.massdisable', _('Disable selected'));
+$goOption = new CComboItem('disable', _('Disable selected'));
 $goOption->setAttribute('confirm', _('Disable hosts monitored by selected proxies?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('proxy.massdelete', _('Delete selected'));
+$goOption = new CComboItem('delete', _('Delete selected'));
 $goOption->setAttribute('confirm', _('Delete selected proxies?'));
 $goComboBox->addItem($goOption);
 

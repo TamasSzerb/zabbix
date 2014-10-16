@@ -33,8 +33,9 @@ else {
 // create form
 $userForm = new CForm();
 $userForm->setName('userForm');
-$userForm->addVar('config', getRequest('config', 0));
+$userForm->addVar('config', get_request('config', 0));
 $userForm->addVar('form', $this->data['form']);
+$userForm->addVar('form_refresh', $this->data['form_refresh'] + 1);
 
 if (isset($_REQUEST['userid'])) {
 	$userForm->addVar('userid', $this->data['userid']);
@@ -49,7 +50,7 @@ if (!$data['is_profile']) {
 	$nameTextBox = new CTextBox('alias', $this->data['alias'], ZBX_TEXTBOX_STANDARD_SIZE);
 	$nameTextBox->attr('autofocus', 'autofocus');
 	$userFormList->addRow(_('Alias'), $nameTextBox);
-	$userFormList->addRow(_x('Name', 'user first name'), new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE));
+	$userFormList->addRow(_('Name'), new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE));
 	$userFormList->addRow(_('Surname'), new CTextBox('surname', $this->data['surname'], ZBX_TEXTBOX_STANDARD_SIZE));
 }
 
@@ -151,20 +152,13 @@ $themeComboBox = new CComboBox('theme', $this->data['theme'], null, $themes);
 $userFormList->addRow(_('Theme'), $themeComboBox);
 
 // append auto-login & auto-logout to form list
-$autologoutCheckBox = new CCheckBox('autologout_visible', isset($this->data['autologout']) ? 'yes': 'no');
-if (isset($this->data['autologout'])) {
-	$autologoutTextBox = new CNumericBox('autologout', $this->data['autologout'], 4);
-}
-else {
-	$autologoutTextBox = new CNumericBox('autologout', 900, 4);
+$autologoutCheckBox = new CCheckBox('autologout_visible', ($this->data['autologout'] == 0) ? 'no' : 'yes');
+$autologoutTextBox = new CNumericBox('autologout', ($this->data['autologout'] == 0) ? '900' : $this->data['autologout'], 4);
+if (!$this->data['autologout']) {
 	$autologoutTextBox->setAttribute('disabled', 'disabled');
 }
-
-if ($this->data['alias'] != ZBX_GUEST_USER) {
-	$userFormList->addRow(_('Auto-login'), new CCheckBox('autologin', $this->data['autologin'], null, 1));
-	$userFormList->addRow(_('Auto-logout (min 90 seconds)'), array($autologoutCheckBox, $autologoutTextBox));
-}
-
+$userFormList->addRow(_('Auto-login'), new CCheckBox('autologin', $this->data['autologin'], null, 1));
+$userFormList->addRow(_('Auto-logout (min 90 seconds)'), array($autologoutCheckBox, $autologoutTextBox));
 $userFormList->addRow(_('Refresh (in seconds)'), new CNumericBox('refresh', $this->data['refresh'], 4));
 $userFormList->addRow(_('Rows per page'), new CNumericBox('rows_per_page', $this->data['rows_per_page'], 6));
 $userFormList->addRow(_('URL (after login)'), new CTextBox('url', $this->data['url'], ZBX_TEXTBOX_STANDARD_SIZE));
@@ -196,13 +190,11 @@ if (uint_in_array(CWebUser::$data['type'], array(USER_TYPE_ZABBIX_ADMIN, USER_TY
 						'&severity='.$media['severity'].
 						'&active='.$media['active'];
 
-		for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
-			$severityName = getSeverityName($severity, $this->data['config']);
+		foreach (getSeverityCaption() as $key => $caption) {
+			$mediaActive = ($media['severity'] & (1 << $key));
 
-			$mediaActive = ($media['severity'] & (1 << $severity));
-
-			$mediaSeverity[$severity] = new CSpan(mb_substr($severityName, 0, 1), $mediaActive ? 'enabled' : null);
-			$mediaSeverity[$severity]->setHint($severityName.($mediaActive ? ' ('._('on').')' : ' ('._('off').')'));
+			$mediaSeverity[$key] = new CSpan(zbx_substr($caption, 0, 1), $mediaActive ? 'enabled' : null);
+			$mediaSeverity[$key]->setHint($caption.($mediaActive ? ' (on)' : ' (off)'));
 		}
 
 		$mediaTableInfo->addRow(array(
@@ -251,7 +243,7 @@ if ($this->data['is_profile']) {
 		SPACE,
 		$soundList,
 		new CButton('start', _('Play'), "javascript: testUserSound('messages_sounds.recovery');", 'formlist'),
-		new CButton('stop', _('Stop'), 'javascript: AudioControl.stop();', 'formlist')
+		new CButton('stop', _('Stop'), 'javascript: AudioList.stopAll();', 'formlist')
 	);
 
 	$triggersTable = new CTable('', 'invisible');
@@ -268,7 +260,15 @@ if ($this->data['is_profile']) {
 	));
 
 	// trigger sounds
-	for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
+	$severities = array(
+		TRIGGER_SEVERITY_NOT_CLASSIFIED,
+		TRIGGER_SEVERITY_INFORMATION,
+		TRIGGER_SEVERITY_WARNING,
+		TRIGGER_SEVERITY_AVERAGE,
+		TRIGGER_SEVERITY_HIGH,
+		TRIGGER_SEVERITY_DISASTER
+	);
+	foreach ($severities as $severity) {
 		$soundList = new CComboBox('messages[sounds.'.$severity.']', $this->data['messages']['sounds.'.$severity]);
 		foreach ($zbxSounds as $filename => $file) {
 			$soundList->addItem($file, $filename);
@@ -276,11 +276,11 @@ if ($this->data['is_profile']) {
 
 		$triggersTable->addRow(array(
 			new CCheckBox('messages[triggers.severities]['.$severity.']', isset($this->data['messages']['triggers.severities'][$severity]), null, 1),
-			getSeverityName($severity, $this->data['config']),
+			getSeverityCaption($severity),
 			SPACE,
 			$soundList,
 			new CButton('start', _('Play'), "javascript: testUserSound('messages_sounds.".$severity."');", 'formlist'),
-			new CButton('stop', _('Stop'), 'javascript: AudioControl.stop();', 'formlist')
+			new CButton('stop', _('Stop'), 'javascript: AudioList.stopAll();', 'formlist')
 		));
 
 		zbx_subarray_push($msgVisibility, 1, 'messages[triggers.severities]['.$severity.']');
@@ -372,33 +372,28 @@ if (isset($userMessagingFormList)) {
 $userForm->addItem($userTab);
 
 // append buttons to form
-if (isset($this->data['userid'])) {
+if (empty($this->data['userid'])) {
+	$userForm->addItem(makeFormFooter(new CSubmit('save', _('Save')), new CButtonCancel(url_param('config'))));
+}
+else {
 	if ($this->data['is_profile']) {
-		$deleteButton = null;
+		$userForm->addItem(makeFormFooter(new CSubmit('save', _('Save')), new CButtonCancel(url_param('config'))));
 	}
 	else {
-		$deleteButton = new CButtonDelete(
-			_('Delete selected user?'),
-			url_param('form').url_param('userid').url_param('config')
-		);
+		$deleteButton = new CButtonDelete(_('Delete selected user?'), url_param('form').url_param('userid').url_param('config'));
+
 		if (bccomp(CWebUser::$data['userid'], $this->data['userid']) == 0) {
 			$deleteButton->setAttribute('disabled', 'disabled');
 		}
-	}
 
-	$userForm->addItem(makeFormFooter(
-		new CSubmit('update', _('Update')),
-		array(
-			$deleteButton,
-			new CButtonCancel(url_param('config'))
-		)
-	));
-}
-else {
-	$userForm->addItem(makeFormFooter(
-		new CSubmit('add', _('Add')),
-		new CButtonCancel(url_param('config'))
-	));
+		$userForm->addItem(makeFormFooter(
+			new CSubmit('save', _('Save')),
+			array(
+				$deleteButton,
+				new CButtonCancel(url_param('config'))
+			)
+		));
+	}
 }
 
 // append form to widget

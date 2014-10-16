@@ -36,8 +36,8 @@ $fields = array(
 );
 check_fields($fields);
 
-$period = getRequest('period', 'weekly');
-$year = getRequest('year', date('Y'));
+$period = get_request('period', 'weekly');
+$year = get_request('year', date('Y'));
 
 define('YEAR_LEFT_SHIFT', 5);
 
@@ -93,7 +93,7 @@ switch ($period) {
 		}
 
 		function format_time($t) {
-			return zbx_date2str(_x('Y', DATE_FORMAT_CONTEXT), $t);
+			return zbx_date2str(_('Y'), $t);
 		}
 
 		function format_time2($t) {
@@ -111,7 +111,7 @@ switch ($period) {
 		}
 
 		function format_time($t) {
-			return zbx_date2str(_x('F', DATE_FORMAT_CONTEXT), $t);
+			return zbx_date2str(_('M Y'), $t);
 		}
 
 		function format_time2($t) {
@@ -129,7 +129,7 @@ switch ($period) {
 		}
 
 		function format_time($t) {
-			return zbx_date2str(DATE_FORMAT, $t);
+			return zbx_date2str(_('d M Y'), $t);
 		}
 
 		function format_time2($t) {
@@ -156,7 +156,7 @@ switch ($period) {
 		}
 
 		function format_time($t) {
-			return zbx_date2str(DATE_TIME_FORMAT, $t);
+			return zbx_date2str(_('d M Y H:i'), $t);
 		}
 
 		function format_time2($t) {
@@ -227,3 +227,4 @@ foreach ($sla['sla'] as $intervalSla) {
 $table->show();
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

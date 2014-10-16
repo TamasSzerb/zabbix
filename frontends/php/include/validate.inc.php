@@ -44,6 +44,14 @@ function BETWEEN($min, $max, $var = null) {
 	return '({'.$var.'}>='.$min.'&&{'.$var.'}<='.$max.')&&';
 }
 
+function REGEXP($regexp, $var = null) {
+	return "(preg_match(\"".$regexp."\", {".$var."}))&&";
+}
+
+function GT($value, $var = '') {
+	return '({'.$var.'}>='.$value.')&&';
+}
+
 function IN($array, $var = '') {
 	if (is_array($array)) {
 		$array = implode(',', $array);
@@ -183,7 +191,7 @@ function validate_ip_range_range($ip_range) {
 
 function validate_ip_range($str) {
 	foreach (explode(',', $str) as $ip_range) {
-		if (strpos($ip_range, '/') !== false) {
+		if (zbx_strpos($ip_range, '/') !== false) {
 			if (!validate_ip_range_mask($ip_range)) {
 				return false;
 			}
@@ -213,7 +221,7 @@ function validate_port_list($str) {
 }
 
 function calc_exp($fields, $field, $expression) {
-	if (strpos($expression, '{}') !== false) {
+	if (zbx_strstr($expression, '{}')) {
 		if (!isset($_REQUEST[$field])) {
 			return false;
 		}
@@ -236,8 +244,8 @@ function calc_exp($fields, $field, $expression) {
 }
 
 function calc_exp2($fields, $expression) {
-	foreach ($fields as $field => $checks) {
-		$expression = str_replace('{'.$field.'}', '$_REQUEST["'.$field.'"]', $expression);
+	foreach ($fields as $f => $checks) {
+		$expression = str_replace('{'.$f.'}', '$_REQUEST["'.$f.'"]', $expression);
 	}
 	return eval('return ('.trim($expression, '& ').') ? 1 : 0;');
 }
@@ -322,7 +330,7 @@ function check_type(&$field, $flags, &$var, $type, $caption = null) {
 		$decimalValidator = new CDecimalValidator(array(
 			'maxPrecision' => 16,
 			'maxScale' => 4,
-			'messageInvalid' => _('Value "%2$s" of "%1$s" has incorrect decimal format.'),
+			'messageFormat' => _('Value "%2$s" of "%1$s" has incorrect decimal format.'),
 			'messagePrecision' => _(
 				'Value "%2$s" of "%1$s" is too long: it cannot have more than %3$s digits before the decimal point '.
 				'and more than %4$s digits after the decimal point.'
@@ -346,7 +354,7 @@ function check_type(&$field, $flags, &$var, $type, $caption = null) {
 	elseif ($type == T_ZBX_DBL_BIG) {
 		$decimalValidator = new CDecimalValidator(array(
 			'maxScale' => 4,
-			'messageInvalid' => _('Value "%2$s" of "%1$s" has incorrect decimal format.'),
+			'messageFormat' => _('Value "%2$s" of "%1$s" has incorrect decimal format.'),
 			'messageScale' => _(
 				'Value "%2$s" of "%1$s" has too many digits after the decimal point: '.
 				'it cannot have more than %3$s digits.'
@@ -470,7 +478,7 @@ function check_field(&$fields, &$field, $checks) {
 		}
 	}
 
-	if (!($flags & P_NO_TRIM)) {
+	if (!($flags & NO_TRIM)) {
 		check_trim($_REQUEST[$field]);
 	}
 
@@ -526,8 +534,11 @@ function check_fields(&$fields, $show_messages = true) {
 	// VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 	$system_fields = array(
 		'sid' =>			array(T_ZBX_STR, O_OPT, P_SYS, HEX(),		null),
+		'switch_node' =>	array(T_ZBX_INT, O_OPT, P_SYS, DB_ID,		null),
 		'triggers_hash' =>	array(T_ZBX_STR, O_OPT, P_SYS, NOT_EMPTY,	null),
 		'print' =>			array(T_ZBX_INT, O_OPT, P_SYS, IN('1'),		null),
+		'sort' =>			array(T_ZBX_STR, O_OPT, P_SYS, null,		null),
+		'sortorder' =>		array(T_ZBX_STR, O_OPT, P_SYS, null,		null),
 		'page' =>			array(T_ZBX_INT, O_OPT, P_SYS, null,		null), // paging
 		'ddreset' =>		array(T_ZBX_INT, O_OPT, P_SYS, null,		null)
 	);

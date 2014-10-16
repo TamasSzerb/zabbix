@@ -91,7 +91,8 @@ static int	ssh_run(DC_ITEM *item, AGENT_RESULT *result, const char *encoding)
 
 	if (FAIL == zbx_tcp_connect(&s, CONFIG_SOURCE_IP, item->interface.addr, item->interface.port, 0))
 	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot connect to SSH server: %s", zbx_tcp_strerror()));
+		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot connect to SSH server: %s",
+				zbx_tcp_strerror()));
 		goto close;
 	}
 
@@ -264,8 +265,8 @@ static int	ssh_run(DC_ITEM *item, AGENT_RESULT *result, const char *encoding)
 			if (0 < (rc = libssh2_channel_read(channel, buf, sizeof(buf))))
 			{
 				sz = (size_t)rc;
-				if (sz > (size_t)(MAX_BUFFER_LEN - (bytecount + 1)))
-					sz = (size_t)(MAX_BUFFER_LEN - (bytecount + 1));
+				if (sz > MAX_BUFFER_LEN - (bytecount + 1))
+					sz = MAX_BUFFER_LEN - (bytecount + 1);
 				if (0 == sz)
 					continue;
 
@@ -337,54 +338,42 @@ close:
 
 int	get_value_ssh(DC_ITEM *item, AGENT_RESULT *result)
 {
-	AGENT_REQUEST	request;
-	int		ret = NOTSUPPORTED;
-	const char	*port, *encoding, *dns;
+	char	cmd[MAX_STRING_LEN], params[MAX_STRING_LEN], dns[INTERFACE_DNS_LEN_MAX],
+		port[8], encoding[32];
 
-	init_request(&request);
+	if (ZBX_COMMAND_ERROR == parse_command(item->key, cmd, sizeof(cmd), params, sizeof(params)))
+		return NOTSUPPORTED;
 
-	if (SUCCEED != parse_item_key(item->key, &request))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid item key format."));
-		goto out;
-	}
+	if (0 != strcmp(SSH_RUN_KEY, cmd))
+		return NOTSUPPORTED;
 
-	if (0 != strcmp(SSH_RUN_KEY, get_rkey(&request)))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Unsupported item key for this item type."));
-		goto out;
-	}
+	if (num_param(params) > 4)
+		return NOTSUPPORTED;
 
-	if (4 < get_rparams_num(&request))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		goto out;
-	}
+	if (0 != get_param(params, 2, dns, sizeof(dns)))
+		*dns = '\0';
 
-	if (NULL != (dns = get_rparam(&request, 1)) && '\0' != *dns)
+	if ('\0' != *dns)
 	{
 		strscpy(item->interface.dns_orig, dns);
 		item->interface.addr = item->interface.dns_orig;
 	}
 
-	if (NULL != (port = get_rparam(&request, 2)) && '\0' != *port)
+	if (0 != get_param(params, 3, port, sizeof(port)))
+		*port = '\0';
+
+	if (0 != get_param(params, 4, encoding, sizeof(encoding)))
+		*encoding = '\0';
+
+	if ('\0' != *port)
 	{
 		if (FAIL == is_ushort(port, &item->interface.port))
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
-			goto out;
-		}
+			return NOTSUPPORTED;
 	}
 	else
 		item->interface.port = ZBX_DEFAULT_SSH_PORT;
 
-	encoding = get_rparam(&request, 3);
-
-	ret = ssh_run(item, result, ZBX_NULL2EMPTY_STR(encoding));
-out:
-	free_request(&request);
-
-	return ret;
+	return ssh_run(item, result, encoding);
 }
 
 #endif	/* HAVE_SSH2 */

@@ -74,10 +74,9 @@
 
 typedef struct
 {
-	int		server_num;
-	int		process_num;
-	unsigned char	process_type;
-	void		*args;
+	int	thread_num;	/* number of thread in a group of all agent threads */
+	int	thread_num2;	/* number of thread in a specific group of threads (e.g. listeners) */
+	void	*args;
 }
 zbx_thread_args_t;
 

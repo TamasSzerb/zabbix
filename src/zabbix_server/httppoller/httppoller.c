@@ -28,8 +28,8 @@
 #include "httppoller.h"
 
 extern int		CONFIG_HTTPPOLLER_FORKS;
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	process_type;
+extern int		process_num;
 
 /******************************************************************************
  *                                                                            *
@@ -60,11 +60,13 @@ static int	get_minnextcheck(int now)
 				" and t.status=%d"
 				" and h.proxy_hostid is null"
 				" and h.status=%d"
-				" and (h.maintenance_status=%d or h.maintenance_type=%d)",
+				" and (h.maintenance_status=%d or h.maintenance_type=%d)"
+				ZBX_SQL_NODE,
 			CONFIG_HTTPPOLLER_FORKS, process_num - 1,
 			HTTPTEST_STATUS_MONITORED,
 			HOST_STATUS_MONITORED,
-			HOST_MAINTENANCE_STATUS_OFF, MAINTENANCE_TYPE_NORMAL);
+			HOST_MAINTENANCE_STATUS_OFF, MAINTENANCE_TYPE_NORMAL,
+			DBand_node_local("t.httptestid"));
 
 	if (NULL == (row = DBfetch(result)) || SUCCEED == DBis_null(row[0]))
 	{
@@ -94,18 +96,11 @@ static int	get_minnextcheck(int now)
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(httppoller_thread, args)
+void	main_httppoller_loop(void)
 {
 	int	now, nextcheck, sleeptime = -1, httptests_count = 0, old_httptests_count = 0;
 	double	sec, total_sec = 0.0, old_total_sec = 0.0;
 	time_t	last_stat_time;
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
 
 #define STAT_INTERVAL	5	/* if a process is busy and does not sleep then update status not faster than */
 				/* once in STAT_INTERVAL seconds */

@@ -26,35 +26,52 @@
 int	USER_PERF_COUNTER(AGENT_REQUEST *request, AGENT_RESULT *result)
 {
 	const char		*__function_name = "USER_PERF_COUNTER";
+	PERF_COUNTER_DATA	*perfs = NULL;
 	int			ret = SYSINFO_RET_FAIL;
-	char			*counter, *error = NULL;
 	double			value;
+	char			*counter;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
 	if (1 != request->nparam)
+		return SYSINFO_RET_FAIL;
+
+	counter = get_rparam(request, 0);
+
+	if (NULL == counter || '\0' == *counter)
+		return SYSINFO_RET_FAIL;
+
+	if (SUCCEED != perf_collector_started())
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid number of parameters."));
-		goto out;
+		zabbix_log(LOG_LEVEL_DEBUG, "Collector is not started!");
+		return ret;
 	}
 
-	if (NULL == (counter = get_rparam(request, 0)) || '\0' == *counter)
+	for (perfs = ppsd.pPerfCounterList; NULL != perfs; perfs = perfs->next)
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		goto out;
+		if (NULL != perfs->name && 0 == strcmp(perfs->name, counter))
+		{
+			if (PERF_COUNTER_ACTIVE == perfs->status)
+			{
+				SET_DBL_RESULT(result, compute_average_value(perfs, USE_DEFAULT_INTERVAL));
+				ret = SYSINFO_RET_OK;
+			}
+
+			break;
+		}
 	}
 
-	if (SUCCEED != get_perf_counter_value_by_name(counter, &value, &error))
+	if (SYSINFO_RET_OK != ret && NULL != perfs)
 	{
-		SET_MSG_RESULT(result, error != NULL ? error :
-				zbx_strdup(NULL, "Cannot obtain performance information from collector."));
-		goto out;
+		if (ERROR_SUCCESS == calculate_counter_value(__function_name, perfs->counterpath, &value))
+		{
+			perfs->status = PERF_COUNTER_INITIALIZED;
+			SET_DBL_RESULT(result, value);
+			ret = SYSINFO_RET_OK;
+		}
 	}
 
-	SET_DBL_RESULT(result, value);
-	ret = SYSINFO_RET_OK;
-out:
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 
 	return ret;
 }
@@ -62,61 +79,68 @@ out:
 int	PERF_COUNTER(AGENT_REQUEST *request, AGENT_RESULT *result)
 {
 	const char		*__function_name = "PERF_COUNTER";
-	char			counterpath[PDH_MAX_COUNTER_PATH], *tmp, *error = NULL;
+	char			counterpath[PDH_MAX_COUNTER_PATH], *tmp;
 	int			interval, ret = SYSINFO_RET_FAIL;
 	double			value;
+	PERF_COUNTER_DATA	*perfs = NULL;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
 	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		goto out;
-	}
+		goto clean;
 
 	tmp = get_rparam(request, 0);
 
 	if (NULL == tmp || '\0' == *tmp)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		goto out;
-	}
+		goto clean;
 
 	strscpy(counterpath, tmp);
 
-	if (NULL == (tmp = get_rparam(request, 1)) || '\0' == *tmp)
-	{
-		interval = 1;
-	}
-	else if (FAIL == is_uint31(tmp, &interval))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
-		goto out;
-	}
+	tmp = get_rparam(request, 1);
 
-	if (1 > interval || MAX_COLLECTOR_PERIOD < interval)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Interval out of range."));
-		goto out;
-	}
+	if (NULL == tmp || '\0' == *tmp)
+		interval = 1;
+	else if (FAIL == is_uint31(tmp, &interval))
+		goto clean;
 
 	if (FAIL == check_counter_path(counterpath))
+		goto clean;
+
+	if (1 < interval)
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid performance counter path."));
-		goto out;
+		if (SUCCEED != perf_collector_started())
+		{
+			zabbix_log(LOG_LEVEL_DEBUG, "Collector is not started!");
+			goto clean;
+		}
+
+		for (perfs = ppsd.pPerfCounterList; NULL != perfs; perfs = perfs->next)
+		{
+			if (0 == strcmp(perfs->counterpath, counterpath) && perfs->interval == interval)
+			{
+				if (PERF_COUNTER_ACTIVE != perfs->status)
+					break;
+
+				SET_DBL_RESULT(result, compute_average_value(perfs, USE_DEFAULT_INTERVAL));
+				ret = SYSINFO_RET_OK;
+				goto clean;
+			}
+		}
+
+		if (NULL == perfs && NULL == (perfs = add_perf_counter(NULL, counterpath, interval)))
+			goto clean;
 	}
 
-	if (SUCCEED != get_perf_counter_value_by_path(counterpath, interval, &value, &error))
+	if (ERROR_SUCCESS == calculate_counter_value(__function_name, counterpath, &value))
 	{
-		SET_MSG_RESULT(result, error != NULL ? error :
-				zbx_strdup(NULL, "Cannot obtain performance information from collector."));
-		goto out;
-	}
+		if (NULL != perfs)
+			perfs->status = PERF_COUNTER_INITIALIZED;
 
-	ret = SYSINFO_RET_OK;
-	SET_DBL_RESULT(result, value);
-out:
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
+		SET_DBL_RESULT(result, value);
+		ret = SYSINFO_RET_OK;
+	}
+clean:
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 
 	return ret;
 }

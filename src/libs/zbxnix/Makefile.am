@@ -8,5 +8,4 @@ libzbxnix_a_SOURCES = \
 	ipc.c \
 	fatal.c fatal.h \
 	sighandler.c \
-	sigcommon.h \
-	control.c control.h
+	sigcommon.h

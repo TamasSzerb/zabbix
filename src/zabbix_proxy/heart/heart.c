@@ -26,8 +26,7 @@
 #include "heart.h"
 #include "../servercomms.h"
 
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	process_type;
 
 /******************************************************************************
  *                                                                            *
@@ -87,7 +86,7 @@ static int	send_heartbeat(void)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(heart_thread, args)
+void	main_heart_loop(void)
 {
 	int	start, sleeptime = 0, res;
 	double	sec, total_sec = 0.0, old_total_sec = 0.0;
@@ -95,13 +94,6 @@ ZBX_THREAD_ENTRY(heart_thread, args)
 
 #define STAT_INTERVAL	5	/* if a process is busy and does not sleep then update status not faster than */
 				/* once in STAT_INTERVAL seconds */
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
 
 	last_stat_time = time(NULL);
 

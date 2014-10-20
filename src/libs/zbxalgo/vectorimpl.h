@@ -93,7 +93,7 @@ void	zbx_vector_ ## __id ## _remove_noorder(zbx_vector_ ## __id ## _t *vector, i
 	if (!(0 <= index && index < vector->values_num))							\
 	{													\
 		zabbix_log(LOG_LEVEL_CRIT, "removing a non-existent element at index %d", index);		\
-		exit(EXIT_FAILURE);										\
+		exit(FAIL);											\
 	}													\
 														\
 	vector->values[index] = vector->values[--vector->values_num];						\
@@ -104,7 +104,7 @@ void	zbx_vector_ ## __id ## _remove(zbx_vector_ ## __id ## _t *vector, int index
 	if (!(0 <= index && index < vector->values_num))							\
 	{													\
 		zabbix_log(LOG_LEVEL_CRIT, "removing a non-existent element at index %d", index);		\
-		exit(EXIT_FAILURE);										\
+		exit(FAIL);											\
 	}													\
 														\
 	vector->values_num--;											\
@@ -134,7 +134,7 @@ void	zbx_vector_ ## __id ## _uniq(zbx_vector_ ## __id ## _t *vector, zbx_compare
 	}													\
 }														\
 														\
-int	zbx_vector_ ## __id ## _nearestindex(zbx_vector_ ## __id ## _t *vector, const __type value,		\
+int	zbx_vector_ ## __id ## _nearestindex(zbx_vector_ ## __id ## _t *vector, __type value,			\
 									zbx_compare_func_t compare_func)	\
 {														\
 	int	lo = 0, hi = vector->values_num, mid, c;							\
@@ -160,7 +160,7 @@ int	zbx_vector_ ## __id ## _nearestindex(zbx_vector_ ## __id ## _t *vector, cons
 	return hi;												\
 }														\
 														\
-int	zbx_vector_ ## __id ## _bsearch(zbx_vector_ ## __id ## _t *vector, const __type value,			\
+int	zbx_vector_ ## __id ## _bsearch(zbx_vector_ ## __id ## _t *vector, __type value,			\
 									zbx_compare_func_t compare_func)	\
 {														\
 	__type	*ptr;												\
@@ -173,7 +173,7 @@ int	zbx_vector_ ## __id ## _bsearch(zbx_vector_ ## __id ## _t *vector, const __t
 		return FAIL;											\
 }														\
 														\
-int	zbx_vector_ ## __id ## _lsearch(zbx_vector_ ## __id ## _t *vector, const __type value, int *index,	\
+int	zbx_vector_ ## __id ## _lsearch(zbx_vector_ ## __id ## _t *vector, __type value, int *index,		\
 									zbx_compare_func_t compare_func)	\
 {														\
 	while (*index < vector->values_num)									\
@@ -196,7 +196,7 @@ int	zbx_vector_ ## __id ## _lsearch(zbx_vector_ ## __id ## _t *vector, const __t
 	return FAIL;												\
 }														\
 														\
-int	zbx_vector_ ## __id ## _search(zbx_vector_ ## __id ## _t *vector, const __type value,				\
+int	zbx_vector_ ## __id ## _search(zbx_vector_ ## __id ## _t *vector, __type value,				\
 									zbx_compare_func_t compare_func)	\
 {														\
 	int	index;												\

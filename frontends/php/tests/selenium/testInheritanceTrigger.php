@@ -60,7 +60,7 @@ class testInheritanceTrigger extends CWebTest {
 		$oldHashTriggers = DBhash($sqlTriggers);
 
 		$this->zbxTestLogin('triggers.php?form=update&triggerid='.$data['triggerid']);
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestCheckTitle('Configuration of triggers');
 		$this->zbxTestTextPresent('Trigger updated');
 
@@ -88,7 +88,7 @@ class testInheritanceTrigger extends CWebTest {
 		$this->input_type('description', $data['description']);
 		$this->input_type('expression', $data['expression']);
 
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 
 		switch ($data['expected']) {
 			case TEST_GOOD:

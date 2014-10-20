@@ -56,7 +56,7 @@ class testInheritanceItemPrototype extends CWebTest {
 		$oldHashItems = DBhash($sqlItems);
 
 		$this->zbxTestLogin('disc_prototypes.php?form=update&itemid='.$data['itemid'].'&parent_discoveryid='.$data['parent_itemid']);
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestCheckTitle('Configuration of item prototypes');
 		$this->zbxTestTextPresent('Item prototype updated');
 
@@ -95,7 +95,7 @@ class testInheritanceItemPrototype extends CWebTest {
 		$this->input_type('name', $data['name']);
 		$this->input_type('key', $data['key']);
 
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 		switch ($data['expected']) {
 			case TEST_GOOD:
 				$this->zbxTestCheckTitle('Configuration of item prototypes');

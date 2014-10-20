@@ -61,7 +61,7 @@ $mapPainter = new CMapPainter($map, array(
 		'drawAreas' => (!isset($_REQUEST['selements']) && !isset($_REQUEST['noselements']))
 	),
 	'grid' => array(
-		'size' => getRequest('grid', 0)
+		'size' => get_request('grid', 0)
 	)
 ));
 
@@ -87,10 +87,10 @@ $y = imagesy($im);
 /*
  * Actions
  */
-$json = new CJson();
+$json = new CJSON();
 
 if (isset($_REQUEST['selements']) || isset($_REQUEST['noselements'])) {
-	$map['selements'] = getRequest('selements', '[]');
+	$map['selements'] = get_request('selements', '[]');
 	$map['selements'] = $json->decode($map['selements'], true);
 }
 else {
@@ -98,11 +98,11 @@ else {
 }
 
 if (isset($_REQUEST['links']) || isset($_REQUEST['nolinks'])) {
-	$map['links'] = getRequest('links', '[]');
+	$map['links'] = get_request('links', '[]');
 	$map['links'] = $json->decode($map['links'], true);
 }
 
-if (getRequest('nocalculations', false)) {
+if (get_request('nocalculations', false)) {
 	foreach ($map['selements'] as $selement) {
 		if ($selement['elementtype'] != SYSMAP_ELEMENT_TYPE_IMAGE) {
 			add_elementNames($map['selements']);
@@ -154,7 +154,7 @@ else {
 	add_triggerExpressions($map['selements']);
 
 	$areas = populateFromMapAreas($map);
-	$mapInfo = getSelementsInfo($map, array('severity_min' => getRequest('severity_min')));
+	$mapInfo = getSelementsInfo($map, array('severity_min' => get_request('severity_min')));
 	processAreasCoordinates($map, $areas, $mapInfo);
 	$allLinks = false;
 }
@@ -169,7 +169,7 @@ if (!isset($_REQUEST['noselements'])) {
 	drawMapSelements($im, $map, $mapInfo);
 }
 
-$expandMacros = getRequest('expand_macros', true);
+$expandMacros = get_request('expand_macros', true);
 drawMapLabels($im, $map, $mapInfo, $expandMacros);
 drawMapLinkLabels($im, $map, $mapInfo, $expandMacros);
 
@@ -179,12 +179,12 @@ if (!isset($_REQUEST['noselements']) && $map['markelements'] == 1) {
 
 show_messages();
 
-if (getRequest('base64image')) {
+if (get_request('base64image')) {
 	ob_start();
 	imagepng($im);
 	$imageSource = ob_get_contents();
 	ob_end_clean();
-	$json = new CJson();
+	$json = new CJSON();
 	echo $json->encode(array('result' => base64_encode($imageSource)));
 	imagedestroy($im);
 }

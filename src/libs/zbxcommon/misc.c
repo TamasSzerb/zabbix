@@ -22,7 +22,6 @@
 #include "setproctitle.h"
 
 #ifdef _WINDOWS
-
 char	ZABBIX_SERVICE_NAME[ZBX_SERVICE_NAME_LEN] = APPLICATION_NAME;
 char	ZABBIX_EVENT_SOURCE[ZBX_SERVICE_NAME_LEN] = APPLICATION_NAME;
 
@@ -254,7 +253,7 @@ void    *zbx_calloc2(const char *filename, int line, void *old, size_t nmemb, si
 	zabbix_log(LOG_LEVEL_CRIT, "[file:%s,line:%d] zbx_calloc: out of memory. Requested " ZBX_FS_SIZE_T " bytes.",
 			filename, line, (zbx_fs_size_t)size);
 
-	exit(EXIT_FAILURE);
+	exit(FAIL);
 }
 
 /******************************************************************************
@@ -293,7 +292,7 @@ void    *zbx_malloc2(const char *filename, int line, void *old, size_t size)
 	zabbix_log(LOG_LEVEL_CRIT, "[file:%s,line:%d] zbx_malloc: out of memory. Requested " ZBX_FS_SIZE_T " bytes.",
 			filename, line, (zbx_fs_size_t)size);
 
-	exit(EXIT_FAILURE);
+	exit(FAIL);
 }
 
 /******************************************************************************
@@ -325,7 +324,7 @@ void    *zbx_realloc2(const char *filename, int line, void *old, size_t size)
 	zabbix_log(LOG_LEVEL_CRIT, "[file:%s,line:%d] zbx_realloc: out of memory. Requested " ZBX_FS_SIZE_T " bytes.",
 			filename, line, (zbx_fs_size_t)size);
 
-	exit(EXIT_FAILURE);
+	exit(FAIL);
 }
 
 char    *zbx_strdup2(const char *filename, int line, char *old, const char *str)
@@ -344,7 +343,7 @@ char    *zbx_strdup2(const char *filename, int line, char *old, const char *str)
 	zabbix_log(LOG_LEVEL_CRIT, "[file:%s,line:%d] zbx_strdup: out of memory. Requested " ZBX_FS_SIZE_T " bytes.",
 			filename, line, (zbx_fs_size_t)(strlen(str) + 1));
 
-	exit(EXIT_FAILURE);
+	exit(FAIL);
 }
 
 /******************************************************************************
@@ -402,7 +401,7 @@ int	check_time_period(const char *period, time_t now)
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() period:'%s'", __function_name, period);
 
-	if ((time_t)0 == now)
+	if (now == (time_t)NULL)
 		now = time(NULL);
 
 	tm = localtime(&now);
@@ -1319,11 +1318,6 @@ int	int_in_list(char *list, int value)
 	return ret;
 }
 
-int	zbx_double_compare(double a, double b)
-{
-	return fabs(a - b) < ZBX_DOUBLE_EPSILON ? SUCCEED : FAIL;
-}
-
 /******************************************************************************
  *                                                                            *
  * Function: is_double_suffix                                                 *
@@ -1613,9 +1607,9 @@ int	is_uint_n_range(const char *str, size_t n, void *value, size_t size, zbx_uin
 		/* of 'value' buffer while on big endian architecture it will be stored starting from the last */
 		/* bytes. We handle it by storing the offset in the most significant byte of short value and   */
 		/* then use the first byte as source offset.                                                   */
-		unsigned short	value_offset = (unsigned short)((sizeof(zbx_uint64_t) - size) << 8);
+		unsigned short value_offset = (unsigned short)((sizeof(zbx_uint64_t) - size) << 8);
 
-		memcpy(value, (unsigned char *)&value_uint64 + *((unsigned char *)&value_offset), size);
+		memcpy(value, (unsigned char*)&value_uint64 + *((unsigned char*)&value_offset), size);
 	}
 
 	return SUCCEED;
@@ -2017,33 +2011,6 @@ void	uint64_array_remove_both(zbx_uint64_t *values, int *num, zbx_uint64_t *rm_v
 	}
 }
 
-zbx_uint64_t	suffix2factor(char c)
-{
-	switch (c)
-	{
-		case 'K':
-			return ZBX_KIBIBYTE;
-		case 'M':
-			return ZBX_MEBIBYTE;
-		case 'G':
-			return ZBX_GIBIBYTE;
-		case 'T':
-			return ZBX_TEBIBYTE;
-		case 's':
-			return 1;
-		case 'm':
-			return SEC_PER_MIN;
-		case 'h':
-			return SEC_PER_HOUR;
-		case 'd':
-			return SEC_PER_DAY;
-		case 'w':
-			return SEC_PER_WEEK;
-		default:
-			return 1;
-	}
-}
-
 /******************************************************************************
  *                                                                            *
  * Function: str2uint64                                                       *
@@ -2073,8 +2040,36 @@ int	str2uint64(const char *str, const char *suffixes, zbx_uint64_t *value)
 
 	if (NULL != strchr(suffixes, *p))
 	{
-		factor = suffix2factor(*p);
-
+		switch (*p)
+		{
+			case 'K':
+				factor = ZBX_KIBIBYTE;
+				break;
+			case 'M':
+				factor = ZBX_MEBIBYTE;
+				break;
+			case 'G':
+				factor = ZBX_GIBIBYTE;
+				break;
+			case 'T':
+				factor = ZBX_TEBIBYTE;
+				break;
+			case 's':
+				factor = 1;
+				break;
+			case 'm':
+				factor = SEC_PER_MIN;
+				break;
+			case 'h':
+				factor = SEC_PER_HOUR;
+				break;
+			case 'd':
+				factor = SEC_PER_DAY;
+				break;
+			case 'w':
+				factor = SEC_PER_WEEK;
+				break;
+		}
 		sz--;
 	}
 
@@ -2103,10 +2098,41 @@ int	str2uint64(const char *str, const char *suffixes, zbx_uint64_t *value)
 double	str2double(const char *str)
 {
 	size_t	sz;
+	double	factor = 1;
 
 	sz = strlen(str) - 1;
 
-	return atof(str) * suffix2factor(str[sz]);
+	switch (str[sz])
+	{
+		case 'K':
+			factor = ZBX_KIBIBYTE;
+			break;
+		case 'M':
+			factor = ZBX_MEBIBYTE;
+			break;
+		case 'G':
+			factor = ZBX_GIBIBYTE;
+			break;
+		case 'T':
+			factor = ZBX_TEBIBYTE;
+			break;
+		case 's':
+			break;
+		case 'm':
+			factor = SEC_PER_MIN;
+			break;
+		case 'h':
+			factor = SEC_PER_HOUR;
+			break;
+		case 'd':
+			factor = SEC_PER_DAY;
+			break;
+		case 'w':
+			factor = SEC_PER_WEEK;
+			break;
+	}
+
+	return atof(str) * factor;
 }
 
 /******************************************************************************

@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $discoveryWidget = new CWidget();
 
 // create new discovery rule button
@@ -37,7 +37,8 @@ $discoveryForm->setName('druleForm');
 $discoveryTable = new CTableInfo(_('No discovery rules found.'));
 $discoveryTable->setHeader(array(
 	new CCheckBox('all_drules', null, "checkAll('".$discoveryForm->getName()."', 'all_drules', 'g_druleid');"),
-	make_sorting_header(_('Name'), 'name', $this->data['sort'], $this->data['sortorder']),
+	$this->data['displayNodes'] ? _('Node') : null,
+	make_sorting_header(_('Name'), 'name'),
 	_('IP range'),
 	_('Delay'),
 	_('Checks'),
@@ -48,12 +49,13 @@ foreach ($data['drules'] as $drule) {
 
 	$status = new CCol(new CLink(
 		discovery_status2str($drule['status']),
-		'?g_druleid[]='.$drule['druleid'].'&action='.($drule['status'] == DRULE_STATUS_ACTIVE ? 'drule.massdisable' : 'drule.massenable'),
+		'?g_druleid'.SQUAREBRACKETS.'='.$drule['druleid'].($drule['status'] == DRULE_STATUS_ACTIVE ? '&go=disable' : '&go=activate'),
 		discovery_status2style($drule['status'])
 	));
 
 	$discoveryTable->addRow(array(
 		new CCheckBox('g_druleid['.$drule['druleid'].']', null, null, $drule['druleid']),
+		$this->data['displayNodes'] ? $drule['nodename'] : null,
 		$drule['description'],
 		$drule['iprange'],
 		$drule['delay'],
@@ -63,17 +65,16 @@ foreach ($data['drules'] as $drule) {
 }
 
 // create go buttons
-$goComboBox = new CComboBox('action');
-
-$goOption = new CComboItem('drule.massenable', _('Enable selected'));
+$goComboBox = new CComboBox('go');
+$goOption = new CComboItem('activate', _('Enable selected'));
 $goOption->setAttribute('confirm', _('Enable selected discovery rules?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('drule.massdisable', _('Disable selected'));
+$goOption = new CComboItem('disable', _('Disable selected'));
 $goOption->setAttribute('confirm', _('Disable selected discovery rules?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('drule.massdelete', _('Delete selected'));
+$goOption = new CComboItem('delete', _('Delete selected'));
 $goOption->setAttribute('confirm', _('Delete selected discovery rules?'));
 $goComboBox->addItem($goOption);
 
@@ -86,5 +87,5 @@ $discoveryForm->addItem(array($this->data['paging'], $discoveryTable, $this->dat
 
 // append form to widget
 $discoveryWidget->addItem($discoveryForm);
-
 return $discoveryWidget;
+?>

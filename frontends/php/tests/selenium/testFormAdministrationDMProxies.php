@@ -54,7 +54,7 @@ class testFormAdministrationDMProxies extends CWebTest {
 		$this->assertElementPresent("//select[@id='status']/option[text()='Passive']");
 		$this->assertElementPresent('hosts_left');
 		$this->assertElementPresent('hosts_right');
-		$this->assertElementPresent('add');
+		$this->assertElementPresent('save');
 		$this->assertElementPresent('cancel');
 
 		// Switch to passive mode
@@ -82,7 +82,7 @@ class testFormAdministrationDMProxies extends CWebTest {
 		$this->assertAttribute("//input[@id='interface_port']/@maxlength", '64');
 		$this->assertElementPresent('hosts_left');
 		$this->assertElementPresent('hosts_right');
-		$this->assertElementPresent('add');
+		$this->assertElementPresent('save');
 		$this->assertElementPresent('cancel');
 	}
 
@@ -230,7 +230,7 @@ class testFormAdministrationDMProxies extends CWebTest {
 			$this->zbxTestDropdownSelect('hosts_right', $host);
 			$this->zbxTestClick('add');
 		}
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 		switch ($expected) {
 			case PROXY_GOOD:
 				$this->zbxTestTextPresent('Proxy added');
@@ -289,7 +289,7 @@ class testFormAdministrationDMProxies extends CWebTest {
 		$this->zbxTestClickWait('link='.$name);
 
 		// check presence of buttons
-		$this->assertElementPresent('update');
+		$this->assertElementPresent('save');
 		$this->assertElementPresent('clone');
 		$this->assertElementPresent('delete');
 		$this->assertElementPresent('cancel');
@@ -299,7 +299,7 @@ class testFormAdministrationDMProxies extends CWebTest {
 
 		// update proxy name
 		$this->input_type('host', $newname);
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Proxy updated');
 		$this->zbxTestCheckTitle('Configuration of proxies');
 		$this->zbxTestTextPresent('CONFIGURATION OF PROXIES');
@@ -336,7 +336,7 @@ class testFormAdministrationDMProxies extends CWebTest {
 		$this->zbxTestClickWait('link='.$name);
 
 		// check presence of buttons
-		$this->assertElementPresent('update');
+		$this->assertElementPresent('save');
 		$this->assertElementPresent('clone');
 		$this->assertElementPresent('delete');
 		$this->assertElementPresent('cancel');
@@ -348,7 +348,7 @@ class testFormAdministrationDMProxies extends CWebTest {
 		$this->zbxTestClickWait('clone');
 		$this->zbxTestTextPresent('Proxy');
 		$this->input_type('host', $newname);
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Proxy added');
 		$this->zbxTestCheckTitle('Configuration of proxies');
 		$this->zbxTestTextPresent('CONFIGURATION OF PROXIES');
@@ -381,7 +381,7 @@ class testFormAdministrationDMProxies extends CWebTest {
 
 		$this->zbxTestClickWait('link='.$name);
 
-		$this->assertElementPresent('update');
+		$this->assertElementPresent('save');
 		$this->assertElementPresent('clone');
 		$this->assertElementPresent('delete');
 		$this->assertElementPresent('cancel');

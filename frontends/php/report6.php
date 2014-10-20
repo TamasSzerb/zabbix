@@ -34,13 +34,13 @@ $fields = array(
 	'config' =>				array(T_ZBX_INT, O_OPT,	P_SYS,			IN('0,1,2,3'),	null),
 	'groupid' =>			array(T_ZBX_INT, O_OPT,	P_SYS,			DB_ID,			null),
 	'hostids' =>			array(T_ZBX_INT, O_OPT,	null,			DB_ID,
-		'isset({config}) && {config} == 3 && isset({report_show}) && !isset({groupids})'),
+		'isset({config})&&({config}==3)&&isset({report_show})&&!isset({groupids})'),
 	'groupids' =>			array(T_ZBX_INT, O_OPT,	null,			DB_ID,
-		'isset({config}) && {config} == 3 && isset({report_show}) && !isset({hostids})'),
+		'isset({config})&&({config}==3)&&isset({report_show})&&!isset({hostids})'),
 	'itemid' =>				array(T_ZBX_INT, O_OPT, null,			DB_ID.NOT_ZERO,
-		'isset({config}) && {config} == 3 && isset({report_show})'),
+		'isset({config})&&({config}==3)&&isset({report_show})'),
 	'items' =>				array(T_ZBX_STR, O_OPT,	null,			DB_ID,
-		'isset({report_show}) && !isset({delete_period}) && (isset({config}) && {config} != 3 || !isset({config}))',
+		'isset({report_show})&&!isset({delete_period})&&(isset({config})&&({config}!=3)||!isset({config}))',
 		_('Items')),
 	'new_graph_item' =>		array(T_ZBX_STR, O_OPT,	null,			null,			null),
 	'group_gid' =>			array(T_ZBX_STR, O_OPT,	null,			null,			null),
@@ -52,7 +52,7 @@ $fields = array(
 	'scaletype' =>			array(T_ZBX_INT, O_OPT,	null,			null,			null),
 	'avgperiod' =>			array(T_ZBX_INT, O_OPT,	null,			null,			null),
 	'periods' =>			array(T_ZBX_STR, O_OPT,	null,			null,
-		'isset({report_show}) && !isset({delete_item}) && isset({config}) && {config} == 2',
+		'isset({report_show})&&!isset({delete_item})&&(isset({config})&&({config}==2))',
 		_('Period')),
 	'new_period' =>			array(T_ZBX_STR, O_OPT,	null,			null,			null),
 	'group_pid' =>			array(T_ZBX_STR, O_OPT,	null,			null,			null),
@@ -63,43 +63,19 @@ $fields = array(
 	'delete_period' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,			null),
 	// filter
 	'report_show' =>		array(T_ZBX_STR, O_OPT,	P_SYS,			null,			null),
-	'report_reset' =>		array(T_ZBX_STR, O_OPT,	P_SYS,			null,			null),
 	'report_timesince' =>	array(T_ZBX_INT, O_OPT,	P_UNSET_EMPTY,	null,			null),
 	'report_timetill' =>	array(T_ZBX_INT, O_OPT,	P_UNSET_EMPTY,	null,			null),
 	// ajax
-	'filterState' =>		array(T_ZBX_INT, O_OPT, P_ACT,			null,			null)
+	'favobj' =>				array(T_ZBX_STR, O_OPT, P_ACT,			null,			null),
+	'favref' =>				array(T_ZBX_STR, O_OPT, P_ACT,			NOT_EMPTY,		'isset({favobj})'),
+	'favstate' =>			array(T_ZBX_INT, O_OPT, P_ACT,			NOT_EMPTY,
+		'isset({favobj})&&("filter"=={favobj})'),
 );
 $isValid = check_fields($fields);
 
-// filter reset
-if (hasRequest('report_reset')) {
-	// get requests keys
-	if (getRequest('config') == BR_DISTRIBUTION_MULTIPLE_PERIODS) {
-		$unsetRequests = array('title', 'xlabel', 'ylabel', 'showlegend', 'scaletype', 'items', 'report_timesince',
-			'report_timetill', 'report_show'
-		);
-	}
-	elseif (getRequest('config') == BR_DISTRIBUTION_MULTIPLE_ITEMS) {
-		$unsetRequests = array('periods', 'items', 'title', 'xlabel', 'ylabel', 'showlegend', 'sorttype',
-			'report_show'
-		);
-	}
-	else {
-		$unsetRequests = array('report_timesince', 'report_timetill', 'sortorder', 'groupids', 'hostids', 'itemid',
-			'title', 'xlabel', 'ylabel', 'showlegend', 'groupid', 'scaletype', 'avgperiod', 'palette', 'palettetype',
-			'report_show'
-		);
-	}
-
-	// requests unseting
-	foreach ($unsetRequests as $unsetRequests) {
-		unset($_REQUEST[$unsetRequests]);
-	}
-}
-
-if (hasRequest('new_graph_item')) {
-	$_REQUEST['items'] = getRequest('items', array());
-	$newItem = getRequest('new_graph_item', array());
+if (isset($_REQUEST['new_graph_item'])) {
+	$_REQUEST['items'] = get_request('items', array());
+	$newItem = get_request('new_graph_item', array());
 
 	foreach ($_REQUEST['items'] as $item) {
 		if ((bccomp($newItem['itemid'], $item['itemid']) == 0)
@@ -116,17 +92,17 @@ if (hasRequest('new_graph_item')) {
 }
 
 // validate permissions
-if (getRequest('config') == BR_COMPARE_VALUE_MULTIPLE_PERIODS) {
-	if (getRequest('groupid') && !API::HostGroup()->isReadable(array($_REQUEST['groupid']))) {
+if (get_request('config') == 3) {
+	if (get_request('groupid') && !API::HostGroup()->isReadable(array($_REQUEST['groupid']))) {
 		access_deny();
 	}
-	if (getRequest('groupids') && !API::HostGroup()->isReadable($_REQUEST['groupids'])) {
+	if (get_request('groupids') && !API::HostGroup()->isReadable($_REQUEST['groupids'])) {
 		access_deny();
 	}
-	if (getRequest('hostids') && !API::Host()->isReadable($_REQUEST['hostids'])) {
+	if (get_request('hostids') && !API::Host()->isReadable($_REQUEST['hostids'])) {
 		access_deny();
 	}
-	if (getRequest('itemid')) {
+	if (get_request('itemid')) {
 		$items = API::Item()->get(array(
 			'itemids' => $_REQUEST['itemid'],
 			'webitems' => true,
@@ -138,7 +114,7 @@ if (getRequest('config') == BR_COMPARE_VALUE_MULTIPLE_PERIODS) {
 	}
 }
 else {
-	if (getRequest('items') && count($_REQUEST['items']) > 0) {
+	if (get_request('items') && count($_REQUEST['items']) > 0) {
 		$itemIds = zbx_objectValues($_REQUEST['items'], 'itemid');
 		$itemsCount = API::Item()->get(array(
 			'itemids' => $itemIds,
@@ -152,13 +128,15 @@ else {
 	}
 }
 
-if (hasRequest('filterState')) {
-	CProfile::update('web.report6.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
+if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.report6.filter.state',$_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
 }
 
 if ((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 
@@ -172,8 +150,8 @@ if (isset($_REQUEST['delete_item']) && isset($_REQUEST['group_gid'])) {
 	unset($_REQUEST['delete_item'], $_REQUEST['group_gid']);
 }
 elseif (isset($_REQUEST['new_period'])) {
-	$_REQUEST['periods'] = getRequest('periods', array());
-	$newPeriod = getRequest('new_period', array());
+	$_REQUEST['periods'] = get_request('periods', array());
+	$newPeriod = get_request('new_period', array());
 
 	foreach ($_REQUEST['periods'] as $period) {
 		$period['report_timesince'] = zbxDateToTime($period['report_timesince']);
@@ -201,41 +179,30 @@ elseif (isset($_REQUEST['delete_period']) && isset($_REQUEST['group_pid'])) {
 }
 
 // item validation
-$config = $_REQUEST['config'] = getRequest('config', BR_DISTRIBUTION_MULTIPLE_PERIODS);
+$config = $_REQUEST['config'] = get_request('config', 1);
 
 // items array validation
-if ($config != BR_COMPARE_VALUE_MULTIPLE_PERIODS) {
-	$items = getRequest('items');
+if ($config != 3) {
+	$items = get_request('items');
 	$validItems = validateBarReportItems($items);
-	if ($validItems) {
-		$validItems = CMacrosResolverHelper::resolveItemNames($validItems);
 
-		foreach ($validItems as &$item) {
-			if ($item['caption'] === $item['name']) {
-				$item['caption'] = $item['name_expanded'];
-			}
-		}
-
-		unset($item);
-	}
-
-	if ($config == BR_DISTRIBUTION_MULTIPLE_ITEMS) {
-		$validPeriods = validateBarReportPeriods(getRequest('periods'));
+	if ($config == 2) {
+		$validPeriods = validateBarReportPeriods(get_request('periods'));
 	}
 }
 
-$_REQUEST['report_timesince'] = zbxDateToTime(getRequest('report_timesince',
+$_REQUEST['report_timesince'] = zbxDateToTime(get_request('report_timesince',
 	date(TIMESTAMP_FORMAT_ZERO_TIME, time() - SEC_PER_DAY)));
-$_REQUEST['report_timetill'] = zbxDateToTime(getRequest('report_timetill',
+$_REQUEST['report_timetill'] = zbxDateToTime(get_request('report_timetill',
 	date(TIMESTAMP_FORMAT_ZERO_TIME, time())));
 
 $rep6_wdgt = new CWidget();
 
 $r_form = new CForm();
 $cnfCmb = new CComboBox('config', $config, 'submit();');
-$cnfCmb->addItem(BR_DISTRIBUTION_MULTIPLE_PERIODS, _('Distribution of values for multiple periods'));
-$cnfCmb->addItem(BR_DISTRIBUTION_MULTIPLE_ITEMS, _('Distribution of values for multiple items'));
-$cnfCmb->addItem(BR_COMPARE_VALUE_MULTIPLE_PERIODS, _('Compare values for multiple periods'));
+$cnfCmb->addItem(1, _('Distribution of values for multiple periods'));
+$cnfCmb->addItem(2, _('Distribution of values for multiple items'));
+$cnfCmb->addItem(3, _('Compare values for multiple periods'));
 
 $r_form->addItem(array(_('Reports').SPACE, $cnfCmb));
 
@@ -251,26 +218,25 @@ $rep_tab->setAttribute('border', 0);
 
 switch ($config) {
 	default:
-	case BR_DISTRIBUTION_MULTIPLE_PERIODS:
+	case 1:
 		$rep_form = valueDistributionFormForMultiplePeriods($validItems);
 		break;
-	case BR_DISTRIBUTION_MULTIPLE_ITEMS:
+	case 2:
 		$rep_form = valueDistributionFormForMultipleItems($validItems, $validPeriods);
 		break;
-	case BR_COMPARE_VALUE_MULTIPLE_PERIODS:
+	case 3:
 		$rep_form = valueComparisonFormForMultiplePeriods();
 		break;
 }
 
-$rep6_wdgt->addFlicker($rep_form, CProfile::get('web.report6.filter.state', BR_DISTRIBUTION_MULTIPLE_PERIODS));
+$rep6_wdgt->addFlicker($rep_form, CProfile::get('web.report6.filter.state', 1));
 
-if (hasRequest('report_show')) {
-	$items = ($config == BR_COMPARE_VALUE_MULTIPLE_PERIODS)
-		? array(array('itemid' => getRequest('itemid')))
-		: $validItems;
+if (isset($_REQUEST['report_show'])) {
+	$items = ($config == 3)
+		? array(array('itemid' => get_request('itemid')))
+		: get_request('items');
 
-	if ($isValid && (($config != BR_COMPARE_VALUE_MULTIPLE_PERIODS) ? $validItems : true)
-			&& (($config == BR_DISTRIBUTION_MULTIPLE_ITEMS) ? $validPeriods : true)) {
+	if ($isValid && (($config != 3) ? $validItems : true) && (($config == 2) ? $validPeriods : true)) {
 		$src = 'chart_bar.php?'.
 			'config='.$config.
 			url_param('title').

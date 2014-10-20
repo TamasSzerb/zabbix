@@ -37,6 +37,7 @@ class CScreenEvents extends CScreenBase {
 		$item = new CTableInfo(_('No events found.'));
 		$item->setHeader(array(
 			_('Time'),
+			is_show_all_nodes() ? _('Node') : null,
 			_('Host'),
 			_('Description'),
 			_('Value'),
@@ -44,9 +45,6 @@ class CScreenEvents extends CScreenBase {
 		));
 
 		$events = getLastEvents($options);
-
-		$config = select_config();
-
 		foreach ($events as $event) {
 			$trigger = $event['trigger'];
 			$host = $event['host'];
@@ -57,14 +55,15 @@ class CScreenEvents extends CScreenBase {
 			addTriggerValueStyle($statusSpan, $event['value'], $event['clock'], $event['acknowledged']);
 
 			$item->addRow(array(
-				zbx_date2str(DATE_TIME_FORMAT_SECONDS, $event['clock']),
+				zbx_date2str(_('d M Y H:i:s'), $event['clock']),
+				get_node_name_by_elid($event['objectid']),
 				$host['name'],
 				new CLink(
 					$trigger['description'],
 					'tr_events.php?triggerid='.$event['objectid'].'&eventid='.$event['eventid']
 				),
 				$statusSpan,
-				getSeverityCell($trigger['priority'], $config)
+				getSeverityCell($trigger['priority'])
 			));
 		}
 

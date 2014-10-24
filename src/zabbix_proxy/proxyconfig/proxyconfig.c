@@ -29,8 +29,7 @@
 
 #define CONFIG_PROXYCONFIG_RETRY	120	/* seconds */
 
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	process_type;
 
 /******************************************************************************
  *                                                                            *
@@ -52,6 +51,7 @@ static void	process_configuration_sync(size_t *data_size)
 	const char	*__function_name = "process_configuration_sync";
 
 	zbx_sock_t	sock;
+	char		*data;
 	struct		zbx_json_parse jp;
 	char		value[16];
 
@@ -62,16 +62,16 @@ static void	process_configuration_sync(size_t *data_size)
 
 	connect_to_server(&sock, 600, CONFIG_PROXYCONFIG_RETRY); /* retry till have a connection */
 
-	if (SUCCEED != get_data_from_server(&sock, ZBX_PROTO_VALUE_PROXY_CONFIG))
+	if (SUCCEED != get_data_from_server(&sock, ZBX_PROTO_VALUE_PROXY_CONFIG, &data))
 		goto out;
 
-	if ('\0' == *sock.buffer)
+	if ('\0' == *data)
 	{
 		zabbix_log(LOG_LEVEL_WARNING, "cannot obtain configuration data from server: empty string received");
 		goto out;
 	}
 
-	if (SUCCEED != zbx_json_open(sock.buffer, &jp))
+	if (SUCCEED != zbx_json_open(data, &jp))
 	{
 		zabbix_log(LOG_LEVEL_WARNING, "cannot obtain configuration data from server: %s", zbx_json_strerror());
 		goto out;
@@ -120,17 +120,10 @@ out:
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(proxyconfig_thread, args)
+void	main_proxyconfig_loop(void)
 {
 	size_t	data_size;
 	double	sec;
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
 
 	zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 

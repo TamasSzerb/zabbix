@@ -23,18 +23,16 @@ require_once dirname(__FILE__).'/include/config.inc.php';
 require_once dirname(__FILE__).'/include/triggers.inc.php';
 require_once dirname(__FILE__).'/include/forms.inc.php';
 
-$page['title'] = _('Trigger description');
+$page['title'] = _('Trigger comments');
 $page['file'] = 'tr_comments.php';
-$page['hist_arg'] = array('triggerid');
 
 require_once dirname(__FILE__).'/include/page_header.php';
 
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
 	'triggerid' =>	array(T_ZBX_INT, O_MAND, P_SYS,			DB_ID,	null),
-	'comments' =>	array(T_ZBX_STR, O_OPT, null,			null,	'isset({update})'),
-	// actions
-	'update' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
+	'comments' =>	array(T_ZBX_STR, O_OPT, null,			null,	'isset({save})'),
+	'save' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null),
 	'cancel' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null,	null)
 );
 check_fields($fields);
@@ -47,6 +45,7 @@ if (!isset($_REQUEST['triggerid'])) {
  * Permissions
  */
 $trigger = API::Trigger()->get(array(
+	'nodeids' => get_current_nodeid(true),
 	'triggerids' => $_REQUEST['triggerid'],
 	'output' => API_OUTPUT_EXTEND,
 	'expandDescription' => true
@@ -61,30 +60,25 @@ $trigger = reset($trigger);
 /*
  * Actions
  */
-if (hasRequest('update')) {
-	DBstart();
-
+if (isset($_REQUEST['save'])) {
 	$result = DBexecute(
 		'UPDATE triggers'.
-		' SET comments='.zbx_dbstr(getRequest('comments')).
-		' WHERE triggerid='.zbx_dbstr(getRequest('triggerid'))
+		' SET comments='.zbx_dbstr($_REQUEST['comments']).
+		' WHERE triggerid='.zbx_dbstr($_REQUEST['triggerid'])
 	);
+	show_messages($result, _('Comment updated'), _('Cannot update comment'));
 
 	$trigger['comments'] = $_REQUEST['comments'];
 
 	if ($result) {
 		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_TRIGGER,
 			_('Trigger').' ['.$_REQUEST['triggerid'].'] ['.$trigger['description'].'] '.
-			_('Comments').' ['.$_REQUEST['comments'].']'
-		);
+			_('Comments').' ['.$_REQUEST['comments'].']');
 	}
-
-	$result = DBend($result);
-	show_messages($result, _('Description updated'), _('Cannot update description'));
 }
 elseif (isset($_REQUEST['cancel'])) {
 	jsRedirect('tr_status.php');
-	exit;
+	exit();
 }
 
 /*
@@ -97,7 +91,7 @@ $triggerEditable = API::Trigger()->get(array(
 ));
 
 $data = array(
-	'triggerid' => getRequest('triggerid'),
+	'triggerid' => get_request('triggerid'),
 	'trigger' => $trigger,
 	'isTriggerEditable' => !empty($triggerEditable),
 	'isCommentExist' => !empty($trigger['comments'])

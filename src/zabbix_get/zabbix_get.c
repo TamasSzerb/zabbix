@@ -26,27 +26,20 @@
 #include "zbxgetopt.h"
 
 const char	*progname = NULL;
-const char	title_message[] = "zabbix_get";
+const char	title_message[] = "Zabbix get";
 const char	syslog_app_name[] = "zabbix_get";
-const char	*usage_message[] = {
-	"-s host-name-or-IP [-p port-number] [-I IP-address] -k item-key",
-	"-h",
-	"-V",
-	NULL	/* end of text */
-};
+const char	usage_message[] = "[-hV] -s <host name or IP> [-p <port>] [-I <IP address>] -k <key>";
 
 const char	*help_message[] = {
-	"Get data from Zabbix agent.",
-	"",
 	"Options:",
-	"  -s --host host-name-or-IP          Specify host name or IP address of a host",
-	"  -p --port port-number              Specify port number of agent running on the host. Default is " ZBX_DEFAULT_AGENT_PORT_STR,
-	"  -I --source-address IP-address     Specify source IP address",
+	"  -s --host <host name or IP>          Specify host name or IP address of a host",
+	"  -p --port <port number>              Specify port number of agent running on the host. Default is " ZBX_DEFAULT_AGENT_PORT_STR,
+	"  -I --source-address <IP address>     Specify source IP address",
 	"",
-	"  -k --key item-key                  Specify key of the item to retrieve value for",
+	"  -k --key <key of metric>             Specify key of item to retrieve value for",
 	"",
-	"  -h --help                          Display this help message",
-	"  -V --version                       Display version number",
+	"  -h --help                            Give this help",
+	"  -V --version                         Display version number",
 	"",
 	"Example: zabbix_get -s 127.0.0.1 -p " ZBX_DEFAULT_AGENT_PORT_STR " -k \"system.cpu.load[all,avg1]\"",
 	NULL	/* end of text */
@@ -67,7 +60,7 @@ struct zbx_option	longopts[] =
 };
 
 /* short options */
-static char	shortopts[] = "s:p:k:I:hV";
+static char     shortopts[] = "s:p:k:I:hV";
 
 /* end of COMMAND LINE OPTIONS */
 
@@ -83,6 +76,8 @@ static char	shortopts[] = "s:p:k:I:hV";
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
@@ -91,7 +86,7 @@ static void	get_signal_handler(int sig)
 	if (SIGALRM == sig)
 		zbx_error("Timeout while executing operation");
 
-	exit(EXIT_FAILURE);
+	exit(FAIL);
 }
 
 #endif /* not WINDOWS */
@@ -100,18 +95,29 @@ static void	get_signal_handler(int sig)
  *                                                                            *
  * Function: get_value                                                        *
  *                                                                            *
- * Purpose: connect to Zabbix agent, receive and print value                  *
+ * Purpose: connect to Zabbix agent and receive value for given key           *
  *                                                                            *
- * Parameters: host - server name or IP address                               *
- *             port - port number                                             *
- *             key  - item's key                                              *
+ * Parameters: host   - server name or IP address                             *
+ *             port   - port number                                           *
+ *             key    - item's key                                            *
+ *                                                                            *
+ * Return value: SUCCEED - ok, FAIL - otherwise                               *
+ *             value  - retrieved value                                       *
+ *                                                                            *
+ * Author: Eugene Grigorjev                                                   *
+ *                                                                            *
+ * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static void	get_value(const char *source_ip, const char *host, unsigned short port, const char *key)
+static int	get_value(const char *source_ip, const char *host, unsigned short port, const char *key, char **value)
 {
 	zbx_sock_t	s;
 	int		ret;
-	char		request[1024];
+	char		*buf, request[1024];
+
+	assert(value);
+
+	*value = NULL;
 
 	if (SUCCEED == (ret = zbx_tcp_connect(&s, source_ip, host, port, GET_SENDER_TIMEOUT)))
 	{
@@ -119,18 +125,10 @@ static void	get_value(const char *source_ip, const char *host, unsigned short po
 
 		if (SUCCEED == (ret = zbx_tcp_send(&s, request)))
 		{
-			if (SUCCEED == (ret = SUCCEED_OR_FAIL(zbx_tcp_recv_ext(&s, ZBX_TCP_READ_UNTIL_CLOSE, 0))))
+			if (SUCCEED == (ret = SUCCEED_OR_FAIL(zbx_tcp_recv_ext(&s, &buf, ZBX_TCP_READ_UNTIL_CLOSE, 0))))
 			{
-				if (0 == strcmp(s.buffer, ZBX_NOTSUPPORTED) && sizeof(ZBX_NOTSUPPORTED) < s.read_bytes)
-				{
-					zbx_rtrim(s.buffer + sizeof(ZBX_NOTSUPPORTED), "\r\n");
-					printf("%s: %s\n", s.buffer, s.buffer + sizeof(ZBX_NOTSUPPORTED));
-				}
-				else
-				{
-					zbx_rtrim(s.buffer, "\r\n");
-					printf("%s\n", s.buffer);
-				}
+				zbx_rtrim(buf, "\r\n");
+				*value = strdup(buf);
 			}
 		}
 
@@ -139,6 +137,8 @@ static void	get_value(const char *source_ip, const char *host, unsigned short po
 
 	if (FAIL == ret)
 		zbx_error("Get value error: %s", zbx_tcp_strerror());
+
+	return ret;
 }
 
 /******************************************************************************
@@ -151,14 +151,16 @@ static void	get_value(const char *source_ip, const char *host, unsigned short po
  *                                                                            *
  * Return value:                                                              *
  *                                                                            *
+ * Author: Eugene Grigorjev                                                   *
+ *                                                                            *
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
 int	main(int argc, char **argv)
 {
 	unsigned short	port = ZBX_DEFAULT_AGENT_PORT;
-	int		ret = SUCCEED, opt_k = 0, opt_p = 0, opt_s = 0, opt_i = 0;
-	char		*host = NULL, *key = NULL, *source_ip = NULL, ch;
+	int		ret = SUCCEED;
+	char		*value = NULL, *host = NULL, *key = NULL, *source_ip = NULL, ch;
 
 	progname = get_program_name(argv[0]);
 
@@ -168,38 +170,28 @@ int	main(int argc, char **argv)
 		switch (ch)
 		{
 			case 'k':
-				opt_k++;
-
-				if (NULL == key)
-					key = zbx_strdup(NULL, zbx_optarg);
+				key = strdup(zbx_optarg);
 				break;
 			case 'p':
-				opt_p++;
 				port = (unsigned short)atoi(zbx_optarg);
 				break;
 			case 's':
-				opt_s++;
-
-				if (NULL == host)
-					host = zbx_strdup(NULL, zbx_optarg);
+				host = strdup(zbx_optarg);
 				break;
 			case 'I':
-				opt_i++;
-
-				if (NULL == source_ip)
-					source_ip = zbx_strdup(NULL, zbx_optarg);
+				source_ip = strdup(zbx_optarg);
 				break;
 			case 'h':
 				help();
-				exit(EXIT_SUCCESS);
+				exit(-1);
 				break;
 			case 'V':
 				version();
-				exit(EXIT_SUCCESS);
+				exit(-1);
 				break;
 			default:
 				usage();
-				exit(EXIT_FAILURE);
+				exit(-1);
 				break;
 		}
 	}
@@ -210,50 +202,26 @@ int	main(int argc, char **argv)
 		ret = FAIL;
 	}
 
-	/* every option may be specified only once */
-	if (1 < opt_k || 1 < opt_p || 1 < opt_s || 1 < opt_i)
-	{
-		if (1 < opt_k)
-			zbx_error("option \"-k\" specified multiple times");
-		if (1 < opt_p)
-			zbx_error("option \"-p\" specified multiple times");
-		if (1 < opt_s)
-			zbx_error("option \"-s\" specified multiple times");
-		if (1 < opt_i)
-			zbx_error("option \"-I\" specified multiple times");
-
-		ret = FAIL;
-	}
-
-	/* Parameters which are not option values are invalid. The check relies on zbx_getopt_internal() which */
-	/* always permutes command line arguments regardless of POSIXLY_CORRECT environment variable. */
-	if (argc > zbx_optind)
-	{
-		int	i;
-
-		for (i = zbx_optind; i < argc; i++)
-			zbx_error("invalid parameter \"%s\"", argv[i]);
-
-		ret = FAIL;
-	}
-
-	if (FAIL == ret)
-		printf("Try '%s --help' for more information.\n", progname);
-
 	if (SUCCEED == ret)
 	{
+
 #if !defined(_WINDOWS)
 		signal(SIGINT,  get_signal_handler);
 		signal(SIGTERM, get_signal_handler);
 		signal(SIGQUIT, get_signal_handler);
 		signal(SIGALRM, get_signal_handler);
 #endif
-		get_value(source_ip, host, port, key);
+
+		ret = get_value(source_ip, host, port, key, &value);
+
+		if (SUCCEED == ret)
+			printf("%s\n", value);
+
+		zbx_free(value);
 	}
 
 	zbx_free(host);
 	zbx_free(key);
-	zbx_free(source_ip);
 
 	return ret;
 }

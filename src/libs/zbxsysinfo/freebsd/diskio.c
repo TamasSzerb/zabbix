@@ -51,8 +51,8 @@ int	get_diskstat(const char *devname, zbx_uint64_t *dstat)
 	pd = devname;
 
 	/* skip prefix ZBX_DEV_PFX, if present */
-	if ('\0' != *devname && 0 == strncmp(pd, ZBX_DEV_PFX, ZBX_CONST_STRLEN(ZBX_DEV_PFX)))
-			pd += ZBX_CONST_STRLEN(ZBX_DEV_PFX);
+	if ('\0' != *devname && 0 == strncmp(pd, ZBX_DEV_PFX, sizeof(ZBX_DEV_PFX) - 1))
+			pd += sizeof(ZBX_DEV_PFX) - 1;
 
 #if DEVSTAT_USER_API_VER >= 5
 	if (-1 == devstat_getdevs(NULL, si))
@@ -102,10 +102,7 @@ static int	vfs_dev_rw(AGENT_REQUEST *request, AGENT_RESULT *result, int rw)
 	char		*pd;			/* pointer to device name without '/dev/' prefix, e.g. 'da0' */
 
 	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	tmp = get_rparam(request, 0);
 
@@ -119,8 +116,8 @@ static int	vfs_dev_rw(AGENT_REQUEST *request, AGENT_RESULT *result, int rw)
 	if ('\0' != *pd)
 	{
 		/* skip prefix ZBX_DEV_PFX, if present */
-		if (0 == strncmp(pd, ZBX_DEV_PFX, ZBX_CONST_STRLEN(ZBX_DEV_PFX)))
-			pd += ZBX_CONST_STRLEN(ZBX_DEV_PFX);
+		if (0 == strncmp(pd, ZBX_DEV_PFX, sizeof(ZBX_DEV_PFX) - 1))
+			pd += sizeof(ZBX_DEV_PFX) - 1;
 	}
 
 	tmp = get_rparam(request, 1);
@@ -134,24 +131,15 @@ static int	vfs_dev_rw(AGENT_REQUEST *request, AGENT_RESULT *result, int rw)
 	else if (0 == strcmp(tmp, "operations"))
 		type = ZBX_DSTAT_TYPE_OPER;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	if (type == ZBX_DSTAT_TYPE_BYTE || type == ZBX_DSTAT_TYPE_OPER)
 	{
-		if (2 < request->nparam)
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid number of parameters."));
+		if (request->nparam > 2)
 			return SYSINFO_RET_FAIL;
-		}
 
 		if (FAIL == get_diskstat(pd, dstats))
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain disk information."));
 			return SYSINFO_RET_FAIL;
-		}
 
 		if (ZBX_DSTAT_TYPE_BYTE == type)
 			SET_UI64_RESULT(result, dstats[(ZBX_DEV_READ == rw ? ZBX_DSTAT_R_BYTE : ZBX_DSTAT_W_BYTE)]);
@@ -170,10 +158,7 @@ static int	vfs_dev_rw(AGENT_REQUEST *request, AGENT_RESULT *result, int rw)
 	else if (0 == strcmp(tmp, "avg15"))
 		mode = ZBX_AVG15;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	if (NULL == collector)
 	{
@@ -182,24 +167,17 @@ static int	vfs_dev_rw(AGENT_REQUEST *request, AGENT_RESULT *result, int rw)
 		/* the collectors are not available and keys "vfs.dev.read", "vfs.dev.write" with some parameters */
 		/* (e.g. sps, ops) are not supported. */
 
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "This item is available only in daemon mode when collectors are"
-				" started."));
+		SET_MSG_RESULT(result, strdup("This parameter is available only in daemon mode when collectors are started."));
 		return SYSINFO_RET_FAIL;
 	}
 
 	if (NULL == (device = collector_diskdevice_get(pd)))
 	{
 		if (FAIL == get_diskstat(pd, dstats))	/* validate device name */
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain disk information."));
 			return SYSINFO_RET_FAIL;
-		}
 
 		if (NULL == (device = collector_diskdevice_add(pd)))
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot add disk device to agent collector."));
 			return SYSINFO_RET_FAIL;
-		}
 	}
 
 	if (ZBX_DSTAT_TYPE_BPS == type)	/* default parameter */

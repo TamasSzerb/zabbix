@@ -21,11 +21,10 @@
 #define ZABBIX_TRAPPER_H
 
 #include "comms.h"
-#include "threads.h"
 
 extern int	CONFIG_TIMEOUT;
 extern int	CONFIG_TRAPPER_TIMEOUT;
 
-ZBX_THREAD_ENTRY(trapper_thread, args);
+void	main_trapper_loop(zbx_sock_t *s);
 
 #endif

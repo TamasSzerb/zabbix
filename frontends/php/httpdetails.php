@@ -24,7 +24,7 @@ require_once dirname(__FILE__).'/include/hosts.inc.php';
 require_once dirname(__FILE__).'/include/httptest.inc.php';
 require_once dirname(__FILE__).'/include/forms.inc.php';
 
-$page['title'] = _('Details of web scenario');
+$page['title'] = _('Details of scenario');
 $page['file'] = 'httpdetails.php';
 $page['hist_arg'] = array('httptestid');
 $page['scripts'] = array('class.calendar.js', 'gtlc.js', 'flickerfreescreen.js');
@@ -40,19 +40,21 @@ $fields = array(
 	'httptestid' =>	array(T_ZBX_INT, O_MAND, P_SYS,	DB_ID,		null),
 	'fullscreen' =>	array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'),	null),
 	// ajax
-	'filterState' => array(T_ZBX_INT, O_OPT, P_ACT, null,		null),
 	'favobj' =>		array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
-	'favid' =>		array(T_ZBX_INT, O_OPT, P_ACT,	null,		null)
+	'favref' =>		array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,	null),
+	'favid' =>		array(T_ZBX_INT, O_OPT, P_ACT,	null,		null),
+	'favstate' =>	array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	null)
 );
 check_fields($fields);
 
 /*
  * Ajax
  */
-if (hasRequest('filterState')) {
-	CProfile::update('web.httpdetails.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
-}
 if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.httpdetails.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
+
 	// saving fixed/dynamic setting to profile
 	if ($_REQUEST['favobj'] == 'timelinefixedperiod') {
 		if (isset($_REQUEST['favid'])) {
@@ -63,14 +65,14 @@ if (isset($_REQUEST['favobj'])) {
 
 if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 /*
  * Collect data
  */
 $httpTest = API::HttpTest()->get(array(
-	'httptestids' => getRequest('httptestid'),
+	'httptestids' => get_request('httptestid'),
 	'output' => API_OUTPUT_EXTEND,
 	'preservekeys' => true
 ));
@@ -113,13 +115,13 @@ $itemHistory = Manager::History()->getLast($items);
 $httpdetailsWidget = new CWidget();
 $httpdetailsWidget->addPageHeader(
 	array(
-		_('DETAILS OF WEB SCENARIO'),
+		_('DETAILS OF SCENARIO'),
 		SPACE,
 		bold(CMacrosResolverHelper::resolveHttpTestName($httpTest['hostid'], $httpTest['name'])),
-		isset($httpTestData['lastcheck']) ? ' ['.zbx_date2str(DATE_TIME_FORMAT_SECONDS, $httpTestData['lastcheck']).']' : null
+		isset($httpTestData['lastcheck']) ? ' ['.zbx_date2str(_('d M Y H:i:s'), $httpTestData['lastcheck']).']' : null
 	),
 	array(
-		get_icon('reset', array('id' => getRequest('httptestid'))),
+		get_icon('reset', array('id' => get_request('httptestid'))),
 		get_icon('fullscreen', array('fullscreen' => $_REQUEST['fullscreen']))
 	)
 );
@@ -250,7 +252,7 @@ $httpdetailsTable->addRow(array(
 $httpdetailsWidget->addItem($httpdetailsTable);
 $httpdetailsWidget->show();
 
-echo BR();
+echo SBR;
 
 // create graphs widget
 $graphsWidget = new CWidget();
@@ -274,9 +276,9 @@ $graphInScreen = new CScreenBase(array(
 	'mode' => SCREEN_MODE_PREVIEW,
 	'dataId' => 'graph_in',
 	'profileIdx' => 'web.httptest',
-	'profileIdx2' => getRequest('httptestid'),
-	'period' => getRequest('period'),
-	'stime' => getRequest('stime')
+	'profileIdx2' => get_request('httptestid'),
+	'period' => get_request('period'),
+	'stime' => get_request('stime')
 ));
 $graphInScreen->timeline['starttime'] = date(TIMESTAMP_FORMAT, get_min_itemclock_by_itemid($itemIds));
 
@@ -316,9 +318,9 @@ $graphTimeScreen = new CScreenBase(array(
 	'mode' => SCREEN_MODE_PREVIEW,
 	'dataId' => 'graph_time',
 	'profileIdx' => 'web.httptest',
-	'profileIdx2' => getRequest('httptestid'),
-	'period' => getRequest('period'),
-	'stime' => getRequest('stime')
+	'profileIdx2' => get_request('httptestid'),
+	'period' => get_request('period'),
+	'stime' => get_request('stime')
 ));
 
 $src = 'chart3.php?height=150'.

@@ -19,28 +19,21 @@
 
 #include "common.h"
 #include "sysinfo.h"
-#include "log.h"
+
+#ifdef HAVE_SYS_PSTAT_H
 
 struct pst_static	pst;
 struct pst_dynamic	pdy;
 
-#define ZBX_PSTAT_GETSTATIC()											\
-														\
-	if (-1 == pstat_getstatic(&pst, sizeof(pst), 1, 0))							\
-	{													\
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain static system information: %s",	\
-				zbx_strerror(errno)));								\
-		return SYSINFO_RET_FAIL;									\
-	}
+#define ZBX_PSTAT_GETSTATIC()					\
+								\
+	if (-1 == pstat_getstatic(&pst, sizeof(pst), 1, 0))	\
+		return SYSINFO_RET_FAIL
 
-#define ZBX_PSTAT_GETDYNAMIC()											\
-														\
-	if (-1 == pstat_getdynamic(&pdy, sizeof(pdy), 1, 0))							\
-	{													\
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain dynamic system information: %s",	\
-				zbx_strerror(errno)));								\
-		return SYSINFO_RET_FAIL;									\
-	}
+#define ZBX_PSTAT_GETDYNAMIC()					\
+								\
+	if (-1 == pstat_getdynamic(&pdy, sizeof(pdy), 1, 0))	\
+		return SYSINFO_RET_FAIL
 
 static int	VM_MEMORY_TOTAL(AGENT_RESULT *result)
 {
@@ -87,10 +80,7 @@ static int	VM_MEMORY_PUSED(AGENT_RESULT *result)
 	ZBX_PSTAT_GETDYNAMIC();
 
 	if (0 == pst.physical_memory)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot calculate percentage because total is zero."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	SET_DBL_RESULT(result, (pst.physical_memory - pdy.psd_free) / (double)pst.physical_memory * 100);
 
@@ -113,26 +103,23 @@ static int	VM_MEMORY_PAVAILABLE(AGENT_RESULT *result)
 	ZBX_PSTAT_GETDYNAMIC();
 
 	if (0 == pst.physical_memory)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot calculate percentage because total is zero."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	SET_DBL_RESULT(result, pdy.psd_free / (double)pst.physical_memory * 100);
 
 	return SYSINFO_RET_OK;
 }
 
+#endif
+
 int	VM_MEMORY_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
 {
 	int	ret = SYSINFO_RET_FAIL;
+#ifdef HAVE_SYS_PSTAT_H
 	char	*mode;
 
 	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	mode = get_rparam(request, 0);
 
@@ -151,10 +138,7 @@ int	VM_MEMORY_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
 	else if (0 == strcmp(mode, "pavailable"))
 		ret = VM_MEMORY_PAVAILABLE(result);
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
 		ret = SYSINFO_RET_FAIL;
-	}
-
+#endif
 	return ret;
 }

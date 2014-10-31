@@ -187,9 +187,7 @@ ob_end_flush();
 /*
  * Display
  */
-$config = select_config();
-
-$data = getUserFormData(CWebUser::$data['userid'], $config, true);
+$data = getUserFormData(CWebUser::$data['userid'], true);
 $data['userid'] = CWebUser::$data['userid'];
 $data['form'] = getRequest('form');
 $data['form_refresh'] = getRequest('form_refresh', 0);

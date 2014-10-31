@@ -46,43 +46,34 @@ extern unsigned char	daemon_type;
  ******************************************************************************/
 int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 {
-	AGENT_REQUEST	request;
-	int		ret = NOTSUPPORTED, nparams;
-	const char	*tmp, *tmp1;
-	char		*error = NULL;
+	int	nparams;
+	char	params[MAX_STRING_LEN], *error = NULL, tmp[MAX_STRING_LEN], tmp1[HOST_HOST_LEN_MAX];
 
 	init_result(result);
-	init_request(&request);
 
-	if (SUCCEED != parse_item_key(item->key, &request))
-	{
-		error = zbx_strdup(error, "Invalid item key format.");
-		goto out;
-	}
+	if (0 != strncmp(item->key, "zabbix[", 7))
+		goto notsupported;
 
-	if (0 != strcmp("zabbix", get_rkey(&request)))
-	{
-		error = zbx_strdup(error, "Unsupported item key for this item type.");
-		goto out;
-	}
+	if (ZBX_COMMAND_WITH_PARAMS != parse_command(item->key, NULL, 0, params, sizeof(params)))
+		goto notsupported;
 
-	if (0 == (nparams = get_rparams_num(&request)))
+	if (0 == (nparams = num_param(params)))
 	{
 		error = zbx_strdup(error, "Invalid number of parameters.");
-		goto out;
+		goto notsupported;
 	}
 
-	tmp = get_rparam(&request, 0);
+	get_param(params, 1, tmp, sizeof(tmp));
 
 	if (0 == strcmp(tmp, "triggers"))			/* zabbix["triggers"] */
 	{
 		if (0 == (daemon_type & ZBX_DAEMON_TYPE_SERVER))
-			goto out;
+			goto notsupported;
 
 		if (1 != nparams)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
 		SET_UI64_RESULT(result, DCget_trigger_count());
@@ -92,7 +83,7 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		if (1 != nparams)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
 		SET_UI64_RESULT(result, DCget_item_count());
@@ -102,7 +93,7 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		if (1 != nparams)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
 		SET_UI64_RESULT(result, DCget_item_unsupported_count());
@@ -112,7 +103,7 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		if (1 != nparams)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
 		SET_UI64_RESULT(result, DCget_host_count());
@@ -124,12 +115,12 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			0 == strcmp(tmp, "history_uint"))	/* zabbix["history_uint"] */
 	{
 		if (0 == (daemon_type & ZBX_DAEMON_TYPE_SERVER))
-			goto out;
+			goto notsupported;
 
 		if (1 != nparams)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
 		SET_UI64_RESULT(result, DBget_row_count(tmp));
@@ -138,12 +129,12 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			0 == strcmp(tmp, "trends_uint"))	/* zabbix["trends_uint"] */
 	{
 		if (0 == (daemon_type & ZBX_DAEMON_TYPE_SERVER))
-			goto out;
+			goto notsupported;
 
 		if (1 != nparams)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
 		SET_UI64_RESULT(result, DBget_row_count(tmp));
@@ -155,25 +146,35 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		if (3 < nparams)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
-		if (NULL != (tmp = get_rparam(&request, 1)) && '\0' != *tmp && FAIL == is_uint_suffix(tmp, &from))
+		if (2 <= nparams)
 		{
-			error = zbx_strdup(error, "Invalid second parameter.");
-			goto out;
+			get_param(params, 2, tmp, sizeof(tmp));
+
+			if ('\0' != *tmp && FAIL == is_uint_suffix(tmp, &from))
+			{
+				error = zbx_strdup(error, "Invalid second parameter.");
+				goto notsupported;
+			}
 		}
 
-		if (NULL != (tmp = get_rparam(&request, 2)) && '\0' != *tmp &&  FAIL == is_uint_suffix(tmp, &to))
+		if (3 == nparams)
 		{
-			error = zbx_strdup(error, "Invalid third parameter.");
-			goto out;
+			get_param(params, 3, tmp, sizeof(tmp));
+
+			if ('\0' != *tmp && FAIL == is_uint_suffix(tmp, &to))
+			{
+				error = zbx_strdup(error, "Invalid third parameter.");
+				goto notsupported;
+			}
 		}
 
 		if ((unsigned int)-1 != to && from > to)
 		{
 			error = zbx_strdup(error, "Parameters represent an invalid interval.");
-			goto out;
+			goto notsupported;
 		}
 
 		SET_UI64_RESULT(result, DCget_item_queue(NULL, from, to));
@@ -183,7 +184,7 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		if (1 != nparams)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
 		SET_DBL_RESULT(result, DCget_required_performance());
@@ -193,7 +194,7 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		if (1 != nparams)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
 		SET_UI64_RESULT(result, time(NULL) - CONFIG_SERVER_STARTUP_TIME);
@@ -203,7 +204,7 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		if (1 != nparams)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
 		SET_UI64_RESULT(result, CONFIG_SERVER_STARTUP_TIME);
@@ -213,14 +214,14 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		if (3 != nparams)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
-		tmp = get_rparam(&request, 2);
+		get_param(params, 3, tmp, sizeof(tmp));
 
 		if (0 == strcmp(tmp, "available"))		/* zabbix["host",<host>,"available"] */
 		{
-			tmp = get_rparam(&request, 1);
+			get_param(params, 2, tmp, sizeof(tmp));
 
 			if (0 == strcmp(tmp, "agent"))
 				SET_UI64_RESULT(result, item->host.available);
@@ -233,7 +234,7 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			else
 			{
 				error = zbx_strdup(error, "Invalid second parameter.");
-				goto out;
+				goto notsupported;
 			}
 
 			result->ui64 = 2 - result->ui64;
@@ -241,10 +242,13 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		else if (0 == strcmp(tmp, "maintenance"))	/* zabbix["host",,"maintenance"] */
 		{
 			/* this item always processed by server */
-			if (NULL != (tmp = get_rparam(&request, 1)) && '\0' != *tmp)
+
+			get_param(params, 2, tmp, sizeof(tmp));
+
+			if ('\0' != *tmp)
 			{
 				error = zbx_strdup(error, "Invalid second parameter.");
-				goto out;
+				goto notsupported;
 			}
 
 			if (HOST_MAINTENANCE_STATUS_ON == item->host.maintenance_status)
@@ -255,7 +259,7 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		else
 		{
 			error = zbx_strdup(error, "Invalid third parameter.");
-			goto out;
+			goto notsupported;
 		}
 
 	}
@@ -268,18 +272,21 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		if (3 != nparams)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
-		tmp = get_rparam(&request, 2);
-		if ('\0' == *tmp || 0 != strcmp(tmp, "lastaccess"))
+		get_param(params, 3, tmp, sizeof(tmp));
+
+		if (0 != strcmp(tmp, "lastaccess"))
 		{
 			error = zbx_strdup(error, "Invalid third parameter.");
-			goto out;
+			goto notsupported;
 		}
 
-		if (FAIL == DBget_proxy_lastaccess(get_rparam(&request, 1), &lastaccess, &error))
-			goto out;
+		get_param(params, 2, tmp1, sizeof(tmp1));
+
+		if (FAIL == DBget_proxy_lastaccess(tmp1, &lastaccess, &error))
+			goto notsupported;
 
 		SET_UI64_RESULT(result, lastaccess);
 	}
@@ -292,21 +299,25 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		alarm(0);
 
 		if (SUCCEED != res)
-			goto out;
+			goto notsupported;
 	}
 	else if (0 == strcmp(tmp, "process"))			/* zabbix["process",<type>,<mode>,<state>] */
 	{
-		unsigned char	process_type = ZBX_PROCESS_TYPE_UNKNOWN;
+		unsigned char	process_type;
 		int		process_forks;
 		double		value;
 
 		if (2 > nparams || nparams > 4)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
-		process_type = get_process_type_by_name(get_rparam(&request, 1));
+		get_param(params, 2, tmp, sizeof(tmp));
+
+		for (process_type = 0; process_type < ZBX_PROCESS_TYPE_COUNT; process_type++)
+			if (0 == strcmp(tmp, get_process_type_string(process_type)))
+				break;
 
 		switch (process_type)
 		{
@@ -316,32 +327,32 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			case ZBX_PROCESS_TYPE_PROXYPOLLER:
 			case ZBX_PROCESS_TYPE_TIMER:
 				if (0 == (daemon_type & ZBX_DAEMON_TYPE_SERVER))
-					process_type = ZBX_PROCESS_TYPE_UNKNOWN;
+					process_type = ZBX_PROCESS_TYPE_COUNT;
 				break;
 			case ZBX_PROCESS_TYPE_DATASENDER:
 			case ZBX_PROCESS_TYPE_HEARTBEAT:
 				if (0 == (daemon_type & ZBX_DAEMON_TYPE_PROXY))
-					process_type = ZBX_PROCESS_TYPE_UNKNOWN;
+					process_type = ZBX_PROCESS_TYPE_COUNT;
 				break;
 		}
 
-		if (ZBX_PROCESS_TYPE_UNKNOWN == process_type)
+		if (ZBX_PROCESS_TYPE_COUNT == process_type)
 		{
 			error = zbx_strdup(error, "Invalid second parameter.");
-			goto out;
+			goto notsupported;
 		}
 
 		process_forks = get_process_type_forks(process_type);
 
-		if (NULL == (tmp = get_rparam(&request, 2)))
-			tmp = "";
+		if (0 != get_param(params, 3, tmp, sizeof(tmp)))
+			*tmp = '\0';
 
 		if (0 == strcmp(tmp, "count"))
 		{
 			if (4 == nparams)
 			{
 				error = zbx_strdup(error, "Invalid number of parameters.");
-				goto out;
+				goto notsupported;
 			}
 
 			SET_UI64_RESULT(result, process_forks);
@@ -362,30 +373,33 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			else
 			{
 				error = zbx_strdup(error, "Invalid third parameter.");
-				goto out;
+				goto notsupported;
 			}
 
 			if (0 == process_forks)
 			{
 				error = zbx_dsprintf(error, "No \"%s\" processes started.",
 						get_process_type_string(process_type));
-				goto out;
+				goto notsupported;
 			}
 			else if (process_num > process_forks)
 			{
-				error = zbx_dsprintf(error, "Process \"%s #%d\" is not started.",
+				error = zbx_dsprintf(error, "\"%s\" #%d is not started.",
 						get_process_type_string(process_type), process_num);
-				goto out;
+				goto notsupported;
 			}
 
-			if (NULL == (tmp = get_rparam(&request, 3)) || '\0' == *tmp || 0 == strcmp(tmp, "busy"))
+			if (0 != get_param(params, 4, tmp, sizeof(tmp)))
+				*tmp = '\0';
+
+			if ('\0' == *tmp || 0 == strcmp(tmp, "busy"))
 				state = ZBX_PROCESS_STATE_BUSY;
 			else if (0 == strcmp(tmp, "idle"))
 				state = ZBX_PROCESS_STATE_IDLE;
 			else
 			{
 				error = zbx_strdup(error, "Invalid fourth parameter.");
-				goto out;
+				goto notsupported;
 			}
 
 			get_selfmon_stats(process_type, aggr_func, process_num, state, &value);
@@ -398,15 +412,17 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		if (2 > nparams || nparams > 3)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
-		tmp = get_rparam(&request, 1);
-		tmp1 = get_rparam(&request, 2);
+		get_param(params, 2, tmp, sizeof(tmp));
+
+		if (0 != get_param(params, 3, tmp1, sizeof(tmp1)))
+			*tmp1 = '\0';
 
 		if (0 == strcmp(tmp, "values"))
 		{
-			if (NULL == tmp1 || '\0' == *tmp1 || 0 == strcmp(tmp1, "all"))
+			if ('\0' == *tmp1 || 0 == strcmp(tmp1, "all"))
 				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_HISTORY_COUNTER));
 			else if (0 == strcmp(tmp1, "float"))
 				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_HISTORY_FLOAT_COUNTER));
@@ -423,12 +439,12 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			else
 			{
 				error = zbx_strdup(error, "Invalid third parameter.");
-				goto out;
+				goto notsupported;
 			}
 		}
 		else if (0 == strcmp(tmp, "history"))
 		{
-			if (NULL == tmp1 || '\0' == *tmp1 || 0 == strcmp(tmp1, "pfree"))
+			if ('\0' == *tmp1 || 0 == strcmp(tmp1, "pfree"))
 				SET_DBL_RESULT(result, *(double *)DCget_stats(ZBX_STATS_HISTORY_PFREE));
 			else if (0 == strcmp(tmp1, "total"))
 				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_HISTORY_TOTAL));
@@ -439,7 +455,7 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			else
 			{
 				error = zbx_strdup(error, "Invalid third parameter.");
-				goto out;
+				goto notsupported;
 			}
 		}
 		else if (0 == strcmp(tmp, "trend"))
@@ -447,10 +463,10 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			if (0 == (daemon_type & ZBX_DAEMON_TYPE_SERVER))
 			{
 				error = zbx_strdup(error, "Invalid second parameter.");
-				goto out;
+				goto notsupported;
 			}
 
-			if (NULL == tmp1 || '\0' == *tmp1 || 0 == strcmp(tmp1, "pfree"))
+			if ('\0' == *tmp1 || 0 == strcmp(tmp1, "pfree"))
 				SET_DBL_RESULT(result, *(double *)DCget_stats(ZBX_STATS_TREND_PFREE));
 			else if (0 == strcmp(tmp1, "total"))
 				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_TREND_TOTAL));
@@ -461,12 +477,12 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			else
 			{
 				error = zbx_strdup(error, "Invalid third parameter.");
-				goto out;
+				goto notsupported;
 			}
 		}
 		else if (0 == strcmp(tmp, "text"))
 		{
-			if (NULL == tmp1 || '\0' == *tmp1 || 0 == strcmp(tmp1, "pfree"))
+			if ('\0' == *tmp1 || 0 == strcmp(tmp1, "pfree"))
 				SET_DBL_RESULT(result, *(double *)DCget_stats(ZBX_STATS_TEXT_PFREE));
 			else if (0 == strcmp(tmp1, "total"))
 				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCget_stats(ZBX_STATS_TEXT_TOTAL));
@@ -477,13 +493,13 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			else
 			{
 				error = zbx_strdup(error, "Invalid third parameter.");
-				goto out;
+				goto notsupported;
 			}
 		}
 		else
 		{
 			error = zbx_strdup(error, "Invalid second parameter.");
-			goto out;
+			goto notsupported;
 		}
 	}
 	else if (0 == strcmp(tmp, "rcache"))			/* zabbix[rcache,<cache>,<mode>] */
@@ -491,15 +507,17 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		if (2 > nparams || nparams > 3)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
-		tmp = get_rparam(&request, 1);
-		tmp1 = get_rparam(&request, 2);
+		get_param(params, 2, tmp, sizeof(tmp));
+
+		if (0 != get_param(params, 3, tmp1, sizeof(tmp1)))
+			*tmp1 = '\0';
 
 		if (0 == strcmp(tmp, "buffer"))
 		{
-			if (NULL == tmp1 || '\0' == *tmp1 || 0 == strcmp(tmp1, "pfree"))
+			if ('\0' == *tmp1 || 0 == strcmp(tmp1, "pfree"))
 				SET_DBL_RESULT(result, *(double *)DCconfig_get_stats(ZBX_CONFSTATS_BUFFER_PFREE));
 			else if (0 == strcmp(tmp1, "total"))
 				SET_UI64_RESULT(result, *(zbx_uint64_t *)DCconfig_get_stats(ZBX_CONFSTATS_BUFFER_TOTAL));
@@ -510,13 +528,13 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			else
 			{
 				error = zbx_strdup(error, "Invalid third parameter.");
-				goto out;
+				goto notsupported;
 			}
 		}
 		else
 		{
 			error = zbx_strdup(error, "Invalid second parameter.");
-			goto out;
+			goto notsupported;
 		}
 	}
 	else if (0 == strcmp(tmp, "vcache"))
@@ -524,23 +542,24 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		zbx_vc_stats_t	stats;
 
 		if (0 == (daemon_type & ZBX_DAEMON_TYPE_SERVER))
-			goto out;
+			goto notsupported;
 
 		if (FAIL == zbx_vc_get_statistics(&stats))
 		{
 			error = zbx_strdup(error, "Value cache is disabled.");
-			goto out;
+			goto notsupported;
 		}
 
 		if (2 > nparams || nparams > 3)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
-		tmp = get_rparam(&request, 1);
-		if (NULL == (tmp1 = get_rparam(&request, 2)))
-			tmp1 = "";
+		get_param(params, 2, tmp, sizeof(tmp));
+
+		if (0 != get_param(params, 3, tmp1, sizeof(tmp1)))
+			*tmp1 = '\0';
 
 		if (0 == strcmp(tmp, "buffer"))
 		{
@@ -558,7 +577,7 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			else
 			{
 				error = zbx_strdup(error, "Invalid third parameter.");
-				goto out;
+				goto notsupported;
 			}
 		}
 		else if (0 == strcmp(tmp, "cache"))
@@ -572,24 +591,24 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			else
 			{
 				error = zbx_strdup(error, "Invalid third parameter.");
-				goto out;
+				goto notsupported;
 			}
 		}
 		else
 		{
 			error = zbx_strdup(error, "Invalid second parameter.");
-			goto out;
+			goto notsupported;
 		}
 	}
 	else if (0 == strcmp(tmp, "proxy_history"))
 	{
 		if (0 == (daemon_type & ZBX_DAEMON_TYPE_PROXY))
-			goto out;
+			goto notsupported;
 
 		if (1 != nparams)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
 		SET_UI64_RESULT(result, proxy_get_history_count());
@@ -602,18 +621,19 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 		{
 			error = zbx_dsprintf(error, "No \"%s\" processes started.",
 					get_process_type_string(ZBX_PROCESS_TYPE_VMWARE));
-			goto out;
+			goto notsupported;
 		}
 
 		if (2 > nparams || nparams > 3)
 		{
 			error = zbx_strdup(error, "Invalid number of parameters.");
-			goto out;
+			goto notsupported;
 		}
 
-		tmp = get_rparam(&request, 1);
-		if (NULL == (tmp1 = get_rparam(&request, 2)))
-			tmp1 = "";
+		get_param(params, 2, tmp, sizeof(tmp));
+
+		if (0 != get_param(params, 3, tmp1, sizeof(tmp1)))
+			*tmp1 = '\0';
 
 		if (0 == strcmp(tmp, "buffer"))
 		{
@@ -641,24 +661,24 @@ int	get_value_internal(DC_ITEM *item, AGENT_RESULT *result)
 			else
 			{
 				error = zbx_strdup(error, "Invalid third parameter.");
-				goto out;
+				goto notsupported;
 			}
 		}
 		else
 		{
 			error = zbx_strdup(error, "Invalid second parameter.");
-			goto out;
+			goto notsupported;
 		}
 	}
 	else
 	{
 		error = zbx_strdup(error, "Invalid first parameter.");
-		goto out;
+		goto notsupported;
 	}
 
-	ret = SUCCEED;
-out:
-	if (NOTSUPPORTED == ret && !ISSET_MSG(result))
+	return SUCCEED;
+notsupported:
+	if (!ISSET_MSG(result))
 	{
 		if (NULL == error)
 			error = zbx_strdup(error, "Internal check is not supported.");
@@ -666,7 +686,5 @@ out:
 		SET_MSG_RESULT(result, error);
 	}
 
-	free_request(&request);
-
-	return ret;
+	return NOTSUPPORTED;
 }

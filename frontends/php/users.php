@@ -121,7 +121,6 @@ if (hasRequest('action')) {
 /*
  * Actions
  */
-$config = select_config();
 
 if (isset($_REQUEST['new_groups'])) {
 	$_REQUEST['new_groups'] = getRequest('new_groups', array());
@@ -146,6 +145,8 @@ elseif (isset($_REQUEST['user_medias']) && isset($_REQUEST['disable_media'])) {
 	}
 }
 elseif (hasRequest('add') || hasRequest('update')) {
+	$config = select_config();
+
 	$isValid = true;
 
 	$usrgrps = getRequest('user_groups', array());
@@ -367,7 +368,7 @@ CProfile::update('web.users.filter.usrgrpid', $_REQUEST['filter_usrgrpid'], PROF
 if (!empty($_REQUEST['form'])) {
 	$userId = getRequest('userid');
 
-	$data = getUserFormData($userId, $config);
+	$data = getUserFormData($userId);
 
 	$data['userid'] = $userId;
 	$data['form'] = getRequest('form');

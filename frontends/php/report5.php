@@ -159,8 +159,6 @@ $hosts = API::Host()->get(array(
 
 $scripts = API::Script()->getScriptsByHosts($hostIds);
 
-$config = select_config();
-
 foreach ($triggers as $trigger) {
 	$hostId = $trigger['hosts'][0]['hostid'];
 
@@ -176,7 +174,7 @@ foreach ($triggers as $trigger) {
 	$table->addRow(array(
 		$hostName,
 		$triggerDescription,
-		getSeverityCell($trigger['priority'], $config),
+		getSeverityCell($trigger['priority']),
 		$trigger['cnt_event']
 	));
 }

@@ -196,13 +196,11 @@ if (uint_in_array(CWebUser::$data['type'], array(USER_TYPE_ZABBIX_ADMIN, USER_TY
 						'&severity='.$media['severity'].
 						'&active='.$media['active'];
 
-		for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
-			$severityName = getSeverityName($severity, $this->data['config']);
+		foreach (getSeverityCaption() as $key => $caption) {
+			$mediaActive = ($media['severity'] & (1 << $key));
 
-			$mediaActive = ($media['severity'] & (1 << $severity));
-
-			$mediaSeverity[$severity] = new CSpan(mb_substr($severityName, 0, 1), $mediaActive ? 'enabled' : null);
-			$mediaSeverity[$severity]->setHint($severityName.($mediaActive ? ' ('._('on').')' : ' ('._('off').')'));
+			$mediaSeverity[$key] = new CSpan(mb_substr($caption, 0, 1), $mediaActive ? 'enabled' : null);
+			$mediaSeverity[$key]->setHint($caption.($mediaActive ? ' (on)' : ' (off)'));
 		}
 
 		$mediaTableInfo->addRow(array(
@@ -268,7 +266,15 @@ if ($this->data['is_profile']) {
 	));
 
 	// trigger sounds
-	for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
+	$severities = array(
+		TRIGGER_SEVERITY_NOT_CLASSIFIED,
+		TRIGGER_SEVERITY_INFORMATION,
+		TRIGGER_SEVERITY_WARNING,
+		TRIGGER_SEVERITY_AVERAGE,
+		TRIGGER_SEVERITY_HIGH,
+		TRIGGER_SEVERITY_DISASTER
+	);
+	foreach ($severities as $severity) {
 		$soundList = new CComboBox('messages[sounds.'.$severity.']', $this->data['messages']['sounds.'.$severity]);
 		foreach ($zbxSounds as $filename => $file) {
 			$soundList->addItem($file, $filename);
@@ -276,7 +282,7 @@ if ($this->data['is_profile']) {
 
 		$triggersTable->addRow(array(
 			new CCheckBox('messages[triggers.severities]['.$severity.']', isset($this->data['messages']['triggers.severities'][$severity]), null, 1),
-			getSeverityName($severity, $this->data['config']),
+			getSeverityCaption($severity),
 			SPACE,
 			$soundList,
 			new CButton('start', _('Play'), "javascript: testUserSound('messages_sounds.".$severity."');", 'formlist'),

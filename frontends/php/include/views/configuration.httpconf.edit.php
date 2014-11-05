@@ -133,7 +133,7 @@ $httpFormList->addRow(_('Agent'), $agentComboBox);
 
 // append HTTP proxy to form list
 $httpProxyTextBox = new CTextBox('http_proxy', $this->data['http_proxy'], ZBX_TEXTBOX_STANDARD_SIZE, false, 255);
-$httpProxyTextBox->setAttribute('placeholder', 'http://[user[:password]@]proxy.example.com[:port]');
+$httpProxyTextBox->setAttribute('placeholder', 'http://[username[:password]@]proxy.example.com[:port]');
 $httpFormList->addRow(_('HTTP proxy'), $httpProxyTextBox);
 
 // append variables to form list
@@ -295,7 +295,7 @@ $httpForm->addItem($httpTab);
 if (!empty($this->data['httptestid'])) {
 	if ($this->data['templated'] == 0) {
 		$btnDelete = new CButtonDelete(
-			_('Delete web scenario?'),
+			_('Delete scenario?'),
 			url_param('form').url_param('httptestid').url_param('hostid')
 		);
 	}
@@ -303,7 +303,7 @@ if (!empty($this->data['httptestid'])) {
 		$btnDelete = null;
 	}
 
-	if (!$this->data['is_template']) {
+	if ($this->data['host']['status'] != HOST_STATUS_TEMPLATE) {
 		$buttonDelHistory = new CButtonQMessage(
 			'del_history',
 			_('Clear history and trends'),

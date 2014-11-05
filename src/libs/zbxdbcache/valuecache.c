@@ -704,7 +704,7 @@ static void	vc_history_record_vector_clean(zbx_vector_history_record_t *vector, 
 				vc_history_logfree(vector->values[i].value.log);
 	}
 
-	zbx_vector_history_record_clear(vector);
+	vector->values_num = 0;
 }
 
 /******************************************************************************
@@ -2230,7 +2230,7 @@ static int	vch_item_get_value_range(zbx_vc_item_t *item, zbx_vector_history_reco
 {
 	int	ret, records_read, hits, misses;
 
-	zbx_vector_history_record_clear(values);
+	values->values_num = 0;
 
 	if (0 == count)
 	{

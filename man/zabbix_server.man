@@ -1,53 +1,34 @@
-.TH ZABBIX_SERVER 8 "2014\-07\-10" Zabbix
+.TH ZABBIX_SERVER 8 "10 November 2011"
 .SH NAME
-zabbix_server \- Zabbix server daemon
+zabbix_server \- Zabbix server daemon.
 .SH SYNOPSIS
-.B zabbix_server
-.RB [ \-c
-.IR config\-file ]
-.br
-.B zabbix_server
-.RB [ \-c
-.IR config\-file ]
-.B \-R
-.I runtime\-option
-.br
-.B zabbix_server \-h
-.br
-.B zabbix_server \-V
+.B zabbix_server [-hV] [-c \fI<config-file>\fR] [-R \fI<option>\fR]
 .SH DESCRIPTION
 .B zabbix_server
 is the core daemon of Zabbix software.
-.SH OPTIONS
-.IP "\fB\-c\fR, \fB\-\-config\fR \fIconfig\-file\fR"
-Use the alternate \fIconfig\-file\fR instead of the default one.
+.SS Options
+.IP "-c, --config \fI<config-file>\fR"
+Use the alternate \fIconfig-file\fR instead of the default one.
 Absolute path should be specified.
-.IP "\fB\-R\fR, \fB\-\-runtime\-control\fR \fIruntime\-option\fR"
-Perform administrative functions according to \fIruntime\-option\fR.
+.IP "-R, --runtime-control \fI<option>\fR"
+Perform administrative functions according to \fIoption\fR.
 .SS
 .RS 4
 Runtime control options
 .RS 4
 .TP 4
-.B config_cache_reload
-Reload configuration cache.
-Ignored if cache is being currently loaded.
-Default configuration file (unless \fB\-c\fR option is specified) will be used to find PID file and signal will be sent to process, listed in PID file.
+config_cache_reload
+Reload configuration cache. Ignored if cache is being currently loaded.
+Default configuration file (unless \fB-c\fR option is specified) will be used to find PID file and signal will be sent to process, listed in PID file.
 .RE
 .RS 4
 .TP 4
-.B housekeeper_execute
-Execute the housekeeper.
-Ignored if housekeeper is being currently executed.
-.RE
-.RS 4
-.TP 4
-\fBlog_level_increase\fR[=\fItarget\fR]
+log_level_increase[=<target>]
 Increase log level, affects all processes if target is not specified
 .RE
 .RS 4
 .TP 4
-\fBlog_level_decrease\fR[=\fItarget\fR]
+log_level_decrease[=<target>]
 Decrease log level, affects all processes if target is not specified
 .RE
 .RE
@@ -56,23 +37,23 @@ Decrease log level, affects all processes if target is not specified
 Log level control targets
 .RS 4
 .TP 4
-.I pid
+<pid>
 Process identifier
 .RE
 .RS 4
 .TP 4
-.I process\-type
+<process type>
 All processes of specified type (e.g., poller)
 .RE
 .RS 4
 .TP 4
-.I process\-type,N
+<process type>,N
 Process type and number (e.g., poller,3)
 .RE
 .RE
-.IP "\fB\-h\fR, \fB\-\-help\fR"
+.IP "-h, --help"
 Display this help and exit.
-.IP "\fB\-V\fR, \fB\-\-version\fR"
+.IP "-V, --version"
 Output version information and exit.
 .SH FILES
 .TP

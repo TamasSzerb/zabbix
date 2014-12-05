@@ -25,18 +25,16 @@ zabbix_proxy_LDADD = \
 	$(top_srcdir)/src/zabbix_server/poller/libzbxpoller.a \
 	$(top_srcdir)/src/zabbix_server/trapper/libzbxtrapper.a \
 	$(top_srcdir)/src/zabbix_server/snmptrapper/libzbxsnmptrapper.a \
+	$(top_srcdir)/src/zabbix_server/nodewatcher/libzbxnodewatcher.a \
 	datasender/libzbxdatasender.a \
 	$(top_srcdir)/src/zabbix_server/selfmon/libzbxselfmon.a \
-	$(top_srcdir)/src/zabbix_server/vmware/libzbxvmware.a \
-	$(top_srcdir)/src/libs/zbxsysinfo/libzbxproxysysinfo.a \
+	$(top_srcdir)/src/libs/zbxsysinfo/libzbxserversysinfo.a \
+	$(top_srcdir)/src/libs/zbxsysinfo/$(ARCH)/libspecsysinfo.a \
 	$(top_srcdir)/src/libs/zbxsysinfo/common/libcommonsysinfo.a \
 	$(top_srcdir)/src/libs/zbxsysinfo/simple/libsimplesysinfo.a \
-	$(top_srcdir)/src/libs/zbxsysinfo/$(ARCH)/libspechostnamesysinfo.a \
 	$(top_srcdir)/src/libs/zbxlog/libzbxlog.a \
-	$(top_srcdir)/src/libs/zbxserver/libzbxserver.a \
 	$(top_srcdir)/src/libs/zbxdbcache/libzbxdbcache.a \
 	$(top_srcdir)/src/libs/zbxmemory/libzbxmemory.a \
-	$(top_srcdir)/src/libs/zbxregexp/libzbxregexp.a \
 	$(top_srcdir)/src/libs/zbxalgo/libzbxalgo.a \
 	$(top_srcdir)/src/libs/zbxnix/libzbxnix.a \
 	$(top_srcdir)/src/libs/zbxsys/libzbxsys.a \
@@ -48,11 +46,10 @@ zabbix_proxy_LDADD = \
 	$(top_srcdir)/src/libs/zbxjson/libzbxjson.a \
 	$(top_srcdir)/src/libs/zbxexec/libzbxexec.a \
 	$(top_srcdir)/src/libs/zbxself/libzbxself.a \
+	$(top_srcdir)/src/libs/zbxserver/libzbxserver.a \
 	$(top_srcdir)/src/libs/zbxicmpping/libzbxicmpping.a \
-	$(top_srcdir)/src/libs/zbxdbupgrade/libzbxdbupgrade.a \
 	$(top_srcdir)/src/libs/zbxdbhigh/libzbxdbhigh.a \
-	$(top_srcdir)/src/libs/zbxdb/libzbxdb.a \
-	$(top_srcdir)/src/libs/zbxmodules/libzbxmodules.a
+	$(top_srcdir)/src/libs/zbxdb/libzbxdb.a
 
 zabbix_proxy_LDADD += @PROXY_LIBS@
 
@@ -61,16 +58,13 @@ zabbix_proxy_LDFLAGS = @PROXY_LDFLAGS@
 zabbix_proxy_CFLAGS = \
 	-DZABBIX_DAEMON \
 	-DSYSCONFDIR="\"@sysconfdir@\"" \
-	-DDATADIR="\"@datadir@\"" \
-	-DLIBDIR="\"@libdir@\""
+	-DDATADIR="\"@datadir@\""
 
 PROXY_CONFIG = zabbix_proxy.conf
 INCLUDE_DIR = $(DESTDIR)@sysconfdir@/$(PROXY_CONFIG).d
 EXSCRIPTS_DIR = $(DESTDIR)@datadir@/zabbix/externalscripts
-MODULES_DIR = $(DESTDIR)@libdir@
 
 install-data-hook:
 	$(MKDIR_P) "$(INCLUDE_DIR)"
 	$(MKDIR_P) "$(EXSCRIPTS_DIR)"
-	$(MKDIR_P) "$(MODULES_DIR)"
 	test -f "$(DESTDIR)@sysconfdir@/$(PROXY_CONFIG)" || cp "../../conf/$(PROXY_CONFIG)" "$(DESTDIR)@sysconfdir@"

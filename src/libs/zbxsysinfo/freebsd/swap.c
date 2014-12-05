@@ -19,36 +19,35 @@
 
 #include "common.h"
 #include "sysinfo.h"
-#include "log.h"
 
-int	SYSTEM_SWAP_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_SWAP_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 /*
  *  FreeBSD 7.0 i386
  */
 #ifdef XSWDEV_VERSION	/* defined in <vm/vm_param.h> */
-	char		*swapdev, *mode;
+	char		swapdev[64], mode[64];
 	int		mib[16], *mib_dev;
 	size_t		sz, mib_sz;
 	struct xswdev	xsw;
 	zbx_uint64_t	total = 0, used = 0;
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+        assert(result);
+
+        init_result(result);
+
+	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
-	}
 
-	swapdev = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
+	if (0 != get_param(param, 1, swapdev, sizeof(swapdev)))
+		return SYSINFO_RET_FAIL;
 
-	sz = ARRSIZE(mib);
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
+
+	sz = sizeof(mib) / sizeof(mib[0]);
 	if (-1 == sysctlnametomib("vm.swap_info", mib, &sz))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain \"vm.swap_info\" system parameter: %s",
-				zbx_strerror(errno)));
-		return SYSINFO_RET_FAIL;
-	}
+		return FAIL;
 
 	mib_sz = sz + 1;
 	mib_dev = &(mib[sz]);
@@ -58,7 +57,7 @@ int	SYSTEM_SWAP_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 	while (-1 != sysctl(mib, mib_sz, &xsw, &sz, NULL, 0))
 	{
-		if (NULL == swapdev || '\0' == *swapdev || 0 == strcmp(swapdev, "all")	/* default parameter */
+		if ('\0' == *swapdev || 0 == strcmp(swapdev, "all")	/* default parameter */
 				|| 0 == strcmp(swapdev, devname(xsw.xsw_dev, S_IFCHR)))
 		{
 			total += (zbx_uint64_t)xsw.xsw_nblks;
@@ -67,7 +66,7 @@ int	SYSTEM_SWAP_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
 		(*mib_dev)++;
 	}
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "free"))	/* default parameter */
+	if ('\0' == *mode || 0 == strcmp(mode, "free"))	/* default parameter */
 		SET_UI64_RESULT(result, (total - used) * getpagesize());
 	else if (0 == strcmp(mode, "total"))
 		SET_UI64_RESULT(result, total * getpagesize());
@@ -78,14 +77,10 @@ int	SYSTEM_SWAP_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
 	else if (0 == strcmp(mode, "pused"))
 		SET_DBL_RESULT(result, total ? ((double)used * 100.0 / (double)total) : 0.0);
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	return SYSINFO_RET_OK;
 #else
-	SET_MSG_RESULT(result, zbx_strdup(NULL, "Agent was compiled without support for \"xswdev\" structure."));
 	return SYSINFO_RET_FAIL;
 #endif
 }

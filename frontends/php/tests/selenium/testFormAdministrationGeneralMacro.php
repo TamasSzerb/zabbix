@@ -43,10 +43,12 @@ class testFormAdministrationGeneralMacro extends CWebTest {
 	private $oldHashGlobalMacros = '';
 
 	private function openGlobalMacros() {
-		$this->zbxTestLogin('adm.macros.php');
+		$this->zbxTestLogin('adm.gui.php');
+		$this->assertElementPresent('configDropDown');
+		$this->zbxTestDropdownSelectWait('configDropDown', 'Macros');
 		$this->assertElementPresent('configDropDown');
 
-		$this->zbxTestCheckTitle('Configuration of macros');
+		$this->checkTitle('Configuration of macros');
 		$this->zbxTestTextPresent('CONFIGURATION OF MACROS');
 		$this->zbxTestTextPresent('Macros');
 		$this->zbxTestTextPresent(array('Macro', 'Value'));
@@ -79,7 +81,7 @@ class testFormAdministrationGeneralMacro extends CWebTest {
 	}
 
 	private function saveGlobalMacros($confirmation = false, $wait = true) {
-		$this->zbxTestClick('update');
+		$this->zbxTestClick('save');
 		if ($confirmation) {
 			$this->waitForConfirmation();
 		}
@@ -140,7 +142,7 @@ class testFormAdministrationGeneralMacro extends CWebTest {
 		$this->checkGlobalMacrosOrder();
 
 		$this->assertElementPresent('macro_add');
-		$this->assertElementPresent('add');
+		$this->assertElementPresent('save');
 
 		$this->zbxTestClick('macro_add');
 		$this->waitForVisible('macros['.$countGlobalMacros.'][macro]');

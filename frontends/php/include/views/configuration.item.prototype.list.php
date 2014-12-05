@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $itemsWidget = new CWidget();
 
 // create new item button
@@ -29,29 +29,33 @@ $createForm->addItem(new CSubmit('form', _('Create item prototype')));
 $itemsWidget->addPageHeader(_('CONFIGURATION OF ITEM PROTOTYPES'), $createForm);
 
 // header
-$itemsWidget->addHeader(array(_('Item prototypes of').SPACE, new CSpan($this->data['discovery_rule']['name'], 'parent-discovery')));
+$itemsWidget->addHeader(array(_('Item prototypes of').SPACE, new CSpan($this->data['discovery_rule']['name'], 'gold')));
 $itemsWidget->addHeaderRowNumber();
 $itemsWidget->addItem(get_header_host_table('items', $this->data['hostid'], $this->data['parent_discoveryid']));
 
 // create form
-$itemForm = new CForm();
+$itemForm = new CForm('get');
 $itemForm->setName('items');
 $itemForm->addVar('hostid', $this->data['hostid']);
 $itemForm->addVar('parent_discoveryid', $this->data['parent_discoveryid']);
 
 // create table
-$itemTable = new CTableInfo(_('No item prototypes found.'));
+$itemTable = new CTableInfo(_('No items prototypes defined.'));
+
+$sortLink = new CUrl();
+$sortLink->setArgument('parent_discoveryid', $this->data['parent_discoveryid']);
+$sortLink = $sortLink->getUrl();
 
 $itemTable->setHeader(array(
 	new CCheckBox('all_items', null, "checkAll('".$itemForm->getName()."', 'all_items', 'group_itemid');"),
-	make_sorting_header(_('Name'),'name', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Key'), 'key_', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Interval'), 'delay', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('History'), 'history', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Trends'), 'trends', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Type'), 'type', $this->data['sort'], $this->data['sortorder']),
-	_('Applications'),
-	make_sorting_header(_('Status'), 'status', $this->data['sort'], $this->data['sortorder'])
+	make_sorting_header(_('Name'),'name', $sortLink),
+	make_sorting_header(_('Key'), 'key_', $sortLink),
+	make_sorting_header(_('Interval'), 'delay', $sortLink),
+	make_sorting_header(_('History'), 'history', $sortLink),
+	make_sorting_header(_('Trends'), 'trends', $sortLink),
+	make_sorting_header(_('Type'), 'type', $sortLink),
+	make_sorting_header(_('Status'), 'status', $sortLink),
+	_('Applications')
 ));
 
 foreach ($this->data['items'] as $item) {
@@ -61,22 +65,12 @@ foreach ($this->data['items'] as $item) {
 		$templateDiscoveryRuleId = get_realrule_by_itemid_and_hostid($this->data['parent_discoveryid'], $template_host['hostid']);
 
 		$description[] = new CLink($template_host['name'], '?parent_discoveryid='.$templateDiscoveryRuleId, 'unknown');
-		$description[] = NAME_DELIMITER;
+		$description[] = ': ';
 	}
-	$description[] = new CLink(
-		$item['name_expanded'],
-		'?form=update&itemid='.$item['itemid'].'&parent_discoveryid='.$this->data['parent_discoveryid']
-	);
+	$description[] = new CLink(itemName($item), '?form=update&itemid='.$item['itemid'].'&parent_discoveryid='.$this->data['parent_discoveryid']);
 
-	$status = new CLink(
-		itemIndicator($item['status']),
-		'?group_itemid='.$item['itemid'].
-			'&parent_discoveryid='.$this->data['parent_discoveryid'].
-			'&action='.($item['status'] == ITEM_STATUS_DISABLED
-				? 'itemprototype.massenable'
-				: 'itemprototype.massdisable'
-			),
-		itemIndicatorStyle($item['status'])
+	$status = new CLink(item_status2str($item['status']), '?group_itemid='.$item['itemid'].'&parent_discoveryid='.$this->data['parent_discoveryid'].
+		'&go='.($item['status'] ? 'activate' : 'disable'), item_status2style($item['status'])
 	);
 
 	if (!empty($item['applications'])) {
@@ -98,40 +92,35 @@ foreach ($this->data['items'] as $item) {
 		$item['key_'],
 		$item['delay'],
 		$item['history'],
-		in_array($item['value_type'], array(ITEM_VALUE_TYPE_STR, ITEM_VALUE_TYPE_LOG, ITEM_VALUE_TYPE_TEXT))
-			? '' : $item['trends'],
+		in_array($item['value_type'], array(ITEM_VALUE_TYPE_STR, ITEM_VALUE_TYPE_LOG, ITEM_VALUE_TYPE_TEXT)) ? '' : $item['trends'],
 		item_type2str($item['type']),
+		$status,
 		new CCol($applications, 'wraptext'),
-		$status
 	));
 }
 
 // create go buttons
-$goComboBox = new CComboBox('action');
-
-$goOption = new CComboItem('itemprototype.massenable', _('Enable selected'));
-$goOption->setAttribute('confirm', _('Enable selected item prototypes?'));
+$goComboBox = new CComboBox('go');
+$goOption = new CComboItem('activate', _('Activate selected'));
+$goOption->setAttribute('confirm', _('Enable selected items?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('itemprototype.massdisable', _('Disable selected'));
-$goOption->setAttribute('confirm', _('Disable selected item prototypes?'));
+$goOption = new CComboItem('disable', _('Disable selected'));
+$goOption->setAttribute('confirm', _('Disable selected items?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('itemprototype.massdelete', _('Delete selected'));
-$goOption->setAttribute('confirm', _('Delete selected item prototypes?'));
+$goOption = new CComboItem('delete', _('Delete selected'));
+$goOption->setAttribute('confirm', _('Delete selected items?'));
 $goComboBox->addItem($goOption);
 
 $goButton = new CSubmit('goButton', _('Go').' (0)');
 $goButton->setAttribute('id', 'goButton');
-
 zbx_add_post_js('chkbxRange.pageGoName = "group_itemid";');
-zbx_add_post_js('chkbxRange.prefix = "'.$this->data['parent_discoveryid'].'";');
-zbx_add_post_js('cookie.prefix = "'.$this->data['parent_discoveryid'].'";');
 
 // append table to form
 $itemForm->addItem(array($this->data['paging'], $itemTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));
 
 // append form to widget
 $itemsWidget->addItem($itemForm);
-
 return $itemsWidget;
+?>

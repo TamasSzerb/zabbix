@@ -23,23 +23,25 @@ my $file = dirname($0)."/../src/schema.tmpl";	# name the file
 
 my ($state, %output, $eol, $fk_bol, $fk_eol, $ltab, $pkey, $table_name);
 my ($szcol1, $szcol2, $szcol3, $szcol4, $sequences, $sql_suffix);
-my ($fkeys, $fkeys_prefix, $fkeys_suffix, $uniq);
+my ($fkeys, $fkeys_prefix, $fkeys_suffix, $fkeys_drop, $uniq);
 
 my %c = (
 	"type"		=>	"code",
 	"database"	=>	"",
-	"after"		=>	"\t{0}\n\n#undef ZBX_TYPE_LONGTEXT_LEN\n#undef ZBX_TYPE_SHORTTEXT_LEN\n\n};\n",
+	"after"		=>	"\t{0}\n};\n",
 	"t_bigint"	=>	"ZBX_TYPE_UINT",
 	"t_char"	=>	"ZBX_TYPE_CHAR",
-	"t_text"	=>	"ZBX_TYPE_TEXT",
+	"t_cksum_text"	=>	"ZBX_TYPE_TEXT",
 	"t_double"	=>	"ZBX_TYPE_FLOAT",
+	"t_history_log"	=>	"ZBX_TYPE_TEXT",
+	"t_history_text"=>	"ZBX_TYPE_TEXT",
 	"t_id"		=>	"ZBX_TYPE_ID",
 	"t_image"	=>	"ZBX_TYPE_BLOB",
 	"t_integer"	=>	"ZBX_TYPE_INT",
-	"t_longtext"	=>	"ZBX_TYPE_LONGTEXT",
+	"t_longtext"	=>	"ZBX_TYPE_TEXT",
 	"t_nanosec"	=>	"ZBX_TYPE_INT",
 	"t_serial"	=>	"ZBX_TYPE_UINT",
-	"t_shorttext"	=>	"ZBX_TYPE_SHORTTEXT",
+	"t_text"	=>	"ZBX_TYPE_TEXT",
 	"t_time"	=>	"ZBX_TYPE_INT",
 	"t_varchar"	=>	"ZBX_TYPE_CHAR"
 );
@@ -67,21 +69,6 @@ $c{"before"} = "/*
 #include \"dbschema.h\"
 
 const ZBX_TABLE\ttables[] = {
-
-#if defined(HAVE_IBM_DB2) || defined(HAVE_ORACLE)
-#	define ZBX_TYPE_SHORTTEXT_LEN	2048
-#else
-#	define ZBX_TYPE_SHORTTEXT_LEN	65535
-#endif
-
-#if defined(HAVE_IBM_DB2)
-#	define ZBX_TYPE_LONGTEXT_LEN	2048
-#	define ZBX_TYPE_TEXT_LEN	2048
-#else
-#	define ZBX_TYPE_LONGTEXT_LEN	0
-#	define ZBX_TYPE_TEXT_LEN	65535
-#endif
-
 ";
 
 my %ibm_db2 = (
@@ -92,15 +79,17 @@ my %ibm_db2 = (
 	"table_options"	=>	"",
 	"t_bigint"	=>	"bigint",
 	"t_char"	=>	"varchar",
-	"t_text"	=>	"varchar(2048)",
+	"t_cksum_text"	=>	"varchar(2048)",
 	"t_double"	=>	"decfloat(16)",
+	"t_history_log"	=>	"varchar(2048)",
+	"t_history_text"=>	"varchar(2048)",
 	"t_id"		=>	"bigint",
 	"t_image"	=>	"blob",
 	"t_integer"	=>	"integer",
 	"t_longtext"	=>	"varchar(2048)",
 	"t_nanosec"	=>	"integer",
 	"t_serial"	=>	"bigint",
-	"t_shorttext"	=>	"varchar(2048)",
+	"t_text"	=>	"varchar(2048)",
 	"t_time"	=>	"integer",
 	"t_varchar"	=>	"varchar"
 );
@@ -113,15 +102,17 @@ my %mysql = (
 	"table_options"	=>	" ENGINE=InnoDB",
 	"t_bigint"	=>	"bigint unsigned",
 	"t_char"	=>	"char",
-	"t_text"	=>	"text",
+	"t_cksum_text"	=>	"text",
 	"t_double"	=>	"double(16,4)",
+	"t_history_log"	=>	"text",
+	"t_history_text"=>	"text",
 	"t_id"		=>	"bigint unsigned",
 	"t_image"	=>	"longblob",
 	"t_integer"	=>	"integer",
 	"t_longtext"	=>	"longtext",
 	"t_nanosec"	=>	"integer",
 	"t_serial"	=>	"bigint unsigned",
-	"t_shorttext"	=>	"text",
+	"t_text"	=>	"text",
 	"t_time"	=>	"integer",
 	"t_varchar"	=>	"varchar"
 );
@@ -134,15 +125,17 @@ my %oracle = (
 	"table_options"	=>	"",
 	"t_bigint"	=>	"number(20)",
 	"t_char"	=>	"nvarchar2",
-	"t_text"	=>	"nclob",
+	"t_cksum_text"	=>	"nclob",
 	"t_double"	=>	"number(20,4)",
+	"t_history_log"	=>	"nclob",
+	"t_history_text"=>	"nclob",
 	"t_id"		=>	"number(20)",
 	"t_image"	=>	"blob",
 	"t_integer"	=>	"number(10)",
 	"t_longtext"	=>	"nclob",
 	"t_nanosec"	=>	"number(10)",
 	"t_serial"	=>	"number(20)",
-	"t_shorttext"	=>	"nvarchar2(2048)",
+	"t_text"	=>	"nvarchar2(2048)",
 	"t_time"	=>	"number(10)",
 	"t_varchar"	=>	"nvarchar2"
 );
@@ -155,15 +148,17 @@ my %postgresql = (
 	"table_options"	=>	"",
 	"t_bigint"	=>	"numeric(20)",
 	"t_char"	=>	"char",
-	"t_text"	=>	"text",
+	"t_cksum_text"	=>	"text",
 	"t_double"	=>	"numeric(16,4)",
+	"t_history_log"	=>	"text",
+	"t_history_text"=>	"text",
 	"t_id"		=>	"bigint",
 	"t_image"	=>	"bytea",
 	"t_integer"	=>	"integer",
 	"t_longtext"	=>	"text",
 	"t_nanosec"	=>	"integer",
-	"t_serial"	=>	"bigserial",
-	"t_shorttext"	=>	"text",
+	"t_serial"	=>	"serial",
+	"t_text"	=>	"text",
 	"t_time"	=>	"integer",
 	"t_varchar"	=>	"varchar"
 );
@@ -176,15 +171,17 @@ my %sqlite3 = (
 	"table_options"	=>	"",
 	"t_bigint"	=>	"bigint",
 	"t_char"	=>	"char",
-	"t_text"	=>	"text",
+	"t_cksum_text"	=>	"text",
 	"t_double"	=>	"double(16,4)",
+	"t_history_log"	=>	"text",
+	"t_history_text"=>	"text",
 	"t_id"		=>	"bigint",
 	"t_image"	=>	"longblob",
 	"t_integer"	=>	"integer",
 	"t_longtext"	=>	"text",
 	"t_nanosec"	=>	"integer",
 	"t_serial"	=>	"integer",
-	"t_shorttext"	=>	"text",
+	"t_text"	=>	"text",
 	"t_time"	=>	"integer",
 	"t_varchar"	=>	"varchar"
 );
@@ -202,27 +199,14 @@ sub newstate
 
 	if ($state eq "field")
 	{
-		if ($output{"type"} eq "sql" && ($new eq "index" || $new eq "table" || $new eq "row"))
-		{
-			print "${pkey}${eol}\n)$output{'table_options'};${eol}\n";
-		}
+		if ($output{"type"} eq "sql" && $new eq "index") { print "${pkey}${eol}\n)$output{'table_options'};${eol}\n"; }
+		if ($output{"type"} eq "sql" && $new eq "table") { print "${pkey}${eol}\n)$output{'table_options'};${eol}\n"; }
 		if ($new eq "field") { print ",${eol}\n"; }
 	}
 
 	if ($state ne "bof")
 	{
-		if ($output{"type"} eq "code" && $new eq "table")
-		{
-			if ($uniq ne "")
-			{
-				print ",\n\t\t{0}\n\t\t}${uniq}\n\t},\n";
-				$uniq = "";
-			}
-			else
-			{
-				print ",\n\t\t{0}\n\t\t},\n\t\tNULL\n\t},\n";
-			}
-		}
+		if ($output{"type"} eq "code" && $new eq "table") { print ",\n\t\t{0}\n\t\t}${uniq}\n\t},\n"; $uniq = ""; }
 	}
 
 	$state = $new;
@@ -307,15 +291,7 @@ sub process_field
 		}
 		elsif ($type eq "ZBX_TYPE_TEXT")
 		{
-			$length = "ZBX_TYPE_TEXT_LEN";
-		}
-		elsif ($type eq "ZBX_TYPE_SHORTTEXT")
-		{
-			$length = "ZBX_TYPE_SHORTTEXT_LEN";
-		}
-		elsif ($type eq "ZBX_TYPE_LONGTEXT")
-		{
-			$length = "ZBX_TYPE_LONGTEXT_LEN";
+			$length = 65535;
 		}
 		else
 		{
@@ -375,17 +351,7 @@ sub process_field
 			$fk_flags = "0";
 		}
 
-		if ($default eq "")
-		{
-			$default = "NULL";
-		}
-		else
-		{
-			s/'//g for ($default);
-			$default = "\"$default\""
-		}
-
-		print "\t\t{\"${name}\",\t${default},\t${fk_table},\t${fk_field},\t${length},\t$type,\t${flags},\t${fk_flags}}";
+		print "\t\t{\"${name}\",\t${fk_table},\t${fk_field},\t${length},\t$type,\t${flags},\t${fk_flags}}";
 	}
 	else
 	{
@@ -411,7 +377,7 @@ sub process_field
 			}
 			elsif ($output{"database"} eq "mysql")
 			{
-				$row = sprintf("%-*s auto_increment", $szcol4, $row);
+				$row = sprintf("%-*s auto_increment unique", $szcol4, $row);
 			}
 			elsif ($output{"database"} eq "oracle")
 			{
@@ -443,7 +409,7 @@ sub process_field
 				$fk_field = $name;
 			}
 
-			# RESTRICT may contain new line chars, we need to clean them out
+# RESTRICT may contains new line chars we need to clean them out
 			$fk_flags = rtrim($fk_flags);
 
 			if (not $fk_flags or $fk_flags eq "")
@@ -473,26 +439,14 @@ sub process_field
 				if ($output{"database"} eq "mysql")
 				{
 					$fkeys = "${fkeys}${fk_bol}ALTER TABLE${only} `${table_name}` ADD CONSTRAINT `${cname}` FOREIGN KEY (`${name}`) REFERENCES `${fk_table}` (`${fk_field}`)${fk_flags}${fk_eol}\n";
+					$fkeys_drop = "${fkeys_drop}${fk_bol}ALTER TABLE${only} `${table_name}` DROP FOREIGN KEY `${cname}`${fk_eol}\n";
 				}
 				else
 				{
 					$fkeys = "${fkeys}${fk_bol}ALTER TABLE${only} ${table_name} ADD CONSTRAINT ${cname} FOREIGN KEY (${name}) REFERENCES ${fk_table} (${fk_field})${fk_flags}${fk_eol}\n";
+					$fkeys_drop = "${fkeys_drop}${fk_bol}ALTER TABLE${only} ${table_name} DROP CONSTRAINT ${cname}${fk_eol}\n";
 				}
 			}
-		}
-
-		if ($output{"database"} eq "mysql")
-		{
-			@text_fields = ('blob', 'longblob', 'text', 'longtext');
-			$default = "" if (grep /$output{$type_short}/, @text_fields);
-
-			$name = "`${name}`";
-		}
-
-		if ($output{"database"} eq "ibm_db2")
-		{
-			@text_fields = ('blob');
-			$default = "" if (grep /$output{$type_short}/, @text_fields);
 		}
 
 		if ($default ne "")
@@ -504,6 +458,28 @@ sub process_field
 			else
 			{
 				$default = "DEFAULT $default";
+			}
+		}
+
+		if ($output{"database"} eq "mysql")
+		{
+			@text_fields = ('blob', 'longblob', 'text', 'longtext');
+
+			if (grep /$output{$type_short}/, @text_fields)
+			{
+				$default = "";
+			}
+
+			$name = "`${name}`";
+		}
+
+		if ($output{"database"} eq "ibm_db2")
+		{
+			@text_fields = ('blob');
+
+			if (grep /$output{$type_short}/, @text_fields)
+			{
+				$default = "";
 			}
 		}
 
@@ -553,81 +529,6 @@ sub process_index
 	}
 }
 
-sub process_row
-{
-	my $line = $_[0];
-
-	newstate("row");
-
-	my @array = split(/\|/, $line);
-
-	my $first = 1;
-	my $values = "(";
-
-	foreach (@array)
-	{
-		$values = "$values," if ($first == 0);
-		$first = 0;
-
-		# remove leading and trailing spaces
-		$_ =~ s/^\s+//;
-		$_ =~ s/\s+$//;
-
-		if ($_ eq 'NULL')
-		{
-			$values = "$values$_";
-		}
-		else
-		{
-			my $modifier = '';
-
-			# escape backslashes
-			if (/\\/)
-			{
-				if ($output{'database'} eq 'postgresql')
-				{
-					$_ =~ s/\\/\\\\/g;
-					$modifier = 'E';
-				}
-				elsif ($output{'database'} eq 'mysql')
-				{
-					$_ =~ s/\\/\\\\/g;
-				}
-			}
-
-			# escape single quotes
-			if (/'/)
-			{
-				if ($output{'database'} eq 'mysql')
-				{
-					$_ =~ s/'/\\'/g;
-				}
-				else
-				{
-					$_ =~ s/'/''/g;
-				}
-			}
-
-			$_ =~ s/&pipe;/|/g;
-
-			if ($output{'database'} eq 'mysql' || $output{'database'} eq 'oracle')
-			{
-				$_ =~ s/&eol;/\\r\\n/g;
-			}
-			else
-			{
-				$_ =~ s/&eol;/\x0D\x0A/g;
-			}
-
-			$values = "$values$modifier'$_'";
-		}
-	}
-
-	$values = "$values)";
-
-	print "INSERT INTO $table_name VALUES $values;${eol}\n";
-}
-
 sub usage
 {
 	print "Usage: $0 [c|ibm_db2|mysql|oracle|postgresql|sqlite3]\n";
@@ -641,6 +542,7 @@ sub process
 
 	$state = "bof";
 	$fkeys = "";
+	$fkeys_drop = "";
 	$sequences = "";
 	$uniq = "";
 	my ($type, $line);
@@ -662,7 +564,6 @@ sub process
 			elsif ($type eq 'INDEX')	{ process_index($line, 0); }
 			elsif ($type eq 'TABLE')	{ process_table($line); }
 			elsif ($type eq 'UNIQUE')	{ process_index($line, 1); }
-			elsif ($type eq 'ROW' && $output{"type"} ne "code")		{ process_row($line); }
 		}
 	}
 
@@ -692,6 +593,7 @@ sub main
 	$sql_suffix="";
 	$fkeys_prefix = "";
 	$fkeys_suffix = "";
+	my $fkeys_drop_prefix = "";
 
 	if ($format eq 'c')		{ %output = %c; }
 	elsif ($format eq 'ibm_db2')	{ %output = %ibm_db2; }
@@ -716,13 +618,29 @@ sub main
 		$sql_suffix="\";\n";
 		$fkeys_prefix = "const char\t*const db_schema_fkeys[] = {\n";
 		$fkeys_suffix = "\tNULL\n};\n";
+		$fkeys_drop_prefix = "const char\t*const db_schema_fkeys_drop[] = {\n";
 
-		print "#if defined(HAVE_SQLITE3)\nconst char\t*const db_schema = \"\\\n";
+		print "\n#if defined(HAVE_IBM_DB2)\nconst char\t*const db_schema = \"\\\n";
+		%output = %ibm_db2;
+		process();
+		print $fkeys_drop_prefix.$fkeys_drop.$fkeys_suffix;
+		print "#elif defined(HAVE_MYSQL)\nconst char\t*const db_schema = \"\\\n";
+		%output = %mysql;
+		process();
+		print $fkeys_drop_prefix.$fkeys_drop.$fkeys_suffix;
+		print "#elif defined(HAVE_ORACLE)\nconst char\t*const db_schema = \"\\\n";
+		%output = %oracle;
+		process();
+		print $fkeys_drop_prefix.$fkeys_drop.$fkeys_suffix;
+		print "#elif defined(HAVE_POSTGRESQL)\nconst char\t*const db_schema = \"\\\n";
+		%output = %postgresql;
+		process();
+		print $fkeys_drop_prefix.$fkeys_drop.$fkeys_suffix;
+		print "#elif defined(HAVE_SQLITE3)\nconst char\t*const db_schema = \"\\\n";
 		%output = %sqlite3;
 		process();
-		print "#else\t/* HAVE_SQLITE3 */\n";
-		print "const char\t*const db_schema = NULL;\n";
-		print "#endif\t/* not HAVE_SQLITE3 */\n";
+		print $fkeys_drop_prefix.$fkeys_drop.$fkeys_suffix;
+		print "#endif\t/* HAVE_SQLITE3 */\n";
 	}
 }
 

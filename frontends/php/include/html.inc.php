@@ -57,16 +57,11 @@ function bold($str) {
 
 function make_decoration($haystack, $needle, $class = null) {
 	$result = $haystack;
-
-	$tmpHaystack = mb_strtolower($haystack);
-	$tmpNeedle = mb_strtolower($needle);
-	$pos = mb_strpos($tmpHaystack, $tmpNeedle);
-
+	$pos = zbx_stripos($haystack, $needle);
 	if ($pos !== false) {
-		$start = CHtml::encode(mb_substr($haystack, 0, $pos));
-		$end = CHtml::encode(mb_substr($haystack, $pos + mb_strlen($needle)));
-		$found = CHtml::encode(mb_substr($haystack, $pos, mb_strlen($needle)));
-
+		$start = zbx_substring($haystack, 0, $pos);
+		$end = zbx_substring($haystack, $pos + zbx_strlen($needle));
+		$found = zbx_substring($haystack, $pos, $pos + zbx_strlen($needle));
 		if (is_null($class)) {
 			$result = array($start, bold($found), $end);
 		}
@@ -74,7 +69,6 @@ function make_decoration($haystack, $needle, $class = null) {
 			$result = array($start, new CSpan($found, $class), $end);
 		}
 	}
-
 	return $result;
 }
 
@@ -82,63 +76,47 @@ function nbsp($str) {
 	return str_replace(' ', SPACE, $str);
 }
 
-function prepareUrlParam($value, $name = null) {
-	if (is_array($value)) {
-		$result = '';
-
-		foreach ($value as $key => $param) {
-			$result .= prepareUrlParam($param, isset($name) ? $name.'['.$key.']' : $key);
-		}
-	}
+function prepare_url(&$var, $varname = null) {
+	$result = '';
+	if (is_array($var)) {
+		foreach ($var as $id => $par)
+					$result .= prepare_url($par, isset($varname) ? $varname.'['.$id.']' : $id);
+				}
 	else {
-		$result = '&'.$name.'='.urlencode($value);
+		$result = '&'.$varname.'='.urlencode($var);
 	}
-
 	return $result;
 }
 
-/**
- * Get ready for url params.
- *
- * @param mixed  $param				param name or array with data depend from $getFromRequest
- * @param bool   $getFromRequest	detect data source - input array or $_REQUEST variable
- * @param string $name				if $_REQUEST variable is used this variable not used
- *
- * @return string
- */
-function url_param($param, $getFromRequest = true, $name = null) {
-	if (is_array($param)) {
-		if ($getFromRequest) {
-			fatal_error(_('URL parameter cannot be array.'));
-		}
-	}
-	else {
+function url_param($param, $isRequest = true, $name = null) {
+	$result = '';
+	if (!is_array($param)) {
 		if (is_null($name)) {
-			if (!$getFromRequest) {
-				fatal_error(_('URL parameter name is empty.'));
+			if (!$isRequest) {
+				fatal_error(_('Not request variable require.'));
 			}
-
 			$name = $param;
 		}
 	}
 
-	if ($getFromRequest) {
-		$value =& $_REQUEST[$param];
+	if ($isRequest) {
+		$var =& $_REQUEST[$param];
 	}
 	else {
-		$value =& $param;
+		$var =& $param;
 	}
 
-	return isset($value) ? prepareUrlParam($value, $name) : '';
+	if (isset($var)) {
+		$result = prepare_url($var, $name);
+	}
+	return $result;
 }
 
-function url_params(array $params) {
+function url_params($params) {
 	$result = '';
-
 	foreach ($params as $param) {
 		$result .= url_param($param);
 	}
-
 	return $result;
 }
 
@@ -146,7 +124,89 @@ function BR() {
 	return new CTag('br', 'no');
 }
 
+function create_hat($caption, $items, $addicons = null, $id = null, $state = null) {
+	if (is_null($id)) {
+		list($usec, $sec) = explode(' ', microtime());
+		$id = 'hat_'.((int)($sec % 10)).((int)($usec * 1000));
+	}
+	$td_l = new CCol(SPACE);
+	$td_l->setAttribute('width', '100%');
+
+	$icons_row = array($td_l);
+	if (!is_null($addicons)) {
+		if (!is_array($addicons)) {
+			$addicons = array($addicons);
+		}
+		foreach ($addicons as $value) {
+			$icons_row[] = $value;
+		}
+	}
+
+	if (!is_null($state)) {
+		$icon = new CIcon(_('Show').'/'._('Hide'), $state ? 'arrowup' : 'arrowdown', "change_hat_state(this,'".$id."');");
+		$icon->setAttribute('id', $id.'_icon');
+		$icons_row[] = $icon;
+	}
+	else {
+		$state = true;
+	}
+
+	$icon_tab = new CTable();
+	$icon_tab->setAttribute('width', '100%');
+	$icon_tab->addRow($icons_row);
+
+	$table = new CTable();
+	$table->setAttribute('width', '100%');
+	$table->setCellPadding(0);
+	$table->setCellSpacing(0);
+	$table->addRow(get_table_header($caption, $icon_tab));
+
+	$div = new CDiv($items);
+	$div->setAttribute('id', $id);
+	if (!$state) {
+		$div->setAttribute('style', 'display: none;');
+	}
+	$table->addRow($div);
+	return $table;
+}
+
+// searches items/objects for form tags like "<input"/form classes like CForm, and makes it empty
+function hide_form_items(&$obj) {
+	if (is_array($obj)) {
+		foreach ($obj as $id => $item) {
+			hide_form_items($obj[$id]); // attention recursion
+		}
+	}
+	elseif (is_object($obj)) {
+		$formObjects = array('cform', 'ccheckbox', 'cselect', 'cbutton', 'csubmit', 'cbuttonqmessage', 'cbuttondelete', 'cbuttoncancel');
+		if (is_object($obj) && str_in_array(zbx_strtolower(get_class($obj)), $formObjects)) {
+			$obj = SPACE;
+		}
+		if (isset($obj->items) && !empty($obj->items)) {
+			foreach ($obj->items as $id => $item) {
+				hide_form_items($obj->items[$id]); // attention recursion
+			}
+		}
+	}
+	else {
+		foreach (array('<form', '<input', '<select') as $item) {
+			if (zbx_strpos($obj, $item) !== false) {
+				$obj = SPACE;
+			}
+		}
+	}
+}
+
 function get_table_header($columnLeft, $columnRights = SPACE) {
+	if (isset($_REQUEST['print'])) {
+		hide_form_items($columnLeft);
+		hide_form_items($columnRights);
+
+		if ($columnLeft == SPACE && $columnRights == SPACE) {
+			return new CJSscript('');
+		}
+	}
+
 	$rights = array();
 
 	if ($columnRights) {
@@ -174,14 +234,14 @@ function show_table_header($columnLeft, $columnRights = SPACE){
 	$table->show();
 }
 
-function get_icon($type, $params = array()) {
-	switch ($type) {
+function get_icon($name, $params = array()) {
+	switch ($name) {
 		case 'favourite':
-			if (CFavorite::exists($params['fav'], $params['elid'], $params['elname'])) {
+			if (infavorites($params['fav'], $params['elid'], $params['elname'])) {
 				$icon = new CIcon(
 					_('Remove from favourites'),
 					'iconminus',
-					'rm4favorites("'.$params['elname'].'", "'.$params['elid'].'");'
+					'rm4favorites("'.$params['elname'].'", "'.$params['elid'].'", 0);'
 				);
 			}
 			else {
@@ -192,24 +252,24 @@ function get_icon($type, $params = array()) {
 				);
 			}
 			$icon->setAttribute('id', 'addrm_fav');
-
-			return $icon;
-
+			break;
 		case 'fullscreen':
-			$url = new CUrl();
+			$url = new Curl();
 			$url->setArgument('fullscreen', $params['fullscreen'] ? '0' : '1');
-
-			return new CIcon(
-				$params['fullscreen'] ? _('Normal view') : _('Fullscreen'),
+			$icon = new CIcon(
+				$_REQUEST['fullscreen'] ? _('Normal view') : _('Fullscreen'),
 				'fullscreen',
 				"document.location = '".$url->getUrl()."';"
 			);
-
+			break;
+		case 'menu':
+			$icon = new CIcon(_('Menu'), 'iconmenu', 'create_page_menu(event, "'.$params['menu'].'");');
+			break;
 		case 'reset':
-			return new CIcon(_('Reset'), 'iconreset', 'timeControl.objectReset();');
+			$icon = new CIcon(_('Reset'), 'iconreset', 'timeControl.objectReset();');
+			break;
 	}
-
-	return null;
+	return $icon;
 }
 
 /**
@@ -222,33 +282,22 @@ function get_icon($type, $params = array()) {
  * @return object
  */
 function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
-	// LLD rule header
-	if ($discoveryid) {
-		$elements = array(
-			'items' => 'items',
-			'triggers' => 'triggers',
-			'graphs' => 'graphs',
-			'hosts' => 'hosts'
-		);
-	}
-	// host header
-	else {
-		$elements = array(
-			'items' => 'items',
-			'triggers' => 'triggers',
-			'graphs' => 'graphs',
-			'applications' => 'applications',
-			'screens' => 'screens',
-			'discoveries' => 'discoveries',
-			'web' => 'web'
-		);
+	$elements = array(
+		'items' => 'items',
+		'triggers' => 'triggers',
+		'graphs' => 'graphs',
+		'applications' => 'applications',
+		'screens' => 'screens',
+		'discoveries' => 'discoveries'
+	);
+	if (!empty($discoveryid)) {
+		unset($elements['applications'], $elements['screens'], $elements['discoveries']);
 	}
 
 	$options = array(
 		'hostids' => $hostid,
 		'output' => API_OUTPUT_EXTEND,
-		'templated_hosts' => true,
-		'selectHostDiscovery' => array('ts_delete')
+		'templated_hosts' => true
 	);
 	if (isset($elements['items'])) {
 		$options['selectItems'] = API_OUTPUT_COUNT;
@@ -262,22 +311,17 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 	if (isset($elements['applications'])) {
 		$options['selectApplications'] = API_OUTPUT_COUNT;
 	}
+	if (isset($elements['screens'])) {
+		$options['selectScreens'] = API_OUTPUT_COUNT;
+	}
 	if (isset($elements['discoveries'])) {
 		$options['selectDiscoveries'] = API_OUTPUT_COUNT;
-	}
-	if (isset($elements['web'])) {
-		$options['selectHttpTests'] = API_OUTPUT_COUNT;
-	}
-	if (isset($elements['hosts'])) {
-		$options['selectHostPrototypes'] = API_OUTPUT_COUNT;
 	}
 
 	// get hosts
 	$dbHost = API::Host()->get($options);
 	$dbHost = reset($dbHost);
-	if (!$dbHost) {
-		return null;
-	}
+
 	// get discoveries
 	if (!empty($discoveryid)) {
 		$options['itemids'] = $discoveryid;
@@ -294,14 +338,6 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 	$list = new CList(null, 'objectlist');
 	if ($dbHost['status'] == HOST_STATUS_TEMPLATE) {
 		$list->addItem(array('&laquo; ', new CLink(_('Template list'), 'templates.php?templateid='.$dbHost['hostid'].url_param('groupid'))));
-
-		$dbHost['screens'] = API::TemplateScreen()->get(array(
-			'editable' => true,
-			'countOutput' => true,
-			'groupCount' => true,
-			'templateids' => $dbHost['hostid']
-		));
-		$dbHost['screens'] = isset($dbHost['screens'][0]['rowscount']) ? $dbHost['screens'][0]['rowscount'] : 0;
 	}
 	else {
 		$list->addItem(array('&laquo; ', new CLink(_('Host list'), 'hosts.php?hostid='.$dbHost['hostid'].url_param('groupid'))));
@@ -310,37 +346,30 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 	/*
 	 * Name
 	 */
-	$proxyName = '';
+	$description = '';
 	if ($dbHost['proxy_hostid']) {
 		$proxy = get_host_by_hostid($dbHost['proxy_hostid']);
-
-		$proxyName = CHtml::encode($proxy['host']).NAME_DELIMITER;
+		$description .= $proxy['host'].': ';
 	}
-
-	$name = $proxyName.CHtml::encode($dbHost['name']);
+	$description .= $dbHost['name'];
 
 	if ($dbHost['status'] == HOST_STATUS_TEMPLATE) {
-		$list->addItem(array(bold(_('Template').NAME_DELIMITER), new CLink($name, 'templates.php?form=update&templateid='.$dbHost['hostid'])));
+		$list->addItem(array(bold(_('Template').': '), new CLink($description, 'templates.php?form=update&templateid='.$dbHost['hostid'])));
 	}
 	else {
 		switch ($dbHost['status']) {
 			case HOST_STATUS_MONITORED:
-				if ($dbHost['maintenance_status'] == HOST_MAINTENANCE_STATUS_ON) {
-					$status = new CSpan(_('In maintenance'), 'orange');
-				}
-				else {
-					$status = new CSpan(_('Enabled'), 'enabled');
-				}
+				$status = new CSpan(_('Monitored'), 'off');
 				break;
 			case HOST_STATUS_NOT_MONITORED:
-				$status = new CSpan(_('Disabled'), 'on');
+				$status = new CSpan(_('Not monitored'), 'on');
 				break;
 			default:
 				$status = _('Unknown');
 				break;
 		}
 
-		$list->addItem(array(bold(_('Host').NAME_DELIMITER), new CLink($name, 'hosts.php?form=update&hostid='.$dbHost['hostid'])));
+		$list->addItem(array(bold(_('Host').': '), new CLink($description, 'hosts.php?form=update&hostid='.$dbHost['hostid'])));
 		$list->addItem($status);
 		$list->addItem(getAvailabilityTable($dbHost));
 	}
@@ -348,8 +377,8 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 	if (!empty($dbDiscovery)) {
 		$list->addItem(array('&laquo; ', new CLink(_('Discovery list'), 'host_discovery.php?hostid='.$dbHost['hostid'].url_param('groupid'))));
 		$list->addItem(array(
-			bold(_('Discovery').NAME_DELIMITER),
-			new CLink(CHtml::encode($dbDiscovery['name']), 'host_discovery.php?form=update&itemid='.$dbDiscovery['itemid'])
+			bold(_('Discovery').': '),
+			new CLink($dbDiscovery['name'], 'host_discovery.php?form=update&itemid='.$dbDiscovery['itemid'])
 		));
 	}
 
@@ -375,7 +404,7 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 			}
 			else {
 				$list->addItem(array(
-					new CLink(_('Item prototypes'), 'disc_prototypes.php?parent_discoveryid='.$dbDiscovery['itemid']),
+					new CLink(_('Item prototypes'), 'disc_prototypes.php?hostid='.$dbHost['hostid'].'&parent_discoveryid='.$dbDiscovery['itemid']),
 					' ('.$dbDiscovery['items'].')'
 				));
 			}
@@ -400,7 +429,7 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 			}
 			else {
 				$list->addItem(array(
-					new CLink(_('Trigger prototypes'), 'trigger_prototypes.php?parent_discoveryid='.$dbDiscovery['itemid']),
+					new CLink(_('Trigger prototypes'), 'trigger_prototypes.php?hostid='.$dbHost['hostid'].'&parent_discoveryid='.$dbDiscovery['itemid']),
 					' ('.$dbDiscovery['triggers'].')'
 				));
 			}
@@ -425,7 +454,7 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 			}
 			else {
 				$list->addItem(array(
-					new CLink(_('Graph prototypes'), 'graphs.php?parent_discoveryid='.$dbDiscovery['itemid']),
+					new CLink(_('Graph prototypes'), 'graphs.php?hostid='.$dbHost['hostid'].'&parent_discoveryid='.$dbDiscovery['itemid']),
 					' ('.$dbDiscovery['graphs'].')'
 				));
 			}
@@ -440,18 +469,6 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 					' ('.$dbHost['graphs'].')'
 				));
 			}
-		}
-	}
-
-	if (isset($elements['hosts']) && $dbHost['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) {
-		if ($currentElement == 'hosts') {
-			$list->addItem(_('Host prototypes').' ('.$dbDiscovery['hostPrototypes'].')');
-		}
-		else {
-			$list->addItem(array(
-				new CLink(_('Host prototypes'), 'host_prototypes.php?parent_discoveryid='.$dbDiscovery['itemid']),
-				' ('.$dbDiscovery['hostPrototypes'].')'
-			));
 		}
 	}
 
@@ -479,66 +496,63 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 		}
 	}
 
-	if (isset($elements['web'])) {
-		if ($currentElement == 'web') {
-			$list->addItem(_('Web scenarios').' ('.$dbHost['httpTests'].')');
-		}
-		else {
-			$list->addItem(array(
-				new CLink(_('Web scenarios'), 'httpconf.php?hostid='.$dbHost['hostid']),
-				' ('.$dbHost['httpTests'].')'
-			));
-		}
-	}
-
 	return new CDiv($list, 'objectgroup top ui-widget-content ui-corner-all');
 }
 
-/**
- * Renders a form footer with the given buttons.
- *
- * @param CButtonInterface 		$mainButton	main button that will be displayed on the left
- * @param CButtonInterface[] 	$otherButtons
- *
- * @return CDiv
- *
- * @throws InvalidArgumentException	if an element of $otherButtons contain something other than CButtonInterface
- */
-function makeFormFooter(CButtonInterface $mainButton = null, array $otherButtons = array()) {
-	if ($mainButton) {
-		$mainButton->main();
-		$mainButton->setButtonClass('jqueryinput shadow');
+function makeFormFooter($main, $others = null) {
+	if (!is_array($main)) {
+		$main = array($main);
+	}
+	if (!empty($others) && !is_array($others)) {
+		$others = array($others);
 	}
 
-	foreach ($otherButtons as $button) {
-		if (!$button instanceof CButtonInterface) {
-			throw new InvalidArgumentException('Each element of $otherButtons must be an instance of CButtonInterface');
-		}
-
-		// buttons will inherit the styles from the containing div, so only the shadow class is required
-		$button->setButtonClass('shadow');
+	$mainButtons = new CDiv();
+	foreach ($main as $button) {
+		$button->useJQueryStyle('main');
+		$mainButtons->addItem($button);
 	}
-
-	$otherButtonDiv = new CDiv($otherButtons, 'dd left');
-	$otherButtonDiv->useJQueryStyle();
+	$othersButtons = new CDiv($others);
+	$othersButtons->useJQueryStyle();
 
 	return new CDiv(
 		new CDiv(
-			new CDiv(
-				array(
-					new CDiv($mainButton, 'dt right'),
-					$otherButtonDiv
-				),
-				'formrow'
+			array(
+				empty($others) ? new CDiv($mainButtons, 'dt right') : new CDiv($mainButtons, 'dt floatleft right'),
+				new CDiv(array($othersButtons), 'dd left')
 			),
-			'formtable'
+			'formrow'
 		),
-		'objectgroup footer ui-widget-content ui-corner-all'
+		'objectgroup footer min-width ui-widget-content ui-corner-all'
 	);
 }
 
 /**
- * Returns zbx, snmp, jmx, ipmi availability status icons and the discovered host lifetime indicator.
+ * Create control for trigger severities.
+ * It's mostly the same as usual button set, but background color is changed based on selected severiity.
+ * Js file "/include/views/js/configuration.triggers.edit.js.php" is needed to make it work correcty.
+ *
+ * @param $selectedSeverity
+ *
+ * @return CDiv
+ */
+function getSeverityControl($selectedSeverity = TRIGGER_SEVERITY_NOT_CLASSIFIED) {
+	$controls = array();
+	foreach (getSeverityCaption() as $severity => $caption) {
+		$controls[] = new CRadioButton('priority', $severity, null, 'severity_'.$severity, $selectedSeverity == $severity);
+
+		$label = new CLabel($caption, 'severity_'.$severity, 'severity_label_'.$severity);
+		$label->attr('data-severity', $severity);
+		$label->attr('data-severity-style', getSeverityStyle($severity));
+		$controls[] = $label;
+
+	}
+
+	return new CDiv($controls, 'jqueryinputset control-severity');
+}
+
+/**
+ * Returns zbx, snmp, jmx, ipmi availability status icons.
  *
  * @param type $host
  *
@@ -560,7 +574,7 @@ function getAvailabilityTable($host) {
 				break;
 			case HOST_AVAILABLE_FALSE:
 				$ai = new CDiv(SPACE, 'status_icon status_icon_extra icon'.$val.'unavailable');
-				$ai->setHint($host[$val.'_error'], 'on');
+				$ai->setHint($host[$val.'_error'], '', 'on');
 				break;
 			case HOST_AVAILABLE_UNKNOWN:
 				$ai = new CDiv(SPACE, 'status_icon status_icon_extra icon'.$val.'unknown');
@@ -569,85 +583,5 @@ function getAvailabilityTable($host) {
 		$ad->addItem($ai);
 	}
 
-	// discovered host lifetime indicator
-	if ($host['flags'] == ZBX_FLAG_DISCOVERY_CREATED && $host['hostDiscovery']['ts_delete']) {
-		$deleteError = new CDiv(SPACE, 'status_icon status_icon_extra iconwarning');
-		$deleteError->setHint(_s(
-			'The host is not discovered anymore and will be deleted in %1$s (on %2$s at %3$s).',
-			zbx_date2age($host['hostDiscovery']['ts_delete']),
-			zbx_date2str(DATE_FORMAT, $host['hostDiscovery']['ts_delete']),
-			zbx_date2str(TIME_FORMAT, $host['hostDiscovery']['ts_delete'])
-		));
-		$ad->addItem($deleteError);
-	}
-
 	return $ad;
-}
-
-/**
- * Create array with all inputs required for date selection and calendar.
- *
- * @param string      $name
- * @param int|array   $date unix timestamp/date array(Y,m,d,H,i)
- * @param string|null $relatedCalendar name of the calendar which must be closed when this calendar opens
- *
- * @return array
- */
-function createDateSelector($name, $date, $relatedCalendar = null) {
-	$calendarIcon = new CImg('images/general/bar/cal.gif', 'calendar', 16, 12, 'pointer');
-	$onClick = 'var pos = getPosition(this); pos.top += 10; pos.left += 16; CLNDR["'.$name.
-		'_calendar"].clndr.clndrshow(pos.top, pos.left);';
-	if ($relatedCalendar) {
-		$onClick .= ' CLNDR["'.$relatedCalendar.'_calendar"].clndr.clndrhide();';
-	}
-
-	$calendarIcon->onClick($onClick);
-
-	if (is_array($date)) {
-		$y = $date['y'];
-		$m = $date['m'];
-		$d = $date['d'];
-		$h = $date['h'];
-		$i = $date['i'];
-	}
-	else {
-		$y = date('Y', $date);
-		$m = date('m', $date);
-		$d = date('d', $date);
-		$h = date('H', $date);
-		$i = date('i', $date);
-	}
-
-	$day = new CTextBox($name.'_day', $d, 2, false, 2);
-	$day->attr('style', 'text-align: right;');
-	$day->attr('placeholder', _('dd'));
-	$day->addAction('onchange', 'validateDatePartBox(this, 1, 31, 2);');
-
-	$month = new CTextBox($name.'_month', $m, 2, false, 2);
-	$month->attr('style', 'text-align: right;');
-	$month->attr('placeholder', _('mm'));
-	$month->addAction('onchange', 'validateDatePartBox(this, 1, 12, 2);');
-
-	$year = new CNumericBox($name.'_year', $y, 4);
-	$year->attr('placeholder', _('yyyy'));
-
-	$hour = new CTextBox($name.'_hour', $h, 2, false, 2);
-	$hour->attr('style', 'text-align: right;');
-	$hour->attr('placeholder', _('hh'));
-	$hour->addAction('onchange', 'validateDatePartBox(this, 0, 23, 2);');
-
-	$minute = new CTextBox($name.'_minute', $i, 2, false, 2);
-	$minute->attr('style', 'text-align: right;');
-	$minute->attr('placeholder', _('mm'));
-	$minute->addAction('onchange', 'validateDatePartBox(this, 0, 59, 2);');
-
-	$fields = array($year, '-', $month, '-', $day, ' ', $hour, ':', $minute, $calendarIcon);
-
-	zbx_add_post_js('create_calendar(null,'.
-		'["'.$name.'_day","'.$name.'_month","'.$name.'_year","'.$name.'_hour","'.$name.'_minute"],'.
-		'"'.$name.'_calendar",'.
-		'"'.$name.'");'
-	);
-
-	return $fields;
 }

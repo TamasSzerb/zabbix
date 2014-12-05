@@ -19,35 +19,28 @@
 
 #include "common.h"
 #include "sysinfo.h"
-#include "log.h"
 
-int	SYSTEM_SWAP_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_SWAP_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	struct sysinfo	info;
-	char		*swapdev, *mode;
+	char		swapdev[32], mode[32];
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
-	}
 
-	swapdev = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
+	if (0 != get_param(param, 1, swapdev, sizeof(swapdev)))
+		*swapdev = '\0';
 
-	if (NULL != swapdev && '\0' != *swapdev && 0 != strcmp(swapdev, "all"))	/* default parameter */
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	if ('\0' != *swapdev && 0 != strcmp(swapdev, "all"))	/* default parameter */
 		return SYSINFO_RET_FAIL;
-	}
+
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
 
 	if (0 != sysinfo(&info))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain system information: %s", zbx_strerror(errno)));
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "free"))
+	if ('\0' == *mode || 0 == strcmp(mode, "free"))
 		SET_UI64_RESULT(result, info.freeswap * (zbx_uint64_t)info.mem_unit);
 	else if (0 == strcmp(mode, "total"))
 		SET_UI64_RESULT(result, info.totalswap * (zbx_uint64_t)info.mem_unit);
@@ -58,10 +51,7 @@ int	SYSTEM_SWAP_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
 	else if (0 == strcmp(mode, "pused"))
 		SET_DBL_RESULT(result, info.totalswap ? 100.0 - 100.0 * (info.freeswap / (double)info.totalswap) : 0.0);
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	return SYSINFO_RET_OK;
 }
@@ -173,12 +163,12 @@ static int	get_swap_pages(swap_stat_t *result)
 #else
 			if (0x00 == (0x01 & st) && 0 == strncmp(line, "pswpin ", 7))
 			{
-				sscanf(line + 7, ZBX_FS_UI64, &result->rpag);
+				ZBX_STR2UINT64(result->rpag, line + 7);
 				st |= 0x01;
 			}
 			else if (0x00 == (0x02 & st) && 0 == strncmp(line, "pswpout ", 8))
 			{
-				sscanf(line + 8, ZBX_FS_UI64, &result->wpag);
+				ZBX_STR2UINT64(result->wpag, line + 8);
 				st |= 0x02;
 			}
 
@@ -210,7 +200,7 @@ static int	get_swap_stat(const char *swapdev, swap_stat_t *result)
 
 	memset(result, 0, sizeof(swap_stat_t));
 
-	if (NULL == swapdev || '\0' == *swapdev || 0 == strcmp(swapdev, "all"))
+	if (0 == strcmp(swapdev, "all"))
 	{
 		ret = get_swap_pages(result);
 		swapdev = NULL;
@@ -249,88 +239,66 @@ static int	get_swap_stat(const char *swapdev, swap_stat_t *result)
 	return ret;
 }
 
-int	SYSTEM_SWAP_IN(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_SWAP_IN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		*swapdev, *mode;
+	char		swapdev[MAX_STRING_LEN], mode[32];
 	swap_stat_t	ss;
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
-	}
 
-	swapdev = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
+	if (0 != get_param(param, 1, swapdev, sizeof(swapdev)))
+		*swapdev = '\0';
+
+	if ('\0' == *swapdev)	/* default parameter */
+		strscpy(swapdev, "all");
+
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
 
 	if (SYSINFO_RET_OK != get_swap_stat(swapdev, &ss))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain swap information."));
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "pages"))
-	{
-		if (NULL != swapdev && '\0' != *swapdev && 0 != strcmp(swapdev, "all"))
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
-			return SYSINFO_RET_FAIL;
-		}
-
+	if (('\0' == *mode || 0 == strcmp(mode, "pages")) && 0 == strcmp(swapdev, "all"))	/* default parameter */
 		SET_UI64_RESULT(result, ss.rpag);
-	}
 	else if (0 == strcmp(mode, "sectors"))
 		SET_UI64_RESULT(result, ss.rsect);
 	else if (0 == strcmp(mode, "count"))
 		SET_UI64_RESULT(result, ss.rio);
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	return SYSINFO_RET_OK;
 }
 
-int	SYSTEM_SWAP_OUT(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_SWAP_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		*swapdev, *mode;
+	char		swapdev[MAX_STRING_LEN], mode[32];
 	swap_stat_t	ss;
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
-	}
 
-	swapdev = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
+	if (0 != get_param(param, 1, swapdev, sizeof(swapdev)))
+		*swapdev = '\0';
+
+	if ('\0' == *swapdev)	/* default parameter */
+		strscpy(swapdev, "all");
+
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
 
 	if (SYSINFO_RET_OK != get_swap_stat(swapdev, &ss))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain swap information."));
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "pages"))
-	{
-		if (NULL != swapdev && '\0' != *swapdev && 0 != strcmp(swapdev, "all"))
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
-			return SYSINFO_RET_FAIL;
-		}
-
+	if (('\0' == *mode || 0 == strcmp(mode, "pages")) && 0 == strcmp(swapdev, "all"))	/* default parameter */
 		SET_UI64_RESULT(result, ss.wpag);
-	}
 	else if (0 == strcmp(mode, "sectors"))
 		SET_UI64_RESULT(result, ss.wsect);
 	else if (0 == strcmp(mode, "count"))
 		SET_UI64_RESULT(result, ss.wio);
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	return SYSINFO_RET_OK;
 }

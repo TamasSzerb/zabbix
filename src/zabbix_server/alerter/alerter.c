@@ -32,8 +32,7 @@
 
 #define	ALARM_ACTION_TIMEOUT	40
 
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	process_type;
 
 /******************************************************************************
  *                                                                            *
@@ -141,22 +140,14 @@ int	execute_action(DB_ALERT *alert, DB_MEDIATYPE *mediatype, char *error, int ma
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(alerter_thread, args)
+void	main_alerter_loop()
 {
-	char		error[MAX_STRING_LEN], *error_esc;
-	int		res, alerts_success, alerts_fail;
-	double		sec;
-	DB_RESULT	result;
-	DB_ROW		row;
-	DB_ALERT	alert;
-	DB_MEDIATYPE	mediatype;
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
+	char			error[MAX_STRING_LEN], *error_esc;
+	int			res;
+	DB_RESULT		result;
+	DB_ROW			row;
+	DB_ALERT		alert;
+	DB_MEDIATYPE		mediatype;
 
 	zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 
@@ -166,10 +157,6 @@ ZBX_THREAD_ENTRY(alerter_thread, args)
 	{
 		zbx_setproctitle("%s [sending alerts]", get_process_type_string(process_type));
 
-		sec = zbx_time();
-
-		alerts_success = alerts_fail = 0;
-
 		result = DBselect(
 				"select a.alertid,a.mediatypeid,a.sendto,a.subject,a.message,a.status,mt.mediatypeid,"
 				"mt.type,mt.description,mt.smtp_server,mt.smtp_helo,mt.smtp_email,mt.exec_path,"
@@ -178,9 +165,11 @@ ZBX_THREAD_ENTRY(alerter_thread, args)
 				" where a.mediatypeid=mt.mediatypeid"
 					" and a.status=%d"
 					" and a.alerttype=%d"
+					DB_NODE
 				" order by a.alertid",
 				ALERT_STATUS_NOT_SENT,
-				ALERT_TYPE_MESSAGE);
+				ALERT_TYPE_MESSAGE,
+				DBnode_local("mt.mediatypeid"));
 
 		while (NULL != (row = DBfetch(result)))
 		{
@@ -213,7 +202,6 @@ ZBX_THREAD_ENTRY(alerter_thread, args)
 						alert.alertid);
 				DBexecute("update alerts set status=%d,error='' where alertid=" ZBX_FS_UI64,
 						ALERT_STATUS_SENT, alert.alertid);
-				alerts_success++;
 			}
 			else
 			{
@@ -235,18 +223,10 @@ ZBX_THREAD_ENTRY(alerter_thread, args)
 				}
 
 				zbx_free(error_esc);
-
-				alerts_fail++;
 			}
 
 		}
 		DBfree_result(result);
-
-		sec = zbx_time() - sec;
-
-		zbx_setproctitle("%s [sent alerts: %d success, %d fail in " ZBX_FS_DBL " sec, idle %d sec]",
-				get_process_type_string(process_type), alerts_success, alerts_fail, sec,
-				CONFIG_SENDER_FREQUENCY);
 
 		zbx_sleep_loop(CONFIG_SENDER_FREQUENCY);
 	}

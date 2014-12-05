@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/include/config.inc.php';
 require_once dirname(__FILE__).'/include/hosts.inc.php';
 require_once dirname(__FILE__).'/include/forms.inc.php';
@@ -28,44 +28,33 @@ $page['file'] = 'hostinventoriesoverview.php';
 $page['hist_arg'] = array('groupid', 'hostid');
 
 require_once dirname(__FILE__).'/include/page_header.php';
-
+?>
+<?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-$fields = array(
+$fields=array(
 	'groupid' =>	array(T_ZBX_INT, O_OPT,	P_SYS,	DB_ID,	NULL),
 	'groupby' =>	array(T_ZBX_STR, O_OPT,	P_SYS,	DB_ID,	NULL),
-	// sort and sortorder
-	'sort' =>		array(T_ZBX_STR, O_OPT, P_SYS, IN('"host_count","inventory_field"'),		null),
-	'sortorder' =>	array(T_ZBX_STR, O_OPT, P_SYS, IN('"'.ZBX_SORT_DOWN.'","'.ZBX_SORT_UP.'"'),	null)
 );
+
 check_fields($fields);
+validate_sort_and_sortorder('host_count', ZBX_SORT_DOWN);
 
-$sortField = getRequest('sort', CProfile::get('web.'.$page['file'].'.sort', 'host_count'));
-$sortOrder = getRequest('sortorder', CProfile::get('web.'.$page['file'].'.sortorder', ZBX_SORT_DOWN));
-
-CProfile::update('web.'.$page['file'].'.sort', $sortField, PROFILE_TYPE_STR);
-CProfile::update('web.'.$page['file'].'.sortorder', $sortOrder, PROFILE_TYPE_STR);
-
-/*
- * Permissions
- */
-if (getRequest('groupid') && !API::HostGroup()->isReadable(array($_REQUEST['groupid']))) {
-	access_deny();
-}
-
-if ((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])) {
+if((PAGE_TYPE_JS == $page['type']) || (PAGE_TYPE_HTML_BLOCK == $page['type'])){
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
+?>
+<?php
 
 $options = array(
 	'groups' => array(
 		'real_hosts' => 1,
 	),
-	'groupid' => getRequest('groupid'),
+	'groupid' => get_request('groupid', null),
 );
 $pageFilter = new CPageFilter($options);
 $_REQUEST['groupid'] = $pageFilter->groupid;
-$_REQUEST['groupby'] = getRequest('groupby', '');
+$_REQUEST['groupby'] = get_request('groupby', '');
 $groupFieldTitle = '';
 
 $hostinvent_wdgt = new CWidget();
@@ -87,18 +76,16 @@ foreach($inventoryFields as $inventoryField){
 }
 
 $r_form = new CForm('get');
-$r_form->addItem(array(_('Group'), SPACE, $pageFilter->getGroupsCB(), SPACE));
+$r_form->addItem(array(_('Group'), SPACE, $pageFilter->getGroupsCB(true), SPACE));
 $r_form->addItem(array(_('Grouping by'), SPACE, $inventoryFieldsComboBox));
 $hostinvent_wdgt->addHeader(_('Hosts'), $r_form);
 $hostinvent_wdgt->addItem(BR());
 
-$table = new CTableInfo(_('No hosts found.'));
+$table = new CTableInfo(_('No hosts defined.'));
 $table->setHeader(
 	array(
-		make_sorting_header($groupFieldTitle === '' ? _('Field') : $groupFieldTitle, 'inventory_field',
-			$sortField, $sortOrder
-		),
-		make_sorting_header(_('Host count'), 'host_count', $sortField, $sortOrder),
+		make_sorting_header($groupFieldTitle === '' ? _('Field') : $groupFieldTitle, 'inventory_field'),
+		make_sorting_header(_('Host count'), 'host_count'),
 	)
 );
 
@@ -117,28 +104,26 @@ if($pageFilter->groupsSelected && $groupFieldTitle !== ''){
 
 	// aggregating data by chosen field value
 	$report = array();
-	foreach($hosts as $host) {
-		if ($host['inventory'][$_REQUEST['groupby']] !== '') {
-			// same names with different letter casing are considered the same
-			$lowerValue = mb_strtolower($host['inventory'][$_REQUEST['groupby']]);
-
-			if (!isset($report[$lowerValue])) {
+	foreach($hosts as $host){
+		if($host['inventory'][$_REQUEST['groupby']] !== ''){
+			$lowerValue = zbx_strtolower($host['inventory'][$_REQUEST['groupby']]);
+			if(!isset($report[$lowerValue])){
 				$report[$lowerValue] = array(
 					'inventory_field' => $host['inventory'][$_REQUEST['groupby']],
 					'host_count' => 1
 				);
 			}
-			else {
+			else{
 				$report[$lowerValue]['host_count'] += 1;
 			}
 		}
 	}
 
-	order_result($report, $sortField, $sortOrder);
+	order_result($report, getPageSortField('host_count'), getPageSortOrder());
 
 	foreach($report as $rep){
 		$row = array(
-			new CSpan(zbx_str2links($rep['inventory_field']), 'pre'),
+			new CSpan($rep['inventory_field'], 'pre'),
 			new CLink($rep['host_count'],'hostinventories.php?filter_field='.$_REQUEST['groupby'].'&filter_field_value='.urlencode($rep['inventory_field']).'&filter_set=1&filter_exact=1'.url_param('groupid')),
 		);
 		$table->addRow($row);
@@ -149,3 +134,4 @@ $hostinvent_wdgt->addItem($table);
 $hostinvent_wdgt->show();
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

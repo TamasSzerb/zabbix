@@ -6,31 +6,27 @@
 		<input type="hidden" id="interface_type_#{iface.interfaceid}" name="interfaces[#{iface.interfaceid}][type]" value="#{iface.type}" />
 	</td>
 	<td class="interface-ip">
-		<input class="input text" name="interfaces[#{iface.interfaceid}][ip]" type="text" maxlength="64" value="#{iface.ip}" />
-		<div class="interface-bulk">
-			<input class="input checkbox pointer" type="checkbox" id="interfaces[#{iface.interfaceid}][bulk]" name="interfaces[#{iface.interfaceid}][bulk]" value="1" #{*attrs.checked_bulk} />
-			<label for="interfaces[#{iface.interfaceid}][bulk]"><?php echo _('Use bulk requests'); ?></label>
-		</div>
+		<input class="input text" name="interfaces[#{iface.interfaceid}][ip]" type="text" size="24" value="#{iface.ip}" />
 	</td>
 	<td class="interface-dns">
-		<input class="input text" name="interfaces[#{iface.interfaceid}][dns]" type="text" maxlength="64" value="#{iface.dns}" />
+		<input class="input text" name="interfaces[#{iface.interfaceid}][dns]" type="text" size="30" value="#{iface.dns}" />
 	</td>
 	<td class="interface-connect-to">
-		<div class="jqueryinputset radioset">
+		<div class="jqueryinputset">
 			<input class="interface-useip" type="radio" id="radio_ip_#{iface.interfaceid}" name="interfaces[#{iface.interfaceid}][useip]" value="1" #{*attrs.checked_ip} />
 			<input class="interface-useip" type="radio" id="radio_dns_#{iface.interfaceid}" name="interfaces[#{iface.interfaceid}][useip]" value="0" #{*attrs.checked_dns} />
 			<label for="radio_ip_#{iface.interfaceid}"><?php echo _('IP'); ?></label><label for="radio_dns_#{iface.interfaceid}"><?php echo _('DNS'); ?></label>
 		</div>
 	</td>
 	<td class="interface-port">
-		<input class="input text" name="interfaces[#{iface.interfaceid}][port]" type="text" maxlength="64" value="#{iface.port}" />
+		<input class="input text" name="interfaces[#{iface.interfaceid}][port]" type="text" size="15" value="#{iface.port}" />
 	</td>
 	<td class="interface-default">
 		<input class="mainInterface" type="radio" id="interface_main_#{iface.interfaceid}" name="mainInterfaces[#{iface.type}]" value="#{iface.interfaceid}" />
 		<label class="checkboxLikeLabel" for="interface_main_#{iface.interfaceid}" style="height: 16px; width: 16px;"></label>
 	</td>
 	<td class="interface-control">
-		<button type="button" id="removeInterface_#{iface.interfaceid}" data-interfaceid="#{iface.interfaceid}" class="button link_menu remove" #{*attrs.disabled}><?php echo _('Remove'); ?></button>
+		<button type="button" id="removeInterface_#{iface.interfaceid}" data-interfaceid="#{iface.interfaceid}" class="link_menu remove" #{*attrs.disabled}><?php echo _('Remove'); ?></button>
 	</td>
 </tr>
 </script>
@@ -57,10 +53,6 @@
 
 			domRow = jQuery('#hostInterfaceRow_' + hostInterface.interfaceid);
 			jQuery('.jqueryinputset', domRow).buttonset();
-
-			if (hostInterface.type != <?php echo INTERFACE_TYPE_SNMP; ?>) {
-				jQuery('.interface-bulk', domRow).remove();
-			}
 
 			if (hostInterface.locked) {
 				addNotDraggableIcon(domRow);
@@ -174,15 +166,6 @@
 				attrs.checked_main = 'checked="checked"';
 			}
 
-			if (hostInterface.type == <?php echo INTERFACE_TYPE_SNMP; ?>) {
-				if (hostInterface.bulk == 1) {
-					attrs.checked_bulk = 'checked="checked"';
-				}
-				else {
-					attrs.checked_bulk = '';
-				}
-			}
-
 			return attrs;
 		}
 
@@ -191,21 +174,43 @@
 
 			switch (hostInterfaceType) {
 				case getHostInterfaceNumericType('agent'):
-					footerRowId = '#agentInterfacesFooter';
+					footerRowId = '#agentIterfacesFooter';
 					break;
 				case getHostInterfaceNumericType('snmp'):
-					footerRowId = '#SNMPInterfacesFooter';
+					footerRowId = '#SNMPIterfacesFooter';
 					break;
 				case getHostInterfaceNumericType('jmx'):
-					footerRowId = '#JMXInterfacesFooter';
+					footerRowId = '#JMXIterfacesFooter';
 					break;
 				case getHostInterfaceNumericType('ipmi'):
-					footerRowId = '#IPMIInterfacesFooter';
+					footerRowId = '#IPMIIterfacesFooter';
 					break;
 				default:
 					throw new Error('Unknown host interface type.');
 			}
 			return footerRowId;
+		}
+
+		function getHostInterfaceNumericType(typeName) {
+			var typeNum;
+
+			switch (typeName) {
+				case 'agent':
+					typeNum = '<?php echo INTERFACE_TYPE_AGENT; ?>';
+					break;
+				case 'snmp':
+					typeNum = '<?php echo INTERFACE_TYPE_SNMP; ?>';
+					break;
+				case 'jmx':
+					typeNum = '<?php echo INTERFACE_TYPE_JMX; ?>';
+					break;
+				case 'ipmi':
+					typeNum = '<?php echo INTERFACE_TYPE_IPMI; ?>';
+					break;
+				default:
+					throw new Error('Unknown host interface type name.');
+			}
+			return typeNum;
 		}
 
 		function createNewHostInterface(hostInterfaceType) {
@@ -216,10 +221,6 @@
 				port: ports[hostInterfaceType],
 				ip: '127.0.0.1'
 			};
-
-			if (newInterface.type == <?php echo INTERFACE_TYPE_SNMP; ?>) {
-				newInterface.bulk = 1;
-			}
 
 			newInterface.interfaceid = 1;
 			while (allHostInterfaces[newInterface.interfaceid] !== void(0)) {
@@ -256,9 +257,9 @@
 
 		return {
 			add: function(hostInterfaces) {
-				for (var i = 0; i < hostInterfaces.length; i++) {
-					addHostInterface(hostInterfaces[i]);
-					renderHostInterfaceRow(hostInterfaces[i]);
+				for (var hostInterfaceId in hostInterfaces) {
+					addHostInterface(hostInterfaces[hostInterfaceId]);
+					renderHostInterfaceRow(hostInterfaces[hostInterfaceId]);
 				}
 				resetMainInterfaces();
 			},
@@ -302,13 +303,6 @@
 
 			setUseipForInterface: function(hostInterfaceId, useip) {
 				allHostInterfaces[hostInterfaceId].useip = useip;
-			},
-
-			disable: function() {
-				jQuery('.interface-drag-control, .interface-control').html('');
-				jQuery('.interfaceRow').find('input').attr('readonly', true);
-				jQuery('.interfaceRow').find('input[type="radio"], input[type="checkbox"]').attr('disabled', true);
-				jQuery('.interface-connect-to').find('input').button('disable');
 			}
 		}
 	}());
@@ -342,35 +336,6 @@
 					hostInterfaceId = ui.draggable.data('interfaceid');
 
 				ui.helper.remove();
-
-				if (getHostInterfaceNumericType(hostInterfaceTypeName) == <?php echo INTERFACE_TYPE_SNMP; ?>) {
-					if (jQuery('.interface-bulk', jQuery('#hostInterfaceRow_' + hostInterfaceId)).length == 0) {
-						var bulkDiv = jQuery('<div>', {
-							'class': 'interface-bulk'
-						});
-
-						// append checkbox
-						bulkDiv.append(jQuery('<input>', {
-							id: 'interfaces[' + hostInterfaceId + '][bulk]',
-							'class': 'input checkbox pointer',
-							type: 'checkbox',
-							name: 'interfaces[' + hostInterfaceId + '][bulk]',
-							value: 1,
-							checked: true
-						}));
-
-						// append label
-						bulkDiv.append(jQuery('<label>', {
-							'for': 'interfaces[' + hostInterfaceId + '][bulk]',
-							text: '<?php echo _('Use bulk requests'); ?>'
-						}));
-
-						jQuery('.interface-ip', jQuery('#hostInterfaceRow_' + hostInterfaceId)).append(bulkDiv);
-					}
-				}
-				else {
-					jQuery('.interface-bulk', jQuery('#hostInterfaceRow_' + hostInterfaceId)).remove();
-				}
 
 				hostInterfacesManager.setType(hostInterfaceId, hostInterfaceTypeName);
 				hostInterfacesManager.resetMainInterfaces();
@@ -421,6 +386,8 @@
 					break;
 			}
 		});
+		jQuery('#name').focus();
+
 
 		/**
 		 * Mass update
@@ -430,25 +397,9 @@
 		}).change();
 	});
 
-	function getHostInterfaceNumericType(typeName) {
-		var typeNum;
-
-		switch (typeName) {
-			case 'agent':
-				typeNum = '<?php echo INTERFACE_TYPE_AGENT; ?>';
-				break;
-			case 'snmp':
-				typeNum = '<?php echo INTERFACE_TYPE_SNMP; ?>';
-				break;
-			case 'jmx':
-				typeNum = '<?php echo INTERFACE_TYPE_JMX; ?>';
-				break;
-			case 'ipmi':
-				typeNum = '<?php echo INTERFACE_TYPE_IPMI; ?>';
-				break;
-			default:
-				throw new Error('Unknown host interface type name.');
-		}
-		return typeNum;
+	function removeTemplate(templateid) {
+		jQuery('#templates_' + templateid).remove();
+		jQuery('#template_row_' + templateid).remove();
 	}
+
 </script>

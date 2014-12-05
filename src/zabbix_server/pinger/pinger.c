@@ -36,8 +36,10 @@
 #define MAX_SIZE	65507
 #define MIN_TIMEOUT	50
 
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+#define MAX_ITEMS	128
+
+extern unsigned char	process_type;
+extern int		process_num;
 
 /******************************************************************************
  *                                                                            *
@@ -71,16 +73,11 @@ static void	process_value(zbx_uint64_t itemid, zbx_uint64_t *value_ui64, double 
 	if (SUCCEED != errcode)
 		goto clean;
 
-	if (ITEM_STATUS_ACTIVE != item.status)
-		goto clean;
-
-	if (HOST_STATUS_MONITORED != item.host.status)
-		goto clean;
-
 	if (NOTSUPPORTED == ping_result)
 	{
-		item.state = ITEM_STATE_NOTSUPPORTED;
-		dc_add_history(item.itemid, item.value_type, item.flags, NULL, ts, item.state, error);
+		item.status = ITEM_STATUS_NOTSUPPORTED;
+		dc_add_history(item.itemid, item.value_type, item.flags, NULL, ts,
+				item.status, error, 0, NULL, 0, 0, 0, 0);
 	}
 	else
 	{
@@ -91,14 +88,15 @@ static void	process_value(zbx_uint64_t itemid, zbx_uint64_t *value_ui64, double 
 		else
 			SET_DBL_RESULT(&value, *value_dbl);
 
-		item.state = ITEM_STATE_NORMAL;
-		dc_add_history(item.itemid, item.value_type, item.flags, &value, ts, item.state, NULL);
+		item.status = ITEM_STATUS_ACTIVE;
+		dc_add_history(item.itemid, item.value_type, item.flags, &value, ts,
+				item.status, NULL, 0, NULL, 0, 0, 0, 0);
 
 		free_result(&value);
 	}
-clean:
-	DCrequeue_items(&item.itemid, &item.state, &ts->sec, NULL, NULL, &errcode, 1);
 
+	DCrequeue_items(&item.itemid, &item.status, &ts->sec, &errcode, 1);
+clean:
 	DCconfig_clean_items(&item, &errcode, 1);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
@@ -175,127 +173,113 @@ static void	process_values(icmpitem_t *items, int first_index, int last_index, Z
 		}
 	}
 
-	dc_flush_history();
-
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
 
 static int	parse_key_params(const char *key, const char *host_addr, icmpping_t *icmpping, char **addr, int *count,
 		int *interval, int *size, int *timeout, icmppingsec_type_t *type, char *error, int max_error_len)
 {
-	const char	*tmp;
-	int		ret = NOTSUPPORTED;
-	AGENT_REQUEST	request;
+	char	cmd[16], params[MAX_STRING_LEN], buffer[MAX_STRING_LEN];
+	int	num_params;
 
-	init_request(&request);
+	if (0 == parse_command(key, cmd, sizeof(cmd), params, sizeof(params)))
+		return NOTSUPPORTED;
 
-	if (SUCCEED != parse_item_key(key, &request))
-	{
-		zbx_snprintf(error, max_error_len, "Invalid item key format.");
-		goto out;
-	}
-
-	if (0 == strcmp(get_rkey(&request), SERVER_ICMPPING_KEY))
+	if (0 == strcmp(cmd, SERVER_ICMPPING_KEY))
 	{
 		*icmpping = ICMPPING;
 	}
-	else if (0 == strcmp(get_rkey(&request), SERVER_ICMPPINGLOSS_KEY))
+	else if (0 == strcmp(cmd, SERVER_ICMPPINGLOSS_KEY))
 	{
 		*icmpping = ICMPPINGLOSS;
 	}
-	else if (0 == strcmp(get_rkey(&request), SERVER_ICMPPINGSEC_KEY))
+	else if (0 == strcmp(cmd, SERVER_ICMPPINGSEC_KEY))
 	{
 		*icmpping = ICMPPINGSEC;
 	}
 	else
 	{
-		zbx_snprintf(error, max_error_len, "Unsupported pinger key.");
-		goto out;
+		zbx_snprintf(error, max_error_len, "unsupported pinger key");
+		return NOTSUPPORTED;
 	}
 
-	if (6 < get_rparams_num(&request) || (ICMPPINGSEC != *icmpping && 5 < get_rparams_num(&request)))
+	num_params = num_param(params);
+
+	if (6 < num_params || (ICMPPINGSEC != *icmpping && 5 < num_params))
 	{
-		zbx_snprintf(error, max_error_len, "Too many arguments.");
-		goto out;
+		zbx_snprintf(error, max_error_len, "too many arguments");
+		return NOTSUPPORTED;
 	}
 
-	if (NULL == (tmp = get_rparam(&request, 1)) || '\0' == *tmp)
+	if (0 != get_param(params, 2, buffer, sizeof(buffer)) || '\0' == *buffer)
 	{
 		*count = 3;
 	}
-	else if (FAIL == is_uint31(tmp, (uint32_t*)count) || MIN_COUNT > *count || *count > MAX_COUNT)
+	else if (FAIL == is_uint(buffer) || MIN_COUNT > (*count = atoi(buffer)) || *count > MAX_COUNT)
 	{
-		zbx_snprintf(error, max_error_len, "Number of packets \"%s\" is not between %d and %d.",
-				tmp, MIN_COUNT, MAX_COUNT);
-		goto out;
+		zbx_snprintf(error, max_error_len, "number of packets [%s] is not between %d and %d",
+				buffer, MIN_COUNT, MAX_COUNT);
+		return NOTSUPPORTED;
 	}
 
-	if (NULL == (tmp = get_rparam(&request, 2)) || '\0' == *tmp)
+	if (0 != get_param(params, 3, buffer, sizeof(buffer)) || '\0' == *buffer)
 	{
 		*interval = 0;
 	}
-	else if (FAIL == is_uint31(tmp, (uint32_t*)interval) || MIN_INTERVAL > *interval)
+	else if (FAIL == is_uint(buffer) || MIN_INTERVAL > (*interval = atoi(buffer)))
 	{
-		zbx_snprintf(error, max_error_len, "Interval \"%s\" should be at least %d.", tmp, MIN_INTERVAL);
-		goto out;
+		zbx_snprintf(error, max_error_len, "interval [%s] should be at least %d", buffer, MIN_INTERVAL);
+		return NOTSUPPORTED;
 	}
 
-	if (NULL == (tmp = get_rparam(&request, 3)) || '\0' == *tmp)
+	if (0 != get_param(params, 4, buffer, sizeof(buffer)) || '\0' == *buffer)
 	{
 		*size = 0;
 	}
-	else if (FAIL == is_uint31(tmp, (uint32_t*)size) || MIN_SIZE > *size || *size > MAX_SIZE)
+	else if (FAIL == is_uint(buffer) || MIN_SIZE > (*size = atoi(buffer)) || *size > MAX_SIZE)
 	{
-		zbx_snprintf(error, max_error_len, "Packet size \"%s\" is not between %d and %d.",
-				tmp, MIN_SIZE, MAX_SIZE);
-		goto out;
+		zbx_snprintf(error, max_error_len, "packet size [%s] is not between %d and %d",
+				buffer, MIN_SIZE, MAX_SIZE);
+		return NOTSUPPORTED;
 	}
 
-	if (NULL == (tmp = get_rparam(&request, 4)) || '\0' == *tmp)
-	{
+	if (0 != get_param(params, 5, buffer, sizeof(buffer)) || '\0' == *buffer)
 		*timeout = 0;
-	}
-	else if (FAIL == is_uint31(tmp, (uint32_t*)timeout) || MIN_TIMEOUT > *timeout)
+	else if (FAIL == is_uint(buffer) || MIN_TIMEOUT > (*timeout = atoi(buffer)))
 	{
-		zbx_snprintf(error, max_error_len, "Timeout \"%s\" should be at least %d.", tmp, MIN_TIMEOUT);
-		goto out;
+		zbx_snprintf(error, max_error_len, "timeout [%s] should be at least %d", buffer, MIN_TIMEOUT);
+		return NOTSUPPORTED;
 	}
 
-	if (NULL == (tmp = get_rparam(&request, 5)) || '\0' == *tmp)
-	{
+	if (0 != get_param(params, 6, buffer, sizeof(buffer)) || '\0' == *buffer)
 		*type = ICMPPINGSEC_AVG;
-	}
 	else
 	{
-		if (0 == strcmp(tmp, "min"))
+		if (0 == strcmp(buffer, "min"))
 		{
 			*type = ICMPPINGSEC_MIN;
 		}
-		else if (0 == strcmp(tmp, "avg"))
+		else if (0 == strcmp(buffer, "avg"))
 		{
 			*type = ICMPPINGSEC_AVG;
 		}
-		else if (0 == strcmp(tmp, "max"))
+		else if (0 == strcmp(buffer, "max"))
 		{
 			*type = ICMPPINGSEC_MAX;
 		}
 		else
 		{
-			zbx_snprintf(error, max_error_len, "Mode \"%s\" is not supported.", tmp);
-			goto out;
+			zbx_snprintf(error, max_error_len, "mode [%s] is not supported", buffer);
+			return NOTSUPPORTED;
 		}
 	}
 
-	if (NULL == (tmp = get_rparam(&request, 0)) || '\0' == *tmp)
+	if (0 != get_param(params, 1, buffer, sizeof(buffer)) || '\0' == *buffer)
 		*addr = strdup(host_addr);
 	else
-		*addr = strdup(tmp);
+		*addr = strdup(buffer);
 
-	ret = SUCCEED;
-out:
-	free_request(&request);
-
-	return ret;
+	return SUCCEED;
 }
 
 static int	get_icmpping_nearestindex(icmpitem_t *items, int items_count, int count, int interval, int size, int timeout)
@@ -390,7 +374,7 @@ static void	add_icmpping_item(icmpitem_t **items, int *items_alloc, int *items_c
 static void	get_pinger_hosts(icmpitem_t **icmp_items, int *icmp_items_alloc, int *icmp_items_count)
 {
 	const char		*__function_name = "get_pinger_hosts";
-	DC_ITEM			items[MAX_PINGER_ITEMS];
+	DC_ITEM			items[MAX_ITEMS];
 	int			i, num, count, interval, size, timeout, rc, errcode = SUCCEED;
 	char			error[MAX_STRING_LEN], *addr = NULL;
 	icmpping_t		icmpping;
@@ -398,7 +382,7 @@ static void	get_pinger_hosts(icmpitem_t **icmp_items, int *icmp_items_alloc, int
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	num = DCconfig_get_poller_items(ZBX_POLLER_TYPE_PINGER, items);
+	num = DCconfig_get_poller_items(ZBX_POLLER_TYPE_PINGER, items, MAX_ITEMS);
 
 	for (i = 0; i < num; i++)
 	{
@@ -423,19 +407,17 @@ static void	get_pinger_hosts(icmpitem_t **icmp_items, int *icmp_items_alloc, int
 
 			zbx_timespec(&ts);
 
-			items[i].state = ITEM_STATE_NOTSUPPORTED;
+			items[i].status = ITEM_STATUS_NOTSUPPORTED;
 			dc_add_history(items[i].itemid, items[i].value_type, items[i].flags, NULL, &ts,
-					items[i].state, error);
+					items[i].status, error, 0, NULL, 0, 0, 0, 0);
 
-			DCrequeue_items(&items[i].itemid, &items[i].state, &ts.sec, NULL, NULL, &errcode, 1);
+			DCrequeue_items(&items[i].itemid, &items[i].status, &ts.sec, &errcode, 1);
 		}
 
 		zbx_free(items[i].key);
 	}
 
 	DCconfig_clean_items(items, NULL, num);
-
-	dc_flush_history();
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%d", __function_name, *icmp_items_count);
 }
@@ -517,7 +499,7 @@ static void	process_pinger_hosts(icmpitem_t *items, int items_count)
 		if (i == items_count - 1 || items[i].count != items[i + 1].count || items[i].interval != items[i + 1].interval ||
 				items[i].size != items[i + 1].size || items[i].timeout != items[i + 1].timeout)
 		{
-			zbx_setproctitle("%s #%d [pinging hosts]", get_process_type_string(process_type), process_num);
+			zbx_setproctitle("%s [pinging hosts]", get_process_type_string(process_type));
 
 			zbx_timespec(&ts);
 
@@ -550,40 +532,39 @@ static void	process_pinger_hosts(icmpitem_t *items, int items_count)
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(pinger_thread, args)
+void	main_pinger_loop()
 {
-	int			nextcheck, sleeptime, items_count = 0, itc;
+	int			nextcheck, sleeptime;
 	double			sec;
 	static icmpitem_t	*items = NULL;
 	static int		items_alloc = 4;
+	int			items_count = 0;
 
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
+	zabbix_log(LOG_LEVEL_DEBUG, "In main_pinger_loop() process_num:%d", process_num);
 
 	if (NULL == items)
 		items = zbx_malloc(items, sizeof(icmpitem_t) * items_alloc);
 
+	zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
+
+	DBconnect(ZBX_DB_CONNECT_NORMAL);
+
 	for (;;)
 	{
-		zbx_setproctitle("%s #%d [getting values]", get_process_type_string(process_type), process_num);
+		zbx_setproctitle("%s [getting values]", get_process_type_string(process_type));
 
 		sec = zbx_time();
 		get_pinger_hosts(&items, &items_alloc, &items_count);
 		process_pinger_hosts(items, items_count);
 		sec = zbx_time() - sec;
-		itc = items_count;
+
+		zabbix_log(LOG_LEVEL_DEBUG, "%s #%d spent " ZBX_FS_DBL " seconds while processing %d items",
+				get_process_type_string(process_type), process_num, sec, items_count);
 
 		free_hosts(&items, &items_count);
 
 		nextcheck = DCconfig_get_poller_nextcheck(ZBX_POLLER_TYPE_PINGER);
 		sleeptime = calculate_sleeptime(nextcheck, POLLER_DELAY);
-
-		zbx_setproctitle("%s #%d [got %d values in " ZBX_FS_DBL " sec, idle %d sec]",
-				get_process_type_string(process_type), process_num, itc, sec, sleeptime);
 
 		zbx_sleep_loop(sleeptime);
 	}

@@ -21,22 +21,9 @@
 
 class CHostImporter extends CImporter {
 
-	/**
-	 * @var array		a list of host IDs which were created or updated to create an interface cache for those hosts
-	 */
-	protected $processedHostIds = array();
-
-	/**
-	 * Import hosts.
-	 *
-	 * @param array $hosts
-	 *
-	 * @throws Exception
-	 */
 	public function import(array $hosts) {
 		$hostsToCreate = array();
 		$hostsToUpdate = array();
-
 		foreach ($hosts as $host) {
 			// preserve host related templates to massAdd them later
 			if ($this->options['templateLinkage']['createMissing'] && !empty($host['templates'])) {
@@ -63,28 +50,30 @@ class CHostImporter extends CImporter {
 
 		$hostsToUpdate = $this->addInterfaceIds($hostsToUpdate);
 
+		// a list of hostids which were created or updated to create an interface cache for those hosts
+		$processedHostIds = array();
 		// create/update hosts
 		if ($this->options['hosts']['createMissing'] && $hostsToCreate) {
 			$newHostIds = API::Host()->create($hostsToCreate);
-			foreach ($newHostIds['hostids'] as $hnum => $hostId) {
+			foreach ($newHostIds['hostids'] as $hnum => $hostid) {
 				$hostHost = $hostsToCreate[$hnum]['host'];
-				$this->processedHostIds[$hostHost] = $hostId;
-
-				$this->referencer->addHostRef($hostHost, $hostId);
+				$processedHostIds[$hostHost] = $hostid;
+				$this->referencer->addHostRef($hostHost, $hostid);
+				$this->referencer->addProcessedHost($hostHost);
 
 				if (!empty($templateLinkage[$hostHost])) {
 					API::Template()->massAdd(array(
-						'hosts' => array('hostid' => $hostId),
+						'hosts' => array('hostid' => $hostid),
 						'templates' => $templateLinkage[$hostHost]
 					));
 				}
 			}
 		}
-
 		if ($this->options['hosts']['updateExisting'] && $hostsToUpdate) {
 			API::Host()->update($hostsToUpdate);
 			foreach ($hostsToUpdate as $host) {
-				$this->processedHostIds[$host['host']] = $host['hostid'];
+				$this->referencer->addProcessedHost($host['host']);
+				$processedHostIds[$host['host']] = $host['hostid'];
 
 				if (!empty($templateLinkage[$host['host']])) {
 					API::Template()->massAdd(array(
@@ -97,15 +86,13 @@ class CHostImporter extends CImporter {
 
 		// create interfaces cache interface_ref->interfaceid
 		$dbInterfaces = API::HostInterface()->get(array(
-			'hostids' => $this->processedHostIds,
+			'hostids' => $processedHostIds,
 			'output' => API_OUTPUT_EXTEND
 		));
-
 		foreach ($hosts as $host) {
-			if (isset($this->processedHostIds[$host['host']])) {
-				foreach ($host['interfaces'] as $interface) {
-					$hostId = $this->processedHostIds[$host['host']];
-
+			foreach ($host['interfaces'] as $interface) {
+				if (isset($processedHostIds[$host['host']])) {
+					$hostId = $processedHostIds[$host['host']];
 					if (!isset($this->referencer->interfacesCache[$hostId])) {
 						$this->referencer->interfacesCache[$hostId] = array();
 					}
@@ -117,8 +104,8 @@ class CHostImporter extends CImporter {
 								&& $dbInterface['useip'] == $interface['useip']
 								&& $dbInterface['port'] == $interface['port']
 								&& $dbInterface['type'] == $interface['type']
-								&& $dbInterface['main'] == $interface['main']
-								&& $dbInterface['bulk'] == $interface['bulk']) {
+								&& $dbInterface['main'] == $interface['main']) {
+
 							$refName = $interface['interface_ref'];
 							$this->referencer->interfacesCache[$hostId][$refName] = $dbInterface['interfaceid'];
 						}
@@ -126,15 +113,6 @@ class CHostImporter extends CImporter {
 				}
 			}
 		}
-	}
-
-	/**
-	 * Get a list of created or updated host IDs.
-	 *
-	 * @return array
-	 */
-	public function getProcessedHostIds() {
-		return $this->processedHostIds;
 	}
 
 	/**
@@ -186,86 +164,39 @@ class CHostImporter extends CImporter {
 	/**
 	 * For existing hosts we need to set an interfaceid for existing interfaces or they will be added.
 	 *
-	 * @param array $xmlHosts    hosts from XML for which interfaces will be added
+	 * @param array $hosts
 	 *
 	 * @return array
 	 */
-	protected function addInterfaceIds(array $xmlHosts) {
+	protected function addInterfaceIds(array $hosts) {
+
 		$dbInterfaces = API::HostInterface()->get(array(
-			'hostids' => zbx_objectValues($xmlHosts, 'hostid'),
+			'hostids' => zbx_objectValues($hosts, 'hostid'),
 			'output' => API_OUTPUT_EXTEND,
 			'preservekeys' => true
 		));
-
-		// build lookup maps for:
-		// - interfaces per host
-		// - default (primary) interface ids per host per interface type
-		$dbHostInterfaces = array();
-		$dbHostMainInterfaceIds = array();
-
 		foreach ($dbInterfaces as $dbInterface) {
-			$dbHostId = $dbInterface['hostid'];
-
-			$dbHostInterfaces[$dbHostId][] = $dbInterface;
-			if ($dbInterface['main'] == INTERFACE_PRIMARY) {
-				$dbHostMainInterfaceIds[$dbHostId][$dbInterface['type']] = $dbInterface['interfaceid'];
-			}
-		}
-
-		foreach ($xmlHosts as &$xmlHost) {
-			// if interfaces in XML are empty then do not touch existing interfaces
-			if (!$xmlHost['interfaces']) {
-				unset($xmlHost['interfaces']);
-				continue;
-			}
-
-			$xmlHostId = $xmlHost['hostid'];
-
-			$currentDbHostMainInterfaceIds = isset($dbHostMainInterfaceIds[$xmlHostId])
-				? $dbHostMainInterfaceIds[$xmlHostId]
-				: array();
-
-			$reusedInterfaceIds = array();
-
-			foreach ($xmlHost['interfaces'] as &$xmlHostInterface) {
-				$xmlHostInterfaceType = $xmlHostInterface['type'];
-
-				// check if an existing interfaceid from current host can be reused
-				// in case there is default (primary) interface in current host with same type
-				if ($xmlHostInterface['main'] == INTERFACE_PRIMARY
-						&& isset($currentDbHostMainInterfaceIds[$xmlHostInterfaceType])) {
-					$dbHostInterfaceId = $currentDbHostMainInterfaceIds[$xmlHostInterfaceType];
-
-					$xmlHostInterface['interfaceid'] = $dbHostInterfaceId;
-					$reusedInterfaceIds[$dbHostInterfaceId] = true;
-				}
-			}
-			unset($xmlHostInterface);
-
-			// loop through all interfaces of current host and take interfaceids from ones that
-			// match completely, ignoring hosts from XML with set interfaceids and ignoring hosts
-			// from DB with reused interfaceids
-			foreach ($xmlHost['interfaces'] as &$xmlHostInterface) {
-				foreach ($dbHostInterfaces[$xmlHostId] as $dbHostInterface) {
-					$dbHostInterfaceId = $dbHostInterface['interfaceid'];
-
-					if (!isset($xmlHostInterface['interfaceid']) && !isset($reusedInterfaceIds[$dbHostInterfaceId])
-							&& $dbHostInterface['ip'] == $xmlHostInterface['ip']
-							&& $dbHostInterface['dns'] == $xmlHostInterface['dns']
-							&& $dbHostInterface['useip'] == $xmlHostInterface['useip']
-							&& $dbHostInterface['port'] == $xmlHostInterface['port']
-							&& $dbHostInterface['type'] == $xmlHostInterface['type']
-							&& $dbHostInterface['bulk'] == $xmlHostInterface['bulk']) {
-						$xmlHostInterface['interfaceid'] = $dbHostInterfaceId;
-						$reusedInterfaceIds[$dbHostInterfaceId] = true;
-						break;
+			foreach ($hosts as $hnum => $host) {
+				if (!empty($host['interfaces']) && idcmp($host['hostid'], $dbInterface['hostid'])) {
+					foreach ($host['interfaces'] as $inum => $interface) {
+						if ($dbInterface['ip'] == $interface['ip']
+								&& $dbInterface['dns'] == $interface['dns']
+								&& $dbInterface['useip'] == $interface['useip']
+								&& $dbInterface['port'] == $interface['port']
+								&& $dbInterface['type'] == $interface['type']
+								&& $dbInterface['main'] == $interface['main']) {
+							$hosts[$hnum]['interfaces'][$inum]['interfaceid'] = $dbInterface['interfaceid'];
+							break;
+						}
 					}
 				}
+				if (empty($hosts[$hnum]['interfaces'])) {
+					unset($hosts[$hnum]['interfaces']);
+				}
 			}
-			unset($xmlHostInterface);
 		}
-		unset($xmlHost);
 
-		return $xmlHosts;
+		return $hosts;
 	}
+
 }

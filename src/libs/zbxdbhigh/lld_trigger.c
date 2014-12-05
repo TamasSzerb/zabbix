@@ -9,7 +9,7 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
@@ -30,8 +30,6 @@ typedef struct
 	char			*description_orig;
 	char			*expression;
 	char			*expression_orig;
-	char			*comments;
-	char			*comments_orig;
 	zbx_vector_ptr_t	functions;
 #define ZBX_FLAG_LLD_TRIGGER_UNSET			__UINT64_C(0x00)
 #define ZBX_FLAG_LLD_TRIGGER_DISCOVERED			__UINT64_C(0x01)
@@ -84,6 +82,12 @@ static void	lld_item_free(zbx_lld_item_t *item)
 	zbx_free(item);
 }
 
+static void	lld_items_free(zbx_vector_ptr_t *items)
+{
+	while (0 != items->values_num)
+		lld_item_free((zbx_lld_item_t *)items->values[--items->values_num]);
+}
+
 static void	lld_function_free(zbx_lld_function_t *function)
 {
 	zbx_free(function->parameter_orig);
@@ -93,17 +97,27 @@ static void	lld_function_free(zbx_lld_function_t *function)
 	zbx_free(function);
 }
 
+static void	lld_functions_free(zbx_vector_ptr_t *functions)
+{
+	while (0 != functions->values_num)
+		lld_function_free((zbx_lld_function_t *)functions->values[--functions->values_num]);
+}
+
 static void	lld_trigger_free(zbx_lld_trigger_t *trigger)
 {
-	zbx_vector_ptr_clear_ext(&trigger->functions, (zbx_clean_func_t)lld_function_free);
+	lld_functions_free(&trigger->functions);
 	zbx_vector_ptr_destroy(&trigger->functions);
-	zbx_free(trigger->comments_orig);
-	zbx_free(trigger->comments);
 	zbx_free(trigger->expression_orig);
 	zbx_free(trigger->expression);
 	zbx_free(trigger->description_orig);
 	zbx_free(trigger->description);
 	zbx_free(trigger);
+}
+
+static void	lld_triggers_free(zbx_vector_ptr_t *triggers)
+{
+	while (0 != triggers->values_num)
+		lld_trigger_free((zbx_lld_trigger_t *)triggers->values[--triggers->values_num]);
 }
 
 /******************************************************************************
@@ -118,7 +132,7 @@ static void	lld_trigger_free(zbx_lld_trigger_t *trigger)
  *                                                                            *
  ******************************************************************************/
 static void	lld_triggers_get(zbx_uint64_t parent_triggerid, zbx_vector_ptr_t *triggers, unsigned char type,
-		unsigned char priority, const char *url)
+		unsigned char priority, const char *comments, const char *url)
 {
 	const char		*__function_name = "lld_triggers_get";
 
@@ -153,8 +167,8 @@ static void	lld_triggers_get(zbx_uint64_t parent_triggerid, zbx_vector_ptr_t *tr
 		if ((unsigned char)atoi(row[4]) != priority)
 			trigger->flags |= ZBX_FLAG_LLD_TRIGGER_UPDATE_PRIORITY;
 
-		trigger->comments = zbx_strdup(NULL, row[5]);
-		trigger->comments_orig = NULL;
+		if (0 != strcmp(row[5], comments))
+			trigger->flags |= ZBX_FLAG_LLD_TRIGGER_UPDATE_COMMENTS;
 
 		if (0 != strcmp(row[6], url))
 			trigger->flags |= ZBX_FLAG_LLD_TRIGGER_UPDATE_URL;
@@ -593,7 +607,7 @@ static int	lld_functions_make(zbx_vector_ptr_t *functions_proto, zbx_vector_ptr_
 
 		item_proto = (zbx_lld_item_t *)items->values[index];
 
-		if (0 != (item_proto->flags & ZBX_FLAG_DISCOVERY_PROTOTYPE))
+		if (0 != (item_proto->flags & ZBX_FLAG_DISCOVERY_CHILD))
 		{
 			index = zbx_vector_ptr_bsearch(item_links, &item_proto->itemid,
 					ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC);
@@ -628,31 +642,20 @@ out:
  *                                                                            *
  ******************************************************************************/
 static void 	lld_trigger_make(zbx_vector_ptr_t *functions_proto, zbx_vector_ptr_t *triggers, zbx_vector_ptr_t *items,
-		const char *description_proto, const char *expression_proto, const char *comments_proto,
-		zbx_lld_row_t *lld_row, char **error)
+		const char *description_proto, const char *expression_proto, zbx_lld_row_t *lld_row)
 {
 	const char		*__function_name = "lld_trigger_make";
 
 	zbx_lld_trigger_t	*trigger = NULL;
-	char			*buffer = NULL, *expression = NULL, err[64];
+	char			*buffer = NULL;
 	struct zbx_json_parse	*jp_row = &lld_row->jp_row;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	trigger = lld_trigger_get(functions_proto, triggers, &lld_row->item_links);
-
-	expression = zbx_strdup(expression, expression_proto);
-	if (SUCCEED != substitute_discovery_macros(&expression, jp_row, ZBX_MACRO_NUMERIC, err, sizeof(err)))
-	{
-		*error = zbx_strdcatf(*error, "Cannot %s trigger: %s.\n",
-				(NULL != trigger ? "update" : "create"), err);
-		goto out;
-	}
-
-	if (NULL != trigger)
+	if (NULL != (trigger = lld_trigger_get(functions_proto, triggers, &lld_row->item_links)))
 	{
 		buffer = zbx_strdup(buffer, description_proto);
-		substitute_discovery_macros(&buffer, jp_row, ZBX_MACRO_ANY, NULL, 0);
+		substitute_discovery_macros(&buffer, jp_row);
 		zbx_lrtrim(buffer, ZBX_WHITESPACE);
 		if (0 != strcmp(trigger->description, buffer))
 		{
@@ -662,23 +665,11 @@ static void 	lld_trigger_make(zbx_vector_ptr_t *functions_proto, zbx_vector_ptr_
 			trigger->flags |= ZBX_FLAG_LLD_TRIGGER_UPDATE_DESCRIPTION;
 		}
 
-		if (0 != strcmp(trigger->expression, expression))
+		if (0 != strcmp(trigger->expression, expression_proto))
 		{
 			trigger->expression_orig = trigger->expression;
-			trigger->expression = expression;
-			expression = NULL;
+			trigger->expression = zbx_strdup(NULL, expression_proto);
 			trigger->flags |= ZBX_FLAG_LLD_TRIGGER_UPDATE_EXPRESSION;
-		}
-
-		buffer = zbx_strdup(buffer, comments_proto);
-		substitute_discovery_macros(&buffer, jp_row, ZBX_MACRO_ANY, NULL, 0);
-		zbx_lrtrim(buffer, ZBX_WHITESPACE);
-		if (0 != strcmp(trigger->comments, buffer))
-		{
-			trigger->comments_orig = trigger->comments;
-			trigger->comments = buffer;
-			buffer = NULL;
-			trigger->flags |= ZBX_FLAG_LLD_TRIGGER_UPDATE_COMMENTS;
 		}
 	}
 	else
@@ -689,17 +680,11 @@ static void 	lld_trigger_make(zbx_vector_ptr_t *functions_proto, zbx_vector_ptr_
 
 		trigger->description = zbx_strdup(NULL, description_proto);
 		trigger->description_orig = NULL;
-		substitute_discovery_macros(&trigger->description, jp_row, ZBX_MACRO_ANY, NULL, 0);
+		substitute_discovery_macros(&trigger->description, jp_row);
 		zbx_lrtrim(trigger->description, ZBX_WHITESPACE);
 
-		trigger->expression = expression;
+		trigger->expression = zbx_strdup(NULL, expression_proto);
 		trigger->expression_orig = NULL;
-		expression = NULL;
-
-		trigger->comments = zbx_strdup(NULL, comments_proto);
-		trigger->comments_orig = NULL;
-		substitute_discovery_macros(&trigger->comments, jp_row, ZBX_MACRO_ANY, NULL, 0);
-		zbx_lrtrim(trigger->comments, ZBX_WHITESPACE);
 
 		zbx_vector_ptr_create(&trigger->functions);
 
@@ -711,18 +696,16 @@ static void 	lld_trigger_make(zbx_vector_ptr_t *functions_proto, zbx_vector_ptr_
 	zbx_free(buffer);
 
 	if (SUCCEED != lld_functions_make(functions_proto, &trigger->functions, items, &lld_row->item_links))
-		goto out;
+		return;
 
 	trigger->flags |= ZBX_FLAG_LLD_TRIGGER_DISCOVERED;
-out:
-	zbx_free(expression);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
 }
 
 static void	lld_triggers_make(zbx_vector_ptr_t *functions_proto, zbx_vector_ptr_t *triggers,
 		zbx_vector_ptr_t *items, const char *description_proto, const char *expression_proto,
-		const char *comments_proto, zbx_vector_ptr_t *lld_rows, char **error)
+		zbx_vector_ptr_t *lld_rows)
 {
 	int	i;
 
@@ -730,8 +713,7 @@ static void	lld_triggers_make(zbx_vector_ptr_t *functions_proto, zbx_vector_ptr_
 	{
 		zbx_lld_row_t	*lld_row = (zbx_lld_row_t *)lld_rows->values[i];
 
-		lld_trigger_make(functions_proto, triggers, items, description_proto, expression_proto, comments_proto,
-				lld_row, error);
+		lld_trigger_make(functions_proto, triggers, items, description_proto, expression_proto, lld_row);
 	}
 
 	zbx_vector_ptr_sort(triggers, ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC);
@@ -748,7 +730,7 @@ static void	lld_validate_trigger_field(zbx_lld_trigger_t *trigger, char **field,
 	if (0 == (trigger->flags & ZBX_FLAG_LLD_TRIGGER_DISCOVERED))
 		return;
 
-	/* only new triggers or triggers with changed data will be validated */
+	/* only new triggers or triggers with a new data will be validated */
 	if (0 != trigger->triggerid && 0 == (trigger->flags & flag))
 		return;
 
@@ -873,8 +855,6 @@ static void	lld_triggers_validate(zbx_uint64_t hostid, zbx_vector_ptr_t *trigger
 
 		lld_validate_trigger_field(trigger, &trigger->description, &trigger->description_orig,
 				ZBX_FLAG_LLD_TRIGGER_UPDATE_DESCRIPTION, TRIGGER_DESCRIPTION_LEN, error);
-		lld_validate_trigger_field(trigger, &trigger->comments, &trigger->comments_orig,
-				ZBX_FLAG_LLD_TRIGGER_UPDATE_COMMENTS, TRIGGER_COMMENTS_LEN, error);
 	}
 
 	/* checking duplicated triggers in DB */
@@ -899,8 +879,8 @@ static void	lld_triggers_validate(zbx_uint64_t hostid, zbx_vector_ptr_t *trigger
 
 	if (0 != descriptions.values_num)
 	{
-		char			*sql = NULL;
-		size_t			sql_alloc = 256, sql_offset = 0;
+		char			*sql = NULL, *condition = NULL, *description_esc;
+		size_t			sql_alloc = 256, sql_offset = 0, condition_alloc = 256, condition_offset = 0;
 		DB_RESULT		result;
 		DB_ROW			row;
 		zbx_vector_ptr_t	db_triggers;
@@ -911,6 +891,21 @@ static void	lld_triggers_validate(zbx_uint64_t hostid, zbx_vector_ptr_t *trigger
 		zbx_vector_str_sort(&descriptions, ZBX_DEFAULT_STR_COMPARE_FUNC);
 		zbx_vector_str_uniq(&descriptions, ZBX_DEFAULT_STR_COMPARE_FUNC);
 
+		condition = zbx_malloc(condition, condition_alloc);	/* list of trigger descriptions */
+
+		for (i = 0; i < descriptions.values_num; i++)
+		{
+			description_esc = DBdyn_escape_string(descriptions.values[i]);
+
+			if (0 != condition_offset)
+				zbx_chrcpy_alloc(&condition, &condition_alloc, &condition_offset, ',');
+			zbx_chrcpy_alloc(&condition, &condition_alloc, &condition_offset, '\'');
+			zbx_strcpy_alloc(&condition, &condition_alloc, &condition_offset, description_esc);
+			zbx_chrcpy_alloc(&condition, &condition_alloc, &condition_offset, '\'');
+
+			zbx_free(description_esc);
+		}
+
 		sql = zbx_malloc(sql, sql_alloc);
 
 		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset,
@@ -919,11 +914,8 @@ static void	lld_triggers_validate(zbx_uint64_t hostid, zbx_vector_ptr_t *trigger
 				" where t.triggerid=f.triggerid"
 					" and f.itemid=i.itemid"
 					" and i.hostid=" ZBX_FS_UI64
-					" and",
-				hostid);
-		DBadd_str_condition_alloc(&sql, &sql_alloc, &sql_offset, "t.description",
-				(const char **)descriptions.values, descriptions.values_num);
-
+					" and t.description in (%s)",
+				hostid, condition);
 		if (0 != triggerids.values_num)
 		{
 			zbx_vector_uint64_sort(&triggerids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
@@ -943,8 +935,6 @@ static void	lld_triggers_validate(zbx_uint64_t hostid, zbx_vector_ptr_t *trigger
 			db_trigger->description_orig = NULL;
 			db_trigger->expression = zbx_strdup(NULL, row[2]);
 			db_trigger->expression_orig = NULL;
-			db_trigger->comments = NULL;
-			db_trigger->comments_orig = NULL;
 			db_trigger->flags = ZBX_FLAG_LLD_TRIGGER_UNSET;
 
 			zbx_vector_ptr_create(&db_trigger->functions);
@@ -1018,10 +1008,11 @@ static void	lld_triggers_validate(zbx_uint64_t hostid, zbx_vector_ptr_t *trigger
 			}
 		}
 
-		zbx_vector_ptr_clear_ext(&db_triggers, (zbx_clean_func_t)lld_trigger_free);
+		lld_triggers_free(&db_triggers);
 		zbx_vector_ptr_destroy(&db_triggers);
 
 		zbx_free(sql);
+		zbx_free(condition);
 	}
 
 	zbx_vector_str_destroy(&descriptions);
@@ -1103,7 +1094,7 @@ static void	lld_expression_create(char **expression, zbx_vector_ptr_t *functions
  *                                                                            *
  ******************************************************************************/
 static void	lld_triggers_save(zbx_uint64_t parent_triggerid, zbx_vector_ptr_t *triggers, unsigned char status,
-		unsigned char type, unsigned char priority, const char *url)
+		unsigned char type, unsigned char priority, const char *comments, const char *url)
 {
 	const char		*__function_name = "lld_triggers_save";
 
@@ -1112,11 +1103,28 @@ static void	lld_triggers_save(zbx_uint64_t parent_triggerid, zbx_vector_ptr_t *t
 	zbx_lld_function_t	*function;
 	zbx_vector_ptr_t	upd_functions;	/* the ordered list of functions which will be updated */
 	zbx_vector_uint64_t	del_functionids;
-	zbx_uint64_t		triggerid = 0, functionid = 0;
+	zbx_uint64_t		triggerid = 0, triggerdiscoveryid = 0, functionid = 0;
 	unsigned char		flags = ZBX_FLAG_LLD_TRIGGER_UNSET;
-	char			*sql = NULL, *url_esc = NULL, *function_esc, *parameter_esc;
-	size_t			sql_alloc = 8 * ZBX_KIBIBYTE, sql_offset = 0;
-	zbx_db_insert_t		db_insert, db_insert_tdiscovery, db_insert_tfunctions;
+	char			*sql1 = NULL, *sql2 = NULL, *sql3 = NULL, *sql4 = NULL,
+				*description_esc, *comments_esc = NULL, *url_esc = NULL, *error_esc = NULL,
+				*function_esc, *parameter_esc;
+	size_t			sql1_alloc = 8 * ZBX_KIBIBYTE, sql1_offset = 0,
+				sql2_alloc = 2 * ZBX_KIBIBYTE, sql2_offset = 0,
+				sql3_alloc = 2 * ZBX_KIBIBYTE, sql3_offset = 0,
+				sql4_alloc = 8 * ZBX_KIBIBYTE, sql4_offset = 0;
+	const char		*ins_triggers_sql =
+				"insert into triggers"
+				" (triggerid,description,expression,priority,status,comments,url,type,value,"
+					"value_flags,flags,error)"
+				" values ";
+	const char		*ins_trigger_discovery_sql =
+				"insert into trigger_discovery"
+				" (triggerdiscoveryid,triggerid,parent_triggerid)"
+				" values ";
+	const char		*ins_functions_sql =
+				"insert into functions"
+				" (functionid,itemid,triggerid,function,parameter)"
+				" values ";
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
@@ -1171,34 +1179,46 @@ static void	lld_triggers_save(zbx_uint64_t parent_triggerid, zbx_vector_ptr_t *t
 	if (0 != new_triggers)
 	{
 		triggerid = DBget_maxid_num("triggers", new_triggers);
+		triggerdiscoveryid = DBget_maxid_num("trigger_discovery", new_triggers);
 
-		zbx_db_insert_prepare(&db_insert, "triggers", "triggerid", "description", "expression", "priority",
-				"status", "comments", "url", "type", "value", "state", "flags", NULL);
-
-		zbx_db_insert_prepare(&db_insert_tdiscovery, "trigger_discovery", "triggerid", "parent_triggerid",
-				NULL);
+		sql1 = zbx_malloc(sql1, sql1_alloc);
+		sql2 = zbx_malloc(sql2, sql2_alloc);
+		DBbegin_multiple_update(&sql1, &sql1_alloc, &sql1_offset);
+		DBbegin_multiple_update(&sql2, &sql2_alloc, &sql2_offset);
+#ifdef HAVE_MULTIROW_INSERT
+		zbx_strcpy_alloc(&sql1, &sql1_alloc, &sql1_offset, ins_triggers_sql);
+		zbx_strcpy_alloc(&sql2, &sql2_alloc, &sql2_offset, ins_trigger_discovery_sql);
+#endif
+		flags |= ZBX_FLAG_LLD_TRIGGER_UPDATE;
 	}
 
 	if (0 != new_functions)
 	{
 		functionid = DBget_maxid_num("functions", new_functions);
 
-		zbx_db_insert_prepare(&db_insert_tfunctions, "functions", "functionid", "itemid", "triggerid",
-				"function", "parameter", NULL);
+		sql3 = zbx_malloc(sql3, sql3_alloc);
+		DBbegin_multiple_update(&sql3, &sql3_alloc, &sql3_offset);
+#ifdef HAVE_MULTIROW_INSERT
+		zbx_strcpy_alloc(&sql3, &sql3_alloc, &sql3_offset, ins_functions_sql);
+#endif
 	}
 
 	if (0 != upd_triggers || 0 != upd_functions.values_num || 0 != del_functionids.values_num)
 	{
-		sql = zbx_malloc(sql, sql_alloc);
-		DBbegin_multiple_update(&sql, &sql_alloc, &sql_offset);
+		sql4 = zbx_malloc(sql4, sql4_alloc);
+		DBbegin_multiple_update(&sql4, &sql4_alloc, &sql4_offset);
 	}
 
+	if (0 != (flags & ZBX_FLAG_LLD_TRIGGER_UPDATE_COMMENTS))
+		comments_esc = DBdyn_escape_string(comments);
 	if (0 != (flags & ZBX_FLAG_LLD_TRIGGER_UPDATE_URL))
 		url_esc = DBdyn_escape_string(url);
+	if (0 != new_triggers)
+		error_esc = DBdyn_escape_string_len("Trigger just added. No status update so far.", TRIGGER_ERROR_LEN);
 
 	for (i = 0; i < triggers->values_num; i++)
 	{
-		char	*description_esc, *expression_esc, *comments_esc;
+		char	*expression_esc;
 
 		trigger = (zbx_lld_trigger_t *)triggers->values[i];
 
@@ -1217,9 +1237,19 @@ static void	lld_triggers_save(zbx_uint64_t parent_triggerid, zbx_vector_ptr_t *t
 
 			if (0 == function->functionid)
 			{
-				zbx_db_insert_add_values(&db_insert_tfunctions, functionid, function->itemid,
+				function_esc = DBdyn_escape_string(function->function);
+				parameter_esc = DBdyn_escape_string(function->parameter);
+#ifndef HAVE_MULTIROW_INSERT
+				zbx_strcpy_alloc(&sql3, &sql3_alloc, &sql3_offset, ins_functions_sql);
+#endif
+				zbx_snprintf_alloc(&sql3, &sql3_alloc, &sql3_offset,
+						"(" ZBX_FS_UI64 "," ZBX_FS_UI64 "," ZBX_FS_UI64 ",'%s','%s')"
+						ZBX_ROW_DL, functionid, function->itemid,
 						(0 == trigger->triggerid ? triggerid : trigger->triggerid),
-						function->function, function->parameter);
+						function_esc, parameter_esc);
+
+				zbx_free(parameter_esc);
+				zbx_free(function_esc);
 
 				function->functionid = functionid++;
 			}
@@ -1230,25 +1260,41 @@ static void	lld_triggers_save(zbx_uint64_t parent_triggerid, zbx_vector_ptr_t *t
 
 		if (0 == trigger->triggerid)
 		{
-			zbx_db_insert_add_values(&db_insert, triggerid, trigger->description, trigger->expression,
-					(int)priority, (int)status, trigger->comments, url, (int)type,
-					(int)TRIGGER_VALUE_OK, (int)TRIGGER_STATE_NORMAL,
-					(int)ZBX_FLAG_DISCOVERY_CREATED);
+			description_esc = DBdyn_escape_string(trigger->description);
+			expression_esc = DBdyn_escape_string(trigger->expression);
 
-			zbx_db_insert_add_values(&db_insert_tdiscovery, triggerid, parent_triggerid);
+#ifndef HAVE_MULTIROW_INSERT
+			zbx_strcpy_alloc(&sql1, &sql1_alloc, &sql1_offset, ins_triggers_sql);
+#endif
+			zbx_snprintf_alloc(&sql1, &sql1_alloc, &sql1_offset,
+					"(" ZBX_FS_UI64 ",'%s','%s',%d,%d,'%s','%s',%d,%d,%d,%d,'%s')" ZBX_ROW_DL,
+					triggerid, description_esc, expression_esc, (int)priority, (int)status,
+					comments_esc, url_esc, (int)type, TRIGGER_VALUE_FALSE,
+					TRIGGER_VALUE_FLAG_UNKNOWN, ZBX_FLAG_DISCOVERY_CREATED, error_esc);
+
+			zbx_free(expression_esc);
+			zbx_free(description_esc);
+
+#ifndef HAVE_MULTIROW_INSERT
+			zbx_strcpy_alloc(&sql2, &sql2_alloc, &sql2_offset, ins_trigger_discovery_sql);
+#endif
+			zbx_snprintf_alloc(&sql2, &sql2_alloc, &sql2_offset,
+					"(" ZBX_FS_UI64 "," ZBX_FS_UI64 "," ZBX_FS_UI64 ")" ZBX_ROW_DL,
+					triggerdiscoveryid, triggerid, parent_triggerid);
 
 			trigger->triggerid = triggerid++;
+			triggerdiscoveryid++;
 		}
 		else if (0 != (trigger->flags & ZBX_FLAG_LLD_TRIGGER_UPDATE))
 		{
 			const char	*d = "";
 
-			zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset, "update triggers set ");
+			zbx_strcpy_alloc(&sql4, &sql4_alloc, &sql4_offset, "update triggers set ");
 
 			if (0 != (trigger->flags & ZBX_FLAG_LLD_TRIGGER_UPDATE_DESCRIPTION))
 			{
 				description_esc = DBdyn_escape_string(trigger->description);
-				zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "description='%s'",
+				zbx_snprintf_alloc(&sql4, &sql4_alloc, &sql4_offset, "description='%s'",
 						description_esc);
 				zbx_free(description_esc);
 				d = ",";
@@ -1257,7 +1303,7 @@ static void	lld_triggers_save(zbx_uint64_t parent_triggerid, zbx_vector_ptr_t *t
 			if (0 != (trigger->flags & ZBX_FLAG_LLD_TRIGGER_UPDATE_EXPRESSION))
 			{
 				expression_esc = DBdyn_escape_string(trigger->expression);
-				zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "%sexpression='%s'", d,
+				zbx_snprintf_alloc(&sql4, &sql4_alloc, &sql4_offset, "%sexpression='%s'", d,
 						expression_esc);
 				zbx_free(expression_esc);
 				d = ",";
@@ -1265,34 +1311,34 @@ static void	lld_triggers_save(zbx_uint64_t parent_triggerid, zbx_vector_ptr_t *t
 
 			if (0 != (trigger->flags & ZBX_FLAG_LLD_TRIGGER_UPDATE_TYPE))
 			{
-				zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "%stype=%d", d, (int)type);
+				zbx_snprintf_alloc(&sql4, &sql4_alloc, &sql4_offset, "%stype=%d", d, (int)type);
 				d = ",";
 			}
 
 			if (0 != (trigger->flags & ZBX_FLAG_LLD_TRIGGER_UPDATE_PRIORITY))
 			{
-				zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "%spriority=%d", d, (int)priority);
+				zbx_snprintf_alloc(&sql4, &sql4_alloc, &sql4_offset, "%spriority=%d", d, (int)priority);
 				d = ",";
 			}
 
 			if (0 != (trigger->flags & ZBX_FLAG_LLD_TRIGGER_UPDATE_COMMENTS))
 			{
-				comments_esc = DBdyn_escape_string(trigger->comments);
-				zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "%scomments='%s'", d,
+				zbx_snprintf_alloc(&sql4, &sql4_alloc, &sql4_offset, "%scomments='%s'", d,
 						comments_esc);
-				zbx_free(comments_esc);
 				d = ",";
 			}
 
 			if (0 != (trigger->flags & ZBX_FLAG_LLD_TRIGGER_UPDATE_URL))
-				zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "%surl='%s'", d, url_esc);
+				zbx_snprintf_alloc(&sql4, &sql4_alloc, &sql4_offset, "%surl='%s'", d, url_esc);
 
-			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset,
+			zbx_snprintf_alloc(&sql4, &sql4_alloc, &sql4_offset,
 					" where triggerid=" ZBX_FS_UI64 ";\n", trigger->triggerid);
 		}
 	}
 
+	zbx_free(error_esc);
 	zbx_free(url_esc);
+	zbx_free(comments_esc);
 
 	zbx_vector_ptr_sort(&upd_functions, ZBX_DEFAULT_UINT64_PTR_COMPARE_FUNC);
 
@@ -1302,11 +1348,11 @@ static void	lld_triggers_save(zbx_uint64_t parent_triggerid, zbx_vector_ptr_t *t
 
 		function = (zbx_lld_function_t *)upd_functions.values[i];
 
-		zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset, "update functions set ");
+		zbx_strcpy_alloc(&sql4, &sql4_alloc, &sql4_offset, "update functions set ");
 
 		if (0 != (function->flags & ZBX_FLAG_LLD_FUNCTION_UPDATE_ITEMID))
 		{
-			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "itemid=" ZBX_FS_UI64,
+			zbx_snprintf_alloc(&sql4, &sql4_alloc, &sql4_offset, "itemid=" ZBX_FS_UI64,
 					function->itemid);
 			d = ",";
 		}
@@ -1314,7 +1360,7 @@ static void	lld_triggers_save(zbx_uint64_t parent_triggerid, zbx_vector_ptr_t *t
 		if (0 != (function->flags & ZBX_FLAG_LLD_FUNCTION_UPDATE_FUNCTION))
 		{
 			function_esc = DBdyn_escape_string(function->function);
-			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "%sfunction='%s'", d,
+			zbx_snprintf_alloc(&sql4, &sql4_alloc, &sql4_offset, "%sfunction='%s'", d,
 					function_esc);
 			zbx_free(function_esc);
 			d = ",";
@@ -1323,12 +1369,12 @@ static void	lld_triggers_save(zbx_uint64_t parent_triggerid, zbx_vector_ptr_t *t
 		if (0 != (function->flags & ZBX_FLAG_LLD_FUNCTION_UPDATE_PARAMETER))
 		{
 			parameter_esc = DBdyn_escape_string(function->parameter);
-			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, "%sparameter='%s'", d,
+			zbx_snprintf_alloc(&sql4, &sql4_alloc, &sql4_offset, "%sparameter='%s'", d,
 					parameter_esc);
 			zbx_free(parameter_esc);
 		}
 
-		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset,
+		zbx_snprintf_alloc(&sql4, &sql4_alloc, &sql4_offset,
 				" where functionid=" ZBX_FS_UI64 ";\n", function->functionid);
 	}
 
@@ -1336,32 +1382,44 @@ static void	lld_triggers_save(zbx_uint64_t parent_triggerid, zbx_vector_ptr_t *t
 	{
 		zbx_vector_uint64_sort(&del_functionids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
 
-		zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset, "delete from functions where");
-		DBadd_condition_alloc(&sql, &sql_alloc, &sql_offset, "functionid",
+		zbx_strcpy_alloc(&sql4, &sql4_alloc, &sql4_offset, "delete from functions where");
+		DBadd_condition_alloc(&sql4, &sql4_alloc, &sql4_offset, "functionid",
 				del_functionids.values, del_functionids.values_num);
-		zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset, ";\n");
-	}
-
-	if (0 != upd_triggers || 0 != upd_functions.values_num || 0 != del_functionids.values_num)
-	{
-		DBend_multiple_update(&sql, &sql_alloc, &sql_offset);
-		DBexecute("%s", sql);
-		zbx_free(sql);
+		zbx_strcpy_alloc(&sql4, &sql4_alloc, &sql4_offset, ";\n");
 	}
 
 	if (0 != new_triggers)
 	{
-		zbx_db_insert_execute(&db_insert);
-		zbx_db_insert_clean(&db_insert);
-
-		zbx_db_insert_execute(&db_insert_tdiscovery);
-		zbx_db_insert_clean(&db_insert_tdiscovery);
+#ifdef HAVE_MULTIROW_INSERT
+		sql1_offset--;
+		sql2_offset--;
+		zbx_strcpy_alloc(&sql1, &sql1_alloc, &sql1_offset, ";\n");
+		zbx_strcpy_alloc(&sql2, &sql2_alloc, &sql2_offset, ";\n");
+#endif
+		DBend_multiple_update(&sql1, &sql1_alloc, &sql1_offset);
+		DBend_multiple_update(&sql2, &sql2_alloc, &sql2_offset);
+		DBexecute("%s", sql1);
+		DBexecute("%s", sql2);
+		zbx_free(sql1);
+		zbx_free(sql2);
 	}
 
 	if (0 != new_functions)
 	{
-		zbx_db_insert_execute(&db_insert_tfunctions);
-		zbx_db_insert_clean(&db_insert_tfunctions);
+#ifdef HAVE_MULTIROW_INSERT
+		sql3_offset--;
+		zbx_strcpy_alloc(&sql3, &sql3_alloc, &sql3_offset, ";\n");
+#endif
+		DBend_multiple_update(&sql3, &sql3_alloc, &sql3_offset);
+		DBexecute("%s", sql3);
+		zbx_free(sql3);
+	}
+
+	if (0 != upd_triggers || 0 != upd_functions.values_num || 0 != del_functionids.values_num)
+	{
+		DBend_multiple_update(&sql4, &sql4_alloc, &sql4_offset);
+		DBexecute("%s", sql4);
+		zbx_free(sql4);
 	}
 
 	DBcommit();
@@ -1411,7 +1469,7 @@ void	lld_update_triggers(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, zbx_vecto
 	while (NULL != (row = DBfetch(result)))
 	{
 		zbx_uint64_t	parent_triggerid;
-		const char	*description_proto, *comments_proto, *url;
+		const char	*description_proto, *comments, *url;
 		char		*expression_proto;
 		unsigned char	status, type, priority;
 		int		i;
@@ -1422,10 +1480,10 @@ void	lld_update_triggers(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, zbx_vecto
 		ZBX_STR2UCHAR(status, row[3]);
 		ZBX_STR2UCHAR(type, row[4]);
 		ZBX_STR2UCHAR(priority, row[5]);
-		comments_proto = row[6];
+		comments = row[6];
 		url = row[7];
 
-		lld_triggers_get(parent_triggerid, &triggers, type, priority, url);
+		lld_triggers_get(parent_triggerid, &triggers, type, priority, comments, url);
 		lld_functions_get(parent_triggerid, &functions_proto, &triggers);
 		lld_items_get(parent_triggerid, &items);
 
@@ -1442,16 +1500,15 @@ void	lld_update_triggers(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, zbx_vecto
 
 		/* making triggers */
 
-		lld_triggers_make(&functions_proto, &triggers, &items, description_proto, expression_proto,
-				comments_proto, lld_rows, error);
+		lld_triggers_make(&functions_proto, &triggers, &items, description_proto, expression_proto, lld_rows);
 		lld_triggers_validate(hostid, &triggers, error);
-		lld_triggers_save(parent_triggerid, &triggers, status, type, priority, url);
+		lld_triggers_save(parent_triggerid, &triggers, status, type, priority, comments, url);
 
 		/* cleaning */
 
-		zbx_vector_ptr_clear_ext(&items, (zbx_clean_func_t)lld_item_free);
-		zbx_vector_ptr_clear_ext(&functions_proto, (zbx_clean_func_t)lld_function_free);
-		zbx_vector_ptr_clear_ext(&triggers, (zbx_clean_func_t)lld_trigger_free);
+		lld_items_free(&items);
+		lld_functions_free(&functions_proto);
+		lld_triggers_free(&triggers);
 
 		zbx_free(expression_proto);
 	}

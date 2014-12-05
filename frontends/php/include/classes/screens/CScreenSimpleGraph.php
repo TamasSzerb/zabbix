@@ -51,43 +51,43 @@ class CScreenSimpleGraph extends CScreenBase {
 		}
 
 		if ($this->mode == SCREEN_MODE_PREVIEW && !empty($resourceid)) {
-			$this->action = 'history.php?action='.HISTORY_GRAPH.'&itemids[]='.$resourceid.'&period='.$this->timeline['period'].
+			$this->action = 'history.php?action=showgraph&itemid='.$resourceid.'&period='.$this->timeline['period'].
 					'&stime='.$this->timeline['stimeNow'].$this->getProfileUrlParams();
 		}
 
-		if ($resourceid && $this->mode != SCREEN_MODE_EDIT) {
+		if (!zbx_empty($resourceid) && $this->mode != SCREEN_MODE_EDIT) {
 			if ($this->mode == SCREEN_MODE_PREVIEW) {
 				$timeControlData['loadSBox'] = 1;
 			}
 		}
 
-		$timeControlData['src'] = $resourceid
-			? 'chart.php?itemids[]='.$resourceid.'&'.$this->screenitem['url'].'&width='.$this->screenitem['width'].'&height='.$this->screenitem['height']
-			: 'chart3.php?';
+		$timeControlData['src'] = zbx_empty($resourceid)
+			? 'chart3.php?'
+			: 'chart.php?itemid='.$resourceid.'&'.$this->screenitem['url'].'&width='.$this->screenitem['width'].'&height='.$this->screenitem['height'];
 
 		$timeControlData['src'] .= ($this->mode == SCREEN_MODE_EDIT)
-			? '&period=3600&stime='.date(TIMESTAMP_FORMAT, time())
+			? '&period=3600&stime='.date('YmdHis', time())
 			: '&period='.$this->timeline['period'].'&stime='.$this->timeline['stimeNow'];
 
 		$timeControlData['src'] .= $this->getProfileUrlParams();
 
 		// output
 		if ($this->mode == SCREEN_MODE_JS) {
-			return 'timeControl.addObject("'.$this->getDataId().'", '.CJs::encodeJson($this->timeline).', '.CJs::encodeJson($timeControlData).')';
+			return 'timeControl.addObject("'.$this->getDataId().'", '.zbx_jsvalue($this->timeline).', '.zbx_jsvalue($timeControlData).')';
 		}
 		else {
 			if ($this->mode == SCREEN_MODE_SLIDESHOW) {
-				insert_js('timeControl.addObject("'.$this->getDataId().'", '.CJs::encodeJson($this->timeline).', '.CJs::encodeJson($timeControlData).');');
+				insert_js('timeControl.addObject("'.$this->getDataId().'", '.zbx_jsvalue($this->timeline).', '.zbx_jsvalue($timeControlData).');');
 			}
 			else {
-				zbx_add_post_js('timeControl.addObject("'.$this->getDataId().'", '.CJs::encodeJson($this->timeline).', '.CJs::encodeJson($timeControlData).');');
+				zbx_add_post_js('timeControl.addObject("'.$this->getDataId().'", '.zbx_jsvalue($this->timeline).', '.zbx_jsvalue($timeControlData).');');
 			}
 
 			if ($this->mode == SCREEN_MODE_EDIT || $this->mode == SCREEN_MODE_SLIDESHOW) {
 				$item = new CDiv();
 			}
 			elseif ($this->mode == SCREEN_MODE_PREVIEW) {
-				$item = new CLink(null, 'history.php?action='.HISTORY_GRAPH.'&itemids[]='.$resourceid.'&period='.$this->timeline['period'].
+				$item = new CLink(null, 'history.php?action=showgraph&itemid='.$resourceid.'&period='.$this->timeline['period'].
 						'&stime='.$this->timeline['stimeNow']);
 			}
 			$item->setAttribute('id', $containerid);

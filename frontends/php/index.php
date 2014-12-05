@@ -20,6 +20,9 @@
 
 
 define('ZBX_PAGE_NO_AUTHORIZATION', true);
+define('ZBX_NOT_ALLOW_ALL_NODES', true);
+define('ZBX_HIDE_NODE_SELECTION', true);
+define('ZBX_PAGE_NO_MENU', true);
 
 require_once dirname(__FILE__).'/include/config.inc.php';
 require_once dirname(__FILE__).'/include/forms.inc.php';
@@ -32,7 +35,7 @@ $fields = array(
 	'name' =>		array(T_ZBX_STR, O_NO,	null,	NOT_EMPTY,		'isset({enter})', _('Username')),
 	'password' =>	array(T_ZBX_STR, O_OPT, null,	null,			'isset({enter})'),
 	'sessionid' =>	array(T_ZBX_STR, O_OPT, null,	null,			null),
-	'reconnect' =>	array(T_ZBX_INT, O_OPT, P_SYS|P_ACT,	BETWEEN(0, 65535), null),
+	'reconnect' =>	array(T_ZBX_INT, O_OPT, P_SYS,	BETWEEN(0, 65535), null),
 	'enter' =>		array(T_ZBX_STR, O_OPT, P_SYS,	null,			null),
 	'autologin' =>	array(T_ZBX_INT, O_OPT, null,	null,			null),
 	'request' =>	array(T_ZBX_STR, O_OPT, null,	null,			null)
@@ -41,11 +44,8 @@ check_fields($fields);
 
 // logout
 if (isset($_REQUEST['reconnect'])) {
-	DBstart();
 	add_audit(AUDIT_ACTION_LOGOUT, AUDIT_RESOURCE_USER, _('Manual Logout'));
-	DBend(true);
 	CWebUser::logout();
-	redirect('index.php');
 }
 
 $config = select_config();
@@ -56,34 +56,28 @@ if ($config['authentication_type'] == ZBX_AUTH_HTTP) {
 		$_REQUEST['name'] = $_SERVER['PHP_AUTH_USER'];
 	}
 	else {
-		access_deny(ACCESS_DENY_PAGE);
+		access_deny();
 	}
 }
 
 // login via form
 if (isset($_REQUEST['enter']) && $_REQUEST['enter'] == _('Sign in')) {
 	// try to login
-	$autoLogin = getRequest('autologin', 0);
-
-	DBstart();
-	$loginSuccess = CWebUser::login(getRequest('name', ''), getRequest('password', ''));
-	DBend(true);
-
-	if ($loginSuccess) {
+	if (CWebUser::login(get_request('name', ''), get_request('password', ''))) {
 		// save remember login preference
-		$user = array('autologin' => $autoLogin);
-
-		if (CWebUser::$data['autologin'] != $autoLogin) {
-			API::User()->updateProfile($user);
+		$user = array('autologin' => get_request('autologin', 0));
+		if (CWebUser::$data['autologin'] != $user['autologin']) {
+			$result = API::User()->updateProfile($user);
 		}
+		add_audit_ext(AUDIT_ACTION_LOGIN, AUDIT_RESOURCE_USER, CWebUser::$data['userid'], '', null, null, null);
 
-		$request = getRequest('request');
+		$request = get_request('request');
 		$url = zbx_empty($request) ? CWebUser::$data['url'] : $request;
 		if (zbx_empty($url) || $url == $page['file']) {
 			$url = 'dashboard.php';
 		}
 		redirect($url);
-		exit;
+		exit();
 	}
 	// login failed, fall back to a guest account
 	else {
@@ -92,7 +86,7 @@ if (isset($_REQUEST['enter']) && $_REQUEST['enter'] == _('Sign in')) {
 }
 else {
 	// login the user from the session, if the session id is empty - login as a guest
-	CWebUser::checkAuthentication(CWebUser::getSessionCookie());
+	CWebUser::checkAuthentication(get_cookie('zbx_sessionid'));
 }
 
 // the user is not logged in, display the login form
@@ -104,7 +98,7 @@ if (!CWebUser::$data['alias'] || CWebUser::$data['alias'] == ZBX_GUEST_USER) {
 		case ZBX_AUTH_LDAP:
 		case ZBX_AUTH_INTERNAL:
 			if (isset($_REQUEST['enter'])) {
-				$_REQUEST['autologin'] = getRequest('autologin', 0);
+				$_REQUEST['autologin'] = get_request('autologin', 0);
 			}
 
 			if ($messages = clear_messages()) {

@@ -228,10 +228,6 @@ var timeControl = {
 				this.timeline.refreshEndtime();
 			}
 
-			// calculate new gradation
-			this.scrollbar.px2sec =
-				(this.timeline.endtime() - this.timeline.starttime()) / this.scrollbar.size.scrollline;
-
 			// scrollbar
 			this.scrollbar.setBarPosition();
 			this.scrollbar.setGhostByBar();
@@ -273,14 +269,6 @@ var timeControl = {
 			location.href = url.getUrl();
 		}
 		else {
-			// calculate new gradation
-			this.scrollbar.px2sec =
-				(this.timeline.endtime() - this.timeline.starttime()) / this.scrollbar.size.scrollline;
-
-			// scrollbar
-			this.scrollbar.setBarPosition();
-			this.scrollbar.setGhostByBar();
-
 			flickerfreeScreen.refreshAll(period, date.getZBXDate(), this.timeline.isNow());
 		}
 	},
@@ -316,7 +304,7 @@ var timeControl = {
 };
 
 // timeline control
-var CTimeLine = Class.create({
+var CTimeLine = Class.create(CDebug, {
 
 	_starttime:	null,	// timeline start time (left, past)
 	_endtime:	null,	// timeline end time (right, now)
@@ -327,7 +315,7 @@ var CTimeLine = Class.create({
 	minperiod:	3600,	// minimal allowed period
 	maxperiod:	null,	// max period in seconds
 
-	initialize: function(period, starttime, usertime, endtime, maximumPeriod, isNow) {
+	initialize: function($super, period, starttime, usertime, endtime, maximumPeriod, isNow) {
 		if ((endtime - starttime) < (3 * this.minperiod)) {
 			starttime = endtime - (3 * this.minperiod);
 		}
@@ -425,7 +413,7 @@ var CTimeLine = Class.create({
 });
 
 // graph scrolling
-var CScrollBar = Class.create({
+var CScrollBar = Class.create(CDebug, {
 
 	ghostBox:		null, // ghost box object
 	clndrLeft:		null, // calendar object left
@@ -483,7 +471,7 @@ var CScrollBar = Class.create({
 	disabled:		1,		// activates/disables scrollbars
 	maxperiod:		null,	// max period in seconds
 
-	initialize: function(width, fixedperiod, maximalPeriod) {
+	initialize: function($super, width, fixedperiod, maximalPeriod) {
 		try {
 			this.fixedperiod = (fixedperiod == 1) ? 1 : 0;
 			this.maxperiod = maximalPeriod;
@@ -561,6 +549,8 @@ var CScrollBar = Class.create({
 			return false;
 		}
 
+		deselectAll();
+
 		var period = false;
 		if (empty(left)) {
 			period = timeControl.timeline.period();
@@ -597,6 +587,8 @@ var CScrollBar = Class.create({
 		if (this.disabled) {
 			return false;
 		}
+
+		deselectAll();
 
 		var period = false;
 		if (typeof(right) == 'undefined') {
@@ -970,14 +962,15 @@ var CScrollBar = Class.create({
 		this.fixedperiod = (this.fixedperiod == 1) ? 0 : 1;
 
 		// sending fixed/dynamic setting to server to save in a profile
-		sendAjaxData({
-			data: {
-				favobj: 'timelinefixedperiod',
-				favid: this.fixedperiod
-			}
-		});
+		var params = {
+			favobj: 'timelinefixedperiod',
+			favid: this.fixedperiod
+		};
+		send_params(params);
 
-		this.dom.period_state.innerHTML = this.fixedperiod ? locale['S_FIXED_SMALL'] : locale['S_DYNAMIC_SMALL'];
+		this.dom.period_state.innerHTML = (this.fixedperiod)
+			? locale['S_FIXED_SMALL']
+			: locale['S_DYNAMIC_SMALL'];
 	},
 
 	getTZOffset: function(time) {
@@ -1093,6 +1086,16 @@ var CScrollBar = Class.create({
 			x: e.clientX + document.body.scrollLeft - document.body.clientLeft,
 			y: e.clientY + document.body.scrollTop - document.body.clientTop
 		};
+	},
+
+	deselectall: function() {
+		if (IE) {
+			document.selection.empty();
+		}
+		else {
+			var sel = window.getSelection();
+			sel.removeAllRanges();
+		}
 	},
 
 	//----------------------------------------------------------------
@@ -1464,7 +1467,7 @@ var CScrollBar = Class.create({
 	}
 });
 
-var CGhostBox = Class.create({
+var CGhostBox = Class.create(CDebug, {
 
 	box:		null, // resized dom object
 	sideToMove:	null, // 0 - left side, 1 - right side
@@ -1484,9 +1487,10 @@ var CGhostBox = Class.create({
 		rightSide:	null
 	},
 
-	initialize: function(id) {
-		this.box = $(id);
+	initialize: function($super, id) {
+		$super('CGhostBox[' + id + ']');
 
+		this.box = $(id);
 		if (is_null(this.box)) {
 			throw('Cannot initialize GhostBox with given object id.');
 		}
@@ -1565,7 +1569,7 @@ function sbox_init(id) {
 	return ZBX_SBOX[id];
 }
 
-var sbox = Class.create({
+var sbox = Class.create(CDebug, {
 
 	sbox_id:			'',		// id to create references in array to self
 	mouse_event:		{},		// json object wheres defined needed event params
@@ -1584,7 +1588,7 @@ var sbox = Class.create({
 	is_active:			false,	// flag show is sbox is selected, must be unique among all
 	is_activeIE:		false,
 
-	initialize: function(id) {
+	initialize: function($super, id) {
 		var tc = timeControl.objectList[id],
 			shiftL = parseInt(tc.objDims.shiftXleft),
 			shiftR = parseInt(tc.objDims.shiftXright),
@@ -1615,11 +1619,11 @@ var sbox = Class.create({
 		jQuery(this.grphobj).off();
 		jQuery(this.dom_obj).off();
 
-		if (IE8 || IE9 || IE10) {
+		if (IE) {
 			jQuery(this.grphobj).mousedown(jQuery.proxy(this.mouseDown, this));
 			jQuery(this.grphobj).mousemove(jQuery.proxy(this.mouseMove, this));
-			jQuery(this.grphobj).click(function() {
-				ZBX_SBOX[obj.sbox_id].ieMouseClick();
+			jQuery('#flickerfreescreen_' + this.sbox_id + ' a').click(function() {
+				ZBX_SBOX[this.sbox_id].ieMouseClick();
 			});
 		}
 		else {
@@ -1641,6 +1645,7 @@ var sbox = Class.create({
 		}
 
 		this.optimizeEvent(e);
+		deselectAll();
 
 		var posxy = getPosition(this.dom_obj);
 		if (this.mouse_event.top < posxy.top || (this.mouse_event.top > (this.dom_obj.offsetHeight + posxy.top))) {
@@ -1651,6 +1656,7 @@ var sbox = Class.create({
 
 		if (!this.is_active) {
 			this.optimizeEvent(e);
+			deselectAll();
 			this.createBox();
 
 			this.is_active = true;
@@ -1710,6 +1716,7 @@ var sbox = Class.create({
 
 		if (this.is_activeIE) {
 			this.optimizeEvent(e);
+			deselectAll();
 			this.mouseUp(e);
 			this.is_activeIE = false;
 
@@ -1724,6 +1731,7 @@ var sbox = Class.create({
 		}
 
 		this.optimizeEvent(e);
+		deselectAll();
 
 		var posxy = getPosition(this.dom_obj);
 		if (this.mouse_event.top < posxy.top || (this.mouse_event.top > (this.dom_obj.offsetHeight + posxy.top))) {

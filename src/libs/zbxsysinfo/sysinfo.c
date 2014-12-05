@@ -18,7 +18,6 @@
 **/
 
 #include "common.h"
-#include "module.h"
 #include "sysinfo.h"
 #include "log.h"
 #include "cfg.h"
@@ -40,185 +39,141 @@
 #	include "specsysinfo.h"
 #endif
 
-#ifdef WITH_HOSTNAME_METRIC
-extern ZBX_METRIC      parameter_hostname;
-#endif
-
 static ZBX_METRIC	*commands = NULL;
 
-#define ZBX_COMMAND_ERROR		0
-#define ZBX_COMMAND_WITHOUT_PARAMS	1
-#define ZBX_COMMAND_WITH_PARAMS		2
-
-/******************************************************************************
- *                                                                            *
- * Function: parse_command_dyn                                                *
- *                                                                            *
- * Purpose: parses item key and splits it into command and parameters         *
- *                                                                            *
- * Return value: ZBX_COMMAND_ERROR - error                                    *
- *               ZBX_COMMAND_WITHOUT_PARAMS - command without parameters      *
- *               ZBX_COMMAND_WITH_PARAMS - command with parameters            *
- *                                                                            *
- ******************************************************************************/
-static int	parse_command_dyn(const char *command, char **cmd, char **param)
+/*
+ * return value: 0 - error;
+ *               1 - command without parameters;
+ *               2 - command with parameters
+ */
+static int	parse_command_dyn(const char *command, char **cmd, size_t *cmd_alloc, char **param, size_t *param_alloc)
 {
 	const char	*pl, *pr;
-	size_t		cmd_alloc = 0, param_alloc = 0,
-			cmd_offset = 0, param_offset = 0;
+	size_t		cmd_offset = 0, param_offset = 0;
 
 	for (pl = command; SUCCEED == is_key_char(*pl); pl++)
 		;
 
 	if (pl == command)
-		return ZBX_COMMAND_ERROR;
+		return 0;
 
-	zbx_strncpy_alloc(cmd, &cmd_alloc, &cmd_offset, command, pl - command);
+	zbx_strncpy_alloc(cmd, cmd_alloc, &cmd_offset, command, pl - command);
 
 	if ('\0' == *pl)	/* no parameters specified */
 	{
-		zbx_strncpy_alloc(param, &param_alloc, &param_offset, "", 0);
-		return ZBX_COMMAND_WITHOUT_PARAMS;
+		zbx_strncpy_alloc(param, param_alloc, &param_offset, "", 0);
+		return 1;
 	}
 
 	if ('[' != *pl)		/* unsupported character */
-		return ZBX_COMMAND_ERROR;
+		return 0;
 
 	for (pr = ++pl; '\0' != *pr; pr++)
 		;
 
 	if (']' != *--pr)
-		return ZBX_COMMAND_ERROR;
+		return 0;
 
-	zbx_strncpy_alloc(param, &param_alloc, &param_offset, pl, pr - pl);
+	zbx_strncpy_alloc(param, param_alloc, &param_offset, pl, pr - pl);
 
-	return ZBX_COMMAND_WITH_PARAMS;
+	return 2;
 }
 
-/******************************************************************************
- *                                                                            *
- * Function: add_metric                                                       *
- *                                                                            *
- * Purpose: registers a new item key into the system                          *
- *                                                                            *
- ******************************************************************************/
-int	add_metric(ZBX_METRIC *metric, char *error, size_t max_error_len)
+void	add_metric(ZBX_METRIC *new)
 {
 	int	i = 0;
 
-	while (NULL != commands[i].key)
-	{
-		if (0 == strcmp(commands[i].key, metric->key))
-		{
-			zbx_snprintf(error, max_error_len, "key \"%s\" already exists", metric->key);
-			return FAIL;	/* metric already exists */
-		}
-		i++;
-	}
+	assert(new);
 
-	commands[i].key = zbx_strdup(NULL, metric->key);
-	commands[i].flags = metric->flags;
-	commands[i].function = metric->function;
-	commands[i].test_param = (NULL == metric->test_param ? NULL : zbx_strdup(NULL, metric->test_param));
+	if (NULL == new->key)
+		return;
+
+	while (NULL != commands[i].key)
+		i++;
+
+	commands[i].key = zbx_strdup(NULL, new->key);
+	commands[i].flags = new->flags;
+	commands[i].function = new->function;
+	commands[i].main_param = (NULL == new->main_param ? NULL : zbx_strdup(NULL, new->main_param));
+	commands[i].test_param = (NULL == new->test_param ? NULL : zbx_strdup(NULL, new->test_param));
 
 	commands = zbx_realloc(commands, (i + 2) * sizeof(ZBX_METRIC));
 	memset(&commands[i + 1], 0, sizeof(ZBX_METRIC));
-
-	return SUCCEED;
 }
 
-int	add_user_parameter(const char *itemkey, char *command, char *error, size_t max_error_len)
+int	add_user_parameter(const char *key, char *command)
 {
-	int		ret;
-	unsigned	flags = CF_USERPARAMETER;
-	ZBX_METRIC	metric;
-	AGENT_REQUEST	request;
+	int		i;
+	char		usr_cmd[MAX_STRING_LEN], usr_param[MAX_STRING_LEN];
+	unsigned	flag = 0;
 
-	init_request(&request);
-
-	if (SUCCEED == (ret = parse_item_key(itemkey, &request)))
+	if (0 == (i = parse_command(key, usr_cmd, sizeof(usr_cmd), usr_param, sizeof(usr_param))))
 	{
-		if (1 == get_rparams_num(&request) && 0 == strcmp("[*]", itemkey + strlen(get_rkey(&request))))
-			flags |= CF_HAVEPARAMS;
-		else if (0 != get_rparams_num(&request))
-			ret = FAIL;
+		zabbix_log(LOG_LEVEL_WARNING, "failed to add UserParameter \"%s\": parsing error", key);
+		return FAIL;
+	}
+	else if (2 == i)				/* with specified parameters */
+	{
+		if (0 != strcmp(usr_param, "*"))	/* must be '*' parameters */
+		{
+			zabbix_log(LOG_LEVEL_WARNING, "failed to add UserParameter \"%s\": invalid key", key);
+			return FAIL;
+		}
+		flag |= CF_USEUPARAM;
 	}
 
-	if (SUCCEED == ret)
+	for (i = 0;; i++)
 	{
-		metric.key = get_rkey(&request);
-		metric.flags = flags;
-		metric.function = &EXECUTE_USER_PARAMETER;
-		metric.test_param = command;
+		/* add new parameters */
+		if (NULL == commands[i].key)
+		{
+			commands[i].key = zbx_strdup(NULL, usr_cmd);
+			commands[i].flags = flag;
+			commands[i].function = &EXECUTE_USER_PARAMETER;
+			commands[i].main_param = zbx_strdup(NULL, command);
+			commands[i].test_param = 0;
 
-		ret = add_metric(&metric, error, max_error_len);
+			commands = zbx_realloc(commands, (i + 2) * sizeof(ZBX_METRIC));
+			commands[i + 1].key = NULL;
+			break;
+		}
+
+		/* treat duplicate UserParameters as error */
+		if (0 == strcmp(commands[i].key, usr_cmd))
+		{
+			zabbix_log(LOG_LEVEL_CRIT, "failed to add UserParameter \"%s\": duplicate key", key);
+			exit(FAIL);
+		}
 	}
-	else
-		zbx_strlcpy(error, "syntax error", max_error_len);
 
-	free_request(&request);
-
-	return ret;
+	return SUCCEED;
 }
 
 void	init_metrics()
 {
 	int	i;
-	char	error[MAX_STRING_LEN];
 
 	commands = zbx_malloc(commands, sizeof(ZBX_METRIC));
 	commands[0].key = NULL;
 
 #ifdef WITH_AGENT_METRICS
 	for (i = 0; NULL != parameters_agent[i].key; i++)
-	{
-		if (SUCCEED != add_metric(&parameters_agent[i], error, sizeof(error)))
-		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add item key: %s", error);
-			exit(EXIT_FAILURE);
-		}
-	}
+		add_metric(&parameters_agent[i]);
 #endif
 
 #ifdef WITH_COMMON_METRICS
 	for (i = 0; NULL != parameters_common[i].key; i++)
-	{
-		if (SUCCEED != add_metric(&parameters_common[i], error, sizeof(error)))
-		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add item key: %s", error);
-			exit(EXIT_FAILURE);
-		}
-	}
+		add_metric(&parameters_common[i]);
 #endif
 
 #ifdef WITH_SPECIFIC_METRICS
 	for (i = 0; NULL != parameters_specific[i].key; i++)
-	{
-		if (SUCCEED != add_metric(&parameters_specific[i], error, sizeof(error)))
-		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add item key: %s", error);
-			exit(EXIT_FAILURE);
-		}
-	}
+		add_metric(&parameters_specific[i]);
 #endif
 
 #ifdef WITH_SIMPLE_METRICS
 	for (i = 0; NULL != parameters_simple[i].key; i++)
-	{
-		if (SUCCEED != add_metric(&parameters_simple[i], error, sizeof(error)))
-		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add item key: %s", error);
-			exit(EXIT_FAILURE);
-		}
-	}
-#endif
-
-#ifdef WITH_HOSTNAME_METRIC
-	if (SUCCEED != add_metric(&parameter_hostname, error, sizeof(error)))
-	{
-		zabbix_log(LOG_LEVEL_CRIT, "cannot add item key: %s", error);
-		exit(EXIT_FAILURE);
-	}
+		add_metric(&parameters_simple[i]);
 #endif
 }
 
@@ -231,22 +186,12 @@ void	free_metrics()
 		for (i = 0; NULL != commands[i].key; i++)
 		{
 			zbx_free(commands[i].key);
+			zbx_free(commands[i].main_param);
 			zbx_free(commands[i].test_param);
 		}
 
 		zbx_free(commands);
 	}
-}
-
-static void	zbx_log_init(zbx_log_t *log)
-{
-	log->value = NULL;
-	log->source = NULL;
-	log->lastlogsize = 0;
-	log->timestamp = 0;
-	log->severity = 0;
-	log->logeventid = 0;
-	log->mtime = 0;
 }
 
 void	init_result(AGENT_RESULT *result)
@@ -257,26 +202,7 @@ void	init_result(AGENT_RESULT *result)
 	result->dbl = 0;
 	result->str = NULL;
 	result->text = NULL;
-	result->logs = NULL;
 	result->msg = NULL;
-}
-
-static void	zbx_log_clean(zbx_log_t *log)
-{
-	zbx_free(log->source);
-	zbx_free(log->value);
-}
-
-void	zbx_logs_free(zbx_log_t **logs)
-{
-	size_t	i;
-
-	for (i = 0; NULL != logs[i]; i++)
-	{
-		zbx_log_clean(logs[i]);
-		zbx_free(logs[i]);
-	}
-	zbx_free(logs);
 }
 
 void	free_result(AGENT_RESULT *result)
@@ -285,116 +211,60 @@ void	free_result(AGENT_RESULT *result)
 	UNSET_DBL_RESULT(result);
 	UNSET_STR_RESULT(result);
 	UNSET_TEXT_RESULT(result);
-	UNSET_LOG_RESULT(result);
 	UNSET_MSG_RESULT(result);
 }
 
-/******************************************************************************
- *                                                                            *
- * Function: init_request                                                     *
- *                                                                            *
- * Purpose: initialize the request structure                                  *
- *                                                                            *
- * Parameters: request - pointer to the structure                             *
- *                                                                            *
- ******************************************************************************/
-void	init_request(AGENT_REQUEST *request)
+/*
+ * return value: 0 - error;
+ *               1 - command without parameters;
+ *               2 - command with parameters
+ */
+int	parse_command(const char *command, char *cmd, size_t cmd_max_len, char *param, size_t param_max_len)
 {
-	request->key = NULL;
-	request->nparam = 0;
-	request->params = NULL;
-	request->lastlogsize = 0;
-	request->mtime = 0;
-}
+	const char	*pl, *pr;
+	size_t		sz;
 
-/******************************************************************************
- *                                                                            *
- * Function: free_request_params                                              *
- *                                                                            *
- * Purpose: free memory used by the request parameters                        *
- *                                                                            *
- * Parameters: request - pointer to the request structure                     *
- *                                                                            *
- ******************************************************************************/
-static void	free_request_params(AGENT_REQUEST *request)
-{
-	int	i;
+	for (pl = command; SUCCEED == is_key_char(*pl); pl++)
+		;
 
-	for (i = 0; i < request->nparam; i++)
-		zbx_free(request->params[i]);
-	zbx_free(request->params);
+	if (pl == command)
+		return 0;
 
-	request->nparam = 0;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: free_request                                                     *
- *                                                                            *
- * Purpose: free memory used by the request                                   *
- *                                                                            *
- * Parameters: request - pointer to the request structure                     *
- *                                                                            *
- ******************************************************************************/
-void	free_request(AGENT_REQUEST *request)
-{
-	zbx_free(request->key);
-	free_request_params(request);
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: add_request_param                                                *
- *                                                                            *
- * Purpose: add a new parameter                                               *
- *                                                                            *
- * Parameters: request - pointer to the request structure                     *
- *                                                                            *
- ******************************************************************************/
-static void	add_request_param(AGENT_REQUEST *request, char *pvalue)
-{
-	request->nparam++;
-	request->params = zbx_realloc(request->params, request->nparam * sizeof(char *));
-	request->params[request->nparam - 1] = pvalue;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: parse_item_key                                                   *
- *                                                                            *
- * Purpose: parse item command (key) and fill AGENT_REQUEST structure         *
- *                                                                            *
- * Parameters: itemkey - complete item key                                    *
- *                                                                            *
- * Return value: request - structure filled with data from item key           *
- *                                                                            *
- ******************************************************************************/
-int	parse_item_key(const char *itemkey, AGENT_REQUEST *request)
-{
-	int	i, ret = FAIL;
-	char	*key = NULL, *params = NULL;
-
-	switch (parse_command_dyn(itemkey, &key, &params))
+	if (NULL != cmd)
 	{
-		case ZBX_COMMAND_WITH_PARAMS:
-			if (0 == (request->nparam = num_param(params)))
-				goto out;	/* key is badly formatted */
-			request->params = zbx_malloc(request->params, request->nparam * sizeof(char *));
-			for (i = 0; i < request->nparam; i++)
-				request->params[i] = get_param_dyn(params, i + 1);
-			break;
-		case ZBX_COMMAND_ERROR:
-			goto out;	/* key is badly formatted */
+		if (cmd_max_len <= (sz = (size_t)(pl - command)))
+			return 0;
+
+		memcpy(cmd, command, sz);
+		cmd[sz] = '\0';
 	}
 
-	request->key = zbx_strdup(NULL, key);
+	if ('\0' == *pl)	/* no parameters specified */
+	{
+		if (NULL != param)
+			*param = '\0';
+		return 1;
+	}
 
-	ret = SUCCEED;
-out:
-	zbx_free(params);
-	zbx_free(key);
+	if ('[' != *pl)		/* unsupported character */
+		return 0;
 
-	return ret;
+	for (pr = ++pl; '\0' != *pr; pr++)
+		;
+
+	if (']' != *--pr)
+		return 0;
+
+	if (NULL != param)
+	{
+		if (param_max_len <= (sz = (size_t)(pr - pl)))
+			return 0;
+
+		memcpy(param, pl, sz);
+		param[sz] = '\0';
+	}
+
+	return 2;
 }
 
 void	test_parameter(const char *key)
@@ -413,28 +283,23 @@ void	test_parameter(const char *key)
 
 	if (SUCCEED == process(key, 0, &result))
 	{
-		if (0 != ISSET_UI64(&result))
+		if (ISSET_UI64(&result))
 			printf(" [u|" ZBX_FS_UI64 "]", result.ui64);
 
-		if (0 != ISSET_DBL(&result))
+		if (ISSET_DBL(&result))
 			printf(" [d|" ZBX_FS_DBL "]", result.dbl);
 
-		if (0 != ISSET_STR(&result))
+		if (ISSET_STR(&result))
 			printf(" [s|%s]", result.str);
 
-		if (0 != ISSET_TEXT(&result))
+		if (ISSET_TEXT(&result))
 			printf(" [t|%s]", result.text);
 
-		if (0 != ISSET_MSG(&result))
+		if (ISSET_MSG(&result))
 			printf(" [m|%s]", result.msg);
 	}
 	else
-	{
-		if (0 != ISSET_MSG(&result))
-			printf(" [m|" ZBX_NOTSUPPORTED "] [%s]", result.msg);
-		else
-			printf(" [m|" ZBX_NOTSUPPORTED "]");
-	}
+		printf(" [m|" ZBX_NOTSUPPORTED "]");
 
 	free_result(&result);
 
@@ -457,7 +322,7 @@ void	test_parameters()
 
 			zbx_strcpy_alloc(&key, &key_alloc, &key_offset, commands[i].key);
 
-			if (0 == (commands[i].flags & CF_USERPARAMETER) && NULL != commands[i].test_param)
+			if (0 != (commands[i].flags & CF_USEUPARAM) && NULL != commands[i].test_param)
 			{
 				zbx_chrcpy_alloc(&key, &key_alloc, &key_offset, '[');
 				zbx_strcpy_alloc(&key, &key_alloc, &key_offset, commands[i].test_param);
@@ -469,8 +334,6 @@ void	test_parameters()
 	}
 
 	zbx_free(key);
-
-	test_aliases();
 }
 
 static int	zbx_check_user_parameter(const char *param, char *error, int max_error_len)
@@ -500,7 +363,7 @@ static int	zbx_check_user_parameter(const char *param, char *error, int max_erro
 				zbx_snprintf_alloc(&buf, &buf_alloc, &buf_offset, "0x%02x", *c);
 		}
 
-		zbx_snprintf(error, max_error_len, "Special characters \"%s\" are not allowed in the parameters.", buf);
+		zbx_snprintf(error, max_error_len, "special characters \"%s\" are not allowed in the parameters", buf);
 
 		zbx_free(buf);
 
@@ -510,137 +373,105 @@ static int	zbx_check_user_parameter(const char *param, char *error, int max_erro
 	return SUCCEED;
 }
 
-static int	replace_param(const char *cmd, AGENT_REQUEST *request, char **out, char *error, int max_error_len)
+static int	replace_param(const char *cmd, const char *param, char **out, size_t *out_alloc, char *error,
+		int max_error_len)
 {
-	const char	*pl = cmd, *pr, *tmp;
-	size_t		out_alloc = 0, out_offset = 0;
-	int		num, ret = SUCCEED;
+	const char	*pl = cmd, *pr;
+	size_t		out_offset = 0;
+	char		*tmp;
+	int		ret = SUCCEED;
 
 	while (NULL != (pr = strchr(pl, '$')))
 	{
-		zbx_strncpy_alloc(out, &out_alloc, &out_offset, pl, pr - pl);
+		zbx_strncpy_alloc(out, out_alloc, &out_offset, pl, pr - pl);
 
 		pr++;
 
 		if ('0' == *pr)
 		{
-			zbx_strcpy_alloc(out, &out_alloc, &out_offset, cmd);
+			zbx_strcpy_alloc(out, out_alloc, &out_offset, cmd);
 		}
 		else if ('1' <= *pr && *pr <= '9')
 		{
-			num = (int)(*pr - '0');
-
-			if (request->nparam >= num)
+			if (NULL != (tmp = get_param_dyn(param, (int)(*pr - '0'))))
 			{
-				tmp = get_rparam(request, num - 1);
-
 				if (SUCCEED != (ret = zbx_check_user_parameter(tmp, error, max_error_len)))
+				{
+					zbx_free(tmp);
 					break;
+				}
 
-				zbx_strcpy_alloc(out, &out_alloc, &out_offset, tmp);
+				zbx_strcpy_alloc(out, out_alloc, &out_offset, tmp);
+
+				zbx_free(tmp);
 			}
 		}
 		else
 		{
 			if ('$' != *pr)
-				zbx_chrcpy_alloc(out, &out_alloc, &out_offset, '$');
-			zbx_chrcpy_alloc(out, &out_alloc, &out_offset, *pr);
+				zbx_chrcpy_alloc(out, out_alloc, &out_offset, '$');
+			zbx_chrcpy_alloc(out, out_alloc, &out_offset, *pr);
 		}
 
 		pl = pr + 1;
 	}
 
 	if (SUCCEED == ret)
-		zbx_strcpy_alloc(out, &out_alloc, &out_offset, pl);
+		zbx_strcpy_alloc(out, out_alloc, &out_offset, pl);
 
 	return ret;
 }
 
-/******************************************************************************
- *                                                                            *
- * Function: process                                                          *
- *                                                                            *
- * Purpose: execute agent check                                               *
- *                                                                            *
- * Parameters: in_command - item key                                          *
- *             flags - PROCESS_LOCAL_COMMAND, allow execution of system.run   *
- *                     PROCESS_MODULE_COMMAND, execute item from a module     *
- *                                                                            *
- * Return value: SUCCEED - successful execution                               *
- *               NOTSUPPORTED - item key is not supported or other error      *
- *               result - contains item value or error message                *
- *                                                                            *
- ******************************************************************************/
 int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 {
-	int		ret = NOTSUPPORTED;
+	int		rc, ret = NOTSUPPORTED;
+	static char	*usr_command = NULL, *usr_cmd = NULL, *usr_param = NULL, *param = NULL;
+	static size_t	usr_command_alloc = 0, usr_cmd_alloc = 0, usr_param_alloc = 0, param_alloc = 0;
+	size_t		param_offset = 0;
+	char		error[MAX_STRING_LEN];
 	ZBX_METRIC	*command = NULL;
-	AGENT_REQUEST	request;
 
+	assert(result);
 	init_result(result);
-	init_request(&request);
 
-	if (SUCCEED != parse_item_key(zbx_alias_get(in_command), &request))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid item key format."));
-		goto notsupported;
-	}
+	alias_expand_dyn(in_command, &usr_command, &usr_command_alloc);
 
-	/* system.run is not allowed by default except for getting hostname for daemons */
-	if (1 != CONFIG_ENABLE_REMOTE_COMMANDS && 0 == (flags & PROCESS_LOCAL_COMMAND) &&
-			0 == strcmp(request.key, "system.run"))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Remote commands are not enabled."));
+	if (0 == (rc = parse_command_dyn(usr_command, &usr_cmd, &usr_cmd_alloc, &usr_param, &usr_param_alloc)))
 		goto notsupported;
-	}
 
 	for (command = commands; NULL != command->key; command++)
 	{
-		if (0 == strcmp(command->key, request.key))
+		if (0 == strcmp(command->key, usr_cmd))
 			break;
 	}
 
-	/* item key not found */
 	if (NULL == command->key)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Unsupported item key."));
-		goto notsupported;
-	}
-
-	/* expected item from a module */
-	if (0 != (flags & PROCESS_MODULE_COMMAND) && 0 == (command->flags & CF_MODULE))
 		goto notsupported;
 
-	/* command does not accept parameters but was called with parameters */
-	if (0 == (command->flags & CF_HAVEPARAMS) && 0 != request.nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Item does not allow parameters."));
+	if (0 == (command->flags & CF_USEUPARAM) && 2 == rc)
 		goto notsupported;
-	}
 
-	if (0 != (command->flags & CF_USERPARAMETER))
+	*error = '\0';
+
+	if (NULL != command->main_param)
 	{
-		if (0 != (command->flags & CF_HAVEPARAMS))
+		if (0 != (command->flags & CF_USEUPARAM))
 		{
-			char	*parameters = NULL, error[MAX_STRING_LEN];
-
-			if (FAIL == replace_param(command->test_param, &request, &parameters, error, sizeof(error)))
+			if (FAIL == replace_param(command->main_param, usr_param, &param, &param_alloc,
+					error, sizeof(error)))
 			{
-				SET_MSG_RESULT(result, zbx_strdup(NULL, error));
+				if ('\0' != *error)
+					zabbix_log(LOG_LEVEL_WARNING, "item [%s] error: %s", in_command, error);
 				goto notsupported;
 			}
-
-			free_request_params(&request);
-			add_request_param(&request, parameters);
 		}
 		else
-		{
-			free_request_params(&request);
-			add_request_param(&request, zbx_strdup(NULL, command->test_param));
-		}
+			zbx_strcpy_alloc(&param, &param_alloc, &param_offset, command->main_param);
 	}
+	else
+		zbx_strcpy_alloc(&param, &param_alloc, &param_offset, usr_param);
 
-	if (SYSINFO_RET_OK != command->function(&request, result))
+	if (SYSINFO_RET_OK != command->function(usr_command, param, flags, result))
 	{
 		/* "return NOTSUPPORTED;" would be more appropriate here for preserving original error */
 		/* message in "result" but would break things relying on ZBX_NOTSUPPORTED message. */
@@ -650,52 +481,11 @@ int	process(const char *in_command, unsigned flags, AGENT_RESULT *result)
 	ret = SUCCEED;
 
 notsupported:
-	free_request(&request);
+
+	if (NOTSUPPORTED == ret)
+		SET_MSG_RESULT(result, zbx_strdup(NULL, ZBX_NOTSUPPORTED));
 
 	return ret;
-}
-
-void	set_log_result_empty(AGENT_RESULT *result)
-{
-	result->logs = zbx_malloc(result->logs, sizeof(zbx_log_t *));
-
-	result->logs[0] = NULL;
-	result->type |= AR_LOG;
-}
-
-zbx_log_t	*add_log_result(AGENT_RESULT *result, const char *value)
-{
-	zbx_log_t	*log;
-	size_t		i;
-
-	log = zbx_malloc(NULL, sizeof(zbx_log_t));
-
-	zbx_log_init(log);
-	log->value = zbx_strdup(log->value, value);
-
-	for (i = 0; NULL != result->logs && NULL != result->logs[i]; i++)
-		;
-
-	result->logs = zbx_realloc(result->logs, sizeof(zbx_log_t *) * (i + 2));
-
-	result->logs[i++] = log;
-	result->logs[i] = NULL;
-	result->type |= AR_LOG;
-
-	return log;
-}
-
-zbx_uint64_t	get_log_result_lastlogsize(AGENT_RESULT *result)
-{
-	size_t	i;
-
-	if (0 == ISSET_LOG(result) || NULL == result->logs[0])
-		return 0;
-
-	for (i = 1; NULL != result->logs[i]; i++)
-		;
-
-	return result->logs[i - 1]->lastlogsize;
 }
 
 int	set_result_type(AGENT_RESULT *result, int value_type, int data_type, char *c)
@@ -769,18 +559,14 @@ int	set_result_type(AGENT_RESULT *result, int value_type, int data_type, char *c
 			ret = SUCCEED;
 			break;
 		case ITEM_VALUE_TYPE_STR:
+		case ITEM_VALUE_TYPE_LOG:
 			zbx_replace_invalid_utf8(c);
-			SET_STR_RESULT(result, zbx_strdup(NULL, c));
+			SET_STR_RESULT(result, strdup(c));
 			ret = SUCCEED;
 			break;
 		case ITEM_VALUE_TYPE_TEXT:
 			zbx_replace_invalid_utf8(c);
-			SET_TEXT_RESULT(result, zbx_strdup(NULL, c));
-			ret = SUCCEED;
-			break;
-		case ITEM_VALUE_TYPE_LOG:
-			zbx_replace_invalid_utf8(c);
-			add_log_result(result, c);
+			SET_TEXT_RESULT(result, strdup(c));
 			ret = SUCCEED;
 			break;
 	}
@@ -795,8 +581,7 @@ int	set_result_type(AGENT_RESULT *result, int value_type, int data_type, char *c
 		if (ITEM_VALUE_TYPE_UINT64 == value_type)
 			error = zbx_dsprintf(error,
 					"Received value [%s] is not suitable for value type [%s] and data type [%s]",
-					c, zbx_item_value_type_string(value_type),
-					zbx_item_data_type_string(data_type));
+					c, zbx_item_value_type_string(value_type), zbx_item_data_type_string(data_type));
 		else
 			error = zbx_dsprintf(error,
 					"Received value [%s] is not suitable for value type [%s]",
@@ -814,15 +599,15 @@ static zbx_uint64_t	*get_result_ui64_value(AGENT_RESULT *result)
 
 	assert(result);
 
-	if (0 != ISSET_UI64(result))
+	if (ISSET_UI64(result))
 	{
 		/* nothing to do */
 	}
-	else if (0 != ISSET_DBL(result))
+	else if (ISSET_DBL(result))
 	{
 		SET_UI64_RESULT(result, result->dbl);
 	}
-	else if (0 != ISSET_STR(result))
+	else if (ISSET_STR(result))
 	{
 		zbx_rtrim(result->str, " \"");
 		zbx_ltrim(result->str, " \"+");
@@ -833,7 +618,7 @@ static zbx_uint64_t	*get_result_ui64_value(AGENT_RESULT *result)
 
 		SET_UI64_RESULT(result, value);
 	}
-	else if (0 != ISSET_TEXT(result))
+	else if (ISSET_TEXT(result))
 	{
 		zbx_rtrim(result->text, " \"");
 		zbx_ltrim(result->text, " \"+");
@@ -846,7 +631,7 @@ static zbx_uint64_t	*get_result_ui64_value(AGENT_RESULT *result)
 	}
 	/* skip AR_MESSAGE - it is information field */
 
-	if (0 != ISSET_UI64(result))
+	if (ISSET_UI64(result))
 		return &result->ui64;
 
 	return NULL;
@@ -858,15 +643,15 @@ static double	*get_result_dbl_value(AGENT_RESULT *result)
 
 	assert(result);
 
-	if (0 != ISSET_DBL(result))
+	if (ISSET_DBL(result))
 	{
 		/* nothing to do */
 	}
-	else if (0 != ISSET_UI64(result))
+	else if (ISSET_UI64(result))
 	{
 		SET_DBL_RESULT(result, result->ui64);
 	}
-	else if (0 != ISSET_STR(result))
+	else if (ISSET_STR(result))
 	{
 		zbx_rtrim(result->str, " \"");
 		zbx_ltrim(result->str, " \"+");
@@ -877,7 +662,7 @@ static double	*get_result_dbl_value(AGENT_RESULT *result)
 
 		SET_DBL_RESULT(result, value);
 	}
-	else if (0 != ISSET_TEXT(result))
+	else if (ISSET_TEXT(result))
 	{
 		zbx_rtrim(result->text, " \"");
 		zbx_ltrim(result->text, " \"+");
@@ -890,7 +675,7 @@ static double	*get_result_dbl_value(AGENT_RESULT *result)
 	}
 	/* skip AR_MESSAGE - it is information field */
 
-	if (0 != ISSET_DBL(result))
+	if (ISSET_DBL(result))
 		return &result->dbl;
 
 	return NULL;
@@ -902,11 +687,11 @@ static char	**get_result_str_value(AGENT_RESULT *result)
 
 	assert(result);
 
-	if (0 != ISSET_STR(result))
+	if (ISSET_STR(result))
 	{
 		/* nothing to do */
 	}
-	else if (0 != ISSET_TEXT(result))
+	else if (ISSET_TEXT(result))
 	{
 		/* NOTE: copy only line */
 		for (p = result->text; '\0' != *p && '\r' != *p && '\n' != *p; p++);
@@ -915,17 +700,17 @@ static char	**get_result_str_value(AGENT_RESULT *result)
 		SET_STR_RESULT(result, zbx_strdup(NULL, result->text)); /* copy line */
 		*p = tmp; /* restore result->text character */
 	}
-	else if (0 != ISSET_UI64(result))
+	else if (ISSET_UI64(result))
 	{
 		SET_STR_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_UI64, result->ui64));
 	}
-	else if (0 != ISSET_DBL(result))
+	else if (ISSET_DBL(result))
 	{
 		SET_STR_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_DBL, result->dbl));
 	}
 	/* skip AR_MESSAGE - it is information field */
 
-	if (0 != ISSET_STR(result))
+	if (ISSET_STR(result))
 		return &result->str;
 
 	return NULL;
@@ -935,63 +720,26 @@ static char	**get_result_text_value(AGENT_RESULT *result)
 {
 	assert(result);
 
-	if (0 != ISSET_TEXT(result))
+	if (ISSET_TEXT(result))
 	{
 		/* nothing to do */
 	}
-	else if (0 != ISSET_STR(result))
+	else if (ISSET_STR(result))
 	{
 		SET_TEXT_RESULT(result, zbx_strdup(NULL, result->str));
 	}
-	else if (0 != ISSET_UI64(result))
+	else if (ISSET_UI64(result))
 	{
 		SET_TEXT_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_UI64, result->ui64));
 	}
-	else if (0 != ISSET_DBL(result))
+	else if (ISSET_DBL(result))
 	{
 		SET_TEXT_RESULT(result, zbx_dsprintf(NULL, ZBX_FS_DBL, result->dbl));
 	}
 	/* skip AR_MESSAGE - it is information field */
 
-	if (0 != ISSET_TEXT(result))
+	if (ISSET_TEXT(result))
 		return &result->text;
-
-	return NULL;
-}
-
-static zbx_log_t	**get_result_log_value(AGENT_RESULT *result)
-{
-	if (0 != ISSET_LOG(result))
-		return result->logs;
-
-	if (0 != ISSET_STR(result) || 0 != ISSET_TEXT(result) || 0 != ISSET_UI64(result) || 0 != ISSET_DBL(result))
-	{
-		zbx_log_t	*log;
-		size_t		i;
-
-		log = zbx_malloc(NULL, sizeof(zbx_log_t));
-
-		zbx_log_init(log);
-		if (0 != ISSET_STR(result))
-			log->value = zbx_strdup(log->value, result->str);
-		else if (0 != ISSET_TEXT(result))
-			log->value = zbx_strdup(log->value, result->text);
-		else if (0 != ISSET_UI64(result))
-			log->value = zbx_dsprintf(log->value, ZBX_FS_UI64, result->ui64);
-		else if (0 != ISSET_DBL(result))
-			log->value = zbx_dsprintf(log->value, ZBX_FS_DBL, result->dbl);
-
-		for (i = 0; NULL != result->logs && NULL != result->logs[i]; i++)
-			;
-
-		result->logs = zbx_realloc(result->logs, sizeof(zbx_log_t *) * (i + 2));
-
-		result->logs[i++] = log;
-		result->logs[i] = NULL;
-		result->type |= AR_LOG;
-
-		return result->logs;
-	}
 
 	return NULL;
 }
@@ -1013,7 +761,6 @@ static zbx_log_t	**get_result_log_value(AGENT_RESULT *result)
  *                GET_DBL_RESULT                                              *
  *                GET_STR_RESULT                                              *
  *                GET_TEXT_RESULT                                             *
- *                GET_LOG_RESULT                                              *
  *                GET_MSG_RESULT                                              *
  *                                                                            *
  *    AR_MESSAGE - skipped in conversion                                      *
@@ -1033,10 +780,8 @@ void	*get_result_value_by_type(AGENT_RESULT *result, int require_type)
 			return (void *)get_result_str_value(result);
 		case AR_TEXT:
 			return (void *)get_result_text_value(result);
-		case AR_LOG:
-			return (void *)get_result_log_value(result);
 		case AR_MESSAGE:
-			if (0 != ISSET_MSG(result))
+			if (ISSET_MSG(result))
 				return (void *)(&result->msg);
 			break;
 		default:
@@ -1044,76 +789,6 @@ void	*get_result_value_by_type(AGENT_RESULT *result, int require_type)
 	}
 
 	return NULL;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: unquote_key_param                                                *
- *                                                                            *
- * Purpose: unquotes special symbols in item key parameter                    *
- *                                                                            *
- * Parameters: param - [IN/OUT] item key parameter                            *
- *                                                                            *
- * Comments:                                                                  *
- *   "param"     => param                                                     *
- *   "\"param\"" => "param"                                                   *
- *                                                                            *
- ******************************************************************************/
-void	unquote_key_param(char *param)
-{
-	char	*dst;
-
-	if ('"' != *param)
-		return;
-
-	for (dst = param++; '\0' != *param; param++)
-	{
-		if ('\\' == *param && '"' == param[1])
-			continue;
-
-		*dst++ = *param;
-	}
-	*--dst = '\0';
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: quote_key_param                                                  *
- *                                                                            *
- * Purpose: quotes special symbols in item key parameter                      *
- *                                                                            *
- * Parameters: param   - [IN/OUT] item key parameter                          *
- *             forced  - [IN] 1 - enclose parameter in " even if it does not  *
- *                                contain any special characters              *
- *                            0 - do nothing if the paramter does not contain *
- *                                any special characters                      *
- *                                                                            *
- ******************************************************************************/
-void	quote_key_param(char **param, int forced)
-{
-	size_t	sz_src, sz_dst;
-
-	if (0 == forced)
-	{
-		if ('"' != **param && NULL == strchr(*param, ',') && NULL == strchr(*param, ']'))
-			return;
-	}
-
-	sz_dst = zbx_get_escape_string_len(*param, "\"") + 3;
-	sz_src = strlen(*param);
-
-	*param = zbx_realloc(*param, sz_dst);
-
-	(*param)[--sz_dst] = '\0';
-	(*param)[--sz_dst] = '"';
-
-	while (0 < sz_src)
-	{
-		(*param)[--sz_dst] = (*param)[--sz_src];
-		if ('"' == (*param)[sz_src])
-			(*param)[--sz_dst] = '\\';
-	}
-	(*param)[--sz_dst] = '"';
 }
 
 #ifdef HAVE_KSTAT_H

@@ -19,8 +19,10 @@
 **/
 
 
+require_once dirname(__FILE__).'/js/general.script.confirm.js.php';
+
 $screenWidget = new CWidget();
-$screenWidget->addPageHeader(_('CONFIGURATION OF SCREENS'));
+$screenWidget->addPageHeader(_('CONFIGURATION OF SCREEN'));
 $screenWidget->addHeader($this->data['screen']['name']);
 if (!empty($this->data['screen']['templateid'])) {
 	$screenWidget->addItem(get_header_host_table('screens', $this->data['screen']['templateid']));

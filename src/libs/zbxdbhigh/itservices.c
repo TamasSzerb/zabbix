@@ -26,7 +26,7 @@
 #define LOCK_ITSERVICES		zbx_mutex_lock(&itservices_lock)
 #define UNLOCK_ITSERVICES	zbx_mutex_unlock(&itservices_lock)
 
-static ZBX_MUTEX	itservices_lock = ZBX_MUTEX_NULL;
+static ZBX_MUTEX	itservices_lock;
 
 /* status update queue items */
 typedef struct
@@ -35,7 +35,7 @@ typedef struct
 	zbx_uint64_t	sourceid;
 	/* the new status */
 	int		status;
-	/* timestamp */
+	/* timestmap */
 	int		clock;
 }
 zbx_status_update_t;
@@ -67,6 +67,9 @@ typedef struct
 	zbx_vector_ptr_t	itservices;
 }
 zbx_itservice_index_t;
+
+/* the IT service update queue */
+static zbx_vector_ptr_t	itservice_updates;
 
 /* a set of IT services used during update session                          */
 /*                                                                          */
@@ -211,11 +214,6 @@ static void	its_updates_append(zbx_vector_ptr_t *updates, zbx_uint64_t sourceid,
 	zbx_vector_ptr_append(updates, update);
 }
 
-static void	zbx_status_update_free(zbx_status_update_t *update)
-{
-	zbx_free(update);
-}
-
 /******************************************************************************
  *                                                                            *
  * Function: its_itservices_load_children                                     *
@@ -229,8 +227,8 @@ static void	its_itservices_load_children(zbx_itservices_t *itservices)
 {
 	const char		*__function_name = "its_itservices_load_children";
 
-	char			*sql = NULL;
-	size_t			sql_alloc = 0, sql_offset = 0;
+	char			*sql;
+	size_t			sql_alloc = 256, sql_offset = 0;
 	DB_RESULT		result;
 	DB_ROW			row;
 	zbx_itservice_t		*itservice, *parent;
@@ -241,6 +239,8 @@ static void	its_itservices_load_children(zbx_itservices_t *itservices)
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
 	zbx_vector_uint64_create(&serviceids);
+
+	sql = zbx_malloc(NULL, sql_alloc);
 
 	zbx_hashset_iter_reset(&itservices->itservices, &iter);
 
@@ -310,12 +310,14 @@ static void	its_itservices_load_parents(zbx_itservices_t *itservices, zbx_vector
 
 	DB_RESULT	result;
 	DB_ROW		row;
-	char		*sql = NULL;
-	size_t		sql_alloc = 0, sql_offset = 0;
+	char		*sql;
+	size_t		sql_alloc = 256, sql_offset = 0;
 	zbx_itservice_t	*parent, *itservice;
 	zbx_uint64_t	parentid, serviceid;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+
+	sql = zbx_malloc(NULL, sql_alloc);
 
 	zbx_vector_uint64_sort(serviceids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
 	zbx_vector_uint64_uniq(serviceids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
@@ -328,7 +330,7 @@ static void	its_itservices_load_parents(zbx_itservices_t *itservices, zbx_vector
 	DBadd_condition_alloc(&sql, &sql_alloc, &sql_offset, "sl.servicedownid", serviceids->values,
 			serviceids->values_num);
 
-	zbx_vector_uint64_clear(serviceids);
+	serviceids->values_num = 0;
 
 	result = DBselect("%s", sql);
 
@@ -385,12 +387,14 @@ static void	its_load_services_by_triggerids(zbx_itservices_t *itservices, const 
 	zbx_uint64_t		serviceid, triggerid;
 	zbx_itservice_t		*itservice;
 	char			*sql = NULL;
-	size_t			sql_alloc = 0, sql_offset = 0;
+	size_t			sql_alloc = 256, sql_offset = 0;
 	zbx_vector_uint64_t	serviceids;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
 	zbx_vector_uint64_create(&serviceids);
+
+	sql = zbx_malloc(sql, sql_alloc);
 
 	zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset,
 			"select serviceid,triggerid,status,algorithm"
@@ -497,7 +501,11 @@ out:
  ******************************************************************************/
 static int	its_updates_compare(const zbx_status_update_t **update1, const zbx_status_update_t **update2)
 {
-	ZBX_RETURN_IF_NOT_EQUAL((*update1)->sourceid, (*update2)->sourceid);
+	if ((*update1)->sourceid < (*update2)->sourceid)
+		return -1;
+
+	if ((*update1)->sourceid > (*update2)->sourceid)
+		return 1;
 
 	return 0;
 }
@@ -520,11 +528,15 @@ static int	its_write_status_and_alarms(zbx_itservices_t *itservices, zbx_vector_
 {
 	int			i, ret = FAIL;
 	zbx_vector_ptr_t	updates;
+	const char		*ins_service_alarms =
+				"insert into service_alarms (servicealarmid,serviceid,value,clock) values ";
 	char			*sql = NULL;
-	size_t			sql_alloc = 0, sql_offset = 0;
+	size_t			sql_alloc = 256, sql_offset = 0;
 	zbx_uint64_t		alarmid;
 	zbx_hashset_iter_t	iter;
 	zbx_itservice_t		*itservice;
+
+	sql = zbx_malloc(sql, sql_alloc);
 
 	/* get a list of service status updates that must be written to database */
 	zbx_vector_ptr_create(&updates);
@@ -559,42 +571,51 @@ static int	its_write_status_and_alarms(zbx_itservices_t *itservices, zbx_vector_
 		}
 	}
 
-	DBend_multiple_update(&sql, &sql_alloc, &sql_offset);
-
-	if (16 < sql_offset)
-	{
-		if (ZBX_DB_OK > DBexecute("%s", sql))
-			goto out;
-	}
-
-	ret = SUCCEED;
-
-	/* write generated service alarms into database */
 	if (0 != alarms->values_num)
 	{
-		zbx_db_insert_t	db_insert;
-
+		/* write generated service alarms into database */
 		alarmid = DBget_maxid_num("service_alarms", alarms->values_num);
-
-		zbx_db_insert_prepare(&db_insert, "service_alarms", "servicealarmid", "serviceid", "value", "clock",
-				NULL);
 
 		for (i = 0; i < alarms->values_num; i++)
 		{
 			zbx_status_update_t	*update = alarms->values[i];
 
-			zbx_db_insert_add_values(&db_insert, alarmid++, update->sourceid, update->status,
-					update->clock);
+#ifdef HAVE_MULTIROW_INSERT
+			if (16 > sql_offset || 0 == i)
+#endif
+				zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset, ins_service_alarms);
+
+			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset,
+					"(" ZBX_FS_UI64 "," ZBX_FS_UI64 ",%d,%d)" ZBX_ROW_DL,
+					alarmid++, update->sourceid, update->status, update->clock);
+
+			if (SUCCEED != DBexecute_overflowed_sql(&sql, &sql_alloc, &sql_offset))
+				goto out;
 		}
-
-		ret = zbx_db_insert_execute(&db_insert);
-
-		zbx_db_insert_clean(&db_insert);
 	}
+
+	DBend_multiple_update(&sql, &sql_alloc, &sql_offset);
+
+	if (16 < sql_offset)
+	{
+#ifdef HAVE_MULTIROW_INSERT
+		if (0 < alarms->values_num)
+		{
+			sql_offset--;
+			zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset, ";\n");
+		}
+#endif
+		if (ZBX_DB_OK > DBexecute("%s", sql))
+			goto out;
+	}
+
+	ret = SUCCEED;
 out:
 	zbx_free(sql);
 
-	zbx_vector_ptr_clear_ext(&updates, (zbx_clean_func_t)zbx_status_update_free);
+	for (i = 0; i < updates.values_num; i++)
+		zbx_free(updates.values[i]);
+
 	zbx_vector_ptr_destroy(&updates);
 
 	return ret;
@@ -635,6 +656,7 @@ static int	its_flush_updates(zbx_vector_ptr_t *updates)
 
 	its_itservices_init(&itservices);
 
+	zbx_vector_ptr_create(&alarms);
 	zbx_vector_uint64_create(&triggerids);
 
 	for (i = 0; i < updates->values_num; i++)
@@ -657,8 +679,6 @@ static int	its_flush_updates(zbx_vector_ptr_t *updates)
 		ret = SUCCEED;
 		goto out;
 	}
-
-	zbx_vector_ptr_create(&alarms);
 
 	/* apply status updates */
 	for (i = 0; i < updates->values_num; i++)
@@ -693,9 +713,11 @@ static int	its_flush_updates(zbx_vector_ptr_t *updates)
 
 	ret = its_write_status_and_alarms(&itservices, &alarms);
 
-	zbx_vector_ptr_clear_ext(&alarms, (zbx_clean_func_t)zbx_status_update_free);
-	zbx_vector_ptr_destroy(&alarms);
+	for (i = 0; i < alarms.values_num; i++)
+		zbx_free(alarms.values[i]);
 out:
+	zbx_vector_ptr_destroy(&alarms);
+
 	its_itservices_clean(&itservices);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
@@ -709,47 +731,57 @@ out:
 
 /******************************************************************************
  *                                                                            *
- * Function: DBupdate_itservices                                              *
+ * Function: DBqueue_service_update                                           *
  *                                                                            *
- * Purpose: updates IT services by applying event list                        *
+ * Purpose: queues a service update to be executed later with                 *
+ *          DBflush_service_updates() function                                *
  *                                                                            *
- * Return value: SUCCEED - the IT services were updated successfully          *
+ * Parameters: triggerid  - [IN] the source trigger id that initiated the     *
+ *                               update                                       *
+ *             status     - [IN] the source trigger status                    *
+ *             clock      - [IN] the update timestamp                         *
+ *                                                                            *
+ ******************************************************************************/
+void	DBqueue_itservice_update(zbx_uint64_t triggerid, int status, int clock)
+{
+	if (NULL == itservice_updates.values)
+		zbx_vector_ptr_create(&itservice_updates);
+
+	its_updates_append(&itservice_updates, triggerid, status, clock);
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: DBflush_service_updates                                          *
+ *                                                                            *
+ * Purpose: processes the service update queue                                *
+ *                                                                            *
+ * Return value: SUCCEED - the data was written successfully                  *
  *               FAIL    - otherwise                                          *
  *                                                                            *
  ******************************************************************************/
-int	DBupdate_itservices(const DB_EVENT *events, size_t events_num)
+int	DBflush_itservice_updates()
 {
-	const char		*__function_name = "DBupdate_itservices";
+	const char	*__function_name = "DBflush_itservice_updates";
 
-	int			i, ret = SUCCEED;
-	zbx_vector_ptr_t	updates;
+	int		i, ret = SUCCEED;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	zbx_vector_ptr_create(&updates);
+	if (NULL == itservice_updates.values || 0 == itservice_updates.values_num)
+		goto out;
 
-	for (i = 0; i < events_num; i++)
-	{
-		if (EVENT_SOURCE_TRIGGERS != events[i].source)
-			continue;
+	LOCK_ITSERVICES;
 
-		its_updates_append(&updates, events[i].objectid, TRIGGER_VALUE_PROBLEM == events[i].value ?
-				events[i].trigger.priority : 0, events[i].clock);
-	}
+	ret = its_flush_updates(&itservice_updates);
 
-	if (0 != updates.values_num)
-	{
-		LOCK_ITSERVICES;
+	UNLOCK_ITSERVICES;
 
-		ret = its_flush_updates(&updates);
+	for (i = 0; i < itservice_updates.values_num; i++)
+		zbx_free(itservice_updates.values[i]);
 
-		UNLOCK_ITSERVICES;
-
-		zbx_vector_ptr_clear_ext(&updates, zbx_ptr_free);
-	}
-
-	zbx_vector_ptr_destroy(&updates);
-
+	itservice_updates.values_num = 0;
+out:
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 
 	return ret;
@@ -772,7 +804,7 @@ int	DBupdate_itservices(const DB_EVENT *events, size_t events_num)
 int	DBremove_triggers_from_itservices(zbx_uint64_t *triggerids, int triggerids_num)
 {
 	char			*sql = NULL;
-	size_t			sql_alloc = 0, sql_offset = 0;
+	size_t			sql_alloc = 256, sql_offset = 0;
 	zbx_vector_ptr_t	updates;
 	int			i, ret = FAIL, now;
 
@@ -791,7 +823,10 @@ int	DBremove_triggers_from_itservices(zbx_uint64_t *triggerids, int triggerids_n
 	if (FAIL == its_flush_updates(&updates))
 		goto out;
 
-	zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset, "update services set triggerid=null,showsla=0 where");
+	sql = zbx_malloc(sql, sql_alloc);
+
+	zbx_strcpy_alloc(&sql, &sql_alloc, &sql_offset,
+			"update services set triggerid=null,showsla=0 where");
 	DBadd_condition_alloc(&sql, &sql_alloc, &sql_offset, "triggerid", triggerids, triggerids_num);
 
 	if (ZBX_DB_OK <= DBexecute("%s", sql))
@@ -801,7 +836,9 @@ int	DBremove_triggers_from_itservices(zbx_uint64_t *triggerids, int triggerids_n
 out:
 	UNLOCK_ITSERVICES;
 
-	zbx_vector_ptr_clear_ext(&updates, (zbx_clean_func_t)zbx_status_update_free);
+	for (i = 0; i < updates.values_num; i++)
+		zbx_free(updates.values[i]);
+
 	zbx_vector_ptr_destroy(&updates);
 
 	return ret;
@@ -809,10 +846,10 @@ out:
 
 void	zbx_create_itservices_lock()
 {
-	if (FAIL == zbx_mutex_create_force(&itservices_lock, ZBX_MUTEX_ITSERVICES))
+	if (ZBX_MUTEX_ERROR == zbx_mutex_create_force(&itservices_lock, ZBX_MUTEX_ITSERVICES))
 	{
 		zbx_error("cannot create mutex for IT services");
-		exit(EXIT_FAILURE);
+		exit(FAIL);
 	}
 }
 

@@ -28,8 +28,8 @@
 #include "dbsyncer.h"
 
 extern int		CONFIG_HISTSYNCER_FREQUENCY;
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	process_type;
+extern int		process_num;
 
 /******************************************************************************
  *                                                                            *
@@ -42,45 +42,38 @@ extern int		server_num, process_num;
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(dbsyncer_thread, args)
+void	main_dbsyncer_loop()
 {
-	int	sleeptime = -1, num = 0, old_num = 0, retry_up = 0, retry_dn = 0;
-	double	sec, total_sec = 0.0, old_total_sec = 0.0;
-	time_t	last_stat_time;
+	int	sleeptime, last_sleeptime = -1, num;
+	double	sec;
+	int	retry_up = 0, retry_dn = 0;
 
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
+	zabbix_log(LOG_LEVEL_DEBUG, "In main_dbsyncer_loop() process_num:%d", process_num);
 
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
-
-#define STAT_INTERVAL	5	/* if a process is busy and does not sleep then update status not faster than */
-				/* once in STAT_INTERVAL seconds */
-
-	zbx_setproctitle("%s #%d [connecting to the database]", get_process_type_string(process_type), process_num);
-	last_stat_time = time(NULL);
+	zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 
 	DBconnect(ZBX_DB_CONNECT_NORMAL);
 
 	for (;;)
 	{
-		if (0 != sleeptime)
-		{
-			zbx_setproctitle("%s #%d [synced %d items in " ZBX_FS_DBL " sec, syncing history]",
-					get_process_type_string(process_type), process_num, old_num, old_total_sec);
-		}
+		zbx_setproctitle("%s [syncing history]", get_process_type_string(process_type));
+
+		zabbix_log(LOG_LEVEL_DEBUG, "Syncing ...");
 
 		sec = zbx_time();
-		num += DCsync_history(ZBX_SYNC_PARTIAL);
-		total_sec += zbx_time() - sec;
+		num = DCsync_history(ZBX_SYNC_PARTIAL);
+		sec = zbx_time() - sec;
 
-		if (-1 == sleeptime)
+		zabbix_log(LOG_LEVEL_DEBUG, "%s #%d spent " ZBX_FS_DBL " seconds while processing %d items",
+				get_process_type_string(process_type), process_num, sec, num);
+
+		if (-1 == last_sleeptime)
 		{
 			sleeptime = num ? ZBX_SYNC_MAX / num : CONFIG_HISTSYNCER_FREQUENCY;
 		}
 		else
 		{
+			sleeptime = last_sleeptime;
 			if (ZBX_SYNC_MAX < num)
 			{
 				retry_up = 0;
@@ -112,28 +105,8 @@ ZBX_THREAD_ENTRY(dbsyncer_thread, args)
 		else if (CONFIG_HISTSYNCER_FREQUENCY < sleeptime)
 			sleeptime = CONFIG_HISTSYNCER_FREQUENCY;
 
-		if (0 != sleeptime || STAT_INTERVAL <= time(NULL) - last_stat_time)
-		{
-			if (0 == sleeptime)
-			{
-				zbx_setproctitle("%s #%d [synced %d items in " ZBX_FS_DBL " sec, syncing history]",
-						get_process_type_string(process_type), process_num, num, total_sec);
-			}
-			else
-			{
-				zbx_setproctitle("%s #%d [synced %d items in " ZBX_FS_DBL " sec, idle %d sec]",
-						get_process_type_string(process_type), process_num, num, total_sec,
-						sleeptime);
-				old_num = num;
-				old_total_sec = total_sec;
-			}
-			num = 0;
-			total_sec = 0.0;
-			last_stat_time = time(NULL);
-		}
+		last_sleeptime = sleeptime;
 
 		zbx_sleep_loop(sleeptime);
 	}
-
-#undef STAT_INTERVAL
 }

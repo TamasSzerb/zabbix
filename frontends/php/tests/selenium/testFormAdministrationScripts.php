@@ -73,10 +73,9 @@ class testFormAdministrationScripts extends CWebTest {
 	}
 
 	public function testFormAdministrationScripts_testLayout() {
-		$this->zbxTestLogin('scripts.php?form');
-		$this->zbxTestCheckTitle('Configuration of scripts');
+		$this->zbxTestLogin('scripts.php?form=1');
+		$this->checkTitle('Configuration of scripts');
 
-		$this->zbxTestTextPresent('CONFIGURATION OF SCRIPTS');
 		$this->zbxTestTextPresent('Script');
 
 		$this->zbxTestTextPresent(array('Name'));
@@ -91,16 +90,16 @@ class testFormAdministrationScripts extends CWebTest {
 		$this->assertElementPresent('execute_on_1');
 		$this->assertElementPresent('execute_on_2');
 
-		$this->zbxTestTextPresent(array('Commands'));
+		$this->zbxTestTextPresent(array('Command'));
 		$this->assertElementPresent('command');
 
 		$this->zbxTestTextPresent(array('Description'));
 		$this->assertElementPresent('description');
 
-		$this->zbxTestTextPresent(array('User group'));
+		$this->zbxTestTextPresent(array('User groups'));
 		$this->assertElementPresent('usrgrpid');
 
-		$this->zbxTestTextPresent(array('Host group'));
+		$this->zbxTestTextPresent(array('Host groups'));
 		$this->assertElementPresent('groupid');
 
 		$this->zbxTestTextPresent(array('Required host permissions'));
@@ -119,10 +118,11 @@ class testFormAdministrationScripts extends CWebTest {
 	/**
 	 * @dataProvider providerScripts
 	 */
-	public function testFormAdministrationScripts_testCreate($data, $resultSave, $dbValues) {
+	public function testFormAdministrationScripts_testCreate($data, $resultSave, $DBvalues) {
+
 		DBsave_tables('scripts');
 
-		$this->zbxTestLogin('scripts.php?form');
+		$this->zbxTestLogin('scripts.php?form=1');
 
 		foreach ($data as $field) {
 			switch ($field['type']) {
@@ -142,29 +142,28 @@ class testFormAdministrationScripts extends CWebTest {
 			}
 		}
 
-		$sql = 'SELECT '.implode(', ', array_keys($dbValues)).' FROM scripts';
-		if ($resultSave && isset($keyField)) {
+		$sql = 'SELECT '.implode(', ', array_keys($DBvalues)).' FROM scripts';
+		if ($resultSave && isset($keyField))
 			$sql .= ' WHERE name='.zbx_dbstr($keyField);
-		}
 
 		if (!$resultSave) {
 			$sql = 'SELECT * FROM scripts';
 			$DBhash = DBhash($sql);
 		}
 
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 
 		if ($resultSave) {
 			$this->zbxTestTextPresent('Script added');
 
 			$dbres = DBfetch(DBselect($sql));
 			foreach ($dbres as $field => $value) {
-				$this->assertEquals($value, $dbValues[$field]);
+				$this->assertEquals($value, $DBvalues[$field], "Value for '$field' was not updated.");
 			}
 		}
 		else {
 			$this->zbxTestTextPresent('ERROR:');
-			$this->assertEquals($DBhash, DBhash($sql));
+			$this->assertEquals($DBhash, DBhash($sql), "DB fields changed after unsuccessful save.");
 		}
 
 		DBrestore_tables('scripts');

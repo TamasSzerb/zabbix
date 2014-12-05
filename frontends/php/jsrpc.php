@@ -21,10 +21,10 @@
 
 require_once dirname(__FILE__).'/include/config.inc.php';
 
-$requestType = getRequest('type', PAGE_TYPE_JSON);
+$requestType = get_request('type', PAGE_TYPE_JSON);
 if ($requestType == PAGE_TYPE_JSON) {
-	$http_request = new CHttpRequest();
-	$json = new CJson();
+	$http_request = new CHTTP_request();
+	$json = new CJSON();
 	$data = $json->decode($http_request->body(), true);
 }
 else {
@@ -47,7 +47,7 @@ $result = array();
 switch ($data['method']) {
 	case 'host.get':
 		$result = API::Host()->get(array(
-			'startSearch' => true,
+			'startSearch' => 1,
 			'search' => $data['params']['search'],
 			'output' => array('hostid', 'host', 'name'),
 			'sortfield' => 'name',
@@ -87,6 +87,7 @@ switch ($data['method']) {
 		}
 
 		$options = array(
+			'nodeids' => get_current_nodeid(true),
 			'lastChangeSince' => max(array($lastMsgTime, $msgsettings['last.clock'], $timeout)),
 			'value' => array(TRIGGER_VALUE_TRUE, TRIGGER_VALUE_FALSE),
 			'priority' => array_keys($msgsettings['triggers.severities']),
@@ -119,7 +120,7 @@ switch ($data['method']) {
 					}
 
 					$url_tr_status = 'tr_status.php?hostid='.$host['hostid'];
-					$url_events = 'events.php?filter_set=1&triggerid='.$event['objectid'].'&source='.EVENT_SOURCE_TRIGGERS;
+					$url_events = 'events.php?triggerid='.$event['objectid'];
 					$url_tr_events = 'tr_events.php?eventid='.$event['eventid'].'&triggerid='.$event['objectid'];
 
 					$result[$number] = array(
@@ -130,11 +131,10 @@ switch ($data['method']) {
 						'priority' => $priority,
 						'sound' => $sound,
 						'color' => getSeverityColor($trigger['priority'], $event['value']),
-						'title' => $title.' [url='.$url_tr_status.']'.$host['name'].'[/url]',
+						'title' => $title.' '.get_node_name_by_elid($host['hostid'], null, ':').'[url='.$url_tr_status.']'.$host['host'].'[/url]',
 						'body' => array(
 							_('Details').': [url='.$url_events.']'.$trigger['description'].'[/url]',
-							_('Date').': [b][url='.$url_tr_events.']'.
-								zbx_date2str(DATE_TIME_FORMAT_SECONDS, $event['clock']).'[/url][/b]',
+							_('Date').': [b][url='.$url_tr_events.']'.zbx_date2str(_('d M Y H:i:s'), $event['clock']).'[/url][/b]',
 						),
 						'timeout' => $msgsettings['timeout']
 					);
@@ -164,8 +164,7 @@ switch ($data['method']) {
 	case 'zabbix.status':
 		$session = Z::getInstance()->getSession();
 		if (!isset($session['serverCheckResult']) || ($session['serverCheckTime'] + SERVER_CHECK_INTERVAL) <= time()) {
-			$zabbixServer = new CZabbixServer($ZBX_SERVER, $ZBX_SERVER_PORT, ZBX_SOCKET_TIMEOUT, 0);
-			$session['serverCheckResult'] = $zabbixServer->isRunning();
+			$session['serverCheckResult'] = zabbixIsRunning();
 			$session['serverCheckTime'] = time();
 		}
 
@@ -181,7 +180,6 @@ switch ($data['method']) {
 			'mode' => !empty($data['mode']) ? $data['mode'] : null,
 			'timestamp' => !empty($data['timestamp']) ? $data['timestamp'] : time(),
 			'resourcetype' => !empty($data['resourcetype']) ? $data['resourcetype'] : null,
-			'screenid' => (isset($data['screenid']) && $data['screenid'] != 0) ? $data['screenid'] : null,
 			'screenitemid' => !empty($data['screenitemid']) ? $data['screenitemid'] : null,
 			'groupid' => !empty($data['groupid']) ? $data['groupid'] : null,
 			'hostid' => !empty($data['hostid']) ? $data['hostid'] : null,
@@ -192,7 +190,7 @@ switch ($data['method']) {
 			'updateProfile' => isset($data['updateProfile']) ? $data['updateProfile'] : null
 		);
 		if ($options['resourcetype'] == SCREEN_RESOURCE_HISTORY) {
-			$options['itemids'] = !empty($data['itemids']) ? $data['itemids'] : null;
+			$options['itemid'] = !empty($data['itemid']) ? $data['itemid'] : null;
 			$options['action'] = !empty($data['action']) ? $data['action'] : null;
 			$options['filter'] = !empty($data['filter']) ? $data['filter'] : null;
 			$options['filter_task'] = !empty($data['filter_task']) ? $data['filter_task'] : null;
@@ -223,184 +221,19 @@ switch ($data['method']) {
 		}
 		break;
 
-	/**
-	 * Create multi select data.
-	 * Supported objects: "applications", "hosts", "hostGroup", "templates", "triggers"
-	 *
-	 * @param string $data['objectName']
-	 * @param string $data['search']
-	 * @param int    $data['limit']
-	 *
-	 * @return array(int => array('value' => int, 'text' => string))
-	 */
-	case 'multiselect.get':
-		$config = select_config();
-
-		switch ($data['objectName']) {
-			case 'hostGroup':
-				$hostGroups = API::HostGroup()->get(array(
-					'editable' => isset($data['editable']) ? $data['editable'] : null,
-					'output' => array('groupid', 'name'),
-					'search' => isset($data['search']) ? array('name' => $data['search']) : null,
-					'filter' => isset($data['filter']) ? $data['filter'] : null,
-					'limit' => isset($data['limit']) ? $data['limit'] : null
-				));
-
-				if ($hostGroups) {
-					CArrayHelper::sort($hostGroups, array(
-						array('field' => 'name', 'order' => ZBX_SORT_UP)
-					));
-
-					if (isset($data['limit'])) {
-						$hostGroups = array_slice($hostGroups, 0, $data['limit']);
-					}
-
-					foreach ($hostGroups as $hostGroup) {
-						$result[] = array(
-							'id' => $hostGroup['groupid'],
-							'name' => $hostGroup['name']
-						);
-					}
-				}
-				break;
-
-			case 'hosts':
-				$hosts = API::Host()->get(array(
-					'editable' => isset($data['editable']) ? $data['editable'] : null,
-					'output' => array('hostid', 'name'),
-					'templated_hosts' => isset($data['templated_hosts']) ? $data['templated_hosts'] : null,
-					'search' => isset($data['search']) ? array('name' => $data['search']) : null,
-					'limit' => $config['search_limit']
-				));
-
-				if ($hosts) {
-					CArrayHelper::sort($hosts, array(
-						array('field' => 'name', 'order' => ZBX_SORT_UP)
-					));
-
-					if (isset($data['limit'])) {
-						$hosts = array_slice($hosts, 0, $data['limit']);
-					}
-
-					foreach ($hosts as $host) {
-						$result[] = array(
-							'id' => $host['hostid'],
-							'name' => $host['name']
-						);
-					}
-				}
-				break;
-
-			case 'templates':
-				$templates = API::Template()->get(array(
-					'editable' => isset($data['editable']) ? $data['editable'] : null,
-					'output' => array('templateid', 'name'),
-					'search' => isset($data['search']) ? array('name' => $data['search']) : null,
-					'limit' => $config['search_limit']
-				));
-
-				if ($templates) {
-					CArrayHelper::sort($templates, array(
-						array('field' => 'name', 'order' => ZBX_SORT_UP)
-					));
-
-					if (isset($data['limit'])) {
-						$templates = array_slice($templates, 0, $data['limit']);
-					}
-
-					foreach ($templates as $template) {
-						$result[] = array(
-							'id' => $template['templateid'],
-							'name' => $template['name']
-						);
-					}
-				}
-				break;
-
-			case 'applications':
-				$applications = API::Application()->get(array(
-					'hostids' => zbx_toArray($data['hostid']),
-					'output' => array('applicationid', 'name'),
-					'search' => isset($data['search']) ? array('name' => $data['search']) : null,
-					'limit' => $config['search_limit']
-				));
-
-				if ($applications) {
-					CArrayHelper::sort($applications, array(
-						array('field' => 'name', 'order' => ZBX_SORT_UP)
-					));
-
-					if (isset($data['limit'])) {
-						$applications = array_slice($applications, 0, $data['limit']);
-					}
-
-					foreach ($applications as $application) {
-						$result[] = array(
-							'id' => $application['applicationid'],
-							'name' => $application['name']
-						);
-					}
-				}
-				break;
-
-			case 'triggers':
-				$triggers = API::Trigger()->get(array(
-					'editable' => isset($data['editable']) ? $data['editable'] : null,
-					'output' => array('triggerid', 'description'),
-					'selectHosts' => array('name'),
-					'search' => isset($data['search']) ? array('description' => $data['search']) : null,
-					'limit' => $config['search_limit']
-				));
-
-				if ($triggers) {
-					CArrayHelper::sort($triggers, array(
-						array('field' => 'description', 'order' => ZBX_SORT_UP)
-					));
-
-					if (isset($data['limit'])) {
-						$triggers = array_slice($triggers, 0, $data['limit']);
-					}
-
-					foreach ($triggers as $trigger) {
-						$hostName = '';
-
-						if ($trigger['hosts']) {
-							$trigger['hosts'] = reset($trigger['hosts']);
-
-							$hostName = $trigger['hosts']['name'].NAME_DELIMITER;
-						}
-
-						$result[] = array(
-							'id' => $trigger['triggerid'],
-							'name' => $trigger['description'],
-							'prefix' => $hostName
-						);
-					}
-				}
-				break;
-		}
-		break;
-
 	default:
 		fatal_error('Wrong RPC call to JS RPC!');
 }
 
 if ($requestType == PAGE_TYPE_JSON) {
 	if (isset($data['id'])) {
-		echo $json->encode(array(
+		$rpcResp = array(
 			'jsonrpc' => '2.0',
 			'result' => $result,
 			'id' => $data['id']
-		));
+		);
+		echo $json->encode($rpcResp);
 	}
-}
-elseif ($requestType == PAGE_TYPE_TEXT_RETURN_JSON) {
-	$json = new CJson();
-
-	echo $json->encode(array(
-		'jsonrpc' => '2.0',
-		'result' => $result
-	));
 }
 elseif ($requestType == PAGE_TYPE_TEXT || $requestType == PAGE_TYPE_JS) {
 	echo $result;

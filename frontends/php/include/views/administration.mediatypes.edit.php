@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $mediaTypeWidget = new CWidget();
 $mediaTypeWidget->addPageHeader(_('CONFIGURATION OF MEDIA TYPES'));
 
@@ -26,13 +26,12 @@ $mediaTypeWidget->addPageHeader(_('CONFIGURATION OF MEDIA TYPES'));
 $mediaTypeForm = new CForm();
 $mediaTypeForm->setName('mediaTypeForm');
 $mediaTypeForm->addVar('form', $this->data['form']);
+$mediaTypeForm->addVar('form_refresh', $this->data['form_refresh'] + 1);
 $mediaTypeForm->addVar('mediatypeid', $this->data['mediatypeid']);
 
 // create form list
 $mediaTypeFormList = new CFormList('mediaTypeFormList');
-$nameTextBox = new CTextBox('description', $this->data['description'], ZBX_TEXTBOX_STANDARD_SIZE, false, 100);
-$nameTextBox->attr('autofocus', 'autofocus');
-$mediaTypeFormList->addRow(_('Name'), $nameTextBox);
+$mediaTypeFormList->addRow(_('Description'), new CTextBox('description', $this->data['description'], ZBX_TEXTBOX_STANDARD_SIZE, 'no', 100));
 
 // append type to form list
 $cmbType = new CComboBox('type', $this->data['type'], 'submit()');
@@ -96,32 +95,22 @@ $mediaTypeFormList->addRow(_('Enabled'), new CCheckBox('status', MEDIA_TYPE_STAT
 
 // append form list to tab
 $mediaTypeTab = new CTabView();
-$mediaTypeTab->addTab('mediaTypeTab', _('Media type'), $mediaTypeFormList);
+$mediaTypeTab->addTab('mediaTypeTab', _('Media'), $mediaTypeFormList);
 
 // append tab to form
 $mediaTypeForm->addItem($mediaTypeTab);
 
 // append buttons to form
-if (!empty($this->data['mediatypeid'])) {
-	$mediaTypeForm->addItem(makeFormFooter(
-		new CSubmit('update', _('Update')),
-		array(
-			new CButtonDelete(
-				_('Delete selected media type?'),
-				url_param('form').url_param('mediatypeid').url_param('config')
-			),
-			new CButtonCancel(url_param('config'))
-		)
-	));
+$saveButton = new CSubmit('save', _('Save'));
+if (empty($this->data['mediatypeid'])) {
+	$mediaTypeForm->addItem(makeFormFooter(array($saveButton), array(new CButtonCancel(url_param('config')))));
 }
 else {
-	$mediaTypeForm->addItem(makeFormFooter(
-		new CSubmit('add', _('Add')),
-		array(new CButtonCancel(url_param('config')))
-	));
+	$mediaTypeForm->addItem(makeFormFooter(array($saveButton), array(new CButtonDelete(_('Delete selected media type?'), url_param('form').url_param('mediatypeid').url_param('config')), new CButtonCancel(url_param('config')))));
 }
 
 // append form to widget
 $mediaTypeWidget->addItem($mediaTypeForm);
 
 return $mediaTypeWidget;
+?>

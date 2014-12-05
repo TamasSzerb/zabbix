@@ -30,12 +30,10 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
-	'imageid' =>	array(T_ZBX_INT, O_NO,	P_SYS,		DB_ID,		'isset({form}) && {form} == "update"'),
-	'name' =>		array(T_ZBX_STR, O_NO,	null,		NOT_EMPTY,	'isset({add}) || isset({update})'),
-	'imagetype' =>	array(T_ZBX_INT, O_OPT, null,		IN('1,2'),	'isset({add}) || isset({update})'),
-	// actions
-	'add' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,		null),
-	'update' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,		null),
+	'imageid' =>	array(T_ZBX_INT, O_NO,	P_SYS,		DB_ID,		'isset({form})&&({form}=="update")'),
+	'name' =>		array(T_ZBX_STR, O_NO,	null,		NOT_EMPTY,	'isset({save})'),
+	'imagetype' =>	array(T_ZBX_INT, O_OPT,	null,		IN('1,2'),	'isset({save})'),
+	'save' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,		null),
 	'delete' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,		null),
 	'form' =>		array(T_ZBX_STR, O_OPT, P_SYS,		null,		null)
 );
@@ -44,8 +42,8 @@ check_fields($fields);
 /*
  * Permissions
  */
-if (hasRequest('imageid')) {
-	$dbImage = DBfetch(DBselect('SELECT i.imagetype,i.name FROM images i WHERE i.imageid='.zbx_dbstr(getRequest('imageid'))));
+if (isset($_REQUEST['imageid'])) {
+	$dbImage = DBfetch(DBselect('SELECT i.imagetype,i.name FROM images i WHERE i.imageid='.get_request('imageid')));
 	if (empty($dbImage)) {
 		access_deny();
 	}
@@ -54,19 +52,18 @@ if (hasRequest('imageid')) {
 /*
  * Actions
  */
-if (hasRequest('add') || hasRequest('update')) {
-	if (hasRequest('update')) {
-		$msgOk = _('Image updated');
-		$msgFail = _('Cannot update image');
+if (isset($_REQUEST['save'])) {
+	if (isset($_REQUEST['imageid'])) {
+		$msg_ok = _('Image updated');
+		$msg_fail = _('Cannot update image');
 	}
 	else {
-		$msgOk = _('Image added');
-		$msgFail = _('Cannot add image');
+		$msg_ok = _('Image added');
+		$msg_fail = _('Cannot add image');
 	}
 
 	try {
 		DBstart();
-
 		if (isset($_FILES['image'])) {
 			$file = new CUploadFile($_FILES['image']);
 
@@ -77,21 +74,24 @@ if (hasRequest('add') || hasRequest('update')) {
 			}
 		}
 
-		if (hasRequest('update')) {
-			$result = API::Image()->update(array(
-				'imageid' => getRequest('imageid'),
-				'name' => getRequest('name'),
-				'image' => $image
-			));
-
-			$audit_action = 'Image ['.getRequest('name').'] updated';
-		}
-		else {
-			$result = API::Image()->create(array(
+		if (isset($_REQUEST['imageid'])) {
+			$val = array(
+				'imageid' => $_REQUEST['imageid'],
 				'name' => $_REQUEST['name'],
 				'imagetype' => $_REQUEST['imagetype'],
 				'image' => $image
-			));
+			);
+			$result = API::Image()->update($val);
+
+			$audit_action = 'Image ['.$_REQUEST['name'].'] updated';
+		}
+		else {
+			$val = array(
+				'name' => $_REQUEST['name'],
+				'imagetype' => $_REQUEST['imagetype'],
+				'image' => $image
+			);
+			$result = API::Image()->create($val);
 
 			$audit_action = 'Image ['.$_REQUEST['name'].'] added';
 		}
@@ -101,28 +101,24 @@ if (hasRequest('add') || hasRequest('update')) {
 			unset($_REQUEST['form']);
 		}
 
-		$result = DBend($result);
-		show_messages($result, $msgOk, $msgFail);
+		DBend($result);
+		show_messages($result, $msg_ok, $msg_fail);
 	}
 	catch (Exception $e) {
 		DBend(false);
 		error($e->getMessage());
-		show_error_message($msgFail);
+		show_error_message($msg_fail);
 	}
 }
 elseif (isset($_REQUEST['delete']) && isset($_REQUEST['imageid'])) {
-	DBstart();
-
 	$image = get_image_by_imageid($_REQUEST['imageid']);
-	$result = API::Image()->delete(array(getRequest('imageid')));
-
+	$result = API::Image()->delete($_REQUEST['imageid']);
+	show_messages($result, _('Image deleted'), _('Cannot delete image'));
 	if ($result) {
 		add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_IMAGE, 'Image ['.$image['name'].'] deleted');
-		unset($_REQUEST['form'], $image, $_REQUEST['imageid']);
+		unset($_REQUEST['form']);
+		unset($image, $_REQUEST['imageid']);
 	}
-
-	$result = DBend($result);
-	show_messages($result, _('Image deleted'), _('Cannot delete image'));
 }
 
 /*
@@ -130,10 +126,10 @@ elseif (isset($_REQUEST['delete']) && isset($_REQUEST['imageid'])) {
  */
 $form = new CForm();
 $form->cleanItems();
-$generalComboBox = new CComboBox('configDropDown', 'adm.images.php', 'redirect(this.options[this.selectedIndex].value);');
-$generalComboBox->addItems(array(
+$cmbConf = new CComboBox('configDropDown', 'adm.images.php', 'redirect(this.options[this.selectedIndex].value);');
+$cmbConf->addItems(array(
 	'adm.gui.php' => _('GUI'),
-	'adm.housekeeper.php' => _('Housekeeping'),
+	'adm.housekeeper.php' => _('Housekeeper'),
 	'adm.images.php' => _('Images'),
 	'adm.iconmapping.php' => _('Icon mapping'),
 	'adm.regexps.php' => _('Regular expressions'),
@@ -144,22 +140,17 @@ $generalComboBox->addItems(array(
 	'adm.triggerdisplayoptions.php' => _('Trigger displaying options'),
 	'adm.other.php' => _('Other')
 ));
-$form->addItem($generalComboBox);
-
+$form->addItem($cmbConf);
 if (!isset($_REQUEST['form'])) {
-	$imageType = getRequest('imagetype', IMAGE_TYPE_ICON);
-
-	$form->addVar('imagetype', $imageType);
-	$form->addItem(new CSubmit('form',  ($imageType == IMAGE_TYPE_ICON) ? _('Create icon') : _('Create background')));
+	$form->addItem(new CSubmit('form', _('Create image')));
 }
 
-$imageWidget = new CWidget();
-$imageWidget->addPageHeader(_('CONFIGURATION OF IMAGES'), $form);
+$cnf_wdgt = new CWidget();
+$cnf_wdgt->addPageHeader(_('CONFIGURATION OF IMAGES'), $form);
 
-$data = array(
-	'form' => getRequest('form'),
-	'widget' => &$imageWidget
-);
+$data = array();
+$data['form'] = get_request('form');
+$data['widget'] = &$cnf_wdgt;
 
 if (!empty($data['form'])) {
 	if (isset($_REQUEST['imageid'])) {
@@ -169,25 +160,25 @@ if (!empty($data['form'])) {
 	}
 	else {
 		$data['imageid'] = null;
-		$data['imagename'] = getRequest('name', '');
-		$data['imagetype'] = getRequest('imagetype', IMAGE_TYPE_ICON);
+		$data['imagename'] = get_request('name', '');
+		$data['imagetype'] = get_request('imagetype', 1);
 	}
 
 	$imageForm = new CView('administration.general.image.edit', $data);
 }
 else {
-	$data['imagetype'] = getRequest('imagetype', IMAGE_TYPE_ICON);
-
-	$data['images'] = API::Image()->get(array(
+	$data['imagetype'] = get_request('imagetype', IMAGE_TYPE_ICON);
+	$options = array(
 		'filter' => array('imagetype' => $data['imagetype']),
-		'output' => array('imageid', 'imagetype', 'name')
-	));
-	order_result($data['images'], 'name');
+		'output' => API_OUTPUT_EXTEND,
+		'sortfield' => 'name'
+	);
+	$data['images'] = API::Image()->get($options);
 
 	$imageForm = new CView('administration.general.image.list', $data);
 }
 
-$imageWidget->addItem($imageForm->render());
-$imageWidget->show();
+$cnf_wdgt->addItem($imageForm->render());
+$cnf_wdgt->show();
 
 require_once dirname(__FILE__).'/include/page_footer.php';

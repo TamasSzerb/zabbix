@@ -71,15 +71,6 @@ void	zbx_default_mem_free_func(void *ptr);
 #define ZBX_DEFAULT_MEM_REALLOC_FUNC	zbx_default_mem_realloc_func
 #define ZBX_DEFAULT_MEM_FREE_FUNC	zbx_default_mem_free_func
 
-typedef void (*zbx_clean_func_t)(void *data);
-
-#define ZBX_RETURN_IF_NOT_EQUAL(a, b)	\
-					\
-	if ((a) < (b))			\
-		return -1;		\
-	if ((a) > (b))			\
-		return +1
-
 int	is_prime(int n);
 int	next_prime(int n);
 
@@ -92,13 +83,6 @@ typedef struct
 }
 zbx_ptr_pair_t;
 
-typedef struct
-{
-	zbx_uint64_t	first;
-	zbx_uint64_t	second;
-}
-zbx_uint64_pair_t;
-
 /* hashset */
 
 #define ZBX_HASHSET_ENTRY_T	struct zbx_hashset_entry_s
@@ -106,12 +90,8 @@ zbx_uint64_pair_t;
 ZBX_HASHSET_ENTRY_T
 {
 	ZBX_HASHSET_ENTRY_T	*next;
+	void			*data;
 	zbx_hash_t		hash;
-#if SIZEOF_VOID_P > 4
-	/* the data member must be properly aligned on 64-bit architectures that require aligned memory access */
-	char			padding[sizeof(void *) - sizeof(zbx_hash_t)];
-#endif
-	char			data[1];
 };
 
 typedef struct
@@ -121,7 +101,6 @@ typedef struct
 	int			num_data;
 	zbx_hash_func_t		hash_func;
 	zbx_compare_func_t	compare_func;
-	zbx_clean_func_t	clean_func;
 	zbx_mem_malloc_func_t	mem_malloc_func;
 	zbx_mem_realloc_func_t	mem_realloc_func;
 	zbx_mem_free_func_t	mem_free_func;
@@ -134,7 +113,6 @@ void	zbx_hashset_create(zbx_hashset_t *hs, size_t init_size,
 void	zbx_hashset_create_ext(zbx_hashset_t *hs, size_t init_size,
 				zbx_hash_func_t hash_func,
 				zbx_compare_func_t compare_func,
-				zbx_clean_func_t clean_func,
 				zbx_mem_malloc_func_t mem_malloc_func,
 				zbx_mem_realloc_func_t mem_realloc_func,
 				zbx_mem_free_func_t mem_free_func);
@@ -276,53 +254,27 @@ void	zbx_vector_ ## __id ## _create_ext(zbx_vector_ ## __id ## _t *vector,					\
 void	zbx_vector_ ## __id ## _destroy(zbx_vector_ ## __id ## _t *vector);					\
 														\
 void	zbx_vector_ ## __id ## _append(zbx_vector_ ## __id ## _t *vector, __type value);			\
-void	zbx_vector_ ## __id ## _append_ptr(zbx_vector_ ## __id ## _t *vector, __type *value);			\
 void	zbx_vector_ ## __id ## _remove_noorder(zbx_vector_ ## __id ## _t *vector, int index);			\
 void	zbx_vector_ ## __id ## _remove(zbx_vector_ ## __id ## _t *vector, int index);				\
 														\
 void	zbx_vector_ ## __id ## _sort(zbx_vector_ ## __id ## _t *vector, zbx_compare_func_t compare_func);	\
 void	zbx_vector_ ## __id ## _uniq(zbx_vector_ ## __id ## _t *vector, zbx_compare_func_t compare_func);	\
 														\
-int	zbx_vector_ ## __id ## _nearestindex(zbx_vector_ ## __id ## _t *vector, const __type value,		\
+int	zbx_vector_ ## __id ## _nearestindex(zbx_vector_ ## __id ## _t *vector, __type value,			\
 									zbx_compare_func_t compare_func);	\
-int	zbx_vector_ ## __id ## _bsearch(zbx_vector_ ## __id ## _t *vector, const __type value,			\
+int	zbx_vector_ ## __id ## _bsearch(zbx_vector_ ## __id ## _t *vector, __type value,			\
 									zbx_compare_func_t compare_func);	\
-int	zbx_vector_ ## __id ## _lsearch(zbx_vector_ ## __id ## _t *vector, const __type value, int *index,	\
+int	zbx_vector_ ## __id ## _lsearch(zbx_vector_ ## __id ## _t *vector, __type value, int *index,		\
 									zbx_compare_func_t compare_func);	\
-int	zbx_vector_ ## __id ## _search(zbx_vector_ ## __id ## _t *vector, const __type value,			\
+int	zbx_vector_ ## __id ## _search(zbx_vector_ ## __id ## _t *vector, __type value,				\
 									zbx_compare_func_t compare_func);	\
 														\
 void	zbx_vector_ ## __id ## _reserve(zbx_vector_ ## __id ## _t *vector, size_t size);			\
 void	zbx_vector_ ## __id ## _clear(zbx_vector_ ## __id ## _t *vector);
 
-#define ZBX_PTR_VECTOR_DECL(__id, __type)									\
-														\
-ZBX_VECTOR_DECL(__id, __type);											\
-														\
-void	zbx_vector_ ## __id ## _clear_ext(zbx_vector_ ## __id ## _t *vector, zbx_clean_func_t clean_func);
-
 ZBX_VECTOR_DECL(uint64, zbx_uint64_t);
-ZBX_PTR_VECTOR_DECL(str, char *);
-ZBX_PTR_VECTOR_DECL(ptr, void *);
+ZBX_VECTOR_DECL(str, char *);
+ZBX_VECTOR_DECL(ptr, void *);
 ZBX_VECTOR_DECL(ptr_pair, zbx_ptr_pair_t);
-ZBX_VECTOR_DECL(uint64_pair, zbx_uint64_pair_t);
-
-/* this function is only for use with zbx_vector_XXX_clear_ext() */
-/* and only if the vector does not contain nested allocations */
-void	zbx_ptr_free(void *data);
-
-/* 128 bit unsigned integer handling */
-#define uset128(base, hi64, lo64)	(base)->hi = hi64; (base)->lo = lo64
-
-void	uinc128_64(zbx_uint128_t *base, zbx_uint64_t value);
-void	uinc128_128(zbx_uint128_t *base, const zbx_uint128_t *value);
-void	udiv128_64(zbx_uint128_t *result, const zbx_uint128_t *base, zbx_uint64_t value);
-void	umul64_64(zbx_uint128_t *result, zbx_uint64_t value, zbx_uint64_t factor);
-
-unsigned int	zbx_isqrt32(unsigned int value);
-
-/* expression evaluation */
-
-int	evaluate(double *value, const char *expression, char *error, int max_error_len);
 
 #endif

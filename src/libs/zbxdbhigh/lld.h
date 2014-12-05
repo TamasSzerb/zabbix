@@ -49,7 +49,4 @@ void	lld_update_triggers(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, zbx_vecto
 
 void	lld_update_graphs(zbx_uint64_t hostid, zbx_uint64_t lld_ruleid, zbx_vector_ptr_t *lld_rows, char **error);
 
-void	lld_update_hosts(zbx_uint64_t lld_ruleid, zbx_vector_ptr_t *lld_rows, char **error, unsigned short lifetime,
-		int lastcheck);
-
 #endif

@@ -17,25 +17,23 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 $httpWidget = new CWidget();
 
+// create new scenario button
 $createForm = new CForm('get');
 $createForm->cleanItems();
 $createForm->addVar('hostid', $this->data['hostid']);
-
-if (empty($this->data['hostid'])) {
-	$createButton = new CSubmit('form', _('Create web scenario (select host first)'));
-	$createButton->setEnabled(false);
-	$createForm->addItem($createButton);
+if ($this->data['hostid'] > 0) {
+	$createScenarioButton = new CSubmit('form', _('Create scenario'));
 }
 else {
-	$createForm->addItem(new CSubmit('form', _('Create web scenario')));
-
-	$httpWidget->addItem(get_header_host_table('web', $this->data['hostid']));
+	$createScenarioButton = new CSubmit('form', _('Create scenario (select host first)'));
+	$createScenarioButton->setEnabled(false);
 }
-
+$createForm->addItem($createScenarioButton);
 $httpWidget->addPageHeader(_('CONFIGURATION OF WEB MONITORING'), $createForm);
 
 // header
@@ -43,128 +41,114 @@ $filterForm = new CForm('get');
 $filterForm->addItem(array(_('Group').SPACE, $this->data['pageFilter']->getGroupsCB()));
 $filterForm->addItem(array(SPACE._('Host').SPACE, $this->data['pageFilter']->getHostsCB()));
 
-$httpWidget->addHeader(_('Web scenarios'), $filterForm);
+$httpWidget->addHeader(_('Scenarios'), $filterForm);
 $httpWidget->addHeaderRowNumber(array(
 	'[ ',
-	new CLink($this->data['showDisabled'] ? _('Hide disabled web scenarios') : _('Show disabled web scenarios'),
+	new CLink($this->data['showDisabled'] ? _('Hide disabled scenarios') : _('Show disabled scenarios'),
 	'?showdisabled='.($this->data['showDisabled'] ? 0 : 1), null), ' ]'
 ));
 
 // create form
-$httpForm = new CForm();
+$httpForm = new CForm('get');
 $httpForm->setName('scenarios');
 $httpForm->addVar('hostid', $this->data['hostid']);
 
-$httpTable = new CTableInfo(_('No web scenarios found.'));
+if (!empty($this->data['showAllApps'])) {
+	$expandLink = new CLink(new CImg('images/general/minus.png'), '?close=1'.url_param('groupid').url_param('hostid'));
+}
+else {
+	$expandLink = new CLink(new CImg('images/general/plus.png'), '?open=1'.url_param('groupid').url_param('hostid'));
+}
+
+$httpTable = new CTableInfo(_('No web scenarios defined.'));
 $httpTable->setHeader(array(
 	new CCheckBox('all_httptests', null, "checkAll('".$httpForm->getName()."', 'all_httptests', 'group_httptestid');"),
-	($this->data['hostid'] == 0)
-		? make_sorting_header(_('Host'), 'hostname', $this->data['sort'], $this->data['sortorder'])
-		: null,
-	make_sorting_header(_('Name'), 'name', $this->data['sort'], $this->data['sortorder']),
+	is_show_all_nodes() ? make_sorting_header(_('Node'), 'h.hostid') : null,
+	$_REQUEST['hostid'] == 0 ? make_sorting_header(_('Host'), 'host') : null,
+	make_sorting_header(array($expandLink, SPACE, _('Name')), 'name'),
 	_('Number of steps'),
 	_('Update interval'),
-	_('Retries'),
-	_('Authentication'),
-	_('HTTP proxy'),
-	_('Application'),
-	make_sorting_header(_('Status'), 'status', $this->data['sort'], $this->data['sortorder']),
-	$this->data['showInfoColumn'] ? _('Info') : null
-));
+	make_sorting_header(_('Status'), 'status'))
+);
 
-$httpTestsLastData = $this->data['httpTestsLastData'];
-$httpTests = $this->data['httpTests'];
+$httpTableRows = array();
+foreach ($this->data['db_httptests'] as $httptestid => $httptest_data) {
+	$db_app = $this->data['db_apps'][$httptest_data['applicationid']];
 
-foreach ($httpTests as $httpTestId => $httpTest) {
-	$name = array();
-	if (isset($this->data['parentTemplates'][$httpTestId])) {
-		$template = $this->data['parentTemplates'][$httpTestId];
-		$name[] = new CLink($template['name'], '?groupid=0&hostid='.$template['id'], 'unknown');
-		$name[] = NAME_DELIMITER;
+	if (!isset($httpTableRows[$db_app['applicationid']])) {
+		$httpTableRows[$db_app['applicationid']] = array();
 	}
-	$name[] = new CLink($httpTest['name'], '?form=update'.'&httptestid='.$httpTestId.'&hostid='.$httpTest['hostid']);
+	if (!uint_in_array($db_app['applicationid'], $_REQUEST['applications']) && !isset($this->data['showAllApps'])) {
+		continue;
+	}
 
-	if ($this->data['showInfoColumn']) {
-		if($httpTest['status'] == HTTPTEST_STATUS_ACTIVE && isset($httpTestsLastData[$httpTestId]) && $httpTestsLastData[$httpTestId]['lastfailedstep']) {
-			$lastData = $httpTestsLastData[$httpTestId];
+	$httpTableRows[$db_app['applicationid']][] = array(
+		new CCheckBox('group_httptestid['.$httptest_data['httptestid'].']', null, null, $httptest_data['httptestid']),
+		is_show_all_nodes() ? SPACE : null,
+		$_REQUEST['hostid'] > 0 ? null : $db_app['hostname'],
+		new CLink($httptest_data['name'], '?form=update'.'&httptestid='.$httptest_data['httptestid'].'&hostid='.$db_app['hostid'].url_param('groupid')),
+		$httptest_data['step_count'],
+		$httptest_data['delay'],
+		new CCol(
+			new CLink(
+				httptest_status2str($httptest_data['status']),
+				'?group_httptestid[]='.$httptest_data['httptestid'].'&go='.($httptest_data['status'] ? 'activate' : 'disable'),
+				httptest_status2style($httptest_data['status'])
+			)
+		)
+	);
+}
 
-			$failedStep = $lastData['failedstep'];
+foreach ($httpTableRows as $appid => $app_rows) {
+	$db_app = $this->data['db_apps'][$appid];
 
-			$errorMessage = $failedStep
-				? _s(
-					'Step "%1$s" [%2$s of %3$s] failed: %4$s',
-					$failedStep['name'],
-					$failedStep['no'],
-					$httpTest['stepscnt'],
-					($lastData['error'] === null) ? _('Unknown error') : $lastData['error']
-				)
-				: _s('Unknown step failed: %1$s', $lastData['error']);
-
-			$infoIcon = new CDiv(SPACE, 'status_icon iconerror');
-			$infoIcon->setHint($errorMessage, 'on');
-		}
-		else {
-			$infoIcon = '';
-		}
+	if (uint_in_array($db_app['applicationid'], $_REQUEST['applications']) || isset($this->data['showAllApps'])) {
+		$link = new CLink(new CImg('images/general/minus.png'), '?close=1&applicationid='.$db_app['applicationid'].url_param('groupid').url_param('hostid').url_param('applications').url_param('select'));
 	}
 	else {
-		$infoIcon = null;
+		$link = new CLink(new CImg('images/general/plus.png'), '?open=1&applicationid='.$db_app['applicationid'].url_param('groupid').url_param('hostid').url_param('applications').url_param('select'));
 	}
 
-	$httpTable->addRow(array(
-		new CCheckBox('group_httptestid['.$httpTest['httptestid'].']', null, null, $httpTest['httptestid']),
-		($this->data['hostid'] > 0) ? null : $httpTest['hostname'],
-		$name,
-		$httpTest['stepscnt'],
-		$httpTest['delay'],
-		$httpTest['retries'],
-		httptest_authentications($httpTest['authentication']),
-		($httpTest['http_proxy'] !== '') ? _('Yes') : _('No'),
-		($httpTest['applicationid'] != 0) ? $httpTest['application_name'] : '-',
-		new CLink(
-			httptest_status2str($httpTest['status']),
-			'?group_httptestid[]='.$httpTest['httptestid'].
-				'&hostid='.$httpTest['hostid'].
-				'&action='.($httpTest['status'] == HTTPTEST_STATUS_DISABLED
-					? 'httptest.massenable'
-					: 'httptest.massdisable'
-				),
-			httptest_status2style($httpTest['status'])
-		),
-		$infoIcon
+	$column = new CCol(array(
+		$link,
+		SPACE,
+		bold($db_app['name']),
+		SPACE.'('._n('%1$d scenario', '%1$d scenarios', $db_app['scenarios_cnt']).')'
 	));
+	$column->setColSpan(6);
+
+	$httpTable->addRow(array(get_node_name_by_elid($db_app['applicationid']), $column));
+
+	foreach ($app_rows as $row) {
+		$httpTable->addRow($row);
+	}
 }
 
 // create go buttons
-$goComboBox = new CComboBox('action');
-
-$goOption = new CComboItem('httptest.massenable', _('Enable selected'));
-$goOption->setAttribute('confirm', _('Enable selected web scenarios?'));
+$goComboBox = new CComboBox('go');
+$goOption = new CComboItem('activate', _('Enable selected'));
+$goOption->setAttribute('confirm', _('Enable selected WEB scenarios?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('httptest.massdisable', _('Disable selected'));
-$goOption->setAttribute('confirm',_('Disable selected web scenarios?'));
+$goOption = new CComboItem('disable', _('Disable selected'));
+$goOption->setAttribute('confirm',_('Disable selected WEB scenarios?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('httptest.massclearhistory', _('Clear history for selected'));
-$goOption->setAttribute('confirm', _('Delete history of selected web scenarios?'));
+$goOption = new CComboItem('clean_history', _('Clear history for selected'));
+$goOption->setAttribute('confirm', _('Delete history of selected WEB scenarios?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('httptest.massdelete', _('Delete selected'));
-$goOption->setAttribute('confirm', _('Delete selected web scenarios?'));
+$goOption = new CComboItem('delete', _('Delete selected'));
+$goOption->setAttribute('confirm', _('Delete selected WEB scenarios?'));
 $goComboBox->addItem($goOption);
 
 $goButton = new CSubmit('goButton', _('Go').' (0)');
 $goButton->setAttribute('id', 'goButton');
-
 zbx_add_post_js('chkbxRange.pageGoName = "group_httptestid";');
-zbx_add_post_js('chkbxRange.prefix = "'.$this->data['hostid'].'";');
-zbx_add_post_js('cookie.prefix = "'.$this->data['hostid'].'";');
 
 // append table to form
 $httpForm->addItem(array($this->data['paging'], $httpTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));
 
 // append form to widget
 $httpWidget->addItem($httpForm);
-
 return $httpWidget;

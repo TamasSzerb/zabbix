@@ -273,9 +273,7 @@ class JMXItemChecker extends ItemChecker
 
 	private boolean isPrimitiveAttributeType(Class<?> clazz)
 	{
-		Class<?>[] clazzez = {Boolean.class, Character.class, Byte.class, Short.class, Integer.class, Long.class,
-			Float.class, Double.class, String.class, java.math.BigDecimal.class, java.math.BigInteger.class,
-			java.util.Date.class, javax.management.ObjectName.class};
+		Class<?>[] clazzez = {Boolean.class, Byte.class, Short.class, Integer.class, Long.class, Float.class, Double.class, String.class};
 
 		return HelperFunctionChest.arrayContains(clazzez, clazz);
 	}

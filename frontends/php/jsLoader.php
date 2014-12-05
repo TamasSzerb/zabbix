@@ -50,20 +50,17 @@ require_once dirname(__FILE__).'/include/translateDefines.inc.php';
 // available scripts 'scriptFileName' => 'path relative to js/'
 $availableJScripts = array(
 	'common.js' => '',
-	'menupopup.js' => '',
+	'menu.js' => '',
+	'prototype.js' => '',
+	'jquery.js' => 'jquery/',
+	'jquery-ui.js' => 'jquery/',
+	'activity-indicator.js' => 'vendors/',
 	'gtlc.js' => '',
 	'functions.js' => '',
 	'main.js' => '',
 	'dom.js' => '',
 	'servercheck.js' => '',
 	'flickerfreescreen.js' => '',
-	'multiselect.js' => '',
-	'chkbxrange.js' => '',
-	// vendors
-	'prototype.js' => '',
-	'jquery.js' => 'jquery/',
-	'jquery-ui.js' => 'jquery/',
-	'activity-indicator.js' => 'vendors/',
 	// classes
 	'class.bbcode.js' => '',
 	'class.calendar.js' => '',
@@ -82,10 +79,7 @@ $availableJScripts = array(
 	'class.cviewswitcher.js' => '',
 	'init.js' => '',
 	// templates
-	'sysmap.tpl.js' => 'templates/',
-	// page-specific scripts
-	'items.js' => 'pages/',
-	'tr_logform.js' => 'pages/',
+	'sysmap.tpl.js' => 'templates/'
 );
 
 $tranStrings = array(
@@ -97,17 +91,24 @@ $tranStrings = array(
 		'S_NOW_SMALL' => _('now'),
 		'S_YEAR_SHORT' => _x('y', 'year short'),
 		'S_MONTH_SHORT' => _x('m', 'month short'),
+		'S_WEEK_SHORT' => _x('w', 'week short'),
 		'S_DAY_SHORT' => _x('d', 'day short'),
 		'S_HOUR_SHORT' => _x('h', 'hour short'),
-		'S_DATE_FORMAT' => DATE_TIME_FORMAT
+		'S_MINUTE_SHORT' => _x('m', 'minute short'),
+		'S_DATE_FORMAT' => FILTER_TIMEBAR_DATE_FORMAT
 	),
 	'functions.js' => array(
-		'Cancel' => _('Cancel'),
-		'Execute' => _('Execute'),
-		'Execution confirmation' => _('Execution confirmation'),
+		'DO_YOU_REPLACE_CONDITIONAL_EXPRESSION_Q' => _('Do you wish to replace the conditional expression?'),
+		'S_INSERT_MACRO' => _('Insert macro'),
+		'S_CREATE_LOG_TRIGGER' => _('Create trigger'),
 		'S_DELETE' => _('Delete'),
 		'S_DELETE_KEYWORD_Q' => _('Delete keyword?'),
-		'S_DELETE_EXPRESSION_Q' => _('Delete expression?')
+		'S_DELETE_EXPRESSION_Q' => _('Delete expression?'),
+		'Simple graphs' => _('Simple graphs'),
+		'History' => _('History'),
+		'History and simple graphs' => _('History and simple graphs'),
+		'Triggers' => _('Triggers'),
+		'Events' => _('Events'),
 	),
 	'class.calendar.js' => array(
 		'S_JANUARY' => _('January'),
@@ -154,82 +155,33 @@ $tranStrings = array(
 		'S_EACH_URL_SHOULD_HAVE_UNIQUE' => _('Each URL should have a unique name. Please make sure there is only one URL named'),
 		'S_DELETE_LINKS_BETWEEN_SELECTED_ELEMENTS_Q' => _('Delete links between selected elements?'),
 		'S_NO_IMAGES' => 'You need to have at least one image uploaded to create map element. Images can be uploaded in Administration->General->Images section.',
-		'S_ICONMAP_IS_NOT_ENABLED' => _('Iconmap is not enabled'),
-		'Colour "%1$s" is not correct: expecting hexadecimal colour code (6 symbols).' => _('Colour "%1$s" is not correct: expecting hexadecimal colour code (6 symbols).')
+		'S_ICONMAP_IS_NOT_ENABLED' => _('Iconmap is not enabled')
 	),
 	'class.cmessages.js' => array(
 		'S_MUTE' => _('Mute'),
 		'S_UNMUTE' => _('Unmute'),
 		'S_MESSAGES' => _('Messages'),
 		'S_CLEAR' => _('Clear'),
-		'S_SNOOZE' => _('Snooze')
+		'S_SNOOZE' => _('Snooze'),
+		'S_MOVE' => _('Move')
 	),
 	'class.cookie.js' => array(
 		'S_MAX_COOKIE_SIZE_REACHED' => _('We are sorry, the maximum possible number of elements to remember has been reached.')
 	),
 	'main.js' => array(
-		'S_CLOSE' => _('Close')
+		'S_CLOSE' => _('Close'),
+		'S_NO_ELEMENTS_SELECTED' => _('No elements selected!')
 	),
-	'multiselect.js' => array(
-		'No matches found' => _('No matches found'),
-		'More matches found...' => _('More matches found...'),
-		'type here to search' => _('type here to search'),
-		'new' => _('new'),
-		'Select' => _('Select')
-	),
-	'menupopup.js' => array(
-		'Acknowledge' => _('Acknowledge'),
-		'Add' => _('Add'),
-		'Add child' => _('Add child'),
-		'Configuration' => _('Configuration'),
-		'Create trigger' => _('Create trigger'),
-		'Delete' => _('Delete'),
-		'Delete service "%1$s"?' => _('Delete service "%1$s"?'),
-		'Do you wish to replace the conditional expression?' => _('Do you wish to replace the conditional expression?'),
-		'Edit' => _('Edit'),
-		'Edit trigger' => _('Edit trigger'),
-		'Events' => _('Events'),
-		'Favourite graphs' => _('Favourite graphs'),
-		'Favourite maps' => _('Favourite maps'),
-		'Favourite screens' => _('Favourite screens'),
-		'Favourite simple graphs' => _('Favourite simple graphs'),
-		'Favourite slide shows' => _('Favourite slide shows'),
-		'Insert expression' => _('Insert expression'),
-		'Trigger status "OK"' => _('Trigger status "OK"'),
-		'Trigger status "Problem"' => _('Trigger status "Problem"'),
-		'Item "%1$s"' => _('Item "%1$s"'),
-		'Go to' => _('Go to'),
-		'Graphs' => _('Graphs'),
-		'History' => _('History'),
-		'Host inventory' => _('Host inventory'),
+	'init.js' => array(
 		'Host screens' => _('Host screens'),
+		'Go to' => _('Go to'),
 		'Latest data' => _('Latest data'),
-		'Latest events' => _('Latest events'),
-		'Latest values' => _('Latest values'),
-		'Last hour graph' => _('Last hour graph'),
-		'Last month graph' => _('Last month graph'),
-		'Last week graph' => _('Last week graph'),
-		'Refresh time' => _('Refresh time'),
-		'Refresh time multiplier' => _('Refresh time multiplier'),
-		'Remove' => _('Remove'),
-		'Remove all' => _('Remove all'),
 		'Scripts' => _('Scripts'),
-		'Service "%1$s"' => _('Service "%1$s"'),
-		'Submap' => _('Submap'),
-		'Trigger' => _('Trigger'),
-		'Triggers' => _('Triggers'),
-		'URL' => _('URL'),
-		'URLs' => _('URLs'),
-		'10 seconds' => _n('%1$s second', '%1$s seconds', 10),
-		'30 seconds' => _n('%1$s second', '%1$s seconds', 30),
-		'1 minute' => _n('%1$s minute', '%1$s minutes', 1),
-		'2 minutes' => _n('%1$s minute', '%1$s minutes', 2),
-		'10 minutes' => _n('%1$s minute', '%1$s minutes', 10),
-		'15 minutes' => _n('%1$s minute', '%1$s minutes', 15)
-	),
-	'items.js' => array(
-		'To set a host interface select a single item type for all items' => _('To set a host interface select a single item type for all items'),
-		'No interface found' => _('No interface found')
+		'Host inventories' => _('Host inventories'),
+		'Add service' => _('Add service'),
+		'Edit service' => _('Edit service'),
+		'Delete service' => _('Delete service'),
+		'Delete the selected service?' => _('Delete the selected service?')
 	)
 );
 
@@ -248,12 +200,10 @@ if (empty($_GET['files'])) {
 		'class.bbcode.js',
 		'class.csuggest.js',
 		'main.js',
-		'chkbxrange.js',
 		'functions.js',
-		'menupopup.js',
+		'menu.js',
 		'init.js'
 	);
-
 	// load frontend messaging only for some pages
 	if (isset($_GET['showGuiMessaging']) && $_GET['showGuiMessaging']) {
 		$files[] = 'class.cmessages.js';
@@ -283,7 +233,7 @@ $etag = md5($jsLength);
 if (isset($_SERVER['HTTP_IF_NONE_MATCH']) && $_SERVER['HTTP_IF_NONE_MATCH'] == $etag) {
 	header('HTTP/1.1 304 Not Modified');
 	header('ETag: '.$etag);
-	exit;
+	exit();
 }
 
 header('Content-type: text/javascript; charset=UTF-8');

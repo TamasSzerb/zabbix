@@ -17,19 +17,20 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 $otherTab = new CFormList('scriptsTab');
 
 $discoveryGroup = new CComboBox('discovery_groupid', $this->data['config']['discovery_groupid']);
-foreach ($this->data['discovery_groups'] as $group) {
+foreach($this->data['discovery_groups'] as $group){
 	$discoveryGroup->addItem($group['groupid'], $group['name']);
 }
 
 $alertUserGroup = new CComboBox('alert_usrgrpid', $this->data['config']['alert_usrgrpid']);
 $alertUserGroup->addItem(0, _('None'));
-foreach ($this->data['alert_usrgrps'] as $usrgrp) {
-	$alertUserGroup->addItem($usrgrp['usrgrpid'], $usrgrp['name']);
+foreach($this->data['alert_usrgrps'] as $usrgrp){
+	$alertUserGroup->addItem($usrgrp['usrgrpid'], get_node_name_by_elid($usrgrp['usrgrpid'], null, ': ').$usrgrp['name']);
 }
 
 $otherTab->addRow(_('Refresh unsupported items (in sec)'), new CNumericBox('refresh_unsupported', $this->data['config']['refresh_unsupported'], 5));
@@ -42,7 +43,9 @@ $otherView->addTab('other', _('Other parameters'), $otherTab);
 
 $otherForm = new CForm();
 $otherForm->setName('otherForm');
+$otherForm->addVar('form_refresh', $this->data['form_refresh'] + 1);
 $otherForm->addItem($otherView);
-$otherForm->addItem(makeFormFooter(new CSubmit('update', _('Update'))));
+$otherForm->addItem(makeFormFooter(array(new CSubmit('save', _('Save')))));
 
 return $otherForm;
+?>

@@ -31,7 +31,7 @@ class testFormAdministrationGeneralImages extends CWebTest {
 		$this->zbxTestLogin('adm.gui.php');
 		$this->assertElementPresent('configDropDown');
 		$this->zbxTestDropdownSelectWait('configDropDown', 'Images');
-		$this->zbxTestCheckTitle('Configuration of images');
+		$this->checkTitle('Configuration of images');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF IMAGES', 'Images', 'Type'));
 		$this->assertElementPresent("//select[@id='imagetype']/option[text()='Icon']");
 		$this->assertElementPresent("//select[@id='imagetype']/option[text()='Background']");
@@ -44,7 +44,7 @@ class testFormAdministrationGeneralImages extends CWebTest {
 		$this->assertElementPresent("//select[@id='imagetype']/option[text()='Icon']");
 		$this->assertElementPresent("//select[@id='imagetype']/option[text()='Background']");
 		$this->assertElementPresent('image');
-		$this->assertElementPresent('add');
+		$this->assertElementPresent('save');
 		$this->assertElementPresent('cancel');
 
 	}
@@ -58,8 +58,8 @@ class testFormAdministrationGeneralImages extends CWebTest {
 		$this->input_type('name', $this->icon_image_name);
 		$this->zbxTestDropdownSelectWait('imagetype', 'Icon');
 		$this->type('image', '/home/hudson/public_html/trunk-FRONTEND-MYSQL/frontends/php/images/general/bttn/minus.png');
-		$this->zbxTestClickWait('add');
-		$this->zbxTestCheckTitle('Configuration of images');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of images');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF IMAGES', 'Images', 'Type', 'Image added'));
 
 		// $sql = 'SELECT * FROM images WHERE name=\''.$this->icon_image_name.'\'';
@@ -90,8 +90,8 @@ class testFormAdministrationGeneralImages extends CWebTest {
 		$this->zbxTestClickWait('link='.$this->icon_image_name);
 		$this->input_type('name', $this->icon_image_name2);
 		$this->type('image', '/home/hudson/public_html/trunk-FRONTEND-MYSQL/frontends/php/images/general/bttn/minus.png');
-		$this->zbxTestClickWait('update');
-		$this->zbxTestCheckTitle('Configuration of images');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of images');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF IMAGES', 'Images', 'Image updated'));
 
 		// SELECT * FROM images WHERE name='...' AND imagetype=1;
@@ -107,7 +107,7 @@ class testFormAdministrationGeneralImages extends CWebTest {
 		$this->zbxTestClick('delete');
 		$this->waitForConfirmation();
 		$this->wait();
-		$this->zbxTestCheckTitle('Configuration of images');
+		$this->checkTitle('Configuration of images');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF IMAGES', 'Images', 'Image deleted'));
 
 		$sql = 'SELECT * FROM images WHERE imagetype=1 AND name=\''.$this->icon_image_name2.'\'';
@@ -121,8 +121,8 @@ class testFormAdministrationGeneralImages extends CWebTest {
 		$this->input_type('name', $this->bg_image_name);
 		$this->zbxTestDropdownSelect('imagetype', 'Background');
 		$this->type('image', '/home/hudson/public_html/trunk-FRONTEND-MYSQL/frontends/php/images/general/bttn/minus.png');
-		$this->zbxTestClickWait('add');
-		$this->zbxTestCheckTitle('Configuration of images');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of images');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF IMAGES', 'Images', 'Type', 'Image added'));
 
 		// SELECT * FROM images WHERE name='...' AND imagetype=2;
@@ -138,8 +138,8 @@ class testFormAdministrationGeneralImages extends CWebTest {
 		$this->zbxTestClickWait("//form[@name='imageForm']//table//a[text()='".$this->bg_image_name."']");
 		$this->input_type('name', $this->bg_image_name2);
 		$this->type('image', '/home/hudson/public_html/trunk-FRONTEND-MYSQL/frontends/php/images/general/bttn/minus.png');
-		$this->zbxTestClickWait('update');
-		$this->zbxTestCheckTitle('Configuration of images');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of images');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF IMAGES', 'Images', 'Image updated'));
 
 		$sql = 'SELECT * FROM images WHERE imagetype=2 AND name=\''.$this->bg_image_name2.'\'';
@@ -155,7 +155,7 @@ class testFormAdministrationGeneralImages extends CWebTest {
 		$this->zbxTestClick('delete');
 		$this->waitForConfirmation();
 		$this->wait();
-		$this->zbxTestCheckTitle('Configuration of images');
+		$this->checkTitle('Configuration of images');
 		$this->zbxTestTextPresent(array('CONFIGURATION OF IMAGES', 'Images', 'Image deleted'));
 
 		$sql = 'SELECT * FROM images WHERE imagetype=2 AND name=\''.$this->bg_image_name2.'\'';

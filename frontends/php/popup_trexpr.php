@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 require_once dirname(__FILE__).'/include/config.inc.php';
 require_once dirname(__FILE__).'/include/users.inc.php';
 
@@ -28,12 +28,23 @@ $page['file'] = 'popup_trexpr.php';
 define('ZBX_PAGE_NO_MENU', 1);
 
 require_once dirname(__FILE__).'/include/page_header.php';
-
+?>
+<?php
+$operators = array(
+	'<' => '<',
+	'>' => '>',
+	'=' => '=',
+	'#' => 'NOT'
+);
+$limited_operators = array(
+	'=' => '=',
+	'#' => 'NOT'
+);
 $metrics = array(
-	PARAM_TYPE_TIME => _('Time'),
+	PARAM_TYPE_SECONDS => _('Seconds'),
 	PARAM_TYPE_COUNTS => _('Count')
 );
-$param1SecCount = array(
+$param1_sec_count = array(
 	array(
 		'C' => _('Last of').' (T)',// caption
 		'T' => T_ZBX_INT, // type
@@ -44,19 +55,19 @@ $param1SecCount = array(
 		'T' => T_ZBX_INT // type
 	)
 );
-$param1Sec = array(
+$param1_sec = array(
 	array(
 		'C' => _('Last of').' (T)', // caption
 		'T' => T_ZBX_INT // type
 	)
 );
-$param1Str = array(
+$param1_str = array(
 	array(
 		'C' => 'T', // caption
 		'T' => T_ZBX_STR
 	)
 );
-$param2SecCount = array(
+$param2_sec_count = array(
 	array(
 		'C' => 'V', // caption
 		'T' => T_ZBX_STR
@@ -67,7 +78,7 @@ $param2SecCount = array(
 		'M' => $metrics // metrcis
 	)
 );
-$param3SecVal = array(
+$param3_sec_val = array(
 	array(
 		'C' => _('Last of').' (T)', // caption
 		'T' => T_ZBX_INT, // type
@@ -86,439 +97,410 @@ $param3SecVal = array(
 		'T' => T_ZBX_INT // type
 	)
 );
-$paramSecIntCount = array(
-	array(
-		'C' => _('Last of').' (T)', // caption
-		'T' => T_ZBX_INT, // type
-		'M' => $metrics // metrics
-	),
-	array(
-		'C' => _('Mask'), // caption
-		'T' => T_ZBX_STR
-	),
-	array(
-		'C' => _('Time shift').' ', // caption
-		'T' => T_ZBX_INT // type
-	)
-);
-$allowedTypesAny = array(
+$allowed_types_any = array(
 	ITEM_VALUE_TYPE_FLOAT => 1,
 	ITEM_VALUE_TYPE_STR => 1,
 	ITEM_VALUE_TYPE_LOG => 1,
 	ITEM_VALUE_TYPE_UINT64 => 1,
 	ITEM_VALUE_TYPE_TEXT => 1
 );
-$allowedTypesNumeric = array(
+$allowed_types_numeric = array(
 	ITEM_VALUE_TYPE_FLOAT => 1,
 	ITEM_VALUE_TYPE_UINT64 => 1
 );
-$allowedTypesStr = array(
+$allowed_types_str = array(
 	ITEM_VALUE_TYPE_STR => 1,
 	ITEM_VALUE_TYPE_LOG => 1,
 	ITEM_VALUE_TYPE_TEXT => 1
 );
-$allowedTypesLog = array(
+$allowed_types_log = array(
 	ITEM_VALUE_TYPE_LOG => 1
-);
-$allowedTypesInt = array(
-	ITEM_VALUE_TYPE_UINT64 => 1
 );
 
 $functions = array(
 	'abschange[<]' => array(
 		'description' =>  _('Absolute difference between last and previous value is < N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'abschange[>]' => array(
 		'description' =>  _('Absolute difference between last and previous value is > N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'abschange[=]' => array(
 		'description' =>  _('Absolute difference between last and previous value is = N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
-	'abschange[<>]' => array(
+	'abschange[#]' => array(
 		'description' =>  _('Absolute difference between last and previous value is NOT N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'avg[<]' => array(
 		'description' =>  _('Average value of a period T is < N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
 	'avg[>]' => array(
 		'description' =>  _('Average value of a period T is > N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
 	'avg[=]' => array(
 		'description' =>  _('Average value of a period T is = N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
-	'avg[<>]' => array(
+	'avg[#]' => array(
 		'description' =>  _('Average value of a period T is NOT N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
 	'delta[<]' => array(
 		'description' =>  _('Difference between MAX and MIN value of a period T is < N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
 	'delta[>]' => array(
 		'description' =>  _('Difference between MAX and MIN value of a period T is > N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
 	'delta[=]' => array(
 		'description' =>  _('Difference between MAX and MIN value of a period T is = N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
-	'delta[<>]' => array(
+	'delta[#]' => array(
 		'description' =>  _('Difference between MAX and MIN value of a period T is NOT N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
 	'change[<]' => array(
 		'description' =>  _('Difference between last and previous value is < N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'change[>]' => array(
 		'description' =>  _('Difference between last and previous value is > N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'change[=]' => array(
 		'description' =>  _('Difference between last and previous value is = N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
-	'change[<>]' => array(
+	'change[#]' => array(
 		'description' =>  _('Difference between last and previous value is NOT N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'count[<]' => array(
 		'description' =>  _('Number of successfully retrieved values V (which fulfill operator O) for period T is < N'),
-		'params' => $param3SecVal,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param3_sec_val,
+		'allowed_types' => $allowed_types_any
 	),
 	'count[>]' => array(
 		'description' =>  _('Number of successfully retrieved values V (which fulfill operator O) for period T is > N'),
-		'params' => $param3SecVal,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param3_sec_val,
+		'allowed_types' => $allowed_types_any
 	),
 	'count[=]' => array(
 		'description' =>  _('Number of successfully retrieved values V (which fulfill operator O) for period T is = N'),
-		'params' => $param3SecVal,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param3_sec_val,
+		'allowed_types' => $allowed_types_any
 	),
-	'count[<>]' => array(
+	'count[#]' => array(
 		'description' =>  _('Number of successfully retrieved values V (which fulfill operator O) for period T is NOT N'),
-		'params' => $param3SecVal,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param3_sec_val,
+		'allowed_types' => $allowed_types_any
 	),
 	'diff[=]' => array(
 		'description' =>  _('Difference between last and preceding values, then N = 1, 0 - otherwise'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
-	'diff[<>]' => array(
+	'diff[#]' => array(
 		'description' =>  _('Difference between last and preceding values, then N NOT 1, 0 - otherwise'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'last[<]' => array(
 		'description' =>  _('Last (most recent) T value is < N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_any
 	),
 	'last[>]' => array(
 		'description' =>  _('Last (most recent) T value is > N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_any
 	),
 	'last[=]' => array(
 		'description' =>  _('Last (most recent) T value is = N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_any
 	),
-	'last[<>]' => array(
+	'last[#]' => array(
 		'description' =>  _('Last (most recent) T value is NOT N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_any
 	),
 	'max[<]' => array(
 		'description' =>  _('Maximum value for period T is < N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
 	'max[>]' => array(
 		'description' =>  _('Maximum value for period T is > N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
 	'max[=]' => array(
 		'description' =>  _('Maximum value for period T is = N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
-	'max[<>]' => array(
+	'max[#]' => array(
 		'description' =>  _('Maximum value for period T is NOT N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
 	'min[<]' => array(
 		'description' =>  _('Minimum value for period T is < N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 		),
 	'min[>]' => array(
 		'description' =>  _('Minimum value for period T is > N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 		),
 	'min[=]' => array(
 		'description' =>  _('Minimum value for period T is = N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 		),
-	'min[<>]' => array(
+	'min[#]' => array(
 		'description' =>  _('Minimum value for period T is NOT N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 		),
 	'prev[<]' => array(
 		'description' =>  _('Previous value is < N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'prev[>]' => array(
 		'description' =>  _('Previous value is > N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'prev[=]' => array(
 		'description' =>  _('Previous value is = N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
-	'prev[<>]' => array(
+	'prev[#]' => array(
 		'description' =>  _('Previous value is NOT N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'str[=]' => array(
 		'description' =>  _('Find string V in last (most recent) value. N = 1 - if found, 0 - otherwise'),
-		'params' => $param2SecCount,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param2_sec_count,
+		'allowed_types' => $allowed_types_any
 	),
-	'str[<>]' => array(
+	'str[#]' => array(
 		'description' =>  _('Find string V in last (most recent) value. N NOT 1 - if found, 0 - otherwise'),
-		'params' => $param2SecCount,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param2_sec_count,
+		'allowed_types' => $allowed_types_any
 	),
 	'strlen[<]' => array(
 		'description' =>  _('Length of last (most recent) T value in characters is < N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesStr
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_str
 	),
 	'strlen[>]' => array(
 		'description' =>  _('Length of last (most recent) T value in characters is > N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesStr
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_str
 	),
 	'strlen[=]' => array(
 		'description' =>  _('Length of last (most recent) T value in characters is = N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesStr
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_str
 	),
-	'strlen[<>]' => array(
+	'strlen[#]' => array(
 		'description' =>  _('Length of last (most recent) T value in characters is NOT N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesStr
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_str
 	),
 	'sum[<]' => array(
 		'description' =>  _('Sum of values of a period T is < N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
 	'sum[>]' => array(
 		'description' =>  _('Sum of values of a period T is > N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
 	'sum[=]' => array(
 		'description' =>  _('Sum of values of a period T is = N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
-	'sum[<>]' => array(
+	'sum[#]' => array(
 		'description' =>  _('Sum of values of a period T is NOT N'),
-		'params' => $param1SecCount,
-		'allowed_types' => $allowedTypesNumeric
+		'params' => $param1_sec_count,
+		'allowed_types' => $allowed_types_numeric
 	),
 	'date[<]' => array(
 		'description' =>  _('Current date is < N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'date[>]' => array(
 		'description' =>  _('Current date is > N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'date[=]' => array(
 		'description' =>  _('Current date is = N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
-	'date[<>]' => array(
+	'date[#]' => array(
 		'description' =>  _('Current date is NOT N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'dayofweek[<]' => array(
 		'description' =>  _('Day of week is < N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'dayofweek[>]' => array(
 		'description' =>  _('Day of week is > N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'dayofweek[=]' => array(
 		'description' =>  _('Day of week is = N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
-	'dayofweek[<>]' => array(
+	'dayofweek[#]' => array(
 		'description' =>  _('Day of week is NOT N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'dayofmonth[<]' => array(
 		'description' =>  _('Day of month is < N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'dayofmonth[>]' => array(
 		'description' =>  _('Day of month is > N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'dayofmonth[=]' => array(
 		'description' =>  _('Day of month is = N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
-	'dayofmonth[<>]' => array(
+	'dayofmonth[#]' => array(
 		'description' =>  _('Day of month is NOT N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'fuzzytime[=]' => array(
 		'description' =>  _('Timestamp not different from Zabbix server time for more than T seconds, then N = 1, 0 - otherwise'),
-		'params' => $param1Sec,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param1_sec,
+		'allowed_types' => $allowed_types_any
 	),
-	'fuzzytime[<>]' => array(
+	'fuzzytime[#]' => array(
 		'description' =>  _('Timestamp not different from Zabbix server time for more than T seconds, then N NOT 1, 0 - otherwise'),
-		'params' => $param1Sec,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param1_sec,
+		'allowed_types' => $allowed_types_any
 	),
 	'regexp[=]' => array(
 		'description' =>  _('Regular expression V matching last value in period T, then N = 1, 0 - otherwise'),
-		'params' => $param2SecCount,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param2_sec_count,
+		'allowed_types' => $allowed_types_any
 	),
-	'regexp[<>]' => array(
+	'regexp[#]' => array(
 		'description' =>  _('Regular expression V matching last value in period T, then N NOT 1, 0 - otherwise'),
-		'params' => $param2SecCount,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param2_sec_count,
+		'allowed_types' => $allowed_types_any
 	),
 	'iregexp[=]' => array(
 		'description' =>  _('Regular expression V matching last value in period T, then N = 1, 0 - otherwise (non case-sensitive)'),
-		'params' => $param2SecCount,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param2_sec_count,
+		'allowed_types' => $allowed_types_any
 	),
-	'iregexp[<>]' => array(
+	'iregexp[#]' => array(
 		'description' =>  _('Regular expression V matching last value in period T, then N NOT 1, 0 - otherwise (non case-sensitive)'),
-		'params' => $param2SecCount,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param2_sec_count,
+		'allowed_types' => $allowed_types_any
 	),
 	'logeventid[=]' => array(
 		'description' =>  _('Event ID of last log entry matching regular expression T, then N = 1, 0 - otherwise'),
-		'params' => $param1Str,
-		'allowed_types' => $allowedTypesLog
+		'params' => $param1_str,
+		'allowed_types' => $allowed_types_log
 	),
-	'logeventid[<>]' => array(
+	'logeventid[#]' => array(
 		'description' =>  _('Event ID of last log entry matching regular expression T, then N NOT 1, 0 - otherwise'),
-		'params' => $param1Str,
-		'allowed_types' => $allowedTypesLog
+		'params' => $param1_str,
+		'allowed_types' => $allowed_types_log
 	),
 	'logseverity[<]' => array(
 		'description' =>  _('Log severity of the last log entry is < N'),
-		'allowed_types' => $allowedTypesLog
+		'allowed_types' => $allowed_types_log
 	),
 	'logseverity[>]' => array(
 		'description' =>  _('Log severity of the last log entry is > N'),
-		'allowed_types' => $allowedTypesLog
+		'allowed_types' => $allowed_types_log
 	),
 	'logseverity[=]' => array(
 		'description' =>  _('Log severity of the last log entry is = N'),
-		'allowed_types' => $allowedTypesLog
+		'allowed_types' => $allowed_types_log
 	),
-	'logseverity[<>]' => array(
+	'logseverity[#]' => array(
 		'description' =>  _('Log severity of the last log entry is NOT N'),
-		'allowed_types' => $allowedTypesLog
+		'allowed_types' => $allowed_types_log
 	),
 	'logsource[=]' => array(
 		'description' =>  _('Log source of the last log entry matching parameter T, then N = 1, 0 - otherwise'),
-		'params' => $param1Str,
-		'allowed_types' => $allowedTypesLog
+		'params' => $param1_str,
+		'allowed_types' => $allowed_types_log
 	),
-	'logsource[<>]' => array(
+	'logsource[#]' => array(
 		'description' =>  _('Log source of the last log entry matching parameter T, then N NOT 1, 0 - otherwise'),
-		'params' => $param1Str,
-		'allowed_types' => $allowedTypesLog
+		'params' => $param1_str,
+		'allowed_types' => $allowed_types_log
 	),
 	'now[<]' => array(
 		'description' =>  _('Number of seconds since the Epoch is < N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'now[>]' => array(
 		'description' =>  _('Number of seconds since the Epoch is > N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'now[=]' => array(
 		'description' =>  _('Number of seconds since the Epoch is = N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
-	'now[<>]' => array(
+	'now[#]' => array(
 		'description' =>  _('Number of seconds since the Epoch is NOT N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'time[<]' => array(
 		'description' =>  _('Current time is < N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'time[>]' => array(
 		'description' =>  _('Current time is > N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'time[=]' => array(
 		'description' =>  _('Current time is = N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
-	'time[<>]' => array(
+	'time[#]' => array(
 		'description' =>  _('Current time is NOT N'),
-		'allowed_types' => $allowedTypesAny
+		'allowed_types' => $allowed_types_any
 	),
 	'nodata[=]' => array(
 		'description' =>  _('No data received during period of time T, then N = 1, 0 - otherwise'),
-		'params' => $param1Sec,
-		'allowed_types' => $allowedTypesAny
+		'params' => $param1_sec,
+		'allowed_types' => $allowed_types_any
 	),
-	'nodata[<>]' => array(
+	'nodata[#]' => array(
 		'description' =>  _('No data received during period of time T, then N NOT 1, 0 - otherwise'),
-		'params' => $param1Sec,
-		'allowed_types' => $allowedTypesAny
-	),
-	'band[=]' => array(
-		'description' =>  _('Bitwise AND of last (most recent) T value and mask is = N'),
-		'params' => $paramSecIntCount,
-		'allowed_types' => $allowedTypesInt
-	),
-	'band[<>]' => array(
-		'description' =>  _('Bitwise AND of last (most recent) T value and mask is NOT N'),
-		'params' => $paramSecIntCount,
-		'allowed_types' => $allowedTypesInt
+		'params' => $param1_sec,
+		'allowed_types' => $allowed_types_any
 	)
 );
-order_result($functions, 'description');
 
 //	VAR		TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 $fields = array(
@@ -528,254 +510,145 @@ $fields = array(
 	'itemid' =>				array(T_ZBX_INT, O_OPT, null,	null,		'isset({insert})'),
 	'parent_discoveryid' =>	array(T_ZBX_INT, O_OPT, null,	null,		null),
 	'expr_type'=>			array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY,	'isset({insert})'),
-	'params' =>				array(T_ZBX_STR, O_OPT, null,	0,			null),
-	'paramtype' =>			array(T_ZBX_INT, O_OPT, null,	IN(PARAM_TYPE_TIME.','.PARAM_TYPE_COUNTS), 'isset({insert})'),
+	'param' =>				array(T_ZBX_STR, O_OPT, null,	0,			'isset({insert})'),
+	'paramtype' =>			array(T_ZBX_INT, O_OPT, null,	IN(PARAM_TYPE_SECONDS.','.PARAM_TYPE_COUNTS), 'isset({insert})'),
 	'value' =>				array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY,	'isset({insert})'),
 	// action
 	'insert' =>				array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
-	'cancel' =>				array(T_ZBX_STR, O_OPT, P_SYS,	null,		null)
+	'cancel' =>				array(T_ZBX_STR, O_OPT, P_SYS,	null,		null),
 );
 check_fields($fields);
 
-$dstfrm = getRequest('dstfrm', 0);
-$dstfld1 = getRequest('dstfld1', '');
-$itemId = getRequest('itemid', 0);
-$value = getRequest('value', 0);
-$params = getRequest('params', array());
-$paramType = getRequest('paramtype');
-$exprType = getRequest('expr_type', 'last[=]');
-
-// opening the popup when editing an expression in the trigger constructor
 if (isset($_REQUEST['expression']) && $_REQUEST['dstfld1'] == 'expr_temp') {
 	$_REQUEST['expression'] = utf8RawUrlDecode($_REQUEST['expression']);
 
 	$expressionData = new CTriggerExpression();
-	$result = $expressionData->parse(getRequest('expression'));
 
-	if ($result) {
-		// only one item function macro is supported in an expression
-		$functionMacroTokens = $result->getTokensByType(CTriggerExpressionParserResult::TOKEN_TYPE_FUNCTION_MACRO);
-		if (count($functionMacroTokens) == 1) {
-			$functionMacroToken = $functionMacroTokens[0];
+	if ($expressionData->parse($_REQUEST['expression']) && count($expressionData->expressions) == 1) {
+		$exprPart = reset($expressionData->expressions);
+		preg_match('/\}([=><#]{1})([0-9]+)$/', $_REQUEST['expression'], $exprSymbols);
 
-			// function
-			$function = $functionMacroToken['data']['functionName'];
+		if (isset($exprSymbols[1])) {
+			$_REQUEST['expr_type'] = $exprPart['functionName'].'['.$exprSymbols[1].']';
+		}
 
-			// determine param type
-			$params = $functionMacroToken['data']['functionParams'];
-			$paramNumber = in_array($function, array('regexp', 'iregexp', 'str')) ? 1 : 0;
-			if (isset($params[$paramNumber][0]) && $params[$paramNumber][0] == '#') {
-				$paramType = PARAM_TYPE_COUNTS;
-				$params[$paramNumber] = substr($params[$paramNumber], 1);
-			}
-			else {
-				$paramType = PARAM_TYPE_TIME;
-			}
+		$_REQUEST['description'] = $exprPart['host'] .':'. $exprPart['item'];
+		$_REQUEST['param'] = $exprPart['functionParamList'];
 
-			// default operator
-			$operator = '=';
+		$param_no = in_array($exprPart['functionName'], array('regexp', 'iregexp', 'str')) ? 1 : 0;
+		if (isset($_REQUEST['param'][$param_no][0]) && $_REQUEST['param'][$param_no][0] == '#') {
+			$_REQUEST['paramtype'] = PARAM_TYPE_COUNTS;
+			$_REQUEST['param'][$param_no] = substr($_REQUEST['param'][$param_no], 1);
+		}
+		else {
+			$_REQUEST['paramtype'] = PARAM_TYPE_SECONDS;
+		}
 
-			// try to find an operator and a numeric value
-			// the value and operator can be extracted only if the immediately follow the item function macro
-			$tokens = $result->getTokens();
-			foreach ($tokens as $key => $token) {
-				if ($token['type'] == CTriggerExpressionParserResult::TOKEN_TYPE_FUNCTION_MACRO) {
-					if (isset($tokens[$key + 2])
-							&& $tokens[$key + 1]['type'] == CTriggerExpressionParserResult::TOKEN_TYPE_OPERATOR
-							&& isset($functions[$function.'['.$tokens[$key + 1]['value'].']'])
-							&& $tokens[$key + 2]['type'] == CTriggerExpressionParserResult::TOKEN_TYPE_NUMBER) {
+		if (isset($exprSymbols[2])) {
+			$_REQUEST['value'] = $exprSymbols[2];
+		}
 
-						$operator = $tokens[$key + 1]['value'];
-						$value = $tokens[$key + 2]['value'];
-					}
-					else {
-						break;
-					}
-				}
-			}
-
-			$exprType = $function.'['.$operator.']';
-
-			// find the item
-			$item = API::Item()->get(array(
-				'output' => array('itemid', 'hostid', 'name', 'key_', 'value_type'),
-				'selectHosts' => array('name'),
-				'webitems' => true,
-				'filter' => array(
-					'host' => $functionMacroToken['data']['host'],
-					'key_' => $functionMacroToken['data']['item'],
-					'flags' => null
-				)
-			));
-			$item = reset($item);
-
-			if ($item) {
-				$itemId = $item['itemid'];
-			}
-			else {
-				error(_('Unknown host item, no such item in selected host'));
-			}
+		$myItem = API::Item()->get(array(
+			'filter' => array('host' => $exprPart['host'], 'key_' => $exprPart['item'], 'flags' => null),
+			'output' => API_OUTPUT_EXTEND,
+			'webitems' => true
+		));
+		$myItem = reset($myItem);
+		if (isset($myItem['itemid'])) {
+			$_REQUEST['itemid'] = $myItem['itemid'];
 		}
 	}
 }
-// opening an empty form or switching a function
-else {
-	if (preg_match('/^([a-z]+)\[([=><]{1,2})\]$/i', $exprType, $matches)) {
-		$function = $matches[1];
-		$operator = $matches[2];
 
-		if (!isset($functions[$exprType])) {
-			unset($function);
-		}
+$expr_type = get_request('expr_type', 'last[=]');
+if (preg_match('/^([a-z]+)\[(['.implode('', array_keys($operators)).'])\]$/i', $expr_type, $expr_res)) {
+	$function = $expr_res[1];
+	$operator = $expr_res[2];
+	if (!isset($functions[$expr_type])) {
+		unset($function);
 	}
+}
 
-	// fetch item
-	$item = API::Item()->get(array(
-		'output' => array('itemid', 'hostid', 'name', 'key_', 'value_type'),
-		'selectHosts' => array('host', 'name'),
-		'itemids' => $itemId,
+$dstfrm = get_request('dstfrm', 0);
+$dstfld1 = get_request('dstfld1', '');
+$itemid = get_request('itemid', 0);
+$value = get_request('value', 0);
+$param = get_request('param', 0);
+$paramtype = get_request('paramtype');
+
+if (!isset($function)) {
+	$function = 'last[=]';
+	$expr_type = $function;
+}
+
+if ($itemid) {
+	$items_data = API::Item()->get(array(
+		'output' => API_OUTPUT_EXTEND,
+		'itemids' => $itemid,
 		'webitems' => true,
+		'selectHosts' => API_OUTPUT_EXTEND,
 		'filter' => array('flags' => null)
 	));
-	$item = reset($item);
-}
-
-if ($itemId) {
-	$items = CMacrosResolverHelper::resolveItemNames(array($item));
-	$item = $items[0];
-
-	$itemValueType = $item['value_type'];
-	$itemKey = $item['key_'];
-	$itemHostData = reset($item['hosts']);
-	$description = $itemHostData['name'].NAME_DELIMITER.$item['name_expanded'];
+	$item_data = reset($items_data);
+	$item_key = $item_data['key_'];
+	$item_host = reset($item_data['hosts']);
+	$item_host = $item_host['host'];
+	$description = $item_host.':'.itemName($item_data);
 }
 else {
-	$itemKey = '';
-	$description = '';
-	$itemValueType = null;
+	$item_key = $item_host = $description = '';
 }
 
-if (is_null($paramType) && isset($functions[$exprType]['params']['M'])) {
-	$paramType = is_array($functions[$exprType]['params']['M']) ? reset($functions[$exprType]['params']['M']) : $functions[$exprType]['params']['M'];
+if (is_null($paramtype) && isset($functions[$expr_type]['params']['M'])) {
+	$paramtype = is_array($functions[$expr_type]['params']['M']) ? reset($functions[$expr_type]['params']['M']) : $functions[$expr_type]['params']['M'];
 }
-elseif (is_null($paramType)) {
-	$paramType = PARAM_TYPE_TIME;
+elseif (is_null($paramtype)) {
+	$paramtype = PARAM_TYPE_SECONDS;
+}
+
+if (!is_array($param)) {
+	if (isset($functions[$expr_type]['params'])) {
+		$param = explode(',', $param, count($functions[$expr_type]['params']));
+	}
+	else {
+		$param = array($param);
+	}
 }
 
 /*
  * Display
  */
 $data = array(
-	'parent_discoveryid' => getRequest('parent_discoveryid'),
+	'parent_discoveryid' => get_request('parent_discoveryid', null),
 	'dstfrm' => $dstfrm,
 	'dstfld1' => $dstfld1,
-	'itemid' => $itemId,
+	'itemid' => $itemid,
 	'value' => $value,
-	'params' => $params,
-	'paramtype' => $paramType,
+	'param' => $param,
+	'paramtype' => $paramtype,
 	'description' => $description,
 	'functions' => $functions,
-	'item_key' => $itemKey,
-	'itemValueType' => $itemValueType,
-	'selectedFunction' => null,
-	'expr_type' => $exprType,
-	'insert' => getRequest('insert'),
-	'cancel' => getRequest('cancel')
+	'function' => $function,
+	'operator' => $operator,
+	'item_host' => $item_host,
+	'item_key' => $item_key,
+	'itemValueType' => null,
+	'expr_type' => $expr_type,
+	'insert' => get_request('insert', null),
+	'cancel' => get_request('cancel', null)
 );
 
-// check if submitted function is usable with selected item
-foreach ($data['functions'] as $id => $f) {
-	if ((!$data['itemValueType'] || isset($f['allowed_types'][$data['itemValueType']])) && $id == $exprType) {
-		$data['selectedFunction'] = $id;
-		break;
-	}
-}
-
-if ($data['selectedFunction'] === null) {
-	error(_s('Function "%1$s" cannot be used with selected item "%2$s"',
-		$data['functions'][$exprType]['description'],
-		$data['description']
+// if user has already selected an item
+if (!empty($itemid)) {
+	// getting type of return value for the item user selected
+	$selectedItems = API::Item()->get(array(
+		'itemids' => array($itemid),
+		'output' => API_OUTPUT_EXTEND,
+		'filter' => array('flags' => null)
 	));
-}
-
-// remove functions that not correspond to chosen item
-foreach ($data['functions'] as $id => $f) {
-	if ($data['itemValueType'] && !isset($f['allowed_types'][$data['itemValueType']])) {
-		unset($data['functions'][$id]);
+	if ($selectedItem = reset($selectedItems)) {
+		$data['itemValueType'] = $selectedItem['value_type'];
 	}
-}
-
-// create and validate trigger expression
-if (isset($data['insert'])) {
-	try {
-		if ($data['description']) {
-			if ($data['paramtype'] == PARAM_TYPE_COUNTS) {
-				$paramNumber = in_array($function, array('regexp', 'iregexp', 'str')) ? 1 : 0;
-				$data['params'][$paramNumber] = '#'.$data['params'][$paramNumber];
-			}
-
-			if ($data['paramtype'] == PARAM_TYPE_TIME && in_array($function, array('last', 'band', 'strlen'))) {
-				$data['params'][0] = '';
-			}
-
-			// quote function param
-			$quotedParams = array();
-			foreach ($data['params'] as $param) {
-				$quotedParams[] = quoteFunctionParam($param);
-			}
-
-			$data['expression'] = sprintf('{%s:%s.%s(%s)}%s%s',
-				$itemHostData['host'],
-				$data['item_key'],
-				$function,
-				rtrim(implode(',', $quotedParams), ','),
-				$operator,
-				$data['value']
-			);
-
-			// validate trigger expression
-			$triggerExpression = new CTriggerExpression();
-
-			if ($triggerExpression->parse($data['expression'])) {
-				$expressionData = reset($triggerExpression->expressions);
-
-				// validate trigger function
-				$triggerFunctionValidator = new CFunctionValidator();
-				$isValid = $triggerFunctionValidator->validate(array(
-					'function' => $expressionData['function'],
-					'functionName' => $expressionData['functionName'],
-					'functionParamList' => $expressionData['functionParamList'],
-					'valueType' => $data['itemValueType']
-				));
-				if (!$isValid) {
-					unset($data['insert']);
-					throw new Exception($triggerFunctionValidator->getError());
-				}
-			}
-			else {
-				unset($data['insert']);
-				throw new Exception($triggerExpression->error);
-			}
-
-			// quote function param
-			if (isset($data['insert'])) {
-				foreach ($data['params'] as $pnum => $param) {
-					$data['params'][$pnum] = quoteFunctionParam($param);
-				}
-			}
-		}
-		else {
-			unset($data['insert']);
-			throw new Exception(_('Item not selected'));
-		}
-	}
-	catch (Exception $e) {
-		error($e->getMessage());
-		show_error_message(_('Cannot insert trigger expression'));
-	}
-}
-elseif (hasErrorMesssages()) {
-	show_messages();
 }
 
 // render view
@@ -784,3 +657,4 @@ $expressionView->render();
 $expressionView->show();
 
 require_once dirname(__FILE__).'/include/page_footer.php';
+?>

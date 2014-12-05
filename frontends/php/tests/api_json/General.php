@@ -21,18 +21,20 @@
 require_once dirname(__FILE__).'/../include/class.czabbixtest.php';
 
 class API_JSON_General extends CZabbixTest {
-
 	public function testGeneral_IncorrectAuthForNonAuthMethod() {
-		$json = '{'.
-			'"jsonrpc":"2.0",'.
-			'"method":"apiinfo.version",'.
-			'"params":[],'.
-			'"auth":"<incorrect auth>",'.
-			'"id":2'.
-		'}';
-
+		$json='{
+			"jsonrpc":"2.0",
+			"method":"apiinfo.version",
+			"params":[],
+			"auth":"<incorrect auth>",
+			"id":2
+		}';
 		$result = $this->api_call_raw($json, $debug);
-		$this->assertTrue(isset($result['error']), $debug);
+
+		$this->assertTrue(isset($result['error']), "Chuck Norris: 'auth' must be verified if given. Always! $debug");
 	}
 
+	public function testGeneral_IncorrectMethodName() {
+		$this->markTestIncomplete();
+	}
 }

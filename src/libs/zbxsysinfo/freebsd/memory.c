@@ -19,19 +19,14 @@
 
 #include "common.h"
 #include "sysinfo.h"
-#include "log.h"
 
 static u_int	pagesize = 0;
 
-#define ZBX_SYSCTLBYNAME(name, value)									\
-													\
-	len = sizeof(value);										\
-	if (0 != sysctlbyname(name, &value, &len, NULL, 0))						\
-	{												\
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain \"%s\" system parameter: %s",	\
-				name, zbx_strerror(errno)));						\
-		return SYSINFO_RET_FAIL;								\
-	}
+#define ZBX_SYSCTLBYNAME(name, value)				\
+								\
+	len = sizeof(value);					\
+	if (0 != sysctlbyname(name, &value, &len, NULL, 0))	\
+		return SYSINFO_RET_FAIL
 
 static int	VM_MEMORY_TOTAL(AGENT_RESULT *result)
 {
@@ -131,10 +126,7 @@ static int	VM_MEMORY_PUSED(AGENT_RESULT *result)
 	ZBX_SYSCTLBYNAME("vm.stats.vm.v_page_count", totalpages);
 
 	if (0 == totalpages)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot calculate percentage because total is zero."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	SET_DBL_RESULT(result, (activepages + wiredpages + cachedpages) / (double)totalpages * 100);
 
@@ -167,10 +159,7 @@ static int	VM_MEMORY_PAVAILABLE(AGENT_RESULT *result)
 	ZBX_SYSCTLBYNAME("vm.stats.vm.v_page_count", totalpages);
 
 	if (0 == totalpages)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot calculate percentage because total is zero."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	SET_DBL_RESULT(result, (inactivepages + cachedpages + freepages) / (double)totalpages * 100);
 
@@ -196,26 +185,37 @@ static int	VM_MEMORY_SHARED(AGENT_RESULT *result)
 	int		mib[] = {CTL_VM, VM_METER};
 
 	if (0 != sysctl(mib, 2, &vm, &len, NULL, 0))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain system information: %s", zbx_strerror(errno)));
 		return SYSINFO_RET_FAIL;
-	}
 
 	SET_UI64_RESULT(result, (zbx_uint64_t)(vm.t_vmshr + vm.t_rmshr) * pagesize);
 
 	return SYSINFO_RET_OK;
 }
 
-int     VM_MEMORY_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int     VM_MEMORY_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*mode;
-	int	ret;
-
-	if (1 < request->nparam)
+	const MODE_FUNCTION	fl[] =
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+		{"total",	VM_MEMORY_TOTAL},
+		{"active",	VM_MEMORY_ACTIVE},
+		{"inactive",	VM_MEMORY_INACTIVE},
+		{"wired",	VM_MEMORY_WIRED},
+		{"cached",	VM_MEMORY_CACHED},
+		{"free",	VM_MEMORY_FREE},
+		{"used",	VM_MEMORY_USED},
+		{"pused",	VM_MEMORY_PUSED},
+		{"available",	VM_MEMORY_AVAILABLE},
+		{"pavailable",	VM_MEMORY_PAVAILABLE},
+		{"buffers",	VM_MEMORY_BUFFERS},
+		{"shared",	VM_MEMORY_SHARED},
+		{NULL,		0}
+	};
+
+	char	mode[MAX_STRING_LEN];
+	int	i;
+
+	if (1 < num_param(param))
 		return SYSINFO_RET_FAIL;
-	}
 
 	if (0 == pagesize)
 	{
@@ -224,37 +224,12 @@ int     VM_MEMORY_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
 		ZBX_SYSCTLBYNAME("vm.stats.vm.v_page_size", pagesize);
 	}
 
-	mode = get_rparam(request, 0);
+	if (0 != get_param(param, 1, mode, sizeof(mode)) || '\0' == *mode)
+		strscpy(mode, "total");
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "total"))
-		ret = VM_MEMORY_TOTAL(result);
-	else if (0 == strcmp(mode, "active"))
-		ret = VM_MEMORY_ACTIVE(result);
-	else if (0 == strcmp(mode, "inactive"))
-		ret = VM_MEMORY_INACTIVE(result);
-	else if (0 == strcmp(mode, "wired"))
-		ret = VM_MEMORY_WIRED(result);
-	else if (0 == strcmp(mode, "cached"))
-		ret = VM_MEMORY_CACHED(result);
-	else if (0 == strcmp(mode, "free"))
-		ret = VM_MEMORY_FREE(result);
-	else if (0 == strcmp(mode, "used"))
-		ret = VM_MEMORY_USED(result);
-	else if (0 == strcmp(mode, "pused"))
-		ret = VM_MEMORY_PUSED(result);
-	else if (0 == strcmp(mode, "available"))
-		ret = VM_MEMORY_AVAILABLE(result);
-	else if (0 == strcmp(mode, "pavailable"))
-		ret = VM_MEMORY_PAVAILABLE(result);
-	else if (0 == strcmp(mode, "buffers"))
-		ret = VM_MEMORY_BUFFERS(result);
-	else if (0 == strcmp(mode, "shared"))
-		ret = VM_MEMORY_SHARED(result);
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		ret = SYSINFO_RET_FAIL;
-	}
+	for (i = 0; NULL != fl[i].mode; i++)
+		if (0 == strcmp(mode, fl[i].mode))
+			return (fl[i].function)(result);
 
-	return ret;
+	return SYSINFO_RET_FAIL;
 }

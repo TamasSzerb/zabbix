@@ -182,7 +182,7 @@ int	check_ntp(char *host, unsigned short port, int timeout, int *value_int)
 {
 	zbx_sock_t	s;
 	int		ret;
-	char		packet[NTP_PACKET_MIN];
+	char		*buf = NULL, packet[NTP_PACKET_MIN];
 	ntp_data	data;
 
 	*value_int = 0;
@@ -195,9 +195,9 @@ int	check_ntp(char *host, unsigned short port, int timeout, int *value_int)
 
 		if (SUCCEED == (ret = zbx_tcp_send_raw(&s, packet)))
 		{
-			if (SUCCEED == (ret = zbx_tcp_recv(&s)))
+			if (SUCCEED == (ret = zbx_tcp_recv(&s, &buf)))
 			{
-				unpack_ntp(&data, (unsigned char *)s.buffer, (int)strlen(s.buffer));
+				unpack_ntp(&data, (unsigned char *)buf, (int)strlen(buf));
 				*value_int = (0 < data.receive ? (int)(data.receive - ZBX_JAN_1970_IN_SEC) : 0);
 			}
 		}

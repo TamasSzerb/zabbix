@@ -39,7 +39,7 @@ $schema = DB::getSchema('config');
 						jQuery(this).dialog("destroy");
 					}}
 				],
-				draggable: true,
+				draggable: false,
 				modal: true,
 				width: (w > 600 ? 600 : 'inherit'),
 				resizable: false,
@@ -49,7 +49,7 @@ $schema = DB::getSchema('config');
 				close: function(){ jQuery(this).dialog('destroy'); }
 			});
 
-			jQuery('#dialog').dialog('widget').find('.ui-dialog-buttonset .ui-button:first').addClass('main');
+			jQuery('#dialog').dialog('widget').find('button:first').addClass('main');
 		});
 	});
 

@@ -98,7 +98,7 @@ if (isset($this->data['regexpid'])) {
 else {
 	$form->addItem(makeFormFooter(
 		new CSubmit('add', _('Add')),
-		array(new CButtonCancel())
+		new CButtonCancel()
 	));
 }
 

@@ -1440,6 +1440,7 @@ clean:
  *     big_rec          - [IN/OUT] state variable to remember whether a long  *
  *                        record is being processed                           *
  *     use_ino          - [IN/OUT] how to use inode numbers                   *
+ *     error_count      - [IN/OUT] number of errors (for limiting retries)    *
  *     err_msg          - [IN/OUT] error message why an item became           *
  *                        NOTSUPPORTED                                        *
  *     logfiles_old     - [IN/OUT] array of logfiles from the last check      *
@@ -1475,12 +1476,11 @@ clean:
  * Author: Dmitry Borovikov (logrotation)                                     *
  *                                                                            *
  ******************************************************************************/
-int	process_logrt(int is_logrt, const char *filename, zbx_uint64_t *lastlogsize, int *mtime,
-		unsigned char *skip_old_data, int *big_rec, int *use_ino, char **err_msg,
-		struct st_logfile **logfiles_old, int *logfiles_num_old, const char *encoding,
-		zbx_vector_ptr_t *regexps, const char *pattern, const char *output_template, int *p_count, int *s_count,
-		zbx_process_value_func_t process_value, const char *server, unsigned short port, const char *hostname,
-		const char *key)
+int	process_logrt(int is_logrt, char *filename, zbx_uint64_t *lastlogsize, int *mtime, unsigned char *skip_old_data,
+		int *big_rec, int *use_ino, int *error_count, char **err_msg, struct st_logfile **logfiles_old,
+		int *logfiles_num_old, const char *encoding, zbx_vector_ptr_t *regexps, const char *pattern,
+		const char *output_template, int *p_count, int *s_count, zbx_process_value_func_t process_value,
+		const char *server, unsigned short port, const char *hostname, const char *key)
 {
 	const char		*__function_name = "process_logrt";
 	int			i, j, start_idx, ret = FAIL, logfiles_num = 0, logfiles_alloc = 0, seq = 1,
@@ -1489,8 +1489,8 @@ int	process_logrt(int is_logrt, const char *filename, zbx_uint64_t *lastlogsize,
 	struct st_logfile	*logfiles = NULL;
 	time_t			now;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() is_logrt:%d filename:'%s' lastlogsize:" ZBX_FS_UI64 " mtime:%d",
-			__function_name, is_logrt, filename, *lastlogsize, *mtime);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() is_logrt:%d filename:'%s' lastlogsize:" ZBX_FS_UI64 " mtime:%d "
+			"error_count:%d", __function_name, is_logrt, filename, *lastlogsize, *mtime, *error_count);
 
 	/* Minimize data loss if the system clock has been set back in time. */
 	/* Setting the clock ahead of time is harmless in our case. */
@@ -1509,6 +1509,8 @@ int	process_logrt(int is_logrt, const char *filename, zbx_uint64_t *lastlogsize,
 			err_msg))
 	{
 		/* an error occurred or a file was not accessible for a log[] item */
+		(*error_count)++;
+		ret = SUCCEED;
 		goto out;
 	}
 
@@ -1538,6 +1540,8 @@ int	process_logrt(int is_logrt, const char *filename, zbx_uint64_t *lastlogsize,
 		{
 			destroy_logfile_list(&logfiles, &logfiles_alloc, &logfiles_num);
 			zbx_free(old2new);
+			(*error_count)++;
+			ret = SUCCEED;
 			goto out;
 		}
 
@@ -1654,7 +1658,11 @@ int	process_logrt(int is_logrt, const char *filename, zbx_uint64_t *lastlogsize,
 			logfiles[i].seq = seq++;
 
 			if (SUCCEED != ret)
+			{
+				(*error_count)++;
+				ret = SUCCEED;
 				break;
+			}
 
 			if (0 >= *p_count || 0 >= *s_count)
 			{
@@ -1682,7 +1690,8 @@ int	process_logrt(int is_logrt, const char *filename, zbx_uint64_t *lastlogsize,
 	if (0 < logfiles_num)
 		*logfiles_old = logfiles;
 out:
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
+	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s error_count:%d", __function_name, zbx_result_string(ret),
+			*error_count);
 
 	return ret;
 }
@@ -2023,11 +2032,10 @@ out:
  *           This function does not deal with log file rotation.              *
  *                                                                            *
  ******************************************************************************/
-int	process_log(const char *filename, zbx_uint64_t *lastlogsize, int *mtime, unsigned char *skip_old_data,
-		int *big_rec, int *incomplete, char **err_msg, const char *encoding, zbx_vector_ptr_t *regexps,
-		const char *pattern, const char *output_template, int *p_count, int *s_count,
-		zbx_process_value_func_t process_value, const char *server, unsigned short port, const char *hostname,
-		const char *key)
+int	process_log(char *filename, zbx_uint64_t *lastlogsize, int *mtime, unsigned char *skip_old_data, int *big_rec,
+		int *incomplete, char **err_msg, const char *encoding, zbx_vector_ptr_t *regexps, const char *pattern,
+		const char *output_template, int *p_count, int *s_count, zbx_process_value_func_t process_value,
+		const char *server, unsigned short port, const char *hostname, const char *key)
 {
 	const char	*__function_name = "process_log";
 

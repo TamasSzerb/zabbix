@@ -304,6 +304,10 @@ if ($items) {
 	}
 }
 
+if ($filter['showDetails']) {
+	$config = select_config();
+}
+
 // multiselect hosts
 $multiSelectHostData = array();
 if ($filter['hostids']) {
@@ -352,7 +356,7 @@ $filterTable->setCellSpacing(0);
 
 $filterTable->addRow(
 	array(
-		new CCol(bold(_('Host groups')), 'label'),
+		new CCol(bold(_('Host groups').':'), 'label'),
 		new CCol(new CMultiSelect(
 			array(
 				'name' => 'groupids[]',
@@ -362,19 +366,20 @@ $filterTable->addRow(
 					'parameters' => 'srctbl=host_groups&dstfrm='.$filterForm->getName().'&dstfld1=groupids_'.
 						'&srcfld1=groupid&multiselect=1',
 					'width' => 450,
-					'height' => 450
+					'height' => 450,
+					'buttonClass' => 'input filter-multiselect-select-button'
 				)
 			)),
 			'inputcol'
 		),
-		new CCol(bold(_('Name')), 'label'),
+		new CCol(bold(_('Name').':'), 'label'),
 		new CCol(new CTextBox('select', $filter['select'], 40), 'inputcol'),
 	)
 );
 
 $filterTable->addRow(
 	array(
-		new CCol(bold(_('Hosts')), 'label'),
+		new CCol(bold(_('Hosts').':'), 'label'),
 		new CCol(new CMultiSelect(
 			array(
 				'name' => 'hostids[]',
@@ -384,39 +389,39 @@ $filterTable->addRow(
 					'parameters' => 'srctbl=hosts&dstfrm='.$filterForm->getName().'&dstfld1=hostids_&srcfld1=hostid'.
 						'&real_hosts=1&multiselect=1',
 					'width' => 450,
-					'height' => 450
+					'height' => 450,
+					'buttonClass' => 'input filter-multiselect-select-button'
 				)
 			)),
 			'inputcol'
 		),
-		new CCol(bold(_('Show items without data')), 'label'),
+		new CCol(bold(_('Show items without data').':'), 'label'),
 		new CCol(new CCheckBox('show_without_data', $filter['showWithoutData'], null, 1), 'inputcol')
 	)
 );
 
 $filterTable->addRow(array(
-	new CCol(bold(_('Application')), 'label'),
+	new CCol(bold(_('Application').':'), 'label'),
 	new CCol(
 		array(
 			new CTextBox('application', $filter['application']),
 			new CButton('application_name', _('Select'),
 				'return PopUp("popup.php?srctbl=applications&srcfld1=name&real_hosts=1&dstfld1=application'.
 					'&with_applications=1&dstfrm='.$filterForm->getName().'");',
-				'button-form'
+				'filter-select-button'
 			)
 		),
 		'inputcol'
 	),
-	new CCol(bold(_('Show details')), 'label'),
+	new CCol(bold(_('Show details').':'), 'label'),
 	new CCol(new CCheckBox('show_details', $filter['showDetails'], null, 1), 'inputcol'),
 ));
 
-$filterButton = new CSubmit('filter_set', _('Filter'), 'chkbxRange.clearSelectedOnFilterChange();',
-	'jqueryinput shadow'
-);
-$filterButton->main();
+$filterButton = new CSubmit('filter_set', _('Filter'), 'chkbxRange.clearSelectedOnFilterChange();');
+$filterButton->useJQueryStyle();
 
-$resetButton = new CSubmit('filter_rst', _('Reset'), 'chkbxRange.clearSelectedOnFilterChange();', 'jqueryinput shadow');
+$resetButton = new CSubmit('filter_rst', _('Reset'), 'chkbxRange.clearSelectedOnFilterChange();');
+$resetButton->useJQueryStyle();
 
 $divButtons = new CDiv(array($filterButton, SPACE, $resetButton));
 $divButtons->setAttribute('style', 'padding: 4px 0px;');
@@ -512,8 +517,6 @@ else {
 }
 
 $tab_rows = array();
-
-$config = select_config();
 
 foreach ($items as $key => $item){
 	if (!$item['applications']) {

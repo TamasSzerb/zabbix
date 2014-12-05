@@ -59,7 +59,7 @@ if (!empty($this->data['applicationid'])) {
 else {
 	$applicationForm->addItem(makeFormFooter(
 		new CSubmit('add', _('Add')),
-		array(new CButtonCancel(url_param('config').url_param('hostid')))
+		new CButtonCancel(url_param('config').url_param('hostid'))
 	));
 }
 

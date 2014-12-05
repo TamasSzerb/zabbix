@@ -126,7 +126,7 @@ if (isset($_REQUEST['scriptid'])) {
 else {
 	$scriptForm->addItem(makeFormFooter(
 		new CSubmit('add', _('Add')),
-		array(new CButtonCancel())
+		new CButtonCancel()
 	));
 }
 

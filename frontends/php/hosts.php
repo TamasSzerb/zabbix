@@ -80,7 +80,7 @@ $fields = array(
 	'visible' =>		array(T_ZBX_STR, O_OPT, null,			null,		null),
 	// actions
 	'action' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,
-							IN('"host.export","host.massdelete","host.massdisable","host.massenable","host.massupdate"'.
+							IN('"host.export","host.massdelete","host.massdisable","host.massenable"'.
 								',"host.massupdateform"'
 							),
 							null
@@ -215,7 +215,7 @@ elseif (isset($_REQUEST['clone']) && isset($_REQUEST['hostid'])) {
 elseif (isset($_REQUEST['full_clone']) && isset($_REQUEST['hostid'])) {
 	$_REQUEST['form'] = 'full_clone';
 }
-elseif (hasRequest('action') && getRequest('action') == 'host.massupdate' && hasRequest('masssave')) {
+elseif (hasRequest('action') && getRequest('action') == 'host.massupdateform' && hasRequest('masssave')) {
 	$hostIds = getRequest('hosts', array());
 	$visible = getRequest('visible', array());
 	$_REQUEST['proxy_hostid'] = getRequest('proxy_hostid', 0);
@@ -361,7 +361,7 @@ elseif (hasRequest('action') && getRequest('action') == 'host.massupdate' && has
 		uncheckTableRows();
 		show_message(_('Hosts updated'));
 
-		unset($_REQUEST['massupdate'], $_REQUEST['form'], $_REQUEST['hosts']);
+		unset($_REQUEST['form'], $_REQUEST['hosts']);
 	}
 	catch (Exception $e) {
 		DBend(false);
@@ -714,8 +714,7 @@ if (hasRequest('action') && getRequest('action') == 'host.massupdateform' && has
 		'ipmi_password' => getRequest('ipmi_password', ''),
 		'inventory_mode' => getRequest('inventory_mode', HOST_INVENTORY_DISABLED),
 		'host_inventory' => getRequest('host_inventory', array()),
-		'templates' => getRequest('templates', array()),
-		'inventories' => zbx_toHash(getHostInventories(), 'db_field')
+		'templates' => getRequest('templates', array())
 	);
 
 	// sort templates
@@ -735,6 +734,12 @@ if (hasRequest('action') && getRequest('action') == 'host.massupdateform' && has
 		' WHERE h.status IN ('.HOST_STATUS_PROXY_ACTIVE.','.HOST_STATUS_PROXY_PASSIVE.')'
 	));
 	order_result($data['proxies'], 'host');
+
+	// get inventories
+	if ($data['inventory_mode'] != HOST_INVENTORY_DISABLED) {
+		$data['inventories'] = getHostInventories();
+		$data['inventories'] = zbx_toHash($data['inventories'], 'db_field');
+	}
 
 	// get templates data
 	$data['linkedTemplates'] = null;
@@ -800,8 +805,6 @@ else {
 	CProfile::update('web.'.$page['file'].'.sort', $sortField, PROFILE_TYPE_STR);
 	CProfile::update('web.'.$page['file'].'.sortorder', $sortOrder, PROFILE_TYPE_STR);
 
-	$config = select_config();
-
 	$frmForm = new CForm();
 	$frmForm->cleanItems();
 	$frmForm->addItem(new CDiv(array(
@@ -822,20 +825,17 @@ else {
 	// filter
 	$filterTable = new CTable('', 'filter filter-center');
 	$filterTable->addRow(array(
-		array(array(bold(_('Name')), ' '._('like').' '), new CTextBox('filter_host', $filter['host'], 20)),
-		array(array(bold(_('DNS')), ' '._('like').' '), new CTextBox('filter_dns', $filter['dns'], 20)),
-		array(array(bold(_('IP')), ' '._('like').' '), new CTextBox('filter_ip', $filter['ip'], 20)),
-		array(bold(_('Port')), ' ', new CTextBox('filter_port', $filter['port'], 20))
+		array(array(bold(_('Name')), SPACE._('like').NAME_DELIMITER), new CTextBox('filter_host', $filter['host'], 20)),
+		array(array(bold(_('DNS')), SPACE._('like').NAME_DELIMITER), new CTextBox('filter_dns', $filter['dns'], 20)),
+		array(array(bold(_('IP')), SPACE._('like').NAME_DELIMITER), new CTextBox('filter_ip', $filter['ip'], 20)),
+		array(bold(_('Port').NAME_DELIMITER), new CTextBox('filter_port', $filter['port'], 20))
 	));
 
-	$filterButton = new CSubmit('filter_set', _('Filter'), 'chkbxRange.clearSelectedOnFilterChange();',
-		'jqueryinput shadow'
-	);
-	$filterButton->main();
+	$filterButton = new CSubmit('filter_set', _('Filter'), 'chkbxRange.clearSelectedOnFilterChange();');
+	$filterButton->useJQueryStyle('main');
 
-	$resetButton = new CSubmit('filter_rst', _('Reset'), 'chkbxRange.clearSelectedOnFilterChange();',
-		'jqueryinput shadow'
-	);
+	$resetButton = new CSubmit('filter_rst', _('Reset'), 'chkbxRange.clearSelectedOnFilterChange();');
+	$resetButton->useJQueryStyle();
 
 	$divButtons = new CDiv(array($filterButton, SPACE, $resetButton));
 	$divButtons->setAttribute('style', 'padding: 4px 0;');

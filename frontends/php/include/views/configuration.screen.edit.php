@@ -62,7 +62,7 @@ if (isset($this->data['screenid']))
 else {
 	$screenForm->addItem(makeFormFooter(
 		new CSubmit('add', _('Add')),
-		array(new CButtonCancel(url_param('templateid')))
+		new CButtonCancel(url_param('templateid'))
 	));
 }
 

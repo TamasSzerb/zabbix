@@ -95,7 +95,7 @@ if (isset($this->data['druleid']))
 else {
 	$discoveryForm->addItem(makeFormFooter(
 		new CSubmit('add', _('Add')),
-		array(new CButtonCancel())
+		new CButtonCancel()
 	));
 }
 

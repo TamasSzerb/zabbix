@@ -85,10 +85,7 @@ $importTab->addTab('importTab', _('Import'), $importFormList);
 // form
 $importForm = new CForm('post', null, 'multipart/form-data');
 $importForm->addItem($importTab);
-$importForm->addItem(makeFormFooter(
-	new CSubmit('import', _('Import')),
-	array(new CButtonCancel())
-));
+$importForm->addItem(makeFormFooter(new CSubmit('import', _('Import')), new CButtonCancel()));
 
 // widget
 $importWidget = new CWidget();

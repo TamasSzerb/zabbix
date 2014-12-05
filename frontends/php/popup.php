@@ -470,7 +470,7 @@ if (isset($onlyHostid)) {
 
 	$cmbHosts = new CComboBox('hostid', $hostid);
 	$cmbHosts->addItem($hostid, $host['name']);
-	$cmbHosts->setEnabled(false);
+	$cmbHosts->setEnabled('disabled');
 	$cmbHosts->setAttribute('title', _('You can not switch hosts for current selection.'));
 	$frmTitle->addItem(array(SPACE, _('Host'), SPACE, $cmbHosts));
 }
@@ -691,7 +691,7 @@ elseif ($srctbl == 'templates') {
 		if (isset($excludeids[$template['templateid']])) {
 			if ($multiselect) {
 				$checkBox->setChecked(1);
-				$checkBox->setEnabled(false);
+				$checkBox->setEnabled('disabled');
 			}
 			$name->removeAttribute('class');
 		}
@@ -765,7 +765,7 @@ elseif ($srctbl == 'hosts') {
 		if (isset($excludeids[$host['hostid']])) {
 			if ($multiselect) {
 				$checkBox->setChecked(1);
-				$checkBox->setEnabled(false);
+				$checkBox->setEnabled('disabled');
 			}
 			$name->removeAttribute('class');
 		}
@@ -840,7 +840,7 @@ elseif ($srctbl == 'host_templates') {
 		if (isset($excludeids[$host['hostid']])) {
 			if ($multiselect) {
 				$checkBox->setChecked(1);
-				$checkBox->setEnabled(false);
+				$checkBox->setEnabled('disabled');
 			}
 			$name->removeAttribute('class');
 		}
@@ -910,7 +910,7 @@ elseif ($srctbl == 'host_groups') {
 		if (isset($excludeids[$hostgroup['groupid']])) {
 			if ($multiselect) {
 				$checkBox->setChecked(1);
-				$checkBox->setEnabled(false);
+				$checkBox->setEnabled('disabled');
 			}
 			$name->removeAttribute('class');
 		}
@@ -959,9 +959,7 @@ elseif ($srctbl === 'help_items') {
 /*
  * Triggers
  */
-elseif ($srctbl === 'triggers') {
-	$config = select_config();
-
+elseif ($srctbl == 'triggers') {
 	$form = new CForm();
 	$form->setName('triggerform');
 	$form->setAttribute('id', 'triggers');
@@ -1041,7 +1039,7 @@ elseif ($srctbl === 'triggers') {
 		$table->addRow(array(
 			$multiselect ? new CCheckBox('triggers['.zbx_jsValue($trigger[$srcfld1]).']', null, null, $trigger['triggerid']) : null,
 			$description,
-			getSeverityCell($trigger['priority'], $config),
+			getSeverityCell($trigger['priority']),
 			new CSpan(
 				triggerIndicator($trigger['status'], $trigger['state']),
 				triggerIndicatorStyle($trigger['status'], $trigger['state'])

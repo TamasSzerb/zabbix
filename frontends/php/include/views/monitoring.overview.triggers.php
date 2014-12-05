@@ -36,12 +36,14 @@ $overviewWidget->addHeader(_('Overview'), $headerForm);
 // hint table
 $hintTable = new CTableInfo(null, 'tableinfo tableinfo-overview-hint');
 $hintTable->addRow(array(new CCol(SPACE, 'normal'), _('OK')));
-for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
-	$hintTable->addRow(array(getSeverityCell($severity, $this->data['config']), _('PROBLEM')));
+for ($i = 0; $i < TRIGGER_SEVERITY_COUNT; $i++) {
+	$hintTable->addRow(array(getSeverityCell($i), _('PROBLEM')));
 }
 
+$config = select_config();
+
 // blinking preview in help popup (only if blinking is enabled)
-if ($this->data['config']['blink_period'] > 0) {
+if ($config['blink_period'] > 0) {
 	$row = new CRow(null);
 	$row->addItem(new CCol(SPACE, 'normal'));
 	for ($i = 0; $i < TRIGGER_SEVERITY_COUNT; $i++) {
@@ -53,7 +55,7 @@ if ($this->data['config']['blink_period'] > 0) {
 	// double div necassary for FireFox
 	$col = new CCol(new CDiv(new CDiv($col), 'overview-mon-severities-container'));
 
-	$hintTable->addRow(array($col, _s('Age less than %s', convertUnitsS($this->data['config']['blink_period']))));
+	$hintTable->addRow(array($col, _s('Age less than %s', convertUnitsS($config['blink_period']))));
 }
 
 $hintTable->addRow(array(new CCol(SPACE), _('No trigger')));
@@ -96,15 +98,14 @@ $filterFormView = new CView('common.filter.trigger', array(
 		'hostId' => $this->data['hostid'],
 		'groupId' => $this->data['groupid'],
 		'fullScreen' => $this->data['fullscreen']
-	),
-	'config' => $this->data['config']
+	)
 ));
 $filterForm = $filterFormView->render();
 
 $overviewWidget->addFlicker($filterForm, CProfile::get('web.overview.filter.state', 0));
 
 // data table
-if ($this->data['config']['dropdown_first_entry']) {
+if ($config['dropdown_first_entry']) {
 	global $page;
 
 	$dataTable = getTriggersOverview($this->data['hosts'], $this->data['triggers'], $page['file'],

@@ -29,7 +29,7 @@
 #if !defined(_WINDOWS)
 #	define LOCK_CPUSTATS	zbx_mutex_lock(&cpustats_lock)
 #	define UNLOCK_CPUSTATS	zbx_mutex_unlock(&cpustats_lock)
-static ZBX_MUTEX	cpustats_lock = ZBX_MUTEX_NULL;
+static ZBX_MUTEX	cpustats_lock;
 #else
 #	define LOCK_CPUSTATS
 #	define UNLOCK_CPUSTATS
@@ -167,7 +167,7 @@ clean:
 	}
 
 #else	/* not _WINDOWS */
-	if (FAIL == zbx_mutex_create_force(&cpustats_lock, ZBX_MUTEX_CPUSTATS))
+	if (ZBX_MUTEX_ERROR == zbx_mutex_create_force(&cpustats_lock, ZBX_MUTEX_CPUSTATS))
 	{
 		zbx_error("unable to create mutex for cpu collector");
 		exit(EXIT_FAILURE);
@@ -350,13 +350,11 @@ static void	update_cpustats(ZBX_CPUS_STAT_DATA *pcpus)
 		memset(counter, 0, sizeof(counter));
 
 		sscanf(line, "%*s " ZBX_FS_UI64 " " ZBX_FS_UI64 " " ZBX_FS_UI64 " " ZBX_FS_UI64
-				" " ZBX_FS_UI64 " " ZBX_FS_UI64 " " ZBX_FS_UI64 " " ZBX_FS_UI64
-				" " ZBX_FS_UI64 " " ZBX_FS_UI64,
+				" " ZBX_FS_UI64 " " ZBX_FS_UI64 " " ZBX_FS_UI64 " " ZBX_FS_UI64,
 				&counter[ZBX_CPU_STATE_USER], &counter[ZBX_CPU_STATE_NICE],
 				&counter[ZBX_CPU_STATE_SYSTEM], &counter[ZBX_CPU_STATE_IDLE],
 				&counter[ZBX_CPU_STATE_IOWAIT], &counter[ZBX_CPU_STATE_INTERRUPT],
-				&counter[ZBX_CPU_STATE_SOFTIRQ], &counter[ZBX_CPU_STATE_STEAL],
-				&counter[ZBX_CPU_STATE_GCPU], &counter[ZBX_CPU_STATE_GNICE]);
+				&counter[ZBX_CPU_STATE_SOFTIRQ], &counter[ZBX_CPU_STATE_STEAL]);
 
 		update_cpu_counters(&pcpus->cpu[cpu_num], counter);
 		cpu_status[cpu_num] = SYSINFO_RET_OK;

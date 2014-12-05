@@ -118,7 +118,7 @@ $severityForm->setName('triggerDisplayOptions');
 $severityForm->addItem($severityView);
 $severityForm->addItem(makeFormFooter(
 	new CSubmit('update', _('Update')),
-	array(new CButton('resetDefaults', _('Reset defaults')))
+	new CButton('resetDefaults', _('Reset defaults'))
 ));
 
 return $severityForm;

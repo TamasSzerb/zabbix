@@ -261,30 +261,26 @@ class CHttpTest extends CApiService {
 			self::exception(ZBX_API_ERROR_PARAMETERS, _('Empty input parameters.'));
 		}
 
-		// Check and set default values, and find "hostid" by "applicationid".
+		// find hostid by applicationid
 		foreach ($httpTests as &$httpTest) {
+			unset($httpTest['templateid']);
+
+			if (empty($httpTest['hostid']) && !empty($httpTest['applicationid'])) {
+				$dbHostId = DBfetch(DBselect('SELECT a.hostid'.
+						' FROM applications a'.
+						' WHERE a.applicationid='.zbx_dbstr($httpTest['applicationid'])));
+				$httpTest['hostid'] = $dbHostId['hostid'];
+			}
+		}
+		unset($httpTest);
+
+		foreach($httpTests as &$httpTest) {
 			$defaultValues = array(
 				'verify_peer' => HTTPTEST_VERIFY_PEER_OFF,
 				'verify_host' => HTTPTEST_VERIFY_HOST_OFF
 			);
 
 			check_db_fields($defaultValues, $httpTest);
-
-			unset($httpTest['templateid']);
-
-			if (!isset($httpTest['agent']) || (isset($httpTest['agent']) && zbx_empty($httpTest['agent']))) {
-				$httpTest['agent'] = ZBX_DEFAULT_AGENT;
-			}
-
-			if (!isset($httpTest['hostid']) && isset($httpTest['applicationid'])) {
-				$dbHostId = DBfetch(DBselect(
-					'SELECT a.hostid'.
-					' FROM applications a'.
-					' WHERE a.applicationid='.zbx_dbstr($httpTest['applicationid'])
-				));
-
-				$httpTest['hostid'] = $dbHostId['hostid'];
-			}
 		}
 		unset($httpTest);
 
@@ -314,14 +310,6 @@ class CHttpTest extends CApiService {
 			_('Empty web scenario ID.'),
 			_('Incorrect web scenario ID.')
 		);
-
-		// Roll back to default user agent if empty string is set.
-		foreach ($httpTests as &$httpTest) {
-			if (isset($httpTest['agent']) && zbx_empty($httpTest['agent'])) {
-				$httpTest['agent'] = ZBX_DEFAULT_AGENT;
-			}
-		}
-		unset($httpTest);
 
 		$httpTests = zbx_toHash($httpTests, 'httptestid');
 
@@ -437,8 +425,7 @@ class CHttpTest extends CApiService {
 
 			info(_s('Deleted: Web scenario "%1$s" on "%2$s".', $httpTest['name'], $host['host']));
 			add_audit(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_SCENARIO,
-				_('Web scenario').' ['.$httpTest['name'].'] ['.$httpTest['httptestid'].'] '.
-				_('Host').' ['.$host['name'].']'
+				'Web scenario ['.$httpTest['name'].'] ['.$httpTest['httptestid'].'] Host ['.$host['name'].']'
 			);
 		}
 

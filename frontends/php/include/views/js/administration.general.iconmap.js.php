@@ -42,7 +42,7 @@
 		});
 
 		iconMapTable.find('tbody')
-			.delegate('.removeMapping', 'click', function() {
+			.delegate('input.removeMapping', 'click', function() {
 				$(this).parent().parent().remove();
 
 				if (iconMapTable.find('tr.sortable').length < 2) {

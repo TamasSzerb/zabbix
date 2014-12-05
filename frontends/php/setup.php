@@ -119,7 +119,7 @@ $pageHeader->display();
 <?php $ZBX_SETUP_WIZARD->show(); ?>
 <script>
 	jQuery(function($) {
-		$('.jqueryinput').button();
+		$(':submit').button();
 	});
 </script>
 </body>

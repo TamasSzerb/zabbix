@@ -95,60 +95,61 @@ $_REQUEST['show_legend'] = getRequest('show_legend', 0);
 /*
  * Permissions
  */
-$groupId = getRequest('groupid');
-if ($groupId && !API::HostGroup()->isWritable(array($groupId))) {
-	access_deny();
-}
-
-$hostId = getRequest('hostid');
 if (CUser::$userData['type'] !== USER_TYPE_SUPER_ADMIN) {
-	if (hasRequest('parent_discoveryid')) {
+	if (!empty($_REQUEST['parent_discoveryid'])) {
 		// check whether discovery rule is editable by user
-		$discoveryRule = API::DiscoveryRule()->get(array(
-			'output' => array('name', 'itemid', 'hostid'),
-			'itemids' => getRequest('parent_discoveryid'),
-			'editable' => true
+		$discovery_rule = API::DiscoveryRule()->get(array(
+			'itemids' => array($_REQUEST['parent_discoveryid']),
+			'output' => API_OUTPUT_EXTEND,
+			'editable' => true,
+			'preservekeys' => true
 		));
-		$discoveryRule = reset($discoveryRule);
-		if (!$discoveryRule) {
+		$discovery_rule = reset($discovery_rule);
+		if (!$discovery_rule) {
 			access_deny();
 		}
 
-		$hostId = $discoveryRule['hostid'];
+		// sets corresponding hostid for later usage
+		if (empty($_REQUEST['hostid'])) {
+			$_REQUEST['hostid'] = $discovery_rule['hostid'];
+		}
 
 		// check whether graph prototype is editable by user
-		if (hasRequest('graphid')) {
-			$graphPrototype = (bool) API::GraphPrototype()->get(array(
-				'output' => array(),
-				'graphids' => getRequest('graphid'),
-				'editable' => true
+		if (isset($_REQUEST['graphid'])) {
+			$graphPrototype = API::GraphPrototype()->get(array(
+				'graphids' => array($_REQUEST['graphid']),
+				'output' => array('graphid'),
+				'editable' => true,
+				'preservekeys' => true
 			));
-			if (!$graphPrototype) {
+			if (empty($graphPrototype)) {
 				access_deny();
 			}
 		}
 	}
-	elseif (hasRequest('graphid')) {
+	elseif (!empty($_REQUEST['graphid'])) {
 		// check whether graph is normal and editable by user
-		$graph = (bool) API::Graph()->get(array(
-			'output' => array(),
+		$graphs = API::Graph()->get(array(
+			'output' => array('graphid'),
 			'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-			'graphids' => getRequest('graphid'),
-			'editable' => true
+			'graphids' => array($_REQUEST['graphid']),
+			'editable' => true,
+			'preservekeys' => true
 		));
-		if (!$graph) {
+		if (empty($graphs)) {
 			access_deny();
 		}
 	}
-	elseif ($hostId) {
+	elseif (!empty($_REQUEST['hostid'])) {
 		// check whether host is editable by user
-		$host = (bool) API::Host()->get(array(
-			'output' => array(),
-			'hostids' => $hostId,
+		$hosts = API::Host()->get(array(
+			'output' => array('hostid'),
+			'hostids' => array($_REQUEST['hostid']),
 			'templated_hosts' => true,
-			'editable' => true
+			'editable' => true,
+			'preservekeys' => true
 		));
-		if (!$host) {
+		if (empty($hosts)) {
 			access_deny();
 		}
 	}
@@ -254,7 +255,7 @@ elseif (hasRequest('add') || hasRequest('update')) {
 			$messageFailed = _('Cannot add graph');
 		}
 
-		$cookieId = $hostId;
+		$cookieId = getRequest('hostid');
 	}
 
 	if ($result) {
@@ -292,7 +293,7 @@ elseif (hasRequest('delete') && hasRequest('graphid')) {
 		$result = API::Graph()->delete(array($graphId));
 
 		if ($result) {
-			uncheckTableRows($hostId);
+			uncheckTableRows(getRequest('hostid'));
 		}
 		show_messages($result, _('Graph deleted'), _('Cannot delete graph'));
 	}
@@ -316,7 +317,7 @@ elseif (hasRequest('action') && getRequest('action') == 'graph.massdelete' && ha
 		$result = API::Graph()->delete($graphIds);
 
 		if ($result) {
-			uncheckTableRows($hostId);
+			uncheckTableRows(getRequest('hostid'));
 		}
 		show_messages($result, _('Graphs deleted'), _('Cannot delete graphs'));
 	}
@@ -366,7 +367,7 @@ elseif (hasRequest('action') && getRequest('action') == 'graph.massdelete' && ha
 
 		if ($result) {
 			uncheckTableRows(
-				(getRequest('parent_discoveryid') == 0) ? $hostId : getRequest('parent_discoveryid')
+				getRequest('parent_discoveryid') == 0 ? getRequest('hostid') : getRequest('parent_discoveryid')
 			);
 			unset($_REQUEST['group_graphid']);
 		}
@@ -390,16 +391,16 @@ $pageFilter = new CPageFilter(array(
 		'editable' => true,
 		'templated_hosts' => true
 	),
-	'groupid' => $groupId,
-	'hostid' => $hostId
+	'groupid' => getRequest('groupid'),
+	'hostid' => getRequest('hostid')
 ));
 
 if (empty($_REQUEST['parent_discoveryid'])) {
 	if ($pageFilter->groupid > 0) {
-		$groupId = $pageFilter->groupid;
+		$_REQUEST['groupid'] = $pageFilter->groupid;
 	}
 	if ($pageFilter->hostid > 0) {
-		$hostId = $pageFilter->hostid;
+		$_REQUEST['hostid'] = $pageFilter->hostid;
 	}
 }
 
@@ -614,14 +615,12 @@ else {
 	CProfile::update('web.'.$page['file'].'.sort', $sortField, PROFILE_TYPE_STR);
 	CProfile::update('web.'.$page['file'].'.sortorder', $sortOrder, PROFILE_TYPE_STR);
 
-	$config = select_config();
-
 	$data = array(
 		'pageFilter' => $pageFilter,
 		'hostid' => ($pageFilter->hostid > 0) ? $pageFilter->hostid : getRequest('hostid'),
-		'parent_discoveryid' => isset($discoveryRule) ? $discoveryRule['itemid'] : null,
+		'parent_discoveryid' => getRequest('parent_discoveryid'),
 		'graphs' => array(),
-		'discovery_rule' => isset($discoveryRule) ? $discoveryRule : null,
+		'discovery_rule' => empty($_REQUEST['parent_discoveryid']) ? null : $discovery_rule,
 		'sort' => $sortField,
 		'sortorder' => $sortOrder
 	);
@@ -630,15 +629,15 @@ else {
 	$options = array(
 		'hostids' => $data['hostid'] ? $data['hostid'] : null,
 		'groupids' => (!$data['hostid'] && $pageFilter->groupid > 0) ? $pageFilter->groupid : null,
-		'discoveryids' => isset($discoveryRule) ? $discoveryRule['itemid'] : null,
+		'discoveryids' => empty($_REQUEST['parent_discoveryid']) ? null : getRequest('parent_discoveryid'),
 		'editable' => true,
 		'output' => array('graphid', 'name', 'graphtype'),
 		'limit' => $config['search_limit'] + 1
 	);
 
-	$data['graphs'] = isset($discoveryRule)
-		? API::GraphPrototype()->get($options)
-		: API::Graph()->get($options);
+	$data['graphs'] = empty($_REQUEST['parent_discoveryid'])
+		? API::Graph()->get($options)
+		: API::GraphPrototype()->get($options);
 
 	if ($sortField == 'graphtype') {
 		foreach ($data['graphs'] as $gnum => $graph) {

@@ -172,7 +172,7 @@ abstract class CItemGeneral extends CApiService {
 		if ($update) {
 			$updateDiscoveredValidator = new CUpdateDiscoveredValidator(array(
 				'allowed' => array('itemid', 'status'),
-				'messageAllowedField' => _('Cannot update "%2$s" for a discovered item "%1$s".')
+				'messageAllowedField' => _('Cannot update "%1$s" for a discovered item.')
 			));
 			foreach ($items as $item) {
 				// check permissions
@@ -181,13 +181,8 @@ abstract class CItemGeneral extends CApiService {
 						_('No permissions to referred object or it does not exist!'));
 				}
 
-				$dbItem = $dbItems[$item['itemid']];
-
-				$itemName = isset($item['name']) ? $item['name'] : $dbItem['name'];
-
 				// discovered fields, except status, cannot be updated
-				$updateDiscoveredValidator->setObjectName($itemName);
-				$this->checkPartialValidator($item, $updateDiscoveredValidator, $dbItem);
+				$this->checkPartialValidator($item, $updateDiscoveredValidator, $dbItems[$item['itemid']]);
 			}
 
 			$items = $this->extendObjects($this->tableName(), $items, array('name'));
@@ -305,8 +300,7 @@ abstract class CItemGeneral extends CApiService {
 				$params = $itemKey->getParameters();
 
 				if (!str_in_array($itemKey->getKeyId(), array('grpmax', 'grpmin', 'grpsum', 'grpavg'))
-						|| count($params) > 4 || count($params) < 3
-						|| (count($params) == 3 && $params[2] !== 'last')
+						|| count($params) != 4
 						|| !str_in_array($params[2], array('last', 'min', 'max', 'avg', 'sum', 'count'))) {
 					self::exception(ZBX_API_ERROR_PARAMETERS,
 						_s('Key "%1$s" does not match <grpmax|grpmin|grpsum|grpavg>["Host group(s)", "Item key",'.
@@ -315,10 +309,9 @@ abstract class CItemGeneral extends CApiService {
 			}
 
 			// type of information
-			if ($fullItem['type'] == ITEM_TYPE_AGGREGATE && $fullItem['value_type'] != ITEM_VALUE_TYPE_UINT64
-					&& $fullItem['value_type'] != ITEM_VALUE_TYPE_FLOAT) {
-					self::exception(ZBX_API_ERROR_PARAMETERS,
-						_('Type of information must be "Numeric (unsigned)" or "Numeric (float)" for aggregate items.'));
+			if ($fullItem['type'] == ITEM_TYPE_AGGREGATE && $fullItem['value_type'] != ITEM_VALUE_TYPE_FLOAT
+					&& $fullItem['value_type'] != ITEM_VALUE_TYPE_UINT64) {
+				self::exception(ZBX_API_ERROR_PARAMETERS, _('Type of information must be "Numeric (float)" for aggregate items.'));
 			}
 
 			// log

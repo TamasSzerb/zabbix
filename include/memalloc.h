@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_MEMALLOC_H
@@ -28,38 +28,24 @@ typedef struct
 	void		**buckets;
 	void		*lo_bound;
 	void		*hi_bound;
-	zbx_uint64_t	free_size;
-	zbx_uint64_t	used_size;
-	zbx_uint64_t	orig_size;
-	zbx_uint64_t	total_size;
+	uint32_t	free_size;
+	uint32_t	used_size;
+	uint32_t	orig_size;
+	uint32_t	total_size;
 	int		shm_id;
 	char		use_lock;
-
-	/* Continue execution in out of memory situation.                         */
-	/* Normally allocator forces exit when it runs out of allocatable memory. */
-	/* Set this flag to 1 to allow execution in out of memory situations.     */
-	char		allow_oom;
-
 	ZBX_MUTEX	mem_lock;
 	const char	*mem_descr;
 	const char	*mem_param;
 }
 zbx_mem_info_t;
 
-void	zbx_mem_create(zbx_mem_info_t **info, key_t shm_key, int lock_name, zbx_uint64_t size,
-		const char *descr, const char *param, int allow_oom);
+void	zbx_mem_create(zbx_mem_info_t **info, key_t shm_key, int lock_name, size_t size, const char *descr, const char *param);
 void	zbx_mem_destroy(zbx_mem_info_t *info);
 
 #define	zbx_mem_malloc(info, old, size) __zbx_mem_malloc(__FILE__, __LINE__, info, old, size)
 #define	zbx_mem_realloc(info, old, size) __zbx_mem_realloc(__FILE__, __LINE__, info, old, size)
-#define	zbx_mem_free(info, ptr)				\
-							\
-do							\
-{							\
-	__zbx_mem_free(__FILE__, __LINE__, info, ptr);	\
-	ptr = NULL;					\
-}							\
-while (0)
+#define	zbx_mem_free(info, ptr) do { __zbx_mem_free(__FILE__, __LINE__, info, ptr); ptr = NULL; } while (0)
 
 void	*__zbx_mem_malloc(const char *file, int line, zbx_mem_info_t *info, const void *old, size_t size);
 void	*__zbx_mem_realloc(const char *file, int line, zbx_mem_info_t *info, void *old, size_t size);
@@ -69,7 +55,7 @@ void	zbx_mem_clear(zbx_mem_info_t *info);
 
 void	zbx_mem_dump_stats(zbx_mem_info_t *info);
 
-size_t	zbx_mem_required_size(int chunks_num, const char *descr, const char *param);
+size_t	zbx_mem_required_size(size_t size, int chunks_num, const char *descr, const char *param);
 
 #define ZBX_MEM_FUNC1_DECL_MALLOC(__prefix)				\
 static void	*__prefix ## _mem_malloc_func(void *old, size_t size)

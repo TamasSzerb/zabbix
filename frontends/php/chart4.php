@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -10,166 +10,177 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+require_once('include/config.inc.php');
+require_once('include/triggers.inc.php');
 
+$page['file']	= 'chart4.php';
+// $page['title']	= "S_CHART";
+$page['type']	= PAGE_TYPE_IMAGE;
 
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/triggers.inc.php';
+include_once('include/page_header.php');
 
-$page['file'] = 'chart4.php';
-$page['type'] = PAGE_TYPE_IMAGE;
+?>
+<?php
+//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
+	$fields=array(
+		'triggerid'=>		array(T_ZBX_INT, O_MAND,P_SYS,	DB_ID,		NULL)
+	);
 
-require_once dirname(__FILE__).'/include/page_header.php';
+	check_fields($fields);
+?>
+<?php
+	if(!isset($_REQUEST['triggerid'])) fatal_error(S_NO_TRIGGER_DEFINED);
 
-// VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
-$fields = array(
-	'triggerid' => array(T_ZBX_INT, O_MAND, P_SYS, DB_ID, null)
-);
-check_fields($fields);
+	$options = array(
+		'triggerids' => $_REQUEST['triggerid'],
+		'output' => API_OUTPUT_EXTEND,
+		'nodeids' => get_current_nodeid(true)
+	);
 
-/*
- * Permissions
- */
-if (!hasRequest('triggerid')) {
-	fatal_error(_('No triggers defined.'));
-}
+	$db_data = CTrigger::get($options);
+	if(empty($db_data)) access_deny();
+	else $db_data = reset($db_data);
 
-$dbTrigger = API::Trigger()->get(array(
-	'triggerids' => getRequest('triggerid'),
-	'output' => API_OUTPUT_EXTEND,
-	'expandDescription' => true
-));
-if (!$dbTrigger) {
-	access_deny();
-}
-else {
-	$dbTrigger = reset($dbTrigger);
-}
+	$start_time = time(NULL);
 
-/*
- * Display
- */
-$startTime = microtime(true);
+	$sizeX		= 900;
+	$sizeY		= 300;
 
-$sizeX = 900;
-$sizeY = 300;
+	$shiftX		= 12;
+	$shiftYup	= 17;
+	$shiftYdown	= 25+15*3;
 
-$shiftX = 12;
-$shiftYup = 17;
-$shiftYdown = 55;
+	$im = imagecreate($sizeX+$shiftX+61,$sizeY+$shiftYup+$shiftYdown+10);
 
-$im = imagecreate($sizeX + $shiftX + 61, $sizeY + $shiftYup + $shiftYdown + 10);
+	$red		= imagecolorallocate($im,255,0,0);
+	$darkred	= imagecolorallocate($im,150,0,0);
+	$green		= imagecolorallocate($im,0,255,0);
+	$darkgreen	= imagecolorallocate($im,0,150,0);
+	$bluei		= imagecolorallocate($im,0,0,255);
+	$darkblue	= imagecolorallocate($im,0,0,150);
+	$yellow		= imagecolorallocate($im,255,255,0);
+	$darkyellow	= imagecolorallocate($im,150,150,0);
+	$cyan		= imagecolorallocate($im,0,255,255);
+	$black		= imagecolorallocate($im,0,0,0);
+	$gray		= imagecolorallocate($im,150,150,150);
+	$white		= imagecolorallocate($im,255,255,255);
+	$bg			= imagecolorallocate($im,6+6*16,7+7*16,8+8*16);
 
-$red = imagecolorallocate($im, 255, 0, 0);
-$darkred = imagecolorallocate($im, 150, 0, 0);
-$green = imagecolorallocate($im, 0, 255, 0);
-$darkgreen = imagecolorallocate($im, 0, 150, 0);
-$bluei = imagecolorallocate($im, 0, 0, 255);
-$darkblue = imagecolorallocate($im, 0, 0, 150);
-$yellow = imagecolorallocate($im, 255, 255, 0);
-$darkyellow = imagecolorallocate($im, 150, 150, 0);
-$cyan = imagecolorallocate($im, 0, 255, 255);
-$black = imagecolorallocate($im, 0, 0, 0);
-$gray = imagecolorallocate($im, 150, 150, 150);
-$white = imagecolorallocate($im, 255, 255, 255);
-$bg = imagecolorallocate($im, 102, 119, 136);
+	$x=imagesx($im);
+	$y=imagesy($im);
 
-$x = imagesx($im);
-$y = imagesy($im);
+	imagefilledrectangle($im,0,0,$x,$y,$white);
+	imagerectangle($im,0,0,$x-1,$y-1,$black);
 
-imagefilledrectangle($im, 0, 0, $x, $y, $white);
-imagerectangle($im, 0, 0, $x - 1, $y - 1, $black);
+	$str = expand_trigger_description_by_data($db_data);
 
-$str = _s('%1$s (year %2$s)', $dbTrigger['description'], zbx_date2str(_x('Y', DATE_FORMAT_CONTEXT)));
-$x = imagesx($im) / 2 - imagefontwidth(4) * mb_strlen($str) / 2;
-imageText($im, 10, 0, $x, 14, $darkred, $str);
+	$str = S_CHART4_HEADER_TITLE_PART1.' '.$str.' '.S_CHART4_HEADER_TITLE_PART2.' '.zbx_date2str(S_CHART4_HEADER_DATE_FORMAT).' '.S_CHART4_HEADER_TITLE_PART3;
+	$x = imagesx($im)/2-imagefontwidth(4)*zbx_strlen($str)/2;
+	//imagestring($im, 4,$x,1, $str , $darkred);
+	imageText($im, 10, 0, $x, 14, $darkred, $str);
 
-$now = time(null);
-$count_now = array();
-$true = array();
-$false = array();
+	$now = time(NULL);
 
-$start = mktime(0, 0, 0, 1, 1, date('Y'));
+	$count_now=array();
+	$true = array();
+	$false = array();
+	$unknown = array();
 
-$wday = date('w', $start);
-if ($wday == 0) {
-	$wday = 7;
-}
-$start = $start - ($wday - 1) * SEC_PER_DAY;
+	$start=mktime(0,0,0,1,1,date('Y'));
 
-$weeks = (int) (date('z') / 7 + 1);
+	$wday=date('w',$start);
+	if($wday==0) $wday=7;
+	$start=$start-($wday-1)*24*3600;
 
-for ($i = 0; $i < $weeks; $i++) {
-	$periodStart = $start + SEC_PER_WEEK * $i;
-	$periodEnd = $start + SEC_PER_WEEK * ($i + 1);
+	$weeks = (int)(date('z')/7 +1);
 
-	$stat = calculateAvailability(getRequest('triggerid'), $periodStart, $periodEnd);
-	$true[$i] = $stat['true'];
-	$false[$i] = $stat['false'];
-	$count_now[$i] = 1;
-}
+	for($i=0;$i<$weeks;$i++){
+		$period_start=$start+7*24*3600*$i;
+		$period_end=$start+7*24*3600*($i+1);
 
-for ($i = 0; $i <= $sizeY; $i += $sizeY / 10) {
-	dashedLine($im, $shiftX, $i + $shiftYup, $sizeX + $shiftX, $i + $shiftYup, $gray);
-}
-
-for ($i = 0, $periodStart = $start; $i <= $sizeX; $i += $sizeX / 52) {
-	dashedLine($im, $i + $shiftX, $shiftYup, $i + $shiftX, $sizeY + $shiftYup, $gray);
-	imageText($im, 6, 90, $i + $shiftX + 4, $sizeY + $shiftYup + 30, $black, zbx_date2str(_('d.M'), $periodStart));
-
-	$periodStart += SEC_PER_WEEK;
-}
-
-$maxY = max(max($true), 100);
-$minY = 0;
-
-$maxX = 900;
-$minX = 0;
-
-for ($i = 1; $i <= $weeks; $i++) {
-	$x1 = (900 / 52) * $sizeX * ($i - 1 - $minX) / ($maxX - $minX);
-
-	$yt = $sizeY * $true[$i - 1] / 100;
-	if ($yt > 0) {
-		imagefilledrectangle($im, $x1 + $shiftX, $shiftYup, $x1 + $shiftX + 8, $yt + $shiftYup, imagecolorallocate($im, 235, 120, 120)); // red
+		$stat=calculate_availability($_REQUEST['triggerid'],$period_start,$period_end);
+		$true[$i]=$stat['true'];
+		$false[$i]=$stat['false'];
+		$unknown[$i]=$stat['unknown'];
+		$count_now[$i]=1;
+//SDI($false[$i]);
 	}
 
-	$yf = $sizeY * $false[$i - 1] / 100;
-	if ($yf > 0) {
-		imagefilledrectangle($im, $x1 + $shiftX, $yt + $shiftYup, $x1 + $shiftX + 8, $sizeY + $shiftYup, imagecolorallocate($im, 120, 235, 120)); // green
+	for($i=0;$i<=$sizeY;$i+=$sizeY/10){
+		DashedLine($im,$shiftX,$i+$shiftYup,$sizeX+$shiftX,$i+$shiftYup,$gray);
 	}
 
-	if ($yt + $yf > 0) {
-		imagerectangle($im, $x1 + $shiftX, $shiftYup, $x1 + $shiftX + 8, $sizeY + $shiftYup, $black);
+
+	for($i=0, $period_start = $start; $i <= $sizeX; $i += $sizeX/52){
+		DashedLine($im,$i+$shiftX,$shiftYup,$i+$shiftX,$sizeY+$shiftYup,$gray);
+		//imagestringup($im, 1,$i+$shiftX-4, $sizeY+$shiftYup+32, zbx_date2str(S_CHART4_TIMELINE_DATE_FORMAT,$period_start) , $black);
+		imageText($im, 6, 90, $i+$shiftX+4, $sizeY+$shiftYup+30, $black, zbx_date2str(S_CHART4_TIMELINE_DATE_FORMAT,$period_start));
+
+		$period_start += 7*24*3600;
 	}
-}
 
-for ($i = 0; $i <= $sizeY; $i += $sizeY / 10) {
-	imageText($im, 7, 0, $sizeX + 5 + $shiftX, $sizeY - $i - 4 + $shiftYup + 8, $darkred, $i * ($maxY - $minY) / $sizeY + $minY);
-}
+	$maxY = max(max($true), 100);
+	$minY = 0;
 
-imagefilledrectangle($im, $shiftX, $sizeY + $shiftYup + 39, $shiftX + 5, $sizeY + $shiftYup + 44, imagecolorallocate($im, 120, 235, 120));
-imagerectangle($im, $shiftX, $sizeY + $shiftYup + 39, $shiftX + 5, $sizeY + $shiftYup + 44, $black);
-imageText($im, 8, 0, $shiftX + 9, $sizeY + $shiftYup + 45, $black, _('OK').' (%)');
+	$maxX=900;
+	$minX=0;
 
-imagefilledrectangle($im, $shiftX, $sizeY + $shiftYup + 54, $shiftX + 5, $sizeY + $shiftYup + 59, imagecolorallocate($im, 235, 120, 120));
-imagerectangle($im, $shiftX, $sizeY + $shiftYup + 54, $shiftX + 5, $sizeY + $shiftYup + 59, $black);
-imageText($im, 8, 0, $shiftX + 9, $sizeY + $shiftYup + 60, $black, _('Problems').' (%)');
+	for($i=1;$i<=$weeks;$i++){
+		$x1=(900/52)*$sizeX*($i-1-$minX)/($maxX-$minX);
 
-imagestringup($im, 1, imagesx($im) - 10, imagesy($im) - 50, ZABBIX_HOMEPAGE, $gray);
+//		imagefilledrectangle($im,$x1+$shiftX,$shiftYup,$x1+$shiftX+8,$sizeY+$shiftYup,imagecolorallocate($im,0,0,0)); 	// WHITE
 
-$str = sprintf('%0.2f', microtime(true) - $startTime);
-$str = _s('Generated in %s sec', $str);
-$strSize = imageTextSize(6, 0, $str);
-imageText($im, 6, 0, imagesx($im) - $strSize['width'] - 5, imagesy($im) - 5, $gray, $str);
+		$yt=$sizeY*$true[$i-1]/100;
+		if($yt > 0) imagefilledrectangle($im,$x1+$shiftX,$shiftYup,$x1+$shiftX+8,$yt+$shiftYup,imagecolorallocate($im,235,120,120));	// RED
 
-imageOut($im);
-imagedestroy($im);
+		$yu=(int)($sizeY*$unknown[$i-1]/100+0.5);
+		if($yu > 0) imagefilledrectangle($im,$x1+$shiftX,$yt+$shiftYup,$x1+$shiftX+8,$yt+$yu+$shiftYup,imagecolorallocate($im,235,235,235)); 	// UNKNOWN
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+		$yf=$sizeY*$false[$i-1]/100;
+		if($yf > 0) imagefilledrectangle($im,$x1+$shiftX,$yt+$yu+$shiftYup,$x1+$shiftX+8,$sizeY+$shiftYup,imagecolorallocate($im,120,235,120));  // GREEN
+
+//SDI($yt.'+'.$yf.'+'.$yu);
+		if($yt+$yf+$yu > 0) imagerectangle($im,$x1+$shiftX,$shiftYup,$x1+$shiftX+8,$sizeY+$shiftYup,$black);
+	}
+
+	for($i=0;$i<=$sizeY;$i+=$sizeY/10){
+		//imagestring($im, 1, $sizeX+5+$shiftX, $sizeY-$i-4+$shiftYup, $i*($maxY-$minY)/$sizeY+$minY , $darkred);
+		imageText($im, 7, 0, $sizeX+5+$shiftX, $sizeY-$i-4+$shiftYup+8, $darkred, $i*($maxY-$minY)/$sizeY+$minY);
+	}
+
+	imagefilledrectangle($im,$shiftX,$sizeY+$shiftYup+39+15*0,$shiftX+5,$sizeY+$shiftYup+35+9+15*0,imagecolorallocate($im,120,235,120));
+	imagerectangle($im,$shiftX,$sizeY+$shiftYup+39+15*0,$shiftX+5,$sizeY+$shiftYup+35+9+15*0,$black);
+	imageText($im, 8, 0, $shiftX+9, $sizeY+$shiftYup+15*0+45, $black, S_OK." (%)");
+	//imagestring($im, 2,$shiftX+9,$sizeY+$shiftYup+15*0+35, S_OK." (%)", $black);
+
+	imagefilledrectangle($im,$shiftX,$sizeY+$shiftYup+39+15*1,$shiftX+5,$sizeY+$shiftYup+35+9+15*1,imagecolorallocate($im,235,120,120));
+	imagerectangle($im,$shiftX,$sizeY+$shiftYup+39+15*1,$shiftX+5,$sizeY+$shiftYup+15+9+35*1,$black);
+	imageText($im, 8, 0, $shiftX+9, $sizeY+$shiftYup+15*1+45, $black, S_PROBLEMS." (%)");
+	//imagestring($im, 2,$shiftX+9,$sizeY+$shiftYup+15*1+35, S_PROBLEMS." (%)", $black);
+
+	imagefilledrectangle($im,$shiftX,$sizeY+$shiftYup+39+15*2,$shiftX+5,$sizeY+$shiftYup+35+9+15*2,imagecolorallocate($im,220,220,220));
+	imagerectangle($im,$shiftX,$sizeY+$shiftYup+39+15*2,$shiftX+5,$sizeY+$shiftYup+35+9+15*2,$black);
+	imageText($im, 8, 0, $shiftX+9, $sizeY+$shiftYup+15*2+45, $black, S_UNKNOWN." (%)");
+
+	imagestringup($im,0,imagesx($im)-10,imagesy($im)-50, 'http://www.zabbix.com', $gray);
+
+	$end_time=time(NULL);
+	imagestring($im, 0,imagesx($im)-100,imagesy($im)-12,'Generated in '.($end_time-$start_time).' sec', $gray);
+
+	ImageOut($im);
+	imagedestroy($im);
+?>
+<?php
+
+include_once('include/page_footer.php');
+
+?>

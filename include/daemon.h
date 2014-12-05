@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #ifndef ZABBIX_DAEMON_H
@@ -24,18 +24,20 @@
 #	error "This module allowed only for Unix OS"
 #endif
 
+#define USE_PID_FILE	1
+
 extern char	*CONFIG_PID_FILE;
 
 #include "threads.h"
 
-int	daemon_start(int allow_root, const char *user);
+int	daemon_start(int allow_root);
 void	daemon_stop();
 
-int	zbx_sigusr_send(int flags);
+int	zbx_sigusr_send(zbx_task_t task);
 
 #define ZBX_IS_RUNNING()	1
 #define ZBX_DO_EXIT()
 
-#define START_MAIN_ZABBIX_ENTRY(a, u)	daemon_start(a, u)
+#define START_MAIN_ZABBIX_ENTRY(a)	daemon_start(a)
 
 #endif	/* ZABBIX_DAEMON_H */

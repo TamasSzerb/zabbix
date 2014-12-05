@@ -4,7 +4,6 @@ DIST_SUBDIRS = \
 	zbxdbcache \
 	zbxdbhigh \
 	zbxdb \
-	zbxdbupgrade \
 	zbxmemory \
 	zbxalgo \
 	zbxmedia \
@@ -21,15 +20,24 @@ DIST_SUBDIRS = \
 	zbxserver \
 	zbxicmpping \
 	zbxexec \
-	zbxself \
-	zbxmodules \
-	zbxregexp
+	zbxself
+
+if PROXY
+PROXY_SUBDIRS = \
+	zbxcommshigh \
+	zbxdb \
+	zbxdbcache \
+	zbxdbhigh \
+	zbxmemory \
+	zbxserver \
+	zbxicmpping \
+	zbxself
+endif
 
 if SERVER
 SERVER_SUBDIRS = \
 	zbxcommshigh \
 	zbxdb \
-	zbxdbupgrade \
 	zbxdbcache \
 	zbxdbhigh \
 	zbxmemory \
@@ -37,24 +45,6 @@ SERVER_SUBDIRS = \
 	zbxicmpping \
 	zbxmedia \
 	zbxself
-else
-if PROXY
-PROXY_SUBDIRS = \
-	zbxcommshigh \
-	zbxdb \
-	zbxdbupgrade \
-	zbxdbcache \
-	zbxdbhigh \
-	zbxmemory \
-	zbxserver \
-	zbxicmpping \
-	zbxself
-else
-if AGENT
-AGENT_SUBDIRS = \
-	zbxself
-endif
-endif
 endif
 
 SUBDIRS = \
@@ -69,10 +59,7 @@ SUBDIRS = \
 	zbxcomms \
 	zbxjson \
 	zbxexec \
-	zbxmodules \
-	zbxregexp \
 	$(PROXY_SUBDIRS) \
-	$(SERVER_SUBDIRS) \
-	$(AGENT_SUBDIRS)
+	$(SERVER_SUBDIRS)
 
 EXTRA_DIST = zbxwin32

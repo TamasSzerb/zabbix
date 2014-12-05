@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,111 +9,60 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
 
-static int	VM_MEMORY_TOTAL(AGENT_RESULT *result)
+static int	VM_MEMORY_TOTAL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	SET_UI64_RESULT(result, (zbx_uint64_t)sysconf(_SC_PHYS_PAGES) * sysconf(_SC_PAGESIZE));
-
+	SET_UI64_RESULT(result, (zbx_uint64_t)sysconf(_SC_PHYS_PAGES)*(zbx_uint64_t)sysconf(_SC_PAGESIZE));
 	return SYSINFO_RET_OK;
 }
 
-static int	VM_MEMORY_FREE(AGENT_RESULT *result)
+static int	VM_MEMORY_FREE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	SET_UI64_RESULT(result, (zbx_uint64_t)sysconf(_SC_AVPHYS_PAGES) * sysconf(_SC_PAGESIZE));
-
+	SET_UI64_RESULT(result, (zbx_uint64_t)sysconf(_SC_AVPHYS_PAGES)*(zbx_uint64_t)sysconf(_SC_PAGESIZE));
 	return SYSINFO_RET_OK;
 }
 
-static int	VM_MEMORY_USED(AGENT_RESULT *result)
+int     VM_MEMORY_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	zbx_uint64_t	used;
-
-	used = sysconf(_SC_PHYS_PAGES) - sysconf(_SC_AVPHYS_PAGES);
-
-	SET_UI64_RESULT(result, used * sysconf(_SC_PAGESIZE));
-
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_PUSED(AGENT_RESULT *result)
-{
-	zbx_uint64_t	used, total;
-
-	if (0 == (total = sysconf(_SC_PHYS_PAGES)))
+	MODE_FUNCTION fl[] =
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot calculate percentage because total is zero."));
-		return SYSINFO_RET_FAIL;
+		{"total",	VM_MEMORY_TOTAL},
+		{"free",	VM_MEMORY_FREE},
+		{0,		0}
+	};
+
+	char	mode[MAX_STRING_LEN];
+	int	i;
+
+        if(num_param(param) > 1)
+        {
+                return SYSINFO_RET_FAIL;
+        }
+
+        if(get_param(param, 1, mode, MAX_STRING_LEN) != 0)
+        {
+                mode[0] = '\0';
+        }
+
+        if(mode[0] == '\0')
+	{
+		/* default parameter */
+		zbx_snprintf(mode, sizeof(mode), "total");
 	}
 
-	used = total - sysconf(_SC_AVPHYS_PAGES);
+	for(i=0; fl[i].mode!=0; i++)
+		if(strncmp(mode, fl[i].mode, MAX_STRING_LEN)==0)
+			return (fl[i].function)(cmd, param, flags, result);
 
-	SET_DBL_RESULT(result, used / (double)total * 100);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_AVAILABLE(AGENT_RESULT *result)
-{
-	SET_UI64_RESULT(result, (zbx_uint64_t)sysconf(_SC_AVPHYS_PAGES) * sysconf(_SC_PAGESIZE));
-
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_PAVAILABLE(AGENT_RESULT *result)
-{
-	zbx_uint64_t	total;
-
-	if (0 == (total = sysconf(_SC_PHYS_PAGES)))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot calculate percentage because total is zero."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	SET_DBL_RESULT(result, sysconf(_SC_AVPHYS_PAGES) / (double)total * 100);
-
-	return SYSINFO_RET_OK;
-}
-
-int     VM_MEMORY_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	char	*mode;
-	int	ret;
-
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	mode = get_rparam(request, 0);
-
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "total"))
-		ret = VM_MEMORY_TOTAL(result);
-	else if (0 == strcmp(mode, "free"))
-		ret = VM_MEMORY_FREE(result);
-	else if (0 == strcmp(mode, "used"))
-		ret = VM_MEMORY_USED(result);
-	else if (0 == strcmp(mode, "pused"))
-		ret = VM_MEMORY_PUSED(result);
-	else if (0 == strcmp(mode, "available"))
-		ret = VM_MEMORY_AVAILABLE(result);
-	else if (0 == strcmp(mode, "pavailable"))
-		ret = VM_MEMORY_PAVAILABLE(result);
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	return ret;
+	return SYSINFO_RET_FAIL;
 }

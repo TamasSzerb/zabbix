@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,17 +9,16 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
-#include "zbxregexp.h"
 
 #include "log.h"
 #include "comms.h"
@@ -29,9 +28,10 @@
 
 #define ZBX_MAX_WEBPAGE_SIZE	(1 * 1024 * 1024)
 
-static int	get_http_page(const char *host, const char *path, unsigned short port, char *buffer, size_t max_buffer_len)
+static int	get_http_page(const char *host, const char *path, unsigned short port, char *buffer, int max_buffer_len)
 {
 	int		ret;
+	char		*recv_buffer;
 	char		request[MAX_STRING_LEN];
 	zbx_sock_t	s;
 
@@ -46,10 +46,10 @@ static int	get_http_page(const char *host, const char *path, unsigned short port
 
 		if (SUCCEED == (ret = zbx_tcp_send_raw(&s, request)))
 		{
-			if (SUCCEED == (ret = SUCCEED_OR_FAIL(zbx_tcp_recv_ext(&s, ZBX_TCP_READ_UNTIL_CLOSE, 0))))
+			if (SUCCEED == (ret = zbx_tcp_recv_ext(&s, &recv_buffer, ZBX_TCP_READ_UNTIL_CLOSE, 0)))
 			{
 				if (NULL != buffer)
-					zbx_strlcpy(buffer, s.buffer, max_buffer_len);
+					zbx_strlcpy(buffer, recv_buffer, max_buffer_len);
 			}
 		}
 
@@ -65,182 +65,122 @@ static int	get_http_page(const char *host, const char *path, unsigned short port
 	return SYSINFO_RET_OK;
 }
 
-int	WEB_PAGE_GET(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	WEB_PAGE_GET(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		*hostname, *path_str, *port_str, buffer[MAX_BUFFER_LEN], path[MAX_STRING_LEN];
-	unsigned short	port_number;
+	char	hostname[MAX_STRING_LEN];
+	char	path[MAX_STRING_LEN];
+	char	port_str[8];
+	char	buffer[MAX_BUFFER_LEN];
 
-	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
+        if (num_param(param) > 3)
+                return SYSINFO_RET_FAIL;
 
-	hostname = get_rparam(request, 0);
-	path_str = get_rparam(request, 1);
-	port_str = get_rparam(request, 2);
+	if (0 != get_param(param, 1, hostname, sizeof(hostname)))
+                return SYSINFO_RET_FAIL;
 
-	if (NULL == hostname || '\0' == *hostname)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if (NULL == path_str)
+	if (0 != get_param(param, 2, path, sizeof(path)))
 		*path = '\0';
-	else
-		strscpy(path, path_str);
 
-	if (NULL == port_str || '\0' == *port_str)
-		port_number = ZBX_DEFAULT_HTTP_PORT;
-	else if (FAIL == is_ushort(port_str, &port_number))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
+	if (0 != get_param(param, 3, port_str, sizeof(port_str)) || '\0' == *port_str)
+		zbx_snprintf(port_str, sizeof(port_str), "%d", ZBX_DEFAULT_HTTP_PORT);
+	else if (FAIL == is_uint(port_str))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (SYSINFO_RET_OK == get_http_page(hostname, path, port_number, buffer, sizeof(buffer)))
+	if (SYSINFO_RET_OK == get_http_page(hostname, path, (unsigned short)atoi(port_str), buffer, sizeof(buffer)))
 	{
 		zbx_rtrim(buffer, "\r\n");
-		SET_TEXT_RESULT(result, zbx_strdup(NULL, buffer));
+		SET_TEXT_RESULT(result, strdup(buffer));
 	}
 	else
-		SET_TEXT_RESULT(result, zbx_strdup(NULL, ""));
+		SET_TEXT_RESULT(result, strdup("EOF"));
 
 	return SYSINFO_RET_OK;
 }
 
-int	WEB_PAGE_PERF(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	WEB_PAGE_PERF(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		*hostname, path[MAX_STRING_LEN], *port_str, *path_str;
-	double		start_time;
-	unsigned short	port_number;
+	char	hostname[MAX_STRING_LEN];
+	char	path[MAX_STRING_LEN];
+	char	port_str[8];
+	double	start_time;
 
-	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
+        if (num_param(param) > 3)
+                return SYSINFO_RET_FAIL;
 
-	hostname = get_rparam(request, 0);
-	path_str = get_rparam(request, 1);
-	port_str = get_rparam(request, 2);
+	if (0 != get_param(param, 1, hostname, sizeof(hostname)))
+                return SYSINFO_RET_FAIL;
 
-	if (NULL == hostname || '\0' == *hostname)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if (NULL == path_str || '\0' == *path_str)
+	if (0 != get_param(param, 2, path, sizeof(path)))
 		*path = '\0';
-	else
-		strscpy(path, path_str);
 
-	if (NULL == port_str || '\0' == *port_str)
-		port_number = ZBX_DEFAULT_HTTP_PORT;
-	else if (FAIL == is_ushort(port_str, &port_number))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
+	if (0 != get_param(param, 3, port_str, sizeof(port_str)) || '\0' == *port_str)
+		zbx_snprintf(port_str, sizeof(port_str), "%d", ZBX_DEFAULT_HTTP_PORT);
+	else if (FAIL == is_uint(port_str))
 		return SYSINFO_RET_FAIL;
-	}
 
 	start_time = zbx_time();
 
-	if (SYSINFO_RET_OK == get_http_page(hostname, path, port_number, NULL, 0))
+	if (SYSINFO_RET_OK == get_http_page(hostname, path, (unsigned short)atoi(port_str), NULL, 0))
+	{
 		SET_DBL_RESULT(result, zbx_time() - start_time);
+	}
 	else
 		SET_DBL_RESULT(result, 0.0);
 
 	return SYSINFO_RET_OK;
 }
 
-int	WEB_PAGE_REGEXP(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	WEB_PAGE_REGEXP(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		*hostname, *path_str, *port_str, *regexp, *length_str, path[MAX_STRING_LEN],
-			*buffer = NULL, *ptr = NULL, *str, *newline;
-	int		length;
-	const char	*output;
-	unsigned short	port_number;
+	char	hostname[MAX_STRING_LEN];
+	char	path[MAX_STRING_LEN];
+	char	port_str[8];
+	char	regexp[MAX_STRING_LEN];
+	char	len_str[16];
+	char	back[MAX_BUFFER_LEN];
+	char	*buffer = NULL, *found;
+	int	len, found_len;
 
-	if (6 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
+        if (num_param(param) > 5)
+                return SYSINFO_RET_FAIL;
 
-	if (4 > request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid number of parameters."));
-		return SYSINFO_RET_FAIL;
-	}
+	if (0 != get_param(param, 1, hostname, sizeof(hostname)))
+                return SYSINFO_RET_FAIL;
 
-	hostname = get_rparam(request, 0);
-	path_str = get_rparam(request, 1);
-	port_str = get_rparam(request, 2);
-	regexp = get_rparam(request, 3);
-	length_str = get_rparam(request, 4);
-	output = get_rparam(request, 5);
-
-	if ('\0' == *hostname)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	if ('\0' == *path_str)
+	if (0 != get_param(param, 2, path, sizeof(path)))
 		*path = '\0';
-	else
-		strscpy(path, path_str);
 
-	if ('\0' == *port_str)
-		port_number = ZBX_DEFAULT_HTTP_PORT;
-	else if (FAIL == is_ushort(port_str, &port_number))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
+	if (0 != get_param(param, 3, port_str, sizeof(port_str)) || '\0' == *port_str)
+		zbx_snprintf(port_str, sizeof(port_str), "%d", ZBX_DEFAULT_HTTP_PORT);
+	else if (FAIL == is_uint(port_str))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (NULL == length_str || '\0' == *length_str)
-		length = MAX_BUFFER_LEN - 1;
-	else if (FAIL == is_uint31_1(length_str, &length))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid fifth parameter."));
+	if (0 != get_param(param, 4, regexp, sizeof(regexp)))
+                return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 5, len_str, sizeof(len_str)) || '\0' == *len_str)
+		zbx_snprintf(len_str, sizeof(len_str), "%d", MAX_BUFFER_LEN - 1);
+	else if (FAIL == is_uint(len_str))
 		return SYSINFO_RET_FAIL;
-	}
-
-	/* by default return the matched part of web page */
-	if (NULL == output || '\0' == *output)
-		output = "\\0";
 
 	buffer = zbx_malloc(buffer, ZBX_MAX_WEBPAGE_SIZE);
 
-	if (SYSINFO_RET_OK == get_http_page(hostname, path, port_number, buffer, ZBX_MAX_WEBPAGE_SIZE))
+	if (SYSINFO_RET_OK == get_http_page(hostname, path, (unsigned short)atoi(port_str), buffer, ZBX_MAX_WEBPAGE_SIZE))
 	{
-		for (str = buffer; ;)
+		if (NULL != (found = zbx_regexp_match(buffer, regexp, &found_len)))
 		{
-			if (NULL != (newline = strchr(str, '\n')))
-			{
-				if (str != newline && '\r' == newline[-1])
-					newline[-1] = '\0';
-				else
-					*newline = '\0';
-			}
+			len = atoi(len_str) + 1;
+			len = MIN(len, found_len + 1);
+			len = MIN(len, sizeof(back));
 
-			if (NULL != (ptr = zbx_regexp_sub(str, regexp, output)))
-				break;
-
-			if (NULL != newline)
-				str = newline + 1;
-			else
-				break;
+			zbx_strlcpy(back, found, len);
+			SET_STR_RESULT(result, strdup(back));
 		}
+		else
+			SET_STR_RESULT(result, strdup("EOF"));
 	}
-
-	if (NULL != ptr)
-		SET_STR_RESULT(result, ptr);
 	else
-		SET_STR_RESULT(result, zbx_strdup(NULL, ""));
+		SET_STR_RESULT(result, strdup("EOF"));
 
 	zbx_free(buffer);
 

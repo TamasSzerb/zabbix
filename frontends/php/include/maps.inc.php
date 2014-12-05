@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -10,1533 +10,1796 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
-
-
-function sysmap_element_types($type = null) {
-	$types = array(
-		SYSMAP_ELEMENT_TYPE_HOST => _('Host'),
-		SYSMAP_ELEMENT_TYPE_HOST_GROUP => _('Host group'),
-		SYSMAP_ELEMENT_TYPE_TRIGGER => _('Trigger'),
-		SYSMAP_ELEMENT_TYPE_MAP => _('Map'),
-		SYSMAP_ELEMENT_TYPE_IMAGE => _('Image')
-	);
-
-	if (is_null($type)) {
-		natsort($types);
-		return $types;
+?>
+<?php
+/*
+ * Function: map_link_drawtypes
+ *
+ * Description:
+ *     Return available drawing types for links
+ *
+ * Author:
+ *     Eugene Grigorjev
+ *
+ */
+	function map_link_drawtypes(){
+		return array(
+				MAP_LINK_DRAWTYPE_LINE,
+				MAP_LINK_DRAWTYPE_BOLD_LINE,
+				(function_exists('imagesetstyle') ? MAP_LINK_DRAWTYPE_DOT : null),
+				MAP_LINK_DRAWTYPE_DASHED_LINE
+			    );
 	}
-	elseif (isset($types[$type])) {
-		return $types[$type];
-	}
-	else {
-		return _('Unknown');
-	}
-}
 
-function sysmapElementLabel($label = null) {
-	$labels = array(
-		MAP_LABEL_TYPE_LABEL => _('Label'),
-		MAP_LABEL_TYPE_IP => _('IP address'),
-		MAP_LABEL_TYPE_NAME => _('Element name'),
-		MAP_LABEL_TYPE_STATUS => _('Status only'),
-		MAP_LABEL_TYPE_NOTHING => _('Nothing'),
-		MAP_LABEL_TYPE_CUSTOM => _('Custom label')
-	);
+/*
+ * Function: map_link_drawtype2str
+ *
+ * Description:
+ *     Represent integer value of links drawing type into the string
+ *
+ * Author:
+ *     Eugene Grigorjev
+ *
+ */
+	function map_link_drawtype2str($drawtype){
+		switch($drawtype){
+			case MAP_LINK_DRAWTYPE_LINE:		$drawtype = S_LINE;			break;
+			case MAP_LINK_DRAWTYPE_BOLD_LINE:	$drawtype = S_BOLD_LINE;	break;
+			case MAP_LINK_DRAWTYPE_DOT:			$drawtype = S_DOT;			break;
+			case MAP_LINK_DRAWTYPE_DASHED_LINE:	$drawtype = S_DASHED_LINE;	break;
+			default: $drawtype = S_UNKNOWN;		break;
+		}
+	return $drawtype;
+	}
 
-	if (is_null($label)) {
-		return $labels;
-	}
-	elseif (isset($labels[$label])) {
-		return $labels[$label];
-	}
-	else {
+	function get_sysmap_by_sysmapid($sysmapid){
+		$row = DBfetch(DBselect('SELECT * FROM sysmaps WHERE sysmapid='.zbx_dbstr($sysmapid)));
+		if($row){
+			return	$row;
+		}
+		error(S_NO_SYSTEM_MAP_WITH.' sysmapid=['.$sysmapid.']');
 		return false;
 	}
-}
 
-/**
- * Create map area with submenu for sysmap elements.
- * In submenu gathered information about urls, scripts and submaps.
- *
- * @param array $sysmap
- * @param array $options
- * @param int   $options['severity_min']
- *
- * @return CAreaMap
- */
-function getActionMapBySysmap($sysmap, array $options = array()) {
-	$sysmap['selements'] = zbx_toHash($sysmap['selements'], 'selementid');
-	$sysmap['links'] = zbx_toHash($sysmap['links'], 'linkid');
+// LINKS
 
-	$actionMap = new CAreaMap('links'.$sysmap['sysmapid']);
-
-	$areas = populateFromMapAreas($sysmap);
-	$mapInfo = getSelementsInfo($sysmap, $options);
-	processAreasCoordinates($sysmap, $areas, $mapInfo);
-
-	$hostIds = array();
-	$triggerIds = array();
-
-	foreach ($sysmap['selements'] as $id => &$selement) {
-		if ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST) {
-			$hostIds[$selement['elementid']] = $selement['elementid'];
-
-			// expanding host URL macros again as some hosts were added from hostgroup areas
-			// and automatic expanding only happens for elements that are defined for map in db
-			foreach ($selement['urls'] as $urlId => $url) {
-				$selement['urls'][$urlId]['url'] = str_replace('{HOST.ID}', $selement['elementid'], $url['url']);
-			}
-		}
-		elseif ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_TRIGGER) {
-			$triggerIds[$selement['elementid']] = $selement['elementid'];
-		}
-
-		if ($selement['elementsubtype'] == SYSMAP_ELEMENT_SUBTYPE_HOST_GROUP_ELEMENTS) {
-			unset($sysmap['selements'][$id]);
-		}
-	}
-	unset($selement);
-
-	$hostScripts = API::Script()->getScriptsByHosts($hostIds);
-
-	$hosts = API::Host()->get(array(
-		'hostids' => $hostIds,
-		'output' => array('hostid', 'status'),
-		'nopermissions' => true,
-		'preservekeys' => true,
-		'selectGraphs' => API_OUTPUT_COUNT,
-		'selectScreens' => API_OUTPUT_COUNT
-	));
-
-	$triggers = API::Trigger()->get(array(
-		'output' => array('triggerid'),
-		'triggerids' => $triggerIds,
-		'selectHosts' => array('status'),
-		'preservekeys' => true,
-		'nopermissions' => true
-	));
-
-	foreach ($sysmap['selements'] as $elem) {
-		$back = get_png_by_selement($mapInfo[$elem['selementid']]);
-		$area = new CArea(
-			array(
-				$elem['x'],
-				$elem['y'],
-				$elem['x'] + imagesx($back),
-				$elem['y'] + imagesy($back)
-			),
-			'', '', 'rect'
+	function add_link($link){
+		$link_db_fields = array(
+			'sysmapid' => null,
+			'label' => '',
+			'selementid1' => null,
+			'selementid2' => null,
+			'drawtype' => 2,
+			'color' => 3
 		);
-		$area->addClass('menu-map');
 
-		$hostId = null;
-		$scripts = null;
-		$gotos = null;
+		if(!check_db_fields($link_db_fields, $link)){
+			$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => 'Wrong fields for link');
+			return false;
+		}
 
-		switch ($elem['elementtype']) {
-			case SYSMAP_ELEMENT_TYPE_HOST:
-				$host = $hosts[$elem['elementid']];
+		$linkid=get_dbid("sysmaps_links","linkid");
 
-				if ($hostScripts[$elem['elementid']]) {
-					$hostId = $elem['elementid'];
-					$scripts = $hostScripts[$elem['elementid']];
-				}
+		$result=TRUE;
+		foreach($link['linktriggers'] as $id => $linktrigger){
+			if(empty($linktrigger['triggerid'])) continue;
+			$result&=add_link_trigger($linkid,$linktrigger['triggerid'],$linktrigger['drawtype'],$linktrigger['color']);
+		}
 
-				$gotos['triggerStatus'] = array(
-					'hostid' => $elem['elementid'],
-					'show_severity' => isset($options['severity_min']) ? $options['severity_min'] : null
-				);
-				$gotos['showTriggers'] = ($hosts[$elem['elementid']]['status'] == HOST_STATUS_MONITORED);
+		if(!$result){
+			return $result;
+		}
 
-				$gotos['graphs'] = array('hostid' => $host['hostid']);
-				$gotos['showGraphs'] = (bool) $host['graphs'];
+		$result&=DBexecute('INSERT INTO sysmaps_links '.
+			' (linkid,sysmapid,label,selementid1,selementid2,drawtype,color) '.
+			' VALUES ('.$linkid.','.zbx_dbstr($link['sysmapid']).','.zbx_dbstr($link['label']).','.
+						zbx_dbstr($link['selementid1']).','.zbx_dbstr($link['selementid2']).','.
+						zbx_dbstr($link['drawtype']).','.zbx_dbstr($link['color']).')');
 
-				$gotos['screens'] = array('hostid' => $host['hostid']);
-				$gotos['showScreens'] = (bool) $host['screens'];
+		if(!$result)
+			return $result;
 
-				$gotos['inventory'] = array('hostid' => $host['hostid']);
+	return $linkid;
+	}
 
-				$gotos['latestData'] = array('hostids' => array($host['hostid']));
-				break;
+	function update_link($link){
+		$link_db_fields = array(
+			'sysmapid' => null,
+			'linkid' => null,
+			'label' => '',
+			'selementid1' => null,
+			'selementid2' => null,
+			'drawtype' => 2,
+			'color' => 3
+		);
 
-			case SYSMAP_ELEMENT_TYPE_MAP:
-				$gotos['submap'] = array(
-					'sysmapid' => $elem['elementid'],
-					'severity_min' => isset($options['severity_min']) ? $options['severity_min'] : null
-				);
-				break;
+		if(!check_db_fields($link_db_fields, $link)){
+			$result = false;
+			$errors[] = array('errno' => ZBX_API_ERROR_PARAMETERS, 'error' => 'Wrong fields for link');
+			break;
+		}
 
-			case SYSMAP_ELEMENT_TYPE_TRIGGER:
-				$gotos['events'] = array(
-					'triggerid' => $elem['elementid'],
-					'stime' => date(TIMESTAMP_FORMAT, time() - SEC_PER_WEEK),
-					'period' => SEC_PER_WEEK
-				);
+		$result = delete_all_link_triggers($link['linkid']);
 
-				$gotos['showEvents'] = false;
-				if (isset($triggers[$elem['elementid']])) {
-					foreach ($triggers[$elem['elementid']]['hosts'] as $host) {
-						if ($host['status'] == HOST_STATUS_MONITORED) {
-							$gotos['showEvents'] = true;
-							break;
-						}
+		foreach($link['linktriggers'] as $id => $linktrigger){
+			if(empty($linktrigger['triggerid'])) continue;
+			$result&=add_link_trigger($link['linkid'],$linktrigger['triggerid'],$linktrigger['drawtype'],$linktrigger['color']);
+		}
+
+		if(!$result){
+			return $result;
+		}
+
+		$result&=DBexecute('UPDATE sysmaps_links SET '.
+							' sysmapid='.zbx_dbstr($link['sysmapid']).', '.
+							' label='.zbx_dbstr($link['label']).', '.
+							' selementid1='.zbx_dbstr($link['selementid1']).', '.
+							' selementid2='.zbx_dbstr($link['selementid2']).', '.
+							' drawtype='.zbx_dbstr($link['drawtype']).', '.
+							' color='.zbx_dbstr($link['color']).
+						' WHERE linkid='.zbx_dbstr($link['linkid']));
+	return	$result;
+	}
+
+	function delete_link($linkids){
+		zbx_value2array($linkids);
+
+		$result = delete_all_link_triggers($linkids);
+		$result&= (bool) DBexecute('DELETE FROM sysmaps_links WHERE '.DBcondition('linkid',$linkids));
+
+	return $result;
+	}
+
+	function add_link_trigger($linkid,$triggerid,$drawtype,$color){
+		$linktriggerid=get_dbid("sysmaps_link_triggers","linktriggerid");
+		$sql = 'INSERT INTO sysmaps_link_triggers (linktriggerid,linkid,triggerid,drawtype,color) '.
+					' VALUES ('.zbx_dbstr($linktriggerid).','.zbx_dbstr($linkid).','.zbx_dbstr($triggerid).','.zbx_dbstr($drawtype).','.zbx_dbstr($color).')';
+	return DBexecute($sql);
+	}
+
+	function delete_all_link_triggers($linkids){
+		zbx_value2array($linkids);
+
+		$result = (bool) DBexecute('DELETE FROM sysmaps_link_triggers WHERE '.DBcondition('linkid',$linkids));
+	return $result;
+	}
+
+/*
+ * Function: check_circle_elements_link
+ *
+ * Description:
+ *     Check for circular map creation
+ *
+ * Author:
+ *     Eugene Grigorjev
+ *
+ */
+	function check_circle_elements_link($sysmapid,$elementid,$elementtype){
+		if($elementtype!=SYSMAP_ELEMENT_TYPE_MAP)	return false;
+
+		if(bccomp($sysmapid ,$elementid)==0)	return TRUE;
+
+		$db_elements = DBselect('SELECT elementid, elementtype '.
+						' FROM sysmaps_elements '.
+						' WHERE sysmapid='.zbx_dbstr($elementid));
+
+		while($element = DBfetch($db_elements)){
+			if(check_circle_elements_link($sysmapid,$element["elementid"],$element["elementtype"]))
+				return TRUE;
+		}
+		return false;
+	}
+
+
+	/******************************************************************************
+	 *                                                                            *
+	 * Purpose: Delete Element FROM sysmap definition                             *
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
+	function delete_sysmaps_element($selementids){
+		zbx_value2array($selementids);
+		if(empty($selementids)) return true;
+
+		$result = true;
+		$linkids = array();
+
+		$sql = 'SELECT linkid '.
+				' FROM sysmaps_links '.
+				' WHERE '.DBcondition('selementid1',$selementids).
+					' OR '.DBcondition('selementid2',$selementids);
+		$res=DBselect($sql);
+		while($rows = DBfetch($res)){
+			$linkids[] = $rows['linkid'];
+		}
+
+		if(!empty($linkids)) $result &= delete_link($linkids);
+
+		if(!$result) return	$result;
+
+	return	DBexecute('DELETE FROM sysmaps_elements WHERE '.DBcondition('selementid',$selementids));
+	}
+
+	/******************************************************************************
+	 *                                                                            *
+	 * Comments: !!! Don't forget sync code with C !!!                            *
+	 *                                                                            *
+	 ******************************************************************************/
+	function delete_sysmaps_elements_with_hostid($hostids){
+		zbx_value2array($hostids);
+		if(empty($hostids)) return true;
+
+		$db_elements = DBselect('SELECT selementid '.
+					' FROM sysmaps_elements '.
+					' WHERE '.DBcondition('elementid',$hostids).
+						' AND elementtype='.SYSMAP_ELEMENT_TYPE_HOST);
+
+		$selementids = array();
+		while($db_element = DBfetch($db_elements)){
+			$selementids[$db_element['selementid']] = $db_element['selementid'];
+		}
+		delete_sysmaps_element($selementids);
+
+	return TRUE;
+	}
+
+/******************************************************************************
+ *                                                                            *
+ * Comments: !!! Don't forget sync code with C !!!                            *
+ *                                                                            *
+ ******************************************************************************/
+	function delete_sysmaps_elements_with_triggerid($triggerids){
+		zbx_value2array($triggerids);
+		if(empty($triggerids)) return true;
+
+		$db_elements = DBselect('SELECT selementid '.
+					' FROM sysmaps_elements '.
+					' WHERE '.DBcondition('elementid',$triggerids).
+						' AND elementtype='.SYSMAP_ELEMENT_TYPE_TRIGGER);
+		$selementids = array();
+		while($db_element = DBfetch($db_elements)){
+			$selementids[$db_element['selementid']] = $db_element['selementid'];
+		}
+		delete_sysmaps_element($selementids);
+	return TRUE;
+	}
+
+	function delete_sysmaps_elements_with_groupid($groupids){
+		zbx_value2array($groupids);
+		if(empty($groupids)) return true;
+
+		$db_elements = DBselect('SELECT selementid '.
+						' FROM sysmaps_elements '.
+						' WHERE '.DBcondition('elementid',$groupids).
+							' AND elementtype='.SYSMAP_ELEMENT_TYPE_HOST_GROUP);
+		$selementids = array();
+		while($db_element = DBfetch($db_elements)){
+			$selementids[$db_element['selementid']] = $db_element['selementid'];
+		}
+		delete_sysmaps_element($selementids);
+
+	return TRUE;
+	}
+
+	function getActionMapBySysmap($sysmap){
+		$action_map = new CAreaMap('links'.$sysmap['sysmapid']);
+
+		$hostids = array();
+		foreach($sysmap['selements'] as $snum => $selement){
+			if($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST)
+				$hostids[$selement['elementid']] = $selement['elementid'];
+		}
+
+		$scripts_by_hosts = CScript::getScriptsByHosts($hostids);
+
+		$options = array(
+			'nodeids' => get_current_nodeid(true),
+			'hostids' => $hostids,
+			'output' => API_OUTPUT_EXTEND,
+			'nopermissions' => 1
+		);
+		$hosts = CHost::get($options);
+		$hosts = zbx_toHash($hosts, 'hostid');
+
+// Draws elements
+		$map_info = getSelementsInfo($sysmap);
+//SDII($map_info);
+
+		foreach($sysmap['selements'] as $snum => $db_element){
+			$links_menus = '';
+			$menus = '';
+
+			if($db_element['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST){
+				$host = $hosts[$db_element['elementid']];
+				if($host['status'] == HOST_STATUS_MONITORED){
+					$host_nodeid = id2nodeid($db_element['elementid']);
+					foreach($scripts_by_hosts[$db_element['elementid']] as $id => $script){
+						$script_nodeid = id2nodeid($script['scriptid']);
+						if((bccomp($host_nodeid ,$script_nodeid ) == 0))
+							$menus.= "['".$script['name']."',\"javascript: openWinCentered('scripts_exec.php?execute=1&hostid=".$db_element["elementid"]."&scriptid=".$script['scriptid']."','".S_TOOLS."',760,540,'titlebar=no, resizable=yes, scrollbars=yes, dialog=no');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
 					}
+
+					$menus = "['".S_TOOLS."',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}]," . $menus;
+
+					$links_menus .= "['".S_STATUS_OF_TRIGGERS."',\"javascript: redirect('tr_status.php?hostid=".$db_element['elementid']."');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
 				}
-				break;
+			}
+			else if($db_element['elementtype'] == SYSMAP_ELEMENT_TYPE_MAP){
+				$links_menus .= "['".S_SUBMAP."',\"javascript: redirect('maps.php?sysmapid=".$db_element['elementid']."');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
+			}
+			else if($db_element['elementtype'] == SYSMAP_ELEMENT_TYPE_TRIGGER){
+				$links_menus.= "['".S_LATEST_EVENTS."',\"javascript: redirect('events.php?source=0&triggerid=".$db_element['elementid']."&nav_time=".(time()-7*86400)."');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
+			}
+			else if($db_element['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST_GROUP){
+				$links_menus.= "['".S_STATUS_OF_TRIGGERS."',\"javascript: redirect('tr_status.php?hostid=0&groupid=".$db_element['elementid']."');\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
+			}
 
-			case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-				$gotos['triggerStatus'] = array(
-					'groupid' => $elem['elementid'],
-					'hostid' => 0,
-					'show_severity' => isset($options['severity_min']) ? $options['severity_min'] : null
-				);
 
-				// always show active trigger link for host group map elements
-				$gotos['showTriggers'] = true;
-				break;
+			if(!empty($db_element['url']) || !empty($links_menus)){
+				$menus .= "['".S_LINKS."',null,null,{'outer' : ['pum_oheader'],'inner' : ['pum_iheader']}],";
+				$menus .= $links_menus;
+				if (!empty($db_element['url'])) {
+					// double zbx_jsvalue is required to prevent XSS attacks
+					$menus .= "['".S_URL."',\"javascript: location.replace(".zbx_jsvalue(zbx_jsvalue($db_element['url'], null, false)).");\", null,{'outer' : ['pum_o_item'],'inner' : ['pum_i_item']}],";
+				}
+			}
+
+			$menus = trim($menus,',');
+			$menus = 'show_popup_menu(event,['.$menus.'],180); cancelEvent(event);';
+
+			$back = get_png_by_selement($db_element, $map_info[$db_element['selementid']]);
+			if(!$back) continue;
+			$r_area = new CArea(
+				array(
+					$db_element['x'],
+					$db_element['y'],
+					$db_element['x'] + imagesx($back),
+					$db_element['y'] + imagesy($back)),
+				'', '', 'rect'
+			);
+
+			if(!empty($menus))
+				$r_area->addAction('onclick', 'javascript: '.$menus);
+
+			$action_map->addItem($r_area);
 		}
 
-		order_result($elem['urls'], 'name');
-
-		$area->setMenuPopup(CMenuPopupHelper::getMap($hostId, $scripts, $gotos, $elem['urls']));
-
-		$actionMap->addItem($area);
+		return $action_map;
 	}
 
-	return $actionMap;
-}
+	function get_icon_center_by_selement($element, $info=null){
 
-function get_icon_center_by_selement($element, $info, $map) {
-	$x = $element['x'];
-	$y = $element['y'];
+		$x = $element['x'];
+		$y = $element['y'];
 
-	if (isset($element['elementsubtype']) && $element['elementsubtype'] == SYSMAP_ELEMENT_SUBTYPE_HOST_GROUP_ELEMENTS) {
-		if ($element['areatype'] == SYSMAP_ELEMENT_AREA_TYPE_CUSTOM) {
-			$w = $element['width'];
-			$h = $element['height'];
+		$image = get_png_by_selement($element, $info);
+		if($image){
+			$x += imagesx($image) / 2;
+			$y += imagesy($image) / 2;
 		}
-		else {
-			$w = $map['width'];
-			$h = $map['height'];
-		}
-	}
-	else {
-		$image = get_png_by_selement($info);
-		$w = imagesx($image);
-		$h = imagesy($image);
-	}
-
-	$x += $w / 2;
-	$y += $h / 2;
 
 	return array($x, $y);
-}
-
-function myDrawLine($image, $x1, $y1, $x2, $y2, $color, $drawtype) {
-	if ($drawtype == MAP_LINK_DRAWTYPE_BOLD_LINE) {
-		zbx_imagealine($image, $x1, $y1, $x2, $y2, $color, LINE_TYPE_BOLD);
 	}
-	elseif ($drawtype == MAP_LINK_DRAWTYPE_DASHED_LINE) {
-		if (function_exists('imagesetstyle')) {
-			// use imagesetstyle + imageline instead of bugged ImageDashedLine
-			$style = array(
-				$color, $color, $color, $color,
-				IMG_COLOR_TRANSPARENT, IMG_COLOR_TRANSPARENT, IMG_COLOR_TRANSPARENT, IMG_COLOR_TRANSPARENT
-			);
+
+	function MyDrawLine($image,$x1,$y1,$x2,$y2,$color,$drawtype){
+		if($drawtype == MAP_LINK_DRAWTYPE_BOLD_LINE){
+			imageline($image,$x1,$y1,$x2,$y2,$color);
+			if(abs($x1-$x2) < abs($y1-$y2)){
+				$x1++;
+				$x2++;
+			}
+			else{
+				$y1++;
+				$y2++;
+			}
+
+			imageline($image,$x1,$y1,$x2,$y2,$color);
+		}
+		else if($drawtype == MAP_LINK_DRAWTYPE_DASHED_LINE){
+			if(function_exists('imagesetstyle')){
+/* Use imagesetstyle+imageline instead of bugged ImageDashedLine */
+				$style = array(
+					$color, $color, $color, $color,
+					IMG_COLOR_TRANSPARENT, IMG_COLOR_TRANSPARENT, IMG_COLOR_TRANSPARENT, IMG_COLOR_TRANSPARENT
+					);
+
+				imagesetstyle($image, $style);
+				imageline($image,$x1,$y1,$x2,$y2,IMG_COLOR_STYLED);
+			}
+			else{
+				ImageDashedLine($image,$x1,$y1,$x2,$y2,$color);
+			}
+		}
+		else if($drawtype == MAP_LINK_DRAWTYPE_DOT && function_exists('imagesetstyle')){
+			$style = array($color,IMG_COLOR_TRANSPARENT, IMG_COLOR_TRANSPARENT, IMG_COLOR_TRANSPARENT);
 			imagesetstyle($image, $style);
-			zbx_imageline($image, $x1, $y1, $x2, $y2, IMG_COLOR_STYLED);
+			imageline($image,$x1,$y1,$x2,$y2,IMG_COLOR_STYLED);
+		}
+		else{
+			imageline($image,$x1,$y1,$x2,$y2,$color);
+		}
+	}
+
+	function get_png_by_selement($selement, $info){
+
+		switch($info['icon_type']){
+			case SYSMAP_ELEMENT_ICON_ON:
+				$info['iconid'] = $selement['iconid_on'];
+				break;
+			case SYSMAP_ELEMENT_ICON_UNKNOWN:
+				$info['iconid'] = $selement['iconid_unknown'];
+				break;
+			case SYSMAP_ELEMENT_ICON_MAINTENANCE:
+				$info['iconid'] = $selement['iconid_maintenance'];
+				break;
+			case SYSMAP_ELEMENT_ICON_DISABLED:
+				$info['iconid'] = $selement['iconid_disabled'];
+				break;
+			case SYSMAP_ELEMENT_ICON_OFF:
+			default:
+// element image
+				$info['iconid'] = $selement['iconid_off'];
+				break;
+		}
+
+// Process for default icons
+		if($info['iconid'] == 0) $info['iconid'] = $selement['iconid_off'];
+//------
+
+		$image = get_image_by_imageid($info['iconid']);
+
+		if(!$image){
+			return get_default_image(true);
+		}
+
+	return imagecreatefromstring($image['image']);
+	}
+
+	function get_selement_iconid($selement, $info=null){
+		if($selement['selementid'] > 0){
+			if(is_null($info)){
+// get sysmap
+				$options = array(
+					'sysmapids' => $selement['sysmapid'],
+					'output' => API_OUTPUT_EXTEND
+				);
+				$sysmaps = CMap::get($options);
+				$sysmap = reset($sysmaps);
+				$sysmap['selements'] = array($selement);
+
+				$map_info = getSelementsInfo($sysmap);
+				$info = reset($map_info);
+//-----
+			}
+//SDI($info);
+
+			switch($info['icon_type']){
+				case SYSMAP_ELEMENT_ICON_OFF:
+					$info['iconid'] = $selement['iconid_off'];
+					break;
+				case SYSMAP_ELEMENT_ICON_ON:
+					$info['iconid'] = $selement['iconid_on'];
+					break;
+				case SYSMAP_ELEMENT_ICON_UNKNOWN:
+					$info['iconid'] = $selement['iconid_unknown'];
+					break;
+				case SYSMAP_ELEMENT_ICON_MAINTENANCE:
+					$info['iconid'] = $selement['iconid_maintenance'];
+					break;
+			}
+
+// Process for default icons
+			if($info['iconid'] == 0) $info['iconid'] = $selement['iconid_off'];
+//------
+		}
+		else{
+			$info['iconid'] = $selement['iconid_off'];
+		}
+
+	return $info['iconid'];
+	}
+
+	function get_selement_icons(){
+// ICONS
+		$el_form_menu = array();
+		$el_form_menu['icons'] = array();
+
+		$result = DBselect('SELECT * FROM images WHERE imagetype=1 AND '.DBin_node('imageid').' ORDER BY name');
+		while($row=DBfetch($result)){
+			$row['name'] = get_node_name_by_elid($row['imageid']).$row['name'];
+			$el_form_menu['icons'][$row['imageid']] = $row['name'];
+		}
+
+		$menu = 'var zbxSelementIcons = '.zbx_jsvalue($el_form_menu, true).';';
+
+	return $menu;
+	}
+
+	function convertColor($im,$color){
+
+		$RGB = array(
+			hexdec('0x'.substr($color, 0,2)),
+			hexdec('0x'.substr($color, 2,2)),
+			hexdec('0x'.substr($color, 4,2))
+			);
+
+
+	return imagecolorallocate($im,$RGB[0],$RGB[1],$RGB[2]);
+	}
+
+	function expandMapLabels(&$map){
+		foreach($map['selements'] as $snum => $selement){
+			$map['selements'][$snum]['label_expanded'] = resolveMapLabelMacrosAll($selement);
+		}
+
+		foreach($map['links'] as $lnum => $link){
+			$map['links'][$lnum]['label_expanded'] = resolveMapLabelMacros($link['label']);
+		}
+	}
+
+	/**
+	 * Resolve macros and return expanded map label
+	 * @param array $selement
+	 * @return string
+	 */
+	function resolveMapLabelMacrosAll(array $selement){
+		$label = $selement['label'];
+
+		$resolveHostMacros = false;
+		if((($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST)
+			|| ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_TRIGGER))
+			&& ((zbx_strpos($label, '{HOSTNAME}') !== false)
+				|| (zbx_strpos($label, '{HOST.DNS}') !== false)
+				|| (zbx_strpos($label, '{IPADDRESS}') !== false)
+				|| (zbx_strpos($label, '{HOST.CONN}') !== false))
+		){
+			$resolveHostMacros = true;
+
+			if($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST){
+				$sql = 'SELECT host, dns, ip, useip FROM hosts WHERE hostid='.zbx_dbstr($selement['elementid']);
+			}
+			else{
+				$sql ='SELECT h.host, h.dns, h.ip, h.useip'.
+					' FROM hosts h, items i, functions f'.
+					' WHERE h.hostid=i.hostid'.
+					' AND i.itemid=f.itemid'.
+					' AND f.triggerid='.zbx_dbstr($selement['elementid']);
+			}
+			$db_host = DBfetch(DBselect($sql));
+		}
+
+		if (($resolveHostMacros
+				&& ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST || $selement['elementtype'] == SYSMAP_ELEMENT_TYPE_TRIGGER))) {
+			$label = resolveMapLabelMacros($label, $db_host['host']);
 		}
 		else {
-			imagedashedline($image, $x1, $y1, $x2, $y2, $color);
+			$label = resolveMapLabelMacros($label);
 		}
-	}
-	elseif ($drawtype == MAP_LINK_DRAWTYPE_DOT && function_exists('imagesetstyle')) {
-		$style = array($color, IMG_COLOR_TRANSPARENT, IMG_COLOR_TRANSPARENT, IMG_COLOR_TRANSPARENT);
-		imagesetstyle($image, $style);
-		zbx_imageline($image, $x1, $y1, $x2, $y2, IMG_COLOR_STYLED);
-	}
-	else {
-		zbx_imagealine($image, $x1, $y1, $x2, $y2, $color);
-	}
-}
 
-function get_png_by_selement($info) {
-	$image = get_image_by_imageid($info['iconid']);
-
-	return $image['image'] ? imagecreatefromstring($image['image']) : get_default_image();
-}
-
-function convertColor($im, $color) {
-	$RGB = array(
-		hexdec('0x'.substr($color, 0, 2)),
-		hexdec('0x'.substr($color, 2, 2)),
-		hexdec('0x'.substr($color, 4, 2))
-	);
-	return imagecolorallocate($im, $RGB[0], $RGB[1], $RGB[2]);
-}
-
-function get_map_elements($db_element, &$elements) {
-	switch ($db_element['elementtype']) {
-		case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-			$elements['hosts_groups'][] = $db_element['elementid'];
-			break;
-		case SYSMAP_ELEMENT_TYPE_HOST:
-			$elements['hosts'][] = $db_element['elementid'];
-			break;
-		case SYSMAP_ELEMENT_TYPE_TRIGGER:
-			$elements['triggers'][] = $db_element['elementid'];
-			break;
-		case SYSMAP_ELEMENT_TYPE_MAP:
-			$db_mapselements = DBselect(
-				'SELECT DISTINCT se.elementtype,se.elementid'.
-				' FROM sysmaps_elements se'.
-				' WHERE se.sysmapid='.zbx_dbstr($db_element['elementid'])
+		if($resolveHostMacros){
+			$replace = array(
+				'{HOSTNAME}' => $db_host['host'],
+				'{HOST.DNS}' => $db_host['dns'],
+				'{IPADDRESS}' => $db_host['ip'],
+				'{HOST.CONN}' => ($db_host['useip'] ? $db_host['ip'] : $db_host['dns']),
 			);
-			while ($db_mapelement = DBfetch($db_mapselements)) {
-				get_map_elements($db_mapelement, $elements);
-			}
-			break;
-	}
-}
-
-/**
- * Adds names to elements. Adds expression for SYSMAP_ELEMENT_TYPE_TRIGGER elements.
- *
- * @param type $selements
- */
-function add_elementNames(&$selements) {
-	$hostids = array();
-	$triggerids = array();
-	$mapids = array();
-	$hostgroupids = array();
-	$imageids = array();
-
-	foreach ($selements as $selement) {
-		switch ($selement['elementtype']) {
-			case SYSMAP_ELEMENT_TYPE_HOST:
-				$hostids[$selement['elementid']] = $selement['elementid'];
-				break;
-			case SYSMAP_ELEMENT_TYPE_MAP:
-				$mapids[$selement['elementid']] = $selement['elementid'];
-				break;
-			case SYSMAP_ELEMENT_TYPE_TRIGGER:
-				$triggerids[$selement['elementid']] = $selement['elementid'];
-				break;
-			case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-				$hostgroupids[$selement['elementid']] = $selement['elementid'];
-				break;
-			case SYSMAP_ELEMENT_TYPE_IMAGE:
-				$imageids[$selement['iconid_off']] = $selement['iconid_off'];
-				break;
+			$label = str_replace(array_keys($replace), $replace, $label);
 		}
-	}
 
-	$hosts = API::Host()->get(array(
-		'hostids' => $hostids,
-		'output' => array('name'),
-		'nopermissions' => true,
-		'preservekeys' => true
-	));
-
-	$maps = API::Map()->get(array(
-		'mapids' => $mapids,
-		'output' => array('name'),
-		'nopermissions' => true,
-		'preservekeys' => true
-	));
-
-	$triggers = API::Trigger()->get(array(
-		'triggerids' => $triggerids,
-		'output' => API_OUTPUT_EXTEND,
-		'selectHosts' => array('hostid', 'name'),
-		'nopermissions' => true,
-		'preservekeys' => true
-	));
-
-	$hostgroups = API::HostGroup()->get(array(
-		'hostgroupids' => $hostgroupids,
-		'output' => array('name'),
-		'nopermissions' => true,
-		'preservekeys' => true
-	));
-
-	$images = API::image()->get(array(
-		'imageids' => $imageids,
-		'output' => API_OUTPUT_EXTEND,
-		'nopermissions' => true,
-		'preservekeys' => true
-	));
-
-	foreach ($selements as $snum => $selement) {
-		switch ($selement['elementtype']) {
+		switch($selement['elementtype']){
 			case SYSMAP_ELEMENT_TYPE_HOST:
-				$selements[$snum]['elementName'] = $hosts[$selement['elementid']]['name'];
-				break;
 			case SYSMAP_ELEMENT_TYPE_MAP:
-				$selements[$snum]['elementName'] = $maps[$selement['elementid']]['name'];
-				break;
 			case SYSMAP_ELEMENT_TYPE_TRIGGER:
-				$hostname = reset($triggers[$selement['elementid']]['hosts']);
-				$selements[$snum]['elementName'] = $hostname['name'].NAME_DELIMITER.
-					CMacrosResolverHelper::resolveTriggerName($triggers[$selement['elementid']]);
-				break;
 			case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-				$selements[$snum]['elementName'] = $hostgroups[$selement['elementid']]['name'];
-				break;
-			case SYSMAP_ELEMENT_TYPE_IMAGE:
-				if (isset($images[$selement['iconid_off']]['name'])) {
-					$selements[$snum]['elementName'] = $images[$selement['iconid_off']]['name'];
+				if(zbx_strpos($label, '{TRIGGERS.UNACK}') !== false){
+					$label = str_replace('{TRIGGERS.UNACK}', get_triggers_unacknowledged($selement), $label);
+				}
+				if(zbx_strpos($label, '{TRIGGERS.PROBLEM.UNACK}') !== false){
+					$label = str_replace('{TRIGGERS.PROBLEM.UNACK}', get_triggers_unacknowledged($selement, true), $label);
+				}
+				if(zbx_strpos($label, '{TRIGGER.EVENTS.UNACK}') !== false){
+					$label = str_replace('{TRIGGER.EVENTS.UNACK}', get_events_unacknowledged($selement), $label);
+				}
+				if(zbx_strpos($label, '{TRIGGER.EVENTS.PROBLEM.UNACK}') !== false){
+					$label = str_replace('{TRIGGER.EVENTS.PROBLEM.UNACK}', get_events_unacknowledged($selement, null, TRIGGER_VALUE_TRUE), $label);
+				}
+				if(zbx_strpos($label, '{TRIGGER.PROBLEM.EVENTS.PROBLEM.UNACK}') !== false){
+					$label = str_replace('{TRIGGER.PROBLEM.EVENTS.PROBLEM.UNACK}', get_events_unacknowledged($selement, TRIGGER_VALUE_TRUE, TRIGGER_VALUE_TRUE), $label);
+				}
+				if(zbx_strpos($label, '{TRIGGERS.ACK}') !== false){
+					$label = str_replace('{TRIGGERS.ACK}', get_triggers_unacknowledged($selement, null, true), $label);
+				}
+				if(zbx_strpos($label, '{TRIGGERS.PROBLEM.ACK}') !== false){
+					$label = str_replace('{TRIGGERS.PROBLEM.ACK}', get_triggers_unacknowledged($selement, true, true), $label);
+				}
+				if(zbx_strpos($label, '{TRIGGER.EVENTS.ACK}') !== false){
+					$label = str_replace('{TRIGGER.EVENTS.ACK}', get_events_unacknowledged($selement, null, null, true), $label);
+				}
+				if(zbx_strpos($label, '{TRIGGER.EVENTS.PROBLEM.ACK}') !== false){
+					$label = str_replace('{TRIGGER.EVENTS.PROBLEM.ACK}', get_events_unacknowledged($selement, null, TRIGGER_VALUE_TRUE, true), $label);
+				}
+				if(zbx_strpos($label, '{TRIGGER.PROBLEM.EVENTS.PROBLEM.ACK}') !== false){
+					$label = str_replace('{TRIGGER.PROBLEM.EVENTS.PROBLEM.ACK}', get_events_unacknowledged($selement, TRIGGER_VALUE_TRUE, TRIGGER_VALUE_TRUE, true), $label);
 				}
 				break;
 		}
+
+		return $label;
 	}
 
-	if (!empty($triggers)) {
-		add_triggerExpressions($selements, $triggers);
-	}
-}
+	function resolveMapLabelMacros($label, $replaceHost=null){
+		if(null === $replaceHost)
+			$pattern = "/{".ZBX_PREG_HOST_FORMAT.":.+\.(last|max|min|avg)\([0-9]+\)}/Uu";
+		else
+			$pattern = "/{(".ZBX_PREG_HOST_FORMAT."|{HOSTNAME}):.+\.(last|max|min|avg)\([0-9]+\)}/Uu";
 
-function add_triggerExpressions(&$selements, $triggers = array()) {
-	if (empty($triggers)) {
-		$triggerIds = array();
+		preg_match_all($pattern, $label, $matches);
 
-		foreach ($selements as $selement) {
-			if ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_TRIGGER) {
-				$triggerIds[] = $selement['elementid'];
-			}
-		}
-
-		$triggers = API::Trigger()->get(array(
-			'triggerids' => $triggerIds,
-			'output' => API_OUTPUT_EXTEND,
-			'selectHosts' => array('name'),
-			'nopermissions' => true,
-			'preservekeys' => true
-		));
-	}
-
-	foreach ($selements as $snum => $selement) {
-		if ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_TRIGGER) {
-			$selements[$snum]['elementExpressionTrigger'] = $triggers[$selement['elementid']]['expression'];
-		}
-	}
-}
-
-/**
- * Returns trigger element icon rendering parameters.
- *
- * @param $selement
- * @param $i
- * @param $showUnack    map "problem display" parameter
- *
- * @return array
- */
-function getTriggersInfo($selement, $i, $showUnack) {
-	global $colors;
-
-	$info = array(
-		'latelyChanged' => $i['latelyChanged'],
-		'ack' => $i['ack'],
-		'priority' => $i['priority'],
-		'info' => array(),
-		'iconid' => $selement['iconid_off']
-	);
-
-	if ($i['problem'] && ($i['problem_unack'] && $showUnack == EXTACK_OPTION_UNACK
-			|| in_array($showUnack, array(EXTACK_OPTION_ALL, EXTACK_OPTION_BOTH)))) {
-		$info['iconid'] = $selement['iconid_on'];
-		$info['icon_type'] = SYSMAP_ELEMENT_ICON_ON;
-		$info['info']['unack'] = array(
-			'msg' => _('PROBLEM'),
-			'color' => ($i['priority'] > 3) ? $colors['Red'] : $colors['Dark Red']
-		);
-	}
-	elseif ($i['trigger_disabled']) {
-		$info['iconid'] = $selement['iconid_disabled'];
-		$info['icon_type'] = SYSMAP_ELEMENT_ICON_DISABLED;
-		$info['info']['status'] = array(
-			'msg' => _('DISABLED'),
-			'color' => $colors['Dark Red']
-		);
-	}
-	else {
-		$info['iconid'] = $selement['iconid_off'];
-		$info['icon_type'] = SYSMAP_ELEMENT_ICON_OFF;
-		$info['info']['ok'] = array(
-			'msg' => _('OK'),
-			'color' => $colors['Dark Green']
-		);
-	}
-
-	return $info;
-}
-
-/**
- * Returns host element icon rendering parameters.
- *
- * @param $selement
- * @param $i
- * @param $show_unack    map "problem display" parameter
- *
- * @return array
- */
-function getHostsInfo($selement, $i, $show_unack) {
-	global $colors;
-
-	$info = array(
-		'latelyChanged' => $i['latelyChanged'],
-		'ack' => $i['ack'],
-		'priority' => $i['priority'],
-		'info' => array(),
-		'iconid' => $selement['iconid_off']
-	);
-	$hasProblem = false;
-
-	if ($i['problem']) {
-		if (in_array($show_unack, array(EXTACK_OPTION_ALL, EXTACK_OPTION_BOTH))) {
-			if ($i['problem'] > 1) {
-				$msg = $i['problem'].' '._('Problems');
-			}
-			elseif (isset($i['problem_title'])) {
-				$msg = $i['problem_title'];
-			}
-			else {
-				$msg = '1 '._('Problem');
+		foreach($matches[0] as $expr){
+			$macro = $expr;
+			if(($replaceHost !== null) && (zbx_strpos($macro, '{HOSTNAME}') == 1)){
+				$macro = substr_replace($macro, $replaceHost, 1, 10);
 			}
 
-			$info['info']['problem'] = array(
-				'msg' => $msg,
-				'color' => ($i['priority'] > 3) ? $colors['Red'] : $colors['Dark Red']
-			);
-		}
-
-		if (in_array($show_unack, array(EXTACK_OPTION_UNACK, EXTACK_OPTION_BOTH)) && $i['problem_unack']) {
-			$info['info']['unack'] = array(
-				'msg' => $i['problem_unack'].' '._('Unacknowledged'),
-				'color' => $colors['Dark Red']
-			);
-		}
-
-		// set element to problem state if it has problem events
-		if ($info['info']) {
-			$info['iconid'] = $selement['iconid_on'];
-			$info['icon_type'] = SYSMAP_ELEMENT_ICON_ON;
-			$hasProblem = true;
-		}
-	}
-
-	if ($i['maintenance']) {
-		$info['iconid'] = $selement['iconid_maintenance'];
-		$info['icon_type'] = SYSMAP_ELEMENT_ICON_MAINTENANCE;
-		$info['info']['maintenance'] = array(
-			'msg' => _('MAINTENANCE').' ('.$i['maintenance_title'].')',
-			'color' => $colors['Orange']
-		);
-	}
-	elseif ($i['disabled']) {
-		$info['iconid'] = $selement['iconid_disabled'];
-		$info['icon_type'] = SYSMAP_ELEMENT_ICON_DISABLED;
-		$info['info']['status'] = array(
-			'msg' => _('DISABLED'),
-			'color' => $colors['Dark Red']
-		);
-	}
-	elseif (!$hasProblem) {
-		$info['iconid'] = $selement['iconid_off'];
-		$info['icon_type'] = SYSMAP_ELEMENT_ICON_OFF;
-		$info['info']['ok'] = array(
-			'msg' => _('OK'),
-			'color' => $colors['Dark Green']
-		);
-	}
-
-	return $info;
-}
-
-/**
- * Returns host groups element icon rendering parameters.
- *
- * @param $selement
- * @param $i
- * @param $show_unack    map "problem display" parameter
- *
- * @return array
- */
-function getHostGroupsInfo($selement, $i, $show_unack) {
-	global $colors;
-
-	$info = array(
-		'latelyChanged' => $i['latelyChanged'],
-		'ack' => $i['ack'],
-		'priority' => $i['priority'],
-		'info' => array(),
-		'iconid' => $selement['iconid_off']
-	);
-	$hasProblem = false;
-	$hasStatus = false;
-
-	if ($i['problem']) {
-		if (in_array($show_unack, array(EXTACK_OPTION_ALL, EXTACK_OPTION_BOTH))) {
-			if ($i['problem'] > 1) {
-				$msg = $i['problem'].' '._('Problems');
-			}
-			elseif (isset($i['problem_title'])) {
-				$msg = $i['problem_title'];
-			}
-			else {
-				$msg = '1 '._('Problem');
+			$expressionData = new CTriggerExpression();
+			if (!$expressionData->parse($macro) || !isset($expressionData->expressions[0])) {
+				continue;
 			}
 
-			$info['info']['problem'] = array(
-				'msg' => $msg,
-				'color' => ($i['priority'] > 3) ? $colors['Red'] : $colors['Dark Red']
-			);
-		}
+			$itemHost = $expressionData->expressions[0]['host'];
+			$key = $expressionData->expressions[0]['item'];
+			$function = $expressionData->expressions[0]['functionName'];
+			$parameter = $expressionData->expressions[0]['functionParam'];
 
-		if (in_array($show_unack, array(EXTACK_OPTION_UNACK, EXTACK_OPTION_BOTH)) && $i['problem_unack']) {
-			$info['info']['unack'] = array(
-				'msg' => $i['problem_unack'].' '._('Unacknowledged'),
-				'color' => $colors['Dark Red']
-			);
-		}
-
-		// set element to problem state if it has problem events
-		if ($info['info']) {
-			$info['iconid'] = $selement['iconid_on'];
-			$info['icon_type'] = SYSMAP_ELEMENT_ICON_ON;
-			$hasProblem = true;
-		}
-	}
-
-	if ($i['maintenance']) {
-		if (!$hasProblem) {
-			$info['iconid'] = $selement['iconid_maintenance'];
-			$info['icon_type'] = SYSMAP_ELEMENT_ICON_MAINTENANCE;
-		}
-		$info['info']['maintenance'] = array(
-			'msg' => $i['maintenance'].' '._('Maintenance'),
-			'color' => $colors['Orange']
-		);
-		$hasStatus = true;
-	}
-	elseif ($i['disabled']) {
-		if (!$hasProblem) {
-			$info['icon_type'] = SYSMAP_ELEMENT_ICON_DISABLED;
-			$info['iconid'] = $selement['iconid_disabled'];
-		}
-		$info['info']['disabled'] = array(
-			'msg' => _('DISABLED'),
-			'color' => $colors['Dark Red']
-		);
-		$hasStatus = true;
-	}
-
-	if (!$hasStatus && !$hasProblem) {
-		$info['icon_type'] = SYSMAP_ELEMENT_ICON_OFF;
-		$info['iconid'] = $selement['iconid_off'];
-		$info['info']['ok'] = array(
-			'msg' => _('OK'),
-			'color' => $colors['Dark Green']
-		);
-	}
-
-	return $info;
-}
-
-/**
- * Returns maps groups element icon rendering parameters.
- *
- * @param $selement
- * @param $i
- * @param $show_unack    map "problem display" parameter
- *
- * @return array
- */
-function getMapsInfo($selement, $i, $show_unack) {
-	global $colors;
-
-	$info = array(
-		'latelyChanged' => $i['latelyChanged'],
-		'ack' => $i['ack'],
-		'priority' => $i['priority'],
-		'info' => array(),
-		'iconid' => $selement['iconid_off']
-	);
-
-	$hasProblem = false;
-	$hasStatus = false;
-
-	if ($i['problem']) {
-		if (in_array($show_unack, array(EXTACK_OPTION_ALL, EXTACK_OPTION_BOTH))) {
-			if ($i['problem'] > 1) {
-				$msg = $i['problem'].' '._('Problems');
-			}
-			elseif (isset($i['problem_title'])) {
-				$msg = $i['problem_title'];
-			}
-			else {
-				$msg = '1 '._('Problem');
+			$item = CItem::get(array(
+				'filter' => array('host' => $itemHost, 'key_' => $key),
+				'output' => API_OUTPUT_EXTEND
+			));
+			$item = reset($item);
+			if(!$item){
+				$label = str_replace($expr, '???', $label);
+				continue;
 			}
 
-			$info['info']['problem'] = array(
-				'msg' => $msg,
-				'color' => ($i['priority'] > 3) ? $colors['Red'] : $colors['Dark Red']
-			);
-		}
+			switch($item['value_type']){
+				case ITEM_VALUE_TYPE_FLOAT:
+					$history_table = 'history';
+					break;
+				case ITEM_VALUE_TYPE_UINT64:
+					$history_table = 'history_uint';
+					break;
+				case ITEM_VALUE_TYPE_TEXT:
+					$history_table = 'history_text';
+					break;
+				case ITEM_VALUE_TYPE_LOG:
+					$history_table = 'history_log';
+					break;
+				case ITEM_VALUE_TYPE_STR:
+					$history_table = 'history_str';
+					break;
+				default:
+					$history_table = 'history_str';
+			}
 
-		if (in_array($show_unack, array(EXTACK_OPTION_UNACK, EXTACK_OPTION_BOTH)) && $i['problem_unack']) {
-			$info['info']['unack'] = array(
-				'msg' => $i['problem_unack'].' '._('Unacknowledged'),
-				'color' => $colors['Dark Red']
-			);
-		}
-
-		if ($info['info']) {
-			$info['iconid'] = $selement['iconid_on'];
-			$info['icon_type'] = SYSMAP_ELEMENT_ICON_ON;
-			$hasProblem = true;
-		}
-	}
-
-	if ($i['maintenance']) {
-		if (!$hasProblem) {
-			$info['iconid'] = $selement['iconid_maintenance'];
-			$info['icon_type'] = SYSMAP_ELEMENT_ICON_MAINTENANCE;
-		}
-		$info['info']['maintenance'] = array(
-			'msg' => $i['maintenance'].' '._('Maintenance'),
-			'color' => $colors['Orange']
-		);
-		$hasStatus = true;
-	}
-	elseif ($i['disabled']) {
-		if (!$hasProblem) {
-			$info['icon_type'] = SYSMAP_ELEMENT_ICON_DISABLED;
-			$info['iconid'] = $selement['iconid_disabled'];
-		}
-		$info['info']['disabled'] = array(
-			'msg' => _('DISABLED'),
-			'color' => $colors['Dark Red']
-		);
-		$hasStatus = true;
-	}
-
-	if (!$hasStatus && !$hasProblem) {
-		$info['icon_type'] = SYSMAP_ELEMENT_ICON_OFF;
-		$info['iconid'] = $selement['iconid_off'];
-		$info['info']['ok'] = array(
-			'msg' => _('OK'),
-			'color' => $colors['Dark Green']
-		);
-	}
-
-	return $info;
-}
-
-function getImagesInfo($selement) {
-	return array(
-		'iconid' => $selement['iconid_off'],
-		'icon_type' => SYSMAP_ELEMENT_ICON_OFF,
-		'name' => _('Image'),
-		'latelyChanged' => false
-	);
-}
-
-/**
- * Prepare map elements data.
- * Calculate problem triggers and priorities. Populate map elements with automatic icon mapping, acknowledging and
- * recent change markers.
- *
- * @param array $sysmap
- * @param int   $options
- * @param int   $options['severity_min'] Minimum trigger severity, default value is maximal (Disaster)
- *
- * @return array
- */
-function getSelementsInfo($sysmap, array $options = array()) {
-	if (!isset($options['severity_min'])) {
-		$options['severity_min'] = TRIGGER_SEVERITY_NOT_CLASSIFIED;
-	}
-
-	$config = select_config();
-	$showUnacknowledged = $config['event_ack_enable'] ? $sysmap['show_unack'] : EXTACK_OPTION_ALL;
-
-	$triggerIdToSelementIds = array();
-	$subSysmapTriggerIdToSelementIds = array();
-	$hostGroupIdToSelementIds = array();
-	$hostIdToSelementIds = array();
-
-	if ($sysmap['sysmapid']) {
-		$iconMap = API::IconMap()->get(array(
-			'sysmapids' => $sysmap['sysmapid'],
-			'selectMappings' => API_OUTPUT_EXTEND,
-			'output' => API_OUTPUT_EXTEND
-		));
-		$iconMap = reset($iconMap);
-
-	}
-	$hostsToGetInventories = array();
-
-	$selements = $sysmap['selements'];
-	$selementIdToSubSysmaps = array();
-	foreach ($selements as $selementId => &$selement) {
-		$selement['hosts'] = array();
-		$selement['triggers'] = array();
-
-		switch ($selement['elementtype']) {
-			case SYSMAP_ELEMENT_TYPE_MAP:
-				$sysmapIds = array($selement['elementid']);
-
-				while (!empty($sysmapIds)) {
-					$subSysmaps = API::Map()->get(array(
-						'sysmapids' => $sysmapIds,
-						'output' => array('sysmapid'),
-						'selectSelements' => API_OUTPUT_EXTEND,
-						'nopermissions' => true,
-						'preservekeys' => true
-					));
-
-					if(!isset($selementIdToSubSysmaps[$selementId])) {
-						$selementIdToSubSysmaps[$selementId] = array();
-					}
-					$selementIdToSubSysmaps[$selementId] += $subSysmaps;
-
-					$sysmapIds = array();
-					foreach ($subSysmaps as $subSysmap) {
-						foreach ($subSysmap['selements'] as $subSysmapSelement) {
-							switch ($subSysmapSelement['elementtype']) {
-								case SYSMAP_ELEMENT_TYPE_MAP:
-									$sysmapIds[] = $subSysmapSelement['elementid'];
-									break;
-								case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-									$hostGroupIdToSelementIds[$subSysmapSelement['elementid']][$selementId] = $selementId;
-									break;
-								case SYSMAP_ELEMENT_TYPE_HOST:
-									$hostIdToSelementIds[$subSysmapSelement['elementid']][$selementId] = $selementId;
-									break;
-								case SYSMAP_ELEMENT_TYPE_TRIGGER:
-									$subSysmapTriggerIdToSelementIds[$subSysmapSelement['elementid']][$selementId] = $selementId;
-									break;
-							}
-						}
-					}
+			if(0 == strcmp($function, 'last')){
+				if(null === $item['lastvalue']){
+					$label = str_replace($expr, '('.S_NO_DATA_SMALL.')', $label);
 				}
-				break;
+				else{
+					switch($item['value_type']){
+						case ITEM_VALUE_TYPE_FLOAT:
+						case ITEM_VALUE_TYPE_UINT64:
+							$value = convert_units($item['lastvalue'], $item['units']);
+							break;
+						default:
+							$value = $item['lastvalue'];
+					}
+
+					$label = str_replace($expr, $value, $label);
+				}
+			}
+			else if((0 == strcmp($function, 'min')) || (0 == strcmp($function, 'max')) || (0 == strcmp($function, 'avg'))){
+
+				if($item['value_type'] != ITEM_VALUE_TYPE_FLOAT && $item['value_type'] != ITEM_VALUE_TYPE_UINT64){
+					$label = str_replace($expr, '???', $label);
+					continue;
+				}
+
+				$sql = 'SELECT '.$function.'(value) as value '.
+						' FROM '.$history_table.
+						' WHERE clock>'.(time() - $parameter).
+						' AND itemid='.zbx_dbstr($item['itemid']);
+				$result = DBselect($sql);
+				if(null === ($row = DBfetch($result)) || null === $row['value'])
+					$label = str_replace($expr, '('.S_NO_DATA_SMALL.')', $label);
+				else
+					$label = str_replace($expr, convert_units($row['value'], $item['units']), $label);
+			}
+		}
+
+		return $label;
+	}
+
+	function get_map_elements($db_element, &$elements){
+		switch($db_element['elementtype']){
 			case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-				$hostGroupId = $selement['elementid'];
-				$hostGroupIdToSelementIds[$hostGroupId][$selementId] = $selementId;
+				$elements['hosts_groups'][] = $db_element['elementid'];
 				break;
 			case SYSMAP_ELEMENT_TYPE_HOST:
-				$hostId = $selement['elementid'];
-				$hostIdToSelementIds[$hostId][$selementId] = $selementId;
-
-				// if we have icon map applied, we need to get inventories for all hosts,
-				// where automatic icon selection is enabled.
-				if ($sysmap['iconmapid'] && $selement['use_iconmap']) {
-					$hostsToGetInventories[] = $hostId;
-				}
+				$elements['hosts'][] = $db_element['elementid'];
 				break;
 			case SYSMAP_ELEMENT_TYPE_TRIGGER:
-				$triggerId = $selement['elementid'];
-				$triggerIdToSelementIds[$triggerId][$selementId] = $selementId;
+				$elements['triggers'][] = $db_element['elementid'];
 				break;
-		}
-	}
-	unset($selement);
-
-	// get host inventories
-	if ($sysmap['iconmapid']) {
-		$hostInventories = API::Host()->get(array(
-			'hostids' => $hostsToGetInventories,
-			'output' => array('hostid'),
-			'nopermissions' => true,
-			'preservekeys' => true,
-			'selectInventory' => API_OUTPUT_EXTEND
-		));
-	}
-
-	$allHosts = array();
-	if (!empty($hostIdToSelementIds)) {
-		$hosts = API::Host()->get(array(
-			'hostids' => array_keys($hostIdToSelementIds),
-			'output' => array('name', 'status', 'maintenance_status', 'maintenanceid'),
-			'nopermissions' => true,
-			'preservekeys' => true
-		));
-		$allHosts = array_merge($allHosts, $hosts);
-		foreach ($hosts as $hostId => $host) {
-			foreach ($hostIdToSelementIds[$hostId] as $selementId) {
-				$selements[$selementId]['hosts'][$hostId] = $hostId;
-			}
-		}
-	}
-
-	$hostsFromHostGroups = array();
-	if (!empty($hostGroupIdToSelementIds)) {
-		$hostsFromHostGroups = API::Host()->get(array(
-			'groupids' => array_keys($hostGroupIdToSelementIds),
-			'output' => array('name', 'status', 'maintenance_status', 'maintenanceid'),
-			'selectGroups' => array('groupid'),
-			'nopermissions' => true,
-			'preservekeys' => true
-		));
-
-		foreach ($hostsFromHostGroups as $hostId => $host) {
-			foreach ($host['groups'] as $group) {
-				$groupId = $group['groupid'];
-
-				if (isset($hostGroupIdToSelementIds[$groupId])) {
-					foreach ($hostGroupIdToSelementIds[$groupId] as $selementId) {
-						$selement =& $selements[$selementId];
-
-						$selement['hosts'][$hostId] = $hostId;
-
-						// add hosts to hosts_map for trigger selection;
-						if (!isset($hostIdToSelementIds[$hostId])) {
-							$hostIdToSelementIds[$hostId] = array();
-						}
-						$hostIdToSelementIds[$hostId][$selementId] = $selementId;
-
-						unset($selement);
-					}
-				}
-			}
-		}
-
-		$allHosts = array_merge($allHosts, $hostsFromHostGroups);
-	}
-
-	$allHosts = zbx_toHash($allHosts, 'hostid');
-
-	// get triggers data, triggers from current map, select all
-	$allTriggers = array();
-
-	if (!empty($triggerIdToSelementIds)) {
-		$triggerOptions = array(
-			'output' => array('triggerid', 'status', 'value', 'priority', 'lastchange', 'description', 'expression'),
-			'triggerids' => array_keys($triggerIdToSelementIds),
-			'filter' => array('state' => null),
-			'nopermissions' => true,
-			'preservekeys' => true
-		);
-
-		if ($showUnacknowledged) {
-			$triggerOptions['selectLastEvent'] = array('acknowledged');
-		}
-
-		$triggers = API::Trigger()->get($triggerOptions);
-
-		$allTriggers = array_merge($allTriggers, $triggers);
-
-		foreach ($triggers as $triggerId => $trigger) {
-			foreach ($triggerIdToSelementIds[$triggerId] as $selementId) {
-				$selements[$selementId]['triggers'][$triggerId] = $triggerId;
-			}
-		}
-	}
-
-	// triggers from submaps, skip dependent
-	if (!empty($subSysmapTriggerIdToSelementIds)) {
-		$triggerOptions = array(
-			'output' => array('triggerid', 'status', 'value', 'priority', 'lastchange', 'description', 'expression'),
-			'triggerids' => array_keys($subSysmapTriggerIdToSelementIds),
-			'filter' => array('state' => null),
-			'skipDependent' => true,
-			'nopermissions' => true,
-			'preservekeys' => true,
-			'only_true' => true
-		);
-
-		if ($showUnacknowledged) {
-			$triggerOptions['selectLastEvent'] = array('acknowledged');
-		}
-
-		$triggers = API::Trigger()->get($triggerOptions);
-
-		$allTriggers = array_merge($allTriggers, $triggers);
-
-		foreach ($triggers as $triggerId => $trigger) {
-			foreach ($subSysmapTriggerIdToSelementIds[$triggerId] as $selementId) {
-				$selements[$selementId]['triggers'][$triggerId] = $triggerId;
-			}
-		}
-	}
-
-	$monitoredHostIds = array();
-	foreach ($allHosts as $hostId => $host) {
-		if ($host['status'] == HOST_STATUS_MONITORED) {
-			$monitoredHostIds[$hostId] = $hostId;
-		}
-	}
-
-	// triggers from all hosts/hostgroups, skip dependent
-	if ($monitoredHostIds) {
-		$triggerOptions = array(
-			'output' => array('triggerid', 'status', 'value', 'priority', 'lastchange', 'description', 'expression'),
-			'selectHosts' => array('hostid'),
-			'selectItems' => array('itemid'),
-			'hostids' => $monitoredHostIds,
-			'filter' => array('state' => null),
-			'monitored' => true,
-			'skipDependent' => true,
-			'nopermissions' => true,
-			'preservekeys' => true,
-			'only_true' => true
-		);
-
-		if ($showUnacknowledged) {
-			$triggerOptions['selectLastEvent'] = array('acknowledged');
-		}
-
-		$triggersFromMonitoredHosts = API::Trigger()->get($triggerOptions);
-
-		foreach ($triggersFromMonitoredHosts as $triggerId => $trigger) {
-			foreach ($trigger['hosts'] as $host) {
-				$hostId = $host['hostid'];
-
-				if (isset($hostIdToSelementIds[$hostId])) {
-					foreach ($hostIdToSelementIds[$hostId] as $selementId) {
-						$selements[$selementId]['triggers'][$triggerId] = $triggerId;
-					}
-				}
-			}
-		}
-
-		$subSysmapHostApplicationFilters = getSelementHostApplicationFilters($selements, $selementIdToSubSysmaps,
-			$hostsFromHostGroups
-		);
-		$selements = filterSysmapTriggers($selements, $subSysmapHostApplicationFilters, $triggersFromMonitoredHosts,
-			$subSysmapTriggerIdToSelementIds
-		);
-
-		$allTriggers = array_merge($allTriggers, $triggersFromMonitoredHosts);
-	}
-
-	$allTriggers = zbx_toHash($allTriggers, 'triggerid');
-
-	$info = array();
-	foreach ($selements as $selementId => $selement) {
-		$i = array(
-			'disabled' => 0,
-			'maintenance' => 0,
-			'problem' => 0,
-			'problem_unack' => 0,
-			'priority' => 0,
-			'trigger_disabled' => 0,
-			'latelyChanged' => false,
-			'ack' => true
-		);
-
-		foreach ($selement['hosts'] as $hostId) {
-			$host = $allHosts[$hostId];
-			$last_hostid = $hostId;
-
-			if ($host['status'] == HOST_STATUS_NOT_MONITORED) {
-				$i['disabled']++;
-			}
-			elseif ($host['maintenance_status'] == HOST_MAINTENANCE_STATUS_ON) {
-				$i['maintenance']++;
-			}
-		}
-
-		foreach ($selement['triggers'] as $triggerId) {
-			$trigger = $allTriggers[$triggerId];
-
-			if ($options['severity_min'] <= $trigger['priority']) {
-				if ($trigger['status'] == TRIGGER_STATUS_DISABLED) {
-					$i['trigger_disabled']++;
-				}
-				else {
-					if ($trigger['value'] == TRIGGER_VALUE_TRUE) {
-						$i['problem']++;
-						$lastProblemId = $triggerId;
-
-						if ($i['priority'] < $trigger['priority']) {
-							$i['priority'] = $trigger['priority'];
-						}
-					}
-
-					if ($showUnacknowledged && $trigger['lastEvent'] && !$trigger['lastEvent']['acknowledged']) {
-						$i['problem_unack']++;
-					}
-
-					$i['latelyChanged'] |= ((time() - $trigger['lastchange']) < $config['blink_period']);
-				}
-			}
-		}
-
-		$i['ack'] = (bool) !($i['problem_unack']);
-
-		if ($sysmap['expandproblem'] && $i['problem'] == 1) {
-			if (!isset($lastProblemId)) {
-				$lastProblemId = null;
-			}
-
-			$i['problem_title'] = CMacrosResolverHelper::resolveTriggerName($allTriggers[$lastProblemId]);
-		}
-
-		if ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST && $i['maintenance'] == 1) {
-			$mnt = get_maintenance_by_maintenanceid($allHosts[$last_hostid]['maintenanceid']);
-			$i['maintenance_title'] = $mnt['name'];
-		}
-
-		// replace default icons
-		if (!$selement['iconid_on']) {
-			$selement['iconid_on'] = $selement['iconid_off'];
-		}
-		if (!$selement['iconid_maintenance']) {
-			$selement['iconid_maintenance'] = $selement['iconid_off'];
-		}
-		if (!$selement['iconid_disabled']) {
-			$selement['iconid_disabled'] = $selement['iconid_off'];
-		}
-
-		switch ($selement['elementtype']) {
 			case SYSMAP_ELEMENT_TYPE_MAP:
-				$info[$selementId] = getMapsInfo($selement, $i, $showUnacknowledged);
-				break;
-
-			case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-				$info[$selementId] = getHostGroupsInfo($selement, $i, $showUnacknowledged);
-				break;
-
-			case SYSMAP_ELEMENT_TYPE_HOST:
-				$info[$selementId] = getHostsInfo($selement, $i, $showUnacknowledged);
-				if ($sysmap['iconmapid'] && $selement['use_iconmap']) {
-					$info[$selementId]['iconid'] = getIconByMapping($iconMap, $hostInventories[$selement['elementid']]);
+				$sql = 'SELECT DISTINCT elementtype,elementid'.
+						' FROM sysmaps_elements'.
+						' WHERE sysmapid='.zbx_dbstr($db_element['elementid']);
+				$db_mapselements = DBselect($sql);
+				while($db_mapelement = DBfetch($db_mapselements)){
+					get_map_elements($db_mapelement, $elements);
 				}
 				break;
-
-			case SYSMAP_ELEMENT_TYPE_TRIGGER:
-				$info[$selementId] = getTriggersInfo($selement, $i, $showUnacknowledged);
-				break;
-
-			case SYSMAP_ELEMENT_TYPE_IMAGE:
-				$info[$selementId] = getImagesInfo($selement);
-				break;
 		}
 	}
 
-	if ($sysmap['label_format'] == SYSMAP_LABEL_ADVANCED_OFF) {
-		$hlabel = $hglabel = $tlabel = $mlabel = ($sysmap['label_type'] == MAP_LABEL_TYPE_NAME);
-	}
-	else {
-		$hlabel = ($sysmap['label_type_host'] == MAP_LABEL_TYPE_NAME);
-		$hglabel = ($sysmap['label_type_hostgroup'] == MAP_LABEL_TYPE_NAME);
-		$tlabel = ($sysmap['label_type_trigger'] == MAP_LABEL_TYPE_NAME);
-		$mlabel = ($sysmap['label_type_map'] == MAP_LABEL_TYPE_NAME);
-	}
+	function add_elementNames(&$selements){
+		$hostids = array();
+		$triggerids = array();
+		$mapids = array();
+		$hostgroupids = array();
 
-	// get names if needed
-	$elems = separateMapElements($sysmap);
-	if (!empty($elems['sysmaps']) && $mlabel) {
-		$subSysmaps = API::Map()->get(array(
-			'sysmapids' => zbx_objectValues($elems['sysmaps'], 'elementid'),
-			'nopermissions' => true,
-			'output' => array('name')
-		));
-		$subSysmaps = zbx_toHash($subSysmaps, 'sysmapid');
-
-		foreach ($elems['sysmaps'] as $elem) {
-			$info[$elem['selementid']]['name'] = $subSysmaps[$elem['elementid']]['name'];
+		foreach($selements as $snum => $selement){
+			switch($selement['elementtype']){
+				case SYSMAP_ELEMENT_TYPE_HOST:
+					$hostids[] = $selement['elementid'];
+					break;
+				case SYSMAP_ELEMENT_TYPE_MAP:
+					$mapids[] = $selement['elementid'];
+					break;
+				case SYSMAP_ELEMENT_TYPE_TRIGGER:
+					$triggerids[] = $selement['elementid'];
+					break;
+				case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
+					$hostgroupids[] = $selement['elementid'];
+					break;
+				case SYSMAP_ELEMENT_TYPE_IMAGE:
+				default:
+					break;
+			}
 		}
-	}
-	if (!empty($elems['hostgroups']) && $hglabel) {
-		$hostgroups = API::HostGroup()->get(array(
-			'groupids' => zbx_objectValues($elems['hostgroups'], 'elementid'),
-			'nopermissions' => true,
-			'output' => array('name')
-		));
+
+
+		$hosts = CHost::get(array('hostids'=>$hostids, 'extendoutput'=>1, 'nopermissions'=>1, 'nodeids' => get_current_nodeid(true)));
+		$hosts = zbx_toHash($hosts, 'hostid');
+
+		$maps = CMap::get(array('mapids'=>$mapids, 'extendoutput'=>1, 'nopermissions'=>1, 'nodeids' => get_current_nodeid(true)));
+		$maps = zbx_toHash($maps, 'sysmapid');
+
+		$triggers = CTrigger::get(array('triggerids'=>$triggerids, 'extendoutput'=>1, 'nopermissions'=>1, 'expandDescription' => true, 'nodeids' => get_current_nodeid(true)));
+		$triggers = zbx_toHash($triggers, 'triggerid');
+
+		$hostgroups = CHostGroup::get(array('hostgroupids'=>$hostgroupids, 'extendoutput'=>1, 'nopermissions'=>1, 'nodeids' => get_current_nodeid(true)));
 		$hostgroups = zbx_toHash($hostgroups, 'groupid');
 
-		foreach ($elems['hostgroups'] as $elem) {
-			$info[$elem['selementid']]['name'] = $hostgroups[$elem['elementid']]['name'];
-		}
-	}
-
-	if (!empty($elems['triggers']) && $tlabel) {
-		foreach ($elems['triggers'] as $elem) {
-			$info[$elem['selementid']]['name'] = CMacrosResolverHelper::resolveTriggerName($allTriggers[$elem['elementid']]);
-		}
-	}
-	if (!empty($elems['hosts']) && $hlabel) {
-		foreach ($elems['hosts'] as $elem) {
-			$info[$elem['selementid']]['name'] = $allHosts[$elem['elementid']]['name'];
-		}
-	}
-
-	return $info;
-}
-
-/**
- * Takes sysmap selements array, applies filtering by application to triggers and returns sysmap selements array.
- *
- * @param array $selements                          selements of current sysmap
- * @param array $selementHostApplicationFilters     a list of application filters applied to each host under each element
- *                                                  @see getSelementHostApplicationFilters()
- * @param array $triggersFromMonitoredHosts         triggers that are relevant to filtering
- * @param array $subSysmapTriggerIdToSelementIds    a map of triggers in sysmaps to selement IDs
- *
- * @return array
- */
-function filterSysmapTriggers(array $selements, array $selementHostApplicationFilters, array $triggersFromMonitoredHosts, array $subSysmapTriggerIdToSelementIds) {
-	// pick only host, host group or map selements
-	$filterableSelements = array();
-	foreach ($selements as $selementId => $selement) {
-		if ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST
-				|| $selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST_GROUP
-				|| $selement['elementtype'] == SYSMAP_ELEMENT_TYPE_MAP) {
-			$filterableSelements[$selementId] = $selement;
-		}
-	}
-	// calculate list of triggers that might get removed from $selement['triggers']
-	$triggersToFilter = array();
-	foreach ($filterableSelements as $selementId => $selement) {
-		foreach ($selement['triggers'] as $triggerId) {
-			if (!isset($triggersFromMonitoredHosts[$triggerId])) {
-				continue;
-			}
-			$trigger = $triggersFromMonitoredHosts[$triggerId];
-			foreach ($trigger['hosts'] as $host) {
-				$hostId = $host['hostid'];
-				if (isset($selementHostApplicationFilters[$selementId][$hostId])) {
-					$triggersToFilter[$triggerId] = $trigger;
-				}
+		foreach($selements as $snum => $selement){
+			switch($selement['elementtype']){
+				case SYSMAP_ELEMENT_TYPE_HOST:
+					$selements[$snum]['elementName'] = $hosts[$selement['elementid']]['host'];
+					break;
+				case SYSMAP_ELEMENT_TYPE_MAP:
+					$selements[$snum]['elementName'] = $maps[$selement['elementid']]['name'];
+					break;
+				case SYSMAP_ELEMENT_TYPE_TRIGGER:
+					$selements[$snum]['elementName'] = $triggers[$selement['elementid']]['description'];
+					break;
+				case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
+					$selements[$snum]['elementName'] = $hostgroups[$selement['elementid']]['name'];
+					break;
+				case SYSMAP_ELEMENT_TYPE_IMAGE:
+				default:
+					$selements[$snum]['elementName'] = 'image';
 			}
 		}
 	}
 
-	// if there are no triggers to filter
-	if (!$triggersToFilter) {
-		return $selements;
-	}
+//------------------------------------
 
-	// produce mapping of trigger to application names it is related to and produce mapping of host to triggers
-	$itemIds = array();
-	foreach ($triggersToFilter as $trigger) {
-		foreach ($trigger['items'] as $item) {
-			$itemIds[$item['itemid']] = $item['itemid'];
+	function getTriggersInfo($selement, $i, $showUnack) {
+		global $colors;
+
+		$info = array(
+			'latelyChanged' => $i['latelyChanged'],
+			'ack' => $i['ack'],
+			'priority' => $i['priority'],
+			'info' => array(),
+		);
+
+		if($i['problem'] && ($i['problem_unack'] && $showUnack == EXTACK_OPTION_UNACK
+				|| in_array($showUnack, array(EXTACK_OPTION_ALL, EXTACK_OPTION_BOTH)))) {
+
+			$info['iconid'] = $selement['iconid_on'];
+			$info['icon_type'] = SYSMAP_ELEMENT_ICON_ON;
+			$info['info']['unack'] = array(
+				'msg' => S_PROBLEM_BIG,
+				'color' => ($i['priority'] > 3) ? $colors['Red'] : $colors['Dark Red']
+			);
 		}
+		else if($i['unknown']){
+			$info['iconid'] = $selement['iconid_unknown'];
+			$info['icon_type'] = SYSMAP_ELEMENT_ICON_UNKNOWN;
+			$info['info'] = array(
+				'unknown' => array(
+					'msg' => S_UNKNOWN_BIG,
+					'color' => $colors['Gray'],
+				)
+			);
+		}
+		else if($i['trigger_disabled']){
+			$info['iconid'] = $selement['iconid_disabled'];
+			$info['icon_type'] = SYSMAP_ELEMENT_ICON_DISABLED;
+			$info['info'] = array(
+				'status' => array(
+					'msg' => S_DISABLED_BIG,
+					'color' => $colors['Dark Red']
+				)
+			);
+		}
+		else{
+			$info['iconid'] = $selement['iconid_off'];
+			$info['icon_type'] = SYSMAP_ELEMENT_ICON_OFF;
+			$info['info'] = array(
+				'unknown' => array(
+					'msg' => S_OK_BIG,
+					'color' => $colors['Dark Green'],
+				)
+			);
+		}
+
+		return $info;
 	}
-	$items = API::Item()->get(array(
-		'output' => array('itemid'),
-		'selectApplications' => array('name'),
-		'itemids' => $itemIds,
-		'webitems' => true,
-		'preservekeys' => true
-	));
 
-	$triggerApplications = array();
-	$hostIdToTriggers = array();
-	foreach ($triggersToFilter as $trigger) {
-		$triggerId = $trigger['triggerid'];
+ 	function getHostsInfo($selement, $i, $show_unack){
+		global $colors;
 
-		foreach ($trigger['items'] as $item) {
-			foreach ($items[$item['itemid']]['applications'] as $application) {
-				$triggerApplications[$triggerId][$application['name']] = true;
+		$info = array(
+			'latelyChanged' => $i['latelyChanged'],
+			'ack' => $i['ack'],
+			'priority' => $i['priority'],
+			'info' => array(),
+		);
+		$has_problem = false;
+
+		if($i['problem']){
+			if(in_array($show_unack, array(EXTACK_OPTION_ALL, EXTACK_OPTION_BOTH))){
+				if($i['problem'] > 1)
+					$msg = $i['problem'].' '.S_PROBLEMS;
+				else if(isset($i['problem_title']))
+					$msg = $i['problem_title'];
+				else
+					$msg = '1 '.S_PROBLEM;
+
+				$info['info']['problem'] = array(
+					'msg' => $msg,
+					'color' => ($i['priority'] > 3) ? $colors['Red'] : $colors['Dark Red']
+				);
+			}
+
+			if(in_array($show_unack, array(EXTACK_OPTION_UNACK, EXTACK_OPTION_BOTH)) && $i['problem_unack']){
+				$info['info']['unack'] = array(
+					'msg' => $i['problem_unack'] . ' '.S_UNACKNOWLEDGED,
+					'color' => $colors['Dark Red']
+				);
+			}
+
+			// set element to problem state if it has problem events, ignore unknown events
+			if ($info['info']) {
+				$info['iconid'] = $selement['iconid_on'];
+				$info['icon_type'] = SYSMAP_ELEMENT_ICON_ON;
+				$has_problem = true;
+			}
+
+			if($i['unknown']){
+				$info['info']['unknown'] = array(
+					'msg' => $i['unknown'] . ' ' . S_UNKNOWN,
+					'color' => $colors['Gray']
+				);
 			}
 		}
+		else if($i['unknown']){
+			$info['iconid'] = $selement['iconid_unknown'];
+			$info['icon_type'] = SYSMAP_ELEMENT_ICON_UNKNOWN;
 
-		foreach ($trigger['hosts'] as $host) {
-			$hostIdToTriggers[$host['hostid']][$triggerId] = $trigger;
+			$info['info']['unknown'] = array(
+				'msg' => $i['unknown'] . ' ' . S_UNKNOWN,
+				'color' => $colors['Gray']
+			);
 		}
+
+		if($i['maintenance']){
+			$info['iconid'] = $selement['iconid_maintenance'];
+			$info['icon_type'] = SYSMAP_ELEMENT_ICON_MAINTENANCE;
+			$info['info']['maintenance'] = array(
+				'msg' => S_MAINTENANCE_BIG . ' ('.$i['maintenance_title'] . ')',
+				'color' => $colors['Orange'],
+			);
+		}
+		else if($i['disabled']){
+			$info['iconid'] = $selement['iconid_disabled'];
+			$info['icon_type'] = SYSMAP_ELEMENT_ICON_DISABLED;
+			$info['info']['status'] = array(
+				'msg' => S_DISABLED_BIG,
+				'color' => $colors['Dark Red']
+			);
+		}
+		else if(!$has_problem){
+			$info['iconid'] = $selement['iconid_off'];
+			$info['icon_type'] = SYSMAP_ELEMENT_ICON_OFF;
+			$info['info']['unknown'] = array(
+				'msg' => S_OK_BIG,
+				'color' => $colors['Dark Green'],
+			);
+		}
+
+		return $info;
 	}
 
-	foreach ($filterableSelements as $selementId => &$selement) {
-		// walk through each host of a submap and apply its filters to all its triggers
-		foreach ($selement['hosts'] as $hostId) {
-			// skip hosts that don't have any filters or triggers to filter
-			if (!isset($hostIdToTriggers[$hostId]) || !isset($selementHostApplicationFilters[$selementId][$hostId])) {
-				continue;
+ 	function getHostGroupsInfo($selement, $i, $show_unack){
+		global $colors;
+
+		$info = array(
+			'latelyChanged' => $i['latelyChanged'],
+			'ack' => $i['ack'],
+			'priority' => $i['priority'],
+			'info' => array(),
+		);
+		$has_problem = false;
+		$has_status = false;
+
+		if($i['problem']){
+			if(in_array($show_unack, array(EXTACK_OPTION_ALL, EXTACK_OPTION_BOTH))){
+				if($i['problem'] > 1)
+					$msg = $i['problem'].' '.S_PROBLEMS;
+				else if(isset($i['problem_title']))
+					$msg = $i['problem_title'];
+				else
+					$msg = '1 '.S_PROBLEM;
+
+				$info['info']['problem'] = array(
+					'msg' => $msg,
+					'color' => ($i['priority'] > 3) ? $colors['Red'] : $colors['Dark Red']
+				);
 			}
 
-			// remove the triggers that don't have applications or don't match the filter
-			$filteredApplicationNames = $selementHostApplicationFilters[$selementId][$hostId];
-			foreach ($hostIdToTriggers[$hostId] as $trigger) {
-				$triggerId = $trigger['triggerid'];
+			if(in_array($show_unack, array(EXTACK_OPTION_UNACK, EXTACK_OPTION_BOTH)) && $i['problem_unack']){
+				$info['info']['unack'] = array(
+					'msg' => $i['problem_unack'] . ' '.S_UNACKNOWLEDGED,
+					'color' => $colors['Dark Red']
+				);
+			}
 
-				// skip if this trigger is standalone trigger and those are not filtered
-				if (isset($subSysmapTriggerIdToSelementIds[$triggerId])
-						&& isset($subSysmapTriggerIdToSelementIds[$triggerId][$selementId])) {
-					continue;
-				}
+			// set element to problem state if it has problem events, ignore unknown events
+			if ($info['info']) {
+				$info['iconid'] = $selement['iconid_on'];
+				$info['icon_type'] = SYSMAP_ELEMENT_ICON_ON;
+				$has_problem = true;
+			}
 
-				$applicationNamesForTrigger = isset($triggerApplications[$triggerId])
-					? array_keys($triggerApplications[$triggerId])
-					: array();
-
-				if (!array_intersect($applicationNamesForTrigger, $filteredApplicationNames)) {
-					unset($selement['triggers'][$triggerId]);
-				}
+			if($i['unknown']){
+				$info['info']['unknown'] = array(
+					'msg' => $i['unknown'] . ' ' . S_UNKNOWN,
+					'color' => $colors['Gray']
+				);
 			}
 		}
-	}
-	unset($selement);
-
-	// put back updated selements
-	foreach ($filterableSelements as $selementId => $selement) {
-		$selements[$selementId] = $selement;
-	}
-
-	return $selements;
-}
-
-/**
- * Returns a list of application filters applied to each host under each element.
- *
- * @param array $selements                  selements of current sysmap
- * @param array $selementIdToSubSysmaps     all sub-sysmaps used in current sysmap, indexed by selementId
- * @param array $hostsFromHostGroups        collection of hosts that get included via host groups
- *
- * @return array    a two-dimensional array with selement IDs as the primary key, host IDs as the secondary key
- *                  application names as values
- */
-function getSelementHostApplicationFilters(array $selements, array $selementIdToSubSysmaps, array $hostsFromHostGroups) {
-	$hostIdsForHostGroupId = array();
-	foreach ($hostsFromHostGroups as $host) {
-		$hostId = $host['hostid'];
-		foreach ($host['groups'] as $group) {
-			$hostIdsForHostGroupId[$group['groupid']][$hostId] = $hostId;
+		else if($i['unknown']){
+			$info['iconid'] = $selement['iconid_unknown'];
+			$info['icon_type'] = SYSMAP_ELEMENT_ICON_UNKNOWN;
+			$info['info']['unknown'] = array(
+				'msg' => $i['unknown'] . ' ' . S_UNKNOWN,
+				'color' => $colors['Gray']
+			);
 		}
+
+		if($i['maintenance']){
+			if(!$has_problem){
+				$info['iconid'] = $selement['iconid_maintenance'];
+				$info['icon_type'] = SYSMAP_ELEMENT_ICON_MAINTENANCE;
+			}
+			$info['info']['maintenance'] = array(
+				'msg' => $i['maintenance'] . ' ' .S_MAINTENANCE,
+				'color' => $colors['Orange'],
+			);
+			$has_status = true;
+		}
+		else if($i['disabled']){
+			if(!$has_problem){
+				$info['icon_type'] = SYSMAP_ELEMENT_ICON_DISABLED;
+				$info['iconid'] = $selement['iconid_disabled'];
+			}
+			$info['info']['disabled'] = array(
+				'msg' => S_DISABLED_BIG,
+				'color' => $colors['Dark Red']
+			);
+			$has_status = true;
+		}
+
+		if(!$has_status && !$has_problem){
+			$info['icon_type'] = SYSMAP_ELEMENT_ICON_OFF;
+			$info['iconid'] = $selement['iconid_off'];
+			$info['info']['unknown'] = array(
+				'msg' => S_OK_BIG,
+				'color' => $colors['Dark Green'],
+			);
+		}
+		return $info;
 	}
 
-	$selementHostApplicationFilters = array();
-	foreach ($selements as $selementId => $selement) {
-		switch ($selement['elementtype']) {
-			case SYSMAP_ELEMENT_TYPE_HOST:
-			case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-				// skip host and host group elements with an empty filter
-				if ($selement['application'] === '') {
-					continue 2;
-				}
+ 	function getMapsInfo($selement, $i, $show_unack){
+		global $colors;
 
-				foreach ($selement['hosts'] as $hostId) {
-					$selementHostApplicationFilters[$selementId][$hostId][] = $selement['application'];
-				}
+		$info = array(
+			'latelyChanged' => $i['latelyChanged'],
+			'ack' => $i['ack'],
+			'priority' => $i['priority'],
+			'info' => array(),
+		);
 
-				break;
+		$has_problem = false;
+		$has_status = false;
 
-			case SYSMAP_ELEMENT_TYPE_MAP:
-				foreach ($selementIdToSubSysmaps[$selementId] as $subSysmap) {
-					// add all filters set for host elements
-					foreach ($subSysmap['selements'] as $subSysmapSelement) {
-						if ($subSysmapSelement['elementtype'] != SYSMAP_ELEMENT_TYPE_HOST
-								|| $subSysmapSelement['application'] === '') {
+		if($i['problem']){
+			if(in_array($show_unack, array(EXTACK_OPTION_ALL, EXTACK_OPTION_BOTH))){
+				if($i['problem'] > 1)
+					$msg = $i['problem'].' '.S_PROBLEMS;
+				else if(isset($i['problem_title']))
+					$msg = $i['problem_title'];
+				else
+					$msg = '1 '.S_PROBLEM;
 
-							continue;
+				$info['info']['problem'] = array(
+					'msg' => $msg,
+					'color' => ($i['priority'] > 3) ? $colors['Red'] : $colors['Dark Red']
+				);
+			}
+
+			if(in_array($show_unack, array(EXTACK_OPTION_UNACK, EXTACK_OPTION_BOTH)) && $i['problem_unack']){
+				$info['info']['unack'] = array(
+					'msg' => $i['problem_unack'] . ' '.S_UNACKNOWLEDGED,
+					'color' => $colors['Dark Red']
+				);
+			}
+
+			if ($info['info']) {
+				$info['iconid'] = $selement['iconid_on'];
+				$info['icon_type'] = SYSMAP_ELEMENT_ICON_ON;
+				$has_problem = true;
+			}
+
+			if($i['unknown']){
+				$info['info']['unknown'] = array(
+					'msg' => $i['unknown'] . ' ' . S_UNKNOWN,
+					'color' => $colors['Gray']
+				);
+			}
+		}
+		else if($i['unknown']){
+			$info['iconid'] = $selement['iconid_unknown'];
+			$info['icon_type'] = SYSMAP_ELEMENT_ICON_UNKNOWN;
+
+			$info['info']['unknown'] = array(
+				'msg' => $i['unknown'] . ' ' . S_UNKNOWN,
+				'color' => $colors['Gray']
+			);
+		}
+
+		if($i['maintenance']){
+			if(!$has_problem){
+				$info['iconid'] = $selement['iconid_maintenance'];
+				$info['icon_type'] = SYSMAP_ELEMENT_ICON_MAINTENANCE;
+			}
+			$info['info']['maintenance'] = array(
+				'msg' => $i['maintenance'] . ' ' .S_MAINTENANCE,
+				'color' => $colors['Orange'],
+			);
+			$has_status = true;
+		}
+		else if($i['disabled']){
+			if(!$has_problem){
+				$info['icon_type'] = SYSMAP_ELEMENT_ICON_DISABLED;
+				$info['iconid'] = $selement['iconid_disabled'];
+			}
+			$info['info']['disabled'] = array(
+				'msg' => S_DISABLED_BIG,
+				'color' => $colors['Dark Red']
+			);
+			$has_status = true;
+		}
+
+		if(!$has_status && !$has_problem){
+			$info['icon_type'] = SYSMAP_ELEMENT_ICON_OFF;
+			$info['iconid'] = $selement['iconid_off'];
+			$info['info']['unknown'] = array(
+				'msg' => S_OK_BIG,
+				'color' => $colors['Dark Green'],
+			);
+		}
+
+		return $info;
+	}
+
+	function getImagesInfo($selement){
+		$info = array(
+			'iconid' => $selement['iconid_off'],
+			'icon_type' => SYSMAP_ELEMENT_ICON_OFF,
+			'name' => S_IMAGE,
+			'latelyChanged' => false,
+		);
+
+		return $info;
+	}
+
+	function getSelementsInfo($sysmap){
+		$config = select_config();
+		$show_unack = $config['event_ack_enable'] ? $sysmap['show_unack'] : EXTACK_OPTION_ALL;
+
+		$triggers_map = array();
+		$triggers_map_submaps = array();
+		$hostgroups_map = array();
+		$hosts_map = array();
+
+		$selements = zbx_toHash($sysmap['selements'], 'selementid');
+		foreach($selements as $selementid => $selement){
+			$selements[$selementid]['hosts'] = array();
+			$selements[$selementid]['triggers'] = array();
+
+			switch($selement['elementtype']){
+				case SYSMAP_ELEMENT_TYPE_MAP:
+					$mapids = array($selement['elementid']);
+
+					while(!empty($mapids)){
+						$options = array(
+							'sysmapids' => $mapids,
+							'output' => API_OUTPUT_EXTEND,
+							'select_selements' => API_OUTPUT_EXTEND,
+							'nopermissions' => 1,
+							'nodeids' => get_current_nodeid(true)
+						);
+						$maps = CMap::get($options);
+
+						$mapids = array();
+						foreach($maps as $map){
+							foreach($map['selements'] as $sel){
+								switch($sel['elementtype']){
+									case SYSMAP_ELEMENT_TYPE_MAP:
+										$mapids[] = $sel['elementid'];
+									break;
+									case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
+										$hostgroups_map[$sel['elementid']][$selementid] = $selementid;
+									break;
+									case SYSMAP_ELEMENT_TYPE_HOST:
+										$hosts_map[$sel['elementid']][$selementid] = $selementid;
+									break;
+									case SYSMAP_ELEMENT_TYPE_TRIGGER:
+										$triggers_map_submaps[$sel['elementid']][$selementid] = $selementid;
+									break;
+								}
+							}
 						}
+					}
+				break;
+				case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
+					$hostgroups_map[$selement['elementid']][$selement['selementid']] = $selement['selementid'];
+				break;
+				case SYSMAP_ELEMENT_TYPE_HOST:
+					$hosts_map[$selement['elementid']][$selement['selementid']] = $selement['selementid'];
+				break;
+				case SYSMAP_ELEMENT_TYPE_TRIGGER:
+					$triggers_map[$selement['elementid']][$selement['selementid']] = $selement['selementid'];
+				break;
+			}
+		}
 
-						$hostId = $subSysmapSelement['elementid'];
-						$selementHostApplicationFilters[$selementId][$hostId][] = $subSysmapSelement['application'];
+
+// get hosts data {{{
+		$all_hosts = array();
+		if(!empty($hosts_map)){
+			$options = array(
+				'hostids' => array_keys($hosts_map),
+				'output' => API_OUTPUT_EXTEND,
+				'nopermissions' => 1,
+				'nodeids' => get_current_nodeid(true),
+			);
+			$hosts = CHost::get($options);
+			$all_hosts = array_merge($all_hosts, $hosts);
+			foreach($hosts as $host){
+				foreach($hosts_map[$host['hostid']] as $belongs_to_sel){
+					$selements[$belongs_to_sel]['hosts'][$host['hostid']] = $host['hostid'];
+				}
+			}
+		}
+
+		if(!empty($hostgroups_map)){
+			$options = array(
+				'groupids' => array_keys($hostgroups_map),
+				'output' => API_OUTPUT_EXTEND,
+				'nopermissions' => 1,
+				'nodeids' => get_current_nodeid(true),
+			);
+			$hosts = CHost::get($options);
+			$all_hosts = array_merge($all_hosts, $hosts);
+			foreach($hosts as $host){
+				foreach($host['groups'] as $group){
+					foreach($hostgroups_map[$group['groupid']] as $belongs_to_sel){
+						$selements[$belongs_to_sel]['hosts'][$host['hostid']] = $host['hostid'];
+
+// add hosts to hosts_map for trigger selection;
+						if(!isset($hosts_map[$host['hostid']])) $hosts_map[$host['hostid']] = array();
+						$hosts_map[$host['hostid']][$belongs_to_sel] = $belongs_to_sel;
+					}
+				}
+			}
+		}
+		$all_hosts = zbx_toHash($all_hosts, 'hostid');
+
+		$monitored_hostids = array();
+		foreach($all_hosts as $hostid => $host){
+			if(($host['status'] == HOST_STATUS_MONITORED))
+				$monitored_hostids[$hostid] = $hostid;
+		}
+// }}}
+
+
+// get triggers data {{{
+		$all_triggers = array();
+// triggers from current map, select all
+
+		if(!empty($triggers_map)){
+			$options = array(
+				'nodeids' => get_current_nodeid(true),
+				'triggerids' => array_keys($triggers_map),
+				'output' => API_OUTPUT_EXTEND,
+				'nopermissions' => 1,
+				'expandDescription' => true
+			);
+			$triggers = CTrigger::get($options);
+			$all_triggers = array_merge($all_triggers, $triggers);
+
+			foreach($triggers as $trigger){
+				foreach($triggers_map[$trigger['triggerid']] as $belongs_to_sel){
+					$selements[$belongs_to_sel]['triggers'][$trigger['triggerid']] = $trigger['triggerid'];
+				}
+			}
+		}
+
+// triggers from submaps, skip dependent
+		if(!empty($triggers_map_submaps)){
+			$options = array(
+				'nodeids' => get_current_nodeid(true),
+				'triggerids' => array_keys($triggers_map_submaps),
+				'filter' => array('value' => array(TRIGGER_VALUE_UNKNOWN, TRIGGER_VALUE_TRUE)),
+				'skipDependent' => 1,
+				'output' => API_OUTPUT_EXTEND,
+				'nopermissions' => 1,
+				'expandDescription' => true
+			);
+			$triggers = CTrigger::get($options);
+			$all_triggers = array_merge($all_triggers, $triggers);
+			foreach($triggers as $trigger){
+				foreach($triggers_map_submaps[$trigger['triggerid']] as $belongs_to_sel){
+					$selements[$belongs_to_sel]['triggers'][$trigger['triggerid']] = $trigger['triggerid'];
+				}
+			}
+		}
+
+
+// triggers from all hosts/hostgroups, skip dependent
+		if(!empty($monitored_hostids)){
+			$options = array(
+				'hostids' => $monitored_hostids,
+				'output' => API_OUTPUT_EXTEND,
+				'nopermissions' => 1,
+				'filter' => array('value' => array(TRIGGER_VALUE_UNKNOWN, TRIGGER_VALUE_TRUE)),
+				'nodeids' => get_current_nodeid(true),
+				'monitored' => true,
+				'skipDependent' => 1,
+				'expandDescription' => true
+			);
+			$triggers = CTrigger::get($options);
+
+			$all_triggers = array_merge($all_triggers, $triggers);
+			foreach($triggers as $trigger){
+				foreach($trigger['hosts'] as $host){
+					foreach($hosts_map[$host['hostid']] as $belongs_to_sel){
+						$selements[$belongs_to_sel]['triggers'][$trigger['triggerid']] = $trigger['triggerid'];
+					}
+				}
+			}
+		}
+		$all_triggers = zbx_toHash($all_triggers, 'triggerid');
+
+		$options = array(
+			'triggerids' => array_keys($all_triggers),
+			'withLastEventUnacknowledged' => true,
+			'output' => API_OUTPUT_SHORTEN,
+			'nodeids' => get_current_nodeid(true),
+			'nopermissions' => 1,
+			'monitored' => true,
+			'filter' => array('value' => TRIGGER_VALUE_TRUE),
+		);
+		$unack_triggerids = CTrigger::get($options);
+		$unack_triggerids = zbx_toHash($unack_triggerids, 'triggerid');
+// }}}
+
+
+		$info = array();
+		foreach($selements as $selementid => $selement){
+			$i = array(
+				'disabled' => 0,
+				'maintenance' => 0,
+				'problem' => 0,
+				'problem_unack' => 0,
+				'unknown' => 0,
+				'priority' => 0,
+				'trigger_disabled' => 0,
+				'latelyChanged' => false,
+				'ack' => true,
+			);
+
+			foreach($selement['hosts'] as $hostid){
+				$host = $all_hosts[$hostid];
+				$last_hostid = $hostid;
+
+				if($host['status'] == HOST_STATUS_NOT_MONITORED)
+					$i['disabled']++;
+				else if($host['maintenance_status'] == HOST_MAINTENANCE_STATUS_ON)
+					$i['maintenance']++;
+			}
+
+			foreach($selement['triggers'] as $triggerid){
+				$trigger = $all_triggers[$triggerid];
+
+				if($trigger['status'] == TRIGGER_STATUS_DISABLED){
+					$i['trigger_disabled']++;
+				}
+				else{
+					if($trigger['value'] == TRIGGER_VALUE_TRUE){
+						$i['problem']++;
+						$last_problemid = $triggerid;
+						if($i['priority'] < $trigger['priority'])
+							$i['priority'] = $trigger['priority'];
+					}
+					else if($trigger['value'] == TRIGGER_VALUE_UNKNOWN){
+						$i['unknown']++;
 					}
 
-					// Find all selements with host groups and sort them into two arrays:
-					// - with application filter
-					// - without application filter
-					$hostGroupSelementsWithApplication = array();
-					$hostGroupSelementsWithoutApplication = array();
-					foreach ($subSysmap['selements'] as $subSysmapSelement) {
-						if ($subSysmapSelement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST_GROUP) {
-							if ($subSysmapSelement['application'] !== '') {
-								$hostGroupSelementsWithApplication[] = $subSysmapSelement;
-							}
-							else {
-								$hostGroupSelementsWithoutApplication[] = $subSysmapSelement;
-							}
-						}
-					}
+					if(isset($unack_triggerids[$triggerid]))
+						$i['problem_unack']++;
 
-					// Combine application filters for hosts from host group selements with
-					// application filters set.
-					foreach ($hostGroupSelementsWithApplication as $hostGroupSelement) {
-						$hostGroupId = $hostGroupSelement['elementid'];
-
-						if (isset($hostIdsForHostGroupId[$hostGroupId])) {
-							foreach ($hostIdsForHostGroupId[$hostGroupId] as $hostId) {
-								$selementHostApplicationFilters[$selementId][$hostId][] = $hostGroupSelement['application'];
-							}
-						}
-					}
-
-					// Unset all application filters for hosts in host group selements without any filters.
-					// This might reset application filters set by previous foreach.
-					foreach ($hostGroupSelementsWithoutApplication AS $hostGroupSelement) {
-						$hostGroupId = $hostGroupSelement['elementid'];
-
-						if (isset($hostIdsForHostGroupId[$hostGroupId])) {
-							foreach ($hostIdsForHostGroupId[$hostGroupId] as $hostId) {
-								unset($selementHostApplicationFilters[$selementId][$hostId]);
-							}
-						}
-					}
+					$i['latelyChanged'] |= ((time() - $trigger['lastchange']) < TRIGGER_BLINK_PERIOD);
 				}
+			}
 
+			$i['ack'] = (bool) !($i['problem_unack']);
+
+			if($sysmap['expandproblem'] && ($i['problem'] == 1)){
+				$i['problem_title'] = $all_triggers[$last_problemid]['description'];
+			}
+
+			if(($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST) && ($i['maintenance'] == 1)){
+				$mnt = get_maintenance_by_maintenanceid($all_hosts[$last_hostid]['maintenanceid']);
+				$i['maintenance_title'] = $mnt['name'];
+			}
+
+			switch($selement['elementtype']){
+				case SYSMAP_ELEMENT_TYPE_MAP:
+					$info[$selementid] = getMapsInfo($selement, $i, $show_unack);
 				break;
+				case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
+					$info[$selementid] = getHostGroupsInfo($selement, $i, $show_unack);
+				break;
+				case SYSMAP_ELEMENT_TYPE_HOST:
+					$info[$selementid] = getHostsInfo($selement, $i, $show_unack);
+				break;
+				case SYSMAP_ELEMENT_TYPE_TRIGGER:
+					$info[$selementid] = getTriggersInfo($selement, $i, $show_unack);
+				break;
+				case SYSMAP_ELEMENT_TYPE_IMAGE:
+					$info[$selementid] = getImagesInfo($selement);
+				break;
+			}
 		}
+
+// get names if is needed
+		if($sysmap['label_type'] == MAP_LABEL_TYPE_NAME){
+			$elems = separateMapElements($sysmap);
+			if(!empty($elems['sysmaps'])){
+				$maps = CMap::get(array(
+					'sysmapids' => zbx_objectValues($elems['sysmaps'], 'elementid'),
+					'nopermissions' => 1,
+					'output' => API_OUTPUT_EXTEND,
+				));
+				$maps = zbx_toHash($maps, 'sysmapid');
+				foreach($elems['sysmaps'] as $elem){
+					$info[$elem['selementid']]['name'] = $maps[$elem['elementid']]['name'];
+				}
+			}
+			if(!empty($elems['hostgroups'])){
+				$hostgroups = CHostGroup::get(array(
+					'groupids' => zbx_objectValues($elems['hostgroups'], 'elementid'),
+					'nopermissions' => 1,
+					'output' => API_OUTPUT_EXTEND,
+				));
+				$hostgroups = zbx_toHash($hostgroups, 'groupid');
+				foreach($elems['hostgroups'] as $elem){
+					$info[$elem['selementid']]['name'] = $hostgroups[$elem['elementid']]['name'];
+				}
+			}
+
+			if(!empty($elems['triggers'])){
+				foreach($elems['triggers'] as $elem){
+					$info[$elem['selementid']]['name'] = $all_triggers[$elem['elementid']]['description'];
+				}
+			}
+			if(!empty($elems['hosts'])){
+				foreach($elems['hosts'] as $elem){
+					$info[$elem['selementid']]['name'] = $all_hosts[$elem['elementid']]['host'];;
+				}
+			}
+		}
+
+		return $info;
 	}
 
-	return $selementHostApplicationFilters;
-}
+	function separateMapElements($sysmap){
+		$elements = array(
+			'sysmaps' => array(),
+			'hostgroups' => array(),
+			'hosts' => array(),
+			'triggers' => array(),
+			'images' => array()
+		);
 
-function separateMapElements($sysmap) {
-	$elements = array(
-		'sysmaps' => array(),
-		'hostgroups' => array(),
-		'hosts' => array(),
-		'triggers' => array(),
-		'images' => array()
-	);
-
-	foreach ($sysmap['selements'] as $selement) {
-		switch ($selement['elementtype']) {
-			case SYSMAP_ELEMENT_TYPE_MAP:
-				$elements['sysmaps'][$selement['selementid']] = $selement;
+		foreach($sysmap['selements'] as $snum => $selement){
+			switch($selement['elementtype']){
+				case SYSMAP_ELEMENT_TYPE_MAP:
+					$elements['sysmaps'][$selement['selementid']] = $selement;
 				break;
-			case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-				$elements['hostgroups'][$selement['selementid']] = $selement;
+				case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
+					$elements['hostgroups'][$selement['selementid']] = $selement;
 				break;
-			case SYSMAP_ELEMENT_TYPE_HOST:
-				$elements['hosts'][$selement['selementid']] = $selement;
+				case SYSMAP_ELEMENT_TYPE_HOST:
+					$elements['hosts'][$selement['selementid']] = $selement;
 				break;
-			case SYSMAP_ELEMENT_TYPE_TRIGGER:
-				$elements['triggers'][$selement['selementid']] = $selement;
+				case SYSMAP_ELEMENT_TYPE_TRIGGER:
+					$elements['triggers'][$selement['selementid']] = $selement;
 				break;
-			case SYSMAP_ELEMENT_TYPE_IMAGE:
-			default:
-				$elements['images'][$selement['selementid']] = $selement;
+				case SYSMAP_ELEMENT_TYPE_IMAGE:
+				default:
+					$elements['images'][$selement['selementid']] = $selement;
+			}
 		}
-	}
+
 	return $elements;
-}
+	}
 
-function drawMapConnectors(&$im, $map, $mapInfo, $drawAll = false) {
-	$selements = $map['selements'];
+	function prepareMapExport(&$exportMaps){
 
-	foreach ($map['links'] as $link) {
-		$selement1 = $selements[$link['selementid1']];
-		$selement2 = $selements[$link['selementid2']];
+		$sysmaps = array();
+		$hostgroups = array();
+		$hosts = array();
+		$triggers = array();
+		$images = array();
 
-		list($x1, $y1) = get_icon_center_by_selement($selement1, $mapInfo[$link['selementid1']], $map);
-		list($x2, $y2) = get_icon_center_by_selement($selement2, $mapInfo[$link['selementid2']], $map);
+		foreach($exportMaps as $mnum => $sysmap){
+			$selements = separateMapElements($sysmap);
 
-		if (isset($selement1['elementsubtype']) && $selement1['elementsubtype'] == SYSMAP_ELEMENT_AREA_TYPE_CUSTOM) {
-			if (!$drawAll && ($selement2['elementsubtype'] != SYSMAP_ELEMENT_SUBTYPE_HOST_GROUP_ELEMENTS)) {
-				continue;
+			$sysmaps += zbx_objectValues($selements['sysmaps'], 'elementid');
+			$hostgroups += zbx_objectValues($selements['hostgroups'], 'elementid');
+			$hosts += zbx_objectValues($selements['hosts'], 'elementid');
+			$triggers += zbx_objectValues($selements['triggers'], 'elementid');
+			$images += zbx_objectValues($selements['images'], 'elementid');
+
+			foreach($sysmap['selements'] as $snum => $selement){
+				if($selement['iconid_off'] > 0) $images[$selement['iconid_off']] = $selement['iconid_off'];
+				if($selement['iconid_on'] > 0) $images[$selement['iconid_on']] = $selement['iconid_on'];
+				if($selement['iconid_unknown'] > 0) $images[$selement['iconid_unknown']] = $selement['iconid_unknown'];
+				if($selement['iconid_disabled'] > 0) $images[$selement['iconid_disabled']] = $selement['iconid_disabled'];
+				if($selement['iconid_maintenance'] > 0) $images[$selement['iconid_maintenance']] = $selement['iconid_maintenance'];
 			}
 
-			if ($selement1['areatype'] == SYSMAP_ELEMENT_AREA_TYPE_CUSTOM) {
-				$w = $selement1['width'];
-				$h = $selement1['height'];
+			$images[$sysmap['backgroundid']] = $sysmap['backgroundid'];
+
+			foreach($sysmap['links'] as $lnum => $link){
+				foreach($link['linktriggers'] as $ltnum => $linktrigger){
+					array_push($triggers, $linktrigger['triggerid']);
+				}
 			}
-			else {
-				$w = $map['width'];
-				$h = $map['height'];
-			}
-			list($x1, $y1) = calculateMapAreaLinkCoord($x1, $y1, $w, $h, $x2, $y2);
 		}
 
-		if (isset($selement2['elementsubtype']) && $selement2['elementsubtype'] == SYSMAP_ELEMENT_AREA_TYPE_CUSTOM) {
-			if (!$drawAll && ($selement1['elementsubtype'] != SYSMAP_ELEMENT_SUBTYPE_HOST_GROUP_ELEMENTS)) {
-				continue;
-			}
+		$sysmaps = sysmapIdents($sysmaps);
+		$hostgroups = hostgroupIdents($hostgroups);
+		$hosts = hostIdents($hosts);
+		$triggers = triggerIdents($triggers);
+		$images = imageIdents($images);
 
-			if ($selement2['areatype'] == SYSMAP_ELEMENT_AREA_TYPE_CUSTOM) {
-				$w = $selement2['width'];
-				$h = $selement2['height'];
+		try{
+			foreach($exportMaps as $mnum => &$sysmap){
+				unset($sysmap['sysmapid']);
+				$sysmap['backgroundid'] = ($sysmap['backgroundid'] > 0)?$images[$sysmap['backgroundid']]:'';
+
+				foreach($sysmap['selements'] as $snum => &$selement){
+					unset($selement['sysmapid']);
+					switch($selement['elementtype']){
+						case SYSMAP_ELEMENT_TYPE_MAP:
+							$selement['elementid'] = $sysmaps[$selement['elementid']];
+						break;
+						case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
+							$selement['elementid'] = $hostgroups[$selement['elementid']];
+						break;
+						case SYSMAP_ELEMENT_TYPE_HOST:
+							$selement['elementid'] = $hosts[$selement['elementid']];
+						break;
+						case SYSMAP_ELEMENT_TYPE_TRIGGER:
+							$selement['elementid'] = $triggers[$selement['elementid']];
+						break;
+						case SYSMAP_ELEMENT_TYPE_IMAGE:
+						default:
+							$selement['elementid'] = $images[$selement['elementid']];
+					}
+
+					$selement['iconid_off'] = ($selement['iconid_off'] > 0)?$images[$selement['iconid_off']]:'';
+					$selement['iconid_on'] = ($selement['iconid_on'] > 0)?$images[$selement['iconid_on']]:'';
+					$selement['iconid_unknown'] = ($selement['iconid_unknown'] > 0)?$images[$selement['iconid_unknown']]:'';
+					$selement['iconid_disabled'] = ($selement['iconid_disabled'] > 0)?$images[$selement['iconid_disabled']]:'';
+					$selement['iconid_maintenance'] = ($selement['iconid_maintenance'] > 0)?$images[$selement['iconid_maintenance']]:'';
+				}
+				unset($selement);
+
+				foreach($sysmap['links'] as $lnum => &$link){
+					unset($link['sysmapid']);
+					unset($link['linkid']);
+					foreach($link['linktriggers'] as $ltnum => &$linktrigger){
+						unset($linktrigger['linktriggerid']);
+						unset($linktrigger['linkid']);
+						$linktrigger['triggerid'] = $triggers[$linktrigger['triggerid']];
+					}
+				}
+				unset($linktrigger);
+				unset($link);
 			}
-			else {
-				$w = $map['width'];
-				$h = $map['height'];
-			}
-			list($x2, $y2) = calculateMapAreaLinkCoord($x2, $y2, $w,$h, $x1, $y1);
+			unset($sysmap);
 		}
+		catch(Exception $e){
+			throw new Exception($e->getMessage());
+		}
+//SDII($exportMaps);
+	}
 
-		$drawtype = $link['drawtype'];
-		$color = convertColor($im, $link['color']);
+	function prepareImageExport($images) {
+		$formatted = array();
 
-		$linktriggers = $link['linktriggers'];
-		order_result($linktriggers, 'triggerid');
+		foreach ($images as $image) {
+			$formatted[] = array(
+				'name' => $image['name'],
+				'imagetype' => $image['imagetype'],
+				'encodedImage' => $image['image'],
+			);
+		}
+		return $formatted;
+	}
 
-		if (!empty($linktriggers)) {
-			$max_severity = 0;
+	function drawMapConnectors(&$im, &$map, &$map_info){
 
-			$triggers = array();
-			foreach ($linktriggers as $link_trigger) {
-				if ($link_trigger['triggerid'] == 0) {
-					continue;
+		$links = $map['links'];
+		$selements = $map['selements'];
+
+		foreach($links as $lnum => $link){
+			if(empty($link)) continue;
+
+			$selement = $selements[$link['selementid1']];
+			list($x1, $y1) = get_icon_center_by_selement($selement, $map_info[$link['selementid1']]);
+
+			$selement = $selements[$link['selementid2']];
+			list($x2, $y2) = get_icon_center_by_selement($selement, $map_info[$link['selementid2']]);
+
+			$drawtype = $link['drawtype'];
+			$color = convertColor($im,$link['color']);
+
+			$linktriggers = $link['linktriggers'];
+			order_result($linktriggers, 'triggerid');
+
+			if(!empty($linktriggers)){
+				$max_severity=0;
+				$options = array();
+				$options['nopermissions'] = 1;
+				$options['extendoutput'] = 1;
+				$options['triggerids'] = array();
+
+				$triggers = array();
+				foreach($linktriggers as $lt_num => $link_trigger){
+					if($link_trigger['triggerid'] == 0) continue;
+					$id = $link_trigger['linktriggerid'];
+
+					$triggers[$id] = zbx_array_merge($link_trigger,get_trigger_by_triggerid($link_trigger['triggerid']));
+					if(($triggers[$id]['status'] == TRIGGER_STATUS_ENABLED) && ($triggers[$id]['value'] == TRIGGER_VALUE_TRUE)){
+						if($triggers[$id]['priority'] >= $max_severity){
+							$drawtype = $triggers[$id]['drawtype'];
+							$color = convertColor($im,$triggers[$id]['color']);
+							$max_severity = $triggers[$id]['priority'];
+						}
+					}
+				}
+			}
+
+			MyDrawLine($im,$x1,$y1,$x2,$y2,$color,$drawtype);
+		}
+	}
+
+	function drawMapSelements(&$im, &$map, &$map_info){
+		$selements = $map['selements'];
+
+		foreach($selements as $selementid => $selement){
+			if(empty($selement)) continue;
+
+			$el_info = $map_info[$selementid];
+			$img = get_png_by_selement($selement, $el_info);
+
+			$iconX = imagesx($img);
+			$iconY = imagesy($img);
+
+			imagecopy($im,$img,$selement['x'],$selement['y'],0,0,$iconX,$iconY);
+		}
+	}
+
+	function drawMapHighligts(&$im, &$map, &$map_info){
+		$selements = $map['selements'];
+
+		foreach($selements as $selementid => $selement){
+			if(empty($selement)) continue;
+
+			$el_info = $map_info[$selementid];
+			$img = get_png_by_selement($selement, $el_info);
+
+			$iconX = imagesx($img);
+			$iconY = imagesy($img);
+
+			if(($map['highlight']%2) == SYSMAP_HIGHLIGH_ON){
+				$hl_color = null;
+				$st_color = null;
+
+				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_ON){
+					switch($el_info['priority']){
+						case TRIGGER_SEVERITY_DISASTER: 	$hl_color = hex2rgb('FF0000'); break;
+						case TRIGGER_SEVERITY_HIGH:  		$hl_color = hex2rgb('FF8888'); break;
+						case TRIGGER_SEVERITY_AVERAGE:  	$hl_color = hex2rgb('DDAAAA'); break;
+						case TRIGGER_SEVERITY_WARNING:  	$hl_color = hex2rgb('EFEFCC'); break;
+						case TRIGGER_SEVERITY_INFORMATION:  $hl_color = hex2rgb('CCE2CC'); break;
+						case TRIGGER_SEVERITY_NOT_CLASSIFIED: $hl_color = hex2rgb('C0E0C0'); break;
+						default:
+					}
 				}
 
-				$id = $link_trigger['linktriggerid'];
+				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_UNKNOWN) $hl_color = hex2rgb('CCCCCC');
 
-				$triggers[$id] = zbx_array_merge($link_trigger, get_trigger_by_triggerid($link_trigger['triggerid']));
-				if ($triggers[$id]['status'] == TRIGGER_STATUS_ENABLED && $triggers[$id]['value'] == TRIGGER_VALUE_TRUE) {
-					if ($triggers[$id]['priority'] >= $max_severity) {
-						$drawtype = $triggers[$id]['drawtype'];
-						$color = convertColor($im, $triggers[$id]['color']);
-						$max_severity = $triggers[$id]['priority'];
+				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_MAINTENANCE) $st_color = hex2rgb('FF9933');
+				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_DISABLED) $st_color = hex2rgb('EEEEEE');
+
+				$mainProblems = array(
+					SYSMAP_ELEMENT_TYPE_HOST_GROUP => 1,
+					SYSMAP_ELEMENT_TYPE_MAP => 1
+				);
+
+				if(isset($mainProblems[$selement['elementtype']])){
+					if(!is_null($hl_color)) $st_color = null;
+				}
+				else if(!is_null($st_color)){
+					$hl_color = null;
+				}
+
+				if(!is_null($st_color)){
+					$r = $st_color[0];
+					$g = $st_color[1];
+					$b = $st_color[2];
+
+					imagefilledrectangle($im,
+							$selement['x'] - 2,
+							$selement['y'] - 2,
+							$selement['x'] + $iconX + 2,
+							$selement['y'] + $iconY + 2,
+							imagecolorallocatealpha($im,$r,$g,$b, 0)
+						);
+// shadow
+					imagerectangle($im,
+							$selement['x'] - 2 - 1,
+							$selement['y'] - 2 - 1,
+							$selement['x'] + $iconX + 2 + 1,
+							$selement['y'] + $iconY + 2 + 1,
+							imagecolorallocate($im,120,120,120)
+						);
+
+					imagerectangle($im,
+							$selement['x'] - 2 - 2,
+							$selement['y'] - 2 - 2,
+							$selement['x'] + $iconX + 2 + 2,
+							$selement['y'] + $iconY + 2 + 2,
+							imagecolorallocate($im,220,220,220)
+						);
+				}
+
+				if(!is_null($hl_color)){
+					$r = $hl_color[0];
+					$g = $hl_color[1];
+					$b = $hl_color[2];
+
+					imagefilledellipse($im,
+							$selement['x'] + ($iconX / 2),
+							$selement['y'] + ($iconY / 2),
+							$iconX+20,
+							$iconX+20,
+							imagecolorallocatealpha($im,$r,$g,$b, 0)
+						);
+
+					imageellipse($im,
+							$selement['x'] + ($iconX / 2),
+							$selement['y'] + ($iconY / 2),
+							$iconX+20+1,
+							$iconX+20+1,
+							imagecolorallocate($im,120,120,120)
+					);
+
+					$config = select_config();
+					if(isset($el_info['ack']) && $el_info['ack'] && $config['event_ack_enable']){
+						imagesetthickness($im, 5);
+						imagearc($im,
+							$selement['x'] + ($iconX / 2),
+							$selement['y'] + ($iconY / 2),
+							$iconX+20-3,
+							$iconX+20-3,
+							0,
+							359,
+							imagecolorallocate($im,50,150,50)
+						);
+						imagesetthickness($im, 1);
 					}
 				}
 			}
 		}
-
-		myDrawLine($im, $x1, $y1, $x2, $y2, $color, $drawtype);
 	}
-}
 
-function drawMapSelements(&$im, $map, $mapInfo) {
-	$selements = $map['selements'];
 
-	foreach ($selements as $selementId => $selement) {
-		if (isset($selement['elementsubtype']) && $selement['elementsubtype'] == SYSMAP_ELEMENT_SUBTYPE_HOST_GROUP_ELEMENTS) {
-			continue;
-		}
+	function drawMapSelemetsMarks(&$im, &$map, &$map_info){
+		global $colors;
 
-		$elementInfo = $mapInfo[$selementId];
-		$img = get_png_by_selement($elementInfo);
+		$selements = $map['selements'];
 
-		$iconX = imagesx($img);
-		$iconY = imagesy($img);
+		foreach($selements as $selementid => $selement){
+			if(empty($selement)) continue;
 
-		imagecopy($im, $img, $selement['x'], $selement['y'], 0, 0, $iconX, $iconY);
-	}
-}
+			$el_info = $map_info[$selementid];
+			if(!$el_info['latelyChanged']) continue;
 
-function drawMapHighligts(&$im, $map, $mapInfo) {
-	$config = select_config();
+			$img = get_png_by_selement($selement, $el_info);
 
-	$selements = $map['selements'];
+			$iconX = imagesx($img);
+			$iconY = imagesy($img);
 
-	foreach ($selements as $selementId => $selement) {
-		if (isset($selement['elementsubtype']) && $selement['elementsubtype'] == SYSMAP_ELEMENT_SUBTYPE_HOST_GROUP_ELEMENTS) {
-			continue;
-		}
-
-		$elementInfo = $mapInfo[$selementId];
-		$img = get_png_by_selement($elementInfo);
-
-		$iconX = imagesx($img);
-		$iconY = imagesy($img);
-
-		if (($map['highlight'] % 2) == SYSMAP_HIGHLIGHT_ON) {
 			$hl_color = null;
 			$st_color = null;
+			if(!isset($_REQUEST['noselements']) && (($map['highlight']%2) == SYSMAP_HIGHLIGH_ON)){
+				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_ON) $hl_color = true;
+				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_UNKNOWN) $hl_color = true;
 
-			if ($elementInfo['icon_type'] == SYSMAP_ELEMENT_ICON_ON) {
-				$hl_color = hex2rgb(getSeverityColor($elementInfo['priority']));
-			}
-
-			if ($elementInfo['icon_type'] == SYSMAP_ELEMENT_ICON_MAINTENANCE) {
-				$st_color = hex2rgb('FF9933');
-			}
-			if ($elementInfo['icon_type'] == SYSMAP_ELEMENT_ICON_DISABLED) {
-				$st_color = hex2rgb('EEEEEE');
+				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_MAINTENANCE) $st_color = true;
+				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_DISABLED) $st_color = true;
 			}
 
 			$mainProblems = array(
@@ -1544,808 +1807,279 @@ function drawMapHighligts(&$im, $map, $mapInfo) {
 				SYSMAP_ELEMENT_TYPE_MAP => 1
 			);
 
-			if (isset($mainProblems[$selement['elementtype']])) {
-				if (!is_null($hl_color)) {
-					$st_color = null;
+			if(isset($mainProblems[$selement['elementtype']])) if(!is_null($hl_color)) $st_color = null;
+			else if(!is_null($st_color)) $hl_color = null;
+
+			$markSize = $iconX/2;//sqrt(pow($iconX/2,2) + pow($iconX/2,2));
+			if($hl_color) $markSize += 12;
+			else if($st_color) $markSize += 8;
+			else $markSize += 3;
+
+
+			$marks = 'tlbr';
+			if($map['label_type'] != MAP_LABEL_TYPE_NOTHING){
+				$label_location = $selement['label_location'];
+				if(is_null($label_location) || ($label_location < 0)) $label_location = $map['label_location'];
+
+				switch($label_location){
+					case MAP_LABEL_LOC_TOP: $marks = 'lbr'; break;
+					case MAP_LABEL_LOC_LEFT: $marks = 'tbr'; break;
+					case MAP_LABEL_LOC_RIGHT: $marks = 'tlb'; break;
+					case MAP_LABEL_LOC_BOTTOM:
+					default: $marks = 'tlr';
 				}
 			}
-			elseif (!is_null($st_color)) {
-				$hl_color = null;
-			}
 
-			if (!is_null($st_color)) {
-				$r = $st_color[0];
-				$g = $st_color[1];
-				$b = $st_color[2];
+			imageVerticalMarks($im, $selement['x']+($iconX/2), $selement['y']+($iconY/2), $markSize, $colors['Red'], $marks);
+//*/
+		}
+	}
+	function drawMapLinkLabels(&$im, &$map, &$map_info){
+		global $colors;
 
-				imagefilledrectangle($im,
-					$selement['x'] - 2,
-					$selement['y'] - 2,
-					$selement['x'] + $iconX + 2,
-					$selement['y'] + $iconY + 2,
-					imagecolorallocatealpha($im, $r, $g, $b, 0)
-				);
+		$links = $map['links'];
+		$selements = $map['selements'];
 
-				// shadow
-				imagerectangle($im,
-					$selement['x'] - 2 - 1,
-					$selement['y'] - 2 - 1,
-					$selement['x'] + $iconX + 2 + 1,
-					$selement['y'] + $iconY + 2 + 1,
-					imagecolorallocate($im, 120, 120, 120)
-				);
+		foreach($links as $lnum => $link){
+			if(empty($link)) continue;
+			if(empty($link['label'])) continue;
 
-				imagerectangle($im,
-					$selement['x'] - 2 - 2,
-					$selement['y'] - 2 - 2,
-					$selement['x'] + $iconX + 2 + 2,
-					$selement['y'] + $iconY + 2 + 2,
-					imagecolorallocate($im, 220, 220, 220)
-				);
-			}
+			$selement = $selements[$link['selementid1']];
+			list($x1, $y1) = get_icon_center_by_selement($selement, $map_info[$link['selementid1']]);
 
-			if (!is_null($hl_color)) {
-				$r = $hl_color[0];
-				$g = $hl_color[1];
-				$b = $hl_color[2];
+			$selement = $selements[$link['selementid2']];
+			list($x2, $y2) = get_icon_center_by_selement($selement, $map_info[$link['selementid2']]);
 
-				imagefilledellipse($im,
-					$selement['x'] + ($iconX / 2),
-					$selement['y'] + ($iconY / 2),
-					$iconX + 20,
-					$iconX + 20,
-					imagecolorallocatealpha($im, $r, $g, $b, 0)
-				);
+			$drawtype = $link['drawtype'];
+			$color = convertColor($im,$link['color']);
 
-				imageellipse($im,
-					$selement['x'] + ($iconX / 2),
-					$selement['y'] + ($iconY / 2),
-					$iconX + 20 + 1,
-					$iconX + 20 + 1,
-					imagecolorallocate($im, 120, 120, 120)
-				);
+			$linktriggers = $link['linktriggers'];
+			order_result($linktriggers, 'triggerid');
 
-				if (isset($elementInfo['ack']) && $elementInfo['ack'] && $config['event_ack_enable']) {
-					imagesetthickness($im, 5);
-					imagearc($im,
-						$selement['x'] + ($iconX / 2),
-						$selement['y'] + ($iconY / 2),
-						$iconX + 20 - 3,
-						$iconX + 20 - 3,
-						0,
-						359,
-						imagecolorallocate($im, 50, 150, 50)
-					);
-					imagesetthickness($im, 1);
+			if(!empty($linktriggers)){
+				$max_severity=0;
+				$options = array();
+				$options['nopermissions'] = 1;
+				$options['extendoutput'] = 1;
+				$options['triggerids'] = array();
+
+				$triggers = array();
+				foreach($linktriggers as $lt_num => $link_trigger){
+					if($link_trigger['triggerid'] == 0) continue;
+					$id = $link_trigger['linktriggerid'];
+
+					$triggers[$id] = zbx_array_merge($link_trigger, get_trigger_by_triggerid($link_trigger['triggerid']));
+					if(($triggers[$id]['status'] == TRIGGER_STATUS_ENABLED) && ($triggers[$id]['value'] == TRIGGER_VALUE_TRUE)){
+						if($triggers[$id]['priority'] >= $max_severity){
+							$drawtype = $triggers[$id]['drawtype'];
+							$color = convertColor($im,$triggers[$id]['color']);
+							$max_severity = $triggers[$id]['priority'];
+						}
+					}
 				}
+			}
+
+			$label = $link['label'];
+
+			$label = str_replace("\r", '', $label);
+			$strings = explode("\n", $label);
+
+			$box_width = 0;
+			$box_height = 0;
+
+			foreach($strings as $snum => $str)
+				$strings[$snum] = resolveMapLabelMacros($str);
+
+			foreach($strings as $snum => $str){
+				$dims = imageTextSize(8,0,$str);
+
+				$box_width = ($box_width > $dims['width'])?$box_width:$dims['width'];
+				$box_height+= $dims['height']+2;
+			}
+
+			$boxX_left = round(($x1 + $x2) / 2 - ($box_width/2) - 6);
+			$boxX_right = round(($x1 + $x2) / 2 + ($box_width/2) + 6);
+
+			$boxY_top = round(($y1 + $y2) / 2 - ($box_height/2) - 4);
+			$boxY_bottom = round(($y1 + $y2) / 2 + ($box_height/2) + 2);
+
+			switch($drawtype){
+				case MAP_LINK_DRAWTYPE_DASHED_LINE:
+				case MAP_LINK_DRAWTYPE_DOT:
+					dashedrectangle($im, $boxX_left, $boxY_top, $boxX_right, $boxY_bottom, $color);
+					break;
+				case MAP_LINK_DRAWTYPE_BOLD_LINE:
+					imagerectangle($im, $boxX_left-1, $boxY_top-1, $boxX_right+1, $boxY_bottom+1, $color);
+				case MAP_LINK_DRAWTYPE_LINE:
+				default:
+					imagerectangle($im, $boxX_left, $boxY_top, $boxX_right, $boxY_bottom, $color);
+			}
+
+			imagefilledrectangle($im, $boxX_left+1, $boxY_top+1, $boxX_right-1, $boxY_bottom-1, $colors['White']);
+
+
+			$increasey = 4;
+			foreach($strings as $snum => $str){
+				$dims = imageTextSize(8,0,$str);
+
+				$labelx = ($x1 + $x2) / 2 - ($dims['width']/2);
+				$labely = $boxY_top + $increasey;
+
+				imagetext($im, 8, 0, $labelx, $labely+$dims['height'], $colors['Black'], $str);
+
+				$increasey += $dims['height']+2;
 			}
 		}
 	}
-}
 
-function drawMapSelementsMarks(&$im, $map, $mapInfo) {
-	global $colors;
+	function drawMapLabels(&$im, &$map, &$map_info){
+		global $colors;
 
-	$selements = $map['selements'];
+		if($map['label_type'] == MAP_LABEL_TYPE_NOTHING) return;
 
-	foreach ($selements as $selementId => $selement) {
-		if (empty($selement)) {
-			continue;
-		}
+		$selements = $map['selements'];
+		$all_strings = '';
+		$label_lines = array();
+		$status_lines = array();
+		foreach($selements as $selementid => $selement){
+			if(!isset($label_lines[$selementid])) $label_lines[$selementid] = array();
+			if(!isset($status_lines[$selementid])) $status_lines[$selementid] = array();
 
-		$elementInfo = $mapInfo[$selementId];
-		if (!$elementInfo['latelyChanged']) {
-			continue;
-		}
-
-		// skip host group element containers
-		if ($selement['elementsubtype'] == SYSMAP_ELEMENT_SUBTYPE_HOST_GROUP_ELEMENTS) {
-			continue;
-		}
-
-		$img = get_png_by_selement($elementInfo);
-
-		$iconX = imagesx($img);
-		$iconY = imagesy($img);
-
-		$hl_color = null;
-		$st_color = null;
-		if (!isset($_REQUEST['noselements']) && (($map['highlight'] % 2) == SYSMAP_HIGHLIGHT_ON)) {
-			if ($elementInfo['icon_type'] == SYSMAP_ELEMENT_ICON_ON) {
-				$hl_color = true;
+			$msg = resolveMapLabelMacrosAll($selement);
+			$all_strings .= $msg;
+			$msgs = explode("\n", $msg);
+			foreach($msgs as $msg){
+				$label_lines[$selementid][] = array('msg' => $msg);
 			}
-			if ($elementInfo['icon_type'] == SYSMAP_ELEMENT_ICON_MAINTENANCE
-					|| $elementInfo['icon_type'] == SYSMAP_ELEMENT_ICON_DISABLED) {
-				$st_color = true;
+
+			$el_info = $map_info[$selementid];
+			$el_msgs = array('problem', 'unack', 'maintenance', 'unknown', 'ok', 'status');
+			foreach($el_msgs as $key => $caption){
+				if(!isset($el_info['info'][$caption]) || zbx_empty($el_info['info'][$caption]['msg'])) continue;
+
+				$status_lines[$selementid][] = array(
+					'msg' => $el_info['info'][$caption]['msg'],
+					'color' => $el_info['info'][$caption]['color']
+				);
+
+				$all_strings .= $el_info['info'][$caption]['msg'];
 			}
 		}
 
-		$mainProblems = array(
-			SYSMAP_ELEMENT_TYPE_HOST_GROUP => 1,
-			SYSMAP_ELEMENT_TYPE_MAP => 1
-		);
+		$allLabelsSize = imageTextSize(8, 0, str_replace("\r", '', str_replace("\n", '', $all_strings)));
+		$labelFontHeight = $allLabelsSize['height'];
+		$labelFontBaseline = $allLabelsSize['baseline'];
 
-		if (isset($mainProblems[$selement['elementtype']])) {
-			if (!is_null($hl_color)) {
+		foreach($selements as $selementid => $selement){
+			if(empty($selement)) continue;
+
+			$el_info = $map_info[$selementid];
+
+			$hl_color = null;
+			$st_color = null;
+			if(!isset($_REQUEST['noselements']) && (($map['highlight']%2) == SYSMAP_HIGHLIGH_ON)){
+				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_ON) $hl_color = true;
+				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_UNKNOWN) $hl_color = true;
+
+				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_MAINTENANCE) $st_color = true;
+				if($el_info['icon_type'] == SYSMAP_ELEMENT_ICON_DISABLED) $st_color = true;
+			}
+
+			if(in_array($selement['elementtype'], array(SYSMAP_ELEMENT_TYPE_HOST_GROUP, SYSMAP_ELEMENT_TYPE_MAP)) && !is_null($hl_color))
 				$st_color = null;
-			}
-			elseif (!is_null($st_color)) {
+			else if(!is_null($st_color))
 				$hl_color = null;
+
+
+			$label_location = (is_null($selement['label_location']) || ($selement['label_location'] < 0))
+					? $map['label_location'] : $selement['label_location'];
+
+			$label = array();
+			if(($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST) && ($map['label_type'] == MAP_LABEL_TYPE_IP)){
+				$host = get_host_by_hostid($selement['elementid']);
+				$label[] = array('msg' => $host['ip']);
+				$label = array_merge($label, $status_lines[$selementid]);
 			}
-		}
-
-		$markSize = $iconX / 2;
-		if ($hl_color) {
-			$markSize += 12;
-		}
-		elseif ($st_color) {
-			$markSize += 8;
-		}
-		else {
-			$markSize += 3;
-		}
-
-		if ($map['label_type'] != MAP_LABEL_TYPE_NOTHING) {
-			$labelLocation = $selement['label_location'];
-			if (is_null($labelLocation) || ($labelLocation < 0)) {
-				$labelLocation = $map['label_location'];
+			else if($map['label_type'] == MAP_LABEL_TYPE_STATUS){
+				$label = $status_lines[$selementid];
 			}
+			else if($map['label_type'] == MAP_LABEL_TYPE_NAME){
+				$label[] = array('msg' => $el_info['name']);
+			}
+			else{
+				$label = array_merge($label_lines[$selementid], $status_lines[$selementid]);
+			}
+			if(zbx_empty($label)) continue;
 
-			switch ($labelLocation) {
+			$w = 0;
+			foreach($label as $str){
+				$dims = imageTextSize(8, 0, $str['msg']);
+				$w = max($w, $dims['width']);
+			}
+			$h = count($label) * $labelFontHeight;
+
+			$x = $selement['x'];
+			$y = $selement['y'];
+			$img = get_png_by_selement($selement, $el_info);
+			$iconX = imagesx($img);
+			$iconY = imagesy($img);
+
+			if(!is_null($hl_color)) $icon_hl = 14;
+			else if(!is_null($st_color)) $icon_hl = 6;
+			else $icon_hl = 2;
+
+			switch($label_location){
 				case MAP_LABEL_LOC_TOP:
-					$marks = 'rbl';
+					$y_rec = $y - $icon_hl - $h - 6;
+					$x_rec = $x + $iconX/2 - $w/2;
 					break;
 				case MAP_LABEL_LOC_LEFT:
-					$marks = 'trb';
+					$y_rec = $y - $h/2 + $iconY/2;
+					$x_rec = $x - $icon_hl - $w;
 					break;
 				case MAP_LABEL_LOC_RIGHT:
-					$marks = 'tbl';
+					$y_rec = $y - $h/2 + $iconY/2;
+					$x_rec = $x + $iconX + $icon_hl;
 					break;
 				case MAP_LABEL_LOC_BOTTOM:
 				default:
-					$marks = 'trl';
+					$y_rec = $y + $iconY + $icon_hl;
+					$x_rec = $x + $iconX/2 - $w/2;
 			}
-		}
-		else {
-			$marks = 'trbl';
-		}
+//		$y_rec += 30;
+//		imagerectangle($im, $x_rec-2-1, $y_rec-3, $x_rec+$w+2+1, $y_rec+($oc*4)+$h+3, $label_color);
+//		imagefilledrectangle($im, $x_rec-2, $y_rec-2, $x_rec+$w+2, $y_rec+($oc*4)+$h-2, $colors['White']);
 
-		imageVerticalMarks($im, $selement['x'] + ($iconX / 2), $selement['y'] + ($iconY / 2), $markSize, $colors['Red'], $marks);
-	}
-}
+			$increasey = 12;
+			foreach($label as $line){
+				if(zbx_empty($line['msg'])) continue;
 
-function drawMapLinkLabels(&$im, $map, $mapInfo, $resolveMacros = true) {
-	global $colors;
+				$str = str_replace("\r", '', $line['msg']);
+				$color = isset($line['color']) ? $line['color'] : $colors['Black'];
 
-	$links = $map['links'];
-	$selements = $map['selements'];
+				$dims = imageTextSize(8, 0, $str);
+//				$dims['height'] = $labelFontHeight;
+				//$str .= ' - '.$labelFontHeight.' - '.$dims['height'];
+				//$str = $dims['width'].'x'.$dims['height'];
 
-	foreach ($links as $link) {
-		if (empty($link['label'])) {
-			continue;
-		}
-
-		$selement1 = $selements[$link['selementid1']];
-		list($x1, $y1) = get_icon_center_by_selement($selement1, $mapInfo[$link['selementid1']], $map);
-
-		$selement2 = $selements[$link['selementid2']];
-		list($x2, $y2) = get_icon_center_by_selement($selement2, $mapInfo[$link['selementid2']], $map);
-
-		if (isset($selement1['elementsubtype']) && $selement1['elementsubtype'] == SYSMAP_ELEMENT_AREA_TYPE_CUSTOM) {
-			if ($selement1['areatype'] == SYSMAP_ELEMENT_AREA_TYPE_CUSTOM) {
-				$w = $selement1['width'];
-				$h = $selement1['height'];
-			}
-			else {
-				$w = $map['width'];
-				$h = $map['height'];
-			}
-			list($x1, $y1) = calculateMapAreaLinkCoord($x1, $y1, $w, $h, $x2, $y2);
-		}
-
-		if (isset($selement2['elementsubtype']) && $selement2['elementsubtype'] == SYSMAP_ELEMENT_AREA_TYPE_CUSTOM) {
-			if ($selement2['areatype'] == SYSMAP_ELEMENT_AREA_TYPE_CUSTOM) {
-				$w = $selement2['width'];
-				$h = $selement2['height'];
-			}
-			else {
-				$w = $map['width'];
-				$h = $map['height'];
-			}
-			list($x2, $y2) = calculateMapAreaLinkCoord($x2, $y2, $w, $h, $x1, $y1);
-		}
-
-		$drawtype = $link['drawtype'];
-		$color = convertColor($im, $link['color']);
-
-		$linktriggers = $link['linktriggers'];
-		order_result($linktriggers, 'triggerid');
-
-		if (!empty($linktriggers)) {
-			$max_severity = 0;
-
-			$triggers = array();
-			foreach ($linktriggers as $link_trigger) {
-				if ($link_trigger['triggerid'] == 0) {
-					continue;
+				if($label_location == MAP_LABEL_LOC_TOP || $label_location == MAP_LABEL_LOC_BOTTOM){
+					$x_label = $x + ceil($iconX/2) - ceil($dims['width']/2);
 				}
-				$id = $link_trigger['linktriggerid'];
-
-				$triggers[$id] = zbx_array_merge($link_trigger, get_trigger_by_triggerid($link_trigger['triggerid']));
-				if ($triggers[$id]['status'] == TRIGGER_STATUS_ENABLED && $triggers[$id]['value'] == TRIGGER_VALUE_TRUE) {
-					if ($triggers[$id]['priority'] >= $max_severity) {
-						$drawtype = $triggers[$id]['drawtype'];
-						$color = convertColor($im, $triggers[$id]['color']);
-						$max_severity = $triggers[$id]['priority'];
-					}
-				}
-			}
-		}
-
-		$label = $link['label'];
-
-		$label = str_replace("\r", '', $label);
-		$strings = explode("\n", $label);
-
-		$box_width = 0;
-		$box_height = 0;
-
-		foreach ($strings as $snum => $str) {
-			$strings[$snum] = $resolveMacros ? CMacrosResolverHelper::resolveMapLabelMacros($str) : $str;
-		}
-
-		foreach ($strings as $str) {
-			$dims = imageTextSize(8, 0, $str);
-
-			$box_width = ($box_width > $dims['width']) ? $box_width : $dims['width'];
-			$box_height += $dims['height'] + 2;
-		}
-
-		$boxX_left = round(($x1 + $x2) / 2 - ($box_width / 2) - 6);
-		$boxX_right = round(($x1 + $x2) / 2 + ($box_width / 2) + 6);
-
-		$boxY_top = round(($y1 + $y2) / 2 - ($box_height / 2) - 4);
-		$boxY_bottom = round(($y1 + $y2) / 2 + ($box_height / 2) + 2);
-
-		switch ($drawtype) {
-			case MAP_LINK_DRAWTYPE_DASHED_LINE:
-			case MAP_LINK_DRAWTYPE_DOT:
-				dashedRectangle($im, $boxX_left, $boxY_top, $boxX_right, $boxY_bottom, $color);
-				break;
-			case MAP_LINK_DRAWTYPE_BOLD_LINE:
-				imagerectangle($im, $boxX_left - 1, $boxY_top - 1, $boxX_right + 1, $boxY_bottom + 1, $color);
-				// break; is not ne
-			case MAP_LINK_DRAWTYPE_LINE:
-			default:
-				imagerectangle($im, $boxX_left, $boxY_top, $boxX_right, $boxY_bottom, $color);
-		}
-
-		imagefilledrectangle($im, $boxX_left + 1, $boxY_top + 1, $boxX_right - 1, $boxY_bottom - 1, $colors['White']);
-
-		$increasey = 4;
-		foreach ($strings as $str) {
-			$dims = imageTextSize(8, 0, $str);
-
-			$labelx = ($x1 + $x2) / 2 - ($dims['width'] / 2);
-			$labely = $boxY_top + $increasey;
-
-			imagetext($im, 8, 0, $labelx, $labely + $dims['height'], $colors['Black'], $str);
-
-			$increasey += $dims['height'] + 2;
-		}
-	}
-}
-
-function drawMapLabels(&$im, $map, $mapInfo, $resolveMacros = true) {
-	global $colors;
-
-	if ($map['label_type'] == MAP_LABEL_TYPE_NOTHING && $map['label_format'] == SYSMAP_LABEL_ADVANCED_OFF) {
-		return;
-	}
-
-	$selements = $map['selements'];
-	$allStrings = '';
-	$labelLines = array();
-	$statusLines = array();
-
-	foreach ($selements as $sid => $selement) {
-		if (isset($selement['elementsubtype']) && $selement['elementsubtype'] == SYSMAP_ELEMENT_SUBTYPE_HOST_GROUP_ELEMENTS) {
-			unset($selements[$sid]);
-		}
-	}
-
-	// set label type and custom label text for all selements
-	foreach ($selements as $selementId => $selement) {
-		$selements[$selementId]['label_type'] = $map['label_type'];
-
-		if ($map['label_format'] == SYSMAP_LABEL_ADVANCED_OFF) {
-			continue;
-		}
-
-		switch ($selement['elementtype']) {
-			case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-				$selements[$selementId]['label_type'] = $map['label_type_hostgroup'];
-				if ($map['label_type_hostgroup'] == MAP_LABEL_TYPE_CUSTOM) {
-					$selements[$selementId]['label'] = $map['label_string_hostgroup'];
-				}
-				break;
-
-			case SYSMAP_ELEMENT_TYPE_HOST:
-				$selements[$selementId]['label_type'] = $map['label_type_host'];
-				if ($map['label_type_host'] == MAP_LABEL_TYPE_CUSTOM) {
-					$selements[$selementId]['label'] = $map['label_string_host'];
-				}
-				break;
-
-			case SYSMAP_ELEMENT_TYPE_TRIGGER:
-				$selements[$selementId]['label_type'] = $map['label_type_trigger'];
-				if ($map['label_type_trigger'] == MAP_LABEL_TYPE_CUSTOM) {
-					$selements[$selementId]['label'] = $map['label_string_trigger'];
-				}
-				break;
-
-			case SYSMAP_ELEMENT_TYPE_MAP:
-				$selements[$selementId]['label_type'] = $map['label_type_map'];
-				if ($map['label_type_map'] == MAP_LABEL_TYPE_CUSTOM) {
-					$selements[$selementId]['label'] = $map['label_string_map'];
-				}
-				break;
-
-			case SYSMAP_ELEMENT_TYPE_IMAGE:
-				$selements[$selementId]['label_type'] = $map['label_type_image'];
-				if ($map['label_type_image'] == MAP_LABEL_TYPE_CUSTOM) {
-					$selements[$selementId]['label'] = $map['label_string_image'];
-				}
-				break;
-		}
-	}
-
-	foreach ($selements as $selementId => $selement) {
-		if (!isset($labelLines[$selementId])) {
-			$labelLines[$selementId] = array();
-		}
-		if (!isset($statusLines[$selementId])) {
-			$statusLines[$selementId] = array();
-		}
-
-		$msg = $resolveMacros ? CMacrosResolverHelper::resolveMapLabelMacrosAll($selement) : $selement['label'];
-
-		$allStrings .= $msg;
-		$msgs = explode("\n", $msg);
-		foreach ($msgs as $msg) {
-			$labelLines[$selementId][] = array('msg' => $msg);
-		}
-
-		$elementInfo = $mapInfo[$selementId];
-
-		foreach (array('problem', 'unack', 'maintenance', 'ok', 'status') as $caption) {
-			if (!isset($elementInfo['info'][$caption]) || zbx_empty($elementInfo['info'][$caption]['msg'])) {
-				continue;
-			}
-
-			$statusLines[$selementId][] = array(
-				'msg' => $elementInfo['info'][$caption]['msg'],
-				'color' => $elementInfo['info'][$caption]['color']
-			);
-
-			$allStrings .= $elementInfo['info'][$caption]['msg'];
-		}
-	}
-
-	$allLabelsSize = imageTextSize(8, 0, str_replace("\r", '', str_replace("\n", '', $allStrings)));
-	$labelFontHeight = $allLabelsSize['height'];
-	$labelFontBaseline = $allLabelsSize['baseline'];
-
-	$elementsHostIds = array();
-	foreach ($selements as $selement) {
-		if ($selement['label_type'] != MAP_LABEL_TYPE_IP) {
-			continue;
-		}
-		if ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST) {
-			$elementsHostIds[] = $selement['elementid'];
-		}
-	}
-
-	if (!empty($elementsHostIds)) {
-		$mapHosts = API::Host()->get(array(
-			'hostids' => $elementsHostIds,
-			'output' => array('hostid'),
-			'selectInterfaces' => API_OUTPUT_EXTEND
-		));
-		$mapHosts = zbx_toHash($mapHosts, 'hostid');
-	}
-
-	// draw
-	foreach ($selements as $selementId => $selement) {
-		if (empty($selement) || $selement['label_type'] == MAP_LABEL_TYPE_NOTHING) {
-			continue;
-		}
-
-		$elementInfo = $mapInfo[$selementId];
-
-		$hl_color = null;
-		$st_color = null;
-
-		if (!isset($_REQUEST['noselements']) && ($map['highlight'] % 2) == SYSMAP_HIGHLIGHT_ON) {
-			if ($elementInfo['icon_type'] == SYSMAP_ELEMENT_ICON_ON) {
-				$hl_color = true;
-			}
-			if ($elementInfo['icon_type'] == SYSMAP_ELEMENT_ICON_MAINTENANCE) {
-				$st_color = true;
-			}
-			if ($elementInfo['icon_type'] == SYSMAP_ELEMENT_ICON_DISABLED) {
-				$st_color = true;
-			}
-		}
-
-		if (in_array($selement['elementtype'], array(SYSMAP_ELEMENT_TYPE_HOST_GROUP, SYSMAP_ELEMENT_TYPE_MAP))
-				&& !is_null($hl_color)) {
-			$st_color = null;
-		}
-		elseif (!is_null($st_color)) {
-			$hl_color = null;
-		}
-
-		$labelLocation = (is_null($selement['label_location']) || $selement['label_location'] < 0)
-			? $map['label_location']
-			: $selement['label_location'];
-
-		$label = array();
-
-		if ($selement['label_type'] == MAP_LABEL_TYPE_IP && $selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST) {
-			$interface = reset($mapHosts[$selement['elementid']]['interfaces']);
-
-			$label[] = array('msg' => $interface['ip']);
-			$label = array_merge($label, $statusLines[$selementId]);
-		}
-		elseif ($selement['label_type'] == MAP_LABEL_TYPE_STATUS) {
-			$label = $statusLines[$selementId];
-		}
-		elseif ($selement['label_type'] == MAP_LABEL_TYPE_NAME) {
-			$label[] = array('msg' => $elementInfo['name']);
-			$label = array_merge($label, $statusLines[$selementId]);
-		}
-		else {
-			$label = array_merge($labelLines[$selementId], $statusLines[$selementId]);
-		}
-
-		if (empty($label)) {
-			continue;
-		}
-
-		$w = 0;
-		foreach ($label as $str) {
-			$dims = imageTextSize(8, 0, $str['msg']);
-			$w = max($w, $dims['width']);
-		}
-
-		$h = count($label) * $labelFontHeight;
-		$x = $selement['x'];
-		$y = $selement['y'];
-
-		$image = get_png_by_selement($elementInfo);
-		$iconX = imagesx($image);
-		$iconY = imagesy($image);
-
-		if (!is_null($hl_color)) {
-			$icon_hl = 14;
-		}
-		elseif (!is_null($st_color)) {
-			$icon_hl = 6;
-		}
-		else {
-			$icon_hl = 2;
-		}
-
-		switch ($labelLocation) {
-			case MAP_LABEL_LOC_TOP:
-				$y_rec = $y - $icon_hl - $h - 6;
-				$x_rec = $x + $iconX / 2 - $w / 2;
-				break;
-
-			case MAP_LABEL_LOC_LEFT:
-				$y_rec = $y - $h / 2 + $iconY / 2;
-				$x_rec = $x - $icon_hl - $w;
-				break;
-
-			case MAP_LABEL_LOC_RIGHT:
-				$y_rec = $y - $h / 2 + $iconY / 2;
-				$x_rec = $x + $iconX + $icon_hl;
-				break;
-
-			case MAP_LABEL_LOC_BOTTOM:
-			default:
-				$y_rec = $y + $iconY + $icon_hl;
-				$x_rec = $x + $iconX / 2 - $w / 2;
-		}
-
-		$increasey = 12;
-		foreach ($label as $line) {
-			if (zbx_empty($line['msg'])) {
-				continue;
-			}
-
-			$str = str_replace("\r", '', $line['msg']);
-			$color = isset($line['color']) ? $line['color'] : $colors['Black'];
-
-			$dims = imageTextSize(8, 0, $str);
-
-			if ($labelLocation == MAP_LABEL_LOC_TOP || $labelLocation == MAP_LABEL_LOC_BOTTOM) {
-				$x_label = $x + ceil($iconX / 2) - ceil($dims['width'] / 2);
-			}
-			elseif ($labelLocation == MAP_LABEL_LOC_LEFT) {
-				$x_label = $x_rec + $w - $dims['width'];
-			}
-			else {
-				$x_label = $x_rec;
-			}
-
-			imagefilledrectangle(
-				$im,
-				$x_label - 1, $y_rec + $increasey - $labelFontHeight + $labelFontBaseline,
-				$x_label + $dims['width'] + 1, $y_rec + $increasey + $labelFontBaseline,
-				$colors['White']
-			);
-			imagetext($im, 8, 0, $x_label, $y_rec + $increasey, $color, $str);
-
-			$increasey += $labelFontHeight + 1;
-		}
-	}
-}
-
-/**
- * For each host group which is area for hosts virtual elements as hosts from that host group are created
- *
- * @param array $map
- * @return array areas with area coordinates and selementids
- */
-function populateFromMapAreas(array &$map) {
-	$areas = array();
-
-	foreach ($map['selements'] as $selement) {
-		if ($selement['elementsubtype'] == SYSMAP_ELEMENT_SUBTYPE_HOST_GROUP_ELEMENTS) {
-			$area = array('selementids' => array());
-
-			$origSelement = $selement;
-
-			$hosts = API::host()->get(array(
-				'groupids' => $selement['elementid'],
-				'sortfield' => 'name',
-				'output' => array('hostid'),
-				'nopermissions' => true,
-				'preservekeys' => true
-			));
-			$hostsCount = count($hosts);
-
-			if ($hostsCount == 0) {
-				continue;
-			}
-
-			if ($selement['areatype'] == SYSMAP_ELEMENT_AREA_TYPE_CUSTOM) {
-				$area['width'] = $selement['width'];
-				$area['height'] = $selement['height'];
-				$area['x'] = $selement['x'];
-				$area['y'] = $selement['y'];
-			}
-			else {
-				$area['width'] = $map['width'];
-				$area['height'] = $map['height'];
-				$area['x'] = 0;
-				$area['y'] = 0;
-			}
-
-			foreach ($hosts as $host) {
-				$selement['elementtype'] = SYSMAP_ELEMENT_TYPE_HOST;
-				$selement['elementsubtype'] = SYSMAP_ELEMENT_SUBTYPE_HOST_GROUP;
-				$selement['elementid'] = $host['hostid'];
-
-				$newSelementid = rand(1, 9999999);
-				while (isset($map['selements'][$newSelementid])) {
-					$newSelementid += 1;
-				};
-				$selement['selementid'] = $newSelementid;
-
-				$area['selementids'][$newSelementid] = $newSelementid;
-				$map['selements'][$newSelementid] = $selement;
-			}
-
-			$areas[] = $area;
-
-			foreach ($map['links'] as $link) {
-				// do not multiply links between two areas
-				if ($map['selements'][$link['selementid1']]['elementsubtype'] == SYSMAP_ELEMENT_SUBTYPE_HOST_GROUP_ELEMENTS
-						&& $map['selements'][$link['selementid2']]['elementsubtype'] == SYSMAP_ELEMENT_SUBTYPE_HOST_GROUP_ELEMENTS) {
-					continue;
-				}
-
-				$idNumber = null;
-				if ($link['selementid1'] == $origSelement['selementid']) {
-					$idNumber = 'selementid1';
-				}
-				elseif ($link['selementid2'] == $origSelement['selementid']) {
-					$idNumber = 'selementid2';
-				}
-
-				if ($idNumber) {
-					foreach ($area['selementids'] as $newSelementid) {
-						$newLinkid = rand(1, 9999999);
-						while (isset($map['links'][$newLinkid])) {
-							$newLinkid += 1;
-						};
-
-						$link['linkid'] = $newLinkid;
-						$link[$idNumber] = $newSelementid;
-						$map['links'][$newLinkid] = $link;
-					}
-				}
+				else if($label_location == MAP_LABEL_LOC_LEFT)
+					$x_label = $x_rec + $w - $dims['width'];
+				else
+					$x_label = $x_rec;
+
+				imagefilledrectangle(
+					$im,
+					$x_label-1, $y_rec+$increasey-$labelFontHeight+$labelFontBaseline,
+					$x_label+$dims['width']+1, $y_rec+$increasey+$labelFontBaseline,
+					$colors['White']
+				);
+				imagetext($im, 8, 0, $x_label, $y_rec+$increasey, $color, $str);
+
+				$increasey += $labelFontHeight+1;
 			}
 		}
 	}
-
-	return $areas;
-}
-
-/**
- * Calculates coordinates from elements inside areas
- *
- * @param array $map
- * @param array $areas
- * @param array $mapInfo
- *
- * @return void
- */
-function processAreasCoordinates(array &$map, array $areas, array $mapInfo) {
-	foreach ($areas as $area) {
-		$rowPlaceCount = ceil(sqrt(count($area['selementids'])));
-
-		// offset from area borders
-		$area['x'] += 5;
-		$area['y'] += 5;
-		$area['width'] -= 5;
-		$area['height'] -= 5;
-
-		$xOffset = floor($area['width'] / $rowPlaceCount);
-		$yOffset = floor($area['height'] / $rowPlaceCount);
-
-		$colNum = 0;
-		$rowNum = 0;
-		// some offset is required so that icon highlights are not drawn outside area
-		$borderOffset = 20;
-		foreach ($area['selementids'] as $selementId) {
-			$selement = $map['selements'][$selementId];
-
-			$image = get_png_by_selement($mapInfo[$selementId]);
-			$iconX = imagesx($image);
-			$iconY = imagesy($image);
-
-			$labelLocation = (is_null($selement['label_location']) || ($selement['label_location'] < 0))
-				? $map['label_location'] : $selement['label_location'];
-			switch ($labelLocation) {
-				case MAP_LABEL_LOC_TOP:
-					$newX = $area['x'] + ($xOffset / 2) - ($iconX / 2);
-					$newY = $area['y'] + $yOffset - $iconY - ($iconY >= $iconX ? 0 : abs($iconX - $iconY) / 2) - $borderOffset;
-					break;
-				case MAP_LABEL_LOC_LEFT:
-					$newX = $area['x'] + $xOffset - $iconX - $borderOffset;
-					$newY = $area['y'] + ($yOffset / 2) - ($iconY / 2);
-					break;
-				case MAP_LABEL_LOC_RIGHT:
-					$newX = $area['x'] + $borderOffset;
-					$newY = $area['y'] + ($yOffset / 2) - ($iconY / 2);
-					break;
-				case MAP_LABEL_LOC_BOTTOM:
-					$newX = $area['x'] + ($xOffset / 2) - ($iconX / 2);
-					$newY = $area['y'] + abs($iconX - $iconY) / 2 + $borderOffset;
-					break;
-			}
-
-			$map['selements'][$selementId]['x'] = $newX + ($colNum * $xOffset);
-			$map['selements'][$selementId]['y'] = $newY + ($rowNum * $yOffset);
-
-			$colNum++;
-			if ($colNum == $rowPlaceCount) {
-				$colNum = 0;
-				$rowNum++;
-			}
-		}
-	}
-}
-
-/**
- * Calculates area connector point on area perimeter
- *
- * @param int $ax      x area coordinate
- * @param int $ay      y area coordinate
- * @param int $aWidth  area width
- * @param int $aHeight area height
- * @param int $x2      x coordinate of connector second element
- * @param int $y2      y coordinate of connector second element
- *
- * @return array contains two values, x and y coordinates of new area connector point
- */
-function calculateMapAreaLinkCoord($ax, $ay, $aWidth, $aHeight, $x2, $y2) {
-	$dY = abs($y2 - $ay);
-	$dX = abs($x2 - $ax);
-
-	$halfHeight = $aHeight / 2;
-	$halfWidth = $aWidth / 2;
-
-	if ($dY == 0) {
-		$ay = $y2;
-		$ax = ($x2 < $ax) ? $ax - $halfWidth : $ax + $halfWidth;
-	}
-	elseif ($dX == 0) {
-		$ay = ($y2 > $ay) ? $ay + $halfHeight : $ay - $halfHeight;
-		$ax = $x2;
-	}
-	else {
-		$koef = $halfHeight / $dY;
-
-		$c = $dX * $koef;
-
-		// if point is further than area diagonal, we should use calculations with width instead of height
-		if (($halfHeight / $c) > ($halfHeight / $halfWidth)) {
-			$ay = ($y2 > $ay) ? $ay + $halfHeight : $ay - $halfHeight;
-			$ax = ($x2 < $ax) ? $ax - $c : $ax + $c;
-		}
-		else {
-			$koef = $halfWidth / $dX;
-
-			$c = $dY * $koef;
-
-			$ay = ($y2 > $ay) ? $ay + $c : $ay - $c;
-			$ax = ($x2 < $ax) ? $ax - $halfWidth : $ax + $halfWidth;
-		}
-	}
-
-	return array($ax, $ay);
-}
-
-/**
- * Get icon id by mapping.
- *
- * @param array $iconMap
- * @param array $inventory
- *
- * @return int
- */
-function getIconByMapping($iconMap, $inventory) {
-	if (!empty($inventory['inventory'])) {
-		$inventories = getHostInventories();
-
-		foreach ($iconMap['mappings'] as $mapping) {
-			try {
-				$expr = new CGlobalRegexp($mapping['expression']);
-				if ($expr->match($inventory['inventory'][$inventories[$mapping['inventory_link']]['db_field']])) {
-					return $mapping['iconid'];
-				}
-			}
-			catch(Exception $e) {
-				continue;
-			}
-		}
-	}
-
-	return $iconMap['default_iconid'];
-}
-
-/**
- * Get parent maps for current map.
- *
- * @param int $mapId
- *
- * @return array
- */
-function getParentMaps($mapId) {
-	$parentMaps = DBfetchArrayAssoc(DBselect(
-		'SELECT s.sysmapid,s.name'.
-			' FROM sysmaps s'.
-				' JOIN sysmaps_elements se ON se.sysmapid=s.sysmapid'.
-			' WHERE se.elementtype='.SYSMAP_ELEMENT_TYPE_MAP.
-				' AND se.elementid='.zbx_dbstr($mapId)
-	), 'sysmapid');
-
-	CArrayHelper::sort($parentMaps, array('name'));
-
-	return $parentMaps;
-}
+?>

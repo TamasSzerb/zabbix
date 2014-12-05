@@ -25,6 +25,8 @@
 #include "dbcache.h"
 #include "zbxjson.h"
 
+#define TRIGGER_EPSILON	0.000001
+
 #define MACRO_TYPE_MESSAGE_NORMAL	0x0001
 #define MACRO_TYPE_MESSAGE_RECOVERY	0x0002
 #define MACRO_TYPE_TRIGGER_URL		0x0004
@@ -40,20 +42,17 @@
 #define MACRO_TYPE_SCRIPT		0x1000
 #define MACRO_TYPE_SNMP_OID		0x2000
 #define MACRO_TYPE_HTTPTEST_FIELD	0x4000
-#define MACRO_TYPE_LLD_FILTER		0x8000
 
 #define STR_CONTAINS_MACROS(str)	(NULL != strchr(str, '{'))
 
-void	get_functionids(zbx_vector_uint64_t *functionids, const char *expression);
-
-int	evaluate_function(char *value, DC_ITEM *item, const char *function, const char *parameters, time_t now,
-		char **error);
+int	evaluate_function(char *value, DC_ITEM *item, const char *function, const char *parameters, time_t now);
 
 int	substitute_simple_macros(zbx_uint64_t *actionid, const DB_EVENT *event, DB_EVENT *r_event, zbx_uint64_t *userid,
-		zbx_uint64_t *hostid, DC_HOST *dc_host, DC_ITEM *dc_item, zbx_hashset_t *macro_cache, char **data,
-		int macro_type, char *error, int maxerrlen);
+		zbx_uint64_t *hostid, DC_HOST *dc_host, DC_ITEM *dc_item, char **data, int macro_type, char *error,
+		int maxerrlen);
 
 void	evaluate_expressions(zbx_vector_ptr_t *triggers);
+int	evaluate(double *value, char *exp, char *error, int maxerrlen);
 
 void	zbx_format_value(char *value, size_t max_len, zbx_uint64_t valuemapid,
 		const char *units, unsigned char value_type);

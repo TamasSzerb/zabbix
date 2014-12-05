@@ -43,7 +43,7 @@ $fields = array(
 
 check_fields($fields);
 
-$config = getRequest('config', CProfile::get('web.queue.config', 0));
+$config = get_request('config', CProfile::get('web.queue.config', 0));
 CProfile::update('web.queue.config', $config, PROFILE_TYPE_INT);
 
 // fetch data
@@ -77,8 +77,6 @@ $queueWidget->addPageHeader(_('QUEUE OF ITEMS TO BE UPDATED'), $form);
 
 $table = new CTableInfo(_('The queue is empty.'));
 
-$severityConfig = select_config();
-
 // overview
 if ($config == QUEUE_OVERVIEW) {
 	$itemTypes = array(
@@ -110,8 +108,7 @@ if ($config == QUEUE_OVERVIEW) {
 	));
 
 	$queueData = zbx_toHash($queueData, 'itemtype');
-
-	foreach ($itemTypes as $type) {
+	foreach($itemTypes as $type) {
 		if (isset($queueData[$type])) {
 			$itemTypeData = $queueData[$type];
 		}
@@ -128,24 +125,12 @@ if ($config == QUEUE_OVERVIEW) {
 
 		$table->addRow(array(
 			item_type2str($type),
-			getSeverityCell(TRIGGER_SEVERITY_NOT_CLASSIFIED, $severityConfig, $itemTypeData['delay5'],
-				!$itemTypeData['delay5']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_INFORMATION, $severityConfig, $itemTypeData['delay10'],
-				!$itemTypeData['delay10']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_WARNING, $severityConfig, $itemTypeData['delay30'],
-				!$itemTypeData['delay30']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_AVERAGE, $severityConfig, $itemTypeData['delay60'],
-				!$itemTypeData['delay60']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_HIGH, $severityConfig, $itemTypeData['delay300'],
-				!$itemTypeData['delay300']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_DISASTER, $severityConfig, $itemTypeData['delay600'],
-				!$itemTypeData['delay600']
-			)
+			getSeverityCell(TRIGGER_SEVERITY_NOT_CLASSIFIED, $itemTypeData['delay5'], !$itemTypeData['delay5']),
+			getSeverityCell(TRIGGER_SEVERITY_INFORMATION, $itemTypeData['delay10'], !$itemTypeData['delay10']),
+			getSeverityCell(TRIGGER_SEVERITY_WARNING, $itemTypeData['delay30'], !$itemTypeData['delay30']),
+			getSeverityCell(TRIGGER_SEVERITY_AVERAGE, $itemTypeData['delay60'], !$itemTypeData['delay60']),
+			getSeverityCell(TRIGGER_SEVERITY_HIGH, $itemTypeData['delay300'], !$itemTypeData['delay300']),
+			getSeverityCell(TRIGGER_SEVERITY_DISASTER, $itemTypeData['delay600'], !$itemTypeData['delay600'])
 		));
 	}
 }
@@ -188,16 +173,12 @@ elseif ($config == QUEUE_OVERVIEW_BY_PROXY) {
 
 		$table->addRow(array(
 			$proxy['host'],
-			getSeverityCell(TRIGGER_SEVERITY_NOT_CLASSIFIED, $severityConfig, $proxyData['delay5'],
-				!$proxyData['delay5']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_INFORMATION, $severityConfig, $proxyData['delay10'],
-				!$proxyData['delay10']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_WARNING, $severityConfig, $proxyData['delay30'], !$proxyData['delay30']),
-			getSeverityCell(TRIGGER_SEVERITY_AVERAGE, $severityConfig, $proxyData['delay60'], !$proxyData['delay60']),
-			getSeverityCell(TRIGGER_SEVERITY_HIGH, $severityConfig, $proxyData['delay300'], !$proxyData['delay300']),
-			getSeverityCell(TRIGGER_SEVERITY_DISASTER, $severityConfig, $proxyData['delay600'], !$proxyData['delay600'])
+			getSeverityCell(TRIGGER_SEVERITY_NOT_CLASSIFIED, $proxyData['delay5'], !$proxyData['delay5']),
+			getSeverityCell(TRIGGER_SEVERITY_INFORMATION, $proxyData['delay10'], !$proxyData['delay10']),
+			getSeverityCell(TRIGGER_SEVERITY_WARNING, $proxyData['delay30'], !$proxyData['delay30']),
+			getSeverityCell(TRIGGER_SEVERITY_AVERAGE, $proxyData['delay60'], !$proxyData['delay60']),
+			getSeverityCell(TRIGGER_SEVERITY_HIGH, $proxyData['delay300'], !$proxyData['delay300']),
+			getSeverityCell(TRIGGER_SEVERITY_DISASTER, $proxyData['delay600'], !$proxyData['delay600'])
 		));
 	}
 }
@@ -216,35 +197,10 @@ elseif ($config == QUEUE_DETAILS) {
 
 	$items = CMacrosResolverHelper::resolveItemNames($items);
 
-	// get hosts for queue items
-	$hostIds = zbx_objectValues($items, 'hostid');
-	$hostIds = array_keys(array_flip($hostIds));
-
-	$hosts = API::Host()->get(array(
-		'output' => array('hostid', 'proxy_hostid'),
-		'hostids' => $hostIds,
-		'preservekeys' => true
-	));
-
-	// get proxies for those hosts
-	$proxyHostIds = array();
-	foreach ($hosts as $host) {
-		if ($host['proxy_hostid']) {
-			$proxyHostIds[$host['proxy_hostid']] = $host['proxy_hostid'];
-		}
-	}
-
-	if ($proxyHostIds) {
-		$proxies = API::Proxy()->get(array(
-			'proxyids' => $proxyHostIds,
-			'output' => array('proxyid', 'host'),
-			'preservekeys' => true
-		));
-	}
-
 	$table->setHeader(array(
 		_('Scheduled check'),
 		_('Delayed by'),
+		is_show_all_nodes() ? _('Node') : null,
 		_('Host'),
 		_('Name')
 	));
@@ -265,11 +221,10 @@ elseif ($config == QUEUE_DETAILS) {
 		$host = reset($item['hosts']);
 
 		$table->addRow(array(
-			zbx_date2str(DATE_TIME_FORMAT_SECONDS, $itemData['nextcheck']),
+			zbx_date2str(QUEUE_NODES_DATE_FORMAT, $itemData['nextcheck']),
 			zbx_date2age($itemData['nextcheck']),
-			(isset($proxies[$hosts[$item['hostid']]['proxy_hostid']]))
-				? $proxies[$hosts[$item['hostid']]['proxy_hostid']]['host'].NAME_DELIMITER.$host['name']
-				: $host['name'],
+			get_node_name_by_elid($item['itemid']),
+			$host['name'],
 			$item['name_expanded']
 		));
 	}

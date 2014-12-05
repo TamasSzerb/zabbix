@@ -139,21 +139,13 @@ $iconMapView->addTab('iconmap', _('Icon map'), $iconMapTab);
 $iconMapForm->addItem($iconMapView);
 
 // footer
+$secondaryActions = array(new CButtonCancel());
 if (isset($this->data['iconmapid'])) {
-	$iconMapForm->addItem(makeFormFooter(
-		new CSubmit('update', _('Update')),
-		array(
-			new CSubmit('clone', _('Clone')),
-			new CButtonDelete(_('Delete icon map?'), url_param('form').url_param('iconmapid')),
-			new CButtonCancel()
-		)
-	));
+	array_unshift($secondaryActions,
+		new CSubmit('clone', _('Clone')),
+		new CButtonDelete(_('Delete icon map?'), url_param('form').url_param('iconmapid'))
+	);
 }
-else {
-	$iconMapForm->addItem(makeFormFooter(
-		new CSubmit('add', _('Add')),
-		array(new CButtonCancel())
-	));
-}
+$iconMapForm->addItem(makeFormFooter(new CSubmit('save', _('Save')), $secondaryActions));
 
 return $iconMapForm;

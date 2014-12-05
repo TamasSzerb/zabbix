@@ -19,13 +19,11 @@
 
 #include "zbxself.h"
 #include "common.h"
+#include "mutexs.h"
+#include "ipc.h"
+#include "log.h"
 
-#ifndef _WINDOWS
-#	include "mutexs.h"
-#	include "ipc.h"
-#	include "log.h"
-
-#	define MAX_HISTORY	60
+#define MAX_HISTORY	60
 
 typedef struct
 {
@@ -47,11 +45,10 @@ zbx_selfmon_collector_t;
 static zbx_selfmon_collector_t	*collector = NULL;
 static int			shm_id;
 
-#	define LOCK_SM		zbx_mutex_lock(&sm_lock)
-#	define UNLOCK_SM	zbx_mutex_unlock(&sm_lock)
+#define	LOCK_SM		zbx_mutex_lock(&sm_lock)
+#define	UNLOCK_SM	zbx_mutex_unlock(&sm_lock)
 
-static ZBX_MUTEX	sm_lock = ZBX_MUTEX_NULL;
-#endif
+static ZBX_MUTEX	sm_lock;
 
 extern char	*CONFIG_FILE;
 extern int	CONFIG_POLLER_FORKS;
@@ -68,6 +65,7 @@ extern int	CONFIG_HISTSYNCER_FORKS;
 extern int	CONFIG_DISCOVERER_FORKS;
 extern int	CONFIG_ALERTER_FORKS;
 extern int	CONFIG_TIMER_FORKS;
+extern int	CONFIG_NODEWATCHER_FORKS;
 extern int	CONFIG_HOUSEKEEPER_FORKS;
 extern int	CONFIG_WATCHDOG_FORKS;
 extern int	CONFIG_DATASENDER_FORKS;
@@ -75,12 +73,8 @@ extern int	CONFIG_CONFSYNCER_FORKS;
 extern int	CONFIG_HEARTBEAT_FORKS;
 extern int	CONFIG_SELFMON_FORKS;
 extern int	CONFIG_VMWARE_FORKS;
-extern int	CONFIG_COLLECTOR_FORKS;
-extern int	CONFIG_PASSIVE_FORKS;
-extern int	CONFIG_ACTIVE_FORKS;
-
 extern unsigned char	process_type;
-extern int		process_num;
+extern int	process_num;
 
 /******************************************************************************
  *                                                                            *
@@ -127,6 +121,8 @@ int	get_process_type_forks(unsigned char proc_type)
 			return CONFIG_ALERTER_FORKS;
 		case ZBX_PROCESS_TYPE_TIMER:
 			return CONFIG_TIMER_FORKS;
+		case ZBX_PROCESS_TYPE_NODEWATCHER:
+			return CONFIG_NODEWATCHER_FORKS;
 		case ZBX_PROCESS_TYPE_HOUSEKEEPER:
 			return CONFIG_HOUSEKEEPER_FORKS;
 		case ZBX_PROCESS_TYPE_WATCHDOG:
@@ -141,16 +137,9 @@ int	get_process_type_forks(unsigned char proc_type)
 			return CONFIG_SELFMON_FORKS;
 		case ZBX_PROCESS_TYPE_VMWARE:
 			return CONFIG_VMWARE_FORKS;
-		case ZBX_PROCESS_TYPE_COLLECTOR:
-			return CONFIG_COLLECTOR_FORKS;
-		case ZBX_PROCESS_TYPE_LISTENER:
-			return CONFIG_PASSIVE_FORKS;
-		case ZBX_PROCESS_TYPE_ACTIVE_CHECKS:
-			return CONFIG_ACTIVE_FORKS;
 	}
 
-	THIS_SHOULD_NEVER_HAPPEN;
-	exit(EXIT_FAILURE);
+	assert(0);
 }
 
 /******************************************************************************
@@ -199,6 +188,8 @@ const char	*get_process_type_string(unsigned char proc_type)
 			return "alerter";
 		case ZBX_PROCESS_TYPE_TIMER:
 			return "timer";
+		case ZBX_PROCESS_TYPE_NODEWATCHER:
+			return "node watcher";
 		case ZBX_PROCESS_TYPE_HOUSEKEEPER:
 			return "housekeeper";
 		case ZBX_PROCESS_TYPE_WATCHDOG:
@@ -213,48 +204,11 @@ const char	*get_process_type_string(unsigned char proc_type)
 			return "self-monitoring";
 		case ZBX_PROCESS_TYPE_VMWARE:
 			return "vmware collector";
-		case ZBX_PROCESS_TYPE_COLLECTOR:
-			return "collector";
-		case ZBX_PROCESS_TYPE_LISTENER:
-			return "listener";
-		case ZBX_PROCESS_TYPE_ACTIVE_CHECKS:
-			return "active checks";
 	}
 
-	THIS_SHOULD_NEVER_HAPPEN;
-	exit(EXIT_FAILURE);
+	assert(0);
 }
 
-int	get_process_type_by_name(const char *proc_type_str)
-{
-	int	i;
-
-	for (i = 0; i < ZBX_PROCESS_TYPE_COUNT; i++)
-	{
-		if (0 == strcmp(proc_type_str, get_process_type_string(i)))
-			return i;
-	}
-
-	return ZBX_PROCESS_TYPE_UNKNOWN;
-}
-
-const char	*get_daemon_type_string(unsigned char daemon_type)
-{
-	switch (daemon_type)
-	{
-		case ZBX_DAEMON_TYPE_SERVER:
-			return "server";
-		case ZBX_DAEMON_TYPE_PROXY_ACTIVE:
-		case ZBX_DAEMON_TYPE_PROXY_PASSIVE:
-			return "proxy";
-		case ZBX_DAEMON_TYPE_AGENT:
-			return "agent";
-		default:
-			return "unknown";
-	}
-}
-
-#ifndef _WINDOWS
 /******************************************************************************
  *                                                                            *
  * Function: init_selfmon_collector                                           *
@@ -289,26 +243,26 @@ void	init_selfmon_collector(void)
 	if (-1 == (shm_key = zbx_ftok(CONFIG_FILE, ZBX_IPC_SELFMON_ID)))
 	{
 		zabbix_log(LOG_LEVEL_CRIT, "cannot create IPC key for a self-monitoring collector");
-		exit(EXIT_FAILURE);
+		exit(FAIL);
 	}
 
-	if (FAIL == zbx_mutex_create_force(&sm_lock, ZBX_MUTEX_SELFMON))
+	if (ZBX_MUTEX_ERROR == zbx_mutex_create_force(&sm_lock, ZBX_MUTEX_SELFMON))
 	{
 		zbx_error("unable to create mutex for a self-monitoring collector");
-		exit(EXIT_FAILURE);
+		exit(FAIL);
 	}
 
 	if (-1 == (shm_id = zbx_shmget(shm_key, sz_total)))
 	{
 		zabbix_log(LOG_LEVEL_CRIT, "cannot allocate shared memory for a self-monitoring collector");
-		exit(EXIT_FAILURE);
+		exit(FAIL);
 	}
 
 	if ((void *)(-1) == (p = shmat(shm_id, NULL, 0)))
 	{
 		zabbix_log(LOG_LEVEL_CRIT, "cannot attach shared memory for a self-monitoring collector: %s",
 				zbx_strerror(errno));
-		exit(EXIT_FAILURE);
+		exit(FAIL);
 	}
 
 	collector = (zbx_selfmon_collector_t *)p; p += sz;
@@ -564,26 +518,16 @@ void	zbx_sleep_loop(int sleeptime)
 
 	update_selfmon_counter(ZBX_PROCESS_STATE_IDLE);
 
-	do
+	if (ZBX_PROCESS_TYPE_CONFSYNCER == process_type)
 	{
-		sleep(1);
+		do
+		{
+			sleep(1);
+		}
+		while (0 < --sleep_remains);
 	}
-	while (0 < --sleep_remains);
-
-	update_selfmon_counter(ZBX_PROCESS_STATE_BUSY);
-}
-
-void	zbx_sleep_forever(void)
-{
-	sleep_remains = 1;
-
-	update_selfmon_counter(ZBX_PROCESS_STATE_IDLE);
-
-	do
-	{
-		sleep(1);
-	}
-	while (0 != sleep_remains);
+	else
+		sleep(sleeptime);
 
 	update_selfmon_counter(ZBX_PROCESS_STATE_BUSY);
 }
@@ -592,9 +536,3 @@ void	zbx_wakeup(void)
 {
 	sleep_remains = 0;
 }
-
-int	zbx_sleep_get_remainder(void)
-{
-	return sleep_remains;
-}
-#endif

@@ -24,6 +24,7 @@
 
 #include "log.h"
 
+static int	json_parse_value(const char *start, char **error);
 static int	json_parse_object(const char *start, char **error);
 
 /******************************************************************************
@@ -42,14 +43,18 @@ static int	json_parse_object(const char *start, char **error);
  * Author: Andris Zeila                                                       *
  *                                                                            *
  ******************************************************************************/
-static int	json_error(const char *message, const char *json_buffer, char **error)
+static int	json_error(const char *message, const char* json_buffer, char** error)
 {
+	size_t	size = 1024, offset = 0;
+
 	if (NULL != error)
 	{
+		*error = zbx_malloc(*error, size);
+
 		if (NULL != json_buffer)
-			*error = zbx_dsprintf(*error, "%s at: '%s'", message, json_buffer);
+			zbx_snprintf_alloc(error, &size, &offset, "%s at: '%s'", message, json_buffer);
 		else
-			*error = zbx_strdup(*error, message);
+			zbx_snprintf_alloc(error, &size, &offset, "%s", message);
 	}
 
 	return 0;
@@ -64,7 +69,7 @@ static int	json_error(const char *message, const char *json_buffer, char **error
  * Parameters: start - [IN] the JSON data without leading whitespace          *
  *             error - [OUT] the parsing error message (can be NULL)          *
  *                                                                            *
- * Return value: The number of characters parsed. On error 0 is returned and  *
+ * Return value: the number of characters parsed. On error 0 is returned and  *
  *               error parameter (if not NULL) contains allocated error       *
  *               message.                                                     *
  *                                                                            *
@@ -93,17 +98,32 @@ static int	json_parse_string(const char *start, char **error)
 			if ('\0' == *(++ptr))
 				return json_error("invalid escape sequence in string", escape_start, error);
 
-			if ('u' == *ptr)
+			switch (*ptr)
 			{
-				/* check if the \u is followed with 4 hex digits */
-				for (i = 0; i < 4; i++)
-				{
-					if (0 == isxdigit((unsigned char)*(++ptr)))
+				case '"':
+				case '\\':
+				case '/':
+				case 'b':
+				case 'f':
+				case 'n':
+				case 'r':
+				case 't':
+					break;
+				case 'u':
+					/* check if the \u is followed with 4 hex digits */
+					for (i = 0; i < 4; i++)
 					{
-						return json_error("invalid escape sequence in string",
-								escape_start, error);
+						if (0 == isxdigit((unsigned char)*(++ptr)))
+						{
+							return json_error("invalid escape sequence in string",
+									escape_start, error);
+						}
 					}
-				}
+
+					break;
+				default:
+					return json_error("invalid escape sequence in string data",
+							escape_start, error);
 			}
 		}
 
@@ -126,7 +146,7 @@ static int	json_parse_string(const char *start, char **error)
  * Parameters: start - [IN] the JSON data without leading whitespace          *
  *             error - [OUT] the parsing error message (can be NULL)          *
  *                                                                            *
- * Return value: The number of characters parsed. On error 0 is returned and  *
+ * Return value: the number of characters parsed. On error 0 is returned and  *
  *               error parameter (if not NULL) contains allocated error       *
  *               message.                                                     *
  *                                                                            *
@@ -175,7 +195,7 @@ static int	json_parse_array(const char *start, char **error)
  * Parameters: start - [IN] the JSON data without leading whitespace          *
  *             error - [OUT] the parsing error message (can be NULL)          *
  *                                                                            *
- * Return value: The number of characters parsed. On error 0 is returned and  *
+ * Return value: the number of characters parsed. On error 0 is returned and  *
  *               error parameter (if not NULL) contains allocated error       *
  *               message.                                                     *
  *                                                                            *
@@ -251,7 +271,7 @@ static int	json_parse_number(const char *start, char **error)
  *             text  - [IN] the literal value to parse                        *
  *             error - [OUT] the parsing error message (can be NULL)          *
  *                                                                            *
- * Return value: The number of characters parsed. On error 0 is returned and  *
+ * Return value: the number of characters parsed. On error 0 is returned and  *
  *               error parameter (if not NULL) contains allocated error       *
  *               message.                                                     *
  *                                                                            *
@@ -282,20 +302,21 @@ static int	json_parse_literal(const char *start, const char *text, char **error)
  *                                                                            *
  * Purpose: Parses JSON object value                                          *
  *                                                                            *
- * Parameters: start - [IN] the JSON data                                     *
+ * Parameters: start - [IN/OUT] the JSON data; returns the reference the real *
+ *                     data (without spaces)                                  *
  *             error - [OUT] the parsing error message (can be NULL)          *
  *                                                                            *
- * Return value: The number of characters parsed. On error 0 is returned and  *
+ * Return value: the number of characters parsed. On error 0 is returned and  *
  *               error parameter (if not NULL) contains allocated error       *
  *               message.                                                     *
  *                                                                            *
  * Author: Andris Zeila                                                       *
  *                                                                            *
  ******************************************************************************/
-int	json_parse_value(const char *start, char **error)
+static int	json_parse_value(const char *start, char **error)
 {
 	const char	*ptr = start;
-	int		len;
+	int		len = 0;
 
 	SKIP_WHITESPACE(ptr);
 
@@ -354,10 +375,11 @@ int	json_parse_value(const char *start, char **error)
  *                                                                            *
  * Purpose: Parses JSON object                                                *
  *                                                                            *
- * Parameters: start - [IN] the JSON data                                     *
+ * Parameters: start - [IN/OUT] the JSON data; returns the reference the real *
+ *                     data (without spaces)                                  *
  *             error - [OUT] the parsing error message (can be NULL)          *
  *                                                                            *
- * Return value: The number of characters parsed. On error 0 is returned and  *
+ * Return value: the number of characters parsed. On error 0 is returned and  *
  *               error parameter (if not NULL) contains allocated error       *
  *               message.                                                     *
  *                                                                            *
@@ -421,18 +443,19 @@ static int	json_parse_object(const char *start, char **error)
 	return ptr - start + 1;
 }
 
+
 /******************************************************************************
  *                                                                            *
  * Function: zbx_json_validate                                                *
  *                                                                            *
  * Purpose: Validates JSON object                                             *
  *                                                                            *
- * Parameters: start - [IN]  the string to validate                           *
- *             error - [OUT] the parse error message. If the error value is   *
- *                           set it must be freed by caller after it has      *
- *                           been used (can be NULL).                         *
+ * Parameters: start  - [IN]  the string to validate                          *
+ *             error  - [OUT] the parse error message. If the error value is  *
+ *                            set it must be freed by caller after it has     *
+ *                            been used (can be NULL).                        *
  *                                                                            *
- * Return value: The number of characters parsed. On error 0 is returned and  *
+ * Return value: the number of characters parsed. On error 0 is returned and  *
  *               error parameter (if not NULL) contains allocated error       *
  *               message.                                                     *
  *                                                                            *
@@ -454,3 +477,4 @@ int	zbx_json_validate(const char *start, char **error)
 
 	return len;
 }
+

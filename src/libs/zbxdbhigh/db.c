@@ -31,11 +31,76 @@
 #if HAVE_POSTGRESQL
 extern char	ZBX_PG_ESCAPE_BACKSLASH;
 #endif
+/***************************************************************/
+/* ID structure: NNNSSSDDDDDDDDDDD, where                      */
+/*      NNN - nodeid (to which node the ID belongs to)         */
+/*      SSS - source nodeid (in which node was the ID created) */
+/*      DDDDDDDDDDD - the ID itself                            */
+/***************************************************************/
 
 extern int	txn_level;
 extern int	txn_error;
 
-static int	connection_failure;
+/******************************************************************************
+ *                                                                            *
+ * Function: __DBnode                                                         *
+ *                                                                            *
+ * Purpose: prepare a SQL statement to select records from a specific node    *
+ *                                                                            *
+ * Parameters: field_name - [IN] the name of the field                        *
+ *             nodeid     - [IN] node identificator from database             *
+ *             op         - [IN] 0 - and; 1 - where                           *
+ *                                                                            *
+ * Return value:                                                              *
+ *  An SQL condition like:                                                    *
+ *   " and hostid between 100000000000000 and 199999999999999"                *
+ *  or                                                                        *
+ *   " where hostid between 100000000000000 and 199999999999999"              *
+ *  or an empty string for a standalone setup (nodeid = 0)                    *
+ *                                                                            *
+ ******************************************************************************/
+const char	*__DBnode(const char *field_name, int nodeid, int op)
+{
+	static char	dbnode[62 + ZBX_FIELDNAME_LEN];
+	const char	*operators[] = {"and", "where"};
+
+	if (0 != nodeid)
+	{
+		zbx_uint64_t	min, max;
+
+		min = ZBX_DM_MAX_HISTORY_IDS * (zbx_uint64_t)nodeid;
+		max = min + ZBX_DM_MAX_HISTORY_IDS - 1;
+
+		zbx_snprintf(dbnode, sizeof(dbnode), " %s %s between " ZBX_FS_UI64 " and " ZBX_FS_UI64,
+				operators[op], field_name, min, max);
+	}
+	else
+		*dbnode = '\0';
+
+	return dbnode;
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: DBis_node_id                                                     *
+ *                                                                            *
+ * Purpose: checks belonging of an identifier to a certain node               *
+ *                                                                            *
+ * Parameters: id     - [IN] the checked identifier                           *
+ *             nodeid - [IN] node identificator from database                 *
+ *                                                                            *
+ * Return value: SUCCEED if identifier is belonging to a node, FAIL otherwise *
+ *                                                                            *
+ ******************************************************************************/
+int	DBis_node_id(zbx_uint64_t id, int nodeid)
+{
+	zbx_uint64_t	min, max;
+
+	min = ZBX_DM_MAX_HISTORY_IDS * (zbx_uint64_t)nodeid;
+	max = min + ZBX_DM_MAX_HISTORY_IDS - 1;
+
+	return min <= id && id <= max ? SUCCEED : FAIL;
+}
 
 void	DBclose(void)
 {
@@ -58,7 +123,6 @@ void	DBclose(void)
 int	DBconnect(int flag)
 {
 	const char	*__function_name = "DBconnect";
-
 	int		err;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() flag:%d", __function_name, flag);
@@ -72,18 +136,11 @@ int	DBconnect(int flag)
 		if (ZBX_DB_FAIL == err || ZBX_DB_CONNECT_EXIT == flag)
 		{
 			zabbix_log(LOG_LEVEL_CRIT, "Cannot connect to the database. Exiting...");
-			exit(EXIT_FAILURE);
+			exit(FAIL);
 		}
 
-		zabbix_log(LOG_LEVEL_WARNING, "database is down: reconnecting in %d seconds", ZBX_DB_WAIT_DOWN);
-		connection_failure = 1;
+		zabbix_log(LOG_LEVEL_WARNING, "Database is down. Reconnecting in %d seconds.", ZBX_DB_WAIT_DOWN);
 		zbx_sleep(ZBX_DB_WAIT_DOWN);
-	}
-
-	if (0 != connection_failure)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "database connection re-established");
-		connection_failure = 0;
 	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%d", __function_name, err);
@@ -125,8 +182,7 @@ static void	DBtxn_operation(int (*txn_operation)())
 
 		if (ZBX_DB_DOWN == (rc = txn_operation()))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -143,7 +199,7 @@ static void	DBtxn_operation(int (*txn_operation)())
  * Comments: do nothing if DB does not support transactions                   *
  *                                                                            *
  ******************************************************************************/
-void	DBbegin(void)
+void	DBbegin()
 {
 	DBtxn_operation(zbx_db_begin);
 }
@@ -159,7 +215,7 @@ void	DBbegin(void)
  * Comments: do nothing if DB does not support transactions                   *
  *                                                                            *
  ******************************************************************************/
-void	DBcommit(void)
+void	DBcommit()
 {
 	DBtxn_operation(zbx_db_commit);
 }
@@ -175,7 +231,7 @@ void	DBcommit(void)
  * Comments: do nothing if DB does not support transactions                   *
  *                                                                            *
  ******************************************************************************/
-void	DBrollback(void)
+void	DBrollback()
 {
 	DBtxn_operation(zbx_db_rollback);
 }
@@ -220,8 +276,7 @@ void	DBstatement_prepare(const char *sql)
 
 		if (ZBX_DB_DOWN == (rc = zbx_db_statement_prepare(sql)))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -250,8 +305,7 @@ void	DBbind_parameter(int position, void *buffer, unsigned char type)
 
 		if (ZBX_DB_DOWN == (rc = zbx_db_bind_parameter(position, buffer, type)))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -279,8 +333,7 @@ int	DBstatement_execute()
 
 		if (ZBX_DB_DOWN == (rc = zbx_db_statement_execute()))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -314,8 +367,7 @@ int	__zbx_DBexecute(const char *fmt, ...)
 
 		if (ZBX_DB_DOWN == (rc = zbx_db_vexecute(fmt, args)))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -381,8 +433,7 @@ DB_RESULT	__zbx_DBselect(const char *fmt, ...)
 
 		if ((DB_RESULT)ZBX_DB_DOWN == (rc = zbx_db_vselect(fmt, args)))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -414,8 +465,7 @@ DB_RESULT	DBselectN(const char *query, int n)
 
 		if ((DB_RESULT)ZBX_DB_DOWN == (rc = zbx_db_select_n(query, n)))
 		{
-			zabbix_log(LOG_LEVEL_WARNING, "database is down: retrying in %d seconds", ZBX_DB_WAIT_DOWN);
-			connection_failure = 1;
+			zabbix_log(LOG_LEVEL_WARNING, "Database is down. Retrying in %d seconds.", ZBX_DB_WAIT_DOWN);
 			sleep(ZBX_DB_WAIT_DOWN);
 		}
 	}
@@ -663,7 +713,6 @@ out:
 void	DBadd_trend(zbx_uint64_t itemid, double value, int clock)
 {
 	const char	*__function_name = "DBadd_trend";
-
 	DB_RESULT	result;
 	DB_ROW		row;
 	int		hour, num;
@@ -712,7 +761,6 @@ void	DBadd_trend(zbx_uint64_t itemid, double value, int clock)
 void	DBadd_trend_uint(zbx_uint64_t itemid, zbx_uint64_t value, int clock)
 {
 	const char	*__function_name = "DBadd_trend_uint";
-
 	DB_RESULT	result;
 	DB_ROW		row;
 	int		hour, num;
@@ -761,7 +809,6 @@ void	DBadd_trend_uint(zbx_uint64_t itemid, zbx_uint64_t value, int clock)
 int	DBget_row_count(const char *table_name)
 {
 	const char	*__function_name = "DBget_row_count";
-
 	int		count = 0;
 	DB_RESULT	result;
 	DB_ROW		row;
@@ -782,7 +829,6 @@ int	DBget_row_count(const char *table_name)
 int	DBget_proxy_lastaccess(const char *hostname, int *lastaccess, char **error)
 {
 	const char	*__function_name = "DBget_proxy_lastaccess";
-
 	DB_RESULT	result;
 	DB_ROW		row;
 	char		*host_esc;
@@ -801,7 +847,7 @@ int	DBget_proxy_lastaccess(const char *hostname, int *lastaccess, char **error)
 		ret = SUCCEED;
 	}
 	else
-		*error = zbx_dsprintf(*error, "Proxy \"%s\" does not exist.", hostname);
+		*error = zbx_dsprintf(*error, "proxy \"%s\" does not exist", hostname);
 	DBfree_result(result);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
@@ -902,17 +948,33 @@ const ZBX_FIELD *DBget_field(const ZBX_TABLE *table, const char *fieldname)
 static zbx_uint64_t	DBget_nextid(const char *tablename, int num)
 {
 	const char	*__function_name = "DBget_nextid";
-
 	DB_RESULT	result;
 	DB_ROW		row;
 	zbx_uint64_t	ret1, ret2;
-	zbx_uint64_t	min = 0, max = ZBX_DB_MAX_ID;
+	zbx_uint64_t	min, max;
 	int		found = FAIL, dbres;
 	const ZBX_TABLE	*table;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() tablename:'%s'", __function_name, tablename);
 
 	table = DBget_table(tablename);
+
+	if (0 == CONFIG_NODEID)
+	{
+		min = 0;
+		max = ZBX_STANDALONE_MAX_IDS;
+	}
+	else if (0 != (table->flags & ZBX_SYNC))
+	{
+		min = ZBX_DM_MAX_HISTORY_IDS * (zbx_uint64_t)CONFIG_NODEID +
+			ZBX_DM_MAX_CONFIG_IDS * (zbx_uint64_t)CONFIG_NODEID;
+		max = min + ZBX_DM_MAX_CONFIG_IDS - 1;
+	}
+	else
+	{
+		min = ZBX_DM_MAX_HISTORY_IDS * (zbx_uint64_t)CONFIG_NODEID;
+		max = min + ZBX_DM_MAX_HISTORY_IDS - 1;
+	}
 
 	while (FAIL == found)
 	{
@@ -923,8 +985,8 @@ static zbx_uint64_t	DBget_nextid(const char *tablename, int num)
 			return 0;
 		}
 
-		result = DBselect("select nextid from ids where table_name='%s' and field_name='%s'",
-				table->table, table->recid);
+		result = DBselect("select nextid from ids where nodeid=%d and table_name='%s' and field_name='%s'",
+				CONFIG_NODEID, table->table, table->recid);
 
 		if (NULL == (row = DBfetch(result)))
 		{
@@ -945,20 +1007,21 @@ static zbx_uint64_t	DBget_nextid(const char *tablename, int num)
 					zabbix_log(LOG_LEVEL_CRIT, "maximum number of id's exceeded"
 							" [table:%s, field:%s, id:" ZBX_FS_UI64 "]",
 							table->table, table->recid, ret1);
-					exit(EXIT_FAILURE);
+					exit(FAIL);
 				}
 			}
 			DBfree_result(result);
 
-			dbres = DBexecute("insert into ids (table_name,field_name,nextid)"
-					" values ('%s','%s'," ZBX_FS_UI64 ")",
-					table->table, table->recid, ret1);
+			dbres = DBexecute("insert into ids (nodeid,table_name,field_name,nextid)"
+					" values (%d,'%s','%s'," ZBX_FS_UI64 ")",
+					CONFIG_NODEID, table->table, table->recid, ret1);
 
 			if (ZBX_DB_OK > dbres)
 			{
 				/* solving the problem of an invisible record created in a parallel transaction */
-				DBexecute("update ids set nextid=nextid+1 where table_name='%s' and field_name='%s'",
-						table->table, table->recid);
+				DBexecute("update ids set nextid=nextid+1 where nodeid=%d and table_name='%s'"
+						" and field_name='%s'",
+						CONFIG_NODEID, table->table, table->recid);
 			}
 
 			continue;
@@ -970,16 +1033,16 @@ static zbx_uint64_t	DBget_nextid(const char *tablename, int num)
 
 			if (ret1 < min || ret1 >= max)
 			{
-				DBexecute("delete from ids where table_name='%s' and field_name='%s'",
-						table->table, table->recid);
+				DBexecute("delete from ids where nodeid=%d and table_name='%s' and field_name='%s'",
+						CONFIG_NODEID, table->table, table->recid);
 				continue;
 			}
 
-			DBexecute("update ids set nextid=nextid+%d where table_name='%s' and field_name='%s'",
-					num, table->table, table->recid);
+			DBexecute("update ids set nextid=nextid+%d where nodeid=%d and table_name='%s' and field_name='%s'",
+					num, CONFIG_NODEID, table->table, table->recid);
 
-			result = DBselect("select nextid from ids where table_name='%s' and field_name='%s'",
-					table->table, table->recid);
+			result = DBselect("select nextid from ids where nodeid=%d and table_name='%s' and field_name='%s'",
+					CONFIG_NODEID, table->table, table->recid);
 
 			if (NULL != (row = DBfetch(result)) && SUCCEED != DBis_null(row[0]))
 			{
@@ -1008,7 +1071,9 @@ zbx_uint64_t	DBget_maxid_num(const char *tablename, int num)
 			0 == strcmp(tablename, "dhosts") ||
 			0 == strcmp(tablename, "alerts") ||
 			0 == strcmp(tablename, "escalations") ||
-			0 == strcmp(tablename, "autoreg_host"))
+			0 == strcmp(tablename, "autoreg_host") ||
+			0 == strcmp(tablename, "graph_discovery") ||
+			0 == strcmp(tablename, "trigger_discovery"))
 		return DCget_nextid(tablename, num);
 
 	return DBget_nextid(tablename, num);
@@ -1370,8 +1435,10 @@ void	DBregister_host(zbx_uint64_t proxy_hostid, const char *host, const char *ip
 				"select hostid"
 				" from hosts"
 				" where proxy_hostid=" ZBX_FS_UI64
-					" and host='%s'",
-				proxy_hostid, host_esc);
+					" and host='%s'"
+					ZBX_SQL_NODE,
+				proxy_hostid, host_esc,
+				DBand_node_local("hostid"));
 
 		if (NULL != DBfetch(result))
 			res = FAIL;
@@ -1388,8 +1455,10 @@ void	DBregister_host(zbx_uint64_t proxy_hostid, const char *host, const char *ip
 				"select autoreg_hostid"
 				" from autoreg_host"
 				" where proxy_hostid%s"
-					" and host='%s'",
-				DBsql_id_cmp(proxy_hostid), host_esc);
+					" and host='%s'"
+					ZBX_SQL_NODE,
+				DBsql_id_cmp(proxy_hostid), host_esc,
+				DBand_node_local("autoreg_hostid"));
 
 		if (NULL != (row = DBfetch(result)))
 		{
@@ -1500,7 +1569,7 @@ int	DBexecute_overflowed_sql(char **sql, size_t *sql_alloc, size_t *sql_offset)
  *                                                                            *
  * Parameters: host_name_sample - a host name to start constructing from      *
  *                                                                            *
- * Return value: unique host name which does not exist in the database        *
+ * Return value: unique host name which does not exist in the data base       *
  *                                                                            *
  * Author: Dmitry Borovikov                                                   *
  *                                                                            *
@@ -1513,7 +1582,6 @@ int	DBexecute_overflowed_sql(char **sql, size_t *sql_alloc, size_t *sql_offset)
 char	*DBget_unique_hostname_by_sample(const char *host_name_sample)
 {
 	const char		*__function_name = "DBget_unique_hostname_by_sample";
-
 	DB_RESULT		result;
 	DB_ROW			row;
 	int			full_match = 0, i;
@@ -1537,10 +1605,12 @@ char	*DBget_unique_hostname_by_sample(const char *host_name_sample)
 			" from hosts"
 			" where host like '%s%%' escape '%c'"
 				" and flags<>%d"
-				" and status in (%d,%d,%d)",
+				" and status in (%d,%d,%d)"
+				ZBX_SQL_NODE,
 			host_name_sample_esc, ZBX_SQL_LIKE_ESCAPE_CHAR,
 			ZBX_FLAG_DISCOVERY_PROTOTYPE,
-			HOST_STATUS_MONITORED, HOST_STATUS_NOT_MONITORED, HOST_STATUS_TEMPLATE);
+			HOST_STATUS_MONITORED, HOST_STATUS_NOT_MONITORED, HOST_STATUS_TEMPLATE,
+			DBand_node_local("hostid"));
 
 	zbx_free(host_name_sample_esc);
 
@@ -1708,12 +1778,12 @@ unsigned short	DBget_inventory_field_len(unsigned char inventory_link)
 
 #undef ZBX_MAX_INVENTORY_FIELDS
 
-int	DBtxn_status(void)
+int	DBtxn_status()
 {
 	return 0 == zbx_db_txn_error() ? SUCCEED : FAIL;
 }
 
-int	DBtxn_ongoing(void)
+int	DBtxn_ongoing()
 {
 	return 0 == zbx_db_txn_level() ? FAIL : SUCCEED;
 }
@@ -1721,9 +1791,6 @@ int	DBtxn_ongoing(void)
 int	DBtable_exists(const char *table_name)
 {
 	char		*table_name_esc;
-#ifdef HAVE_POSTGRESQL
-	char		*table_schema_esc;
-#endif
 	DB_RESULT	result;
 	int		ret;
 
@@ -1747,18 +1814,12 @@ int	DBtable_exists(const char *table_name)
 				" and lower(tname)='%s'",
 			table_name_esc);
 #elif defined(HAVE_POSTGRESQL)
-	table_schema_esc = DBdyn_escape_string(NULL == CONFIG_DBSCHEMA || '\0' == *CONFIG_DBSCHEMA ?
-			"public" : CONFIG_DBSCHEMA);
-
 	result = DBselect(
 			"select 1"
 			" from information_schema.tables"
 			" where table_name='%s'"
-				" and table_schema='%s'",
-			table_name_esc, table_schema_esc);
-
-	zbx_free(table_schema_esc);
-
+				" and table_schema='public'",
+			table_name_esc);
 #elif defined(HAVE_SQLITE3)
 	result = DBselect(
 			"select 1"
@@ -1790,7 +1851,7 @@ int	DBfield_exists(const char *table_name, const char *field_name)
 	char		*table_name_esc, *field_name_esc;
 	int		ret;
 #elif defined(HAVE_POSTGRESQL)
-	char		*table_name_esc, *field_name_esc, *table_schema_esc;
+	char		*table_name_esc, *field_name_esc;
 	int		ret;
 #elif defined(HAVE_SQLITE3)
 	char		*table_name_esc;
@@ -1845,8 +1906,6 @@ int	DBfield_exists(const char *table_name, const char *field_name)
 
 	DBfree_result(result);
 #elif defined(HAVE_POSTGRESQL)
-	table_schema_esc = DBdyn_escape_string(NULL == CONFIG_DBSCHEMA || '\0' == *CONFIG_DBSCHEMA ?
-			"public" : CONFIG_DBSCHEMA);
 	table_name_esc = DBdyn_escape_string(table_name);
 	field_name_esc = DBdyn_escape_string(field_name);
 
@@ -1854,13 +1913,11 @@ int	DBfield_exists(const char *table_name, const char *field_name)
 			"select 1"
 			" from information_schema.columns"
 			" where table_name='%s'"
-				" and column_name='%s'"
-				" and table_schema='%s'",
-			table_name_esc, field_name_esc, table_schema_esc);
+				" and column_name='%s'",
+			table_name_esc, field_name_esc);
 
 	zbx_free(field_name_esc);
 	zbx_free(table_name_esc);
-	zbx_free(table_schema_esc);
 
 	ret = (NULL == DBfetch(result) ? FAIL : SUCCEED);
 
@@ -1911,6 +1968,22 @@ void	DBselect_uint64(const char *sql, zbx_vector_uint64_t *ids)
 	DBfree_result(result);
 
 	zbx_vector_uint64_sort(ids, ZBX_DEFAULT_UINT64_COMPARE_FUNC);
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: get_nodeid_by_id                                                 *
+ *                                                                            *
+ * Purpose: Get Node ID by resource ID                                        *
+ *                                                                            *
+ * Return value: Node ID                                                      *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ ******************************************************************************/
+int	get_nodeid_by_id(zbx_uint64_t id)
+{
+	return (int)(id / ZBX_DM_MAX_HISTORY_IDS);
 }
 
 void	DBexecute_multiple_query(const char *query, const char *field_name, zbx_vector_uint64_t *ids)
@@ -2014,7 +2087,7 @@ static char	*zbx_db_format_values(ZBX_FIELD **fields, const zbx_db_value_t *valu
  ******************************************************************************/
 void	zbx_db_insert_clean(zbx_db_insert_t *self)
 {
-	int	i, j;
+	int		i, j;
 
 	for (i = 0; i < self->rows.values_num; i++)
 	{
@@ -2278,7 +2351,7 @@ void	zbx_db_insert_add_values(zbx_db_insert_t *self, ...)
 
 	zbx_db_insert_add_values_dyn(self, (const zbx_db_value_t **)values.values, values.values_num);
 
-	zbx_vector_ptr_clear_ext(&values, zbx_ptr_free);
+	zbx_vector_ptr_clean(&values, zbx_ptr_free);
 	zbx_vector_ptr_destroy(&values);
 }
 
@@ -2548,68 +2621,6 @@ void	zbx_db_insert_autoincrement(zbx_db_insert_t *self, const char *field_name)
 	}
 
 	THIS_SHOULD_NEVER_HAPPEN;
-	exit(EXIT_FAILURE);
+	exit(FAIL);
 }
 
-/******************************************************************************
- *                                                                            *
- * Function: zbx_db_get_database_type                                         *
- *                                                                            *
- * Purpose: determine is it a server or a proxy database                      *
- *                                                                            *
- * Return value: ZBX_DB_SERVER - server database                              *
- *               ZBX_DB_PROXY - proxy database                                *
- *               ZBX_DB_UNKNOWN - an error occurred                           *
- *                                                                            *
- ******************************************************************************/
-int	zbx_db_get_database_type(void)
-{
-	const char	*__function_name = "zbx_db_get_database_type";
-
-	const char	*result_string;
-	DB_RESULT	result;
-	DB_ROW		row;
-	int		ret = ZBX_DB_UNKNOWN;
-
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
-
-	DBconnect(ZBX_DB_CONNECT_NORMAL);
-
-	if (NULL == (result = DBselectN("select userid from users", 1)))
-	{
-		zabbix_log(LOG_LEVEL_DEBUG, "cannot select records from \"users\" table");
-		goto out;
-	}
-
-	if (NULL != (row = DBfetch(result)))
-	{
-		zabbix_log(LOG_LEVEL_DEBUG, "there is at least 1 record in \"users\" table");
-		ret = ZBX_DB_SERVER;
-	}
-	else
-	{
-		zabbix_log(LOG_LEVEL_DEBUG, "no records in \"users\" table");
-		ret = ZBX_DB_PROXY;
-	}
-
-	DBfree_result(result);
-out:
-	DBclose();
-
-	switch (ret)
-	{
-		case ZBX_DB_SERVER:
-			result_string = "ZBX_DB_SERVER";
-			break;
-		case ZBX_DB_PROXY:
-			result_string = "ZBX_DB_PROXY";
-			break;
-		case ZBX_DB_UNKNOWN:
-			result_string = "ZBX_DB_UNKNOWN";
-			break;
-	}
-
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, result_string);
-
-	return ret;
-}

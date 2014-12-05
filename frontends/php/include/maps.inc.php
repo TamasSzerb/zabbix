@@ -82,8 +82,6 @@ function getActionMapBySysmap($sysmap, array $options = array()) {
 	processAreasCoordinates($sysmap, $areas, $mapInfo);
 
 	$hostIds = array();
-	$triggerIds = array();
-
 	foreach ($sysmap['selements'] as $id => &$selement) {
 		if ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST) {
 			$hostIds[$selement['elementid']] = $selement['elementid'];
@@ -93,9 +91,6 @@ function getActionMapBySysmap($sysmap, array $options = array()) {
 			foreach ($selement['urls'] as $urlId => $url) {
 				$selement['urls'][$urlId]['url'] = str_replace('{HOST.ID}', $selement['elementid'], $url['url']);
 			}
-		}
-		elseif ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_TRIGGER) {
-			$triggerIds[$selement['elementid']] = $selement['elementid'];
 		}
 
 		if ($selement['elementsubtype'] == SYSMAP_ELEMENT_SUBTYPE_HOST_GROUP_ELEMENTS) {
@@ -107,20 +102,12 @@ function getActionMapBySysmap($sysmap, array $options = array()) {
 	$hostScripts = API::Script()->getScriptsByHosts($hostIds);
 
 	$hosts = API::Host()->get(array(
+		'nodeids' => get_current_nodeid(true),
 		'hostids' => $hostIds,
-		'output' => array('hostid', 'status'),
+		'output' => array('status'),
 		'nopermissions' => true,
 		'preservekeys' => true,
-		'selectGraphs' => API_OUTPUT_COUNT,
 		'selectScreens' => API_OUTPUT_COUNT
-	));
-
-	$triggers = API::Trigger()->get(array(
-		'output' => array('triggerid'),
-		'triggerids' => $triggerIds,
-		'selectHosts' => array('status'),
-		'preservekeys' => true,
-		'nopermissions' => true
 	));
 
 	foreach ($sysmap['selements'] as $elem) {
@@ -148,22 +135,20 @@ function getActionMapBySysmap($sysmap, array $options = array()) {
 					$hostId = $elem['elementid'];
 					$scripts = $hostScripts[$elem['elementid']];
 				}
-
-				$gotos['triggerStatus'] = array(
-					'hostid' => $elem['elementid'],
-					'show_severity' => isset($options['severity_min']) ? $options['severity_min'] : null
+				if ($hosts[$elem['elementid']]['status'] == HOST_STATUS_MONITORED) {
+					$gotos['triggerStatus'] = array(
+						'hostid' => $elem['elementid'],
+						'show_severity' => isset($options['severity_min']) ? $options['severity_min'] : null
+					);
+				}
+				if ($host['screens']) {
+					$gotos['screens'] = array(
+						'hostid' => $host['hostid']
+					);
+				}
+				$gotos['inventory'] = array(
+					'hostid' => $host['hostid']
 				);
-				$gotos['showTriggers'] = ($hosts[$elem['elementid']]['status'] == HOST_STATUS_MONITORED);
-
-				$gotos['graphs'] = array('hostid' => $host['hostid']);
-				$gotos['showGraphs'] = (bool) $host['graphs'];
-
-				$gotos['screens'] = array('hostid' => $host['hostid']);
-				$gotos['showScreens'] = (bool) $host['screens'];
-
-				$gotos['inventory'] = array('hostid' => $host['hostid']);
-
-				$gotos['latestData'] = array('hostids' => array($host['hostid']));
 				break;
 
 			case SYSMAP_ELEMENT_TYPE_MAP:
@@ -179,16 +164,6 @@ function getActionMapBySysmap($sysmap, array $options = array()) {
 					'stime' => date(TIMESTAMP_FORMAT, time() - SEC_PER_WEEK),
 					'period' => SEC_PER_WEEK
 				);
-
-				$gotos['showEvents'] = false;
-				if (isset($triggers[$elem['elementid']])) {
-					foreach ($triggers[$elem['elementid']]['hosts'] as $host) {
-						if ($host['status'] == HOST_STATUS_MONITORED) {
-							$gotos['showEvents'] = true;
-							break;
-						}
-					}
-				}
 				break;
 
 			case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
@@ -197,15 +172,12 @@ function getActionMapBySysmap($sysmap, array $options = array()) {
 					'hostid' => 0,
 					'show_severity' => isset($options['severity_min']) ? $options['severity_min'] : null
 				);
-
-				// always show active trigger link for host group map elements
-				$gotos['showTriggers'] = true;
 				break;
 		}
 
 		order_result($elem['urls'], 'name');
 
-		$area->setMenuPopup(CMenuPopupHelper::getMap($hostId, $scripts, $gotos, $elem['urls']));
+		$area->setMenuPopup(getMenuPopupMap($hostId, $scripts, $gotos, $elem['urls']));
 
 		$actionMap->addItem($area);
 	}
@@ -269,8 +241,10 @@ function myDrawLine($image, $x1, $y1, $x2, $y2, $color, $drawtype) {
 
 function get_png_by_selement($info) {
 	$image = get_image_by_imageid($info['iconid']);
-
-	return $image['image'] ? imagecreatefromstring($image['image']) : get_default_image();
+	if (!$image) {
+		return get_default_image();
+	}
+	return imagecreatefromstring($image['image']);
 }
 
 function convertColor($im, $color) {
@@ -280,6 +254,238 @@ function convertColor($im, $color) {
 		hexdec('0x'.substr($color, 4, 2))
 	);
 	return imagecolorallocate($im, $RGB[0], $RGB[1], $RGB[2]);
+}
+
+/**
+ * Resolve all kinds of macros in map labels
+ *
+ * @param array $selement
+ * @param string $selement['label'] label to expand
+ * @param int $selement['elementtype'] type of element: trigger, host, ...
+ * @param int $selement['elementid'] element id in DB
+ * @param string $selement['elementExpressionTrigger'] if type is trigger, then trigger expression
+ *
+ * @return string expanded label
+ */
+function resolveMapLabelMacrosAll(array $selement) {
+	$label = $selement['label'];
+	// for host and trigger items expand macros if they exists
+	if (($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST
+			|| $selement['elementtype'] == SYSMAP_ELEMENT_TYPE_TRIGGER)
+			&& (zbx_strpos($label, 'HOST.NAME') !== false
+					|| zbx_strpos($label, 'HOSTNAME') !== false /* deprecated */
+					|| zbx_strpos($label, 'HOST.HOST') !== false
+					|| zbx_strpos($label, 'HOST.DNS') !== false
+					|| zbx_strpos($label, 'HOST.IP') !== false
+					|| zbx_strpos($label, 'IPADDRESS') !== false /* deprecated */
+					|| zbx_strpos($label, 'HOST.CONN') !== false)) {
+
+		// priorities of interface types doesn't match interface type ids in DB
+		$priorities = array(
+			INTERFACE_TYPE_AGENT => 4,
+			INTERFACE_TYPE_SNMP => 3,
+			INTERFACE_TYPE_JMX => 2,
+			INTERFACE_TYPE_IPMI => 1
+		);
+
+		// get host data if element is host
+		if ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST) {
+			$res = DBselect('SELECT hi.ip,hi.dns,hi.useip,h.host,h.name,hi.type AS interfacetype'.
+					' FROM interface hi,hosts h'.
+					' WHERE hi.hostid=h.hostid'.
+						' AND hi.main=1 AND hi.hostid='.zbx_dbstr($selement['elementid']));
+
+			// process interface priorities
+			$tmpPriority = 0;
+			while ($dbHost = DBfetch($res)) {
+				if  ($priorities[$dbHost['interfacetype']] > $tmpPriority) {
+					$resHost = $dbHost;
+					$tmpPriority = $priorities[$dbHost['interfacetype']];
+				}
+			}
+
+			$hostsByNr[''] = $resHost;
+		}
+		// get trigger host list if element is trigger
+		else {
+			$res = DBselect('SELECT hi.ip,hi.dns,hi.useip,h.host,h.name,f.functionid,hi.type AS interfacetype' .
+					' FROM interface hi,items i,functions f,hosts h'.
+					' WHERE h.hostid=hi.hostid'.
+						' AND hi.hostid=i.hostid'.
+						' AND i.itemid=f.itemid'.
+						' AND hi.main=1 AND f.triggerid='.zbx_dbstr($selement['elementid']).
+					' ORDER BY f.functionid');
+
+			// process interface priorities, build $hostsByFunctionId array
+			$tmpFunctionId = -1;
+			while ($dbHost = DBfetch($res)) {
+				if ($dbHost['functionid'] != $tmpFunctionId) {
+					$tmpPriority = 0;
+					$tmpFunctionId = $dbHost['functionid'];
+				}
+				if  ($priorities[$dbHost['interfacetype']] > $tmpPriority) {
+					$hostsByFunctionId[$dbHost['functionid']] = $dbHost;
+					$tmpPriority = $priorities[$dbHost['interfacetype']];
+				}
+			}
+
+			// get all function ids from expression and link host data against position in expression
+			preg_match_all('/\{([0-9]+)\}/', $selement['elementExpressionTrigger'], $matches);
+			$hostsByNr = array();
+			foreach ($matches[1] as $i => $functionid) {
+				if (isset($hostsByFunctionId[$functionid])) {
+					$hostsByNr[$i + 1] = $hostsByFunctionId[$functionid];
+				}
+			}
+
+			// for macro without numeric index
+			if (isset($hostsByNr[1])) {
+				$hostsByNr[''] = $hostsByNr[1];
+			}
+		}
+
+		// resolve functional macros like: {{HOST.HOST}:log[{HOST.HOST}.log].last(0)}
+		$label = resolveMapLabelMacros($label, $hostsByNr);
+
+		// resolves basic macros
+		// $hostsByNr possible keys: '' and 1-9
+		foreach ($hostsByNr as $i => $host) {
+			$replace = array(
+				'{HOST.NAME'.$i.'}' => $host['name'],
+				'{HOSTNAME'.$i.'}' => $host['host'],
+				'{HOST.HOST'.$i.'}' => $host['host'],
+				'{HOST.DNS'.$i.'}' => $host['dns'],
+				'{HOST.IP'.$i.'}' => $host['ip'],
+				'{IPADDRESS'.$i.'}' => $host['ip'],
+				'{HOST.CONN'.$i.'}' => $host['useip'] ? $host['ip'] : $host['dns'],
+			);
+			$label = str_replace(array_keys($replace), $replace, $label);
+		}
+	}
+	else {
+		// resolve functional macros like: {sampleHostName:log[{HOST.HOST}.log].last(0)}, if no host provided
+		$label = resolveMapLabelMacros($label);
+	}
+
+	// resolve map specific processing consuming macros
+	switch ($selement['elementtype']) {
+		case SYSMAP_ELEMENT_TYPE_HOST:
+		case SYSMAP_ELEMENT_TYPE_MAP:
+		case SYSMAP_ELEMENT_TYPE_TRIGGER:
+		case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
+			if (zbx_strpos($label, '{TRIGGERS.UNACK}') !== false) {
+				$label = str_replace('{TRIGGERS.UNACK}', get_triggers_unacknowledged($selement), $label);
+			}
+			if (zbx_strpos($label, '{TRIGGERS.PROBLEM.UNACK}') !== false) {
+				$label = str_replace('{TRIGGERS.PROBLEM.UNACK}', get_triggers_unacknowledged($selement, true), $label);
+			}
+			if (zbx_strpos($label, '{TRIGGER.EVENTS.UNACK}') !== false) {
+				$label = str_replace('{TRIGGER.EVENTS.UNACK}', get_events_unacknowledged($selement), $label);
+			}
+			if (zbx_strpos($label, '{TRIGGER.EVENTS.PROBLEM.UNACK}') !== false) {
+				$label = str_replace('{TRIGGER.EVENTS.PROBLEM.UNACK}', get_events_unacknowledged($selement, null, TRIGGER_VALUE_TRUE), $label);
+			}
+			if (zbx_strpos($label, '{TRIGGER.PROBLEM.EVENTS.PROBLEM.UNACK}') !== false) {
+				$label = str_replace('{TRIGGER.PROBLEM.EVENTS.PROBLEM.UNACK}', get_events_unacknowledged($selement, TRIGGER_VALUE_TRUE, TRIGGER_VALUE_TRUE), $label);
+			}
+			if (zbx_strpos($label, '{TRIGGERS.ACK}') !== false) {
+				$label = str_replace('{TRIGGERS.ACK}', get_triggers_unacknowledged($selement, null, true), $label);
+			}
+			if (zbx_strpos($label, '{TRIGGERS.PROBLEM.ACK}') !== false) {
+				$label = str_replace('{TRIGGERS.PROBLEM.ACK}', get_triggers_unacknowledged($selement, true, true), $label);
+			}
+			if (zbx_strpos($label, '{TRIGGER.EVENTS.ACK}') !== false) {
+				$label = str_replace('{TRIGGER.EVENTS.ACK}', get_events_unacknowledged($selement, null, null, true), $label);
+			}
+			if (zbx_strpos($label, '{TRIGGER.EVENTS.PROBLEM.ACK}') !== false) {
+				$label = str_replace('{TRIGGER.EVENTS.PROBLEM.ACK}', get_events_unacknowledged($selement, null, TRIGGER_VALUE_TRUE, true), $label);
+			}
+			if (zbx_strpos($label, '{TRIGGER.PROBLEM.EVENTS.PROBLEM.ACK}') !== false) {
+				$label = str_replace('{TRIGGER.PROBLEM.EVENTS.PROBLEM.ACK}', get_events_unacknowledged($selement, TRIGGER_VALUE_TRUE, TRIGGER_VALUE_TRUE, true), $label);
+			}
+			break;
+	}
+
+	return $label;
+}
+
+/**
+ * Expand functional macros in given map label.
+ *
+ * @param string $label label to expand
+ * @param array $replaceHosts list of hosts in order which they appear in trigger expression if trigger label is given,
+ * or single host when host label is given
+ *
+ * @return string expanded label
+ */
+function resolveMapLabelMacros($label, $replaceHosts = null) {
+	$functionsPattern = '(last|max|min|avg)\(([0-9]+['.ZBX_TIME_SUFFIXES.']?)?\)';
+
+	// find functional macro pattern
+	$pattern = (null === $replaceHosts)
+		? '/{'.ZBX_PREG_HOST_FORMAT.':.+\.'.$functionsPattern.'}/Uu'
+		: '/{('.ZBX_PREG_HOST_FORMAT.'|{HOSTNAME[0-9]?}|{HOST\.HOST[0-9]?}):.+\.'.$functionsPattern.'}/Uu';
+
+	preg_match_all($pattern, $label, $matches);
+
+	// for each functional macro
+	foreach ($matches[0] as $expr) {
+		$macro = $expr;
+		if ($replaceHosts !== null) {
+			// search for macros with all possible indices
+			foreach ($replaceHosts as $i => $host) {
+				$macroTmp = $macro;
+				// replace only macro in first position
+				$macro = preg_replace('/{({HOSTNAME'.$i.'}|{HOST\.HOST'.$i.'}):(.*)}/U', '{'.$host['host'].':$2}', $macro);
+				// only one simple macro possible inside functional macro
+				if ($macro != $macroTmp) {
+					break;
+				}
+			}
+		}
+
+		// try to create valid expression
+		$expressionData = new CTriggerExpression();
+		if (!$expressionData->parse($macro) || !isset($expressionData->expressions[0])) {
+			continue;
+		}
+
+		// look in DB for corresponding item
+		$itemHost = $expressionData->expressions[0]['host'];
+		$key = $expressionData->expressions[0]['item'];
+		$function = $expressionData->expressions[0]['functionName'];
+
+		$item = API::Item()->get(array(
+			'webitems' => true,
+			'filter' => array(
+				'host' => $itemHost,
+				'key_' => $key
+			),
+			'output' => array('itemid', 'value_type', 'units', 'valuemapid', 'lastvalue', 'lastclock')
+		));
+
+		$item = reset($item);
+
+		// if no corresponding item found with functional macro key and host
+		if (!$item) {
+			$label = str_replace($expr, UNRESOLVED_MACRO_STRING, $label);
+			continue;
+		}
+
+		// do function type (last, min, max, avg) related actions
+		if ($function == 'last') {
+			$value = ($item['lastclock']) ? formatHistoryValue($item['lastvalue'], $item) : UNRESOLVED_MACRO_STRING;
+		}
+		else {
+			$value = getItemFunctionalValue($item, $function, $expressionData->expressions[0]['functionParamList'][0]);
+		}
+
+		if (isset($value)) {
+			$label = str_replace($expr, $value, $label);
+		}
+	}
+
+	return $label;
 }
 
 function get_map_elements($db_element, &$elements) {
@@ -342,6 +548,7 @@ function add_elementNames(&$selements) {
 		'hostids' => $hostids,
 		'output' => array('name'),
 		'nopermissions' => true,
+		'nodeids' => get_current_nodeid(true),
 		'preservekeys' => true
 	));
 
@@ -349,6 +556,7 @@ function add_elementNames(&$selements) {
 		'mapids' => $mapids,
 		'output' => array('name'),
 		'nopermissions' => true,
+		'nodeids' => get_current_nodeid(true),
 		'preservekeys' => true
 	));
 
@@ -357,6 +565,7 @@ function add_elementNames(&$selements) {
 		'output' => API_OUTPUT_EXTEND,
 		'selectHosts' => array('hostid', 'name'),
 		'nopermissions' => true,
+		'nodeids' => get_current_nodeid(true),
 		'preservekeys' => true
 	));
 
@@ -364,6 +573,7 @@ function add_elementNames(&$selements) {
 		'hostgroupids' => $hostgroupids,
 		'output' => array('name'),
 		'nopermissions' => true,
+		'nodeids' => get_current_nodeid(true),
 		'preservekeys' => true
 	));
 
@@ -371,6 +581,7 @@ function add_elementNames(&$selements) {
 		'imageids' => $imageids,
 		'output' => API_OUTPUT_EXTEND,
 		'nopermissions' => true,
+		'nodeids' => get_current_nodeid(true),
 		'preservekeys' => true
 	));
 
@@ -391,9 +602,7 @@ function add_elementNames(&$selements) {
 				$selements[$snum]['elementName'] = $hostgroups[$selement['elementid']]['name'];
 				break;
 			case SYSMAP_ELEMENT_TYPE_IMAGE:
-				if (isset($images[$selement['iconid_off']]['name'])) {
-					$selements[$snum]['elementName'] = $images[$selement['iconid_off']]['name'];
-				}
+				$selements[$snum]['elementName'] = $images[$selement['iconid_off']]['name'];
 				break;
 		}
 	}
@@ -418,6 +627,7 @@ function add_triggerExpressions(&$selements, $triggers = array()) {
 			'output' => API_OUTPUT_EXTEND,
 			'selectHosts' => array('name'),
 			'nopermissions' => true,
+			'nodeids' => get_current_nodeid(true),
 			'preservekeys' => true
 		));
 	}
@@ -768,10 +978,10 @@ function getSelementsInfo($sysmap, array $options = array()) {
 	$config = select_config();
 	$showUnacknowledged = $config['event_ack_enable'] ? $sysmap['show_unack'] : EXTACK_OPTION_ALL;
 
-	$triggerIdToSelementIds = array();
-	$subSysmapTriggerIdToSelementIds = array();
-	$hostGroupIdToSelementIds = array();
-	$hostIdToSelementIds = array();
+	$triggers_map = array();
+	$triggers_map_submaps = array();
+	$hostgroups_map = array();
+	$hosts_map = array();
 
 	if ($sysmap['sysmapid']) {
 		$iconMap = API::IconMap()->get(array(
@@ -781,48 +991,42 @@ function getSelementsInfo($sysmap, array $options = array()) {
 		));
 		$iconMap = reset($iconMap);
 
+		$hostsToGetInventories = array();
 	}
-	$hostsToGetInventories = array();
 
 	$selements = $sysmap['selements'];
-	$selementIdToSubSysmaps = array();
-	foreach ($selements as $selementId => &$selement) {
-		$selement['hosts'] = array();
-		$selement['triggers'] = array();
+	foreach ($selements as $selementId => $selement) {
+		$selements[$selementId]['hosts'] = array();
+		$selements[$selementId]['triggers'] = array();
 
 		switch ($selement['elementtype']) {
 			case SYSMAP_ELEMENT_TYPE_MAP:
-				$sysmapIds = array($selement['elementid']);
+				$mapids = array($selement['elementid']);
 
-				while (!empty($sysmapIds)) {
-					$subSysmaps = API::Map()->get(array(
-						'sysmapids' => $sysmapIds,
-						'output' => array('sysmapid'),
+				while (!empty($mapids)) {
+					$maps = API::Map()->get(array(
+						'sysmapids' => $mapids,
+						'output' => API_OUTPUT_REFER,
 						'selectSelements' => API_OUTPUT_EXTEND,
 						'nopermissions' => true,
-						'preservekeys' => true
+						'nodeids' => get_current_nodeid(true)
 					));
 
-					if(!isset($selementIdToSubSysmaps[$selementId])) {
-						$selementIdToSubSysmaps[$selementId] = array();
-					}
-					$selementIdToSubSysmaps[$selementId] += $subSysmaps;
-
-					$sysmapIds = array();
-					foreach ($subSysmaps as $subSysmap) {
-						foreach ($subSysmap['selements'] as $subSysmapSelement) {
-							switch ($subSysmapSelement['elementtype']) {
+					$mapids = array();
+					foreach ($maps as $map) {
+						foreach ($map['selements'] as $sel) {
+							switch ($sel['elementtype']) {
 								case SYSMAP_ELEMENT_TYPE_MAP:
-									$sysmapIds[] = $subSysmapSelement['elementid'];
+									$mapids[] = $sel['elementid'];
 									break;
 								case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-									$hostGroupIdToSelementIds[$subSysmapSelement['elementid']][$selementId] = $selementId;
+									$hostgroups_map[$sel['elementid']][$selementId] = $selementId;
 									break;
 								case SYSMAP_ELEMENT_TYPE_HOST:
-									$hostIdToSelementIds[$subSysmapSelement['elementid']][$selementId] = $selementId;
+									$hosts_map[$sel['elementid']][$selementId] = $selementId;
 									break;
 								case SYSMAP_ELEMENT_TYPE_TRIGGER:
-									$subSysmapTriggerIdToSelementIds[$subSysmapSelement['elementid']][$selementId] = $selementId;
+									$triggers_map_submaps[$sel['elementid']][$selementId] = $selementId;
 									break;
 							}
 						}
@@ -830,26 +1034,22 @@ function getSelementsInfo($sysmap, array $options = array()) {
 				}
 				break;
 			case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-				$hostGroupId = $selement['elementid'];
-				$hostGroupIdToSelementIds[$hostGroupId][$selementId] = $selementId;
+				$hostgroups_map[$selement['elementid']][$selement['selementid']] = $selement['selementid'];
 				break;
 			case SYSMAP_ELEMENT_TYPE_HOST:
-				$hostId = $selement['elementid'];
-				$hostIdToSelementIds[$hostId][$selementId] = $selementId;
+				$hosts_map[$selement['elementid']][$selement['selementid']] = $selement['selementid'];
 
 				// if we have icon map applied, we need to get inventories for all hosts,
 				// where automatic icon selection is enabled.
 				if ($sysmap['iconmapid'] && $selement['use_iconmap']) {
-					$hostsToGetInventories[] = $hostId;
+					$hostsToGetInventories[] = $selement['elementid'];
 				}
 				break;
 			case SYSMAP_ELEMENT_TYPE_TRIGGER:
-				$triggerId = $selement['elementid'];
-				$triggerIdToSelementIds[$triggerId][$selementId] = $selementId;
+				$triggers_map[$selement['elementid']][$selement['selementid']] = $selement['selementid'];
 				break;
 		}
 	}
-	unset($selement);
 
 	// get host inventories
 	if ($sysmap['iconmapid']) {
@@ -862,69 +1062,66 @@ function getSelementsInfo($sysmap, array $options = array()) {
 		));
 	}
 
-	$allHosts = array();
-	if (!empty($hostIdToSelementIds)) {
+	$all_hosts = array();
+	if (!empty($hosts_map)) {
 		$hosts = API::Host()->get(array(
-			'hostids' => array_keys($hostIdToSelementIds),
+			'hostids' => array_keys($hosts_map),
 			'output' => array('name', 'status', 'maintenance_status', 'maintenanceid'),
 			'nopermissions' => true,
-			'preservekeys' => true
+			'nodeids' => get_current_nodeid(true)
 		));
-		$allHosts = array_merge($allHosts, $hosts);
-		foreach ($hosts as $hostId => $host) {
-			foreach ($hostIdToSelementIds[$hostId] as $selementId) {
-				$selements[$selementId]['hosts'][$hostId] = $hostId;
+		$all_hosts = array_merge($all_hosts, $hosts);
+		foreach ($hosts as $host) {
+			foreach ($hosts_map[$host['hostid']] as $belongs_to_sel) {
+				$selements[$belongs_to_sel]['hosts'][$host['hostid']] = $host['hostid'];
 			}
 		}
 	}
 
-	$hostsFromHostGroups = array();
-	if (!empty($hostGroupIdToSelementIds)) {
-		$hostsFromHostGroups = API::Host()->get(array(
-			'groupids' => array_keys($hostGroupIdToSelementIds),
+	if (!empty($hostgroups_map)) {
+		$hosts = API::Host()->get(array(
+			'groupids' => array_keys($hostgroups_map),
 			'output' => array('name', 'status', 'maintenance_status', 'maintenanceid'),
 			'selectGroups' => array('groupid'),
 			'nopermissions' => true,
-			'preservekeys' => true
+			'nodeids' => get_current_nodeid(true)
 		));
-
-		foreach ($hostsFromHostGroups as $hostId => $host) {
+		$all_hosts = array_merge($all_hosts, $hosts);
+		foreach ($hosts as $host) {
 			foreach ($host['groups'] as $group) {
-				$groupId = $group['groupid'];
-
-				if (isset($hostGroupIdToSelementIds[$groupId])) {
-					foreach ($hostGroupIdToSelementIds[$groupId] as $selementId) {
-						$selement =& $selements[$selementId];
-
-						$selement['hosts'][$hostId] = $hostId;
+				if (isset($hostgroups_map[$group['groupid']])) {
+					foreach ($hostgroups_map[$group['groupid']] as $belongs_to_sel) {
+						$selements[$belongs_to_sel]['hosts'][$host['hostid']] = $host['hostid'];
 
 						// add hosts to hosts_map for trigger selection;
-						if (!isset($hostIdToSelementIds[$hostId])) {
-							$hostIdToSelementIds[$hostId] = array();
+						if (!isset($hosts_map[$host['hostid']])) {
+							$hosts_map[$host['hostid']] = array();
 						}
-						$hostIdToSelementIds[$hostId][$selementId] = $selementId;
-
-						unset($selement);
+						$hosts_map[$host['hostid']][$belongs_to_sel] = $belongs_to_sel;
 					}
 				}
 			}
 		}
+	}
+	$all_hosts = zbx_toHash($all_hosts, 'hostid');
 
-		$allHosts = array_merge($allHosts, $hostsFromHostGroups);
+	$monitored_hostids = array();
+	foreach ($all_hosts as $hostid => $host) {
+		if ($host['status'] == HOST_STATUS_MONITORED) {
+			$monitored_hostids[$hostid] = $hostid;
+		}
 	}
 
-	$allHosts = zbx_toHash($allHosts, 'hostid');
-
 	// get triggers data, triggers from current map, select all
-	$allTriggers = array();
+	$all_triggers = array();
 
-	if (!empty($triggerIdToSelementIds)) {
+	if (!empty($triggers_map)) {
 		$triggerOptions = array(
 			'output' => array('triggerid', 'status', 'value', 'priority', 'lastchange', 'description', 'expression'),
-			'triggerids' => array_keys($triggerIdToSelementIds),
+			'nodeids' => get_current_nodeid(true),
+			'triggerids' => array_keys($triggers_map),
 			'filter' => array('state' => null),
-			'nopermissions' => true,
-			'preservekeys' => true
+			'nopermissions' => true
 		);
 
 		if ($showUnacknowledged) {
@@ -933,24 +1130,24 @@ function getSelementsInfo($sysmap, array $options = array()) {
 
 		$triggers = API::Trigger()->get($triggerOptions);
 
-		$allTriggers = array_merge($allTriggers, $triggers);
+		$all_triggers = array_merge($all_triggers, $triggers);
 
-		foreach ($triggers as $triggerId => $trigger) {
-			foreach ($triggerIdToSelementIds[$triggerId] as $selementId) {
-				$selements[$selementId]['triggers'][$triggerId] = $triggerId;
+		foreach ($triggers as $trigger) {
+			foreach ($triggers_map[$trigger['triggerid']] as $belongs_to_sel) {
+				$selements[$belongs_to_sel]['triggers'][$trigger['triggerid']] = $trigger['triggerid'];
 			}
 		}
 	}
 
 	// triggers from submaps, skip dependent
-	if (!empty($subSysmapTriggerIdToSelementIds)) {
+	if (!empty($triggers_map_submaps)) {
 		$triggerOptions = array(
 			'output' => array('triggerid', 'status', 'value', 'priority', 'lastchange', 'description', 'expression'),
-			'triggerids' => array_keys($subSysmapTriggerIdToSelementIds),
+			'nodeids' => get_current_nodeid(true),
+			'triggerids' => array_keys($triggers_map_submaps),
 			'filter' => array('state' => null),
 			'skipDependent' => true,
 			'nopermissions' => true,
-			'preservekeys' => true,
 			'only_true' => true
 		);
 
@@ -960,34 +1157,26 @@ function getSelementsInfo($sysmap, array $options = array()) {
 
 		$triggers = API::Trigger()->get($triggerOptions);
 
-		$allTriggers = array_merge($allTriggers, $triggers);
+		$all_triggers = array_merge($all_triggers, $triggers);
 
-		foreach ($triggers as $triggerId => $trigger) {
-			foreach ($subSysmapTriggerIdToSelementIds[$triggerId] as $selementId) {
-				$selements[$selementId]['triggers'][$triggerId] = $triggerId;
+		foreach ($triggers as $trigger) {
+			foreach ($triggers_map_submaps[$trigger['triggerid']] as $belongs_to_sel) {
+				$selements[$belongs_to_sel]['triggers'][$trigger['triggerid']] = $trigger['triggerid'];
 			}
 		}
 	}
 
-	$monitoredHostIds = array();
-	foreach ($allHosts as $hostId => $host) {
-		if ($host['status'] == HOST_STATUS_MONITORED) {
-			$monitoredHostIds[$hostId] = $hostId;
-		}
-	}
-
 	// triggers from all hosts/hostgroups, skip dependent
-	if ($monitoredHostIds) {
+	if (!empty($monitored_hostids)) {
 		$triggerOptions = array(
 			'output' => array('triggerid', 'status', 'value', 'priority', 'lastchange', 'description', 'expression'),
 			'selectHosts' => array('hostid'),
-			'selectItems' => array('itemid'),
-			'hostids' => $monitoredHostIds,
+			'hostids' => $monitored_hostids,
+			'nopermissions' => true,
 			'filter' => array('state' => null),
+			'nodeids' => get_current_nodeid(true),
 			'monitored' => true,
 			'skipDependent' => true,
-			'nopermissions' => true,
-			'preservekeys' => true,
 			'only_true' => true
 		);
 
@@ -995,31 +1184,21 @@ function getSelementsInfo($sysmap, array $options = array()) {
 			$triggerOptions['selectLastEvent'] = array('acknowledged');
 		}
 
-		$triggersFromMonitoredHosts = API::Trigger()->get($triggerOptions);
+		$triggers = API::Trigger()->get($triggerOptions);
 
-		foreach ($triggersFromMonitoredHosts as $triggerId => $trigger) {
+		$all_triggers = array_merge($all_triggers, $triggers);
+
+		foreach ($triggers as $trigger) {
 			foreach ($trigger['hosts'] as $host) {
-				$hostId = $host['hostid'];
-
-				if (isset($hostIdToSelementIds[$hostId])) {
-					foreach ($hostIdToSelementIds[$hostId] as $selementId) {
-						$selements[$selementId]['triggers'][$triggerId] = $triggerId;
+				if (isset($hosts_map[$host['hostid']])) {
+					foreach ($hosts_map[$host['hostid']] as $belongs_to_sel) {
+						$selements[$belongs_to_sel]['triggers'][$trigger['triggerid']] = $trigger['triggerid'];
 					}
 				}
 			}
 		}
-
-		$subSysmapHostApplicationFilters = getSelementHostApplicationFilters($selements, $selementIdToSubSysmaps,
-			$hostsFromHostGroups
-		);
-		$selements = filterSysmapTriggers($selements, $subSysmapHostApplicationFilters, $triggersFromMonitoredHosts,
-			$subSysmapTriggerIdToSelementIds
-		);
-
-		$allTriggers = array_merge($allTriggers, $triggersFromMonitoredHosts);
 	}
-
-	$allTriggers = zbx_toHash($allTriggers, 'triggerid');
+	$all_triggers = zbx_toHash($all_triggers, 'triggerid');
 
 	$info = array();
 	foreach ($selements as $selementId => $selement) {
@@ -1034,9 +1213,9 @@ function getSelementsInfo($sysmap, array $options = array()) {
 			'ack' => true
 		);
 
-		foreach ($selement['hosts'] as $hostId) {
-			$host = $allHosts[$hostId];
-			$last_hostid = $hostId;
+		foreach ($selement['hosts'] as $hostid) {
+			$host = $all_hosts[$hostid];
+			$last_hostid = $hostid;
 
 			if ($host['status'] == HOST_STATUS_NOT_MONITORED) {
 				$i['disabled']++;
@@ -1047,7 +1226,7 @@ function getSelementsInfo($sysmap, array $options = array()) {
 		}
 
 		foreach ($selement['triggers'] as $triggerId) {
-			$trigger = $allTriggers[$triggerId];
+			$trigger = $all_triggers[$triggerId];
 
 			if ($options['severity_min'] <= $trigger['priority']) {
 				if ($trigger['status'] == TRIGGER_STATUS_DISABLED) {
@@ -1079,11 +1258,11 @@ function getSelementsInfo($sysmap, array $options = array()) {
 				$lastProblemId = null;
 			}
 
-			$i['problem_title'] = CMacrosResolverHelper::resolveTriggerName($allTriggers[$lastProblemId]);
+			$i['problem_title'] = CMacrosResolverHelper::resolveTriggerName($all_triggers[$lastProblemId]);
 		}
 
 		if ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST && $i['maintenance'] == 1) {
-			$mnt = get_maintenance_by_maintenanceid($allHosts[$last_hostid]['maintenanceid']);
+			$mnt = get_maintenance_by_maintenanceid($all_hosts[$last_hostid]['maintenanceid']);
 			$i['maintenance_title'] = $mnt['name'];
 		}
 
@@ -1137,15 +1316,15 @@ function getSelementsInfo($sysmap, array $options = array()) {
 	// get names if needed
 	$elems = separateMapElements($sysmap);
 	if (!empty($elems['sysmaps']) && $mlabel) {
-		$subSysmaps = API::Map()->get(array(
+		$maps = API::Map()->get(array(
 			'sysmapids' => zbx_objectValues($elems['sysmaps'], 'elementid'),
 			'nopermissions' => true,
 			'output' => array('name')
 		));
-		$subSysmaps = zbx_toHash($subSysmaps, 'sysmapid');
+		$maps = zbx_toHash($maps, 'sysmapid');
 
 		foreach ($elems['sysmaps'] as $elem) {
-			$info[$elem['selementid']]['name'] = $subSysmaps[$elem['elementid']]['name'];
+			$info[$elem['selementid']]['name'] = $maps[$elem['elementid']]['name'];
 		}
 	}
 	if (!empty($elems['hostgroups']) && $hglabel) {
@@ -1163,226 +1342,16 @@ function getSelementsInfo($sysmap, array $options = array()) {
 
 	if (!empty($elems['triggers']) && $tlabel) {
 		foreach ($elems['triggers'] as $elem) {
-			$info[$elem['selementid']]['name'] = CMacrosResolverHelper::resolveTriggerName($allTriggers[$elem['elementid']]);
+			$info[$elem['selementid']]['name'] = CMacrosResolverHelper::resolveTriggerName($all_triggers[$elem['elementid']]);
 		}
 	}
 	if (!empty($elems['hosts']) && $hlabel) {
 		foreach ($elems['hosts'] as $elem) {
-			$info[$elem['selementid']]['name'] = $allHosts[$elem['elementid']]['name'];
+			$info[$elem['selementid']]['name'] = $all_hosts[$elem['elementid']]['name'];
 		}
 	}
 
 	return $info;
-}
-
-/**
- * Takes sysmap selements array, applies filtering by application to triggers and returns sysmap selements array.
- *
- * @param array $selements                          selements of current sysmap
- * @param array $selementHostApplicationFilters     a list of application filters applied to each host under each element
- *                                                  @see getSelementHostApplicationFilters()
- * @param array $triggersFromMonitoredHosts         triggers that are relevant to filtering
- * @param array $subSysmapTriggerIdToSelementIds    a map of triggers in sysmaps to selement IDs
- *
- * @return array
- */
-function filterSysmapTriggers(array $selements, array $selementHostApplicationFilters, array $triggersFromMonitoredHosts, array $subSysmapTriggerIdToSelementIds) {
-	// pick only host, host group or map selements
-	$filterableSelements = array();
-	foreach ($selements as $selementId => $selement) {
-		if ($selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST
-				|| $selement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST_GROUP
-				|| $selement['elementtype'] == SYSMAP_ELEMENT_TYPE_MAP) {
-			$filterableSelements[$selementId] = $selement;
-		}
-	}
-	// calculate list of triggers that might get removed from $selement['triggers']
-	$triggersToFilter = array();
-	foreach ($filterableSelements as $selementId => $selement) {
-		foreach ($selement['triggers'] as $triggerId) {
-			if (!isset($triggersFromMonitoredHosts[$triggerId])) {
-				continue;
-			}
-			$trigger = $triggersFromMonitoredHosts[$triggerId];
-			foreach ($trigger['hosts'] as $host) {
-				$hostId = $host['hostid'];
-				if (isset($selementHostApplicationFilters[$selementId][$hostId])) {
-					$triggersToFilter[$triggerId] = $trigger;
-				}
-			}
-		}
-	}
-
-	// if there are no triggers to filter
-	if (!$triggersToFilter) {
-		return $selements;
-	}
-
-	// produce mapping of trigger to application names it is related to and produce mapping of host to triggers
-	$itemIds = array();
-	foreach ($triggersToFilter as $trigger) {
-		foreach ($trigger['items'] as $item) {
-			$itemIds[$item['itemid']] = $item['itemid'];
-		}
-	}
-	$items = API::Item()->get(array(
-		'output' => array('itemid'),
-		'selectApplications' => array('name'),
-		'itemids' => $itemIds,
-		'webitems' => true,
-		'preservekeys' => true
-	));
-
-	$triggerApplications = array();
-	$hostIdToTriggers = array();
-	foreach ($triggersToFilter as $trigger) {
-		$triggerId = $trigger['triggerid'];
-
-		foreach ($trigger['items'] as $item) {
-			foreach ($items[$item['itemid']]['applications'] as $application) {
-				$triggerApplications[$triggerId][$application['name']] = true;
-			}
-		}
-
-		foreach ($trigger['hosts'] as $host) {
-			$hostIdToTriggers[$host['hostid']][$triggerId] = $trigger;
-		}
-	}
-
-	foreach ($filterableSelements as $selementId => &$selement) {
-		// walk through each host of a submap and apply its filters to all its triggers
-		foreach ($selement['hosts'] as $hostId) {
-			// skip hosts that don't have any filters or triggers to filter
-			if (!isset($hostIdToTriggers[$hostId]) || !isset($selementHostApplicationFilters[$selementId][$hostId])) {
-				continue;
-			}
-
-			// remove the triggers that don't have applications or don't match the filter
-			$filteredApplicationNames = $selementHostApplicationFilters[$selementId][$hostId];
-			foreach ($hostIdToTriggers[$hostId] as $trigger) {
-				$triggerId = $trigger['triggerid'];
-
-				// skip if this trigger is standalone trigger and those are not filtered
-				if (isset($subSysmapTriggerIdToSelementIds[$triggerId])
-						&& isset($subSysmapTriggerIdToSelementIds[$triggerId][$selementId])) {
-					continue;
-				}
-
-				$applicationNamesForTrigger = isset($triggerApplications[$triggerId])
-					? array_keys($triggerApplications[$triggerId])
-					: array();
-
-				if (!array_intersect($applicationNamesForTrigger, $filteredApplicationNames)) {
-					unset($selement['triggers'][$triggerId]);
-				}
-			}
-		}
-	}
-	unset($selement);
-
-	// put back updated selements
-	foreach ($filterableSelements as $selementId => $selement) {
-		$selements[$selementId] = $selement;
-	}
-
-	return $selements;
-}
-
-/**
- * Returns a list of application filters applied to each host under each element.
- *
- * @param array $selements                  selements of current sysmap
- * @param array $selementIdToSubSysmaps     all sub-sysmaps used in current sysmap, indexed by selementId
- * @param array $hostsFromHostGroups        collection of hosts that get included via host groups
- *
- * @return array    a two-dimensional array with selement IDs as the primary key, host IDs as the secondary key
- *                  application names as values
- */
-function getSelementHostApplicationFilters(array $selements, array $selementIdToSubSysmaps, array $hostsFromHostGroups) {
-	$hostIdsForHostGroupId = array();
-	foreach ($hostsFromHostGroups as $host) {
-		$hostId = $host['hostid'];
-		foreach ($host['groups'] as $group) {
-			$hostIdsForHostGroupId[$group['groupid']][$hostId] = $hostId;
-		}
-	}
-
-	$selementHostApplicationFilters = array();
-	foreach ($selements as $selementId => $selement) {
-		switch ($selement['elementtype']) {
-			case SYSMAP_ELEMENT_TYPE_HOST:
-			case SYSMAP_ELEMENT_TYPE_HOST_GROUP:
-				// skip host and host group elements with an empty filter
-				if ($selement['application'] === '') {
-					continue 2;
-				}
-
-				foreach ($selement['hosts'] as $hostId) {
-					$selementHostApplicationFilters[$selementId][$hostId][] = $selement['application'];
-				}
-
-				break;
-
-			case SYSMAP_ELEMENT_TYPE_MAP:
-				foreach ($selementIdToSubSysmaps[$selementId] as $subSysmap) {
-					// add all filters set for host elements
-					foreach ($subSysmap['selements'] as $subSysmapSelement) {
-						if ($subSysmapSelement['elementtype'] != SYSMAP_ELEMENT_TYPE_HOST
-								|| $subSysmapSelement['application'] === '') {
-
-							continue;
-						}
-
-						$hostId = $subSysmapSelement['elementid'];
-						$selementHostApplicationFilters[$selementId][$hostId][] = $subSysmapSelement['application'];
-					}
-
-					// Find all selements with host groups and sort them into two arrays:
-					// - with application filter
-					// - without application filter
-					$hostGroupSelementsWithApplication = array();
-					$hostGroupSelementsWithoutApplication = array();
-					foreach ($subSysmap['selements'] as $subSysmapSelement) {
-						if ($subSysmapSelement['elementtype'] == SYSMAP_ELEMENT_TYPE_HOST_GROUP) {
-							if ($subSysmapSelement['application'] !== '') {
-								$hostGroupSelementsWithApplication[] = $subSysmapSelement;
-							}
-							else {
-								$hostGroupSelementsWithoutApplication[] = $subSysmapSelement;
-							}
-						}
-					}
-
-					// Combine application filters for hosts from host group selements with
-					// application filters set.
-					foreach ($hostGroupSelementsWithApplication as $hostGroupSelement) {
-						$hostGroupId = $hostGroupSelement['elementid'];
-
-						if (isset($hostIdsForHostGroupId[$hostGroupId])) {
-							foreach ($hostIdsForHostGroupId[$hostGroupId] as $hostId) {
-								$selementHostApplicationFilters[$selementId][$hostId][] = $hostGroupSelement['application'];
-							}
-						}
-					}
-
-					// Unset all application filters for hosts in host group selements without any filters.
-					// This might reset application filters set by previous foreach.
-					foreach ($hostGroupSelementsWithoutApplication AS $hostGroupSelement) {
-						$hostGroupId = $hostGroupSelement['elementid'];
-
-						if (isset($hostIdsForHostGroupId[$hostGroupId])) {
-							foreach ($hostIdsForHostGroupId[$hostGroupId] as $hostId) {
-								unset($selementHostApplicationFilters[$selementId][$hostId]);
-							}
-						}
-					}
-				}
-
-				break;
-		}
-	}
-
-	return $selementHostApplicationFilters;
 }
 
 function separateMapElements($sysmap) {
@@ -1509,8 +1478,6 @@ function drawMapSelements(&$im, $map, $mapInfo) {
 }
 
 function drawMapHighligts(&$im, $map, $mapInfo) {
-	$config = select_config();
-
 	$selements = $map['selements'];
 
 	foreach ($selements as $selementId => $selement) {
@@ -1605,6 +1572,7 @@ function drawMapHighligts(&$im, $map, $mapInfo) {
 					imagecolorallocate($im, 120, 120, 120)
 				);
 
+				$config = select_config();
 				if (isset($elementInfo['ack']) && $elementInfo['ack'] && $config['event_ack_enable']) {
 					imagesetthickness($im, 5);
 					imagearc($im,
@@ -1791,7 +1759,7 @@ function drawMapLinkLabels(&$im, $map, $mapInfo, $resolveMacros = true) {
 		$box_height = 0;
 
 		foreach ($strings as $snum => $str) {
-			$strings[$snum] = $resolveMacros ? CMacrosResolverHelper::resolveMapLabelMacros($str) : $str;
+			$strings[$snum] = $resolveMacros ? resolveMapLabelMacros($str) : $str;
 		}
 
 		foreach ($strings as $str) {
@@ -1908,7 +1876,7 @@ function drawMapLabels(&$im, $map, $mapInfo, $resolveMacros = true) {
 			$statusLines[$selementId] = array();
 		}
 
-		$msg = $resolveMacros ? CMacrosResolverHelper::resolveMapLabelMacrosAll($selement) : $selement['label'];
+		$msg = $resolveMacros ? resolveMapLabelMacrosAll($selement) : $selement['label'];
 
 		$allStrings .= $msg;
 		$msgs = explode("\n", $msg);
@@ -2315,7 +2283,7 @@ function getIconByMapping($iconMap, $inventory) {
 
 		foreach ($iconMap['mappings'] as $mapping) {
 			try {
-				$expr = new CGlobalRegexp($mapping['expression']);
+				$expr = new GlobalRegExp($mapping['expression']);
 				if ($expr->match($inventory['inventory'][$inventories[$mapping['inventory_link']]['db_field']])) {
 					return $mapping['iconid'];
 				}

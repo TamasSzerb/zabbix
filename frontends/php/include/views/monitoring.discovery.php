@@ -36,11 +36,9 @@ $discoveryWidget->addHeader(_('Discovery rules'), $discoveryHeaderForm);
 $discoveryTable = new CTableInfo(_('No discovered devices found.'));
 $discoveryTable->makeVerticalRotation();
 
-$discoveredDeviceCol = make_sorting_header(_('Discovered device'), 'ip', $this->data['sort'], $this->data['sortorder']);
-$discoveredDeviceCol->addClass('left');
-
 $header = array(
-	$discoveredDeviceCol,
+	is_show_all_nodes() ? new CCol(_('Node'), 'left') : null,
+	make_sorting_header(_('Discovered device'), 'ip'),
 	new CCol(_('Monitored host'), 'left'),
 	new CCol(array(_('Uptime').'/', _('Downtime')), 'left')
 );
@@ -133,13 +131,14 @@ foreach ($this->data['drules'] as $drule) {
 		$col = new CCol(array(bold($drule['name']), SPACE.'('._n('%d device', '%d devices', count($discovery_info)).')'));
 		$col->setColSpan(count($this->data['services']) + 3);
 
-		$discoveryTable->addRow($col);
+		$discoveryTable->addRow(array(get_node_name_by_elid($drule['druleid']), $col));
 	}
 	order_result($discovery_info, $this->data['sort'], $this->data['sortorder']);
 
 	foreach ($discovery_info as $ip => $h_data) {
 		$dns = $h_data['dns'] == '' ? '' : ' ('.$h_data['dns'].')';
 		$row = array(
+			get_node_name_by_elid($h_data['druleid']),
 			$h_data['type'] == 'primary' ? new CSpan($ip.$dns, $h_data['class']) : new CSpan(SPACE.SPACE.$ip.$dns),
 			new CSpan(empty($h_data['host']) ? '-' : $h_data['host']),
 			new CSpan((($h_data['time'] == 0 || $h_data['type'] === 'slave')

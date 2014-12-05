@@ -26,6 +26,7 @@ typedef int	(*vmfunc_t)(AGENT_REQUEST *, const char *, const char *, AGENT_RESUL
 
 #define ZBX_VMWARE_PREFIX	"vmware."
 
+
 typedef struct
 {
 	const char	*key;
@@ -34,9 +35,9 @@ typedef struct
 zbx_vmcheck_t;
 
 #if defined(HAVE_LIBXML2) && defined(HAVE_LIBCURL)
-#	define VMCHECK_FUNC(func)	func
+# define VMCHECK_FUNC(func)	func
 #else
-#	define VMCHECK_FUNC(func)	NULL
+# define VMCHECK_FUNC(func)	NULL
 #endif
 
 static zbx_vmcheck_t	vmchecks[] =
@@ -118,12 +119,12 @@ static int	get_vmware_function(const char *key, vmfunc_t *vmfunc)
 {
 	zbx_vmcheck_t	*check;
 
-	if (0 != strncmp(key, ZBX_VMWARE_PREFIX, ZBX_CONST_STRLEN(ZBX_VMWARE_PREFIX)))
+	if (0 != strncmp(key, ZBX_VMWARE_PREFIX, sizeof(ZBX_VMWARE_PREFIX) - 1))
 		return FAIL;
 
 	for (check = vmchecks; NULL != check->key; check++)
 	{
-		if (0 == strcmp(key + ZBX_CONST_STRLEN(ZBX_VMWARE_PREFIX), check->key))
+		if (0 == strcmp(key + sizeof(ZBX_VMWARE_PREFIX) - 1, check->key))
 		{
 			*vmfunc = check->func;
 			return SUCCEED;
@@ -168,7 +169,7 @@ int	get_value_simple(DC_ITEM *item, AGENT_RESULT *result)
 				ret = SUCCEED;
 		}
 		else
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Support for VMware checks was not compiled in."));
+			SET_MSG_RESULT(result, zbx_strdup(NULL, "Support for VMware checks was not compiled in"));
 	}
 	else
 	{
@@ -178,7 +179,7 @@ int	get_value_simple(DC_ITEM *item, AGENT_RESULT *result)
 	}
 
 	if (NOTSUPPORTED == ret && !ISSET_MSG(result))
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Simple check is not supported."));
+		SET_MSG_RESULT(result, zbx_strdup(NULL, "Simple check is not supported"));
 
 	free_request(&request);
 

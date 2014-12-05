@@ -18,7 +18,6 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 **/
 
-
 // reset the LC_CTYPE locale so that case transformation functions would work correctly
 // it is also required for PHP to work with the Turkish locale (https://bugs.php.net/bug.php?id=18556)
 // WARNING: this must be done before executing any other code, otherwise code execution could fail!
@@ -65,13 +64,6 @@ catch (Exception $e) {
 
 CProfiler::getInstance()->start();
 
-global $ZBX_PAGE_POST_JS, $ZBX_SERVER, $ZBX_SERVER_PORT, $page;
-
-$page = array(
-	'title' => null,
-	'file' => null,
-	'hist_arg' => null,
-	'scripts' => null,
-	'type' => null,
-	'menu' => null
-);
+global $ZBX_PAGE_POST_JS, $page;
+global $ZBX_SERVER, $ZBX_SERVER_PORT;
+$page = array();

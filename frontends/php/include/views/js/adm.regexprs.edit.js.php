@@ -1,18 +1,18 @@
 <script type="text/x-jquery-tmpl" id="expressionRow">
 	<tr id="exprRow_#{id}">
-		<td class="pre-wrap break-lines">#{expression}</td>
+		<td>#{expression}</td>
 		<td>#{type}</td>
 		<td>#{case_sensitive}</td>
 		<td class="nowrap">
-			<button class="button link_menu exprEdit" type="button" data-id="#{id}"><?php echo _('Edit'); ?></button>&nbsp;
-			<button class="button link_menu exprRemove" type="button" data-id="#{id}"><?php echo _('Remove'); ?></button>
+			<button class="input link_menu exprEdit" type="button" data-id="#{id}"><?php echo _('Edit'); ?></button>&nbsp;
+			<button class="input link_menu exprRemove" type="button" data-id="#{id}"><?php echo _('Remove'); ?></button>
 		</td>
 	</tr>
 </script>
 
 <script type="text/x-jquery-tmpl" id="testTableRow">
 	<tr class="even_row">
-		<td class="pre-wrap break-lines">#{expression}</td>
+		<td class="wraptext">#{expression}</td>
 		<td>#{type}</td>
 		<td><span class="bold #{resultClass}">#{result}</span></td>
 	</tr>
@@ -246,13 +246,13 @@
 					};
 					this.selectedID = null;
 
-					$('#saveExpression').text(<?php echo CJs::encodeJson(_('Add')); ?>);
+					$('#saveExpression').val(<?php echo CJs::encodeJson(_('Add')); ?>);
 				}
 				else {
 					data = this.expressions[id].data;
 					this.selectedID = id;
 
-					$('#saveExpression').text(<?php echo CJs::encodeJson(_('Update')); ?>);
+					$('#saveExpression').val(<?php echo CJs::encodeJson(_('Update')); ?>);
 				}
 
 				$('#expressionNew').val(data.expression);
@@ -346,47 +346,28 @@
 			 * @param {Object} response ajax response
 			 */
 			showTestResults: function(response) {
-				var tplData, expr, exprResult, hasErrors;
+				var tplData, expr, exprResult;
 
 				$('#testResultTable tr:not(.header)').remove();
 
-				hasErrors = false;
-
 				for (var id in this.expressions) {
-					var result;
 					expr = this.expressions[id];
 					exprResult = response.data.expressions[id];
-
-					if (response.data.errors[id]) {
-						hasErrors = true;
-						result = response.data.errors[id];
-					}
-					else {
-						result = exprResult ? <?php echo CJs::encodeJson(_('TRUE')); ?> : <?php echo CJs::encodeJson(_('FALSE')); ?>;
-					}
 
 					tplData = {
 						expression: expr.data.expression,
 						type: expr.type2str(),
-						result: result,
+						result: exprResult ? <?php echo CJs::encodeJson(_('TRUE')); ?> : <?php echo CJs::encodeJson(_('FALSE')); ?>,
 						resultClass: exprResult ? 'green' : 'red'
 					};
 
 					$('#testResultTable').append(this.testTableRowTpl.evaluate(tplData));
 				}
 
-				if (hasErrors) {
-					tplData = {
-						resultClass: 'red',
-						result: <?php echo CJs::encodeJson(_('UNKNOWN')); ?>
-					};
-				}
-				else {
-					tplData = {
-						resultClass: response.data.final ? 'green' : 'red',
-						result: response.data.final ? <?php echo CJs::encodeJson(_('TRUE')); ?> : <?php echo CJs::encodeJson(_('FALSE')); ?>
-					};
-				}
+				tplData = {
+					resultClass: response.data.final ? 'green' : 'red',
+					result: response.data.final ? <?php echo CJs::encodeJson(_('TRUE')); ?> : <?php echo CJs::encodeJson(_('FALSE')); ?>
+				};
 
 				$('#testResultTable').append(this.testCombinedTableRowTpl.evaluate(tplData));
 				$('#testResultTable').css({opacity: 1});
@@ -396,15 +377,15 @@
 	}(jQuery));
 
 	jQuery(function($) {
-		$('#exprTable').on('click', '.exprRemove', function() {
+		$('#exprTable').on('click', 'button.exprRemove', function() {
 			zabbixRegExp.removeExpression($(this).attr('data-id'));
 		});
 
-		$('#exprTable').on('click', '.exprAdd', function() {
+		$('#exprTable').on('click', 'input.exprAdd', function() {
 			zabbixRegExp.showForm();
 		});
 
-		$('#exprTable').on('click', '.exprEdit', function() {
+		$('#exprTable').on('click', 'button.exprEdit', function() {
 			zabbixRegExp.showForm($(this).attr('data-id'));
 		});
 
@@ -443,10 +424,10 @@
 		// on clone we remove regexpid hidden field and also expressionid from expressions
 		// it's needed because after clone all expressions should be added as new for cloned reg. exp
 		$('#clone').click(function() {
-			$('#regexpid, #clone, #delete').remove();
-			$('#update').val(<?php echo CJs::encodeJson(_('Add')); ?>).attr({id: 'add', name: 'add'});
+			$('#regexpid').remove();
+			$('#clone').remove();
+			$('#delete').remove();
 			$('#cancel').addClass('ui-corner-left');
-			$('#name').focus();
 
 			for (var id in zabbixRegExp.expressions) {
 				delete zabbixRegExp.expressions[id].data['expressionid'];

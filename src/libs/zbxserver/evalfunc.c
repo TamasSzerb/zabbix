@@ -25,6 +25,11 @@
 #include "evalfunc.h"
 #include "zbxregexp.h"
 
+int	cmp_double(double a, double b)
+{
+	return fabs(a - b) < TRIGGER_EPSILON ? SUCCEED : FAIL;
+}
+
 static int	__get_function_parameter_uint31(zbx_uint64_t hostid, const char *parameters, int Nparam,
 		int *value, int *flag, int defaults_on_empty, int def_value, int def_flag)
 {
@@ -37,7 +42,7 @@ static int	__get_function_parameter_uint31(zbx_uint64_t hostid, const char *para
 	if (NULL == (parameter = get_param_dyn(parameters, Nparam)))
 		goto out;
 
-	if (SUCCEED == substitute_simple_macros(NULL, NULL, NULL, NULL, &hostid, NULL, NULL, NULL,
+	if (SUCCEED == substitute_simple_macros(NULL, NULL, NULL, NULL, &hostid, NULL, NULL,
 			&parameter, MACRO_TYPE_COMMON, NULL, 0))
 	{
 		if (1 == defaults_on_empty && '\0' == *parameter)
@@ -93,7 +98,7 @@ static int	get_function_parameter_uint64(zbx_uint64_t hostid, const char *parame
 	if (NULL == (parameter = get_param_dyn(parameters, Nparam)))
 		goto out;
 
-	if (SUCCEED == substitute_simple_macros(NULL, NULL, NULL, NULL, &hostid, NULL, NULL, NULL,
+	if (SUCCEED == substitute_simple_macros(NULL, NULL, NULL, NULL, &hostid, NULL, NULL,
 			&parameter, MACRO_TYPE_COMMON, NULL, 0))
 	{
 		if (SUCCEED == is_uint64(parameter, value))
@@ -123,7 +128,7 @@ static int	get_function_parameter_str(zbx_uint64_t hostid, const char *parameter
 	if (NULL == (*value = get_param_dyn(parameters, Nparam)))
 		goto out;
 
-	ret = substitute_simple_macros(NULL, NULL, NULL, NULL, &hostid, NULL, NULL, NULL,
+	ret = substitute_simple_macros(NULL, NULL, NULL, NULL, &hostid, NULL, NULL,
 			value, MACRO_TYPE_COMMON, NULL, 0);
 
 	if (SUCCEED == ret)
@@ -368,33 +373,33 @@ static int	evaluate_COUNT_one(unsigned char value_type, int op, history_value_t 
 			switch (op)
 			{
 				case OP_EQ:
-					if (value->dbl > arg2_double - ZBX_DOUBLE_EPSILON &&
-							value->dbl < arg2_double + ZBX_DOUBLE_EPSILON)
+					if (value->dbl > arg2_double - TRIGGER_EPSILON &&
+							value->dbl < arg2_double + TRIGGER_EPSILON)
 					{
 						return SUCCEED;
 					}
 					break;
 				case OP_NE:
-					if (!(value->dbl > arg2_double - ZBX_DOUBLE_EPSILON &&
-							value->dbl < arg2_double + ZBX_DOUBLE_EPSILON))
+					if (!(value->dbl > arg2_double - TRIGGER_EPSILON &&
+							value->dbl < arg2_double + TRIGGER_EPSILON))
 					{
 						return SUCCEED;
 					}
 					break;
 				case OP_GT:
-					if (value->dbl >= arg2_double + ZBX_DOUBLE_EPSILON)
+					if (value->dbl >= arg2_double + TRIGGER_EPSILON)
 						return SUCCEED;
 					break;
 				case OP_GE:
-					if (value->dbl > arg2_double - ZBX_DOUBLE_EPSILON)
+					if (value->dbl > arg2_double - TRIGGER_EPSILON)
 						return SUCCEED;
 					break;
 				case OP_LT:
-					if (value->dbl <= arg2_double - ZBX_DOUBLE_EPSILON)
+					if (value->dbl <= arg2_double - TRIGGER_EPSILON)
 						return SUCCEED;
 					break;
 				case OP_LE:
-					if (value->dbl < arg2_double + ZBX_DOUBLE_EPSILON)
+					if (value->dbl < arg2_double + TRIGGER_EPSILON)
 						return SUCCEED;
 					break;
 			}
@@ -1107,7 +1112,7 @@ out:
  *               FAIL - failed to evaluate function                           *
  *                                                                            *
  ******************************************************************************/
-static int	evaluate_NODATA(char *value, DC_ITEM *item, const char *function, const char *parameters, char **error)
+static int	evaluate_NODATA(char *value, DC_ITEM *item, const char *function, const char *parameters)
 {
 	const char			*__function_name = "evaluate_NODATA";
 	int				arg1, flag, now, ret = FAIL;
@@ -1118,18 +1123,10 @@ static int	evaluate_NODATA(char *value, DC_ITEM *item, const char *function, con
 	zbx_history_record_vector_create(&values);
 
 	if (1 < num_param(parameters))
-	{
-		if (NULL != error)
-			*error = zbx_strdup(*error, "too many parameters");
 		goto out;
-	}
 
 	if (SUCCEED != get_function_parameter_uint31(item->host.hostid, parameters, 1, &arg1, &flag))
-	{
-		if (NULL != error)
-			*error = zbx_strdup(*error, "invalid first parameter");
 		goto out;
-	}
 
 	if (ZBX_FLAG_SEC != flag)
 		goto out;
@@ -1145,25 +1142,8 @@ static int	evaluate_NODATA(char *value, DC_ITEM *item, const char *function, con
 	{
 		int	seconds;
 
-		if (SUCCEED != DCget_data_expected_from(item->itemid, &seconds))
-		{
-			if (NULL != error)
-			{
-				*error = zbx_strdup(*error, "item does not exist, is disabled"
-						" or belongs to a disabled host");
-			}
+		if (SUCCEED != DCget_data_expected_from(item->itemid, &seconds) || seconds + arg1 > now)
 			goto out;
-		}
-
-		if (seconds + arg1 > now)
-		{
-			if (NULL != error)
-			{
-				*error = zbx_strdup(*error, "item does not have enough data"
-						" after server start or item creation");
-			}
-			goto out;
-		}
 
 		zbx_strlcpy(value, "1", MAX_BUFFER_LEN);
 	}
@@ -1348,10 +1328,11 @@ static int	evaluate_DIFF(char *value, DC_ITEM *item, const char *function, const
 	switch (item->value_type)
 	{
 		case ITEM_VALUE_TYPE_FLOAT:
-			if (SUCCEED == zbx_double_compare(values.values[0].value.dbl, values.values[1].value.dbl))
+			if (SUCCEED == cmp_double(values.values[0].value.dbl, values.values[1].value.dbl))
 				zbx_strlcpy(value, "0", MAX_BUFFER_LEN);
 			else
 				zbx_strlcpy(value, "1", MAX_BUFFER_LEN);
+			break;
 			break;
 		case ITEM_VALUE_TYPE_UINT64:
 			if (values.values[0].value.ui64 == values.values[1].value.ui64)
@@ -1365,6 +1346,7 @@ static int	evaluate_DIFF(char *value, DC_ITEM *item, const char *function, const
 			else
 				zbx_strlcpy(value, "1", MAX_BUFFER_LEN);
 			break;
+
 		case ITEM_VALUE_TYPE_STR:
 		case ITEM_VALUE_TYPE_TEXT:
 			if (0 == strcmp(values.values[0].value.str, values.values[1].value.str))
@@ -1704,8 +1686,7 @@ clean:
  *               FAIL - evaluation failed                                     *
  *                                                                            *
  ******************************************************************************/
-int	evaluate_function(char *value, DC_ITEM *item, const char *function, const char *parameter, time_t now,
-		char **error)
+int	evaluate_function(char *value, DC_ITEM *item, const char *function, const char *parameter, time_t now)
 {
 	const char	*__function_name = "evaluate_function";
 
@@ -1751,7 +1732,7 @@ int	evaluate_function(char *value, DC_ITEM *item, const char *function, const ch
 	}
 	else if (0 == strcmp(function, "nodata"))
 	{
-		ret = evaluate_NODATA(value, item, function, parameter, error);
+		ret = evaluate_NODATA(value, item, function, parameter);
 	}
 	else if (0 == strcmp(function, "date"))
 	{
@@ -1824,7 +1805,7 @@ int	evaluate_function(char *value, DC_ITEM *item, const char *function, const ch
 	}
 	else
 	{
-		*error = zbx_strdup(*error, "function is not supported");
+		zabbix_log(LOG_LEVEL_WARNING, "unsupported function:%s", function);
 		ret = FAIL;
 	}
 
@@ -2029,7 +2010,7 @@ static void	add_value_suffix_normal(char *value, size_t max_len, const char *uni
 		value_double /= base * base * base * base;
 	}
 
-	if (SUCCEED != zbx_double_compare((int)(value_double + 0.5), value_double))
+	if (SUCCEED != cmp_double((int)(value_double + 0.5), value_double))
 	{
 		zbx_snprintf(tmp, sizeof(tmp), ZBX_FS_DBL_EXT(2), value_double);
 		del_zeroes(tmp);
@@ -2203,7 +2184,6 @@ int	evaluate_macro_function(char *value, const char *host, const char *key, cons
 
 	zbx_host_key_t	host_key = {host, key};
 	DC_ITEM		item;
-	char		*error = NULL;
 	int		ret = FAIL, errcode;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() function:'%s:%s.%s(%s)'", __function_name, host, key, function, parameter);
@@ -2218,7 +2198,7 @@ int	evaluate_macro_function(char *value, const char *host, const char *key, cons
 		goto out;
 	}
 
-	if (SUCCEED == (ret = evaluate_function(value, &item, function, parameter, time(NULL), &error)))
+	if (SUCCEED == (ret = evaluate_function(value, &item, function, parameter, time(NULL))))
 	{
 		if (SUCCEED == str_in_list("last,prev", function, ','))
 		{
@@ -2237,8 +2217,6 @@ int	evaluate_macro_function(char *value, const char *host, const char *key, cons
 			}
 		}
 	}
-
-	zbx_free(error);
 out:
 	DCconfig_clean_items(&item, &errcode, 1);
 

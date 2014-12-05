@@ -59,7 +59,7 @@ class testInheritanceGraph extends CWebTest {
 		$oldHashGraphs = DBhash($sqlGraphs);
 
 		$this->zbxTestLogin('graphs.php?form=update&graphid='.$data['graphid']);
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestCheckTitle('Configuration of graphs');
 		$this->zbxTestTextPresent('Graph updated');
 
@@ -99,7 +99,7 @@ class testInheritanceGraph extends CWebTest {
 			$this->selectWindow();
 		}
 
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 
 		switch ($data['expected']) {
 			case TEST_GOOD:

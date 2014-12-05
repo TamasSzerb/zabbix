@@ -19,17 +19,241 @@
 **/
 
 
+class CProfile {
+
+	private static $userDetails = array();
+	private static $profiles = null;
+	private static $update = array();
+	private static $insert = array();
+	private static $stringProfileMaxLength;
+
+	public static function init() {
+		self::$userDetails = CWebUser::$data;
+		self::$profiles = array();
+
+		$profilesTableSchema = DB::getSchema('profiles');
+		self::$stringProfileMaxLength = $profilesTableSchema['fields']['value_str']['length'];
+
+		$db_profiles = DBselect(
+			'SELECT p.*'.
+			' FROM profiles p'.
+			' WHERE p.userid='.self::$userDetails['userid'].
+				andDbNode('p.profileid', false).
+			' ORDER BY p.userid,p.profileid'
+		);
+		while ($profile = DBfetch($db_profiles)) {
+			$value_type = self::getFieldByType($profile['type']);
+
+			if (!isset(self::$profiles[$profile['idx']])) {
+				self::$profiles[$profile['idx']] = array();
+			}
+			self::$profiles[$profile['idx']][$profile['idx2']] = $profile[$value_type];
+		}
+	}
+
+	public static function flush() {
+		// if not initialised, no changes were made
+		if (is_null(self::$profiles)) {
+			return true;
+		}
+
+		if (self::$userDetails['userid'] <= 0) {
+			return null;
+		}
+
+		if (!empty(self::$insert) || !empty(self::$update)) {
+			DBstart();
+			foreach (self::$insert as $idx => $profile) {
+				foreach ($profile as $idx2 => $data) {
+					self::insertDB($idx, $data['value'], $data['type'], $idx2);
+				}
+			}
+
+			ksort(self::$update);
+			foreach (self::$update as $idx => $profile) {
+				ksort($profile);
+				foreach ($profile as $idx2 => $data) {
+					self::updateDB($idx, $data['value'], $data['type'], $idx2);
+				}
+			}
+			DBend();
+		}
+	}
+
+	public static function clear() {
+		self::$insert = array();
+		self::$update = array();
+	}
+
+	public static function get($idx, $default_value = null, $idx2 = 0) {
+		// no user data available, just return the default value
+		if (!CWebUser::$data) {
+			return $default_value;
+		}
+
+		if (is_null(self::$profiles)) {
+			self::init();
+		}
+
+		if (isset(self::$profiles[$idx][$idx2])) {
+			return self::$profiles[$idx][$idx2];
+		}
+		else {
+			return $default_value;
+		}
+	}
+
+	/**
+	 * Removes profile values from DB and profiles cache
+	 *
+	 * @param string $idx	first identifier
+	 * @param mixed  $idx2	second identifier, which can be list of identifiers as well
+	 */
+	public static function delete($idx, $idx2) {
+		if (!is_array($idx2)) {
+			$idx2 = array($idx2);
+		}
+
+		// remove from DB
+		DBexecute('DELETE FROM profiles WHERE idx='.zbx_dbstr($idx).' AND '.dbConditionString('idx2', $idx2));
+
+		// remove from cache
+		if (!is_null(self::$profiles)) {
+			foreach ($idx2 as $v) {
+				unset(self::$profiles[$idx][$v]);
+			}
+		}
+	}
+
+	/**
+	 * Update favorite values in DB profiles table.
+	 *
+	 * @param string	$idx		max length is 96
+	 * @param mixed		$value		max length 255 for string
+	 * @param int		$type
+	 * @param int		$idx2
+	 */
+	public static function update($idx, $value, $type, $idx2 = 0) {
+		if (is_null(self::$profiles)) {
+			self::init();
+		}
+
+		if (!self::checkValueType($value, $type)) {
+			return false;
+		}
+
+		$profile = array(
+			'idx' => $idx,
+			'value' => $value,
+			'type' => $type,
+			'idx2' => $idx2
+		);
+
+		$current = CProfile::get($idx, null, $idx2);
+		if (is_null($current)) {
+			if (!isset(self::$insert[$idx])) {
+				self::$insert[$idx] = array();
+			}
+			self::$insert[$idx][$idx2] = $profile;
+		}
+		else {
+			if ($current != $value) {
+				if (!isset(self::$update[$idx])) {
+					self::$update[$idx] = array();
+				}
+				self::$update[$idx][$idx2] = $profile;
+			}
+		}
+
+		if (!isset(self::$profiles[$idx])) {
+			self::$profiles[$idx] = array();
+		}
+		self::$profiles[$idx][$idx2] = $value;
+	}
+
+	private static function insertDB($idx, $value, $type, $idx2) {
+		$value_type = self::getFieldByType($type);
+
+		$values = array(
+			'profileid' => get_dbid('profiles', 'profileid'),
+			'userid' => self::$userDetails['userid'],
+			'idx' => zbx_dbstr($idx),
+			$value_type => zbx_dbstr($value),
+			'type' => $type,
+			'idx2' => $idx2
+		);
+		return DBexecute('INSERT INTO profiles ('.implode(', ', array_keys($values)).') VALUES ('.implode(', ', $values).')');
+	}
+
+	private static function updateDB($idx, $value, $type, $idx2) {
+		$sql_cond = '';
+
+		if ($idx != 'web.nodes.switch_node') {
+			$sql_cond .= andDbNode('profileid', false);
+		}
+
+		if ($idx2 > 0) {
+			$sql_cond .= ' AND idx2='.$idx2.andDbNode('idx2', false);
+		}
+
+		$value_type = self::getFieldByType($type);
+
+		return DBexecute(
+			'UPDATE profiles SET '.
+				$value_type.'='.zbx_dbstr($value).','.
+				' type='.$type.
+			' WHERE userid='.self::$userDetails['userid'].
+				' AND idx='.zbx_dbstr($idx).
+				$sql_cond
+		);
+	}
+
+	public static function getFieldByType($type) {
+		switch ($type) {
+			case PROFILE_TYPE_INT:
+				$field = 'value_int';
+				break;
+			case PROFILE_TYPE_STR:
+				$field = 'value_str';
+				break;
+			case PROFILE_TYPE_ID:
+			default:
+				$field = 'value_id';
+		}
+		return $field;
+	}
+
+	private static function checkValueType($value, $type) {
+		switch ($type) {
+			case PROFILE_TYPE_ID:
+				return zbx_ctype_digit($value);
+			case PROFILE_TYPE_INT:
+				return zbx_is_int($value);
+			case PROFILE_TYPE_STR:
+				return zbx_strlen($value) <= self::$stringProfileMaxLength;
+			default:
+				return true;
+		}
+	}
+}
+
 /************ CONFIG **************/
-function select_config($cache = true) {
-	global $page;
+function select_config($cache = true, $nodeid = null) {
+	global $page, $ZBX_LOCALNODEID;
 	static $config;
 
 	if ($cache && isset($config)) {
 		return $config;
 	}
+	if (is_null($nodeid)) {
+		$nodeid = $ZBX_LOCALNODEID;
+	}
 
-	$db_config = DBfetch(DBselect('SELECT c.* FROM config c'));
-
+	$db_config = DBfetch(DBselect(
+			'SELECT c.*'.
+			' FROM config c'.
+			whereDbNode('c.configid', $nodeid)
+	));
 	if (!empty($db_config)) {
 		$config = $db_config;
 		return $db_config;
@@ -37,7 +261,6 @@ function select_config($cache = true) {
 	elseif (isset($page['title']) && $page['title'] != _('Installation')) {
 		error(_('Unable to select configuration.'));
 	}
-
 	return $db_config;
 }
 
@@ -143,7 +366,11 @@ function update_config($configs) {
 		return null;
 	}
 
-	return DBexecute('UPDATE config SET '.implode(',', $update));
+	return DBexecute(
+			'UPDATE config'.
+			' SET '.implode(',', $update).
+			whereDbNode('configid', false)
+	);
 }
 
 /************ HISTORY **************/
@@ -175,28 +402,20 @@ function get_user_history() {
 	return $result;
 }
 
-/**
- * Check if url length is greater than DB field size. If size is OK, return URL string.
- *
- * @param string $page['hist_arg']
- * @param string $page['file']
- *
- * @return string
- */
-function getHistoryUrl($page) {
+function add_user_history($page) {
+	$userid = CWebUser::$data['userid'];
+	$title = $page['title'];
+
 	if (isset($page['hist_arg']) && is_array($page['hist_arg'])) {
 		$url = '';
-
 		foreach ($page['hist_arg'] as $arg) {
 			if (isset($_REQUEST[$arg])) {
 				$url .= url_param($arg, true);
 			}
 		}
-
-		if ($url) {
+		if (!empty($url)) {
 			$url[0] = '?';
 		}
-
 		$url = $page['file'].$url;
 	}
 	else {
@@ -205,28 +424,34 @@ function getHistoryUrl($page) {
 
 	// if url length is greater than db field size, skip history update
 	$historyTableSchema = DB::getSchema('user_history');
-
-	// $url is encoded
-	return (strlen($url) > $historyTableSchema['fields']['url5']['length']) ? '' : $url;
-}
-
-function addUserHistory($title, $url) {
-	$userId = CWebUser::$data['userid'];
+	if (zbx_strlen($url) > $historyTableSchema['fields']['url5']['length']) {
+		return false;
+	}
 
 	$history5 = DBfetch(DBSelect(
 		'SELECT uh.title5,uh.url5'.
 		' FROM user_history uh'.
-		' WHERE uh.userid='.$userId
+		' WHERE uh.userid='.$userid
 	));
 
-	if ($history5) {
-		if ($history5['title5'] === $title) {
-			if ($history5['url5'] === $url) {
-				return true;
-			}
-			else {
-				$sql = 'UPDATE user_history SET url5='.zbx_dbstr($url).' WHERE userid='.$userId;
-			}
+	if ($history5 && ($history5['title5'] == $title)) {
+		if ($history5['url5'] != $url) {
+			// title same, url isnt, change only url
+			$sql = 'UPDATE user_history'.
+					' SET url5='.zbx_dbstr($url).
+					' WHERE userid='.$userid;
+		}
+		else {
+			// no need to change anything;
+			return null;
+		}
+	}
+	else {
+		// new page with new title is added
+		if ($history5 === false) {
+			$userhistoryid = get_dbid('user_history', 'userhistoryid');
+			$sql = 'INSERT INTO user_history (userhistoryid, userid, title5, url5)'.
+					' VALUES('.$userhistoryid.', '.$userid.', '.zbx_dbstr($title).', '.zbx_dbstr($url).')';
 		}
 		else {
 			$sql = 'UPDATE user_history'.
@@ -240,15 +465,8 @@ function addUserHistory($title, $url) {
 						' url4=url5,'.
 						' title5='.zbx_dbstr($title).','.
 						' url5='.zbx_dbstr($url).
-					' WHERE userid='.$userId;
+					' WHERE userid='.$userid;
 		}
 	}
-	else {
-		$userHistoryId = get_dbid('user_history', 'userhistoryid');
-
-		$sql = 'INSERT INTO user_history (userhistoryid, userid, title5, url5)'.
-				' VALUES('.$userHistoryId.', '.$userId.', '.zbx_dbstr($title).', '.zbx_dbstr($url).')';
-	}
-
 	return DBexecute($sql);
 }

@@ -42,20 +42,21 @@ $userGroupsForm->setName('userGroupsForm');
 $userGroupTable = new CTableInfo(_('No user groups found.'));
 $userGroupTable->setHeader(array(
 	new CCheckBox('all_groups', null, "checkAll('".$userGroupsForm->getName()."','all_groups','group_groupid');"),
-	make_sorting_header(_('Name'), 'name', $this->data['sort'], $this->data['sortorder']),
+	$this->data['displayNodes'] ? _('Node') : null,
+	make_sorting_header(_('Name'), 'name'),
 	'#',
 	_('Members'),
+	_('Status'),
 	_('Frontend access'),
-	_('Debug mode'),
-	_('Status')
+	_('Debug mode')
 ));
 
 foreach ($this->data['usergroups'] as $usrgrp) {
 	$userGroupId = $usrgrp['usrgrpid'];
 
 	$debugMode = ($usrgrp['debug_mode'] == GROUP_DEBUG_MODE_ENABLED)
-		? new CLink(_('Enabled'), 'usergrps.php?action=usergroup.massdisabledebug&usrgrpid='.$userGroupId, 'orange')
-		: new CLink(_('Disabled'), 'usergrps.php?action=usergroup.massenabledebug&usrgrpid='.$userGroupId, 'enabled');
+		? new CLink(_('Enabled'), 'usergrps.php?go=disable_debug&usrgrpid='.$userGroupId, 'orange')
+		: new CLink(_('Disabled'), 'usergrps.php?go=enable_debug&usrgrpid='.$userGroupId, 'enabled');
 
 	// gui access
 	$guiAccess = user_auth_type2str($usrgrp['gui_access']);
@@ -74,13 +75,13 @@ foreach ($this->data['usergroups'] as $usrgrp) {
 
 		$guiAccess = new CLink(
 			$guiAccess,
-			'usergrps.php?action=usergroup.set_gui_access&set_gui_access='.$nextGuiAuth.'&usrgrpid='.$userGroupId,
+			'usergrps.php?go=set_gui_access&set_gui_access='.$nextGuiAuth.'&usrgrpid='.$userGroupId,
 			$guiAccessStyle
 		);
 
 		$usersStatus = ($usrgrp['users_status'] == GROUP_STATUS_ENABLED)
-			? new CLink(_('Enabled'), 'usergrps.php?action=usergroup.massdisable&usrgrpid='.$userGroupId, 'enabled')
-			: new CLink(_('Disabled'), 'usergrps.php?action=usergroup.massenable&usrgrpid='.$userGroupId, 'disabled');
+			? new CLink(_('Enabled'), 'usergrps.php?go=disable_status&usrgrpid='.$userGroupId, 'enabled')
+			: new CLink(_('Disabled'), 'usergrps.php?go=enable_status&usrgrpid='.$userGroupId, 'disabled');
 	}
 	else {
 		$guiAccess = new CSpan($guiAccess, $guiAccessStyle);
@@ -92,60 +93,64 @@ foreach ($this->data['usergroups'] as $usrgrp) {
 		order_result($userGroupUsers, 'alias');
 
 		$users = array();
-		$i = 0;
-
 		foreach ($userGroupUsers as $user) {
-			$i++;
-
-			if ($i > $this->data['config']['max_in_table']) {
-				$users[] = ' &hellip;';
-
-				break;
+			$userTypeStyle = 'enabled';
+			if ($user['type'] == USER_TYPE_ZABBIX_ADMIN) {
+				$userTypeStyle = 'orange';
+			}
+			if ($user['type'] == USER_TYPE_SUPER_ADMIN) {
+				$userTypeStyle = 'disabled';
 			}
 
-			if ($users) {
-				$users[] = ', ';
+			$userStatusStyle = 'enabled';
+			if ($user['gui_access'] == GROUP_GUI_ACCESS_DISABLED) {
+				$userStatusStyle = 'disabled';
+			}
+			if ($user['users_status'] == GROUP_STATUS_DISABLED) {
+				$userStatusStyle = 'disabled';
 			}
 
 			$users[] = new CLink(getUserFullname($user),
 				'users.php?form=update&userid='.$user['userid'],
-				($user['gui_access'] == GROUP_GUI_ACCESS_DISABLED || $user['users_status'] == GROUP_STATUS_DISABLED)
-					? 'disabled' : 'enabled'
+				$userStatusStyle
 			);
+			$users[] = ', ';
 		}
+		array_pop($users);
 	}
 
 	$userGroupTable->addRow(array(
 		new CCheckBox('group_groupid['.$userGroupId.']', null, null, $userGroupId),
+		$this->data['displayNodes'] ? $usrgrp['nodename'] : null,
 		new CLink($usrgrp['name'], 'usergrps.php?form=update&usrgrpid='.$userGroupId),
 		array(new CLink(_('Users'), 'users.php?filter_usrgrpid='.$userGroupId), ' (', count($usrgrp['users']), ')'),
 		new CCol($users, 'wraptext'),
+		$usersStatus,
 		$guiAccess,
-		$debugMode,
-		$usersStatus
+		$debugMode
 	));
 }
 
 // append GO buttons
-$goComboBox = new CComboBox('action');
+$goComboBox = new CComboBox('go');
 
-$goOption = new CComboItem('usergroup.massenable', _('Enable selected'));
+$goOption = new CComboItem('enable_status', _('Enable selected'));
 $goOption->setAttribute('confirm', _('Enable selected groups?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('usergroup.massdisable', _('Disable selected'));
+$goOption = new CComboItem('disable_status', _('Disable selected'));
 $goOption->setAttribute('confirm', _('Disable selected groups?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('usergroup.massenabledebug', _('Enable debug mode'));
+$goOption = new CComboItem('enable_debug', _('Enable DEBUG'));
 $goOption->setAttribute('confirm', _('Enable debug mode in selected groups?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('usergroup.massdisabledebug', _('Disable debug mode'));
+$goOption = new CComboItem('disable_debug', _('Disable DEBUG'));
 $goOption->setAttribute('confirm', _('Disable debug mode in selected groups?'));
 $goComboBox->addItem($goOption);
 
-$goOption = new CComboItem('usergroup.massdelete', _('Delete selected'));
+$goOption = new CComboItem('delete', _('Delete selected'));
 $goOption->setAttribute('confirm', _('Delete selected groups?'));
 $goComboBox->addItem($goOption);
 

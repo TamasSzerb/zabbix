@@ -133,16 +133,16 @@ static int	check_ssh(const char *host, unsigned short port, int timeout, int *va
 {
 	int		ret;
 	zbx_sock_t	s;
-	char		send_buf[MAX_STRING_LEN];
+	char		send_buf[MAX_STRING_LEN], *recv_buf;
 	int		remote_major, remote_minor;
 
 	*value_int = 0;
 
 	if (SUCCEED == (ret = zbx_tcp_connect(&s, CONFIG_SOURCE_IP, host, port, timeout)))
 	{
-		if (SUCCEED == (ret = zbx_tcp_recv(&s)))
+		if (SUCCEED == (ret = zbx_tcp_recv(&s, &recv_buf)))
 		{
-			if (SUCCEED == find_ssh_ident_string(s.buffer, &remote_major, &remote_minor))
+			if (SUCCEED == find_ssh_ident_string(recv_buf, &remote_major, &remote_minor))
 			{
 				zbx_snprintf(send_buf, sizeof(send_buf), "SSH-%d.%d-zabbix_agent\r\n",
 						remote_major, remote_minor);
@@ -241,47 +241,6 @@ static int	check_telnet(const char *host, unsigned short port, int timeout, int 
 	return SYSINFO_RET_OK;
 }
 
-/* validation functions for service checks */
-static int	validate_smtp(const char *line)
-{
-	if (0 == strncmp(line, "220", 3))
-	{
-		if ('-' == line[3])
-			return ZBX_TCP_EXPECT_IGNORE;
-
-		if ('\0' == line[3] || ' ' == line[3])
-			return ZBX_TCP_EXPECT_OK;
-	}
-
-	return ZBX_TCP_EXPECT_FAIL;
-}
-
-static int	validate_ftp(const char *line)
-{
-	if (0 == strncmp(line, "220 ", 4))
-		return ZBX_TCP_EXPECT_OK;
-
-	return ZBX_TCP_EXPECT_IGNORE;
-}
-
-static int	validate_pop(const char *line)
-{
-	return 0 == strncmp(line, "+OK", 3) ? ZBX_TCP_EXPECT_OK : ZBX_TCP_EXPECT_FAIL;
-}
-
-static int	validate_nntp(const char *line)
-{
-	if (0 == strncmp(line, "200", 3) || 0 == strncmp(line, "201", 3))
-		return ZBX_TCP_EXPECT_OK;
-
-	return ZBX_TCP_EXPECT_FAIL;
-}
-
-static int	validate_imap(const char *line)
-{
-	return 0 == strncmp(line, "* OK", 4) ? ZBX_TCP_EXPECT_OK : ZBX_TCP_EXPECT_FAIL;
-}
-
 int	check_service(AGENT_REQUEST *request, const char *default_addr, AGENT_RESULT *result, int perf)
 {
 	unsigned short	port = 0;
@@ -292,20 +251,14 @@ int	check_service(AGENT_REQUEST *request, const char *default_addr, AGENT_RESULT
 	check_time = zbx_time();
 
 	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
+		return ret;
 
 	service = get_rparam(request, 0);
 	ip_str = get_rparam(request, 1);
 	port_str = get_rparam(request, 2);
 
 	if (NULL == service || '\0' == *service)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
-	}
+		return ret;
 
 	if (NULL == ip_str || '\0' == *ip_str)
 		strscpy(ip, default_addr);
@@ -314,8 +267,8 @@ int	check_service(AGENT_REQUEST *request, const char *default_addr, AGENT_RESULT
 
 	if (NULL != port_str && SUCCEED != is_ushort(port_str, &port))
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
-		return SYSINFO_RET_FAIL;
+		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Invalid \"port\" parameter"));
+		return ret;
 	}
 
 	if (0 == strcmp(service, "ssh"))
@@ -342,13 +295,13 @@ int	check_service(AGENT_REQUEST *request, const char *default_addr, AGENT_RESULT
 	{
 		if (NULL == port_str || '\0' == *port_str)
 			port = ZBX_DEFAULT_SMTP_PORT;
-		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, validate_smtp, "QUIT\r\n", &value_int);
+		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, "220", "QUIT\r\n", &value_int);
 	}
 	else if (0 == strcmp(service, "ftp"))
 	{
 		if (NULL == port_str || '\0' == *port_str)
 			port = ZBX_DEFAULT_FTP_PORT;
-		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, validate_ftp, "QUIT\r\n", &value_int);
+		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, "220", "QUIT\n", &value_int);
 	}
 	else if (0 == strcmp(service, "http"))
 	{
@@ -360,26 +313,26 @@ int	check_service(AGENT_REQUEST *request, const char *default_addr, AGENT_RESULT
 	{
 		if (NULL == port_str || '\0' == *port_str)
 			port = ZBX_DEFAULT_POP_PORT;
-		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, validate_pop, "QUIT\r\n", &value_int);
+		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, "+OK", "QUIT\n", &value_int);
 	}
 	else if (0 == strcmp(service, "nntp"))
 	{
 		if (NULL == port_str || '\0' == *port_str)
 			port = ZBX_DEFAULT_NNTP_PORT;
-		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, validate_nntp, "QUIT\r\n", &value_int);
+		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, "200", "QUIT\n", &value_int);
 	}
 	else if (0 == strcmp(service, "imap"))
 	{
 		if (NULL == port_str || '\0' == *port_str)
 			port = ZBX_DEFAULT_IMAP_PORT;
-		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, validate_imap, "a1 LOGOUT\r\n", &value_int);
+		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, "* OK", "a1 LOGOUT\n", &value_int);
 	}
 	else if (0 == strcmp(service, "tcp"))
 	{
 		if (NULL == port_str || '\0' == *port_str)
 		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
-			return SYSINFO_RET_FAIL;
+			SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Required \"port\" parameter missing"));
+			return ret;
 		}
 		ret = tcp_expect(ip, port, CONFIG_TIMEOUT, NULL, NULL, NULL, &value_int);
 	}

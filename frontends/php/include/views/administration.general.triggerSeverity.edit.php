@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 include('include/views/js/administration.general.triggerSeverity.js.php');
 
 $severityTab = new CFormList('scriptsTab');
@@ -71,10 +71,9 @@ $severityView->addTab('severities', _('Trigger severities'), $severityTab);
 
 $severityForm = new CForm();
 $severityForm->setName('triggerSeverity');
+$severityForm->addVar('form_refresh', $this->data['form_refresh'] + 1);
 $severityForm->addItem($severityView);
-$severityForm->addItem(makeFormFooter(
-	new CSubmit('update', _('Update')),
-	array(new CButton('resetDefaults', _('Reset defaults')))
-));
+$severityForm->addItem(makeFormFooter(new CSubmit('save', _('Save')), new CButton('resetDefaults', _('Reset defaults'))));
 
 return $severityForm;
+?>

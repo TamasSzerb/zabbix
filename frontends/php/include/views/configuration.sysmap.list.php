@@ -40,15 +40,17 @@ $sysmapWidget->addHeaderRowNumber();
 $sysmapTable = new CTableInfo(_('No maps found.'));
 $sysmapTable->setHeader(array(
 	new CCheckBox('all_maps', null, "checkAll('".$sysmapForm->getName()."', 'all_maps', 'maps');"),
-	make_sorting_header(_('Name'), 'name', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Width'), 'width', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Height'), 'height', $this->data['sort'], $this->data['sortorder']),
+	$this->data['displayNodes'] ? _('Node') : null,
+	make_sorting_header(_('Name'), 'name'),
+	make_sorting_header(_('Width'), 'width'),
+	make_sorting_header(_('Height'), 'height'),
 	_('Edit')
 ));
 
 foreach ($this->data['maps'] as $map) {
 	$sysmapTable->addRow(array(
 		new CCheckBox('maps['.$map['sysmapid'].']', null, null, $map['sysmapid']),
+		$this->data['displayNodes'] ? $map['nodename'] : null,
 		new CLink($map['name'], 'sysmap.php?sysmapid='.$map['sysmapid']),
 		$map['width'],
 		$map['height'],
@@ -57,14 +59,11 @@ foreach ($this->data['maps'] as $map) {
 }
 
 // create go button
-$goComboBox = new CComboBox('action');
-
-$goComboBox->addItem('map.export', _('Export selected'));
-
-$goOption = new CComboItem('map.massdelete', _('Delete selected'));
+$goComboBox = new CComboBox('go');
+$goComboBox->addItem('export', _('Export selected'));
+$goOption = new CComboItem('delete', _('Delete selected'));
 $goOption->setAttribute('confirm', _('Delete selected maps?'));
 $goComboBox->addItem($goOption);
-
 $goButton = new CSubmit('goButton', _('Go').' (0)');
 $goButton->setAttribute('id', 'goButton');
 zbx_add_post_js('chkbxRange.pageGoName = "maps";');

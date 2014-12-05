@@ -35,10 +35,11 @@ $scriptsForm->setAttribute('id', 'scripts');
 $scriptsTable = new CTableInfo(_('No scripts found.'));
 $scriptsTable->setHeader(array(
 	new CCheckBox('all_scripts', null, "checkAll('".$scriptsForm->getName()."', 'all_scripts', 'scripts');"),
-	make_sorting_header(_('Name'), 'name', $this->data['sort'], $this->data['sortorder']),
+	$this->data['displayNodes'] ? _('Node') : null,
+	make_sorting_header(_('Name'), 'name'),
 	_('Type'),
 	_('Execute on'),
-	make_sorting_header(_('Commands'), 'command', $this->data['sort'], $this->data['sortorder']),
+	make_sorting_header(_('Commands'), 'command'),
 	_('User group'),
 	_('Host group'),
 	_('Host access')
@@ -73,6 +74,7 @@ foreach ($this->data['scripts'] as $script) {
 
 	$scriptsTable->addRow(array(
 		new CCheckBox('scripts['.$script['scriptid'].']', 'no', null, $script['scriptid']),
+		$this->data['displayNodes'] ? $script['nodename'] : null,
 		new CLink($script['name'], 'scripts.php?form=1&scriptid='.$script['scriptid']),
 		$scriptType,
 		$scriptExecuteOn,
@@ -84,9 +86,8 @@ foreach ($this->data['scripts'] as $script) {
 }
 
 // create go buttons
-$goComboBox = new CComboBox('action');
-
-$goOption = new CComboItem('script.massdelete', _('Delete selected'));
+$goComboBox = new CComboBox('go');
+$goOption = new CComboItem('delete', _('Delete selected'));
 $goOption->setAttribute('confirm', _('Delete selected scripts?'));
 $goComboBox->addItem($goOption);
 

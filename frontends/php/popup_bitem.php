@@ -23,7 +23,7 @@ require_once dirname(__FILE__).'/include/config.inc.php';
 require_once dirname(__FILE__).'/include/triggers.inc.php';
 require_once dirname(__FILE__).'/include/js.inc.php';
 
-$dstfrm = getRequest('dstfrm', 0);
+$dstfrm = get_request('dstfrm', 0);
 
 $page['title'] = _('Graph item');
 $page['file'] = 'popup_bitem.php';
@@ -36,106 +36,96 @@ require_once dirname(__FILE__).'/include/page_header.php';
 $fields = array(
 	'dstfrm' =>			array(T_ZBX_STR, O_MAND, P_SYS,	NOT_EMPTY,			null),
 	'config' =>			array(T_ZBX_INT, O_OPT,	 P_SYS,	IN('0,1,2,3'),		null),
-	'gid' =>			array(T_ZBX_INT, O_OPT,	 P_SYS,	DB_ID.'({} != 0)',	null),
-	'list_name' =>		array(T_ZBX_STR, O_OPT,	 P_SYS,	NOT_EMPTY,			'(isset({add}) || isset({update})) && isset({gid})'),
+	'gid' =>			array(T_ZBX_INT, O_OPT,	 P_SYS,	BETWEEN(0,65535),	null),
+	'list_name' =>		array(T_ZBX_STR, O_OPT,	 P_SYS,	NOT_EMPTY,			'isset({save})&&isset({gid})'),
 	'caption' =>		array(T_ZBX_STR, O_OPT,	 null,	null,				null),
-	'itemid' =>			array(T_ZBX_INT, O_OPT,	 P_SYS, DB_ID.'({} != 0)', 'isset({add}) || isset({update})', _('Parameter')),
-	'color' =>			array(T_ZBX_CLR, O_OPT,	 null,	null, 'isset({add}) || isset({update})', _('Colour')),
-	'calc_fnc' =>		array(T_ZBX_INT, O_OPT,	 null,	IN('0,1,2,4,7,9'),	'isset({add}) || isset({update})'),
+	'itemid' =>			array(T_ZBX_INT, O_OPT,	 P_SYS, DB_ID.'({}!=0)', 'isset({save})', _('Parameter')),
+	'color' =>			array(T_ZBX_CLR, O_OPT,	 null,	null, 'isset({save})', _('Colour')),
+	'calc_fnc' =>		array(T_ZBX_INT, O_OPT,	 null,	IN('0,1,2,4,7,9'),	'isset({save})'),
 	'axisside' =>		array(T_ZBX_INT, O_OPT,	 null,	IN(GRAPH_YAXIS_SIDE_LEFT.','.GRAPH_YAXIS_SIDE_RIGHT), null),
 	// actions
 	'add' =>			array(T_ZBX_STR, O_OPT,	 P_SYS|P_ACT,	null,	null),
-	'update' =>			array(T_ZBX_STR, O_OPT,	 P_SYS|P_ACT,	null,	null),
+	'save' =>			array(T_ZBX_STR, O_OPT,	 P_SYS|P_ACT,	null,	null),
 	// other
 	'form' =>			array(T_ZBX_STR, O_OPT,	 P_SYS,	null,	null),
-	'form_refresh' =>	array(T_ZBX_INT, O_OPT,	 null,	null,	null),
+	'form_refresh' =>	array(T_ZBX_STR, O_OPT,	 null,	null,	null),
 	'host' =>			array(T_ZBX_STR, O_OPT,	 null,	null,	null),
-	'name' =>			array(T_ZBX_STR, O_OPT,	 null,	null,	null),
-	'name_expanded' =>	array(T_ZBX_STR, O_OPT,	 null,	null,	null)
+	'name' =>			array(T_ZBX_STR, O_OPT,	 null,	null,	null)
 );
 check_fields($fields);
 
-$caption = getRequest('caption', '');
-$autoCaption = '';
-$_REQUEST['axisside'] = getRequest('axisside',	GRAPH_YAXIS_SIDE_LEFT);
+$_REQUEST['caption'] = get_request('caption', '');
+$_REQUEST['axisside'] = get_request('axisside',	GRAPH_YAXIS_SIDE_LEFT);
 
-if (getRequest('itemid') > 0) {
-	$items = CMacrosResolverHelper::resolveItemNames(array(get_item_by_itemid(getRequest('itemid'))));
+if (zbx_empty($_REQUEST['caption']) && isset($_REQUEST['itemid']) && $_REQUEST['itemid'] > 0) {
+	$items = CMacrosResolverHelper::resolveItemNames(array(get_item_by_itemid($_REQUEST['itemid'])));
 	$item = reset($items);
 
-	$autoCaption = $item['name_expanded'];
-
-	if (!hasRequest('caption') || getRequest('caption') === $item['name']) {
-		$caption = $item['name_expanded'];
-	}
+	$_REQUEST['caption'] = $item['name_expanded'];
 }
 
 insert_js_function('add_bitem');
 insert_js_function('update_bitem');
 
-if (hasRequest('add') && !hasRequest('gid')) {
+if (isset($_REQUEST['save']) && !isset($_REQUEST['gid'])) {
 	insert_js("add_bitem(".
-		zbx_jsvalue(getRequest('dstfrm')).",".
-		zbx_jsvalue($caption).",'".
-		getRequest('itemid')."','".
-		getRequest('color')."',".
-		getRequest('calc_fnc').",".
-		getRequest('axisside').");\n"
+		zbx_jsvalue($_REQUEST['dstfrm']).",".
+		zbx_jsvalue($_REQUEST['caption']).",'".
+		$_REQUEST['itemid']."','".
+		$_REQUEST['color']."',".
+		$_REQUEST['calc_fnc'].",".
+		$_REQUEST['axisside'].");\n"
 	);
 }
 
-if (hasRequest('update') && hasRequest('gid')) {
+if (isset($_REQUEST['save']) && isset($_REQUEST['gid'])) {
 	insert_js("update_bitem(".
-		zbx_jsvalue(getRequest('dstfrm')).",".
-		zbx_jsvalue(getRequest('list_name')).",'".
-		getRequest('gid')."',".
-		zbx_jsvalue($caption).",'".
-		getRequest('itemid')."','".
-		getRequest('color')."',".
-		getRequest('calc_fnc').",".
-		getRequest('axisside').");\n"
+		zbx_jsvalue($_REQUEST['dstfrm']).",".
+		zbx_jsvalue($_REQUEST['list_name']).",'".
+		$_REQUEST['gid']."',".
+		zbx_jsvalue($_REQUEST['caption']).",'".
+		$_REQUEST['itemid']."','".
+		$_REQUEST['color']."',".
+		$_REQUEST['calc_fnc'].",".
+		$_REQUEST['axisside'].");\n"
 	);
 }
 else {
-	echo BR();
+	echo SBR;
 
 	$frmGItem = new CFormTable(_('New item for the graph'));
 	$frmGItem->setName('graph_item');
-	$frmGItem->addHelpIcon();
+	$frmGItem->setHelp('web.graph.item.php');
 
 	$frmGItem->addVar('dstfrm', $_REQUEST['dstfrm']);
 
-	$config	= getRequest('config', 1);
-	$gid = getRequest('gid');
-	$list_name = getRequest('list_name');
-	$itemid = getRequest('itemid', 0);
-	$color = getRequest('color', '009900');
-	$calc_fnc = getRequest('calc_fnc', 2);
-	$axisside = getRequest('axisside', GRAPH_YAXIS_SIDE_LEFT);
+	$config	= get_request('config', 1);
+	$gid = get_request('gid', null);
+	$list_name = get_request('list_name', null);
+	$caption = get_request('caption', '');
+	$itemid = get_request('itemid', 0);
+	$color = get_request('color', '009900');
+	$calc_fnc = get_request('calc_fnc', 2);
+	$axisside = get_request('axisside', GRAPH_YAXIS_SIDE_LEFT);
 
 	$frmGItem->addVar('gid', $gid);
 	$frmGItem->addVar('config', $config);
 	$frmGItem->addVar('list_name', $list_name);
 	$frmGItem->addVar('itemid', $itemid);
-	$frmGItem->addRow(
-		array(
-			new CVisibilityBox('caption_visible', hasRequest('caption') && $caption != $autoCaption, 'caption',
-				_('Default')
-			),
-			_('Caption')
-		),
-		new CTextBox('caption', $caption, 50)
+
+	$frmGItem->addRow(array(new CVisibilityBox('caption_visible', !zbx_empty($caption), 'caption', _('Default')),
+		_('Caption')), new CTextBox('caption', $caption, 50)
 	);
 
-	$host = getRequest('host');
-	$itemName = getRequest('name_expanded');
+	$host = get_request('host');
+	$itemName = get_request('name');
 	if ($host && $itemName) {
 		$caption = $host['name'].NAME_DELIMITER.$itemName;
 	}
 
-	$txtCondVal = new CTextBox('name', $caption, 50, true);
+	$txtCondVal = new CTextBox('name', $caption, 50, 'yes');
 
-	$btnSelect = new CButton('btn1', _('Select'),
+	$btnSelect = new CSubmit('btn1', _('Select'),
 		'return PopUp("popup.php?'.
 			'dstfrm='.$frmGItem->GetName().
 			'&dstfld1=itemid'.
@@ -145,7 +135,7 @@ else {
 			'&srcfld2=name'.
 			'&monitored_hosts=1'.
 			'&numeric=1");',
-		'button-plain'
+		'T'
 	);
 
 	$frmGItem->addRow(_('Parameter'), array($txtCondVal, $btnSelect));
@@ -173,11 +163,7 @@ else {
 		$frmGItem->addVar('color', $color);
 	}
 
-	if (isset($gid)) {
-		$frmGItem->addItemToBottomRow(new CSubmit('update', _('Update')));
-	} else {
-		$frmGItem->addItemToBottomRow(new CSubmit('add', _('Add')));
-	}
+	$frmGItem->addItemToBottomRow(new CSubmit('save', isset($gid) ? _('Save') : _('Add')));
 
 	$frmGItem->addItemToBottomRow(new CButtonCancel(null, 'close_window();'));
 	$frmGItem->Show();

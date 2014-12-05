@@ -104,7 +104,7 @@
 				<td>
 					<input readonly="readonly" size="50" id="elementNameTrigger" name="elementName" class="input">
 					<input type="hidden" id="elementExpressionTrigger" name="elementExpressionTrigger">
-					<span class="link" onclick="PopUp('popup.php?writeonly=1&dstfrm=selementForm&dstfld1=elementid&dstfld2=elementNameTrigger&dstfld3=elementExpressionTrigger&srctbl=triggers&srcfld1=triggerid&srcfld2=description&srcfld3=expression&with_triggers=1&real_hosts=1&noempty=1',450,450)"><?php echo _('Select'); ?></span>
+					<span class="link" onclick="PopUp('popup.php?writeonly=1&dstfrm=selementForm&dstfld1=elementid&dstfld2=elementNameTrigger&dstfld3=elementExpressionTrigger&srctbl=triggers&srcfld1=triggerid&srcfld2=description&srcfld3=expression&with_triggers=1',450,450)"><?php echo _('Select'); ?></span>
 				</td>
 			</tr>
 			<tr id="mapSelectRow">
@@ -112,12 +112,6 @@
 				<td>
 					<input readonly="readonly" size="50" id="elementNameMap" name="elementName" class="input">
 					<span class="link" onclick='PopUp("popup.php?srctbl=sysmaps&srcfld1=sysmapid&srcfld2=name&dstfrm=selementForm&dstfld1=elementid&dstfld2=elementNameMap&writeonly=1&excludeids[]=#{sysmapid}", 450, 450)'><?php echo _('Select'); ?></span>
-				</td>
-			</tr>
-			<tr id="application-select-row">
-				<td><?php echo _('Application'); ?></td>
-				<td>
-					<input size="50" id="application" name="application" class="input text"><button id="application-select" type="button" class="button link_menu"><?php echo _('Select'); ?></button>
 				</td>
 			</tr>
 
@@ -188,9 +182,7 @@
 							<tbody id="urlContainer"></tbody>
 							<tfoot>
 							<tr>
-								<td colspan="3">
-									<button type="button" id="newSelementUrl" class="button link_menu"><?php echo _('Add'); ?></button>
-								</td>
+								<td colspan="3"><span id="newSelementUrl" class="link_menu"><?php echo _('Add'); ?></span></td>
 							</tr>
 							</tfoot>
 						</table>
@@ -199,9 +191,9 @@
 			</tr>
 			<tr class="footer">
 				<td colspan="2" class="form_row_last">
-					<button id="elementApply" class="button element-edit-control jqueryinput" type="button"><?php echo _('Apply') ?></button>
-					<button id="elementRemove" class="button element-edit-control jqueryinput" type="button"><?php echo _('Remove') ?></button>
-					<button id="elementClose" class="button jqueryinput" type="button"><?php echo _('Close') ?></button>
+					<input id="elementApply" class="element-edit-control jqueryinput" type="button" name="apply" value="<?php echo CHtml::encode(_('Apply')); ?>">
+					<input id="elementRemove" class="element-edit-control jqueryinput" type="button" name="remove" value="<?php echo CHtml::encode(_('Remove')); ?>">
+					<input id="elementClose" class="jqueryinput" type="button" name="close" value=<?php echo CHtml::encode(_('Close')); ?>>
 				</td>
 			</tr>
 			</tbody>
@@ -300,9 +292,9 @@
 			</tr>
 			<tr class="footer">
 				<td colspan="2" class="form_row_last">
-					<button id="massApply" class="element-edit-control jqueryinput" type="button"><?php echo _('Apply') ?></button>
-					<button id="massRemove" class="element-edit-control jqueryinput" type="button"><?php echo _('Remove') ?></button>
-					<button id="massClose" class="jqueryinput" type="button"><?php echo _('Close') ?></button>
+					<input id="massApply" class="element-edit-control jqueryinput" type="button" name="apply" value="<?php echo CHtml::encode(_('Apply')); ?>">
+					<input id="massRemove" class="element-edit-control jqueryinput" type="button" name="remove" value="<?php echo CHtml::encode(_('Remove')); ?>">
+					<input id="massClose" class="jqueryinput" type="button" name="close" value=<?php echo CHtml::encode(_('Close')); ?>>
 				</td>
 			</tr>
 			</tbody>
@@ -403,7 +395,7 @@
 							<tfoot>
 							<tr>
 								<td colspan="4">
-									<button type="button" class="button link_menu" onclick="PopUp('popup.php?srctbl=triggers&srcfld1=triggerid&real_hosts=1&reference=linktrigger&multiselect=1&writeonly=1&with_triggers=1&noempty=1');"><?php echo _('Add'); ?></button>
+									<span class="link_menu" onclick="PopUp('popup.php?srctbl=triggers&srcfld1=triggerid&real_hosts=1&reference=linktrigger&multiselect=1&writeonly=1&with_triggers=1');"><?php echo _('Add'); ?></span>
 								</td>
 							</tr>
 							</tfoot>
@@ -413,9 +405,9 @@
 			</tr>
 			<tr class="footer">
 				<td colspan="2" class="form_row_last">
-					<button id="formLinkApply" type="button"><?php echo _('Apply') ?></button>
-					<button id="formLinkRemove" type="button"><?php echo _('Remove') ?></button>
-					<button id="formLinkClose" type="button"><?php echo _('Close') ?></button>
+					<input id="formLinkApply" type="button" value="<?php echo CHtml::encode(_('Apply')); ?>">
+					<input id="formLinkRemove" type="button" value="<?php echo CHtml::encode(_('Remove')); ?>">
+					<input id="formLinkClose" type="button" value="<?php echo CHtml::encode(_('Close')); ?>">
 				</td>
 			</tr>
 			</tbody>
@@ -425,9 +417,7 @@
 
 <script type="text/x-jquery-tmpl" id="elementLinkTableRowTpl">
 	<tr>
-		<td>
-			<button type="button" class="button link_menu openlink" data-linkid="#{linkid}"><?php echo _('Edit'); ?></button>
-		</td>
+		<td><span class="link_menu openlink" data-linkid="#{linkid}"><?php echo _('Edit'); ?></span></td>
 		<td>#{toElementName}</td>
 		<td class="pre">#{linktriggers}</td>
 	</tr>
@@ -435,9 +425,7 @@
 
 <script type="text/x-jquery-tmpl" id="massElementLinkTableRowTpl">
 	<tr>
-		<td>
-			<button type="button" class="button link_menu openlink" data-linkid="#{linkid}"><?php echo _('Edit'); ?></button>
-		</td>
+		<td><span class="link_menu openlink" data-linkid="#{linkid}"><?php echo _('Edit'); ?></span></td>
 		<td>#{fromElementName}</td>
 		<td>#{toElementName}</td>
 		<td class="pre">#{linktriggers}</td>
@@ -463,7 +451,7 @@
 			<div id="lbl_linktrigger_#{linktriggerid}_color" class="pointer colorpickerLabel">&nbsp;&nbsp;&nbsp;</div>
 		</td>
 		<td>
-			<button type="button" class="button link_menu triggerRemove" data-linktriggerid="#{linktriggerid}"><?php echo _('Remove'); ?></button>
+			<span class="link_menu triggerRemove" data-linktriggerid="#{linktriggerid}""><?php echo _('Remove'); ?></span>
 		</td>
 	</tr>
 </script>
@@ -472,9 +460,7 @@
 	<tr id="urlrow_#{selementurlid}" class="even_row">
 		<td><input class="input" name="url_#{selementurlid}_name" type="text" size="16" value="#{name}"></td>
 		<td><input class="input" name="url_#{selementurlid}_url" type="text" size="32" value="#{url}"></td>
-		<td>
-			<button type="button" class="button link_menu" onclick="jQuery('#urlrow_#{selementurlid}').remove();"><?php echo _('Remove'); ?></button>
-		</td>
+		<td><span class="link_menu" onclick="jQuery('#urlrow_#{selementurlid}').remove();"><?php echo _('Remove'); ?></span></td>
 	</tr>
 </script>
 
@@ -493,16 +479,4 @@ jQuery(document).ready(function() {
 		return false;
 	});
 })
-
-/**
- * @see init.js add.popup event
- */
-function addPopupValues(data) {
-	if (data.object === 'name') {
-		jQuery('#application').val(data.values[0].name);
-	}
-	else if (data.object === 'linktrigger') {
-		ZABBIX.apps.map.object.linkForm.addNewTriggers(data.values);
-	}
-}
 </script>

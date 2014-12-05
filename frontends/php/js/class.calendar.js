@@ -170,15 +170,14 @@ calendar.prototype = {
 				var val = null;
 				var result = false;
 
-				if (this.timeobjects[0].tagName.toLowerCase() === 'input') {
+				if (this.timeobjects[0].tagName.toLowerCase() == 'input') {
 					val = this.timeobjects[0].value;
 				}
 				else {
 					val = (IE) ? this.timeobjects[0].innerText : this.timeobjects[0].textContent;
 				}
 
-				// allow unix timestamp 0 (year 1970)
-				if (jQuery(this.timeobjects[0]).attr('data-timestamp') >= 0) {
+				if (jQuery(this.timeobjects[0]).attr('data-timestamp') > 0) {
 					this.setNow(jQuery(this.timeobjects[0]).attr('data-timestamp'));
 				}
 				else {
@@ -204,7 +203,7 @@ calendar.prototype = {
 					}
 				}
 
-				if (!result) {
+				if(!result) {
 					return false;
 				}
 				break;
@@ -279,7 +278,7 @@ calendar.prototype = {
 			result = true;
 		}
 		else if (d > 28 && result) {
-			if (d <= daysInMonth(this.sdt.getFullYear(), this.sdt.getMonth())) {
+			if (d <= this.daysInMonth(this.sdt.getMonth(), this.sdt.getFullYear())) {
 				this.sdt.setDate(d);
 				result = true;
 			}
@@ -293,37 +292,81 @@ calendar.prototype = {
 	setDateToOuterObj: function() {
 		switch (this.timeobjects.length) {
 			case 1:
-				// uses default format
-				var date = this.sdt.format();
-
-				if (this.timeobjects[0].tagName.toLowerCase() === 'input') {
-					this.timeobjects[0].value = date;
+				var timestring = this.sdt.getDate() + '.' + (this.sdt.getMonth() + 1) + '.' + this.sdt.getFullYear() + ' ' + this.sdt.getHours() + ':' + this.sdt.getMinutes();
+				if (this.timeobjects[0].tagName.toLowerCase() == 'input') {
+					this.timeobjects[0].value = timestring;
 				}
 				else {
 					if (IE) {
-						this.timeobjects[0].innerText =  date;
+						this.timeobjects[0].innerText =  timestring;
 					}
 					else {
-						this.timeobjects[0].textContent = date;
+						this.timeobjects[0].textContent = timestring;
 					}
 				}
 				break;
-
 			case 3:
 			case 5:
-				// custom date format for input fields
-				var date = this.sdt.format('d m Y H i').split(' ');
+				// day
+				if (this.timeobjects[0].tagName.toLowerCase() == 'input') {
+					this.timeobjects[0].value = this.sdt.getDate();
+				}
+				else {
+					if (IE) {
+						this.timeobjects[0].innerText = this.sdt.getDate();
+					}
+					else {
+						this.timeobjects[0].textContent = this.sdt.getDate();
+					}
+				}
+				// month
+				if (this.timeobjects[1].tagName.toLowerCase() == 'input') {
+					this.timeobjects[1].value = this.sdt.getMonth() + 1;
+				}
+				else {
+					if(IE) {
+						this.timeobjects[1].innerText = this.sdt.getMonth() + 1;
+					}
+					else {
+						this.timeobjects[1].textContent = this.sdt.getMonth() + 1;
+					}
+				}
+				// year
+				if (this.timeobjects[2].tagName.toLowerCase() == 'input') {
+					this.timeobjects[2].value = this.sdt.getFullYear();
+				}
+				else {
+					if (IE) {
+						this.timeobjects[2].innerText = this.sdt.getFullYear();
+					}
+					else {
+						this.timeobjects[2].textContent = this.sdt.getFullYear();
+					}
+				}
 
-				for (var i = 0; i < this.timeobjects.length; i++) {
-					if (this.timeobjects[i].tagName.toLowerCase() === 'input') {
-						this.timeobjects[i].value = date[i];
+				if (this.timeobjects.length > 4) {
+					// hour
+					if (this.timeobjects[3].tagName.toLowerCase() == 'input') {
+						this.timeobjects[3].value = this.sdt.getHours();
 					}
 					else {
 						if (IE) {
-							this.timeobjects[i].innerText = date[i];
+							this.timeobjects[3].innerText = this.sdt.getHours();
 						}
 						else {
-							this.timeobjects[i].textContent = date[i];
+							this.timeobjects[3].textContent = this.sdt.getHours();
+						}
+					}
+					// minute
+					if (this.timeobjects[4].tagName.toLowerCase() == 'input') {
+						this.timeobjects[4].value = this.sdt.getMinutes();
+					}
+					else {
+						if (IE) {
+							this.timeobjects[4].innerText = this.sdt.getMinutes();
+						}
+						else {
+							this.timeobjects[4].textContent = this.sdt.getMinutes();
 						}
 					}
 				}
@@ -396,16 +439,9 @@ calendar.prototype = {
 
 	monthup: function() {
 		this.month++;
-
 		if (this.month > 11) {
-			// prevent months from running in loop in year 2038
-			if (this.year < 2038) {
-				this.month = 0;
-				this.yearup();
-			}
-			else {
-				this.month = 11;
-			}
+			this.month = 0;
+			this.yearup();
 		}
 		else {
 			this.syncCDT();
@@ -415,16 +451,9 @@ calendar.prototype = {
 
 	monthdown: function() {
 		this.month--;
-
 		if (this.month < 0) {
-			// prevent months from running in loop in year 1970
-			if (this.year > 1970) {
-				this.month = 11;
-				this.yeardown();
-			}
-			else {
-				this.month = 0;
-			}
+			this.month = 11;
+			this.yeardown();
 		}
 		else {
 			this.syncCDT();
@@ -484,9 +513,7 @@ calendar.prototype = {
 
 	setCDate: function() {
 		this.clndr_minute.value = this.minute;
-		this.clndr_minute.onchange();
 		this.clndr_hour.value = this.hour;
-		this.clndr_hour.onchange();
 		if (IE) {
 			this.clndr_month.innerHTML = this.monthname[this.month].toString();
 			this.clndr_year.innerHTML = this.year;
@@ -496,6 +523,24 @@ calendar.prototype = {
 			this.clndr_year.textContent = this.year;
 		}
 		this.createDaysTab();
+	},
+
+	daysInFeb: function(year) {
+		// February has 29 days in any year evenly divisible by four,
+		// EXCEPT for centurial years which are not also divisible by 400.
+		return (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? 29 : 28;
+	},
+
+	daysInMonth: function(m, y) {
+		m++;
+		var days = 31;
+		if (m == 4 || m == 6 || m == 9 || m == 11) {
+			days = 30;
+		}
+		else if (m == 2) {
+			days = this.daysInFeb(y);
+		}
+		return days;
 	},
 
 	createDaysTab: function() {
@@ -711,7 +756,6 @@ calendar.prototype = {
 		this.clndr_hour.setAttribute('name', 'hour');
 		this.clndr_hour.setAttribute('value', 'hh');
 		this.clndr_hour.setAttribute('maxlength', '2');
-		this.clndr_hour.onchange = function() { validateDatePartBox(this, 0, 23, 2); };
 		this.clndr_hour.className = 'calendar_textbox';
 
 		// minutes
@@ -720,7 +764,6 @@ calendar.prototype = {
 		this.clndr_minute.setAttribute('name', 'minute');
 		this.clndr_minute.setAttribute('value', 'mm');
 		this.clndr_minute.setAttribute('maxlength', '2');
-		this.clndr_minute.onchange = function() { validateDatePartBox(this, 0, 59, 2); };
 		this.clndr_minute.className = 'calendar_textbox';
 
 		// column 1

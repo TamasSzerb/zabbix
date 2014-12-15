@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -22,34 +22,18 @@
 #include "perfmon.h"
 #include "sysinfo.h"
 
-int	SYSTEM_UPTIME(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_UPTIME(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		counter_path[64];
-	AGENT_REQUEST	request_tmp;
-	int		ret;
+	char	counter_path[64];
 
 	zbx_snprintf(counter_path, sizeof(counter_path), "\\%d\\%d", PCI_SYSTEM, PCI_SYSTEM_UP_TIME);
 
-	request_tmp.nparam = 1;
-	request_tmp.params = zbx_malloc(NULL, request_tmp.nparam * sizeof(char *));
-	request_tmp.params[0] = counter_path;
-
-	ret = PERF_COUNTER(&request_tmp, result);
-
-	zbx_free(request_tmp.params);
-
-	if (SYSINFO_RET_FAIL == ret)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain system information."));
+	if (SYSINFO_RET_FAIL == PERF_COUNTER(cmd, counter_path, flags, result))
 		return SYSINFO_RET_FAIL;
-	}
 
 	/* result must be integer to correctly interpret it in frontend (uptime) */
 	if (!GET_UI64_RESULT(result))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid result. Unsigned integer is expected."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	UNSET_RESULT_EXCLUDING(result, AR_UINT64);
 

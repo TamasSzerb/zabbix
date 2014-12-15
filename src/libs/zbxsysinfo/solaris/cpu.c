@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,362 +9,253 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
 #include "stats.h"
-#include "log.h"
-#include "zbxalgo.h"
-#include "zbxjson.h"
 
-int	SYSTEM_CPU_DISCOVERY(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_CPU_NUM(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	int			i;
-	zbx_vector_uint64_t	cpus;
-	struct zbx_json		json;
-
-	zbx_vector_uint64_create(&cpus);
-
-	if (SUCCEED != get_cpu_statuses(&cpus))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Collector is not started."));
-		zbx_vector_uint64_destroy(&cpus);
-		return SYSINFO_RET_FAIL;
-	}
-
-	zbx_json_init(&json, ZBX_JSON_STAT_BUF_LEN);
-	zbx_json_addarray(&json, ZBX_PROTO_TAG_DATA);
-
-	for (i = 0; i < cpus.values_num; i++)
-	{
-		zbx_json_addobject(&json, NULL);
-
-		zbx_json_adduint64(&json, "{#CPU.NUMBER}", i);
-		zbx_json_addstring(&json, "{#CPU.STATUS}", (SYSINFO_RET_OK == cpus.values[i] ?
-				"online" : "offline"), ZBX_JSON_TYPE_STRING);
-
-		zbx_json_close(&json);
-	}
-
-	zbx_json_close(&json);
-	SET_STR_RESULT(result, zbx_strdup(result->str, json.buffer));
-
-	zbx_json_free(&json);
-	zbx_vector_uint64_destroy(&cpus);
-
-	return SYSINFO_RET_OK;
-}
-
-int	SYSTEM_CPU_NUM(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	char	*tmp;
+	char	mode[8];
 	int	name;
 	long	ncpu;
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (1 < num_param(param))
 		return SYSINFO_RET_FAIL;
-	}
 
-	tmp = get_rparam(request, 0);
+	if (0 != get_param(param, 1, mode, sizeof(mode)))
+		*mode = '\0';
 
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "online"))
+	if ('\0' == *mode || 0 == strcmp(mode, "online"))	/* default parameter */
 		name = _SC_NPROCESSORS_ONLN;
-	else if (0 == strcmp(tmp, "max"))
+	else if (0 == strcmp(mode, "max"))
 		name = _SC_NPROCESSORS_CONF;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	if (-1 == (ncpu = sysconf(name)))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain number of CPUs."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	SET_UI64_RESULT(result, ncpu);
 
 	return SYSINFO_RET_OK;
 }
 
-int	SYSTEM_CPU_UTIL(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_CPU_UTIL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*tmp;
-	int	cpu_num, state, mode;
+	char	tmp[16];
+	int	cpu_num, mode, state;
 
-	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (num_param(param) > 3)
 		return SYSINFO_RET_FAIL;
-	}
 
-	tmp = get_rparam(request, 0);
+	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
+		*tmp = '\0';
 
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "all"))
+	if ('\0' == *tmp || 0 == strcmp(tmp, "all"))	/* default parameter */
 		cpu_num = 0;
-	else if (SUCCEED != is_uint31_1(tmp, &cpu_num))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	else if (1 > (cpu_num = atoi(tmp) + 1))
 		return SYSINFO_RET_FAIL;
-	}
-	else
-		cpu_num++;
 
-	tmp = get_rparam(request, 1);
+	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
+		*tmp = '\0';
 
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "user"))
+	if ('\0' == *tmp || 0 == strcmp(tmp, "user"))	/* default parameter */
 		state = ZBX_CPU_STATE_USER;
-	else if (0 == strcmp(tmp, "iowait"))
+	else if (0 == strcmp(tmp, "wait"))
 		state = ZBX_CPU_STATE_IOWAIT;
-	else if (0 == strcmp(tmp, "system"))
+	else if (0 == strcmp(tmp, "kernel"))
 		state = ZBX_CPU_STATE_SYSTEM;
 	else if (0 == strcmp(tmp, "idle"))
 		state = ZBX_CPU_STATE_IDLE;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
-	tmp = get_rparam(request, 2);
+	if (0 != get_param(param, 3, tmp, sizeof(tmp)))
+		*tmp = '\0';
 
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "avg1"))
+	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
 		mode = ZBX_AVG1;
 	else if (0 == strcmp(tmp, "avg5"))
 		mode = ZBX_AVG5;
 	else if (0 == strcmp(tmp, "avg15"))
 		mode = ZBX_AVG15;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	return get_cpustat(result, cpu_num, state, mode);
 }
 
 #ifdef HAVE_KSTAT_H
-static int	get_kstat_system_misc(char *key, int *value, char **error)
+static int	get_kstat_system_misc(char *s, int *value)
 {
 	kstat_ctl_t	*kc;
-	kstat_t		*ksp;
+	kstat_t		*kp;
 	kstat_named_t	*kn = NULL;
-	int		ret = FAIL;
+	int		n, i;
 
 	if (NULL == (kc = kstat_open()))
+		return FAIL;
+
+	if (NULL == (kp = kstat_lookup(kc, "unix", 0, "system_misc")))
 	{
-		*error = zbx_dsprintf(NULL, "Cannot open kernel statistics facility: %s", zbx_strerror(errno));
-		return ret;
+		kstat_close(kc);
+		return FAIL;
 	}
 
-	if (NULL == (ksp = kstat_lookup(kc, "unix", 0, "system_misc")))
+	if (-1 == kstat_read(kc, kp, NULL))
 	{
-		*error = zbx_dsprintf(NULL, "Cannot look up in kernel statistics facility: %s", zbx_strerror(errno));
-		goto close;
+		kstat_close(kc);
+		return FAIL;
 	}
 
-	if (-1 == kstat_read(kc, ksp, NULL))
+	if (NULL == (kn = (kstat_named_t*)kstat_data_lookup(kp, s)))
 	{
-		*error = zbx_dsprintf(NULL, "Cannot read from kernel statistics facility: %s", zbx_strerror(errno));
-		goto close;
+		kstat_close(kc);
+		return FAIL;
 	}
 
-	if (NULL == (kn = (kstat_named_t *)kstat_data_lookup(ksp, key)))
-	{
-		*error = zbx_dsprintf(NULL, "Cannot look up data in kernel statistics facility: %s",
-				zbx_strerror(errno));
-		goto close;
-	}
+	kstat_close(kc);
 
 	*value = get_kstat_numeric_value(kn);
 
-	ret = SUCCEED;
-close:
-	kstat_close(kc);
-
-	return ret;
+	return SUCCEED;
 }
 #endif
 
-int	SYSTEM_CPU_LOAD(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_CPU_LOAD(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*tmp;
-	double	value;
-	int	per_cpu = 1, cpu_num;
 #if defined(HAVE_GETLOADAVG)
-	int	mode;
-	double	load[ZBX_AVG_COUNT];
+	double	load[3];
 #elif defined(HAVE_KSTAT_H)
-	char	*key, *error;
-	int	load;
+	char	*key;
+	int	value;
 #endif
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
+	char	tmp[MAX_STRING_LEN];
 
-	tmp = get_rparam(request, 0);
-
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "all"))
-		per_cpu = 0;
-	else if (0 != strcmp(tmp, "percpu"))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	if (num_param(param) > 2)
 		return SYSINFO_RET_FAIL;
-	}
+
+	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
+		return SYSINFO_RET_FAIL;
+
+	if ('\0' != *tmp && 0 != strcmp(tmp, "all"))	/* default parameter */
+		return SYSINFO_RET_FAIL;
+
+	if (0 != get_param(param, 2, tmp, sizeof(tmp)))
+		*tmp = '\0';
 
 #if defined(HAVE_GETLOADAVG)
-	tmp = get_rparam(request, 1);
+	if (-1 == getloadavg(load, 3))
+		return SYSINFO_RET_FAIL;
 
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "avg1"))
-		mode = ZBX_AVG1;
-	else if (0 == strcmp(tmp, "avg5"))
-		mode = ZBX_AVG5;
-	else if (0 == strcmp(tmp, "avg15"))
-		mode = ZBX_AVG15;
+	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
+	{
+		SET_DBL_RESULT(result, load[0]);
+	}
+	else if ('\0' == *tmp || 0 == strcmp(tmp, "avg5"))
+	{
+		SET_DBL_RESULT(result, load[1]);
+	}
+	else if ('\0' == *tmp || 0 == strcmp(tmp, "avg15"))
+	{
+		SET_DBL_RESULT(result, load[2]);
+	}
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
-
-	if (mode >= getloadavg(load, 3))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain load average: %s", zbx_strerror(errno)));
-		return SYSINFO_RET_FAIL;
-	}
-
-	value = load[mode];
 #elif defined(HAVE_KSTAT_H)
-	tmp = get_rparam(request, 1);
-
-	if (NULL == tmp || '\0' == *tmp || 0 == strcmp(tmp, "avg1"))
+	if ('\0' == *tmp || 0 == strcmp(tmp, "avg1"))	/* default parameter */
 		key = "avenrun_1min";
-	else if (0 == strcmp(tmp, "avg5"))
+	else if ('\0' == *tmp || 0 == strcmp(tmp, "avg5"))
 		key = "avenrun_5min";
-	else if (0 == strcmp(tmp, "avg15"))
+	else if ('\0' == *tmp || 0 == strcmp(tmp, "avg15"))
 		key = "avenrun_15min";
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (FAIL == get_kstat_system_misc(key, &load, &error))
-	{
-		SET_MSG_RESULT(result, error);
+	if (FAIL == get_kstat_system_misc(key, &value))
 		return SYSINFO_RET_FAIL;
-	}
 
-	value = (double)load / FSCALE;
+	SET_DBL_RESULT(result, (double)value/FSCALE);
 #else
-	SET_MSG_RESULT(result, zbx_strdup(NULL, "Agent was compiled without support for CPU load information."));
 	return SYSINFO_RET_FAIL;
 #endif
-	if (1 == per_cpu)
-	{
-		if (0 >= (cpu_num = sysconf(_SC_NPROCESSORS_ONLN)))
-		{
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain number of CPUs."));
-			return SYSINFO_RET_FAIL;
-		}
-		value /= cpu_num;
-	}
-
-	SET_DBL_RESULT(result, value);
-
 	return SYSINFO_RET_OK;
 }
 
-int	SYSTEM_CPU_SWITCHES(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_CPU_SWITCHES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	kstat_ctl_t	*kc;
 	kstat_t		*k;
 	cpu_stat_t	*cpu;
-	int		cpu_count = 0;
-	double		swt_count = 0.0;
 
-	if (NULL == (kc = kstat_open()))
+	int	cpu_count = 0;
+	double	swt_count = 0.0;
+
+	kc = kstat_open();
+
+	if(kc != NULL)
 	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot open kernel statistics facility: %s",
-				zbx_strerror(errno)));
-		return SYSINFO_RET_FAIL;
-	}
-
-	k = kc->kc_chain;
-
-	while (NULL != k)
-	{
-		if (0 == strncmp(k->ks_name, "cpu_stat", 8) && -1 != kstat_read(kc, k, NULL))
+		k = kc->kc_chain;
+		while (k != NULL)
 		{
-			cpu = (cpu_stat_t *)k->ks_data;
-			swt_count += (double)cpu->cpu_sysinfo.pswitch;
-			cpu_count += 1;
+			if( (strncmp(k->ks_name, "cpu_stat", 8) == 0) &&
+					(kstat_read(kc, k, NULL) != -1) )
+			{
+				cpu = (cpu_stat_t*) k->ks_data;
+				swt_count += (double) cpu->cpu_sysinfo.pswitch;
+				cpu_count += 1;
+			}
+			k = k->ks_next;
 		}
-
-		k = k->ks_next;
+		kstat_close(kc);
 	}
 
-	kstat_close(kc);
-
-	if (0 == cpu_count)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot find CPU information."));
+	if(cpu_count == 0)
 		return SYSINFO_RET_FAIL;
-	}
 
 	SET_UI64_RESULT(result, swt_count);
 
 	return SYSINFO_RET_OK;
 }
 
-int	SYSTEM_CPU_INTR(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_CPU_INTR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	kstat_ctl_t	*kc;
 	kstat_t		*k;
 	cpu_stat_t	*cpu;
-	int		cpu_count = 0;
-	double		intr_count = 0.0;
 
-	if (NULL == (kc = kstat_open()))
+	int	cpu_count = 0;
+	double	intr_count = 0.0;
+
+	kc = kstat_open();
+
+	if(kc != NULL)
 	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot open kernel statistics facility: %s",
-				zbx_strerror(errno)));
-		return SYSINFO_RET_FAIL;
-	}
-
-	k = kc->kc_chain;
-
-	while (NULL != k)
-	{
-		if (0 == strncmp(k->ks_name, "cpu_stat", 8) && -1 != kstat_read(kc, k, NULL))
+		k = kc->kc_chain;
+		while (k != NULL)
 		{
-			cpu = (cpu_stat_t *)k->ks_data;
-			intr_count += (double)cpu->cpu_sysinfo.intr;
-			cpu_count += 1;
+			if( (strncmp(k->ks_name, "cpu_stat", 8) == 0) &&
+					(kstat_read(kc, k, NULL) != -1) )
+			{
+				cpu = (cpu_stat_t*) k->ks_data;
+				intr_count += (double) cpu->cpu_sysinfo.intr;
+				cpu_count += 1;
+			}
+			k = k->ks_next;
 		}
-
-		k = k->ks_next;
+		kstat_close(kc);
 	}
 
-	kstat_close(kc);
-
-	if (0 == cpu_count)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot find CPU information."));
+	if(cpu_count == 0)
 		return SYSINFO_RET_FAIL;
-	}
 
 	SET_UI64_RESULT(result, intr_count);
 

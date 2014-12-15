@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -65,24 +65,6 @@ int	zbx_child_fork()
 
 	return pid;
 }
-
-#else
-int	zbx_win_exception_filter(unsigned int code, struct _EXCEPTION_POINTERS *ep);
-
-static ZBX_THREAD_ENTRY(zbx_win_thread_entry, args)
-{
-	__try
-	{
-		zbx_thread_args_t	*thread_args = (zbx_thread_args_t *)args;
-
-		return thread_args->entry(thread_args);
-	}
-	__except(zbx_win_exception_filter(GetExceptionCode(), GetExceptionInformation()))
-	{
-		zbx_thread_exit(EXIT_SUCCESS);
-	}
-}
-
 #endif
 
 /******************************************************************************
@@ -104,24 +86,26 @@ static ZBX_THREAD_ENTRY(zbx_win_thread_entry, args)
 ZBX_THREAD_HANDLE	zbx_thread_start(ZBX_THREAD_ENTRY_POINTER(handler), zbx_thread_args_t *thread_args)
 {
 	ZBX_THREAD_HANDLE	thread = ZBX_THREAD_HANDLE_NULL;
-#ifdef _WINDOWS
-	unsigned		thrdaddr;
 
-	thread_args->entry = handler;
+#ifdef _WINDOWS
+	unsigned	thrdaddr;
+
 	/* NOTE: _beginthreadex returns 0 on failure, rather than 1 */
-	if (0 == (thread = (ZBX_THREAD_HANDLE)_beginthreadex(NULL, 0, zbx_win_thread_entry, thread_args, 0, &thrdaddr)))
+	if (0 == (thread = (ZBX_THREAD_HANDLE)_beginthreadex(NULL, 0, handler, thread_args, 0, &thrdaddr)))
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "failed to create a thread: %s", strerror_from_system(GetLastError()));
+		zbx_error("failed to create a thread: %s", strerror_from_system(GetLastError()));
 		thread = (ZBX_THREAD_HANDLE)ZBX_THREAD_ERROR;
 	}
+
 #else
+
 	if (0 == (thread = zbx_child_fork()))	/* child process */
 	{
 		(*handler)(thread_args);
 
 		/* The zbx_thread_exit must be called from the handler. */
 		/* And in normal case the program will never reach this point. */
-		zbx_thread_exit(EXIT_SUCCESS);
+		zbx_thread_exit(0);
 		/* program will never reach this point */
 	}
 	else if (-1 == thread)
@@ -130,6 +114,7 @@ ZBX_THREAD_HANDLE	zbx_thread_start(ZBX_THREAD_ENTRY_POINTER(handler), zbx_thread
 		thread = (ZBX_THREAD_HANDLE)ZBX_THREAD_ERROR;
 	}
 #endif
+
 	return thread;
 }
 

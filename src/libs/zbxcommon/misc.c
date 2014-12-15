@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,52 +9,20 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "log.h"
-#include "setproctitle.h"
 
 #ifdef _WINDOWS
-
 char	ZABBIX_SERVICE_NAME[ZBX_SERVICE_NAME_LEN] = APPLICATION_NAME;
 char	ZABBIX_EVENT_SOURCE[ZBX_SERVICE_NAME_LEN] = APPLICATION_NAME;
-
-int	__zbx_stat(const char *path, zbx_stat_t *buf)
-{
-	int	ret, fd;
-	wchar_t	*wpath;
-
-	wpath = zbx_utf8_to_unicode(path);
-
-	if (-1 == (ret = _wstat64(wpath, buf)))
-		goto out;
-
-	if (0 != S_ISDIR(buf->st_mode) || 0 != buf->st_size)
-		goto out;
-
-	/* In the case of symlinks _wstat64 returns zero file size.   */
-	/* Try to work around it by opening the file and using fstat. */
-
-	ret = -1;
-
-	if (-1 != (fd = _wopen(wpath, O_RDONLY)))
-	{
-		ret = _fstat64(fd, buf);
-		_close(fd);
-	}
-out:
-	zbx_free(wpath);
-
-	return ret;
-}
-
 #endif
 
 /******************************************************************************
@@ -85,98 +53,18 @@ const char	*get_program_name(const char *path)
 
 /******************************************************************************
  *                                                                            *
- * Function: zbx_timespec                                                     *
+ * Function: get_nodeid_by_id                                                 *
  *                                                                            *
- * Purpose: Gets the current time.                                            *
+ * Purpose: Get Node ID by resource ID                                        *
  *                                                                            *
- * Author: Alexander Vladishev                                                *
+ * Return value: Node ID                                                      *
  *                                                                            *
- * Comments: Time in seconds since midnight (00:00:00),                       *
- *           January 1, 1970, coordinated universal time (UTC).               *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-void	zbx_timespec(zbx_timespec_t *ts)
+int	get_nodeid_by_id(zbx_uint64_t id)
 {
-	static zbx_timespec_t	*last_ts = NULL;
-	static int		corr = 0;
-#ifdef _WINDOWS
-	LARGE_INTEGER	tickPerSecond, tick;
-	static int	boottime = 0;
-	BOOL		rc = FALSE;
-#else
-	struct timeval	tv;
-	int		rc = -1;
-#	ifdef HAVE_TIME_CLOCK_GETTIME
-	struct timespec	tp;
-#	endif
-#endif
-
-	if (NULL == last_ts)
-		last_ts = zbx_calloc(last_ts, 1, sizeof(zbx_timespec_t));
-
-#ifdef _WINDOWS
-	if (TRUE == (rc = QueryPerformanceFrequency(&tickPerSecond)))
-	{
-		if (TRUE == (rc = QueryPerformanceCounter(&tick)))
-		{
-			ts->ns = (int)(1000000000 * (tick.QuadPart % tickPerSecond.QuadPart) / tickPerSecond.QuadPart);
-
-			tick.QuadPart = tick.QuadPart / tickPerSecond.QuadPart;
-
-			if (0 == boottime)
-				boottime = (int)(time(NULL) - tick.QuadPart);
-
-			ts->sec = (int)(tick.QuadPart + boottime);
-		}
-	}
-
-	if (TRUE != rc)
-	{
-		struct _timeb   tb;
-
-		_ftime(&tb);
-
-		ts->sec = (int)tb.time;
-		ts->ns = tb.millitm * 1000000;
-	}
-#else	/* not _WINDOWS */
-#ifdef HAVE_TIME_CLOCK_GETTIME
-	if (0 == (rc = clock_gettime(CLOCK_REALTIME, &tp)))
-	{
-		ts->sec = (int)tp.tv_sec;
-		ts->ns = (int)tp.tv_nsec;
-	}
-#endif	/* HAVE_TIME_CLOCK_GETTIME */
-
-	if (0 != rc && 0 == (rc = gettimeofday(&tv, NULL)))
-	{
-		ts->sec = (int)tv.tv_sec;
-		ts->ns = (int)tv.tv_usec * 1000;
-	}
-
-	if (0 != rc)
-	{
-		ts->sec = (int)time(NULL);
-		ts->ns = 0;
-	}
-#endif	/* not _WINDOWS */
-
-	if (last_ts->ns == ts->ns && last_ts->sec == ts->sec)
-	{
-		ts->ns += ++corr;
-
-		while (ts->ns >= 1000000000)
-		{
-			ts->sec++;
-			ts->ns -= 1000000000;
-		}
-	}
-	else
-	{
-		last_ts->sec = ts->sec;
-		last_ts->ns = ts->ns;
-		corr = 0;
-	}
+	return (int)(id / __UINT64_C(100000000000000)) % 1000;
 }
 
 /******************************************************************************
@@ -193,13 +81,21 @@ void	zbx_timespec(zbx_timespec_t *ts)
  *           January 1, 1970, coordinated universal time (UTC).               *
  *                                                                            *
  ******************************************************************************/
-double	zbx_time(void)
+double	zbx_time()
 {
-	zbx_timespec_t	ts;
+#if defined(_WINDOWS)
+	struct _timeb current;
 
-	zbx_timespec(&ts);
+	_ftime(&current);
 
-	return (double)ts.sec + 1.0e-9 * (double)ts.ns;
+	return (((double)current.time) + 1.0e-3 * ((double)current.millitm));
+#else
+	struct timeval current;
+
+	gettimeofday(&current, NULL);
+
+	return (((double)current.tv_sec) + 1.0e-6 * ((double)current.tv_usec));
+#endif
 }
 
 /******************************************************************************
@@ -213,7 +109,7 @@ double	zbx_time(void)
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  ******************************************************************************/
-double	zbx_current_time(void)
+double	zbx_current_time()
 {
 	return zbx_time() + ZBX_JAN_1970_IN_SEC;
 }
@@ -240,6 +136,8 @@ void    *zbx_calloc2(const char *filename, int line, void *old, size_t nmemb, si
 		zabbix_log(LOG_LEVEL_CRIT, "[file:%s,line:%d] zbx_calloc: allocating already allocated memory. "
 				"Please report this to Zabbix developers.",
 				filename, line);
+		/* exit if defined DEBUG, ignore otherwise */
+		zbx_dbg_assert(0);
 	}
 
 	for (
@@ -254,7 +152,7 @@ void    *zbx_calloc2(const char *filename, int line, void *old, size_t nmemb, si
 	zabbix_log(LOG_LEVEL_CRIT, "[file:%s,line:%d] zbx_calloc: out of memory. Requested " ZBX_FS_SIZE_T " bytes.",
 			filename, line, (zbx_fs_size_t)size);
 
-	exit(EXIT_FAILURE);
+	exit(FAIL);
 }
 
 /******************************************************************************
@@ -279,6 +177,8 @@ void    *zbx_malloc2(const char *filename, int line, void *old, size_t size)
 		zabbix_log(LOG_LEVEL_CRIT, "[file:%s,line:%d] zbx_malloc: allocating already allocated memory. "
 				"Please report this to Zabbix developers.",
 				filename, line);
+		/* exit if defined DEBUG, ignore otherwise */
+		zbx_dbg_assert(0);
 	}
 
 	for (
@@ -293,14 +193,14 @@ void    *zbx_malloc2(const char *filename, int line, void *old, size_t size)
 	zabbix_log(LOG_LEVEL_CRIT, "[file:%s,line:%d] zbx_malloc: out of memory. Requested " ZBX_FS_SIZE_T " bytes.",
 			filename, line, (zbx_fs_size_t)size);
 
-	exit(EXIT_FAILURE);
+	exit(FAIL);
 }
 
 /******************************************************************************
  *                                                                            *
  * Function: zbx_realloc2                                                     *
  *                                                                            *
- * Purpose: changes the size of the memory block pointed to by old            *
+ * Purpose: changes the size of the memory block pointed to by src            *
  *          to size bytes                                                     *
  *                                                                            *
  * Return value: returns a pointer to the newly allocated memory              *
@@ -308,7 +208,7 @@ void    *zbx_malloc2(const char *filename, int line, void *old, size_t size)
  * Author: Eugene Grigorjev                                                   *
  *                                                                            *
  ******************************************************************************/
-void    *zbx_realloc2(const char *filename, int line, void *old, size_t size)
+void    *zbx_realloc2(const char *filename, int line, void *src, size_t size)
 {
 	int	max_attempts;
 	void	*ptr = NULL;
@@ -316,7 +216,7 @@ void    *zbx_realloc2(const char *filename, int line, void *old, size_t size)
 	for (
 		max_attempts = 10, size = MAX(size, 1);
 		0 < max_attempts && NULL == ptr;
-		ptr = realloc(old, size), max_attempts--
+		ptr = realloc(src, size), max_attempts--
 	);
 
 	if (NULL != ptr)
@@ -325,7 +225,7 @@ void    *zbx_realloc2(const char *filename, int line, void *old, size_t size)
 	zabbix_log(LOG_LEVEL_CRIT, "[file:%s,line:%d] zbx_realloc: out of memory. Requested " ZBX_FS_SIZE_T " bytes.",
 			filename, line, (zbx_fs_size_t)size);
 
-	exit(EXIT_FAILURE);
+	exit(FAIL);
 }
 
 char    *zbx_strdup2(const char *filename, int line, char *old, const char *str)
@@ -344,7 +244,7 @@ char    *zbx_strdup2(const char *filename, int line, char *old, const char *str)
 	zabbix_log(LOG_LEVEL_CRIT, "[file:%s,line:%d] zbx_strdup: out of memory. Requested " ZBX_FS_SIZE_T " bytes.",
 			filename, line, (zbx_fs_size_t)(strlen(str) + 1));
 
-	exit(EXIT_FAILURE);
+	exit(FAIL);
 }
 
 /******************************************************************************
@@ -358,7 +258,7 @@ char    *zbx_strdup2(const char *filename, int line, char *old, const char *str)
  ******************************************************************************/
 void	__zbx_zbx_setproctitle(const char *fmt, ...)
 {
-#if defined(HAVE_FUNCTION_SETPROCTITLE) || defined(PS_OVERWRITE_ARGV) || defined(PS_PSTAT_ARGV)
+#ifdef HAVE_FUNCTION_SETPROCTITLE
 	char	title[MAX_STRING_LEN];
 	va_list	args;
 
@@ -366,13 +266,7 @@ void	__zbx_zbx_setproctitle(const char *fmt, ...)
 	zbx_vsnprintf(title, sizeof(title), fmt, args);
 	va_end(args);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "%s", title);
-#endif
-
-#if defined(HAVE_FUNCTION_SETPROCTITLE)
 	setproctitle(title);
-#elif defined(PS_OVERWRITE_ARGV) || defined(PS_PSTAT_ARGV)
-	setproctitle_set_status(title);
 #endif
 }
 
@@ -402,7 +296,7 @@ int	check_time_period(const char *period, time_t now)
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() period:'%s'", __function_name, period);
 
-	if ((time_t)0 == now)
+	if (now == (time_t)NULL)
 		now = time(NULL);
 
 	tm = localtime(&now);
@@ -430,9 +324,9 @@ int	check_time_period(const char *period, time_t now)
 			zabbix_log(LOG_LEVEL_DEBUG, "%d-%d,%d:%d-%d:%d", d1, d2, h1, m1, h2, m2);
 
 			sec1 = SEC_PER_HOUR * h1 + SEC_PER_MIN * m1;
-			sec2 = SEC_PER_HOUR * h2 + SEC_PER_MIN * m2;	/* do not include upper bound */
+			sec2 = SEC_PER_HOUR * h2 + SEC_PER_MIN * m2 - 1;	/* do not include upper bound */
 
-			if (d1 <= day && day <= d2 && sec1 <= sec && sec < sec2)
+			if (day >= d1 && day <= d2 && sec >= sec1 && sec <= sec2)
 			{
 				ret = SUCCEED;
 				break;
@@ -473,7 +367,7 @@ static int	get_current_delay(int delay, const char *flex_intervals, time_t now)
 {
 	const char	*s, *delim;
 	char		flex_period[30];
-	int		flex_delay, current_delay = -1;
+	int		flex_delay, current_delay = SEC_PER_YEAR;
 
 	if (NULL == flex_intervals || '\0' == *flex_intervals)
 		return delay;
@@ -488,11 +382,8 @@ static int	get_current_delay(int delay, const char *flex_intervals, time_t now)
 		{
 			zabbix_log(LOG_LEVEL_DEBUG, "%d sec at %s", flex_delay, flex_period);
 
-			if ((-1 == current_delay || flex_delay < current_delay) &&
-					SUCCEED == check_time_period(flex_period, now))
-			{
+			if (flex_delay < current_delay && SUCCEED == check_time_period(flex_period, now))
 				current_delay = flex_delay;
-			}
 		}
 		else
 			zabbix_log(LOG_LEVEL_ERR, "wrong delay period format [%s]", s);
@@ -501,10 +392,10 @@ static int	get_current_delay(int delay, const char *flex_intervals, time_t now)
 			break;
 	}
 
-	if (-1 == current_delay)
+	if (SEC_PER_YEAR == current_delay)
 		return delay;
 
-	return current_delay;
+	return current_delay == 0 ? SEC_PER_YEAR : current_delay;
 }
 
 /******************************************************************************
@@ -557,15 +448,14 @@ static int	get_next_delay_interval(const char *flex_intervals, time_t now, time_
 			zabbix_log(LOG_LEVEL_DEBUG, "%d/%d-%d,%d:%d-%d:%d", delay, d1, d2, h1, m1, h2, m2);
 
 			sec1 = SEC_PER_HOUR * h1 + SEC_PER_MIN * m1;
-			sec2 = SEC_PER_HOUR * h2 + SEC_PER_MIN * m2;	/* do not include upper bound */
+			sec2 = SEC_PER_HOUR * h2 + SEC_PER_MIN * m2 - 1;	/* do not include upper bound */
 
-			if (d1 <= day && day <= d2 && sec1 <= sec && sec < sec2)	/* current period */
+			if (day >= d1 && day <= d2 && sec >= sec1 && sec <= sec2)	/* current period */
 			{
 				if (0 == next || next > now - sec + sec2)
-					next = now - sec + sec2;	/* the next second after the */
-									/* current interval's upper bound */
+					next = now - sec + sec2;
 			}
-			else if (d1 <= day && day <= d2 && sec < sec1)			/* will be active today */
+			else if (day >= d1 && day <= d2 && sec < sec1)			/* will be active today */
 			{
 				if (0 == next || next > now - sec + sec1)
 					next = now - sec + sec1;
@@ -574,32 +464,31 @@ static int	get_next_delay_interval(const char *flex_intervals, time_t now, time_
 			{
 				int	next_day;
 
-				next_day = (7 >= day + 1 ? day + 1 : 1);
+				next_day = (day + 1 <= 7 ? day + 1 : 1);
 
-				if (d1 <= next_day && next_day <= d2)			/* will be active tomorrow */
+				if (next_day >= d1 && next_day <= d2)                   /* will be active tomorrow */
 				{
 					if (0 == next || next > now - sec + SEC_PER_DAY + sec1)
 						next = now - sec + SEC_PER_DAY + sec1;
 				}
-				else							/* later in the future */
+				else                                                    /* later in the future */
 				{
-					int	day_diff = -1;
+					int day_diff = -1;
 
 					if (day < d1)
 						day_diff = d1 - day;
 					if (day >= d2)
 						day_diff = (d1 + 7) - day;
-					if (d1 <= day && day < d2)
+					if (day >= d1 && day < d2)
 					{
 						/* should never happen */
-						zabbix_log(LOG_LEVEL_ERR, "could not deduce day difference"
-								" [%s, day=%d, time=%02d:%02d:%02d]",
+						zabbix_log(LOG_LEVEL_ERR,
+								"could not deduce day difference [%s, day=%d, time=%02d:%02d:%02d]",
 								s, day, tm->tm_hour, tm->tm_min, tm->tm_sec);
 						day_diff = -1;
 					}
 
-					if (-1 != day_diff &&
-							(0 == next || next > now - sec + SEC_PER_DAY * day_diff + sec1))
+					if (-1 != day_diff && (0 == next || next > now - sec + SEC_PER_DAY * day_diff + sec1))
 						next = now - sec + SEC_PER_DAY * day_diff + sec1;
 				}
 			}
@@ -625,87 +514,70 @@ static int	get_next_delay_interval(const char *flex_intervals, time_t now, time_
  *                                                                            *
  * Purpose: calculate nextcheck timestamp for item                            *
  *                                                                            *
- * Parameters: seed      - [IN] the seed value applied to delay to spread     *
- *                              item checks over the delay period             *
- *             item_type - [IN] the item type                                 *
- *             delay     - [IN] default delay value, can be overridden        *
+ * Parameters: delay - [IN] default delay value, can be overridden            *
  *             flex_intervals - [IN] descriptions of flexible intervals       *
  *                                   in the form [dd/d1-d2,hh:mm-hh:mm;]      *
- *             now       - [IN] current timestamp                             *
+ *             now - current timestamp                                        *
  *                                                                            *
  * Return value: nextcheck value                                              *
  *                                                                            *
  * Author: Alexei Vladishev, Aleksandrs Saveljevs                             *
  *                                                                            *
  * Comments: if item check is forbidden with delay=0 (default and flexible),  *
- *           a timestamp very far in the future is returned                   *
+ *           a timestamp approximately one year in the future is returned     *
  *                                                                            *
  *           Old algorithm: now+delay                                         *
  *           New one: preserve period, if delay==5, nextcheck = 0,5,10,15,... *
  *           !!! Don't forget to sync code with PHP !!!                       *
  *                                                                            *
  ******************************************************************************/
-int	calculate_item_nextcheck(zbx_uint64_t seed, int item_type, int delay, const char *flex_intervals, time_t now)
+int	calculate_item_nextcheck(zbx_uint64_t itemid, int item_type, int delay,
+		const char *flex_intervals, time_t now, int *effective_delay)
 {
-	int	nextcheck = 0;
+	int	nextcheck;
+
+	if (0 == delay)
+		delay = SEC_PER_YEAR;
 
 	/* special processing of active items to see better view in queue */
-	if (ITEM_TYPE_ZABBIX_ACTIVE == item_type)
+	if (item_type == ITEM_TYPE_ZABBIX_ACTIVE)
 	{
-		if (0 != delay)
-			nextcheck = (int)now + delay;
-		else
-			nextcheck = ZBX_JAN_2038;
+		nextcheck = (int)now + delay;
 	}
 	else
 	{
-		int	current_delay = 0, try = 0;
-		time_t	next_interval, t, tmax;
+		int	current_delay;
+		time_t	next_interval;
 
-		/* Try to find the nearest 'nextcheck' value with condition */
-		/* 'now' < 'nextcheck' < 'now' + SEC_PER_YEAR. If it is not */
-		/* possible to check the item within a year, fail. */
+		current_delay = get_current_delay(delay, flex_intervals, now);
 
-		t = now;
-		tmax = now + SEC_PER_YEAR;
-
-		while (t < tmax)
+		if (FAIL != get_next_delay_interval(flex_intervals, now, &next_interval) && now + current_delay > next_interval)
 		{
-			/* calculate 'nextcheck' value for the current interval */
-			current_delay = get_current_delay(delay, flex_intervals, t);
-
-			if (0 != current_delay)
+			/* next check falls out of the current interval */
+			do
 			{
-				nextcheck = current_delay * (int)(t / (time_t)current_delay) +
-						(int)(seed % (zbx_uint64_t)current_delay);
+				current_delay = get_current_delay(delay, flex_intervals, next_interval + 1);
 
-				if (0 == try)
-				{
-					while (nextcheck <= t)
-						nextcheck += current_delay;
-				}
-				else
-				{
-					while (nextcheck < t)
-						nextcheck += current_delay;
-				}
-			}
-			else
-				nextcheck = ZBX_JAN_2038;
+				/* as soon as item check in the interval is not forbidden with delay=0, use it */
+				if (SEC_PER_YEAR != current_delay)
+					break;
 
-			/* 'nextcheck' < end of the current interval ? */
-			/* the end of the current interval is the beginning of the next interval - 1 */
-			if (FAIL != get_next_delay_interval(flex_intervals, t, &next_interval) &&
-					nextcheck >= next_interval)
-			{
-				/* 'nextcheck' is beyond the current interval */
-				t = next_interval;
-				try++;
+				get_next_delay_interval(flex_intervals, next_interval + 1, &next_interval);
 			}
-			else
-				break;	/* nextcheck is within the current interval */
+			while (next_interval - now < SEC_PER_WEEK);	/* checking the nearest week for delay!=0 */
+
+			now = next_interval;
 		}
+
+		delay = current_delay;
+		nextcheck = delay * (int)(now / (time_t)delay) + (int)(itemid % (zbx_uint64_t)delay);
+
+		while (nextcheck <= now)
+			nextcheck += delay;
 	}
+
+	if (NULL != effective_delay)
+		*effective_delay = delay;
 
 	return nextcheck;
 }
@@ -755,13 +627,15 @@ int	is_ip4(const char *ip)
 {
 	const char	*__function_name = "is_ip4";
 	const char	*p = ip;
-	int		nums = 0, dots = 0, res = FAIL;
+	int		nums, dots, res = FAIL;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() ip:'%s'", __function_name, ip);
 
+	nums = 0;
+	dots = 0;
 	while ('\0' != *p)
 	{
-		if (0 != isdigit(*p))
+		if ('0' <= *p && *p <= '9')
 		{
 			nums++;
 		}
@@ -777,7 +651,6 @@ int	is_ip4(const char *ip)
 			nums = 0;
 			break;
 		}
-
 		p++;
 	}
 	if (dots == 3 && 1 <= nums && nums <= 3)
@@ -788,7 +661,6 @@ int	is_ip4(const char *ip)
 	return res;
 }
 
-#if defined(HAVE_IPV6)
 /******************************************************************************
  *                                                                            *
  * Function: is_ip6                                                           *
@@ -834,7 +706,6 @@ int	is_ip6(const char *ip)
 			is_nums = 0;
 			break;
 		}
-
 		p++;
 	}
 
@@ -845,7 +716,6 @@ int	is_ip6(const char *ip)
 
 	return res;
 }
-#endif	/*HAVE_IPV6*/
 
 /******************************************************************************
  *                                                                            *
@@ -897,7 +767,7 @@ int	ip6_str2dig(const char *ip, unsigned short *groups)
 	for (ptr = strchr(ip, ':'); NULL != ptr; ptr = strchr(ptr + 1, ':'))
 		c++;
 
-	if (2 > c || c > 7)
+	if (c < 2 || c > 7)
 		return FAIL;
 
 	ip_len = strlen(ip);
@@ -963,8 +833,7 @@ int	ip6_str2dig(const char *ip, unsigned short *groups)
  ******************************************************************************/
 void	ip6_dig2str(unsigned short *groups, char *ip, size_t ip_len)
 {
-	size_t		offset = 0;
-	int		i, c = 0, m = 0, idx = -1, idx2 = -1;
+	int		i, c = 0, m = 0, idx = -1, idx2 = -1, offset = 0;
 
 	for (i = 0; i <= 8; i++)
 	{
@@ -1271,23 +1140,26 @@ int	ip_in_list(char *list, const char *ip)
  ******************************************************************************/
 int	int_in_list(char *list, int value)
 {
-	const char	*__function_name = "int_in_list";
-	char		*start = NULL, *end = NULL, c = '\0';
-	int		i1, i2, ret = FAIL;
+	char	*start = NULL, *end = NULL;
+	int	i1,i2;
+	int	ret = FAIL;
+	char	c = '\0';
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() list:'%s' value:%d", __function_name, list, value);
+	zabbix_log( LOG_LEVEL_DEBUG, "In int_in_list(list:%s,value:%d)", list, value);
 
-	for (start = list; '\0' != *start;)
+	for (start = list; start[0] != '\0';)
 	{
-		if (NULL != (end = strchr(start, ',')))
+		end=strchr(start, ',');
+
+		if (end != NULL)
 		{
-			c = *end;
-			*end = '\0';
+			c=end[0];
+			end[0]='\0';
 		}
 
-		if (2 == sscanf(start, "%d-%d", &i1, &i2))
+		if (sscanf(start,"%d-%d",&i1,&i2) == 2)
 		{
-			if (i1 <= value && value <= i2)
+			if (value>=i1 && value<=i2)
 			{
 				ret = SUCCEED;
 				break;
@@ -1295,79 +1167,82 @@ int	int_in_list(char *list, int value)
 		}
 		else
 		{
-			if (value == atoi(start))
+			if (atoi(start) == value)
 			{
 				ret = SUCCEED;
 				break;
 			}
 		}
 
-		if (NULL != end)
+		if (end != NULL)
 		{
-			*end = c;
-			start = end + 1;
+			end[0]=c;
+			start=end+1;
 		}
 		else
+		{
 			break;
+		}
 	}
 
-	if (NULL != end)
-		*end = c;
+	if (end != NULL)
+	{
+		end[0]=c;
+	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
+	zabbix_log(LOG_LEVEL_DEBUG, "End of int_in_list():%s",
+			zbx_result_string(ret));
 
 	return ret;
 }
 
-int	zbx_double_compare(double a, double b)
-{
-	return fabs(a - b) < ZBX_DOUBLE_EPSILON ? SUCCEED : FAIL;
-}
-
 /******************************************************************************
  *                                                                            *
- * Function: is_double_suffix                                                 *
+ * Function: is_double_prefix                                                 *
  *                                                                            *
  * Purpose: check if the string is double                                     *
  *                                                                            *
- * Parameters: str - string to check                                          *
+ * Parameters: c - string to check                                            *
  *                                                                            *
  * Return value:  SUCCEED - the string is double                              *
  *                FAIL - otherwise                                            *
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
- * Comments: the function automatically processes suffixes K, M, G, T and     *
- *           s, m, h, d, w                                                    *
+ * Comments: the function supports suffixes K,M,G,T,s,m,h,d,w                 *
  *                                                                            *
  ******************************************************************************/
-int	is_double_suffix(const char *str)
+int	is_double_prefix(const char *c)
 {
-	size_t	i;
-	char	dot = 0;
+	int i;
+	int dot=-1;
 
-	for (i = 0; '\0' != str[i]; i++)
+	for (i=0;c[i]!=0;i++)
 	{
-		/* negative number? */
-		if ('-' == str[i] && 0 == i)
-			continue;
-
-		if (0 != isdigit(str[i]))
-			continue;
-
-		if ('.' == str[i] && 0 == dot)
+		/* Negative number? */
+		if (c[i]=='-' && i==0)
 		{
-			dot = 1;
 			continue;
 		}
 
-		/* last character is suffix */
-		if (NULL != strchr("KMGTsmhdw", str[i]) && '\0' == str[i + 1])
+		if ((c[i]>='0')&&(c[i]<='9'))
+		{
 			continue;
+		}
+
+		if ((c[i]=='.')&&(dot==-1))
+		{
+			dot=i;
+			continue;
+		}
+		/* Last character is suffix 'K', 'M', 'G', 'T', 's', 'm', 'h', 'd', 'w' */
+		if (strchr("KMGTsmhdw", c[i])!=NULL && c[i+1]=='\0')
+		{
+			continue;
+		}
 
 		return FAIL;
 	}
-
 	return SUCCEED;
 }
 
@@ -1377,132 +1252,135 @@ int	is_double_suffix(const char *str)
  *                                                                            *
  * Purpose: check if the string is double                                     *
  *                                                                            *
- * Parameters: str - string to check                                          *
+ * Parameters: c - string to check                                            *
  *                                                                            *
  * Return value:  SUCCEED - the string is double                              *
  *                FAIL - otherwise                                            *
  *                                                                            *
- * Author: Alexei Vladishev, Aleksandrs Saveljevs                             *
+ * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-int	is_double(const char *str)
+int	is_double(const char *c)
 {
-	int	i = 0, digits = 0;
+	int i;
+	int dot=-1;
+	int len;
 
-	while (' ' == str[i])				/* trim left spaces */
-		i++;
+	for (i=0; c[i]==' ' && c[i]!=0;i++); /* trim left spaces */
 
-	if ('-' == str[i] || '+' == str[i])		/* check leading sign */
-		i++;
-
-	while (0 != isdigit(str[i]))			/* check digits before dot */
+	for (len=0; c[i]!=0; i++, len++)
 	{
-		i++;
-		digits = 1;
-	}
+		/* Negative number? */
+		if (c[i]=='-' && i==0)
+		{
+			continue;
+		}
 
-	if ('.' == str[i])				/* check decimal dot */
-		i++;
+		if ((c[i]>='0')&&(c[i]<='9'))
+		{
+			continue;
+		}
 
-	while (0 != isdigit(str[i]))			/* check digits after dot */
-	{
-		i++;
-		digits = 1;
-	}
+		if ((c[i]=='.')&&(dot==-1))
+		{
+			dot=i;
+			continue;
+		}
 
-	if (0 == digits)				/* 1., .1, and 1.1 are good, just . is not */
+		if (c[i]==' ') /* check right spaces */
+		{
+			for ( ; c[i]==' ' && c[i]!=0;i++); /* trim right spaces */
+
+			if (c[i]==0) break; /* SUCCEED */
+		}
+
 		return FAIL;
-
-	if ('e' == str[i] || 'E' == str[i])		/* check exponential part */
-	{
-		i++;
-
-		if ('-' == str[i] || '+' == str[i])	/* check exponent sign */
-			i++;
-
-		if (0 == isdigit(str[i]))		/* check exponent */
-			return FAIL;
-
-		while (0 != isdigit(str[i]))
-			i++;
 	}
 
-	while (' ' == str[i])				/* trim right spaces */
-		i++;
+	if (len <= 0) return FAIL;
 
-	return '\0' == str[i] ? SUCCEED : FAIL;
+	if (len == 1 && dot!=-1) return FAIL;
+
+	return SUCCEED;
 }
 
 /******************************************************************************
  *                                                                            *
- * Function: is_uint_suffix                                                   *
+ * Function: is_uint_prefix                                                   *
  *                                                                            *
  * Purpose: check if the string is unsigned integer                           *
  *                                                                            *
- * Parameters: str   - string to check                                        *
- *             value - a pointer to converted value (optional)                *
+ * Parameters: c - string to check                                            *
  *                                                                            *
- * Return value: SUCCEED - the string is unsigned integer                     *
- *               FAIL    - otherwise                                          *
+ * Return value:  SUCCEED - the string is unsigned integer                    *
+ *                FAIL - otherwise                                            *
  *                                                                            *
- * Author: Aleksandrs Saveljevs, Vladimir Levijev                             *
+ * Author: Aleksandrs Saveljevs                                               *
  *                                                                            *
- * Comments: the function automatically processes suffixes s, m, h, d, w      *
+ * Comments: the function supports suffixes 's', 'm', 'h', 'd', and 'w'       *
  *                                                                            *
  ******************************************************************************/
-int	is_uint_suffix(const char *str, unsigned int *value)
+int	is_uint_prefix(const char *c)
 {
-	const unsigned int	max_uint = ~0U;
-	unsigned int		value_uint = 0, c, factor = 1;
+	int	i = 0;
 
-	if ('\0' == *str || '0' > *str || *str > '9')
+	while (c[i]==' ') /* trim left spaces */
+		i++;
+
+	if (!isdigit(c[i]))
 		return FAIL;
+	else
+		do
+			i++;
+		while (isdigit(c[i]));
 
-	while ('\0' != *str && 0 != isdigit(*str))
+	if (c[i]=='s' || c[i]=='m' || c[i]=='h' || c[i]=='d' || c[i]=='w') /* check suffix */
+		i++;
+
+	while (c[i]==' ') /* trim right spaces */
+		i++;
+
+	return c[i]=='\0' ? SUCCEED : FAIL;
+}
+
+/******************************************************************************
+ *                                                                            *
+ * Function: is_uint                                                          *
+ *                                                                            *
+ * Purpose: check if the string is unsigned integer                           *
+ *                                                                            *
+ * Parameters: c - string to check                                            *
+ *                                                                            *
+ * Return value:  SUCCEED - the string is unsigned integer                    *
+ *                FAIL - otherwise                                            *
+ *                                                                            *
+ * Author: Alexei Vladishev                                                   *
+ *                                                                            *
+ ******************************************************************************/
+int	is_uint(const char *c)
+{
+	int	i;
+	int	len;
+
+	for (i=0; c[i]==' ' && c[i]!=0;i++); /* trim left spaces */
+
+	for (len=0; c[i]!=0; i++,len++)
 	{
-		c = (unsigned int)(unsigned char)(*str - '0');
-
-		if ((max_uint - c) / 10 < value_uint)
-			return FAIL;	/* overflow */
-
-		value_uint = value_uint * 10 + c;
-
-		str++;
-	}
-
-	if ('\0' != *str)
-	{
-		switch (*str)
+		if ((c[i]>='0')&&(c[i]<='9'))
 		{
-			case 's':
-				break;
-			case 'm':
-				factor = SEC_PER_MIN;
-				break;
-			case 'h':
-				factor = SEC_PER_HOUR;
-				break;
-			case 'd':
-				factor = SEC_PER_DAY;
-				break;
-			case 'w':
-				factor = SEC_PER_WEEK;
-				break;
-			default:
-				return FAIL;
+			continue;
 		}
 
-		str++;
+		if (c[i]==' ') /* check right spaces */
+		{
+			for ( ; c[i]==' ' && c[i]!=0;i++); /* trim right spaces */
+
+			if (c[i]==0) break; /* SUCCEED */
+		}
+		return FAIL;
 	}
 
-	if ('\0' != *str)
-		return FAIL;
-
-	if (max_uint / factor < value_uint)
-		return FAIL;	/* overflow */
-
-	if (NULL != value)
-		*value = value_uint * factor;
+	if (len <= 0) return FAIL;
 
 	return SUCCEED;
 }
@@ -1535,7 +1413,7 @@ int	_wis_uint(const wchar_t *wide_string)
  *                                                                            *
  * Purpose: check if the beginning of string is a signed integer              *
  *                                                                            *
- * Parameters: str - string to check                                          *
+ * Parameters: c - string to check                                            *
  *                                                                            *
  * Return value:  SUCCEED - the beginning of string is a signed integer       *
  *                FAIL - otherwise                                            *
@@ -1543,17 +1421,17 @@ int	_wis_uint(const wchar_t *wide_string)
  * Author: Aleksandrs Saveljevs                                               *
  *                                                                            *
  ******************************************************************************/
-int	is_int_prefix(const char *str)
+int	is_int_prefix(const char *c)
 {
-	size_t	i = 0;
+	int	i = 0;
 
-	while (' ' == str[i])	/* trim left spaces */
+	while (c[i]==' ') /* trim left spaces */
 		i++;
 
-	if ('-' == str[i] || '+' == str[i])
+	if (c[i]=='-' || c[i]=='+')
 		i++;
 
-	if (0 == isdigit(str[i]))
+	if (!isdigit(c[i]))
 		return FAIL;
 
 	return SUCCEED;
@@ -1561,33 +1439,26 @@ int	is_int_prefix(const char *str)
 
 /******************************************************************************
  *                                                                            *
- * Function: is_uint_n_range                                                  *
+ * Function: is_uint64_n                                                      *
  *                                                                            *
- * Purpose: check if the string is unsigned integer within the specified      *
- *          range and optionally store it into value parameter                *
+ * Purpose: check if the string is 64bit unsigned integer                     *
  *                                                                            *
  * Parameters: str   - [IN] string to check                                   *
  *             n     - [IN] string length or ZBX_MAX_UINT64_LEN               *
- *             value - [OUT] a pointer to output buffer where the converted   *
- *                     value is to be written (optional, can be NULL)         *
- *             size  - [IN] size of the output buffer (optional)              *
- *             min   - [IN] the minimum acceptable value                      *
- *             max   - [IN] the maximum acceptable value                      *
+ *             value - [OUT] a pointer to converted value (optional)          *
  *                                                                            *
  * Return value:  SUCCEED - the string is unsigned integer                    *
- *                FAIL - the string is not a number or its value is outside   *
- *                       the specified range                                  *
+ *                FAIL - the string is not a number or overflow               *
  *                                                                            *
- * Author: Alexander Vladishev, Andris Zeila                                  *
+ * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-int	is_uint_n_range(const char *str, size_t n, void *value, size_t size, zbx_uint64_t min, zbx_uint64_t max)
+int	is_uint64_n(const char *str, size_t n, zbx_uint64_t *value)
 {
-	zbx_uint64_t		value_uint64 = 0, c;
 	const zbx_uint64_t	max_uint64 = ~(zbx_uint64_t)__UINT64_C(0);
-	int			len = 0;
+	zbx_uint64_t		value_uint64 = 0, c;
 
-	if ('\0' == *str || 0 == n || sizeof(zbx_uint64_t) < size || (0 == size && NULL != value))
+	if ('\0' == *str || 0 == n)
 		return FAIL;
 
 	while ('\0' != *str && 0 < n--)
@@ -1597,66 +1468,61 @@ int	is_uint_n_range(const char *str, size_t n, void *value, size_t size, zbx_uin
 
 		c = (zbx_uint64_t)(unsigned char)(*str - '0');
 
-		if (20 <= ++len && (max_uint64 - c) / 10 < value_uint64)
-			return FAIL;	/* maximum value exceeded */
+		if ((max_uint64 - c) / 10 < value_uint64)
+			return FAIL;	/* overflow */
 
 		value_uint64 = value_uint64 * 10 + c;
 
 		str++;
 	}
-	if (min > value_uint64 || value_uint64 > max)
-		return FAIL;
 
 	if (NULL != value)
-	{
-		/* On little endian architecture the output value will be stored starting from the first bytes */
-		/* of 'value' buffer while on big endian architecture it will be stored starting from the last */
-		/* bytes. We handle it by storing the offset in the most significant byte of short value and   */
-		/* then use the first byte as source offset.                                                   */
-		unsigned short	value_offset = (unsigned short)((sizeof(zbx_uint64_t) - size) << 8);
-
-		memcpy(value, (unsigned char *)&value_uint64 + *((unsigned char *)&value_offset), size);
-	}
+		*value = value_uint64;
 
 	return SUCCEED;
 }
 
 /******************************************************************************
  *                                                                            *
- * Function: is_boolean                                                       *
+ * Function: is_ushort                                                        *
  *                                                                            *
- * Purpose: check if the string is boolean                                    *
+ * Purpose: check if the string is 16bit unsigned integer                     *
  *                                                                            *
  * Parameters: str - string to check                                          *
  *                                                                            *
- * Return value:  SUCCEED - the string is boolean                             *
- *                FAIL - otherwise                                            *
+ * Return value:  SUCCEED - the string is unsigned integer                    *
+ *                FAIL - the string is not number or overflow                 *
  *                                                                            *
- * Author: Aleksandrs Saveljevs                                               *
- *                                                                            *
- * Comments:                                                                  *
+ * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-int	is_boolean(const char *str, zbx_uint64_t *value)
+int	is_ushort(const char *str, unsigned short *value)
 {
-	int	res;
+	register unsigned short	max_ushort = 0xffff;
+	register unsigned short	value_ushort = 0, c;
 
-	if (SUCCEED == (res = is_double(str)))
-		*value = (0 != atof(str));
-	else
+	if ('\0' == *str)
+		return FAIL;
+
+	while ('\0' != *str)
 	{
-		char	tmp[16];
-
-		strscpy(tmp, str);
-		zbx_strlower(tmp);
-
-		if (SUCCEED == (res = str_in_list("true,t,yes,y,on,up,running,enabled,available", tmp, ',')))
-			*value = 1;
-		else if (SUCCEED == (res = str_in_list("false,f,no,n,off,down,unused,disabled,unavailable", tmp, ',')))
-			*value = 0;
+		if (*str >= '0' && *str <= '9')
+		{
+			c = (unsigned short)(unsigned char)(*str - '0');
+			if ((max_ushort - c) / 10 >= value_ushort)
+				value_ushort = value_ushort * 10 + c;
+			else
+				return FAIL;	/* overflow */
+			str++;
+		}
+		else
+			return FAIL;	/* not a digit */
 	}
 
-	return res;
+	if (NULL != value)
+		*value = value_ushort;
+
+	return SUCCEED;
 }
 
 /******************************************************************************
@@ -1757,18 +1623,14 @@ int	is_hex_string(const char *str)
 
 	while ('\0' != *str)
 	{
-		if (0 == isxdigit(*str))
+		if (!isxdigit(*str))
 			return FAIL;
-
-		if (0 == isxdigit(*(str + 1)))
+		if (!isxdigit(*(str + 1)))
 			return FAIL;
-
 		if ('\0' == *(str + 2))
 			break;
-
 		if (' ' != *(str + 2) && '\n' != *(str + 2))
 			return FAIL;
-
 		str += 3;
 	}
 
@@ -1781,8 +1643,8 @@ int	is_hex_string(const char *str)
  *                                                                            *
  * Purpose: check if uin64 integer matches a list of integers                 *
  *                                                                            *
- * Parameters: list  - integers [i1-i2,i3,i4,i5-i6] (10-25,45,67-699)         *
- *             value - value                                                  *
+ * Parameters: list -  integers [i1-i2,i3,i4,i5-i6] (10-25,45,67-699          *
+ *             value-  value                                                  *
  *                                                                            *
  * Return value: FAIL - out of period, SUCCEED - within the list              *
  *                                                                            *
@@ -1791,17 +1653,18 @@ int	is_hex_string(const char *str)
  ******************************************************************************/
 int	uint64_in_list(char *list, zbx_uint64_t value)
 {
-	const char	*__function_name = "uint64_in_list";
 	char		*start = NULL, *end = NULL;
-	zbx_uint64_t	i1, i2, tmp_uint64;
+	zbx_uint64_t	i1,i2,tmp_uint64;
 	int		ret = FAIL;
 	char		c = '\0';
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() list:'%s' value:" ZBX_FS_UI64, __function_name, list, value);
+	zabbix_log( LOG_LEVEL_DEBUG, "In int_in_list(list:%s,value:" ZBX_FS_UI64 ")", list, value);
 
 	for (start = list; start[0] != '\0';)
 	{
-		if (NULL != (end = strchr(start, ',')))
+		end=strchr(start, ',');
+
+		if (end != NULL)
 		{
 			c=end[0];
 			end[0]='\0';
@@ -1809,7 +1672,7 @@ int	uint64_in_list(char *list, zbx_uint64_t value)
 
 		if (sscanf(start,ZBX_FS_UI64 "-" ZBX_FS_UI64,&i1,&i2) == 2)
 		{
-			if (i1 <= value && value <= i2)
+			if (value>=i1 && value<=i2)
 			{
 				ret = SUCCEED;
 				break;
@@ -1817,7 +1680,7 @@ int	uint64_in_list(char *list, zbx_uint64_t value)
 		}
 		else
 		{
-			sscanf(start, ZBX_FS_UI64, &tmp_uint64);
+			ZBX_STR2UINT64(tmp_uint64,start);
 			if (tmp_uint64 == value)
 			{
 				ret = SUCCEED;
@@ -1827,62 +1690,56 @@ int	uint64_in_list(char *list, zbx_uint64_t value)
 
 		if (end != NULL)
 		{
-			*end = c;
-			start = end + 1;
+			end[0]=c;
+			start=end+1;
 		}
 		else
+		{
 			break;
+		}
 	}
 
-	if (NULL != end)
-		*end = c;
+	if (end != NULL)
+	{
+		end[0]=c;
+	}
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
+	zabbix_log(LOG_LEVEL_DEBUG, "End of int_in_list():%s",
+			zbx_result_string(ret));
 
 	return ret;
 }
 
-/******************************************************************************
- *                                                                            *
- * Function: get_nearestindex                                                 *
- *                                                                            *
- * Purpose: get nearest index position of sorted elements in array            *
- *                                                                            *
- * Parameters: p   - pointer to array of elements                             *
- *             sz  - element size                                             *
- *             num - number of elements                                       *
- *             id  - index to look for                                        *
- *                                                                            *
- * Return value: index at which it would be possible to insert the element so *
- *               that the array is still sorted                               *
- *                                                                            *
- ******************************************************************************/
-int	get_nearestindex(const void *p, size_t sz, int num, zbx_uint64_t id)
+/*
+ * Get nearest index of sorted elements in array.
+ *     p - pointer to array of elements
+ *     sz - size of one element in array
+ *     num - number of elements
+ */
+int	get_nearestindex(void *p, size_t sz, int num, zbx_uint64_t id)
 {
 	int		first_index, last_index, index;
 	zbx_uint64_t	element_id;
 
-	if (0 == num)
+	if (num == 0)
 		return 0;
 
 	first_index = 0;
 	last_index = num - 1;
-
 	while (1)
 	{
 		index = first_index + (last_index - first_index) / 2;
 
-		if (id == (element_id = *(const zbx_uint64_t *)((const char *)p + index * sz)))
+		element_id = *(zbx_uint64_t *)((char *)p + index * sz);
+		if (element_id == id)
 			return index;
-
-		if (last_index == first_index)
+		else if (last_index == first_index)
 		{
 			if (element_id < id)
 				index++;
 			return index;
 		}
-
-		if (element_id < id)
+		else if (element_id < id)
 			first_index = index + 1;
 		else
 			last_index = index;
@@ -1913,7 +1770,6 @@ int	uint64_array_add(zbx_uint64_t **values, int *alloc, int *num, zbx_uint64_t v
 			zbx_error("Unable to reallocate buffer");
 			assert(0);
 		}
-
 		*alloc += alloc_step;
 		*values = zbx_realloc(*values, *alloc * sizeof(zbx_uint64_t));
 	}
@@ -1950,7 +1806,7 @@ void	uint64_array_merge(zbx_uint64_t **values, int *alloc, int *num, zbx_uint64_
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-int	uint64_array_exists(const zbx_uint64_t *values, int num, zbx_uint64_t value)
+int	uint64_array_exists(zbx_uint64_t *values, int num, zbx_uint64_t value)
 {
 	int	index;
 
@@ -1970,7 +1826,7 @@ int	uint64_array_exists(const zbx_uint64_t *values, int num, zbx_uint64_t value)
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-void	uint64_array_remove(zbx_uint64_t *values, int *num, const zbx_uint64_t *rm_values, int rm_num)
+void	uint64_array_remove(zbx_uint64_t *values, int *num, zbx_uint64_t *rm_values, int rm_num)
 {
 	int	rindex, index;
 
@@ -1987,61 +1843,34 @@ void	uint64_array_remove(zbx_uint64_t *values, int *num, const zbx_uint64_t *rm_
 
 /******************************************************************************
  *                                                                            *
- * Function: uint64_array_remove_both                                         *
+ * Function: str2uint                                                         *
  *                                                                            *
- * Purpose: remove equal values from both arrays                              *
+ * Purpose: convert string to unsigned integer (currently 31bit uint)         *
  *                                                                            *
- * Parameters:                                                                *
+ * Parameters: str - string to convert                                        *
  *                                                                            *
- * Return value:                                                              *
+ * Return value: converted unsigned integer                                   *
  *                                                                            *
- * Author: Alexander Vladishev                                                *
+ * Author: Aleksandrs Saveljevs                                               *
  *                                                                            *
- * Comments:                                                                  *
+ * Comments: the function automatically processes suffixes s, m, h, d, w      *
  *                                                                            *
  ******************************************************************************/
-void	uint64_array_remove_both(zbx_uint64_t *values, int *num, zbx_uint64_t *rm_values, int *rm_num)
+int	str2uint(const char *str)
 {
-	int	rindex, index;
+	size_t	sz = strlen(str) - 1;
+	int	factor = 1;
 
-	for (rindex = 0; rindex < *rm_num; rindex++)
+	switch (str[sz])
 	{
-		index = get_nearestindex(values, sizeof(zbx_uint64_t), *num, rm_values[rindex]);
-		if (index == *num || values[index] != rm_values[rindex])
-			continue;
-
-		memmove(&values[index], &values[index + 1], sizeof(zbx_uint64_t) * ((*num) - index - 1));
-		(*num)--;
-		memmove(&rm_values[rindex], &rm_values[rindex + 1], sizeof(zbx_uint64_t) * ((*rm_num) - rindex - 1));
-		(*rm_num)--; rindex--;
+		case 's': factor = 1;			break;
+		case 'm': factor = SEC_PER_MIN;		break;
+		case 'h': factor = SEC_PER_HOUR;	break;
+		case 'd': factor = SEC_PER_DAY;		break;
+		case 'w': factor = SEC_PER_WEEK;	break;
 	}
-}
 
-zbx_uint64_t	suffix2factor(char c)
-{
-	switch (c)
-	{
-		case 'K':
-			return ZBX_KIBIBYTE;
-		case 'M':
-			return ZBX_MEBIBYTE;
-		case 'G':
-			return ZBX_GIBIBYTE;
-		case 'T':
-			return ZBX_TEBIBYTE;
-		case 's':
-			return 1;
-		case 'm':
-			return SEC_PER_MIN;
-		case 'h':
-			return SEC_PER_HOUR;
-		case 'd':
-			return SEC_PER_DAY;
-		case 'w':
-			return SEC_PER_WEEK;
-		default:
-			return 1;
-	}
+	return atoi(str) * factor;
 }
 
 /******************************************************************************
@@ -2050,15 +1879,15 @@ zbx_uint64_t	suffix2factor(char c)
  *                                                                            *
  * Purpose: convert string to 64bit unsigned integer                          *
  *                                                                            *
- * Parameters: str   - string to convert                                      *
- *             value - a pointer to converted value                           *
+ * Parameters: str - string to convert                                        *
+ *             value - pointer to returned value                              *
  *                                                                            *
  * Return value:  SUCCEED - the string is unsigned integer                    *
  *                FAIL - otherwise                                            *
  *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
- * Comments: the function automatically processes suffixes K, M, G, T         *
+ * Comments: the function automatically processes suffixes 'K','M','G','T'    *
  *                                                                            *
  ******************************************************************************/
 int	str2uint64(const char *str, const char *suffixes, zbx_uint64_t *value)
@@ -2073,8 +1902,36 @@ int	str2uint64(const char *str, const char *suffixes, zbx_uint64_t *value)
 
 	if (NULL != strchr(suffixes, *p))
 	{
-		factor = suffix2factor(*p);
-
+		switch (*p)
+		{
+			case 'K':
+				factor = ZBX_KIBIBYTE;
+				break;
+			case 'M':
+				factor = ZBX_MEBIBYTE;
+				break;
+			case 'G':
+				factor = ZBX_GIBIBYTE;
+				break;
+			case 'T':
+				factor = ZBX_TEBIBYTE;
+				break;
+			case 's':
+				factor = 1;
+				break;
+			case 'm':
+				factor = SEC_PER_MIN;
+				break;
+			case 'h':
+				factor = SEC_PER_HOUR;
+				break;
+			case 'd':
+				factor = SEC_PER_DAY;
+				break;
+			case 'w':
+				factor = SEC_PER_WEEK;
+				break;
+		}
 		sz--;
 	}
 
@@ -2096,17 +1953,47 @@ int	str2uint64(const char *str, const char *suffixes, zbx_uint64_t *value)
  *                                                                            *
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
- * Comments: the function automatically processes suffixes K, M, G, T and     *
- *           s, m, h, d, w                                                    *
+ * Comments: the function automatically processes suffixes 'K','M','G','T'    *
+ *           and 's','m','h','d','w'                                          *
  *                                                                            *
  ******************************************************************************/
 double	str2double(const char *str)
 {
-	size_t	sz;
+	size_t	sz = strlen(str) - 1;
+	double	factor = 1;
 
-	sz = strlen(str) - 1;
+	switch (str[sz])
+	{
+		case 'K':
+			factor = ZBX_KIBIBYTE;
+			break;
+		case 'M':
+			factor = ZBX_MEBIBYTE;
+			break;
+		case 'G':
+			factor = ZBX_GIBIBYTE;
+			break;
+		case 'T':
+			factor = ZBX_TEBIBYTE;
+			break;
+		case 's':
+			factor = 1;
+			break;
+		case 'm':
+			factor = SEC_PER_MIN;
+			break;
+		case 'h':
+			factor = SEC_PER_HOUR;
+			break;
+		case 'd':
+			factor = SEC_PER_DAY;
+			break;
+		case 'w':
+			factor = SEC_PER_WEEK;
+			break;
+	}
 
-	return atof(str) * suffix2factor(str[sz]);
+	return atof(str) * factor;
 }
 
 /******************************************************************************
@@ -2118,16 +2005,22 @@ double	str2double(const char *str)
  *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
- * Comments: in host name allowed characters: '0-9a-zA-Z. _-'                 *
- *           !!! Don't forget to sync the code with PHP !!!                   *
+ * Comments: in host name allowed characters: '0-9a-zA-Z. _-]'                *
+ *           !!! Don't forget sync code with PHP !!!                          *
  *                                                                            *
  ******************************************************************************/
 int	is_hostname_char(char c)
 {
-	if (0 != isalnum(c))
+	if (c >= 'a' && c <= 'z')
+		return SUCCEED;
+
+	if (c >= 'A' && c <= 'Z')
 		return SUCCEED;
 
 	if (c == '.' || c == ' ' || c == '_' || c == '-')
+		return SUCCEED;
+
+	if (c >= '0' && c <= '9')
 		return SUCCEED;
 
 	return FAIL;
@@ -2142,16 +2035,22 @@ int	is_hostname_char(char c)
  *                                                                            *
  * Author: Alexander Vladishev                                                *
  *                                                                            *
- * Comments: in key allowed characters: '0-9a-zA-Z._-'                        *
- *           !!! Don't forget to sync the code with PHP !!!                   *
+ * Comments: in key allowed characters: '0-9a-zA-Z.,_-]'                      *
+ *           !!! Don't forget sync code with PHP !!!                          *
  *                                                                            *
  ******************************************************************************/
 int	is_key_char(char c)
 {
-	if (0 != isalnum(c))
+	if (c >= 'a' && c <= 'z')
 		return SUCCEED;
 
-	if (c == '.' || c == '_' || c == '-')
+	if (c == '.' || c == ',' || c == '_' || c == '-')
+		return SUCCEED;
+
+	if (c >= 'A' && c <= 'Z')
+		return SUCCEED;
+
+	if (c >= '0' && c <= '9')
 		return SUCCEED;
 
 	return FAIL;
@@ -2167,72 +2066,15 @@ int	is_key_char(char c)
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  * Comments: in trigger function allowed characters: 'a-z'                    *
- *           !!! Don't forget to sync the code with PHP !!!                   *
+ *           !!! Don't forget sync code with PHP !!!                          *
  *                                                                            *
  ******************************************************************************/
 int	is_function_char(char c)
 {
-	if (0 != islower(c))
+	if (c >= 'a' && c <= 'z')
 		return SUCCEED;
 
 	return FAIL;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: is_macro_char                                                    *
- *                                                                            *
- * Return value:  SUCCEED - the char is allowed in the macro name             *
- *                FAIL - otherwise                                            *
- *                                                                            *
- * Author: Alexander Vladishev                                                *
- *                                                                            *
- * Comments: allowed characters in macro names: '0-9A-Z._'                    *
- *           !!! Don't forget to sync the code with PHP !!!                   *
- *                                                                            *
- ******************************************************************************/
-int	is_macro_char(char c)
-{
-	if (0 != isupper(c))
-		return SUCCEED;
-
-	if ('.' == c || '_' == c)
-		return SUCCEED;
-
-	if (0 != isdigit(c))
-		return SUCCEED;
-
-	return FAIL;
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: is_time_function                                                 *
- *                                                                            *
- * Return value:  SUCCEED - given function is time-based                      *
- *                FAIL - otherwise                                            *
- *                                                                            *
- * Author: Aleksandrs Saveljevs                                               *
- *                                                                            *
- ******************************************************************************/
-int	is_time_function(const char *func)
-{
-	return str_in_list("nodata,date,dayofmonth,dayofweek,time,now", func, ',');
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: is_snmp_type                                                     *
- *                                                                            *
- * Return value:  SUCCEED  - the given type is one of regular SNMP types      *
- *                FAIL - otherwise                                            *
- *                                                                            *
- * Author: Aleksandrs Saveljevs                                               *
- *                                                                            *
- ******************************************************************************/
-int	is_snmp_type(unsigned char type)
-{
-	return ITEM_TYPE_SNMPv1 == type || ITEM_TYPE_SNMPv2c == type || ITEM_TYPE_SNMPv3 == type ? SUCCEED : FAIL;
 }
 
 /******************************************************************************
@@ -2258,46 +2100,6 @@ void	make_hostname(char *host)
 	{
 		if (FAIL == is_hostname_char(*c))
 			*c = '_';
-	}
-}
-
-/******************************************************************************
- *                                                                            *
- * Function: get_interface_type_by_item_type                                  *
- *                                                                            *
- * Purpose:                                                                   *
- *                                                                            *
- * Parameters:                                                                *
- *                                                                            *
- * Return value: Interface type                                               *
- *                                                                            *
- * Author: Alexander Vladishev                                                *
- *                                                                            *
- * Comments: !!! Don't forget to sync the code with PHP !!!                   *
- *                                                                            *
- ******************************************************************************/
-unsigned char	get_interface_type_by_item_type(unsigned char type)
-{
-	switch (type)
-	{
-		case ITEM_TYPE_ZABBIX:
-			return INTERFACE_TYPE_AGENT;
-		case ITEM_TYPE_SNMPv1:
-		case ITEM_TYPE_SNMPv2c:
-		case ITEM_TYPE_SNMPv3:
-		case ITEM_TYPE_SNMPTRAP:
-			return INTERFACE_TYPE_SNMP;
-		case ITEM_TYPE_IPMI:
-			return INTERFACE_TYPE_IPMI;
-		case ITEM_TYPE_JMX:
-			return INTERFACE_TYPE_JMX;
-		case ITEM_TYPE_SIMPLE:
-		case ITEM_TYPE_EXTERNAL:
-		case ITEM_TYPE_SSH:
-		case ITEM_TYPE_TELNET:
-			return INTERFACE_TYPE_ANY;
-		default:
-			return INTERFACE_TYPE_UNKNOWN;
 	}
 }
 
@@ -2342,15 +2144,11 @@ int	calculate_sleeptime(int nextcheck, int max_sleeptime)
  ******************************************************************************/
 int	parse_serveractive_element(char *str, char **host, unsigned short *port, unsigned short port_default)
 {
-#ifdef HAVE_IPV6
-	char	*r1 = NULL;
-#endif
-	char	*r2 = NULL;
+	char	*r1 = NULL, *r2 = NULL;
 	int	res = FAIL;
 
 	*port = port_default;
 
-#ifdef HAVE_IPV6
 	if ('[' == *str)
 	{
 		str++;
@@ -2377,7 +2175,6 @@ int	parse_serveractive_element(char *str, char **host, unsigned short *port, uns
 	}
 	else
 	{
-#endif
 		if (NULL != (r2 = strchr(str, ':')))
 		{
 			if (SUCCEED != is_ushort(r2 + 1, port))
@@ -2387,16 +2184,12 @@ int	parse_serveractive_element(char *str, char **host, unsigned short *port, uns
 		}
 
 		*host = zbx_strdup(NULL, str);
-#ifdef HAVE_IPV6
 	}
-#endif
 
 	res = SUCCEED;
 fail:
-#ifdef HAVE_IPV6
 	if (NULL != r1)
 		*r1 = ']';
-#endif
 	if (NULL != r2)
 		*r2 = ':';
 

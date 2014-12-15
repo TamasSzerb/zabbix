@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -10,101 +10,136 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+require_once('include/config.inc.php');
 
-
-require_once dirname(__FILE__).'/include/config.inc.php';
-
-$page['title'] = _('Resource');
+$page['title'] = "S_RESOURCE";
 $page['file'] = 'popup_right.php';
 
 define('ZBX_PAGE_NO_MENU', 1);
 
-require_once dirname(__FILE__).'/include/page_header.php';
-
-//	VAR					TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-$fields = array(
-	'dstfrm' =>		array(T_ZBX_STR, O_MAND,P_SYS, NOT_EMPTY,	null),
-	'permission' =>	array(T_ZBX_INT, O_MAND,P_SYS, IN(PERM_DENY.','.PERM_READ.','.PERM_READ_WRITE), null)
-);
-check_fields($fields);
-
-$dstfrm = getRequest('dstfrm', 0);
-$permission = getRequest('permission', PERM_DENY);
-
-/*
- * Display
- */
-show_table_header(permission2str($permission));
-
-// host groups
-$hostGroupForm = new CForm();
-$hostGroupForm->setAttribute('id', 'groups');
-
-$hostGroupTable = new CTableInfo(_('No host groups found.'));
-$hostGroupTable->setHeader(new CCol(array(
-	new CCheckBox('all_groups', null, 'checkAll(this.checked)'),
-	_('Name')
-)));
-
-$hostGroups = API::HostGroup()->get(array(
-	'output' => array('groupid', 'name')
-));
-
-order_result($hostGroups, 'name');
-
-foreach ($hostGroups as $hostGroup) {
-	$hostGroupCheckBox = new CCheckBox();
-	$hostGroupCheckBox->setAttribute('data-id', $hostGroup['groupid']);
-	$hostGroupCheckBox->setAttribute('data-name', $hostGroup['name']);
-	$hostGroupCheckBox->setAttribute('data-permission', $permission);
-
-	$hostGroupTable->addRow(new CCol(array($hostGroupCheckBox, $hostGroup['name'])));
-}
-
-$hostGroupTable->setFooter(new CCol(new CButton('select', _('Select'), 'addGroups("'.$dstfrm.'")'), 'right'));
-
-$hostGroupForm->addItem($hostGroupTable);
-$hostGroupForm->show();
-
+include_once('include/page_header.php');
 ?>
-<script type="text/javascript">
-	function addGroups(formName) {
-		var parentDocument = window.opener.document;
+<?php
+//		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
+$fields=array(
+	'dstfrm'=>		array(T_ZBX_STR, O_MAND,P_SYS,	NOT_EMPTY,		NULL),
+	'permission'=>	array(T_ZBX_INT, O_MAND,P_SYS,	IN(PERM_DENY.','.PERM_READ_ONLY.','.PERM_READ_WRITE),	NULL),
+	'nodeid'=>		array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,	NULL),
+);
 
-		if (!parentDocument) {
-			return close_window();
+check_fields($fields);
+?>
+<?php
+	$dstfrm		= get_request('dstfrm',		0);			// destination form
+	$permission	= get_request('permission',	PERM_DENY);		// right
+	$nodeid		= get_request('nodeid', 	CProfile::get('web.popup_right.nodeid.last',get_current_nodeid(false)));
+
+	CProfile::update('web.popup_right.nodeid.last', $nodeid, PROFILE_TYPE_ID);
+
+	$frmTitle = new CForm();
+	$frmTitle->addVar('dstfrm',$dstfrm);
+	$frmTitle->addVar('permission', $permission);
+
+	if(ZBX_DISTRIBUTED){
+		$available_nodes = get_accessible_nodes_by_user($USER_DETAILS, PERM_READ_ONLY, PERM_RES_IDS_ARRAY);
+
+		$cmbResourceNode = new CComboBox('nodeid',$nodeid,'submit();');
+		$cmbResourceNode->addItem(0, S_ALL_S);
+
+		$sql = 'SELECT name,nodeid '.
+			' FROM nodes '.
+			' WHERE '.DBcondition('nodeid',$available_nodes);
+		$db_nodes = DBselect($sql);
+		while($node = DBfetch($db_nodes)){
+			$cmbResourceNode->addItem($node['nodeid'], $node['name']);
 		}
 
-		jQuery('#groups input[type=checkbox]').each(function() {
-			var obj = jQuery(this);
+		$frmTitle->addItem(array(S_NODE, SPACE, $cmbResourceNode));
+	}
 
-			if (obj.attr('name') !== 'all_groups' && obj.prop('checked')) {
-				var id = obj.data('id');
+	show_table_header(permission2str($permission),$frmTitle);
 
-				add_variable('input', 'new_right[' + id + '][permission]', obj.data('permission'), formName,
-					parentDocument);
-				add_variable('input', 'new_right[' + id + '][name]', obj.data('name'), formName, parentDocument);
+	$form = new CForm();
+	$form->setAttribute('id', 'groups');
+
+	$table = new CTableInfo(S_NO_RESOURCES_DEFINED);
+	$table->setHeader(new CCol(array(new CCheckBox('all_groups', NULL, 'check_all(this.checked)'),S_NAME)));
+
+// NODES
+	if($nodeid == 0) $nodeids = get_current_nodeid(true);
+	else $nodeids = $nodeid;
+
+	$count=0;
+	$grouplist = array();
+
+	$options = array(
+		'nodeids' => $nodeids,
+		'output' => API_OUTPUT_EXTEND
+	);
+	$groups = CHostGroup::get($options);
+	foreach($groups as $gnum => $row){
+		$groups[$gnum]['nodename'] = get_node_name_by_elid($row['groupid'], true, ':').$row['name'];
+		if($nodeid == 0) $groups[$gnum]['name'] = $groups[$gnum]['nodename'];
+	}
+
+	order_result($groups, 'name');
+
+	foreach($groups as $gnum => $row){
+		$grouplist[$count] = array(
+			'groupid' => $row['groupid'],
+			'name' => $row['nodename'],
+			'permission' => $permission
+		);
+
+		$table->addRow(	new CCol(array(new CCheckBox('groups['.$count.']', NULL, NULL, $count), $row['name'])));
+		$count++;
+	}
+
+	insert_js('var grouplist = '.zbx_jsvalue($grouplist).';');
+
+	$button = new CButton('select', S_SELECT, 'add_groups("'.$dstfrm.'")');
+	$button->setType('button');
+	$table->setFooter(new CCol($button,'right'));
+
+	$form->addItem($table);
+	$form->show();
+
+	?>
+<script language="JavaScript" type="text/javascript">
+<!--
+function add_groups(formname) {
+	var parent_document = window.opener.document;
+
+	if(!parent_document) return close_window();
+
+	$('groups').getInputs("checkbox").each(
+		function(box){
+			if(box.checked && (box.name != "all_groups")){
+				var groupid = grouplist[box.value].groupid;
+				add_variable('input', 'new_right['+groupid+'][permission]', grouplist[box.value].permission, formname, parent_document);
+				add_variable('input', 'new_right['+groupid+'][name]', grouplist[box.value].name, formname, parent_document);
 			}
 		});
+	parent_document.forms[formname].submit();
+	close_window();
+}
 
-		parentDocument.forms[formName].submit();
-
-		close_window();
-	}
-
-	function checkAll(value) {
-		jQuery('#groups input[type=checkbox]').each(function() {
-			jQuery(this).prop('checked', value);
-		});
-	}
+function check_all(value) {
+	$("groups").getInputs("checkbox").each(function(e){ e.checked = value });
+}
+-->
 </script>
 <?php
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');
+
+?>

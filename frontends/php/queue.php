@@ -1,7 +1,7 @@
 <?php
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2010 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -10,283 +10,265 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
+?>
+<?php
+	require_once 'include/config.inc.php';
+	require_once 'include/items.inc.php';
 
+	$page['title'] = 'S_QUEUE';
+	$page['file'] = 'queue.php';
+	$page['hist_arg'] = array('config');
 
-require_once dirname(__FILE__).'/include/config.inc.php';
-require_once dirname(__FILE__).'/include/items.inc.php';
+	define('ZBX_PAGE_DO_REFRESH', 1);
 
-$page['title'] = _('Queue');
-$page['file'] = 'queue.php';
-$page['hist_arg'] = array('config');
+include_once 'include/page_header.php';
 
-define('ZBX_PAGE_DO_REFRESH', 1);
-
-require_once dirname(__FILE__).'/include/page_header.php';
-
-$queueModes = array(
-	QUEUE_OVERVIEW,
-	QUEUE_OVERVIEW_BY_PROXY,
-	QUEUE_DETAILS
-);
-
+?>
+<?php
 //		VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
-$fields = array(
-	'config' => array(T_ZBX_INT, O_OPT, P_SYS, IN($queueModes), null)
-);
-
-check_fields($fields);
-
-$config = getRequest('config', CProfile::get('web.queue.config', 0));
-CProfile::update('web.queue.config', $config, PROFILE_TYPE_INT);
-
-// fetch data
-$zabbixServer = new CZabbixServer($ZBX_SERVER, $ZBX_SERVER_PORT, ZBX_SOCKET_TIMEOUT, ZBX_SOCKET_BYTES_LIMIT);
-$queueRequests = array(
-	QUEUE_OVERVIEW => CZabbixServer::QUEUE_OVERVIEW,
-	QUEUE_OVERVIEW_BY_PROXY => CZabbixServer::QUEUE_OVERVIEW_BY_PROXY,
-	QUEUE_DETAILS => CZabbixServer::QUEUE_DETAILS
-);
-$queueData = $zabbixServer->getQueue($queueRequests[$config], get_cookie('zbx_sessionid'));
-
-// check for errors error
-if ($zabbixServer->getError()) {
-	error($zabbixServer->getError());
-	show_error_message(_('Cannot display item queue.'));
-
-	require_once dirname(__FILE__).'/include/page_footer.php';
-}
-
-// create filter form
-$form = new CForm('get');
-$cmbMode = new CComboBox('config', $config, 'submit();');
-$cmbMode->addItem(QUEUE_OVERVIEW, _('Overview'));
-$cmbMode->addItem(QUEUE_OVERVIEW_BY_PROXY, _('Overview by proxy'));
-$cmbMode->addItem(QUEUE_DETAILS, _('Details'));
-$form->addItem($cmbMode);
-
-// display table
-$queueWidget = new CWidget();
-$queueWidget->addPageHeader(_('QUEUE OF ITEMS TO BE UPDATED'), $form);
-
-$table = new CTableInfo(_('The queue is empty.'));
-
-$severityConfig = select_config();
-
-// overview
-if ($config == QUEUE_OVERVIEW) {
-	$itemTypes = array(
-		ITEM_TYPE_ZABBIX,
-		ITEM_TYPE_ZABBIX_ACTIVE,
-		ITEM_TYPE_SIMPLE,
-		ITEM_TYPE_SNMPV1,
-		ITEM_TYPE_SNMPV2C,
-		ITEM_TYPE_SNMPV3,
-		ITEM_TYPE_INTERNAL,
-		ITEM_TYPE_AGGREGATE,
-		ITEM_TYPE_EXTERNAL,
-		ITEM_TYPE_DB_MONITOR,
-		ITEM_TYPE_IPMI,
-		ITEM_TYPE_SSH,
-		ITEM_TYPE_TELNET,
-		ITEM_TYPE_JMX,
-		ITEM_TYPE_CALCULATED
+	$fields=array(
+		"config"=>		array(T_ZBX_INT, O_OPT,	P_SYS,	IN("0,1,2"),	NULL)
 	);
 
-	$table->setHeader(array(
-		_('Items'),
-		_('5 seconds'),
-		_('10 seconds'),
-		_('30 seconds'),
-		_('1 minute'),
-		_('5 minutes'),
-		_('More than 10 minutes')
-	));
+	check_fields($fields);
+?>
+<?php
+	$_REQUEST['config'] = get_request('config', CProfile::get('web.queue.config', 0));
+	CProfile::update('web.queue.config',$_REQUEST['config'], PROFILE_TYPE_INT);
 
-	$queueData = zbx_toHash($queueData, 'itemtype');
+	$form = new CForm();
+	$form->setMethod('get');
 
-	foreach ($itemTypes as $type) {
-		if (isset($queueData[$type])) {
-			$itemTypeData = $queueData[$type];
+	$cmbMode = new CComboBox("config", $_REQUEST["config"], "submit();");
+	$cmbMode->addItem(0, S_OVERVIEW);
+	$cmbMode->addItem(1, S_OVERVIEW_BY_PROXY);
+	$cmbMode->addItem(2, S_DETAILS);
+	$form->addItem($cmbMode);
+
+	$queue_wdgt = new CWidget();
+	$queue_wdgt->addPageHeader(S_QUEUE_OF_ITEMS_TO_BE_UPDATED_BIG, $form);
+
+	$now = time();
+	$norm_item_types = array(
+			ITEM_TYPE_ZABBIX_ACTIVE,
+			ITEM_TYPE_SSH,
+			ITEM_TYPE_TELNET,
+			ITEM_TYPE_SIMPLE,
+			ITEM_TYPE_INTERNAL,
+			ITEM_TYPE_DB_MONITOR,
+			ITEM_TYPE_AGGREGATE,
+			ITEM_TYPE_EXTERNAL,
+			ITEM_TYPE_CALCULATED);
+	$zbx_item_types = array(
+			ITEM_TYPE_ZABBIX);
+	$snmp_item_types = array(
+			ITEM_TYPE_SNMPV1,
+			ITEM_TYPE_SNMPV2C,
+			ITEM_TYPE_SNMPV3);
+	$ipmi_item_types = array(
+			ITEM_TYPE_IPMI);
+
+	$item_types = array(
+			ITEM_TYPE_ZABBIX,
+			ITEM_TYPE_ZABBIX_ACTIVE,
+			ITEM_TYPE_SIMPLE,
+			ITEM_TYPE_SNMPV1,
+			ITEM_TYPE_SNMPV2C,
+			ITEM_TYPE_SNMPV3,
+			ITEM_TYPE_INTERNAL,
+			ITEM_TYPE_AGGREGATE,
+			ITEM_TYPE_EXTERNAL,
+			ITEM_TYPE_DB_MONITOR,
+			ITEM_TYPE_IPMI,
+			ITEM_TYPE_SSH,
+			ITEM_TYPE_TELNET,
+			ITEM_TYPE_CALCULATED);
+
+	$sql = 'SELECT i.itemid,i.lastclock,i.description,i.key_,i.type,h.host,h.hostid,h.proxy_hostid,i.delay,i.delay_flex'.
+		' FROM items i,hosts h'.
+		' WHERE i.hostid=h.hostid'.
+			' AND h.status='.HOST_STATUS_MONITORED.
+			' AND i.status='.ITEM_STATUS_ACTIVE.
+			' AND i.value_type not in ('.ITEM_VALUE_TYPE_LOG.')'.
+			' AND i.key_ NOT IN ('.zbx_dbstr('status').','.zbx_dbstr('zabbix[log]').')'.
+			' AND NOT i.lastclock IS NULL'.
+			' AND ('.
+				' i.type in ('.implode(',',$norm_item_types).')'.
+				' OR (h.available<>'.HOST_AVAILABLE_FALSE.' AND i.type in ('.implode(',',$zbx_item_types).'))'.
+				' OR (h.snmp_available<>'.HOST_AVAILABLE_FALSE.' AND i.type in ('.implode(',',$snmp_item_types).'))'.
+				' OR (h.ipmi_available<>'.HOST_AVAILABLE_FALSE.' AND i.type in ('.implode(',',$ipmi_item_types).'))'.
+				')'.
+			' AND '.DBin_node('i.itemid', get_current_nodeid()).
+		' ORDER BY i.lastclock,h.host,i.description,i.key_';
+	$result = DBselect($sql);
+
+	$table = new CTableInfo(S_THE_QUEUE_IS_EMPTY);
+	$truncated = 0;
+
+	if($_REQUEST["config"]==0){
+
+		foreach($item_types as $type){
+			$sec_10[$type]=0;
+			$sec_30[$type]=0;
+			$sec_60[$type]=0;
+			$sec_300[$type]=0;
+			$sec_600[$type]=0;
+			$sec_rest[$type]=0;
 		}
-		else {
-			$itemTypeData = array(
-				'delay5' => 0,
-				'delay10' => 0,
-				'delay30' => 0,
-				'delay60' => 0,
-				'delay300' => 0,
-				'delay600' => 0
+
+		while($row=DBfetch($result)){
+			$res = calculate_item_nextcheck($row['itemid'], $row['type'], $row['delay'], $row['delay_flex'], $row['lastclock']);
+			if (0 != $row['proxy_hostid'])
+				$res['nextcheck'] = $row['lastclock'] + $res['delay'];
+
+			$diff = $now - $res['nextcheck'];
+			if ($diff <= 5)
+				continue;
+
+			if ($diff <= 10)	$sec_10[$row['type']]++;
+			else if ($diff <= 30)	$sec_30[$row['type']]++;
+			else if ($diff <= 60)	$sec_60[$row['type']]++;
+			else if ($diff <= 300)	$sec_300[$row['type']]++;
+			else if ($diff <= 600)	$sec_600[$row['type']]++;
+			else	$sec_rest[$row['type']]++;
+
+		}
+
+		$table->setHeader(array(S_ITEMS,S_5_SECONDS,S_10_SECONDS,S_30_SECONDS,S_1_MINUTE,S_5_MINUTES,S_MORE_THAN_10_MINUTES));
+		foreach($item_types as $type){
+			$elements=array(
+				item_type2str($type),
+				new CCol($sec_10[$type],($sec_10[$type])?"unknown_trigger":"normal"),
+				new CCol($sec_30[$type],($sec_30[$type])?"information":"normal"),
+				new CCol($sec_60[$type],($sec_60[$type])?"warning":"normal"),
+				new CCol($sec_300[$type],($sec_300[$type])?"average":"normal"),
+				new CCol($sec_600[$type],($sec_600[$type])?"high":"normal"),
+				new CCol($sec_rest[$type],($sec_rest[$type])?"disaster":"normal")
 			);
-		}
 
-		$table->addRow(array(
-			item_type2str($type),
-			getSeverityCell(TRIGGER_SEVERITY_NOT_CLASSIFIED, $severityConfig, $itemTypeData['delay5'],
-				!$itemTypeData['delay5']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_INFORMATION, $severityConfig, $itemTypeData['delay10'],
-				!$itemTypeData['delay10']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_WARNING, $severityConfig, $itemTypeData['delay30'],
-				!$itemTypeData['delay30']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_AVERAGE, $severityConfig, $itemTypeData['delay60'],
-				!$itemTypeData['delay60']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_HIGH, $severityConfig, $itemTypeData['delay300'],
-				!$itemTypeData['delay300']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_DISASTER, $severityConfig, $itemTypeData['delay600'],
-				!$itemTypeData['delay600']
-			)
-		));
+			$table->addRow($elements);
+		}
 	}
-}
+	else if ($_REQUEST["config"] == 1){
+		$db_proxies = DBselect('SELECT hostid FROM hosts WHERE status IN ('.HOST_STATUS_PROXY_ACTIVE.','.HOST_STATUS_PROXY_PASSIVE.')');
 
-// overview by proxy
-elseif ($config == QUEUE_OVERVIEW_BY_PROXY) {
-	$proxies = API::proxy()->get(array(
-		'output' => array('hostid', 'host'),
-		'preservekeys' => true
-	));
-	order_result($proxies, 'host');
-
-	$proxies[0] = array('host' => _('Server'));
-
-	$table->setHeader(array(
-		_('Proxy'),
-		_('5 seconds'),
-		_('10 seconds'),
-		_('30 seconds'),
-		_('1 minute'),
-		_('5 minutes'),
-		_('More than 10 minutes')
-	));
-
-	$queueData = zbx_toHash($queueData, 'proxyid');
-	foreach ($proxies as $proxyId => $proxy) {
-		if (isset($queueData[$proxyId])) {
-			$proxyData = $queueData[$proxyId];
+		while (null != ($db_proxy = DBfetch($db_proxies))){
+			$sec_10[$db_proxy['hostid']]	= 0;
+			$sec_30[$db_proxy['hostid']]	= 0;
+			$sec_60[$db_proxy['hostid']]	= 0;
+			$sec_300[$db_proxy['hostid']]	= 0;
+			$sec_600[$db_proxy['hostid']]	= 0;
+			$sec_rest[$db_proxy['hostid']]	= 0;
 		}
-		else {
-			$proxyData = array(
-				'delay5' => 0,
-				'delay10' => 0,
-				'delay30' => 0,
-				'delay60' => 0,
-				'delay300' => 0,
-				'delay600' => 0
+
+		$sec_10[0]	= 0;
+		$sec_30[0]	= 0;
+		$sec_60[0]	= 0;
+		$sec_300[0]	= 0;
+		$sec_600[0]	= 0;
+		$sec_rest[0]	= 0;
+
+		while ($row = DBfetch($result)){
+			$res = calculate_item_nextcheck($row['itemid'], $row['type'], $row['delay'], $row['delay_flex'], $row['lastclock']);
+			if (0 != $row['proxy_hostid'])
+				$res['nextcheck'] = $row['lastclock'] + $res['delay'];
+
+			$diff = $now - $res['nextcheck'];
+			if ($diff <= 5)
+				continue;
+
+			if ($diff <= 10)	$sec_10[$row['proxy_hostid']]++;
+			else if ($diff <= 30)	$sec_30[$row['proxy_hostid']]++;
+			else if ($diff <= 60)	$sec_60[$row['proxy_hostid']]++;
+			else if ($diff <= 300)	$sec_300[$row['proxy_hostid']]++;
+			else if ($diff <= 600)	$sec_600[$row['proxy_hostid']]++;
+			else	$sec_rest[$row['proxy_hostid']]++;
+
+		}
+
+		$table->setHeader(array(S_PROXY,S_5_SECONDS,S_10_SECONDS,S_30_SECONDS,S_1_MINUTE,S_5_MINUTES,S_MORE_THAN_10_MINUTES));
+
+		$db_proxies = DBselect('SELECT hostid,host FROM hosts WHERE status IN ('.HOST_STATUS_PROXY_ACTIVE.','.HOST_STATUS_PROXY_PASSIVE.') ORDER BY host');
+
+		while (null != ($db_proxy = DBfetch($db_proxies))){
+			$elements = array(
+				$db_proxy['host'],
+				new CCol($sec_10[$db_proxy['hostid']], $sec_10[$db_proxy['hostid']] ? "unknown_trigger" : "normal"),
+				new CCol($sec_30[$db_proxy['hostid']], $sec_30[$db_proxy['hostid']] ? "information" : "normal"),
+				new CCol($sec_60[$db_proxy['hostid']], $sec_60[$db_proxy['hostid']] ? "warning" : "normal"),
+				new CCol($sec_300[$db_proxy['hostid']], $sec_300[$db_proxy['hostid']] ? "average" : "normal"),
+				new CCol($sec_600[$db_proxy['hostid']], $sec_600[$db_proxy['hostid']] ? "high" : "normal"),
+				new CCol($sec_rest[$db_proxy['hostid']], $sec_rest[$db_proxy['hostid']] ? "disaster" : "normal")
 			);
+			$table->addRow($elements);
+		}
+		$elements = array(
+			new CCol(S_SERVER, 'bold'),
+			new CCol($sec_10[0], $sec_10[0] ? 'unknown_trigger' : 'normal'),
+			new CCol($sec_30[0], $sec_30[0] ? 'information' : 'normal'),
+			new CCol($sec_60[0], $sec_60[0] ? 'warning' : 'normal'),
+			new CCol($sec_300[0], $sec_300[0] ? 'average' : 'normal'),
+			new CCol($sec_600[0], $sec_600[0] ? 'high' : 'normal'),
+			new CCol($sec_rest[0], $sec_rest[0] ? 'disaster' : 'normal')
+		);
+		$table->addRow($elements);
+	}
+	else if ($_REQUEST["config"] == 2){
+		$arr = array();
+
+		$table->setHeader(array(
+				S_NEXT_CHECK,
+				S_DELAYED_BY,
+				is_show_all_nodes() ? S_NODE : null,
+				S_HOST,
+				S_DESCRIPTION
+				));
+		while($row=DBfetch($result)){
+			$res = calculate_item_nextcheck($row['itemid'], $row['type'], $row['delay'], $row['delay_flex'], $row['lastclock']);
+			if (0 != $row['proxy_hostid'])
+				$res['nextcheck'] = $row['lastclock'] + $res['delay'];
+
+			$diff = $now - $res['nextcheck'];
+			if ($diff <= 5)
+				continue;
+
+			array_push($arr, array($res['nextcheck'], $row['hostid'], $row['host'], item_description($row)));
 		}
 
-		$table->addRow(array(
-			$proxy['host'],
-			getSeverityCell(TRIGGER_SEVERITY_NOT_CLASSIFIED, $severityConfig, $proxyData['delay5'],
-				!$proxyData['delay5']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_INFORMATION, $severityConfig, $proxyData['delay10'],
-				!$proxyData['delay10']
-			),
-			getSeverityCell(TRIGGER_SEVERITY_WARNING, $severityConfig, $proxyData['delay30'], !$proxyData['delay30']),
-			getSeverityCell(TRIGGER_SEVERITY_AVERAGE, $severityConfig, $proxyData['delay60'], !$proxyData['delay60']),
-			getSeverityCell(TRIGGER_SEVERITY_HIGH, $severityConfig, $proxyData['delay300'], !$proxyData['delay300']),
-			getSeverityCell(TRIGGER_SEVERITY_DISASTER, $severityConfig, $proxyData['delay600'], !$proxyData['delay600'])
-		));
-	}
-}
+		$rows = 0;
+		sort($arr);
+		foreach($arr as $r){
+			$rows++;
+			if ($rows > 500){
+				$truncated = 1;
+				break;
+			}
 
-// details
-elseif ($config == QUEUE_DETAILS) {
-	$queueData = zbx_toHash($queueData, 'itemid');
-
-	$items = API::Item()->get(array(
-		'output' => array('itemid', 'hostid', 'name', 'key_'),
-		'selectHosts' => array('name'),
-		'itemids' => array_keys($queueData),
-		'webitems' => true,
-		'preservekeys' => true
-	));
-
-	$items = CMacrosResolverHelper::resolveItemNames($items);
-
-	// get hosts for queue items
-	$hostIds = zbx_objectValues($items, 'hostid');
-	$hostIds = array_keys(array_flip($hostIds));
-
-	$hosts = API::Host()->get(array(
-		'output' => array('hostid', 'proxy_hostid'),
-		'hostids' => $hostIds,
-		'preservekeys' => true
-	));
-
-	// get proxies for those hosts
-	$proxyHostIds = array();
-	foreach ($hosts as $host) {
-		if ($host['proxy_hostid']) {
-			$proxyHostIds[$host['proxy_hostid']] = $host['proxy_hostid'];
+			$table->addRow(array(
+				zbx_date2str(S_QUEUE_NODES_DATE_FORMAT,
+					$r[0]),
+				zbx_date2age($r[0]),
+				get_node_name_by_elid($r[1]),
+				$r[2],
+				$r[3]
+				));
 		}
 	}
 
-	if ($proxyHostIds) {
-		$proxies = API::Proxy()->get(array(
-			'proxyids' => $proxyHostIds,
-			'output' => array('proxyid', 'host'),
-			'preservekeys' => true
-		));
+	$queue_wdgt->addItem($table);
+	$queue_wdgt->Show();
+
+	if($_REQUEST["config"]!=0){
+		show_table_header(S_TOTAL.": ".$table->GetNumRows().($truncated ? ' ('.S_TRUNCATED.')' : ''));
 	}
 
-	$table->setHeader(array(
-		_('Scheduled check'),
-		_('Delayed by'),
-		_('Host'),
-		_('Name')
-	));
 
-	$i = 0;
-	foreach ($queueData as $itemData) {
-		if (!isset($items[$itemData['itemid']])) {
-			continue;
-		}
-
-		// display only the first 500 items
-		$i++;
-		if ($i > QUEUE_DETAIL_ITEM_COUNT) {
-			break;
-		}
-
-		$item = $items[$itemData['itemid']];
-		$host = reset($item['hosts']);
-
-		$table->addRow(array(
-			zbx_date2str(DATE_TIME_FORMAT_SECONDS, $itemData['nextcheck']),
-			zbx_date2age($itemData['nextcheck']),
-			(isset($proxies[$hosts[$item['hostid']]['proxy_hostid']]))
-				? $proxies[$hosts[$item['hostid']]['proxy_hostid']]['host'].NAME_DELIMITER.$host['name']
-				: $host['name'],
-			$item['name_expanded']
-		));
-	}
-}
-
-$queueWidget->addItem($table);
-$queueWidget->show();
-
-// display the table footer
-if ($config == QUEUE_OVERVIEW_BY_PROXY) {
-	show_table_header(_('Total').': '.$table->getNumRows());
-}
-elseif ($config == QUEUE_DETAILS) {
-	show_table_header(
-		_('Total').': '.$table->getNumRows().
-		((count($queueData) > QUEUE_DETAIL_ITEM_COUNT) ? ' ('._('Truncated').')' : '')
-	);
-}
-
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once "include/page_footer.php";
+?>

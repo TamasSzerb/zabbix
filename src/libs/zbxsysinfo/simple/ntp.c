@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -182,8 +182,10 @@ int	check_ntp(char *host, unsigned short port, int timeout, int *value_int)
 {
 	zbx_sock_t	s;
 	int		ret;
-	char		packet[NTP_PACKET_MIN];
+	char		*buf = NULL, packet[NTP_PACKET_MIN];
 	ntp_data	data;
+
+	assert(value_int);
 
 	*value_int = 0;
 
@@ -195,10 +197,10 @@ int	check_ntp(char *host, unsigned short port, int timeout, int *value_int)
 
 		if (SUCCEED == (ret = zbx_tcp_send_raw(&s, packet)))
 		{
-			if (SUCCEED == (ret = zbx_tcp_recv(&s)))
+			if (SUCCEED == (ret = zbx_tcp_recv(&s, &buf)))
 			{
-				unpack_ntp(&data, (unsigned char *)s.buffer, (int)strlen(s.buffer));
-				*value_int = (0 < data.receive ? (int)(data.receive - ZBX_JAN_1970_IN_SEC) : 0);
+				unpack_ntp(&data, (unsigned char *)buf, (int)strlen(buf));
+				*value_int = (data.receive > 0 ? (int)(data.receive - ZBX_JAN_1970_IN_SEC) : 0);
 			}
 		}
 

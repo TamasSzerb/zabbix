@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,240 +9,196 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
-#include "log.h"
 
-static int			mib[] = {CTL_VM, VM_UVMEXP2};
-static size_t			len;
-static struct uvmexp_sysctl	uvm;
+static int	get_vm_stat(zbx_uint64_t *total, zbx_uint64_t *free, zbx_uint64_t *used, double *pfree, double *pused, zbx_uint64_t *cached)
+{
+#if defined(HAVE_UVM_UVMEXP2)
+	/* NetBSD 3.1 i386; NetBSD 4.0 i386 */
+	int			mib[] = {CTL_VM, VM_UVMEXP2};
+	size_t			len;
+	struct uvmexp_sysctl	v;
 
-#define ZBX_SYSCTL(value)										\
-													\
-	len = sizeof(value);										\
-	if (0 != sysctl(mib, 2, &value, &len, NULL, 0))							\
-	{												\
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain system information: %s",	\
-				zbx_strerror(errno)));							\
-		return SYSINFO_RET_FAIL;								\
-	}
+	len = sizeof(struct uvmexp_sysctl);
+
+	if (0 != sysctl(mib, 2, &v, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
+
+	if (total)
+		*total = v.npages << v.pageshift;
+	if (free)
+		*free = v.free << v.pageshift;
+	if (used)
+		*used = (v.npages << v.pageshift) - (v.free << v.pageshift);
+	if (pfree)
+		*pfree = (double)(100.0 * v.free) / v.npages;
+	if (pused)
+		*pused = (double)(100.0 * (v.npages - v.free)) / v.npages;
+	if (cached)
+		*cached = (v.filepages << v.pageshift) + (v.execpages << v.pageshift);
+
+	return	SYSINFO_RET_OK;
+#else
+	return	SYSINFO_RET_FAIL;
+#endif /* HAVE_UVM_UVMEXP2 */
+}
 
 static int	VM_MEMORY_TOTAL(AGENT_RESULT *result)
 {
-	ZBX_SYSCTL(uvm);
+	zbx_uint64_t	value = 0;
 
-	SET_UI64_RESULT(result, uvm.npages << uvm.pageshift);
+	if (SYSINFO_RET_OK != get_vm_stat(&value, NULL, NULL, NULL, NULL, NULL))
+		return SYSINFO_RET_FAIL;
 
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_ACTIVE(AGENT_RESULT *result)
-{
-	ZBX_SYSCTL(uvm);
-
-	SET_UI64_RESULT(result, uvm.active << uvm.pageshift);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_INACTIVE(AGENT_RESULT *result)
-{
-	ZBX_SYSCTL(uvm);
-
-	SET_UI64_RESULT(result, uvm.inactive << uvm.pageshift);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_WIRED(AGENT_RESULT *result)
-{
-	ZBX_SYSCTL(uvm);
-
-	SET_UI64_RESULT(result, uvm.wired << uvm.pageshift);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_ANON(AGENT_RESULT *result)
-{
-	ZBX_SYSCTL(uvm);
-
-	SET_UI64_RESULT(result, uvm.anonpages << uvm.pageshift);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_EXEC(AGENT_RESULT *result)
-{
-	ZBX_SYSCTL(uvm);
-
-	SET_UI64_RESULT(result, uvm.execpages << uvm.pageshift);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_FILE(AGENT_RESULT *result)
-{
-	ZBX_SYSCTL(uvm);
-
-	SET_UI64_RESULT(result, uvm.filepages << uvm.pageshift);
+	SET_UI64_RESULT(result, value);
 
 	return SYSINFO_RET_OK;
 }
 
 static int	VM_MEMORY_FREE(AGENT_RESULT *result)
 {
-	ZBX_SYSCTL(uvm);
+	zbx_uint64_t	value = 0;
 
-	SET_UI64_RESULT(result, uvm.free << uvm.pageshift);
+	if (SYSINFO_RET_OK != get_vm_stat(NULL, &value, NULL, NULL, NULL, NULL))
+		return SYSINFO_RET_FAIL;
+
+	SET_UI64_RESULT(result, value);
 
 	return SYSINFO_RET_OK;
 }
 
 static int	VM_MEMORY_USED(AGENT_RESULT *result)
 {
-	ZBX_SYSCTL(uvm);
+	zbx_uint64_t	value = 0;
 
-	SET_UI64_RESULT(result, (uvm.npages - uvm.free) << uvm.pageshift);
+	if (SYSINFO_RET_OK != get_vm_stat(NULL, NULL, &value, NULL, NULL, NULL))
+		return SYSINFO_RET_FAIL;
+
+	SET_UI64_RESULT(result, value);
+
+	return SYSINFO_RET_OK;
+}
+
+static int	VM_MEMORY_PFREE(AGENT_RESULT *result)
+{
+	double	value = 0;
+
+	if (SYSINFO_RET_OK != get_vm_stat(NULL, NULL, NULL, &value, NULL, NULL))
+		return SYSINFO_RET_FAIL;
+
+	SET_DBL_RESULT(result, value);
 
 	return SYSINFO_RET_OK;
 }
 
 static int	VM_MEMORY_PUSED(AGENT_RESULT *result)
 {
-	ZBX_SYSCTL(uvm);
+	double	value = 0;
 
-	if (0 == uvm.npages)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot calculate percentage because total is zero."));
+	if (SYSINFO_RET_OK != get_vm_stat(NULL, NULL, NULL, NULL, &value, NULL))
 		return SYSINFO_RET_FAIL;
-	}
 
-	SET_DBL_RESULT(result, (uvm.npages - uvm.free) / (double)uvm.npages * 100);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_AVAILABLE(AGENT_RESULT *result)
-{
-	zbx_uint64_t	available;
-
-	ZBX_SYSCTL(uvm);
-
-	available = uvm.inactive + uvm.execpages + uvm.filepages + uvm.free;
-
-	SET_UI64_RESULT(result, available << uvm.pageshift);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_PAVAILABLE(AGENT_RESULT *result)
-{
-	zbx_uint64_t	available;
-
-	ZBX_SYSCTL(uvm);
-
-	if (0 == uvm.npages)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot calculate percentage because total is zero."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	available = uvm.inactive + uvm.execpages + uvm.filepages + uvm.free;
-
-	SET_DBL_RESULT(result, available / (double)uvm.npages * 100);
+	SET_DBL_RESULT(result, value);
 
 	return SYSINFO_RET_OK;
 }
 
 static int	VM_MEMORY_BUFFERS(AGENT_RESULT *result)
 {
-	int	mib[] = {CTL_VM, VM_NKMEMPAGES}, pages;
+	/* NetBSD 3.1 i386; NetBSD 4.0 i386 */
+	int		mib[] = {CTL_VM, VM_NKMEMPAGES}, pages;
+	size_t		len;
+	zbx_uint64_t	value;
 
-	ZBX_SYSCTL(pages);
+	len = sizeof(pages);
 
-	SET_UI64_RESULT(result, (zbx_uint64_t)pages * sysconf(_SC_PAGESIZE));
+	if (0 != sysctl(mib, 2, &pages, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
 
-	return SYSINFO_RET_OK;
-}
+	value = (zbx_uint64_t)pages * sysconf(_SC_PAGESIZE);
 
-static int	VM_MEMORY_CACHED(AGENT_RESULT *result)
-{
-	ZBX_SYSCTL(uvm);
-
-	SET_UI64_RESULT(result, (uvm.execpages + uvm.filepages) << uvm.pageshift);
+	SET_UI64_RESULT(result, value);
 
 	return SYSINFO_RET_OK;
 }
 
 static int	VM_MEMORY_SHARED(AGENT_RESULT *result)
 {
+#if defined(HAVE_SYS_VMMETER_VMTOTAL)
+	/* NetBSD 3.1 i386; NetBSD 4.0 i386 */
 	int		mib[] = {CTL_VM, VM_METER};
-	struct vmtotal	vm;
+	struct vmtotal	v;
+	size_t		len;
+	zbx_uint64_t	value;
 
-	ZBX_SYSCTL(vm);
+	len = sizeof(v);
 
-	SET_UI64_RESULT(result, (zbx_uint64_t)(vm.t_vmshr + vm.t_rmshr) * sysconf(_SC_PAGESIZE));
+	if (0 != sysctl(mib, 2, &v, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
+
+	value = (zbx_uint64_t)(v.t_vmshr + v.t_rmshr) * sysconf(_SC_PAGESIZE);
+
+	SET_UI64_RESULT(result, value);
+
+	return SYSINFO_RET_OK;
+#else
+	return SYSINFO_RET_FAIL;
+#endif /* HAVE_SYS_VMMETER_VMTOTAL */
+}
+
+static int	VM_MEMORY_CACHED(AGENT_RESULT *result)
+{
+	/* NetBSD 3.1 i386; NetBSD 4.0 i386 */
+	zbx_uint64_t	value = 0;
+
+	if (SYSINFO_RET_OK != get_vm_stat(NULL, NULL, NULL, NULL, NULL, &value))
+		return SYSINFO_RET_FAIL;
+
+	SET_UI64_RESULT(result, value);
 
 	return SYSINFO_RET_OK;
 }
 
-int     VM_MEMORY_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int     VM_MEMORY_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*mode;
-	int	ret = SYSINFO_RET_FAIL;
-
-	if (1 < request->nparam)
+	MODE_FUNCTION fl[] =
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+		{"total",	VM_MEMORY_TOTAL},
+		{"free",	VM_MEMORY_FREE},
+		{"used",	VM_MEMORY_USED},
+		{"pfree",	VM_MEMORY_PFREE},
+		{"pused",	VM_MEMORY_PUSED},
+		{"shared",	VM_MEMORY_SHARED},
+		{"buffers",	VM_MEMORY_BUFFERS},
+		{"cached",	VM_MEMORY_CACHED},
+		{0,		0}
+	};
+
+	char	mode[MAX_STRING_LEN];
+	int	i;
+
+	if (num_param(param) > 1)
 		return SYSINFO_RET_FAIL;
-	}
 
-	mode = get_rparam(request, 0);
+	if (0 != get_param(param, 1, mode, sizeof(mode)))
+		*mode = '\0';
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "total"))
-		ret = VM_MEMORY_TOTAL(result);
-	else if (0 == strcmp(mode, "active"))
-		ret = VM_MEMORY_ACTIVE(result);
-	else if (0 == strcmp(mode, "inactive"))
-		ret = VM_MEMORY_INACTIVE(result);
-	else if (0 == strcmp(mode, "wired"))
-		ret = VM_MEMORY_WIRED(result);
-	else if (0 == strcmp(mode, "anon"))
-		ret = VM_MEMORY_ANON(result);
-	else if (0 == strcmp(mode, "exec"))
-		ret = VM_MEMORY_EXEC(result);
-	else if (0 == strcmp(mode, "file"))
-		ret = VM_MEMORY_FILE(result);
-	else if (0 == strcmp(mode, "free"))
-		ret = VM_MEMORY_FREE(result);
-	else if (0 == strcmp(mode, "used"))
-		ret = VM_MEMORY_USED(result);
-	else if (0 == strcmp(mode, "pused"))
-		ret = VM_MEMORY_PUSED(result);
-	else if (0 == strcmp(mode, "available"))
-		ret = VM_MEMORY_AVAILABLE(result);
-	else if (0 == strcmp(mode, "pavailable"))
-		ret = VM_MEMORY_PAVAILABLE(result);
-	else if (0 == strcmp(mode, "buffers"))
-		ret = VM_MEMORY_BUFFERS(result);
-	else if (0 == strcmp(mode, "cached"))
-		ret = VM_MEMORY_CACHED(result);
-	else if (0 == strcmp(mode, "shared"))
-		ret = VM_MEMORY_SHARED(result);
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		ret = SYSINFO_RET_FAIL;
-	}
+	/* default parameter */
+	if (*mode == '\0')
+		zbx_snprintf(mode, sizeof(mode), "total");
 
-	return ret;
+	for (i = 0; fl[i].mode != 0; i++)
+		if (0 == strncmp(mode, fl[i].mode, MAX_STRING_LEN))
+			return (fl[i].function)(result);
+
+	return SYSINFO_RET_FAIL;
 }

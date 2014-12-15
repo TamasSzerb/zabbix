@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
@@ -39,62 +39,75 @@ extern char	*CONFIG_EXTERNALSCRIPTS;
  *                                                                            *
  * Author: Mike Nestor, rewritten by Alexander Vladishev                      *
  *                                                                            *
+ * Comments:                                                                  *
+ *                                                                            *
  ******************************************************************************/
 int	get_value_external(DC_ITEM *item, AGENT_RESULT *result)
 {
 	const char	*__function_name = "get_value_external";
-
-	char		error[ITEM_ERROR_LEN_MAX], *cmd = NULL, *buf = NULL;
-	size_t		cmd_alloc = ZBX_KIBIBYTE, cmd_offset = 0;
-	int		i, ret = NOTSUPPORTED;
-	AGENT_REQUEST	request;
+	char		*conn, *params = NULL, *command = NULL,
+			*p, *pl, *pr = NULL, error[ITEM_ERROR_LEN_MAX],
+			*buf = NULL;
+	int		ret = SUCCEED;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() key:'%s'", __function_name, item->key_orig);
 
-	init_request(&request);
+	conn = item->host.useip == 1 ? item->host.ip : item->host.dns;
 
-	if (SUCCEED != parse_item_key(item->key, &request))
+	/* find optional parameters enclosed between the leftmost and the rightmost brackets */
+	if (NULL != (pl = strchr(item->key, '[')))
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid item key format."));
-		goto out;
+		*pl = '\0';
+		params = pl + 1;
+
+		if (NULL != (pr = strrchr(params, ']')))
+			*pr = '\0';
+		else
+		{
+			SET_MSG_RESULT(result, zbx_strdup(NULL, "External check is not supported."
+						" No closing bracket ']' found."));
+			ret = NOTSUPPORTED;
+			goto exit;
+		}
 	}
 
-	cmd = zbx_malloc(cmd, cmd_alloc);
-	zbx_snprintf_alloc(&cmd, &cmd_alloc, &cmd_offset, "%s/%s", CONFIG_EXTERNALSCRIPTS, get_rkey(&request));
+	if (NULL != params)
+		command = zbx_dsprintf(command, "%s/%s %s %s",
+				CONFIG_EXTERNALSCRIPTS, item->key, conn, params);
+	else
+		command = zbx_dsprintf(command, "%s/%s %s",
+				CONFIG_EXTERNALSCRIPTS, item->key, conn);
 
-	if (-1 == access(cmd, X_OK))
+	if (SUCCEED == zbx_execute(command, &buf, error, sizeof(error), CONFIG_TIMEOUT))
 	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "%s: %s", cmd, zbx_strerror(errno)));
-		goto out;
-	}
+		/* copy only the first line from the command output into result */
+		if (NULL != (p = strchr(buf, '\n')))
+			*p = '\0';
 
-	for (i = 0; i < get_rparams_num(&request); i++)
-	{
-		const char	*param;
-		char		*param_esc;
-
-		param = get_rparam(&request, i);
-
-		param_esc = zbx_dyn_escape_string(param, "\"\\");
-		zbx_snprintf_alloc(&cmd, &cmd_alloc, &cmd_offset, " \"%s\"", param_esc);
-		zbx_free(param_esc);
-	}
-
-	if (SUCCEED == zbx_execute(cmd, &buf, error, sizeof(error), CONFIG_TIMEOUT))
-	{
 		zbx_rtrim(buf, ZBX_WHITESPACE);
 
-		if (SUCCEED == set_result_type(result, item->value_type, item->data_type, buf))
-			ret = SUCCEED;
-
-		zbx_free(buf);
+		if ('\0' == *buf)
+		{
+			SET_MSG_RESULT(result, zbx_strdup(NULL, "Script returned nothing"));
+			ret = NOTSUPPORTED;
+		}
+		else if (SUCCEED != set_result_type(result, item->value_type, item->data_type, buf))
+			ret = NOTSUPPORTED;
 	}
 	else
+	{
+		zabbix_log(LOG_LEVEL_DEBUG, "Cannot execute script: %s", error);
 		SET_MSG_RESULT(result, zbx_strdup(NULL, error));
-out:
-	zbx_free(cmd);
+		ret = NOTSUPPORTED;
+	}
 
-	free_request(&request);
+	zbx_free(buf);
+	zbx_free(command);
+exit:
+	if (NULL != pl)
+		*pl = '[';
+	if (NULL != pr)
+		*pr = ']';
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 

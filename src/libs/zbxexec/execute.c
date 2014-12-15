@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,20 +9,17 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "threads.h"
 #include "log.h"
-
-/* the size of temporary buffer used to read from output stream */
-#define PIPE_BUFFER_SIZE	4096
 
 #ifdef _WINDOWS
 
@@ -69,31 +66,23 @@ static int	zbx_get_timediff_ms(struct _timeb *time1, struct _timeb *time2)
  * Author: Alexander Vladishev                                                *
  *                                                                            *
  ******************************************************************************/
-static int	zbx_read_from_pipe(HANDLE hRead, char **buf, size_t *buf_size, size_t *offset, int timeout_ms)
+static int	zbx_read_from_pipe(HANDLE hRead, char **buf, size_t buf_size, int timeout_ms)
 {
 	DWORD		in_buf_size, read_bytes;
 	struct _timeb	start_time, current_time;
-	char 		tmp_buf[PIPE_BUFFER_SIZE];
 
 	_ftime(&start_time);
 
-	while (0 != PeekNamedPipe(hRead, NULL, 0, NULL, &in_buf_size, NULL) &&
-			MAX_EXECUTE_OUTPUT_LEN > *offset + in_buf_size)
+	while (0 != PeekNamedPipe(hRead, NULL, 0, NULL, &in_buf_size, NULL))
 	{
 		if (0 != in_buf_size)
 		{
-			if (0 == ReadFile(hRead, tmp_buf, sizeof(tmp_buf) - 1, &read_bytes, NULL))
+			if (0 != ReadFile(hRead, *buf, MIN(in_buf_size, buf_size), &read_bytes, NULL))
 			{
-				zabbix_log(LOG_LEVEL_ERR, "cannot read command output: %s",
-						strerror_from_system(GetLastError()));
-				return FAIL;
+				*buf += read_bytes;
+				if (0 == (buf_size -= read_bytes))
+					break;
 			}
-			else
-			{
-				tmp_buf[read_bytes] = '\0';
-				zbx_strcpy_alloc(buf, buf_size, offset, tmp_buf);
-			}
-			in_buf_size = 0;
 			continue;
 		}
 
@@ -102,13 +91,6 @@ static int	zbx_read_from_pipe(HANDLE hRead, char **buf, size_t *buf_size, size_t
 			return TIMEOUT_ERROR;
 
 		Sleep(20);	/* milliseconds */
-	}
-
-	if (MAX_EXECUTE_OUTPUT_LEN <= *offset + in_buf_size)
-	{
-		zabbix_log(LOG_LEVEL_ERR, "command output exceeded limit of %d KB",
-				MAX_EXECUTE_OUTPUT_LEN / ZBX_KIBIBYTE);
-		return FAIL;
 	}
 
 	return SUCCEED;
@@ -162,7 +144,6 @@ static int	zbx_popen(pid_t *pid, const char *command)
 	/* child process */
 	close(fd[0]);
 	dup2(fd[1], STDOUT_FILENO);
-	dup2(fd[1], STDERR_FILENO);
 	close(fd[1]);
 
 	/* set the child as the process group leader, otherwise orphans may be left after timeout */
@@ -170,7 +151,7 @@ static int	zbx_popen(pid_t *pid, const char *command)
 	{
 		zabbix_log(LOG_LEVEL_ERR, "%s(): failed to create a process group: %s",
 				__function_name, zbx_strerror(errno));
-		exit(EXIT_SUCCESS);
+		exit(0);
 	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "%s(): executing script", __function_name);
@@ -179,7 +160,7 @@ static int	zbx_popen(pid_t *pid, const char *command)
 
 	/* execl() returns only when an error occurs */
 	zabbix_log(LOG_LEVEL_WARNING, "execl() failed for [%s]: %s", command, zbx_strerror(errno));
-	exit(EXIT_SUCCESS);
+	exit(0);
 }
 
 /******************************************************************************
@@ -262,27 +243,30 @@ exit:
  ******************************************************************************/
 int	zbx_execute(const char *command, char **buffer, char *error, size_t max_error_len, int timeout)
 {
-	size_t			buf_size = PIPE_BUFFER_SIZE, offset = 0;
-	int			ret = FAIL;
+	char					*p = NULL;
+	size_t					buf_size = MAX_BUFFER_LEN;
+	int					ret = FAIL;
 #ifdef _WINDOWS
-	STARTUPINFO		si;
-	PROCESS_INFORMATION	pi;
-	SECURITY_ATTRIBUTES	sa;
-	HANDLE			job = NULL, hWrite = NULL, hRead = NULL;
-	char			*cmd = NULL;
-	wchar_t			*wcmd = NULL;
-	struct _timeb		start_time, current_time;
+	STARTUPINFO				si;
+	PROCESS_INFORMATION			pi;
+	SECURITY_ATTRIBUTES			sa;
+	JOBOBJECT_EXTENDED_LIMIT_INFORMATION	limits;
+	HANDLE					job = NULL, hWrite = NULL, hRead = NULL;
+	char					*cmd = NULL;
+	LPTSTR					wcmd = NULL;
+	struct _timeb				start_time, current_time;
 #else
-	pid_t			pid;
-	int			fd;
+	pid_t					pid;
+	int					fd;
 #endif
 
 	*error = '\0';
 
 	if (NULL != buffer)
 	{
-		*buffer = zbx_realloc(*buffer, buf_size);
-		**buffer = '\0';
+		p = zbx_realloc(*buffer, buf_size);
+		*buffer = p;
+		buf_size--;	/* '\0' */
 	}
 
 #ifdef _WINDOWS
@@ -303,6 +287,22 @@ int	zbx_execute(const char *command, char **buffer, char *error, size_t max_erro
 	if (0 == (job = CreateJobObject(&sa, NULL)))
 	{
 		zbx_snprintf(error, max_error_len, "unable to create a job: %s", strerror_from_system(GetLastError()));
+		goto close;
+	}
+
+	/* get the current job limits */
+	if (0 == QueryInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof(limits), 0))
+	{
+		zbx_snprintf(error, max_error_len, "unable to query job info: %s", strerror_from_system(GetLastError()));
+		goto close;
+	}
+
+	/* set job limits to kill all child processes when terminating the job */
+	limits.BasicLimitInformation.LimitFlags &= ~JOB_OBJECT_LIMIT_BREAKAWAY_OK;
+	limits.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+	if (0 == SetInformationJobObject(job, JobObjectExtendedLimitInformation, &limits, sizeof(limits)))
+	{
+		zbx_snprintf(error, max_error_len, "unable to set job info: %s", strerror_from_system(GetLastError()));
 		goto close;
 	}
 
@@ -354,8 +354,8 @@ int	zbx_execute(const char *command, char **buffer, char *error, size_t max_erro
 	_ftime(&start_time);
 	timeout *= 1000;
 
-	if (NULL != buffer)
-		ret = zbx_read_from_pipe(hRead, buffer, &buf_size, &offset, timeout);
+	if (NULL != buffer && SUCCEED == (ret = zbx_read_from_pipe(hRead, &p, buf_size, timeout)))
+		*p = '\0';
 
 	if (TIMEOUT_ERROR != ret)
 	{
@@ -394,16 +394,17 @@ close:
 	if (-1 != (fd = zbx_popen(&pid, command)))
 	{
 		int	rc = 0;
-		char	tmp_buf[PIPE_BUFFER_SIZE];
 
 		if (NULL != buffer)
 		{
-			while (0 < (rc = read(fd, tmp_buf, sizeof(tmp_buf) - 1)) &&
-					MAX_EXECUTE_OUTPUT_LEN > offset + rc)
+			while (0 < (rc = read(fd, p, buf_size)))
 			{
-				tmp_buf[rc] = '\0';
-				zbx_strcpy_alloc(buffer, &buf_size, &offset, tmp_buf);
+				p += rc;
+				if (0 == (buf_size -= rc))
+					break;
 			}
+
+			*p = '\0';
 		}
 
 		close(fd);
@@ -421,11 +422,6 @@ close:
 
 			zbx_waitpid(pid);
 		}
-		else if (MAX_EXECUTE_OUTPUT_LEN <= offset + rc)
-		{
-			zabbix_log(LOG_LEVEL_ERR, "command output exceeded limit of %d KB",
-					MAX_EXECUTE_OUTPUT_LEN / ZBX_KIBIBYTE);
-		}
 		else
 			ret = SUCCEED;
 	}
@@ -437,7 +433,7 @@ close:
 #endif	/* _WINDOWS */
 
 	if (TIMEOUT_ERROR == ret)
-		zbx_strlcpy(error, "Timeout while executing a shell script.", max_error_len);
+		zbx_strlcpy(error, "timeout while executing a shell script", max_error_len);
 	else if ('\0' != *error)
 		zabbix_log(LOG_LEVEL_WARNING, "%s", error);
 
@@ -467,7 +463,7 @@ int	zbx_execute_nowait(const char *command)
 	char			*full_command;
 	STARTUPINFO		si;
 	PROCESS_INFORMATION	pi;
-	wchar_t			*wcommand;
+	LPTSTR			wcommand;
 
 	full_command = zbx_dsprintf(NULL, "cmd /C \"%s\"", command);
 	wcommand = zbx_utf8_to_unicode(full_command);
@@ -552,6 +548,6 @@ int	zbx_execute_nowait(const char *command)
 	}
 
 	/* always exit, parent has already returned */
-	exit(EXIT_SUCCESS);
+	exit(0);
 #endif
 }

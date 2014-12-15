@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,18 +9,105 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
-#include "checks_db.h"
+#include "common.h"
 
-#include "zbxodbc.h"
+#ifdef HAVE_ODBC
+#	include "zbxodbc.h"
+#endif /* HAVE_ODBC */
+
+#include "checks_db.h"
 #include "log.h"
+
+#ifdef HAVE_ODBC
+/******************************************************************************
+ *                                                                            *
+ * Function: get_param_value                                                  *
+ *                                                                            *
+ * Purpose: retrieve parameter value by name                                  *
+ *                                                                            *
+ * Parameters: params - list of params                                        *
+ *             param_name - name of requested parameter                       *
+ *                                                                            *
+ * Return value: NULL - if parameter missing param_name,                      *
+ *               else return value in new allocated memory                    *
+ *                                                                            *
+ * Author: Eugene Grigorjev                                                   *
+ *                                                                            *
+ * Comments: this function allocates memory, required zbx_free for result!!!  *
+ *           one parameter format: param1_name=param1_value                   *
+ *           parameters separated by '\n'                                     *
+ *                                                                            *
+ ******************************************************************************/
+static char* get_param_value(char* params, const char* param_name)
+{
+	char
+		*p = NULL,
+		*l = NULL,
+		*n = NULL,
+		*r = NULL,
+		*buf = NULL;
+
+	for(p = params; p && *p; p++)
+	{
+		r = NULL;
+
+		/* trim left spaces */
+		for(; *p == ' '; p++);
+
+		/* find '=' */
+		for(n = p; *n && *n != '\n'; n++)
+		{
+			if(*n == '=')
+			{
+				/* trim right spaces */
+				for(l = n - 1; *l == ' '; l--);
+				l++;
+
+				/* compare parameter name */
+				if(l - p != strlen(param_name))		break;
+				if(strncmp(p, param_name, l - p))	break;
+
+				r = n+1;
+				break;
+			}
+		}
+
+		/* find EOL */
+		for(p = n; *p && *p != '\n'; p++);
+
+		/* allocate result */
+		if(r)
+		{
+			/* trim right EOL characters */
+			while(*p == '\r' || *p == '\n' || *p == '\0') p--;
+			p++;
+
+			/* allocate result */
+			buf = zbx_malloc(buf, p - r + 1);
+			memmove(buf, r, p - r);
+			buf[p - r] = '\0';
+
+			break;
+		}
+	}
+
+	if(buf == NULL)
+	{
+		/* allocate result */
+		buf = zbx_malloc(buf, 1);
+		*buf = '\0';
+	}
+	return buf;
+}
+#endif /* HAVE_ODBC */
 
 /******************************************************************************
  *                                                                            *
@@ -40,70 +127,65 @@
  ******************************************************************************/
 int	get_value_db(DC_ITEM *item, AGENT_RESULT *result)
 {
-	const char	*__function_name = "get_value_db";
+#ifdef HAVE_ODBC
 	ZBX_ODBC_DBH	dbh;
 	ZBX_ODBC_ROW	row;
-	AGENT_REQUEST	request;
-	int		ret = NOTSUPPORTED;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() key_orig:'%s'", __function_name, item->key_orig);
+	char
+		*db_dsn = NULL,
+		*db_user = NULL,
+		*db_pass = NULL,
+		*db_sql = NULL;
+#endif /* HAVE_ODBC */
 
-	init_request(&request);
+	int	ret = NOTSUPPORTED;
 
-	if (SUCCEED != parse_item_key(item->key, &request))
+	init_result(result);
+
+	zabbix_log(LOG_LEVEL_DEBUG, "In database monitor: %s", item->key_orig);
+
+#ifdef HAVE_ODBC
+
+	#define DB_ODBC_SELECT_KEY "db.odbc.select["
+
+	if (0 == strncmp(item->key, DB_ODBC_SELECT_KEY, strlen(DB_ODBC_SELECT_KEY)))
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid item parameter format."));
-		goto out;
-	}
+		db_dsn = get_param_value(item->params, "DSN");
+		db_user = get_param_value(item->params, "user");
+		db_pass = get_param_value(item->params, "password");
+		db_sql  = get_param_value(item->params, "sql");
 
-	if (0 != strcmp(request.key, "db.odbc.select"))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Unsupported item key for this item type."));
-		goto out;
-	}
-
-	if (2 != request.nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid number of parameters."));
-		goto out;
-	}
-
-	if (SUCCEED == odbc_DBconnect(&dbh, request.params[1], item->username, item->password, CONFIG_TIMEOUT))
-	{
-		if (NULL != odbc_DBselect(&dbh, item->params))
+		if (SUCCEED == odbc_DBconnect(&dbh, db_dsn, db_user, db_pass))
 		{
-			if (NULL != (row = odbc_DBfetch(&dbh)))
+			if (NULL != (row = odbc_DBfetch(odbc_DBselect(&dbh, db_sql))))
 			{
-				if (NULL == row[0])
-				{
-					SET_MSG_RESULT(result, zbx_strdup(NULL, "SQL query returned NULL value."));
-				}
-				else if (SUCCEED == set_result_type(result, item->value_type, item->data_type, row[0]))
-				{
+				if (SUCCEED == set_result_type(result, item->value_type, item->data_type, row[0]))
 					ret = SUCCEED;
-				}
 			}
 			else
-			{
-				const char	*last_error = get_last_odbc_strerror();
+				SET_MSG_RESULT(result, strdup(get_last_odbc_strerror()));
 
-				if ('\0' != *last_error)
-					SET_MSG_RESULT(result, zbx_strdup(NULL, last_error));
-				else
-					SET_MSG_RESULT(result, zbx_strdup(NULL, "SQL query returned empty result."));
-			}
+			odbc_DBclose(&dbh);
 		}
 		else
-			SET_MSG_RESULT(result, zbx_strdup(NULL, get_last_odbc_strerror()));
+			SET_MSG_RESULT(result, strdup(get_last_odbc_strerror()));
 
-		odbc_DBclose(&dbh);
+		zbx_free(db_dsn);
+		zbx_free(db_user);
+		zbx_free(db_pass);
+		zbx_free(db_sql);
 	}
-	else
-		SET_MSG_RESULT(result, zbx_strdup(NULL, get_last_odbc_strerror()));
-out:
-	free_request(&request);
 
-	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
+#endif /* HAVE_ODBC */
+
+	/*
+	 * TODO:
+	 *
+	 * db.*.select[]
+	 * db.*.ping
+	 *   ...
+	 *
+	 */
 
 	return ret;
 }

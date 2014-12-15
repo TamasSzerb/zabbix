@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,252 +9,223 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "common.h"
 #include "sysinfo.h"
-#include "log.h"
-
-static u_int	pagesize = 0;
-
-#define ZBX_SYSCTLBYNAME(name, value)									\
-													\
-	len = sizeof(value);										\
-	if (0 != sysctlbyname(name, &value, &len, NULL, 0))						\
-	{												\
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain \"%s\" system parameter: %s",	\
-				name, zbx_strerror(errno)));						\
-		return SYSINFO_RET_FAIL;								\
-	}
 
 static int	VM_MEMORY_TOTAL(AGENT_RESULT *result)
 {
-	unsigned long	totalbytes;
+#if defined(HAVE_FUNCTION_SYSCTLBYNAME)
+	/* FreeBSD 6.2 i386; FreeBSD 7.0 i386 */
+	u_int		totalpages, pagesize;
 	size_t		len;
 
-	ZBX_SYSCTLBYNAME("hw.physmem", totalbytes);
+	len = sizeof(totalpages);
 
-	SET_UI64_RESULT(result, (zbx_uint64_t)totalbytes);
+	if (0 != sysctlbyname("vm.stats.vm.v_page_count", &totalpages, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
 
-	return SYSINFO_RET_OK;
-}
+	len = sizeof(pagesize);
 
-static int	VM_MEMORY_ACTIVE(AGENT_RESULT *result)
-{
-	u_int	activepages;
-	size_t	len;
+	if (0 != sysctlbyname("vm.stats.vm.v_page_size", &pagesize, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
 
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_active_count", activepages);
-
-	SET_UI64_RESULT(result, (zbx_uint64_t)activepages * pagesize);
+	SET_UI64_RESULT(result, (zbx_uint64_t)totalpages * pagesize);
 
 	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_INACTIVE(AGENT_RESULT *result)
-{
-	u_int	inactivepages;
-	size_t	len;
-
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_inactive_count", inactivepages);
-
-	SET_UI64_RESULT(result, (zbx_uint64_t)inactivepages * pagesize);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_WIRED(AGENT_RESULT *result)
-{
-	u_int	wiredpages;
-	size_t	len;
-
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_wire_count", wiredpages);
-
-	SET_UI64_RESULT(result, (zbx_uint64_t)wiredpages * pagesize);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_CACHED(AGENT_RESULT *result)
-{
-	u_int	cachedpages;
-	size_t	len;
-
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_cache_count", cachedpages);
-
-	SET_UI64_RESULT(result, (zbx_uint64_t)cachedpages * pagesize);
-
-	return SYSINFO_RET_OK;
+#else
+	return SYSINFO_RET_FAIL;
+#endif /* HAVE_FUNCTION_SYSCTLBYNAME */
 }
 
 static int	VM_MEMORY_FREE(AGENT_RESULT *result)
 {
-	u_int	freepages;
-	size_t	len;
+#if defined(HAVE_FUNCTION_SYSCTLBYNAME)
+	/* FreeBSD 6.2 i386; FreeBSD 7.0 i386 */
+	u_int		freepages, pagesize;
+	size_t		len;
 
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_free_count", freepages);
+	len = sizeof(freepages);
+
+	if (0 != sysctlbyname("vm.stats.vm.v_free_count", &freepages, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
+
+	len = sizeof(pagesize);
+
+	if (0 != sysctlbyname("vm.stats.vm.v_page_size", &pagesize, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
 
 	SET_UI64_RESULT(result, (zbx_uint64_t)freepages * pagesize);
 
 	return SYSINFO_RET_OK;
+#else
+	return SYSINFO_RET_FAIL;
+#endif /* HAVE_FUNCTION_SYSCTLBYNAME */
 }
 
 static int	VM_MEMORY_USED(AGENT_RESULT *result)
 {
-	u_int	activepages, wiredpages, cachedpages;
-	size_t	len;
+#if defined(HAVE_FUNCTION_SYSCTLBYNAME)
+	/* FreeBSD 6.2 i386; FreeBSD 7.0 i386 */
+	u_int		totalpages, freepages, pagesize;
+	size_t		len;
 
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_active_count", activepages);
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_wire_count", wiredpages);
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_cache_count", cachedpages);
+	len = sizeof(totalpages);
 
-	SET_UI64_RESULT(result, (zbx_uint64_t)(activepages + wiredpages + cachedpages) * pagesize);
+	if (0 != sysctlbyname("vm.stats.vm.v_page_count", &totalpages, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
+
+	len = sizeof(freepages);
+
+	if (0 != sysctlbyname("vm.stats.vm.v_free_count", &freepages, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
+
+	len = sizeof(pagesize);
+
+	if (0 != sysctlbyname("vm.stats.vm.v_page_size", &pagesize, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
+
+	SET_UI64_RESULT(result, (zbx_uint64_t)(totalpages - freepages) * pagesize);
 
 	return SYSINFO_RET_OK;
+#else
+	return SYSINFO_RET_FAIL;
+#endif /* HAVE_FUNCTION_SYSCTLBYNAME */
+}
+
+static int	VM_MEMORY_PFREE(AGENT_RESULT *result)
+{
+#if defined(HAVE_FUNCTION_SYSCTLBYNAME)
+	/* FreeBSD 6.2 i386; FreeBSD 7.0 i386 */
+	u_int		totalpages, freepages;
+	size_t		len;
+
+	len = sizeof(totalpages);
+
+	if (0 != sysctlbyname("vm.stats.vm.v_page_count", &totalpages, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
+
+	len = sizeof(freepages);
+
+	if (0 != sysctlbyname("vm.stats.vm.v_free_count", &freepages, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
+
+	SET_DBL_RESULT(result, (double)(100.0 * freepages) / totalpages);
+
+	return SYSINFO_RET_OK;
+#else
+	return SYSINFO_RET_FAIL;
+#endif /* HAVE_FUNCTION_SYSCTLBYNAME */
 }
 
 static int	VM_MEMORY_PUSED(AGENT_RESULT *result)
 {
-	u_int	activepages, wiredpages, cachedpages, totalpages;
-	size_t	len;
+#if defined(HAVE_FUNCTION_SYSCTLBYNAME)
+	/* FreeBSD 6.2 i386; FreeBSD 7.0 i386 */
+	u_int		totalpages, freepages;
+	size_t		len;
 
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_active_count", activepages);
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_wire_count", wiredpages);
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_cache_count", cachedpages);
+	len = sizeof(totalpages);
 
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_page_count", totalpages);
-
-	if (0 == totalpages)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot calculate percentage because total is zero."));
+	if (0 != sysctlbyname("vm.stats.vm.v_page_count", &totalpages, &len, NULL, 0))
 		return SYSINFO_RET_FAIL;
-	}
 
-	SET_DBL_RESULT(result, (activepages + wiredpages + cachedpages) / (double)totalpages * 100);
+	len = sizeof(freepages);
 
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_AVAILABLE(AGENT_RESULT *result)
-{
-	u_int	inactivepages, cachedpages, freepages;
-	size_t	len;
-
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_inactive_count", inactivepages);
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_cache_count", cachedpages);
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_free_count", freepages);
-
-	SET_UI64_RESULT(result, (zbx_uint64_t)(inactivepages + cachedpages + freepages) * pagesize);
-
-	return SYSINFO_RET_OK;
-}
-
-static int	VM_MEMORY_PAVAILABLE(AGENT_RESULT *result)
-{
-	u_int	inactivepages, cachedpages, freepages, totalpages;
-	size_t	len;
-
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_inactive_count", inactivepages);
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_cache_count", cachedpages);
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_free_count", freepages);
-
-	ZBX_SYSCTLBYNAME("vm.stats.vm.v_page_count", totalpages);
-
-	if (0 == totalpages)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot calculate percentage because total is zero."));
+	if (0 != sysctlbyname("vm.stats.vm.v_free_count", &freepages, &len, NULL, 0))
 		return SYSINFO_RET_FAIL;
-	}
 
-	SET_DBL_RESULT(result, (inactivepages + cachedpages + freepages) / (double)totalpages * 100);
+	SET_DBL_RESULT(result, (double)(100.0 * (totalpages - freepages)) / totalpages);
 
 	return SYSINFO_RET_OK;
+#else
+	return SYSINFO_RET_FAIL;
+#endif /* HAVE_FUNCTION_SYSCTLBYNAME */
 }
 
-static int	VM_MEMORY_BUFFERS(AGENT_RESULT *result)
+static int	VM_MEMORY_CACHED(AGENT_RESULT *result)
 {
-	u_int	bufspace;
-	size_t	len;
+#if defined(HAVE_FUNCTION_SYSCTLBYNAME)
+	/* FreeBSD 6.2 i386; FreeBSD 7.0 i386 */
+	u_int		cachepages, pagesize;
+	size_t		len;
 
-	ZBX_SYSCTLBYNAME("vfs.bufspace", bufspace);
+	len = sizeof(cachepages);
 
-	SET_UI64_RESULT(result, bufspace);
+	if (0 != sysctlbyname("vm.stats.vm.v_cache_count", &cachepages, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
+
+	len = sizeof(pagesize);
+
+	if (0 != sysctlbyname("vm.stats.vm.v_page_size", &pagesize, &len, NULL, 0))
+		return SYSINFO_RET_FAIL;
+
+	SET_UI64_RESULT(result, (zbx_uint64_t)cachepages * pagesize);
 
 	return SYSINFO_RET_OK;
+#else
+	return SYSINFO_RET_FAIL;
+#endif /* HAVE_FUNCTION_SYSCTLBYNAME */
 }
 
 static int	VM_MEMORY_SHARED(AGENT_RESULT *result)
 {
-	struct vmtotal	vm;
-	size_t		len = sizeof(vm);
-	int		mib[] = {CTL_VM, VM_METER};
+#if defined(HAVE_SYS_VMMETER_VMTOTAL)
+	/* FreeBSD 6.2 i386; FreeBSD 7.0 i386 */
+	int	mib[] = {CTL_VM, VM_METER};
+	size_t	len;
+	struct	vmtotal v;
 
-	if (0 != sysctl(mib, 2, &vm, &len, NULL, 0))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain system information: %s", zbx_strerror(errno)));
+	len = sizeof(v);
+
+	if (0 != sysctl(mib, 2, &v, &len, NULL, 0))
 		return SYSINFO_RET_FAIL;
-	}
 
-	SET_UI64_RESULT(result, (zbx_uint64_t)(vm.t_vmshr + vm.t_rmshr) * pagesize);
+	SET_UI64_RESULT(result, (zbx_uint64_t)(v.t_vmshr + v.t_rmshr) * sysconf(_SC_PAGESIZE));
 
 	return SYSINFO_RET_OK;
+#else
+	return SYSINFO_RET_FAIL;
+#endif
 }
 
-int     VM_MEMORY_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int     VM_MEMORY_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*mode;
-	int	ret;
-
-	if (1 < request->nparam)
+	MODE_FUNCTION fl[] =
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+		{"total",	VM_MEMORY_TOTAL},
+		{"free",	VM_MEMORY_FREE},
+		{"used",	VM_MEMORY_USED},
+		{"pfree",	VM_MEMORY_PFREE},
+		{"pused",	VM_MEMORY_PUSED},
+		{"shared",	VM_MEMORY_SHARED},
+		{"cached",	VM_MEMORY_CACHED},
+		{0,		0}
+	};
+
+	char	mode[MAX_STRING_LEN];
+	int	i;
+
+	if (num_param(param) > 1)
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (0 == pagesize)
-	{
-		size_t	len;
+	if (0 != get_param(param, 1, mode, sizeof(mode)))
+		*mode = '\0';
 
-		ZBX_SYSCTLBYNAME("vm.stats.vm.v_page_size", pagesize);
-	}
+	/* default parameter */
+	if (*mode == '\0')
+		zbx_snprintf(mode, sizeof(mode), "total");
 
-	mode = get_rparam(request, 0);
+	for (i = 0; fl[i].mode != 0; i++)
+		if (0 == strncmp(mode, fl[i].mode, MAX_STRING_LEN))
+			return (fl[i].function)(result);
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "total"))
-		ret = VM_MEMORY_TOTAL(result);
-	else if (0 == strcmp(mode, "active"))
-		ret = VM_MEMORY_ACTIVE(result);
-	else if (0 == strcmp(mode, "inactive"))
-		ret = VM_MEMORY_INACTIVE(result);
-	else if (0 == strcmp(mode, "wired"))
-		ret = VM_MEMORY_WIRED(result);
-	else if (0 == strcmp(mode, "cached"))
-		ret = VM_MEMORY_CACHED(result);
-	else if (0 == strcmp(mode, "free"))
-		ret = VM_MEMORY_FREE(result);
-	else if (0 == strcmp(mode, "used"))
-		ret = VM_MEMORY_USED(result);
-	else if (0 == strcmp(mode, "pused"))
-		ret = VM_MEMORY_PUSED(result);
-	else if (0 == strcmp(mode, "available"))
-		ret = VM_MEMORY_AVAILABLE(result);
-	else if (0 == strcmp(mode, "pavailable"))
-		ret = VM_MEMORY_PAVAILABLE(result);
-	else if (0 == strcmp(mode, "buffers"))
-		ret = VM_MEMORY_BUFFERS(result);
-	else if (0 == strcmp(mode, "shared"))
-		ret = VM_MEMORY_SHARED(result);
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		ret = SYSINFO_RET_FAIL;
-	}
-
-	return ret;
+	return SYSINFO_RET_FAIL;
 }

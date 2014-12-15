@@ -1,6 +1,6 @@
 /*
-** Zabbix
-** Copyright (C) 2001-2014 Zabbix SIA
+** ZABBIX
+** Copyright (C) 2000-2005 SIA Zabbix
 **
 ** This program is free software; you can redistribute it and/or modify
 ** it under the terms of the GNU General Public License as published by
@@ -9,12 +9,12 @@
 **
 ** This program is distributed in the hope that it will be useful,
 ** but WITHOUT ANY WARRANTY; without even the implied warranty of
-** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+** MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ** GNU General Public License for more details.
 **
 ** You should have received a copy of the GNU General Public License
 ** along with this program; if not, write to the Free Software
-** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+** Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 **/
 
 #include "checks_calculated.h"
@@ -23,12 +23,13 @@
 
 typedef struct
 {
-	int	functionid;
-	char	*host;
-	char	*key;
-	char	*func;
-	char	*params;
-	char	*value;
+	int		functionid;
+	char		*host;
+	char		*key;
+	char		*func;
+	char		*params;
+	char		*value;
+	unsigned char	found;
 }
 function_t;
 
@@ -36,8 +37,7 @@ typedef struct
 {
 	char		*exp;
 	function_t	*functions;
-	int		functions_alloc;
-	int		functions_num;
+	int		functions_alloc, functions_num;
 }
 expression_t;
 
@@ -62,6 +62,20 @@ static void	free_expression(expression_t *exp)
 	exp->functions_num = 0;
 }
 
+/*
+ * reallocate string buffer if offset >= alloc
+ */
+static void	calcitem_exp_addchr(char **buffer, int *alloc, int *offset, int step, char c)
+{
+	if (*alloc == *offset)
+	{
+		*alloc += step;
+		*buffer = zbx_realloc(*buffer, *alloc);
+	}
+
+	(*buffer)[(*offset)++] = c;
+}
+
 static int	calcitem_add_function(expression_t *exp, char *func, char *params)
 {
 	function_t	*f;
@@ -80,45 +94,36 @@ static int	calcitem_add_function(expression_t *exp, char *func, char *params)
 	f->func = func;
 	f->params = params;
 	f->value = NULL;
+	f->found = 0;
 
 	return f->functionid;
 }
 
-static int	calcitem_parse_expression(DC_ITEM *dc_item, expression_t *exp, char *error, int max_error_len)
+static int	calcitem_parse_expression(DC_ITEM *dc_item, expression_t *exp,
+		char *error, int max_error_len)
 {
 	const char	*__function_name = "calcitem_parse_expression";
 	char		*e, *f, *func = NULL, *params = NULL;
-	size_t		exp_alloc = 128, exp_offset = 0, len;
-	int		functionid, ret;
+	int		functionid, exp_alloc = 128, exp_offset = 0, ret;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s() expression:'%s'", __function_name, dc_item->params);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() expression:'%s'", __function_name, dc_item->params_orig);
 
 	assert(dc_item);
 	assert(exp);
 
 	exp->exp = zbx_malloc(exp->exp, exp_alloc);
 
-	for (e = dc_item->params; '\0' != *e; e++)
+	for (e = dc_item->params_orig; '\0' != *e; e++)
 	{
-		if (SUCCEED != is_function_char(*e))
-		{
-			zbx_chrcpy_alloc(&exp->exp, &exp_alloc, &exp_offset, *e);
+		if (NULL != strchr(" \t\r\n", *e))
 			continue;
-		}
-
-		if ((0 == strncmp("and", e, len = 3) || 0 == strncmp("not", e, 3) || 0 == strncmp("or", e, len = 2)) &&
-				NULL != strchr("()" ZBX_WHITESPACE, e[len]))
-		{
-			zbx_strncpy_alloc(&exp->exp, &exp_alloc, &exp_offset, e, len);
-			e += len - 1;
-			continue;
-		}
 
 		f = e;
-		if (SUCCEED != parse_function(&e, &func, &params))
+		if (FAIL == parse_function(&e, &func, &params))
 		{
 			e = f;
-			zbx_chrcpy_alloc(&exp->exp, &exp_alloc, &exp_offset, *f);
+			calcitem_exp_addchr(&exp->exp, &exp_alloc, &exp_offset, 128, *f);
+
 			continue;
 		}
 		else
@@ -132,12 +137,14 @@ static int	calcitem_parse_expression(DC_ITEM *dc_item, expression_t *exp, char *
 		func = NULL;
 		params = NULL;
 
-		zbx_snprintf_alloc(&exp->exp, &exp_alloc, &exp_offset, "{%d}", functionid);
+		zbx_snprintf_alloc(&exp->exp, &exp_alloc, &exp_offset, 16, "{%d}", functionid);
 	}
+
+	calcitem_exp_addchr(&exp->exp, &exp_alloc, &exp_offset, 1, '\0');
 
 	zabbix_log(LOG_LEVEL_DEBUG, "%s() expression:'%s'", __function_name, exp->exp);
 
-	if (FAIL == (ret = substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, &dc_item->host, NULL, NULL,
+	if (FAIL == (ret = substitute_simple_macros(NULL, NULL, NULL, dc_item, NULL,
 				&exp->exp, MACRO_TYPE_ITEM_EXPRESSION, error, max_error_len)))
 		ret = NOTSUPPORTED;
 
@@ -146,25 +153,24 @@ static int	calcitem_parse_expression(DC_ITEM *dc_item, expression_t *exp, char *
 	return ret;
 }
 
-static int	calcitem_evaluate_expression(DC_ITEM *dc_item, expression_t *exp, char *error, int max_error_len)
+static int	calcitem_evaluate_expression(DC_ITEM *dc_item, expression_t *exp,
+		char *error, int max_error_len)
 {
 	const char	*__function_name = "calcitem_evaluate_expression";
 	function_t	*f = NULL;
-	char		*buf, replace[16], *errstr = NULL;
-	int		i, ret = SUCCEED;
+	char		*sql = NULL, *host_esc, *key_esc,
+			*buf, replace[16];
+	int		sql_alloc = 1024, sql_offset = 0,
+			i, ret = SUCCEED;
 	time_t		now;
-	zbx_host_key_t	*keys = NULL;
-	DC_ITEM		*items = NULL;
-	int		*errcodes = NULL;
+	DB_RESULT	db_result;
+	DB_ROW		db_row;
+	DB_ITEM		item;
 
-	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
+	zabbix_log(LOG_LEVEL_DEBUG, "In %s() expression:'%s'", __function_name, exp->exp);
 
 	if (0 == exp->functions_num)
 		return ret;
-
-	keys = zbx_malloc(keys, sizeof(zbx_host_key_t) * exp->functions_num);
-	items = zbx_malloc(items, sizeof(DC_ITEM) * exp->functions_num);
-	errcodes = zbx_malloc(errcodes, sizeof(int) * exp->functions_num);
 
 	for (i = 0; i < exp->functions_num; i++)
 	{
@@ -175,7 +181,7 @@ static int	calcitem_evaluate_expression(DC_ITEM *dc_item, expression_t *exp, cha
 		if (SUCCEED != parse_host_key(buf, &f->host, &f->key))
 		{
 			zbx_snprintf(error, max_error_len,
-					"Invalid first parameter in function [%s(%s)].",
+					"Invalid first parameter in function [%s(%s)]",
 					f->func, f->params);
 			ret = NOTSUPPORTED;
 		}
@@ -183,13 +189,10 @@ static int	calcitem_evaluate_expression(DC_ITEM *dc_item, expression_t *exp, cha
 		zbx_free(buf);
 
 		if (SUCCEED != ret)
-			goto out;
+			break;
 
 		if (NULL == f->host)
 			f->host = strdup(dc_item->host.host);
-
-		keys[i].host = f->host;
-		keys[i].key = f->key;
 
 		remove_param(f->params, 1);
 
@@ -197,86 +200,105 @@ static int	calcitem_evaluate_expression(DC_ITEM *dc_item, expression_t *exp, cha
 				__function_name, f->host, f->key, f->func, f->params);
 	}
 
-	DCconfig_get_items_by_keys(items, keys, errcodes, exp->functions_num);
+	if (SUCCEED != ret)
+		return ret;
 
 	now = time(NULL);
+	sql = zbx_malloc(sql, sql_alloc);
+
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 512,
+			"select %s"
+			" where h.hostid=i.hostid"
+				" and h.status=%d"
+				" and i.status=%d"
+				" and (",
+			ZBX_SQL_ITEM_SELECT,
+			HOST_STATUS_MONITORED,
+			ITEM_STATUS_ACTIVE);
 
 	for (i = 0; i < exp->functions_num; i++)
 	{
 		f = &exp->functions[i];
 
-		if (SUCCEED != errcodes[i])
-		{
-			zbx_snprintf(error, max_error_len,
-					"Cannot evaluate function \"%s(%s)\":"
-					" item \"%s:%s\" does not exist.",
-					f->func, f->params, f->host, f->key);
-			ret = NOTSUPPORTED;
-			break;
-		}
+		if (i != 0)
+			zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 8, " or ");
 
-		if (ITEM_STATUS_ACTIVE != items[i].status)
-		{
-			zbx_snprintf(error, max_error_len,
-					"Cannot evaluate function \"%s(%s)\":"
-					" item \"%s:%s\" is disabled.",
-					f->func, f->params, f->host, f->key);
-			ret = NOTSUPPORTED;
-			break;
-		}
+		host_esc = DBdyn_escape_string(f->host);
+		key_esc = DBdyn_escape_string(f->key);
 
-		if (HOST_STATUS_MONITORED != items[i].host.status)
-		{
-			zbx_snprintf(error, max_error_len,
-					"Cannot evaluate function \"%s(%s)\":"
-					" item \"%s:%s\" belongs to a disabled host.",
-					f->func, f->params, f->host, f->key);
-			ret = NOTSUPPORTED;
-			break;
-		}
+		zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset,
+				32 + strlen(host_esc) + strlen(key_esc),
+				"(h.host='%s' and i.key_='%s')",
+				host_esc, key_esc);
 
-		if (ITEM_STATE_NOTSUPPORTED == items[i].state)
-		{
-			zbx_snprintf(error, max_error_len,
-					"Cannot evaluate function \"%s(%s)\": item \"%s:%s\" not supported.",
-					f->func, f->params, f->host, f->key);
-			ret = NOTSUPPORTED;
-			break;
-		}
+		zbx_free(key_esc);
+		zbx_free(host_esc);
+	}
 
-		f->value = zbx_malloc(f->value, MAX_BUFFER_LEN);
+	zbx_snprintf_alloc(&sql, &sql_alloc, &sql_offset, 130,
+			")" DB_NODE,
+			DBnode_local("h.hostid"));
 
-		if (SUCCEED != evaluate_function(f->value, &items[i], f->func, f->params, now, &errstr))
+	db_result = DBselect("%s", sql);
+
+	zbx_free(sql);
+
+	while (NULL != (db_row = DBfetch(db_result)))
+	{
+		DBget_item_from_db(&item, db_row);
+
+		for (i = 0; i < exp->functions_num; i++)
 		{
-			if (NULL != errstr)
+			f = &exp->functions[i];
+
+			if (0 != strcmp(f->key, item.key_orig))
+				continue;
+
+			if (0 != strcmp(f->host, item.host_name))
+				continue;
+
+			f->found = 1;
+			f->value = zbx_malloc(f->value, MAX_BUFFER_LEN);
+
+			if (SUCCEED != evaluate_function(f->value, &item, f->func, f->params, now))
 			{
-				zbx_snprintf(error, max_error_len, "Cannot evaluate function \"%s(%s)\": %s.",
-						f->func, f->params, errstr);
-				zbx_free(errstr);
+				zbx_snprintf(error, max_error_len, "Cannot evaluate function [%s(%s)]",
+						f->func, f->params);
+
+				ret = NOTSUPPORTED;
+				break;
 			}
 			else
-			{
-				zbx_snprintf(error, max_error_len, "Cannot evaluate function \"%s(%s)\".",
-						f->func, f->params);
-			}
+				f->value = zbx_realloc(f->value, strlen(f->value) + 1);
+		}
 
+		if (SUCCEED != ret)
+			break;
+	}
+	DBfree_result(db_result);
+
+	if (SUCCEED != ret)
+		return ret;
+
+	for (i = 0; i < exp->functions_num; i ++)
+	{
+		f = &exp->functions[i];
+
+		if (0 == f->found)
+		{
+			zbx_snprintf(error, max_error_len,
+				"Cannot evaluate function [%s(%s)]"
+					": item [%s:%s] not found",
+					f->func, f->params, f->host, f->key);
 			ret = NOTSUPPORTED;
 			break;
 		}
-
-		f->value = zbx_realloc(f->value, strlen(f->value) + 1);
 
 		zbx_snprintf(replace, sizeof(replace), "{%d}", f->functionid);
 		buf = string_replace(exp->exp, replace, f->value);
 		zbx_free(exp->exp);
 		exp->exp = buf;
 	}
-
-	DCconfig_clean_items(items, errcodes, exp->functions_num);
-out:
-	zbx_free(errcodes);
-	zbx_free(items);
-	zbx_free(keys);
 
 	return ret;
 }
@@ -290,7 +312,7 @@ int	get_value_calculated(DC_ITEM *dc_item, AGENT_RESULT *result)
 	double		value;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() key:'%s' expression:'%s'", __function_name,
-			dc_item->key_orig, dc_item->params);
+			dc_item->key_orig, dc_item->params_orig);
 
 	memset(&exp, 0, sizeof(exp));
 
@@ -314,15 +336,6 @@ int	get_value_calculated(DC_ITEM *dc_item, AGENT_RESULT *result)
 	}
 
 	zabbix_log(LOG_LEVEL_DEBUG, "%s() value:" ZBX_FS_DBL, __function_name, value);
-
-	if (ITEM_VALUE_TYPE_UINT64 == dc_item->value_type && 0 > value)
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Received value [" ZBX_FS_DBL "]"
-				" is not suitable for value type [%s].",
-				value, zbx_item_value_type_string(dc_item->value_type)));
-		ret = NOTSUPPORTED;
-		goto clean;
-	}
 
 	SET_DBL_RESULT(result, value);
 clean:

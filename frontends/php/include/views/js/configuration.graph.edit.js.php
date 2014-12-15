@@ -87,9 +87,7 @@
 
 	<!-- remove button -->
 	<td>
-		<button type="button" class="button link_menu" id="items_#{number}_remove" data-remove="#{number}" onclick="removeItem(this);">
-			<?php echo _('Remove') ?>
-		</button>
+		<input type="button" class="input link_menu" id="items_#{number}_remove" data-remove="#{number}" value="<?php echo CHtml::encode(_('Remove')); ?>" onclick="removeItem(this);" />
 	</td>
 </tr>
 </script>
@@ -363,7 +361,7 @@
 		});
 
 		<?php if (!empty($this->data['templateid'])): ?>
-			$('#graphTab .input, #graphTab .button').each(function() {
+			$('#graphTab input, #graphTab select').each(function() {
 				$(this).attr('disabled', 'disabled');
 				$('#itemsTable').sortable({disabled: true});
 			});

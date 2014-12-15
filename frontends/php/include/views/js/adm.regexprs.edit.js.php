@@ -4,8 +4,8 @@
 		<td>#{type}</td>
 		<td>#{case_sensitive}</td>
 		<td class="nowrap">
-			<button class="button link_menu exprEdit" type="button" data-id="#{id}"><?php echo _('Edit'); ?></button>&nbsp;
-			<button class="button link_menu exprRemove" type="button" data-id="#{id}"><?php echo _('Remove'); ?></button>
+			<button class="input link_menu exprEdit" type="button" data-id="#{id}"><?php echo _('Edit'); ?></button>&nbsp;
+			<button class="input link_menu exprRemove" type="button" data-id="#{id}"><?php echo _('Remove'); ?></button>
 		</td>
 	</tr>
 </script>
@@ -246,13 +246,13 @@
 					};
 					this.selectedID = null;
 
-					$('#saveExpression').text(<?php echo CJs::encodeJson(_('Add')); ?>);
+					$('#saveExpression').val(<?php echo CJs::encodeJson(_('Add')); ?>);
 				}
 				else {
 					data = this.expressions[id].data;
 					this.selectedID = id;
 
-					$('#saveExpression').text(<?php echo CJs::encodeJson(_('Update')); ?>);
+					$('#saveExpression').val(<?php echo CJs::encodeJson(_('Update')); ?>);
 				}
 
 				$('#expressionNew').val(data.expression);
@@ -396,15 +396,15 @@
 	}(jQuery));
 
 	jQuery(function($) {
-		$('#exprTable').on('click', '.exprRemove', function() {
+		$('#exprTable').on('click', 'button.exprRemove', function() {
 			zabbixRegExp.removeExpression($(this).attr('data-id'));
 		});
 
-		$('#exprTable').on('click', '.exprAdd', function() {
+		$('#exprTable').on('click', 'input.exprAdd', function() {
 			zabbixRegExp.showForm();
 		});
 
-		$('#exprTable').on('click', '.exprEdit', function() {
+		$('#exprTable').on('click', 'button.exprEdit', function() {
 			zabbixRegExp.showForm($(this).attr('data-id'));
 		});
 

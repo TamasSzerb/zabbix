@@ -402,7 +402,7 @@ int	check_time_period(const char *period, time_t now)
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() period:'%s'", __function_name, period);
 
-	if ((time_t)0 == now)
+	if (now == (time_t)NULL)
 		now = time(NULL);
 
 	tm = localtime(&now);

@@ -21,12 +21,12 @@
 
 include('include/views/js/administration.users.edit.js.php');
 
+$userWidget = new CWidget();
+
 if ($this->data['is_profile']) {
-	$userWidget = new CWidget(null, 'profile');
 	$userWidget->addPageHeader(_('USER PROFILE').NAME_DELIMITER.$this->data['name'].' '.$this->data['surname']);
 }
 else {
-	$userWidget = new CWidget();
 	$userWidget->addPageHeader(_('CONFIGURATION OF USERS'));
 }
 
@@ -67,10 +67,10 @@ if (!$this->data['is_profile']) {
 		array(
 			$lstGroups,
 			new CButton('add_group', _('Add'),
-				'return PopUp("popup_usrgrp.php?dstfrm='.$userForm->getName().'&list_name=user_groups_to_del[]&var_name=user_groups", 450, 450);', 'button-form top'),
+				'return PopUp("popup_usrgrp.php?dstfrm='.$userForm->getName().'&list_name=user_groups_to_del[]&var_name=user_groups", 450, 450);', 'formlist'),
 			BR(),
 			(count($this->data['user_groups']) > 0)
-				? new CSubmit('del_user_group', _('Delete selected'), null, 'button-form')
+				? new CSubmit('del_user_group', _('Delete selected'), null, 'formlist')
 				: null
 		)
 	);
@@ -93,7 +93,7 @@ if ($data['auth_type'] == ZBX_AUTH_INTERNAL) {
 		}
 	}
 	else {
-		$passwdButton = new CSubmit('change_password', _('Change password'), null, 'button-form');
+		$passwdButton = new CSubmit('change_password', _('Change password'), null, 'formlist');
 		if ($this->data['alias'] == ZBX_GUEST_USER) {
 			$passwdButton->setAttribute('disabled', 'disabled');
 		}
@@ -196,13 +196,11 @@ if (uint_in_array(CWebUser::$data['type'], array(USER_TYPE_ZABBIX_ADMIN, USER_TY
 						'&severity='.$media['severity'].
 						'&active='.$media['active'];
 
-		for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
-			$severityName = getSeverityName($severity, $this->data['config']);
+		foreach (getSeverityCaption() as $key => $caption) {
+			$mediaActive = ($media['severity'] & (1 << $key));
 
-			$mediaActive = ($media['severity'] & (1 << $severity));
-
-			$mediaSeverity[$severity] = new CSpan(mb_substr($severityName, 0, 1), $mediaActive ? 'enabled' : null);
-			$mediaSeverity[$severity]->setHint($severityName.($mediaActive ? ' ('._('on').')' : ' ('._('off').')'));
+			$mediaSeverity[$key] = new CSpan(mb_substr($caption, 0, 1), $mediaActive ? 'enabled' : null);
+			$mediaSeverity[$key]->setHint($caption.($mediaActive ? ' (on)' : ' (off)'));
 		}
 
 		$mediaTableInfo->addRow(array(
@@ -230,7 +228,7 @@ if (uint_in_array(CWebUser::$data['type'], array(USER_TYPE_ZABBIX_ADMIN, USER_TY
 if ($this->data['is_profile']) {
 	$zbxSounds = getSounds();
 
-	$userMessagingFormList = new CFormList();
+	$userMessagingFormList = new CFormList('userMessagingFormList');
 	$userMessagingFormList->addRow(_('Frontend messaging'), new CCheckBox('messages[enabled]', $this->data['messages']['enabled'], null, 1));
 	$userMessagingFormList->addRow(_('Message timeout (seconds)'), new CNumericBox('messages[timeout]', $this->data['messages']['timeout'], 5), false, 'timeout_row');
 
@@ -250,8 +248,8 @@ if ($this->data['is_profile']) {
 		_('Recovery'),
 		SPACE,
 		$soundList,
-		new CButton('start', _('Play'), "javascript: testUserSound('messages_sounds.recovery');", 'button-form'),
-		new CButton('stop', _('Stop'), 'javascript: AudioControl.stop();', 'button-form')
+		new CButton('start', _('Play'), "javascript: testUserSound('messages_sounds.recovery');", 'formlist'),
+		new CButton('stop', _('Stop'), 'javascript: AudioControl.stop();', 'formlist')
 	);
 
 	$triggersTable = new CTable('', 'invisible');
@@ -268,7 +266,15 @@ if ($this->data['is_profile']) {
 	));
 
 	// trigger sounds
-	for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
+	$severities = array(
+		TRIGGER_SEVERITY_NOT_CLASSIFIED,
+		TRIGGER_SEVERITY_INFORMATION,
+		TRIGGER_SEVERITY_WARNING,
+		TRIGGER_SEVERITY_AVERAGE,
+		TRIGGER_SEVERITY_HIGH,
+		TRIGGER_SEVERITY_DISASTER
+	);
+	foreach ($severities as $severity) {
 		$soundList = new CComboBox('messages[sounds.'.$severity.']', $this->data['messages']['sounds.'.$severity]);
 		foreach ($zbxSounds as $filename => $file) {
 			$soundList->addItem($file, $filename);
@@ -276,11 +282,11 @@ if ($this->data['is_profile']) {
 
 		$triggersTable->addRow(array(
 			new CCheckBox('messages[triggers.severities]['.$severity.']', isset($this->data['messages']['triggers.severities'][$severity]), null, 1),
-			getSeverityName($severity, $this->data['config']),
+			getSeverityCaption($severity),
 			SPACE,
 			$soundList,
-			new CButton('start', _('Play'), "javascript: testUserSound('messages_sounds.".$severity."');", 'button-form'),
-			new CButton('stop', _('Stop'), 'javascript: AudioControl.stop();', 'button-form')
+			new CButton('start', _('Play'), "javascript: testUserSound('messages_sounds.".$severity."');", 'formlist'),
+			new CButton('stop', _('Stop'), 'javascript: AudioControl.stop();', 'formlist')
 		));
 
 		zbx_subarray_push($msgVisibility, 1, 'messages[triggers.severities]['.$severity.']');
@@ -288,6 +294,45 @@ if ($this->data['is_profile']) {
 	}
 
 	$userMessagingFormList->addRow(_('Trigger severity'), $triggersTable, false, 'triggers_row');
+
+	zbx_add_post_js("
+		jQuery('#messages_enabled').bind('click', function() {
+			if (this.checked
+					&& !jQuery(\"input[id='messages_triggers.recovery']\").is(':checked')
+					&& !jQuery(\"input[id='messages_triggers.severities_0']\").is(':checked')
+					&& !jQuery(\"input[id='messages_triggers.severities_1']\").is(':checked')
+					&& !jQuery(\"input[id='messages_triggers.severities_2']\").is(':checked')
+					&& !jQuery(\"input[id='messages_triggers.severities_3']\").is(':checked')
+					&& !jQuery(\"input[id='messages_triggers.severities_4']\").is(':checked')
+					&& !jQuery(\"input[id='messages_triggers.severities_5']\").is(':checked')) {
+				jQuery(\"input[id='messages_triggers.recovery']\").attr('checked', true);
+				jQuery(\"input[id='messages_triggers.severities_0']\").attr('checked', true);
+				jQuery(\"input[id='messages_triggers.severities_1']\").attr('checked', true);
+				jQuery(\"input[id='messages_triggers.severities_2']\").attr('checked', true);
+				jQuery(\"input[id='messages_triggers.severities_3']\").attr('checked', true);
+				jQuery(\"input[id='messages_triggers.severities_4']\").attr('checked', true);
+				jQuery(\"input[id='messages_triggers.severities_5']\").attr('checked', true);
+			}
+
+			// enable/disable childs fields
+			if (this.checked) {
+				jQuery('#messagingTab input, #messagingTab select').removeAttr('disabled');
+			}
+			else {
+				jQuery('#messagingTab input, #messagingTab select').attr('disabled', 'disabled');
+				jQuery('#messages_enabled').removeAttr('disabled');
+			}
+		});
+
+		// initial state: enable/disable childs fields
+		if (jQuery('#messages_enabled').is(':checked')) {
+			jQuery('#messagingTab input, #messagingTab select').removeAttr('disabled');
+		}
+		else {
+			jQuery('#messagingTab input, #messagingTab select').attr('disabled', 'disabled');
+			jQuery('#messages_enabled').removeAttr('disabled');
+		}"
+	);
 }
 
 // append form lists to tab
@@ -312,7 +357,7 @@ if (!$this->data['is_profile']) {
 	$userTypeComboBox->addItem(USER_TYPE_SUPER_ADMIN, user_type2str(USER_TYPE_SUPER_ADMIN));
 
 	if (isset($this->data['userid']) && bccomp(CWebUser::$data['userid'], $this->data['userid']) == 0) {
-		$userTypeComboBox->setEnabled(false);
+		$userTypeComboBox->setEnabled('disabled');
 		$permissionsFormList->addRow(_('User type'), array($userTypeComboBox, SPACE, new CSpan(_('User can\'t change type for himself'))));
 		$userForm->addVar('user_type', $this->data['user_type']);
 	}
@@ -334,11 +379,10 @@ $userForm->addItem($userTab);
 
 // append buttons to form
 if (isset($this->data['userid'])) {
-	$buttons = array(
-		new CButtonCancel(url_param('config'))
-	);
-
-	if (!$this->data['is_profile']) {
+	if ($this->data['is_profile']) {
+		$deleteButton = null;
+	}
+	else {
 		$deleteButton = new CButtonDelete(
 			_('Delete selected user?'),
 			url_param('form').url_param('userid').url_param('config')
@@ -346,16 +390,20 @@ if (isset($this->data['userid'])) {
 		if (bccomp(CWebUser::$data['userid'], $this->data['userid']) == 0) {
 			$deleteButton->setAttribute('disabled', 'disabled');
 		}
-
-		array_unshift($buttons, $deleteButton);
 	}
 
-	$userForm->addItem(makeFormFooter(new CSubmit('update', _('Update')), $buttons));
+	$userForm->addItem(makeFormFooter(
+		new CSubmit('update', _('Update')),
+		array(
+			$deleteButton,
+			new CButtonCancel(url_param('config'))
+		)
+	));
 }
 else {
 	$userForm->addItem(makeFormFooter(
 		new CSubmit('add', _('Add')),
-		array(new CButtonCancel(url_param('config')))
+		new CButtonCancel(url_param('config'))
 	));
 }
 

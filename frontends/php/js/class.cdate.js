@@ -71,6 +71,15 @@ CDate.prototype = {
 			sec = this.getSeconds();
 
 		/**
+		 * Transform datetime parts to two digits e.g., 2 becomes 02
+		 * @param int val
+		 * @return string
+		 */
+		var appZr = function(val) {
+			return val < 10 ? '0' + val : val;
+		}
+
+		/**
 		 * Append date suffix according to English rules e.g., 3 becomes 3rd
 		 * @param int date
 		 * @return string
@@ -90,41 +99,36 @@ CDate.prototype = {
 
 		switch(format) {
 			case 'd M Y H:i':
-				return appendZero(dt) + ' ' + shortMn[mnth] + ' ' + yr + ' ' + appendZero(hrs) + ':' + appendZero(mnts);
+				return appZr(dt) + ' ' + shortMn[mnth] + ' ' + yr + ' ' + appZr(hrs) + ':' + appZr(mnts);
 			case 'j. M Y G:i':
-				return dt + '. ' + shortMn[mnth] + ' ' + yr + ' ' + hrs + ':' + appendZero(mnts);
+				return dt + '. ' + shortMn[mnth] + ' ' + yr + ' ' + hrs + ':' + appZr(mnts);
 			case 'Y/m/d H:i':
-				return yr + '/' + appendZero(mnth + 1) + '/' + appendZero(dt) + ' ' + appendZero(hrs) + ':' +
-					appendZero(mnts);
+				return yr + '/' + appZr(mnth + 1) + '/' + appZr(dt) + ' ' + appZr(hrs) + ':' + appZr(mnts);
 			case 'Y-m-d H:i':
-				return yr + '-' + appendZero(mnth + 1) + '-' + appendZero(dt) + ' ' + appendZero(hrs) + ':' +
-					appendZero(mnts);
+				return yr + '-' + appZr(mnth + 1) + '-' + appZr(dt) + ' ' + appZr(hrs) + ':' + appZr(mnts);
 			case 'Y-m-d':
-				return yr + '-' + appendZero(mnth + 1) + '-' + appendZero(dt);
+				return yr + '-' + appZr(mnth + 1) + '-' + appZr(dt);
 			case 'H:i:s':
-				return  appendZero(hrs) + ':' + appendZero(mnts) + ':' + appendZero(sec);
+				return  appZr(hrs) + ':' + appZr(mnts) + ':' + appZr(sec);
 			case 'H:i':
-				return  appendZero(hrs) + ':' + appendZero(mnts);
+				return  appZr(hrs) + ':' + appZr(mnts);
 			case 'M jS, Y h:i A':
 				var ampm = (hrs < 12) ? 'AM' : 'PM';
-				hrs = appendZero((hrs + 11) % 12 + 1);
-				return shortMn[mnth] + ' ' + appSfx(dt) + ', ' + yr + ' ' + hrs + ':' + appendZero(mnts) + ' ' + ampm;
+				hrs = appZr((hrs + 11) % 12 + 1);
+				return shortMn[mnth] + ' ' + appSfx(dt) + ', ' + yr + ' ' + hrs + ':' + appZr(mnts) + ' ' + ampm;
 			case 'Y M d H:i':
-				return  yr + ' ' + shortMn[mnth] + ' ' +appendZero(dt) + ' ' + appendZero(hrs) + ':' + appendZero(mnts);
+				return  yr + ' ' + shortMn[mnth] + ' ' +appZr(dt) + ' ' + appZr(hrs) + ':' + appZr(mnts);
 			case 'd.m.Y H:i':
-				return appendZero(dt) + '.' + appendZero(mnth + 1) + '.' + yr + ' ' + appendZero(hrs) + ':' +
-					appendZero(mnts);
+				return appZr(dt) + '.' + appZr(mnth + 1) + '.' + yr + ' ' + appZr(hrs) + ':' + appZr(mnts);
 			case 'd. m. Y H:i':
-				return appendZero(dt) + '. ' + appendZero(mnth + 1) + '. ' + yr + ' ' + appendZero(hrs) + ':' +
-					appendZero(mnts);
+				return appZr(dt) + '. ' + appZr(mnth + 1) + '. ' + yr + ' ' + appZr(hrs) + ':' + appZr(mnts);
 			// date format used for date input fields
 			case 'd m Y H i':
-				return appendZero(dt) + ' ' + appendZero(mnth + 1) + ' ' + yr + ' ' + appendZero(hrs) + ' ' +
-					appendZero(mnts);
+				return appZr(dt) + ' ' + appZr(mnth + 1) + ' ' + yr + ' ' + appZr(hrs) + ' ' + appZr(mnts);
 			default:
 				// defaults to Y-m-d H:i:s
-				return yr + '-' + appendZero(mnth + 1) + '-' + appendZero(dt) + ' ' + appendZero(hrs) + ':' +
-					appendZero(mnts) + ':' + appendZero(sec);
+				return yr + '-' + appZr(mnth + 1) + '-' + appZr(dt) + ' ' + appZr(hrs) + ':' + appZr(mnts) +
+					':' + appZr(sec);
 		}
 	},
 

@@ -375,7 +375,7 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 			}
 			else {
 				$list->addItem(array(
-					new CLink(_('Item prototypes'), 'disc_prototypes.php?parent_discoveryid='.$dbDiscovery['itemid']),
+					new CLink(_('Item prototypes'), 'disc_prototypes.php?hostid='.$dbHost['hostid'].'&parent_discoveryid='.$dbDiscovery['itemid']),
 					' ('.$dbDiscovery['items'].')'
 				));
 			}
@@ -400,7 +400,7 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 			}
 			else {
 				$list->addItem(array(
-					new CLink(_('Trigger prototypes'), 'trigger_prototypes.php?parent_discoveryid='.$dbDiscovery['itemid']),
+					new CLink(_('Trigger prototypes'), 'trigger_prototypes.php?hostid='.$dbHost['hostid'].'&parent_discoveryid='.$dbDiscovery['itemid']),
 					' ('.$dbDiscovery['triggers'].')'
 				));
 			}
@@ -425,7 +425,7 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 			}
 			else {
 				$list->addItem(array(
-					new CLink(_('Graph prototypes'), 'graphs.php?parent_discoveryid='.$dbDiscovery['itemid']),
+					new CLink(_('Graph prototypes'), 'graphs.php?hostid='.$dbHost['hostid'].'&parent_discoveryid='.$dbDiscovery['itemid']),
 					' ('.$dbDiscovery['graphs'].')'
 				));
 			}
@@ -494,40 +494,20 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 	return new CDiv($list, 'objectgroup top ui-widget-content ui-corner-all');
 }
 
-/**
- * Renders a form footer with the given buttons.
- *
- * @param CButtonInterface 		$mainButton	main button that will be displayed on the left
- * @param CButtonInterface[] 	$otherButtons
- *
- * @return CDiv
- *
- * @throws InvalidArgumentException	if an element of $otherButtons contain something other than CButtonInterface
- */
-function makeFormFooter(CButtonInterface $mainButton = null, array $otherButtons = array()) {
-	if ($mainButton) {
-		$mainButton->main();
-		$mainButton->setButtonClass('jqueryinput shadow');
+function makeFormFooter($main = null, $others = null) {
+	if ($main) {
+		$main->useJQueryStyle('main');
 	}
 
-	foreach ($otherButtons as $button) {
-		if (!$button instanceof CButtonInterface) {
-			throw new InvalidArgumentException('Each element of $otherButtons must be an instance of CButtonInterface');
-		}
-
-		// buttons will inherit the styles from the containing div, so only the shadow class is required
-		$button->setButtonClass('shadow');
-	}
-
-	$otherButtonDiv = new CDiv($otherButtons, 'dd left');
-	$otherButtonDiv->useJQueryStyle();
+	$othersButtons = new CDiv($others);
+	$othersButtons->useJQueryStyle();
 
 	return new CDiv(
 		new CDiv(
 			new CDiv(
 				array(
-					new CDiv($mainButton, 'dt right'),
-					$otherButtonDiv
+					new CDiv($main, 'dt right'),
+					new CDiv($othersButtons, 'dd left')
 				),
 				'formrow'
 			),

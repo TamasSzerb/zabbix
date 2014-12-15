@@ -130,7 +130,7 @@ $authProtocolRadioButton = array(
 	new CLabel(_('SHA'), 'snmpv3_authprotocol_'.ITEM_AUTHPROTOCOL_SHA)
 );
 $itemFormList->addRow(_('Authentication protocol'),
-	new CDiv($authProtocolRadioButton, 'jqueryinputset radioset'),
+	new CDiv($authProtocolRadioButton, 'jqueryinputset'),
 	false, 'row_snmpv3_authprotocol'
 );
 $itemFormList->addRow(_('Authentication passphrase'),
@@ -144,7 +144,7 @@ $privProtocolRadioButton = array(
 	new CLabel(_('AES'), 'snmpv3_privprotocol_'.ITEM_PRIVPROTOCOL_AES)
 );
 $itemFormList->addRow(_('Privacy protocol'),
-	new CDiv($privProtocolRadioButton, 'jqueryinputset radioset'),
+	new CDiv($privProtocolRadioButton, 'jqueryinputset'),
 	false, 'row_snmpv3_privprotocol'
 );
 $itemFormList->addRow(_('Privacy passphrase'),
@@ -234,7 +234,7 @@ $newFlexInt = new CSpan(array(
 	SPACE,
 	new CTextBox('new_delay_flex[period]', $this->data['new_delay_flex']['period'], 20),
 	SPACE,
-	new CSubmit('add_delay_flex', _('Add'), null, 'button-form')
+	new CSubmit('add_delay_flex', _('Add'), null, 'formlist')
 ));
 $newFlexInt->setAttribute('id', 'row-new-delay-flex-fields');
 
@@ -347,23 +347,29 @@ $itemForm->addItem($itemTab);
 
 // append buttons to form
 if (!empty($this->data['itemid'])) {
-	$buttons = array(new CSubmit('clone', _('Clone')));
-
 	if (!$this->data['limited']) {
-		$buttons[] = new CButtonDelete(
+		$btnDelete = new CButtonDelete(
 			_('Delete discovery rule?'),
 			url_params(array('form', 'groupid', 'itemid', 'parent_discoveryid', 'hostid'))
 		);
 	}
+	else {
+		$btnDelete = null;
+	}
 
-	$buttons[] = new CButtonCancel(url_param('groupid').url_param('parent_discoveryid').url_param('hostid'));
-
-	$itemForm->addItem(makeFormFooter(new CSubmit('update', _('Update')), $buttons));
+	$itemForm->addItem(makeFormFooter(
+		new CSubmit('update', _('Update')),
+		array(
+			new CSubmit('clone', _('Clone')),
+			$btnDelete,
+			new CButtonCancel(url_param('groupid').url_param('parent_discoveryid').url_param('hostid'))
+		)
+	));
 }
 else {
 	$itemForm->addItem(makeFormFooter(
 		new CSubmit('add', _('Add')),
-		array(new CButtonCancel(url_param('groupid').url_param('parent_discoveryid').url_param('hostid')))
+		new CButtonCancel(url_param('groupid').url_param('parent_discoveryid').url_param('hostid'))
 	));
 }
 $itemWidget->addItem($itemForm);

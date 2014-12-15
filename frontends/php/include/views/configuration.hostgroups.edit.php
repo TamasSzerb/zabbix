@@ -71,7 +71,7 @@ $hostGroupForm->addItem($hostGroupTab);
 if ($this->data['groupid'] == 0) {
 	$hostGroupForm->addItem(makeFormFooter(
 		new CSubmit('add', _('Add')),
-		array(new CButtonCancel())
+		new CButtonCancel()
 	));
 }
 else {

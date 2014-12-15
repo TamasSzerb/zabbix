@@ -56,17 +56,16 @@ class CInput extends CTag {
 		}
 	}
 
-	/**
-	 * Enable or disable the element.
-	 *
-	 * @param bool $value
-	 */
-	public function setEnabled($value) {
-		if ($value) {
+	public function setEnabled($value = 'yes') {
+		if ((is_string($value) && ($value == 'yes' || $value == 'checked' || $value == 'on') || $value == '1') || (is_int($value) && $value <> 0) || $value === true) {
 			$this->removeAttribute('disabled');
+			return $this;
 		}
-		else {
-			$this->attr('disabled', 'disabled');
-		}
+		$this->attr('disabled', 'disabled');
+		return $this;
+	}
+
+	public function useJQueryStyle($class = '') {
+		$this->attr('class', 'jqueryinput '.$this->getAttribute('class').' '.$class);
 	}
 }

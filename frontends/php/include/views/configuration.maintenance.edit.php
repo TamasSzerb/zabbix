@@ -201,7 +201,7 @@ if (isset($this->data['maintenanceid'])) {
 else {
 	$maintenanceForm->addItem(makeFormFooter(
 		new CSubmit('add', _('Add')),
-		array(new CButtonCancel())
+		new CButtonCancel()
 	));
 }
 

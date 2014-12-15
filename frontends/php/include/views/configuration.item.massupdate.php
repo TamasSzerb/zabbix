@@ -52,7 +52,7 @@ $itemFormList->addRow(
 // append hosts to form list
 if ($this->data['displayInterfaces']) {
 	$interfacesComboBox = new CComboBox('interfaceid', $this->data['interfaceid']);
-	$interfacesComboBox->addItem(new CComboItem(0, '', null, false));
+	$interfacesComboBox->addItem(new CComboItem(0, '', null, 'no'));
 
 	// set up interface groups
 	$interfaceGroups = array();
@@ -141,7 +141,7 @@ $authProtocol = new CDiv(
 		new CRadioButton('snmpv3_authprotocol', ITEM_AUTHPROTOCOL_SHA, null, 'snmpv3_authprotocol_'.ITEM_AUTHPROTOCOL_SHA, $this->data['snmpv3_authprotocol'] == ITEM_AUTHPROTOCOL_SHA),
 		new CLabel(_('SHA'), 'snmpv3_authprotocol_'.ITEM_AUTHPROTOCOL_SHA)
 	),
-	'jqueryinputset radioset',
+	'jqueryinputset',
 	'authprotocol_div'
 );
 $itemFormList->addRow(
@@ -171,7 +171,7 @@ $privProtocol = new CDiv(
 		new CRadioButton('snmpv3_privprotocol', ITEM_PRIVPROTOCOL_AES, null, 'snmpv3_privprotocol_'.ITEM_PRIVPROTOCOL_AES, $this->data['snmpv3_privprotocol'] == ITEM_PRIVPROTOCOL_AES),
 		new CLabel(_('AES'), 'snmpv3_privprotocol_'.ITEM_PRIVPROTOCOL_AES)
 	),
-	'jqueryinputset radioset',
+	'jqueryinputset',
 	'privprotocol_div'
 );
 $itemFormList->addRow(
@@ -363,7 +363,7 @@ $newFlexInt = new CDiv(
 		SPACE,
 		new CTextBox('new_delay_flex[period]', ZBX_DEFAULT_INTERVAL, 20),
 		SPACE,
-		new CSubmit('add_delay_flex', _('Add'), null, 'button-form')
+		new CSubmit('add_delay_flex', _('Add'), null, 'formlist')
 	),
 	null,
 	'row-new-delay-flex-fields'
@@ -569,7 +569,7 @@ $itemForm->addItem($itemTab);
 // append buttons to form
 $itemForm->addItem(makeFormFooter(
 	new CSubmit('massupdate', _('Update')),
-	array(new CButtonCancel(url_param('groupid').url_param('hostid').url_param('config')))
+	new CButtonCancel(url_param('groupid').url_param('hostid').url_param('config'))
 ));
 $itemWidget->addItem($itemForm);
 

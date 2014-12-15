@@ -35,85 +35,70 @@ $metrics = array(
 );
 $param1SecCount = array(
 	array(
-		'C' => _('Last of').' (T)',	// caption
-		'T' => T_ZBX_INT,			// type
-		'M' => $metrics				// metrics
+		'C' => _('Last of').' (T)',// caption
+		'T' => T_ZBX_INT, // type
+		'M' => $metrics // metrcis
 	),
 	array(
-		'C' => _('Time shift'),
-		'T' => T_ZBX_INT
+		'C' => _('Time shift').' ', // caption
+		'T' => T_ZBX_INT // type
 	)
 );
 $param1Sec = array(
 	array(
-		'C' => _('Last of').' (T)',
-		'T' => T_ZBX_INT
+		'C' => _('Last of').' (T)', // caption
+		'T' => T_ZBX_INT // type
 	)
 );
 $param1Str = array(
 	array(
-		'C' => 'T',
+		'C' => 'T', // caption
 		'T' => T_ZBX_STR
 	)
 );
 $param2SecCount = array(
 	array(
-		'C' => 'V',
+		'C' => 'V', // caption
 		'T' => T_ZBX_STR
 	),
 	array(
-		'C' => _('Last of').' (T)',
-		'T' => T_ZBX_INT,
-		'M' => $metrics
+		'C' => _('Last of').' (T)', // caption
+		'T' => T_ZBX_INT, // type
+		'M' => $metrics // metrcis
 	)
 );
 $param3SecVal = array(
 	array(
-		'C' => _('Last of').' (T)',
-		'T' => T_ZBX_INT,
-		'M' => $metrics
+		'C' => _('Last of').' (T)', // caption
+		'T' => T_ZBX_INT, // type
+		'M' => $metrics // metrcis
 	),
 	array(
-		'C' => 'V',
+		'C' => 'V', // caption
 		'T' => T_ZBX_STR
 	),
 	array(
-		'C' => 'O',
+		'C' => 'O', // caption
 		'T' => T_ZBX_STR
 	),
 	array(
-		'C' => _('Time shift'),
-		'T' => T_ZBX_INT
-	)
-);
-$param3SecPercent = array(
-	array(
-		'C' => _('Last of').' (T)',
-		'T' => T_ZBX_INT,
-		'M' => $metrics
-	),
-	array(
-		'C' => _('Time shift'),
-		'T' => T_ZBX_INT
-	),
-	array(
-		'C' => _('Percentage').' (P)',
-		'T' => T_ZBX_DBL
+		'C' => _('Time shift').' ', // caption
+		'T' => T_ZBX_INT // type
 	)
 );
 $paramSecIntCount = array(
 	array(
-		'C' => _('Last of').' (T)',
-		'T' => T_ZBX_INT,
-		'M' => $metrics
+		'C' => _('Last of').' (T)', // caption
+		'T' => T_ZBX_INT, // type
+		'M' => $metrics // metrics
 	),
 	array(
-		'C' => _('Mask'),
+		'C' => _('Mask'), // caption
 		'T' => T_ZBX_STR
 	),
 	array(
-		'C' => _('Time shift'),
-		'T' => T_ZBX_INT
+		'C' => _('Time shift').' ', // caption
+		'T' => T_ZBX_INT // type
 	)
 );
 $allowedTypesAny = array(
@@ -300,26 +285,6 @@ $functions = array(
 		'params' => $param1SecCount,
 		'allowed_types' => $allowedTypesNumeric
 		),
-	'percentile[<]' => array(
-		'description' =>  _('Percentile P of a period T is < N'),
-		'params' => $param3SecPercent,
-		'allowed_types' => $allowedTypesNumeric
-	),
-	'percentile[>]' => array(
-		'description' =>  _('Percentile P of a period T is > N'),
-		'params' => $param3SecPercent,
-		'allowed_types' => $allowedTypesNumeric
-	),
-	'percentile[=]' => array(
-		'description' =>  _('Percentile P of a period T is = N'),
-		'params' => $param3SecPercent,
-		'allowed_types' => $allowedTypesNumeric
-	),
-	'percentile[<>]' => array(
-		'description' =>  _('Percentile P of a period T is NOT N'),
-		'params' => $param3SecPercent,
-		'allowed_types' => $allowedTypesNumeric
-	),
 	'prev[<]' => array(
 		'description' =>  _('Previous value is < N'),
 		'allowed_types' => $allowedTypesAny

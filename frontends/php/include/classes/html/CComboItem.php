@@ -27,10 +27,7 @@ class CComboItem extends CTag {
 		$this->setAttribute('value', $value);
 		$this->addItem($caption);
 		$this->setSelected($selected);
-
-		if ($enabled !== null) {
-			$this->setEnabled($enabled);
-		}
+		$this->setEnabled($enabled);
 	}
 
 	public function setValue($value) {
@@ -50,19 +47,5 @@ class CComboItem extends CTag {
 			return $this->attributes['selected'] = 'selected';
 		}
 		$this->removeAttribute('selected');
-	}
-
-	/**
-	 * Enable or disable the element.
-	 *
-	 * @param bool $value
-	 */
-	public function setEnabled($value) {
-		if ($value) {
-			$this->removeAttribute('disabled');
-		}
-		else {
-			$this->attr('disabled', 'disabled');
-		}
 	}
 }

@@ -156,8 +156,7 @@ else {
 $data = array(
 	'fullscreen' => $_REQUEST['fullscreen'],
 	'type' => $type,
-	'view_style' => $viewStyle,
-	'config' => $config
+	'view_style' => $viewStyle
 );
 
 $data['pageFilter'] = new CPageFilter(array(

@@ -40,30 +40,26 @@ function getSeverityStyle($severity, $type = true) {
 	}
 }
 
-/**
- *	Get trigger severity name by given state and configuration.
- *
- * @param int	 $severity		trigger severity
- * @param array  $config		array containing configuration parameters containing severity names
- *
- * @return string
- */
-function getSeverityName($severity, array $config) {
-	switch ($severity) {
-		case TRIGGER_SEVERITY_NOT_CLASSIFIED:
-			return _($config['severity_name_0']);
-		case TRIGGER_SEVERITY_INFORMATION:
-			return _($config['severity_name_1']);
-		case TRIGGER_SEVERITY_WARNING:
-			return _($config['severity_name_2']);
-		case TRIGGER_SEVERITY_AVERAGE:
-			return _($config['severity_name_3']);
-		case TRIGGER_SEVERITY_HIGH:
-			return _($config['severity_name_4']);
-		case TRIGGER_SEVERITY_DISASTER:
-			return _($config['severity_name_5']);
-		default:
-			return _('Unknown');
+function getSeverityCaption($severity = null) {
+	$config = select_config();
+
+	$severities = array(
+		TRIGGER_SEVERITY_NOT_CLASSIFIED => _($config['severity_name_0']),
+		TRIGGER_SEVERITY_INFORMATION => _($config['severity_name_1']),
+		TRIGGER_SEVERITY_WARNING => _($config['severity_name_2']),
+		TRIGGER_SEVERITY_AVERAGE => _($config['severity_name_3']),
+		TRIGGER_SEVERITY_HIGH => _($config['severity_name_4']),
+		TRIGGER_SEVERITY_DISASTER => _($config['severity_name_5'])
+	);
+
+	if (is_null($severity)) {
+		return $severities;
+	}
+	elseif (isset($severities[$severity])) {
+		return $severities[$severity];
+	}
+	else {
+		return _('Unknown');
 	}
 }
 
@@ -99,22 +95,12 @@ function getSeverityColor($severity, $value = TRIGGER_VALUE_TRUE) {
 	return $color;
 }
 
-/**
- * Returns HTML representation of trigger severity cell containing severity name and color.
- *
- * @param int	 $severity			trigger severity
- * @param array  $config			array of configuration parameters to get trigger severity name
- * @param string $text				trigger severity name
- * @param bool	 $forceNormal		true to return 'normal' class, false to return corresponding severity class
- *
- * @return CCol
- */
-function getSeverityCell($severity, $config, $text = null, $forceNormal = false) {
+function getSeverityCell($severity, $text = null, $force_normal = false) {
 	if ($text === null) {
-		$text = CHtml::encode(getSeverityName($severity, $config));
+		$text = CHtml::encode(getSeverityCaption($severity));
 	}
 
-	return new CCol($text, getSeverityStyle($severity, !$forceNormal));
+	return new CCol($text, getSeverityStyle($severity, !$force_normal));
 }
 
 /**
@@ -1458,8 +1444,6 @@ function get_triggers_unacknowledged($db_element, $count_problems = null, $ack =
 function make_trigger_details($trigger) {
 	$hostNames = array();
 
-	$config = select_config();
-
 	$hostIds = zbx_objectValues($trigger['hosts'], 'hostid');
 
 	$hosts = API::Host()->get(array(
@@ -1492,7 +1476,7 @@ function make_trigger_details($trigger) {
 		new CCol(_('Trigger')),
 		new CCol(CMacrosResolverHelper::resolveTriggerName($trigger), 'wraptext')
 	));
-	$table->addRow(array(_('Severity'), getSeverityCell($trigger['priority'], $config)));
+	$table->addRow(array(_('Severity'), getSeverityCell($trigger['priority'])));
 	$table->addRow(array(
 		new CCol(_('Expression')),
 		new CCol(explode_exp($trigger['expression'], true, true), 'trigger-expression')
@@ -2113,7 +2097,6 @@ function get_item_function_info($expr) {
 		'min' =>		array('value_type' => $value_type,	'type' => $type_of_value_type,	'validation' => NOT_EMPTY),
 		'nodata' =>		array('value_type' => _('0 or 1'),	'type' => T_ZBX_INT,			'validation' => IN('0,1')),
 		'now' =>		array('value_type' => _('Numeric (integer 64bit)'), 'type' => T_ZBX_INT, 'validation' => NOT_EMPTY),
-		'percentile' =>	array('value_type' => $value_type,	'type' => $type_of_value_type,	'validation' => NOT_EMPTY),
 		'prev' =>		array('value_type' => $value_type,	'type' => $type_of_value_type,	'validation' => NOT_EMPTY),
 		'regexp' =>		array('value_type' => _('0 or 1'),	'type' => T_ZBX_INT,			'validation' => IN('0,1')),
 		'str' =>		array('value_type' => _('0 or 1'),	'type' => T_ZBX_INT,			'validation' => IN('0,1')),
@@ -2204,7 +2187,7 @@ function get_item_function_info($expr) {
 }
 
 /**
- * Substitute macros in the expression with the given values and evaluate its result.
+ * Substitute macros in the expression with the given values and evaluate it's result.
  *
  * @param string $expression                a trigger expression
  * @param array  $replaceFunctionMacros     an array of macro - value pairs
@@ -2309,7 +2292,7 @@ function convert($value) {
 }
 
 /**
- * Quoting $param if it contains special characters.
+ * Quoting $param if it contain special characters.
  *
  * @param string $param
  *
@@ -2324,7 +2307,7 @@ function quoteFunctionParam($param) {
 }
 
 /**
- * Returns the text indicating the trigger's status and state. If the $state parameter is not given, only the status of
+ * Returns the text indicating the triggers status and state. If the $state parameter is not given, only the status of
  * the trigger will be taken into account.
  *
  * @param int $status
@@ -2344,7 +2327,7 @@ function triggerIndicator($status, $state = null) {
 }
 
 /**
- * Returns the CSS class for the trigger's status and state indicator. If the $state parameter is not given, only the
+ * Returns the CSS class for the triggers status and state indicator. If the $state parameter is not given, only the
  * status of the trigger will be taken into account.
  *
  * @param int $status
@@ -2364,7 +2347,7 @@ function triggerIndicatorStyle($status, $state = null) {
 }
 
 /**
- * Orders triggers by both status and state. Triggers are sorted in the following order: enabled, disabled, unknown.
+ * Orders trigger by both status and state. Triggers are sorted in the following order: enabled, disabled, unknown.
  *
  * Keep in sync with orderItemsByStatus().
  *

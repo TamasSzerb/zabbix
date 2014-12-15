@@ -45,7 +45,7 @@ $fields = array(
 	'delay'           => array(T_ZBX_INT, O_OPT, null,  BETWEEN(1, SEC_PER_DAY), 'isset({add}) || isset({update})', _('Update interval (in sec)')),
 	'retries'         => array(T_ZBX_INT, O_OPT, null,  BETWEEN(1, 10),          'isset({add}) || isset({update})', _('Retries')),
 	'status'          => array(T_ZBX_STR, O_OPT, null,  null,                    null),
-	'agent'           => array(T_ZBX_STR, O_OPT, P_NO_TRIM, null,                'isset({add}) || isset({update})'),
+	'agent'           => array(T_ZBX_STR, O_OPT, null,  null,                    'isset({add}) || isset({update})'),
 	'variables'       => array(T_ZBX_STR, O_OPT, null,  null,                    'isset({add}) || isset({update})'),
 	'steps'           => array(T_ZBX_STR, O_OPT, null,  null,                    'isset({add}) || isset({update})', _('Steps')),
 	'authentication'  => array(T_ZBX_INT, O_OPT, null,  IN('0,1,2'),             'isset({add}) || isset({update})'),
@@ -109,15 +109,6 @@ if (isset($_REQUEST['httptestid']) || !empty($_REQUEST['group_httptestid'])) {
 		access_deny();
 	}
 }
-$hostId = getRequest('hostid');
-if ($hostId && !API::Host()->isWritable(array($hostId))) {
-	access_deny();
-}
-
-$groupId = getRequest('groupid');
-if ($groupId && !API::HostGroup()->get(array('groupids' => $groupId))) {
-	access_deny();
-}
 
 /*
  * Actions
@@ -174,8 +165,7 @@ elseif (hasRequest('del_history') && hasRequest('httptestid')) {
 			$host = reset($httpTest['hosts']);
 
 			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_SCENARIO,
-				_('Web scenario').' ['.$httpTest['name'].'] ['.$httpTestId.'] '.
-					_('Host').' ['.$host['name'].'] '._('History cleared')
+				'Scenario ['.$httpTest['name'].'] ['.$httpTestId.'] Host ['.$host['name'].'] history cleared'
 			);
 		}
 
@@ -188,12 +178,12 @@ elseif (hasRequest('add') || hasRequest('update')) {
 
 	if (hasRequest('update')) {
 		$action = AUDIT_ACTION_UPDATE;
-		$messageTrue = _('Web scenario updated');
+		$messageTrue = _('Scenario updated');
 		$messageFalse = _('Cannot update web scenario');
 	}
 	else {
 		$action = AUDIT_ACTION_ADD;
-		$messageTrue = _('Web scenario added');
+		$messageTrue = _('Scenario added');
 		$messageFalse = _('Cannot add web scenario');
 	}
 
@@ -311,7 +301,7 @@ elseif (hasRequest('add') || hasRequest('update')) {
 
 		$host = get_host_by_hostid($_REQUEST['hostid']);
 		add_audit($action, AUDIT_RESOURCE_SCENARIO,
-			_('Web scenario').' ['.getRequest('name').'] ['.$httpTestId.'] '._('Host').' ['.$host['name'].']'
+			'Scenario ['.getRequest('name').'] ['.$httpTestId.'] Host ['.$host['name'].']'
 		);
 
 		unset($_REQUEST['form']);
@@ -368,8 +358,8 @@ elseif (hasRequest('action') && str_in_array(getRequest('action'), array('httpte
 					$host = reset($httpTest['hosts']);
 
 					add_audit($auditAction, AUDIT_RESOURCE_SCENARIO,
-						_('Web scenario').' ['.$httpTest['name'].'] ['.$httpTest['httptestid'].'] '.
-							_('Host').' ['.$host['name'].'] '.$statusName
+						'Scenario ['.$httpTest['name'].'] ['.$httpTest['httptestid'].'] '.
+							'Host ['.$host['name'].'] '.$statusName
 					);
 				}
 			}
@@ -419,8 +409,8 @@ elseif (hasRequest('action') && getRequest('action') === 'httptest.massclearhist
 				$host = reset($httpTest['hosts']);
 
 				add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_SCENARIO,
-					_('Web scenario').' ['.$httpTest['name'].'] ['.$httpTest['httptestid'].'] '.
-						_('Host').' ['.$host['name'].'] '._('History cleared')
+					'Scenario ['.$httpTest['name'].'] ['.$httpTest['httptestid'].'] '.
+						'Host ['.$host['name'].'] history cleared'
 				);
 			}
 		}
@@ -455,9 +445,15 @@ if (isset($_REQUEST['form'])) {
 		'httptestid' => getRequest('httptestid'),
 		'form' => getRequest('form'),
 		'form_refresh' => getRequest('form_refresh'),
-		'templates' => array(),
-		'is_template' => false
+		'templates' => array()
 	);
+
+	$host = API::Host()->get(array(
+		'output' => array('status'),
+		'hostids' => $data['hostid'],
+		'templated_hosts' => true
+	));
+	$data['host'] = reset($host);
 
 	if (isset($data['httptestid'])) {
 		// get templates
@@ -481,7 +477,6 @@ if (isset($_REQUEST['form'])) {
 					$data['templates'][] = SPACE.'&rArr;'.SPACE;
 				}
 				$httpTestId = $dbTest['templateid'];
-				$data['is_template'] = $dbTest['status'] == HOST_STATUS_TEMPLATE;
 			}
 		}
 		$data['templates'] = array_reverse($data['templates']);
@@ -524,16 +519,12 @@ if (isset($_REQUEST['form'])) {
 			$data['status'] = HTTPTEST_STATUS_ACTIVE;
 		}
 
-		$agent = (hasRequest('agent') && zbx_empty(getRequest('agent')))
-			? ZBX_DEFAULT_AGENT
-			: getRequest('agent', ZBX_DEFAULT_AGENT);
-
 		$data['name'] = getRequest('name', '');
 		$data['applicationid'] = getRequest('applicationid');
 		$data['new_application'] = getRequest('new_application', '');
 		$data['delay'] = getRequest('delay', 60);
 		$data['retries'] = getRequest('retries', 1);
-		$data['agent'] = $agent;
+		$data['agent'] = getRequest('agent', '');
 		$data['variables'] = getRequest('variables', array());
 		$data['authentication'] = getRequest('authentication', HTTPTEST_AUTH_NONE);
 		$data['http_user'] = getRequest('http_user', '');
@@ -604,8 +595,6 @@ else {
 	}
 
 	if ($data['pageFilter']->hostsSelected) {
-		$config = select_config();
-
 		$options = array(
 			'editable' => true,
 			'output' => array('httptestid'),

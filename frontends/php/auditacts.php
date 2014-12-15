@@ -112,8 +112,6 @@ if (!$data['alias'] || $data['users']) {
 	$from = zbxDateToTime($data['stime']);
 	$till = $from + $effectivePeriod;
 
-	$config = select_config();
-
 	// fetch alerts for different objects and sources and combine them in a single stream
 	foreach (eventSourceObjects() as $eventSource) {
 		$data['alerts'] = array_merge($data['alerts'], API::Alert()->get(array(

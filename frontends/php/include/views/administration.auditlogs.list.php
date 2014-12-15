@@ -54,21 +54,18 @@ $resourceComboBox->addItems(array(-1 => _('All')) + audit_resource2str());
 $filterTable->addRow(array(
 	array(
 		bold(_('User')),
-		' ',
+		SPACE,
 		new CTextBox('alias', $this->data['alias'], 20),
 		new CButton('btn1', _('Select'), 'return PopUp("popup.php?dstfrm='.$filterForm->getName().
-			'&dstfld1=alias&srctbl=users&srcfld1=alias&real_hosts=1");',
-			'button-form'
-		)
+			'&dstfld1=alias&srctbl=users&srcfld1=alias&real_hosts=1");', 'filter-select-button')
 	),
-	array(bold(_('Action')), ' ', $actionComboBox),
-	array(bold(_('Resource')), ' ', $resourceComboBox)
+	array(bold(_('Action')), SPACE, $actionComboBox),
+	array(bold(_('Resource')), SPACE, $resourceComboBox)
 ));
-$filterButton = new CSubmit('filter_set', _('Filter'), null, 'jqueryinput shadow');
-$filterButton->main();
-
-$resetButton = new CSubmit('filter_rst', _('Reset'), null, 'jqueryinput shadow');
-
+$filterButton = new CSubmit('filter_set', _('Filter'));
+$filterButton->useJQueryStyle('main');
+$resetButton = new CSubmit('filter_rst', _('Reset'));
+$resetButton->useJQueryStyle();
 $buttonsDiv = new CDiv(array($filterButton, SPACE, $resetButton));
 $buttonsDiv->setAttribute('style', 'padding: 4px 0;');
 

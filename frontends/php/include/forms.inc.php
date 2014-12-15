@@ -19,21 +19,9 @@
 **/
 
 
-/**
- * Build user edit form data.
- *
- * @param string $userid			user ID
- * @param array	 $config			array of configuration parameters returned in $data['config'] parameter
- *									to later use when configuring user medias
- * @param bool	 $isProfile			true if current user viewing his own profile
- *
- * @return array
- */
-function getUserFormData($userid, array $config, $isProfile = false) {
-	$data = array(
-		'is_profile' => $isProfile,
-		'config' => $config
-	);
+function getUserFormData($userid, $isProfile = false) {
+	$config = select_config();
+	$data = array('is_profile' => $isProfile);
 
 	if (isset($userid)) {
 		$users = API::User()->get(array(
@@ -180,7 +168,6 @@ function getUserFormData($userid, array $config, $isProfile = false) {
 			array_push($data['user_rights'], array('id' => $id, 'permission' => $permition));
 		}
 	}
-
 	return $data;
 }
 
@@ -438,10 +425,11 @@ function getItemFilterForm(&$items) {
 	}
 
 	// update interval
-	$updateIntervalLabel = new CSpan(array(bold(_('Update interval')), ' '._('(in sec)')));
+	$updateIntervalLabel = new CSpan(array(bold(_('Update interval')), SPACE._('(in sec)').NAME_DELIMITER));
 	$updateIntervalLabel->setAttribute('id', 'filter_delay_label');
 
 	$updateIntervalInput = new CNumericBox('filter_delay', $filter_delay, 5, false, true);
+	$updateIntervalInput->setEnabled('no');
 
 	// data type
 	$dataTypeLabel = new CSpan(bold(_('Data type').NAME_DELIMITER));
@@ -450,6 +438,7 @@ function getItemFilterForm(&$items) {
 	$dataTypeInput = new CComboBox('filter_data_type', $filter_data_type);
 	$dataTypeInput->addItem(-1, _('all'));
 	$dataTypeInput->addItems(item_data_type2str());
+	$dataTypeInput->setEnabled('no');
 
 	// filter table
 	$table = new CTable('', 'filter');
@@ -461,24 +450,28 @@ function getItemFilterForm(&$items) {
 	$snmpCommunityLabel->setAttribute('id', 'filter_snmp_community_label');
 
 	$snmpCommunityField = new CTextBox('filter_snmp_community', $filter_snmp_community, ZBX_TEXTBOX_FILTER_SIZE);
+	$snmpCommunityField->setEnabled('no');
 
 	// SNMPv3 security name
 	$snmpSecurityLabel = new CSpan(array(bold(_('Security name')), SPACE._('like').NAME_DELIMITER));
 	$snmpSecurityLabel->setAttribute('id', 'filter_snmpv3_securityname_label');
 
 	$snmpSecurityField = new CTextBox('filter_snmpv3_securityname', $filter_snmpv3_securityname, ZBX_TEXTBOX_FILTER_SIZE);
+	$snmpSecurityField->setEnabled('no');
 
 	// SNMP OID
 	$snmpOidLabel = new CSpan(array(bold(_('SNMP OID')), SPACE._('like').NAME_DELIMITER));
 	$snmpOidLabel->setAttribute('id', 'filter_snmp_oid_label');
 
 	$snmpOidField = new CTextBox('filter_snmp_oid', $filter_snmp_oid, ZBX_TEXTBOX_FILTER_SIZE);
+	$snmpOidField->setEnabled('no');
 
 	// port
 	$portLabel = new CSpan(array(bold(_('Port')), SPACE._('like').NAME_DELIMITER));
 	$portLabel->setAttribute('id', 'filter_port_label');
 
 	$portField = new CNumericBox('filter_port', $filter_port, 5, false, true);
+	$portField->setEnabled('no');
 
 	// row 1
 	$groupFilter = null;
@@ -497,7 +490,7 @@ function getItemFilterForm(&$items) {
 	}
 
 	$table->addRow(array(
-		new CCol(bold(_('Host group')), 'label col1'),
+		new CCol(bold(_('Host group').NAME_DELIMITER), 'label col1'),
 		new CCol(array(
 			new CMultiSelect(array(
 				'name' => 'filter_groupid',
@@ -511,15 +504,16 @@ function getItemFilterForm(&$items) {
 					'parameters' => 'srctbl=host_groups&dstfrm='.$form->getName().'&dstfld1=filter_groupid'.
 						'&srcfld1=groupid&writeonly=1',
 					'width' => 450,
-					'height' => 450
+					'height' => 450,
+					'buttonClass' => 'input filter-multiselect-select-button'
 				)
 			))
 		), 'col1'),
-		new CCol(bold(_('Type')), 'label col2'),
+		new CCol(bold(_('Type').NAME_DELIMITER), 'label col2'),
 		new CCol($cmbType, 'col2'),
-		new CCol(bold(_('Type of information')), 'label col3'),
+		new CCol(bold(_('Type of information').NAME_DELIMITER), 'label col3'),
 		new CCol($cmbValType, 'col3'),
-		new CCol(bold(_('State')), 'label'),
+		new CCol(bold(_('State').NAME_DELIMITER), 'label'),
 		new CCol($cmbState, 'col4')
 	), 'item-list-row');
 	// row 2
@@ -540,7 +534,7 @@ function getItemFilterForm(&$items) {
 	}
 
 	$table->addRow(array(
-		new CCol(bold(_('Host')), 'label'),
+		new CCol(bold(_('Host').NAME_DELIMITER), 'label'),
 		new CCol(array(
 			new CMultiSelect(array(
 				'name' => 'filter_hostid',
@@ -555,7 +549,8 @@ function getItemFilterForm(&$items) {
 					'parameters' => 'srctbl=host_templates&dstfrm='.$form->getName().'&dstfld1=filter_hostid'.
 						'&srcfld1=hostid&writeonly=1',
 					'width' => 450,
-					'height' => 450
+					'height' => 450,
+					'buttonClass' => 'input filter-multiselect-select-button'
 				)
 			))
 		), 'col1'),
@@ -563,12 +558,12 @@ function getItemFilterForm(&$items) {
 		new CCol($updateIntervalInput),
 		new CCol($dataTypeLabel, 'label'),
 		new CCol($dataTypeInput),
-		new CCol(bold(_('Status')), 'label col4'),
+		new CCol(bold(_('Status').NAME_DELIMITER), 'label col4'),
 		new CCol($cmbStatus, 'col4')
 	), 'item-list-row');
 	// row 3
 	$table->addRow(array(
-		new CCol(bold(_('Application')), 'label'),
+		new CCol(bold(_('Application').NAME_DELIMITER), 'label'),
 		new CCol(array(
 			new CTextBox('filter_application', $filter_application, ZBX_TEXTBOX_FILTER_SIZE),
 			new CButton('btn_app', _('Select'),
@@ -577,14 +572,14 @@ function getItemFilterForm(&$items) {
 					'&with_applications=1'.
 					'" + (jQuery("input[name=\'filter_hostid\']").length > 0 ? "&hostid="+jQuery("input[name=\'filter_hostid\']").val() : "")'
 					.', 550, 450, "application");',
-				'button-form'
+				'filter-select-button'
 			)
 		), 'col1'),
 		new CCol(array($snmpCommunityLabel, $snmpSecurityLabel), 'label'),
 		new CCol(array($snmpCommunityField, $snmpSecurityField)),
-		new CCol(array(bold(_('History')), ' '._('(in days)')), 'label'),
+		new CCol(array(bold(_('History')), SPACE._('(in days)').NAME_DELIMITER), 'label'),
 		new CCol(new CNumericBox('filter_history', $filter_history, 8, false, true)),
-		new CCol(bold(_('Triggers')), 'label'),
+		new CCol(bold(_('Triggers').NAME_DELIMITER), 'label'),
 		new CCol(new CComboBox('filter_with_triggers', $filter_with_triggers, null, array(
 			-1 => _('all'),
 			1 => _('With triggers'),
@@ -593,13 +588,13 @@ function getItemFilterForm(&$items) {
 	), 'item-list-row');
 	// row 4
 	$table->addRow(array(
-		new CCol(array(bold(_('Name')), ' '._('like')), 'label'),
+		new CCol(array(bold(_('Name')), SPACE._('like').NAME_DELIMITER), 'label'),
 		new CCol(new CTextBox('filter_name', $filter_name, ZBX_TEXTBOX_FILTER_SIZE), 'col1'),
 		new CCol($snmpOidLabel, 'label'),
 		new CCol($snmpOidField),
-		new CCol(array(bold(_('Trends')), ' '._('(in days)')), 'label'),
+		new CCol(array(bold(_('Trends')), SPACE._('(in days)').NAME_DELIMITER), 'label'),
 		new CCol(new CNumericBox('filter_trends', $filter_trends, 8, false, true)),
-		new CCol(bold(_('Template')), 'label'),
+		new CCol(bold(_('Template').NAME_DELIMITER), 'label'),
 		new CCol(new CComboBox('filter_templated_items', $filter_templated_items, null, array(
 			-1 => _('all'),
 			1 => _('Templated items'),
@@ -608,7 +603,7 @@ function getItemFilterForm(&$items) {
 	), 'item-list-row');
 	// row 5
 	$table->addRow(array(
-		new CCol(array(bold(_('Key')), ' '._('like')), 'label'),
+		new CCol(array(bold(_('Key')), SPACE._('like').NAME_DELIMITER), 'label'),
 		new CCol(new CTextBox('filter_key', $filter_key, ZBX_TEXTBOX_FILTER_SIZE), 'col1'),
 		new CCol($portLabel, 'label'),
 		new CCol($portField),
@@ -618,10 +613,11 @@ function getItemFilterForm(&$items) {
 		new CCol()
 	), 'item-list-row');
 
-	$filter = new CSubmit('filter_set', _('Filter'), 'chkbxRange.clearSelectedOnFilterChange();', 'jqueryinput shadow');
-	$filter->main();
+	$filter = new CSubmit('filter_set', _('Filter'), 'chkbxRange.clearSelectedOnFilterChange();');
+	$filter->useJQueryStyle('main');
 
-	$reset = new CSubmit('filter_rst', _('Reset'), 'chkbxRange.clearSelectedOnFilterChange();', 'jqueryinput shadow');
+	$reset = new CSubmit('filter_rst', _('Reset'), 'chkbxRange.clearSelectedOnFilterChange();');
+	$reset->useJQueryStyle();
 
 	$div_buttons = new CDiv(array($filter, SPACE, $reset));
 	$div_buttons->setAttribute('style', 'padding: 4px 0px;');

@@ -387,7 +387,7 @@ else {
 						'&with_monitored_triggers=1'.
 						($pageFilter->hostid ? '&only_hostid='.$pageFilter->hostid : '').
 						'");',
-					'button-form'
+					'T'
 				)
 			), 'form_row_r')
 		)));
@@ -806,7 +806,7 @@ else {
 						(getRequest('hostid', 0) == 0) ? $host['name'] : null,
 						$description,
 						trigger_value2str($event['value']),
-						getSeverityName($trigger['priority'], $config),
+						getSeverityCaption($trigger['priority']),
 						$event['duration'],
 						$config['event_ack_enable'] ? ($event['acknowledges'] ? _('Yes') : _('No')) : null,
 						strip_tags((string) $action)
@@ -847,7 +847,7 @@ else {
 						$hostName,
 						$triggerDescription,
 						$statusSpan,
-						getSeverityCell($trigger['priority'], $config, null, !$event['value']),
+						getSeverityCell($trigger['priority'], null, !$event['value']),
 						$event['duration'],
 						$config['event_ack_enable'] ? $ack : null,
 						$action

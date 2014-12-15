@@ -57,7 +57,7 @@ class JMXItemChecker extends ItemChecker
 			String conn = request.getString(JSON_TAG_CONN);
 			int port = request.getInt(JSON_TAG_PORT);
 
-			url = new JMXServiceURL("service:jmx:rmi:///jndi/rmi://[" + conn + "]:" + port + "/jmxrmi");
+			url = new JMXServiceURL("service:jmx:rmi:///jndi/rmi://" + conn + ":" + port + "/jmxrmi");
 			jmxc = null;
 			mbsc = null;
 
@@ -273,9 +273,7 @@ class JMXItemChecker extends ItemChecker
 
 	private boolean isPrimitiveAttributeType(Class<?> clazz)
 	{
-		Class<?>[] clazzez = {Boolean.class, Character.class, Byte.class, Short.class, Integer.class, Long.class,
-			Float.class, Double.class, String.class, java.math.BigDecimal.class, java.math.BigInteger.class,
-			java.util.Date.class, javax.management.ObjectName.class};
+		Class<?>[] clazzez = {Boolean.class, Byte.class, Short.class, Integer.class, Long.class, Float.class, Double.class, String.class};
 
 		return HelperFunctionChest.arrayContains(clazzez, clazz);
 	}

@@ -33,7 +33,7 @@ ob_start();
 
 require_once dirname(__FILE__).'/include/page_header.php';
 
-if (CWebUser::$data['alias'] == ZBX_GUEST_USER) {
+if ($USER_DETAILS['alias'] == ZBX_GUEST_USER) {
 	access_deny();
 }
 
@@ -42,16 +42,15 @@ $themes[] = THEME_DEFAULT;
 
 //	VAR			TYPE	OPTIONAL FLAGS	VALIDATION	EXCEPTION
 $fields = array(
-	'password1' =>			array(T_ZBX_STR, O_OPT, null, null, 'isset({update}) && isset({form}) && ({form} != "update") && isset({change_password})'),
-	'password2' =>			array(T_ZBX_STR, O_OPT, null, null, 'isset({update}) && isset({form}) && ({form} != "update") && isset({change_password})'),
-	'lang' =>				array(T_ZBX_STR, O_OPT, null, null, null),
-	'theme' =>				array(T_ZBX_STR, O_OPT, null, IN('"'.implode('","', $themes).'"'), 'isset({update})'),
+	'password1' =>			array(T_ZBX_STR, O_OPT, null, null, 'isset({save})&&isset({form})&&({form}!="update")&&isset({change_password})'),
+	'password2' =>			array(T_ZBX_STR, O_OPT, null, null, 'isset({save})&&isset({form})&&({form}!="update")&&isset({change_password})'),
+	'lang' =>				array(T_ZBX_STR, O_OPT, null, NOT_EMPTY, 'isset({save})'),
+	'theme' =>				array(T_ZBX_STR, O_OPT, null, IN('"'.implode('","', $themes).'"'), 'isset({save})'),
 	'autologin' =>			array(T_ZBX_INT, O_OPT, null, IN('1'), null),
 	'autologout' =>	array(T_ZBX_INT, O_OPT, null, BETWEEN(90, 10000), null, _('Auto-logout (min 90 seconds)')),
-	'autologout_visible' =>	array(T_ZBX_STR, O_OPT, null, IN('1'), null),
-	'url' =>				array(T_ZBX_STR, O_OPT, null, null, 'isset({update})'),
-	'refresh' => array(T_ZBX_INT, O_OPT, null, BETWEEN(0, SEC_PER_HOUR), 'isset({update})', _('Refresh (in seconds)')),
-	'rows_per_page' => array(T_ZBX_INT, O_OPT, null, BETWEEN(1, 999999), 'isset({update})', _('Rows per page')),
+	'url' =>				array(T_ZBX_STR, O_OPT, null, null, 'isset({save})'),
+	'refresh' => array(T_ZBX_INT, O_OPT, null, BETWEEN(0, SEC_PER_HOUR), 'isset({save})', _('Refresh (in seconds)')),
+	'rows_per_page' => array(T_ZBX_INT, O_OPT, null, BETWEEN(1, 999999), 'isset({save})', _('Rows per page')),
 	'change_password' =>	array(T_ZBX_STR, O_OPT, null, null, null),
 	'user_medias' =>		array(T_ZBX_STR, O_OPT, null, NOT_EMPTY, null),
 	'user_medias_to_del' =>	array(T_ZBX_STR, O_OPT, null, DB_ID, null),
@@ -60,20 +59,20 @@ $fields = array(
 	'disable_media' =>		array(T_ZBX_INT, O_OPT, null, null, null),
 	'messages' =>			array(T_ZBX_STR, O_OPT, null, null, null),
 	// actions
-	'update'=>				array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null),
+	'save'=>				array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null),
 	'cancel'=>				array(T_ZBX_STR, O_OPT, P_SYS, null, null),
 	'del_user_media'=>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null, null),
 	// form
 	'form'=>				array(T_ZBX_STR, O_OPT, P_SYS, null, null),
-	'form_refresh'=>		array(T_ZBX_INT, O_OPT, null, null, null)
+	'form_refresh'=>		array(T_ZBX_STR, O_OPT, null, null, null)
 );
 check_fields($fields);
 
-$_REQUEST['autologin'] = getRequest('autologin', 0);
+$_REQUEST['autologin'] = get_request('autologin', 0);
 
 // secondary actions
 if (isset($_REQUEST['new_media'])) {
-	$_REQUEST['user_medias'] = getRequest('user_medias', array());
+	$_REQUEST['user_medias'] = get_request('user_medias', array());
 	array_push($_REQUEST['user_medias'], $_REQUEST['new_media']);
 }
 elseif (isset($_REQUEST['user_medias']) && isset($_REQUEST['enable_media'])) {
@@ -87,7 +86,7 @@ elseif (isset($_REQUEST['user_medias']) && isset($_REQUEST['disable_media'])) {
 	}
 }
 elseif (isset($_REQUEST['del_user_media'])) {
-	$user_medias_to_del = getRequest('user_medias_to_del', array());
+	$user_medias_to_del = get_request('user_medias_to_del', array());
 	foreach ($user_medias_to_del as $mediaid) {
 		if (isset($_REQUEST['user_medias'][$mediaid])) {
 			unset($_REQUEST['user_medias'][$mediaid]);
@@ -99,47 +98,47 @@ elseif (isset($_REQUEST['cancel'])) {
 	ob_end_clean();
 	redirect(CWebUser::$data['last_page']['url']);
 }
-elseif (hasRequest('update')) {
-	$auth_type = getUserAuthenticationType(CWebUser::$data['userid']);
+elseif (isset($_REQUEST['save'])) {
+	$auth_type = get_user_system_auth($USER_DETAILS['userid']);
 
 	if ($auth_type != ZBX_AUTH_INTERNAL) {
 		$_REQUEST['password1'] = $_REQUEST['password2'] = null;
 	}
 	else {
-		$_REQUEST['password1'] = getRequest('password1');
-		$_REQUEST['password2'] = getRequest('password2');
+		$_REQUEST['password1'] = get_request('password1', null);
+		$_REQUEST['password2'] = get_request('password2', null);
 	}
 
 	if ($_REQUEST['password1'] != $_REQUEST['password2']) {
 		show_error_message(_('Cannot update user. Both passwords must be equal.'));
 	}
-	elseif (isset($_REQUEST['password1']) && CWebUser::$data['alias'] == ZBX_GUEST_USER && !zbx_empty($_REQUEST['password1'])) {
+	elseif (isset($_REQUEST['password1']) && $USER_DETAILS['alias'] == ZBX_GUEST_USER && !zbx_empty($_REQUEST['password1'])) {
 		show_error_message(_('For guest, password must be empty'));
 	}
-	elseif (isset($_REQUEST['password1']) && CWebUser::$data['alias'] != ZBX_GUEST_USER && zbx_empty($_REQUEST['password1'])) {
+	elseif (isset($_REQUEST['password1']) && $USER_DETAILS['alias'] != ZBX_GUEST_USER && zbx_empty($_REQUEST['password1'])) {
 		show_error_message(_('Password should not be empty'));
 	}
 	else {
 		$user = array();
-		$user['userid'] = CWebUser::$data['userid'];
-		$user['alias'] = CWebUser::$data['alias'];
-		$user['passwd'] = getRequest('password1');
-		$user['url'] = getRequest('url');
-		$user['autologin'] = getRequest('autologin', 0);
-		$user['autologout'] = hasRequest('autologout_visible') ? getRequest('autologout') : 0;
-		$user['theme'] = getRequest('theme');
-		$user['refresh'] = getRequest('refresh');
-		$user['rows_per_page'] = getRequest('rows_per_page');
+		$user['userid'] = $USER_DETAILS['userid'];
+		$user['alias'] = $USER_DETAILS['alias'];
+		$user['passwd'] = get_request('password1');
+		$user['url'] = get_request('url');
+		$user['autologin'] = get_request('autologin', 0);
+		$user['autologout'] = get_request('autologout', 0);
+		$user['lang'] = get_request('lang');
+		$user['theme'] = get_request('theme');
+		$user['refresh'] = get_request('refresh');
+		$user['rows_per_page'] = get_request('rows_per_page');
 		$user['user_groups'] = null;
-		$user['user_medias'] = getRequest('user_medias', array());
+		$user['user_medias'] = get_request('user_medias', array());
 
-		if (hasRequest('lang')) {
-			$user['lang'] = getRequest('lang');
-		}
-
-		$messages = getRequest('messages', array());
+		$messages = get_request('messages', array());
 		if (!isset($messages['enabled'])) {
 			$messages['enabled'] = 0;
+		}
+		if (!isset($messages['sounds.recovery'])) {
+			$messages['sounds.recovery'] = 0;
 		}
 		if (!isset($messages['triggers.recovery'])) {
 			$messages['triggers.recovery'] = 0;
@@ -152,12 +151,12 @@ elseif (hasRequest('update')) {
 		updateMessageSettings($messages);
 
 		$result = API::User()->updateProfile($user);
-
-		if ($result && CwebUser::$data['type'] > USER_TYPE_ZABBIX_USER) {
-			$result = API::User()->updateMedia(array(
+		if ($result && (CwebUser::$data['type'] > USER_TYPE_ZABBIX_USER)) {
+			$data = array(
 				'users' => $user,
 				'medias' => $user['user_medias']
-			));
+			);
+			$result = API::User()->updateMedia($data);
 		}
 
 		$result = DBend($result);
@@ -166,14 +165,11 @@ elseif (hasRequest('update')) {
 		}
 
 		if ($result) {
-			DBstart();
 			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_USER,
-				'User alias ['.CWebUser::$data['alias'].'] Name ['.CWebUser::$data['name'].']'.
-				' Surname ['.CWebUser::$data['surname'].'] profile id ['.CWebUser::$data['userid'].']'
-			);
-			DBend(true);
-			ob_end_clean();
+				'User alias ['.$USER_DETAILS['alias'].'] Name ['.$USER_DETAILS['name'].']'.
+				' Surname ['.$USER_DETAILS['surname'].'] profile id ['.$USER_DETAILS['userid'].']');
 
+			ob_end_clean();
 			redirect(CWebUser::$data['last_page']['url']);
 		}
 		else {
@@ -187,13 +183,10 @@ ob_end_flush();
 /*
  * Display
  */
-$config = select_config();
-
-$data = getUserFormData(CWebUser::$data['userid'], $config, true);
-$data['userid'] = CWebUser::$data['userid'];
-$data['form'] = getRequest('form');
-$data['form_refresh'] = getRequest('form_refresh', 0);
-$data['autologout'] = getRequest('autologout');
+$data = getUserFormData($USER_DETAILS['userid'], true);
+$data['userid'] = $USER_DETAILS['userid'];
+$data['form'] = get_request('form');
+$data['form_refresh'] = get_request('form_refresh', 0);
 
 // render view
 $usersView = new CView('administration.users.edit', $data);

@@ -18,7 +18,6 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
 require_once dirname(__FILE__).'/../include/class.czabbixtest.php';
 
 class API_JSON_Host extends CZabbixTest {
@@ -49,19 +48,7 @@ class API_JSON_Host extends CZabbixTest {
 						array('groupid' => 5)		/* Discovered hosts */
 					),
 					'templates' => array(
-						array('templateid' => 10047),	/* Template App Zabbix Server */
-						array('templateid' => 10050),	/* Template App Zabbix Agent */
-						array('templateid' => 10093),	/* Template App FTP Service */
-						array('templateid' => 10094),	/* Template App HTTP Service */
-						array('templateid' => 10095),	/* Template App HTTPS Service */
-						array('templateid' => 10096),	/* Template App IMAP Service */
-						array('templateid' => 10097),	/* Template App LDAP Service */
-						array('templateid' => 10098),	/* Template App NNTP Service */
-						array('templateid' => 10099),	/* Template App NTP Service */
-						array('templateid' => 10100),	/* Template App POP Service */
-						array('templateid' => 10101),	/* Template App SMTP Service */
-						array('templateid' => 10102),	/* Template App SSH Service */
-						array('templateid' => 10103)	/* Template App Telnet Service */
+						array('templateid' => 10050)	/* Template App Zabbix Agent */
 					)
 				),
 				true
@@ -111,17 +98,7 @@ class API_JSON_Host extends CZabbixTest {
 						array('templateid' => 10047),	/* Template App Zabbix Server */
 						array('templateid' => 10050),	/* Template App Zabbix Agent */
 						array('templateid' => 10050),	/* Template App Zabbix Agent */
-						array('templateid' => 10093),	/* Template App FTP Service */
-						array('templateid' => 10094),	/* Template App HTTP Service */
-						array('templateid' => 10095),	/* Template App HTTPS Service */
-						array('templateid' => 10096),	/* Template App IMAP Service */
-						array('templateid' => 10097),	/* Template App LDAP Service */
-						array('templateid' => 10098),	/* Template App NNTP Service */
-						array('templateid' => 10099),	/* Template App NTP Service */
-						array('templateid' => 10100),	/* Template App POP Service */
-						array('templateid' => 10101),	/* Template App SMTP Service */
-						array('templateid' => 10102),	/* Template App SSH Service */
-						array('templateid' => 10103)	/* Template App Telnet Service */
+						array('templateid' => 10056)	/* Template App Agentless */
 					)
 				),
 				false

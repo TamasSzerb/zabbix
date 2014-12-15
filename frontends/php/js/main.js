@@ -20,6 +20,8 @@
 // Array indexOf method for javascript<1.6 compatibility
 if (!Array.prototype.indexOf) {
 	Array.prototype.indexOf = function (searchElement) {
+		'use strict';
+
 		if (this === void 0 || this === null) {
 			throw new TypeError();
 		}
@@ -150,132 +152,455 @@ var MMenu = {
 };
 
 /*
- * Audio control system
+ * Automatic checkbox range selection
  */
-var AudioControl = {
+var chkbxRange = {
+	startbox:		null,	// start checkbox obj
+	startbox_name:	null,	// start checkbox name
+	chkboxes:		{},		// ckbx list
+	pageGoName:		null,	// which checkboxes should be counted by Go button
+	pageGoCount:	0,		// selected checkboxes
+	selected_ids:	{},		// ids of selected checkboxes
+	goButton:		null,
+	page:			null,	// loaded page name
 
-	timeoutHandler: null,
+	init: function() {
+		var path = new Curl();
+		this.page = path.getPath();
+		this.selected_ids = cookie.readJSON('cb_' + this.page);
+		var chk_bx = document.getElementsByTagName('input');
+		for (var i = 0; i < chk_bx.length; i++) {
+			if (typeof(chk_bx[i]) != 'undefined' && chk_bx[i].type.toLowerCase() == 'checkbox') {
+				this.implement(chk_bx[i]);
+			}
+		}
 
-	loop: function(timeout) {
-		AudioControl.timeoutHandler = setTimeout(
-			function() {
-				if (new Date().getTime() >= timeout) {
-					AudioControl.stop();
+		this.goButton = $('goButton');
+		if (!is_null(this.goButton)) {
+			addListener(this.goButton, 'click', this.submitGo.bindAsEventListener(this), false);
+		}
+		this.setGo();
+	},
+
+	implement: function(obj) {
+		var obj_name = obj.name.split('[')[0];
+
+		if (typeof(this.chkboxes[obj_name]) == 'undefined') {
+			this.chkboxes[obj_name] = [];
+		}
+		this.chkboxes[obj_name].push(obj);
+
+		addListener(obj, 'click', this.check.bindAsEventListener(this), false);
+
+		if (obj_name == this.pageGoName) {
+			var obj_id  = obj.name.split('[')[1];
+			obj_id = obj_id.substring(0, obj_id.lastIndexOf(']'));
+
+			if (isset(obj_id, this.selected_ids)) {
+				obj.checked = true;
+			}
+		}
+	},
+
+	check: function(e) {
+		e = e || window.event;
+		var obj = Event.element(e);
+
+		PageRefresh.restart();
+
+		if (typeof(obj) == 'undefined' || obj.type.toLowerCase() != 'checkbox') {
+			return true;
+		}
+
+		this.setGo();
+
+		if (obj.name.indexOf('all_') > -1 || obj.name.indexOf('_single') > -1) {
+			return true;
+		}
+		var obj_name = obj.name.split('[')[0];
+
+		// check range selection
+		if (e.ctrlKey || e.shiftKey) {
+			if (!is_null(this.startbox) && this.startbox_name == obj_name && obj.name != this.startbox.name) {
+				var chkbx_list = this.chkboxes[obj_name];
+				var flag = false;
+
+				for (var i = 0; i < chkbx_list.length; i++) {
+					if (typeof(chkbx_list[i]) != 'undefined') {
+						if (flag) {
+							chkbx_list[i].checked = this.startbox.checked;
+						}
+						if (obj.name == chkbx_list[i].name) {
+							break;
+						}
+						if (this.startbox.name == chkbx_list[i].name) {
+							flag = true;
+						}
+					}
+				}
+
+				if (flag) {
+					this.setGo();
+					return true;
 				}
 				else {
-					AudioControl.loop(timeout);
+					for (var i = chkbx_list.length - 1; i >= 0; i--) {
+						if (typeof(chkbx_list[i]) != 'undefined') {
+							if (flag) {
+								chkbx_list[i].checked = this.startbox.checked;
+							}
+
+							if (obj.name == chkbx_list[i].name) {
+								this.setGo();
+								return true;
+							}
+
+							if (this.startbox.name == chkbx_list[i].name) {
+								flag = true;
+							}
+						}
+					}
 				}
-			},
-			1000
-		);
+			}
+			this.setGo();
+		}
+		this.startbox = obj;
+		this.startbox_name = obj_name;
 	},
 
-	playOnce: function(name) {
-		this.stop();
+	checkAll: function(name, value) {
+		if (typeof(this.chkboxes[name]) == 'undefined') {
+			return false;
+		}
 
-		if (IE) {
-			this.create(name, false);
+		var chk_bx = this.chkboxes[name];
+		for (var i = 0; i < chk_bx.length; i++) {
+			if (typeof(chk_bx[i]) != 'undefined' && chk_bx[i].disabled != true) {
+				var obj_name = chk_bx[i].name.split('[')[0];
+				if (obj_name == name) {
+					chk_bx[i].checked = value;
+				}
+			}
+		}
+	},
+
+	setGo: function() {
+		if (!is_null(this.pageGoName)) {
+			if (typeof(this.chkboxes[this.pageGoName]) == 'undefined') {
+				return false;
+			}
+
+			var chk_bx = this.chkboxes[this.pageGoName];
+			for (var i = 0; i < chk_bx.length; i++) {
+				if (typeof(chk_bx[i]) != 'undefined') {
+					var box = chk_bx[i];
+					var obj_name = box.name.split('[')[0];
+					var obj_id  = box.name.split('[')[1];
+					obj_id = obj_id.substring(0, obj_id.lastIndexOf(']'));
+					var crow = getParent(box, 'tr');
+
+					if (box.checked) {
+						if (!is_null(crow)) {
+							var origClass = crow.getAttribute('origClass');
+							if (is_null(origClass)) {
+								crow.setAttribute('origClass', crow.className);
+							}
+							crow.className = 'selected';
+						}
+						if (obj_name == this.pageGoName) {
+							this.selected_ids[obj_id] = obj_id;
+						}
+					}
+					else {
+						if (!is_null(crow)) {
+							var origClass = crow.getAttribute('origClass');
+
+							if (!is_null(origClass)) {
+								crow.className = origClass;
+								crow.removeAttribute('origClass');
+							}
+						}
+						if (obj_name == this.pageGoName) {
+							delete(this.selected_ids[obj_id]);
+						}
+					}
+				}
+			}
+
+			var countChecked = 0;
+			for (var key in this.selected_ids) {
+				if (!empty(this.selected_ids[key])) {
+					countChecked++;
+				}
+			}
+
+			if (!is_null(this.goButton)) {
+				var tmp_val = this.goButton.value.split(' ');
+				this.goButton.value = tmp_val[0] + ' (' + countChecked + ')';
+			}
+
+			cookie.createJSON('cb_' + this.page, this.selected_ids);
+
+			this.pageGoCount = countChecked;
+		}
+	},
+
+	submitGo: function(e) {
+		e = e || window.event;
+
+		if (this.pageGoCount > 0) {
+			var goSelect = $('go');
+			var confirmText = goSelect.options[goSelect.selectedIndex].getAttribute('confirm');
+
+			if (!is_null(confirmText) && !confirm(confirmText)) {
+				Event.stop(e);
+				return false;
+			}
+
+			var form = getParent(this.goButton, 'form');
+			for (var key in this.selected_ids) {
+				if (!empty(this.selected_ids[key])) {
+					create_var(form.name, this.pageGoName + '[' + key + ']', key, false);
+				}
+			}
+			return true;
 		}
 		else {
-			var obj = jQuery('#audio');
+			alert(locale['S_NO_ELEMENTS_SELECTED']);
+			Event.stop(e);
+			return false;
+		}
+	}
+};
 
-			if (obj.length > 0 && obj.data('name') === name) {
-				obj.trigger('play');
-			}
-			else {
-				this.create(name, false);
-			}
+/*
+ * Audio Control System
+ */
+var AudioList = {
+	list:		{}, // audio files options
+	dom:		{}, // dom objects links
+	standart:	{
+		'embed': {
+			'enablejavascript': 'true',
+			'autostart': 'false',
+			'loop': 0
+		},
+		'audio': {
+			'autobuffer': 'autobuffer',
+			'autoplay': null,
+			'controls': null
 		}
 	},
 
-	playLoop: function(name, delay) {
-		this.stop();
-
+	play: function(audiofile) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
 		if (IE) {
-			this.create(name, true);
+			try {
+				this.dom[audiofile].Play();
+			}
+			catch(e) {
+				setTimeout(this.play.bind(this, audiofile), 500);
+			}
 		}
 		else {
-			var obj = jQuery('#audio');
+			this.dom[audiofile].play();
+		}
+	},
 
-			if (obj.length > 0 && obj.data('name') === name) {
-				obj.trigger('play');
+	pause: function(audiofile) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
+		if (IE) {
+			try {
+				this.dom[audiofile].Stop();
 			}
-			else {
-				this.create(name, true);
+			catch(e) {
+				setTimeout(this.pause.bind(this, audiofile), 1000);
+			}
+		}
+		else {
+			this.dom[audiofile].pause();
+		}
+	},
+
+	stop: function(audiofile) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
+
+		if (IE) {
+			this.dom[audiofile].setAttribute('loop', '0');
+		}
+		else {
+			this.dom[audiofile].removeAttribute('loop');
+		}
+
+		if (!IE) {
+			try {
+				if (!this.dom[audiofile].paused) {
+					this.dom[audiofile].currentTime = 0;
+				}
+				else if (this.dom[audiofile].currentTime > 0) {
+					this.dom[audiofile].play();
+					this.dom[audiofile].currentTime = 0;
+					this.dom[audiofile].pause();
+				}
+			}
+			catch(e) {
 			}
 		}
 
-		AudioControl.loop(new Date().getTime() + delay * 1000);
+		if (!is_null(this.list[audiofile].timeout)) {
+			clearTimeout(this.list[audiofile].timeout);
+			this.list[audiofile].timeout = null;
+		}
+
+		this.pause(audiofile);
+		this.endLoop(audiofile);
 	},
 
-	stop: function() {
-		var obj = document.getElementById('audio');
+	stopAll: function(e) {
+		for (var name in this.list) {
+			if (empty(this.dom[name])) {
+				continue;
+			}
+			this.stop(name);
+		}
+	},
 
-		if (obj !== null) {
-			clearTimeout(AudioControl.timeoutHandler);
+	volume: function(audiofile, vol) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
+	},
 
+	loop: function(audiofile, params) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
+
+		if (isset('repeat', params)) {
 			if (IE) {
-				obj.setAttribute('loop', false);
-				obj.setAttribute('playcount', 0);
-
-				try {
-					obj.stop();
-				}
-				catch (e) {
-					setTimeout(
-						function() {
-							try {
-								document.getElementById('audio').stop();
-							}
-							catch (e) {
-							}
-						},
-						100
-					);
-				}
+				this.play(audiofile);
 			}
 			else {
-				jQuery(obj).trigger('pause');
+				if (this.list[audiofile].loop == 0) {
+					if (params.repeat != 0) {
+						this.startLoop(audiofile, params.repeat);
+					}
+					else {
+						this.endLoop(audiofile);
+					}
+				}
+				if (this.list[audiofile].loop != 0) {
+					this.list[audiofile].loop--;
+					this.play(audiofile);
+				}
 			}
+		}
+		else if (isset('seconds', params)) {
+			if (IE) {
+				this.dom[audiofile].setAttribute('loop', '1');
+			}
+			else {
+				this.startLoop(audiofile, 9999999);
+				this.list[audiofile].loop--;
+			}
+			this.play(audiofile);
+			this.list[audiofile].timeout = setTimeout(AudioList.stop.bind(AudioList, audiofile), 1000 * parseInt(params.seconds, 10));
 		}
 	},
 
-	create: function(name, loop) {
-		if (IE) {
-			jQuery('#audio').remove();
-
-			jQuery('body').append(jQuery('<embed>', {
-				id: 'audio',
-				'data-name': name,
-				src: 'audio/' + name,
-				enablejavascript: true,
-				autostart: true,
-				loop: true,
-				playcount: loop ? 9999999 : 1,
-				height: 0
-			}));
+	startLoop: function(audiofile, loop) {
+		if (!isset(audiofile, this.list)) {
+			return false;
 		}
-		else {
-			var obj = jQuery('#audio');
+		if (isset('onEnded', this.list[audiofile])) {
+			this.endLoop(audiofile);
+		}
+		this.list[audiofile].loop = parseInt(loop, 10);
+		this.list[audiofile].onEnded = this.loop.bind(this, audiofile, {'repeat' : 0});
+		addListener(this.dom[audiofile], 'ended', this.list[audiofile].onEnded);
+	},
 
-			if (obj.length == 0 || obj.data('name') !== name) {
-				obj.remove();
+	endLoop: function(audiofile) {
+		if (!isset(audiofile, this.list)) {
+			return true;
+		}
+		this.list[audiofile].loop = 0;
 
-				var audioOptions = {
-					id: 'audio',
-					'data-name': name,
-					src: 'audio/' + name,
-					preload: 'auto',
-					autoplay: true
-				};
+		if (isset('onEnded', this.list[audiofile])) {
+			removeListener(this.dom[audiofile], 'ended', this.list[audiofile].onEnded);
+			this.list[audiofile].onEnded = null;
+			delete(this.list[audiofile].onEnded);
+		}
+	},
 
-				if (loop) {
-					audioOptions.loop = true;
+	create: function(audiofile, params) {
+		if (typeof(audiofile) == 'undefined') {
+			return false;
+		}
+		if (isset(audiofile, this.list)) {
+			return true;
+		}
+		if (typeof(params) == 'undefined') {
+			params = {};
+		}
+		if (!isset('audioList', this.dom)) {
+			this.dom.audioList = document.createElement('div');
+			document.getElementsByTagName('body')[0].appendChild(this.dom.audioList);
+			this.dom.audioList.setAttribute('id', 'audiolist');
+		}
+
+		if (IE) {
+			this.dom[audiofile] = document.createElement('embed');
+			this.dom.audioList.appendChild(this.dom[audiofile]);
+			this.dom[audiofile].setAttribute('name', audiofile);
+			this.dom[audiofile].setAttribute('src', 'audio/' + audiofile);
+			this.dom[audiofile].style.display = 'none';
+
+			for (var key in this.standart.embed) {
+				if (isset(key, params)) {
+					this.dom[audiofile].setAttribute(key, params[key]);
 				}
-
-				jQuery('body').append(jQuery('<audio>', audioOptions));
+				else if (!is_null(this.standart.embed[key])) {
+					this.dom[audiofile].setAttribute(key, this.standart.embed[key]);
+				}
 			}
 		}
+		else {
+			this.dom[audiofile] = document.createElement('audio');
+			this.dom.audioList.appendChild(this.dom[audiofile]);
+			this.dom[audiofile].setAttribute('id', audiofile);
+			this.dom[audiofile].setAttribute('src', 'audio/' + audiofile);
+
+			for (var key in this.standart.audio) {
+				if (isset(key, params)) {
+					this.dom[audiofile].setAttribute(key, params[key]);
+				}
+				else if (!is_null(this.standart.audio[key])) {
+					this.dom[audiofile].setAttribute(key, this.standart.audio[key]);
+				}
+			}
+			this.dom[audiofile].load();
+		}
+		this.list[audiofile] = params;
+		this.list[audiofile].loop = 0;
+		this.list[audiofile].timeout = null;
+		return true;
+	},
+
+	remove: function(audiofile) {
+		if (!isset(audiofile, this.dom)) {
+			return true;
+		}
+		$(this.dom[audiofile]).remove();
+
+		delete(this.dom[audiofile]);
+		delete(this.list[audiofile]);
 	}
 };
 
@@ -287,7 +612,6 @@ var AudioControl = {
  * Example of usage:
  *      <span class="blink" data-time-to-blink="60">test 1</span>
  *      <span class="blink" data-time-to-blink="30">test 2</span>
- *      <span class="blink" data-toggle-class="normal">test 3</span>
  *      <span class="blink">test 3</span>
  *      <script type="text/javascript">
  *          jQuery(document).ready(function(
@@ -296,7 +620,6 @@ var AudioControl = {
  *      </script>
  * Elements with class 'blink' will blink for 'data-seconds-to-blink' seconds
  * If 'data-seconds-to-blink' is omitted, element will blink forever.
- * For elements with class 'blink' and attribute 'data-toggle-class' class will be toggled.
  * @author Konstantin Buravcov
  */
 var jqBlink = {
@@ -314,15 +637,7 @@ var jqBlink = {
 		objects = this.filterOutNonBlinking(objects);
 
 		// changing visibility state
-		fun = this.shown ? 'removeClass' : 'addClass';
-		jQuery.each(objects, function() {
-			if (typeof jQuery(this).data('toggleClass') !== 'undefined') {
-				jQuery(this)[fun](jQuery(this).data('toggleClass'));
-			}
-			else {
-				jQuery(this).css('visibility', jqBlink.shown ? 'hidden' : 'visible');
-			}
-		})
+		objects.css('visibility', this.shown ? 'hidden' : 'visible');
 
 		// reversing the value of indicator attribute
 		this.shown = !this.shown;
@@ -364,7 +679,7 @@ var jqBlink = {
  */
 var hintBox = {
 
-	createBox: function(e, target, hintText, className, isStatic) {
+	createBox: function(e, target, hintText, width, className, isStatic) {
 		var box = jQuery('<div></div>').addClass('hintbox');
 
 		if (typeof hintText === 'string') {
@@ -376,6 +691,10 @@ var hintBox = {
 		}
 		else {
 			box.html(hintText);
+		}
+
+		if (!empty(width)) {
+			box.css('width', width + 'px');
 		}
 
 		if (isStatic) {
@@ -395,14 +714,14 @@ var hintBox = {
 		return box;
 	},
 
-	HintWraper: function(e, target, hintText, className) {
+	HintWraper: function(e, target, hintText, width, className) {
 		target.isStatic = false;
 
 		jQuery(target).on('mouseenter', function(e, d) {
 			if (d) {
 				e = d;
 			}
-			hintBox.showHint(e, target, hintText, className, false);
+			hintBox.showHint(e, target, hintText, width, className, false);
 
 		}).on('mouseleave', function(e) {
 			hintBox.hideHint(e, target);
@@ -415,13 +734,13 @@ var hintBox = {
 		jQuery(target).trigger('mouseenter', e);
 	},
 
-	showStaticHint: function(e, target, hint, className, resizeAfterLoad) {
+	showStaticHint: function(e, target, hint, width, className, resizeAfterLoad) {
 		var isStatic = target.isStatic;
 		hintBox.hideHint(e, target, true);
 
 		if (!isStatic) {
 			target.isStatic = true;
-			hintBox.showHint(e, target, hint, className, true);
+			hintBox.showHint(e, target, hint, width, className, true);
 
 			if (resizeAfterLoad) {
 				hint.one('load', function(e) {
@@ -431,12 +750,12 @@ var hintBox = {
 		}
 	},
 
-	showHint: function(e, target, hintText, className, isStatic) {
+	showHint: function(e, target, hintText, width, className, isStatic) {
 		if (target.hintBoxItem) {
 			return;
 		}
 
-		target.hintBoxItem = hintBox.createBox(e, target, hintText, className, isStatic);
+		target.hintBoxItem = hintBox.createBox(e, target, hintText, width, className, isStatic);
 		hintBox.positionHint(e, target);
 		target.hintBoxItem.show();
 	},
@@ -454,7 +773,7 @@ var hintBox = {
 			target.clientY = e.clientY;
 		}
 
-		// doesn't fit in the screen horizontally
+		// doesn't fit in the screen horizontaly
 		if (target.hintBoxItem.width() + 10 > wWidth) {
 			left = scrollLeft + 2;
 		}
@@ -480,7 +799,7 @@ var hintBox = {
 			top = scrollTop + target.clientY + 10;
 		}
 
-		// fallback if doesn't fit verticaly but could fit if aligned to right or left
+		// fallback if doesnt't fit verticaly but could fit if aligned to right or left
 		if ((top - scrollTop + target.hintBoxItem.height() > wHeight)
 				&& (target.clientX - 10 > target.hintBoxItem.width() || wWidth - target.clientX - 10 > target.hintBoxItem.width())) {
 
@@ -589,461 +908,196 @@ function set_color_by_name(id, color) {
 	set_color(color);
 }
 
+/*
+ * Zabbix ajax requests
+ */
 function add2favorites(favobj, favid) {
-	sendAjaxData({
-		data: {
-			favobj: favobj,
-			favid: favid,
-			favaction: 'add'
-		}
-	});
+	if ('undefined' == typeof(Ajax)) {
+		throw('Prototype.js lib is required!');
+	}
+
+	if (typeof(favid) == 'undefined' || empty(favid)) {
+		return;
+	}
+
+	var params = {
+		'favobj': favobj,
+		'favid': favid,
+		'favaction': 'add'
+	};
+
+	send_params(params);
 }
 
-function rm4favorites(favobj, favid) {
-	sendAjaxData({
-		data: {
-			favobj: favobj,
-			favid: favid,
-			favaction: 'remove'
-		}
-	});
+function rm4favorites(favobj, favid, menu_rowid) {
+	if ('undefined' == typeof(Ajax)) {
+		throw('Prototype.js lib is required!');
+	}
+
+	if (typeof(favobj) == 'undefined' || typeof(favid) == 'undefined') {
+		throw 'No agruments sent to function [rm4favorites()].';
+	}
+
+	var params = {
+		'favobj': favobj,
+		'favid': favid,
+		'favcnt': menu_rowid,
+		'favaction': 'remove'
+	};
+
+	send_params(params);
 }
 
+function change_flicker_state(divid) {
+	deselectAll();
 
-/**
- * Toggles filter state and updates title and icons accordingly.
- *
- * @param {int} 	id					Id of filter in DOM
- * @param {string} 	titleWhenVisible	Title to set when filter is visible
- * @param {string} 	titleWhenHidden		Title to set when filter is collapsed
- */
-function changeFlickerState(id, titleWhenVisible, titleWhenHidden) {
-	var state = showHide(id);
+	var switchArrows = function() {
+		switchElementsClass($('flicker_icon_l'), 'dbl_arrow_up', 'dbl_arrow_down');
+		switchElementsClass($('flicker_icon_r'), 'dbl_arrow_up', 'dbl_arrow_down');
+	};
 
-	switchElementClass('flicker_icon_l', 'dbl_arrow_up', 'dbl_arrow_down');
-	switchElementClass('flicker_icon_r', 'dbl_arrow_up', 'dbl_arrow_down');
+	var filter_state = showHide(divid);
+	switchArrows();
 
-	var title = state ? titleWhenVisible : titleWhenHidden;
+	if (false === filter_state) {
+		return false;
+	}
 
-	jQuery('#flicker_title').html(title);
+	var params = {
+		'favaction': 'flop',
+		'favobj': 'filter',
+		'favref': divid,
+		'favstate': filter_state
+	};
+	send_params(params);
 
-	sendAjaxData({
-		data: {
-			filterState: state
-		}
-	});
-
-	// resize multiselects in the flicker
-	if (jQuery('.multiselect').length > 0 && state == 1) {
-		jQuery('.multiselect', jQuery('#' + id)).multiSelect('resize');
+	// selection box position
+	if (typeof(moveSBoxes) != 'undefined') {
+		moveSBoxes();
 	}
 }
 
-function changeWidgetState(obj, widgetId) {
-	var widgetObj = jQuery('#' + widgetId + '_widget'),
-		css = switchElementClass(obj, 'arrowup', 'arrowdown'),
-		state = 0;
+function changeHatStateUI(icon, divid) {
+	deselectAll();
 
-	if (css === 'arrowdown') {
-		jQuery('.body', widgetObj).slideUp(50);
-		jQuery('.footer', widgetObj).slideUp(50);
+	var switchIcon = function() {
+		switchElementsClass(icon, 'arrowup', 'arrowdown');
+	};
+
+	jQuery($(divid).parentNode).
+		find('.body').toggle().end().
+		find('.footer').toggle().end();
+
+	switchIcon();
+
+	var hat_state = jQuery(icon).hasClass('arrowup') ? 1 : 0;
+	if (false === hat_state) {
+		return false;
 	}
-	else {
-		jQuery('.body', widgetObj).slideDown(50);
-		jQuery('.footer', widgetObj).slideDown(50);
 
-		state = 1;
-	}
+	var params = {
+		'favaction': 'flop',
+		'favobj': 'hat',
+		'favref': divid,
+		'favstate': hat_state
+	};
 
-	sendAjaxData({
-		data: {
-			widgetName: widgetId,
-			widgetState: state
-		}
-	});
+	send_params(params);
 }
 
-/**
- * Send ajax data.
- *
- * @param object options
- */
-function sendAjaxData(options) {
+function change_hat_state(icon, divid) {
+	deselectAll();
+
+	var switchIcon = function() {
+		switchElementsClass(icon, 'arrowup', 'arrowdown');
+	};
+
+	var hat_state = showHide(divid);
+	switchIcon();
+
+	if (false === hat_state) {
+		return false;
+	}
+
+	var params = {
+		'favaction': 'flop',
+		'favobj': 'hat',
+		'favref': divid,
+		'favstate': hat_state
+	};
+
+	send_params(params);
+}
+
+function send_params(params) {
+	if (typeof(params) === 'undefined') {
+		params = [];
+	}
+
 	var url = new Curl(location.href);
 	url.setQuery('?output=ajax');
 
-	var defaults = {
-		type: 'post',
-		url: url.getUrl()
-	};
-
-	jQuery.ajax(jQuery.extend({}, defaults, options));
+	new Ajax.Request(url.getUrl(), {
+			'method': 'post',
+			'parameters': params,
+			'onSuccess': function() { },
+			'onFailure': function() {
+				document.location = url.getPath() + '?' + Object.toQueryString(params);
+			}
+		}
+	);
 }
 
-/**
- * Finds all elements with a 'placeholder' attribute and emulates the placeholder in IE.
- */
+function setRefreshRate(pmasterid, dollid, interval, params) {
+	if (typeof(Ajax) == 'undefined') {
+		throw('Prototype.js lib is required!');
+	}
+
+	if (typeof(params) == 'undefined' || is_null(params)) {
+		params = {};
+	}
+	params['pmasterid'] = pmasterid;
+	params['favobj'] = 'set_rf_rate';
+	params['favref'] = dollid;
+	params['favcnt'] = interval;
+
+	send_params(params);
+}
+
+function switch_mute(icon) {
+	deselectAll();
+	var sound_state = switchElementsClass(icon, 'iconmute', 'iconsound');
+
+	if (false === sound_state) {
+		return false;
+	}
+	sound_state = (sound_state == 'iconmute') ? 1 : 0;
+
+	var params = {
+		'favobj': 'sound',
+		'favref': 'sound',
+		'favstate': sound_state
+	};
+
+	send_params(params);
+}
+
 function createPlaceholders() {
 	if (IE) {
-		jQuery('[placeholder]').each(function() {
-			var placeholder = jQuery(this);
+		jQuery(document).ready(function() {
+			'use strict';
 
-			if (!placeholder.data('has-placeholder-handlers')) {
-				placeholder
-					.data('has-placeholder-handlers', true)
-					.focus(function() {
-						var obj = jQuery(this);
-
-						if (!obj.attr('placeholder')) {
-							return;
-						}
-
-						if (obj.val() == obj.attr('placeholder')) {
-							obj.val('');
-							obj.removeClass('placeholder');
-						}
-					})
-					.blur(function() {
-						var obj = jQuery(this);
-
-						if (!obj.attr('placeholder')) {
-							return;
-						}
-
-						if (obj.val() == '' ||  obj.val() == obj.attr('placeholder')) {
-							obj.val(obj.attr('placeholder'));
-							obj.addClass('placeholder');
-						}
-					})
-					.blur();
-			}
-
-			jQuery('form').submit(function() {
-				jQuery('.placeholder').each(function() {
-					var obj = jQuery(this);
-
-					if (obj.val() == obj.attr('placeholder')) {
-						obj.val('');
-					}
-				});
-			});
+			jQuery('[placeholder]').focus(function() {
+				if (jQuery(this).val() == jQuery(this).attr('placeholder')) {
+					jQuery(this).val('');
+					jQuery(this).removeClass('placeholder');
+				}
+			}).blur(function() {
+				if (jQuery(this).val() == '' || jQuery(this).val() == jQuery(this).attr('placeholder')) {
+					jQuery(this).addClass('placeholder');
+					jQuery(this).val(jQuery(this).attr('placeholder'));
+				}
+			}).blur();
 		});
 	}
 }
-
-/**
- * Converts number to letter representation.
- * From A to Z, then from AA to ZZ etc.
- * Example: 0 => A, 25 => Z, 26 => AA, 27 => AB, 52 => BA, ...
- *
- * Keep in sync with PHP num2letter().
- *
- * @param {int} number
- *
- * @return {string}
- */
-function num2letter(number) {
-	var start = 'A'.charCodeAt(0);
-	var base = 26;
-	var str = '';
-	var level = 0;
-
-	do {
-		if (level++ > 0) {
-			number--;
-		}
-		var remainder = number % base;
-		number = (number - remainder) / base;
-		str = String.fromCharCode(start + remainder) + str;
-	} while (number);
-
-	return str;
-}
-
-/**
- * Generate a formula from the given conditions with respect to the given evaluation type.
- * Each condition must have a condition type, that will be used for grouping.
- *
- * Each condition object must have the following properties:
- * - id		- ID used in the formula
- * - type	- condition type used for grouping
- *
- * Supported evalType values:
- * - 1 - or
- * - 2 - and
- * - 3 - and/or
- *
- * Example:
- * getConditionFormula([{'id': 'A', 'type': '1'}, {'id': 'B', 'type': '1'}, {'id': 'C', 'type': '2'}], '1');
- *
- * // (A and B) and C
- *
- * Keep in sync with PHP CConditionHelper::getFormula().
- *
- * @param {array} 	conditions	array of condition objects
- * @param {string} 	evalType
- *
- * @returns {string}
- */
-function getConditionFormula(conditions, evalType) {
-	var conditionOperator, groupOperator;
-
-	switch (evalType) {
-		// and
-		case 1:
-			conditionOperator = 'and';
-			groupOperator = conditionOperator;
-
-			break;
-		// or
-		case 2:
-			conditionOperator = 'or';
-			groupOperator = conditionOperator;
-
-			break;
-		// and/or
-		default:
-			conditionOperator = 'or';
-			groupOperator = 'and';
-	}
-
-	var groupedFormulas = [];
-	for (var i = 0; i < conditions.length; i++) {
-		if (typeof conditions[i] === 'undefined') {
-			continue;
-		}
-
-		var groupedConditions = [];
-		groupedConditions.push(conditions[i].id);
-
-		// search for other conditions of the same type
-		for (var n = i + 1; n < conditions.length; n++) {
-			if (typeof conditions[n] !== 'undefined' && conditions[i].type == conditions[n].type) {
-				groupedConditions.push(conditions[n].id);
-				delete conditions[n];
-			}
-		}
-
-		// join conditions of the same type
-		if (groupedConditions.length > 1) {
-			groupedFormulas.push('(' + groupedConditions.join(' ' + conditionOperator + ' ') + ')');
-		}
-		else {
-			groupedFormulas.push(groupedConditions[0]);
-		}
-	}
-
-	var formula = groupedFormulas.join(' ' + groupOperator + ' ');
-
-	// strip parentheses if there's only one condition group
-	if (groupedFormulas.length == 1) {
-		formula = formula.substr(1, formula.length - 2);
-	}
-
-	return formula;
-}
-
-(function($) {
-	/**
-	 * Creates a table with dynamic add/remove row buttons.
-	 *
-	 * Supported options:
-	 * - template		- row template selector
-	 * - row			- element row selector
-	 * - add			- add row button selector
-	 * - remove			- remove row button selector
-	 * - counter 		- number to start row enumeration from
-	 * - dataCallback	- function to generate the data passed to the template
-	 *
-	 * Triggered events:
-	 * - rowremove.dynamicRows 	- after removing a row (triggered before tableupdate.dynamicRows)
-	 * - tableupdate.dynamicRows 	- after adding or removing a row
-	 *
-	 * @param options
-	 */
-	$.fn.dynamicRows = function(options) {
-		options = $.extend({}, {
-			template: '',
-			row: '.form_row',
-			add: '.element-table-add',
-			remove: '.element-table-remove',
-			counter: null,
-			dataCallback: function(data) {
-				return {};
-			}
-		}, options);
-
-		return this.each(function() {
-			var table = $(this);
-
-			table.data('dynamicRows', {
-				counter: (options.counter !== null) ? options.counter : $(options.row, table).length
-			});
-
-			// add buttons
-			table.on('click', options.add, function() {
-				// add the new row before the row with the "Add" button
-				addRow(table, $(this).closest('tr'), options);
-			});
-
-			// remove buttons
-			table.on('click', options.remove, function() {
-				// remove the parent row
-				removeRow(table, $(this).closest(options.row), options);
-			});
-		});
-	};
-
-	/**
-	 * Adds a row before the given row.
-	 *
-	 * @param {jQuery} table
-	 * @param {jQuery} beforeRow
-	 * @param {object} options
-	 */
-	function addRow(table, beforeRow, options) {
-		var data = {
-			rowNum: table.data('dynamicRows').counter
-		};
-		data = $.extend(data, options.dataCallback(data));
-
-		var template = new Template($(options.template).html());
-		beforeRow.before(template.evaluate(data));
-		table.data('dynamicRows').counter++;
-
-		createPlaceholders();
-
-		table.trigger('tableupdate.dynamicRows', options);
-	}
-
-	/**
-	 * Removes the given row.
-	 *
-	 * @param {jQuery} table
-	 * @param {jQuery} row
-	 * @param {object} options
-	 */
-	function removeRow(table, row, options) {
-		row.remove();
-
-		table.trigger('rowremove.dynamicRows', options);
-		table.trigger('tableupdate.dynamicRows', options);
-	}
-}(jQuery));
-
-jQuery(function ($) {
-	var verticalHeaderTables = {};
-
-	var tablesWidthChangeChecker = function() {
-		for (var tableId in verticalHeaderTables) {
-			if (verticalHeaderTables.hasOwnProperty(tableId)) {
-				var table = verticalHeaderTables[tableId];
-
-				if (table && table.width() != table.data('last-width')) {
-					centerVerticalCellContents(table);
-				}
-			}
-		}
-		setTimeout(tablesWidthChangeChecker, 100);
-	};
-
-	var centerVerticalCellContents = function(table) {
-		var verticalCells = $('.vertical_rotation', table);
-
-		verticalCells.each(function() {
-			var cell = $(this),
-				cellWidth = cell.width();
-
-			if (cellWidth > 30) {
-				cell.children().css({
-					position: 'relative',
-					left: (cellWidth / 2 - 12) + 'px'
-				});
-			}
-		});
-
-		table.data('last-width', table.width());
-	};
-
-	tablesWidthChangeChecker();
-
-	$.fn.makeVerticalRotation = function() {
-		this.each(function(i) {
-			var table = $(this);
-
-			if (table.data('rotated') == 1) {
-				return;
-			}
-			table.data('rotated', 1);
-
-			var cellsToRotate = $('.vertical_rotation', table),
-				betterCells = [];
-
-			// insert spans
-			cellsToRotate.each(function() {
-				var cell = $(this);
-
-				var text = $('<span>', {
-					text: cell.html()
-				});
-
-				if (IE) {
-					text.css({'font-family': 'monospace'});
-				}
-
-				cell.text('').append(text);
-			});
-
-			// rotate cells
-			cellsToRotate.each(function() {
-				var cell = $(this),
-					span = cell.children(),
-					height = cell.height(),
-					width = span.width(),
-					transform = (width / 2) + 'px ' + (width / 2) + 'px';
-
-				var css = {
-					"transform-origin": transform,
-					"-webkit-transform-origin": transform,
-					"-moz-transform-origin": transform,
-					"-o-transform-origin": transform
-				};
-
-				if (IE) {
-					css['font-family'] = 'monospace';
-					css['-ms-transform-origin'] = '50% 50%';
-				}
-
-				if (IE9) {
-					css['-ms-transform-origin'] = transform;
-				}
-
-				var divInner = $('<div>', {
-					'class': 'vertical_rotation_inner'
-				})
-					.css(css)
-					.append(span.text());
-
-				var div = $('<div>', {
-					height: width,
-					width: height
-				})
-					.append(divInner);
-
-				betterCells.push(div);
-			});
-
-			cellsToRotate.each(function(i) {
-				$(this).html(betterCells[i]);
-			});
-
-			centerVerticalCellContents(table);
-
-			table.on('remove', function() {
-				delete verticalHeaderTables[table.attr('id')];
-			});
-
-			verticalHeaderTables[table.attr('id')] = table;
-		});
-	};
-});

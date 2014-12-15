@@ -29,8 +29,7 @@
 
 #define CONFIG_PROXYCONFIG_RETRY	120	/* seconds */
 
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	process_type;
 
 /******************************************************************************
  *                                                                            *
@@ -47,59 +46,33 @@ extern int		server_num, process_num;
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static void	process_configuration_sync(size_t *data_size)
+static void	process_configuration_sync()
 {
 	const char	*__function_name = "process_configuration_sync";
 
 	zbx_sock_t	sock;
+	char		*data;
 	struct		zbx_json_parse jp;
-	char		value[16];
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	/* reset the performance metric */
-	*data_size = 0;
-
 	connect_to_server(&sock, 600, CONFIG_PROXYCONFIG_RETRY); /* retry till have a connection */
 
-	if (SUCCEED != get_data_from_server(&sock, ZBX_PROTO_VALUE_PROXY_CONFIG))
-		goto out;
+	if (FAIL == get_data_from_server(&sock, ZBX_PROTO_VALUE_PROXY_CONFIG, &data))
+		goto exit;
 
-	if ('\0' == *sock.buffer)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "cannot obtain configuration data from server: empty string received");
-		goto out;
-	}
+	if ('\0' != *data)
+		zabbix_log(LOG_LEVEL_WARNING, "Received configuration data from server. Datalen " ZBX_FS_SIZE_T,
+				(zbx_fs_size_t)strlen(data));
+	else
+		zabbix_log(LOG_LEVEL_WARNING, "Cannot obtain configuration data from server. "
+				"Proxy host name might not be matching that on the server.");
 
-	if (SUCCEED != zbx_json_open(sock.buffer, &jp))
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "cannot obtain configuration data from server: %s", zbx_json_strerror());
-		goto out;
-	}
-
-	*data_size = (size_t)(jp.end - jp.start + 1);     /* performance metric */
-
-	/* if the answer is short then most likely it is a negative answer "response":"failed" */
-	if (128 > *data_size &&
-			SUCCEED == zbx_json_value_by_name(&jp, ZBX_PROTO_TAG_RESPONSE, value, sizeof(value)) &&
-			0 == strcmp(value, ZBX_PROTO_VALUE_FAILED))
-	{
-		char	*info = NULL;
-		size_t	info_alloc = 0;
-
-		zbx_json_value_by_name_dyn(&jp, ZBX_PROTO_TAG_INFO, &info, &info_alloc);
-
-		zabbix_log(LOG_LEVEL_WARNING, "cannot obtain configuration data from server: %s",
-				ZBX_NULL2EMPTY_STR(info));
-		zbx_free(info);
-		goto out;
-	}
-
-	zabbix_log(LOG_LEVEL_WARNING, "received configuration data from server, datalen " ZBX_FS_SIZE_T,
-			(zbx_fs_size_t)*data_size);
+	if (FAIL == zbx_json_open(data, &jp))
+		goto exit;
 
 	process_proxyconfig(&jp);
-out:
+exit:
 	disconnect_server(&sock);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
@@ -120,17 +93,9 @@ out:
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(proxyconfig_thread, args)
+void	main_proxyconfig_loop()
 {
-	size_t	data_size;
-	double	sec;
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
+	zabbix_log(LOG_LEVEL_DEBUG, "In main_proxyconfig_loop()");
 
 	zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 
@@ -140,13 +105,7 @@ ZBX_THREAD_ENTRY(proxyconfig_thread, args)
 	{
 		zbx_setproctitle("%s [loading configuration]", get_process_type_string(process_type));
 
-		sec = zbx_time();
-		process_configuration_sync(&data_size);
-		sec = zbx_time() - sec;
-
-		zbx_setproctitle("%s [synced config " ZBX_FS_SIZE_T " bytes in " ZBX_FS_DBL " sec, idle %d sec]",
-				get_process_type_string(process_type), (zbx_fs_size_t)data_size, sec,
-				CONFIG_PROXYCONFIG_FREQUENCY);
+		process_configuration_sync();
 
 		zbx_sleep_loop(CONFIG_PROXYCONFIG_FREQUENCY);
 	}

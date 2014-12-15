@@ -20,10 +20,8 @@
 #ifndef ZABBIX_HEART_H
 #define ZABBIX_HEART_H
 
-#include "threads.h"
-
 extern int	CONFIG_HEARTBEAT_FREQUENCY;
 
-ZBX_THREAD_ENTRY(heart_thread, args);
+void	main_heart_loop();
 
 #endif

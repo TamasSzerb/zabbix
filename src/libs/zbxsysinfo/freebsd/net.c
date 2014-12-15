@@ -20,21 +20,13 @@
 #include "common.h"
 #include "sysinfo.h"
 #include "../common/common.h"
-#include "zbxjson.h"
-#include "log.h"
 
 static struct ifmibdata	ifmd;
 
-static int	get_ifmib_general(const char *if_name, char **error)
+static int	get_ifmib_general(const char *if_name)
 {
 	int	mib[6], ifcount;
 	size_t	len;
-
-	if (NULL == if_name || '\0' == *if_name)
-	{
-		*error = zbx_strdup(NULL, "Network interface name cannot be empty.");
-		return FAIL;
-	}
 
 	mib[0] = CTL_NET;
 	mib[1] = PF_LINK;
@@ -45,10 +37,7 @@ static int	get_ifmib_general(const char *if_name, char **error)
 	len = sizeof(ifcount);
 
 	if (-1 == sysctl(mib, 5, &ifcount, &len, NULL, 0))
-	{
-		*error = zbx_dsprintf(NULL, "Cannot obtain system information: %s", zbx_strerror(errno));
 		return FAIL;
-	}
 
 	mib[3] = IFMIB_IFDATA;
 	mib[5] = IFDATA_GENERAL;
@@ -69,31 +58,26 @@ static int	get_ifmib_general(const char *if_name, char **error)
 			return SUCCEED;
 	}
 
-	*error = zbx_strdup(NULL, "Cannot find information for this network interface.");
-
 	return FAIL;
 }
 
-int	NET_IF_IN(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	NET_IF_IN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*if_name, *mode, *error;
+	char	if_name[MAX_STRING_LEN], mode[32];
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (2 < num_param(param))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if_name = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
-
-	if (FAIL == get_ifmib_general(if_name,&error))
-	{
-		SET_MSG_RESULT(result, error);
+	if (0 != get_param(param, 1, if_name, sizeof(if_name)))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "bytes"))	/* default parameter */
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
+
+	if (FAIL == get_ifmib_general(if_name))
+		return SYSINFO_RET_FAIL;
+
+	if ('\0' == *mode || 0 == strcmp(mode, "bytes"))	/* default parameter */
 		SET_UI64_RESULT(result, ifmd.ifmd_data.ifi_ibytes);
 	else if (0 == strcmp(mode, "packets"))
 		SET_UI64_RESULT(result, ifmd.ifmd_data.ifi_ipackets);
@@ -102,105 +86,85 @@ int	NET_IF_IN(AGENT_REQUEST *request, AGENT_RESULT *result)
 	else if (0 == strcmp(mode, "dropped"))
 		SET_UI64_RESULT(result, ifmd.ifmd_data.ifi_iqdrops);
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	return SYSINFO_RET_OK;
 }
 
-int	NET_IF_OUT(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	NET_IF_OUT(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*if_name, *mode, *error;
+	char	if_name[MAX_STRING_LEN], mode[32];
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (2 < num_param(param))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if_name = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
-
-	if (FAIL == get_ifmib_general(if_name, &error))
-	{
-		SET_MSG_RESULT(result, error);
+	if (0 != get_param(param, 1, if_name, sizeof(if_name)))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "bytes"))	/* default parameter */
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
+
+	if (FAIL == get_ifmib_general(if_name))
+		return SYSINFO_RET_FAIL;
+
+	if ('\0' == *mode || 0 == strcmp(mode, "bytes"))	/* default parameter */
 		SET_UI64_RESULT(result, ifmd.ifmd_data.ifi_obytes);
 	else if (0 == strcmp(mode, "packets"))
 		SET_UI64_RESULT(result, ifmd.ifmd_data.ifi_opackets);
 	else if (0 == strcmp(mode, "errors"))
 		SET_UI64_RESULT(result, ifmd.ifmd_data.ifi_oerrors);
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	return SYSINFO_RET_OK;
 }
 
-int	NET_IF_TOTAL(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	NET_IF_TOTAL(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*if_name, *mode, *error;
+	char	if_name[MAX_STRING_LEN], mode[32];
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (2 < num_param(param))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if_name = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
-
-	if (FAIL == get_ifmib_general(if_name, &error))
-	{
-		SET_MSG_RESULT(result, error);
+	if (0 != get_param(param, 1, if_name, sizeof(if_name)))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "bytes"))	/* default parameter */
+	if (0 != get_param(param, 2, mode, sizeof(mode)))
+		*mode = '\0';
+
+	if (FAIL == get_ifmib_general(if_name))
+		return SYSINFO_RET_FAIL;
+
+	if ('\0' == *mode || 0 == strcmp(mode, "bytes"))	/* default parameter */
 		SET_UI64_RESULT(result, (zbx_uint64_t)ifmd.ifmd_data.ifi_ibytes + ifmd.ifmd_data.ifi_obytes);
 	else if (0 == strcmp(mode, "packets"))
 		SET_UI64_RESULT(result, (zbx_uint64_t)ifmd.ifmd_data.ifi_ipackets + ifmd.ifmd_data.ifi_opackets);
 	else if (0 == strcmp(mode, "errors"))
 		SET_UI64_RESULT(result, (zbx_uint64_t)ifmd.ifmd_data.ifi_ierrors + ifmd.ifmd_data.ifi_oerrors);
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	return SYSINFO_RET_OK;
 }
 
-int     NET_TCP_LISTEN(AGENT_REQUEST *request, AGENT_RESULT *result)
+int     NET_TCP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		*port_str, command[64];
+	char		tmp[8], command[64];
 	unsigned short	port;
 	int		res;
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (1 < num_param(param))
 		return SYSINFO_RET_FAIL;
-	}
 
-	port_str = get_rparam(request, 0);
-
-	if (NULL == port_str || SUCCEED != is_ushort(port_str, &port))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
 		return SYSINFO_RET_FAIL;
-	}
+
+	if (FAIL == is_ushort(tmp, &port))
+		return SYSINFO_RET_FAIL;
 
 	zbx_snprintf(command, sizeof(command), "netstat -an | grep '^tcp.*\\.%hu[^.].*LISTEN' | wc -l", port);
 
-	if (SYSINFO_RET_FAIL == (res = EXECUTE_INT(command, result)))
+	if (SYSINFO_RET_FAIL == (res = EXECUTE_INT(NULL, command, flags, result)))
 		return res;
 
 	if (1 < result->ui64)
@@ -209,29 +173,24 @@ int     NET_TCP_LISTEN(AGENT_REQUEST *request, AGENT_RESULT *result)
 	return res;
 }
 
-int     NET_UDP_LISTEN(AGENT_REQUEST *request, AGENT_RESULT *result)
+int     NET_UDP_LISTEN(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char		*port_str, command[64];
+	char		tmp[8], command[64];
 	unsigned short	port;
 	int		res;
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (1 < num_param(param))
 		return SYSINFO_RET_FAIL;
-	}
 
-	port_str = get_rparam(request, 0);
-
-	if (NULL == port_str || SUCCEED != is_ushort(port_str, &port))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
 		return SYSINFO_RET_FAIL;
-	}
+
+	if (FAIL == is_ushort(tmp, &port))
+		return SYSINFO_RET_FAIL;
 
 	zbx_snprintf(command, sizeof(command), "netstat -an | grep '^udp.*\\.%hu[^.].*\\*\\.\\*' | wc -l", port);
 
-	if (SYSINFO_RET_FAIL == (res = EXECUTE_INT(command, result)))
+	if (SYSINFO_RET_FAIL == (res = EXECUTE_INT(NULL, command, flags, result)))
 		return res;
 
 	if (1 < result->ui64)
@@ -240,57 +199,20 @@ int     NET_UDP_LISTEN(AGENT_REQUEST *request, AGENT_RESULT *result)
 	return res;
 }
 
-int     NET_IF_COLLISIONS(AGENT_REQUEST *request, AGENT_RESULT *result)
+int     NET_IF_COLLISIONS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*if_name, *error;
+	char	if_name[MAX_STRING_LEN];
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (1 < num_param(param))
 		return SYSINFO_RET_FAIL;
-	}
 
-	if_name = get_rparam(request, 0);
-
-	if (FAIL == get_ifmib_general(if_name, &error))
-	{
-		SET_MSG_RESULT(result, error);
+	if (0 != get_param(param, 1, if_name, sizeof(if_name)))
 		return SYSINFO_RET_FAIL;
-	}
+
+	if (FAIL == get_ifmib_general(if_name))
+		return SYSINFO_RET_FAIL;
 
 	SET_UI64_RESULT(result, ifmd.ifmd_data.ifi_collisions);
-
-	return SYSINFO_RET_OK;
-}
-
-int	NET_IF_DISCOVERY(AGENT_REQUEST *request, AGENT_RESULT *result)
-{
-	int			i;
-	struct zbx_json		j;
-	struct if_nameindex	*interfaces;
-
-	if (NULL == (interfaces = if_nameindex()))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain system information: %s", zbx_strerror(errno)));
-		return SYSINFO_RET_FAIL;
-	}
-
-	zbx_json_init(&j, ZBX_JSON_STAT_BUF_LEN);
-
-	zbx_json_addarray(&j, ZBX_PROTO_TAG_DATA);
-
-	for (i = 0; 0 != interfaces[i].if_index; i++)
-	{
-		zbx_json_addobject(&j, NULL);
-		zbx_json_addstring(&j, "{#IFNAME}", interfaces[i].if_name, ZBX_JSON_TYPE_STRING);
-		zbx_json_close(&j);
-	}
-
-	zbx_json_close(&j);
-
-	SET_STR_RESULT(result, strdup(j.buffer));
-
-	zbx_json_free(&j);
 
 	return SYSINFO_RET_OK;
 }

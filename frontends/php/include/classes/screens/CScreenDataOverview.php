@@ -33,17 +33,6 @@ class CScreenDataOverview extends CScreenBase {
 			$hostids[$dbHostGroup['hostid']] = $dbHostGroup['hostid'];
 		}
 
-		// application filter
-		$applicationIds = null;
-		if ($this->screenitem['application'] !== '') {
-			$applications = API::Application()->get(array(
-				'output' => array('applicationid'),
-				'hostids' => $hostids,
-				'search' => array('name' => $this->screenitem['application'])
-			));
-			$applicationIds = zbx_objectValues($applications, 'applicationid');
-		}
-
-		return $this->getOutput(getItemsDataOverview($hostids, $applicationIds, $this->screenitem['style']));
+		return $this->getOutput(get_items_data_overview($hostids, $this->screenitem['style']));
 	}
 }

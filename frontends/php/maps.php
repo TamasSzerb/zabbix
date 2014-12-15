@@ -25,6 +25,7 @@ require_once dirname(__FILE__).'/include/maps.inc.php';
 $page['title'] = _('Network maps');
 $page['file'] = 'maps.php';
 $page['hist_arg'] = array('sysmapid');
+$page['scripts'] = array();
 $page['type'] = detect_page_type(PAGE_TYPE_HTML);
 
 if ($page['type'] == PAGE_TYPE_HTML) {
@@ -35,13 +36,14 @@ require_once dirname(__FILE__).'/include/page_header.php';
 
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
-	'sysmapid' =>		array(T_ZBX_INT, O_OPT, P_SYS|P_NZERO,	DB_ID,					null),
-	'mapname' =>		array(T_ZBX_STR, O_OPT, P_SYS,			null,					null),
-	'severity_min' =>	array(T_ZBX_INT, O_OPT, P_SYS,			IN('0,1,2,3,4,5'),		null),
-	'fullscreen' =>		array(T_ZBX_INT, O_OPT, P_SYS,			IN('0,1'),				null),
-	'favobj' =>			array(T_ZBX_STR, O_OPT, P_ACT,			null,					null),
-	'favid' =>			array(T_ZBX_INT, O_OPT, P_ACT,			null,					null),
-	'favaction' =>		array(T_ZBX_STR, O_OPT, P_ACT,			IN('"add","remove"'),	null)
+	'sysmapid' =>	array(T_ZBX_INT, O_OPT, P_SYS|P_NZERO,	DB_ID,					null),
+	'mapname' =>	array(T_ZBX_STR, O_OPT, P_SYS,			null,					null),
+	'fullscreen' =>	array(T_ZBX_INT, O_OPT, P_SYS,			IN('0,1'),				null),
+	'favobj' =>		array(T_ZBX_STR, O_OPT, P_ACT,			null,					null),
+	'favref' =>		array(T_ZBX_STR, O_OPT, P_ACT,			NOT_EMPTY,				null),
+	'favid' =>		array(T_ZBX_INT, O_OPT, P_ACT,			null,					null),
+	'favstate' =>	array(T_ZBX_INT, O_OPT, P_ACT,			NOT_EMPTY,				null),
+	'favaction' =>	array(T_ZBX_STR, O_OPT, P_ACT,			IN("'add','remove'"),	null)
 );
 check_fields($fields);
 
@@ -49,37 +51,36 @@ check_fields($fields);
  * Ajax
  */
 if (isset($_REQUEST['favobj'])) {
-	if ($_REQUEST['favobj'] == 'sysmapid') {
+	if ($_REQUEST['favobj'] == 'hat') {
+		CProfile::update('web.maps.hats.'.$_REQUEST['favref'].'.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
+	elseif ($_REQUEST['favobj'] == 'sysmapid') {
 		$result = false;
 
-		DBstart();
-
 		if ($_REQUEST['favaction'] == 'add') {
-			$result = CFavorite::add('web.favorite.sysmapids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = add2favorites('web.favorite.sysmapids', $_REQUEST['favid'], $_REQUEST['favobj']);
 			if ($result) {
 				echo '$("addrm_fav").title = "'._('Remove from favourites').'";'."\n".
-					'$("addrm_fav").onclick = function() { rm4favorites("sysmapid", "'.$_REQUEST['favid'].'"); }'."\n";
+					'$("addrm_fav").onclick = function() { rm4favorites("sysmapid", "'.$_REQUEST['favid'].'", 0); }'."\n";
 			}
 		}
 		elseif ($_REQUEST['favaction'] == 'remove') {
-			$result = CFavorite::remove('web.favorite.sysmapids', $_REQUEST['favid'], $_REQUEST['favobj']);
+			$result = rm4favorites('web.favorite.sysmapids', $_REQUEST['favid'], $_REQUEST['favobj']);
 			if ($result) {
 				echo '$("addrm_fav").title = "'._('Add to favourites').'";'."\n".
 					'$("addrm_fav").onclick = function() { add2favorites("sysmapid", "'.$_REQUEST['favid'].'"); }'."\n";
 			}
 		}
 
-		$result = DBend($result);
-
 		if ($page['type'] == PAGE_TYPE_JS && $result) {
-			echo 'switchElementClass("addrm_fav", "iconminus", "iconplus");';
+			echo 'switchElementsClass("addrm_fav", "iconminus", "iconplus");';
 		}
 	}
 }
 
 if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 /*
@@ -87,11 +88,12 @@ if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
  */
 $maps = API::Map()->get(array(
 	'output' => array('sysmapid', 'name'),
+	'nodeids' => get_current_nodeid(),
 	'preservekeys' => true
 ));
 order_result($maps, 'name');
 
-if ($mapName = getRequest('mapname')) {
+if ($mapName = get_request('mapname')) {
 	unset($_REQUEST['sysmapid']);
 
 	foreach ($maps as $map) {
@@ -120,7 +122,7 @@ CProfile::update('web.maps.sysmapid', $_REQUEST['sysmapid'], PROFILE_TYPE_ID);
  * Display
  */
 $data = array(
-	'fullscreen' => $_REQUEST['fullscreen'],
+	'fullscreen' => get_request('fullscreen'),
 	'sysmapid' => $_REQUEST['sysmapid'],
 	'maps' => $maps
 );
@@ -134,15 +136,6 @@ $data['map'] = API::Map()->get(array(
 	'preservekeys' => true
 ));
 $data['map'] = reset($data['map']);
-
-$data['pageFilter'] = new CPageFilter(array(
-	'severitiesMin' => array(
-		'default' => $data['map']['severity_min'],
-		'mapId' => $data['sysmapid']
-	),
-	'severityMin' => getRequest('severity_min')
-));
-$data['severity_min'] = $data['pageFilter']->severityMin;
 
 // render view
 $mapsView = new CView('monitoring.maps', $data);

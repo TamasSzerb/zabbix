@@ -53,8 +53,8 @@ static int	zbx_execute_script_on_agent(DC_HOST *host, const char *command, char 
 	}
 
 	port = zbx_strdup(port, item.interface.port_orig);
-	substitute_simple_macros(NULL, NULL, NULL, NULL, &host->hostid, NULL, NULL, NULL,
-			&port, MACRO_TYPE_COMMON, NULL, 0);
+	substitute_simple_macros(NULL, NULL, &host->hostid, NULL, NULL, NULL,
+			&port, MACRO_TYPE_INTERFACE_PORT, NULL, 0);
 
 	if (SUCCEED != (ret = is_ushort(port, &item.interface.port)))
 	{
@@ -114,8 +114,8 @@ static int	zbx_execute_ipmi_command(DC_HOST *host, const char *command, char *er
 	}
 
 	port = zbx_strdup(port, item.interface.port_orig);
-	substitute_simple_macros(NULL, NULL, NULL, NULL, &host->hostid, NULL, NULL, NULL,
-			&port, MACRO_TYPE_COMMON, NULL, 0);
+	substitute_simple_macros(NULL, NULL, &host->hostid, NULL, NULL, NULL,
+			&port, MACRO_TYPE_INTERFACE_PORT, NULL, 0);
 
 	if (SUCCEED != (ret = is_ushort(port, &item.interface.port)))
 	{
@@ -177,8 +177,8 @@ static int	zbx_execute_script_on_terminal(DC_HOST *host, zbx_script_t *script, c
 			break;
 	}
 
-	substitute_simple_macros(NULL, NULL, NULL, NULL, &host->hostid, NULL, NULL, NULL,
-			&script->port, MACRO_TYPE_COMMON, NULL, 0);
+	substitute_simple_macros(NULL, NULL, &host->hostid, NULL, NULL, NULL,
+			&script->port, MACRO_TYPE_INTERFACE_PORT, NULL, 0);
 
 	if ('\0' != *script->port && SUCCEED != (ret = is_ushort(script->port, NULL)))
 	{
@@ -310,9 +310,12 @@ void	zbx_script_clean(zbx_script_t *script)
  *                                                                            *
  * Purpose: executing user scripts or remote commands                         *
  *                                                                            *
+ * Parameters:                                                                *
+ *                                                                            *
  * Return value:  SUCCEED - processed successfully                            *
  *                FAIL - an error occurred                                    *
- *                TIMEOUT_ERROR - a timeout occurred                          *
+ *                                                                            *
+ * Author: Alexander Vladishev                                                *
  *                                                                            *
  * Comments: !!! always call 'zbx_script_clean' function after                *
  *           'zbx_execute_script' to clear allocated memory                   *
@@ -361,20 +364,20 @@ int	zbx_execute_script(DC_HOST *host, zbx_script_t *script, char **result, char 
 			break;
 		case ZBX_SCRIPT_TYPE_SSH:
 #ifdef HAVE_SSH2
-			substitute_simple_macros(NULL, NULL, NULL, NULL, &host->hostid, NULL, NULL, NULL,
-					&script->publickey, MACRO_TYPE_COMMON, NULL, 0);
-			substitute_simple_macros(NULL, NULL, NULL, NULL, &host->hostid, NULL, NULL, NULL,
-					&script->privatekey, MACRO_TYPE_COMMON, NULL, 0);
+			substitute_simple_macros(NULL, NULL, &host->hostid, NULL, NULL, NULL,
+					&script->publickey, MACRO_TYPE_ITEM_FIELD, NULL, 0);
+			substitute_simple_macros(NULL, NULL, &host->hostid, NULL, NULL, NULL,
+					&script->privatekey, MACRO_TYPE_ITEM_FIELD, NULL, 0);
 			/* break; is not missing here */
 #else
 			zbx_strlcpy(error, "Support for SSH script was not compiled in", max_error_len);
 			break;
 #endif
 		case ZBX_SCRIPT_TYPE_TELNET:
-			substitute_simple_macros(NULL, NULL, NULL, NULL, &host->hostid, NULL, NULL, NULL,
-					&script->username, MACRO_TYPE_COMMON, NULL, 0);
-			substitute_simple_macros(NULL, NULL, NULL, NULL, &host->hostid, NULL, NULL, NULL,
-					&script->password, MACRO_TYPE_COMMON, NULL, 0);
+			substitute_simple_macros(NULL, NULL, &host->hostid, NULL, NULL, NULL,
+					&script->username, MACRO_TYPE_ITEM_FIELD, NULL, 0);
+			substitute_simple_macros(NULL, NULL, &host->hostid, NULL, NULL, NULL,
+					&script->password, MACRO_TYPE_ITEM_FIELD, NULL, 0);
 
 			ret = zbx_execute_script_on_terminal(host, script, result, error, max_error_len);
 			break;
@@ -388,7 +391,7 @@ int	zbx_execute_script(DC_HOST *host, zbx_script_t *script, char **result, char 
 
 			if (SUCCEED == check_script_permissions(groupid, host->hostid, error, max_error_len))
 			{
-				substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, host, NULL, NULL,
+				substitute_simple_macros(NULL, NULL, NULL, host, NULL, NULL,
 						&script->command, MACRO_TYPE_SCRIPT, NULL, 0);
 
 				ret = zbx_execute_script(host, script, result, error, max_error_len);	/* recursion */
@@ -398,7 +401,7 @@ int	zbx_execute_script(DC_HOST *host, zbx_script_t *script, char **result, char 
 			zbx_snprintf(error, max_error_len, "Invalid command type [%d]", (int)script->type);
 	}
 
-	if (SUCCEED != ret && NULL != result)
+	if (FAIL == ret && NULL != result)
 		*result = zbx_strdup(*result, "");
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));

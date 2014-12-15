@@ -47,8 +47,8 @@ class testFormHost extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'Zabbix servers');
 		$this->zbxTestClickWait('form');
 		$this->input_type('host', $this->host);
-		$this->zbxTestClickWait('add');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host added');
 		$this->zbxTestTextPresent($this->host);
 	}
@@ -60,8 +60,8 @@ class testFormHost extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'Zabbix servers');
 		$this->zbxTestClickWait('form');
 		$this->input_type('host', $host);
-		$this->zbxTestClickWait('add');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host added');
 		$this->zbxTestTextPresent($host);
 	}
@@ -70,8 +70,8 @@ class testFormHost extends CWebTest {
 		$this->zbxTestLogin('hosts.php');
 		$this->zbxTestDropdownSelectWait('groupid', 'Zabbix servers');
 		$this->zbxTestClickWait('link='.$this->host);
-		$this->zbxTestClickWait('update');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host updated');
 		$this->zbxTestTextPresent($this->host);
 	}
@@ -82,19 +82,19 @@ class testFormHost extends CWebTest {
 	public function testFormHost_AddMacros() {
 		$this->zbxTestLogin('hosts.php');
 		$this->zbxTestClickWait('link='.$this->host);
-		$this->zbxTestClick('tab_macroTab');
-		$this->input_type('macros_0_macro', '{$TEST_MACRO}');
-		$this->input_type('macros_0_value', '1');
-		$this->zbxTestClick('macro_add');
-		$this->verifyElementPresent('macros_1_macro');
-		$this->input_type('macros_1_macro', '{$TEST_MACRO2}');
-		$this->input_type('macros_1_value', '2');
-		$this->zbxTestClickWait('add');
-		$this->zbxTestTextPresent('Host updated');
+		$this->tab_switch('Macros');
+		$this->type("name=macros[0][macro]", '{$TEST_MACRO}');
+		$this->type("name=macros[0][value]", "1");
+		$this->zbxTestClick("//table[@id='tbl_macros']//input[@id='macro_add']");
+		$this->verifyElementPresent("name=macros[1][macro]");
+		$this->type("name=macros[1][macro]", '{$TEST_MACRO2}');
+		$this->type("name=macros[1][value]", "2");
+		$this->zbxTestClickWait('save');
+		$this->zbxTestTextPresent("Host updated");
 	}
 
 	public function testFormHost_CreateHostNoGroups() {
-		$host = 'Test host without groups';
+		$host = 'Test host w/o groups';
 
 		$sqlHosts = 'select * from hosts where host='.zbx_dbstr($host);
 		$oldHashHosts = DBhash($sqlHosts);
@@ -103,10 +103,9 @@ class testFormHost extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 		$this->zbxTestClickWait('form');
 		$this->input_type('host', $host);
+		$this->zbxTestClickWait('save');
 
-		$this->zbxTestClickWait('add');
-
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('ERROR: Cannot add host');
 		$this->zbxTestTextPresent('No groups for host "'.$host.'".');
 
@@ -123,9 +122,9 @@ class testFormHost extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'Zabbix servers');
 		$this->zbxTestClickWait('form');
 		$this->input_type('host', $host);
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('ERROR: Cannot add host');
 		$this->zbxTestTextPresent('Host with the same name "'.$host.'" already exists.');
 
@@ -144,9 +143,9 @@ class testFormHost extends CWebTest {
 		$this->zbxTestClickWait('form');
 		$this->input_type('host', $host);
 		$this->input_type('visiblename', $hostVisible);
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('ERROR: Cannot add host');
 		$this->zbxTestTextPresent('Host with the same visible name "'.$hostVisible.'" already exists.');
 
@@ -161,8 +160,8 @@ class testFormHost extends CWebTest {
 		$this->zbxTestClickWait('clone');
 		$this->input_type('host', $this->host_cloned);
 		$this->input_type('visiblename', $this->host_cloned_visible);
-		$this->zbxTestClickWait('add');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host added');
 	}
 
@@ -175,7 +174,7 @@ class testFormHost extends CWebTest {
 		$this->zbxTestClickWait('link='.$this->host_cloned_visible);
 		$this->zbxTestClickWait('delete');
 		$this->getConfirmation();
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host deleted');
 	}
 
@@ -187,8 +186,8 @@ class testFormHost extends CWebTest {
 		$this->zbxTestClickWait('full_clone');
 		$this->input_type('host', $this->host_fullcloned);
 		$this->input_type('visiblename', $this->host_fullcloned_visible);
-		$this->zbxTestClickWait('add');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host added');
 	}
 
@@ -201,7 +200,7 @@ class testFormHost extends CWebTest {
 		$this->zbxTestClickWait('link='.$this->host_fullcloned_visible);
 		$this->zbxTestClickWait('delete');
 		$this->getConfirmation();
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host deleted');
 	}
 
@@ -211,8 +210,8 @@ class testFormHost extends CWebTest {
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 		$this->zbxTestClickWait('link='.$this->host);
 		$this->input_type('host', $this->host_tmp);
-		$this->zbxTestClickWait('update');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host updated');
 	}
 
@@ -227,9 +226,10 @@ class testFormHost extends CWebTest {
 		$this->zbxTestLogin('hosts.php');
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 		$this->zbxTestClickWait('link='.$this->host_tmp);
-		$this->zbxTestClickWait('delete');
-		$this->getConfirmation();
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->zbxTestClick('delete');
+		$this->waitForConfirmation();
+		$this->wait();
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host deleted');
 
 		// check if all records have been deleted
@@ -241,21 +241,7 @@ class testFormHost extends CWebTest {
 	}
 
 	public function testFormHost_TemplateLink() {
-		$this->zbxTestLogin('hosts.php');
-		$this->zbxTestDropdownSelectWait('groupid', 'all');
-		$this->zbxTestClickWait('link=Visible host for template linkage');
-
-		$this->zbxTestClick('tab_templateTab');
-		$this->assertElementPresent("//div[@id='add_templates_']/input");
-		$this->input_type("//div[@id='add_templates_']/input", 'Template OS Linux');
-		sleep(1);
-		$this->zbxTestClick("//span[@class='matched']");
-		$this->zbxTestClickWait('add_template');
-
-		$this->zbxTestTextPresent('Template OS Linux');
-		$this->zbxTestClickWait('update');
-		$this->zbxTestCheckTitle('Configuration of hosts');
-		$this->zbxTestTextPresent('Host updated');
+		$this->templateLink("Visible host for template linkage", "Template OS Linux");
 	}
 
 	public function testFormHost_TemplateUnlink() {
@@ -270,54 +256,38 @@ class testFormHost extends CWebTest {
 		$row = DBfetch(DBselect($sql));
 		$hostid = $row['hostid'];
 
-		$sql2 = "select hostid from hosts where host='".$template."';";
-		$this->assertEquals(1, DBcount($sql2));
-		$row2 = DBfetch(DBselect($sql2));
-		$hostid2 = $row2['hostid'];
-
 		$this->zbxTestLogin('hosts.php');
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 		$this->zbxTestClickWait('link='.$name);
-		$this->zbxTestClick('tab_templateTab');
+		$this->tab_switch('Templates');
 		$this->zbxTestTextPresent($template);
-
 		// clicks button named "Unlink" next to a template by name
-		$this->zbxTestClickWait('unlink_'.$hostid2);
+		$this->zbxTestClickWait("xpath=//div[text()='$template']/../div[@class='dd']/input[@value='Unlink']");
 
 		$this->zbxTestTextNotPresent($template);
-		$this->zbxTestClickWait('update');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host updated');
 
 		// this should be a separate test
 		// should check that items, triggers, graphs and applications are not linked to the template anymore
-		$this->zbxTestHrefClickWait('items.php?filter_set=1&hostid='.$hostid);
+		$this->href_click('items.php?filter_set=1&hostid='.$hostid.'&sid=');
+		$this->wait();
 		$this->zbxTestTextNotPresent($template.':');
 		// using "host navigation bar" at the top of entity list
-		$this->zbxTestHrefClickWait('triggers.php?hostid='.$hostid);
+		$this->href_click('triggers.php?hostid='.$hostid.'&sid=');
+		$this->wait();
 		$this->zbxTestTextNotPresent($template.':');
-		$this->zbxTestHrefClickWait('graphs.php?hostid='.$hostid);
+		$this->href_click('graphs.php?hostid='.$hostid.'&sid=');
+		$this->wait();
 		$this->zbxTestTextNotPresent($template.':');
-		$this->zbxTestHrefClickWait('applications.php?hostid='.$hostid);
+		$this->href_click('applications.php?hostid='.$hostid.'&sid=');
+		$this->wait();
 		$this->zbxTestTextNotPresent($template.':');
 	}
 
 	public function testFormHost_TemplateLinkUpdate() {
-		$this->zbxTestLogin('hosts.php');
-		$this->zbxTestDropdownSelectWait('groupid', 'all');
-		$this->zbxTestClickWait('link=Visible host for template linkage');
-
-		$this->zbxTestClick('tab_templateTab');
-		$this->assertElementPresent("//div[@id='add_templates_']/input");
-		$this->input_type("//div[@id='add_templates_']/input", 'Template OS Linux');
-		sleep(1);
-		$this->zbxTestClick("//span[@class='matched']");
-		$this->zbxTestClickWait('add_template');
-
-		$this->zbxTestTextPresent('Template OS Linux');
-		$this->zbxTestClickWait('update');
-		$this->zbxTestCheckTitle('Configuration of hosts');
-		$this->zbxTestTextPresent('Host updated');
+		$this->templateLink("Visible host for template linkage", "Template OS Linux");
 	}
 
 	public function testFormHost_TemplateUnlinkAndClear() {
@@ -329,35 +299,16 @@ class testFormHost extends CWebTest {
 		$this->zbxTestLogin('hosts.php');
 		$this->zbxTestDropdownSelectWait('groupid', 'all');
 		$this->zbxTestClickWait('link='.$name);
-		$this->zbxTestClick('tab_templateTab');
+		$this->tab_switch('Templates');
 		$this->zbxTestTextPresent($template);
 
-		$template = 'Template OS Linux';
-		$host = 'Template linkage test host';
-		$name = 'Visible host for template linkage';
-
-		$sql = 'select hostid from hosts where host='.zbx_dbstr($host).' and status in ('.HOST_STATUS_MONITORED.','.HOST_STATUS_NOT_MONITORED.')';
-		$this->assertEquals(1, DBcount($sql));
-		$row = DBfetch(DBselect($sql));
-		$hostid = $row['hostid'];
-
-		$sql2 = "select hostid from hosts where host='".$template."';";
-		$this->assertEquals(1, DBcount($sql2));
-		$row2 = DBfetch(DBselect($sql2));
-		$hostid2 = $row2['hostid'];
-
-		$this->zbxTestLogin('hosts.php');
-		$this->zbxTestDropdownSelectWait('groupid', 'all');
-		$this->zbxTestClickWait('link='.$name);
-		$this->zbxTestClick('tab_templateTab');
-		$this->zbxTestTextPresent($template);
-
-		// clicks button named "Unlink" next to a template by name
-		$this->zbxTestClickWait('unlink_and_clear_'.$hostid2);
+		// clicks button named "Unlink and clear" next to template named $template
+		$this->zbxTestClickWait("xpath=//div[text()='$template']/../div[@class='dd']/input[@value='Unlink']/../input[@value='Unlink and clear']");
 
 		$this->zbxTestTextNotPresent($template);
-		$this->zbxTestClickWait('update');
-		$this->zbxTestCheckTitle('Configuration of hosts');
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of hosts');
 		$this->zbxTestTextPresent('Host updated');
 	}
+
 }

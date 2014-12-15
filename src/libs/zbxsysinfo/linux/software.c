@@ -18,78 +18,45 @@
 **/
 
 #include "sysinfo.h"
+#include <sys/utsname.h>
 #include "zbxalgo.h"
 #include "zbxexec.h"
 #include "cfg.h"
 #include "software.h"
-#include "zbxregexp.h"
-#include "log.h"
 
-#ifdef HAVE_SYS_UTSNAME_H
-#       include <sys/utsname.h>
-#endif
-
-int	SYSTEM_SW_ARCH(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_SW_ARCH(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	struct utsname	name;
 
 	if (-1 == uname(&name))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot obtain system information: %s", zbx_strerror(errno)));
 		return SYSINFO_RET_FAIL;
-	}
 
 	SET_STR_RESULT(result, zbx_strdup(NULL, name.machine));
 
 	return SYSINFO_RET_OK;
 }
 
-int     SYSTEM_SW_OS(AGENT_REQUEST *request, AGENT_RESULT *result)
+int     SYSTEM_SW_OS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*type, line[MAX_STRING_LEN];
+	char	type[8], line[MAX_STRING_LEN];
 	int	ret = SYSINFO_RET_FAIL;
 	FILE	*f = NULL;
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (1 < num_param(param))
 		return ret;
-	}
 
-	type = get_rparam(request, 0);
+	if (0 != get_param(param, 1, type, sizeof(type)))
+		*type = '\0';
 
-	if (NULL == type || '\0' == *type || 0 == strcmp(type, "full"))
-	{
-		if (NULL == (f = fopen(SW_OS_FULL, "r")))
-		{
-			SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot open " SW_OS_FULL ": %s",
-					zbx_strerror(errno)));
-			return ret;
-		}
-	}
+	if ('\0' == *type || 0 == strcmp(type, "full"))
+		f = fopen(SW_OS_FULL, "r");
 	else if (0 == strcmp(type, "short"))
-	{
-		if (NULL == (f = fopen(SW_OS_SHORT, "r")))
-		{
-			SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot open " SW_OS_SHORT ": %s",
-					zbx_strerror(errno)));
-			return ret;
-		}
-	}
+		f = fopen(SW_OS_SHORT, "r");
 	else if (0 == strcmp(type, "name"))
-	{
-		if (NULL == (f = fopen(SW_OS_NAME, "r")))
-		{
-			SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot open " SW_OS_NAME ": %s",
-					zbx_strerror(errno)));
-			return ret;
-		}
-	}
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+		f = fopen(SW_OS_NAME, "r");
+
+	if (NULL == f)
 		return ret;
-	}
 
 	if (NULL != fgets(line, sizeof(line), f))
 	{
@@ -97,9 +64,6 @@ int     SYSTEM_SW_OS(AGENT_REQUEST *request, AGENT_RESULT *result)
 		zbx_rtrim(line, ZBX_WHITESPACE);
 		SET_STR_RESULT(result, zbx_strdup(NULL, line));
 	}
-	else
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot read from file."));
-
 	zbx_fclose(f);
 
 	return ret;
@@ -151,40 +115,33 @@ static ZBX_PACKAGE_MANAGER	package_managers[] =
 	{"pkgtools",	"[ -d /var/log/packages ] && echo true",	"ls /var/log/packages",		NULL},
 	{"rpm",		"rpm --version 2> /dev/null",			"rpm -qa",			NULL},
 	{"pacman",	"pacman --version 2> /dev/null",		"pacman -Q",			NULL},
-	{NULL}
+	{0}
 };
 
-int     SYSTEM_SW_PACKAGES(AGENT_REQUEST *request, AGENT_RESULT *result)
+int     SYSTEM_SW_PACKAGES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	size_t			offset = 0;
-	int			ret = SYSINFO_RET_FAIL, show_pm, i, check_regex, check_manager;
-	char			buffer[MAX_BUFFER_LEN], *regex, *manager, *mode, tmp[MAX_STRING_LEN], *buf = NULL,
-				*package;
+	int			ret = SYSINFO_RET_FAIL, show_pm, i, j;
+	char			buffer[MAX_BUFFER_LEN], regex[MAX_STRING_LEN], manager[MAX_STRING_LEN],
+				tmp[MAX_STRING_LEN], *buf = NULL, *package;
 	zbx_vector_str_t	packages;
 	ZBX_PACKAGE_MANAGER	*mng;
 
-	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (3 < num_param(param))
 		return ret;
-	}
 
-	regex = get_rparam(request, 0);
-	manager = get_rparam(request, 1);
-	mode = get_rparam(request, 2);
+	if (0 != get_param(param, 1, regex, sizeof(regex)) || 0 == strcmp(regex, "all"))
+		*regex = '\0';
 
-	check_regex = (NULL != regex && '\0' != *regex && 0 != strcmp(regex, "all"));
-	check_manager = (NULL != manager && '\0' != *manager && 0 != strcmp(manager, "all"));
+	if (0 != get_param(param, 2, manager, sizeof(manager)) || 0 == strcmp(manager, "all"))
+		*manager = '\0';
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "full"))
+	if (0 != get_param(param, 3, tmp, sizeof(tmp)) || '\0' == *tmp || 0 == strcmp(tmp, "full"))
 		show_pm = 1;	/* show package managers' names */
-	else if (0 == strcmp(mode, "short"))
+	else if (0 == strcmp(tmp, "short"))
 		show_pm = 0;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
 		return ret;
-	}
 
 	*buffer = '\0';
 	zbx_vector_str_create(&packages);
@@ -193,7 +150,7 @@ int     SYSTEM_SW_PACKAGES(AGENT_REQUEST *request, AGENT_RESULT *result)
 	{
 		mng = &package_managers[i];
 
-		if (1 == check_manager && 0 != strcmp(manager, mng->name))
+		if ('\0' != *manager && 0 != strcmp(manager, mng->name))
 			continue;
 
 		if (SUCCEED == zbx_execute(mng->test_cmd, &buf, tmp, sizeof(tmp), CONFIG_TIMEOUT) &&
@@ -216,7 +173,7 @@ int     SYSTEM_SW_PACKAGES(AGENT_REQUEST *request, AGENT_RESULT *result)
 						goto next;
 				}
 
-				if (1 == check_regex && NULL == zbx_regexp_match(package, regex, NULL))
+				if ('\0' != *regex && NULL == zbx_regexp_match(package, regex, NULL))
 					goto next;
 
 				zbx_vector_str_append(&packages, zbx_strdup(NULL, package));
@@ -229,7 +186,10 @@ next:
 				offset += print_packages(buffer + offset, sizeof(buffer) - offset, &packages, mng->name);
 				offset += zbx_snprintf(buffer + offset, sizeof(buffer) - offset, "\n");
 
-				zbx_vector_str_clear_ext(&packages, zbx_ptr_free);
+				/* deallocate memory used for string vector elements */
+				for (j = 0; j < packages.values_num; j++)
+					zbx_free(packages.values[j]);
+				packages.values_num = 0;
 			}
 		}
 	}
@@ -240,7 +200,10 @@ next:
 	{
 		offset += print_packages(buffer + offset, sizeof(buffer) - offset, &packages, NULL);
 
-		zbx_vector_str_clear_ext(&packages, zbx_ptr_free);
+		/* deallocate memory used for string vector elements */
+		for (j = 0; j < packages.values_num; j++)
+			zbx_free(packages.values[j]);
+		packages.values_num = 0;
 	}
 	else if (0 != offset)
 		buffer[--offset] = '\0';
@@ -249,8 +212,6 @@ next:
 
 	if (SYSINFO_RET_OK == ret)
 		SET_TEXT_RESULT(result, zbx_strdup(NULL, buffer));
-	else
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain package information."));
 
 	return ret;
 }

@@ -41,15 +41,7 @@ abstract class CAbstractScreenImporter extends CImporter {
 					$screenItem['resourceid'] = 0;
 					continue;
 				}
-				if ($screenItem['rowspan'] == 0) {
-					$screenItem['rowspan'] = 1;
-				}
-				if ($screenItem['colspan'] == 0) {
-					$screenItem['colspan'] = 1;
-				}
-				if (!isset($screenItem['max_columns'])) {
-					$screenItem['max_columns'] = SCREEN_SURROGATE_MAX_COLUMNS_DEFAULT;
-				}
+
 				switch ($screenItem['resourcetype']) {
 					case SCREEN_RESOURCE_HOSTS_INFO:
 					case SCREEN_RESOURCE_TRIGGERS_INFO:
@@ -72,20 +64,17 @@ abstract class CAbstractScreenImporter extends CImporter {
 						break;
 
 					case SCREEN_RESOURCE_GRAPH:
-					case SCREEN_RESOURCE_LLD_GRAPH:
-						$hostId = $this->referencer->resolveHostOrTemplate($resource['host']);
-						$graphId = $this->referencer->resolveGraph($hostId, $resource['name']);
-
-						if (!$graphId) {
+						$dbGraphs = API::Graph()->getObjects($resource);
+						if (empty($dbGraphs)) {
 							throw new Exception(_s('Cannot find graph "%1$s" used in screen "%2$s".',
 								$resource['name'], $screen['name']));
 						}
 
-						$screenItem['resourceid'] = $graphId;
+						$tmp = reset($dbGraphs);
+						$screenItem['resourceid'] = $tmp['graphid'];
 						break;
 
 					case SCREEN_RESOURCE_SIMPLE_GRAPH:
-					case SCREEN_RESOURCE_LLD_SIMPLE_GRAPH:
 					case SCREEN_RESOURCE_PLAIN_TEXT:
 						$hostId = $this->referencer->resolveHostOrTemplate($resource['host']);
 						$screenItem['resourceid'] = $this->referencer->resolveItem($hostId, $resource['key']);
@@ -115,6 +104,7 @@ abstract class CAbstractScreenImporter extends CImporter {
 						$screenItem['resourceid'] = 0;
 						break;
 				}
+
 			}
 			unset($screenItem);
 		}

@@ -20,29 +20,15 @@
 #include "common.h"
 
 #include "db.h"
+#include "log.h"
 #include "daemon.h"
 #include "zbxself.h"
-#include "log.h"
+
 #include "dbconfig.h"
 #include "dbcache.h"
 
 extern int		CONFIG_CONFSYNCER_FREQUENCY;
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
-
-void	zbx_dbconfig_sigusr_handler(int flags)
-{
-	if (ZBX_RTC_CONFIG_CACHE_RELOAD == ZBX_RTC_GET_MSG(flags))
-	{
-		if (0 < zbx_sleep_get_remainder())
-		{
-			zabbix_log(LOG_LEVEL_WARNING, "forced reloading of the configuration cache");
-			zbx_wakeup();
-		}
-		else
-			zabbix_log(LOG_LEVEL_WARNING, "configuration cache reloading is already in progress");
-	}
-}
+extern unsigned char	process_type;
 
 /******************************************************************************
  *                                                                            *
@@ -59,21 +45,11 @@ void	zbx_dbconfig_sigusr_handler(int flags)
  * Comments: never returns                                                    *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(dbconfig_thread, args)
+void	main_dbconfig_loop()
 {
-	double	sec = 0.0;
+	double	sec;
 
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
-
-	zbx_setproctitle("%s [waiting %d sec for processes]", get_process_type_string(process_type),
-			CONFIG_CONFSYNCER_FREQUENCY);
-
-	zbx_set_sigusr_handler(zbx_dbconfig_sigusr_handler);
+	zabbix_log(LOG_LEVEL_DEBUG, "In main_dbconfig_loop()");
 
 	/* the initial configuration sync is done by server before worker processes are forked */
 	zbx_sleep_loop(CONFIG_CONFSYNCER_FREQUENCY);
@@ -84,15 +60,16 @@ ZBX_THREAD_ENTRY(dbconfig_thread, args)
 
 	for (;;)
 	{
-		zbx_setproctitle("%s [synced configuration in " ZBX_FS_DBL " sec, syncing configuration]",
-				get_process_type_string(process_type), sec);
+		zbx_setproctitle("%s [syncing configuration]", get_process_type_string(process_type));
+
+		zabbix_log(LOG_LEVEL_DEBUG, "Syncing ...");
 
 		sec = zbx_time();
 		DCsync_configuration();
 		sec = zbx_time() - sec;
 
-		zbx_setproctitle("%s [synced configuration in " ZBX_FS_DBL " sec, idle %d sec]",
-				get_process_type_string(process_type), sec, CONFIG_CONFSYNCER_FREQUENCY);
+		zabbix_log(LOG_LEVEL_DEBUG, "%s spent " ZBX_FS_DBL " second while processing configuration data",
+				get_process_type_string(process_type), sec);
 
 		zbx_sleep_loop(CONFIG_CONFSYNCER_FREQUENCY);
 	}

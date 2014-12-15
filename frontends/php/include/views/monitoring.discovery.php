@@ -19,6 +19,8 @@
 **/
 
 
+global $USER_DETAILS;
+
 $discoveryWidget = new CWidget('hat_discovery');
 
 // create header form
@@ -32,15 +34,13 @@ $discoveryRulesComboBox = $this->data['pageFilter']->getDiscoveryCB();
 $discoveryHeaderForm->addItem(array(_('Discovery rule').SPACE, $discoveryRulesComboBox));
 $discoveryWidget->addHeader(_('Discovery rules'), $discoveryHeaderForm);
 
-// create table
-$discoveryTable = new CTableInfo(_('No discovered devices found.'));
+// craete table
+$discoveryTable = new CTableInfo(_('No discoveries defined.'));
 $discoveryTable->makeVerticalRotation();
 
-$discoveredDeviceCol = make_sorting_header(_('Discovered device'), 'ip', $this->data['sort'], $this->data['sortorder']);
-$discoveredDeviceCol->addClass('left');
-
 $header = array(
-	$discoveredDeviceCol,
+	is_show_all_nodes() ? new CCol(_('Node'), 'left') : null,
+	make_sorting_header(_('Discovered device'), 'ip'),
 	new CCol(_('Monitored host'), 'left'),
 	new CCol(array(_('Uptime').'/', _('Downtime')), 'left')
 );
@@ -117,7 +117,7 @@ foreach ($this->data['drules'] as $drule) {
 				if (isset($this->data['macros'][$key_])) {
 					$key_ = $this->data['macros'][$key_]['value'];
 				}
-				$key_ = NAME_DELIMITER.$key_;
+				$key_ = ': '.$key_;
 			}
 
 			$serviceName = discovery_check_type2str($dservice['type']).discovery_port2str($dservice['type'], $dservice['port']).$key_;
@@ -133,18 +133,19 @@ foreach ($this->data['drules'] as $drule) {
 		$col = new CCol(array(bold($drule['name']), SPACE.'('._n('%d device', '%d devices', count($discovery_info)).')'));
 		$col->setColSpan(count($this->data['services']) + 3);
 
-		$discoveryTable->addRow($col);
+		$discoveryTable->addRow(array(get_node_name_by_elid($drule['druleid']), $col));
 	}
 	order_result($discovery_info, $this->data['sort'], $this->data['sortorder']);
 
 	foreach ($discovery_info as $ip => $h_data) {
 		$dns = $h_data['dns'] == '' ? '' : ' ('.$h_data['dns'].')';
 		$row = array(
+			get_node_name_by_elid($h_data['druleid']),
 			$h_data['type'] == 'primary' ? new CSpan($ip.$dns, $h_data['class']) : new CSpan(SPACE.SPACE.$ip.$dns),
 			new CSpan(empty($h_data['host']) ? '-' : $h_data['host']),
 			new CSpan((($h_data['time'] == 0 || $h_data['type'] === 'slave')
 				? ''
-				: convert_units(array('value' => time() - $h_data['time'], 'units' => 'uptime'))), $h_data['class'])
+				: convert_units(time() - $h_data['time'], 'uptime')), $h_data['class'])
 		);
 
 		foreach ($this->data['services'] as $name => $foo) {

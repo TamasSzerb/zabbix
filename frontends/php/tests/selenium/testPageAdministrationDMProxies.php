@@ -21,71 +21,95 @@
 require_once dirname(__FILE__).'/../include/class.cwebtest.php';
 
 class testPageAdministrationDMProxies extends CWebTest {
-
-	private $sqlHashProxy = '';
-	private $oldHashProxy = '';
-	private $sqlHashInterface = '';
-	private $oldHashInterface = '';
-	private $sqlHashHosts = '';
-	private $oldHashHosts = '';
-	private $sqlHashDRules = '';
-	private $oldHashDRules = '';
-
-	private function calculateHash($proxy_hostid) {
-		$this->sqlHashProxy = 'SELECT * FROM hosts WHERE hostid='.$proxy_hostid;
-		$this->oldHashProxy = DBhash($this->sqlHashProxy);
-		$this->sqlHashInterface = 'SELECT * FROM interface WHERE hostid='.$proxy_hostid.' ORDER BY interfaceid';
-		$this->oldHashInterface = DBhash($this->sqlHashInterface);
-		$this->sqlHashHosts = 'SELECT hostid,proxy_hostid FROM hosts WHERE proxy_hostid='.$proxy_hostid.' ORDER BY hostid';
-		$this->oldHashHosts = DBhash($this->sqlHashHosts);
-		$this->sqlHashDRules = 'SELECT druleid,proxy_hostid FROM drules WHERE proxy_hostid='.$proxy_hostid.' ORDER BY druleid';
-		$this->oldHashDRules = DBhash($this->sqlHashDRules);
-	}
-
-	private function verifyHash() {
-		$this->assertEquals($this->oldHashProxy, DBhash($this->sqlHashProxy));
-		$this->assertEquals($this->oldHashInterface, DBhash($this->sqlHashInterface));
-		$this->assertEquals($this->oldHashHosts, DBhash($this->sqlHashHosts));
-		$this->assertEquals($this->oldHashDRules, DBhash($this->sqlHashDRules));
-	}
-
+	// Returns all proxies
 	public static function allProxies() {
-		return DBdata(
-			'SELECT hostid,host'.
-			' FROM hosts'.
-			' WHERE status IN ('.HOST_STATUS_PROXY_ACTIVE.','.HOST_STATUS_PROXY_PASSIVE.')'
-		);
+		return DBdata("select * from hosts where status in (".HOST_STATUS_PROXY_ACTIVE.','.HOST_STATUS_PROXY_PASSIVE.") order by hostid");
 	}
 
-	public function testPageAdministrationDMProxies_CheckLayout() {
+	/**
+	* @dataProvider allProxies
+	*/
+	public function testPageAdministrationDMProxies_CheckLayout($proxy) {
 		$this->zbxTestLogin('proxies.php');
-		$this->zbxTestCheckTitle('Configuration of proxies');
+		$this->checkTitle('Configuration of proxies');
 		$this->zbxTestTextPresent('CONFIGURATION OF PROXIES');
-		$this->zbxTestTextPresent('Proxies');
 		$this->zbxTestTextPresent('Displaying');
+		$this->zbxTestTextNotPresent('Displaying 0');
 
-		$this->zbxTestTextPresent(array(
-			'Name', 'Mode', 'Last seen (age)', 'Host count', 'Item count', 'Required performance (vps)', 'Hosts'
-		));
+		// header
+		$this->zbxTestTextPresent(array('Name', 'Mode', 'Last seen (age)', 'Host count', 'Item count', 'Required performance (vps)', 'Hosts'));
 
-		$this->zbxTestDropdownHasOptions('action', array('Enable selected', 'Disable selected', 'Delete selected'));
-		$this->assertElementValue('goButton', 'Go (0)');
+		// data
+		$this->zbxTestTextPresent(array($proxy['host']));
+		$this->zbxTestDropdownHasOptions('go', array('Enable selected', 'Disable selected', 'Delete selected'));
 	}
 
 	/**
 	* @dataProvider allProxies
 	*/
 	public function testPageAdministrationDMProxies_SimpleUpdate($proxy) {
-		$this->calculateHash($proxy['hostid']);
+		$proxyid=$proxy['hostid'];
+		$name=$proxy['host'];
+
+		$sqlProxy="select * from hosts where host='$name' order by hostid";
+		$oldHashProxy=DBhash($sqlProxy);
+		$sqlHosts="select proxy_hostid from hosts order by hostid";
+		$oldHashHosts=DBhash($sqlHosts);
 
 		$this->zbxTestLogin('proxies.php');
-		$this->zbxTestClickWait('link='.$proxy['host']);
-		$this->zbxTestClickWait('update');
-		$this->zbxTestCheckTitle('Configuration of proxies');
+		$this->checkTitle('Configuration of proxies');
+		$this->zbxTestClickWait('link='.$name);
+		$this->zbxTestClickWait('save');
+		$this->checkTitle('Configuration of proxies');
 		$this->zbxTestTextPresent('Proxy updated');
-		$this->zbxTestTextPresent($proxy['host']);
+		$this->zbxTestTextPresent("$name");
+		$this->zbxTestTextPresent('CONFIGURATION OF PROXIES');
 
-		$this->verifyHash();
+		$this->assertEquals($oldHashProxy, DBhash($sqlProxy), "Chuck Norris: no-change proxy update should not update data in table 'hosts'");
+		$this->assertEquals($oldHashHosts, DBhash($sqlHosts), "Chuck Norris: no-change proxy update should not update 'hosts.proxy_hostid'");
 	}
 
+	public function testPageAdministrationDMProxies_MassActivateAll() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	/**
+	* @dataProvider allProxies
+	*/
+	public function testPageAdministrationDMProxies_MassActivate($proxy) {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageAdministrationDMProxies_MassDisableAll() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	/**
+	* @dataProvider allProxies
+	*/
+	public function testPageAdministrationDMProxies_MassDisable($proxy) {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageAdministrationDMProxies_MassDeleteAll() {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	/**
+	* @dataProvider allProxies
+	*/
+	public function testPageAdministrationDMProxies_MassDelete($proxy) {
+// TODO
+		$this->markTestIncomplete();
+	}
+
+	public function testPageAdministrationDMProxies_Sorting() {
+// TODO
+		$this->markTestIncomplete();
+	}
 }

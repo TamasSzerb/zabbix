@@ -10,18 +10,6 @@ DIST_SUBDIRS = \
 	zabbix_java
 
 if AGENT
-COMMON_SUBDIRS = libs
-else
-if SERVER
-COMMON_SUBDIRS = libs
-else
-if PROXY
-COMMON_SUBDIRS = libs
-endif
-endif
-endif
-
-if AGENT
 AGENT_SUBDIRS = \
 	zabbix_agent \
 	zabbix_get \
@@ -29,8 +17,7 @@ AGENT_SUBDIRS = \
 endif
 
 if SERVER
-SERVER_SUBDIRS = \
-	zabbix_server
+SERVER_SUBDIRS = zabbix_server
 endif
 
 if PROXY
@@ -46,9 +33,9 @@ PROXY_SUBDIRS = \
 	zabbix_server/pinger \
 	zabbix_server/poller \
 	zabbix_server/trapper \
+	zabbix_server/nodewatcher \
 	zabbix_server/selfmon \
 	zabbix_server/snmptrapper \
-	zabbix_server/vmware \
 	zabbix_proxy
 endif
 endif
@@ -59,16 +46,8 @@ JAVA_SUBDIRS = \
 endif
 
 SUBDIRS = \
-	$(COMMON_SUBDIRS) \
+	libs \
 	$(AGENT_SUBDIRS) \
 	$(SERVER_SUBDIRS) \
 	$(PROXY_SUBDIRS) \
 	$(JAVA_SUBDIRS)
-
-## "dist-hook" run after the distribution directory is filled, but before the actual tar (or shar) file is created.
-dist-hook:
-	mkdir $(distdir)/modules
-	mkdir $(distdir)/modules/dummy
-	cp $(srcdir)/modules/dummy/*.c $(distdir)/modules/dummy/
-	cp $(srcdir)/modules/dummy/Makefile $(distdir)/modules/dummy/
-	cp $(srcdir)/modules/dummy/README $(distdir)/modules/dummy/

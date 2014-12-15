@@ -31,7 +31,7 @@ define('ZBX_PAGE_NO_MENU', 1);
 
 require_once dirname(__FILE__).'/include/page_header.php';
 
-if (CWebUser::$data['alias'] == ZBX_GUEST_USER) {
+if ($USER_DETAILS['alias'] == ZBX_GUEST_USER) {
 	access_deny();
 }
 
@@ -50,7 +50,7 @@ $fields = array(
 	'add'=>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	NULL,	NULL),
 /* other */
 	'form'=>		array(T_ZBX_STR, O_OPT, P_SYS,	NULL,	NULL),
-	'form_refresh'=>array(T_ZBX_INT, O_OPT, null,	null,	null)
+	'form_refresh'=>array(T_ZBX_STR, O_OPT, NULL,	NULL,	NULL)
 );
 
 check_fields($fields);
@@ -61,7 +61,7 @@ if (isset($_REQUEST['add'])) {
 	$validator = new CTimePeriodValidator();
 	if ($validator->validate($_REQUEST['period'])) {
 		$severity = 0;
-		$_REQUEST['severity'] = getRequest('severity', array());
+		$_REQUEST['severity'] = get_request('severity', array());
 		foreach ($_REQUEST['severity'] as $id) {
 			$severity |= 1 << $id;
 		}
@@ -81,32 +81,25 @@ if (isset($_REQUEST['add'])) {
 	}
 }
 
-$config = select_config();
-
-$severityNames = array();
-for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
-	$severityNames[$severity] = getSeverityName($severity, $config);
-}
-
 if (isset($_REQUEST['media']) && !isset($_REQUEST['form_refresh'])) {
-	$severityRequest = getRequest('severity', 63);
+	$rq_severity = get_request('severity', 63);
 
-	$severities = array();
-	for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
-		if ($severityRequest & (1 << $severity)) {
-			$severities[$severity] = $severity;
+	$severity = array();
+	for ($i = 0; $i < TRIGGER_SEVERITY_COUNT; $i++) {
+		if ($rq_severity & (1 << $i)) {
+			$severity[$i] = $i;
 		}
 	}
 }
 else {
-	$severities = getRequest('severity', array_keys($severityNames));
+	$severity = get_request('severity', array(0, 1, 2, 3, 4, 5));
 }
 
-$media = getRequest('media', -1);
-$sendto = getRequest('sendto', '');
-$mediatypeid = getRequest('mediatypeid', 0);
-$active = getRequest('active', 0);
-$period = getRequest('period', ZBX_DEFAULT_INTERVAL);
+$media = get_request('media', -1);
+$sendto = get_request('sendto', '');
+$mediatypeid = get_request('mediatypeid', 0);
+$active = get_request('active', 0);
+$period = get_request('period', ZBX_DEFAULT_INTERVAL);
 
 
 $frmMedia = new CFormTable(_('New media'));
@@ -114,23 +107,26 @@ $frmMedia->addVar('media', $media);
 $frmMedia->addVar('dstfrm', $_REQUEST['dstfrm']);
 
 $cmbType = new CComboBox('mediatypeid', $mediatypeid);
-
-$types = DBfetchArrayAssoc(DBselect('SELECT mt.mediatypeid,mt.description FROM media_type mt'), 'mediatypeid');
-CArrayHelper::sort($types, array('description'));
-
-foreach ($types as $mediaTypeId => $type) {
-	$cmbType->addItem($mediaTypeId, $type['description']);
+$sql = 'SELECT mediatypeid,description '.
+		' FROM media_type'.
+		' WHERE '.DBin_node('mediatypeid').
+		' ORDER BY type';
+$types = DBselect($sql);
+while ($type = DBfetch($types)) {
+	$cmbType->addItem(
+		$type['mediatypeid'],
+		get_node_name_by_elid($type['mediatypeid'], null, ': ').$type['description']
+	);
 }
 $frmMedia->addRow(_('Type'), $cmbType);
-$frmMedia->addRow(_('Send to'), new CTextBox('sendto', $sendto, 48));
+$frmMedia->addRow(_('Send to'), new CTextBox('sendto', $sendto, 20));
 $frmMedia->addRow(_('When active'), new CTextBox('period', $period, 48));
 
 $frm_row = array();
-
-for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
+foreach (getSeverityCaption() as $i => $caption) {
 	$frm_row[] = array(
-		new CCheckBox('severity['.$severity.']', str_in_array($severity, $severities), null, $severity),
-		getSeverityName($severity, $config)
+		new CCheckBox('severity['.$i.']', str_in_array($i, $severity), null, $i),
+		$caption
 	);
 	$frm_row[] = BR();
 }
@@ -142,7 +138,7 @@ $cmbStat->addItem(1, _('Disabled'));
 $frmMedia->addRow(_('Status'), $cmbStat);
 
 $frmMedia->addItemToBottomRow(array(
-	new CSubmit('add', ($media > -1) ? _('Update') : _('Add')),
+	new CSubmit('add', ($media > -1) ? _('Save') : _('Add')),
 	new CButtonCancel(null, 'close_window();')
 ));
 $frmMedia->Show();

@@ -25,12 +25,9 @@ $regExpForm = new CForm();
 $regExpForm->setName('regularExpressionsForm');
 $regExpForm->addItem(BR());
 
-$regExpTable = new CTableInfo(_('No regular expressions found.'));
-$regExpTable->setHeader(array(
-	new CCheckBox('all_regexps', null, "checkAll('regularExpressionsForm', 'all_regexps', 'regexpids');"),
-	_('Name'),
-	_('Expressions')
-));
+$regExpTable = new CTableInfo(_('No regular expressions defined.'));
+$regExpTable->setHeader(array(new CCheckBox('all_regexps', null, "checkAll('regularExpressionsForm', 'all_regexps', 'regexpids');"), _('Name'), _('Expressions')));
+
 
 $expressions = array();
 $values = array();
@@ -41,17 +38,10 @@ foreach($this->data['db_exps'] as $exp) {
 	else {
 		$values[$exp['regexpid']]++;
 	}
-
 	if (!isset($expressions[$exp['regexpid']])) {
 		$expressions[$exp['regexpid']] = new CTable();
 	}
-
-	$expressions[$exp['regexpid']]->addRow(array(
-		new CCol($values[$exp['regexpid']], 'top'),
-		new CCol(' &raquo; ', 'top'),
-		new CCol($exp['expression'], 'pre-wrap  break-lines'),
-		new CCol(' ['.expression_type2str($exp['expression_type']).']', 'top')
-	));
+	$expressions[$exp['regexpid']]->addRow(array($values[$exp['regexpid']], ' &raquo; ', $exp['expression'], ' ['.expression_type2str($exp['expression_type']).']'));
 }
 foreach($this->data['regexps'] as $regexpid => $regexp) {
 	$regExpTable->addRow(array(
@@ -61,10 +51,12 @@ foreach($this->data['regexps'] as $regexpid => $regexp) {
 	));
 }
 
-$goBox = new CComboBox('action');
 
-$goOption = new CComboItem('regexp.massdelete', _('Delete selected'));
+$goBox = new CComboBox('go');
+
+$goOption = new CComboItem('delete', _('Delete selected'));
 $goOption->setAttribute('confirm', _('Delete selected regular expressions?'));
+
 $goBox->addItem($goOption);
 
 $goButton = new CSubmit('goButton', _('Go').' (0)');

@@ -21,99 +21,78 @@
 #include "sysinfo.h"
 #include "symbols.h"
 
-int	SYSTEM_SWAP_SIZE(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_SWAP_SIZE(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	MEMORYSTATUSEX	ms_ex;
 	MEMORYSTATUS	ms;
-	zbx_uint64_t	real_swap_total, real_swap_avail;
-	char		*swapdev, *mode;
 
-	if (2 < request->nparam)
+	char swapdev[10];
+	char mode[10];
+
+	if(num_param(param) > 2)
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
 		return SYSINFO_RET_FAIL;
 	}
 
-	swapdev = get_rparam(request, 0);
-	mode = get_rparam(request, 1);
-
-	/* only 'all' parameter supported */
-	if (NULL != swapdev && '\0' != *swapdev && 0 != strcmp(swapdev, "all"))
+	if(get_param(param, 1, swapdev, sizeof(swapdev)) != 0)
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
+		swapdev[0] = '\0';
+	}
+	if(swapdev[0] == '\0')
+	{
+		/* default parameter */
+		zbx_snprintf(swapdev, sizeof(swapdev), "all");
+	}
+	if(strncmp(swapdev, "all", sizeof(swapdev)))
+	{  /* only 'all' parameter supported */
 		return SYSINFO_RET_FAIL;
 	}
 
-	/***************************************************************************
-	 *                                                                         *
-	 * Due to the way Windows API functions report memory metrics,             *
-	 * it is impossible to accurately retrieve swap (virtual memory)           *
-	 * sizes as Windows reports the total commit memory which is physical      *
-	 * memory plus swap file sizes. The only resolution that could be applied  *
-	 * was calculatively deducting the swap sizes knowing the page and         *
-	 * physical memory sizes.                                                  *
-	 *                                                                         *
-	 * While developing this solution, it was found that sometimes (in         *
-	 * virtualized environments or when page file is disabled) the calculated  *
-	 * swap values are outside of possible bounds. For example, the available  *
-	 * swap size may appear to be larger than the total swap memory size of    *
-	 * the system, or even the calculated swap sizes may result in negative    *
-	 * values (in system with disabled page file).                             *
-	 *                                                                         *
-	 * Taking these fallacious conditions into account, these calculations     *
-	 * guarantee that the available swap size is never larger than the total   *
-	 * available (if it is reported as such, it is lowered to the total        *
-	 * as there is a higher probability of that number staying consistent      *
-	 * than the other way around). In case of swap size calculations resulting *
-	 * in negative values, the corresponding values are set to 0.              *
-	 *                                                                         *
-	 * As the result the returned values might not be exactly accurate         *
-	 * depending on the system and environment, but they ought to be close     *
-	 * enough.                                                                 *
-	 *                                                                         *
-	 * NB: The reason why GlobalMemoryStatus[Ex] are used is their             *
-	 * availability on Windows 2000 and later, as opposed to other functions   *
-	 * of a similar nature (like GetPerformanceInfo) that are not supported    *
-	 * on some versions of Windows.                                            *
-	 *                                                                         *
-	 ***************************************************************************/
+	if(get_param(param, 2, mode, sizeof(mode)) != 0)
+	{
+		mode[0] = '\0';
+	}
+	if(mode[0] == '\0')
+	{
+		/* default parameter */
+		zbx_snprintf(mode, sizeof(mode), "total");
+	}
 
-	if (NULL != zbx_GlobalMemoryStatusEx)
+	if(NULL != zbx_GlobalMemoryStatusEx)
 	{
 		ms_ex.dwLength = sizeof(MEMORYSTATUSEX);
 
 		zbx_GlobalMemoryStatusEx(&ms_ex);
 
-		real_swap_total = ms_ex.ullTotalPageFile > ms_ex.ullTotalPhys ?
-				ms_ex.ullTotalPageFile - ms_ex.ullTotalPhys : 0;
-		real_swap_avail = ms_ex.ullAvailPageFile > ms_ex.ullAvailPhys ?
-				ms_ex.ullAvailPageFile - ms_ex.ullAvailPhys : 0;
+		if (strcmp(mode, "total") == 0)
+		{
+			SET_UI64_RESULT(result, ms_ex.ullTotalPageFile);
+			return SYSINFO_RET_OK;
+		}
+		else if (strcmp(mode, "free") == 0)
+		{
+			SET_UI64_RESULT(result, ms_ex.ullAvailPageFile);
+			return SYSINFO_RET_OK;
+		}
+		else
+		{
+			return SYSINFO_RET_FAIL;
+		}
 	}
 	else
 	{
 		GlobalMemoryStatus(&ms);
 
-		real_swap_total = ms.dwTotalPageFile > ms.dwTotalPhys ?
-				ms.dwTotalPageFile - ms.dwTotalPhys : 0;
-		real_swap_avail = ms.dwAvailPageFile > ms.dwAvailPhys ?
-				ms.dwAvailPageFile - ms.dwAvailPhys : 0;
-	}
-
-	if (real_swap_avail > real_swap_total)
-		real_swap_avail = real_swap_total;
-
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "total"))
-		SET_UI64_RESULT(result, real_swap_total);
-	else if (0 == strcmp(mode, "free"))
-		SET_UI64_RESULT(result, real_swap_avail);
-	else if (0 == strcmp(mode, "pfree"))
-		SET_DBL_RESULT(result, (real_swap_avail / (double)real_swap_total) * 100.0);
-	else if (0 == strcmp(mode, "used"))
-		SET_UI64_RESULT(result, real_swap_total - real_swap_avail);
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
-		return SYSINFO_RET_FAIL;
+		if (strcmp(mode,"total") == 0)
+		{
+			SET_UI64_RESULT(result, ms.dwTotalPageFile);
+			return SYSINFO_RET_OK;
+		}
+		else if (strcmp(mode,"free") == 0)
+		{
+			SET_UI64_RESULT(result, ms.dwAvailPageFile);
+			return SYSINFO_RET_OK;
+		}
 	}
 
 	return SYSINFO_RET_OK;

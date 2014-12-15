@@ -18,148 +18,46 @@
  **/
 
 
-jQuery(function($) {
+jQuery(function() {
 
-	if ($('#search').length) {
+	cookie.init();
+
+	// search
+	if (jQuery('#search').length) {
 		createSuggest('search');
 	}
 
-	if (IE || KQ) {
-		setTimeout(function () { $('[autofocus]').focus(); }, 10);
-	}
-
 	/**
-	 * Change combobox color according selected option.
+	 * Handles host pop up menus.
 	 */
-	$('.input.select').each(function() {
-		var comboBox = $(this),
-			changeClass = function(obj) {
-				if (obj.find('option.not-monitored:selected').length > 0) {
-					obj.addClass('not-monitored');
-				}
-				else {
-					obj.removeClass('not-monitored');
-				}
-			};
+	jQuery(document).on('click', '.menu-host', function(event) {
+		var menuData = jQuery(this).data('menu');
+		var menu = [];
 
-		comboBox.change(function() {
-			changeClass($(this));
-		});
-
-		changeClass(comboBox);
-	});
-
-	/**
-	 * Build menu popup for given elements.
-	 */
-	$(document).on('click', '[data-menu-popup]', function(event) {
-		var obj = $(this),
-			data = obj.data('menu-popup');
-
-		switch (data.type) {
-			case 'favouriteGraphs':
-				data = getMenuPopupFavouriteGraphs(data);
-				break;
-
-			case 'favouriteMaps':
-				data = getMenuPopupFavouriteMaps(data);
-				break;
-
-			case 'favouriteScreens':
-				data = getMenuPopupFavouriteScreens(data);
-				break;
-
-			case 'history':
-				data = getMenuPopupHistory(data);
-				break;
-
-			case 'host':
-				data = getMenuPopupHost(data);
-				break;
-
-			case 'map':
-				data = getMenuPopupMap(data);
-				break;
-
-			case 'refresh':
-				data = getMenuPopupRefresh(data);
-				break;
-
-			case 'serviceConfiguration':
-				data = getMenuPopupServiceConfiguration(data);
-				break;
-
-			case 'trigger':
-				data = getMenuPopupTrigger(data);
-				break;
-
-			case 'triggerLog':
-				data = getMenuPopupTriggerLog(data);
-				break;
-
-			case 'triggerMacro':
-				data = getMenuPopupTriggerMacro(data);
-				break;
+		// add scripts
+		if (menuData.scripts.length) {
+			menu.push(createMenuHeader(t('Scripts')));
+			jQuery.each(menuData.scripts, function(i, script) {
+				menu.push(createMenuItem(script.name, function () {
+					executeScript(menuData.hostid, script.scriptid, script.confirmation);
+					return false;
+				}));
+			});
 		}
 
-		obj.menuPopup(data, event);
+		// add go to links
+		menu.push(createMenuHeader(t('Go to')));
+		menu.push(createMenuItem(t('Latest data'), 'latest.php?hostid=' + menuData.hostid));
+		if (menuData.hasInventory) {
+			menu.push(createMenuItem(t('Host inventories'), 'hostinventories.php?hostid=' + menuData.hostid));
+		}
+		if (menuData.hasScreens) {
+			menu.push(createMenuItem(t('Host screens'), 'host_screen.php?hostid=' + menuData.hostid));
+		}
+
+		// render the menu
+		show_popup_menu(event, menu, 180);
 
 		return false;
 	});
-
-	$('.print-link').click(function() {
-		printLess(true);
-
-		return false;
-	});
-
-	/*
-	 * add.popup event
-	 *
-	 * Call multiselect method 'addData' if parent was multiselect, execute addPopupValues function
-	 * or just update input field value
-	 *
-	 * @param object data
-	 * @param string data.object   object name
-	 * @param array  data.values   values
-	 * @param string data.parentId parent id
-	 */
-	$(document).on('add.popup', function(e, data) {
-		// multiselect check
-		if ($('#' + data.parentId).hasClass('multiselect')) {
-			for (var i = 0; i < data.values.length; i++) {
-				if (typeof data.values[i].id !== 'undefined') {
-					var item = {
-						'id': data.values[i].id,
-						'name': data.values[i].name,
-						'prefix': data.values[i].prefix
-					};
-					jQuery('#' + data.parentId).multiSelect('addData', item);
-				}
-			}
-		}
-		else if (typeof addPopupValues !== 'undefined') {
-			// execute function if they exist
-			addPopupValues(data);
-		}
-		else {
-			jQuery('#' + data.parentId).val(data.values[0].name);
-		}
-	});
-
-	// create jquery buttons
-	$('.jqueryinput').button();
-	$('.jqueryinputset').buttonset();
-
-	createPlaceholders();
-
-	// redirect buttons
-	$('button[data-url]').click(function() {
-		var button = $(this);
-		var confirmation = button.data('confirmation');
-
-		if (typeof confirmation === 'undefined' || (typeof confirmation !== 'undefined' && confirm(confirmation))) {
-			window.location = button.data('url');
-		}
-	})
 });

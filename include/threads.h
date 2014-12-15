@@ -23,8 +23,6 @@
 #include "common.h"
 
 #if defined(_WINDOWS)
-	/* the ZBXEndThread function is implemented in service.c file */
-	void	CALLBACK ZBXEndThread(ULONG_PTR dwParam);
 
 	#define ZBX_THREAD_ERROR	0
 
@@ -41,9 +39,9 @@
 		_endthreadex((unsigned int)(status)); \
 		return ((unsigned)(status))
 
-	#define zbx_sleep(sec) SleepEx(((DWORD)(sec)) * ((DWORD)1000), TRUE)
+	#define zbx_sleep(sec) Sleep(((DWORD)(sec)) * ((DWORD)1000))
 
-	#define zbx_thread_kill(h) QueueUserAPC(ZBXEndThread, h, 0);
+	#define zbx_thread_kill(h) TerminateThread(h, SUCCEED);
 
 #else	/* not _WINDOWS */
 
@@ -74,13 +72,8 @@
 
 typedef struct
 {
-	int		server_num;
-	int		process_num;
-	unsigned char	process_type;
-	void		*args;
-#ifdef _WINDOWS
-	ZBX_THREAD_ENTRY_POINTER(entry);
-#endif
+	int	thread_num;
+	void	*args;
 }
 zbx_thread_args_t;
 

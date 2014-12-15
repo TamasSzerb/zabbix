@@ -25,43 +25,48 @@ require_once dirname(__FILE__).'/include/services.inc.php';
 
 $page['title'] = _('IT services');
 $page['file'] = 'srv_status.php';
+$page['scripts'] = array();
 $page['hist_arg'] = array();
 
 define('ZBX_PAGE_DO_REFRESH', 1);
 
-require_once dirname(__FILE__).'/include/page_header.php';
-
-$periods = array(
-	'today' => _('Today'),
-	'week' => _('This week'),
-	'month' => _('This month'),
-	'year' => _('This year'),
-	24 => _('Last 24 hours'),
-	24 * 7 => _('Last 7 days'),
-	24 * 30 => _('Last 30 days'),
-	24 * DAY_IN_YEAR => _('Last 365 days')
-);
-
+include_once('include/page_header.php');
 
 // VAR	TYPE	OPTIONAL	FLAGS	VALIDATION	EXCEPTION
 $fields = array(
 	'serviceid' =>	array(T_ZBX_INT, O_OPT, P_SYS|P_NZERO, DB_ID,	null),
 	'showgraph' =>	array(T_ZBX_INT, O_OPT, P_SYS,	IN('1'),		'isset({serviceid})'),
-	'period' =>		array(T_ZBX_STR, O_OPT, P_SYS,	IN('"'.implode('","', array_keys($periods)).'"'),	null),
-	'fullscreen' => array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'),		null)
+	'period' =>		array(T_ZBX_STR, O_OPT, P_SYS,	null,			null),
+	'fullscreen' => array(T_ZBX_INT, O_OPT, P_SYS,	IN('0,1'),		null),
+	// ajax
+	'favobj' =>		array(T_ZBX_STR, O_OPT, P_ACT,	IN('"hat"'),	null),
+	'favref' =>		array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,		'isset({favobj})'),
+	'favstate' =>	array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,		'isset({favobj})')
 );
 check_fields($fields);
 
+/*
+ * Ajax
+ */
+if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'hat') {
+		CProfile::update('web.srv_status.hats.'.$_REQUEST['favref'].'.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
+}
+if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
+	include_once('include/page_footer.php');
+	exit();
+}
+
 if (isset($_REQUEST['serviceid']) && isset($_REQUEST['showgraph'])) {
 	$service = API::Service()->get(array(
-		'output' => array('serviceid'),
-		'serviceids' => getRequest('serviceid')
+		'serviceids' => $_REQUEST['serviceid'],
+		'preservekeys' => true
 	));
-	$service = reset($service);
 
 	if ($service) {
 		$table = new CTable(null, 'chart');
-		$table->addRow(new CImg('chart5.php?serviceid='.$service['serviceid'].url_param('path')));
+		$table->addRow(new CImg('chart5.php?serviceid='.key($service).url_param('path')));
 		$table->show();
 	}
 	else {
@@ -69,7 +74,17 @@ if (isset($_REQUEST['serviceid']) && isset($_REQUEST['showgraph'])) {
 	}
 }
 else {
-	$period = getRequest('period', 7 * 24);
+	$periods = array(
+		'today' => _('Today'),
+		'week' => _('This week'),
+		'month' => _('This month'),
+		'year' => _('This year'),
+		24 => _('Last 24 hours'),
+		24 * 7 => _('Last 7 days'),
+		24 * 30 => _('Last 30 days'),
+		24 * DAY_IN_YEAR => _('Last 365 days')
+	);
+	$period = get_request('period', 7 * 24);
 	$period_end = time();
 
 	switch ($period) {
@@ -106,7 +121,8 @@ else {
 
 	// expand trigger descriptions
 	$triggers = zbx_objectValues($services, 'trigger');
-	$triggers = CMacrosResolverHelper::resolveTriggerNames($triggers);
+
+	$triggers = CTriggerHelper::batchExpandDescription($triggers);
 
 	foreach ($services as &$service) {
 		if ($service['trigger']) {
@@ -122,6 +138,7 @@ else {
 			'to' => $period_end
 		))
 	));
+
 	// expand problem trigger descriptions
 	foreach ($slaData as &$serviceSla) {
 		foreach ($serviceSla['problems'] as &$problemTrigger) {
@@ -169,5 +186,4 @@ else {
 		error(_('Cannot format Tree. Check logic structure in service links.'));
 	}
 }
-
-require_once dirname(__FILE__).'/include/page_footer.php';
+include_once('include/page_footer.php');

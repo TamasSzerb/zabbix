@@ -17,18 +17,11 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
+?>
+<?php
 
-
-/**
- * Find user theme or get default theme.
- *
- * @param array $userData
- *
- * @return string
- */
 function getUserTheme($userData) {
 	$config = select_config();
-
 	if (isset($config['default_theme'])) {
 		$css = $config['default_theme'];
 	}
@@ -38,220 +31,139 @@ function getUserTheme($userData) {
 	if (!isset($css)) {
 		$css = ZBX_DEFAULT_THEME;
 	}
-
 	return $css;
 }
 
-/**
- * Get user type name.
- *
- * @param int $userType
- *
- * @return string
- */
-function user_type2str($userType = null) {
-	$userTypes = array(
+function user_type2str($user_type = null) {
+	$user_types = array(
 		USER_TYPE_ZABBIX_USER => _('Zabbix User'),
 		USER_TYPE_ZABBIX_ADMIN => _('Zabbix Admin'),
 		USER_TYPE_SUPER_ADMIN => _('Zabbix Super Admin')
 	);
-
-	if ($userType === null) {
-		return $userTypes;
+	if (is_null($user_type)) {
+		return $user_types;
 	}
-	elseif (isset($userTypes[$userType])) {
-		return $userTypes[$userType];
+	elseif (isset($user_types[$user_type])) {
+		return $user_types[$user_type];
 	}
 	else {
 		return _('Unknown');
 	}
 }
 
-/**
- * Get user authentication name.
- *
- * @param int $authType
- *
- * @return string
- */
-function user_auth_type2str($authType) {
-	if ($authType === null) {
-		$authType = getUserGuiAccess(CWebUser::$data['userid']);
+function user_auth_type2str($auth_type) {
+	if (is_null($auth_type)) {
+		$auth_type = get_user_auth(CWebUser::$data['userid']);
 	}
+	$auth_user_type[GROUP_GUI_ACCESS_SYSTEM] = _('System default');
+	$auth_user_type[GROUP_GUI_ACCESS_INTERNAL] = _('Internal');
+	$auth_user_type[GROUP_GUI_ACCESS_DISABLED] = _('Disabled');
 
-	$authUserType = array(
-		GROUP_GUI_ACCESS_SYSTEM => _('System default'),
-		GROUP_GUI_ACCESS_INTERNAL => _x('Internal', 'user type'),
-		GROUP_GUI_ACCESS_DISABLED => _('Disabled')
-	);
-
-	return isset($authUserType[$authType]) ? $authUserType[$authType] : _('Unknown');
+	if (isset($auth_user_type[$auth_type])) {
+		return $auth_user_type[$auth_type];
+	}
+	return _('Unknown');
 }
 
-/**
- * Unblock user account.
- *
- * @param array $userIds
- *
- * @return bool
- */
-function unblock_user_login($userIds) {
-	zbx_value2array($userIds);
-
-	return DBexecute('UPDATE users SET attempt_failed=0 WHERE '.dbConditionInt('userid', $userIds));
+function unblock_user_login($userids) {
+	zbx_value2array($userids);
+	return DBexecute('UPDATE users SET attempt_failed=0 WHERE '.dbConditionInt('userid', $userids));
 }
 
-/**
- * Get users ids by groups ids.
- *
- * @param array $userGroupIds
- *
- * @return array
- */
-function get_userid_by_usrgrpid($userGroupIds) {
-	zbx_value2array($userGroupIds);
+function get_userid_by_usrgrpid($usrgrpids) {
+	zbx_value2array($usrgrpids);
+	$userids = array();
 
-	$userIds = array();
-
-	$dbUsers = DBselect(
+	$db_users = DBselect(
 		'SELECT DISTINCT u.userid'.
 		' FROM users u,users_groups ug'.
 		' WHERE u.userid=ug.userid'.
-			' AND '.dbConditionInt('ug.usrgrpid', $userGroupIds)
+			' AND '.dbConditionInt('ug.usrgrpid', $usrgrpids).
+			' AND '.DBin_node('ug.usrgrpid', false)
 	);
-	while ($user = DBFetch($dbUsers)) {
-		$userIds[$user['userid']] = $user['userid'];
+	while($user = DBFetch($db_users)){
+		$userids[$user['userid']] = $user['userid'];
 	}
-
-	return $userIds;
+	return $userids;
 }
 
-/**
- * Check if group has permissions for update.
- *
- * @param array $userGroupIds
- *
- * @return bool
- */
-function granted2update_group($userGroupIds) {
-	zbx_value2array($userGroupIds);
-
-	$users = get_userid_by_usrgrpid($userGroupIds);
-
-	return !isset($users[CWebUser::$data['userid']]);
-}
-
-/**
- * Check if user can be appended to group.
- *
- * @param string $userId
- * @param string $userGroupId
- *
- * @return bool
- */
-function granted2move_user($userId, $userGroupId) {
-	$group = API::UserGroup()->get(array(
-		'usrgrpids' => $userGroupId,
-		'output' => API_OUTPUT_EXTEND
-	));
-	$group = reset($group);
-
-	if ($group['gui_access'] == GROUP_GUI_ACCESS_DISABLED || $group['users_status'] == GROUP_STATUS_DISABLED) {
-		return (bccomp(CWebUser::$data['userid'], $userId) != 0);
+function add_user_to_group($userid, $usrgrpid) {
+	$result = false;
+	if (granted2move_user($userid,$usrgrpid)) {
+		DBexecute('DELETE FROM users_groups WHERE userid='.zbx_dbstr($userid).' AND usrgrpid='.zbx_dbstr($usrgrpid));
+		$users_groups_id = get_dbid('users_groups', 'id');
+		$result = DBexecute('INSERT INTO users_groups (id,usrgrpid,userid) VALUES ('.$users_groups_id.','.zbx_dbstr($usrgrpid).','.zbx_dbstr($userid).')');
 	}
-
-	return true;
+	else{
+		error(_('User cannot change status of himself.'));
+	}
+	return $result;
 }
 
-/**
- * Change group status.
- *
- * @param array $userGroupIds
- * @param int   $usersStatus
- *
- * @return bool
- */
-function change_group_status($userGroupIds, $usersStatus) {
-	zbx_value2array($userGroupIds);
-
-	$grant = ($usersStatus == GROUP_STATUS_DISABLED) ? granted2update_group($userGroupIds) : true;
-
-	if ($grant) {
-		return DBexecute(
-			'UPDATE usrgrp'.
-			' SET users_status='.zbx_dbstr($usersStatus).
-			' WHERE '.dbConditionInt('usrgrpid', $userGroupIds)
-		);
+function remove_user_from_group($userid, $usrgrpid) {
+	$result = false;
+	if (granted2move_user($userid,$usrgrpid)) {
+		$result = DBexecute('DELETE FROM users_groups WHERE userid='.zbx_dbstr($userid).' AND usrgrpid='.zbx_dbstr($usrgrpid));
 	}
 	else {
 		error(_('User cannot change status of himself.'));
 	}
-
-	return false;
+	return $result;
 }
 
-/**
- * Change gui access for group.
- *
- * @param array $userGroupIds
- * @param int   $guiAccess
- *
- * @return bool
- */
-function change_group_gui_access($userGroupIds, $guiAccess) {
-	zbx_value2array($userGroupIds);
+// checks if user is adding himself to disabled group
+function granted2update_group($usrgrpids) {
+	zbx_value2array($usrgrpids);
+	$users = get_userid_by_usrgrpid($usrgrpids);
+	return (!isset($users[CWebUser::$data['userid']]));
+}
 
-	$grant = ($guiAccess == GROUP_GUI_ACCESS_DISABLED) ? granted2update_group($userGroupIds) : true;
+// checks if user is adding himself to disabled group
+function granted2move_user($userid, $usrgrpid) {
+	$result = true;
+	$group = API::UserGroup()->get(array('usrgrpids' => $usrgrpid, 'output' => API_OUTPUT_EXTEND));
+	$group = reset($group);
+	if ($group['gui_access'] == GROUP_GUI_ACCESS_DISABLED || $group['users_status'] == GROUP_STATUS_DISABLED){
+		$result = (bccomp(CWebUser::$data['userid'], $userid) != 0);
+	}
+	return $result;
+}
+
+function change_group_status($usrgrpids, $users_status) {
+	zbx_value2array($usrgrpids);
+	$result = false;
+	$grant = true;
+	if ($users_status == GROUP_STATUS_DISABLED) {
+		$grant = granted2update_group($usrgrpids);
+	}
 
 	if ($grant) {
-		return DBexecute(
-			'UPDATE usrgrp SET gui_access='.zbx_dbstr($guiAccess).' WHERE '.dbConditionInt('usrgrpid', $userGroupIds)
-		);
+		$result = DBexecute('UPDATE usrgrp SET users_status='.zbx_dbstr($users_status).' WHERE '.dbConditionInt('usrgrpid', $usrgrpids));
+	}
+	else {
+		error(_('User cannot change status of himself.'));
+	}
+	return $result;
+}
+
+function change_group_gui_access($usrgrpids, $gui_access) {
+	zbx_value2array($usrgrpids);
+	$result = false;
+	$grant = true;
+	if ($gui_access == GROUP_GUI_ACCESS_DISABLED) {
+		$grant = granted2update_group($usrgrpids);
+	}
+	if ($grant) {
+		$result = DBexecute('UPDATE usrgrp SET gui_access='.zbx_dbstr($gui_access).' WHERE '.dbConditionInt('usrgrpid',$usrgrpids));
 	}
 	else {
 		error(_('User cannot change GUI access for himself.'));
 	}
-
-	return false;
+	return $result;
 }
 
-/**
- * Change debug mode for group.
- *
- * @param array $userGroupIds
- * @param int   $debugMode
- *
- * @return bool
- */
-function change_group_debug_mode($userGroupIds, $debugMode) {
-	zbx_value2array($userGroupIds);
-
-	return DBexecute(
-		'UPDATE usrgrp SET debug_mode='.zbx_dbstr($debugMode).' WHERE '.dbConditionInt('usrgrpid', $userGroupIds)
-	);
+function change_group_debug_mode($usrgrpids, $debug_mode){
+	zbx_value2array($usrgrpids);
+	return DBexecute('UPDATE usrgrp SET debug_mode='.zbx_dbstr($debug_mode).' WHERE '.dbConditionInt('usrgrpid', $usrgrpids));
 }
-
-/**
- * Gets user full name in format "alias (name surname)". If both name and surname exist, returns translated string.
- *
- * @param array  $userData
- * @param string $userData['alias']
- * @param string $userData['name']
- * @param string $userData['surname']
- *
- * @return string
- */
-function getUserFullname($userData) {
-	if (!zbx_empty($userData['surname'])) {
-		if (!zbx_empty($userData['name'])) {
-			return $userData['alias'].' '._x('(%1$s %2$s)', 'user fullname', $userData['name'], $userData['surname']);
-		}
-
-		$fullname = $userData['surname'];
-	}
-	else {
-		$fullname = zbx_empty($userData['name']) ? '' : $userData['name'];
-	}
-
-	return zbx_empty($fullname) ? $userData['alias'] : $userData['alias'].' ('.$fullname.')';
-}
+?>

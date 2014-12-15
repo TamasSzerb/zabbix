@@ -17,68 +17,59 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 function init_mbstrings() {
 	$res = true;
-	$res &= extension_loaded('mbstring');
-
-	if (version_compare(PHP_VERSION, '5.6', '<')) {
-		ini_set('mbstring.internal_encoding', 'UTF-8');
-		$res &= (ini_get('mbstring.internal_encoding') === 'UTF-8');
-	}
-	else {
-		ini_set('default_charset', 'UTF-8');
-		$res &= (ini_get('default_charset') === 'UTF-8');
-	}
-
+	$res &= mbstrings_available();
+	ini_set('mbstring.internal_encoding', 'UTF-8');
+	$res &= (ini_get('mbstring.internal_encoding') == 'UTF-8');
 	ini_set('mbstring.detect_order', 'UTF-8, ISO-8859-1, JIS, SJIS');
-	$res &= (ini_get('mbstring.detect_order') === 'UTF-8, ISO-8859-1, JIS, SJIS');
-
+	$res &= (ini_get('mbstring.detect_order') == 'UTF-8, ISO-8859-1, JIS, SJIS');
+	if ($res) {
+		define('ZBX_MBSTRINGS_ENABLED', true);
+	}
 	return $res;
 }
 
-/**
- * Returns a list of all used locales.
- *
- * Each locale has the following properties:
- * - name       - the full name of the locale
- * - display    - whether to display the locale in the frontend
- *
- * @return array    an array of locales with locale codes as keys and arrays as values
- */
-function getLocales() {
-	return array(
-		'en_GB' => array('name' => _('English (en_GB)'),	'display' => true),
-		'en_US' => array('name' => _('English (en_US)'),	'display' => true),
-		'bg_BG' => array('name' => _('Bulgarian (bg_BG)'),	'display' => false),
-		'zh_CN' => array('name' => _('Chinese (zh_CN)'),	'display' => false),
-		'zh_TW' => array('name' => _('Chinese (zh_TW)'),	'display' => false),
-		'cs_CZ' => array('name' => _('Czech (cs_CZ)'),		'display' => false),
-		'nl_NL' => array('name' => _('Dutch (nl_NL)'),		'display' => false),
-		'fi_FI' => array('name' => _('Finnish (fi_FI)'),	'display' => false),
-		'fr_FR' => array('name' => _('French (fr_FR)'),		'display' => false),
-		'de_DE' => array('name' => _('German (de_DE)'),		'display' => false),
-		'el_GR' => array('name' => _('Greek (el_GR)'),		'display' => false),
-		'hu_HU' => array('name' => _('Hungarian (hu_HU)'),	'display' => false),
-		'id_ID' => array('name' => _('Indonesian (id_ID)'),	'display' => false),
-		'it_IT' => array('name' => _('Italian (it_IT)'),	'display' => true),
-		'ko_KR' => array('name' => _('Korean (ko_KR)'),		'display' => false),
-		'ja_JP' => array('name' => _('Japanese (ja_JP)'),	'display' => true),
-		'lv_LV' => array('name' => _('Latvian (lv_LV)'),	'display' => false),
-		'lt_LT' => array('name' => _('Lithuanian (lt_LT)'),	'display' => false),
-		'fa_IR' => array('name' => _('Persian (fa_IR)'),	'display' => false),
-		'pl_PL' => array('name' => _('Polish (pl_PL)'),		'display' => true),
-		'pt_BR' => array('name' => _('Portuguese (pt_BR)'),	'display' => true),
-		'pt_PT' => array('name' => _('Portuguese (pt_PT)'),	'display' => false),
-		'ro_RO' => array('name' => _('Romanian (ro_RO)'),	'display' => false),
-		'ru_RU' => array('name' => _('Russian (ru_RU)'),	'display' => true),
-		'sk_SK' => array('name' => _('Slovak (sk_SK)'),		'display' => true),
-		'es_ES' => array('name' => _('Spanish (es_ES)'),	'display' => false),
-		'sv_SE' => array('name' => _('Swedish (sv_SE)'),	'display' => false),
-		'tr_TR' => array('name' => _('Turkish (tr_TR)'),	'display' => false),
-		'uk_UA' => array('name' => _('Ukrainian (uk_UA)'),	'display' => false),
-		'vi_VN' => array('name' => _('Vietnamese (vi_VN)'),	'display' => false)
+function mbstrings_available() {
+	return function_exists('mb_strlen') && function_exists('mb_strtoupper') && function_exists('mb_strpos') && function_exists('mb_substr');
+}
+
+function set_zbx_locales() {
+	global $ZBX_LOCALES;
+
+	$ZBX_LOCALES = array(
+		'en_GB' => _('English (en_GB)'),
+		'en_US' => _('English (en_US)'),
+		'bg_BG' => _('Bulgarian (bg_BG)'),
+		'zh_CN' => _('Chinese (zh_CN)'),
+		'zh_TW' => _('Chinese (zh_TW)'),
+		'cs_CZ' => _('Czech (cs_CZ)'),
+		'nl_NL' => _('Dutch (nl_NL)'),
+		'fi_FI' => _('Finnish (fi_FI)'),
+		'fr_FR' => _('French (fr_FR)'),
+		'de_DE' => _('German (de_DE)'),
+		'el_GR' => _('Greek (el_GR)'),
+		'hu_HU' => _('Hungarian (hu_HU)'),
+		'id_ID' => _('Indonesian (id_ID)'),
+		'it_IT' => _('Italian (it_IT)'),
+		'ko_KR' => _('Korean (ko_KR)'),
+		'ja_JP' => _('Japanese (ja_JP)'),
+		'lv_LV' => _('Latvian (lv_LV)'),
+		'lt_LT' => _('Lithuanian (lt_LT)'),
+		'fa_IR' => _('Persian (fa_IR)'),
+		'pl_PL' => _('Polish (pl_PL)'),
+		'pt_BR' => _('Portuguese (pt_BR)'),
+		'pt_PT' => _('Portuguese (pt_PT)'),
+		'ro_RO' => _('Romanian (ro_RO)'),
+		'ru_RU' => _('Russian (ru_RU)'),
+		'sk_SK' => _('Slovak (sk_SK)'),
+		'es_ES' => _('Spanish (es_ES)'),
+		'sv_SE' => _('Swedish (sv_SE)'),
+		'tr_TR' => _('Turkish (tr_TR)'),
+		'uk_UA' => _('Ukrainian (uk_UA)')
 	);
 }
 
@@ -175,8 +166,8 @@ function zbx_locale_variants_win($language) {
 		'es_es' => array('Spanish_Spain.1252', 'spanish'),
 		'sv_se' => array('Swedish_Sweden.1252', 'swedish'),
 		'tr_tr' => array('Turkish_Turkey.1254', 'turkish'),
-		'uk_ua' => array('Ukrainian_Ukraine.1251', 'ukrainian'),
-		'vi_vn' => array('Vietnamese_Viet Nam.1258', 'vietnamese')
+		'uk_ua' => array('Ukrainian_Ukraine.1251', 'ukrainian')
 	);
 	return $winLanguageName[strtolower($language)];
 }
+?>

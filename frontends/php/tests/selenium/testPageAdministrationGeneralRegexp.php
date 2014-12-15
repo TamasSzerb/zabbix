@@ -21,11 +21,25 @@
 require_once dirname(__FILE__).'/../include/class.cwebtest.php';
 
 class testPageAdministrationGeneralRegexp extends CWebTest {
-
 	private $sqlHashRegexps = '';
 	private $oldHashRegexps = '';
+
 	private $sqlHashExpressions = '';
 	private $oldHashExpressions = '';
+
+	private $oldRegexpId = 20;
+
+	private function openRegularExpressions() {
+		$this->zbxTestLogin('adm.gui.php');
+		$this->assertElementPresent('configDropDown');
+		$this->zbxTestDropdownSelectWait('configDropDown', 'Regular expressions');
+		$this->assertElementPresent('configDropDown');
+
+		$this->checkTitle('Configuration of regular expressions');
+		$this->zbxTestTextPresent('CONFIGURATION OF REGULAR EXPRESSIONS');
+		$this->zbxTestTextPresent('Regular expressions');
+		$this->zbxTestTextPresent(array('Name', 'Expressions'));
+	}
 
 	private function calculateHash($conditions = null) {
 		$this->sqlHashRegexps =
@@ -42,104 +56,108 @@ class testPageAdministrationGeneralRegexp extends CWebTest {
 	}
 
 	private function verifyHash() {
-		$this->assertEquals($this->oldHashRegexps, DBhash($this->sqlHashRegexps));
-		$this->assertEquals($this->oldHashExpressions, DBhash($this->sqlHashExpressions));
+		$this->assertEquals($this->oldHashRegexps, DBhash($this->sqlHashRegexps),
+				'Chuck Norris: Data in the DB table "regexps" has been changed.');
+
+		$this->assertEquals($this->oldHashExpressions, DBhash($this->sqlHashExpressions),
+				'Chuck Norris: Data in the DB table "expressions" has been changed.');
 	}
 
-	public static function allRegexps() {
-		return DBdata('SELECT regexpid FROM regexps');
+	public function testPageAdministrationGeneralRegexp_backup() {
+		DBsave_tables('regexps');
 	}
 
 	public function testPageAdministrationGeneralRegexp_CheckLayout() {
-		$this->zbxTestLogin('adm.regexps.php');
-		$this->zbxTestCheckTitle('Configuration of regular expressions');
-		$this->zbxTestTextPresent('CONFIGURATION OF REGULAR EXPRESSIONS');
-		$this->zbxTestTextPresent('Regular expressions');
-		$this->zbxTestDropdownHasOptions('configDropDown', array(
-			'GUI', 'Housekeeping', 'Images', 'Icon mapping', 'Regular expressions', 'Macros', 'Value mapping',
-			'Working time', 'Trigger severities', 'Trigger displaying options', 'Other'
-		));
+		$this->openRegularExpressions();
+
 		$this->assertElementPresent('form');
+		$this->assertElementPresent('all_regexps');
 
-		$this->zbxTestTextPresent(array('Name', 'Expressions'));
-
-		$dbResult = DBselect('select name from regexps');
-
-		while ($dbRow = DBfetch($dbResult)) {
-			$this->zbxTestTextPresent($dbRow['name']);
+		$result = DBselect('select regexpid,name from regexps');
+		while ($row = DBfetch($result)) {
+			$this->assertElementPresent('regexpids['.$row['regexpid'].']');
+			$this->zbxTestTextPresent($row['name']);
 		}
 
-		$this->zbxTestDropdownHasOptions('action', array('Delete selected'));
-		$this->assertElementValue('goButton', 'Go (0)');
+		$this->assertElementPresent('go');
+		$goElements = $this->zbxGetDropDownElements('go');
+		$this->assertEquals(count($goElements), 1);
+		$this->assertEquals($goElements[0]['content'], 'Delete selected');
 
-		$this->assertElementPresent("//select[@id='action' and @disabled]");
-		$this->assertElementPresent("//input[@id='goButton' and @disabled]");
+		$this->assertElementPresent('goButton');
 	}
 
-	public function testPageAdministrationGeneralRegexp_MassDeleteAllCancel() {
+	public function testPageAdministrationGeneralRegexp_MassDeleteEmpty() {
 		$this->calculateHash();
 
+		$this->openRegularExpressions();
+
+		$this->zbxTestDropdownSelect('go', 'Delete selected');
+		$this->zbxTestClick('goButton');
+		$this->waitForAlertPresent();
+		$this->assertAlert('No elements selected!');
+
+		$this->verifyHash();
+	}
+
+	public function testPageAdministrationGeneralRegexp_MassDeleteCancel() {
 		$this->chooseCancelOnNextConfirmation();
 
-		$this->zbxTestLogin('adm.regexps.php');
+		$this->calculateHash();
+
+		$this->openRegularExpressions();
+
 		$this->zbxTestCheckboxSelect('all_regexps');
-		$this->zbxTestDropdownSelect('action', 'Delete selected');
+		$this->zbxTestDropdownSelect('go', 'Delete selected');
 		$this->zbxTestClick('goButton');
-		$this->getConfirmation();
-		$this->zbxTestCheckTitle('Configuration of regular expressions');
-		$this->zbxTestTextNotPresent(array('Regular expression deleted', 'Regular expressions deleted'));
+		$this->waitForConfirmation();
 
 		$this->verifyHash();
 	}
 
-	public function testPageAdministrationGeneralRegexp_backup_1() {
-		DBsave_tables('regexps');
-	}
-
-	/**
-	 * @dataProvider allRegexps
-	 */
-	public function testPageAdministrationGeneralRegexp_MassDelete($regexp) {
-		$this->calculateHash('regexpid<>'.$regexp['regexpid']);
-
+	public function testPageAdministrationGeneralRegexp_MassDeleteOne() {
 		$this->chooseOkOnNextConfirmation();
 
-		$this->zbxTestLogin('adm.regexps.php');
-		$this->zbxTestCheckboxSelect('regexpids['.$regexp['regexpid'].']');
-		$this->zbxTestDropdownSelect('action', 'Delete selected');
-		$this->zbxTestClickWait('goButton');
-		$this->getConfirmation();
-		$this->zbxTestCheckTitle('Configuration of regular expressions');
+		$this->calculateHash('regexpid<>'.$this->oldRegexpId);
+
+		$this->openRegularExpressions();
+
+		$this->zbxTestCheckboxSelect('regexpids['.$this->oldRegexpId.']');
+		$this->zbxTestDropdownSelect('go', 'Delete selected');
+		$this->zbxTestClick('goButton');
+		$this->waitForConfirmation();
+		$this->wait();
 		$this->zbxTestTextPresent('Regular expression deleted');
 
-		$this->assertEquals(0, DBcount('SELECT NULL FROM regexps WHERE regexpid='.$regexp['regexpid']));
+		$count = DBcount('SELECT regexpid FROM regexps WHERE regexpid='.$this->oldRegexpId);
+		$this->assertEquals(0, $count, 'Chuck Norris: Record(s) has not been deleted from the DB.');
+
+		$count = DBcount('SELECT expressionid FROM expressions WHERE regexpid='.$this->oldRegexpId);
+		$this->assertEquals(0, $count, 'Chuck Norris: Record(s) has not been deleted from the DB.');
 
 		$this->verifyHash();
-	}
-
-	public function testPageAdministrationGeneralRegexp_restore_1() {
-		DBrestore_tables('regexps');
-	}
-
-	public function testPageAdministrationGeneralRegexp_backup_2() {
-		DBsave_tables('regexps');
 	}
 
 	public function testPageAdministrationGeneralRegexp_MassDeleteAll() {
 		$this->chooseOkOnNextConfirmation();
 
-		$this->zbxTestLogin('adm.regexps.php');
+		$this->openRegularExpressions();
+
 		$this->zbxTestCheckboxSelect('all_regexps');
-		$this->zbxTestDropdownSelect('action', 'Delete selected');
-		$this->zbxTestClickWait('goButton');
-		$this->getConfirmation();
-		$this->zbxTestCheckTitle('Configuration of regular expressions');
+		$this->zbxTestDropdownSelect('go', 'Delete selected');
+		$this->zbxTestClick('goButton');
+		$this->waitForConfirmation();
+		$this->wait();
 		$this->zbxTestTextPresent('Regular expressions deleted');
 
-		$this->assertEquals(0, DBcount('SELECT NULL FROM regexps'));
+		$count = DBcount('SELECT regexpid FROM regexps');
+		$this->assertEquals(0, $count, 'Chuck Norris: Record(s) has not been deleted from the DB');
+
+		$count = DBcount('SELECT expressionid FROM expressions');
+		$this->assertEquals(0, $count, 'Chuck Norris: Record(s) has not been deleted from the DB');
 	}
 
-	public function testPageAdministrationGeneralRegexp_restore_2() {
+	public function testPageAdministrationGeneralRegexp_restore() {
 		DBrestore_tables('regexps');
 	}
 

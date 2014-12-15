@@ -25,6 +25,7 @@ $ZBX_MENU = array(
 	'view' => array(
 		'label'				=> _('Monitoring'),
 		'user_type'			=> USER_TYPE_ZABBIX_USER,
+		'node_perm'			=> PERM_READ_LIST,
 		'default_page_id'	=> 0,
 		'pages' => array(
 			array(
@@ -79,6 +80,7 @@ $ZBX_MENU = array(
 			array(
 				'url' => 'srv_status.php',
 				'label' => _('IT services'),
+				'force_disable_all_nodes' => true,
 				'sub_pages' => array('report3.php', 'chart5.php')
 			),
 			array(
@@ -98,6 +100,7 @@ $ZBX_MENU = array(
 	'cm' => array(
 		'label'				=> _('Inventory'),
 		'user_type'			=> USER_TYPE_ZABBIX_USER,
+		'node_perm'			=> PERM_READ_LIST,
 		'default_page_id'	=> 0,
 		'pages' => array(
 			array(
@@ -113,6 +116,7 @@ $ZBX_MENU = array(
 	'reports' => array(
 		'label'				=> _('Reports'),
 		'user_type'			=> USER_TYPE_ZABBIX_USER,
+		'node_perm'			=> PERM_READ_LIST,
 		'default_page_id'	=> 0,
 		'pages' => array(
 			array(
@@ -125,7 +129,7 @@ $ZBX_MENU = array(
 				'label' => _('Availability report')
 			),
 			array(
-				'url' => 'toptriggers.php',
+				'url' => 'report5.php',
 				'label' => _('Triggers top 100')
 			),
 			array(
@@ -139,12 +143,14 @@ $ZBX_MENU = array(
 			array(
 				'url' => 'popup_right.php'
 			)
-		)
+		),
 	),
 	'config' => array(
 		'label'				=> _('Configuration'),
 		'user_type'			=> USER_TYPE_ZABBIX_ADMIN,
+		'node_perm'			=> PERM_READ_LIST,
 		'default_page_id'	=> 0,
+		'force_disable_all_nodes' => true,
 		'pages' => array(
 			array(
 				'url' => 'conf.import.php'
@@ -170,15 +176,17 @@ $ZBX_MENU = array(
 					'popup_trexpr.php',
 					'host_discovery.php',
 					'disc_prototypes.php',
-					'trigger_prototypes.php',
-					'host_prototypes.php',
-					'httpconf.php',
-					'popup_httpstep.php'
+					'trigger_prototypes.php'
 				)
 			),
 			array(
 				'url' => 'maintenance.php',
 				'label' => _('Maintenance')
+			),
+			array(
+				'url' => 'httpconf.php',
+				'label' => _('Web'),
+				'sub_pages' => array('popup_httpstep.php')
 			),
 			array(
 				'url' => 'actionconf.php',
@@ -205,13 +213,15 @@ $ZBX_MENU = array(
 			array(
 				'url' => 'services.php',
 				'label' => _('IT services')
-			)
+			),
 		)
 	),
 	'admin' => array(
 		'label'				=> _('Administration'),
 		'user_type'			=> USER_TYPE_SUPER_ADMIN,
-		'default_page_id'	=> 0,
+		'node_perm'			=> PERM_READ_WRITE,
+		'default_page_id'	=> 1,
+		'force_disable_all_nodes'=> true,
 		'pages' => array(
 			array(
 				'url' => 'adm.gui.php',
@@ -231,7 +241,8 @@ $ZBX_MENU = array(
 			),
 			array(
 				'url' => 'proxies.php',
-				'label' => _('Proxies')
+				'label' => _('DM'),
+				'sub_pages' => array('nodes.php')
 			),
 			array(
 				'url' => 'authentication.php',
@@ -265,7 +276,8 @@ $ZBX_MENU = array(
 			),
 			array(
 				'url' => 'setup.php',
-				'label' => _('Installation')
+				'label' => _('Installation'),
+				'sub_pages' => array('warning.php')
 			)
 		)
 	),
@@ -273,6 +285,8 @@ $ZBX_MENU = array(
 		'label'					=> _('Login'),
 		'user_type'				=> 0,
 		'default_page_id'		=> 0,
+		'hide_node_selection'	=> 1,
+		'force_disable_all_nodes'=> true,
 		'pages' => array(
 			array(
 				'url' => 'index.php',
@@ -296,7 +310,7 @@ $ZBX_MENU = array(
  *	'sub_pages' = collection of pages for displaying but not remembered as last visited.
  */
 function zbx_construct_menu(&$main_menu, &$sub_menus, &$page) {
-	global $ZBX_MENU;
+	global $ZBX_MENU, $USER_DETAILS;
 
 	$denied_page_requested = false;
 	$page_exists = false;
@@ -306,7 +320,7 @@ function zbx_construct_menu(&$main_menu, &$sub_menus, &$page) {
 		$show_menu = true;
 
 		if (isset($menu['user_type'])) {
-			$show_menu &= ($menu['user_type'] <= CWebUser::$data['type']);
+			$show_menu &= ($menu['user_type'] <= $USER_DETAILS['type']);
 		}
 		if ($label == 'login') {
 			$show_menu = false;
@@ -314,7 +328,6 @@ function zbx_construct_menu(&$main_menu, &$sub_menus, &$page) {
 
 		$menu_class = 'horizontal_menu_n';
 		$sub_menus[$label] = array();
-
 		foreach ($menu['pages'] as $sub_page) {
 			$show_sub_menu = true;
 
@@ -325,7 +338,7 @@ function zbx_construct_menu(&$main_menu, &$sub_menus, &$page) {
 			if (!isset($sub_page['user_type'])) {
 				$sub_page['user_type'] = $menu['user_type'];
 			}
-			if (CWebUser::$data['type'] < $sub_page['user_type']) {
+			if ($USER_DETAILS['type'] < $sub_page['user_type']) {
 				$show_sub_menu = false;
 			}
 
@@ -340,7 +353,7 @@ function zbx_construct_menu(&$main_menu, &$sub_menus, &$page) {
 
 			if ($sub_menu_active) {
 				// permition check
-				$deny &= (CWebUser::$data['type'] < $menu['user_type'] || CWebUser::$data['type'] < $sub_page['user_type']);
+				$deny &= ($USER_DETAILS['type'] < $menu['user_type'] || $USER_DETAILS['type'] < $sub_page['user_type']);
 
 				$menu_class = 'active';
 				$page_exists = true;
@@ -355,6 +368,10 @@ function zbx_construct_menu(&$main_menu, &$sub_menus, &$page) {
 			if ($show_sub_menu) {
 				$sub_menus[$label][] = $row;
 			}
+		}
+
+		if ($page_exists && !defined('ZBX_NOT_ALLOW_ALL_NODES') && (isset($menu['force_disable_all_nodes']) || isset($sub_page['force_disable_all_nodes']))) {
+			define('ZBX_NOT_ALLOW_ALL_NODES', 1);
 		}
 
 		if ($page_exists && $deny) {
@@ -380,4 +397,20 @@ function zbx_construct_menu(&$main_menu, &$sub_menus, &$page) {
 	}
 
 	return $denied_page_requested;
+}
+
+function zbx_define_menu_restrictions($page, $ZBX_MENU) {
+	foreach ($ZBX_MENU as $section) {
+		foreach ($section['pages'] as $pid => $menu_page) {
+			if ($menu_page['url'] == $page['file'] || (isset($menu_page['sub_pages']) && str_in_array($page['file'], $menu_page['sub_pages']))) {
+				if (isset($section['force_disable_all_nodes']) && !defined('ZBX_NOT_ALLOW_ALL_NODES')) {
+					define('ZBX_NOT_ALLOW_ALL_NODES', 1);
+				}
+				if (isset($section['hide_node_selection']) && !defined('ZBX_HIDE_NODE_SELECTION')) {
+					define('ZBX_HIDE_NODE_SELECTION', 1);
+				}
+				return null;
+			}
+		}
+	}
 }

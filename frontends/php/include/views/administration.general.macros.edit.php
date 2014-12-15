@@ -17,7 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
+?>
+<?php
 
 $macrosForm = new CForm();
 $macrosForm->setName('macrosForm');
@@ -30,11 +31,12 @@ $macrosView = new CView('common.macros', array(
 ));
 $macrosTab->addTab('macros', _('Macros'), $macrosView->render());
 
-$saveButton = new CSubmit('update', _('Update'));
+$saveButton = new CSubmit('save', _('Save'));
 $saveButton->attr('data-removed-count', 0);
-$saveButton->main();
+$saveButton->addClass('main');
 
 $macrosForm->addItem($macrosTab);
-$macrosForm->addItem(makeFormFooter(null, array($saveButton)));
+$macrosForm->addItem(makeFormFooter(array(), array($saveButton)));
 
 return $macrosForm;
+?>

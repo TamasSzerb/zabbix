@@ -20,11 +20,9 @@
 #ifndef ZABBIX_CHECKS_DB_H
 #define ZABBIX_CHECKS_DB_H
 
-#include "common.h"
-
 #include "dbcache.h"
 #include "sysinfo.h"
 
 int	get_value_db(DC_ITEM *item, AGENT_RESULT *result);
 
-#endif
+#endif /* ZABBIX_CHECKS_DB_H */

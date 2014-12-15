@@ -21,7 +21,7 @@
 
 class DB {
 
-	const SCHEMA_FILE = 'schema.inc.php';
+	const SCHEMA_FILE = 'include/schema.inc.php';
 
 	const DBEXECUTE_ERROR = 1;
 	const RESERVEIDS_ERROR = 2;
@@ -40,54 +40,35 @@ class DB {
 	const FIELD_TYPE_TEXT = 'text';
 
 	private static $schema = null;
-
-	/**
-	 * @var DbBackend
-	 */
-	private static $dbBackend;
-
-	/**
-	 * Get necessary DB class.
-	 *
-	 * @return DbBackend
-	 */
-	public static function getDbBackend() {
-		global $DB;
-
-		if (!self::$dbBackend) {
-			switch ($DB['TYPE']) {
-				case ZBX_DB_MYSQL:
-					self::$dbBackend = new MysqlDbBackend();
-					break;
-				case ZBX_DB_POSTGRESQL:
-					self::$dbBackend = new PostgresqlDbBackend();
-					break;
-				case ZBX_DB_ORACLE:
-					self::$dbBackend = new OracleDbBackend();
-					break;
-				case ZBX_DB_DB2:
-					self::$dbBackend = new Db2DbBackend();
-					break;
-				case ZBX_DB_SQLITE3:
-					self::$dbBackend = new SqliteDbBackend();
-					break;
-			}
-		}
-
-		return self::$dbBackend;
-	}
+	private static $nodeId = null;
+	private static $maxNodeId = null;
+	private static $minNodeId = null;
 
 	private static function exception($code, $error) {
 		throw new DBException($error, $code);
 	}
 
 	/**
+	 * Initializes nodes.
+	 *
+	 * @static
+	 */
+	public static function init() {
+		global $ZBX_LOCALNODEID;
+
+		if (is_null(self::$nodeId)) {
+			self::$nodeId = get_current_nodeid(false);
+			self::$minNodeId = bcadd(bcmul(self::$nodeId, '100000000000000'), bcmul($ZBX_LOCALNODEID, '100000000000'), 0);
+			self::$maxNodeId = bcadd(self::$minNodeId, '99999999999', 0);
+		}
+	}
+
+	/**
 	 * Reserve ids for primary key of passed table.
-	 * If record for table does not exist or value is out of range, ids record is created
+	 * If record for table does not exist or value is out of range, ids record is recreated
 	 * using maximum id from table or minimum allowed value.
 	 *
 	 * @throw APIException
-	 *
 	 * @static
 	 *
 	 * @param string $table table name
@@ -98,12 +79,15 @@ class DB {
 	protected static function reserveIds($table, $count) {
 		global $DB;
 
+		self::init();
+
 		$tableSchema = self::getSchema($table);
 		$id_name = $tableSchema['key'];
 
 		$sql = 'SELECT nextid'.
 				' FROM ids'.
-				' WHERE table_name='.zbx_dbstr($table).
+				' WHERE nodeid='.self::$nodeId.
+					' AND table_name='.zbx_dbstr($table).
 					' AND field_name='.zbx_dbstr($id_name);
 
 		// SQLite3 does not support this syntax. Since we are in transaction, it can be ignored.
@@ -112,78 +96,75 @@ class DB {
 		}
 
 		$res = DBfetch(DBselect($sql));
-
 		if ($res) {
 			$maxNextId = bcadd($res['nextid'], $count, 0);
-
-			if (bccomp($maxNextId, ZBX_DB_MAX_ID) == 1) {
+			if (bccomp($maxNextId, self::$maxNodeId, 0) == 1 || bccomp($maxNextId, self::$minNodeId, 0) == -1) {
 				$nextid = self::refreshIds($table, $count);
 			}
 			else {
 				$sql = 'UPDATE ids'.
-						' SET nextid='.$maxNextId.
-						' WHERE table_name='.zbx_dbstr($table).
+						' SET nextid=nextid+'.$count.
+						' WHERE nodeid='.self::$nodeId.
+							' AND table_name='.zbx_dbstr($table).
 							' AND field_name='.zbx_dbstr($id_name);
-
 				if (!DBexecute($sql)) {
 					self::exception(self::DBEXECUTE_ERROR, 'DBEXECUTE_ERROR');
 				}
-
 				$nextid = bcadd($res['nextid'], 1, 0);
 			}
 		}
 		else {
 			$nextid = self::refreshIds($table, $count);
 		}
-
 		return $nextid;
 	}
 
 	/**
 	 * Refresh id record for given table.
-	 * Record is deleted and then created again with value of maximum id from table or minimum allowed.
+	 * Record is deleted and then created again with value of maximum id from table or minimu allowed.
 	 *
 	 * @throw APIException
-	 *
 	 * @static
 	 *
 	 * @param string $table table name
-	 * @param int    $count number of ids to reserve
+	 * @param int $count number of ids to reserve
 	 *
 	 * @return string
 	 */
 	private static function refreshIds($table, $count) {
+		self::init();
+
 		$tableSchema = self::getSchema($table);
 		$id_name = $tableSchema['key'];
 
-		// when we reach the maximum ID, we try to refresh them to check if any IDs have been freed
-		$sql = 'DELETE FROM ids WHERE table_name='.zbx_dbstr($table).' AND field_name='.zbx_dbstr($id_name);
-
+		$sql = 'DELETE FROM ids'.
+				' WHERE nodeid='.self::$nodeId.
+				' AND table_name='.zbx_dbstr($table).
+				' AND field_name='.zbx_dbstr($id_name);
 		if (!DBexecute($sql)) {
 			self::exception(self::DBEXECUTE_ERROR, 'DBEXECUTE_ERROR');
 		}
 
-		$row = DBfetch(DBselect('SELECT MAX('.$id_name.') AS id FROM '.$table));
+		$sql = 'SELECT MAX('.$id_name.') AS id'.
+				' FROM '.$table.
+				' WHERE '.$id_name.'>='.self::$minNodeId.
+				' AND '.$id_name.'<='.self::$maxNodeId;
+		$row = DBfetch(DBselect($sql));
 
-		$nextid = ($row && $row['id']) ? $row['id'] : 0;
+		$nextid = ($row && $row['id']) ? $row['id'] : self::$minNodeId;
 
 		$maxNextId = bcadd($nextid, $count, 0);
-
-		if (bccomp($maxNextId, ZBX_DB_MAX_ID) == 1) {
-			self::exception(
-				self::RESERVEIDS_ERROR, __METHOD__.' ID greater than maximum allowed for table "'.$table.'"'
-			);
+		if (bccomp($maxNextId, self::$maxNodeId, 0) == 1) {
+			self::exception(self::RESERVEIDS_ERROR, __METHOD__.' ID greater than maximum allowed for table "'.$table.'"');
 		}
 
-		$sql = 'INSERT INTO ids (table_name,field_name,nextid)'.
-				' VALUES ('.zbx_dbstr($table).','.zbx_dbstr($id_name).','.$maxNextId.')';
-
+		$sql = 'INSERT INTO ids (nodeid,table_name,field_name,nextid)'.
+				' VALUES ('.self::$nodeId.','.zbx_dbstr($table).','.zbx_dbstr($id_name).','.$maxNextId.')';
 		if (!DBexecute($sql)) {
 			self::exception(self::DBEXECUTE_ERROR, 'DBEXECUTE_ERROR');
 		}
 
 		$nextid = bcadd($nextid, 1, 0);
-
 		return $nextid;
 	}
 
@@ -203,7 +184,8 @@ class DB {
 	 */
 	public static function getSchema($table = null) {
 		if (is_null(self::$schema)) {
-			self::$schema = include(dirname(__FILE__).'/../../'.self::SCHEMA_FILE);
+
+			self::$schema = include(Z::getRootDir().'/'.self::SCHEMA_FILE);
 		}
 
 		if (is_null($table)) {
@@ -279,21 +261,6 @@ class DB {
 		return $defaults;
 	}
 
-	/**
-	 * Returns the default value of the given field.
-	 *
-	 * @param string $table		name of the table
-	 * @param string $field		name of the field
-	 *
-	 * @return string|null
-	 */
-	public static function getDefault($table, $field) {
-		$table = self::getSchema($table);
-		$field = $table['fields'][$field];
-
-		return isset($field['default']) ? $field['default'] : null;
-	}
-
 	public static function checkValueTypes($table, &$values) {
 		global $DB;
 		$tableSchema = self::getSchema($table);
@@ -304,29 +271,33 @@ class DB {
 				continue;
 			}
 
-			if (isset($tableSchema['fields'][$field]['ref_table'])) {
-				if ($tableSchema['fields'][$field]['null']) {
-					$values[$field] = ($values[$field] == '0') ? NULL : $values[$field];
-				}
-			}
-
 			if (is_null($values[$field])) {
 				if ($tableSchema['fields'][$field]['null']) {
 					$values[$field] = 'NULL';
 				}
 				elseif (isset($tableSchema['fields'][$field]['default'])) {
-					$values[$field] = zbx_dbstr($tableSchema['fields'][$field]['default']);
+					$values[$field] = $tableSchema['fields'][$field]['default'];
 				}
 				else {
-					self::exception(self::DBEXECUTE_ERROR,
-						_s('Field "%1$s" cannot be set to NULL.', $field)
-					);
+					self::exception(self::DBEXECUTE_ERROR, _s('Mandatory field "%1$s" is missing in table "%2$s".', $field, $table));
+				}
+			}
+
+			if (isset($tableSchema['fields'][$field]['ref_table'])) {
+				if ($tableSchema['fields'][$field]['null']) {
+					$values[$field] = zero2null($values[$field]);
+				}
+			}
+
+			if ($values[$field] === 'NULL') {
+				if (!$tableSchema['fields'][$field]['null']) {
+					self::exception(self::DBEXECUTE_ERROR, _s('Incorrect value "NULL" for NOT NULL field "%1$s".', $field));
 				}
 			}
 			else {
 				switch ($tableSchema['fields'][$field]['type']) {
 					case self::FIELD_TYPE_CHAR:
-						$length = mb_strlen($values[$field]);
+						$length = zbx_strlen($values[$field]);
 						$values[$field] = zbx_dbstr($values[$field]);
 
 						if ($length > $tableSchema['fields'][$field]['length']) {
@@ -354,10 +325,10 @@ class DB {
 						$values[$field] = zbx_dbstr($values[$field]);
 						break;
 					case self::FIELD_TYPE_TEXT:
-						$length = mb_strlen($values[$field]);
+						$length = zbx_strlen($values[$field]);
 						$values[$field] = zbx_dbstr($values[$field]);
 
-						if ($DB['TYPE'] == ZBX_DB_DB2 || $DB['TYPE'] == ZBX_DB_ORACLE) {
+						if ($DB['TYPE'] == ZBX_DB_DB2) {
 							if ($length > 2048) {
 								self::exception(self::SCHEMA_ERROR, _s('Value "%1$s" is too long for field "%2$s" - %3$d characters. Allowed length is 2048 characters.',
 									$values[$field], $field, $length));
@@ -402,7 +373,7 @@ class DB {
 	}
 
 	/**
-	 * Insert data into DB.
+	 * Insert data into DB
 	 *
 	 * @param string $table
 	 * @param array  $values pair of fieldname => fieldvalue
@@ -414,7 +385,6 @@ class DB {
 		if (empty($values)) {
 			return true;
 		}
-
 		$resultIds = array();
 
 		if ($getids) {
@@ -441,71 +411,22 @@ class DB {
 				self::exception(self::DBEXECUTE_ERROR, _s('SQL statement execution has failed "%1$s".', $sql));
 			}
 		}
-
 		return $resultIds;
 	}
 
 	/**
-	 * Insert batch data into DB.
-	 *
-	 * @param string $table
-	 * @param array  $values pair of fieldname => fieldvalue
-	 * @param bool   $getids
-	 *
-	 * @return array    an array of ids with the keys preserved
-	 */
-	public static function insertBatch($table, $values, $getids = true) {
-		if (empty($values)) {
-			return true;
-		}
-
-		$resultIds = array();
-
-		$tableSchema = self::getSchema($table);
-		$values = self::addMissingFields($tableSchema, $values);
-
-		if ($getids) {
-			$id = self::reserveIds($table, count($values));
-		}
-
-		$newValues = array();
-		foreach ($values as $key => $row) {
-			if ($getids) {
-				$resultIds[$key] = $id;
-				$row[$tableSchema['key']] = $id;
-				$values[$key][$tableSchema['key']] = $id;
-				$id = bcadd($id, 1, 0);
-			}
-			self::checkValueTypes($table, $row);
-			$newValues[] = $row;
-		}
-
-		$fields = array_keys(reset($newValues));
-
-		$sql = self::getDbBackend()->createInsertQuery($table, $fields, $newValues);
-
-		if (!DBexecute($sql)) {
-			self::exception(self::DBEXECUTE_ERROR, _s('SQL statement execution has failed "%1$s".', $sql));
-		}
-
-		return $resultIds;
-	}
-
-	/**
-	 * Update data in DB.
+	 * Update data in DB
 	 *
 	 * @param string $table
 	 * @param array $data
 	 * @param array $data[...]['values'] pair of fieldname => fieldvalue for SET clause
 	 * @param array $data[...]['where'] pair of fieldname => fieldvalue for WHERE clause
-	 *
 	 * @return array of ids
 	 */
 	public static function update($table, $data) {
 		if (empty($data)) {
 			return true;
 		}
-
 		$tableSchema = self::getSchema($table);
 
 		$data = zbx_toArray($data);
@@ -527,14 +448,14 @@ class DB {
 				self::exception(self::DBEXECUTE_ERROR, _s('Cannot perform update statement on table "%1$s" without where condition.', $table));
 			}
 
-			// where condition processing
+			// where condition proccess
 			$sqlWhere = array();
 			foreach ($row['where'] as $field => $values) {
 				if (!isset($tableSchema['fields'][$field]) || is_null($values)) {
 					self::exception(self::DBEXECUTE_ERROR, _s('Incorrect field "%1$s" name or value in where statement for table "%2$s".', $field, $table));
 				}
 				$values = zbx_toArray($values);
-				sort($values); // sorting ids to prevent deadlocks when two transactions depend on each other
+				sort($values); // sorting ids to prevent deadlocks when two transactions depends from each other
 
 				$sqlWhere[] = dbConditionString($field, $values);
 			}
@@ -545,7 +466,6 @@ class DB {
 				self::exception(self::DBEXECUTE_ERROR, _s('SQL statement execution has failed "%1$s".', $sql));
 			}
 		}
-
 		return true;
 	}
 
@@ -626,10 +546,10 @@ class DB {
 		$oldRecords = zbx_toHash($oldRecords, $pk);
 
 		$modifiedRecords = array();
-		foreach ($newRecords as $key => $record) {
+		foreach ($newRecords as $record) {
 			// if it's a new or modified record - save it later
 			if (!isset($record[$pk]) || self::recordModified($tableName, $oldRecords[$record[$pk]], $record)) {
-				$modifiedRecords[$key] = $record;
+				$modifiedRecords[] = $record;
 			}
 
 			// remove the existing records from the collection, the remaining ones will be deleted
@@ -641,11 +561,6 @@ class DB {
 		// save modified records
 		if ($modifiedRecords) {
 			$modifiedRecords = self::save($tableName, $modifiedRecords);
-
-			// add the new IDs to the new records
-			foreach ($modifiedRecords as $key => $record) {
-				$newRecords[$key][$pk] = $record[$pk];
-			}
 		}
 
 		// delete remaining records
@@ -655,83 +570,7 @@ class DB {
 			));
 		}
 
-		return $newRecords;
-	}
-
-	/**
-	 * Replaces the records given in $groupedOldRecords with the ones given in $groupedNewRecords.
-	 *
-	 * This method can be used to replace related objects in one-to-many relations. Both old and new records
-	 * must be grouped by the ID of the record they belong to. The records will be matched by position, instead of
-	 * the primary key as in DB::replace(). That is, the first new record will update the first old one, second new
-	 * record - the second old one, etc. Since the records are matched by position, the new records should not contain
-	 * primary keys.
-	 *
-	 * Example 1:
-	 * $old = array(2 => array( array('gitemid' => 1, 'color' => 'FF0000') ));
-	 * $new = array(2 => array( array('color' => '00FF00') ));
-	 * var_dump(DB::replaceByPosition('items', $old, $new));
-	 * // array(array('gitemid' => 1, 'color' => '00FF00'))
-	 *
-	 * The new record updated the old one.
-	 *
-	 * Example 2:
-	 * $old = array(2 => array( array('gitemid' => 1, 'color' => 'FF0000') ));
-	 * $new = array(
-	 *     2 => array(
-	 *         array('color' => '00FF00'),
-	 *         array('color' => '0000FF')
-	 *     )
-	 * );
-	 * var_dump(DB::replaceByPosition('items', $old, $new));
-	 * // array(array('gitemid' => 1, 'color' => '00FF00'), array('gitemid' => 2, 'color' => '0000FF'))
-	 *
-	 * The first record was updated, the second one - created.
-	 *
-	 * Example 3:
-	 * $old = array(
-	 *     2 => array(
-	 *         array('gitemid' => 1, 'color' => 'FF0000'),
-	 *         array('gitemid' => 2, 'color' => '0000FF')
-	 *     )
-	 * );
-	 * $new = array(2 => array( array('color' => '00FF00') ));
-	 * var_dump(DB::replaceByPosition('items', $old, $new));
-	 * // array(array('gitemid' => 1, 'color' => '00FF00'))
-	 *
-	 * The first record was updated, the second one - deleted.
-	 *
-	 * @param string 	$tableName			table to update
-	 * @param array 	$groupedOldRecords	grouped old records
-	 * @param array 	$groupedNewRecords	grouped new records
-	 *
-	 * @return array	array of new records not grouped (!).
-	 */
-	public static function replaceByPosition($tableName, array $groupedOldRecords, array $groupedNewRecords) {
-		$pk = self::getPk($tableName);
-
-		$allOldRecords = array();
-		$allNewRecords = array();
-		foreach ($groupedNewRecords as $key => $newRecords) {
-			// if records exist for the parent object - replace them, otherwise create new records
-			if (isset($groupedOldRecords[$key])) {
-				$oldRecords = $groupedOldRecords[$key];
-
-				// updated the records by position
-				$newRecords = self::mergeRecords($oldRecords, $newRecords, $pk);
-
-				foreach ($oldRecords as $record) {
-					$allOldRecords[] = $record;
-				}
-			}
-
-			foreach ($newRecords as $record) {
-				$allNewRecords[] = $record;
-			}
-		}
-
-		// replace the old records with the new ones
-		return self::replace($tableName, $allOldRecords, $allNewRecords);
+		return $modifiedRecords;
 	}
 
 	/**
@@ -746,9 +585,7 @@ class DB {
 	 */
 	public static function recordModified($tableName, array $oldRecord, array $newRecord) {
 		foreach ($oldRecord as $field => $value) {
-			if (self::hasField($tableName, $field)
-					&& isset($newRecord[$field])
-					&& (string) $value !== (string) $newRecord[$field]) {
+			if (self::hasField($tableName, $field) && isset($newRecord[$field]) && $value != $newRecord[$field]) {
 				return true;
 			}
 		}
@@ -757,31 +594,7 @@ class DB {
 	}
 
 	/**
-	 * Replace each record in $oldRecords with a corresponding record in $newRecords, but keep the old record IDs.
-	 * The records are match by position, that is, the first new record, replaces the first old record and etc.
-	 * If there are less $newRecords than $oldRecords, the remaining old records will be discarded.
-	 *
-	 * @param array 	$oldRecords		array of old records
-	 * @param array 	$newRecords		array of new records
-	 * @param string 	$pk				name of the private key column
-	 *
-	 * @return array	array of new records with the primary keys from the old ones
-	 */
-	protected static function mergeRecords(array $oldRecords, array $newRecords, $pk) {
-		$result = array();
-		foreach ($newRecords as $i => $record) {
-			if (isset($oldRecords[$i])) {
-				$record[$pk] = $oldRecords[$i][$pk];
-			}
-
-			$result[] = $record;
-		}
-
-		return $result;
-	}
-
-	/**
-	 * Delete data from DB.
+	 * Delete data from DB
 	 *
 	 * Example:
 	 * DB::delete('applications', array('applicationid'=>array(1, 8, 6)));
@@ -817,7 +630,6 @@ class DB {
 		if (!DBexecute($sql)) {
 			self::exception(self::DBEXECUTE_ERROR, _s('SQL statement execution has failed "%1$s"', $sql));
 		}
-
 		return true;
 	}
 
@@ -835,7 +647,6 @@ class DB {
 			case self::FIELD_TYPE_UINT:
 				return true;
 		}
-
 		return false;
 	}
 }

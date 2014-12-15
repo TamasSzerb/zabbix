@@ -5,24 +5,9 @@ MC = mc.exe
 MT = mt.exe
 MESSAGES_H = messages.h
 RESOURCE_H = resource.h
-DESC_H = zabbix_get_desc.h
 RESOURCE_RC = resource.rc
 RESOURCE_RES = zabbix_get.res
-OBJS  = ..\..\..\src\libs\zbxcommon\comms.o \
-	..\..\..\src\libs\zbxcommon\misc.o \
-	..\..\..\src\libs\zbxcommon\str.o \
-	..\..\..\src\libs\zbxcommon\xml.o \
-	..\..\..\src\libs\zbxcommon\zbxgetopt.o \
-	..\..\..\src\libs\zbxcomms\comms.o \
-	..\..\..\src\libs\zbxconf\cfg.o \
-	..\..\..\src\libs\zbxcrypto\base64.o \
-	..\..\..\src\libs\zbxlog\log.o \
-	..\..\..\src\libs\zbxsys\mutexs.o \
-	..\..\..\src\libs\zbxsys\symbols.o \
-	..\..\..\src\libs\zbxsys\threads.o \
-	..\..\..\src\zabbix_get\zabbix_get.o \
-	..\..\..\src\libs\zbxwin32\fatal.o
-
+OBJS  = ..\..\..\src\libs\zbxcommon\comms.o ..\..\..\src\libs\zbxcommon\misc.o ..\..\..\src\libs\zbxcommon\str.o ..\..\..\src\libs\zbxcommon\xml.o ..\..\..\src\libs\zbxcommon\zbxgetopt.o ..\..\..\src\libs\zbxcomms\comms.o ..\..\..\src\libs\zbxconf\cfg.o ..\..\..\src\libs\zbxcrypto\base64.o ..\..\..\src\libs\zbxlog\log.o ..\..\..\src\libs\zbxsys\mutexs.o ..\..\..\src\libs\zbxsys\symbols.o ..\..\..\src\libs\zbxsys\threads.o ..\..\..\src\zabbix_get\zabbix_get.o
 LIBS = ws2_32.lib psapi.lib pdh.lib Wldap32.lib advapi32.lib uuid.lib Iphlpapi.lib
 
 all: $(PROGNAME)
@@ -37,7 +22,7 @@ $(PROGNAME): $(MESSAGES_H) $(OBJS) $(RESOURCE_RES)
 $(MESSAGES_H): messages.mc
 	$(MC) -U -h ".\\" -r ".\\" messages.mc
 
-$(RESOURCE_RES): $(RESOURCE_RC) $(RESOURCE_H) $(DESC_H)
+$(RESOURCE_RES): $(RESOURCE_RC) $(RESOURCE_H)
 	$(RC) /d "NDEBUG" /d "_VC80_UPGRADE=0x0600" /l 0x419 /fo"$(RESOURCE_RES)" $(RESOURCE_RC)
 
 ..\..\..\src\libs\zbxcommon\comms.o: ..\..\..\src\libs\zbxcommon\comms.c
@@ -78,6 +63,3 @@ $(RESOURCE_RES): $(RESOURCE_RC) $(RESOURCE_H) $(DESC_H)
 
 ..\..\..\src\zabbix_get\zabbix_get.o: ..\..\..\src\zabbix_get\zabbix_get.c
 	$(CC) ..\..\..\src\zabbix_get\zabbix_get.c /Fo"..\..\..\src\zabbix_get\zabbix_get.o" $(CFLAGS)
-
-..\..\..\src\libs\zbxwin32\fatal.o: ..\..\..\src\libs\zbxwin32\fatal.c
-	$(CC) ..\..\..\src\libs\zbxwin32\fatal.c /Fo"..\..\..\src\libs\zbxwin32\fatal.o" $(CFLAGS)

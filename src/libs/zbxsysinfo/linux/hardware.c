@@ -22,8 +22,6 @@
 #include <sys/mman.h>
 #include "zbxalgo.h"
 #include "hardware.h"
-#include "zbxregexp.h"
-#include "log.h"
 
 /******************************************************************************
  *                                                                            *
@@ -120,7 +118,7 @@ static int	get_dmi_info(char *buf, int bufsize, int flags)
 			if (MAP_FAILED == (mmp = mmap(0, len + SMBIOS_ENTRY_POINT_SIZE, PROT_READ, MAP_SHARED, fd, fp - len)))
 				goto close;
 
-			memcpy(membuf, (char *)mmp + len, sizeof(membuf));
+			memcpy(membuf, mmp + len, sizeof(membuf));
 			munmap(mmp, len + SMBIOS_ENTRY_POINT_SIZE);
 
 			if (0 == strncmp((char *)membuf, "_DMI_", 5))	/* entry point found */
@@ -145,7 +143,7 @@ static int	get_dmi_info(char *buf, int bufsize, int flags)
 	if (MAP_FAILED == (mmp = mmap(0, len + smbios_len, PROT_READ, MAP_SHARED, fd, smbios - len)))
 		goto clean;
 
-	memcpy(smbuf, (char *)mmp + len, smbios_len);
+	memcpy(smbuf, mmp + len, smbios_len);
 	munmap(mmp, len + smbios_len);
 
 	data = smbuf;
@@ -198,42 +196,30 @@ close:
 	return ret;
 }
 
-int	SYSTEM_HW_CHASSIS(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_HW_CHASSIS(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*mode, buf[MAX_STRING_LEN];
+	char	tmp[8], buf[MAX_STRING_LEN];
 	int	ret = SYSINFO_RET_FAIL;
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
+	if (1 < num_param(param))
+		return ret;
 
-	mode = get_rparam(request, 0);
+	if (0 != get_param(param, 1, tmp, sizeof(tmp)))
+		*tmp = '\0';
 
-	if (NULL == mode || '\0' == *mode || 0 == strcmp(mode, "full"))	/* show full info by default */
+	if ('\0' == *tmp || 0 == strcmp(tmp, "full"))	/* show full info by default */
 		ret = get_dmi_info(buf, sizeof(buf), DMI_GET_TYPE | DMI_GET_VENDOR | DMI_GET_MODEL | DMI_GET_SERIAL);
-	else if (0 == strcmp(mode, "type"))
+	else if (0 == strcmp(tmp, "type"))
 		ret = get_dmi_info(buf, sizeof(buf), DMI_GET_TYPE);
-	else if (0 == strcmp(mode, "vendor"))
+	else if (0 == strcmp(tmp, "vendor"))
 		ret = get_dmi_info(buf, sizeof(buf), DMI_GET_VENDOR);
-	else if (0 == strcmp(mode, "model"))
+	else if (0 == strcmp(tmp, "model"))
 		ret = get_dmi_info(buf, sizeof(buf), DMI_GET_MODEL);
-	else if (0 == strcmp(mode, "serial"))
+	else if (0 == strcmp(tmp, "serial"))
 		ret = get_dmi_info(buf, sizeof(buf), DMI_GET_SERIAL);
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
-	}
 
-	if (SYSINFO_RET_FAIL == ret)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain hardware information."));
-		return SYSINFO_RET_FAIL;
-	}
-
-	SET_STR_RESULT(result, zbx_strdup(NULL, buf + 1));	/* buf has a leading space */
+	if (SYSINFO_RET_OK == ret)
+		SET_STR_RESULT(result, zbx_strdup(NULL, buf + 1));	/* buf has a leading space */
 
 	return ret;
 }
@@ -289,52 +275,38 @@ static size_t	print_freq(char *buffer, size_t size, int filter, int cpu, zbx_uin
 	return offset;
 }
 
-int     SYSTEM_HW_CPU(AGENT_REQUEST *request, AGENT_RESULT *result)
+int     SYSTEM_HW_CPU(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	int		ret = SYSINFO_RET_FAIL, filter, cpu, cur_cpu = -1, offset = 0;
 	zbx_uint64_t	maxfreq = FAIL, curfreq = FAIL;
-	char		line[MAX_STRING_LEN], name[MAX_STRING_LEN], tmp[MAX_STRING_LEN], buffer[MAX_BUFFER_LEN], *param;
+	char		line[MAX_STRING_LEN], name[MAX_STRING_LEN], tmp[MAX_STRING_LEN], buffer[MAX_BUFFER_LEN];
 	FILE		*f;
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
+	if (2 < num_param(param))
+		return ret;
 
-	param = get_rparam(request, 0);
-
-	if (NULL == param || '\0' == *param || 0 == strcmp(param, "all"))
+	if (0 != get_param(param, 1, tmp, sizeof(tmp)) || '\0' == *tmp || 0 == strcmp(tmp, "all"))
 		cpu = HW_CPU_ALL_CPUS;	/* show all CPUs by default */
-	else if (FAIL == is_uint31(param, (uint32_t*)&cpu))
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
-	}
+	else if (FAIL == is_uint(tmp))
+		return ret;
+	else
+		cpu = atoi(tmp);
 
-	param = get_rparam(request, 1);
-
-	if (NULL == param || '\0' == *param || 0 == strcmp(param, "full"))
+	if (0 != get_param(param, 2, tmp, sizeof(tmp)) || '\0' == *tmp || 0 == strcmp(tmp, "full"))
 		filter = HW_CPU_SHOW_ALL;	/* show full info by default */
-	else if (0 == strcmp(param, "maxfreq"))
+	else if (0 == strcmp(tmp, "maxfreq"))
 		filter = HW_CPU_SHOW_MAXFREQ;
-	else if (0 == strcmp(param, "vendor"))
+	else if (0 == strcmp(tmp, "vendor"))
 		filter = HW_CPU_SHOW_VENDOR;
-	else if (0 == strcmp(param, "model"))
+	else if (0 == strcmp(tmp, "model"))
 		filter = HW_CPU_SHOW_MODEL;
-	else if (0 == strcmp(param, "curfreq"))
+	else if (0 == strcmp(tmp, "curfreq"))
 		filter = HW_CPU_SHOW_CURFREQ;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
-		return SYSINFO_RET_FAIL;
-	}
+		return ret;
 
 	if (NULL == (f = fopen(HW_CPU_INFO_FILE, "r")))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot open " HW_CPU_INFO_FILE ": %s", zbx_strerror(errno)));
-		return SYSINFO_RET_FAIL;
-	}
+		return ret;
 
 	*buffer = '\0';
 
@@ -380,101 +352,78 @@ int     SYSTEM_HW_CPU(AGENT_REQUEST *request, AGENT_RESULT *result)
 		else if (0 == strncmp(name, "cpu MHz", 7) && (HW_CPU_SHOW_ALL == filter || HW_CPU_SHOW_CURFREQ == filter))
 		{
 			ret = SYSINFO_RET_OK;
-			sscanf(tmp, ZBX_FS_UI64, &curfreq);
+			ZBX_STR2UINT64(curfreq, tmp);
 		}
 	}
 
 	zbx_fclose(f);
 
-	if (SYSINFO_RET_FAIL == ret)
+	if (SYSINFO_RET_OK == ret)
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain CPU information."));
-		return SYSINFO_RET_FAIL;
+		if (-1 != cur_cpu && (HW_CPU_ALL_CPUS == cpu || cpu == cur_cpu))	/* print info about the last cpu */
+			offset += print_freq(buffer + offset, sizeof(buffer) - offset, filter, cpu, maxfreq, curfreq);
+
+		SET_TEXT_RESULT(result, zbx_strdup(NULL, buffer + 1));	/* buf has a leading space or '\n' */
 	}
-
-	if (-1 != cur_cpu && (HW_CPU_ALL_CPUS == cpu || cpu == cur_cpu))	/* print info about the last cpu */
-		offset += print_freq(buffer + offset, sizeof(buffer) - offset, filter, cpu, maxfreq, curfreq);
-
-	SET_TEXT_RESULT(result, zbx_strdup(NULL, buffer + 1));	/* buf has a leading space or '\n' */
 
 	return ret;
 }
 
-int	SYSTEM_HW_DEVICES(AGENT_REQUEST *request, AGENT_RESULT *result)
+int	SYSTEM_HW_DEVICES(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
-	char	*type;
+	char	tmp[MAX_STRING_LEN];
 
-	if (1 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
+	if (1 < num_param(param))
 		return SYSINFO_RET_FAIL;
-	}
 
-	type = get_rparam(request, 0);
+	if (0 != get_param(param, 1, tmp, sizeof(tmp)) || '\0' == *tmp || 0 == strcmp(tmp, "pci"))
+		return EXECUTE_STR(cmd, "lspci", flags, result);	/* list PCI devices by default */
+	else if (0 == strcmp(tmp, "usb"))
+		return EXECUTE_STR(cmd, "lsusb", flags, result);
 
-	if (NULL == type || '\0' == *type || 0 == strcmp(type, "pci"))
-		return EXECUTE_STR("lspci", result);	/* list PCI devices by default */
-	else if (0 == strcmp(type, "usb"))
-		return EXECUTE_STR("lsusb", result);
-	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
-		return SYSINFO_RET_FAIL;
-	}
+	return SYSINFO_RET_FAIL;
 }
 
-int     SYSTEM_HW_MACADDR(AGENT_REQUEST *request, AGENT_RESULT *result)
+int     SYSTEM_HW_MACADDR(const char *cmd, const char *param, unsigned flags, AGENT_RESULT *result)
 {
 	size_t			offset;
-	int			s, i, show_names;
-	char			*format, *p, *regex, address[MAX_STRING_LEN], buffer[MAX_STRING_LEN];
+	int			ret = SYSINFO_RET_FAIL, s, i, show_names;
+	char			*p, regex[MAX_STRING_LEN], address[MAX_STRING_LEN], buffer[MAX_STRING_LEN];
 	struct ifreq		*ifr;
 	struct ifconf		ifc;
 	zbx_vector_str_t	addresses;
 
-	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
-		return SYSINFO_RET_FAIL;
-	}
+	if (2 < num_param(param))
+		return ret;
 
-	regex = get_rparam(request, 0);
-	format = get_rparam(request, 1);
+	if (0 != get_param(param, 1, regex, sizeof(regex)) || 0 == strcmp(regex, "all"))
+		*regex = '\0';
 
-	if (NULL == format || '\0' == *format || 0 == strcmp(format, "full"))
+	if (0 != get_param(param, 2, buffer, sizeof(buffer)) || '\0' == *buffer || 0 == strcmp(buffer, "full"))
 		show_names = 1;	/* show interface names */
-	else if (0 == strcmp(format, "short"))
+	else if (0 == strcmp(buffer, "short"))
 		show_names = 0;
 	else
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
-		return SYSINFO_RET_FAIL;
-	}
+		return ret;
 
 	if (-1 == (s = socket(AF_INET, SOCK_DGRAM, 0)))
-	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot create socket: %s", zbx_strerror(errno)));
-		return SYSINFO_RET_FAIL;
-	}
+		return ret;
 
 	/* get the interface list */
 	ifc.ifc_len = sizeof(buffer);
 	ifc.ifc_buf = buffer;
 	if (-1 == ioctl(s, SIOCGIFCONF, &ifc))
-	{
-		close(s);
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Cannot set socket parameters: %s", zbx_strerror(errno)));
-		return SYSINFO_RET_FAIL;
-	}
+		goto close;
 	ifr = ifc.ifc_req;
 
+	ret = SYSINFO_RET_OK;
 	zbx_vector_str_create(&addresses);
 	zbx_vector_str_reserve(&addresses, 8);
 
 	/* go through the list */
 	for (i = ifc.ifc_len / sizeof(struct ifreq); 0 < i--; ifr++)
 	{
-		if (NULL != regex && '\0' != *regex && NULL == zbx_regexp_match(ifr->ifr_name, regex, NULL))
+		if ('\0' != *regex && NULL == zbx_regexp_match(ifr->ifr_name, regex, NULL))
 			continue;
 
 		if (-1 != ioctl(s, SIOCGIFFLAGS, ifr) &&		/* get the interface */
@@ -521,9 +470,12 @@ int     SYSTEM_HW_MACADDR(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 	buffer[offset] = '\0';
 
-	SET_STR_RESULT(result, zbx_strdup(NULL, buffer));
+	if (SYSINFO_RET_OK == ret)
+		SET_STR_RESULT(result, zbx_strdup(NULL, buffer));
 
 	zbx_vector_str_destroy(&addresses);
+close:
+	close(s);
 
-	return SYSINFO_RET_OK;
+	return ret;
 }

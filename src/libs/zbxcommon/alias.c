@@ -19,18 +19,9 @@
 
 #include "common.h"
 #include "alias.h"
-#include "sysinfo.h"
 #include "log.h"
 
 static ALIAS	*aliasList = NULL;
-
-void	test_aliases()
-{
-	ALIAS	*alias;
-
-	for (alias = aliasList; NULL != alias; alias = alias->next)
-		test_parameter(alias->name);
-}
 
 void	add_alias(const char *name, const char *value)
 {
@@ -61,7 +52,7 @@ void	add_alias(const char *name, const char *value)
 		if (0 == strcmp(alias->name, name))
 		{
 			zabbix_log(LOG_LEVEL_CRIT, "failed to add Alias \"%s\": duplicate name", name);
-			exit(EXIT_FAILURE);
+			exit(FAIL);
 		}
 	}
 }
@@ -83,15 +74,19 @@ void	alias_list_free()
 	aliasList = NULL;
 }
 
-const char	*zbx_alias_get(const char *orig)
+void	alias_expand_dyn(const char *orig, char **expanded, size_t *expanded_alloc)
 {
 	ALIAS	*alias;
+	size_t	expanded_offset = 0;
 
 	for (alias = aliasList; NULL != alias; alias = alias->next)
 	{
 		if (0 == strcmp(alias->name, orig))
-			return alias->value;
+		{
+			zbx_strcpy_alloc(expanded, expanded_alloc, &expanded_offset, alias->value);
+			return;
+		}
 	}
 
-	return orig;
+	zbx_strcpy_alloc(expanded, expanded_alloc, &expanded_offset, orig);
 }

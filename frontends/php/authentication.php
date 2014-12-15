@@ -31,34 +31,33 @@ require_once dirname(__FILE__).'/include/page_header.php';
 $fields = array(
 	'config' =>			array(T_ZBX_INT, O_OPT, null, IN(ZBX_AUTH_INTERNAL.','.ZBX_AUTH_LDAP.','.ZBX_AUTH_HTTP), null),
 	'form_refresh' =>	array(T_ZBX_INT, O_OPT, null,			null, null),
-	// actions
-	'update' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null, null),
+	'save' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null, null),
 	'test' =>			array(T_ZBX_STR, O_OPT, P_SYS|P_ACT,	null, null),
 	// LDAP
 	'ldap_host' =>		array(T_ZBX_STR, O_OPT, null,			NOT_EMPTY,
-		'isset({config}) && {config} == '.ZBX_AUTH_LDAP.' && (isset({update}) || isset({test}))',	_('LDAP host')),
+		'isset({config})&&{config}=='.ZBX_AUTH_LDAP.'&&(isset({save})||isset({test}))',	_('LDAP host')),
 	'ldap_port' =>		array(T_ZBX_INT, O_OPT, null,			BETWEEN(0, 65535),
-		'isset({config}) && {config} == '.ZBX_AUTH_LDAP.' && (isset({update}) || isset({test}))',	_('Port')),
+		'isset({config})&&{config}=='.ZBX_AUTH_LDAP.'&&(isset({save})||isset({test}))',	_('Port')),
 	'ldap_base_dn' =>	array(T_ZBX_STR, O_OPT, null,			NOT_EMPTY,
-		'isset({config}) && {config} == '.ZBX_AUTH_LDAP.' && (isset({update}) || isset({test}))',	_('Base DN')),
+		'isset({config})&&{config}=='.ZBX_AUTH_LDAP.'&&(isset({save})||isset({test}))',	_('Base DN')),
 	'ldap_bind_dn' =>	array(T_ZBX_STR, O_OPT, null,			null,
-		'isset({config}) && {config} == '.ZBX_AUTH_LDAP.' && (isset({update}) || isset({test}))'),
+		'isset({config})&&{config}=='.ZBX_AUTH_LDAP.'&&(isset({save})||isset({test}))'),
 	'ldap_bind_password' => array(T_ZBX_STR, O_OPT, null,		null, null,				_('Bind password')),
 	'ldap_search_attribute' => array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY,
-		'isset({config}) && {config} == '.ZBX_AUTH_LDAP.' && (isset({update}) || isset({test}))',	_('Search attribute')),
+		'isset({config})&&{config}=='.ZBX_AUTH_LDAP.'&&(isset({save})||isset({test}))',	_('Search attribute')),
 	'user' =>			array(T_ZBX_STR, O_OPT, null,			NOT_EMPTY,
-		'isset({config}) && {config} == '.ZBX_AUTH_LDAP.' && (isset({update}) || isset({test}))'),
+		'isset({config})&&{config}=='.ZBX_AUTH_LDAP.'&&(isset({save})||isset({test}))'),
 	'user_password' =>	array(T_ZBX_STR, O_OPT, null,			NOT_EMPTY,
-		'isset({config}) && {config} == '.ZBX_AUTH_LDAP.' && (isset({update}) || isset({test}))',	_('User password')),
+		'isset({config})&&{config}=='.ZBX_AUTH_LDAP.'&&(isset({save})||isset({test}))',	_('User password')),
 	'change_bind_password' => array(T_ZBX_STR, O_OPT, null, null,	null)
 );
 check_fields($fields);
 
 $config = select_config();
 
-if (hasRequest('config')) {
-	$isAuthenticationTypeChanged = ($config['authentication_type'] != getRequest('config'));
-	$config['authentication_type'] = getRequest('config');
+if (isset($_REQUEST['config'])) {
+	$isAuthenticationTypeChanged = ($config['authentication_type'] != $_REQUEST['config']);
+	$config['authentication_type'] = $_REQUEST['config'];
 }
 else {
 	$isAuthenticationTypeChanged = false;
@@ -74,99 +73,91 @@ foreach ($config as $name => $value) {
  * Actions
  */
 if ($config['authentication_type'] == ZBX_AUTH_INTERNAL) {
-	if (hasRequest('update')) {
-		$messageSuccess = _('Authentication method changed to Zabbix internal');
-		$messageFailed = _('Cannot change authentication method to Zabbix internal');
-
-		DBstart();
-
-		$result = update_config($config);
-
-		if ($result) {
+	if (isset($_REQUEST['save'])) {
+		if (update_config($config)) {
 			// reset all sessions
 			if ($isAuthenticationTypeChanged) {
-				$result &= DBexecute(
+				DBexecute(
 					'UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.
-					' WHERE sessionid<>'.zbx_dbstr(CWebUser::$data['sessionid'])
+					' WHERE sessionid<>'.zbx_dbstr($USER_DETAILS['sessionid'])
 				);
 			}
 
 			$isAuthenticationTypeChanged = false;
 
-			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, $messageSuccess);
-		}
+			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG,
+				_('Authentication method changed to Zabbix internal')
+			);
 
-		$result = DBend($result);
-		show_messages($result, $messageSuccess, $messageFailed);
+			show_message(_('Authentication method changed to Zabbix internal'));
+		}
+		else {
+			show_error_message(_('Cannot change authentication method to Zabbix internal'));
+		}
 	}
 }
 elseif ($config['authentication_type'] == ZBX_AUTH_LDAP) {
-	if (hasRequest('update') || hasRequest('test')) {
+	if (isset($_REQUEST['save']) || isset($_REQUEST['test'])) {
 		// check LDAP login/password
-		$ldapValidator = new CLdapAuthValidator(array(
-			'conf' => array(
-				'host' => $config['ldap_host'],
-				'port' => $config['ldap_port'],
-				'base_dn' => $config['ldap_base_dn'],
-				'bind_dn' => $config['ldap_bind_dn'],
-				'bind_password' => $config['ldap_bind_password'],
-				'search_attribute' => $config['ldap_search_attribute']
-			)
+		$ldap = new CLdap(array(
+			'host' => $config['ldap_host'],
+			'port' => $config['ldap_port'],
+			'base_dn' => $config['ldap_base_dn'],
+			'bind_dn' => $config['ldap_bind_dn'],
+			'bind_password' => $config['ldap_bind_password'],
+			'search_attribute' => $config['ldap_search_attribute']
 		));
+		$ldap->connect();
 
-		$login = $ldapValidator->validate(array(
-			'user' => getRequest('user', CWebUser::$data['alias']),
-			'password' => getRequest('user_password', '')
-		));
+		$login = $ldap->checkPass(get_request('user', $USER_DETAILS['alias']), get_request('user_password', ''));
 
 		if (!$login) {
 			error(_('Login name or password is incorrect!'));
 		}
 
-		if (hasRequest('update')) {
+		if (isset($_REQUEST['save'])) {
 			if (!$login) {
 				show_error_message(_('Cannot change authentication method to LDAP'));
 			}
 			else {
-				$messageSuccess = $isAuthenticationTypeChanged
-					? _('Authentication method changed to LDAP')
-					: _('LDAP authentication changed');
-				$messageFailed = $isAuthenticationTypeChanged
-						? _('Cannot change authentication method to LDAP')
-						: _('Cannot change authentication');
-
-				DBstart();
-
-				$result = update_config($config);
-
-				if ($result) {
+				if (update_config($config)) {
 					unset($_REQUEST['change_bind_password']);
 
 					// reset all sessions
 					if ($isAuthenticationTypeChanged) {
-						$result &= DBexecute(
+						DBexecute(
 							'UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.
-							' WHERE sessionid<>'.zbx_dbstr(CWebUser::$data['sessionid'])
+							' WHERE sessionid<>'.zbx_dbstr($USER_DETAILS['sessionid'])
 						);
 					}
 
+					$msg = $isAuthenticationTypeChanged
+						? _('Authentication method changed to LDAP')
+						: _('LDAP authentication changed');
+
 					$isAuthenticationTypeChanged = false;
 
-					add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, $messageSuccess);
-				}
+					add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, $msg);
 
-				$result = DBend($result);
-				show_messages($result, $messageSuccess, $messageFailed);
+					show_message($msg);
+				}
+				else {
+					show_error_message(
+						$isAuthenticationTypeChanged
+							? _('Cannot change authentication method to LDAP')
+							: _('Cannot change authentication')
+					);
+				}
 			}
 		}
-		elseif (hasRequest('test')) {
+		elseif (isset($_REQUEST['test'])) {
 			show_messages($login, _('LDAP login successful'), _('LDAP login was not successful'));
 		}
 	}
 }
 elseif ($config['authentication_type'] == ZBX_AUTH_HTTP) {
-	if (hasRequest('update')) {
-		// get groups that use this authentication method
+	if (isset($_REQUEST['save'])) {
+		// get groups wich use this authentication method
 		$result = DBfetch(DBselect(
 			'SELECT COUNT(g.usrgrpid) AS cnt_usrgrp FROM usrgrp g WHERE g.gui_access='.GROUP_GUI_ACCESS_INTERNAL
 		));
@@ -179,29 +170,24 @@ elseif ($config['authentication_type'] == ZBX_AUTH_HTTP) {
 			));
 		}
 
-		$messageSuccess = _('Authentication method changed to HTTP');
-		$messageFailed = _('Cannot change authentication method to HTTP');
-
-		DBstart();
-
-		$result = update_config($config);
-
-		if ($result) {
+		if (update_config($config)) {
 			// reset all sessions
 			if ($isAuthenticationTypeChanged) {
-				$result &= DBexecute(
+				DBexecute(
 					'UPDATE sessions SET status='.ZBX_SESSION_PASSIVE.
-					' WHERE sessionid<>'.zbx_dbstr(CWebUser::$data['sessionid'])
+					' WHERE sessionid<>'.zbx_dbstr($USER_DETAILS['sessionid'])
 				);
 			}
 
 			$isAuthenticationTypeChanged = false;
 
-			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, $messageSuccess);
-		}
+			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_ZABBIX_CONFIG, _('Authentication method changed to HTTP'));
 
-		$result = DBend($result);
-		show_messages($result, $messageSuccess, $messageFailed);
+			show_message(_('Authentication method changed to HTTP'));
+		}
+		else {
+			show_error_message(_('Cannot change authentication method to HTTP'));
+		}
 	}
 }
 
@@ -211,22 +197,37 @@ show_messages();
  * Display
  */
 $data = array(
-	'form_refresh' => getRequest('form_refresh'),
+	'form_refresh' => get_request('form_refresh'),
 	'config' => $config,
 	'is_authentication_type_changed' => $isAuthenticationTypeChanged,
-	'user' => getRequest('user', CWebUser::$data['alias']),
-	'user_password' => getRequest('user_password', ''),
+	'user' => get_request('user', $USER_DETAILS['alias']),
+	'user_password' => get_request('user_password', ''),
 	'user_list' => null,
-	'change_bind_password' => getRequest('change_bind_password')
+	'change_bind_password' => get_request('change_bind_password')
 );
 
 // get tab title
-$data['title'] = authentication2str($config['authentication_type']);
+switch ($config['authentication_type']) {
+	case ZBX_AUTH_INTERNAL:
+		$data['title'] = _('Zabbix internal authentication');
+		break;
+	case ZBX_AUTH_LDAP:
+		$data['title'] = _('LDAP authentication');
+		break;
+	case ZBX_AUTH_HTTP:
+		$data['title'] = _('HTTP authentication');
+		break;
+	default:
+		$data['title'] = '';
+}
 
 // get user list
-if (getUserGuiAccess(CWebUser::$data['userid']) == GROUP_GUI_ACCESS_INTERNAL) {
+if (get_user_auth($USER_DETAILS['userid']) == GROUP_GUI_ACCESS_INTERNAL) {
 	$data['user_list'] = DBfetchArray(DBselect(
-		'SELECT u.alias,u.userid FROM users u ORDER BY u.alias'
+		'SELECT u.alias,u.userid'.
+		' FROM users u'.
+		' WHERE '.DBin_node('u.userid').
+		' ORDER BY alias'
 	));
 }
 
@@ -235,4 +236,4 @@ $authenticationView = new CView('administration.authentication.edit', $data);
 $authenticationView->render();
 $authenticationView->show();
 
-require_once dirname(__FILE__).'/include/page_footer.php';
+require_once 'include/page_footer.php';

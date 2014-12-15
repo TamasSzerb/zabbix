@@ -34,9 +34,15 @@ class CScreenEvents extends CScreenBase {
 			'eventLimit' => $this->screenitem['elements']
 		);
 
-		$item = new CTableInfo(_('No events found.'));
+		$showUnknown = CProfile::get('web.events.filter.showUnknown', 0);
+		if ($showUnknown) {
+			$options['value'] = array(TRIGGER_VALUE_TRUE, TRIGGER_VALUE_FALSE);
+		}
+
+		$item = new CTableInfo(_('No events defined.'));
 		$item->setHeader(array(
 			_('Time'),
+			is_show_all_nodes() ? _('Node') : null,
 			_('Host'),
 			_('Description'),
 			_('Value'),
@@ -44,9 +50,6 @@ class CScreenEvents extends CScreenBase {
 		));
 
 		$events = getLastEvents($options);
-
-		$config = select_config();
-
 		foreach ($events as $event) {
 			$trigger = $event['trigger'];
 			$host = $event['host'];
@@ -57,14 +60,15 @@ class CScreenEvents extends CScreenBase {
 			addTriggerValueStyle($statusSpan, $event['value'], $event['clock'], $event['acknowledged']);
 
 			$item->addRow(array(
-				zbx_date2str(DATE_TIME_FORMAT_SECONDS, $event['clock']),
-				$host['name'],
+				zbx_date2str(_('d M Y H:i:s'), $event['clock']),
+				get_node_name_by_elid($event['objectid']),
+				$host['host'],
 				new CLink(
 					$trigger['description'],
 					'tr_events.php?triggerid='.$event['objectid'].'&eventid='.$event['eventid']
 				),
 				$statusSpan,
-				getSeverityCell($trigger['priority'], $config)
+				getSeverityCell($trigger['priority'])
 			));
 		}
 

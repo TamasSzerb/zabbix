@@ -56,7 +56,7 @@
 
 #ifdef HAVE_WINDOWS_H
 /* to speed build process and reduce size of the Win32 header files */
-#	define WIN32_LEAN_AND_MEAN	1
+#define WIN32_LEAN_AND_MEAN	1
 #	include <windows.h>
 #endif
 
@@ -131,9 +131,9 @@
 #endif
 
 #ifdef HAVE_ARPA_NAMESER_H
-#	ifdef MAC_OS_X
-#		define BIND_8_COMPAT 1
-#	endif
+#ifdef MAC_OS_X
+#	define BIND_8_COMPAT 1
+#endif
 #	include <arpa/nameser.h>
 #endif
 
@@ -222,6 +222,12 @@
 
 #ifdef HAVE_SYS_PROC_H
 #	include <sys/proc.h>
+#endif
+
+#ifdef HAVE_SYS_PROCFS_H
+/* This is needed to access the correct procfs.h definitions */
+#	define _STRUCTURED_PROC 1
+#	include <sys/procfs.h>
 #endif
 
 #ifdef HAVE_SYS_PSTAT_H
@@ -382,24 +388,23 @@
 #	if !defined(HAVE_FUNCTION_CURL_EASY_ESCAPE)
 #		define curl_easy_escape(handle, string, length) curl_escape(string, length)
 #	endif
-#	if 0x071004 >= LIBCURL_VERSION_NUM	/* version 7.16.4 */
-#		define CURLOPT_KEYPASSWD	CURLOPT_SSLKEYPASSWD
-#	endif
-#	define ZBX_CURLOPT_MAXREDIRS	10L
 #endif
 
-/* Net-SNMP is used */
+/* NET-SNMP is used */
 #ifdef HAVE_NETSNMP
-#	define SNMP_NO_DEBUGGING		/* disabling debugging messages from Net-SNMP library */
 #	include <net-snmp/net-snmp-config.h>
 #	include <net-snmp/net-snmp-includes.h>
 #endif
 
-/* LIBXML2 is used */
-#ifdef HAVE_LIBXML2
-#	include <libxml/parser.h>
-#	include <libxml/tree.h>
-#	include <libxml/xpath.h>
+/* Required for SNMP support*/
+#ifdef HAVE_UCDSNMP
+#	include <ucd-snmp/ucd-snmp-config.h>
+#	include <ucd-snmp/ucd-snmp-includes.h>
+#	include <ucd-snmp/system.h>
+/* For usmHMACMD5AuthProtocol */
+#	include <ucd-snmp/transform_oids.h>
+/* For generate_Ku() */
+#	include <ucd-snmp/keytools.h>
 #endif
 
 /* Required for advanced sigaction */
@@ -425,10 +430,6 @@
 
 #ifdef HAVE_MNTENT_H
 #	include <mntent.h>
-#endif
-
-#ifdef HAVE_DLFCN_H
-#	include <dlfcn.h>
 #endif
 
 #endif

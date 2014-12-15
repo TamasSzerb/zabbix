@@ -20,12 +20,10 @@
 #ifndef ZABBIX_HOUSEKEEPER_H
 #define ZABBIX_HOUSEKEEPER_H
 
-#include "threads.h"
-
 extern int	CONFIG_HOUSEKEEPING_FREQUENCY;
 extern int	CONFIG_PROXY_LOCAL_BUFFER;
 extern int	CONFIG_PROXY_OFFLINE_BUFFER;
 
-ZBX_THREAD_ENTRY(housekeeper_thread, args);
+void	main_housekeeper_loop();
 
 #endif

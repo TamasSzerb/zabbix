@@ -19,24 +19,18 @@
 **/
 
 
-define('ZABBIX_VERSION',		'2.5.0');
-define('ZABBIX_API_VERSION',	'2.5.0');
-define('ZABBIX_DB_VERSION',		2040000);
+define('ZABBIX_VERSION',		'2.0.14');
+define('ZABBIX_API_VERSION',	'2.0.14');
 
-define('ZABBIX_COPYRIGHT_FROM',	'2001');
-define('ZABBIX_COPYRIGHT_TO',	'2014');
+define('ZABBIX_COPYRIGHT_FROM', '2001');
+define('ZABBIX_COPYRIGHT_TO', '2014');
 
 define('ZBX_LOGIN_ATTEMPTS',	5);
 define('ZBX_LOGIN_BLOCK',		30); // sec
 
 define('ZBX_MIN_PERIOD',		3600); // 1 hour
 define('ZBX_MAX_PERIOD',		63072000); // the maximum period for the time bar control, ~2 years (2 * 365 * 86400)
-define('ZBX_MAX_DATE',			2147483647); // 19 Jan 2038 05:14:07
 define('ZBX_PERIOD_DEFAULT',	3600); // 1 hour
-
-// the maximum period to display history data for the latest data and item overview pages in seconds
-// by default set to 86400 seconds (24 hours)
-define('ZBX_HISTORY_PERIOD', 86400);
 
 define('ZBX_WIDGET_ROWS', 20);
 
@@ -45,6 +39,7 @@ define('ZBX_GRAPH_FONT_NAME',		'DejaVuSans'); // font file name
 define('ZBX_GRAPH_LEGEND_HEIGHT',	120); // when graph height is less then this value, some legend will not show up
 
 define('ZBX_SCRIPT_TIMEOUT',		60); // in seconds
+define('ZBX_SCRIPT_BYTES_LIMIT',	1048576); // 1048576 is 1MB in bytes
 
 define('GRAPH_YAXIS_SIDE_DEFAULT', 0); // 0 - LEFT SIDE, 1 - RIGHT SIDE
 
@@ -52,12 +47,12 @@ define('ZBX_MAX_IMAGE_SIZE', 1048576); // 1024 * 1024
 
 define('ZBX_UNITS_ROUNDOFF_THRESHOLD',		0.01);
 define('ZBX_UNITS_ROUNDOFF_UPPER_LIMIT',	2);
-define('ZBX_UNITS_ROUNDOFF_MIDDLE_LIMIT',	4);
 define('ZBX_UNITS_ROUNDOFF_LOWER_LIMIT',	6);
 
-define('ZBX_PRECISION_10',	10);
-
 define('ZBX_DEFAULT_INTERVAL', '1-7,00:00-24:00');
+
+// for partitioned DB installs!!
+define('ZBX_HISTORY_DATA_UPKEEP', -1); // in days; -1: disabled, 0: always use trends
 
 define('ZBX_SCRIPT_TYPE_CUSTOM_SCRIPT',	0);
 define('ZBX_SCRIPT_TYPE_IPMI',			1);
@@ -68,18 +63,17 @@ define('ZBX_SCRIPT_TYPE_GLOBAL_SCRIPT',	4);
 define('ZBX_SCRIPT_EXECUTE_ON_AGENT',	0);
 define('ZBX_SCRIPT_EXECUTE_ON_SERVER',	1);
 
-define('ZBX_FLAG_DISCOVERY_NORMAL',		0x0);
-define('ZBX_FLAG_DISCOVERY_RULE',		0x1);
-define('ZBX_FLAG_DISCOVERY_PROTOTYPE',	0x2);
-define('ZBX_FLAG_DISCOVERY_CREATED',	0x4);
+define('ZBX_FLAG_DISCOVERY_NORMAL',		0x0); // a normal item
+define('ZBX_FLAG_DISCOVERY',			0x1); // a low level discovery rule
+define('ZBX_FLAG_DISCOVERY_CHILD',		0x2); // an item prototype
+define('ZBX_FLAG_DISCOVERY_CREATED',	0x4); // an item created via a discovery rule
 
 define('EXTACK_OPTION_ALL',		0);
 define('EXTACK_OPTION_UNACK',	1);
 define('EXTACK_OPTION_BOTH',	2);
 
-define('TRIGGERS_OPTION_RECENT_PROBLEM',	1);
-define('TRIGGERS_OPTION_ALL',				2);
-define('TRIGGERS_OPTION_IN_PROBLEM',		3);
+define('TRIGGERS_OPTION_ONLYTRUE',	1);
+define('TRIGGERS_OPTION_ALL',		2);
 
 define('ZBX_ACK_STS_ANY',				1);
 define('ZBX_ACK_STS_WITH_UNACK',		2);
@@ -101,20 +95,17 @@ define('ZBX_DB_ORACLE',		'ORACLE');
 define('ZBX_DB_POSTGRESQL',	'POSTGRESQL');
 define('ZBX_DB_SQLITE3',	'SQLITE3');
 
-define('ZBX_DB_MAX_ID', '9223372036854775807');
-
-define('PAGE_TYPE_HTML',				0);
-define('PAGE_TYPE_IMAGE',				1);
-define('PAGE_TYPE_XML',					2);
-define('PAGE_TYPE_JS',					3); // javascript
-define('PAGE_TYPE_CSS',					4);
-define('PAGE_TYPE_HTML_BLOCK',			5); // simple block of html (as text)
-define('PAGE_TYPE_JSON',				6); // simple JSON
-define('PAGE_TYPE_JSON_RPC',			7); // api call
-define('PAGE_TYPE_TEXT_FILE',			8); // api call
-define('PAGE_TYPE_TEXT',				9); // simple text
-define('PAGE_TYPE_CSV',					10); // CSV format
-define('PAGE_TYPE_TEXT_RETURN_JSON',	11); // input plaintext output json
+define('PAGE_TYPE_HTML',		0);
+define('PAGE_TYPE_IMAGE',		1);
+define('PAGE_TYPE_XML',			2);
+define('PAGE_TYPE_JS',			3); // javascript
+define('PAGE_TYPE_CSS',			4);
+define('PAGE_TYPE_HTML_BLOCK',	5); // simple block of html (as text)
+define('PAGE_TYPE_JSON',		6); // simple JSON
+define('PAGE_TYPE_JSON_RPC',	7); // api call
+define('PAGE_TYPE_TEXT_FILE',	8); // api call
+define('PAGE_TYPE_TEXT',		9); // simple text
+define('PAGE_TYPE_CSV',			10); // CSV format
 
 define('ZBX_SESSION_ACTIVE',	0);
 define('ZBX_SESSION_PASSIVE',	1);
@@ -125,12 +116,11 @@ define('ZBX_DROPDOWN_FIRST_ALL',	1);
 define('T_ZBX_STR',			0);
 define('T_ZBX_INT',			1);
 define('T_ZBX_DBL',			2);
+define('T_ZBX_PERIOD',		3);
 define('T_ZBX_IP',			4);
 define('T_ZBX_CLR',			5);
 define('T_ZBX_IP_RANGE',	7);
 define('T_ZBX_INT_RANGE',	8);
-define('T_ZBX_DBL_BIG',		9);
-define('T_ZBX_DBL_STR',		10);
 
 define('O_MAND',	0);
 define('O_OPT',		1);
@@ -140,18 +130,20 @@ define('P_SYS',				1);
 define('P_UNSET_EMPTY',		2);
 define('P_ACT',				16);
 define('P_NZERO',			32);
-define('P_NO_TRIM',			64);
 
 //	misc parameters
 define('IMAGE_FORMAT_PNG',	'PNG');
 define('IMAGE_FORMAT_JPEG',	'JPEG');
 define('IMAGE_FORMAT_TEXT',	'JPEG');
 
+define('IMAGE_TYPE_UNKNOWN',		0);
 define('IMAGE_TYPE_ICON',			1);
 define('IMAGE_TYPE_BACKGROUND',		2);
 
 define('ITEM_CONVERT_WITH_UNITS',	0); // - do not convert empty units
 define('ITEM_CONVERT_NO_UNITS',		1); // - no units
+define('ITEM_CONVERT_SHORT_UNITS',	2); // - to short units
+define('ITEM_CONVERT_LONG_UNITS',	3); // - to long units
 
 define('ZBX_SORT_UP',	'ASC');
 define('ZBX_SORT_DOWN',	'DESC');
@@ -181,6 +173,7 @@ define('AUDIT_RESOURCE_VALUE_MAP',		17);
 define('AUDIT_RESOURCE_IT_SERVICE',		18);
 define('AUDIT_RESOURCE_MAP',			19);
 define('AUDIT_RESOURCE_SCREEN',			20);
+define('AUDIT_RESOURCE_NODE',			21);
 define('AUDIT_RESOURCE_SCENARIO',		22);
 define('AUDIT_RESOURCE_DISCOVERY_RULE',	23);
 define('AUDIT_RESOURCE_SLIDESHOW',		24);
@@ -205,17 +198,16 @@ define('CONDITION_TYPE_DSERVICE_PORT',		9);
 define('CONDITION_TYPE_DSTATUS',			10);
 define('CONDITION_TYPE_DUPTIME',			11);
 define('CONDITION_TYPE_DVALUE',				12);
-define('CONDITION_TYPE_TEMPLATE',			13);
+define('CONDITION_TYPE_HOST_TEMPLATE',		13);
 define('CONDITION_TYPE_EVENT_ACKNOWLEDGED',	14);
 define('CONDITION_TYPE_APPLICATION',		15);
 define('CONDITION_TYPE_MAINTENANCE',		16);
+define('CONDITION_TYPE_NODE',				17);
 define('CONDITION_TYPE_DRULE',				18);
 define('CONDITION_TYPE_DCHECK',				19);
 define('CONDITION_TYPE_PROXY',				20);
 define('CONDITION_TYPE_DOBJECT',			21);
 define('CONDITION_TYPE_HOST_NAME',			22);
-define('CONDITION_TYPE_EVENT_TYPE',			23);
-define('CONDITION_TYPE_HOST_METADATA',		24);
 
 define('CONDITION_OPERATOR_EQUAL',		0);
 define('CONDITION_OPERATOR_NOT_EQUAL',	1);
@@ -225,15 +217,6 @@ define('CONDITION_OPERATOR_IN',			4);
 define('CONDITION_OPERATOR_MORE_EQUAL',	5);
 define('CONDITION_OPERATOR_LESS_EQUAL',	6);
 define('CONDITION_OPERATOR_NOT_IN',		7);
-define('CONDITION_OPERATOR_REGEXP',		8);
-
-// event type action condition values
-define('EVENT_TYPE_ITEM_NOTSUPPORTED',		0);
-define('EVENT_TYPE_ITEM_NORMAL',			1);
-define('EVENT_TYPE_LLDRULE_NOTSUPPORTED',	2);
-define('EVENT_TYPE_LLDRULE_NORMAL',			3);
-define('EVENT_TYPE_TRIGGER_UNKNOWN',		4);
-define('EVENT_TYPE_TRIGGER_NORMAL',			5);
 
 define('HOST_STATUS_MONITORED',		0);
 define('HOST_STATUS_NOT_MONITORED',	1);
@@ -257,9 +240,6 @@ define('INTERFACE_TYPE_SNMP',		2);
 define('INTERFACE_TYPE_IPMI',		3);
 define('INTERFACE_TYPE_JMX',		4);
 
-define('SNMP_BULK_DISABLED',	0);
-define('SNMP_BULK_ENABLED',		1);
-
 define('MAINTENANCE_STATUS_ACTIVE',		0);
 define('MAINTENANCE_STATUS_APPROACH',	1);
 define('MAINTENANCE_STATUS_EXPIRED',	2);
@@ -278,16 +258,6 @@ define('TIMEPERIOD_TYPE_WEEKLY',	3);
 define('TIMEPERIOD_TYPE_MONTHLY',	4);
 define('TIMEPERIOD_TYPE_YEARLY',	5);
 
-// report periods
-define('REPORT_PERIOD_TODAY',			0);
-define('REPORT_PERIOD_YESTERDAY',		1);
-define('REPORT_PERIOD_CURRENT_WEEK',	2);
-define('REPORT_PERIOD_CURRENT_MONTH',	3);
-define('REPORT_PERIOD_CURRENT_YEAR',	4);
-define('REPORT_PERIOD_LAST_WEEK',		5);
-define('REPORT_PERIOD_LAST_MONTH',		6);
-define('REPORT_PERIOD_LAST_YEAR',		7);
-
 define('SYSMAP_LABEL_ADVANCED_OFF',	0);
 define('SYSMAP_LABEL_ADVANCED_ON',	1);
 
@@ -298,7 +268,6 @@ define('MAP_LABEL_TYPE_STATUS',		3);
 define('MAP_LABEL_TYPE_NOTHING',	4);
 define('MAP_LABEL_TYPE_CUSTOM',		5);
 
-define('MAP_LABEL_LOC_DEFAULT', -1);
 define('MAP_LABEL_LOC_BOTTOM',	0);
 define('MAP_LABEL_LOC_LEFT',	1);
 define('MAP_LABEL_LOC_RIGHT',	2);
@@ -325,6 +294,12 @@ define('SYSMAP_ELEMENT_ICON_DISABLED',		4);
 
 define('SYSMAP_HIGHLIGHT_OFF',	0);
 define('SYSMAP_HIGHLIGHT_ON',	1);
+
+define('SYSMAP_EXPANDPROBLEM_OFF',	0);
+define('SYSMAP_EXPANDPROBLEM_ON',	1);
+
+define('SYSMAP_MARKELEMENTS_OFF',	0);
+define('SYSMAP_MARKELEMENTS_ON',	1);
 
 define('SYSMAP_GRID_SHOW_ON',	1);
 define('SYSMAP_GRID_SHOW_OFF',	0);
@@ -354,10 +329,9 @@ define('ITEM_TYPE_SSH',				13);
 define('ITEM_TYPE_TELNET',			14);
 define('ITEM_TYPE_CALCULATED',		15);
 define('ITEM_TYPE_JMX',				16);
-define('ITEM_TYPE_SNMPTRAP',		17);
 
 define('ITEM_VALUE_TYPE_FLOAT',		0);
-define('ITEM_VALUE_TYPE_STR',		1); // aka Character
+define('ITEM_VALUE_TYPE_STR',		1);
 define('ITEM_VALUE_TYPE_LOG',		2);
 define('ITEM_VALUE_TYPE_UINT64',	3);
 define('ITEM_VALUE_TYPE_TEXT',		4);
@@ -367,7 +341,7 @@ define('ITEM_DATA_TYPE_OCTAL',			1);
 define('ITEM_DATA_TYPE_HEXADECIMAL',	2);
 define('ITEM_DATA_TYPE_BOOLEAN',		3);
 
-define('ZBX_DEFAULT_KEY_DB_MONITOR',	'db.odbc.select[<unique short description>,<dsn>]');
+define('ZBX_DEFAULT_KEY_DB_MONITOR',	'db.odbc.select[<unique short description>]');
 define('ZBX_DEFAULT_KEY_SSH',			'ssh.run[<unique short description>,<ip>,<port>,<encoding>]');
 define('ZBX_DEFAULT_KEY_TELNET',		'telnet.run[<unique short description>,<ip>,<port>,<encoding>]');
 define('ZBX_DEFAULT_KEY_JMX',			'jmx[<object name>,<attribute name>]');
@@ -382,8 +356,7 @@ define('ITEM_STATUS_ACTIVE',		0);
 define('ITEM_STATUS_DISABLED',		1);
 define('ITEM_STATUS_NOTSUPPORTED',	3);
 
-define('ITEM_STATE_NORMAL',			0);
-define('ITEM_STATE_NOTSUPPORTED',	1);
+define('ITEM_TYPE_SNMPTRAP', 17);
 
 define('ITEM_SNMPV3_SECURITYLEVEL_NOAUTHNOPRIV',	0);
 define('ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV',		1);
@@ -392,19 +365,11 @@ define('ITEM_SNMPV3_SECURITYLEVEL_AUTHPRIV',		2);
 define('ITEM_AUTHTYPE_PASSWORD',	0);
 define('ITEM_AUTHTYPE_PUBLICKEY',	1);
 
-define('ITEM_AUTHPROTOCOL_MD5', 0);
-define('ITEM_AUTHPROTOCOL_SHA', 1);
-
-define('ITEM_PRIVPROTOCOL_DES', 0);
-define('ITEM_PRIVPROTOCOL_AES', 1);
-
-define('ITEM_LOGTYPE_INFORMATION',		1);
-define('ITEM_LOGTYPE_WARNING',			2);
-define('ITEM_LOGTYPE_ERROR',			4);
+define('ITEM_LOGTYPE_INFORMATION',	1);
+define('ITEM_LOGTYPE_WARNING',		2);
+define('ITEM_LOGTYPE_ERROR',		4);
 define('ITEM_LOGTYPE_FAILURE_AUDIT',	7);
 define('ITEM_LOGTYPE_SUCCESS_AUDIT',	8);
-define('ITEM_LOGTYPE_CRITICAL',			9);
-define('ITEM_LOGTYPE_VERBOSE',			10);
 
 define('GRAPH_ITEM_DRAWTYPE_LINE',			0);
 define('GRAPH_ITEM_DRAWTYPE_FILLED_REGION',	1);
@@ -438,9 +403,13 @@ define('TRIGGER_STATUS_DISABLED',	1);
 
 define('TRIGGER_VALUE_FALSE',	0);
 define('TRIGGER_VALUE_TRUE',	1);
+define('TRIGGER_VALUE_UNKNOWN', 2); // only in "events" table
 
-define('TRIGGER_STATE_NORMAL',	0);
-define('TRIGGER_STATE_UNKNOWN',	1);
+define('TRIGGER_VALUE_FLAG_NORMAL',		0);
+define('TRIGGER_VALUE_FLAG_UNKNOWN',	1);
+
+define('TRIGGER_VALUE_CHANGED_NO',	0);
+define('TRIGGER_VALUE_CHANGED_YES', 1);
 
 define('TRIGGER_SEVERITY_NOT_CLASSIFIED',	0);
 define('TRIGGER_SEVERITY_INFORMATION',		1);
@@ -479,8 +448,7 @@ define('ACTION_DEFAULT_MSG_TRIGGER', "Trigger: {TRIGGER.NAME}\nTrigger status: {
 		"Trigger severity: {TRIGGER.SEVERITY}\nTrigger URL: {TRIGGER.URL}\n\nItem values:\n\n".
 		"1. {ITEM.NAME1} ({HOST.NAME1}:{ITEM.KEY1}): {ITEM.VALUE1}\n".
 		"2. {ITEM.NAME2} ({HOST.NAME2}:{ITEM.KEY2}): {ITEM.VALUE2}\n".
-		"3. {ITEM.NAME3} ({HOST.NAME3}:{ITEM.KEY3}): {ITEM.VALUE3}\n\n".
-		"Original event ID: {EVENT.ID}"
+		"3. {ITEM.NAME3} ({HOST.NAME3}:{ITEM.KEY3}): {ITEM.VALUE3}"
 );
 define('ACTION_DEFAULT_MSG_AUTOREG', "Host name: {HOST.HOST}\nHost IP: {HOST.IP}\nAgent port: {HOST.PORT}");
 define('ACTION_DEFAULT_MSG_DISCOVERY', "Discovery rule: {DISCOVERY.RULE.NAME}\n\nDevice IP:{DISCOVERY.DEVICE.IPADDRESS}\n".
@@ -504,10 +472,21 @@ define('OPERATION_TYPE_TEMPLATE_REMOVE',7);
 define('OPERATION_TYPE_HOST_ENABLE',	8);
 define('OPERATION_TYPE_HOST_DISABLE',	9);
 
-define('CONDITION_EVAL_TYPE_AND_OR',		0);
-define('CONDITION_EVAL_TYPE_AND',			1);
-define('CONDITION_EVAL_TYPE_OR',			2);
-define('CONDITION_EVAL_TYPE_EXPRESSION', 	3);
+define('ACTION_EVAL_TYPE_AND_OR',	0);
+define('ACTION_EVAL_TYPE_AND',		1);
+define('ACTION_EVAL_TYPE_OR',		2);
+
+define('OPERATION_OBJECT_USER',		0);
+define('OPERATION_OBJECT_GROUP',	1);
+
+define('LOGFILE_SEVERITY_NOT_CLASSIFIED',	0);
+define('LOGFILE_SEVERITY_INFORMATION',		1);
+define('LOGFILE_SEVERITY_WARNING',			2);
+define('LOGFILE_SEVERITY_AVERAGE',			3);
+define('LOGFILE_SEVERITY_HIGH',				4);
+define('LOGFILE_SEVERITY_DISASTER',			5);
+define('LOGFILE_SEVERITY_AUDIT_SUCCESS',	6);
+define('LOGFILE_SEVERITY_AUDIT_FAILURE',	7);
 
 // screen
 define('SCREEN_RESOURCE_GRAPH',				0);
@@ -527,11 +506,8 @@ define('SCREEN_RESOURCE_EVENTS',			13);
 define('SCREEN_RESOURCE_HOSTGROUP_TRIGGERS',14);
 define('SCREEN_RESOURCE_SYSTEM_STATUS',		15);
 define('SCREEN_RESOURCE_HOST_TRIGGERS',		16);
-// used in Monitoring > Latest data > Graph (history.php)
 define('SCREEN_RESOURCE_HISTORY',			17);
 define('SCREEN_RESOURCE_CHART',				18);
-define('SCREEN_RESOURCE_LLD_SIMPLE_GRAPH',	19);
-define('SCREEN_RESOURCE_LLD_GRAPH',			20);
 
 define('SCREEN_SORT_TRIGGERS_DATE_DESC',			0);
 define('SCREEN_SORT_TRIGGERS_SEVERITY_DESC',		1);
@@ -542,6 +518,8 @@ define('SCREEN_SORT_TRIGGERS_TYPE_ASC',				5);
 define('SCREEN_SORT_TRIGGERS_TYPE_DESC',			6);
 define('SCREEN_SORT_TRIGGERS_STATUS_ASC',			7);
 define('SCREEN_SORT_TRIGGERS_STATUS_DESC',			8);
+define('SCREEN_SORT_TRIGGERS_RETRIES_LEFT_ASC',		9);
+define('SCREEN_SORT_TRIGGERS_RETRIES_LEFT_DESC',	10);
 define('SCREEN_SORT_TRIGGERS_RECIPIENT_ASC',		11);
 define('SCREEN_SORT_TRIGGERS_RECIPIENT_DESC',		12);
 
@@ -550,19 +528,18 @@ define('SCREEN_MODE_EDIT',		1);
 define('SCREEN_MODE_SLIDESHOW',		2);
 define('SCREEN_MODE_JS',		3);
 
+define('SCREEN_TYPE_NORMAL',	0);
+define('SCREEN_TYPE_TEMPLATED',	1);
+
 define('SCREEN_SIMPLE_ITEM',	0);
 define('SCREEN_DYNAMIC_ITEM',	1);
 
 define('SCREEN_REFRESH_TIMEOUT',		30);
 define('SCREEN_REFRESH_RESPONSIVENESS',	10);
 
-define('SCREEN_SURROGATE_MAX_COLUMNS_MIN', 1);
-define('SCREEN_SURROGATE_MAX_COLUMNS_DEFAULT', 3);
-define('SCREEN_SURROGATE_MAX_COLUMNS_MAX', 100);
-
 define('DEFAULT_LATEST_ISSUES_CNT', 20);
 
-// alignments
+// alignes
 define('HALIGN_DEFAULT',	0);
 define('HALIGN_CENTER',		0);
 define('HALIGN_LEFT',		1);
@@ -574,7 +551,7 @@ define('VALIGN_TOP',		1);
 define('VALIGN_BOTTOM',		2);
 
 // info module style
-define('STYLE_HORIZONTAL',	0);
+define('STYLE_HORISONTAL',	0);
 define('STYLE_VERTICAL',	1);
 
 // view style [Overview]
@@ -595,9 +572,13 @@ define('MARK_COLOR_RED',	1);
 define('MARK_COLOR_GREEN',	2);
 define('MARK_COLOR_BLUE',	3);
 
+define('PROFILE_TYPE_UNKNOWN',		0);
 define('PROFILE_TYPE_ID',			1);
 define('PROFILE_TYPE_INT',			2);
 define('PROFILE_TYPE_STR',			3);
+define('PROFILE_TYPE_ARRAY_ID',		4);
+define('PROFILE_TYPE_ARRAY_INT',	5);
+define('PROFILE_TYPE_ARRAY_STR',	6);
 
 define('CALC_FNC_MIN', 1);
 define('CALC_FNC_AVG', 2);
@@ -619,31 +600,38 @@ define('ZBX_INTERNAL_GROUP',		1);
 define('GROUP_STATUS_DISABLED', 1);
 define('GROUP_STATUS_ENABLED',	0);
 
-define('LINE_TYPE_NORMAL',	0);
-define('LINE_TYPE_BOLD',	1);
-
 // IMPORTANT!!! by priority DESC
 define('GROUP_GUI_ACCESS_SYSTEM',	0);
 define('GROUP_GUI_ACCESS_INTERNAL', 1);
 define('GROUP_GUI_ACCESS_DISABLED', 2);
 
-/**
- * @see access_deny()
- */
-define('ACCESS_DENY_OBJECT', 0);
-define('ACCESS_DENY_PAGE', 1);
+define('GROUP_API_ACCESS_DISABLED', 0);
+define('GROUP_API_ACCESS_ENABLED',	1);
 
 define('GROUP_DEBUG_MODE_DISABLED', 0);
 define('GROUP_DEBUG_MODE_ENABLED',	1);
 
+define('PERM_MAX',			3);
 define('PERM_READ_WRITE',	3);
-define('PERM_READ',			2);
+define('PERM_READ_ONLY',	2);
+define('PERM_READ_LIST',	1);
 define('PERM_DENY',			0);
 
-define('PARAM_TYPE_TIME',		0);
+define('PERM_RES_IDS_ARRAY',	1); // return array of nodes id - array(1,2,3,4)
+define('PERM_RES_DATA_ARRAY',	2);
+
+define('RESOURCE_TYPE_NODE',	0);
+define('RESOURCE_TYPE_GROUP',	1);
+
+define('PARAM_TYPE_SECONDS',	0);
 define('PARAM_TYPE_COUNTS',		1);
 
-define('ZBX_DEFAULT_AGENT', 'Zabbix');
+define('ZBX_NODE_CHILD',	0);
+define('ZBX_NODE_LOCAL',	1);
+define('ZBX_NODE_MASTER',	2);
+
+define('ZBX_FLAG_TRIGGER',	0);
+define('ZBX_FLAG_EVENT',	1);
 
 define('HTTPTEST_AUTH_NONE',	0);
 define('HTTPTEST_AUTH_BASIC',	1);
@@ -658,35 +646,23 @@ define('HTTPSTEP_ITEM_TYPE_IN',			2);
 define('HTTPSTEP_ITEM_TYPE_LASTSTEP',	3);
 define('HTTPSTEP_ITEM_TYPE_LASTERROR',	4);
 
-define('HTTPTEST_STEP_RETRIEVE_MODE_CONTENT', 0);
-define('HTTPTEST_STEP_RETRIEVE_MODE_HEADERS', 1);
-
-define('HTTPTEST_STEP_FOLLOW_REDIRECTS_OFF', 0);
-define('HTTPTEST_STEP_FOLLOW_REDIRECTS_ON', 1);
-
-define('HTTPTEST_VERIFY_PEER_OFF', 0);
-define('HTTPTEST_VERIFY_PEER_ON', 1);
-
-define('HTTPTEST_VERIFY_HOST_OFF', 0);
-define('HTTPTEST_VERIFY_HOST_ON', 1);
-
 define('EVENT_ACK_DISABLED',	'0');
 define('EVENT_ACK_ENABLED',		'1');
 
 define('EVENT_NOT_ACKNOWLEDGED',	'0');
 define('EVENT_ACKNOWLEDGED',		'1');
 
-define('EVENT_SOURCE_TRIGGERS',				0);
-define('EVENT_SOURCE_DISCOVERY',			1);
-define('EVENT_SOURCE_AUTO_REGISTRATION',	2);
-define('EVENT_SOURCE_INTERNAL', 			3);
+define('EVENTS_NOFALSEFORB_STATUS_ALL',		0); // used with TRIGGERS_OPTION_NOFALSEFORB
+define('EVENTS_NOFALSEFORB_STATUS_FALSE',	1); // used with TRIGGERS_OPTION_NOFALSEFORB
+define('EVENTS_NOFALSEFORB_STATUS_TRUE',	2); // used with TRIGGERS_OPTION_NOFALSEFORB
 
-define('EVENT_OBJECT_TRIGGER',			0);
-define('EVENT_OBJECT_DHOST',			1);
-define('EVENT_OBJECT_DSERVICE',			2);
-define('EVENT_OBJECT_AUTOREGHOST',		3);
-define('EVENT_OBJECT_ITEM',				4);
-define('EVENT_OBJECT_LLDRULE',			5);
+define('EVENT_SOURCE_TRIGGERS',			0);
+define('EVENT_SOURCE_DISCOVERY',		1);
+define('EVENT_SOURCE_AUTO_REGISTRATION',2);
+
+define('EVENT_OBJECT_TRIGGER',		0);
+define('EVENT_OBJECT_DHOST',		1);
+define('EVENT_OBJECT_DSERVICE',		2);
 
 define('GRAPH_YAXIS_TYPE_CALCULATED',	0);
 define('GRAPH_YAXIS_TYPE_FIXED',		1);
@@ -708,10 +684,6 @@ define('GRAPH_TYPE_BAR',			6);
 define('GRAPH_TYPE_COLUMN',			7);
 define('GRAPH_TYPE_BAR_STACKED',	8);
 define('GRAPH_TYPE_COLUMN_STACKED',	9);
-
-define('BR_DISTRIBUTION_MULTIPLE_PERIODS',	1);
-define('BR_DISTRIBUTION_MULTIPLE_ITEMS',	2);
-define('BR_COMPARE_VALUE_MULTIPLE_PERIODS',	3);
 
 define('GRAPH_3D_ANGLE', 70);
 
@@ -772,24 +744,26 @@ define('HOST_INVENTORY_DISABLED',	-1);
 define('HOST_INVENTORY_MANUAL',		0);
 define('HOST_INVENTORY_AUTOMATIC',	1);
 
+define('EXPRESSION_VALUE_TYPE_UNKNOWN',	'#ERROR_VALUE_TYPE#');
 define('EXPRESSION_HOST_UNKNOWN',		'#ERROR_HOST#');
 define('EXPRESSION_HOST_ITEM_UNKNOWN',	'#ERROR_ITEM#');
 define('EXPRESSION_NOT_A_MACRO_ERROR',	'#ERROR_MACRO#');
 define('EXPRESSION_FUNCTION_UNKNOWN',	'#ERROR_FUNCTION#');
 
-/**
- * @deprecated use either a literal space " " or a non-breakable space "&nbsp;" instead
- */
+define('AVAILABLE_NOCACHE', 0);	// take available objects not from cache
+
+define('SBR',	"<br/>\n");
 define('SPACE',	'&nbsp;');
+define('RARR',	'&rArr;');
+define('SQUAREBRACKETS', '%5B%5D');
 
-/**
- * Symbol used to separate name pairs such as "host: item" or "proxy: host".
- *
- * Should not be used as just a colon.
- */
-define('NAME_DELIMITER', ': ');
+// affects multibyte strings [in mb_ereg char "-" must be backslashed]!!!
+if (in_array(ini_get('mbstring.func_overload'), array(2,3,6,7))) {
+	define('ZBX_MBSTRINGS_OVERLOADED', 1);
+}
 
-define('UNKNOWN_VALUE', '-');
+define('REGEXP_INCLUDE', 0);
+define('REGEXP_EXCLUDE', 1);
 
 // suffixes
 define('ZBX_BYTE_SUFFIXES', 'KMGT');
@@ -798,50 +772,33 @@ define('ZBX_TIME_SUFFIXES', 'smhdw');
 // preg
 define('ZBX_PREG_PRINT', '^\x{00}-\x{1F}');
 define('ZBX_PREG_MACRO_NAME', '([A-Z0-9\._]+)');
-define('ZBX_PREG_MACRO_NAME_LLD', '([A-Z0-9\._]+)');
 define('ZBX_PREG_INTERNAL_NAMES', '([0-9a-zA-Z_\. \-]+)'); // !!! Don't forget sync code with C !!!
 define('ZBX_PREG_PARAMS', '(['.ZBX_PREG_PRINT.']+?)?');
+define('ZBX_PREG_SIGN', '([&|><=+*\/#\-])');
 define('ZBX_PREG_NUMBER', '([\-+]?[0-9]+[.]?[0-9]*['.ZBX_BYTE_SUFFIXES.ZBX_TIME_SUFFIXES.']?)');
 define('ZBX_PREG_DEF_FONT_STRING', '/^[0-9\.:% ]+$/');
 define('ZBX_PREG_DNS_FORMAT', '([0-9a-zA-Z_\.\-$]|\{\$?'.ZBX_PREG_MACRO_NAME.'\})*');
 define('ZBX_PREG_HOST_FORMAT', ZBX_PREG_INTERNAL_NAMES);
+define('ZBX_PREG_NODE_FORMAT', ZBX_PREG_INTERNAL_NAMES);
+define('ZBX_PREG_FUNCTION_FORMAT', '([a-z]+(\('.ZBX_PREG_PARAMS.'\)))');
 define('ZBX_PREG_MACRO_NAME_FORMAT', '(\{[A-Z\.]+\})');
+define('ZBX_PREG_EXPRESSION_SIMPLE_MACROS', '(\{TRIGGER\.VALUE\})');
 define('ZBX_PREG_EXPRESSION_USER_MACROS', '(\{\$'.ZBX_PREG_MACRO_NAME.'\})');
-define('ZBX_PREG_EXPRESSION_LLD_MACROS', '(\{\#'.ZBX_PREG_MACRO_NAME_LLD.'\})');
 
-// !!! should be used with "x" modifier
-define('ZBX_PREG_ITEM_KEY_PARAMETER_FORMAT', '(
-	(?P>param) # match recursive parameter group
-	|
-	(\" # match quoted string
-		(
-			((\\\\)+?[^\\\\]) # match any amount of backslash with non-backslash ending
-			|
-			[^\"\\\\] # match any character except \ or "
-		)*? # match \" or any character except "
-	\")
-	|
-	[^\"\[\],][^,\]]*? #match unquoted string - any character except " [ ] and , at begining and any character except , and ] afterwards
-	|
-	() # match empty and only empty part
-)');
-define('ZBX_PREG_ITEM_KEY_FORMAT', '([0-9a-zA-Z_\. \-]+? # match key
-(?P<param>( # name parameter group used in recursion
-	\[ # match opening bracket
-		(
-			\s*?'.ZBX_PREG_ITEM_KEY_PARAMETER_FORMAT .' # match spaces and parameter
-			(
-				\s*?,\s*? # match spaces, comma and spaces
-				'.ZBX_PREG_ITEM_KEY_PARAMETER_FORMAT .' # match parameter
-			)*? # match spaces, comma, spaces, parameter zero or more times
-			\s*? #matches spaces
-		)
-	\] # match closing bracket
-))*? # matches non comma seperated brackets with parameters zero or more times
-)');
+// regexp ids
+define('ZBX_KEY_ID',		1);
+define('ZBX_KEY_NAME_ID',	2);
+define('ZBX_KEY_PARAM_ID',	6);
+
+define('ZBX_HISTORY_COUNT', 5);
 
 define('ZBX_USER_ONLINE_TIME', 600); // 10min
 define('ZBX_GUEST_USER','guest');
+
+define('ZBX_FAVORITES_ALL', -1);
+
+// allow for testing
+define('ZBX_ALLOW_UNICODE', 1);
 
 // IPMI
 define('IPMI_AUTHTYPE_DEFAULT',		-1);
@@ -860,8 +817,8 @@ define('IPMI_PRIVILEGE_OEM',		5);
 
 define('ZBX_HAVE_IPV6', 1);
 
-define('ZBX_SOCKET_TIMEOUT',        3);         // socket timeout limit
-define('ZBX_SOCKET_BYTES_LIMIT',    1048576);   // socket response size limit, 1048576 is 1MB in bytes
+
+define('ZBX_SOCKET_TIMEOUT', 3);
 
 // value is also used in servercheck.js file
 define('SERVER_CHECK_INTERVAL', 10);
@@ -893,8 +850,11 @@ define('ZBX_API_ERROR_PERMISSIONS',	120);
 define('ZBX_API_ERROR_NO_AUTH',		200);
 define('ZBX_API_ERROR_NO_METHOD',	300);
 
+define('API_OUTPUT_SHORTEN',	'shorten');
+define('API_OUTPUT_REFER',		'refer');
 define('API_OUTPUT_EXTEND',		'extend');
 define('API_OUTPUT_COUNT',		'count');
+define('API_OUTPUT_CUSTOM',		'custom');
 
 define('SEC_PER_MIN',	60);
 define('SEC_PER_HOUR',	3600);
@@ -903,9 +863,9 @@ define('SEC_PER_WEEK',	604800); // 7 * SEC_PER_DAY
 define('SEC_PER_MONTH',	2592000); // 30 * SEC_PER_DAY
 define('SEC_PER_YEAR',	31536000); // 365 * SEC_PER_DAY
 
-define('ZBX_JAN_2038', 2145916800);
-
 define('DAY_IN_YEAR', 365);
+
+define('ZBX_JAN_2038', 2145916800);
 
 define('ZBX_MIN_PORT_NUMBER', 0);
 define('ZBX_MAX_PORT_NUMBER', 65535);
@@ -918,22 +878,11 @@ define('ZBX_TEXTAREA_STANDARD_WIDTH',	312);
 define('ZBX_TEXTAREA_BIG_WIDTH',		524);
 define('ZBX_TEXTAREA_STANDARD_ROWS',	7);
 
-// widgets
-define('WIDGET_DISCOVERY_STATUS',	'dscvry');
-define('WIDGET_FAVOURITE_GRAPHS',	'favgrph');
-define('WIDGET_FAVOURITE_MAPS',		'favmap');
-define('WIDGET_FAVOURITE_SCREENS',	'favscr');
-define('WIDGET_HOST_STATUS',		'hoststat');
-define('WIDGET_LAST_ISSUES',		'lastiss');
-define('WIDGET_SLIDESHOW',			'hat_slides');
-define('WIDGET_SYSTEM_STATUS',		'syssum');
-define('WIDGET_WEB_OVERVIEW',		'webovr');
-define('WIDGET_ZABBIX_STATUS',		'stszbx');
-
 // validation
 define('DB_ID',		"({}>=0&&bccomp('{}',\"10000000000000000000\")<0)&&");
 define('NOT_EMPTY',	"({}!='')&&");
 define('NOT_ZERO',	"({}!=0)&&");
+define('NO_TRIM',	'NO_TRIM');
 
 define('ZBX_VALID_OK',		0);
 define('ZBX_VALID_ERROR',	1);
@@ -947,47 +896,16 @@ define('ZBX_DEFAULT_THEME', 'originalblue');
 
 define('ZABBIX_HOMEPAGE', 'http://www.zabbix.com');
 
-// non translatable date formats
-define('TIMESTAMP_FORMAT', 'YmdHis');
-define('TIMESTAMP_FORMAT_ZERO_TIME', 'Ymd0000');
-
-// date format context, usable for translators
-define('DATE_FORMAT_CONTEXT', 'Date format (see http://php.net/date)');
+// actions
+define('LONG_DESCRIPTION',	0);
+define('SHORT_DESCRIPTION',	1);
 
 // availability report modes
 define('AVAILABILITY_REPORT_BY_HOST', 0);
 define('AVAILABILITY_REPORT_BY_TEMPLATE', 1);
 
-// queue modes
-define('QUEUE_OVERVIEW', 0);
-define('QUEUE_OVERVIEW_BY_PROXY', 1);
-define('QUEUE_DETAILS', 2);
-
-// item count to display in the details queue
-define('QUEUE_DETAIL_ITEM_COUNT', 500);
-
-// constants for element "copy to..." target types
-define('COPY_TYPE_TO_HOST', 0);
-define('COPY_TYPE_TO_TEMPLATE', 2);
-define('COPY_TYPE_TO_HOST_GROUP', 1);
-
-define('HISTORY_GRAPH', 'showgraph');
-define('HISTORY_BATCH_GRAPH', 'batchgraph');
-define('HISTORY_VALUES', 'showvalues');
-define('HISTORY_LATEST', 'showlatest');
-
-// configuration -> maps default add icon name
-define('MAP_DEFAULT_ICON', 'Server_(96)');
-
-// server variables
-define('HTTPS', isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] && $_SERVER['HTTPS'] != 'off');
-
 // if magic quotes on, then get rid of them
-if (get_magic_quotes_gpc()) {
-	function zbx_stripslashes($value) {
-		$value = is_array($value) ? array_map('zbx_stripslashes', $value) : stripslashes($value);
-		return $value;
-	}
+if (version_compare(phpversion(), '6.0', '<') && get_magic_quotes_gpc()) {
 	$_GET = zbx_stripslashes($_GET);
 	$_POST = zbx_stripslashes($_POST);
 	$_COOKIE = zbx_stripslashes($_COOKIE);

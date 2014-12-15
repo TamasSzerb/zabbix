@@ -125,8 +125,8 @@ class CMapImporter extends CImporter {
 			$checked[] = $elementMapName;
 		}
 
-		// we need to find maps that reference the current element
-		// and if one has selements, check all of them recursively
+		// we need to find map that current element reference to
+		// and if it has selements check all them recursively
 		if (!empty($maps[$elementMapName]['selements'])) {
 			foreach ($maps[$elementMapName]['selements'] as $selement) {
 				return $this->checkCircularRecursive($selement, $maps, $checked);
@@ -259,26 +259,25 @@ class CMapImporter extends CImporter {
 
 		if (isset($map['links'])) {
 			foreach ($map['links'] as &$link) {
-				if (!$link['linktriggers']) {
+				if (empty($link['linktriggers'])) {
 					unset($link['linktriggers']);
 					continue;
 				}
 
-				foreach ($link['linktriggers'] as &$linkTrigger) {
-					$trigger = $linkTrigger['trigger'];
-					$triggerId = $this->referencer->resolveTrigger($trigger['description'], $trigger['expression']);
-
-					if (!$triggerId) {
+				foreach ($link['linktriggers'] as &$linktrigger) {
+					$dbTriggers = API::Trigger()->getObjects($linktrigger['trigger']);
+					if (empty($dbTriggers)) {
 						throw new Exception(_s(
 							'Cannot find trigger "%1$s" used in map "%2$s".',
-							$trigger['description'],
+							$linktrigger['trigger']['description'],
 							$map['name']
 						));
 					}
 
-					$linkTrigger['triggerid'] = $triggerId;
+					$tmp = reset($dbTriggers);
+					$linktrigger['triggerid'] = $tmp['triggerid'];
 				}
-				unset($linkTrigger);
+				unset($linktrigger);
 			}
 			unset($link);
 		}

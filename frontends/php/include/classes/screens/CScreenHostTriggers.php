@@ -68,8 +68,8 @@ class CScreenHostTriggers extends CScreenBase {
 			$params['hostids'] = $host['hostid'];
 		}
 		else {
-			$groupid = getRequest('tr_groupid', CProfile::get('web.screens.tr_groupid', 0));
-			$hostid = getRequest('tr_hostid', CProfile::get('web.screens.tr_hostid', 0));
+			$groupid = get_request('tr_groupid', CProfile::get('web.screens.tr_groupid', 0));
+			$hostid = get_request('tr_hostid', CProfile::get('web.screens.tr_hostid', 0));
 
 			CProfile::update('web.screens.tr_groupid', $groupid, PROFILE_TYPE_ID);
 			CProfile::update('web.screens.tr_hostid', $hostid, PROFILE_TYPE_ID);
@@ -109,13 +109,13 @@ class CScreenHostTriggers extends CScreenBase {
 			$groupComboBox = new CComboBox('tr_groupid', $groupid, 'submit()');
 			$groupComboBox->addItem(0, _('all'));
 			foreach ($groups as $group) {
-				$groupComboBox->addItem($group['groupid'], $group['name']);
+				$groupComboBox->addItem($group['groupid'], get_node_name_by_elid($group['groupid'], null, NAME_DELIMITER).$group['name']);
 			}
 
 			$hostsComboBox = new CComboBox('tr_hostid', $hostid, 'submit()');
 			$hostsComboBox->addItem(0, _('all'));
 			foreach ($hosts as $host) {
-				$hostsComboBox->addItem($host['hostid'], $host['host']);
+				$hostsComboBox->addItem($host['hostid'], get_node_name_by_elid($host['hostid'], null, NAME_DELIMITER).$host['host']);
 			}
 
 			if ($this->mode == SCREEN_MODE_EDIT) {
@@ -127,10 +127,8 @@ class CScreenHostTriggers extends CScreenBase {
 			$item->addItem(array(SPACE._('Host').SPACE, $hostsComboBox));
 		}
 
-		$output = new CUiWidget('hat_trstatus', make_latest_issues($params));
-		$output->setDoubleHeader(array(_('HOST ISSUES'), SPACE, '['.zbx_date2str(TIME_FORMAT_SECONDS).']', SPACE),
-			$item
-		);
+		$output = new CUIWidget('hat_trstatus', make_latest_issues($params));
+		$output->setDoubleHeader(array(_('HOST ISSUES'), SPACE, zbx_date2str(_('[H:i:s]')), SPACE), $item);
 
 		return $this->getOutput($output);
 	}

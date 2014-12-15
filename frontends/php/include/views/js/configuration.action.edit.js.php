@@ -6,7 +6,7 @@
 		<span style="font-size: 1.1em; font-weight: bold;"> #{name} </span>
 	</td>
 	<td>
-		<button type="button" class="button link_menu" name="remove" onclick="removeOpGroupRow('#{groupid}');"><?php echo _('Remove'); ?></button>
+		<input type="button" class="input link_menu" name="remove" value="<?php echo CHtml::encode(_('Remove')); ?>" onclick="removeOpGroupRow('#{groupid}');" />
 	</td>
 </tr>
 </script>
@@ -18,7 +18,7 @@
 		<span style="font-size: 1.1em; font-weight: bold;"> #{name} </span>
 	</td>
 	<td>
-		<button type="button" class="button link_menu" name="remove" onclick="removeOpTemplateRow('#{templateid}');"><?php echo _('Remove'); ?></button>
+		<input type="button" class="input link_menu" name="remove" value="<?php echo CHtml::encode(_('Remove')); ?>" onclick="removeOpTemplateRow('#{templateid}');" />
 	</td>
 </tr>
 </script>
@@ -31,7 +31,7 @@
 		<span>#{name}</span>
 	</td>
 	<td>
-		<button type="button" class="button link_menu" name="remove" onclick="removeOpmsgUsrgrpRow('#{usrgrpid}');"><?php echo _('Remove'); ?></button>
+		<input type="button" class="input link_menu" name="remove" value="<?php echo CHtml::encode(_('Remove')); ?>" onclick="removeOpmsgUsrgrpRow('#{usrgrpid}');" />
 	</td>
 </tr>
 </script>
@@ -43,7 +43,7 @@
 		<span>#{fullname}</span>
 	</td>
 	<td>
-		<button type="button" class="button link_menu" name="remove" onclick="removeOpmsgUserRow('#{userid}');"><?php echo _('Remove'); ?></button>
+		<input type="button" class="input link_menu" name="remove" value="<?php echo CHtml::encode(_('Remove')); ?>" onclick="removeOpmsgUserRow('#{userid}');" />
 	</td>
 </tr>
 </script>
@@ -57,7 +57,7 @@
 		<span>#{name}</span>
 	</td>
 	<td>
-		<button type="button" class="button link_menu" name="remove" onclick="removeOpCmdRow('#{groupid}', 'groupid');"><?php echo _('Remove'); ?></button>
+		<input type="button" class="input link_menu" name="remove" value="<?php echo CHtml::encode(_('Remove')); ?>" onclick="removeOpCmdRow('#{groupid}', 'groupid');" />
 	</td>
 </tr>
 </script>
@@ -71,7 +71,7 @@
 		<span>#{name}</span>
 	</td>
 	<td>
-		<button type="button" class="button link_menu" name="remove" onclick="removeOpCmdRow('#{hostid}', 'hostid');"><?php echo _('Remove'); ?></button>
+		<input type="button" class="input link_menu" name="remove" value="<?php echo CHtml::encode(_('Remove')); ?>" onclick="removeOpCmdRow('#{hostid}', 'hostid');" />
 	</td>
 </tr>
 </script>
@@ -91,14 +91,15 @@
 			</td>
 			<td style="padding-left: 0;">
 				<div id="opCmdTargetSelect" class="inlineblock">
+					<input name="action" type="hidden" value="#{action}" />
 					<input name="opCmdId" type="hidden" value="#{opcmdid}" />
 				</div>
 			</td>
 		</tr>
 		<tr>
 			<td colspan="3">
-				<button type="button" class="button link_menu" name="save">#{operationName}</button>&nbsp;
-				<button type="button" class="button link_menu" name="cancel"><?php echo CHtml::encode(_('Cancel')); ?></button>
+				<input type="button" class="input link_menu" name="save" value="#{operationName}" />&nbsp;
+				<input type="button" class="input link_menu" name="cancel" value="<?php echo CHtml::encode(_('Cancel')); ?>" />
 			</td>
 		</tr>
 		</tbody>
@@ -134,9 +135,6 @@
 		userscript: <?php echo ZBX_SCRIPT_TYPE_GLOBAL_SCRIPT; ?>
 	};
 
-	/**
-	 * @see init.js add.popup event
-	 */
 	function addPopupValues(list) {
 		var i,
 			value,
@@ -222,7 +220,7 @@
 			}
 
 			// IE8 hack to fix inline-block container resizing
-			if (IE8) {
+			if (jQuery.browser.msie && parseInt(jQuery.browser.version) == 8) {
 				inlineContainers = container.parents('.inlineblock').filter(function() {
 					return jQuery(this).css('display') == 'inline-block';
 				});
@@ -239,44 +237,21 @@
 	}
 
 	function removeOperation(index) {
-		var row = jQuery('#operations_' + index);
-		var rowParent = row.parent();
-
-		row.find('*').remove();
-		row.remove();
-
-		if (IE8) {
-			rowParent.closest('table').addClass('ie8fix-inline').removeClass('ie8fix-inline');
-		}
+		jQuery('#operations_' + index).find('*').remove();
+		jQuery('#operations_' + index).remove();
 	}
 
 	function removeOperationCondition(index) {
 		jQuery('#opconditions_' + index).find('*').remove();
 		jQuery('#opconditions_' + index).remove();
-
-		processOperationTypeOfCalculation();
 	}
 
 	function removeOpmsgUsrgrpRow(usrgrpid) {
-		var row = jQuery('#opmsgUsrgrpRow_' + usrgrpid);
-		var rowParent = row.parent();
-
-		row.remove();
-
-		if (IE8) {
-			rowParent.closest('table').parent().closest('table').addClass('ie8fix-inline').removeClass('ie8fix-inline');
-		}
+		jQuery('#opmsgUsrgrpRow_' + usrgrpid).remove();
 	}
 
 	function removeOpmsgUserRow(userid) {
-		var row = jQuery('#opmsgUserRow_' + userid);
-		var rowParent = row.parent();
-
-		row.remove();
-
-		if (IE8) {
-			rowParent.closest('table').parent().closest('table').addClass('ie8fix-inline').removeClass('ie8fix-inline');
-		}
+		jQuery('#opmsgUserRow_' + userid).remove();
 	}
 
 	function removeOpGroupRow(groupid) {
@@ -304,6 +279,7 @@
 			return true;
 		}
 
+		objectTPL.action = 'create';
 		objectTPL.opcmdid = 'new';
 		objectTPL.objectid = 0;
 		objectTPL.name = '';
@@ -317,8 +293,8 @@
 		jQuery('#opcmdEditForm')
 			.find('#opCmdTargetSelect')
 			.toggle(objectTPL.target != 'current').end()
-			.find('button[name="save"]').click(saveOpCmdForm).end()
-			.find('button[name="cancel"]').click(closeOpCmdForm).end()
+			.find('input[name="save"]').click(saveOpCmdForm).end()
+			.find('input[name="cancel"]').click(closeOpCmdForm).end()
 			.find('select[name="opCmdTarget"]').val(objectTPL.target).change(changeOpCmdTarget);
 	}
 
@@ -326,11 +302,12 @@
 		var objectForm = jQuery('#opcmdEditForm'),
 			object = {};
 
+		object.action = jQuery(objectForm).find('input[name="action"]').val();
 		object.target = jQuery(objectForm).find('select[name="opCmdTarget"]').val();
 
 		// host group
 		if (object.target == 'hostGroup') {
-			var values = jQuery('#opCmdTargetObject').multiSelect('getData');
+			var values = jQuery('#opCmdTargetObject').multiSelect.getData('opCmdTargetObject');
 
 			object.opcommand_grpid = jQuery(objectForm).find('input[name="opCmdId"]').val();
 
@@ -350,6 +327,7 @@
 						addPopupValues({
 							object: 'groupid',
 							values: [{
+								action: object.action,
 								target: object.target,
 								opcommand_grpid: object.opcommand_grpid,
 								groupid: data.id,
@@ -363,7 +341,7 @@
 
 		// host
 		else if (object.target == 'host') {
-			var values = jQuery('#opCmdTargetObject').multiSelect('getData');
+			var values = jQuery('#opCmdTargetObject').multiSelect.getData('opCmdTargetObject');
 
 			object.opcommand_hstid = jQuery(objectForm).find('input[name="opCmdId"]').val();
 
@@ -383,6 +361,7 @@
 						addPopupValues({
 							object: 'hostid',
 							values: [{
+								action: object.action,
 								target: object.target,
 								opcommand_hstid: object.opcommand_hstid,
 								hostid: data.id,
@@ -444,9 +423,6 @@
 					height: 450
 				}
 			});
-			if (IE8) {
-				jQuery('.formElementTable').addClass('ie8fix-inline').removeClass('ie8fix-inline');
-			}
 		}
 	}
 
@@ -529,62 +505,58 @@
 	}
 
 	function processTypeOfCalculation() {
-		if(jQuery('#evaltype').val() == <?php echo CONDITION_EVAL_TYPE_EXPRESSION ?>) {
-			jQuery('#conditionLabel').hide();
-			jQuery('#formula').show();
-		}
-		else {
-			jQuery('#conditionLabel').show();
-			jQuery('#formula').hide();
-		}
+		var count = jQuery('#conditionTable tr').length - 1;
 
-		var labels = jQuery('#conditionTable .label');
-
-		if (labels.length > 1) {
+		if (count > 1) {
 			jQuery('#conditionRow').css('display', '');
 
-			var conditions = [];
-			labels.each(function(index, label) {
-				label = jQuery(label);
+			var groupOperator = '',
+				globalOperator = '',
+				str = '';
 
-				conditions.push({
-					id: label.data('formulaid'),
-					type: label.data('conditiontype')
-				});
+			if (jQuery('#evaltype').val() == <?php echo ACTION_EVAL_TYPE_AND; ?>) {
+				groupOperator = <?php echo CJs::encodeJson(_('and')); ?>;
+				globalOperator = <?php echo CJs::encodeJson(_('and')); ?>;
+			}
+			else if (jQuery('#evaltype').val() == <?php echo ACTION_EVAL_TYPE_OR; ?>) {
+				groupOperator = <?php echo CJs::encodeJson(_('or')); ?>;
+				globalOperator = <?php echo CJs::encodeJson(_('or')); ?>;
+			}
+			else {
+				groupOperator = <?php echo CJs::encodeJson(_('or')); ?>;
+				globalOperator = <?php echo CJs::encodeJson(_('and')); ?>;
+			}
+
+			var conditionTypeHold = '';
+
+			jQuery('#conditionTable tr').not('.header').each(function() {
+				var conditionType = jQuery(this).find('.label').data('conditiontype');
+
+				if (empty(str)) {
+					str = ' (' + jQuery(this).find('.label').data('label');
+					conditionTypeHold = conditionType;
+				}
+				else {
+					if (conditionType != conditionTypeHold) {
+						str += ') ' + globalOperator + ' (' + jQuery(this).find('.label').data('label');
+						conditionTypeHold = conditionType;
+					}
+					else {
+						str += ' ' + groupOperator + ' ' + jQuery(this).find('.label').data('label');
+					}
+				}
 			});
+			str += ')';
 
-			jQuery('#conditionLabel').html(getConditionFormula(conditions, +jQuery('#evaltype').val()));
+			jQuery('#conditionLabel').html(str);
 		}
 		else {
 			jQuery('#conditionRow').css('display', 'none');
 		}
 	}
 
-	function processOperationTypeOfCalculation() {
-		var labels = jQuery('#operationConditionTable .label');
-
-		if (labels.length > 1) {
-			jQuery('#operationConditionRow').css('display', '');
-
-			var conditions = [];
-			labels.each(function(index, label) {
-				label = jQuery(label);
-
-				conditions.push({
-					id: label.data('formulaid'),
-					type: label.data('conditiontype')
-				});
-			});
-
-			jQuery('#operationConditionLabel').html(getConditionFormula(conditions, +jQuery('#operationEvaltype').val()));
-		}
-		else {
-			jQuery('#operationConditionRow').css('display', 'none');
-		}
-	}
-
 	function addDiscoveryTemplates() {
-		var values = jQuery('#discoveryTemplates').multiSelect('getData');
+		var values = jQuery('#discoveryTemplates').multiSelect.getData('discoveryTemplates');
 
 		for (var key in values) {
 			var data = values[key];
@@ -600,11 +572,11 @@
 			}
 		}
 
-		jQuery('#discoveryTemplates').multiSelect('clean');
+		jQuery('#dsc_templateid').multiSelect.clean();
 	}
 
 	function addDiscoveryHostGroup() {
-		var values = jQuery('#discoveryHostGroup').multiSelect('getData');
+		var values = jQuery('#discoveryHostGroup').multiSelect.getData('discoveryHostGroup');
 
 		for (var key in values) {
 			var data = values[key];
@@ -620,22 +592,13 @@
 			}
 		}
 
-		jQuery('#discoveryHostGroup').multiSelect('clean');
+		jQuery('#dsc_groupid').multiSelect.clean();
 	}
 
 	jQuery(document).ready(function() {
 		// clone button
 		jQuery('#clone').click(function() {
 			jQuery('#actionid, #delete, #clone').remove();
-			jQuery('#update').val(<?php echo CJs::encodeJson(_('Add')); ?>).attr({id: 'add', name: 'add'});
-
-			var operationIdNameRegex = /operations\[\d+\]\[operationid\]/;
-			jQuery('input[name^=operations]').each(function() {
-				if ($(this).getAttribute('name').match(operationIdNameRegex)) {
-					$(this).remove();
-				}
-			});
-
 			jQuery('#cancel').addClass('ui-corner-left');
 			jQuery('#form').val('clone');
 			jQuery('#name').focus();
@@ -653,6 +616,5 @@
 		});
 
 		processTypeOfCalculation();
-		processOperationTypeOfCalculation();
 	});
 </script>

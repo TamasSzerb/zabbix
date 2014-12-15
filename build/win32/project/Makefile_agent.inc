@@ -55,7 +55,6 @@ OBJS  = ..\..\..\src\libs\zbxalgo\algodefs.o \
 	..\..\..\src\libs\zbxsysinfo\win32\hostname.o \
 	..\..\..\src\libs\zbxwin32\perfmon.o \
 	..\..\..\src\libs\zbxwin32\service.o \
-	..\..\..\src\libs\zbxself\selfmon.o \
 	..\..\..\src\zabbix_agent\active.o \
 	..\..\..\src\zabbix_agent\cpustat.o \
 	..\..\..\src\zabbix_agent\eventlog.o \
@@ -66,18 +65,17 @@ OBJS  = ..\..\..\src\libs\zbxalgo\algodefs.o \
 	..\..\..\src\zabbix_agent\zabbix_agentd.o \
 	..\..\..\src\zabbix_agent\zbxconf.o \
 	..\..\..\src\libs\zbxregexp\gnuregex.o \
-	..\..\..\src\libs\zbxregexp\zbxregexp.o \
-	..\..\..\src\libs\zbxwin32\fatal.o
+	..\..\..\src\libs\zbxregexp\zbxregexp.o
 
 LIBS = ws2_32.lib psapi.lib pdh.lib Wldap32.lib advapi32.lib uuid.lib Iphlpapi.lib delayimp.lib wevtapi.lib
 
 all: $(PROGNAME)
 
 clean:
-	del $(OBJS) $(RESOURCE_RES) $(MESSAGES_H) $(PROGNAME) messages.rc MSG00001.bin zabbix_agentd.exe.manifest *.idb *.pdb
+	del $(OBJS) $(RESOURCE_RES) $(MESSAGES_H) $(PROGNAME) messages.rc MSG00001.bin zabbix_agentd.exe.manifest
 
 $(PROGNAME): $(MESSAGES_H) $(OBJS) $(RESOURCE_RES)
-	$(LINKER) $(OBJS) $(RESOURCE_RES) /OUT:$(PROGNAME) /PDB:$(PDBNAME) $(LFLAGS) $(LIBS)
+	$(LINKER) $(OBJS) $(RESOURCE_RES) /OUT:$(PROGNAME) $(LFLAGS) $(LIBS)
 	$(MT) /outputresource:"$(PROGNAME);#1" /manifest zabbix_agentd.exe.manifest /nologo
 
 $(MESSAGES_H): messages.mc
@@ -233,9 +231,6 @@ $(RESOURCE_RES): $(RESOURCE_RC) $(RESOURCE_H) $(DESC_H)
 ..\..\..\src\libs\zbxwin32\service.o: ..\..\..\src\libs\zbxwin32\service.c
 	$(CC) ..\..\..\src\libs\zbxwin32\service.c /Fo"..\..\..\src\libs\zbxwin32\service.o" $(CFLAGS)
 
-..\..\..\src\libs\zbxself\selfmon.o: ..\..\..\src\libs\zbxself\selfmon.c
-	$(CC) ..\..\..\src\libs\zbxself\selfmon.c /Fo"..\..\..\src\libs\zbxself\selfmon.o" $(CFLAGS)
-
 ..\..\..\src\zabbix_agent\active.o: ..\..\..\src\zabbix_agent\active.c
 	$(CC) ..\..\..\src\zabbix_agent\active.c /Fo"..\..\..\src\zabbix_agent\active.o" $(CFLAGS)
 
@@ -263,5 +258,4 @@ $(RESOURCE_RES): $(RESOURCE_RC) $(RESOURCE_H) $(DESC_H)
 ..\..\..\src\zabbix_agent\zbxconf.o: ..\..\..\src\zabbix_agent\zbxconf.c
 	$(CC) ..\..\..\src\zabbix_agent\zbxconf.c /Fo"..\..\..\src\zabbix_agent\zbxconf.o" $(CFLAGS)
 
-..\..\..\src\libs\zbxwin32\fatal.o: ..\..\..\src\libs\zbxwin32\fatal.c
-	$(CC) ..\..\..\src\libs\zbxwin32\fatal.c /Fo"..\..\..\src\libs\zbxwin32\fatal.o" $(CFLAGS)
+

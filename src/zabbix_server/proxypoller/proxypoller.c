@@ -30,8 +30,8 @@
 #include "log.h"
 #include "proxy.h"
 
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	process_type;
+extern int		process_num;
 
 static int	connect_to_proxy(DC_PROXY *proxy, zbx_sock_t *sock, int timeout)
 {
@@ -71,17 +71,18 @@ static int	send_data_to_proxy(DC_PROXY *proxy, zbx_sock_t *sock, const char *dat
 	return ret;
 }
 
-static int	recv_data_from_proxy(DC_PROXY *proxy, zbx_sock_t *sock)
+static int	recv_data_from_proxy(DC_PROXY *proxy, zbx_sock_t *sock, char **data)
 {
 	const char	*__function_name = "recv_data_from_proxy";
 	int		ret;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
-	if (FAIL == (ret = zbx_tcp_recv(sock)))
-		zabbix_log(LOG_LEVEL_ERR, "cannot obtain data from proxy \"%s\": %s", proxy->host, zbx_tcp_strerror());
+	if (FAIL == (ret = zbx_tcp_recv(sock, data)))
+		zabbix_log(LOG_LEVEL_ERR, "cannot obtain data from proxy \"%s\": %s",
+				proxy->host, zbx_tcp_strerror());
 	else
-		zabbix_log(LOG_LEVEL_DEBUG, "obtained data from proxy \"%s\": %s", proxy->host, sock->buffer);
+		zabbix_log(LOG_LEVEL_DEBUG, "obtained data from proxy \"%s\": %s", proxy->host, *data);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s", __function_name, zbx_result_string(ret));
 
@@ -120,6 +121,7 @@ static int	get_data_from_proxy(DC_PROXY *proxy, const char *request, char **data
 	const char	*__function_name = "get_data_from_proxy";
 	zbx_sock_t	s;
 	struct zbx_json	j;
+	char		*answer = NULL;
 	int		ret = FAIL;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() request:'%s'", __function_name, request);
@@ -131,9 +133,9 @@ static int	get_data_from_proxy(DC_PROXY *proxy, const char *request, char **data
 	if (SUCCEED == (ret = connect_to_proxy(proxy, &s, CONFIG_TRAPPER_TIMEOUT)))
 	{
 		if (SUCCEED == (ret = send_data_to_proxy(proxy, &s, j.buffer)))
-			if (SUCCEED == (ret = recv_data_from_proxy(proxy, &s)))
+			if (SUCCEED == (ret = recv_data_from_proxy(proxy, &s, &answer)))
 				if (SUCCEED == (ret = zbx_send_response(&s, SUCCEED, NULL, 0)))
-					*data = zbx_strdup(*data, s.buffer);
+					*data = zbx_strdup(*data, answer);
 
 		disconnect_proxy(&s);
 	}
@@ -193,8 +195,7 @@ static int	process_proxy(void)
 		proxy.addr = proxy.addr_orig;
 
 		port = zbx_strdup(port, proxy.port_orig);
-		substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-				&port, MACRO_TYPE_COMMON, NULL, 0);
+		substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL, NULL, &port, MACRO_TYPE_COMMON, NULL, 0);
 		if (FAIL == is_ushort(port, &proxy.port))
 		{
 			zabbix_log(LOG_LEVEL_ERR, "invalid proxy \"%s\" port: \"%s\"", proxy.host, port);
@@ -338,18 +339,11 @@ exit:
 	return num;
 }
 
-ZBX_THREAD_ENTRY(proxypoller_thread, args)
+void	main_proxypoller_loop(void)
 {
 	int	nextcheck, sleeptime = -1, processed = 0, old_processed = 0;
 	double	sec, total_sec = 0.0, old_total_sec = 0.0;
 	time_t	last_stat_time;
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
 
 #define STAT_INTERVAL	5	/* if a process is busy and does not sleep then update status not faster than */
 				/* once in STAT_INTERVAL seconds */

@@ -30,9 +30,9 @@ $macrosView = new CView('common.macros', array(
 ));
 $macrosTab->addTab('macros', _('Macros'), $macrosView->render());
 
-$saveButton = new CSubmit('update', _('Update'));
+$saveButton = new CSubmit('save', _('Save'));
 $saveButton->attr('data-removed-count', 0);
-$saveButton->main();
+$saveButton->addClass('main');
 
 $macrosForm->addItem($macrosTab);
 $macrosForm->addItem(makeFormFooter(null, array($saveButton)));

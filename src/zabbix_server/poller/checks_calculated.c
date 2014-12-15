@@ -88,7 +88,7 @@ static int	calcitem_parse_expression(DC_ITEM *dc_item, expression_t *exp, char *
 {
 	const char	*__function_name = "calcitem_parse_expression";
 	char		*e, *f, *func = NULL, *params = NULL;
-	size_t		exp_alloc = 128, exp_offset = 0, len;
+	size_t		exp_alloc = 128, exp_offset = 0;
 	int		functionid, ret;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() expression:'%s'", __function_name, dc_item->params);
@@ -100,25 +100,15 @@ static int	calcitem_parse_expression(DC_ITEM *dc_item, expression_t *exp, char *
 
 	for (e = dc_item->params; '\0' != *e; e++)
 	{
-		if (SUCCEED != is_function_char(*e))
-		{
-			zbx_chrcpy_alloc(&exp->exp, &exp_alloc, &exp_offset, *e);
+		if (NULL != strchr(" \t\r\n", *e))
 			continue;
-		}
-
-		if ((0 == strncmp("and", e, len = 3) || 0 == strncmp("not", e, 3) || 0 == strncmp("or", e, len = 2)) &&
-				NULL != strchr("()" ZBX_WHITESPACE, e[len]))
-		{
-			zbx_strncpy_alloc(&exp->exp, &exp_alloc, &exp_offset, e, len);
-			e += len - 1;
-			continue;
-		}
 
 		f = e;
-		if (SUCCEED != parse_function(&e, &func, &params))
+		if (FAIL == parse_function(&e, &func, &params))
 		{
 			e = f;
 			zbx_chrcpy_alloc(&exp->exp, &exp_alloc, &exp_offset, *f);
+
 			continue;
 		}
 		else
@@ -137,7 +127,7 @@ static int	calcitem_parse_expression(DC_ITEM *dc_item, expression_t *exp, char *
 
 	zabbix_log(LOG_LEVEL_DEBUG, "%s() expression:'%s'", __function_name, exp->exp);
 
-	if (FAIL == (ret = substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, &dc_item->host, NULL, NULL,
+	if (FAIL == (ret = substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, &dc_item->host, NULL,
 				&exp->exp, MACRO_TYPE_ITEM_EXPRESSION, error, max_error_len)))
 		ret = NOTSUPPORTED;
 
@@ -149,8 +139,8 @@ static int	calcitem_parse_expression(DC_ITEM *dc_item, expression_t *exp, char *
 static int	calcitem_evaluate_expression(DC_ITEM *dc_item, expression_t *exp, char *error, int max_error_len)
 {
 	const char	*__function_name = "calcitem_evaluate_expression";
-	function_t	*f = NULL;
-	char		*buf, replace[16], *errstr = NULL;
+	function_t	*f;
+	char		*buf, replace[16];
 	int		i, ret = SUCCEED;
 	time_t		now;
 	zbx_host_key_t	*keys = NULL;
@@ -246,20 +236,10 @@ static int	calcitem_evaluate_expression(DC_ITEM *dc_item, expression_t *exp, cha
 
 		f->value = zbx_malloc(f->value, MAX_BUFFER_LEN);
 
-		if (SUCCEED != evaluate_function(f->value, &items[i], f->func, f->params, now, &errstr))
+		if (SUCCEED != evaluate_function(f->value, &items[i], f->func, f->params, now))
 		{
-			if (NULL != errstr)
-			{
-				zbx_snprintf(error, max_error_len, "Cannot evaluate function \"%s(%s)\": %s.",
-						f->func, f->params, errstr);
-				zbx_free(errstr);
-			}
-			else
-			{
-				zbx_snprintf(error, max_error_len, "Cannot evaluate function \"%s(%s)\".",
-						f->func, f->params);
-			}
-
+			zbx_snprintf(error, max_error_len, "Cannot evaluate function [%s(%s)].",
+					f->func, f->params);
 			ret = NOTSUPPORTED;
 			break;
 		}
@@ -317,9 +297,11 @@ int	get_value_calculated(DC_ITEM *dc_item, AGENT_RESULT *result)
 
 	if (ITEM_VALUE_TYPE_UINT64 == dc_item->value_type && 0 > value)
 	{
-		SET_MSG_RESULT(result, zbx_dsprintf(NULL, "Received value [" ZBX_FS_DBL "]"
-				" is not suitable for value type [%s].",
-				value, zbx_item_value_type_string(dc_item->value_type)));
+		SET_MSG_RESULT(result, zbx_dsprintf(NULL,
+				"Received value [" ZBX_FS_DBL "] is not suitable"
+				" for value type [%s] and data type [%s]",
+				value, zbx_item_value_type_string(dc_item->value_type),
+				zbx_item_data_type_string(dc_item->data_type)));
 		ret = NOTSUPPORTED;
 		goto clean;
 	}

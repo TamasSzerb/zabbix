@@ -57,16 +57,11 @@ function bold($str) {
 
 function make_decoration($haystack, $needle, $class = null) {
 	$result = $haystack;
-
-	$tmpHaystack = mb_strtolower($haystack);
-	$tmpNeedle = mb_strtolower($needle);
-	$pos = mb_strpos($tmpHaystack, $tmpNeedle);
-
+	$pos = zbx_stripos($haystack, $needle);
 	if ($pos !== false) {
-		$start = CHtml::encode(mb_substr($haystack, 0, $pos));
-		$end = CHtml::encode(mb_substr($haystack, $pos + mb_strlen($needle)));
-		$found = CHtml::encode(mb_substr($haystack, $pos, mb_strlen($needle)));
-
+		$start = CHtml::encode(zbx_substring($haystack, 0, $pos));
+		$end = CHtml::encode(zbx_substring($haystack, $pos + zbx_strlen($needle)));
+		$found = CHtml::encode(zbx_substring($haystack, $pos, $pos + zbx_strlen($needle)));
 		if (is_null($class)) {
 			$result = array($start, bold($found), $end);
 		}
@@ -74,7 +69,6 @@ function make_decoration($haystack, $needle, $class = null) {
 			$result = array($start, new CSpan($found, $class), $end);
 		}
 	}
-
 	return $result;
 }
 
@@ -146,6 +140,52 @@ function BR() {
 	return new CTag('br', 'no');
 }
 
+function create_hat($caption, $items, $addicons = null, $id = null, $state = null) {
+	if (is_null($id)) {
+		list($usec, $sec) = explode(' ', microtime());
+		$id = 'hat_'.((int)($sec % 10)).((int)($usec * 1000));
+	}
+	$td_l = new CCol(SPACE);
+	$td_l->setAttribute('width', '100%');
+
+	$icons_row = array($td_l);
+	if (!is_null($addicons)) {
+		if (!is_array($addicons)) {
+			$addicons = array($addicons);
+		}
+		foreach ($addicons as $value) {
+			$icons_row[] = $value;
+		}
+	}
+
+	if (!is_null($state)) {
+		$icon = new CIcon(_('Show').'/'._('Hide'), $state ? 'arrowup' : 'arrowdown', "change_hat_state(this,'".$id."');");
+		$icon->setAttribute('id', $id.'_icon');
+		$icons_row[] = $icon;
+	}
+	else {
+		$state = true;
+	}
+
+	$icon_tab = new CTable();
+	$icon_tab->setAttribute('width', '100%');
+	$icon_tab->addRow($icons_row);
+
+	$table = new CTable();
+	$table->setAttribute('width', '100%');
+	$table->setCellPadding(0);
+	$table->setCellSpacing(0);
+	$table->addRow(get_table_header($caption, $icon_tab));
+
+	$div = new CDiv($items);
+	$div->setAttribute('id', $id);
+	if (!$state) {
+		$div->setAttribute('style', 'display: none;');
+	}
+	$table->addRow($div);
+	return $table;
+}
+
 function get_table_header($columnLeft, $columnRights = SPACE) {
 	$rights = array();
 
@@ -174,14 +214,14 @@ function show_table_header($columnLeft, $columnRights = SPACE){
 	$table->show();
 }
 
-function get_icon($type, $params = array()) {
-	switch ($type) {
+function get_icon($name, $params = array()) {
+	switch ($name) {
 		case 'favourite':
 			if (CFavorite::exists($params['fav'], $params['elid'], $params['elname'])) {
 				$icon = new CIcon(
 					_('Remove from favourites'),
 					'iconminus',
-					'rm4favorites("'.$params['elname'].'", "'.$params['elid'].'");'
+					'rm4favorites("'.$params['elname'].'", "'.$params['elid'].'", 0);'
 				);
 			}
 			else {
@@ -192,24 +232,24 @@ function get_icon($type, $params = array()) {
 				);
 			}
 			$icon->setAttribute('id', 'addrm_fav');
-
-			return $icon;
-
+			break;
 		case 'fullscreen':
-			$url = new CUrl();
+			$url = new Curl();
 			$url->setArgument('fullscreen', $params['fullscreen'] ? '0' : '1');
-
-			return new CIcon(
-				$params['fullscreen'] ? _('Normal view') : _('Fullscreen'),
+			$icon = new CIcon(
+				$_REQUEST['fullscreen'] ? _('Normal view') : _('Fullscreen'),
 				'fullscreen',
 				"document.location = '".$url->getUrl()."';"
 			);
-
+			break;
+		case 'menu':
+			$icon = new CIcon(_('Menu'), 'iconmenu', 'create_page_menu(event, "'.$params['menu'].'");');
+			break;
 		case 'reset':
-			return new CIcon(_('Reset'), 'iconreset', 'timeControl.objectReset();');
+			$icon = new CIcon(_('Reset'), 'iconreset', 'timeControl.objectReset();');
+			break;
 	}
-
-	return null;
+	return $icon;
 }
 
 /**
@@ -317,7 +357,7 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 		$proxyName = CHtml::encode($proxy['host']).NAME_DELIMITER;
 	}
 
-	$name = $proxyName.CHtml::encode($dbHost['name']);
+	$name = get_node_name_by_elid($dbHost['hostid'], true, NAME_DELIMITER).$proxyName.CHtml::encode($dbHost['name']);
 
 	if ($dbHost['status'] == HOST_STATUS_TEMPLATE) {
 		$list->addItem(array(bold(_('Template').NAME_DELIMITER), new CLink($name, 'templates.php?form=update&templateid='.$dbHost['hostid'])));
@@ -329,11 +369,11 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 					$status = new CSpan(_('In maintenance'), 'orange');
 				}
 				else {
-					$status = new CSpan(_('Enabled'), 'enabled');
+					$status = new CSpan(_('Monitored'), 'enabled');
 				}
 				break;
 			case HOST_STATUS_NOT_MONITORED:
-				$status = new CSpan(_('Disabled'), 'on');
+				$status = new CSpan(_('Not monitored'), 'on');
 				break;
 			default:
 				$status = _('Unknown');
@@ -375,7 +415,7 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 			}
 			else {
 				$list->addItem(array(
-					new CLink(_('Item prototypes'), 'disc_prototypes.php?parent_discoveryid='.$dbDiscovery['itemid']),
+					new CLink(_('Item prototypes'), 'disc_prototypes.php?hostid='.$dbHost['hostid'].'&parent_discoveryid='.$dbDiscovery['itemid']),
 					' ('.$dbDiscovery['items'].')'
 				));
 			}
@@ -400,7 +440,7 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 			}
 			else {
 				$list->addItem(array(
-					new CLink(_('Trigger prototypes'), 'trigger_prototypes.php?parent_discoveryid='.$dbDiscovery['itemid']),
+					new CLink(_('Trigger prototypes'), 'trigger_prototypes.php?hostid='.$dbHost['hostid'].'&parent_discoveryid='.$dbDiscovery['itemid']),
 					' ('.$dbDiscovery['triggers'].')'
 				));
 			}
@@ -425,7 +465,7 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 			}
 			else {
 				$list->addItem(array(
-					new CLink(_('Graph prototypes'), 'graphs.php?parent_discoveryid='.$dbDiscovery['itemid']),
+					new CLink(_('Graph prototypes'), 'graphs.php?hostid='.$dbHost['hostid'].'&parent_discoveryid='.$dbDiscovery['itemid']),
 					' ('.$dbDiscovery['graphs'].')'
 				));
 			}
@@ -494,40 +534,20 @@ function get_header_host_table($currentElement, $hostid, $discoveryid = null) {
 	return new CDiv($list, 'objectgroup top ui-widget-content ui-corner-all');
 }
 
-/**
- * Renders a form footer with the given buttons.
- *
- * @param CButtonInterface 		$mainButton	main button that will be displayed on the left
- * @param CButtonInterface[] 	$otherButtons
- *
- * @return CDiv
- *
- * @throws InvalidArgumentException	if an element of $otherButtons contain something other than CButtonInterface
- */
-function makeFormFooter(CButtonInterface $mainButton = null, array $otherButtons = array()) {
-	if ($mainButton) {
-		$mainButton->main();
-		$mainButton->setButtonClass('jqueryinput shadow');
+function makeFormFooter($main = null, $others = null) {
+	if ($main) {
+		$main->useJQueryStyle('main');
 	}
 
-	foreach ($otherButtons as $button) {
-		if (!$button instanceof CButtonInterface) {
-			throw new InvalidArgumentException('Each element of $otherButtons must be an instance of CButtonInterface');
-		}
-
-		// buttons will inherit the styles from the containing div, so only the shadow class is required
-		$button->setButtonClass('shadow');
-	}
-
-	$otherButtonDiv = new CDiv($otherButtons, 'dd left');
-	$otherButtonDiv->useJQueryStyle();
+	$othersButtons = new CDiv($others);
+	$othersButtons->useJQueryStyle();
 
 	return new CDiv(
 		new CDiv(
 			new CDiv(
 				array(
-					new CDiv($mainButton, 'dt right'),
-					$otherButtonDiv
+					new CDiv($main, 'dt right'),
+					new CDiv($othersButtons, 'dd left')
 				),
 				'formrow'
 			),
@@ -560,7 +580,7 @@ function getAvailabilityTable($host) {
 				break;
 			case HOST_AVAILABLE_FALSE:
 				$ai = new CDiv(SPACE, 'status_icon status_icon_extra icon'.$val.'unavailable');
-				$ai->setHint($host[$val.'_error'], 'on');
+				$ai->setHint($host[$val.'_error'], '', 'on');
 				break;
 			case HOST_AVAILABLE_UNKNOWN:
 				$ai = new CDiv(SPACE, 'status_icon status_icon_extra icon'.$val.'unknown');
@@ -572,12 +592,11 @@ function getAvailabilityTable($host) {
 	// discovered host lifetime indicator
 	if ($host['flags'] == ZBX_FLAG_DISCOVERY_CREATED && $host['hostDiscovery']['ts_delete']) {
 		$deleteError = new CDiv(SPACE, 'status_icon status_icon_extra iconwarning');
-		$deleteError->setHint(_s(
-			'The host is not discovered anymore and will be deleted in %1$s (on %2$s at %3$s).',
-			zbx_date2age($host['hostDiscovery']['ts_delete']),
-			zbx_date2str(DATE_FORMAT, $host['hostDiscovery']['ts_delete']),
-			zbx_date2str(TIME_FORMAT, $host['hostDiscovery']['ts_delete'])
-		));
+		$deleteError->setHint(
+			_s('The host is not discovered anymore and will be deleted in %1$s (on %2$s at %3$s).',
+				zbx_date2age($host['hostDiscovery']['ts_delete']), zbx_date2str(_('d M Y'), $host['hostDiscovery']['ts_delete']),
+				zbx_date2str(_('H:i:s'), $host['hostDiscovery']['ts_delete'])
+			));
 		$ad->addItem($deleteError);
 	}
 
@@ -618,30 +637,18 @@ function createDateSelector($name, $date, $relatedCalendar = null) {
 		$i = date('i', $date);
 	}
 
-	$day = new CTextBox($name.'_day', $d, 2, false, 2);
-	$day->attr('style', 'text-align: right;');
+	$day = new CNumericBox($name.'_day', $d, 2);
 	$day->attr('placeholder', _('dd'));
-	$day->addAction('onchange', 'validateDatePartBox(this, 1, 31, 2);');
-
-	$month = new CTextBox($name.'_month', $m, 2, false, 2);
-	$month->attr('style', 'text-align: right;');
+	$month = new CNumericBox($name.'_month', $m, 2);
 	$month->attr('placeholder', _('mm'));
-	$month->addAction('onchange', 'validateDatePartBox(this, 1, 12, 2);');
-
 	$year = new CNumericBox($name.'_year', $y, 4);
 	$year->attr('placeholder', _('yyyy'));
-
-	$hour = new CTextBox($name.'_hour', $h, 2, false, 2);
-	$hour->attr('style', 'text-align: right;');
+	$hour = new CNumericBox($name.'_hour', $h, 2);
 	$hour->attr('placeholder', _('hh'));
-	$hour->addAction('onchange', 'validateDatePartBox(this, 0, 23, 2);');
-
-	$minute = new CTextBox($name.'_minute', $i, 2, false, 2);
-	$minute->attr('style', 'text-align: right;');
+	$minute = new CNumericBox($name.'_minute', $i, 2);
 	$minute->attr('placeholder', _('mm'));
-	$minute->addAction('onchange', 'validateDatePartBox(this, 0, 59, 2);');
 
-	$fields = array($year, '-', $month, '-', $day, ' ', $hour, ':', $minute, $calendarIcon);
+	$fields = array($day, '/', $month, '/', $year, SPACE, $hour, ':', $minute, $calendarIcon);
 
 	zbx_add_post_js('create_calendar(null,'.
 		'["'.$name.'_day","'.$name.'_month","'.$name.'_year","'.$name.'_hour","'.$name.'_minute"],'.

@@ -34,6 +34,7 @@
 }
 
 span.divider { color: #77B7DA; }
+div #div_node_tree { background-color:#1D4161; }
 
 .delimiter{
 	color:#B0D5EC;
@@ -443,7 +444,12 @@ div.formElement{ border: 1px solid #77B7DA;}
 div.objectgroup { border-color: #4B7489; }
 div.border_dotted { border: 1px dotted #4B7489; }
 
+.footer .dt input.main{ border-color: #77B7DA; }
+.footer .dt input.main:hover{ border-color: #77B7DA; }
+
+
 ul.objectlist li{ color: #FFFFFF; }
+
 
 .formElementTable tr td{ color: #FFFFFF; }
 
@@ -454,50 +460,31 @@ span.link:hover{ color: #B0D5EC; }
 
 span.darklink{ color: #3C759B; }span.darklink:hover{ color: #77B7DA; }
 
-/* button */
-.button-plain { border: 1px solid #77b7da; background: #022744; color: #77b7da; }
-.button-plain:hover { border-color: #022744; color: #022744; background: #77b7da; }
-.button-plain[disabled], .button-plain[disabled]:hover { border-color: #4e738c; background: #2b495e; color: #aca899; }
-
-.link_menu { border-color: #77b7da; color: #77b7da; }
-.link_menu:hover { color: #b0d5ec; border-color: #b0d5ce; }
-.link_menu[disabled], .link_menu[disabled]:hover { background: none; color: #aca899; }
-
-.ui-button.main { border-color: #77b7da !important; }
-.ui-button.main:hover { border-color: #77b7da !important; }
-
-/* form input and form buttons */
-.input, .button-form { border: 1px solid #b3c9d6; background-color: #2f6487; color: #fff; }
-
-.button-form:hover { border-color: #6e8ab4; }
-
-.input:focus, .input:hover { border-color: #6e8ab4; }
-.input[readonly], .input[readonly]:hover, .input[readonly]:focus {
-	border-color: #4e738c; background: #2b495e; color: #fff;
+/*////////////////	FORMS	////////////////////*/
+.input, .input[disabled]:hover, input.formlist[type="button"],
+div.calendar input[type="button"] {
+	border: 1px solid #B3C9D6;
+	background: #2F6487;
+	color: #FFF;
 }
-.input[disabled], .input[disabled]:hover,
-.button-form[disabled], .button-form[disabled]:hover {
-	border-color: #4e738c; background: #2b495e;
-	/* ignored by IE for <select> */
-	color: #aca899;
+.input option { background: #2F6487; color: #FFFFFF; }
+.input:focus, .input:hover { border-color: #77B7DA; }
+.input[readonly], .input[readonly]:hover {
+/* NOTE: Ignored by IE */
+	border-color: #4E738C;
+	background: #2B495E;
 }
 
-.input option { background: #2f6487; color: #fff; }
-
-/* disabled <select> font color for IE 10+ */
-select[disabled]::-ms-value {
-	color: #aca899;
-}
-
-select[disabled] option { background: #2b495e; }
-
+.shadow {}
 .shadow:hover{ -webkit-box-shadow: 0 0 6px #77B7DA; -moz-box-shadow: 0 0 6px #77B7DA; box-shadow: 0 0 6px #77B7DA; }
 
-.shadow[disabled]:hover {
-	-webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none;
-}
-
 .select { margin: 1px 4px 1px 1px; }
+.button{  border-color: #77B7DA; background: #022744; color: #77B7DA; }
+.button:hover { border-color: #022744; color: #022744; background: #77B7DA; text-decoration: none; }
+
+.link_menu { border: 0; background: none; color: #77B7DA; border-bottom: 1px dotted #77B7DA; }
+.link_menu:hover { color: #B0D5EC; border-bottom-color: #B0D5EC; }
+.link_menu[disabled], .link_menu[disabled]:hover { color: #ACA899; border: 0; cursor: default; background: none; }
 
 .column .widget .header{ border: 1px solid #77B7DA;}
 .column .widget .footer{ border: 0; background: #245078 url('../../../images/gradients/header_footer_blue.png') repeat-x top left;}
@@ -508,8 +495,8 @@ ul.formlist li.new { background: #022744; }
 
 table.ack_msgs tr.msg { background-color: #022744; }
 
-#zbx_search input[type=text] { border-color: #efefef; }
-#zbx_search .button { border-color: #efefef; color: #fbfbfb; }
+#zbx_search input[type="text"], #zbx_search input { border-color: #EFEFEF; }
+#zbx_search input.button { color: #FBFBFB; }
 
 div.control-severity label span {
 	color: #77B7DA;
@@ -525,8 +512,8 @@ div.preloader {
 /* multiselect */
 .multiselect input[type="text"] { color: #FFFFFF; }
 .multiselect input[type="text"]:hover { background: none; border: none; outline: none; }
-.multiselect { border: 1px solid #B3C9D6; background: #001C31; }
-.multiselect.active { border: 1px solid #41789D; }
+.multiselect .selected ul { border: 1px solid #B3C9D6; background: #001C31; }
+.multiselect .selected ul.active { border: 1px solid #41789D; }
 .multiselect .selected ul li {
 	border: 1px solid #B3C9D6; background: #32698E; color: #FFFFFF;
 	background-image: -webkit-gradient(linear, 0 0, 0 100%, color-stop(1%, #2F6588), color-stop(15%, #3A7AA6));

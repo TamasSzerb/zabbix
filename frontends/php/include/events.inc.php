@@ -96,6 +96,15 @@ function eventSourceObjects() {
 	);
 }
 
+function get_tr_event_by_eventid($eventid) {
+	$sql = 'SELECT e.*,t.triggerid,t.description,t.expression,t.priority,t.status,t.type'.
+			' FROM events e,triggers t'.
+			' WHERE e.eventid='.zbx_dbstr($eventid).
+				' AND e.object='.EVENT_OBJECT_TRIGGER.
+				' AND t.triggerid=e.objectid';
+	return DBfetch(DBselect($sql));
+}
+
 function get_events_unacknowledged($db_element, $value_trigger = null, $value_event = null, $ack = false) {
 	$elements = array('hosts' => array(), 'hosts_groups' => array(), 'triggers' => array());
 	get_map_elements($db_element, $elements);
@@ -106,6 +115,7 @@ function get_events_unacknowledged($db_element, $value_trigger = null, $value_ev
 
 	$config = select_config();
 	$options = array(
+		'nodeids' => get_current_nodeid(),
 		'output' => array('triggerid'),
 		'monitored' => 1,
 		'skipDependent' => 1,
@@ -169,11 +179,8 @@ function make_event_details($event, $trigger) {
 	$config = select_config();
 	$table = new CTableInfo();
 
-	$table->addRow(array(
-		new CCol(_('Event')),
-		new CCol(CMacrosResolverHelper::resolveEventDescription(array_merge($trigger, $event)), 'wraptext')
-	));
-	$table->addRow(array(_('Time'), zbx_date2str(DATE_TIME_FORMAT_SECONDS, $event['clock'])));
+	$table->addRow(array(_('Event'), CMacrosResolverHelper::resolveEventDescription(array_merge($trigger, $event))));
+	$table->addRow(array(_('Time'), zbx_date2str(_('d M Y H:i:s'), $event['clock'])));
 
 	if ($config['event_ack_enable']) {
 		// to make resulting link not have hint with acknowledges
@@ -246,7 +253,7 @@ function make_small_eventlist($startEvent) {
 
 		$table->addRow(array(
 			new CLink(
-				zbx_date2str(DATE_TIME_FORMAT_SECONDS, $event['clock']),
+				zbx_date2str(_('d M Y H:i:s'), $event['clock']),
 				'tr_events.php?triggerid='.$event['objectid'].'&eventid='.$event['eventid'],
 				'action'
 			),
@@ -299,7 +306,7 @@ function make_popup_eventlist($triggerId, $eventId) {
 		addTriggerValueStyle($eventStatusSpan, $event['value'], $event['clock'], $event['acknowledged']);
 
 		$table->addRow(array(
-			zbx_date2str(DATE_TIME_FORMAT_SECONDS, $event['clock']),
+			zbx_date2str(_('d M Y H:i:s'), $event['clock']),
 			$eventStatusSpan,
 			$duration,
 			zbx_date2age($event['clock']),
@@ -359,7 +366,7 @@ function getEventAckState($event, $backUrl = false, $isLink = true, $params = ar
 			if (is_array($event['acknowledges'])) {
 				$ackLinkHints = makeAckTab($event);
 				if (!empty($ackLinkHints)) {
-					$ackLink->setHint($ackLinkHints, '', false);
+					$ackLink->setHint($ackLinkHints, '', '', false);
 				}
 				$ack = array($ackLink, ' ('.count($event['acknowledges']).')');
 			}
@@ -407,6 +414,9 @@ function getLastEvents($options) {
 		$eventOptions['limit'] = $options['eventLimit'];
 	}
 
+	if (isset($options['nodeids'])) {
+		$triggerOptions['nodeids'] = $options['nodeids'];
+	}
 	if (isset($options['priority'])) {
 		$triggerOptions['filter']['priority'] = $options['priority'];
 	}

@@ -26,8 +26,9 @@ $userGroupWidget->addPageHeader(_('CONFIGURATION OF USER GROUPS'));
 $userGroupForm = new CForm();
 $userGroupForm->setName('userGroupsForm');
 $userGroupForm->addVar('form', $this->data['form']);
+$userGroupForm->addVar('form_refresh', $this->data['form_refresh'] + 1);
 $userGroupForm->addVar('group_rights', $this->data['group_rights']);
-if (isset($this->data['usrgrpid'])) {
+if (isset($_REQUEST['usrgrpid'])) {
 	$userGroupForm->addVar('usrgrpid', $this->data['usrgrpid']);
 }
 
@@ -54,14 +55,14 @@ foreach ($this->data['users'] as $user) {
 $userGroupFormList->addRow(_('Users'), $usersTweenBox->get(_('In group'), array(_('Other groups'), SPACE, $groupsComboBox)));
 
 // append frontend and user status to from list
-$isGranted = isset($data['usrgrpid']) ? granted2update_group($data['usrgrpid']) : true;
+$isGranted = isset($_REQUEST['usrgrpid']) ? granted2update_group($_REQUEST['usrgrpid']) : true;
 if ($isGranted) {
 	$frontendComboBox = new CComboBox('gui_access', $this->data['gui_access']);
 	$frontendComboBox->addItem(GROUP_GUI_ACCESS_SYSTEM, user_auth_type2str(GROUP_GUI_ACCESS_SYSTEM));
 	$frontendComboBox->addItem(GROUP_GUI_ACCESS_INTERNAL, user_auth_type2str(GROUP_GUI_ACCESS_INTERNAL));
 	$frontendComboBox->addItem(GROUP_GUI_ACCESS_DISABLED, user_auth_type2str(GROUP_GUI_ACCESS_DISABLED));
 	$userGroupFormList->addRow(_('Frontend access'), $frontendComboBox);
-	$userGroupFormList->addRow(_('Enabled'), new CCheckBox('users_status', $this->data['users_status'] ? (isset($data['usrgrpid']) ? 0 : 1) : 1, null, 1)); // invert user status 0 - enable, 1 - disable
+	$userGroupFormList->addRow(_('Enabled'), new CCheckBox('users_status', $this->data['users_status'] ? (!isset($_REQUEST['usrgrpid']) ? 1 : 0) : 1, null, 1)); // invert user status 0 - enable, 1 - disable
 }
 else {
 	$userGroupForm->addVar('gui_access', $this->data['gui_access']);
@@ -103,28 +104,16 @@ $permissionsTable->addRow(array(
 ));
 $permissionsTable->addRow(array(
 	array(
-		new CButton('add_read_write', _('Add'),
-			"return PopUp('popup_right.php?dstfrm=".$userGroupForm->getName().
-				'&permission='.PERM_READ_WRITE."', 450, 450);",
-			'button-form'
-		),
-		new CSubmit('del_read_write', _('Delete selected'), null, 'button-form')
+		new CButton('add_read_write', _('Add'), "return PopUp('popup_right.php?dstfrm=".$userGroupForm->getName().'&permission='.PERM_READ_WRITE."', 450, 450);", 'formlist'),
+		new CSubmit('del_read_write', _('Delete selected'), null, 'formlist')
 	),
 	array(
-		new CButton('add_read_only', _('Add'),
-			"return PopUp('popup_right.php?dstfrm=".$userGroupForm->getName().
-				'&permission='.PERM_READ."', 450, 450);",
-			'button-form'
-		),
-		new CSubmit('del_read_only', _('Delete selected'), null, 'button-form')
+		new CButton('add_read_only', _('Add'), "return PopUp('popup_right.php?dstfrm=".$userGroupForm->getName().'&permission='.PERM_READ."', 450, 450);", 'formlist'),
+		new CSubmit('del_read_only', _('Delete selected'), null, 'formlist')
 	),
 	array(
-		new CButton('add_deny', _('Add'),
-			"return PopUp('popup_right.php?dstfrm=".$userGroupForm->getName().
-				'&permission='.PERM_DENY."', 450, 450);",
-			'button-form'
-		),
-		new CSubmit('del_deny', _('Delete selected'), null, 'button-form')
+		new CButton('add_deny', _('Add'), "return PopUp('popup_right.php?dstfrm=".$userGroupForm->getName().'&permission='.PERM_DENY."', 450, 450);", 'formlist'),
+		new CSubmit('del_deny', _('Delete selected'), null, 'formlist')
 	)
 ));
 $permissionsFormList->addRow(_('Composing permissions'), $permissionsTable);
@@ -143,19 +132,19 @@ $userGroupTab->addTab('permissionsTab', _('Permissions'), $permissionsFormList);
 $userGroupForm->addItem($userGroupTab);
 
 // append buttons to form
-if (isset($this->data['usrgrpid'])) {
+if (empty($this->data['usrgrpid'])) {
 	$userGroupForm->addItem(makeFormFooter(
-		new CSubmit('update', _('Update')),
-		array(
-			new CButtonDelete(_('Delete selected group?'), url_param('form').url_param('usrgrpid').url_param('config')),
-			new CButtonCancel(url_param('config'))
-		)
+		new CSubmit('save', _('Save')),
+		new CButtonCancel(url_param('config'))
 	));
 }
 else {
 	$userGroupForm->addItem(makeFormFooter(
-		new CSubmit('add', _('Add')),
-		array(new CButtonCancel(url_param('config')))
+		new CSubmit('save', _('Save')),
+		array(
+			new CButtonDelete(_('Delete selected group?'), url_param('form').url_param('usrgrpid').url_param('config')),
+			new CButtonCancel(url_param('config'))
+		)
 	));
 }
 

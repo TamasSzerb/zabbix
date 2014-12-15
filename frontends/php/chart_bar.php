@@ -51,7 +51,7 @@ $fields = array(
 check_fields($fields);
 
 // validate permissions
-$items = getRequest('items', array());
+$items = get_request('items', array());
 $itemIds = zbx_objectValues($_REQUEST['items'], 'itemid');
 $itemsCount = API::Item()->get(array(
 	'itemids' => $itemIds,
@@ -62,19 +62,19 @@ if (count($itemIds) != $itemsCount) {
 	access_deny();
 }
 
-$config = getRequest('config', 1);
-$title = getRequest('title', _('Report'));
-$xlabel = getRequest('xlabel', 'X');
-$ylabel = getRequest('ylabel', 'Y');
+$config = get_request('config', 1);
+$title = get_request('title', _('Report'));
+$xlabel = get_request('xlabel', 'X');
+$ylabel = get_request('ylabel', 'Y');
 
-$showlegend = getRequest('showlegend', 0);
-$sorttype = getRequest('sorttype', 0);
+$showlegend = get_request('showlegend', 0);
+$sorttype = get_request('sorttype', 0);
 
 if ($config == 1) {
-	$scaletype = getRequest('scaletype', TIMEPERIOD_TYPE_WEEKLY);
+	$scaletype = get_request('scaletype', TIMEPERIOD_TYPE_WEEKLY);
 
-	$timesince = getRequest('report_timesince', time() - SEC_PER_DAY);
-	$timetill = getRequest('report_timetill', time());
+	$timesince = get_request('report_timesince', time() - SEC_PER_DAY);
+	$timetill = get_request('report_timetill', time());
 
 	$str_since['hour'] = date('H', $timesince);
 	$str_since['day'] = date('d', $timesince);
@@ -274,7 +274,9 @@ if ($config == 1) {
 		}
 
 		if (!isset($graph_data['captions'])) {
-			$date_caption = ($scaletype == TIMEPERIOD_TYPE_HOURLY) ? DATE_TIME_FORMAT : DATE_FORMAT;
+			$date_caption = ($scaletype == TIMEPERIOD_TYPE_HOURLY)
+				? CHARTBAR_HOURLY_DATE_FORMAT
+				: CHARTBAR_DAILY_DATE_FORMAT;
 
 			$graph_data['captions'] = array();
 			foreach ($item_data['clock'] as $id => $clock) {
@@ -284,7 +286,7 @@ if ($config == 1) {
 	}
 }
 elseif ($config == 2) {
-	$periods = getRequest('periods', array());
+	$periods = get_request('periods', array());
 
 	$graph = new CBarGraphDraw(GRAPH_TYPE_COLUMN);
 	$graph->setHeader('REPORT 1');
@@ -383,23 +385,23 @@ elseif ($config == 2) {
 	}
 }
 elseif ($config == 3) {
-	$hostids = getRequest('hostids', array());
-	$groupids = getRequest('groupids', array());
+	$hostids = get_request('hostids', array());
+	$groupids = get_request('groupids', array());
 
 	// validate permissions
 	if (!API::Host()->isReadable($hostids) || !API::HostGroup()->isReadable($groupids)) {
 		access_deny();
 	}
 
-	$title = getRequest('title','Report 2');
-	$xlabel = getRequest('xlabel','');
-	$ylabel = getRequest('ylabel','');
+	$title = get_request('title','Report 2');
+	$xlabel = get_request('xlabel','');
+	$ylabel = get_request('ylabel','');
 
-	$palette = getRequest('palette',0);
-	$palettetype = getRequest('palettetype',0);
+	$palette = get_request('palette',0);
+	$palettetype = get_request('palettetype',0);
 
-	$scaletype = getRequest('scaletype', TIMEPERIOD_TYPE_WEEKLY);
-	$avgperiod = getRequest('avgperiod', TIMEPERIOD_TYPE_DAILY);
+	$scaletype = get_request('scaletype', TIMEPERIOD_TYPE_WEEKLY);
+	$avgperiod = get_request('avgperiod', TIMEPERIOD_TYPE_DAILY);
 
 	if (!empty($groupids)) {
 		$sql = 'SELECT DISTINCT hg.hostid'.
@@ -432,8 +434,8 @@ elseif ($config == 3) {
 	$graph_data['legend'] = array();
 
 
-	$timesince = getRequest('report_timesince', time() - SEC_PER_DAY);
-	$timetill = getRequest('report_timetill', time());
+	$timesince = get_request('report_timesince', time() - SEC_PER_DAY);
+	$timetill = get_request('report_timetill', time());
 
 	$str_since['hour'] = date('H', $timesince);
 	$str_since['day'] = date('d', $timesince);
@@ -614,7 +616,9 @@ elseif ($config == 3) {
 				$graph_data['colors'][$count] = rgb2hex($tmp_color);
 			}
 
-			$date_caption = ($scaletype == TIMEPERIOD_TYPE_HOURLY) ? DATE_TIME_FORMAT : DATE_FORMAT;
+			$date_caption = ($scaletype == TIMEPERIOD_TYPE_HOURLY)
+				? CHARTBAR_HOURLY_DATE_FORMAT
+				: CHARTBAR_DAILY_DATE_FORMAT;
 			$graph_data['legend'][$count] = zbx_date2str($date_caption, $start);
 
 			$count++;
@@ -651,8 +655,8 @@ $graph->setSeriesColor($graph_data['colors']);
 $graph->showLegend($showlegend);
 
 $graph->setWidth(1024);
-$graph->setMinChartHeight(250);
+$graph->setHeight(400);
 
-$graph->draw();
+$graph->Draw();
 
 require_once dirname(__FILE__).'/include/page_footer.php';

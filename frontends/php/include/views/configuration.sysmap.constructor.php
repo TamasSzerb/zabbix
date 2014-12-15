@@ -59,8 +59,8 @@ $gridAlignAll->setAttribute('id', 'gridalignall');
 $gridForm = new CDiv(array($gridSize, $gridAlignAll));
 $gridForm->setAttribute('id', 'gridalignblock');
 
-$saveButton = new CSubmit('update', _('Update'));
-$saveButton->setAttribute('id', 'sysmap_update');
+$saveButton = new CSubmit('save', _('Save'));
+$saveButton->setAttribute('id', 'sysmap_save');
 
 $menuTable = new CTable(null, 'textwhite');
 $menuTable->addRow(array(

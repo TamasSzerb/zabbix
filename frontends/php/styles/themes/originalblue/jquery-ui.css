@@ -373,8 +373,8 @@
 .originalblue .ui-menu .ui-menu-item a[aria-haspopup="true"] { cursor: default; }
 .originalblue .ui-menu .ui-menu-item a.ui-state-focus,
 .originalblue .ui-menu .ui-menu-item a.ui-state-active { font-weight: normal; margin: -1px; background: #DAE6F1 url(images/bg_i-hard_100.png) 50% 50% repeat-x; }
-.originalblue .ui-menu .ui-state-disabled { background: #ffffff; margin-top: 1px; }
-.originalblue .ui-menu .ui-state-disabled a { padding-top: 1px; color: #A8BFD4; cursor: default; }
+.originalblue .ui-menu .ui-state-disabled { font-weight: normal; margin: .4em 0 .2em; line-height: 1.5; }
+.originalblue .ui-menu .ui-state-disabled a { cursor: default; }
 .originalblue .ui-menu-icons { position: relative; }
 .originalblue .ui-menu-icons .ui-menu-item a { position: relative; padding-left: 2em; }
 .originalblue .ui-menu .ui-icon { position: absolute; top: .2em; left: .2em; }
@@ -402,6 +402,9 @@ button.ui-button-icons-only { width: 3.7em; }
 .originalblue .ui-button-text-icon-primary .ui-button-text, .originalblue .ui-button-text-icons .ui-button-text { padding: .4em 1em .4em 2.1em; }
 .originalblue .ui-button-text-icon-secondary .ui-button-text, .originalblue .ui-button-text-icons .ui-button-text { padding: .4em 2.1em .4em 1em; }
 .originalblue .ui-button-text-icons .ui-button-text { padding-left: 2.1em; padding-right: 2.1em; }
+
+/* no icon support for input elements, provide padding by default */
+input.ui-button { padding: .3em 1em; }
 
 /*button icon element(s) */
 .originalblue .ui-button-icon-only .ui-icon, .originalblue .ui-button-text-icon-primary .ui-icon, .originalblue .ui-button-text-icon-secondary .ui-icon, .originalblue .ui-button-text-icons .ui-icon, .originalblue .ui-button-icons-only .ui-icon { position: absolute; top: 50%; margin-top: -8px; }
@@ -565,3 +568,7 @@ button.ui-button::-moz-focus-inner { border: 0; padding: 0; }
  */
 .originalblue .ui-progressbar { height:2em; text-align: left; }
 .originalblue .ui-progressbar .ui-progressbar-value { margin: -1px; height: 100%; }
+
+/* Make checked checkboxes/radiobuttons have black label text */
+.originalblue .ui-button.ui-state-active .ui-button-text { color: #000000; }
+.originalblue .ui-button.ui-state-active.ui-state-disabled .ui-button-text { color: #777; }

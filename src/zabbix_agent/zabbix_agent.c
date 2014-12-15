@@ -30,31 +30,17 @@
 #include "threads.h"
 
 const char	*progname = NULL;
-const char	title_message[] = "zabbix_agent";
+const char	title_message[] = "Zabbix agent";
 const char	syslog_app_name[] = "zabbix_agent";
-const char	*usage_message[] = {
-	"[-c config-file]",
-	"[-c config-file] -p",
-	"[-c config-file] -t item-key",
-	"-h",
-	"-V",
-	NULL	/* end of text */
-};
-
-unsigned char process_type	= 255;	/* ZBX_PROCESS_TYPE_UNKNOWN */
-int process_num;
-int server_num			= 0;
+const char	usage_message[] = "[-Vhp] [-c <file>] [-t <item>]";
 
 const char	*help_message[] = {
-	"A Zabbix executable for monitoring of various server parameters, to be started upon request by inetd.",
-	"",
 	"Options:",
-	"  -c --config config-file  Absolute path to the configuration file",
-	"  -p --print               Print known items and exit",
-	"  -t --test item-key       Test specified item and exit",
-	"",
-	"  -h --help                Display this help message",
-	"  -V --version             Display version number",
+	"  -c --config <file>  Absolute path to the configuration file",
+	"  -p --print          Print known items and exit",
+	"  -t --test <item>    Test specified item and exit",
+	"  -h --help           Give this help",
+	"  -V --version        Display version number",
 	NULL	/* end of text */
 };
 
@@ -131,7 +117,7 @@ static void	zbx_load_config(int optional)
  * Comments:                                                                  *
  *                                                                            *
  ******************************************************************************/
-static void	zbx_free_config(void)
+static void	zbx_free_config()
 {
 	zbx_strarr_free(CONFIG_ALIASES);
 	zbx_strarr_free(CONFIG_LOAD_MODULE);
@@ -146,8 +132,8 @@ int	main(int argc, char **argv)
 	zbx_sock_t	s_in;
 	zbx_sock_t	s_out;
 
-	int		ret, opt_c = 0, opt_p = 0, opt_t = 0;
-	char		**value;
+	int		ret;
+	char		**value, *command;
 
 	AGENT_RESULT	result;
 
@@ -159,76 +145,40 @@ int	main(int argc, char **argv)
 		switch (ch)
 		{
 			case 'c':
-				opt_c++;
-				if (NULL == CONFIG_FILE)
-					CONFIG_FILE = zbx_strdup(NULL, zbx_optarg);
+				CONFIG_FILE = strdup(zbx_optarg);
 				break;
 			case 'h':
 				help();
-				exit(EXIT_SUCCESS);
+				exit(FAIL);
 				break;
 			case 'V':
 				version();
 #ifdef _AIX
-				printf("\n");
 				tl_version();
 #endif
-				exit(EXIT_SUCCESS);
+				exit(FAIL);
 				break;
 			case 'p':
-				opt_p++;
-				if (ZBX_TASK_START == task)
+				if (task == ZBX_TASK_START)
 					task = ZBX_TASK_PRINT_SUPPORTED;
 				break;
 			case 't':
-				opt_t++;
-				if (ZBX_TASK_START == task)
+				if (task == ZBX_TASK_START)
 				{
 					task = ZBX_TASK_TEST_METRIC;
-					TEST_METRIC = zbx_strdup(TEST_METRIC, zbx_optarg);
+					TEST_METRIC = strdup(zbx_optarg);
 				}
 				break;
 			default:
 				usage();
-				exit(EXIT_FAILURE);
+				exit(FAIL);
 				break;
 		}
 	}
 
-	/* every option may be specified only once */
-	if (1 < opt_c || 1 < opt_p || 1 < opt_t)
-	{
-		if (1 < opt_c)
-			zbx_error("option \"-c\" or \"--config\" specified multiple times");
-		if (1 < opt_p)
-			zbx_error("option \"-p\" or \"--print\" specified multiple times");
-		if (1 < opt_t)
-			zbx_error("option \"-t\" or \"--test\" specified multiple times");
-
-		exit(EXIT_FAILURE);
-	}
-
-	/* check for mutually exclusive options */
-	if (1 < opt_p + opt_t)
-	{
-		zbx_error("only one of options \"-p\", \"--print\", \"-t\" or \"--test\" can be used");
-		exit(EXIT_FAILURE);
-	}
-
-	/* Parameters which are not option values are invalid. The check relies on zbx_getopt_internal() which */
-	/* always permutes command line arguments regardless of POSIXLY_CORRECT environment variable. */
-	if (argc > zbx_optind)
-	{
-		int	i;
-
-		for (i = zbx_optind; i < argc; i++)
-			zbx_error("invalid parameter \"%s\"", argv[i]);
-
-		exit(EXIT_FAILURE);
-	}
-
 	if (NULL == CONFIG_FILE)
 		CONFIG_FILE = DEFAULT_CONFIG_FILE;
+
 
 	/* load configuration */
 	if (ZBX_TASK_PRINT_SUPPORTED == task || ZBX_TASK_TEST_METRIC == task)
@@ -285,15 +235,15 @@ int	main(int argc, char **argv)
 
 	if (SUCCEED == (ret = zbx_tcp_check_security(&s_in, CONFIG_HOSTS_ALLOWED, 0)))
 	{
-		if (SUCCEED == (ret = zbx_tcp_recv(&s_in)))
+		if (SUCCEED == (ret = zbx_tcp_recv(&s_in, &command)))
 		{
-			zbx_rtrim(s_in.buffer, "\r\n");
+			zbx_rtrim(command, "\r\n");
 
-			zabbix_log(LOG_LEVEL_DEBUG, "requested [%s]", s_in.buffer);
+			zabbix_log(LOG_LEVEL_DEBUG, "requested [%s]", command);
 
 			init_result(&result);
 
-			process(s_in.buffer, 0, &result);
+			process(command, 0, &result);
 
 			if (NULL == (value = GET_TEXT_RESULT(&result)))
 				value = GET_MSG_RESULT(&result);
@@ -321,7 +271,7 @@ int	main(int argc, char **argv)
 	return SUCCEED;
 }
 
-void	zbx_on_exit(void)
+void	zbx_on_exit()
 {
 	unload_modules();
 	zabbix_close_log();
@@ -329,5 +279,5 @@ void	zbx_on_exit(void)
 	free_metrics();
 	alias_list_free();
 
-	exit(EXIT_SUCCESS);
+	exit(SUCCEED);
 }

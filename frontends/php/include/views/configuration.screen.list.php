@@ -48,7 +48,8 @@ $screenForm->addVar('templateid', $this->data['templateid']);
 $screenTable = new CTableInfo(_('No screens found.'));
 $screenTable->setHeader(array(
 	new CCheckBox('all_screens', null, "checkAll('".$screenForm->getName()."', 'all_screens', 'screens');"),
-	make_sorting_header(_('Name'), 'name', $this->data['sort'], $this->data['sortorder']),
+	$this->data['displayNodes'] ? _('Node') : null,
+	make_sorting_header(_('Name'), 'name'),
 	_('Dimension (cols x rows)'),
 	_('Screen')
 ));
@@ -56,6 +57,7 @@ $screenTable->setHeader(array(
 foreach ($this->data['screens'] as $screen) {
 	$screenTable->addRow(array(
 		new CCheckBox('screens['.$screen['screenid'].']', null, null, $screen['screenid']),
+		$this->data['displayNodes'] ? $screen['nodename'] : null,
 		new CLink($screen['name'], 'screenedit.php?screenid='.$screen['screenid'].url_param('templateid')),
 		$screen['hsize'].' x '.$screen['vsize'],
 		new CLink(_('Edit'), '?form=update&screenid='.$screen['screenid'].url_param('templateid'))
@@ -63,11 +65,11 @@ foreach ($this->data['screens'] as $screen) {
 }
 
 // create go button
-$goComboBox = new CComboBox('action');
+$goComboBox = new CComboBox('go');
 if (empty($this->data['templateid'])) {
-	$goComboBox->addItem('screen.export', _('Export selected'));
+	$goComboBox->addItem('export', _('Export selected'));
 }
-$goOption = new CComboItem('screen.massdelete', _('Delete selected'));
+$goOption = new CComboItem('delete', _('Delete selected'));
 $goOption->setAttribute('confirm', _('Delete selected screens?'));
 $goComboBox->addItem($goOption);
 
@@ -80,5 +82,4 @@ $screenForm->addItem(array($this->data['paging'], $screenTable, $this->data['pag
 
 // append form to widget
 $screenWidget->addItem($screenForm);
-
 return $screenWidget;

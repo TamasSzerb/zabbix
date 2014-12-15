@@ -308,9 +308,8 @@
 .classic .ui-menu .ui-menu-item a.ui-state-focus,
 .classic .ui-menu .ui-menu-item a.ui-state-active { font-weight: normal; margin: -1px; background: #DDD; color: #456582; }
 .classic .ui-menu .ui-menu-item a[aria-haspopup="true"] { cursor: default; }
-.classic .ui-menu .ui-state-disabled { background: #ffffff; margin-top: 1px; }
-.classic .ui-menu.ui-widget-content .ui-state-disabled { background: #ffffff; }
-.classic .ui-menu .ui-state-disabled a { padding-top: 1px; color: #A8BFD4; cursor: default; }
+.classic .ui-menu .ui-state-disabled { font-weight: normal; margin: .4em 0 .2em; line-height: 1.5; }
+.classic .ui-menu .ui-state-disabled a { cursor: default; }
 .classic .ui-menu-icons { position: relative; }
 .classic .ui-menu-icons .ui-menu-item a { position: relative; padding-left: 2em; }
 .classic .ui-menu .ui-icon { position: absolute; top: .2em; left: .2em; }
@@ -335,6 +334,9 @@ button.ui-button-icons-only { width: 3.7em; }
 .classic .ui-button-text-icon-primary .ui-button-text, .classic .ui-button-text-icons .ui-button-text { padding: .4em 1em .4em 2.1em; }
 .classic .ui-button-text-icon-secondary .ui-button-text, .classic .ui-button-text-icons .ui-button-text { padding: .4em 2.1em .4em 1em; }
 .classic .ui-button-text-icons .ui-button-text { padding-left: 2.1em; padding-right: 2.1em; }
+
+/* no icon support for input elements, provide padding by default */
+input.ui-button { padding: .3em 1em; }
 
 /*button icon element(s) */
 .classic .ui-button-icon-only .ui-icon, .classic .ui-button-text-icon-primary .ui-icon, .classic .ui-button-text-icon-secondary .ui-icon, .classic .ui-button-text-icons .ui-icon, .classic .ui-button-icons-only .ui-icon { position: absolute; top: 50%; margin-top: -8px; }
@@ -464,3 +466,7 @@ button.ui-button::-moz-focus-inner { border: 0; padding: 0; }
 
 .classic .ui-progressbar { height: 2em; text-align: left; }
 .classic .ui-progressbar .ui-progressbar-value { margin: -1px; height: 100%; }
+
+/* Make checked checkboxes/radiobuttons have black label text */
+.classic .ui-button.ui-state-active .ui-button-text { color: #000; }
+.classic .ui-button.ui-state-active.ui-state-disabled .ui-button-text { color: #555; }

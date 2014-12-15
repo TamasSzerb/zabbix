@@ -29,7 +29,7 @@ class testPageDiscovery extends CWebTest {
 		$this->zbxTestTextPresent('Discovery rules');
 		$this->zbxTestTextPresent('Displaying');
 		$this->zbxTestTextPresent(array('Name', 'IP range', 'Delay', 'Checks', 'Status'));
-		$this->zbxTestDropdownHasOptions('action', array('Enable selected', 'Disable selected', 'Delete selected'));
+		$this->zbxTestDropdownHasOptions('go', array('Enable selected', 'Disable selected', 'Delete selected'));
 	}
 
 	// returns all discovery rules
@@ -42,21 +42,21 @@ class testPageDiscovery extends CWebTest {
 	*/
 	public function testPageDiscovery_SimpleUpdate($drule) {
 		$sqlDRules = 'SELECT * FROM drules WHERE druleid='.$drule['druleid'];
-		$sqlDChecks = 'SELECT * FROM dchecks WHERE druleid='.$drule['druleid'].' ORDER BY dcheckid';
+		/*$sqlDChecks = 'SELECT * FROM dchecks WHERE druleid='.$drule['druleid'].' ORDER BY dcheckid';*/
 		$oldHashDRules = DBhash($sqlDRules);
-		$oldHashDChecks = DBhash($sqlDChecks);
+		/*$oldHashDChecks = DBhash($sqlDChecks);*/
 
 		$this->zbxTestLogin('discoveryconf.php');
 		$this->zbxTestCheckTitle('Configuration of discovery rules');
 		$this->zbxTestClickWait('link='.$drule['name']);
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 
 		$this->zbxTestCheckTitle('Configuration of discovery rules');
 		$this->zbxTestTextPresent('Discovery rule updated');
 		$this->zbxTestTextPresent($drule['name']);
 
 		$this->assertEquals($oldHashDRules, DBhash($sqlDRules));
-		$this->assertEquals($oldHashDChecks, DBhash($sqlDChecks));
+		/*$this->assertEquals($oldHashDChecks, DBhash($sqlDChecks));*/
 	}
 
 	/**
@@ -70,7 +70,7 @@ class testPageDiscovery extends CWebTest {
 		$this->zbxTestLogin('discoveryconf.php');
 		$this->zbxTestCheckTitle('Configuration of discovery rules');
 		$this->zbxTestCheckboxSelect('g_druleid['.$drule['druleid'].']');
-		$this->zbxTestDropdownSelect('action', 'Delete selected');
+		$this->zbxTestDropdownSelect('go', 'Delete selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
@@ -91,7 +91,7 @@ class testPageDiscovery extends CWebTest {
 		$this->zbxTestLogin('discoveryconf.php');
 		$this->zbxTestCheckTitle('Configuration of discovery rules');
 		$this->zbxTestCheckboxSelect('all_drules');
-		$this->zbxTestDropdownSelect('action', 'Enable selected');
+		$this->zbxTestDropdownSelect('go', 'Enable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
@@ -112,7 +112,7 @@ class testPageDiscovery extends CWebTest {
 		$this->zbxTestLogin('discoveryconf.php');
 		$this->zbxTestCheckTitle('Configuration of discovery rules');
 		$this->zbxTestCheckboxSelect('g_druleid['.$drule['druleid'].']');
-		$this->zbxTestDropdownSelect('action', 'Enable selected');
+		$this->zbxTestDropdownSelect('go', 'Enable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
@@ -135,7 +135,7 @@ class testPageDiscovery extends CWebTest {
 		$this->zbxTestLogin('discoveryconf.php');
 		$this->zbxTestCheckTitle('Configuration of discovery rules');
 		$this->zbxTestCheckboxSelect('all_drules');
-		$this->zbxTestDropdownSelect('action', 'Disable selected');
+		$this->zbxTestDropdownSelect('go', 'Disable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();
@@ -156,7 +156,7 @@ class testPageDiscovery extends CWebTest {
 		$this->zbxTestLogin('discoveryconf.php');
 		$this->zbxTestCheckTitle('Configuration of discovery rules');
 		$this->zbxTestCheckboxSelect('g_druleid['.$drule['druleid'].']');
-		$this->zbxTestDropdownSelect('action', 'Disable selected');
+		$this->zbxTestDropdownSelect('go', 'Disable selected');
 		$this->zbxTestClickWait('goButton');
 
 		$this->getConfirmation();

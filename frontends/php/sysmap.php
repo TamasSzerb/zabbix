@@ -35,18 +35,20 @@ require_once dirname(__FILE__).'/include/page_header.php';
 $fields = array(
 	'sysmapid' =>	array(T_ZBX_INT, O_MAND, P_SYS,	DB_ID,		null),
 	'selementid' =>	array(T_ZBX_INT, O_OPT, P_SYS,	DB_ID,		null),
-	'sysmap' =>		array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY,	'isset({action})'),
+	'sysmap' =>		array(T_ZBX_STR, O_OPT, null,	NOT_EMPTY,	'isset({save})'),
 	'selements' =>	array(T_ZBX_STR, O_OPT, P_SYS,	DB_ID,		null),
 	'links' =>		array(T_ZBX_STR, O_OPT, P_SYS,	DB_ID,		null),
 	// actions
-	'action' =>		array(T_ZBX_STR, O_OPT, P_ACT,	IN('"update"'),	null),
+	'action' =>		array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,	null),
+	'save' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'delete' =>		array(T_ZBX_STR, O_OPT, P_SYS|P_ACT, null,	null),
 	'cancel' =>		array(T_ZBX_STR, O_OPT, P_SYS,	null,		null),
 	'form' =>		array(T_ZBX_STR, O_OPT, P_SYS,	null,		null),
 	'form_refresh' => array(T_ZBX_INT, O_OPT, null,	null,		null),
 	// ajax
 	'favobj' =>		array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
-	'favid' =>		array(T_ZBX_STR, O_OPT, P_ACT,	null,		null)
+	'favid' =>		array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
+	'favcnt' =>		array(T_ZBX_INT, O_OPT, null,	null,		null)
 );
 check_fields($fields);
 
@@ -54,11 +56,10 @@ check_fields($fields);
  * Ajax
  */
 if (isset($_REQUEST['favobj'])) {
-	$json = new CJson();
+	$json = new CJSON();
 
-//	if ($_REQUEST['favobj'] == 'sysmap' && getRequest('action') == 'update') {
-	if (getRequest('favobj') == 'sysmap' && hasRequest('action') && getRequest('action') == 'update') {
-		$sysmapid = getRequest('sysmapid', 0);
+	if ($_REQUEST['favobj'] == 'sysmap' && $_REQUEST['action'] == 'save') {
+		$sysmapid = get_request('sysmapid', 0);
 
 		@ob_start();
 
@@ -82,10 +83,10 @@ if (isset($_REQUEST['favobj'])) {
 			$result = API::Map()->update($sysmapUpdate);
 
 			if ($result !== false) {
-				echo 'if (confirm('.CJs::encodeJson(_('Map is updated! Return?')).')) { location.href = "sysmaps.php"; }';
+				echo 'if (Confirm("'._('Map is saved! Return?').'")) { location.href = "sysmaps.php"; }';
 			}
 			else {
-				throw new Exception(_('Map update failed.')."\n\r");
+				throw new Exception(_('Map save operation failed.')."\n\r");
 			}
 
 			DBend(true);
@@ -104,14 +105,14 @@ if (isset($_REQUEST['favobj'])) {
 		}
 
 		@ob_flush();
-		exit;
+		exit();
 
 	}
 }
 
 if (PAGE_TYPE_HTML != $page['type']) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 /*
@@ -183,9 +184,11 @@ if ($data['sysmap']['iconmapid']) {
 
 // get icon list
 $icons = DBselect(
-	'SELECT i.imageid,i.name FROM images i WHERE i.imagetype='.IMAGE_TYPE_ICON
+	'SELECT i.imageid,i.name'.
+	' FROM images i'.
+	' WHERE i.imagetype='.IMAGE_TYPE_ICON.
+		andDbNode('i.imageid')
 );
-
 while ($icon = DBfetch($icons)) {
 	$data['iconList'][] = array(
 		'imageid' => $icon['imageid'],

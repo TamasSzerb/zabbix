@@ -18,6 +18,7 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
+
 $proxyWidget = new CWidget();
 $proxyWidget->addPageHeader(_('CONFIGURATION OF PROXIES'));
 
@@ -25,13 +26,14 @@ $proxyWidget->addPageHeader(_('CONFIGURATION OF PROXIES'));
 $proxyForm = new CForm();
 $proxyForm->setName('proxyForm');
 $proxyForm->addVar('form', $this->data['form']);
-if ($this->data['proxyid']) {
+$proxyForm->addVar('form_refresh', $this->data['form_refresh']);
+if (!empty($this->data['proxyid'])) {
 	$proxyForm->addVar('proxyid', $this->data['proxyid']);
 }
 
 // create form list
 $proxyFormList = new CFormList('proxyFormList');
-$nameTextBox = new CTextBox('host', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE, false, 128);
+$nameTextBox = new CTextBox('host', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE, 'no', 64);
 $nameTextBox->attr('autofocus', 'autofocus');
 $proxyFormList->addRow(_('Proxy name'), $nameTextBox);
 
@@ -61,10 +63,10 @@ if ($this->data['status'] == HOST_STATUS_PROXY_PASSIVE) {
 	$connectByComboBox->useJQueryStyle();
 
 	$interfaceTable->addRow(array(
-		new CTextBox('interface[ip]', $this->data['interface']['ip'], ZBX_TEXTBOX_SMALL_SIZE, false, 64),
-		new CTextBox('interface[dns]', $this->data['interface']['dns'], ZBX_TEXTBOX_SMALL_SIZE, false, 64),
+		new CTextBox('interface[ip]', $this->data['interface']['ip'], ZBX_TEXTBOX_SMALL_SIZE, 'no', 64),
+		new CTextBox('interface[dns]', $this->data['interface']['dns'], ZBX_TEXTBOX_SMALL_SIZE, 'no', 64),
 		$connectByComboBox,
-		new CTextBox('interface[port]', $this->data['interface']['port'], 18, false, 64)
+		new CTextBox('interface[port]', $this->data['interface']['port'], 18, 'no', 64)
 	));
 	$proxyFormList->addRow(_('Interface'), new CDiv($interfaceTable, 'objectgroup inlineblock border_dotted ui-corner-all'));
 }
@@ -79,12 +81,11 @@ foreach ($this->data['dbHosts'] as $host) {
 			$host['hostid'],
 			$host['name'],
 			null,
-			empty($host['proxy_hostid']) || ($this->data['proxyid'] && bccomp($host['proxy_hostid'], $this->data['proxyid']) == 0 && $host['flags'] == ZBX_FLAG_DISCOVERY_NORMAL)
+			empty($host['proxy_hostid']) || (!empty($this->data['proxyid']) && bccomp($host['proxy_hostid'], $this->data['proxyid']) == 0 && $host['flags'] == ZBX_FLAG_DISCOVERY_NORMAL)
 		);
 	}
 }
 $proxyFormList->addRow(_('Hosts'), $hostsTweenBox->get(_('Proxy hosts'), _('Other hosts')));
-$proxyFormList->addRow(_('Description'), new CTextArea('description', $this->data['description']));
 
 // append tabs to form
 $proxyTab = new CTabView();
@@ -92,9 +93,9 @@ $proxyTab->addTab('proxyTab', _('Proxy'), $proxyFormList);
 $proxyForm->addItem($proxyTab);
 
 // append buttons to form
-if ($this->data['proxyid']) {
+if (!empty($this->data['proxyid'])) {
 	$proxyForm->addItem(makeFormFooter(
-		new CSubmit('update', _('Update')),
+		new CSubmit('save', _('Save')),
 		array(
 			new CSubmit('clone', _('Clone')),
 			new CButtonDelete(_('Delete proxy?'), url_param('form').url_param('proxyid')),
@@ -104,8 +105,8 @@ if ($this->data['proxyid']) {
 }
 else {
 	$proxyForm->addItem(makeFormFooter(
-		new CSubmit('add', _('Add')),
-		array(new CButtonCancel())
+		new CSubmit('save', _('Save')),
+		new CButtonCancel()
 	));
 }
 

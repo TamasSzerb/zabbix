@@ -268,7 +268,7 @@ class CPieGraphDraw extends CGraphDraw {
 
 			$this->sum += $item_value;
 
-			$convertedUnit = strlen(convert_units(array(
+			$convertedUnit = zbx_strlen(convert_units(array(
 				'value' => $item_value,
 				'units' => $this->items[$i]['units']
 			)));
@@ -283,31 +283,25 @@ class CPieGraphDraw extends CGraphDraw {
 
 	protected function drawLegend() {
 		$shiftY = $this->shiftY + $this->shiftYLegend;
-		$fontSize = 8;
+		$max_host_len = 0;
+		$max_name_len = 0;
 
-		// check if host name will be displayed
-		$displayHostName = (count(array_unique(zbx_objectValues($this->items, 'hostname'))) > 1);
-
-		// calculate function name X shift
-		$functionNameXShift = 0;
-
-		foreach ($this->items as $item) {
-			$name = $displayHostName ? $item['hostname'].': '.$item['name_expanded'] : $item['name_expanded'];
-			$dims = imageTextSize($fontSize, 0, $name);
-
-			if ($dims['width'] > $functionNameXShift) {
-				$functionNameXShift = $dims['width'];
+		for ($i = 0; $i < $this->num; $i++) {
+			if (zbx_strlen($this->items[$i]['hostname']) > $max_host_len) {
+				$max_host_len = zbx_strlen($this->items[$i]['hostname']);
+			}
+			if (zbx_strlen($this->items[$i]['name_expanded']) > $max_name_len) {
+				$max_name_len = zbx_strlen($this->items[$i]['name_expanded']);
 			}
 		}
 
-		// display items
-		$i = 0;
+		for ($i = 0; $i < $this->num; $i++) {
+			$color = $this->getColor($this->items[$i]['color'], 0);
+			$type = $this->items[$i]['calc_type'];
 
-		foreach ($this->items as $item) {
-			$color = $this->getColor($item['color'], 0);
+			$data = &$this->data[$this->items[$i]['itemid']][$type];
 
-			// function name
-			switch ($item['calc_fnc']) {
+			switch ($this->items[$i]['calc_fnc']) {
 				case CALC_FNC_MIN:
 					$fncName = 'min';
 					$fncRealName = _('min');
@@ -325,51 +319,33 @@ class CPieGraphDraw extends CGraphDraw {
 					$fncName = 'avg';
 					$fncRealName = _('avg');
 			}
+			$datavalue = $this->data[$this->items[$i]['itemid']][$type][$fncName];
 
-			if (isset($this->data[$item['itemid']][$item['calc_type']])
-					&& isset($this->data[$item['itemid']][$item['calc_type']][$fncName])) {
-				$dataValue = $this->data[$item['itemid']][$item['calc_type']][$fncName];
-				$proc = ($this->sum == 0) ? 0 : ($dataValue * 100) / $this->sum;
+			$proc = $this->sum == 0 ? 0 : ($datavalue * 100) / $this->sum;
 
-				$strValue = sprintf(_('Value').': %s ('.(round($proc) != round($proc, 2) ? '%0.2f' : '%0.0f').'%%)',
+			if (isset($data) && isset($datavalue)) {
+				$strvalue = sprintf(_('Value').': %s ('.(round($proc) != round($proc, 2) ? '%0.2f' : '%0.0f').'%%)',
 					convert_units(array(
-						'value' => $dataValue,
+						'value' => $datavalue,
 						'units' => $this->items[$i]['units']
 					)),
 					$proc
 				);
 
-				$str = '['.$fncRealName.']';
+				$str = sprintf('%s: %s [%s] ',
+					str_pad($this->items[$i]['hostname'], $max_host_len, ' '),
+					str_pad($this->items[$i]['name_expanded'], $max_name_len, ' '),
+					$fncRealName
+				);
 			}
 			else {
-				$strValue = _('Value: no data');
-
-				$str = '['._('no data').']';
+				$strvalue = sprintf(_('Value: no data'));
+				$str = sprintf('%s: %s [ '._('no data').' ]',
+					str_pad($this->items[$i]['hostname'], $max_host_len, ' '),
+					str_pad($this->items[$i]['name_expanded'], $max_name_len, ' ')
+				);
 			}
 
-			// item name
-			imageText(
-				$this->im,
-				$fontSize,
-				0,
-				$this->shiftXleft + 15,
-				$this->sizeY + $shiftY + 14 * $i + 5,
-				$this->getColor($this->graphtheme['textcolor'], 0),
-				$displayHostName ? $item['hostname'].': '.$item['name_expanded'] : $item['name_expanded']
-			);
-
-			// function name
-			imageText(
-				$this->im,
-				$fontSize,
-				0,
-				$this->shiftXleft + $functionNameXShift + 30,
-				$this->sizeY + $shiftY + 14 * $i + 5,
-				$this->getColor($this->graphtheme['textcolor'], 0),
-				$str
-			);
-
-			// left square fill
 			imagefilledrectangle(
 				$this->im,
 				$this->shiftXleft,
@@ -379,7 +355,6 @@ class CPieGraphDraw extends CGraphDraw {
 				$color
 			);
 
-			// left square frame
 			imagerectangle(
 				$this->im,
 				$this->shiftXleft,
@@ -389,9 +364,18 @@ class CPieGraphDraw extends CGraphDraw {
 				$this->getColor('Black No Alpha')
 			);
 
+			imageText(
+				$this->im,
+				8,
+				0,
+				$this->shiftXleft + 15,
+				$this->sizeY + $shiftY + 14 * $i + 5,
+				$this->getColor($this->graphtheme['textcolor'], 0),
+				$str
+			);
+
 			$shiftX = $this->fullSizeX - $this->shiftlegendright - $this->shiftXright + 25;
 
-			// right square fill
 			imagefilledrectangle(
 				$this->im,
 				$shiftX - 10,
@@ -401,7 +385,6 @@ class CPieGraphDraw extends CGraphDraw {
 				$color
 			);
 
-			// right square frame
 			imagerectangle(
 				$this->im,
 				$shiftX - 10,
@@ -411,18 +394,15 @@ class CPieGraphDraw extends CGraphDraw {
 				$this->GetColor('Black No Alpha')
 			);
 
-			// item value
 			imagetext(
 				$this->im,
-				$fontSize,
+				8,
 				0,
 				$shiftX + 5,
 				$this->shiftY + 10 + 14 * $i + 10,
 				$this->getColor($this->graphtheme['textcolor'], 0),
-				$strValue
+				$strvalue
 			);
-
-			$i++;
 		}
 
 		if ($this->sizeY < 120) {

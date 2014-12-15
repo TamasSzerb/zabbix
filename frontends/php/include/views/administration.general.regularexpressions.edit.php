@@ -21,7 +21,7 @@
 
 require_once dirname(__FILE__).'/js/adm.regexprs.edit.js.php';
 
-zbx_add_post_js('zabbixRegExp.addExpressions('.CJs::encodeJson(array_values($this->get('expressions'))).');');
+zbx_add_post_js('zabbixRegExp.addExpressions('.CJs::encodeJson(array_values($this->get('expressions'))).')');
 
 $form = new CForm();
 $form->attr('id', 'zabbixRegExpForm');
@@ -32,7 +32,7 @@ $form->addVar('regexpid', $this->data['regexpid']);
  * Expressions tab
  */
 $exprTab = new CFormList('exprTab');
-$nameTextBox = new CTextBox('name', $this->get('name'), ZBX_TEXTBOX_STANDARD_SIZE, false, 128);
+$nameTextBox = new CTextBox('name', $this->get('name'), ZBX_TEXTBOX_STANDARD_SIZE, null, 128);
 $nameTextBox->attr('autofocus', 'autofocus');
 $exprTab->addRow(_('Name'), $nameTextBox);
 
@@ -53,9 +53,9 @@ $exprForm->addRow(array(_('Expression type'), new CComboBox('typeNew', null, nul
 $exprForm->addRow(array(_('Delimiter'), new CComboBox('delimiterNew', null, null, expressionDelimiters())), null, 'delimiterNewRow');
 $exprForm->addRow(array(_('Case sensitive'), new CCheckBox('case_sensitiveNew')));
 $exprFormFooter = array(
-	new CButton('saveExpression', _('Add'), null, 'link_menu'),
+	new Cbutton('saveExpression', _('Add'), null, 'link_menu'),
 	SPACE,
-	new CButton('cancelExpression', _('Cancel'), null, 'link_menu')
+	new Cbutton('cancelExpression', _('Cancel'), null, 'link_menu')
 );
 $exprTab->addRow(null, new CDiv(array($exprForm, $exprFormFooter), 'objectgroup inlineblock border_dotted'), true, 'exprForm');
 
@@ -82,24 +82,13 @@ $regExpView->addTab('test', _('Test'), $testTab);
 $form->addItem($regExpView);
 
 // footer
+$secondaryActions = array(new CButtonCancel());
 if (isset($this->data['regexpid'])) {
-	$form->addItem(makeFormFooter(
-		new CSubmit('update', _('Update')),
-		array(
-			new CButton('clone', _('Clone')),
-			new CButtonDelete(
-				_('Delete regular expression?'),
-				url_param('regexpid').url_param('regexp.massdelete', false, 'action')
-			),
-			new CButtonCancel()
-		)
-	));
+	array_unshift($secondaryActions,
+		new CSubmit('clone', _('Clone')),
+		new CButtonDelete(_('Delete regular expression?'), url_param('form').url_param('regexpid').url_param('delete', false, 'go'))
+	);
 }
-else {
-	$form->addItem(makeFormFooter(
-		new CSubmit('add', _('Add')),
-		array(new CButtonCancel())
-	));
-}
+$form->addItem(makeFormFooter(new CSubmit('save', _('Save')), $secondaryActions));
 
 return $form;

@@ -57,48 +57,20 @@ jQuery(function($) {
 			data = obj.data('menu-popup');
 
 		switch (data.type) {
-			case 'favouriteGraphs':
-				data = getMenuPopupFavouriteGraphs(data);
-				break;
-
-			case 'favouriteMaps':
-				data = getMenuPopupFavouriteMaps(data);
-				break;
-
-			case 'favouriteScreens':
-				data = getMenuPopupFavouriteScreens(data);
-				break;
-
-			case 'history':
-				data = getMenuPopupHistory(data);
-				break;
-
 			case 'host':
 				data = getMenuPopupHost(data);
-				break;
-
-			case 'map':
-				data = getMenuPopupMap(data);
-				break;
-
-			case 'refresh':
-				data = getMenuPopupRefresh(data);
-				break;
-
-			case 'serviceConfiguration':
-				data = getMenuPopupServiceConfiguration(data);
 				break;
 
 			case 'trigger':
 				data = getMenuPopupTrigger(data);
 				break;
 
-			case 'triggerLog':
-				data = getMenuPopupTriggerLog(data);
+			case 'history':
+				data = getMenuPopupHistory(data);
 				break;
 
-			case 'triggerMacro':
-				data = getMenuPopupTriggerMacro(data);
+			case 'map':
+				data = getMenuPopupMap(data);
 				break;
 		}
 
@@ -115,14 +87,6 @@ jQuery(function($) {
 
 	/*
 	 * add.popup event
-	 *
-	 * Call multiselect method 'addData' if parent was multiselect, execute addPopupValues function
-	 * or just update input field value
-	 *
-	 * @param object data
-	 * @param string data.object   object name
-	 * @param array  data.values   values
-	 * @param string data.parentId parent id
 	 */
 	$(document).on('add.popup', function(e, data) {
 		// multiselect check
@@ -134,32 +98,15 @@ jQuery(function($) {
 						'name': data.values[i].name,
 						'prefix': data.values[i].prefix
 					};
-					jQuery('#' + data.parentId).multiSelect('addData', item);
+					jQuery('#' + data.parentId).multiSelect.addData(item, data.parentId);
 				}
 			}
 		}
-		else if (typeof addPopupValues !== 'undefined') {
-			// execute function if they exist
-			addPopupValues(data);
-		}
 		else {
-			jQuery('#' + data.parentId).val(data.values[0].name);
+			// execute function if they exist
+			if (typeof addPopupValues !== 'undefined') {
+				addPopupValues(data);
+			}
 		}
 	});
-
-	// create jquery buttons
-	$('.jqueryinput').button();
-	$('.jqueryinputset').buttonset();
-
-	createPlaceholders();
-
-	// redirect buttons
-	$('button[data-url]').click(function() {
-		var button = $(this);
-		var confirmation = button.data('confirmation');
-
-		if (typeof confirmation === 'undefined' || (typeof confirmation !== 'undefined' && confirm(confirmation))) {
-			window.location = button.data('url');
-		}
-	})
 });

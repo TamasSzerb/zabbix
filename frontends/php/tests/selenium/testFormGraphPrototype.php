@@ -711,14 +711,14 @@ class testFormGraphPrototype extends CWebTest {
 
 		$this->zbxTestClick('link=Preview');
 
-		$this->assertVisible('Update');
-		$this->assertAttribute("//input[@id='update']/@value", 'Update');
+		$this->assertVisible('save');
+		$this->assertAttribute("//input[@id='save']/@value", 'Save');
 
 		if (isset($data['templatedHost'])) {
-			$this->assertAttribute("//input[@id='update']/@aria-disabled", 'true');
+			$this->assertAttribute("//input[@id='save']/@aria-disabled", 'true');
 		}
 		else {
-			$this->assertAttribute("//input[@id='update']/@aria-disabled", 'false');
+			$this->assertAttribute("//input[@id='save']/@aria-disabled", 'false');
 		}
 
 		$this->assertVisible('cancel');
@@ -761,7 +761,7 @@ class testFormGraphPrototype extends CWebTest {
 		$oldHashGraphs = DBhash($sqlGraphs);
 
 		$this->zbxTestLogin('graphs.php?form=update&graphid='.$data['graphid'].'&parent_discoveryid=33800&hostid=40001');
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestCheckTitle('Configuration of graph prototypes');
 		$this->zbxTestTextPresent(array(
 			'CONFIGURATION OF GRAPH PROTOTYPES',
@@ -1178,7 +1178,7 @@ class testFormGraphPrototype extends CWebTest {
 		}
 
 
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 
 		switch ($data['expected']) {
 			case TEST_GOOD:
@@ -1230,7 +1230,7 @@ class testFormGraphPrototype extends CWebTest {
 			$this->zbxTestClickWait("link=Graph prototypes");
 
 			$this->zbxTestCheckboxSelect("group_graphid_$graphid");
-			$this->zbxTestDropdownSelect('action', 'Delete selected');
+			$this->zbxTestDropdownSelect('go', 'Delete selected');
 			$this->zbxTestClick('goButton');
 
 			$this->getConfirmation();

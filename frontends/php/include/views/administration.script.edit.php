@@ -27,6 +27,7 @@ $scriptsWidget->addPageHeader(_('CONFIGURATION OF SCRIPTS'));
 $scriptForm = new CForm();
 $scriptForm->setName('scripts');
 $scriptForm->addVar('form', $this->get('form'));
+$scriptForm->addVar('form_refresh', $this->get('form_refresh') + 1);
 
 if ($this->get('scriptid')) {
 	$scriptForm->addVar('scriptid', $this->get('scriptid'));
@@ -69,7 +70,7 @@ $scriptFormList->addRow(
 $scriptFormList->addRow(_('Description'), new CTextArea('description', $this->get('description')));
 
 // user groups
-$userGroups = new CComboBox('usrgrpid', $this->get('usrgrpid'));
+$userGroups = new CCombobox('usrgrpid', $this->get('usrgrpid'));
 $userGroups->addItem(0, _('All'));
 foreach ($this->getArray('usergroups') as $userGroup){
 	$userGroups->addItem($userGroup['usrgrpid'], $userGroup['name']);
@@ -77,7 +78,7 @@ foreach ($this->getArray('usergroups') as $userGroup){
 $scriptFormList->addRow(_('User group'), $userGroups);
 
 // host groups
-$hostGroups = new CComboBox('hgstype', $this->get('hgstype'));
+$hostGroups = new CCombobox('hgstype', $this->get('hgstype'));
 $hostGroups->addItem(0, _('All'));
 $hostGroups->addItem(1, _('Selected'));
 $scriptFormList->addRow(_('Host group'), $hostGroups);
@@ -94,7 +95,7 @@ $scriptFormList->addRow(null, new CMultiSelect(array(
 )), null, 'hostGroupSelection');
 
 // access
-$accessComboBox = new CComboBox('host_access', $this->get('host_access'));
+$accessComboBox = new CCombobox('access', $this->get('access'));
 $accessComboBox->addItem(PERM_READ, _('Read'));
 $accessComboBox->addItem(PERM_READ_WRITE, _('Write'));
 $scriptFormList->addRow(_('Required host permissions'), $accessComboBox);
@@ -102,6 +103,7 @@ $scriptFormList->addRow(new CLabel(_('Enable confirmation'), 'enableConfirmation
 	new CCheckBox('enableConfirmation', $this->get('enableConfirmation')));
 
 $confirmationLabel = new CLabel(_('Confirmation text'), 'confirmation');
+$confirmationLabel->setAttribute('id', 'confirmationLabel');
 $scriptFormList->addRow($confirmationLabel, array(
 	new CTextBox('confirmation', $this->get('confirmation'), ZBX_TEXTBOX_STANDARD_SIZE),
 	SPACE,
@@ -113,23 +115,13 @@ $scriptView->addTab('scripts', _('Script'), $scriptFormList);
 $scriptForm->addItem($scriptView);
 
 // footer
+$others = array();
 if (isset($_REQUEST['scriptid'])) {
-	$scriptForm->addItem(makeFormFooter(
-		new CSubmit('update', _('Update')),
-		array(
-			new CButton('clone', _('Clone')),
-			new CButtonDelete(_('Delete script?'), url_param('form').url_param('scriptid')),
-			new CButtonCancel()
-		)
-	));
+	$others[] = new CButton('clone', _('Clone'));
+	$others[] = new CButtonDelete(_('Delete script?'), url_param('form').url_param('scriptid'));
 }
-else {
-	$scriptForm->addItem(makeFormFooter(
-		new CSubmit('add', _('Add')),
-		array(new CButtonCancel())
-	));
-}
-
+$others[] = new CButtonCancel();
+$scriptForm->addItem(makeFormFooter(new CSubmit('save', _('Save')), $others));
 $scriptsWidget->addItem($scriptForm);
 
 return $scriptsWidget;

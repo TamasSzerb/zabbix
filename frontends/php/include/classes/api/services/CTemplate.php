@@ -734,11 +734,11 @@ class CTemplate extends CHostGeneral {
 	 */
 	public function massAdd(array $data) {
 		$templates = isset($data['templates']) ? zbx_toArray($data['templates']) : array();
-		$templateIds = zbx_objectValues($templates, 'templateid');
+		$templateids = zbx_objectValues($templates, 'templateid');
 
 		// check permissions
-		if (!$this->isWritable($templateIds)) {
-			self::exception(ZBX_API_ERROR_PERMISSIONS, _('No permissions to referred object or it does not exist!'));
+		if (!$this->isWritable($templateids)) {
+			self::exception(ZBX_API_ERROR_PERMISSIONS, _('You do not have permission to perform this operation.'));
 		}
 
 		// link hosts to the given templates
@@ -756,7 +756,7 @@ class CTemplate extends CHostGeneral {
 				'message' => _('Cannot update templates on discovered host "%1$s".')
 			)));
 
-			$this->link($templateIds, $hostIds);
+			$this->link($templateids, $hostIds);
 		}
 
 		$data['hosts'] = array();
@@ -963,18 +963,10 @@ class CTemplate extends CHostGeneral {
 	protected function validateMassUpdate(array $data) {
 		$templates = zbx_toArray($data['templates']);
 
-		$dbTemplates = $this->get(array(
-			'output' => array('templateid'),
-			'templateids' => zbx_objectValues($templates, 'templateid'),
-			'editable' => true,
-			'preservekeys' => true
-		));
-
-		// check permissions
-		foreach ($templates as $template) {
-			if (!isset($dbTemplates[$template['templateid']])) {
-				self::exception(ZBX_API_ERROR_PERMISSIONS, _('You do not have permission to perform this operation.'));
-			}
+		// check template permissions
+		$templateIds = zbx_objectValues($templates, 'templateid');
+		if (!$this->isWritable($templateIds)) {
+			self::exception(ZBX_API_ERROR_PERMISSIONS, _('No permissions to referred object or it does not exist!'));
 		}
 
 		// check if templates have at least 1 group
@@ -1058,6 +1050,54 @@ class CTemplate extends CHostGeneral {
 				$data['host']
 			));
 		}
+
+		// validate linking object permissions
+		if (isset($data['hosts']) && $data['hosts'] !== null) {
+			/*
+			 * Get all currently linked hosts and templates (skip discovered hosts) to these templates
+			 * that user has read permissions.
+			 */
+			$templateHosts = API::Host()->get(array(
+				'output' => array('hostid'),
+				'templateids' => $templateIds,
+				'templated_hosts' => true,
+				'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL)
+			));
+			$templateHostIds = zbx_objectValues($templateHosts, 'hostid');
+			$newHostIds = zbx_objectValues($data['hosts'], 'hostid');
+			$templateIdsClear = isset($data['templates_clear'])
+				? zbx_objectValues(zbx_toArray($data['templates_clear']), 'templateid')
+				: array();
+
+			$hostsToDelete = array_diff($templateHostIds, $newHostIds);
+			$hostIdsToDelete = array_diff($hostsToDelete, $templateIdsClear);
+			$hostIdsToAdd = array_diff($newHostIds, $templateHostIds);
+
+			// Gather both host and template IDs and validate write permissions.
+			$hostIds = array_merge($hostIdsToAdd, $hostIdsToDelete);
+
+			if ($hostIds) {
+				/*
+				 * Get all currently linked hosts and templates (skip discovered hosts) to these templates
+				 * that user has write permissions.
+				 */
+				$templatesHostsAllowed = API::Host()->get(array(
+					'output' => array('hostid'),
+					'templated_hosts' => true,
+					'editable' => true,
+					'preservekeys' => true,
+					'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL)
+				));
+
+				foreach ($hostIds as $hostId) {
+					if (!isset($templatesHostsAllowed[$hostId])) {
+						self::exception(ZBX_API_ERROR_PARAMETERS,
+							_('No permissions to referred object or it does not exist!')
+						);
+					}
+				}
+			}
+		}
 	}
 
 	/**
@@ -1081,6 +1121,12 @@ class CTemplate extends CHostGeneral {
 		}
 
 		if (isset($data['hostids'])) {
+			if (!API::Host()->isWritable($data['hostids'])) {
+				self::exception(ZBX_API_ERROR_PERMISSIONS,
+					_('No permissions to referred object or it does not exist!')
+				);
+			}
+
 			// check if any of the hosts are discovered
 			$this->checkValidator($data['hostids'], new CHostNormalValidator(array(
 				'message' => _('Cannot update templates on discovered host "%1$s".')

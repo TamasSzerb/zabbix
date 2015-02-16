@@ -35,9 +35,6 @@ class CComboBox extends CTag {
 		if (is_array($items)) {
 			$this->addItems($items);
 		}
-
-		// Prevent Firefox remembering selected option on page refresh.
-		$this->setAttribute('autocomplete', 'off');
 	}
 
 	public function setValue($value = null) {
@@ -46,7 +43,7 @@ class CComboBox extends CTag {
 
 	public function addItems($items) {
 		foreach ($items as $value => $caption) {
-			$selected = (int) (strcmp($value, $this->value) == 0);
+			$selected = (int) ($value == $this->value);
 			parent::addItem(new CComboItem($value, $caption, $selected));
 		}
 	}
@@ -54,13 +51,17 @@ class CComboBox extends CTag {
 	public function addItemsInGroup($label, $items) {
 		$group = new COptGroup($label);
 		foreach ($items as $value => $caption) {
-			$selected = (int) (strcmp($value, $this->value) == 0);
+			$selected = (int) ($value == $this->value);
 			$group->addItem(new CComboItem($value, $caption, $selected));
+
+			if (strcmp($value, $this->value) == 0) {
+				$this->value_exist = 1;
+			}
 		}
 		parent::addItem($group);
 	}
 
-	public function addItem($value, $caption = '', $selected = null, $enabled = true, $class = null) {
+	public function addItem($value, $caption = '', $selected = null, $enabled = 'yes', $class = null) {
 		if ($value instanceof CComboItem || $value instanceof COptGroup) {
 			parent::addItem($value);
 		}
@@ -87,20 +88,6 @@ class CComboBox extends CTag {
 			}
 
 			parent::addItem($citem);
-		}
-	}
-
-	/**
-	 * Enable or disable the element.
-	 *
-	 * @param $value
-	 */
-	public function setEnabled($value) {
-		if ($value) {
-			$this->removeAttribute('disabled');
-		}
-		else {
-			$this->attr('disabled', 'disabled');
 		}
 	}
 }

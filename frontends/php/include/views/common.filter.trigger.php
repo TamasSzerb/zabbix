@@ -22,7 +22,8 @@ require_once dirname(__FILE__).'/js/common.filter.trigger.js.php';
 
 $overview = $this->data['overview'];
 $filter = $this->data['filter'];
-$config = $this->data['config'];
+
+$config = select_config();
 
 $filterForm = new CFormTable(null, null, 'get');
 $filterForm->setTableClass('formtable old-filter');
@@ -63,13 +64,16 @@ if (!$overview) {
 }
 
 // min severity
-$severityNames = array();
-for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
-	$severityNames[] = getSeverityName($severity, $config);
-}
 $filterForm->addRow(_('Minimum trigger severity'),
-	new CComboBox('show_severity', $filter['showSeverity'], null, $severityNames)
-);
+	new CComboBox('show_severity', $filter['showSeverity'], null, array(
+		TRIGGER_SEVERITY_NOT_CLASSIFIED => getSeverityCaption(TRIGGER_SEVERITY_NOT_CLASSIFIED),
+		TRIGGER_SEVERITY_INFORMATION => getSeverityCaption(TRIGGER_SEVERITY_INFORMATION),
+		TRIGGER_SEVERITY_WARNING => getSeverityCaption(TRIGGER_SEVERITY_WARNING),
+		TRIGGER_SEVERITY_AVERAGE => getSeverityCaption(TRIGGER_SEVERITY_AVERAGE),
+		TRIGGER_SEVERITY_HIGH => getSeverityCaption(TRIGGER_SEVERITY_HIGH),
+		TRIGGER_SEVERITY_DISASTER => getSeverityCaption(TRIGGER_SEVERITY_DISASTER)
+	)
+));
 
 // age less than
 $statusChangeDays = new CNumericBox('status_change_days', $filter['statusChangeDays'], 3, false, false, false);
@@ -96,7 +100,7 @@ $filterForm->addRow(_('Filter by application'), array(
 	new CButton('application_name', _('Select'),
 		'return PopUp("popup.php?srctbl=applications&srcfld1=name&real_hosts=1&dstfld1=application&with_applications=1'.
 		'&dstfrm='.$filterForm->getName().'");',
-		'button-form'
+		'filter-button'
 	)
 ));
 

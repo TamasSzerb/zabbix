@@ -183,7 +183,7 @@ function DBconnect(&$error) {
 		}
 	}
 
-	if ($result && (!$dbBackend->checkDbVersion() || !$dbBackend->checkConfig())) {
+	if ($result && !$dbBackend->checkDbVersion()) {
 		$error = $dbBackend->getError();
 		$result = false;
 	}

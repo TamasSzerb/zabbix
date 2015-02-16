@@ -105,8 +105,8 @@ if ($triggerId !== null) {
 
 if ($triggerIds) {
 	$triggers = API::Trigger()->get(array(
-		'output' => array('triggerid'),
 		'triggerids' => array_keys(array_flip($triggerIds)),
+		'output' => array('triggerid'),
 		'preservekeys' => true,
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
 		'editable' => true
@@ -122,17 +122,9 @@ if ($triggerIds) {
 		access_deny();
 	}
 }
-
-$groupId = getRequest('groupid');
-if ($groupId && !API::HostGroup()->isWritable(array($groupId))) {
+if (getRequest('hostid') && !API::Host()->isWritable(array($_REQUEST['hostid']))) {
 	access_deny();
 }
-
-$hostId = getRequest('hostid');
-if ($hostId && !API::Host()->isWritable(array($hostId))) {
-	access_deny();
-}
-
 /*
  * Actions
  */
@@ -386,15 +378,12 @@ else {
 	CProfile::update('web.'.$page['file'].'.sort', $sortField, PROFILE_TYPE_STR);
 	CProfile::update('web.'.$page['file'].'.sortorder', $sortOrder, PROFILE_TYPE_STR);
 
-	$config = select_config();
-
 	$data = array(
 		'showdisabled' => getRequest('showdisabled', 1),
 		'parent_discoveryid' => null,
 		'triggers' => array(),
 		'sort' => $sortField,
-		'sortorder' => $sortOrder,
-		'config' => $config
+		'sortorder' => $sortOrder
 	);
 
 	CProfile::update('web.triggers.showdisabled', $data['showdisabled'], PROFILE_TYPE_INT);
@@ -489,11 +478,11 @@ else {
 	// get real hosts
 	$data['realHosts'] = getParentHostsByTriggers($data['triggers']);
 
-	// do not show 'Info' column, if it is a template
-	if ($data['hostid']) {
+	// determine, show or not column of errors
+	if ($data['hostid'] > 0) {
 		$data['showInfoColumn'] = (bool) API::Host()->get(array(
-			'output' => array(),
-			'hostids' => $data['hostid']
+			'hostids' => $data['hostid'],
+			'output' => array('status')
 		));
 	}
 	else {

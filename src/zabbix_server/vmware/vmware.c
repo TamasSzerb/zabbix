@@ -395,7 +395,7 @@ static void	vmware_dev_shared_free(zbx_vmware_dev_t *dev)
  ******************************************************************************/
 static void	vmware_vm_shared_free(zbx_vmware_vm_t *vm)
 {
-	zbx_vector_ptr_clear_ext(&vm->devs, (zbx_clean_func_t)vmware_dev_shared_free);
+	zbx_vector_ptr_clean(&vm->devs, (zbx_mem_free_func_t)vmware_dev_shared_free);
 	zbx_vector_ptr_destroy(&vm->devs);
 
 	if (NULL != vm->uuid)
@@ -421,10 +421,10 @@ static void	vmware_vm_shared_free(zbx_vmware_vm_t *vm)
  ******************************************************************************/
 static void	vmware_hv_shared_free(zbx_vmware_hv_t *hv)
 {
-	zbx_vector_ptr_clear_ext(&hv->datastores, (zbx_clean_func_t)vmware_datastore_shared_free);
+	zbx_vector_ptr_clean(&hv->datastores, (zbx_mem_free_func_t)vmware_datastore_shared_free);
 	zbx_vector_ptr_destroy(&hv->datastores);
 
-	zbx_vector_ptr_clear_ext(&hv->vms, (zbx_clean_func_t)vmware_vm_shared_free);
+	zbx_vector_ptr_clean(&hv->vms, (zbx_mem_free_func_t)vmware_vm_shared_free);
 	zbx_vector_ptr_destroy(&hv->vms);
 
 	if (NULL != hv->uuid)
@@ -478,10 +478,10 @@ static void	vmware_data_shared_free(zbx_vmware_data_t *data)
 {
 	if (NULL != data)
 	{
-		zbx_vector_ptr_clear_ext(&data->hvs, (zbx_clean_func_t)vmware_hv_shared_free);
+		zbx_vector_ptr_clean(&data->hvs, (zbx_mem_free_func_t)vmware_hv_shared_free);
 		zbx_vector_ptr_destroy(&data->hvs);
 
-		zbx_vector_ptr_clear_ext(&data->clusters, (zbx_clean_func_t)vmware_cluster_shared_free);
+		zbx_vector_ptr_clean(&data->clusters, (zbx_mem_free_func_t)vmware_cluster_shared_free);
 		zbx_vector_ptr_destroy(&data->clusters);
 
 		if (NULL != data->events)
@@ -506,7 +506,7 @@ static void	vmware_data_shared_free(zbx_vmware_data_t *data)
  ******************************************************************************/
 static void	vmware_shared_perf_entity_clean(zbx_vmware_perf_entity_t *entity)
 {
-	zbx_vector_ptr_clear_ext(&entity->counters, (zbx_mem_free_func_t)vmware_perf_counter_shared_free);
+	zbx_vector_ptr_clean(&entity->counters, (zbx_mem_free_func_t)vmware_perf_counter_shared_free);
 	zbx_vector_ptr_destroy(&entity->counters);
 
 	__vm_mem_free_func(entity->type);
@@ -781,7 +781,7 @@ static void	vmware_dev_free(zbx_vmware_dev_t *dev)
  ******************************************************************************/
 static void	vmware_vm_free(zbx_vmware_vm_t *vm)
 {
-	zbx_vector_ptr_clear_ext(&vm->devs, (zbx_clean_func_t)vmware_dev_free);
+	zbx_vector_ptr_clean(&vm->devs, (zbx_mem_free_func_t)vmware_dev_free);
 	zbx_vector_ptr_destroy(&vm->devs);
 
 	zbx_free(vm->uuid);
@@ -801,10 +801,10 @@ static void	vmware_vm_free(zbx_vmware_vm_t *vm)
  ******************************************************************************/
 static void	vmware_hv_free(zbx_vmware_hv_t *hv)
 {
-	zbx_vector_ptr_clear_ext(&hv->datastores, (zbx_clean_func_t)vmware_datastore_free);
+	zbx_vector_ptr_clean(&hv->datastores, (zbx_mem_free_func_t)vmware_datastore_free);
 	zbx_vector_ptr_destroy(&hv->datastores);
 
-	zbx_vector_ptr_clear_ext(&hv->vms, (zbx_clean_func_t)vmware_vm_free);
+	zbx_vector_ptr_clean(&hv->vms, (zbx_mem_free_func_t)vmware_vm_free);
 	zbx_vector_ptr_destroy(&hv->vms);
 
 	zbx_free(hv->uuid);
@@ -842,10 +842,10 @@ static void	vmware_cluster_free(zbx_vmware_cluster_t *cluster)
  ******************************************************************************/
 static void	vmware_data_free(zbx_vmware_data_t *data)
 {
-	zbx_vector_ptr_clear_ext(&data->hvs, (zbx_clean_func_t)vmware_hv_free);
+	zbx_vector_ptr_clean(&data->hvs, (zbx_mem_free_func_t)vmware_hv_free);
 	zbx_vector_ptr_destroy(&data->hvs);
 
-	zbx_vector_ptr_clear_ext(&data->clusters, (zbx_clean_func_t)vmware_cluster_free);
+	zbx_vector_ptr_clean(&data->clusters, (zbx_mem_free_func_t)vmware_cluster_free);
 	zbx_vector_ptr_destroy(&data->clusters);
 
 	zbx_free(data->events);
@@ -1854,10 +1854,10 @@ static zbx_vmware_hv_t	*vmware_service_create_hv(zbx_vmware_service_t *service, 
 
 	ret = SUCCEED;
 out:
-	zbx_vector_str_clear_ext(&vms, zbx_ptr_free);
+	zbx_vector_str_clean(&vms);
 	zbx_vector_str_destroy(&vms);
 
-	zbx_vector_str_clear_ext(&datastores, zbx_ptr_free);
+	zbx_vector_str_clean(&datastores);
 	zbx_vector_str_destroy(&datastores);
 
 	if (SUCCEED != ret)
@@ -2611,7 +2611,7 @@ static int	vmware_service_get_cluster_list(const zbx_vmware_service_t *service, 
 	ret = SUCCEED;
 out:
 	zbx_free(cluster_data);
-	zbx_vector_str_clear_ext(&ids, zbx_ptr_free);
+	zbx_vector_str_clean(&ids);
 	zbx_vector_str_destroy(&ids);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s found:%d", __function_name, zbx_result_string(ret),
@@ -2663,7 +2663,7 @@ static int	vmware_service_initialize(zbx_vmware_service_t *service, CURL *easyha
 out:
 	zbx_free(contents);
 
-	zbx_vector_ptr_clear_ext(&counters, (zbx_mem_free_func_t)vmware_counter_free);
+	zbx_vector_ptr_clean(&counters, (zbx_mem_free_func_t)vmware_counter_free);
 	zbx_vector_ptr_destroy(&counters);
 
 	return ret;
@@ -2765,8 +2765,7 @@ static void	vmware_service_update_perf_entities(zbx_vmware_service_t *service)
 						"virtualDisk/numberReadAveraged[average]",
 						"virtualDisk/numberWriteAveraged[average]",
 						"net/packetsRx[summation]", "net/packetsTx[summation]",
-						"net/received[average]", "net/transmitted[average]",
-						"cpu/ready[summation]", NULL
+						"net/received[average]", "net/transmitted[average]", NULL
 					};
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
@@ -2878,7 +2877,7 @@ clean:
 	curl_slist_free_all(headers);
 	curl_easy_cleanup(easyhandle);
 
-	zbx_vector_str_clear_ext(&hvs, zbx_ptr_free);
+	zbx_vector_str_clean(&hvs);
 	zbx_vector_str_destroy(&hvs);
 out:
 	zbx_vmware_lock();
@@ -3184,7 +3183,7 @@ static void	vmware_service_update_perf(zbx_vmware_service_t *service)
 	zbx_strcpy_alloc(&tmp, &tmp_alloc, &tmp_offset, "</ns0:QueryPerf>");
 	zbx_strcpy_alloc(&tmp, &tmp_alloc, &tmp_offset, ZBX_POST_VSPHERE_FOOTER);
 
-	zbx_vector_ptr_clear_ext(&entities, (zbx_mem_free_func_t)vmware_perf_entity_free);
+	zbx_vector_ptr_clean(&entities, (zbx_mem_free_func_t)vmware_perf_entity_free);
 	zbx_vector_ptr_destroy(&entities);
 
 	if (CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_POSTFIELDS, tmp)))

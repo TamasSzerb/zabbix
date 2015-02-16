@@ -200,10 +200,8 @@ $fields = array(
 );
 
 // unset disabled item types
-$allowedItemTypes = array(ITEM_TYPE_ZABBIX, ITEM_TYPE_ZABBIX_ACTIVE, ITEM_TYPE_SIMPLE, ITEM_TYPE_INTERNAL,
-	ITEM_TYPE_AGGREGATE, ITEM_TYPE_SNMPTRAP, ITEM_TYPE_DB_MONITOR
-);
-if (hasRequest('itemtype') && !str_in_array(getRequest('itemtype'), $allowedItemTypes)) {
+$allowed_item_types = array(ITEM_TYPE_ZABBIX, ITEM_TYPE_ZABBIX_ACTIVE, ITEM_TYPE_SIMPLE, ITEM_TYPE_INTERNAL, ITEM_TYPE_AGGREGATE, ITEM_TYPE_SNMPTRAP);
+if (isset($_REQUEST['itemtype']) && !str_in_array($_REQUEST['itemtype'], $allowed_item_types)) {
 	unset($_REQUEST['itemtype']);
 }
 
@@ -472,7 +470,7 @@ if (isset($onlyHostid)) {
 
 	$cmbHosts = new CComboBox('hostid', $hostid);
 	$cmbHosts->addItem($hostid, $host['name']);
-	$cmbHosts->setEnabled(false);
+	$cmbHosts->setEnabled('disabled');
 	$cmbHosts->setAttribute('title', _('You can not switch hosts for current selection.'));
 	$frmTitle->addItem(array(SPACE, _('Host'), SPACE, $cmbHosts));
 }
@@ -490,7 +488,7 @@ else {
 		$itemType = getRequest('itemtype', 0);
 		$cmbTypes = new CComboBox('itemtype', $itemType, 'javascript: submit();');
 
-		foreach ($allowedItemTypes as $type) {
+		foreach ($allowed_item_types as $type) {
 			$cmbTypes->addItem($type, item_type2str($type));
 		}
 
@@ -693,7 +691,7 @@ elseif ($srctbl == 'templates') {
 		if (isset($excludeids[$template['templateid']])) {
 			if ($multiselect) {
 				$checkBox->setChecked(1);
-				$checkBox->setEnabled(false);
+				$checkBox->setEnabled('disabled');
 			}
 			$name->removeAttribute('class');
 		}
@@ -767,7 +765,7 @@ elseif ($srctbl == 'hosts') {
 		if (isset($excludeids[$host['hostid']])) {
 			if ($multiselect) {
 				$checkBox->setChecked(1);
-				$checkBox->setEnabled(false);
+				$checkBox->setEnabled('disabled');
 			}
 			$name->removeAttribute('class');
 		}
@@ -842,7 +840,7 @@ elseif ($srctbl == 'host_templates') {
 		if (isset($excludeids[$host['hostid']])) {
 			if ($multiselect) {
 				$checkBox->setChecked(1);
-				$checkBox->setEnabled(false);
+				$checkBox->setEnabled('disabled');
 			}
 			$name->removeAttribute('class');
 		}
@@ -912,7 +910,7 @@ elseif ($srctbl == 'host_groups') {
 		if (isset($excludeids[$hostgroup['groupid']])) {
 			if ($multiselect) {
 				$checkBox->setChecked(1);
-				$checkBox->setEnabled(false);
+				$checkBox->setEnabled('disabled');
 			}
 			$name->removeAttribute('class');
 		}
@@ -961,9 +959,7 @@ elseif ($srctbl === 'help_items') {
 /*
  * Triggers
  */
-elseif ($srctbl === 'triggers') {
-	$config = select_config();
-
+elseif ($srctbl == 'triggers') {
 	$form = new CForm();
 	$form->setName('triggerform');
 	$form->setAttribute('id', 'triggers');
@@ -1043,7 +1039,7 @@ elseif ($srctbl === 'triggers') {
 		$table->addRow(array(
 			$multiselect ? new CCheckBox('triggers['.zbx_jsValue($trigger[$srcfld1]).']', null, null, $trigger['triggerid']) : null,
 			$description,
-			getSeverityCell($trigger['priority'], $config),
+			getSeverityCell($trigger['priority']),
 			new CSpan(
 				triggerIndicator($trigger['status'], $trigger['state']),
 				triggerIndicatorStyle($trigger['status'], $trigger['state'])

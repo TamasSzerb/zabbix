@@ -418,14 +418,14 @@ function str2mem($val) {
 }
 
 function mem2str($size) {
-	$prefix = 'B';
+	$prefix = _x('B', 'Byte short');
 	if ($size > 1048576) {
 		$size = $size / 1048576;
-		$prefix = 'M';
+		$prefix = _x('M', 'Mega short');
 	}
 	elseif ($size > 1024) {
 		$size = $size / 1024;
-		$prefix = 'K';
+		$prefix = _x('K', 'Kilo short');
 	}
 
 	return round($size, 6).$prefix;
@@ -660,15 +660,15 @@ function convert_units($options = array()) {
 
 	if (!isset($digitUnits[$step])) {
 		$digitUnits[$step] = array(
-			array('pow' => 0, 'short' => ''),
-			array('pow' => 1, 'short' => 'K'),
-			array('pow' => 2, 'short' => 'M'),
-			array('pow' => 3, 'short' => 'G'),
-			array('pow' => 4, 'short' => 'T'),
-			array('pow' => 5, 'short' => 'P'),
-			array('pow' => 6, 'short' => 'E'),
-			array('pow' => 7, 'short' => 'Z'),
-			array('pow' => 8, 'short' => 'Y')
+			array('pow' => 0, 'short' => '', 'long' => ''),
+			array('pow' => 1, 'short' => _x('K', 'Kilo short'), 'long' => _('Kilo')),
+			array('pow' => 2, 'short' => _x('M', 'Mega short'), 'long' => _('Mega')),
+			array('pow' => 3, 'short' => _x('G', 'Giga short'), 'long' => _('Giga')),
+			array('pow' => 4, 'short' => _x('T', 'Tera short'), 'long' => _('Tera')),
+			array('pow' => 5, 'short' => _x('P', 'Peta short'), 'long' => _('Peta')),
+			array('pow' => 6, 'short' => _x('E', 'Exa short'), 'long' => _('Exa')),
+			array('pow' => 7, 'short' => _x('Z', 'Zetta short'), 'long' => _('Zetta')),
+			array('pow' => 8, 'short' => _x('Y', 'Yotta short'), 'long' => _('Yotta'))
 		);
 
 		foreach ($digitUnits[$step] as $dunit => $data) {
@@ -678,7 +678,7 @@ function convert_units($options = array()) {
 	}
 
 
-	$valUnit = array('pow' => 0, 'short' => '', 'value' => $options['value']);
+	$valUnit = array('pow' => 0, 'short' => '', 'long' => '', 'value' => $options['value']);
 
 	if ($options['pow'] === false || $options['value'] == 0) {
 		foreach ($digitUnits[$step] as $dnum => $data) {
@@ -710,6 +710,7 @@ function convert_units($options = array()) {
 	switch ($options['convert']) {
 		case 0: $options['units'] = trim($options['units']);
 		case 1: $desc = $valUnit['short']; break;
+		case 2: $desc = $valUnit['long']; break;
 	}
 
 	$options['value'] = preg_replace('/^([\-0-9]+)(\.)([0-9]*)[0]+$/U','$1$2$3', round($valUnit['value'],
@@ -1382,12 +1383,23 @@ function zbx_subarray_push(&$mainArray, $sIndex, $element = null, $key = null) {
 
 // creates header col for sorting in table header
 function make_sorting_header($obj, $tabfield, $sortField, $sortOrder) {
+	global $page;
+
 	$sortorder = ($sortField == $tabfield && $sortOrder == ZBX_SORT_UP) ? ZBX_SORT_DOWN : ZBX_SORT_UP;
 
 	$link = CUrlFactory::getContextUrl();
 
 	$link->setArgument('sort', $tabfield);
 	$link->setArgument('sortorder', $sortorder);
+
+	$url = $link->getUrl();
+
+	if ($page['type'] != PAGE_TYPE_HTML && defined('ZBX_PAGE_MAIN_HAT')) {
+		$script = "javascript: return updater.onetime_update('".ZBX_PAGE_MAIN_HAT."', '".$url."');";
+	}
+	else {
+		$script = 'javascript: redirect("'.$url.'");';
+	}
 
 	zbx_value2array($obj);
 	$cont = new CSpan();
@@ -1412,7 +1424,7 @@ function make_sorting_header($obj, $tabfield, $sortField, $sortOrder) {
 		}
 	}
 	$col = new CCol(array($cont, $img), 'nowrap hover_grey');
-	$col->setAttribute('onclick', 'javascript: redirect("'.$link->getUrl().'");');
+	$col->setAttribute('onclick', $script);
 
 	return $col;
 }
@@ -1431,16 +1443,7 @@ function getPageNumber() {
 	$pageNumber = getRequest('page');
 	if (!$pageNumber) {
 		$lastPage = CProfile::get('web.paging.lastpage');
-		// For MVC pages $page is not set so we use action instead
-		if (isset($page['file']) && $lastPage == $page['file']) {
-			$pageNumber = CProfile::get('web.paging.page', 1);
-		}
-		elseif (isset($_REQUEST['action']) && $lastPage == $_REQUEST['action']) {
-			$pageNumber = CProfile::get('web.paging.page', 1);
-		}
-		else {
-			$pageNumber = 1;
-		}
+		$pageNumber = ($lastPage == $page['file']) ? CProfile::get('web.paging.page', 1) : 1;
 	}
 
 	return $pageNumber;
@@ -1479,15 +1482,8 @@ function getPagingLine(&$items) {
 
 	$start = ($currentPage - 1) * $rowsPerPage;
 
-	// For MVC pages $page is not set
-	if (isset($page['file'])) {
-		CProfile::update('web.paging.lastpage', $page['file'], PROFILE_TYPE_STR);
-		CProfile::update('web.paging.page', $currentPage, PROFILE_TYPE_INT);
-	}
-	elseif (isset($_REQUEST['action'])) {
-		CProfile::update('web.paging.lastpage', $_REQUEST['action'], PROFILE_TYPE_STR);
-		CProfile::update('web.paging.page', $currentPage, PROFILE_TYPE_INT);
-	}
+	CProfile::update('web.paging.lastpage', $page['file'], PROFILE_TYPE_STR);
+	CProfile::update('web.paging.page', $currentPage, PROFILE_TYPE_INT);
 
 	// trim array with items to contain items for current page
 	$items = array_slice($items, $start, $rowsPerPage, true);
@@ -1690,11 +1686,11 @@ function access_deny($mode = ACCESS_DENY_OBJECT) {
 			// display the login button only for guest users
 			if (CWebUser::isGuest()) {
 				$buttons[] = new CButton('login', _('Login'),
-					'javascript: document.location = "index.php?request='.$url.'";', 'button'
+					'javascript: document.location = "index.php?request='.$url.'";', 'formlist'
 				);
 			}
 			$buttons[] = new CButton('back', _('Go to dashboard'),
-				'javascript: document.location = "zabbix.php?action=dashboard.view"', 'button'
+				'javascript: document.location = "dashboard.php"', 'formlist'
 			);
 		}
 		// if the user is not logged in - offer to login
@@ -1706,7 +1702,7 @@ function access_deny($mode = ACCESS_DENY_OBJECT) {
 				_('If you think this message is wrong, please consult your administrators about getting the necessary permissions.')
 			);
 			$buttons = array(
-				new CButton('login', _('Login'), 'javascript: document.location = "index.php?request='.$url.'";', 'button')
+				new CButton('login', _('Login'), 'javascript: document.location = "index.php?request='.$url.'";', 'formlist')
 			);
 		}
 
@@ -1748,7 +1744,7 @@ function show_messages($bool = true, $okmsg = null, $errmsg = null) {
 	global $page, $ZBX_MESSAGES;
 
 	if (!defined('PAGE_HEADER_LOADED')) {
-//		return null;
+		return null;
 	}
 	if (defined('ZBX_API_REQUEST')) {
 		return null;
@@ -1946,6 +1942,34 @@ function fatal_error($msg) {
 	require_once dirname(__FILE__).'/page_header.php';
 	show_error_message($msg);
 	require_once dirname(__FILE__).'/page_footer.php';
+}
+
+function get_tree_by_parentid($parentid, &$tree, $parent_field, $level = 0) {
+	if (empty($tree)) {
+		return $tree;
+	}
+
+	$level++;
+	if ($level > 32) {
+		return array();
+	}
+
+	$result = array();
+	if (isset($tree[$parentid])) {
+		$result[$parentid] = $tree[$parentid];
+	}
+
+	$tree_ids = array_keys($tree);
+
+	foreach ($tree_ids as $key => $id) {
+		$child = $tree[$id];
+		if (bccomp($child[$parent_field], $parentid) == 0) {
+			$result[$id] = $child;
+			$childs = get_tree_by_parentid($id, $tree, $parent_field, $level); // attention recursion !!!
+			$result += $childs;
+		}
+	}
+	return $result;
 }
 
 function parse_period($str) {
@@ -2211,76 +2235,56 @@ function checkRequiredKeys(array $array, array $keys) {
 /**
  * Clears table rows selection's cookies.
  *
- * @param string $cookieId		parent ID, is used as cookie suffix
+ * @param string $id	parent id, is used as cookie suffix
  */
 function uncheckTableRows($cookieId = null) {
-	insert_js('cookie.eraseArray("cb_'.basename($_SERVER['SCRIPT_NAME'], '.php').
-		($cookieId !== null ? '_'.$cookieId : '').'")'
-	);
+	insert_js('cookie.eraseArray("cb_'.basename($_SERVER['SCRIPT_NAME'], '.php').($cookieId ? '_'.$cookieId : '').'")');
 }
 
 /**
- * Splitting string using slashes with escape backslash support and non-pair backslash cleanup.
+ * Splitting string using slashes with escape backslash support.
  *
- * @param string $path					String path to parse.
- * @param bool   $stripSlashes			Remove escaped slashes from the path pieces.
- * @param bool   $cleanupBackslashes	Cleanup invalid backslash combinations.
+ * @param string $path				string path to parse
+ * @param bool   $stripSlashes		remove escaped slashes from the path pieces
  *
  * @return array
  */
-function splitPath($path, $stripSlashes = true, $cleanupBackslashes = false) {
-	$position = 0;
-	$escapeCharacters = '';
-	$pathItemsArray = array();
-	$pathItemString = '';
+function splitPath($path, $stripSlashes = true) {
+	$items = array();
+	$s = $escapes = '';
 
-	for ($stringLength = strlen($path); $position < $stringLength; ++$position) {
-		// Determine how many escape characters we already have in the backlog.
-		$escapeCharacterCount = strlen($escapeCharacters);
-
-		if ($path[$position] === '/') {
-			// If we have no escape chars previously - save item into the array and move on.
-			if ($escapeCharacterCount == 0) {
-				$pathItemsArray[] = $pathItemString;
-				$escapeCharacters = '';
-				$pathItemString = '';
-				continue;
-			}
-
-			// We have a backslash before the / - keep it as part of the item and clean escape char buffer.
-			$pathItemString .= $escapeCharacters.$path[$position];
-			$escapeCharacters = '';
-		}
-		elseif ($cleanupBackslashes && $path[$position] === '\\') {
-
-			/*
-			 * If we had a backslash before - this is an escaped backslash, keep it and empty char backlog. This way
-			 * we save only paired backslashes.
-			 */
-			if ($escapeCharacterCount == 1) {
-				$pathItemString .= $escapeCharacters.$path[$position];
-				$escapeCharacters = '';
+	for ($i = 0, $size = strlen($path); $i < $size; $i++) {
+		if ($path[$i] === '/') {
+			if ($escapes === '') {
+				$items[] = $s;
+				$s = '';
 			}
 			else {
-				// It is a first backslash - add it to the backlog.
-				$escapeCharacters .= $path[$position];
+				if (strlen($escapes) % 2 == 0) {
+					$s .= $stripSlashes ? stripslashes($escapes) : $escapes;
+					$items[] = $s;
+					$s = $escapes = '';
+				}
+				else {
+					$s .= $stripSlashes ? stripslashes($escapes).$path[$i] : $escapes.$path[$i];
+					$escapes = '';
+				}
 			}
 		}
+		elseif ($path[$i] === '\\') {
+			$escapes .= $path[$i];
+		}
 		else {
-			// A regular character - save it and move on. If previous char was a backslash - it is dropped.
-			$pathItemString .= $path[$position];
-			$escapeCharacters = '';
+			$s .= $stripSlashes ? stripslashes($escapes).$path[$i] : $escapes.$path[$i];
+			$escapes = '';
 		}
 	}
 
-	// Save the path tail.
-	if (strlen($pathItemString) != 0) {
-		$pathItemsArray[] = $pathItemString;
+	if ($escapes !== '') {
+		$s .= $stripSlashes ? stripslashes($escapes) : $escapes;
 	}
 
-	if ($stripSlashes) {
-		$pathItemsArray = array_map('stripslashes', $pathItemsArray);
-	}
+	$items[] = $s;
 
-	return $pathItemsArray;
+	return $items;
 }

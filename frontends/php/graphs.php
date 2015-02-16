@@ -95,61 +95,63 @@ $_REQUEST['show_legend'] = getRequest('show_legend', 0);
 /*
  * Permissions
  */
-$groupId = getRequest('groupid');
-if ($groupId && !API::HostGroup()->isWritable(array($groupId))) {
-	access_deny();
-}
-
-$hostId = getRequest('hostid', 0);
-
-if (hasRequest('parent_discoveryid')) {
-	// check whether discovery rule is editable by user
-	$discoveryRule = API::DiscoveryRule()->get(array(
-		'output' => array('name', 'itemid', 'hostid'),
-		'itemids' => getRequest('parent_discoveryid'),
-		'editable' => true
-	));
-	$discoveryRule = reset($discoveryRule);
-	if (!$discoveryRule) {
-		access_deny();
-	}
-
-	$hostId = $discoveryRule['hostid'];
-
-	// check whether graph prototype is editable by user
-	if (hasRequest('graphid')) {
-		$graphPrototype = (bool) API::GraphPrototype()->get(array(
-			'output' => array(),
-			'graphids' => getRequest('graphid'),
-			'editable' => true
+if (CUser::$userData['type'] !== USER_TYPE_SUPER_ADMIN) {
+	if (!empty($_REQUEST['parent_discoveryid'])) {
+		// check whether discovery rule is editable by user
+		$discovery_rule = API::DiscoveryRule()->get(array(
+			'itemids' => array($_REQUEST['parent_discoveryid']),
+			'output' => API_OUTPUT_EXTEND,
+			'editable' => true,
+			'preservekeys' => true
 		));
-		if (!$graphPrototype) {
+		$discovery_rule = reset($discovery_rule);
+		if (!$discovery_rule) {
+			access_deny();
+		}
+
+		// sets corresponding hostid for later usage
+		if (empty($_REQUEST['hostid'])) {
+			$_REQUEST['hostid'] = $discovery_rule['hostid'];
+		}
+
+		// check whether graph prototype is editable by user
+		if (isset($_REQUEST['graphid'])) {
+			$graphPrototype = API::GraphPrototype()->get(array(
+				'graphids' => array($_REQUEST['graphid']),
+				'output' => array('graphid'),
+				'editable' => true,
+				'preservekeys' => true
+			));
+			if (empty($graphPrototype)) {
+				access_deny();
+			}
+		}
+	}
+	elseif (!empty($_REQUEST['graphid'])) {
+		// check whether graph is normal and editable by user
+		$graphs = API::Graph()->get(array(
+			'output' => array('graphid'),
+			'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
+			'graphids' => array($_REQUEST['graphid']),
+			'editable' => true,
+			'preservekeys' => true
+		));
+		if (empty($graphs)) {
 			access_deny();
 		}
 	}
-}
-elseif (hasRequest('graphid')) {
-	// check whether graph is normal and editable by user
-	$graph = (bool) API::Graph()->get(array(
-		'output' => array(),
-		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-		'graphids' => getRequest('graphid'),
-		'editable' => true
-	));
-	if (!$graph) {
-		access_deny();
-	}
-}
-elseif ($hostId) {
-	// check whether host is editable by user
-	$host = (bool) API::Host()->get(array(
-		'output' => array(),
-		'hostids' => $hostId,
-		'templated_hosts' => true,
-		'editable' => true
-	));
-	if (!$host) {
-		access_deny();
+	elseif (!empty($_REQUEST['hostid'])) {
+		// check whether host is editable by user
+		$hosts = API::Host()->get(array(
+			'output' => array('hostid'),
+			'hostids' => array($_REQUEST['hostid']),
+			'templated_hosts' => true,
+			'editable' => true,
+			'preservekeys' => true
+		));
+		if (empty($hosts)) {
+			access_deny();
+		}
 	}
 }
 
@@ -253,7 +255,7 @@ elseif (hasRequest('add') || hasRequest('update')) {
 			$messageFailed = _('Cannot add graph');
 		}
 
-		$cookieId = $hostId;
+		$cookieId = getRequest('hostid');
 	}
 
 	if ($result) {
@@ -291,7 +293,7 @@ elseif (hasRequest('delete') && hasRequest('graphid')) {
 		$result = API::Graph()->delete(array($graphId));
 
 		if ($result) {
-			uncheckTableRows($hostId);
+			uncheckTableRows(getRequest('hostid'));
 		}
 		show_messages($result, _('Graph deleted'), _('Cannot delete graph'));
 	}
@@ -315,7 +317,7 @@ elseif (hasRequest('action') && getRequest('action') == 'graph.massdelete' && ha
 		$result = API::Graph()->delete($graphIds);
 
 		if ($result) {
-			uncheckTableRows($hostId);
+			uncheckTableRows(getRequest('hostid'));
 		}
 		show_messages($result, _('Graphs deleted'), _('Cannot delete graphs'));
 	}
@@ -365,7 +367,7 @@ elseif (hasRequest('action') && getRequest('action') == 'graph.massdelete' && ha
 
 		if ($result) {
 			uncheckTableRows(
-				(getRequest('parent_discoveryid') == 0) ? $hostId : getRequest('parent_discoveryid')
+				getRequest('parent_discoveryid') == 0 ? getRequest('hostid') : getRequest('parent_discoveryid')
 			);
 			unset($_REQUEST['group_graphid']);
 		}
@@ -389,16 +391,16 @@ $pageFilter = new CPageFilter(array(
 		'editable' => true,
 		'templated_hosts' => true
 	),
-	'groupid' => $groupId,
-	'hostid' => $hostId
+	'groupid' => getRequest('groupid'),
+	'hostid' => getRequest('hostid')
 ));
 
 if (empty($_REQUEST['parent_discoveryid'])) {
 	if ($pageFilter->groupid > 0) {
-		$groupId = $pageFilter->groupid;
+		$_REQUEST['groupid'] = $pageFilter->groupid;
 	}
 	if ($pageFilter->hostid > 0) {
-		$hostId = $pageFilter->hostid;
+		$_REQUEST['hostid'] = $pageFilter->hostid;
 	}
 }
 
@@ -417,7 +419,7 @@ elseif (isset($_REQUEST['form'])) {
 		'graphid' => getRequest('graphid', 0),
 		'parent_discoveryid' => getRequest('parent_discoveryid'),
 		'group_gid' => getRequest('group_gid', array()),
-		'hostid' => $hostId,
+		'hostid' => getRequest('hostid', 0),
 		'normal_only' => getRequest('normal_only')
 	);
 
@@ -450,7 +452,7 @@ elseif (isset($_REQUEST['form'])) {
 		$data['templates'] = array();
 
 		// if no host has been selected for the navigation panel, use the first graph host
-		if ($data['hostid'] == 0) {
+		if (empty($data['hostid'])) {
 			$host = reset($graph['hosts']);
 			$data['hostid'] = $host['hostid'];
 		}
@@ -599,7 +601,7 @@ elseif (isset($_REQUEST['form'])) {
 	$data['items'] = array_values($data['items']);
 
 	// is template
-	$data['is_template'] = ($data['hostid'] == 0) ? false : isTemplate($data['hostid']);
+	$data['is_template'] = isTemplate($data['hostid']);
 
 	// render view
 	$graphView = new CView('configuration.graph.edit', $data);
@@ -613,31 +615,29 @@ else {
 	CProfile::update('web.'.$page['file'].'.sort', $sortField, PROFILE_TYPE_STR);
 	CProfile::update('web.'.$page['file'].'.sortorder', $sortOrder, PROFILE_TYPE_STR);
 
-	$config = select_config();
-
 	$data = array(
 		'pageFilter' => $pageFilter,
-		'hostid' => ($pageFilter->hostid > 0) ? $pageFilter->hostid : $hostId,
-		'parent_discoveryid' => isset($discoveryRule) ? $discoveryRule['itemid'] : null,
+		'hostid' => ($pageFilter->hostid > 0) ? $pageFilter->hostid : getRequest('hostid'),
+		'parent_discoveryid' => getRequest('parent_discoveryid'),
 		'graphs' => array(),
-		'discovery_rule' => isset($discoveryRule) ? $discoveryRule : null,
+		'discovery_rule' => empty($_REQUEST['parent_discoveryid']) ? null : $discovery_rule,
 		'sort' => $sortField,
 		'sortorder' => $sortOrder
 	);
 
 	// get graphs
 	$options = array(
-		'hostids' => ($data['hostid'] == 0) ? null : $data['hostid'],
-		'groupids' => ($data['hostid'] == 0 && $pageFilter->groupid > 0) ? $pageFilter->groupid : null,
-		'discoveryids' => isset($discoveryRule) ? $discoveryRule['itemid'] : null,
+		'hostids' => $data['hostid'] ? $data['hostid'] : null,
+		'groupids' => (!$data['hostid'] && $pageFilter->groupid > 0) ? $pageFilter->groupid : null,
+		'discoveryids' => empty($_REQUEST['parent_discoveryid']) ? null : getRequest('parent_discoveryid'),
 		'editable' => true,
 		'output' => array('graphid', 'name', 'graphtype'),
 		'limit' => $config['search_limit'] + 1
 	);
 
-	$data['graphs'] = isset($discoveryRule)
-		? API::GraphPrototype()->get($options)
-		: API::Graph()->get($options);
+	$data['graphs'] = empty($_REQUEST['parent_discoveryid'])
+		? API::Graph()->get($options)
+		: API::GraphPrototype()->get($options);
 
 	if ($sortField == 'graphtype') {
 		foreach ($data['graphs'] as $gnum => $graph) {
@@ -654,8 +654,8 @@ else {
 		'graphids' => zbx_objectValues($data['graphs'], 'graphid'),
 		'output' => array('graphid', 'name', 'templateid', 'graphtype', 'width', 'height'),
 		'selectDiscoveryRule' => array('itemid', 'name'),
-		'selectHosts' => ($data['hostid'] == 0) ? array('name') : null,
-		'selectTemplates' => ($data['hostid'] == 0) ? array('name') : null
+		'selectHosts' => $data['hostid'] ? null : array('name'),
+		'selectTemplates' => $data['hostid'] ? null : array('name')
 	);
 
 	$data['graphs'] = empty($_REQUEST['parent_discoveryid'])

@@ -46,9 +46,9 @@ class CCollapsibleUiWidget extends CUiWidget {
 
 		$icon = new CIcon(
 			_('Show').'/'._('Hide'),
-			$this->open ? 'arrowup' : 'arrowdown'
+			$this->open ? 'arrowup' : 'arrowdown',
+			'changeWidgetState(this, "'.$this->id.'");'
 		);
-		$icon->addAction('onclick', 'changeWidgetState(this, "'.$this->id.'");');
 		$icon->setAttribute('id', $this->id.'_icon');
 		array_unshift($icons, $icon);
 

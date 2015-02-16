@@ -49,11 +49,7 @@ $servicesFormList->addRow(_('Name'), $nameTextBox);
 // append parent link to form list
 $servicesFormList->addRow(_('Parent service'), array(
 	new CTextBox('parent_name', $this->data['parentname'], ZBX_TEXTBOX_STANDARD_SIZE, true, 128),
-	new CButton('select_parent', _('Change'),
-		"javascript: openWinCentered('services.php?pservices=1".url_param('serviceid')."', ".
-			"'ZBX_Services_List', 740, 420, 'scrollbars=1, toolbar=0, menubar=0, resizable=1, dialog=0');",
-		'button-form'
-	)
+	new CButton('select_parent', _('Change'), "javascript: openWinCentered('services.php?pservices=1".url_param('serviceid')."', 'ZBX_Services_List', 740, 420, 'scrollbars=1, toolbar=0, menubar=0, resizable=1, dialog=0');", 'formlist')
 ));
 
 // append algorithm to form list
@@ -82,7 +78,7 @@ $servicesFormList->addRow(_('Trigger'), array(
 			'&srcfld2=description'.
 			'&real_hosts=1'.
 			'&with_triggers=1");',
-		'button-form'
+		'formlist'
 	)
 ));
 $servicesFormList->addRow(_('Sort order (0->999)'), new CTextBox('sortorder', $this->data['sortorder'], 3, false, 3));
@@ -288,23 +284,28 @@ $servicesForm->addItem($servicesTab);
 
 // append buttons to form
 if ($service['serviceid']) {
-	$buttons = array(new CButtonCancel());
-	if (!$service['dependencies']) {
-		array_unshift($buttons, new CButtonDelete(
+	if ($service['dependencies']) {
+		$btnDelete = null;
+	}
+	else {
+		$btnDelete = new CButtonDelete(
 			'Delete selected service?',
 			url_param('form').url_param('serviceid').'&saction=1'
-		));
+		);
 	}
 
 	$servicesForm->addItem(makeFormFooter(
 		new CSubmit('update', _('Update'), 'javascript: document.forms[0].action += \'?saction=1\';'),
-		$buttons
+		array (
+			$btnDelete,
+			new CButtonCancel()
+		)
 	));
 }
 else {
 	$servicesForm->addItem(makeFormFooter(
 		new CSubmit('add', _('Add'), 'javascript: document.forms[0].action += \'?saction=1\';'),
-		array(new CButtonCancel())
+		new CButtonCancel()
 	));
 }
 

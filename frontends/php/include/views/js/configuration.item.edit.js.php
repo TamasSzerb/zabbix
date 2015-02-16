@@ -59,19 +59,20 @@ zbx_subarray_push($this->data['dataTypeVisibility'], ITEM_DATA_TYPE_HEXADECIMAL,
 
 ?>
 <script type="text/javascript">
+	/*
+	 * ITEM_TYPE_ZABBIX: 0
+	 * ITEM_TYPE_SNMPTRAP: 17
+	 * ITEM_TYPE_SIMPLE: 3
+	 */
 	function displayKeyButton() {
-		// selected item type
 		var type = parseInt(jQuery('#type').val());
 
-		jQuery('#keyButton').prop('disabled',
-			type != <?php echo ITEM_TYPE_ZABBIX; ?>
-				&& type != <?php echo ITEM_TYPE_ZABBIX_ACTIVE; ?>
-				&& type != <?php echo ITEM_TYPE_SIMPLE; ?>
-				&& type != <?php echo ITEM_TYPE_INTERNAL; ?>
-				&& type != <?php echo ITEM_TYPE_AGGREGATE; ?>
-				&& type != <?php echo ITEM_TYPE_DB_MONITOR; ?>
-				&& type != <?php echo ITEM_TYPE_SNMPTRAP; ?>
-		)
+		if (type == 0 || type == 7 || type == 3 || type == 5 || type == 8 || type == 17) {
+			jQuery('#keyButton').prop('disabled', false);
+		}
+		else {
+			jQuery('#keyButton').prop('disabled', true);
+		}
 	}
 
 	jQuery(document).ready(function() {

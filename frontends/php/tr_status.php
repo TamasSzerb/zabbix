@@ -244,8 +244,7 @@ $filterFormView = new CView('common.filter.trigger', array(
 		'hostId' => getRequest('hostid'),
 		'groupId' => getRequest('groupid'),
 		'fullScreen' => getRequest('fullscreen')
-	),
-	'config' => $config
+	)
 ));
 $filterForm = $filterFormView->render();
 
@@ -394,8 +393,6 @@ $triggers = API::Trigger()->get(array(
 	'expandDescription' => true,
 	'preservekeys' => true
 ));
-
-$triggers = CMacrosResolverHelper::resolveTriggerUrl($triggers);
 
 order_result($triggers, $sortField, $sortOrder);
 
@@ -692,7 +689,7 @@ foreach ($triggers as $trigger) {
 	}
 
 	// severity
-	$severityColumn = getSeverityCell($trigger['priority'], $config, null, !$trigger['value']);
+	$severityColumn = getSeverityCell($trigger['priority'], null, !$trigger['value']);
 	if ($showEventColumn) {
 		$severityColumn->setColSpan(2);
 	}
@@ -748,7 +745,7 @@ foreach ($triggers as $trigger) {
 			$statusSpan = new CCol($eventStatusSpan);
 			$statusSpan->setColSpan(2);
 
-			$ack = getEventAckState($event, $page['file']);
+			$ack = getEventAckState($event, true);
 
 			$ackCheckBox = ($event['acknowledged'] == 0 && $event['value'] == TRIGGER_VALUE_TRUE)
 				? new CCheckBox('events['.$event['eventid'].']', 'no', null, $event['eventid'])
@@ -790,9 +787,17 @@ foreach ($triggers as $trigger) {
  */
 $footer = null;
 if ($config['event_ack_enable']) {
-	$footer = get_table_header(new CActionButtonList('action', $showEventColumn ? 'events' : 'triggers', array(
-		'trigger.bulkacknowledge' => array('name' => _('Bulk acknowledge'))
-	)));
+	$goComboBox = new CComboBox('action');
+	$goComboBox->addItem('trigger.bulkacknowledge', _('Bulk acknowledge'));
+
+	$goButton = new CSubmit('goButton', _('Go').' (0)');
+	$goButton->setAttribute('id', 'goButton');
+
+	$showEventColumn
+		? zbx_add_post_js('chkbxRange.pageGoName = "events";')
+		: zbx_add_post_js('chkbxRange.pageGoName = "triggers";');
+
+	$footer = get_table_header(array($goComboBox, $goButton));
 }
 
 $triggerForm->addItem(array($paging, $triggerTable, $paging, $footer));

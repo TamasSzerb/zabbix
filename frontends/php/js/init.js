@@ -148,18 +148,8 @@ jQuery(function($) {
 	});
 
 	// create jquery buttons
-	$('.jqueryinput').button();
+	$('input.jqueryinput').button();
 	$('.jqueryinputset').buttonset();
 
 	createPlaceholders();
-
-	// redirect buttons
-	$('button[data-url]').click(function() {
-		var button = $(this);
-		var confirmation = button.data('confirmation');
-
-		if (typeof confirmation === 'undefined' || (typeof confirmation !== 'undefined' && confirm(confirmation))) {
-			window.location = button.data('url');
-		}
-	})
 });

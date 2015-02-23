@@ -47,18 +47,18 @@ $commentForm->addItem($commentTab);
 $updateButton = new CSubmit('update', _('Update'));
 $updateButton->setEnabled(!$this->data['isCommentExist']);
 
-$buttons = array(
-	new CButtonCancel('&triggerid='.$this->data['triggerid'])
-);
-
 if ($this->data['isCommentExist']) {
 	$editButton = new CButton('edit', _('Edit'));
 	$editButton->setEnabled($this->data['isTriggerEditable']);
-
-	array_unshift($buttons, $editButton);
+}
+else {
+	$editButton = null;
 }
 
-$commentForm->addItem(makeFormFooter($updateButton, $buttons));
+$commentForm->addItem(makeFormFooter(
+	$updateButton,
+	array($editButton, new CButtonCancel('&triggerid='.$this->data['triggerid']))
+));
 
 $commentWidget->addItem($commentForm);
 

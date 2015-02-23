@@ -472,6 +472,10 @@ jQuery(function($) {
 
 			// draw popup link
 			if (options.popup.parameters != null) {
+				var popupBlock = $('<div>', {
+					'class': 'select-popup'
+				});
+
 				var urlParameters = options.popup.parameters;
 
 				if (options.ignored) {
@@ -480,10 +484,10 @@ jQuery(function($) {
 					});
 				}
 
-				var popupButton = $('<button>', {
+				var popupButton = $('<input>', {
 					type: 'button',
-					'class': options.popup.buttonClass ? options.popup.buttonClass : 'button button-form',
-					text: options.labels['Select']
+					'class': options.popup.buttonClass ? options.popup.buttonClass : 'input link_menu select-popup',
+					value: options.labels['Select']
 				});
 
 				if (options.disabled) {

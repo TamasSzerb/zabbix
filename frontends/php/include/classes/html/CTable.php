@@ -86,6 +86,7 @@ class CTable extends CTag {
 		if (!isset($item->attributes['class']) || is_array($item->attributes['class'])) {
 			$class = ($this->rownum % 2) ? $this->oddRowClass : $this->evenRowClass;
 			$item->attr('class', $class);
+			$item->attr('origClass', $class);
 		}
 		return $item;
 	}

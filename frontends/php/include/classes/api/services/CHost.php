@@ -506,7 +506,7 @@ class CHost extends CHostGeneral {
 		$create = ($method == 'create');
 		$update = ($method == 'update');
 
-		$hostDbfields = $update ? array('hostid' => null) : array('host' => null);
+		$hostDBfields = $update ? array('hostid' => null) : array('host' => null);
 
 		if ($update) {
 			$dbHosts = $this->get(array(
@@ -525,19 +525,19 @@ class CHost extends CHostGeneral {
 			}
 		}
 		else {
-			$groupIds = array();
+			$groupids = array();
 
 			foreach ($hosts as $host) {
 				if (!isset($host['groups'])) {
 					continue;
 				}
-				$groupIds = array_merge($groupIds, zbx_objectValues($host['groups'], 'groupid'));
+				$groupids = array_merge($groupids, zbx_objectValues($host['groups'], 'groupid'));
 			}
 
-			if ($groupIds) {
+			if (!empty($groupids)) {
 				$dbGroups = API::HostGroup()->get(array(
-					'output' => array('groupid'),
-					'groupids' => $groupIds,
+					'output' => API_OUTPUT_EXTEND,
+					'groupids' => $groupids,
 					'editable' => true,
 					'preservekeys' => true
 				));
@@ -546,9 +546,9 @@ class CHost extends CHostGeneral {
 
 		foreach ($hosts as $host) {
 			// validate mandatory fields
-			if (!check_db_fields($hostDbfields, $host)) {
+			if (!check_db_fields($hostDBfields, $host)) {
 				self::exception(ZBX_API_ERROR_PARAMETERS,
-					_s('Wrong fields for host "%1$s".', isset($host['host']) ? $host['host'] : '')
+					_s('Wrong fields for host "%s".', isset($host['host']) ? $host['host'] : '')
 				);
 			}
 
@@ -563,14 +563,14 @@ class CHost extends CHostGeneral {
 				}
 
 				if (isset($host['groups']) && (!is_array($host['groups']) || !$host['groups'])) {
-					self::exception(ZBX_API_ERROR_PARAMETERS, _s('No groups for host "%1$s".',
+					self::exception(ZBX_API_ERROR_PARAMETERS, _s('No groups for host "%s".',
 						$dbHosts[$hostId]['host'])
 					);
 				}
 			}
 			else {
 				if (!isset($host['groups']) || !is_array($host['groups']) || !$host['groups']) {
-					self::exception(ZBX_API_ERROR_PARAMETERS, _s('No groups for host "%1$s".', $host['host']));
+					self::exception(ZBX_API_ERROR_PARAMETERS, _s('No groups for host "%s".', $host['host']));
 				}
 
 				foreach ($host['groups'] as $group) {
@@ -591,22 +591,11 @@ class CHost extends CHostGeneral {
 			'messageInvalid' => _('Incorrect status for host "%1$s".')
 		));
 
-		$updateDiscoveredValidator = new CUpdateDiscoveredValidator(array(
-			'allowed' => array('hostid', 'status', 'inventory', 'description'),
-			'messageAllowedField' => _('Cannot update "%2$s" for a discovered host "%1$s".')
-		));
-
 		$hostNames = array();
 		foreach ($hosts as &$host) {
-			if ($update) {
-				$dbHost = $dbHosts[$host['hostid']];
-				$hostName = isset($host['host']) ? $host['host'] : $dbHost['host'];
-			}
-			else {
-				$hostName = $host['host'];
-			}
-
 			if (isset($host['status'])) {
+				$hostName = (isset($host['host'])) ? $host['host'] : $dbHosts[$host['hostid']]['host'];
+
 				$statusValidator->setObjectName($hostName);
 				$this->checkValidator($host['status'], $statusValidator);
 			}
@@ -624,14 +613,17 @@ class CHost extends CHostGeneral {
 				}
 			}
 
+			$updateDiscoveredValidator = new CUpdateDiscoveredValidator(array(
+				'allowed' => array('hostid', 'status', 'inventory', 'description'),
+				'messageAllowedField' => _('Cannot update "%1$s" for a discovered host.')
+			));
 			if ($update) {
 				// cannot update certain fields for discovered hosts
-				$updateDiscoveredValidator->setObjectName($hostName);
-				$this->checkPartialValidator($host, $updateDiscoveredValidator, $dbHost);
+				$this->checkPartialValidator($host, $updateDiscoveredValidator, $dbHosts[$host['hostid']]);
 			}
 			else {
 				// if visible name is not given or empty it should be set to host name
-				if (!isset($host['name']) || !trim($host['name'])) {
+				if (!isset($host['name']) || zbx_empty(trim($host['name']))) {
 					$host['name'] = $host['host'];
 				}
 
@@ -1257,11 +1249,11 @@ class CHost extends CHostGeneral {
 				));
 			}
 
-			$groupIdsToDelete = array_diff($hostGroupIds, $newGroupIds);
-			if ($groupIdsToDelete) {
+			$groupIdsToDel = array_diff($hostGroupIds, $newGroupIds);
+			if ($groupIdsToDel) {
 				$this->massRemove(array(
 					'hostids' => $hostIds,
-					'groupids' => $groupIdsToDelete
+					'groupids' => $groupIdsToDel
 				));
 			}
 		}
@@ -1358,7 +1350,7 @@ class CHost extends CHostGeneral {
 			API::Item()->delete(array_keys($delItems), true);
 		}
 
-		// delete web tests
+// delete web tests
 		$delHttptests = array();
 		$dbHttptests = get_httptests_by_hostid($hostIds);
 		while ($dbHttptest = DBfetch($dbHttptests)) {
@@ -1369,13 +1361,13 @@ class CHost extends CHostGeneral {
 		}
 
 
-		// delete screen items
+// delete screen items
 		DB::delete('screens_items', array(
 			'resourceid' => $hostIds,
 			'resourcetype' => SCREEN_RESOURCE_HOST_TRIGGERS
 		));
 
-		// delete host from maps
+// delete host from maps
 		if (!empty($hostIds)) {
 			DB::delete('sysmaps_elements', array(
 				'elementtype' => SYSMAP_ELEMENT_TYPE_HOST,
@@ -1383,8 +1375,8 @@ class CHost extends CHostGeneral {
 			));
 		}
 
-		// disable actions
-		// actions from conditions
+// disable actions
+// actions from conditions
 		$actionids = array();
 		$sql = 'SELECT DISTINCT actionid'.
 				' FROM conditions'.
@@ -1395,7 +1387,7 @@ class CHost extends CHostGeneral {
 			$actionids[$dbAction['actionid']] = $dbAction['actionid'];
 		}
 
-		// actions from operations
+// actions from operations
 		$sql = 'SELECT DISTINCT o.actionid'.
 				' FROM operations o, opcommand_hst oh'.
 				' WHERE o.operationid=oh.operationid'.
@@ -1414,13 +1406,13 @@ class CHost extends CHostGeneral {
 			DB::update('actions', $update);
 		}
 
-		// delete action conditions
+// delete action conditions
 		DB::delete('conditions', array(
 			'conditiontype' => CONDITION_TYPE_HOST,
 			'value' => $hostIds
 		));
 
-		// delete action operation commands
+// delete action operation commands
 		$operationids = array();
 		$sql = 'SELECT DISTINCT oh.operationid'.
 				' FROM opcommand_hst oh'.
@@ -1434,7 +1426,7 @@ class CHost extends CHostGeneral {
 			'hostid' => $hostIds,
 		));
 
-		// delete empty operations
+// delete empty operations
 		$delOperationids = array();
 		$sql = 'SELECT DISTINCT o.operationid'.
 				' FROM operations o'.
@@ -1458,16 +1450,16 @@ class CHost extends CHostGeneral {
 			'nopermissions' => true
 		));
 
-		// delete host inventory
+// delete host inventory
 		DB::delete('host_inventory', array('hostid' => $hostIds));
 
-		// delete host applications
+// delete host applications
 		DB::delete('applications', array('hostid' => $hostIds));
 
-		// delete host
+// delete host
 		DB::delete('hosts', array('hostid' => $hostIds));
 
-		// TODO: remove info from API
+// TODO: remove info from API
 		foreach ($hosts as $host) {
 			info(_s('Deleted: Host "%1$s".', $host['name']));
 			add_audit_ext(AUDIT_ACTION_DELETE, AUDIT_RESOURCE_HOST, $host['hostid'], $host['name'], 'hosts', NULL, NULL);

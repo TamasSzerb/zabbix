@@ -81,11 +81,11 @@ class CHelpItems {
 					'description' => _('Maximum number of processes supported by OS.')
 				),
 				array(
-					'key' => 'net.dns[<ip>,zone,<type>,<timeout>,<count>,<protocol>]',
+					'key' => 'net.dns[<ip>,zone,<type>,<timeout>,<count>]',
 					'description' => _('Checks if DNS service is up. 0 - DNS is down (server did not respond or DNS resolution failed), 1 - DNS is up.')
 				),
 				array(
-					'key' => 'net.dns.record[<ip>,zone,<type>,<timeout>,<count>,<protocol>]',
+					'key' => 'net.dns.record[<ip>,zone,<type>,<timeout>,<count>]',
 					'description' => _('Performs a DNS query. On success returns a character string with the required type of information.')
 				),
 				array(
@@ -133,8 +133,8 @@ class CHelpItems {
 					'description' => _('Value of any performance counter, where "counter" parameter is the counter path and "interval" parameter is a number of last seconds, for which the agent returns an average value.')
 				),
 				array(
-					'key' => 'proc.mem[<name>,<user>,<mode>,<cmdline>,<memtype>]',
-					'description' => _('Memory used by a process. <name> process name (default: "all processes"). <user> user name (default: "all users"). <mode> possible values: avg, max, min, sum (default). <cmdline> filter by command line (supports regex). <memtype> type of process memory (supported on some platforms, see documentation). Example: proc.mem[,root].')
+					'key' => 'proc.mem[<name>,<user>,<mode>,<cmdline>]',
+					'description' => _('Memory used by a process. <name> process name (default: "all processes"). <user> user name (default: "all users"). <mode> possible values: avg, max, min, sum (default). <cmdline> filter by command line (supports regex). Example: proc.mem[,root].')
 				),
 				array(
 					'key' => 'proc.num[<name>,<user>,<state>,<cmdline>]',
@@ -343,11 +343,11 @@ class CHelpItems {
 					'description' => _('Monitoring of log file with rotation. fileformat - [path][regexp], pattern - regular expression')
 				),
 				array(
-					'key' => 'net.dns[<ip>,zone,<type>,<timeout>,<count>,<protocol>]',
+					'key' => 'net.dns[<ip>,zone,<type>,<timeout>,<count>]',
 					'description' => _('Checks if DNS service is up. 0 - DNS is down (server did not respond or DNS resolution failed), 1 - DNS is up.')
 				),
 				array(
-					'key' => 'net.dns.record[<ip>,zone,<type>,<timeout>,<count>,<protocol>]',
+					'key' => 'net.dns.record[<ip>,zone,<type>,<timeout>,<count>]',
 					'description' => _('Performs a DNS query. On success returns a character string with the required type of information.')
 				),
 				array(
@@ -395,8 +395,8 @@ class CHelpItems {
 					'description' => _('Value of any performance counter, where "counter" parameter is the counter path and "interval" parameter is a number of last seconds, for which the agent returns an average value.')
 				),
 				array(
-					'key' => 'proc.mem[<name>,<user>,<mode>,<cmdline>,<memtype>]',
-					'description' => _('Memory used by a process. <name> process name (default: "all processes"). <user> user name (default: "all users"). <mode> possible values: avg, max, min, sum (default). <cmdline> filter by command line (supports regex). <memtype> type of process memory (supported on some platforms, see documentation). Example: proc.mem[,root].')
+					'key' => 'proc.mem[<name>,<user>,<mode>,<cmdline>]',
+					'description' => _('Memory used by a process. <name> process name (default: "all processes"). <user> user name (default: "all users"). <mode> possible values: avg, max, min, sum (default). <cmdline> filter by command line (supports regex). Example: proc.mem[,root].')
 				),
 				array(
 					'key' => 'proc.num[<name>,<user>,<state>,<cmdline>]',
@@ -711,10 +711,6 @@ class CHelpItems {
 					'description' => _('Number of processors on VMware virtual machine, <url> - VMware service URL, <uuid> - VMware virtual machine host name')
 				),
 				array(
-					'key' => 'vmware.vm.cpu.ready[<url>,<uuid>]',
-					'description' => _('VMware virtual machine processor ready time %, <url> - VMware service URL, <uuid> - VMware virtual machine host name')
-				),
-				array(
 					'key' => 'vmware.vm.cpu.usage[<url>,<uuid>]',
 					'description' => _('VMware virtual machine processor usage in Hz, <url> - VMware service URL, <uuid> - VMware virtual machine host name')
 				),
@@ -913,16 +909,6 @@ class CHelpItems {
 				array(
 					'key' => 'zabbix[wcache,<cache>,<mode>]',
 					'description' => _('Data cache statistics. Cache - one of values (modes: all, float, uint, str, log, text), history (modes: pfree, total, used, free), trend (modes: pfree, total, used, free), text (modes: pfree, total, used, free).')
-				)
-			),
-			ITEM_TYPE_DB_MONITOR => array(
-				array(
-					'key' => 'db.odbc.select[<unique short description>,<dsn>]',
-					'description' => _('Return first column of the first row of the SQL query result.')
-				),
-				array(
-					'key' => 'db.odbc.discovery[<unique short description>,<dsn>]',
-					'description' => _('Transform SQL query result into a JSON object for low-level discovery.')
 				)
 			)
 		);

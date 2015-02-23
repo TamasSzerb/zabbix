@@ -387,7 +387,7 @@ else {
 						'&with_monitored_triggers=1'.
 						($pageFilter->hostid ? '&only_hostid='.$pageFilter->hostid : '').
 						'");',
-					'button-form'
+					'T'
 				)
 			), 'form_row_r')
 		)));
@@ -738,11 +738,9 @@ else {
 				'output' => array('triggerid', 'description', 'expression', 'priority', 'flags', 'url'),
 				'selectHosts' => array('hostid', 'name', 'status'),
 				'selectItems' => array('itemid', 'hostid', 'name', 'key_', 'value_type'),
-				'triggerids' => zbx_objectValues($events, 'objectid'),
-				'preservekeys' => true
+				'triggerids' => zbx_objectValues($events, 'objectid')
 			));
-
-			$triggers = CMacrosResolverHelper::resolveTriggerUrl($triggers);
+			$triggers = zbx_toHash($triggers, 'triggerid');
 
 			// fetch hosts
 			$hosts = array();
@@ -793,7 +791,7 @@ else {
 						(getRequest('hostid', 0) == 0) ? $host['name'] : null,
 						$description,
 						trigger_value2str($event['value']),
-						getSeverityName($trigger['priority'], $config),
+						getSeverityCaption($trigger['priority']),
 						$event['duration'],
 						$config['event_ack_enable'] ? ($event['acknowledges'] ? _('Yes') : _('No')) : null,
 						strip_tags((string) $action)
@@ -806,7 +804,7 @@ else {
 					);
 
 					// acknowledge
-					$ack = getEventAckState($event, $page['file']);
+					$ack = getEventAckState($event, true);
 
 					// add colors and blinking to span depending on configuration and trigger parameters
 					$statusSpan = new CSpan(trigger_value2str($event['value']));
@@ -834,7 +832,7 @@ else {
 						$hostName,
 						$triggerDescription,
 						$statusSpan,
-						getSeverityCell($trigger['priority'], $config, null, !$event['value']),
+						getSeverityCell($trigger['priority'], null, !$event['value']),
 						$event['duration'],
 						$config['event_ack_enable'] ? $ack : null,
 						$action

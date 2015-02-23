@@ -29,6 +29,8 @@ $page['hist_arg'] = array('groupids', 'hostids', 'filter_set');
 $page['type'] = detect_page_type(PAGE_TYPE_HTML);
 $page['scripts'] = array('multiselect.js');
 
+define('ZBX_PAGE_MAIN_HAT', 'hat_latest');
+
 if (PAGE_TYPE_HTML == $page['type']) {
 	define('ZBX_PAGE_DO_REFRESH', 1);
 }
@@ -302,6 +304,10 @@ if ($items) {
 	}
 }
 
+if ($filter['showDetails']) {
+	$config = select_config();
+}
+
 // multiselect hosts
 $multiSelectHostData = array();
 if ($filter['hostids']) {
@@ -350,7 +356,7 @@ $filterTable->setCellSpacing(0);
 
 $filterTable->addRow(
 	array(
-		new CCol(bold(_('Host groups')), 'label'),
+		new CCol(bold(_('Host groups').':'), 'label'),
 		new CCol(new CMultiSelect(
 			array(
 				'name' => 'groupids[]',
@@ -360,19 +366,20 @@ $filterTable->addRow(
 					'parameters' => 'srctbl=host_groups&dstfrm='.$filterForm->getName().'&dstfld1=groupids_'.
 						'&srcfld1=groupid&multiselect=1',
 					'width' => 450,
-					'height' => 450
+					'height' => 450,
+					'buttonClass' => 'input filter-multiselect-select-button'
 				)
 			)),
 			'inputcol'
 		),
-		new CCol(bold(_('Name')), 'label'),
+		new CCol(bold(_('Name').':'), 'label'),
 		new CCol(new CTextBox('select', $filter['select'], 40), 'inputcol'),
 	)
 );
 
 $filterTable->addRow(
 	array(
-		new CCol(bold(_('Hosts')), 'label'),
+		new CCol(bold(_('Hosts').':'), 'label'),
 		new CCol(new CMultiSelect(
 			array(
 				'name' => 'hostids[]',
@@ -382,41 +389,41 @@ $filterTable->addRow(
 					'parameters' => 'srctbl=hosts&dstfrm='.$filterForm->getName().'&dstfld1=hostids_&srcfld1=hostid'.
 						'&real_hosts=1&multiselect=1',
 					'width' => 450,
-					'height' => 450
+					'height' => 450,
+					'buttonClass' => 'input filter-multiselect-select-button'
 				)
 			)),
 			'inputcol'
 		),
-		new CCol(bold(_('Show items without data')), 'label'),
+		new CCol(bold(_('Show items without data').':'), 'label'),
 		new CCol(new CCheckBox('show_without_data', $filter['showWithoutData'], null, 1), 'inputcol')
 	)
 );
 
 $filterTable->addRow(array(
-	new CCol(bold(_('Application')), 'label'),
+	new CCol(bold(_('Application').':'), 'label'),
 	new CCol(
 		array(
 			new CTextBox('application', $filter['application']),
 			new CButton('application_name', _('Select'),
 				'return PopUp("popup.php?srctbl=applications&srcfld1=name&real_hosts=1&dstfld1=application'.
 					'&with_applications=1&dstfrm='.$filterForm->getName().'");',
-				'button-form'
+				'filter-select-button'
 			)
 		),
 		'inputcol'
 	),
-	new CCol(bold(_('Show details')), 'label'),
+	new CCol(bold(_('Show details').':'), 'label'),
 	new CCol(new CCheckBox('show_details', $filter['showDetails'], null, 1), 'inputcol'),
 ));
 
-$filterButton = new CSubmit('filter_set', _('Filter'), 'chkbxRange.clearSelectedOnFilterChange();',
-	'jqueryinput shadow'
-);
-$filterButton->main();
+$filterButton = new CSubmit('filter_set', _('Filter'), 'chkbxRange.clearSelectedOnFilterChange();');
+$filterButton->useJQueryStyle();
 
-$resetButton = new CSubmit('filter_rst', _('Reset'), 'chkbxRange.clearSelectedOnFilterChange();', 'jqueryinput shadow');
+$resetButton = new CSubmit('filter_rst', _('Reset'), 'chkbxRange.clearSelectedOnFilterChange();');
+$resetButton->useJQueryStyle();
 
-$divButtons = new CDiv(array($filterButton, $resetButton));
+$divButtons = new CDiv(array($filterButton, SPACE, $resetButton));
 $divButtons->setAttribute('style', 'padding: 4px 0px;');
 
 $filterTable->addRow(new CCol($divButtons, 'controls', 4));
@@ -510,8 +517,6 @@ else {
 }
 
 $tab_rows = array();
-
-$config = select_config();
 
 foreach ($items as $key => $item){
 	if (!$item['applications']) {
@@ -882,13 +887,14 @@ foreach ($hosts as $hostId => $dbHost) {
 	}
 }
 
-$form->addItem(array(
-	$table,
-	get_table_header(new CActionButtonList('graphtype', 'itemids', array(
-		GRAPH_TYPE_STACKED => array('name' => _('Display stacked graph')),
-		GRAPH_TYPE_NORMAL => array('name' => _('Display graph'))
-	)))
+$goBox = new CComboBox('graphtype', GRAPH_TYPE_STACKED, null, array(
+	GRAPH_TYPE_STACKED => _('Display stacked graph'),
+	GRAPH_TYPE_NORMAL => _('Display graph')
 ));
+$goBox->setAttribute('id', 'action');
+$goButton = new CSubmit('goButton', _('Go').' (0)');
+
+$form->addItem(array($table, get_table_header(array($goBox, $goButton))));
 
 $latestWidget->addItem($form);
 $latestWidget->show();

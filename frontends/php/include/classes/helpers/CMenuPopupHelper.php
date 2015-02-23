@@ -240,11 +240,6 @@ class CMenuPopupHelper {
 		);
 
 		if ($scripts) {
-			foreach ($scripts as &$script) {
-				$script['name'] = implode('/', splitPath($script['name'], false, true));
-			}
-			unset($script);
-
 			CArrayHelper::sort($scripts, array('name'));
 
 			foreach (array_values($scripts) as $script) {
@@ -285,10 +280,6 @@ class CMenuPopupHelper {
 		);
 
 		if ($scripts) {
-			foreach ($scripts as &$script) {
-				$script['name'] = implode('/', splitPath($script['name'], false, true));
-			}
-			unset($script);
 			CArrayHelper::sort($scripts, array('name'));
 
 			$data['hostid'] = $hostId;
@@ -422,24 +413,16 @@ class CMenuPopupHelper {
 		$data = array(
 			'type' => 'trigger',
 			'triggerid' => $trigger['triggerid'],
-			'items' => $items
+			'items' => $items,
+			'acknowledge' => $acknowledge,
+			'eventTime' => $eventTime,
+			'url' => resolveTriggerUrl($trigger)
 		);
-
-		if ($acknowledge !== null) {
-			$data['acknowledge'] = $acknowledge;
-		}
-
-		if ($eventTime !== null) {
-			$data['eventTime'] = $eventTime;
-		}
-
-		if ($trigger['url'] !== '') {
-			$data['url'] = $trigger['url'];
-		}
 
 		if ($showEvents) {
 			$data['showEvents'] = true;
 		}
+
 		if (in_array(CWebUser::$data['type'], array(USER_TYPE_ZABBIX_ADMIN, USER_TYPE_SUPER_ADMIN))
 				&& $trigger['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) {
 			$data['configuration'] = true;

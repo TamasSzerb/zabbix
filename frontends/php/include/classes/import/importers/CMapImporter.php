@@ -25,6 +25,8 @@ class CMapImporter extends CImporter {
 	 * Import maps.
 	 *
 	 * @param array $maps
+	 *
+	 * @return void
 	 */
 	public function import(array $maps) {
 		$maps = zbx_toHash($maps, 'name');
@@ -98,11 +100,12 @@ class CMapImporter extends CImporter {
 	 * Check if map elements have circular references.
 	 * Circular references can be only in map elements that represent another map.
 	 *
+	 * @throws Exception
 	 * @see checkCircularRecursive
 	 *
-	 * @throws Exception if circular reference found.
-	 *
 	 * @param array $maps
+	 *
+	 * @return void
 	 */
 	protected function checkCircularMapReferences(array $maps) {
 		foreach ($maps as $mapName => $map) {
@@ -123,39 +126,37 @@ class CMapImporter extends CImporter {
 	 * Recursive function for searching for circular map references.
 	 * If circular reference exist it return array with map elements with circular reference.
 	 *
-	 * @param array $element	Map element to inspect on current recursive loop.
-	 * @param array $maps		All maps where circular references should be searched.
-	 * @param array $checked	Map names that already were processed, should contain unique values
-	 *							if no circular references exist.
+	 * @param array $element map element to inspect on current recursive loop
+	 * @param array $maps    all maps where circular references should be searched
+	 * @param array $checked map names that already were processed,
+	 *                       should contain unique values if no circular references exist
 	 *
 	 * @return array|bool
 	 */
 	protected function checkCircularRecursive(array $element, array $maps, array $checked) {
-		// If element is not a map element, recursive reference cannot happen.
+		// if element is not map element, recursive reference cannot happen
 		if ($element['elementtype'] != SYSMAP_ELEMENT_TYPE_MAP) {
 			return false;
 		}
 
 		$elementMapName = $element['element']['name'];
 
-		// If current element map name is already in list of checked map names, circular reference exists.
+		// if current element map name is already in list of checked map names,
+		// circular reference exists
 		if (in_array($elementMapName, $checked)) {
-			/*
-			 * To have a nice result containing only maps that have circular reference,
-			 * remove everything that was added before repeated map name.
-			 */
+			// to have nice result containing only maps that have circular reference,
+			// remove everything that was added before repeated map name
 			$checked = array_slice($checked, array_search($elementMapName, $checked));
-
-			// Add repeated name to have nice loop like m1->m2->m3->m1.
+			// add repeated name to have nice loop like m1->m2->m3->m1
 			$checked[] = $elementMapName;
-
 			return $checked;
 		}
 		else {
 			$checked[] = $elementMapName;
 		}
 
-		// Find maps that reference the current element, and if one has selements, check all of them recursively.
+		// we need to find maps that reference the current element
+		// and if one has selements, check all of them recursively
 		if (!empty($maps[$elementMapName]['selements'])) {
 			foreach ($maps[$elementMapName]['selements'] as $selement) {
 				return $this->checkCircularRecursive($selement, $maps, $checked);

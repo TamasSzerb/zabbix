@@ -19,9 +19,9 @@
 **/
 
 
-define('ZABBIX_VERSION',		'2.5.0');
-define('ZABBIX_API_VERSION',	'2.5.0');
-define('ZABBIX_DB_VERSION',		2050004);
+define('ZABBIX_VERSION',		'2.4.4');
+define('ZABBIX_API_VERSION',	'2.4.4');
+define('ZABBIX_DB_VERSION',		2040000);
 
 define('ZABBIX_COPYRIGHT_FROM',	'2001');
 define('ZABBIX_COPYRIGHT_TO',	'2015');
@@ -128,7 +128,6 @@ define('T_ZBX_DBL',			2);
 define('T_ZBX_CLR',			5);
 define('T_ZBX_DBL_BIG',		9);
 define('T_ZBX_DBL_STR',		10);
-define('T_ZBX_TP',			11);
 
 define('O_MAND',	0);
 define('O_OPT',		1);
@@ -276,16 +275,6 @@ define('TIMEPERIOD_TYPE_WEEKLY',	3);
 define('TIMEPERIOD_TYPE_MONTHLY',	4);
 define('TIMEPERIOD_TYPE_YEARLY',	5);
 
-// report periods
-define('REPORT_PERIOD_TODAY',			0);
-define('REPORT_PERIOD_YESTERDAY',		1);
-define('REPORT_PERIOD_CURRENT_WEEK',	2);
-define('REPORT_PERIOD_CURRENT_MONTH',	3);
-define('REPORT_PERIOD_CURRENT_YEAR',	4);
-define('REPORT_PERIOD_LAST_WEEK',		5);
-define('REPORT_PERIOD_LAST_MONTH',		6);
-define('REPORT_PERIOD_LAST_YEAR',		7);
-
 define('SYSMAP_LABEL_ADVANCED_OFF',	0);
 define('SYSMAP_LABEL_ADVANCED_ON',	1);
 
@@ -352,7 +341,6 @@ define('ITEM_TYPE_SSH',				13);
 define('ITEM_TYPE_TELNET',			14);
 define('ITEM_TYPE_CALCULATED',		15);
 define('ITEM_TYPE_JMX',				16);
-define('ITEM_TYPE_SNMPTRAP',		17);
 
 define('ITEM_VALUE_TYPE_FLOAT',		0);
 define('ITEM_VALUE_TYPE_STR',		1); // aka Character
@@ -365,11 +353,10 @@ define('ITEM_DATA_TYPE_OCTAL',			1);
 define('ITEM_DATA_TYPE_HEXADECIMAL',	2);
 define('ITEM_DATA_TYPE_BOOLEAN',		3);
 
-define('ZBX_DEFAULT_KEY_DB_MONITOR',			'db.odbc.select[<unique short description>,<dsn>]');
-define('ZBX_DEFAULT_KEY_DB_MONITOR_DISCOVERY',	'db.odbc.discovery[<unique short description>,<dsn>]');
-define('ZBX_DEFAULT_KEY_SSH',					'ssh.run[<unique short description>,<ip>,<port>,<encoding>]');
-define('ZBX_DEFAULT_KEY_TELNET',				'telnet.run[<unique short description>,<ip>,<port>,<encoding>]');
-define('ZBX_DEFAULT_KEY_JMX',					'jmx[<object name>,<attribute name>]');
+define('ZBX_DEFAULT_KEY_DB_MONITOR',	'db.odbc.select[<unique short description>,<dsn>]');
+define('ZBX_DEFAULT_KEY_SSH',			'ssh.run[<unique short description>,<ip>,<port>,<encoding>]');
+define('ZBX_DEFAULT_KEY_TELNET',		'telnet.run[<unique short description>,<ip>,<port>,<encoding>]');
+define('ZBX_DEFAULT_KEY_JMX',			'jmx[<object name>,<attribute name>]');
 
 define('SYSMAP_ELEMENT_USE_ICONMAP_ON',		1);
 define('SYSMAP_ELEMENT_USE_ICONMAP_OFF',	0);
@@ -383,6 +370,8 @@ define('ITEM_STATUS_NOTSUPPORTED',	3);
 
 define('ITEM_STATE_NORMAL',			0);
 define('ITEM_STATE_NOTSUPPORTED',	1);
+
+define('ITEM_TYPE_SNMPTRAP', 17);
 
 define('ITEM_SNMPV3_SECURITYLEVEL_NOAUTHNOPRIV',	0);
 define('ITEM_SNMPV3_SECURITYLEVEL_AUTHNOPRIV',		1);
@@ -641,9 +630,6 @@ define('PERM_DENY',			0);
 
 define('PARAM_TYPE_TIME',		0);
 define('PARAM_TYPE_COUNTS',		1);
-
-define('ZBX_DEFAULT_AGENT', 'Zabbix');
-define('ZBX_AGENT_OTHER', -1);
 
 define('HTTPTEST_AUTH_NONE',	0);
 define('HTTPTEST_AUTH_BASIC',	1);
@@ -947,7 +933,6 @@ define('THEME_DEFAULT', 'default');
 define('ZBX_DEFAULT_THEME', 'originalblue');
 
 define('ZABBIX_HOMEPAGE', 'http://www.zabbix.com');
-define('ZBX_DEFAULT_URL', 'zabbix.php?action=dashboard.view');
 
 // non translatable date formats
 define('TIMESTAMP_FORMAT', 'YmdHis');
@@ -955,6 +940,10 @@ define('TIMESTAMP_FORMAT_ZERO_TIME', 'Ymd0000');
 
 // date format context, usable for translators
 define('DATE_FORMAT_CONTEXT', 'Date format (see http://php.net/date)');
+
+// actions
+define('LONG_DESCRIPTION',	0);
+define('SHORT_DESCRIPTION',	1);
 
 // availability report modes
 define('AVAILABILITY_REPORT_BY_HOST', 0);

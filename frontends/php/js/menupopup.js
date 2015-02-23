@@ -119,12 +119,7 @@ function getMenuPopupFavouriteData(label, data, favouriteObj, addParams) {
 				clickCallback: function() {
 					var obj = jQuery(this);
 
-					sendAjaxData('zabbix.php?action=dashboard.favourite&operation=delete', {
-						data: {
-							object: favouriteObj,
-							'objectids[]': [item.id]
-						}
-					});
+					rm4favorites(favouriteObj, item.id);
 
 					obj.closest('.menuPopup').fadeOut(100);
 					obj.remove();
@@ -153,12 +148,7 @@ function getMenuPopupFavouriteData(label, data, favouriteObj, addParams) {
 				label: t('Remove all'),
 				css: (removeItems.length == 0) ? 'ui-state-disabled' : '',
 				clickCallback: function() {
-					sendAjaxData('zabbix.php?action=dashboard.favourite&operation=delete', {
-						data: {
-							object: favouriteObj,
-							'objectids[]': [0]
-						}
-					});
+					rm4favorites(favouriteObj, 0);
 
 					jQuery(this).closest('.menuPopup').fadeOut(100);
 				}
@@ -398,7 +388,7 @@ function getMenuPopupMap(options) {
 
 		// submap
 		if (typeof options.gotos.submap !== 'undefined') {
-			var url = new Curl('zabbix.php?action=map.view');
+			var url = new Curl('maps.php');
 
 			jQuery.each(options.gotos.submap, function(name, value) {
 				url.setArgument(name, value);
@@ -486,28 +476,14 @@ function getMenuPopupRefresh(options) {
 				var obj = jQuery(this),
 					currentRate = obj.data('value');
 
-
-				// it is a quick solution for slide refresh multiplier, should be replaced with slide.refresh or similar
-				if (options.multiplier) {
-					sendAjaxData('slides.php', {
-						data: jQuery.extend({}, params, {
-							widgetName: options.widgetName,
-							widgetRefreshRate: currentRate
-						}),
-						dataType: 'script',
-						success: function(js) { js }
-					});
-				}
-				else {
-					sendAjaxData('zabbix.php?action=dashboard.widget', {
-						data: jQuery.extend({}, params, {
-							widget: options.widgetName,
-							refreshrate: currentRate
-						}),
-						dataType: 'script',
-						success: function(js) { js }
-					});
-				}
+				sendAjaxData({
+					data: jQuery.extend({}, params, {
+						widgetName: options.widgetName,
+						widgetRefreshRate: currentRate
+					}),
+					dataType: 'script',
+					success: function(js) { js }
+				});
 
 				jQuery('a', obj.closest('ul')).each(function() {
 					var a = jQuery(this),

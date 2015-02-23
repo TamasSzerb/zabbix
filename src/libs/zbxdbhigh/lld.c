@@ -74,7 +74,7 @@ static void	lld_condition_free(lld_condition_t *condition)
  ******************************************************************************/
 static void	lld_conditions_free(zbx_vector_ptr_t *conditions)
 {
-	zbx_vector_ptr_clear_ext(conditions, (zbx_clean_func_t)lld_condition_free);
+	zbx_vector_ptr_clean(conditions, (zbx_mem_free_func_t)lld_condition_free);
 	zbx_vector_ptr_destroy(conditions);
 }
 
@@ -187,7 +187,7 @@ static int	lld_filter_load(lld_filter_t *filter, zbx_uint64_t lld_ruleid, char *
 		}
 		else
 		{
-			substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL, &item, NULL,
+			substitute_simple_macros(NULL, NULL, NULL, NULL, NULL, NULL, &item,
 					&condition->regexp, MACRO_TYPE_LLD_FILTER, NULL, 0);
 		}
 	}
@@ -496,7 +496,7 @@ static void	lld_item_link_free(zbx_lld_item_link_t *item_link)
 
 static void	lld_row_free(zbx_lld_row_t *lld_row)
 {
-	zbx_vector_ptr_clear_ext(&lld_row->item_links, (zbx_clean_func_t)lld_item_link_free);
+	zbx_vector_ptr_clean(&lld_row->item_links, (zbx_mem_free_func_t)lld_item_link_free);
 	zbx_vector_ptr_destroy(&lld_row->item_links);
 	zbx_free(lld_row);
 }
@@ -553,7 +553,7 @@ void	lld_process_discovery_rule(zbx_uint64_t lld_ruleid, char *value, zbx_timesp
 		db_error = zbx_strdup(db_error, row[5]);
 
 		lifetime_str = zbx_strdup(NULL, row[6]);
-		substitute_simple_macros(NULL, NULL, NULL, NULL, &hostid, NULL, NULL, NULL,
+		substitute_simple_macros(NULL, NULL, NULL, NULL, &hostid, NULL, NULL,
 				&lifetime_str, MACRO_TYPE_COMMON, NULL, 0);
 		if (SUCCEED != is_ushort(lifetime_str, &lifetime))
 		{
@@ -625,7 +625,7 @@ clean:
 
 	lld_filter_clean(&filter);
 
-	zbx_vector_ptr_clear_ext(&lld_rows, (zbx_clean_func_t)lld_row_free);
+	zbx_vector_ptr_clean(&lld_rows, (zbx_mem_free_func_t)lld_row_free);
 	zbx_vector_ptr_destroy(&lld_rows);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);

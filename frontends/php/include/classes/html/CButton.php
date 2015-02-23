@@ -19,64 +19,18 @@
 **/
 
 
-class CButton extends CTag implements CButtonInterface {
+class CButton extends CInput {
 
 	/**
-	 * Button class that will be added to the other classes of the element.
+	 * For inputs of type "button", the "&" symbol should not be encoded.
 	 *
-	 * @var string
+	 * @var int
 	 */
-	protected $buttonClass;
+	protected $attrEncStrategy = self::ENC_NOAMP;
 
-	public function __construct($name = 'button', $caption = '', $action = null,
-			$buttonClass = 'button-plain shadow ui-corner-all') {
-		parent::__construct('button', 'yes', $caption, 'button');
-		$this->setAttribute('type', 'button');
-
-		if ($name !== null) {
-			$this->setAttribute('id', zbx_formatDomId($name));
-			$this->setAttribute('name', $name);
-		}
-
+	public function __construct($name = 'button', $caption = '', $action = null, $class = null) {
+		parent::__construct('button', $name, $caption, $class);
 		$this->addAction('onclick', $action);
-
-		$this->buttonClass = $buttonClass;
-	}
-
-	/**
-	 * @see CButtonInterface::main()
-	 */
-	public function main() {
-		$this->addClass('main');
-	}
-
-	/**
-	 * Enable or disable the element.
-	 *
-	 * @param bool $value
-	 */
-	public function setEnabled($value) {
-		if ($value) {
-			$this->removeAttribute('disabled');
-		}
-		else {
-			$this->attr('disabled', 'disabled');
-		}
-	}
-
-	/**
-	 * @see CButtonInterface::setButtonClass()
-	 */
-	public function setButtonClass($class) {
-		$this->buttonClass = $class;
-	}
-
-	public function toString($destroy = true) {
-		// append the button class
-		if ($this->buttonClass !== null) {
-			$this->addClass($this->buttonClass);
-		}
-
-		return parent::toString($destroy);
+		return $this;
 	}
 }

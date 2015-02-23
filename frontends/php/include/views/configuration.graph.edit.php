@@ -135,7 +135,7 @@ if ($this->data['graphtype'] == GRAPH_TYPE_NORMAL || $this->data['graphtype'] ==
 				'&srcfld2=name'.
 				'&numeric=1'.
 				'&writeonly=1" + getOnlyHostParam(), 0, 0, "zbx_popup_item");',
-			'button-form'
+			'formlist'
 		);
 
 		// select prototype button
@@ -149,7 +149,7 @@ if ($this->data['graphtype'] == GRAPH_TYPE_NORMAL || $this->data['graphtype'] ==
 					'&srcfld1=itemid'.
 					'&srcfld2=name'.
 					'&numeric=1", 0, 0, "zbx_popup_item");',
-				'button-form'
+				'formlist'
 			);
 		}
 	}
@@ -193,7 +193,7 @@ if ($this->data['graphtype'] == GRAPH_TYPE_NORMAL || $this->data['graphtype'] ==
 				'&srcfld2=name'.
 				'&numeric=1'.
 				'&writeonly=1" + getOnlyHostParam(), 0, 0, "zbx_popup_item");',
-			'button-form'
+			'formlist'
 		);
 
 		// select prototype button
@@ -207,7 +207,7 @@ if ($this->data['graphtype'] == GRAPH_TYPE_NORMAL || $this->data['graphtype'] ==
 					'&srcfld1=itemid'.
 					'&srcfld2=name'.
 					'&numeric=1", 0, 0, "zbx_popup_item");',
-				'button-form'
+				'formlist'
 			);
 		}
 	}
@@ -329,7 +329,7 @@ if (!empty($this->data['graphid'])) {
 else {
 	$graphForm->addItem(makeFormFooter(
 		new CSubmit('add', _('Add')),
-		array(new CButtonCancel(url_param('parent_discoveryid')))
+		new CButtonCancel(url_param('parent_discoveryid'))
 	));
 }
 

@@ -33,12 +33,12 @@ $overviewWidget->addHeader(_('Overview'), $headerForm);
 
 // hint table
 $hintTable = new CTableInfo(null, 'tableinfo tableinfo-overview-hint');
-for ($severity = TRIGGER_SEVERITY_NOT_CLASSIFIED; $severity < TRIGGER_SEVERITY_COUNT; $severity++) {
-	$hintTable->addRow(array(getSeverityCell($severity, $this->data['config']), _('PROBLEM')));
+for ($i = 0; $i < TRIGGER_SEVERITY_COUNT; $i++) {
+	$hintTable->addRow(array(getSeverityCell($i), _('PROBLEM')));
 }
 $hintTable->addRow(array(new CCol(SPACE), _('OK or no trigger')));
 
-$help = new CIcon(null, 'iconhelp');
+$help = new CHelp();
 $help->setHint($hintTable);
 
 // header right
@@ -74,7 +74,7 @@ $filterForm->addRow(_('Filter by application'), array(
 	new CButton('application_name', _('Select'),
 		'return PopUp("popup.php?srctbl=applications&srcfld1=name&real_hosts=1&dstfld1=application&with_applications=1'.
 		'&dstfrm='.$filterForm->getName().'");',
-		'button-form'
+		'filter-button'
 	)
 ));
 
@@ -85,7 +85,8 @@ $filterForm->addItemToBottomRow(new CSubmit('filter_rst', _('Reset'), 'chkbxRang
 $overviewWidget->addFlicker($filterForm, CProfile::get('web.overview.filter.state', 0));
 
 // data table
-if ($this->data['config']['dropdown_first_entry']) {
+$config = select_config();
+if ($config['dropdown_first_entry']) {
 	$dataTable = getItemsDataOverview(array_keys($this->data['pageFilter']->hosts), $this->data['applicationIds'],
 		$this->data['view_style']
 	);

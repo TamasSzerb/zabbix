@@ -41,7 +41,7 @@ $exactComboBox->addItem('0', _('like'));
 $exactComboBox->addItem('1', _('exactly'));
 $filterTable->addRow(array(
 	array(
-		array(bold(_('Field')), ' ', $inventoryFieldsComboBox),
+		array(bold(_('Field')), SPACE, $inventoryFieldsComboBox),
 		array(
 			$exactComboBox,
 			new CTextBox('filter_field_value', $this->data['filterFieldValue'], 20)
@@ -49,12 +49,13 @@ $filterTable->addRow(array(
 	),
 ), 'host-inventories');
 
-$filter = new CSubmit('filter_set', _('Filter'), null, 'jqueryinput shadow');
-$filter->main();
+$filter = new CSubmit('filter_set', _('Filter'));
+$filter->useJQueryStyle('main');
 
-$reset = new CSubmit('filter_rst', _('Reset'), null, 'jqueryinput shadow');
+$reset = new CSubmit('filter_rst', _('Reset'));
+$reset->useJQueryStyle();
 
-$divButtons = new CDiv(array($filter, $reset));
+$divButtons = new CDiv(array($filter, SPACE, $reset));
 $divButtons->setAttribute('style', 'padding: 4px 0px;');
 
 $footerCol = new CCol($divButtons, 'controls');

@@ -26,7 +26,6 @@ require_once dirname(__FILE__).'/include/forms.inc.php';
 
 $page['title'] = _('Configuration of web monitoring');
 $page['file'] = 'httpconf.php';
-$page['scripts'] = array('class.cviewswitcher.js');
 $page['hist_arg'] = array('groupid', 'hostid');
 
 require_once dirname(__FILE__).'/include/page_header.php';
@@ -46,10 +45,7 @@ $fields = array(
 	'delay'           => array(T_ZBX_INT, O_OPT, null,  BETWEEN(1, SEC_PER_DAY), 'isset({add}) || isset({update})', _('Update interval (in sec)')),
 	'retries'         => array(T_ZBX_INT, O_OPT, null,  BETWEEN(1, 10),          'isset({add}) || isset({update})', _('Retries')),
 	'status'          => array(T_ZBX_STR, O_OPT, null,  null,                    null),
-	'agent'           => array(T_ZBX_STR, O_OPT, null, null,                     'isset({add}) || isset({update})'),
-	'agent_other'     => array(T_ZBX_STR, O_OPT, P_NO_TRIM, null,
-		'(isset({add}) || isset({update})) && {agent} == '.ZBX_AGENT_OTHER
-	),
+	'agent'           => array(T_ZBX_STR, O_OPT, null,  null,                    'isset({add}) || isset({update})'),
 	'variables'       => array(T_ZBX_STR, O_OPT, null,  null,                    'isset({add}) || isset({update})'),
 	'steps'           => array(T_ZBX_STR, O_OPT, null,  null,                    'isset({add}) || isset({update})', _('Steps')),
 	'authentication'  => array(T_ZBX_INT, O_OPT, null,  IN('0,1,2'),             'isset({add}) || isset({update})'),
@@ -113,15 +109,6 @@ if (isset($_REQUEST['httptestid']) || !empty($_REQUEST['group_httptestid'])) {
 		access_deny();
 	}
 }
-$hostId = getRequest('hostid');
-if ($hostId && !API::Host()->isWritable(array($hostId))) {
-	access_deny();
-}
-
-$groupId = getRequest('groupid');
-if ($groupId && !API::HostGroup()->get(array('groupids' => $groupId))) {
-	access_deny();
-}
 
 /*
  * Actions
@@ -178,8 +165,7 @@ elseif (hasRequest('del_history') && hasRequest('httptestid')) {
 			$host = reset($httpTest['hosts']);
 
 			add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_SCENARIO,
-				_('Web scenario').' ['.$httpTest['name'].'] ['.$httpTestId.'] '.
-					_('Host').' ['.$host['name'].'] '._('History cleared')
+				'Scenario ['.$httpTest['name'].'] ['.$httpTestId.'] Host ['.$host['name'].'] history cleared'
 			);
 		}
 
@@ -192,12 +178,12 @@ elseif (hasRequest('add') || hasRequest('update')) {
 
 	if (hasRequest('update')) {
 		$action = AUDIT_ACTION_UPDATE;
-		$messageTrue = _('Web scenario updated');
+		$messageTrue = _('Scenario updated');
 		$messageFalse = _('Cannot update web scenario');
 	}
 	else {
 		$action = AUDIT_ACTION_ADD;
-		$messageTrue = _('Web scenario added');
+		$messageTrue = _('Scenario added');
 		$messageFalse = _('Cannot add web scenario');
 	}
 
@@ -231,7 +217,7 @@ elseif (hasRequest('add') || hasRequest('update')) {
 			'delay' => $_REQUEST['delay'],
 			'retries' => $_REQUEST['retries'],
 			'status' => isset($_REQUEST['status']) ? 0 : 1,
-			'agent' => hasRequest('agent_other') ? getRequest('agent_other') : getRequest('agent'),
+			'agent' => $_REQUEST['agent'],
 			'variables' => $_REQUEST['variables'],
 			'http_proxy' => $_REQUEST['http_proxy'],
 			'steps' => $steps,
@@ -315,7 +301,7 @@ elseif (hasRequest('add') || hasRequest('update')) {
 
 		$host = get_host_by_hostid($_REQUEST['hostid']);
 		add_audit($action, AUDIT_RESOURCE_SCENARIO,
-			_('Web scenario').' ['.getRequest('name').'] ['.$httpTestId.'] '._('Host').' ['.$host['name'].']'
+			'Scenario ['.getRequest('name').'] ['.$httpTestId.'] Host ['.$host['name'].']'
 		);
 
 		unset($_REQUEST['form']);
@@ -372,8 +358,8 @@ elseif (hasRequest('action') && str_in_array(getRequest('action'), array('httpte
 					$host = reset($httpTest['hosts']);
 
 					add_audit($auditAction, AUDIT_RESOURCE_SCENARIO,
-						_('Web scenario').' ['.$httpTest['name'].'] ['.$httpTest['httptestid'].'] '.
-							_('Host').' ['.$host['name'].'] '.$statusName
+						'Scenario ['.$httpTest['name'].'] ['.$httpTest['httptestid'].'] '.
+							'Host ['.$host['name'].'] '.$statusName
 					);
 				}
 			}
@@ -423,8 +409,8 @@ elseif (hasRequest('action') && getRequest('action') === 'httptest.massclearhist
 				$host = reset($httpTest['hosts']);
 
 				add_audit(AUDIT_ACTION_UPDATE, AUDIT_RESOURCE_SCENARIO,
-					_('Web scenario').' ['.$httpTest['name'].'] ['.$httpTest['httptestid'].'] '.
-						_('Host').' ['.$host['name'].'] '._('History cleared')
+					'Scenario ['.$httpTest['name'].'] ['.$httpTest['httptestid'].'] '.
+						'Host ['.$host['name'].'] history cleared'
 				);
 			}
 		}
@@ -474,7 +460,7 @@ if (isset($_REQUEST['form'])) {
 		$httpTestId = $data['httptestid'];
 		while ($httpTestId) {
 			$dbTest = DBfetch(DBselect(
-				'SELECT h.hostid,h.name,ht.httptestid,ht.templateid'.
+				'SELECT h.hostid,h.name,h.status,ht.httptestid,ht.templateid'.
 					' FROM hosts h,httptest ht'.
 					' WHERE ht.hostid=h.hostid'.
 					' AND ht.httptestid='.zbx_dbstr($httpTestId)
@@ -510,18 +496,7 @@ if (isset($_REQUEST['form'])) {
 		$data['delay'] = $dbHttpTest['delay'];
 		$data['retries'] = $dbHttpTest['retries'];
 		$data['status'] = $dbHttpTest['status'];
-
-		$data['agent'] = ZBX_AGENT_OTHER;
-		$data['agent_other'] = $dbHttpTest['agent'];
-
-		foreach (userAgents() as $userAgents) {
-			if (array_key_exists($dbHttpTest['agent'], $userAgents)) {
-				$data['agent'] = $dbHttpTest['agent'];
-				$data['agent_other'] = '';
-				break;
-			}
-		}
-
+		$data['agent'] = $dbHttpTest['agent'];
 		$data['variables'] = $dbHttpTest['variables'];
 		$data['authentication'] = $dbHttpTest['authentication'];
 		$data['http_user'] = $dbHttpTest['http_user'];
@@ -549,20 +524,7 @@ if (isset($_REQUEST['form'])) {
 		$data['new_application'] = getRequest('new_application', '');
 		$data['delay'] = getRequest('delay', 60);
 		$data['retries'] = getRequest('retries', 1);
-
-		$data['agent'] = getRequest('agent', ZBX_DEFAULT_AGENT);
-		$data['agent_other'] = getRequest('agent_other');
-
-		if ($data['agent'] == ZBX_AGENT_OTHER) {
-			foreach (userAgents() as $userAgents) {
-				if (array_key_exists($data['agent_other'], $userAgents)) {
-					$data['agent'] = $data['agent_other'];
-					$data['agent_other'] = '';
-					break;
-				}
-			}
-		}
-
+		$data['agent'] = getRequest('agent', '');
 		$data['variables'] = getRequest('variables', array());
 		$data['authentication'] = getRequest('authentication', HTTPTEST_AUTH_NONE);
 		$data['http_user'] = getRequest('http_user', '');
@@ -633,8 +595,6 @@ else {
 	}
 
 	if ($data['pageFilter']->hostsSelected) {
-		$config = select_config();
-
 		$options = array(
 			'editable' => true,
 			'output' => array('httptestid'),

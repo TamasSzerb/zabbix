@@ -34,7 +34,9 @@ class testPageTriggers extends CWebTest {
 	* @dataProvider data
 	*/
 	public function testPageTriggers_CheckLayout($data) {
+		// Go to the list of triggers
 		$this->zbxTestLogin('triggers.php?hostid='.$data['hostid']);
+		// We are in the list of items
 		$this->zbxTestCheckTitle('Configuration of triggers');
 		$this->zbxTestTextPresent('CONFIGURATION OF TRIGGERS');
 		$this->zbxTestTextPresent('Triggers');
@@ -66,7 +68,7 @@ class testPageTriggers extends CWebTest {
 			$this->zbxTestTextNotPresent('Error');
 		}
 		// TODO someday should check that interval is not shown for trapper items, trends not shown for non-numeric items etc
-		$this->zbxTestDropdownHasOptions('action', array(
+		$this->zbxTestDropdownHasOptions('go', array(
 				'Enable selected',
 				'Disable selected',
 				'Mass update',

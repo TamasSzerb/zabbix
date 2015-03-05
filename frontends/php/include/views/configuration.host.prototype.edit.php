@@ -18,7 +18,6 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-
 $discoveryRule = $data['discovery_rule'];
 $hostPrototype = $data['host_prototype'];
 $parentHost = $data['parent_host'];
@@ -37,7 +36,7 @@ if (!isset($_REQUEST['form_refresh'])) {
 
 $frmHost = new CForm();
 $frmHost->setName('hostPrototypeForm.');
-$frmHost->addVar('form', getRequest('form', 1));
+$frmHost->addVar('form', get_request('form', 1));
 $frmHost->addVar('parent_discoveryid', $discoveryRule['itemid']);
 
 $hostList = new CFormList('hostlist');
@@ -50,13 +49,13 @@ if ($hostPrototype['templateid'] && $data['parents']) {
 			'?form=update&hostid='.$parent['hostid'].'&parent_discoveryid='.$parent['discoveryRule']['itemid'],
 			'highlight underline weight_normal'
 		);
-		$parents[] = SPACE.'&rArr;'.SPACE;
+		$parents[] = SPACE.RARR.SPACE;
 	}
 	array_pop($parents);
 	$hostList->addRow(_('Parent discovery rules'), $parents);
 }
 
-if (isset($hostPrototype['hostid'])) {
+if ($hostPrototype['hostid']) {
 	$frmHost->addVar('hostid', $hostPrototype['hostid']);
 }
 
@@ -72,14 +71,15 @@ $hostList->addRow(_('Visible name'), $visiblenameTB);
 
 // display inherited parameters only for hosts prototypes on hosts
 if ($parentHost['status'] != HOST_STATUS_TEMPLATE) {
+	$interfaces = array();
 	$existingInterfaceTypes = array();
-
 	foreach ($parentHost['interfaces'] as $interface) {
+		$interface['locked'] = true;
 		$existingInterfaceTypes[$interface['type']] = true;
+		$interfaces[$interface['interfaceid']] = $interface;
 	}
-
-	zbx_add_post_js('hostInterfacesManager.add('.CJs::encodeJson(array_values($parentHost['interfaces'])).');');
-	zbx_add_post_js('hostInterfacesManager.disable();');
+	zbx_add_post_js('hostInterfacesManager.add('.CJs::encodeJson($interfaces).');');
+	zbx_add_post_js('hostInterfacesManager.disable()');
 
 	// table for agent interfaces with footer
 	$ifTab = new CTable(null, 'formElementTable');
@@ -155,7 +155,11 @@ if ($parentHost['status'] != HOST_STATUS_TEMPLATE) {
 	$hostList->addRow(_('Monitored by proxy'), $proxyTb);
 }
 
-$hostList->addRow(_('Enabled'), new CCheckBox('status', (HOST_STATUS_MONITORED == $hostPrototype['status']), null, HOST_STATUS_MONITORED));
+$cmbStatus = new CComboBox('status', $hostPrototype['status']);
+$cmbStatus->addItem(HOST_STATUS_MONITORED, _('Monitored'));
+$cmbStatus->addItem(HOST_STATUS_NOT_MONITORED, _('Not monitored'));
+
+$hostList->addRow(_('Status'), $cmbStatus);
 
 $divTabs->addTab('hostTab', _('Host'), $hostList);
 
@@ -219,11 +223,9 @@ $ignoreTemplates = array();
 if ($hostPrototype['templates']) {
 	foreach ($hostPrototype['templates'] as $template) {
 		$tmplList->addVar('templates['.$template['templateid'].']', $template['templateid']);
-		$templateLink = new CLink($template['name'], 'templates.php?form=update&templateid='.$template['templateid']);
-		$templateLink->setTarget('_blank');
 
 		$linkedTemplateTable->addRow(array(
-			$templateLink,
+			$template['name'],
 			!$hostPrototype['templateid'] ? new CSubmit('unlink['.$template['templateid'].']', _('Unlink'), null, 'link_menu') : '',
 		));
 
@@ -312,7 +314,7 @@ $inventoryTypeRadioButton = array(
 	$inventoryAutomaticBtn,
 	new CLabel(_('Automatic'), 'host_inventory_radio_'.HOST_INVENTORY_AUTOMATIC),
 );
-$inventoryFormList->addRow(new CDiv($inventoryTypeRadioButton, 'jqueryinputset radioset'));
+$inventoryFormList->addRow(new CDiv($inventoryTypeRadioButton, 'jqueryinputset'));
 
 // clearing the float
 $clearFixDiv = new CDiv();
@@ -326,28 +328,17 @@ $frmHost->addItem($divTabs);
 /*
  * footer
  */
-if (isset($hostPrototype['hostid'])) {
-	$btnDelete = new CButtonDelete(
-		_('Delete selected host prototype?'),
-		url_param('form').url_param('hostid').url_param('parent_discoveryid')
-	);
-	$btnDelete->setEnabled($hostPrototype['templateid'] == 0);
+$others = array();
+if ($hostPrototype['hostid']) {
+	$btnDelete = new CButtonDelete(_('Delete selected host prototype?'), url_param('form').url_param('hostid').url_param('parent_discoveryid'));
+	$btnDelete->setEnabled(!$hostPrototype['templateid']);
 
-	$frmHost->addItem(makeFormFooter(
-		new CSubmit('update', _('Update')),
-		array (
-			new CSubmit('clone', _('Clone')),
-			$btnDelete,
-			new CButtonCancel(url_param('parent_discoveryid'))
-		)
-	));
+	$others[] = new CSubmit('clone', _('Clone'));
+	$others[] = $btnDelete;
 }
-else {
-	$frmHost->addItem(makeFormFooter(
-		new CSubmit('add', _('Add')),
-		array(new CButtonCancel(url_param('parent_discoveryid')))
-	));
-}
+$others[] = new CButtonCancel(url_param('parent_discoveryid'));
+
+$frmHost->addItem(makeFormFooter(new CSubmit('save', _('Save')), $others));
 
 $widget->addItem($frmHost);
 

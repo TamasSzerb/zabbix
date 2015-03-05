@@ -22,11 +22,6 @@
 class CTemplateImporter extends CImporter {
 
 	/**
-	 * @var array		a list of template IDs which were created or updated
-	 */
-	protected $processedTemplateIds = array();
-
-	/**
 	 * Import templates.
 	 *
 	 * @throws Exception
@@ -56,7 +51,6 @@ class CTemplateImporter extends CImporter {
 			$templatesToCreate = array();
 			$templatesToUpdate = array();
 			$templateLinkage = array();
-
 			foreach ($independentTemplates as $name) {
 				$template = $templates[$name];
 				unset($templates[$name]);
@@ -78,28 +72,26 @@ class CTemplateImporter extends CImporter {
 			}
 
 			if ($this->options['templates']['createMissing'] && $templatesToCreate) {
-				$newTemplateIds = API::Template()->create($templatesToCreate);
+				$newHostIds = API::Template()->create($templatesToCreate);
 
 				foreach ($templatesToCreate as $num => $createdTemplate) {
-					$templateId = $newTemplateIds['templateids'][$num];
-
-					$this->referencer->addTemplateRef($createdTemplate['host'], $templateId);
-					$this->processedTemplateIds[$templateId] = $templateId;
+					$hostId = $newHostIds['templateids'][$num];
+					$this->referencer->addTemplateRef($createdTemplate['host'], $hostId);
+					$this->referencer->addProcessedHost($createdTemplate['host']);
 
 					if (!empty($templateLinkage[$createdTemplate['host']])) {
 						API::Template()->massAdd(array(
-							'templates' => array('templateid' => $templateId),
+							'templates' => array('templateid' => $hostId),
 							'templates_link' => $templateLinkage[$createdTemplate['host']]
 						));
 					}
 				}
 			}
-
 			if ($this->options['templates']['updateExisting'] && $templatesToUpdate) {
 				API::Template()->update($templatesToUpdate);
 
 				foreach ($templatesToUpdate as $updatedTemplate) {
-					$this->processedTemplateIds[$updatedTemplate['templateid']] = $updatedTemplate['templateid'];
+					$this->referencer->addProcessedHost($updatedTemplate['host']);
 
 					if (!empty($templateLinkage[$updatedTemplate['host']])) {
 						API::Template()->massAdd(array(
@@ -123,15 +115,6 @@ class CTemplateImporter extends CImporter {
 				'Cannot import template "%1$s", linked templates "%2$s" do not exist.',
 				$template['host'], implode(', ', $unresolvedReferences), count($unresolvedReferences)));
 		}
-	}
-
-	/**
-	 * Get a list of created or updated template IDs.
-	 *
-	 * @return array
-	 */
-	public function getProcessedTemplateIds() {
-		return $this->processedTemplateIds;
 	}
 
 	/**

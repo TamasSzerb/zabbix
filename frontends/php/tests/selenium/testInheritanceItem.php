@@ -54,7 +54,7 @@ class testInheritanceItem extends CWebTest {
 		$oldHashItems = DBhash($sqlItems);
 
 		$this->zbxTestLogin('items.php?form=update&itemid='.$data['itemid']);
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestCheckTitle('Configuration of items');
 		$this->zbxTestTextPresent('Item updated');
 
@@ -93,7 +93,7 @@ class testInheritanceItem extends CWebTest {
 		$this->input_type('name', $data['name']);
 		$this->input_type('key', $data['key']);
 
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 
 		switch ($data['expected']) {
 			case TEST_GOOD:

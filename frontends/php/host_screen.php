@@ -43,39 +43,69 @@ $fields = array(
 	'step' =>		array(T_ZBX_INT, O_OPT, P_SYS, BETWEEN(0, 65535), null),
 	'period' =>		array(T_ZBX_INT, O_OPT, P_SYS, null,		null),
 	'stime' =>		array(T_ZBX_STR, O_OPT, P_SYS, null,		null),
-	'reset' =>		array(T_ZBX_STR, O_OPT, P_SYS, IN('"reset"'), null),
+	'reset' =>		array(T_ZBX_STR, O_OPT, P_SYS, IN("'reset'"), null),
 	'fullscreen' =>	array(T_ZBX_INT, O_OPT, P_SYS, IN('0,1'),	null),
 	// ajax
-	'filterState' => array(T_ZBX_INT, O_OPT, P_ACT,	null,		null),
-	'favobj' =>		array(T_ZBX_STR, O_OPT, P_ACT, null,		null)
+	'favobj' =>		array(T_ZBX_STR, O_OPT, P_ACT, null,		null),
+	'favref' =>		array(T_ZBX_STR, O_OPT, P_ACT, NOT_EMPTY,	null),
+	'favid' =>		array(T_ZBX_INT, O_OPT, P_ACT, null,		null),
+	'favaction' =>	array(T_ZBX_STR, O_OPT, P_ACT, IN("'add','remove','flop'"), null),
+	'favstate' =>	array(T_ZBX_INT, O_OPT, P_ACT, NOT_EMPTY,	null)
 );
 check_fields($fields);
 
 /*
  * Ajax
  */
-if (hasRequest('filterState')) {
-	CProfile::update('web.hostscreen.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
-}
+if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.hostscreen.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
 
-if (getRequest('favobj') === 'timeline' && hasRequest('elementid') && hasRequest('period')) {
-	navigation_bar_calc('web.hostscreen', getRequest('elementid'), true);
+	if ($_REQUEST['favobj'] == 'timeline') {
+		if (isset($_REQUEST['elementid']) && isset($_REQUEST['period'])) {
+			navigation_bar_calc('web.hostscreen', $_REQUEST['elementid'], true);
+		}
+	}
+
+	if (str_in_array($_REQUEST['favobj'], array('screenid', 'slideshowid'))) {
+		$result = false;
+		if ($_REQUEST['favaction'] == 'add') {
+			$result = CFavorite::add('web.favorite.screenids',$_REQUEST['favid'], $_REQUEST['favobj']);
+			if ($result) {
+				echo '$("addrm_fav").title = "'._('Remove from favourites').'";'."\n";
+				echo '$("addrm_fav").onclick = function() { rm4favorites("'.$_REQUEST['favobj'].'", "'.$_REQUEST['favid'].'", 0); }'."\n";
+			}
+		}
+		elseif ($_REQUEST['favaction'] == 'remove') {
+			$result = CFavorite::remove('web.favorite.screenids', $_REQUEST['favid'], $_REQUEST['favobj']);
+
+			if ($result) {
+				echo '$("addrm_fav").title = "'._('Add to favourites').'";'."\n";
+				echo '$("addrm_fav").onclick = function() { add2favorites("'.$_REQUEST['favobj'].'", "'.$_REQUEST['favid'].'"); }'."\n";
+			}
+		}
+
+		if ($page['type'] == PAGE_TYPE_JS && $result) {
+			echo 'switchElementsClass("addrm_fav", "iconminus", "iconplus");';
+		}
+	}
 }
 
 if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 /*
  * Display
  */
 $data = array(
-	'hostid' => getRequest('hostid', 0),
+	'hostid' => get_request('hostid', 0),
 	'fullscreen' => $_REQUEST['fullscreen'],
-	'screenid' => getRequest('screenid', CProfile::get('web.hostscreen.screenid', null)),
-	'period' => getRequest('period'),
-	'stime' => getRequest('stime')
+	'screenid' => get_request('screenid', CProfile::get('web.hostscreen.screenid', null)),
+	'period' => get_request('period'),
+	'stime' => get_request('stime')
 );
 CProfile::update('web.hostscreen.screenid', $data['screenid'], PROFILE_TYPE_ID);
 

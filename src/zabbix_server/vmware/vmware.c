@@ -55,15 +55,15 @@
  * performance data updates.
  */
 
+/* external variables */
+extern unsigned char	process_type;
+extern int		process_num;
+
 extern char		*CONFIG_FILE;
 extern int		CONFIG_VMWARE_FREQUENCY;
 extern int		CONFIG_VMWARE_PERF_FREQUENCY;
 extern zbx_uint64_t	CONFIG_VMWARE_CACHE_SIZE;
 extern int		CONFIG_VMWARE_TIMEOUT;
-
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
-extern char		*CONFIG_SOURCE_IP;
 
 #define VMWARE_VECTOR_CREATE(ref, type)	zbx_vector_##type##_create_ext(ref,  __vm_mem_malloc_func, \
 		__vm_mem_realloc_func, __vm_mem_free_func)
@@ -395,7 +395,7 @@ static void	vmware_dev_shared_free(zbx_vmware_dev_t *dev)
  ******************************************************************************/
 static void	vmware_vm_shared_free(zbx_vmware_vm_t *vm)
 {
-	zbx_vector_ptr_clear_ext(&vm->devs, (zbx_clean_func_t)vmware_dev_shared_free);
+	zbx_vector_ptr_clean(&vm->devs, (zbx_mem_free_func_t)vmware_dev_shared_free);
 	zbx_vector_ptr_destroy(&vm->devs);
 
 	if (NULL != vm->uuid)
@@ -421,10 +421,10 @@ static void	vmware_vm_shared_free(zbx_vmware_vm_t *vm)
  ******************************************************************************/
 static void	vmware_hv_shared_free(zbx_vmware_hv_t *hv)
 {
-	zbx_vector_ptr_clear_ext(&hv->datastores, (zbx_clean_func_t)vmware_datastore_shared_free);
+	zbx_vector_ptr_clean(&hv->datastores, (zbx_mem_free_func_t)vmware_datastore_shared_free);
 	zbx_vector_ptr_destroy(&hv->datastores);
 
-	zbx_vector_ptr_clear_ext(&hv->vms, (zbx_clean_func_t)vmware_vm_shared_free);
+	zbx_vector_ptr_clean(&hv->vms, (zbx_mem_free_func_t)vmware_vm_shared_free);
 	zbx_vector_ptr_destroy(&hv->vms);
 
 	if (NULL != hv->uuid)
@@ -478,10 +478,10 @@ static void	vmware_data_shared_free(zbx_vmware_data_t *data)
 {
 	if (NULL != data)
 	{
-		zbx_vector_ptr_clear_ext(&data->hvs, (zbx_clean_func_t)vmware_hv_shared_free);
+		zbx_vector_ptr_clean(&data->hvs, (zbx_mem_free_func_t)vmware_hv_shared_free);
 		zbx_vector_ptr_destroy(&data->hvs);
 
-		zbx_vector_ptr_clear_ext(&data->clusters, (zbx_clean_func_t)vmware_cluster_shared_free);
+		zbx_vector_ptr_clean(&data->clusters, (zbx_mem_free_func_t)vmware_cluster_shared_free);
 		zbx_vector_ptr_destroy(&data->clusters);
 
 		if (NULL != data->events)
@@ -506,7 +506,7 @@ static void	vmware_data_shared_free(zbx_vmware_data_t *data)
  ******************************************************************************/
 static void	vmware_shared_perf_entity_clean(zbx_vmware_perf_entity_t *entity)
 {
-	zbx_vector_ptr_clear_ext(&entity->counters, (zbx_mem_free_func_t)vmware_perf_counter_shared_free);
+	zbx_vector_ptr_clean(&entity->counters, (zbx_mem_free_func_t)vmware_perf_counter_shared_free);
 	zbx_vector_ptr_destroy(&entity->counters);
 
 	__vm_mem_free_func(entity->type);
@@ -781,7 +781,7 @@ static void	vmware_dev_free(zbx_vmware_dev_t *dev)
  ******************************************************************************/
 static void	vmware_vm_free(zbx_vmware_vm_t *vm)
 {
-	zbx_vector_ptr_clear_ext(&vm->devs, (zbx_clean_func_t)vmware_dev_free);
+	zbx_vector_ptr_clean(&vm->devs, (zbx_mem_free_func_t)vmware_dev_free);
 	zbx_vector_ptr_destroy(&vm->devs);
 
 	zbx_free(vm->uuid);
@@ -801,10 +801,10 @@ static void	vmware_vm_free(zbx_vmware_vm_t *vm)
  ******************************************************************************/
 static void	vmware_hv_free(zbx_vmware_hv_t *hv)
 {
-	zbx_vector_ptr_clear_ext(&hv->datastores, (zbx_clean_func_t)vmware_datastore_free);
+	zbx_vector_ptr_clean(&hv->datastores, (zbx_mem_free_func_t)vmware_datastore_free);
 	zbx_vector_ptr_destroy(&hv->datastores);
 
-	zbx_vector_ptr_clear_ext(&hv->vms, (zbx_clean_func_t)vmware_vm_free);
+	zbx_vector_ptr_clean(&hv->vms, (zbx_mem_free_func_t)vmware_vm_free);
 	zbx_vector_ptr_destroy(&hv->vms);
 
 	zbx_free(hv->uuid);
@@ -842,10 +842,10 @@ static void	vmware_cluster_free(zbx_vmware_cluster_t *cluster)
  ******************************************************************************/
 static void	vmware_data_free(zbx_vmware_data_t *data)
 {
-	zbx_vector_ptr_clear_ext(&data->hvs, (zbx_clean_func_t)vmware_hv_free);
+	zbx_vector_ptr_clean(&data->hvs, (zbx_mem_free_func_t)vmware_hv_free);
 	zbx_vector_ptr_destroy(&data->hvs);
 
-	zbx_vector_ptr_clear_ext(&data->clusters, (zbx_clean_func_t)vmware_cluster_free);
+	zbx_vector_ptr_clean(&data->clusters, (zbx_mem_free_func_t)vmware_cluster_free);
 	zbx_vector_ptr_destroy(&data->clusters);
 
 	zbx_free(data->events);
@@ -936,15 +936,6 @@ static int	vmware_service_authenticate(zbx_vmware_service_t *service, CURL *easy
 		goto out;
 	}
 
-	if (NULL != CONFIG_SOURCE_IP)
-	{
-		if (CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_INTERFACE, CONFIG_SOURCE_IP)))
-		{
-			*error = zbx_dsprintf(*error, "Cannot set cURL option %d: %s.", opt, curl_easy_strerror(err));
-			goto out;
-		}
-	}
-
 	if (ZBX_VMWARE_TYPE_UNKNOWN == service->type)
 	{
 		/* try to detect the service type first using vCenter service manager object */
@@ -965,8 +956,6 @@ static int	vmware_service_authenticate(zbx_vmware_service_t *service, CURL *easy
 			*error = zbx_strdup(*error, curl_easy_strerror(err));
 			goto out;
 		}
-
-		zabbix_log(LOG_LEVEL_TRACE, "%s() SOAP response: %s", __function_name, page.data);
 
 		if (NULL == (*error = zbx_xml_read_value(page.data, ZBX_XPATH_FAULTSTRING())))
 		{
@@ -1009,8 +998,6 @@ static int	vmware_service_authenticate(zbx_vmware_service_t *service, CURL *easy
 		goto out;
 	}
 
-	zabbix_log(LOG_LEVEL_TRACE, "%s() SOAP response: %s", __function_name, page.data);
-
 	if (NULL != (*error = zbx_xml_read_value(page.data, ZBX_XPATH_FAULTSTRING())))
 		goto out;
 
@@ -1047,9 +1034,7 @@ static	int	vmware_service_get_contents(zbx_vmware_service_t *service, CURL *easy
 		"</ns0:RetrieveServiceContent>"							\
 		ZBX_POST_VSPHERE_FOOTER
 
-	const char	*__function_name = "vmware_service_get_contents";
-
-	int		err, opt, ret = FAIL;
+	int	err, opt, ret = FAIL;
 
 	if (CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_POSTFIELDS, ZBX_POST_VMWARE_CONTENTS)))
 	{
@@ -1064,8 +1049,6 @@ static	int	vmware_service_get_contents(zbx_vmware_service_t *service, CURL *easy
 		*error = zbx_strdup(*error, curl_easy_strerror(err));
 		goto out;
 	}
-
-	zabbix_log(LOG_LEVEL_TRACE, "%s() SOAP response: %s", __function_name, page.data);
 
 	if (NULL != (*error = zbx_xml_read_value(page.data, ZBX_XPATH_FAULTSTRING())))
 		goto out;
@@ -1130,8 +1113,6 @@ static int	vmware_service_get_perf_counter_refreshrate(const zbx_vmware_service_
 		*error = zbx_strdup(*error, curl_easy_strerror(err));
 		goto out;
 	}
-
-	zabbix_log(LOG_LEVEL_TRACE, "%s() SOAP response: %s", __function_name, page.data);
 
 	if (NULL != (*error = zbx_xml_read_value(page.data, ZBX_XPATH_FAULTSTRING())))
 		goto out;
@@ -1307,7 +1288,6 @@ out:
 static void	wmware_vm_get_nic_devices(zbx_vmware_vm_t *vm)
 {
 	const char	*__function_name = "wmware_vm_get_nic_devices";
-
 	xmlDoc		*doc;
 	xmlXPathContext	*xpathCtx;
 	xmlXPathObject	*xpathObj;
@@ -1373,7 +1353,6 @@ out:
 static void	wmware_vm_get_disk_devices(zbx_vmware_vm_t *vm)
 {
 	const char	*__function_name = "wmware_vm_get_disk_devices";
-
 	xmlDoc		*doc;
 	xmlXPathContext	*xpathCtx;
 	xmlXPathObject	*xpathObj;
@@ -1546,8 +1525,6 @@ static int	vmware_service_get_vm_data(zbx_vmware_service_t *service, CURL *easyh
 		goto out;
 	}
 
-	zabbix_log(LOG_LEVEL_TRACE, "%s() SOAP response: %s", __function_name, page.data);
-
 	if (NULL != (*error = zbx_xml_read_value(page.data, ZBX_XPATH_FAULTSTRING())))
 		goto out;
 
@@ -1652,7 +1629,6 @@ static zbx_vmware_datastore_t	*vmware_service_create_datastore(const zbx_vmware_
 		ZBX_POST_VSPHERE_FOOTER
 
 	const char		*__function_name = "vmware_service_create_datastore";
-
 	char			tmp[MAX_STRING_LEN], *uuid = NULL, *name = NULL, *url;
 	zbx_vmware_datastore_t	*datastore = NULL;
 
@@ -1668,8 +1644,6 @@ static zbx_vmware_datastore_t	*vmware_service_create_datastore(const zbx_vmware_
 
 	if (CURLE_OK != curl_easy_perform(easyhandle))
 		goto out;
-
-	zabbix_log(LOG_LEVEL_TRACE, "%s() SOAP response: %s", __function_name, page.data);
 
 	name = zbx_xml_read_value(page.data, ZBX_XPATH_DATASTORE("name"));
 
@@ -1768,8 +1742,6 @@ static int	vmware_service_get_hv_data(const zbx_vmware_service_t *service, CURL 
 		goto out;
 	}
 
-	zabbix_log(LOG_LEVEL_TRACE, "%s() SOAP response: %s", __function_name, page.data);
-
 	if (NULL != (*error = zbx_xml_read_value(page.data, ZBX_XPATH_FAULTSTRING())))
 		goto out;
 
@@ -1801,7 +1773,6 @@ static zbx_vmware_hv_t	*vmware_service_create_hv(zbx_vmware_service_t *service, 
 		const char *id, char **error)
 {
 	const char		*__function_name = "vmware_service_create_hv";
-
 	zbx_vmware_hv_t		*hv;
 	char			*value;
 	zbx_vector_str_t	datastores, vms;
@@ -1854,10 +1825,10 @@ static zbx_vmware_hv_t	*vmware_service_create_hv(zbx_vmware_service_t *service, 
 
 	ret = SUCCEED;
 out:
-	zbx_vector_str_clear_ext(&vms, zbx_ptr_free);
+	zbx_vector_str_clean(&vms);
 	zbx_vector_str_destroy(&vms);
 
-	zbx_vector_str_clear_ext(&datastores, zbx_ptr_free);
+	zbx_vector_str_clean(&datastores);
 	zbx_vector_str_destroy(&datastores);
 
 	if (SUCCEED != ret)
@@ -2053,9 +2024,9 @@ static int	vmware_service_get_hv_list(const zbx_vmware_service_t *service, CURL 
 				goto out;
 			}
 
-			zabbix_log(LOG_LEVEL_TRACE, "%s() SOAP response: %s", __function_name, page.data);
+			zabbix_log(LOG_LEVEL_DEBUG, "%s() page.data:'%s'", __function_name, page.data);
 
-			if (NULL != (*error = zbx_xml_read_value(page.data, ZBX_XPATH_FAULTSTRING())))
+			if (NULL != (*error = zbx_xml_read_value(page.data, ZBX_XPATH_LN1("faultstring"))))
 				goto out;
 
 			zbx_xml_read_values(page.data, "//*[@type='HostSystem']", hvs);
@@ -2144,8 +2115,6 @@ static int	vmware_service_get_event_session(const zbx_vmware_service_t *service,
 		goto out;
 	}
 
-	zabbix_log(LOG_LEVEL_TRACE, "%s() SOAP response: %s", __function_name, page.data);
-
 	if (NULL != (*error = zbx_xml_read_value(page.data, ZBX_XPATH_FAULTSTRING())))
 		goto out;
 
@@ -2211,7 +2180,7 @@ static int	vmware_service_destroy_event_session(const zbx_vmware_service_t *serv
 		goto out;
 	}
 
-	if (NULL != (*error = zbx_xml_read_value(page.data, ZBX_XPATH_FAULTSTRING())))
+	if (NULL != (*error = zbx_xml_read_value(page.data, ZBX_XPATH_LN1("faultstring"))))
 		goto out;
 
 	ret = SUCCEED;
@@ -2283,8 +2252,6 @@ static int	vmware_service_get_event_data(const zbx_vmware_service_t *service, CU
 		*error = zbx_strdup(*error, curl_easy_strerror(err));
 		goto end_session;
 	}
-
-	zabbix_log(LOG_LEVEL_TRACE, "%s() SOAP response: %s", __function_name, page.data);
 
 	if (NULL != (*error = zbx_xml_read_value(page.data, ZBX_XPATH_FAULTSTRING())))
 		goto end_session;
@@ -2462,8 +2429,6 @@ static int	vmware_service_get_clusters(const zbx_vmware_service_t *service, CURL
 		goto out;
 	}
 
-	zabbix_log(LOG_LEVEL_TRACE, "%s() SOAP response: %s", __function_name, page.data);
-
 	if (NULL != (*error = zbx_xml_read_value(page.data, ZBX_XPATH_FAULTSTRING())))
 		goto out;
 
@@ -2535,8 +2500,6 @@ static int	vmware_service_get_cluster_status(const zbx_vmware_service_t *service
 		*error = zbx_strdup(*error, curl_easy_strerror(err));
 		goto out;
 	}
-
-	zabbix_log(LOG_LEVEL_TRACE, "%s() SOAP response: %s", __function_name, page.data);
 
 	if (NULL != (*error = zbx_xml_read_value(page.data, ZBX_XPATH_FAULTSTRING())))
 		goto out;
@@ -2611,7 +2574,7 @@ static int	vmware_service_get_cluster_list(const zbx_vmware_service_t *service, 
 	ret = SUCCEED;
 out:
 	zbx_free(cluster_data);
-	zbx_vector_str_clear_ext(&ids, zbx_ptr_free);
+	zbx_vector_str_clean(&ids);
 	zbx_vector_str_destroy(&ids);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s():%s found:%d", __function_name, zbx_result_string(ret),
@@ -2663,7 +2626,7 @@ static int	vmware_service_initialize(zbx_vmware_service_t *service, CURL *easyha
 out:
 	zbx_free(contents);
 
-	zbx_vector_ptr_clear_ext(&counters, (zbx_mem_free_func_t)vmware_counter_free);
+	zbx_vector_ptr_clean(&counters, (zbx_mem_free_func_t)vmware_counter_free);
 	zbx_vector_ptr_destroy(&counters);
 
 	return ret;
@@ -2765,8 +2728,7 @@ static void	vmware_service_update_perf_entities(zbx_vmware_service_t *service)
 						"virtualDisk/numberReadAveraged[average]",
 						"virtualDisk/numberWriteAveraged[average]",
 						"net/packetsRx[summation]", "net/packetsTx[summation]",
-						"net/received[average]", "net/transmitted[average]",
-						"cpu/ready[summation]", NULL
+						"net/received[average]", "net/transmitted[average]", NULL
 					};
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
@@ -2878,7 +2840,7 @@ clean:
 	curl_slist_free_all(headers);
 	curl_easy_cleanup(easyhandle);
 
-	zbx_vector_str_clear_ext(&hvs, zbx_ptr_free);
+	zbx_vector_str_clean(&hvs);
 	zbx_vector_str_destroy(&hvs);
 out:
 	zbx_vmware_lock();
@@ -3184,7 +3146,7 @@ static void	vmware_service_update_perf(zbx_vmware_service_t *service)
 	zbx_strcpy_alloc(&tmp, &tmp_alloc, &tmp_offset, "</ns0:QueryPerf>");
 	zbx_strcpy_alloc(&tmp, &tmp_alloc, &tmp_offset, ZBX_POST_VSPHERE_FOOTER);
 
-	zbx_vector_ptr_clear_ext(&entities, (zbx_mem_free_func_t)vmware_perf_entity_free);
+	zbx_vector_ptr_clean(&entities, (zbx_mem_free_func_t)vmware_perf_entity_free);
 	zbx_vector_ptr_destroy(&entities);
 
 	if (CURLE_OK != (err = curl_easy_setopt(easyhandle, opt = CURLOPT_POSTFIELDS, tmp)))
@@ -3255,7 +3217,6 @@ out:
 zbx_vmware_service_t	*zbx_vmware_get_service(const char* url, const char* username, const char* password)
 {
 	const char		*__function_name = "zbx_vmware_get_service";
-
 	int			i, now;
 	zbx_vmware_service_t	*service = NULL;
 
@@ -3450,7 +3411,6 @@ zbx_vmware_perf_entity_t	*zbx_vmware_service_get_perf_entity(zbx_vmware_service_
 void	zbx_vmware_init(void)
 {
 	const char	*__function_name = "zbx_vmware_init";
-
 	key_t		shm_key;
 	zbx_uint64_t	size_reserved;
 
@@ -3511,7 +3471,7 @@ void	zbx_vmware_destroy(void)
  * Purpose: the vmware collector main loop                                    *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(vmware_thread, args)
+void	main_vmware_loop(void)
 {
 #if defined(HAVE_LIBXML2) && defined(HAVE_LIBCURL)
 	int			i, now, state, next_update, updated_services = 0, removed_services = 0,
@@ -3519,13 +3479,6 @@ ZBX_THREAD_ENTRY(vmware_thread, args)
 	zbx_vmware_service_t	*service = NULL;
 	double			sec, total_sec = 0.0, old_total_sec = 0.0;
 	time_t			last_stat_time;
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
 
 #define STAT_INTERVAL	5	/* if a process is busy and does not sleep then update status not faster than */
 				/* once in STAT_INTERVAL seconds */
@@ -3603,6 +3556,7 @@ ZBX_THREAD_ENTRY(vmware_thread, args)
 				vmware_service_update(service);
 			else if (ZBX_VMWARE_TASK_UPDATE_PERF == state)
 				vmware_service_update_perf(service);
+
 		}
 		while (ZBX_VMWARE_TASK_IDLE != state);
 
@@ -3637,8 +3591,6 @@ ZBX_THREAD_ENTRY(vmware_thread, args)
 		zbx_sleep_loop(sleeptime);
 	}
 #undef STAT_INTERVAL
-#else
-	zbx_thread_exit(EXIT_SUCCESS);
 #endif
 }
 

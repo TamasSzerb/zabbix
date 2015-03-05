@@ -48,7 +48,8 @@ $screenForm->addVar('templateid', $this->data['templateid']);
 $screenTable = new CTableInfo(_('No screens found.'));
 $screenTable->setHeader(array(
 	new CCheckBox('all_screens', null, "checkAll('".$screenForm->getName()."', 'all_screens', 'screens');"),
-	make_sorting_header(_('Name'), 'name', $this->data['sort'], $this->data['sortorder']),
+	$this->data['displayNodes'] ? _('Node') : null,
+	make_sorting_header(_('Name'), 'name'),
 	_('Dimension (cols x rows)'),
 	_('Screen')
 ));
@@ -56,28 +57,29 @@ $screenTable->setHeader(array(
 foreach ($this->data['screens'] as $screen) {
 	$screenTable->addRow(array(
 		new CCheckBox('screens['.$screen['screenid'].']', null, null, $screen['screenid']),
+		$this->data['displayNodes'] ? $screen['nodename'] : null,
 		new CLink($screen['name'], 'screenedit.php?screenid='.$screen['screenid'].url_param('templateid')),
 		$screen['hsize'].' x '.$screen['vsize'],
 		new CLink(_('Edit'), '?form=update&screenid='.$screen['screenid'].url_param('templateid'))
 	));
 }
 
-// buttons
-$buttonsArray = array();
-if (!$this->data['templateid']) {
-	$buttonsArray['screen.export'] = array('name' => _('Export'));
+// create go button
+$goComboBox = new CComboBox('go');
+if (empty($this->data['templateid'])) {
+	$goComboBox->addItem('export', _('Export selected'));
 }
-$buttonsArray['screen.massdelete'] = array('name' => _('Delete'), 'confirm' => _('Delete selected screens?'));
+$goOption = new CComboItem('delete', _('Delete selected'));
+$goOption->setAttribute('confirm', _('Delete selected screens?'));
+$goComboBox->addItem($goOption);
+
+$goButton = new CSubmit('goButton', _('Go').' (0)');
+$goButton->setAttribute('id', 'goButton');
+zbx_add_post_js('chkbxRange.pageGoName = "screens";');
 
 // append table to form
-$screenForm->addItem(array(
-	$this->data['paging'],
-	$screenTable,
-	$this->data['paging'],
-	get_table_header(new CActionButtonList('action', 'screens', $buttonsArray))
-));
+$screenForm->addItem(array($this->data['paging'], $screenTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));
 
 // append form to widget
 $screenWidget->addItem($screenForm);
-
 return $screenWidget;

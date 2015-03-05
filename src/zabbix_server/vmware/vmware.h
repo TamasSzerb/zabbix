@@ -20,7 +20,6 @@
 #define ZABBIX_VMWARE_H
 
 #include "common.h"
-#include "threads.h"
 
 /* the vmware service state */
 #define ZBX_VMWARE_STATE_NEW		0x001
@@ -172,7 +171,7 @@ typedef struct
 }
 zbx_vmware_stats_t;
 
-ZBX_THREAD_ENTRY(vmware_thread, args);
+void	main_vmware_loop(void);
 
 void	zbx_vmware_init(void);
 void	zbx_vmware_destroy(void);

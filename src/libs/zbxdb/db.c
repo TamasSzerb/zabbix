@@ -214,13 +214,10 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 	int		ret = ZBX_DB_OK;
 #if defined(HAVE_IBM_DB2)
 	char		*connect = NULL;
-#elif defined(HAVE_MYSQL)
-	my_bool		mysql_reconnect = 1;
 #elif defined(HAVE_ORACLE)
 	char		*connect = NULL;
 	sword		err = OCI_SUCCESS;
 #elif defined(HAVE_POSTGRESQL)
-	int		rc;
 	char		*cport = NULL;
 	DB_RESULT	result;
 	DB_ROW		row;
@@ -312,15 +309,6 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 		zabbix_errlog(ERR_Z3001, dbname, mysql_errno(conn), mysql_error(conn));
 		ret = ZBX_DB_FAIL;
 	}
-
-	/* The RECONNECT option setting is placed here, AFTER the connection	*/
-	/* is made, due to a bug in MySQL versions prior to 5.1.6 where it	*/
-	/* reset the options value to the default, regardless of what it was	*/
-	/* set to prior to the connection. MySQL allows changing connection	*/
-	/* options on an open connection, so setting it here is safe.		*/
-
-	if (0 != mysql_options(conn, MYSQL_OPT_RECONNECT, &mysql_reconnect))
-		zabbix_log(LOG_LEVEL_WARNING, "Cannot set MySQL reconnect option.");
 
 	if (ZBX_DB_OK == ret && 0 != mysql_select_db(conn, dbname))
 	{
@@ -434,19 +422,6 @@ int	zbx_db_connect(char *host, char *user, char *password, char *dbname, char *d
 		goto out;
 	}
 
-	if (NULL != dbschema && '\0' != *dbschema)
-	{
-		char	*dbschema_esc;
-
-		dbschema_esc = zbx_db_dyn_escape_string(dbschema);
-		if (ZBX_DB_DOWN == (rc = zbx_db_execute("set schema '%s'", dbschema_esc)) || ZBX_DB_FAIL == rc)
-			ret = rc;
-		zbx_free(dbschema_esc);
-	}
-
-	if (ZBX_DB_FAIL == ret || ZBX_DB_DOWN == ret)
-		goto out;
-
 	result = zbx_db_select("%s", "select oid from pg_type where typname='bytea'");
 
 	if ((DB_RESULT)ZBX_DB_DOWN == result || NULL == result)
@@ -539,7 +514,7 @@ out:
 #if defined(HAVE_SQLITE3)
 void	zbx_create_sqlite3_mutex(void)
 {
-	if (FAIL == zbx_mutex_create_force(&sqlite_access, ZBX_MUTEX_SQLITE3))
+	if (ZBX_MUTEX_ERROR == zbx_mutex_create_force(&sqlite_access, ZBX_MUTEX_SQLITE3))
 	{
 		zbx_error("cannot create mutex for SQLite3");
 		exit(EXIT_FAILURE);
@@ -1985,6 +1960,8 @@ static size_t	zbx_db_get_escape_string_len(const char *src)
 
 	for (s = src; NULL != s && '\0' != *s; s++)
 	{
+		if ('\r' == *s)
+			continue;
 #if defined(HAVE_MYSQL)
 		if ('\'' == *s || '\\' == *s)
 #elif defined(HAVE_POSTGRESQL)
@@ -2025,6 +2002,9 @@ static void	zbx_db_escape_string(const char *src, char *dst, size_t len)
 
 	for (s = src, d = dst; NULL != s && '\0' != *s && 0 < len; s++)
 	{
+		if ('\r' == *s)
+			continue;
+
 #if defined(HAVE_MYSQL)
 		if ('\'' == *s || '\\' == *s)
 #elif defined(HAVE_POSTGRESQL)
@@ -2090,6 +2070,9 @@ char	*zbx_db_dyn_escape_string_len(const char *src, size_t max_src_len)
 
 	for (s = src; '\0' != *s && 0 < max_src_len; s++)
 	{
+		if ('\r' == *s)
+			continue;
+
 		/* only UTF-8 characters should reduce a variable max_src_len */
 		if (0x80 != (0xc0 & *s) && 0 == --max_src_len)
 			break;

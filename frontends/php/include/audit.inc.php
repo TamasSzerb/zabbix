@@ -39,7 +39,8 @@ function audit_resource2str($resource_type = null) {
 		AUDIT_RESOURCE_IT_SERVICE => _('IT service'),
 		AUDIT_RESOURCE_MAP => _('Map'),
 		AUDIT_RESOURCE_SCREEN => _('Screen'),
-		AUDIT_RESOURCE_SCENARIO => _('Web scenario'),
+		AUDIT_RESOURCE_NODE => _('Node'),
+		AUDIT_RESOURCE_SCENARIO => _('Scenario'),
 		AUDIT_RESOURCE_DISCOVERY_RULE => _('Discovery rule'),
 		AUDIT_RESOURCE_SLIDESHOW => _('Slide show'),
 		AUDIT_RESOURCE_PROXY => _('Proxy'),
@@ -62,19 +63,19 @@ function audit_resource2str($resource_type = null) {
 	}
 }
 
-function add_audit($action, $resourcetype, $details, $userId = null) {
-	if ($userId === null) {
-		$userId = CWebUser::$data['userid'];
+function add_audit($action, $resourcetype, $details) {
+	if (empty(CWebUser::$data['userid'])) {
+		return true;
 	}
 
-	if (mb_strlen($details) > 128) {
-		$details = mb_substr($details, 0, 125).'...';
+	if (zbx_strlen($details) > 128) {
+		$details = zbx_substr($details, 0, 125).'...';
 	}
 
 	$ip = !empty($_SERVER['HTTP_X_FORWARDED_FOR']) ? $_SERVER['HTTP_X_FORWARDED_FOR'] : $_SERVER['REMOTE_ADDR'];
 
 	$values = array(
-		'userid' => $userId,
+		'userid' => CWebUser::$data['userid'],
 		'clock' => time(),
 		'ip' => substr($ip, 0, 39),
 		'action' => $action,
@@ -109,8 +110,8 @@ function add_audit_ext($action, $resourcetype, $resourceid, $resourcename, $tabl
 		}
 	}
 
-	if (mb_strlen($resourcename) > 255) {
-		$resourcename = mb_substr($resourcename, 0, 252).'...';
+	if (zbx_strlen($resourcename) > 255) {
+		$resourcename = zbx_substr($resourcename, 0, 252).'...';
 	}
 
 	$ip = !empty($_SERVER['HTTP_X_FORWARDED_FOR']) ? $_SERVER['HTTP_X_FORWARDED_FOR'] : $_SERVER['REMOTE_ADDR'];
@@ -150,8 +151,8 @@ function add_audit_ext($action, $resourcetype, $resourceid, $resourcename, $tabl
 }
 
 function add_audit_details($action, $resourcetype, $resourceid, $resourcename, $details = null) {
-	if (mb_strlen($resourcename) > 255) {
-		$resourcename = mb_substr($resourcename, 0, 252).'...';
+	if (zbx_strlen($resourcename) > 255) {
+		$resourcename = zbx_substr($resourcename, 0, 252).'...';
 	}
 
 	$ip = !empty($_SERVER['HTTP_X_FORWARDED_FOR']) ? $_SERVER['HTTP_X_FORWARDED_FOR'] : $_SERVER['REMOTE_ADDR'];

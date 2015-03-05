@@ -150,13 +150,6 @@ ZABBIX.apps.map = (function($) {
 				});
 			}
 
-			// for some reason IE8 does not catch clicks if there is no background color and alpha opacity is 0
-			if (IE8) {
-				this.container.css({
-					backgroundColor: 'white'
-				});
-			}
-
 			if (IE || GK) {
 				this.base64image = false;
 				this.mapimg = $('#sysmap_img');
@@ -248,12 +241,12 @@ ZABBIX.apps.map = (function($) {
 					type: 'post',
 					data: {
 						favobj: 'sysmap',
-						action: 'update',
+						action: 'save',
 						sysmapid: this.sysmapid,
 						sysmap: Object.toJSON(this.data) // TODO: remove prototype method
 					},
 					error: function() {
-						throw new Error('Cannot update map.');
+						throw new Error('Cannot save map.');
 					}
 				});
 			},
@@ -305,11 +298,10 @@ ZABBIX.apps.map = (function($) {
 
 						this.imageUpdating = false;
 					}, this),
-					error: $.proxy(function() {
+					error: function(jqXHR, textStatus, errorThrown) {
+						window.console && window.console.log && window.console.log(jqXHR, textStatus, errorThrown);
 						alert('Map image update failed');
-
-						this.imageUpdating = false;
-					}, this)
+					}
 				});
 
 				$.when(ajaxRequest).always($.proxy(function() {
@@ -421,7 +413,7 @@ ZABBIX.apps.map = (function($) {
 				});
 
 				// save map
-				$('#sysmap_update').click(function() {
+				$('#sysmap_save').click(function() {
 					that.save();
 				});
 
@@ -498,12 +490,12 @@ ZABBIX.apps.map = (function($) {
 					switch (obj.val()) {
 						// host
 						case '0':
-							jQuery('#elementNameHost').multiSelect('clean');
+							jQuery('#elementNameHost').multiSelect.clean('elementNameHost');
 							break;
 
 						// host group
 						case '3':
-							jQuery('#elementNameHostGroup').multiSelect('clean');
+							jQuery('#elementNameHostGroup').multiSelect.clean('elementNameHostGroup');
 							break;
 
 						// others types
@@ -548,17 +540,6 @@ ZABBIX.apps.map = (function($) {
 					var value = parseInt(this.value, 10);
 
 					this.value = isNaN(value) || (value < 10) ? 10 : value;
-				});
-
-				// application selection pop up
-				$('#application-select').click(function() {
-					var data = $('#elementNameHost').multiSelect('getData');
-
-					PopUp('popup.php?srctbl=applications&srcfld1=name&real_hosts=1&dstfld1=application'
-						+ '&with_applications=1&dstfrm=selementForm'
-						+ ((data.length > 0 && $('#elementType').val() == '4') ? '&hostid='+ data[0].id : ''),
-						450, 450
-					);
 				});
 
 				// mass update form
@@ -696,9 +677,6 @@ ZABBIX.apps.map = (function($) {
 						this.massForm.hide();
 						$('#link-connect-to').show();
 						this.form.show();
-
-						// resize multiselect
-						$('.multiselect').multiSelect('resize');
 					}
 
 					// multiple elements selected
@@ -837,8 +815,7 @@ ZABBIX.apps.map = (function($) {
 					y: 0,
 					urls: {},
 					elementName: this.sysmap.defaultIconName, // first image name
-					use_iconmap: '1',
-					application: ''
+					use_iconmap: '1'
 				};
 			}
 			else {
@@ -898,8 +875,7 @@ ZABBIX.apps.map = (function($) {
 					dataFelds = [
 						'elementtype', 'elementid', 'iconid_off', 'iconid_on', 'iconid_maintenance',
 						'iconid_disabled', 'label', 'label_location', 'x', 'y', 'elementsubtype',  'areatype', 'width',
-						'height', 'viewtype', 'urls', 'elementName', 'use_iconmap', 'elementExpressionTrigger',
-						'application'
+						'height', 'viewtype', 'urls', 'elementName', 'use_iconmap', 'elementExpressionTrigger'
 					],
 					fieldsUnsettable = ['iconid_off', 'iconid_on', 'iconid_maintenance', 'iconid_disabled'],
 					i,
@@ -1218,18 +1194,6 @@ ZABBIX.apps.map = (function($) {
 								subtypeHostGroupElements: 'checked'
 							}
 						]
-					},
-					{
-						action: 'show',
-						value: '#application-select-row',
-						cond: [
-							{
-								elementType: '0'
-							},
-							{
-								elementType: '3'
-							}
-						]
 					}
 				];
 
@@ -1276,8 +1240,7 @@ ZABBIX.apps.map = (function($) {
 					parameters: 'srctbl=hosts&dstfrm=selementForm&dstfld1=elementNameHost' +
 						'&srcfld1=hostid&writeonly=1',
 					width: 450,
-					height: 450,
-					buttonClass: 'button link_menu'
+					height: 450
 				}
 			});
 
@@ -1294,8 +1257,7 @@ ZABBIX.apps.map = (function($) {
 					parameters: 'srctbl=host_groups&dstfrm=selementForm&dstfld1=elementNameHostGroup' +
 						'&srcfld1=groupid&writeonly=1',
 					width: 450,
-					height: 450,
-					buttonClass: 'button link_menu'
+					height: 450
 				}
 			});
 
@@ -1305,7 +1267,7 @@ ZABBIX.apps.map = (function($) {
 
 		SelementForm.prototype = {
 			/**
-			 * Shows element form.
+			 * Shows lement form.
 			 */
 			show: function() {
 				this.formContainer.draggable('option', 'handle', '#formDragHandler');
@@ -1394,12 +1356,12 @@ ZABBIX.apps.map = (function($) {
 					switch (selement.elementtype) {
 						// host
 						case '0':
-							$('#elementNameHost').multiSelect('addData', item);
+							$('#elementNameHost').multiSelect.addData(item, 'elementNameHost');
 							break;
 
 						// host group
 						case '3':
-							$('#elementNameHostGroup').multiSelect('addData', item);
+							$('#elementNameHostGroup').multiSelect.addData(item, 'elementNameHostGroup');
 							break;
 					}
 				}
@@ -1440,7 +1402,7 @@ ZABBIX.apps.map = (function($) {
 				switch (data.elementtype) {
 					// host
 					case '0':
-						var elementData = $('#elementNameHost').multiSelect('getData');
+						var elementData = $('#elementNameHost').multiSelect.getData('elementNameHost');
 
 						if (empty(elementData)) {
 							data.elementid = '0';
@@ -1454,7 +1416,7 @@ ZABBIX.apps.map = (function($) {
 
 					// host group
 					case '3':
-						var elementData = $('#elementNameHostGroup').multiSelect('getData');
+						var elementData = $('#elementNameHostGroup').multiSelect.getData('elementNameHostGroup');
 
 						if (empty(elementData)) {
 							data.elementid = '0';
@@ -2063,3 +2025,17 @@ ZABBIX.apps.map = (function($) {
 		}
 	};
 }(jQuery));
+
+/**
+ * Function that is executed by popup.php to ass selected values to destination.
+ * It uses a sysmap global variable that created in sysmap.php file via 'var sysmap = ZABBIX.apps.map.run();'
+ *
+ * @param list link triggers selected in popup
+ * @param {String} list.object name of objects which we returned
+ * @param {Array} list.values list of link triggers
+ */
+function addPopupValues(list) {
+	if (list.object === 'linktrigger') {
+		ZABBIX.apps.map.object.linkForm.addNewTriggers(list.values);
+	}
+}

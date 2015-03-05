@@ -29,6 +29,7 @@ $applicationWidget->addItem(get_header_host_table('applications', $this->data['h
 $applicationForm = new CForm();
 $applicationForm->setName('applicationForm');
 $applicationForm->addVar('form', $this->data['form']);
+$applicationForm->addVar('groupid', $this->data['groupid']);
 $applicationForm->addVar('hostid', $this->data['hostid']);
 if (!empty($this->data['applicationid'])) {
 	$applicationForm->addVar('applicationid', $this->data['applicationid']);
@@ -48,18 +49,18 @@ $applicationForm->addItem($applicationTab);
 // append buttons to form
 if (!empty($this->data['applicationid'])) {
 	$applicationForm->addItem(makeFormFooter(
-		new CSubmit('update', _('Update')),
+		new CSubmit('save', _('Save')),
 		array(
 			new CSubmit('clone', _('Clone')),
-			new CButtonDelete(_('Delete application?'), url_params(array('hostid', 'form', 'applicationid'))),
-			new CButtonCancel(url_param('hostid'))
+			new CButtonDelete(_('Delete application?'), url_params(array('config', 'hostid', 'groupid', 'form', 'applicationid'))),
+			new CButtonCancel(url_param('config').url_param('hostid').url_param('groupid'))
 		)
 	));
 }
 else {
 	$applicationForm->addItem(makeFormFooter(
-		new CSubmit('add', _('Add')),
-		array(new CButtonCancel(url_param('hostid')))
+		new CSubmit('save', _('Save')),
+		new CButtonCancel(url_param('config').url_param('hostid').url_param('groupid'))
 	));
 }
 

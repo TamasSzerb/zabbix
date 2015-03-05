@@ -18,47 +18,24 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-$regExpWidget = new CWidget();
 
-$generalComboBox = new CComboBox('configDropDown', 'adm.regexps.php',
-	'redirect(this.options[this.selectedIndex].value);'
-);
-$generalComboBox->addItems(array(
-	'adm.gui.php' => _('GUI'),
-	'adm.housekeeper.php' => _('Housekeeping'),
-	'adm.images.php' => _('Images'),
-	'adm.iconmapping.php' => _('Icon mapping'),
-	'adm.regexps.php' => _('Regular expressions'),
-	'adm.macros.php' => _('Macros'),
-	'adm.valuemapping.php' => _('Value mapping'),
-	'adm.workingtime.php' => _('Working time'),
-	'adm.triggerseverities.php' => _('Trigger severities'),
-	'adm.triggerdisplayoptions.php' => _('Trigger displaying options'),
-	'adm.other.php' => _('Other')
-));
+$this->data['cnf_wdgt']->addHeader(_('Regular expressions'));
 
-$headerForm = new CForm();
-$headerForm->cleanItems();
-$headerForm->addItem($generalComboBox);
-$headerForm->addItem(new CSubmit('form', _('New regular expression')));
-
-$regExpWidget->addPageHeader(_('CONFIGURATION OF REGULAR EXPRESSIONS'), $headerForm);
-
-$form = new CForm();
-$form->setName('regularExpressionsForm');
-$regExpWidget->addHeader(_('Regular expressions'));
-$regExpWidget->addItem(BR());
+$regExpForm = new CForm();
+$regExpForm->setName('regularExpressionsForm');
+$regExpForm->addItem(BR());
 
 $regExpTable = new CTableInfo(_('No regular expressions found.'));
 $regExpTable->setHeader(array(
 	new CCheckBox('all_regexps', null, "checkAll('regularExpressionsForm', 'all_regexps', 'regexpids');"),
+	$this->data['displayNodes'] ? _('Node') : null,
 	_('Name'),
 	_('Expressions')
 ));
 
 $expressions = array();
 $values = array();
-foreach($data['db_exps'] as $exp) {
+foreach($this->data['db_exps'] as $exp) {
 	if (!isset($expressions[$exp['regexpid']])) {
 		$values[$exp['regexpid']] = 1;
 	}
@@ -71,26 +48,31 @@ foreach($data['db_exps'] as $exp) {
 	}
 
 	$expressions[$exp['regexpid']]->addRow(array(
-		new CCol($values[$exp['regexpid']], 'top'),
-		new CCol(' &raquo; ', 'top'),
-		new CCol($exp['expression'], 'pre-wrap  break-lines'),
-		new CCol(' ['.expression_type2str($exp['expression_type']).']', 'top')
+		$values[$exp['regexpid']],
+		' &raquo; ',
+		$exp['expression'],
+		' ['.expression_type2str($exp['expression_type']).']'
 	));
 }
-foreach($data['regexps'] as $regexpid => $regexp) {
+foreach($this->data['regexps'] as $regexpid => $regexp) {
 	$regExpTable->addRow(array(
 		new CCheckBox('regexpids['.$regexp['regexpid'].']', null, null, $regexp['regexpid']),
+		$this->data['displayNodes'] ? $regexp['nodename'] : null,
 		new CLink($regexp['name'], 'adm.regexps.php?form=update'.'&regexpid='.$regexp['regexpid']),
 		isset($expressions[$regexpid]) ? $expressions[$regexpid] : '-'
 	));
 }
 
-// append table to form
-$form->addItem(array($regExpTable, get_table_header(new CActionButtonList('action', 'regexpids', array(
-	'regexp.massdelete' => array('name' => _('Delete'), 'confirm' => _('Delete selected regular expressions?'))
-)))));
+$goBox = new CComboBox('go');
+$goOption = new CComboItem('delete', _('Delete selected'));
+$goOption->setAttribute('confirm', _('Delete selected regular expressions?'));
+$goBox->addItem($goOption);
+$goButton = new CSubmit('goButton', _('Go').' (0)');
+$goButton->setAttribute('id', 'goButton');
+zbx_add_post_js('chkbxRange.pageGoName = "regexpids";');
 
-// append form to widget
-$regExpWidget->addItem($form);
+$regExpTable->setFooter(new CCol(array($goBox, $goButton)));
 
-return $regExpWidget;
+$regExpForm->addItem($regExpTable);
+
+return $regExpForm;

@@ -52,9 +52,9 @@ class CCollectionValidator extends CValidator {
 	/**
 	 * Error message if the given value is not an array.
 	 *
-	 * @var string
+	 * @var array
 	 */
-	public $messageInvalid;
+	public $messageInvalid = array();
 
 	/**
 	 * Error message if duplicate objects exist.
@@ -73,7 +73,7 @@ class CCollectionValidator extends CValidator {
 	public function validate($value)
 	{
 		if (!is_array($value)) {
-			$this->error($this->messageInvalid, $this->stringify($value));
+			$this->error($this->messageInvalid);
 
 			return false;
 		}
@@ -88,14 +88,7 @@ class CCollectionValidator extends CValidator {
 		// check for objects with duplicate values
 		if ($this->uniqueField) {
 			if ($duplicate = CArrayHelper::findDuplicate($value, $this->uniqueField, $this->uniqueField2)) {
-				if ($this->uniqueField2 === null) {
-					$this->error($this->messageDuplicate, $duplicate[$this->uniqueField]);
-				}
-				else {
-					$this->error($this->messageDuplicate,
-						$duplicate[$this->uniqueField], $duplicate[$this->uniqueField2]
-					);
-				}
+				$this->error($this->messageDuplicate, $duplicate[$this->uniqueField]);
 
 				return false;
 			}

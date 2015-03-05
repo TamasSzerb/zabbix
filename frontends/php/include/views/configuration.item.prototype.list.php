@@ -42,16 +42,20 @@ $itemForm->addVar('parent_discoveryid', $this->data['parent_discoveryid']);
 // create table
 $itemTable = new CTableInfo(_('No item prototypes found.'));
 
+$sortLink = new CUrl();
+$sortLink->setArgument('parent_discoveryid', $this->data['parent_discoveryid']);
+$sortLink = $sortLink->getUrl();
+
 $itemTable->setHeader(array(
 	new CCheckBox('all_items', null, "checkAll('".$itemForm->getName()."', 'all_items', 'group_itemid');"),
-	make_sorting_header(_('Name'),'name', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Key'), 'key_', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Interval'), 'delay', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('History'), 'history', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Trends'), 'trends', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Type'), 'type', $this->data['sort'], $this->data['sortorder']),
+	make_sorting_header(_('Name'),'name', $sortLink),
+	make_sorting_header(_('Key'), 'key_', $sortLink),
+	make_sorting_header(_('Interval'), 'delay', $sortLink),
+	make_sorting_header(_('History'), 'history', $sortLink),
+	make_sorting_header(_('Trends'), 'trends', $sortLink),
+	make_sorting_header(_('Type'), 'type', $sortLink),
 	_('Applications'),
-	make_sorting_header(_('Status'), 'status', $this->data['sort'], $this->data['sortorder'])
+	make_sorting_header(_('Status'), 'status', $sortLink)
 ));
 
 foreach ($this->data['items'] as $item) {
@@ -72,10 +76,7 @@ foreach ($this->data['items'] as $item) {
 		itemIndicator($item['status']),
 		'?group_itemid='.$item['itemid'].
 			'&parent_discoveryid='.$this->data['parent_discoveryid'].
-			'&action='.($item['status'] == ITEM_STATUS_DISABLED
-				? 'itemprototype.massenable'
-				: 'itemprototype.massdisable'
-			),
+			'&go='.($item['status'] ? 'activate' : 'disable'),
 		itemIndicatorStyle($item['status'])
 	);
 
@@ -106,28 +107,29 @@ foreach ($this->data['items'] as $item) {
 	));
 }
 
+// create go buttons
+$goComboBox = new CComboBox('go');
+$goOption = new CComboItem('activate', _('Enable selected'));
+$goOption->setAttribute('confirm', _('Enable selected item prototypes?'));
+$goComboBox->addItem($goOption);
+
+$goOption = new CComboItem('disable', _('Disable selected'));
+$goOption->setAttribute('confirm', _('Disable selected item prototypes?'));
+$goComboBox->addItem($goOption);
+
+$goOption = new CComboItem('delete', _('Delete selected'));
+$goOption->setAttribute('confirm', _('Delete selected item prototypes?'));
+$goComboBox->addItem($goOption);
+
+$goButton = new CSubmit('goButton', _('Go').' (0)');
+$goButton->setAttribute('id', 'goButton');
+
+zbx_add_post_js('chkbxRange.pageGoName = "group_itemid";');
+zbx_add_post_js('chkbxRange.prefix = "'.$this->data['parent_discoveryid'].'";');
 zbx_add_post_js('cookie.prefix = "'.$this->data['parent_discoveryid'].'";');
 
 // append table to form
-$itemForm->addItem(array(
-	$this->data['paging'],
-	$itemTable,
-	$this->data['paging'],
-	get_table_header(new CActionButtonList('action', 'group_itemid',
-		array(
-			'itemprototype.massenable' => array('name' => _('Enable'),
-				'confirm' => _('Enable selected item prototypes?')
-			),
-			'itemprototype.massdisable' => array('name' => _('Disable'),
-				'confirm' => _('Disable selected item prototypes?')
-			),
-			'itemprototype.massdelete' => array('name' => _('Delete'),
-				'confirm' => _('Delete selected item prototypes?')
-			)
-		),
-		$this->data['parent_discoveryid']
-	))
-));
+$itemForm->addItem(array($this->data['paging'], $itemTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));
 
 // append form to widget
 $itemsWidget->addItem($itemForm);

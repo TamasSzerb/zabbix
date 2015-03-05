@@ -25,6 +25,9 @@
 #	define ZBX_MUTEX		HANDLE
 #	define ZBX_MUTEX_NULL		NULL
 
+#	define ZBX_MUTEX_ERROR		0
+#	define ZBX_MUTEX_OK		1
+
 #	define ZBX_MUTEX_NAME		wchar_t *
 
 #	define ZBX_MUTEX_LOG		TEXT("ZBX_MUTEX_LOG")
@@ -35,22 +38,26 @@
 #	define ZBX_MUTEX		int
 #	define ZBX_MUTEX_NULL		-1
 
+#	define ZBX_MUTEX_ERROR		-1
+#	define ZBX_MUTEX_OK		1
+
 #	define ZBX_MUTEX_NAME		int
 
 #	define ZBX_NO_MUTEX		-1
 #	define ZBX_MUTEX_LOG		0
-#	define ZBX_MUTEX_CACHE		1
-#	define ZBX_MUTEX_TRENDS		2
-#	define ZBX_MUTEX_CACHE_IDS	3
-#	define ZBX_MUTEX_CONFIG		4
-#	define ZBX_MUTEX_SELFMON	5
-#	define ZBX_MUTEX_CPUSTATS	6
-#	define ZBX_MUTEX_DISKSTATS	7
-#	define ZBX_MUTEX_ITSERVICES	8
-#	define ZBX_MUTEX_VALUECACHE	9
-#	define ZBX_MUTEX_VMWARE		10
-#	define ZBX_MUTEX_SQLITE3	11
-#	define ZBX_MUTEX_COUNT		12
+#	define ZBX_MUTEX_NODE_SYNC	1
+#	define ZBX_MUTEX_CACHE		2
+#	define ZBX_MUTEX_TRENDS		3
+#	define ZBX_MUTEX_CACHE_IDS	4
+#	define ZBX_MUTEX_CONFIG		5
+#	define ZBX_MUTEX_SELFMON	6
+#	define ZBX_MUTEX_CPUSTATS	7
+#	define ZBX_MUTEX_DISKSTATS	8
+#	define ZBX_MUTEX_ITSERVICES	9
+#	define ZBX_MUTEX_VALUECACHE	10
+#	define ZBX_MUTEX_VMWARE		11
+#	define ZBX_MUTEX_SQLITE3	12
+#	define ZBX_MUTEX_COUNT		13
 
 #	define ZBX_MUTEX_MAX_TRIES	20	/* seconds */
 

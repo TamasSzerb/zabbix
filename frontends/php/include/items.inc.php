@@ -340,11 +340,11 @@ function copyItemsToHosts($srcItemIds, $dstHostIds) {
 			'trapper_hosts', 'units', 'multiplier', 'delta', 'snmpv3_contextname', 'snmpv3_securityname',
 			'snmpv3_securitylevel', 'snmpv3_authprotocol', 'snmpv3_authpassphrase', 'snmpv3_privprotocol',
 			'snmpv3_privpassphrase', 'formula', 'logtimefmt', 'valuemapid', 'delay_flex', 'params', 'ipmi_sensor',
-			'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey', 'flags', 'port',
+			'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey', 'flags', 'filter', 'port',
 			'description', 'inventory_link'
 		),
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-		'selectApplications' => array('applicationid')
+		'selectApplications' => API_OUTPUT_REFER
 	));
 
 	$dstHosts = API::Host()->get(array(
@@ -402,12 +402,12 @@ function copyItems($srcHostId, $dstHostId) {
 			'trapper_hosts', 'units', 'multiplier', 'delta', 'snmpv3_contextname', 'snmpv3_securityname',
 			'snmpv3_securitylevel', 'snmpv3_authprotocol', 'snmpv3_authpassphrase', 'snmpv3_privprotocol',
 			'snmpv3_privpassphrase', 'formula', 'logtimefmt', 'valuemapid', 'delay_flex', 'params', 'ipmi_sensor',
-			'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey', 'flags', 'port',
+			'data_type', 'authtype', 'username', 'password', 'publickey', 'privatekey', 'flags', 'filter', 'port',
 			'description', 'inventory_link'
 		),
 		'inherited' => false,
 		'filter' => array('flags' => ZBX_FLAG_DISCOVERY_NORMAL),
-		'selectApplications' => array('applicationid')
+		'selectApplications' => API_OUTPUT_REFER
 	));
 	$dstHosts = API::Host()->get(array(
 		'output' => array('hostid', 'host', 'status'),
@@ -487,6 +487,11 @@ function disable_item($itemids) {
 	return update_item_status($itemids, ITEM_STATUS_DISABLED);
 }
 
+function get_items_by_hostid($hostids) {
+	zbx_value2array($hostids);
+	return DBselect('SELECT i.* FROM items i WHERE '.dbConditionInt('i.hostid', $hostids));
+}
+
 function get_item_by_key($key, $host = '') {
 	$item = false;
 	$sql_from = '';
@@ -521,7 +526,7 @@ function get_item_by_itemid_limited($itemid) {
 			'i.delta,i.snmpv3_contextname,i.snmpv3_securityname,i.snmpv3_securitylevel,i.snmpv3_authprotocol,'.
 			'i.snmpv3_authpassphrase,i.snmpv3_privprotocol,i.snmpv3_privpassphrase,i.formula,i.trends,i.logtimefmt,'.
 			'i.valuemapid,i.delay_flex,i.params,i.ipmi_sensor,i.templateid,i.authtype,i.username,i.password,'.
-			'i.publickey,i.privatekey,i.flags,i.description,i.inventory_link'.
+			'i.publickey,i.privatekey,i.flags,i.filter,i.description,i.inventory_link'.
 		' FROM items i'.
 		' WHERE i.itemid='.zbx_dbstr($itemid)));
 	if ($row) {
@@ -618,19 +623,19 @@ function get_realrule_by_itemid_and_hostid($itemid, $hostid) {
 /**
  * Retrieve overview table object for items.
  *
- * @param array  		$hostIds
- * @param array|null	$applicationIds		IDs of applications to filter items by
- * @param int    		$viewMode
+ * @param array  $hostIds
+ * @param string $application name of application to filter
+ * @param int    $viewMode
  *
  * @return CTableInfo
  */
-function getItemsDataOverview($hostIds, array $applicationIds = null, $viewMode) {
+function getItemsDataOverview($hostIds, $application, $viewMode) {
 	$sqlFrom = '';
 	$sqlWhere = '';
 
-	if ($applicationIds !== null) {
-		$sqlFrom = 'items_applications ia,';
-		$sqlWhere = ' AND i.itemid=ia.itemid AND '.dbConditionInt('ia.applicationid', $applicationIds);
+	if ($application !== '') {
+		$sqlFrom = 'applications a,items_applications ia,';
+		$sqlWhere = ' AND i.itemid=ia.itemid AND a.applicationid=ia.applicationid AND a.name='.zbx_dbstr($application);
 	}
 
 	$dbItems = DBfetchArray(DBselect(
@@ -664,7 +669,6 @@ function getItemsDataOverview($hostIds, array $applicationIds = null, $viewMode)
 		'hostids' => $hostIds,
 		'with_monitored_items' => true,
 		'preservekeys' => true,
-		'selectGraphs' => API_OUTPUT_COUNT,
 		'selectScreens' => ($viewMode == STYLE_LEFT) ? API_OUTPUT_COUNT : null
 	));
 
@@ -672,6 +676,7 @@ function getItemsDataOverview($hostIds, array $applicationIds = null, $viewMode)
 	foreach ($dbItems as $dbItem) {
 		$name = $dbItem['name_expanded'];
 
+		$dbItem['hostname'] = get_node_name_by_elid($dbItem['hostid'], null, NAME_DELIMITER).$dbItem['hostname'];
 		$hostNames[$dbItem['hostid']] = $dbItem['hostname'];
 
 		// a little tricky check for attempt to overwrite active trigger (value=1) with
@@ -730,7 +735,7 @@ function getItemsDataOverview($hostIds, array $applicationIds = null, $viewMode)
 			$host = $hosts[$hostId];
 
 			$name = new CSpan($host['name'], 'link_menu');
-			$name->setMenuPopup(CMenuPopupHelper::getHost($host, $scripts[$hostId]));
+			$name->setMenuPopup(getMenuPopupHost($host, $scripts[$hostId]));
 
 			$tableRow = array(new CCol($name));
 			foreach ($items as $ithosts) {
@@ -769,7 +774,7 @@ function getItemDataOverviewCells($tableRow, $ithosts, $hostName) {
 	$column = new CCol(array($value, $ack), $css);
 
 	if (isset($ithosts[$hostName])) {
-		$column->setMenuPopup(CMenuPopupHelper::getHistory($item));
+		$column->setMenuPopup(getMenuPopupHistory($item));
 	}
 
 	$tableRow[] = $column;
@@ -828,22 +833,41 @@ function get_applications_by_itemid($itemids, $field = 'applicationid') {
 }
 
 /**
- * Clear item history and trends by provided item IDs.
+ * Clear items history and trends.
  *
- * @param array $itemIds
+ * @param $itemIds
  *
  * @return bool
  */
-function deleteHistoryByItemIds(array $itemIds) {
-	$result = DBexecute('DELETE FROM trends WHERE '.dbConditionInt('itemid', $itemIds));
-	$result = ($result && DBexecute('DELETE FROM trends_uint WHERE '.dbConditionInt('itemid', $itemIds)));
-	$result = ($result && DBexecute('DELETE FROM history_text WHERE '.dbConditionInt('itemid', $itemIds)));
-	$result = ($result && DBexecute('DELETE FROM history_log WHERE '.dbConditionInt('itemid', $itemIds)));
-	$result = ($result && DBexecute('DELETE FROM history_uint WHERE '.dbConditionInt('itemid', $itemIds)));
-	$result = ($result && DBexecute('DELETE FROM history_str WHERE '.dbConditionInt('itemid', $itemIds)));
-	$result = ($result && DBexecute('DELETE FROM history WHERE '.dbConditionInt('itemid', $itemIds)));
+function delete_history_by_itemid($itemIds) {
+	zbx_value2array($itemIds);
+	$result = delete_trends_by_itemid($itemIds);
+	if (!$result) {
+		return $result;
+	}
 
-	return $result;
+	DBexecute('DELETE FROM history_text WHERE '.dbConditionInt('itemid', $itemIds));
+	DBexecute('DELETE FROM history_log WHERE '.dbConditionInt('itemid', $itemIds));
+	DBexecute('DELETE FROM history_uint WHERE '.dbConditionInt('itemid', $itemIds));
+	DBexecute('DELETE FROM history_str WHERE '.dbConditionInt('itemid', $itemIds));
+	DBexecute('DELETE FROM history WHERE '.dbConditionInt('itemid', $itemIds));
+
+	return true;
+}
+
+/**
+ * Clear trends history for provided item ids.
+ *
+ * @param mixed $itemIds IDs of items for which history should be cleared
+ *
+ * @return bool
+ */
+function delete_trends_by_itemid($itemIds) {
+	zbx_value2array($itemIds);
+	$r1 = DBexecute('DELETE FROM trends WHERE '.dbConditionInt('itemid', $itemIds));
+	$r2 = DBexecute('DELETE FROM trends_uint WHERE '.dbConditionInt('itemid', $itemIds));
+
+	return $r1 && $r2;
 }
 
 /**
@@ -884,8 +908,8 @@ function formatHistoryValue($value, array $item, $trim = true) {
 		// break; is not missing here
 		case ITEM_VALUE_TYPE_TEXT:
 		case ITEM_VALUE_TYPE_LOG:
-			if ($trim && mb_strlen($value) > 20) {
-				$value = mb_substr($value, 0, 20).'...';
+			if ($trim && zbx_strlen($value) > 20) {
+				$value = zbx_substr($value, 0, 20).'...';
 			}
 
 			if ($mapping !== false) {
@@ -1190,55 +1214,68 @@ function getNextDelayInterval(array $arrOfFlexIntervals, $now, &$nextInterval) {
  *         mm      - minutes (0-59)
  *
  * @param string $seed               seed value applied to delay to spread item checks over the delay period
+ * @param int $itemType
  * @param int $delay                 default delay, can be overridden
  * @param string $flexIntervals      flexible intervals
  * @param int $now                   current timestamp
  *
  * @return array
  */
-function calculateItemNextCheck($seed, $delay, $flexIntervals, $now) {
-	// try to find the nearest 'nextcheck' value with condition 'now' < 'nextcheck' < 'now' + SEC_PER_YEAR
-	// if it is not possible to check the item within a year, fail
-	$arrOfFlexIntervals = explode(';', $flexIntervals);
-	$t = $now;
-	$tMax = $now + SEC_PER_YEAR;
-	$try = 0;
+function calculateItemNextcheck($seed, $itemType, $delay, $flexIntervals, $now) {
+	// special processing of active items to see better view in queue
+	if ($itemType == ITEM_TYPE_ZABBIX_ACTIVE) {
+		if ($delay != 0) {
+			$nextcheck = $now + $delay;
+		}
+		else {
+			$nextcheck = ZBX_JAN_2038;
+		}
+	}
+	else {
+		// try to find the nearest 'nextcheck' value with condition 'now' < 'nextcheck' < 'now' + SEC_PER_YEAR
+		// if it is not possible to check the item within a year, fail
 
-	while ($t < $tMax) {
-		// calculate 'nextcheck' value for the current interval
-		$currentDelay = getCurrentDelay($delay, $arrOfFlexIntervals, $t);
+		$arrOfFlexIntervals = explode(';', $flexIntervals);
+		$t = $now;
+		$tmax = $now + SEC_PER_YEAR;
+		$try = 0;
 
-		if ($currentDelay != 0) {
-			$nextCheck = $currentDelay * floor($t / $currentDelay) + ($seed % $currentDelay);
+		while ($t < $tmax) {
+			// calculate 'nextcheck' value for the current interval
+			$currentDelay = getCurrentDelay($delay, $arrOfFlexIntervals, $t);
 
-			if ($try == 0) {
-				while ($nextCheck <= $t) {
-					$nextCheck += $currentDelay;
+			if ($currentDelay != 0) {
+				$nextcheck = $currentDelay * floor($t / $currentDelay) + ($seed % $currentDelay);
+
+				if ($try == 0) {
+					while ($nextcheck <= $t) {
+						$nextcheck += $currentDelay;
+					}
+				}
+				else {
+					while ($nextcheck < $t) {
+						$nextcheck += $currentDelay;
+					}
 				}
 			}
 			else {
-				while ($nextCheck < $t) {
-					$nextCheck += $currentDelay;
-				}
+				$nextcheck = ZBX_JAN_2038;
 			}
-		}
-		else {
-			$nextCheck = ZBX_JAN_2038;
-		}
 
-		// 'nextcheck' < end of the current interval ?
-		// the end of the current interval is the beginning of the next interval - 1
-		if (getNextDelayInterval($arrOfFlexIntervals, $t, $nextInterval) && $nextCheck >= $nextInterval) {
-			// 'nextcheck' is beyond the current interval
-			$t = $nextInterval;
-			$try++;
-		}
-		else {
-			break;
+			// 'nextcheck' < end of the current interval ?
+			// the end of the current interval is the beginning of the next interval - 1
+			if (getNextDelayInterval($arrOfFlexIntervals, $t, $nextInterval) && $nextcheck >= $nextInterval) {
+				// 'nextcheck' is beyond the current interval
+				$t = $nextInterval;
+				$try++;
+			}
+			else {
+				break;
+			}
 		}
 	}
 
-	return $nextCheck;
+	return $nextcheck;
 }
 
 /**

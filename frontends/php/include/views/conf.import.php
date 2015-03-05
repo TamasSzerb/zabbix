@@ -18,10 +18,9 @@
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
 
-include dirname(__FILE__).'/js/conf.import.js.php';
 
 $rulesTable = new CTable(null, 'formElementTable');
-$rulesTable->setHeader(array(SPACE, _('Update existing'), _('Create new'), _('Delete missing')), 'bold');
+$rulesTable->setHeader(array(SPACE, _('Update existing'), _('Add missing')), 'bold');
 
 $titles = array(
 	'groups' => _('Groups'),
@@ -29,7 +28,6 @@ $titles = array(
 	'templates' => _('Templates'),
 	'templateScreens' => _('Template screens'),
 	'templateLinkage' => _('Template linkage'),
-	'applications' => _('Applications'),
 	'items' => _('Items'),
 	'discoveryRules' => _('Discovery rules'),
 	'triggers' => _('Triggers'),
@@ -40,9 +38,7 @@ $titles = array(
 );
 $rules = $this->get('rules');
 foreach ($titles as $key => $title) {
-	$cbExist = null;
-	$cbMissed = null;
-	$cbDeleted = null;
+	$cbExist = $cbMissed = SPACE;
 
 	if (isset($rules[$key]['updateExisting'])) {
 		$cbExist = new CCheckBox('rules['.$key.'][updateExisting]', $rules[$key]['updateExisting'], null, 1);
@@ -60,17 +56,7 @@ foreach ($titles as $key => $title) {
 		$cbMissed = new CCheckBox('rules['.$key.'][createMissing]', $rules[$key]['createMissing'], null, 1);
 	}
 
-	if (isset($rules[$key]['deleteMissing'])) {
-		$cbDeleted = new CCheckBox('rules['.$key.'][deleteMissing]', $rules[$key]['deleteMissing'], null, 1);
-		$cbDeleted->setAttribute('class', 'input checkbox pointer deleteMissing');
-	}
-
-	$rulesTable->addRow(array(
-		$title,
-		new CCol($cbExist, 'center'),
-		new CCol($cbMissed, 'center'),
-		new CCol($cbDeleted, 'center')
-	));
+	$rulesTable->addRow(array($title, new CCol($cbExist, 'center'), new CCol($cbMissed, 'center')));
 }
 
 // form list
@@ -85,10 +71,7 @@ $importTab->addTab('importTab', _('Import'), $importFormList);
 // form
 $importForm = new CForm('post', null, 'multipart/form-data');
 $importForm->addItem($importTab);
-$importForm->addItem(makeFormFooter(
-	new CSubmit('import', _('Import')),
-	array(new CButtonCancel())
-));
+$importForm->addItem(makeFormFooter(new CSubmit('import', _('Import')), new CButtonCancel()));
 
 // widget
 $importWidget = new CWidget();

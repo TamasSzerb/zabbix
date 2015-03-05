@@ -51,36 +51,35 @@ $fields = array(
 	'status_change_days' =>	array(T_ZBX_INT, O_OPT, null,	BETWEEN(1, DAY_IN_YEAR * 2), null),
 	'status_change' =>		array(T_ZBX_INT, O_OPT, null,	null,		null),
 	'txt_select' =>			array(T_ZBX_STR, O_OPT, null,	null,		null),
-	'application' =>		array(T_ZBX_STR, O_OPT, null,	null,		null),
-	'inventory' =>			array(T_ZBX_STR, O_OPT, null,	null,		null),
 	// ajax
-	'filterState' =>		array(T_ZBX_INT, O_OPT, P_ACT,	null,		null),
-	// sort and sortorder
-	'sort' =>				array(T_ZBX_STR, O_OPT, P_SYS, IN('"description","lastchange","priority"'),	null),
-	'sortorder' =>			array(T_ZBX_STR, O_OPT, P_SYS, IN('"'.ZBX_SORT_DOWN.'","'.ZBX_SORT_UP.'"'),	null)
+	'favobj' =>				array(T_ZBX_STR, O_OPT, P_ACT,	null,		null),
+	'favref' =>				array(T_ZBX_STR, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})'),
+	'favstate' =>			array(T_ZBX_INT, O_OPT, P_ACT,	NOT_EMPTY,	'isset({favobj})')
 );
 check_fields($fields);
 
 /*
  * Permissions
  */
-if (getRequest('groupid') && !API::HostGroup()->isReadable(array(getRequest('groupid')))) {
+if (get_request('groupid') && !API::HostGroup()->isReadable(array($_REQUEST['groupid']))) {
 	access_deny();
 }
-if (getRequest('hostid') && !API::Host()->isReadable(array(getRequest('hostid')))) {
+if (get_request('hostid') && !API::Host()->isReadable(array($_REQUEST['hostid']))) {
 	access_deny();
 }
 
 /*
  * Ajax
  */
-if (hasRequest('filterState')) {
-	CProfile::update('web.tr_status.filter.state', getRequest('filterState'), PROFILE_TYPE_INT);
+if (isset($_REQUEST['favobj'])) {
+	if ($_REQUEST['favobj'] == 'filter') {
+		CProfile::update('web.tr_status.filter.state', $_REQUEST['favstate'], PROFILE_TYPE_INT);
+	}
 }
 
 if ($page['type'] == PAGE_TYPE_JS || $page['type'] == PAGE_TYPE_HTML_BLOCK) {
 	require_once dirname(__FILE__).'/include/page_footer.php';
-	exit;
+	exit();
 }
 
 /*
@@ -97,157 +96,237 @@ $pageFilter = new CPageFilter(array(
 		'monitored_hosts' => true,
 		'with_monitored_triggers' => true
 	),
-	'hostid' => getRequest('hostid'),
-	'groupid' => getRequest('groupid')
+	'hostid' => get_request('hostid', null),
+	'groupid' => get_request('groupid', null)
 ));
 $_REQUEST['groupid'] = $pageFilter->groupid;
 $_REQUEST['hostid'] = $pageFilter->hostid;
 
-// filter set
-if (hasRequest('filter_set')) {
-	CProfile::update('web.tr_status.filter.show_details', getRequest('show_details', 0), PROFILE_TYPE_INT);
-	CProfile::update('web.tr_status.filter.show_maintenance', getRequest('show_maintenance', 0), PROFILE_TYPE_INT);
-	CProfile::update('web.tr_status.filter.show_severity',
-		getRequest('show_severity', TRIGGER_SEVERITY_NOT_CLASSIFIED), PROFILE_TYPE_INT
-	);
-	CProfile::update('web.tr_status.filter.txt_select', getRequest('txt_select', ''), PROFILE_TYPE_STR);
-	CProfile::update('web.tr_status.filter.status_change', getRequest('status_change', 0), PROFILE_TYPE_INT);
-	CProfile::update('web.tr_status.filter.status_change_days', getRequest('status_change_days', 14),
-		PROFILE_TYPE_INT
-	);
-	CProfile::update('web.tr_status.filter.application', getRequest('application'), PROFILE_TYPE_STR);
+if (isset($_REQUEST['filter_rst'])) {
+	$_REQUEST['show_details'] = 0;
+	$_REQUEST['show_maintenance'] = 1;
+	$_REQUEST['show_triggers'] = TRIGGERS_OPTION_ONLYTRUE;
+	$_REQUEST['show_events'] = EVENTS_OPTION_NOEVENT;
+	$_REQUEST['ack_status'] = ZBX_ACK_STS_ANY;
+	$_REQUEST['show_severity'] = TRIGGER_SEVERITY_NOT_CLASSIFIED;
+	$_REQUEST['txt_select'] = '';
+	$_REQUEST['status_change'] = 0;
+	$_REQUEST['status_change_days'] = 14;
+}
 
-	// show triggers
-	// when this filter is set to "All" it must not be remembered in the profiles because it may render the
-	// whole page inaccessible on large installations.
-	if (getRequest('show_triggers') != TRIGGERS_OPTION_ALL) {
-		CProfile::update('web.tr_status.filter.show_triggers', getRequest('show_triggers'), PROFILE_TYPE_INT);
-	}
+// show triggers
+$_REQUEST['show_triggers'] = isset($_REQUEST['show_triggers']) ? $_REQUEST['show_triggers'] : TRIGGERS_OPTION_ONLYTRUE;
 
-	// show events
-	$showEvents = getRequest('show_events', EVENTS_OPTION_NOEVENT);
-	if ($config['event_ack_enable'] == EVENT_ACK_ENABLED || $showEvents != EVENTS_OPTION_NOT_ACK) {
-		CProfile::update('web.tr_status.filter.show_events', $showEvents, PROFILE_TYPE_INT);
-	}
-
-	// ack status
-	if ($config['event_ack_enable'] == EVENT_ACK_ENABLED) {
-		CProfile::update('web.tr_status.filter.ack_status', getRequest('ack_status', ZBX_ACK_STS_ANY), PROFILE_TYPE_INT);
-	}
-
-	// update host inventory filter
-	$inventoryFields = array();
-	$inventoryValues = array();
-	foreach (getRequest('inventory', array()) as $field) {
-		if ($field['value'] === '') {
-			continue;
+// show events
+if (isset($_REQUEST['show_events'])) {
+	if ($config['event_ack_enable'] == EVENT_ACK_DISABLED) {
+		if (!str_in_array($_REQUEST['show_events'], array(EVENTS_OPTION_NOEVENT, EVENTS_OPTION_ALL))) {
+			$_REQUEST['show_events'] = EVENTS_OPTION_NOEVENT;
 		}
-
-		$inventoryFields[] = $field['field'];
-		$inventoryValues[] = $field['value'];
 	}
-	CProfile::updateArray('web.tr_status.filter.inventory.field', $inventoryFields, PROFILE_TYPE_STR);
-	CProfile::updateArray('web.tr_status.filter.inventory.value', $inventoryValues, PROFILE_TYPE_STR);
-}
-elseif (hasRequest('filter_rst')) {
-	DBStart();
-	CProfile::delete('web.tr_status.filter.show_triggers');
-	CProfile::delete('web.tr_status.filter.show_details');
-	CProfile::delete('web.tr_status.filter.show_maintenance');
-	CProfile::delete('web.tr_status.filter.show_events');
-	CProfile::delete('web.tr_status.filter.ack_status');
-	CProfile::delete('web.tr_status.filter.show_severity');
-	CProfile::delete('web.tr_status.filter.txt_select');
-	CProfile::delete('web.tr_status.filter.status_change');
-	CProfile::delete('web.tr_status.filter.status_change_days');
-	CProfile::delete('web.tr_status.filter.application');
-	CProfile::deleteIdx('web.tr_status.filter.inventory.field');
-	CProfile::deleteIdx('web.tr_status.filter.inventory.value');
-	DBend();
-}
 
-if (hasRequest('filter_set') && getRequest('show_triggers') == TRIGGERS_OPTION_ALL) {
-	$showTriggers = TRIGGERS_OPTION_ALL;
+	CProfile::update('web.tr_status.filter.show_events', $_REQUEST['show_events'], PROFILE_TYPE_INT);
 }
 else {
-	$showTriggers = CProfile::get('web.tr_status.filter.show_triggers', TRIGGERS_OPTION_RECENT_PROBLEM);
-}
-$showDetails = CProfile::get('web.tr_status.filter.show_details', 0);
-$showMaintenance = CProfile::get('web.tr_status.filter.show_maintenance', 1);
-$showSeverity = CProfile::get('web.tr_status.filter.show_severity', TRIGGER_SEVERITY_NOT_CLASSIFIED);
-$txtSelect = CProfile::get('web.tr_status.filter.txt_select', '');
-$showChange = CProfile::get('web.tr_status.filter.status_change', 0);
-$statusChangeBydays = CProfile::get('web.tr_status.filter.status_change_days', 14);
-$ackStatus = ($config['event_ack_enable'] == EVENT_ACK_DISABLED)
-	? ZBX_ACK_STS_ANY : CProfile::get('web.tr_status.filter.ack_status', ZBX_ACK_STS_ANY);
-$showEvents = CProfile::get('web.tr_status.filter.show_events', EVENTS_OPTION_NOEVENT);
-
-// check event acknowledges
-if ($config['event_ack_enable'] == EVENT_ACK_DISABLED && $showEvents == EVENTS_OPTION_NOT_ACK) {
-	$showEvents = EVENTS_OPTION_NOEVENT;
+	$_REQUEST['show_events'] = ($config['event_ack_enable'] == EVENT_ACK_DISABLED)
+		? EVENTS_OPTION_NOEVENT
+		: CProfile::get('web.tr_status.filter.show_events', EVENTS_OPTION_NOEVENT);
 }
 
-// fetch filter from profiles
-$filter = array(
-	'application' => CProfile::get('web.tr_status.filter.application', ''),
-	'inventory' => array()
-);
+// show details
+if (isset($_REQUEST['show_details'])) {
+	CProfile::update('web.tr_status.filter.show_details', $_REQUEST['show_details'], PROFILE_TYPE_INT);
+}
+else {
+	if (isset($_REQUEST['filter_set'])) {
+		CProfile::update('web.tr_status.filter.show_details', 0, PROFILE_TYPE_INT);
+		$_REQUEST['show_details'] = 0;
+	}
+	else {
+		$_REQUEST['show_details'] = CProfile::get('web.tr_status.filter.show_details', 0);
+	}
+}
 
-foreach (CProfile::getArray('web.tr_status.filter.inventory.field', array()) as $i => $field) {
-	$filter['inventory'][] = array(
-		'field' => $field,
-		'value' => CProfile::get('web.tr_status.filter.inventory.value', null, $i)
-	);
+// show maintenance
+if (isset($_REQUEST['show_maintenance'])) {
+	CProfile::update('web.tr_status.filter.show_maintenance', $_REQUEST['show_maintenance'], PROFILE_TYPE_INT);
+}
+else {
+	if (isset($_REQUEST['filter_set'])) {
+		CProfile::update('web.tr_status.filter.show_maintenance', 0, PROFILE_TYPE_INT);
+		$_REQUEST['show_maintenance'] = 0;
+	}
+	else {
+		$_REQUEST['show_maintenance'] = CProfile::get('web.tr_status.filter.show_maintenance', 1);
+	}
+}
+
+// show severity
+if (isset($_REQUEST['show_severity'])) {
+	CProfile::update('web.tr_status.filter.show_severity', $_REQUEST['show_severity'], PROFILE_TYPE_INT);
+}
+else {
+	$_REQUEST['show_severity'] = CProfile::get('web.tr_status.filter.show_severity', TRIGGER_SEVERITY_NOT_CLASSIFIED);
+}
+
+// status change
+if (isset($_REQUEST['status_change'])) {
+	CProfile::update('web.tr_status.filter.status_change', $_REQUEST['status_change'], PROFILE_TYPE_INT);
+}
+else {
+	if (isset($_REQUEST['filter_set'])) {
+		CProfile::update('web.tr_status.filter.status_change', 0, PROFILE_TYPE_INT);
+		$_REQUEST['status_change'] = 0;
+	}
+	else {
+		$_REQUEST['status_change'] = CProfile::get('web.tr_status.filter.status_change', 0);
+	}
+}
+
+// status change days
+if (isset($_REQUEST['status_change_days'])) {
+	$maxDays = DAY_IN_YEAR * 2;
+
+	if ($_REQUEST['status_change_days'] > $maxDays) {
+		$_REQUEST['status_change_days'] = $maxDays;
+	}
+
+	CProfile::update('web.tr_status.filter.status_change_days', $_REQUEST['status_change_days'], PROFILE_TYPE_INT);
+}
+else {
+	$_REQUEST['status_change_days'] = CProfile::get('web.tr_status.filter.status_change_days');
+
+	if (!$_REQUEST['status_change_days']) {
+		$_REQUEST['status_change_days'] = 14;
+	}
+}
+
+// ack status
+if (isset($_REQUEST['ack_status'])) {
+	if ($config['event_ack_enable'] == EVENT_ACK_DISABLED) {
+		$_REQUEST['ack_status'] = ZBX_ACK_STS_ANY;
+	}
+
+	CProfile::update('web.tr_status.filter.ack_status', $_REQUEST['ack_status'], PROFILE_TYPE_INT);
+}
+else {
+	$_REQUEST['ack_status'] = ($config['event_ack_enable'] == EVENT_ACK_DISABLED)
+		? ZBX_ACK_STS_ANY
+		: CProfile::get('web.tr_status.filter.ack_status', ZBX_ACK_STS_ANY);
+}
+
+// txt select
+if (isset($_REQUEST['txt_select'])) {
+	CProfile::update('web.tr_status.filter.txt_select', $_REQUEST['txt_select'], PROFILE_TYPE_STR);
+}
+else {
+	$_REQUEST['txt_select'] = CProfile::get('web.tr_status.filter.txt_select', '');
+}
+
+/*
+ * Clean cookies
+ */
+if (get_request('show_events') != CProfile::get('web.tr_status.filter.show_events')) {
+	clearCookies(true);
 }
 
 /*
  * Page sorting
  */
-$sortField = getRequest('sort', CProfile::get('web.'.$page['file'].'.sort', 'lastchange'));
-$sortOrder = getRequest('sortorder', CProfile::get('web.'.$page['file'].'.sortorder', ZBX_SORT_DOWN));
+validate_sort_and_sortorder('lastchange', ZBX_SORT_DOWN);
 
-CProfile::update('web.'.$page['file'].'.sort', $sortField, PROFILE_TYPE_STR);
-CProfile::update('web.'.$page['file'].'.sortorder', $sortOrder, PROFILE_TYPE_STR);
+/*
+ * Play sound
+ */
+$mute = CProfile::get('web.tr_status.mute', 0);
+if (isset($audio) && !$mute) {
+	play_sound($audio);
+}
 
 /*
  * Display
  */
+$displayNodes = (is_show_all_nodes() && $pageFilter->groupid == 0 && $pageFilter->hostid == 0);
+
+$showTriggers = $_REQUEST['show_triggers'];
+$showEvents = $_REQUEST['show_events'];
+$showSeverity = $_REQUEST['show_severity'];
+$ackStatus = $_REQUEST['ack_status'];
+
 $triggerWidget = new CWidget();
 
 $rightForm = new CForm('get');
-$rightForm->addItem(array(_('Group').SPACE, $pageFilter->getGroupsCB()));
-$rightForm->addItem(array(SPACE._('Host').SPACE, $pageFilter->getHostsCB()));
+$rightForm->addItem(array(_('Group').SPACE, $pageFilter->getGroupsCB(true)));
+$rightForm->addItem(array(SPACE._('Host').SPACE, $pageFilter->getHostsCB(true)));
 $rightForm->addVar('fullscreen', $_REQUEST['fullscreen']);
 
 $triggerWidget->addPageHeader(
-	_('STATUS OF TRIGGERS').SPACE.'['.zbx_date2str(DATE_TIME_FORMAT_SECONDS).']',
+	_('STATUS OF TRIGGERS').SPACE.'['.zbx_date2str(_('d M Y H:i:s')).']',
 	get_icon('fullscreen', array('fullscreen' => $_REQUEST['fullscreen']))
 );
 $triggerWidget->addHeader(_('Triggers'), $rightForm);
 $triggerWidget->addHeaderRowNumber();
 
-// filter
-$filterFormView = new CView('common.filter.trigger', array(
-	'overview' => false,
-	'filter' => array(
-		'showTriggers' => $showTriggers,
-		'ackStatus' => $ackStatus,
-		'showEvents' => $showEvents,
-		'showSeverity' => $showSeverity,
-		'statusChange' => $showChange,
-		'statusChangeDays' => $statusChangeBydays,
-		'showDetails' => $showDetails,
-		'txtSelect' => $txtSelect,
-		'application' => $filter['application'],
-		'inventory' => $filter['inventory'],
-		'showMaintenance' => $showMaintenance,
-		'hostId' => getRequest('hostid'),
-		'groupId' => getRequest('groupid'),
-		'fullScreen' => getRequest('fullscreen')
-	),
-	'config' => $config
+/*
+ * Filter
+ */
+$filterForm = new CFormTable(null, null, 'get');
+$filterForm->setAttribute('name', 'zbx_filter');
+$filterForm->setAttribute('id', 'zbx_filter');
+$filterForm->addVar('fullscreen', $_REQUEST['fullscreen']);
+$filterForm->addVar('groupid', $_REQUEST['groupid']);
+$filterForm->addVar('hostid', $_REQUEST['hostid']);
+
+$statusComboBox = new CComboBox('show_triggers', $showTriggers);
+$statusComboBox->addItem(TRIGGERS_OPTION_ALL, _('Any'));
+$statusComboBox->additem(TRIGGERS_OPTION_ONLYTRUE, _('Problem'));
+$filterForm->addRow(_('Triggers status'), $statusComboBox);
+
+if ($config['event_ack_enable']) {
+	$ackStatusComboBox = new CComboBox('ack_status', $ackStatus);
+	$ackStatusComboBox->addItem(ZBX_ACK_STS_ANY, _('Any'));
+	$ackStatusComboBox->additem(ZBX_ACK_STS_WITH_UNACK, _('With unacknowledged events'));
+	$ackStatusComboBox->additem(ZBX_ACK_STS_WITH_LAST_UNACK, _('With last event unacknowledged'));
+	$filterForm->addRow(_('Acknowledge status'), $ackStatusComboBox);
+}
+
+$eventsComboBox = new CComboBox('show_events', $_REQUEST['show_events']);
+$eventsComboBox->addItem(EVENTS_OPTION_NOEVENT, _('Hide all'));
+$eventsComboBox->addItem(EVENTS_OPTION_ALL, _('Show all').' ('.$config['event_expire'].' '.(($config['event_expire'] > 1) ? _('Days') : _('Day')).')');
+if ($config['event_ack_enable']) {
+	$eventsComboBox->addItem(EVENTS_OPTION_NOT_ACK, _('Show unacknowledged').' ('.$config['event_expire'].' '.(($config['event_expire'] > 1) ? _('Days') : _('Day')).')');
+}
+$filterForm->addRow(_('Events'), $eventsComboBox);
+
+$severityComboBox = new CComboBox('show_severity', $showSeverity);
+$severityComboBox->addItems(array(
+	TRIGGER_SEVERITY_NOT_CLASSIFIED => getSeverityCaption(TRIGGER_SEVERITY_NOT_CLASSIFIED),
+	TRIGGER_SEVERITY_INFORMATION => getSeverityCaption(TRIGGER_SEVERITY_INFORMATION),
+	TRIGGER_SEVERITY_WARNING => getSeverityCaption(TRIGGER_SEVERITY_WARNING),
+	TRIGGER_SEVERITY_AVERAGE => getSeverityCaption(TRIGGER_SEVERITY_AVERAGE),
+	TRIGGER_SEVERITY_HIGH => getSeverityCaption(TRIGGER_SEVERITY_HIGH),
+	TRIGGER_SEVERITY_DISASTER => getSeverityCaption(TRIGGER_SEVERITY_DISASTER)
 ));
-$filterForm = $filterFormView->render();
+$filterForm->addRow(_('Minimum trigger severity'), $severityComboBox);
+
+$statusChangeDays = new CNumericBox('status_change_days', $_REQUEST['status_change_days'], 3, false, false, false);
+if (!$_REQUEST['status_change']) {
+	$statusChangeDays->setAttribute('disabled', 'disabled');
+}
+$statusChangeDays->addStyle('vertical-align: middle;');
+
+$statusChangeCheckBox = new CCheckBox('status_change', $_REQUEST['status_change'], 'javascript: this.checked ? $("status_change_days").enable() : $("status_change_days").disable()', 1);
+$statusChangeCheckBox->addStyle('vertical-align: middle;');
+
+$daysSpan = new CSpan(_('days'));
+$daysSpan->addStyle('vertical-align: middle;');
+$filterForm->addRow(_('Age less than'), array($statusChangeCheckBox, $statusChangeDays, SPACE, $daysSpan));
+$filterForm->addRow(_('Show details'), new CCheckBox('show_details', $_REQUEST['show_details'], null, 1));
+$filterForm->addRow(_('Filter by name'), new CTextBox('txt_select', $_REQUEST['txt_select'], 40));
+$filterForm->addRow(_('Show hosts in maintenance'), new CCheckBox('show_maintenance', $_REQUEST['show_maintenance'], null, 1));
+
+$filterForm->addItemToBottomRow(new CSubmit('filter_set', _('Filter'), 'chkbxRange.clearSelectedOnFilterChange();'));
+$filterForm->addItemToBottomRow(new CSubmit('filter_rst', _('Reset'), 'chkbxRange.clearSelectedOnFilterChange();'));
 
 $triggerWidget->addFlicker($filterForm, CProfile::get('web.tr_status.filter.state', 0));
 
@@ -267,7 +346,7 @@ $triggerForm->addVar('backurl', $page['file']);
 /*
  * Table
  */
-$showEventColumn = ($config['event_ack_enable'] && $showEvents != EVENTS_OPTION_NOEVENT);
+$showEventColumn = ($config['event_ack_enable'] && $_REQUEST['show_events'] != EVENTS_OPTION_NOEVENT);
 
 $switcherName = 'trigger_switchers';
 
@@ -287,25 +366,29 @@ $triggerTable = new CTableInfo(_('No triggers found.'));
 $triggerTable->setHeader(array(
 	$showHideAllDiv,
 	$config['event_ack_enable'] ? $headerCheckBox : null,
-	make_sorting_header(_('Severity'), 'priority', $sortField, $sortOrder),
+	make_sorting_header(_('Severity'), 'priority'),
 	_('Status'),
 	_('Info'),
-	make_sorting_header(_('Last change'), 'lastchange', $sortField, $sortOrder),
+	make_sorting_header(_('Last change'), 'lastchange'),
 	_('Age'),
 	$showEventColumn ? _('Duration') : null,
 	$config['event_ack_enable'] ? _('Acknowledged') : null,
+	$displayNodes ? _('Node') : null,
 	_('Host'),
-	make_sorting_header(_('Name'), 'description', $sortField, $sortOrder),
-	_('Description')
+	make_sorting_header(_('Name'), 'description'),
+	_('Comments')
 ));
 
 // get triggers
+$sortfield = getPageSortField('description');
+$sortorder = getPageSortOrder();
 $options = array(
-	'output' => array('triggerid', $sortField),
+	'output' => array('triggerid', $sortfield),
+	'nodeids' => get_current_nodeid(),
 	'monitored' => true,
 	'skipDependent' => true,
-	'sortfield' => $sortField,
-	'sortorder' => $sortOrder,
+	'sortfield' => $sortfield,
+	'sortorder' => $sortorder,
 	'limit' => $config['search_limit'] + 1
 );
 
@@ -321,39 +404,11 @@ else {
 	$options['hostids'] = array();
 }
 
-// inventory filter
-if ($filter['inventory']) {
-	$inventoryFilter = array();
-	foreach ($filter['inventory'] as $field) {
-		$inventoryFilter[$field['field']][] = $field['value'];
-	}
-
-	$hosts = API::Host()->get(array(
-		'output' => array('hostid'),
-		'hostids' => isset($options['hostids']) ? $options['hostids'] : null,
-		'searchInventory' => $inventoryFilter
-	));
-	$options['hostids'] = zbx_objectValues($hosts, 'hostid');
+if (!zbx_empty($_REQUEST['txt_select'])) {
+	$options['search'] = array('description' => $_REQUEST['txt_select']);
 }
-
-// application filter
-if ($filter['application'] !== '') {
-	$applications = API::Application()->get(array(
-		'output' => array('applicationid'),
-		'hostids' => isset($options['hostids']) ? $options['hostids'] : null,
-		'search' => array('name' => $filter['application'])
-	));
-	$options['applicationids'] = zbx_objectValues($applications, 'applicationid');
-}
-
-if (!zbx_empty($txtSelect)) {
-	$options['search'] = array('description' => $txtSelect);
-}
-if ($showTriggers == TRIGGERS_OPTION_RECENT_PROBLEM) {
+if ($showTriggers == TRIGGERS_OPTION_ONLYTRUE) {
 	$options['only_true'] = 1;
-}
-elseif ($showTriggers == TRIGGERS_OPTION_IN_PROBLEM) {
-	$options['filter'] = array('value' => TRIGGER_VALUE_TRUE);
 }
 if ($ackStatus == ZBX_ACK_STS_WITH_UNACK) {
 	$options['withUnacknowledgedEvents'] = 1;
@@ -364,48 +419,31 @@ if ($ackStatus == ZBX_ACK_STS_WITH_LAST_UNACK) {
 if ($showSeverity > TRIGGER_SEVERITY_NOT_CLASSIFIED) {
 	$options['min_severity'] = $showSeverity;
 }
-if ($showChange) {
-	$options['lastChangeSince'] = time() - $statusChangeBydays * SEC_PER_DAY;
+if ($_REQUEST['status_change']) {
+	$options['lastChangeSince'] = time() - $_REQUEST['status_change_days'] * SEC_PER_DAY;
 }
-if (!$showMaintenance) {
+if (!get_request('show_maintenance')) {
 	$options['maintenance'] = false;
 }
 $triggers = API::Trigger()->get($options);
 
-order_result($triggers, $sortField, $sortOrder);
+order_result($triggers, $sortfield, $sortorder);
 $paging = getPagingLine($triggers);
 
 
 $triggers = API::Trigger()->get(array(
+	'nodeids' => get_current_nodeid(),
 	'triggerids' => zbx_objectValues($triggers, 'triggerid'),
 	'output' => API_OUTPUT_EXTEND,
-	'selectHosts' => array(
-		'hostid',
-		'name',
-		'description',
-		'status',
-		'maintenanceid',
-		'maintenance_status',
-		'maintenance_type'
-	),
-	'selectItems' => array('itemid', 'hostid', 'name', 'key_', 'value_type'),
+	'selectHosts' => array('hostid', 'name', 'maintenance_status', 'maintenance_type', 'maintenanceid', 'description'),
+	'selectItems' => array('itemid', 'hostid', 'key_', 'name', 'value_type'),
 	'selectDependencies' => API_OUTPUT_EXTEND,
 	'selectLastEvent' => true,
 	'expandDescription' => true,
 	'preservekeys' => true
 ));
 
-$triggers = CMacrosResolverHelper::resolveTriggerUrl($triggers);
-
-order_result($triggers, $sortField, $sortOrder);
-
-// sort trigger hosts by name
-foreach ($triggers as &$trigger) {
-	if (count($trigger['hosts']) > 1) {
-		order_result($trigger['hosts'], 'name', ZBX_SORT_UP);
-	}
-}
-unset($trigger);
+order_result($triggers, $sortfield, $sortorder);
 
 $triggerIds = zbx_objectValues($triggers, 'triggerid');
 
@@ -469,6 +507,7 @@ if ($showEvents != EVENTS_OPTION_NOEVENT) {
 	$options = array(
 		'source' => EVENT_SOURCE_TRIGGERS,
 		'object' => EVENT_OBJECT_TRIGGER,
+		'nodeids' => get_current_nodeid(),
 		'objectids' => zbx_objectValues($triggers, 'triggerid'),
 		'output' => API_OUTPUT_EXTEND,
 		'select_acknowledges' => API_OUTPUT_COUNT,
@@ -503,10 +542,8 @@ foreach ($triggers as $tnum => $trigger) {
 
 // get hosts
 $hosts = API::Host()->get(array(
-	'output' => array('hostid', 'status'),
 	'hostids' => $hostIds,
 	'preservekeys' => true,
-	'selectGraphs' => API_OUTPUT_COUNT,
 	'selectScreens' => API_OUTPUT_COUNT
 ));
 
@@ -525,15 +562,32 @@ while ($row = DBfetch($dbTriggerDependencies)) {
 }
 
 foreach ($triggers as $trigger) {
-	$description = new CSpan($trigger['description'], 'link_menu');
-	$description->setMenuPopup(CMenuPopupHelper::getTrigger($trigger));
+	$usedHosts = array();
+	foreach ($trigger['hosts'] as $host) {
+		$usedHosts[$host['hostid']] = $host['name'];
+	}
+	$usedHostCount = count($usedHosts);
 
-	if ($showDetails) {
-		$description = array(
-			$description,
-			BR(),
-			new CDiv(explode_exp($trigger['expression'], true, true), 'trigger-expression')
+	$triggerItems = array();
+
+	$trigger['items'] = CMacrosResolverHelper::resolveItemNames($trigger['items']);
+
+	foreach ($trigger['items'] as $item) {
+		$triggerItems[] = array(
+			'name' => ($usedHostCount > 1) ? $usedHosts[$item['hostid']].NAME_DELIMITER.$item['name_expanded'] : $item['name_expanded'],
+			'params' => array(
+				'itemid' => $item['itemid'],
+				'action' => in_array($item['value_type'], array(ITEM_VALUE_TYPE_FLOAT, ITEM_VALUE_TYPE_UINT64))
+					? 'showgraph' : 'showvalues'
+			)
 		);
+	}
+
+	$description = new CSpan($trigger['description'], 'link_menu');
+	$description->setMenuPopup(getMenuPopupTrigger($trigger, $triggerItems));
+
+	if ($_REQUEST['show_details']) {
+		$description = array($description, BR(), explode_exp($trigger['expression'], true, true));
 	}
 
 	if (!empty($trigger['dependencies'])) {
@@ -545,7 +599,7 @@ foreach ($triggers as $trigger) {
 			$dependenciesTable->addRow(' - '.CMacrosResolverHelper::resolveTriggerNameById($dependency['triggerid']));
 		}
 
-		$img = new CImg('images/general/arrow_down2.png', 'DEP_UP');
+		$img = new Cimg('images/general/arrow_down2.png', 'DEP_UP');
 		$img->setAttribute('style', 'vertical-align: middle; border: 0px;');
 		$img->setHint($dependenciesTable);
 
@@ -566,7 +620,7 @@ foreach ($triggers as $trigger) {
 	}
 
 	if ($dependency) {
-		$img = new CImg('images/general/arrow_up2.png', 'DEP_UP');
+		$img = new Cimg('images/general/arrow_up2.png', 'DEP_UP');
 		$img->setAttribute('style', 'vertical-align: middle; border: 0px;');
 		$img->setHint($dependenciesTable);
 
@@ -588,7 +642,9 @@ foreach ($triggers as $trigger) {
 		}
 
 		$hostName = new CSpan($triggerHost['name'], 'link_menu');
-		$hostName->setMenuPopup(CMenuPopupHelper::getHost($hosts[$triggerHost['hostid']], $scripts));
+		$hostName->setMenuPopup(getMenuPopupHost($hosts[$triggerHost['hostid']], $scripts));
+
+		$hostDiv = new CDiv($hostName);
 
 		// add maintenance icon with hint if host is in maintenance
 		if ($triggerHost['maintenance_status']) {
@@ -614,13 +670,16 @@ foreach ($triggers as $trigger) {
 				$maintenanceIcon->addClass('pointer');
 			}
 
-			$hostName->addItem($maintenanceIcon);
+			$hostDiv->addItem($maintenanceIcon);
 		}
 
-		$hostList[] = $hostName;
-		$hostList[] = ', ';
+		// add comma after hosts, except last
+		if (next($trigger['hosts'])) {
+			$hostDiv->addItem(','.SPACE);
+		}
+
+		$hostList[] = $hostDiv;
 	}
-	array_pop($hostList);
 
 	// host
 	$hostColumn = new CCol($hostList);
@@ -637,12 +696,12 @@ foreach ($triggers as $trigger) {
 		$config['event_ack_enable'] ? ($trigger['event_count'] == 0) : false
 	);
 
-	$lastChangeDate = zbx_date2str(DATE_TIME_FORMAT_SECONDS, $trigger['lastchange']);
+	$lastChangeDate = zbx_date2str(_('d M Y H:i:s'), $trigger['lastchange']);
 	$lastChange = empty($trigger['lastchange'])
 		? $lastChangeDate
 		: new CLink($lastChangeDate,
-			'events.php?filter_set=1&triggerid='.$trigger['triggerid'].'&source='.EVENT_SOURCE_TRIGGERS.
-				'&stime='.date(TIMESTAMP_FORMAT, $trigger['lastchange']).'&period='.ZBX_PERIOD_DEFAULT
+			'events.php?triggerid='.$trigger['triggerid'].'&stime='.date(TIMESTAMP_FORMAT, $trigger['lastchange']).
+				'&period='.ZBX_PERIOD_DEFAULT.'&source='.EVENT_SOURCE_TRIGGERS
 		);
 
 	// acknowledge
@@ -692,7 +751,7 @@ foreach ($triggers as $trigger) {
 	}
 
 	// severity
-	$severityColumn = getSeverityCell($trigger['priority'], $config, null, !$trigger['value']);
+	$severityColumn = getSeverityCell($trigger['priority'], null, !$trigger['value']);
 	if ($showEventColumn) {
 		$severityColumn->setColSpan(2);
 	}
@@ -701,7 +760,7 @@ foreach ($triggers as $trigger) {
 	$unknown = SPACE;
 	if ($trigger['state'] == TRIGGER_STATE_UNKNOWN) {
 		$unknown = new CDiv(SPACE, 'status_icon iconunknown');
-		$unknown->setHint($trigger['error'], 'on');
+		$unknown->setHint($trigger['error'], '', 'on');
 	}
 
 	// comments
@@ -725,6 +784,7 @@ foreach ($triggers as $trigger) {
 		empty($trigger['lastchange']) ? '-' : zbx_date2age($trigger['lastchange']),
 		$showEventColumn ? SPACE : null,
 		$ackColumn,
+		$displayNodes ? get_node_name_by_elid($trigger['triggerid']) : null,
 		$hostColumn,
 		$triggerDescription,
 		$comments
@@ -748,13 +808,13 @@ foreach ($triggers as $trigger) {
 			$statusSpan = new CCol($eventStatusSpan);
 			$statusSpan->setColSpan(2);
 
-			$ack = getEventAckState($event, $page['file']);
+			$ack = getEventAckState($event, true);
 
 			$ackCheckBox = ($event['acknowledged'] == 0 && $event['value'] == TRIGGER_VALUE_TRUE)
 				? new CCheckBox('events['.$event['eventid'].']', 'no', null, $event['eventid'])
 				: SPACE;
 
-			$clock = new CLink(zbx_date2str(DATE_TIME_FORMAT_SECONDS, $event['clock']),
+			$clock = new CLink(zbx_date2str(_('d M Y H:i:s'), $event['clock']),
 				'tr_events.php?triggerid='.$trigger['triggerid'].'&eventid='.$event['eventid']);
 
 			$nextClock = isset($trigger['events'][$enum - 1]) ? $trigger['events'][$enum - 1]['clock'] : time();
@@ -772,6 +832,7 @@ foreach ($triggers as $trigger) {
 				zbx_date2age($event['clock']),
 				zbx_date2age($nextClock, $event['clock']),
 				($config['event_ack_enable']) ? $ack : null,
+				$displayNodes ? SPACE : null,
 				$emptyColumn
 			), 'odd_row');
 			$row->setAttribute('data-parentid', $trigger['triggerid']);
@@ -790,9 +851,17 @@ foreach ($triggers as $trigger) {
  */
 $footer = null;
 if ($config['event_ack_enable']) {
-	$footer = get_table_header(new CActionButtonList('action', $showEventColumn ? 'events' : 'triggers', array(
-		'trigger.bulkacknowledge' => array('name' => _('Bulk acknowledge'))
-	)));
+	$goComboBox = new CComboBox('go');
+	$goComboBox->addItem('bulkacknowledge', _('Bulk acknowledge'));
+
+	$goButton = new CSubmit('goButton', _('Go').' (0)');
+	$goButton->setAttribute('id', 'goButton');
+
+	$showEventColumn
+		? zbx_add_post_js('chkbxRange.pageGoName = "events";')
+		: zbx_add_post_js('chkbxRange.pageGoName = "triggers";');
+
+	$footer = get_table_header(array($goComboBox, $goButton));
 }
 
 $triggerForm->addItem(array($paging, $triggerTable, $paging, $footer));

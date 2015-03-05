@@ -27,58 +27,36 @@
 #include "zbxjson.h"
 
 const char	*progname = NULL;
-const char	title_message[] = "zabbix_sender";
+const char	title_message[] = "Zabbix Sender";
 const char	syslog_app_name[] = "zabbix_sender";
-
-const char	*usage_message[] = {
-	"[-v] -z server [-p port] [-I IP-address] -s host -k key -o value",
-	"[-v] -z server [-p port] [-I IP-address] [-s host] [-T] [-r] -i input-file",
-	"[-v] -c config-file [-z server] [-p port] [-I IP-address] [-s host] -k key -o value",
-	"[-v] -c config-file [-z server] [-p port] [-I IP-address] [-s host] [-T] [-r] -i input-file",
-	"-h",
-	"-V",
-	NULL	/* end of text */
-};
+const char	usage_message[] = "[-Vhv] {[-zpsI] -ko | [-zpI] -T -i <file> -r} [-c <file>]";
 
 const char	*help_message[] = {
-	"Utility for sending monitoring data to Zabbix server or proxy.",
-	"",
 	"Options:",
-	"  -c --config config-file              Absolute path to Zabbix agentd configuration file",
+	"  -c --config <file>                   Absolute path to the configuration file",
 	"",
-	"  -z --zabbix-server server            Hostname or IP address of Zabbix server or proxy to send data to.",
-	"                                       When used together with --config, overrides first entry of \"ServerActive\"",
-	"                                       parameter specified in agentd configuration file",
-	"  -p --port port                       Specify port number of trapper process of Zabbix server or proxy.",
-	"                                       When used together with --config, overrides the port of the first entry of",
-	"                                       \"ServerActive\" parameter specified in agentd configuration file",
-	"                                       Default is " ZBX_DEFAULT_SERVER_PORT_STR,
-	"  -I --source-address IP-address       Specify source IP address",
-	"                                       When used together with --config, overrides \"SourceIP\" parameter",
-	"                                       specified in agentd configuration file",
+	"  -z --zabbix-server <server>          Hostname or IP address of Zabbix server",
+	"  -p --port <server port>              Specify port number of server trapper running on the server. Default is " ZBX_DEFAULT_SERVER_PORT_STR,
+	"  -s --host <hostname>                 Specify host name. Host IP address and DNS name will not work",
+	"  -I --source-address <IP address>     Specify source IP address",
 	"",
-	"  -s --host host                       Specify host name the item belongs to (as registered in Zabbix front-end).",
-	"                                       Host IP address and DNS name will not work.",
-	"                                       When used together with --config, overrides \"Hostname\" parameter",
-	"                                       specified in agentd configuration file",
-	"  -k --key key                         Specify item key",
-	"  -o --value value                     Specify item value",
+	"  -k --key <key>                       Specify item key",
+	"  -o --value <key value>               Specify value",
 	"",
-	"  -i --input-file input-file           Load values from input file. Specify - for standard input.",
-	"                                       Each line of file contains whitespace delimited: <host> <key> <value>.",
-	"                                       Specify - in <host> to use hostname from configuration file or --host argument",
-	"  -T --with-timestamps                 Each line of file contains whitespace delimited: <host> <key> <timestamp> <value>.",
-	"                                       This can be used with --input-file option.",
+	"  -i --input-file <input file>         Load values from input file. Specify - for standard input",
+	"                                       Each line of file contains whitespace delimited: <hostname> <key> <value>",
+	"                                       Specify - in <hostname> to use hostname from configuration file or --host argument",
+	"  -T --with-timestamps                 Each line of file contains whitespace delimited: <hostname> <key> <timestamp> <value>",
+	"                                       This can be used with --input-file option",
 	"                                       Timestamp should be specified in Unix timestamp format",
-	"  -r --real-time                       Send metrics one by one as soon as they are received.",
+	"  -r --real-time                       Send metrics one by one as soon as they are received",
 	"                                       This can be used when reading from standard input",
 	"",
 	"  -v --verbose                         Verbose mode, -vv for more details",
 	"",
-	"  -h --help                            Display this help message",
+	"Other options:",
+	"  -h --help                            Give this help",
 	"  -V --version                         Display version number",
-	"",
-	"Example: zabbix_sender -z 127.0.0.1 -s \"Linux DB3\" -k db.connections -o 43",
 	NULL	/* end of text */
 };
 
@@ -319,6 +297,7 @@ static	ZBX_THREAD_ENTRY(send_value, args)
 {
 	ZBX_THREAD_SENDVAL_ARGS	*sentdval_args;
 	zbx_sock_t		sock;
+	char			*answer = NULL;
 	int			tcp_ret, ret = FAIL;
 
 	assert(args);
@@ -337,11 +316,11 @@ static	ZBX_THREAD_ENTRY(send_value, args)
 	{
 		if (SUCCEED == (tcp_ret = zbx_tcp_send(&sock, sentdval_args->json.buffer)))
 		{
-			if (SUCCEED == (tcp_ret = zbx_tcp_recv(&sock)))
+			if (SUCCEED == (tcp_ret = zbx_tcp_recv(&sock, &answer)))
 			{
-				zabbix_log(LOG_LEVEL_DEBUG, "answer [%s]", sock.buffer);
-				if (NULL == sock.buffer || FAIL == (ret = check_response(sock.buffer)))
-					zabbix_log(LOG_LEVEL_WARNING, "incorrect answer from server [%s]", sock.buffer);
+				zabbix_log(LOG_LEVEL_DEBUG, "answer [%s]", answer);
+				if (NULL == answer || FAIL == (ret = check_response(answer)))
+					zabbix_log(LOG_LEVEL_WARNING, "incorrect answer from server [%s]", answer);
 			}
 		}
 
@@ -371,60 +350,57 @@ static void    zbx_load_config(const char *config_file)
 		{NULL}
 	};
 
-	if (NULL == config_file)
-		return;
-
-	/* do not complain about unknown parameters in agent configuration file */
-	parse_cfg_file(config_file, cfg, ZBX_CFG_FILE_REQUIRED, ZBX_CFG_NOT_STRICT);
-
-	if (NULL != cfg_source_ip)
+	if (NULL != config_file)
 	{
-		if (NULL == CONFIG_SOURCE_IP)
+		/* do not complain about unknown parameters */
+		parse_cfg_file(config_file, cfg, ZBX_CFG_FILE_REQUIRED, ZBX_CFG_NOT_STRICT);
+
+		if (NULL != cfg_source_ip)
 		{
-			CONFIG_SOURCE_IP = zbx_strdup(CONFIG_SOURCE_IP, cfg_source_ip);
-		}
-		zbx_free(cfg_source_ip);
-	}
-
-	if (NULL == ZABBIX_SERVER)
-	{
-		if (NULL != cfg_active_hosts && '\0' != *cfg_active_hosts)
-		{
-			unsigned short	cfg_server_port = 0;
-
-			if (NULL != (r = strchr(cfg_active_hosts, ',')))
-				*r = '\0';
-
-			if (SUCCEED != parse_serveractive_element(cfg_active_hosts, &ZABBIX_SERVER,
-					&cfg_server_port, 0))
+			if (NULL == CONFIG_SOURCE_IP)
 			{
-				zbx_error("error parsing \"ServerActive\" option: address \"%s\" is invalid",
-						cfg_active_hosts);
-				exit(EXIT_FAILURE);
+				CONFIG_SOURCE_IP = zbx_strdup(CONFIG_SOURCE_IP, cfg_source_ip);
 			}
-
-			if (0 == ZABBIX_SERVER_PORT && 0 != cfg_server_port)
-				ZABBIX_SERVER_PORT = cfg_server_port;
+			zbx_free(cfg_source_ip);
 		}
-	}
-	zbx_free(cfg_active_hosts);
 
-	if (NULL != cfg_hostname)
-	{
-		if (NULL == ZABBIX_HOSTNAME)
+		if (NULL == ZABBIX_SERVER)
 		{
-			ZABBIX_HOSTNAME = zbx_strdup(ZABBIX_HOSTNAME, cfg_hostname);
+			if (NULL != cfg_active_hosts && '\0' != *cfg_active_hosts)
+			{
+				unsigned short	cfg_server_port = 0;
+
+				if (NULL != (r = strchr(cfg_active_hosts, ',')))
+					*r = '\0';
+
+				if (SUCCEED != parse_serveractive_element(cfg_active_hosts, &ZABBIX_SERVER,
+						&cfg_server_port, 0))
+				{
+					zbx_error("error parsing a \"ServerActive\" option: address \"%s\" is invalid",
+							cfg_active_hosts);
+					exit(EXIT_FAILURE);
+				}
+
+				if (0 == ZABBIX_SERVER_PORT && 0 != cfg_server_port)
+					ZABBIX_SERVER_PORT = cfg_server_port;
+			}
 		}
-		zbx_free(cfg_hostname);
+		zbx_free(cfg_active_hosts);
+
+		if (NULL != cfg_hostname)
+		{
+			if (NULL == ZABBIX_HOSTNAME)
+			{
+				ZABBIX_HOSTNAME = zbx_strdup(ZABBIX_HOSTNAME, cfg_hostname);
+			}
+			zbx_free(cfg_hostname);
+		}
 	}
 }
 
 static void	parse_commandline(int argc, char **argv)
 {
-	char		ch = '\0';
-	int		opt_c = 0, opt_cap_i = 0, opt_z = 0, opt_p = 0, opt_s = 0, opt_k = 0, opt_o = 0, opt_i = 0,
-			opt_cap_t = 0, opt_r = 0, opt_v = 0;
-	unsigned int	opt_mask = 0;
+	char	ch = '\0';
 
 	/* parse the command-line */
 	while ((char)EOF != (ch = (char)zbx_getopt_long(argc, argv, shortopts, longopts, NULL)))
@@ -432,9 +408,7 @@ static void	parse_commandline(int argc, char **argv)
 		switch (ch)
 		{
 			case 'c':
-				opt_c++;
-				if (NULL == CONFIG_FILE)
-					CONFIG_FILE = zbx_strdup(CONFIG_FILE, zbx_optarg);
+				CONFIG_FILE = zbx_strdup(CONFIG_FILE, zbx_optarg);
 				break;
 			case 'h':
 				help();
@@ -445,49 +419,33 @@ static void	parse_commandline(int argc, char **argv)
 				exit(EXIT_SUCCESS);
 				break;
 			case 'I':
-				opt_cap_i++;
-				if (NULL == CONFIG_SOURCE_IP)
-					CONFIG_SOURCE_IP = zbx_strdup(CONFIG_SOURCE_IP, zbx_optarg);
+				CONFIG_SOURCE_IP = zbx_strdup(CONFIG_SOURCE_IP, zbx_optarg);
 				break;
 			case 'z':
-				opt_z++;
-				if (NULL == ZABBIX_SERVER)
-					ZABBIX_SERVER = zbx_strdup(ZABBIX_SERVER, zbx_optarg);
+				ZABBIX_SERVER = zbx_strdup(ZABBIX_SERVER, zbx_optarg);
 				break;
 			case 'p':
-				opt_p++;
 				ZABBIX_SERVER_PORT = (unsigned short)atoi(zbx_optarg);
 				break;
 			case 's':
-				opt_s++;
-				if (NULL == ZABBIX_HOSTNAME)
-					ZABBIX_HOSTNAME = zbx_strdup(ZABBIX_HOSTNAME, zbx_optarg);
+				ZABBIX_HOSTNAME = zbx_strdup(ZABBIX_HOSTNAME, zbx_optarg);
 				break;
 			case 'k':
-				opt_k++;
-				if (NULL == ZABBIX_KEY)
-					ZABBIX_KEY = zbx_strdup(ZABBIX_KEY, zbx_optarg);
+				ZABBIX_KEY = zbx_strdup(ZABBIX_KEY, zbx_optarg);
 				break;
 			case 'o':
-				opt_o++;
-				if (NULL == ZABBIX_KEY_VALUE)
-					ZABBIX_KEY_VALUE = zbx_strdup(ZABBIX_KEY_VALUE, zbx_optarg);
+				ZABBIX_KEY_VALUE = zbx_strdup(ZABBIX_KEY_VALUE, zbx_optarg);
 				break;
 			case 'i':
-				opt_i++;
-				if (NULL == INPUT_FILE)
-					INPUT_FILE = zbx_strdup(INPUT_FILE, zbx_optarg);
+				INPUT_FILE = zbx_strdup(INPUT_FILE, zbx_optarg);
 				break;
 			case 'T':
-				opt_cap_t++;
 				WITH_TIMESTAMPS = 1;
 				break;
 			case 'r':
-				opt_r++;
 				REAL_TIME = 1;
 				break;
 			case 'v':
-				opt_v++;
 				if (LOG_LEVEL_WARNING > CONFIG_LOG_LEVEL)
 					CONFIG_LOG_LEVEL = LOG_LEVEL_WARNING;
 				else if (LOG_LEVEL_DEBUG > CONFIG_LOG_LEVEL)
@@ -500,225 +458,9 @@ static void	parse_commandline(int argc, char **argv)
 		}
 	}
 
-	/* every option may be specified only once */
-	if (1 < opt_c || 1 < opt_cap_i || 1 < opt_z || 1 < opt_p || 1 < opt_s || 1 < opt_k || 1 < opt_o || 1 < opt_i ||
-			1 < opt_cap_t || 1 < opt_r || 2 < opt_v)
+	if (NULL == ZABBIX_SERVER && NULL == CONFIG_FILE)
 	{
-		if (1 < opt_c)
-			zbx_error("option \"-c\" or \"--config\" specified multiple times");
-		if (1 < opt_cap_i)
-			zbx_error("option \"-I\" or \"--source-address\" specified multiple times");
-		if (1 < opt_z)
-			zbx_error("option \"-z\" or \"--zabbix-server\" specified multiple times");
-		if (1 < opt_p)
-			zbx_error("option \"-p\" or \"--port\" specified multiple times");
-		if (1 < opt_s)
-			zbx_error("option \"-s\" or \"--host\" specified multiple times");
-		if (1 < opt_k)
-			zbx_error("option \"-k\" or \"--key\" specified multiple times");
-		if (1 < opt_o)
-			zbx_error("option \"-o\" or \"--value\" specified multiple times");
-		if (1 < opt_i)
-			zbx_error("option \"-i\" or \"--input-file\" specified multiple times");
-		if (1 < opt_cap_t)
-			zbx_error("option \"-T\" or \"--with-timestamps\" specified multiple times");
-		if (1 < opt_r)
-			zbx_error("option \"-r\" or \"--real-time\" specified multiple times");
-		/* '-v' or '-vv' can be specified */
-		if (2 < opt_v)
-			zbx_error("option \"-v\" or \"--verbose\" specified more than 2 times");
-
-		exit(EXIT_FAILURE);
-	}
-
-	/* check for mutually exclusive options    */
-
-	/* Allowed option combinations.                             */
-	/* Option 'v' is always optional.                           */
-	/*   c  z  s  k  o  i  T  r  p  I opt_mask comment          */
-	/* ------------------------------ -------- -------          */
-	/*   -  z  -  -  -  i  -  -  -  -  0x110   !c i             */
-	/*   -  z  -  -  -  i  -  -  -  I  0x111                    */
-	/*   -  z  -  -  -  i  -  -  p  -  0x112                    */
-	/*   -  z  -  -  -  i  -  -  p  I  0x113                    */
-	/*   -  z  -  -  -  i  -  r  -  -  0x114                    */
-	/*   -  z  -  -  -  i  -  r  -  I  0x115                    */
-	/*   -  z  -  -  -  i  -  r  p  -  0x116                    */
-	/*   -  z  -  -  -  i  -  r  p  I  0x117                    */
-	/*   -  z  -  -  -  i  T  -  -  -  0x118                    */
-	/*   -  z  -  -  -  i  T  -  -  I  0x119                    */
-	/*   -  z  -  -  -  i  T  -  p  -  0x11a                    */
-	/*   -  z  -  -  -  i  T  -  p  I  0x11b                    */
-	/*   -  z  -  -  -  i  T  r  -  -  0x11c                    */
-	/*   -  z  -  -  -  i  T  r  -  I  0x11d                    */
-	/*   -  z  -  -  -  i  T  r  p  -  0x11e                    */
-	/*   -  z  -  -  -  i  T  r  p  I  0x11f                    */
-	/*   -  z  s  -  -  i  -  -  -  -  0x190                    */
-	/*   -  z  s  -  -  i  -  -  -  I  0x191                    */
-	/*   -  z  s  -  -  i  -  -  p  -  0x192                    */
-	/*   -  z  s  -  -  i  -  -  p  I  0x193                    */
-	/*   -  z  s  -  -  i  -  r  -  -  0x194                    */
-	/*   -  z  s  -  -  i  -  r  -  I  0x195                    */
-	/*   -  z  s  -  -  i  -  r  p  -  0x196                    */
-	/*   -  z  s  -  -  i  -  r  p  I  0x197                    */
-	/*   -  z  s  -  -  i  T  -  -  -  0x198                    */
-	/*   -  z  s  -  -  i  T  -  -  I  0x199                    */
-	/*   -  z  s  -  -  i  T  -  p  -  0x19a                    */
-	/*   -  z  s  -  -  i  T  -  p  I  0x19b                    */
-	/*   -  z  s  -  -  i  T  r  -  -  0x19c                    */
-	/*   -  z  s  -  -  i  T  r  -  I  0x19d                    */
-	/*   -  z  s  -  -  i  T  r  p  -  0x19e                    */
-	/*   -  z  s  -  -  i  T  r  p  I  0x19f                    */
-	/*                                                          */
-	/*   -  z  s  k  o  -  -  -  -  -  0x1e0   !c !i            */
-	/*   -  z  s  k  o  -  -  -  -  I  0x1e1                    */
-	/*   -  z  s  k  o  -  -  -  p  -  0x1e2                    */
-	/*   -  z  s  k  o  -  -  -  p  I  0x1e3                    */
-	/*                                                          */
-	/*   c  -  -  -  -  i  -  -  -  -  0x210   c i              */
-	/*   c  -  -  -  -  i  -  -  -  I  0x211                    */
-	/*   c  -  -  -  -  i  -  -  p  -  0x212                    */
-	/*   c  -  -  -  -  i  -  -  p  I  0x213                    */
-	/*   c  -  -  -  -  i  -  r  -  -  0x214                    */
-	/*   c  -  -  -  -  i  -  r  -  I  0x215                    */
-	/*   c  -  -  -  -  i  -  r  p  -  0x216                    */
-	/*   c  -  -  -  -  i  -  r  p  I  0x217                    */
-	/*   c  -  -  -  -  i  T  -  -  -  0x218                    */
-	/*   c  -  -  -  -  i  T  -  -  I  0x219                    */
-	/*   c  -  -  -  -  i  T  -  p  -  0x21a                    */
-	/*   c  -  -  -  -  i  T  -  p  I  0x21b                    */
-	/*   c  -  -  -  -  i  T  r  -  -  0x21c                    */
-	/*   c  -  -  -  -  i  T  r  -  I  0x21d                    */
-	/*   c  -  -  -  -  i  T  r  p  -  0x21e                    */
-	/*   c  -  -  -  -  i  T  r  p  I  0x21f                    */
-	/*                                                          */
-	/*   c  -  -  k  o  -  -  -  -  -  0x260   c !i             */
-	/*   c  -  -  k  o  -  -  -  -  I  0x261                    */
-	/*   c  -  -  k  o  -  -  -  p  -  0x262                    */
-	/*   c  -  -  k  o  -  -  -  p  I  0x263                    */
-	/*   c  -  s  k  o  -  -  -  -  -  0x2e0                    */
-	/*   c  -  s  k  o  -  -  -  -  I  0x2e1                    */
-	/*   c  -  s  k  o  -  -  -  p  -  0x2e2                    */
-	/*   c  -  s  k  o  -  -  -  p  I  0x2e3                    */
-	/*                                                          */
-	/*   c  -  s  -  -  i  -  -  -  -  0x290   c i (continues)  */
-	/*   c  -  s  -  -  i  -  -  -  I  0x291                    */
-	/*   c  -  s  -  -  i  -  -  p  -  0x292                    */
-	/*   c  -  s  -  -  i  -  -  p  I  0x293                    */
-	/*   c  -  s  -  -  i  -  r  -  -  0x294                    */
-	/*   c  -  s  -  -  i  -  r  -  I  0x295                    */
-	/*   c  -  s  -  -  i  -  r  p  -  0x296                    */
-	/*   c  -  s  -  -  i  -  r  p  I  0x297                    */
-	/*   c  -  s  -  -  i  T  -  -  -  0x298                    */
-	/*   c  -  s  -  -  i  T  -  -  I  0x299                    */
-	/*   c  -  s  -  -  i  T  -  p  -  0x29a                    */
-	/*   c  -  s  -  -  i  T  -  p  I  0x29b                    */
-	/*   c  -  s  -  -  i  T  r  -  -  0x29c                    */
-	/*   c  -  s  -  -  i  T  r  -  I  0x29d                    */
-	/*   c  -  s  -  -  i  T  r  p  -  0x29e                    */
-	/*   c  -  s  -  -  i  T  r  p  I  0x29f                    */
-	/*   c  z  -  -  -  i  -  -  -  -  0x310                    */
-	/*   c  z  -  -  -  i  -  -  -  I  0x311                    */
-	/*   c  z  -  -  -  i  -  -  p  -  0x312                    */
-	/*   c  z  -  -  -  i  -  -  p  I  0x313                    */
-	/*   c  z  -  -  -  i  -  r  -  -  0x314                    */
-	/*   c  z  -  -  -  i  -  r  -  I  0x315                    */
-	/*   c  z  -  -  -  i  -  r  p  -  0x316                    */
-	/*   c  z  -  -  -  i  -  r  p  I  0x317                    */
-	/*   c  z  -  -  -  i  T  -  -  -  0x318                    */
-	/*   c  z  -  -  -  i  T  -  -  I  0x319                    */
-	/*   c  z  -  -  -  i  T  -  p  -  0x31a                    */
-	/*   c  z  -  -  -  i  T  -  p  I  0x31b                    */
-	/*   c  z  -  -  -  i  T  r  -  -  0x31c                    */
-	/*   c  z  -  -  -  i  T  r  -  I  0x31d                    */
-	/*   c  z  -  -  -  i  T  r  p  -  0x31e                    */
-	/*   c  z  -  -  -  i  T  r  p  I  0x31f                    */
-	/*   c  z  s  -  -  i  -  -  -  -  0x390                    */
-	/*   c  z  s  -  -  i  -  -  -  I  0x391                    */
-	/*   c  z  s  -  -  i  -  -  p  -  0x392                    */
-	/*   c  z  s  -  -  i  -  -  p  I  0x393                    */
-	/*   c  z  s  -  -  i  -  r  -  -  0x394                    */
-	/*   c  z  s  -  -  i  -  r  -  I  0x395                    */
-	/*   c  z  s  -  -  i  -  r  p  -  0x396                    */
-	/*   c  z  s  -  -  i  -  r  p  I  0x397                    */
-	/*   c  z  s  -  -  i  T  -  -  -  0x398                    */
-	/*   c  z  s  -  -  i  T  -  -  I  0x399                    */
-	/*   c  z  s  -  -  i  T  -  p  -  0x39a                    */
-	/*   c  z  s  -  -  i  T  -  p  I  0x39b                    */
-	/*   c  z  s  -  -  i  T  r  -  -  0x39c                    */
-	/*   c  z  s  -  -  i  T  r  -  I  0x39d                    */
-	/*   c  z  s  -  -  i  T  r  p  -  0x39e                    */
-	/*   c  z  s  -  -  i  T  r  p  I  0x39f                    */
-	/*                                                          */
-	/*   c  z  -  k  o  -  -  -  -  -  0x360   c !i (continues) */
-	/*   c  z  -  k  o  -  -  -  -  I  0x361                    */
-	/*   c  z  -  k  o  -  -  -  p  -  0x362                    */
-	/*   c  z  -  k  o  -  -  -  p  I  0x363                    */
-	/*   c  z  s  k  o  -  -  -  -  -  0x3e0                    */
-	/*   c  z  s  k  o  -  -  -  -  I  0x3e1                    */
-	/*   c  z  s  k  o  -  -  -  p  -  0x3e2                    */
-	/*   c  z  s  k  o  -  -  -  p  I  0x3e3                    */
-
-	if (0 == opt_c + opt_z)
-	{
-		zbx_error("either '-c' or '-z' option must be specified");
 		usage();
-		printf("Try '%s --help' for more information.\n", progname);
-		exit(EXIT_FAILURE);
-	}
-
-	if (0 < opt_c)
-		opt_mask |= 0x200;
-	if (0 < opt_z)
-		opt_mask |= 0x100;
-	if (0 < opt_s)
-		opt_mask |= 0x80;
-	if (0 < opt_k)
-		opt_mask |= 0x40;
-	if (0 < opt_o)
-		opt_mask |= 0x20;
-	if (0 < opt_i)
-		opt_mask |= 0x10;
-	if (0 < opt_cap_t)
-		opt_mask |= 0x08;
-	if (0 < opt_r)
-		opt_mask |= 0x04;
-	if (0 < opt_p)
-		opt_mask |= 0x02;
-	if (0 < opt_cap_i)
-		opt_mask |= 0x01;
-
-	if (
-			(0 == opt_c && 1 == opt_i &&	/* !c i */
-					!((0x110 <= opt_mask && opt_mask <= 0x11f) ||
-					(0x190 <= opt_mask && opt_mask <= 0x19f))) ||
-			(0 == opt_c && 0 == opt_i &&	/* !c !i */
-					!(0x1e0 <= opt_mask && opt_mask <= 0x1e3)) ||
-			(1 == opt_c && 1 == opt_i &&	/* c i */
-					!((0x210 <= opt_mask && opt_mask <= 0x21f) ||
-					(0x310 <= opt_mask && opt_mask <= 0x31f) ||
-					(0x290 <= opt_mask && opt_mask <= 0x29f) ||
-					(0x390 <= opt_mask && opt_mask <= 0x39f))) ||
-			(1 == opt_c && 0 == opt_i &&	/* c !i */
-					!((0x260 <= opt_mask && opt_mask <= 0x263) ||
-					(0x2e0 <= opt_mask && opt_mask <= 0x2e3) ||
-					(0x360 <= opt_mask && opt_mask <= 0x363) ||
-					(0x3e0 <= opt_mask && opt_mask <= 0x3e3))))
-	{
-		zbx_error("too few or mutually exclusive options used");
-		usage();
-		exit(EXIT_FAILURE);
-	}
-
-	/* Parameters which are not option values are invalid. The check relies on zbx_getopt_internal() which */
-	/* always permutes command line arguments regardless of POSIXLY_CORRECT environment variable. */
-	if (argc > zbx_optind)
-	{
-		int	i;
-
-		for (i = zbx_optind; i < argc; i++)
-			zbx_error("invalid parameter \"%s\"", argv[i]);
-
 		exit(EXIT_FAILURE);
 	}
 }
@@ -732,8 +474,7 @@ int	main(int argc, char **argv)
 	FILE			*in;
 	char			in_line[MAX_BUFFER_LEN], hostname[MAX_STRING_LEN], key[MAX_STRING_LEN],
 				key_value[MAX_BUFFER_LEN], clock[32];
-	int			total_count = 0, succeed_count = 0, buffer_count = 0, read_more = 0, ret = FAIL,
-				timestamp;
+	int			total_count = 0, succeed_count = 0, buffer_count = 0, read_more = 0, ret = FAIL;
 	double			last_send = 0;
 	const char		*p;
 	zbx_thread_args_t	thread_args;
@@ -749,7 +490,7 @@ int	main(int argc, char **argv)
 
 	if (NULL == ZABBIX_SERVER)
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "'ServerActive' parameter required");
+		zabbix_log(LOG_LEVEL_WARNING, "'Server' parameter required");
 		goto exit;
 	}
 	if (0 == ZABBIX_SERVER_PORT)
@@ -757,12 +498,12 @@ int	main(int argc, char **argv)
 
 	if (MIN_ZABBIX_PORT > ZABBIX_SERVER_PORT)
 	{
-		zabbix_log(LOG_LEVEL_CRIT, "Incorrect port number [%d]. Allowed [%d:%d]",
+		zabbix_log(LOG_LEVEL_WARNING, "Incorrect port number [%d]. Allowed [%d:%d]",
 				(int)ZABBIX_SERVER_PORT, (int)MIN_ZABBIX_PORT, (int)MAX_ZABBIX_PORT);
 		goto exit;
 	}
 
-	thread_args.server_num = 0;
+	thread_args.thread_num = 0;
 	thread_args.args = &sentdval_args;
 
 	sentdval_args.server = ZABBIX_SERVER;
@@ -785,7 +526,7 @@ int	main(int argc, char **argv)
 		}
 		else if (NULL == (in = fopen(INPUT_FILE, "r")) )
 		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot open [%s]: %s", INPUT_FILE, zbx_strerror(errno));
+			zabbix_log(LOG_LEVEL_WARNING, "cannot open [%s]: %s", INPUT_FILE, zbx_strerror(errno));
 			goto free;
 		}
 
@@ -803,7 +544,7 @@ int	main(int argc, char **argv)
 
 			if ('\0' == *p || NULL == (p = get_string(p, hostname, sizeof(hostname))) || '\0' == *hostname)
 			{
-				zabbix_log(LOG_LEVEL_CRIT, "[line %d] 'Hostname' required", total_count);
+				zabbix_log(LOG_LEVEL_WARNING, "[line %d] 'Hostname' required", total_count);
 				ret = FAIL;
 				break;
 			}
@@ -812,7 +553,7 @@ int	main(int argc, char **argv)
 			{
 				if (NULL == ZABBIX_HOSTNAME)
 				{
-					zabbix_log(LOG_LEVEL_CRIT, "[line %d] '-' encountered as 'Hostname', "
+					zabbix_log(LOG_LEVEL_WARNING, "[line %d] '-' encountered as 'Hostname', "
 							"but no default hostname was specified", total_count);
 					ret = FAIL;
 					break;
@@ -823,7 +564,7 @@ int	main(int argc, char **argv)
 
 			if ('\0' == *p || NULL == (p = get_string(p, key, sizeof(key))) || '\0' == *key)
 			{
-				zabbix_log(LOG_LEVEL_CRIT, "[line %d] 'Key' required", total_count);
+				zabbix_log(LOG_LEVEL_WARNING, "[line %d] 'Key' required", total_count);
 				ret = FAIL;
 				break;
 			}
@@ -832,15 +573,7 @@ int	main(int argc, char **argv)
 			{
 				if ('\0' == *p || NULL == (p = get_string(p, clock, sizeof(clock))) || '\0' == *clock)
 				{
-					zabbix_log(LOG_LEVEL_CRIT, "[line %d] 'Timestamp' required", total_count);
-					ret = FAIL;
-					break;
-				}
-
-				if (FAIL == is_uint31(clock, &timestamp))
-				{
-					zabbix_log(LOG_LEVEL_WARNING, "[line %d] invalid 'Timestamp' value detected",
-							total_count);
+					zabbix_log(LOG_LEVEL_WARNING, "[line %d] 'Timestamp' required", total_count);
 					ret = FAIL;
 					break;
 				}
@@ -852,23 +585,19 @@ int	main(int argc, char **argv)
 			}
 			else if ('\0' == *p || NULL == (p = get_string(p, key_value, sizeof(key_value))))
 			{
-				zabbix_log(LOG_LEVEL_CRIT, "[line %d] 'Key value' required", total_count);
+				zabbix_log(LOG_LEVEL_WARNING, "[line %d] 'Key value' required", total_count);
 				ret = FAIL;
 				break;
 			}
-			else if ('\0' != *p)
-			{
-				zabbix_log(LOG_LEVEL_CRIT, "[line %d] too many parameters", total_count);
-				ret = FAIL;
-				break;
-			}
+
+			zbx_rtrim(key_value, "\r\n");
 
 			zbx_json_addobject(&sentdval_args.json, NULL);
 			zbx_json_addstring(&sentdval_args.json, ZBX_PROTO_TAG_HOST, hostname, ZBX_JSON_TYPE_STRING);
 			zbx_json_addstring(&sentdval_args.json, ZBX_PROTO_TAG_KEY, key, ZBX_JSON_TYPE_STRING);
 			zbx_json_addstring(&sentdval_args.json, ZBX_PROTO_TAG_VALUE, key_value, ZBX_JSON_TYPE_STRING);
 			if (1 == WITH_TIMESTAMPS)
-				zbx_json_adduint64(&sentdval_args.json, ZBX_PROTO_TAG_CLOCK, timestamp);
+				zbx_json_adduint64(&sentdval_args.json, ZBX_PROTO_TAG_CLOCK, atoi(clock));
 			zbx_json_close(&sentdval_args.json);
 
 			succeed_count++;

@@ -44,7 +44,6 @@
 
 			var url = document.createElement('a');
 			url.setAttribute('href', 'services.php?form=1&serviceid=' + serviceid);
-			url.setAttribute('target', '_blank');
 			url.appendChild(document.createTextNode(name));
 
 			td.appendChild(inputServiceId);
@@ -80,10 +79,6 @@
 			tr.appendChild(td);
 			document.getElementById('service_children').firstChild.appendChild(tr);
 			jQuery('#service_children .message').css('display', 'none');
-
-			if (IE8) {
-				jQuery('#service_children').parent().addClass('ie8fix-inline').removeClass('ie8fix-inline');
-			}
 		}
 	}
 
@@ -91,23 +86,15 @@
 		removeObjectById('children_' + serviceid);
 		removeObjectById('children_' + serviceid + '_name');
 		removeObjectById('children_' + serviceid + '_serviceid');
-
-		if (IE8) {
-			jQuery('#service_children').parent().addClass('ie8fix-inline').removeClass('ie8fix-inline');
-		}
 	}
 
 	function removeTime(id) {
-		var parent = jQuery('#times_' + id).parent();
-
 		removeObjectById('times_' + id);
 		removeObjectById('times_' + id + '_type');
 		removeObjectById('times_' + id + '_from');
 		removeObjectById('times_' + id + '_to');
 		removeObjectById('times_' + id + '_note');
-
-		if (IE8) {
-			parent.closest('table').addClass('ie8fix-inline').removeClass('ie8fix-inline');
-		}
 	}
+
+	createPlaceholders();
 </script>

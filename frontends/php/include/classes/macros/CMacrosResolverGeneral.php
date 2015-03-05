@@ -22,19 +22,15 @@
 class CMacrosResolverGeneral {
 
 	const PATTERN_HOST = '{(HOSTNAME|HOST\.HOST|HOST\.NAME)}';
-	const PATTERN_HOST_ID = '{(HOST\.ID)}';
-	const PATTERN_HOST_FUNCTION = '{(HOSTNAME|HOST\.HOST|HOST\.NAME)([1-9]?)}';
-	const PATTERN_HOST_FUNCTION2 = '{(HOST\.ID|HOST\.HOST|HOST\.NAME)([1-9]?)}';
 	const PATTERN_HOST_INTERNAL = 'HOST\.HOST|HOSTNAME';
 	const PATTERN_MACRO_PARAM = '[1-9]?';
+	const PATTERN_HOST_FUNCTION = '{(HOSTNAME|HOST\.HOST|HOST\.NAME)([1-9]?)}';
 	const PATTERN_INTERFACE = '{(IPADDRESS|HOST\.IP|HOST\.DNS|HOST\.CONN)}';
 	const PATTERN_INTERFACE_FUNCTION = '{(IPADDRESS|HOST\.IP|HOST\.DNS|HOST\.CONN|HOST\.PORT)([1-9]?)}';
-	const PATTERN_INTERFACE_FUNCTION2 = '{(HOST\.IP|HOST\.DNS|HOST\.CONN|HOST\.PORT)([1-9]?)}';
 	const PATTERN_INTERFACE_FUNCTION_WITHOUT_PORT = '{(IPADDRESS|HOST\.IP|HOST\.DNS|HOST\.CONN)([1-9]?)}';
 	const PATTERN_ITEM_FUNCTION = '{(ITEM\.LASTVALUE|ITEM\.VALUE)([1-9]?)}';
 	const PATTERN_ITEM_NUMBER = '\$[1-9]';
 	const PATTERN_ITEM_MACROS = '{(HOSTNAME|HOST\.HOST|HOST\.NAME|IPADDRESS|HOST\.IP|HOST\.DNS|HOST\.CONN)}';
-	const PATTERN_TRIGGER = '{(TRIGGER\.ID)}';
 
 	/**
 	 * Interface priorities.
@@ -122,7 +118,6 @@ class CMacrosResolverGeneral {
 
 		foreach ($matches[1] as $num => $macro) {
 			$fNum = empty($matches[2][$num]) ? 0 : $matches[2][$num];
-
 			$result[$macro][$fNum] = $fNum;
 		}
 
@@ -140,7 +135,6 @@ class CMacrosResolverGeneral {
 		preg_match_all('/\{([0-9]+)\}/', $expression, $matches);
 
 		$functions = array();
-
 		foreach ($matches[1] as $i => $functionid) {
 			$functions[$i + 1] = $functionid;
 		}
@@ -208,7 +202,7 @@ class CMacrosResolverGeneral {
 	 * @return string
 	 */
 	protected function getItemValueMacro($lastValue, array $item, array $trigger) {
-		if ($this->config === 'eventDescription') {
+		if ($this->config == 'eventDescription') {
 			$value = item_get_history($item, $trigger['clock'], $trigger['ns']);
 
 			return ($value === null) ? UNRESOLVED_MACRO_STRING : formatHistoryValue($value, $item);
@@ -221,16 +215,20 @@ class CMacrosResolverGeneral {
 	/**
 	 * Get interface macros.
 	 *
-	 * @param array $macros
-	 * @param array $macroValues
-	 * @param bool  $port
+	 * @param array	$macros
+	 * @param array	$macroValues
+	 * @param bool	$port
 	 *
 	 * @return array
 	 */
 	protected function getIpMacros(array $macros, array $macroValues, $port) {
 		if ($macros) {
-			$selectPort = $port ? ',n.port' : '';
-
+			if ($port) {
+				$selectPort = ',n.port';
+			}
+			else {
+				$selectPort = null;
+			}
 			$dbInterfaces = DBselect(
 				'SELECT f.triggerid,f.functionid,n.ip,n.dns,n.type,n.useip'.$selectPort.
 				' FROM functions f'.
@@ -242,7 +240,6 @@ class CMacrosResolverGeneral {
 
 			// macro should be resolved to interface with highest priority ($priorities)
 			$interfaces = array();
-
 			while ($dbInterface = DBfetch($dbInterfaces)) {
 				if (isset($interfaces[$dbInterface['functionid']])
 						&& $this->interfacePriorities[$interfaces[$dbInterface['functionid']]['type']] > $this->interfacePriorities[$dbInterface['type']]) {
@@ -332,7 +329,7 @@ class CMacrosResolverGeneral {
 	protected function getHostMacros(array $macros, array $macroValues) {
 		if ($macros) {
 			$dbFuncs = DBselect(
-				'SELECT f.triggerid,f.functionid,h.hostid,h.host,h.name'.
+				'SELECT f.triggerid,f.functionid,h.host,h.name'.
 				' FROM functions f'.
 					' JOIN items i ON f.itemid=i.itemid'.
 					' JOIN hosts h ON i.hostid=h.hostid'.
@@ -341,15 +338,10 @@ class CMacrosResolverGeneral {
 			while ($func = DBfetch($dbFuncs)) {
 				foreach ($macros[$func['functionid']] as $macro => $fNums) {
 					switch ($macro) {
-						case 'HOST.ID':
-							$replace = $func['hostid'];
-							break;
-
 						case 'HOSTNAME':
 						case 'HOST.HOST':
 							$replace = $func['host'];
 							break;
-
 						case 'HOST.NAME':
 							$replace = $func['name'];
 							break;
@@ -395,7 +387,6 @@ class CMacrosResolverGeneral {
 		 * User macros
 		 */
 		$hostIds = array();
-
 		foreach ($data as $element) {
 			foreach ($element['hostids'] as $hostId) {
 				$hostIds[$hostId] = $hostId;
@@ -481,7 +472,6 @@ class CMacrosResolverGeneral {
 			'output' => array('macro', 'value'),
 			'globalmacro' => true
 		));
-
 		if ($dbGlobalMacros) {
 			$dbGlobalMacros = zbx_toHash($dbGlobalMacros, 'macro');
 

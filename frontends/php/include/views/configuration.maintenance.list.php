@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $maintenanceWidget = new CWidget();
 
 // create new maintenance button
@@ -29,7 +29,7 @@ $maintenanceWidget->addPageHeader(_('CONFIGURATION OF MAINTENANCE PERIODS'), $cr
 
 // header
 $filterForm = new CForm('get');
-$filterForm->addItem(array(_('Group').SPACE, $this->data['pageFilter']->getGroupsCB()));
+$filterForm->addItem(array(_('Group').SPACE, $this->data['pageFilter']->getGroupsCB(true)));
 $maintenanceWidget->addHeader(_('Maintenance periods'), $filterForm);
 $maintenanceWidget->addHeaderRowNumber();
 
@@ -41,10 +41,9 @@ $maintenanceForm->setName('maintenanceForm');
 $maintenanceTable = new CTableInfo(_('No maintenance periods found.'));
 $maintenanceTable->setHeader(array(
 	new CCheckBox('all_maintenances', null, "checkAll('".$maintenanceForm->getName()."', 'all_maintenances', 'maintenanceids');"),
-	make_sorting_header(_('Name'), 'name', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Type'), 'maintenance_type', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Active since'), 'active_since', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Active till'), 'active_till', $this->data['sort'], $this->data['sortorder']),
+	$this->data['displayNodes'] ? _('Node') : null,
+	make_sorting_header(_('Name'), 'name'),
+	make_sorting_header(_('Type'), 'maintenance_type'),
 	_('State'),
 	_('Description')
 ));
@@ -66,26 +65,27 @@ foreach ($this->data['maintenances'] as $maintenance) {
 
 	$maintenanceTable->addRow(array(
 		new CCheckBox('maintenanceids['.$maintenanceid.']', null, null, $maintenanceid),
+		$this->data['displayNodes'] ? $maintenance['nodename'] : null,
 		new CLink($maintenance['name'], 'maintenance.php?form=update&maintenanceid='.$maintenanceid),
 		$maintenance['maintenance_type'] ? _('No data collection') : _('With data collection'),
-		zbx_date2str(DATE_TIME_FORMAT, $maintenance['active_since']),
-		zbx_date2str(DATE_TIME_FORMAT, $maintenance['active_till']),
 		$maintenanceStatus,
 		$maintenance['description']
 	));
 }
 
+// create go button
+$goComboBox = new CComboBox('go');
+$goOption = new CComboItem('delete', _('Delete selected'));
+$goOption->setAttribute('confirm', _('Delete selected maintenance periods?'));
+$goComboBox->addItem($goOption);
+$goButton = new CSubmit('goButton', _('Go').' (0)');
+$goButton->setAttribute('id', 'goButton');
+zbx_add_post_js('chkbxRange.pageGoName = "maintenanceids";');
+
 // append table to form
-$maintenanceForm->addItem(array(
-	$this->data['paging'],
-	$maintenanceTable,
-	$this->data['paging'],
-	get_table_header(new CActionButtonList('action', 'maintenanceids', array(
-		'maintenance.massdelete' => array('name' => _('Delete'), 'confirm' => _('Delete selected maintenance periods?'))
-	)))
-));
+$maintenanceForm->addItem(array($this->data['paging'], $maintenanceTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));
 
 // append form to widget
 $maintenanceWidget->addItem($maintenanceForm);
-
 return $maintenanceWidget;
+?>

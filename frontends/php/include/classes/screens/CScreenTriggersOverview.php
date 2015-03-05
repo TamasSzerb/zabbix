@@ -27,46 +27,19 @@ class CScreenTriggersOverview extends CScreenBase {
 	 * @return CDiv (screen inside container)
 	 */
 	public function get() {
-		// fetch hosts
-		$hosts = API::Host()->get(array(
-			'output' => array('hostid', 'status'),
-			'selectGraphs' => ($this->screenitem['style'] == STYLE_LEFT) ? API_OUTPUT_COUNT : null,
-			'selectScreens' => ($this->screenitem['style'] == STYLE_LEFT) ? API_OUTPUT_COUNT : null,
-			'groupids' => $this->screenitem['resourceid'],
-			'preservekeys' => true
-		));
+		$hostids = array();
 
-		$hostIds = array_keys($hosts);
-
-		$options = array(
-			'output' => array(
-				'triggerid', 'expression', 'description', 'url', 'value', 'priority', 'lastchange', 'flags'
-			),
-			'selectHosts' => array('hostid', 'name', 'status'),
-			'selectItems' => array('itemid', 'hostid', 'name', 'key_', 'value_type'),
-			'hostids' => $hostIds,
-			'monitored' => true,
-			'skipDependent' => true,
-			'sortfield' => 'description',
-			'preservekeys' => true
+		$dbHostGroups = DBselect(
+			'SELECT DISTINCT hg.hostid'.
+			' FROM hosts_groups hg'.
+			' WHERE hg.groupid='.zbx_dbstr($this->screenitem['resourceid'])
 		);
-
-		// application filter
-		if ($this->screenitem['application'] !== '') {
-			$applications = API::Application()->get(array(
-				'output' => array('applicationid'),
-				'hostids' => $hostIds,
-				'search' => array('name' => $this->screenitem['application'])
-			));
-			$options['applicationids'] = zbx_objectValues($applications, 'applicationid');
+		while ($dbHostGroup = DBfetch($dbHostGroups)) {
+			$hostids[$dbHostGroup['hostid']] = $dbHostGroup['hostid'];
 		}
 
-		$triggers = API::Trigger()->get($options);
-
-		$triggers = CMacrosResolverHelper::resolveTriggerUrl($triggers);
-
-		return $this->getOutput(getTriggersOverview($hosts, $triggers, $this->pageFile, $this->screenitem['style'],
-			$this->screenid
+		return $this->getOutput(getTriggersOverview($hostids, $this->screenitem['application'],
+				$this->pageFile, $this->screenitem['style'], $this->screenid
 		));
 	}
 }

@@ -29,6 +29,10 @@
 #endif
 #include "comms.h"
 
+#if defined(ZABBIX_DAEMON)
+#	include "daemon.h"
+#endif
+
 char	*CONFIG_HOSTS_ALLOWED		= NULL;
 char	*CONFIG_HOSTNAME		= NULL;
 char	*CONFIG_HOSTNAME_ITEM		= NULL;
@@ -58,8 +62,6 @@ char	**CONFIG_USER_PARAMETERS	= NULL;
 char	**CONFIG_PERF_COUNTERS		= NULL;
 #endif
 
-char	*CONFIG_USER			= NULL;
-
 /******************************************************************************
  *                                                                            *
  * Function: load_aliases                                                     *
@@ -68,38 +70,27 @@ char	*CONFIG_USER			= NULL;
  *                                                                            *
  * Parameters: lines - aliase entries from configuration file                 *
  *                                                                            *
+ * Return value:                                                              *
+ *                                                                            *
+ * Author: Vladimir Levijev                                                   *
+ *                                                                            *
  * Comments: calls add_alias() for each entry                                 *
  *                                                                            *
  ******************************************************************************/
 void	load_aliases(char **lines)
 {
-	char	**pline, *r, *c;
+	char	*value, **pline;
 
 	for (pline = lines; NULL != *pline; pline++)
 	{
-		r = *pline;
-
-		if (SUCCEED != parse_key(&r) || ':' != *r)
+		if (NULL == (value = strchr(*pline, ':')))
 		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add alias \"%s\": invalid character at position %ld",
-					*pline, (r - *pline) + 1);
-			exit(EXIT_FAILURE);
+			zabbix_log(LOG_LEVEL_CRIT, "Alias \"%s\" FAILED: not colon-separated", *pline);
+			exit(FAIL);
 		}
+		*value++ = '\0';
 
-		c = r++;
-
-		if (SUCCEED != parse_key(&r) || '\0' != *r)
-		{
-			zabbix_log(LOG_LEVEL_CRIT, "cannot add alias \"%s\": invalid character at position %ld",
-					*pline, (r - *pline) + 1);
-			exit(EXIT_FAILURE);
-		}
-
-		*c++ = '\0';
-
-		add_alias(*pline, c);
-
-		*--c = ':';
+		add_alias(*pline, value);
 	}
 }
 
@@ -158,69 +149,41 @@ void	load_user_parameters(char **lines)
 void	load_perf_counters(const char **lines)
 {
 	char		name[MAX_STRING_LEN], counterpath[PDH_MAX_COUNTER_PATH], interval[8];
-	const char	**pline;
-	char		*error = NULL;
+	const char	**pline, *msg;
 	LPTSTR		wcounterPath;
-	int		period;
+
+#define ZBX_PC_FAIL(_msg) {msg = _msg; goto pc_fail;}
 
 	for (pline = lines; NULL != *pline; pline++)
 	{
 		if (3 < num_param(*pline))
-		{
-			error = zbx_strdup(error, "Required parameter missing.");
-			goto pc_fail;
-		}
+			ZBX_PC_FAIL("required parameter missing");
 
 		if (0 != get_param(*pline, 1, name, sizeof(name)))
-		{
-			error = zbx_strdup(error, "Cannot parse key.");
-			goto pc_fail;
-		}
+			ZBX_PC_FAIL("cannot parse key");
 
 		if (0 != get_param(*pline, 2, counterpath, sizeof(counterpath)))
-		{
-			error = zbx_strdup(error, "Cannot parse counter path.");
-			goto pc_fail;
-		}
+			ZBX_PC_FAIL("cannot parse counter path");
 
 		if (0 != get_param(*pline, 3, interval, sizeof(interval)))
-		{
-			error = zbx_strdup(error, "Cannot parse interval.");
-			goto pc_fail;
-		}
+			ZBX_PC_FAIL("cannot parse interval");
 
 		wcounterPath = zbx_acp_to_unicode(counterpath);
 		zbx_unicode_to_utf8_static(wcounterPath, counterpath, PDH_MAX_COUNTER_PATH);
 		zbx_free(wcounterPath);
 
 		if (FAIL == check_counter_path(counterpath))
-		{
-			error = zbx_strdup(error, "Invalid counter path.");
-			goto pc_fail;
-		}
+			ZBX_PC_FAIL("invalid counter path");
 
-		period = atoi(interval);
-
-		if (1 > period || MAX_COLLECTOR_PERIOD < period)
-		{
-			error = zbx_strdup(NULL, "Interval out of range.");
-			goto pc_fail;
-		}
-
-		if (NULL == add_perf_counter(name, counterpath, period, &error))
-		{
-			if (NULL == error)
-				error = zbx_strdup(error, "Failed to add new performance counter.");
-			goto pc_fail;
-		}
+		if (NULL == add_perf_counter(name, counterpath, atoi(interval)))
+			ZBX_PC_FAIL("cannot add counter");
 
 		continue;
 pc_fail:
-		zabbix_log(LOG_LEVEL_CRIT, "cannot add performance counter \"%s\": %s", *pline, error);
-		zbx_free(error);
-
-		exit(EXIT_FAILURE);
+		zabbix_log(LOG_LEVEL_CRIT, "PerfCounter '%s' FAILED: %s", *pline, msg);
+		exit(FAIL);
 	}
+#undef ZBX_PC_FAIL
 }
 #endif	/* _WINDOWS */
 

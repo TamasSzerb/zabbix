@@ -21,12 +21,11 @@
 #define ZABBIX_ALERTER_H
 
 #include "db.h"
-#include "threads.h"
 
 extern int	CONFIG_SENDER_FREQUENCY;
 extern char	*CONFIG_ALERT_SCRIPTS_PATH;
 
-ZBX_THREAD_ENTRY(alerter_thread, args);
+void	main_alerter_loop(void);
 
 int	execute_action(DB_ALERT *alert, DB_MEDIATYPE *mediatype, char *error, int max_error_len);
 

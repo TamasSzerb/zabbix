@@ -27,6 +27,10 @@
 #include "proxy.h"
 #include "zbxself.h"
 
+#include "../nodewatcher/nodecomms.h"
+#include "../nodewatcher/nodesender.h"
+#include "nodesync.h"
+#include "nodehistory.h"
 #include "trapper.h"
 #include "active.h"
 #include "nodecommand.h"
@@ -37,8 +41,9 @@
 
 #include "daemon.h"
 
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	daemon_type;
+extern unsigned char	process_type;
+extern int		process_num;
 
 /******************************************************************************
  *                                                                            *
@@ -80,7 +85,7 @@ static void	recv_proxyhistory(zbx_sock_t *sock, struct zbx_json_parse *jp)
 
 	if (SUCCEED != (ret = get_active_proxy_id(jp, &proxy_hostid, host, &error)))
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "cannot parse history data from active proxy at \"%s\": %s",
+		zabbix_log(LOG_LEVEL_WARNING, "history data from active proxy on \"%s\" failed: %s",
 				get_ip_by_socket(sock), error);
 		goto out;
 	}
@@ -102,6 +107,8 @@ out:
  *                                                                            *
  * Purpose: send history data to a Zabbix server                              *
  *                                                                            *
+ * Author: Alexander Vladishev                                                *
+ *                                                                            *
  ******************************************************************************/
 static void	send_proxyhistory(zbx_sock_t *sock)
 {
@@ -109,8 +116,8 @@ static void	send_proxyhistory(zbx_sock_t *sock)
 
 	struct zbx_json	j;
 	zbx_uint64_t	lastid;
-	int		records, ret = FAIL;
-	char		*error = NULL;
+	int		records;
+	char		*info = NULL, *error = NULL;
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s()", __function_name);
 
@@ -126,25 +133,22 @@ static void	send_proxyhistory(zbx_sock_t *sock)
 
 	if (SUCCEED != zbx_tcp_send_to(sock, j.buffer, CONFIG_TIMEOUT))
 	{
-		error = zbx_strdup(error, zbx_tcp_strerror());
+		zabbix_log(LOG_LEVEL_WARNING, "error while sending history data to server: %s", zbx_tcp_strerror());
 		goto out;
 	}
 
-	if (SUCCEED != zbx_recv_response(sock, CONFIG_TIMEOUT, &error))
+	if (SUCCEED != zbx_recv_response(sock, &info, CONFIG_TIMEOUT, &error))
+	{
+		zabbix_log(LOG_LEVEL_WARNING, "sending history data to server: error:\"%s\", info:\"%s\"",
+				ZBX_NULL2EMPTY_STR(error), ZBX_NULL2EMPTY_STR(info));
 		goto out;
+	}
 
 	if (0 != records)
 		proxy_set_hist_lastid(lastid);
-
-	ret = SUCCEED;
 out:
-	if (SUCCEED != ret)
-	{
-		zabbix_log(LOG_LEVEL_WARNING, "cannot send history data to server at \"%s\": %s",
-				get_ip_by_socket(sock), error);
-	}
-
 	zbx_json_free(&j);
+	zbx_free(info);
 	zbx_free(error);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "End of %s()", __function_name);
@@ -174,7 +178,7 @@ static void	recv_proxy_heartbeat(zbx_sock_t *sock, struct zbx_json_parse *jp)
 
 	if (SUCCEED != (ret = get_active_proxy_id(jp, &proxy_hostid, host, &error)))
 	{
-		zabbix_log(LOG_LEVEL_WARNING, "cannot parse heartbeat from active proxy at \"%s\": %s",
+		zabbix_log(LOG_LEVEL_WARNING, "heartbeat from active proxy on \"%s\" failed: %s",
 				get_ip_by_socket(sock), error);
 		goto out;
 	}
@@ -462,14 +466,11 @@ out:
 
 static void	active_passive_misconfig(zbx_sock_t *sock)
 {
-	char   *msg = NULL;
-
-	msg = zbx_dsprintf(msg, "misconfiguration error: the proxy is running in the active mode but server at \"%s\""
-			" sends requests to it as to proxy in passive mode", get_ip_by_socket(sock));
+	const char	*msg = "misconfiguration error: the proxy is running in the active mode but server sends "
+			"requests to it as to proxy in passive mode";
 
 	zabbix_log(LOG_LEVEL_WARNING, "%s", msg);
 	zbx_send_response(sock, FAIL, msg, CONFIG_TIMEOUT);
-	zbx_free(msg);
 }
 
 static int	process_trap(zbx_sock_t	*sock, char *s)
@@ -503,9 +504,9 @@ static int	process_trap(zbx_sock_t	*sock, char *s)
 				}
 				else if (0 != (daemon_type & ZBX_DAEMON_TYPE_PROXY_PASSIVE))
 				{
-					zabbix_log(LOG_LEVEL_WARNING, "received configuration data from server"
-							" at \"%s\", datalen " ZBX_FS_SIZE_T,
-							get_ip_by_socket(sock), (zbx_fs_size_t)(jp.end - jp.start + 1));
+					zabbix_log(LOG_LEVEL_WARNING, "received configuration data from server,"
+							" datalen " ZBX_FS_SIZE_T,
+							(zbx_fs_size_t)(jp.end - jp.start + 1));
 					recv_proxyconfig(sock, &jp);
 				}
 				else if (0 != (daemon_type & ZBX_DAEMON_TYPE_PROXY_ACTIVE))
@@ -577,6 +578,59 @@ static int	process_trap(zbx_sock_t	*sock, char *s)
 	{
 		ret = send_list_of_active_checks(sock, s);
 	}
+	else if (0 == strncmp(s, "ZBX_GET_HISTORY_LAST_ID", 23)) /* request for last IDs */
+	{
+		send_history_last_id(sock, s);
+	}
+	else if (0 == strncmp(s, "Data", 4))	/* node data exchange */
+	{
+		int	res, nodeid, sender_nodeid;
+		char	*data, *answer;
+
+		node_sync_lock(0);
+
+		res = node_sync(s, &sender_nodeid, &nodeid);
+		if (FAIL == res)
+		{
+			alarm(CONFIG_TIMEOUT);
+			send_data_to_node(sender_nodeid, sock, "FAIL");
+			alarm(0);
+		}
+		else
+		{
+			res = calculate_checksums(nodeid, NULL, 0);
+			if (SUCCEED == res && NULL != (data = DMget_config_data(nodeid, ZBX_NODE_SLAVE)))
+			{
+				zabbix_log(LOG_LEVEL_WARNING, "NODE %d: sending configuration changes"
+						" to slave node %d for node %d datalen " ZBX_FS_SIZE_T,
+						CONFIG_NODEID,
+						sender_nodeid,
+						nodeid,
+						(zbx_fs_size_t)strlen(data));
+				alarm(CONFIG_TRAPPER_TIMEOUT);
+				res = send_data_to_node(sender_nodeid, sock, data);
+				zbx_free(data);
+				if (SUCCEED == res)
+					res = recv_data_from_node(sender_nodeid, sock, &answer);
+				if (SUCCEED == res && 0 == strcmp(answer, "OK"))
+					res = update_checksums(nodeid, ZBX_NODE_SLAVE, SUCCEED, NULL, 0, NULL);
+				alarm(0);
+			}
+		}
+
+		node_sync_unlock(0);
+	}
+	else if (0 == strncmp(s, "History", 7))	/* slave node history */
+	{
+		const char	*reply;
+
+		reply = (SUCCEED == node_history(s, strlen(s)) ? "OK" : "FAIL");
+
+		alarm(CONFIG_TIMEOUT);
+		if (SUCCEED != zbx_tcp_send_raw(sock, reply))
+			zabbix_log(LOG_LEVEL_WARNING, "cannot send %s to node", reply);
+		alarm(0);
+	}
 	else
 	{
 		char		value_dec[MAX_BUFFER_LEN], lastlogsize[ZBX_MAX_UINT64_LEN], timestamp[11],
@@ -640,25 +694,17 @@ static int	process_trap(zbx_sock_t	*sock, char *s)
 
 static void	process_trapper_child(zbx_sock_t *sock)
 {
-	if (SUCCEED != zbx_tcp_recv_to(sock, CONFIG_TRAPPER_TIMEOUT))
+	char	*data;
+
+	if (SUCCEED != zbx_tcp_recv_to(sock, &data, CONFIG_TRAPPER_TIMEOUT))
 		return;
 
-	process_trap(sock, sock->buffer);
+	process_trap(sock, data);
 }
 
-ZBX_THREAD_ENTRY(trapper_thread, args)
+void	main_trapper_loop(zbx_sock_t *s)
 {
 	double		sec = 0.0;
-	zbx_sock_t	s;
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
-
-	memcpy(&s, (zbx_sock_t *)((zbx_thread_args_t *)args)->args, sizeof(zbx_sock_t));
 
 	zbx_setproctitle("%s #%d [connecting to the database]", get_process_type_string(process_type), process_num);
 
@@ -671,7 +717,7 @@ ZBX_THREAD_ENTRY(trapper_thread, args)
 
 		update_selfmon_counter(ZBX_PROCESS_STATE_IDLE);
 
-		if (SUCCEED == zbx_tcp_accept(&s))
+		if (SUCCEED == zbx_tcp_accept(s))
 		{
 			update_selfmon_counter(ZBX_PROCESS_STATE_BUSY);
 
@@ -679,15 +725,12 @@ ZBX_THREAD_ENTRY(trapper_thread, args)
 					process_num);
 
 			sec = zbx_time();
-			process_trapper_child(&s);
+			process_trapper_child(s);
 			sec = zbx_time() - sec;
 
-			zbx_tcp_unaccept(&s);
+			zbx_tcp_unaccept(s);
 		}
-		else if (EINTR != zbx_sock_last_error())
-		{
-			zabbix_log(LOG_LEVEL_WARNING, "failed to accept an incoming connection: %s",
-					zbx_tcp_strerror());
-		}
+		else
+			zabbix_log(LOG_LEVEL_WARNING, "Trapper failed to accept connection");
 	}
 }

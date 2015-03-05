@@ -79,7 +79,7 @@ class testFormAdministrationGeneralMacro extends CWebTest {
 	}
 
 	private function saveGlobalMacros($confirmation = false, $wait = true) {
-		$this->zbxTestClick('update');
+		$this->zbxTestClick('save');
 		if ($confirmation) {
 			$this->waitForConfirmation();
 		}
@@ -140,7 +140,7 @@ class testFormAdministrationGeneralMacro extends CWebTest {
 		$this->checkGlobalMacrosOrder();
 
 		$this->assertElementPresent('macro_add');
-		$this->assertElementPresent('add');
+		$this->assertElementPresent('save');
 
 		$this->zbxTestClick('macro_add');
 		$this->waitForVisible('macros['.$countGlobalMacros.'][macro]');

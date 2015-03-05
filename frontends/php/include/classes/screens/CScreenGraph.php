@@ -52,7 +52,7 @@ class CScreenGraph extends CScreenBase {
 			$graph = API::Graph()->get(array(
 				'graphids' => $resourceId,
 				'output' => API_OUTPUT_EXTEND,
-				'selectHosts' => array('hostid'),
+				'selectHosts' => API_OUTPUT_REFER,
 				'selectGraphItems' => API_OUTPUT_EXTEND
 			));
 			$graph = reset($graph);
@@ -131,7 +131,7 @@ class CScreenGraph extends CScreenBase {
 
 		$isDefault = false;
 		if ($graphDims['graphtype'] == GRAPH_TYPE_PIE || $graphDims['graphtype'] == GRAPH_TYPE_EXPLODED) {
-			if ($this->screenitem['dynamic'] == SCREEN_SIMPLE_ITEM || $this->screenitem['url'] === '') {
+			if ($this->screenitem['dynamic'] == SCREEN_SIMPLE_ITEM || !$this->screenitem['url']) {
 				$this->screenitem['url'] = 'chart6.php?graphid='.$resourceId.'&screenid='.$this->screenitem['screenid'];
 				$isDefault = true;
 			}
@@ -146,7 +146,7 @@ class CScreenGraph extends CScreenBase {
 				: '&period='.$this->timeline['period'].'&stime='.$this->timeline['stimeNow'];
 		}
 		else {
-			if ($this->screenitem['dynamic'] == SCREEN_SIMPLE_ITEM || $this->screenitem['url'] === '') {
+			if ($this->screenitem['dynamic'] == SCREEN_SIMPLE_ITEM || !$this->screenitem['url']) {
 				$this->screenitem['url'] = 'chart2.php?graphid='.$resourceId.'&screenid='.$this->screenitem['screenid'];
 				$isDefault = true;
 			}

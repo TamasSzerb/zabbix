@@ -17,16 +17,17 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
+?>
+<?php
+	$searchForm = new CForm('get','search.php');
 
+	$searchBox = new CTextBox('search', get_request('search'));
+	$searchBox->setAttribute('autocomplete', 'off');
+	$searchBox->addClass('search');
+	$searchForm->addItem($searchBox);
 
-$searchForm = new CForm('get','search.php');
+	$searchBtn = new CSubmit('searchbttn', _('Search'), null, 'input button ui-button ui-widget ui-state-default ui-corner-all');
+	$searchForm->addItem($searchBtn);
 
-$searchBox = new CTextBox('search', getRequest('search'));
-$searchBox->setAttribute('autocomplete', 'off');
-$searchBox->addClass('search');
-$searchForm->addItem($searchBox);
-
-$searchBtn = new CSubmit('searchbttn', _('Search'), null, 'jqueryinput');
-$searchForm->addItem($searchBtn);
-
-return new CDiv($searchForm, 'zbx_search', 'zbx_search');
+	return new CDiv($searchForm, 'zbx_search', 'zbx_search');
+?>

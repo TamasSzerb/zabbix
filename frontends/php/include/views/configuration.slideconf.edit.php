@@ -38,7 +38,7 @@ $slideFormList = new CFormList('slideFormList');
 $nameTextBox = new CTextBox('name', $this->data['name'], ZBX_TEXTBOX_STANDARD_SIZE);
 $nameTextBox->attr('autofocus', 'autofocus');
 $slideFormList->addRow(_('Name'), $nameTextBox);
-$slideFormList->addRow(_('Default delay (in seconds)'), new CNumericBox('delay', $this->data['delay'], 5, false, false, false));
+$slideFormList->addRow(_('Default delay (in seconds)'), new CNumericBox('delay', $this->data['delay'], 5, 'no', false, false));
 
 // append slide table
 $slideTable = new CTableInfo(null, 'formElementTable');
@@ -53,7 +53,7 @@ $slideTable->setHeader(array(
 ));
 
 $i = 1;
-foreach ($this->data['slides'] as $key => $slides) {
+foreach ($this->data['slides'] as $step => $slides) {
 	$name = '';
 	if (!empty($slides['screenid'])) {
 		$screen = get_screen_by_screenid($slides['screenid']);
@@ -62,22 +62,22 @@ foreach ($this->data['slides'] as $key => $slides) {
 		}
 	}
 
-	$delay = new CNumericBox('slides['.$key.'][delay]', !empty($slides['delay']) ? $slides['delay'] : '', 5, false, true, false);
+	$delay = new CNumericBox('slides['.$step.'][delay]', !empty($slides['delay']) ? $slides['delay'] : '', 5, 'no', true, false);
 	$delay->setAttribute('placeholder', _('default'));
 
-	$removeButton = new CButton('remove_'.$key, _('Remove'), 'javascript: removeSlide(this);', 'link_menu');
-	$removeButton->setAttribute('remove_slide', $key);
+	$removeButton = new CButton('remove_'.$step, _('Remove'), 'javascript: removeSlide(this);', 'link_menu');
+	$removeButton->setAttribute('remove_slide', $step);
 
 	$row = new CRow(
 		array(
 			new CSpan(null, 'ui-icon ui-icon-arrowthick-2-n-s move'),
-			new CSpan($i++.':', 'rowNum', 'current_slide_'.$key),
+			new CSpan($i++.':', 'rowNum', 'current_slide_'.$step),
 			$name,
 			$delay,
 			$removeButton
 		),
 		'sortable',
-		'slides_'.$key
+		'slides_'.$step
 	);
 	$slideTable->addRow($row);
 }
@@ -103,20 +103,20 @@ $slideTab->addTab('slideTab', _('Slide'), $slideFormList);
 $slideForm->addItem($slideTab);
 
 // append buttons to form
-if (isset($this->data['slideshowid'])) {
+if (empty($this->data['slideshowid'])) {
 	$slideForm->addItem(makeFormFooter(
-		new CSubmit('update', _('Update')),
+		new CSubmit('save', _('Save')),
+		new CButtonCancel()
+	));
+}
+else {
+	$slideForm->addItem(makeFormFooter(
+		new CSubmit('save', _('Save')),
 		array(
 			new CSubmit('clone', _('Clone')),
 			new CButtonDelete(_('Delete slide show?'), url_params(array('form', 'slideshowid'))),
 			new CButtonCancel()
 		)
-	));
-}
-else {
-	$slideForm->addItem(makeFormFooter(
-		new CSubmit('add', _('Add')),
-		array(new CButtonCancel())
 	));
 }
 

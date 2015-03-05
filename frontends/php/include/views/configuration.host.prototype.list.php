@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $itemsWidget = new CWidget();
 
 $discoveryRule = $this->data['discovery_rule'];
@@ -43,11 +43,15 @@ $itemForm->addVar('parent_discoveryid', $this->data['parent_discoveryid']);
 // create table
 $hostTable = new CTableInfo(_('No host prototypes found.'));
 
+$sortLink = new CUrl();
+$sortLink->setArgument('parent_discoveryid', $this->data['parent_discoveryid']);
+$sortLink = $sortLink->getUrl();
+
 $hostTable->setHeader(array(
 	new CCheckBox('all_hosts', null, "checkAll('".$itemForm->getName()."', 'all_hosts', 'group_hostid');"),
-	make_sorting_header(_('Name'), 'name', $this->data['sort'], $this->data['sortorder']),
+	make_sorting_header(_('Name'),'name', $sortLink),
 	_('Templates'),
-	make_sorting_header(_('Status'), 'status', $this->data['sort'], $this->data['sortorder'])
+	make_sorting_header(_('Status'),'status', $sortLink)
 ));
 
 foreach ($this->data['hostPrototypes'] as $hostPrototype) {
@@ -98,13 +102,8 @@ foreach ($this->data['hostPrototypes'] as $hostPrototype) {
 
 	// status
 	$status = new CLink(item_status2str($hostPrototype['status']),
-		'?group_hostid='.$hostPrototype['hostid'].
-			'&parent_discoveryid='.$discoveryRule['itemid'].
-			'&action='.($hostPrototype['status'] == HOST_STATUS_NOT_MONITORED
-				? 'hostprototype.massenable'
-				: 'hostprototype.massdisable'
-			),
-		itemIndicatorStyle($hostPrototype['status'])
+		'?group_hostid='.$hostPrototype['hostid'].'&parent_discoveryid='.$discoveryRule['itemid'].
+		'&go='.($hostPrototype['status'] ? 'activate' : 'disable'), itemIndicatorStyle($hostPrototype['status'])
 	);
 
 	$hostTable->addRow(array(
@@ -115,31 +114,30 @@ foreach ($this->data['hostPrototypes'] as $hostPrototype) {
 	));
 }
 
+// create go buttons
+$goComboBox = new CComboBox('go');
+$goOption = new CComboItem('activate', _('Enable selected'));
+$goOption->setAttribute('confirm', _('Enable selected host prototypes?'));
+$goComboBox->addItem($goOption);
+
+$goOption = new CComboItem('disable', _('Disable selected'));
+$goOption->setAttribute('confirm', _('Disable selected host prototypes?'));
+$goComboBox->addItem($goOption);
+
+$goOption = new CComboItem('delete', _('Delete selected'));
+$goOption->setAttribute('confirm', _('Delete selected host prototypes?'));
+$goComboBox->addItem($goOption);
+
+$goButton = new CSubmit('goButton', _('Go').' (0)');
+$goButton->setAttribute('id', 'goButton');
+zbx_add_post_js('chkbxRange.pageGoName = "group_hostid";');
+zbx_add_post_js('chkbxRange.prefix = "'.$discoveryRule['itemid'].'";');
 zbx_add_post_js('cookie.prefix = "'.$discoveryRule['itemid'].'";');
 
 // append table to form
-$itemForm->addItem(array(
-	$this->data['paging'],
-	$hostTable,
-	$this->data['paging'],
-	get_table_header(
-	new CActionButtonList('action', 'group_hostid',
-		array(
-			'hostprototype.massenable' => array('name' => _('Enable'),
-				'confirm' => _('Enable selected host prototypes?')
-			),
-			'hostprototype.massdisable' => array('name' => _('Disable'),
-				'confirm' => _('Disable selected host prototypes?')
-			),
-			'hostprototype.massdelete' => array('name' => _('Delete'),
-				'confirm' => _('Delete selected host prototypes?')
-			)
-		),
-		$discoveryRule['itemid']
-	))
-));
+$itemForm->addItem(array($this->data['paging'], $hostTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));
 
 // append form to widget
 $itemsWidget->addItem($itemForm);
-
 return $itemsWidget;
+?>

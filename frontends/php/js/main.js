@@ -20,6 +20,8 @@
 // Array indexOf method for javascript<1.6 compatibility
 if (!Array.prototype.indexOf) {
 	Array.prototype.indexOf = function (searchElement) {
+		'use strict';
+
 		if (this === void 0 || this === null) {
 			throw new TypeError();
 		}
@@ -150,132 +152,504 @@ var MMenu = {
 };
 
 /*
- * Audio control system
+ * Automatic checkbox range selection
  */
-var AudioControl = {
+var chkbxRange = {
+	startbox:		null,	// start checkbox obj
+	startboxName:	null,	// start checkbox name
+	chkboxes:		{},		// ckbx list
+	prefix:			null,	// prefix for cookie name
+	pageGoName:		null,	// which checkboxes should be counted by Go button
+	pageGoCount:	0,		// selected checkboxes
+	selectedIds:	{},		// ids of selected checkboxes
+	goButton:		null,
+	cookieName:		null,
 
-	timeoutHandler: null,
+	init: function() {
+		var path = new Curl();
+		var filename = basename(path.getPath(), '.php');
+		this.cookieName = 'cb_' + filename + (this.prefix ? '_' + this.prefix : '');
+		this.selectedIds = cookie.readJSON(this.cookieName);
 
-	loop: function(timeout) {
-		AudioControl.timeoutHandler = setTimeout(
-			function() {
-				if (new Date().getTime() >= timeout) {
-					AudioControl.stop();
+		var chkboxes = jQuery('.tableinfo .checkbox:not(:disabled)');
+		if (chkboxes.length > 0) {
+			for (var i = 0; i < chkboxes.length; i++) {
+				this.implement(chkboxes[i]);
+			}
+		}
+
+		this.selectMainCheckbox();
+
+		this.goButton = $('goButton');
+		if (!is_null(this.goButton)) {
+			addListener(this.goButton, 'click', this.submitGo.bindAsEventListener(this), false);
+		}
+
+		this.setGo();
+	},
+
+	implement: function(obj) {
+		var objName = obj.name.split('[')[0];
+
+		if (typeof(this.chkboxes[objName]) === 'undefined') {
+			this.chkboxes[objName] = [];
+		}
+		this.chkboxes[objName].push(obj);
+
+		addListener(obj, 'click', this.check.bindAsEventListener(this), false);
+
+		if (objName == this.pageGoName) {
+			var objId = jQuery(obj).val();
+			if (isset(objId, this.selectedIds)) {
+				obj.checked = true;
+			}
+		}
+	},
+
+	// check if all checkboxes are selected and select main checkbox, else disable checkbox, select options and button
+	selectMainCheckbox: function() {
+		var mainCheckbox = jQuery('.tableinfo .header .checkbox:not(:disabled)');
+		if (!mainCheckbox.length) {
+			return;
+		}
+
+		var countAvailable = jQuery('.tableinfo tr:not(.header) .checkbox:not(:disabled)').length;
+
+		if (countAvailable > 0) {
+			var countChecked = jQuery('.tableinfo tr:not(.header) .checkbox:not(:disabled):checked').length;
+
+			mainCheckbox = mainCheckbox[0];
+			mainCheckbox.checked = (countChecked == countAvailable);
+
+			if (mainCheckbox.checked) {
+				jQuery('.tableinfo .header').addClass('selectedMain');
+			}
+			else {
+				jQuery('.tableinfo .header').removeClass('selectedMain');
+			}
+		}
+		else {
+			mainCheckbox.disabled = true;
+		}
+	},
+
+	check: function(e) {
+		e = e || window.event;
+		var obj = Event.element(e);
+
+		PageRefresh.restart();
+
+		if (typeof(obj) === 'undefined' || obj.type.toLowerCase() != 'checkbox' || obj.disabled === true) {
+			return true;
+		}
+
+		this.setGo();
+
+		if (obj.name.indexOf('all_') > -1 || obj.name.indexOf('_single') > -1) {
+			return true;
+		}
+		var objName = obj.name.split('[')[0];
+
+		// check range selection
+		if (e.ctrlKey || e.shiftKey) {
+			if (!is_null(this.startbox) && this.startboxName == objName && obj.name != this.startbox.name) {
+				var chkboxes = this.chkboxes[objName];
+				var flag = false;
+
+				for (var i = 0; i < chkboxes.length; i++) {
+					if (typeof(chkboxes[i]) !== 'undefined') {
+						if (flag) {
+							chkboxes[i].checked = this.startbox.checked;
+						}
+						if (obj.name == chkboxes[i].name) {
+							break;
+						}
+						if (this.startbox.name == chkboxes[i].name) {
+							flag = true;
+						}
+					}
+				}
+
+				if (flag) {
+					this.setGo();
+					this.selectMainCheckbox();
+					return true;
 				}
 				else {
-					AudioControl.loop(timeout);
+					for (var i = chkboxes.length - 1; i >= 0; i--) {
+						if (typeof(chkboxes[i]) !== 'undefined') {
+							if (flag) {
+								chkboxes[i].checked = this.startbox.checked;
+							}
+
+							if (obj.name == chkboxes[i].name) {
+								this.setGo();
+								this.selectMainCheckbox();
+								return true;
+							}
+
+							if (this.startbox.name == chkboxes[i].name) {
+								flag = true;
+							}
+						}
+					}
 				}
-			},
-			1000
-		);
-	},
+			}
 
-	playOnce: function(name) {
-		this.stop();
-
-		if (IE) {
-			this.create(name, false);
+			this.setGo();
 		}
 		else {
-			var obj = jQuery('#audio');
-
-			if (obj.length > 0 && obj.data('name') === name) {
-				obj.trigger('play');
-			}
-			else {
-				this.create(name, false);
-			}
+			this.selectMainCheckbox();
 		}
+
+		this.startbox = obj;
+		this.startboxName = objName;
 	},
 
-	playLoop: function(name, delay) {
-		this.stop();
+	checkAll: function(name, value) {
+		if (typeof(this.chkboxes[name]) === 'undefined') {
+			return false;
+		}
 
-		if (IE) {
-			this.create(name, true);
+		var chkboxes = this.chkboxes[name];
+		for (var i = 0; i < chkboxes.length; i++) {
+			if (typeof(chkboxes[i]) !== 'undefined' && chkboxes[i].disabled !== true) {
+				var objName = chkboxes[i].name.split('[')[0];
+				if (objName == name) {
+					chkboxes[i].checked = value;
+				}
+			}
+		}
+
+		var mainCheckbox = jQuery('.tableinfo .header .checkbox:not(:disabled)')[0];
+		if (mainCheckbox.checked) {
+			jQuery('.tableinfo .header').addClass('selectedMain');
 		}
 		else {
-			var obj = jQuery('#audio');
+			jQuery('.tableinfo .header').removeClass('selectedMain');
+		}
+	},
 
-			if (obj.length > 0 && obj.data('name') === name) {
-				obj.trigger('play');
+	clearSelectedOnFilterChange: function() {
+		cookie.eraseArray(this.cookieName);
+	},
+
+	setGo: function() {
+		if (!is_null(this.pageGoName)) {
+			if (typeof(this.chkboxes[this.pageGoName]) !== 'undefined') {
+				var chkboxes = this.chkboxes[this.pageGoName];
+				for (var i = 0; i < chkboxes.length; i++) {
+					if (typeof(chkboxes[i]) !== 'undefined') {
+						var box = chkboxes[i];
+						var objName = box.name.split('[')[0];
+						var objId = box.name.split('[')[1];
+						objId = objId.substring(0, objId.lastIndexOf(']'));
+						var crow = getParent(box, 'tr');
+
+						if (box.checked) {
+							if (!is_null(crow)) {
+								var origClass = crow.getAttribute('origClass');
+								if (is_null(origClass)) {
+									crow.setAttribute('origClass', crow.className);
+								}
+								crow.className = 'selected';
+							}
+							if (objName == this.pageGoName) {
+								this.selectedIds[objId] = objId;
+							}
+						}
+						else {
+							if (!is_null(crow)) {
+								var origClass = crow.getAttribute('origClass');
+
+								if (!is_null(origClass)) {
+									crow.className = origClass;
+									crow.removeAttribute('origClass');
+								}
+							}
+							if (objName == this.pageGoName) {
+								delete(this.selectedIds[objId]);
+							}
+						}
+					}
+				}
+
 			}
-			else {
-				this.create(name, true);
+
+			var countChecked = 0;
+			for (var key in this.selectedIds) {
+				if (!empty(this.selectedIds[key])) {
+					countChecked++;
+				}
+			}
+
+			if (!is_null(this.goButton)) {
+				var tmp_val = this.goButton.value.split(' ');
+				this.goButton.value = tmp_val[0] + ' (' + countChecked + ')';
+			}
+
+			cookie.createJSON(this.cookieName, this.selectedIds);
+
+			if (jQuery('#go').length) {
+				jQuery('#go')[0].disabled = (countChecked == 0);
+			}
+			if (jQuery('#goButton').length) {
+				jQuery('#goButton')[0].disabled = (countChecked == 0);
+			}
+
+			this.pageGoCount = countChecked;
+		}
+	},
+
+	submitGo: function(e) {
+		e = e || window.event;
+
+		var goSelect = $('go');
+		var confirmText = goSelect.options[goSelect.selectedIndex].getAttribute('confirm');
+
+		if (!is_null(confirmText) && !confirm(confirmText)) {
+			Event.stop(e);
+			return false;
+		}
+
+		var form = getParent(this.goButton, 'form');
+		for (var key in this.selectedIds) {
+			if (!empty(this.selectedIds[key])) {
+				create_var(form.name, this.pageGoName + '[' + key + ']', key, false);
+			}
+		}
+		return true;
+	}
+};
+
+/*
+ * Audio Control System
+ */
+var AudioList = {
+	list:		{}, // audio files options
+	dom:		{}, // dom objects links
+	standart:	{
+		'embed': {
+			'enablejavascript': 'true',
+			'autostart': 'false',
+			'loop': 0
+		},
+		'audio': {
+			'autobuffer': 'autobuffer',
+			'autoplay': null,
+			'controls': null
+		}
+	},
+
+	play: function(audiofile) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
+		if (IE) {
+			try {
+				this.dom[audiofile].Play();
+			}
+			catch(e) {
+				setTimeout(this.play.bind(this, audiofile), 500);
+			}
+		}
+		else {
+			this.dom[audiofile].play();
+		}
+	},
+
+	pause: function(audiofile) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
+		if (IE) {
+			try {
+				this.dom[audiofile].Stop();
+			}
+			catch(e) {
+				setTimeout(this.pause.bind(this, audiofile), 1000);
+			}
+		}
+		else {
+			this.dom[audiofile].pause();
+		}
+	},
+
+	stop: function(audiofile) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
+
+		if (IE) {
+			this.dom[audiofile].setAttribute('loop', '0');
+		}
+		else {
+			this.dom[audiofile].removeAttribute('loop');
+		}
+
+		if (!IE) {
+			try {
+				if (!this.dom[audiofile].paused) {
+					this.dom[audiofile].currentTime = 0;
+				}
+				else if (this.dom[audiofile].currentTime > 0) {
+					this.dom[audiofile].play();
+					this.dom[audiofile].currentTime = 0;
+					this.dom[audiofile].pause();
+				}
+			}
+			catch(e) {
 			}
 		}
 
-		AudioControl.loop(new Date().getTime() + delay * 1000);
+		if (!is_null(this.list[audiofile].timeout)) {
+			clearTimeout(this.list[audiofile].timeout);
+			this.list[audiofile].timeout = null;
+		}
+
+		this.pause(audiofile);
+		this.endLoop(audiofile);
 	},
 
-	stop: function() {
-		var obj = document.getElementById('audio');
+	stopAll: function(e) {
+		for (var name in this.list) {
+			if (empty(this.dom[name])) {
+				continue;
+			}
+			this.stop(name);
+		}
+	},
 
-		if (obj !== null) {
-			clearTimeout(AudioControl.timeoutHandler);
+	volume: function(audiofile, vol) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
+	},
 
+	loop: function(audiofile, params) {
+		if (!this.create(audiofile)) {
+			return false;
+		}
+
+		if (isset('repeat', params)) {
 			if (IE) {
-				obj.setAttribute('loop', false);
-				obj.setAttribute('playcount', 0);
-
-				try {
-					obj.stop();
-				}
-				catch (e) {
-					setTimeout(
-						function() {
-							try {
-								document.getElementById('audio').stop();
-							}
-							catch (e) {
-							}
-						},
-						100
-					);
-				}
+				this.play(audiofile);
 			}
 			else {
-				jQuery(obj).trigger('pause');
+				if (this.list[audiofile].loop == 0) {
+					if (params.repeat != 0) {
+						this.startLoop(audiofile, params.repeat);
+					}
+					else {
+						this.endLoop(audiofile);
+					}
+				}
+				if (this.list[audiofile].loop != 0) {
+					this.list[audiofile].loop--;
+					this.play(audiofile);
+				}
 			}
+		}
+		else if (isset('seconds', params)) {
+			if (IE) {
+				this.dom[audiofile].setAttribute('loop', '1');
+			}
+			else {
+				this.startLoop(audiofile, 9999999);
+				this.list[audiofile].loop--;
+			}
+			this.play(audiofile);
+			this.list[audiofile].timeout = setTimeout(AudioList.stop.bind(AudioList, audiofile), 1000 * parseInt(params.seconds, 10));
 		}
 	},
 
-	create: function(name, loop) {
-		if (IE) {
-			jQuery('#audio').remove();
-
-			jQuery('body').append(jQuery('<embed>', {
-				id: 'audio',
-				'data-name': name,
-				src: 'audio/' + name,
-				enablejavascript: true,
-				autostart: true,
-				loop: true,
-				playcount: loop ? 9999999 : 1,
-				height: 0
-			}));
+	startLoop: function(audiofile, loop) {
+		if (!isset(audiofile, this.list)) {
+			return false;
 		}
-		else {
-			var obj = jQuery('#audio');
+		if (isset('onEnded', this.list[audiofile])) {
+			this.endLoop(audiofile);
+		}
+		this.list[audiofile].loop = parseInt(loop, 10);
+		this.list[audiofile].onEnded = this.loop.bind(this, audiofile, {'repeat' : 0});
+		addListener(this.dom[audiofile], 'ended', this.list[audiofile].onEnded);
+	},
 
-			if (obj.length == 0 || obj.data('name') !== name) {
-				obj.remove();
+	endLoop: function(audiofile) {
+		if (!isset(audiofile, this.list)) {
+			return true;
+		}
+		this.list[audiofile].loop = 0;
 
-				var audioOptions = {
-					id: 'audio',
-					'data-name': name,
-					src: 'audio/' + name,
-					preload: 'auto',
-					autoplay: true
-				};
+		if (isset('onEnded', this.list[audiofile])) {
+			removeListener(this.dom[audiofile], 'ended', this.list[audiofile].onEnded);
+			this.list[audiofile].onEnded = null;
+			delete(this.list[audiofile].onEnded);
+		}
+	},
 
-				if (loop) {
-					audioOptions.loop = true;
+	create: function(audiofile, params) {
+		if (typeof(audiofile) == 'undefined') {
+			return false;
+		}
+		if (isset(audiofile, this.list)) {
+			return true;
+		}
+		if (typeof(params) == 'undefined') {
+			params = {};
+		}
+		if (!isset('audioList', this.dom)) {
+			this.dom.audioList = document.createElement('div');
+			document.getElementsByTagName('body')[0].appendChild(this.dom.audioList);
+			this.dom.audioList.setAttribute('id', 'audiolist');
+		}
+
+		if (IE) {
+			this.dom[audiofile] = document.createElement('embed');
+			this.dom.audioList.appendChild(this.dom[audiofile]);
+			this.dom[audiofile].setAttribute('name', audiofile);
+			this.dom[audiofile].setAttribute('src', 'audio/' + audiofile);
+			this.dom[audiofile].style.display = 'none';
+
+			for (var key in this.standart.embed) {
+				if (isset(key, params)) {
+					this.dom[audiofile].setAttribute(key, params[key]);
 				}
-
-				jQuery('body').append(jQuery('<audio>', audioOptions));
+				else if (!is_null(this.standart.embed[key])) {
+					this.dom[audiofile].setAttribute(key, this.standart.embed[key]);
+				}
 			}
 		}
+		else {
+			this.dom[audiofile] = document.createElement('audio');
+			this.dom.audioList.appendChild(this.dom[audiofile]);
+			this.dom[audiofile].setAttribute('id', audiofile);
+			this.dom[audiofile].setAttribute('src', 'audio/' + audiofile);
+
+			for (var key in this.standart.audio) {
+				if (isset(key, params)) {
+					this.dom[audiofile].setAttribute(key, params[key]);
+				}
+				else if (!is_null(this.standart.audio[key])) {
+					this.dom[audiofile].setAttribute(key, this.standart.audio[key]);
+				}
+			}
+			this.dom[audiofile].load();
+		}
+		this.list[audiofile] = params;
+		this.list[audiofile].loop = 0;
+		this.list[audiofile].timeout = null;
+		return true;
+	},
+
+	remove: function(audiofile) {
+		if (!isset(audiofile, this.dom)) {
+			return true;
+		}
+		$(this.dom[audiofile]).remove();
+
+		delete(this.dom[audiofile]);
+		delete(this.list[audiofile]);
 	}
 };
 
@@ -364,7 +738,7 @@ var jqBlink = {
  */
 var hintBox = {
 
-	createBox: function(e, target, hintText, className, isStatic) {
+	createBox: function(e, target, hintText, width, className, isStatic) {
 		var box = jQuery('<div></div>').addClass('hintbox');
 
 		if (typeof hintText === 'string') {
@@ -376,6 +750,10 @@ var hintBox = {
 		}
 		else {
 			box.html(hintText);
+		}
+
+		if (!empty(width)) {
+			box.css('width', width + 'px');
 		}
 
 		if (isStatic) {
@@ -395,14 +773,14 @@ var hintBox = {
 		return box;
 	},
 
-	HintWraper: function(e, target, hintText, className) {
+	HintWraper: function(e, target, hintText, width, className) {
 		target.isStatic = false;
 
 		jQuery(target).on('mouseenter', function(e, d) {
 			if (d) {
 				e = d;
 			}
-			hintBox.showHint(e, target, hintText, className, false);
+			hintBox.showHint(e, target, hintText, width, className, false);
 
 		}).on('mouseleave', function(e) {
 			hintBox.hideHint(e, target);
@@ -415,13 +793,13 @@ var hintBox = {
 		jQuery(target).trigger('mouseenter', e);
 	},
 
-	showStaticHint: function(e, target, hint, className, resizeAfterLoad) {
+	showStaticHint: function(e, target, hint, width, className, resizeAfterLoad) {
 		var isStatic = target.isStatic;
 		hintBox.hideHint(e, target, true);
 
 		if (!isStatic) {
 			target.isStatic = true;
-			hintBox.showHint(e, target, hint, className, true);
+			hintBox.showHint(e, target, hint, width, className, true);
 
 			if (resizeAfterLoad) {
 				hint.one('load', function(e) {
@@ -431,12 +809,12 @@ var hintBox = {
 		}
 	},
 
-	showHint: function(e, target, hintText, className, isStatic) {
+	showHint: function(e, target, hintText, width, className, isStatic) {
 		if (target.hintBoxItem) {
 			return;
 		}
 
-		target.hintBoxItem = hintBox.createBox(e, target, hintText, className, isStatic);
+		target.hintBoxItem = hintBox.createBox(e, target, hintText, width, className, isStatic);
 		hintBox.positionHint(e, target);
 		target.hintBoxItem.show();
 	},
@@ -589,138 +967,190 @@ function set_color_by_name(id, color) {
 	set_color(color);
 }
 
-/**
- * Add object to the list of favourites.
+/*
+ * Zabbix ajax requests
  */
-function add2favorites(object, objectid) {
-	sendAjaxData('zabbix.php?action=favourite.create', {
-		data: {
-			object: object,
-			objectid: objectid
-		}
-	});
+function add2favorites(favobj, favid) {
+	if ('undefined' == typeof(Ajax)) {
+		throw('Prototype.js lib is required!');
+	}
+
+	if (typeof(favid) == 'undefined' || empty(favid)) {
+		return;
+	}
+
+	var params = {
+		'favobj': favobj,
+		'favid': favid,
+		'favaction': 'add'
+	};
+
+	send_params(params);
 }
 
-/**
- * Remove object from the list of favourites. Remove all favourites if objectid==0.
- */
-function rm4favorites(object, objectid) {
-	sendAjaxData('zabbix.php?action=favourite.delete', {
-		data: {
-			object: object,
-			objectid: objectid
-		}
-	});
+function rm4favorites(favobj, favid, menu_rowid) {
+	if ('undefined' == typeof(Ajax)) {
+		throw('Prototype.js lib is required!');
+	}
+
+	if (typeof(favobj) == 'undefined' || typeof(favid) == 'undefined') {
+		throw 'No agruments sent to function [rm4favorites()].';
+	}
+
+	var params = {
+		'favobj': favobj,
+		'favid': favid,
+		'favcnt': menu_rowid,
+		'favaction': 'remove'
+	};
+
+	send_params(params);
 }
 
-
-/**
- * Toggles filter state and updates title and icons accordingly.
- *
- * @param {int} 	id					Id of filter in DOM
- * @param {string} 	titleWhenVisible	Title to set when filter is visible
- * @param {string} 	titleWhenHidden		Title to set when filter is collapsed
- */
-function changeFlickerState(id, titleWhenVisible, titleWhenHidden) {
+function changeFlickerState(id) {
 	var state = showHide(id);
 
-	switchElementClass('flicker_icon_l', 'dbl_arrow_up', 'dbl_arrow_down');
-	switchElementClass('flicker_icon_r', 'dbl_arrow_up', 'dbl_arrow_down');
+	switchElementsClass($('flicker_icon_l'), 'dbl_arrow_up', 'dbl_arrow_down');
+	switchElementsClass($('flicker_icon_r'), 'dbl_arrow_up', 'dbl_arrow_down');
 
-	var title = state ? titleWhenVisible : titleWhenHidden;
-
-	jQuery('#flicker_title').html(title);
-
-	sendAjaxData(location.href, {
-		data: {
-			filterState: state
-		}
+	send_params({
+		favaction: 'flop',
+		favobj: 'filter',
+		favref: id,
+		favstate: state
 	});
 
-	// resize multiselects in the flicker
-	if (jQuery('.multiselect').length > 0 && state == 1) {
-		jQuery('.multiselect', jQuery('#' + id)).multiSelect('resize');
-	}
-}
+	// resize multiselect
+	if (typeof(flickerResizeMultiselect) === 'undefined' && state == 1) {
+		flickerResizeMultiselect = true;
 
-function changeWidgetState(obj, widgetId) {
-	var widgetObj = jQuery('#' + widgetId + '_widget'),
-		css = switchElementClass(obj, 'arrowup', 'arrowdown'),
-		state = 0;
-
-	if (css === 'arrowdown') {
-		jQuery('.body', widgetObj).slideUp(50);
-		jQuery('.footer', widgetObj).slideUp(50);
-	}
-	else {
-		jQuery('.body', widgetObj).slideDown(50);
-		jQuery('.footer', widgetObj).slideDown(50);
-
-		state = 1;
-	}
-
-	sendAjaxData('zabbix.php?action=dashboard.widget', {
-		data: {
-			widget: widgetId,
-			state: state
+		if (jQuery('.multiselect').length > 0) {
+			jQuery('#' + id).multiSelect.resize();
 		}
-	});
+	}
 }
 
-/**
- * Send ajax data.
- *
- * @param string url
- * @param object options
- */
-function sendAjaxData(url, options) {
-	var url = new Curl(url);
-	url.setArgument('output', 'ajax');
-	url.addSID();
+function changeHatStateUI(icon, divid) {
+	var switchIcon = function() {
+		switchElementsClass(icon, 'arrowup', 'arrowdown');
+	};
 
-	options.type = 'post';
-	options.url = url.getUrl();
+	jQuery($(divid).parentNode).
+		find('.body').toggle().end().
+		find('.footer').toggle().end();
 
-	jQuery.ajax(options);
+	switchIcon();
+
+	var hat_state = jQuery(icon).hasClass('arrowup') ? 1 : 0;
+	if (false === hat_state) {
+		return false;
+	}
+
+	var params = {
+		'favaction': 'flop',
+		'favobj': 'hat',
+		'favref': divid,
+		'favstate': hat_state
+	};
+
+	send_params(params);
 }
 
-/**
- * Finds all elements with a 'placeholder' attribute and emulates the placeholder in IE.
- */
+function change_hat_state(icon, divid) {
+	var switchIcon = function() {
+		switchElementsClass(icon, 'arrowup', 'arrowdown');
+	};
+
+	var hat_state = showHide(divid);
+	switchIcon();
+
+	if (false === hat_state) {
+		return false;
+	}
+
+	var params = {
+		'favaction': 'flop',
+		'favobj': 'hat',
+		'favref': divid,
+		'favstate': hat_state
+	};
+
+	send_params(params);
+}
+
+function send_params(params) {
+	if (typeof(params) === 'undefined') {
+		params = [];
+	}
+
+	var url = new Curl(location.href);
+	url.setQuery('?output=ajax');
+
+	new Ajax.Request(url.getUrl(), {
+			'method': 'post',
+			'parameters': params,
+			'onSuccess': function() { },
+			'onFailure': function() {
+				document.location = url.getPath() + '?' + Object.toQueryString(params);
+			}
+		}
+	);
+}
+
+function setRefreshRate(pmasterid, dollid, interval, params) {
+	if (typeof(Ajax) == 'undefined') {
+		throw('Prototype.js lib is required!');
+	}
+
+	if (typeof(params) == 'undefined' || is_null(params)) {
+		params = {};
+	}
+	params['pmasterid'] = pmasterid;
+	params['favobj'] = 'set_rf_rate';
+	params['favref'] = dollid;
+	params['favcnt'] = interval;
+
+	send_params(params);
+}
+
+function switch_mute(icon) {
+	var sound_state = switchElementsClass(icon, 'iconmute', 'iconsound');
+
+	if (false === sound_state) {
+		return false;
+	}
+	sound_state = (sound_state == 'iconmute') ? 1 : 0;
+
+	var params = {
+		'favobj': 'sound',
+		'favref': 'sound',
+		'favstate': sound_state
+	};
+
+	send_params(params);
+}
+
 function createPlaceholders() {
 	if (IE) {
-		jQuery('[placeholder]').each(function() {
-			var placeholder = jQuery(this);
+		jQuery(document).ready(function() {
+			jQuery('[placeholder]')
+				.focus(function() {
+					var obj = jQuery(this);
 
-			if (!placeholder.data('has-placeholder-handlers')) {
-				placeholder
-					.data('has-placeholder-handlers', true)
-					.focus(function() {
-						var obj = jQuery(this);
+					if (obj.val() == obj.attr('placeholder')) {
+						obj.val('');
+						obj.removeClass('placeholder');
+					}
+				})
+				.blur(function() {
+					var obj = jQuery(this);
 
-						if (!obj.attr('placeholder')) {
-							return;
-						}
-
-						if (obj.val() == obj.attr('placeholder')) {
-							obj.val('');
-							obj.removeClass('placeholder');
-						}
-					})
-					.blur(function() {
-						var obj = jQuery(this);
-
-						if (!obj.attr('placeholder')) {
-							return;
-						}
-
-						if (obj.val() == '' ||  obj.val() == obj.attr('placeholder')) {
-							obj.val(obj.attr('placeholder'));
-							obj.addClass('placeholder');
-						}
-					})
-					.blur();
-			}
+					if (obj.val() == '' || obj.val() == obj.attr('placeholder')) {
+						obj.val(obj.attr('placeholder'));
+						obj.addClass('placeholder');
+					}
+				})
+				.blur();
 
 			jQuery('form').submit(function() {
 				jQuery('.placeholder').each(function() {
@@ -734,320 +1164,3 @@ function createPlaceholders() {
 		});
 	}
 }
-
-/**
- * Converts number to letter representation.
- * From A to Z, then from AA to ZZ etc.
- * Example: 0 => A, 25 => Z, 26 => AA, 27 => AB, 52 => BA, ...
- *
- * Keep in sync with PHP num2letter().
- *
- * @param {int} number
- *
- * @return {string}
- */
-function num2letter(number) {
-	var start = 'A'.charCodeAt(0);
-	var base = 26;
-	var str = '';
-	var level = 0;
-
-	do {
-		if (level++ > 0) {
-			number--;
-		}
-		var remainder = number % base;
-		number = (number - remainder) / base;
-		str = String.fromCharCode(start + remainder) + str;
-	} while (number);
-
-	return str;
-}
-
-/**
- * Generate a formula from the given conditions with respect to the given evaluation type.
- * Each condition must have a condition type, that will be used for grouping.
- *
- * Each condition object must have the following properties:
- * - id		- ID used in the formula
- * - type	- condition type used for grouping
- *
- * Supported evalType values:
- * - 1 - or
- * - 2 - and
- * - 3 - and/or
- *
- * Example:
- * getConditionFormula([{'id': 'A', 'type': '1'}, {'id': 'B', 'type': '1'}, {'id': 'C', 'type': '2'}], '1');
- *
- * // (A and B) and C
- *
- * Keep in sync with PHP CConditionHelper::getFormula().
- *
- * @param {array} 	conditions	array of condition objects
- * @param {string} 	evalType
- *
- * @returns {string}
- */
-function getConditionFormula(conditions, evalType) {
-	var conditionOperator, groupOperator;
-
-	switch (evalType) {
-		// and
-		case 1:
-			conditionOperator = 'and';
-			groupOperator = conditionOperator;
-
-			break;
-		// or
-		case 2:
-			conditionOperator = 'or';
-			groupOperator = conditionOperator;
-
-			break;
-		// and/or
-		default:
-			conditionOperator = 'or';
-			groupOperator = 'and';
-	}
-
-	var groupedFormulas = [];
-	for (var i = 0; i < conditions.length; i++) {
-		if (typeof conditions[i] === 'undefined') {
-			continue;
-		}
-
-		var groupedConditions = [];
-		groupedConditions.push(conditions[i].id);
-
-		// search for other conditions of the same type
-		for (var n = i + 1; n < conditions.length; n++) {
-			if (typeof conditions[n] !== 'undefined' && conditions[i].type == conditions[n].type) {
-				groupedConditions.push(conditions[n].id);
-				delete conditions[n];
-			}
-		}
-
-		// join conditions of the same type
-		if (groupedConditions.length > 1) {
-			groupedFormulas.push('(' + groupedConditions.join(' ' + conditionOperator + ' ') + ')');
-		}
-		else {
-			groupedFormulas.push(groupedConditions[0]);
-		}
-	}
-
-	var formula = groupedFormulas.join(' ' + groupOperator + ' ');
-
-	// strip parentheses if there's only one condition group
-	if (groupedFormulas.length == 1) {
-		formula = formula.substr(1, formula.length - 2);
-	}
-
-	return formula;
-}
-
-(function($) {
-	/**
-	 * Creates a table with dynamic add/remove row buttons.
-	 *
-	 * Supported options:
-	 * - template		- row template selector
-	 * - row			- element row selector
-	 * - add			- add row button selector
-	 * - remove			- remove row button selector
-	 * - counter 		- number to start row enumeration from
-	 * - dataCallback	- function to generate the data passed to the template
-	 *
-	 * Triggered events:
-	 * - rowremove.dynamicRows 	- after removing a row (triggered before tableupdate.dynamicRows)
-	 * - tableupdate.dynamicRows 	- after adding or removing a row
-	 *
-	 * @param options
-	 */
-	$.fn.dynamicRows = function(options) {
-		options = $.extend({}, {
-			template: '',
-			row: '.form_row',
-			add: '.element-table-add',
-			remove: '.element-table-remove',
-			counter: null,
-			dataCallback: function(data) {
-				return {};
-			}
-		}, options);
-
-		return this.each(function() {
-			var table = $(this);
-
-			table.data('dynamicRows', {
-				counter: (options.counter !== null) ? options.counter : $(options.row, table).length
-			});
-
-			// add buttons
-			table.on('click', options.add, function() {
-				// add the new row before the row with the "Add" button
-				addRow(table, $(this).closest('tr'), options);
-			});
-
-			// remove buttons
-			table.on('click', options.remove, function() {
-				// remove the parent row
-				removeRow(table, $(this).closest(options.row), options);
-			});
-		});
-	};
-
-	/**
-	 * Adds a row before the given row.
-	 *
-	 * @param {jQuery} table
-	 * @param {jQuery} beforeRow
-	 * @param {object} options
-	 */
-	function addRow(table, beforeRow, options) {
-		var data = {
-			rowNum: table.data('dynamicRows').counter
-		};
-		data = $.extend(data, options.dataCallback(data));
-
-		var template = new Template($(options.template).html());
-		beforeRow.before(template.evaluate(data));
-		table.data('dynamicRows').counter++;
-
-		createPlaceholders();
-
-		table.trigger('tableupdate.dynamicRows', options);
-	}
-
-	/**
-	 * Removes the given row.
-	 *
-	 * @param {jQuery} table
-	 * @param {jQuery} row
-	 * @param {object} options
-	 */
-	function removeRow(table, row, options) {
-		row.remove();
-
-		table.trigger('rowremove.dynamicRows', options);
-		table.trigger('tableupdate.dynamicRows', options);
-	}
-}(jQuery));
-
-jQuery(function ($) {
-	var verticalHeaderTables = {};
-
-	var tablesWidthChangeChecker = function() {
-		for (var tableId in verticalHeaderTables) {
-			if (verticalHeaderTables.hasOwnProperty(tableId)) {
-				var table = verticalHeaderTables[tableId];
-
-				if (table && table.width() != table.data('last-width')) {
-					centerVerticalCellContents(table);
-				}
-			}
-		}
-		setTimeout(tablesWidthChangeChecker, 100);
-	};
-
-	var centerVerticalCellContents = function(table) {
-		var verticalCells = $('.vertical_rotation', table);
-
-		verticalCells.each(function() {
-			var cell = $(this),
-				cellWidth = cell.width();
-
-			if (cellWidth > 30) {
-				cell.children().css({
-					position: 'relative',
-					left: (cellWidth / 2 - 12) + 'px'
-				});
-			}
-		});
-
-		table.data('last-width', table.width());
-	};
-
-	tablesWidthChangeChecker();
-
-	$.fn.makeVerticalRotation = function() {
-		this.each(function(i) {
-			var table = $(this);
-
-			if (table.data('rotated') == 1) {
-				return;
-			}
-			table.data('rotated', 1);
-
-			var cellsToRotate = $('.vertical_rotation', table),
-				betterCells = [];
-
-			// insert spans
-			cellsToRotate.each(function() {
-				var cell = $(this);
-
-				var text = $('<span>', {
-					text: cell.html()
-				});
-
-				if (IE) {
-					text.css({'font-family': 'monospace'});
-				}
-
-				cell.text('').append(text);
-			});
-
-			// rotate cells
-			cellsToRotate.each(function() {
-				var cell = $(this),
-					span = cell.children(),
-					height = cell.height(),
-					width = span.width(),
-					transform = (width / 2) + 'px ' + (width / 2) + 'px';
-
-				var css = {
-					"transform-origin": transform,
-					"-webkit-transform-origin": transform,
-					"-moz-transform-origin": transform,
-					"-o-transform-origin": transform
-				};
-
-				if (IE) {
-					css['font-family'] = 'monospace';
-					css['-ms-transform-origin'] = '50% 50%';
-				}
-
-				if (IE9) {
-					css['-ms-transform-origin'] = transform;
-				}
-
-				var divInner = $('<div>', {
-					'class': 'vertical_rotation_inner'
-				})
-					.css(css)
-					.append(span.text());
-
-				var div = $('<div>', {
-					height: width,
-					width: height
-				})
-					.append(divInner);
-
-				betterCells.push(div);
-			});
-
-			cellsToRotate.each(function(i) {
-				$(this).html(betterCells[i]);
-			});
-
-			centerVerticalCellContents(table);
-
-			table.on('remove', function() {
-				delete verticalHeaderTables[table.attr('id')];
-			});
-
-			verticalHeaderTables[table.attr('id')] = table;
-		});
-	};
-});

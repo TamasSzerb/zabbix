@@ -25,18 +25,18 @@ $auditWidget = new CWidget();
 $configForm = new CForm('get');
 $configComboBox = new CComboBox('config', 'auditlogs.php');
 $configComboBox->setAttribute('onchange', 'javascript: redirect(this.options[this.selectedIndex].value);');
-$configComboBox->addItem('auditlogs.php', _('Audit log'));
-$configComboBox->addItem('auditacts.php', _('Action log'));
+$configComboBox->addItem('auditlogs.php', _('Logs'));
+$configComboBox->addItem('auditacts.php', _('Actions'));
 $configForm->addItem($configComboBox);
-$auditWidget->addPageHeader(_('AUDIT LOG'), $configForm);
-$auditWidget->addHeader(_('Audit log'));
+$auditWidget->addPageHeader(_('AUDIT LOGS'), $configForm);
+$auditWidget->addHeader(_('Logs'));
 $auditWidget->addHeaderRowNumber();
 
 // create filter
 $filterForm = new CForm('get');
 $filterForm->setAttribute('name', 'zbx_filter');
 $filterForm->setAttribute('id', 'zbx_filter');
-$filterTable = new CTable('', 'filter filter-center');
+$filterTable = new CTable('', 'filter');
 
 $actionComboBox = new CComboBox('action', $this->data['action']);
 $actionComboBox->addItem(-1, _('All'));
@@ -54,22 +54,19 @@ $resourceComboBox->addItems(array(-1 => _('All')) + audit_resource2str());
 $filterTable->addRow(array(
 	array(
 		bold(_('User')),
-		' ',
+		SPACE,
 		new CTextBox('alias', $this->data['alias'], 20),
 		new CButton('btn1', _('Select'), 'return PopUp("popup.php?dstfrm='.$filterForm->getName().
-			'&dstfld1=alias&srctbl=users&srcfld1=alias&real_hosts=1");',
-			'button-form'
-		)
+			'&dstfld1=alias&srctbl=users&srcfld1=alias&real_hosts=1");', 'filter-select-button')
 	),
-	array(bold(_('Action')), ' ', $actionComboBox),
-	array(bold(_('Resource')), ' ', $resourceComboBox)
+	array(bold(_('Action')), SPACE, $actionComboBox),
+	array(bold(_('Resource')), SPACE, $resourceComboBox)
 ));
-$filterButton = new CSubmit('filter_set', _('Filter'), null, 'jqueryinput shadow');
-$filterButton->main();
-
-$resetButton = new CSubmit('filter_rst', _('Reset'), null, 'jqueryinput shadow');
-
-$buttonsDiv = new CDiv(array($filterButton, $resetButton));
+$filterButton = new CButton('filter', _('Filter'), "javascript: create_var('zbx_filter', 'filter_set', '1', true);");
+$filterButton->useJQueryStyle('main');
+$resetButton = new CButton('filter_rst', _('Reset'), 'javascript: var uri = new Curl(location.href); uri.setArgument("filter_rst", 1); location.href = uri.getUrl();');
+$resetButton->useJQueryStyle();
+$buttonsDiv = new CDiv(array($filterButton, SPACE, $resetButton));
 $buttonsDiv->setAttribute('style', 'padding: 4px 0;');
 
 $filterTable->addRow(new CCol($buttonsDiv, 'controls', 3));
@@ -83,7 +80,7 @@ $auditForm = new CForm('get');
 $auditForm->setName('auditForm');
 
 // create table
-$auditTable = new CTableInfo(_('No audit log entries found.'));
+$auditTable = new CTableInfo(_('No audit entries found.'));
 $auditTable->setHeader(array(
 	_('Time'),
 	_('User'),
@@ -106,7 +103,7 @@ foreach ($this->data['actions'] as $action) {
 	}
 
 	$auditTable->addRow(array(
-		zbx_date2str(DATE_TIME_FORMAT_SECONDS, $action['clock']),
+		zbx_date2str(_('d M Y H:i:s'), $action['clock']),
 		$action['alias'],
 		$action['ip'],
 		$action['resourcetype'],

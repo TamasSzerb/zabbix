@@ -316,7 +316,7 @@ var timeControl = {
 };
 
 // timeline control
-var CTimeLine = Class.create({
+var CTimeLine = Class.create(CDebug, {
 
 	_starttime:	null,	// timeline start time (left, past)
 	_endtime:	null,	// timeline end time (right, now)
@@ -327,7 +327,7 @@ var CTimeLine = Class.create({
 	minperiod:	3600,	// minimal allowed period
 	maxperiod:	null,	// max period in seconds
 
-	initialize: function(period, starttime, usertime, endtime, maximumPeriod, isNow) {
+	initialize: function($super, period, starttime, usertime, endtime, maximumPeriod, isNow) {
 		if ((endtime - starttime) < (3 * this.minperiod)) {
 			starttime = endtime - (3 * this.minperiod);
 		}
@@ -425,7 +425,7 @@ var CTimeLine = Class.create({
 });
 
 // graph scrolling
-var CScrollBar = Class.create({
+var CScrollBar = Class.create(CDebug, {
 
 	ghostBox:		null, // ghost box object
 	clndrLeft:		null, // calendar object left
@@ -483,7 +483,7 @@ var CScrollBar = Class.create({
 	disabled:		1,		// activates/disables scrollbars
 	maxperiod:		null,	// max period in seconds
 
-	initialize: function(width, fixedperiod, maximalPeriod) {
+	initialize: function($super, width, fixedperiod, maximalPeriod) {
 		try {
 			this.fixedperiod = (fixedperiod == 1) ? 1 : 0;
 			this.maxperiod = maximalPeriod;
@@ -970,14 +970,15 @@ var CScrollBar = Class.create({
 		this.fixedperiod = (this.fixedperiod == 1) ? 0 : 1;
 
 		// sending fixed/dynamic setting to server to save in a profile
-		sendAjaxData(location.href, {
-			data: {
-				favobj: 'timelinefixedperiod',
-				favid: this.fixedperiod
-			}
-		});
+		var params = {
+			favobj: 'timelinefixedperiod',
+			favid: this.fixedperiod
+		};
+		send_params(params);
 
-		this.dom.period_state.innerHTML = this.fixedperiod ? locale['S_FIXED_SMALL'] : locale['S_DYNAMIC_SMALL'];
+		this.dom.period_state.innerHTML = (this.fixedperiod)
+			? locale['S_FIXED_SMALL']
+			: locale['S_DYNAMIC_SMALL'];
 	},
 
 	getTZOffset: function(time) {
@@ -1464,7 +1465,7 @@ var CScrollBar = Class.create({
 	}
 });
 
-var CGhostBox = Class.create({
+var CGhostBox = Class.create(CDebug, {
 
 	box:		null, // resized dom object
 	sideToMove:	null, // 0 - left side, 1 - right side
@@ -1484,9 +1485,10 @@ var CGhostBox = Class.create({
 		rightSide:	null
 	},
 
-	initialize: function(id) {
-		this.box = $(id);
+	initialize: function($super, id) {
+		$super('CGhostBox[' + id + ']');
 
+		this.box = $(id);
 		if (is_null(this.box)) {
 			throw('Cannot initialize GhostBox with given object id.');
 		}
@@ -1565,7 +1567,7 @@ function sbox_init(id) {
 	return ZBX_SBOX[id];
 }
 
-var sbox = Class.create({
+var sbox = Class.create(CDebug, {
 
 	sbox_id:			'',		// id to create references in array to self
 	mouse_event:		{},		// json object wheres defined needed event params
@@ -1584,7 +1586,7 @@ var sbox = Class.create({
 	is_active:			false,	// flag show is sbox is selected, must be unique among all
 	is_activeIE:		false,
 
-	initialize: function(id) {
+	initialize: function($super, id) {
 		var tc = timeControl.objectList[id],
 			shiftL = parseInt(tc.objDims.shiftXleft),
 			shiftR = parseInt(tc.objDims.shiftXright),

@@ -36,8 +36,8 @@ $fields = array(
 	'profileIdx2' =>	array(T_ZBX_STR, O_OPT, null,		null,		null),
 	'updateProfile' =>	array(T_ZBX_STR, O_OPT, null,		null,		null),
 	'border' =>			array(T_ZBX_INT, O_OPT, P_NZERO,	IN('0,1'),	null),
-	'width' =>			array(T_ZBX_INT, O_OPT, P_NZERO,	'{} > 0',		null),
-	'height' =>			array(T_ZBX_INT, O_OPT, P_NZERO,	'{} > 0',		null)
+	'width' =>			array(T_ZBX_INT, O_OPT, P_NZERO,	'{}>0',		null),
+	'height' =>			array(T_ZBX_INT, O_OPT, P_NZERO,	'{}>0',		null)
 );
 check_fields($fields);
 
@@ -45,12 +45,9 @@ check_fields($fields);
  * Permissions
  */
 $dbGraph = API::Graph()->get(array(
-	'output' => API_OUTPUT_EXTEND,
-	'selectGraphItems' => API_OUTPUT_EXTEND,
-	'selectHosts' => array('name'),
-	'graphids' => $_REQUEST['graphid']
+	'graphids' => $_REQUEST['graphid'],
+	'output' => API_OUTPUT_EXTEND
 ));
-
 if (!$dbGraph) {
 	access_deny();
 }
@@ -58,52 +55,35 @@ else {
 	$dbGraph = reset($dbGraph);
 }
 
+$host = API::Host()->get(array(
+	'nodeids' => get_current_nodeid(true),
+	'graphids' => $_REQUEST['graphid'],
+	'output' => API_OUTPUT_EXTEND,
+	'templated_hosts' => true
+));
+$host = reset($host);
+
 /*
  * Display
  */
 $timeline = CScreenBase::calculateTime(array(
-	'profileIdx' => getRequest('profileIdx', 'web.screens'),
-	'profileIdx2' => getRequest('profileIdx2'),
-	'updateProfile' => getRequest('updateProfile', true),
-	'period' => getRequest('period'),
-	'stime' => getRequest('stime')
+	'profileIdx' => get_request('profileIdx', 'web.screens'),
+	'profileIdx2' => get_request('profileIdx2'),
+	'updateProfile' => get_request('updateProfile', true),
+	'period' => get_request('period'),
+	'stime' => get_request('stime')
 ));
 
 CProfile::update('web.screens.graphid', $_REQUEST['graphid'], PROFILE_TYPE_ID);
 
+$chartHeader = '';
+if (id2nodeid($dbGraph['graphid']) != get_current_nodeid()) {
+	$chartHeader = get_node_name_by_elid($dbGraph['graphid'], true, NAME_DELIMITER);
+}
+$chartHeader .= $host['name'].NAME_DELIMITER.$dbGraph['name'];
+
 $graph = new CLineGraphDraw($dbGraph['graphtype']);
-
-// array sorting
-CArrayHelper::sort($dbGraph['gitems'], array(
-	array('field' => 'sortorder', 'order' => ZBX_SORT_UP),
-	array('field' => 'itemid', 'order' => ZBX_SORT_DOWN)
-));
-
-// get graph items
-foreach ($dbGraph['gitems'] as $gItem) {
-	$graph->addItem(
-		$gItem['itemid'],
-		$gItem['yaxisside'],
-		$gItem['calc_fnc'],
-		$gItem['color'],
-		$gItem['drawtype'],
-		$gItem['type']
-	);
-}
-
-$hostName = '';
-
-foreach ($dbGraph['hosts'] as $gItemHost) {
-	if ($hostName === '') {
-		$hostName = $gItemHost['name'];
-	}
-	elseif ($hostName !== $gItemHost['name']) {
-		$hostName = '';
-		break;
-	}
-}
-
-$graph->setHeader(($hostName === '') ? $dbGraph['name'] : $hostName.NAME_DELIMITER.$dbGraph['name']);
+$graph->setHeader($chartHeader);
 $graph->setPeriod($timeline['period']);
 $graph->setSTime($timeline['stime']);
 
@@ -111,12 +91,12 @@ if (isset($_REQUEST['border'])) {
 	$graph->setBorder(0);
 }
 
-$width = getRequest('width', 0);
+$width = get_request('width', 0);
 if ($width <= 0) {
 	$width = $dbGraph['width'];
 }
 
-$height = getRequest('height', 0);
+$height = get_request('height', 0);
 if ($height <= 0) {
 	$height = $dbGraph['height'];
 }
@@ -134,6 +114,24 @@ $graph->setYMinItemId($dbGraph['ymin_itemid']);
 $graph->setYMaxItemId($dbGraph['ymax_itemid']);
 $graph->setLeftPercentage($dbGraph['percent_left']);
 $graph->setRightPercentage($dbGraph['percent_right']);
+
+$dbGraphItems = DBselect(
+	'SELECT gi.*'.
+	' FROM graphs_items gi'.
+	' WHERE gi.graphid='.zbx_dbstr($dbGraph['graphid']).
+	' ORDER BY gi.sortorder,gi.itemid DESC'
+);
+while ($dbGraphItem = DBfetch($dbGraphItems)) {
+	$graph->addItem(
+		$dbGraphItem['itemid'],
+		$dbGraphItem['yaxisside'],
+		$dbGraphItem['calc_fnc'],
+		$dbGraphItem['color'],
+		$dbGraphItem['drawtype'],
+		$dbGraphItem['type']
+	);
+}
+
 $graph->draw();
 
 require_once dirname(__FILE__).'/include/page_footer.php';

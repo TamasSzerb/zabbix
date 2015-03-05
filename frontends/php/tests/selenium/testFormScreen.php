@@ -30,7 +30,7 @@ class testFormScreen extends CWebTest {
 		$this->zbxTestLogin('screenconf.php');
 		$this->zbxTestClickWait('form');
 		$this->input_type('name', $this->testscreen);
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Screen added');
 	}
 
@@ -40,12 +40,12 @@ class testFormScreen extends CWebTest {
 		$this->zbxTestClickWait('link=Change');
 		$this->assertElementNotPresent('//input[@id=\'dynamic\']/@checked');
 		$this->zbxTestCheckboxSelect('dynamic');
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Item updated');
 		$this->zbxTestClickWait('link=Change');
 		$this->assertElementPresent('//input[@id=\'dynamic\']/@checked');
 		$this->zbxTestCheckboxSelect('dynamic', false);
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Item updated');
 		$this->zbxTestClickWait('link=Change');
 		$this->assertElementNotPresent('//input[@id=\'dynamic\']/@checked');

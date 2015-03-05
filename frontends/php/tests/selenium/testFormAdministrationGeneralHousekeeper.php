@@ -175,8 +175,8 @@ class testFormAdministrationGeneralHousekeeper extends CWebTest {
 
 		// buttons
 
-		$this->assertVisible('update');
-		$this->assertAttribute("//input[@id='update']/@value", 'Update');
+		$this->assertVisible('save');
+		$this->assertAttribute("//input[@id='save']/@value", 'Save');
 
 		$this->assertVisible('resetDefaults');
 		$this->assertAttribute("//input[@id='resetDefaults']/@value", 'Reset defaults');
@@ -380,7 +380,7 @@ class testFormAdministrationGeneralHousekeeper extends CWebTest {
 			}
 		}
 
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestCheckTitle('Configuration of housekeeping');
 		$this->zbxTestTextPresent('CONFIGURATION OF HOUSEKEEPING');
 

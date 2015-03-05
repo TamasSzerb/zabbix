@@ -96,6 +96,70 @@ function encodeValues(&$value, $encodeTwice = true) {
 	}
 }
 
+// add JavaScript for calling after page loading
+function zbx_add_post_js($script) {
+	global $ZBX_PAGE_POST_JS;
+
+	if (!isset($ZBX_PAGE_POST_JS)) {
+		$ZBX_PAGE_POST_JS = array();
+	}
+	if (!in_array($script, $ZBX_PAGE_POST_JS)) {
+		$ZBX_PAGE_POST_JS[] = $script;
+	}
+}
+
+function insert_javascript_for_editable_combobox() {
+	if (defined('EDITABLE_COMBOBOX_SCRIPT_INSERTTED')) {
+		return null;
+	}
+	define('EDITABLE_COMBOBOX_SCRIPT_INSERTTED', 1);
+
+	$js = '
+		function CEditableComboBoxInit(obj) {
+			// check if option exist
+			var opt = obj.options;
+			if (obj.value) {
+				obj.oldValue = obj.value;
+			}
+			for (var i = 0; i < opt.length; i++) {
+				if (-1 == opt.item(i).value) {
+					return null;
+				}
+			}
+			// create option
+			opt = document.createElement("option");
+			opt.value = -1;
+			if (IE) {
+				opt.innerHTML = "('._('other').' ...)";
+			}
+			else {
+				opt.text = "('._('other').' ...)";
+			}
+			obj.insertBefore(opt, obj.firstChild);
+		}
+
+		function CEditableComboBoxOnChange(obj, size) {
+			if (-1 != obj.value) {
+				obj.oldValue = obj.value;
+			}
+			else {
+				var new_obj = document.createElement("input");
+				new_obj.type = "text";
+				new_obj.name = obj.name;
+				if (size && size > 0) {
+					new_obj.size = size;
+				}
+				if (obj.oldValue) {
+					new_obj.value = obj.oldValue;
+				}
+				obj.parentNode.replaceChild(new_obj, obj);
+				new_obj.focus();
+				new_obj.select();
+			}
+		}';
+	insert_js($js);
+}
+
 function insert_show_color_picker_javascript() {
 	global $SHOW_COLOR_PICKER_SCRIPT_INSERTED;
 
@@ -216,6 +280,17 @@ function insert_javascript_for_visibilitybox() {
 			}
 		}';
 	insert_js($js);
+}
+
+function play_sound($filename) {
+	insert_js('
+		if (IE) {
+			document.writeln(\'<bgsound src="'.$filename.'" loop="0" />\');
+		}
+		else {
+			document.writeln(\'<embed src="'.$filename.'" autostart="true" width="0" height="0" loop="0" />\');
+			document.writeln(\'<noembed><bgsound src="'.$filename.'" loop="0" /></noembed>\');
+		}');
 }
 
 function insert_js_function($fnct_name) {
@@ -448,27 +523,21 @@ function insert_js($script, $jQueryDocumentReady = false) {
 
 function get_js($script, $jQueryDocumentReady = false) {
 	return $jQueryDocumentReady
-		? '<script type="text/javascript">'."\n".'jQuery(document).ready(function() { '.$script.' });'."\n".'</script>'
-		: '<script type="text/javascript">'."\n".$script."\n".'</script>';
-}
-
-// add JavaScript for calling after page loading
-function zbx_add_post_js($script) {
-	global $ZBX_PAGE_POST_JS;
-
-	if ($ZBX_PAGE_POST_JS === null) {
-		$ZBX_PAGE_POST_JS = array();
-	}
-
-	if (!in_array($script, $ZBX_PAGE_POST_JS)) {
-		$ZBX_PAGE_POST_JS[] = $script;
-	}
+		? '<script type="text/javascript">// <![CDATA['."\n".'jQuery(document).ready(function() { '.$script.' });'."\n".'// ]]></script>'
+		: '<script type="text/javascript">// <![CDATA['."\n".$script."\n".'// ]]></script>';
 }
 
 function insertPagePostJs() {
 	global $ZBX_PAGE_POST_JS;
 
-	if ($ZBX_PAGE_POST_JS) {
-		echo get_js(implode("\n", $ZBX_PAGE_POST_JS), true);
+	if (!empty($ZBX_PAGE_POST_JS)) {
+		$js = '';
+		foreach ($ZBX_PAGE_POST_JS as $script) {
+			$js .= $script."\n";
+		}
+
+		if (!empty($js)) {
+			echo get_js($js, true);
+		}
 	}
 }

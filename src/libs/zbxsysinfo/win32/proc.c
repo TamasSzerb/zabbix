@@ -25,8 +25,8 @@
 #include "symbols.h"
 #include "log.h"
 
-#define MAX_PROCESSES	4096
-#define MAX_NAME	256
+#define MAX_PROCESSES		4096
+#define MAX_NAME		256
 
 /* function 'zbx_get_process_username' require 'userName' with size 'MAX_NAME' */
 static int	zbx_get_process_username(HANDLE hProcess, char *userName)
@@ -34,7 +34,7 @@ static int	zbx_get_process_username(HANDLE hProcess, char *userName)
 	HANDLE		tok;
 	TOKEN_USER	*ptu = NULL;
 	DWORD		sz = 0, nlen, dlen;
-	wchar_t		name[MAX_NAME], dom[MAX_NAME];
+	TCHAR		name[MAX_NAME], dom[MAX_NAME];
 	int		iUse, res = FAIL;
 
 	/* clean result; */
@@ -85,10 +85,7 @@ int	PROC_NUM(AGENT_REQUEST *request, AGENT_RESULT *result)
 		uname[MAX_NAME];
 
 	if (2 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	procName = get_rparam(request, 0);
 	userName = get_rparam(request, 1);
@@ -304,20 +301,14 @@ int	PROC_INFO(AGENT_REQUEST *request, AGENT_RESULT *result)
 	int		counter, attr_id, type_id, ret = SYSINFO_RET_OK;
 
 	if (3 < request->nparam)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Too many parameters."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	proc_name = get_rparam(request, 0);
 	attr = get_rparam(request, 1);
 	type = get_rparam(request, 2);
 
 	if (NULL == proc_name || '\0' == *proc_name)
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid first parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	/* Get attribute code from string */
 	if (NULL == attr || '\0' == *attr)
@@ -332,10 +323,7 @@ int	PROC_INFO(AGENT_REQUEST *request, AGENT_RESULT *result)
 	}
 
 	if (NULL == attrList[attr_id])     /* Unsupported attribute */
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid second parameter."));
 		return SYSINFO_RET_FAIL;
-	}
 
 	/* Get type code from string */
 	if (NULL == type || '\0' == *type)
@@ -349,11 +337,8 @@ int	PROC_INFO(AGENT_REQUEST *request, AGENT_RESULT *result)
 			;
 	}
 
-	if (NULL == typeList[type_id])	/* Unsupported type */
-	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Invalid third parameter."));
-		return SYSINFO_RET_FAIL;
-	}
+	if (NULL == typeList[type_id])
+		return SYSINFO_RET_FAIL;     /* Unsupported type */
 
 	if (INVALID_HANDLE_VALUE == (hProcessSnap = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)))
 	{
@@ -413,8 +398,6 @@ int	PROC_INFO(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 	if (SYSINFO_RET_OK == ret)
 		SET_DBL_RESULT(result, value);
-	else
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain process information."));
 
 	return ret;
 }

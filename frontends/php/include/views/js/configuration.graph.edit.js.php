@@ -87,9 +87,7 @@
 
 	<!-- remove button -->
 	<td>
-		<button type="button" class="button link_menu" id="items_#{number}_remove" data-remove="#{number}" onclick="removeItem(this);">
-			<?php echo _('Remove') ?>
-		</button>
+		<input type="button" class="input link_menu" id="items_#{number}_remove" data-remove="#{number}" value="<?php echo CHtml::encode(_('Remove')); ?>" onclick="removeItem(this);" />
 	</td>
 </tr>
 </script>
@@ -172,10 +170,10 @@
 		var size = jQuery('#itemsTable tr.sortable').length;
 
 		for (var i = 0; i < size; i++) {
-			var nameLink = 'PopUp("popup.php?writeonly=1&numeric=1&dstfrm=graphForm'
+			var nameLink = 'PopUp("popup.php?writeonly=1&dstfrm=graphForm'
 				+ '&dstfld1=items_' + i + '_itemid&dstfld2=items_' + i + '_name'
 				+ (jQuery('#items_' + i + '_flags').val() == <?php echo ZBX_FLAG_DISCOVERY_PROTOTYPE; ?>
-					? '&srctbl=item_prototypes&parent_discoveryid=<?php echo $this->data['parent_discoveryid']; ?>'
+					? '&srctbl=prototypes&parent_discoveryid=<?php echo $this->data['parent_discoveryid']; ?>'
 						+ '&srcfld3=flags&dstfld3=items_' + i + '_flags'
 					: '&srctbl=items')
 				+ '<?php echo !empty($this->data['normal_only']) ? '&normal_only=1' : ''; ?>'
@@ -363,7 +361,7 @@
 		});
 
 		<?php if (!empty($this->data['templateid'])): ?>
-			$('#graphTab .input, #graphTab .button').each(function() {
+			$('#graphTab input, #graphTab select').each(function() {
 				$(this).attr('disabled', 'disabled');
 				$('#itemsTable').sortable({disabled: true});
 			});

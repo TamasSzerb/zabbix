@@ -52,9 +52,7 @@ CDate.prototype = {
 
 	/**
 	* Formats date according given format. Uses server timezone.
-	* Supported formats:	'd M Y H:i', 'j. M Y G:i', 'Y/m/d H:i', 'Y-m-d H:i', 'Y-m-d H:i:s', 'Y-m-d', 'H:i:s', 'H:i',
-	*						'M jS, Y h:i A', 'Y M d H:i', 'd.m.Y H:i' and 'd m Y H i'
-	*						Format 'd m Y H i' is also accepted but used internally for date input fields.
+	* Supported formats: 'd M Y H:i', 'j. M Y G:i', 'Y/m/d H:i', 'M jS, Y h:i A', 'Y M d H:i', 'd.m.Y H:i'
 	*
 	* @param format PHP style date format limited to supported formats
 	*
@@ -67,8 +65,16 @@ CDate.prototype = {
 			mnth = this.getMonth(),
 			yr = this.getFullYear(),
 			hrs = this.getHours(),
-			mnts = this.getMinutes(),
-			sec = this.getSeconds();
+			mnts = this.getMinutes();
+
+		/**
+		 * Transform datetime parts to two digits e.g., 2 becomes 02
+		 * @param int val
+		 * @return string
+		 */
+		var appZr = function(val) {
+			return val < 10 ? '0' + val : val;
+		}
 
 		/**
 		 * Append date suffix according to English rules e.g., 3 becomes 3rd
@@ -90,42 +96,22 @@ CDate.prototype = {
 
 		switch(format) {
 			case 'd M Y H:i':
-				return appendZero(dt) + ' ' + shortMn[mnth] + ' ' + yr + ' ' + appendZero(hrs) + ':' + appendZero(mnts);
+				return appZr(dt) + ' ' + shortMn[mnth] + ' ' + yr + ' ' + appZr(hrs) + ':' + appZr(mnts);
 			case 'j. M Y G:i':
-				return dt + '. ' + shortMn[mnth] + ' ' + yr + ' ' + hrs + ':' + appendZero(mnts);
+				return dt + '. ' + shortMn[mnth] + ' ' + yr + ' ' + hrs + ':' + appZr(mnts);
 			case 'Y/m/d H:i':
-				return yr + '/' + appendZero(mnth + 1) + '/' + appendZero(dt) + ' ' + appendZero(hrs) + ':' +
-					appendZero(mnts);
-			case 'Y-m-d H:i':
-				return yr + '-' + appendZero(mnth + 1) + '-' + appendZero(dt) + ' ' + appendZero(hrs) + ':' +
-					appendZero(mnts);
-			case 'Y-m-d':
-				return yr + '-' + appendZero(mnth + 1) + '-' + appendZero(dt);
-			case 'H:i:s':
-				return  appendZero(hrs) + ':' + appendZero(mnts) + ':' + appendZero(sec);
-			case 'H:i':
-				return  appendZero(hrs) + ':' + appendZero(mnts);
+				return yr + '/' + appZr(mnth + 1) + '/' + appZr(dt) + ' ' + appZr(hrs) + ':' + appZr(mnts);
 			case 'M jS, Y h:i A':
 				var ampm = (hrs < 12) ? 'AM' : 'PM';
-				hrs = appendZero((hrs + 11) % 12 + 1);
-				return shortMn[mnth] + ' ' + appSfx(dt) + ', ' + yr + ' ' + hrs + ':' + appendZero(mnts) + ' ' + ampm;
+				hrs = appZr((hrs + 11) % 12 + 1);
+				return shortMn[mnth] + ' ' + appSfx(dt) + ', ' + yr + ' ' + hrs + ':' + appZr(mnts) + ' ' + ampm;
 			case 'Y M d H:i':
-				return  yr + ' ' + shortMn[mnth] + ' ' +appendZero(dt) + ' ' + appendZero(hrs) + ':' + appendZero(mnts);
+				return  yr + ' ' + shortMn[mnth] + ' ' +appZr(dt) + ' ' + appZr(hrs) + ':' + appZr(mnts);
 			case 'd.m.Y H:i':
-				return appendZero(dt) + '.' + appendZero(mnth + 1) + '.' + yr + ' ' + appendZero(hrs) + ':' +
-					appendZero(mnts);
-			case 'd. m. Y H:i':
-				return appendZero(dt) + '. ' + appendZero(mnth + 1) + '. ' + yr + ' ' + appendZero(hrs) + ':' +
-					appendZero(mnts);
-			// date format used for date input fields
-			case 'd m Y H i':
-				return appendZero(dt) + ' ' + appendZero(mnth + 1) + ' ' + yr + ' ' + appendZero(hrs) + ' ' +
-					appendZero(mnts);
-			default:
-				// defaults to Y-m-d H:i:s
-				return yr + '-' + appendZero(mnth + 1) + '-' + appendZero(dt) + ' ' + appendZero(hrs) + ':' +
-					appendZero(mnts) + ':' + appendZero(sec);
+				return appZr(dt) + '.' + appZr(mnth + 1) + '.' + yr + ' ' + appZr(hrs) + ':' + appZr(mnts);
 		}
+
+		return false;
 	},
 
 	getZBXDate: function() {
@@ -288,5 +274,23 @@ CDate.prototype = {
 		this.calcTZdiff(arg);
 		this.serverDate.setTime(arg - this.tzDiff * 1000);
 		this.clientDate.setTime(arg);
+	},
+
+	debug: function(fnc_name, id) {
+		if (this.debug_status) {
+			var str = 'CDate.' + fnc_name;
+			if (typeof(id) != 'undefined') {
+				str += ' :' + id;
+			}
+			if (this.debug_prev == str) {
+				return true;
+			}
+
+			this.debug_info += str;
+			if (this.debug_status == 2) {
+				SDI(str);
+			}
+			this.debug_prev = str;
+		}
 	}
 }

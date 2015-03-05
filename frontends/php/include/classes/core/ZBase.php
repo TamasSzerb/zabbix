@@ -74,16 +74,6 @@ class ZBase {
 		$this->rootDir = $this->findRootDir();
 		$this->registerAutoloader();
 
-		// initialize API classes
-		$apiServiceFactory = new CApiServiceFactory();
-
-		$client = new CLocalApiClient();
-		$client->setServiceFactory($apiServiceFactory);
-		$wrapper = new CFrontendApiWrapper($client);
-		$wrapper->setProfiler(CProfiler::getInstance());
-		API::setWrapper($wrapper);
-		API::setApiServiceFactory($apiServiceFactory);
-
 		// system includes
 		require_once $this->getRootDir().'/include/debug.inc.php';
 		require_once $this->getRootDir().'/include/gettextwrapper.inc.php';
@@ -98,6 +88,7 @@ class ZBase {
 		require_once $this->getRootDir().'/include/profiles.inc.php';
 		require_once $this->getRootDir().'/include/locales.inc.php';
 		require_once $this->getRootDir().'/include/db.inc.php';
+		require_once $this->getRootDir().'/include/nodes.inc.php';
 
 		// page specific includes
 		require_once $this->getRootDir().'/include/acknow.inc.php';
@@ -133,37 +124,32 @@ class ZBase {
 			case self::EXEC_MODE_DEFAULT:
 				$this->loadConfigFile();
 				$this->initDB();
+				$this->initNodes();
 				$this->authenticateUser();
+				// init nodes after user is authenticated
+				init_nodes();
 				$this->initLocales();
 				break;
-
 			case self::EXEC_MODE_API:
 				$this->loadConfigFile();
 				$this->initDB();
+				$this->initNodes();
 				$this->initLocales();
 				break;
-
 			case self::EXEC_MODE_SETUP:
 				try {
 					// try to load config file, if it exists we need to init db and authenticate user to check permissions
 					$this->loadConfigFile();
 					$this->initDB();
+					$this->initNodes();
 					$this->authenticateUser();
+					// init nodes after user is authenticated
+					init_nodes();
 					$this->initLocales();
 					DBclose();
 				}
 				catch (ConfigFileException $e) {}
 				break;
-		}
-
-		// new MVC processing, otherwise we continue execution old style
-		if (hasRequest('action')) {
-			$router = new CRouter(getRequest('action'));
-			if ($router->getController() <> null) {
-				CProfiler::getInstance()->start();
-				$this->processRequest();
-				exit;
-			}
 		}
 	}
 
@@ -200,13 +186,9 @@ class ZBase {
 	 */
 	private function getIncludePaths() {
 		return array(
+			$this->rootDir.'/include/classes',
 			$this->rootDir.'/include/classes/core',
-			$this->rootDir.'/include/classes/mvc',
 			$this->rootDir.'/include/classes/api',
-			$this->rootDir.'/include/classes/api/services',
-			$this->rootDir.'/include/classes/api/managers',
-			$this->rootDir.'/include/classes/api/clients',
-			$this->rootDir.'/include/classes/api/wrappers',
 			$this->rootDir.'/include/classes/db',
 			$this->rootDir.'/include/classes/debug',
 			$this->rootDir.'/include/classes/validators',
@@ -226,31 +208,18 @@ class ZBase {
 			$this->rootDir.'/include/classes/import/readers',
 			$this->rootDir.'/include/classes/import/formatters',
 			$this->rootDir.'/include/classes/items',
-			$this->rootDir.'/include/classes/triggers',
 			$this->rootDir.'/include/classes/server',
 			$this->rootDir.'/include/classes/screens',
-			$this->rootDir.'/include/classes/services',
 			$this->rootDir.'/include/classes/sysmaps',
 			$this->rootDir.'/include/classes/helpers',
 			$this->rootDir.'/include/classes/helpers/trigger',
 			$this->rootDir.'/include/classes/macros',
 			$this->rootDir.'/include/classes/tree',
 			$this->rootDir.'/include/classes/html',
-			$this->rootDir.'/include/classes/html/pageheader',
-			$this->rootDir.'/include/classes/html/widget',
-			$this->rootDir.'/include/classes/html/interfaces',
 			$this->rootDir.'/include/classes/parsers',
-			$this->rootDir.'/include/classes/parsers/results',
-			$this->rootDir.'/include/classes/controllers',
-			$this->rootDir.'/include/classes/routing',
-			$this->rootDir.'/include/classes/json',
-			$this->rootDir.'/include/classes/user',
-			$this->rootDir.'/include/classes/setup',
-			$this->rootDir.'/include/classes/regexp',
-			$this->rootDir.'/include/classes/ldap',
-			$this->rootDir.'/include/classes/pagefilter',
-			$this->rootDir.'/local/app/controllers',
-			$this->rootDir.'/app/controllers'
+			$this->rootDir.'/api/classes',
+			$this->rootDir.'/api/classes/managers',
+			$this->rootDir.'/api/rpc'
 		);
 	}
 
@@ -337,6 +306,23 @@ class ZBase {
 	}
 
 	/**
+	 * Check if distributed monitoring is enabled.
+	 */
+	protected function initNodes() {
+		global $ZBX_LOCALNODEID, $ZBX_LOCMASTERID, $ZBX_NODES;
+
+		if ($local_node_data = DBfetch(DBselect('SELECT n.* FROM nodes n WHERE n.nodetype=1 ORDER BY n.nodeid'))) {
+			$ZBX_LOCALNODEID = $local_node_data['nodeid'];
+			$ZBX_LOCMASTERID = $local_node_data['masterid'];
+			$ZBX_NODES[$local_node_data['nodeid']] = $local_node_data;
+			define('ZBX_DISTRIBUTED', true);
+		}
+		else {
+			define('ZBX_DISTRIBUTED', false);
+		}
+	}
+
+	/**
 	 * Initialize translations.
 	 */
 	protected function initLocales() {
@@ -390,83 +376,8 @@ class ZBase {
 	 * Authenticate user.
 	 */
 	protected function authenticateUser() {
-		$sessionId = CWebUser::checkAuthentication(CWebUser::getSessionCookie());
-
-		if (!$sessionId) {
+		if (!CWebUser::checkAuthentication(get_cookie('zbx_sessionid'))) {
 			CWebUser::setDefault();
-		}
-
-		// set the authentication token for the API
-		API::getWrapper()->auth = $sessionId;
-
-		// enable debug mode in the API
-		API::getWrapper()->debug = CWebUser::getDebugMode();
-	}
-
-	/**
-	 * Process request and generate response. Main entry for all processing.
-	 */
-	private function processRequest() {
-		$router = new CRouter(getRequest('action'));
-
-		$controller = $router->getController();
-
-		$controller = new $controller();
-		$controller->setAction($router->getAction());
-		$response = $controller->run();
-
-		// Controller returned data
-		if ($response instanceof CControllerResponseData) {
-			// if no view defined we pass data directly to layout
-			if ($router->getView() === null) {
-				$layout = new CView($router->getLayout(), $response->getData());
-				echo $layout->getOutput();
-			}
-			else {
-				$view = new CView($router->getView(), $response->getData());
-				$data['page']['title'] = $response->getTitle();
-				$data['controller']['action'] = $router->getAction();
-				$data['main_block'] = $view->getOutput();
-				$data['fullscreen'] = isset($_REQUEST['fullscreen']) && $_REQUEST['fullscreen'] == 1 ? 1 : 0;
-				$data['javascript']['files'] = $view->getAddedJS();
-				$data['javascript']['pre'] = $view->getIncludedJS();
-				$data['javascript']['post'] = $view->getPostJS();
-				$layout = new CView($router->getLayout(), $data);
-				echo $layout->getOutput();
-			}
-		}
-		// Controller returned redirect to another page
-		else if ($response instanceof CControllerResponseRedirect) {
-			header('Content-Type: text/html; charset=UTF-8');
-			if ($response->getMessageOk() !== null) {
-				$_SESSION['messageOk'] = $response->getMessageOk();
-			}
-			if ($response->getMessageError() !== null) {
-				$_SESSION['messageError'] = $response->getMessageError();
-			}
-			global $ZBX_MESSAGES;
-			if (isset($ZBX_MESSAGES)) {
-				$_SESSION['messages'] = $ZBX_MESSAGES;
-			}
-			if ($response->getFormData() !== null) {
-				$_SESSION['formData'] = $response->getFormData();
-			}
-
-			redirect($response->getLocation());
-		}
-		// Controller returned fatal error
-		else if ($response instanceof CControllerResponseFatal) {
-			header('Content-Type: text/html; charset=UTF-8');
-			$response->addMessage('Controller: '.$router->getAction());
-			ksort($_REQUEST);
-			foreach ($_REQUEST as $key => $value) {
-				// do not output SID
-				if ($key != 'sid') {
-					$response->addMessage($key.': '.$value);
-				}
-			}
-			$_SESSION['messages'] = $response->getMessages();
-			redirect('zabbix.php?action=system.warning');
 		}
 	}
 }

@@ -28,6 +28,7 @@ $discoveryWidget->addPageHeader(_('CONFIGURATION OF DISCOVERY RULES'));
 $discoveryForm = new CForm();
 $discoveryForm->setName('discoveryForm');
 $discoveryForm->addVar('form', $this->data['form']);
+$discoveryForm->addVar('form_refresh', $this->data['form_refresh'] + 1);
 if (!empty($this->data['druleid'])) {
 	$discoveryForm->addVar('druleid', $this->data['druleid']);
 }
@@ -81,23 +82,18 @@ $discoveryTabs->addTab('druleTab', _('Discovery rule'), $discoveryFormList);
 $discoveryForm->addItem($discoveryTabs);
 
 // append buttons to form
-if (isset($this->data['druleid']))
-{
-	$discoveryForm->addItem(makeFormFooter(
-		new CSubmit('update', _('Update')),
-		array(
-			new CSubmit('clone', _('Clone')),
-			new CButtonDelete(_('Delete discovery rule?'), url_param('form').url_param('druleid')),
-			new CButtonCancel()
-		)
-	));
+$deleteButton = new CButtonDelete(_('Delete discovery rule?'), url_param('form').url_param('druleid'));
+if (empty($this->data['druleid'])) {
+	$deleteButton->setAttribute('disabled', 'disabled');
 }
-else {
-	$discoveryForm->addItem(makeFormFooter(
-		new CSubmit('add', _('Add')),
-		array(new CButtonCancel())
-	));
-}
+$discoveryForm->addItem(makeFormFooter(
+	new CSubmit('save', _('Save')),
+	array(
+		new CSubmit('clone', _('Clone')),
+		$deleteButton,
+		new CButtonCancel()
+	)
+));
 
 $discoveryWidget->addItem($discoveryForm);
 

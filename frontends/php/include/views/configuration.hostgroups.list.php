@@ -43,17 +43,25 @@ $hostGroupWidget->addHeaderRowNumber();
 $hostGroupForm = new CForm();
 $hostGroupForm->setName('hostgroupForm');
 
+// if any of the groups are about to be deleted, show the status column
+$showStatus = false;
+foreach ($this->data['groups'] as $hostGroup) {
+	if ($hostGroup['groupDiscovery'] && $hostGroup['groupDiscovery']['ts_delete']) {
+		$showStatus = true;
+		break;
+	}
+}
+
 // create table
 $hostGroupTable = new CTableInfo(_('No host groups found.'));
 $hostGroupTable->setHeader(array(
 	new CCheckBox('all_groups', null, "checkAll('".$hostGroupForm->getName()."', 'all_groups', 'groups');"),
-	make_sorting_header(_('Name'), 'name', $this->data['sort'], $this->data['sortorder']),
+	$this->data['displayNodes'] ? _('Node') : null,
+	make_sorting_header(_('Name'), 'name'),
 	' # ',
 	_('Members'),
-	_('Info')
+	($showStatus) ? _('Status') : null
 ));
-
-$currentTime = time();
 
 foreach ($this->data['groups'] as $group) {
 	$hostsOutput = array();
@@ -63,56 +71,49 @@ foreach ($this->data['groups'] as $group) {
 		$i++;
 
 		if ($i > $this->data['config']['max_in_table']) {
-			$hostsOutput[] = ' &hellip;';
-
+			$hostsOutput[] = '...';
+			$hostsOutput[] = '//empty for array_pop';
 			break;
 		}
 
 		$url = 'templates.php?form=update&templateid='.$template['templateid'].'&groupid='.$group['groupid'];
 
-		if ($i > 1) {
-			$hostsOutput[] = ', ';
-		}
-
 		$hostsOutput[] = new CLink($template['name'], $url, 'unknown');
+		$hostsOutput[] = ', ';
 	}
 
-	if ($group['hosts'] && $i < $this->data['config']['max_in_table']) {
-		if ($hostsOutput) {
-			$hostsOutput[] = BR();
-			$hostsOutput[] = BR();
+	if ($hostsOutput) {
+		array_pop($hostsOutput);
+
+		$hostsOutput[] = BR();
+		$hostsOutput[] = BR();
+	}
+
+	foreach ($group['hosts'] as $host) {
+		$i++;
+
+		if ($i > $this->data['config']['max_in_table']) {
+			$hostsOutput[] = '...';
+			$hostsOutput[] = '//empty for array_pop';
+			break;
 		}
 
-		$n = 0;
-
-		foreach ($group['hosts'] as $host) {
-			$i++;
-			$n++;
-
-			if ($i > $this->data['config']['max_in_table']) {
-				$hostsOutput[] = ' &hellip;';
-
+		switch ($host['status']) {
+			case HOST_STATUS_NOT_MONITORED:
+				$style = 'on';
+				$url = 'hosts.php?form=update&hostid='.$host['hostid'].'&groupid='.$group['groupid'];
 				break;
-			}
 
-			switch ($host['status']) {
-				case HOST_STATUS_NOT_MONITORED:
-					$style = 'on';
-					$url = 'hosts.php?form=update&hostid='.$host['hostid'].'&groupid='.$group['groupid'];
-					break;
-
-				default:
-					$style = null;
-					$url = 'hosts.php?form=update&hostid='.$host['hostid'].'&groupid='.$group['groupid'];
-			}
-
-			if ($n > 1) {
-				$hostsOutput[] = ', ';
-			}
-
-			$hostsOutput[] = new CLink($host['name'], $url, $style);
+			default:
+				$style = null;
+				$url = 'hosts.php?form=update&hostid='.$host['hostid'].'&groupid='.$group['groupid'];
+			break;
 		}
+
+		$hostsOutput[] = new CLink($host['name'], $url, $style);
+		$hostsOutput[] = ', ';
 	}
+	array_pop($hostsOutput);
 
 	$hostCount = $this->data['groupCounts'][$group['groupid']]['hosts'];
 	$templateCount = $this->data['groupCounts'][$group['groupid']]['templates'];
@@ -125,31 +126,25 @@ foreach ($this->data['groups'] as $group) {
 	}
 	$name[] = new CLink($group['name'], 'hostgroups.php?form=update&groupid='.$group['groupid']);
 
-	// info, discovered item lifetime indicator
-	if ($group['flags'] == ZBX_FLAG_DISCOVERY_CREATED && $group['groupDiscovery']['ts_delete']) {
-		$info = new CDiv(SPACE, 'status_icon iconwarning');
+	// status
+	if ($showStatus) {
+		$status = array();
 
-		// Check if host group should've been deleted in the past.
-		if ($currentTime > $group['groupDiscovery']['ts_delete']) {
-			$info->setHint(_s(
-				'The host group is not discovered anymore and will be deleted the next time discovery rule is processed.'
-			));
+		// discovered item lifetime indicator
+		if ($group['flags'] == ZBX_FLAG_DISCOVERY_CREATED && $group['groupDiscovery']['ts_delete']) {
+			$deleteError = new CDiv(SPACE, 'status_icon iconwarning');
+			$deleteError->setHint(
+				_s('The host group is not discovered anymore and will be deleted in %1$s (on %2$s at %3$s).',
+					zbx_date2age($group['groupDiscovery']['ts_delete']), zbx_date2str(_('d M Y'), $group['groupDiscovery']['ts_delete']),
+					zbx_date2str(_('H:i:s'), $group['groupDiscovery']['ts_delete'])
+				));
+			$status[] = $deleteError;
 		}
-		else {
-			$info->setHint(_s(
-				'The host group is not discovered anymore and will be deleted in %1$s (on %2$s at %3$s).',
-				zbx_date2age($group['groupDiscovery']['ts_delete']),
-				zbx_date2str(DATE_FORMAT, $group['groupDiscovery']['ts_delete']),
-				zbx_date2str(TIME_FORMAT, $group['groupDiscovery']['ts_delete'])
-			));
-		}
-	}
-	else {
-		$info = '';
 	}
 
 	$hostGroupTable->addRow(array(
 		new CCheckBox('groups['.$group['groupid'].']', null, null, $group['groupid']),
+		$this->data['displayNodes'] ? $group['nodename'] : null,
 		$name,
 		array(
 			array(new CLink(_('Templates'), 'templates.php?groupid='.$group['groupid'], 'unknown'), ' ('.$templateCount.')'),
@@ -157,23 +152,27 @@ foreach ($this->data['groups'] as $group) {
 			array(new CLink(_('Hosts'), 'hosts.php?groupid='.$group['groupid']), ' ('.$hostCount.')')
 		),
 		new CCol(empty($hostsOutput) ? '-' : $hostsOutput, 'wraptext'),
-		$info
+		($showStatus) ? $status : null
 	));
 }
 
+// create go button
+$goComboBox = new CComboBox('go');
+$goOption = new CComboItem('activate', _('Enable selected'));
+$goOption->setAttribute('confirm', _('Enable selected hosts?'));
+$goComboBox->addItem($goOption);
+$goOption = new CComboItem('disable', _('Disable selected'));
+$goOption->setAttribute('confirm', _('Disable hosts in the selected host groups?'));
+$goComboBox->addItem($goOption);
+$goOption = new CComboItem('delete', _('Delete selected'));
+$goOption->setAttribute('confirm', _('Delete selected host groups?'));
+$goComboBox->addItem($goOption);
+$goButton = new CSubmit('goButton', _('Go').' (0)');
+$goButton->setAttribute('id', 'goButton');
+zbx_add_post_js('chkbxRange.pageGoName = "groups";');
+
 // append table to form
-$hostGroupForm->addItem(array(
-	$this->data['paging'],
-	$hostGroupTable,
-	$this->data['paging'],
-	get_table_header(new CActionButtonList('action', 'groups', array(
-		'hostgroup.massenable' => array('name' => _('Enable hosts'), 'confirm' => _('Enable selected hosts?')),
-		'hostgroup.massdisable' => array('name' => _('Disable hosts'),
-			'confirm' => _('Disable hosts in the selected host groups?')
-		),
-		'hostgroup.massdelete' => array('name' => _('Delete'), 'confirm' => _('Delete selected host groups?'))
-	)))
-));
+$hostGroupForm->addItem(array($this->data['paging'], $hostGroupTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));
 
 // append form to widget
 $hostGroupWidget->addItem($hostGroupForm);

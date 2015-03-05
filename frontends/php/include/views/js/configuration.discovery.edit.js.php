@@ -4,14 +4,12 @@
 			<span class="bold">#{name}</span>
 		</td>
 		<td>
-			<button type="button" class="button link_menu" onclick="javascript: showNewCheckForm(null, null, '#{dcheckid}');">
-				<?php echo _('Edit'); ?>
-			</button>
+			<input type="button" class="input link_menu" name="edit" value="<?php echo CHtml::encode(_('Edit')); ?>"
+				onclick="javascript: showNewCheckForm(null, null, '#{dcheckid}');" />
 		</td>
 		<td>
-			<button type="button" class="button link_menu" onclick="javascript: removeDCheckRow('#{dcheckid}');">
-				<?php echo _('Remove'); ?>
-			</button>
+			<input type="button" class="input link_menu" name="remove" value="<?php echo CHtml::encode(_('Remove')); ?>"
+				onclick="javascript: removeDCheckRow('#{dcheckid}');" />
 		</td>
 	</tr>
 </script>
@@ -72,7 +70,7 @@
 				<tr id="newCheckAuthProtocolRow" class="hidden">
 					<td><label for="snmpv3_authprotocol"><?php echo _('Authentication protocol'); ?></label></td>
 					<td>
-						<div class="jqueryinputset radioset">
+						<div class="jqueryinputset">
 							<input name="snmpv3_authprotocol" id="snmpv3_authprotocol_0" type="radio" checked="checked"
 								value="<?php echo ITEM_AUTHPROTOCOL_MD5; ?>" />
 							<input name="snmpv3_authprotocol" id="snmpv3_authprotocol_1" type="radio"
@@ -89,7 +87,7 @@
 				<tr id="newCheckPrivProtocolRow" class="hidden">
 					<td><label for="snmpv3_authprotocol"><?php echo _('Authentication protocol'); ?></label></td>
 					<td>
-						<div class="jqueryinputset radioset">
+						<div class="jqueryinputset">
 							<input name="snmpv3_privprotocol" id="snmpv3_privprotocol_0" type="radio" checked="checked"
 								value="<?php echo ITEM_PRIVPROTOCOL_DES; ?>" />
 							<input name="snmpv3_privprotocol" id="snmpv3_privprotocol_1" type="radio"
@@ -108,14 +106,12 @@
 			<table class="formElementTable">
 				<tr>
 					<td>
-						<button type="button" id="add_new_dcheck" name="add_new_dcheck" class="button link_menu">
-							<?php echo _('Add') ?>
-						</button>
+						<input type="button" id="add_new_dcheck" name="add_new_dcheck" class="input button link_menu"
+							value="<?php echo CHtml::encode(_('Add')); ?>" />
 					</td>
 					<td>
-						<button type="button" id="cancel_new_dcheck" name="cancel_new_dcheck" class="button link_menu">
-							<?php echo _('Cancel') ?>
-						</button>
+						<input type="button" id="cancel_new_dcheck" name="cancel_new_dcheck" class="input button link_menu"
+							value="<?php echo CHtml::encode(_('Cancel')); ?>" />
 					</td>
 				</tr>
 			</table>
@@ -207,9 +203,6 @@
 		}
 	}
 
-	/**
-	 * @see init.js add.popup event
-	 */
 	function addPopupValues(list) {
 		// templates
 		var dcheckRowTpl = new Template(jQuery('#dcheckRowTPL').html()),
@@ -324,10 +317,6 @@
 
 			jQuery('#uniqueness_criteria_row_' + dcheckid).remove();
 		}
-
-		if (IE8) {
-			jQuery('#dcheckList').find('table').addClass('ie8fix-inline').removeClass('ie8fix-inline');
-		}
 	}
 
 	function showNewCheckForm(e, dcheckType, dcheckId) {
@@ -356,7 +345,7 @@
 
 			// rename button to "update"
 			if (isUpdate) {
-				jQuery('#add_new_dcheck').text(<?php echo CJs::encodeJson(_('Update')); ?>);
+				jQuery('#add_new_dcheck').val(<?php echo CJs::encodeJson(_('Update')); ?>);
 			}
 
 			// button "remove" form
@@ -402,9 +391,9 @@
 					var radioObj = jQuery('input[name=' + name + ']');
 
 					if (radioObj.attr('type') == 'radio') {
-						radioObj.prop('checked', false);
+						radioObj.removeAttr('checked');
 
-						jQuery('#' + name + '_' + itemObj.val()).prop('checked', true);
+						jQuery('#' + name + '_' + itemObj.val()).attr('checked', 'checked');
 					}
 				}
 			});
@@ -509,10 +498,6 @@
 		}
 		if (showPrivProtocol) {
 			jQuery('#newCheckPrivProtocolRow .jqueryinputset').buttonset();
-		}
-
-		if (IE8) {
-			jQuery('#type').closest('li').addClass('ie8fix-inline').removeClass('ie8fix-inline');
 		}
 	}
 
@@ -653,7 +638,7 @@
 	}
 
 	function selectUniquenessCriteriaDefault() {
-		jQuery('#uniqueness_criteria_ip').prop('checked', true);
+		jQuery('#uniqueness_criteria_ip').attr('checked', 'checked');
 	}
 
 	jQuery(document).ready(function() {
@@ -663,8 +648,6 @@
 
 		jQuery('#newCheck').click(showNewCheckForm);
 		jQuery('#clone').click(function() {
-			jQuery('#update').button('option', 'label', <?php echo CJs::encodeJson(_('Add')); ?>)
-				.attr({id: 'add', name: 'add'});
 			jQuery('#druleid, #delete, #clone').remove();
 			jQuery('#cancel').addClass('ui-corner-left');
 			jQuery('#form').val('clone');

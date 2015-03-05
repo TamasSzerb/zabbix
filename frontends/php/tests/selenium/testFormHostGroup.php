@@ -47,7 +47,7 @@ class testFormHostGroup extends CWebTest {
 		$this->assertAttribute("//select[@id='hosts_right']/@size", 25);
 		$this->assertAttribute("//select[@id='hosts_right']/@style", 'width: 280px;');
 
-		$this->assertElementPresent('add');
+		$this->assertElementPresent('save');
 		$this->assertElementNotPresent('clone');
 		$this->assertElementNotPresent('delete');
 		$this->assertElementPresent('cancel');
@@ -58,7 +58,7 @@ class testFormHostGroup extends CWebTest {
 		$this->zbxTestLogin('hostgroups.php');
 		$this->zbxTestClickWait('form');
 
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('ERROR: Page received incorrect data');
 		$this->zbxTestTextPresent('Incorrect value for field "name": cannot be empty.');
 	}
@@ -68,7 +68,7 @@ class testFormHostGroup extends CWebTest {
 		$this->zbxTestClickWait('form');
 
 		$this->input_type('name', $this->hostGroup);
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Group added');
 	}
 
@@ -77,7 +77,7 @@ class testFormHostGroup extends CWebTest {
 		$this->zbxTestClickWait('form');
 
 		$this->input_type('name', $this->hostGroup);
-		$this->zbxTestClickWait('add');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('ERROR: Cannot add group');
 		$this->zbxTestTextPresent('Host group "'.$this->hostGroup.'" already exists.');
 	}
@@ -87,7 +87,7 @@ class testFormHostGroup extends CWebTest {
 		$this->zbxTestClickWait('link='.$this->hostGroup);
 
 		$this->input_type('name', '');
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('ERROR: Page received incorrect data');
 		$this->zbxTestTextPresent('Incorrect value for field "name": cannot be empty.');
 	}
@@ -102,7 +102,7 @@ class testFormHostGroup extends CWebTest {
 		$this->zbxTestClickWait('link='.$this->hostGroup);
 
 		$this->input_type('name', $hostGroup['name']);
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('ERROR: Cannot update group');
 		$this->zbxTestTextPresent('Host group "'.$hostGroup['name'].'" already exists.');
 	}
@@ -112,7 +112,7 @@ class testFormHostGroup extends CWebTest {
 		$this->zbxTestClickWait('link='.$this->hostGroup);
 
 		$this->input_type('name', $this->hostGroup.' 2');
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestTextPresent('Group updated');
 	}
 

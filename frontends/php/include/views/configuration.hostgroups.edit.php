@@ -53,7 +53,7 @@ foreach ($this->data['db_hosts'] as $host) {
 	}
 }
 foreach ($this->data['r_hosts'] as $host) {
-	if ($host['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) {
+	if (isset($this->data['r_hosts'][$host['hostid']]) && $host['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) {
 		$hostsComboBox->addItem($host['hostid'], $host['name']);
 	}
 	else {
@@ -68,25 +68,24 @@ $hostGroupTab->addTab('hostgroupTab', _('Host group'), $hostGroupFormList);
 $hostGroupForm->addItem($hostGroupTab);
 
 // append buttons to form
-if ($this->data['groupid'] == 0) {
+if (empty($this->data['groupid'])) {
 	$hostGroupForm->addItem(makeFormFooter(
-		new CSubmit('add', _('Add')),
-		array(new CButtonCancel())
+		new CSubmit('save', _('Save')),
+		new CButtonCancel()
 	));
 }
 else {
 	$deleteButton = new CButtonDelete(_('Delete selected group?'), url_param('form').url_param('groupid'));
-	if (!isset($this->data['deletableHostGroups'][$this->data['groupid']])) {
+	if (empty($this->data['deletableHostGroups'])) {
 		$deleteButton->attr('disabled', 'disabled');
 	}
 
 	$hostGroupForm->addItem(makeFormFooter(
-		new CSubmit('update', _('Update')),
+		new CSubmit('save', _('Save')),
 		array(
 			new CSubmit('clone', _('Clone')),
 			$deleteButton,
-			new CButtonCancel()
-		)
+			new CButtonCancel())
 	));
 }
 

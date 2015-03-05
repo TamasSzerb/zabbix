@@ -17,8 +17,8 @@
 ** along with this program; if not, write to the Free Software
 ** Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 **/
-
-
+?>
+<?php
 $triggersWidget = new CWidget();
 
 // append host summary to widget header
@@ -36,24 +36,23 @@ $triggersForm = new CForm();
 $triggersForm->setName('triggersForm');
 $triggersForm->addVar($this->data['elements_field'], $this->data['elements']);
 $triggersForm->addVar('hostid', $this->data['hostid']);
-$triggersForm->addVar('action', $this->data['action']);
+$triggersForm->addVar('go', 'copy_to');
 
 // create form list
 $triggersFormList = new CFormList('triggersFormList');
 
 // append copy types to form list
 $copyTypeComboBox = new CComboBox('copy_type', $this->data['copy_type'], 'submit()');
-$copyTypeComboBox->addItem(COPY_TYPE_TO_HOST, _('Hosts'));
-$copyTypeComboBox->addItem(COPY_TYPE_TO_TEMPLATE, _('Templates'));
-$copyTypeComboBox->addItem(COPY_TYPE_TO_HOST_GROUP, _('Host groups'));
+$copyTypeComboBox->addItem(0, _('Hosts'));
+$copyTypeComboBox->addItem(1, _('Host groups'));
 $triggersFormList->addRow(_('Target type'), $copyTypeComboBox);
 
 // append groups to form list
-if ($this->data['copy_type'] == COPY_TYPE_TO_HOST || $this->data['copy_type'] == COPY_TYPE_TO_TEMPLATE) {
-	$groupComboBox = new CComboBox('copy_groupid', $this->data['copy_groupid'], 'submit()');
+if ($this->data['copy_type'] == 0) {
+	$groupComboBox = new CComboBox('filter_groupid', $this->data['filter_groupid'], 'submit()');
 	foreach ($this->data['groups'] as $group) {
-		if (empty($this->data['copy_groupid'])) {
-			$this->data['copy_groupid'] = $group['groupid'];
+		if (empty($this->data['filter_groupid'])) {
+			$this->data['filter_groupid'] = $group['groupid'];
 		}
 		$groupComboBox->addItem($group['groupid'], $group['name']);
 	}
@@ -62,7 +61,7 @@ if ($this->data['copy_type'] == COPY_TYPE_TO_HOST || $this->data['copy_type'] ==
 
 // append targets to form list
 $targets = array();
-if ($this->data['copy_type'] == COPY_TYPE_TO_HOST) {
+if ($this->data['copy_type'] == 0) {
 	foreach ($this->data['hosts'] as $host) {
 		array_push(
 			$targets,
@@ -74,19 +73,8 @@ if ($this->data['copy_type'] == COPY_TYPE_TO_HOST) {
 			)
 		);
 	}
-} elseif ($this->data['copy_type'] == COPY_TYPE_TO_TEMPLATE) {
-	foreach ($this->data['templates'] as $template) {
-		array_push(
-			$targets,
-			array(
-				new CCheckBox('copy_targetid['.$template['templateid'].']', uint_in_array($template['templateid'], $this->data['copy_targetid']), null, $template['templateid']),
-				SPACE,
-				$template['name'],
-				BR()
-			)
-		);
-	}
-} else {
+}
+else {
 	foreach ($this->data['groups'] as $group) {
 		array_push(
 			$targets,
@@ -106,19 +94,15 @@ $triggersFormList->addRow(_('Target'), $targets);
 
 // append tabs to form
 $triggersTab = new CTabView();
-
-$triggersTab->addTab('triggersTab',
-	_n('Copy %1$s element to...', 'Copy %1$s elements to...', count($this->data['elements'])),
-	$triggersFormList
-);
+$triggersTab->addTab('triggersTab', count($this->data['elements']).SPACE._('elements copy to ...'), $triggersFormList);
 $triggersForm->addItem($triggersTab);
 
 // append buttons to form
 $triggersForm->addItem(makeFormFooter(
 	new CSubmit('copy', _('Copy')),
-	array(new CButtonCancel(url_param('groupid').url_param('hostid')))
+	new CButtonCancel(url_param('groupid').url_param('hostid').url_param('config'))
 ));
 
 $triggersWidget->addItem($triggersForm);
-
 return $triggersWidget;
+?>

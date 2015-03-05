@@ -26,6 +26,7 @@ typedef int	(*vmfunc_t)(AGENT_REQUEST *, const char *, const char *, AGENT_RESUL
 
 #define ZBX_VMWARE_PREFIX	"vmware."
 
+
 typedef struct
 {
 	const char	*key;
@@ -34,9 +35,9 @@ typedef struct
 zbx_vmcheck_t;
 
 #if defined(HAVE_LIBXML2) && defined(HAVE_LIBCURL)
-#	define VMCHECK_FUNC(func)	func
+# define VMCHECK_FUNC(func)	func
 #else
-#	define VMCHECK_FUNC(func)	NULL
+# define VMCHECK_FUNC(func)	NULL
 #endif
 
 static zbx_vmcheck_t	vmchecks[] =
@@ -49,9 +50,6 @@ static zbx_vmcheck_t	vmchecks[] =
 
 	{"hv.cluster.name", VMCHECK_FUNC(check_vcenter_hv_cluster_name)},
 	{"hv.cpu.usage", VMCHECK_FUNC(check_vcenter_hv_cpu_usage)},
-	{"hv.datastore.discovery", VMCHECK_FUNC(check_vcenter_hv_datastore_discovery)},
-	{"hv.datastore.read", VMCHECK_FUNC(check_vcenter_hv_datastore_read)},
-	{"hv.datastore.write", VMCHECK_FUNC(check_vcenter_hv_datastore_write)},
 	{"hv.discovery", VMCHECK_FUNC(check_vcenter_hv_discovery)},
 	{"hv.fullname", VMCHECK_FUNC(check_vcenter_hv_fullname)},
 	{"hv.hw.cpu.num", VMCHECK_FUNC(check_vcenter_hv_hw_cpu_num)},
@@ -64,17 +62,19 @@ static zbx_vmcheck_t	vmchecks[] =
 	{"hv.hw.vendor", VMCHECK_FUNC(check_vcenter_hv_hw_vendor)},
 	{"hv.memory.size.ballooned", VMCHECK_FUNC(check_vcenter_hv_memory_size_ballooned)},
 	{"hv.memory.used", VMCHECK_FUNC(check_vcenter_hv_memory_used)},
-	{"hv.network.in", VMCHECK_FUNC(check_vcenter_hv_network_in)},
-	{"hv.network.out", VMCHECK_FUNC(check_vcenter_hv_network_out)},
-	{"hv.perfcounter", VMCHECK_FUNC(check_vcenter_hv_perfcounter)},
 	{"hv.status", VMCHECK_FUNC(check_vcenter_hv_status)},
 	{"hv.uptime", VMCHECK_FUNC(check_vcenter_hv_uptime)},
 	{"hv.version", VMCHECK_FUNC(check_vcenter_hv_version)},
 	{"hv.vm.num", VMCHECK_FUNC(check_vcenter_hv_vm_num)},
+	{"hv.network.in", VMCHECK_FUNC(check_vcenter_hv_network_in)},
+	{"hv.network.out", VMCHECK_FUNC(check_vcenter_hv_network_out)},
+	{"hv.datastore.discovery", VMCHECK_FUNC(check_vcenter_hv_datastore_discovery)},
+	{"hv.datastore.read", VMCHECK_FUNC(check_vcenter_hv_datastore_read)},
+	{"hv.datastore.write", VMCHECK_FUNC(check_vcenter_hv_datastore_write)},
+	{"hv.perfcounter", VMCHECK_FUNC(check_vcenter_hv_perfcounter)},
 
 	{"vm.cluster.name", VMCHECK_FUNC(check_vcenter_vm_cluster_name)},
 	{"vm.cpu.num", VMCHECK_FUNC(check_vcenter_vm_cpu_num)},
-	{"vm.cpu.ready", VMCHECK_FUNC(check_vcenter_vm_cpu_ready)},
 	{"vm.cpu.usage", VMCHECK_FUNC(check_vcenter_vm_cpu_usage)},
 	{"vm.discovery", VMCHECK_FUNC(check_vcenter_vm_discovery)},
 	{"vm.hv.name", VMCHECK_FUNC(check_vcenter_vm_hv_name)},
@@ -89,7 +89,6 @@ static zbx_vmcheck_t	vmchecks[] =
 	{"vm.net.if.discovery", VMCHECK_FUNC(check_vcenter_vm_net_if_discovery)},
 	{"vm.net.if.in", VMCHECK_FUNC(check_vcenter_vm_net_if_in)},
 	{"vm.net.if.out", VMCHECK_FUNC(check_vcenter_vm_net_if_out)},
-	{"vm.perfcounter", VMCHECK_FUNC(check_vcenter_vm_perfcounter)},
 	{"vm.powerstate", VMCHECK_FUNC(check_vcenter_vm_powerstate)},
 	{"vm.storage.committed", VMCHECK_FUNC(check_vcenter_vm_storage_committed)},
 	{"vm.storage.unshared", VMCHECK_FUNC(check_vcenter_vm_storage_unshared)},
@@ -100,6 +99,7 @@ static zbx_vmcheck_t	vmchecks[] =
 	{"vm.vfs.dev.write", VMCHECK_FUNC(check_vcenter_vm_vfs_dev_write)},
 	{"vm.vfs.fs.discovery", VMCHECK_FUNC(check_vcenter_vm_vfs_fs_discovery)},
 	{"vm.vfs.fs.size", VMCHECK_FUNC(check_vcenter_vm_vfs_fs_size)},
+	{"vm.perfcounter", VMCHECK_FUNC(check_vcenter_vm_perfcounter)},
 
 	{NULL, NULL}
 };
@@ -121,12 +121,12 @@ static int	get_vmware_function(const char *key, vmfunc_t *vmfunc)
 {
 	zbx_vmcheck_t	*check;
 
-	if (0 != strncmp(key, ZBX_VMWARE_PREFIX, ZBX_CONST_STRLEN(ZBX_VMWARE_PREFIX)))
+	if (0 != strncmp(key, ZBX_VMWARE_PREFIX, sizeof(ZBX_VMWARE_PREFIX) - 1))
 		return FAIL;
 
 	for (check = vmchecks; NULL != check->key; check++)
 	{
-		if (0 == strcmp(key + ZBX_CONST_STRLEN(ZBX_VMWARE_PREFIX), check->key))
+		if (0 == strcmp(key + sizeof(ZBX_VMWARE_PREFIX) - 1, check->key))
 		{
 			*vmfunc = check->func;
 			return SUCCEED;
@@ -171,7 +171,7 @@ int	get_value_simple(DC_ITEM *item, AGENT_RESULT *result)
 				ret = SUCCEED;
 		}
 		else
-			SET_MSG_RESULT(result, zbx_strdup(NULL, "Support for VMware checks was not compiled in."));
+			SET_MSG_RESULT(result, zbx_strdup(NULL, "Support for VMware checks was not compiled in"));
 	}
 	else
 	{
@@ -181,7 +181,7 @@ int	get_value_simple(DC_ITEM *item, AGENT_RESULT *result)
 	}
 
 	if (NOTSUPPORTED == ret && !ISSET_MSG(result))
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Simple check is not supported."));
+		SET_MSG_RESULT(result, zbx_strdup(NULL, "Simple check is not supported"));
 
 	free_request(&request);
 

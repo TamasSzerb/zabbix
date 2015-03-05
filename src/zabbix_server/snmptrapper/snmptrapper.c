@@ -34,9 +34,6 @@ static char	*buffer = NULL;
 static int	offset = 0;
 static int	force = 0;
 
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
-
 static void	DBget_lastsize()
 {
 	DB_RESULT	result;
@@ -81,14 +78,13 @@ static void	DBupdate_lastsize()
 static int	process_trap_for_interface(zbx_uint64_t interfaceid, char *trap, zbx_timespec_t *ts)
 {
 	DC_ITEM			*items = NULL;
-	const char		*regex;
-	char			error[ITEM_ERROR_LEN_MAX];
+	char			cmd[MAX_STRING_LEN], params[MAX_STRING_LEN], regex[MAX_STRING_LEN],
+				error[ITEM_ERROR_LEN_MAX];
 	size_t			num, i;
 	int			ret = FAIL, fb = -1, *lastclocks = NULL, *errcodes = NULL;
 	zbx_uint64_t		*itemids = NULL;
 	unsigned char		*states = NULL;
 	AGENT_RESULT		*results = NULL;
-	AGENT_REQUEST		request;
 	zbx_vector_ptr_t	regexps;
 
 	zbx_vector_ptr_create(&regexps);
@@ -121,43 +117,29 @@ static int	process_trap_for_interface(zbx_uint64_t interfaceid, char *trap, zbx_
 			continue;
 		}
 
-		init_request(&request);
+		if (ZBX_COMMAND_ERROR == parse_command(items[i].key, cmd, sizeof(cmd), params, sizeof(params)))
+			continue;
 
-		if (SUCCEED != parse_item_key(items[i].key, &request))
-			goto next;
+		if (0 != strcmp(cmd, "snmptrap"))
+			continue;
 
-		if (0 != strcmp(get_rkey(&request), "snmptrap"))
-			goto next;
+		if (1 < num_param(params))
+			continue;
 
-		if (1 < get_rparams_num(&request))
-			goto next;
+		if (0 != get_param(params, 1, regex, sizeof(regex)))
+			continue;
 
-		if (NULL != (regex = get_rparam(&request, 0)))
-		{
-			if ('@' == *regex)
-			{
-				DCget_expressions_by_name(&regexps, regex + 1);
+		if ('@' == *regex)
+			DCget_expressions_by_name(&regexps, regex + 1);
 
-				if (0 == regexps.values_num)
-				{
-					SET_MSG_RESULT(&results[i], zbx_dsprintf(NULL,
-							"Global regular expression \"%s\" does not exist.", regex + 1));
-					errcodes[i] = NOTSUPPORTED;
-					goto next;
-				}
-			}
-
-			if (SUCCEED != regexp_match_ex(&regexps, trap, regex, ZBX_CASE_SENSITIVE))
-				goto next;
-		}
+		if (SUCCEED != regexp_match_ex(&regexps, trap, regex, ZBX_CASE_SENSITIVE))
+			continue;
 
 		if (SUCCEED == set_result_type(&results[i], items[i].value_type, items[i].data_type, trap))
 			errcodes[i] = SUCCEED;
 		else
 			errcodes[i] = NOTSUPPORTED;
 		ret = SUCCEED;
-next:
-		free_request(&request);
 	}
 
 	if (FAIL == ret && -1 != fb)
@@ -546,17 +528,10 @@ static int	get_latest_data()
  * Author: Rudolfs Kreicbergs                                                 *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(snmptrapper_thread, args)
+void	main_snmptrapper_loop(void)
 {
 	const char	*__function_name = "main_snmptrapper_loop";
 	double		sec;
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
 
 	zabbix_log(LOG_LEVEL_DEBUG, "In %s() trapfile:'%s'", __function_name, CONFIG_SNMPTRAP_FILE);
 

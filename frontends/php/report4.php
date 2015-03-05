@@ -35,7 +35,7 @@ $fields = array(
 );
 check_fields($fields);
 
-if (getRequest('media_type')) {
+if (get_request('media_type')) {
 	$mediaTypeData = API::MediaType()->get(array(
 		'mediatypeids' => array($_REQUEST['media_type']),
 		'countOutput' => true
@@ -45,9 +45,9 @@ if (getRequest('media_type')) {
 	}
 }
 
-$year = getRequest('year', intval(date('Y')));
-$period = getRequest('period', 'weekly');
-$media_type = getRequest('media_type', 0);
+$year = get_request('year', intval(date('Y')));
+$period = get_request('period', 'weekly');
+$media_type = get_request('media_type', 0);
 
 $_REQUEST['year'] = $year;
 $_REQUEST['period'] = $period;
@@ -57,8 +57,12 @@ $currentYear = date('Y');
 
 // fetch media types
 $media_types = array();
-$db_media_types = DBselect('SELECT mt.* FROM media_type mt ORDER BY mt.description');
-
+$db_media_types = DBselect(
+	'SELECT mt.*'.
+	' FROM media_type mt'.
+		whereDbNode('mt.mediatypeid').
+	' ORDER BY mt.description'
+);
 while ($media_type_data = DBfetch($db_media_types)) {
 	$media_types[$media_type_data['mediatypeid']] = $media_type_data['description'];
 }
@@ -119,7 +123,12 @@ else {
 	show_table_header(_('Notifications'), $form);
 
 	$header = array();
-	$db_users = DBselect('SELECT u.* FROM users u ORDER BY u.alias,u.userid');
+	$db_users = DBselect(
+			'SELECT u.*'.
+			' FROM users u'.
+			whereDbNode('u.userid').
+			' ORDER BY u.alias,u.userid'
+	);
 	while ($user_data = DBfetch($db_users)) {
 		$header[] = new CCol($user_data['alias'], 'vertical_rotation');
 		$users[$user_data['userid']] = $user_data['alias'];
@@ -130,7 +139,7 @@ else {
 		case 'yearly':
 			$minTime = mktime(0, 0, 0, 1, 1, $minYear);
 
-			$dateFormat = _x('Y', DATE_FORMAT_CONTEXT);
+			$dateFormat = REPORT4_ANNUALLY_DATE_FORMAT;
 			array_unshift($header, new CCol(_('Year'), 'center'));
 
 			for ($i = $minYear; $i <= date('Y'); $i++) {
@@ -142,7 +151,7 @@ else {
 		case 'monthly':
 			$minTime = mktime(0, 0, 0, 1, 1, $year);
 
-			$dateFormat = _x('F', DATE_FORMAT_CONTEXT);
+			$dateFormat = REPORT4_MONTHLY_DATE_FORMAT;
 			array_unshift($header, new CCol(_('Month'),'center'));
 
 			$max = ($year == $currentYear) ? date('n') : 12;
@@ -155,7 +164,7 @@ else {
 		case 'daily':
 			$minTime = mktime(0, 0, 0, 1, 1, $year);
 
-			$dateFormat = DATE_FORMAT;
+			$dateFormat = REPORT4_DAILY_DATE_FORMAT;
 			array_unshift($header, new CCol(_('Day'),'center'));
 
 			$max = ($year == $currentYear) ? date('z') : DAY_IN_YEAR;
@@ -171,7 +180,7 @@ else {
 			$wd = ($wd == 0) ? 6 : $wd - 1;
 			$minTime = $time - $wd * SEC_PER_DAY;
 
-			$dateFormat = DATE_TIME_FORMAT;
+			$dateFormat = REPORT4_WEEKLY_DATE_FORMAT;
 			array_unshift($header, new CCol(_('From'), 'center'), new CCol(_('Till'), 'center'));
 
 			$max = ($year == $currentYear) ? date('W') - 1 : 52;
@@ -192,7 +201,7 @@ else {
 			'output' => array('mediatypeid', 'userid', 'clock'),
 			'eventsource' => $sourceObject['source'],
 			'eventobject' => $sourceObject['object'],
-			'mediatypeids' => (getRequest('media_type')) ? getRequest('media_type') : null,
+			'mediatypeids' => (get_request('media_type')) ? get_request('media_type') : null,
 			'time_from' => $minTime,
 			'time_till' => $maxTime
 		)));
@@ -249,11 +258,11 @@ else {
 	$table->show();
 
 	if ($media_type == 0) {
-		echo BR();
+		echo SBR;
 
 		$links = array();
 		foreach ($media_types as $id => $description) {
-			$links[] = new CLink($description, 'zabbix.php?action=mediatype.edit&mediatypeid='.$id);
+			$links[] = new CLink($description, 'media_types.php?form=edit&mediatypeid='.$id);
 			$links[] = SPACE.'/'.SPACE;
 		}
 		array_pop($links);

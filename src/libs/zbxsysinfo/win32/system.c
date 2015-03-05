@@ -344,7 +344,7 @@ int	SYSTEM_UNAME(AGENT_REQUEST *request, AGENT_RESULT *result)
 	typedef void (WINAPI *PGNSI)(LPSYSTEM_INFO);
 
 	DWORD			dwSize = 256;
-	wchar_t			computer_name[256];
+	TCHAR			computer_name[256];
 	SYSTEM_INFO		si;
 	const OSVERSIONINFOEX	*vi;
 	char			*os = NULL, *utf8;
@@ -361,7 +361,7 @@ int	SYSTEM_UNAME(AGENT_REQUEST *request, AGENT_RESULT *result)
 
 	if (NULL == (vi = zbx_win_getversion()))
 	{
-		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot obtain system information."));
+		SET_MSG_RESULT(result, zbx_strdup(NULL, "Cannot retrieve system version."));
 		return SYSINFO_RET_FAIL;
 	}
 

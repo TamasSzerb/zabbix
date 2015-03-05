@@ -32,8 +32,7 @@
 
 #define	ALARM_ACTION_TIMEOUT	40
 
-extern unsigned char	process_type, daemon_type;
-extern int		server_num, process_num;
+extern unsigned char	process_type;
 
 /******************************************************************************
  *                                                                            *
@@ -141,7 +140,7 @@ int	execute_action(DB_ALERT *alert, DB_MEDIATYPE *mediatype, char *error, int ma
  * Author: Alexei Vladishev                                                   *
  *                                                                            *
  ******************************************************************************/
-ZBX_THREAD_ENTRY(alerter_thread, args)
+void	main_alerter_loop(void)
 {
 	char		error[MAX_STRING_LEN], *error_esc;
 	int		res, alerts_success, alerts_fail;
@@ -150,13 +149,6 @@ ZBX_THREAD_ENTRY(alerter_thread, args)
 	DB_ROW		row;
 	DB_ALERT	alert;
 	DB_MEDIATYPE	mediatype;
-
-	process_type = ((zbx_thread_args_t *)args)->process_type;
-	server_num = ((zbx_thread_args_t *)args)->server_num;
-	process_num = ((zbx_thread_args_t *)args)->process_num;
-
-	zabbix_log(LOG_LEVEL_INFORMATION, "%s #%d started [%s #%d]", get_daemon_type_string(daemon_type),
-			server_num, get_process_type_string(process_type), process_num);
 
 	zbx_setproctitle("%s [connecting to the database]", get_process_type_string(process_type));
 
@@ -178,9 +170,11 @@ ZBX_THREAD_ENTRY(alerter_thread, args)
 				" where a.mediatypeid=mt.mediatypeid"
 					" and a.status=%d"
 					" and a.alerttype=%d"
+					ZBX_SQL_NODE
 				" order by a.alertid",
 				ALERT_STATUS_NOT_SENT,
-				ALERT_TYPE_MESSAGE);
+				ALERT_TYPE_MESSAGE,
+				DBand_node_local("mt.mediatypeid"));
 
 		while (NULL != (row = DBfetch(result)))
 		{

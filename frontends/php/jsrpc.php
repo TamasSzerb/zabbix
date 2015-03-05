@@ -21,10 +21,10 @@
 
 require_once dirname(__FILE__).'/include/config.inc.php';
 
-$requestType = getRequest('type', PAGE_TYPE_JSON);
+$requestType = get_request('type', PAGE_TYPE_JSON);
 if ($requestType == PAGE_TYPE_JSON) {
-	$http_request = new CHttpRequest();
-	$json = new CJson();
+	$http_request = new CHTTP_request();
+	$json = new CJSON();
 	$data = $json->decode($http_request->body(), true);
 }
 else {
@@ -87,6 +87,7 @@ switch ($data['method']) {
 		}
 
 		$options = array(
+			'nodeids' => get_current_nodeid(true),
 			'lastChangeSince' => max(array($lastMsgTime, $msgsettings['last.clock'], $timeout)),
 			'value' => array(TRIGGER_VALUE_TRUE, TRIGGER_VALUE_FALSE),
 			'priority' => array_keys($msgsettings['triggers.severities']),
@@ -119,7 +120,7 @@ switch ($data['method']) {
 					}
 
 					$url_tr_status = 'tr_status.php?hostid='.$host['hostid'];
-					$url_events = 'events.php?filter_set=1&triggerid='.$event['objectid'].'&source='.EVENT_SOURCE_TRIGGERS;
+					$url_events = 'events.php?triggerid='.$event['objectid'].'&source='.EVENT_SOURCE_TRIGGERS;
 					$url_tr_events = 'tr_events.php?eventid='.$event['eventid'].'&triggerid='.$event['objectid'];
 
 					$result[$number] = array(
@@ -130,11 +131,10 @@ switch ($data['method']) {
 						'priority' => $priority,
 						'sound' => $sound,
 						'color' => getSeverityColor($trigger['priority'], $event['value']),
-						'title' => $title.' [url='.$url_tr_status.']'.$host['name'].'[/url]',
+						'title' => $title.' '.get_node_name_by_elid($host['hostid'], null, NAME_DELIMITER).'[url='.$url_tr_status.']'.$host['name'].'[/url]',
 						'body' => array(
 							_('Details').': [url='.$url_events.']'.$trigger['description'].'[/url]',
-							_('Date').': [b][url='.$url_tr_events.']'.
-								zbx_date2str(DATE_TIME_FORMAT_SECONDS, $event['clock']).'[/url][/b]',
+							_('Date').': [b][url='.$url_tr_events.']'.zbx_date2str(_('d M Y H:i:s'), $event['clock']).'[/url][/b]',
 						),
 						'timeout' => $msgsettings['timeout']
 					);
@@ -181,7 +181,6 @@ switch ($data['method']) {
 			'mode' => !empty($data['mode']) ? $data['mode'] : null,
 			'timestamp' => !empty($data['timestamp']) ? $data['timestamp'] : time(),
 			'resourcetype' => !empty($data['resourcetype']) ? $data['resourcetype'] : null,
-			'screenid' => (isset($data['screenid']) && $data['screenid'] != 0) ? $data['screenid'] : null,
 			'screenitemid' => !empty($data['screenitemid']) ? $data['screenitemid'] : null,
 			'groupid' => !empty($data['groupid']) ? $data['groupid'] : null,
 			'hostid' => !empty($data['hostid']) ? $data['hostid'] : null,
@@ -235,6 +234,8 @@ switch ($data['method']) {
 	 */
 	case 'multiselect.get':
 		$config = select_config();
+		$displayNodes = is_array(get_current_nodeid());
+		$sortFields = $displayNodes ? array(array('field' => 'nodename', 'order' => ZBX_SORT_UP)) : array();
 
 		switch ($data['objectName']) {
 			case 'hostGroup':
@@ -247,9 +248,15 @@ switch ($data['method']) {
 				));
 
 				if ($hostGroups) {
-					CArrayHelper::sort($hostGroups, array(
-						array('field' => 'name', 'order' => ZBX_SORT_UP)
-					));
+					if ($displayNodes) {
+						foreach ($hostGroups as &$hostGroup) {
+							$hostGroup['nodename'] = get_node_name_by_elid($hostGroup['groupid'], true, NAME_DELIMITER);
+						}
+						unset($hostGroup);
+					}
+
+					$sortFields[] = array('field' => 'name', 'order' => ZBX_SORT_UP);
+					CArrayHelper::sort($hostGroups, $sortFields);
 
 					if (isset($data['limit'])) {
 						$hostGroups = array_slice($hostGroups, 0, $data['limit']);
@@ -258,6 +265,7 @@ switch ($data['method']) {
 					foreach ($hostGroups as $hostGroup) {
 						$result[] = array(
 							'id' => $hostGroup['groupid'],
+							'prefix' => $displayNodes ? $hostGroup['nodename'] : '',
 							'name' => $hostGroup['name']
 						);
 					}
@@ -274,9 +282,15 @@ switch ($data['method']) {
 				));
 
 				if ($hosts) {
-					CArrayHelper::sort($hosts, array(
-						array('field' => 'name', 'order' => ZBX_SORT_UP)
-					));
+					if ($displayNodes) {
+						foreach ($hosts as &$host) {
+							$host['nodename'] = get_node_name_by_elid($host['hostid'], true, NAME_DELIMITER);
+						}
+						unset($host);
+					}
+
+					$sortFields[] = array('field' => 'name', 'order' => ZBX_SORT_UP);
+					CArrayHelper::sort($hosts, $sortFields);
 
 					if (isset($data['limit'])) {
 						$hosts = array_slice($hosts, 0, $data['limit']);
@@ -285,6 +299,7 @@ switch ($data['method']) {
 					foreach ($hosts as $host) {
 						$result[] = array(
 							'id' => $host['hostid'],
+							'prefix' => $displayNodes ? $host['nodename'] : '',
 							'name' => $host['name']
 						);
 					}
@@ -300,9 +315,15 @@ switch ($data['method']) {
 				));
 
 				if ($templates) {
-					CArrayHelper::sort($templates, array(
-						array('field' => 'name', 'order' => ZBX_SORT_UP)
-					));
+					if ($displayNodes) {
+						foreach ($templates as &$template) {
+							$template['nodename'] = get_node_name_by_elid($template['templateid'], true, NAME_DELIMITER);
+						}
+						unset($template);
+					}
+
+					$sortFields[] = array('field' => 'name', 'order' => ZBX_SORT_UP);
+					CArrayHelper::sort($templates, $sortFields);
 
 					if (isset($data['limit'])) {
 						$templates = array_slice($templates, 0, $data['limit']);
@@ -311,6 +332,7 @@ switch ($data['method']) {
 					foreach ($templates as $template) {
 						$result[] = array(
 							'id' => $template['templateid'],
+							'prefix' => $displayNodes ? $template['nodename'] : '',
 							'name' => $template['name']
 						);
 					}
@@ -326,9 +348,15 @@ switch ($data['method']) {
 				));
 
 				if ($applications) {
-					CArrayHelper::sort($applications, array(
-						array('field' => 'name', 'order' => ZBX_SORT_UP)
-					));
+					if ($displayNodes) {
+						foreach ($applications as &$application) {
+							$application['nodename'] = get_node_name_by_elid($application['applicationid'], true, NAME_DELIMITER);
+						}
+						unset($application);
+					}
+
+					$sortFields[] = array('field' => 'name', 'order' => ZBX_SORT_UP);
+					CArrayHelper::sort($applications, $sortFields);
 
 					if (isset($data['limit'])) {
 						$applications = array_slice($applications, 0, $data['limit']);
@@ -337,6 +365,7 @@ switch ($data['method']) {
 					foreach ($applications as $application) {
 						$result[] = array(
 							'id' => $application['applicationid'],
+							'prefix' => $displayNodes ? $application['nodename'] : '',
 							'name' => $application['name']
 						);
 					}
@@ -353,9 +382,15 @@ switch ($data['method']) {
 				));
 
 				if ($triggers) {
-					CArrayHelper::sort($triggers, array(
-						array('field' => 'description', 'order' => ZBX_SORT_UP)
-					));
+					if ($displayNodes) {
+						foreach ($triggers as &$trigger) {
+							$trigger['nodename'] = get_node_name_by_elid($trigger['triggerid'], true, NAME_DELIMITER);
+						}
+						unset($trigger);
+					}
+
+					$sortFields[] = array('field' => 'description', 'order' => ZBX_SORT_UP);
+					CArrayHelper::sort($triggers, $sortFields);
 
 					if (isset($data['limit'])) {
 						$triggers = array_slice($triggers, 0, $data['limit']);
@@ -372,8 +407,8 @@ switch ($data['method']) {
 
 						$result[] = array(
 							'id' => $trigger['triggerid'],
-							'name' => $trigger['description'],
-							'prefix' => $hostName
+							'prefix' => ($displayNodes ? $trigger['nodename'] : '').$hostName,
+							'name' => $trigger['description']
 						);
 					}
 				}
@@ -395,7 +430,7 @@ if ($requestType == PAGE_TYPE_JSON) {
 	}
 }
 elseif ($requestType == PAGE_TYPE_TEXT_RETURN_JSON) {
-	$json = new CJson();
+	$json = new CJSON();
 
 	echo $json->encode(array(
 		'jsonrpc' => '2.0',

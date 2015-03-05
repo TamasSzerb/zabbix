@@ -39,7 +39,7 @@ class testPageUsers extends CWebTest {
 		$this->zbxTestTextPresent('Displaying');
 		$this->zbxTestTextPresent(array('Alias', 'Name', 'Surname', 'User type', 'Groups', 'Is online?', 'Login', 'Frontend access', 'Debug mode', 'Status'));
 		$this->zbxTestTextPresent(array($user['alias'], $user['name'], $user['surname']));
-		$this->zbxTestDropdownHasOptions('action', array('Unblock selected', 'Delete selected'));
+		$this->zbxTestDropdownHasOptions('go', array('Unblock selected', 'Delete selected'));
 	}
 
 	/**
@@ -61,7 +61,7 @@ class testPageUsers extends CWebTest {
 		$this->zbxTestDropdownSelectWait('filter_usrgrpid', 'All');
 
 		$this->zbxTestClickWait('link='.$alias);
-		$this->zbxTestClickWait('update');
+		$this->zbxTestClickWait('save');
 		$this->zbxTestCheckTitle('Configuration of users');
 		$this->zbxTestTextPresent('User updated');
 		$this->zbxTestTextPresent($alias);
@@ -87,7 +87,7 @@ class testPageUsers extends CWebTest {
 			$this->zbxTestDropdownSelectWait('filter_usrgrpid', 'All');
 
 			$this->zbxTestCheckboxSelect('group_userid['.$id.']');
-			$this->zbxTestDropdownSelect('action', 'Delete selected');
+			$this->zbxTestDropdownSelect('go', 'Delete selected');
 			$this->zbxTestClickWait('goButton');
 
 			$this->getConfirmation();
@@ -120,7 +120,7 @@ class testPageUsers extends CWebTest {
 			$this->zbxTestDropdownSelectWait('filter_usrgrpid', 'All');
 
 			$this->zbxTestCheckboxSelect('group_userid['.$id.']');
-			$this->zbxTestDropdownSelect('action', 'Delete selected');
+			$this->zbxTestDropdownSelect('go', 'Delete selected');
 			$this->zbxTestClickWait('goButton');
 
 			$this->getConfirmation();

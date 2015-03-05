@@ -41,57 +41,52 @@ $discoveryForm->addVar('hostid', $this->data['hostid']);
 // create table
 $discoveryTable = new CTableInfo(_('No discovery rules found.'));
 
+$sortLink = new CUrl();
+$sortLink->setArgument('hostid', $this->data['hostid']);
+$sortLink = $sortLink->getUrl();
+
 $discoveryTable->setHeader(array(
 	new CCheckBox('all_items', null, "checkAll('".$discoveryForm->getName()."', 'all_items', 'g_hostdruleid');"),
-	make_sorting_header(_('Name'), 'name', $this->data['sort'], $this->data['sortorder']),
+	make_sorting_header(_('Name'), 'name', $sortLink),
 	_('Items'),
 	_('Triggers'),
 	_('Graphs'),
 	($data['host']['flags'] == ZBX_FLAG_DISCOVERY_NORMAL) ? _('Hosts') : null,
-	make_sorting_header(_('Key'), 'key_', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Interval'), 'delay', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Type'), 'type', $this->data['sort'], $this->data['sortorder']),
-	make_sorting_header(_('Status'), 'status', $this->data['sort'], $this->data['sortorder']),
-	$data['showInfoColumn'] ? _('Info') : null
+	make_sorting_header(_('Key'), 'key_', $sortLink),
+	make_sorting_header(_('Interval'), 'delay', $sortLink),
+	make_sorting_header(_('Type'), 'type', $sortLink),
+	make_sorting_header(_('Status'), 'status', $sortLink),
+	$data['showErrorColumn'] ? _('Error') : null
 ));
 
 foreach ($data['discoveries'] as $discovery) {
-	// description
 	$description = array();
 
 	if ($discovery['templateid']) {
-		$dbTemplate = get_realhost_by_itemid($discovery['templateid']);
-
-		$description[] = new CLink($dbTemplate['name'], '?hostid='.$dbTemplate['hostid'], 'unknown');
+		$template_host = get_realhost_by_itemid($discovery['templateid']);
+		$description[] = new CLink($template_host['name'], '?hostid='.$template_host['hostid'], 'unknown');
 		$description[] = NAME_DELIMITER;
 	}
 
 	$description[] = new CLink($discovery['name_expanded'], '?form=update&itemid='.$discovery['itemid']);
 
-	// status
 	$status = new CLink(
 		itemIndicator($discovery['status'], $discovery['state']),
-		'?hostid='.$_REQUEST['hostid'].
-			'&g_hostdruleid='.$discovery['itemid'].
-			'&action='.($discovery['status'] == ITEM_STATUS_DISABLED
-				? 'discoveryrule.massenable'
-				: 'discoveryrule.massdisable'
-			),
+		'?hostid='.$_REQUEST['hostid'].'&g_hostdruleid='.$discovery['itemid'].'&go='.($discovery['status'] ? 'activate' : 'disable'),
 		itemIndicatorStyle($discovery['status'], $discovery['state'])
 	);
 
-	// info
-	if ($data['showInfoColumn']) {
-		if ($discovery['status'] == ITEM_STATUS_ACTIVE && !zbx_empty($discovery['error'])) {
-			$info = new CDiv(SPACE, 'status_icon iconerror');
-			$info->setHint($discovery['error'], 'on');
+	if ($data['showErrorColumn']) {
+		$error = '';
+		if ($discovery['status'] == ITEM_STATUS_ACTIVE) {
+			if (zbx_empty($discovery['error'])) {
+				$error = new CDiv(SPACE, 'status_icon iconok');
+			}
+			else {
+				$error = new CDiv(SPACE, 'status_icon iconerror');
+				$error->setHint($discovery['error'], '', 'on');
+			}
 		}
-		else {
-			$info = '';
-		}
-	}
-	else {
-		$info = null;
 	}
 
 	// host prototype link
@@ -109,21 +104,21 @@ foreach ($data['discoveries'] as $discovery) {
 		array(
 			new CLink(
 				_('Item prototypes'),
-				'disc_prototypes.php?parent_discoveryid='.$discovery['itemid']
+				'disc_prototypes.php?hostid='.get_request('hostid').'&parent_discoveryid='.$discovery['itemid']
 			),
 			' ('.$discovery['items'].')'
 		),
 		array(
 			new CLink(
 				_('Trigger prototypes'),
-				'trigger_prototypes.php?parent_discoveryid='.$discovery['itemid']
+				'trigger_prototypes.php?hostid='.get_request('hostid').'&parent_discoveryid='.$discovery['itemid']
 			),
 			' ('.$discovery['triggers'].')'
 		),
 		array(
 			new CLink(
 				_('Graph prototypes'),
-				'graphs.php?parent_discoveryid='.$discovery['itemid']
+				'graphs.php?hostid='.get_request('hostid').'&parent_discoveryid='.$discovery['itemid']
 			),
 			' ('.$discovery['graphs'].')'
 		),
@@ -132,32 +127,33 @@ foreach ($data['discoveries'] as $discovery) {
 		$discovery['delay'],
 		item_type2str($discovery['type']),
 		$status,
-		$info
+		$data['showErrorColumn'] ? $error : null
 	));
 }
 
+// create go buttons
+$goComboBox = new CComboBox('go');
+$goOption = new CComboItem('activate', _('Enable selected'));
+$goOption->setAttribute('confirm', _('Enable selected discovery rules?'));
+$goComboBox->addItem($goOption);
+
+$goOption = new CComboItem('disable', _('Disable selected'));
+$goOption->setAttribute('confirm', _('Disable selected discovery rules?'));
+$goComboBox->addItem($goOption);
+
+$goOption = new CComboItem('delete', _('Delete selected'));
+$goOption->setAttribute('confirm', _('Delete selected discovery rules?'));
+$goComboBox->addItem($goOption);
+
+$goButton = new CSubmit('goButton', _('Go').' (0)');
+$goButton->setAttribute('id', 'goButton');
+
+zbx_add_post_js('chkbxRange.pageGoName = "g_hostdruleid";');
+zbx_add_post_js('chkbxRange.prefix = "'.$this->data['hostid'].'";');
 zbx_add_post_js('cookie.prefix = "'.$this->data['hostid'].'";');
 
 // append table to form
-$discoveryForm->addItem(array(
-	$this->data['paging'],
-	$discoveryTable,
-	$this->data['paging'],
-	get_table_header(new CActionButtonList('action', 'g_hostdruleid',
-		array(
-			'discoveryrule.massenable' => array('name' => _('Enable'),
-				'confirm' =>_('Enable selected discovery rules?')
-			),
-			'discoveryrule.massdisable' => array('name' => _('Disable'),
-				'confirm' =>_('Disable selected discovery rules?')
-			),
-			'discoveryrule.massdelete' => array('name' => _('Delete'),
-				'confirm' =>_('Delete selected discovery rules?')
-			)
-		),
-		$this->data['hostid']
-	))
-));
+$discoveryForm->addItem(array($this->data['paging'], $discoveryTable, $this->data['paging'], get_table_header(array($goComboBox, $goButton))));
 
 // append form to widget
 $discoveryWidget->addItem($discoveryForm);

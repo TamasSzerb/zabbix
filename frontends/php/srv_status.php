@@ -54,14 +54,13 @@ check_fields($fields);
 
 if (isset($_REQUEST['serviceid']) && isset($_REQUEST['showgraph'])) {
 	$service = API::Service()->get(array(
-		'output' => array('serviceid'),
-		'serviceids' => getRequest('serviceid')
+		'serviceids' => $_REQUEST['serviceid'],
+		'preservekeys' => true
 	));
-	$service = reset($service);
 
 	if ($service) {
 		$table = new CTable(null, 'chart');
-		$table->addRow(new CImg('chart5.php?serviceid='.$service['serviceid'].url_param('path')));
+		$table->addRow(new CImg('chart5.php?serviceid='.key($service).url_param('path')));
 		$table->show();
 	}
 	else {
@@ -69,7 +68,7 @@ if (isset($_REQUEST['serviceid']) && isset($_REQUEST['showgraph'])) {
 	}
 }
 else {
-	$period = getRequest('period', 7 * 24);
+	$period = get_request('period', 7 * 24);
 	$period_end = time();
 
 	switch ($period) {

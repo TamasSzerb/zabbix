@@ -19,6 +19,8 @@
 **/
 
 
+require_once dirname(__FILE__).'/js/configuration.httpconf.edit.js.php';
+
 $httpWidget = new CWidget();
 $httpWidget->addPageHeader(_('CONFIGURATION OF WEB MONITORING'));
 
@@ -72,87 +74,78 @@ $httpFormList->addRow(_('New application'),
 	new CTextBox('new_application', $this->data['new_application'], ZBX_TEXTBOX_STANDARD_SIZE), false, null, 'new'
 );
 
+// Authentication
+$authenticationComboBox = new CComboBox('authentication', $this->data['authentication'], 'submit();');
+$authenticationComboBox->addItems(httptest_authentications());
+$httpFormList->addRow(_('Authentication'), $authenticationComboBox);
+if (in_array($this->data['authentication'], array(HTTPTEST_AUTH_BASIC, HTTPTEST_AUTH_NTLM))) {
+	$httpFormList->addRow(_('User'), new CTextBox('http_user', $this->data['http_user'], ZBX_TEXTBOX_STANDARD_SIZE, 'no', 64));
+	$httpFormList->addRow(_('Password'), new CTextBox('http_password', $this->data['http_password'], ZBX_TEXTBOX_STANDARD_SIZE, 'no', 64));
+}
+
 // update interval
 $httpFormList->addRow(_('Update interval (in sec)'), new CNumericBox('delay', $this->data['delay'], 5));
 
 // number of retries
 $httpFormList->addRow(_('Retries'), new CNumericBox('retries', $this->data['retries'], 2));
 
-$agentComboBox = new CComboBox('agent', $this->data['agent']);
-
-$userAgentsAll = userAgents();
-$userAgentsAll[_('Others')][ZBX_AGENT_OTHER] = _('other').' ...';
-
-foreach ($userAgentsAll as $userAgentGroup => $userAgents) {
-	$agentComboBox->addItemsInGroup($userAgentGroup, $userAgents);
-}
-
+// append http agents to form list - http://www.useragentstring.com
+$agentComboBox = new CEditableComboBox('agent', $this->data['agent'], ZBX_TEXTBOX_STANDARD_SIZE);
+$agentComboBox->addItemsInGroup(_('Internet Explorer'), array(
+	'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.1; Trident/6.0)' => 'Internet Explorer 10.0',
+	'Mozilla/5.0 (Windows; U; MSIE 9.0; Windows NT 9.0; en-US)' => 'Internet Explorer 9.0',
+	'Mozilla/5.0 (compatible; MSIE 8.0; Windows NT 6.0; Trident/4.0; WOW64; Trident/4.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; .NET CLR 1.0.3705; .NET CLR 1.1.4322)' => 'Internet Explorer 8.0',
+	'Mozilla/5.0 (Windows; U; MSIE 7.0; Windows NT 6.0; en-US)' => 'Internet Explorer 7.0',
+	'Mozilla/5.0 (compatible; MSIE 6.0; Windows NT 5.1)' => 'Internet Explorer 6.0'
+));
+$agentComboBox->addItemsInGroup(_('Mozilla Firefox'), array(
+	'Mozilla/5.0 (X11; Linux i686; rv:8.0) Gecko/20100101 Firefox/8.0' => 'Mozilla Firefox 8.0',
+	'Mozilla/5.0 (X11; Linux i686; rv:7.0) Gecko/20100101 Firefox/7.0' => 'Mozilla Firefox 7.0',
+	'Mozilla/5.0 (X11; Linux i686; rv:6.0) Gecko/20100101 Firefox/6.0' => 'Mozilla Firefox 6.0',
+	'Mozilla/5.0 (X11; U; Linux i586; de; rv:5.0) Gecko/20100101 Firefox/5.0' => 'Mozilla Firefox 5.0',
+	'Mozilla/5.0 (X11; U; Linux x86_64; pl-PL; rv:2.0) Gecko/20110307 Firefox/4.0' => 'Mozilla Firefox 4.0',
+	'Mozilla/6.0 (Macintosh; U; PPC Mac OS X Mach-O; en-US; rv:2.0.0.0) Gecko/20061028 Firefox/3.0' => 'Mozilla Firefox 3.0',
+	'Mozilla/5.0 (X11;U;Linux i686;en-US;rv:1.8.1) Gecko/2006101022 Firefox/2.0' => 'Mozilla Firefox 2.0'
+));
+$agentComboBox->addItemsInGroup(_('Opera'), array(
+	'Opera/9.80 (Windows NT 6.1; U; es-ES) Presto/2.9.181 Version/12.00' => 'Opera 12.00',
+	'Opera/9.80 (X11; Linux x86_64; U; pl) Presto/2.7.62 Version/11.00' => 'Opera 11.00',
+	'Opera/9.80 (X11; Linux x86_64; U; en) Presto/2.2.15 Version/10.00' => 'Opera 10.00',
+	'Opera/9.00 (X11; Linux i686; U; pl)' => 'Opera 9.00'
+));
+$agentComboBox->addItemsInGroup(_('Safari'), array(
+	'Mozilla/5.0 (X11; U; Linux x86_64; en-us) AppleWebKit/531.2+ (KHTML, like Gecko) Version/5.0 Safari/531.2+' => 'Safari 5.0',
+	'Mozilla/5.0 (Windows; U; Windows NT 6.0; ru-RU) AppleWebKit/528.16 (KHTML, like Gecko) Version/4.0 Safari/528.16' => 'Safari 4.0',
+	'Mozilla/5.0 (Windows; U; Windows NT 6.0; sv-SE) AppleWebKit/523.13 (KHTML, like Gecko) Version/3.0 Safari/523.13' => 'Safari 3.0',
+	'Mozilla/5.0 (iPhone; U; CPU iPhone OS 2_1 like Mac OS X; fr-fr) AppleWebKit/525.18.1 (KHTML, like Gecko) Mobile/5F136' => 'Safari on iPhone'
+));
+$agentComboBox->addItemsInGroup(_('Google Chrome'), array(
+	'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/535.8 (KHTML, like Gecko) Chrome/17.0.940.0 Safari/535.8' => 'Google Chrome 17',
+	'Mozilla/5.0 (Windows NT 6.0; WOW64) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.36 Safari/535.7' => 'Google Chrome 16',
+	'Mozilla/5.0 (Windows NT 5.1) AppleWebKit/535.2 (KHTML, like Gecko) Chrome/15.0.872.0 Safari/535.2' => 'Google Chrome 15',
+	'Mozilla/5.0 (X11; Linux i686) AppleWebKit/535.1 (KHTML, like Gecko) Ubuntu/11.04 Chromium/14.0.825.0 Chrome/14.0.825.0 Safari/535.1' => 'Google Chrome 14',
+	'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_3) AppleWebKit/535.1 (KHTML, like Gecko) Chrome/13.0.782.32 Safari/535.1' => 'Google Chrome 13',
+	'Mozilla/5.0 (Windows NT 6.1; en-US) AppleWebKit/534.30 (KHTML, like Gecko) Chrome/12.0.750.0 Safari/534.30' => 'Google Chrome 12'
+));
+$agentComboBox->addItemsInGroup(_('Others'), array(
+	'Mozilla/5.0 (X11; Linux 3.1.0-rc9+; en_US) KHTML/4.7.2 (like Gecko) Konqueror/4.7' => 'Konqueror 4.7',
+	'Mozilla/5.0 (compatible; Konqueror/4.6; Linux) KHTML/4.6.0 (like Gecko)' => 'Konqueror 4.6',
+	'Lynx/2.8.7rel.1 libwww-FM/2.14 SSL-MM/1.4.1 OpenSSL/0.9.8r' => 'Lynx 2.8.7rel.1',
+	'Lynx/2.8.4rel.1 libwww-FM/2.14' => 'Lynx 2.8.4rel.1',
+	'Links (2.3pre1; Linux 2.6.35.10 i686; 225x51)' => 'Links 2.3pre1',
+	'Links (2.2; Linux 2.6.37.6-0.7-desktop i686; 225x51)' => 'Links 2.2',
+	'Googlebot/2.1 (+http://www.google.com/bot.html)' => 'Googlebot'
+));
 $httpFormList->addRow(_('Agent'), $agentComboBox);
 
-$httpFormList->addRow(_('User agent string'),
-	new CTextBox('agent_other', $this->data['agent_other'], ZBX_TEXTBOX_STANDARD_SIZE), false, 'row_agent_other'
-);
-
 // append HTTP proxy to form list
-$httpProxyTextBox = new CTextBox('http_proxy', $this->data['http_proxy'], ZBX_TEXTBOX_STANDARD_SIZE, false, 255);
-$httpProxyTextBox->setAttribute('placeholder', 'http://[user[:password]@]proxy.example.com[:port]');
+$httpProxyTextBox = new CTextBox('http_proxy', $this->data['http_proxy'], ZBX_TEXTBOX_STANDARD_SIZE, 'no', 255);
+$httpProxyTextBox->setAttribute('placeholder', 'http://[username[:password]@]proxy.example.com[:port]');
 $httpFormList->addRow(_('HTTP proxy'), $httpProxyTextBox);
 
-// append variables to form list
+// append status to form list
 $httpFormList->addRow(_('Variables'), new CTextArea('variables', $this->data['variables']));
-
-// append headers to form list
-$httpFormList->addRow(_('Headers'), new CTextArea('headers', $this->data['headers']));
-
-// status
 $httpFormList->addRow(_('Enabled'), new CCheckBox('status', !$this->data['status']));
-
-/*
- * Authentication tab
- */
-$httpAuthenticationFormList = new CFormList('httpAuthenticationFormList');
-
-// Authentication type
-$authenticationComboBox = new CComboBox('authentication', $this->data['authentication']);
-$authenticationComboBox->addItems(httptest_authentications());
-$httpAuthenticationFormList->addRow(_('HTTP authentication'), $authenticationComboBox);
-
-$httpAuthenticationUserTB = new CTextBox('http_user', $this->data['http_user'], ZBX_TEXTBOX_STANDARD_SIZE, false, 64);
-$httpAuthenticationPasswordTB = new CTextBox('http_password', $this->data['http_password'], ZBX_TEXTBOX_STANDARD_SIZE, false, 64);
-
-$authenticationInputsHidden = $this->data['authentication'] == HTTPTEST_AUTH_NONE;
-
-if ($authenticationInputsHidden) {
-	$httpAuthenticationUserTB->setAttribute('disabled', true);
-	$httpAuthenticationPasswordTB->setAttribute('disabled', true);
-}
-
-$httpAuthenticationFormList->addRow(_('User'), $httpAuthenticationUserTB, $authenticationInputsHidden);
-$httpAuthenticationFormList->addRow(_('Password'), $httpAuthenticationPasswordTB, $authenticationInputsHidden);
-
-// SSL verify peer checkbox
-$httpAuthenticationFormList->addRow(_('SSL verify peer'), new CCheckBox('verify_peer', $this->data['verify_peer']));
-
-// SSL verify host checkbox
-$httpAuthenticationFormList->addRow(_('SSL verify host'), new CCheckBox('verify_host', $this->data['verify_host']));
-
-// SSL certificate file
-$httpAuthenticationFormList->addRow(
-	_('SSL certificate file'),
-	new CTextBox('ssl_cert_file', $this->data['ssl_cert_file'], ZBX_TEXTBOX_STANDARD_SIZE, false, 255)
-);
-
-// SSL key file
-$httpAuthenticationFormList->addRow(
-	_('SSL key file'),
-	new CTextBox('ssl_key_file', $this->data['ssl_key_file'], ZBX_TEXTBOX_STANDARD_SIZE, false, 255)
-);
-
-// SSL key password
-$httpAuthenticationFormList->addRow(
-	_('SSL key password'),
-	new CTextBox('ssl_key_password', $this->data['ssl_key_password'], ZBX_TEXTBOX_STANDARD_SIZE, false, 64)
-);
 
 /*
  * Step tab
@@ -202,10 +195,8 @@ foreach ($this->data['steps'] as $stepid => $step) {
 		'name_step' => $stepid
 	));
 
-	if (mb_strlen($step['url']) > 70) {
-		$start = mb_substr($step['url'], 0, 35);
-		$end = mb_substr($step['url'], mb_strlen($step['url']) - 25, 25);
-		$url = new CSpan($start.SPACE.'...'.SPACE.$end);
+	if (zbx_strlen($step['url']) > 70) {
+		$url = new CSpan(substr($step['url'], 0, 35).SPACE.'...'.SPACE.substr($step['url'], zbx_strlen($step['url']) - 25, 25));
 		$url->setHint($step['url']);
 	}
 	else {
@@ -249,47 +240,25 @@ if (!$this->data['form_refresh']) {
 }
 $httpTab->addTab('scenarioTab', _('Scenario'), $httpFormList);
 $httpTab->addTab('stepTab', _('Steps'), $httpStepFormList);
-$httpTab->addTab('authenticationTab', _('Authentication'), $httpAuthenticationFormList);
-
 $httpForm->addItem($httpTab);
 
 // append buttons to form
 if (!empty($this->data['httptestid'])) {
-	$buttons = array(new CSubmit('clone', _('Clone')));
-
-	if ($this->data['templated'] == 0) {
-		$buttons[] = new CButtonDelete(
-			_('Delete web scenario?'),
-			url_param('form').url_param('httptestid').url_param('hostid')
-		);
-	}
-
-	if ($this->data['host']['status'] == HOST_STATUS_MONITORED
-			|| $this->data['host']['status'] == HOST_STATUS_NOT_MONITORED) {
-
-		$buttons[] = new CButtonQMessage(
-			'del_history',
-			_('Clear history and trends'),
-			_('History clearing can take a long time. Continue?')
-		);
-	}
-
-	$buttons[] = new CButtonCancel();
-
-	$httpForm->addItem(makeFormFooter(new CSubmit('update', _('Update')), $buttons));
+	$httpForm->addItem(makeFormFooter(
+		new CSubmit('save', _('Save')),
+		array(
+			new CSubmit('clone', _('Clone')),
+			$this->data['templated'] ? null : new CButtonDelete(_('Delete scenario?'), url_param('form').url_param('httptestid').url_param('hostid')),
+			new CButtonCancel(url_param('hostid'))
+		)
+	));
 }
 else {
 	$httpForm->addItem(makeFormFooter(
-		new CSubmit('add', _('Add')),
-		array(new CButtonCancel())
+		new CSubmit('save', _('Save')),
+		new CButtonCancel()
 	));
 }
 $httpWidget->addItem($httpForm);
-
-$this->data['agentVisibility'] = array();
-zbx_subarray_push($this->data['agentVisibility'], ZBX_AGENT_OTHER, 'agent_other');
-zbx_subarray_push($this->data['agentVisibility'], ZBX_AGENT_OTHER, 'row_agent_other');
-
-require_once dirname(__FILE__).'/js/configuration.httpconf.edit.js.php';
 
 return $httpWidget;
